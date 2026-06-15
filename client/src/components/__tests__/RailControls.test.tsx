@@ -94,4 +94,40 @@ describe('RailControls', () => {
     fireEvent.click(screen.getByText('Ultra'))
     expect(defaultProps.onModeChange).toHaveBeenCalledWith('ultracode')
   })
+
+  describe('Interactive toggle', () => {
+    it('shows only for ultracode mode when ultracode + interactive are available', () => {
+      const { rerender } = render(
+        <RailControls {...defaultProps} mode="implement" ultracodeAvailable interactiveAvailable />,
+      )
+      expect(screen.queryByRole('switch')).toBeNull()
+      rerender(<RailControls {...defaultProps} mode="ultracode" ultracodeAvailable interactiveAvailable />)
+      expect(screen.getByRole('switch')).toBeInTheDocument()
+    })
+
+    it('hidden when interactiveAvailable is false', () => {
+      render(<RailControls {...defaultProps} mode="ultracode" ultracodeAvailable interactiveAvailable={false} />)
+      expect(screen.queryByRole('switch')).toBeNull()
+    })
+
+    it('hidden while the rail is running', () => {
+      render(<RailControls {...defaultProps} mode="ultracode" status="running" ultracodeAvailable interactiveAvailable />)
+      expect(screen.queryByRole('switch')).toBeNull()
+    })
+
+    it('reflects checked state and toggles via onInteractiveChange', () => {
+      const onInteractiveChange = vi.fn()
+      const { rerender } = render(
+        <RailControls {...defaultProps} mode="ultracode" ultracodeAvailable interactiveAvailable interactive={false} onInteractiveChange={onInteractiveChange} />,
+      )
+      const sw = screen.getByRole('switch')
+      expect(sw).toHaveAttribute('aria-checked', 'false')
+      fireEvent.click(sw)
+      expect(onInteractiveChange).toHaveBeenCalledWith(true)
+      rerender(
+        <RailControls {...defaultProps} mode="ultracode" ultracodeAvailable interactiveAvailable interactive onInteractiveChange={onInteractiveChange} />,
+      )
+      expect(screen.getByRole('switch')).toHaveAttribute('aria-checked', 'true')
+    })
+  })
 })

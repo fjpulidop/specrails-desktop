@@ -53,6 +53,17 @@
     "reExecuteTooltip": "Lançar um novo job com o mesmo comando",
     "cancelJob": "Cancelar job",
     "cancelJobTooltip": "Enviar SIGTERM ao processo em execução. O job será marcado como cancelado.",
+    "cancelInteractive": "Descartar",
+    "finalizeJob": "Finalizar job",
+    "finalizing": "A finalizar…",
+    "finalizeJobTooltip": "Terminar esta sessão interativa e somar os tokens e o custo de cada turno ao total do job.",
+    "interactive": {
+      "ready": "Pronto — envie um prompt",
+      "working": "Agente a trabalhar…",
+      "placeholder": "Envie uma mensagem ao job em execução…",
+      "send": "Enviar",
+      "liveTotals": "{{turns}} turnos · ${{cost}}"
+    },
     "toast": {
       "jobDeleted": "Job eliminado",
       "cancelSignalSent": "Sinal de cancelamento enviado",
@@ -62,7 +73,10 @@
       "exportFailed": "Falha na exportação",
       "exportFailedHttp": "Falha na exportação (HTTP {{status}})",
       "jobRequeued": "Job colocado novamente na fila",
-      "spawnFailed": "Falha ao lançar o job"
+      "spawnFailed": "Falha ao lançar o job",
+      "finalizeScheduled": "A finalizar o job interativo…",
+      "finalizeFailed": "Falha ao finalizar o job",
+      "sendFailed": "Falha ao enviar a mensagem"
     }
   },
   "statusPanel": {

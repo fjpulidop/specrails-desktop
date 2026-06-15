@@ -28,6 +28,22 @@ export interface NewJob {
   priority?: JobPriority
   depends_on_job_id?: string | null
   pipeline_id?: string | null
+  /** 1 when this is an interactive persistent session (ultracode + the rail's
+   *  Interactive toggle); 0/undefined for standard autonomous jobs. */
+  interactive?: boolean
+}
+
+/** Per-turn usage delta accumulated into an interactive job's row as each turn
+ *  settles. Every field is the REAL provider-reported usage for that one turn. */
+export interface InteractiveTurnUsage {
+  tokens_in: number
+  tokens_out: number
+  tokens_cache_read: number
+  tokens_cache_create: number
+  total_cost_usd: number
+  num_turns: number
+  model?: string | null
+  session_id?: string | null
 }
 
 export interface JobResult {
@@ -675,6 +691,19 @@ const MIGRATIONS: Migration[] = [
       // Column may already exist on a partially-migrated DB — no-op.
     }
   },
+
+  // Migration 32: jobs.interactive — 1 when the job is an interactive persistent
+  // ultracode session (the user sends multiple prompts across turns; the job
+  // stays 'running' until an explicit finalize, at which point every turn's real
+  // tokens/cost/num_turns are already summed into the row and status flips to
+  // 'completed'); 0 (default) for standard autonomous jobs. Additive + idempotent
+  // (guarded by PRAGMA table_info, mirroring migrations 18–26).
+  (db) => {
+    const cols = (db.prepare(`PRAGMA table_info(jobs)`).all() as { name: string }[]).map((r) => r.name)
+    if (!cols.includes('interactive')) {
+      db.exec(`ALTER TABLE jobs ADD COLUMN interactive INTEGER NOT NULL DEFAULT 0`)
+    }
+  },
 ]
 
 function applyMigrations(db: DbInstance): void {
@@ -755,11 +784,64 @@ export function createJob(db: DbInstance, job: NewJob): void {
   // INSERT OR IGNORE handles the case where the job row already exists (restored from DB
   // after server restart). The UPDATE that follows always sets status and started_at.
   db.prepare(
-    'INSERT OR IGNORE INTO jobs (id, command, started_at, status, priority, depends_on_job_id, pipeline_id) VALUES (?, ?, ?, ?, ?, ?, ?)'
-  ).run(job.id, job.command, job.started_at, 'running', job.priority ?? 'normal', job.depends_on_job_id ?? null, job.pipeline_id ?? null)
+    'INSERT OR IGNORE INTO jobs (id, command, started_at, status, priority, depends_on_job_id, pipeline_id, interactive) VALUES (?, ?, ?, ?, ?, ?, ?, ?)'
+  ).run(job.id, job.command, job.started_at, 'running', job.priority ?? 'normal', job.depends_on_job_id ?? null, job.pipeline_id ?? null, job.interactive ? 1 : 0)
   db.prepare(
-    'UPDATE jobs SET status = ?, started_at = ? WHERE id = ?'
-  ).run('running', job.started_at, job.id)
+    'UPDATE jobs SET status = ?, started_at = ?, interactive = ? WHERE id = ?'
+  ).run('running', job.started_at, job.interactive ? 1 : 0, job.id)
+}
+
+/**
+ * Add one completed interactive turn's REAL usage into the job row. Token/cost/
+ * turn columns accumulate (COALESCE so the first turn starts from a clean base);
+ * model + session_id are stamped from the first turn that reports them. The job
+ * stays 'running' — only finalizeInteractiveJob flips the terminal status. This
+ * keeps the live Job Detail totals honest (sum of completed turns, never an
+ * estimate) between turns.
+ */
+export function accumulateInteractiveTurn(
+  db: DbInstance,
+  jobId: string,
+  turn: InteractiveTurnUsage,
+): void {
+  db.prepare(`
+    UPDATE jobs SET
+      tokens_in           = COALESCE(tokens_in, 0) + ?,
+      tokens_out          = COALESCE(tokens_out, 0) + ?,
+      tokens_cache_read   = COALESCE(tokens_cache_read, 0) + ?,
+      tokens_cache_create = COALESCE(tokens_cache_create, 0) + ?,
+      total_cost_usd      = COALESCE(total_cost_usd, 0) + ?,
+      num_turns           = COALESCE(num_turns, 0) + ?,
+      total_cost_usd_estimated = 0,
+      model               = COALESCE(model, ?),
+      session_id          = COALESCE(?, session_id)
+    WHERE id = ?
+  `).run(
+    turn.tokens_in,
+    turn.tokens_out,
+    turn.tokens_cache_read,
+    turn.tokens_cache_create,
+    turn.total_cost_usd,
+    turn.num_turns,
+    turn.model ?? null,
+    turn.session_id ?? null,
+    jobId,
+  )
+}
+
+/**
+ * Flip an interactive job to its terminal status (completed on finalize, failed
+ * on crash) and stamp finished_at. Token/cost/turn columns are left untouched —
+ * they were already accumulated turn-by-turn via accumulateInteractiveTurn.
+ */
+export function finalizeInteractiveJob(
+  db: DbInstance,
+  jobId: string,
+  status: JobStatus,
+): void {
+  db.prepare(
+    'UPDATE jobs SET status = ?, finished_at = ? WHERE id = ?'
+  ).run(status, new Date().toISOString(), jobId)
 }
 
 export function finishJob(

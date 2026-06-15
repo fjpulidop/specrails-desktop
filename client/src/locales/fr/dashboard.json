@@ -32,6 +32,8 @@
     "batch": "Batch",
     "ultra": "Ultra",
     "ultraTitle": "Ultracode — Claude implémente la spec en autonomie, sans pipeline",
+    "interactive": "Interactif",
+    "interactiveTitle": "Interactif — discutez avec le job en cours ; envoyez d'autres prompts et finalisez une fois terminé",
     "stop": "Arrêter",
     "play": "Lancer",
     "failedRetry": "Job en échec — cliquez pour réessayer",

@@ -53,6 +53,17 @@
     "reExecuteTooltip": "用相同命令启动一个新任务",
     "cancelJob": "取消任务",
     "cancelJobTooltip": "向运行中的进程发送 SIGTERM。任务将被标记为已取消。",
+    "cancelInteractive": "丢弃",
+    "finalizeJob": "定稿任务",
+    "finalizing": "正在定稿…",
+    "finalizeJobTooltip": "结束此交互会话，并将每一轮的 token 和成本汇总到任务总计中。",
+    "interactive": {
+      "ready": "就绪 — 发送提示",
+      "working": "代理处理中…",
+      "placeholder": "向运行中的任务发送消息…",
+      "send": "发送",
+      "liveTotals": "{{turns}} 轮 · ${{cost}}"
+    },
     "toast": {
       "jobDeleted": "任务已删除",
       "cancelSignalSent": "已发送取消信号",
@@ -62,7 +73,10 @@
       "exportFailed": "导出失败",
       "exportFailedHttp": "导出失败（HTTP {{status}}）",
       "jobRequeued": "任务已重新排队",
-      "spawnFailed": "启动任务失败"
+      "spawnFailed": "启动任务失败",
+      "finalizeScheduled": "正在定稿交互任务…",
+      "finalizeFailed": "任务定稿失败",
+      "sendFailed": "发送消息失败"
     }
   },
   "statusPanel": {

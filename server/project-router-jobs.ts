@@ -19,6 +19,7 @@ import {
 import { createDiagnosticZip } from './telemetry-export'
 import { getProjectSetupSession } from './desktop-db'
 import { ClaudeNotFoundError, JobNotFoundError, JobAlreadyTerminalError, DEFAULT_ZOMBIE_TIMEOUT_MS } from './queue-manager'
+import { isInteractiveJobsEnabled } from './feature-flags'
 import type { JobPriority } from './types'
 import { VALID_PRIORITIES } from './types'
 import { resolveCommand } from './command-resolver'
@@ -213,6 +214,49 @@ export function registerJobsRoutes(deps: ProjectRoutesDeps): void {
         res.status(500).json({ error: 'Internal server error' })
       }
     }
+  })
+
+  // ─── Interactive ultracode jobs ────────────────────────────────────────────
+  // Send one more user prompt to a running interactive job (queued behind the
+  // active turn — see InteractiveJobSession). 202 = accepted; 409 = the job is
+  // not an active interactive session (unknown / non-interactive / finalized).
+  router.post('/:projectId/jobs/:id/messages', (req: Request, res: Response) => {
+    if (!isInteractiveJobsEnabled()) {
+      res.status(403).json({ error: 'Interactive jobs are disabled on this server' })
+      return
+    }
+    const { text } = req.body ?? {}
+    if (!text || typeof text !== 'string' || !text.trim()) {
+      res.status(400).json({ error: 'text is required' })
+      return
+    }
+    const { queueManager } = ctx(req)
+    const jobId = req.params.id as string
+    const accepted = queueManager.sendInteractiveTurn(jobId, text)
+    if (!accepted) {
+      res.status(409).json({ error: 'Job is not an active interactive session' })
+      return
+    }
+    res.status(202).json({ ok: true })
+  })
+
+  // Finalize a running interactive job: SIGTERM the resident child; the summed
+  // token/cost totals + 'completed' status are stamped asynchronously when the
+  // child closes (the client also learns the final state via the job.finalized
+  // WS broadcast). 202 = finalize scheduled; 409 = not an active interactive job.
+  router.post('/:projectId/jobs/:id/finalize', (req: Request, res: Response) => {
+    if (!isInteractiveJobsEnabled()) {
+      res.status(403).json({ error: 'Interactive jobs are disabled on this server' })
+      return
+    }
+    const { db, queueManager } = ctx(req)
+    const jobId = req.params.id as string
+    const scheduled = queueManager.finalizeInteractive(jobId)
+    if (!scheduled) {
+      res.status(409).json({ error: 'Job is not an active interactive session' })
+      return
+    }
+    res.status(202).json({ ok: true, job: getJob(db, jobId) ?? null })
   })
 
   router.patch('/:projectId/jobs/:id/priority', (req: Request, res: Response) => {

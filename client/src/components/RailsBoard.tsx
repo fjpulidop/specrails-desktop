@@ -28,6 +28,9 @@ export interface RailState {
   aiEngine?: string | null
   /** Selected model for ultracode rails. null/undefined = default (sonnet). */
   ultracodeModel?: UltracodeModel | null
+  /** Per-rail "Interactive" toggle (ultracode only). When true, the launched job
+   *  becomes a persistent chat session with a Finalize button. */
+  interactive?: boolean
 }
 
 /**
@@ -68,6 +71,7 @@ interface RailsBoardProps {
   onProfileChange?: (railId: string, profileName: string | null) => void
   onEngineChange?: (railId: string, aiEngine: 'claude' | 'codex') => void
   onUltracodeModelChange?: (railId: string, model: UltracodeModel) => void
+  onInteractiveChange?: (railId: string, interactive: boolean) => void
   onToggle: (railId: string) => void
   onTicketClick: (ticket: LocalTicket) => void
   onAddRail: () => void
@@ -96,7 +100,7 @@ function SortableRailWrapper({ railId, children }: { railId: string; children: (
 /** Width threshold below which rail rows switch to the compact mini-card layout. */
 export const RAILS_COMPACT_THRESHOLD_PX = 320
 
-export function RailsBoard({ rails, ticketMap, providers, onModeChange, onProfileChange, onEngineChange, onUltracodeModelChange, onToggle, onTicketClick, onAddRail, onDeleteRail, onRenameRail, onTicketMoveToSpecs }: RailsBoardProps) {
+export function RailsBoard({ rails, ticketMap, providers, onModeChange, onProfileChange, onEngineChange, onUltracodeModelChange, onInteractiveChange, onToggle, onTicketClick, onAddRail, onDeleteRail, onRenameRail, onTicketMoveToSpecs }: RailsBoardProps) {
   const { t } = useTranslation('dashboard')
   const activeRails = rails.filter((r) => r.status === 'running').length
   const [jiggleMode, setJiggleMode] = useState(false)
@@ -174,6 +178,7 @@ export function RailsBoard({ rails, ticketMap, providers, onModeChange, onProfil
                     profileName={rail.profileName ?? null}
                     aiEngine={rail.aiEngine ?? null}
                     ultracodeModel={rail.ultracodeModel ?? null}
+                    interactive={rail.interactive ?? false}
                     providers={providers}
                     jiggleMode={jiggleMode}
                     density={density}
@@ -183,6 +188,7 @@ export function RailsBoard({ rails, ticketMap, providers, onModeChange, onProfil
                     onProfileChange={onProfileChange ? (p) => onProfileChange(rail.id, p) : undefined}
                     onEngineChange={onEngineChange ? (e) => onEngineChange(rail.id, e) : undefined}
                     onUltracodeModelChange={onUltracodeModelChange ? (m) => onUltracodeModelChange(rail.id, m) : undefined}
+                    onInteractiveChange={onInteractiveChange ? (v) => onInteractiveChange(rail.id, v) : undefined}
                     onToggle={() => onToggle(rail.id)}
                     onTicketClick={onTicketClick}
                     onDelete={() => onDeleteRail(rail.id)}

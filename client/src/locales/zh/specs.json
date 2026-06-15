@@ -95,7 +95,8 @@
     "modes": {
       "default": "默认",
       "ticketId": "工单 #",
-      "priority": "优先级"
+      "priority": "优先级",
+      "jiraKey": "Jira 工单 #"
     }
   },
   "viewTier": {

@@ -161,6 +161,20 @@ describe('DashboardPage sort wiring', () => {
     expect(screen.getByTestId('ids')).toHaveTextContent('3,1,2')
   })
 
+  it('resets a persisted jira-key sort to default when the project has no Jira specs', () => {
+    // The module-level `tickets` carry no jira_key, so the orphaned jira-key
+    // mode must fall back to default (and rewrite localStorage). The reset
+    // effect settles within render()'s act flush, so we assert synchronously.
+    localStorage.setItem('specrails-desktop:spec-sort-mode:p-test', 'jira-key')
+    localStorage.setItem('specrails-desktop:spec-sort-dir:p-test', 'asc')
+    render(<DashboardPage />)
+    expect(lastSortProps?.mode).toBe('default')
+    expect(lastSortProps?.dir).toBe('asc')
+    expect(localStorage.getItem('specrails-desktop:spec-sort-mode:p-test')).toBe('default')
+    // API order preserved (default mode), not jira/id-sorted.
+    expect(screen.getByTestId('ids')).toHaveTextContent('3,1,2')
+  })
+
   it('uses `dir` even after going back to default (preserves direction)', () => {
     render(<DashboardPage />)
     // Move dir to asc by going via priority asc

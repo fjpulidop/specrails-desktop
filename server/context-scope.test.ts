@@ -250,5 +250,22 @@ describe('context-scope', () => {
       const a = toolFlagsForScope({ specrails: false, openspec: false, full: true, mcp: false }).args
       expect(a.join(',')).not.toContain('Bash')
     })
+
+    it('high tier (full + mcp) → --disallowedTools writers, NO --tools restriction', () => {
+      const a = toolFlagsForScope({ specrails: false, openspec: false, full: true, mcp: true }).args
+      expect(a).toEqual(['--disallowedTools', 'Write,Edit,NotebookEdit'])
+      // No `--tools Read,Grep,Glob` restriction → Bash + MCP tools stay in the toolkit.
+      expect(a).not.toContain('--tools')
+    })
+
+    it('high tier (full + userMcp) → --disallowedTools writers (approved-MCPs path)', () => {
+      const a = toolFlagsForScope({ specrails: false, openspec: false, full: true, mcp: false, userMcp: true } as never).args
+      expect(a).toEqual(['--disallowedTools', 'Write,Edit,NotebookEdit'])
+    })
+
+    it('userMcp without full stays locked down (no high-tier capability)', () => {
+      const a = toolFlagsForScope({ specrails: false, openspec: false, full: false, mcp: false, userMcp: true } as never).args
+      expect(a).toEqual(['--tools', '__none__'])
+    })
   })
 })

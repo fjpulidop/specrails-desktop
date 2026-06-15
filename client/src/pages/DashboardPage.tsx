@@ -79,6 +79,7 @@ interface PersistedRail {
   status: RailStatus
   profileName?: string | null
   ultracodeModel?: import('../components/agents/RailModelSelector').UltracodeModel | null
+  interactive?: boolean
 }
 
 function loadRails(projectId: string | null): RailState[] | null {
@@ -433,6 +434,18 @@ export default function DashboardPage() {
     )
   }, [tickets, railTicketIds])
 
+  // If a persisted "jira-key" sort survives into a project that has no
+  // Jira-linked specs (disconnected, or never synced), the option is hidden in
+  // the toolbar — fall back to default so the trigger never shows an unreachable
+  // mode. Gated on !isLoading so a legit jira-key sort isn't reset before the
+  // ticket list (and its jira_key fields) has loaded.
+  useEffect(() => {
+    if (isLoading) return
+    if (sortMode === 'jira-key' && !allSpecTickets.some((t) => t.jira_key)) {
+      handleSortChange('default', sortDir)
+    }
+  }, [isLoading, sortMode, sortDir, allSpecTickets, handleSortChange])
+
   // Active specs (not done). Default mode → user drag-order; sorted modes
   // → comparator applied to the unordered filtered list.
   const specTickets = useMemo(() => {
@@ -703,6 +716,12 @@ export default function DashboardPage() {
     updateRails((prev) => prev.map((r) => (r.id === railId ? { ...r, ultracodeModel: model } : r)))
   }
 
+  function handleInteractiveChange(railId: string, interactive: boolean) {
+    // Interactive flag lives in localStorage (like the ultracode model) and is
+    // sent inline at launch — only meaningful for ultracode rails.
+    updateRails((prev) => prev.map((r) => (r.id === railId ? { ...r, interactive } : r)))
+  }
+
   async function handleEngineChange(railId: string, aiEngine: 'claude' | 'codex') {
     // Ultracode is Claude-only — if the rail leaves Claude while in Ultracode,
     // fall back to implement so the launch can't 400.
@@ -793,6 +812,8 @@ export default function DashboardPage() {
           ...(rail.aiEngine != null ? { aiEngine: rail.aiEngine } : {}),
           // Ultracode model picker — only meaningful for ultracode launches.
           ...(rail.mode === 'ultracode' && rail.ultracodeModel ? { model: rail.ultracodeModel } : {}),
+          // Interactive toggle — only meaningful for ultracode launches.
+          ...(rail.mode === 'ultracode' && rail.interactive ? { interactive: true } : {}),
         }),
       })
       if (!res.ok) {
@@ -870,6 +891,7 @@ export default function DashboardPage() {
             onProfileChange={handleProfileChange}
             onEngineChange={handleEngineChange}
             onUltracodeModelChange={handleUltracodeModelChange}
+            onInteractiveChange={handleInteractiveChange}
             onToggle={handleToggle}
             onTicketClick={setDetailTicket}
             onAddRail={handleAddRail}

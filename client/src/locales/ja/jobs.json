@@ -53,6 +53,17 @@
     "reExecuteTooltip": "同じコマンドで新しいジョブを起動",
     "cancelJob": "ジョブをキャンセル",
     "cancelJobTooltip": "実行中のプロセスに SIGTERM を送信します。ジョブはキャンセル済みとしてマークされます。",
+    "cancelInteractive": "破棄",
+    "finalizeJob": "ジョブをファイナライズ",
+    "finalizing": "ファイナライズ中…",
+    "finalizeJobTooltip": "このインタラクティブセッションを終了し、各ターンのトークンとコストをジョブの合計に集計します。",
+    "interactive": {
+      "ready": "準備完了 — プロンプトを送信してください",
+      "working": "エージェント作業中…",
+      "placeholder": "実行中のジョブにメッセージを送信…",
+      "send": "送信",
+      "liveTotals": "{{turns}} ターン · ${{cost}}"
+    },
     "toast": {
       "jobDeleted": "ジョブを削除しました",
       "cancelSignalSent": "キャンセルシグナルを送信しました",
@@ -62,7 +73,10 @@
       "exportFailed": "エクスポートに失敗しました",
       "exportFailedHttp": "エクスポートに失敗しました (HTTP {{status}})",
       "jobRequeued": "ジョブを再キューしました",
-      "spawnFailed": "ジョブの起動に失敗しました"
+      "spawnFailed": "ジョブの起動に失敗しました",
+      "finalizeScheduled": "インタラクティブジョブをファイナライズ中…",
+      "finalizeFailed": "ジョブのファイナライズに失敗しました",
+      "sendFailed": "メッセージの送信に失敗しました"
     }
   },
   "statusPanel": {

@@ -32,6 +32,8 @@
     "batch": "批量",
     "ultra": "Ultra",
     "ultraTitle": "Ultracode — Claude 自主实现该 Spec，不走流水线",
+    "interactive": "交互",
+    "interactiveTitle": "交互 — 与运行中的任务对话；可继续发送提示，完成后再定稿",
     "stop": "停止",
     "play": "运行",
     "failedRetry": "任务失败 — 点击重试",

@@ -53,6 +53,17 @@
     "reExecuteTooltip": "Spawn a new job with the same command",
     "cancelJob": "Cancel Job",
     "cancelJobTooltip": "Send SIGTERM to the running process. The job will be marked as canceled.",
+    "cancelInteractive": "Discard",
+    "finalizeJob": "Finalize Job",
+    "finalizing": "Finalizing…",
+    "finalizeJobTooltip": "End this interactive session and roll every turn's tokens and cost into the job total.",
+    "interactive": {
+      "ready": "Ready — send a prompt",
+      "working": "Agent working…",
+      "placeholder": "Send a message to the running job…",
+      "send": "Send",
+      "liveTotals": "{{turns}} turns · ${{cost}}"
+    },
     "toast": {
       "jobDeleted": "Job deleted",
       "cancelSignalSent": "Cancel signal sent",
@@ -62,7 +73,10 @@
       "exportFailed": "Export failed",
       "exportFailedHttp": "Export failed (HTTP {{status}})",
       "jobRequeued": "Job re-queued",
-      "spawnFailed": "Failed to spawn job"
+      "spawnFailed": "Failed to spawn job",
+      "finalizeScheduled": "Finalizing interactive job…",
+      "finalizeFailed": "Failed to finalize job",
+      "sendFailed": "Failed to send message"
     }
   },
   "statusPanel": {

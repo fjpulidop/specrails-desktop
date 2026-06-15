@@ -2,6 +2,7 @@ import { Play, Square, AlertTriangle, ScrollText } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { Button } from './ui/button'
+import { FEATURE_INTERACTIVE_JOBS } from '../lib/feature-flags'
 
 export type RailMode = 'implement' | 'batch-implement' | 'ultracode'
 export type RailStatus = 'idle' | 'running' | 'failed'
@@ -14,11 +15,17 @@ interface RailControlsProps {
   /** When true, show the Claude-only Ultracode segment. Ultracode bypasses
    *  the OpenSpec pipeline and lets Claude implement the spec autonomously. */
   ultracodeAvailable?: boolean
+  /** Per-rail "Interactive" toggle state (ultracode only). When checked, the
+   *  launched job becomes a persistent chat session with a Finalize button. */
+  interactive?: boolean
+  /** Whether the interactive toggle should be offered (server feature flag). */
+  interactiveAvailable?: boolean
   onModeChange: (mode: RailMode) => void
+  onInteractiveChange?: (interactive: boolean) => void
   onToggle: () => void
 }
 
-export function RailControls({ mode, status, activeJobId, ticketCount, ultracodeAvailable, onModeChange, onToggle }: RailControlsProps) {
+export function RailControls({ mode, status, activeJobId, ticketCount, ultracodeAvailable, interactive, interactiveAvailable, onModeChange, onInteractiveChange, onToggle }: RailControlsProps) {
   const { t } = useTranslation('dashboard')
   const navigate = useNavigate()
   const canPlay = ticketCount > 0
@@ -81,6 +88,25 @@ export function RailControls({ mode, status, activeJobId, ticketCount, ultracode
           </>
         )}
       </div>
+
+      {/* Interactive toggle — ultracode only, when the feature is on and the
+          rail is idle (mode is fixed once a job is running). */}
+      {mode === 'ultracode' && ultracodeAvailable && (interactiveAvailable ?? FEATURE_INTERACTIVE_JOBS) && status !== 'running' && (
+        <button
+          type="button"
+          role="switch"
+          aria-checked={interactive ? 'true' : 'false'}
+          onClick={() => onInteractiveChange?.(!interactive)}
+          title={t('railControls.interactiveTitle')}
+          className={`px-2 py-0.5 rounded-md border text-[10px] font-semibold transition-colors ${
+            interactive
+              ? 'border-accent-highlight/50 bg-accent-highlight/20 text-accent-highlight'
+              : 'border-border/40 bg-muted/20 text-muted-foreground hover:text-foreground hover:bg-muted/30'
+          }`}
+        >
+          {t('railControls.interactive')}
+        </button>
+      )}
 
       {/* Play / Stop / Failed toggle */}
       <Button

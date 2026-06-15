@@ -6,6 +6,8 @@ import {
   initDb,
   createJob,
   finishJob,
+  accumulateInteractiveTurn,
+  finalizeInteractiveJob,
   appendEvent,
   upsertPhase,
   listJobs,
@@ -186,6 +188,52 @@ describe('db', () => {
       expect(row!.started_at).toBe(now)
       expect(row!.status).toBe('running')
       expect(row!.finished_at).toBeNull()
+    })
+
+    it('persists the interactive flag (default 0, set to 1)', () => {
+      const db = makeDb()
+      const now = new Date().toISOString()
+      createJob(db, { id: 'std', command: '/implement #1', started_at: now })
+      createJob(db, { id: 'int', command: '/specrails:ultracode #1', started_at: now, interactive: true })
+      expect(getJob(db, 'std')!.interactive).toBe(0)
+      expect(getJob(db, 'int')!.interactive).toBe(1)
+    })
+  })
+
+  describe('interactive job accounting', () => {
+    const turn = {
+      tokens_in: 10, tokens_out: 20, tokens_cache_read: 1, tokens_cache_create: 2,
+      total_cost_usd: 0.01, num_turns: 2, model: 'claude-opus-4-8', session_id: 'sess-x',
+    }
+
+    it('accumulateInteractiveTurn sums across turns and stamps model/session once', () => {
+      const db = makeDb()
+      const now = new Date().toISOString()
+      createJob(db, { id: 'j', command: '/specrails:ultracode #1', started_at: now, interactive: true })
+      accumulateInteractiveTurn(db, 'j', turn)
+      accumulateInteractiveTurn(db, 'j', { ...turn, model: 'other', session_id: 'sess-y' })
+      const row = getJob(db, 'j')!
+      expect(row.tokens_in).toBe(20)
+      expect(row.tokens_out).toBe(40)
+      expect(row.num_turns).toBe(4)
+      expect(row.total_cost_usd).toBeCloseTo(0.02)
+      expect(row.total_cost_usd_estimated).toBe(0)
+      expect(row.model).toBe('claude-opus-4-8') // COALESCE keeps the first
+      expect(row.session_id).toBe('sess-y')      // session_id refreshes to latest
+      expect(row.status).toBe('running')         // still running
+    })
+
+    it('finalizeInteractiveJob flips status + finished_at without clobbering totals', () => {
+      const db = makeDb()
+      const now = new Date().toISOString()
+      createJob(db, { id: 'j', command: '/specrails:ultracode #1', started_at: now, interactive: true })
+      accumulateInteractiveTurn(db, 'j', turn)
+      finalizeInteractiveJob(db, 'j', 'completed')
+      const row = getJob(db, 'j')!
+      expect(row.status).toBe('completed')
+      expect(row.finished_at).toBeTruthy()
+      expect(row.tokens_in).toBe(10) // preserved
+      expect(row.total_cost_usd).toBeCloseTo(0.01)
     })
   })
 

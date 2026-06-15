@@ -95,7 +95,8 @@
     "modes": {
       "default": "Default",
       "ticketId": "Ticket #",
-      "priority": "Priority"
+      "priority": "Priority",
+      "jiraKey": "Jira Ticket #"
     }
   },
   "viewTier": {

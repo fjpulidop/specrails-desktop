@@ -3,6 +3,7 @@ import type { ProjectContext } from './project-registry'
 import { getRails, getRail, setRailTickets, setRailProfile, setRailEngine, setRailName, type RailState } from './rails-store'
 import { ClaudeNotFoundError, CodexNotFoundError } from './queue-manager'
 import { validateRequestedProvider } from './provider-selection'
+import { isInteractiveJobsEnabled } from './feature-flags'
 import type { RailJobStartedMessage, RailJobStoppedMessage, RailUpdatedMessage } from './types'
 
 // Extend Express Request to carry resolved ProjectContext (declared in project-router)
@@ -192,7 +193,7 @@ export function createRailsRouter(): Router {
       res.status(400).json({ error: 'Invalid rail index' }); return
     }
 
-    const { mode = 'implement', profileName, aiEngine, model } = req.body ?? {}
+    const { mode = 'implement', profileName, aiEngine, model, interactive } = req.body ?? {}
     if (!VALID_MODES.has(mode as string)) {
       res.status(400).json({ error: 'mode must be "implement", "batch-implement" or "ultracode"' }); return
     }
@@ -201,6 +202,16 @@ export function createRailsRouter(): Router {
     if (mode === 'ultracode' && model !== undefined && model !== null) {
       if (typeof model !== 'string' || !VALID_ULTRACODE_MODELS.has(model)) {
         res.status(400).json({ error: 'model must be one of: haiku, sonnet, opus' }); return
+      }
+    }
+    // Interactive toggle: only valid for ultracode (Claude-only) and only when
+    // the feature is enabled. Reject loudly so the client never silently drops it.
+    if (interactive === true) {
+      if (mode !== 'ultracode') {
+        res.status(400).json({ error: 'interactive mode is only available for ultracode rails' }); return
+      }
+      if (!isInteractiveJobsEnabled()) {
+        res.status(403).json({ error: 'Interactive jobs are disabled on this server' }); return
       }
     }
 
@@ -269,6 +280,7 @@ export function createRailsRouter(): Router {
             profileName: null,
             provider: 'claude',
             ...(ultracodeModel ? { model: ultracodeModel } : {}),
+            ...(interactive === true ? { interactive: true } : {}),
           })
           jobIds.push(job.id)
           c.railJobs.set(job.id, { railIndex, mode, ticketIds: [ticketId] })

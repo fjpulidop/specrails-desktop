@@ -32,6 +32,8 @@
     "batch": "Batch",
     "ultra": "Ultra",
     "ultraTitle": "Ultracode — o Claude implementa a spec de forma autónoma, sem pipeline",
+    "interactive": "Interativo",
+    "interactiveTitle": "Interativo — converse com o job em execução; envie mais prompts e finalize quando terminar",
     "stop": "Parar",
     "play": "Iniciar",
     "failedRetry": "O job falhou — clique para repetir",

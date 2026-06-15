@@ -455,15 +455,25 @@ export class ChatManager {
    */
   private _buildLightweightSystemPrompt(scope?: ContextScope | null): string {
     const name = this._projectName ?? 'this project'
-    const base =
-      `You are a fast, focused assistant for the "${name}" specrails project. ` +
+    // High tier = the user opted into MCP/connectors (Max/Desktop presets). At
+    // that tier the agent also has Bash (gh + repo inspection) and MCP tools, so
+    // its stance flips from "be minimal" to "verify against the real code before
+    // recommending" — this is deterministic per scope, so the prompt stays
+    // byte-stable for prompt caching within a given scope.
+    const highTier = !!(scope && scope.full && (scope.mcp || scope.userMcp))
+    const intro =
+      `You are a focused assistant for the "${name}" specrails project. ` +
       `You have explicit permission to read and write .specrails/local-tickets.json — ` +
       `this is the project's local ticket store managed by Specrails. It is NOT sensitive. ` +
-      `When creating or updating tickets, write directly to this JSON file.\n\n` +
-      `IMPORTANT: Be efficient. Minimize tool calls. Only read files that are directly relevant. ` +
-      `Do not explore broadly — focus on the specific task.`
+      `When creating or updating tickets, write directly to this JSON file.`
+    const stance = highTier
+      ? `IMPORTANT: You have read/search tools (Read, Grep, Glob), the GitHub CLI (\`gh\`, already authenticated for this machine — use it to inspect issues, PRs, and CI), and any MCP servers the user enabled. ` +
+        `Before recommending a spec, doing gap analysis, or claiming a feature is missing, you MUST INVESTIGATE THE ACTUAL CODEBASE first — grep and read the relevant source (and check \`gh\`/MCP where useful) to confirm the real implementation status. ` +
+        `NEVER recommend a spec for something that is already implemented: if the backlog or another spec references a feature, verify it in code before proposing it. Reading code thoroughly is expected and encouraged at this tier — do not guess from ticket titles alone.`
+      : `IMPORTANT: Be efficient. Minimize tool calls. Only read files that are directly relevant. ` +
+        `Do not explore broadly — focus on the specific task.`
     const scopedBase =
-      `${base}\n\n` +
+      `${intro}\n\n${stance}\n\n` +
       `When "Specrails Tickets" or "OpenSpec Specs" sections are present below, treat them as authoritative project context. ` +
       `For roadmap-style requests like "suggest the next best spec", ground the answer in that context, avoid duplicates, and propose one concrete next spec instead of generic directions.`
     if (!scope || !this._cwd) return scopedBase
@@ -573,8 +583,10 @@ export class ChatManager {
       : 'chat-turn' as const
     // Translate the per-conversation Explore scope into provider-native
     // tool-gating flags. `toolFlagsForScope` emits claude-shape argv
-    // (`--disallowedTools …`); codex's `exec` would reject those with an
-    // "unexpected argument" error and crash the turn. The scope's tool
+    // (`--tools …` to restrict the read-only tiers, or `--disallowedTools …` at
+    // the high MCP tier where Bash + MCP tools must stay callable); codex's
+    // `exec` would reject those with an "unexpected argument" error and crash
+    // the turn. The scope's tool
     // gating is therefore claude-only today — codex inherits its sandbox
     // and approval policy from the project's `.codex/config.toml` (or the
     // `-c sandbox_mode=` override the adapter already attaches on resume).

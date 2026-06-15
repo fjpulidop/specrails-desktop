@@ -281,16 +281,37 @@ export interface ScopedToolFlags {
 }
 
 // Compute the claude CLI tool flags for the given scope.
-// We use `--tools` (whitelist) instead of `--disallowedTools` because
-// `--dangerously-skip-permissions` can bypass disallow filters in some CLI
-// versions; an explicit whitelist is the most reliable lockdown.
 //
-// - full=true   → --tools Read,Grep,Glob (Bash is NEVER auto-allowed)
-// - full=false  → --tools __none__ (a non-existent tool name; effectively
-//                 disables all tools because Commander.js requires a non-empty
-//                 value, and the empty string `""` is silently dropped by some
-//                 CLI versions, falling back to the default tool set).
+// The base read-only Explore tiers use `--tools Read,Grep,Glob` (a built-in
+// toolkit RESTRICTION — NOT a permission allow-list). This is the most reliable
+// read-only lockdown because `--dangerously-skip-permissions` (in COMMON_FLAGS)
+// can bypass `--disallowedTools` filters. Verified against claude 2.1.177:
+//   - `--tools Read,Grep,Glob` removes Bash AND MCP tools from the toolkit, so
+//     `gh` and any `mcp__*` tools are uncallable (the "only local read access"
+//     symptom users hit when they enable approved MCPs at this tier).
+//
+// HIGH TIER (full AND an MCP toggle on — the Max/Desktop presets, i.e. the user
+// explicitly opted into MCP/connectors): we cannot enumerate Claude.ai connector
+// servers to put them in an allow-list, so we keep the full `--tools default`
+// toolkit + skip-permissions (which makes ALL MCP servers — file, plugin, and
+// connector — callable) and merely DISALLOW the GUI file-writers. This is a
+// deliberate capability bump: it also exposes Bash (so the agent can run `gh`
+// with the user's local auth, and inspect the repo via shell). Bash can write
+// to disk, so this tier is NOT a hard read-only sandbox — the Explore system
+// prompt carries the non-destructive stance, and the tier is opt-in.
+//
+// - full && (mcp || userMcp) → --disallowedTools Write,Edit,NotebookEdit
+//                              (default toolkit: Read/Grep/Glob/Bash/WebFetch +
+//                               all loaded MCP tools; file-writer tools removed)
+// - full (no MCP toggle)     → --tools Read,Grep,Glob (read-only, no Bash/MCP)
+// - !full                    → --tools __none__ (a non-existent tool name; the
+//                              empty string `""` is silently dropped by some CLI
+//                              versions and falls back to the default set, so we
+//                              use a sentinel to disable all tools).
 export function toolFlagsForScope(scope: ContextScope): ScopedToolFlags {
+  if (scope.full && (scope.mcp || scope.userMcp)) {
+    return { args: ['--disallowedTools', 'Write,Edit,NotebookEdit'] }
+  }
   if (scope.full) {
     return { args: ['--tools', 'Read,Grep,Glob'] }
   }
