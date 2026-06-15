@@ -74,6 +74,9 @@ export interface JobRow {
   /** Profile name the job was launched with (null = legacy mode, or job
    *  predates the profiles feature). Populated via LEFT JOIN job_profiles. */
   profile_name?: string | null
+  /** 1 when this is an interactive persistent ultracode session (added in
+   *  migration 32); 0/absent for standard autonomous jobs. */
+  interactive?: number | null
 }
 
 export interface EventRow {
@@ -1017,6 +1020,7 @@ export type WsMessage =
   | PluginInstallProgressMessage
   | PluginPrereqInstallProgressMessage | PluginPrereqInstalledMessage
   | SpendingInvalidatedMessage
+  | JobTurnUserMessage | JobTurnDoneMessage | JobFinalizedMessage
   | SmashStartedMessage | SmashProgressMessage | SmashCompletedMessage
   | SmashFailedMessage | SmashUndoneMessage
   | FileProvenanceUpdatedMessage
@@ -1100,6 +1104,57 @@ export interface FileSummarySkippedMessage {
 export interface SpendingInvalidatedMessage {
   type: 'spending.invalidated'
   projectId: string
+}
+
+// ─── Interactive ultracode jobs ───────────────────────────────────────────────
+// Desktop-only; the mobile gateway's topicFor() returns null for any uncased
+// type, so these never reach a phone (frozen v1 wire contract preserved).
+
+/** One user prompt was accepted for an interactive job (echo so the in-job chat
+ *  can render the user bubble immediately, before the agent responds). When a
+ *  turn is already streaming, `queued` is true (the prompt runs after it). */
+export interface JobTurnUserMessage {
+  type: 'job.turn_user'
+  projectId: string
+  jobId: string
+  text: string
+  queued: boolean
+  timestamp: string
+}
+
+/** An interactive job's turn finished streaming. Carries the running SUM of all
+ *  completed turns' REAL usage (never an estimate) for the live token/cost meter. */
+export interface JobTurnDoneMessage {
+  type: 'job.turn_done'
+  projectId: string
+  jobId: string
+  totals: {
+    tokens_in: number
+    tokens_out: number
+    tokens_cache_read: number
+    tokens_cache_create: number
+    total_cost_usd: number
+    num_turns: number
+  }
+  timestamp: string
+}
+
+/** An interactive job was finalized (or crashed). Final authoritative totals +
+ *  terminal status; the client stops the chat and shows the completed summary. */
+export interface JobFinalizedMessage {
+  type: 'job.finalized'
+  projectId: string
+  jobId: string
+  status: JobStatus
+  totals: {
+    tokens_in: number
+    tokens_out: number
+    tokens_cache_read: number
+    tokens_cache_create: number
+    total_cost_usd: number
+    num_turns: number
+  }
+  timestamp: string
 }
 
 // ─── Mobile companion (app-level, no projectId — desktop UI only) ─────────────

@@ -32,6 +32,8 @@
     "batch": "バッチ",
     "ultra": "Ultra",
     "ultraTitle": "Ultracode — Claude がパイプラインなしでスペックを自律的に実装します",
+    "interactive": "インタラクティブ",
+    "interactiveTitle": "インタラクティブ — 実行中のジョブとチャットし、さらにプロンプトを送信して完了時にファイナライズします",
     "stop": "停止",
     "play": "実行",
     "failedRetry": "ジョブが失敗しました — クリックして再試行",

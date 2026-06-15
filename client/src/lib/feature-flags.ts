@@ -30,3 +30,12 @@ export const FEATURE_JIRA = (() => {
   if (typeof override === 'string') return override !== 'false'
   return true
 })()
+
+/** Gates interactive ultracode jobs UI (rail "Interactive" toggle + in-job chat
+ *  + Finalize button). Default ON; mirrors server SPECRAILS_INTERACTIVE_JOBS. */
+export const FEATURE_INTERACTIVE_JOBS = (() => {
+  const env = (import.meta as unknown as { env?: Record<string, string | undefined> }).env
+  const override = env?.VITE_FEATURE_INTERACTIVE_JOBS
+  if (typeof override === 'string') return override !== 'false'
+  return true
+})()

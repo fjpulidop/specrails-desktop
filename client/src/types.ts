@@ -33,6 +33,9 @@ export interface JobSummary {
   hasTelemetry?: boolean
   /** Profile the job ran under (null/undefined = legacy mode) */
   profile_name?: string | null
+  /** 1 when this is an interactive persistent ultracode session (the user can
+   *  send more prompts and must Finalize); 0/absent for standard jobs. */
+  interactive?: number | null
   /**
    * Tickets referenced by the job's command, resolved against the project's
    * local ticket store at request time. Only populated by GET /jobs/:id;

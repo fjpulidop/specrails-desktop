@@ -411,3 +411,54 @@ describe('rails-router POST /:railIndex/stop (M19)', () => {
     expect(res.status).toBe(404)
   })
 })
+
+describe('rails-router POST /:railIndex/launch interactive (ultracode)', () => {
+  let db: DbInstance
+  const saved = process.env.SPECRAILS_INTERACTIVE_JOBS
+  beforeEach(() => {
+    db = initDb(':memory:')
+    setRailTickets(db, 0, [1], 'ultracode')
+    delete process.env.SPECRAILS_INTERACTIVE_JOBS
+  })
+  afterEach(() => {
+    if (saved === undefined) delete process.env.SPECRAILS_INTERACTIVE_JOBS
+    else process.env.SPECRAILS_INTERACTIVE_JOBS = saved
+  })
+
+  function launch(body: Record<string, unknown>, enqueue = vi.fn(() => ({ id: 'j1', queuePosition: 0 }))) {
+    const app = appWith(db, { queueManager: { enqueue } })
+    return { app, enqueue }
+  }
+
+  it('threads interactive:true into the ultracode enqueue', async () => {
+    const { app, enqueue } = launch({})
+    const res = await request(app).post('/rails/0/launch').send({ mode: 'ultracode', interactive: true })
+    expect(res.status).toBe(202)
+    const opts = enqueue.mock.calls[0]?.[2] as Record<string, unknown>
+    expect(opts.interactive).toBe(true)
+    expect(opts.provider).toBe('claude')
+  })
+
+  it('rejects interactive on a non-ultracode mode (400)', async () => {
+    const { app, enqueue } = launch({})
+    const res = await request(app).post('/rails/0/launch').send({ mode: 'implement', interactive: true })
+    expect(res.status).toBe(400)
+    expect(enqueue).not.toHaveBeenCalled()
+  })
+
+  it('rejects interactive when the feature flag is off (403)', async () => {
+    process.env.SPECRAILS_INTERACTIVE_JOBS = 'false'
+    const { app, enqueue } = launch({})
+    const res = await request(app).post('/rails/0/launch').send({ mode: 'ultracode', interactive: true })
+    expect(res.status).toBe(403)
+    expect(enqueue).not.toHaveBeenCalled()
+  })
+
+  it('omits interactive when not requested (back-compat)', async () => {
+    const { app, enqueue } = launch({})
+    const res = await request(app).post('/rails/0/launch').send({ mode: 'ultracode' })
+    expect(res.status).toBe(202)
+    const opts = enqueue.mock.calls[0]?.[2] as Record<string, unknown>
+    expect(opts.interactive).toBeUndefined()
+  })
+})

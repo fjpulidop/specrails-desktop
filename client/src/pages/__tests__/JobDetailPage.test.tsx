@@ -480,4 +480,49 @@ describe('JobDetailPage', () => {
     })
   })
 
+  describe('Interactive ultracode session', () => {
+    const interactiveJob: JobSummary = {
+      ...mockJob,
+      command: '/specrails:ultracode #1 --yes',
+      status: 'running',
+      finished_at: null,
+      interactive: 1,
+    }
+
+    it('shows Finalize + composer and posts to the finalize and messages endpoints', async () => {
+      const user = userEvent.setup()
+      const calls: Array<{ url: string; method?: string }> = []
+      global.fetch = vi.fn().mockImplementation((url: string, opts?: { method?: string }) => {
+        calls.push({ url: String(url), method: opts?.method })
+        return Promise.resolve({ ok: true, json: async () => ({ job: interactiveJob, events: [] }) })
+      }) as unknown as typeof fetch
+
+      render(<JobDetailPage />)
+      await waitFor(() => expect(screen.getByText('Finalize Job')).toBeInTheDocument())
+
+      const textarea = screen.getByPlaceholderText(/Send a message to the running job/i)
+      await user.type(textarea, 'add error handling')
+      await user.click(screen.getByRole('button', { name: /Send/i }))
+      await waitFor(() =>
+        expect(calls.some((c) => c.url.endsWith('/jobs/job-abc123/messages') && c.method === 'POST')).toBe(true),
+      )
+
+      await user.click(screen.getByText('Finalize Job'))
+      await waitFor(() =>
+        expect(calls.some((c) => c.url.endsWith('/jobs/job-abc123/finalize') && c.method === 'POST')).toBe(true),
+      )
+    })
+
+    it('does not show the composer for a non-interactive running job', async () => {
+      global.fetch = vi.fn().mockResolvedValue({
+        ok: true,
+        json: async () => ({ job: { ...interactiveJob, interactive: 0 }, events: [] }),
+      }) as unknown as typeof fetch
+      render(<JobDetailPage />)
+      await waitFor(() => expect(screen.getByText('/specrails:ultracode #1 --yes')).toBeInTheDocument())
+      expect(screen.queryByText('Finalize Job')).not.toBeInTheDocument()
+      expect(screen.queryByPlaceholderText(/Send a message to the running job/i)).not.toBeInTheDocument()
+    })
+  })
+
 })

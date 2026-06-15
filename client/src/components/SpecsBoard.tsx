@@ -284,6 +284,12 @@ export function SpecsBoard({
     () => tickets.some((t) => t.jira_sprint_id) || doneTickets.some((t) => t.jira_sprint_id),
     [tickets, doneTickets],
   )
+  // The "Jira Ticket #" sort is offered only when at least one spec carries a
+  // Jira key (i.e. the project is Jira-connected and has synced issues).
+  const hasJiraKeys = useMemo(
+    () => tickets.some((t) => t.jira_key) || doneTickets.some((t) => t.jira_key),
+    [tickets, doneTickets],
+  )
 
   // Done specs follow the SAME general sort as the active board (the Done tab no
   // longer has its own sort/view controls — see the toolbar above).
@@ -533,6 +539,7 @@ export function SpecsBoard({
           mode={sortMode}
           dir={sortDir}
           onChange={onSortChange}
+          showJiraSort={hasJiraKeys}
           className="shrink-0"
         />
         {onViewTierChange && (

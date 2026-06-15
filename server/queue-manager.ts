@@ -8,6 +8,7 @@ import type { WsMessage, LogMessage, Job, PhaseDefinition, JobPriority } from '.
 import { PRIORITY_WEIGHT, VALID_PRIORITIES } from './types'
 import { resolveCommand } from './command-resolver'
 import { spawnAiCli } from './util/cli-prompt'
+import { extractDisplayText } from './util/stream-display'
 import { resetPhases, setActivePhases } from './hooks'
 import { recordInvocation } from './ai-invocations'
 import { isCodeExplorerEnabled } from './feature-flags'
@@ -23,8 +24,9 @@ import { finaliseInvocationResult } from './result-event'
 import { randomUUID } from 'crypto'
 import { getAdapter, type ProviderAdapter, type AdapterEvent } from './providers'
 import { createCodexOtelBridge, type CodexOtelBridge } from './codex-otel-bridge'
-import { createJob, finishJob, appendEvent, skipJob, getProjectSettings, getUltracodePrePrompt, DEFAULT_ULTRACODE_PRE_PROMPT } from './db'
+import { createJob, finishJob, appendEvent, skipJob, getProjectSettings, getUltracodePrePrompt, DEFAULT_ULTRACODE_PRE_PROMPT, finalizeInteractiveJob } from './db'
 import type { JobResult } from './db'
+import { InteractiveJobSession, type SettleInfo, type InteractiveSpawnSpec } from './interactive-job-session'
 import type { CommandInfo } from './config'
 import { attachmentManager, USER_ATTACHMENT_SYSTEM_NOTE } from './attachment-manager'
 import { extractTicketIdsFromCommand, readStore, resolveTicketStoragePath } from './ticket-store'
@@ -116,58 +118,6 @@ export class JobAlreadyTerminalError extends Error {
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
-function extractDisplayText(event: Record<string, unknown>): string | null {
-  const type = event.type as string
-  // ── Claude `--output-format stream-json` ───────────────────────────────
-  if (type === 'assistant') {
-    const content = event.message as { content?: Array<{ type: string; text?: string }> } | undefined
-    const texts = (content?.content ?? [])
-      .filter((c) => c.type === 'text')
-      .map((c) => c.text ?? '')
-    return texts.join('') || null
-  }
-  if (type === 'tool_use') {
-    const name = (event as Record<string, unknown>).name as string
-    const input = JSON.stringify((event as Record<string, unknown>).input ?? {})
-    return `[tool: ${name}] ${input.slice(0, 120)}`
-  }
-  if (type === 'tool_result' || type === 'system_prompt' || type === 'user' || type === 'system' || type === 'result') {
-    return null
-  }
-  // ── Codex `exec --json` event types ───────────────────────────────────
-  // Codex shape differs from claude: items are nested under `item` with a
-  // discriminator at `item.type`. Without explicit handling the Job Detail
-  // log shows only the spawn preamble and exit notice — exactly the
-  // "2 / 2 lines" symptom that masks 200k+ tokens of real work.
-  if (type === 'item.completed' || type === 'item.started') {
-    const item = event.item as Record<string, unknown> | undefined
-    if (!item) return null
-    const itemType = item.type as string | undefined
-    if (itemType === 'agent_message') {
-      const text = (item.text as string | undefined)?.trim()
-      return text && text.length > 0 ? text : null
-    }
-    if (itemType === 'command_execution') {
-      // Only surface the completed line so the log isn't doubled with the
-      // matching `item.started` placeholder.
-      if (type !== 'item.completed') return null
-      const cmd = (item.command as string | undefined) ?? ''
-      const exitCode = item.exit_code as number | null | undefined
-      const exitStr = typeof exitCode === 'number' ? ` → exit ${exitCode}` : ''
-      return `[exec]${exitStr} ${cmd.slice(0, 200)}`
-    }
-    if (itemType === 'agent_reasoning') {
-      const text = (item.text as string | undefined)?.trim()
-      return text && text.length > 0 ? `[reasoning] ${text.slice(0, 200)}` : null
-    }
-    return null
-  }
-  if (type === 'thread.started' || type === 'turn.started' || type === 'turn.completed') {
-    return null
-  }
-  return null
-}
-
 const TERMINAL_STATUSES = new Set(['completed', 'failed', 'canceled', 'zombie_terminated', 'skipped'])
 
 /** Match an Ultracode rail command: `/specrails:ultracode #5 …` (or `/sr:…`). */
@@ -189,6 +139,12 @@ export interface EnqueueOptions {
    *  value, taking precedence over the project orchestrator model. In-memory
    *  only — a queued job that survives a restart falls back to the default. */
   model?: string
+  /** When true, an ultracode (claude) job becomes an interactive persistent
+   *  session: it spawns one resident `claude -p --input-format stream-json`
+   *  child, accepts more prompts across turns, stays 'running' until an explicit
+   *  finalize, and sums every turn's real usage into the job row. Ignored for
+   *  non-ultracode commands and providers without persistent-stdin support. */
+  interactive?: boolean
 }
 
 // ─── QueueManager ─────────────────────────────────────────────────────────────
@@ -240,6 +196,12 @@ export class QueueManager {
   /** Pre-spawn working-tree snapshot refs keyed by jobId — read at exit time
    *  by the Code-Explorer provenance hook. Cleared on job exit. */
   private _snapshotRefs: Map<string, WorkingTreeSnapshot>
+  /** Pending per-job interactive flag keyed by jobId — read at spawn time.
+   *  In-memory only (mirrors _jobModelSelection). */
+  private _jobInteractiveSelection: Map<string, boolean>
+  /** Live interactive job sessions keyed by jobId (the resident persistent-stdin
+   *  child + per-turn accounting). Present only while an interactive job runs. */
+  private _interactiveSessions: Map<string, InteractiveJobSession>
 
   constructor(
     broadcast: (msg: WsMessage) => void,
@@ -289,6 +251,8 @@ export class QueueManager {
     this._jobProviderSelection = new Map()
     this._jobModelSelection = new Map()
     this._snapshotRefs = new Map()
+    this._jobInteractiveSelection = new Map()
+    this._interactiveSessions = new Map()
 
     const envTimeout = process.env.WM_ZOMBIE_TIMEOUT_MS !== undefined
       ? parseInt(process.env.WM_ZOMBIE_TIMEOUT_MS, 10)
@@ -351,6 +315,12 @@ export class QueueManager {
 
     this._activeProcess = null
     this._activeJobId = null
+    // Tear down any resident interactive sessions (SIGTERM their children) so
+    // teardown orphans no persistent claude process. dispose() does not settle.
+    for (const session of this._interactiveSessions.values()) {
+      try { session.dispose() } catch { /* best-effort */ }
+    }
+    this._interactiveSessions.clear()
     // Release any per-job provenance snapshots so teardown leaves no map entries.
     this._snapshotRefs.clear()
     // Drop the DB reference last so any in-flight 'close' callback sees null
@@ -420,6 +390,12 @@ export class QueueManager {
       this._jobModelSelection.set(id, resolvedOpts.model)
     }
 
+    // Record per-job interactive flag (ultracode + claude only — enforced at
+    // spawn time against the resolved adapter's persistent-stdin capability).
+    if (resolvedOpts?.interactive) {
+      this._jobInteractiveSelection.set(id, true)
+    }
+
     // Insert at the correct position based on priority (higher priority first, FIFO within same level)
     const weight = PRIORITY_WEIGHT[priority]
     let insertIdx = this._queue.length
@@ -462,6 +438,7 @@ export class QueueManager {
       this._jobProviderSelection.delete(jobId)
       this._jobModelSelection.delete(jobId)
       this._jobProfileSelection.delete(jobId)
+      this._jobInteractiveSelection.delete(jobId)
       this._skipDependents(jobId, `Parent job ${jobId} was canceled`)
       this._recomputePositions()
       this._persistJob(job)
@@ -482,6 +459,15 @@ export class QueueManager {
     }
 
     // job.status === 'running'
+    // Interactive jobs own a resident child via the session (not _activeProcess),
+    // so route their cancel through the session: SIGTERM → settle sees the
+    // canceling flag and stamps 'canceled'.
+    const interactiveSession = this._interactiveSessions.get(jobId)
+    if (interactiveSession) {
+      this._cancelingJobs.add(jobId)
+      interactiveSession.finalize()
+      return 'canceling'
+    }
     this._kill(jobId)
     return 'canceling'
   }
@@ -570,6 +556,30 @@ export class QueueManager {
 
   getLogBuffer(): LogMessage[] {
     return [...this._logBuffer]
+  }
+
+  /** True while an interactive ultracode session is resident for this job. */
+  isInteractiveJob(jobId: string): boolean {
+    return this._interactiveSessions.has(jobId)
+  }
+
+  /** Feed one more user prompt to a running interactive job (queued behind the
+   *  active turn). Returns false when the job isn't an active interactive
+   *  session (unknown / already finalized / not interactive). */
+  sendInteractiveTurn(jobId: string, text: string): boolean {
+    const session = this._interactiveSessions.get(jobId)
+    if (!session) return false
+    return session.send(text)
+  }
+
+  /** User-initiated finalize for an interactive job: SIGTERM the resident child;
+   *  the settle path stamps the summed totals + 'completed' status. Returns false
+   *  when the job isn't an active interactive session. */
+  finalizeInteractive(jobId: string): boolean {
+    const session = this._interactiveSessions.get(jobId)
+    if (!session) return false
+    session.finalize()
+    return true
   }
 
   // ─── Private methods ────────────────────────────────────────────────────────
@@ -716,6 +726,152 @@ export class QueueManager {
       }
     }
     return this._adapter
+  }
+
+  /**
+   * Spawn an interactive ultracode session. The job row is created with the
+   * `interactive` flag set; the resident child runs the first turn (the
+   * ultracode prompt) and stays alive for follow-up turns until finalize/crash.
+   * No zombie timer is armed (the child idles between turns by design) and
+   * `_activeProcess` is left null — the session owns the child; the active SLOT
+   * (`_activeJobId`, reserved by _drainQueue) is held until settle.
+   */
+  private _startInteractiveJob(
+    jobId: string,
+    job: Job,
+    adapter: ProviderAdapter,
+    spec: InteractiveSpawnSpec,
+    firstPrompt: string,
+  ): void {
+    if (this._db) {
+      try {
+        createJob(this._db, {
+          id: jobId,
+          command: job.command,
+          started_at: job.startedAt!,
+          priority: job.priority,
+          depends_on_job_id: job.dependsOnJobId,
+          pipeline_id: job.pipelineId,
+          interactive: true,
+        })
+      } catch (err) {
+        console.error('[queue-manager] createJob (interactive) failed:', err)
+      }
+    }
+
+    const session = new InteractiveJobSession({
+      jobId,
+      projectId: this._projectId ?? '',
+      db: this._db,
+      adapter,
+      broadcast: this._broadcast,
+      onSettle: (info) => this._settleInteractiveJob(jobId, info),
+    })
+    this._interactiveSessions.set(jobId, session)
+    session.start(spec, firstPrompt)
+    this._broadcastQueueState()
+  }
+
+  /**
+   * Terminal bookkeeping for an interactive job (called once by the session's
+   * onSettle). Releases the active slot, stamps the job's terminal status +
+   * finished_at (token/cost totals were already accumulated per turn), writes a
+   * single ai_invocations row with the summed usage, fires the rail/ticket
+   * completion callback, and drains the queue.
+   */
+  private _settleInteractiveJob(jobId: string, info: SettleInfo): void {
+    this._interactiveSessions.delete(jobId)
+    if (this._activeJobId === jobId) {
+      this._activeProcess = null
+      this._activeJobId = null
+    }
+    // Interactive jobs skip provenance, but a defensive delete keeps the map
+    // clean if a snapshot was ever recorded for this id.
+    this._snapshotRefs.delete(jobId)
+
+    if (this._disposed) return
+    const job = this._jobs.get(jobId)
+    if (!job) { this._drainQueue(); return }
+
+    const wasCanceling = this._cancelingJobs.has(jobId)
+    this._cancelingJobs.delete(jobId)
+    const finalStatus: Job['status'] = wasCanceling
+      ? 'canceled'
+      : info.reason === 'finalized'
+        ? 'completed'
+        : 'failed'
+
+    job.status = finalStatus
+    job.finishedAt = new Date().toISOString()
+    job.exitCode = info.reason === 'finalized' ? 0 : 1
+
+    const totals = info.totals
+    if (this._db) {
+      try {
+        finalizeInteractiveJob(this._db, jobId, finalStatus)
+      } catch (err) {
+        console.error('[queue-manager] finalizeInteractiveJob failed:', err)
+      }
+
+      if (this._projectId) {
+        try {
+          const invStatus = finalStatus === 'completed'
+            ? 'success'
+            : finalStatus === 'canceled'
+              ? 'aborted'
+              : 'failed'
+          const ticketIds = this._extractTicketIds(job.command)
+          const durationMs = job.startedAt
+            ? new Date(job.finishedAt).getTime() - new Date(job.startedAt).getTime()
+            : undefined
+          recordInvocation(this._db, {
+            id: randomUUID(),
+            project_id: this._projectId,
+            provider: 'claude',
+            surface: 'job',
+            surface_ref_id: jobId,
+            ticket_id: ticketIds[0] ?? null,
+            status: invStatus,
+            started_at: job.startedAt ?? new Date().toISOString(),
+            finished_at: job.finishedAt,
+            total_cost_usd_estimated: false,
+            tokens_in: totals.tokens_in,
+            tokens_out: totals.tokens_out,
+            tokens_cache_read: totals.tokens_cache_read,
+            tokens_cache_create: totals.tokens_cache_create,
+            total_cost_usd: totals.total_cost_usd,
+            num_turns: totals.num_turns,
+            model: info.model ?? undefined,
+            session_id: info.sessionId ?? undefined,
+            duration_ms: durationMs,
+          })
+          this._broadcast({ type: 'spending.invalidated', projectId: this._projectId })
+        } catch (err) {
+          console.error('[queue-manager] recordInvocation (interactive) failed:', err)
+        }
+      }
+    }
+
+    this._persistJob(job)
+    this._broadcast({
+      type: 'job.finalized',
+      projectId: this._projectId ?? '',
+      jobId,
+      status: finalStatus,
+      totals,
+      timestamp: new Date().toISOString(),
+    })
+    this._broadcastQueueState()
+
+    if (this._onJobFinished) {
+      try {
+        this._onJobFinished(jobId, finalStatus, totals.total_cost_usd)
+      } catch (err) {
+        console.error(`[QueueManager] onJobFinished failed for ${jobId}: ${(err as Error).message}`)
+      }
+    }
+
+    this._drainQueue()
   }
 
   private async _startJob(jobId: string): Promise<void> {
@@ -964,6 +1120,32 @@ export class QueueManager {
           ...buildTelemetryEnv(jobId, this._projectId, this._desktopPort, extra),
         }
       }
+    }
+
+    // ─── Interactive ultracode branch ──────────────────────────────────────
+    // When the launch requested interactive mode AND the command is ultracode
+    // AND the adapter supports persistent stdin (claude), hand off to a resident
+    // session instead of the one-shot spawn below. The session keeps the child
+    // alive across turns and settles only on finalize/crash. Code-Explorer
+    // provenance is intentionally skipped for interactive jobs (v1 — deferred).
+    const wantsInteractive = this._jobInteractiveSelection.get(jobId) === true
+    this._jobInteractiveSelection.delete(jobId)
+    if (wantsInteractive && isUltracode && adapter.capabilities.persistentStdin) {
+      const interactiveArgs = adapter.buildArgs('chat-stream', {
+        // chat-stream feeds the prompt over stdin per-turn, so the argv `prompt`
+        // is unused — pass empty to satisfy the shared SpawnOptions shape.
+        prompt: '',
+        systemPrompt: systemAppend || undefined,
+        model: railModel,
+      })
+      this._startInteractiveJob(
+        jobId,
+        job,
+        adapter,
+        { binary, args: interactiveArgs, cwd: this._cwd, env: spawnEnv },
+        railPrompt,
+      )
+      return
     }
 
     // Code-Explorer pre-spawn snapshot. Captures the working-tree state via

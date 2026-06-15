@@ -10,7 +10,7 @@ const MODE_KEY = (projectId: string) => `specrails-desktop:spec-sort-mode:${proj
 const DIR_KEY = (projectId: string) => `specrails-desktop:spec-sort-dir:${projectId}`
 
 function isMode(v: unknown): v is SpecSortMode {
-  return v === 'default' || v === 'ticket-id' || v === 'priority'
+  return v === 'default' || v === 'ticket-id' || v === 'priority' || v === 'jira-key'
 }
 
 function isDir(v: unknown): v is SpecSortDir {
@@ -74,6 +74,38 @@ export function sortByPriority(a: LocalTicket, b: LocalTicket, dir: SpecSortDir)
   return a.id - b.id
 }
 
+/**
+ * Extract the numeric suffix of a Jira issue key (e.g. "PROJ-123" → 123).
+ * Returns null when the key is missing or has no parseable trailing number,
+ * so non-Jira specs (and malformed keys) can be bucketed last.
+ */
+export function jiraKeyNumber(ticket: LocalTicket): number | null {
+  const key = ticket.jira_key
+  if (!key) return null
+  const m = /(\d+)\s*$/.exec(key)
+  if (!m) return null
+  const n = Number.parseInt(m[1], 10)
+  // Reject values beyond MAX_SAFE_INTEGER: IEEE-754 precision loss there would
+  // make the numeric comparison non-transitive. Such keys bucket as keyless.
+  return Number.isSafeInteger(n) ? n : null
+}
+
+/**
+ * Sort by the Jira ticket number. Specs without a Jira key always sort LAST
+ * (in both directions) so the board never buries linked issues under
+ * not-yet-synced local specs. Tie-break by id ascending for stability.
+ */
+export function sortByJiraKey(a: LocalTicket, b: LocalTicket, dir: SpecSortDir): number {
+  const na = jiraKeyNumber(a)
+  const nb = jiraKeyNumber(b)
+  if (na === null && nb === null) return a.id - b.id
+  if (na === null) return 1
+  if (nb === null) return -1
+  const delta = dir === 'asc' ? na - nb : nb - na
+  if (delta !== 0) return delta
+  return a.id - b.id
+}
+
 export function applySpecSort(
   tickets: LocalTicket[],
   mode: SpecSortMode,
@@ -81,5 +113,6 @@ export function applySpecSort(
 ): LocalTicket[] {
   if (mode === 'ticket-id') return [...tickets].sort((a, b) => sortByTicketId(a, b, dir))
   if (mode === 'priority') return [...tickets].sort((a, b) => sortByPriority(a, b, dir))
+  if (mode === 'jira-key') return [...tickets].sort((a, b) => sortByJiraKey(a, b, dir))
   return tickets
 }

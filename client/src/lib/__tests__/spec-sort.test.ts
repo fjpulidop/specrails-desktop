@@ -1,8 +1,10 @@
 import { describe, it, expect, beforeEach } from 'vitest'
 import {
   applySpecSort,
+  jiraKeyNumber,
   loadSpecSort,
   saveSpecSort,
+  sortByJiraKey,
   sortByPriority,
   sortByTicketId,
 } from '../spec-sort'
@@ -24,6 +26,13 @@ function makeTicket(id: number, priority: TicketPriority | null = 'medium'): Loc
     created_by: 'test',
     source: 'manual',
   }
+}
+
+function makeJiraTicket(id: number, jiraKey: string | null): LocalTicket {
+  const t = makeTicket(id)
+  t.source = 'jira'
+  t.jira_key = jiraKey
+  return t
 }
 
 describe('sortByTicketId', () => {
@@ -84,6 +93,63 @@ describe('sortByPriority', () => {
   })
 })
 
+describe('jiraKeyNumber', () => {
+  it('extracts the trailing number from a standard key', () => {
+    expect(jiraKeyNumber(makeJiraTicket(1, 'PROJ-123'))).toBe(123)
+  })
+  it('handles keys with digits in the project part', () => {
+    expect(jiraKeyNumber(makeJiraTicket(1, 'AB12-7'))).toBe(7)
+  })
+  it('returns null when jira_key is null/undefined', () => {
+    expect(jiraKeyNumber(makeJiraTicket(1, null))).toBeNull()
+    expect(jiraKeyNumber(makeTicket(1))).toBeNull()
+  })
+  it('returns null when the key has no trailing number', () => {
+    expect(jiraKeyNumber(makeJiraTicket(1, 'PROJ-'))).toBeNull()
+    expect(jiraKeyNumber(makeJiraTicket(1, 'PROJ'))).toBeNull()
+  })
+  it('rejects numbers beyond MAX_SAFE_INTEGER (no precision loss)', () => {
+    expect(jiraKeyNumber(makeJiraTicket(1, 'PROJ-9007199254740993'))).toBeNull()
+    expect(jiraKeyNumber(makeJiraTicket(1, 'PROJ-999999999999999999999999'))).toBeNull()
+    // The boundary itself is still safe.
+    expect(jiraKeyNumber(makeJiraTicket(1, 'PROJ-9007199254740991'))).toBe(9007199254740991)
+  })
+})
+
+describe('sortByJiraKey', () => {
+  it('asc orders by ascending ticket number', () => {
+    const ts = [makeJiraTicket(1, 'P-30'), makeJiraTicket(2, 'P-2'), makeJiraTicket(3, 'P-100')]
+    const sorted = [...ts].sort((a, b) => sortByJiraKey(a, b, 'asc'))
+    expect(sorted.map((t) => t.jira_key)).toEqual(['P-2', 'P-30', 'P-100'])
+  })
+  it('desc orders by descending ticket number', () => {
+    const ts = [makeJiraTicket(1, 'P-30'), makeJiraTicket(2, 'P-2'), makeJiraTicket(3, 'P-100')]
+    const sorted = [...ts].sort((a, b) => sortByJiraKey(a, b, 'desc'))
+    expect(sorted.map((t) => t.jira_key)).toEqual(['P-100', 'P-30', 'P-2'])
+  })
+  it('places specs without a jira key LAST in both directions', () => {
+    const ts = [makeJiraTicket(1, null), makeJiraTicket(2, 'P-5'), makeJiraTicket(3, null)]
+    const asc = [...ts].sort((a, b) => sortByJiraKey(a, b, 'asc'))
+    expect(asc.map((t) => t.jira_key)).toEqual(['P-5', null, null])
+    const desc = [...ts].sort((a, b) => sortByJiraKey(a, b, 'desc'))
+    expect(desc.map((t) => t.jira_key)).toEqual(['P-5', null, null])
+  })
+  it('tie-breaks keyless specs by id ascending', () => {
+    const ts = [makeJiraTicket(3, null), makeJiraTicket(1, null), makeJiraTicket(2, null)]
+    const sorted = [...ts].sort((a, b) => sortByJiraKey(a, b, 'desc'))
+    expect(sorted.map((t) => t.id)).toEqual([1, 2, 3])
+  })
+  it('treats unsafe-large keys as keyless (sorted last), preserving transitivity', () => {
+    const ts = [
+      makeJiraTicket(1, 'P-999999999999999999999999'),
+      makeJiraTicket(2, 'P-5'),
+      makeJiraTicket(3, 'P-99'),
+    ]
+    const asc = [...ts].sort((a, b) => sortByJiraKey(a, b, 'asc'))
+    expect(asc.map((t) => t.id)).toEqual([2, 3, 1])
+  })
+})
+
 describe('applySpecSort', () => {
   const tickets = [
     makeTicket(3, 'low'),
@@ -105,6 +171,24 @@ describe('applySpecSort', () => {
       'critical',
       'medium',
       'low',
+    ])
+  })
+
+  it('mode=jira-key sorts by jira ticket number, keyless last', () => {
+    const jira = [
+      makeJiraTicket(1, 'P-9'),
+      makeJiraTicket(2, null),
+      makeJiraTicket(3, 'P-1'),
+    ]
+    expect(applySpecSort(jira, 'jira-key', 'asc').map((t) => t.jira_key)).toEqual([
+      'P-1',
+      'P-9',
+      null,
+    ])
+    expect(applySpecSort(jira, 'jira-key', 'desc').map((t) => t.jira_key)).toEqual([
+      'P-9',
+      'P-1',
+      null,
     ])
   })
 
@@ -131,6 +215,11 @@ describe('loadSpecSort / saveSpecSort', () => {
   it('round-trips a sorted mode', () => {
     saveSpecSort('p1', 'priority', 'asc')
     expect(loadSpecSort('p1')).toEqual({ mode: 'priority', dir: 'asc' })
+  })
+
+  it('round-trips the jira-key mode', () => {
+    saveSpecSort('p1', 'jira-key', 'asc')
+    expect(loadSpecSort('p1')).toEqual({ mode: 'jira-key', dir: 'asc' })
   })
 
   it('falls back to default mode on invalid stored value', () => {

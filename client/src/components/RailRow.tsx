@@ -26,6 +26,10 @@ interface RailRowProps {
   aiEngine?: string | null
   /** Selected model for ultracode rails. null/undefined = default (sonnet). */
   ultracodeModel?: UltracodeModel | null
+  /** Per-rail "Interactive" toggle (ultracode only). */
+  interactive?: boolean
+  /** Whether the interactive toggle should be offered (client feature flag). */
+  interactiveAvailable?: boolean
   /** Installed providers — when >1 the rail header shows an AI engine selector. */
   providers?: readonly string[]
   jiggleMode: boolean
@@ -44,6 +48,7 @@ interface RailRowProps {
   onProfileChange?: (profileName: string | null) => void
   onEngineChange?: (aiEngine: 'claude' | 'codex') => void
   onUltracodeModelChange?: (model: UltracodeModel) => void
+  onInteractiveChange?: (interactive: boolean) => void
   onToggle: () => void
   onTicketClick: (ticket: LocalTicket) => void
   onDelete: () => void
@@ -56,9 +61,9 @@ interface RailRowProps {
 }
 
 export function RailRow({
-  id, label, tickets, mode, status, activeJobId, profileName, aiEngine, ultracodeModel, providers, jiggleMode,
+  id, label, tickets, mode, status, activeJobId, profileName, aiEngine, ultracodeModel, interactive, interactiveAvailable, providers, jiggleMode,
   dragHandleListeners, dragHandleAttributes, density = 'normal',
-  onModeChange, onProfileChange, onEngineChange, onUltracodeModelChange, onToggle, onTicketClick, onDelete, onLongPress, onRename,
+  onModeChange, onProfileChange, onEngineChange, onUltracodeModelChange, onInteractiveChange, onToggle, onTicketClick, onDelete, onLongPress, onRename,
   onTicketMoveToSpecs,
 }: RailRowProps) {
   const { t } = useTranslation('dashboard')
@@ -393,7 +398,10 @@ export function RailRow({
             activeJobId={activeJobId}
             ticketCount={tickets.length}
             ultracodeAvailable={engineIsClaude}
+            interactive={interactive}
+            interactiveAvailable={interactiveAvailable}
             onModeChange={onModeChange}
+            onInteractiveChange={onInteractiveChange}
             onToggle={onToggle}
           />
         </div>
@@ -527,7 +535,7 @@ export function RailRow({
             {!hasSelectorRow && showProfileSel && onProfileChange && (
               <RailProfileSelector value={profileName ?? null} onChange={onProfileChange} />
             )}
-            <RailControls mode={mode} status={status} activeJobId={activeJobId} ticketCount={tickets.length} ultracodeAvailable={engineIsClaude} onModeChange={onModeChange} onToggle={onToggle} />
+            <RailControls mode={mode} status={status} activeJobId={activeJobId} ticketCount={tickets.length} ultracodeAvailable={engineIsClaude} interactive={interactive} interactiveAvailable={interactiveAvailable} onModeChange={onModeChange} onInteractiveChange={onInteractiveChange} onToggle={onToggle} />
             {/* Jiggle-mode delete button */}
             {jiggleMode && canDelete && (
               <button

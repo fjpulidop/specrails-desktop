@@ -53,6 +53,17 @@
     "reExecuteTooltip": "Neuen Job mit demselben Befehl starten",
     "cancelJob": "Job abbrechen",
     "cancelJobTooltip": "SIGTERM an den laufenden Prozess senden. Der Job wird als abgebrochen markiert.",
+    "cancelInteractive": "Verwerfen",
+    "finalizeJob": "Job abschließen",
+    "finalizing": "Wird abgeschlossen…",
+    "finalizeJobTooltip": "Diese interaktive Sitzung beenden und Tokens sowie Kosten aller Turns in die Job-Gesamtsumme einrechnen.",
+    "interactive": {
+      "ready": "Bereit – sende einen Prompt",
+      "working": "Agent arbeitet…",
+      "placeholder": "Sende eine Nachricht an den laufenden Job…",
+      "send": "Senden",
+      "liveTotals": "{{turns}} Turns · ${{cost}}"
+    },
     "toast": {
       "jobDeleted": "Job gelöscht",
       "cancelSignalSent": "Abbruchsignal gesendet",
@@ -62,7 +73,10 @@
       "exportFailed": "Export fehlgeschlagen",
       "exportFailedHttp": "Export fehlgeschlagen (HTTP {{status}})",
       "jobRequeued": "Job erneut eingereiht",
-      "spawnFailed": "Job konnte nicht gestartet werden"
+      "spawnFailed": "Job konnte nicht gestartet werden",
+      "finalizeScheduled": "Interaktiver Job wird abgeschlossen…",
+      "finalizeFailed": "Job konnte nicht abgeschlossen werden",
+      "sendFailed": "Nachricht konnte nicht gesendet werden"
     }
   },
   "statusPanel": {

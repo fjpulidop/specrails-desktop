@@ -15,6 +15,8 @@ interface SpecSortControlProps {
   mode: SpecSortMode
   dir: SpecSortDir
   onChange: (mode: SpecSortMode, dir: SpecSortDir) => void
+  /** When true, expose the Jira-ticket-number sort option (Jira-connected projects). */
+  showJiraSort?: boolean
   className?: string
 }
 
@@ -23,9 +25,10 @@ const MODE_LABEL_KEYS: Record<SpecSortMode, string> = {
   'default': 'sortControl.modes.default',
   'ticket-id': 'sortControl.modes.ticketId',
   'priority': 'sortControl.modes.priority',
+  'jira-key': 'sortControl.modes.jiraKey',
 }
 
-export function SpecSortControl({ mode, dir, onChange, className }: SpecSortControlProps) {
+export function SpecSortControl({ mode, dir, onChange, showJiraSort = false, className }: SpecSortControlProps) {
   const { t } = useTranslation('specs')
   const showArrow = mode !== 'default'
 
@@ -50,6 +53,13 @@ export function SpecSortControl({ mode, dir, onChange, className }: SpecSortCont
                   <SelectItem value="default">{t('sortControl.modes.default')}</SelectItem>
                   <SelectItem value="ticket-id">{t('sortControl.modes.ticketId')}</SelectItem>
                   <SelectItem value="priority">{t('sortControl.modes.priority')}</SelectItem>
+                  {/* Offered for Jira-linked projects; also rendered whenever it
+                      is the current value so the Select never holds a value with
+                      no matching item (e.g. a persisted mode during initial load,
+                      before DashboardPage resets it). */}
+                  {(showJiraSort || mode === 'jira-key') && (
+                    <SelectItem value="jira-key">{t('sortControl.modes.jiraKey')}</SelectItem>
+                  )}
                 </SelectContent>
               </Select>
             </div>

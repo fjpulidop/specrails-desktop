@@ -5,7 +5,7 @@ import { formatDistanceToNow } from 'date-fns'
 import { toast } from 'sonner'
 import { useTranslation } from 'react-i18next'
 import { getDateFnsLocale } from '../lib/i18n'
-import { ChevronRight, Home, RotateCcw, Download } from 'lucide-react'
+import { ChevronRight, Home, RotateCcw, Download, CheckCircle2, Send, Loader2 } from 'lucide-react'
 import { Badge } from '../components/ui/badge'
 import { Button } from '../components/ui/button'
 import { Tooltip, TooltipContent, TooltipTrigger } from '../components/ui/tooltip'
@@ -45,6 +45,17 @@ export default function JobDetailPage() {
   const [pipelineJobs, setPipelineJobs] = useState<JobSummary[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [notFound, setNotFound] = useState(false)
+  // ── Interactive ultracode session state ──────────────────────────────────
+  // Running SUM of completed turns' REAL usage (from job.turn_done; never an
+  // estimate). Null until the first turn settles.
+  const [interactiveTotals, setInteractiveTotals] = useState<{
+    tokens_in: number; tokens_out: number; tokens_cache_read: number
+    tokens_cache_create: number; total_cost_usd: number; num_turns: number
+  } | null>(null)
+  const [interactiveStreaming, setInteractiveStreaming] = useState(false)
+  const [composerText, setComposerText] = useState('')
+  const [finalizing, setFinalizing] = useState(false)
+  const [sending, setSending] = useState(false)
 
   // Reset and re-fetch when project or job id changes
   useEffect(() => {
@@ -165,6 +176,22 @@ export default function JobDetailPage() {
         timestamp: msg.timestamp as string,
       }
       enqueuePending(syntheticEvent)
+    } else if (msg.type === 'job.turn_user' && msg.jobId === id) {
+      // A user prompt was accepted — a turn is (or will be) streaming. The
+      // prompt text itself rides the `log` channel above, so nothing to inject.
+      setInteractiveStreaming(true)
+    } else if (msg.type === 'job.turn_done' && msg.jobId === id) {
+      setInteractiveTotals(msg.totals as typeof interactiveTotals)
+      setInteractiveStreaming(false)
+    } else if (msg.type === 'job.finalized' && msg.jobId === id) {
+      setInteractiveStreaming(false)
+      setFinalizing(false)
+      const totals = msg.totals as typeof interactiveTotals
+      if (totals) setInteractiveTotals(totals)
+      fetch(`${getApiBase()}/jobs/${id}`)
+        .then((r) => r.json())
+        .then((data: { job: JobSummary }) => setJob(data.job))
+        .catch(() => {})
     } else if (msg.type === 'phase') {
       const phaseName = msg.phase as string
       const phaseState = msg.state as PhaseState
@@ -229,6 +256,48 @@ export default function JobDetailPage() {
       }
     } catch {
       toast.error(t('detail.toast.networkError'))
+    }
+  }
+
+  async function handleFinalizeInteractive() {
+    if (!id || finalizing) return
+    setFinalizing(true)
+    try {
+      const res = await fetch(`${getApiBase()}/jobs/${id}/finalize`, { method: 'POST' })
+      if (res.ok) {
+        toast.success(t('detail.toast.finalizeScheduled'))
+      } else {
+        const data = await res.json().catch(() => ({})) as { error?: string }
+        toast.error(t('detail.toast.finalizeFailed'), { description: data.error })
+        setFinalizing(false)
+      }
+      // The authoritative completed state arrives via the job.finalized WS event.
+    } catch {
+      toast.error(t('detail.toast.networkError'))
+      setFinalizing(false)
+    }
+  }
+
+  async function handleSendInteractive() {
+    const text = composerText.trim()
+    if (!id || !text || sending) return
+    setSending(true)
+    try {
+      const res = await fetch(`${getApiBase()}/jobs/${id}/messages`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ text }),
+      })
+      if (res.ok) {
+        setComposerText('')
+      } else {
+        const data = await res.json().catch(() => ({})) as { error?: string }
+        toast.error(t('detail.toast.sendFailed'), { description: data.error })
+      }
+    } catch {
+      toast.error(t('detail.toast.networkError'))
+    } finally {
+      setSending(false)
     }
   }
 
@@ -304,6 +373,11 @@ export default function JobDetailPage() {
   const statusInfo = STATUS_BADGE[job.status] ?? STATUS_BADGE.queued
   const isRunning = job.status === 'running'
   const isFinished = job.status === 'completed' || job.status === 'failed'
+  // An interactive ultracode session that is still resident: the user converses
+  // and must Finalize (no auto-terminate). FEATURE-gated via the server flag —
+  // job.interactive is only ever set when the feature is on.
+  const isInteractive = !!job.interactive
+  const isInteractiveRunning = isInteractive && isRunning
   const hasTicketHeader = (job.tickets?.length ?? 0) > 0
 
   const pipelineTotals = pipelineJobs.length > 1 ? {
@@ -407,6 +481,25 @@ export default function JobDetailPage() {
                 </TooltipContent>
               </Tooltip>
             )}
+            {isInteractiveRunning && (
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={handleFinalizeInteractive}
+                    disabled={finalizing}
+                    className="h-7 border-accent-success/40 text-accent-success hover:bg-accent-success/10"
+                  >
+                    <CheckCircle2 className="w-3.5 h-3.5 mr-1.5" />
+                    {finalizing ? t('detail.finalizing') : t('detail.finalizeJob')}
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent>
+                  {t('detail.finalizeJobTooltip')}
+                </TooltipContent>
+              </Tooltip>
+            )}
             {isRunning && (
               <Tooltip>
                 <TooltipTrigger asChild>
@@ -416,7 +509,7 @@ export default function JobDetailPage() {
                     onClick={handleCancel}
                     className="h-7 border-destructive/30 text-destructive hover:bg-destructive/10"
                   >
-                    {t('detail.cancelJob')}
+                    {isInteractive ? t('detail.cancelInteractive') : t('detail.cancelJob')}
                   </Button>
                 </TooltipTrigger>
                 <TooltipContent>
@@ -449,6 +542,52 @@ export default function JobDetailPage() {
       <div className="flex-1 overflow-hidden relative">
         <LogViewer events={events} />
       </div>
+
+      {/* Interactive chat composer — send more prompts to the resident agent
+          without waiting for the current turn to finish (queued server-side). */}
+      {isInteractiveRunning && (
+        <div className="shrink-0 border-t border-border/40 bg-surface/40 px-3 py-2 space-y-2">
+          <div className="flex items-center justify-between text-[11px] text-muted-foreground">
+            <span className="inline-flex items-center gap-1.5">
+              {interactiveStreaming && <Loader2 className="w-3 h-3 animate-spin" />}
+              {interactiveStreaming ? t('detail.interactive.working') : t('detail.interactive.ready')}
+            </span>
+            {interactiveTotals && (
+              <span className="tabular-nums">
+                {t('detail.interactive.liveTotals', {
+                  turns: interactiveTotals.num_turns,
+                  cost: interactiveTotals.total_cost_usd.toFixed(4),
+                })}
+              </span>
+            )}
+          </div>
+          <div className="flex items-end gap-2">
+            <textarea
+              value={composerText}
+              onChange={(e) => setComposerText(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' && !e.shiftKey) {
+                  e.preventDefault()
+                  void handleSendInteractive()
+                }
+              }}
+              rows={2}
+              placeholder={t('detail.interactive.placeholder')}
+              aria-label={t('detail.interactive.placeholder')}
+              className="flex-1 resize-none rounded-md border border-border/50 bg-background px-2.5 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
+            />
+            <Button
+              size="sm"
+              onClick={() => void handleSendInteractive()}
+              disabled={sending || !composerText.trim()}
+              className="h-9 shrink-0"
+            >
+              <Send className="w-3.5 h-3.5 mr-1.5" />
+              {t('detail.interactive.send')}
+            </Button>
+          </div>
+        </div>
+      )}
     </div>
   )
 }
