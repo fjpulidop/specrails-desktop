@@ -1,5 +1,12 @@
 # Changelog
 
+## [2.5.0](https://github.com/fjpulidop/specrails-desktop/compare/v2.4.0...v2.5.0) (2026-06-15)
+
+
+### Features
+
+* interactive ultracode jobs, Jira-ticket spec sort, Explore MCP/gh access ([#390](https://github.com/fjpulidop/specrails-desktop/issues/390)) ([cb26ccb](https://github.com/fjpulidop/specrails-desktop/commit/cb26ccbb30c9e2cf3bc26796e6f3b46ce7996a2b))
+
 ## [2.4.0](https://github.com/fjpulidop/specrails-desktop/compare/v2.3.0...v2.4.0) (2026-06-14)
 
 
