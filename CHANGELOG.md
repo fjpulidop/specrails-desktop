@@ -1,5 +1,12 @@
 # Changelog
 
+## [2.6.0](https://github.com/fjpulidop/specrails-desktop/compare/v2.5.0...v2.6.0) (2026-06-16)
+
+
+### Features
+
+* **mobile:** serverless WebRTC web companion (DataChannel bridge, RPC, signaling reconnect, web onboarding) ([#393](https://github.com/fjpulidop/specrails-desktop/issues/393)) ([8f124ce](https://github.com/fjpulidop/specrails-desktop/commit/8f124ceff485a8a1e9cd666f662207ba05137914))
+
 ## [2.5.0](https://github.com/fjpulidop/specrails-desktop/compare/v2.4.0...v2.5.0) (2026-06-15)
 
 
