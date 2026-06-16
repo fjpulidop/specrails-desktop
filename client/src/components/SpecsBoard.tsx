@@ -19,6 +19,7 @@ import { SpecSortControl } from './SpecSortControl'
 import { SpecsViewTierToggle } from './SpecsViewTierToggle'
 import type { SpecsViewTier } from '../lib/specs-view-tier'
 import { applySpecSort } from '../lib/spec-sort'
+import { loadSpecFilters, saveSpecFilters } from '../lib/spec-filters'
 import { cn } from '../lib/utils'
 import type { SpecSortMode, SpecSortDir } from '../types/spec-sort'
 import { ProposeSpecModal, type ExploreLaunchPayload } from './ProposeSpecModal'
@@ -208,10 +209,12 @@ export function SpecsBoard({
   )
   const [proposeOpen, setProposeOpen] = useState(false)
   const [explore, setExplore] = useState<ExploreState | null>(null)
-  const [activeLabels, setActiveLabels] = useState<Set<string>>(new Set())
-  const [activeEpic, setActiveEpic] = useState<string | null>(null)
-  const [activeSprint, setActiveSprint] = useState<string | null>(null)
   const { activeProjectId } = useDesktop()
+  // Filters persist per-project (and across app restarts) — restored from
+  // localStorage on mount and on every project switch (see the effect below).
+  const [activeLabels, setActiveLabels] = useState<Set<string>>(() => loadSpecFilters(activeProjectId).labels)
+  const [activeEpic, setActiveEpic] = useState<string | null>(() => loadSpecFilters(activeProjectId).epic)
+  const [activeSprint, setActiveSprint] = useState<string | null>(() => loadSpecFilters(activeProjectId).sprint)
   const [statusFilter, setStatusFilter] = useState<SpecStatusFilterValue>(() => loadStatusTab(activeProjectId))
   const handleStatusTabChange = useCallback((v: SpecStatusFilterValue) => {
     setStatusFilter(v)
@@ -242,16 +245,31 @@ export function SpecsBoard({
     if (parent) onTicketClick(parent)
   }, [ticketsById, onTicketClick])
 
+  // On project switch, restore THIS project's saved filters (not a reset) so
+  // the bug where switching projects wiped the filter bar is gone — and the
+  // same restore runs on mount, so a close/reopen lands on the same filters.
   useEffect(() => {
-    setActiveLabels(new Set())
-    setActiveEpic(null)
-    setActiveSprint(null)
+    const f = loadSpecFilters(activeProjectId)
+    setActiveLabels(f.labels)
+    setActiveEpic(f.epic)
+    setActiveSprint(f.sprint)
     setStatusFilter(loadStatusTab(activeProjectId))
   }, [activeProjectId])
 
   const handleLabelsChange = useCallback((next: Set<string>) => {
     setActiveLabels(next)
-  }, [])
+    saveSpecFilters(activeProjectId, { labels: next, epic: activeEpic, sprint: activeSprint })
+  }, [activeProjectId, activeEpic, activeSprint])
+
+  const handleEpicChange = useCallback((next: string | null) => {
+    setActiveEpic(next)
+    saveSpecFilters(activeProjectId, { labels: activeLabels, epic: next, sprint: activeSprint })
+  }, [activeProjectId, activeLabels, activeSprint])
+
+  const handleSprintChange = useCallback((next: string | null) => {
+    setActiveSprint(next)
+    saveSpecFilters(activeProjectId, { labels: activeLabels, epic: activeEpic, sprint: next })
+  }, [activeProjectId, activeLabels, activeEpic])
 
   const matchesFilters = useCallback(
     (t: LocalTicket): boolean => {
@@ -520,14 +538,14 @@ export function SpecsBoard({
           <SpecEpicFilterDropdown
             tickets={[...tickets, ...doneTickets]}
             active={activeEpic}
-            onChange={setActiveEpic}
+            onChange={handleEpicChange}
           />
         )}
         {hasSprints && (
           <SpecSprintFilterDropdown
             tickets={[...tickets, ...doneTickets]}
             active={activeSprint}
-            onChange={setActiveSprint}
+            onChange={handleSprintChange}
           />
         )}
 
