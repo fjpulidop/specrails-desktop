@@ -173,7 +173,7 @@
     "notListening": "Not listening",
     "turnOn": "Turn on",
     "turnOff": "Turn off",
-    "pairDevice": "Pair device",
+    "pairWebDevice": "Pair web companion",
     "reset": "Reset",
     "resetConfirm": "Reset the mobile identity? Every paired device will be revoked and must pair again.",
     "identityReset": "Mobile identity reset",
@@ -184,19 +184,21 @@
     "noDevices": "No devices paired yet.",
     "revokeDevice": "Revoke {{name}}"
   },
-  "pairDevice": {
-    "title": "Pair a device",
-    "description": "Open SpecRails Companion on your phone and scan this code. It only works while this dialog is open.",
+  "pairWeb": {
+    "title": "Pair web companion",
+    "description": "Open specrails.dev/companion-app on your phone, then scan this code with it.",
     "startFailed": "Could not start pairing: {{error}}",
-    "wantsToPair": "<b>{{name}}</b> ({{platform}}) wants to pair.",
-    "deny": "Deny",
-    "approve": "Approve",
+    "showThenScan": "After your phone scans this, tap “Scan phone's code” and point the camera at your phone.",
+    "scanAnswer": "Scan phone's code",
+    "scanning": "Point the camera at the code on your phone…",
+    "cameraFailed": "Camera unavailable: {{message}}",
+    "notAnswer": "That QR isn't a pairing answer.",
+    "connecting": "Connecting…",
     "paired": "✓ Paired",
-    "waiting": "Waiting for a device… (on {{host}}:{{port}})",
-    "thisDesktop": "this computer",
-    "copyCode": "Copy code (for \"Enter manually\")",
-    "pairedToast": "Device paired",
-    "approveFailed": "Approve failed: {{message}}",
-    "codeCopied": "Pairing code copied"
+    "pairedToast": "Web companion paired",
+    "answerRejected": "The desktop rejected that code. Generate a fresh one and retry.",
+    "copyCode": "Copy code",
+    "codeCopied": "Code copied",
+    "cancel": "Cancel"
   }
 }

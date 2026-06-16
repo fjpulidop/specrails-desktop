@@ -282,18 +282,17 @@
       "desktopBody": "ブラウザで Specrails を実行するか、サーバーとランタイムを同梱した署名済みデスクトップアプリ（macOS と Windows）を入手できます。"
     },
     "companion": {
-      "nav": "モバイルアプリ",
+      "nav": "モバイルコンパニオン",
       "title": "Specrails を持ち歩く",
-      "subtitle": "SpecRails Companion — あなたのパイプラインを、スマートフォンで",
-      "intro": "<b>SpecRails Companion</b> は、ローカルネットワーク経由でこのデスクトップとペアリングする iPhone / Android 向けの無料モバイルアプリです。スペックボードの閲覧、レールの起動と停止、ジョブログのライブ追跡、分析のチェックまで — すべてスマートフォンから。",
+      "subtitle": "Specrails Companion — あなたのパイプラインを、スマートフォンで",
+      "intro": "<b>Specrails Companion</b> は specrails.dev/companion-app で使える Web アプリです — スマートフォンで開く（またはホーム画面に追加する）だけで、スペックボードの閲覧、レールの起動と停止、ジョブログのライブ追跡、分析のチェックができます。インストール不要、アプリストアも不要。",
       "localLabel": "ほかのすべてと同じく 100% ローカル",
-      "localBody": "アプリは Wi-Fi 経由でこのコンピュータと直接通信します — QR ペアリングと TLS ピンニングで保護。クラウド中継なし、アカウント不要、コードが家の外に出ることはありません。",
-      "downloadLabel": "アプリを入手",
-      "downloadHint": "スマートフォンのカメラでコードをスキャンするか、リンクを開いてください。",
-      "ios": "iPhone 版をダウンロード",
-      "android": "Android 版をダウンロード",
+      "localBody": "スマートフォンはこのコンピュータに直接接続します — ピアツーピアで暗号化（WebRTC）。クラウド中継なし、アカウント不要、コードがあなたのデバイスの外に出ることはありません。",
+      "downloadLabel": "スマートフォンで開く",
+      "downloadHint": "スマートフォンのカメラでコードをスキャンするか、ブラウザで specrails.dev/companion-app を開いてください。",
+      "open": "Specrails Companion を開く",
       "pairLabel": "ペアリングは10秒で完了",
-      "pairBody": "インストールしたら、設定 → モバイルコンパニオン → デバイスをペアリング と進み、表示される QR コードをスキャンしてください。"
+      "pairBody": "スマートフォンで specrails.dev/companion-app を開き、こちらで 設定 → モバイルコンパニオン → Web コンパニオンをペアリング と進んで、画面の手順に従ってください。"
     },
     "moveFast": {
       "nav": "高速操作",

@@ -173,7 +173,7 @@
     "notListening": "待機していません",
     "turnOn": "オンにする",
     "turnOff": "オフにする",
-    "pairDevice": "デバイスをペアリング",
+    "pairWebDevice": "Web コンパニオンをペアリング",
     "reset": "リセット",
     "resetConfirm": "モバイル ID をリセットしますか？ペアリング済みのすべてのデバイスが無効化され、再ペアリングが必要になります。",
     "identityReset": "モバイル ID をリセットしました",
@@ -184,19 +184,21 @@
     "noDevices": "ペアリングされたデバイスはまだありません。",
     "revokeDevice": "{{name}} を無効化"
   },
-  "pairDevice": {
-    "title": "デバイスをペアリング",
-    "description": "スマートフォンで SpecRails Companion を開き、このコードをスキャンしてください。このダイアログが開いている間のみ有効です。",
+  "pairWeb": {
+    "title": "Web コンパニオンをペアリング",
+    "description": "スマートフォンで specrails.dev/companion-app を開き、それでこのコードをスキャンしてください。",
     "startFailed": "ペアリングを開始できませんでした: {{error}}",
-    "wantsToPair": "<b>{{name}}</b>（{{platform}}）がペアリングを要求しています。",
-    "deny": "拒否",
-    "approve": "承認",
+    "showThenScan": "スマートフォンでこれをスキャンしたら、「スマートフォンのコードをスキャン」をタップし、カメラをスマートフォンに向けてください。",
+    "scanAnswer": "スマートフォンのコードをスキャン",
+    "scanning": "カメラをスマートフォンのコードに向けてください…",
+    "cameraFailed": "カメラを利用できません: {{message}}",
+    "notAnswer": "その QR はペアリング応答ではありません。",
+    "connecting": "接続中…",
     "paired": "✓ ペアリング済み",
-    "waiting": "デバイスを待機中…（{{host}}:{{port}}）",
-    "thisDesktop": "このコンピューター",
-    "copyCode": "コードをコピー（「手動で入力」用）",
-    "pairedToast": "デバイスをペアリングしました",
-    "approveFailed": "承認に失敗しました: {{message}}",
-    "codeCopied": "ペアリングコードをコピーしました"
+    "pairedToast": "Web コンパニオンをペアリングしました",
+    "answerRejected": "デスクトップがそのコードを拒否しました。新しいコードを生成して再試行してください。",
+    "copyCode": "コードをコピー",
+    "codeCopied": "コードをコピーしました",
+    "cancel": "キャンセル"
   }
 }

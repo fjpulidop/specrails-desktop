@@ -11,5 +11,9 @@
   <!-- Required for native .node addons (better-sqlite3) -->
   <key>com.apple.security.cs.disable-library-validation</key>
   <true/>
+  <!-- Camera: the desktop scans the web companion's answer QR during pairing
+       (getUserMedia in the webview). -->
+  <key>com.apple.security.device.camera</key>
+  <true/>
 </dict>
 </plist>

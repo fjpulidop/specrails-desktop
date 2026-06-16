@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+  <!-- Required so macOS lets the webview access the camera (getUserMedia). The
+       desktop scans the web companion's answer QR during serverless pairing. -->
+  <key>NSCameraUsageDescription</key>
+  <string>Specrails uses the camera to scan the pairing QR shown by your phone when connecting the web companion.</string>
+</dict>
+</plist>

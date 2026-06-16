@@ -94,18 +94,15 @@ A non-localhost `Origin` header is rejected by the CORS middleware with `403 For
 
 ### Mobile Gateway admin (`/api/mobile/*`)
 
-Loopback-only admin surface for the Mobile Gateway (the gateway itself is a separate HTTPS+WSS listener the phone talks to). The wire contract the phone consumes intentionally keeps the legacy `hub.*` names — see the frozen mobile wire-compat note in `CLAUDE.md`.
+Loopback-only admin surface for the Mobile Gateway (the gateway itself is a separate HTTPS listener that tunnels the web companion's RPC over WebRTC). The wire contract the phone consumes intentionally keeps the legacy `hub.*` names — see the frozen mobile wire-compat note in `CLAUDE.md`.
 
 | Method | Path | Notes |
 |--------|------|-------|
-| `GET` | `/status` | Gateway status (`{ enabled, running, port, certFingerprint, lanAddresses, mdnsEnabled, desktopName }`) |
+| `GET` | `/status` | Gateway status (`{ enabled, running, port, certFingerprint, desktopName }`) |
 | `POST` | `/enable` | Start the gateway (generates the TLS identity on first run) |
 | `POST` | `/disable` | Stop the gateway |
-| `POST` | `/pairing-session` | Open a pairing session; returns the QR payload |
-| `GET` | `/pairing-session` | Poll the current pairing session (pending claim, if any) |
-| `POST` | `/pairing-session/approve` | Approve the pending claim (pairs the device) |
-| `POST` | `/pairing-session/deny` | Deny the pending claim |
-| `DELETE` | `/pairing-session` | Cancel the pairing session |
+| `POST` | `/webrtc/offer` | Create a serverless pairing offer (offer SDP + single-use secret + desktop identity) for the first QR |
+| `POST` | `/webrtc/answer` | Apply the companion's scanned answer SDP to the open offer |
 | `GET` | `/devices` | List paired devices |
 | `DELETE` | `/devices/:id` | Revoke a paired device |
 | `POST` | `/cert/rotate` | Rotate the gateway TLS identity (unpairs every device) |

@@ -13,6 +13,16 @@ beforeEach(() => {
 
 // ─── Shared mocks ─────────────────────────────────────────────────────────────
 
+// MobileAccessSection subscribes to the shared socket for live device updates;
+// stub it so the settings page renders without a SharedWebSocketProvider.
+vi.mock('../../hooks/useSharedWebSocket', () => ({
+  useSharedWebSocket: () => ({
+    registerHandler: vi.fn(),
+    unregisterHandler: vi.fn(),
+    connectionStatus: 'connected',
+  }),
+}))
+
 vi.mock('../../hooks/useDesktop', () => ({
   useDesktop: () => ({
     activeProjectId: 'proj-1',

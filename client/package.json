@@ -42,6 +42,7 @@
     "date-fns": "^4.1.0",
     "highlight.js": "^11.11.1",
     "i18next": "^26.3.1",
+    "jsqr": "^1.4.0",
     "lucide-react": "^0.577.0",
     "monaco-editor": "^0.55.1",
     "qrcode.react": "^4.2.0",

@@ -3,7 +3,7 @@ import net from 'net'
 import { initDesktopDb, setDesktopSetting, getDesktopSetting } from '../desktop-db'
 import type { DbInstance } from '../db'
 import type { WsMessage } from '../types'
-import { listDevices } from './mobile-devices'
+import { createDevice, hashToken, listDevices } from './mobile-devices'
 import { MobileGateway } from './mobile-gateway'
 
 describe('MobileGateway', () => {
@@ -13,7 +13,6 @@ describe('MobileGateway', () => {
 
   beforeEach(() => {
     db = initDesktopDb(':memory:')
-    setDesktopSetting(db, 'mobile.mdns_enabled', 'false') // skip multicast in tests
     events = []
     gw = new MobileGateway({
       desktopDb: db,
@@ -46,17 +45,15 @@ describe('MobileGateway', () => {
     expect(gw.status().port).toBe(port)
   })
 
-  it('full pairing flow persists a device, then rotateCert revokes it', async () => {
+  it('a persisted device is revoked when rotateCert resets the identity', async () => {
     await gw.start()
-    const qr = gw.pairing!.createSession()
-    expect(gw.pairing!.claim(qr.secret, { name: 'iPhone', platform: 'ios' }, '1.2.3.4').ok).toBe(true)
-    expect(gw.pairing!.approve().ok).toBe(true)
+    // The serverless WebRTC pairing path persists a device once paired; insert one
+    // directly, then assert the identity reset revokes it.
+    createDevice(db, { name: 'iPhone', platform: 'web', tokenHash: hashToken('tok'), certFingerprint: gw.status().certFingerprint! })
 
     let devices = listDevices(db)
     expect(devices).toHaveLength(1)
     expect(devices[0].revoked).toBe(false)
-    expect(events.some((e) => e.type === 'mobile.device_paired')).toBe(true)
-    expect(events.some((e) => e.type === 'mobile.pair_requested')).toBe(true)
 
     const fpBefore = gw.status().certFingerprint
     await gw.rotateCert()
@@ -86,9 +83,10 @@ describe('MobileGateway', () => {
     setDesktopSetting(db, 'mobile.hub_name', 'Legacy Mac')
     expect(gw.status().desktopName).toBe('Legacy Mac')
     await gw.start()
-    const qr = gw.pairing!.createSession()
-    expect(qr.hub).toBe('legacy-uuid-1')
-    expect(qr.name).toBe('Legacy Mac')
+    // The WebRTC offer carries the desktop identity the companion pins.
+    const offer = await gw.webrtcOffer()
+    expect(offer!.hubInstanceId).toBe('legacy-uuid-1')
+    expect(offer!.hubName).toBe('Legacy Mac')
     // The values were copied to the renamed keys.
     expect(getDesktopSetting(db, 'mobile.desktop_instance_id')).toBe('legacy-uuid-1')
     expect(getDesktopSetting(db, 'mobile.desktop_name')).toBe('Legacy Mac')

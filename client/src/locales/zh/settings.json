@@ -173,7 +173,7 @@
     "notListening": "未在监听",
     "turnOn": "开启",
     "turnOff": "关闭",
-    "pairDevice": "配对设备",
+    "pairWebDevice": "配对网页伴侣",
     "reset": "重置",
     "resetConfirm": "确定要重置移动身份吗？所有已配对设备都将被吊销，必须重新配对。",
     "identityReset": "移动身份已重置",
@@ -184,19 +184,21 @@
     "noDevices": "尚无已配对设备。",
     "revokeDevice": "吊销 {{name}}"
   },
-  "pairDevice": {
-    "title": "配对设备",
-    "description": "在手机上打开 SpecRails Companion 并扫描此二维码。仅在本对话框打开期间有效。",
+  "pairWeb": {
+    "title": "配对网页伴侣",
+    "description": "在手机上打开 specrails.dev/companion-app，然后用它扫描此二维码。",
     "startFailed": "无法开始配对：{{error}}",
-    "wantsToPair": "<b>{{name}}</b>（{{platform}}）请求配对。",
-    "deny": "拒绝",
-    "approve": "批准",
+    "showThenScan": "手机扫描此码后，点按“扫描手机的二维码”，并将摄像头对准手机。",
+    "scanAnswer": "扫描手机的二维码",
+    "scanning": "请将摄像头对准手机上的二维码…",
+    "cameraFailed": "摄像头不可用：{{message}}",
+    "notAnswer": "该二维码不是配对应答。",
+    "connecting": "正在连接…",
     "paired": "✓ 已配对",
-    "waiting": "等待设备中…（位于 {{host}}:{{port}}）",
-    "thisDesktop": "此电脑",
-    "copyCode": "复制配对码（用于“手动输入”）",
-    "pairedToast": "设备已配对",
-    "approveFailed": "批准失败：{{message}}",
-    "codeCopied": "配对码已复制"
+    "pairedToast": "网页伴侣已配对",
+    "answerRejected": "桌面端拒绝了该码。请重新生成一个并重试。",
+    "copyCode": "复制配对码",
+    "codeCopied": "配对码已复制",
+    "cancel": "取消"
   }
 }

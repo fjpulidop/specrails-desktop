@@ -173,7 +173,7 @@
     "notListening": "No está a la escucha",
     "turnOn": "Activar",
     "turnOff": "Desactivar",
-    "pairDevice": "Emparejar dispositivo",
+    "pairWebDevice": "Emparejar companion web",
     "reset": "Restablecer",
     "resetConfirm": "¿Restablecer la identidad móvil? Todos los dispositivos emparejados se revocarán y tendrán que emparejarse de nuevo.",
     "identityReset": "Identidad móvil restablecida",
@@ -184,19 +184,21 @@
     "noDevices": "Aún no hay dispositivos emparejados.",
     "revokeDevice": "Revocar {{name}}"
   },
-  "pairDevice": {
-    "title": "Emparejar un dispositivo",
-    "description": "Abre SpecRails Companion en tu teléfono y escanea este código. Solo funciona mientras este diálogo esté abierto.",
+  "pairWeb": {
+    "title": "Emparejar companion web",
+    "description": "Abre specrails.dev/companion-app en tu teléfono y escanea este código con él.",
     "startFailed": "No se pudo iniciar el emparejamiento: {{error}}",
-    "wantsToPair": "<b>{{name}}</b> ({{platform}}) quiere emparejarse.",
-    "deny": "Rechazar",
-    "approve": "Aprobar",
+    "showThenScan": "Cuando tu teléfono haya escaneado esto, toca «Escanear código del teléfono» y apunta la cámara hacia tu teléfono.",
+    "scanAnswer": "Escanear código del teléfono",
+    "scanning": "Apunta la cámara al código de tu teléfono…",
+    "cameraFailed": "Cámara no disponible: {{message}}",
+    "notAnswer": "Ese QR no es una respuesta de emparejamiento.",
+    "connecting": "Conectando…",
     "paired": "✓ Emparejado",
-    "waiting": "Esperando un dispositivo… (en {{host}}:{{port}})",
-    "thisDesktop": "este equipo",
-    "copyCode": "Copiar código (para «Introducir manualmente»)",
-    "pairedToast": "Dispositivo emparejado",
-    "approveFailed": "Error al aprobar: {{message}}",
-    "codeCopied": "Código de emparejamiento copiado"
+    "pairedToast": "Companion web emparejado",
+    "answerRejected": "El equipo de escritorio rechazó ese código. Genera uno nuevo e inténtalo de nuevo.",
+    "copyCode": "Copiar código",
+    "codeCopied": "Código copiado",
+    "cancel": "Cancelar"
   }
 }

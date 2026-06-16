@@ -282,18 +282,17 @@
       "desktopBody": "Esegui Specrails nel browser, oppure scarica l'app desktop firmata (macOS e Windows) che include il proprio server e i runtime."
     },
     "companion": {
-      "nav": "App mobile",
+      "nav": "Companion mobile",
       "title": "Porta Specrails con te",
-      "subtitle": "SpecRails Companion — le tue pipeline, sul tuo telefono",
-      "intro": "<b>SpecRails Companion</b> è l'app mobile gratuita per iPhone e Android che si associa a questo computer sulla tua rete locale. Sfoglia la board delle spec, lancia e ferma i rail, segui i log dei job in diretta e dai un'occhiata alle Analytics — direttamente dal telefono.",
+      "subtitle": "Specrails Companion — le tue pipeline, sul tuo telefono",
+      "intro": "<b>Specrails Companion</b> è una web app su specrails.dev/companion-app — aprila sul tuo telefono (o aggiungila alla schermata Home) per sfogliare la board delle spec, lanciare e fermare i rail, seguire i log dei job in diretta e dare un'occhiata alle Analytics. Nessuna installazione, nessuno app store.",
       "localLabel": "100% locale, come tutto il resto",
-      "localBody": "L'app dialoga direttamente con questo computer tramite il tuo Wi-Fi — associazione via QR con pinning TLS. Nessun relay cloud, nessun account, e il tuo codice non esce mai da casa.",
-      "downloadLabel": "Scarica l'app",
-      "downloadHint": "Scansiona un codice con la fotocamera del telefono, oppure apri il link.",
-      "ios": "Scarica per iPhone",
-      "android": "Scarica per Android",
+      "localBody": "Il tuo telefono si connette direttamente a questo computer — peer-to-peer e cifrato (WebRTC). Nessun relay cloud, nessun account, e il tuo codice non lascia mai i tuoi dispositivi.",
+      "downloadLabel": "Aprila sul tuo telefono",
+      "downloadHint": "Scansiona il codice con la fotocamera del telefono, oppure apri specrails.dev/companion-app nel suo browser.",
+      "open": "Apri Specrails Companion",
       "pairLabel": "L'associazione richiede dieci secondi",
-      "pairBody": "Una volta installata l'app, vai su Impostazioni → Companion mobile → Associa dispositivo e scansiona il codice QR che trovi lì."
+      "pairBody": "Sul tuo telefono apri specrails.dev/companion-app, poi qui vai su Impostazioni → Companion mobile → Associa companion web e segui i passaggi a schermo."
     },
     "moveFast": {
       "nav": "Vai veloce",

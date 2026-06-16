@@ -282,18 +282,17 @@
       "desktopBody": "Run Specrails in your browser, or grab the signed desktop app (macOS & Windows) that bundles its own server and runtimes."
     },
     "companion": {
-      "nav": "Mobile app",
+      "nav": "Mobile companion",
       "title": "Take Specrails with you",
-      "subtitle": "SpecRails Companion — your pipelines, on your phone",
-      "intro": "<b>SpecRails Companion</b> is the free mobile app for iPhone and Android that pairs with this desktop over your local network. Browse the specs board, launch and stop rails, follow live job logs and glance at analytics — straight from your phone.",
+      "subtitle": "Specrails Companion — your pipelines, on your phone",
+      "intro": "<b>Specrails Companion</b> is a web app at specrails.dev/companion-app — open it on your phone (or add it to your Home Screen) to browse the specs board, launch and stop rails, follow live job logs and glance at analytics. No install, no app store.",
       "localLabel": "100% local, like everything else",
-      "localBody": "The app talks directly to this computer over your Wi-Fi — QR pairing with pinned TLS. No cloud relay, no account, and your code never leaves home.",
-      "downloadLabel": "Get the app",
-      "downloadHint": "Scan a code with your phone's camera, or open the link.",
-      "ios": "Download for iPhone",
-      "android": "Download for Android",
+      "localBody": "Your phone connects straight to this computer — peer-to-peer and encrypted (WebRTC). No cloud relay, no account, and your code never leaves your devices.",
+      "downloadLabel": "Open it on your phone",
+      "downloadHint": "Scan the code with your phone's camera, or open specrails.dev/companion-app in its browser.",
+      "open": "Open Specrails Companion",
       "pairLabel": "Pairing takes ten seconds",
-      "pairBody": "Once installed, go to Settings → Mobile companion → Pair device and scan the QR code shown there."
+      "pairBody": "On your phone open specrails.dev/companion-app, then here go to Settings → Mobile companion → Pair web companion and follow the on-screen steps."
     },
     "moveFast": {
       "nav": "Move fast",

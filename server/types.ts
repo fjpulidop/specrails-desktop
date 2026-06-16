@@ -1164,7 +1164,7 @@ export interface JobFinalizedMessage {
 export interface MobilePairRequestedMessage {
   type: 'mobile.pair_requested'
   deviceName: string
-  platform: 'ios' | 'android'
+  platform: 'ios' | 'android' | 'web'
   timestamp: string
 }
 

@@ -3,16 +3,12 @@ import type { Request, Response } from 'express'
 import { loadOrGenerateToken } from '../auth'
 import { redact } from './mobile-redact'
 import { createMobileAuthMiddleware } from './mobile-auth'
-import type { PairingManager } from './mobile-pairing'
 import type { DbInstance } from '../db'
-import type { MobilePlatform } from './mobile-types'
 
-// The LAN-facing REST surface. Two parts:
-//   /pair/*  — unauthenticated, locked-down pairing handshake.
-//   /v1/*    — authenticated allow-list. Each route forwards, in-process, via a
-//              REAL loopback HTTP request to http://127.0.0.1:<desktopPort> with
-//              the master token injected server-side as `x-desktop-token` (it
-//              never leaves the box).
+// The gateway's authenticated REST surface: the `/v1/*` allow-list. Each route
+// forwards, in-process, via a REAL loopback HTTP request to
+// http://127.0.0.1:<desktopPort> with the master token injected server-side as
+// `x-desktop-token` (it never leaves the box).
 //
 // Forwarding is PARAMETERISED: the internal path is rebuilt from Express route
 // params (each a single URL segment — `..`/`/` can't appear), never from the raw
@@ -28,7 +24,6 @@ export interface MobileRouterDeps {
   db: DbInstance
   desktopPort: number
   currentFingerprint: () => string
-  pairing: PairingManager
 }
 
 export function createMobileRouter(deps: MobileRouterDeps): Router {
@@ -38,39 +33,6 @@ export function createMobileRouter(deps: MobileRouterDeps): Router {
   // segment (an array — which path-to-regexp never produces here — collapses to
   // '' and fails the validators below).
   const seg = (v: unknown): string => (typeof v === 'string' ? v : '')
-
-  // ─── Pairing (unauthenticated, rate-limited inside PairingManager) ──────────
-  const pairRouter = Router()
-
-  pairRouter.post('/claim', (req: Request, res: Response) => {
-    const body = (req.body ?? {}) as { secret?: unknown; deviceName?: unknown; platform?: unknown }
-    const secret = typeof body.secret === 'string' ? body.secret : ''
-    const deviceName = typeof body.deviceName === 'string' ? body.deviceName : 'Device'
-    const platform: MobilePlatform = body.platform === 'android' ? 'android' : 'ios'
-    const ip = req.socket?.remoteAddress ?? 'unknown'
-    if (!secret) {
-      res.status(400).json({ error: 'secret required' })
-      return
-    }
-    const result = deps.pairing.claim(secret, { name: deviceName, platform }, ip)
-    if (result.ok) {
-      res.json({ ok: true })
-      return
-    }
-    const code = result.reason === 'locked' ? 429 : result.reason === 'no-session' || result.reason === 'expired' ? 410 : 403
-    res.status(code).json({ ok: false, reason: result.reason })
-  })
-
-  pairRouter.get('/status', (req: Request, res: Response) => {
-    const claimId = typeof req.query.claimId === 'string' ? req.query.claimId : ''
-    if (!claimId) {
-      res.status(400).json({ error: 'claimId required' })
-      return
-    }
-    res.json(deps.pairing.pollStatus(claimId))
-  })
-
-  router.use('/pair', pairRouter)
 
   // ─── Authenticated allow-list (/v1) ─────────────────────────────────────────
   const v1 = Router()

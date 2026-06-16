@@ -1,24 +1,23 @@
 import { useEffect, useState, useCallback } from 'react'
 import { toast } from 'sonner'
 import { useTranslation } from 'react-i18next'
-import { Smartphone, ShieldCheck, Trash2 } from 'lucide-react'
+import { Smartphone, ShieldCheck, Trash2, Globe } from 'lucide-react'
 import { Button } from '../ui/button'
-import { PairDeviceModal } from './PairDeviceModal'
+import { PairWebCompanionModal } from './PairWebCompanionModal'
+import { useSharedWebSocket } from '../../hooks/useSharedWebSocket'
 
 interface MobileStatus {
   enabled: boolean
   running: boolean
   port: number
   certFingerprint: string | null
-  lanAddresses: string[]
-  mdnsEnabled: boolean
   desktopName: string
 }
 
 interface MobileDevice {
   id: string
   name: string
-  platform: 'ios' | 'android'
+  platform: 'ios' | 'android' | 'web'
   createdAt: string
   lastSeenAt: string | null
   revoked: boolean
@@ -38,7 +37,7 @@ export function MobileAccessSection() {
   const [status, setStatus] = useState<MobileStatus | null>(null)
   const [devices, setDevices] = useState<MobileDevice[]>([])
   const [busy, setBusy] = useState(false)
-  const [pairOpen, setPairOpen] = useState(false)
+  const [webPairOpen, setWebPairOpen] = useState(false)
 
   const loadStatus = useCallback(async () => {
     try {
@@ -58,6 +57,18 @@ export function MobileAccessSection() {
     void loadStatus()
     void loadDevices()
   }, [loadStatus, loadDevices])
+
+  // Live-refresh the device list when a device pairs (incl. the serverless web
+  // companion, which registers a beat after the QR exchange) or is revoked.
+  const { registerHandler, unregisterHandler } = useSharedWebSocket()
+  useEffect(() => {
+    const id = 'mobile-access-devices'
+    registerHandler(id, (msg) => {
+      const t = (msg as { type?: string } | null)?.type
+      if (t === 'mobile.device_paired' || t === 'mobile.device_revoked') void loadDevices()
+    })
+    return () => unregisterHandler(id)
+  }, [registerHandler, unregisterHandler, loadDevices])
 
   async function toggleEnabled(): Promise<void> {
     if (!status) return
@@ -125,9 +136,11 @@ export function MobileAccessSection() {
       {status.enabled && status.running && (
         <>
           <div className="flex items-center justify-between">
-            <Button onClick={() => setPairOpen(true)} className="gap-2">
-              <Smartphone className="h-4 w-4" /> {t('mobile.pairDevice')}
-            </Button>
+            <div className="flex items-center gap-2">
+              <Button onClick={() => setWebPairOpen(true)} className="gap-2">
+                <Globe className="h-4 w-4" /> {t('mobile.pairWebDevice')}
+              </Button>
+            </div>
             <div className="flex items-center gap-2 text-xs text-muted-foreground">
               <ShieldCheck className="h-3.5 w-3.5 text-accent-success" />
               <span title={status.certFingerprint ?? ''}>{shortFp(status.certFingerprint)}</span>
@@ -166,7 +179,7 @@ export function MobileAccessSection() {
         </>
       )}
 
-      <PairDeviceModal open={pairOpen} onClose={() => setPairOpen(false)} onPaired={loadDevices} />
+      <PairWebCompanionModal open={webPairOpen} onClose={() => setWebPairOpen(false)} onPaired={loadDevices} />
     </div>
   )
 }

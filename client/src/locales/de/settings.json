@@ -173,7 +173,7 @@
     "notListening": "Lauscht nicht",
     "turnOn": "Einschalten",
     "turnOff": "Ausschalten",
-    "pairDevice": "Gerät koppeln",
+    "pairWebDevice": "Web-Companion koppeln",
     "reset": "Zurücksetzen",
     "resetConfirm": "Mobile Identität zurücksetzen? Alle gekoppelten Geräte werden widerrufen und müssen neu gekoppelt werden.",
     "identityReset": "Mobile Identität zurückgesetzt",
@@ -184,19 +184,21 @@
     "noDevices": "Noch keine Geräte gekoppelt.",
     "revokeDevice": "{{name}} widerrufen"
   },
-  "pairDevice": {
-    "title": "Gerät koppeln",
-    "description": "Öffnen Sie SpecRails Companion auf Ihrem Smartphone und scannen Sie diesen Code. Er funktioniert nur, solange dieser Dialog geöffnet ist.",
+  "pairWeb": {
+    "title": "Web-Companion koppeln",
+    "description": "Öffnen Sie specrails.dev/companion-app auf Ihrem Smartphone und scannen Sie damit diesen Code.",
     "startFailed": "Koppeln konnte nicht gestartet werden: {{error}}",
-    "wantsToPair": "<b>{{name}}</b> ({{platform}}) möchte sich koppeln.",
-    "deny": "Ablehnen",
-    "approve": "Genehmigen",
+    "showThenScan": "Nachdem Ihr Smartphone dies gescannt hat, tippen Sie auf „Code des Smartphones scannen“ und richten Sie die Kamera auf Ihr Smartphone.",
+    "scanAnswer": "Code des Smartphones scannen",
+    "scanning": "Richten Sie die Kamera auf den Code auf Ihrem Smartphone…",
+    "cameraFailed": "Kamera nicht verfügbar: {{message}}",
+    "notAnswer": "Dieser QR-Code ist keine Kopplungsantwort.",
+    "connecting": "Verbinden…",
     "paired": "✓ Gekoppelt",
-    "waiting": "Warte auf ein Gerät… (auf {{host}}:{{port}})",
-    "thisDesktop": "diesem Computer",
-    "copyCode": "Code kopieren (für „Manuell eingeben“)",
-    "pairedToast": "Gerät gekoppelt",
-    "approveFailed": "Genehmigung fehlgeschlagen: {{message}}",
-    "codeCopied": "Kopplungscode kopiert"
+    "pairedToast": "Web-Companion gekoppelt",
+    "answerRejected": "Der Desktop hat diesen Code abgelehnt. Erzeugen Sie einen neuen und versuchen Sie es erneut.",
+    "copyCode": "Code kopieren",
+    "codeCopied": "Code kopiert",
+    "cancel": "Abbrechen"
   }
 }
