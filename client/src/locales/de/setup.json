@@ -282,18 +282,17 @@
       "desktopBody": "Nutzen Sie Specrails im Browser oder holen Sie sich die signierte Desktop-App (macOS & Windows) mit eigenem Server und eigenen Runtimes."
     },
     "companion": {
-      "nav": "Mobile App",
+      "nav": "Mobiler Companion",
       "title": "Nehmen Sie Specrails überallhin mit",
-      "subtitle": "SpecRails Companion – Ihre Pipelines auf Ihrem Smartphone",
-      "intro": "<b>SpecRails Companion</b> ist die kostenlose Mobile-App für iPhone und Android, die sich über Ihr lokales Netzwerk mit diesem Desktop koppelt. Durchstöbern Sie das Specs-Board, starten und stoppen Sie Rails, verfolgen Sie Live-Job-Logs und werfen Sie einen Blick auf die Analytics – direkt vom Smartphone.",
+      "subtitle": "Specrails Companion – Ihre Pipelines auf Ihrem Smartphone",
+      "intro": "<b>Specrails Companion</b> ist eine Web-App unter specrails.dev/companion-app – öffnen Sie sie auf Ihrem Smartphone (oder fügen Sie sie zu Ihrem Home-Bildschirm hinzu), um das Specs-Board zu durchstöbern, Rails zu starten und zu stoppen, Live-Job-Logs zu verfolgen und einen Blick auf die Analytics zu werfen. Keine Installation, kein App-Store.",
       "localLabel": "100 % lokal, wie alles andere",
-      "localBody": "Die App spricht über Ihr WLAN direkt mit diesem Rechner – QR-Kopplung mit TLS-Pinning. Kein Cloud-Relay, kein Konto, und Ihr Code verlässt nie Ihre vier Wände.",
-      "downloadLabel": "Holen Sie sich die App",
-      "downloadHint": "Scannen Sie einen Code mit der Kamera Ihres Smartphones oder öffnen Sie den Link.",
-      "ios": "Für iPhone laden",
-      "android": "Für Android laden",
+      "localBody": "Ihr Smartphone verbindet sich direkt mit diesem Rechner – Peer-to-Peer und verschlüsselt (WebRTC). Kein Cloud-Relay, kein Konto, und Ihr Code verlässt nie Ihre Geräte.",
+      "downloadLabel": "Auf Ihrem Smartphone öffnen",
+      "downloadHint": "Scannen Sie den Code mit der Kamera Ihres Smartphones oder öffnen Sie specrails.dev/companion-app im Browser.",
+      "open": "Specrails Companion öffnen",
       "pairLabel": "Die Kopplung dauert zehn Sekunden",
-      "pairBody": "Gehen Sie nach der Installation zu Einstellungen → Mobile Companion → Gerät koppeln und scannen Sie den dort angezeigten QR-Code."
+      "pairBody": "Öffnen Sie auf Ihrem Smartphone specrails.dev/companion-app und gehen Sie dann hier zu Einstellungen → Mobiler Companion → Web-Companion koppeln und folgen Sie den Schritten am Bildschirm."
     },
     "moveFast": {
       "nav": "Schnell arbeiten",

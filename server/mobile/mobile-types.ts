@@ -6,7 +6,8 @@
 // redacted, over a per-device token. The main server at 127.0.0.1:4200 is never
 // itself exposed. See docs/mobile.md.
 
-export type MobilePlatform = 'ios' | 'android'
+// 'web' = the serverless WebRTC web companion (specrails.dev/companion-app).
+export type MobilePlatform = 'ios' | 'android' | 'web'
 
 /** A paired device, as stored in desktop.sqlite `mobile_devices` (migration 12). */
 export interface MobileDeviceRow {

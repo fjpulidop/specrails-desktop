@@ -1,6 +1,6 @@
 import os from 'os'
 import https from 'https'
-import { randomUUID } from 'crypto'
+import { randomBytes, randomUUID } from 'crypto'
 import express from 'express'
 import type { Express } from 'express'
 import { WebSocketServer, type WebSocket } from 'ws'
@@ -13,8 +13,11 @@ import { PairingManager } from './mobile-pairing'
 import { createMobileRouter } from './mobile-router'
 import { MobileWsBridge } from './mobile-ws'
 import { advertiseMdns, withdrawMdns } from './mobile-mdns'
-import { createDevice, hashToken, revokeAllDevices, sweepExpiredDevices } from './mobile-devices'
+import { createDevice, hashToken, listDevices, revokeAllDevices, sweepExpiredDevices } from './mobile-devices'
 import { resolveDevice, extractBearer } from './mobile-auth'
+import { MobileWebrtcGateway } from './mobile-webrtc-peer'
+import { MobileSignalReconnect } from './mobile-signal-reconnect'
+import { buildRegisterDevice, buildRpcDispatch, createLoopbackFetch } from './mobile-webrtc'
 import type { MobilePlatform } from './mobile-types'
 
 // Lifecycle owner of the second HTTPS+WSS listener (default :4202), hard-isolated
@@ -78,6 +81,8 @@ export class MobileGateway {
   private _wss: WebSocketServer | null = null
   private _bridge: MobileWsBridge | null = null
   private _pairing: PairingManager | null = null
+  private _webrtc: MobileWebrtcGateway | null = null
+  private _signal: MobileSignalReconnect | null = null
   private _running = false
   private _boundPort = DEFAULT_PORT
   private readonly _portOverride?: number
@@ -95,6 +100,9 @@ export class MobileGateway {
   }
   get bridge(): MobileWsBridge | null {
     return this._bridge
+  }
+  get webrtc(): MobileWebrtcGateway | null {
+    return this._webrtc
   }
   get running(): boolean {
     return this._running
@@ -241,6 +249,49 @@ export class MobileGateway {
     this._bridge = bridge
     this._running = true
 
+    // Serverless WebRTC companion peer (offerer). Reuses this bridge for push +
+    // control, and tunnels its RPC to the /v1 allow-list above over loopback.
+    const createWebDevice = buildRegisterDevice({
+      db: this._db,
+      currentFingerprint: () => this._cert!.fingerprint,
+      desktopName: () => this.desktopName(),
+      desktopInstanceId: () => this.instanceId(),
+    })
+    this._webrtc = new MobileWebrtcGateway({
+      bridge,
+      registerDevice: async (input) => {
+        const r = await createWebDevice(input)
+        if (r.ok) {
+          this._broadcast({
+            type: 'mobile.device_paired',
+            deviceId: r.deviceId,
+            name: input.deviceName || 'Web companion',
+            timestamp: new Date().toISOString(),
+          })
+        }
+        return r
+      },
+      rpcDispatch: buildRpcDispatch({
+        gatewayBase: `https://127.0.0.1:${this._boundPort}`,
+        doFetch: createLoopbackFetch(),
+      }),
+    })
+
+    // Outbound reconnect poller: lets a refreshed/reopened companion re-establish
+    // the WebRTC link via the public signaling mailbox — no QR re-scan. Polls
+    // OUTBOUND only (no inbound, no cert wall); the mailbox only sees the ~5s
+    // handshake.
+    const signalBase =
+      getDesktopSetting(this._db, 'mobile.signal_url') || 'https://specrails.dev/companion-signal.php'
+    this._signal = new MobileSignalReconnect({
+      signalBase,
+      doFetch: (url, init) => fetch(url, init),
+      rooms: () => listDevices(this._db).filter((d) => !d.revoked).map((d) => d.id),
+      makeOffer: () => this.webrtcOffer(),
+      acceptAnswer: (sdp) => this.webrtcAnswer(sdp),
+    })
+    this._signal.start()
+
     if (this.mdnsEnabled()) {
       void advertiseMdns({
         name: this.desktopName(),
@@ -254,6 +305,8 @@ export class MobileGateway {
   /** Idempotent teardown. */
   async stop(): Promise<void> {
     await withdrawMdns()
+    if (this._signal) { this._signal.stop(); this._signal = null }
+    if (this._webrtc) { this._webrtc.stop(); this._webrtc = null }
     if (this._bridge) { this._bridge.stop(); this._bridge = null }
     if (this._wss) { try { this._wss.close() } catch { /* ignore */ } this._wss = null }
     if (this._server) {
@@ -277,6 +330,22 @@ export class MobileGateway {
     }
     this._broadcast({ type: 'mobile.gateway_state', running: this._running, port: this._boundPort, timestamp: new Date().toISOString() })
     return this.status()
+  }
+
+  /** Open a serverless WebRTC pairing offer (for the first QR). Returns the offer
+   *  SDP + a single-use secret + the desktop identity; the webview encodes these
+   *  into the QR the companion scans. */
+  async webrtcOffer(): Promise<{ sdp: string; secret: string; hubName: string; hubInstanceId: string } | null> {
+    if (!this._webrtc) return null
+    const secret = randomBytes(16).toString('base64url')
+    const { sdp } = await this._webrtc.createOffer(secret)
+    return { sdp, secret, hubName: this.desktopName(), hubInstanceId: this.instanceId() }
+  }
+
+  /** Apply the companion's scanned answer SDP to the open offer. */
+  async webrtcAnswer(sdp: string): Promise<boolean> {
+    if (!this._webrtc) return false
+    return (await this._webrtc.acceptAnswer(sdp)).ok
   }
 }
 

@@ -282,18 +282,17 @@
       "desktopBody": "Use o Specrails no browser, ou descarregue a app desktop assinada (macOS e Windows) que inclui o seu próprio servidor e runtimes."
     },
     "companion": {
-      "nav": "App móvel",
+      "nav": "Companion móvel",
       "title": "Leve o Specrails consigo",
-      "subtitle": "SpecRails Companion — os seus pipelines, no seu telemóvel",
-      "intro": "O <b>SpecRails Companion</b> é a app móvel gratuita para iPhone e Android que se emparelha com este desktop através da sua rede local. Navegue pelo quadro de specs, lance e pare rails, acompanhe os logs dos jobs em direto e espreite as analytics — diretamente do seu telemóvel.",
+      "subtitle": "Specrails Companion — os seus pipelines, no seu telemóvel",
+      "intro": "O <b>Specrails Companion</b> é uma app web em specrails.dev/companion-app — abra-a no seu telemóvel (ou adicione-a ao ecrã principal) para navegar pelo quadro de specs, lançar e parar rails, acompanhar os logs dos jobs em direto e espreitar as analytics. Sem instalação, sem loja de apps.",
       "localLabel": "100% local, como tudo o resto",
-      "localBody": "A app comunica diretamente com este computador através do seu Wi-Fi — emparelhamento por QR com certificado TLS fixado. Sem relay na cloud, sem conta, e o seu código nunca sai de casa.",
-      "downloadLabel": "Obtenha a app",
-      "downloadHint": "Leia um código com a câmara do seu telemóvel ou abra o link.",
-      "ios": "Descarregar para iPhone",
-      "android": "Descarregar para Android",
+      "localBody": "O seu telemóvel liga-se diretamente a este computador — ponto a ponto e cifrado (WebRTC). Sem relay na cloud, sem conta, e o seu código nunca sai dos seus dispositivos.",
+      "downloadLabel": "Abra-a no seu telemóvel",
+      "downloadHint": "Leia o código com a câmara do seu telemóvel ou abra specrails.dev/companion-app no respetivo navegador.",
+      "open": "Abrir o Specrails Companion",
       "pairLabel": "Emparelhar demora dez segundos",
-      "pairBody": "Depois de instalada, vá a Definições → Companion móvel → Emparelhar dispositivo e leia o código QR aí apresentado."
+      "pairBody": "No seu telemóvel, abra specrails.dev/companion-app e, aqui, vá a Definições → Companion móvel → Emparelhar companion web e siga os passos no ecrã."
     },
     "moveFast": {
       "nav": "Avançar depressa",

@@ -5,7 +5,7 @@ import { OnboardingWizard, hasSeenOnboarding, resetOnboarding } from '../Onboard
 import { ThemeProvider } from '../../context/ThemeContext'
 import { LanguageProvider } from '../../context/LanguageContext'
 import i18n, { DEFAULT_LANGUAGE } from '../../lib/i18n'
-import { COMPANION_IOS_URL, COMPANION_ANDROID_URL } from '../../lib/companion'
+import { COMPANION_WEB_URL } from '../../lib/companion'
 
 const STEP_TITLES = [
   'Choose your language',
@@ -135,19 +135,15 @@ describe('OnboardingWizard', () => {
     expect(screen.getAllByText('Alt').length).toBeGreaterThan(0)
   })
 
-  it('companion step shows iOS and Android download links', () => {
+  it('companion step links to the web companion (specrails.dev/companion-app)', () => {
     render(<OnboardingWizard open={true} onClose={onClose} />)
     const navButtons = screen.getAllByRole('button', { name: /^Go to step/ })
     fireEvent.click(navButtons[8]) // companion step
     expect(screen.getByText(STEP_TITLES[8])).toBeTruthy()
-    const ios = screen.getByTestId('companion-ios-link')
-    const android = screen.getByTestId('companion-android-link')
-    expect(ios).toHaveAttribute('href', COMPANION_IOS_URL)
-    expect(ios).toHaveAttribute('target', '_blank')
-    expect(ios).toHaveAttribute('rel', 'noopener noreferrer')
-    expect(android).toHaveAttribute('href', COMPANION_ANDROID_URL)
-    expect(android).toHaveAttribute('target', '_blank')
-    expect(android).toHaveAttribute('rel', 'noopener noreferrer')
+    const link = screen.getByTestId('companion-web-link')
+    expect(link).toHaveAttribute('href', COMPANION_WEB_URL)
+    expect(link).toHaveAttribute('target', '_blank')
+    expect(link).toHaveAttribute('rel', 'noopener noreferrer')
   })
 })
 

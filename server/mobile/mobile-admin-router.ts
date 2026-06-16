@@ -104,5 +104,34 @@ export function createMobileAdminRouter(deps: MobileAdminDeps): Router {
     res.json(status)
   })
 
+  // —— Serverless WebRTC pairing signaling (webview ↔ local peer) ——
+  // The webview asks for an offer (→ first QR), then posts the companion's
+  // scanned answer SDP. No SDP ever leaves the desktop except as a QR.
+  router.post('/webrtc/offer', async (_req: Request, res: Response) => {
+    if (!gateway.running || !gateway.webrtc) {
+      res.status(409).json({ error: 'Enable mobile access first' })
+      return
+    }
+    try {
+      const offer = await gateway.webrtcOffer()
+      if (!offer) {
+        res.status(409).json({ error: 'WebRTC unavailable' })
+        return
+      }
+      res.json(offer)
+    } catch {
+      res.status(500).json({ error: 'Failed to create offer' })
+    }
+  })
+
+  router.post('/webrtc/answer', async (req: Request, res: Response) => {
+    const sdp = typeof (req.body as { sdp?: unknown })?.sdp === 'string' ? (req.body as { sdp: string }).sdp : ''
+    if (!sdp) {
+      res.status(400).json({ error: 'sdp required' })
+      return
+    }
+    res.json({ ok: await gateway.webrtcAnswer(sdp) })
+  })
+
   return router
 }

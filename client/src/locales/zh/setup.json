@@ -282,18 +282,17 @@
       "desktopBody": "在浏览器中运行 Specrails，或下载已签名的桌面应用（macOS 和 Windows），它自带服务器与运行时。"
     },
     "companion": {
-      "nav": "移动应用",
+      "nav": "移动伴侣",
       "title": "随身携带 Specrails",
-      "subtitle": "SpecRails Companion——你的流水线，尽在掌上",
-      "intro": "<b>SpecRails Companion</b> 是面向 iPhone 和 Android 的免费移动应用，通过本地网络与这台电脑配对。浏览 Spec 看板、启动或停止 rail、实时跟踪任务日志、随手查看分析数据——全部在手机上完成。",
+      "subtitle": "Specrails Companion——你的流水线，尽在掌上",
+      "intro": "<b>Specrails Companion</b> 是一款网页应用，地址为 specrails.dev/companion-app——在手机上打开它（或将其添加到主屏幕），即可浏览 Spec 看板、启动或停止 rail、实时跟踪任务日志、随手查看分析数据。无需安装，无需应用商店。",
       "localLabel": "100% 本地，一如这里的一切",
-      "localBody": "应用经由你的 Wi-Fi 直接与这台电脑通信——二维码配对 + TLS 证书固定。没有云端中转、无需账号，你的代码绝不离开家门。",
-      "downloadLabel": "获取应用",
-      "downloadHint": "用手机相机扫码，或直接打开链接。",
-      "ios": "下载 iPhone 版",
-      "android": "下载 Android 版",
+      "localBody": "你的手机直接连接到这台电脑——点对点且加密（WebRTC）。没有云端中转、无需账号，你的代码绝不离开你的设备。",
+      "downloadLabel": "在手机上打开",
+      "downloadHint": "用手机相机扫码，或在浏览器中打开 specrails.dev/companion-app。",
+      "open": "打开 Specrails Companion",
       "pairLabel": "配对只需十秒",
-      "pairBody": "安装完成后，前往设置 → 移动伴侣 → 配对设备，扫描那里显示的二维码即可。"
+      "pairBody": "在手机上打开 specrails.dev/companion-app，然后在这里前往设置 → 移动伴侣 → 配对网页伴侣，按照屏幕提示操作。"
     },
     "moveFast": {
       "nav": "高效操作",

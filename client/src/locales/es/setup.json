@@ -282,18 +282,17 @@
       "desktopBody": "Ejecuta Specrails en tu navegador o descarga la app de escritorio firmada (macOS y Windows), que incluye su propio servidor y runtimes."
     },
     "companion": {
-      "nav": "App móvil",
+      "nav": "Compañera móvil",
       "title": "Llévate Specrails contigo",
-      "subtitle": "SpecRails Companion — tus pipelines, en tu teléfono",
-      "intro": "<b>SpecRails Companion</b> es la app móvil gratuita para iPhone y Android que se empareja con este escritorio a través de tu red local. Navega por el tablero de specs, lanza y detén rails, sigue los logs de los jobs en directo y echa un vistazo a la analítica — directamente desde tu teléfono.",
+      "subtitle": "Specrails Companion — tus pipelines, en tu teléfono",
+      "intro": "<b>Specrails Companion</b> es una app web en specrails.dev/companion-app — ábrela en tu teléfono (o añádela a tu pantalla de inicio) para navegar por el tablero de specs, lanzar y detener rails, seguir los logs de los jobs en directo y echar un vistazo a la analítica. Sin instalación, sin tienda de apps.",
       "localLabel": "100 % local, como todo lo demás",
-      "localBody": "La app habla directamente con este ordenador a través de tu Wi-Fi — emparejamiento por QR con anclaje de certificado TLS. Sin servidores intermedios en la nube, sin cuentas, y tu código nunca sale de casa.",
-      "downloadLabel": "Consigue la app",
-      "downloadHint": "Escanea un código con la cámara de tu teléfono o abre el enlace.",
-      "ios": "Descargar para iPhone",
-      "android": "Descargar para Android",
+      "localBody": "Tu teléfono se conecta directamente a este ordenador — peer-to-peer y cifrado (WebRTC). Sin servidores intermedios en la nube, sin cuentas, y tu código nunca sale de tus dispositivos.",
+      "downloadLabel": "Ábrela en tu teléfono",
+      "downloadHint": "Escanea el código con la cámara de tu teléfono o abre specrails.dev/companion-app en su navegador.",
+      "open": "Abrir Specrails Companion",
       "pairLabel": "Emparejar lleva diez segundos",
-      "pairBody": "Una vez instalada, ve a Ajustes → App móvil → Emparejar dispositivo y escanea el código QR que aparece ahí."
+      "pairBody": "En tu teléfono abre specrails.dev/companion-app y luego, aquí, ve a Ajustes → Compañera móvil → Emparejar compañera web y sigue los pasos en pantalla."
     },
     "moveFast": {
       "nav": "Ve rápido",

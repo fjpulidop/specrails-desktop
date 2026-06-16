@@ -174,6 +174,7 @@
     "turnOn": "Attiva",
     "turnOff": "Disattiva",
     "pairDevice": "Associa dispositivo",
+    "pairWebDevice": "Associa companion web",
     "reset": "Reimposta",
     "resetConfirm": "Reimpostare l'identità mobile? Ogni dispositivo associato verrà revocato e dovrà associarsi di nuovo.",
     "identityReset": "Identità mobile reimpostata",
@@ -198,5 +199,22 @@
     "pairedToast": "Dispositivo associato",
     "approveFailed": "Approvazione non riuscita: {{message}}",
     "codeCopied": "Codice di associazione copiato"
+  },
+  "pairWeb": {
+    "title": "Associa companion web",
+    "description": "Apri specrails.dev/companion-app sul telefono, poi scansiona questo codice con esso.",
+    "startFailed": "Impossibile avviare l'associazione: {{error}}",
+    "showThenScan": "Dopo che il telefono ha scansionato questo, tocca “Scansiona il codice del telefono” e punta la fotocamera verso il telefono.",
+    "scanAnswer": "Scansiona il codice del telefono",
+    "scanning": "Punta la fotocamera sul codice del telefono…",
+    "cameraFailed": "Fotocamera non disponibile: {{message}}",
+    "notAnswer": "Quel QR non è una risposta di associazione.",
+    "connecting": "Connessione…",
+    "paired": "✓ Associato",
+    "pairedToast": "Companion web associato",
+    "answerRejected": "Il desktop ha rifiutato quel codice. Generane uno nuovo e riprova.",
+    "copyCode": "Copia codice",
+    "codeCopied": "Codice copiato",
+    "cancel": "Annulla"
   }
 }

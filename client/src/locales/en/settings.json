@@ -174,6 +174,7 @@
     "turnOn": "Turn on",
     "turnOff": "Turn off",
     "pairDevice": "Pair device",
+    "pairWebDevice": "Pair web companion",
     "reset": "Reset",
     "resetConfirm": "Reset the mobile identity? Every paired device will be revoked and must pair again.",
     "identityReset": "Mobile identity reset",
@@ -198,5 +199,22 @@
     "pairedToast": "Device paired",
     "approveFailed": "Approve failed: {{message}}",
     "codeCopied": "Pairing code copied"
+  },
+  "pairWeb": {
+    "title": "Pair web companion",
+    "description": "Open specrails.dev/companion-app on your phone, then scan this code with it.",
+    "startFailed": "Could not start pairing: {{error}}",
+    "showThenScan": "After your phone scans this, tap “Scan phone's code” and point the camera at your phone.",
+    "scanAnswer": "Scan phone's code",
+    "scanning": "Point the camera at the code on your phone…",
+    "cameraFailed": "Camera unavailable: {{message}}",
+    "notAnswer": "That QR isn't a pairing answer.",
+    "connecting": "Connecting…",
+    "paired": "✓ Paired",
+    "pairedToast": "Web companion paired",
+    "answerRejected": "The desktop rejected that code. Generate a fresh one and retry.",
+    "copyCode": "Copy code",
+    "codeCopied": "Code copied",
+    "cancel": "Cancel"
   }
 }

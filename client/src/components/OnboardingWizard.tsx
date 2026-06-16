@@ -34,7 +34,6 @@ import {
   Check,
   Languages,
   Smartphone,
-  Apple,
   QrCode,
   ExternalLink,
 } from 'lucide-react'
@@ -43,7 +42,7 @@ import { cn } from '../lib/utils'
 import { Button } from './ui/button'
 import { LanguagePickerGrid } from './pickers/LanguagePickerGrid'
 import { ThemePickerGrid } from './pickers/ThemePickerGrid'
-import { COMPANION_IOS_URL, COMPANION_ANDROID_URL } from '../lib/companion'
+import { COMPANION_WEB_URL } from '../lib/companion'
 import { FEATURE_JIRA } from '../lib/feature-flags'
 
 const ONBOARDING_KEY = 'specrails-desktop:onboarding-dismissed'
@@ -283,20 +282,12 @@ function CompanionStepBody() {
       <div className="space-y-2">
         <p className="text-[13px] font-semibold text-foreground">{t('onboarding.companion.downloadLabel')}</p>
         <p className="text-xs text-muted-foreground">{t('onboarding.companion.downloadHint')}</p>
-        <div className="grid sm:grid-cols-2 gap-3">
-          <CompanionDownloadCard
-            icon={<Apple className="w-4 h-4 shrink-0" aria-hidden="true" />}
-            url={COMPANION_IOS_URL}
-            label={t('onboarding.companion.ios')}
-            testId="companion-ios-link"
-          />
-          <CompanionDownloadCard
-            icon={<Smartphone className="w-4 h-4 shrink-0" aria-hidden="true" />}
-            url={COMPANION_ANDROID_URL}
-            label={t('onboarding.companion.android')}
-            testId="companion-android-link"
-          />
-        </div>
+        <CompanionDownloadCard
+          icon={<Smartphone className="w-4 h-4 shrink-0" aria-hidden="true" />}
+          url={COMPANION_WEB_URL}
+          label={t('onboarding.companion.open')}
+          testId="companion-web-link"
+        />
       </div>
       <Feature icon={<QrCode className="w-4 h-4" />} label={t('onboarding.companion.pairLabel')} accent={ACCENTS.success}>
         {t('onboarding.companion.pairBody')}

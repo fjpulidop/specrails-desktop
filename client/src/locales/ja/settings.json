@@ -174,6 +174,7 @@
     "turnOn": "オンにする",
     "turnOff": "オフにする",
     "pairDevice": "デバイスをペアリング",
+    "pairWebDevice": "Web コンパニオンをペアリング",
     "reset": "リセット",
     "resetConfirm": "モバイル ID をリセットしますか？ペアリング済みのすべてのデバイスが無効化され、再ペアリングが必要になります。",
     "identityReset": "モバイル ID をリセットしました",
@@ -198,5 +199,22 @@
     "pairedToast": "デバイスをペアリングしました",
     "approveFailed": "承認に失敗しました: {{message}}",
     "codeCopied": "ペアリングコードをコピーしました"
+  },
+  "pairWeb": {
+    "title": "Web コンパニオンをペアリング",
+    "description": "スマートフォンで specrails.dev/companion-app を開き、それでこのコードをスキャンしてください。",
+    "startFailed": "ペアリングを開始できませんでした: {{error}}",
+    "showThenScan": "スマートフォンでこれをスキャンしたら、「スマートフォンのコードをスキャン」をタップし、カメラをスマートフォンに向けてください。",
+    "scanAnswer": "スマートフォンのコードをスキャン",
+    "scanning": "カメラをスマートフォンのコードに向けてください…",
+    "cameraFailed": "カメラを利用できません: {{message}}",
+    "notAnswer": "その QR はペアリング応答ではありません。",
+    "connecting": "接続中…",
+    "paired": "✓ ペアリング済み",
+    "pairedToast": "Web コンパニオンをペアリングしました",
+    "answerRejected": "デスクトップがそのコードを拒否しました。新しいコードを生成して再試行してください。",
+    "copyCode": "コードをコピー",
+    "codeCopied": "コードをコピーしました",
+    "cancel": "キャンセル"
   }
 }
