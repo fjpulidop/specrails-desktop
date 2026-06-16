@@ -173,7 +173,6 @@
     "notListening": "Pas à l'écoute",
     "turnOn": "Activer",
     "turnOff": "Désactiver",
-    "pairDevice": "Appairer un appareil",
     "pairWebDevice": "Appairer le compagnon web",
     "reset": "Réinitialiser",
     "resetConfirm": "Réinitialiser l'identité mobile ? Tous les appareils appairés seront révoqués et devront s'appairer à nouveau.",
@@ -184,21 +183,6 @@
     "pairedDevices": "Appareils appairés",
     "noDevices": "Aucun appareil appairé pour l'instant.",
     "revokeDevice": "Révoquer {{name}}"
-  },
-  "pairDevice": {
-    "title": "Appairer un appareil",
-    "description": "Ouvrez SpecRails Companion sur votre téléphone et scannez ce code. Il ne fonctionne que tant que cette boîte de dialogue est ouverte.",
-    "startFailed": "Impossible de démarrer l'appairage : {{error}}",
-    "wantsToPair": "<b>{{name}}</b> ({{platform}}) souhaite s'appairer.",
-    "deny": "Refuser",
-    "approve": "Approuver",
-    "paired": "✓ Appairé",
-    "waiting": "En attente d'un appareil… (sur {{host}}:{{port}})",
-    "thisDesktop": "cet ordinateur",
-    "copyCode": "Copier le code (pour « Saisir manuellement »)",
-    "pairedToast": "Appareil appairé",
-    "approveFailed": "Échec de l'approbation : {{message}}",
-    "codeCopied": "Code d'appairage copié"
   },
   "pairWeb": {
     "title": "Appairer le compagnon web",

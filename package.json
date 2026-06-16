@@ -42,7 +42,6 @@
     "ci": "npm run typecheck && npm run check-core-compat && npm run test:coverage && cd client && npm run test:coverage"
   },
   "dependencies": {
-    "@homebridge/ciao": "^1.3.9",
     "@tailwindcss/typography": "^0.5.19",
     "ajv": "^8.17.1",
     "better-sqlite3": "^12.8.0",

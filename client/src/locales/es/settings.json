@@ -173,7 +173,6 @@
     "notListening": "No está a la escucha",
     "turnOn": "Activar",
     "turnOff": "Desactivar",
-    "pairDevice": "Emparejar dispositivo",
     "pairWebDevice": "Emparejar companion web",
     "reset": "Restablecer",
     "resetConfirm": "¿Restablecer la identidad móvil? Todos los dispositivos emparejados se revocarán y tendrán que emparejarse de nuevo.",
@@ -184,21 +183,6 @@
     "pairedDevices": "Dispositivos emparejados",
     "noDevices": "Aún no hay dispositivos emparejados.",
     "revokeDevice": "Revocar {{name}}"
-  },
-  "pairDevice": {
-    "title": "Emparejar un dispositivo",
-    "description": "Abre SpecRails Companion en tu teléfono y escanea este código. Solo funciona mientras este diálogo esté abierto.",
-    "startFailed": "No se pudo iniciar el emparejamiento: {{error}}",
-    "wantsToPair": "<b>{{name}}</b> ({{platform}}) quiere emparejarse.",
-    "deny": "Rechazar",
-    "approve": "Aprobar",
-    "paired": "✓ Emparejado",
-    "waiting": "Esperando un dispositivo… (en {{host}}:{{port}})",
-    "thisDesktop": "este equipo",
-    "copyCode": "Copiar código (para «Introducir manualmente»)",
-    "pairedToast": "Dispositivo emparejado",
-    "approveFailed": "Error al aprobar: {{message}}",
-    "codeCopied": "Código de emparejamiento copiado"
   },
   "pairWeb": {
     "title": "Emparejar companion web",

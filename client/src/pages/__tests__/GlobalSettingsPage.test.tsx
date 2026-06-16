@@ -12,6 +12,16 @@ vi.mock('sonner', () => ({
   },
 }))
 
+// MobileAccessSection (rendered inside the settings page) subscribes to the
+// shared socket for live device updates; stub it so no provider is required.
+vi.mock('../../hooks/useSharedWebSocket', () => ({
+  useSharedWebSocket: () => ({
+    registerHandler: vi.fn(),
+    unregisterHandler: vi.fn(),
+    connectionStatus: 'connected',
+  }),
+}))
+
 // Controlled useDesktop mock: track removeProject calls
 const mockRemoveProject = vi.fn()
 let mockProjects: Array<{ id: string; slug: string; name: string; path: string; db_path: string; added_at: string; last_seen_at: string }> = []

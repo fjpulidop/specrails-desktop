@@ -3,7 +3,6 @@ import { toast } from 'sonner'
 import { useTranslation } from 'react-i18next'
 import { Smartphone, ShieldCheck, Trash2, Globe } from 'lucide-react'
 import { Button } from '../ui/button'
-import { PairDeviceModal } from './PairDeviceModal'
 import { PairWebCompanionModal } from './PairWebCompanionModal'
 import { useSharedWebSocket } from '../../hooks/useSharedWebSocket'
 
@@ -12,8 +11,6 @@ interface MobileStatus {
   running: boolean
   port: number
   certFingerprint: string | null
-  lanAddresses: string[]
-  mdnsEnabled: boolean
   desktopName: string
 }
 
@@ -40,7 +37,6 @@ export function MobileAccessSection() {
   const [status, setStatus] = useState<MobileStatus | null>(null)
   const [devices, setDevices] = useState<MobileDevice[]>([])
   const [busy, setBusy] = useState(false)
-  const [pairOpen, setPairOpen] = useState(false)
   const [webPairOpen, setWebPairOpen] = useState(false)
 
   const loadStatus = useCallback(async () => {
@@ -141,10 +137,7 @@ export function MobileAccessSection() {
         <>
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
-              <Button onClick={() => setPairOpen(true)} className="gap-2">
-                <Smartphone className="h-4 w-4" /> {t('mobile.pairDevice')}
-              </Button>
-              <Button variant="outline" onClick={() => setWebPairOpen(true)} className="gap-2">
+              <Button onClick={() => setWebPairOpen(true)} className="gap-2">
                 <Globe className="h-4 w-4" /> {t('mobile.pairWebDevice')}
               </Button>
             </div>
@@ -186,7 +179,6 @@ export function MobileAccessSection() {
         </>
       )}
 
-      <PairDeviceModal open={pairOpen} onClose={() => setPairOpen(false)} onPaired={loadDevices} />
       <PairWebCompanionModal open={webPairOpen} onClose={() => setWebPairOpen(false)} onPaired={loadDevices} />
     </div>
   )

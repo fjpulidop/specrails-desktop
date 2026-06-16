@@ -3,18 +3,13 @@ import https from 'https'
 import { randomBytes, randomUUID } from 'crypto'
 import express from 'express'
 import type { Express } from 'express'
-import { WebSocketServer, type WebSocket } from 'ws'
-import type { IncomingMessage } from 'http'
 import type { DbInstance } from '../db'
 import type { WsMessage } from '../types'
 import { getDesktopSetting, setDesktopSetting } from '../desktop-db'
 import { loadOrCreateCert, rotateCert, mobileDir, type GatewayCert } from './mobile-tls'
-import { PairingManager } from './mobile-pairing'
 import { createMobileRouter } from './mobile-router'
 import { MobileWsBridge } from './mobile-ws'
-import { advertiseMdns, withdrawMdns } from './mobile-mdns'
-import { createDevice, hashToken, listDevices, revokeAllDevices, sweepExpiredDevices } from './mobile-devices'
-import { resolveDevice, extractBearer } from './mobile-auth'
+import { listDevices, revokeAllDevices, sweepExpiredDevices } from './mobile-devices'
 import { MobileWebrtcGateway } from './mobile-webrtc-peer'
 import { MobileSignalReconnect } from './mobile-signal-reconnect'
 import { buildRegisterDevice, buildRpcDispatch, createLoopbackFetch } from './mobile-webrtc'
@@ -29,7 +24,6 @@ const SETTING = {
   port: 'mobile.port',
   instanceId: 'mobile.desktop_instance_id',
   name: 'mobile.desktop_name',
-  mdns: 'mobile.mdns_enabled',
   fingerprint: 'mobile.cert_fingerprint',
 } as const
 // Legacy fallback — pre-rebrand (Specrails Hub) setting keys. Values are
@@ -55,20 +49,7 @@ export interface MobileGatewayStatus {
   running: boolean
   port: number
   certFingerprint: string | null
-  lanAddresses: string[]
-  mdnsEnabled: boolean
   desktopName: string
-}
-
-function lanAddresses(): string[] {
-  const out: string[] = []
-  const ifaces = os.networkInterfaces()
-  for (const name of Object.keys(ifaces)) {
-    for (const ni of ifaces[name] ?? []) {
-      if (ni.family === 'IPv4' && !ni.internal) out.push(ni.address)
-    }
-  }
-  return out
 }
 
 export class MobileGateway {
@@ -78,9 +59,7 @@ export class MobileGateway {
   private readonly _bindHost: string
   private _cert: GatewayCert | null = null
   private _server: https.Server | null = null
-  private _wss: WebSocketServer | null = null
   private _bridge: MobileWsBridge | null = null
-  private _pairing: PairingManager | null = null
   private _webrtc: MobileWebrtcGateway | null = null
   private _signal: MobileSignalReconnect | null = null
   private _running = false
@@ -95,9 +74,6 @@ export class MobileGateway {
     this._portOverride = deps.port
   }
 
-  get pairing(): PairingManager | null {
-    return this._pairing
-  }
   get bridge(): MobileWsBridge | null {
     return this._bridge
   }
@@ -140,10 +116,6 @@ export class MobileGateway {
     return id
   }
 
-  private mdnsEnabled(): boolean {
-    return getDesktopSetting(this._db, SETTING.mdns) !== 'false'
-  }
-
   isEnabledSetting(): boolean {
     return getDesktopSetting(this._db, SETTING.enabled) === 'true'
   }
@@ -154,8 +126,6 @@ export class MobileGateway {
       running: this._running,
       port: this._running ? this._boundPort : this.configuredPort(),
       certFingerprint: this._cert?.fingerprint ?? getDesktopSetting(this._db, SETTING.fingerprint) ?? null,
-      lanAddresses: lanAddresses(),
-      mdnsEnabled: this.mdnsEnabled(),
       desktopName: this.desktopName(),
     }
   }
@@ -178,53 +148,17 @@ export class MobileGateway {
     this._cert = await loadOrCreateCert(mobileDir())
     setDesktopSetting(this._db, SETTING.fingerprint, this._cert.fingerprint)
 
-    this._pairing = new PairingManager({
-      certFingerprint: () => this._cert!.fingerprint,
-      desktopInstanceId: () => this.instanceId(),
-      desktopName: () => this.desktopName(),
-      port: () => this._boundPort,
-      lanAddresses,
-      createDevice: ({ name, platform, token, certFingerprint }) => {
-        const row = createDevice(this._db, { name, platform, tokenHash: hashToken(token), certFingerprint })
-        this._broadcast({ type: 'mobile.device_paired', deviceId: row.id, name: row.name, timestamp: new Date().toISOString() })
-        return row.id
-      },
-      onClaimed: (device) => {
-        this._broadcast({ type: 'mobile.pair_requested', deviceName: device.name, platform: device.platform, timestamp: new Date().toISOString() })
-      },
-    })
-
     const app: Express = express()
     app.use(express.json({ limit: '256kb' }))
     app.use(createMobileRouter({
       db: this._db,
       desktopPort: this._desktopPort,
       currentFingerprint: () => this._cert!.fingerprint,
-      pairing: this._pairing,
     }))
 
     const server = https.createServer({ cert: this._cert.certPem, key: this._cert.keyPem }, app)
-    const wss = new WebSocketServer({ noServer: true })
     const bridge = new MobileWsBridge()
     bridge.start()
-
-    server.on('upgrade', (request: IncomingMessage, socket, head) => {
-      if ((request.url ?? '').split('?')[0] !== '/mws') {
-        socket.write('HTTP/1.1 404 Not Found\r\nConnection: close\r\n\r\n')
-        socket.destroy()
-        return
-      }
-      const token = tokenFromUpgrade(request)
-      const device = resolveDevice(this._db, token, this._cert!.fingerprint)
-      if (!device) {
-        socket.write('HTTP/1.1 401 Unauthorized\r\nConnection: close\r\n\r\n')
-        socket.destroy()
-        return
-      }
-      wss.handleUpgrade(request, socket, head, (ws: WebSocket) => {
-        bridge.attach(ws as unknown as Parameters<MobileWsBridge['attach']>[0], device.id)
-      })
-    })
 
     const port = this.configuredPort()
     await new Promise<void>((resolve, reject) => {
@@ -245,7 +179,6 @@ export class MobileGateway {
     })
 
     this._server = server
-    this._wss = wss
     this._bridge = bridge
     this._running = true
 
@@ -291,24 +224,13 @@ export class MobileGateway {
       acceptAnswer: (sdp) => this.webrtcAnswer(sdp),
     })
     this._signal.start()
-
-    if (this.mdnsEnabled()) {
-      void advertiseMdns({
-        name: this.desktopName(),
-        port: this._boundPort,
-        instanceId: this.instanceId(),
-        fingerprint: this._cert.fingerprint,
-      })
-    }
   }
 
   /** Idempotent teardown. */
   async stop(): Promise<void> {
-    await withdrawMdns()
     if (this._signal) { this._signal.stop(); this._signal = null }
     if (this._webrtc) { this._webrtc.stop(); this._webrtc = null }
     if (this._bridge) { this._bridge.stop(); this._bridge = null }
-    if (this._wss) { try { this._wss.close() } catch { /* ignore */ } this._wss = null }
     if (this._server) {
       await new Promise<void>((resolve) => this._server!.close(() => resolve()))
       this._server = null
@@ -347,25 +269,6 @@ export class MobileGateway {
     if (!this._webrtc) return false
     return (await this._webrtc.acceptAnswer(sdp)).ok
   }
-}
-
-/** Extract a device token from a /mws upgrade: Authorization header (native
- *  clients can set it) or a token-carrying subprotocol. */
-function tokenFromUpgrade(request: IncomingMessage): string | null {
-  const fake = { headers: request.headers } as unknown as import('express').Request
-  const bearer = extractBearer(fake)
-  if (bearer) return bearer
-  const proto = request.headers['sec-websocket-protocol']
-  if (typeof proto === 'string') {
-    for (const part of proto.split(',')) {
-      const p = part.trim()
-      if (p.startsWith('desktop-token.')) return p.slice('desktop-token.'.length).trim()
-      // mobile-app v1 wire compat — do not rename: the phone app (v1.0.0)
-      // carries its device token in a `hub-token.<token>` subprotocol.
-      if (p.startsWith('hub-token.')) return p.slice('hub-token.'.length).trim()
-    }
-  }
-  return null
 }
 
 export type { MobilePlatform }

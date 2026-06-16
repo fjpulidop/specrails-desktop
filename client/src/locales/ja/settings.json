@@ -173,7 +173,6 @@
     "notListening": "待機していません",
     "turnOn": "オンにする",
     "turnOff": "オフにする",
-    "pairDevice": "デバイスをペアリング",
     "pairWebDevice": "Web コンパニオンをペアリング",
     "reset": "リセット",
     "resetConfirm": "モバイル ID をリセットしますか？ペアリング済みのすべてのデバイスが無効化され、再ペアリングが必要になります。",
@@ -184,21 +183,6 @@
     "pairedDevices": "ペアリング済みデバイス",
     "noDevices": "ペアリングされたデバイスはまだありません。",
     "revokeDevice": "{{name}} を無効化"
-  },
-  "pairDevice": {
-    "title": "デバイスをペアリング",
-    "description": "スマートフォンで SpecRails Companion を開き、このコードをスキャンしてください。このダイアログが開いている間のみ有効です。",
-    "startFailed": "ペアリングを開始できませんでした: {{error}}",
-    "wantsToPair": "<b>{{name}}</b>（{{platform}}）がペアリングを要求しています。",
-    "deny": "拒否",
-    "approve": "承認",
-    "paired": "✓ ペアリング済み",
-    "waiting": "デバイスを待機中…（{{host}}:{{port}}）",
-    "thisDesktop": "このコンピューター",
-    "copyCode": "コードをコピー（「手動で入力」用）",
-    "pairedToast": "デバイスをペアリングしました",
-    "approveFailed": "承認に失敗しました: {{message}}",
-    "codeCopied": "ペアリングコードをコピーしました"
   },
   "pairWeb": {
     "title": "Web コンパニオンをペアリング",

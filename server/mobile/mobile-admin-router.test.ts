@@ -1,9 +1,10 @@
 import { describe, it, expect, beforeEach, afterEach } from 'vitest'
 import express from 'express'
 import request from 'supertest'
-import { initDesktopDb, setDesktopSetting } from '../desktop-db'
+import { initDesktopDb } from '../desktop-db'
 import type { DbInstance } from '../db'
 import type { WsMessage } from '../types'
+import { createDevice, hashToken } from './mobile-devices'
 import { MobileGateway } from './mobile-gateway'
 import { createMobileAdminRouter } from './mobile-admin-router'
 
@@ -15,7 +16,6 @@ describe('mobile-admin-router', () => {
 
   beforeEach(() => {
     db = initDesktopDb(':memory:')
-    setDesktopSetting(db, 'mobile.mdns_enabled', 'false')
     events = []
     gw = new MobileGateway({ desktopDb: db, desktopPort: 4200, broadcast: (m) => events.push(m), bindHost: '127.0.0.1', port: 0 })
     app = express()
@@ -36,31 +36,18 @@ describe('mobile-admin-router', () => {
     expect(res.body.port).toBeGreaterThan(0)
   })
 
-  it('pairing-session requires the gateway running', async () => {
-    const res = await request(app).post('/api/mobile/pairing-session')
-    expect(res.status).toBe(409)
-  })
-
-  it('end-to-end: enable, pair, list devices, revoke', async () => {
+  it('end-to-end: enable, register a device, list, revoke', async () => {
     await request(app).post('/api/mobile/enable')
 
-    const session = await request(app).post('/api/mobile/pairing-session')
-    expect(session.status).toBe(200)
-    expect(session.body.qr.secret).toBeTruthy()
-
-    // Simulate the phone claiming + desktop approving.
-    gw.pairing!.claim(session.body.qr.secret, { name: 'iPhone', platform: 'ios' }, '1.2.3.4')
-    const desktopState = await request(app).get('/api/mobile/pairing-session')
-    expect(desktopState.body.status).toBe('claimed')
-
-    const approve = await request(app).post('/api/mobile/pairing-session/approve')
-    expect(approve.status).toBe(200)
+    // The serverless WebRTC pairing path persists the device once the QR exchange
+    // completes; do that directly here, then exercise the admin list/revoke.
+    const row = createDevice(db, { name: 'iPhone', platform: 'web', tokenHash: hashToken('tok'), certFingerprint: 'fp' })
 
     const devices = await request(app).get('/api/mobile/devices')
     expect(devices.body.devices).toHaveLength(1)
-    const id = devices.body.devices[0].id
+    expect(devices.body.devices[0].id).toBe(row.id)
 
-    const del = await request(app).delete(`/api/mobile/devices/${id}`)
+    const del = await request(app).delete(`/api/mobile/devices/${row.id}`)
     expect(del.status).toBe(200)
     expect(del.body.ok).toBe(true)
     expect(events.some((e) => e.type === 'mobile.device_revoked')).toBe(true)
@@ -69,13 +56,6 @@ describe('mobile-admin-router', () => {
   it('rejects an invalid device id', async () => {
     const res = await request(app).delete('/api/mobile/devices/has spaces!')
     expect(res.status).toBe(400)
-  })
-
-  it('deny + cancel pairing session', async () => {
-    await request(app).post('/api/mobile/enable')
-    await request(app).post('/api/mobile/pairing-session')
-    expect((await request(app).post('/api/mobile/pairing-session/deny')).status).toBe(200)
-    expect((await request(app).delete('/api/mobile/pairing-session')).status).toBe(200)
   })
 
   it('cert rotate + disable', async () => {

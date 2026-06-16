@@ -173,7 +173,6 @@
     "notListening": "Lauscht nicht",
     "turnOn": "Einschalten",
     "turnOff": "Ausschalten",
-    "pairDevice": "Gerät koppeln",
     "pairWebDevice": "Web-Companion koppeln",
     "reset": "Zurücksetzen",
     "resetConfirm": "Mobile Identität zurücksetzen? Alle gekoppelten Geräte werden widerrufen und müssen neu gekoppelt werden.",
@@ -184,21 +183,6 @@
     "pairedDevices": "Gekoppelte Geräte",
     "noDevices": "Noch keine Geräte gekoppelt.",
     "revokeDevice": "{{name}} widerrufen"
-  },
-  "pairDevice": {
-    "title": "Gerät koppeln",
-    "description": "Öffnen Sie SpecRails Companion auf Ihrem Smartphone und scannen Sie diesen Code. Er funktioniert nur, solange dieser Dialog geöffnet ist.",
-    "startFailed": "Koppeln konnte nicht gestartet werden: {{error}}",
-    "wantsToPair": "<b>{{name}}</b> ({{platform}}) möchte sich koppeln.",
-    "deny": "Ablehnen",
-    "approve": "Genehmigen",
-    "paired": "✓ Gekoppelt",
-    "waiting": "Warte auf ein Gerät… (auf {{host}}:{{port}})",
-    "thisDesktop": "diesem Computer",
-    "copyCode": "Code kopieren (für „Manuell eingeben“)",
-    "pairedToast": "Gerät gekoppelt",
-    "approveFailed": "Genehmigung fehlgeschlagen: {{message}}",
-    "codeCopied": "Kopplungscode kopiert"
   },
   "pairWeb": {
     "title": "Web-Companion koppeln",

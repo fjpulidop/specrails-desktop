@@ -6,7 +6,6 @@ import { initDesktopDb } from '../desktop-db'
 import type { DbInstance } from '../db'
 import { createDevice, hashToken } from './mobile-devices'
 import { createMobileRouter } from './mobile-router'
-import { PairingManager } from './mobile-pairing'
 
 // A stand-in "internal server" the gateway forwards to. Captures the last body so
 // we can assert narrowing, and echoes auth so we can assert the master token is
@@ -40,13 +39,9 @@ afterAll(async () => {
 })
 
 function buildApp(db: DbInstance): express.Express {
-  const pairing = new PairingManager({
-    certFingerprint: () => 'fp', desktopInstanceId: () => 'd', desktopName: () => 'Mac',
-    port: () => 4202, lanAddresses: () => ['10.0.0.1'], createDevice: () => 'd1',
-  })
   const app = express()
   app.use(express.json())
-  app.use(createMobileRouter({ db, desktopPort: internalPort, currentFingerprint: () => 'fp', pairing }))
+  app.use(createMobileRouter({ db, desktopPort: internalPort, currentFingerprint: () => 'fp' }))
   return app
 }
 
@@ -195,38 +190,11 @@ describe('mobile-router', () => {
   })
 
   it('502 when the internal server is unreachable', async () => {
-    const pairing = new PairingManager({
-      certFingerprint: () => 'fp', desktopInstanceId: () => 'd', desktopName: () => 'Mac',
-      port: () => 4202, lanAddresses: () => [], createDevice: () => 'd1',
-    })
     const a = express()
     a.use(express.json())
     // Point at a port nothing is listening on.
-    a.use(createMobileRouter({ db, desktopPort: 9, currentFingerprint: () => 'fp', pairing }))
+    a.use(createMobileRouter({ db, desktopPort: 9, currentFingerprint: () => 'fp' }))
     const res = await request(a).get('/v1/projects').set('Authorization', 'Bearer tok')
     expect(res.status).toBe(502)
-  })
-
-  it('pairing claim + status are reachable without auth', async () => {
-    // Fresh app with a real pairing session.
-    const pairing = new PairingManager({
-      certFingerprint: () => 'fp', desktopInstanceId: () => 'd', desktopName: () => 'Mac',
-      port: () => 4202, lanAddresses: () => ['10.0.0.1'], createDevice: () => 'd1',
-    })
-    const a = express()
-    a.use(express.json())
-    a.use(createMobileRouter({ db, desktopPort: internalPort, currentFingerprint: () => 'fp', pairing }))
-    const qr = pairing.createSession()
-
-    const claim = await request(a).post('/pair/claim').send({ secret: qr.secret, deviceName: 'iPhone', platform: 'ios' })
-    expect(claim.status).toBe(200)
-    expect(claim.body.ok).toBe(true)
-
-    const bad = await request(a).post('/pair/claim').send({ deviceName: 'x' })
-    expect(bad.status).toBe(400)
-
-    const status = await request(a).get(`/pair/status?claimId=${encodeURIComponent(qr.claimId)}`)
-    expect(status.status).toBe(200)
-    expect(status.body.status).toBe('claimed')
   })
 })

@@ -173,7 +173,6 @@
     "notListening": "Not listening",
     "turnOn": "Turn on",
     "turnOff": "Turn off",
-    "pairDevice": "Pair device",
     "pairWebDevice": "Pair web companion",
     "reset": "Reset",
     "resetConfirm": "Reset the mobile identity? Every paired device will be revoked and must pair again.",
@@ -184,21 +183,6 @@
     "pairedDevices": "Paired devices",
     "noDevices": "No devices paired yet.",
     "revokeDevice": "Revoke {{name}}"
-  },
-  "pairDevice": {
-    "title": "Pair a device",
-    "description": "Open SpecRails Companion on your phone and scan this code. It only works while this dialog is open.",
-    "startFailed": "Could not start pairing: {{error}}",
-    "wantsToPair": "<b>{{name}}</b> ({{platform}}) wants to pair.",
-    "deny": "Deny",
-    "approve": "Approve",
-    "paired": "✓ Paired",
-    "waiting": "Waiting for a device… (on {{host}}:{{port}})",
-    "thisDesktop": "this computer",
-    "copyCode": "Copy code (for \"Enter manually\")",
-    "pairedToast": "Device paired",
-    "approveFailed": "Approve failed: {{message}}",
-    "codeCopied": "Pairing code copied"
   },
   "pairWeb": {
     "title": "Pair web companion",

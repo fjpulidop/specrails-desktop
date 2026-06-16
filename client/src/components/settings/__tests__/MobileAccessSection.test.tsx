@@ -2,6 +2,11 @@ import { render, screen, fireEvent, waitFor } from '@testing-library/react'
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 
 vi.mock('sonner', () => ({ toast: { error: vi.fn(), success: vi.fn() } }))
+// The live device-list refresh subscribes to the shared socket; stub it so the
+// section renders without a SharedWebSocketProvider.
+vi.mock('../../../hooks/useSharedWebSocket', () => ({
+  useSharedWebSocket: () => ({ registerHandler: vi.fn(), unregisterHandler: vi.fn(), connectionStatus: 'connected' }),
+}))
 
 import { MobileAccessSection } from '../MobileAccessSection'
 
@@ -20,8 +25,8 @@ function mockApi(handlers: Handler[]) {
   }) as never
 }
 
-const OFF = { enabled: false, running: false, port: 4202, certFingerprint: null, lanAddresses: [], mdnsEnabled: true, desktopName: 'Mac' }
-const ON = { enabled: true, running: true, port: 4202, certFingerprint: 'a'.repeat(64), lanAddresses: ['192.168.1.5'], mdnsEnabled: true, desktopName: 'Mac' }
+const OFF = { enabled: false, running: false, port: 4202, certFingerprint: null, desktopName: 'Mac' }
+const ON = { enabled: true, running: true, port: 4202, certFingerprint: 'a'.repeat(64), desktopName: 'Mac' }
 
 beforeEach(() => { vi.clearAllMocks() })
 
@@ -37,7 +42,7 @@ describe('MobileAccessSection', () => {
     expect(screen.getByRole('button', { name: 'Turn on' })).toBeInTheDocument()
   })
 
-  it('enabling reveals Pair device + fingerprint', async () => {
+  it('enabling reveals the pair button + fingerprint', async () => {
     mockApi([
       { match: (u, m) => u.endsWith('/status') && m === 'GET', body: OFF },
       { match: (u) => u.endsWith('/devices'), body: { devices: [] } },
@@ -46,7 +51,7 @@ describe('MobileAccessSection', () => {
     render(<MobileAccessSection />)
     const turnOn = await screen.findByRole('button', { name: 'Turn on' })
     fireEvent.click(turnOn)
-    await screen.findByRole('button', { name: /Pair device/ })
+    await screen.findByRole('button', { name: /Pair web companion/ })
     expect(screen.getByText(/aaaaaaaa…aaaaaaaa/)).toBeInTheDocument()
   })
 

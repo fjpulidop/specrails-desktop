@@ -7,7 +7,8 @@ import { listDevices, revokeDevice } from './mobile-devices'
 
 // Loopback-only control plane for the desktop UI, mounted on the MAIN server
 // at /api/mobile (behind requireAuth + requireLoopback). The phone never
-// touches these routes — they manage the gateway and pairing from the desktop.
+// touches these routes — they manage the gateway, devices, and the serverless
+// WebRTC pairing signaling from the desktop.
 
 export interface MobileAdminDeps {
   gateway: MobileGateway
@@ -38,46 +39,6 @@ export function createMobileAdminRouter(deps: MobileAdminDeps): Router {
   router.post('/disable', async (_req: Request, res: Response) => {
     await gateway.setEnabled(false)
     res.json(gateway.status())
-  })
-
-  // —— Pairing session ——
-  router.post('/pairing-session', (_req: Request, res: Response) => {
-    if (!gateway.running || !gateway.pairing) {
-      res.status(409).json({ error: 'Enable mobile access first' })
-      return
-    }
-    res.json({ qr: gateway.pairing.createSession() })
-  })
-
-  router.get('/pairing-session', (_req: Request, res: Response) => {
-    if (!gateway.pairing) {
-      res.json({ status: 'none' })
-      return
-    }
-    res.json(gateway.pairing.getDesktopState() ?? { status: 'none' })
-  })
-
-  router.post('/pairing-session/approve', (_req: Request, res: Response) => {
-    if (!gateway.pairing) {
-      res.status(409).json({ error: 'No pairing session' })
-      return
-    }
-    const result = gateway.pairing.approve()
-    if (!result.ok) {
-      res.status(409).json({ error: result.reason })
-      return
-    }
-    res.json({ ok: true })
-  })
-
-  router.post('/pairing-session/deny', (_req: Request, res: Response) => {
-    gateway.pairing?.deny()
-    res.json({ ok: true })
-  })
-
-  router.delete('/pairing-session', (_req: Request, res: Response) => {
-    gateway.pairing?.cancel()
-    res.json({ ok: true })
   })
 
   // —— Devices ——
