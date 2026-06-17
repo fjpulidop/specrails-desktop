@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from 'vitest'
-import { DataChannelPeer, type DataChannelLike, type WelcomeResult } from './mobile-datachannel'
+import { DataChannelPeer, ChunkReassembler, type DataChannelLike, type WelcomeResult } from './mobile-datachannel'
 import { MobileWsBridge } from './mobile-ws'
 import type { WsMessage } from '../types'
 
@@ -113,6 +113,44 @@ describe('DataChannelPeer', () => {
     bridge.dispatch({ type: 'queue', projectId: 'p1', jobs: [], paused: false, activeJobId: null } as unknown as WsMessage)
 
     expect(ch.json().some((f) => f.type === 'queue' && f.projectId === 'p1')).toBe(true)
+  })
+
+  it('splits an oversized rpc_result into __chunk frames that reassemble to the original', async () => {
+    const ch = new FakeChannel()
+    const bridge = new MobileWsBridge()
+    const register = async () => ({ ok: true as const, deviceId: 'dev-1', token: 'tok-1', hubName: 'Mac', hubInstanceId: 'inst-1' })
+    // A big JIRA-style ticket list — well over the per-message size cap.
+    const tickets = Array.from({ length: 5000 }, (_, i) => ({ id: i, title: `Ticket ${i}`, status: i % 2 ? 'todo' : 'done' }))
+    new DataChannelPeer(ch, {
+      bridge,
+      registerDevice: register,
+      rpcDispatch: async () => ({ status: 200, json: { tickets } }),
+    })
+    ch.recv({ type: 'hello', sec: 'good', deviceName: 'iPhone', platform: 'web' })
+    await flush()
+    ch.sent.length = 0 // discard the welcome frame
+    ch.recv({ type: 'rpc', id: 'r1', method: 'GET', path: '/v1/projects/p1/tickets' })
+    await flush()
+
+    const frames = ch.json()
+    expect(frames.length).toBeGreaterThan(1) // it actually chunked
+    expect(frames.every((f) => f.type === '__chunk')).toBe(true)
+
+    // Reassembling the chunks yields the original rpc_result verbatim.
+    const reasm = new ChunkReassembler()
+    let full: string | null = null
+    for (const raw of ch.sent) full = reasm.push(raw) ?? full
+    expect(full).not.toBeNull()
+    const decoded = JSON.parse(full!) as { type: string; id: string; status: number; json: { tickets: unknown[] } }
+    expect(decoded.type).toBe('rpc_result')
+    expect(decoded.id).toBe('r1')
+    expect(decoded.json.tickets).toHaveLength(5000)
+  })
+
+  it('ChunkReassembler passes non-chunk frames straight through', () => {
+    const reasm = new ChunkReassembler()
+    const frame = JSON.stringify({ type: 'welcome', deviceId: 'd' })
+    expect(reasm.push(frame)).toBe(frame)
   })
 
   it('drops cleanly when the channel closes', async () => {

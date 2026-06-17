@@ -16,6 +16,62 @@ import type { SocketLike } from './mobile-ws'
 const WS_OPEN = 1
 const WS_CLOSED = 3
 
+// WebRTC DataChannels carry an SCTP per-message size cap (werift advertises a
+// modest maxMessageSize; oversized sends throw). A large rpc_result — e.g. a
+// JIRA-backed project's full ticket list — easily exceeds it, and the throw was
+// swallowed silently, so the companion just timed out and rendered "0 tickets".
+// We split any oversized frame into ordered `__chunk` envelopes and reassemble
+// them on the far side. The channel is ordered+reliable, so chunks arrive in
+// order; `g` (group id) keeps concurrent large messages from interleaving.
+const CHUNK_SIZE = 16000
+let _chunkGroup = 0
+
+/** Send `data` over `ch`, splitting into `__chunk` frames when it exceeds the
+ *  safe per-message size. Small frames go out verbatim (no envelope overhead). */
+function framedSend(ch: DataChannelLike, data: string): void {
+  if (data.length <= CHUNK_SIZE) {
+    ch.send(data)
+    return
+  }
+  const g = _chunkGroup++
+  const n = Math.ceil(data.length / CHUNK_SIZE)
+  for (let i = 0; i < n; i++) {
+    const d = data.slice(i * CHUNK_SIZE, (i + 1) * CHUNK_SIZE)
+    ch.send(JSON.stringify({ type: '__chunk', g, i, n, d }))
+  }
+}
+
+/** Buffers inbound `__chunk` frames and yields the reassembled payload once a
+ *  group is complete. Non-chunk frames pass straight through. */
+export class ChunkReassembler {
+  private _groups = new Map<number, { n: number; parts: string[]; got: number }>()
+
+  /** Returns the string to handle (the frame itself, or a completed
+   *  reassembly), or null when more chunks of the group are still pending. */
+  push(data: string): string | null {
+    if (!data.startsWith('{"type":"__chunk"')) return data
+    let p: { g: number; i: number; n: number; d: string }
+    try {
+      p = JSON.parse(data)
+    } catch {
+      return data
+    }
+    if (!p || p.n == null) return data
+    let grp = this._groups.get(p.g)
+    if (!grp) {
+      grp = { n: p.n, parts: new Array(p.n).fill(''), got: 0 }
+      this._groups.set(p.g, grp)
+    }
+    if (grp.parts[p.i] === '' && grp.got < grp.n) {
+      grp.parts[p.i] = p.d
+      grp.got++
+    }
+    if (grp.got < grp.n) return null
+    this._groups.delete(p.g)
+    return grp.parts.join('')
+  }
+}
+
 /** Minimal structural view of a WebRTC DataChannel (werift RTCDataChannel or the
  *  browser type), so the wiring adapter and tests can both satisfy it. */
 export interface DataChannelLike {
@@ -39,7 +95,7 @@ export class DataChannelSocket implements SocketLike {
 
   send(data: string): void {
     try {
-      this._ch.send(data)
+      framedSend(this._ch, data)
     } catch {
       /* channel went away mid-send — onClose will reap it */
     }
@@ -126,11 +182,14 @@ export class DataChannelPeer {
   private _sock: DataChannelSocket
   private _authed = false
   private _token = ''
+  private _reasm = new ChunkReassembler()
 
   constructor(private _ch: DataChannelLike, private _deps: DataChannelPeerDeps) {
     this._sock = new DataChannelSocket(_ch)
     _ch.onMessage((data) => {
-      void this._onMessage(data)
+      const full = this._reasm.push(data)
+      if (full === null) return
+      void this._onMessage(full)
     })
     _ch.onClose(() => this._sock.closed())
   }
@@ -141,7 +200,7 @@ export class DataChannelPeer {
 
   private _send(obj: unknown): void {
     try {
-      this._ch.send(JSON.stringify(obj))
+      framedSend(this._ch, JSON.stringify(obj))
     } catch {
       /* ignore */
     }
