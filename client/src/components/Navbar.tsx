@@ -4,9 +4,10 @@ import { useTranslation } from 'react-i18next'
 import { Settings, BookOpen, LayoutDashboard, BarChart3 } from 'lucide-react'
 import { cn } from '../lib/utils'
 import { Tooltip, TooltipContent, TooltipTrigger } from './ui/tooltip'
+import type { ProviderId } from '../lib/provider-capabilities'
 
 interface CLIStatus {
-  provider: 'claude' | 'codex' | null
+  provider: ProviderId | null
   version: string | null
 }
 
@@ -28,14 +29,18 @@ function CLIBadge() {
       ? `Claude Code${status.version ? ` v${status.version}` : ''}`
       : status.provider === 'codex'
         ? `Codex CLI${status.version ? ` v${status.version}` : ''}`
-        : t('navbar.noCli')
+        : status.provider === 'gemini'
+          ? `Gemini CLI${status.version ? ` v${status.version}` : ''}`
+          : t('navbar.noCli')
 
   const badgeClass =
     status.provider === 'claude'
       ? 'bg-blue-500/15 text-blue-400 aurora-light:text-accent-info border-blue-500/30 aurora-light:border-accent-info/30'
       : status.provider === 'codex'
         ? 'bg-orange-500/15 text-orange-400 aurora-light:text-accent-warning border-orange-500/30 aurora-light:border-accent-warning/30'
-        : 'bg-red-500/15 text-red-400 aurora-light:text-destructive border-red-500/30 aurora-light:border-destructive/30'
+        : status.provider === 'gemini'
+          ? 'bg-green-500/15 text-green-400 aurora-light:text-accent-success border-green-500/30 aurora-light:border-accent-success/30'
+          : 'bg-red-500/15 text-red-400 aurora-light:text-destructive border-red-500/30 aurora-light:border-destructive/30'
 
   const tooltip =
     status.provider === null

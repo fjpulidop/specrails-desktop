@@ -103,15 +103,15 @@ describe('ProviderBreakdownCard', () => {
   it('falls back to the raw id and secondary accent for unknown providers', () => {
     const data = makeData([
       makeProvider({ provider: 'claude', count: 2, costUsd: 0.5 }),
-      makeProvider({ provider: 'gemini', count: 3, costUsd: 0.005 }),
+      makeProvider({ provider: 'mystery', count: 3, costUsd: 0.005 }),
     ])
     const { container } = render(<ProviderBreakdownCard data={data} loading={false} />)
 
-    expect(screen.getByText('gemini')).toBeInTheDocument()
+    expect(screen.getByText('mystery')).toBeInTheDocument()
     // fmtUsd branches: >= 0.01 → two decimals; tiny → four decimals
     expect(screen.getByText('$0.50')).toBeInTheDocument()
     expect(screen.getByText('$0.0050')).toBeInTheDocument()
-    const segment = container.querySelector('[title="gemini: $0.0050 (3)"]')
+    const segment = container.querySelector('[title="mystery: $0.0050 (3)"]')
     expect(segment).toBeInTheDocument()
     expect(segment).toHaveClass('bg-accent-secondary')
   })

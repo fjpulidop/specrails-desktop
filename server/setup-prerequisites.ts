@@ -406,6 +406,8 @@ function providerInstallUrl(id: string): string {
       return 'https://claude.com/download'
     case 'codex':
       return 'https://developers.openai.com/codex'
+    case 'gemini':
+      return 'https://github.com/google-gemini/gemini-cli'
     default:
       return 'https://github.com'
   }
@@ -421,6 +423,8 @@ function providerInstallHint(id: string, platform: NodeJS.Platform): string {
         : platform === 'win32'
           ? 'Install Codex CLI from https://developers.openai.com/codex, authenticate with `codex login`, then restart Specrails.'
           : 'Install Codex CLI from https://developers.openai.com/codex (or `pipx install codex-cli`), authenticate with `codex login`, then restart Specrails.'
+    case 'gemini':
+      return 'Install Gemini CLI via `npm i -g @google/gemini-cli` (or see https://github.com/google-gemini/gemini-cli), set GEMINI_API_KEY, then restart Specrails.'
     default:
       return `Install the ${id} CLI and restart Specrails.`
   }

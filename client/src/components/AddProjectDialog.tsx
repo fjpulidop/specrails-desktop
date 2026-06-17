@@ -19,16 +19,33 @@ import { usePrerequisites } from '../hooks/usePrerequisites'
 import { PrerequisitesPanel } from './PrerequisitesPanel'
 import { InstallInstructionsModal } from './InstallInstructionsModal'
 import { cn } from '../lib/utils'
+import type { ProviderId } from '../lib/provider-capabilities'
 
 interface AddProjectDialogProps {
   open: boolean
   onClose: () => void
 }
 
-type Provider = 'claude' | 'codex'
+type Provider = ProviderId
 
 // Canonical ordering — the first selected provider becomes the project primary.
-const PROVIDER_ORDER: Provider[] = ['claude', 'codex']
+// Providers detected by the server but not listed here still render (appended in
+// discovery order), so a new provider needs no edit to appear in the dialog.
+const PROVIDER_ORDER: Provider[] = ['claude', 'codex', 'gemini']
+
+// Display metadata per provider id; unknown ids fall back to a neutral chip.
+const PROVIDER_META: Record<string, { icon: string; label: string }> = {
+  claude: { icon: '🤖', label: 'Claude' },
+  codex: { icon: '⚡', label: 'Codex' },
+  gemini: { icon: '✨', label: 'Gemini' },
+}
+
+// Render order: known providers (canonical), then any extra detected ones.
+function providerRenderOrder(avail: Record<string, boolean>): string[] {
+  const known = PROVIDER_ORDER.filter((id) => id in avail)
+  const extras = Object.keys(avail).filter((id) => !PROVIDER_ORDER.includes(id))
+  return [...known, ...extras]
+}
 
 export function AddProjectDialog({ open, onClose }: AddProjectDialogProps) {
   // Multi-select: a project can be created with one or both providers. When both
@@ -38,7 +55,10 @@ export function AddProjectDialog({ open, onClose }: AddProjectDialogProps) {
   const [projectPath, setProjectPath] = useState('')
   const [projectName, setProjectName] = useState('')
   const [isAdding, setIsAdding] = useState(false)
-  const [availableProviders, setAvailableProviders] = useState<{ claude: boolean; codex: boolean }>({ claude: true, codex: false })
+  // Initial render default (claude + codex visible immediately, no flash); the
+  // /available-providers fetch overwrites this with the real server map, which
+  // also adds any beta-gated provider (e.g. gemini) when enabled.
+  const [availableProviders, setAvailableProviders] = useState<Record<string, boolean>>({ claude: true, codex: false })
   const [installModalOpen, setInstallModalOpen] = useState(false)
 
   const { t } = useTranslation('setup')
@@ -60,19 +80,21 @@ export function AddProjectDialog({ open, onClose }: AddProjectDialogProps) {
     if (!open) return
     fetch('/api/available-providers')
       .then((r) => r.json())
-      .then((data) => {
-        // Honour the server's real availability. The emergency-rollback env
-        // var `SPECRAILS_CODEX_BETA=0` on the server reports codex:false
-        // even if the binary is installed.
-        const claude = Boolean(data.claude)
-        const codex = Boolean(data.codex)
-        setAvailableProviders({ claude, codex })
+      .then((data: Record<string, unknown>) => {
+        // Honour the server's real availability map. Providers gated off by env
+        // (codex SPECRAILS_CODEX_BETA=0 reports false; gemini opt-in is omitted)
+        // simply don't appear / aren't selectable here.
+        const avail: Record<string, boolean> = {}
+        for (const [k, v] of Object.entries(data)) {
+          if (k === 'tiers') continue
+          avail[k] = Boolean(v)
+        }
+        setAvailableProviders(avail)
         // Default selection: every available provider is pre-selected, so the
-        // common "I have both" case sets up a multi-provider project in one
+        // common "I have these" case sets up a multi-provider project in one
         // click. The user can deselect down to one before submitting.
         const next = new Set<Provider>()
-        if (claude) next.add('claude')
-        if (codex) next.add('codex')
+        for (const id of providerRenderOrder(avail)) if (avail[id]) next.add(id)
         if (next.size === 0) next.add('claude') // keep submit gating to drive the empty state
         setSelectedProviders(next)
       })
@@ -93,7 +115,7 @@ export function AddProjectDialog({ open, onClose }: AddProjectDialogProps) {
   }
 
   // Ordered list (primary first) for submission + summary.
-  const orderedSelected = PROVIDER_ORDER.filter((p) => selectedProviders.has(p) && availableProviders[p])
+  const orderedSelected = providerRenderOrder(availableProviders).filter((p) => selectedProviders.has(p) && availableProviders[p])
 
   async function handleAdd() {
     const trimmedPath = projectPath.trim()
@@ -138,7 +160,7 @@ export function AddProjectDialog({ open, onClose }: AddProjectDialogProps) {
     if (!isOpen) resetAndClose()
   }
 
-  const noProviderAvailable = !availableProviders.claude && !availableProviders.codex
+  const noProviderAvailable = !Object.values(availableProviders).some(Boolean)
 
   return (
     <Dialog open={open} onOpenChange={handleOpenChange}>
@@ -231,10 +253,8 @@ export function AddProjectDialog({ open, onClose }: AddProjectDialogProps) {
           <div className="space-y-1.5">
             <label className="text-xs font-medium text-muted-foreground">{t('addProject.providersLabel')}</label>
             <div className="flex gap-2">
-              {([
-                { id: 'claude' as Provider, icon: '🤖', label: 'Claude' },
-                { id: 'codex' as Provider, icon: '⚡', label: 'Codex' },
-              ]).map(({ id, icon, label }) => {
+              {providerRenderOrder(availableProviders).map((id) => {
+                const { icon, label } = PROVIDER_META[id] ?? { icon: '•', label: id }
                 const avail = availableProviders[id]
                 const checked = selectedProviders.has(id) && avail
                 return (

@@ -10,7 +10,7 @@ import { spawnAiCli } from './util/cli-prompt'
 import { spawnCli } from './util/win-spawn'
 import { formatMissingSetupPrerequisites } from './setup-prerequisites'
 import { CORE_PACKAGE_SPEC } from './core-package'
-import { getAdapter } from './providers'
+import { getAdapter, hasAdapter } from './providers'
 import type { ProviderAdapter, SpawnAction, ProviderId } from './providers/types'
 
 /**
@@ -695,7 +695,7 @@ export class SetupManager {
       try {
         const text = readFileSync(configPath, 'utf-8')
         const m = text.match(/^provider:\s*(\w+)/m)
-        if (m && (m[1] === 'claude' || m[1] === 'codex')) {
+        if (m && m[1] && hasAdapter(m[1])) {
           this._projectProviders.set(projectId, m[1])
         }
       } catch {
@@ -1304,7 +1304,7 @@ export class SetupManager {
     try {
       const text = readFileSync(join(projectPath, '.specrails', 'install-config.yaml'), 'utf-8')
       const m = text.match(/^provider:\s*(\w+)/m)
-      if (m && m[1] === 'codex') provider = 'codex'
+      if (m && m[1] && hasAdapter(m[1])) provider = m[1]
     } catch {
       // Missing install-config — stay on claude default.
     }

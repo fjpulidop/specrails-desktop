@@ -218,7 +218,9 @@ describe('setup prerequisites', () => {
       if (cmd === 'npm') return { status: 0, stdout: '10.0.0\n', stderr: '' } as any
       if (cmd === 'npx') return { status: 0, stdout: '10.0.0\n', stderr: '' } as any
       if (cmd === 'git') return { status: 0, stdout: 'git version 2.42.1\n', stderr: '' } as any
-      // Both providers fail their version probe → unusable
+      // All providers fail their version probe → unusable. claude/codex return a
+      // non-zero status; gemini returns 0 with empty stdout (no version match →
+      // meetsMinimum false), so all three are unusable.
       if (cmd === 'claude' || cmd === 'codex') return { status: 1, stdout: '', stderr: 'auth missing' } as any
       return { status: 0, stdout: '', stderr: '' } as any
     })
@@ -229,7 +231,7 @@ describe('setup prerequisites', () => {
       .filter((p) => p.kind === 'provider')
       .map((p) => p.key)
       .sort()
-    expect(missingProviders).toEqual(['claude', 'codex'])
+    expect(missingProviders).toEqual(['claude', 'codex', 'gemini'])
   })
 
   it('does NOT block when at least one provider is usable', () => {

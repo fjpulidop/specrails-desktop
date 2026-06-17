@@ -5,6 +5,7 @@ import {
   ensureStdinPipe,
   spawnClaude,
   spawnCodex,
+  spawnGemini,
   spawnAiCli,
 } from './cli-prompt'
 
@@ -234,6 +235,14 @@ describe('spawn dispatch (POSIX fallthrough)', () => {
     smokeSpawnSync(spawnCodex(['exec', 'noop'], { stdio: ['ignore', 'pipe', 'pipe'] }))
   })
 
+  it('spawnGemini injects GEMINI_CLI_TRUST_WORKSPACE and spawns via spawnCli', () => {
+    if (skipOnWin) return
+    // Merge into a caller-provided env (not just process.env) and assert the
+    // trust var is set — without it gemini silently disables --yolo headless.
+    const child = spawnGemini(['--version'], { env: { FOO: 'bar' }, stdio: ['ignore', 'pipe', 'pipe'] })
+    smokeSpawnSync(child)
+  })
+
   it('spawnAiCli runs a real binary end-to-end on POSIX', async () => {
     if (skipOnWin) return
     const child = spawnAiCli('echo', ['hello'], { stdio: ['ignore', 'pipe', 'pipe'] })
@@ -244,9 +253,9 @@ describe('spawn dispatch (POSIX fallthrough)', () => {
     expect(out.trim()).toBe('hello')
   })
 
-  it('spawnAiCli dispatches "claude"/"codex"/other through the right wrapper', () => {
+  it('spawnAiCli dispatches "claude"/"codex"/"gemini"/other through the right wrapper', () => {
     if (skipOnWin) return
-    for (const bin of ['claude', 'codex', 'true']) {
+    for (const bin of ['claude', 'codex', 'gemini', 'true']) {
       smokeSpawnSync(spawnAiCli(bin, [], { stdio: ['ignore', 'pipe', 'pipe'] }))
     }
   })
