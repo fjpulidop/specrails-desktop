@@ -259,6 +259,24 @@ describe('AddProjectDialog', () => {
     })
   })
 
+  it('renders a Gemini toggle when the server reports it (data-driven, beta on)', async () => {
+    // The provider list is data-driven: a beta-gated provider the server returns
+    // appears with no per-provider edit. When the beta is off the server omits
+    // gemini, so it never shows.
+    global.fetch = vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({ claude: true, codex: true, gemini: true }),
+    })
+
+    render(<AddProjectDialog open={true} onClose={vi.fn()} />)
+
+    await waitFor(() => {
+      const geminiBtn = screen.getByRole('checkbox', { name: /Gemini/i })
+      expect(geminiBtn).not.toBeDisabled()
+      expect(geminiBtn).not.toHaveTextContent(/not found/i)
+    })
+  })
+
   it('selects both providers by default when both are available and submits both', async () => {
     const user = userEvent.setup()
     global.fetch = vi.fn().mockImplementation(async (input: RequestInfo | URL) => {

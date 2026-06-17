@@ -557,14 +557,14 @@ describe('desktop-router', () => {
       expect(res.body.codex).toBe(false)
     })
 
-    it('forces gemini to false by default (beta opt-in)', async () => {
+    it('omits gemini entirely by default (beta opt-in → fully hidden)', async () => {
       const prev = process.env.SPECRAILS_GEMINI_BETA
       delete process.env.SPECRAILS_GEMINI_BETA
       try {
         const { app } = createApp()
         const res = await request(app).get('/api/available-providers')
         expect(res.status).toBe(200)
-        expect(res.body.gemini).toBe(false)
+        expect(res.body).not.toHaveProperty('gemini')
       } finally {
         if (prev === undefined) delete process.env.SPECRAILS_GEMINI_BETA
         else process.env.SPECRAILS_GEMINI_BETA = prev

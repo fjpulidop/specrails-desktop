@@ -174,7 +174,9 @@ export function createDesktopRouter(
     // is forced unavailable when SPECRAILS_CODEX_BETA=0 (emergency rollback).
     const gated: Record<string, boolean> = { ...providers }
     if (isCodexBetaDisabled()) gated.codex = false
-    if (!isGeminiBetaEnabled()) gated.gemini = false
+    // Gemini is opt-in: omit it entirely (not just `false`) when the beta flag is
+    // off, so it stays fully invisible in the UI until SPECRAILS_GEMINI_BETA=1.
+    if (!isGeminiBetaEnabled()) delete gated.gemini
     res.json({ ...gated, tiers })
   })
 

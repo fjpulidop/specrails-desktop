@@ -9,11 +9,13 @@ interface Props {
 const PROVIDER_LABEL: Record<string, string> = {
   claude: 'Claude',
   codex: 'Codex',
+  gemini: 'Gemini',
 }
 
 const PROVIDER_ACCENT: Record<string, string> = {
   claude: 'bg-accent-info',
   codex: 'bg-accent-highlight',
+  gemini: 'bg-accent-success',
 }
 
 function fmtUsd(v: number): string {

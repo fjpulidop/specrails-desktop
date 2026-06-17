@@ -171,8 +171,22 @@ export function spawnCodex(args: string[], options: SpawnOptions = {}): ChildPro
 }
 
 /**
+ * Spawn `gemini` headless. Injects `GEMINI_CLI_TRUST_WORKSPACE=true` so the CLI
+ * does not silently override `--yolo` back to "default" (which blocks EVERY tool
+ * call) when the project dir is not a "trusted folder" — the documented escape
+ * hatch for headless/automated environments. Validated empirically: without it,
+ * a headless `gemini -p` run executes zero tool calls and the rail does nothing.
+ * No multi-line argv quirk (the prompt rides on a single `-p` value), so the
+ * Windows path is identical to POSIX.
+ */
+export function spawnGemini(args: string[], options: SpawnOptions = {}): ChildProcess {
+  const env = { ...(options.env ?? process.env), GEMINI_CLI_TRUST_WORKSPACE: 'true' }
+  return spawnCli('gemini', args, { ...options, env })
+}
+
+/**
  * Convenience: dispatch on binary name. Use when callsite picks the
- * binary dynamically (claude vs codex). Anything else routes through
+ * binary dynamically (claude vs codex vs gemini). Anything else routes through
  * the underlying spawnCli unchanged.
  */
 export function spawnAiCli(
@@ -182,5 +196,6 @@ export function spawnAiCli(
 ): ChildProcess {
   if (binary === 'claude') return spawnClaude(args, options)
   if (binary === 'codex') return spawnCodex(args, options)
+  if (binary === 'gemini') return spawnGemini(args, options)
   return spawnCli(binary, args, options)
 }

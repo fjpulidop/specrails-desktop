@@ -1541,7 +1541,7 @@ export function registerTicketsRoutes(deps: ProjectRoutesDeps): void {
       binary = 'codex'
       // Use gpt-5.5 (default for Codex per CODEX_MODELS/PRESET_DEFAULTS in ModelSelector); never hardcode o4-mini
       args = ['exec', `${systemPrompt}\n\n${userPrompt}`, '--model', 'gpt-5.5']
-    } else {
+    } else if (provider === 'claude') {
       binary = 'claude'
       args = [
         '--dangerously-skip-permissions',
@@ -1553,6 +1553,17 @@ export function registerTicketsRoutes(deps: ProjectRoutesDeps): void {
         '--system-prompt', systemPrompt,
         '-p', userPrompt,
       ]
+    } else {
+      // Adapter-driven path (gemini + any future provider): binary, argv, and
+      // stream parsing all come from the registered adapter — no per-provider
+      // hardcoding. The claude/codex shapes above are kept byte-identical.
+      const adapter = getAdapter(provider)
+      binary = adapter.binary
+      args = adapter.buildArgs('agent-refine', {
+        prompt: userPrompt,
+        systemPrompt,
+        model: adapter.defaultModel(),
+      })
     }
 
     // spawnAiCli reroutes multi-line argv values through stdin on Windows.
@@ -1605,7 +1616,7 @@ export function registerTicketsRoutes(deps: ProjectRoutesDeps): void {
           }
           broadcast(msg)
         }
-      } else {
+      } else if (provider === 'claude') {
         let parsed: Record<string, unknown> | null = null
         try { parsed = JSON.parse(line) } catch { /* skip */ }
         if (!parsed) return
@@ -1624,6 +1635,18 @@ export function registerTicketsRoutes(deps: ProjectRoutesDeps): void {
             }
             broadcast(wsMsg)
           }
+        }
+      } else {
+        // Adapter-driven parse (gemini + future providers): uniform AdapterEvent
+        // stream — accumulate assistant text deltas.
+        const ev = getAdapter(provider).parseStreamLine(line)
+        if (ev?.kind === 'text-delta' && ev.text) {
+          buffer += ev.text
+          const wsMsg: TicketAiEditStreamMessage = {
+            type: 'ticket_ai_edit_stream', projectId, ticketId: Number(ticketId),
+            requestId, delta: ev.text, timestamp: new Date().toISOString(),
+          }
+          broadcast(wsMsg)
         }
       }
     })
