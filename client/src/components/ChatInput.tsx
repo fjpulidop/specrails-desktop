@@ -18,6 +18,20 @@ const CODEX_MODEL_OPTIONS = [
   { value: 'gpt-5.3-codex', label: 'GPT-5.3 Codex' },
 ]
 
+const GEMINI_MODEL_OPTIONS = [
+  { value: 'gemini-2.5-pro', label: 'Gemini 2.5 Pro' },
+  { value: 'gemini-2.5-flash', label: 'Gemini 2.5 Flash' },
+  { value: 'gemini-2.5-flash-lite', label: 'Gemini 2.5 Flash Lite' },
+  { value: 'gemini-3.1-pro-preview', label: 'Gemini 3 Pro (preview)' },
+]
+
+// Per-provider model options; unknown provider falls back to Claude's list.
+const MODEL_OPTIONS_BY_PROVIDER: Record<string, { value: string; label: string }[]> = {
+  claude: CLAUDE_MODEL_OPTIONS,
+  codex: CODEX_MODEL_OPTIONS,
+  gemini: GEMINI_MODEL_OPTIONS,
+}
+
 interface ChatInputProps {
   conversationId: string
   model: string
@@ -40,7 +54,7 @@ export function ChatInput({
   onModelChange,
 }: ChatInputProps) {
   const { t } = useTranslation('chat')
-  const MODEL_OPTIONS = provider === 'codex' ? CODEX_MODEL_OPTIONS : CLAUDE_MODEL_OPTIONS
+  const MODEL_OPTIONS = MODEL_OPTIONS_BY_PROVIDER[provider] ?? CLAUDE_MODEL_OPTIONS
   const [text, setText] = useState('')
   const textareaRef = useRef<HTMLTextAreaElement>(null)
 

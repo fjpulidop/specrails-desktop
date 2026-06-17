@@ -7,11 +7,11 @@ import i18n from '../lib/i18n'
 import { Button } from './ui/button'
 import { type CheckpointState } from './CheckpointTracker'
 import { AgentSelector, ALL_AGENTS, CORE_AGENTS, DEFAULT_SELECTED } from './AgentSelector'
-import { ModelSelector, type ModelPreset, type ModelOverrides } from './ModelSelector'
+import { ModelSelector, PRESET_DEFAULTS, type ModelPreset, type ModelOverrides } from './ModelSelector'
 import { useSharedWebSocket } from '../hooks/useSharedWebSocket'
 import { cn } from '../lib/utils'
 import { type DesktopProject, projectProviders } from '../hooks/useDesktop'
-import { providerLabel } from '../lib/provider-capabilities'
+import { providerLabel, type ProviderId } from '../lib/provider-capabilities'
 import { usePrerequisites, type SetupPrerequisitesStatus } from '../hooks/usePrerequisites'
 import { PrerequisitesPanel } from './PrerequisitesPanel'
 import { FEATURE_JIRA } from '../lib/feature-flags'
@@ -37,7 +37,7 @@ interface SetupSummary {
   opsxCommands: number
   legacySrRemoved: number
   tier: 'quick' | 'full'
-  provider?: 'claude' | 'codex'
+  provider?: ProviderId
 }
 
 const EMPTY_SUMMARY: SetupSummary = {
@@ -68,14 +68,10 @@ function toShortModelName(modelId: string): string {
   return modelId // codex models pass through as-is
 }
 
-// Map preset to default short model name
-function presetToDefaultModel(preset: ModelPreset): string {
-  const defaults: Record<ModelPreset, string> = {
-    balanced: 'sonnet',
-    budget: 'haiku',
-    max: 'sonnet',
-  }
-  return defaults[preset]
+// Preset → the preset's default model for a given provider (claude/codex/gemini).
+function presetToDefaultModel(preset: ModelPreset, provider: string): string {
+  const byProvider = PRESET_DEFAULTS[preset]
+  return byProvider[provider] ?? byProvider.claude
 }
 
 function buildDefaultConfig(): InstallConfig {
@@ -151,7 +147,7 @@ function AgentSelectionStep({
   onChange: (config: InstallConfig) => void
   onInstall: () => void
   onSkip: () => void
-  provider: 'claude' | 'codex'
+  provider: ProviderId
   /** Primary CTA label — "Install" on the last provider, "Next: …" otherwise. */
   ctaLabel?: string
   /** True on the last (or only) provider — drives the CTA icon. */
@@ -560,7 +556,7 @@ export function SetupWizard({ project, onComplete: rawOnComplete, onSkip: rawOnS
 
   // Installed providers (one or both). The wizard configures + installs each in
   // sequence; single-provider projects collapse to the classic flow.
-  const providers = projectProviders(project) as ('claude' | 'codex')[]
+  const providers = projectProviders(project)
 
   const cached = wizardCache.get(project.id)
 
@@ -769,7 +765,7 @@ export function SetupWizard({ project, onComplete: rawOnComplete, onSkip: rawOnS
             agents: { selected: selectedWithCore, excluded },
             models: {
               preset: cfg.modelPreset,
-              defaults: { model: presetToDefaultModel(cfg.modelPreset) },
+              defaults: { model: presetToDefaultModel(cfg.modelPreset, provider) },
               overrides: shortOverrides,
             },
             agent_teams: false,

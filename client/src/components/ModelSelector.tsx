@@ -31,25 +31,33 @@ export const CODEX_MODELS = [
   { value: 'gpt-5.3-codex', label: 'GPT-5.3 Codex' },
 ]
 
+export const GEMINI_MODELS = [
+  { value: 'gemini-2.5-pro', label: 'Gemini 2.5 Pro' },
+  { value: 'gemini-2.5-flash', label: 'Gemini 2.5 Flash' },
+  { value: 'gemini-2.5-flash-lite', label: 'Gemini 2.5 Flash Lite' },
+  { value: 'gemini-3.1-pro-preview', label: 'Gemini 3 Pro (preview)' },
+]
+
 // Per-provider model catalog. Lookup keyed by provider id (not a branch) — a new
 // provider adds one entry, with no edit to consumers. Fallback is Claude's list.
 const PROVIDER_MODELS: Record<string, { value: string; label: string }[]> = {
   claude: CLAUDE_MODELS,
   codex: CODEX_MODELS,
+  gemini: GEMINI_MODELS,
 }
 
 // Preset → default model per provider (matches specrails-core MODEL_PRESETS).
 // Inner maps are keyed by provider id; an unknown provider falls back to Claude.
 export const PRESET_DEFAULTS: Record<ModelPreset, Record<string, string>> = {
-  balanced: { claude: 'sonnet', codex: 'gpt-5.5' },
-  budget: { claude: 'haiku', codex: 'gpt-5.4-mini' },
-  max: { claude: 'sonnet', codex: 'gpt-5.5' },
+  balanced: { claude: 'sonnet', codex: 'gpt-5.5', gemini: 'gemini-2.5-pro' },
+  budget: { claude: 'haiku', codex: 'gpt-5.4-mini', gemini: 'gemini-2.5-flash-lite' },
+  max: { claude: 'sonnet', codex: 'gpt-5.5', gemini: 'gemini-2.5-pro' },
 }
 
-// "max" preset: Opus for architect + PM, Sonnet for rest (matches specrails-core)
+// "max" preset: top model for architect + PM, default for rest (matches specrails-core)
 const MAX_OVERRIDES: Record<string, Record<string, string>> = {
-  'sr-architect': { claude: 'opus', codex: 'gpt-5.3-codex' },
-  'sr-product-manager': { claude: 'opus', codex: 'gpt-5.3-codex' },
+  'sr-architect': { claude: 'opus', codex: 'gpt-5.3-codex', gemini: 'gemini-3.1-pro-preview' },
+  'sr-product-manager': { claude: 'opus', codex: 'gpt-5.3-codex', gemini: 'gemini-3.1-pro-preview' },
 }
 
 export function getDefaultModel(
