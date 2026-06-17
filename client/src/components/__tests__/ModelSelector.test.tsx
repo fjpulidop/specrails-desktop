@@ -50,6 +50,22 @@ describe('getDefaultModel', () => {
     expect(getDefaultModel('sr-product-manager', 'max', 'codex')).toBe('gpt-5.3-codex')
   })
 
+  it('returns gemini-3.5-flash for non-special agents in balanced preset (gemini)', () => {
+    expect(getDefaultModel('sr-developer', 'balanced', 'gemini')).toBe('gemini-3.5-flash')
+  })
+
+  it('returns gemini-2.5-flash-lite for budget preset (gemini)', () => {
+    expect(getDefaultModel('sr-developer', 'budget', 'gemini')).toBe('gemini-2.5-flash-lite')
+  })
+
+  it('returns gemini-3.1-pro-preview for architect in max preset (gemini)', () => {
+    expect(getDefaultModel('sr-architect', 'max', 'gemini')).toBe('gemini-3.1-pro-preview')
+  })
+
+  it('falls back to claude models for an unknown provider', () => {
+    expect(getDefaultModel('sr-developer', 'balanced', 'mystery')).toBe('sonnet')
+  })
+
   it('returns gpt-5.5 for sr-developer in max preset (codex)', () => {
     expect(getDefaultModel('sr-developer', 'max', 'codex')).toBe('gpt-5.5')
   })

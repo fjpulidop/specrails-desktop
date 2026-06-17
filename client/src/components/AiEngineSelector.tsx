@@ -13,7 +13,7 @@ interface AiEngineSelectorProps {
   value: string
   /** Installed providers to choose from. */
   providers: readonly string[]
-  onChange: (next: 'claude' | 'codex') => void
+  onChange: (next: string) => void
   disabled?: boolean
   ariaLabel?: string
   className?: string
@@ -37,7 +37,7 @@ export function AiEngineSelector({
   return (
     <Select
       value={value}
-      onValueChange={(v) => onChange(v as 'claude' | 'codex')}
+      onValueChange={(v) => onChange(v)}
       disabled={disabled}
     >
       <SelectTrigger

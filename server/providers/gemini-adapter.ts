@@ -3,7 +3,7 @@
 // Stream format (gemini `-p "<prompt>" --output-format stream-json`), one minified
 // JSON object per line — pinned to gemini-cli >= 0.11 and locked by the fixtures
 // under __fixtures__/gemini-*.ndjson:
-//   {"type":"init","session_id":"<UUID>","model":"gemini-2.5-pro"}
+//   {"type":"init","session_id":"<UUID>","model":"gemini-3.5-flash"}
 //   {"type":"message","role":"assistant","content":"...","delta":true}
 //   {"type":"tool_use","tool_name":"read_file","tool_id":"t0","parameters":{...}}
 //   {"type":"tool_result","tool_id":"t0","status":"ok","output":"..."}
@@ -43,10 +43,10 @@ const GEMINI_MIN_VERSION = '0.11.0'
 // Curated GA-id catalog (see docs/gemini-cli-provider-study.md §2). Preview ids
 // rotate, so we pin concrete ids that pricing.ts has rows for.
 const GEMINI_MODELS = [
-  { value: 'gemini-2.5-pro', label: 'Gemini 2.5 Pro', default: true as const },
-  { value: 'gemini-2.5-flash', label: 'Gemini 2.5 Flash' },
+  { value: 'gemini-3.5-flash', label: 'Gemini 3.5 Flash', default: true as const },
+  { value: 'gemini-3.1-pro-preview', label: 'Gemini 3.1 Pro (preview)' },
+  { value: 'gemini-3.1-flash-lite', label: 'Gemini 3.1 Flash Lite' },
   { value: 'gemini-2.5-flash-lite', label: 'Gemini 2.5 Flash Lite' },
-  { value: 'gemini-3.1-pro-preview', label: 'Gemini 3 Pro (preview)' },
 ] as const
 
 const STREAM_JSON_FLAGS = ['--output-format', 'stream-json'] as const
@@ -238,7 +238,7 @@ export const geminiAdapter: ProviderAdapter = {
     systemPromptArg: false,
   },
   modelCatalog: () => GEMINI_MODELS,
-  defaultModel: () => 'gemini-2.5-pro',
+  defaultModel: () => 'gemini-3.5-flash',
   buildArgs: buildGeminiArgs,
   parseStreamLine: parseGeminiStreamLine,
   extractResult: extractGeminiResult,

@@ -147,15 +147,15 @@
     "preset": {
       "balanced": {
         "label": "Balanced",
-        "description": "Sonnet for all agents (recommended)"
+        "description": "{{model}} for all agents (recommended)"
       },
       "budget": {
         "label": "Budget",
-        "description": "Haiku for all agents — 3x cheaper, faster"
+        "description": "{{model}} for all agents — 3x cheaper, faster"
       },
       "max": {
         "label": "Max",
-        "description": "Opus for architect + PM, Sonnet for rest"
+        "description": "{{topModel}} for architect + PM, {{baseModel}} for rest"
       }
     },
     "overridesHeading": "Per-agent model overrides",

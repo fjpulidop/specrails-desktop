@@ -23,15 +23,25 @@ export const CODEX_MODELS: SpecModelOption[] = [
   { value: 'gpt-5.3-codex', label: 'GPT-5.3 Codex' },
 ]
 
+// Mirrors GEMINI_MODELS in server/providers/gemini-adapter.ts.
+export const GEMINI_MODELS: SpecModelOption[] = [
+  { value: 'gemini-3.5-flash', label: 'Gemini 3.5 Flash' },
+  { value: 'gemini-3.1-pro-preview', label: 'Gemini 3.1 Pro (preview)' },
+  { value: 'gemini-3.1-flash-lite', label: 'Gemini 3.1 Flash Lite' },
+  { value: 'gemini-2.5-flash-lite', label: 'Gemini 2.5 Flash Lite' },
+]
+
 /** Per-provider model catalog. Lookup, not a branch — fallback is Claude's. */
 const PROVIDER_MODELS: Record<string, SpecModelOption[]> = {
   claude: CLAUDE_MODELS,
   codex: CODEX_MODELS,
+  gemini: GEMINI_MODELS,
 }
 
 export const PROVIDER_DEFAULT_MODEL: Record<string, string> = {
   claude: 'sonnet',
   codex: 'gpt-5.5',
+  gemini: 'gemini-3.5-flash',
 }
 
 export function getModelsForProvider(provider: SpecProvider): SpecModelOption[] {

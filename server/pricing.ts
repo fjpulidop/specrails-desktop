@@ -50,10 +50,16 @@ export const PRICING: Record<string, PriceEntry> = {
   // Gemini (Google). Reference: https://ai.google.dev/gemini-api/docs/pricing
   // Standard paid tier, <=200k-context prices (Gemini Pro is context-tiered;
   // prompts >200k are under-estimated in v1 — see docs/gemini-cli-provider-study.md §2).
+  // Current catalog (June 2026): 3.5-flash flagship default, 3.1-pro-preview max,
+  // 3.1-flash-lite budget, 2.5-flash-lite cheapest. Older 2.5-pro/2.5-flash rows
+  // are retained so historic invocations still price.
+  'gemini:gemini-3.5-flash':       { inputPer1M: 1.50, outputPer1M: 9.00,  cacheReadPer1M: 0.15,  lastReviewedAt: '2026-06-17' },
+  'gemini:gemini-3.1-pro-preview': { inputPer1M: 2.00, outputPer1M: 12.00, cacheReadPer1M: 0.20,  lastReviewedAt: '2026-06-17' },
+  'gemini:gemini-3.1-flash-lite':  { inputPer1M: 0.25, outputPer1M: 1.50,  cacheReadPer1M: 0.025, lastReviewedAt: '2026-06-17' },
+  'gemini:gemini-3-flash-preview': { inputPer1M: 0.50, outputPer1M: 3.00,  cacheReadPer1M: 0.05,  lastReviewedAt: '2026-06-17' },
   'gemini:gemini-2.5-pro':         { inputPer1M: 1.25, outputPer1M: 10.00, cacheReadPer1M: 0.125, lastReviewedAt: '2026-06-17' },
   'gemini:gemini-2.5-flash':       { inputPer1M: 0.30, outputPer1M: 2.50,  cacheReadPer1M: 0.03,  lastReviewedAt: '2026-06-17' },
   'gemini:gemini-2.5-flash-lite':  { inputPer1M: 0.10, outputPer1M: 0.40,  cacheReadPer1M: 0.01,  lastReviewedAt: '2026-06-17' },
-  'gemini:gemini-3.1-pro-preview': { inputPer1M: 2.00, outputPer1M: 12.00, cacheReadPer1M: 0.20,  lastReviewedAt: '2026-06-17' },
 }
 
 /**

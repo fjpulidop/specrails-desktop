@@ -147,15 +147,15 @@
     "preset": {
       "balanced": {
         "label": "Equilibrado",
-        "description": "Sonnet para todos los agentes (recomendado)"
+        "description": "{{model}} para todos los agentes (recomendado)"
       },
       "budget": {
         "label": "Económico",
-        "description": "Haiku para todos los agentes — 3× más barato y rápido"
+        "description": "{{model}} para todos los agentes — 3× más barato y rápido"
       },
       "max": {
         "label": "Max",
-        "description": "Opus para arquitecto + PM, Sonnet para el resto"
+        "description": "{{topModel}} para arquitecto + PM, {{baseModel}} para el resto"
       }
     },
     "overridesHeading": "Modelo por agente",

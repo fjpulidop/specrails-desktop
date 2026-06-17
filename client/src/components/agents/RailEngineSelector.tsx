@@ -6,7 +6,7 @@ interface Props {
   /** Selected engine. null/undefined = project primary. */
   value: string | null | undefined
   providers: readonly string[]
-  onChange: (value: 'claude' | 'codex') => void
+  onChange: (value: string) => void
 }
 
 /**
@@ -30,7 +30,7 @@ export function RailEngineSelector({ value, providers, onChange }: Props) {
         value={current}
         aria-label={t('railSelectors.engineTitle')}
         data-testid="rail-engine-selector"
-        onChange={(e) => onChange(e.target.value as 'claude' | 'codex')}
+        onChange={(e) => onChange(e.target.value)}
         className="h-5 text-[10px] rounded border border-border/50 bg-transparent text-muted-foreground hover:text-foreground pr-4 pl-1 focus:outline-none focus:ring-1 focus:ring-primary/40"
       >
         {providers.map((p) => (

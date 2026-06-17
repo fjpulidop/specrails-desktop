@@ -529,8 +529,14 @@ export function computeSummary(
         }
       }
     } else {
-      // Claude layout (unchanged).
-      const dir = SPECRAILS_DIR
+      // Claude / Gemini layout: agents at `<dir>/agents/sr-*.md`, slash commands
+      // at `<dir>/commands/{specrails,opsx}/*.<ext>`. Gemini installs into
+      // `.gemini/` and its commands are TOML (`.gemini/commands/specrails/*.toml`);
+      // claude installs into `.claude/` with Markdown commands. Without the
+      // per-provider dir + extension below, a gemini install summarised 0/0/0
+      // because it probed `.claude/` for `.md` files that don't exist.
+      const dir = provider === 'gemini' ? '.gemini' : SPECRAILS_DIR
+      const commandExt = provider === 'gemini' ? '.toml' : '.md'
       const agentsDir = join(projectPath, dir, 'agents')
       if (existsSync(agentsDir)) {
         const files = readdirSync(agentsDir) as string[]
@@ -543,10 +549,10 @@ export function computeSummary(
       const commandsDirSpecrails = join(projectPath, dir, 'commands', 'specrails')
       const commandsDirOpsx = join(projectPath, dir, 'commands', 'opsx')
       if (existsSync(commandsDirSpecrails)) {
-        specrailsCommands = (readdirSync(commandsDirSpecrails) as string[]).filter((f) => f.endsWith('.md')).length
+        specrailsCommands = (readdirSync(commandsDirSpecrails) as string[]).filter((f) => f.endsWith(commandExt)).length
       }
       if (existsSync(commandsDirOpsx)) {
-        opsxCommands = (readdirSync(commandsDirOpsx) as string[]).filter((f) => f.endsWith('.md')).length
+        opsxCommands = (readdirSync(commandsDirOpsx) as string[]).filter((f) => f.endsWith(commandExt)).length
       }
     }
   } catch {

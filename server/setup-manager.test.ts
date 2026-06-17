@@ -1243,6 +1243,54 @@ describe('SetupManager', () => {
       expect(computeSummary('/path', 'quick').tier).toBe('quick')
       expect(computeSummary('/path', 'full').tier).toBe('full')
     })
+
+    // Gemini installs into `.gemini/` and ships TOML slash commands — the summary
+    // must probe that layout, not the hardcoded `.claude/` + `.md` one.
+    it('reads the .gemini/ layout and counts .toml commands for gemini', () => {
+      vi.mocked(existsSync).mockImplementation((p: any) => {
+        const s = String(p)
+        if (s.endsWith('personas')) return false
+        return s.includes('.gemini/agents') ||
+          s.includes('.gemini/commands/specrails') ||
+          s.includes('.gemini/commands/opsx')
+      })
+      vi.mocked(readdirSync).mockImplementation((p: any) => {
+        const s = String(p)
+        if (s.includes('.gemini/agents')) return ['sr-architect.md', 'sr-developer.md', 'sr-reviewer.md'] as any
+        if (s.includes('.gemini/commands/specrails')) return ['implement.toml', 'propose-spec.toml'] as any
+        if (s.includes('.gemini/commands/opsx')) return ['apply.toml'] as any
+        return []
+      })
+
+      const result = computeSummary('/path/to/project', 'quick', 'gemini')
+      expect(result.agents).toBe(3)
+      expect(result.specrailsCommands).toBe(2)
+      expect(result.opsxCommands).toBe(1)
+      expect(result.provider).toBe('gemini')
+    })
+
+    it('counts only TOML files in gemini command dirs — ignores stray .md', () => {
+      vi.mocked(existsSync).mockImplementation((p: any) => String(p).includes('.gemini/commands/specrails'))
+      vi.mocked(readdirSync).mockImplementation((p: any) =>
+        String(p).includes('.gemini/commands/specrails') ? ['a.toml', 'b.toml', 'README.md'] as any : []
+      )
+
+      expect(computeSummary('/path', 'quick', 'gemini').specrailsCommands).toBe(2)
+    })
+
+    it('does NOT fall back to the .claude/ layout for a gemini install (regression)', () => {
+      // Only `.claude/` artefacts exist on disk. A gemini install must report 0,
+      // never surface claude's counts — the bug this fix addresses.
+      vi.mocked(existsSync).mockImplementation((p: any) => String(p).includes('.claude'))
+      vi.mocked(readdirSync).mockImplementation((p: any) =>
+        String(p).includes('.claude') ? ['sr-architect.md', 'sr-developer.md'] as any : []
+      )
+
+      const result = computeSummary('/path', 'quick', 'gemini')
+      expect(result.agents).toBe(0)
+      expect(result.specrailsCommands).toBe(0)
+      expect(result.opsxCommands).toBe(0)
+    })
   })
 
   // ─── sweepLegacySrCommands ─────────────────────────────────────────────────

@@ -69,7 +69,7 @@ interface RailsBoardProps {
   providers?: readonly string[]
   onModeChange: (railId: string, mode: RailMode) => void
   onProfileChange?: (railId: string, profileName: string | null) => void
-  onEngineChange?: (railId: string, aiEngine: 'claude' | 'codex') => void
+  onEngineChange?: (railId: string, aiEngine: string) => void
   onUltracodeModelChange?: (railId: string, model: UltracodeModel) => void
   onInteractiveChange?: (railId: string, interactive: boolean) => void
   onToggle: (railId: string) => void

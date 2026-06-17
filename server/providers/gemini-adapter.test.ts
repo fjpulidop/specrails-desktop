@@ -55,13 +55,13 @@ describe('geminiAdapter — identity', () => {
     ])
   })
 
-  it('reports a model catalog with gemini-2.5-pro default', () => {
+  it('reports a model catalog with gemini-3.5-flash default', () => {
     const cat = geminiAdapter.modelCatalog()
     expect(cat.length).toBeGreaterThan(0)
     const defaults = cat.filter((m) => m.default === true)
     expect(defaults).toHaveLength(1)
-    expect(defaults[0].value).toBe('gemini-2.5-pro')
-    expect(geminiAdapter.defaultModel()).toBe('gemini-2.5-pro')
+    expect(defaults[0].value).toBe('gemini-3.5-flash')
+    expect(geminiAdapter.defaultModel()).toBe('gemini-3.5-flash')
   })
 })
 
@@ -79,10 +79,10 @@ describe('geminiAdapter.buildArgs', () => {
     const args = geminiAdapter.buildArgs('chat-turn', {
       prompt: 'user msg',
       systemPrompt: 'sys',
-      model: 'gemini-2.5-flash',
+      model: 'gemini-3.1-flash-lite',
     })
     expect(args.slice(0, 2)).toEqual(['-p', 'user msg'])
-    expect(args[args.indexOf('--model') + 1]).toBe('gemini-2.5-flash')
+    expect(args[args.indexOf('--model') + 1]).toBe('gemini-3.1-flash-lite')
     expect(args[args.indexOf('--output-format') + 1]).toBe('stream-json')
     expect(args).toContain('--yolo')
     // No fold, no system text, no --system-prompt flag.
@@ -97,7 +97,7 @@ describe('geminiAdapter.buildArgs', () => {
     const args = geminiAdapter.buildArgs('chat-turn', {
       prompt: 'quiero hacer un tetris',
       systemPrompt: longSys,
-      model: 'gemini-2.5-pro',
+      model: 'gemini-3.5-flash',
     })
     expect(args).toContain('quiero hacer un tetris')
     expect(args.some((a) => a.includes('explicit permission'))).toBe(false)
@@ -105,14 +105,14 @@ describe('geminiAdapter.buildArgs', () => {
 
   it('chat-resume requires sessionId and passes --resume <id> with user-only prompt', () => {
     expect(() =>
-      geminiAdapter.buildArgs('chat-resume', { prompt: 'x', model: 'gemini-2.5-pro' }),
+      geminiAdapter.buildArgs('chat-resume', { prompt: 'x', model: 'gemini-3.5-flash' }),
     ).toThrow(/sessionId/)
 
     const args = geminiAdapter.buildArgs('chat-resume', {
       prompt: 'next msg',
       systemPrompt: 'sys',
       sessionId: '11111111-2222-3333-4444-555555555555',
-      model: 'gemini-2.5-pro',
+      model: 'gemini-3.5-flash',
     })
     expect(args.slice(0, 2)).toEqual(['-p', 'next msg'])
     expect(args[args.indexOf('--resume') + 1]).toBe('11111111-2222-3333-4444-555555555555')
@@ -122,7 +122,7 @@ describe('geminiAdapter.buildArgs', () => {
 
   it('chat-stream throws (no persistent stdin transport)', () => {
     expect(() =>
-      geminiAdapter.buildArgs('chat-stream', { prompt: 'x', model: 'gemini-2.5-pro' }),
+      geminiAdapter.buildArgs('chat-stream', { prompt: 'x', model: 'gemini-3.5-flash' }),
     ).toThrow(/persistent stdin/)
   })
 
@@ -130,7 +130,7 @@ describe('geminiAdapter.buildArgs', () => {
     const args = geminiAdapter.buildArgs('rail-job', {
       prompt: '/specrails:implement #1',
       systemPrompt: 'pipeline ctx',
-      model: 'gemini-2.5-pro',
+      model: 'gemini-3.5-flash',
     })
     expect(args[0]).toBe('-p')
     expect(args[1]).toBe('pipeline ctx\n\n---\n\n/specrails:implement #1')
@@ -142,7 +142,7 @@ describe('geminiAdapter.buildArgs', () => {
       const args = geminiAdapter.buildArgs(action, {
         prompt: 'p',
         systemPrompt: 'S',
-        model: 'gemini-2.5-pro',
+        model: 'gemini-3.5-flash',
       })
       expect(args[0]).toBe('-p')
       expect(args[1]).toBe('S\n\n---\n\np')
@@ -152,13 +152,13 @@ describe('geminiAdapter.buildArgs', () => {
 
   it('setup-enrich-resume requires sessionId and passes --resume', () => {
     expect(() =>
-      geminiAdapter.buildArgs('setup-enrich-resume', { prompt: 'x', model: 'gemini-2.5-pro' }),
+      geminiAdapter.buildArgs('setup-enrich-resume', { prompt: 'x', model: 'gemini-3.5-flash' }),
     ).toThrow(/sessionId/)
 
     const args = geminiAdapter.buildArgs('setup-enrich-resume', {
       prompt: 'cont',
       sessionId: 'UUID',
-      model: 'gemini-2.5-pro',
+      model: 'gemini-3.5-flash',
     })
     expect(args[args.indexOf('--resume') + 1]).toBe('UUID')
   })
@@ -166,7 +166,7 @@ describe('geminiAdapter.buildArgs', () => {
   it('extraArgs append at the end', () => {
     const args = geminiAdapter.buildArgs('chat-turn', {
       prompt: 'p',
-      model: 'gemini-2.5-pro',
+      model: 'gemini-3.5-flash',
       extraArgs: ['--include-directories', '/extra'],
     })
     expect(args.slice(-2)).toEqual(['--include-directories', '/extra'])

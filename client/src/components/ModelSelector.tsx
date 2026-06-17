@@ -31,25 +31,33 @@ export const CODEX_MODELS = [
   { value: 'gpt-5.3-codex', label: 'GPT-5.3 Codex' },
 ]
 
+export const GEMINI_MODELS = [
+  { value: 'gemini-3.5-flash', label: 'Gemini 3.5 Flash' },
+  { value: 'gemini-3.1-pro-preview', label: 'Gemini 3.1 Pro (preview)' },
+  { value: 'gemini-3.1-flash-lite', label: 'Gemini 3.1 Flash Lite' },
+  { value: 'gemini-2.5-flash-lite', label: 'Gemini 2.5 Flash Lite' },
+]
+
 // Per-provider model catalog. Lookup keyed by provider id (not a branch) — a new
 // provider adds one entry, with no edit to consumers. Fallback is Claude's list.
 const PROVIDER_MODELS: Record<string, { value: string; label: string }[]> = {
   claude: CLAUDE_MODELS,
   codex: CODEX_MODELS,
+  gemini: GEMINI_MODELS,
 }
 
 // Preset → default model per provider (matches specrails-core MODEL_PRESETS).
 // Inner maps are keyed by provider id; an unknown provider falls back to Claude.
 export const PRESET_DEFAULTS: Record<ModelPreset, Record<string, string>> = {
-  balanced: { claude: 'sonnet', codex: 'gpt-5.5' },
-  budget: { claude: 'haiku', codex: 'gpt-5.4-mini' },
-  max: { claude: 'sonnet', codex: 'gpt-5.5' },
+  balanced: { claude: 'sonnet', codex: 'gpt-5.5', gemini: 'gemini-3.5-flash' },
+  budget: { claude: 'haiku', codex: 'gpt-5.4-mini', gemini: 'gemini-2.5-flash-lite' },
+  max: { claude: 'sonnet', codex: 'gpt-5.5', gemini: 'gemini-3.5-flash' },
 }
 
-// "max" preset: Opus for architect + PM, Sonnet for rest (matches specrails-core)
+// "max" preset: top model for architect + PM, default for rest (matches specrails-core)
 const MAX_OVERRIDES: Record<string, Record<string, string>> = {
-  'sr-architect': { claude: 'opus', codex: 'gpt-5.3-codex' },
-  'sr-product-manager': { claude: 'opus', codex: 'gpt-5.3-codex' },
+  'sr-architect': { claude: 'opus', codex: 'gpt-5.3-codex', gemini: 'gemini-3.1-pro-preview' },
+  'sr-product-manager': { claude: 'opus', codex: 'gpt-5.3-codex', gemini: 'gemini-3.1-pro-preview' },
 }
 
 export function getDefaultModel(
@@ -89,6 +97,23 @@ export function ModelSelector({
   const { t } = useTranslation('addspec')
   const models = PROVIDER_MODELS[provider] ?? CLAUDE_MODELS
 
+  // Provider-aware preset descriptions: interpolate the ACTUAL model labels for
+  // the selected provider so a gemini/codex project never reads "Sonnet for all
+  // agents". balanced/budget name one model ({{model}}); max names two
+  // ({{topModel}} for architect + PM, {{baseModel}} for the rest).
+  function modelLabel(value: string): string {
+    return models.find((m) => m.value === value)?.label ?? value
+  }
+  function presetDescriptionVars(p: ModelPreset): Record<string, string> {
+    if (p === 'max') {
+      return {
+        topModel: modelLabel(getDefaultModel('sr-architect', 'max', provider)),
+        baseModel: modelLabel(getDefaultModel('sr-developer', 'max', provider)),
+      }
+    }
+    return { model: modelLabel(getDefaultModel('sr-developer', p, provider)) }
+  }
+
   function getEffectiveModel(agentId: string): string {
     return overrides[agentId] ?? getDefaultModel(agentId, preset, provider)
   }
@@ -126,7 +151,7 @@ export function ModelSelector({
                 {t(`modelSelector.preset.${p}.label`)}
               </span>
               <span className="text-[9px] text-muted-foreground text-center leading-tight">
-                {t(`modelSelector.preset.${p}.description`)}
+                {t(`modelSelector.preset.${p}.description`, presetDescriptionVars(p))}
               </span>
             </button>
           ))}

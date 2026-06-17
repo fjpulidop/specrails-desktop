@@ -147,15 +147,15 @@
     "preset": {
       "balanced": {
         "label": "バランス",
-        "description": "全エージェントに Sonnet（推奨）"
+        "description": "全エージェントに {{model}}（推奨）"
       },
       "budget": {
         "label": "節約",
-        "description": "全エージェントに Haiku — 3倍安く、高速"
+        "description": "全エージェントに {{model}} — 3倍安く、高速"
       },
       "max": {
         "label": "最大",
-        "description": "アーキテクトと PM に Opus、その他に Sonnet"
+        "description": "アーキテクトと PM に {{topModel}}、その他に {{baseModel}}"
       }
     },
     "overridesHeading": "エージェント別モデルオーバーライド",
