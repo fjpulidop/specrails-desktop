@@ -722,7 +722,7 @@ export default function DashboardPage() {
     updateRails((prev) => prev.map((r) => (r.id === railId ? { ...r, interactive } : r)))
   }
 
-  async function handleEngineChange(railId: string, aiEngine: 'claude' | 'codex') {
+  async function handleEngineChange(railId: string, aiEngine: string) {
     // Ultracode is Claude-only — if the rail leaves Claude while in Ultracode,
     // fall back to implement so the launch can't 400.
     updateRails((prev) => prev.map((r) =>

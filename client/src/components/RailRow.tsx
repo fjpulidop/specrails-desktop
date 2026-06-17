@@ -46,7 +46,7 @@ interface RailRowProps {
   density?: 'normal' | 'compact'
   onModeChange: (mode: RailMode) => void
   onProfileChange?: (profileName: string | null) => void
-  onEngineChange?: (aiEngine: 'claude' | 'codex') => void
+  onEngineChange?: (aiEngine: string) => void
   onUltracodeModelChange?: (model: UltracodeModel) => void
   onInteractiveChange?: (interactive: boolean) => void
   onToggle: () => void

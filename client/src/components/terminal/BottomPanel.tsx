@@ -116,9 +116,12 @@ export function BottomPanel({ projectId, provider = 'claude', providers, state, 
     void t.create(projectId)
   }, [canCreate, projectId, t])
 
-  const launchCli = useCallback((which: 'claude' | 'codex') => {
+  const launchCli = useCallback((which: ProviderId) => {
     if (!canCreate) return
-    const baseName = which === 'codex' ? 'codex' : 'claude'
+    // The provider id IS the CLI binary name (claude / codex / gemini), so the
+    // shell command typed below is the provider verbatim — never hardcode a
+    // two-provider fallback that would relaunch claude for a gemini project.
+    const baseName = which || 'claude'
     const numberSuffix = new RegExp(`^${baseName} \\(\\d+\\)$`)
     const matches = state.sessions.filter(
       (s) => s.name === baseName || numberSuffix.test(s.name),
@@ -135,7 +138,7 @@ export function BottomPanel({ projectId, provider = 'claude', providers, state, 
       setCliMenu(anchor)
       return
     }
-    launchCli((provider === 'codex' ? 'codex' : 'claude'))
+    launchCli(provider)
   }, [canCreate, multiProvider, provider, launchCli])
 
   const handleOpenBrowser = useCallback(() => {

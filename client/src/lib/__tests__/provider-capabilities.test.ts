@@ -151,9 +151,12 @@ describe('providerLabel', () => {
     expect(providerLabel('codex')).toBe('Codex')
   })
 
+  it('returns "Gemini" for provider "gemini"', () => {
+    expect(providerLabel('gemini')).toBe('Gemini')
+  })
+
   it('returns the raw string for an unknown provider', () => {
     expect(providerLabel('openai')).toBe('openai')
-    expect(providerLabel('gemini')).toBe('gemini')
     expect(providerLabel('')).toBe('')
   })
 

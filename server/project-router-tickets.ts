@@ -443,25 +443,46 @@ export function registerTicketsRoutes(deps: ProjectRoutesDeps): void {
         return
       }
 
-      // Claude path.
-      if ((parsed.type as string) === 'result') {
-        lastResultEvent = parsed
+      if (provider === 'claude') {
+        // Claude path.
+        if ((parsed.type as string) === 'result') {
+          lastResultEvent = parsed
+        }
+
+        if ((parsed.type as string) === 'assistant') {
+          const msg = parsed.message as { content?: Array<{ type: string; text?: string }> } | undefined
+          const texts = (msg?.content ?? [])
+            .filter((c) => c.type === 'text')
+            .map((c) => c.text ?? '')
+          const newText = texts.join('')
+          if (newText) {
+            buffer += newText
+            const wsMsg: SpecGenStreamMessage = {
+              type: 'spec_gen_stream', projectId, requestId,
+              delta: newText, timestamp: new Date().toISOString(),
+            }
+            broadcast(wsMsg)
+          }
+        }
+        return
       }
 
-      if ((parsed.type as string) === 'assistant') {
-        const msg = parsed.message as { content?: Array<{ type: string; text?: string }> } | undefined
-        const texts = (msg?.content ?? [])
-          .filter((c) => c.type === 'text')
-          .map((c) => c.text ?? '')
-        const newText = texts.join('')
-        if (newText) {
-          buffer += newText
-          const wsMsg: SpecGenStreamMessage = {
-            type: 'spec_gen_stream', projectId, requestId,
-            delta: newText, timestamp: new Date().toISOString(),
-          }
-          broadcast(wsMsg)
+      // Adapter-driven path (gemini + future providers): the adapter already
+      // parsed this line into a structured AdapterEvent above (`adapterEv`).
+      // Accumulate assistant text deltas into the buffer and capture the result
+      // event for usage extraction — mirrors the ai-edit endpoint's else branch.
+      // Without this, gemini (which emits `type:'message'`, not `type:'assistant'`)
+      // would never accumulate text → empty buffer → "Empty response from AI".
+      if (adapterEv?.kind === 'result') {
+        lastResultEvent = parsed
+      }
+      if (adapterEv?.kind === 'text-delta' && adapterEv.text) {
+        buffer += adapterEv.text
+        const wsMsg: SpecGenStreamMessage = {
+          type: 'spec_gen_stream', projectId, requestId,
+          delta: adapterEv.text, timestamp: new Date().toISOString(),
         }
+        broadcast(wsMsg)
       }
     })
 

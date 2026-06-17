@@ -83,5 +83,6 @@ export function isMultiProvider(providers: readonly string[] | null | undefined)
 export function providerLabel(provider: string | null | undefined): string {
   if (provider === 'codex') return 'Codex'
   if (provider === 'claude') return 'Claude'
+  if (provider === 'gemini') return 'Gemini'
   return provider ?? 'Claude'
 }

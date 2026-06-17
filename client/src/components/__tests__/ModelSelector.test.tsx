@@ -50,8 +50,8 @@ describe('getDefaultModel', () => {
     expect(getDefaultModel('sr-product-manager', 'max', 'codex')).toBe('gpt-5.3-codex')
   })
 
-  it('returns gemini-2.5-pro for non-special agents in balanced preset (gemini)', () => {
-    expect(getDefaultModel('sr-developer', 'balanced', 'gemini')).toBe('gemini-2.5-pro')
+  it('returns gemini-3.5-flash for non-special agents in balanced preset (gemini)', () => {
+    expect(getDefaultModel('sr-developer', 'balanced', 'gemini')).toBe('gemini-3.5-flash')
   })
 
   it('returns gemini-2.5-flash-lite for budget preset (gemini)', () => {

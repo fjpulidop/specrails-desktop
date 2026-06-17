@@ -147,15 +147,15 @@
     "preset": {
       "balanced": {
         "label": "均衡",
-        "description": "所有 Agent 使用 Sonnet（推荐）"
+        "description": "所有 Agent 使用 {{model}}（推荐）"
       },
       "budget": {
         "label": "经济",
-        "description": "所有 Agent 使用 Haiku——便宜 3 倍、更快"
+        "description": "所有 Agent 使用 {{model}}——便宜 3 倍、更快"
       },
       "max": {
         "label": "最强",
-        "description": "架构师 + PM 使用 Opus，其余使用 Sonnet"
+        "description": "架构师 + PM 使用 {{topModel}}，其余使用 {{baseModel}}"
       }
     },
     "overridesHeading": "按 Agent 覆写模型",

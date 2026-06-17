@@ -36,8 +36,8 @@ describe('spec-models', () => {
 
   it('serves the gemini catalog + default (not the claude fallback)', () => {
     expect(getModelsForProvider('gemini')).toBe(GEMINI_MODELS)
-    expect(getProviderDefault('gemini')).toBe('gemini-2.5-pro')
-    expect(isValidModelForProvider('gemini-2.5-pro', 'gemini')).toBe(true)
+    expect(getProviderDefault('gemini')).toBe('gemini-3.5-flash')
+    expect(isValidModelForProvider('gemini-3.5-flash', 'gemini')).toBe(true)
     expect(isValidModelForProvider('sonnet', 'gemini')).toBe(false)
   })
 

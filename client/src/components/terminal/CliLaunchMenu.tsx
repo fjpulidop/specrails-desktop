@@ -1,12 +1,12 @@
 import { useEffect, useRef } from 'react'
 import { useTranslation } from 'react-i18next'
-import { providerLabel } from '../../lib/provider-capabilities'
+import { providerLabel, type ProviderId } from '../../lib/provider-capabilities'
 
 interface Props {
   x: number
   y: number
   providers: readonly string[]
-  onSelect: (provider: 'claude' | 'codex') => void
+  onSelect: (provider: ProviderId) => void
   onClose: () => void
 }
 
@@ -49,7 +49,7 @@ export function CliLaunchMenu({ x, y, providers, onSelect, onClose }: Props) {
           key={p}
           type="button"
           role="menuitem"
-          onClick={() => { onSelect(p as 'claude' | 'codex'); onClose() }}
+          onClick={() => { onSelect(p); onClose() }}
           className="w-full text-left px-3 py-1.5 text-[#f8f8f2] hover:bg-[#44475a]"
         >
           {t('cliMenu.open', { name: providerLabel(p) })}

@@ -3,7 +3,7 @@ import { useTranslation } from 'react-i18next'
 import { cn } from '../../lib/utils'
 import { PanelChevronButton } from './PanelChevronButton'
 import type { PanelVisibility } from '../../context/TerminalsContext'
-import type { ProviderId } from '../../lib/provider-capabilities'
+import { providerLabel, type ProviderId } from '../../lib/provider-capabilities'
 
 interface TerminalTopBarProps {
   visibility: PanelVisibility
@@ -36,7 +36,7 @@ export function TerminalTopBar({
 }: TerminalTopBarProps) {
   const { t } = useTranslation('terminal')
   const multiProvider = !!providers && providers.length > 1
-  const cliDisplayName = provider === 'codex' ? 'Codex' : 'Claude'
+  const cliDisplayName = providerLabel(provider)
   const maxTerminalsLabel = t('topBar.maxTerminals', { max: 10 })
   const cliLabel = canCreate
     ? (multiProvider ? t('topBar.openCliMulti') : t('topBar.openCli', { cli: cliDisplayName }))
