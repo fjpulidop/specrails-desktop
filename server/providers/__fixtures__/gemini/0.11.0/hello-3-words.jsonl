@@ -1,0 +1,4 @@
+{"type":"init","session_id":"11111111-2222-3333-4444-555555555555","model":"gemini-2.5-pro"}
+{"type":"message","role":"user","content":"say hello in 3 words"}
+{"type":"message","role":"assistant","content":"hello there friend","delta":true}
+{"type":"result","status":"success","stats":{"input_tokens":120,"output_tokens":3,"cached":40,"total_tokens":123,"duration_ms":850}}

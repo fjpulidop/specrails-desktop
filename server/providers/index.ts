@@ -9,12 +9,14 @@
 import { register } from './registry'
 import { claudeAdapter } from './claude-adapter'
 import { codexAdapter } from './codex-adapter'
+import { geminiAdapter } from './gemini-adapter'
 
 register(claudeAdapter)
 register(codexAdapter)
+register(geminiAdapter)
 
 export { getAdapter, hasAdapter, listAdapters } from './registry'
-export { claudeAdapter, codexAdapter }
+export { claudeAdapter, codexAdapter, geminiAdapter }
 export type {
   ProviderAdapter,
   ProviderId,

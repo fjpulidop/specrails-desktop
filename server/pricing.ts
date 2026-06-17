@@ -47,6 +47,13 @@ export const PRICING: Record<string, PriceEntry> = {
   'codex:gpt-5.4':       { inputPer1M: 2.50, outputPer1M: 10.00, cacheReadPer1M: 0.25,  lastReviewedAt: '2026-05-17' },
   'codex:gpt-5.4-mini':  { inputPer1M: 0.25, outputPer1M: 2.00,  cacheReadPer1M: 0.025, lastReviewedAt: '2026-05-17' },
   'codex:gpt-5.3-codex': { inputPer1M: 1.50, outputPer1M: 6.00,  cacheReadPer1M: 0.15,  lastReviewedAt: '2026-05-17' },
+  // Gemini (Google). Reference: https://ai.google.dev/gemini-api/docs/pricing
+  // Standard paid tier, <=200k-context prices (Gemini Pro is context-tiered;
+  // prompts >200k are under-estimated in v1 — see docs/gemini-cli-provider-study.md §2).
+  'gemini:gemini-2.5-pro':         { inputPer1M: 1.25, outputPer1M: 10.00, cacheReadPer1M: 0.125, lastReviewedAt: '2026-06-17' },
+  'gemini:gemini-2.5-flash':       { inputPer1M: 0.30, outputPer1M: 2.50,  cacheReadPer1M: 0.03,  lastReviewedAt: '2026-06-17' },
+  'gemini:gemini-2.5-flash-lite':  { inputPer1M: 0.10, outputPer1M: 0.40,  cacheReadPer1M: 0.01,  lastReviewedAt: '2026-06-17' },
+  'gemini:gemini-3.1-pro-preview': { inputPer1M: 2.00, outputPer1M: 12.00, cacheReadPer1M: 0.20,  lastReviewedAt: '2026-06-17' },
 }
 
 /**

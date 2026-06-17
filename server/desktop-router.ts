@@ -34,6 +34,15 @@ function isCodexBetaDisabled(): boolean {
   return v === '0'
 }
 
+// Gemini is opt-IN (default off): unlike codex, its stream-json schema has not
+// yet been validated against a live binary, so it stays hidden + unselectable
+// until SPECRAILS_GEMINI_BETA=1 (or 'true'). The adapter is always registered
+// (pricing/getAdapter work); only project selection is gated.
+function isGeminiBetaEnabled(): boolean {
+  const v = (process.env.SPECRAILS_GEMINI_BETA ?? '').toLowerCase()
+  return v === '1' || v === 'true'
+}
+
 // Theme allow-list. Mirror of THEME_IDS in `client/src/lib/themes.ts` —
 // kept duplicated to avoid pulling client code into the server bundle.
 const THEME_ID_ALLOWLIST = new Set<string>(['dracula', 'aurora-light', 'obsidian-dark', 'matrix', 'specrails'])
@@ -165,6 +174,7 @@ export function createDesktopRouter(
     // is forced unavailable when SPECRAILS_CODEX_BETA=0 (emergency rollback).
     const gated: Record<string, boolean> = { ...providers }
     if (isCodexBetaDisabled()) gated.codex = false
+    if (!isGeminiBetaEnabled()) gated.gemini = false
     res.json({ ...gated, tiers })
   })
 
@@ -229,6 +239,12 @@ export function createDesktopRouter(
     if (providers.includes('codex') && isCodexBetaDisabled()) {
       res.status(400).json({
         error: 'Codex provider is currently disabled (SPECRAILS_CODEX_BETA=0). Unset or set to 1 to enable.',
+      })
+      return
+    }
+    if (providers.includes('gemini') && !isGeminiBetaEnabled()) {
+      res.status(400).json({
+        error: 'Gemini provider is in beta and disabled by default. Set SPECRAILS_GEMINI_BETA=1 to enable.',
       })
       return
     }

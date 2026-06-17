@@ -10,7 +10,7 @@ vi.mock('./core-compat', async (importActual) => {
     ...actual,
     checkCoreCompat: vi.fn().mockResolvedValue({ compatible: true, contractFound: false }),
     getCLIStatus: vi.fn().mockReturnValue({ provider: 'claude', version: '1.2.3' }),
-    detectAvailableCLIs: vi.fn().mockReturnValue({ claude: true, codex: false }),
+    detectAvailableCLIs: vi.fn().mockReturnValue({ claude: true, codex: false, gemini: false }),
   }
 })
 
@@ -556,19 +556,77 @@ describe('desktop-router', () => {
       expect(res.body).toHaveProperty('codex')
       expect(res.body.codex).toBe(false)
     })
+
+    it('forces gemini to false by default (beta opt-in)', async () => {
+      const prev = process.env.SPECRAILS_GEMINI_BETA
+      delete process.env.SPECRAILS_GEMINI_BETA
+      try {
+        const { app } = createApp()
+        const res = await request(app).get('/api/available-providers')
+        expect(res.status).toBe(200)
+        expect(res.body.gemini).toBe(false)
+      } finally {
+        if (prev === undefined) delete process.env.SPECRAILS_GEMINI_BETA
+        else process.env.SPECRAILS_GEMINI_BETA = prev
+      }
+    })
+
+    it('surfaces gemini availability when SPECRAILS_GEMINI_BETA=1', async () => {
+      const prev = process.env.SPECRAILS_GEMINI_BETA
+      process.env.SPECRAILS_GEMINI_BETA = '1'
+      try {
+        const { app } = createApp()
+        const res = await request(app).get('/api/available-providers')
+        expect(res.status).toBe(200)
+        // Real detection (true/false depending on whether `gemini` is on PATH),
+        // but no longer force-hidden — the key reflects actual availability.
+        expect(typeof res.body.gemini).toBe('boolean')
+      } finally {
+        if (prev === undefined) delete process.env.SPECRAILS_GEMINI_BETA
+        else process.env.SPECRAILS_GEMINI_BETA = prev
+      }
+    })
   })
 
   // ─── POST /projects — provider validation ───────────────────────────────────
 
   describe('POST /api/projects — provider field', () => {
-    it('returns 400 for invalid provider value', async () => {
-      const { app } = createApp()
-      const res = await request(app).post('/api/projects').send({
-        path: '/home/user/proj',
-        provider: 'gemini',
-      })
-      expect(res.status).toBe(400)
-      expect(res.body.error).toContain('provider')
+    it('rejects gemini by default — beta opt-in (SPECRAILS_GEMINI_BETA unset)', async () => {
+      const prev = process.env.SPECRAILS_GEMINI_BETA
+      delete process.env.SPECRAILS_GEMINI_BETA
+      const projectPath = fs.mkdtempSync(path.join(require('os').tmpdir(), 'gemini-blocked-'))
+      try {
+        const { app } = createApp()
+        const res = await request(app).post('/api/projects').send({
+          path: projectPath,
+          provider: 'gemini',
+        })
+        expect(res.status).toBe(400)
+        expect(res.body.error).toMatch(/beta|SPECRAILS_GEMINI_BETA/)
+      } finally {
+        fs.rmSync(projectPath, { recursive: true, force: true })
+        if (prev === undefined) delete process.env.SPECRAILS_GEMINI_BETA
+        else process.env.SPECRAILS_GEMINI_BETA = prev
+      }
+    })
+
+    it('accepts gemini when SPECRAILS_GEMINI_BETA=1', async () => {
+      const prev = process.env.SPECRAILS_GEMINI_BETA
+      process.env.SPECRAILS_GEMINI_BETA = '1'
+      const projectPath = fs.mkdtempSync(path.join(require('os').tmpdir(), 'gemini-project-'))
+      try {
+        const { app } = createApp()
+        const res = await request(app).post('/api/projects').send({
+          path: projectPath,
+          provider: 'gemini',
+        })
+        expect(res.status).toBe(201)
+        expect(res.body.project.provider).toBe('gemini')
+      } finally {
+        fs.rmSync(projectPath, { recursive: true, force: true })
+        if (prev === undefined) delete process.env.SPECRAILS_GEMINI_BETA
+        else process.env.SPECRAILS_GEMINI_BETA = prev
+      }
     })
 
     it('accepts codex provider (Stage C of multi-provider; gate lifted)', async () => {

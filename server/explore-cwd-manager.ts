@@ -138,7 +138,7 @@ export function ensureExploreCwd(input: ExploreCwdInput, baseDir?: string): stri
   // — provider is immutable post-creation but the lifecycle code MUST handle
   // the edge per spec), remove any stale instructions file authored by a
   // different provider so the explore-cwd doesn't carry both.
-  const STALE_INSTRUCTION_FILES = ['CLAUDE.md', 'AGENTS.md']
+  const STALE_INSTRUCTION_FILES = ['CLAUDE.md', 'AGENTS.md', 'GEMINI.md']
   for (const stale of STALE_INSTRUCTION_FILES) {
     if (stale === adapter.instructionsFilename) continue
     const stalePath = path.join(cwd, stale)

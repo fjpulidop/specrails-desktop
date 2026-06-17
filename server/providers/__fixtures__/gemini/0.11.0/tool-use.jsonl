@@ -1,0 +1,5 @@
+{"type":"init","session_id":"aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee","model":"gemini-2.5-flash"}
+{"type":"tool_use","tool_name":"read_file","tool_id":"t0","parameters":{"path":"src/index.ts"}}
+{"type":"tool_result","tool_id":"t0","status":"ok","output":"file contents"}
+{"type":"message","role":"assistant","content":"Done reading.","delta":true}
+{"type":"result","status":"success","stats":{"input_tokens":500,"output_tokens":20,"cached":0,"total_tokens":520,"duration_ms":1200}}
