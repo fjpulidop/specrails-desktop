@@ -1,5 +1,20 @@
 # Changelog
 
+## [2.7.0](https://github.com/fjpulidop/specrails-desktop/compare/v2.6.0...v2.7.0) (2026-06-17)
+
+
+### Features
+
+* **providers:** add Gemini CLI as a third provider (PR-B, beta-gated) ([#397](https://github.com/fjpulidop/specrails-desktop/issues/397)) ([ed50d4b](https://github.com/fjpulidop/specrails-desktop/commit/ed50d4bbf9b0758e06d35ef06c8783c9d7637e78))
+
+
+### Bug Fixes
+
+* **mobile:** chunk oversized WebRTC DataChannel messages so large RPC results arrive ([#398](https://github.com/fjpulidop/specrails-desktop/issues/398)) ([c0bbd4d](https://github.com/fjpulidop/specrails-desktop/commit/c0bbd4d64092141d16956a513dee43f1d7b70361))
+* persist SpecsBoard filters across project switch and app restart ([#392](https://github.com/fjpulidop/specrails-desktop/issues/392)) ([926525f](https://github.com/fjpulidop/specrails-desktop/commit/926525ffa04fe852d409993a5c4806d0025d9219))
+* **providers:** fix Gemini-confusion bugs across surfaces + refresh Gemini model catalog ([#399](https://github.com/fjpulidop/specrails-desktop/issues/399)) ([ba10020](https://github.com/fjpulidop/specrails-desktop/commit/ba1002020932c43ab40459a262508217a86c6703))
+* **setup:** require specrails-core &gt;= 4.8.0 (Gemini target + fresh npx resolve) ([#400](https://github.com/fjpulidop/specrails-desktop/issues/400)) ([01d2a0e](https://github.com/fjpulidop/specrails-desktop/commit/01d2a0e0caedd3a522c5e01adafd373f9bf10a84))
+
 ## [2.6.0](https://github.com/fjpulidop/specrails-desktop/compare/v2.5.0...v2.6.0) (2026-06-16)
 
 
