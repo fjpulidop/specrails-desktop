@@ -10,6 +10,7 @@ import {
   type ReactNode,
 } from 'react'
 import { API_ORIGIN } from '../lib/origin'
+import type { ProviderId } from '../lib/provider-capabilities'
 import { toast } from 'sonner'
 import i18n from '../lib/i18n'
 import { useSharedWebSocket } from './useSharedWebSocket'
@@ -22,17 +23,17 @@ export interface DesktopProject {
   path: string
   db_path: string
   /** Primary / default provider (first selected at install). */
-  provider: 'claude' | 'codex'
+  provider: ProviderId
   /** All providers installed for this project. Always contains `provider`.
    *  Optional for forward-compat: older server payloads omit it, callers fall
    *  back to `[provider]`. */
-  providers?: ('claude' | 'codex')[]
+  providers?: ProviderId[]
   added_at: string
   last_seen_at: string
 }
 
 /** Installed providers for a project, tolerant of legacy payloads w/o `providers`. */
-export function projectProviders(p: Pick<DesktopProject, 'provider' | 'providers'>): ('claude' | 'codex')[] {
+export function projectProviders(p: Pick<DesktopProject, 'provider' | 'providers'>): ProviderId[] {
   return p.providers && p.providers.length > 0 ? p.providers : [p.provider]
 }
 
@@ -45,7 +46,7 @@ interface DesktopContextValue {
   projects: DesktopProject[]
   activeProjectId: string | null
   setActiveProjectId: (id: string | null) => void
-  addProject: (path: string, name?: string, providers?: ('claude' | 'codex')[]) => Promise<AddProjectResult | null>
+  addProject: (path: string, name?: string, providers?: ProviderId[]) => Promise<AddProjectResult | null>
   removeProject: (id: string) => Promise<void>
   isLoading: boolean
   /** True briefly after switching active project — triggers the loading bar */
@@ -169,7 +170,7 @@ export function DesktopProvider({ children }: { children: ReactNode }) {
     return () => unregisterHandler('desktop')
   }, [handleMessage, registerHandler, unregisterHandler])
 
-  const addProject = useCallback(async (projectPath: string, name?: string, providers: ('claude' | 'codex')[] = ['claude']): Promise<AddProjectResult | null> => {
+  const addProject = useCallback(async (projectPath: string, name?: string, providers: ProviderId[] = ['claude']): Promise<AddProjectResult | null> => {
     try {
       const list = providers.length > 0 ? providers : ['claude']
       const body: Record<string, unknown> = { path: projectPath, providers: list }

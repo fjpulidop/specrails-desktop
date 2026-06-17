@@ -3,11 +3,16 @@ import path from 'path'
 import os from 'os'
 import Database from 'better-sqlite3'
 import type { DbInstance } from './db'
+import type { ProviderId } from './providers/types'
 import { secureDir, secureDbFile } from './util/secure-fs'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
-export type CliProvider = 'claude' | 'codex'
+// Provider id for a project. Open by design: the set of valid ids is owned by
+// the provider registry (`server/providers`), not this union — adding a provider
+// is one adapter file + one `register()` call, with no type edit here. Runtime
+// validation of an actual value goes through `hasAdapter` / `validateRequestedProvider`.
+export type CliProvider = ProviderId
 
 export interface ProjectRow {
   id: string

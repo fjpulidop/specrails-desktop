@@ -14,7 +14,7 @@ import { AiEngineSelector } from './AiEngineSelector'
 import type { LocalTicket, TicketPriority } from '../types'
 import { ContextScopeChecks } from './ContextScopeChecks'
 import { ContextScopeSlider } from './ContextScopeSlider'
-import { isSmashCapable } from '../lib/provider-capabilities'
+import { isSmashCapable, type ProviderId } from '../lib/provider-capabilities'
 import { getLastEngine, setLastEngine } from '../lib/last-engine'
 import { useContextScope } from '../hooks/useContextScope'
 import { useContextBudget } from '../hooks/useContextBudget'
@@ -62,7 +62,7 @@ export interface ExploreLaunchPayload {
   model: string
   /** AI engine picked at Add Spec (multi-provider). Undefined → project primary.
    *  Forwarded to the ExploreSpecShell so the conversation runs on it. */
-  provider?: 'claude' | 'codex'
+  provider?: ProviderId
   /** Add Spec context scope frozen at launch time. Forwarded to the
    *  ExploreSpecShell so the server-side conversation row carries it. */
   contextScope: ContextScope
@@ -119,7 +119,7 @@ export function ProposeSpecModal({ open, onClose, tickets, onExploreLaunch }: Pr
   // AI Engine (multi-provider). null until the first fetch resolves the
   // project's providers; then initialised to the last-used engine (default =
   // primary). Single-provider projects never render the selector.
-  const [engine, setEngine] = useState<'claude' | 'codex' | null>(null)
+  const [engine, setEngine] = useState<ProviderId | null>(null)
 
   // Model picker — fetched on each open. Locked for the whole flow once the
   // user submits; no downstream surface changes it. See spec
@@ -134,7 +134,7 @@ export function ProposeSpecModal({ open, onClose, tickets, onExploreLaunch }: Pr
     setEngine(getLastEngine(activeProjectId, providers, provider ?? 'claude'))
   }, [open, engine, providers, provider, activeProjectId])
 
-  const handleEngineChange = useCallback((next: 'claude' | 'codex') => {
+  const handleEngineChange = useCallback((next: ProviderId) => {
     setEngine(next)
     setLastEngine(activeProjectId, next)
   }, [activeProjectId])

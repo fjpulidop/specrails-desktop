@@ -159,13 +159,13 @@ export function createDesktopRouter(
     const providers = detectAvailableCLIs()
     // tiers: quick install is always available (app-driven config); full requires an AI CLI
     const tiers: ('quick' | 'full')[] = ['quick']
-    if (providers.claude || providers.codex) tiers.push('full')
-    const codexBetaOff = isCodexBetaDisabled()
-    res.json({
-      claude: providers.claude,
-      codex: codexBetaOff ? false : providers.codex,
-      tiers,
-    })
+    if (Object.values(providers).some(Boolean)) tiers.push('full')
+    // Return the full detected map (registry-driven) so a newly-registered
+    // provider surfaces here with no edit. Apply per-provider beta gates: codex
+    // is forced unavailable when SPECRAILS_CODEX_BETA=0 (emergency rollback).
+    const gated: Record<string, boolean> = { ...providers }
+    if (isCodexBetaDisabled()) gated.codex = false
+    res.json({ ...gated, tiers })
   })
 
   router.get('/setup-prerequisites', (req, res) => {
@@ -262,8 +262,8 @@ export function createDesktopRouter(
         slug,
         name: derivedName,
         path: canonicalPath,
-        provider: providers[0] as 'claude' | 'codex',
-        providers: providers as ('claude' | 'codex')[],
+        provider: providers[0],
+        providers,
       })
       broadcast({
         type: 'desktop.project_added',

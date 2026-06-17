@@ -7,7 +7,7 @@ import { testCustomAgent } from './agent-generator'
 import { recordInvocation } from './ai-invocations'
 import { finaliseInvocationResult } from './result-event'
 import { runAiCliInvocation } from './spawn-lifecycle'
-import { getAdapter, type ProviderAdapter, type AdapterEvent } from './providers'
+import { getAdapter, type ProviderAdapter, type AdapterEvent, type ProviderId } from './providers'
 import type { DbInstance } from './db'
 import type {
   WsMessage,
@@ -70,7 +70,7 @@ export class AgentRefineManager {
     db: DbInstance,
     projectPath: string,
     projectId?: string,
-    provider?: 'claude' | 'codex',
+    provider?: ProviderId,
   ) {
     this._broadcast = broadcast
     this._db = db

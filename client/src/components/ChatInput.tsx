@@ -3,6 +3,7 @@ import { useTranslation } from 'react-i18next'
 import { Button } from './ui/button'
 import { Tooltip, TooltipContent, TooltipTrigger } from './ui/tooltip'
 import { cn } from '../lib/utils'
+import type { ProviderId } from '../lib/provider-capabilities'
 
 const CLAUDE_MODEL_OPTIONS = [
   { value: 'opus', label: 'Opus' },
@@ -22,7 +23,7 @@ interface ChatInputProps {
   model: string
   hasMessages: boolean
   isStreaming: boolean
-  provider?: 'claude' | 'codex'
+  provider?: ProviderId
   onSend: (conversationId: string, text: string) => void
   onAbort: (conversationId: string) => void
   onModelChange: (model: string) => void

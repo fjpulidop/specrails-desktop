@@ -32,4 +32,12 @@ describe('spec-models', () => {
     expect(getModelsForProvider('claude')).toBe(CLAUDE_MODELS)
     expect(getModelsForProvider('codex')).toBe(CODEX_MODELS)
   })
+
+  it('falls back to claude for an unknown / not-yet-registered provider id', () => {
+    // The provider id type is open (registry-owned). An id without an explicit
+    // catalog entry resolves to Claude's list/default rather than throwing —
+    // the safe behaviour for a provider added before its rows are filled in.
+    expect(getModelsForProvider('gemini')).toBe(CLAUDE_MODELS)
+    expect(getProviderDefault('gemini')).toBe(getProviderDefault('claude'))
+  })
 })

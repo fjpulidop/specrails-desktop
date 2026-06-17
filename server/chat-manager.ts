@@ -12,7 +12,7 @@ import { finaliseInvocationResult } from './result-event'
 import { randomUUID } from 'crypto'
 import { parseSpecDraftBlocks, applyBlocks, type ConversationDraftState } from './spec-draft-parser'
 import { attachmentManager, USER_ATTACHMENT_SYSTEM_NOTE } from './attachment-manager'
-import { getAdapter, type ProviderAdapter, type AdapterEvent } from './providers'
+import { getAdapter, type ProviderAdapter, type AdapterEvent, type ProviderId } from './providers'
 import {
   buildScopedSystemPromptPrefix, toolFlagsForScope, normalizeContextScope,
   defaultBootScope, type ContextScope,
@@ -121,7 +121,7 @@ export class ChatManager {
     db: DbInstance,
     cwd?: string,
     projectName?: string,
-    provider?: 'claude' | 'codex',
+    provider?: ProviderId,
     projectId?: string,
     projectSlug?: string,
   ) {
@@ -329,7 +329,7 @@ export class ChatManager {
         slug: this._projectSlug,
         projectPath: this._cwd,
         projectName: this._projectName,
-        provider: (providerId ?? this._adapter.id) as 'claude' | 'codex',
+        provider: providerId ?? this._adapter.id,
       })
       console.log(`[chat-manager] explore spawn cwd=${cwd} (mcp=off)`)
       return cwd

@@ -3,6 +3,7 @@ import { useTranslation } from 'react-i18next'
 import { cn } from '../../lib/utils'
 import { PanelChevronButton } from './PanelChevronButton'
 import type { PanelVisibility } from '../../context/TerminalsContext'
+import type { ProviderId } from '../../lib/provider-capabilities'
 
 interface TerminalTopBarProps {
   visibility: PanelVisibility
@@ -10,7 +11,7 @@ interface TerminalTopBarProps {
   hasActive: boolean
   /** CLI to launch from the Sparkles shortcut: 'claude' (default) or 'codex'.
    *  Used for the button label when only one provider is installed. */
-  provider?: 'claude' | 'codex'
+  provider?: ProviderId
   /** All installed providers. When >1, clicking the Sparkles shortcut opens a
    *  picker (anchored at the click) instead of launching directly. */
   providers?: readonly string[]
