@@ -9,6 +9,7 @@ import {
   SelectValue,
 } from '../ui/select'
 import { getApiBase } from '../../lib/api'
+import type { ProviderId } from '../../lib/provider-capabilities'
 
 export interface SpecModelOption {
   value: string
@@ -17,10 +18,10 @@ export interface SpecModelOption {
 
 export interface DefaultSpecModelResponse {
   model: string
-  provider: 'claude' | 'codex'
+  provider: ProviderId
   allowed: SpecModelOption[]
   /** All providers installed for the project (multi-provider AI Engine selector). */
-  providers?: ('claude' | 'codex')[]
+  providers?: (ProviderId)[]
 }
 
 interface SpecModelPickerProps {
@@ -73,12 +74,12 @@ export function useDefaultSpecModel(
   enabled: boolean,
   /** Optional engine override (multi-provider). When set, the endpoint returns
    *  that provider's default model + allow-list. Refetches when it changes. */
-  providerOverride?: 'claude' | 'codex' | null,
+  providerOverride?: ProviderId | null,
 ) {
   const [model, setModel] = useState<string | null>(null)
   const [allowed, setAllowed] = useState<SpecModelOption[]>([])
-  const [provider, setProvider] = useState<'claude' | 'codex' | null>(null)
-  const [providers, setProviders] = useState<('claude' | 'codex')[]>([])
+  const [provider, setProvider] = useState<ProviderId | null>(null)
+  const [providers, setProviders] = useState<(ProviderId)[]>([])
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
 

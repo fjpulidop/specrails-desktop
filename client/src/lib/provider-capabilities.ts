@@ -7,7 +7,11 @@
  * See openspec/changes/hide-smash-codex-explore.
  */
 
-export type ProviderId = 'claude' | 'codex'
+// Open provider id. The set of valid ids is owned by the server's provider
+// registry (surfaced via /available-providers and each project's `providers`),
+// not this union — adding a provider needs no edit here. Capability/label
+// helpers below already accept `string | null | undefined` and fall back safely.
+export type ProviderId = string
 
 /**
  * Returns true when the given provider supports SMASH (Spec decomposition via

@@ -22,7 +22,7 @@ import {
 } from './file-provenance'
 import { finaliseInvocationResult } from './result-event'
 import { randomUUID } from 'crypto'
-import { getAdapter, type ProviderAdapter, type AdapterEvent } from './providers'
+import { getAdapter, type ProviderAdapter, type AdapterEvent, type ProviderId } from './providers'
 import { createCodexOtelBridge, type CodexOtelBridge } from './codex-otel-bridge'
 import { createJob, finishJob, appendEvent, skipJob, getProjectSettings, getUltracodePrePrompt, DEFAULT_ULTRACODE_PRE_PROMPT, finalizeInteractiveJob } from './db'
 import type { JobResult } from './db'
@@ -133,7 +133,7 @@ export interface EnqueueOptions {
   /** Per-job AI engine override (multi-provider projects). When omitted the
    *  job runs with the project's primary provider (this._adapter). Validated by
    *  the route layer against the project's installed providers. */
-  provider?: 'claude' | 'codex'
+  provider?: ProviderId
   /** Per-job model override (e.g. ultracode rails let the user pick
    *  haiku/sonnet/opus per launch). For claude this becomes the `--model`
    *  value, taking precedence over the project orchestrator model. In-memory
@@ -189,7 +189,7 @@ export class QueueManager {
   /** Pending per-job provider override keyed by jobId — read at spawn time.
    *  In-memory only (mirrors _jobProfileSelection): a queued job that survives a
    *  restart falls back to the project's primary provider. */
-  private _jobProviderSelection: Map<string, 'claude' | 'codex'>
+  private _jobProviderSelection: Map<string, ProviderId>
   /** Pending per-job model override keyed by jobId — read at spawn time.
    *  In-memory only (mirrors _jobProviderSelection). */
   private _jobModelSelection: Map<string, string>
@@ -212,7 +212,7 @@ export class QueueManager {
       zombieTimeoutMs?: number
       getCostAlertThreshold?: () => number | null
       getDesktopDailyBudget?: () => { budget: number | null; totalSpend: number }
-      provider?: 'claude' | 'codex'
+      provider?: ProviderId
       /** Effective model for codex spawns. If omitted, falls back to 'gpt-5.5'. */
       resolvedModel?: string
       onJobFinished?: (jobId: string, status: Job['status'], costUsd?: number) => void

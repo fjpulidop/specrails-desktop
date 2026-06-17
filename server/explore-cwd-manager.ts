@@ -2,7 +2,7 @@ import fs from 'fs'
 import path from 'path'
 import os from 'os'
 import { getAdapter } from './providers'
-import type { ProviderAdapter } from './providers/types'
+import type { ProviderAdapter, ProviderId } from './providers/types'
 
 /**
  * ExploreCwdManager owns the per-project app-managed cwd used to spawn the
@@ -92,7 +92,7 @@ export interface ExploreCwdInput {
   projectName: string
   /** Provider id from the project row. Defaults to claude for backwards
    *  compatibility with callers that haven't been threaded the project yet. */
-  provider?: 'claude' | 'codex'
+  provider?: ProviderId
 }
 
 /**

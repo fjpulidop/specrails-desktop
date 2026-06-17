@@ -36,6 +36,7 @@ import {
   clearAgentJob,
   getDesktopSetting,
   type ProjectRow,
+  type CliProvider,
 } from './desktop-db'
 import { getConfig } from './config'
 
@@ -112,8 +113,8 @@ export class ProjectRegistry {
     slug: string
     name: string
     path: string
-    provider?: 'claude' | 'codex'
-    providers?: ('claude' | 'codex')[]
+    provider?: CliProvider
+    providers?: CliProvider[]
   }): ProjectContext {
     const row = addProjectToDesktopDb(this._desktopDb, opts)
     return this._loadProjectContext(row)

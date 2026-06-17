@@ -17,7 +17,7 @@
 // Spec: openspec/specs/multi-provider-architecture/spec.md
 // Spec: openspec/changes/add-multi-provider-support/specs/project-spending/spec.md
 
-import type { AdapterEvent, NormalisedResult, ProviderAdapter } from './providers/types'
+import type { AdapterEvent, NormalisedResult, ProviderAdapter, ProviderId } from './providers/types'
 import { estimateCostUsd } from './pricing'
 
 export type { NormalisedResult } from './providers/types'
@@ -97,7 +97,7 @@ export function finaliseInvocationResult(
 
 export function normaliseResultEvent(
   event: Record<string, unknown> | null | undefined,
-  provider: 'claude' | 'codex' = 'claude',
+  provider: ProviderId = 'claude',
 ): NormalisedResult {
   if (!event) return {}
   if (provider === 'claude') {

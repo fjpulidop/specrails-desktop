@@ -11,6 +11,7 @@ import { openExternalUrl } from '../../lib/tauri-shell'
 import { DEFAULT_TERMINAL_SETTINGS, type TerminalSettings } from '../../lib/terminal-settings-types'
 import { TERMINAL_SETTINGS_UPDATED_EVENT, type TerminalSettingsUpdatedEventDetail } from '../../lib/terminal-settings-events'
 import { registerTauriDragDrop } from '../../lib/tauri-drag-drop'
+import type { ProviderId } from '../../lib/provider-capabilities'
 import { ShortcutContextMenu } from './ShortcutContextMenu'
 import { CliLaunchMenu } from './CliLaunchMenu'
 import { TerminalTopBar } from './TerminalTopBar'
@@ -23,7 +24,7 @@ interface BottomPanelProps {
   projectId: string
   /** Project's primary CLI provider — drives the Sparkles shortcut label when a
    *  single provider is installed (claude vs codex). */
-  provider?: 'claude' | 'codex'
+  provider?: ProviderId
   /** All installed providers. When >1, the Sparkles shortcut opens a picker. */
   providers?: readonly string[]
   state: ProjectPanelState

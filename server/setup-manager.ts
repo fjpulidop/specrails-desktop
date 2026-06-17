@@ -11,7 +11,7 @@ import { spawnCli } from './util/win-spawn'
 import { formatMissingSetupPrerequisites } from './setup-prerequisites'
 import { CORE_PACKAGE_SPEC } from './core-package'
 import { getAdapter } from './providers'
-import type { ProviderAdapter, SpawnAction } from './providers/types'
+import type { ProviderAdapter, SpawnAction, ProviderId } from './providers/types'
 
 /**
  * specrails-core's installer (Node-native from v4.2.0 onward, bash
@@ -837,7 +837,7 @@ export class SetupManager {
 
   // ─── Enrich: claude -p "/specrails:enrich --from-config" ────────────────────
 
-  startEnrich(projectId: string, projectPath: string, provider?: 'claude' | 'codex', projectName?: string): void {
+  startEnrich(projectId: string, projectPath: string, provider?: ProviderId, projectName?: string): void {
     if (this._setupProcesses.has(projectId)) {
       console.warn(`[SetupManager] enrich already running for ${projectId}`)
       return
@@ -875,11 +875,11 @@ export class SetupManager {
   }
 
   /** @deprecated Use startEnrich() instead */
-  startSetup(projectId: string, projectPath: string, provider?: 'claude' | 'codex'): void {
+  startSetup(projectId: string, projectPath: string, provider?: ProviderId): void {
     return this.startEnrich(projectId, projectPath, provider)
   }
 
-  resumeEnrich(projectId: string, projectPath: string, sessionId: string, userMessage: string, provider?: 'claude' | 'codex'): void {
+  resumeEnrich(projectId: string, projectPath: string, sessionId: string, userMessage: string, provider?: ProviderId): void {
     if (this._setupProcesses.has(projectId)) {
       console.warn(`[SetupManager] enrich already running for ${projectId}`)
       return
@@ -887,7 +887,7 @@ export class SetupManager {
 
     if (provider) this._projectProviders.set(projectId, provider)
 
-    const resolvedProvider = (provider ?? this._projectProviders.get(projectId)) as 'claude' | 'codex' | undefined
+    const resolvedProvider = (provider ?? this._projectProviders.get(projectId)) as ProviderId | undefined
     const adapter = getAdapter(resolvedProvider ?? 'claude')
 
     // Synthetic codex session ids (from before §10) can't be resumed against
@@ -919,7 +919,7 @@ export class SetupManager {
   }
 
   /** @deprecated Use resumeEnrich() instead */
-  resumeSetup(projectId: string, projectPath: string, sessionId: string, userMessage: string, provider?: 'claude' | 'codex'): void {
+  resumeSetup(projectId: string, projectPath: string, sessionId: string, userMessage: string, provider?: ProviderId): void {
     return this.resumeEnrich(projectId, projectPath, sessionId, userMessage, provider)
   }
 
@@ -956,7 +956,7 @@ export class SetupManager {
       action: 'setup-enrich' | 'setup-enrich-resume'
       prompt: string
       sessionId?: string
-      provider?: 'claude' | 'codex'
+      provider?: ProviderId
     },
   ): void {
     const resolvedProvider = opts.provider ?? detectCLISync()

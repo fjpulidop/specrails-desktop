@@ -1,5 +1,6 @@
 import { useTranslation } from 'react-i18next'
 import { cn } from '../lib/utils'
+import type { ProviderId } from '../lib/provider-capabilities'
 import {
   Select,
   SelectContent,
@@ -30,15 +31,23 @@ export const CODEX_MODELS = [
   { value: 'gpt-5.3-codex', label: 'GPT-5.3 Codex' },
 ]
 
-// Preset → default model per provider (matches specrails-core MODEL_PRESETS)
-export const PRESET_DEFAULTS: Record<ModelPreset, { claude: string; codex: string }> = {
+// Per-provider model catalog. Lookup keyed by provider id (not a branch) — a new
+// provider adds one entry, with no edit to consumers. Fallback is Claude's list.
+const PROVIDER_MODELS: Record<string, { value: string; label: string }[]> = {
+  claude: CLAUDE_MODELS,
+  codex: CODEX_MODELS,
+}
+
+// Preset → default model per provider (matches specrails-core MODEL_PRESETS).
+// Inner maps are keyed by provider id; an unknown provider falls back to Claude.
+export const PRESET_DEFAULTS: Record<ModelPreset, Record<string, string>> = {
   balanced: { claude: 'sonnet', codex: 'gpt-5.5' },
   budget: { claude: 'haiku', codex: 'gpt-5.4-mini' },
   max: { claude: 'sonnet', codex: 'gpt-5.5' },
 }
 
 // "max" preset: Opus for architect + PM, Sonnet for rest (matches specrails-core)
-const MAX_OVERRIDES: Record<string, { claude: string; codex: string }> = {
+const MAX_OVERRIDES: Record<string, Record<string, string>> = {
   'sr-architect': { claude: 'opus', codex: 'gpt-5.3-codex' },
   'sr-product-manager': { claude: 'opus', codex: 'gpt-5.3-codex' },
 }
@@ -46,19 +55,20 @@ const MAX_OVERRIDES: Record<string, { claude: string; codex: string }> = {
 export function getDefaultModel(
   agentId: string,
   preset: ModelPreset,
-  provider: 'claude' | 'codex'
+  provider: ProviderId
 ): string {
+  const presetDefaults = PRESET_DEFAULTS[preset]
   if (preset === 'max' && MAX_OVERRIDES[agentId]) {
-    return MAX_OVERRIDES[agentId][provider]
+    return MAX_OVERRIDES[agentId][provider] ?? presetDefaults[provider] ?? presetDefaults.claude
   }
-  return PRESET_DEFAULTS[preset][provider]
+  return presetDefaults[provider] ?? presetDefaults.claude
 }
 
 // ─── ModelSelector ────────────────────────────────────────────────────────────
 
 interface ModelSelectorProps {
   agents: AgentDef[]
-  provider: 'claude' | 'codex'
+  provider: ProviderId
   preset: ModelPreset
   overrides: ModelOverrides
   onPresetChange: (preset: ModelPreset) => void
@@ -77,7 +87,7 @@ export function ModelSelector({
   onOverrideChange,
 }: ModelSelectorProps) {
   const { t } = useTranslation('addspec')
-  const models = provider === 'claude' ? CLAUDE_MODELS : CODEX_MODELS
+  const models = PROVIDER_MODELS[provider] ?? CLAUDE_MODELS
 
   function getEffectiveModel(agentId: string): string {
     return overrides[agentId] ?? getDefaultModel(agentId, preset, provider)
