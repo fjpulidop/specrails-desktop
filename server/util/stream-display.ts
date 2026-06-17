@@ -7,7 +7,8 @@
 /**
  * Map a parsed provider stream-json frame to the single display line the Job
  * Detail log shows (or null when the frame carries no user-facing text).
- * Handles both Claude `--output-format stream-json` and Codex `exec --json`.
+ * Handles Claude `--output-format stream-json`, Codex `exec --json`, and Gemini
+ * `--output-format stream-json` frame shapes.
  */
 export function extractDisplayText(event: Record<string, unknown>): string | null {
   const type = event.type as string
@@ -20,9 +21,22 @@ export function extractDisplayText(event: Record<string, unknown>): string | nul
     return texts.join('') || null
   }
   if (type === 'tool_use') {
-    const name = (event as Record<string, unknown>).name as string
-    const input = JSON.stringify((event as Record<string, unknown>).input ?? {})
+    // Claude emits `name`/`input`; Gemini stream-json uses `tool_name`/`parameters`.
+    // Tolerating both keeps a single tool_use branch across providers — without
+    // this fallback every Gemini tool call renders as `[tool: undefined] {}`.
+    const e = event as Record<string, unknown>
+    const name = (e.name as string | undefined) ?? (e.tool_name as string | undefined) ?? '<unnamed>'
+    const input = JSON.stringify(e.input ?? e.parameters ?? {})
     return `[tool: ${name}] ${input.slice(0, 120)}`
+  }
+  if (type === 'message') {
+    // Gemini stream-json streams assistant text as `message` delta frames whose
+    // `content` is a plain string; the `role:"user"` echo carries no display
+    // value. Without this branch the Job Detail log drops all Gemini narration.
+    const e = event as Record<string, unknown>
+    if ((e.role as string | undefined) !== 'assistant') return null
+    const text = (e.content as string | undefined) ?? ''
+    return text.length > 0 ? text : null
   }
   if (type === 'tool_result' || type === 'system_prompt' || type === 'user' || type === 'system' || type === 'result') {
     return null
