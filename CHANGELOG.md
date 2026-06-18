@@ -1,5 +1,12 @@
 # Changelog
 
+## [2.8.0](https://github.com/fjpulidop/specrails-desktop/compare/v2.7.0...v2.8.0) (2026-06-18)
+
+
+### Features
+
+* **gemini:** enable Gemini by default + headless rails fixes ([#401](https://github.com/fjpulidop/specrails-desktop/issues/401)) ([3da2f51](https://github.com/fjpulidop/specrails-desktop/commit/3da2f51d5b7cc9904cb04aae6f1b426b51ba3dca))
+
 ## [2.7.0](https://github.com/fjpulidop/specrails-desktop/compare/v2.6.0...v2.7.0) (2026-06-17)
 
 
