@@ -557,30 +557,29 @@ describe('desktop-router', () => {
       expect(res.body.codex).toBe(false)
     })
 
-    it('omits gemini entirely by default (beta opt-in → fully hidden)', async () => {
+    it('surfaces gemini by default (enabled — key reflects real detection)', async () => {
       const prev = process.env.SPECRAILS_GEMINI_BETA
       delete process.env.SPECRAILS_GEMINI_BETA
       try {
         const { app } = createApp()
         const res = await request(app).get('/api/available-providers')
         expect(res.status).toBe(200)
-        expect(res.body).not.toHaveProperty('gemini')
+        expect(res.body).toHaveProperty('gemini')
+        expect(typeof res.body.gemini).toBe('boolean')
       } finally {
         if (prev === undefined) delete process.env.SPECRAILS_GEMINI_BETA
         else process.env.SPECRAILS_GEMINI_BETA = prev
       }
     })
 
-    it('surfaces gemini availability when SPECRAILS_GEMINI_BETA=1', async () => {
+    it('forces gemini unavailable when SPECRAILS_GEMINI_BETA=0 (emergency rollback)', async () => {
       const prev = process.env.SPECRAILS_GEMINI_BETA
-      process.env.SPECRAILS_GEMINI_BETA = '1'
+      process.env.SPECRAILS_GEMINI_BETA = '0'
       try {
         const { app } = createApp()
         const res = await request(app).get('/api/available-providers')
         expect(res.status).toBe(200)
-        // Real detection (true/false depending on whether `gemini` is on PATH),
-        // but no longer force-hidden — the key reflects actual availability.
-        expect(typeof res.body.gemini).toBe('boolean')
+        expect(res.body.gemini).toBe(false)
       } finally {
         if (prev === undefined) delete process.env.SPECRAILS_GEMINI_BETA
         else process.env.SPECRAILS_GEMINI_BETA = prev
@@ -591,28 +590,9 @@ describe('desktop-router', () => {
   // ─── POST /projects — provider validation ───────────────────────────────────
 
   describe('POST /api/projects — provider field', () => {
-    it('rejects gemini by default — beta opt-in (SPECRAILS_GEMINI_BETA unset)', async () => {
+    it('accepts gemini by default (enabled)', async () => {
       const prev = process.env.SPECRAILS_GEMINI_BETA
       delete process.env.SPECRAILS_GEMINI_BETA
-      const projectPath = fs.mkdtempSync(path.join(require('os').tmpdir(), 'gemini-blocked-'))
-      try {
-        const { app } = createApp()
-        const res = await request(app).post('/api/projects').send({
-          path: projectPath,
-          provider: 'gemini',
-        })
-        expect(res.status).toBe(400)
-        expect(res.body.error).toMatch(/beta|SPECRAILS_GEMINI_BETA/)
-      } finally {
-        fs.rmSync(projectPath, { recursive: true, force: true })
-        if (prev === undefined) delete process.env.SPECRAILS_GEMINI_BETA
-        else process.env.SPECRAILS_GEMINI_BETA = prev
-      }
-    })
-
-    it('accepts gemini when SPECRAILS_GEMINI_BETA=1', async () => {
-      const prev = process.env.SPECRAILS_GEMINI_BETA
-      process.env.SPECRAILS_GEMINI_BETA = '1'
       const projectPath = fs.mkdtempSync(path.join(require('os').tmpdir(), 'gemini-project-'))
       try {
         const { app } = createApp()
@@ -622,6 +602,25 @@ describe('desktop-router', () => {
         })
         expect(res.status).toBe(201)
         expect(res.body.project.provider).toBe('gemini')
+      } finally {
+        fs.rmSync(projectPath, { recursive: true, force: true })
+        if (prev === undefined) delete process.env.SPECRAILS_GEMINI_BETA
+        else process.env.SPECRAILS_GEMINI_BETA = prev
+      }
+    })
+
+    it('rejects gemini when SPECRAILS_GEMINI_BETA=0 (emergency rollback)', async () => {
+      const prev = process.env.SPECRAILS_GEMINI_BETA
+      process.env.SPECRAILS_GEMINI_BETA = '0'
+      const projectPath = fs.mkdtempSync(path.join(require('os').tmpdir(), 'gemini-blocked-'))
+      try {
+        const { app } = createApp()
+        const res = await request(app).post('/api/projects').send({
+          path: projectPath,
+          provider: 'gemini',
+        })
+        expect(res.status).toBe(400)
+        expect(res.body.error).toMatch(/SPECRAILS_GEMINI_BETA|disabled/)
       } finally {
         fs.rmSync(projectPath, { recursive: true, force: true })
         if (prev === undefined) delete process.env.SPECRAILS_GEMINI_BETA

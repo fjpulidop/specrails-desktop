@@ -26,6 +26,7 @@
 // Spec: openspec/specs/multi-provider-architecture/spec.md
 
 import { execSync } from 'child_process'
+import { acknowledgeGeminiProjectAgents } from './gemini-agent-ack'
 import type {
   AdapterEvent,
   DetectionResult,
@@ -244,6 +245,9 @@ export const geminiAdapter: ProviderAdapter = {
   extractResult: extractGeminiResult,
   baselineAgents: () => ['sr-architect', 'sr-developer', 'sr-reviewer'],
   detectInstalled: detectGeminiInstalled,
+  // Pre-acknowledge the project's custom subagents so they load in headless
+  // `gemini -p` rail spawns (else invoke_agent reports "Subagent not found").
+  prepareHeadlessSpawn: acknowledgeGeminiProjectAgents,
 }
 
 export { GEMINI_MIN_VERSION as _GEMINI_MIN_VERSION, compareSemver as _compareSemver }

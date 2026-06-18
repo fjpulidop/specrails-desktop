@@ -131,6 +131,16 @@ export interface ProviderAdapter {
   // Health probe — runs at startup + via /setup-prerequisites. MUST complete
   // within 3 seconds; longer resolves to { installed: false }.
   detectInstalled(): Promise<DetectionResult>
+
+  /**
+   * Optional provider-specific filesystem prep run right before a HEADLESS rail
+   * spawn (cwd = projectPath). Gemini uses it to pre-acknowledge the project's
+   * custom subagents (`~/.gemini/acknowledgments/agents.json`) so they load in
+   * `gemini -p` mode instead of falling back to a generic agent; claude/codex
+   * omit it. Best-effort — managers wrap the call so a failure never blocks the
+   * spawn. Synchronous: it only touches small local JSON.
+   */
+  prepareHeadlessSpawn?(projectPath: string): void
 }
 
 export class UnknownProviderError extends Error {

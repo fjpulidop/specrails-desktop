@@ -34,13 +34,15 @@ function isCodexBetaDisabled(): boolean {
   return v === '0'
 }
 
-// Gemini is opt-IN (default off): unlike codex, its stream-json schema has not
-// yet been validated against a live binary, so it stays hidden + unselectable
-// until SPECRAILS_GEMINI_BETA=1 (or 'true'). The adapter is always registered
-// (pricing/getAdapter work); only project selection is gated.
-function isGeminiBetaEnabled(): boolean {
-  const v = (process.env.SPECRAILS_GEMINI_BETA ?? '').toLowerCase()
-  return v === '1' || v === 'true'
+// Gemini is enabled by DEFAULT now that its stream-json schema and the full rails
+// pipeline (architect→developer→reviewer delegation, headless agent loading, the
+// MAX_TURNS resume + reviewer gate) are validated against the live binary
+// (0.46/0.47). Emergency rollback: SPECRAILS_GEMINI_BETA=0 forces it back to
+// "unavailable" without redeploying — parity with codex's SPECRAILS_CODEX_BETA.
+// The adapter is always registered (pricing/getAdapter work); only project
+// selection is gated.
+function isGeminiBetaDisabled(): boolean {
+  return process.env.SPECRAILS_GEMINI_BETA === '0'
 }
 
 // Theme allow-list. Mirror of THEME_IDS in `client/src/lib/themes.ts` —
@@ -174,9 +176,9 @@ export function createDesktopRouter(
     // is forced unavailable when SPECRAILS_CODEX_BETA=0 (emergency rollback).
     const gated: Record<string, boolean> = { ...providers }
     if (isCodexBetaDisabled()) gated.codex = false
-    // Gemini is opt-in: omit it entirely (not just `false`) when the beta flag is
-    // off, so it stays fully invisible in the UI until SPECRAILS_GEMINI_BETA=1.
-    if (!isGeminiBetaEnabled()) delete gated.gemini
+    // Gemini: enabled by default; forced unavailable only when
+    // SPECRAILS_GEMINI_BETA=0 (emergency rollback, parity with codex).
+    if (isGeminiBetaDisabled()) gated.gemini = false
     res.json({ ...gated, tiers })
   })
 
@@ -244,9 +246,9 @@ export function createDesktopRouter(
       })
       return
     }
-    if (providers.includes('gemini') && !isGeminiBetaEnabled()) {
+    if (providers.includes('gemini') && isGeminiBetaDisabled()) {
       res.status(400).json({
-        error: 'Gemini provider is in beta and disabled by default. Set SPECRAILS_GEMINI_BETA=1 to enable.',
+        error: 'Gemini provider is currently disabled (SPECRAILS_GEMINI_BETA=0). Unset or set to 1 to enable.',
       })
       return
     }
