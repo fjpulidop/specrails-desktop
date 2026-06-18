@@ -1122,6 +1122,19 @@ export class QueueManager {
       }
     }
 
+    // Provider-specific filesystem prep before a headless rail spawn. Gemini
+    // uses this to pre-acknowledge the project's custom subagents so they load
+    // in `gemini -p` mode (else invoke_agent reports "Subagent not found" and the
+    // orchestrator silently falls back to a generic agent). No-op for claude/codex.
+    if (this._cwd) {
+      try {
+        adapter.prepareHeadlessSpawn?.(this._cwd)
+      } catch (err) {
+        /* c8 ignore next -- best-effort prep; a failure is non-fatal */
+        console.warn(`[queue-manager] headless-spawn prep failed: ${(err as Error).message}`)
+      }
+    }
+
     // ─── Interactive ultracode branch ──────────────────────────────────────
     // When the launch requested interactive mode AND the command is ultracode
     // AND the adapter supports persistent stdin (claude), hand off to a resident
