@@ -43,9 +43,19 @@ You only need this once per build. It does not apply to the notarized installers
 When you add a project, the app checks for the tools it needs and surfaces them in a **prerequisites panel** (in the `Add Project` dialog and the setup wizard). It checks:
 
 - **Bundled tools** — `node`, `npm`, `npx`, `git`.
-- **Provider CLIs** — **Claude Code** and **Codex**. These are always probed via your system `PATH` (never bundled). **At least one provider must be installed and working** before Add Project is enabled — if neither is usable the panel blocks the dialog.
+- **Provider CLIs** — **Claude Code**, **Codex**, and **Gemini CLI**. All three are always probed via your system `PATH` (never bundled). **At least one of the three must be installed and working** before Add Project is enabled — if none is usable the panel blocks the dialog.
 
-When everything is in order, the panel collapses to a single line: **All required tools detected** (no per-tool rows, no version numbers). The detailed per-tool list — with versions, and including the Claude/Codex provider rows — only renders when something is **missing**, below its minimum version, or broken.
+You don't need all three providers. Install whichever you prefer:
+
+| Provider | Install | Minimum CLI | Auth |
+|---|---|---|---|
+| **Claude Code** | from [claude.com/download](https://claude.com/download) | none pinned | `claude login` |
+| **Codex** | `brew install codex` | `0.128.0` | `codex login` |
+| **Gemini CLI** | `npm i -g @google/gemini-cli` | `0.11.0` | set `GEMINI_API_KEY` (a paid key from Google AI Studio) |
+
+After installing a provider CLI, quit and relaunch Specrails so the new `PATH` is picked up (see [Verifying manually](#verifying-manually)). For full provider setup, see the [Codex guide](../codex.md) and the [Gemini guide](../gemini.md).
+
+When everything is in order, the panel collapses to a single line: **All required tools detected** (no per-tool rows, no version numbers). The detailed per-tool list — with versions, and including the Claude / Codex / Gemini provider rows (one row per provider you've installed) — only renders when something is **missing**, below its minimum version, or broken.
 
 ## PATH resolution
 
@@ -53,13 +63,13 @@ GUI apps on macOS inherit a minimal `PATH` from launchd when launched from Finde
 
 ### Desktop app (the default for `.dmg` users)
 
-The shipped desktop app bundles its own Node and Git runtimes. When those bundled binaries are present, the Tauri host sets `SPECRAILS_IS_DESKTOP=1` and `SPECRAILS_BUNDLED_RUNTIMES_PATH` before spawning the embedded server (`src-tauri/src/lib.rs`). In that mode `resolveStartupPath()` (in `server/path-resolver.ts`):
+The shipped desktop app bundles its own Node and Git runtimes. When **both** the bundled `node` and `git` bin directories are present, the Tauri host sets `SPECRAILS_IS_DESKTOP=1` and `SPECRAILS_BUNDLED_RUNTIMES_PATH` before spawning the embedded server (`src-tauri/src/lib.rs`). In that mode `resolveStartupPath()` (in `server/path-resolver.ts`):
 
 - Prepends the **bundled** `node` and `git` bin directories to the front of `process.env.PATH`. A system Homebrew or nvm-managed `node`/`git` can never shadow them.
 - **Skips** the Homebrew fast-path prepend entirely.
 - **Skips** the login-shell merge — `augmentPathFromLoginShell()` is a no-op so it cannot reorder system tools ahead of the bundled ones (`loginShellStatus: "skipped"`).
 
-If a build ships **without** the bundled runtimes (or has a partial/botched extraction), the desktop app does **not** dead-end: it falls through to the same system discovery described below, so a system-installed `node`/`git` still satisfies the requirement.
+If a build ships **without** the bundled runtimes — or has only a partial bundle (just one of the two directories present, or a botched extraction) — the desktop app does **not** dead-end: it falls through to the same system discovery described below, so a system-installed `node`/`git` still satisfies the requirement.
 
 ### Server / non-bundled fallback
 
@@ -88,7 +98,7 @@ This points you at the actual fix (remove the stale link) instead of sending you
 
 ## Diagnostic endpoint
 
-`GET /api/setup-prerequisites?diagnostic=1` returns the standard payload plus a `diagnostic` block. Example (illustrative — real payloads also carry `pathSources: "bundled"` segments in desktop mode):
+`GET /api/setup-prerequisites?diagnostic=1` returns the standard payload plus a `diagnostic` block. The example below is a **non-desktop / server run** (e.g. `npm run dev:server`), where `PATH` is reconstructed via the fast path + inherited entries:
 
 ```jsonc
 {
@@ -102,7 +112,8 @@ This points you at the actual fix (remove the stale link) instead of sending you
       "npx": "/opt/homebrew/bin/npx",
       "git": "/usr/bin/git",
       "claude": "/opt/homebrew/bin/claude",
-      "codex": null
+      "codex": null,
+      "gemini": null
     },
     "nodeEnv": "production",
     "platform": "darwin"
@@ -110,7 +121,15 @@ This points you at the actual fix (remove the stale link) instead of sending you
 }
 ```
 
-`whichResults` is keyed by command name for **every** prerequisite the panel checks, so it includes `claude`/`codex` (and `uv` when probed) on top of the four bundled tools.
+In the **shipped desktop app** the first segments come from the bundled runtimes instead, so the leading `pathSources` entries read `"bundled"` and `loginShellStatus` is `"skipped"`:
+
+```jsonc
+"pathSegments": ["/Applications/Specrails.app/.../runtimes/node/bin", "/Applications/Specrails.app/.../runtimes/git/bin", "..."],
+"pathSources": ["bundled", "bundled", "..."],
+"loginShellStatus": "skipped"
+```
+
+`whichResults` is keyed by command name for **every** prerequisite the panel checks, so it includes `claude`/`codex`/`gemini` (and `uv` when probed) on top of the four bundled tools. A `null` value means that command was not found on `PATH` — in the example above, only Claude Code is installed.
 
 The install-instructions modal exposes a **Copy diagnostics** button that fetches this endpoint and copies the JSON to the clipboard for bug reports. The base endpoint (no `?diagnostic=1`) omits the `diagnostic` field, keeping the regular UI poll small.
 
@@ -125,6 +144,6 @@ After installing or reinstalling Node (or a provider CLI):
 
 ## Known limitations
 
-- **Provider requirement**: at least one of Claude Code or Codex must be installed and on `PATH`; otherwise Add Project stays disabled.
+- **Provider requirement**: at least one provider CLI — Claude Code, Codex, or Gemini — must be installed and on `PATH`; otherwise Add Project stays disabled. (Gemini is enabled by default; to disable it set `SPECRAILS_GEMINI_BETA=0`.)
 - **Port 4200** must be free on launch. The app binds `127.0.0.1:4200` for its API + WebSocket; if another process holds the port, the server cannot start.
 - **Terminal panel**: the bottom terminal panel spawns `$SHELL -l -i`, so your `.zshrc` / `.bashrc` loads as it would in a normal login shell. Per-session shell selection is not yet exposed in the UI — set `SHELL` to override the default.

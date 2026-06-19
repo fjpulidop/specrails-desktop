@@ -27,6 +27,8 @@ tail -f ~/.specrails/desktop.log
 
 If you're using the desktop app, it bundles the server and starts it for you. You don't need `specrails-desktop start` at all.
 
+> **Running from source (contributors):** `start` launches the compiled server at `server/dist/index.js`. On a source-only checkout where nothing is built yet, it falls back to running `server/index.ts` with `tsx`, so you can start the server without a build step.
+
 ### Stop it
 
 ```bash
@@ -45,7 +47,7 @@ specrails-desktop --jobs                # see the note below
 
 `--status` prints a compact status line that includes the app version. The bare `status` subcommand prints whether the app is running (with its PID and URL) plus the registered project count and names — but no version. Both are plain text, handy to read or grep, not JSON.
 
-> **Note on `--jobs`:** there is no app-level jobs endpoint today, so `--jobs` prints a message that jobs history requires a manager with SQLite persistence and exits non-zero against a running server. Job history lives **per project** — view it on the project's **Jobs** page (right sidebar) in the dashboard instead.
+> **Note on `--jobs`:** there is no app-level `/api/jobs` route, so the server returns 404 and `--jobs` prints `jobs history requires manager with SQLite persistence (#57)` and exits non-zero against a running server. Job history lives **per project** — view it on the project's **Jobs** page (right sidebar) in the dashboard instead.
 
 ## Manage projects
 
@@ -84,6 +86,8 @@ If the app is running but no project is registered for your directory, you'll se
 [specrails-desktop] error: server is running but no project registered for the current directory.
   Run: specrails-desktop add <cwd>
 ```
+
+> **Troubleshooting auth:** when talking to a running server, the CLI reads `~/.specrails/desktop.token` (legacy fallback: `~/.specrails/hub.token`) and attaches it as a `Bearer` token on every request. The token file must contain at least 32 characters to be used. If CLI commands fail against a server you know is running, check that this token file exists and matches the one the server is using.
 
 ### Implement a spec
 
@@ -154,11 +158,15 @@ specrails-desktop --project my-app implement "#42"
 specrails-desktop --project ~/repos/api-srv batch-implement "#5" "#6"
 ```
 
-`--project` accepts a project name or absolute path. Use it when you want to launch work in a project from outside its directory (e.g. from a CI runner or your home directory). Both `--project` and `--port` may appear **anywhere** in the command, not just at the front.
+`--project` accepts a project **name** or a **path** (absolute, or relative starting with `.` / `..`). Use it when you want to launch work in a project from outside its directory (e.g. from a CI runner or your home directory). Both `--project` and `--port` may appear **anywhere** in the command, not just at the front.
 
 ## Providers
 
-The CLI is provider-agnostic in name but **always launches the project's primary provider**. CLI-routed jobs (and the offline fallback below) run on whichever provider you set as the default when you added the project — there's no flag to pick Claude vs Codex from the CLI. To choose an engine per spec or per rail on a multi-provider project, use the **dashboard** (Add Spec engine selector, rail header engine selector). See [Codex](codex.md).
+The app supports three AI providers — **Claude, Codex, and Gemini** — and all three are enabled by default. Each project is configured with one or more of them when you add it.
+
+The CLI itself has **no provider flag**: a CLI-routed job always launches the project's **primary provider** (the first one you selected when you added the project). To pick a different engine for a single spec or rail on a multi-provider project, use the **dashboard** — the Add Spec engine selector or the rail-header engine selector. Provider guides: [Codex](codex.md) and [Gemini](gemini.md).
+
+> **Ops note:** to constrain which providers the dashboard offers, set `SPECRAILS_CODEX_BETA=0` or `SPECRAILS_GEMINI_BETA=0` in the server's environment (only the exact string `0` disables a provider; unset, `1`, or `true` all leave it enabled). This affects the dashboard's provider picker, not the CLI, which has no engine flag.
 
 ## OpenSpec workflow
 
@@ -189,7 +197,18 @@ specrails-desktop /opsx:archive      # archive to openspec/changes/archive/
 
 ## When the app isn't running
 
-If you invoke a command that routes work (`implement`, `batch-implement`, a raw prompt, …) while the app is not running, the CLI falls back to spawning the **`claude`** binary directly in the current directory — no queue, no Analytics tracking, and always Claude regardless of the project's primary provider. You'll see a `manager not running — invoking claude directly` line. Start the app first if you want jobs to appear in the dashboard.
+If you invoke a command that routes work (`implement`, `batch-implement`, a raw prompt, …) while the app is not running, the CLI falls back to spawning the **`claude`** binary directly in the current directory. You'll see:
+
+```
+[specrails-desktop] manager not running — invoking claude directly
+```
+
+This fallback has two important limitations:
+
+- **It always spawns `claude`** — even on a project whose primary provider is Codex or Gemini. The offline path does not honour the project's configured provider, so an offline run can behave differently from the same command run through the app.
+- **Nothing is recorded.** There's no queue, no job in the Dashboard, and nothing written to Analytics.
+
+Start the app first (`specrails-desktop start`) if you want the job to use the right provider and show up in the dashboard.
 
 ## Where to go next
 

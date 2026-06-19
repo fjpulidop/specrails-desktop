@@ -177,3 +177,81 @@ No lo hace (confirmado que sobrevive). Pero **si** llegara a morir, el puente pr
 - **node-pty para `agy` en Windows:** equivalente portable a `script`, **no verificado** contra `agy`.
 - **SDK Python:** resume de una conversación `agy` local por id **no documentado**; gestiona su propio estado con runtime cloud bundled — re-platforming, no wrapping.
 - **`agy -p "/workflow"`** expandiendo deterministamente headless: **no verificado**.
+
+---
+
+## 8. Addendum — verificación contra el binario `agy 1.0.9` instalado (2026-06-18)
+
+> Este estudio se generó (2026-06-17) **sin el binario**, reconstruyendo la superficie del tracker/CHANGELOG. Al día siguiente se ejecutó el binario real instalado (`/Users/javi/.local/bin/agy`, Mach-O arm64, 135 MB, **v1.0.9**) en macOS. Esta sección **corrige y confirma** afirmaciones concretas del cuerpo principal. **El veredicto NO cambia** — los bloqueantes estructurales (sin `--output-format stream-json`, sin captura de session-id, sin coste/tokens) siguen en pie; este addendum los refuerza con evidencia directa y corrige solo el detalle del print mode.
+
+### 8.1 Identidad confirmada
+Strings del binario: `"You are a subagent of Antigravity, a powerful agentic AI coding assistant designed by the Google Deepmind team"`, `ANTIGRAVITY_AGENT=1`, config bajo `~/.gemini/antigravity-cli/`. Go (bubbletea/glamour). Confirma §2.
+
+### 8.2 `agy --help` verbatim — ahora SÍ obtenido (corrige §2)
+El cuerpo dice *"El volcado verbatim de `agy --help` no se obtuvo"*. Obtenido del binario:
+
+```
+Usage of agy:
+  --add-dir                       Add a directory to the workspace (repeatable)
+  -c, --continue                  Continue the most recent conversation
+  --conversation                  Resume a previous conversation by ID
+  --dangerously-skip-permissions  Auto-approve all tool permission requests
+  -i, --prompt-interactive        Run an initial prompt interactively and continue the session
+  --log-file                      Override CLI log file path
+  --model                         Model for the current CLI session
+  -p, --print, --prompt           Run a single prompt non-interactively and print the response
+  --print-timeout                 Timeout for print mode wait (default 5m0s)
+  --sandbox                       Run in a sandbox with terminal restrictions enabled
+Subcommands: changelog · help · install · models · plugin/plugins · update
+```
+
+**Confirma:** `-p/--print/--prompt`, `-c/--continue`, `--conversation`, `--model`, `--print-timeout` (default 5m), `--dangerously-skip-permissions`, `--sandbox`. **Crítico — NO aparece `--output-format`** → confirma #119/#394 **sin resolver en 1.0.9**.
+
+### 8.3 Print mode SÍ emite a stdout en 1.0.9 (corrige #76)
+`agy changelog` 1.0.9 verbatim: *"Fixed a bug in headless print mode resumption (`--conversation`/`-c` `-p ...`) where the CLI would dump the entire historical conversation transcript instead of only printing the newly generated response."*
+
+→ La premisa de **#76** ("stdout 0 bytes en non-TTY") está **parcialmente stale**: en 1.0.9 el print mode emite la respuesta a stdout (el bug arreglado era que emitía *de más* al resumir). **PERO no desbloquea nada**: sigue siendo **texto plano sin `--output-format stream-json`**, así que `parseStreamLine`/`extractResult` no tienen wire format que parsear. La pata "output machine-readable" sigue **rota**. *[No se ejecutó `agy -p "<prompt>"` real — sin gastar auth/tokens; la evidencia es el changelog + la ausencia de `--output-format` en `--help`, no un run.]*
+
+### 8.4 `agy models` verbatim (confirma §2)
+```
+Gemini 3.5 Flash (Low/Medium/High) · Gemini 3.1 Pro (Low/High)
+Claude Sonnet 4.6 (Thinking) · Claude Opus 4.6 (Thinking) · GPT-OSS 120B (Medium)
+```
+Confirma **nombres descriptivos** (no ids GA) → rompería la atribución de coste en `ai_invocations.model`. Multi-modelo (incluye Claude y GPT-OSS, no solo Gemini).
+
+### 8.5 Auth — este install es OAuth (confirma #78)
+`~/.gemini/oauth_creds.json` presente (1.5K) + `google_accounts.json`. **No verificado** si 1.0.9 acepta `GEMINI_API_KEY` headless — el tracker (#78) dice OAuth-only; este install lo es.
+
+### 8.6 Harness `~/.gemini` compartido — confirmado en disco (refuerza §1.3, §3, §5)
+Layout real observado:
+```
+~/.gemini/
+  acknowledgments/agents.json   ← MISMO fichero que gemini-adapter.prepareHeadlessSpawn escribe
+  agents/
+  config/mcp_config.json         ← MCP de agy (vacío en este install)
+  antigravity-cli/
+    brain/                       ← transcripts por conversación (transporte #2)
+    conversations/               ← SQLite (confirma migración JSONL→SQLite, §3)
+    cache/  history.jsonl  log/
+  oauth_creds.json  trustedFolders.json  settings.json
+```
+**Confirma el crux de §1.3/§5:** `agy` y `gemini-cli` comparten `~/.gemini`. El `acknowledgments/agents.json` es exactamente el que el `gemini-adapter` ya gestiona. El dir `conversations/` (SQLite) confirma que el schema `transcript.jsonl` está siendo superado (riesgo de durabilidad del transporte #2, §3).
+
+### 8.7 Modelo skills/workflows — confirmado en strings (refuerza §5)
+Símbolos del binario: `GetAllSkills`, `GetWorkflows`, `skills_paths`, `SKILLS_STACK`, `WorkflowName`/`WorkflowSpec`, `invoke_subagent`, `define_subagent`, discovery de `*.toml`. Confirma §5: subagentes **dinámicos** (`define_subagent` en runtime, no fichero persistente), skills+workflows como árbol cargable. `agy plugin import gemini|claude` confirma interop con el harness.
+
+### 8.8 Impacto en specrails-core (no estaba explícito en el cuerpo)
+El target gemini que **specrails-core 4.8.0** emite (`.gemini/commands/specrails/*.toml` + `.gemini/agents/sr-*.md` + `GEMINI.md`) **NO es el árbol que `agy` carga** (§5: `AGENTS.md` + `.agents/skills/sr-*/SKILL.md` + `.agents/workflows/sr-implement.md`). → un swap a `agy` **para rails** exige **un target NUEVO en specrails-core** (`templates/agy-skills/`), paralelo al gemini ya shipado. Es trabajo de **2 repos** (adapter desktop + core), no solo del adapter. Las superficies spec/explore/quick/chat (prompts directos, sin slash-commands de core) no tocarían core. Coherente con la "vía paralela" de §7.
+
+### Resumen del addendum
+| Afirmación del cuerpo (2026-06-17) | Estado tras verificar el binario 1.0.9 |
+|---|---|
+| `agy --help` verbatim no obtenido | ✅ obtenido (8.2) |
+| #76 stdout 0 bytes en non-TTY | ⚠️ **stale** — print mode emite en 1.0.9, pero sin stream-json (8.3) |
+| sin `--output-format json/stream-json` | ✅ confirmado (no aparece en `--help`) (8.2) |
+| #78 OAuth-only | ✅ este install es OAuth (8.5) |
+| coste/tokens no expuestos | ✅ sin cambios (no hay `--output-format` ni usage) |
+| harness `~/.gemini` compartido | ✅ confirmado en disco (8.6) |
+| migración transcript.jsonl → SQLite (§3) | ✅ `conversations/` SQLite presente (8.6) |
+| modelo de agentes dinámico (§5) | ✅ `define_subagent`/`invoke_subagent` en strings (8.7) |
+| **VEREDICTO: NO — todavía no** | ✅ **sin cambios; reforzado** |

@@ -1,6 +1,6 @@
 # Tracking cost
 
-specrails-desktop records every AI CLI invocation it spawns — both Claude and Codex — and surfaces the totals on one Analytics page per project. This guide walks through what's tracked, what's not, and how to read the dashboard.
+specrails-desktop records every AI CLI invocation it spawns — Claude, Codex, and Gemini — and surfaces the totals on one Analytics page per project. This guide walks through what's tracked, what's not, and how to read the dashboard.
 
 ## What gets tracked
 
@@ -15,22 +15,27 @@ Six surfaces, all per-project:
 | **`smash`** | SMASH runs that break an epic spec into sub-specs |
 | **`file-summary`** | Code-explorer AI summaries of individual files |
 
-Each invocation row carries: provider (Claude or Codex), model, status, started/finished timestamps, duration (wall clock + API-only), tokens (in / out / cache read / cache create), total USD cost, turn count, and — when applicable — the ticket and conversation IDs it touched.
+Each invocation row carries: provider (Claude, Codex, or Gemini), model, status, started/finished timestamps, duration (wall clock + API-only), tokens (in / out / cache read / cache create), total USD cost, turn count, and — when applicable — the ticket and conversation IDs it touched.
 
 > Cost averages exclude `failed`/`aborted` rows, but those rows still count toward the total run count and the failure rate.
 
-## Claude vs Codex cost
+## Authoritative vs estimated cost
 
-Claude cost is **provider-billed and authoritative** — the figure comes straight from the CLI.
+Whether a cost figure is exact depends on the provider's CLI, not on which provider you picked:
 
-Codex has no native cost field, so the app **estimates** its cost from a local rate-card (`server/pricing.ts`). Estimated rows are flagged: they render with a `~` tilde in the raw table and feed an "includes ~$X estimated" footnote in the Hero. On multi-provider projects, a **Provider breakdown** card splits spend by engine so you can see authoritative vs estimated at a glance.
+- **Claude cost is provider-billed and authoritative** — the figure comes straight from the CLI's own usage report.
+- **Codex and Gemini do not report cost natively**, so the app **estimates** their cost from a local rate-card (`server/pricing.ts`) using the captured token counts. Estimated rows are flagged: they render with a `~` tilde in the raw table (hover for the tooltip — *"Estimated from local pricing table — this provider does not report cost natively"*) and feed an "includes ~$X estimated" footnote in the Hero.
+
+On multi-provider projects, a **Provider breakdown** card splits spend across the project's installed engines so you can see authoritative vs estimated at a glance.
+
+> **Fail-soft on unknown models.** The rate card lists specific models (the current Codex and Gemini catalogs). If an invocation uses a model that isn't in the table, the app **does not fabricate a number** — it stores no cost (`total_cost_usd` is left empty), so that row simply shows a blank cost rather than a misleading estimate.
 
 ## What's NOT tracked (intentionally)
 
 - **Sidebar chat** — the general-purpose chat panel in the right sidebar. It spawns an AI process but isn't pipeline work, so the app excludes it from analytics by design.
 - **Setup wizard** — the install/enrich flow when you add a project. It *does* spawn an AI CLI (a genuine model invocation), but it's an interactive one-time wizard rather than a repeatable pipeline job, so it's deliberately left uninstrumented.
 
-If you want the absolute total of what an engine has cost you, your provider's own console (e.g. the Anthropic console for Claude) is the source of truth.
+If you want the absolute total of what an engine has cost you, your provider's own console is the source of truth — the Anthropic console for Claude, the OpenAI dashboard for Codex, and Google AI Studio / Cloud billing for Gemini.
 
 ## The Analytics page
 
@@ -40,7 +45,7 @@ Open **Analytics** from the project right sidebar.
 
 - **Period** — `7d`, `30d`, `90d`, or `All`. (There's no 24-hour or custom-range option here — the custom calendar range lives on Desktop Analytics, below.)
 - **Surface** — chips for `All` plus each of the six surfaces (Jobs, Explore, Quick, Refine, SMASH, File summaries). All are included by default; toggle chips to narrow the view.
-- **Engine** — provider chips (Claude / Codex) that appear **only on multi-provider projects**, letting you filter by engine.
+- **Engine** — one chip per installed provider (Claude, Codex, Gemini) plus `All`. These appear **only on multi-provider projects** (more than one engine installed) and let you filter spend by engine.
 
 The period and surface filters are URL-synced, so you can share or bookmark a view.
 
@@ -57,13 +62,13 @@ When the project has zero invocations in the period (e.g. you just started), the
 
 ### Provider breakdown
 
-On multi-provider projects, a dedicated card splits total spend between Claude and Codex. It's hidden on single-provider projects.
+On multi-provider projects, a dedicated card splits total spend across the project's installed engines (Claude, Codex, Gemini) — it's data-driven, so it renders for any combination of more than one provider. Each engine's row marks an all-estimated total with a `~` tilde. It's hidden on single-provider projects.
 
 ### Daily stacked timeline
 
-A daily bar chart for the period, stacked by surface. Days with zero activity are zero-filled so the x-axis stays regular.
+A daily bar chart for the period, stacked by surface. It plots five series — **Jobs, Explore, Quick, Refine, and File summaries**. SMASH spend is still tracked and shows up elsewhere (the Hero per-surface bar, Top models, and the raw table), but it is not currently a separate bar in this chart. Days with zero activity are zero-filled so the x-axis stays regular.
 
-Surface colours are consistent across the whole page:
+Surface colours are consistent wherever a surface appears across the page:
 
 - `job` → blue (`accent-info`)
 - `quick-spec` → purple (`accent-secondary`)
@@ -152,4 +157,5 @@ For the cross-project view, open **Analytics** from the Arc sidebar on the left.
 
 - [Customising the app](customizing.md) — set the budget, configure notifications.
 - [Creating specs](creating-specs.md) — every spec you create adds rows to your analytics.
-- [Using Codex](codex.md) — how cost works when you run a project on Codex.
+- [Using Codex](codex.md) — how cost works when you run a project on Codex (estimated, ~ tilde).
+- [Using Gemini](gemini.md) — how cost works when you run a project on Gemini (also estimated, ~ tilde).

@@ -16,7 +16,7 @@ If you're a user looking for **how do I do X?** docs, head back to the [user gui
 | [adding-a-provider.md](adding-a-provider.md) | How to add a new AI CLI: one adapter file plus one entry in the registry |
 | [profiles.md](profiles.md) | Agent profiles quick start: open the Agents section, pick a profile per rail at launch, author custom agents in Agent Studio. For the true file-format and snapshotting internals, read `server/profile-manager.ts` and the profile-manager section of `CLAUDE.md` |
 
-**See also:** [`../codex.md`](../codex.md) for the multi-provider model (Claude Code + Codex CLI as first-class engines).
+**See also:** the app supports multiple AI CLIs as first-class, interchangeable engines — Claude Code, Codex CLI, and Gemini CLI. See [`../codex.md`](../codex.md) and [`../gemini.md`](../gemini.md) for the per-provider detail. Gemini is **enabled by default** (selectable whenever the `gemini` CLI is on `PATH`); the emergency rollback is `SPECRAILS_GEMINI_BETA=0` (only the exact string `0` disables it). Codex parallels this with `SPECRAILS_CODEX_BETA=0`.
 
 ## Contributing
 

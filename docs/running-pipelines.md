@@ -21,7 +21,7 @@ SpecsBoard (left)            Rails (right)
 
 A **rail** is an execution lane. Drag a spec card from the SpecsBoard onto a rail and press **▶ Play** to launch the pipeline. Rails let you organise and queue work into named lanes.
 
-Rails run on **Claude** by default. If your project has both providers installed, a per-rail engine selector lets you launch a rail on **Codex** instead — see [Using Codex](codex.md).
+Rails run on **Claude** by default. If your project has more than one provider installed, a per-rail engine selector lets you launch a rail on **Codex** or **Gemini** instead — see [Using Codex](codex.md) and [Using Gemini](gemini.md). Only **Ultracode** mode is Claude-only; the standard Implement and Batch pipelines run on any installed provider.
 
 > **One job at a time per project.** Each project has a single queue, so within a project only one rail job runs at a time; the rest queue behind it. Real parallelism is **across projects** — open two projects and their rails run independently. See [Running multiple rails](#running-multiple-rails).
 
@@ -33,7 +33,7 @@ Each rail has a header with:
 - **Spec list** — the IDs of the specs assigned to this rail. Drag in more, drag out to detach. You can also use the **Move to rail** popover from a spec card; it shows a status dot per rail so you don't push work onto a busy lane.
 - **Mode segmented control** — `Implement`, `Batch`, and (Claude rails only) `Ultra`. See [Rail modes](#rail-modes).
 - **Profile picker** — which agent profile this rail uses. This only appears once the project has **at least one** profile (create them on the Agents page). When present, `No profile` runs the rail in legacy mode.
-- **Engine selector** — Claude vs Codex. Only renders on projects with more than one provider installed.
+- **Engine selector** — pick which installed provider (Claude, Codex, or Gemini) runs this rail. Only renders on projects with more than one provider installed.
 - **Play / Stop button** — start or cancel.
 
 ### Rail modes
@@ -54,7 +54,7 @@ The mode is a segmented control in the rail header, persisted per rail.
 Architect ──► Developer ──► Reviewer ──► Ship
 ```
 
-Each phase is a specialised Claude Code agent invoked in your project's working directory:
+Each phase is a specialised agent invoked by the rail's engine (Claude, Codex, or Gemini) in your project's working directory:
 
 | Phase | Agent | What it does |
 |-------|-------|--------------|
@@ -63,7 +63,7 @@ Each phase is a specialised Claude Code agent invoked in your project's working 
 | Reviewer | `sr-reviewer` | Reviews the output |
 | Ship | (varies) | Final wrap-up: tests, commit, PR draft |
 
-The exact agent for each phase is determined by your project's agent profile. The baseline trio (`sr-architect`, `sr-developer`, `sr-reviewer`) is mandatory; routing rules in the profile can fan-out or override. The phase progress bar only renders when the command defines phases.
+In plain terms: the project's **agent profile** decides which AI agent handles each phase. The baseline trio (`sr-architect`, `sr-developer`, `sr-reviewer`) is always present; a profile's routing rules can add extra agents or swap which one runs a phase. The phase progress bar only renders when the command defines phases. For the full format, see [internals/profiles.md](internals/profiles.md).
 
 ### Ultracode mode
 
@@ -72,9 +72,10 @@ The exact agent for each phase is determined by your project's agent profile. Th
 - **One job per spec.** If the rail has three specs, `Ultra` launches three independent jobs.
 - **Variable cost.** Because the run is open-ended, pressing Play opens a confirmation dialog before anything spawns.
 - **Model picker.** A per-rail control lets you pick **Haiku / Sonnet / Opus** (default Sonnet) for the Ultracode run.
-- **Claude only.** The `Ultra` segment and its model picker only appear when the rail's engine is Claude. Agent profiles don't apply to Ultracode rails.
+- **Claude only.** The `Ultra` segment and its model picker only appear when the rail's engine is Claude. Codex and Gemini rails can't run Ultracode, and agent profiles don't apply to Ultracode rails.
+- **Interactive (optional).** An `Interactive` toggle next to the `Ultra` segment turns the run into a back-and-forth session: you can chat with the running job, send follow-up prompts, and click **Finalize** when you're done. Without it, the job runs to completion on its own. (Available when the rail is idle; can be disabled server-side via `SPECRAILS_INTERACTIVE_JOBS=false`.)
 
-You can customise the Ultracode pre-prompt per project on the [Settings page](customizing.md#per-project-settings).
+You can customise the Ultracode pre-prompt per project on the [Settings page](customizing.md#ultracode-pre-prompt).
 
 ### Running multiple rails
 
@@ -102,16 +103,20 @@ Click a card to open the **Job Detail page**.
 
 ### Job Detail page
 
-Two purpose-built components above the streaming log:
+Two panels sit above the streaming log:
 
-- **`JobStatusPanel`** — header with a status icon, a live duration ticker, and an incremental counter for turns + tokens + cost (derived from streaming `assistant` events). Cost shows `—` until the authoritative `total_cost_usd` arrives at job exit.
-- **`JobTicketHeader`** — chips for every ticket the job touched (resolved by parsing the `command` and matching against the spec board). Click a chip to open the spec's detail modal over the job page without changing the route. A `+N more` collapse mode kicks in at ≥ 4 tickets.
+- **Status header** — a status icon and a live duration timer (the one genuinely live number), plus an activity line showing what the job is doing right now and a count of steps taken. Cost, turns, and tokens are deliberately **not** estimated mid-run — they show as pending and are revealed with their final, authoritative values when the job exits.
+- **Ticket header** — chips for every spec the job touched (matched from the launched command). Click a chip to open that spec's detail over the job page without leaving it. With four or more tickets, the chips collapse into a `+N more` mode you can expand.
 
 Below: the full streaming log with auto-scroll, search, and copy.
 
 ### Cancelling a job
 
 Click **Stop** on the rail header. The app sends `SIGTERM` to the subprocess, waits **5 s**, then `SIGKILL`.
+
+### If a rail won't launch
+
+If you pick an engine whose CLI isn't installed on your machine, the launch fails fast instead of starting a broken job. Install the missing provider CLI — see [Using Codex](codex.md) or [Using Gemini](gemini.md) — then launch again. (Missing Claude or Codex returns a precise "*&lt;provider&gt; CLI not found*" message; missing Gemini surfaces a generic launch error today, but the result is the same — nothing spawns.)
 
 ### Diagnostic export
 
@@ -151,6 +156,8 @@ Each profile gets a per-profile analytics card showing usage for the last 7 / 30
 Pick the profile from the **rail header's profile dropdown**. It's preselected to the project's resolved default, and your choice **persists per rail** across launches. The selection is sent with the launch; rails in the same batch can run different profiles.
 
 The **`No profile`** option always exists — use it to run a rail exactly as it did pre-4.1.0. (The dropdown itself only appears once the project has at least one profile.)
+
+> **Profiles apply to Claude rails only.** When a rail's engine is Codex or Gemini, the run always uses legacy mode — any selected profile is ignored. Profiles are a Claude-specific feature.
 
 ### Custom agents (Agent Studio)
 
@@ -237,4 +244,5 @@ If something looks wrong:
 - [Tracking cost](tracking-cost.md) — see what each rail run is costing you.
 - [Customising the app](customizing.md) — daily budget, per-job alerts, telemetry.
 - [Using Codex](codex.md) — run rails on the Codex CLI.
+- [Using Gemini](gemini.md) — run rails on the Gemini CLI.
 - [Agent profile internals](internals/profiles.md) — for power users.

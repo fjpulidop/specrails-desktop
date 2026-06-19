@@ -4,7 +4,7 @@ This guide walks you from "I just heard about specrails-desktop" to "I just ship
 
 ## What you'll need
 
-- **An AI CLI signed in** — either [Claude Code](https://claude.com/claude-code) (via Claude subscription login or an `ANTHROPIC_API_KEY`) or the Codex CLI. You can use one or both — see [Codex](codex.md).
+- **An AI CLI signed in** — [Claude Code](https://claude.com/claude-code) (via Claude subscription login or an `ANTHROPIC_API_KEY`), the [Codex CLI](codex.md) (`codex` ≥ 0.128.0), or the [Gemini CLI](gemini.md) (`gemini` ≥ 0.11.0, with `GEMINI_API_KEY` set). You can mix and match — install Claude, Codex, Gemini, or any combination.
 - A project you want to work on (any Git repository works)
 
 If you install with **npm** (Option 2 below) you'll also need **Node.js 20+** and **`git`** on your PATH. The **desktop app** bundles its own Node and Git runtimes, so you don't need those installed separately.
@@ -22,7 +22,7 @@ Download a signed build for your OS from `https://specrails.dev/downloads/specra
 - **macOS** — `specrails-desktop-<version>-aarch64.dmg` (Apple Silicon, notarised)
 - **Windows** — `specrails-desktop-<version>-x64-setup.exe` (NSIS) or `.msi`
 
-Open the installer, drag to Applications (macOS) or click through the wizard (Windows). The app bundles the server, so you don't need a separate process. macOS handles all the Homebrew/Volta/nvm PATH gymnastics for you — see [platforms/macos.md](platforms/macos.md) if anything looks off.
+Open the installer, drag to Applications (macOS) or click through the wizard (Windows). The app bundles the server, so you don't need a separate process. The desktop app resolves your PATH for you at startup — no manual Homebrew/Volta/nvm setup needed — see [platforms/macos.md](platforms/macos.md) if anything looks off.
 
 > First Windows launch shows a SmartScreen warning until the installer is code-signed. Click **More info → Run anyway**. Details and hash-verification steps in [platforms/windows.md](platforms/windows.md).
 
@@ -43,7 +43,7 @@ There are two ways. Pick whichever feels natural.
 
 1. Click **+** in the left sidebar.
 2. Enter the absolute path to your project (e.g. `/Users/you/repos/my-app`).
-3. Pick your **AI providers**. Check **Claude**, **Codex**, or both — when you select both, the first one becomes the project default. The provider set is fixed once the project is created.
+3. Pick your **AI providers**. Check **Claude**, **Codex**, **Gemini**, or any combination — the first one in the list (Claude, then Codex, then Gemini) that you check becomes the project default. The provider set is fixed once the project is created.
 4. The prerequisites panel verifies `node`, `npm`, `npx`, `git`. If anything's missing, the panel surfaces OS-aware install commands you can copy.
 5. Click **Add**.
 
@@ -54,12 +54,14 @@ specrails-desktop add /path/to/your/project
 specrails-desktop list   # verify
 ```
 
+> Heads-up: if you run a spec from the CLI while no app server is running, the offline fallback always invokes `claude` — regardless of the project's primary provider — and records nothing to Analytics. Start the app (or `specrails-desktop start`) to use Codex or Gemini and to capture cost tracking.
+
 ### If the project doesn't have specrails-core yet
 
 The setup wizard runs automatically. Three steps:
 
 1. **Configure** — choose which agents to install (the baseline trio `sr-architect`, `sr-developer`, `sr-reviewer` is always selected; optional agents like Test Writer or Security Reviewer are opt-in). Pick a model preset (Balanced / Budget / Max) and optionally override the model per agent.
-2. **Install** — the app runs the installer (`npx specrails-core@latest init --yes --from-config <config>`) non-interactively and streams the output live.
+2. **Install** — the app runs the installer (`npx --yes --prefer-online specrails-core@^4.8.0 init --yes --from-config <config>`) non-interactively and streams the output live. The version is pinned to the core release the app ships with — it never silently jumps to a new major.
 3. **Done** — a summary tells you how many agents and commands landed. Click **Continue to project**.
 
 That's the whole onboarding. No tier picker, no second wizard. You can manage agents and their per-agent models later from the **Agents** page (Profiles tab).
@@ -74,7 +76,7 @@ When you already know what you want:
 
 1. On the Dashboard, click **+ Add Spec → Quick**.
 2. Type a one-line title (e.g. *"Add a webhook retry with exponential backoff"*).
-3. (Optional) toggle **Enrich with Contract Layer** to get a structured block of names, data shapes, invariants, and a file touch list appended to the description.
+3. (Optional) toggle **Enrich with Contract Layer** to get a structured block of names, data shapes, invariants, and a file touch list appended to the description. (Contract Layer enrichment is a Claude-only feature — on Codex and Gemini projects the toggle is shown but the refinement step is skipped.)
 4. Hit Enter.
 
 Your AI CLI generates the full spec in one turn. A small toast at the bottom right shows the project, the spec title, and live elapsed time ("Generating… 0:12") — it turns into a success or failure toast (with a **View** action) when generation finishes.
@@ -113,6 +115,7 @@ Token usage, duration, and cost are tracked per turn and surface in:
 - **[Running pipelines](running-pipelines.md)** — agent profiles, plugins (Serena), telemetry export.
 - **[Tracking cost](tracking-cost.md)** — analytics deep dive and CSV exports.
 - **[Codex](codex.md)** — using the Codex CLI as a provider, alongside or instead of Claude.
+- **[Gemini](gemini.md)** — using the Gemini CLI as a provider, alongside or instead of Claude.
 - **[Terminal panel](terminal.md)** — the built-in per-project terminal (toggle with `Cmd/Ctrl+J`).
 - **[Customising the app](customizing.md)** — themes, terminal settings, kill switches.
 - **[CLI reference](cli.md)** — drive specrails-desktop from the terminal.
@@ -127,13 +130,19 @@ specrails-desktop stop                # stops the running server cleanly
 lsof -i :4200    # macOS / Linux
 ```
 
-**The `claude` command isn't found inside the app**
+**Your AI CLI (`claude`, `codex`, or `gemini`) isn't found inside the app**
 
-On macOS, this usually means the app was launched from Finder/Dock and didn't pick up Homebrew/Volta paths. The app fixes this at startup automatically, but if it still fails, see [platforms/macos.md](platforms/macos.md).
+On macOS, this usually means the app was launched from Finder/Dock and didn't pick up Homebrew/Volta paths. The app resolves PATH at startup automatically, but if it still fails, see [platforms/macos.md](platforms/macos.md).
 
-**The setup wizard fails on `npx specrails-core@latest init`**
+**The setup wizard fails on `npx specrails-core init`**
 
-Most likely Node is missing from the shell environment that launched the app, or your AI CLI isn't authenticated (sign in to the `claude` CLI or set `ANTHROPIC_API_KEY`; for Codex, sign in to the `codex` CLI). Click **Copy diagnostics** in the install-instructions modal — that prints the resolved PATH, where the app found each tool, and login-shell status. Paste it into a bug report if you can't figure it out.
+Most likely Node is missing from the shell environment that launched the app, or whichever AI CLI your project uses isn't authenticated:
+
+- **Claude** — sign in to the `claude` CLI or set `ANTHROPIC_API_KEY`.
+- **Codex** — sign in to the `codex` CLI.
+- **Gemini** — make sure `gemini` is on your PATH and `GEMINI_API_KEY` is set (headless spawns can't use the interactive "Login with Google" flow).
+
+Click **Copy diagnostics** in the install-instructions modal — that prints the resolved PATH, where the app found each tool, and login-shell status. Paste it into a bug report if you can't figure it out.
 
 **More**
 

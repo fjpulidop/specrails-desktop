@@ -2,6 +2,10 @@
 
 REST and WebSocket endpoints exposed by the app server. The server binds to `127.0.0.1` only (loopback); the default port is `4200` but it can be overridden with `--port <n>` on the server command line.
 
+> **New here?** This page is the contract the desktop UI, the CLI, and the mobile gateway all speak to the local server. **You normally never call these endpoints directly — the app does it for you.** Read on only if you are scripting against the server, writing an integration, or debugging. Everything is local-only: there is no cloud API.
+
+The app speaks to three interchangeable AI provider CLIs — **Claude, Codex, and Gemini** — all enabled by default. Endpoints that accept a provider value (`provider` / `aiEngine`) take any of `claude`, `codex`, or `gemini`, validated against the providers the project actually installed. See the [Codex guide](../codex.md) and the [Gemini guide](../gemini.md) for provider specifics.
+
 ## Authentication
 
 An app token is **auto-generated on first run** (two concatenated UUIDs) and persisted to `~/.specrails/desktop.token` with mode `0600`. It is **mandatory**, not optional. Every `/api/*` route is protected by it, with two exceptions that are mounted before the auth middleware: `/api/health` and `/api/token`.
@@ -17,7 +21,7 @@ The CLI and the desktop client read the token automatically. The browser client 
 
 There is no UI to set or clear the token, and it is not an app setting.
 
-This page is hand-maintained against the route declarations in `server/*-router.ts`. If you spot a discrepancy, please file an issue.
+This page is hand-maintained against the route declarations in `server/*-router.ts`, the per-domain `server/project-router-{jobs,spending,settings,terminals,tickets,chat,setup}.ts` family, `server/code-explorer-router.ts`, and `server/jira-router.ts`. If you spot a discrepancy, please file an issue.
 
 ---
 
@@ -27,14 +31,15 @@ This page is hand-maintained against the route declarations in `server/*-router.
 |--------|--------|------|-------|
 | `/api/health` | direct | none | Liveness probe (`{ status, version, uptime, projects, mode }`) |
 | `/api/token` | direct | none | Returns the auth token for local bootstrapping (loopback-only) |
-| `/api/docs` | `docs-router` | none (mounted before auth) | Bundled documentation portal |
+| `/api/docs` | `docs-router` | loopback-only (mounted before token auth) | Bundled documentation portal |
 | `/api/mobile/*` | `mobile-admin-router` | Bearer / X-Desktop-Token + loopback | Mobile Gateway admin (enable/pair/devices) |
 | `/api/*` | `desktop-router` | Bearer / X-Desktop-Token | Cross-project operations |
 | `/api/projects/:projectId/*` | `project-router` | Bearer / X-Desktop-Token | Project-scoped operations |
-| `/api/projects/:projectId/code/*` | `code-explorer-router` | Bearer / X-Desktop-Token | Read-only Code explorer |
+| `/api/projects/:projectId/code/*` | `code-explorer-router` | Bearer / X-Desktop-Token | Code explorer (read + in-app file editing; 404 when the gate is off) |
 | `/api/projects/:projectId/rails/*` | `rails-router` | Bearer / X-Desktop-Token | Rails (execution lanes) |
 | `/api/projects/:projectId/profiles/*` | `profiles-router` | Bearer / X-Desktop-Token | Agent profiles + catalog studio |
 | `/api/projects/:projectId/plugins/*` | `plugins-router` | Bearer / X-Desktop-Token | Plugin marketplace |
+| `/api/projects/:projectId/jira/*` | `jira-router` | Bearer / X-Desktop-Token | Jira integration (404 when `SPECRAILS_JIRA_SECTION=false`) |
 | `/otlp/v1/{traces,metrics,logs}` | `telemetry-receiver` | none (gated by job id) | OTLP/JSON receiver |
 | `/ws` | WebSocket | token in query | Project + app event stream |
 | `/ws/terminal/:id` | WebSocket | token in query | PTY traffic for the terminal panel |
@@ -54,17 +59,29 @@ A non-localhost `Origin` header is rejected by the CORS middleware with `403 For
 | Method | Path | Notes |
 |--------|------|-------|
 | `GET` | `/projects` | List registered projects |
-| `POST` | `/projects` | Register a project. Body `{ path, name?, provider?, providers? }`. `providers: string[]` enables a multi-provider project (first entry = primary/default); legacy single `provider` still honoured; omit both to default to `["claude"]`. 409 if the path is already registered |
+| `POST` | `/projects` | Register a project. Body `{ path, name?, provider?, providers? }`. Each provider value is one of `claude`, `codex`, `gemini` (registry-validated). `providers: string[]` enables a multi-provider project (first entry = primary/default); legacy single `provider` still honoured; omit both to default to `["claude"]`. 409 if the path is already registered. 400 if a provider is unknown, or if a disabled provider is selected: `codex` when `SPECRAILS_CODEX_BETA=0`, `gemini` when `SPECRAILS_GEMINI_BETA=0` (both default-enabled) |
 | `DELETE` | `/projects/:id` | Unregister (does not delete the project directory) |
 | `GET` | `/resolve?path=…` | Find a project by **exact** canonical filesystem path. No parent-directory walking — a subdirectory returns 404 |
+
+Example — register a project that uses both Claude and Gemini:
+
+```json
+// POST /api/projects
+{
+  "path": "/Users/me/code/my-app",
+  "name": "My App",
+  "providers": ["claude", "gemini"]
+}
+// → 201 { "project": { "id": "my-app", "name": "My App", "provider": "claude", "providers": ["claude", "gemini"], ... } }
+```
 
 ### App state
 
 | Method | Path | Notes |
 |--------|------|-------|
 | `GET` | `/state` | `{ projects, projectCount, …todayStats }` (today's cross-project cost/run aggregates spread into the response) |
-| `GET` | `/cli-status` | Detected AI CLI provider + version (`{ provider, version }`), e.g. claude or codex — runs `<binary> --version` |
-| `GET` | `/available-providers` | Provider catalogue (Claude, Codex) used by the setup wizard |
+| `GET` | `/cli-status` | Detected AI CLI provider + version (`{ provider, version }`), e.g. `claude`, `codex`, or `gemini` — runs `<binary> --version`. Registry-driven |
+| `GET` | `/available-providers` | Provider catalogue used by the setup wizard. Registry-driven map (`{ claude, codex, gemini, tiers }`) reporting which CLIs are installed. Codex/Gemini are surfaced unless forced off by `SPECRAILS_CODEX_BETA=0` / `SPECRAILS_GEMINI_BETA=0` (both enabled by default) |
 | `GET` | `/core-compat` | specrails-core version compatibility probe |
 | `GET` | `/setup-prerequisites` | Tool checks (`node`/`npm`/`npx`/`git`, optionally `uv`). Add `?diagnostic=1` to nest a `diagnostic` object: `{ pathSegments, pathSources, loginShellStatus, whichResults, nodeEnv, platform }` |
 
@@ -155,6 +172,14 @@ All routes below are prefixed with `/api/projects/:projectId/`. In the client, u
 | `POST` | `/config` | Force re-discovery |
 | `GET` | `/default-spec-model?provider=` | Resolve the Quick-spec model for an engine. Returns `{ model, provider, allowed, providers }`; `provider` falls back to the primary if omitted/invalid |
 
+Example — queue a command on a specific provider:
+
+```json
+// POST /api/projects/my-app/spawn
+{ "command": "/specrails:implement #42 --yes", "aiEngine": "gemini" }
+// → 202 { "jobId": "j_01H...", "position": 0 }
+```
+
 ### Pipelines and jobs
 
 | Method | Path | Notes |
@@ -170,7 +195,31 @@ All routes below are prefixed with `/api/projects/:projectId/`. In the client, u
 | `DELETE` | `/jobs/:id` | Cancel a running or queued job |
 | `DELETE` | `/jobs` | Purge completed jobs (optional `{ from, to }` window) |
 | `PATCH` | `/jobs/:id/priority` | Re-rank a queued job |
+| `POST` | `/jobs/:id/messages` | Send one more user turn to a running **interactive** ultracode job. Body `{ text }`. `202` accepted, `400` missing text, `403` interactive jobs disabled, `409` the job is not an active interactive session |
+| `POST` | `/jobs/:id/finalize` | Finalize a running interactive job (SIGTERM the resident child; final totals + `completed` status are stamped when it closes). `202` scheduled, `403` interactive jobs disabled, `409` not an active interactive session |
 | `GET` | `/jobs/:jobId/diagnostic` | Stream a diagnostic ZIP (telemetry + profile + plugins snapshots) |
+
+The two interactive endpoints back the in-job chat for **Interactive Ultracode** rails (Claude-only). They both 403 when the server has `SPECRAILS_INTERACTIVE_JOBS=false`.
+
+Example — fetch one job:
+
+```json
+// GET /api/projects/my-app/jobs/j_01H...
+{
+  "job": {
+    "id": "j_01H...",
+    "command": "/specrails:implement #42 --yes",
+    "status": "completed",
+    "total_cost_usd": 0.83,
+    "num_turns": 14,
+    "model": "sonnet",
+    "hasTelemetry": true,
+    "tickets": [{ "id": 42, "title": "Add CSV export" }]
+  },
+  "events": [ /* streamed job events */ ],
+  "phaseDefinitions": [ /* architect → developer → reviewer → ship */ ]
+}
+```
 
 ### Queue
 
@@ -196,6 +245,21 @@ Spending is tracked across six surfaces: `job`, `quick-spec`, `explore-spec`, `a
 | `GET` | `/tickets/:id/spending-summary` | Per-ticket cross-surface aggregate (powers `TicketSpendingLine`) |
 | `GET` | `/analytics/export?format=csv\|json&mode=summary\|raw&…` | Multi-section summary CSV/JSON, or raw rows (10 000 cap) |
 
+Example — the Analytics dashboard payload (abridged):
+
+```json
+// GET /api/projects/my-app/spending?period=30d
+{
+  "summary": { "totalCostUsd": 12.40, "totalRuns": 58, "prevPeriodDeltaPct": -8.2, "trackingStartedAt": "2026-05-01" },
+  "bySurface": [{ "surface": "job", "costUsd": 9.10 }, { "surface": "explore-spec", "costUsd": 2.30 }],
+  "byModel": [{ "model": "sonnet", "costUsd": 8.00 }, { "model": "gemini-3.5-flash", "costUsd": 1.20 }],
+  "dailyTimeline": [ /* zero-filled, stacked by surface */ ],
+  "topTickets": [ /* top 10 cross-surface */ ]
+}
+```
+
+Cost is **provider-billed and exact for Claude**; for Codex and Gemini it is **estimated from a rate card** (those CLIs do not report a native cost).
+
 ### Budget
 
 | Method | Path | Notes |
@@ -216,7 +280,7 @@ Spending is tracked across six surfaces: `job`, `quick-spec`, `explore-spec`, `a
 | `POST` | `/tickets/save-as-draft` | Persist an Explore conversation as a draft (idempotent on `conversationId`) |
 | `POST` | `/tickets/from-draft` | Commit a draft (flip-in-place) or insert a new ticket |
 | `POST` | `/tickets/from-prompt` | Create a ticket directly from a prompt |
-| `POST` | `/tickets/:id/contract-refine` | Retry Contract Refine for an existing ticket (202 / 404 / 409) |
+| `POST` | `/tickets/:id/contract-refine` | Retry Contract Refine for an existing ticket. `202` scheduled, `404` unknown ticket, `409` when: the project is Codex (`contract_refine_unsupported_for_codex` — Contract Refine is Claude-only), the kill switch is active (`feature_disabled_by_env`), or the ticket has no origin conversation |
 | `POST` | `/tickets/:id/smash` | SMASH an epic into sub-specs |
 | `POST` | `/tickets/:id/smash/undo` | Undo a SMASH operation |
 | `DELETE` | `/tickets/:id/children` | Delete all children of an epic |
@@ -251,7 +315,7 @@ The setup wizard is a three-step flow (Configure / Install / Done). The `enrich/
 | Method | Path | Notes |
 |--------|------|-------|
 | `POST` | `/setup/install-config` | Write `.specrails/install-config.yaml` to the project |
-| `POST` | `/setup/install` | Run `npx … specrails-core@^4.6.0 init --from-config <file>` |
+| `POST` | `/setup/install` | Run `npx specrails-core init --from-config <file>` (the pinned core release — currently `specrails-core@^4.8.0` — is resolved by SetupManager, overridable via `SPECRAILS_CORE_BIN`) |
 | `POST` | `/setup/start` | Legacy setup-chat session start |
 | `POST` | `/setup/message` | Legacy setup-chat turn |
 | `POST` | `/enrich/start` | Legacy AI-enrich session start |
@@ -348,12 +412,13 @@ Gated by `requireBrowserCaptureEnabled` — returns 404 when the feature is disa
 
 ## `/api/projects/:projectId/code/*`
 
-Read-only Code explorer (mounted via `code-explorer-router`; 404 when the server gate is off).
+A non-developer-friendly file tree + Monaco viewer with plain-language AI summaries and *touched-by-AI* provenance chips, plus opt-in in-app editing of existing files (overwrite-only). Mounted via `code-explorer-router`; 404 when the server gate is off.
 
 | Method | Path | Notes |
 |--------|------|-------|
 | `GET` | `/tree?withProvenance=1&filter=touched-by-ai\|all&cursor=…` | Virtualised file tree (pagination cap 2000, `.gitignore`-aware) |
 | `GET` | `/file?path=…` | File contents (binary refusal, 2 MB cap, path-traversal guard) |
+| `PUT` | `/file` | In-app edit: overwrite an **existing** text file. Body `{ path, content }`. Overwrite-only (no create, no rename); same traversal / deny-list / `.gitignore` guards as the read path. `404` if the path does not exist, `413` over the 2 MB cap, `415` for binary content/files |
 | `GET` | `/summary?path=…` | Plain-language AI summary for a file |
 | `POST` | `/file/regenerate-summary?path=…` | Enqueue a summary regeneration. Body `{ overrideBudget? }` → `202 { enqueued: true }` |
 | `GET` | `/provenance?ticketId=…` | Files touched by a ticket |
@@ -368,15 +433,18 @@ Read-only Code explorer (mounted via `code-explorer-router`; 404 when the server
 | `GET` | `/` | List rails |
 | `PUT` | `/:railIndex/tickets` | Assign tickets to a rail. Body `{ ticketIds: number[] }` |
 | `PUT` | `/:railIndex/profile` | Set the rail's default profile |
-| `PUT` | `/:railIndex/engine` | Set the rail's AI engine override. Body `{ aiEngine }` (string or `null` to clear) |
-| `POST` | `/:railIndex/launch` | Launch the rail. Body `{ mode?, profileName?, aiEngine?, model? }`; `mode` is `implement` / `batch-implement` / `ultracode`; `model` (haiku/sonnet/opus) applies to ultracode only |
-| `POST` | `/:railIndex/stop` | Stop the rail's running job |
+| `PUT` | `/:railIndex/engine` | Set the rail's AI engine override. Body `{ aiEngine }` (string — one of the project's providers — or `null` to clear) |
+| `PUT` | `/:railIndex/name` | Set the rail's display name. Body `{ name }` (string or `null` to clear back to the default label); 400 if longer than 60 characters |
+| `POST` | `/:railIndex/launch` | Launch the rail. Body `{ mode?, profileName?, aiEngine?, model?, interactive? }`. `mode` is `implement` / `batch-implement` / `ultracode`; `model` (haiku/sonnet/opus) applies to ultracode only; `interactive: true` opens an in-job chat and is **ultracode-only** (400 for any other mode, 403 when interactive jobs are disabled). Returns `202 { jobId, railIndex, mode }`; **`503`** when the Claude or Codex CLI binary is not found (a missing Gemini/other binary surfaces as `500`) |
+| `POST` | `/:railIndex/stop` | Stop the rail's running job (cancels every job the rail registered) |
 
 ---
 
 ## `/api/projects/:projectId/profiles/*`
 
-Gated by `SPECRAILS_AGENTS_SECTION !== 'false'`. Profiles are effectively Claude-only — a non-Claude rail engine runs in legacy mode.
+Gated by `SPECRAILS_AGENTS_SECTION !== 'false'`. Rails force legacy (no-profile) mode whenever the chosen engine is not Claude, and the Agents section is hidden in multi-provider projects; profile env-injection itself works for any provider whose adapter advertises `profileEnvSupport`.
+
+> **Provider capability notes.** A few behaviours are not the same across all three providers: **Contract Refine** is Claude-only; **rails force legacy (no-profile) mode** for any non-Claude engine; **Ultracode rails** are Claude-only; the **Serena plugin** (and other `project-json` plugins) work for Claude and Gemini but are filtered out for Codex; and **cost is exact only for Claude** (estimated from a rate card for Codex and Gemini). See the [Codex guide](../codex.md) and [Gemini guide](../gemini.md).
 
 ### Profile CRUD
 
@@ -387,8 +455,8 @@ Gated by `SPECRAILS_AGENTS_SECTION !== 'false'`. Profiles are effectively Claude
 | `GET` | `/:name` | One profile |
 | `PATCH` | `/:name` | Update |
 | `DELETE` | `/:name` | Delete |
-| `POST` | `/:name/duplicate` | Duplicate. Body `{ newName }` |
-| `POST` | `/:name/rename` | Rename. Body `{ newName }` |
+| `POST` | `/:name/duplicate` | Duplicate. Body `{ name }` (the new profile name) |
+| `POST` | `/:name/rename` | Rename. Body `{ name }` (the new profile name) |
 | `GET` | `/resolve?profile=…` | Preview which profile would run given a selection |
 
 ### Bootstrap and analytics
@@ -445,9 +513,32 @@ Gated by `SPECRAILS_PLUGINS_SECTION !== 'false'`.
 
 ---
 
+## `/api/projects/:projectId/jira/*`
+
+Optional per-project Jira integration: a project's specs can be backed by a Jira board instead of the local store. Mounted via `jira-router` and gated by `SPECRAILS_JIRA_SECTION` — **every route 404s when the flag is `false`**. Inert until a connection is configured. The Jira token is never returned to the client (connection responses carry `hasToken` only). The first six endpoints back the step-by-step connect wizard (test → pick project → optional status map → connect).
+
+| Method | Path | Notes |
+|--------|------|-------|
+| `GET` | `/connection` | Current connection (token redacted) or `{ connected: false }` |
+| `PATCH` | `/connection` | Toggle `enabled` (hot-swap local ↔ Jira) and/or update the discard status / status map. `404` if no connection |
+| `DELETE` | `/connection` | Disconnect and restore the local backlog config |
+| `POST` | `/test` | Wizard step 1: validate credentials without saving. Body `{ baseUrl, accountEmail?, token }`. `401` on bad credentials |
+| `POST` | `/discover-projects` | Wizard step 2: list visible Jira projects. Body `{ baseUrl, accountEmail?, token, query? }` |
+| `POST` | `/discover-statuses` | Wizard step 3 (optional): list a project's statuses. Body `{ baseUrl, accountEmail?, token, projectKey }` |
+| `POST` | `/connect` | Wizard final step: validate + persist + start sync. Body `{ baseUrl, accountEmail?, token, jiraProjectKey, statusMap?, discardStatus? }`. `201` on success |
+| `GET` | `/statuses` | The connected project's real statuses (post-connect picker), using stored credentials |
+| `POST` | `/resume` | Re-paste a fresh token after a `401` and drain the parked outbox |
+| `POST` | `/sync` | Manual "Sync now" — a full re-fetch ignoring the high-water mark |
+| `GET` | `/outbox?state=` | List durable write-back ops (optional `state=pending\|inflight\|done\|dead`) + counts |
+| `POST` | `/outbox/:id/retry` | Re-queue a dead-lettered op. `404` if the op is missing or not dead |
+| `POST` | `/specs` | Add Spec when the project source is Jira: create the issue in Jira and materialize it locally. Body `{ title, description?, labels?, priority?, issueType? }` → `201 { localId, jiraKey }` |
+| `POST` | `/specs/:localId/discard` | Move the linked issue to the configured discard status (instead of deleting). Body `{ comment? }`. `404` if unlinked, `409` otherwise |
+| `GET` | `/specs/:localId/details` | Read-only Jira details + development payload for the spec detail modal |
+| `GET` | `/links` | The spec ↔ Jira issue map (drives the badge and diagnostics) |
+
 ## `/api/docs/*`
 
-The bundled documentation portal (served by `docs-router`, public — mounted before auth).
+The bundled documentation portal (served by `docs-router`, loopback-only — mounted before token auth).
 
 | Method | Path | Notes |
 |--------|------|-------|
@@ -476,17 +567,21 @@ A single connection at `ws://127.0.0.1:4200/ws?token=<authToken>` multiplexes ev
 
 Every project-scoped message includes a `projectId` field. App-level messages have no `projectId` and reach every handler.
 
+**On connect**, the current Super-mode server sends exactly **one** frame: `desktop.projects` (the project list). There is **no live `init` frame** — the `init` type still exists in `server/types.ts` and is consumed by `usePipeline`, but only demo-mode emits it; per-project initial state is fetched via REST (e.g. `GET /jobs`, `GET /queue`).
+
 ### Job, queue & pipeline
 
 | Type | Scope | Notes |
 |------|-------|-------|
-| `init` | project | Per-connection dashboard snapshot sent on (re)connect: `{ projectName, phases, phaseDefinitions, logBuffer, recentJobs, queue }` |
 | `log` | project | Streaming log line |
 | `event` | project | Structured job event |
 | `phase` | project | Pipeline phase transition |
 | `queue` | project | Queue snapshot (`{ jobs, activeJobId, paused, timestamp }`) — job-exit state changes reach the client here |
 | `pipeline_status` | project | Pipeline finished (`completed` / `failed`) |
 | `exit` | both | Replay of a process exit (`{ code, signal, early }`); also emitted on the terminal stream |
+| `job.turn_user` | project | Interactive job: a user prompt was accepted (echoed so the in-job chat can render the bubble immediately; `queued` is true when a turn is already streaming) |
+| `job.turn_done` | project | Interactive job: a turn finished streaming, carrying the running sum of real token/cost totals |
+| `job.finalized` | project | Interactive job finalized (or crashed): final authoritative totals + terminal status |
 
 ### Budget & cost
 
@@ -540,6 +635,7 @@ Every project-scoped message includes a `projectId` field. App-level messages ha
 | Type | Scope | Notes |
 |------|-------|-------|
 | `rail.job_started` / `rail.job_completed` / `rail.job_stopped` | project | Rail job lifecycle |
+| `rail.updated` | project | A non-launch rail change (tickets reassigned, renamed, mode/profile/engine edited) — carries the full post-mutation rail snapshot |
 
 ### Plugins
 
@@ -556,6 +652,16 @@ Every project-scoped message includes a `projectId` field. App-level messages ha
 |------|-------|-------|
 | `file.provenance_updated` | project | A job touched files |
 | `file.summary_updated` / `file.summary_failed` / `file.summary_skipped` | project | Summary lifecycle |
+
+### Jira
+
+| Type | Scope | Notes |
+|------|-------|-------|
+| `jira.synced` | project | Inbound poll materialized issues into the local cache |
+| `jira.sync_error` | project | A sync attempt failed |
+| `jira.auth_expired` | project | A `401` paused the project; the user must re-paste a token (then `POST /jira/resume`) |
+| `jira.outbox_changed` | project | The durable write-back outbox changed (op enqueued/drained/dead-lettered) |
+| `jira.degraded` | project | A write-back op was dead-lettered or a path is blocked; sync continues |
 
 ### Setup wizard
 
@@ -616,10 +722,13 @@ The app uses standard HTTP status codes. Notable conventions:
 
 - `400` — malformed body / invalid params
 - `401` — missing or invalid token (Bearer or `X-Desktop-Token`)
-- `403` — cross-origin request (a non-localhost `Origin` header)
-- `404` — resource not found (including a project resolved from an unregistered path)
-- `409` — write conflict (file-lock contention on tickets, plugin name collision, project path already registered)
+- `403` — cross-origin request (a non-localhost `Origin` header), or a feature gated off (interactive jobs disabled, code-explorer deny-list/gitignore)
+- `404` — resource not found (including a project resolved from an unregistered path, or any route under a disabled section gate such as Jira / Code explorer)
+- `409` — write conflict (file-lock contention on tickets, plugin/profile name collision, project path already registered) or a state conflict (e.g. not an active interactive job, Contract Refine unsupported)
+- `413` — payload too large (code-explorer edit over the 2 MB cap)
+- `415` — unsupported media type (code-explorer edit of binary content)
 - `500` — unhandled exception (logged to stdout)
+- `503` — the Claude or Codex CLI binary was not found when launching a rail job (a missing Gemini/other-provider binary falls through to `500`)
 
 Error responses are `{ "error": "<message>" }`.
 
@@ -627,5 +736,5 @@ Error responses are `{ "error": "<message>" }`.
 
 ## Caveats
 
-- **Surface drift**: this file is hand-maintained against the route declarations in `server/*-router.ts` and `server/code-explorer-router.ts`. The app adds endpoints regularly; if a route exists in code but not here, please open an issue.
+- **Surface drift**: this file is hand-maintained against the route declarations in `server/*-router.ts`, the per-domain `server/project-router-{jobs,spending,settings,terminals,tickets,chat,setup}.ts` family, `server/code-explorer-router.ts`, and `server/jira-router.ts`. The app adds endpoints regularly; if a route exists in code but not here, please open an issue.
 - **Stability**: routes under `/api/*` and `/api/projects/:projectId/*` are considered stable. A few legacy setup endpoints (`setup/start`, `setup/message`, `enrich/*`) back a flow the UI does not expose and remain only for forward compatibility.
