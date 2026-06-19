@@ -75,7 +75,12 @@ function spawnCoreInit(args: string[], cwd: string): ChildProcess {
   // .cmd shim AND quotes each arg, so spaces (and newlines) survive intact.
   return spawnCli(bin, fullArgs, {
     cwd,
-    env: process.env,
+    // Force RELOCATION: specrails-core installs in-repo by DEFAULT now (so a
+    // standalone `npx specrails-core init` user's CLI finds the agents in their
+    // repo). The desktop manages the cwd (spawns rails with cwd=workspace), so
+    // it MUST relocate to keep the user's imported repo pristine — independent of
+    // whether the registry mirror already ran. See specrails-core init's gate.
+    env: { ...process.env, SPECRAILS_RELOCATE: '1' },
     stdio: ['ignore', 'pipe', 'pipe'],
   })
 }
@@ -96,7 +101,9 @@ function spawnBundledCoreInit(args: string[], cwd: string): ChildProcess | null 
   const coreRoot = getBundledCoreRoot()
   if (!cli || !coreRoot) return null
   const fullArgs = [cli, 'init', ...args]
-  const env: NodeJS.ProcessEnv = { ...process.env, SPECRAILS_CORE_SCRIPT_DIR: coreRoot }
+  // Force RELOCATION (core installs in-repo by default; the desktop keeps the
+  // user's repo pristine + manages the spawn cwd). See spawnCoreInit.
+  const env: NodeJS.ProcessEnv = { ...process.env, SPECRAILS_CORE_SCRIPT_DIR: coreRoot, SPECRAILS_RELOCATE: '1' }
 
   // Bundled openspec (offline) — the LAST network step of project-add. When the
   // app ships @fission-ai/openspec, point specrails-core's `installOpenSpecProject`

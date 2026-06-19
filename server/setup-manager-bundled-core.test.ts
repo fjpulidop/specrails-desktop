@@ -60,6 +60,7 @@ if (sub === 'init') {
       JSON.stringify({
         bin: process.env.SPECRAILS_OPENSPEC_BIN || null,
         node: process.env.SPECRAILS_OPENSPEC_NODE || null,
+        relocate: process.env.SPECRAILS_RELOCATE || null,
       }),
     )
   } catch {}
@@ -205,6 +206,9 @@ describe('SetupManager — bundled-core install path', () => {
     // runtimes set, it falls back to `node` on PATH.
     expect(env.node).toBe('node')
     expect(env.node).not.toBe(process.execPath)
+    // The desktop forces relocation: core installs in-repo by default, but the
+    // desktop must keep the user's repo pristine + manages the spawn cwd.
+    expect(env.relocate).toBe('1')
   })
 
   it('uses the bundled Node binary as SPECRAILS_OPENSPEC_NODE when bundled runtimes are present', async () => {
