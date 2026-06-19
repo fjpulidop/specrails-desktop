@@ -130,7 +130,7 @@ function main() {
     // spawn a `.cmd` without a shell (EINVAL), so run through the shell there —
     // the shell resolves `npm` → `npm.cmd` from PATH. POSIX spawns directly.
     execFileSync(
-      'npm',
+      process.platform === 'win32' ? 'npm.cmd' : 'npm',
       [
         'install',
         spec,

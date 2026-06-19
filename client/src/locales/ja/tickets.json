@@ -90,10 +90,10 @@
   },
   "comparePicker": {
     "title": "比較対象を選択…",
-    "todoCount": "(Todo {{n}} 件)",
-    "searchPlaceholder": "Todo のスペックを検索…",
-    "noMatches": "一致する Todo スペックはありません",
-    "empty": "比較できる他の Todo スペックはありません"
+    "count": "(スペック {{n}} 件)",
+    "searchPlaceholder": "スペックを検索…",
+    "noMatches": "一致するスペックはありません",
+    "empty": "比較できる他のスペックはありません"
   },
   "spendingLine": {
     "ariaLabel": "アナリティクスでチケットの支出を表示",

@@ -420,7 +420,7 @@ describe('TicketDetailModal', () => {
   })
 
   describe('Continue Editing button', () => {
-    const EDITABLE = ['draft', 'todo', 'backlog'] as const
+    const EDITABLE = ['draft', 'todo'] as const
     const NON_EDITABLE = ['in_progress', 'done', 'cancelled'] as const
 
     EDITABLE.forEach((status) => {
@@ -431,10 +431,33 @@ describe('TicketDetailModal', () => {
     })
 
     NON_EDITABLE.forEach((status) => {
-      it(`is hidden for status ${status}`, () => {
+      it(`is hidden for status ${status} (non-Jira ticket)`, () => {
         render(<TicketDetailModal {...makeDefaultProps({ ticket: makeTicket({ status: status as LocalTicket['status'] }) })} />)
         expect(screen.queryByTestId('continue-editing')).toBeNull()
       })
+    })
+
+    // Jira-backed specs mirror the Jira board column, not a rail lifecycle —
+    // they refine in ANY non-cancelled status so a PM can keep editing the
+    // issue while it's In Progress / Done. See lib/ticket-refine.ts.
+    const JIRA_BACKED = (status: LocalTicket['status']) =>
+      makeTicket({ status, source: 'jira', jira_key: 'SKILLS-17', jira_url: 'https://acme.atlassian.net/browse/SKILLS-17' })
+
+    ;(['draft', 'todo', 'in_progress', 'done'] as const).forEach((status) => {
+      it(`is visible for Jira-backed status ${status}`, () => {
+        render(<TicketDetailModal {...makeDefaultProps({ ticket: JIRA_BACKED(status) })} />)
+        expect(screen.getByTestId('continue-editing')).toBeInTheDocument()
+      })
+    })
+
+    it('is hidden for Jira-backed cancelled tickets', () => {
+      render(<TicketDetailModal {...makeDefaultProps({ ticket: JIRA_BACKED('cancelled') })} />)
+      expect(screen.queryByTestId('continue-editing')).toBeNull()
+    })
+
+    it('is hidden for a Jira source ticket missing jira_key', () => {
+      render(<TicketDetailModal {...makeDefaultProps({ ticket: makeTicket({ status: 'in_progress', source: 'jira', jira_key: null }) })} />)
+      expect(screen.queryByTestId('continue-editing')).toBeNull()
     })
 
     it('routes drafts with origin_conversation_id to the resume path (no editTicket)', () => {
