@@ -8,10 +8,9 @@ import { MoveToRailPopover } from './MoveToRailPopover'
 import { useMinimizedChats } from '../context/MinimizedChatsContext'
 import { useDesktop } from '../hooks/useDesktop'
 import { parseAcceptanceCriteria } from './explore-spec/acceptance-criteria'
+import { canRefineTicket } from '../lib/ticket-refine'
 import type { LocalTicket, TicketPriority } from '../types'
 import type { RailState } from './RailsBoard'
-
-const POSTIT_EDITABLE_STATUSES = new Set<LocalTicket['status']>(['draft', 'todo'])
 
 const PRIORITY_VARIANT: Record<TicketPriority, 'destructive' | 'default' | 'warning' | 'outline'> = {
   critical: 'destructive',
@@ -129,7 +128,7 @@ export function TicketPostitCard({
   // to keep the postit clean.
   const { triggerResume } = useMinimizedChats()
   const { activeProjectId } = useDesktop()
-  const canContinueEditing = POSTIT_EDITABLE_STATUSES.has(ticket.status) && Boolean(activeProjectId)
+  const canContinueEditing = canRefineTicket(ticket) && Boolean(activeProjectId)
 
   const handleContinueEditing = useCallback((e: React.MouseEvent) => {
     e.stopPropagation()

@@ -45,10 +45,14 @@ export function SpecComparePicker({ tickets, excludeIds, onSelect }: SpecCompare
 
   const filtered = useMemo(() => {
     const exclude = new Set(excludeIds)
-    const todoOnly = tickets.filter((t) => t.status === 'todo' && !exclude.has(t.id))
-    if (!search.trim()) return todoOnly
+    // Any non-cancelled spec is comparable. The picker previously showed only
+    // `todo` specs, which hid every Jira-backed spec whose board column maps to
+    // in_progress/done/draft — so on a Jira-connected project the picker came
+    // up empty. Cancelled specs are intent-closed, so they stay excluded.
+    const comparable = tickets.filter((t) => t.status !== 'cancelled' && !exclude.has(t.id))
+    if (!search.trim()) return comparable
     const q = search.toLowerCase()
-    return todoOnly.filter(
+    return comparable.filter(
       (t) => t.title.toLowerCase().includes(q) || t.description.toLowerCase().includes(q),
     )
   }, [tickets, excludeIds, search])
@@ -62,7 +66,7 @@ export function SpecComparePicker({ tickets, excludeIds, onSelect }: SpecCompare
       <div className="px-4 py-3 border-b border-border/30 flex items-center gap-2">
         <TicketIcon className="w-3.5 h-3.5 text-muted-foreground" />
         <span className="text-xs font-semibold text-foreground">{t('comparePicker.title')}</span>
-        <span className="text-[10px] text-muted-foreground">{t('comparePicker.todoCount', { n: filtered.length })}</span>
+        <span className="text-[10px] text-muted-foreground">{t('comparePicker.count', { n: filtered.length })}</span>
       </div>
 
       {/* Search */}

@@ -90,10 +90,10 @@
   },
   "comparePicker": {
     "title": "Comparar com…",
-    "todoCount": "({{n}} por fazer)",
-    "searchPlaceholder": "Pesquisar specs por fazer…",
-    "noMatches": "Nenhuma spec por fazer corresponde",
-    "empty": "Não há outras specs por fazer para comparar"
+    "count": "({{n}} specs)",
+    "searchPlaceholder": "Pesquisar specs…",
+    "noMatches": "Nenhuma spec corresponde",
+    "empty": "Não há outras specs para comparar"
   },
   "spendingLine": {
     "ariaLabel": "Ver os gastos do ticket em Analytics",

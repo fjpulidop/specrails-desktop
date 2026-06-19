@@ -18,6 +18,7 @@ import { useJiraConnection } from '../hooks/useJiraConnection'
 import { DiscardSpecDialog } from './jira/DiscardSpecDialog'
 import { JiraSpecDetailsPanel } from './jira/JiraSpecDetailsPanel'
 import { parseAcceptanceCriteria } from './explore-spec/acceptance-criteria'
+import { canRefineTicket } from '../lib/ticket-refine'
 import { useDesktop } from '../hooks/useDesktop'
 import { SmashActions } from './specs-smash/SmashActions'
 import { EpicBreadcrumb } from './specs-smash/EpicChildrenSection'
@@ -804,18 +805,19 @@ interface ContinueEditingButtonProps {
   onClose: () => void
 }
 
-const EDITABLE_STATUSES = new Set(['draft', 'todo', 'backlog'])
-
 /**
  * Single entry point for "open this ticket in Explore Spec to refine it".
  *
  * - draft + `origin_conversation_id`: resume the existing Explore conversation
  *   (preserves prior chat history). Same behaviour as the legacy `Continue
  *   Explore` button this component replaces.
- * - draft (no conv) / todo / backlog: launch a fresh Explore session in
- *   edit-existing-ticket mode (commits via PATCH; Review baseline = ticket).
+ * - draft (no conv) / todo: launch a fresh Explore session in edit-existing-
+ *   ticket mode (commits via PATCH; Review baseline = ticket).
+ * - Jira-backed specs (`source==='jira'`): refine in any non-cancelled status
+ *   too — the local status mirrors the Jira board column, not a rail
+ *   lifecycle. See `canRefineTicket`.
  *
- * Hidden for `in_progress`, `done`, `cancelled`.
+ * Hidden for non-Jira `in_progress`/`done` and any `cancelled` ticket.
  * See openspec/changes/replace-ai-edit-with-continue-editing/design.md D1+D8.
  */
 function ContinueEditingButton({ ticket, title, description, priority, labels, onClose }: ContinueEditingButtonProps) {
@@ -823,7 +825,7 @@ function ContinueEditingButton({ ticket, title, description, priority, labels, o
   const { triggerResume } = useMinimizedChats()
   const { activeProjectId } = useDesktop()
   const { closeTicketDetail } = useTicketDetailModal()
-  if (!EDITABLE_STATUSES.has(ticket.status)) return null
+  if (!canRefineTicket(ticket)) return null
   const handleClick = () => {
     if (!activeProjectId) return
     // Unified Continue Editing: ALL editable tickets get the editTicket

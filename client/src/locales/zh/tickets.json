@@ -90,10 +90,10 @@
   },
   "comparePicker": {
     "title": "选择对比对象…",
-    "todoCount": "（{{n}} 个待办）",
-    "searchPlaceholder": "搜索待办 spec…",
-    "noMatches": "没有匹配的待办 spec",
-    "empty": "没有其他可对比的待办 spec"
+    "count": "（{{n}} 个 spec）",
+    "searchPlaceholder": "搜索 spec…",
+    "noMatches": "没有匹配的 spec",
+    "empty": "没有其他可对比的 spec"
   },
   "spendingLine": {
     "ariaLabel": "在分析页查看此工单的支出",

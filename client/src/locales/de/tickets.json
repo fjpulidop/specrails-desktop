@@ -90,10 +90,10 @@
   },
   "comparePicker": {
     "title": "Vergleichen mit…",
-    "todoCount": "({{n}} To-do)",
-    "searchPlaceholder": "To-do-Specs durchsuchen…",
-    "noMatches": "Keine passenden To-do-Specs",
-    "empty": "Keine anderen To-do-Specs zum Vergleichen"
+    "count": "({{n}} Specs)",
+    "searchPlaceholder": "Specs durchsuchen…",
+    "noMatches": "Keine passenden Specs",
+    "empty": "Keine anderen Specs zum Vergleichen"
   },
   "spendingLine": {
     "ariaLabel": "Ticket-Ausgaben in Analytics anzeigen",

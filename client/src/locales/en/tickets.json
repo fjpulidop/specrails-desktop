@@ -90,10 +90,10 @@
   },
   "comparePicker": {
     "title": "Compare with…",
-    "todoCount": "({{n}} todo)",
-    "searchPlaceholder": "Search todo specs…",
-    "noMatches": "No matching todo specs",
-    "empty": "No other todo specs to compare"
+    "count": "({{n}} specs)",
+    "searchPlaceholder": "Search specs…",
+    "noMatches": "No matching specs",
+    "empty": "No other specs to compare"
   },
   "spendingLine": {
     "ariaLabel": "View ticket spending in Analytics",
