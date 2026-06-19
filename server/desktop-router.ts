@@ -25,6 +25,23 @@ function slugify(name: string): string {
   return name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '')
 }
 
+/**
+ * Deterministic slug allocation with a `-N` dedup suffix — byte-parity with
+ * specrails-core's `allocateSlug` (and artifact-registry). Without this, two
+ * repos that share a basename (e.g. `frontend` in two parent dirs) both slugify
+ * to `frontend`, and the second `addProject` dies on the `projects.slug UNIQUE`
+ * constraint with a misleading 409 ("already registered") even though the PATH
+ * is new. The `-2`, `-3`… suffix gives the second repo a distinct slug.
+ */
+function allocateSlug(name: string, existing: ReadonlySet<string>): string {
+  let base = slugify(name)
+  if (base === '') base = 'project'
+  if (!existing.has(base)) return base
+  let n = 2
+  while (existing.has(`${base}-${n}`)) n += 1
+  return `${base}-${n}`
+}
+
 // Emergency rollback for the codex provider: SPECRAILS_CODEX_BETA=0 forces
 // codex back to "unavailable" without redeploying. The pre-rebrand
 // SPECRAILS_HUB_CODEX_BETA name is read as a legacy fallback when the new
@@ -272,7 +289,11 @@ export function createDesktopRouter(
     const derivedName = (name && typeof name === 'string' && name.trim())
       ? name.trim()
       : deriveProjectName(canonicalPath)
-    const slug = slugify(derivedName)
+    // Dedup the slug against already-registered projects so two same-basename
+    // repos don't collide on the projects.slug UNIQUE constraint (which would
+    // surface as a misleading 409 for a brand-new PATH).
+    const existingSlugs = new Set(listProjects(registry.desktopDb).map((p) => p.slug))
+    const slug = allocateSlug(derivedName, existingSlugs)
     const id = randomUUID()
     const specrailsInstalled = hasSpecrails(canonicalPath)
 

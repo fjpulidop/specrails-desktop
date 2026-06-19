@@ -102,6 +102,35 @@ describe('getConfig', () => {
     expect(config.commands[1].name).toBe('Batch Implement')
   })
 
+  it('relocate-artifacts: scans commands from the commandsRoot override (workspace)', () => {
+    mockExecSync.mockReturnValue(Buffer.from(''))
+    // The repo (cwd) has a `.claude` so projectRoot === cwd, but commands are
+    // materialized into the WORKSPACE — scanning the repo would find none.
+    existsSyncSpy.mockImplementation((p: unknown) => {
+      const s = String(p)
+      // repo .claude exists (project-root detection) AND the workspace commands dir
+      return s.endsWith('.claude') || s.includes('/workspace/.claude/commands/sr')
+    })
+    readdirSyncSpy.mockImplementation((p: unknown) => {
+      // Only the WORKSPACE commands dir yields files; the repo's would be empty.
+      if (String(p).includes('/workspace/.claude/commands/sr')) {
+        return ['implement.md'] as unknown as fs.Dirent[]
+      }
+      return [] as unknown as fs.Dirent[]
+    })
+    readFileSyncSpy.mockReturnValue('---\nname: Implement\ndescription: D\n---\n# C')
+
+    const repo = '/repo'
+    const workspace = '/home/.specrails/projects/repo/workspace'
+    const withWs = getConfig(repo, undefined, undefined, workspace)
+    expect(withWs.commands).toHaveLength(1)
+    expect(withWs.commands[0].name).toBe('Implement')
+
+    // Without the override (legacy), the repo commands dir is empty.
+    const legacy = getConfig(repo)
+    expect(legacy.commands).toHaveLength(0)
+  })
+
   it('falls back to filename-derived name when frontmatter is missing', () => {
     mockExecSync.mockReturnValue(Buffer.from(''))
     existsSyncSpy.mockReturnValue(true)

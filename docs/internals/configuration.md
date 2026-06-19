@@ -2,7 +2,17 @@
 
 Reference for configuring specrails-desktop: app-wide settings, per-project settings, the authentication token, environment variables, CLI flags, and the `~/.specrails/` data directory.
 
-Everything here is verified against the shipped code (v1.63.1). The app server binds to `127.0.0.1` only and rejects any non-localhost origin, so all of this is local-first by design.
+Everything here is verified against `main`. The app server binds to `127.0.0.1` only and rejects any non-localhost origin, so all of this is local-first by design.
+
+> **Providers at a glance.** A project can run **Claude, Codex, Gemini, or any combination** of them. All three are enabled by default and are chosen when you add the project (see [Project settings](#project-settings)). Each has its own default model, resolved at spawn time:
+>
+> | Provider | CLI binary | Default model | Emergency rollback |
+> |----------|-----------|---------------|--------------------|
+> | Claude Code | `claude` | `sonnet` | — |
+> | Codex CLI | `codex` | `gpt-5.5` | `SPECRAILS_CODEX_BETA=0` |
+> | Gemini CLI | `gemini` | `gemini-3.5-flash` | `SPECRAILS_GEMINI_BETA=0` |
+>
+> The provider set is **immutable after the project is created**.
 
 ---
 
@@ -28,19 +38,21 @@ To rotate the token, stop the app, delete `~/.specrails/desktop.token`, and star
 
 App settings apply across all projects. Open them from the **left sidebar → Settings**, or via the Command Palette (`Cmd/Ctrl+K`) → **Desktop Settings**. They are persisted in `~/.specrails/desktop.sqlite` under the `desktop_settings` key/value table.
 
-The Global Settings page is organised into these sections:
+The Global Settings page is organised into the sections below (it also surfaces a read-only **Registered Projects** list, an **Onboarding** replay button, and a **Desktop Information** diagnostics block, which carry no stored settings):
 
 | Section | What it controls | Stored key / default |
 |---------|------------------|----------------------|
 | **Appearance** | App-wide UI theme. Five built-ins: `specrails` (default), `dracula`, `aurora-light`, `obsidian-dark`, `matrix`. | `ui_theme` = `specrails` |
+| **Language** | App-wide UI language (hot-switch, no restart). Eight built-ins: `en`, `es`, `fr`, `de`, `pt`, `it`, `zh`, `ja`. | `ui_language` (unset = follow the OS language; only an explicit pick is persisted) |
+| **Mobile Access** | Enable the mobile-companion gateway, pair/revoke devices, and rotate the device cert identity. | — (loopback + token still enforced server-side) |
 | **specrails-tech** | Base URL for the external specrails-tech agents service. | `specrails_tech_url` = `http://localhost:3000` (the `SPECRAILS_TECH_URL` env var is only a fallback when this setting is unset — the stored setting wins) |
 | **Budget & Alerts** | App-wide daily spend cap (queues auto-pause when exceeded) and a per-job cost alert threshold. | `desktop_daily_budget_usd`, `cost_alert_threshold_usd` (both unset by default = no cap / no alert) |
 | **OS Notifications** | Desktop notification preferences for long-running jobs and budget events. | — |
-| **Outbound Webhooks** | HTTP webhooks fired on `job.completed`, `job.failed`, `job.canceled`, `daily_budget_exceeded`, and `desktop_daily_budget_exceeded`. | webhooks table (defaults to `["job.completed","job.failed"]` per hook) |
+| **Outbound Webhooks** | HTTP webhooks fired on `job.completed`, `job.failed`, `job.canceled`, `daily_budget_exceeded`, and `desktop_daily_budget_exceeded`. | webhooks table (a hook created without an explicit events list defaults to `["job.completed","job.failed","job.canceled"]`) |
 | **Code section** | Plain-language file-summary language (`en` / `es`) and the monthly summary budget cap. | `summary_language` = `en`, `summary_monthly_budget_usd` = `5.00` |
 | **Terminal Panel** | App-wide defaults for the integrated terminal (font, render mode, copy-on-select, shell integration, image rendering, long-command threshold). | `terminal.*` keys |
 
-> There is **no** "Claude model", "Max concurrent jobs", "Job timeout", or "Authentication token" app setting. Within a project, jobs run one at a time (see [Architecture](architecture.md)); the only automatic queue pause is budget-based. The default model is the provider adapter's default (the `sonnet` alias for Claude), resolved at spawn time — it is not a stored setting.
+> There is **no** "Claude model", "Max concurrent jobs", "Job timeout", or "Authentication token" app setting. Within a project, jobs run one at a time (see [Architecture](architecture.md)); the only automatic queue pause is budget-based. The default model is each provider's adapter default (e.g. `sonnet` for Claude, `gpt-5.5` for Codex, `gemini-3.5-flash` for Gemini), resolved at spawn time — it is not a stored setting.
 
 **Port is not a live setting.** `desktop_settings` does store a `port` value, but it is display-only. The port the server actually binds is taken from the `--port` argv (default `4200`); changing the stored value does not rebind a running server. Set the port with `--port <n>` on `specrails-desktop start`.
 
@@ -58,7 +70,7 @@ Project settings apply to a single project. Open them from the project's **Setti
 | **Budget** | Per-project daily spend cap (with queue auto-pause) and a per-job cost alert threshold. |
 | **Terminal Settings** | Per-project overrides for the terminal panel defaults (project override → app default → built-in). |
 
-> The project's **provider(s)** (Claude, Codex, or both) are chosen when you add the project and are **immutable after creation** — there is no provider switch in Project Settings. There is also **no** Name edit, Path row, or model-override field on this page.
+> The project's **provider(s)** — **Claude, Codex, Gemini, or any combination** — are chosen when you add the project and are **immutable after creation**. All three are enabled by default; there is no provider switch in Project Settings. There is also **no** Name edit, Path row, or model-override field on this page. See [Customising the app](../customizing.md) for how to disable a provider app-wide via its rollback gate.
 
 ---
 
@@ -121,9 +133,20 @@ A few env vars are read directly by the app. The two most useful operational one
 | `SPECRAILS_TECH_URL` | Fallback specrails-tech base URL. Resolution order is the `specrails_tech_url` app setting **first**, then this env var, then `http://localhost:3000` — so a stored app setting takes precedence over this var. |
 | `WM_ZOMBIE_TIMEOUT_MS` | Zombie-job detection timeout in milliseconds (default `1800000` = 30 min). This is a stuck-job watchdog, **not** a hard "kill after N minutes" cap. |
 
-`ANTHROPIC_API_KEY` is **not** read by the app. The Claude CLI authenticates on its own — via a Claude subscription login or its own API-key configuration — so you do not set it for the app.
+### Provider rollback gates
 
-For the full catalogue of feature flags and kill switches (`SPECRAILS_*` server gates, `VITE_FEATURE_*` client flags, `SPECRAILS_CODEX_BETA`, `SPECRAILS_EXPLORE_*`), see [../customizing.md](../customizing.md#environment-variables).
+Both extra providers are **enabled by default** and only need these levers if you want to turn one off app-wide (an emergency rollback — no redeploy needed):
+
+| Variable | Effect |
+|----------|--------|
+| `SPECRAILS_CODEX_BETA=0` | Disables the Codex provider (only the exact string `0` disables it; `1`/`true`/unset = enabled). The legacy name `SPECRAILS_HUB_CODEX_BETA` is honoured as a fallback when this is unset. |
+| `SPECRAILS_GEMINI_BETA=0` | Disables the Gemini provider (only the exact string `0`). Unlike Codex, Gemini has **no legacy `SPECRAILS_HUB_*` fallback name**. |
+
+A disabled provider stops appearing in Add Project and is rejected by the create-project API; existing projects that already use it are unaffected on disk.
+
+`ANTHROPIC_API_KEY` is **not** read by the app. Each provider's CLI authenticates on its own — Claude via a subscription login or its own API-key configuration, Codex via `codex login`, Gemini via `GEMINI_API_KEY` (a Google AI Studio key) — so you do not set provider keys for the app itself. See the [Codex](../codex.md) and [Gemini](../gemini.md) guides for per-provider auth.
+
+For the full catalogue of feature flags and kill switches (`SPECRAILS_*` server gates, `VITE_FEATURE_*` client flags, `SPECRAILS_CODEX_BETA`, `SPECRAILS_GEMINI_BETA`, `SPECRAILS_EXPLORE_*`), see [../customizing.md](../customizing.md#environment-variables).
 
 ---
 
@@ -169,4 +192,6 @@ rm -rf ~/.specrails/desktop.sqlite ~/.specrails/projects/
 - [Architecture](architecture.md) — server modules, data flow, WebSocket protocol
 - [CLI reference](../cli.md) — every command and flag in detail
 - [Customising the app](../customizing.md) — feature flags, env vars, keybindings
-- [Adding a provider](adding-a-provider.md) — wiring a third AI CLI adapter
+- [Codex](../codex.md) — using the Codex CLI provider
+- [Gemini](../gemini.md) — using the Gemini CLI provider
+- [Adding a provider](adding-a-provider.md) — wiring a new AI CLI adapter

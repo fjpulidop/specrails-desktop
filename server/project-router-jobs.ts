@@ -194,7 +194,7 @@ export function registerJobsRoutes(deps: ProjectRoutesDeps): void {
     // response also lists every installed provider so the Add Spec modal can
     // render its AI Engine selector without a second round-trip.
     const provider = resolveProvider(project, typeof req.query.provider === 'string' ? req.query.provider : undefined) as SpecProvider
-    const model = resolveDefaultSpecModel({ projectPath: project.path, provider })
+    const model = resolveDefaultSpecModel({ projectPath: project.path, slug: project.slug, provider })
     const allowed = getModelsForProvider(provider)
     res.json({ model, provider, allowed, providers: project.providers })
   })
@@ -493,13 +493,13 @@ export function registerJobsRoutes(deps: ProjectRoutesDeps): void {
         skip_reason: inMemory.skipReason,
       }
       const phaseDefinitions = queueManager.phasesForCommand(synthetic.command)
-      const tickets = resolveTicketsFromCommand(project.path, synthetic.command)
+      const tickets = resolveTicketsFromCommand(project.path, synthetic.command, ticketPath(req))
       res.json({ job: { ...synthetic, hasTelemetry: false, tickets }, events: [], phaseDefinitions })
       return
     }
     const events = getJobEvents(db, jobId)
     const phaseDefinitions = queueManager.phasesForCommand(job.command)
-    const tickets = resolveTicketsFromCommand(project.path, job.command)
+    const tickets = resolveTicketsFromCommand(project.path, job.command, ticketPath(req))
     const annotated = { ...job, hasTelemetry: hasJobTelemetry(db, jobId), tickets }
     res.json({ job: annotated, events, phaseDefinitions })
   })

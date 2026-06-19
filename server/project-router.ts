@@ -7,6 +7,7 @@ import { createPluginsRouter } from './plugins-router'
 import { createCodeExplorerRouter } from './code-explorer-router'
 import { createJiraRouter } from './jira-router'
 import { resolveTicketStoragePath } from './ticket-store'
+import { resolveProjectExecution } from './workspace-resolution'
 import { registerJobsRoutes } from './project-router-jobs'
 import { registerSpendingRoutes } from './project-router-spending'
 import { registerChatRoutes } from './project-router-chat'
@@ -107,12 +108,26 @@ export function createProjectRouter(registry: ProjectRegistry): Router {
       projectId: projectCtx.project.id,
       broadcast: projectCtx.broadcast,
       fileSummaryManager: projectCtx.fileSummaryManager,
+      // Relocate-artifacts: summary JSON OUTPUTS live in the workspace when
+      // relocated (source tree still read from project.path). Resolved per-call.
+      resolveSummaryRoot: () => {
+        const exec = resolveProjectExecution({ slug: projectCtx.project.slug, path: projectCtx.project.path })
+        return exec.relocated && exec.workspaceDir ? exec.workspaceDir : projectCtx.project.path
+      },
     }))
     codeRouter(req, res, next)
   })
 
 
-  const ticketPath = (req: Request): string => resolveTicketStoragePath(ctx(req).project.path)
+  // Relocate-artifacts gate (single chokepoint for ALL project-router ticket
+  // I/O): relocated ⇒ the registry entry's ticketsPath (workspace); legacy ⇒
+  // resolveTicketStoragePath (preserves integration-contract.json custom
+  // storagePath). Existing in-repo projects are byte-identical.
+  const ticketPath = (req: Request): string => {
+    const project = ctx(req).project
+    const exec = resolveProjectExecution({ slug: project.slug, path: project.path })
+    return exec.relocated ? exec.ticketsPath : resolveTicketStoragePath(project.path)
+  }
   const deps: ProjectRoutesDeps = { router, registry, ctx, ticketPath }
   registerJobsRoutes(deps)
   registerSpendingRoutes(deps)

@@ -1,5 +1,6 @@
 import { describe, it, expect, beforeEach, afterEach } from 'vitest'
 import { buildTelemetryEnv } from './queue-manager'
+import { readCurrentFrameworkVersion, frameworkRoot } from './framework-manager'
 import { initDb } from './db'
 import {
   getProjectSettings, updateProjectSettings,
@@ -36,6 +37,39 @@ describe('buildTelemetryEnv', () => {
     const env = buildTelemetryEnv('my-job-id', 'my-proj-id', 4200)
     expect(env.OTEL_RESOURCE_ATTRIBUTES).toContain('specrails.job_id=my-job-id')
     expect(env.OTEL_RESOURCE_ATTRIBUTES).toContain('specrails.project_id=my-proj-id')
+  })
+
+  it('appends specrails.framework_version when present in extra attrs (relocated)', () => {
+    const env = buildTelemetryEnv('j', 'p', 4200, { 'specrails.framework_version': '5.1.0' })
+    expect(env.OTEL_RESOURCE_ATTRIBUTES).toContain('specrails.framework_version=5.1.0')
+  })
+
+  it('omits specrails.framework_version entirely when no extra attr is passed (not relocated)', () => {
+    const env = buildTelemetryEnv('j', 'p', 4200)
+    expect(env.OTEL_RESOURCE_ATTRIBUTES).not.toContain('framework_version')
+  })
+})
+
+// ─── Framework version resolution for the rail OTEL attr ──────────────────────
+
+describe('readCurrentFrameworkVersion (queue-manager OTEL framework_version source)', () => {
+  let home: string
+  beforeEach(() => {
+    home = fs.mkdtempSync(path.join(os.tmpdir(), 'fwver-'))
+  })
+  afterEach(() => {
+    fs.rmSync(home, { recursive: true, force: true })
+  })
+
+  it('returns null when no framework is materialized (not relocated → attr omitted)', () => {
+    expect(readCurrentFrameworkVersion(home)).toBeNull()
+  })
+
+  it('returns the current version when framework/current is materialized (relocated → attr set)', () => {
+    const fw = frameworkRoot(home)
+    fs.mkdirSync(path.join(fw, '5.1.0'), { recursive: true })
+    fs.symlinkSync('5.1.0', path.join(fw, 'current'))
+    expect(readCurrentFrameworkVersion(home)).toBe('5.1.0')
   })
 })
 

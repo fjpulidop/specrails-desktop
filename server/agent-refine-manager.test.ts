@@ -24,6 +24,7 @@ import treeKill from 'tree-kill'
 import { initDb, type DbInstance } from './db'
 import { AgentRefineManager, validateAgentBody, buildFirstTurnPrompt } from './agent-refine-manager'
 import { getRefineSession } from './agent-refine-db'
+import { mirrorProjectEntry as regMirror, workspaceLayout as regLayout, resolveHome as regResolveHome } from './artifact-registry'
 
 // ─── Mock helpers ─────────────────────────────────────────────────────────────
 
@@ -392,6 +393,54 @@ memory: project
       ).run(Date.now(), Date.now())
       const result = mgr.apply({ refineId: 's-empty' })
       expect(result.reason).toBe('invalid_state')
+    })
+  })
+
+  // ─── relocate-artifacts: _agentFile reads + WRITES the workspace copy ───────
+
+  describe('relocate-artifacts (_agentFile)', () => {
+    let regHome: string
+    let prevHome: string | undefined
+    let relMgr: AgentRefineManager
+    let wsAgentFile: string
+
+    beforeEach(() => {
+      regHome = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), 'agent-refine-reloc-home-')))
+      fs.mkdirSync(path.join(regHome, '.specrails'), { recursive: true })
+      prevHome = process.env.SPECRAILS_REGISTRY_HOME
+      process.env.SPECRAILS_REGISTRY_HOME = regHome
+      // Mirror a relocated entry + populate the workspace (core marker + agent).
+      regMirror({ repoPath: projectPath, slug: 'reloc-proj', providers: ['claude'] }, regHome)
+      const ws = regLayout(regResolveHome(regHome), 'reloc-proj', projectPath).workspaceDir
+      fs.mkdirSync(path.join(ws, '.specrails'), { recursive: true })
+      fs.writeFileSync(path.join(ws, '.specrails', 'specrails-version'), '4.8.0\n')
+      fs.mkdirSync(path.join(ws, '.claude', 'agents'), { recursive: true })
+      wsAgentFile = path.join(ws, '.claude', 'agents', 'custom-foo.md')
+      fs.writeFileSync(wsAgentFile, `---\nname: custom-foo\ndescription: "old"\nmodel: sonnet\ncolor: blue\nmemory: project\n---\n\n# Workspace body\n`, 'utf8')
+      relMgr = new AgentRefineManager(broadcast, db, projectPath)
+    })
+
+    afterEach(() => {
+      if (prevHome === undefined) delete process.env.SPECRAILS_REGISTRY_HOME
+      else process.env.SPECRAILS_REGISTRY_HOME = prevHome
+      fs.rmSync(regHome, { recursive: true, force: true })
+    })
+
+    it('reads the workspace agent and WRITES the refined agent back to the workspace, not the repo', async () => {
+      const repoFileBefore = fs.readFileSync(path.join(projectPath, '.claude', 'agents', 'custom-foo.md'), 'utf8')
+      const child = createMockChild()
+      vi.mocked(mockSpawnClaude).mockReturnValue(child as never)
+      const { refineId } = await relMgr.startRefine({ agentId: 'custom-foo', instruction: 'go', autoTest: false })
+      pushLine(child, systemInit('sess'))
+      pushLine(child, assistantText(VALID_BODY))
+      await close(child, 0)
+
+      const result = relMgr.apply({ refineId })
+      expect(result.ok).toBe(true)
+      // The WORKSPACE copy was rewritten with the refined body.
+      expect(fs.readFileSync(wsAgentFile, 'utf8')).toContain('I am a refined custom-foo')
+      // The REPO copy was NOT touched (the stale repo agent is left untouched).
+      expect(fs.readFileSync(path.join(projectPath, '.claude', 'agents', 'custom-foo.md'), 'utf8')).toBe(repoFileBefore)
     })
   })
 

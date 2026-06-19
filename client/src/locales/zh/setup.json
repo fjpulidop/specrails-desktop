@@ -34,6 +34,10 @@
       "configured": "<strong>{{projectName}}</strong> 现已配置好 AI 驱动的开发工作流。你的专属 Agent 和命令已就绪。",
       "installedForEngines_one": "已为 {{count}} 个引擎安装",
       "installedForEngines_other": "已为 {{count}} 个引擎安装",
+
+      "installed": "已安装",
+
+      "installFailed": "安装失败",
       "learnMore": "了解如何充分利用 specrails：",
       "continueToProject": "进入项目",
       "jira": {

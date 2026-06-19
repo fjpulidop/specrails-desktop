@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { screen, fireEvent, waitFor, act } from '@testing-library/react'
+import { screen, fireEvent, waitFor, act, within } from '@testing-library/react'
 import { render } from '../../test-utils'
 
 vi.mock('react-markdown', () => ({
@@ -334,6 +334,8 @@ describe('SetupWizard', () => {
       specrailsCommands: number
       opsxCommands: number
       legacySrRemoved: number
+      failed: boolean
+      provider: string
     }> = {}) {
       const summary = {
         agents: 4,
@@ -354,20 +356,30 @@ describe('SetupWizard', () => {
       return { handler, project }
     }
 
-    it('shows summary stats (agents / specrailsCommands / opsxCommands)', async () => {
+    it('shows a per-provider success card instead of detail counts', async () => {
       await renderCompleteStep({ agents: 7, specrailsCommands: 12, opsxCommands: 5 })
-      expect(screen.getByText('7')).toBeInTheDocument()
-      expect(screen.getByText('12')).toBeInTheDocument()
-      expect(screen.getByText('5')).toBeInTheDocument()
+      const card = screen.getByTestId('setup-summary-card')
+      expect(card).toHaveAttribute('data-status', 'installed')
+      expect(within(card).getByText('Claude')).toBeInTheDocument()
+      expect(within(card).getByText('Installed')).toBeInTheDocument()
+      // The misleading per-engine detail counts are gone.
+      expect(screen.queryByText('7')).not.toBeInTheDocument()
+      expect(screen.queryByText('12')).not.toBeInTheDocument()
+      expect(screen.queryByText('/specrails:*')).not.toBeInTheDocument()
+      expect(screen.queryByText('/opsx:*')).not.toBeInTheDocument()
     })
 
-    it('shows the three tile labels and never Personas / Spec', async () => {
+    it('never shows Personas / Spec tile labels', async () => {
       await renderCompleteStep()
-      expect(screen.getByText('Agents')).toBeInTheDocument()
-      expect(screen.getByText('/specrails:*')).toBeInTheDocument()
-      expect(screen.getByText('/opsx:*')).toBeInTheDocument()
       expect(screen.queryByText('Personas')).not.toBeInTheDocument()
       expect(screen.queryByText('Spec')).not.toBeInTheDocument()
+    })
+
+    it('renders an error variant when a provider summary is flagged failed', async () => {
+      await renderCompleteStep({ failed: true })
+      const card = screen.getByTestId('setup-summary-card')
+      expect(card).toHaveAttribute('data-status', 'failed')
+      expect(within(card).getByText('Install failed')).toBeInTheDocument()
     })
 
     it('renders Continue to project button', async () => {
@@ -405,14 +417,9 @@ describe('SetupWizard', () => {
       expect(docsLink).toBeTruthy()
     })
 
-    it('renders legacy cleanup notice when legacySrRemoved > 0', async () => {
+    it('no longer renders the legacy cleanup notice (detail counts removed)', async () => {
       await renderCompleteStep({ legacySrRemoved: 2 })
-      expect(screen.getByText(/removed 2 legacy/i)).toBeInTheDocument()
-    })
-
-    it('does not render legacy cleanup notice when legacySrRemoved === 0', async () => {
-      await renderCompleteStep({ legacySrRemoved: 0 })
-      expect(screen.queryByText(/legacy.*sr/i)).not.toBeInTheDocument()
+      expect(screen.queryByText(/removed 2 legacy/i)).not.toBeInTheDocument()
     })
   })
 
@@ -459,9 +466,12 @@ describe('SetupWizard', () => {
       })
       await waitFor(() => expect(screen.getByText(/welcome to/i)).toBeInTheDocument())
       expect(screen.getByText(/installed for 2 engines/i)).toBeInTheDocument()
-      // Per-provider summary cards present.
-      expect(screen.getByText('Agents')).toBeInTheDocument()       // claude card label
-      expect(screen.getByText('Agent skills')).toBeInTheDocument() // codex card label
+      // Per-provider success cards present (name + "Installed", no detail counts).
+      const cards = screen.getAllByTestId('setup-summary-card')
+      expect(cards).toHaveLength(2)
+      expect(within(cards[0]).getByText('Claude')).toBeInTheDocument()
+      expect(within(cards[1]).getByText('Codex')).toBeInTheDocument()
+      cards.forEach((c) => expect(within(c).getByText('Installed')).toBeInTheDocument())
     })
   })
 })

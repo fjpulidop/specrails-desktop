@@ -19,7 +19,8 @@ From any project, click **Agents** in the right sidebar (next to
 Dashboard/Jobs/Analytics/Settings).
 
 - **Profiles** tab — create and edit profiles.
-- **Usage** tab — see which profiles are actually being used.
+- **Usage** tab — see which profiles are actually being used (backed by
+  the `/analytics` endpoint covered in section 8).
 - **Catalog** tab — read the upstream `sr-*` agents or author custom
   `custom-*` ones via the Studio.
 
@@ -30,7 +31,13 @@ points:
   `.claude/agents/` frontmatter models and creates a `default` profile
   mirroring today's behavior (zero-loss). It requires the baseline trio
   `sr-architect`, `sr-developer`, and `sr-reviewer` to be present — the
-  server rejects the migration if any is missing.
+  server rejects the migration if any is missing. On a project whose
+  primary provider is **not** Claude (Codex or Gemini), the frontmatter
+  model aliases aren't in that provider's catalog, so the migration stamps
+  the project's `provider` onto the profile and substitutes that provider's
+  default model — the resulting `default` profile still validates and is
+  ready to edit (though it only takes effect on Claude rails — see
+  [Multi-provider rails](#multi-provider-rails-claude-codex-and-gemini)).
 - **Blank profile** — start from scratch.
 
 ## 2. Saved profiles vs selection
@@ -64,13 +71,28 @@ wizard. Each rail header has a compact profile dropdown
 The "No profile" option is always available — use it to run a
 rail exactly as it did pre-4.1.0.
 
-### Codex / multi-provider
+### Multi-provider rails (Claude, Codex, and Gemini)
 
-Agent profiles are a **Claude-only** feature. When a rail's AI engine is
-Codex, the app force-nulls the profile and runs the rail in legacy mode —
-Codex has no agent-profile concept. The profile selector is hidden for
-Codex rails, so a profile picked on one engine never silently applies to
-the other.
+**Profiles apply only to Claude rails.** specrails-desktop supports three
+interchangeable AI providers — Claude, Codex, and Gemini — but agent
+profiles are a Claude-only concept (Codex and Gemini have no equivalent).
+
+When a rail's AI engine is **anything other than Claude** (Codex or
+Gemini), the app force-nulls the profile and runs the rail in legacy mode.
+The rails router enforces this server-side for *any* non-Claude engine, so
+no profile env var is ever injected on a Codex or Gemini rail regardless of
+what the UI shows.
+
+> **Known UI limitation.** The client currently only hides the profile
+> selector for **Codex** rails. On a **Gemini** rail the selector can still
+> appear — but the server ignores any profile you pick there (it always
+> falls back to legacy mode). Picking a profile on a Gemini rail therefore
+> has no effect; treat it as a no-op until the selector is hidden for all
+> non-Claude engines.
+
+Provider availability itself is gated separately (both default-enabled): set
+`SPECRAILS_CODEX_BETA=0` or `SPECRAILS_GEMINI_BETA=0` to disable a provider
+app-wide. See [../codex.md](../codex.md) and [../gemini.md](../gemini.md).
 
 ## 4. Author a custom agent (Agent Studio)
 
@@ -96,15 +118,17 @@ see output, token count, and duration inline.
 
 - A **profile badge** (themed with the `accent-primary` color) appears on
   each job row showing which profile it ran under.
-- The **Usage** tab shows usage per profile for the last 7/30/90 days:
-  jobs, success rate, avg duration, avg tokens, and avg cost.
+- The **Usage** tab (the same `/analytics` data from section 8) shows
+  usage per profile for the last 7/30/90 days: jobs, success rate, avg
+  duration, avg tokens, and avg cost.
 - The **diagnostic ZIP export** on a job includes `profile.json` with
   the exact snapshot that rail used.
 
 ## 6. Troubleshooting
 
-- **Upgrade banner on Agents page** — `npx specrails-core@latest update`
-  in the project to bring it to ≥ 4.1.0.
+- **Upgrade banner on Agents page** — run
+  `npx specrails-core@^4.8.0 update` in the project to bring it up to date
+  (profiles need ≥ 4.1.0; the version the app installs is `^4.8.0`).
 - **Save disabled with "N issues to resolve"** — the live validator
   enforces the baseline trio (`sr-architect`, `sr-developer`, `sr-reviewer`)
   and routing ordering. Among the rules: a `default: true` routing rule (if
@@ -115,7 +139,8 @@ see output, token count, and duration inline.
 - **The whole Agents section is missing** — it can be disabled server-side
   with `SPECRAILS_AGENTS_SECTION=false`, which 404s the entire
   `/profiles` router. Unset it (or leave it at its default) to restore the
-  section.
+  section. This flag is read **once at server startup**, so changing it
+  takes effect only after a server restart.
 
 ## 7. Reserved paths
 
@@ -136,7 +161,10 @@ A few internals worth knowing if you're working on this surface:
   `projectSupportsProfiles()` (`server/queue-manager.ts`), which reads the
   project's `.specrails/specrails-version` and requires
   `specrails-core >= 4.1.0`. Below that, the rail spawns in legacy mode and
-  no profile env var is injected.
+  no profile env var is injected. The same is true on any non-Claude rail:
+  the rails router force-nulls the profile for Codex/Gemini engines, so the
+  `SPECRAILS_PROFILE_PATH` injection below only ever takes effect on a
+  Claude rail.
 - **Snapshot per job.** When a rail launches with a profile, the resolved
   profile is written to
   `~/.specrails/projects/<slug>/jobs/<jobId>/profile.json` (chmod `400`, so

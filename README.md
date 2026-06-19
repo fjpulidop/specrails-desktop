@@ -4,7 +4,7 @@
 
 ### The local cockpit for shipping software with AI agents
 
-**Draft specs by talking to Claude or Codex → drag them onto execution rails → watch the pipeline ship — all from one window, on your laptop, with every dollar tracked.**
+**Draft specs by talking to Claude, Codex, or Gemini → drag them onto execution rails → watch the pipeline ship — all from one window, on your laptop, with every dollar tracked.**
 
 [![npm version](https://img.shields.io/npm/v/specrails-desktop?color=4f46e5&label=npm&logo=npm&logoColor=white&style=flat-square)](https://www.npmjs.com/package/specrails-desktop)
 [![license](https://img.shields.io/badge/license-MIT-22c55e?style=flat-square)](LICENSE)
@@ -12,7 +12,7 @@
 [![TypeScript](https://img.shields.io/badge/TypeScript-strict-3178c6?logo=typescript&logoColor=white&style=flat-square)](https://www.typescriptlang.org/)
 [![React](https://img.shields.io/badge/React-19-61dafb?logo=react&logoColor=black&style=flat-square)](https://react.dev)
 [![Desktop](https://img.shields.io/badge/Desktop-Tauri-ffc131?logo=tauri&logoColor=black&style=flat-square)](https://tauri.app)
-[![providers](https://img.shields.io/badge/agents-Claude%20%2B%20Codex-ff7a59?style=flat-square)](#-bring-your-own-agent)
+[![providers](https://img.shields.io/badge/agents-Claude%20%2B%20Codex%20%2B%20Gemini-ff7a59?style=flat-square)](#-bring-your-own-agent)
 
 [Quick start](#-quick-start) · [Features](#-what-you-can-do) · [Architecture](#%EF%B8%8F-how-its-built) · [Docs](#-documentation) · [Desktop app](#%EF%B8%8F-desktop-app)
 
@@ -60,8 +60,8 @@
 
 | | |
 |---|---|
-| 📊 **Analytics** | Every billable AI invocation — across rails, Quick, Explore, AI edits, SMASH, and file summaries — is recorded for **both Claude and Codex**. Burn-rate hero, daily timeline, top tickets, model breakdown, cost-vs-turns scatter. |
-| 🧮 **Honest numbers** | Claude cost is the provider-billed figure; Codex cost is **estimated** from a local rate-card (the CLI doesn't report it) and clearly flagged with a `~`. Token totals include the cache tiers, so the figures actually reconcile. |
+| 📊 **Analytics** | Every billable AI invocation — across rails, Quick, Explore, AI edits, SMASH, and file summaries — is recorded for **Claude, Codex, and Gemini**. Burn-rate hero, daily timeline, top tickets, model breakdown, cost-vs-turns scatter. |
+| 🧮 **Honest numbers** | Claude cost is the provider-billed figure; **Codex and Gemini costs are estimated** from a local rate-card (those CLIs don't report cost) and clearly flagged with a `~`. Token totals include the cache tiers, so the figures actually reconcile. |
 | 📤 **Exports** | One-click CSV/JSON, plus per-ticket spending deep-links. |
 
 ### 🛠️ Make it yours
@@ -70,24 +70,27 @@
 |---|---|
 | 🖥️ **Terminal panel** | A real VS-Code-style bottom panel (`Cmd/Ctrl+J`) powered by `node-pty` + xterm.js — WebGL rendering, search, ligatures, image inline, drag-drop paths, and OSC 133 shell integration. |
 | 🎨 **Themes** | Five built-ins — `specrails` (default), `dracula`, `aurora-light`, `obsidian-dark`, `matrix` — applied before React hydrates (no flash). |
-| 🧭 **Code explorer** | A read-only, non-developer-friendly file tree + Monaco viewer with plain-language AI summaries and *"touched by AI"* provenance chips. |
+| 🧭 **Code explorer** | A non-developer-friendly file tree + Monaco viewer with plain-language AI summaries and *"touched by AI"* provenance chips, plus opt-in **in-app editing of existing files** (overwrite-only — no create/rename, blocks binaries, respects the deny-list/`.gitignore` and a size cap). |
 | 💬 **Minimizable chats** | Park an Explore or AI-Edit session into a dock chip and pick it back up later — never lost across refreshes or project switches. |
 
 ---
 
 ## 🤖 Bring your own agent
 
-specrails-desktop treats **Claude Code** and **Codex CLI** as first-class, interchangeable providers through a single `ProviderAdapter` contract — no manager ever branches on `provider === 'X'`.
+specrails-desktop treats **Claude Code**, **Codex CLI**, and **Gemini CLI** as first-class, interchangeable providers through a single `ProviderAdapter` contract — no manager ever branches on `provider === 'X'`. All three are **enabled by default**.
 
-| | 🟣 Claude Code | 🟢 Codex CLI |
-|---|:---:|:---:|
-| Native streaming | ✅ | ✅ |
-| Native session resume | ✅ | ✅ |
-| Native cost reporting | ✅ | ⚠️ estimated via rate-card |
-| Native OTEL telemetry | ✅ | 🔧 synthesized by the app |
-| Agent profiles | ✅ | — |
+| | 🟣 Claude Code | 🟢 Codex CLI | 🔵 Gemini CLI |
+|---|:---:|:---:|:---:|
+| Minimum CLI version | none pinned | 0.128.0 | 0.11.0 |
+| Native streaming | ✅ | ✅ | ✅ |
+| Native session resume | ✅ | ✅ | ✅ |
+| Native cost reporting | ✅ | ⚠️ estimated via rate-card | ⚠️ estimated via rate-card |
+| Native OTEL telemetry | ✅ | 🔧 synthesized by the app | ✅ native |
+| Agent profiles on rails | ✅ | — *(forced legacy)* | — *(forced legacy)* |
 
-A project can install **one or both**. When both are present, the UI lets you pick the engine per spec, per rail, or per terminal launch. Adding a third provider is *one file + one registry entry* — see [`docs/internals/`](docs/internals/).
+A project's **provider set** is chosen at install (one or more of Claude / Codex / Gemini) and is **immutable afterward**; the per-invocation **engine** is picked from that set per spec, per rail, or per terminal launch whenever more than one is installed. To disable Gemini (emergency rollback) set `SPECRAILS_GEMINI_BETA=0`; for Codex it's `SPECRAILS_CODEX_BETA=0` (only the exact string `0` disables either).
+
+Adding a fourth provider is *one file + one registry entry* — Gemini already proved the path (adapters may also add an optional `prepareHeadlessSpawn` hook, as Gemini does for headless rails). See [`docs/internals/`](docs/internals/).
 
 ---
 
@@ -139,12 +142,11 @@ If a project doesn't have specrails-core yet, a **3-step setup wizard** (Configu
 specrails-desktop start | stop | add | remove | list   # manage the app
 specrails-desktop implement #42                         # run a specrails verb
 specrails-desktop --status                              # manager status
-specrails-desktop --jobs                                # recent job history
 specrails-desktop --project <name|path>                 # target a project
 specrails-desktop --help                                # full reference
 ```
 
-When the app is running, the CLI talks to it over HTTP + WebSocket; when it isn't, it spawns the agent directly. Either way you get streamed logs.
+When the app is running, the CLI talks to it over HTTP + WebSocket; when it isn't, it spawns the agent directly — note the offline path always runs `claude` (even for Codex/Gemini projects) and records nothing to Analytics. Either way you get streamed logs. (Job history lives in the dashboard **Jobs** page, per project.)
 
 ---
 
@@ -152,13 +154,14 @@ When the app is running, the CLI talks to it over HTTP + WebSocket; when it isn'
 
 - 🟩 **Node.js 20+**
 - 🤖 **At least one AI CLI** on your `PATH`:
-  - **[Claude Code](https://claude.com/claude-code)** — the `claude` binary, signed in (via Claude subscription login or an `ANTHROPIC_API_KEY`).
+  - **[Claude Code](https://claude.com/claude-code)** — the `claude` binary, signed in (via Claude subscription login or an `ANTHROPIC_API_KEY`). No minimum version pinned.
   - **[Codex CLI](https://developers.openai.com/codex)** ≥ 0.128.0 — the `codex` binary. Run `codex login` or set `OPENAI_API_KEY`.
+  - **[Gemini CLI](https://github.com/google-gemini/gemini-cli)** ≥ 0.11.0 — the `gemini` binary, authenticated (set `GEMINI_API_KEY`).
 - 🌿 **git**
 - 🧪 *(optional)* **`uv`** — only if you want the Serena plugin
-- 📦 **specrails-core** ≥ 4.6.0 in the project for Codex, ≥ 4.2.0 for Claude-only *(the wizard installs it)*
+- 📦 **specrails-core** ≥ 4.8.0 in the project *(the wizard installs it)* — a single shared floor for all providers; 4.8.0 is the release that ships the Gemini target. Agent profiles need core ≥ 4.1.0 in the project.
 
-The provider is chosen **per project at install time** and is immutable afterward. On macOS the desktop app resolves Homebrew/Volta/nvm paths for you.
+A project's **provider set** is chosen at install time (one or more of Claude / Codex / Gemini) and is immutable afterward — you pick the engine per invocation from that set. On macOS the desktop app resolves Homebrew/Volta/nvm paths for you.
 
 ---
 
@@ -266,6 +269,7 @@ BUNDLE_CHROMIUM=true npm run build:desktop:local
 | ⌨️ [Terminal panel](docs/terminal.md) | Shortcuts, shell integration, drag-and-drop |
 | 🧑‍💻 [CLI reference](docs/cli.md) | Every command grouped by task |
 | 🟢 [Codex notes](docs/codex.md) | Auth, sandbox, estimated-cost caveats, rollback |
+| 🔵 [Gemini notes](docs/gemini.md) | Auth, models, estimated-cost caveats, rollback |
 
 **Platform notes** — 🍎 [macOS](docs/platforms/macos.md) · 🪟 [Windows](docs/platforms/windows.md)
 

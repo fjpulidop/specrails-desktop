@@ -25,6 +25,10 @@ import treeKill from 'tree-kill'
 import { ChatManager } from './chat-manager'
 import { __resetBinaryProbeCacheForTest } from './binary-probe'
 import { initDb, createConversation, getConversation, createJob, finishJob } from './db'
+import { mirrorProjectEntry as cmMirror, workspaceLayout as cmLayout, resolveHome as cmResolveHome } from './artifact-registry'
+import fsNode from 'fs'
+import osNode from 'os'
+import pathNode from 'path'
 
 const MCP_SCOPE = { specrails: false, openspec: false, full: false, mcp: true, contractRefine: false }
 import type { DbInstance } from './db'
@@ -96,6 +100,73 @@ describe('ChatManager', () => {
     createConversation(db, { id: TEST_CONV_ID, model })
     return TEST_CONV_ID
   }
+
+  // ─── Relocate-artifacts gate (non-explore sidebar) ──────────────────────────
+  describe('relocate-artifacts (sidebar spawn)', () => {
+    let regHome: string
+    let repo: string
+    let prevHome: string | undefined
+
+    beforeEach(() => {
+      prevHome = process.env.SPECRAILS_REGISTRY_HOME
+      regHome = fsNode.realpathSync(fsNode.mkdtempSync(pathNode.join(osNode.tmpdir(), 'cm-reloc-home-')))
+      fsNode.mkdirSync(pathNode.join(regHome, '.specrails'), { recursive: true })
+      process.env.SPECRAILS_REGISTRY_HOME = regHome
+      repo = fsNode.realpathSync(fsNode.mkdtempSync(pathNode.join(osNode.tmpdir(), 'cm-reloc-repo-')))
+    })
+
+    afterEach(() => {
+      if (prevHome !== undefined) process.env.SPECRAILS_REGISTRY_HOME = prevHome
+      else delete process.env.SPECRAILS_REGISTRY_HOME
+      fsNode.rmSync(regHome, { recursive: true, force: true })
+      fsNode.rmSync(repo, { recursive: true, force: true })
+    })
+
+    function seedRelocated(slug: string): string {
+      cmMirror({ repoPath: repo, slug, providers: ['claude'] }, regHome)
+      const ws = cmLayout(cmResolveHome(regHome), slug, repo).workspaceDir
+      fsNode.mkdirSync(pathNode.join(ws, '.specrails'), { recursive: true })
+      fsNode.writeFileSync(pathNode.join(ws, '.specrails', 'specrails-version'), '4.8.0\n')
+      return ws
+    }
+
+    it('RELOCATED sidebar: spawns from the workspace with SPECRAILS_REPO_DIR injected', async () => {
+      const ws = seedRelocated('acme')
+      const cmReloc = new ChatManager(broadcast, db, repo, 'Acme', 'claude', 'p1', 'acme')
+      createConversation(db, { id: 'side-1', model: 'claude-sonnet-4-5' }) // kind defaults to 'sidebar'
+      const child = createMockChildProcess()
+      vi.mocked(mockSpawn).mockReturnValue(child as any)
+
+      const sendPromise = cmReloc.sendMessage('side-1', 'Hi')
+      pushLine(child, assistantEvent('ok'))
+      pushLine(child, resultEvent('s1'))
+      await finishProcess(child, 0)
+      await sendPromise
+
+      const opts = vi.mocked(mockSpawn).mock.calls[0][2] as { cwd: string; env: NodeJS.ProcessEnv }
+      expect(opts.cwd).toBe(ws)
+      expect(opts.env.SPECRAILS_REPO_DIR).toBe(repo)
+    })
+
+    it('LEGACY sidebar: spawns from project.path with no relocation env', async () => {
+      // No workspace populated ⇒ legacy.
+      cmMirror({ repoPath: repo, slug: 'acme', providers: ['claude'] }, regHome)
+      const cmLegacy = new ChatManager(broadcast, db, repo, 'Acme', 'claude', 'p1', 'acme')
+      createConversation(db, { id: 'side-2', model: 'claude-sonnet-4-5' })
+      const child = createMockChildProcess()
+      vi.mocked(mockSpawn).mockReturnValue(child as any)
+
+      const sendPromise = cmLegacy.sendMessage('side-2', 'Hi')
+      pushLine(child, assistantEvent('ok'))
+      pushLine(child, resultEvent('s2'))
+      await finishProcess(child, 0)
+      await sendPromise
+
+      const opts = vi.mocked(mockSpawn).mock.calls[0][2] as { cwd: string; env: NodeJS.ProcessEnv }
+      expect(opts.cwd).toBe(repo)
+      expect(opts.env.SPECRAILS_REPO_DIR).toBeUndefined()
+    })
+  })
 
   // ─── Test 1: sendMessage persists user message and triggers chat_stream + chat_done ─
 

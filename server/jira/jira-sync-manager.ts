@@ -49,6 +49,7 @@ import {
   upsertConnection,
   type EnqueueOutboxInput,
 } from './jira-db'
+import { resolveProjectExecution } from '../workspace-resolution'
 import type { DevStatusDataType, JiraClient as JiraClientT } from './jira-client'
 import type {
   JiraConnection,
@@ -114,6 +115,18 @@ export class JiraSyncManager {
     this.fetchImpl = opts.fetchImpl
     this.notifyLocalWriteCb = opts.notifyLocalWrite
     if (opts.startTimers !== false) this.start()
+  }
+
+  /**
+   * Relocate-artifacts gate: the directory whose `.specrails/{local-tickets,
+   * backlog-config}.json` Jira sync reads/writes. Relocated ⇒ the workspace dir
+   * (the path-deriving helpers join `.specrails/...` under it); legacy ⇒
+   * project.path (byte-identical for existing projects). All Jira artifact I/O
+   * funnels through here.
+   */
+  private _artifactRoot(): string {
+    const exec = resolveProjectExecution({ path: this.projectPath })
+    return exec.relocated && exec.workspaceDir ? exec.workspaceDir : this.projectPath
   }
 
   /** Suppress the file-watcher echo for a local write we just made. */
@@ -255,7 +268,7 @@ export class JiraSyncManager {
     if (input.discardStatus !== undefined) {
       setDiscardStatus(this.db, this.projectId, input.discardStatus)
     }
-    writeJiraBacklogConfig(this.projectPath)
+    writeJiraBacklogConfig(this._artifactRoot())
     // Discover the sprint custom-field id (best-effort) so sprint capture works
     // from the first poll. Non-fatal — the poll re-discovers if this fails.
     try {
@@ -327,10 +340,10 @@ export class JiraSyncManager {
   setEnabled(enabled: boolean): void {
     setConnectionEnabled(this.db, this.projectId, enabled)
     if (enabled) {
-      writeJiraBacklogConfig(this.projectPath)
+      writeJiraBacklogConfig(this._artifactRoot())
       this.start()
     } else {
-      writeLocalBacklogConfig(this.projectPath)
+      writeLocalBacklogConfig(this._artifactRoot())
     }
   }
 
@@ -369,7 +382,7 @@ export class JiraSyncManager {
   /** Remove the connection entirely and restore local backlog config. */
   disconnect(): void {
     deleteConnection(this.db, this.projectId)
-    writeLocalBacklogConfig(this.projectPath)
+    writeLocalBacklogConfig(this._artifactRoot())
     this.stop()
   }
 
@@ -409,10 +422,10 @@ export class JiraSyncManager {
     const issue: JiraIssue = full.ok
       ? full.data
       : ({ id: created.data.id, key: created.data.key, fields: { summary: input.title, labels: input.labels ?? [] } } as JiraIssue)
-    const r = upsertIssuesIntoStore(this.db, this.projectPath, conn, [issue], new Set())
+    const r = upsertIssuesIntoStore(this.db, this._artifactRoot(), conn, [issue], new Set())
     if (r.wrote) this.notifyLocalWrite(r.revision)
     const localId = r.changedLocalIds[0]
-    const t = readTicket(this.projectPath, localId)
+    const t = readTicket(this._artifactRoot(), localId)
     if (t) this.broadcast({ type: 'ticket_created', ticket: t, projectId: this.projectId, timestamp: t.updated_at } as WsMessage)
     return { ok: true, localId, jiraKey: created.data.key }
   }
@@ -435,7 +448,7 @@ export class JiraSyncManager {
     const client = this.buildClient()
     if (!client) return { ok: false, error: 'no jira credentials' }
 
-    const file = resolveTicketStoragePath(this.projectPath)
+    const file = resolveTicketStoragePath(this._artifactRoot())
     const ticket = readStore(file).tickets[String(localId)]
     if (!ticket) return { ok: false, error: 'ticket not found' }
 
@@ -539,7 +552,7 @@ export class JiraSyncManager {
       }
       const issues: JiraIssue[] = res.data.issues ?? []
       if (issues.length > 0) {
-        const r = upsertIssuesIntoStore(this.db, this.projectPath, conn, issues, frozen)
+        const r = upsertIssuesIntoStore(this.db, this._artifactRoot(), conn, issues, frozen)
         // Suppress the watcher echo for our own write (avoids the full-board
         // refresh flicker). When nothing changed, `wrote` is false and we also
         // skip the granular broadcasts below — the board stays perfectly still.
@@ -547,7 +560,7 @@ export class JiraSyncManager {
         totalUpserted += r.upserted
         if (r.maxUpdatedMs > maxUpdated) maxUpdated = r.maxUpdatedMs
         for (const localId of r.changedLocalIds) {
-          const t = readTicket(this.projectPath, localId)
+          const t = readTicket(this._artifactRoot(), localId)
           if (t) this.broadcast({ type: 'ticket_updated', ticket: t, projectId: this.projectId, timestamp: t.updated_at } as WsMessage)
         }
       }
@@ -925,7 +938,7 @@ export class JiraSyncManager {
   private writeLocalStatus(localIds: number[], status: TicketStatus): void {
     if (localIds.length === 0) return
     try {
-      const file = resolveTicketStoragePath(this.projectPath)
+      const file = resolveTicketStoragePath(this._artifactRoot())
       const ids = new Set(localIds.map(String))
       const now = new Date().toISOString()
       const store = mutateStore(file, (s) => {
@@ -984,7 +997,7 @@ export class JiraSyncManager {
     const metaRes = await client.getFieldsFull()
     const fieldMeta = metaRes.ok ? metaRes.data : []
     // 3) Materialized ticket flags suppress already-shown info (no extra HTTP).
-    const ticket = readStore(resolveTicketStoragePath(this.projectPath)).tickets[String(localId)]
+    const ticket = readStore(resolveTicketStoragePath(this._artifactRoot())).tickets[String(localId)]
     const fields = formatIssueFields({
       fields: issueRes.data.fields,
       fieldMeta,

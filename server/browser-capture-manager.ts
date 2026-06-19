@@ -392,7 +392,7 @@ export class BrowserCaptureManager {
     const screenshot = await this.attachments.upload({
       slug: this.projectSlug,
       ticketKey: pendingSpecId,
-      projectPath: null,
+      ticketStorePath: null,
       file: {
         buffer: png,
         originalname: `screen-capture-${stamp}.png`,
@@ -404,7 +404,7 @@ export class BrowserCaptureManager {
     const domAttachment = await this.attachments.upload({
       slug: this.projectSlug,
       ticketKey: pendingSpecId,
-      projectPath: null,
+      ticketStorePath: null,
       file: {
         buffer: domJson,
         originalname: `page-dom-${stamp}.json`,
@@ -514,7 +514,7 @@ export class BrowserCaptureManager {
       const attachment = await this.attachments.upload({
         slug: this.projectSlug,
         ticketKey: pendingSpecId,
-        projectPath: null,
+        ticketStorePath: null,
         file: { buffer: png, originalname: `screen-capture-${key}-${stamp}.png`, mimetype: 'image/png', size: png.length },
       })
       breakpoints[key] = { attachment, dataUrl: `data:image/png;base64,${png.toString('base64')}`, viewport: dims[key] }
@@ -528,7 +528,7 @@ export class BrowserCaptureManager {
     const domAttachment = await this.attachments.upload({
       slug: this.projectSlug,
       ticketKey: pendingSpecId,
-      projectPath: null,
+      ticketStorePath: null,
       file: { buffer: domJson, originalname: `page-dom-${stamp}.json`, mimetype: 'application/json', size: domJson.length },
     })
 

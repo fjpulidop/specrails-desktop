@@ -14,7 +14,7 @@ specrails-desktop start
 specrails-desktop --port 5000 start
 ```
 
-`start` writes the server PID to `~/.specrails/manager.pid` and appends the server's stdout/stderr to `~/.specrails/desktop.log`. The default port is `4200`.
+`start` daemonizes the server, which then writes its own PID to `~/.specrails/manager.pid` and appends its stdout/stderr to `~/.specrails/desktop.log`. The default port is `4200`.
 
 ## Stopping the app
 
@@ -35,13 +35,15 @@ specrails-desktop status
 # Same, against a custom port
 specrails-desktop --port 5000 status
 
-# One-line manager status (also usable as a script-friendly probe)
+# Terser manager status (script-friendly probe)
 specrails-desktop --status
 ```
 
-`status` prints `server: running (pid <n>) on http://127.0.0.1:<port>`, the project count, and each project name. It exits non-zero when the app is not running.
+The two forms print different output. The `status` **subcommand** prints `server: running (pid <n>) on http://127.0.0.1:<port>`, the project count, and each project name. The `--status` **flag** prints a shorter `manager: running (v<version>)` / `mode: super` / `projects: <count>` block (no PID, no project names) — handy as a scripted up/down probe. Both exit non-zero when the app is not running.
 
 > `specrails-desktop --jobs` is **not** functional against the running server — the server does not expose a cross-project `/api/jobs` route, so the command prints a message that jobs history requires a manager with SQLite persistence and exits `1`. Browse job history per project in the app's **Jobs** page instead.
+
+> **Offline CLI fallback.** When you run a command and no manager is up, the CLI prints `manager not running — invoking claude directly` and spawns a local `claude` process to handle it. This fallback **always uses `claude`** — it never spawns `codex` or `gemini`, regardless of a project's primary provider — and it writes **nothing** to Analytics (no `ai_invocations` row; cost/tokens are only echoed to your terminal). Start the manager (`specrails-desktop start`) to route through your project's real provider and capture the run.
 
 ## App data location
 
@@ -60,7 +62,7 @@ All app data lives under `~/.specrails/` (the path is hardcoded to your home dir
 
 See [Configuration](configuration.md#specrails-directory-structure) for the complete per-project subtree (telemetry blobs, explore-cwd, terminals, attachments, etc.) and how the `<slug>` is derived.
 
-> **Auth token caveat.** `~/.specrails/desktop.token` gates every `/api/*` request and WebSocket upgrade. Deleting it (or doing a full `rm -rf ~/.specrails`) regenerates a fresh token on the next start, which can leave an already-open browser tab or CLI on the old token — reload the app after a token reset. See [Configuration → Authentication](configuration.md#authentication).
+> **Auth token caveat.** `~/.specrails/desktop.token` gates every `/api/*` request and WebSocket upgrade, except the two public bootstrap routes (`GET /api/health` and `GET /api/token`) that `requireAuth` is mounted after, so the local client can fetch its token. Deleting the token file (or doing a full `rm -rf ~/.specrails`) regenerates a fresh token on the next start, which can leave an already-open browser tab or CLI on the old token — reload the app after a token reset. See [Configuration → Authentication](configuration.md#authentication).
 
 ## Log files
 
@@ -121,13 +123,22 @@ specrails-desktop start
 # Back up first, then reset
 cp ~/.specrails/desktop.sqlite ~/.specrails/desktop.sqlite.bak
 specrails-desktop stop
-rm -f ~/.specrails/desktop.sqlite*   # the glob also clears the WAL/SHM sidecars
+rm -f ~/.specrails/desktop.sqlite*   # the * also removes the write-ahead-log sidecar files (desktop.sqlite-wal, desktop.sqlite-shm)
 specrails-desktop start              # re-creates an empty registry
 
 # Re-register each project
 specrails-desktop add /path/to/project-a
 specrails-desktop add /path/to/project-b
 ```
+
+### Disable a misbehaving provider or feature (recovery levers)
+
+If a single provider or feature is breaking the app, you can turn it off with an environment variable and restart — no reinstall, no data loss. Set the var in the environment the server starts in, then `specrails-desktop stop && specrails-desktop start`.
+
+- **Disable a provider** (it disappears from Add Project / engine pickers): `SPECRAILS_CODEX_BETA=0` or `SPECRAILS_GEMINI_BETA=0`. Both are enabled by default and only the **exact string `0`** disables them (`1` / `true` / unset all keep the provider on).
+- **Disable a spec-enrichment feature**: `SPECRAILS_EXPLORE_CONTRACT_REFINE` (Contract Refine) and `SPECRAILS_SMASH` (SMASH) are kill switches that turn off on `0`, `false`, or `off`.
+
+These are the most common ops escape hatches; see [Configuration → Environment variables](configuration.md#environment-variables) for the complete list of gates and flags.
 
 ### Per-project reset (keeps the registration)
 

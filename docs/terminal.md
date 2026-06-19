@@ -2,6 +2,10 @@
 
 specrails-desktop ships a full-featured terminal at the bottom of the window. Toggle it with `Cmd+J` (macOS) or `Ctrl+J` (other). It's a real xterm.js with WebGL rendering, shell integration, scrollback search, file drag-and-drop, inline images, and a few quality-of-life touches you won't find in a plain terminal app.
 
+The panel opens your usual shell. On macOS/Linux it honours `$SHELL` (falling back to `/bin/zsh` when `$SHELL` is unset); on Windows it picks PowerShell (`pwsh`, then the built-in `powershell.exe`) and only falls back to `cmd.exe` as a last resort.
+
+> The terminal panel is **on by default**. To turn it off entirely, set `SPECRAILS_TERMINAL_PANEL=false` (server) or build the client with `VITE_FEATURE_TERMINAL_PANEL=false` — both are opt-out (any other value, or unset, keeps the panel on).
+
 ```
 ┌──────────────────────────────────────────────────────────────┐
 │   Dashboard content                                         │
@@ -28,7 +32,7 @@ You don't have to. You can keep using iTerm/Windows Terminal/Alacritty/whatever 
 
 The panel header carries three one-click shortcuts:
 
-- **Open AI CLI** (✨ Sparkles) — spins up a fresh session and types your CLI for you. On a single-provider project it launches that provider's CLI directly (`claude` or `codex`); on a multi-provider project it opens a small picker so you choose which CLI to start.
+- **Open AI CLI** (✨ Sparkles) — spins up a fresh session and types the launch command for you. On a single-provider project it launches the project's provider CLI directly (`claude`, `codex`, or `gemini`); on a multi-provider project it opens a small picker so you choose which CLI to start.
 - **Open in browser** (🌐 Globe) — opens the URL from the `browserShortcutUrl` setting (default `https://specrails.dev`). Right-click it to jump to the setting and change the URL.
 - **Paste quick script** (`</>`) — writes the snippet from the `quickScript` setting (which defaults to a personalised `echo "Wake up, <username> …"` reminder, editable in Settings) into the active session. Right-click it to edit the snippet in Settings. Disabled when there's no active terminal or the snippet is empty.
 
@@ -79,7 +83,7 @@ If shell integration doesn't bootstrap — for example your `~/.zshrc` runs `exe
 Inside the Tauri desktop app, drop one or more files from Finder/Explorer onto the terminal viewport to paste their absolute paths into the active session. Paths are shell-quoted for your host platform:
 
 - macOS / Linux — POSIX single-quote
-- Windows — double-quote with `^`-escaped percent/caret (matches `cmd.exe` rules)
+- Windows — PowerShell single-quote (the panel's default Windows shell is PowerShell, where single-quoted strings are literal, so this is injection-safe)
 
 In a plain browser context this is a silent no-op — the browser doesn't expose `File.path`.
 
@@ -117,9 +121,10 @@ Render mode `auto` picks WebGL when the WebView exposes WebGL2; on `webglcontext
 ## Limits and edge cases
 
 - **Sessions per project** — hard cap of 10.
-- **Closing a project** — kills all its sessions immediately.
+- **Closing a project** — kills all its sessions (SIGTERM, then SIGKILL after a short grace).
 - **Window close / quit** — graceful: SIGTERM, 2 s grace, SIGKILL.
 - **Cmd+J inside an open Dialog** — ignored. The panel won't toggle on top of a modal.
+- **Failed spawn** — if a new session dies within ~1.5 s of opening (for example the host is out of file descriptors), the panel surfaces a concrete reason (e.g. "out of file descriptors") instead of leaving a blank pane.
 
 ## Diagnostics
 
@@ -136,3 +141,4 @@ For deeper inspection of how the panel resolves PATH at startup (relevant for Vo
 
 - [Customising the app](customizing.md) — terminal settings, themes.
 - [Getting started](getting-started.md) — registering a project.
+- [Codex](codex.md) / [Gemini](gemini.md) — setting up the CLI behind the **Open AI CLI** button on a Codex or Gemini project.

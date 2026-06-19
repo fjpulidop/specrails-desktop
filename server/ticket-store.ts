@@ -418,10 +418,14 @@ export function extractTicketIdsFromCommand(command: string): number[] {
 export function resolveTicketsFromCommand(
   projectPath: string,
   command: string,
+  /** Relocate-artifacts: when provided, read the store from this absolute path
+   *  (the workspace ticket store) instead of `resolveTicketStoragePath(
+   *  projectPath)`. Legacy callers omit it and behave byte-identically. */
+  ticketsPathOverride?: string,
 ): Array<{ id: number; title: string | null }> {
   const ids = extractTicketIdsFromCommand(command)
   if (ids.length === 0) return []
-  const store = readStore(resolveTicketStoragePath(projectPath))
+  const store = readStore(ticketsPathOverride ?? resolveTicketStoragePath(projectPath))
   return ids.map((id) => ({
     id,
     title: store.tickets[String(id)]?.title ?? null,

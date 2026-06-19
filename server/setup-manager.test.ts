@@ -106,6 +106,9 @@ describe('SetupManager', () => {
 
   afterEach(() => {
     delete process.env.SPECRAILS_CORE_BIN
+    // Defence: ensure no bundled-core env leaks across the fs-mocked suite (it
+    // would flip startInstall into the offline branch and break the npx asserts).
+    delete process.env.SPECRAILS_BUNDLED_CORE_PATH
     vi.restoreAllMocks()
   })
 
@@ -214,6 +217,22 @@ describe('SetupManager', () => {
         ['--yes', '--prefer-online', CORE_PACKAGE_SPEC, 'init', '--yes', '--root-dir', '/path/to/project'],
         expect.objectContaining({ cwd: '/path/to/project' })
       )
+    })
+
+    it('uses the legacy npx path (byte-identical) when SPECRAILS_BUNDLED_CORE_PATH is unset', () => {
+      // bundled-core existence gate: env unset + fs.existsSync mocked false ⇒
+      // getBundledCoreCli() === null ⇒ legacy npx spawn, never the bundled node CLI.
+      delete process.env.SPECRAILS_BUNDLED_CORE_PATH
+      const child = createMockChildProcess()
+      vi.mocked(mockSpawn).mockReturnValue(child as any)
+      vi.mocked(existsSync).mockReturnValue(false)
+
+      sm.startInstall('p-legacy', '/path/to/project')
+
+      // Spawned npx (not process.execPath / a node CLI path).
+      const [bin, args] = vi.mocked(mockSpawn).mock.calls[0]
+      expect(bin).toBe('npx')
+      expect(args as string[]).toContain('init')
     })
 
     it('spawns npx specrails-core (pinned spec) init --from-config when config exists', () => {
@@ -446,8 +465,10 @@ describe('SetupManager', () => {
     it('uses /specrails:enrich --from-config when install-config.yaml exists', () => {
       const child = createMockChildProcess()
       vi.mocked(mockSpawn).mockReturnValue(child as any)
+      // Relocate-artifacts: the install config now lives in the per-project HOME
+      // dir (basename install-config.yaml), NOT the repo's .specrails.
       vi.mocked(existsSync).mockImplementation((p: any) =>
-        String(p).includes('.specrails/install-config.yaml')
+        String(p).endsWith('install-config.yaml')
       )
 
       sm.startEnrich('p1', '/path/to/project')
@@ -1084,7 +1105,7 @@ describe('SetupManager', () => {
       vi.mocked(existsSync).mockReturnValue(false)
       vi.mocked(readdirSync).mockReturnValue([])
 
-      const result = sm.getSummary('/path/to/project')
+      const result = sm.getSummary({ path: '/path/to/project' })
       expect(result).toMatchObject({ agents: 0, personas: 0, specrailsCommands: 0, opsxCommands: 0 })
       expect(result).not.toHaveProperty('commands')
     })
@@ -1100,7 +1121,7 @@ describe('SetupManager', () => {
         return []
       })
 
-      const result = sm.getSummary('/path/to/project')
+      const result = sm.getSummary({ path: '/path/to/project' })
       expect(result.agents).toBe(3)
       expect(result.personas).toBe(0)
       expect(result.specrailsCommands).toBe(0)
@@ -1119,7 +1140,7 @@ describe('SetupManager', () => {
         return []
       })
 
-      const result = sm.getSummary('/path/to/project')
+      const result = sm.getSummary({ path: '/path/to/project' })
       expect(result.personas).toBe(2)
     })
 
@@ -1134,7 +1155,7 @@ describe('SetupManager', () => {
         return []
       })
 
-      const result = sm.getSummary('/path/to/project')
+      const result = sm.getSummary({ path: '/path/to/project' })
       expect(result.specrailsCommands).toBe(3)
       expect(result.opsxCommands).toBe(0)
       expect(result).not.toHaveProperty('commands')
@@ -1151,7 +1172,7 @@ describe('SetupManager', () => {
         return []
       })
 
-      const result = sm.getSummary('/path/to/project')
+      const result = sm.getSummary({ path: '/path/to/project' })
       expect(result.opsxCommands).toBe(2)
       expect(result.specrailsCommands).toBe(0)
     })
@@ -1167,7 +1188,7 @@ describe('SetupManager', () => {
         return []
       })
 
-      const result = sm.getSummary('/path/to/project')
+      const result = sm.getSummary({ path: '/path/to/project' })
       expect(result.specrailsCommands).toBe(1)
     })
 
@@ -1177,8 +1198,8 @@ describe('SetupManager', () => {
         throw new Error('EACCES: permission denied')
       })
 
-      expect(() => sm.getSummary('/path/to/project')).not.toThrow()
-      const result = sm.getSummary('/path/to/project')
+      expect(() => sm.getSummary({ path: '/path/to/project' })).not.toThrow()
+      const result = sm.getSummary({ path: '/path/to/project' })
       expect(result).toMatchObject({ agents: 0, personas: 0, specrailsCommands: 0, opsxCommands: 0 })
     })
 
@@ -1193,7 +1214,7 @@ describe('SetupManager', () => {
         return []
       })
 
-      const result = sm.getSummary('/path/to/project')
+      const result = sm.getSummary({ path: '/path/to/project' })
       expect(result).toMatchObject({ agents: 2, personas: 1, specrailsCommands: 2, opsxCommands: 1 })
     })
   })

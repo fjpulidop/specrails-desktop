@@ -200,6 +200,35 @@ describe('FileSummaryManager.enqueue', () => {
     expect(rows[0].status).toBe('success')
   })
 
+  it('RELOCATED: summary OUTPUT lands in summaryRoot (workspace), source READ from projectPath (repo)', async () => {
+    // Source file lives in the repo; summaries must be written under a SEPARATE
+    // workspace root and NOT into the repo's .specrails/file-summaries.
+    writeFile(projectPath, 'src/foo.ts', 'console.log("relocated")\n')
+    const workspace = fs.mkdtempSync(path.join(os.tmpdir(), 'fsm-ws-'))
+    try {
+      const { deps, generate } = makeDeps(db)
+      const mgr = new FileSummaryManager(deps)
+      await mgr.enqueue({
+        projectPath,
+        summaryRoot: workspace,
+        projectId: 'p1',
+        projectSlug: 'p1',
+        relPath: 'src/foo.ts',
+        triggeredBy: { kind: 'job', id: 'job_reloc', ticketId: null },
+        jobId: 'job_reloc',
+      })
+      await mgr.flush()
+      expect(generate).toHaveBeenCalledTimes(1)
+      // Summary readable from the workspace root, absent from the repo root.
+      expect(readSummary(workspace, 'src/foo.ts')?.summary).toBe('A test summary.')
+      expect(readSummary(projectPath, 'src/foo.ts')).toBeNull()
+      // The repo .gitignore must NOT be touched (workspace is app-owned).
+      expect(fs.existsSync(path.join(projectPath, '.gitignore'))).toBe(false)
+    } finally {
+      fs.rmSync(workspace, { recursive: true, force: true })
+    }
+  })
+
   it('budget cap skips job-triggered enqueue when spend >= budget', async () => {
     writeFile(projectPath, 'src/foo.ts', 'a\n')
     const { deps, generate, broadcasts } = makeDeps(db, {

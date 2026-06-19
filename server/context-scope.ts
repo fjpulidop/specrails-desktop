@@ -261,10 +261,14 @@ export function buildOpenSpecSpecsSection(projectPath: string): string | null {
 export function buildScopedSystemPromptPrefix(
   scope: ContextScope,
   projectPath: string,
+  /** Relocate-artifacts: where `.specrails/local-tickets.json` lives — the
+   *  workspace dir when relocated, else === projectPath. OpenSpec specs always
+   *  read from the repo (`projectPath`). Defaults to `projectPath` (legacy). */
+  specrailsRoot?: string,
 ): string {
   const sections: string[] = []
   if (scope.specrails) {
-    const s = buildSpecrailsTicketsSection(projectPath)
+    const s = buildSpecrailsTicketsSection(specrailsRoot ?? projectPath)
     if (s) sections.push(s)
   }
   if (scope.openspec) {

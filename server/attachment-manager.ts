@@ -5,7 +5,6 @@ import { newId } from './ids'
 import {
   Attachment,
   mutateStore,
-  resolveTicketStoragePath,
 } from './ticket-store'
 
 export const SUPPORTED_MIME_TYPES = new Set<string>([
@@ -106,7 +105,11 @@ export class AttachmentManager {
   async upload(opts: {
     slug: string
     ticketKey: string | number
-    projectPath: string | null
+    /** Resolved ticket-store path (relocate-aware, from the `ticketPath(req)`
+     *  chokepoint). null ⇒ pending spec (no store write yet). NEVER recompute
+     *  this from the repo path here — that would bypass relocation and create an
+     *  empty store in the repo. */
+    ticketStorePath: string | null
     file: UploadedFile
   }): Promise<Attachment> {
     const normalizedMimeType = normalizeUploadedMimeType(opts.file.mimetype, opts.file.originalname)
@@ -129,9 +132,8 @@ export class AttachmentManager {
     fs.mkdirSync(dir, { recursive: true })
     fs.writeFileSync(path.join(dir, storedName), opts.file.buffer)
     fs.writeFileSync(this.sidecarPath(opts.slug, opts.ticketKey, id), JSON.stringify(attachment, null, 2), 'utf-8')
-    if (opts.projectPath) {
-      const ticketFile = resolveTicketStoragePath(opts.projectPath)
-      mutateStore(ticketFile, (store) => {
+    if (opts.ticketStorePath) {
+      mutateStore(opts.ticketStorePath, (store) => {
         const ticket = store.tickets[String(opts.ticketKey)]
         if (ticket) {
           ticket.attachments = [...(ticket.attachments ?? []), attachment]
@@ -173,7 +175,9 @@ export class AttachmentManager {
     slug: string
     ticketKey: string | number
     attachmentId: string
-    projectPath: string | null
+    /** Resolved ticket-store path (relocate-aware). null ⇒ pending spec (no
+     *  store write). See `upload`. */
+    ticketStorePath: string | null
   }): Promise<boolean> {
     const meta = this.readMeta(opts.slug, opts.ticketKey, opts.attachmentId)
     if (!meta) return false
@@ -182,9 +186,8 @@ export class AttachmentManager {
     if (fs.existsSync(bin)) fs.unlinkSync(bin)
     const side = this.sidecarPath(opts.slug, opts.ticketKey, opts.attachmentId)
     if (fs.existsSync(side)) fs.unlinkSync(side)
-    if (opts.projectPath) {
-      const ticketFile = resolveTicketStoragePath(opts.projectPath)
-      mutateStore(ticketFile, (store) => {
+    if (opts.ticketStorePath) {
+      mutateStore(opts.ticketStorePath, (store) => {
         const ticket = store.tickets[String(opts.ticketKey)]
         if (ticket?.attachments) {
           ticket.attachments = ticket.attachments.filter((a) => a.id !== opts.attachmentId)
@@ -206,7 +209,10 @@ export class AttachmentManager {
     slug: string
     pendingId: string
     realTicketId: number
-    projectPath: string
+    /** Resolved ticket-store path (relocate-aware, from `ticketPath(req)`). The
+     *  real ticket already exists in this store, so the migrated attachments must
+     *  land in the SAME (workspace when relocated) store — never the repo. */
+    ticketStorePath: string
   }): Promise<Attachment[]> {
     const src = this.ticketDir(opts.slug, opts.pendingId)
     const dst = this.ticketDir(opts.slug, opts.realTicketId)
@@ -217,8 +223,7 @@ export class AttachmentManager {
     fs.mkdirSync(path.dirname(dst), { recursive: true })
     fs.renameSync(src, dst)
     const list = this.list(opts.slug, opts.realTicketId)
-    const ticketFile = resolveTicketStoragePath(opts.projectPath)
-    mutateStore(ticketFile, (store) => {
+    mutateStore(opts.ticketStorePath, (store) => {
       const ticket = store.tickets[String(opts.realTicketId)]
       if (ticket) {
         const existing = ticket.attachments ?? []

@@ -20,6 +20,29 @@ import {
   ProfileValidationError,
   type Profile,
 } from './profile-manager'
+import { resolveProjectExecution } from './workspace-resolution'
+
+/**
+ * Relocate-artifacts gate: the dir whose `.specrails/{profiles,specrails-version}`
+ * AND whose `.claude/agents/**` catalog the profiles surface reads/writes.
+ * Relocated ⇒ the workspace dir (where core assembled the agents catalog +
+ * `.specrails/profiles`); legacy ⇒ project.path (byte-identical to today).
+ *
+ * The `.claude/agents/**` catalog MUST follow this same root: when relocated,
+ * core materializes the agents into `<workspace>/.claude/agents`, so a profiles
+ * catalog read/write rooted at `project.path` would (a) read a stale/absent repo
+ * copy and (b) write custom-* agents into the repo — violating repo-immutability
+ * and never reaching the workspace the rails actually load from.
+ */
+function specRoot(project: { slug: string; path: string }): string {
+  const exec = resolveProjectExecution({ slug: project.slug, path: project.path })
+  return exec.relocated && exec.workspaceDir ? exec.workspaceDir : project.path
+}
+
+/** The agents-catalog directory for the relocate-aware root (`<root>/.claude/agents`). */
+function agentsCatalogDir(project: { slug: string; path: string }): string {
+  return path.join(specRoot(project), '.claude', 'agents')
+}
 
 // Request augmentation declared in project-router.ts
 declare module 'express-serve-static-core' {
@@ -69,7 +92,7 @@ export function createProfilesRouter(): Router {
   router.post('/migrate-from-settings', (req, res) => {
     try {
       const { project, broadcast } = ctx(req)
-      const agentsDir = path.join(project.path, '.claude', 'agents')
+      const agentsDir = agentsCatalogDir(project)
       if (!fs.existsSync(agentsDir)) {
         res.status(400).json({ error: 'no .claude/agents/ directory found' })
         return
@@ -146,7 +169,7 @@ export function createProfilesRouter(): Router {
         ],
       }
       try {
-        createProfile(project.path, profile as never, provider)
+        createProfile(specRoot(project), profile as never, provider)
       } catch (err) {
         if (err instanceof ProfileConflictError) {
           res.status(409).json({ error: "a profile named 'default' already exists; delete it first or edit it manually" })
@@ -214,8 +237,9 @@ export function createProfilesRouter(): Router {
   router.get('/core-version', (req, res) => {
     try {
       const { project } = ctx(req)
+      const root = specRoot(project)
       const candidates = [
-        path.join(project.path, '.specrails', 'specrails-version'),
+        path.join(root, '.specrails', 'specrails-version'),
         path.join(project.path, '.specrails-version'),
       ]
       let version: string | null = null
@@ -253,7 +277,7 @@ export function createProfilesRouter(): Router {
   router.get('/catalog', (req, res) => {
     try {
       const { project } = ctx(req)
-      const dir = path.join(project.path, '.claude', 'agents')
+      const dir = agentsCatalogDir(project)
       if (!fs.existsSync(dir)) {
         res.json({ agents: [] })
         return
@@ -330,7 +354,7 @@ export function createProfilesRouter(): Router {
         res.status(400).json({ error: 'invalid agent id' })
         return
       }
-      const file = path.join(project.path, '.claude', 'agents', `${agentId}.md`)
+      const file = path.join(agentsCatalogDir(project), `${agentId}.md`)
       if (!fs.existsSync(file)) {
         res.status(404).json({ error: 'agent not found' })
         return
@@ -358,7 +382,7 @@ export function createProfilesRouter(): Router {
         res.status(400).json({ error: 'body is required' })
         return
       }
-      const agentsDir = path.join(project.path, '.claude', 'agents')
+      const agentsDir = agentsCatalogDir(project)
       fs.mkdirSync(agentsDir, { recursive: true })
       const file = path.join(agentsDir, `${id}.md`)
       if (fs.existsSync(file)) {
@@ -393,7 +417,7 @@ export function createProfilesRouter(): Router {
         res.status(400).json({ error: 'body is required' })
         return
       }
-      const file = path.join(project.path, '.claude', 'agents', `${agentId}.md`)
+      const file = path.join(agentsCatalogDir(project), `${agentId}.md`)
       if (!fs.existsSync(file)) {
         res.status(404).json({ error: 'agent not found' })
         return
@@ -423,7 +447,7 @@ export function createProfilesRouter(): Router {
         res.status(403).json({ error: 'only custom-* agents can be deleted' })
         return
       }
-      const file = path.join(project.path, '.claude', 'agents', `${agentId}.md`)
+      const file = path.join(agentsCatalogDir(project), `${agentId}.md`)
       if (!fs.existsSync(file)) {
         res.status(404).json({ error: 'agent not found' })
         return
@@ -679,7 +703,7 @@ export function createProfilesRouter(): Router {
   router.get('/', (req, res) => {
     try {
       const { project } = ctx(req)
-      res.json({ profiles: listProfiles(project.path) })
+      res.json({ profiles: listProfiles(specRoot(project)) })
     } catch (err) {
       handleError(res, err)
     }
@@ -690,7 +714,7 @@ export function createProfilesRouter(): Router {
     try {
       const { project } = ctx(req)
       const explicit = typeof req.query.profile === 'string' ? req.query.profile : undefined
-      const resolved = resolveProfile(project.path, explicit, project.provider ?? 'claude')
+      const resolved = resolveProfile(specRoot(project), explicit, project.provider ?? 'claude')
       if (!resolved) {
         res.json({ resolved: null })
         return
@@ -706,7 +730,7 @@ export function createProfilesRouter(): Router {
     try {
       const { project, broadcast } = ctx(req)
       const body = req.body as Profile
-      createProfile(project.path, body, project.provider ?? 'claude')
+      createProfile(specRoot(project), body, project.provider ?? 'claude')
       broadcast({ type: 'profile.changed', projectId: project.id, name: body.name } as never)
       res.status(201).json({ profile: body })
     } catch (err) {
@@ -723,7 +747,7 @@ export function createProfilesRouter(): Router {
         res.status(400).json({ error: "body field 'name' is required" })
         return
       }
-      const copy = duplicateProfile(project.path, req.params.name, newName, project.provider ?? 'claude')
+      const copy = duplicateProfile(specRoot(project), req.params.name, newName, project.provider ?? 'claude')
       broadcast({ type: 'profile.changed', projectId: project.id, name: newName } as never)
       res.status(201).json({ profile: copy })
     } catch (err) {
@@ -740,7 +764,7 @@ export function createProfilesRouter(): Router {
         res.status(400).json({ error: "body field 'name' is required" })
         return
       }
-      const renamed = renameProfile(project.path, req.params.name, newName, project.provider ?? 'claude')
+      const renamed = renameProfile(specRoot(project), req.params.name, newName, project.provider ?? 'claude')
       broadcast({ type: 'profile.changed', projectId: project.id, name: newName } as never)
       res.json({ profile: renamed })
     } catch (err) {
@@ -752,7 +776,7 @@ export function createProfilesRouter(): Router {
   router.get('/:name', (req, res) => {
     try {
       const { project } = ctx(req)
-      res.json({ profile: getProfile(project.path, req.params.name, project.provider ?? 'claude') })
+      res.json({ profile: getProfile(specRoot(project), req.params.name, project.provider ?? 'claude') })
     } catch (err) {
       handleError(res, err)
     }
@@ -767,7 +791,7 @@ export function createProfilesRouter(): Router {
         res.status(400).json({ error: "body.name must match path parameter (use /rename to change name)" })
         return
       }
-      updateProfile(project.path, body, project.provider ?? 'claude')
+      updateProfile(specRoot(project), body, project.provider ?? 'claude')
       broadcast({ type: 'profile.changed', projectId: project.id, name: body.name } as never)
       res.json({ profile: body })
     } catch (err) {
@@ -779,7 +803,7 @@ export function createProfilesRouter(): Router {
   router.delete('/:name', (req, res) => {
     try {
       const { project, broadcast } = ctx(req)
-      deleteProfile(project.path, req.params.name)
+      deleteProfile(specRoot(project), req.params.name)
       broadcast({ type: 'profile.changed', projectId: project.id, name: req.params.name, deleted: true } as never)
       res.json({ ok: true })
     } catch (err) {

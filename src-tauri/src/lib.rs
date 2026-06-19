@@ -214,6 +214,72 @@ pub fn run() {
                 sidecar
             };
 
+            // Resolve the bundled specrails-core path from Tauri's resource directory
+            // (mirrors the runtimes resolution above: lib.rs:181-215). The bundled
+            // core lets the setup wizard materialize + assemble the framework OFFLINE
+            // (no `npx specrails-core` network round-trip).
+            //   On macOS:   <app>.app/Contents/Resources/core
+            //   On Windows: <install-dir>/resources/core
+            let core_path = app_handle
+                .path()
+                .resource_dir()
+                .ok()
+                .map(|p| p.join("core").to_string_lossy().into_owned())
+                .unwrap_or_default();
+
+            // EXISTENCE-GATE the bundled core exactly like the runtimes: only export
+            // SPECRAILS_BUNDLED_CORE_PATH when the compiled CLI actually exists on disk
+            // (not just a `.gitkeep` placeholder). When absent, the env is never set so
+            // server/bundled-core.ts returns null and setup-manager falls back to the
+            // legacy `npx specrails-core init` path — never dead-ending.
+            let core_root = std::path::Path::new(&core_path);
+            let has_core = core_root
+                .join("dist")
+                .join("installer")
+                .join("cli.js")
+                .exists();
+            let sidecar = if has_core {
+                sidecar.env("SPECRAILS_BUNDLED_CORE_PATH", &core_path)
+            } else {
+                sidecar
+            };
+
+            // Resolve the bundled @fission-ai/openspec path from Tauri's resource
+            // directory (mirrors the bundled-core block above). The bundled openspec
+            // is the LAST network step of project-add: when present, the bundled-core
+            // init runs `openspec init` from this tree instead of `npx`, making
+            // project-add FULLY OFFLINE.
+            //   On macOS:   <app>.app/Contents/Resources/openspec
+            //   On Windows: <install-dir>/resources/openspec
+            // openspec ships as an `npm install`ed tree (it has runtime deps), so the
+            // CLI entry lives at openspec/node_modules/@fission-ai/openspec/bin/openspec.js.
+            let openspec_path = app_handle
+                .path()
+                .resource_dir()
+                .ok()
+                .map(|p| p.join("openspec").to_string_lossy().into_owned())
+                .unwrap_or_default();
+
+            // EXISTENCE-GATE on the CLI entry exactly like the bundled core: only
+            // export SPECRAILS_BUNDLED_OPENSPEC_PATH when the openspec CLI node entry
+            // actually exists on disk (not just a `.gitkeep` placeholder). When absent
+            // the env is never set so server/bundled-openspec.ts returns null and the
+            // bundled-core init falls back to `npx @fission-ai/openspec` — never
+            // dead-ending.
+            let openspec_root = std::path::Path::new(&openspec_path);
+            let has_openspec = openspec_root
+                .join("node_modules")
+                .join("@fission-ai")
+                .join("openspec")
+                .join("bin")
+                .join("openspec.js")
+                .exists();
+            let sidecar = if has_openspec {
+                sidecar.env("SPECRAILS_BUNDLED_OPENSPEC_PATH", &openspec_path)
+            } else {
+                sidecar
+            };
+
             // On macOS, GUI apps launched from Finder/Dock inherit a minimal PATH
             // from launchd that omits user tool dirs (homebrew, cargo, bun,
             // ~/.local/bin). We rebuild PATH from a zsh login shell and prepend

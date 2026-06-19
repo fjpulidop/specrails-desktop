@@ -20,6 +20,7 @@ import {
 import { buildUserMcpArgs } from './user-mcp-config'
 import { binaryOnPath } from './binary-probe'
 import { ExploreStdinSessions, isExplorePersistentStdinEnabled } from './explore-stdin-session'
+import { resolveProjectExecution, type ProjectExecution } from './workspace-resolution'
 import type { ChatConversationRow } from './types'
 
 const COMMAND_INSTRUCTION =
@@ -313,12 +314,37 @@ export class ChatManager {
    *
    * See openspec/changes/accelerate-spec-chat-first-token/design.md D1+D4.
    */
+  /**
+   * Relocate-artifacts: resolve execution for a NON-explore (sidebar / rail-like)
+   * spawn. Explore keeps its own explore-cwd logic (untouched). Returns the
+   * relocated cwd + env when relocated, else legacy (cwd = project.path, empty
+   * env). Cached per call — cheap registry read.
+   */
+  private _resolveNonExploreExecution(): ProjectExecution | null {
+    if (!this._projectSlug || !this._cwd) return null
+    return resolveProjectExecution({ slug: this._projectSlug, path: this._cwd })
+  }
+
+  /**
+   * Relocate-artifacts: the dir whose `.specrails/local-tickets.json` the scoped
+   * system-prompt prefix reads. Workspace when relocated, else project.path.
+   */
+  private _specrailsRoot(): string | undefined {
+    if (!this._cwd) return undefined
+    const exec = resolveProjectExecution({ path: this._cwd })
+    return exec.relocated && exec.workspaceDir ? exec.workspaceDir : this._cwd
+  }
+
   private _resolveSpawnCwd(
     kind: string | null | undefined,
     scope?: ContextScope | null,
     providerId?: string,
   ): string | undefined {
-    if (kind !== 'explore') return this._cwd
+    if (kind !== 'explore') {
+      // Non-explore sidebar: route through the relocate-artifacts gate.
+      const exec = this._resolveNonExploreExecution()
+      return exec ? exec.cwd : this._cwd
+    }
     if (!this._projectSlug || !this._cwd || !this._projectName) return this._cwd
     // Per-conversation scope.mcp is the only source of truth. Legacy null
     // scope is treated as mcp=false (spawn from app-managed cwd).
@@ -477,7 +503,7 @@ export class ChatManager {
       `When "Specrails Tickets" or "OpenSpec Specs" sections are present below, treat them as authoritative project context. ` +
       `For roadmap-style requests like "suggest the next best spec", ground the answer in that context, avoid duplicates, and propose one concrete next spec instead of generic directions.`
     if (!scope || !this._cwd) return scopedBase
-    const prefix = buildScopedSystemPromptPrefix(scope, this._cwd)
+    const prefix = buildScopedSystemPromptPrefix(scope, this._cwd, this._specrailsRoot())
     if (!prefix) return scopedBase
     return `${scopedBase}\n\n${prefix}`
   }
@@ -608,7 +634,7 @@ export class ChatManager {
     }
     let promptForAdapter = resolvedText
     if (conversation.kind === 'explore' && adapter.id === 'codex' && conversationScope && this._cwd) {
-      const scopedContext = buildScopedSystemPromptPrefix(conversationScope, this._cwd)
+      const scopedContext = buildScopedSystemPromptPrefix(conversationScope, this._cwd, this._specrailsRoot())
       if (scopedContext) {
         promptForAdapter =
           `Project context selected in Add Spec. Use it to avoid duplicate specs and to make project-specific recommendations.\n\n` +
@@ -650,6 +676,18 @@ export class ChatManager {
     // spawnAiCli reroutes multi-line argv values through stdin on Windows.
     const spawnCwd = this._resolveSpawnCwd(conversation.kind, conversationScope, adapter.id)
 
+    // Relocate-artifacts env for NON-explore (sidebar) spawns. Explore keeps its
+    // own explore-cwd path (no relocation env — it reaches the repo via the
+    // explore-cwd `./project` link). Legacy ⇒ process.env (byte-identical).
+    let spawnEnv: NodeJS.ProcessEnv = process.env
+    if (conversation.kind !== 'explore') {
+      const exec = this._resolveNonExploreExecution()
+      if (exec?.relocated) {
+        spawnEnv = { ...process.env, ...exec.env }
+        if (adapter.id === 'gemini') spawnEnv = { ...spawnEnv, GEMINI_CLI_TRUST_WORKSPACE: 'true' }
+      }
+    }
+
     // Big bet #3 fast-path: persistent-stdin multi-turn for Explore (claude
     // only, flag-gated default OFF). Reuses a single long-lived child across
     // turns so turns 2+ skip spawn + session rehydration. Full fallback to the
@@ -667,7 +705,7 @@ export class ChatManager {
     }
 
     const child = spawnAiCli(binary, args, {
-      env: process.env,
+      env: spawnEnv,
       stdio: ['ignore', 'pipe', 'pipe'],
       cwd: spawnCwd,
     })

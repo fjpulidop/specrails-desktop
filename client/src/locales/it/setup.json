@@ -34,6 +34,10 @@
       "configured": "<strong>{{projectName}}</strong> è ora configurato con workflow di sviluppo basati sull'IA. I tuoi agenti specializzati e i comandi sono pronti all'uso.",
       "installedForEngines_one": "Installato per {{count}} engine",
       "installedForEngines_other": "Installato per {{count}} engine",
+
+      "installed": "Installato",
+
+      "installFailed": "Installazione non riuscita",
       "learnMore": "Scopri come ottenere il massimo da specrails:",
       "continueToProject": "Continua al progetto",
       "jira": {

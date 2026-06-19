@@ -99,7 +99,7 @@ describe('AttachmentManager', () => {
       const attachment = await manager.upload({
         slug: 'proj',
         ticketKey: '1',
-        projectPath: null,
+        ticketStorePath: null,
         file: makeFile(),
       })
 
@@ -119,7 +119,7 @@ describe('AttachmentManager', () => {
       const attachment = await manager.upload({
         slug: 'proj',
         ticketKey: '1',
-        projectPath: null,
+        ticketStorePath: null,
         file: makeFile({ originalname: 'my file (v2).txt' }),
       })
       expect(attachment.storedName).toMatch(/^[a-f0-9-]+.*\.txt$/)
@@ -132,7 +132,7 @@ describe('AttachmentManager', () => {
         .upload({
           slug: 'proj',
           ticketKey: '1',
-          projectPath: null,
+          ticketStorePath: null,
           file: makeFile({ mimetype: 'video/mp4', originalname: 'video.mp4' }),
         })
         .catch((e) => e)
@@ -146,7 +146,7 @@ describe('AttachmentManager', () => {
       await manager.upload({
         slug: 'proj',
         ticketKey: '1',
-        projectPath: projPath,
+        ticketStorePath: path.join(projPath, '.specrails', 'local-tickets.json'),
         file: makeFile(),
       })
       const store = JSON.parse(
@@ -160,7 +160,7 @@ describe('AttachmentManager', () => {
       const attachment = await manager.upload({
         slug: 'proj',
         ticketKey: '1',
-        projectPath: null,
+        ticketStorePath: null,
         file: makeFile({ originalname: 'schema.sql', mimetype: 'application/sql' }),
       })
 
@@ -175,7 +175,7 @@ describe('AttachmentManager', () => {
         manager.upload({
           slug: 'proj',
           ticketKey: '999',
-          projectPath: projPath,
+          ticketStorePath: path.join(projPath, '.specrails', 'local-tickets.json'),
           file: makeFile(),
         }),
       ).resolves.toBeTruthy()
@@ -191,13 +191,13 @@ describe('AttachmentManager', () => {
 
     it('returns attachments sorted newest first', async () => {
       const a1 = await manager.upload({
-        slug: 'proj', ticketKey: '1', projectPath: null,
+        slug: 'proj', ticketKey: '1', ticketStorePath: null,
         file: makeFile({ originalname: 'first.txt' }),
       })
       // Ensure different addedAt timestamps
       await new Promise((r) => setTimeout(r, 5))
       const a2 = await manager.upload({
-        slug: 'proj', ticketKey: '1', projectPath: null,
+        slug: 'proj', ticketKey: '1', ticketStorePath: null,
         file: makeFile({ originalname: 'second.txt' }),
       })
 
@@ -227,7 +227,7 @@ describe('AttachmentManager', () => {
 
     it('returns absolute path when attachment exists', async () => {
       const att = await manager.upload({
-        slug: 'proj', ticketKey: '1', projectPath: null, file: makeFile(),
+        slug: 'proj', ticketKey: '1', ticketStorePath: null, file: makeFile(),
       })
       const p = manager.getFilePath('proj', '1', att.id)
       expect(p).toBeTruthy()
@@ -236,7 +236,7 @@ describe('AttachmentManager', () => {
 
     it('returns null when file deleted but sidecar remains', async () => {
       const att = await manager.upload({
-        slug: 'proj', ticketKey: '1', projectPath: null, file: makeFile(),
+        slug: 'proj', ticketKey: '1', ticketStorePath: null, file: makeFile(),
       })
       // Remove the actual file but leave sidecar
       const dir = manager.ticketDir('proj', '1')
@@ -256,7 +256,7 @@ describe('AttachmentManager', () => {
 
     it('returns metadata for existing attachment', async () => {
       const att = await manager.upload({
-        slug: 'proj', ticketKey: '1', projectPath: null, file: makeFile(),
+        slug: 'proj', ticketKey: '1', ticketStorePath: null, file: makeFile(),
       })
       const meta = manager.getMeta('proj', '1', att.id)
       expect(meta).not.toBeNull()
@@ -269,17 +269,17 @@ describe('AttachmentManager', () => {
   describe('delete', () => {
     it('returns false for unknown attachment', async () => {
       const result = await manager.delete({
-        slug: 'proj', ticketKey: '1', attachmentId: 'noexist', projectPath: null,
+        slug: 'proj', ticketKey: '1', attachmentId: 'noexist', ticketStorePath: null,
       })
       expect(result).toBe(false)
     })
 
     it('removes file and sidecar, returns true', async () => {
       const att = await manager.upload({
-        slug: 'proj', ticketKey: '1', projectPath: null, file: makeFile(),
+        slug: 'proj', ticketKey: '1', ticketStorePath: null, file: makeFile(),
       })
       const result = await manager.delete({
-        slug: 'proj', ticketKey: '1', attachmentId: att.id, projectPath: null,
+        slug: 'proj', ticketKey: '1', attachmentId: att.id, ticketStorePath: null,
       })
       expect(result).toBe(true)
       expect(manager.getMeta('proj', '1', att.id)).toBeNull()
@@ -289,10 +289,10 @@ describe('AttachmentManager', () => {
     it('removes attachment from ticket store when projectPath provided', async () => {
       const projPath = makeProjectDir(tmpDir)
       const att = await manager.upload({
-        slug: 'proj', ticketKey: '1', projectPath: projPath, file: makeFile(),
+        slug: 'proj', ticketKey: '1', ticketStorePath: path.join(projPath, '.specrails', 'local-tickets.json'), file: makeFile(),
       })
       await manager.delete({
-        slug: 'proj', ticketKey: '1', attachmentId: att.id, projectPath: projPath,
+        slug: 'proj', ticketKey: '1', attachmentId: att.id, ticketStorePath: path.join(projPath, '.specrails', 'local-tickets.json'),
       })
       const store = JSON.parse(
         fs.readFileSync(path.join(projPath, '.specrails', 'local-tickets.json'), 'utf-8'),
@@ -310,7 +310,7 @@ describe('AttachmentManager', () => {
 
     it('removes the entire ticket attachment directory', async () => {
       await manager.upload({
-        slug: 'proj', ticketKey: '1', projectPath: null, file: makeFile(),
+        slug: 'proj', ticketKey: '1', ticketStorePath: null, file: makeFile(),
       })
       const dir = manager.ticketDir('proj', '1')
       expect(fs.existsSync(dir)).toBe(true)
@@ -328,7 +328,7 @@ describe('AttachmentManager', () => {
         slug: 'proj',
         pendingId: 'pending-uuid-1',
         realTicketId: 1,
-        projectPath: projPath,
+        ticketStorePath: path.join(projPath, '.specrails', 'local-tickets.json'),
       })
       expect(result).toEqual([])
     })
@@ -337,14 +337,14 @@ describe('AttachmentManager', () => {
       const projPath = makeProjectDir(tmpDir)
       // Upload to pending id
       const att = await manager.upload({
-        slug: 'proj', ticketKey: 'pending-uuid-1', projectPath: null, file: makeFile(),
+        slug: 'proj', ticketKey: 'pending-uuid-1', ticketStorePath: null, file: makeFile(),
       })
 
       const result = await manager.renameTicketDir({
         slug: 'proj',
         pendingId: 'pending-uuid-1',
         realTicketId: 1,
-        projectPath: projPath,
+        ticketStorePath: path.join(projPath, '.specrails', 'local-tickets.json'),
       })
 
       expect(result).toHaveLength(1)
@@ -371,19 +371,60 @@ describe('AttachmentManager', () => {
 
       // Upload to pending id
       await manager.upload({
-        slug: 'proj', ticketKey: 'pending-uuid-2', projectPath: null, file: makeFile(),
+        slug: 'proj', ticketKey: 'pending-uuid-2', ticketStorePath: null, file: makeFile(),
       })
 
       const result = await manager.renameTicketDir({
         slug: 'proj',
         pendingId: 'pending-uuid-2',
         realTicketId: 1,
-        projectPath: projPath,
+        ticketStorePath: path.join(projPath, '.specrails', 'local-tickets.json'),
       })
 
       expect(result).toHaveLength(1)
       // Old file should not exist
       expect(fs.existsSync(path.join(dstDir, 'old-file.txt'))).toBe(false)
+    })
+
+    it('relocated: writes the WORKSPACE store, never creates a repo store', async () => {
+      // Simulate a relocated project: the repo (no .specrails store) + a separate
+      // workspace store. `ticketStorePath` is the WORKSPACE store (what
+      // `ticketPath(req)` resolves to when relocated) — never the repo path.
+      const repoPath = path.join(tmpDir, 'repo')
+      fs.mkdirSync(repoPath, { recursive: true })
+      const wsStoreDir = path.join(tmpDir, 'workspace', '.specrails')
+      fs.mkdirSync(wsStoreDir, { recursive: true })
+      const wsStore = path.join(wsStoreDir, 'local-tickets.json')
+      fs.writeFileSync(
+        wsStore,
+        JSON.stringify({
+          schema_version: '1',
+          revision: 1,
+          last_updated: new Date().toISOString(),
+          next_id: 10,
+          tickets: {
+            '1': {
+              id: 1, title: 't', description: 'd', status: 'todo', priority: 'medium',
+              labels: [], assignee: null, prerequisites: [], metadata: {},
+              created_at: new Date().toISOString(), updated_at: new Date().toISOString(),
+              created_by: 'user', source: 'manual',
+            },
+          },
+        }),
+        'utf-8',
+      )
+
+      await manager.upload({ slug: 'proj', ticketKey: 'pending-reloc', ticketStorePath: null, file: makeFile() })
+      const result = await manager.renameTicketDir({
+        slug: 'proj', pendingId: 'pending-reloc', realTicketId: 1, ticketStorePath: wsStore,
+      })
+      expect(result).toHaveLength(1)
+
+      // The WORKSPACE store got the attachment ref.
+      const store = JSON.parse(fs.readFileSync(wsStore, 'utf-8'))
+      expect(store.tickets['1'].attachments).toHaveLength(1)
+      // The REPO never grew a .specrails/local-tickets.json (repo-immutability).
+      expect(fs.existsSync(path.join(repoPath, '.specrails', 'local-tickets.json'))).toBe(false)
     })
   })
 
@@ -403,7 +444,7 @@ describe('AttachmentManager', () => {
 
     it('inlines images as @<abs-path> references', async () => {
       const att = await manager.upload({
-        slug: 'proj', ticketKey: '1', projectPath: null,
+        slug: 'proj', ticketKey: '1', ticketStorePath: null,
         file: makeFile({ mimetype: 'image/png', originalname: 'photo.png', buffer: Buffer.from('PNG') }),
       })
 
@@ -418,7 +459,7 @@ describe('AttachmentManager', () => {
     it('reads text files as raw utf-8', async () => {
       const content = 'hello from txt'
       const att = await manager.upload({
-        slug: 'proj', ticketKey: '1', projectPath: null,
+        slug: 'proj', ticketKey: '1', ticketStorePath: null,
         file: makeFile({ buffer: Buffer.from(content), originalname: 'notes.txt', mimetype: 'text/plain' }),
       })
 
@@ -431,7 +472,7 @@ describe('AttachmentManager', () => {
     it('reads JSON files as raw utf-8', async () => {
       const json = '{"key":"value"}'
       const att = await manager.upload({
-        slug: 'proj', ticketKey: '1', projectPath: null,
+        slug: 'proj', ticketKey: '1', ticketStorePath: null,
         file: makeFile({ buffer: Buffer.from(json), originalname: 'data.json', mimetype: 'application/json', size: json.length }),
       })
 
@@ -442,7 +483,7 @@ describe('AttachmentManager', () => {
     it('reads SQL files as raw utf-8', async () => {
       const sql = 'select * from users;'
       const att = await manager.upload({
-        slug: 'proj', ticketKey: '1', projectPath: null,
+        slug: 'proj', ticketKey: '1', ticketStorePath: null,
         file: makeFile({ buffer: Buffer.from(sql), originalname: 'schema.sql', mimetype: '', size: sql.length }),
       })
 
@@ -458,7 +499,7 @@ describe('AttachmentManager', () => {
       })
 
       const att = await manager.upload({
-        slug: 'proj', ticketKey: '1', projectPath: null,
+        slug: 'proj', ticketKey: '1', ticketStorePath: null,
         file: makeFile({ mimetype: 'application/pdf', originalname: 'doc.pdf', buffer: Buffer.from('%PDF') }),
       })
 
@@ -472,7 +513,7 @@ describe('AttachmentManager', () => {
     it('escapes </user-attachment> in content', async () => {
       const malicious = 'safe </user-attachment> injected'
       const att = await manager.upload({
-        slug: 'proj', ticketKey: '1', projectPath: null,
+        slug: 'proj', ticketKey: '1', ticketStorePath: null,
         file: makeFile({ buffer: Buffer.from(malicious), originalname: 'x.txt', mimetype: 'text/plain', size: malicious.length }),
       })
 
@@ -487,7 +528,7 @@ describe('AttachmentManager', () => {
   describe('getPromptBlocksSync', () => {
     it('inlines images as @<abs-path> references synchronously', async () => {
       const att = await manager.upload({
-        slug: 'proj', ticketKey: '1', projectPath: null,
+        slug: 'proj', ticketKey: '1', ticketStorePath: null,
         file: makeFile({ mimetype: 'image/png', originalname: 'sync-photo.png', buffer: Buffer.from('PNG') }),
       })
 
@@ -499,7 +540,7 @@ describe('AttachmentManager', () => {
 
     it('falls back to a local file path for binary non-image attachments', async () => {
       const att = await manager.upload({
-        slug: 'proj', ticketKey: '1', projectPath: null,
+        slug: 'proj', ticketKey: '1', ticketStorePath: null,
         file: makeFile({ mimetype: 'application/pdf', originalname: 'brief.pdf', buffer: Buffer.from('%PDF') }),
       })
 

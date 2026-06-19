@@ -104,6 +104,8 @@ import {
   formatDescriptionWithCriteria,
   resolveDefaultSpecModel,
 } from './project-router-helpers'
+import { installConfigPath } from './install-config-path'
+import { resolveProjectExecution } from './workspace-resolution'
 
 export function registerSetupRoutes(deps: ProjectRoutesDeps): void {
   const { router, registry, ctx, ticketPath } = deps
@@ -115,10 +117,12 @@ export function registerSetupRoutes(deps: ProjectRoutesDeps): void {
     if (typeof config !== 'object' || Array.isArray(config)) {
       res.status(400).json({ error: 'Request body must be a config object' }); return
     }
-    const configDir = path.join(project.path, '.specrails')
-    const configPath = path.join(configDir, 'install-config.yaml')
+    // Relocate-artifacts: write to the per-project app-managed HOME dir, NEVER
+    // `<project>/.specrails` — so a fresh setup creates ZERO `.specrails` in the
+    // user's repo. See server/install-config-path.ts.
+    const configPath = installConfigPath(project)
     try {
-      fs.mkdirSync(configDir, { recursive: true })
+      fs.mkdirSync(path.dirname(configPath), { recursive: true })
       const yaml = serializeInstallConfigYaml(config as Record<string, unknown>)
       fs.writeFileSync(configPath, yaml, 'utf-8')
       res.json({ ok: true, path: configPath })
@@ -135,7 +139,7 @@ export function registerSetupRoutes(deps: ProjectRoutesDeps): void {
       res.status(409).json({ error: 'Install already in progress' }); return
     }
     res.status(202).json({ ok: true })
-    setupManager.startInstall(project.id, project.path)
+    setupManager.startInstall(project.id, project.path, project.slug)
   })
 
   router.post('/:projectId/enrich/start', (req: Request, res: Response) => {
@@ -202,7 +206,7 @@ export function registerSetupRoutes(deps: ProjectRoutesDeps): void {
       tier: setupManager.getInstallTier(project.id) ?? null,
       savedSessionId: savedSessionId ?? null,
       logLines: setupManager.getInstallLog(project.id),
-      summary: setupManager.getSummary(project.path),
+      summary: setupManager.getSummary(project),
     })
   })
 
@@ -488,12 +492,18 @@ export function registerSetupRoutes(deps: ProjectRoutesDeps): void {
   // ─── Integration contract ──────────────────────────────────────────────────
 
   const DEFAULT_TICKET_CAPABILITIES = ['crud', 'labels', 'status', 'priorities', 'dependencies']
-  const DEFAULT_TICKET_STORAGE_PATH = '.specrails/local-tickets.json'
 
   // GET /:projectId/integration-contract — Return the project's integration contract with ticketProvider
   router.get('/:projectId/integration-contract', (req: Request, res: Response) => {
-    const projectPath = ctx(req).project.path
-    const contractFile = path.join(projectPath, '.claude', 'integration-contract.json')
+    const project = ctx(req).project
+    const projectPath = project.path
+    // Relocate-artifacts: the integration-contract.json + tickets store live in
+    // the workspace when relocated. Mirror the gated ticketPath() so this
+    // informational endpoint reports the path the relocated CLI actually loads,
+    // not a stale repo path. Legacy projects are byte-identical.
+    const exec = resolveProjectExecution({ slug: project.slug, path: projectPath })
+    const contractRoot = exec.relocated && exec.workspaceDir ? exec.workspaceDir : projectPath
+    const contractFile = path.join(contractRoot, '.claude', 'integration-contract.json')
     let rawContract: Record<string, unknown> = {}
     let source: 'contract' | 'default' = 'default'
 
@@ -507,10 +517,17 @@ export function registerSetupRoutes(deps: ProjectRoutesDeps): void {
     }
 
     const rawProvider = rawContract.ticketProvider as { type?: string; storagePath?: string; capabilities?: string[] } | undefined
-    const storagePath = rawProvider?.storagePath ?? DEFAULT_TICKET_STORAGE_PATH
+    // When relocated, the tickets store is the registry entry's ticketsPath (an
+    // absolute workspace path); a custom storagePath from the contract is still
+    // resolved relative to the contract root. Legacy ⇒ ticketPath() (which
+    // honours the contract's custom storagePath).
+    const storagePath = rawProvider?.storagePath
+    const resolvedStorage = storagePath
+      ? path.resolve(contractRoot, storagePath)
+      : ticketPath(req)
     const ticketProvider = {
       type: rawProvider?.type ?? 'local',
-      storagePath: path.resolve(projectPath, storagePath),
+      storagePath: resolvedStorage,
       capabilities: rawProvider?.capabilities ?? DEFAULT_TICKET_CAPABILITIES,
     }
 

@@ -93,7 +93,7 @@ function makeAttachments() {
   const uploads: Array<{ ticketKey: string | number; mime: string; name: string }> = []
   return {
     uploads,
-    upload: vi.fn(async (opts: { slug: string; ticketKey: string | number; projectPath: string | null; file: { buffer: Buffer; originalname: string; mimetype: string; size: number } }): Promise<Attachment> => {
+    upload: vi.fn(async (opts: { slug: string; ticketKey: string | number; ticketStorePath: string | null; file: { buffer: Buffer; originalname: string; mimetype: string; size: number } }): Promise<Attachment> => {
       uploads.push({ ticketKey: opts.ticketKey, mime: opts.file.mimetype, name: opts.file.originalname })
       return {
         id: `att-${uploads.length}`,

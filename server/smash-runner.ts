@@ -23,6 +23,7 @@ import {
   type SmashValidationReason,
 } from './explore-smash'
 import { ensureExploreCwd } from './explore-cwd-manager'
+import { resolveProjectExecution } from './workspace-resolution'
 import { recordInvocation } from './ai-invocations'
 import { normaliseResultEvent } from './result-event'
 import { clampShortSummary } from './ticket-store'
@@ -33,6 +34,13 @@ import {
   type TicketStore,
 } from './ticket-store'
 import type { DbInstance } from './db'
+
+/** Resolve the tickets-store path for a SMASH run: the gated `ticketsPath` when
+ *  the caller threaded it (relocation-aware), else the legacy repo-relative
+ *  derivation. */
+function smashTicketsPath(deps: Pick<SmashDeps, 'ticketsPath' | 'projectPath'>): string {
+  return deps.ticketsPath ?? resolveTicketStoragePath(deps.projectPath)
+}
 
 const SMASH_TIMEOUT_MS_SIMPLE = 60_000
 const SMASH_TIMEOUT_MS_FULL = 900_000      // 15 min — super-spec mode, no rush
@@ -60,6 +68,12 @@ export interface SmashDeps {
   projectSlug: string
   projectPath: string
   projectName: string
+  /** Relocate-artifacts: the gated tickets-store path (workspace when relocated,
+   *  else `<project>/.specrails/local-tickets.json`). When provided, SMASH reads
+   *  and writes the store HERE instead of re-deriving from `projectPath` (which
+   *  would target a stale repo copy the rails never load). Optional for
+   *  byte-identical legacy + test back-compat. */
+  ticketsPath?: string
   /** Broadcaster — emits `smash.*` events plus `ticket_*` events. */
   broadcast: (msg: unknown) => void
   /** Optional spawn injection (tests). */
@@ -146,15 +160,22 @@ function buildSmashArgs(
 export function prepareSmashSpawn(
   deps: Pick<SmashDeps, 'projectSlug' | 'projectPath' | 'projectName' | 'model' | 'mode'>,
   ticket: Ticket,
-): { args: string[]; cwd: string; systemPrompt: string; userPrompt: string; mode: SmashMode } {
+): { args: string[]; cwd: string; env?: Record<string, string>; systemPrompt: string; userPrompt: string; mode: SmashMode } {
   const mode: SmashMode = deps.mode === 'full' ? 'full' : 'simple'
   const systemPrompt = buildSmashSystemPrompt(mode)
   const userPrompt = `${ticket.title}\n\n${ticket.description}`
   let cwd: string
+  let env: Record<string, string> | undefined
   // Full mode needs access to the project tree (so Read/Grep/Glob hit the
   // real repo). Simple mode keeps the app-managed dir for a clean scope.
   if (mode === 'full') {
-    cwd = deps.projectPath
+    // Relocate-artifacts: when relocated, spawn from the workspace (so the CLI
+    // discovers the relocated agents/profiles + reaches the repo via the
+    // `./project` symlink + SPECRAILS_REPO_DIR). Legacy ⇒ cwd = project.path,
+    // empty env (byte-identical).
+    const exec = resolveProjectExecution({ slug: deps.projectSlug, path: deps.projectPath })
+    cwd = exec.cwd
+    env = exec.relocated ? exec.env : undefined
   } else {
     try {
       cwd = ensureExploreCwd({
@@ -167,7 +188,7 @@ export function prepareSmashSpawn(
     }
   }
   const model = deps.model ?? 'sonnet'
-  return { args: buildSmashArgs(model, systemPrompt, userPrompt, mode), cwd, systemPrompt, userPrompt, mode }
+  return { args: buildSmashArgs(model, systemPrompt, userPrompt, mode), cwd, env, systemPrompt, userPrompt, mode }
 }
 
 /**
@@ -517,7 +538,7 @@ export async function runSmash(
   try {
 
   // Pre-flight: read store and check eligibility.
-  const filePath = resolveTicketStoragePath(deps.projectPath)
+  const filePath = smashTicketsPath(deps)
   let ticket: Ticket
   try {
     const { readStore } = await import('./ticket-store')
@@ -543,12 +564,13 @@ export async function runSmash(
     timestamp: startedAt,
   })
 
-  const { args, cwd } = prepareSmashSpawn(
+  const { args, cwd, env: spawnEnv } = prepareSmashSpawn(
     {
       projectSlug: deps.projectSlug,
       projectPath: deps.projectPath,
       projectName: deps.projectName,
       model: deps.model,
+      mode,
     },
     ticket,
   )
@@ -556,7 +578,7 @@ export async function runSmash(
   let child: ChildProcess
   try {
     child = spawn('claude', args, {
-      env: process.env,
+      env: spawnEnv ? { ...process.env, ...spawnEnv } : process.env,
       stdio: ['ignore', 'pipe', 'pipe'],
       cwd,
     })
@@ -727,7 +749,7 @@ export async function runSmashUndo(
     return { ok: false, deletedChildren: [], reason: 'disabled' }
   }
   const now = deps.now ?? (() => new Date())
-  const filePath = resolveTicketStoragePath(deps.projectPath)
+  const filePath = smashTicketsPath(deps)
   const finishedAt = now().toISOString()
   let undone: ReturnType<typeof applySmashUndo>
   try {

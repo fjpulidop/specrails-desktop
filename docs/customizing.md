@@ -59,7 +59,7 @@ Open **Settings** from the project navbar (top right of any project page).
 | **Daily budget (USD)** | The queue auto-pauses when this project's spend for the current calendar day exceeds the cap. Blank = no cap. |
 | **Per-job cost alert (USD)** | OS notification when a single job in this project exceeds this amount. Blank = disabled. |
 
-The daily counter is the sum of completed-job cost since midnight, so it resets at the start of each calendar day. When the cap is hit you see a "Daily budget exceeded — Queue is paused" banner on the project (plus a toast). Resume by raising or clearing the budget (and waiting for the next day if you've genuinely spent it).
+The daily counter is the sum of completed-job cost since midnight, so it resets at the start of each calendar day. When the cap is hit you see a "Daily budget exceeded — spent $X of $Y. Queue is paused." banner on the project (plus a toast). Resume by raising or clearing the budget (and waiting for the next day if you've genuinely spent it).
 
 ### Rail pre-prompt
 
@@ -109,6 +109,8 @@ Open **Desktop Settings** from the Arc sidebar. These apply across every project
 | Section | What it does |
 |---------|--------------|
 | **Appearance** | Theme picker — see above. |
+| **Language** | UI language picker. Eight locales (English, Spanish, French, German, Portuguese, Italian, Chinese, Japanese). Hot-switches the whole app — no restart. First run follows your OS language until you pick one explicitly. |
+| **Code section** | Defaults for the Code section: the plain-language file-summary language (English or Spanish) and a monthly summary budget cap in USD. Hidden when the Code section is disabled. |
 | **Registered Projects** | The project registry. Re-resolve, rename, or remove projects. |
 | **specrails-tech** | Base URL for the external specrails-tech agents service (default `http://localhost:3000`). |
 | **Budget & Alerts** | App-wide daily budget (a global spend cap across all projects — queues auto-pause when exceeded) plus a per-job cost alert threshold. Distinct from the per-project budget. |
@@ -126,26 +128,41 @@ On first run the app generates a token and persists it to `~/.specrails/desktop.
 
 The app binds to `127.0.0.1` only, so it's never exposed to your network. To rotate the token, stop the app, delete `~/.specrails/desktop.token`, and start it again — a fresh token is generated on the next boot.
 
+## Providers
+
+The app works with **three interchangeable AI providers — Claude, Codex, and Gemini — all enabled by default.** When you add a project you pick which provider(s) to install (you can install any subset; the first one becomes the project's default). The engine pickers on Add Spec, the rail header, and the terminal's "Open AI CLI" button appear automatically whenever more than one provider is installed.
+
+You normally don't configure anything here — providers are selected per project in the UI. The only knobs are the **emergency rollback** env vars below (one per provider), which force a provider back to "unavailable" without redeploying. See [codex.md](codex.md) and [gemini.md](gemini.md) for each provider's setup, auth, and limitations.
+
 ## Environment variables
 
 Most settings live in the UI. A few app-level switches are env-only because they're guardrails ops people want to flip without opening the dashboard.
+
+> **How values are read** (the rules differ by flag type):
+> - **Section gates** (`SPECRAILS_*_SECTION`, `SPECRAILS_TERMINAL_PANEL`, `SPECRAILS_CODE_EXPLORER`, …) are ON unless set to the **exact string `false`**.
+> - **Provider rollbacks** (`SPECRAILS_CODEX_BETA`, `SPECRAILS_GEMINI_BETA`) disable on the **exact string `0`** only — `false`/`off` do *not* disable them.
+> - **Kill switches** (`SPECRAILS_SMASH`, `SPECRAILS_EXPLORE_CONTRACT_REFINE`) accept `0` / `false` / `off`.
+> - **Opt-in hatches** (`SPECRAILS_EXPLORE_LEGACY_CWD`, `SPECRAILS_ALLOW_LOCAL_WEBHOOKS`) enable on the **exact string `1`**.
 
 ### Server-side (read at app startup or by spawned children)
 
 | Variable | Effect |
 |----------|--------|
-| `SPECRAILS_CORE_BIN` | Override the `specrails-core` binary (default: `npx --yes --prefer-online specrails-core@latest`) |
+| `SPECRAILS_CORE_BIN` | Override the `specrails-core` binary (default: `npx --yes --prefer-online specrails-core@^4.8.0` — the 4.8.0 floor is the release that ships the Gemini provider target) |
 | `SPECRAILS_TECH_URL` | Override the specrails-tech proxy base URL |
 | `SPECRAILS_AGENTS_SECTION=false` | Hide the Agents section from every project |
 | `SPECRAILS_PLUGINS_SECTION=false` | Hide the Integrations section from every project |
+| `SPECRAILS_JIRA_SECTION=false` | Hide the Jira integration and 404 its routes |
 | `SPECRAILS_TERMINAL_PANEL=false` | Disable the bottom terminal panel everywhere |
-| `SPECRAILS_CODE_EXPLORER=false` | Disable the read-only Code section server-side |
+| `SPECRAILS_CODE_EXPLORER=false` | Disable the Code section server-side |
+| `SPECRAILS_INTERACTIVE_JOBS=false` | Reject the interactive-ultracode toggle and the per-job message/finalize routes |
 | `SPECRAILS_BROWSER_CAPTURE=false` | Disable Add-Spec-from-browser capture |
-| `SPECRAILS_CODEX_BETA=0` | Emergency rollback — disable the Codex provider (legacy `SPECRAILS_HUB_CODEX_BETA` still honoured as a fallback) |
+| `SPECRAILS_CODEX_BETA=0` | Emergency rollback — disable the Codex provider (only the exact string `0`; the legacy `SPECRAILS_HUB_CODEX_BETA` is read as a fallback **only when `SPECRAILS_CODEX_BETA` is unset**) |
+| `SPECRAILS_GEMINI_BETA=0` | Emergency rollback — disable the Gemini provider (default unset = enabled; only the exact string `0` disables; **no legacy fallback name**) |
 | `SPECRAILS_SMASH=0` | Kill switch for SMASH spec decomposition (`0` / `false` / `off`; endpoints return 409) |
 | `SPECRAILS_EXPLORE_CONTRACT_REFINE=0` | App-wide kill switch for Contract Refine (auto-fire + retry endpoint; accepts `0` / `false` / `off`) |
 | `SPECRAILS_EXPLORE_LEGACY_CWD=1` | Force Explore spawns to use the project root instead of the app-managed `explore-cwd/` |
-| `SPECRAILS_FILE_SUMMARY_MODEL` | Override the model used for Code-section file summaries |
+| `SPECRAILS_FILE_SUMMARY_MODEL` | Override the model used for Code-section file summaries. Per-provider overrides take precedence: `SPECRAILS_FILE_SUMMARY_MODEL_CLAUDE` (Claude) and `SPECRAILS_FILE_SUMMARY_MODEL_CODEX` (Codex); the generic var is the fallback |
 | `SPECRAILS_ALLOW_LOCAL_WEBHOOKS=1` | Allow outbound webhooks to target loopback / private-network addresses |
 
 ### Client-side (Vite — set at build time)
@@ -156,13 +173,17 @@ These feature flags are **default ON**. Set the flag to `false` to hide the feat
 |----------|--------|
 | `VITE_FEATURE_TERMINAL_PANEL=false` | Hide the bottom terminal panel |
 | `VITE_FEATURE_AGENTS_SECTION=false` | Hide the Agents section |
-| `VITE_FEATURE_CODE_EXPLORER=false` | Hide the read-only Code section |
+| `VITE_FEATURE_CODE_EXPLORER=false` | Hide the Code section |
+| `VITE_FEATURE_JIRA=false` | Hide the Jira integration UI (settings section + spec badges) |
+| `VITE_FEATURE_INTERACTIVE_JOBS=false` | Hide the interactive-ultracode UI (rail "Interactive" toggle + in-job chat + Finalize) |
 | `VITE_FEATURE_EXPLORE_REVIEW=false` | Disable the Review step in the Explore shell |
 | `VITE_FEATURE_EXPLORE_PREMIUM_UX=false` | Disable the "Conectando…/Pensando…/Consultando código…" pills above the Explore streaming bubble |
 
 > **Port:** the app doesn't read an env var for its port — use the `--port <n>` global flag: `specrails-desktop --port 5000 start`.
 
 Set them in the shell that launches the app. Desktop app users can set them in their shell rc files since the desktop app inherits the launchd PATH and env.
+
+> **Not env vars:** a few `SPECRAILS_*` names you might spot in the source are *not* settings you can flip. `SPECRAILS_DIR` is a code constant; `SPECRAILS_PROFILE_PATH`, `SPECRAILS_PLUGINS_ACTIVE`, and `SPECRAILS_PLUGINS_SNAPSHOT` are values the app injects *into* the AI CLI it spawns. Setting them yourself has no effect. The desktop-only `SPECRAILS_IS_DESKTOP` / `SPECRAILS_BUNDLED_RUNTIMES_PATH` are set by the packaged app, never by you.
 
 ## Resetting the app
 
