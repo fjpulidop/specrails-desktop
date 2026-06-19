@@ -15,6 +15,7 @@ import { mirrorProjectEntry, resolveArtifacts } from './artifact-registry'
 import { installConfigPath, type InstallConfigProject } from './install-config-path'
 import { getBundledCoreCli, getBundledCoreRoot, getBundledCoreVersion } from './bundled-core'
 import { getBundledOpenspecCli } from './bundled-openspec'
+import { resolveBundledNodeExe } from './path-resolver'
 import { FrameworkManager } from './framework-manager'
 import type { ProviderAdapter, SpawnAction, ProviderId } from './providers/types'
 
@@ -108,7 +109,13 @@ function spawnBundledCoreInit(args: string[], cwd: string): ChildProcess | null 
   const openspecCli = getBundledOpenspecCli()
   if (openspecCli) {
     env.SPECRAILS_OPENSPEC_BIN = openspecCli
-    env.SPECRAILS_OPENSPEC_NODE = process.execPath
+    // Core runs openspec as `<node> <cli> init …`. SPECRAILS_OPENSPEC_NODE MUST be
+    // a REAL node executable — NOT process.execPath (the packaged `specrails-server`
+    // pkg binary), which cannot run openspec's ESM CLI and made `openspec init`
+    // exit with code -1 (→ core throws InstallerError code 50, setup fails). Prefer
+    // the bundled Node; fall back to `node` on PATH (resolveStartupPath prepends the
+    // bundled node bin in desktop mode, so PATH `node` is the bundled node too).
+    env.SPECRAILS_OPENSPEC_NODE = resolveBundledNodeExe() ?? 'node'
   }
 
   console.log(

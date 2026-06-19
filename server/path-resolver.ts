@@ -103,6 +103,26 @@ export function resolveBundledRuntimePath(): string {
 }
 
 /**
+ * Absolute path to the bundled REAL Node executable (`runtimes/node/bin/node` on
+ * POSIX, `runtimes/node/node.exe` on Windows), or `null` when no bundled runtimes
+ * are present (non-desktop mode, a runtimes-less build, or a partial extraction).
+ *
+ * This is the node that must run bundled node CLIs (e.g. the openspec ESM CLI).
+ * It is deliberately NOT `process.execPath`: in the packaged app `process.execPath`
+ * is the `specrails-server` pkg binary, which cannot run an external ESM CLI —
+ * passing it as `SPECRAILS_OPENSPEC_NODE` made `openspec init` exit with code -1.
+ * Existence-gated so a stale/partial bundle degrades to the PATH `node` instead.
+ */
+export function resolveBundledNodeExe(): string | null {
+  const runtimesPath = process.env.SPECRAILS_BUNDLED_RUNTIMES_PATH
+  if (!runtimesPath || runtimesPath.length === 0) return null
+  const exe = process.platform === 'win32'
+    ? path.join(runtimesPath, 'node', 'node.exe')
+    : path.join(runtimesPath, 'node', 'bin', 'node')
+  return fileExists(exe) ? exe : null
+}
+
+/**
  * Synchronously prepend well-known package-manager bin directories to
  * `process.env.PATH` if they are missing. No-op on Windows.
  *
