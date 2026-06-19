@@ -29,9 +29,13 @@ export function spawnCli(
   args: string[],
   options: SpawnOptions = {},
 ): ChildProcess {
-  /* c8 ignore next 3 -- Windows-only branch; coverage runs on Linux/macOS */
+  /* c8 ignore next 5 -- Windows-only branch; coverage runs on Linux/macOS */
   if (process.platform === 'win32') {
-    return crossSpawn(binary, args, options)
+    // Guarantee SystemRoot/ComSpec so cmd.exe (which cross-spawn uses to run
+    // `.cmd` shims like claude.cmd/npm.cmd) can start even when the packaged
+    // sidecar inherited a stripped environment. Chokepoint for EVERY Windows
+    // spawn — protects rails, chat, setup and probes uniformly.
+    return crossSpawn(binary, args, { ...options, env: windowsSpawnEnv(options.env) })
   }
 
   return spawn(binary, args, options)
