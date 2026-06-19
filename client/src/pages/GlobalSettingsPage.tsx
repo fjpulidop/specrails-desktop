@@ -5,6 +5,7 @@ import { TerminalSettingsSection } from '../components/settings/TerminalSettings
 import { AppearanceSection } from '../components/settings/AppearanceSection'
 import { LanguageSection } from '../components/settings/LanguageSection'
 import { CodeSectionSettings } from '../components/settings/CodeSectionSettings'
+import { CoreUpdateSection } from '../components/settings/CoreUpdateSection'
 import { MobileAccessSection } from '../components/settings/MobileAccessSection'
 import { Settings, Trash2, Zap, Plus, Bell, GraduationCap } from 'lucide-react'
 import { Button } from '../components/ui/button'
@@ -337,6 +338,8 @@ export default function SettingsDialog({ open, onClose, onOpenOnboarding }: Sett
             <LanguageSection />
 
             <CodeSectionSettings />
+
+            <CoreUpdateSection />
 
             <MobileAccessSection />
 

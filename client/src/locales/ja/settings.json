@@ -200,5 +200,23 @@
     "copyCode": "コードをコピー",
     "codeCopied": "コードをコピーしました",
     "cancel": "キャンセル"
+  },
+  "coreUpdate": {
+    "heading": "Specrails Core",
+    "installed": "インストール済み:",
+    "updateAvailable": "アップデートあり: {{version}}",
+    "upToDate": "最新です",
+    "neverChecked": "未確認",
+    "check": "アップデートを確認",
+    "checking": "確認中…",
+    "update": "{{version}} に更新",
+    "downloading": "ダウンロード中…",
+    "materializing": "インストール中…",
+    "affectsAll": "すべてのプロジェクトに適用 — 再起動不要。",
+    "unavailable": "このビルドではコアの更新は利用できません。",
+    "toastDone": "Specrails Core を {{version}} に更新しました",
+    "toastError": "コアの更新に失敗しました: {{message}}",
+    "toastUpToDate": "Specrails Core は最新です",
+    "toastCheckFailed": "更新の確認に失敗しました: {{message}}"
   }
 }

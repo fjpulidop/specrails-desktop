@@ -65,6 +65,7 @@ function createMockRegistry(desktopDb: DbInstance) {
     }),
     touchProject: vi.fn(),
     listContexts: vi.fn(() => Array.from(contexts.values())),
+    installedProvidersUnion: vi.fn(() => ['claude']),
   } as unknown as ProjectRegistry
 
   return { registry, contexts }
@@ -1391,6 +1392,42 @@ describe('desktop-router', () => {
       await request(app).patch('/api/language').send({ language: 'ja' })
       const res = await request(app).get('/api/language')
       expect(res.body.language).toBe('ja')
+    })
+  })
+
+  // ─── core-update channel ────────────────────────────────────────────────────
+  // No bundled core in the test env ⇒ available:false; these cover the route
+  // wiring + the unavailable guard without touching npm/network.
+  describe('GET /api/core-update/status', () => {
+    it('returns available:false when no bundled core is present', async () => {
+      const prev = process.env.SPECRAILS_BUNDLED_CORE_PATH
+      delete process.env.SPECRAILS_BUNDLED_CORE_PATH
+      try {
+        const { app } = createApp()
+        const res = await request(app).get('/api/core-update/status')
+        expect(res.status).toBe(200)
+        expect(res.body.available).toBe(false)
+        expect(res.body.updateAvailable).toBe(false)
+      } finally {
+        if (prev === undefined) delete process.env.SPECRAILS_BUNDLED_CORE_PATH
+        else process.env.SPECRAILS_BUNDLED_CORE_PATH = prev
+      }
+    })
+  })
+
+  describe('POST /api/core-update/update', () => {
+    it('409 when core updates are unavailable in this build', async () => {
+      const prev = process.env.SPECRAILS_BUNDLED_CORE_PATH
+      delete process.env.SPECRAILS_BUNDLED_CORE_PATH
+      try {
+        const { app } = createApp()
+        const res = await request(app).post('/api/core-update/update').send({})
+        expect(res.status).toBe(409)
+        expect(res.body.error).toBe('unavailable')
+      } finally {
+        if (prev === undefined) delete process.env.SPECRAILS_BUNDLED_CORE_PATH
+        else process.env.SPECRAILS_BUNDLED_CORE_PATH = prev
+      }
     })
   })
 
