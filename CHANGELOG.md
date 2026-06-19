@@ -1,5 +1,12 @@
 # Changelog
 
+## [2.11.0](https://github.com/fjpulidop/specrails-desktop/compare/v2.10.1...v2.11.0) (2026-06-19)
+
+
+### Features
+
+* **setup:** force SPECRAILS_RELOCATE=1 on core init (relocation is now opt-in) ([#417](https://github.com/fjpulidop/specrails-desktop/issues/417)) ([5674461](https://github.com/fjpulidop/specrails-desktop/commit/5674461f3445c12bf255a444e9cf670d3f8986e9))
+
 ## [2.10.1](https://github.com/fjpulidop/specrails-desktop/compare/v2.10.0...v2.10.1) (2026-06-19)
 
 
