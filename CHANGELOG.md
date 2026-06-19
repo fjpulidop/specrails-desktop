@@ -1,5 +1,13 @@
 # Changelog
 
+## [2.9.0](https://github.com/fjpulidop/specrails-desktop/compare/v2.8.0...v2.9.0) (2026-06-19)
+
+
+### Features
+
+* **docs:** in-app user documentation in all 8 languages ([#406](https://github.com/fjpulidop/specrails-desktop/issues/406)) ([d0ad4df](https://github.com/fjpulidop/specrails-desktop/commit/d0ad4df1633276374a0d0fa58ef9160045e74989))
+* relocate artifacts to $HOME + bundled framework + offline setup ([#403](https://github.com/fjpulidop/specrails-desktop/issues/403)) ([b28aec5](https://github.com/fjpulidop/specrails-desktop/commit/b28aec51b6cda4067ff2416dace1811f15053e29))
+
 ## [2.8.0](https://github.com/fjpulidop/specrails-desktop/compare/v2.7.0...v2.8.0) (2026-06-18)
 
 
