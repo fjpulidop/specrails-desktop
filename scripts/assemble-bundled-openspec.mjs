@@ -79,7 +79,7 @@ function main() {
     )
     console.log(`[assemble-bundled-openspec] npm install ${spec} → ${tmp}`)
     execFileSync(
-      'npm',
+      process.platform === 'win32' ? 'npm.cmd' : 'npm',
       [
         'install',
         spec,

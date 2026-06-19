@@ -102,7 +102,7 @@ function main() {
     )
     console.log(`[assemble-bundled-core] npm install ${spec} → ${tmp}`)
     execFileSync(
-      'npm',
+      process.platform === 'win32' ? 'npm.cmd' : 'npm',
       [
         'install',
         spec,
