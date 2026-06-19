@@ -55,7 +55,7 @@
     "title": "ドキュメント",
     "dialogDescription": "同梱の Specrails ドキュメントを閲覧できます。サイドバーでガイドを切り替えてください。",
     "sidebarEmpty": "ドキュメントはまだありません",
-    "indexEmpty": "利用可能なドキュメントがありません。同梱ドキュメントはリポジトリの docs/ 以下にあります — Markdown ファイルをそこか ~/.specrails/docs/ 以下に置くと拡張できます。",
+    "indexEmpty": "ドキュメントはここに表示されます。ユーザーガイドはアプリに同梱され docs/guide/ にあります。~/.specrails/docs/guide/ 以下に Markdown ファイルを置くとカスタマイズできます。",
     "categoryEmpty": "このカテゴリにはまだドキュメントがありません。",
     "documentCount_one": "{{count}} 件のドキュメント",
     "documentCount_other": "{{count}} 件のドキュメント",

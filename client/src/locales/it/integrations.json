@@ -55,7 +55,7 @@
     "title": "Documentazione",
     "dialogDescription": "Sfoglia la documentazione di Specrails inclusa. Usa la barra laterale per passare da una guida all'altra.",
     "sidebarEmpty": "Ancora nessun documento",
-    "indexEmpty": "Nessun documento disponibile. La documentazione inclusa si trova in docs/ nel repo — aggiungi file Markdown lì o in ~/.specrails/docs/ per estenderla.",
+    "indexEmpty": "La documentazione apparirà qui. La guida utente è inclusa nell’app in docs/guide/; aggiungi file Markdown in ~/.specrails/docs/guide/ per personalizzarla.",
     "categoryEmpty": "Ancora nessun documento in questa categoria.",
     "documentCount_one": "{{count}} documento",
     "documentCount_other": "{{count}} documenti",

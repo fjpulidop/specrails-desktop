@@ -166,10 +166,12 @@ const MemoMarkdown = memo(function MemoMarkdown({ content }: { content: string }
 function DocView({
   category,
   slug,
+  lang,
   scrollContainerRef,
 }: {
   category: string
   slug: string
+  lang: string
   scrollContainerRef: React.RefObject<HTMLElement | null>
 }) {
   // Stale-while-revalidate: keep the previous doc on screen while fetching
@@ -184,7 +186,7 @@ function DocView({
     const requestId = ++requestRef.current
     setError(null)
 
-    fetch(`/api/docs/${category}/${slug}`)
+    fetch(`/api/docs/${category}/${slug}?lang=${encodeURIComponent(lang)}`)
       .then(async (res) => {
         if (res.status === 404) {
           navigate('/docs', { replace: true })
@@ -205,7 +207,7 @@ function DocView({
         if (requestId !== requestRef.current) return
         setError(err instanceof Error ? err.message : t('docs.loadError'))
       })
-  }, [category, slug, navigate, scrollContainerRef])
+  }, [category, slug, lang, navigate, scrollContainerRef])
 
   // Full-screen spinner only on the very first load (no previous content).
   if (!doc && !error) {
@@ -251,17 +253,19 @@ function DocView({
 
 export default function DocsPage() {
   const { category, slug } = useParams<{ category?: string; slug?: string }>()
+  const { i18n } = useTranslation('integrations')
+  const lang = i18n.language || 'en'
   const [index, setIndex] = useState<DocsIndex | null>(null)
   const [indexLoading, setIndexLoading] = useState(true)
   const scrollRef = useRef<HTMLElement>(null)
 
   useEffect(() => {
-    fetch('/api/docs')
+    fetch(`/api/docs?lang=${encodeURIComponent(lang)}`)
       .then((res) => res.json())
       .then((data: DocsIndex) => setIndex(data))
       .catch(() => setIndex({ categories: [] }))
       .finally(() => setIndexLoading(false))
-  }, [])
+  }, [lang])
 
   const isDocView = Boolean(category && slug)
 
@@ -283,7 +287,7 @@ export default function DocsPage() {
       {/* Content */}
       <main ref={scrollRef} className="flex-1 overflow-y-auto">
         {isDocView && category && slug ? (
-          <DocView category={category} slug={slug} scrollContainerRef={scrollRef} />
+          <DocView category={category} slug={slug} lang={lang} scrollContainerRef={scrollRef} />
         ) : (
           index && <DocsIndex categories={index.categories} />
         )}

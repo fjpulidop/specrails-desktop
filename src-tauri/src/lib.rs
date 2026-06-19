@@ -280,6 +280,34 @@ pub fn run() {
                 sidecar
             };
 
+            // Resolve the bundled user-guide docs path from Tauri's resource
+            // directory (mirrors the bundled-core block above). The Documentation
+            // panel serves these language-aware Markdown files; server/docs-router.ts
+            // reads SPECRAILS_BUNDLED_DOCS_PATH (expecting a `guide/` subdir).
+            // The docs are declared as `../docs/guide/**/*` in tauri.conf.json, so
+            // Tauri places them under `<resource_dir>/_up_/docs/guide` (the `_up_`
+            // segment is how Tauri preserves a parent-relative resource path). We
+            // try that layout first, then a plain `<resource_dir>/docs` fallback.
+            //   On macOS:   <app>.app/Contents/Resources/_up_/docs
+            //   On Windows: <install-dir>/resources/_up_/docs
+            let resource_dir = app_handle.path().resource_dir().ok();
+            let docs_path = resource_dir.as_ref().and_then(|rd| {
+                let up = rd.join("_up_").join("docs");
+                if up.join("guide").is_dir() {
+                    return Some(up.to_string_lossy().into_owned());
+                }
+                let plain = rd.join("docs");
+                if plain.join("guide").is_dir() {
+                    return Some(plain.to_string_lossy().into_owned());
+                }
+                None
+            });
+            let sidecar = if let Some(ref docs_path) = docs_path {
+                sidecar.env("SPECRAILS_BUNDLED_DOCS_PATH", docs_path)
+            } else {
+                sidecar
+            };
+
             // On macOS, GUI apps launched from Finder/Dock inherit a minimal PATH
             // from launchd that omits user tool dirs (homebrew, cargo, bun,
             // ~/.local/bin). We rebuild PATH from a zsh login shell and prepend
