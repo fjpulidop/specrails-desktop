@@ -1,5 +1,12 @@
 # Changelog
 
+## [2.10.1](https://github.com/fjpulidop/specrails-desktop/compare/v2.10.0...v2.10.1) (2026-06-19)
+
+
+### Bug Fixes
+
+* **setup:** persist a per-provider install-config (multi-provider was clobbered) ([#415](https://github.com/fjpulidop/specrails-desktop/issues/415)) ([45597cf](https://github.com/fjpulidop/specrails-desktop/commit/45597cf20e3e7f4edd9917906011e2ec62d90a7e))
+
 ## [2.10.0](https://github.com/fjpulidop/specrails-desktop/compare/v2.9.1...v2.10.0) (2026-06-19)
 
 
