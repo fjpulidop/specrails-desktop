@@ -1,4 +1,7 @@
 import { describe, it, expect, beforeEach, vi, afterEach } from 'vitest'
+import fs from 'fs'
+import path from 'path'
+import os from 'os'
 
 // Mock all managers before importing
 vi.mock('./queue-manager', () => {
@@ -68,9 +71,17 @@ describe('ProjectRegistry', () => {
   let desktopDb: DbInstance
   let broadcast: ReturnType<typeof vi.fn>
   let registry: ProjectRegistry
+  let registryHome: string
+  let prevRegistryHome: string | undefined
 
   beforeEach(() => {
     vi.resetAllMocks()
+    // Redirect the shared artifact-registry writes (mirror/reconcile/remove that
+    // ProjectRegistry now performs) to a tmp home so tests never touch the real
+    // ~/.specrails/registry.json.
+    registryHome = fs.mkdtempSync(path.join(os.tmpdir(), 'pr-registry-home-'))
+    prevRegistryHome = process.env.SPECRAILS_REGISTRY_HOME
+    process.env.SPECRAILS_REGISTRY_HOME = registryHome
     broadcast = vi.fn()
     registry = new ProjectRegistry(broadcast, ':memory:')
     desktopDb = registry.desktopDb
@@ -78,6 +89,9 @@ describe('ProjectRegistry', () => {
 
   afterEach(() => {
     vi.restoreAllMocks()
+    if (prevRegistryHome !== undefined) process.env.SPECRAILS_REGISTRY_HOME = prevRegistryHome
+    else delete process.env.SPECRAILS_REGISTRY_HOME
+    fs.rmSync(registryHome, { recursive: true, force: true })
   })
 
   // ─── Constructor ────────────────────────────────────────────────────────────
@@ -117,6 +131,31 @@ describe('ProjectRegistry', () => {
       expect(registry.getContext('good')).toBeDefined()
       expect(registry.getContext('bad')).toBeUndefined()
       expect(registry.listFailedProjects().map((f) => f.project.id)).toContain('bad')
+    })
+  })
+
+  // ─── installedProvidersUnion ─────────────────────────────────────────────────
+
+  describe('installedProvidersUnion', () => {
+    it('defaults to [claude] with no projects', () => {
+      expect(registry.installedProvidersUnion()).toEqual(['claude'])
+    })
+
+    it('returns the deduped union across projects (from the desktop DB)', () => {
+      addProject(desktopDb, { id: 'p1', slug: 'p1', name: 'P1', path: '/path/u1', providers: ['claude'] })
+      addProject(desktopDb, { id: 'p2', slug: 'p2', name: 'P2', path: '/path/u2', providers: ['gemini', 'claude'] })
+      addProject(desktopDb, { id: 'p3', slug: 'p3', name: 'P3', path: '/path/u3', provider: 'codex' })
+      const union = registry.installedProvidersUnion().sort()
+      expect(union).toEqual(['claude', 'codex', 'gemini'])
+    })
+
+    it('includes projects that failed to load a per-project DB (reads desktop DB, not contexts)', () => {
+      addProject(desktopDb, { id: 'good', slug: 'good', name: 'Good', path: '/path/g', providers: ['claude'] })
+      addProject(desktopDb, { id: 'bad', slug: 'bad', name: 'Bad', path: '/path/b', providers: ['gemini'] })
+      desktopDb.prepare('UPDATE projects SET db_path = ? WHERE id = ?').run('/dev/null/jobs.sqlite', 'bad')
+      registry.loadAll()
+      // 'bad' has no context but its provider still counts toward the union.
+      expect(registry.installedProvidersUnion().sort()).toEqual(['claude', 'gemini'])
     })
   })
 
@@ -459,6 +498,137 @@ describe('ProjectRegistry', () => {
       expect(broadcast).toHaveBeenCalledWith(
         expect.objectContaining({ projectId: 'aq-1', type: 'queue' })
       )
+    })
+  })
+
+  // ─── artifact-registry mirror wiring ─────────────────────────────────────────
+
+  describe('artifact-registry mirror wiring', () => {
+    function readRegistry(): {
+      schemaVersion: number
+      generator?: string
+      projects: Record<string, { slug: string; source: string; desktopProjectId?: string; providers: string[] }>
+    } {
+      const p = path.join(registryHome, '.specrails', 'registry.json')
+      return JSON.parse(fs.readFileSync(p, 'utf8'))
+    }
+
+    it('addProject mirrors a desktop-owned entry keyed by the repo path', () => {
+      registry.addProject({ id: 'p1', slug: 'my-proj', name: 'My Proj', path: '/repo/my-proj', provider: 'claude' })
+      const reg = readRegistry()
+      const key = process.platform === 'darwin' || process.platform === 'win32'
+        ? path.resolve('/repo/my-proj').toLowerCase()
+        : path.resolve('/repo/my-proj')
+      const entry = reg.projects[key]
+      expect(entry).toBeDefined()
+      expect(entry.slug).toBe('my-proj')
+      expect(entry.source).toBe('desktop')
+      expect(entry.desktopProjectId).toBe('p1')
+      expect(entry.providers).toEqual(['claude'])
+      expect(reg.generator).toBe('specrails-desktop')
+    })
+
+    it('addProject failure to mirror does not break project creation', () => {
+      // Point the registry home at a path that cannot be created (a file, not a
+      // dir) so the mirror write throws; addProject must still succeed.
+      const filePath = path.join(registryHome, 'not-a-dir')
+      fs.writeFileSync(filePath, 'x')
+      process.env.SPECRAILS_REGISTRY_HOME = filePath
+      try {
+        const ctx = registry.addProject({ id: 'p1', slug: 'my-proj', name: 'My Proj', path: '/repo/x' })
+        expect(ctx.project.id).toBe('p1')
+        expect(registry.getContext('p1')).toBeDefined()
+      } finally {
+        process.env.SPECRAILS_REGISTRY_HOME = registryHome
+      }
+    })
+
+    it('removeProject deletes the registry entry', () => {
+      registry.addProject({ id: 'p1', slug: 'my-proj', name: 'My Proj', path: '/repo/my-proj' })
+      const key = process.platform === 'darwin' || process.platform === 'win32'
+        ? path.resolve('/repo/my-proj').toLowerCase()
+        : path.resolve('/repo/my-proj')
+      expect(readRegistry().projects[key]).toBeDefined()
+      registry.removeProject('p1')
+      expect(readRegistry().projects[key]).toBeUndefined()
+    })
+
+    it('removeProject deletes the relocated workspace for an adopted (slug-mismatched) project', async () => {
+      // Adopted project: the registry entry's slug differs from the desktop slug.
+      // Pre-plant a core-standalone entry under a DIFFERENT slug, then add the
+      // desktop project at the same repo path so addProject ADOPTS it (keeps the
+      // core slug + workspaceDir). The workspace must be removed under the
+      // REGISTRY slug, not the desktop slug.
+      const repo = '/repo/adopted-proj'
+      const key = process.platform === 'darwin' || process.platform === 'win32'
+        ? path.resolve(repo).toLowerCase()
+        : path.resolve(repo)
+      const coreSlug = 'core-allocated-slug'
+      const wsDir = path.join(registryHome, '.specrails', 'projects', coreSlug, 'workspace')
+      const specrailsDir = path.join(wsDir, '.specrails')
+      // Plant a complete core-standalone entry on disk.
+      const regPath = path.join(registryHome, '.specrails', 'registry.json')
+      fs.mkdirSync(path.dirname(regPath), { recursive: true })
+      fs.writeFileSync(regPath, JSON.stringify({
+        schemaVersion: 1,
+        projects: {
+          [key]: {
+            repoPath: path.resolve(repo), slug: coreSlug, workspaceDir: wsDir,
+            artifactRoot: wsDir, codeRoot: path.resolve(repo),
+            stateDir: path.join(wsDir, '.claude'),
+            ticketsPath: path.join(specrailsDir, 'local-tickets.json'),
+            backlogConfigPath: path.join(specrailsDir, 'backlog-config.json'),
+            profilesDir: path.join(specrailsDir, 'profiles'),
+            pluginsStateDir: path.join(specrailsDir, 'plugins'),
+            fileSummariesDir: path.join(specrailsDir, 'file-summaries'),
+            providers: ['claude'], primaryProvider: 'claude', source: 'core-standalone',
+          },
+        },
+      }))
+      // Materialize the workspace dir on disk (the orphan that must be removed).
+      fs.mkdirSync(specrailsDir, { recursive: true })
+      fs.writeFileSync(path.join(specrailsDir, 'local-tickets.json'), '{}')
+
+      // Add the desktop project at the same repo with a DIFFERENT desktop slug.
+      registry.addProject({ id: 'pAdopt', slug: 'desktop-different-slug', name: 'Adopted', path: repo })
+      // Sanity: the entry kept the core slug (adoption preserved workspace identity).
+      expect(readRegistry().projects[key].slug).toBe(coreSlug)
+      expect(fs.existsSync(wsDir)).toBe(true)
+
+      registry.removeProject('pAdopt')
+
+      // The workspace under the REGISTRY slug is gone (no orphan leak) and the
+      // registry entry is dropped.
+      expect(fs.existsSync(wsDir)).toBe(false)
+      expect(readRegistry().projects[key]).toBeUndefined()
+    })
+
+    it('loadAll reconciles all desktop projects into the registry', () => {
+      addProject(desktopDb, { id: 'p1', slug: 'proj-1', name: 'Project 1', path: '/repo/proj-1' })
+      addProject(desktopDb, { id: 'p2', slug: 'proj-2', name: 'Project 2', path: '/repo/proj-2' })
+      registry.loadAll()
+      const reg = readRegistry()
+      const slugs = Object.values(reg.projects).map((e) => e.slug).sort()
+      expect(slugs).toEqual(['proj-1', 'proj-2'])
+      for (const e of Object.values(reg.projects)) expect(e.source).toBe('desktop')
+    })
+
+    it('loadAll leaves a core-standalone entry for an untracked repo untouched', () => {
+      // Pre-plant a core-standalone entry for a repo desktop does NOT track.
+      const otherKey = process.platform === 'darwin' || process.platform === 'win32'
+        ? path.resolve('/repo/untracked').toLowerCase()
+        : path.resolve('/repo/untracked')
+      const regPath = path.join(registryHome, '.specrails', 'registry.json')
+      fs.mkdirSync(path.dirname(regPath), { recursive: true })
+      fs.writeFileSync(regPath, JSON.stringify({
+        schemaVersion: 1,
+        projects: { [otherKey]: { slug: 'untracked', source: 'core-standalone', providers: ['claude'], workspaceDir: '/ws' } },
+      }))
+      addProject(desktopDb, { id: 'p1', slug: 'proj-1', name: 'Project 1', path: '/repo/proj-1' })
+      registry.loadAll()
+      const reg = readRegistry()
+      expect(reg.projects[otherKey]).toBeDefined()
+      expect(reg.projects[otherKey].source).toBe('core-standalone')
     })
   })
 })

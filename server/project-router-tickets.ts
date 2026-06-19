@@ -64,6 +64,7 @@ import type { TicketCreatedMessage, TicketUpdatedMessage, TicketDeletedMessage, 
 import { spawnAiCli } from './util/cli-prompt'
 import { createInterface } from 'readline'
 import treeKill from 'tree-kill'
+import { resolveProjectExecution } from './workspace-resolution'
 import multer from 'multer'
 import { createRailsRouter } from './rails-router'
 import { createProfilesRouter } from './profiles-router'
@@ -207,7 +208,7 @@ export function registerTicketsRoutes(deps: ProjectRoutesDeps): void {
     const rawModel = req.body?.model
     let resolvedModel: string
     if (rawModel === undefined || rawModel === null || rawModel === '') {
-      resolvedModel = resolveDefaultSpecModel({ projectPath: project.path, provider })
+      resolvedModel = resolveDefaultSpecModel({ projectPath: project.path, slug: project.slug, provider })
     } else if (isValidModelForProvider(rawModel, provider)) {
       resolvedModel = rawModel
     } else {
@@ -266,7 +267,12 @@ export function registerTicketsRoutes(deps: ProjectRoutesDeps): void {
     // Persist Quick mode Contract Refine choice (per-project last value).
     setQuickContractRefineLast(ctx(req).db, quickContractRefine)
 
-    const specsPrefix = buildScopedSystemPromptPrefix(quickScope, project.path)
+    // Relocate-artifacts: tickets read from the workspace when relocated.
+    const quickSpecRoot = (() => {
+      const e = resolveProjectExecution({ slug: project.slug, path: project.path })
+      return e.relocated && e.workspaceDir ? e.workspaceDir : project.path
+    })()
+    const specsPrefix = buildScopedSystemPromptPrefix(quickScope, project.path, quickSpecRoot)
 
     const codebaseRule = quickScope.full
       ? `- You MAY use Read, Grep, and Glob to inspect the project codebase. Bash is not available.`
@@ -340,13 +346,21 @@ export function registerTicketsRoutes(deps: ProjectRoutesDeps): void {
     })
     const binary = adapter.binary
 
+    // Relocate-artifacts gate: spawn from the workspace + SPECRAILS_REPO_DIR when
+    // relocated, else cwd = project.path + process.env (byte-identical legacy).
+    const specGenExec = resolveProjectExecution({ slug: project.slug, path: project.path })
+    let specGenEnv: NodeJS.ProcessEnv = process.env
+    if (specGenExec.relocated) {
+      specGenEnv = { ...process.env, ...specGenExec.env }
+      if (adapter.id === 'gemini') specGenEnv = { ...specGenEnv, GEMINI_CLI_TRUST_WORKSPACE: 'true' }
+    }
     // spawnAiCli reroutes multi-line argv values through stdin on Windows;
     // POSIX argv path unchanged.
-    console.log(`[project-router] spec-gen spawn: ${binary} (cwd=${project.path}, requestId=${requestId})`)
+    console.log(`[project-router] spec-gen spawn: ${binary} (cwd=${specGenExec.cwd}, requestId=${requestId})`)
     const child = spawnAiCli(binary, args, {
-      env: process.env,
+      env: specGenEnv,
       stdio: ['ignore', 'pipe', 'pipe'],
-      cwd: project.path,
+      cwd: specGenExec.cwd,
     })
 
     // Watchdog: unlike ai-edit, generate-spec keeps no cancellable handle, so a
@@ -572,7 +586,7 @@ export function registerTicketsRoutes(deps: ProjectRoutesDeps): void {
                 slug: project.slug,
                 pendingId: pendingSpecId,
                 realTicketId: created.id,
-                projectPath: project.path,
+                ticketStorePath: ticketPath(req),
               })
               if (migrated.length > 0) {
                 created.attachments = migrated
@@ -973,7 +987,7 @@ export function registerTicketsRoutes(deps: ProjectRoutesDeps): void {
             slug: project.slug,
             pendingId: pendingSpecId,
             realTicketId: created.id,
-            projectPath: project.path,
+            ticketStorePath: ticketPath(req),
           })
           if (migrated.length > 0) {
             created.attachments = migrated
@@ -1132,7 +1146,7 @@ export function registerTicketsRoutes(deps: ProjectRoutesDeps): void {
             slug: project.slug,
             pendingId: pendingSpecId,
             realTicketId: created.id,
-            projectPath: project.path,
+            ticketStorePath: ticketPath(req),
           })
           if (migrated.length > 0) {
             created.attachments = migrated
@@ -1235,6 +1249,10 @@ export function registerTicketsRoutes(deps: ProjectRoutesDeps): void {
             projectSlug: project.slug,
             projectPath: project.path,
             projectName: project.name,
+            // Relocate-artifacts: pass the gated tickets-store path so SMASH
+            // reads/writes the same store the rails load (workspace when
+            // relocated), not a stale repo copy.
+            ticketsPath: filePath,
             broadcast: broadcast as (m: unknown) => void,
             mode,
             model,
@@ -1272,6 +1290,7 @@ export function registerTicketsRoutes(deps: ProjectRoutesDeps): void {
           projectSlug: project.slug,
           projectPath: project.path,
           projectName: project.name,
+          ticketsPath: ticketPath(req),
           broadcast: broadcast as (m: unknown) => void,
         },
         ticketId,
@@ -1833,7 +1852,7 @@ export function registerTicketsRoutes(deps: ProjectRoutesDeps): void {
         const attachment = await attachmentManager.upload({
           slug: ctx(req).project.slug,
           ticketKey: parsed.key,
-          projectPath: parsed.isPending ? null : ctx(req).project.path,
+          ticketStorePath: parsed.isPending ? null : ticketPath(req),
           file: {
             buffer: file.buffer,
             originalname: file.originalname,
@@ -1900,7 +1919,7 @@ export function registerTicketsRoutes(deps: ProjectRoutesDeps): void {
         slug: ctx(req).project.slug,
         ticketKey: parsed.key,
         attachmentId,
-        projectPath: parsed.isPending ? null : ctx(req).project.path,
+        ticketStorePath: parsed.isPending ? null : ticketPath(req),
       })
       if (!ok) {
         res.status(404).json({ error: 'Attachment not found' })

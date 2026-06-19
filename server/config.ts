@@ -253,7 +253,16 @@ function loadPersistedConfig(db: any): { active: string | null; labelFilter: str
   }
 }
 
-export function getConfig(cwd: string, db?: any, projectName?: string): ProjectConfig {
+export function getConfig(
+  cwd: string,
+  db?: any,
+  projectName?: string,
+  /** Relocate-artifacts: the dir whose `.claude/commands/sr` holds the
+   *  materialized sr/specrails commands — the workspace when the project is
+   *  relocated, else === the project root. Git/repo detection ALWAYS uses the
+   *  repo root (`projectRoot`). Defaults to `projectRoot` (byte-identical). */
+  commandsRoot?: string,
+): ProjectConfig {
   // Resolve project root. Super mode passes project.path directly, which has a
   // `.claude` directory at its root; the walk-up fallback covers callers that
   // pass a manager-relative cwd.
@@ -263,7 +272,7 @@ export function getConfig(cwd: string, db?: any, projectName?: string): ProjectC
   } else {
     projectRoot = path.resolve(cwd, '../..')
   }
-  const commandsDir = path.join(projectRoot, '.claude', 'commands', 'sr')
+  const commandsDir = path.join(commandsRoot ?? projectRoot, '.claude', 'commands', 'sr')
   const commands = scanCommands(commandsDir)
 
   const { github, jira } = detectTrackers()

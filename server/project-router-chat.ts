@@ -131,7 +131,7 @@ export function registerChatRoutes(deps: ProjectRoutesDeps): void {
     const rawModel = req.body?.model
     let model: string
     if (rawModel === undefined || rawModel === null || rawModel === '') {
-      model = resolveDefaultSpecModel({ projectPath: project.path, provider })
+      model = resolveDefaultSpecModel({ projectPath: project.path, slug: project.slug, provider })
     } else if (isValidModelForProvider(rawModel, provider)) {
       model = rawModel
     } else {

@@ -8,6 +8,7 @@
 import fs from 'node:fs'
 import path from 'node:path'
 import { buildSpecrailsTicketsSection, buildOpenSpecSpecsSection } from './context-scope'
+import { resolveProjectExecution } from './workspace-resolution'
 
 export interface ContextBudget {
   /** Token estimate for .specrails/local-tickets.json (the project's ticket store). */
@@ -75,8 +76,8 @@ function walkCodebase(root: string): { fileCount: number; bytes: number } {
   return { fileCount, bytes }
 }
 
-function readMcpServers(projectPath: string): string[] {
-  const file = path.join(projectPath, '.mcp.json')
+function readMcpServers(mcpRoot: string): string[] {
+  const file = path.join(mcpRoot, '.mcp.json')
   if (!fs.existsSync(file)) return []
   try {
     const parsed = JSON.parse(fs.readFileSync(file, 'utf8')) as { mcpServers?: Record<string, unknown> }
@@ -90,11 +91,19 @@ function bytesOfSection(section: string | null): number {
   return section ? Buffer.byteLength(section, 'utf8') : 0
 }
 
-export function computeContextBudget(projectPath: string): ContextBudget {
+export function computeContextBudget(
+  projectPath: string,
+  /** Relocate-artifacts: the dir whose `.specrails/local-tickets.json` + `.mcp.json`
+   *  the relocated CLI actually loads — the workspace when relocated, else
+   *  === projectPath. OpenSpec specs + the codebase walk ALWAYS read the repo
+   *  (projectPath). Defaults to `projectPath` (byte-identical legacy). */
+  specrailsRoot?: string,
+): ContextBudget {
+  const root = specrailsRoot ?? projectPath
   // Use the same builders the spawn path uses — token estimates reflect what
   // will actually land in the system prompt (caps + formatting included), not
   // the raw on-disk byte count of source files.
-  const ticketsBytes = bytesOfSection(buildSpecrailsTicketsSection(projectPath))
+  const ticketsBytes = bytesOfSection(buildSpecrailsTicketsSection(root))
   const openspecBytes = bytesOfSection(buildOpenSpecSpecsSection(projectPath))
   const { fileCount, bytes: codebaseBytes } = walkCodebase(projectPath)
   return {
@@ -102,7 +111,7 @@ export function computeContextBudget(projectPath: string): ContextBudget {
     openspecSpecsTokens: Math.round(openspecBytes / BYTES_PER_TOKEN),
     codebaseFileCount: fileCount,
     codebaseEstimatedTokens: Math.round(codebaseBytes / BYTES_PER_TOKEN),
-    mcpServers: readMcpServers(projectPath),
+    mcpServers: readMcpServers(root),
   }
 }
 
@@ -110,7 +119,11 @@ export function getContextBudget(projectId: string, projectPath: string): Contex
   const now = Date.now()
   const hit = cache.get(projectId)
   if (hit && hit.expiresAt > now) return hit.value
-  const value = computeContextBudget(projectPath)
+  // Relocate-artifacts: resolve the workspace root so the tickets + .mcp.json
+  // estimates reflect what the relocated CLI loads (legacy ⇒ === projectPath).
+  const exec = resolveProjectExecution({ path: projectPath })
+  const specrailsRoot = exec.relocated && exec.workspaceDir ? exec.workspaceDir : projectPath
+  const value = computeContextBudget(projectPath, specrailsRoot)
   cache.set(projectId, { value, expiresAt: now + CACHE_TTL_MS })
   return value
 }

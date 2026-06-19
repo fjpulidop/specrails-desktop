@@ -31,6 +31,10 @@ import type { CommandInfo } from './config'
 import { attachmentManager, USER_ATTACHMENT_SYSTEM_NOTE } from './attachment-manager'
 import { extractTicketIdsFromCommand, readStore, resolveTicketStoragePath } from './ticket-store'
 import { binaryOnPath } from './binary-probe'
+import { resolveProjectExecution, type ProjectExecution } from './workspace-resolution'
+import { readCurrentFrameworkVersion } from './framework-manager'
+import { ensureOpenspecShim, prependShimToPath, removeOpenspecShim } from './openspec-shim'
+import { resolveHome } from './artifact-registry'
 
 // ─── Telemetry env helpers ────────────────────────────────────────────────────
 
@@ -196,6 +200,13 @@ export class QueueManager {
   /** Pre-spawn working-tree snapshot refs keyed by jobId — read at exit time
    *  by the Code-Explorer provenance hook. Cleared on job exit. */
   private _snapshotRefs: Map<string, WorkingTreeSnapshot>
+  /** Per-job resolved execution context (relocate-artifacts gate), captured at
+   *  spawn time so `_onJobExit`'s provenance hook uses the SAME repoDir the
+   *  snapshot used (= project.path, never the workspace). Cleared on job exit. */
+  private _jobExecution: Map<string, ProjectExecution>
+  /** Per-job openspec PATH shim dir (relocated claude rails only). Cleaned up on
+   *  job exit. In-memory map of jobId → shim dir. */
+  private _openspecShims: Map<string, string> = new Map()
   /** Pending per-job interactive flag keyed by jobId — read at spawn time.
    *  In-memory only (mirrors _jobModelSelection). */
   private _jobInteractiveSelection: Map<string, boolean>
@@ -251,6 +262,7 @@ export class QueueManager {
     this._jobProviderSelection = new Map()
     this._jobModelSelection = new Map()
     this._snapshotRefs = new Map()
+    this._jobExecution = new Map()
     this._jobInteractiveSelection = new Map()
     this._interactiveSessions = new Map()
 
@@ -323,6 +335,8 @@ export class QueueManager {
     this._interactiveSessions.clear()
     // Release any per-job provenance snapshots so teardown leaves no map entries.
     this._snapshotRefs.clear()
+    this._jobExecution.clear()
+    this._openspecShims.clear()
     // Drop the DB reference last so any in-flight 'close' callback sees null
     // and skips all DB work via the existing `if (this._db)` guards.
     this._db = null
@@ -615,7 +629,7 @@ export class QueueManager {
     if (ticketIds.length === 0) return ''
 
     try {
-      const store = readStore(resolveTicketStoragePath(this._cwd))
+      const store = readStore(this._resolveTicketsPath())
       const sections: string[] = []
 
       for (const ticketId of ticketIds) {
@@ -660,7 +674,7 @@ export class QueueManager {
     const specs: string[] = []
     if (this._cwd) {
       try {
-        const store = readStore(resolveTicketStoragePath(this._cwd))
+        const store = readStore(this._resolveTicketsPath())
         for (const ticketId of ticketIds) {
           const ticket = store.tickets[String(ticketId)]
           if (!ticket) continue
@@ -729,6 +743,47 @@ export class QueueManager {
   }
 
   /**
+   * Resolve the relocate-artifacts execution context for this manager's project.
+   * The gate: relocated only when a registry entry exists AND core has populated
+   * the workspace; otherwise legacy (cwd = project.path, empty env) — preserving
+   * byte-identical behaviour for every existing in-repo project. Falls back to a
+   * legacy resolution rooted at `this._cwd` when slug/cwd are unavailable
+   * (non-Super contexts / tests that construct the manager without a slug).
+   */
+  private _resolveExecution(): ProjectExecution {
+    const repoDir = this._cwd ?? process.cwd()
+    if (!this._projectSlug || !this._cwd) {
+      return {
+        relocated: false,
+        cwd: repoDir,
+        repoDir,
+        workspaceDir: null,
+        ticketsPath: pathNode.join(repoDir, '.specrails', 'local-tickets.json'),
+        backlogConfigPath: pathNode.join(repoDir, '.specrails', 'backlog-config.json'),
+        profilesDir: pathNode.join(repoDir, '.specrails', 'profiles'),
+        pluginsStateDir: pathNode.join(repoDir, '.specrails', 'plugins'),
+        fileSummariesDir: pathNode.join(repoDir, '.specrails', 'file-summaries'),
+        specrailsDir: pathNode.join(repoDir, '.specrails'),
+        stateDir: pathNode.join(repoDir, '.claude'),
+        env: {},
+      }
+    }
+    return resolveProjectExecution({ slug: this._projectSlug, path: this._cwd })
+  }
+
+  /**
+   * Resolve the local-tickets.json path honouring the relocate-artifacts gate.
+   * Relocated ⇒ the registry entry's ticketsPath (workspace). Legacy ⇒
+   * `resolveTicketStoragePath(this._cwd)` which preserves the
+   * integration-contract.json custom-storagePath behaviour for existing repos.
+   */
+  private _resolveTicketsPath(): string {
+    const exec = this._resolveExecution()
+    if (exec.relocated) return exec.ticketsPath
+    return resolveTicketStoragePath(this._cwd ?? process.cwd())
+  }
+
+  /**
    * Spawn an interactive ultracode session. The job row is created with the
    * `interactive` flag set; the resident child runs the first turn (the
    * ultracode prompt) and stays alive for follow-up turns until finalize/crash.
@@ -788,6 +843,13 @@ export class QueueManager {
     // Interactive jobs skip provenance, but a defensive delete keeps the map
     // clean if a snapshot was ever recorded for this id.
     this._snapshotRefs.delete(jobId)
+
+    // Clean up the per-job openspec PATH shim (relocated claude rails only).
+    const shim = this._openspecShims.get(jobId)
+    if (shim) {
+      this._openspecShims.delete(jobId)
+      if (this._projectSlug) removeOpenspecShim(this._projectSlug, jobId, resolveHome())
+    }
 
     if (this._disposed) return
     const job = this._jobs.get(jobId)
@@ -889,6 +951,14 @@ export class QueueManager {
     // plugins, result parsing, ai_invocations.provider) flows from `adapter`.
     const adapter = this._resolveJobAdapter(jobId)
 
+    // Relocate-artifacts gate: resolve cwd/repoDir/env for this spawn. Legacy
+    // projects get cwd = project.path + empty env (byte-identical to today);
+    // relocated projects get cwd = workspace + SPECRAILS_REPO_DIR. Captured per
+    // job so the post-exit provenance hook uses the SAME repoDir.
+    const execution = this._resolveExecution()
+    this._jobExecution.set(jobId, execution)
+    const spawnCwd = execution.cwd
+
     job.status = 'running'
     job.startedAt = new Date().toISOString()
     job.queuePosition = null
@@ -988,10 +1058,18 @@ export class QueueManager {
       : adapter.id === 'claude' && this._db
         ? getProjectSettings(this._db).orchestratorModel
         : (this._resolvedModel ?? adapter.defaultModel())
+    // Relocate-artifacts: when relocated, claude is spawned from the workspace
+    // so add `--add-dir <repoDir>` so its tools can still reach repo files by
+    // absolute path. (gemini/codex get env-only tweaks at spawn time below.)
+    const railExtraArgs: string[] | undefined =
+      execution.relocated && adapter.id === 'claude'
+        ? ['--add-dir', execution.repoDir]
+        : undefined
     const args = adapter.buildArgs('rail-job', {
       prompt: railPrompt,
       systemPrompt: systemAppend || undefined,
       model: railModel,
+      extraArgs: railExtraArgs,
     })
 
     // Resolve agent profile (if any) and snapshot per-job before spawn.
@@ -1008,7 +1086,9 @@ export class QueueManager {
       try {
         const selection = this._jobProfileSelection.get(jobId) // undefined|null|string
         this._jobProfileSelection.delete(jobId)
-        const coreSupports = projectSupportsProfiles(this._cwd)
+        // When relocated, core + `.specrails/profiles` live in the workspace
+        // (execution.cwd); legacy reads from the repo (execution.cwd === repo).
+        const coreSupports = projectSupportsProfiles(execution.cwd)
         if (selection !== null && coreSupports) {
           // selection is string (explicit) or undefined (default resolution)
           const {
@@ -1016,7 +1096,7 @@ export class QueueManager {
             snapshotForJob,
             persistJobProfile,
           } = require('./profile-manager') as typeof import('./profile-manager')
-          const resolved = resolveProfile(this._cwd, selection ?? undefined, adapter.id)
+          const resolved = resolveProfile(execution.cwd, selection ?? undefined, adapter.id)
           if (resolved) {
             profileSnapshotPath = snapshotForJob(this._projectSlug, jobId, resolved)
             profileName = resolved.name
@@ -1039,10 +1119,19 @@ export class QueueManager {
     // gets signals synthesised by the codex-otel-bridge attached below.
     let spawnEnv: NodeJS.ProcessEnv = process.env
     const telemetryEnabled = !!(this._projectId && this._db && getProjectSettings(this._db).pipelineTelemetryEnabled)
+    // Resolve the framework version ONCE at spawn time — `framework/current`
+    // is read from `~/.specrails/framework/current`. A concurrent atomic swap
+    // (FrameworkManager.swapCurrent) does not disturb this job: we captured the
+    // version here and the per-job snapshot resolved its handles from this
+    // value. GATED on `execution.relocated`: a LEGACY (in-repo) job does NOT
+    // assemble from `framework/current`, so stamping it with a sibling project's
+    // materialized framework version would be wrong telemetry. Null otherwise.
+    const frameworkVersion = execution.relocated ? readCurrentFrameworkVersion() : null
     if (telemetryEnabled && adapter.capabilities.nativeOtelEnv && this._projectId) {
       const extra: Record<string, string> = {}
       if (profileName) extra['specrails.profile_name'] = profileName
       if (profileName) extra['specrails.profile_schema_version'] = '1'
+      if (frameworkVersion) extra['specrails.framework_version'] = frameworkVersion
       spawnEnv = {
         ...process.env,
         ...buildTelemetryEnv(jobId, this._projectId, this._desktopPort, extra),
@@ -1070,7 +1159,8 @@ export class QueueManager {
       try {
         const { resolvePluginsForSpawn, snapshotPluginsForJob } =
           require('./plugins/rail-integration') as typeof import('./plugins/rail-integration')
-        const resolution = await resolvePluginsForSpawn(this._cwd, this._projectId, jobId)
+        // Relocated ⇒ `.mcp.json`/plugin state live in the workspace (execution.cwd).
+        const resolution = await resolvePluginsForSpawn(execution.cwd, this._projectId, jobId)
         pluginActive = resolution.active
         pluginDegraded = resolution.degraded
         if (pluginActive.length > 0 || pluginDegraded.length > 0) {
@@ -1106,6 +1196,11 @@ export class QueueManager {
       const settings = getProjectSettings(this._db)
       if (settings.pipelineTelemetryEnabled && (pluginActive.length > 0 || pluginDegraded.length > 0)) {
         const extra: Record<string, string> = {}
+        // Re-thread the resolved framework version (this block rebuilds the
+        // whole telemetry env, so it must carry the same attr as the first one).
+        if (frameworkVersion) extra['specrails.framework_version'] = frameworkVersion
+        if (profileName) extra['specrails.profile_name'] = profileName
+        if (profileName) extra['specrails.profile_schema_version'] = '1'
         if (pluginActive.length > 0) {
           extra['specrails.plugins.active'] = JSON.stringify(pluginActive.map((p) => p.name))
           extra['specrails.plugins.versions'] = JSON.stringify(
@@ -1126,12 +1221,38 @@ export class QueueManager {
     // uses this to pre-acknowledge the project's custom subagents so they load
     // in `gemini -p` mode (else invoke_agent reports "Subagent not found" and the
     // orchestrator silently falls back to a generic agent). No-op for claude/codex.
-    if (this._cwd) {
-      try {
-        adapter.prepareHeadlessSpawn?.(this._cwd)
-      } catch (err) {
-        /* c8 ignore next -- best-effort prep; a failure is non-fatal */
-        console.warn(`[queue-manager] headless-spawn prep failed: ${(err as Error).message}`)
+    // Runs in the SPAWN cwd (workspace when relocated) — gemini acks the
+    // project's subagents where it will actually discover them.
+    try {
+      adapter.prepareHeadlessSpawn?.(spawnCwd)
+    } catch (err) {
+      /* c8 ignore next -- best-effort prep; a failure is non-fatal */
+      console.warn(`[queue-manager] headless-spawn prep failed: ${(err as Error).message}`)
+    }
+
+    // ─── Relocate-artifacts spawn env ──────────────────────────────────────
+    // Merge SPECRAILS_REPO_DIR (+ workspace/tickets/state/etc.) so stage-3
+    // `${SPECRAILS_REPO_DIR:-.}` re-pointing drives source/openspec/git I/O back
+    // into the repo. Per provider: gemini trusts the workspace cwd; codex gets
+    // NO CODEX_HOME override (all-or-nothing incl. auth → breaks the rail) and
+    // relies on cwd-based discovery from the workspace. Legacy ⇒ empty env, no-op.
+    if (execution.relocated) {
+      spawnEnv = { ...spawnEnv, ...execution.env }
+      if (adapter.id === 'gemini') {
+        spawnEnv = { ...spawnEnv, GEMINI_CLI_TRUST_WORKSPACE: 'true' }
+      }
+      // openspec PATH shim (claude rails only): prepend a per-job shim dir that
+      // re-points every BARE `openspec` call at the repo working tree, so a
+      // skill- or un-wrapped-template-driven `openspec <verb>` from the workspace
+      // cwd still operates on the repo's OpenSpec project (see openspec-shim.ts).
+      // claude is the only adapter that runs the openspec-backed sr-* rails;
+      // gemini/codex skill scaffolds carry their own repo-dir wrapping.
+      if (adapter.id === 'claude' && this._projectSlug) {
+        const shimDir = ensureOpenspecShim(this._projectSlug, jobId, resolveHome())
+        if (shimDir) {
+          this._openspecShims.set(jobId, shimDir)
+          spawnEnv = { ...spawnEnv, PATH: prependShimToPath(spawnEnv.PATH, shimDir) }
+        }
       }
     }
 
@@ -1150,12 +1271,13 @@ export class QueueManager {
         prompt: '',
         systemPrompt: systemAppend || undefined,
         model: railModel,
+        extraArgs: railExtraArgs,
       })
       this._startInteractiveJob(
         jobId,
         job,
         adapter,
-        { binary, args: interactiveArgs, cwd: this._cwd, env: spawnEnv },
+        { binary, args: interactiveArgs, cwd: spawnCwd, env: spawnEnv },
         railPrompt,
       )
       return
@@ -1164,9 +1286,12 @@ export class QueueManager {
     // Code-Explorer pre-spawn snapshot. Captures the working-tree state via
     // `git stash create --include-untracked` so the post-exit hook can diff
     // against it. Gated by SPECRAILS_CODE_EXPLORER — when off, no-op.
-    if (isCodeExplorerEnabled() && this._cwd) {
+    // CRITICAL: snapshot the REPO working tree (execution.repoDir), never the
+    // workspace — else a relocated job would diff an empty workspace and silently
+    // record zero "touched by AI" files.
+    if (isCodeExplorerEnabled()) {
       try {
-        const snap = snapshotWorkingTree(this._cwd)
+        const snap = snapshotWorkingTree(execution.repoDir)
         this._snapshotRefs.set(jobId, snap)
       } catch (err) {
         console.warn(`[queue-manager] provenance snapshot failed: ${(err as Error).message}`)
@@ -1177,7 +1302,7 @@ export class QueueManager {
     const child = spawnAiCli(binary, args, {
       env: spawnEnv,
       stdio: ['ignore', 'pipe', 'pipe'],
-      cwd: this._cwd,
+      cwd: spawnCwd,
     })
 
     this._activeProcess = child
@@ -1386,6 +1511,12 @@ export class QueueManager {
     // stash commit it references is dangling and git-GC'd on its own).
     const snapshot = this._snapshotRefs.get(jobId)
     this._snapshotRefs.delete(jobId)
+    // Relocate-artifacts: the repo dir this job snapshotted against (= repoDir,
+    // never the workspace). Falls back to this._cwd for jobs spawned before this
+    // map existed (e.g. restored-from-db) so provenance still targets the repo.
+    const jobExecution = this._jobExecution.get(jobId)
+    this._jobExecution.delete(jobId)
+    const provenanceRepoDir = jobExecution?.repoDir ?? this._cwd
 
     // A3: release the active slot for THIS job before any early return, so a
     // disposed/unknown-job exit can never leave the slot reserved (which would
@@ -1498,11 +1629,11 @@ export class QueueManager {
       // the pre-spawn snapshot and inserts one row per touched path. Gated by
       // SPECRAILS_CODE_EXPLORER (re-checked at each completion so the flag can
       // be flipped off mid-session without leaving partial writes).
-      if (isCodeExplorerEnabled() && this._cwd && this._projectId) {
+      if (isCodeExplorerEnabled() && provenanceRepoDir && this._projectId) {
         const ref = snapshot?.ref ?? ''
         try {
-          const diff = diffAgainstSnapshot(this._cwd, ref, snapshot?.untracked, snapshot?.headSha)
-          const patches = collectDiffPatches(this._cwd, ref, diff, snapshot?.headSha)
+          const diff = diffAgainstSnapshot(provenanceRepoDir, ref, snapshot?.untracked, snapshot?.headSha)
+          const patches = collectDiffPatches(provenanceRepoDir, ref, diff, snapshot?.headSha)
           if (diff.length > 50) {
             console.warn(`[provenance.large_job] job=${jobId} files=${diff.length}`)
           }

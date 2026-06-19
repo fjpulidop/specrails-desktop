@@ -11,6 +11,11 @@ import { spawnCli } from './util/win-spawn'
 import { formatMissingSetupPrerequisites } from './setup-prerequisites'
 import { CORE_PACKAGE_SPEC } from './core-package'
 import { getAdapter, hasAdapter } from './providers'
+import { mirrorProjectEntry, resolveArtifacts } from './artifact-registry'
+import { installConfigPath, type InstallConfigProject } from './install-config-path'
+import { getBundledCoreCli, getBundledCoreRoot, getBundledCoreVersion } from './bundled-core'
+import { getBundledOpenspecCli } from './bundled-openspec'
+import { FrameworkManager } from './framework-manager'
 import type { ProviderAdapter, SpawnAction, ProviderId } from './providers/types'
 
 /**
@@ -74,6 +79,49 @@ function spawnCoreInit(args: string[], cwd: string): ChildProcess {
   })
 }
 
+/**
+ * Spawn the BUNDLED specrails-core `init` (offline framework + assemble; openspec
+ * is the only network step). Runs `node <bundled-cli> init <args>` with
+ * `SPECRAILS_CORE_SCRIPT_DIR` pointed at the bundle so core's template/command
+ * sources resolve from the app bundle, NOT a global install or npm registry. The
+ * framework was already materialized by FrameworkManager.materialize() (idempotent
+ * — core's ensureFramework skips re-materialization), so this call only assembles
+ * the workspace by symlink + runs openspec init.
+ *
+ * Returns null when no bundled core is present (caller falls back to spawnCoreInit).
+ */
+function spawnBundledCoreInit(args: string[], cwd: string): ChildProcess | null {
+  const cli = getBundledCoreCli()
+  const coreRoot = getBundledCoreRoot()
+  if (!cli || !coreRoot) return null
+  const fullArgs = [cli, 'init', ...args]
+  const env: NodeJS.ProcessEnv = { ...process.env, SPECRAILS_CORE_SCRIPT_DIR: coreRoot }
+
+  // Bundled openspec (offline) — the LAST network step of project-add. When the
+  // app ships @fission-ai/openspec, point specrails-core's `installOpenSpecProject`
+  // at the bundled CLI and the SAME node we run the bundled core with. Tauri
+  // strips exec bits from bundled resources and the openspec CLI is a node script,
+  // so it MUST be invoked as `node <cli> init …` — hence we set BOTH the BIN and
+  // the NODE env (specrails-core's buildOpenSpecInvocation form 1). When absent we
+  // leave them unset → core falls back to `npx @fission-ai/openspec` (still works
+  // online). Bundled core + bundled openspec ⇒ project-add is FULLY OFFLINE.
+  const openspecCli = getBundledOpenspecCli()
+  if (openspecCli) {
+    env.SPECRAILS_OPENSPEC_BIN = openspecCli
+    env.SPECRAILS_OPENSPEC_NODE = process.execPath
+  }
+
+  console.log(
+    `[SetupManager] spawning BUNDLED core: ${process.execPath} ${fullArgs.join(' ')} (cwd=${cwd})` +
+      (openspecCli ? ' [bundled openspec: offline]' : ' [openspec: npx fallback]'),
+  )
+  return spawnCli(process.execPath, fullArgs, {
+    cwd,
+    env,
+    stdio: ['ignore', 'pipe', 'pipe'],
+  })
+}
+
 // H19: hard cap on the runtime probe. `npx --yes --prefer-online
 // <CORE_PACKAGE_SPEC> version` does a network round-trip to the npm
 // registry, and spawnSync blocks the single event loop — without a timeout a
@@ -133,8 +181,8 @@ interface InstallConfigParsed {
   selectedAgents: string[]
 }
 
-function readInstallConfig(projectPath: string): InstallConfigParsed | null {
-  const configPath = join(projectPath, '.specrails', 'install-config.yaml')
+function readInstallConfig(project: InstallConfigProject): InstallConfigParsed | null {
+  const configPath = installConfigPath(project)
   try {
     const text = readFileSync(configPath, 'utf-8')
     const tierMatch = text.match(/^tier:\s*(\w+)/m)
@@ -681,15 +729,34 @@ export class SetupManager {
 
   // ─── Full Install: TUI installer (npx specrails-core) ────────────────────────
 
-  startInstall(projectId: string, projectPath: string): void {
+  startInstall(projectId: string, projectPath: string, projectSlug?: string): void {
     if (this._installProcesses.has(projectId)) {
       console.warn(`[SetupManager] install already running for ${projectId}`)
       return
     }
 
-    const configPath = join(projectPath, '.specrails', 'install-config.yaml')
+    // Relocate-artifacts: ensure the shared registry entry exists (slug
+    // agreement) BEFORE core's `init` runs, so core resolves its workspace from
+    // the registry and installs the relocated artifacts under desktop's slug.
+    // addProject already mirrors the entry; this is belt-and-suspenders for the
+    // (rare) case where the project was registered before the mirror existed.
+    // Wrapped so a registry write failure never blocks install (core then
+    // installs in-repo and the project simply stays legacy — gate-safe).
+    if (projectSlug) {
+      try {
+        mirrorProjectEntry({ repoPath: projectPath, slug: projectSlug, desktopProjectId: projectId })
+      } catch (err) {
+        console.warn(`[SetupManager] registry mirror before install failed (non-fatal): ${(err as Error).message}`)
+      }
+    }
+
+    // Relocate-artifacts: the install config lives in the per-project HOME dir
+    // (NOT the repo). `--from-config` accepts any path, so the spawn below points
+    // core at the relocated location.
+    const installProject: InstallConfigProject = { slug: projectSlug, path: projectPath }
+    const configPath = installConfigPath(installProject)
     const hasConfig = existsSync(configPath)
-    const parsedConfig = hasConfig ? readInstallConfig(projectPath) : null
+    const parsedConfig = hasConfig ? readInstallConfig(installProject) : null
     const tier = parsedConfig?.tier ?? 'full'
     this._projectTiers.set(projectId, tier)
     // Pull provider out of the just-written install-config.yaml so the
@@ -720,25 +787,56 @@ export class SetupManager {
       return
     }
 
-    const probe = probeCoreRuntimeVersion(projectPath)
-    if (!probe.ok) {
-      this._broadcast({
-        type: 'setup_error',
-        projectId,
-        error: `Failed to verify specrails-core runtime before install: ${probe.error ?? 'unknown error'}`,
-      })
-      return
-    }
-    console.log(`[SetupManager] core runtime probe: ${probe.bin} -> ${probe.version}`)
-    const probeCmp = compareSemver(probe.version!, MIN_NODE_NATIVE_CORE_VERSION)
-    if (probeCmp !== null && probeCmp < 0) {
-      this._broadcast({
-        type: 'setup_error',
-        projectId,
-        error:
-          `Resolved specrails-core@${probe.version} is legacy; expected Node-native >= ${MIN_NODE_NATIVE_CORE_VERSION}.`,
-      })
-      return
+    // ─── Bundled-core fast path (offline framework) ──────────────────────────
+    // When the app ships specrails-core, materialize the versioned framework
+    // ONCE (instant/offline) and run the BUNDLED core `init` (offline framework
+    // assemble by symlink; openspec init is the only remaining network step) —
+    // NO `npx specrails-core` round-trip. When NO bundled core is present we fall
+    // through to the legacy npx probe + spawn, byte-identical to today.
+    const useBundledCore = getBundledCoreCli() !== null
+
+    if (useBundledCore) {
+      // Materialize the framework for the selected provider (idempotent). The
+      // subsequent bundled `init` finds it already present (ensureFramework
+      // skips) and just assembles the workspace by symlink. Best-effort: a
+      // materialize failure is surfaced but the bundled init also re-runs
+      // ensureFramework, so it self-heals.
+      const provider = this._projectProviders.get(projectId) ?? 'claude'
+      try {
+        const fm = new FrameworkManager({
+          broadcast: (msg) => this._broadcast(msg as unknown as WsMessage),
+        })
+        const mat = fm.materialize(getBundledCoreVersion() ?? undefined, [provider])
+        if (mat.ran && mat.errors.length > 0) {
+          console.warn(
+            `[SetupManager] framework materialize had errors: ${mat.errors.map((e) => `${e.provider}: ${e.message}`).join('; ')}`,
+          )
+        }
+      } catch (err) {
+        console.warn(`[SetupManager] framework materialize threw (non-fatal): ${(err as Error).message}`)
+      }
+    } else {
+      // Legacy path: probe the npx-resolved core runtime (network) before spawn.
+      const probe = probeCoreRuntimeVersion(projectPath)
+      if (!probe.ok) {
+        this._broadcast({
+          type: 'setup_error',
+          projectId,
+          error: `Failed to verify specrails-core runtime before install: ${probe.error ?? 'unknown error'}`,
+        })
+        return
+      }
+      console.log(`[SetupManager] core runtime probe: ${probe.bin} -> ${probe.version}`)
+      const probeCmp = compareSemver(probe.version!, MIN_NODE_NATIVE_CORE_VERSION)
+      if (probeCmp !== null && probeCmp < 0) {
+        this._broadcast({
+          type: 'setup_error',
+          projectId,
+          error:
+            `Resolved specrails-core@${probe.version} is legacy; expected Node-native >= ${MIN_NODE_NATIVE_CORE_VERSION}.`,
+        })
+        return
+      }
     }
 
     let spawnConfigPath: string | null = null
@@ -754,7 +852,10 @@ export class SetupManager {
       ? ['--yes', '--from-config', spawnConfigPath ?? configPath]
       : ['--yes', '--root-dir', projectPath]
 
-    const child = spawnCoreInit(initArgs, projectPath)
+    // Bundled core (offline, node <cli> init) when available, else legacy npx.
+    const child = useBundledCore
+      ? spawnBundledCoreInit(initArgs, projectPath)!
+      : spawnCoreInit(initArgs, projectPath)
 
     this._installProcesses.set(projectId, child)
     this._installLogBuffer.set(projectId, [])
@@ -833,7 +934,7 @@ export class SetupManager {
           type: 'setup_error',
           projectId,
           error: formatBufferedInstallError(
-            `npx specrails-core exited with code ${code ?? 'unknown'}`,
+            `${useBundledCore ? 'bundled specrails-core' : 'npx specrails-core'} exited with code ${code ?? 'unknown'}`,
             logBuffer,
           ),
         })
@@ -869,7 +970,12 @@ export class SetupManager {
       console.warn(`[SetupManager] Failed to pre-create enrich directories: ${err}`)
     }
 
-    const configPath = join(projectPath, '.specrails', 'install-config.yaml')
+    // Relocate-artifacts: the install config lives in the per-project HOME dir.
+    // The slug was allocated at addProject and mirrored into the shared registry
+    // before/at install time, so resolve it from there (legacy full-flow path —
+    // not exercised by the app's quick flow).
+    const enrichSlug = resolveArtifacts(projectPath).entry?.slug
+    const configPath = installConfigPath({ slug: enrichSlug, path: projectPath })
     const hasConfig = existsSync(configPath)
     const enrichCmd = hasConfig ? '/specrails:enrich --from-config' : '/specrails:enrich'
 
@@ -1299,21 +1405,22 @@ export class SetupManager {
     return this._projectTiers.get(projectId)
   }
 
-  getSummary(projectPath: string): SetupSummary {
-    const config = readInstallConfig(projectPath)
+  getSummary(project: InstallConfigProject): SetupSummary {
+    const config = readInstallConfig(project)
     const tier = config?.tier ?? 'quick'
     // Provider is authoritative from install-config.yaml when present; we
     // do NOT fall back to filesystem heuristics because both `.codex/` and
     // `.claude/` can legitimately coexist (e.g. a project that's been
     // re-init'd) and a generic `existsSync` probe would mis-route.
+    // Relocate-artifacts: the config lives in the per-project HOME dir.
     let provider: CLIProvider = 'claude'
     try {
-      const text = readFileSync(join(projectPath, '.specrails', 'install-config.yaml'), 'utf-8')
+      const text = readFileSync(installConfigPath(project), 'utf-8')
       const m = text.match(/^provider:\s*(\w+)/m)
       if (m && m[1] && hasAdapter(m[1])) provider = m[1]
     } catch {
       // Missing install-config — stay on claude default.
     }
-    return computeSummary(projectPath, tier, provider)
+    return computeSummary(project.path, tier, provider)
   }
 }

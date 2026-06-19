@@ -13,6 +13,8 @@ import {
   type SpecProvider,
 } from './spec-models'
 import { clampShortSummary } from './ticket-store'
+import { installConfigPath } from './install-config-path'
+import { resolveProjectExecution } from './workspace-resolution'
 
 /** Shared dependencies handed to every domain register function. */
 export interface ProjectRoutesDeps {
@@ -71,12 +73,31 @@ function serializeInstallConfigYaml(config: Record<string, unknown>): string {
 const VALID_MODEL_ALIASES = ['sonnet', 'opus', 'haiku'] as const
 type ModelAlias = typeof VALID_MODEL_ALIASES[number]
 
+/** Minimal project shape the agent-model helpers need. `slug` resolves the
+ *  relocated install-config (HOME) + agents dir (workspace). */
+export interface AgentModelProject {
+  slug?: string
+  path: string
+}
+
+/**
+ * Relocate-artifacts: where the agent `.claude/agents/*.md` files live. When the
+ * project is relocated AND the workspace is populated by core, the agents are
+ * materialized into `<workspace>/.claude/agents` (same reasoning the profiles
+ * router uses for profiles). Legacy ⇒ `<project>/.claude/agents` (byte-identical).
+ */
+function resolveAgentsDir(project: AgentModelProject): string {
+  const exec = resolveProjectExecution({ slug: project.slug, path: project.path })
+  const root = exec.relocated && exec.workspaceDir ? exec.workspaceDir : project.path
+  return path.join(root, '.claude', 'agents')
+}
+
 /**
  * Read installed agents from `.claude/agents/*.md` (top-level only, no subdirs).
  * Extracts the `model:` field from YAML frontmatter.
  */
-function readAgentModels(projectPath: string): { name: string; model: string }[] {
-  const agentsDir = path.join(projectPath, '.claude', 'agents')
+function readAgentModels(project: AgentModelProject): { name: string; model: string }[] {
+  const agentsDir = resolveAgentsDir(project)
   if (!fs.existsSync(agentsDir)) return []
 
   let entries: string[]
@@ -110,12 +131,12 @@ function readAgentModels(projectPath: string): { name: string; model: string }[]
 }
 
 /**
- * Read `.specrails/install-config.yaml` and patch the `model:` line in each
- * `.claude/agents/*.md` frontmatter to match the config's defaults/overrides.
- * No-op if the config file does not exist.
+ * Read the install-config.yaml (per-project HOME dir) and patch the `model:`
+ * line in each `.claude/agents/*.md` frontmatter to match the config's
+ * defaults/overrides. No-op if the config file does not exist.
  */
-function applyModelConfig(projectPath: string): void {
-  const configPath = path.join(projectPath, '.specrails', 'install-config.yaml')
+function applyModelConfig(project: AgentModelProject): void {
+  const configPath = installConfigPath(project)
   if (!fs.existsSync(configPath)) return
 
   let configText: string
@@ -141,7 +162,7 @@ function applyModelConfig(projectPath: string): void {
     }
   }
 
-  const agentsDir = path.join(projectPath, '.claude', 'agents')
+  const agentsDir = resolveAgentsDir(project)
   if (!fs.existsSync(agentsDir)) return
 
   let entries: string[]
@@ -255,8 +276,8 @@ export function formatDescriptionWithCriteria(body: string, criteria: string[]):
  * Resolve the default model used by Add Spec for a project.
  *
  * Order:
- *   1. `models.defaults.model` from `<project>/.specrails/install-config.yaml`,
- *      if it parses AND is in the provider allow-list.
+ *   1. `models.defaults.model` from the install-config.yaml (per-project HOME
+ *      dir), if it parses AND is in the provider allow-list.
  *   2. Provider default from `PROVIDER_DEFAULT_MODEL` (`sonnet` / `gpt-5.5`).
  *
  * Logs a warning when the configured value exists but is not valid for the
@@ -264,10 +285,12 @@ export function formatDescriptionWithCriteria(body: string, criteria: string[]):
  */
 export function resolveDefaultSpecModel(args: {
   projectPath: string
+  /** desktop.sqlite slug — resolves the relocated (HOME) install-config. */
+  slug?: string
   provider: SpecProvider
 }): string {
-  const { projectPath, provider } = args
-  const configPath = path.join(projectPath, '.specrails', 'install-config.yaml')
+  const { projectPath, slug, provider } = args
+  const configPath = installConfigPath({ slug, path: projectPath })
   if (!fs.existsSync(configPath)) return getProviderDefault(provider)
 
   let configText: string

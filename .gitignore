@@ -25,6 +25,16 @@ src-tauri/binaries/shell-integration/
 src-tauri/runtimes/*
 !src-tauri/runtimes/.gitkeep
 
+# Bundled specrails-core (offline framework materialize/assemble) —
+# populated by CI at build time, not checked in. Mirrors runtimes above.
+src-tauri/core/*
+!src-tauri/core/.gitkeep
+
+# Bundled @fission-ai/openspec (offline LAST network step of project-add) —
+# populated by CI at build time, not checked in. Mirrors core above.
+src-tauri/openspec/*
+!src-tauri/openspec/.gitkeep
+
 # Sidecar build intermediates (esbuild output + sqlite prebuild cache)
 build/
 

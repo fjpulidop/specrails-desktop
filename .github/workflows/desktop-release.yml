@@ -15,6 +15,17 @@ env:
   # of this version. Bump deliberately via PR.
   NODE_BUNDLE_VERSION: "v22.22.3"
   GIT_BUNDLE_VERSION: "2.49.0"
+  # Bundle a published specrails-core into the app so the framework can be
+  # materialized + assembled OFFLINE (no per-project `npx specrails-core init`).
+  # `latest` tracks the newest published core; pin to a version for a reproducible
+  # tag rebuild. See scripts/assemble-bundled-core.mjs + server/bundled-core.ts.
+  CORE_BUNDLE_VERSION: "latest"
+  # Bundle @fission-ai/openspec into the app so the LAST network step of
+  # project-add (openspec init) runs OFFLINE from the bundle instead of
+  # `npx @fission-ai/openspec`. Pinned to match specrails-core's
+  # pinned-versions.json `openspec`. See scripts/assemble-bundled-openspec.mjs +
+  # server/bundled-openspec.ts.
+  OPENSPEC_BUNDLE_VERSION: "1.4.1"
   # Bundle a Chromium build for the embedded browser-capture feature ("Add Spec
   # from browser"). Default OFF: when unset/false the desktop app falls back to a
   # Playwright-managed Chromium downloaded on first use (server/chromium-resolver.ts
@@ -261,6 +272,17 @@ jobs:
       # Chromium" above), so it needs NO codesigning — notarization treats archive bytes
       # as opaque data, and the extracted Chromium keeps Google's ad-hoc signature.
 
+      # Stage specrails-core into src-tauri/core/ (offline framework source).
+      # Mirrors the runtimes-assembly steps above — a self-contained tree under
+      # src-tauri/<name>/ staged BEFORE `tauri build`. Plain JS/text → no codesign.
+      - name: Assemble bundled specrails-core (macOS arm64)
+        run: node scripts/assemble-bundled-core.mjs "${CORE_BUNDLE_VERSION}"
+
+      # Stage @fission-ai/openspec into src-tauri/openspec/ (offline LAST network
+      # step). Mirrors the bundled-core step above. Plain JS/text → no codesign.
+      - name: Assemble bundled openspec (macOS arm64)
+        run: node scripts/assemble-bundled-openspec.mjs "${OPENSPEC_BUNDLE_VERSION}"
+
       - name: Build desktop app
         run: npm run build:desktop
         env:
@@ -420,6 +442,25 @@ jobs:
           rm -f /tmp/chromium.tar.gz
           test -f src-tauri/runtimes/chromium/chromium.pak
           echo "Packed Chromium from ${PLATDIR}"
+
+      # Stage specrails-core into src-tauri/core/ (offline framework source).
+      # Mirrors the runtimes-assembly steps — plain JS/text, no signing.
+      - name: Assemble bundled specrails-core (Windows x64)
+        shell: bash
+        run: node scripts/assemble-bundled-core.mjs "${CORE_BUNDLE_VERSION}"
+
+      - name: Assemble bundled openspec (Windows x64)
+        shell: bash
+        run: node scripts/assemble-bundled-openspec.mjs "${OPENSPEC_BUNDLE_VERSION}"
+
+      # Windows-specific relocate-artifacts framework smoke: validates dir
+      # junctions for commands/skills/rules, copy-fallback for agents, real
+      # multi-provider discovery (claude + gemini), and the single `current` swap
+      # — against the SHIPPED bundled core. Runs before the heavy tauri build so a
+      # broken bundle fails fast.
+      - name: Smoke test bundled core — relocate framework (Windows x64)
+        shell: pwsh
+        run: pwsh scripts/smoke-bundled-core-windows.ps1 -CorePath src-tauri\core -Node src-tauri\runtimes\node\node.exe
 
       - name: Build desktop app
         shell: bash
@@ -581,6 +622,21 @@ jobs:
           rm -f /tmp/chromium.tar.gz
           test -f src-tauri/runtimes/chromium/chromium.pak
           echo "Packed Chromium from ${PLATDIR}"
+
+      # Stage specrails-core into src-tauri/core/ (offline framework source).
+      # Mirrors the runtimes-assembly steps — plain JS/text, no signing.
+      - name: Assemble bundled specrails-core (Windows arm64)
+        shell: bash
+        run: node scripts/assemble-bundled-core.mjs "${CORE_BUNDLE_VERSION}"
+
+      - name: Assemble bundled openspec (Windows arm64)
+        shell: bash
+        run: node scripts/assemble-bundled-openspec.mjs "${OPENSPEC_BUNDLE_VERSION}"
+
+      # Windows-specific relocate-artifacts framework smoke (see the x64 job).
+      - name: Smoke test bundled core — relocate framework (Windows arm64)
+        shell: pwsh
+        run: pwsh scripts/smoke-bundled-core-windows.ps1 -CorePath src-tauri\core -Node src-tauri\runtimes\node\node.exe
 
       - name: Build desktop app
         shell: bash

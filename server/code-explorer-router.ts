@@ -372,12 +372,17 @@ function readSummaryHashSet(projectPath: string): Set<string> {
 
 export interface CodeExplorerDeps {
   db: DbInstance
+  /** The user's repo. Source files + the file tree are ALWAYS read from here. */
   projectPath: string
   projectId: string
   broadcast: (msg: WsMessage) => void
   fileSummaryManager: Pick<FileSummaryManager, 'enqueue' | 'attachWatcher'>
   listProvenanceByPath?: (db: DbInstance, projectId: string, filePath: string) => ProvenanceRow[]
   listProvenanceByTicket?: (db: DbInstance, projectId: string, ticketId: number) => ProvenanceRow[]
+  /** Relocate-artifacts: where summary JSON lives (workspace when relocated,
+   *  else === projectPath). Resolved per-call so a workspace that becomes
+   *  populated mid-session is picked up. Defaults to `projectPath`. */
+  resolveSummaryRoot?: () => string
 }
 
 export function createCodeExplorerRouter(deps: CodeExplorerDeps): Router {
@@ -385,6 +390,8 @@ export function createCodeExplorerRouter(deps: CodeExplorerDeps): Router {
 
   const listByPath = deps.listProvenanceByPath ?? listProvenanceByPath
   const listByTicket = deps.listProvenanceByTicket ?? listProvenanceByTicket
+  // Summary OUTPUT root (workspace when relocated). Source reads use projectPath.
+  const summaryRoot = (): string => deps.resolveSummaryRoot?.() ?? deps.projectPath
 
   // Short-TTL per-project cache so paginating a large `all` tree reuses ONE
   // synchronous filesystem walk instead of re-walking (and re-statting) on every
@@ -403,7 +410,7 @@ export function createCodeExplorerRouter(deps: CodeExplorerDeps): Router {
   }
   function getSummaryHashesCached(): Set<string> {
     if (summaryHashCache && nowMs() - summaryHashCache.at < WALK_CACHE_TTL_MS) return summaryHashCache.set
-    const set = readSummaryHashSet(deps.projectPath)
+    const set = readSummaryHashSet(summaryRoot())
     summaryHashCache = { at: nowMs(), set }
     return set
   }
@@ -418,7 +425,7 @@ export function createCodeExplorerRouter(deps: CodeExplorerDeps): Router {
     // not attached at registry load (that recursive watcher caused the fd leak
     // that broke terminals); attachWatcher is idempotent, so this is cheap on
     // every subsequent request.
-    try { deps.fileSummaryManager.attachWatcher(deps.projectId, deps.projectPath) } catch { /* non-fatal */ }
+    try { deps.fileSummaryManager.attachWatcher(deps.projectId, deps.projectPath, summaryRoot()) } catch { /* non-fatal */ }
     next()
   })
 
@@ -513,7 +520,7 @@ export function createCodeExplorerRouter(deps: CodeExplorerDeps): Router {
     } catch {
       // Honour the staleness scenario: even if content is unavailable, return
       // the existing summary so the client can render a "not found" banner.
-      const summary = readSummary(deps.projectPath, rel)
+      const summary = readSummary(summaryRoot(), rel)
       const provenance = listByPath(deps.db, deps.projectId, rel)
       if (summary || provenance.length > 0) {
         res.json({
@@ -538,7 +545,7 @@ export function createCodeExplorerRouter(deps: CodeExplorerDeps): Router {
         tooLarge: true,
         sizeBytes: stat.size,
         provenance: provenanceRowsToJson(listByPath(deps.db, deps.projectId, rel)),
-        summary: readSummary(deps.projectPath, rel),
+        summary: readSummary(summaryRoot(), rel),
         absolutePath: abs,
       })
       return
@@ -564,7 +571,7 @@ export function createCodeExplorerRouter(deps: CodeExplorerDeps): Router {
         sizeBytes: stat.size,
         mime: 'application/octet-stream',
         provenance: provenanceRowsToJson(listByPath(deps.db, deps.projectId, rel)),
-        summary: readSummary(deps.projectPath, rel),
+        summary: readSummary(summaryRoot(), rel),
         absolutePath: abs,
       })
       return
@@ -578,7 +585,7 @@ export function createCodeExplorerRouter(deps: CodeExplorerDeps): Router {
       return
     }
 
-    const summary = readSummary(deps.projectPath, rel)
+    const summary = readSummary(summaryRoot(), rel)
     const summaryStale = await computeStaleness(abs, summary)
     res.json({
       content,
@@ -686,7 +693,7 @@ export function createCodeExplorerRouter(deps: CodeExplorerDeps): Router {
       res.status(403).json({ error: 'path is gitignored' })
       return
     }
-    const summary = readSummary(deps.projectPath, rel)
+    const summary = readSummary(summaryRoot(), rel)
     if (!summary) {
       res.json({ summary: null })
       return
@@ -757,6 +764,7 @@ export function createCodeExplorerRouter(deps: CodeExplorerDeps): Router {
       // the content hash is unchanged (e.g. after an app language switch).
       const result = await deps.fileSummaryManager.enqueue({
         projectPath: deps.projectPath,
+        summaryRoot: summaryRoot(),
         projectId: deps.projectId,
         projectSlug: deps.projectId,
         relPath: rel,

@@ -34,6 +34,10 @@
       "configured": "<strong>{{projectName}}</strong> est maintenant configuré avec des workflows de développement pilotés par l'IA. Vos agents spécialisés et vos commandes sont prêts à l'emploi.",
       "installedForEngines_one": "Installé pour {{count}} moteur",
       "installedForEngines_other": "Installé pour {{count}} moteurs",
+
+      "installed": "Installé",
+
+      "installFailed": "Échec de l'installation",
       "learnMore": "Apprenez à tirer le meilleur de specrails :",
       "continueToProject": "Continuer vers le projet",
       "jira": {

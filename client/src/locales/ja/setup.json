@@ -34,6 +34,10 @@
       "configured": "<strong>{{projectName}}</strong> に AI 駆動の開発ワークフローが設定されました。専用のエージェントとコマンドが利用できます。",
       "installedForEngines_one": "{{count}} 個のエンジンにインストールしました",
       "installedForEngines_other": "{{count}} 個のエンジンにインストールしました",
+
+      "installed": "インストール済み",
+
+      "installFailed": "インストールに失敗しました",
       "learnMore": "specrails を最大限に活用する方法:",
       "continueToProject": "プロジェクトへ進む",
       "jira": {

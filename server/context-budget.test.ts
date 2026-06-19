@@ -76,6 +76,37 @@ describe('context-budget', () => {
     expect(computeContextBudget(tmp).mcpServers).toEqual([])
   })
 
+  it('relocate-artifacts: reads tickets + .mcp.json from the specrailsRoot override', () => {
+    // Relocated: tickets + .mcp.json live in the workspace; openspec + codebase
+    // stay in the repo. Under-reporting on a relocated project (0 tickets) is the
+    // bug this override fixes.
+    const workspace = mkdtempSync(join(tmpdir(), 'ctxbudget-ws-'))
+    try {
+      const wsSpecrails = join(workspace, '.specrails')
+      mkdirSync(wsSpecrails, { recursive: true })
+      writeFileSync(join(wsSpecrails, 'local-tickets.json'), JSON.stringify({
+        tickets: [{ id: 1, title: 'T', status: 'todo', priority: 'high', labels: [], description: 'body' }],
+      }))
+      writeFileSync(join(workspace, '.mcp.json'), JSON.stringify({ mcpServers: { serena: {} } }))
+      // openspec specs live in the REPO, not the workspace.
+      const od = join(tmp, 'openspec', 'specs', 'foo')
+      mkdirSync(od, { recursive: true })
+      writeFileSync(join(od, 'spec.md'), 'z'.repeat(400))
+
+      const b = computeContextBudget(tmp, workspace)
+      expect(b.specrailsTicketsTokens).toBeGreaterThan(0) // read from workspace
+      expect(b.mcpServers).toEqual(['serena'])            // read from workspace
+      expect(b.openspecSpecsTokens).toBeGreaterThan(0)    // read from repo
+
+      // Without the override (legacy) the repo has no tickets/.mcp.json ⇒ 0.
+      const legacy = computeContextBudget(tmp)
+      expect(legacy.specrailsTicketsTokens).toBe(0)
+      expect(legacy.mcpServers).toEqual([])
+    } finally {
+      rmSync(workspace, { recursive: true, force: true })
+    }
+  })
+
   it('caches per-project for 60s and invalidates on demand', () => {
     writeFileSync(join(tmp, 'a.ts'), 'x')
     const first = getContextBudget('proj-1', tmp)

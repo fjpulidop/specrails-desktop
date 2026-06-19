@@ -7,8 +7,10 @@ import request from 'supertest'
 
 import { createProjectRouter, stripSpecMetadataSections, formatDescriptionWithCriteria, extractShortSummary } from './project-router'
 import { resolveTicketStoragePath, mutateStore, readStore } from './ticket-store'
+import { mirrorProjectEntry as regMirror, workspaceLayout as regLayout, resolveHome as regResolveHome } from './artifact-registry'
 import { initDb } from './db'
 import { initDesktopDb } from './desktop-db'
+import { installConfigPath } from './install-config-path'
 import { ClaudeNotFoundError, JobNotFoundError, JobAlreadyTerminalError } from './queue-manager'
 import type { ProjectRegistry, ProjectContext } from './project-registry'
 import type { DbInstance } from './db'
@@ -373,6 +375,39 @@ describe('project-router', () => {
         const res = await request(app).get('/api/projects/proj-1/jobs/j1')
         expect(res.status).toBe(200)
         expect(res.body.job.tickets).toEqual([{ id: 24, title: 'Add live job status' }])
+      })
+
+      it('RELOCATED: resolves ticket titles from the WORKSPACE store, not the repo', async () => {
+        const prevHome = process.env.SPECRAILS_REGISTRY_HOME
+        const regHome = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), 'pr-reloc-home-')))
+        fs.mkdirSync(path.join(regHome, '.specrails'), { recursive: true })
+        process.env.SPECRAILS_REGISTRY_HOME = regHome
+        const dir = newProjectDir() // repo (no ticket written here)
+        try {
+          // Seed a relocated entry + populated workspace, ticket ONLY in workspace.
+          regMirror({ repoPath: dir, slug: 'proj', providers: ['claude'] }, regHome)
+          const ws = regLayout(regResolveHome(regHome), 'proj', dir).workspaceDir
+          fs.mkdirSync(path.join(ws, '.specrails'), { recursive: true })
+          fs.writeFileSync(path.join(ws, '.specrails', 'specrails-version'), '4.8.0\n')
+          fs.writeFileSync(
+            path.join(ws, '.specrails', 'local-tickets.json'),
+            JSON.stringify({
+              schema_version: '1', revision: 1, last_updated: '', next_id: 1000,
+              tickets: { '24': { id: 24, title: 'WORKSPACE-TITLE', description: '', status: 'todo', priority: 'medium', labels: [], metadata: {}, created_at: '', updated_at: '', created_by: 'test', source: 'manual' } },
+            }),
+            'utf-8',
+          )
+          db.prepare(`INSERT INTO jobs (id, command, started_at, status)
+            VALUES ('jr', '/specrails:implement #24 --yes', '2026-05-05T10:00:00.000Z', 'running')`).run()
+          const { app } = createApp(new Map([['proj-1', makeCtxAt(dir)]]))
+          const res = await request(app).get('/api/projects/proj-1/jobs/jr')
+          expect(res.status).toBe(200)
+          expect(res.body.job.tickets).toEqual([{ id: 24, title: 'WORKSPACE-TITLE' }])
+        } finally {
+          if (prevHome !== undefined) process.env.SPECRAILS_REGISTRY_HOME = prevHome
+          else delete process.env.SPECRAILS_REGISTRY_HOME
+          fs.rmSync(regHome, { recursive: true, force: true })
+        }
       })
 
       it('returns null title for deleted ticket', async () => {
@@ -3149,12 +3184,23 @@ describe('project-router', () => {
 
   describe('GET /default-spec-model', () => {
     let tmpDir: string
+    let registryHome: string
+    let prevRegistryHome: string | undefined
 
     beforeEach(() => {
       tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'specmodels-'))
+      // Relocate-artifacts: install-config.yaml lives in the per-project HOME
+      // dir, not the repo. Point the registry home at a tmp dir so the resolver
+      // writes/reads there instead of the real ~/.specrails.
+      registryHome = fs.mkdtempSync(path.join(os.tmpdir(), 'specmodels-home-'))
+      prevRegistryHome = process.env.SPECRAILS_REGISTRY_HOME
+      process.env.SPECRAILS_REGISTRY_HOME = registryHome
     })
     afterEach(() => {
       fs.rmSync(tmpDir, { recursive: true, force: true })
+      fs.rmSync(registryHome, { recursive: true, force: true })
+      if (prevRegistryHome === undefined) delete process.env.SPECRAILS_REGISTRY_HOME
+      else process.env.SPECRAILS_REGISTRY_HOME = prevRegistryHome
     })
 
     function ctxWithProject(provider: 'claude' | 'codex' | undefined, configBody?: string): ProjectContext {
@@ -3166,9 +3212,10 @@ describe('project-router', () => {
         } as any,
       })
       if (configBody !== undefined) {
-        const dir = path.join(tmpDir, '.specrails')
-        fs.mkdirSync(dir, { recursive: true })
-        fs.writeFileSync(path.join(dir, 'install-config.yaml'), configBody)
+        // Write to the relocated per-project HOME location (resolver target).
+        const configPath = installConfigPath({ slug: 'proj', path: tmpDir })
+        fs.mkdirSync(path.dirname(configPath), { recursive: true })
+        fs.writeFileSync(configPath, configBody)
       }
       return ctx
     }
@@ -3216,6 +3263,64 @@ describe('project-router', () => {
       const res = await request(app).get('/api/projects/proj-1/default-spec-model')
       expect(res.body.provider).toBe('claude')
       expect(res.body.model).toBe('sonnet')
+    })
+
+    it('relocates install-config writes OUT of the repo and reads them back', async () => {
+      // PRIMARY relocation fix: POST /setup/install-config must NOT create any
+      // .specrails inside the user's repo, and GET /default-spec-model must read
+      // the config back from the per-project HOME dir.
+      const ctx = makeContext(db, {
+        project: {
+          id: 'proj-1', slug: 'proj', name: 'P', path: tmpDir,
+          db_path: ':memory:', provider: 'claude', added_at: '', last_seen_at: '',
+        } as any,
+      })
+      const { app } = createApp(new Map([['proj-1', ctx]]))
+
+      const write = await request(app)
+        .post('/api/projects/proj-1/setup/install-config')
+        .send({ version: 1, provider: 'claude', tier: 'quick', models: { defaults: { model: 'opus' } } })
+      expect(write.status).toBe(200)
+      // The reported path is the relocated HOME path, never the repo.
+      expect(write.body.path).toBe(installConfigPath({ slug: 'proj', path: tmpDir }))
+      expect(String(write.body.path).startsWith(tmpDir)).toBe(false)
+
+      // ZERO .specrails created inside the repo by the install-config write.
+      expect(fs.existsSync(path.join(tmpDir, '.specrails'))).toBe(false)
+
+      // The config is read back from HOME by the model resolver.
+      const res = await request(app).get('/api/projects/proj-1/default-spec-model')
+      expect(res.body.model).toBe('opus')
+    })
+
+    it('PATCH /agent-models writes install-config to HOME, not the repo', async () => {
+      // Seed agents in the repo (legacy/un-relocated project) so applyModelConfig
+      // patches them; the install-config it reads/writes must land in HOME.
+      const agentsDir = path.join(tmpDir, '.claude', 'agents')
+      fs.mkdirSync(agentsDir, { recursive: true })
+      fs.writeFileSync(path.join(agentsDir, 'sr-architect.md'), '---\nmodel: sonnet\n---\nbody\n')
+
+      const ctx = makeContext(db, {
+        project: {
+          id: 'proj-1', slug: 'proj', name: 'P', path: tmpDir,
+          db_path: ':memory:', provider: 'claude', added_at: '', last_seen_at: '',
+        } as any,
+      })
+      const { app } = createApp(new Map([['proj-1', ctx]]))
+
+      const res = await request(app)
+        .patch('/api/projects/proj-1/agent-models')
+        .send({ defaultModel: 'opus' })
+      expect(res.status).toBe(200)
+      // The agent frontmatter (in-repo, legacy) was patched.
+      expect(fs.readFileSync(path.join(agentsDir, 'sr-architect.md'), 'utf-8')).toContain('model: opus')
+      // The install-config landed in HOME, NOT the repo's .specrails.
+      expect(fs.existsSync(path.join(tmpDir, '.specrails'))).toBe(false)
+      expect(fs.existsSync(installConfigPath({ slug: 'proj', path: tmpDir }))).toBe(true)
+
+      // GET reflects the patched model from the in-repo agents dir.
+      const get = await request(app).get('/api/projects/proj-1/agent-models')
+      expect(get.body.agents).toEqual([{ name: 'sr-architect', model: 'opus' }])
     })
   })
 

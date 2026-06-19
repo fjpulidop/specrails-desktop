@@ -1,0 +1,299 @@
+import { spawnSync } from 'child_process'
+import fs from 'fs'
+import path from 'path'
+
+import { getBundledCoreCli, getBundledCoreVersion } from './bundled-core'
+import { resolveHome, atomicWrite } from './artifact-registry'
+
+/**
+ * FrameworkManager — materializes the bundled specrails-core framework ONCE into
+ * `~/.specrails/framework/<version>/<providerDir>/` and points
+ * `~/.specrails/framework/current` at it, so every project workspace assembles by
+ * SYMLINK (offline) instead of running a per-project `npx specrails-core init`.
+ *
+ * The heavy lifting lives in specrails-core's offline subcommands
+ * (`install-framework` / `assemble`) — this manager only SHELLS OUT to the
+ * bundled core CLI (resolved via `getBundledCoreCli()`), so there is ONE source
+ * of truth for materialize + assemble.
+ *
+ * Existence-gated EVERYWHERE: when no bundled core is present (env absent / dev
+ * mode / partial extraction) every method no-ops gracefully and the caller falls
+ * back to the legacy npx path — byte-identical to today.
+ */
+
+export type FrameworkBroadcast = (msg: { type: string; [k: string]: unknown }) => void
+
+export interface FrameworkManagerOptions {
+  /** Overridable registry home (mirrors artifact-registry / core). Tests pin this. */
+  home?: string
+  /** App-level WS broadcast (no projectId) for `framework.updated`. */
+  broadcast?: FrameworkBroadcast
+}
+
+export interface MaterializeResult {
+  /** False when there is no bundled core (graceful no-op). */
+  ran: boolean
+  /** The version materialized (null when no-op). */
+  version: string | null
+  /** Providers that were materialized. */
+  providers: string[]
+  /** Per-provider exit failures, if any (empty on success). */
+  errors: Array<{ provider: string; message: string }>
+}
+
+/** `~/.specrails/framework` — same home as the registry. */
+export function frameworkRoot(home?: string): string {
+  return path.join(resolveHome(home), '.specrails', 'framework')
+}
+
+/** Path to the `current` symlink under the framework root. */
+function currentLink(home?: string): string {
+  return path.join(frameworkRoot(home), 'current')
+}
+
+/**
+ * The version `framework/current` resolves to, or null when `current` is absent
+ * / not a `<version>` dir. Reads the basename of the symlink target.
+ */
+export function readCurrentFrameworkVersion(home?: string): string | null {
+  const link = currentLink(home)
+  try {
+    const st = fs.lstatSync(link)
+    let target: string
+    if (st.isSymbolicLink()) {
+      target = fs.readlinkSync(link)
+    } else if (st.isDirectory()) {
+      // Windows copy fallback: `current` is a real dir holding a marker.
+      target = link
+    } else {
+      return null
+    }
+    const resolved = path.isAbsolute(target) ? target : path.resolve(frameworkRoot(home), target)
+    const base = path.basename(resolved)
+    return base === 'current' ? null : base
+  } catch {
+    return null
+  }
+}
+
+export class FrameworkManager {
+  private readonly home?: string
+  private readonly broadcast?: FrameworkBroadcast
+
+  constructor(opts: FrameworkManagerOptions = {}) {
+    this.home = opts.home
+    this.broadcast = opts.broadcast
+  }
+
+  /** True when a usable bundled core is present (else all methods no-op). */
+  isAvailable(): boolean {
+    return getBundledCoreCli() !== null
+  }
+
+  /** The bundled core version (the version the app should materialize), or null. */
+  bundledVersion(): string | null {
+    return getBundledCoreVersion()
+  }
+
+  /**
+   * Materialize the framework for `version` (default: the bundled core version)
+   * for each provider — idempotent + offline. Shells out to the bundled core
+   * `install-framework --no-swap` once per provider, so the materialize step
+   * NEVER moves `current`: the caller (`versionCheck`) materializes EVERY
+   * provider first, then issues a SINGLE `swapCurrent(version)` only when all of
+   * them succeeded. This prevents a half-installed multi-provider release from
+   * flipping `current` to a version whose other providerDirs are missing. No-ops
+   * (ran:false) when no bundled core is present.
+   */
+  materialize(version?: string, providers: string[] = ['claude']): MaterializeResult {
+    const cli = getBundledCoreCli()
+    if (!cli) {
+      return { ran: false, version: null, providers: [], errors: [] }
+    }
+    const ver = version ?? this.bundledVersion()
+    if (!ver) {
+      return { ran: false, version: null, providers: [], errors: [] }
+    }
+
+    const fwDir = frameworkRoot(this.home)
+    fs.mkdirSync(fwDir, { recursive: true })
+
+    const errors: MaterializeResult['errors'] = []
+    const done: string[] = []
+    for (const provider of dedupe(providers)) {
+      const res = spawnSync(
+        process.execPath,
+        [
+          cli,
+          'install-framework',
+          '--framework-dir',
+          fwDir,
+          '--provider',
+          provider,
+          '--version',
+          ver,
+          // Materialize-all-then-swap-once: each provider is installed WITHOUT
+          // moving `current`; the finalising swap happens in versionCheck.
+          '--no-swap',
+        ],
+        { env: this.childEnv(), encoding: 'utf-8', timeout: 120_000 },
+      )
+      if (res.error || (res.status ?? 1) !== 0) {
+        const msg = res.error?.message ?? (res.stderr || `exit ${res.status ?? 'unknown'}`)
+        errors.push({ provider, message: `${msg}`.trim() })
+      } else {
+        done.push(provider)
+      }
+    }
+    return { ran: true, version: ver, providers: done, errors }
+  }
+
+  /**
+   * Atomically point `framework/current` at `version` via core's dedicated
+   * `swap-current` subcommand — the ONE finalising step after every provider was
+   * materialized with `--no-swap`. Guard/no-op when `current` already points at
+   * `version`. Returns true when `current` ended up at `version`.
+   *
+   * The `provider` param is retained for signature compatibility but is unused:
+   * `swap-current` only moves the version pointer (provider-invariant).
+   */
+  swapCurrent(version: string, _provider = 'claude'): boolean {
+    const cli = getBundledCoreCli()
+    if (!cli) return false
+    if (readCurrentFrameworkVersion(this.home) === version) return true
+    const fwDir = frameworkRoot(this.home)
+    const res = spawnSync(
+      process.execPath,
+      [cli, 'swap-current', '--framework-dir', fwDir, '--version', version],
+      { env: this.childEnv(), encoding: 'utf-8', timeout: 120_000 },
+    )
+    if (res.error || (res.status ?? 1) !== 0) return false
+    return readCurrentFrameworkVersion(this.home) === version
+  }
+
+  /**
+   * Compare the bundled core version with `framework/current`. When they differ
+   * (or current is absent), materialize the bundled version + swap `current` and
+   * broadcast `framework.updated`. Called on first-run + post-update. No-ops when
+   * no bundled core is present. Returns the resulting current version (or null).
+   */
+  versionCheck(providers: string[] = ['claude']): { swapped: boolean; version: string | null } {
+    const bundled = this.bundledVersion()
+    if (!getBundledCoreCli() || !bundled) {
+      return { swapped: false, version: readCurrentFrameworkVersion(this.home) }
+    }
+    const current = readCurrentFrameworkVersion(this.home)
+    if (current === bundled) {
+      return { swapped: false, version: current }
+    }
+    // Materialize EVERY requested provider first (each with `--no-swap`), then
+    // swap `current` ONCE — and ONLY when every provider materialized cleanly.
+    // A partial multi-provider install must NEVER flip `current`: doing so would
+    // point `current` at a version whose other providerDirs are missing, so a
+    // rail spawning under a non-materialized provider would fail to assemble.
+    const mat = this.materialize(bundled, providers)
+    if (!mat.ran) {
+      return { swapped: false, version: current }
+    }
+    if (mat.errors.length > 0) {
+      // Do NOT swap; surface the failure (don't discard it, don't report success).
+      try {
+        this.broadcast?.({
+          type: 'framework.update_failed',
+          version: bundled,
+          errors: mat.errors,
+        })
+      } catch {
+        /* broadcast is best-effort */
+      }
+      return { swapped: false, version: current }
+    }
+    if (mat.providers.length === 0) {
+      // No errors yet nothing materialized (empty/duplicate-only provider list).
+      return { swapped: false, version: current }
+    }
+    const ok = this.swapCurrent(bundled)
+    if (ok) {
+      try {
+        this.broadcast?.({ type: 'framework.updated', version: bundled })
+      } catch {
+        /* broadcast is best-effort */
+      }
+      return { swapped: true, version: bundled }
+    }
+    // Materialized cleanly but the swap itself failed — surface as a failure.
+    try {
+      this.broadcast?.({
+        type: 'framework.update_failed',
+        version: bundled,
+        errors: [{ provider: providers[0] ?? 'claude', message: 'swap-current failed' }],
+      })
+    } catch {
+      /* broadcast is best-effort */
+    }
+    return { swapped: false, version: readCurrentFrameworkVersion(this.home) }
+  }
+
+  /**
+   * Assemble a project workspace by SYMLINKING the materialized framework into
+   * it (offline) via the bundled core `assemble` subcommand. Returns false (no-op)
+   * when no bundled core is present — caller falls back to legacy npx assembly.
+   */
+  assembleWorkspace(input: {
+    workspace: string
+    provider: string
+    version?: string
+    codeRoot: string
+  }): { ran: boolean; error?: string } {
+    const cli = getBundledCoreCli()
+    if (!cli) return { ran: false }
+    const ver = input.version ?? this.bundledVersion()
+    if (!ver) return { ran: false }
+    const fwDir = frameworkRoot(this.home)
+    const res = spawnSync(
+      process.execPath,
+      [
+        cli,
+        'assemble',
+        '--workspace',
+        input.workspace,
+        '--framework-dir',
+        fwDir,
+        '--provider',
+        input.provider,
+        '--version',
+        ver,
+        '--code-root',
+        input.codeRoot,
+      ],
+      { env: this.childEnv(), encoding: 'utf-8', timeout: 120_000 },
+    )
+    if (res.error || (res.status ?? 1) !== 0) {
+      const msg = res.error?.message ?? (res.stderr || `exit ${res.status ?? 'unknown'}`)
+      return { ran: true, error: `${msg}`.trim() }
+    }
+    return { ran: true }
+  }
+
+  /** Child env: thread the registry home so the core CLI co-locates framework + registry. */
+  private childEnv(): NodeJS.ProcessEnv {
+    const env = { ...process.env }
+    if (this.home) {
+      env.SPECRAILS_REGISTRY_HOME = this.home
+    }
+    // Point the bundled core CLI's scriptDir at the bundled package so its
+    // template/command sources resolve from the bundle, not a global install.
+    const coreRoot = process.env.SPECRAILS_BUNDLED_CORE_PATH
+    if (coreRoot) env.SPECRAILS_CORE_SCRIPT_DIR = coreRoot
+    return env
+  }
+}
+
+function dedupe(values: string[]): string[] {
+  return Array.from(new Set(values))
+}
+
+// Re-export atomicWrite for symmetry (the atomic swap is delegated to core's
+// ensureCurrentSymlink; this keeps the dependency explicit for future callers
+// that may need a desktop-side atomic write of framework metadata).
+export { atomicWrite }

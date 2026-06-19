@@ -7,6 +7,7 @@ import { testCustomAgent } from './agent-generator'
 import { recordInvocation } from './ai-invocations'
 import { finaliseInvocationResult } from './result-event'
 import { runAiCliInvocation } from './spawn-lifecycle'
+import { resolveProjectExecution } from './workspace-resolution'
 import { getAdapter, type ProviderAdapter, type AdapterEvent, type ProviderId } from './providers'
 import type { DbInstance } from './db'
 import type {
@@ -209,14 +210,23 @@ export class AgentRefineManager {
 
   private _agentFile(agentId: string): string {
     // Per-provider on-disk layout:
-    //   claude → <project>/.claude/agents/<agentId>.md
-    //   codex  → <project>/.codex/skills/<agentId>/SKILL.md
+    //   claude → <root>/.claude/agents/<agentId>.md
+    //   codex  → <root>/.codex/skills/<agentId>/SKILL.md
     // Future providers add their own branch via the adapter; the projectDir
     // is already provider-aware.
+    //
+    // Relocate-artifacts: custom-* agents are materialized by core into the
+    // WORKSPACE when the project is relocated (same place the rails load them
+    // from). Reading/writing `<project.path>/<providerDir>/agents` would touch a
+    // stale repo copy the rails never see — and this path WRITES the refined
+    // agent. Resolve through the gate so reads + writes hit the same tree the
+    // rails consume. Legacy projects are byte-identical (root === project.path).
+    const exec = resolveProjectExecution({ path: this._projectPath })
+    const root = exec.relocated && exec.workspaceDir ? exec.workspaceDir : this._projectPath
     if (this._adapter.id === 'codex') {
-      return path.join(this._projectPath, this._adapter.projectDirName, 'skills', agentId, 'SKILL.md')
+      return path.join(root, this._adapter.projectDirName, 'skills', agentId, 'SKILL.md')
     }
-    return path.join(this._projectPath, this._adapter.projectDirName, 'agents', `${agentId}.md`)
+    return path.join(root, this._adapter.projectDirName, 'agents', `${agentId}.md`)
   }
 
   private _currentVersion(agentId: string): number {
@@ -270,11 +280,16 @@ export class AgentRefineManager {
     // Spawn / stream / settlement is owned by the shared spawn-lifecycle; the
     // refine-specific draft buffering, accounting, validation and history all
     // stay here unchanged.
+    // Relocate-artifacts gate: spawn from the workspace (with SPECRAILS_REPO_DIR)
+    // when relocated, else cwd = project.path + empty env (byte-identical legacy).
+    const refineExec = resolveProjectExecution({ path: this._projectPath })
+    const refineEnv = refineExec.relocated ? { ...process.env, ...refineExec.env } : undefined
     const run = await runAiCliInvocation({
       adapter: this._adapter,
       action,
       buildOpts: { prompt, model: refineModel, sessionId: session.session_id ?? undefined },
-      cwd: this._projectPath,
+      cwd: refineExec.cwd,
+      env: refineEnv,
       onSpawn: (child) => this._activeProcesses.set(refineId, child),
       onSpawnError: (err) => { spawnState.err = err },
       onEvent: (ev) => {

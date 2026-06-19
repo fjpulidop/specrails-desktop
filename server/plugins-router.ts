@@ -10,6 +10,18 @@ import { getPluginManager } from './plugins/manager'
 import { installPrerequisite } from './plugins/prereq-installer'
 import { augmentPathFromLoginShell } from './path-resolver'
 import { disableMarketplacePlugin } from './plugins/claude-approval'
+import { resolveProjectExecution } from './workspace-resolution'
+
+/**
+ * Relocate-artifacts gate: the dir the PluginManager mutates (`.mcp.json` +
+ * `.specrails/plugins/` state + `.claude/agents/custom-*.md`). Relocated ⇒ the
+ * workspace (so the relocated CLI, spawned with cwd=workspace, loads the
+ * `.mcp.json` the manager wrote); legacy ⇒ project.path (byte-identical).
+ */
+function pluginRoot(project: { slug: string; path: string }): string {
+  const exec = resolveProjectExecution({ slug: project.slug, path: project.path })
+  return exec.relocated && exec.workspaceDir ? exec.workspaceDir : project.path
+}
 
 declare module 'express-serve-static-core' {
   interface Request {
@@ -61,7 +73,7 @@ export function createPluginsRouter(): Router {
   router.get('/', async (req, res) => {
     try {
       const { project } = ctx(req)
-      const list = await getPluginManager().listAvailable(project.path, project.provider)
+      const list = await getPluginManager().listAvailable(pluginRoot(project), project.provider)
       res.json({ plugins: list })
     } catch (err) {
       handleError(res, err)
@@ -72,7 +84,7 @@ export function createPluginsRouter(): Router {
   router.get('/:name/preview-install', async (req, res) => {
     try {
       const { project } = ctx(req)
-      const result = await getPluginManager().previewInstall(project.path, project.id, req.params.name)
+      const result = await getPluginManager().previewInstall(pluginRoot(project), project.id, req.params.name)
       res.json(result)
     } catch (err) {
       handleError(res, err)
@@ -83,7 +95,7 @@ export function createPluginsRouter(): Router {
   router.post('/:name/install', async (req, res) => {
     try {
       const { project, broadcast } = ctx(req)
-      await getPluginManager().install(project.path, project.id, req.params.name, broadcast, project.provider)
+      await getPluginManager().install(pluginRoot(project), project.id, req.params.name, broadcast, project.provider)
       res.status(200).json({ ok: true })
     } catch (err) {
       handleError(res, err)
@@ -94,7 +106,7 @@ export function createPluginsRouter(): Router {
   router.delete('/:name', async (req, res) => {
     try {
       const { project, broadcast } = ctx(req)
-      await getPluginManager().uninstall(project.path, project.id, req.params.name, broadcast, project.provider)
+      await getPluginManager().uninstall(pluginRoot(project), project.id, req.params.name, broadcast, project.provider)
       res.status(200).json({ ok: true })
     } catch (err) {
       handleError(res, err)
@@ -185,7 +197,7 @@ export function createPluginsRouter(): Router {
   router.post('/:name/activate', async (req, res) => {
     try {
       const { project, broadcast } = ctx(req)
-      await getPluginManager().setActive(project.path, project.id, req.params.name, true, broadcast, project.provider)
+      await getPluginManager().setActive(pluginRoot(project), project.id, req.params.name, true, broadcast, project.provider)
       res.json({ ok: true })
     } catch (err) {
       handleError(res, err)
@@ -196,7 +208,7 @@ export function createPluginsRouter(): Router {
   router.post('/:name/deactivate', async (req, res) => {
     try {
       const { project, broadcast } = ctx(req)
-      await getPluginManager().setActive(project.path, project.id, req.params.name, false, broadcast, project.provider)
+      await getPluginManager().setActive(pluginRoot(project), project.id, req.params.name, false, broadcast, project.provider)
       res.json({ ok: true })
     } catch (err) {
       handleError(res, err)
@@ -207,7 +219,7 @@ export function createPluginsRouter(): Router {
   router.post('/:name/update', async (req, res) => {
     try {
       const { project, broadcast } = ctx(req)
-      await getPluginManager().updateMcpEntry(project.path, project.id, req.params.name, broadcast, project.provider)
+      await getPluginManager().updateMcpEntry(pluginRoot(project), project.id, req.params.name, broadcast, project.provider)
       res.json({ ok: true })
     } catch (err) {
       handleError(res, err)
@@ -218,7 +230,7 @@ export function createPluginsRouter(): Router {
   router.get('/:name/health', async (req, res) => {
     try {
       const { project, broadcast } = ctx(req)
-      const result = await getPluginManager().verify(project.path, project.id, req.params.name, broadcast)
+      const result = await getPluginManager().verify(pluginRoot(project), project.id, req.params.name, broadcast)
       res.json(result)
     } catch (err) {
       handleError(res, err)

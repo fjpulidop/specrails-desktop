@@ -34,6 +34,10 @@
       "configured": "<strong>{{projectName}}</strong> ya está configurado con flujos de desarrollo impulsados por IA. Tus agentes y comandos especializados están listos para usar.",
       "installedForEngines_one": "Instalado para {{count}} motor",
       "installedForEngines_other": "Instalado para {{count}} motores",
+
+      "installed": "Instalado",
+
+      "installFailed": "Error en la instalación",
       "learnMore": "Aprende a sacar el máximo partido a specrails:",
       "continueToProject": "Continuar al proyecto",
       "jira": {

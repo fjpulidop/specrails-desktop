@@ -34,6 +34,10 @@
       "configured": "<strong>{{projectName}}</strong> ist jetzt mit KI-gestützten Entwicklungs-Workflows konfiguriert. Ihre spezialisierten Agenten und Befehle sind einsatzbereit.",
       "installedForEngines_one": "Für {{count}} Engine installiert",
       "installedForEngines_other": "Für {{count}} Engines installiert",
+
+      "installed": "Installiert",
+
+      "installFailed": "Installation fehlgeschlagen",
       "learnMore": "Erfahren Sie, wie Sie das Beste aus specrails herausholen:",
       "continueToProject": "Weiter zum Projekt",
       "jira": {

@@ -164,6 +164,17 @@ describe('desktop-router', () => {
       expect(res.status).toBe(409)
     })
 
+    it('dedups the slug with a -N suffix for two same-basename repos (no false 409)', async () => {
+      const { app } = createApp()
+      const first = await request(app).post('/api/projects').send({ path: '/a/frontend' })
+      const second = await request(app).post('/api/projects').send({ path: '/b/frontend' })
+      // Both succeed — the second is a NEW path, not a duplicate.
+      expect(first.status).toBe(201)
+      expect(second.status).toBe(201)
+      expect(first.body.project.slug).toBe('frontend')
+      expect(second.body.project.slug).toBe('frontend-2')
+    })
+
     it('includes has_specrails in response', async () => {
       const { app } = createApp()
       const res = await request(app).post('/api/projects').send({ path: '/home/user/proj' })

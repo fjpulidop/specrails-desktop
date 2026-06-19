@@ -4,12 +4,16 @@ export default defineConfig({
   test: {
     include: ['server/**/*.test.ts', 'cli/**/*.test.ts'],
     environment: 'node',
+    // Safety net: pin SPECRAILS_REGISTRY_HOME to a throwaway tmp dir so no test
+    // can write the relocation registry into the real ~/.specrails.
+    setupFiles: ['server/vitest-setup.ts'],
     coverage: {
       provider: 'v8',
       reporter: ['text', 'lcov', 'html'],
       include: ['server/**/*.ts', 'cli/**/*.ts'],
       exclude: [
         '**/*.test.ts',
+        'server/vitest-setup.ts',
         'server/dist/**',
         'server/index.ts',
         // Real Playwright/CDP implementation of the browser-capture abstractions.

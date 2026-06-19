@@ -43,7 +43,9 @@
       "binaries/node-pty/**/*",
       "binaries/shell-integration/**/*",
       "binaries/node_modules/**/*",
-      "runtimes/**/*"
+      "runtimes/**/*",
+      "core/**/*",
+      "openspec/**/*"
     ],
     "macOS": {
       "entitlements": "./entitlements.plist"

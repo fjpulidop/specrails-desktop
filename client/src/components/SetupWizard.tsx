@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, useCallback, useLayoutEffect, memo } from 'react'
 import { useTranslation, Trans } from 'react-i18next'
-import { Check, ArrowRight, Package, Bot, ChevronLeft, Settings2, Plug } from 'lucide-react'
+import { Check, ArrowRight, Package, Bot, ChevronLeft, Settings2, Plug, AlertTriangle } from 'lucide-react'
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
 import i18n from '../lib/i18n'
@@ -38,6 +38,14 @@ interface SetupSummary {
   legacySrRemoved: number
   tier: 'quick' | 'full'
   provider?: ProviderId
+  /**
+   * Optional per-provider failure flag. The install flow routes hard failures
+   * to the dedicated `error` step, so summaries reaching the Complete step are
+   * successful installs by construction. This flag lets the success card render
+   * an error variant when a future server path reports a soft per-provider
+   * failure without aborting the whole wizard.
+   */
+  failed?: boolean
 }
 
 const EMPTY_SUMMARY: SetupSummary = {
@@ -315,34 +323,36 @@ function InstallingStep({
 
 function SummaryCard({ summary }: { summary: SetupSummary }) {
   const { t } = useTranslation('setup')
-  const isCodex = summary.provider === 'codex'
+  const failed = summary.failed === true
   return (
-    <div className="w-full rounded-lg border border-border/50 bg-muted/20 p-3">
-      <div className="text-[11px] font-semibold text-foreground mb-1.5">{providerLabel(summary.provider)}</div>
-      <div className="grid grid-cols-3 gap-2 text-center">
-        <div>
-          <div className="text-xl font-bold text-accent-primary leading-tight">{summary.agents}</div>
-          <div className="text-[10px] text-muted-foreground">{isCodex ? t('wizard.summary.agentSkills') : t('wizard.summary.agents')}</div>
+    <div
+      data-testid="setup-summary-card"
+      data-status={failed ? 'failed' : 'installed'}
+      className={cn(
+        'w-full rounded-lg border p-3 flex items-center gap-2.5',
+        failed ? 'border-destructive/40 bg-destructive/5' : 'border-border/50 bg-muted/20'
+      )}
+    >
+      <div
+        className={cn(
+          'w-7 h-7 rounded-full flex items-center justify-center shrink-0',
+          failed ? 'bg-destructive/15' : 'bg-accent-success/15'
+        )}
+      >
+        {failed ? (
+          <AlertTriangle className="w-4 h-4 text-destructive" />
+        ) : (
+          <Check className="w-4 h-4 text-accent-success" />
+        )}
+      </div>
+      <div className="min-w-0">
+        <div className="text-[12px] font-semibold text-foreground leading-tight truncate">
+          {providerLabel(summary.provider)}
         </div>
-        <div>
-          <div className="text-xl font-bold text-accent-success leading-tight">{summary.specrailsCommands}</div>
-          <div className="text-[10px] text-muted-foreground">{isCodex ? t('wizard.summary.skills') : '/specrails:*'}</div>
-        </div>
-        <div>
-          <div className="text-xl font-bold text-accent-info leading-tight">{summary.opsxCommands}</div>
-          <div className="text-[10px] text-muted-foreground">{isCodex ? t('wizard.summary.openspecSkills') : '/opsx:*'}</div>
+        <div className={cn('text-[11px] leading-tight', failed ? 'text-destructive' : 'text-accent-success')}>
+          {failed ? t('wizard.complete.installFailed') : t('wizard.complete.installed')}
         </div>
       </div>
-      {summary.legacySrRemoved > 0 && (
-        <p className="mt-2 text-xs text-muted-foreground text-center">
-          <Trans
-            t={t}
-            i18nKey="wizard.summary.legacyRemoved"
-            count={summary.legacySrRemoved}
-            components={{ code: <code className="text-xs" /> }}
-          />
-        </p>
-      )}
     </div>
   )
 }

@@ -25,6 +25,8 @@ import type { BrowserWsClient } from './browser-capture-manager'
 import type { BrowserInputEvent } from './browser-capture-types'
 import { createTelemetryRouter } from './telemetry-receiver'
 import { runCompactionForAll } from './telemetry-compactor'
+import { FrameworkManager } from './framework-manager'
+import { withFileLock } from './artifact-registry'
 import { resolveStartupPath, augmentPathFromLoginShell, getPathDiagnostic } from './path-resolver'
 // Side-effect import: registers every bundled ProviderAdapter (claude, codex,
 // future providers) so `getAdapter`/`hasAdapter`/`listAdapters` are populated
@@ -441,6 +443,34 @@ function applyWsRateLimiting(ws: WebSocket): void {
   registry.loadAll()
   _registry = registry
   _getProjectCount = () => registry.listContexts().length
+
+  // ─── Bundled framework update channel (Phase 6) ─────────────────────────────
+  // After the registry + projects have loaded, run a single framework
+  // version-check. On FIRST run it materializes the bundled framework to
+  // `~/.specrails/framework/<version>/` + points `current`; POST-UPDATE (a new
+  // app version ships a newer bundled core) it materializes the new version
+  // side-by-side and atomically swaps `current` → every workspace that links
+  // `current/...` jumps to it with no per-workspace work. The whole
+  // materialize+swap runs under the SAME registry file-lock that serialises
+  // artifact resolution, so a concurrently-spawning rail never observes a
+  // half-swapped `current` (a rail that already resolved `current` keeps its
+  // resolved framework — the atomic swap doesn't disturb open handles). No-op
+  // (graceful) when no bundled core is present — every project falls back to
+  // the legacy npx path. The `framework.updated` WS event is app-level (no
+  // projectId); the client WS layer ignores unknown message types.
+  try {
+    const framework = new FrameworkManager({
+      // `framework.updated` is app-level (no projectId) and not a member of the
+      // WsMessage union; cast at this single boundary.
+      broadcast: (msg) => broadcast(msg as unknown as WsMessage),
+    })
+    if (framework.isAvailable()) {
+      const providers = registry.installedProvidersUnion()
+      withFileLock(undefined, () => framework.versionCheck(providers))
+    }
+  } catch (err) {
+    console.error('[framework-manager] startup versionCheck failed (non-fatal):', err)
+  }
 
   // OTLP/JSON receiver — INTENTIONALLY UNAUTHENTICATED (H-01/H-02). The spawned
   // claude/codex CLIs post telemetry here with no auth header (queue-manager sets

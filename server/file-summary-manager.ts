@@ -26,7 +26,14 @@ export interface SummaryPayload {
 }
 
 export interface EnqueueRequest {
+  /** The user's repo. Source files are ALWAYS read from here (never the
+   *  workspace) — Code Explorer reads the real code. */
   projectPath: string
+  /** Relocate-artifacts: where summary JSON OUTPUTS are written/read. Workspace
+   *  when relocated, else === projectPath (legacy, byte-identical). Defaults to
+   *  `projectPath` when omitted. The `.gitignore` append is a no-op when this
+   *  differs from `projectPath` (the workspace `.gitignore` is app-owned). */
+  summaryRoot?: string
   projectId: string
   projectSlug: string
   relPath: string
@@ -142,22 +149,25 @@ export function readSummary(projectPath: string, relPath: string): SummaryPayloa
 }
 
 export function writeSummary(
-  projectPath: string,
+  summaryRoot: string,
   relPath: string,
   payload: SummaryPayload,
+  /** When false (relocated: summaryRoot is the app-owned workspace), skip the
+   *  `.gitignore` append — the workspace `.gitignore` is not the user's repo. */
+  appendGitignore = true,
 ): void {
-  const dir = summariesDir(projectPath)
+  const dir = summariesDir(summaryRoot)
   const firstWrite = !fs.existsSync(dir)
   fs.mkdirSync(dir, { recursive: true })
-  const final = summaryFilePath(projectPath, relPath)
+  const final = summaryFilePath(summaryRoot, relPath)
   // Atomic write: temp file in the same directory, then rename.
   const tmp = `${final}.tmp.${randomBytes(6).toString('hex')}`
   fs.writeFileSync(tmp, JSON.stringify(payload), { encoding: 'utf8', mode: 0o600 })
   fs.renameSync(tmp, final)
-  if (firstWrite) {
+  if (firstWrite && appendGitignore) {
     // The app appends `.specrails/file-summaries/` to the project `.gitignore`
     // on first write. Idempotent: only appends when the line is absent.
-    try { ensureGitignoreLine(projectPath, '.specrails/file-summaries/') } catch { /* non-fatal */ }
+    try { ensureGitignoreLine(summaryRoot, '.specrails/file-summaries/') } catch { /* non-fatal */ }
   }
 }
 
@@ -175,10 +185,15 @@ export function ensureGitignoreLine(projectPath: string, line: string): boolean 
 }
 
 export function sweepOrphans(
-  projectPath: string,
+  summaryRoot: string,
   cap = 200,
+  /** Where to resolve source files (the repo). Relocate-artifacts: summaries
+   *  live under `summaryRoot` (workspace) but source is under `sourceRoot`
+   *  (repo). Defaults to `summaryRoot` (legacy, byte-identical). */
+  sourceRoot?: string,
 ): { deleted: number; remaining: number } {
-  const dir = summariesDir(projectPath)
+  const dir = summariesDir(summaryRoot)
+  const srcRoot = sourceRoot ?? summaryRoot
   let deleted = 0
   let remaining = 0
   let entries: string[]
@@ -197,7 +212,7 @@ export function sweepOrphans(
     } catch {
       continue
     }
-    const sourceAbs = path.join(projectPath, payload.path)
+    const sourceAbs = path.join(srcRoot, payload.path)
     if (fs.existsSync(sourceAbs)) continue
     if (deleted >= cap) {
       remaining += 1
@@ -328,7 +343,8 @@ export class FileSummaryManager {
     // summaries; without `force` an explicit "Regenerate" of an unchanged file
     // would be a silent no-op.
     const currentLang: SummaryLanguage = this.deps.language?.() ?? 'en'
-    const existing = readSummary(req.projectPath, req.relPath)
+    const summaryRoot = req.summaryRoot ?? req.projectPath
+    const existing = readSummary(summaryRoot, req.relPath)
     if (
       !req.force &&
       existing &&
@@ -508,7 +524,11 @@ export class FileSummaryManager {
         generatedBy: { model: out.model, promptVersion: CURRENT_PROMPT_VERSION, truncated },
         triggeredBy: req.triggeredBy,
       }
-      writeSummary(req.projectPath, req.relPath, payload)
+      // Relocate-artifacts: summaries OUTPUT to the workspace when relocated
+      // (summaryRoot ≠ projectPath ⇒ skip the repo .gitignore append); source
+      // was read above from req.projectPath (the repo). Legacy ⇒ both equal.
+      const summaryRoot = req.summaryRoot ?? req.projectPath
+      writeSummary(summaryRoot, req.relPath, payload, summaryRoot === req.projectPath)
       // Keep the watcher's negative-cache a correct superset.
       this.knownSummaries.get(req.projectId)?.add(req.relPath)
 
@@ -595,20 +615,32 @@ export class FileSummaryManager {
     }
   }
 
-  markStale(projectPath: string, projectId: string, relPath: string): void {
-    const existing = readSummary(projectPath, relPath)
+  /** `summaryRoot` (relocate-artifacts) is where the summary JSON lives — the
+   *  workspace when relocated, else === projectPath. */
+  markStale(projectPath: string, projectId: string, relPath: string, summaryRoot?: string): void {
+    const existing = readSummary(summaryRoot ?? projectPath, relPath)
     if (!existing) return
     this.deps.broadcast(buildSummaryUpdated(projectId, existing, true))
   }
 
-  attachWatcher(projectId: string, projectPath: string): void {
+  /**
+   * Watch the repo SOURCE tree (`projectPath`) for edits and mark the
+   * corresponding summary stale. Relocate-artifacts: `summaryRoot` is where the
+   * summary JSON lives (workspace when relocated) — source is watched at
+   * `projectPath`, summaries are scanned/swept/marked at `summaryRoot`. When
+   * omitted `summaryRoot` defaults to `projectPath` (legacy, byte-identical).
+   */
+  attachWatcher(projectId: string, projectPath: string, summaryRoot?: string): void {
     if (this.watchers.has(projectId)) return
-    this.knownSummaries.set(projectId, this.scanKnownSummaries(projectPath))
+    const sumRoot = summaryRoot ?? projectPath
+    this.knownSummaries.set(projectId, this.scanKnownSummaries(sumRoot))
     // Reclaim summary JSON files whose source file was renamed/deleted since the
     // last session. Runs once per project per session (attachWatcher is
     // idempotent) and is capped at 200/pass inside sweepOrphans. The chokidar
     // watcher only sees 'change', never 'unlink', so this is the only reaper.
-    try { sweepOrphans(projectPath) } catch { /* best effort */ }
+    // sweepOrphans resolves source files against the repo, so it must know both:
+    // summaries under sumRoot, source under projectPath.
+    try { sweepOrphans(sumRoot, undefined, projectPath) } catch { /* best effort */ }
     // CRITICAL: prune build/dep trees (node_modules, dist, target, src-tauri/target,
     // dot-dirs, …) from the recursive watch. Watching a Rust/Tauri `target/` tree
     // opened ~10k file descriptors and broke terminal spawning under fd pressure.
@@ -631,7 +663,7 @@ export class FileSummaryManager {
       // Skip the readSummary disk hit when this file provably has no summary.
       const known = this.knownSummaries.get(projectId)
       if (known && !known.has(rel)) return
-      this.markStale(projectPath, projectId, rel)
+      this.markStale(projectPath, projectId, rel, sumRoot)
     })
     this.watchers.set(projectId, { projectPath, watcher })
   }

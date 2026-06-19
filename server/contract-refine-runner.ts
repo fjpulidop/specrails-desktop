@@ -32,8 +32,20 @@ import { ensureExploreCwd } from './explore-cwd-manager'
 import { recordInvocation } from './ai-invocations'
 import { normaliseResultEvent } from './result-event'
 import { mutateStore, resolveTicketStoragePath, type Ticket, type TicketStore } from './ticket-store'
+import { resolveProjectExecution } from './workspace-resolution'
 
 const REFINE_TIMEOUT_MS = 60_000
+
+/**
+ * Relocate-artifacts: resolve the ticket store path honouring the gate.
+ * Relocated ⇒ the registry entry's tickets path (workspace); legacy ⇒
+ * `resolveTicketStoragePath(projectPath)` (preserves integration-contract.json
+ * custom-storagePath behaviour for existing repos).
+ */
+function resolveContractTicketsPath(projectPath: string): string {
+  const exec = resolveProjectExecution({ path: projectPath })
+  return exec.relocated ? exec.ticketsPath : resolveTicketStoragePath(projectPath)
+}
 
 export type RefineFailureReason =
   | 'disabled'
@@ -100,7 +112,7 @@ function buildRefineArgs(model: string, systemPrompt: string, sessionId: string)
 export function prepareContractRefineSpawn(
   deps: Pick<ContractRefineDeps, 'projectSlug' | 'projectPath' | 'projectName'>,
   conversation: { model: string | null; session_id: string | null; context_scope?: string | null },
-): { args: string[]; cwd: string; systemPrompt: string } {
+): { args: string[]; cwd: string; systemPrompt: string; env?: NodeJS.ProcessEnv } {
   const systemPrompt = buildContractRefineSystemPrompt()
   let mcpEnabled = false
   if (conversation.context_scope) {
@@ -111,7 +123,13 @@ export function prepareContractRefineSpawn(
       /* default false */
     }
   }
-  let cwd = deps.projectPath
+  // Relocate-artifacts: when mcp is on, the spawn cwd is the project's spec root,
+  // which becomes the workspace when relocated (else project.path). When mcp is
+  // off the explore-cwd is used as before. Env carries SPECRAILS_REPO_DIR for the
+  // relocated case so source/openspec I/O re-points into the repo.
+  const exec = resolveProjectExecution({ slug: deps.projectSlug, path: deps.projectPath })
+  let cwd = exec.cwd
+  let env: NodeJS.ProcessEnv | undefined = exec.relocated ? { ...process.env, ...exec.env } : undefined
   if (!mcpEnabled) {
     try {
       cwd = ensureExploreCwd({
@@ -119,12 +137,14 @@ export function prepareContractRefineSpawn(
         projectPath: deps.projectPath,
         projectName: deps.projectName,
       })
+      // explore-cwd reaches the repo via its own `./project` link; keep the
+      // relocation env so SPECRAILS_REPO_DIR is still exported when relocated.
     } catch {
-      cwd = deps.projectPath
+      cwd = exec.cwd
     }
   }
   const args = buildRefineArgs(conversation.model ?? 'sonnet', systemPrompt, conversation.session_id ?? '')
-  return { args, cwd, systemPrompt }
+  return { args, cwd, systemPrompt, env }
 }
 
 /**
@@ -295,7 +315,7 @@ export async function runContractRefine(
     timestamp: now().toISOString(),
   })
 
-  const { args, cwd } = prepareContractRefineSpawn(
+  const { args, cwd, env: refineEnv } = prepareContractRefineSpawn(
     {
       projectSlug: deps.projectSlug,
       projectPath: deps.projectPath,
@@ -317,7 +337,7 @@ export async function runContractRefine(
     binary: 'claude',
     argv: args,
     cwd,
-    env: process.env,
+    env: refineEnv ?? process.env,
     spawn,
     timeoutMs,
     onStdoutLine: (line) => {
@@ -401,7 +421,7 @@ export async function runContractRefine(
   // Patch the ticket description.
   let updated: Ticket | null = null
   try {
-    const filePath = resolveTicketStoragePath(deps.projectPath)
+    const filePath = resolveContractTicketsPath(deps.projectPath)
     updated = applyContractLayerToTicket(filePath, ticketId, parse.value, finishedAt)
   } catch (err) {
     console.error('[contract-refine-runner] PATCH failed:', err)
@@ -486,12 +506,15 @@ export async function runContractRefineForQuick(
     ticketId,
     timestamp: startedAt,
   })
+  // Relocate-artifacts gate: spawn from the workspace + SPECRAILS_REPO_DIR when
+  // relocated, else cwd = project.path + process.env (byte-identical legacy).
+  const quickExec = resolveProjectExecution({ slug: deps.projectSlug, path: deps.projectPath })
   let child: ChildProcess
   try {
     child = spawn('claude', args, {
-      env: process.env,
+      env: quickExec.relocated ? { ...process.env, ...quickExec.env } : process.env,
       stdio: ['ignore', 'pipe', 'pipe'],
-      cwd: deps.projectPath,
+      cwd: quickExec.cwd,
     })
   } catch (err) {
     recordSafelyQuick(deps, ticketId, model, startedAt, now().toISOString(), 'failed', null)
@@ -555,7 +578,7 @@ export async function runContractRefineForQuick(
 
   let updated: Ticket | null = null
   try {
-    const filePath = resolveTicketStoragePath(deps.projectPath)
+    const filePath = resolveContractTicketsPath(deps.projectPath)
     updated = applyContractLayerToTicket(filePath, ticketId, parse.value, finishedAt)
   } catch (err) {
     console.error('[contract-refine-runner] quick PATCH failed:', err)

@@ -30,6 +30,7 @@ import { spawn as mockSpawn, execSync as mockExecSync } from 'child_process'
 import treeKill from 'tree-kill'
 import { newId as mockUuidV4 } from './ids'
 import { QueueManager, ClaudeNotFoundError, JobNotFoundError, JobAlreadyTerminalError } from './queue-manager'
+import { mirrorProjectEntry, workspaceLayout, resolveHome } from './artifact-registry'
 import { __resetBinaryProbeCacheForTest } from './binary-probe'
 import { attachmentManager } from './attachment-manager'
 import type { WsMessage } from './types'
@@ -1519,6 +1520,148 @@ describe('QueueManager', () => {
       expect(job.dependsOnJobId).toBe('parent-1')
       expect(job.pipelineId).toBe('pipe-1')
       expect(job.priority).toBe('normal')
+    })
+  })
+
+  // ─── Relocate-artifacts gate ────────────────────────────────────────────────
+
+  describe('relocate-artifacts (workspace gate)', () => {
+    let regHome: string
+    let repo: string
+    let prevHome: string | undefined
+
+    function seedRelocated(slug: string): string {
+      mirrorProjectEntry({ repoPath: repo, slug, providers: ['claude'], desktopProjectId: 'p1' }, regHome)
+      const ws = workspaceLayout(resolveHome(regHome), slug, repo).workspaceDir
+      fs.mkdirSync(path.join(ws, '.specrails'), { recursive: true })
+      fs.writeFileSync(path.join(ws, '.specrails', 'specrails-version'), '4.8.0\n')
+      return ws
+    }
+
+    beforeEach(() => {
+      prevHome = process.env.SPECRAILS_REGISTRY_HOME
+      regHome = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), 'qm-reloc-home-')))
+      fs.mkdirSync(path.join(regHome, '.specrails'), { recursive: true })
+      process.env.SPECRAILS_REGISTRY_HOME = regHome
+      repo = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), 'qm-reloc-repo-')))
+    })
+
+    afterEach(() => {
+      if (prevHome !== undefined) process.env.SPECRAILS_REGISTRY_HOME = prevHome
+      else delete process.env.SPECRAILS_REGISTRY_HOME
+      fs.rmSync(regHome, { recursive: true, force: true })
+      fs.rmSync(repo, { recursive: true, force: true })
+    })
+
+    it('LEGACY: no workspace populated ⇒ spawns from project.path with no relocation env', () => {
+      vi.mocked(mockExecSync).mockReturnValue(Buffer.from('/usr/bin/claude'))
+      vi.mocked(mockSpawn).mockReturnValue(createMockChildProcess() as any)
+      vi.mocked(mockUuidV4).mockReturnValue('legacy-job' as any)
+
+      const db = initDb(':memory:')
+      const qmLegacy = new QueueManager(broadcast, db, [], repo, {
+        provider: 'claude', projectId: 'p1', projectSlug: 'acme',
+      })
+      qmLegacy.enqueue('/specrails:implement #1')
+
+      const opts = vi.mocked(mockSpawn).mock.calls[0][2] as { cwd: string; env: NodeJS.ProcessEnv }
+      expect(opts.cwd).toBe(repo)
+      expect(opts.env.SPECRAILS_REPO_DIR).toBeUndefined()
+      const args = vi.mocked(mockSpawn).mock.calls[0][1] as string[]
+      expect(args).not.toContain('--add-dir')
+    })
+
+    it('RELOCATED: spawns from the workspace, injects SPECRAILS_REPO_DIR, adds --add-dir <repo>', () => {
+      const ws = seedRelocated('acme')
+      vi.mocked(mockExecSync).mockReturnValue(Buffer.from('/usr/bin/claude'))
+      vi.mocked(mockSpawn).mockReturnValue(createMockChildProcess() as any)
+      vi.mocked(mockUuidV4).mockReturnValue('reloc-job' as any)
+
+      const db = initDb(':memory:')
+      const qmReloc = new QueueManager(broadcast, db, [], repo, {
+        provider: 'claude', projectId: 'p1', projectSlug: 'acme',
+      })
+      qmReloc.enqueue('/specrails:implement #1')
+
+      const opts = vi.mocked(mockSpawn).mock.calls[0][2] as { cwd: string; env: NodeJS.ProcessEnv }
+      expect(opts.cwd).toBe(ws)
+      expect(opts.env.SPECRAILS_REPO_DIR).toBe(repo)
+      expect(opts.env.SPECRAILS_WORKSPACE_DIR).toBe(ws)
+      const args = vi.mocked(mockSpawn).mock.calls[0][1] as string[]
+      const idx = args.indexOf('--add-dir')
+      expect(idx).toBeGreaterThanOrEqual(0)
+      expect(args[idx + 1]).toBe(repo)
+    })
+
+    it('RELOCATED: prepends an openspec PATH shim that cds into the repo', () => {
+      seedRelocated('acme')
+      vi.mocked(mockExecSync).mockReturnValue(Buffer.from('/usr/bin/claude'))
+      vi.mocked(mockSpawn).mockReturnValue(createMockChildProcess() as any)
+      vi.mocked(mockUuidV4).mockReturnValue('shim-job' as any)
+
+      const db = initDb(':memory:')
+      const qm = new QueueManager(broadcast, db, [], repo, {
+        provider: 'claude', projectId: 'p1', projectSlug: 'acme',
+      })
+      qm.enqueue('/specrails:implement #1')
+
+      const opts = vi.mocked(mockSpawn).mock.calls[0][2] as { env: NodeJS.ProcessEnv }
+      // PATH leads with the per-job shim dir under the (test) registry home.
+      const expectedShimDir = path.join(
+        regHome, '.specrails', 'projects', 'acme', 'openspec-shim', 'shim-job',
+      )
+      const first = (opts.env.PATH ?? '').split(path.delimiter)[0]
+      expect(first).toBe(expectedShimDir)
+      // The shim script re-points bare `openspec` at the repo.
+      const script = fs.readFileSync(path.join(expectedShimDir, 'openspec'), 'utf8')
+      expect(script).toContain('cd "${SPECRAILS_REPO_DIR:-.}"')
+    })
+
+    it('LEGACY: does NOT create an openspec shim or touch PATH', () => {
+      vi.mocked(mockExecSync).mockReturnValue(Buffer.from('/usr/bin/claude'))
+      vi.mocked(mockSpawn).mockReturnValue(createMockChildProcess() as any)
+      vi.mocked(mockUuidV4).mockReturnValue('legacy-noshim' as any)
+
+      const db = initDb(':memory:')
+      const qm = new QueueManager(broadcast, db, [], repo, {
+        provider: 'claude', projectId: 'p1', projectSlug: 'acme',
+      })
+      qm.enqueue('/specrails:implement #1')
+
+      const shimDir = path.join(
+        regHome, '.specrails', 'projects', 'acme', 'openspec-shim', 'legacy-noshim',
+      )
+      expect(fs.existsSync(shimDir)).toBe(false)
+    })
+
+    it('RELOCATED ultracode: reads spec text from the WORKSPACE ticket store', () => {
+      const ws = seedRelocated('acme')
+      // Ticket lives ONLY in the workspace store — not in the repo.
+      fs.mkdirSync(path.join(ws, '.specrails'), { recursive: true })
+      fs.writeFileSync(
+        path.join(ws, '.specrails', 'local-tickets.json'),
+        JSON.stringify({
+          schema_version: '1.0', revision: 1, last_updated: new Date().toISOString(), next_id: 100,
+          tickets: { '7': { id: 7, title: 'Workspace Spec', description: 'FROM-WORKSPACE-BODY', status: 'todo', priority: 'high' } },
+        }),
+        'utf-8',
+      )
+      vi.mocked(mockExecSync).mockReturnValue(Buffer.from('/usr/bin/claude'))
+      vi.mocked(mockSpawn).mockReturnValue(createMockChildProcess() as any)
+      vi.mocked(mockUuidV4).mockReturnValue('reloc-ultra' as any)
+
+      const db = initDb(':memory:')
+      const qmReloc = new QueueManager(broadcast, db, [], repo, {
+        provider: 'claude', projectId: 'p1', projectSlug: 'acme',
+      })
+      qmReloc.enqueue('/specrails:ultracode #7')
+
+      const args = vi.mocked(mockSpawn).mock.calls[0][1] as string[]
+      // The ultracode prompt is the `-p` argv value; it must contain the spec body
+      // read from the WORKSPACE store.
+      const joined = args.join('\n')
+      expect(joined).toContain('FROM-WORKSPACE-BODY')
+      expect(joined).toContain('Workspace Spec')
     })
   })
 

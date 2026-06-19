@@ -18,6 +18,9 @@ import { TicketWatcher } from './ticket-watcher'
 import { getTerminalManager } from './terminal-manager'
 import { BrowserCaptureManager } from './browser-capture-manager'
 import { removeExploreCwd } from './explore-cwd-manager'
+import { mirrorProjectEntry, removeRegistryEntry, reconcileFromProjects, resolveArtifacts, resolveHome } from './artifact-registry'
+import { resolveProjectExecution } from './workspace-resolution'
+import { removeWorkspace } from './workspace-manager'
 import { resolveTicketStoragePath, mutateStore, applyJobOutcomeToTickets, type JobOutcome } from './ticket-store'
 import { JiraSyncManager } from './jira/jira-sync-manager'
 import type { WsMessage, TicketUpdatedMessage, RailUpdatedMessage } from './types'
@@ -87,6 +90,23 @@ export class ProjectRegistry {
 
   loadAll(): void {
     const projects = listProjects(this._desktopDb)
+    // Self-heal the shared artifact registry: project one entry per desktop
+    // project, leaving non-desktop (core-standalone) entries untouched. Wrapped
+    // so a registry write failure never blocks app startup — a missing entry is
+    // recreated on the next addProject/reconcile.
+    try {
+      reconcileFromProjects(
+        projects.map((p) => ({
+          repoPath: p.path,
+          slug: p.slug,
+          providers: p.providers,
+          primaryProvider: p.provider,
+          desktopProjectId: p.id,
+        })),
+      )
+    } catch (err) {
+      console.error('[project-registry] registry reconcile failed (non-fatal):', err)
+    }
     for (const project of projects) {
       try {
         this._loadProjectContext(project)
@@ -108,6 +128,24 @@ export class ProjectRegistry {
     return Array.from(this._failedProjects.values())
   }
 
+  /**
+   * The deduped union of providers across every registered project (from the
+   * desktop DB, so it includes projects that failed to load a per-project DB).
+   * Used by the framework boot `versionCheck` to decide which providerDirs to
+   * materialize. Defaults to `['claude']` when there are no projects yet (so a
+   * fresh install still materializes the claude framework for the first add).
+   */
+  installedProvidersUnion(): string[] {
+    const set = new Set<string>()
+    for (const p of listProjects(this._desktopDb)) {
+      const list = p.providers && p.providers.length > 0 ? p.providers : [p.provider]
+      for (const prov of list) {
+        if (prov && prov.length > 0) set.add(prov)
+      }
+    }
+    return set.size > 0 ? Array.from(set) : ['claude']
+  }
+
   addProject(opts: {
     id: string
     slug: string
@@ -117,10 +155,28 @@ export class ProjectRegistry {
     providers?: CliProvider[]
   }): ProjectContext {
     const row = addProjectToDesktopDb(this._desktopDb, opts)
+    // Mirror the new project into the shared artifact registry so specrails-core
+    // resolves its relocated artifacts. Wrapped so a registry write failure never
+    // breaks project creation — the startup reconcile will recreate the entry.
+    try {
+      mirrorProjectEntry({
+        repoPath: row.path,
+        slug: row.slug,
+        providers: row.providers,
+        primaryProvider: row.provider,
+        desktopProjectId: row.id,
+      })
+    } catch (err) {
+      console.error('[project-registry] registry mirror failed (non-fatal):', err)
+    }
     return this._loadProjectContext(row)
   }
 
   removeProject(id: string): void {
+    // Resolve the repo path BEFORE the DB row is deleted below so we can drop the
+    // shared artifact-registry entry. Prefer the live context, fall back to the
+    // desktop DB row (project may be registered-but-not-loaded, e.g. M9 failure).
+    const repoPath = this._contexts.get(id)?.project.path ?? getProject(this._desktopDb, id)?.path
     const ctx = this._contexts.get(id)
     if (ctx) {
       // Tear down spawners BEFORE closing the DB. QueueManager.shutdown() drops
@@ -173,6 +229,34 @@ export class ProjectRegistry {
         }
       } catch { /* ignore — non-fatal */ }
       this._contexts.delete(id)
+    }
+    // Drop the relocated WORKSPACE for an adopted project whose REGISTRY slug
+    // differs from the desktop slug. The per-project data-dir rm above only
+    // removes `projects/<desktop-slug>`; an adopted repo's workspace lives under
+    // `projects/<registry-slug>/workspace` and would otherwise leak. Resolve the
+    // registry entry (BEFORE removeRegistryEntry deletes it) and, when relocated,
+    // remove the workspace under the registry slug. Best-effort — never blocks
+    // removal. (When the slugs match, the dir is already gone; removeWorkspace
+    // no-ops on a missing dir.)
+    if (repoPath) {
+      try {
+        const art = resolveArtifacts(repoPath)
+        if (!art.isLegacy && art.entry?.slug) {
+          // Use the SAME home the registry/workspace live under (== os.homedir()
+          // in production; overridable via SPECRAILS_REGISTRY_HOME in tests) so
+          // the workspace dir resolves identically to the registry entry.
+          removeWorkspace(art.entry.slug, resolveHome())
+        }
+      } catch (err) {
+        console.error('[project-registry] workspace remove failed (non-fatal):', err)
+      }
+    }
+    // Drop the shared artifact-registry entry for this repo. Wrapped so a
+    // registry write failure never blocks project removal.
+    if (repoPath) {
+      try { removeRegistryEntry(repoPath) } catch (err) {
+        console.error('[project-registry] registry remove failed (non-fatal):', err)
+      }
     }
     removeProjectFromDesktopDb(this._desktopDb, id)
   }
@@ -323,7 +407,12 @@ export class ProjectRegistry {
           (status === 'completed' || status === 'failed' || status === 'canceled' || status === 'zombie_terminated')
         ) {
           try {
-            const ticketFile = resolveTicketStoragePath(project.path)
+            // Relocate-artifacts gate: write the job outcome to the workspace
+            // ticket store when relocated, else the repo-relative store (legacy).
+            const outcomeExec = resolveProjectExecution({ slug: project.slug, path: project.path })
+            const ticketFile = outcomeExec.relocated
+              ? outcomeExec.ticketsPath
+              : resolveTicketStoragePath(project.path)
             const now = new Date().toISOString()
             let changedIds: number[] = []
             const store = mutateStore(ticketFile, (s) => {
@@ -463,9 +552,14 @@ export class ProjectRegistry {
     // broke terminals. The watcher is now attached lazily on the first
     // code-explorer request (see code-explorer-router.ts).
 
-    // Load commands for this project
+    // Load commands for this project. Relocate-artifacts: sr/specrails commands
+    // are materialized into the WORKSPACE when the project is relocated; the repo
+    // has none, so scanning project.path would find nothing. Resolve the gate so
+    // command discovery reads the same tree the rails load (legacy ⇒ repo).
     try {
-      const config = getConfig(project.path, db, project.name)
+      const cmdExec = resolveProjectExecution({ slug: project.slug, path: project.path })
+      const commandsRoot = cmdExec.relocated && cmdExec.workspaceDir ? cmdExec.workspaceDir : project.path
+      const config = getConfig(project.path, db, project.name, commandsRoot)
       queueManager.setCommands(config.commands)
     } catch {
       // Non-fatal: project may not have commands yet

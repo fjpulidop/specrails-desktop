@@ -409,6 +409,49 @@ describe('runSmash', () => {
     }
   })
 
+  it('relocate-artifacts: reads + writes the threaded ticketsPath, never the repo store', async () => {
+    // Simulate a relocated project: the gated tickets store lives OUTSIDE the
+    // repo. Seeding it under a separate dir and pointing `ticketsPath` there must
+    // make SMASH operate on it; the repo's own (absent) store is never touched.
+    const relocatedStore = path.join(tmpProjectPath(), 'workspace', '.specrails', 'local-tickets.json')
+    fs.mkdirSync(path.dirname(relocatedStore), { recursive: true })
+    mutateStore(relocatedStore, (s) => {
+      s.schema_version = CURRENT_SCHEMA_VERSION
+      s.next_id = 2
+      s.tickets['1'] = {
+        id: 1, title: 'Parent spec', description: 'Body\n\n## Contract Layer\n\nstuff',
+        status: 'todo', priority: 'medium', labels: [], assignee: null, prerequisites: [],
+        metadata: {}, comments: [], origin_conversation_id: null, is_epic: false,
+        parent_epic_id: null, execution_order: null, short_summary: null,
+        created_at: new Date().toISOString(), updated_at: new Date().toISOString(),
+        created_by: 'test', source: 'propose-spec',
+      } as any
+      return s
+    })
+
+    const r = await runSmash(
+      {
+        db,
+        projectId: 'proj-reloc',
+        projectSlug: 'proj-reloc',
+        projectPath,
+        projectName: 'P',
+        ticketsPath: relocatedStore,
+        broadcast: () => {},
+        spawn: fakeSpawn(streamLines(validSmashBlock(4))),
+        timeoutMs: 5000,
+      },
+      1,
+    )
+    expect(r.ok).toBe(true)
+    // The relocated store was flipped to an épica with 4 children.
+    const store = readStore(relocatedStore)
+    expect(store.tickets['1']!.is_epic).toBe(true)
+    expect(Object.values(store.tickets).filter((t) => t.parent_epic_id === 1)).toHaveLength(4)
+    // The repo's own store was never created.
+    expect(fs.existsSync(resolveTicketStoragePath(projectPath))).toBe(false)
+  })
+
   it('B60: rejects a concurrent SMASH of the same ticket (in-progress guard)', async () => {
     seedTicket(projectPath, { id: 1 })
     const deps = {

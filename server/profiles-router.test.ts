@@ -503,3 +503,72 @@ describe('feature flag gating', () => {
     }
   })
 })
+
+describe('relocate-artifacts: custom-agent catalog routes through the workspace', () => {
+  let regHome: string
+  let prevRegHome: string | undefined
+  let relApp: express.Express
+  let workspaceDir: string
+
+  beforeEach(async () => {
+    regHome = fs.mkdtempSync(path.join(os.tmpdir(), 'profiles-reg-'))
+    prevRegHome = process.env.SPECRAILS_REGISTRY_HOME
+    process.env.SPECRAILS_REGISTRY_HOME = regHome
+
+    // Allocate a registry entry for this repo (flips resolveArtifacts → !isLegacy).
+    const { mirrorProjectEntry } = await import('./artifact-registry')
+    const entry = mirrorProjectEntry(
+      { repoPath: projectPath, slug: 'proj-test', providers: ['claude'], primaryProvider: 'claude' },
+      regHome,
+    )
+    workspaceDir = entry.workspaceDir
+    // Populate the workspace gate marker so resolveProjectExecution flips relocated.
+    fs.mkdirSync(path.join(workspaceDir, '.specrails'), { recursive: true })
+    fs.writeFileSync(path.join(workspaceDir, '.specrails', 'specrails-version'), '4.8.2\n')
+
+    relApp = express()
+    relApp.use(express.json())
+    const ctx: ProjectContext = {
+      project: { id: 'proj-test', slug: 'proj-test', name: 'Test', path: projectPath, provider: 'claude' } as never,
+      db,
+      queueManager: {} as never, chatManager: {} as never, setupManager: {} as never,
+      proposalManager: {} as never, specLauncherManager: {} as never, ticketWatcher: {} as never,
+      broadcast: vi.fn(), railJobs: new Map(),
+    }
+    relApp.use('/api/projects/:projectId/profiles', (req, _res, next) => {
+      ;(req as never as { projectCtx: ProjectContext }).projectCtx = ctx
+      next()
+    }, createProfilesRouter())
+  })
+
+  afterEach(() => {
+    fs.rmSync(regHome, { recursive: true, force: true })
+    if (prevRegHome === undefined) delete process.env.SPECRAILS_REGISTRY_HOME
+    else process.env.SPECRAILS_REGISTRY_HOME = prevRegHome
+  })
+
+  it('POST writes the custom agent under the WORKSPACE, not the repo', async () => {
+    const res = await request(relApp)
+      .post('/api/projects/proj-test/profiles/catalog')
+      .send({ id: 'custom-reloc', body: '---\nname: custom-reloc\n---\nbody' })
+    expect(res.status).toBe(201)
+    // Written under the workspace .claude/agents — NOT the repo.
+    expect(fs.existsSync(path.join(workspaceDir, '.claude', 'agents', 'custom-reloc.md'))).toBe(true)
+    expect(fs.existsSync(path.join(projectPath, '.claude', 'agents', 'custom-reloc.md'))).toBe(false)
+  })
+
+  it('GET reads the catalog from the WORKSPACE', async () => {
+    // Seed an agent directly in the workspace catalog.
+    const wsAgents = path.join(workspaceDir, '.claude', 'agents')
+    fs.mkdirSync(wsAgents, { recursive: true })
+    fs.writeFileSync(
+      path.join(wsAgents, 'custom-fromws.md'),
+      '---\nname: custom-fromws\ndescription: "ws"\nmodel: sonnet\n---\nbody\n',
+      'utf8',
+    )
+    const res = await request(relApp).get('/api/projects/proj-test/profiles/catalog')
+    expect(res.status).toBe(200)
+    const ids = (res.body.agents as Array<{ id: string }>).map((a) => a.id)
+    expect(ids).toContain('custom-fromws')
+  })
+})

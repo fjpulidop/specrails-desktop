@@ -1,6 +1,6 @@
 # Architecture
 
-This document describes the technical architecture of specrails-desktop (v1.63.1): its layers, data layout, request flow, authentication, and the subsystems that make up the app. It is the entry point to the other internals docs — see the [See also](#see-also) block at the bottom.
+This document describes the technical architecture of specrails-desktop: its layers, data layout, request flow, authentication, and the subsystems that make up the app. It is the entry point to the other internals docs — see the [See also](#see-also) block at the bottom. (The authoritative version lives in `package.json`; this doc is verified against `main`.)
 
 ---
 
@@ -39,15 +39,21 @@ Tests use vitest with `:memory:` SQLite databases.
 ~/.specrails/
   desktop.sqlite          # project registry (id, name, path, slug, provider…)
   desktop.token           # auth token, mode 0600 (auto-generated on first run)
+  registry.json           # repo-realpath → workspace map shared with specrails-core (artifact relocation)
   manager.pid             # server PID for clean shutdown
+  framework/<version>/<provider>/   # bundled specrails-core framework, materialized once
+  framework/current        # symlink → active framework version (atomic swap on app update)
   projects/
     <slug>/
       jobs.sqlite         # per-project: jobs, rails, tickets, invocations, …
       jobs/<jobId>/       # per-job snapshots (profile.json, plugins.json, …)
+      workspace/          # relocated spawn cwd (artifactRoot); ./project link → repo
       telemetry/          # OTEL blobs (compacted after 7 days)
       explore-cwd/        # app-managed Explore spawn cwd (CLAUDE.md + ./project link)
       terminals/          # per-session shell-integration shims
 ```
+
+> **Artifact relocation + bundled framework (pre-release, branch `feat/relocate-artifacts-to-home`).** Relocated projects spawn AI-CLIs from `projects/<slug>/workspace` (with `SPECRAILS_REPO_DIR` pointing at the repo) instead of the repo, so imported repos stay pristine; the framework is bundled and symlinked instead of installed per-project via `npx`. See the **Artifact relocation + bundled framework** section in `CLAUDE.md` and the three internal docs: `global-artifacts-relocation-evaluation.md`, `global-artifacts-alignment-contract.md`, `bundled-framework-build-plan.md`.
 
 The app SQLite (`desktop.sqlite`) stores only project metadata. All per-project data lives in an isolated `jobs.sqlite` under the project's slug directory — not just jobs and chat, but rails, tickets, agent profiles/versions, AI invocations (cost analytics), telemetry pointers, file provenance, terminal settings/marks, and more (see the `MIGRATIONS` array in `server/db.ts`). Projects can be removed and re-added without losing history, and the registry can be wiped without touching project data.
 
@@ -153,7 +159,7 @@ client/src/
 │   ├── AnalyticsPage.tsx       # Per-project cost analytics
 │   ├── DesktopAnalyticsPage.tsx # Cross-project spending roll-up
 │   ├── AgentsPage.tsx          # Agent profiles + catalog
-│   ├── CodePage.tsx            # Read-only code explorer (flag-gated)
+│   ├── CodePage.tsx            # Code explorer: file tree + Monaco viewer + edit (flag-gated)
 │   ├── SettingsPage.tsx        # Per-project settings
 │   ├── GlobalSettingsPage.tsx  # App settings
 │   └── JobDetailPage.tsx       # Full log viewer for a single job
@@ -202,20 +208,25 @@ A single WebSocket connection at `ws://127.0.0.1:4200/ws` multiplexes all applic
 
 Every project-scoped message includes a `projectId` field; app-level messages (`desktop.project_added`, `desktop.project_removed`, `desktop.projects`) have none.
 
+### Connect handshake
+
+The **only** frame the server sends on connect is `desktop.projects` (the full project registry) — `server/index.ts` pushes it inside `wss.on('connection', …)`. There is no rich per-connection dashboard snapshot pushed automatically. After connecting, a client subscribes to a project (sends a subscribe frame with `projectId`); per-project state then arrives as the project broadcasts it — notably the `queue` snapshot and per-job `exit` replay. A new client should code against `desktop.projects`, not against an `init` frame.
+
+> **`init` is defined-but-unused.** A `type:'init'` shape exists as a TypeScript interface in `server/types.ts`, but no code path emits it in Super mode — it is a legacy shape, not a live frame. Do not wire a client to receive it.
+
 ### Representative message types
 
 Canonical shapes live in `server/types.ts`. The core dashboard messages:
 
 | Type | Scope | Payload (key fields) |
 |------|-------|----------------------|
-| `init` | project | `{ projectName, phases, phaseDefinitions, logBuffer, recentJobs, queue, projectId }` — per-connection dashboard snapshot sent on (re)connect |
+| `desktop.projects` | app | `{ projects }` — full registry, the **on-connect** frame |
 | `queue` | project | `{ jobs, activeJobId, paused, timestamp, projectId }` — full queue snapshot |
 | `log` | project | `{ source: 'stdout'\|'stderr', line, timestamp, processId, projectId }` |
 | `phase` | project | `{ phase, state, timestamp, projectId }` |
 | `exit` | project | `{ code, signal, early }` — process exit replay on the WS upgrade |
 | `desktop.project_added` | app | `{ project }` |
 | `desktop.project_removed` | app | `{ projectId }` |
-| `desktop.projects` | app | `{ projects }` |
 
 Job lifecycle is reported by the message types `job_started`, `job_completed`, `job_failed`, and `job_canceled`. Feature subsystems add many more (`spending.invalidated`, `plugin.*`, `file.*`, `rail.job_started/completed/stopped`, `explore.contract_refine_failed`, chat/refine/SMASH/proposal streams). See [`api-reference.md`](api-reference.md) for the full outbound-event catalogue.
 
@@ -237,7 +248,7 @@ App-level messages (no `projectId`) are processed by all handlers.
 
 ## Process spawning and concurrency
 
-`QueueManager` and `ChatManager` spawn the provider CLI (`claude` or `codex`) as subprocesses, always with `cwd` set so the process runs in the correct directory.
+`QueueManager` and `ChatManager` spawn the project's provider CLI (`claude`, `codex`, or `gemini`) as subprocesses, always with `cwd` set so the process runs in the correct directory. The exact binary and argv are chosen by the resolved `ProviderAdapter` — managers never branch on the provider id (see [Multi-provider adapters](#feature-subsystems)).
 
 - **Within a project, jobs run strictly one at a time.** Each `ProjectContext` has exactly one `QueueManager` with a single `_activeJobId`; `_drainQueue()` early-returns while a job is active, so the next rail job queues behind the current one.
 - **Parallelism is across projects only** — each project has its own `QueueManager`, so jobs in different projects run simultaneously. There is no "max concurrent jobs" setting; the only automatic queue-pause is budget-based (daily budget / per-job cost alert).
@@ -253,15 +264,16 @@ The app is more than the job pipeline. Each subsystem owns its modules; this is 
 
 | Subsystem | Server modules | Notes |
 |-----------|---------------|-------|
-| **Multi-provider adapters** | `server/providers/{types,claude-adapter,codex-adapter,registry,index}.ts`, `server/provider-selection.ts` | Claude (full native support) and Codex (≥ 0.128.0, estimated cost, synthesized OTEL) behind a `ProviderAdapter` contract. A project can install both; `providers[]` is a JSON column, the first entry is primary. Per-invocation provider is late-bound. See [`adding-a-provider.md`](adding-a-provider.md). |
+| **Multi-provider adapters** | `server/providers/{types,claude-adapter,codex-adapter,gemini-adapter,registry,index}.ts`, `server/provider-selection.ts` | **Three first-class providers — Claude, Codex, and Gemini — all enabled by default** behind a `ProviderAdapter` contract. Claude has full native support (native cost + native OTEL + `--system-prompt`); Codex (`≥ 0.128.0`) has estimated cost and OTEL synthesized by the app; Gemini (`≥ 0.11.0`) has estimated cost but **native OTEL** (it honours the standard `OTEL_*` env vars QueueManager injects — no synthetic bridge), folds its system prompt into `GEMINI.md`, uses `project-json` MCP registration, defaults to `gemini-3.5-flash`, and uniquely implements the optional `prepareHeadlessSpawn()` hook to pre-acknowledge subagents for headless rail spawns. A project can install any subset; `providers[]` is a JSON column, the first entry is primary. Per-invocation provider is late-bound. Provider availability is gated by `SPECRAILS_CODEX_BETA` / `SPECRAILS_GEMINI_BETA` (set either to `0` to disable; both default-enabled, see [`configuration.md`](configuration.md)). See [`adding-a-provider.md`](adding-a-provider.md), [`../codex.md`](../codex.md), and [`../gemini.md`](../gemini.md). |
 | **Spending analytics** | `server/spending.ts`, `server/ai-invocations.ts`, `server/pricing.ts` | `recordInvocation` writes an `ai_invocations` row per AI CLI call across six surfaces (`job`, `quick-spec`, `explore-spec`, `ai-edit`, `smash`, `file-summary`); powers the Analytics page and `spending.invalidated`. |
-| **Agent profiles** | `server/profile-manager.ts`, `server/profiles-router.ts` | Declarative JSON in `.specrails/profiles/*.json`, snapshot-per-job, `SPECRAILS_PROFILE_PATH` env injection. Requires `specrails-core ≥ 4.1.0`. |
+| **Agent profiles** | `server/profile-manager.ts`, `server/profiles-router.ts` | Declarative JSON in `.specrails/profiles/*.json`, snapshot-per-job, `SPECRAILS_PROFILE_PATH` env injection. Requires `specrails-core ≥ 4.1.0` **in the project** (distinct from the app-wide install floor of `^4.8.0` — see [Setup wizard flow](#setup-wizard-flow)). Claude-only: the rails router force-nulls the profile for any non-Claude engine. |
 | **Plugins (Integrations)** | `server/plugin-manager.ts`, `server/plugins/` | Bundled-only, MCP-based, additivity invariant, surgical `.mcp.json` merge, `plugin.*` WS events. Serena ships today. |
 | **Terminal panel** | `server/terminal-manager.ts` | `node-pty` sessions over the dedicated `/ws/terminal/:id` socket, OSC shell-integration marks. See [`../terminal.md`](../terminal.md). |
-| **Code explorer** | `server/code-explorer-router.ts`, `server/file-provenance.ts`, `server/file-summary-manager.ts` | Read-only file tree + Monaco viewer + AI summaries; provenance per ticket/job. |
+| **Code explorer** | `server/code-explorer-router.ts`, `server/file-provenance.ts`, `server/file-summary-manager.ts` | A non-developer-friendly file tree + Monaco viewer with plain-language AI summaries and *touched-by-AI* provenance chips per ticket/job, plus opt-in in-app editing of existing files (overwrite-only via `PUT /file` — no create/rename; refuses binaries `415`, enforces a 2 MB cap `413`, `404` on a missing path, respects deny-list/`.gitignore`). |
 | **Pipeline telemetry** | `server/telemetry-receiver.ts` + QueueManager OTEL injection | Opt-in OTLP/JSON signals to `POST /otlp/v1/{traces,metrics,logs}`; blobs compacted after 7 days; diagnostic ZIP export. |
 | **Explore acceleration + Contract Refine** | `server/explore-cwd-manager.ts`, `server/contract-refine-runner.ts` | App-managed Explore spawn cwd for fast first-token; optional post-commit Contract Layer enrichment. Kill switches: `SPECRAILS_EXPLORE_CONTRACT_REFINE`, `SPECRAILS_EXPLORE_LEGACY_CWD`. |
 | **Tickets / drafts** | `server/ticket-store.ts` | Spec tickets (incl. `draft` status) backing the Specs board and Save-as-Draft flow. |
+| **Jira integration** | `server/jira/*` (`jira-sync-manager`, `jira-client`, `jira-materializer`, `jira-status-resolver`, `jira-db`, `jira-credential-store`), `server/jira-router.ts` | Optional per-project sync that backs a project's specs with a Jira board (Cloud or Data Center). Desktop is the sync layer — specrails-core reads the materialized cache unchanged and stays read-only. Inbound polling + a durable outbox handle write-back; the encrypted token lives on-device. Routes under `/api/projects/:id/jira/*` (gated by `SPECRAILS_JIRA_SECTION`, 404 when off); project-scoped WS events `jira.synced`, `jira.sync_error`, `jira.auth_expired`, `jira.outbox_changed`, `jira.degraded`. See [`../jira-integration-plan.md`](../jira-integration-plan.md). |
 | **Theme system** | `server/desktop-router.ts` (`GET/PATCH /api/theme`) | Five built-in themes (`dracula`, `aurora-light`, `obsidian-dark`, `matrix`, `specrails`), default `specrails`, persisted app-wide with an anti-FOUC inline script. |
 
 Most client feature sections are gated by VITE flags, and they share one polarity: `VITE_FEATURE_TERMINAL_PANEL`, `VITE_FEATURE_AGENTS_SECTION`, `VITE_FEATURE_EXPLORE_PREMIUM_UX`, and `VITE_FEATURE_CODE_EXPLORER` are all **opt-out** — default ON, set the flag to `false` to hide that section. See [`configuration.md`](configuration.md) for the full flag and settings reference.
@@ -273,7 +285,7 @@ Most client feature sections are gated by VITE flags, and they share one polarit
 When a project is added without specrails-core, the setup wizard runs. The client renders a **3-step** indicator: **Configure → Install → Done**.
 
 1. **Configure** — confirm path and pick provider(s) and model presets. (Multi-provider projects get one Configure step per provider.)
-2. **Install** — the app writes `.specrails/install-config.yaml` and runs `npx --yes --prefer-online specrails-core@latest init --yes --from-config <tempPath>`, streaming the log. For multi-provider projects each provider's install runs sequentially.
+2. **Install** — the app writes `.specrails/install-config.yaml` and runs `npx --yes --prefer-online specrails-core@^4.8.0 init --yes --from-config <tempPath>`, streaming the log. The package spec is the constant `CORE_PACKAGE_SPEC` — a deliberately pinned major range (the floor is `4.8.0`, the release that ships the Gemini provider target), so a future core `5.x` doesn't auto-land. Override the binary locally with `SPECRAILS_CORE_BIN`. For multi-provider projects each provider's install runs sequentially.
 3. **Done** — per-provider completion summary.
 
 `SetupManager` (server) owns wizard state; `DesktopProvider` (client) tracks which projects are in setup via `setupProjectIds`. The wizard does spawn a real AI CLI for the `/setup` chat, but that spawn is deliberately left uninstrumented (it writes no `ai_invocations` row).
@@ -328,5 +340,6 @@ macOS desktop builds are signed + notarized. Windows builds (x64 and arm64) ship
 - [Configuration](configuration.md) — env vars, feature flags, app/project settings
 - [Agent profiles](profiles.md) — profile schema, resolution order, snapshot-per-job
 - [Adding a provider](adding-a-provider.md) — the `ProviderAdapter` contract
+- [Codex](../codex.md) / [Gemini](../gemini.md) — per-provider user guides
 - [OpenSpec workflow](openspec-workflow.md) — the spec-driven change lifecycle
 - [Operations runbook](operations-runbook.md) — running, upgrading, and recovering the app

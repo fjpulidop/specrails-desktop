@@ -104,6 +104,7 @@ import {
   formatDescriptionWithCriteria,
   resolveDefaultSpecModel,
 } from './project-router-helpers'
+import { installConfigPath } from './install-config-path'
 
 export function registerSettingsRoutes(deps: ProjectRoutesDeps): void {
   const { router, registry, ctx, ticketPath } = deps
@@ -211,7 +212,7 @@ export function registerSettingsRoutes(deps: ProjectRoutesDeps): void {
 
   router.get('/:projectId/agent-models', (req: Request, res: Response) => {
     const { project } = ctx(req)
-    const agents = readAgentModels(project.path)
+    const agents = readAgentModels(project)
     res.json({ agents })
   })
 
@@ -237,8 +238,9 @@ export function registerSettingsRoutes(deps: ProjectRoutesDeps): void {
       }
     }
 
-    const configDir = path.join(project.path, '.specrails')
-    const configPath = path.join(configDir, 'install-config.yaml')
+    // Relocate-artifacts: the install config lives in the per-project HOME dir,
+    // NEVER `<project>/.specrails` (which would leak into the user's repo).
+    const configPath = installConfigPath(project)
 
     // Read existing config or build default shape
     let existingConfig: Record<string, unknown> = {
@@ -314,11 +316,11 @@ export function registerSettingsRoutes(deps: ProjectRoutesDeps): void {
     existingConfig.models = mergedModels
 
     try {
-      fs.mkdirSync(configDir, { recursive: true })
+      fs.mkdirSync(path.dirname(configPath), { recursive: true })
       const yaml = serializeInstallConfigYaml(existingConfig)
       fs.writeFileSync(configPath, yaml, 'utf-8')
-      applyModelConfig(project.path)
-      const agents = readAgentModels(project.path)
+      applyModelConfig(project)
+      const agents = readAgentModels(project)
       res.json({ agents })
     } catch (err) {
       console.error('[project-router] agent-models patch error:', err)
