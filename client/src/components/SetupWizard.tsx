@@ -784,7 +784,14 @@ export function SetupWizard({ project, onComplete: rawOnComplete, onSkip: rawOnS
       } catch (err) {
         console.error('[SetupWizard] install-config write error:', err)
       }
-      fetch(`/api/projects/${project.id}/setup/install`, { method: 'POST' }).catch((err) => {
+      fetch(`/api/projects/${project.id}/setup/install`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        // Tell the server which provider this install is for, so it reads this
+        // provider's per-provider install-config (additive — multi-provider
+        // installs no longer clobber a single shared config).
+        body: JSON.stringify({ provider }),
+      }).catch((err) => {
         console.error('[SetupWizard] install start error:', err)
       })
     })()

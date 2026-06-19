@@ -10,7 +10,7 @@ import { resolveTicketStoragePath, mutateStore, readStore } from './ticket-store
 import { mirrorProjectEntry as regMirror, workspaceLayout as regLayout, resolveHome as regResolveHome } from './artifact-registry'
 import { initDb } from './db'
 import { initDesktopDb } from './desktop-db'
-import { installConfigPath } from './install-config-path'
+import { installConfigPath, installConfigPathForProvider } from './install-config-path'
 import { ClaudeNotFoundError, JobNotFoundError, JobAlreadyTerminalError } from './queue-manager'
 import type { ProjectRegistry, ProjectContext } from './project-registry'
 import type { DbInstance } from './db'
@@ -3291,6 +3291,39 @@ describe('project-router', () => {
       // The config is read back from HOME by the model resolver.
       const res = await request(app).get('/api/projects/proj-1/default-spec-model')
       expect(res.body.model).toBe('opus')
+    })
+
+    it('persists a PER-PROVIDER install-config per provider (additive, not clobbered)', async () => {
+      // Multi-provider regression: installing claude → codex → gemini in turn used
+      // to leave only the LAST provider's config in the single shared file. Each
+      // POST must now also write install-config.<provider>.yaml so every config
+      // survives.
+      const ctx = makeContext(db, {
+        project: {
+          id: 'proj-1', slug: 'proj', name: 'P', path: tmpDir,
+          db_path: ':memory:', provider: 'claude', added_at: '', last_seen_at: '',
+        } as any,
+      })
+      const { app } = createApp(new Map([['proj-1', ctx]]))
+
+      for (const provider of ['claude', 'codex', 'gemini']) {
+        const w = await request(app)
+          .post('/api/projects/proj-1/setup/install-config')
+          .send({ version: 1, provider, tier: 'quick', models: { defaults: { model: 'opus' } } })
+        expect(w.status).toBe(200)
+        expect(w.body.providerPath).toBe(installConfigPathForProvider({ slug: 'proj', path: tmpDir }, provider))
+      }
+
+      // All three per-provider configs coexist, each carrying its own provider.
+      for (const provider of ['claude', 'codex', 'gemini']) {
+        const p = installConfigPathForProvider({ slug: 'proj', path: tmpDir }, provider)
+        expect(fs.existsSync(p)).toBe(true)
+        expect(fs.readFileSync(p, 'utf-8')).toContain(`provider: ${provider}`)
+      }
+      // The shared file is still written (legacy readers) = the last provider.
+      expect(fs.readFileSync(installConfigPath({ slug: 'proj', path: tmpDir }), 'utf-8')).toContain('provider: gemini')
+      // And still ZERO .specrails in the repo.
+      expect(fs.existsSync(path.join(tmpDir, '.specrails'))).toBe(false)
     })
 
     it('PATCH /agent-models writes install-config to HOME, not the repo', async () => {

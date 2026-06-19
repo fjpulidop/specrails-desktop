@@ -52,6 +52,12 @@ function isSafeSlug(slug: string | undefined): slug is string {
   )
 }
 
+/** True when a provider id is a safe filename segment (registry ids are
+ *  lowercase-kebab — `claude` / `codex` / `gemini`). */
+function isSafeProvider(provider: string | undefined): provider is string {
+  return typeof provider === 'string' && /^[a-z0-9][a-z0-9-]*$/.test(provider)
+}
+
 /** The per-project app-managed HOME dir: `$HOME/.specrails/projects/<slug>`. */
 export function projectHomeDir(slug: string, home?: string): string {
   return path.join(resolveHome(home), '.specrails', 'projects', slug)
@@ -71,6 +77,34 @@ export function installConfigPath(project: InstallConfigProject, home?: string):
   // file keeps the canonical `install-config.yaml` basename.
   const hash = createHash('sha256').update(path.resolve(project.path)).digest('hex').slice(0, 16)
   return path.join(os.tmpdir(), `specrails-desktop-install-config-${hash}`, 'install-config.yaml')
+}
+
+/**
+ * Resolve the PER-PROVIDER install-config path
+ * (`<projectHome>/install-config.<provider>.yaml`).
+ *
+ * specrails-core's `install-config.yaml` carries exactly one `provider:` field
+ * (it installs one provider per `init`), so a multi-provider project that ran
+ * each provider's install in turn would clobber a single shared file down to the
+ * last provider only. Writing one config per provider keeps every provider's
+ * config — the install for provider X reads `install-config.<X>.yaml`.
+ *
+ * Falls back to the shared `installConfigPath` when `provider` is missing or not
+ * a safe filename segment (so single-provider / legacy callers are unchanged).
+ */
+export function installConfigPathForProvider(
+  project: InstallConfigProject,
+  provider: string | undefined,
+  home?: string,
+): string {
+  if (!isSafeProvider(provider)) return installConfigPath(project, home)
+  const dir = isSafeSlug(project.slug)
+    ? projectHomeDir(project.slug, home)
+    : path.join(
+        os.tmpdir(),
+        `specrails-desktop-install-config-${createHash('sha256').update(path.resolve(project.path)).digest('hex').slice(0, 16)}`,
+      )
+  return path.join(dir, `install-config.${provider}.yaml`)
 }
 
 /** Ensure the parent directory of the install-config exists (idempotent). */
