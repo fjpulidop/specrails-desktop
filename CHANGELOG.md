@@ -1,5 +1,17 @@
 # Changelog
 
+## [2.10.0](https://github.com/fjpulidop/specrails-desktop/compare/v2.9.1...v2.10.0) (2026-06-19)
+
+
+### Features
+
+* **core-update:** voluntary app-global specrails-core update channel ([#411](https://github.com/fjpulidop/specrails-desktop/issues/411)) ([41ca609](https://github.com/fjpulidop/specrails-desktop/commit/41ca60952c52b288fb455a6558af0e494434c8f5))
+
+
+### Bug Fixes
+
+* **setup:** run bundled openspec init with real Node, not the pkg binary ([#412](https://github.com/fjpulidop/specrails-desktop/issues/412)) ([c22774c](https://github.com/fjpulidop/specrails-desktop/commit/c22774c2e2cd5bc4e71c3dbdddfa48e5949fdd18))
+
 ## [2.9.1](https://github.com/fjpulidop/specrails-desktop/compare/v2.9.0...v2.9.1) (2026-06-19)
 
 
