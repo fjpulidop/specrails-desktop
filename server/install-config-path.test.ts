@@ -4,6 +4,7 @@ import os from 'os'
 import path from 'path'
 import {
   installConfigPath,
+  installConfigPathForProvider,
   projectHomeDir,
   ensureInstallConfigDir,
 } from './install-config-path'
@@ -80,5 +81,49 @@ describe('install-config-path', () => {
     } finally {
       fs.rmSync(other, { recursive: true, force: true })
     }
+  })
+
+  describe('installConfigPathForProvider (multi-provider, additive)', () => {
+    it('returns a distinct per-provider file per provider (never clobbered)', () => {
+      const claude = installConfigPathForProvider({ slug: 'my-repo', path: repo }, 'claude')
+      const codex = installConfigPathForProvider({ slug: 'my-repo', path: repo }, 'codex')
+      const gemini = installConfigPathForProvider({ slug: 'my-repo', path: repo }, 'gemini')
+      expect(claude).toBe(path.join(home, '.specrails', 'projects', 'my-repo', 'install-config.claude.yaml'))
+      expect(codex).toBe(path.join(home, '.specrails', 'projects', 'my-repo', 'install-config.codex.yaml'))
+      expect(gemini).toBe(path.join(home, '.specrails', 'projects', 'my-repo', 'install-config.gemini.yaml'))
+      // The three configs coexist — none equals another or the shared file.
+      expect(new Set([claude, codex, gemini]).size).toBe(3)
+      expect(claude).not.toBe(installConfigPath({ slug: 'my-repo', path: repo }))
+    })
+
+    it('lives in the same per-project HOME dir as the shared config', () => {
+      const shared = installConfigPath({ slug: 'my-repo', path: repo })
+      const perProvider = installConfigPathForProvider({ slug: 'my-repo', path: repo }, 'codex')
+      expect(path.dirname(perProvider)).toBe(path.dirname(shared))
+    })
+
+    it('falls back to the shared path when provider is missing or unsafe', () => {
+      const shared = installConfigPath({ slug: 'my-repo', path: repo })
+      expect(installConfigPathForProvider({ slug: 'my-repo', path: repo }, undefined)).toBe(shared)
+      for (const bad of ['', '../evil', 'a/b', 'a\\b', 'UPPER']) {
+        expect(installConfigPathForProvider({ slug: 'my-repo', path: repo }, bad)).toBe(shared)
+      }
+    })
+
+    it('NEVER returns a path inside the user repo, even slug-less', () => {
+      const p = installConfigPathForProvider({ path: repo }, 'gemini')
+      expect(p.startsWith(path.resolve(repo))).toBe(false)
+      expect(path.basename(p)).toBe('install-config.gemini.yaml')
+    })
+
+    it('honors an explicit home override', () => {
+      const other = fs.mkdtempSync(path.join(os.tmpdir(), 'icp-other2-'))
+      try {
+        const p = installConfigPathForProvider({ slug: 's', path: repo }, 'claude', other)
+        expect(p).toBe(path.join(other, '.specrails', 'projects', 's', 'install-config.claude.yaml'))
+      } finally {
+        fs.rmSync(other, { recursive: true, force: true })
+      }
+    })
   })
 })

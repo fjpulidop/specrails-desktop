@@ -12,7 +12,7 @@ import { formatMissingSetupPrerequisites } from './setup-prerequisites'
 import { CORE_PACKAGE_SPEC } from './core-package'
 import { getAdapter, hasAdapter } from './providers'
 import { mirrorProjectEntry, resolveArtifacts } from './artifact-registry'
-import { installConfigPath, type InstallConfigProject } from './install-config-path'
+import { installConfigPath, installConfigPathForProvider, type InstallConfigProject } from './install-config-path'
 import { getBundledCoreCli, getBundledCoreRoot, getBundledCoreVersion } from './bundled-core'
 import { getBundledOpenspecCli } from './bundled-openspec'
 import { resolveBundledNodeExe } from './path-resolver'
@@ -188,8 +188,22 @@ interface InstallConfigParsed {
   selectedAgents: string[]
 }
 
-function readInstallConfig(project: InstallConfigProject): InstallConfigParsed | null {
-  const configPath = installConfigPath(project)
+/**
+ * Resolve which install-config to READ for an install. Prefers the per-provider
+ * `install-config.<provider>.yaml` (multi-provider installs write one config per
+ * provider so configs are never clobbered to the last one) and falls back to the
+ * shared `install-config.yaml` for single-provider / legacy callers.
+ */
+function resolveInstallConfigReadPath(project: InstallConfigProject, provider?: string): string {
+  if (provider) {
+    const perProvider = installConfigPathForProvider(project, provider)
+    if (existsSync(perProvider)) return perProvider
+  }
+  return installConfigPath(project)
+}
+
+function readInstallConfig(project: InstallConfigProject, provider?: string): InstallConfigParsed | null {
+  const configPath = resolveInstallConfigReadPath(project, provider)
   try {
     const text = readFileSync(configPath, 'utf-8')
     const tierMatch = text.match(/^tier:\s*(\w+)/m)
@@ -736,7 +750,7 @@ export class SetupManager {
 
   // ─── Full Install: TUI installer (npx specrails-core) ────────────────────────
 
-  startInstall(projectId: string, projectPath: string, projectSlug?: string): void {
+  startInstall(projectId: string, projectPath: string, projectSlug?: string, provider?: string): void {
     if (this._installProcesses.has(projectId)) {
       console.warn(`[SetupManager] install already running for ${projectId}`)
       return
@@ -761,9 +775,12 @@ export class SetupManager {
     // (NOT the repo). `--from-config` accepts any path, so the spawn below points
     // core at the relocated location.
     const installProject: InstallConfigProject = { slug: projectSlug, path: projectPath }
-    const configPath = installConfigPath(installProject)
+    // Prefer this provider's per-provider config (multi-provider installs write
+    // one config per provider; the shared file is the legacy single-provider
+    // fallback). See resolveInstallConfigReadPath.
+    const configPath = resolveInstallConfigReadPath(installProject, provider)
     const hasConfig = existsSync(configPath)
-    const parsedConfig = hasConfig ? readInstallConfig(installProject) : null
+    const parsedConfig = hasConfig ? readInstallConfig(installProject, provider) : null
     const tier = parsedConfig?.tier ?? 'full'
     this._projectTiers.set(projectId, tier)
     // Pull provider out of the just-written install-config.yaml so the

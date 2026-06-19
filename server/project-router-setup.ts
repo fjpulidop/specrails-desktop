@@ -104,7 +104,7 @@ import {
   formatDescriptionWithCriteria,
   resolveDefaultSpecModel,
 } from './project-router-helpers'
-import { installConfigPath } from './install-config-path'
+import { installConfigPath, installConfigPathForProvider } from './install-config-path'
 import { resolveProjectExecution } from './workspace-resolution'
 
 export function registerSetupRoutes(deps: ProjectRoutesDeps): void {
@@ -125,7 +125,19 @@ export function registerSetupRoutes(deps: ProjectRoutesDeps): void {
       fs.mkdirSync(path.dirname(configPath), { recursive: true })
       const yaml = serializeInstallConfigYaml(config as Record<string, unknown>)
       fs.writeFileSync(configPath, yaml, 'utf-8')
-      res.json({ ok: true, path: configPath })
+      // Multi-provider projects install one provider at a time and each call
+      // POSTs that provider's config. Also persist a PER-PROVIDER copy so the
+      // configs are additive (never clobbered down to the last provider) — the
+      // per-provider install reads `install-config.<provider>.yaml`. The shared
+      // `install-config.yaml` above stays the current-install input for the
+      // legacy single-provider readers. See server/install-config-path.ts.
+      const provider = (config as Record<string, unknown>).provider
+      let perProviderPath: string | undefined
+      if (typeof provider === 'string' && provider.length > 0) {
+        perProviderPath = installConfigPathForProvider(project, provider)
+        if (perProviderPath !== configPath) fs.writeFileSync(perProviderPath, yaml, 'utf-8')
+      }
+      res.json({ ok: true, path: configPath, providerPath: perProviderPath })
     } catch (err) {
       res.status(500).json({ error: `Failed to write install-config.yaml: ${err}` })
     }
@@ -138,8 +150,13 @@ export function registerSetupRoutes(deps: ProjectRoutesDeps): void {
     if (setupManager.isInstalling(project.id)) {
       res.status(409).json({ error: 'Install already in progress' }); return
     }
+    // Multi-provider installs send the provider being installed so startInstall
+    // reads that provider's per-provider install-config (additive — never the
+    // clobbered shared file). Optional: single-provider/legacy callers omit it.
+    const requested = (req.body ?? {}) as { provider?: unknown }
+    const provider = typeof requested.provider === 'string' ? requested.provider : undefined
     res.status(202).json({ ok: true })
-    setupManager.startInstall(project.id, project.path, project.slug)
+    setupManager.startInstall(project.id, project.path, project.slug, provider)
   })
 
   router.post('/:projectId/enrich/start', (req: Request, res: Response) => {
