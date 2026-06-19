@@ -126,8 +126,11 @@ function main() {
       JSON.stringify({ name: 'bundled-core-stage', private: true, version: '0.0.0' }),
     )
     console.log(`[assemble-bundled-core] npm install ${spec} → ${tmp}`)
+    // On Windows npm is `npm.cmd`; Node 20.12+ (CVE-2024-27980) refuses to
+    // spawn a `.cmd` without a shell (EINVAL), so run through the shell there —
+    // the shell resolves `npm` → `npm.cmd` from PATH. POSIX spawns directly.
     execFileSync(
-      process.platform === 'win32' ? 'npm.cmd' : 'npm',
+      'npm',
       [
         'install',
         spec,
@@ -137,7 +140,12 @@ function main() {
         '--ignore-scripts',
         '--silent',
       ],
-      { cwd: tmp, encoding: 'utf8', stdio: ['ignore', 'inherit', 'inherit'] },
+      {
+        cwd: tmp,
+        encoding: 'utf8',
+        stdio: ['ignore', 'inherit', 'inherit'],
+        shell: process.platform === 'win32',
+      },
     )
 
     const nodeModules = path.join(tmp, 'node_modules')
