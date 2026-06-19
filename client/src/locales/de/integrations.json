@@ -55,7 +55,7 @@
     "title": "Dokumentation",
     "dialogDescription": "Durchstöbere die mitgelieferte Specrails-Dokumentation. Wechsle über die Seitenleiste zwischen den Guides.",
     "sidebarEmpty": "Noch keine Doku",
-    "indexEmpty": "Keine Dokumente verfügbar. Die mitgelieferte Doku liegt im Repo unter docs/ – lege dort oder unter ~/.specrails/docs/ Markdown-Dateien ab, um sie zu erweitern.",
+    "indexEmpty": "Die Dokumentation erscheint hier. Das Benutzerhandbuch wird mit der App unter docs/guide/ ausgeliefert; lege Markdown-Dateien unter ~/.specrails/docs/guide/ ab, um es anzupassen.",
     "categoryEmpty": "Noch keine Dokumente in dieser Kategorie.",
     "documentCount_one": "{{count}} Dokument",
     "documentCount_other": "{{count}} Dokumente",
