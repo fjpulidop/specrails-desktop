@@ -79,6 +79,7 @@ describe('SetupManager — bundled-core install path', () => {
   let prevCore: string | undefined
   let prevHome: string | undefined
   let prevOpenspec: string | undefined
+  let prevRuntimes: string | undefined
   let openspecDir: string
 
   beforeEach(() => {
@@ -91,7 +92,10 @@ describe('SetupManager — bundled-core install path', () => {
     prevCore = process.env.SPECRAILS_BUNDLED_CORE_PATH
     prevHome = process.env.SPECRAILS_REGISTRY_HOME
     prevOpenspec = process.env.SPECRAILS_BUNDLED_OPENSPEC_PATH
+    prevRuntimes = process.env.SPECRAILS_BUNDLED_RUNTIMES_PATH
     delete process.env.SPECRAILS_BUNDLED_OPENSPEC_PATH
+    // Default: no bundled runtimes → SPECRAILS_OPENSPEC_NODE falls back to PATH `node`.
+    delete process.env.SPECRAILS_BUNDLED_RUNTIMES_PATH
     process.env.SPECRAILS_REGISTRY_HOME = home
   })
 
@@ -102,6 +106,8 @@ describe('SetupManager — bundled-core install path', () => {
     else process.env.SPECRAILS_REGISTRY_HOME = prevHome
     if (prevOpenspec === undefined) delete process.env.SPECRAILS_BUNDLED_OPENSPEC_PATH
     else process.env.SPECRAILS_BUNDLED_OPENSPEC_PATH = prevOpenspec
+    if (prevRuntimes === undefined) delete process.env.SPECRAILS_BUNDLED_RUNTIMES_PATH
+    else process.env.SPECRAILS_BUNDLED_RUNTIMES_PATH = prevRuntimes
     rmSync(home, { recursive: true, force: true })
     rmSync(coreDir, { recursive: true, force: true })
     rmSync(project, { recursive: true, force: true })
@@ -194,8 +200,42 @@ describe('SetupManager — bundled-core install path', () => {
     expect(existsSync(envFile)).toBe(true)
     const env = JSON.parse(readFileSync(envFile, 'utf8'))
     expect(env.bin).toBe(openspecCli)
-    // NODE is the same node the bundled core runs with (process.execPath).
-    expect(env.node).toBe(process.execPath)
+    // NODE must be a REAL node executable, NOT process.execPath (the packaged
+    // pkg binary, which cannot run openspec's ESM CLI → exit -1). With no bundled
+    // runtimes set, it falls back to `node` on PATH.
+    expect(env.node).toBe('node')
+    expect(env.node).not.toBe(process.execPath)
+  })
+
+  it('uses the bundled Node binary as SPECRAILS_OPENSPEC_NODE when bundled runtimes are present', async () => {
+    installFakeCore('5.0.0')
+    const openspecCli = installFakeOpenspec()
+
+    // Arm a fake bundled runtimes tree with a real node binary at the POSIX path
+    // (the test only runs assertions on POSIX layout; on win32 the candidate is
+    // node/node.exe — guard accordingly).
+    const runtimes = mkdtempSync(path.join(os.tmpdir(), 'sm-bc-rt-'))
+    const nodeExe = process.platform === 'win32'
+      ? path.join(runtimes, 'node', 'node.exe')
+      : path.join(runtimes, 'node', 'bin', 'node')
+    mkdirSync(path.dirname(nodeExe), { recursive: true })
+    writeFileSync(nodeExe, '#!/bin/sh\n', { mode: 0o755 })
+    process.env.SPECRAILS_BUNDLED_RUNTIMES_PATH = runtimes
+
+    try {
+      sm.startInstall('proj-os-rt', project, 'proj-os-rt')
+      await waitFor(() => getByType('setup_install_done').length > 0 || getByType('setup_error').length > 0)
+
+      expect(getByType('setup_error')).toEqual([])
+      const { readFileSync, existsSync } = await import('fs')
+      const envFile = path.join(project, 'openspec-env.json')
+      expect(existsSync(envFile)).toBe(true)
+      const env = JSON.parse(readFileSync(envFile, 'utf8'))
+      expect(env.bin).toBe(openspecCli)
+      expect(env.node).toBe(nodeExe)
+    } finally {
+      rmSync(runtimes, { recursive: true, force: true })
+    }
   })
 
   it('omits the openspec env (npx fallback) when no bundled openspec is present', async () => {

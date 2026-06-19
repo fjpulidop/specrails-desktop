@@ -9,6 +9,7 @@ import {
   parseLoginShellOutput,
   getPathDiagnostic,
   resolveBundledRuntimePath,
+  resolveBundledNodeExe,
   __resetPathResolverForTest,
 } from './path-resolver'
 
@@ -421,3 +422,61 @@ function makeFakeSpawn(opts: { stdout: string; exitCode: number | null; hang?: b
     return child
   }
 }
+
+describe('resolveBundledNodeExe', () => {
+  const ORIGINAL_RUNTIMES = process.env.SPECRAILS_BUNDLED_RUNTIMES_PATH
+
+  afterEach(() => {
+    if (ORIGINAL_RUNTIMES === undefined) delete process.env.SPECRAILS_BUNDLED_RUNTIMES_PATH
+    else process.env.SPECRAILS_BUNDLED_RUNTIMES_PATH = ORIGINAL_RUNTIMES
+    setPlatform(ORIGINAL_PLATFORM)
+  })
+
+  it('returns null when SPECRAILS_BUNDLED_RUNTIMES_PATH is unset', () => {
+    delete process.env.SPECRAILS_BUNDLED_RUNTIMES_PATH
+    expect(resolveBundledNodeExe()).toBeNull()
+  })
+
+  it('returns null when set but the node binary is absent', () => {
+    const empty = fs.mkdtempSync(path.join(os.tmpdir(), 'rt-empty-'))
+    process.env.SPECRAILS_BUNDLED_RUNTIMES_PATH = empty
+    try {
+      expect(resolveBundledNodeExe()).toBeNull()
+    } finally {
+      fs.rmSync(empty, { recursive: true, force: true })
+    }
+  })
+
+  it('returns the POSIX node path when the bundled binary exists (non-win32)', () => {
+    setPlatform('darwin')
+    const { base } = makeRuntimesDir()
+    process.env.SPECRAILS_BUNDLED_RUNTIMES_PATH = base
+    try {
+      expect(resolveBundledNodeExe()).toBe(path.join(base, 'node', 'bin', 'node'))
+    } finally {
+      fs.rmSync(base, { recursive: true, force: true })
+    }
+  })
+
+  it('returns the node.exe path on win32', () => {
+    setPlatform('win32')
+    const { base } = makeRuntimesDir()
+    process.env.SPECRAILS_BUNDLED_RUNTIMES_PATH = base
+    try {
+      expect(resolveBundledNodeExe()).toBe(path.join(base, 'node', 'node.exe'))
+    } finally {
+      fs.rmSync(base, { recursive: true, force: true })
+    }
+  })
+
+  it('never returns process.execPath (the pkg binary) — the openspec-init regression guard', () => {
+    setPlatform('darwin')
+    const { base } = makeRuntimesDir()
+    process.env.SPECRAILS_BUNDLED_RUNTIMES_PATH = base
+    try {
+      expect(resolveBundledNodeExe()).not.toBe(process.execPath)
+    } finally {
+      fs.rmSync(base, { recursive: true, force: true })
+    }
+  })
+})
