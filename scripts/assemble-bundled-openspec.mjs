@@ -49,6 +49,28 @@ import { fileURLToPath } from 'node:url'
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 const repoRoot = path.resolve(__dirname, '..')
 
+/**
+ * Recursively remove every `node_modules/.bin` directory under `root`.
+ *
+ * WHY: `cpSync` rewrites npm's `.bin` symlinks to ABSOLUTE paths into the
+ * (about-to-be deleted) temp install prefix, leaving DANGLING links that make
+ * Tauri fail enumerating `bundle.resources` ("resource path ... doesn't exist").
+ * The `.bin` shims are never used by our `node <cli>` invocation.
+ */
+function pruneBinDirs(root) {
+  if (!existsSync(root)) return
+  for (const entry of readdirSync(root, { withFileTypes: true })) {
+    const full = path.join(root, entry.name)
+    if (entry.isSymbolicLink()) continue
+    if (!entry.isDirectory()) continue
+    if (entry.name === '.bin') {
+      rmSync(full, { recursive: true, force: true })
+      continue
+    }
+    pruneBinDirs(full)
+  }
+}
+
 const PACKAGE = '@fission-ai/openspec'
 const DEFAULT_VERSION = '1.4.1'
 
@@ -79,7 +101,7 @@ function main() {
     )
     console.log(`[assemble-bundled-openspec] npm install ${spec} → ${tmp}`)
     execFileSync(
-      'npm',
+      process.platform === 'win32' ? 'npm.cmd' : 'npm',
       [
         'install',
         spec,
@@ -108,7 +130,13 @@ function main() {
     // Stage the whole node_modules tree (deps included) into dest (clean first).
     rmSync(dest, { recursive: true, force: true })
     mkdirSync(dest, { recursive: true })
-    cpSync(nodeModules, path.join(dest, 'node_modules'), { recursive: true })
+    cpSync(nodeModules, path.join(dest, 'node_modules'), {
+      recursive: true,
+      verbatimSymlinks: true,
+    })
+    // Drop the npm `.bin` shims — they are dangling after the copy and Tauri
+    // refuses to bundle a non-existent resource path. Never used at runtime.
+    pruneBinDirs(path.join(dest, 'node_modules'))
 
     // Assert the CLI entry exists where bundled-openspec.ts will look for it.
     const stagedCli = path.join(dest, 'node_modules', '@fission-ai', 'openspec', binRel)
