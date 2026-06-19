@@ -5,6 +5,7 @@ import path from 'path'
 
 import { FrameworkManager, readCurrentFrameworkVersion, type FrameworkBroadcast } from './framework-manager'
 import { isNewer, isValidVersion } from './semver-lite'
+import { windowsSpawnEnv } from './util/win-spawn'
 
 /**
  * CoreUpdateManager — the voluntary, app-global specrails-core update channel.
@@ -266,5 +267,8 @@ function defaultNpmInstall(spec: string, cwd: string): void {
     stdio: ['ignore', 'inherit', 'inherit'],
     timeout: INSTALL_TIMEOUT_MS,
     shell: process.platform === 'win32',
+    // SystemRoot/ComSpec so npm.cmd's cmd.exe can start even if the packaged
+    // sidecar inherited a stripped Windows environment.
+    env: windowsSpawnEnv(),
   })
 }

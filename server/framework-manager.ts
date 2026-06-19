@@ -5,6 +5,20 @@ import path from 'path'
 import { getBundledCoreCli, getBundledCoreVersion } from './bundled-core'
 import { resolveHome, atomicWrite } from './artifact-registry'
 import { isNewer } from './semver-lite'
+import { resolveBundledNodeExe } from './path-resolver'
+
+/**
+ * The node interpreter to run the core CLI with. In the PACKAGED app
+ * `process.execPath` is the `specrails-server` pkg binary — NOT node — so
+ * `spawnSync(process.execPath, [cli, …])` would re-launch the server instead of
+ * running `cli.js`, silently breaking every framework materialize/swap/assemble.
+ * Use the bundled real node when present (it always is when a bundled core is —
+ * they ship together), and fall back to `process.execPath` only in dev/tests
+ * where `process.execPath` IS node.
+ */
+function nodeInterpreter(): string {
+  return resolveBundledNodeExe() ?? process.execPath
+}
 
 /**
  * FrameworkManager — materializes the bundled specrails-core framework ONCE into
@@ -161,7 +175,7 @@ export class FrameworkManager {
     const done: string[] = []
     for (const provider of dedupe(providers)) {
       const res = spawnSync(
-        process.execPath,
+        nodeInterpreter(),
         [
           cli,
           'install-framework',
@@ -202,7 +216,7 @@ export class FrameworkManager {
     if (readCurrentFrameworkVersion(this.home) === version) return true
     const fwDir = frameworkRoot(this.home)
     const res = spawnSync(
-      process.execPath,
+      nodeInterpreter(),
       [cli, 'swap-current', '--framework-dir', fwDir, '--version', version],
       { env: this.childEnv(), encoding: 'utf-8', timeout: 120_000 },
     )
@@ -299,7 +313,7 @@ export class FrameworkManager {
     if (!ver) return { ran: false }
     const fwDir = frameworkRoot(this.home)
     const res = spawnSync(
-      process.execPath,
+      nodeInterpreter(),
       [
         cli,
         'assemble',

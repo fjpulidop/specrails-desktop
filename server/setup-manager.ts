@@ -7,7 +7,7 @@ import treeKill from 'tree-kill'
 import type { WsMessage } from './types'
 import { findCoreContract, detectCLISync, CLIProvider } from './core-compat'
 import { spawnAiCli } from './util/cli-prompt'
-import { spawnCli } from './util/win-spawn'
+import { spawnCli, windowsSpawnEnv } from './util/win-spawn'
 import { formatMissingSetupPrerequisites } from './setup-prerequisites'
 import { CORE_PACKAGE_SPEC } from './core-package'
 import { getAdapter, hasAdapter } from './providers'
@@ -39,7 +39,7 @@ function resolveCoreBinary(bin: string): string {
   if (bin.includes('/') || bin.includes('\\')) return resolvePath(bin)
 
   const result = spawnSync(WHICH_CMD, [bin], {
-    env: process.env,
+    env: windowsSpawnEnv(),
     shell: process.platform === 'win32',
     encoding: 'utf-8',
     timeout: 5_000,
@@ -80,7 +80,7 @@ function spawnCoreInit(args: string[], cwd: string): ChildProcess {
     // repo). The desktop manages the cwd (spawns rails with cwd=workspace), so
     // it MUST relocate to keep the user's imported repo pristine — independent of
     // whether the registry mirror already ran. See specrails-core init's gate.
-    env: { ...process.env, SPECRAILS_RELOCATE: '1' },
+    env: { ...windowsSpawnEnv(), SPECRAILS_RELOCATE: '1' },
     stdio: ['ignore', 'pipe', 'pipe'],
   })
 }
@@ -103,7 +103,7 @@ function spawnBundledCoreInit(args: string[], cwd: string): ChildProcess | null 
   const fullArgs = [cli, 'init', ...args]
   // Force RELOCATION (core installs in-repo by default; the desktop keeps the
   // user's repo pristine + manages the spawn cwd). See spawnCoreInit.
-  const env: NodeJS.ProcessEnv = { ...process.env, SPECRAILS_CORE_SCRIPT_DIR: coreRoot, SPECRAILS_RELOCATE: '1' }
+  const env: NodeJS.ProcessEnv = { ...windowsSpawnEnv(), SPECRAILS_CORE_SCRIPT_DIR: coreRoot, SPECRAILS_RELOCATE: '1' }
 
   // Bundled openspec (offline) — the LAST network step of project-add. When the
   // app ships @fission-ai/openspec, point specrails-core's `installOpenSpecProject`
@@ -125,11 +125,16 @@ function spawnBundledCoreInit(args: string[], cwd: string): ChildProcess | null 
     env.SPECRAILS_OPENSPEC_NODE = resolveBundledNodeExe() ?? 'node'
   }
 
+  // Run the core CLI with the REAL bundled node — NOT process.execPath, which in
+  // the packaged app is the `specrails-server` pkg binary and would re-launch the
+  // server instead of running cli.js (same trap as SPECRAILS_OPENSPEC_NODE above).
+  // Fall back to process.execPath only in dev/tests where it IS node.
+  const nodeBin = resolveBundledNodeExe() ?? process.execPath
   console.log(
-    `[SetupManager] spawning BUNDLED core: ${process.execPath} ${fullArgs.join(' ')} (cwd=${cwd})` +
+    `[SetupManager] spawning BUNDLED core: ${nodeBin} ${fullArgs.join(' ')} (cwd=${cwd})` +
       (openspecCli ? ' [bundled openspec: offline]' : ' [openspec: npx fallback]'),
   )
-  return spawnCli(process.execPath, fullArgs, {
+  return spawnCli(nodeBin, fullArgs, {
     cwd,
     env,
     stdio: ['ignore', 'pipe', 'pipe'],
@@ -148,7 +153,7 @@ function probeCoreRuntimeVersion(cwd: string): { ok: boolean; bin: string; versi
   const { bin, fullArgs } = buildCoreArgs(['version'])
   const result = spawnSync(bin, fullArgs, {
     cwd,
-    env: process.env,
+    env: windowsSpawnEnv(),
     shell: process.platform === 'win32',
     encoding: 'utf-8',
     timeout: CORE_PROBE_TIMEOUT_MS,
