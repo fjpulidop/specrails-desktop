@@ -1,5 +1,40 @@
-import { describe, it, expect, beforeEach } from 'vitest'
-import { spawnCli, resolveWindowsBinary } from './win-spawn'
+import { describe, it, expect, beforeEach, afterEach } from 'vitest'
+import { spawnCli, resolveWindowsBinary, windowsSpawnEnv } from './win-spawn'
+
+describe('windowsSpawnEnv', () => {
+  const ORIGINAL = process.platform
+  afterEach(() => {
+    Object.defineProperty(process, 'platform', { value: ORIGINAL, configurable: true })
+  })
+
+  it('returns the base env unchanged on POSIX (identity)', () => {
+    if (process.platform === 'win32') return
+    const base = { FOO: 'bar' } as NodeJS.ProcessEnv
+    expect(windowsSpawnEnv(base)).toBe(base)
+  })
+
+  it('reconstructs SystemRoot/windir/ComSpec when missing on win32', () => {
+    Object.defineProperty(process, 'platform', { value: 'win32', configurable: true })
+    const out = windowsSpawnEnv({ PATH: 'x' } as NodeJS.ProcessEnv)
+    expect(out.SystemRoot).toBe('C:\\Windows')
+    expect(out.windir).toBe('C:\\Windows')
+    expect(out.ComSpec).toBe('C:\\Windows\\System32\\cmd.exe')
+    expect(out.PATH).toBe('x')
+  })
+
+  it('preserves existing SystemRoot and derives ComSpec from it', () => {
+    Object.defineProperty(process, 'platform', { value: 'win32', configurable: true })
+    const out = windowsSpawnEnv({ SystemRoot: 'D:\\Win\\' } as NodeJS.ProcessEnv)
+    expect(out.SystemRoot).toBe('D:\\Win\\')
+    expect(out.ComSpec).toBe('D:\\Win\\System32\\cmd.exe')
+  })
+
+  it('falls back to windir when SystemRoot is absent', () => {
+    Object.defineProperty(process, 'platform', { value: 'win32', configurable: true })
+    const out = windowsSpawnEnv({ windir: 'E:\\Windows' } as NodeJS.ProcessEnv)
+    expect(out.SystemRoot).toBe('E:\\Windows')
+  })
+})
 
 describe('resolveWindowsBinary', () => {
   it('returns the input unchanged on POSIX (no-op)', () => {

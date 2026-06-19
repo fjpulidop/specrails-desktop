@@ -7,7 +7,13 @@ vi.mock('child_process', () => ({
   spawnSync: vi.fn(),
 }))
 
+// On Windows the probe routes through cross-spawn (no shell:true). Forward its
+// `.sync` to the same spawnSync mock so the platform-forced win32 tests exercise
+// the real branch with the existing mock setups.
+vi.mock('cross-spawn', () => ({ default: { sync: vi.fn() } }))
+
 import { spawnSync } from 'child_process'
+import crossSpawn from 'cross-spawn'
 import {
   compareVersions,
   formatMissingSetupPrerequisites,
@@ -18,10 +24,16 @@ import {
 } from './setup-prerequisites'
 
 const mockSpawnSync = vi.mocked(spawnSync)
+const mockCrossSpawnSync = vi.mocked(crossSpawn.sync)
 
 describe('setup prerequisites', () => {
   beforeEach(() => {
     vi.resetAllMocks()
+    // cross-spawn (win32 path) delegates to the same spawnSync mock so a single
+    // mockImplementation drives both platform branches.
+    mockCrossSpawnSync.mockImplementation((cmd: any, args: any, opts: any) =>
+      mockSpawnSync(cmd, args, opts) as any,
+    )
     __resetSetupPrerequisitesCacheForTest()
   })
 
@@ -179,7 +191,7 @@ describe('setup prerequisites', () => {
     expect(node?.installHint).toMatch(/broken symlink/)
   })
 
-  it('quotes resolved paths containing whitespace on win32 (Program Files)', () => {
+  it('passes resolved paths with whitespace UNQUOTED on win32 (cross-spawn handles spaces)', () => {
     const originalPlatform = process.platform
     Object.defineProperty(process, 'platform', { value: 'win32', configurable: true })
     try {
@@ -188,17 +200,17 @@ describe('setup prerequisites', () => {
           if (args[0] === 'git') return { status: 0, stdout: 'C:\\Program Files\\Git\\cmd\\git.exe\r\n', stderr: '' } as any
           return { status: 0, stdout: `C:\\nodejs\\${args[0]}.cmd\r\n`, stderr: '' } as any
         }
-        if (cmd === '"C:\\Program Files\\Git\\cmd\\git.exe"') {
+        // cross-spawn is given the RAW path (no manual quoting); a quoted target
+        // would be a regression, so only the unquoted form resolves.
+        if (cmd === 'C:\\Program Files\\Git\\cmd\\git.exe') {
           return { status: 0, stdout: 'git version 2.42.1\n', stderr: '' } as any
         }
         if (cmd === 'C:\\nodejs\\node.cmd') return { status: 0, stdout: 'v20.11.0\n', stderr: '' } as any
         if (cmd === 'C:\\nodejs\\npm.cmd') return { status: 0, stdout: '10.0.0\n', stderr: '' } as any
         if (cmd === 'C:\\nodejs\\npx.cmd') return { status: 0, stdout: '10.0.0\n', stderr: '' } as any
-        // Provider CLIs on win32 — keep at least one usable so this test (which
-        // is about path-quoting for tools) is not gated by the provider rule.
         if (cmd === 'C:\\nodejs\\claude.cmd') return { status: 0, stdout: '1.0.0\n', stderr: '' } as any
         if (cmd === 'C:\\nodejs\\codex.cmd') return { status: 0, stdout: '0.128.0\n', stderr: '' } as any
-        return { status: 1, stdout: '', stderr: 'unquoted path' } as any
+        return { status: 1, stdout: '', stderr: 'quoted/unknown path' } as any
       })
 
       const status = getSetupPrerequisitesStatus()
@@ -315,6 +327,10 @@ describe('getSetupPrerequisitesStatus — desktop mode', () => {
 
   beforeEach(() => {
     vi.resetAllMocks()
+    // win32 probes route through cross-spawn → forward to the spawnSync mock.
+    mockCrossSpawnSync.mockImplementation((cmd: any, args: any, opts: any) =>
+      mockSpawnSync(cmd, args, opts) as any,
+    )
     __resetSetupPrerequisitesCacheForTest()
     tmpRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'sprq-'))
     process.env.SPECRAILS_IS_DESKTOP = '1'

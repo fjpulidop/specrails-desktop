@@ -416,4 +416,42 @@ process.exit(7)
       }
     })
   })
+
+  describe('node interpreter (pkg-safety)', () => {
+    // In the packaged app process.execPath is the specrails-server pkg binary, not
+    // node — so the core CLI MUST be spawned with the bundled real node. Prove the
+    // bundled node (resolveBundledNodeExe) is the interpreter, not process.execPath,
+    // via a wrapper that records its invocation then exec's the real node.
+    it.skipIf(process.platform === 'win32')(
+      'spawns the core CLI with the bundled node when runtimes are present',
+      () => {
+        installFakeCore('5.0.0')
+        const runtimes = mkdtempSync(path.join(os.tmpdir(), 'fm-rt-'))
+        const prevRuntimes = process.env.SPECRAILS_BUNDLED_RUNTIMES_PATH
+        try {
+          const nodeBin = path.join(runtimes, 'node', 'bin', 'node')
+          mkdirSync(path.dirname(nodeBin), { recursive: true })
+          const marker = path.join(runtimes, 'used-bundled-node')
+          // Wrapper: record that the bundled node ran, then exec the real node.
+          writeFileSync(
+            nodeBin,
+            `#!/bin/sh\necho used >> "${marker}"\nexec "${process.execPath}" "$@"\n`,
+            { mode: 0o755 },
+          )
+          process.env.SPECRAILS_BUNDLED_RUNTIMES_PATH = runtimes
+
+          const fm = new FrameworkManager({ home })
+          const res = fm.materialize('5.0.0', ['claude'])
+          expect(res.ran).toBe(true)
+          expect(res.errors).toEqual([])
+          // The wrapper ran ⇒ argv[0] was the bundled node, NOT process.execPath.
+          expect(existsSync(marker)).toBe(true)
+        } finally {
+          if (prevRuntimes === undefined) delete process.env.SPECRAILS_BUNDLED_RUNTIMES_PATH
+          else process.env.SPECRAILS_BUNDLED_RUNTIMES_PATH = prevRuntimes
+          rmSync(runtimes, { recursive: true, force: true })
+        }
+      },
+    )
+  })
 })

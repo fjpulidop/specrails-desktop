@@ -3,6 +3,7 @@ import os from 'os'
 import path from 'path'
 
 import { getBundledOpenspecCli } from './bundled-openspec'
+import { resolveBundledNodeExe } from './path-resolver'
 
 /**
  * openspec PATH shim — the robustness backstop for relocated Claude rails.
@@ -49,11 +50,15 @@ export function openspecShimDir(slug: string, jobId: string, home: string = os.h
 function realOpenspecInvocation(): { posix: string; windows: string } {
   const cli = getBundledOpenspecCli()
   if (cli) {
-    // node "<cli>" — invoke the bundled openspec as a node script (Tauri strips
-    // exec bits from bundled resources, so it can't be run as a binary).
+    // <node> "<cli>" — invoke the bundled openspec as a node script (Tauri strips
+    // exec bits from bundled resources, so it can't be run as a binary). Anchor to
+    // the absolute bundled node when present rather than a bare `node` (which is
+    // PATH-dependent and may be absent / a mismatched system node in a partial
+    // bundle); fall back to bare `node` only when no bundled runtimes ship.
+    const node = resolveBundledNodeExe()
     return {
-      posix: `node ${shq(cli)}`,
-      windows: `node ${winq(cli)}`,
+      posix: `${node ? shq(node) : 'node'} ${shq(cli)}`,
+      windows: `${node ? winq(node) : 'node'} ${winq(cli)}`,
     }
   }
   // Legacy fallback: npx resolves + caches openspec. `-y` skips the install

@@ -1,9 +1,30 @@
 import { spawnSync } from 'child_process'
+import type { SpawnSyncReturns } from 'child_process'
+import crossSpawn from 'cross-spawn'
 import fs from 'fs'
 import path from 'path'
 import { listAdapters } from './providers'
+import { windowsSpawnEnv } from './util/win-spawn'
 
 const WHICH_CMD = process.platform === 'win32' ? 'where' : 'which'
+
+/**
+ * Run `<cmd> <args>` synchronously. On Windows use cross-spawn (NOT `shell:true`):
+ * it spawns a real `.exe` directly (no `cmd.exe` interposition — pkg-safe and
+ * immune to the GUI-launch env stripping), and runs `.cmd`/`.bat` shims through
+ * `cmd.exe` with correct quoting (Node refuses to spawn `.cmd` without a shell
+ * since CVE-2024-27980). On POSIX it is a plain `spawnSync`. `windowsSpawnEnv()`
+ * guarantees `cmd.exe` can start (SystemRoot/ComSpec present even if the sidecar
+ * inherited a stripped env) — without it every bundled probe failed with a bogus
+ * "bundle corrupted — reinstall the app".
+ */
+function runVersionSpawn(cmd: string, args: string[]): SpawnSyncReturns<string> {
+  const opts = { env: windowsSpawnEnv(), encoding: 'utf-8' as const, timeout: 5_000 }
+  if (process.platform === 'win32') {
+    return crossSpawn.sync(cmd, args, opts)
+  }
+  return spawnSync(cmd, args, opts)
+}
 
 export type Platform = 'darwin' | 'win32' | 'linux'
 
@@ -61,11 +82,10 @@ interface CommandLookup {
 }
 
 function locateCommand(command: string): CommandLookup {
-  const result = spawnSync(WHICH_CMD, [command], {
-    env: process.env,
-    shell: process.platform === 'win32',
-    encoding: 'utf-8',
-  })
+  // cross-spawn (via runVersionSpawn) resolves the `where`/`which` executable
+  // and PATHEXT itself — no `shell:true` needed — and runs under an env that
+  // includes SystemRoot so `where` can actually start in the packaged sidecar.
+  const result = runVersionSpawn(WHICH_CMD, [command])
   if (result.error || (result.status ?? 1) !== 0) return { found: false }
   const resolvedPath = `${result.stdout ?? ''}`.trim().split(/\r?\n/)[0]?.trim() || undefined
   return { found: true, resolvedPath }
@@ -85,19 +105,14 @@ function probeVersion(command: string, resolvedPath?: string): VersionProbe {
   // `Cannot find module '/--version'` from pkg/prelude/bootstrap.js. Passing
   // an absolute path bypasses this interception.
   const target = resolvedPath || command
-  // On Windows we must use `shell: true` to execute `.cmd` shims (npm, npx) — Node
-  // refuses to spawn them directly since CVE-2024-27980. But cmd.exe splits the
-  // command line on whitespace, so an absolute path like
-  // `C:\Program Files\Git\cmd\git.exe` becomes `C:\Program` + arg `Files\Git\...`.
-  // Wrap the target in double quotes when it contains a space.
-  const isWin = process.platform === 'win32'
-  const quotedTarget = isWin && /\s/.test(target) ? `"${target}"` : target
-  const result = spawnSync(quotedTarget, ['--version'], {
-    env: process.env,
-    shell: isWin,
-    encoding: 'utf-8',
-    timeout: 5_000,
-  })
+  // Spawn via cross-spawn on Windows (NOT shell:true). A bundled `.exe`
+  // (node.exe, git.exe) is launched DIRECTLY — no cmd.exe interposition — so a
+  // path with spaces needs no manual quoting and pkg's bare-name redirect never
+  // applies. A `.cmd` shim (npm.cmd, npx.cmd) is run through cmd.exe by
+  // cross-spawn with correct escaping. The env carries SystemRoot so cmd.exe can
+  // start. This replaces the old `shell:true` path that made every bundled probe
+  // fail with a bogus "corrupted-bundle" when the sidecar env lacked SystemRoot.
+  const result = runVersionSpawn(target, ['--version'])
   if (result.error) {
     const err = result.error as NodeJS.ErrnoException
     return { executed: false, error: `${err.code ?? 'ERR'}: ${err.message}` }

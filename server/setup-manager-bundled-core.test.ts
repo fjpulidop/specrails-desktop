@@ -223,7 +223,12 @@ describe('SetupManager — bundled-core install path', () => {
       ? path.join(runtimes, 'node', 'node.exe')
       : path.join(runtimes, 'node', 'bin', 'node')
     mkdirSync(path.dirname(nodeExe), { recursive: true })
-    writeFileSync(nodeExe, '#!/bin/sh\n', { mode: 0o755 })
+    // The core CLI is now spawned WITH this bundled node, so it must be a REAL,
+    // runnable node (else the fake init never executes). Symlink the test runner's
+    // node; its path differs from process.execPath, so the env.node !==
+    // process.execPath contract still holds while remaining executable.
+    const { symlinkSync } = await import('fs')
+    symlinkSync(process.execPath, nodeExe)
     process.env.SPECRAILS_BUNDLED_RUNTIMES_PATH = runtimes
 
     try {
