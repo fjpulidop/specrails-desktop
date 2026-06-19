@@ -53,6 +53,31 @@ import { fileURLToPath } from 'node:url'
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 const repoRoot = path.resolve(__dirname, '..')
 
+/**
+ * Recursively remove every `node_modules/.bin` directory under `root`.
+ *
+ * WHY: npm populates `.bin` with symlinks to package executables. `cpSync`
+ * rewrites those symlinks to ABSOLUTE paths pointing back into the (about-to-be
+ * deleted) temp install prefix, so the staged copy ends up with DANGLING links.
+ * Tauri then fails the build enumerating `bundle.resources` with
+ * `resource path .../node_modules/.bin/<x> doesn't exist`. The `.bin` shims are
+ * never used by our `node <cli>` invocation, so pruning them is safe and is the
+ * stated intent of the assembly (see the symlink note in the file header).
+ */
+function pruneBinDirs(root) {
+  if (!existsSync(root)) return
+  for (const entry of readdirSync(root, { withFileTypes: true })) {
+    const full = path.join(root, entry.name)
+    if (entry.isSymbolicLink()) continue
+    if (!entry.isDirectory()) continue
+    if (entry.name === '.bin') {
+      rmSync(full, { recursive: true, force: true })
+      continue
+    }
+    pruneBinDirs(full)
+  }
+}
+
 const PACKAGE = 'specrails-core'
 const DEFAULT_VERSION = 'latest'
 
@@ -140,11 +165,20 @@ function main() {
     // Stage the FULL dependency tree. The package's own node_modules (nested
     // deps) plus the hoisted deps at the install root both matter — copy the
     // hoisted root tree, then overlay any package-local node_modules.
-    cpSync(nodeModules, path.join(dest, 'node_modules'), { recursive: true })
+    cpSync(nodeModules, path.join(dest, 'node_modules'), {
+      recursive: true,
+      verbatimSymlinks: true,
+    })
     const pkgLocalModules = path.join(pkgDir, 'node_modules')
     if (existsSync(pkgLocalModules)) {
-      cpSync(pkgLocalModules, path.join(dest, 'node_modules'), { recursive: true })
+      cpSync(pkgLocalModules, path.join(dest, 'node_modules'), {
+        recursive: true,
+        verbatimSymlinks: true,
+      })
     }
+    // Drop the npm `.bin` shims — they are dangling after the copy and Tauri
+    // refuses to bundle a non-existent resource path. Never used at runtime.
+    pruneBinDirs(path.join(dest, 'node_modules'))
     // The staged node_modules must not contain the package itself referencing
     // its own stale copy — but cpSync of the hoisted tree already includes
     // `node_modules/specrails-core`; that is harmless (we run dist/ from dest,
