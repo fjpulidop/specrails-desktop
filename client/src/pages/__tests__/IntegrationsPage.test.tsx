@@ -128,11 +128,17 @@ describe('IntegrationsPage', () => {
       requirements: [{ name: 'uv', installed: false, executable: false, meetsMinimum: false, minVersion: '0.1.0' }],
     })
     render(<IntegrationsPage />)
-    await waitFor(() => screen.getByText('serena'))
-    fireEvent.click(screen.getByRole('button', { name: /install$/i }))
-    await waitFor(() => {
-      expect(screen.getByRole('button', { name: /auto-install/i })).toBeInTheDocument()
-    })
+    await screen.findByText('serena')
+    // Wait for the Install button to mount before clicking, then assert the
+    // Auto-install button via findByRole — clicking Install triggers a
+    // preview-install fetch whose modal renders the uv-missing requirement a
+    // tick later, so a synchronous getByRole raced the async render under CI
+    // load (flaky "Unable to find /auto-install/i"). findBy* retries; the bumped
+    // timeout absorbs the two sequential async fetches on a slow runner.
+    fireEvent.click(await screen.findByRole('button', { name: /install$/i }))
+    expect(
+      await screen.findByRole('button', { name: /auto-install/i }, { timeout: 5000 }),
+    ).toBeInTheDocument()
   })
 
   it('shows the Jira card (not an empty state) when no plugins are bundled', async () => {
