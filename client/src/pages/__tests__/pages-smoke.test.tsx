@@ -257,7 +257,7 @@ describe('DocsPage', () => {
     render(<DocsPage />)
 
     await waitFor(() => {
-      expect(screen.getByText(/no documents available/i)).toBeInTheDocument()
+      expect(screen.getByText(/Documentation will appear here/i)).toBeInTheDocument()
     })
   })
 
@@ -268,7 +268,7 @@ describe('DocsPage', () => {
     render(<DocsPage />)
 
     await waitFor(() => {
-      expect(screen.getByText(/no documents available/i)).toBeInTheDocument()
+      expect(screen.getByText(/Documentation will appear here/i)).toBeInTheDocument()
     })
   })
 })

@@ -45,7 +45,8 @@
       "binaries/node_modules/**/*",
       "runtimes/**/*",
       "core/**/*",
-      "openspec/**/*"
+      "openspec/**/*",
+      "../docs/guide/**/*"
     ],
     "macOS": {
       "entitlements": "./entitlements.plist"

@@ -45,7 +45,7 @@ describe('DocsPage', () => {
   beforeEach(() => {
     vi.clearAllMocks()
     ;(global.fetch as ReturnType<typeof vi.fn>).mockImplementation((url: string) => {
-      if (url === '/api/docs') {
+      if (url === '/api/docs' || url.startsWith('/api/docs?')) {
         return Promise.resolve({
           ok: true,
           json: async () => mockIndex,

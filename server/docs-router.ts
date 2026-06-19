@@ -3,78 +3,126 @@ import fs from 'fs'
 import path from 'path'
 import os from 'os'
 
-// ─── Docs directory resolution ────────────────────────────────────────────────
+// ─── User-guide docs ────────────────────────────────────────────────────────
+//
+// The Documentation panel serves a dedicated, language-aware USER-GUIDE tree —
+// NOT the developer docs (docs/internals, docs/platforms, top-level dev .md).
+// Layout on disk:
+//
+//   docs/guide/<lang>/<category>/<order>-<slug>.md
+//
+// where <lang> is an i18n language id (`en`, `es`, …). English (`en`) is the
+// source-of-truth locale and is always present; any missing language OR missing
+// page falls back to the English file, so an untranslated language still shows
+// real content instead of an empty panel.
+//
+// Resolution precedence for the guide ROOT (the dir that holds <lang>/):
+//   1. ~/.specrails/docs/guide/   (user-editable override — wins when present)
+//   2. bundled Tauri resource     (<resource_dir>/docs/guide in the packaged app)
+//   3. repo / compiled dist       (docs/guide relative to __dirname)
+// All candidates are existence-gated; a missing tree never crashes — the panel
+// just shows no categories.
 
-// Try ~/.specrails/docs/ first (user-editable), then fall back to bundled docs/
-function resolveDocsDir(): string {
-  const userDocsDir = path.join(os.homedir(), '.specrails', 'docs')
-  if (fs.existsSync(userDocsDir)) {
-    return userDocsDir
+// ─── Default language + validation ──────────────────────────────────────────
+
+const DEFAULT_LANG = 'en'
+
+// Mirror of client/src/lib/i18n.ts LANGUAGE_IDS. Kept here (not imported — the
+// server is CommonJS and must not depend on the ESM client) so an unknown / bogus
+// `?lang=` value can never be turned into a filesystem path.
+const SUPPORTED_LANGS = new Set(['en', 'es', 'fr', 'de', 'pt', 'it', 'zh', 'ja'])
+
+function normalizeLang(raw: unknown): string {
+  if (typeof raw !== 'string') return DEFAULT_LANG
+  const base = raw.toLowerCase().split('-')[0].trim()
+  return SUPPORTED_LANGS.has(base) ? base : DEFAULT_LANG
+}
+
+// ─── Guide-root resolution ──────────────────────────────────────────────────
+
+/**
+ * The bundled (packaged-app) guide root, or null when not running inside a
+ * Tauri bundle / the dir is absent. The Tauri host exports
+ * `SPECRAILS_BUNDLED_DOCS_PATH=<resource_dir>/docs` (existence-gated, mirroring
+ * the runtimes/core envs); as a defence-in-depth fallback we also derive
+ * `<resource_dir>/docs` from `SPECRAILS_BUNDLED_RUNTIMES_PATH` (whose parent IS
+ * the resource dir) so a build that forgot the docs env still resolves.
+ */
+function resolveBundledGuideRoot(): string | null {
+  const direct = process.env.SPECRAILS_BUNDLED_DOCS_PATH
+  if (direct && direct.length > 0) {
+    const guide = path.join(direct, 'guide')
+    if (fs.existsSync(guide)) return guide
   }
+  const runtimes = process.env.SPECRAILS_BUNDLED_RUNTIMES_PATH
+  if (runtimes && runtimes.length > 0) {
+    // <resource_dir>/runtimes → <resource_dir>/docs/guide
+    const guide = path.join(path.dirname(runtimes), 'docs', 'guide')
+    if (fs.existsSync(guide)) return guide
+  }
+  return null
+}
 
-  // Bundled docs: try relative to this file (works in dev and compiled)
+/**
+ * Resolve the guide ROOT directory (the one containing <lang>/ subdirs).
+ * Returns null when no guide tree can be found anywhere (the panel then shows
+ * an empty index rather than crashing).
+ */
+function resolveGuideRoot(): string | null {
+  // 1. User override: ~/.specrails/docs/guide
+  const userGuide = path.join(os.homedir(), '.specrails', 'docs', 'guide')
+  if (fs.existsSync(userGuide)) return userGuide
+
+  // 2. Bundled app resource
+  const bundled = resolveBundledGuideRoot()
+  if (bundled) return bundled
+
+  // 3. Repo / compiled dist (relative to this file)
   const candidates = [
-    path.resolve(__dirname, '../docs'),   // dev: server/ -> ../docs
-    path.resolve(__dirname, '../../docs'), // compiled: server/dist/ -> ../../docs
+    path.resolve(__dirname, '../docs/guide'), // dev: server/ -> ../docs/guide
+    path.resolve(__dirname, '../../docs/guide'), // compiled: server/dist/ -> ../../docs/guide
   ]
   for (const candidate of candidates) {
-    if (fs.existsSync(candidate)) {
-      return candidate
-    }
+    if (fs.existsSync(candidate)) return candidate
   }
 
-  // Fall back to user dir (will be empty until populated)
-  return userDocsDir
+  return null
 }
 
-// ─── Category configuration ───────────────────────────────────────────────────
+/** The localized directory for a given language under the guide root. */
+function langDir(guideRoot: string, lang: string): string {
+  return path.join(guideRoot, lang)
+}
 
-/**
- * Top-level `.md` files are surfaced under a synthetic "guides" category.
- * Any subdirectory becomes its own category, with the directory name as slug
- * and a friendly label resolved from `CATEGORY_LABELS` (or title-cased).
- */
-const TOP_LEVEL_CATEGORY_SLUG = 'guides'
+// ─── Category configuration ─────────────────────────────────────────────────
 
 const CATEGORY_LABELS: Record<string, string> = {
-  guides: 'Guides',
-  platforms: 'Platforms',
-  internals: 'Internals',
-  // Legacy folders (kept so user-customized ~/.specrails/docs trees still work)
-  general: 'General',
-  product: 'Product',
-  engineering: 'Engineering',
-  operations: 'Operations',
+  'getting-started': 'Getting started',
+  specs: 'Specs',
+  pipeline: 'Pipeline',
+  agents: 'Agents',
+  insights: 'Insights',
+  integrations: 'Integrations',
+  settings: 'Settings',
 }
 
 /**
- * Preferred display order. Categories not in this list come after, in the
- * order `fs.readdirSync` returns them.
+ * Preferred display order. Categories not in this list come after, alphabetically.
  */
-const CATEGORY_ORDER = ['guides', 'platforms', 'internals', 'general', 'product', 'engineering', 'operations']
-
-/**
- * Preferred document order within the "guides" category. Files not listed
- * here are appended in alphabetical order so adding a new doc never breaks
- * the build.
- */
-const GUIDES_DOC_ORDER = [
+const CATEGORY_ORDER = [
   'getting-started',
-  'creating-specs',
-  'running-pipelines',
-  'tracking-cost',
-  'customizing',
-  'terminal',
-  'cli',
-  'codex',
+  'specs',
+  'pipeline',
+  'agents',
+  'insights',
+  'integrations',
+  'settings',
 ]
 
-// ─── Helpers ──────────────────────────────────────────────────────────────────
+// ─── Helpers ────────────────────────────────────────────────────────────────
 
 function slugToTitle(slug: string): string {
-  return slug
-    .replace(/-/g, ' ')
-    .replace(/\b\w/g, (c) => c.toUpperCase())
+  return slug.replace(/-/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase())
 }
 
 function categoryLabel(slug: string): string {
@@ -86,150 +134,195 @@ function extractTitle(content: string, slug: string): string {
   return match ? match[1].trim() : slugToTitle(slug)
 }
 
-function sortBy<T>(items: T[], preferredOrder: string[], keyFn: (item: T) => string): T[] {
-  const preferredIndex = (key: string) => {
-    const i = preferredOrder.indexOf(key)
-    return i === -1 ? Number.MAX_SAFE_INTEGER : i
-  }
-  return [...items].sort((a, b) => {
-    const aKey = keyFn(a)
-    const bKey = keyFn(b)
-    const ai = preferredIndex(aKey)
-    const bi = preferredIndex(bKey)
-    if (ai !== bi) return ai - bi
-    return aKey.localeCompare(bKey)
-  })
+/** Parse an `<order>-<slug>.md` filename into { order, slug }. */
+function parseGuideFile(file: string): { order: number; slug: string } | null {
+  const m = file.match(/^(\d+)-(.+)\.md$/)
+  if (!m) return null
+  return { order: parseInt(m[1], 10), slug: m[2] }
 }
 
-interface DocEntry { title: string; slug: string }
-interface DocCategory { name: string; slug: string; docs: DocEntry[] }
+function categoryRank(slug: string): number {
+  const i = CATEGORY_ORDER.indexOf(slug)
+  return i === -1 ? Number.MAX_SAFE_INTEGER : i
+}
 
-function readMarkdownFiles(dir: string): string[] {
+interface DocEntry {
+  title: string
+  slug: string
+}
+interface DocCategory {
+  name: string
+  slug: string
+  docs: DocEntry[]
+}
+
+/** List the category subdirectories of a localized lang dir (existence-safe). */
+function listCategories(dir: string): string[] {
   try {
-    return fs.readdirSync(dir).filter((f) => f.endsWith('.md') && f.toLowerCase() !== 'readme.md')
+    return fs
+      .readdirSync(dir, { withFileTypes: true })
+      .filter((e) => e.isDirectory())
+      .map((e) => e.name)
   } catch {
     return []
   }
 }
 
-function readDocEntry(file: string, filePath: string): DocEntry {
-  const slug = file.replace(/\.md$/, '')
-  try {
-    const content = fs.readFileSync(filePath, 'utf-8')
-    return { title: extractTitle(content, slug), slug }
-  } catch {
-    return { title: slugToTitle(slug), slug }
-  }
-}
+/**
+ * Build the full category/doc index for a language, falling back to English
+ * per-category and per-page. The English tree defines the canonical set of
+ * categories and slugs; a translated language contributes localized titles for
+ * the pages it has, and English fills the gaps.
+ */
+function buildCategories(guideRoot: string, lang: string): DocCategory[] {
+  const enDir = langDir(guideRoot, DEFAULT_LANG)
+  if (!fs.existsSync(enDir)) return []
 
-function buildCategories(docsDir: string): DocCategory[] {
-  if (!fs.existsSync(docsDir)) return []
+  const localizedDir = langDir(guideRoot, lang)
 
   const categories: DocCategory[] = []
+  for (const cat of listCategories(enDir)) {
+    const enCatDir = path.join(enDir, cat)
+    const localizedCatDir = path.join(localizedDir, cat)
 
-  // 1. Top-level .md files → "guides" category
-  const topFiles = readMarkdownFiles(docsDir)
-  if (topFiles.length > 0) {
-    const docs = topFiles.map((f) => readDocEntry(f, path.join(docsDir, f)))
-    const ordered = sortBy(docs, GUIDES_DOC_ORDER, (d) => d.slug)
-    categories.push({ name: categoryLabel(TOP_LEVEL_CATEGORY_SLUG), slug: TOP_LEVEL_CATEGORY_SLUG, docs: ordered })
+    let files: string[]
+    try {
+      files = fs.readdirSync(enCatDir).filter((f) => f.endsWith('.md'))
+    } catch {
+      files = []
+    }
+
+    const parsed = files
+      .map((f) => ({ file: f, meta: parseGuideFile(f) }))
+      .filter((x): x is { file: string; meta: { order: number; slug: string } } => x.meta !== null)
+      .sort((a, b) => a.meta.order - b.meta.order || a.meta.slug.localeCompare(b.meta.slug))
+
+    const docs: DocEntry[] = parsed.map(({ file, meta }) => {
+      // Prefer the localized file's title; fall back to the English file.
+      const localizedPath = path.join(localizedCatDir, file)
+      const enPath = path.join(enCatDir, file)
+      const readPath = fs.existsSync(localizedPath) ? localizedPath : enPath
+      let title = slugToTitle(meta.slug)
+      try {
+        title = extractTitle(fs.readFileSync(readPath, 'utf-8'), meta.slug)
+      } catch {
+        /* fall back to slug-derived title */
+      }
+      return { title, slug: meta.slug }
+    })
+
+    if (docs.length > 0) {
+      categories.push({ name: categoryLabel(cat), slug: cat, docs })
+    }
   }
 
-  // 2. Each subdirectory → its own category
-  let entries: fs.Dirent[]
-  try {
-    entries = fs.readdirSync(docsDir, { withFileTypes: true })
-  } catch {
-    entries = []
-  }
-
-  for (const entry of entries) {
-    if (!entry.isDirectory()) continue
-    // Avoid colliding with synthetic top-level slug
-    if (entry.name === TOP_LEVEL_CATEGORY_SLUG) continue
-
-    const catDir = path.join(docsDir, entry.name)
-    const files = readMarkdownFiles(catDir)
-    const docs = files.map((f) => readDocEntry(f, path.join(catDir, f)))
-    // Sort docs within unknown categories alphabetically.
-    docs.sort((a, b) => a.slug.localeCompare(b.slug))
-
-    categories.push({ name: categoryLabel(entry.name), slug: entry.name, docs })
-  }
-
-  return sortBy(categories, CATEGORY_ORDER, (c) => c.slug)
-}
-
-function isValidCategorySlug(cat: string): boolean {
-  // basename(cat) === cat guards against slashes, but `path.basename('..') === '..'`,
-  // so '.'/'..' slip through and `path.join(docsDir, '..', ...)` escapes one level
-  // up (B4). Reject the dot segments explicitly.
-  return (
-    cat.length > 0 &&
-    cat !== '.' &&
-    cat !== '..' &&
-    cat === path.basename(cat) &&
-    !cat.includes('/') &&
-    !cat.includes('\\')
+  return categories.sort(
+    (a, b) => categoryRank(a.slug) - categoryRank(b.slug) || a.slug.localeCompare(b.slug)
   )
 }
 
-// ─── Router ───────────────────────────────────────────────────────────────────
+// ─── Path-safety guards ─────────────────────────────────────────────────────
+
+function isSafeSegment(seg: string): boolean {
+  return (
+    typeof seg === 'string' &&
+    seg.length > 0 &&
+    seg !== '.' &&
+    seg !== '..' &&
+    seg === path.basename(seg) &&
+    !seg.includes('/') &&
+    !seg.includes('\\')
+  )
+}
+
+/**
+ * Resolve the on-disk file for a (lang, category, slug). Tries the localized
+ * file first, then English. Returns null when neither exists or a path-safety
+ * check fails. The slug in the URL is the *bare* slug (no order prefix); we map
+ * it to the `<order>-<slug>.md` file by scanning the English category dir
+ * (English is canonical for the set of slugs).
+ */
+function resolveDocFile(
+  guideRoot: string,
+  lang: string,
+  category: string,
+  slug: string
+): { filePath: string } | null {
+  if (!isSafeSegment(category) || !isSafeSegment(slug)) return null
+
+  const enCatDir = path.join(langDir(guideRoot, DEFAULT_LANG), category)
+  let files: string[]
+  try {
+    files = fs.readdirSync(enCatDir).filter((f) => f.endsWith('.md'))
+  } catch {
+    return null
+  }
+
+  const match = files.find((f) => {
+    const meta = parseGuideFile(f)
+    return meta?.slug === slug
+  })
+  if (!match) return null
+
+  const localizedPath = path.join(langDir(guideRoot, lang), category, match)
+  const enPath = path.join(enCatDir, match)
+  const filePath = fs.existsSync(localizedPath) ? localizedPath : enPath
+
+  // Defence-in-depth: the resolved file must live inside the guide root.
+  const rel = path.relative(path.resolve(guideRoot), path.resolve(filePath))
+  if (rel.startsWith('..') || path.isAbsolute(rel)) return null
+
+  if (!fs.existsSync(filePath)) return null
+  return { filePath }
+}
+
+// ─── Router ─────────────────────────────────────────────────────────────────
 
 export function createDocsRouter(): Router {
   const router = Router()
 
-  router.get('/', (_req, res) => {
-    const docsDir = resolveDocsDir()
-    const categories = buildCategories(docsDir)
+  router.get('/', (req, res) => {
+    const lang = normalizeLang(req.query.lang)
+    const guideRoot = resolveGuideRoot()
+    const categories = guideRoot ? buildCategories(guideRoot, lang) : []
     res.json({ categories })
   })
 
   router.get('/:category/:slug', (req, res) => {
     const { category, slug } = req.params
+    const lang = normalizeLang(req.query.lang)
 
-    if (!isValidCategorySlug(category)) {
+    if (!isSafeSegment(category)) {
       res.status(404).json({ error: 'Category not found' })
       return
     }
-
-    // Prevent directory traversal in slug too
-    const safeSlug = path.basename(slug)
-    if (safeSlug !== slug || slug.includes('/') || slug.includes('\\')) {
+    if (!isSafeSegment(slug)) {
       res.status(400).json({ error: 'Invalid slug' })
       return
     }
 
-    const docsDir = resolveDocsDir()
-    // For the synthetic "guides" category, files live at the top level of docsDir.
-    const filePath =
-      category === TOP_LEVEL_CATEGORY_SLUG
-        ? path.join(docsDir, `${safeSlug}.md`)
-        : path.join(docsDir, category, `${safeSlug}.md`)
-
-    // B4: defence-in-depth — never serve a file resolved outside docsDir, even
-    // if a future change loosens the slug/category validation above.
-    const rel = path.relative(path.resolve(docsDir), path.resolve(filePath))
-    if (rel.startsWith('..') || path.isAbsolute(rel)) {
+    const guideRoot = resolveGuideRoot()
+    if (!guideRoot) {
       res.status(404).json({ error: 'Document not found' })
       return
     }
 
-    if (!fs.existsSync(filePath)) {
+    const resolved = resolveDocFile(guideRoot, lang, category, slug)
+    if (!resolved) {
       res.status(404).json({ error: 'Document not found' })
       return
     }
 
     let content: string
     try {
-      content = fs.readFileSync(filePath, 'utf-8')
+      content = fs.readFileSync(resolved.filePath, 'utf-8')
     } catch {
       res.status(500).json({ error: 'Failed to read document' })
       return
     }
 
-    const title = extractTitle(content, safeSlug)
-    res.json({ title, content, category, slug: safeSlug })
+    const title = extractTitle(content, slug)
+    res.json({ title, content, category, slug })
   })
 
   return router

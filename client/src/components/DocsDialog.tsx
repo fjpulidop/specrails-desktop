@@ -176,11 +176,13 @@ const MemoMarkdown = memo(function MemoMarkdown({ content }: { content: string }
 function DocView({
   category,
   slug,
+  lang,
   onNotFound,
   scrollContainerRef,
 }: {
   category: string
   slug: string
+  lang: string
   onNotFound: () => void
   scrollContainerRef: React.RefObject<HTMLElement | null>
 }) {
@@ -197,7 +199,7 @@ function DocView({
     const requestId = ++requestRef.current
     setError(null)
 
-    fetch(`/api/docs/${category}/${slug}`)
+    fetch(`/api/docs/${category}/${slug}?lang=${encodeURIComponent(lang)}`)
       .then(async (res) => {
         if (res.status === 404) {
           onNotFound()
@@ -219,7 +221,7 @@ function DocView({
         if (requestId !== requestRef.current) return
         setError(err instanceof Error ? err.message : t('docs.loadError'))
       })
-  }, [category, slug, onNotFound, scrollContainerRef])
+  }, [category, slug, lang, onNotFound, scrollContainerRef])
 
   // Full-screen spinner only on the very first load (no previous content).
   if (!doc && !error) {
@@ -269,7 +271,8 @@ interface DocsDialogProps {
 }
 
 function DocsDialogImpl({ open, onClose }: DocsDialogProps) {
-  const { t } = useTranslation('integrations')
+  const { t, i18n } = useTranslation('integrations')
+  const lang = i18n.language || 'en'
   const [index, setIndex] = useState<DocsIndex | null>(null)
   const [indexLoading, setIndexLoading] = useState(true)
   const [activeCategory, setActiveCategory] = useState<string | undefined>()
@@ -279,12 +282,12 @@ function DocsDialogImpl({ open, onClose }: DocsDialogProps) {
   useEffect(() => {
     if (!open) return
     setIndexLoading(true)
-    fetch('/api/docs')
+    fetch(`/api/docs?lang=${encodeURIComponent(lang)}`)
       .then((res) => res.json())
       .then((data: DocsIndex) => setIndex(data))
       .catch(() => setIndex({ categories: [] }))
       .finally(() => setIndexLoading(false))
-  }, [open])
+  }, [open, lang])
 
   // Stabilise these handlers so `DocView`'s useEffect deps don't change every
   // parent re-render — otherwise every DesktopApp render (job streaming, WS
@@ -335,6 +338,7 @@ function DocsDialogImpl({ open, onClose }: DocsDialogProps) {
               <DocView
                 category={activeCategory}
                 slug={activeSlug}
+                lang={lang}
                 onNotFound={handleHome}
                 scrollContainerRef={scrollRef}
               />
