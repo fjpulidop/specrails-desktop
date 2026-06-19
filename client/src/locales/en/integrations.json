@@ -55,7 +55,7 @@
     "title": "Documentation",
     "dialogDescription": "Browse the bundled Specrails documentation. Use the sidebar to switch between guides.",
     "sidebarEmpty": "No docs yet",
-    "indexEmpty": "No documents available. The bundled docs ship under docs/ in the repo — drop Markdown files there or under ~/.specrails/docs/ to extend them.",
+    "indexEmpty": "Documentation will appear here. The user guide ships with the app under docs/guide/; drop Markdown files under ~/.specrails/docs/guide/ to customize it.",
     "categoryEmpty": "No documents in this category yet.",
     "documentCount_one": "{{count}} document",
     "documentCount_other": "{{count}} documents",

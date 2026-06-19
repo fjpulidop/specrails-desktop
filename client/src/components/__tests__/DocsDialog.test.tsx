@@ -108,7 +108,7 @@ describe('DocsDialog', () => {
     render(<DocsDialog open={true} onClose={vi.fn()} />)
 
     await waitFor(() => {
-      expect(screen.getByText(/no documents/i)).toBeInTheDocument()
+      expect(screen.getByText(/Documentation will appear here/i)).toBeInTheDocument()
     })
   })
 
@@ -118,7 +118,7 @@ describe('DocsDialog', () => {
     render(<DocsDialog open={true} onClose={vi.fn()} />)
 
     await waitFor(() => {
-      expect(screen.getByText(/no documents/i)).toBeInTheDocument()
+      expect(screen.getByText(/Documentation will appear here/i)).toBeInTheDocument()
     })
   })
 })

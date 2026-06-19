@@ -55,7 +55,7 @@
     "title": "文档",
     "dialogDescription": "浏览捆绑的 Specrails 文档。使用侧边栏在指南间切换。",
     "sidebarEmpty": "暂无文档",
-    "indexEmpty": "没有可用文档。捆绑文档位于仓库的 docs/ 目录下 — 将 Markdown 文件放在那里或 ~/.specrails/docs/ 下即可扩展。",
+    "indexEmpty": "文档将在此处显示。用户指南随应用提供，位于 docs/guide/；将 Markdown 文件放在 ~/.specrails/docs/guide/ 下即可自定义。",
     "categoryEmpty": "此分类下暂无文档。",
     "documentCount_one": "{{count}} 篇文档",
     "documentCount_other": "{{count}} 篇文档",
