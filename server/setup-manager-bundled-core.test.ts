@@ -3,6 +3,26 @@ import { mkdtempSync, mkdirSync, rmSync, writeFileSync } from 'fs'
 import os from 'os'
 import path from 'path'
 
+// Neutralize the host-dependent prerequisite gate. `startInstall` calls
+// `formatMissingSetupPrerequisites()` BEFORE the bundled path, and that gate
+// requires at least one provider CLI (claude/codex/gemini) on PATH. CI runners
+// (ubuntu) ship none, so the unmocked gate emits a `setup_error` and returns
+// early — the bundled offline path under test never runs, and every
+// `getByType('setup_error')` assertion fails. This suite exercises the BUNDLED
+// OFFLINE INSTALL path; the prerequisite gate has its own coverage in
+// setup-prerequisites.test.ts (and the gate wiring in setup-manager.test.ts), so
+// forcing it to pass here keeps the install assertions meaningful while making
+// the suite deterministic on any host. Mirrors setup-manager.test.ts's mock.
+vi.mock('./setup-prerequisites', () => ({
+  formatMissingSetupPrerequisites: vi.fn().mockReturnValue(null),
+  getSetupPrerequisitesStatus: vi.fn().mockReturnValue({
+    ok: true,
+    platform: 'linux',
+    prerequisites: [],
+    missingRequired: [],
+  }),
+}))
+
 import { SetupManager } from './setup-manager'
 
 /**
