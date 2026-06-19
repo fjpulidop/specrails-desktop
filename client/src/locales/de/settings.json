@@ -200,5 +200,23 @@
     "copyCode": "Code kopieren",
     "codeCopied": "Code kopiert",
     "cancel": "Abbrechen"
+  },
+  "coreUpdate": {
+    "heading": "Specrails Core",
+    "installed": "Installiert:",
+    "updateAvailable": "Update verfügbar: {{version}}",
+    "upToDate": "Aktuell",
+    "neverChecked": "Nicht geprüft",
+    "check": "Nach Updates suchen",
+    "checking": "Wird geprüft…",
+    "update": "Auf {{version}} aktualisieren",
+    "downloading": "Wird heruntergeladen…",
+    "materializing": "Wird installiert…",
+    "affectsAll": "Gilt für alle Projekte — kein Neustart nötig.",
+    "unavailable": "Core-Updates sind in diesem Build nicht verfügbar.",
+    "toastDone": "Specrails Core auf {{version}} aktualisiert",
+    "toastError": "Core-Update fehlgeschlagen: {{message}}",
+    "toastUpToDate": "Specrails Core ist aktuell",
+    "toastCheckFailed": "Update-Prüfung fehlgeschlagen: {{message}}"
   }
 }

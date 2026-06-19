@@ -7,6 +7,7 @@ import {
   existsSync,
   lstatSync,
   readlinkSync,
+  symlinkSync,
 } from 'fs'
 import os from 'os'
 import path from 'path'
@@ -372,6 +373,47 @@ process.exit(7)
       expect(existsSync(path.join(fw, '5.0.0', '.claude', 'agents'))).toBe(true)
       expect(existsSync(path.join(fw, '5.1.0', '.claude', 'agents'))).toBe(true)
       expect(readCurrentFrameworkVersion(home)).toBe('5.1.0')
+    })
+
+    it('anti-downgrade: never reverts current to an OLDER bundled core (manual update guard)', () => {
+      // Simulate the core update channel having moved current AHEAD of bundled.
+      installFakeCore('5.0.0')
+      const fm = new FrameworkManager({ home })
+      fm.versionCheck(['claude'])
+      expect(readCurrentFrameworkVersion(home)).toBe('5.0.0')
+      // A user voluntarily materialized 5.2.0 via the update channel.
+      mkdirSync(path.join(frameworkRoot(home), '5.2.0', '.claude', 'agents'), { recursive: true })
+      const cur = path.join(frameworkRoot(home), 'current')
+      rmSync(cur, { force: true })
+      writeFileSync(path.join(frameworkRoot(home), '5.2.0', 'marker'), 'x')
+      symlinkSync('5.2.0', cur)
+      expect(readCurrentFrameworkVersion(home)).toBe('5.2.0')
+      // Next startup versionCheck sees bundled 5.0.0 < current 5.2.0 → MUST NOT downgrade.
+      const res = withFileLock(home, () => fm.versionCheck(['claude']))
+      expect(res.swapped).toBe(false)
+      expect(readCurrentFrameworkVersion(home)).toBe('5.2.0')
+    })
+  })
+
+  describe('coreRoot override (update channel)', () => {
+    it('materializes from an OVERRIDE core root instead of the bundled one', () => {
+      // No bundled core at all — only the override.
+      delete process.env.SPECRAILS_BUNDLED_CORE_PATH
+      const override = mkdtempSync(path.join(os.tmpdir(), 'fm-override-'))
+      try {
+        mkdirSync(path.join(override, 'dist', 'installer'), { recursive: true })
+        writeFileSync(path.join(override, 'dist', 'installer', 'cli.js'), FAKE_CLI)
+        writeFileSync(path.join(override, 'package.json'), JSON.stringify({ version: '6.0.0' }))
+        const fm = new FrameworkManager({ home, coreRoot: override })
+        expect(fm.isAvailable()).toBe(true)
+        expect(fm.bundledVersion()).toBe('6.0.0')
+        const res = fm.materialize('6.0.0', ['claude'])
+        expect(res.ran).toBe(true)
+        expect(fm.swapCurrent('6.0.0')).toBe(true)
+        expect(readCurrentFrameworkVersion(home)).toBe('6.0.0')
+      } finally {
+        rmSync(override, { recursive: true, force: true })
+      }
     })
   })
 })

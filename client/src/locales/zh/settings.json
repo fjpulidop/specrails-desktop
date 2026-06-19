@@ -200,5 +200,23 @@
     "copyCode": "复制配对码",
     "codeCopied": "配对码已复制",
     "cancel": "取消"
+  },
+  "coreUpdate": {
+    "heading": "Specrails Core",
+    "installed": "已安装：",
+    "updateAvailable": "有可用更新：{{version}}",
+    "upToDate": "已是最新",
+    "neverChecked": "尚未检查",
+    "check": "检查更新",
+    "checking": "检查中…",
+    "update": "更新到 {{version}}",
+    "downloading": "下载中…",
+    "materializing": "安装中…",
+    "affectsAll": "适用于所有项目 — 无需重启。",
+    "unavailable": "此版本不支持核心更新。",
+    "toastDone": "Specrails Core 已更新到 {{version}}",
+    "toastError": "核心更新失败：{{message}}",
+    "toastUpToDate": "Specrails Core 已是最新",
+    "toastCheckFailed": "检查更新失败：{{message}}"
   }
 }

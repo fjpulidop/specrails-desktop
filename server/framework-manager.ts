@@ -4,6 +4,7 @@ import path from 'path'
 
 import { getBundledCoreCli, getBundledCoreVersion } from './bundled-core'
 import { resolveHome, atomicWrite } from './artifact-registry'
+import { isNewer } from './semver-lite'
 
 /**
  * FrameworkManager — materializes the bundled specrails-core framework ONCE into
@@ -28,6 +29,15 @@ export interface FrameworkManagerOptions {
   home?: string
   /** App-level WS broadcast (no projectId) for `framework.updated`. */
   broadcast?: FrameworkBroadcast
+  /**
+   * Override the specrails-core package root used to materialize the framework.
+   * Default: the BUNDLED core (`SPECRAILS_BUNDLED_CORE_PATH`). The core update
+   * channel (`CoreUpdateManager`) passes a freshly npm-installed newer core root
+   * here so `materialize`/`swapCurrent` run that version's `install-framework`
+   * instead of the bundled one. When set, `<coreRoot>/dist/installer/cli.js`
+   * must exist and its `package.json` version is the materialized version.
+   */
+  coreRoot?: string
 }
 
 export interface MaterializeResult {
@@ -79,19 +89,48 @@ export function readCurrentFrameworkVersion(home?: string): string | null {
 export class FrameworkManager {
   private readonly home?: string
   private readonly broadcast?: FrameworkBroadcast
+  private readonly coreRoot?: string
 
   constructor(opts: FrameworkManagerOptions = {}) {
     this.home = opts.home
     this.broadcast = opts.broadcast
+    this.coreRoot = opts.coreRoot
   }
 
-  /** True when a usable bundled core is present (else all methods no-op). */
+  /**
+   * Resolve the core CLI to shell out to: the override core root (update channel)
+   * when set, else the bundled core. Returns null when neither is present.
+   */
+  private resolveCli(): string | null {
+    if (this.coreRoot) {
+      const cli = path.join(this.coreRoot, 'dist', 'installer', 'cli.js')
+      return fs.existsSync(cli) ? cli : null
+    }
+    return getBundledCoreCli()
+  }
+
+  /** True when a usable core (override or bundled) is present (else methods no-op). */
   isAvailable(): boolean {
-    return getBundledCoreCli() !== null
+    return this.resolveCli() !== null
   }
 
-  /** The bundled core version (the version the app should materialize), or null. */
+  /**
+   * The version the app should materialize: the override core's version (update
+   * channel) when a `coreRoot` is set, else the bundled core version. Null when
+   * neither is present / unreadable.
+   */
   bundledVersion(): string | null {
+    if (this.coreRoot) {
+      try {
+        const pkg = JSON.parse(
+          fs.readFileSync(path.join(this.coreRoot, 'package.json'), 'utf8'),
+        ) as { version?: string }
+        const v = pkg.version?.trim()
+        return v && v.length > 0 ? v : null
+      } catch {
+        return null
+      }
+    }
     return getBundledCoreVersion()
   }
 
@@ -106,7 +145,7 @@ export class FrameworkManager {
    * (ran:false) when no bundled core is present.
    */
   materialize(version?: string, providers: string[] = ['claude']): MaterializeResult {
-    const cli = getBundledCoreCli()
+    const cli = this.resolveCli()
     if (!cli) {
       return { ran: false, version: null, providers: [], errors: [] }
     }
@@ -158,7 +197,7 @@ export class FrameworkManager {
    * `swap-current` only moves the version pointer (provider-invariant).
    */
   swapCurrent(version: string, _provider = 'claude'): boolean {
-    const cli = getBundledCoreCli()
+    const cli = this.resolveCli()
     if (!cli) return false
     if (readCurrentFrameworkVersion(this.home) === version) return true
     const fwDir = frameworkRoot(this.home)
@@ -179,11 +218,20 @@ export class FrameworkManager {
    */
   versionCheck(providers: string[] = ['claude']): { swapped: boolean; version: string | null } {
     const bundled = this.bundledVersion()
-    if (!getBundledCoreCli() || !bundled) {
+    if (!this.resolveCli() || !bundled) {
       return { swapped: false, version: readCurrentFrameworkVersion(this.home) }
     }
     const current = readCurrentFrameworkVersion(this.home)
     if (current === bundled) {
+      return { swapped: false, version: current }
+    }
+    // Anti-downgrade guard: NEVER swap `current` down to the bundled version when
+    // `current` is already NEWER. The core update channel lets a user voluntarily
+    // materialize a core newer than the one shipped in this app build; without
+    // this guard the next startup versionCheck would revert that manual update
+    // back to the (older) bundled version. Only first-run (current null) or a
+    // genuinely newer bundled core (a fresh app update) proceeds.
+    if (current && !isNewer(bundled, current)) {
       return { swapped: false, version: current }
     }
     // Materialize EVERY requested provider first (each with `--no-swap`), then
@@ -245,7 +293,7 @@ export class FrameworkManager {
     version?: string
     codeRoot: string
   }): { ran: boolean; error?: string } {
-    const cli = getBundledCoreCli()
+    const cli = this.resolveCli()
     if (!cli) return { ran: false }
     const ver = input.version ?? this.bundledVersion()
     if (!ver) return { ran: false }
@@ -281,9 +329,10 @@ export class FrameworkManager {
     if (this.home) {
       env.SPECRAILS_REGISTRY_HOME = this.home
     }
-    // Point the bundled core CLI's scriptDir at the bundled package so its
-    // template/command sources resolve from the bundle, not a global install.
-    const coreRoot = process.env.SPECRAILS_BUNDLED_CORE_PATH
+    // Point the core CLI's scriptDir at the package whose framework we are
+    // materializing so its template/command sources resolve from there: the
+    // OVERRIDE core (update channel) when set, else the bundled package.
+    const coreRoot = this.coreRoot ?? process.env.SPECRAILS_BUNDLED_CORE_PATH
     if (coreRoot) env.SPECRAILS_CORE_SCRIPT_DIR = coreRoot
     return env
   }
