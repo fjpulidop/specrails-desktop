@@ -1,5 +1,14 @@
 # Changelog
 
+## [2.9.1](https://github.com/fjpulidop/specrails-desktop/compare/v2.9.0...v2.9.1) (2026-06-19)
+
+
+### Bug Fixes
+
+* **desktop-release:** spawn npm via shell on Windows (EINVAL on .cmd) ([#410](https://github.com/fjpulidop/specrails-desktop/issues/410)) ([837c250](https://github.com/fjpulidop/specrails-desktop/commit/837c250660b868559bd396e304d1cbdc380a1a96))
+* **desktop-release:** unblock Windows + macOS bundled-resource assembly ([#407](https://github.com/fjpulidop/specrails-desktop/issues/407)) ([adcee16](https://github.com/fjpulidop/specrails-desktop/commit/adcee16d2cfb3ad5f580eb66a10fdc7a105b9cfb))
+* **jira:** enable refine + compare for Jira specs in any board column ([#409](https://github.com/fjpulidop/specrails-desktop/issues/409)) ([55915bd](https://github.com/fjpulidop/specrails-desktop/commit/55915bd7fdb50b26ee03f3a2a37d9f6c438b4101))
+
 ## [2.9.0](https://github.com/fjpulidop/specrails-desktop/compare/v2.8.0...v2.9.0) (2026-06-19)
 
 
