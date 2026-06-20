@@ -1,5 +1,12 @@
 # Changelog
 
+## [2.11.3](https://github.com/fjpulidop/specrails-desktop/compare/v2.11.2...v2.11.3) (2026-06-20)
+
+
+### Bug Fixes
+
+* **setup:** capture full core stack + spawn diagnostics on install failure ([#424](https://github.com/fjpulidop/specrails-desktop/issues/424)) ([e4aa573](https://github.com/fjpulidop/specrails-desktop/commit/e4aa57330ffd79f9bafc167267f844b12894d85f))
+
 ## [2.11.2](https://github.com/fjpulidop/specrails-desktop/compare/v2.11.1...v2.11.2) (2026-06-20)
 
 
