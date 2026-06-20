@@ -1,5 +1,13 @@
 # Changelog
 
+## [2.11.4](https://github.com/fjpulidop/specrails-desktop/compare/v2.11.3...v2.11.4) (2026-06-20)
+
+
+### Bug Fixes
+
+* **windows:** harden the audited Windows-specific defects ([#431](https://github.com/fjpulidop/specrails-desktop/issues/431)) ([4b07092](https://github.com/fjpulidop/specrails-desktop/commit/4b07092dad96c6796fe4bebd0480cf66074ad605))
+* **windows:** strip \\?\ verbatim prefix from bundled paths (EISDIR lstat 'C:') ([#433](https://github.com/fjpulidop/specrails-desktop/issues/433)) ([da72e77](https://github.com/fjpulidop/specrails-desktop/commit/da72e779d215544c229b7c8fe370853998936767))
+
 ## [2.11.3](https://github.com/fjpulidop/specrails-desktop/compare/v2.11.2...v2.11.3) (2026-06-20)
 
 
