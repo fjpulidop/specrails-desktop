@@ -1,5 +1,18 @@
 # Changelog
 
+## [2.11.6](https://github.com/fjpulidop/specrails-desktop/compare/v2.11.5...v2.11.6) (2026-06-20)
+
+
+### Bug Fixes
+
+* **audit:** batch 1 — data-integrity + job/setup lifecycle (9 bugs) ([#436](https://github.com/fjpulidop/specrails-desktop/issues/436)) ([b651b14](https://github.com/fjpulidop/specrails-desktop/commit/b651b144dcc6e369e99a1ab7fe8a2c4348918eac))
+* **audit:** batch 2 — Jira sync, plugins, terminal, profiles (10 bugs) ([#438](https://github.com/fjpulidop/specrails-desktop/issues/438)) ([5468330](https://github.com/fjpulidop/specrails-desktop/commit/54683305740464235980fe898e12e4e8479f24ac))
+* **audit:** batch 3 — chat/explore, tickets/contract, setup (9 bugs) ([#439](https://github.com/fjpulidop/specrails-desktop/issues/439)) ([16a07d7](https://github.com/fjpulidop/specrails-desktop/commit/16a07d7d2db8554cab0a692de5b1b83a198f2fdb))
+* **audit:** batch 4a — telemetry + spending + duration (7 bugs) ([#440](https://github.com/fjpulidop/specrails-desktop/issues/440)) ([eeff921](https://github.com/fjpulidop/specrails-desktop/commit/eeff9210e9ee4fcd9416cf66493eb71edadfcbd5))
+* **audit:** batch 4b — budget webhooks, mobile alert/reassembler, SSRF (4 bugs) ([#441](https://github.com/fjpulidop/specrails-desktop/issues/441)) ([15b93bb](https://github.com/fjpulidop/specrails-desktop/commit/15b93bbc2fdb2c7f7cc9c18567bb0bafb1502a47))
+* **audit:** batch 5 — client per-project isolation + overlays (5 bugs) ([#442](https://github.com/fjpulidop/specrails-desktop/issues/442)) ([8d7bbb9](https://github.com/fjpulidop/specrails-desktop/commit/8d7bbb9295b6075dd4fb9145f067bd597d87d4b5))
+* **audit:** batch 6 — setup workspace artifacts + WebRTC multi-room (2 bugs) ([#443](https://github.com/fjpulidop/specrails-desktop/issues/443)) ([d8f3163](https://github.com/fjpulidop/specrails-desktop/commit/d8f31638b293c5fc7a2a816897439b773257aa38))
+
 ## [2.11.5](https://github.com/fjpulidop/specrails-desktop/compare/v2.11.4...v2.11.5) (2026-06-20)
 
 
