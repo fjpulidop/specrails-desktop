@@ -774,11 +774,20 @@ export function registerTicketsRoutes(deps: ProjectRoutesDeps): void {
           flippedInPlace = true
           return
         }
-        // Idempotent on conversationId: if a draft ticket already references this
-        // conversation, update in place rather than create a second one.
-        const existing = Object.values(s.tickets).find(
-          (t) => t.origin_conversation_id === conversationId && t.status === 'draft',
+        // Idempotent on conversationId. A ticket from this conversation may
+        // already exist as a DRAFT (update in place) OR as a COMMITTED ticket
+        // (it was already turned into a real spec) — in the latter case do NOT
+        // insert a duplicate draft sharing the same origin_conversation_id
+        // (which would also break the delete→conversation cascade). Return the
+        // committed ticket unchanged instead.
+        const anyExisting = Object.values(s.tickets).find(
+          (t) => t.origin_conversation_id === conversationId,
         )
+        if (anyExisting && anyExisting.status !== 'draft') {
+          saved = anyExisting
+          return
+        }
+        const existing = anyExisting && anyExisting.status === 'draft' ? anyExisting : undefined
         const title = providedTitle || existing?.title || generateAutoTitle(messages.map((m) => ({ role: m.role, content: m.content ?? '' })))
         if (existing) {
           existing.title = title
@@ -909,8 +918,16 @@ export function registerTicketsRoutes(deps: ProjectRoutesDeps): void {
         let flipTarget: Ticket | undefined
         if (draftTicketId !== null) {
           flipTarget = s.tickets[String(draftTicketId)]
-          if (!flipTarget || flipTarget.status !== 'draft') {
+          if (!flipTarget) {
             explicitDraftMissing = true
+            return
+          }
+          if (flipTarget.status !== 'draft') {
+            // Already committed (lost-response retry / second tab / watchdog
+            // re-fire): return the committed ticket idempotently instead of a
+            // spurious 404. The draft was flipped on the first call.
+            created = flipTarget
+            wasFlip = true
             return
           }
         } else if (conversationId) {
@@ -1038,7 +1055,13 @@ export function registerTicketsRoutes(deps: ProjectRoutesDeps): void {
       // are checked inside runContractRefine. Claude-only today — codex
       // contract refine isn't wired (the spawn hardcodes the `claude`
       // binary). Skip silently on codex projects.
-      if (conversationId && created && project.provider === 'claude') {
+      // Gate on the CONVERSATION's own engine, not the project's PRIMARY
+      // provider: a multi-provider project with a non-claude primary can still
+      // run an Explore on the claude engine + opt into Contract Refine.
+      const convoProvider = conversationId
+        ? (getConversation(ctx(req).db, conversationId)?.provider ?? 'claude')
+        : null
+      if (conversationId && created && convoProvider === 'claude') {
         const createdTicketId = created.id
         const convoId = conversationId
         console.log(`[project-router] from-draft hook: scheduling refine ticket=${createdTicketId} conv=${convoId}`)
@@ -1058,9 +1081,9 @@ export function registerTicketsRoutes(deps: ProjectRoutesDeps): void {
             console.error('[project-router] runContractRefine error:', err)
           })
         })
-      } else if (conversationId && created && project.provider === 'codex') {
+      } else if (conversationId && created && convoProvider && convoProvider !== 'claude') {
         console.log(
-          `[project-router] from-draft contract refine skipped for codex project (ticket #${created.id})`,
+          `[project-router] from-draft contract refine skipped for ${convoProvider} conversation (ticket #${created.id})`,
         )
       }
     } catch (err) {

@@ -128,11 +128,22 @@ export class ExploreStdinSessions {
     if (s) s.handlers = null
   }
 
-  /** Write one framed user turn to the persistent child's stdin. */
+  /**
+   * Write one framed user turn to the persistent child's stdin. Returns false
+   * ONLY when the data cannot be enqueued at all (no session / no stdin /
+   * destroyed). `stream.write()` returning false means BACKPRESSURE (the bytes
+   * are buffered and flush on 'drain') — NOT failure — so we must not treat it
+   * as a dead child and fail the turn. Any non-throwing write is a success.
+   */
   writeTurn(id: string, text: string): boolean {
     const s = this._sessions.get(id)
     if (!s || !s.child.stdin || s.child.stdin.destroyed) return false
-    return s.child.stdin.write(frameStreamJsonUserMessage(text))
+    try {
+      s.child.stdin.write(frameStreamJsonUserMessage(text)) // ignore backpressure boolean
+      return true
+    } catch {
+      return false
+    }
   }
 
   /** Kill and forget one conversation's persistent child (idempotent). */

@@ -2703,7 +2703,7 @@ describe('project-router', () => {
   // ─── PATCH conversation model ──────────────────────────────────────────────
 
   describe('PATCH /:projectId/chat/conversations/:id model update', () => {
-    it('updates model on a conversation', async () => {
+    it('updates model on a conversation with a valid model', async () => {
       const ctx = makeContext(db)
       const { app } = createApp(new Map([['proj-1', ctx]]))
       const createRes = await request(app)
@@ -2712,9 +2712,35 @@ describe('project-router', () => {
       const convId = createRes.body.conversation.id
       const res = await request(app)
         .patch(`/api/projects/proj-1/chat/conversations/${convId}`)
-        .send({ model: 'claude-3-haiku' })
+        .send({ model: 'haiku' })
       expect(res.status).toBe(200)
       expect(res.body.ok).toBe(true)
+    })
+
+    it('rejects an invalid model with 400 (no longer persists garbage)', async () => {
+      const ctx = makeContext(db)
+      const { app } = createApp(new Map([['proj-1', ctx]]))
+      const createRes = await request(app)
+        .post('/api/projects/proj-1/chat/conversations')
+        .send({ model: 'sonnet' })
+      const convId = createRes.body.conversation.id
+      const res = await request(app)
+        .patch(`/api/projects/proj-1/chat/conversations/${convId}`)
+        .send({ model: 'not-a-real-model' })
+      expect(res.status).toBe(400)
+    })
+
+    it('rejects a non-string title with 400', async () => {
+      const ctx = makeContext(db)
+      const { app } = createApp(new Map([['proj-1', ctx]]))
+      const createRes = await request(app)
+        .post('/api/projects/proj-1/chat/conversations')
+        .send({ model: 'sonnet' })
+      const convId = createRes.body.conversation.id
+      const res = await request(app)
+        .patch(`/api/projects/proj-1/chat/conversations/${convId}`)
+        .send({ title: { not: 'a string' } })
+      expect(res.status).toBe(400)
     })
   })
 
