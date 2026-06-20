@@ -84,6 +84,9 @@ export function useActivity({ activeProjectId, limit = 50 }: UseActivityOpts): U
     if (loading || !hasMore) return
     setLoading(true)
     const base = getApiBase()
+    // Pin the project this pagination belongs to; if the user switches before
+    // the response lands, drop it so we don't splice project A's items into B.
+    const requestProjectId = activeProjectIdRef.current
     try {
       setItems((prev) => {
         const oldest = prev[prev.length - 1]
@@ -93,6 +96,7 @@ export function useActivity({ activeProjectId, limit = 50 }: UseActivityOpts): U
         fetch(`${base}/activity?limit=${limit}&before=${before}`)
           .then((res) => res.json())
           .then((data: ActivityItem[]) => {
+            if (activeProjectIdRef.current !== requestProjectId) { setLoading(false); return }
             setItems((cur) => dedupeItems([...cur, ...data]))
             setHasMore(data.length === limit)
             setLoading(false)

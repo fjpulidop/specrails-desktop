@@ -158,11 +158,16 @@ export function usePipeline(activeProjectId?: string | null) {
   // Fetch initial state for this project via REST (WS init only fires on connect)
   useEffect(() => {
     if (!activeProjectId) return
+    // Guard against a project switch resolving an in-flight fetch into the wrong
+    // project: A's /state could land after the user switched to B and overwrite
+    // B's live state. Bail on resolve if this effect was cleaned up.
+    let cancelled = false
     async function fetchState() {
       try {
         const res = await fetch(`${getApiBase()}/state`)
-        if (!res.ok) return
+        if (cancelled || !res.ok) return
         const msg = await res.json()
+        if (cancelled) return
         if (msg.projectName) setProjectName(msg.projectName)
         if (msg.phaseDefinitions) {
           setPhaseDefinitions(msg.phaseDefinitions)
@@ -179,6 +184,7 @@ export function usePipeline(activeProjectId?: string | null) {
       }
     }
     fetchState()
+    return () => { cancelled = true }
   }, [activeProjectId])
 
   return { phases, phaseDefinitions, projectName, logLines, connectionStatus, recentJobs, queueState }
