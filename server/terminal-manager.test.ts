@@ -423,9 +423,11 @@ describe('TerminalManager lifecycle', () => {
     const a = tm2.create('proj-A', { cwd: os.tmpdir() })
     const b = tm2.create('proj-A', { cwd: os.tmpdir() })
     const c = tm2.create('proj-A', { cwd: os.tmpdir() })
-    expect(a.name).toBe('zsh')
-    expect(b.name).toBe('zsh (2)')
-    expect(c.name).toBe('zsh (3)')
+    // The auto-name base is the RESOLVED shell's basename (existence-gated, so
+    // it may be bash/sh on a host without zsh — assert the suffix RELATIONSHIP,
+    // not a hardcoded 'zsh' which couples to the OS shell set).
+    expect(b.name).toBe(`${a.name} (2)`)
+    expect(c.name).toBe(`${a.name} (3)`)
     void tm2.shutdown()
     if (prev === undefined) delete process.env.SHELL
     else process.env.SHELL = prev
