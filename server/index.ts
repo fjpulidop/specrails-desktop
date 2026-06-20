@@ -27,7 +27,7 @@ import { createTelemetryRouter } from './telemetry-receiver'
 import { runCompactionForAll } from './telemetry-compactor'
 import { FrameworkManager } from './framework-manager'
 import { withFileLock } from './artifact-registry'
-import { resolveStartupPath, augmentPathFromLoginShell, getPathDiagnostic, ensureWindowsBaseEnv } from './path-resolver'
+import { resolveStartupPath, augmentPathFromLoginShell, augmentAuthEnvFromLoginShell, getPathDiagnostic, ensureWindowsBaseEnv } from './path-resolver'
 // Side-effect import: registers every bundled ProviderAdapter (claude, codex,
 // future providers) so `getAdapter`/`hasAdapter`/`listAdapters` are populated
 // before any manager constructs a project context. See
@@ -603,6 +603,11 @@ server.listen(port, '127.0.0.1', () => {
     const source = process.stdin.isTTY ? 'terminal' : 'gui'
     console.log(`[path-resolver] inherited=${inheritedPathBeforeResolve} augmented=${Math.max(0, augmented)} loginShell=${diag.loginShellStatus} source=${source}`)
   })
+  // Recover provider auth env (e.g. GEMINI_API_KEY) from the user's login shell
+  // so a GUI-launched server doesn't force gemini onto its macOS-Keychain OAuth
+  // path. Independent of the PATH probe above (which is skipped when the bundle
+  // is active). Fire-and-forget; never logs secret values.
+  void augmentAuthEnvFromLoginShell()
 })
 
 // ─── Clean shutdown ───────────────────────────────────────────────────────────

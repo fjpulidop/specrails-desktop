@@ -6,11 +6,14 @@ import path from 'path'
 import {
   resolveStartupPath,
   augmentPathFromLoginShell,
+  augmentAuthEnvFromLoginShell,
   parseLoginShellOutput,
+  parseLoginShellEnv,
   getPathDiagnostic,
   resolveBundledRuntimePath,
   resolveBundledNodeExe,
   ensureWindowsBaseEnv,
+  AUTH_ENV_VARS,
   __resetPathResolverForTest,
 } from './path-resolver'
 
@@ -266,6 +269,52 @@ describe('resolveStartupPath — desktop mode', () => {
     expect(parts[1]).toContain('git')
   })
 
+  it('Windows + active bundle: also prepends %APPDATA%\\npm (provider shims) AFTER bundled node/git', () => {
+    // Regression: the desktop bundled branch returned early, skipping the win32
+    // fallback's npm-prefix prepend — so gemini.cmd/claude.cmd in %APPDATA%\npm
+    // were never on PATH in the packaged Windows app, breaking provider detection.
+    Object.defineProperty(process, 'platform', { value: 'win32' })
+    const appdata = fs.mkdtempSync(path.join(os.tmpdir(), 'appdata-'))
+    const npmDir = path.join(appdata, 'npm')
+    fs.mkdirSync(npmDir, { recursive: true })
+    const prevAppData = process.env.APPDATA
+    const prevPF = process.env.ProgramFiles
+    process.env.APPDATA = appdata
+    delete process.env.ProgramFiles
+    process.env.PATH = '/Windows/System32'
+    try {
+      resolveStartupPath()
+      const parts = (process.env.PATH ?? '').split(';')
+      // bundled node/git first, then the npm shim dir, then inherited.
+      expect(parts[0]).toContain('node')
+      expect(parts[1]).toContain('git')
+      expect(parts).toContain(npmDir)
+      expect(parts.indexOf(npmDir)).toBeGreaterThan(1)
+      expect(parts.indexOf(npmDir)).toBeLessThan(parts.indexOf('/Windows/System32'))
+      const diag = getPathDiagnostic()
+      expect(diag.pathSources[diag.pathSegments.indexOf(npmDir)]).toBe('fast-path')
+      // idempotent: a second pass doesn't duplicate the npm dir
+      resolveStartupPath()
+      expect((process.env.PATH ?? '').split(';').filter((s) => s === npmDir).length).toBe(1)
+    } finally {
+      if (prevAppData === undefined) delete process.env.APPDATA
+      else process.env.APPDATA = prevAppData
+      if (prevPF === undefined) delete process.env.ProgramFiles
+      else process.env.ProgramFiles = prevPF
+      fs.rmSync(appdata, { recursive: true, force: true })
+    }
+  })
+
+  it('macOS + active bundle: adds NO npm dirs (windowsGlobalBinDirs is win32-only) — POSIX byte-identical', () => {
+    Object.defineProperty(process, 'platform', { value: 'darwin' })
+    process.env.PATH = '/usr/bin:/bin'
+    resolveStartupPath()
+    const diag = getPathDiagnostic()
+    // Only the two bundled dirs are prepended; everything else stays inherited.
+    expect(diag.pathSources.filter((s) => s === 'bundled')).toHaveLength(2)
+    expect(diag.pathSources).not.toContain('fast-path')
+  })
+
   it('marks prepended dirs as bundled in diagnostic', () => {
     Object.defineProperty(process, 'platform', { value: 'darwin' })
     process.env.PATH = '/usr/bin'
@@ -461,6 +510,93 @@ function makeFakeSpawn(opts: { stdout: string; exitCode: number | null; hang?: b
     return child
   }
 }
+
+describe('parseLoginShellEnv', () => {
+  it('extracts KEY=VALUE pairs between the env sentinels', () => {
+    const stdout =
+      'rc noise\n__SRH_ENV_BEGIN__GEMINI_API_KEY=abc123\nGOOGLE_API_KEY=\nGOOGLE_CLOUD_PROJECT=my-proj\n__SRH_ENV_END__\ntrailing'
+    const env = parseLoginShellEnv(stdout)
+    expect(env.GEMINI_API_KEY).toBe('abc123')
+    expect(env.GOOGLE_CLOUD_PROJECT).toBe('my-proj')
+    // Empty values are dropped (an unset var prints `KEY=`)
+    expect(env.GOOGLE_API_KEY).toBeUndefined()
+  })
+
+  it('returns {} when sentinels are missing', () => {
+    expect(parseLoginShellEnv('no sentinels')).toEqual({})
+    expect(parseLoginShellEnv('__SRH_ENV_BEGIN__GEMINI_API_KEY=x')).toEqual({})
+  })
+
+  it('preserves `=` characters inside a value', () => {
+    const stdout = '__SRH_ENV_BEGIN__GEMINI_API_KEY=a=b=c\n__SRH_ENV_END__'
+    expect(parseLoginShellEnv(stdout).GEMINI_API_KEY).toBe('a=b=c')
+  })
+})
+
+describe('augmentAuthEnvFromLoginShell', () => {
+  const PREV: Record<string, string | undefined> = {}
+  beforeEach(() => {
+    __resetPathResolverForTest()
+    delete process.env.VITEST
+    process.env.NODE_ENV = 'production'
+    for (const k of AUTH_ENV_VARS) { PREV[k] = process.env[k]; delete process.env[k] }
+  })
+  afterEach(() => {
+    process.env.VITEST = 'true'
+    process.env.NODE_ENV = 'test'
+    setPlatform(ORIGINAL_PLATFORM)
+    for (const k of AUTH_ENV_VARS) {
+      if (PREV[k] === undefined) delete process.env[k]
+      else process.env[k] = PREV[k]
+    }
+  })
+
+  it('backfills GEMINI_API_KEY (and others) from the login shell when unset', async () => {
+    setPlatform('darwin')
+    const fakeSpawn = makeFakeSpawn({
+      stdout: '__SRH_ENV_BEGIN__GEMINI_API_KEY=sk-live-xyz\nGOOGLE_CLOUD_PROJECT=proj-1\n__SRH_ENV_END__',
+      exitCode: 0,
+    })
+    await augmentAuthEnvFromLoginShell({ spawnFn: fakeSpawn as any })
+    expect(process.env.GEMINI_API_KEY).toBe('sk-live-xyz')
+    expect(process.env.GOOGLE_CLOUD_PROJECT).toBe('proj-1')
+  })
+
+  it('does NOT override an already-set value', async () => {
+    setPlatform('darwin')
+    process.env.GEMINI_API_KEY = 'explicit-key'
+    const fakeSpawn = makeFakeSpawn({
+      stdout: '__SRH_ENV_BEGIN__GEMINI_API_KEY=from-shell\n__SRH_ENV_END__',
+      exitCode: 0,
+    })
+    await augmentAuthEnvFromLoginShell({ spawnFn: fakeSpawn as any })
+    expect(process.env.GEMINI_API_KEY).toBe('explicit-key')
+  })
+
+  it('is a no-op on win32 (does not spawn)', async () => {
+    setPlatform('win32')
+    const spawnFn = vi.fn()
+    await augmentAuthEnvFromLoginShell({ spawnFn: spawnFn as any })
+    expect(spawnFn).not.toHaveBeenCalled()
+  })
+
+  it('skips under VITEST=true', async () => {
+    process.env.VITEST = 'true'
+    setPlatform('darwin')
+    const spawnFn = vi.fn()
+    await augmentAuthEnvFromLoginShell({ spawnFn: spawnFn as any })
+    expect(spawnFn).not.toHaveBeenCalled()
+  })
+
+  it('resolves without throwing on timeout (hung shell)', async () => {
+    setPlatform('darwin')
+    const hangingSpawn = makeFakeSpawn({ stdout: '', exitCode: null, hang: true })
+    await expect(
+      augmentAuthEnvFromLoginShell({ spawnFn: hangingSpawn as any, timeoutMs: 30 }),
+    ).resolves.toBeUndefined()
+    expect(process.env.GEMINI_API_KEY).toBeUndefined()
+  })
+})
 
 describe('resolveBundledNodeExe', () => {
   const ORIGINAL_RUNTIMES = process.env.SPECRAILS_BUNDLED_RUNTIMES_PATH
