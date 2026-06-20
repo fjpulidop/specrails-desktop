@@ -68,12 +68,50 @@ describe('resolveStartupPath (fast path)', () => {
     expect(process.env.PATH).toBe(before)
   })
 
-  it('is no-op on win32', () => {
+  it('is no-op on win32 when no global-bin dirs exist to prepend', () => {
     setPlatform('win32')
+    const prevAppData = process.env.APPDATA
+    const prevPF = process.env.ProgramFiles
+    delete process.env.APPDATA
+    delete process.env.ProgramFiles
     const before = 'C:\\Windows\\System32;C:\\Program Files\\Git\\cmd'
     process.env.PATH = before
-    resolveStartupPath()
-    expect(process.env.PATH).toBe(before)
+    try {
+      resolveStartupPath()
+      expect(process.env.PATH).toBe(before)
+    } finally {
+      if (prevAppData === undefined) delete process.env.APPDATA
+      else process.env.APPDATA = prevAppData
+      if (prevPF === undefined) delete process.env.ProgramFiles
+      else process.env.ProgramFiles = prevPF
+    }
+  })
+
+  it('prepends an existing %APPDATA%\\npm global-bin dir on win32 (provider shims)', () => {
+    setPlatform('win32')
+    const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'appdata-'))
+    const npmDir = path.join(tmp, 'npm')
+    fs.mkdirSync(npmDir, { recursive: true })
+    const prevAppData = process.env.APPDATA
+    const prevPF = process.env.ProgramFiles
+    process.env.APPDATA = tmp
+    delete process.env.ProgramFiles
+    process.env.PATH = 'C:\\Windows\\System32'
+    try {
+      resolveStartupPath()
+      const segs = (process.env.PATH ?? '').split(';')
+      expect(segs[0]).toBe(npmDir) // prepended first
+      expect(segs).toContain('C:\\Windows\\System32') // inherited preserved
+      // idempotent: a second pass doesn't duplicate it
+      resolveStartupPath()
+      expect((process.env.PATH ?? '').split(';').filter((s) => s === npmDir).length).toBe(1)
+    } finally {
+      if (prevAppData === undefined) delete process.env.APPDATA
+      else process.env.APPDATA = prevAppData
+      if (prevPF === undefined) delete process.env.ProgramFiles
+      else process.env.ProgramFiles = prevPF
+      fs.rmSync(tmp, { recursive: true, force: true })
+    }
   })
 
   it('records path sources in diagnostic', () => {

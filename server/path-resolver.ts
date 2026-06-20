@@ -124,6 +124,23 @@ function fastPathDirectories(): string[] {
 }
 
 /**
+ * Well-known Windows directories that hold globally-installed CLI shims
+ * (`claude.cmd` / `codex.cmd` / `gemini.cmd`) which a GUI-launched (Explorer/
+ * Tauri) process may not have on its inherited PATH. The per-user npm prefix
+ * places `.cmd` shims DIRECTLY in the prefix root (`%APPDATA%\npm`), not a `bin`
+ * subdir. `npm prefix -g` is the authoritative location for a custom prefix.
+ */
+function windowsGlobalBinDirs(): string[] {
+  if (process.platform !== 'win32') return []
+  const dirs: string[] = []
+  // Default per-user npm prefix: shims (`claude.cmd` …) live in the prefix ROOT.
+  if (process.env.APPDATA) dirs.push(path.join(process.env.APPDATA, 'npm'))
+  // Machine-wide Node install (also where a machine-scope npm prefix points).
+  if (process.env.ProgramFiles) dirs.push(path.join(process.env.ProgramFiles, 'nodejs'))
+  return dirs
+}
+
+/**
  * Returns the absolute path to the bundled runtimes directory.
  * Only valid when SPECRAILS_IS_DESKTOP=1 and SPECRAILS_BUNDLED_RUNTIMES_PATH is set.
  * Throws if the env var is missing.
@@ -208,9 +225,25 @@ export function resolveStartupPath(): void {
   const inheritedSet = new Set(inherited)
 
   if (process.platform === 'win32') {
+    // Prepend well-known global-CLI dirs (npm prefix, Program Files\nodejs) that
+    // a GUI-launched process may lack, so provider shims (claude/codex/gemini
+    // .cmd) — and any RECURSIVE bare-name invocation by a spawned CLI — resolve.
+    // Existence-gated + deduped; no-op when already present (the common case).
+    const winPrepend: string[] = []
+    for (const dir of windowsGlobalBinDirs()) {
+      if (dir && fileExists(dir) && !inheritedSet.has(dir)) {
+        winPrepend.push(dir)
+        inheritedSet.add(dir)
+      }
+    }
+    const winMerged = [...winPrepend, ...inherited]
+    if (winPrepend.length > 0) process.env.PATH = joinPath(winMerged)
     diagnostic = {
-      pathSegments: inherited,
-      pathSources: inherited.map(() => 'inherited' as PathSource),
+      pathSegments: winMerged,
+      pathSources: [
+        ...winPrepend.map(() => 'fast-path' as PathSource),
+        ...inherited.map(() => 'inherited' as PathSource),
+      ],
       loginShellStatus: 'skipped',
     }
     return

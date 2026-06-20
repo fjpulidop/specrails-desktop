@@ -26,6 +26,7 @@
 // Spec: openspec/specs/multi-provider-architecture/spec.md
 
 import { execSync } from 'child_process'
+import { windowsSpawnEnv } from '../util/win-spawn'
 import { acknowledgeGeminiProjectAgents } from './gemini-agent-ack'
 import type {
   AdapterEvent,
@@ -193,16 +194,20 @@ function compareSemver(a: string, b: string): number {
 
 async function detectGeminiInstalled(): Promise<DetectionResult> {
   try {
-    execSync(`${WHICH_CMD} gemini`, { stdio: 'ignore' })
+    execSync(`${WHICH_CMD} gemini`, { stdio: 'ignore', env: windowsSpawnEnv() })
   } catch {
     return { installed: false, executable: false }
   }
 
   try {
+    // gemini is a Node CLI; its cold `--version` (cmd.exe → node → load bundle,
+    // Defender scanning) can exceed a few seconds on Windows. Give it a generous
+    // budget + SystemRoot env so it isn't wrongly reported not-executable.
     const raw = execSync('gemini --version', {
       encoding: 'utf-8',
       stdio: ['pipe', 'pipe', 'ignore'],
-      timeout: 3000,
+      timeout: process.platform === 'win32' ? 20_000 : 8_000,
+      env: windowsSpawnEnv(),
     }).trim()
     const match = raw.match(/\d+\.\d+\.\d+/)
     const version = match ? match[0] : raw

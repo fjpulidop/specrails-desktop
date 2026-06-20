@@ -20,13 +20,20 @@ const WHICH_CMD = process.platform === 'win32' ? 'where' : 'which'
  * inherited a stripped env) — without it every bundled probe failed with a bogus
  * "bundle corrupted — reinstall the app".
  */
-function runVersionSpawn(cmd: string, args: string[]): SpawnSyncReturns<string> {
-  const opts = { env: windowsSpawnEnv(), encoding: 'utf-8' as const, timeout: 5_000 }
+function runVersionSpawn(cmd: string, args: string[], timeoutMs = 5_000): SpawnSyncReturns<string> {
+  const opts = { env: windowsSpawnEnv(), encoding: 'utf-8' as const, timeout: timeoutMs }
   if (process.platform === 'win32') {
     return crossSpawn.sync(cmd, args, opts)
   }
   return spawnSync(cmd, args, opts)
 }
+
+// A bundled/system CLI's `--version` cold start can be slow on Windows: a npm
+// `.cmd` shim goes cmd.exe → node.exe → load the CLI bundle, while Defender
+// scans it. The Node-based gemini CLI in particular exceeded the old 5s cap and
+// was wrongly reported not-executable. Give version probes a generous Windows
+// budget; the `where`/`which` LOCATE probe stays fast (5s) since it's a builtin.
+const VERSION_PROBE_TIMEOUT_MS = process.platform === 'win32' ? 20_000 : 8_000
 
 export type Platform = 'darwin' | 'win32' | 'linux'
 
@@ -101,7 +108,7 @@ interface VersionProbe {
 
 /** Run `<bin> <args>` and interpret the result as a `--version` probe. */
 function runProbe(bin: string, args: string[]): VersionProbe {
-  const result = runVersionSpawn(bin, args)
+  const result = runVersionSpawn(bin, args, VERSION_PROBE_TIMEOUT_MS)
   if (result.error) {
     const err = result.error as NodeJS.ErrnoException
     return { executed: false, error: `${err.code ?? 'ERR'}: ${err.message}` }
