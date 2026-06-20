@@ -71,16 +71,35 @@ jobs:
           # user — who IS authenticated — hits the EISDIR. Provider comes from config.
           $env:SPECRAILS_SKIP_PREREQS = "1"
 
-          Write-Host "=== running core init ==="
+          Write-Host "=== running core init (openspec SKIPPED — baseline) ==="
           & $node $cli init --yes --from-config $cfg 2>&1 | Tee-Object -FilePath "$env:RUNNER_TEMP\core-init.log"
-          $code = $LASTEXITCODE
-          Write-Host "=== EXIT=$code ==="
+          Write-Host "=== EXIT=$LASTEXITCODE ==="
 
-          Write-Host "=== artifacts under home ==="
-          if (Test-Path "$home2\.specrails") { Get-ChildItem -Recurse -Depth 3 "$home2\.specrails" | Select-Object FullName | Format-Table -AutoSize }
+          # ── Isolate @fission-ai/openspec init — the prime EISDIR suspect ──────
+          # The user's run does NOT skip openspec; core spawns it as
+          # `node <openspec.js> init --tools claude <repoRoot>`. Reproduce directly
+          # with the bundled pin (1.4.1) on a fresh repo.
+          Write-Host "=== installing @fission-ai/openspec@1.4.1 ==="
+          $osStage = Join-Path $env:RUNNER_TEMP "os-stage"
+          New-Item -ItemType Directory -Force -Path $osStage | Out-Null
+          Set-Location $osStage
+          '{ "name": "os-stage", "private": true, "version": "0.0.0" }' | Out-File -Encoding ascii package.json
+          npm install "@fission-ai/openspec@1.4.1" --no-audit --no-fund --no-save --ignore-scripts --silent
+          $osCli = "$osStage\node_modules\@fission-ai\openspec\bin\openspec.js"
+          Write-Host "openspec cli=$osCli exists=$(Test-Path $osCli)"
 
-          # Re-run under --stack-trace-limit=100 so any truncated frames are shown.
-          Write-Host "=== re-run with full stack trace ==="
-          & $node --stack-trace-limit=100 $cli init --yes --from-config $cfg 2>&1 | Tee-Object -FilePath "$env:RUNNER_TEMP\core-init-full.log"
+          $osRepo = Join-Path $env:RUNNER_TEMP "os-repo"
+          New-Item -ItemType Directory -Force -Path $osRepo | Out-Null
+          Set-Location $osRepo
+          git init -q; git config user.email ci@specrails.dev; git config user.name ci
 
-          if ($code -ne 0) { exit 1 }
+          Write-Host "=== running: node openspec.js init --tools claude $osRepo (cwd=$osRepo) ==="
+          & $node --stack-trace-limit=100 $osCli init --tools claude $osRepo 2>&1 | Tee-Object -FilePath "$env:RUNNER_TEMP\openspec-init.log"
+          $osCode = $LASTEXITCODE
+          Write-Host "=== OPENSPEC EXIT=$osCode ==="
+
+          Write-Host "=== running: node openspec.js init --tools claude (no positional, cwd) ==="
+          & $node --stack-trace-limit=100 $osCli init --tools claude 2>&1 | Tee-Object -FilePath "$env:RUNNER_TEMP\openspec-init-cwd.log"
+          Write-Host "=== OPENSPEC(cwd) EXIT=$LASTEXITCODE ==="
+
+          if ($osCode -ne 0) { exit 1 }
