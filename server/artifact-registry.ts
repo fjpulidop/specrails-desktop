@@ -416,17 +416,22 @@ function buildMirroredEntry(
   existing: ProjectEntry | undefined,
   canon: string,
   desiredSlug: string,
-  input: { providers: string[]; primaryProvider: string; coreVersion?: string; desktopProjectId?: string },
+  input: { providers: string[]; primaryProvider: string; providersExplicit: boolean; coreVersion?: string; desktopProjectId?: string },
   now: string,
   touchInstall: boolean,
   home?: string,
 ): ProjectEntry {
   let entry: ProjectEntry
   if (existing) {
+    // Preserve the existing provider set on a metadata-only re-mirror (e.g. the
+    // install step re-mirrors with no providers arg → normalizeProviders defaults
+    // to ['claude']). Narrowing a multi-provider entry to claude-only would give
+    // a concurrent core-standalone reader the wrong contract until next boot.
+    // Only adopt the input providers when the caller EXPLICITLY supplied them.
     entry = {
       ...existing,
-      providers: input.providers,
-      primaryProvider: input.primaryProvider,
+      providers: input.providersExplicit ? input.providers : existing.providers,
+      primaryProvider: input.providersExplicit ? input.primaryProvider : existing.primaryProvider,
       coreVersion: input.coreVersion ?? existing.coreVersion,
       source: 'desktop',
       createdAt: existing.createdAt ?? now,
@@ -479,7 +484,15 @@ export function mirrorProjectEntry(input: MirrorProjectInput, home?: string): Pr
       existing,
       canon,
       input.slug,
-      { providers, primaryProvider, coreVersion: input.coreVersion, desktopProjectId: input.desktopProjectId },
+      {
+        providers,
+        primaryProvider,
+        // Only treat providers as authoritative when the caller actually supplied
+        // them; a metadata-only re-mirror (no providers arg) must not narrow.
+        providersExplicit: Array.isArray(input.providers) && input.providers.length > 0,
+        coreVersion: input.coreVersion,
+        desktopProjectId: input.desktopProjectId,
+      },
       now,
       true,
       home,
@@ -645,7 +658,14 @@ export function reconcileFromProjects(projects: ReconcileProjectInput[], home?: 
         existing,
         canon,
         p.slug,
-        { providers, primaryProvider, coreVersion: p.coreVersion, desktopProjectId: p.desktopProjectId },
+        {
+          providers,
+          primaryProvider,
+          // Startup reconcile from desktop.sqlite IS authoritative for providers.
+          providersExplicit: Array.isArray(p.providers) && p.providers.length > 0,
+          coreVersion: p.coreVersion,
+          desktopProjectId: p.desktopProjectId,
+        },
         now,
         false,
         home,

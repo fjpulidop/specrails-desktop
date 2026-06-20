@@ -867,6 +867,12 @@ export class ChatManager {
               })
               currentChild = newChild
               args = respawnArgs
+              // Reset the per-turn accumulators so the resumed turn REPLACES the
+              // pre-crash partial output instead of appending to it (which would
+              // duplicate the assistant text and double-count tokens/cost).
+              this._buffers.set(conversationId, '')
+              this._streamFilters.set(conversationId, { inBlock: false, pendingTail: '' })
+              adapterEvents.length = 0
               this._activeProcesses.set(conversationId, newChild)
               newChild.stderr?.on('data', (chunk: Buffer) => {
                 const text = chunk.toString()
@@ -1177,6 +1183,14 @@ export class ChatManager {
         this._abortingConversations.delete(conversationId)
         markStreamingEnded(true)
         recordInv(wasAborting ? 'aborted' : 'success')
+
+        // On abort, the abort() path already emitted chat_error and the turn is
+        // user-cancelled — do NOT persist the partial assistant message, update
+        // the session, or broadcast chat_done (mirrors the legacy close handler).
+        if (wasAborting) {
+          resolve()
+          return
+        }
 
         const parsed = parseSpecDraftBlocks(fullText)
         const persistedText = parsed.blocks.length > 0 ? parsed.stripped : fullText

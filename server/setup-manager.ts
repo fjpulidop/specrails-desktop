@@ -755,6 +755,10 @@ export class SetupManager {
   private _checkpoints: Map<string, Map<string, CheckpointStatus>>
   // Track checkpoint start times
   private _checkpointStart: Map<string, Map<string, number>>
+  // Project ids whose install/enrich was explicitly aborted — the close handler
+  // checks this to suppress a spurious setup_error / double onSetupDone when the
+  // SIGTERM'd child closes with a null exit code.
+  private _abortedProjects: Set<string> = new Set()
   // Ring buffer for install log lines — allows clients to recover log on reconnect
   private _installLogBuffer: Map<string, string[]>
   // Track each project's chosen AI provider for binary selection
@@ -786,6 +790,7 @@ export class SetupManager {
   // ─── Full Install: TUI installer (npx specrails-core) ────────────────────────
 
   startInstall(projectId: string, projectPath: string, projectSlug?: string, provider?: string): void {
+    this._abortedProjects.delete(projectId) // fresh run — clear any prior abort flag
     if (this._installProcesses.has(projectId)) {
       console.warn(`[SetupManager] install already running for ${projectId}`)
       return
@@ -982,6 +987,9 @@ export class SetupManager {
         try { rmSync(spawnConfigPath, { force: true }) } catch { /* non-fatal */ }
       }
       this._installProcesses.delete(projectId)
+      // Explicit abort already tore down + fired onSetupDone — don't surface a
+      // spurious setup_error for the SIGTERM'd child's null exit.
+      if (this._abortedProjects.has(projectId)) return
       if (code === 0) {
         const validation = validateInstalledCore(projectPath)
         if (!validation.ok) {
@@ -1022,6 +1030,7 @@ export class SetupManager {
   // ─── Enrich: claude -p "/specrails:enrich --from-config" ────────────────────
 
   startEnrich(projectId: string, projectPath: string, provider?: ProviderId, projectName?: string): void {
+    this._abortedProjects.delete(projectId) // fresh run — clear any prior abort flag
     if (this._setupProcesses.has(projectId)) {
       console.warn(`[SetupManager] enrich already running for ${projectId}`)
       return
@@ -1279,6 +1288,9 @@ export class SetupManager {
     child.on('close', (code) => {
       this._setupProcesses.delete(projectId)
       this._stopFilesystemPoll(projectId)
+      // Explicit abort already tore down + fired onSetupDone — suppress the
+      // failure branch (spurious error + a second onSetupDone) here.
+      if (this._abortedProjects.has(projectId)) return
 
       // Final filesystem sync
       this._syncFilesystemCheckpoints(projectId, projectPath)
@@ -1432,6 +1444,10 @@ export class SetupManager {
   // ─── Abort ────────────────────────────────────────────────────────────────────
 
   abort(projectId: string): void {
+    // Mark aborted so the still-registered close handlers suppress their failure
+    // branch (spurious setup_error + a second onSetupDone) when the SIGTERM'd
+    // child closes with a null code. Cleared on the next startInstall/startEnrich.
+    this._abortedProjects.add(projectId)
     this._stopFilesystemPoll(projectId)
     this._projectProviders.delete(projectId)
     this._projectTiers.delete(projectId)
