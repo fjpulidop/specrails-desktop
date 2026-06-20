@@ -201,14 +201,26 @@ export function resolveStartupPath(): void {
       if (nodeBinDir && gitBinDir) {
         const inherited = splitPath(process.env.PATH)
         const inheritedSet = new Set(inherited)
-        const toAdd = [nodeBinDir, gitBinDir].filter((d) => !inheritedSet.has(d))
-        const merged = [...toAdd, ...inherited]
+        const bundledDirs = [nodeBinDir, gitBinDir].filter((d) => !inheritedSet.has(d))
+        bundledDirs.forEach((d) => inheritedSet.add(d))
+        // Provider CLIs (claude/codex/gemini) are NEVER bundled — they always
+        // come from the system. On Windows their `.cmd` shims live in
+        // `%APPDATA%\npm`, which a GUI-launched (Explorer/Tauri) process may not
+        // have on PATH. This branch returns early, skipping the win32 fallback
+        // block below that would otherwise add them — so prepend them here too,
+        // AFTER the bundled node/git (which must still win for node/git).
+        // No-op on macOS/Linux (windowsGlobalBinDirs() returns []), keeping
+        // POSIX desktop PATH byte-identical.
+        const winGlobal = windowsGlobalBinDirs().filter((d) => d && fileExists(d) && !inheritedSet.has(d))
+        winGlobal.forEach((d) => inheritedSet.add(d))
+        const merged = [...bundledDirs, ...winGlobal, ...inherited]
         process.env.PATH = joinPath(merged)
         bundledRuntimesActive = true
         diagnostic = {
           pathSegments: merged,
           pathSources: [
-            ...toAdd.map(() => 'bundled' as PathSource),
+            ...bundledDirs.map(() => 'bundled' as PathSource),
+            ...winGlobal.map(() => 'fast-path' as PathSource),
             ...inherited.map(() => 'inherited' as PathSource),
           ],
           loginShellStatus: 'skipped',
@@ -375,6 +387,104 @@ export async function augmentPathFromLoginShell(opts: AugmentOptions = {}): Prom
     warnedLoginShell = true
     console.warn(`[path-resolver] login-shell merge ${status}; using fast-path PATH only`)
   }
+}
+
+const ENV_BEGIN = '__SRH_ENV_BEGIN__'
+const ENV_END = '__SRH_ENV_END__'
+
+/**
+ * Provider auth env vars to recover from the user's login shell. A GUI-launched
+ * (Finder/Dock) desktop server inherits launchd's minimal env, NOT the user's
+ * `.zshrc`/`.bashrc` exports — so a `GEMINI_API_KEY` (or Vertex config) the user
+ * set in their dotfiles never reaches the gemini spawn. Without it, gemini-cli
+ * falls back to its OAuth path, which on macOS re-reads the cached token through
+ * the Keychain on EVERY spawn → the repeated "allow access to your keychain"
+ * prompts. Recovering the key here makes gemini use API-key auth and skip the
+ * Keychain entirely. Values are NEVER logged.
+ */
+export const AUTH_ENV_VARS = [
+  'GEMINI_API_KEY',
+  'GOOGLE_API_KEY',
+  'GOOGLE_GENAI_USE_VERTEXAI',
+  'GOOGLE_CLOUD_PROJECT',
+  'GOOGLE_CLOUD_LOCATION',
+  'GOOGLE_APPLICATION_CREDENTIALS',
+] as const
+
+/** Parse the `KEY=value` block emitted between the env sentinels. */
+export function parseLoginShellEnv(stdout: string): Record<string, string> {
+  const begin = stdout.indexOf(ENV_BEGIN)
+  if (begin === -1) return {}
+  const start = begin + ENV_BEGIN.length
+  const end = stdout.indexOf(ENV_END, start)
+  if (end === -1) return {}
+  const block = stdout.slice(start, end)
+  const out: Record<string, string> = {}
+  for (const line of block.split('\n')) {
+    const eq = line.indexOf('=')
+    if (eq <= 0) continue
+    const key = line.slice(0, eq)
+    const value = line.slice(eq + 1)
+    if (value.length > 0) out[key] = value
+  }
+  return out
+}
+
+/**
+ * Spawn the user's login shell once and backfill any provider auth env vars it
+ * exposes into `process.env` (only when not already set — never override an
+ * explicit value). POSIX-only and runs REGARDLESS of bundle state (unlike the
+ * PATH augmentation, which is skipped when the bundle is active): macOS desktop
+ * builds bundle node/git, so the PATH login-shell probe is skipped, yet we still
+ * need to recover the gemini key. Async, fire-and-forget — must not block
+ * startup. No-op on Windows (GUI inherits user env) and in tests.
+ */
+export async function augmentAuthEnvFromLoginShell(opts: AugmentOptions = {}): Promise<void> {
+  if (process.platform === 'win32') return
+  if (process.env.NODE_ENV === 'test' || process.env.VITEST === 'true') return
+
+  const spawnFn = opts.spawnFn ?? spawn
+  const timeoutMs = opts.timeoutMs ?? LOGIN_SHELL_TIMEOUT_MS
+  const shell = process.env.SHELL || '/bin/sh'
+  // `printf` reuses POSIX positional `$VAR` expansion (works in sh/bash/zsh).
+  const fmt = ENV_BEGIN + AUTH_ENV_VARS.map((v) => `${v}=%s\n`).join('') + ENV_END
+  const refs = AUTH_ENV_VARS.map((v) => `"$${v}"`).join(' ')
+  const command = `printf '${fmt}' ${refs}`
+
+  await new Promise<void>((resolve) => {
+    let child: ChildProcess
+    try {
+      child = spawnFn(shell, ['-l', '-i', '-c', command], { stdio: ['ignore', 'pipe', 'pipe'] })
+    } catch {
+      resolve()
+      return
+    }
+
+    let stdout = ''
+    let settled = false
+    const timer = setTimeout(() => {
+      try { child.kill('SIGKILL') } catch { /* ignore */ }
+    }, timeoutMs)
+    const finish = () => {
+      if (settled) return
+      settled = true
+      clearTimeout(timer)
+      resolve()
+    }
+
+    child.stdout?.on('data', (chunk: Buffer) => { stdout += chunk.toString('utf-8') })
+    child.stderr?.on('data', () => { /* discard */ })
+    child.on('error', finish)
+    child.on('close', () => {
+      const recovered = parseLoginShellEnv(stdout)
+      for (const key of AUTH_ENV_VARS) {
+        const val = recovered[key]
+        // Backfill only when unset/empty — never clobber an explicit value.
+        if (val && !process.env[key]) process.env[key] = val
+      }
+      finish()
+    })
+  })
 }
 
 function mergeLoginShellPath(rawPath: string): void {

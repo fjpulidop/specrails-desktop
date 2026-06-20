@@ -179,8 +179,25 @@ export function spawnCodex(args: string[], options: SpawnOptions = {}): ChildPro
  * No multi-line argv quirk (the prompt rides on a single `-p` value), so the
  * Windows path is identical to POSIX.
  */
+// Gemini auth env vars. Forwarded from `process.env` into the spawn env when
+// present so a caller that narrows the env (or a relocated spawn) still carries
+// the API key — without it gemini-cli falls back to OAuth, which on macOS
+// re-prompts for Keychain access on every spawn. `process.env` is itself
+// backfilled from the login shell at startup (see augmentAuthEnvFromLoginShell).
+const GEMINI_AUTH_ENV_VARS = [
+  'GEMINI_API_KEY',
+  'GOOGLE_API_KEY',
+  'GOOGLE_GENAI_USE_VERTEXAI',
+  'GOOGLE_CLOUD_PROJECT',
+  'GOOGLE_CLOUD_LOCATION',
+  'GOOGLE_APPLICATION_CREDENTIALS',
+] as const
+
 export function spawnGemini(args: string[], options: SpawnOptions = {}): ChildProcess {
-  const env = { ...(options.env ?? process.env), GEMINI_CLI_TRUST_WORKSPACE: 'true' }
+  const env: NodeJS.ProcessEnv = { ...(options.env ?? process.env), GEMINI_CLI_TRUST_WORKSPACE: 'true' }
+  for (const key of GEMINI_AUTH_ENV_VARS) {
+    if (process.env[key] && env[key] === undefined) env[key] = process.env[key]
+  }
   return spawnCli('gemini', args, { ...options, env })
 }
 

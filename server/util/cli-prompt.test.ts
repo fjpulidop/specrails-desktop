@@ -1,4 +1,13 @@
-import { describe, it, expect } from 'vitest'
+import { describe, it, expect, vi } from 'vitest'
+
+// Wrap spawnCli with a spy that still delegates to the real implementation, so
+// the real-binary dispatch tests keep working while the env-passthrough tests
+// can inspect the options handed to spawnCli.
+vi.mock('./win-spawn', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('./win-spawn')>()
+  return { ...actual, spawnCli: vi.fn(actual.spawnCli) }
+})
+
 import {
   transformClaudeArgsForWindows,
   transformCodexArgsForWindows,
@@ -8,6 +17,7 @@ import {
   spawnGemini,
   spawnAiCli,
 } from './cli-prompt'
+import { spawnCli } from './win-spawn'
 
 describe('transformClaudeArgsForWindows', () => {
   it('returns args unchanged when no prompt flags are present', () => {
@@ -241,6 +251,43 @@ describe('spawn dispatch (POSIX fallthrough)', () => {
     // trust var is set — without it gemini silently disables --yolo headless.
     const child = spawnGemini(['--version'], { env: { FOO: 'bar' }, stdio: ['ignore', 'pipe', 'pipe'] })
     smokeSpawnSync(child)
+  })
+
+  it('spawnGemini forwards GEMINI_API_KEY from process.env into the spawn env', () => {
+    if (skipOnWin) return
+    // Without the key in the env, gemini-cli falls back to OAuth → macOS Keychain
+    // re-prompts. Forwarding it from process.env keeps gemini on API-key auth.
+    const prev = process.env.GEMINI_API_KEY
+    process.env.GEMINI_API_KEY = 'sk-test-123'
+    try {
+      const child = spawnGemini(['--version'], { env: { FOO: 'bar' }, stdio: ['ignore', 'pipe', 'pipe'] })
+      smokeSpawnSync(child)
+      const opts = vi.mocked(spawnCli).mock.calls.at(-1)![2] as { env: NodeJS.ProcessEnv }
+      expect(opts.env.GEMINI_API_KEY).toBe('sk-test-123')
+      expect(opts.env.FOO).toBe('bar') // caller env preserved
+      expect(opts.env.GEMINI_CLI_TRUST_WORKSPACE).toBe('true')
+    } finally {
+      if (prev === undefined) delete process.env.GEMINI_API_KEY
+      else process.env.GEMINI_API_KEY = prev
+    }
+  })
+
+  it('spawnGemini does NOT override a key already present in options.env', () => {
+    if (skipOnWin) return
+    const prev = process.env.GEMINI_API_KEY
+    process.env.GEMINI_API_KEY = 'from-process'
+    try {
+      const child = spawnGemini(['--version'], {
+        env: { GEMINI_API_KEY: 'from-caller' },
+        stdio: ['ignore', 'pipe', 'pipe'],
+      })
+      smokeSpawnSync(child)
+      const opts = vi.mocked(spawnCli).mock.calls.at(-1)![2] as { env: NodeJS.ProcessEnv }
+      expect(opts.env.GEMINI_API_KEY).toBe('from-caller')
+    } finally {
+      if (prev === undefined) delete process.env.GEMINI_API_KEY
+      else process.env.GEMINI_API_KEY = prev
+    }
   })
 
   it('spawnAiCli runs a real binary end-to-end on POSIX', async () => {
