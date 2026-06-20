@@ -326,8 +326,17 @@ function applyDesktopMigrations(db: DbInstance): void {
   for (let i = 0; i < migrations.length; i++) {
     const version = i + 1
     if (!appliedVersions.has(version)) {
-      migrations[i]()
-      db.prepare('INSERT OR IGNORE INTO schema_migrations (version) VALUES (?)').run(version)
+      // Run each migration body and its version INSERT atomically (mirrors
+      // db.ts applyMigrations). SQLite DDL is transactional, so a crash/failure
+      // mid-migration rolls back the whole body instead of leaving a half-applied
+      // schema with the version unrecorded — which previously re-ran a bare
+      // `ALTER TABLE ADD COLUMN` on next startup and bricked app launch forever
+      // with 'duplicate column name'.
+      const tx = db.transaction(() => {
+        migrations[i]()
+        db.prepare('INSERT OR IGNORE INTO schema_migrations (version) VALUES (?)').run(version)
+      })
+      tx()
     }
   }
 }

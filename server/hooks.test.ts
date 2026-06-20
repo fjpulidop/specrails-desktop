@@ -1,6 +1,7 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest'
 import express from 'express'
-import { createHooksRouter, getPhaseStates, getPhaseDefinitions, setActivePhases, resetPhases } from './hooks'
+import { createHooksRouter, getPhaseStates, getPhaseDefinitions, setActivePhases, resetPhases, dropPhaseScope } from './hooks'
+const PID = 'test-project'
 import type { WsMessage, PhaseName, PhaseDefinition } from './types'
 
 // The hooks module uses module-level state, so we need a fresh import for isolation.
@@ -9,9 +10,14 @@ import type { WsMessage, PhaseName, PhaseDefinition } from './types'
 function createApp(broadcast: (msg: WsMessage) => void) {
   const app = express()
   app.use(express.json())
-  app.use('/hooks', createHooksRouter(broadcast))
+  app.use('/hooks', createHooksRouter(PID, broadcast))
   return app
 }
+
+// Per-project phase state now persists in a Map keyed by projectId; drop the
+// test project's scope before every test so each starts from the defaults
+// (replaces the old reliance on module-singleton reset).
+beforeEach(() => { dropPhaseScope(PID) })
 
 describe('getPhaseStates', () => {
   let broadcast: ReturnType<typeof vi.fn>
@@ -19,12 +25,12 @@ describe('getPhaseStates', () => {
   beforeEach(() => {
     broadcast = vi.fn()
     // Reset all phases to idle before each test
-    resetPhases(broadcast)
+    resetPhases(PID, broadcast)
     broadcast.mockClear()
   })
 
   it('returns all phases as idle initially', () => {
-    const states = getPhaseStates()
+    const states = getPhaseStates(PID)
     expect(states).toEqual({
       architect: 'idle',
       developer: 'idle',
@@ -34,16 +40,16 @@ describe('getPhaseStates', () => {
   })
 
   it('returns a copy, not a reference', () => {
-    const states = getPhaseStates()
+    const states = getPhaseStates(PID)
     states.architect = 'running'
-    expect(getPhaseStates().architect).toBe('idle')
+    expect(getPhaseStates(PID).architect).toBe('idle')
   })
 })
 
 describe('resetPhases', () => {
   it('broadcasts a phase message for each phase', () => {
     const broadcast = vi.fn()
-    resetPhases(broadcast)
+    resetPhases(PID, broadcast)
 
     expect(broadcast).toHaveBeenCalledTimes(4)
     const phases: PhaseName[] = ['architect', 'developer', 'reviewer', 'ship']
@@ -68,10 +74,10 @@ describe('resetPhases', () => {
       .post('/hooks/events')
       .send({ event: 'agent_start', agent: 'architect' })
 
-    expect(getPhaseStates().architect).toBe('running')
+    expect(getPhaseStates(PID).architect).toBe('running')
 
-    resetPhases(broadcast)
-    expect(getPhaseStates().architect).toBe('idle')
+    resetPhases(PID, broadcast)
+    expect(getPhaseStates(PID).architect).toBe('idle')
   })
 })
 
@@ -82,7 +88,7 @@ describe('POST /hooks/events', () => {
 
   beforeEach(async () => {
     broadcast = vi.fn()
-    resetPhases(broadcast)
+    resetPhases(PID, broadcast)
     broadcast.mockClear()
     app = createApp(broadcast)
     const mod = await import('supertest')
@@ -96,7 +102,7 @@ describe('POST /hooks/events', () => {
 
     expect(res.status).toBe(200)
     expect(res.body).toEqual({ ok: true })
-    expect(getPhaseStates().architect).toBe('running')
+    expect(getPhaseStates(PID).architect).toBe('running')
     expect(broadcast).toHaveBeenCalledWith(
       expect.objectContaining({
         type: 'phase',
@@ -117,7 +123,7 @@ describe('POST /hooks/events', () => {
       .send({ event: 'agent_stop', agent: 'developer' })
 
     expect(res.status).toBe(200)
-    expect(getPhaseStates().developer).toBe('done')
+    expect(getPhaseStates(PID).developer).toBe('done')
   })
 
   it('transitions phase to error on agent_error', async () => {
@@ -126,7 +132,7 @@ describe('POST /hooks/events', () => {
       .send({ event: 'agent_error', agent: 'reviewer' })
 
     expect(res.status).toBe(200)
-    expect(getPhaseStates().reviewer).toBe('error')
+    expect(getPhaseStates(PID).reviewer).toBe('error')
   })
 
   it('ignores unknown agent names gracefully', async () => {
@@ -164,48 +170,48 @@ describe('POST /hooks/events', () => {
       await request(app)
         .post('/hooks/events')
         .send({ event: 'agent_start', agent: phase })
-      expect(getPhaseStates()[phase]).toBe('running')
+      expect(getPhaseStates(PID)[phase]).toBe('running')
     }
   })
 
   it('can transition through full lifecycle: idle -> running -> done', async () => {
-    expect(getPhaseStates().ship).toBe('idle')
+    expect(getPhaseStates(PID).ship).toBe('idle')
 
     await request(app)
       .post('/hooks/events')
       .send({ event: 'agent_start', agent: 'ship' })
-    expect(getPhaseStates().ship).toBe('running')
+    expect(getPhaseStates(PID).ship).toBe('running')
 
     await request(app)
       .post('/hooks/events')
       .send({ event: 'agent_stop', agent: 'ship' })
-    expect(getPhaseStates().ship).toBe('done')
+    expect(getPhaseStates(PID).ship).toBe('done')
   })
 
   it('can transition from running to error', async () => {
     await request(app)
       .post('/hooks/events')
       .send({ event: 'agent_start', agent: 'architect' })
-    expect(getPhaseStates().architect).toBe('running')
+    expect(getPhaseStates(PID).architect).toBe('running')
 
     await request(app)
       .post('/hooks/events')
       .send({ event: 'agent_error', agent: 'architect' })
-    expect(getPhaseStates().architect).toBe('error')
+    expect(getPhaseStates(PID).architect).toBe('error')
   })
 })
 
 describe('getPhaseDefinitions', () => {
   it('returns the default phase definitions', () => {
-    const defs = getPhaseDefinitions()
+    const defs = getPhaseDefinitions(PID)
     expect(defs).toHaveLength(4)
     expect(defs.map((d: PhaseDefinition) => d.key)).toEqual(['architect', 'developer', 'reviewer', 'ship'])
   })
 
   it('returns a copy, not a reference', () => {
-    const defs = getPhaseDefinitions()
+    const defs = getPhaseDefinitions(PID)
     defs.push({ key: 'extra', label: 'Extra', description: 'Extra phase' })
-    expect(getPhaseDefinitions()).toHaveLength(4)
+    expect(getPhaseDefinitions(PID)).toHaveLength(4)
   })
 })
 
@@ -218,7 +224,7 @@ describe('setActivePhases', () => {
   ]
 
   beforeEach(() => {
-    setActivePhases(DEFAULT_PHASES, vi.fn())
+    setActivePhases(PID, DEFAULT_PHASES, vi.fn())
   })
 
   it('replaces active phases with new definitions', () => {
@@ -226,9 +232,9 @@ describe('setActivePhases', () => {
       { key: 'plan', label: 'Plan', description: 'Planning phase' },
       { key: 'build', label: 'Build', description: 'Build phase' },
     ]
-    setActivePhases(custom, vi.fn())
+    setActivePhases(PID, custom, vi.fn())
 
-    const defs = getPhaseDefinitions()
+    const defs = getPhaseDefinitions(PID)
     expect(defs).toHaveLength(2)
     expect(defs[0].key).toBe('plan')
   })
@@ -237,9 +243,9 @@ describe('setActivePhases', () => {
     const custom: PhaseDefinition[] = [
       { key: 'plan', label: 'Plan', description: 'Planning phase' },
     ]
-    setActivePhases(custom, vi.fn())
+    setActivePhases(PID, custom, vi.fn())
 
-    expect(getPhaseStates().plan).toBe('idle')
+    expect(getPhaseStates(PID).plan).toBe('idle')
   })
 
   it('broadcasts idle state for each new phase', () => {
@@ -248,7 +254,7 @@ describe('setActivePhases', () => {
       { key: 'plan', label: 'Plan', description: 'Planning phase' },
       { key: 'build', label: 'Build', description: 'Build phase' },
     ]
-    setActivePhases(custom, broadcast)
+    setActivePhases(PID, custom, broadcast)
 
     expect(broadcast).toHaveBeenCalledTimes(2)
     expect(broadcast).toHaveBeenCalledWith(expect.objectContaining({ type: 'phase', phase: 'plan', state: 'idle' }))
@@ -259,9 +265,9 @@ describe('setActivePhases', () => {
     const custom: PhaseDefinition[] = [
       { key: 'custom1', label: 'Custom1', description: 'Custom phase 1' },
     ]
-    setActivePhases(custom, vi.fn())
+    setActivePhases(PID, custom, vi.fn())
 
-    const states = getPhaseStates()
+    const states = getPhaseStates(PID)
     expect(states.architect).toBeUndefined()
     expect(states.custom1).toBe('idle')
   })
@@ -276,7 +282,7 @@ describe('POST /hooks/events with db and activeJobRef', () => {
       { key: 'reviewer', label: 'Reviewer', description: 'Reviewer phase' },
       { key: 'ship', label: 'Ship', description: 'Ship phase' },
     ]
-    setActivePhases(defaults, vi.fn())
+    setActivePhases(PID, defaults, vi.fn())
   })
 
   it('calls db.prepare when db and activeJobRef.current are provided', async () => {
@@ -286,7 +292,7 @@ describe('POST /hooks/events with db and activeJobRef', () => {
 
     const app = express()
     app.use(express.json())
-    app.use('/hooks', createHooksRouter(broadcast, mockDb, activeJobRef))
+    app.use('/hooks', createHooksRouter(PID, broadcast, mockDb, activeJobRef))
 
     const { default: request } = await import('supertest')
     await request(app)
@@ -303,7 +309,7 @@ describe('POST /hooks/events with db and activeJobRef', () => {
 
     const app = express()
     app.use(express.json())
-    app.use('/hooks', createHooksRouter(broadcast, mockDb, activeJobRef))
+    app.use('/hooks', createHooksRouter(PID, broadcast, mockDb, activeJobRef))
 
     const { default: request } = await import('supertest')
     await request(app)

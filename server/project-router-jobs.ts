@@ -174,7 +174,7 @@ export function registerJobsRoutes(deps: ProjectRoutesDeps): void {
     res.json({
       projectName: project.name,
       projectId: project.id,
-      phases: getPhaseStates(),
+      phases: getPhaseStates(project.id),
       busy: queueManager.getActiveJobId() !== null,
       currentJobId: queueManager.getActiveJobId(),
       featureFlags: {

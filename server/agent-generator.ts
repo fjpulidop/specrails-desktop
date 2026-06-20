@@ -1,5 +1,6 @@
 import { createInterface } from 'readline'
 import { createHash } from 'crypto'
+import treeKill from 'tree-kill'
 import { spawnClaude } from './util/cli-prompt'
 
 /**
@@ -11,6 +12,26 @@ import { spawnClaude } from './util/cli-prompt'
  * Hard cap on the child: 90 seconds wall-clock. Callers should also set a
  * timeout on their fetch/HTTP layer for safety.
  */
+
+/**
+ * Kill a child's whole subtree with SIGTERM, escalating to SIGKILL after a grace
+ * window if it ignores the signal — so a hung/signal-swallowing CLI (and its
+ * grandchildren) is never orphaned. Consistent with QueueManager._kill.
+ */
+function escalateKill(child: { pid?: number; once: (e: string, cb: () => void) => void; kill: (s: NodeJS.Signals) => boolean }): void {
+  if (child.pid) {
+    treeKill(child.pid, 'SIGTERM')
+    const pid = child.pid
+    const esc = setTimeout(() => {
+      try { treeKill(pid, 'SIGKILL', () => { /* best-effort */ }) } catch { /* gone */ }
+    }, 2000)
+    esc.unref?.()
+    child.once('close', () => clearTimeout(esc))
+  } else {
+    try { child.kill('SIGTERM') } catch { /* already gone */ }
+  }
+}
+
 export async function generateCustomAgent(
   cwd: string,
   opts: { name: string; description: string },
@@ -64,7 +85,7 @@ export async function generateCustomAgent(
 
     let collected = ''
     const killer = setTimeout(() => {
-      try { child.kill('SIGTERM') } catch { /* ignore */ }
+      escalateKill(child)
       reject(new Error('agent generation timed out after 90s'))
     }, 90_000)
 
@@ -176,7 +197,7 @@ export async function testCustomAgent(
     let tokensOut = 0
     let truncated = false
     const killer = setTimeout(() => {
-      try { child.kill('SIGTERM') } catch { /* ignore */ }
+      escalateKill(child)
       reject(new Error('test agent run timed out after 120s'))
     }, 120_000)
 
@@ -206,7 +227,7 @@ export async function testCustomAgent(
       // Enforce token ceiling
       if (tokensIn + tokensOut >= tokenCeiling && !truncated) {
         truncated = true
-        try { child.kill('SIGTERM') } catch { /* ignore */ }
+        escalateKill(child)
       }
     })
 

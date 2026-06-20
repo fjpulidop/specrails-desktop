@@ -93,7 +93,7 @@ function createTestApp() {
   const app = express()
   app.use(express.json())
 
-  app.use('/hooks', createHooksRouter(broadcast, db, {
+  app.use('/hooks', createHooksRouter('test-project', broadcast, db, {
     current: null,
   }))
 
@@ -119,7 +119,7 @@ function createTestApp() {
   app.get('/api/state', (_req, res) => {
     res.json({
       projectName: 'test-project',
-      phases: getPhaseStates(),
+      phases: getPhaseStates('test-project'),
       busy: (queueManager.getActiveJobId() as string | null) !== null,
     })
   })
@@ -255,7 +255,7 @@ describe('API endpoints', () => {
   beforeEach(async () => {
     // Reset phases to clean state
     const dummyBroadcast = vi.fn()
-    resetPhases(dummyBroadcast)
+    resetPhases('test-project', dummyBroadcast)
 
     const created = createTestApp()
     app = created.app
