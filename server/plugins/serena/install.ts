@@ -19,12 +19,13 @@ function isCodex(ctx: PluginLifecycleContext): boolean {
   return getAdapter(ctx.providerId).mcpRegistration === 'cli-add'
 }
 
-/** Project slug used by codex-mcp helpers — derived from the project path's
- *  basename. The app maintains the canonical slug elsewhere (ProjectRegistry);
- *  for the install context we don't have the registry, but the basename is a
- *  stable per-project identifier sufficient for CODEX_HOME isolation. */
-function slugFromProjectPath(projectPath: string): string {
-  return path.basename(projectPath)
+/** Resolve the canonical per-project slug for codex-mcp CODEX_HOME isolation.
+ *  PREFER the registry slug threaded through the lifecycle context (the SAME
+ *  slug used by ~/.specrails/projects/<slug>/ everywhere else). Fall back to the
+ *  path basename only when absent — basenames collide between same-named repos
+ *  and would point CODEX_HOME at a shared/wrong dir. */
+function resolveCodexSlug(ctx: PluginLifecycleContext): string {
+  return ctx.slug && ctx.slug.trim().length > 0 ? ctx.slug : path.basename(ctx.projectPath)
 }
 
 export async function installSerena(ctx: PluginLifecycleContext): Promise<void> {
@@ -36,7 +37,7 @@ export async function installSerena(ctx: PluginLifecycleContext): Promise<void> 
     if (!entry) {
       throw new Error('serena manifest is missing providerSupport.codex.mcpEntry')
     }
-    const slug = slugFromProjectPath(ctx.projectPath)
+    const slug = resolveCodexSlug(ctx)
     ctx.log(`Registering serena MCP via 'codex mcp add' (CODEX_HOME=~/.specrails/projects/${slug}/codex-home/)`)
     const result = codexMcpAdd(slug, 'serena', entry)
     if (!result.ok) {
@@ -60,7 +61,7 @@ export async function installSerena(ctx: PluginLifecycleContext): Promise<void> 
 
 export async function uninstallSerena(ctx: PluginLifecycleContext): Promise<void> {
   if (isCodex(ctx)) {
-    const slug = slugFromProjectPath(ctx.projectPath)
+    const slug = resolveCodexSlug(ctx)
     // Probe first so removing an already-removed server doesn't surface as an
     // error (e.g. the user uninstalled via terminal then via the app).
     const listing = codexMcpList(slug)

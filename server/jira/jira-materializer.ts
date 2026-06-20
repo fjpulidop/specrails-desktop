@@ -219,8 +219,14 @@ export function upsertIssuesIntoStore(
   let anyChange = false
   for (const issue of issues) {
     const u = issue.fields.updated ? Date.parse(issue.fields.updated) : 0
-    if (!Number.isNaN(u) && u > maxUpdatedMs) maxUpdatedMs = u
     const link = getLinkByIssueId(db, issue.id)
+    // Do NOT advance the high-water past a FROZEN issue (one with a pending
+    // outbox op whose content we suppress): if the op later dead-letters without
+    // the Jira `updated` timestamp changing, a high-water moved past it would
+    // never re-fetch the suppressed remote change → permanently stale cache.
+    // Only count issues whose content we actually reconcile here.
+    const isFrozen = link ? frozenLocalIds.has(link.localId) : false
+    if (!Number.isNaN(u) && u > maxUpdatedMs && !isFrozen) maxUpdatedMs = u
     if (!link) { anyChange = true; continue }
     if (issue.key && issue.key !== link.jiraKey) { anyChange = true; continue }
     const existing = preStore.tickets[String(link.localId)]

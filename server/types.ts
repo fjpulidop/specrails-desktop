@@ -829,6 +829,11 @@ export interface PluginProviderSupportEntry {
 export interface PluginLifecycleContext {
   projectPath: string
   projectId: string
+  /** Canonical ProjectRegistry slug — the SAME slug every other per-project
+   *  `~/.specrails/projects/<slug>/` path uses (codex-home etc.). Plugins MUST
+   *  prefer this over deriving a slug from the path basename, which collides
+   *  between same-basename projects and points CODEX_HOME at the wrong dir. */
+  slug?: string
   /** Provider id of the project the install is targeting. Plugins use this
    *  to decide between the project-json MCP merge path (claude) and the
    *  `<binary> mcp add` cli-add path (codex). Optional for backwards compat;

@@ -374,13 +374,15 @@ describe('request() Retry-After parsing on 429', () => {
     }
   })
 
-  it('clamps a past HTTP-date Retry-After to >= 0 (falsy 0 is dropped)', async () => {
+  it('keeps a past HTTP-date Retry-After as 0 (immediate retry, not dropped)', async () => {
     const past = new Date(Date.now() - 50_000).toUTCString()
     const { fetchImpl } = makeFetch({ status: 429, ok: false, headers: { 'Retry-After': past } })
     const res = await new JiraClient(cloudCfg()).myself()
     if (!res.ok) {
-      // parseRetryAfter returns 0 for a past date → 0 is falsy → retryAfterMs omitted
-      expect(res.retryAfterMs).toBeUndefined()
+      // parseRetryAfter returns 0 for a past date → Jira says retry now. The fix
+      // guards on `!== undefined`, so 0 is preserved instead of falling through
+      // to exponential backoff.
+      expect(res.retryAfterMs).toBe(0)
     }
   })
 
@@ -915,12 +917,27 @@ describe('addComment', () => {
 // ───────────────────────────────────────────────────────────────────────────
 
 describe('getComments', () => {
-  it('GETs /issue/{id}/comment', async () => {
+  it('GETs /issue/{id}/comment with pagination params (single page)', async () => {
     const comments = [{ id: '1', body: 'a' }]
-    const { fetchImpl, requests } = makeFetch({ body: { comments } })
+    const { fetchImpl, requests } = makeFetch({ body: { comments, total: 1, startAt: 0 } })
     const res = await new JiraClient(cloudCfg()).getComments('PROJ-1')
     expect(requests[0].method).toBe('GET')
-    expect(requests[0].url).toBe('https://acme.atlassian.net/rest/api/3/issue/PROJ-1/comment?expand=properties')
+    expect(requests[0].url).toBe('https://acme.atlassian.net/rest/api/3/issue/PROJ-1/comment?expand=properties&startAt=0&maxResults=100')
     if (res.ok) expect(res.data.comments).toEqual(comments)
+  })
+
+  it('pages through all comments until total is reached', async () => {
+    // First page returns 100 (of 150), second returns the rest.
+    const page1 = Array.from({ length: 100 }, (_, i) => ({ id: String(i), body: 'x' }))
+    const page2 = Array.from({ length: 50 }, (_, i) => ({ id: String(100 + i), body: 'y' }))
+    const { requests } = makeFetch((req) =>
+      req.url.includes('startAt=0')
+        ? { body: { comments: page1, total: 150, startAt: 0 } }
+        : { body: { comments: page2, total: 150, startAt: 100 } },
+    )
+    const res = await new JiraClient(cloudCfg()).getComments('PROJ-1')
+    expect(requests.length).toBe(2)
+    expect(requests[1].url).toContain('startAt=100')
+    if (res.ok) expect(res.data.comments).toHaveLength(150)
   })
 })

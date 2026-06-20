@@ -11,6 +11,7 @@ import {
   deleteProfile,
   duplicateProfile,
   getProfile,
+  getProfileRaw,
   listProfiles,
   renameProfile,
   resolveProfile,
@@ -776,7 +777,11 @@ export function createProfilesRouter(): Router {
   router.get('/:name', (req, res) => {
     try {
       const { project } = ctx(req)
-      res.json({ profile: getProfile(specRoot(project), req.params.name, project.provider ?? 'claude') })
+      // Non-validating read so a profile that drifted invalid against the current
+      // catalog can still be opened + repaired in the editor (getProfile threw and
+      // locked it out). The body + validation errors are both returned.
+      const { profile, valid, errors } = getProfileRaw(specRoot(project), req.params.name, project.provider ?? 'claude')
+      res.json({ profile, valid, validationErrors: errors })
     } catch (err) {
       handleError(res, err)
     }

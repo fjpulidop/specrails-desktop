@@ -95,7 +95,7 @@ export function createPluginsRouter(): Router {
   router.post('/:name/install', async (req, res) => {
     try {
       const { project, broadcast } = ctx(req)
-      await getPluginManager().install(pluginRoot(project), project.id, req.params.name, broadcast, project.provider)
+      await getPluginManager().install(pluginRoot(project), project.id, req.params.name, broadcast, project.provider, project.slug)
       res.status(200).json({ ok: true })
     } catch (err) {
       handleError(res, err)
@@ -106,7 +106,7 @@ export function createPluginsRouter(): Router {
   router.delete('/:name', async (req, res) => {
     try {
       const { project, broadcast } = ctx(req)
-      await getPluginManager().uninstall(pluginRoot(project), project.id, req.params.name, broadcast, project.provider)
+      await getPluginManager().uninstall(pluginRoot(project), project.id, req.params.name, broadcast, project.provider, project.slug)
       res.status(200).json({ ok: true })
     } catch (err) {
       handleError(res, err)

@@ -110,7 +110,7 @@ export class JiraClient {
       const code = classify(res.status)
       const retryAfter = res.headers.get('Retry-After')
       const retryAfterMs = retryAfter ? parseRetryAfter(retryAfter) : undefined
-      return { ok: false, status: res.status, code, error: truncate(errText), ...(retryAfterMs ? { retryAfterMs } : {}) }
+      return { ok: false, status: res.status, code, error: truncate(errText), ...(retryAfterMs !== undefined ? { retryAfterMs } : {}) }
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err)
       return { ok: false, status: 0, code: 'network', error: msg }
@@ -178,7 +178,7 @@ export class JiraClient {
    * removed Oct 2025). Always pass an explicit `fields` array; page via
    * `nextPageToken`. On DC v2 this falls back to the classic /search.
    */
-  searchJql(args: {
+  async searchJql(args: {
     jql: string
     fields: string[]
     nextPageToken?: string
@@ -186,13 +186,24 @@ export class JiraClient {
     reconcileIssues?: string[]
   }): Promise<JiraResult<{ issues: JiraIssue[]; nextPageToken?: string; isLast?: boolean }>> {
     if (this.cfg.apiVersion === '2') {
-      // DC/Server: classic search with startAt/maxResults.
-      return this.request('POST', '/search', {
+      // DC/Server: classic search with startAt/maxResults. The classic response
+      // carries {issues,total,startAt,maxResults} — NOT nextPageToken — so
+      // SYNTHESIZE a nextPageToken (= next startAt) while more pages remain.
+      // Without this the poll loop only ever read the first 100 issues.
+      const startAt = args.nextPageToken ? parseInt(args.nextPageToken, 10) || 0 : 0
+      const maxResults = args.maxResults ?? 100
+      const res = await this.request<{ issues?: JiraIssue[]; total?: number }>('POST', '/search', {
         jql: args.jql,
         fields: args.fields,
-        maxResults: args.maxResults ?? 100,
-        startAt: args.nextPageToken ? parseInt(args.nextPageToken, 10) || 0 : 0,
+        maxResults,
+        startAt,
       })
+      if (!res.ok) return res
+      const issues = res.data.issues ?? []
+      const total = res.data.total ?? issues.length
+      const nextStart = startAt + issues.length
+      const nextPageToken = issues.length > 0 && nextStart < total ? String(nextStart) : undefined
+      return { ok: true, status: res.status, data: { issues, nextPageToken, isLast: nextPageToken === undefined } }
     }
     return this.request('POST', '/search/jql', {
       jql: args.jql,
@@ -273,10 +284,30 @@ export class JiraClient {
    * GET /issue/{id}/comment?expand=properties — used to dedup comments via the
    * self-marker (invisible comment property, with a legacy body fallback).
    */
-  getComments(
+  async getComments(
     issueIdOrKey: string
   ): Promise<JiraResult<{ comments: Array<{ id: string; body: unknown; properties?: Array<{ key: string; value?: unknown }> }> }>> {
-    return this.request('GET', `/issue/${encodeURIComponent(issueIdOrKey)}/comment?expand=properties`)
+    // PAGE through ALL comments: the dedup self-marker may sit on an older page,
+    // and a single (default ~50) page would miss it on a heavily-commented issue,
+    // re-posting a duplicate completion/discard comment. Cap pages defensively.
+    type Comment = { id: string; body: unknown; properties?: Array<{ key: string; value?: unknown }> }
+    const all: Comment[] = []
+    let startAt = 0
+    const maxResults = 100
+    for (let page = 0; page < 50; page++) {
+      const enc = encodeURIComponent(issueIdOrKey)
+      const res = await this.request<{ comments?: Comment[]; total?: number; startAt?: number }>(
+        'GET',
+        `/issue/${enc}/comment?expand=properties&startAt=${startAt}&maxResults=${maxResults}`,
+      )
+      if (!res.ok) return res
+      const batch = res.data.comments ?? []
+      all.push(...batch)
+      const total = res.data.total ?? all.length
+      startAt += batch.length
+      if (batch.length === 0 || startAt >= total) break
+    }
+    return { ok: true, status: 200, data: { comments: all } }
   }
 
   // ─── Read-only details panel (issue fields + Development) ────────────────────

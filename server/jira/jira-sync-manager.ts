@@ -536,8 +536,17 @@ export class JiraSyncManager {
     const frozen = this.frozenLocalIds()
     let jql = `project = "${conn.jiraProjectKey}" ORDER BY updated ASC`
     if (!full && conn.highWaterMs && conn.highWaterMs > 0) {
-      const since = formatJqlDate(conn.highWaterMs - POLL_OVERLAP_MS)
-      jql = `project = "${conn.jiraProjectKey}" AND updated >= "${since}" ORDER BY updated ASC`
+      // RELATIVE JQL date (`-Nm`) instead of an absolute wall-clock string: an
+      // absolute `formatJqlDate(...)` is emitted in UTC but Jira interprets a
+      // bare JQL datetime in the ACCOUNT timezone, so on a behind-UTC instance
+      // the floor rose above the high-water and silently skipped hours of
+      // updates. Relative dates evaluate against Jira's own clock with no TZ
+      // wall-clock interpretation, eliminating the gap. The high-water is derived
+      // from Jira's own `updated` values, so minutes-ago from the server clock
+      // (within the 2-min overlap for skew) maps to the right Jira floor.
+      const sinceFloorMs = conn.highWaterMs - POLL_OVERLAP_MS
+      const minutesAgo = Math.max(1, Math.ceil((Date.now() - sinceFloorMs) / 60_000))
+      jql = `project = "${conn.jiraProjectKey}" AND updated >= "-${minutesAgo}m" ORDER BY updated ASC`
     }
 
     let nextPageToken: string | undefined

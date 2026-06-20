@@ -1,5 +1,6 @@
 import { describe, it, expect, beforeEach, afterEach } from 'vitest'
 import { EventEmitter } from 'events'
+import fs from 'fs'
 import os from 'os'
 import path from 'path'
 import {
@@ -106,19 +107,23 @@ describe('RingBuffer', () => {
 })
 
 describe('shell resolution', () => {
-  it('uses $SHELL when set', () => {
+  it('uses $SHELL when set AND it exists', () => {
+    if (process.platform === 'win32') return
     const prev = process.env.SHELL
-    process.env.SHELL = '/bin/custom-shell'
-    expect(resolveShell()).toBe('/bin/custom-shell')
+    process.env.SHELL = '/bin/sh' // POSIX-guaranteed to exist
+    expect(resolveShell()).toBe('/bin/sh')
     if (prev === undefined) delete process.env.SHELL
     else process.env.SHELL = prev
   })
 
-  it('falls back on macOS/Linux', () => {
+  it('falls back to an existing shell on macOS/Linux (existence-gated)', () => {
     const prev = process.env.SHELL
     delete process.env.SHELL
     if (process.platform !== 'win32') {
-      expect(resolveShell()).toBe('/bin/zsh')
+      // Returns the first existing candidate; /bin/sh is the POSIX-mandated floor.
+      const resolved = resolveShell()
+      expect(['/bin/zsh', '/bin/bash', '/usr/bin/bash', '/bin/sh']).toContain(resolved)
+      expect(fs.existsSync(resolved)).toBe(true)
     }
     if (prev) process.env.SHELL = prev
   })
@@ -135,9 +140,14 @@ describe('shell resolution', () => {
 })
 
 describe('resolveShellFor (injectable, cross-platform)', () => {
-  it('prefers $SHELL when set on POSIX (trimmed)', () => {
-    expect(resolveShellFor('darwin', { SHELL: '  /bin/zsh  ' }, () => false)).toBe('/bin/zsh')
-    expect(resolveShellFor('linux', { SHELL: '/usr/bin/fish' }, () => false)).toBe('/usr/bin/fish')
+  it('prefers $SHELL when set AND it exists on POSIX (trimmed)', () => {
+    expect(resolveShellFor('darwin', { SHELL: '  /bin/zsh  ' }, (p) => p === '/bin/zsh')).toBe('/bin/zsh')
+    expect(resolveShellFor('linux', { SHELL: '/usr/bin/fish' }, (p) => p === '/usr/bin/fish')).toBe('/usr/bin/fish')
+  })
+
+  it('ignores a $SHELL that does not exist and falls through the existence-gated chain', () => {
+    // $SHELL set but missing → fall to the first existing candidate.
+    expect(resolveShellFor('linux', { SHELL: '/opt/gone/fish' }, (p) => p === '/bin/bash')).toBe('/bin/bash')
   })
 
   it('IGNORES a POSIX-style $SHELL on Windows (Git Bash/MSYS) and uses the native chain', () => {
@@ -148,9 +158,15 @@ describe('resolveShellFor (injectable, cross-platform)', () => {
     expect(got).toBe(winPosh)
   })
 
-  it('defaults to /bin/zsh on macOS and Linux', () => {
-    expect(resolveShellFor('darwin', {}, () => false)).toBe('/bin/zsh')
-    expect(resolveShellFor('linux', {}, () => false)).toBe('/bin/zsh')
+  it('prefers /bin/zsh when it exists on POSIX', () => {
+    expect(resolveShellFor('darwin', {}, (p) => p === '/bin/zsh')).toBe('/bin/zsh')
+  })
+
+  it('existence-gates the POSIX fallback chain and ends at /bin/sh', () => {
+    // No candidate exists → POSIX-mandated /bin/sh (was an unspawnable /bin/zsh).
+    expect(resolveShellFor('linux', {}, () => false)).toBe('/bin/sh')
+    // /bin/zsh absent but /bin/bash present → bash.
+    expect(resolveShellFor('linux', {}, (p) => p === '/bin/bash')).toBe('/bin/bash')
   })
 
   it('on Windows prefers pwsh.exe found on PATH', () => {
