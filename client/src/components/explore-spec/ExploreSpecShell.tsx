@@ -7,6 +7,7 @@ import remarkGfm from 'remark-gfm'
 import { Button } from '../ui/button'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '../ui/dialog'
 import { useChatContext, type ChatConversation } from '../../hooks/useChat'
+import { providerLabel } from '../../lib/provider-capabilities'
 import { useSpecDraftStream } from '../../hooks/useSpecDraftStream'
 import { useDesktop } from '../../hooks/useDesktop'
 import { useJiraConnection } from '../../hooks/useJiraConnection'
@@ -749,11 +750,11 @@ export function ExploreSpecShell({
               </div>
             )}
             {conversation?.messages.map((m, i) => (
-              <TurnBubble key={i} role={m.role} content={m.content} timestamp={m.created_at} />
+              <TurnBubble key={i} role={m.role} content={m.content} timestamp={m.created_at} provider={conversation?.provider} />
             ))}
             {(pendingTurn || conversation?.isStreaming) && (
               conversation?.streamingText
-                ? <TurnBubble role="assistant" content={renderedStream} streaming />
+                ? <TurnBubble role="assistant" content={renderedStream} streaming provider={conversation?.provider} />
                 : (
                   <div className="px-5 pb-1">
                     <ExploreStatusPills
@@ -969,7 +970,7 @@ function formatChatTime(iso?: string): string | null {
   return d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
 }
 
-function TurnBubble({ role, content, streaming, timestamp }: { role: 'user' | 'assistant' | 'system'; content: string; streaming?: boolean; timestamp?: string }) {
+function TurnBubble({ role, content, streaming, timestamp, provider }: { role: 'user' | 'assistant' | 'system'; content: string; streaming?: boolean; timestamp?: string; provider?: string | null }) {
   const { t } = useTranslation('explore')
   if (role === 'system') return null
   const isUser = role === 'user'
@@ -981,7 +982,7 @@ function TurnBubble({ role, content, streaming, timestamp }: { role: 'user' | 'a
       <div className={`max-w-[85%] rounded-lg px-3 py-2 text-sm ${isUser ? 'bg-primary/10 text-foreground' : 'bg-card/60 border border-border/40'}`}>
         <div className="flex items-baseline justify-between gap-3 mb-1">
           <div className="text-[10px] uppercase tracking-wider text-muted-foreground/60 font-semibold">
-            {isUser ? t('shell.you') : 'Claude'}
+            {isUser ? t('shell.you') : providerLabel(provider)}
           </div>
           {timeLabel && (
             <div className="text-[10px] text-muted-foreground/50 font-mono tabular-nums">

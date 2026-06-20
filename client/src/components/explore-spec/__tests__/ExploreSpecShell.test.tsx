@@ -7,7 +7,7 @@ import { SharedWebSocketContext } from '../../../hooks/useSharedWebSocket'
 const mockStartWithMessage = vi.fn().mockResolvedValue('conv-1')
 const mockSendMessage = vi.fn().mockResolvedValue(undefined)
 const conversationsRef: { value: Array<{
-  id: string; title: string | null; model: string;
+  id: string; title: string | null; model: string; provider?: string | null;
   messages: Array<{ role: 'user' | 'assistant' | 'system'; content: string }>;
   isStreaming: boolean; streamingText: string; commandProposals: string[]
 }> } = { value: [] }
@@ -161,6 +161,43 @@ describe('ExploreSpecShell', () => {
     await screen.findByText('response')
     fireEvent.keyDown(window, { key: 'Escape' })
     expect(onClose).not.toHaveBeenCalled()
+  })
+
+  it('labels the assistant bubble with the conversation provider (Gemini, not Claude)', async () => {
+    const ws = makeFakeWs()
+    conversationsRef.value = [{
+      id: 'conv-1', title: null, model: 'gemini-2.5-pro', provider: 'gemini',
+      messages: [{ role: 'user', content: 'hi' }, { role: 'assistant', content: 'gemini reply' }],
+      isStreaming: false, streamingText: '', commandProposals: [],
+    }]
+    render(<ExploreSpecShell initialIdea="hi" pendingSpecId="pending-1" initialAttachmentIds={[]} onClose={onClose} />, { wrapper: wrap(ws) })
+    await screen.findByText('gemini reply')
+    expect(screen.getByText('Gemini')).toBeInTheDocument()
+    expect(screen.queryByText('Claude')).not.toBeInTheDocument()
+  })
+
+  it('labels codex conversations Codex', async () => {
+    const ws = makeFakeWs()
+    conversationsRef.value = [{
+      id: 'conv-1', title: null, model: 'gpt-5.5', provider: 'codex',
+      messages: [{ role: 'assistant', content: 'codex reply' }],
+      isStreaming: false, streamingText: '', commandProposals: [],
+    }]
+    render(<ExploreSpecShell initialIdea="hi" pendingSpecId="pending-1" initialAttachmentIds={[]} onClose={onClose} />, { wrapper: wrap(ws) })
+    await screen.findByText('codex reply')
+    expect(screen.getByText('Codex')).toBeInTheDocument()
+  })
+
+  it('falls back to Claude when provider is null (single-provider legacy)', async () => {
+    const ws = makeFakeWs()
+    conversationsRef.value = [{
+      id: 'conv-1', title: null, model: 'sonnet', provider: null,
+      messages: [{ role: 'assistant', content: 'claude reply' }],
+      isStreaming: false, streamingText: '', commandProposals: [],
+    }]
+    render(<ExploreSpecShell initialIdea="hi" pendingSpecId="pending-1" initialAttachmentIds={[]} onClose={onClose} />, { wrapper: wrap(ws) })
+    await screen.findByText('claude reply')
+    expect(screen.getByText('Claude')).toBeInTheDocument()
   })
 
   it('clicking a chip sends it as the next user message', async () => {

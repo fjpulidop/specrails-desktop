@@ -12,6 +12,9 @@ export interface ChatConversation {
   id: string
   title: string | null
   model: string
+  /** AI provider driving this conversation (claude/codex/gemini). NULL/undefined
+   *  on single-provider projects → rendered as the default (Claude). */
+  provider?: string | null
   messages: ChatMessage[]
   isStreaming: boolean
   streamingText: string
@@ -105,6 +108,7 @@ export function useChat(): UseChatReturn {
                 id: c.id,
                 title: c.title,
                 model: c.model,
+                provider: c.provider,
                 messages: msgData.messages,
                 isStreaming: false,
                 streamingText: '',
@@ -115,6 +119,7 @@ export function useChat(): UseChatReturn {
                 id: c.id,
                 title: c.title,
                 model: c.model,
+                provider: c.provider,
                 messages: [],
                 isStreaming: false,
                 streamingText: '',
@@ -232,6 +237,7 @@ export function useChat(): UseChatReturn {
         id: data.conversation.id,
         title: data.conversation.title,
         model: data.conversation.model,
+        provider: data.conversation.provider,
         messages: [],
         isStreaming: false,
         streamingText: '',
@@ -365,6 +371,10 @@ export function useChat(): UseChatReturn {
         id: data.conversation.id,
         title: data.conversation.title,
         model: data.conversation.model,
+        // Server persists provider only on multi-provider projects (else NULL).
+        // Fall back to the requested engine so a freshly-started gemini/codex
+        // session labels its bubbles correctly without waiting for a reload.
+        provider: data.conversation.provider ?? provider ?? null,
         messages: [],
         isStreaming: false,
         streamingText: '',
@@ -399,6 +409,7 @@ export function useChat(): UseChatReturn {
         id: data.conversation.id,
         title: data.conversation.title,
         model: data.conversation.model,
+        provider: data.conversation.provider,
         messages: data.messages,
         isStreaming: false,
         streamingText: '',

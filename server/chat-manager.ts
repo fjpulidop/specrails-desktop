@@ -633,7 +633,20 @@ export class ChatManager {
       )
     }
     let promptForAdapter = resolvedText
-    if (conversation.kind === 'explore' && adapter.id === 'codex' && conversationScope && this._cwd) {
+    // Providers WITHOUT a --system-prompt flag (codex AND gemini) drop
+    // opts.systemPrompt for chat turns, so the Explore scoped-context (the
+    // project's tickets/spec prefix the Add Spec scope toggle injects) would
+    // never reach them — gemini then ignores the real project and wanders the
+    // generic .gemini openspec tooling dir. Prepend the scoped context into the
+    // user turn for any `systemPromptArg: false` provider (capability-gated, not
+    // `id === 'codex'`, so it auto-covers future providers). Claude carries it
+    // via --system-prompt and must NOT get the prepend.
+    if (
+      conversation.kind === 'explore' &&
+      !adapter.capabilities.systemPromptArg &&
+      conversationScope &&
+      this._cwd
+    ) {
       const scopedContext = buildScopedSystemPromptPrefix(conversationScope, this._cwd, this._specrailsRoot())
       if (scopedContext) {
         promptForAdapter =
