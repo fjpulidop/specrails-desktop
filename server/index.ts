@@ -162,6 +162,12 @@ app.use(corsMiddleware)
 
 // ─── Body size limit (MED-02) ─────────────────────────────────────────────────
 
+// OTLP telemetry blobs can legitimately reach the BLOB_SIZE_CAP (10 MB); the 1mb
+// global limit silently 413'd them and dropped telemetry. Parse /otlp with a
+// 12mb limit FIRST — once it sets req._body the global parser below no-ops for
+// these paths. (The actual /otlp router still requires loopback.)
+app.use('/otlp', express.json({ limit: '12mb' }))
+
 app.use(express.json({ limit: '1mb' }))
 
 const server = http.createServer(app)

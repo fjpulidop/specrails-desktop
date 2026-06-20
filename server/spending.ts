@@ -123,15 +123,19 @@ interface ResolvedRange {
 
 function resolveRange(filters: SpendingFilters, now: Date = new Date()): ResolvedRange {
   const period = filters.period ?? '30d'
-  if (period === 'custom' && filters.from && filters.to) {
-    const fromMs = new Date(filters.from).getTime()
-    const toMs = new Date(filters.to).getTime()
-    const span = toMs - fromMs
+  // Only take the custom branch when BOTH dates parse — otherwise
+  // `new Date(NaN).toISOString()` throws a RangeError (surfaced as a 500).
+  // Unparseable custom dates fall through to the default 30d range below.
+  const customFromMs = filters.from ? new Date(filters.from).getTime() : NaN
+  const customToMs = filters.to ? new Date(filters.to).getTime() : NaN
+  if (period === 'custom' && !Number.isNaN(customFromMs) && !Number.isNaN(customToMs)) {
+    const fromMs = customFromMs
+    const span = customToMs - fromMs
     return {
-      from: filters.from,
-      to: filters.to,
+      from: filters.from as string,
+      to: filters.to as string,
       prevFrom: new Date(fromMs - span).toISOString(),
-      prevTo: filters.from,
+      prevTo: filters.from as string,
     }
   }
   if (period === 'all') {

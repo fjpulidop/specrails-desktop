@@ -111,7 +111,8 @@ export function normaliseResultEvent(
       num_turns: event.num_turns as number | undefined,
       model: event.model as string | undefined,
       duration_ms: event.duration_ms as number | undefined,
-      duration_api_ms: event.api_duration_ms as number | undefined,
+      // CLI emits `duration_api_ms`; keep the legacy alias as a fallback.
+      duration_api_ms: (event.duration_api_ms ?? event.api_duration_ms) as number | undefined,
       session_id: event.session_id as string | undefined,
     }
   }
