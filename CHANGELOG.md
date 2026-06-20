@@ -1,5 +1,12 @@
 # Changelog
 
+## [2.11.5](https://github.com/fjpulidop/specrails-desktop/compare/v2.11.4...v2.11.5) (2026-06-20)
+
+
+### Bug Fixes
+
+* **windows:** gemini detection (probe timeout) + npm-global bin on PATH ([#434](https://github.com/fjpulidop/specrails-desktop/issues/434)) ([69d8fc3](https://github.com/fjpulidop/specrails-desktop/commit/69d8fc3c6cd27d976afd348a973785ee23471fab))
+
 ## [2.11.4](https://github.com/fjpulidop/specrails-desktop/compare/v2.11.3...v2.11.4) (2026-06-20)
 
 
