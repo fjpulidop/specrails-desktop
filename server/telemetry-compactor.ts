@@ -58,6 +58,19 @@ function emptyAgg(): PhaseAggregates {
   return { durationMs: 0, tokensInput: 0, tokensOutput: 0, tokensCache: 0, toolCallCounts: {}, apiErrors: 0, costUsd: 0 }
 }
 
+/** Read a string attribute value off an OTLP metric data point (`attributes`
+ *  is `[{key, value:{stringValue}}]`). Returns undefined when absent. */
+function dpAttr(dp: Record<string, unknown>, key: string): string | undefined {
+  const attrs = dp.attributes as Array<Record<string, unknown>> | undefined
+  for (const a of attrs ?? []) {
+    if (a.key === key) {
+      const v = a.value as { stringValue?: unknown } | undefined
+      return typeof v?.stringValue === 'string' ? v.stringValue : undefined
+    }
+  }
+  return undefined
+}
+
 /**
  * Extract per-phase aggregates from telemetry lines.
  * We use the `scope.name` or a best-effort fallback to group by phase.
@@ -127,13 +140,28 @@ function aggregateByPhase(lines: TelemetryLine[]): Map<string, PhaseAggregates> 
             for (const dp of dataPoints ?? []) {
               const value = typeof dp.asInt === 'string' ? parseInt(dp.asInt, 10)
                 : typeof dp.asDouble === 'number' ? dp.asDouble : 0
-              if (metricName.includes('input_tokens') || metricName.includes('tokens_in')) {
+              // Claude Code emits ONE token metric `claude_code.token.usage` and
+              // buckets via a per-data-point `type` attribute (input/output/
+              // cacheRead/cacheCreation); cost is `claude_code.cost.usage`. The
+              // old substring matches (`input_tokens`/`cost_usd`) never hit
+              // these names → aggregates were always zero.
+              if (metricName === 'claude_code.token.usage') {
+                const type = dpAttr(dp, 'type')
+                if (type === 'input') agg.tokensInput += value
+                else if (type === 'output') agg.tokensOutput += value
+                else if (type === 'cacheRead' || type === 'cacheCreation') agg.tokensCache += value
+                continue
+              }
+              if (metricName === 'claude_code.cost.usage') { agg.costUsd += value; continue }
+              // Codex bridge emits `specrails.codex.tokens.{input,output,cache_read}`.
+              // Keep legacy substring fallbacks for any other producer.
+              if (metricName.includes('tokens.input') || metricName.includes('input_tokens') || metricName.includes('tokens_in')) {
                 agg.tokensInput += value
-              } else if (metricName.includes('output_tokens') || metricName.includes('tokens_out')) {
+              } else if (metricName.includes('tokens.output') || metricName.includes('output_tokens') || metricName.includes('tokens_out')) {
                 agg.tokensOutput += value
-              } else if (metricName.includes('cache_tokens') || metricName.includes('tokens_cache')) {
+              } else if (metricName.includes('tokens.cache') || metricName.includes('cache_tokens') || metricName.includes('tokens_cache')) {
                 agg.tokensCache += value
-              } else if (metricName.includes('cost_usd') || metricName.includes('total_cost')) {
+              } else if (metricName.includes('cost_usd') || metricName.includes('total_cost') || metricName.includes('cost.usage')) {
                 agg.costUsd += value
               }
             }

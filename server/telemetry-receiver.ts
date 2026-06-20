@@ -63,6 +63,20 @@ function blobKey(projectId: string, jobId: string): string {
   return `${projectId}:${jobId}`
 }
 
+/** Evict the in-memory BlobState for one job (bounds the per-(project,job) leak —
+ *  the map otherwise grew for the whole process lifetime). */
+export function dropBlobState(projectId: string, jobId: string): void {
+  _blobState.delete(blobKey(projectId, jobId))
+}
+
+/** Evict every BlobState belonging to a project (called on project removal). */
+export function dropBlobStatesForProject(projectId: string): void {
+  const prefix = `${projectId}:`
+  for (const key of _blobState.keys()) {
+    if (key.startsWith(prefix)) _blobState.delete(key)
+  }
+}
+
 // ─── Blob path ────────────────────────────────────────────────────────────────
 
 function telemetryDir(projectSlug: string): string {

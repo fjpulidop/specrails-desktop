@@ -20,6 +20,7 @@ import { BrowserCaptureManager } from './browser-capture-manager'
 import { removeExploreCwd } from './explore-cwd-manager'
 import { dropPhaseScope } from './hooks'
 import { killTransientChildren } from './transient-children'
+import { dropBlobStatesForProject } from './telemetry-receiver'
 import { mirrorProjectEntry, removeRegistryEntry, reconcileFromProjects, resolveArtifacts, resolveHome } from './artifact-registry'
 import { resolveProjectExecution } from './workspace-resolution'
 import { removeWorkspace } from './workspace-manager'
@@ -217,6 +218,8 @@ export class ProjectRegistry {
       try { removeExploreCwd(ctx.project.slug) } catch { /* ignore — non-fatal */ }
       // Drop this project's per-project phase-tracking scope (avoid a leak).
       try { dropPhaseScope(id) } catch { /* ignore */ }
+      // Drop any in-memory telemetry BlobState entries for this project.
+      try { dropBlobStatesForProject(id) } catch { /* ignore */ }
       // Close the DB connection BEFORE removing the project's data dir below.
       try { ctx.db.close() } catch { /* ignore */ }
       // B54: remove the ENTIRE app-managed data dir for this project, not just

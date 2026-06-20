@@ -262,7 +262,9 @@ function extractClaudeResult(events: readonly AdapterEvent[]): NormalisedResult 
     num_turns: resultPayload.num_turns as number | undefined,
     model: resultPayload.model as string | undefined,
     duration_ms: resultPayload.duration_ms as number | undefined,
-    duration_api_ms: resultPayload.api_duration_ms as number | undefined,
+    // The Claude Code CLI emits `duration_api_ms`; the old `api_duration_ms`
+    // lookup always resolved undefined (persisted NULL). Read both, real first.
+    duration_api_ms: (resultPayload.duration_api_ms ?? resultPayload.api_duration_ms) as number | undefined,
     session_id: finalSessionId,
   }
 }

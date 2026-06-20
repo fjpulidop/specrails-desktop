@@ -223,9 +223,9 @@ export function registerSpendingRoutes(deps: ProjectRoutesDeps): void {
         ].join(','))
         lines.push('')
         lines.push('# Daily timeline')
-        lines.push('date,jobsCostUsd,quickCostUsd,exploreCostUsd,aiEditCostUsd,totalCostUsd')
+        lines.push('date,jobsCostUsd,quickCostUsd,exploreCostUsd,aiEditCostUsd,smashCostUsd,fileSummaryCostUsd,totalCostUsd')
         for (const d of data.dailyTimeline) {
-          lines.push(`${d.date},${d.jobsCostUsd},${d.quickCostUsd},${d.exploreCostUsd},${d.aiEditCostUsd},${d.totalCostUsd}`)
+          lines.push(`${d.date},${d.jobsCostUsd},${d.quickCostUsd},${d.exploreCostUsd},${d.aiEditCostUsd},${d.smashCostUsd},${d.fileSummaryCostUsd},${d.totalCostUsd}`)
         }
         lines.push('')
         lines.push('# By surface')
@@ -291,7 +291,10 @@ export function registerSpendingRoutes(deps: ProjectRoutesDeps): void {
   })
 
   function csvEscape(v: unknown): string {
-    const s = v == null ? '' : String(v)
+    let s = v == null ? '' : String(v)
+    // CSV formula injection: a value starting with = + - @ (or tab/CR) is run as
+    // a formula by Excel/Sheets. Neutralize by prefixing a single quote.
+    if (/^[=+\-@\t\r]/.test(s)) s = `'${s}`
     return s.includes(',') || s.includes('"') || s.includes('\n')
       ? `"${s.replace(/"/g, '""')}"`
       : s
