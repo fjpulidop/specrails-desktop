@@ -220,8 +220,8 @@ export class MobileGateway {
       signalBase,
       doFetch: (url, init) => fetch(url, init),
       rooms: () => listDevices(this._db).filter((d) => !d.revoked).map((d) => d.id),
-      makeOffer: () => this.webrtcOffer(),
-      acceptAnswer: (sdp) => this.webrtcAnswer(sdp),
+      makeOffer: (room) => this.webrtcOffer(room),
+      acceptAnswer: (room, sdp) => this.webrtcAnswer(sdp, room),
     })
     this._signal.start()
   }
@@ -257,17 +257,20 @@ export class MobileGateway {
   /** Open a serverless WebRTC pairing offer (for the first QR). Returns the offer
    *  SDP + a single-use secret + the desktop identity; the webview encodes these
    *  into the QR the companion scans. */
-  async webrtcOffer(): Promise<{ sdp: string; secret: string; hubName: string; hubInstanceId: string } | null> {
+  async webrtcOffer(room?: string): Promise<{ sdp: string; secret: string; hubName: string; hubInstanceId: string } | null> {
     if (!this._webrtc) return null
     const secret = randomBytes(16).toString('base64url')
-    const { sdp } = await this._webrtc.createOffer(secret)
+    // Per-room slot for reconnect (room = device id); undefined ⇒ the QR slot.
+    const { sdp } = room !== undefined ? await this._webrtc.createOffer(secret, room) : await this._webrtc.createOffer(secret)
     return { sdp, secret, hubName: this.desktopName(), hubInstanceId: this.instanceId() }
   }
 
-  /** Apply the companion's scanned answer SDP to the open offer. */
-  async webrtcAnswer(sdp: string): Promise<boolean> {
+  /** Apply the companion's scanned answer SDP to the open offer (per-room slot
+   *  for reconnect; the QR slot when no room given). */
+  async webrtcAnswer(sdp: string, room?: string): Promise<boolean> {
     if (!this._webrtc) return false
-    return (await this._webrtc.acceptAnswer(sdp)).ok
+    const res = room !== undefined ? await this._webrtc.acceptAnswer(sdp, room) : await this._webrtc.acceptAnswer(sdp)
+    return res.ok
   }
 }
 
