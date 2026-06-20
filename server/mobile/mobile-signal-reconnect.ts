@@ -20,10 +20,11 @@ export interface SignalReconnectDeps {
   doFetch: (url: string, init?: { method?: string; body?: string }) => Promise<SignalFetchResult>
   /** Active (non-revoked) device ids — each is a mailbox "room". */
   rooms: () => string[]
-  /** Create a fresh offer + its single-use secret (and the desktop identity). */
-  makeOffer: () => Promise<{ sdp: string; secret: string; hubName: string; hubInstanceId: string } | null>
-  /** Apply the companion's answer SDP to the open offer. */
-  acceptAnswer: (sdp: string) => Promise<boolean>
+  /** Create a fresh offer + its single-use secret (and the desktop identity) for
+   *  a specific room, so concurrent rooms don't clobber each other's offers. */
+  makeOffer: (room: string) => Promise<{ sdp: string; secret: string; hubName: string; hubInstanceId: string } | null>
+  /** Apply the companion's answer SDP to that room's open offer. */
+  acceptAnswer: (room: string, sdp: string) => Promise<boolean>
 }
 
 export class MobileSignalReconnect {
@@ -55,7 +56,7 @@ export class MobileSignalReconnect {
           // A phone asking to reconnect? → answer with a fresh offer.
           const req = await this._get(room, 'req')
           if (req !== null) {
-            const offer = await this._deps.makeOffer()
+            const offer = await this._deps.makeOffer(room)
             if (offer) {
               await this._post(
                 room,
@@ -69,7 +70,7 @@ export class MobileSignalReconnect {
           if (ans) {
             try {
               const parsed = JSON.parse(ans) as { sdp?: unknown }
-              if (typeof parsed.sdp === 'string') await this._deps.acceptAnswer(parsed.sdp)
+              if (typeof parsed.sdp === 'string') await this._deps.acceptAnswer(room, parsed.sdp)
             } catch {
               /* malformed answer — ignore */
             }

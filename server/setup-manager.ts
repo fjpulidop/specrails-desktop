@@ -17,6 +17,7 @@ import { getBundledCoreCli, getBundledCoreRoot, getBundledCoreVersion } from './
 import { getBundledOpenspecCli } from './bundled-openspec'
 import { resolveBundledNodeExe } from './path-resolver'
 import { FrameworkManager } from './framework-manager'
+import { resolveProjectExecution } from './workspace-resolution'
 import type { ProviderAdapter, SpawnAction, ProviderId } from './providers/types'
 
 /**
@@ -759,6 +760,10 @@ export class SetupManager {
   // checks this to suppress a spurious setup_error / double onSetupDone when the
   // SIGTERM'd child closes with a null exit code.
   private _abortedProjects: Set<string> = new Set()
+  // projectId → registry slug (captured at startInstall) so post-install
+  // validation/summary/checkpoint reads resolve the RELOCATED workspace artifact
+  // root rather than the (pristine) repo path.
+  private _projectSlugs: Map<string, string> = new Map()
   // Ring buffer for install log lines — allows clients to recover log on reconnect
   private _installLogBuffer: Map<string, string[]>
   // Track each project's chosen AI provider for binary selection
@@ -791,6 +796,7 @@ export class SetupManager {
 
   startInstall(projectId: string, projectPath: string, projectSlug?: string, provider?: string): void {
     this._abortedProjects.delete(projectId) // fresh run — clear any prior abort flag
+    if (projectSlug) this._projectSlugs.set(projectId, projectSlug)
     if (this._installProcesses.has(projectId)) {
       console.warn(`[SetupManager] install already running for ${projectId}`)
       return
@@ -991,7 +997,10 @@ export class SetupManager {
       // spurious setup_error for the SIGTERM'd child's null exit.
       if (this._abortedProjects.has(projectId)) return
       if (code === 0) {
-        const validation = validateInstalledCore(projectPath)
+        // Relocated installs write artifacts to the workspace, not the repo —
+        // validate/sweep/summarize against the resolved artifact root.
+        const artifactRoot = this._artifactRoot(projectId, projectPath)
+        const validation = validateInstalledCore(artifactRoot)
         if (!validation.ok) {
           this._broadcast({
             type: 'setup_error',
@@ -1002,8 +1011,8 @@ export class SetupManager {
         }
         this._advanceCheckpoint(projectId, 'base_install')
         this._completeCheckpoint(projectId, 'base_install')
-        const legacySrRemoved = sweepLegacySrCommands(projectPath)
-        const summary: SetupSummary = { ...computeSummary(projectPath, tier, this._projectProviders.get(projectId) ?? 'claude'), legacySrRemoved }
+        const legacySrRemoved = sweepLegacySrCommands(artifactRoot)
+        const summary: SetupSummary = { ...computeSummary(artifactRoot, tier, this._projectProviders.get(projectId) ?? 'claude'), legacySrRemoved }
         this._broadcast({
           type: 'setup_install_done',
           projectId,
@@ -1299,19 +1308,23 @@ export class SetupManager {
         // Sync filesystem checkpoints
         this._syncFilesystemCheckpoints(projectId, projectPath)
 
+        // Relocated installs write artifacts to the workspace, not the repo —
+        // resolve the has-agents/has-commands gate + summary against it.
+        const artifactRoot = this._artifactRoot(projectId, projectPath)
+
         // Check if setup is truly complete — real artifacts must exist
-        const hasAgents = existsSync(join(projectPath, SPECRAILS_DIR, 'agents')) &&
-          hasFiles(join(projectPath, SPECRAILS_DIR, 'agents'), /^sr-.*\.md$/)
+        const hasAgents = existsSync(join(artifactRoot, SPECRAILS_DIR, 'agents')) &&
+          hasFiles(join(artifactRoot, SPECRAILS_DIR, 'agents'), /^sr-.*\.md$/)
         const hasCommands = (
-          (existsSync(join(projectPath, SPECRAILS_DIR, 'commands', 'sr')) && hasFiles(join(projectPath, SPECRAILS_DIR, 'commands', 'sr'), /\.md$/)) ||
-          (existsSync(join(projectPath, SPECRAILS_DIR, 'commands', 'specrails')) && hasFiles(join(projectPath, SPECRAILS_DIR, 'commands', 'specrails'), /\.md$/))
+          (existsSync(join(artifactRoot, SPECRAILS_DIR, 'commands', 'sr')) && hasFiles(join(artifactRoot, SPECRAILS_DIR, 'commands', 'sr'), /\.md$/)) ||
+          (existsSync(join(artifactRoot, SPECRAILS_DIR, 'commands', 'specrails')) && hasFiles(join(artifactRoot, SPECRAILS_DIR, 'commands', 'specrails'), /\.md$/))
         )
         const isComplete = hasAgents && hasCommands
 
         if (isComplete) {
-          const legacySrRemoved = sweepLegacySrCommands(projectPath)
+          const legacySrRemoved = sweepLegacySrCommands(artifactRoot)
           const tier = this._projectTiers.get(projectId) ?? 'full'
-          const summary: SetupSummary = { ...computeSummary(projectPath, tier, this._projectProviders.get(projectId) ?? 'claude'), legacySrRemoved }
+          const summary: SetupSummary = { ...computeSummary(artifactRoot, tier, this._projectProviders.get(projectId) ?? 'claude'), legacySrRemoved }
           this._onSetupDone?.(projectId)
           this._broadcast({
             type: 'setup_complete',
@@ -1399,11 +1412,26 @@ export class SetupManager {
     this._broadcast({ type: 'setup_checkpoint', projectId, checkpoint: key, status: 'done', duration_ms })
   }
 
+  /** Resolve the artifact root for post-install reads. For a RELOCATED project
+   *  (registry entry + populated workspace) the `.specrails`/provider dirs live
+   *  in the workspace, NOT the pristine repo path — `resolveProjectExecution`
+   *  returns that cwd. Falls back to the repo path (legacy) when no slug is
+   *  known or the project isn't relocated. */
+  private _artifactRoot(projectId: string, projectPath: string): string {
+    const slug = this._projectSlugs.get(projectId)
+    if (!slug) return projectPath
+    try {
+      return resolveProjectExecution({ slug, path: projectPath }).cwd
+    } catch {
+      return projectPath
+    }
+  }
+
   private _syncFilesystemCheckpoints(projectId: string, projectPath: string): void {
     const statuses = this._checkpoints.get(projectId)
     if (!statuses) return
 
-    const fsChecks = checkFilesystem(projectPath)
+    const fsChecks = checkFilesystem(this._artifactRoot(projectId, projectPath))
 
     for (const [key, exists] of Object.entries(fsChecks)) {
       if (!exists) continue
@@ -1451,6 +1479,7 @@ export class SetupManager {
     this._stopFilesystemPoll(projectId)
     this._projectProviders.delete(projectId)
     this._projectTiers.delete(projectId)
+    this._projectSlugs.delete(projectId)
     this._onSetupDone?.(projectId)
 
     const installChild = this._installProcesses.get(projectId)

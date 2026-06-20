@@ -47,7 +47,32 @@ describe('MobileSignalReconnect', () => {
 
     store.set('dev-1:answer', JSON.stringify({ sdp: 'ANSWER_SDP' })) // phone answers
     await r.poll()
-    expect(acceptAnswer).toHaveBeenCalledWith('ANSWER_SDP')
+    expect(acceptAnswer).toHaveBeenCalledWith('dev-1', 'ANSWER_SDP')
+  })
+
+  it('routes per-room offers/answers when two devices reconnect in one cycle (M14)', async () => {
+    const { store, doFetch } = fakeMailbox()
+    const makeOffer = vi.fn(async (room: string) => ({
+      sdp: `OFFER_${room}`, secret: `sec_${room}`, hubName: 'Mac', hubInstanceId: 'inst-1',
+    }))
+    const acceptAnswer = vi.fn(async () => true)
+    const r = new MobileSignalReconnect({
+      signalBase: 'http://h/s.php', doFetch, rooms: () => ['dev-A', 'dev-B'], makeOffer, acceptAnswer,
+    })
+    store.set('dev-A:req', '1')
+    store.set('dev-B:req', '1')
+    await r.poll()
+    // Each room gets its OWN offer (no clobber).
+    expect(makeOffer).toHaveBeenCalledWith('dev-A')
+    expect(makeOffer).toHaveBeenCalledWith('dev-B')
+    expect(JSON.parse(store.get('dev-A:offer') ?? '{}')).toMatchObject({ sdp: 'OFFER_dev-A' })
+    expect(JSON.parse(store.get('dev-B:offer') ?? '{}')).toMatchObject({ sdp: 'OFFER_dev-B' })
+    // Answers route back to the correct room.
+    store.set('dev-A:answer', JSON.stringify({ sdp: 'ANS_A' }))
+    store.set('dev-B:answer', JSON.stringify({ sdp: 'ANS_B' }))
+    await r.poll()
+    expect(acceptAnswer).toHaveBeenCalledWith('dev-A', 'ANS_A')
+    expect(acceptAnswer).toHaveBeenCalledWith('dev-B', 'ANS_B')
   })
 
   it('does nothing when the mailbox is empty', async () => {

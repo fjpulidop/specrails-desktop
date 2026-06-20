@@ -20,23 +20,33 @@ interface PendingOffer {
   secret: string
 }
 
+/** Default slot for the QR-pairing flow (a single un-keyed offer at a time). */
+const QR_KEY = '__qr__'
+
 export class MobileWebrtcGateway {
-  private _pending: PendingOffer | null = null
+  // Pending (un-answered) offers keyed by room/device id. A single slot would be
+  // CLOBBERED when multiple devices reconnect in one poll cycle: device B's
+  // createOffer closed device A's still-open offer, and acceptAnswer applied A's
+  // answer to whatever happened to be pending. Per-room keying isolates them.
+  private _pending = new Map<string, PendingOffer>()
   private _active = new Set<RTCPeerConnection>()
 
   constructor(private _deps: MobileWebrtcGatewayDeps) {}
 
-  /** Drop the open (un-answered) offer. */
-  clearOffer(): void {
-    const p = this._pending
-    this._pending = null
-    if (p) this._close(p.pc)
+  /** Drop the open (un-answered) offer for one room (default = QR slot). */
+  clearOffer(key: string = QR_KEY): void {
+    const p = this._pending.get(key)
+    if (p) {
+      this._pending.delete(key)
+      this._close(p.pc)
+    }
   }
 
   /** Create a fresh pairing offer (peer + DataChannel + gathered offer SDP).
-   *  Replaces any previously-open offer. Returns the SDP to embed in the QR. */
-  async createOffer(secret: string): Promise<{ sdp: string }> {
-    this.clearOffer()
+   *  Replaces any previously-open offer FOR THE SAME ROOM. Returns the SDP to
+   *  embed in the QR / post to the room's mailbox. */
+  async createOffer(secret: string, key: string = QR_KEY): Promise<{ sdp: string }> {
+    this.clearOffer(key)
     const pc = new RTCPeerConnection({ iceServers: [] })
     const dc = pc.createDataChannel('mobile')
 
@@ -56,7 +66,8 @@ export class MobileWebrtcGateway {
       console.log('[webrtc] pc connectionState:', s)
       if (s === 'failed' || s === 'closed' || s === 'disconnected') {
         this._active.delete(pc)
-        if (this._pending?.pc === pc) this._pending = null
+        // Drop this pc from whichever room slot still holds it.
+        if (this._pending.get(key)?.pc === pc) this._pending.delete(key)
       }
     })
 
@@ -69,20 +80,20 @@ export class MobileWebrtcGateway {
       throw new Error('no local description after ICE gathering')
     }
     console.log(`[webrtc] offer ready: ${(sdp.match(/a=candidate/g) ?? []).length} ICE candidates`)
-    this._pending = { pc, secret }
+    this._pending.set(key, { pc, secret })
     return { sdp }
   }
 
-  /** Apply the companion's scanned answer SDP to the open offer and keep the
-   *  connection alive for the session. */
-  async acceptAnswer(sdp: string): Promise<{ ok: boolean }> {
-    const p = this._pending
+  /** Apply the companion's scanned answer SDP to the open offer FOR THE SAME ROOM
+   *  and keep the connection alive for the session. */
+  async acceptAnswer(sdp: string, key: string = QR_KEY): Promise<{ ok: boolean }> {
+    const p = this._pending.get(key)
     if (!p) return { ok: false }
     try {
       console.log(`[webrtc] applying answer: ${(sdp.match(/a=candidate/g) ?? []).length} ICE candidates`)
       await p.pc.setRemoteDescription({ type: 'answer', sdp })
       this._active.add(p.pc)
-      this._pending = null
+      this._pending.delete(key)
       return { ok: true }
     } catch {
       return { ok: false }
@@ -91,7 +102,7 @@ export class MobileWebrtcGateway {
 
   /** Tear down every peer (gateway stopping / disabled). */
   stop(): void {
-    this.clearOffer()
+    for (const key of [...this._pending.keys()]) this.clearOffer(key)
     for (const pc of this._active) this._close(pc)
     this._active.clear()
   }
