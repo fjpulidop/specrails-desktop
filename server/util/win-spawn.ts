@@ -54,10 +54,31 @@ export function spawnCli(
 export function windowsSpawnEnv(base: NodeJS.ProcessEnv = process.env): NodeJS.ProcessEnv {
   if (process.platform !== 'win32') return base
   const env = { ...base }
-  const systemRoot = env.SystemRoot || env.windir || 'C:\\Windows'
-  env.SystemRoot = systemRoot
+  const systemRoot = (env.SystemRoot || env.windir || 'C:\\Windows').replace(/[\\/]$/, '')
+  env.SystemRoot = env.SystemRoot || systemRoot
   env.windir = env.windir || systemRoot
-  env.ComSpec = env.ComSpec || `${systemRoot.replace(/[\\/]$/, '')}\\System32\\cmd.exe`
+  env.ComSpec = env.ComSpec || `${systemRoot}\\System32\\cmd.exe`
+
+  // npm/npx load @npmcli/config on startup (even `npm --version` and the inner
+  // npm-prefix.js resolver), which reads the user profile via USERPROFILE /
+  // APPDATA / HOMEDRIVE+HOMEPATH / TEMP. A GUI-launched, env-stripped sidecar can
+  // lack these → `node npm-cli.js --version` fails the same way the .cmd shim did.
+  // Backfill canonical Windows defaults when absent (node.exe itself needs none
+  // of these, which is why node/git probed fine while npm/npx did not).
+  const userProfile =
+    env.USERPROFILE ||
+    (env.HOMEDRIVE && env.HOMEPATH ? `${env.HOMEDRIVE}${env.HOMEPATH}` : 'C:\\Users\\Default')
+  env.USERPROFILE = userProfile
+  const drive = /^([A-Za-z]:)(.*)$/.exec(userProfile)
+  if (drive) {
+    env.HOMEDRIVE = env.HOMEDRIVE || drive[1]
+    env.HOMEPATH = env.HOMEPATH || (drive[2] || '\\')
+  }
+  env.APPDATA = env.APPDATA || `${userProfile}\\AppData\\Roaming`
+  env.LOCALAPPDATA = env.LOCALAPPDATA || `${userProfile}\\AppData\\Local`
+  const temp = env.TEMP || env.TMP || `${env.LOCALAPPDATA}\\Temp`
+  env.TEMP = env.TEMP || temp
+  env.TMP = env.TMP || temp
   return env
 }
 

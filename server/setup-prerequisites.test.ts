@@ -558,6 +558,102 @@ describe('getSetupPrerequisitesStatus — desktop mode', () => {
     expect(tools.every((t) => t.bundled === undefined)).toBe(true)
     expect(tools.every((t) => t.error === undefined)).toBe(true)
   })
+
+  // Materialize the POSIX npm package CLI JS inside the default runtimes tree so
+  // npm/npx take the node-direct probe path (node <npm-cli.js> --version).
+  function addNpmCliJs(): { npmCli: string; npxCli: string } {
+    const binDir = path.join(runtimesBase, 'node', 'lib', 'node_modules', 'npm', 'bin')
+    fs.mkdirSync(binDir, { recursive: true })
+    const npmCli = path.join(binDir, 'npm-cli.js')
+    const npxCli = path.join(binDir, 'npx-cli.js')
+    fs.writeFileSync(npmCli, '// npm')
+    fs.writeFileSync(npxCli, '// npx')
+    return { npmCli, npxCli }
+  }
+
+  it('probes npm/npx via the bundled node + npm-cli.js (node-direct), NOT the shim', () => {
+    Object.defineProperty(process, 'platform', { value: 'linux', configurable: true })
+    addNpmCliJs()
+    mockSpawnSync.mockImplementation((cmd: any, args: any) => {
+      // node-direct: `node <…/npm-cli.js> --version` (npm package serves npx too)
+      if (typeof args?.[0] === 'string' && args[0].endsWith('npm-cli.js')) return { status: 0, stdout: '10.9.0\n' } as any
+      if (typeof args?.[0] === 'string' && args[0].endsWith('npx-cli.js')) return { status: 0, stdout: '10.9.0\n' } as any
+      // bare node/git bundled probes
+      if (typeof cmd === 'string' && cmd.endsWith('/node')) return { status: 0, stdout: 'v22.0.0\n' } as any
+      if (typeof cmd === 'string' && cmd.includes('git')) return { status: 0, stdout: 'git version 2.49.0\n' } as any
+      if (cmd === 'claude') return { status: 0, stdout: '1.0.0\n' } as any
+      if (cmd === 'codex') return { status: 0, stdout: '0.128.0\n' } as any
+      return { status: 0, stdout: '' } as any
+    })
+
+    const status = getSetupPrerequisitesStatus()
+    const npm = status.prerequisites.find((p) => p.key === 'npm')
+    const npx = status.prerequisites.find((p) => p.key === 'npx')
+    expect(npm?.bundled).toBe(true)
+    expect(npm?.executable).toBe(true)
+    expect(npm?.version).toBe('10.9.0')
+    expect(npm?.resolvedPath?.endsWith('npm-cli.js')).toBe(true)
+    expect(npx?.executable).toBe(true)
+    expect(npx?.resolvedPath?.endsWith('npx-cli.js')).toBe(true)
+  })
+
+  it('npm/npx are advisory (required:false) and never block when bundled core+openspec are present', () => {
+    Object.defineProperty(process, 'platform', { value: 'linux', configurable: true })
+    // Bundled core + bundled openspec → fully offline project-add (node cli.js /
+    // node openspec.js); npm/npx are never spawned, so a broken npm must not block.
+    const coreDir = path.join(tmpRoot, 'core')
+    fs.mkdirSync(path.join(coreDir, 'dist', 'installer'), { recursive: true })
+    fs.writeFileSync(path.join(coreDir, 'dist', 'installer', 'cli.js'), '// core')
+    const osDir = path.join(tmpRoot, 'openspec')
+    fs.mkdirSync(path.join(osDir, 'node_modules', '@fission-ai', 'openspec', 'bin'), { recursive: true })
+    fs.writeFileSync(path.join(osDir, 'node_modules', '@fission-ai', 'openspec', 'bin', 'openspec.js'), '// os')
+    process.env.SPECRAILS_BUNDLED_CORE_PATH = coreDir
+    process.env.SPECRAILS_BUNDLED_OPENSPEC_PATH = osDir
+    // Remove the bundled npm/npx shims so npm/npx fail to resolve entirely.
+    fs.rmSync(path.join(runtimesBase, 'node', 'bin', 'npm'), { force: true })
+    fs.rmSync(path.join(runtimesBase, 'node', 'bin', 'npx'), { force: true })
+    try {
+      mockSpawnSync.mockImplementation((cmd: any) => {
+        if (cmd === 'which' || cmd === 'where') return { status: 1 } as any
+        if (typeof cmd === 'string' && cmd.endsWith('/node')) return { status: 0, stdout: 'v22.0.0\n' } as any
+        if (typeof cmd === 'string' && cmd.includes('git')) return { status: 0, stdout: 'git version 2.49.0\n' } as any
+        return { status: 1, stdout: '', stderr: '' } as any
+      })
+      const status = getSetupPrerequisitesStatus()
+      const npm = status.prerequisites.find((p) => p.key === 'npm')
+      const npx = status.prerequisites.find((p) => p.key === 'npx')
+      expect(npm?.required).toBe(false)
+      expect(npx?.required).toBe(false)
+      expect(status.missingRequired.some((p) => p.key === 'npm' || p.key === 'npx')).toBe(false)
+      // node + git stay required.
+      expect(status.prerequisites.find((p) => p.key === 'node')?.required).toBe(true)
+      expect(status.prerequisites.find((p) => p.key === 'git')?.required).toBe(true)
+    } finally {
+      delete process.env.SPECRAILS_BUNDLED_CORE_PATH
+      delete process.env.SPECRAILS_BUNDLED_OPENSPEC_PATH
+    }
+  })
+
+  it('reports npm corrupted-bundle when the node-direct npm-cli.js probe fails', () => {
+    Object.defineProperty(process, 'platform', { value: 'linux', configurable: true })
+    addNpmCliJs()
+    mockSpawnSync.mockImplementation((cmd: any, args: any) => {
+      if (typeof args?.[0] === 'string' && args[0].endsWith('npm-cli.js')) return { status: 1, stdout: '', stderr: 'kaboom' } as any
+      if (typeof args?.[0] === 'string' && args[0].endsWith('npx-cli.js')) return { status: 0, stdout: '10.9.0\n' } as any
+      if (typeof cmd === 'string' && cmd.endsWith('/node')) return { status: 0, stdout: 'v22.0.0\n' } as any
+      if (typeof cmd === 'string' && cmd.includes('git')) return { status: 0, stdout: 'git version 2.49.0\n' } as any
+      if (cmd === 'claude') return { status: 0, stdout: '1.0.0\n' } as any
+      if (cmd === 'codex') return { status: 0, stdout: '0.128.0\n' } as any
+      return { status: 0, stdout: '' } as any
+    })
+
+    const status = getSetupPrerequisitesStatus()
+    const npm = status.prerequisites.find((p) => p.key === 'npm')
+    expect(npm?.executable).toBe(false)
+    expect(npm?.error).toBe('corrupted-bundle')
+    expect(npm?.resolvedPath?.endsWith('npm-cli.js')).toBe(true)
+    expect(npm?.executionError).toContain('kaboom')
+  })
 })
 
 describe('parseSemver', () => {

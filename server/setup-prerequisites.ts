@@ -5,6 +5,8 @@ import fs from 'fs'
 import path from 'path'
 import { listAdapters } from './providers'
 import { windowsSpawnEnv } from './util/win-spawn'
+import { getBundledCoreCli } from './bundled-core'
+import { getBundledOpenspecCli } from './bundled-openspec'
 
 const WHICH_CMD = process.platform === 'win32' ? 'where' : 'which'
 
@@ -97,6 +99,23 @@ interface VersionProbe {
   error?: string
 }
 
+/** Run `<bin> <args>` and interpret the result as a `--version` probe. */
+function runProbe(bin: string, args: string[]): VersionProbe {
+  const result = runVersionSpawn(bin, args)
+  if (result.error) {
+    const err = result.error as NodeJS.ErrnoException
+    return { executed: false, error: `${err.code ?? 'ERR'}: ${err.message}` }
+  }
+  if ((result.status ?? 1) !== 0) {
+    const stderr = `${result.stderr ?? ''}`.trim().slice(0, 400)
+    const signal = result.signal ? ` signal=${result.signal}` : ''
+    return { executed: false, error: `exit=${result.status ?? '?'}${signal}${stderr ? ` stderr=${stderr}` : ''}` }
+  }
+  const output = `${result.stdout ?? result.stderr ?? ''}`.trim()
+  const version = output.split(/\r?\n/)[0]?.trim() || undefined
+  return { executed: true, version }
+}
+
 function probeVersion(command: string, resolvedPath?: string): VersionProbe {
   // IMPORTANT: prefer the absolute path returned by `which`. When the server is
   // bundled with `pkg`, calling spawn with the bare command name `'node'` is
@@ -112,19 +131,7 @@ function probeVersion(command: string, resolvedPath?: string): VersionProbe {
   // cross-spawn with correct escaping. The env carries SystemRoot so cmd.exe can
   // start. This replaces the old `shell:true` path that made every bundled probe
   // fail with a bogus "corrupted-bundle" when the sidecar env lacked SystemRoot.
-  const result = runVersionSpawn(target, ['--version'])
-  if (result.error) {
-    const err = result.error as NodeJS.ErrnoException
-    return { executed: false, error: `${err.code ?? 'ERR'}: ${err.message}` }
-  }
-  if ((result.status ?? 1) !== 0) {
-    const stderr = `${result.stderr ?? ''}`.trim().slice(0, 400)
-    const signal = result.signal ? ` signal=${result.signal}` : ''
-    return { executed: false, error: `exit=${result.status ?? '?'}${signal}${stderr ? ` stderr=${stderr}` : ''}` }
-  }
-  const output = `${result.stdout ?? result.stderr ?? ''}`.trim()
-  const version = output.split(/\r?\n/)[0]?.trim() || undefined
-  return { executed: true, version }
+  return runProbe(target, ['--version'])
 }
 
 /** Extracts the first `major.minor.patch` triple from a version string.
@@ -197,6 +204,44 @@ function fileExists(p: string): boolean {
   }
 }
 
+/** The bundled REAL node executable inside the runtimes tree, or null. */
+function bundledNodeExe(runtimesBase: string): string | null {
+  return getBundledToolCandidates(runtimesBase, 'node').find(fileExists) ?? null
+}
+
+/**
+ * Absolute path to the bundled npm/npx CLI JS (`npm-cli.js` / `npx-cli.js`), or
+ * null. The npm package ships INSIDE the node distribution: at
+ * `node/node_modules/npm/bin/` on Windows and `node/lib/node_modules/npm/bin/`
+ * on POSIX. Both `npm` and `npx` are served by the npm package (npx-cli.js lives
+ * there too).
+ */
+function bundledNpmCliJs(runtimesBase: string, tool: 'npm' | 'npx'): string | null {
+  const file = tool === 'npx' ? 'npx-cli.js' : 'npm-cli.js'
+  const candidates =
+    process.platform === 'win32'
+      ? [path.join(runtimesBase, 'node', 'node_modules', 'npm', 'bin', file)]
+      : [path.join(runtimesBase, 'node', 'lib', 'node_modules', 'npm', 'bin', file)]
+  return candidates.find(fileExists) ?? null
+}
+
+/**
+ * Probe a bundled npm/npx by running the bundled node DIRECTLY against the npm
+ * package's CLI JS, instead of executing the `.cmd`/wrapper shim. The shims route
+ * through `cmd.exe` (Windows) / a wrapper script and proved fragile in the
+ * packaged app (a stripped sidecar env / cmd.exe quirks made `npm.cmd --version`
+ * fail with a bogus "corrupted-bundle" even though node.exe itself runs fine).
+ * Running `node npm-cli.js --version` is deterministic, shell-free and pkg-safe.
+ * Returns null when the bundled node or the CLI JS isn't present (caller falls
+ * back to probing the shim, then to the system tool).
+ */
+function probeBundledNpmLike(runtimesBase: string, tool: 'npm' | 'npx'): { probe: VersionProbe; resolvedPath: string } | null {
+  const nodeExe = bundledNodeExe(runtimesBase)
+  const cliJs = bundledNpmCliJs(runtimesBase, tool)
+  if (!nodeExe || !cliJs) return null
+  return { probe: runProbe(nodeExe, [cliJs, '--version']), resolvedPath: cliJs }
+}
+
 export interface PrerequisiteOptions {
   /** Optional: include `uv` (used by plugins like Serena). When false the
    *  setup wizard's `missingRequired` is not affected by uv's absence. */
@@ -230,6 +275,14 @@ function computeSetupPrerequisitesStatus(options: PrerequisiteOptions = {}): Set
   const isDesktop = process.env.SPECRAILS_IS_DESKTOP === '1'
   const runtimesBase = process.env.SPECRAILS_BUNDLED_RUNTIMES_PATH ?? ''
 
+  // When the app ships a bundled core AND bundled openspec, project-add is fully
+  // OFFLINE: it runs `node cli.js` / `node openspec.js` directly and NEVER spawns
+  // npm or npx. So npm/npx are advisory (not required) in that mode — a broken or
+  // unprobeable npm/npx must NOT dead-end Add Project for tools the install flow
+  // never invokes. Outside the bundled-offline path (dev / no bundle) npx IS used
+  // (npx specrails-core), so npm/npx stay required there.
+  const bundledOfflineSetup = isDesktop && getBundledCoreCli() !== null && getBundledOpenspecCli() !== null
+
   const platform: Platform = process.platform === 'darwin'
     ? 'darwin'
     : process.platform === 'win32'
@@ -254,7 +307,7 @@ function computeSetupPrerequisitesStatus(options: PrerequisiteOptions = {}): Set
       kind: 'tool',
       label: 'npm',
       command: 'npm',
-      required: true,
+      required: !bundledOfflineSetup,
       minVersion: MIN_VERSIONS.npm,
       installUrl: 'https://nodejs.org/en/download',
       installHint: 'npm ships with Node.js LTS.',
@@ -264,7 +317,7 @@ function computeSetupPrerequisitesStatus(options: PrerequisiteOptions = {}): Set
       kind: 'tool',
       label: 'npx',
       command: 'npx',
-      required: true,
+      required: !bundledOfflineSetup,
       installUrl: 'https://nodejs.org/en/download',
       installHint: 'npx ships with npm and is required to run specrails-core.',
     },
@@ -321,17 +374,30 @@ function computeSetupPrerequisitesStatus(options: PrerequisiteOptions = {}): Set
     // Desktop mode: probe bundled absolute paths for node/npm/npx/git.
     // Provider CLIs (claude, codex) are always probed via system PATH regardless of mode.
     if (isDesktop && definition.kind === 'tool' && isBundledTool(definition.key)) {
-      const candidates = getBundledToolCandidates(runtimesBase, definition.key as BundledToolKey)
-      const bundledPath = candidates.find(fileExists)
-      // Only treat as bundled when the binary FILE actually exists. A missing
-      // file means this build never shipped runtimes for this platform/arch
-      // (e.g. a runtimes-less Windows ARM64 build, or a partial CI extraction)
+      const tool = definition.key as BundledToolKey
+      // npm/npx: probe by running the bundled node DIRECTLY against the npm
+      // package's CLI JS — robust where the `.cmd`/wrapper shim proved fragile in
+      // the packaged app (cmd.exe / stripped-env quirks made `npm.cmd --version`
+      // fail with a bogus "corrupted-bundle" even though node.exe runs fine).
+      let effective: { probe: VersionProbe; resolvedPath: string } | null =
+        tool === 'npm' || tool === 'npx' ? probeBundledNpmLike(runtimesBase, tool) : null
+
+      // Otherwise (node/git, or npm/npx whose CLI JS wasn't found) probe the
+      // bundled binary/shim directly. Only treat as bundled when the FILE exists;
+      // a missing file means this build shipped no runtimes for this platform/arch
       // — fall through to the system probe so a system-installed tool still
-      // satisfies the requirement, instead of dead-ending Add Project with a
-      // futile "reinstall the app" message. 'corrupted-bundle' is reserved for
-      // the case where the file EXISTS but fails its --version probe.
-      if (bundledPath) {
-        const probe = probeVersion(definition.key, bundledPath)
+      // satisfies the requirement instead of dead-ending Add Project with a futile
+      // "reinstall the app". 'corrupted-bundle' is reserved for file-EXISTS-but-
+      // fails-its-probe.
+      if (!effective) {
+        const bundledPath = getBundledToolCandidates(runtimesBase, tool).find(fileExists)
+        if (bundledPath) {
+          effective = { probe: probeVersion(tool, bundledPath), resolvedPath: bundledPath }
+        }
+      }
+
+      if (effective) {
+        const { probe, resolvedPath } = effective
         if (!probe.executed) {
           return {
             ...definition,
@@ -339,7 +405,7 @@ function computeSetupPrerequisitesStatus(options: PrerequisiteOptions = {}): Set
             executable: false,
             bundled: true as const,
             error: 'corrupted-bundle' as const,
-            resolvedPath: bundledPath,
+            resolvedPath,
             executionError: probe.error,
             meetsMinimum: false,
             installHint: 'Bundle corrupted — reinstall the Specrails app.',
@@ -351,12 +417,12 @@ function computeSetupPrerequisitesStatus(options: PrerequisiteOptions = {}): Set
           executable: true,
           bundled: true as const,
           version: probe.version,
-          resolvedPath: bundledPath,
+          resolvedPath,
           meetsMinimum: meetsMinimumVersion(probe.version, definition.minVersion),
           installHint: '',
         }
       }
-      // bundledPath not found → fall through to the system probe below.
+      // No bundled binary/CLI found → fall through to the system probe below.
     }
 
     // Non-desktop (or provider CLI in any mode, or desktop with bundle absent): system probe.
