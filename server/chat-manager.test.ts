@@ -1177,6 +1177,86 @@ describe('ChatManager', () => {
       await sendPromise
     })
 
+    // ─── Explore scoped-context delivery per provider (systemPromptArg) ───────
+    const SPECRAILS_SCOPE = { specrails: true, openspec: false, full: false, mcp: false, contractRefine: false, userMcp: false }
+    const PREPEND_MARKER = 'Project context selected in Add Spec'
+
+    function seedTetrisTickets(): void {
+      const fsMod = require('fs') as typeof import('fs')
+      const pathMod = require('path') as typeof import('path')
+      fsMod.mkdirSync(pathMod.join(projectPath, '.specrails'), { recursive: true })
+      fsMod.writeFileSync(
+        pathMod.join(projectPath, '.specrails', 'local-tickets.json'),
+        JSON.stringify({ tickets: [{ id: 1, title: 'Tetris MVP in React', status: 'todo', priority: 'high', description: 'Build the falling-tetromino game loop' }] }),
+      )
+    }
+
+    it('gemini explore turn PREPENDS the project tickets into the user prompt (systemPromptArg=false)', async () => {
+      // Regression: gemini dropped opts.systemPrompt and got no scoped context,
+      // so it ignored the project (Tetris) and wandered the .gemini tooling dir.
+      seedTetrisTickets()
+      const cmG = new ChatManager(broadcast, db, projectPath, 'P', 'gemini', 'proj-g', 'slug-g')
+      const convId = 'conv-gemini-ctx'
+      createConversation(db, { id: convId, model: 'gemini-2.5-pro', kind: 'explore', provider: 'gemini', contextScope: SPECRAILS_SCOPE })
+      const child = createMockChildProcess()
+      vi.mocked(mockSpawn).mockReturnValue(child as any)
+      const sendPromise = cmG.sendMessage(convId, 'dame la siguiente mejor spec', { lightweight: true })
+      await Promise.resolve(); await Promise.resolve()
+
+      const args = vi.mocked(mockSpawn).mock.calls[0][1] as string[]
+      const prompt = args.find((a) => a.includes(PREPEND_MARKER))
+      expect(prompt).toBeDefined()
+      expect(prompt).toContain('## Specrails Tickets')
+      expect(prompt).toContain('Tetris MVP in React')
+      expect(prompt).toContain('## User turn')
+      expect(prompt).toContain('dame la siguiente mejor spec')
+
+      pushLine(child, JSON.stringify({ type: 'message', role: 'assistant', content: 'ok' }))
+      await finishProcess(child, 0)
+      await sendPromise
+    })
+
+    it('codex explore turn keeps the prepend (parity, systemPromptArg=false)', async () => {
+      seedTetrisTickets()
+      const cmC = new ChatManager(broadcast, db, projectPath, 'P', 'codex', 'proj-c', 'slug-c')
+      const convId = 'conv-codex-ctx'
+      createConversation(db, { id: convId, model: 'gpt-5.5', kind: 'explore', provider: 'codex', contextScope: SPECRAILS_SCOPE })
+      const child = createMockChildProcess()
+      vi.mocked(mockSpawn).mockReturnValue(child as any)
+      const sendPromise = cmC.sendMessage(convId, 'next spec', { lightweight: true })
+      await Promise.resolve(); await Promise.resolve()
+
+      const args = vi.mocked(mockSpawn).mock.calls[0][1] as string[]
+      expect(args.some((a) => a.includes(PREPEND_MARKER) && a.includes('Tetris MVP in React'))).toBe(true)
+
+      pushLine(child, JSON.stringify({ type: 'item.completed', item: { type: 'agent_message', text: 'ok' } }))
+      await finishProcess(child, 0)
+      await sendPromise
+    })
+
+    it('claude explore turn does NOT prepend (carries scope via --system-prompt, systemPromptArg=true)', async () => {
+      seedTetrisTickets()
+      const cmCl = new ChatManager(broadcast, db, projectPath, 'P', 'claude', 'proj-cl', 'slug-cl')
+      const convId = 'conv-claude-ctx'
+      createConversation(db, { id: convId, model: 'sonnet', kind: 'explore', provider: 'claude', contextScope: SPECRAILS_SCOPE })
+      const child = createMockChildProcess()
+      vi.mocked(mockSpawn).mockReturnValue(child as any)
+      const sendPromise = cmCl.sendMessage(convId, 'next spec', { lightweight: true })
+      await Promise.resolve(); await Promise.resolve()
+
+      const args = vi.mocked(mockSpawn).mock.calls[0][1] as string[]
+      // No user-prompt prepend marker — the scope rides on --system-prompt.
+      expect(args.some((a) => a.includes(PREPEND_MARKER))).toBe(false)
+      const sysIdx = args.indexOf('--system-prompt')
+      expect(sysIdx).toBeGreaterThanOrEqual(0)
+      expect(args[sysIdx + 1]).toContain('## Specrails Tickets')
+
+      pushLine(child, assistantEvent('ok'))
+      pushLine(child, resultEvent('sess'))
+      await finishProcess(child, 0)
+      await sendPromise
+    })
+
     it('injects --mcp-config when scope.userMcp=true (claude)', async () => {
       vi.mocked(mockBuildUserMcpArgs).mockReturnValue(['--mcp-config', '/fake/user-mcp.json'])
       const cmExplore = new ChatManager(

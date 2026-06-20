@@ -179,6 +179,9 @@ export interface ChatConversationSummary {
   id: string
   title: string | null
   model: string
+  /** AI provider for this conversation. NULL on single-provider projects
+   *  (legacy = claude); set to the selected engine on multi-provider projects. */
+  provider?: string | null
   created_at: string
   updated_at: string
 }
