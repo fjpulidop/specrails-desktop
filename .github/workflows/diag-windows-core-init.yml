@@ -1,0 +1,82 @@
+# TEMPORARY diagnostic workflow — reproduce the Windows `EISDIR lstat 'C:'`
+# bundled-core init failure on a real windows-latest runner and dump the FULL
+# stack. Delete after the root cause is pinned.
+name: diag-windows-core-init
+
+on:
+  workflow_dispatch:
+    inputs:
+      core_version:
+        description: specrails-core version to test
+        default: "4.10.0"
+      relocate:
+        description: SPECRAILS_RELOCATE (1 = desktop path)
+        default: "1"
+
+jobs:
+  repro:
+    runs-on: windows-latest
+    steps:
+      - name: Set up Node 22.22.3 (match the bundled runtime)
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: 22.22.3
+
+      - name: Stage bundled core (npm install into a temp prefix, like assemble-bundled-core)
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = "Stop"
+          $stage = Join-Path $env:RUNNER_TEMP "core-stage"
+          New-Item -ItemType Directory -Force -Path $stage | Out-Null
+          Set-Location $stage
+          '{ "name": "core-stage", "private": true, "version": "0.0.0" }' | Out-File -Encoding ascii package.json
+          npm install "specrails-core@${{ github.event.inputs.core_version }}" --no-audit --no-fund --no-save --ignore-scripts --silent
+          "CORE_ROOT=$stage\node_modules\specrails-core" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding ascii
+
+      - name: Run `node cli.js init` exactly as specrails-desktop does, capture full stack
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = "Continue"
+          # Mirror desktop: a repo dir (cwd), a $HOME registry, relocate, a valid
+          # install-config.yaml, skip openspec (we only want the core init path).
+          $repo = Join-Path $env:RUNNER_TEMP "repro-repo"
+          $home2 = Join-Path $env:RUNNER_TEMP "repro-home"
+          New-Item -ItemType Directory -Force -Path $repo, $home2 | Out-Null
+          Set-Location $repo
+          git init -q
+          git config user.email ci@specrails.dev
+          git config user.name ci
+          $cfg = Join-Path $env:RUNNER_TEMP "install-config.yaml"
+          @"
+          version: 1
+          provider: claude
+          tier: quick
+          agents:
+            selected: []
+          "@ | Out-File -Encoding ascii $cfg
+
+          $node = (Get-Command node).Source
+          $cli  = "$env:CORE_ROOT\dist\installer\cli.js"
+          Write-Host "node=$node"
+          Write-Host "cli=$cli"
+          Write-Host "cwd=$repo"
+          Write-Host "exists(cli)=$(Test-Path $cli)"
+
+          $env:SPECRAILS_REGISTRY_HOME = $home2
+          $env:SPECRAILS_CORE_SCRIPT_DIR = $env:CORE_ROOT
+          $env:SPECRAILS_RELOCATE = "${{ github.event.inputs.relocate }}"
+          $env:SPECRAILS_SKIP_OPENSPEC_INIT = "1"
+
+          Write-Host "=== running core init ==="
+          & $node $cli init --yes --from-config $cfg 2>&1 | Tee-Object -FilePath "$env:RUNNER_TEMP\core-init.log"
+          $code = $LASTEXITCODE
+          Write-Host "=== EXIT=$code ==="
+
+          Write-Host "=== artifacts under home ==="
+          if (Test-Path "$home2\.specrails") { Get-ChildItem -Recurse -Depth 3 "$home2\.specrails" | Select-Object FullName | Format-Table -AutoSize }
+
+          # Re-run under --stack-trace-limit=100 so any truncated frames are shown.
+          Write-Host "=== re-run with full stack trace ==="
+          & $node --stack-trace-limit=100 $cli init --yes --from-config $cfg 2>&1 | Tee-Object -FilePath "$env:RUNNER_TEMP\core-init-full.log"
+
+          if ($code -ne 0) { exit 1 }
