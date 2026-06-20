@@ -1,6 +1,8 @@
 import fs from 'fs'
 import path from 'path'
 
+import { stripWindowsVerbatimPrefix } from './util/win-spawn'
+
 /**
  * Bundled `@fission-ai/openspec` resolution.
  *
@@ -31,7 +33,9 @@ const OPENSPEC_CLI_REL = path.join(
 
 /** The bundled openspec root (`<resource_dir>/openspec`) or null when absent. */
 function getBundledOpenspecRoot(): string | null {
-  const p = process.env.SPECRAILS_BUNDLED_OPENSPEC_PATH
+  // Strip any `\\?\` verbatim prefix (Tauri resource_dir) so `node openspec.js`
+  // resolves its entry without the realpathSync EISDIR-on-'C:' crash.
+  const p = stripWindowsVerbatimPrefix(process.env.SPECRAILS_BUNDLED_OPENSPEC_PATH ?? '')
   if (!p || p.length === 0) return null
   // Existence-gate (defence-in-depth — lib.rs already gates, but a stale env
   // from a partial uninstall must never make us point at a missing file).

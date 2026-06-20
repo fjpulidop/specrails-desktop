@@ -3,7 +3,14 @@ import fs from 'fs'
 import os from 'os'
 import path from 'path'
 import type { ChildProcess } from 'child_process'
-import { windowsSpawnEnv } from './util/win-spawn'
+import { windowsSpawnEnv, stripWindowsVerbatimPrefix } from './util/win-spawn'
+
+/** Bundled-path env vars set by the Tauri host — normalized at startup. */
+const BUNDLED_PATH_ENV_VARS = [
+  'SPECRAILS_BUNDLED_RUNTIMES_PATH',
+  'SPECRAILS_BUNDLED_CORE_PATH',
+  'SPECRAILS_BUNDLED_OPENSPEC_PATH',
+] as const
 
 /**
  * Backfill the Windows shell-critical environment into `process.env` ONCE at
@@ -14,11 +21,23 @@ import { windowsSpawnEnv } from './util/win-spawn'
  * Doing this on `process.env` directly means EVERY downstream consumer that
  * copies `process.env` (terminal-manager, binary-probe, plugin spawns, …) is
  * protected at the source, in addition to the per-callsite `windowsSpawnEnv()`.
- * No-op on POSIX and for any var already present (the common case). Idempotent.
+ *
+ * ALSO strips the Windows verbatim prefix (`\\?\`) from the bundled-path env
+ * vars. Tauri's `resource_dir()` returns `\\?\C:\…` paths; Node's module loader
+ * `realpathSync` mishandles that prefix when resolving the main entry script,
+ * crashing the bundled-core child with `EISDIR: lstat 'C:'`. Normalizing here
+ * (before resolveStartupPath + before any spawn) means every reader
+ * (getBundledCoreCli, resolveBundledNodeExe, chromium/docs/setup-prerequisites,
+ * the PATH prepend) gets a plain `C:\…` path. No-op on POSIX / already-present /
+ * unprefixed. Idempotent.
  */
 export function ensureWindowsBaseEnv(): void {
   if (process.platform !== 'win32') return
   Object.assign(process.env, windowsSpawnEnv(process.env))
+  for (const key of BUNDLED_PATH_ENV_VARS) {
+    const v = process.env[key]
+    if (v) process.env[key] = stripWindowsVerbatimPrefix(v)
+  }
 }
 
 export type PathSource = 'inherited' | 'fast-path' | 'login-shell' | 'bundled'
@@ -110,13 +129,14 @@ function fastPathDirectories(): string[] {
  * Throws if the env var is missing.
  */
 export function resolveBundledRuntimePath(): string {
-  const p = process.env.SPECRAILS_BUNDLED_RUNTIMES_PATH
-  if (!p) {
+  const raw = process.env.SPECRAILS_BUNDLED_RUNTIMES_PATH
+  if (!raw) {
     throw new Error(
       '[path-resolver] resolveBundledRuntimePath() called but SPECRAILS_BUNDLED_RUNTIMES_PATH is not set'
     )
   }
-  return p
+  // Strip the `\\?\` verbatim prefix (Tauri resource_dir) — see ensureWindowsBaseEnv.
+  return stripWindowsVerbatimPrefix(raw)
 }
 
 /**
@@ -131,7 +151,9 @@ export function resolveBundledRuntimePath(): string {
  * Existence-gated so a stale/partial bundle degrades to the PATH `node` instead.
  */
 export function resolveBundledNodeExe(): string | null {
-  const runtimesPath = process.env.SPECRAILS_BUNDLED_RUNTIMES_PATH
+  // Strip the `\\?\` verbatim prefix so the resulting node.exe path doesn't
+  // crash Node's module loader when it runs cli.js (EISDIR lstat 'C:').
+  const runtimesPath = stripWindowsVerbatimPrefix(process.env.SPECRAILS_BUNDLED_RUNTIMES_PATH ?? '')
   if (!runtimesPath || runtimesPath.length === 0) return null
   const exe = process.platform === 'win32'
     ? path.join(runtimesPath, 'node', 'node.exe')

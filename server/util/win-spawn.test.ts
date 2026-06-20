@@ -1,5 +1,22 @@
 import { describe, it, expect, beforeEach, afterEach } from 'vitest'
-import { spawnCli, resolveWindowsBinary, windowsSpawnEnv } from './win-spawn'
+import { spawnCli, resolveWindowsBinary, windowsSpawnEnv, stripWindowsVerbatimPrefix } from './win-spawn'
+
+describe('stripWindowsVerbatimPrefix', () => {
+  it('strips the \\\\?\\ drive-letter prefix', () => {
+    expect(stripWindowsVerbatimPrefix('\\\\?\\C:\\Users\\javi\\core\\cli.js')).toBe('C:\\Users\\javi\\core\\cli.js')
+  })
+  it('rewrites \\\\?\\UNC\\server\\share to \\\\server\\share', () => {
+    expect(stripWindowsVerbatimPrefix('\\\\?\\UNC\\server\\share\\x')).toBe('\\\\server\\share\\x')
+  })
+  it('leaves an unprefixed path unchanged', () => {
+    expect(stripWindowsVerbatimPrefix('C:\\Users\\javi')).toBe('C:\\Users\\javi')
+    expect(stripWindowsVerbatimPrefix('/usr/local/bin/node')).toBe('/usr/local/bin/node')
+  })
+  it('tolerates empty/non-string', () => {
+    expect(stripWindowsVerbatimPrefix('')).toBe('')
+    expect(stripWindowsVerbatimPrefix(undefined as unknown as string)).toBe(undefined)
+  })
+})
 
 describe('windowsSpawnEnv', () => {
   const ORIGINAL = process.platform

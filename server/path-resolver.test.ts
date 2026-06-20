@@ -483,8 +483,18 @@ describe('resolveBundledNodeExe', () => {
 })
 
 describe('ensureWindowsBaseEnv', () => {
+  // ensureWindowsBaseEnv() mutates process.env in-place (SystemRoot/TEMP/APPDATA
+  // …); snapshot + fully restore so Windows-y values never leak to other tests
+  // in the same worker (a TEMP pointing at a non-existent Windows dir broke the
+  // browser-session test).
+  let envSnapshot: NodeJS.ProcessEnv
+  beforeEach(() => {
+    envSnapshot = { ...process.env }
+  })
   afterEach(() => {
     setPlatform(ORIGINAL_PLATFORM)
+    for (const k of Object.keys(process.env)) if (!(k in envSnapshot)) delete process.env[k]
+    Object.assign(process.env, envSnapshot)
   })
 
   it('is a no-op on POSIX', () => {
@@ -510,6 +520,25 @@ describe('ensureWindowsBaseEnv', () => {
       else process.env.SystemRoot = prevSR
       if (prevCS === undefined) delete process.env.ComSpec
       else process.env.ComSpec = prevCS
+    }
+  })
+
+  it('strips the \\\\?\\ verbatim prefix from bundled-path env vars on win32', () => {
+    setPlatform('win32')
+    const keys = ['SPECRAILS_BUNDLED_RUNTIMES_PATH', 'SPECRAILS_BUNDLED_CORE_PATH', 'SPECRAILS_BUNDLED_OPENSPEC_PATH'] as const
+    const prev = keys.map((k) => process.env[k])
+    process.env.SPECRAILS_BUNDLED_RUNTIMES_PATH = '\\\\?\\C:\\Users\\javi\\AppData\\Local\\Specrails\\runtimes'
+    process.env.SPECRAILS_BUNDLED_CORE_PATH = '\\\\?\\C:\\Users\\javi\\AppData\\Local\\Specrails\\core'
+    delete process.env.SPECRAILS_BUNDLED_OPENSPEC_PATH
+    try {
+      ensureWindowsBaseEnv()
+      expect(process.env.SPECRAILS_BUNDLED_RUNTIMES_PATH).toBe('C:\\Users\\javi\\AppData\\Local\\Specrails\\runtimes')
+      expect(process.env.SPECRAILS_BUNDLED_CORE_PATH).toBe('C:\\Users\\javi\\AppData\\Local\\Specrails\\core')
+    } finally {
+      keys.forEach((k, i) => {
+        if (prev[i] === undefined) delete process.env[k]
+        else process.env[k] = prev[i] as string
+      })
     }
   })
 })

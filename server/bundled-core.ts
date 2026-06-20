@@ -1,6 +1,8 @@
 import fs from 'fs'
 import path from 'path'
 
+import { stripWindowsVerbatimPrefix } from './util/win-spawn'
+
 /**
  * Bundled specrails-core resolution.
  *
@@ -17,7 +19,9 @@ import path from 'path'
 
 /** The bundled core package root (`<resource_dir>/core`) or null when absent. */
 export function getBundledCoreRoot(): string | null {
-  const p = process.env.SPECRAILS_BUNDLED_CORE_PATH
+  // Strip any `\\?\` verbatim prefix (Tauri resource_dir) — Node's module loader
+  // realpathSync chokes on it when running cli.js (EISDIR lstat 'C:').
+  const p = stripWindowsVerbatimPrefix(process.env.SPECRAILS_BUNDLED_CORE_PATH ?? '')
   if (!p || p.length === 0) return null
   // Existence-gate (defence-in-depth — lib.rs already gates, but a stale env
   // from a partial uninstall must never make us shell out to a missing file).

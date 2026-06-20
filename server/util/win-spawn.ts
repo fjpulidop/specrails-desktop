@@ -82,6 +82,23 @@ export function windowsSpawnEnv(base: NodeJS.ProcessEnv = process.env): NodeJS.P
   return env
 }
 
+/**
+ * Strip the Windows extended-length / "verbatim" path prefix (`\\?\`) from a
+ * path. Tauri's `resource_dir()` returns canonicalized paths like
+ * `\\?\C:\Users\…\core`, and Node's MODULE LOADER `realpathSync` (used to
+ * resolve the main entry script) does NOT handle the `\\?\` prefix — it parses
+ * the root as a bare `C:` and throws `EISDIR: lstat 'C:'`. So a bundled `node`
+ * interpreter or `cli.js` entry carrying this prefix crashes the child at
+ * startup. Normalizing the bundled path env vars to plain `C:\…` form fixes it.
+ * `\\?\UNC\server\share` → `\\server\share`. No-op on POSIX / unprefixed paths.
+ */
+export function stripWindowsVerbatimPrefix(p: string): string {
+  if (typeof p !== 'string' || p.length === 0) return p
+  if (p.startsWith('\\\\?\\UNC\\')) return '\\\\' + p.slice(8)
+  if (p.startsWith('\\\\?\\')) return p.slice(4)
+  return p
+}
+
 // Back-compat for callsites that only need the resolved binary
 // (e.g. logging). Kept as a no-op identity on POSIX; on Windows
 // `where`-based resolution lives inside cross-spawn now.
