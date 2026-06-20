@@ -26,6 +26,16 @@ export function useCompareUrlSync() {
   useEffect(() => {
     if (didRestoreRef.current) return
     if (tickets.length === 0) return // wait for tickets to load
+
+    // Viewport too narrow → keep the params for a later (wide) restore and do
+    // NOT mark restored: marking it would let the write-effect below run, see
+    // inSplit=false + hadCompare=true, and permanently STRIP the params (so a
+    // rotate-back-to-wide could never restore the comparison).
+    const compareRawEarly = new URLSearchParams(location.search).get('compare')
+    if (compareRawEarly && typeof window !== 'undefined' && window.innerWidth < 900) {
+      return
+    }
+
     didRestoreRef.current = true
 
     const params = new URLSearchParams(location.search)
@@ -35,11 +45,6 @@ export function useCompareUrlSync() {
 
     const compareId = Number.parseInt(compareRaw, 10)
     const originSide = sideRaw === 'right' ? 'right' : 'left'
-
-    if (typeof window !== 'undefined' && window.innerWidth < 900) {
-      // Viewport too narrow → ignore; keep param for later
-      return
-    }
 
     const exists = tickets.some((t) => t.id === compareId)
     if (!exists) {

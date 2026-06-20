@@ -226,8 +226,14 @@ export function SpecGenTrackerProvider({ children }: { children: ReactNode }) {
     if (msg.type !== 'ticket_created' && msg.type !== 'ticket_updated') return
     const ticket = msg.ticket as LocalTicket | undefined
     if (!ticket) return
+    const eventProjectId = msg.projectId as string | undefined
 
     for (const [convId, spec] of exploreRef.current.entries()) {
+      // Only consider specs belonging to the project that emitted the ticket
+      // event — a ticket in project B almost never matches A's knownTicketIds,
+      // which previously triggered spurious cross-project polls (and a premature
+      // "couldn't find" drop of A's still-pending spec).
+      if (eventProjectId && spec.projectId !== eventProjectId) continue
       if (!spec.knownTicketIds.has(ticket.id)) {
         pollForNewTicket(spec, convId)
       }

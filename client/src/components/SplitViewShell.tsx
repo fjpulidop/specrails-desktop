@@ -91,6 +91,23 @@ export function SplitViewShell({
     [handleDividerMove, handleDividerUp],
   )
 
+  // Unmount safety net: if the shell unmounts MID-DRAG (project switch dispatches
+  // closeAll, sub-900px resize dispatches exitSplit — neither fires pointerup),
+  // the window listeners added on pointerdown would leak and keep dispatching
+  // onSetRatio. Remove them unconditionally on unmount.
+  useEffect(() => {
+    return () => {
+      window.removeEventListener('pointermove', handleDividerMove)
+      window.removeEventListener('pointerup', handleDividerUp)
+      window.removeEventListener('pointercancel', handleDividerUp)
+      const drag = dragRef.current
+      if (drag) {
+        try { drag.element.releasePointerCapture(drag.pointerId) } catch { /* already released */ }
+        dragRef.current = null
+      }
+    }
+  }, [handleDividerMove, handleDividerUp])
+
   const handleDividerKey = useCallback(
     (e: React.KeyboardEvent<HTMLDivElement>) => {
       const step = 0.04
