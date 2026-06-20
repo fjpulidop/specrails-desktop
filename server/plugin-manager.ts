@@ -322,6 +322,7 @@ export class PluginManager {
     name: string,
     broadcast: PluginBroadcast,
     providerId?: string,
+    slug?: string,
   ): Promise<void> {
     const plugin = this.registry.byName.get(name)
     if (!plugin) throw new PluginNotFoundError(name)
@@ -406,6 +407,7 @@ export class PluginManager {
     const ctx = {
       projectPath,
       projectId,
+      slug,
       providerId,
       recordInstalledFile: (rel: string) => { installedFiles.push(rel) },
       log: onLog,
@@ -462,6 +464,18 @@ export class PluginManager {
           // the next install attempt.
         }
       }
+      // For cli-add providers (codex), a successful `codex mcp add` lives in
+      // CODEX_HOME, NOT the snapshotted filesystem — the file rollback above
+      // can't undo it. Run the plugin's uninstall so a verify-failed codex
+      // install leaves no orphaned MCP registration (best-effort).
+      if (providerId && hasAdapter(providerId) && getAdapter(providerId).mcpRegistration === 'cli-add') {
+        try {
+          await plugin.uninstall({
+            projectPath, projectId, slug, providerId,
+            recordInstalledFile: () => {}, log: onLog,
+          })
+        } catch { /* best-effort rollback of the codex registration */ }
+      }
       throw err instanceof PluginInstallError ? err : new PluginInstallError(
         `install of '${name}' failed: ${(err as Error)?.message ?? String(err)}`,
         err,
@@ -486,6 +500,7 @@ export class PluginManager {
     name: string,
     broadcast: PluginBroadcast,
     providerId?: string,
+    slug?: string,
   ): Promise<void> {
     const state = this.getProjectState(projectPath)
     const entry = state.plugins[name]
@@ -509,6 +524,7 @@ export class PluginManager {
       await plugin.uninstall({
         projectPath,
         projectId,
+        slug,
         providerId,
         recordInstalledFile: () => {},
         log: onLog,

@@ -79,8 +79,8 @@ export function resolveShellFor(
   // Honor $SHELL only on POSIX. On Windows $SHELL is not native but is commonly
   // exported by Git Bash/MSYS2 as a Unix path (e.g. /usr/bin/bash) that ConPTY
   // cannot spawn — so on win32 ignore it and fall through to pwsh→powershell→cmd.
-  const envShell = env.SHELL
-  if (platform !== 'win32' && envShell && envShell.trim().length > 0) return envShell.trim()
+  const envShell = env.SHELL?.trim()
+  if (platform !== 'win32' && envShell && exists(envShell)) return envShell
   if (platform === 'win32') {
     for (const dir of (env.PATH ?? '').split(';')) {
       if (!dir) continue
@@ -92,7 +92,12 @@ export function resolveShellFor(
     if (exists(winPosh)) return winPosh
     return env.COMSPEC || 'cmd.exe'
   }
-  return '/bin/zsh'
+  // POSIX: existence-gate the fallback chain. A host without /bin/zsh (most
+  // Linux) would otherwise get an unspawnable shell. /bin/sh is POSIX-mandated.
+  for (const candidate of ['/bin/zsh', '/bin/bash', '/usr/bin/bash', '/bin/sh']) {
+    if (exists(candidate)) return candidate
+  }
+  return '/bin/sh'
 }
 
 export function shellArgs(shell: string): string[] {

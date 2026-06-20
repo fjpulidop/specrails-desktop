@@ -249,6 +249,34 @@ export function getProfile(projectPath: string, name: string, expectedProvider: 
   return validateProfile(raw, expectedProvider)
 }
 
+/**
+ * Non-validating read for the editor: returns the parsed profile body plus any
+ * schema/structural validation errors (instead of throwing). A profile that
+ * became invalid against the current agent catalog must still be openable so the
+ * user can repair it — `getProfile` would throw and lock it out. JSON-parse
+ * errors still throw (unrepairable in the editor). `validateProfile` remains the
+ * gate on create/update/launch.
+ */
+export function getProfileRaw(
+  projectPath: string,
+  name: string,
+  expectedProvider: string = 'claude',
+): { profile: unknown; valid: boolean; errors: string[] } {
+  assertValidName(name)
+  const full = profilePath(projectPath, name)
+  if (!fs.existsSync(full)) {
+    throw new ProfileNotFoundError(name)
+  }
+  const raw = JSON.parse(fs.readFileSync(full, 'utf8'))
+  try {
+    validateProfile(raw, expectedProvider)
+    return { profile: raw, valid: true, errors: [] }
+  } catch (err) {
+    const errors = err instanceof ProfileValidationError ? err.errors : [(err as Error).message]
+    return { profile: raw, valid: false, errors }
+  }
+}
+
 export function createProfile(projectPath: string, profile: Profile, expectedProvider: string = 'claude'): void {
   assertValidName(profile.name)
   validateProfile(profile, expectedProvider)
@@ -300,6 +328,11 @@ export function renameProfile(
   toName: string,
   expectedProvider: string = 'claude',
 ): Profile {
+  // Renaming the default away would leave no default → resolveProfile returns
+  // null and rails silently drop to legacy/no-profile mode. Mirror deleteProfile.
+  if (fromName === 'default' || fromName === 'project-default') {
+    throw new ProfileValidationError(['cannot rename the default profile'])
+  }
   const source = getProfile(projectPath, fromName, expectedProvider)
   assertValidName(toName)
   if (fs.existsSync(profilePath(projectPath, toName))) {
