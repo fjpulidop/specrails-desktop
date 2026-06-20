@@ -62,6 +62,7 @@ import {
 import { generateAutoTitle } from './explore-draft-title'
 import type { TicketCreatedMessage, TicketUpdatedMessage, TicketDeletedMessage, TicketAiEditStreamMessage, TicketAiEditDoneMessage, TicketAiEditErrorMessage, SpecGenStreamMessage, SpecGenDoneMessage, SpecGenErrorMessage, LocalTicket } from './types'
 import { spawnAiCli } from './util/cli-prompt'
+import { trackTransientChild } from './transient-children'
 import { createInterface } from 'readline'
 import treeKill from 'tree-kill'
 import { resolveProjectExecution } from './workspace-resolution'
@@ -362,6 +363,9 @@ export function registerTicketsRoutes(deps: ProjectRoutesDeps): void {
       stdio: ['ignore', 'pipe', 'pipe'],
       cwd: specGenExec.cwd,
     })
+    // Register so removeProject()/shutdown() can tree-kill this otherwise-untracked
+    // fire-and-forget child (auto-unregisters on close/error).
+    trackTransientChild(projectId, child)
 
     // Watchdog: unlike ai-edit, generate-spec keeps no cancellable handle, so a
     // hung CLI (network stall, model never emitting a terminating event) would

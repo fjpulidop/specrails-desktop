@@ -36,8 +36,16 @@ export function getOrCreateKey(keyfilePath: string = defaultKeyfilePath()): Buff
     const raw = fs.readFileSync(keyfilePath, 'utf-8').trim()
     const key = Buffer.from(raw, 'base64')
     if (key.length === 32) return key
-  } catch {
-    // Missing or corrupt — (re)create below.
+    // File exists but the decoded key is the wrong length (truncated/corrupt) —
+    // fall through to regenerate. A WRONG-LENGTH existing key is unrecoverable
+    // anyway, so rotating is the only option.
+  } catch (err) {
+    // ONLY (re)create when the file genuinely doesn't exist. A transient FS
+    // error (EACCES/EBUSY/EMFILE/momentary unreadability) must NOT rotate the
+    // key — doing so makes every previously-stored Jira token across all
+    // projects permanently undecryptable. Rethrow so the caller sees the real
+    // error instead of silently destroying credentials.
+    if ((err as NodeJS.ErrnoException).code !== 'ENOENT') throw err
   }
   const key = crypto.randomBytes(32)
   const dir = path.dirname(keyfilePath)

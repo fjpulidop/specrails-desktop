@@ -18,6 +18,8 @@ import { TicketWatcher } from './ticket-watcher'
 import { getTerminalManager } from './terminal-manager'
 import { BrowserCaptureManager } from './browser-capture-manager'
 import { removeExploreCwd } from './explore-cwd-manager'
+import { dropPhaseScope } from './hooks'
+import { killTransientChildren } from './transient-children'
 import { mirrorProjectEntry, removeRegistryEntry, reconcileFromProjects, resolveArtifacts, resolveHome } from './artifact-registry'
 import { resolveProjectExecution } from './workspace-resolution'
 import { removeWorkspace } from './workspace-manager'
@@ -189,6 +191,8 @@ export class ProjectRegistry {
       try { ctx.queueManager.shutdown() } catch { /* ignore */ }
       try { ctx.chatManager.shutdown() } catch { /* ignore */ }
       try { ctx.setupManager.abort(id) } catch { /* ignore */ }
+      // Kill untracked fire-and-forget children (Quick spec-gen) for this project.
+      try { killTransientChildren(id) } catch { /* ignore */ }
       // M12: these three also spawn children that outlive removeProject. Proposal
       // and AgentRefine write to the per-project DB in their close handlers — if
       // not disposed before db.close() they throw on the closed connection and
@@ -211,6 +215,8 @@ export class ProjectRegistry {
       try { ctx.fileSummaryManager.dispose() } catch { /* ignore */ }
       // Drop the app-managed Explore Spec cwd (CLAUDE.md + symlink to project)
       try { removeExploreCwd(ctx.project.slug) } catch { /* ignore — non-fatal */ }
+      // Drop this project's per-project phase-tracking scope (avoid a leak).
+      try { dropPhaseScope(id) } catch { /* ignore */ }
       // Close the DB connection BEFORE removing the project's data dir below.
       try { ctx.db.close() } catch { /* ignore */ }
       // B54: remove the ENTIRE app-managed data dir for this project, not just
@@ -286,6 +292,11 @@ export class ProjectRegistry {
     for (const ctx of this._contexts.values()) {
       try { ctx.queueManager.shutdown() } catch { /* ignore */ }
       try { ctx.chatManager.shutdown() } catch { /* ignore */ }
+      // Install/enrich wizard children + the 3s install poll interval are NOT
+      // torn down by the spawner shutdowns above — mirror removeProject()'s
+      // setupManager.abort() so a quit mid-wizard doesn't orphan them.
+      try { ctx.setupManager.abort(ctx.project.id) } catch { /* ignore */ }
+      try { killTransientChildren(ctx.project.id) } catch { /* ignore */ }
       try { ctx.proposalManager.shutdown() } catch { /* ignore */ }
       try { ctx.agentRefineManager.shutdown() } catch { /* ignore */ }
       try { ctx.specLauncherManager.shutdown() } catch { /* ignore */ }

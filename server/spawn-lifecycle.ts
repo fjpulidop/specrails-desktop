@@ -13,6 +13,7 @@
 
 import type { ChildProcess } from 'node:child_process'
 import { createInterface } from 'node:readline'
+import treeKill from 'tree-kill'
 import { spawnAiCli } from './util/cli-prompt'
 import type { ProviderAdapter, AdapterEvent, SpawnAction, SpawnOptions } from './providers/types'
 
@@ -129,7 +130,21 @@ export function runAiCliInvocation(hooks: RunInvocationHooks): Promise<Invocatio
     if (hooks.timeoutMs != null) {
       timer = setTimeout(() => {
         hooks.onTimeout?.()
-        try { child.kill('SIGTERM') } catch { /* already gone */ }
+        // treeKill the whole subtree (a bare child.kill leaves grandchildren),
+        // then escalate to SIGKILL after a grace window if the child ignores
+        // SIGTERM — otherwise a hung, signal-swallowing CLI is orphaned for the
+        // host's lifetime. (Mirrors QueueManager._kill.)
+        if (child.pid) {
+          treeKill(child.pid, 'SIGTERM')
+          const pid = child.pid
+          const killTimer = setTimeout(() => {
+            try { treeKill(pid, 'SIGKILL', () => { /* best-effort */ }) } catch { /* gone */ }
+          }, 2000)
+          killTimer.unref?.()
+          child.once('close', () => clearTimeout(killTimer))
+        } else {
+          try { child.kill('SIGTERM') } catch { /* already gone */ }
+        }
         settle({ code: null, timedOut: true, spawnFailed: false, child })
       }, hooks.timeoutMs)
     }

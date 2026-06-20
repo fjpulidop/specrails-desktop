@@ -72,6 +72,7 @@ export function createProjectRouter(registry: ProjectRegistry): Router {
   router.use('/:projectId/hooks', (req: Request, res: Response, next: NextFunction) => {
     const projectCtx = ctx(req)
     const hooksRouter = memoizedSubRouter(hooksRouterByCtx, projectCtx, () => createHooksRouter(
+      projectCtx.project.id,
       projectCtx.broadcast,
       projectCtx.db,
       {

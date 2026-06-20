@@ -718,10 +718,49 @@ export class QueueManager {
       console.error(`[QueueManager] _startJob(${nextJobId}) threw before spawn: ${(err as Error)?.message}`)
       // Only release if we never established a child (else _onJobExit owns cleanup).
       if (this._activeJobId === nextJobId && this._activeProcess === null) {
+        // Stamp the job terminal — _onJobExit never runs without a child, so the
+        // job would otherwise wedge 'running' forever and never fire
+        // onJobFinished (rail/webhook never settle) and leak its per-job maps.
+        this._failWedgedJob(nextJobId, (err as Error)?.message ?? 'startup failure')
         this._activeJobId = null
         this._drainQueue()
       }
     })
+  }
+
+  /**
+   * Stamp a job terminal-failed when `_startJob` threw BEFORE a child was ever
+   * established (so no `_onJobExit` will run). Mirrors _onJobExit's terminal
+   * bookkeeping: in-memory + DB status, per-job map cleanup, onJobFinished, and
+   * a queue-state broadcast. Best-effort and never throws.
+   */
+  private _failWedgedJob(jobId: string, reason: string): void {
+    const job = this._jobs.get(jobId)
+    if (job && job.status === 'running') {
+      job.status = 'failed'
+      job.finishedAt = new Date().toISOString()
+    }
+    // Clear per-job selection/snapshot maps (none were consumed by a spawn).
+    this._jobExecution.delete(jobId)
+    this._snapshotRefs.delete(jobId)
+    this._jobModelSelection.delete(jobId)
+    this._jobProfileSelection.delete(jobId)
+    this._jobInteractiveSelection.delete(jobId)
+    if (this._db) {
+      try {
+        finishJob(this._db, jobId, { exit_code: -1, status: 'failed' })
+      } catch {
+        /* DB may be closed mid-shutdown — never throw from the drain catch */
+      }
+    }
+    try {
+      this._onJobFinished?.(jobId, 'failed', undefined)
+    } catch {
+      /* onJobFinished is best-effort */
+    }
+    this._persistQueueState()
+    this._broadcastQueueState()
+    console.error(`[QueueManager] job ${jobId} failed before spawn: ${reason}`)
   }
 
   /**
@@ -966,11 +1005,12 @@ export class QueueManager {
     this._recomputePositions()
     this._persistJob(job)
 
+    const phaseScopeId = this._projectId ?? this._cwd ?? 'default'
     const commandPhases = this._phasesForCommand(job.command)
     if (commandPhases.length > 0) {
-      setActivePhases(commandPhases, this._broadcast)
+      setActivePhases(phaseScopeId, commandPhases, this._broadcast)
     } else {
-      resetPhases(this._broadcast)
+      resetPhases(phaseScopeId, this._broadcast)
     }
 
     const commandToRun = job.command.trim()
@@ -1307,6 +1347,15 @@ export class QueueManager {
 
     this._activeProcess = child
     this._activeJobId = jobId
+
+    // Honour a cancel that arrived during the async pre-spawn window (it recorded
+    // intent in _cancelingJobs via _kill but found no child yet). SIGTERM the
+    // just-spawned child now; the close handler wired below fires _onJobExit,
+    // which reads _cancelingJobs and stamps 'canceled'. No early-return — the
+    // exit handler MUST still be wired so the job settles.
+    if (this._cancelingJobs.has(jobId)) {
+      this._kill(jobId)
+    }
 
     // Without this listener, an ENOENT (e.g. claude not on PATH) propagates
     // as an unhandled 'error' event and crashes the entire app. Node still
@@ -1809,6 +1858,13 @@ export class QueueManager {
   }
 
   private _kill(jobId: string): void {
+    // Record the cancel intent UP FRONT — even when no child exists yet. A
+    // cancel arriving during the async pre-spawn window (plugin verify / profile
+    // snapshot) would otherwise early-return below before recording intent, the
+    // child would later spawn unobserved, and _onJobExit would stamp 'completed'.
+    // With the intent recorded, the post-spawn check in _startJob SIGTERMs the
+    // child once it exists, and _onJobExit reads it to stamp 'canceled'.
+    this._cancelingJobs.add(jobId)
     if (!this._activeProcess || !this._activeProcess.pid) return
 
     this._clearZombieTimer()
@@ -1819,7 +1875,6 @@ export class QueueManager {
       clearTimeout(this._killTimer)
       this._killTimer = null
     }
-    this._cancelingJobs.add(jobId)
     treeKill(this._activeProcess.pid, 'SIGTERM')
 
     const pid = this._activeProcess.pid
