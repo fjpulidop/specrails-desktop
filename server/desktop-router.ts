@@ -130,21 +130,33 @@ function isLoopbackHost(hostname: string): boolean {
   return host === 'localhost' || host === '127.0.0.1' || host === '::1'
 }
 
-function isPrivateIp(hostname: string): boolean {
-  const ipVersion = net.isIP(hostname)
-  if (ipVersion === 0) return false
-  if (ipVersion === 6) {
-    const host = hostname.toLowerCase()
-    return host === '::1' || host.startsWith('fc') || host.startsWith('fd') || host.startsWith('fe80:')
-  }
-  const parts = hostname.split('.').map((p) => Number.parseInt(p, 10))
+function isPrivateIpv4(addr: string): boolean {
+  const parts = addr.split('.').map((p) => Number.parseInt(p, 10))
+  if (parts.length !== 4 || parts.some((n) => Number.isNaN(n))) return false
   const [a, b] = parts
   return a === 0 ||
     a === 10 ||
     a === 127 ||
     (a === 169 && b === 254) ||
     (a === 172 && b >= 16 && b <= 31) ||
-    (a === 192 && b === 168)
+    (a === 192 && b === 168) ||
+    (a === 100 && b >= 64 && b <= 127) // 100.64.0.0/10 CGNAT
+}
+
+function isPrivateIp(hostname: string): boolean {
+  // Strip IPv6 brackets that URL.hostname can include (else net.isIP returns 0
+  // and an IPv6 literal would slip through as "not an IP").
+  let host = hostname.toLowerCase().replace(/^\[|\]$/g, '')
+  // IPv4-mapped IPv6 (`::ffff:169.254.169.254`) → check the embedded v4.
+  const mapped = /^::ffff:(\d+\.\d+\.\d+\.\d+)$/.exec(host)
+  if (mapped) return isPrivateIpv4(mapped[1])
+  const ipVersion = net.isIP(host)
+  if (ipVersion === 0) return false
+  if (ipVersion === 6) {
+    return host === '::1' || host === '::' ||
+      host.startsWith('fc') || host.startsWith('fd') || host.startsWith('fe80:')
+  }
+  return isPrivateIpv4(host)
 }
 
 function validateHttpUrl(raw: string, opts: { allowLoopback: boolean; requireHttps: boolean }): string | null {

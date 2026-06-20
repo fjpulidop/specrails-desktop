@@ -45,6 +45,11 @@ function framedSend(ch: DataChannelLike, data: string): void {
  *  group is complete. Non-chunk frames pass straight through. */
 export class ChunkReassembler {
   private _groups = new Map<number, { n: number; parts: string[]; got: number }>()
+  // Bounds against a malicious/buggy peer: an unvalidated `n` would
+  // `new Array(n).fill('')` (RangeError crash for huge/negative n, or a huge
+  // allocation), and never-completing groups would leak forever.
+  private static readonly MAX_CHUNKS = 1024
+  private static readonly MAX_GROUPS = 64
 
   /** Returns the string to handle (the frame itself, or a completed
    *  reassembly), or null when more chunks of the group are still pending. */
@@ -57,12 +62,22 @@ export class ChunkReassembler {
       return data
     }
     if (!p || p.n == null) return data
+    // Validate counts/index BEFORE allocating: positive integer n within the
+    // ceiling, and i a valid index in [0, n).
+    if (!Number.isInteger(p.n) || p.n <= 0 || p.n > ChunkReassembler.MAX_CHUNKS) return null
+    if (!Number.isInteger(p.i) || p.i < 0 || p.i >= p.n) return null
     let grp = this._groups.get(p.g)
     if (!grp) {
+      // Cap concurrent groups; drop the oldest incomplete one when over the cap
+      // so a flood of never-completed groups can't grow memory unbounded.
+      if (this._groups.size >= ChunkReassembler.MAX_GROUPS) {
+        const oldest = this._groups.keys().next().value
+        if (oldest !== undefined) this._groups.delete(oldest)
+      }
       grp = { n: p.n, parts: new Array(p.n).fill(''), got: 0 }
       this._groups.set(p.g, grp)
     }
-    if (grp.parts[p.i] === '' && grp.got < grp.n) {
+    if (p.i < grp.parts.length && grp.parts[p.i] === '' && grp.got < grp.n) {
       grp.parts[p.i] = p.d
       grp.got++
     }

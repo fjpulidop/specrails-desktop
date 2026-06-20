@@ -182,6 +182,7 @@ export class QueueManager {
    *  fallback model name stamped onto the ai_invocations row. */
   private _resolvedModel: string | null
   private _onJobFinished: ((jobId: string, status: Job['status'], costUsd?: number) => void) | null
+  private _onBudgetExceeded: ((event: string, data: Record<string, unknown>) => void) | null
   /** Project ID used for OTEL resource attributes (Super mode only) */
   private _projectId: string | null
   /** Server port used to construct the OTLP endpoint URL for env injection */
@@ -227,6 +228,10 @@ export class QueueManager {
       /** Effective model for codex spawns. If omitted, falls back to 'gpt-5.5'. */
       resolvedModel?: string
       onJobFinished?: (jobId: string, status: Job['status'], costUsd?: number) => void
+      /** Fired when a daily/desktop budget is crossed so app-level consumers
+       *  (webhooks) can deliver the budget event (the WS broadcast alone never
+       *  reached webhook subscribers). */
+      onBudgetExceeded?: (event: string, data: Record<string, unknown>) => void
       projectId?: string
       desktopPort?: number
       /** Project slug used to locate per-job profile snapshots at
@@ -255,6 +260,7 @@ export class QueueManager {
     this._adapter = getAdapter(options?.provider ?? 'claude')
     this._resolvedModel = options?.resolvedModel ?? null
     this._onJobFinished = options?.onJobFinished ?? null
+    this._onBudgetExceeded = options?.onBudgetExceeded ?? null
     this._projectId = options?.projectId ?? null
     this._desktopPort = options?.desktopPort ?? 4200
     this._projectSlug = options?.projectSlug ?? null
@@ -1752,6 +1758,9 @@ export class QueueManager {
                   this._db.prepare(`INSERT OR REPLACE INTO queue_state (key, value) VALUES ('paused', 'true')`).run()
                 }
                 this._broadcast({ type: 'daily_budget_exceeded', projectId: '', dailySpend, budget: dailyBudget, queuePaused: true })
+                try {
+                  this._onBudgetExceeded?.('daily_budget_exceeded', { dailySpend, budget: dailyBudget, queuePaused: true })
+                } catch { /* webhook delivery is best-effort */ }
               }
             }
           }
@@ -1766,6 +1775,9 @@ export class QueueManager {
                 this._db.prepare(`INSERT OR REPLACE INTO queue_state (key, value) VALUES ('paused', 'true')`).run()
               }
               this._broadcast({ type: 'desktop_daily_budget_exceeded', projectId: '', desktopDailySpend: desktopTotalSpend, desktopBudget, queuePaused: true })
+              try {
+                this._onBudgetExceeded?.('desktop_daily_budget_exceeded', { desktopDailySpend: desktopTotalSpend, desktopBudget, queuePaused: true })
+              } catch { /* webhook delivery is best-effort */ }
             }
           }
         } catch (err) {

@@ -385,6 +385,15 @@ export class ProjectRegistry {
         }
         return { budget, totalSpend }
       },
+      onBudgetExceeded: (event, data) => {
+        // Deliver the budget event to this project's subscribed webhooks — the
+        // WS broadcast alone never reached webhook subscribers, so a
+        // daily_budget_exceeded / desktop_daily_budget_exceeded subscription was
+        // dead. (Event names are in the webhook validEvents allow-list.)
+        try {
+          webhookManager.deliver(project.id, event as Parameters<typeof webhookManager.deliver>[1], data)
+        } catch { /* best-effort */ }
+      },
       onJobFinished: (jobId, status, costUsd) => {
         const jobRow = db.prepare('SELECT command, duration_ms FROM jobs WHERE id = ?').get(jobId) as
           | { command: string; duration_ms: number | null }

@@ -205,6 +205,14 @@ export class MobileWsBridge {
         this.send(s, redact(toMobileWire(msg)))
         continue
       }
+      // App-level desktop budget alert: deliver to EVERY subscriber holding the
+      // `alerts` topic regardless of which project tripped it (boundBroadcast
+      // stamps it with one project id, but it's an app-wide alert).
+      if (topic === 'alerts' && msg.type === 'desktop_daily_budget_exceeded') {
+        this.send(s, redact(toMobileWire(msg)))
+        continue
+      }
+
       const projectId = (msg as { projectId?: string }).projectId
       if (!projectId || !s.projects.has(projectId)) continue
 
