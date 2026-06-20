@@ -48,6 +48,10 @@ export type AdapterEvent =
   | { kind: 'tool-use'; name: string; inputPreview: string }
   | { kind: 'session-started'; sessionId: string }
   | { kind: 'result'; payload: Record<string, unknown> }
+  // Provider reported an explicit failure for the turn (e.g. codex
+  // `turn.failed` / top-level `error`). Carries the human-readable reason so
+  // callers can surface it instead of swallowing it into `{ kind: 'other' }`.
+  | { kind: 'error'; message: string }
   | { kind: 'other'; type: string; raw: Record<string, unknown> }
 
 export interface NormalisedResult {

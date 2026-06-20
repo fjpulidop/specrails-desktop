@@ -914,6 +914,54 @@ describe('ChatManager', () => {
     })
   })
 
+  // ─── Codex failure surfacing (codex 0.139 turn.failed/error) ───────────────
+
+  describe('codex failure surfacing', () => {
+    function codexLine(obj: Record<string, unknown>): string {
+      return JSON.stringify(obj)
+    }
+
+    it('surfaces codex turn.failed reason via chat_error and does NOT futilely respawn', async () => {
+      const convId = 'conv-codex-fail'
+      createConversation(db, { id: convId, model: 'gpt-5.5', kind: 'explore', provider: 'codex' })
+      const child = createMockChildProcess()
+      vi.mocked(mockSpawn).mockReturnValue(child as any)
+
+      const sendPromise = cm.sendMessage(convId, 'dame la siguiente mejor spec')
+      pushLine(child, codexLine({ type: 'thread.started', thread_id: 'T1' }))
+      pushLine(child, codexLine({ type: 'error', message: "You've hit your usage limit." }))
+      pushLine(child, codexLine({ type: 'turn.failed', error: { message: "You've hit your usage limit." } }))
+      await finishProcess(child, 1)
+      await sendPromise
+
+      const errs = getBroadcastedByType(broadcast, 'chat_error')
+      expect(errs).toHaveLength(1)
+      // Real reason surfaced, not a generic "Process exited with code 1".
+      expect(errs[0].error).toBe("You've hit your usage limit.")
+      // A provider-reported failure recurs on respawn — the turn must NOT retry.
+      expect(vi.mocked(mockSpawn)).toHaveBeenCalledTimes(1)
+    })
+
+    it('still crash-respawns an explore turn that dies WITHOUT an error frame', async () => {
+      // Guard: the no-respawn behaviour is gated on an explicit error frame, not
+      // on every non-zero exit. A bare crash (e.g. ENOENT mid-stream) still
+      // retries once per the existing lifecycle contract.
+      const convId = 'conv-codex-bare-crash'
+      createConversation(db, { id: convId, model: 'gpt-5.5', kind: 'explore', provider: 'codex' })
+      const first = createMockChildProcess()
+      const second = createMockChildProcess()
+      vi.mocked(mockSpawn).mockReturnValueOnce(first as any).mockReturnValueOnce(second as any)
+
+      const sendPromise = cm.sendMessage(convId, 'next spec')
+      pushLine(first, codexLine({ type: 'thread.started', thread_id: 'T2' }))
+      await finishProcess(first, 1)
+      await finishProcess(second, 1)
+      await sendPromise
+
+      expect(vi.mocked(mockSpawn)).toHaveBeenCalledTimes(2)
+    })
+  })
+
   // ─── Persistent-stdin Explore fast-path (big bet #3, flag-gated) ───────────
 
   describe('persistent-stdin Explore', () => {

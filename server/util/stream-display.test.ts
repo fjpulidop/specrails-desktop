@@ -58,6 +58,22 @@ describe('extractDisplayText', () => {
         expect(extractDisplayText({ type })).toBeNull()
       }
     })
+
+    it('surfaces turn.failed with the nested error message (codex 0.139)', () => {
+      const frame = { type: 'turn.failed', error: { message: "You've hit your usage limit." } }
+      expect(extractDisplayText(frame)).toBe("[turn failed] You've hit your usage limit.")
+    })
+
+    it('surfaces a standalone error frame', () => {
+      expect(extractDisplayText({ type: 'error', message: 'model not available' })).toBe(
+        '[error] model not available',
+      )
+    })
+
+    it('renders bare turn.failed / error frames without a trailing space', () => {
+      expect(extractDisplayText({ type: 'turn.failed' })).toBe('[turn failed]')
+      expect(extractDisplayText({ type: 'error' })).toBe('[error]')
+    })
   })
 
   describe('Gemini stream-json frames', () => {
