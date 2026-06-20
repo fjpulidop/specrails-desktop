@@ -22,6 +22,35 @@ describe('windowsSpawnEnv', () => {
     expect(out.PATH).toBe('x')
   })
 
+  it('backfills npm config env (USERPROFILE/APPDATA/HOMEDRIVE/TEMP) from defaults on win32', () => {
+    Object.defineProperty(process, 'platform', { value: 'win32', configurable: true })
+    const out = windowsSpawnEnv({ PATH: 'x' } as NodeJS.ProcessEnv)
+    expect(out.USERPROFILE).toBe('C:\\Users\\Default')
+    expect(out.HOMEDRIVE).toBe('C:')
+    expect(out.HOMEPATH).toBe('\\Users\\Default')
+    expect(out.APPDATA).toBe('C:\\Users\\Default\\AppData\\Roaming')
+    expect(out.LOCALAPPDATA).toBe('C:\\Users\\Default\\AppData\\Local')
+    expect(out.TEMP).toBe('C:\\Users\\Default\\AppData\\Local\\Temp')
+    expect(out.TMP).toBe('C:\\Users\\Default\\AppData\\Local\\Temp')
+  })
+
+  it('derives APPDATA from an existing USERPROFILE and preserves existing values', () => {
+    Object.defineProperty(process, 'platform', { value: 'win32', configurable: true })
+    const out = windowsSpawnEnv({ USERPROFILE: 'C:\\Users\\javi', TEMP: 'D:\\t' } as NodeJS.ProcessEnv)
+    expect(out.USERPROFILE).toBe('C:\\Users\\javi')
+    expect(out.HOMEDRIVE).toBe('C:')
+    expect(out.HOMEPATH).toBe('\\Users\\javi')
+    expect(out.APPDATA).toBe('C:\\Users\\javi\\AppData\\Roaming')
+    expect(out.TEMP).toBe('D:\\t') // preserved
+  })
+
+  it('builds USERPROFILE from HOMEDRIVE+HOMEPATH when USERPROFILE is absent', () => {
+    Object.defineProperty(process, 'platform', { value: 'win32', configurable: true })
+    const out = windowsSpawnEnv({ HOMEDRIVE: 'E:', HOMEPATH: '\\Users\\x' } as NodeJS.ProcessEnv)
+    expect(out.USERPROFILE).toBe('E:\\Users\\x')
+    expect(out.APPDATA).toBe('E:\\Users\\x\\AppData\\Roaming')
+  })
+
   it('preserves existing SystemRoot and derives ComSpec from it', () => {
     Object.defineProperty(process, 'platform', { value: 'win32', configurable: true })
     const out = windowsSpawnEnv({ SystemRoot: 'D:\\Win\\' } as NodeJS.ProcessEnv)

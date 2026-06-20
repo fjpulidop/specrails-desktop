@@ -492,6 +492,21 @@ jobs:
             if ($LASTEXITCODE -ne 0) { Write-Error "${tool} --version failed"; exit 1 }
           }
 
+          # Validate the EXACT npm/npx probe the shipped app uses: the bundled
+          # node.exe run DIRECTLY against npm-cli.js / npx-cli.js, bypassing the
+          # .cmd shim (the shim's inner `FOR /F CALL node npm-prefix.js` loads npm
+          # config and proved fragile under a stripped GUI-launch env). See
+          # server/setup-prerequisites.ts probeBundledNpmLike. This asserts the npm
+          # package ships intact and the runtime probe path actually works.
+          $npmCli = "src-tauri\runtimes\node\node_modules\npm\bin\npm-cli.js"
+          $npxCli = "src-tauri\runtimes\node\node_modules\npm\bin\npx-cli.js"
+          foreach ($cli in @($npmCli, $npxCli)) {
+            if (-not (Test-Path $cli)) { Write-Error "missing bundled npm CLI: ${cli}"; exit 1 }
+            Write-Host "Testing node ${cli} --version..."
+            & $node $cli --version
+            if ($LASTEXITCODE -ne 0) { Write-Error "node ${cli} --version failed"; exit 1 }
+          }
+
           # Functional git check: init + commit + log exercises git-core helpers/templates.
           $tmp = Join-Path $env:TEMP ("smokegit-" + [guid]::NewGuid())
           New-Item -ItemType Directory -Path $tmp | Out-Null
