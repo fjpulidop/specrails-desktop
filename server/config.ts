@@ -3,6 +3,10 @@ import path from 'path'
 import { execSync, execFileSync } from 'child_process'
 import type { PhaseDefinition } from './types'
 
+// Windows has no `which`; it's `where`. The lone holdout that hardcoded `which`
+// here made gh/jira tracker detection always report unavailable on Windows.
+const WHICH_CMD = process.platform === 'win32' ? 'where' : 'which'
+
 export interface CommandInfo {
   id: string
   name: string
@@ -59,7 +63,7 @@ function runCommandArgs(file: string, args: string[], cwd?: string): string | nu
 }
 
 function detectGithub(): IssueTrackerInfo {
-  const ghPath = runCommand('which gh')
+  const ghPath = runCommand(`${WHICH_CMD} gh`)
   if (!ghPath) return { available: false, authenticated: false }
 
   const authOutput = runCommand('gh auth status')
@@ -69,7 +73,7 @@ function detectGithub(): IssueTrackerInfo {
 }
 
 function detectJira(): IssueTrackerInfo {
-  const jiraPath = runCommand('which jira')
+  const jiraPath = runCommand(`${WHICH_CMD} jira`)
   if (!jiraPath) return { available: false, authenticated: false }
 
   // jira CLI availability means it is configured (auth is implicit via jira config)

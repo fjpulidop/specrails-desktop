@@ -1,4 +1,5 @@
 import { execSync } from 'child_process'
+import { windowsSpawnEnv } from './util/win-spawn'
 
 // Windows has no `which`; probe via `where` instead. Both exit non-zero
 // when the command is missing, which the try/catch relies on.
@@ -18,7 +19,10 @@ export function binaryOnPath(binary: string): boolean {
   if (hit && now - hit.at < PROBE_TTL_MS) return hit.onPath
   let onPath: boolean
   try {
-    execSync(`${WHICH_CMD} ${binary}`, { stdio: 'ignore' })
+    // `where` runs via cmd.exe; pass a SystemRoot-backfilled env so the probe
+    // (a HARD gate before job/chat spawns) can't be falsely cached as missing
+    // when a packaged sidecar inherited a stripped env.
+    execSync(`${WHICH_CMD} ${binary}`, { stdio: 'ignore', env: windowsSpawnEnv() })
     onPath = true
   } catch {
     onPath = false

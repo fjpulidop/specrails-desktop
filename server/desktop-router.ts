@@ -71,14 +71,30 @@ const THEME_ID_ALLOWLIST = new Set<string>(['dracula', 'aurora-light', 'obsidian
 // kept duplicated to avoid pulling client code into the server bundle.
 const LANGUAGE_ID_ALLOWLIST = new Set<string>(['en', 'es', 'fr', 'de', 'pt', 'it', 'zh', 'ja'])
 
-// LOW-04: Deny registration of system-critical directory paths.
+// LOW-04: Deny registration of system-critical directory paths. The POSIX list
+// is matched against forward-slash-normalized, lowercased paths; on Windows it
+// was a complete no-op (no path matches `/etc`), so add a Windows deny-list and
+// fold case (Windows FS is case-insensitive).
 const DENIED_PATH_PREFIXES = [
   '/etc', '/usr', '/bin', '/sbin', '/lib', '/lib64',
   '/sys', '/proc', '/dev', '/boot', '/run',
 ]
+// Windows: deny the Windows dir, Program Files variants, and any bare drive root.
+const DENIED_WINDOWS_PREFIXES = [
+  'c:/windows', 'c:/program files', 'c:/program files (x86)', 'c:/programdata',
+]
 
 function isPathSafe(resolvedPath: string): boolean {
-  const normalized = resolvedPath.endsWith('/') ? resolvedPath : resolvedPath + '/'
+  const slashed = resolvedPath.replace(/\\/g, '/')
+  const normalized = slashed.endsWith('/') ? slashed : slashed + '/'
+  if (process.platform === 'win32') {
+    const lower = normalized.toLowerCase()
+    // Bare drive root (C:/) is never a valid project location.
+    if (/^[a-z]:\/$/.test(lower)) return false
+    return !DENIED_WINDOWS_PREFIXES.some(
+      (prefix) => lower.startsWith(prefix + '/') || lower === prefix + '/'
+    )
+  }
   return !DENIED_PATH_PREFIXES.some(
     (prefix) => normalized.startsWith(prefix + '/') || normalized === prefix + '/'
   )

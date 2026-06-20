@@ -256,7 +256,26 @@ export function atomicWrite(filePath: string, data: string): void {
   } finally {
     closeSync(fd)
   }
-  renameSync(tmp, filePath)
+  // Windows: renaming over an EXISTING destination held open by a reader (the
+  // bundled core reads registry.json WITHOUT the lock by contract), an AV
+  // scanner, or a concurrent reader fails transiently with EPERM/EACCES/EBUSY.
+  // POSIX rename-over is atomic and never hits this. Bounded retry on Windows
+  // only; rethrow the last error so the caller's try/catch still surfaces it.
+  let lastErr: unknown
+  for (let attempt = 0; attempt < 5; attempt++) {
+    try {
+      renameSync(tmp, filePath)
+      return
+    } catch (err) {
+      lastErr = err
+      const code = (err as NodeJS.ErrnoException).code
+      const retryable = process.platform === 'win32' && (code === 'EPERM' || code === 'EACCES' || code === 'EBUSY')
+      if (!retryable) throw err
+      syncSleep(20 * (attempt + 1))
+    }
+  }
+  try { unlinkSync(tmp) } catch { /* best-effort temp cleanup */ }
+  throw lastErr
 }
 
 /** Synchronous sleep without busy-spinning the CPU. */

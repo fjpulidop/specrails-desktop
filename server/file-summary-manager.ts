@@ -658,7 +658,11 @@ export class FileSummaryManager {
       awaitWriteFinish: { stabilityThreshold: 200, pollInterval: 100 },
     })
     watcher.on('change', (changed: string) => {
-      const rel = path.relative(projectPath, changed)
+      // The summary store keys off POSIX forward-slash relpaths everywhere
+      // (the REST normalizeRel, pathHash, knownSummaries seeding). On Windows
+      // path.relative yields backslashes, so normalize before lookup/markStale —
+      // otherwise `known.has(rel)` always misses and edits never mark stale.
+      const rel = path.relative(projectPath, changed).split(path.sep).join('/')
       if (!rel || rel.startsWith('..')) return
       // Skip the readSummary disk hit when this file provably has no summary.
       const known = this.knownSummaries.get(projectId)

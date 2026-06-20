@@ -3,6 +3,23 @@ import fs from 'fs'
 import os from 'os'
 import path from 'path'
 import type { ChildProcess } from 'child_process'
+import { windowsSpawnEnv } from './util/win-spawn'
+
+/**
+ * Backfill the Windows shell-critical environment into `process.env` ONCE at
+ * startup. The desktop server runs as a pkg sidecar launched by the Tauri host,
+ * which can deliver a STRIPPED env missing `SystemRoot`/`windir`/`ComSpec`
+ * (and the npm-config family). Without `SystemRoot`, every `cmd.exe`-mediated
+ * spawn — PTY/PowerShell, `execSync('where …')`, `.cmd` shims — fails to start.
+ * Doing this on `process.env` directly means EVERY downstream consumer that
+ * copies `process.env` (terminal-manager, binary-probe, plugin spawns, …) is
+ * protected at the source, in addition to the per-callsite `windowsSpawnEnv()`.
+ * No-op on POSIX and for any var already present (the common case). Idempotent.
+ */
+export function ensureWindowsBaseEnv(): void {
+  if (process.platform !== 'win32') return
+  Object.assign(process.env, windowsSpawnEnv(process.env))
+}
 
 export type PathSource = 'inherited' | 'fast-path' | 'login-shell' | 'bundled'
 export type LoginShellStatus = 'ok' | 'skipped' | 'timeout' | 'error'

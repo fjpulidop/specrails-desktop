@@ -27,7 +27,7 @@ import { createTelemetryRouter } from './telemetry-receiver'
 import { runCompactionForAll } from './telemetry-compactor'
 import { FrameworkManager } from './framework-manager'
 import { withFileLock } from './artifact-registry'
-import { resolveStartupPath, augmentPathFromLoginShell, getPathDiagnostic } from './path-resolver'
+import { resolveStartupPath, augmentPathFromLoginShell, getPathDiagnostic, ensureWindowsBaseEnv } from './path-resolver'
 // Side-effect import: registers every bundled ProviderAdapter (claude, codex,
 // future providers) so `getAdapter`/`hasAdapter`/`listAdapters` are populated
 // before any manager constructs a project context. See
@@ -35,6 +35,10 @@ import { resolveStartupPath, augmentPathFromLoginShell, getPathDiagnostic } from
 import './providers'
 
 const inheritedPathBeforeResolve = (process.env.PATH ?? '').split(process.platform === 'win32' ? ';' : ':').filter(Boolean).length
+// Backfill SystemRoot/ComSpec/etc into process.env BEFORE anything spawns, so a
+// stripped GUI-launch sidecar env never breaks cmd.exe-mediated spawns (PTY,
+// where-probes, .cmd shims). No-op on POSIX. Must precede resolveStartupPath().
+ensureWindowsBaseEnv()
 resolveStartupPath()
 
 const TERMINAL_PANEL_ENABLED = process.env.SPECRAILS_TERMINAL_PANEL !== 'false'
