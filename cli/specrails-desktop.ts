@@ -22,6 +22,7 @@ import { createInterface } from 'readline'
 import WebSocket from 'ws'
 import path from 'path'
 import os from 'os'
+import { spawnCli } from './win-spawn'
 import fs from 'fs'
 
 // ---------------------------------------------------------------------------
@@ -413,7 +414,16 @@ async function resolveProjectFromCwd(baseUrl: string, projectOverride?: string):
   try {
     // --project flag: resolve by path (absolute/relative) or by name
     if (projectOverride) {
-      const isPathLike = projectOverride.startsWith('/') || projectOverride.startsWith('.')
+      // Path vs name: POSIX absolute (`/…`), relative (`./…`), OR a Windows
+      // absolute (`C:\…` / `C:/…`) or any path containing a separator. Without
+      // the drive-letter/backslash cases `--project C:\repo` was mis-read as a
+      // project NAME on Windows and never matched.
+      const isPathLike =
+        path.isAbsolute(projectOverride) ||
+        projectOverride.startsWith('.') ||
+        /^[A-Za-z]:[\\/]/.test(projectOverride) ||
+        projectOverride.includes('/') ||
+        projectOverride.includes('\\')
       if (isPathLike) {
         const res = await httpGet(`${baseUrl}/api/resolve?path=${encodeURIComponent(projectOverride)}`)
         if (res.status === 200) {
@@ -651,7 +661,10 @@ async function runDirect(command: string): Promise<number> {
 
   let child: ReturnType<typeof spawn>
   try {
-    child = spawn('claude', args, {
+    // Windows: `claude` is `claude.cmd`; spawnCli routes through cross-spawn so
+    // the shim resolves and multi-line args survive (raw `spawn(shell:false)`
+    // threw ENOENT/EINVAL on Windows even with claude installed).
+    child = spawnCli('claude', args, {
       env: process.env,
       shell: false,
     })
@@ -987,7 +1000,10 @@ async function desktopStart(port: number): Promise<number> {
     logFd ?? 'ignore',
   ]
 
-  const child = spawnProc(args[0], args.slice(1), {
+  // spawnCli so a dev `tsx`(.cmd) launcher resolves on Windows and the env is
+  // SystemRoot-backfilled; for the packaged `node` path cross-spawn spawns the
+  // .exe directly (no cmd.exe wrapper), keeping `detached` clean.
+  const child = spawnCli(args[0], args.slice(1), {
     detached: true,
     stdio,
     env: { ...process.env },

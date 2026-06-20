@@ -135,9 +135,17 @@ describe('shell resolution', () => {
 })
 
 describe('resolveShellFor (injectable, cross-platform)', () => {
-  it('prefers $SHELL when set, on any platform', () => {
-    expect(resolveShellFor('win32', { SHELL: '/bin/fish' }, () => true)).toBe('/bin/fish')
+  it('prefers $SHELL when set on POSIX (trimmed)', () => {
     expect(resolveShellFor('darwin', { SHELL: '  /bin/zsh  ' }, () => false)).toBe('/bin/zsh')
+    expect(resolveShellFor('linux', { SHELL: '/usr/bin/fish' }, () => false)).toBe('/usr/bin/fish')
+  })
+
+  it('IGNORES a POSIX-style $SHELL on Windows (Git Bash/MSYS) and uses the native chain', () => {
+    // $SHELL=/usr/bin/bash from Git Bash must NOT be spawned by ConPTY; fall
+    // through to pwsh/powershell/cmd instead.
+    const winPosh = 'C:\\Windows\\System32\\WindowsPowerShell\\v1.0\\powershell.exe'
+    const got = resolveShellFor('win32', { SHELL: '/usr/bin/bash', SystemRoot: 'C:\\Windows' }, (p) => p === winPosh)
+    expect(got).toBe(winPosh)
   })
 
   it('defaults to /bin/zsh on macOS and Linux', () => {

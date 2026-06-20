@@ -9,9 +9,27 @@
 //      isolates plugin state"
 
 import { spawnSync } from 'child_process'
+import crossSpawn from 'cross-spawn'
 import fs from 'fs'
 import path from 'path'
 import os from 'os'
+
+import { windowsSpawnEnv } from '../util/win-spawn'
+
+/**
+ * Spawn `codex` synchronously, Windows-safe. On Windows the codex CLI is a
+ * `.cmd` shim; Node 20.12+ (CVE-2024-27980) refuses to spawn `.cmd` without a
+ * shell, and the packaged sidecar may lack `SystemRoot`/`ComSpec` — so route
+ * through cross-spawn (resolves the shim, runs cmd.exe with correct quoting)
+ * under `windowsSpawnEnv()`. POSIX is a plain `spawnSync`.
+ */
+function codexSpawn(argv: string[], extraEnv: NodeJS.ProcessEnv) {
+  const env = windowsSpawnEnv({ ...process.env, ...extraEnv })
+  const opts = { env, encoding: 'utf-8' as const, timeout: 10_000 }
+  return process.platform === 'win32'
+    ? crossSpawn.sync('codex', argv, opts)
+    : spawnSync('codex', argv, opts)
+}
 
 /** Per-project CODEX_HOME root, sibling of the existing
  *  `~/.specrails/projects/<slug>/{telemetry,jobs,explore-cwd,...}` tree. */
@@ -45,15 +63,7 @@ export interface CodexMcpResult {
 export function codexMcpAdd(slug: string, name: string, entry: CodexMcpEntry): CodexMcpResult {
   const home = ensureCodexHome(slug)
   const argv = ['mcp', 'add', name, '--', entry.command, ...entry.args]
-  const result = spawnSync('codex', argv, {
-    env: {
-      ...process.env,
-      ...(entry.env ?? {}),
-      CODEX_HOME: home,
-    },
-    encoding: 'utf-8',
-    timeout: 10_000,
-  })
+  const result = codexSpawn(argv, { ...(entry.env ?? {}), CODEX_HOME: home })
   if (result.error) {
     return { ok: false, stdout: '', stderr: `${result.error.message}` }
   }
@@ -67,11 +77,7 @@ export function codexMcpAdd(slug: string, name: string, entry: CodexMcpEntry): C
 /** Run `codex mcp remove <name>` against the per-project CODEX_HOME. */
 export function codexMcpRemove(slug: string, name: string): CodexMcpResult {
   const home = ensureCodexHome(slug)
-  const result = spawnSync('codex', ['mcp', 'remove', name], {
-    env: { ...process.env, CODEX_HOME: home },
-    encoding: 'utf-8',
-    timeout: 10_000,
-  })
+  const result = codexSpawn(['mcp', 'remove', name], { CODEX_HOME: home })
   if (result.error) {
     return { ok: false, stdout: '', stderr: `${result.error.message}` }
   }
@@ -88,11 +94,7 @@ export function codexMcpRemove(slug: string, name: string): CodexMcpResult {
  *  for this subcommand. */
 export function codexMcpList(slug: string): { ok: boolean; servers: string[]; raw: string } {
   const home = ensureCodexHome(slug)
-  const result = spawnSync('codex', ['mcp', 'list'], {
-    env: { ...process.env, CODEX_HOME: home },
-    encoding: 'utf-8',
-    timeout: 10_000,
-  })
+  const result = codexSpawn(['mcp', 'list'], { CODEX_HOME: home })
   if (result.error || (result.status ?? 1) !== 0) {
     return { ok: false, servers: [], raw: `${result.stderr ?? result.stdout ?? ''}` }
   }

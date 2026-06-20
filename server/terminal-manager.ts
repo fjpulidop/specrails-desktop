@@ -2,6 +2,7 @@ import fs from 'fs'
 import path from 'path'
 import { spawn as ptySpawn, type IPty } from 'node-pty'
 import { newId as uuidv4 } from './ids'
+import { windowsSpawnEnv } from './util/win-spawn'
 import type { WebSocket } from 'ws'
 import type { DbInstance } from './db'
 import { OscParser, type OscMarkEvent } from './terminal-osc-parser'
@@ -75,8 +76,11 @@ export function resolveShellFor(
   env: NodeJS.ProcessEnv,
   exists: (p: string) => boolean,
 ): string {
+  // Honor $SHELL only on POSIX. On Windows $SHELL is not native but is commonly
+  // exported by Git Bash/MSYS2 as a Unix path (e.g. /usr/bin/bash) that ConPTY
+  // cannot spawn — so on win32 ignore it and fall through to pwsh→powershell→cmd.
   const envShell = env.SHELL
-  if (envShell && envShell.trim().length > 0) return envShell.trim()
+  if (platform !== 'win32' && envShell && envShell.trim().length > 0) return envShell.trim()
   if (platform === 'win32') {
     for (const dir of (env.PATH ?? '').split(';')) {
       if (!dir) continue
@@ -267,8 +271,13 @@ export class TerminalManager {
     const baseArgs = shellArgs(shell)
     const cols = clampDim(opts.cols ?? TERMINAL_DEFAULT_COLS, 2, 1000)
     const rows = clampDim(opts.rows ?? TERMINAL_DEFAULT_ROWS, 2, 1000)
+    // Build the PTY env from a SystemRoot-backfilled base so PowerShell/cmd can
+    // start even when the packaged sidecar inherited a stripped env (no
+    // SystemRoot/ComSpec → ConPTY spawn fails and the panel never opens). No-op
+    // on POSIX. (process.env is also backfilled globally at startup; this is the
+    // explicit guard at the PTY boundary.)
     const env: Record<string, string> = {}
-    for (const [k, v] of Object.entries(process.env)) {
+    for (const [k, v] of Object.entries(windowsSpawnEnv(process.env))) {
       if (typeof v === 'string') env[k] = v
     }
     env.TERM = 'xterm-256color'

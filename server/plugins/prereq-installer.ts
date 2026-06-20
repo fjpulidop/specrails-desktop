@@ -1,5 +1,6 @@
 import { spawn } from 'child_process'
 import type { WsMessage } from '../types'
+import { windowsSpawnEnv } from '../util/win-spawn'
 
 export type PrereqBroadcast = (msg: WsMessage) => void
 
@@ -82,7 +83,8 @@ export async function installPrerequisite(
     const child = spawn(cmd.shell, [], {
       shell: isWin ? 'powershell.exe' : true,
       stdio: ['ignore', 'pipe', 'pipe'],
-      env: process.env,
+      // PowerShell needs SystemRoot/windir to start; backfill for a stripped env.
+      env: windowsSpawnEnv(),
     })
 
     let settled = false

@@ -256,7 +256,7 @@ function runMigration(
     const bak = live + BAK_SUFFIX
     try {
       // Clear a stale backup from a prior aborted run.
-      if (fs.existsSync(bak)) fs.rmSync(bak, { recursive: true, force: true })
+      if (fs.existsSync(bak)) fs.rmSync(bak, { recursive: true, force: true, maxRetries: 5, retryDelay: 50 })
       fs.renameSync(live, bak)
       backedUp.push({ live, bak })
     } catch (err) {
@@ -294,7 +294,7 @@ function runMigration(
     // REVERT: remove any freshly-created (broken) symlinks/dirs, restore backups.
     for (const { live } of backedUp) {
       try {
-        if (fs.existsSync(live) || isSymlink(live)) fs.rmSync(live, { recursive: true, force: true })
+        if (fs.existsSync(live) || isSymlink(live)) fs.rmSync(live, { recursive: true, force: true, maxRetries: 5, retryDelay: 50 })
       } catch {
         /* best-effort */
       }
@@ -319,7 +319,7 @@ function runMigration(
     if (customs.length > 0) {
       const preserved = live + '.custom.preserved'
       try {
-        if (fs.existsSync(preserved)) fs.rmSync(preserved, { recursive: true, force: true })
+        if (fs.existsSync(preserved)) fs.rmSync(preserved, { recursive: true, force: true, maxRetries: 5, retryDelay: 50 })
         fs.renameSync(bak, preserved)
         preservedCustom.push(...customs.map((c) => path.basename(c)))
       } catch {
@@ -327,7 +327,7 @@ function runMigration(
       }
     } else {
       try {
-        fs.rmSync(bak, { recursive: true, force: true })
+        fs.rmSync(bak, { recursive: true, force: true, maxRetries: 5, retryDelay: 50 })
       } catch {
         /* leaving a stale .bak is harmless; never fail the migration on cleanup */
       }
@@ -345,7 +345,7 @@ function restoreBackups(backedUp: Array<{ live: string; bak: string }>): void {
   for (const { live, bak } of backedUp) {
     try {
       if (!fs.existsSync(bak)) continue
-      if (fs.existsSync(live) || isSymlink(live)) fs.rmSync(live, { recursive: true, force: true })
+      if (fs.existsSync(live) || isSymlink(live)) fs.rmSync(live, { recursive: true, force: true, maxRetries: 5, retryDelay: 50 })
       fs.renameSync(bak, live)
     } catch {
       /* best-effort revert — a surviving .bak is recoverable by hand */

@@ -1,5 +1,6 @@
 import { spawn } from 'child_process'
 import type { PluginVerifyResult } from '../../types'
+import { windowsSpawnEnv } from '../../util/win-spawn'
 
 const TIMEOUT_MS = 1800
 
@@ -29,6 +30,9 @@ export async function verifySerena(): Promise<PluginVerifyResult> {
       child = spawn('uv', ['--version'], {
         stdio: ['ignore', 'pipe', 'pipe'],
         shell: isWin,
+        // SystemRoot/ComSpec so cmd.exe (shell:true) can start under a stripped
+        // packaged-sidecar env; else uv is wrongly reported not-on-path.
+        env: windowsSpawnEnv(),
       })
     } catch {
       resolve({ ok: false, reason: 'uv-not-on-path', checkedAt })

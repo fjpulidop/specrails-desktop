@@ -10,6 +10,7 @@ import {
   getPathDiagnostic,
   resolveBundledRuntimePath,
   resolveBundledNodeExe,
+  ensureWindowsBaseEnv,
   __resetPathResolverForTest,
 } from './path-resolver'
 
@@ -477,6 +478,38 @@ describe('resolveBundledNodeExe', () => {
       expect(resolveBundledNodeExe()).not.toBe(process.execPath)
     } finally {
       fs.rmSync(base, { recursive: true, force: true })
+    }
+  })
+})
+
+describe('ensureWindowsBaseEnv', () => {
+  afterEach(() => {
+    setPlatform(ORIGINAL_PLATFORM)
+  })
+
+  it('is a no-op on POSIX', () => {
+    setPlatform('linux')
+    const before = { ...process.env }
+    ensureWindowsBaseEnv()
+    // SystemRoot must NOT be injected on POSIX.
+    expect(process.env.SystemRoot).toBe(before.SystemRoot)
+  })
+
+  it('backfills SystemRoot/ComSpec into process.env on win32 when absent', () => {
+    setPlatform('win32')
+    const prevSR = process.env.SystemRoot
+    const prevCS = process.env.ComSpec
+    delete process.env.SystemRoot
+    delete process.env.ComSpec
+    try {
+      ensureWindowsBaseEnv()
+      expect(process.env.SystemRoot).toBe('C:\\Windows')
+      expect(process.env.ComSpec).toBe('C:\\Windows\\System32\\cmd.exe')
+    } finally {
+      if (prevSR === undefined) delete process.env.SystemRoot
+      else process.env.SystemRoot = prevSR
+      if (prevCS === undefined) delete process.env.ComSpec
+      else process.env.ComSpec = prevCS
     }
   })
 })
