@@ -11,7 +11,7 @@ import { spawnCli, windowsSpawnEnv } from './util/win-spawn'
 import { formatMissingSetupPrerequisites } from './setup-prerequisites'
 import { CORE_PACKAGE_SPEC } from './core-package'
 import { getAdapter, hasAdapter } from './providers'
-import { mirrorProjectEntry, resolveArtifacts } from './artifact-registry'
+import { mirrorProjectEntry, resolveArtifacts, resolveHome } from './artifact-registry'
 import { installConfigPath, installConfigPathForProvider, type InstallConfigProject } from './install-config-path'
 import { getBundledCoreCli, getBundledCoreRoot, getBundledCoreVersion } from './bundled-core'
 import { getBundledOpenspecCli } from './bundled-openspec'
@@ -705,20 +705,43 @@ async function validateCoreContract(): Promise<void> {
 
 const INSTALL_LOG_BUFFER_MAX = 2000
 
-function formatBufferedInstallError(baseMessage: string, logBuffer: string[]): string {
+/**
+ * Persist the FULL install log to `~/.specrails/logs/` and return the path (or
+ * null on failure). The in-error tail is only a window; the full log carries the
+ * complete child stack — needed because a Node uncaught error prints the ORIGIN
+ * frames ABOVE the entry frames, so an 8-line tail shows only the bottom of the
+ * stack + the error object, never where it was thrown.
+ */
+function persistInstallLog(projectId: string, logBuffer: string[]): string | null {
+  try {
+    const dir = join(resolveHome(), '.specrails', 'logs')
+    mkdirSync(dir, { recursive: true })
+    const stamp = new Date().toISOString().replace(/[:.]/g, '-')
+    const file = join(dir, `setup-${projectId}-${stamp}.log`)
+    writeFileSync(file, logBuffer.join('\n') + '\n', { mode: 0o600 })
+    return file
+  } catch {
+    return null
+  }
+}
+
+function formatBufferedInstallError(baseMessage: string, logBuffer: string[], logPath?: string | null): string {
+  // Show a generous tail: a Node uncaught-exception dump is ~15-30 lines (header,
+  // stack frames, the `{errno,code,syscall,path}` object, version footer). 8 lines
+  // truncated to just the entry frames + error object, hiding the throw origin.
   const recentLines = logBuffer
     .map((line) => line.trim())
     .filter(Boolean)
-    .slice(-8)
+    .slice(-40)
 
-  if (recentLines.length === 0) return baseMessage
-
-  return [
-    baseMessage,
-    '',
-    'Recent output:',
-    ...recentLines.map((line) => `- ${line}`),
-  ].join('\n')
+  const parts = [baseMessage]
+  if (recentLines.length > 0) {
+    parts.push('', 'Recent output:', ...recentLines.map((line) => `- ${line}`))
+  }
+  if (logPath) {
+    parts.push('', `Full log: ${logPath}`)
+  }
+  return parts.join('\n')
 }
 
 export class SetupManager {
@@ -888,13 +911,29 @@ export class SetupManager {
       ? ['--yes', '--from-config', spawnConfigPath ?? configPath]
       : ['--yes', '--root-dir', projectPath]
 
+    // Seed the install log with a diagnostic header capturing the EXACT spawn
+    // (node interpreter, cli entry, cwd) + relevant env. This lands in the
+    // failure report so a Windows/packaged path issue (e.g. an EISDIR on the
+    // entry realpath) is diagnosable without server-console access.
+    const diagHeader: string[] = []
+    if (useBundledCore) {
+      diagHeader.push(
+        `[diag] node=${resolveBundledNodeExe() ?? process.execPath}`,
+        `[diag] cli=${getBundledCoreCli() ?? '<none>'}`,
+        `[diag] cwd=${projectPath}`,
+        `[diag] args=${initArgs.join(' ')}`,
+        `[diag] SPECRAILS_BUNDLED_RUNTIMES_PATH=${process.env.SPECRAILS_BUNDLED_RUNTIMES_PATH ?? '<unset>'}`,
+        `[diag] SPECRAILS_BUNDLED_CORE_PATH=${process.env.SPECRAILS_BUNDLED_CORE_PATH ?? '<unset>'}`,
+      )
+    }
+
     // Bundled core (offline, node <cli> init) when available, else legacy npx.
     const child = useBundledCore
       ? spawnBundledCoreInit(initArgs, projectPath)!
       : spawnCoreInit(initArgs, projectPath)
 
     this._installProcesses.set(projectId, child)
-    this._installLogBuffer.set(projectId, [])
+    this._installLogBuffer.set(projectId, diagHeader)
 
     // spawnCoreInit uses shell:false on POSIX, so a spawn failure emits 'error'
     // (and NOT 'close') — without this handler the temp config file leaks and
@@ -966,12 +1005,14 @@ export class SetupManager {
         validateCoreContract().catch(() => { /* non-fatal */ })
       } else {
         const logBuffer = this._installLogBuffer.get(projectId) ?? []
+        const logPath = persistInstallLog(projectId, logBuffer)
         this._broadcast({
           type: 'setup_error',
           projectId,
           error: formatBufferedInstallError(
             `${useBundledCore ? 'bundled specrails-core' : 'npx specrails-core'} exited with code ${code ?? 'unknown'}`,
             logBuffer,
+            logPath,
           ),
         })
       }
