@@ -250,6 +250,47 @@ describe('codexAdapter.parseStreamLine — fixture-based', () => {
     }
   })
 
+  it('parses item.completed command_execution (codex 0.139) as tool-use', () => {
+    const ev = codexAdapter.parseStreamLine(
+      '{"type":"item.completed","item":{"id":"item_2","type":"command_execution","command":"ls -la","exit_code":0}}',
+    )
+    expect(ev?.kind).toBe('tool-use')
+    if (ev?.kind === 'tool-use') {
+      expect(ev.name).toBe('ls -la')
+      expect(ev.inputPreview).toContain('ls -la')
+    }
+  })
+
+  it('parses item.completed mcp_tool_call (codex 0.139) as tool-use', () => {
+    const ev = codexAdapter.parseStreamLine(
+      '{"type":"item.completed","item":{"id":"item_3","type":"mcp_tool_call","name":"serena.find","arguments":"{}"}}',
+    )
+    expect(ev?.kind).toBe('tool-use')
+    if (ev?.kind === 'tool-use') expect(ev.name).toBe('serena.find')
+  })
+
+  it('surfaces turn.failed (codex 0.139) as kind=error with the nested message', () => {
+    const ev = codexAdapter.parseStreamLine(
+      '{"type":"turn.failed","error":{"message":"You\'ve hit your usage limit."}}',
+    )
+    expect(ev?.kind).toBe('error')
+    if (ev?.kind === 'error') expect(ev.message).toBe("You've hit your usage limit.")
+  })
+
+  it('surfaces a standalone error frame as kind=error', () => {
+    const ev = codexAdapter.parseStreamLine(
+      '{"type":"error","message":"model gpt-5.5 is not available on your plan"}',
+    )
+    expect(ev?.kind).toBe('error')
+    if (ev?.kind === 'error') expect(ev.message).toContain('not available')
+  })
+
+  it('falls back to a generic message when turn.failed carries no error.message', () => {
+    const ev = codexAdapter.parseStreamLine('{"type":"turn.failed"}')
+    expect(ev?.kind).toBe('error')
+    if (ev?.kind === 'error') expect(ev.message).toBe('codex turn failed')
+  })
+
   it('parses turn.completed as result', () => {
     const ev = codexAdapter.parseStreamLine(
       '{"type":"turn.completed","usage":{"input_tokens":100,"output_tokens":50}}',

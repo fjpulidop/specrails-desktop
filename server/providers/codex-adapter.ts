@@ -4,10 +4,20 @@
 //   {"type":"thread.started","thread_id":"<UUID>"}
 //   {"type":"turn.started"}
 //   {"type":"item.completed","item":{"id":"item_0","type":"agent_message","text":"..."}}
-//   {"type":"item.completed","item":{"id":"item_1","type":"function_call",
-//     "name":"shell","arguments":"..."}}
+//   {"type":"item.completed","item":{"id":"item_1","type":"command_execution",
+//     "command":"…","exit_code":0}}
 //   {"type":"turn.completed","usage":{"input_tokens":N,"cached_input_tokens":N,
 //     "output_tokens":N,"reasoning_output_tokens":N}}
+//
+// Failure path (codex 0.139.0+): a failing turn (usage limit, API 4xx, network,
+// sandbox error) emits `{"type":"error","message":"…"}` then
+// `{"type":"turn.failed","error":{"message":"…"}}` and the process exits 1 —
+// there is NO `turn.completed`. Both must be surfaced as `kind:'error'` or the
+// real reason is swallowed and the user sees an empty/failed turn with no cause.
+//
+// Tool/shell items were renamed across codex versions: 0.128 emitted
+// `function_call` / `local_shell_call`; 0.139 emits `command_execution` /
+// `mcp_tool_call`. The parser matches all four for forward/backward compat.
 //
 // Codex does not emit `total_cost_usd`; cost is estimated downstream via
 // server/pricing.ts. Codex does not honour Claude's OTEL env vars; signals are
@@ -147,16 +157,39 @@ function parseCodexStreamLine(line: string): AdapterEvent | null {
     return { kind: 'result', payload: parsed }
   }
 
+  // A failed turn (codex 0.139+) emits `error` then `turn.failed` and exits 1,
+  // with no `turn.completed`. Surface the reason instead of dropping it.
+  if (type === 'turn.failed') {
+    const err = parsed.error as { message?: string } | undefined
+    return { kind: 'error', message: err?.message ?? 'codex turn failed' }
+  }
+  if (type === 'error') {
+    const msg = parsed.message as string | undefined
+    return { kind: 'error', message: msg ?? 'codex error' }
+  }
+
   if (type === 'item.completed') {
-    const item = parsed.item as { type?: string; text?: string; name?: string; arguments?: string } | undefined
+    const item = parsed.item as { type?: string; text?: string; name?: string; arguments?: string; command?: string } | undefined
     if (item?.type === 'agent_message') {
       const text = item.text ?? ''
       if (text) return { kind: 'text-delta', text }
       return { kind: 'other', type, raw: parsed }
     }
-    if (item?.type === 'function_call' || item?.type === 'local_shell_call') {
-      const name = item.name ?? (item.type === 'local_shell_call' ? 'shell' : '<unnamed>')
-      const inputPreview = item.arguments ? item.arguments.slice(0, 200) : ''
+    // Tool/shell invocations. Names drifted across codex versions:
+    //   0.128 → function_call / local_shell_call (name + arguments)
+    //   0.139 → command_execution / mcp_tool_call (command)
+    if (
+      item?.type === 'command_execution' ||
+      item?.type === 'mcp_tool_call' ||
+      item?.type === 'function_call' ||
+      item?.type === 'local_shell_call'
+    ) {
+      const name =
+        item.name ??
+        item.command ??
+        (item.type === 'local_shell_call' || item.type === 'command_execution' ? 'shell' : '<unnamed>')
+      const rawInput = item.command ?? item.arguments ?? ''
+      const inputPreview = rawInput ? rawInput.slice(0, 200) : ''
       return { kind: 'tool-use', name, inputPreview }
     }
     return { kind: 'other', type, raw: parsed }

@@ -72,5 +72,17 @@ export function extractDisplayText(event: Record<string, unknown>): string | nul
   if (type === 'thread.started' || type === 'turn.started' || type === 'turn.completed') {
     return null
   }
+  // Codex failure frames (0.139+): surface the reason in the rail log instead of
+  // exiting with "failed, no reason". `turn.failed` nests the message under
+  // `error.message`; the standalone `error` frame carries it at `message`.
+  if (type === 'turn.failed') {
+    const err = event.error as { message?: string } | undefined
+    const msg = err?.message ?? ''
+    return `[turn failed]${msg ? ` ${msg}` : ''}`
+  }
+  if (type === 'error') {
+    const msg = (event.message as string | undefined) ?? ''
+    return `[error]${msg ? ` ${msg}` : ''}`
+  }
   return null
 }

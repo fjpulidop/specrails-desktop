@@ -745,6 +745,10 @@ export class ChatManager {
     /** True iff a kind:'result' event has arrived; mirrors the legacy
      *  `lastResultEvent !== null` check that the crash-respawn guard uses. */
     let sawResult = false
+    /** Explicit failure reason emitted by the provider (codex `turn.failed` /
+     *  `error`). When set, the turn failed for a concrete reason (usage limit,
+     *  auth, model) that a respawn cannot fix — surface it instead of retrying. */
+    let capturedErrorMessage: string | null = null
     const turnStartedAt = new Date().toISOString()
 
     const stdoutReader = createInterface({ input: child.stdout!, crlfDelay: Infinity })
@@ -810,6 +814,11 @@ export class ChatManager {
             if (sid) capturedSessionId = sid
           }
           break
+        case 'error':
+          // Capture the provider's explicit failure reason. Last-wins (codex
+          // emits `error` then `turn.failed`, both carrying the same message).
+          capturedErrorMessage = ev.message
+          break
         case 'tool-use':
         case 'other':
           // No-op for ChatManager — adapter parses tool_use into the unified
@@ -836,7 +845,10 @@ export class ChatManager {
           conversation.kind === 'explore' &&
           !wasAborting &&
           code !== 0 &&
-          !sawResult
+          !sawResult &&
+          // A provider-reported failure (usage limit, auth, unsupported model)
+          // will recur identically on respawn — surface it instead of retrying.
+          !capturedErrorMessage
         ) {
           const life = this._exploreLifecycle.get(conversationId)
           if (life && life.crashCount === 0) {
@@ -1022,12 +1034,17 @@ export class ChatManager {
           }
         } else {
           const stderrTail = stderrBuf.trim().slice(-500)
+          // Prefer the provider's own failure reason (codex turn.failed/error)
+          // over the generic exit-code/stderr message.
+          const error = capturedErrorMessage
+            ? capturedErrorMessage
+            : stderrTail
+              ? `${binary} exited with code ${code ?? 'unknown'}: ${stderrTail}`
+              : `Process exited with code ${code ?? 'unknown'}`
           this._broadcast({
             type: 'chat_error',
             conversationId,
-            error: stderrTail
-              ? `${binary} exited with code ${code ?? 'unknown'}: ${stderrTail}`
-              : `Process exited with code ${code ?? 'unknown'}`,
+            error,
             timestamp: new Date().toISOString(),
           })
         }
