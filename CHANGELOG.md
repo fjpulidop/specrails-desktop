@@ -1,5 +1,13 @@
 # Changelog
 
+## [2.11.1](https://github.com/fjpulidop/specrails-desktop/compare/v2.11.0...v2.11.1) (2026-06-19)
+
+
+### Bug Fixes
+
+* **windows:** inject SystemRoot env at the spawnCli chokepoint ([#421](https://github.com/fjpulidop/specrails-desktop/issues/421)) ([b0d21e2](https://github.com/fjpulidop/specrails-desktop/commit/b0d21e24c8a2267b86bf2ca258e1eda8a37dff80))
+* **windows:** repair bundled-runtime probe + packaged core spawns ([#419](https://github.com/fjpulidop/specrails-desktop/issues/419)) ([c99f74a](https://github.com/fjpulidop/specrails-desktop/commit/c99f74a953f6e51b99ebb9bb25f742d2a2bb7f7d))
+
 ## [2.11.0](https://github.com/fjpulidop/specrails-desktop/compare/v2.10.1...v2.11.0) (2026-06-19)
 
 
