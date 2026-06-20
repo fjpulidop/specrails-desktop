@@ -102,4 +102,22 @@ jobs:
           & $node --stack-trace-limit=100 $osCli init --tools claude 2>&1 | Tee-Object -FilePath "$env:RUNNER_TEMP\openspec-init-cwd.log"
           Write-Host "=== OPENSPEC(cwd) EXIT=$LASTEXITCODE ==="
 
-          if ($osCode -ne 0) { exit 1 }
+          # ── MOST FAITHFUL: full core init on a C:\ repo path WITH A SPACE, with
+          #    bundled openspec wired in (NOT skipped) — exactly the user's flow. ──
+          Write-Host "=== faithful repro: C:\ spaced repo + bundled openspec wired ==="
+          $userBase = "C:\Users\$env:USERNAME"
+          $repo2 = Join-Path $userBase "Specrails Repro Repo"   # space in path
+          $home3 = Join-Path $userBase ".specrails-repro"
+          New-Item -ItemType Directory -Force -Path $repo2, $home3 | Out-Null
+          Set-Location $repo2
+          git init -q; git config user.email ci@specrails.dev; git config user.name ci
+          Write-Host "repo2=$repo2"
+          $env:SPECRAILS_REGISTRY_HOME = $home3
+          $env:SPECRAILS_SKIP_OPENSPEC_INIT = $null   # DO run openspec
+          $env:SPECRAILS_OPENSPEC_BIN = $osCli
+          $env:SPECRAILS_OPENSPEC_NODE = $node
+          & $node --stack-trace-limit=100 $cli init --yes --from-config $cfg --root-dir "$repo2" 2>&1 | Tee-Object -FilePath "$env:RUNNER_TEMP\faithful.log"
+          $fCode = $LASTEXITCODE
+          Write-Host "=== FAITHFUL EXIT=$fCode ==="
+
+          if ($osCode -ne 0 -or $fCode -ne 0) { exit 1 }
