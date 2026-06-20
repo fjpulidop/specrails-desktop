@@ -1,5 +1,12 @@
 # Changelog
 
+## [2.11.2](https://github.com/fjpulidop/specrails-desktop/compare/v2.11.1...v2.11.2) (2026-06-20)
+
+
+### Bug Fixes
+
+* **windows:** probe bundled npm/npx via node-direct, not the .cmd shim ([#422](https://github.com/fjpulidop/specrails-desktop/issues/422)) ([4f8135f](https://github.com/fjpulidop/specrails-desktop/commit/4f8135f8d35f4fc913652f96e5653f172c495e01))
+
 ## [2.11.1](https://github.com/fjpulidop/specrails-desktop/compare/v2.11.0...v2.11.1) (2026-06-19)
 
 
