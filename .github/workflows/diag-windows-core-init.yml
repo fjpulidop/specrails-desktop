@@ -66,6 +66,10 @@ jobs:
           $env:SPECRAILS_CORE_SCRIPT_DIR = $env:CORE_ROOT
           $env:SPECRAILS_RELOCATE = "${{ github.event.inputs.relocate }}"
           $env:SPECRAILS_SKIP_OPENSPEC_INIT = "1"
+          # The CI runner has no Claude auth; skip the prereq/auth gate so we reach
+          # the SAME post-prereqs path code (resolveArtifacts/scaffold) where the
+          # user — who IS authenticated — hits the EISDIR. Provider comes from config.
+          $env:SPECRAILS_SKIP_PREREQS = "1"
 
           Write-Host "=== running core init ==="
           & $node $cli init --yes --from-config $cfg 2>&1 | Tee-Object -FilePath "$env:RUNNER_TEMP\core-init.log"
