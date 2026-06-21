@@ -168,7 +168,7 @@ describe('QueueManager', () => {
       const result = qm.cancel('job-running')
 
       expect(result).toBe('canceling')
-      expect(vi.mocked(treeKill)).toHaveBeenCalledWith(12345, 'SIGTERM')
+      expect(vi.mocked(treeKill)).toHaveBeenCalledWith(12345, 'SIGTERM', expect.any(Function))
     })
 
     it('on a non-existent ID: throws JobNotFoundError', () => {
@@ -400,7 +400,7 @@ describe('QueueManager', () => {
       // Advance past 5s timeout
       vi.advanceTimersByTime(5100)
 
-      expect(vi.mocked(treeKill)).toHaveBeenCalledWith(12345, 'SIGTERM')
+      expect(vi.mocked(treeKill)).toHaveBeenCalledWith(12345, 'SIGTERM', expect.any(Function))
       expect(vi.mocked(treeKill)).toHaveBeenCalledWith(12345, 'SIGKILL', expect.any(Function))
 
       vi.useRealTimers()
@@ -460,7 +460,7 @@ describe('QueueManager', () => {
       // Advance past the 30s zombie timeout
       vi.advanceTimersByTime(30_100)
 
-      expect(vi.mocked(treeKill)).toHaveBeenCalledWith(12345, 'SIGTERM')
+      expect(vi.mocked(treeKill)).toHaveBeenCalledWith(12345, 'SIGTERM', expect.any(Function))
 
       vi.clearAllTimers()
       vi.useRealTimers()
@@ -534,7 +534,7 @@ describe('QueueManager', () => {
       qmCancel.cancel('job-cancel')
 
       // The cancel itself sends SIGTERM
-      expect(vi.mocked(treeKill)).toHaveBeenCalledWith(12345, 'SIGTERM')
+      expect(vi.mocked(treeKill)).toHaveBeenCalledWith(12345, 'SIGTERM', expect.any(Function))
 
       // Advance well past the zombie timeout — kill timer (5s) will fire SIGKILL,
       // but the zombie timer (30s) should have been cleared by cancel
@@ -605,7 +605,7 @@ describe('QueueManager', () => {
 
       vi.advanceTimersByTime(5_100)
 
-      expect(vi.mocked(treeKill)).toHaveBeenCalledWith(12345, 'SIGTERM')
+      expect(vi.mocked(treeKill)).toHaveBeenCalledWith(12345, 'SIGTERM', expect.any(Function))
 
       vi.clearAllTimers()
       vi.useRealTimers()
@@ -2181,7 +2181,7 @@ describe('QueueManager', () => {
       qm2.enqueue('/implement #1')
       qm2.shutdown()
 
-      expect(vi.mocked(treeKill)).toHaveBeenCalledWith(12345, 'SIGTERM')
+      expect(vi.mocked(treeKill)).toHaveBeenCalledWith(12345, 'SIGTERM', expect.any(Function))
 
       // Close the DB out from under the manager, then deliver the late 'close'
       // the dying child eventually emits. Pre-fix this threw "database

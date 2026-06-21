@@ -211,6 +211,11 @@ export function registerJobsRoutes(deps: ProjectRoutesDeps): void {
         deleteJob(ctx(req).db, req.params.id as string)
         res.json({ ok: true, status: 'deleted' })
       } else {
+        // Surface the real error (name/message/stack) so an unexpected cancel
+        // failure — e.g. a Windows kill throw — is identifiable instead of being
+        // masked as a bare "Internal server error".
+        const e = err as Error
+        console.error(`[jobs] cancel ${req.params.id} failed: ${e?.name}: ${e?.message}\n${e?.stack ?? ''}`)
         res.status(500).json({ error: 'Internal server error' })
       }
     }

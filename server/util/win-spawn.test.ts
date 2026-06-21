@@ -5,17 +5,20 @@ import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
 // the binary handed to it on the win32 path.
 vi.mock('child_process', async (orig) => {
   const actual = await orig<typeof import('child_process')>()
-  return { ...actual, execFileSync: vi.fn() }
+  return { ...actual, execFileSync: vi.fn(), execFile: vi.fn() }
 })
 vi.mock('cross-spawn', () => ({ default: vi.fn(() => ({ pid: 1, on: vi.fn() })) }))
+vi.mock('tree-kill', () => ({ default: vi.fn() }))
 
-import { execFileSync } from 'child_process'
+import { execFileSync, execFile } from 'child_process'
 import crossSpawn from 'cross-spawn'
+import treeKill from 'tree-kill'
 import {
   spawnCli,
   resolveWindowsBinary,
   windowsSpawnEnv,
   stripWindowsVerbatimPrefix,
+  treeKillSafe,
   __resetWindowsBinaryResolveCacheForTest,
 } from './win-spawn'
 
@@ -153,6 +156,44 @@ describe('resolveWindowsBinary', () => {
       expect(resolveWindowsBinary('claude')).toBe('C:\\x\\claude.cmd')
       expect(vi.mocked(execFileSync)).toHaveBeenCalledTimes(1)
     })
+  })
+})
+
+describe('treeKillSafe', () => {
+  beforeEach(() => {
+    vi.mocked(treeKill).mockReset()
+    vi.mocked(execFile).mockReset()
+  })
+  afterEach(restorePlatform)
+
+  it('on POSIX delegates to tree-kill (with a callback) and forwards the result', () => {
+    if (process.platform === 'win32') return
+    const cb = vi.fn()
+    treeKillSafe(4321, 'SIGTERM', cb)
+    expect(vi.mocked(treeKill)).toHaveBeenCalledWith(4321, 'SIGTERM', expect.any(Function))
+    expect(vi.mocked(execFile)).not.toHaveBeenCalled()
+    // tree-kill reports success → cb(undefined); error → cb(err).
+    const wrapped = vi.mocked(treeKill).mock.calls[0][2] as (e?: Error | null) => void
+    wrapped(null)
+    expect(cb).toHaveBeenCalledWith(undefined)
+    const err = new Error('boom')
+    wrapped(err)
+    expect(cb).toHaveBeenCalledWith(err)
+  })
+
+  it('on win32 invokes an ABSOLUTE taskkill.exe with a SystemRoot-backfilled env (PATH-independent)', () => {
+    asWin32()
+    const cb = vi.fn()
+    treeKillSafe(9988, 'SIGKILL', cb)
+    expect(vi.mocked(treeKill)).not.toHaveBeenCalled()
+    expect(vi.mocked(execFile)).toHaveBeenCalledTimes(1)
+    const [bin, args, opts] = vi.mocked(execFile).mock.calls[0] as [string, string[], { env: NodeJS.ProcessEnv }]
+    // Separator-agnostic: path.join uses '/' when the suite runs on macOS even
+    // with process.platform mocked to win32.
+    expect(/system32[\\/]taskkill\.exe$/i.test(bin)).toBe(true)
+    expect(bin.toLowerCase()).toContain('windows') // absolute, under %SystemRoot%
+    expect(args).toEqual(['/pid', '9988', '/T', '/F'])
+    expect(opts.env.SystemRoot).toBeTruthy() // windowsSpawnEnv applied
   })
 })
 

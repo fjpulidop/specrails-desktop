@@ -154,6 +154,16 @@ function windowsGlobalBinDirs(): string[] {
     dirs.push(path.join(userProfile, '.local', 'bin'))
     dirs.push(path.join(userProfile, 'scoop', 'shims'))
   }
+  // Windows system dirs. A GUI-launched / pkg-stripped sidecar can inherit a PATH
+  // missing %SystemRoot%\System32 — which holds `taskkill`/`where`, and \Wbem
+  // holds `wmic`. Without them, cmd.exe-mediated tools fail: `tree-kill`'s
+  // `taskkill` silently no-ops (a cancelled rail keeps running). Existence-gated
+  // by the callers; harmless when already present (the common case).
+  const systemRoot = process.env.SystemRoot || process.env.windir
+  if (systemRoot) {
+    dirs.push(path.join(systemRoot, 'System32'))
+    dirs.push(path.join(systemRoot, 'System32', 'Wbem'))
+  }
   return dirs
 }
 
