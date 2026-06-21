@@ -20,10 +20,42 @@
 // args so newlines and shell metacharacters survive intact, and on
 // POSIX it falls through to the native `child_process.spawn`.
 
-import { spawn, execFileSync } from 'child_process'
+import { spawn, execFileSync, execFile } from 'child_process'
 import path from 'path'
 import type { ChildProcess, SpawnOptions } from 'child_process'
 import crossSpawn from 'cross-spawn'
+import treeKill from 'tree-kill'
+
+/**
+ * Kill a process tree, robustly on Windows. `tree-kill` shells out to
+ * `exec('taskkill /pid … /T /F')` through cmd.exe, which resolves `taskkill`
+ * against the spawn env's PATH — but `taskkill.exe` lives in
+ * `%SystemRoot%\System32`, which a GUI-launched / pkg-stripped sidecar's PATH can
+ * lack, so the kill silently no-ops (the rail keeps running) and, with no
+ * callback, the failure is swallowed. Here we instead invoke the ABSOLUTE
+ * `taskkill.exe` with a SystemRoot-backfilled env (`windowsSpawnEnv`), so the
+ * kill never depends on PATH. POSIX delegates to `tree-kill` unchanged
+ * (byte-identical). Errors are always surfaced via `callback`.
+ */
+export function treeKillSafe(pid: number, signal: string | undefined, callback?: (err?: Error) => void): void {
+  const done = (err?: Error) => { if (callback) callback(err) }
+  if (process.platform !== 'win32') {
+    treeKill(pid, signal, (err) => done(err ?? undefined))
+    return
+  }
+  /* c8 ignore start -- Windows-only branch; coverage runs on Linux/macOS */
+  try {
+    const env = windowsSpawnEnv()
+    const systemRoot = (env.SystemRoot || env.windir || 'C:\\Windows').replace(/[\\/]$/, '')
+    const taskkill = path.join(systemRoot, 'System32', 'taskkill.exe')
+    // /T = whole tree, /F = force. taskkill has no SIGTERM/SIGKILL distinction;
+    // `tree-kill` already always force-kills on win32, so behaviour is unchanged.
+    execFile(taskkill, ['/pid', String(pid), '/T', '/F'], { env }, (err) => done(err ?? undefined))
+  } catch (err) {
+    done(err as Error)
+  }
+  /* c8 ignore stop */
+}
 
 export function spawnCli(
   binary: string,

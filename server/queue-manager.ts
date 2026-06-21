@@ -3,7 +3,7 @@ import fsNode from 'fs'
 import pathNode from 'path'
 import { createInterface } from 'readline'
 import { newId as uuidv4 } from './ids'
-import treeKill from 'tree-kill'
+import { treeKillSafe } from './util/win-spawn'
 import type { WsMessage, LogMessage, Job, PhaseDefinition, JobPriority } from './types'
 import { PRIORITY_WEIGHT, VALID_PRIORITIES } from './types'
 import { resolveCommand } from './command-resolver'
@@ -358,11 +358,11 @@ export class QueueManager {
     if (proc && proc.pid) {
       const pid = proc.pid
       try {
-        treeKill(pid, 'SIGTERM')
+        treeKillSafe(pid, 'SIGTERM', () => { /* best-effort on shutdown */ })
       } catch { /* best-effort */ }
       const grace = setTimeout(() => {
         try {
-          treeKill(pid, 'SIGKILL', () => { /* ignore */ })
+          treeKillSafe(pid, 'SIGKILL', () => { /* ignore */ })
         } catch { /* best-effort */ }
       }, 5000)
       // Do not let the grace timer keep the process alive on real shutdown.
@@ -2003,11 +2003,21 @@ export class QueueManager {
       clearTimeout(this._killTimer)
       this._killTimer = null
     }
-    treeKill(this._activeProcess.pid, 'SIGTERM')
-
     const pid = this._activeProcess.pid
+    // treeKillSafe never throws synchronously, but wrap defensively so a kill
+    // failure can NEVER propagate into the cancel HTTP route as a 500. On Windows
+    // it invokes an absolute taskkill (PATH-independent) so the tree is actually
+    // killed; the callback surfaces any failure instead of swallowing it.
+    try {
+      treeKillSafe(pid, 'SIGTERM', (err) => {
+        if (err) console.error(`[kill] SIGTERM tree-kill failed for pid ${pid}: ${err.message}`)
+      })
+    } catch (err) {
+      console.error(`[kill] SIGTERM tree-kill threw for pid ${pid}: ${(err as Error).message}`)
+    }
+
     this._killTimer = setTimeout(() => {
-      treeKill(pid, 'SIGKILL', (err) => {
+      treeKillSafe(pid, 'SIGKILL', (err) => {
         if (err) {
           // SIGKILL failed — force cleanup so queue is not permanently blocked.
           console.error(`[kill] SIGKILL failed for pid ${pid}: ${err.message}`)
