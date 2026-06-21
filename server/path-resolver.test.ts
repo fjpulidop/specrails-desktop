@@ -126,6 +126,37 @@ describe('resolveStartupPath (fast path)', () => {
     expect(diag.pathSources[0]).toBe('fast-path')
     expect(diag.pathSources[diag.pathSources.length - 1]).toBe('inherited')
   })
+
+  it('prepends non-npm provider-CLI install dirs on win32 (native installer / version managers)', () => {
+    // Claude Code's native Windows installer lands under %LOCALAPPDATA%\Programs
+    // and adds %USERPROFILE%\.local\bin to PATH; a GUI-launched process can lack
+    // these, so `where claude` / cross-spawn fail. They must be prepended too.
+    setPlatform('win32')
+    const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'winbins-'))
+    const programs = path.join(tmp, 'Programs')
+    const localBin = path.join(tmp, '.local', 'bin')
+    fs.mkdirSync(programs, { recursive: true })
+    fs.mkdirSync(localBin, { recursive: true })
+    const prev = { APPDATA: process.env.APPDATA, LOCALAPPDATA: process.env.LOCALAPPDATA, USERPROFILE: process.env.USERPROFILE, PF: process.env.ProgramFiles }
+    delete process.env.APPDATA
+    delete process.env.ProgramFiles
+    process.env.LOCALAPPDATA = tmp
+    process.env.USERPROFILE = tmp
+    process.env.PATH = 'C:\\Windows\\System32'
+    try {
+      resolveStartupPath()
+      const segs = (process.env.PATH ?? '').split(';')
+      expect(segs).toContain(programs)
+      expect(segs).toContain(localBin)
+      expect(segs).toContain('C:\\Windows\\System32') // inherited preserved
+    } finally {
+      if (prev.APPDATA === undefined) delete process.env.APPDATA; else process.env.APPDATA = prev.APPDATA
+      if (prev.LOCALAPPDATA === undefined) delete process.env.LOCALAPPDATA; else process.env.LOCALAPPDATA = prev.LOCALAPPDATA
+      if (prev.USERPROFILE === undefined) delete process.env.USERPROFILE; else process.env.USERPROFILE = prev.USERPROFILE
+      if (prev.PF === undefined) delete process.env.ProgramFiles; else process.env.ProgramFiles = prev.PF
+      fs.rmSync(tmp, { recursive: true, force: true })
+    }
+  })
 })
 
 describe('parseLoginShellOutput', () => {

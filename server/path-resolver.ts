@@ -133,10 +133,27 @@ function fastPathDirectories(): string[] {
 function windowsGlobalBinDirs(): string[] {
   if (process.platform !== 'win32') return []
   const dirs: string[] = []
+  const appData = process.env.APPDATA
+  const localAppData = process.env.LOCALAPPDATA
+  const userProfile = process.env.USERPROFILE
   // Default per-user npm prefix: shims (`claude.cmd` …) live in the prefix ROOT.
-  if (process.env.APPDATA) dirs.push(path.join(process.env.APPDATA, 'npm'))
+  if (appData) dirs.push(path.join(appData, 'npm'))
   // Machine-wide Node install (also where a machine-scope npm prefix points).
   if (process.env.ProgramFiles) dirs.push(path.join(process.env.ProgramFiles, 'nodejs'))
+  // Provider CLIs are NOT always npm-global. Claude Code's native Windows
+  // installer drops its shim under %LOCALAPPDATA%\Programs and adds
+  // %USERPROFILE%\.local\bin to PATH; version managers (Volta) and scoop use
+  // their own shim dirs. A GUI-launched process can inherit a PATH missing these
+  // (so `where claude` / cross-spawn fail → "claude no se reconoce"). Add the
+  // common locations; all are existence-gated + deduped by the callers.
+  if (localAppData) {
+    dirs.push(path.join(localAppData, 'Programs'))
+    dirs.push(path.join(localAppData, 'Volta', 'bin'))
+  }
+  if (userProfile) {
+    dirs.push(path.join(userProfile, '.local', 'bin'))
+    dirs.push(path.join(userProfile, 'scoop', 'shims'))
+  }
   return dirs
 }
 

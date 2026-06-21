@@ -20,7 +20,8 @@
 // args so newlines and shell metacharacters survive intact, and on
 // POSIX it falls through to the native `child_process.spawn`.
 
-import { spawn } from 'child_process'
+import { spawn, execFileSync } from 'child_process'
+import path from 'path'
 import type { ChildProcess, SpawnOptions } from 'child_process'
 import crossSpawn from 'cross-spawn'
 
@@ -29,13 +30,17 @@ export function spawnCli(
   args: string[],
   options: SpawnOptions = {},
 ): ChildProcess {
-  /* c8 ignore next 5 -- Windows-only branch; coverage runs on Linux/macOS */
+  /* c8 ignore next 8 -- Windows-only branch; coverage runs on Linux/macOS */
   if (process.platform === 'win32') {
-    // Guarantee SystemRoot/ComSpec so cmd.exe (which cross-spawn uses to run
-    // `.cmd` shims like claude.cmd/npm.cmd) can start even when the packaged
-    // sidecar inherited a stripped environment. Chokepoint for EVERY Windows
-    // spawn — protects rails, chat, setup and probes uniformly.
-    return crossSpawn(binary, args, { ...options, env: windowsSpawnEnv(options.env) })
+    // Resolve the bare CLI name (`claude`/`codex`/`gemini`/`npx`…) to its
+    // ABSOLUTE shim path first. cross-spawn's internal `which.sync` can fail to
+    // locate the `.cmd` even when the cmd.exe `where` builtin finds it (PATH
+    // format / reparse-point / resolver divergence); on a miss it silently
+    // degrades to `cmd.exe /c "claude …"`, and cmd.exe then re-resolves the bare
+    // name and prints `"claude" no se reconoce…` → the job dies with code 1.
+    // Spawning the resolved absolute path bypasses that bare-name lookup. Plus
+    // the SystemRoot/ComSpec backfill so cmd.exe can start under a stripped env.
+    return crossSpawn(resolveWindowsBinary(binary), args, { ...options, env: windowsSpawnEnv(options.env) })
   }
 
   return spawn(binary, args, options)
@@ -99,9 +104,62 @@ export function stripWindowsVerbatimPrefix(p: string): string {
   return p
 }
 
-// Back-compat for callsites that only need the resolved binary
-// (e.g. logging). Kept as a no-op identity on POSIX; on Windows
-// `where`-based resolution lives inside cross-spawn now.
+// Resolution cache: a binary's absolute shim path changes rarely, and `where`
+// is a synchronous subprocess. Memoize per-name with a short TTL (mirrors
+// binary-probe). A freshly (re)installed CLI is picked up after at most the TTL.
+const RESOLVE_TTL_MS = 30_000
+const _resolveCache = new Map<string, { at: number; resolved: string }>()
+
+/** Prefer a cmd.exe-runnable shim: `.cmd`/`.bat` and `.exe` over `.ps1`
+ *  (PowerShell scripts cannot be run by `cmd.exe /c` directly). */
+function rankWindowsExecExt(p: string): number {
+  const lower = p.toLowerCase()
+  if (lower.endsWith('.cmd') || lower.endsWith('.bat')) return 0
+  if (lower.endsWith('.exe') || lower.endsWith('.com')) return 1
+  if (lower.endsWith('.ps1')) return 3
+  return 2
+}
+
+/**
+ * Resolve a bare command name to its absolute path on Windows via the `where`
+ * builtin (PATHEXT-aware, the same resolver the pre-spawn `binaryOnPath` gate
+ * uses — so when that gate passed, this succeeds too). Returns the bare name
+ * unchanged on POSIX (byte-identical), when `name` is already a path, or on any
+ * failure (graceful fallback to the prior cross-spawn behaviour). Cached.
+ */
 export function resolveWindowsBinary(name: string): string {
-  return name
+  if (process.platform !== 'win32') return name
+  // Already a path (absolute or with a separator) → nothing to resolve. Use
+  // win32 path semantics: `where` output and Windows paths use `C:\…`, which the
+  // host's default `path` module would misjudge when these run under tests.
+  if (path.win32.isAbsolute(name) || name.includes('\\') || name.includes('/')) return name
+  const now = Date.now()
+  const hit = _resolveCache.get(name)
+  if (hit && now - hit.at < RESOLVE_TTL_MS) return hit.resolved
+  let resolved = name
+  try {
+    const out = execFileSync('where', [name], {
+      env: windowsSpawnEnv(),
+      encoding: 'utf-8',
+      stdio: ['ignore', 'pipe', 'ignore'],
+      timeout: 5000,
+    })
+    const candidates = out
+      .split(/\r?\n/)
+      .map((s) => s.trim())
+      .filter((s) => s.length > 0 && path.win32.isAbsolute(s))
+    if (candidates.length > 0) {
+      candidates.sort((a, b) => rankWindowsExecExt(a) - rankWindowsExecExt(b))
+      resolved = candidates[0]
+    }
+  } catch {
+    /* `where` missing/failed → keep the bare name; cross-spawn/cmd.exe will try. */
+  }
+  _resolveCache.set(name, { at: now, resolved })
+  return resolved
+}
+
+/** Test-only: clear the resolution memo so each test re-resolves. */
+export function __resetWindowsBinaryResolveCacheForTest(): void {
+  _resolveCache.clear()
 }
