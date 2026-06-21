@@ -1,5 +1,14 @@
 # Changelog
 
+## [2.11.7](https://github.com/fjpulidop/specrails-desktop/compare/v2.11.6...v2.11.7) (2026-06-20)
+
+
+### Bug Fixes
+
+* **codex:** surface turn.failed/error + handle command_execution (codex 0.139 schema drift) ([#444](https://github.com/fjpulidop/specrails-desktop/issues/444)) ([6f7731b](https://github.com/fjpulidop/specrails-desktop/commit/6f7731b0f9e87a08926967b781de6257c45db1a2))
+* **explore:** give gemini the project context + show the real provider in the bubble ([#447](https://github.com/fjpulidop/specrails-desktop/issues/447)) ([198813d](https://github.com/fjpulidop/specrails-desktop/commit/198813dcddaac6abf3277a52da8f63ac2c874f60))
+* **gemini:** detect binary on packaged Windows + stop macOS keychain re-prompts ([#446](https://github.com/fjpulidop/specrails-desktop/issues/446)) ([97699a8](https://github.com/fjpulidop/specrails-desktop/commit/97699a88a489f40e82f351d1399f47a953b7446d))
+
 ## [2.11.6](https://github.com/fjpulidop/specrails-desktop/compare/v2.11.5...v2.11.6) (2026-06-20)
 
 
