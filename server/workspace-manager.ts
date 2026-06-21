@@ -1,9 +1,82 @@
 import fs from 'fs'
 import path from 'path'
 
-import { FrameworkManager } from './framework-manager'
+import { FrameworkManager, frameworkRoot } from './framework-manager'
 import { migrateWorkspaceToSymlinks } from './framework-migration'
 import { resolveHome } from './artifact-registry'
+
+/** Highest-first semver-ish sort for framework version dir names. */
+function compareFrameworkVersionDesc(a: string, b: string): number {
+  const pa = a.split('.').map((n) => parseInt(n, 10))
+  const pb = b.split('.').map((n) => parseInt(n, 10))
+  for (let i = 0; i < 3; i++) {
+    const x = pa[i] ?? 0
+    const y = pb[i] ?? 0
+    if (x !== y) return y - x
+  }
+  return 0
+}
+
+/**
+ * Windows repair: ensure the workspace's `<providerDir>/agents` holds the
+ * framework's `sr-*` agent definitions, copied from the REAL versioned framework
+ * dir (`~/.specrails/framework/<version>/<providerDir>/agents`).
+ *
+ * Why: on Windows the `framework/current` JUNCTION can be untraversable by Node's
+ * `fs` ("UNKNOWN: scandir" / "untrusted mount point"); the bundled core's
+ * `assemble` sources the agents THROUGH `current`, so `linkAgentFiles` reads
+ * nothing and the workspace ends up with NO `sr-*` agents — the implement
+ * pipeline then has no sub-agents to delegate to (architect/developer/reviewer)
+ * and silently runs everything inline. The versioned dir is a real, traversable
+ * directory, so we read it directly. (The proper fix lives in core's `assemble`;
+ * this repairs already-broken installs without waiting for a core republish, and
+ * mirrors exactly what the fixed core does on Windows — copy from the version
+ * dir.) `assemble` never re-runs on a rail spawn, so a workspace broken at setup
+ * stays broken; this runs per rail spawn to self-heal it.
+ *
+ * NO-OP on POSIX (per-file symlinks already populate the workspace correctly;
+ * byte-identical). Additive (never touches user `custom-*.md`) + idempotent.
+ * Returns the number of agents copied.
+ */
+export function ensureFrameworkAgents(workspaceDir: string, providerDir: string, home?: string): number {
+  if (process.platform !== 'win32') return 0
+  const root = frameworkRoot(home)
+  // Resolve the framework version by listing REAL version dirs — NOT via the
+  // `current` junction (which is the very thing that may be untraversable here).
+  let version: string | undefined
+  try {
+    version = fs
+      .readdirSync(root)
+      .filter((n) => /^\d+\.\d+\.\d+$/.test(n))
+      .sort(compareFrameworkVersionDesc)[0]
+  } catch {
+    return 0
+  }
+  if (!version) return 0
+  const src = path.join(root, version, providerDir, 'agents')
+  let entries: string[]
+  try {
+    entries = fs.readdirSync(src)
+  } catch {
+    return 0 // framework agents not materialized for this provider
+  }
+  const dest = path.join(workspaceDir, providerDir, 'agents')
+  let copied = 0
+  for (const name of entries) {
+    // Framework agents only; never clobber a user/plugin `custom-*.md`.
+    if (!name.endsWith('.md') || name.startsWith('custom-')) continue
+    const destFile = path.join(dest, name)
+    if (fs.existsSync(destFile)) continue
+    try {
+      fs.mkdirSync(dest, { recursive: true })
+      fs.copyFileSync(path.join(src, name), destFile)
+      copied += 1
+    } catch {
+      /* best-effort per file — one failure must never abort the rail spawn */
+    }
+  }
+  return copied
+}
 
 /**
  * WorkspaceManager — a reusable materializer for the per-project workspace dir

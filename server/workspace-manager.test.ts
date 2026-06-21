@@ -7,6 +7,7 @@ import {
   removeWorkspace,
   workspacePathFor,
   assembleWorkspaceFramework,
+  ensureFrameworkAgents,
 } from './workspace-manager'
 import { FrameworkManager } from './framework-manager'
 
@@ -31,6 +32,62 @@ describe('workspace-manager', () => {
     expect(workspacePathFor('myslug', home)).toBe(
       path.join(home, '.specrails', 'projects', 'myslug', 'workspace'),
     )
+  })
+
+  describe('ensureFrameworkAgents (win32 repair)', () => {
+    const ORIG = process.platform
+    const win32 = () => Object.defineProperty(process, 'platform', { value: 'win32', configurable: true })
+    afterEach(() => Object.defineProperty(process, 'platform', { value: ORIG, configurable: true }))
+
+    function seedFramework(version = '4.10.0', agents = ['sr-architect', 'sr-developer', 'sr-reviewer']): void {
+      const dir = path.join(home, '.specrails', 'framework', version, '.claude', 'agents')
+      fs.mkdirSync(dir, { recursive: true })
+      for (const a of agents) fs.writeFileSync(path.join(dir, `${a}.md`), `# ${a}\n`)
+    }
+
+    it('copies the framework sr-* agents from the version dir into an empty workspace', () => {
+      win32()
+      seedFramework()
+      const ws = workspacePathFor('acme', home)
+      fs.mkdirSync(path.join(ws, '.claude', 'agents'), { recursive: true })
+      expect(ensureFrameworkAgents(ws, '.claude', home)).toBe(3)
+      expect(fs.existsSync(path.join(ws, '.claude', 'agents', 'sr-architect.md'))).toBe(true)
+      expect(fs.readFileSync(path.join(ws, '.claude', 'agents', 'sr-developer.md'), 'utf8')).toBe('# sr-developer\n')
+    })
+
+    it('preserves user custom-*.md and is idempotent', () => {
+      win32()
+      seedFramework()
+      const ws = workspacePathFor('acme', home)
+      const agentsDir = path.join(ws, '.claude', 'agents')
+      fs.mkdirSync(agentsDir, { recursive: true })
+      fs.writeFileSync(path.join(agentsDir, 'custom-mine.md'), 'mine\n')
+      expect(ensureFrameworkAgents(ws, '.claude', home)).toBe(3)
+      expect(fs.readFileSync(path.join(agentsDir, 'custom-mine.md'), 'utf8')).toBe('mine\n') // preserved
+      expect(ensureFrameworkAgents(ws, '.claude', home)).toBe(0) // idempotent
+    })
+
+    it('picks the highest framework version dir', () => {
+      win32()
+      seedFramework('4.9.0', ['sr-architect'])
+      seedFramework('4.10.0', ['sr-architect', 'sr-developer'])
+      const ws = workspacePathFor('acme', home)
+      expect(ensureFrameworkAgents(ws, '.claude', home)).toBe(2) // from 4.10.0, not 4.9.0
+    })
+
+    it('is a NO-OP on POSIX (the assemble symlinks already populate agents)', () => {
+      Object.defineProperty(process, 'platform', { value: 'linux', configurable: true })
+      seedFramework()
+      const ws = workspacePathFor('acme', home)
+      expect(ensureFrameworkAgents(ws, '.claude', home)).toBe(0)
+      expect(fs.existsSync(path.join(ws, '.claude', 'agents', 'sr-architect.md'))).toBe(false)
+    })
+
+    it('no-op when the framework agents source is absent', () => {
+      win32()
+      const ws = workspacePathFor('acme', home)
+      expect(ensureFrameworkAgents(ws, '.claude', home)).toBe(0)
+    })
   })
 
   it('BUG-ARTREG-01: honors SPECRAILS_REGISTRY_HOME (matches artifact-registry) when no explicit home is threaded', () => {
