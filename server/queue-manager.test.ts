@@ -1593,6 +1593,47 @@ describe('QueueManager', () => {
       expect(args[idx + 1]).toBe(repo)
     })
 
+    it('RELOCATED: appends an explicit absolute-repo orientation to the system prompt', () => {
+      // Without it the agent follows the framework templates' ${SPECRAILS_REPO_DIR:-.}
+      // (which its Read/Grep/Glob tools can't expand), reads the empty workspace
+      // cwd, and hallucinates a wrong/"global" project (the Windows "Rails" bug).
+      seedRelocated('acme')
+      vi.mocked(mockExecSync).mockReturnValue(Buffer.from('/usr/bin/claude'))
+      vi.mocked(mockSpawn).mockReturnValue(createMockChildProcess() as any)
+      vi.mocked(mockUuidV4).mockReturnValue('orient-job' as any)
+
+      const db = initDb(':memory:')
+      const qm = new QueueManager(broadcast, db, [], repo, {
+        provider: 'claude', projectId: 'p1', projectSlug: 'acme',
+      })
+      qm.enqueue('/specrails:implement #1')
+
+      const args = vi.mocked(mockSpawn).mock.calls[0][1] as string[]
+      const sysIdx = args.findIndex((a) => a === '--append-system-prompt' || a === '--system-prompt')
+      expect(sysIdx).toBeGreaterThanOrEqual(0)
+      const sys = args[sysIdx + 1]
+      expect(sys).toContain('REPOSITORY LOCATION')
+      expect(sys).toContain(repo) // the concrete absolute repo path
+      expect(sys).toContain('${SPECRAILS_REPO_DIR:-.}') // warns not to use the literal
+    })
+
+    it('LEGACY: does NOT add the relocated repo orientation', () => {
+      vi.mocked(mockExecSync).mockReturnValue(Buffer.from('/usr/bin/claude'))
+      vi.mocked(mockSpawn).mockReturnValue(createMockChildProcess() as any)
+      vi.mocked(mockUuidV4).mockReturnValue('legacy-orient-job' as any)
+
+      const db = initDb(':memory:')
+      const qm = new QueueManager(broadcast, db, [], repo, {
+        provider: 'claude', projectId: 'p1', projectSlug: 'acme',
+      })
+      qm.enqueue('/specrails:implement #1')
+
+      const args = vi.mocked(mockSpawn).mock.calls[0][1] as string[]
+      const sysIdx = args.findIndex((a) => a === '--append-system-prompt' || a === '--system-prompt')
+      const sys = sysIdx >= 0 ? args[sysIdx + 1] : ''
+      expect(sys).not.toContain('REPOSITORY LOCATION')
+    })
+
     it('RELOCATED: prepends an openspec PATH shim that cds into the repo', () => {
       seedRelocated('acme')
       vi.mocked(mockExecSync).mockReturnValue(Buffer.from('/usr/bin/claude'))
