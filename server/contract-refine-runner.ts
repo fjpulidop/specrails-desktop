@@ -141,22 +141,31 @@ export function prepareContractRefineSpawn(
       /* default false */
     }
   }
-  // Relocate-artifacts: when mcp is on, the spawn cwd is the project's spec root,
-  // which becomes the workspace when relocated (else project.path). When mcp is
-  // off the explore-cwd is used as before. Env carries SPECRAILS_REPO_DIR for the
-  // relocated case so source/openspec I/O re-points into the repo.
+  // The refine `--resume`s the Explore conversation's session, so it MUST spawn
+  // from the SAME cwd the Explore turn used — otherwise claude looks in a
+  // different per-cwd session store and fails with "No conversation found with
+  // session ID …" (the Desktop-tier bug). chat-manager `_resolveSpawnCwd` for an
+  // Explore turn uses:
+  //   - mcp ON  → `project.path` (NOT the relocated workspace),
+  //   - mcp OFF → the app-managed explore-cwd.
+  // We mirror that EXACTLY here. The refine uses no file tools (`--disallowedTools
+  // Read,Grep,Glob,Bash`) and its prompt rides on `--system-prompt`, so it needs
+  // neither the workspace's `.mcp.json` nor its `.claude/commands`. Env still
+  // carries SPECRAILS_REPO_DIR when relocated (harmless; no tools consume it).
   const exec = resolveProjectExecution({ slug: deps.projectSlug, path: deps.projectPath })
-  let cwd = exec.cwd
   let env: NodeJS.ProcessEnv | undefined = exec.relocated ? { ...process.env, ...exec.env } : undefined
-  if (!mcpEnabled) {
+  let cwd: string
+  if (mcpEnabled) {
+    // Match the Explore mcp-on spawn cwd (`this._cwd` = project.path), even when
+    // relocated (where exec.cwd would be the workspace ≠ project.path).
+    cwd = deps.projectPath
+  } else {
     try {
       cwd = ensureExploreCwd({
         slug: deps.projectSlug,
         projectPath: deps.projectPath,
         projectName: deps.projectName,
       })
-      // explore-cwd reaches the repo via its own `./project` link; keep the
-      // relocation env so SPECRAILS_REPO_DIR is still exported when relocated.
     } catch {
       cwd = exec.cwd
     }
