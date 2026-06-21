@@ -1,5 +1,13 @@
 # Changelog
 
+## [2.11.8](https://github.com/fjpulidop/specrails-desktop/compare/v2.11.7...v2.11.8) (2026-06-21)
+
+
+### Bug Fixes
+
+* **audit:** resolve 39 confirmed bugs from the codebase security+reliability audit ([#448](https://github.com/fjpulidop/specrails-desktop/issues/448)) ([a68705d](https://github.com/fjpulidop/specrails-desktop/commit/a68705df790d8bafb8d94714e3fdaf2aca034bc6))
+* **windows:** resolve provider CLI to an absolute path at spawn (claude "no se reconoce") ([#450](https://github.com/fjpulidop/specrails-desktop/issues/450)) ([ef009e5](https://github.com/fjpulidop/specrails-desktop/commit/ef009e5bb364170b6287fc0ed021763384cbca8b))
+
 ## [2.11.7](https://github.com/fjpulidop/specrails-desktop/compare/v2.11.6...v2.11.7) (2026-06-20)
 
 
