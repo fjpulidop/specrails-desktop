@@ -1,5 +1,13 @@
 # Changelog
 
+## [2.11.10](https://github.com/fjpulidop/specrails-desktop/compare/v2.11.9...v2.11.10) (2026-06-21)
+
+
+### Bug Fixes
+
+* **contract-refine:** resume the Explore session from the same cwd it was created in (Desktop tier) ([#454](https://github.com/fjpulidop/specrails-desktop/issues/454)) ([1e3fd27](https://github.com/fjpulidop/specrails-desktop/commit/1e3fd2752f5d4f360b13007f0dae67b3b5ebb768))
+* **windows:** self-heal empty workspace agents on rail spawn (current-junction repair) ([#456](https://github.com/fjpulidop/specrails-desktop/issues/456)) ([dbf53d0](https://github.com/fjpulidop/specrails-desktop/commit/dbf53d07a2474a547eb31be133de2c7a9f0f1a10))
+
 ## [2.11.9](https://github.com/fjpulidop/specrails-desktop/compare/v2.11.8...v2.11.9) (2026-06-21)
 
 
