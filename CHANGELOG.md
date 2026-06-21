@@ -1,5 +1,13 @@
 # Changelog
 
+## [2.11.9](https://github.com/fjpulidop/specrails-desktop/compare/v2.11.8...v2.11.9) (2026-06-21)
+
+
+### Bug Fixes
+
+* **windows:** job Cancel/Stop now actually kills the rail (was 500 + process kept running) ([#453](https://github.com/fjpulidop/specrails-desktop/issues/453)) ([aeb5fc0](https://github.com/fjpulidop/specrails-desktop/commit/aeb5fc08b8c657e49aaf68daeac006d078bb47ba))
+* **windows:** tell the rail agent the real repo path (was reading the wrong/"global" project) ([#451](https://github.com/fjpulidop/specrails-desktop/issues/451)) ([bc3675e](https://github.com/fjpulidop/specrails-desktop/commit/bc3675e83e66fc8043dee7108e949523bf335558))
+
 ## [2.11.8](https://github.com/fjpulidop/specrails-desktop/compare/v2.11.7...v2.11.8) (2026-06-21)
 
 
