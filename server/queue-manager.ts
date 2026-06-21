@@ -31,6 +31,7 @@ import type { CommandInfo } from './config'
 import { attachmentManager, USER_ATTACHMENT_SYSTEM_NOTE } from './attachment-manager'
 import { extractTicketIdsFromCommand, readStore, resolveTicketStoragePath } from './ticket-store'
 import { binaryOnPath } from './binary-probe'
+import { ensureFrameworkAgents } from './workspace-manager'
 import { resolveProjectExecution, type ProjectExecution } from './workspace-resolution'
 import { readCurrentFrameworkVersion } from './framework-manager'
 import { ensureOpenspecShim, prependShimToPath, removeOpenspecShim, openspecShimDir } from './openspec-shim'
@@ -1085,6 +1086,19 @@ export class QueueManager {
     const execution = this._resolveExecution()
     this._jobExecution.set(jobId, execution)
     const spawnCwd = execution.cwd
+
+    // Windows repair: a relocated workspace whose `.claude/agents` was left empty
+    // by the broken `current`-junction read during assemble has no sr-* agents,
+    // so the implement pipeline can't delegate and runs inline. Self-heal here
+    // (per rail spawn) by copying the agents from the real version dir. NO-OP on
+    // POSIX (assemble's per-file symlinks already populate them).
+    if (execution.relocated) {
+      try {
+        ensureFrameworkAgents(execution.cwd, adapter.projectDirName)
+      } catch {
+        /* best-effort — never block a rail spawn on the repair */
+      }
+    }
 
     job.status = 'running'
     job.startedAt = new Date().toISOString()
