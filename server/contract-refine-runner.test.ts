@@ -25,6 +25,7 @@ import {
   type ContractLayer,
 } from './explore-contract-refine'
 import { mutateStore, resolveTicketStoragePath, type TicketStore, CURRENT_SCHEMA_VERSION } from './ticket-store'
+import { mirrorProjectEntry, workspaceLayout, resolveHome } from './artifact-registry'
 
 class FakeChild extends EventEmitter {
   stdout: Readable
@@ -172,6 +173,36 @@ describe('prepareContractRefineSpawn', () => {
       { model: 'sonnet', session_id: 'sess-1', context_scope: JSON.stringify({ mcp: true }) },
     )
     expect(out.cwd).toBe(projectPath)
+  })
+
+  it('RELOCATED + mcp: resumes from project.path, NOT the workspace (Desktop-tier session bug)', () => {
+    // The Explore turn that created the resumable session spawned from
+    // project.path (chat-manager _resolveSpawnCwd: mcp ⇒ this._cwd, NOT the
+    // relocated workspace). A relocated refine that resumed from exec.cwd (the
+    // workspace) made claude fail with "No conversation found with session ID …".
+    const prevHome = process.env.SPECRAILS_REGISTRY_HOME
+    const regHome = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), 'cr-reloc-home-')))
+    fs.mkdirSync(path.join(regHome, '.specrails'), { recursive: true })
+    process.env.SPECRAILS_REGISTRY_HOME = regHome
+    const repo = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), 'cr-reloc-repo-')))
+    try {
+      mirrorProjectEntry({ repoPath: repo, slug: 'acme', providers: ['claude'] }, regHome)
+      const ws = workspaceLayout(resolveHome(regHome), 'acme', repo).workspaceDir
+      fs.mkdirSync(path.join(ws, '.specrails'), { recursive: true })
+      fs.writeFileSync(path.join(ws, '.specrails', 'specrails-version'), '4.10.0\n')
+
+      const out = prepareContractRefineSpawn(
+        { projectSlug: 'acme', projectPath: repo, projectName: 'Acme' },
+        { model: 'sonnet', session_id: 'sess-x', context_scope: JSON.stringify({ mcp: true }) },
+      )
+      expect(out.cwd).toBe(repo)   // project.path — matches the Explore session's cwd
+      expect(out.cwd).not.toBe(ws) // NOT the relocated workspace (the bug)
+    } finally {
+      if (prevHome !== undefined) process.env.SPECRAILS_REGISTRY_HOME = prevHome
+      else delete process.env.SPECRAILS_REGISTRY_HOME
+      fs.rmSync(regHome, { recursive: true, force: true })
+      fs.rmSync(repo, { recursive: true, force: true })
+    }
   })
 })
 
