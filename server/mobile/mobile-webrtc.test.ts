@@ -1,5 +1,6 @@
 import { describe, it, expect, vi } from 'vitest'
 import { buildRegisterDevice, buildRpcDispatch, type FetchLike } from './mobile-webrtc'
+import { hashToken } from './mobile-devices'
 import type { DbInstance } from '../db'
 
 function fakeDb() {
@@ -17,7 +18,13 @@ function fakeDb() {
           }
           return { changes: 1 }
         },
-        get: (id: string) => rows.get(id),
+        get: (arg: string) => {
+          // getActiveDeviceByTokenHash resolves by token_hash; everything else by id.
+          if (sql.includes('WHERE token_hash = ?')) {
+            return [...rows.values()].find((r) => r.token_hash === arg)
+          }
+          return rows.get(arg)
+        },
         all: () => [...rows.values()],
       }
     },
@@ -58,6 +65,76 @@ describe('buildRegisterDevice', () => {
     const r = await fn({ deviceName: '', platform: 'palm-os' })
     expect(r.ok).toBe(true)
     if (r.ok) expect(rows.get(r.deviceId)).toMatchObject({ name: 'Web companion', platform: 'web' })
+  })
+
+  it('reuses an existing device when a known token is presented (no new row)', async () => {
+    const { db, rows } = fakeDb()
+    const fn = buildRegisterDevice({
+      db, currentFingerprint: () => 'fp', desktopName: () => 'Mac', desktopInstanceId: () => 'i',
+      genToken: () => 'tok-A',
+    })
+    const first = await fn({ deviceName: 'iPhone', platform: 'web' }) // QR mint
+    expect(first.ok).toBe(true)
+    expect(rows.size).toBe(1)
+    // Reconnect with the same token → same device, no new row.
+    const again = await fn({ deviceName: 'iPhone', platform: 'web', token: 'tok-A', requireExistingToken: true })
+    expect(again.ok).toBe(true)
+    if (again.ok && first.ok) expect(again.deviceId).toBe(first.deviceId)
+    expect(rows.size).toBe(1)
+  })
+
+  // ── BUG-AUTH-01: reconnect re-registration must require a valid existing token ──
+  describe('reconnect token requirement (BUG-AUTH-01)', () => {
+    it('refuses to mint a device on the reconnect path with NO token (mailbox-only attacker)', async () => {
+      const { db, rows } = fakeDb()
+      const fn = buildRegisterDevice({
+        db, currentFingerprint: () => 'fp', desktopName: () => 'Mac', desktopInstanceId: () => 'i',
+      })
+      const r = await fn({ deviceName: 'Evil', platform: 'web', requireExistingToken: true })
+      expect(r.ok).toBe(false)
+      expect(rows.size).toBe(0) // nothing minted
+    })
+
+    it('refuses an UNKNOWN/revoked token on the reconnect path', async () => {
+      const { db, rows } = fakeDb()
+      const fn = buildRegisterDevice({
+        db, currentFingerprint: () => 'fp', desktopName: () => 'Mac', desktopInstanceId: () => 'i',
+      })
+      const r = await fn({ deviceName: 'Evil', platform: 'web', token: 'never-issued', requireExistingToken: true })
+      expect(r.ok).toBe(false)
+      expect(rows.size).toBe(0)
+    })
+
+    it('accepts a VALID existing token on the reconnect path and reuses the device', async () => {
+      const { db, rows } = fakeDb()
+      // Seed a paired device whose token hash matches 'good-tok'.
+      const seed = buildRegisterDevice({
+        db, currentFingerprint: () => 'fp', desktopName: () => 'Mac', desktopInstanceId: () => 'i',
+        genToken: () => 'good-tok',
+      })
+      const paired = await seed({ deviceName: 'iPhone', platform: 'web' })
+      expect(paired.ok).toBe(true)
+      // Sanity: the seeded row's token_hash is the sha256 of the issued token.
+      expect([...rows.values()][0].token_hash).toBe(hashToken('good-tok'))
+
+      const reconnect = await seed({
+        deviceName: 'iPhone', platform: 'web', token: 'good-tok', requireExistingToken: true,
+      })
+      expect(reconnect.ok).toBe(true)
+      if (reconnect.ok && paired.ok) expect(reconnect.deviceId).toBe(paired.deviceId)
+      expect(rows.size).toBe(1) // no new device minted
+    })
+
+    it('still MINTS on first-time QR pairing (requireExistingToken unset)', async () => {
+      const { db, rows } = fakeDb()
+      const fn = buildRegisterDevice({
+        db, currentFingerprint: () => 'fp', desktopName: () => 'Mac', desktopInstanceId: () => 'i',
+        genToken: () => 'qr-tok',
+      })
+      const r = await fn({ deviceName: 'iPhone', platform: 'web' }) // no requireExistingToken
+      expect(r.ok).toBe(true)
+      expect(rows.size).toBe(1)
+    })
   })
 })
 

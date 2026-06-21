@@ -219,17 +219,14 @@ async function handleIngest(
   const lineStr = JSON.stringify(lineObj)
   const lineSize = Buffer.byteLength(lineStr, 'utf-8')
 
-  // Check if this write will push us over the cap
-  const willExceedCap = state.uncompressedSize + lineSize > BLOB_SIZE_CAP
-  const prevSize = state.uncompressedSize
-  state.uncompressedSize += lineSize
-
   // Ensure directory and blob pointer row exist before we enqueue the write
   const dir = telemetryDir(project.slug)
   fs.mkdirSync(dir, { recursive: true })
 
   const existingBlob = getTelemetryBlob(db, jobId)
   if (!existingBlob) {
+    // Create the pointer row at byteSize=0; the real size is advanced only once
+    // the bytes actually land on disk (inside the enqueued task below).
     upsertTelemetryBlob(db, {
       jobId,
       path: filePath,
@@ -238,35 +235,49 @@ async function handleIngest(
       endedAt: now,
       state: 'active',
     })
-  } else {
-    upsertTelemetryBlob(db, {
-      ...existingBlob,
-      byteSize: state.uncompressedSize,
-      endedAt: now,
-    })
   }
+  const blobStartedAt = existingBlob?.startedAt ?? now
 
-  // Enqueue the actual file append
+  // BUG-WEBHOOK-03: advance `state.uncompressedSize` and the DB `byteSize` ONLY
+  // after `appendToGzip` actually lands the bytes. Doing it synchronously here
+  // over-reported byteSize whenever the async append later rejected (ENOSPC /
+  // EACCES) — the swallowed rejection left the counter advanced as though the
+  // bytes had been written. We now compute the cap decision and bump the size
+  // inside the enqueued task so a failed append leaves the size untouched.
   enqueueWrite(state, async () => {
+    // Re-evaluate the cap against the CURRENT (post-prior-writes) size, since
+    // several requests may have enqueued before this task runs.
+    const prevSize = state.uncompressedSize
+    const willExceedCap = prevSize + lineSize > BLOB_SIZE_CAP
+
     if (willExceedCap && signal === 'logs' && !state.truncationMarkerWritten) {
       // Write the truncation marker once, before dropping this log event
-      state.truncationMarkerWritten = true
       const marker = JSON.stringify({ signal: 'control', event: 'logs_truncated', at: new Date().toISOString() })
       await appendToGzip(filePath, marker)
+      // Mark only after the marker actually landed.
+      state.truncationMarkerWritten = true
     }
 
     // Drop further logs after cap
     if (prevSize >= BLOB_SIZE_CAP && signal === 'logs') return
 
-    await appendToGzip(filePath, lineStr)
+    try {
+      await appendToGzip(filePath, lineStr)
+    } catch (err) {
+      // The bytes did NOT land — do NOT advance uncompressedSize/byteSize, so
+      // the counter and the DB row keep reflecting real on-disk content.
+      console.error('[telemetry-receiver] append failed — not advancing byteSize:', err)
+      return
+    }
 
-    // Update byteSize in DB after each write
+    // Only now that the append resolved do we advance the size + DB byteSize.
+    state.uncompressedSize += lineSize
     upsertTelemetryBlob(db, {
       jobId,
       path: filePath,
       byteSize: state.uncompressedSize,
-      startedAt: existingBlob?.startedAt ?? now,
-      endedAt: now,
+      startedAt: blobStartedAt,
+      endedAt: Date.now(),
       state: 'active',
     })
   })

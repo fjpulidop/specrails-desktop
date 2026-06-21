@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach, afterEach } from 'vitest'
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
 import express from 'express'
 import request from 'supertest'
 import os from 'os'
@@ -242,6 +242,90 @@ describe('OTLP receiver — successful ingest', () => {
     const res = await request(app).post('/otlp/v1/traces').send(body)
     expect(res.status).toBe(404)
     expect(res.body.error).toMatch(/Job/)
+  })
+})
+
+describe('OTLP receiver — byteSize integrity on append failure (BUG-WEBHOOK-03)', () => {
+  let db: DbInstance
+  let app: express.Application
+  let telemetryDir: string
+
+  beforeEach(() => {
+    db = makeDb()
+    const slug = `test-failwrite-${Date.now()}`
+    const ctx = makeProjectCtx(db, slug)
+    app = makeApp(makeRegistry(ctx))
+    telemetryDir = path.join(os.homedir(), '.specrails', 'projects', slug, 'telemetry')
+
+    createJob(db, {
+      id: 'job-fail',
+      command: 'architect',
+      started_at: new Date().toISOString(),
+    })
+  })
+
+  afterEach(() => {
+    vi.restoreAllMocks()
+    try { fs.rmSync(telemetryDir, { recursive: true, force: true }) } catch { /* ok */ }
+  })
+
+  it('does NOT advance byteSize when the gzip append fails', async () => {
+    // Force every fs.appendFile call to fail (simulates ENOSPC/EACCES).
+    const spy = vi.spyOn(fs, 'appendFile').mockImplementation(((
+      _file: unknown,
+      _data: unknown,
+      cb: (err: NodeJS.ErrnoException | null) => void,
+    ) => {
+      const err = new Error('ENOSPC: no space left on device') as NodeJS.ErrnoException
+      err.code = 'ENOSPC'
+      cb(err)
+    }) as unknown as typeof fs.appendFile)
+
+    const res = await request(app)
+      .post('/otlp/v1/traces')
+      .send(traceBody('job-fail', 'proj-1'))
+    // The route still responds 200 — the failure is async/internal.
+    expect(res.status).toBe(200)
+
+    // Let the enqueued (failing) write task settle.
+    await new Promise((r) => setTimeout(r, 100))
+    expect(spy).toHaveBeenCalled()
+
+    // The pointer row exists but byteSize must NOT have advanced past 0, because
+    // the bytes never landed on disk.
+    const blob = getTelemetryBlob(db, 'job-fail')
+    expect(blob).toBeDefined()
+    expect(blob!.byteSize).toBe(0)
+  })
+
+  it('advances byteSize once a later append succeeds after an earlier failure', async () => {
+    let failNext = true
+    const realAppend = fs.appendFile.bind(fs)
+    vi.spyOn(fs, 'appendFile').mockImplementation(((
+      file: unknown,
+      data: unknown,
+      cb: (err: NodeJS.ErrnoException | null) => void,
+    ) => {
+      if (failNext) {
+        failNext = false
+        const err = new Error('EACCES') as NodeJS.ErrnoException
+        err.code = 'EACCES'
+        cb(err)
+        return
+      }
+      // Delegate to the real implementation for the second write.
+      ;(realAppend as unknown as (f: unknown, d: unknown, c: (e: NodeJS.ErrnoException | null) => void) => void)(file, data, cb)
+    }) as unknown as typeof fs.appendFile)
+
+    await request(app).post('/otlp/v1/traces').send(traceBody('job-fail', 'proj-1'))
+    await request(app).post('/otlp/v1/metrics').send(metricsBody('job-fail', 'proj-1'))
+    await new Promise((r) => setTimeout(r, 150))
+
+    const blob = getTelemetryBlob(db, 'job-fail')
+    expect(blob).toBeDefined()
+    // First write failed (byteSize stays 0 for it); second write succeeded and
+    // advances the size by exactly that line's length — strictly > 0.
+    expect(blob!.byteSize).toBeGreaterThan(0)
   })
 })
 

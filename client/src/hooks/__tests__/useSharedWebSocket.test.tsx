@@ -114,6 +114,30 @@ describe('useSharedWebSocket', () => {
     expect(handler2).toHaveBeenCalledWith({ type: 'test', data: 'hello' })
   })
 
+  it('fan-out: a throwing handler does not starve later-registered handlers (BUG-CLIENT-01)', () => {
+    const consoleErr = vi.spyOn(console, 'error').mockImplementation(() => {})
+    const throwingHandler = vi.fn(() => { throw new Error('boom') })
+    const laterHandler = vi.fn()
+
+    const { result } = renderHook(() => useSharedWebSocket(), { wrapper: makeWrapper() })
+
+    act(() => {
+      // Insertion order matters: the Map iterates in insertion order, so the
+      // throwing handler is reached BEFORE laterHandler.
+      result.current.registerHandler('throws', throwingHandler)
+      result.current.registerHandler('later', laterHandler)
+    })
+    act(() => { MockWebSocket.lastInstance?.triggerOpen() })
+    act(() => { MockWebSocket.lastInstance?.triggerMessage({ type: 'test' }) })
+
+    expect(throwingHandler).toHaveBeenCalledTimes(1)
+    // Pre-fix this would NOT have been called (loop aborted mid-fan-out).
+    expect(laterHandler).toHaveBeenCalledWith({ type: 'test' })
+    expect(consoleErr).toHaveBeenCalled()
+
+    consoleErr.mockRestore()
+  })
+
   it('reconnects with backoff on close (1s, 2s, 4s, 8s, 16s)', async () => {
     renderHook(() => useSharedWebSocket(), { wrapper: makeWrapper() })
 

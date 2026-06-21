@@ -2,6 +2,7 @@ import { createHmac } from 'crypto'
 import type { DbInstance } from './db'
 import { listWebhooksForProject } from './desktop-db'
 import type { WebhookRow, WebhookEvent } from './desktop-db'
+import { isUrlSafeForDelivery } from './ssrf-guard'
 
 const WEBHOOK_TIMEOUT_MS = 10_000
 const MAX_ATTEMPTS = 3
@@ -71,6 +72,17 @@ export class WebhookManager {
   }
 
   private async _deliverWithRetry(webhook: WebhookRow, payload: WebhookPayload, attempt = 1): Promise<void> {
+    // BUG-WEBHOOK-01 (delivery-time half): the URL was validated at registration,
+    // but a host can be DNS-rebound to a loopback/private/link-local address
+    // before this (long-lived) webhook fires. Re-resolve here and DROP delivery
+    // (no retry — re-resolving would only fail again) to an internal target, so
+    // an HMAC-signed POST is never sent to an internal service. Honours the
+    // SPECRAILS_ALLOW_LOCAL_WEBHOOKS dev opt-in inside isUrlSafeForDelivery.
+    if (!(await isUrlSafeForDelivery(webhook.url))) {
+      console.warn(`[webhook-manager] blocked delivery to non-public host: ${webhook.url}`)
+      return
+    }
+
     const body = JSON.stringify(payload)
     const headers: Record<string, string> = {
       'Content-Type': 'application/json',

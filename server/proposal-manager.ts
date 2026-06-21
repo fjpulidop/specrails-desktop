@@ -19,6 +19,15 @@ export class ProposalManager {
   private _activeProcesses: Map<string, ChildProcess>
   private _buffers: Map<string, string>
   private _disposed = false
+  /**
+   * Proposals whose child was intentionally killed via cancel(). The close
+   * handler short-circuits for these so the killed child's non-zero exit does
+   * not overwrite the authoritative `cancelled` status nor emit a spurious
+   * failure (BUG-LONGTAIL-01).
+   */
+  private _cancelledIds = new Set<string>()
+  /** Pending SIGKILL escalation timers, keyed by proposal id (BUG-LONGTAIL-02). */
+  private _killTimers = new Map<string, ReturnType<typeof setTimeout>>()
 
   constructor(broadcast: (msg: WsMessage) => void, db: DbInstance, cwd: string) {
     this._broadcast = broadcast
@@ -26,6 +35,32 @@ export class ProposalManager {
     this._cwd = cwd
     this._activeProcesses = new Map()
     this._buffers = new Map()
+  }
+
+  /**
+   * SIGTERM the child's process tree, then arm an unref'd 2s SIGKILL escalation
+   * (cleared on the child's 'close'). A child that swallows SIGTERM — or has a
+   * blocked git/gh/build subprocess — would otherwise become an unkillable
+   * orphan running with --dangerously-skip-permissions (BUG-LONGTAIL-02).
+   */
+  private _killWithEscalation(proposalId: string, pid: number): void {
+    try { treeKill(pid, 'SIGTERM') } catch { /* best-effort */ }
+    const existing = this._killTimers.get(proposalId)
+    if (existing) clearTimeout(existing)
+    const grace = setTimeout(() => {
+      this._killTimers.delete(proposalId)
+      try { treeKill(pid, 'SIGKILL', () => { /* best-effort */ }) } catch { /* gone */ }
+    }, 2000)
+    grace.unref?.()
+    this._killTimers.set(proposalId, grace)
+  }
+
+  private _clearKillTimer(proposalId: string): void {
+    const timer = this._killTimers.get(proposalId)
+    if (timer) {
+      clearTimeout(timer)
+      this._killTimers.delete(proposalId)
+    }
   }
 
   isActive(proposalId: string): boolean {
@@ -39,8 +74,8 @@ export class ProposalManager {
    */
   shutdown(): void {
     this._disposed = true
-    for (const child of this._activeProcesses.values()) {
-      if (child.pid) { try { treeKill(child.pid, 'SIGTERM') } catch { /* ignore */ } }
+    for (const [proposalId, child] of this._activeProcesses) {
+      if (child.pid) this._killWithEscalation(proposalId, child.pid)
     }
     this._activeProcesses.clear()
     this._buffers.clear()
@@ -191,9 +226,12 @@ export class ProposalManager {
   }
 
   cancel(proposalId: string): void {
+    // Mark intentionally-cancelled BEFORE killing so the child's non-zero
+    // 'close' short-circuits instead of clobbering 'cancelled' (BUG-LONGTAIL-01).
+    this._cancelledIds.add(proposalId)
     const child = this._activeProcesses.get(proposalId)
     if (child?.pid) {
-      treeKill(child.pid, 'SIGTERM')
+      this._killWithEscalation(proposalId, child.pid)
     }
     updateProposal(this._db, proposalId, { status: 'cancelled' })
     this._broadcast({
@@ -282,8 +320,10 @@ export class ProposalManager {
       /* c8 ignore start -- spawn-failure path; exercised manually, not in CI */
       child.on('error', (err) => {
         console.error(`[ProposalManager] spawn failed for ${proposalId}: ${err.message}`)
+        this._clearKillTimer(proposalId)
         this._activeProcesses.delete(proposalId)
         this._buffers.delete(proposalId)
+        if (this._cancelledIds.delete(proposalId)) { resolve(); return } // intentional cancel; keep 'cancelled' (BUG-LONGTAIL-01)
         if (this._disposed) { resolve(); return } // M12: project removed mid-flight; DB closing
         this._broadcastError(proposalId, `Failed to launch claude: ${err.message}`)
         onError()
@@ -292,8 +332,12 @@ export class ProposalManager {
       /* c8 ignore stop */
       child.on('close', (code) => {
         const fullText = this._buffers.get(proposalId) ?? ''
+        this._clearKillTimer(proposalId)
         this._activeProcesses.delete(proposalId)
         this._buffers.delete(proposalId)
+        // A cancel() killed this child intentionally; its non-zero exit must NOT
+        // overwrite the 'cancelled' status or emit a failure (BUG-LONGTAIL-01).
+        if (this._cancelledIds.delete(proposalId)) { resolve(); return }
         if (this._disposed) { resolve(); return } // M12: project removed mid-flight; DB closing
 
         if (code === 0) {

@@ -88,6 +88,15 @@ export function commentHasMarker(
  * Flatten an ADF document (or plain string) back to text — used to read inbound
  * Jira descriptions/comments into the local cache.
  */
+const BLOCK_SEPARATOR_TYPES = new Set<string>([
+  'paragraph',
+  'heading',
+  'codeBlock',
+  'blockquote',
+  'panel',
+  'tableRow',
+])
+
 export function adfToText(body: unknown): string {
   if (body == null) return ''
   if (typeof body === 'string') return body
@@ -98,8 +107,11 @@ export function adfToText(body: unknown): string {
     if (node.type === 'hardBreak') out.push('\n')
     if (Array.isArray(node.content)) {
       for (const child of node.content) walk(child)
-      // paragraph / block separators
-      if (node.type === 'paragraph' || node.type === 'heading') out.push('\n')
+      // Block separators. `paragraph`/`heading` carry inline children directly;
+      // `codeBlock` holds direct text children (no inner paragraph), and
+      // `blockquote`/`panel`/`tableRow` are containers whose trailing newline
+      // would otherwise be dropped, running their text onto the next block.
+      if (BLOCK_SEPARATOR_TYPES.has(node.type)) out.push('\n')
     }
   }
   walk(body)

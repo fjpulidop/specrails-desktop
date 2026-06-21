@@ -460,3 +460,139 @@ describe('PluginManager.removeOrphan', () => {
     await expect(m.removeOrphan(tmpDir, 'pid', 'serena', broadcast)).rejects.toThrow(/not orphan/)
   })
 })
+
+describe('BUG-PLUGIN-04: orphan removal strips owned mcpServers from .mcp.json', () => {
+  it('persists ownedMcpServers in state at install time', async () => {
+    const m = new PluginManager([makeSerena()], { claudeApprovalChecker: () => 'enabled' })
+    await m.install(tmpDir, 'pid', 'serena', broadcast)
+    const s = JSON.parse(fs.readFileSync(path.join(tmpDir, '.specrails', 'plugins', 'state.json'), 'utf8'))
+    expect(s.plugins.serena.ownedMcpServers).toEqual(['serena'])
+  })
+
+  it('orphan removal strips the .mcp.json entry using the persisted keys', async () => {
+    // Install via the real plugin (records ownedMcpServers), plus a user entry.
+    fs.writeFileSync(path.join(tmpDir, '.mcp.json'), JSON.stringify({ mcpServers: { myown: { command: 'me' } } }))
+    const m = new PluginManager([makeSerena()], { claudeApprovalChecker: () => 'enabled' })
+    await m.install(tmpDir, 'pid', 'serena', broadcast)
+    let mcp = JSON.parse(fs.readFileSync(path.join(tmpDir, '.mcp.json'), 'utf8'))
+    expect(mcp.mcpServers.serena).toBeDefined()
+
+    // Ship a build that dropped serena from the registry → it is now orphan.
+    const orphanMgr = new PluginManager([])
+    await orphanMgr.uninstall(tmpDir, 'pid', 'serena', broadcast)
+
+    mcp = JSON.parse(fs.readFileSync(path.join(tmpDir, '.mcp.json'), 'utf8'))
+    expect(mcp.mcpServers.serena).toBeUndefined() // stripped despite missing plugin code
+    expect(mcp.mcpServers.myown.command).toBe('me') // user entry preserved
+    const s = JSON.parse(fs.readFileSync(path.join(tmpDir, '.specrails', 'plugins', 'state.json'), 'utf8'))
+    expect(s.plugins.serena).toBeUndefined()
+  })
+
+  it('orphan removal leaves .mcp.json alone when state has no ownedMcpServers (legacy state file)', async () => {
+    // A pre-fix state.json (no ownedMcpServers) + a stale .mcp.json entry.
+    const stateDir = path.join(tmpDir, '.specrails', 'plugins')
+    fs.mkdirSync(stateDir, { recursive: true })
+    fs.writeFileSync(path.join(stateDir, 'state.json'), JSON.stringify({
+      schemaVersion: 1,
+      plugins: { legacy: { version: '0.1.0', installedAt: 'now', installedFiles: [] } },
+    }))
+    fs.writeFileSync(path.join(tmpDir, '.mcp.json'), JSON.stringify({ mcpServers: { legacy: { command: 'x' } } }))
+    const m = new PluginManager([])
+    await m.uninstall(tmpDir, 'pid', 'legacy', broadcast)
+    // No keys to strip — entry remains (acceptable for legacy; no regression).
+    const mcp = JSON.parse(fs.readFileSync(path.join(tmpDir, '.mcp.json'), 'utf8'))
+    expect(mcp.mcpServers.legacy).toBeDefined()
+    const s = JSON.parse(fs.readFileSync(path.join(stateDir, 'state.json'), 'utf8'))
+    expect(s.plugins.legacy).toBeUndefined()
+  })
+})
+
+describe('BUG-PLUGIN-05: mergeMcpServers rejects a non-object mcpServers', () => {
+  it('throws PluginInstallError when .mcp.json mcpServers is a JSON array', async () => {
+    fs.writeFileSync(path.join(tmpDir, '.mcp.json'), JSON.stringify({ mcpServers: [] }))
+    await expect(
+      PluginManager.mergeMcpServers(tmpDir, { serena: { command: 'uvx' } }),
+    ).rejects.toBeInstanceOf(PluginInstallError)
+  })
+
+  it('install fails (rolled back) when .mcp.json mcpServers is an array — never silently records installed', async () => {
+    fs.writeFileSync(path.join(tmpDir, '.mcp.json'), JSON.stringify({ mcpServers: [] }))
+    const m = new PluginManager([makeSerena()], { claudeApprovalChecker: () => 'enabled' })
+    await expect(m.install(tmpDir, 'pid', 'serena', broadcast)).rejects.toBeInstanceOf(PluginInstallError)
+    // state.json must NOT report serena installed.
+    const sf = path.join(tmpDir, '.specrails', 'plugins', 'state.json')
+    if (fs.existsSync(sf)) {
+      const s = JSON.parse(fs.readFileSync(sf, 'utf8'))
+      expect(s.plugins.serena).toBeUndefined()
+    }
+  })
+
+  it('still merges normally when mcpServers is a plain object or absent', async () => {
+    await PluginManager.mergeMcpServers(tmpDir, { serena: { command: 'uvx' } })
+    const mcp = JSON.parse(fs.readFileSync(path.join(tmpDir, '.mcp.json'), 'utf8'))
+    expect(mcp.mcpServers.serena.command).toBe('uvx')
+  })
+})
+
+describe('BUG-PLUGIN-02/03: state.json mutations are atomic under one lock', () => {
+  function makeNamed(name: string, key: string): Plugin {
+    return {
+      manifest: { name, version: '1', description: '', whatItDoes: [], owns: { mcpServers: [key] } },
+      install: async (ctx) => { await PluginManager.mergeMcpServers(ctx.projectPath, { [key]: { command: key } }) },
+      uninstall: async (ctx) => { await PluginManager.removeMcpServers(ctx.projectPath, [key]) },
+      verify: async () => ({ ok: false, reason: `${name}-down`, checkedAt: new Date().toISOString() }),
+    }
+  }
+
+  it('two concurrent verifies both flip health to degraded without losing one update', async () => {
+    const a = makeNamed('a', 'a')
+    const b = makeNamed('b', 'b')
+    const m = new PluginManager([a, b])
+    // Install both healthy first (verify returns ok via override).
+    const installA: Plugin = { ...a, verify: async () => ({ ok: true, checkedAt: new Date().toISOString() }) }
+    const installB: Plugin = { ...b, verify: async () => ({ ok: true, checkedAt: new Date().toISOString() }) }
+    const installer = new PluginManager([installA, installB])
+    await installer.install(tmpDir, 'pid', 'a', broadcast)
+    await installer.install(tmpDir, 'pid', 'b', broadcast)
+
+    // Now race two verifies (both report degraded). Pre-fix one update is lost.
+    await Promise.all([
+      m.verify(tmpDir, 'pid', 'a', broadcast),
+      m.verify(tmpDir, 'pid', 'b', broadcast),
+    ])
+    const s = JSON.parse(fs.readFileSync(path.join(tmpDir, '.specrails', 'plugins', 'state.json'), 'utf8'))
+    expect(s.plugins.a.health).toBe('degraded')
+    expect(s.plugins.b.health).toBe('degraded')
+    expect(s.plugins.a.healthReason).toBe('a-down')
+    expect(s.plugins.b.healthReason).toBe('b-down')
+  })
+
+  it('install commit races a verify on a different plugin without dropping either record', async () => {
+    const a: Plugin = {
+      manifest: { name: 'a', version: '1', description: '', whatItDoes: [], owns: { mcpServers: ['a'] } },
+      install: async (ctx) => { await PluginManager.mergeMcpServers(ctx.projectPath, { a: { command: 'a' } }) },
+      uninstall: async (ctx) => { await PluginManager.removeMcpServers(ctx.projectPath, ['a']) },
+      verify: async () => ({ ok: true, checkedAt: new Date().toISOString() }),
+    }
+    const m = new PluginManager([a])
+    await m.install(tmpDir, 'pid', 'a', broadcast)
+
+    // Race a fresh install of b against a verify-driven health write on a.
+    const b: Plugin = {
+      manifest: { name: 'b', version: '1', description: '', whatItDoes: [], owns: { mcpServers: ['b'] } },
+      install: async (ctx) => { await PluginManager.mergeMcpServers(ctx.projectPath, { b: { command: 'b' } }) },
+      uninstall: async (ctx) => { await PluginManager.removeMcpServers(ctx.projectPath, ['b']) },
+      verify: async () => ({ ok: true, checkedAt: new Date().toISOString() }),
+    }
+    const aDegraded: Plugin = { ...a, verify: async () => ({ ok: false, reason: 'a-gone', checkedAt: new Date().toISOString() }) }
+    const m2 = new PluginManager([aDegraded, b])
+    await Promise.all([
+      m2.install(tmpDir, 'pid', 'b', broadcast),
+      m2.verify(tmpDir, 'pid', 'a', broadcast),
+    ])
+    const s = JSON.parse(fs.readFileSync(path.join(tmpDir, '.specrails', 'plugins', 'state.json'), 'utf8'))
+    expect(s.plugins.a).toBeDefined()
+    expect(s.plugins.a.health).toBe('degraded')
+    expect(s.plugins.b).toBeDefined()
+  })
+})

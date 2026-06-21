@@ -370,6 +370,92 @@ describe('ProposalManager', () => {
       // DB update and broadcast still happen
       expect(getProposal(db, proposalId)!.status).toBe('cancelled')
     })
+
+    // ─── BUG-LONGTAIL-01: cancel must not be clobbered by the killed child's close ─
+    it('keeps status=cancelled and emits no failure when the killed child closes non-zero', async () => {
+      const proposalId = setupProposal()
+      const child = createMockChildProcess()
+      vi.mocked(mockSpawn).mockReturnValue(child as any)
+
+      const explorePromise = pm.startExploration(proposalId, 'Add dark mode')
+      pm.cancel(proposalId)
+      // The killed child exits non-zero a moment later (SIGTERM → 143).
+      await finishProcess(child, 143)
+      await explorePromise
+
+      // Status stays 'cancelled' — the close handler short-circuited rather than
+      // calling onError() (which would write 'input').
+      expect(getProposal(db, proposalId)!.status).toBe('cancelled')
+
+      // Exactly one proposal_error broadcast — the 'cancelled' one from cancel();
+      // no second spurious "Exploration failed".
+      const errorMsgs = getBroadcastedByType(broadcast, 'proposal_error')
+      expect(errorMsgs).toHaveLength(1)
+      expect(errorMsgs[0].error).toBe('cancelled')
+    })
+
+    // ─── BUG-LONGTAIL-02: SIGKILL escalation after SIGTERM ─────────────────────
+    it('escalates to SIGKILL ~2s after cancel when the child ignores SIGTERM', async () => {
+      vi.useFakeTimers()
+      try {
+        const proposalId = setupProposal()
+        const child = createMockChildProcess()
+        vi.mocked(mockSpawn).mockReturnValue(child as any)
+
+        void pm.startExploration(proposalId, 'Add dark mode')
+        pm.cancel(proposalId)
+
+        expect(vi.mocked(treeKill)).toHaveBeenCalledWith(child.pid, 'SIGTERM')
+        // Child never closes — advance past the 2s grace window.
+        vi.advanceTimersByTime(2000)
+        expect(vi.mocked(treeKill)).toHaveBeenCalledWith(child.pid, 'SIGKILL', expect.any(Function))
+      } finally {
+        vi.useRealTimers()
+      }
+    })
+
+    it('does NOT escalate to SIGKILL when the child closes before the grace window', async () => {
+      vi.useFakeTimers()
+      try {
+        const proposalId = setupProposal()
+        const child = createMockChildProcess()
+        vi.mocked(mockSpawn).mockReturnValue(child as any)
+
+        void pm.startExploration(proposalId, 'Add dark mode')
+        pm.cancel(proposalId)
+        // Child exits promptly on SIGTERM (close fires synchronously here).
+        child.stdout.push(null)
+        child.emit('close', 143)
+
+        vi.advanceTimersByTime(5000)
+        const sigkillCalls = vi.mocked(treeKill).mock.calls.filter((c) => c[1] === 'SIGKILL')
+        expect(sigkillCalls).toHaveLength(0)
+      } finally {
+        vi.useRealTimers()
+      }
+    })
+  })
+
+  // ─── shutdown ─────────────────────────────────────────────────────────────
+
+  describe('shutdown', () => {
+    it('SIGTERMs active children and arms SIGKILL escalation', async () => {
+      vi.useFakeTimers()
+      try {
+        const proposalId = setupProposal()
+        const child = createMockChildProcess()
+        vi.mocked(mockSpawn).mockReturnValue(child as any)
+
+        void pm.startExploration(proposalId, 'Add dark mode')
+        pm.shutdown()
+
+        expect(vi.mocked(treeKill)).toHaveBeenCalledWith(child.pid, 'SIGTERM')
+        vi.advanceTimersByTime(2000)
+        expect(vi.mocked(treeKill)).toHaveBeenCalledWith(child.pid, 'SIGKILL', expect.any(Function))
+      } finally {
+        vi.useRealTimers()
+      }
+    })
   })
 
   // ─── isActive ─────────────────────────────────────────────────────────────

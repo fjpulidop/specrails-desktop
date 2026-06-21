@@ -311,6 +311,101 @@ memory: project
       const cancelled = getBroadcastsByType(broadcast, 'agent_refine_cancelled')
       expect(cancelled).toHaveLength(1)
     })
+
+    // ─── BUG-LONGTAIL-01: cancel must not be clobbered by the killed child's exit ─
+    it('keeps status=cancelled and emits no error when the killed child exits non-zero', async () => {
+      const child = createMockChild()
+      vi.mocked(mockSpawnClaude).mockReturnValue(child as never)
+      const turnPromise = mgr.startRefine({ agentId: 'custom-foo', instruction: 'go', autoTest: false })
+      const { refineId } = await turnPromise
+
+      mgr.cancel(refineId)
+      // The killed child exits non-zero a moment later (SIGTERM → 143). Without
+      // the cancelled-flag short-circuit this would write status='error' and
+      // broadcast agent_refine_error.
+      await close(child, 143)
+
+      const row = getRefineSession(db, refineId)!
+      expect(row.status).toBe('cancelled')
+      // No spurious failure broadcast from the killed child's exit.
+      expect(getBroadcastsByType(broadcast, 'agent_refine_error')).toHaveLength(0)
+    })
+
+    it('does NOT write an ai_invocations row for a cancelled turn', async () => {
+      const projectId = 'proj-refine-cancel'
+      const mgrCap = new AgentRefineManager(broadcast, db, projectPath, projectId)
+      const child = createMockChild()
+      vi.mocked(mockSpawnClaude).mockReturnValue(child as never)
+      const { refineId } = await mgrCap.startRefine({ agentId: 'custom-foo', instruction: 'go', autoTest: false })
+
+      mgrCap.cancel(refineId)
+      await close(child, 143)
+
+      const rows = db.prepare(`SELECT * FROM ai_invocations WHERE project_id = ?`).all(projectId)
+      expect(rows).toHaveLength(0)
+    })
+
+    // ─── BUG-LONGTAIL-02: SIGKILL escalation after SIGTERM ─────────────────────
+    it('escalates to SIGKILL ~2s after cancel when the child ignores SIGTERM', async () => {
+      const child = createMockChild()
+      vi.mocked(mockSpawnClaude).mockReturnValue(child as never)
+      const { refineId } = await mgr.startRefine({ agentId: 'custom-foo', instruction: 'go', autoTest: false })
+
+      vi.useFakeTimers()
+      try {
+        mgr.cancel(refineId)
+        expect(vi.mocked(treeKill)).toHaveBeenCalledWith(child.pid, 'SIGTERM')
+        vi.advanceTimersByTime(2000)
+        expect(vi.mocked(treeKill)).toHaveBeenCalledWith(child.pid, 'SIGKILL', expect.any(Function))
+      } finally {
+        vi.useRealTimers()
+      }
+      // Drain the child to avoid open handles.
+      await close(child, 143)
+    })
+
+    it('does NOT escalate to SIGKILL when the child settles before the grace window', async () => {
+      const child = createMockChild()
+      vi.mocked(mockSpawnClaude).mockReturnValue(child as never)
+      const { refineId } = await mgr.startRefine({ agentId: 'custom-foo', instruction: 'go', autoTest: false })
+
+      mgr.cancel(refineId)
+      // Child settles promptly; the spawn-lifecycle resolves and _runTurn clears
+      // the kill timer.
+      await close(child, 143)
+
+      vi.useFakeTimers()
+      try {
+        vi.advanceTimersByTime(5000)
+        const sigkillCalls = vi.mocked(treeKill).mock.calls.filter((c) => c[1] === 'SIGKILL')
+        expect(sigkillCalls).toHaveLength(0)
+      } finally {
+        vi.useRealTimers()
+      }
+    })
+  })
+
+  // ─── shutdown (BUG-LONGTAIL-02) ─────────────────────────────────────────────
+
+  describe('shutdown', () => {
+    it('SIGTERMs active children and arms SIGKILL escalation', async () => {
+      const child = createMockChild()
+      vi.mocked(mockSpawnClaude).mockReturnValue(child as never)
+      const { refineId } = await mgr.startRefine({ agentId: 'custom-foo', instruction: 'go', autoTest: false })
+      expect(mgr.isActive(refineId)).toBe(true)
+
+      vi.useFakeTimers()
+      try {
+        mgr.shutdown()
+        expect(vi.mocked(treeKill)).toHaveBeenCalledWith(child.pid, 'SIGTERM')
+        vi.advanceTimersByTime(2000)
+        expect(vi.mocked(treeKill)).toHaveBeenCalledWith(child.pid, 'SIGKILL', expect.any(Function))
+      } finally {
+        vi.useRealTimers()
+      }
+      // Drain the orphaned child; disposed short-circuit prevents DB writes.
+      await close(child, 143)
+    })
   })
 
   // ─── apply ────────────────────────────────────────────────────────────────

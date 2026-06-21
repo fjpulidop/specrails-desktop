@@ -317,10 +317,18 @@ function listTouchedEntries(
   const seen = new Set<string>()
   const out: Array<{ rel: string; isDir: boolean; size: number | null; mtime: number | null }> = []
 
+  // Drop gitignored files too — mirroring listAllEntries — so a gitignored
+  // AI-touched file (e.g. config.local.json, a custom build dir) whose name is
+  // not deny-listed never surfaces its path / ticket-attribution / mtime. One
+  // batched git check-ignore over the not-already-denied touched files.
+  const candidateFiles = [...rowsByPath.keys()].filter((p) => !isDeniedRelPath(p))
+  const ignored = gitIgnoredSet(projectPath, candidateFiles)
+
   for (const filePath of rowsByPath.keys()) {
     // Keep touched-by-ai consistent with the `all` tree (and never surface
     // secrets like .env that an AI job happened to touch).
     if (isDeniedRelPath(filePath)) continue
+    if (ignored.has(filePath)) continue
     const parts = filePath.split('/').filter(Boolean)
     for (let i = 1; i < parts.length; i += 1) {
       const dirRel = parts.slice(0, i).join('/')
@@ -850,7 +858,20 @@ export function createCodeExplorerRouter(deps: CodeExplorerDeps): Router {
       res.status(400).json({ error: 'path traversal not allowed' })
       return
     }
-    const diff = getProvenanceDiff(deps.db, deps.projectId, jobId, normalizeRel(relPath))
+    // Mirror every sibling content endpoint (/file, /summary, /provenance):
+    // a stored patch for an added file contains the FULL file contents, so a
+    // denied/gitignored secret (.env, *.pem, id_rsa, gitignored creds) that an
+    // AI job happened to touch must never be served verbatim through /diff.
+    if (isDeniedRelPath(relPath)) {
+      res.status(403).json({ error: 'path is excluded by the code-explorer deny-list' })
+      return
+    }
+    const rel = normalizeRel(relPath)
+    if (isGitIgnored(deps.projectPath, rel)) {
+      res.status(403).json({ error: 'path is gitignored' })
+      return
+    }
+    const diff = getProvenanceDiff(deps.db, deps.projectId, jobId, rel)
     if (!diff) {
       res.status(404).json({ error: 'diff not available' })
       return

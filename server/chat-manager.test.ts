@@ -603,6 +603,56 @@ describe('ChatManager', () => {
     expect(mockSpawn).toHaveBeenCalledTimes(2)
   })
 
+  // ─── BUG-CHAT-02: in-flight auto-title child is tree-killed on shutdown ─────
+
+  it('BUG-CHAT-02: shutdown() tree-kills an in-flight auto-title child', async () => {
+    const convId = setupConversation()
+    const mainChild = createMockChildProcess()
+    const titleChild = createMockChildProcess()
+    titleChild.pid = 99001 // distinct pid so we can assert it specifically
+    vi.mocked(mockSpawn)
+      .mockReturnValueOnce(mainChild as any)
+      .mockReturnValueOnce(titleChild as any)
+
+    const sendPromise = cm.sendMessage(convId, 'Hello world')
+    pushLine(mainChild, assistantEvent('Hi there!'))
+    pushLine(mainChild, resultEvent('sess-title'))
+    await finishProcess(mainChild, 0)
+    await sendPromise
+
+    // Auto-title child spawned but NOT yet closed — it is in-flight.
+    expect(mockSpawn).toHaveBeenCalledTimes(2)
+
+    cm.shutdown()
+
+    // The in-flight auto-title child must be tree-killed, not orphaned.
+    expect(vi.mocked(treeKill)).toHaveBeenCalledWith(titleChild.pid, 'SIGTERM')
+  })
+
+  it('BUG-CHAT-02: auto-title child self-removes on close so shutdown() does not kill a finished child', async () => {
+    const convId = setupConversation()
+    const mainChild = createMockChildProcess()
+    const titleChild = createMockChildProcess()
+    titleChild.pid = 99002
+    vi.mocked(mockSpawn)
+      .mockReturnValueOnce(mainChild as any)
+      .mockReturnValueOnce(titleChild as any)
+
+    const sendPromise = cm.sendMessage(convId, 'Hello world')
+    pushLine(mainChild, assistantEvent('Hi there!'))
+    pushLine(mainChild, resultEvent('sess-title'))
+    await finishProcess(mainChild, 0)
+    await sendPromise
+
+    // Let the auto-title child finish — it should self-remove from tracking.
+    await finishProcess(titleChild, 0)
+
+    cm.shutdown()
+
+    // A finished auto-title child must never be tree-killed by shutdown().
+    expect(vi.mocked(treeKill)).not.toHaveBeenCalledWith(titleChild.pid, 'SIGTERM')
+  })
+
   // ─── Test 13: session resumption uses --resume flag ─────────────────────────
 
   it('uses --resume flag when conversation has session_id', async () => {
@@ -968,10 +1018,16 @@ describe('ChatManager', () => {
     function createMockChildWithStdin() {
       const child = createMockChildProcess()
       const writes: string[] = []
+      const stdinHandlers: Record<string, (arg?: unknown) => void> = {}
       child.stdin = {
         writes,
         destroyed: false,
         write(chunk: string | Buffer) { writes.push(chunk.toString()); return true },
+        // Real child.stdin is a Writable (EventEmitter); ExploreStdinSessions now
+        // attaches an 'error' listener (BUG-CHAT-06). Mirror that so the mock
+        // doesn't throw on `.on`. emitError() lets a test drive the EPIPE path.
+        on(event: string, handler: (arg?: unknown) => void) { stdinHandlers[event] = handler; return child.stdin },
+        emitError(err?: unknown) { stdinHandlers.error?.(err) },
       }
       return child
     }
@@ -1094,7 +1150,9 @@ describe('ChatManager', () => {
       await driveTurn(child, [assistantEvent('ok'), resultEvent('sess-sd')])
       await t
       cmP.shutdown()
-      expect(child.kill).toHaveBeenCalled()
+      // BUG-CHAT-01: persistent child is now torn down via treeKill (reaches the
+      // cmd.exe-wrapper grandchildren on Windows), not the bare child.kill.
+      expect(vi.mocked(treeKill)).toHaveBeenCalledWith(child.pid, 'SIGTERM')
     })
 
     it('forgetExploreLifecycle() kills the parked persistent child', async () => {
@@ -1107,7 +1165,8 @@ describe('ChatManager', () => {
       await driveTurn(child, [assistantEvent('ok'), resultEvent('sess-f')])
       await t
       cmP.forgetExploreLifecycle(convId)
-      expect(child.kill).toHaveBeenCalled()
+      // BUG-CHAT-01: parked persistent child torn down via treeKill, not child.kill.
+      expect(vi.mocked(treeKill)).toHaveBeenCalledWith(child.pid, 'SIGTERM')
     })
   })
 

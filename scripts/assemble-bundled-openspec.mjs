@@ -12,11 +12,24 @@
  *
  * UNLIKE specrails-core (a single published tarball with no runtime deps),
  * openspec is an ESM CLI WITH runtime dependencies (commander, zod, chalk, …).
- * So we cannot just `npm pack` + extract — we `npm install` it into a temp
- * prefix (which resolves its node_modules) and copy the whole `node_modules`
- * tree. The bundled CLI entry is therefore:
+ * So we cannot just `npm pack` + extract — we resolve its node_modules into a
+ * temp prefix and copy the whole `node_modules` tree. The bundled CLI entry is:
  *   src-tauri/openspec/node_modules/@fission-ai/openspec/bin/openspec.js
  * (the `bin.openspec` field from openspec's own package.json).
+ *
+ * WHY `npm ci` against a VENDORED lockfile (not `npm install`): a bare
+ * `npm install <top-level>` resolves the entire transitive closure against the
+ * live registry every build with NO captured integrity, so a compromised
+ * transitive version published before a build would be silently bundled into the
+ * signed+notarized installer, and builds are non-reproducible (BUG-CI-03). We
+ * commit `assemble-bundled-openspec.lock.json` (a real npm v3 lockfile with
+ * resolved versions + integrity for the WHOLE closure) next to this script, write
+ * it + a matching `package.json` into the temp prefix, and run `npm ci` — which
+ * installs EXACTLY the locked tree (pinned + integrity) and fails if package.json
+ * and the lockfile disagree. Lock changes are reviewed in PRs. The vendored
+ * lockfile is the source of truth for the bundled-openspec version; the CLI
+ * `<version>` arg (and OPENSPEC_BUNDLE_VERSION in CI) MUST match it or this script
+ * fails fast.
  *
  * Like the runtimes/core, this tree is PLAIN JS — no Mach-O, no exec bits, no
  * codesigning. It is run with `node <cli> init …` (the desktop bundled-core init
@@ -29,7 +42,11 @@
  * Usage:
  *   node scripts/assemble-bundled-openspec.mjs [<version>] [--dest <dir>]
  *
- * Default version: 1.4.1 (pinned to match specrails-core's pinned-versions.json).
+ * The version, when given, MUST be the exact version the vendored lockfile pins
+ * (1.4.1, matching specrails-core's pinned-versions.json). It is a consistency
+ * assertion, NOT a resolution input — `npm ci` always installs exactly the locked
+ * closure. Omitting it installs the locked version. Floating specs (`latest`,
+ * `^1.4`) are rejected: the whole point is a pinned, reproducible bundle.
  */
 import { execFileSync } from 'node:child_process'
 import {
@@ -72,20 +89,71 @@ function pruneBinDirs(root) {
 }
 
 const PACKAGE = '@fission-ai/openspec'
-const DEFAULT_VERSION = '1.4.1'
+// The committed lockfile + its matching package.json that `npm ci` consumes.
+const LOCKFILE = path.join(__dirname, 'assemble-bundled-openspec.lock.json')
+
+/**
+ * Read the EXACT version the vendored lockfile pins for the top-level package.
+ * This is the single source of truth for the bundled-openspec version.
+ */
+function lockedVersion() {
+  const lock = JSON.parse(readFileSync(LOCKFILE, 'utf8'))
+  const declared = lock.packages?.['']?.dependencies?.[PACKAGE]
+  const resolved = lock.packages?.[`node_modules/${PACKAGE}`]?.version
+  if (!resolved) {
+    throw new Error(
+      `bundled-openspec: lockfile ${LOCKFILE} does not resolve ${PACKAGE} — regenerate it`,
+    )
+  }
+  if (declared !== resolved) {
+    throw new Error(
+      `bundled-openspec: lockfile declares ${PACKAGE}@${declared} but resolves ${resolved} — regenerate it`,
+    )
+  }
+  return resolved
+}
+
+/**
+ * Accept a bare version (`1.4.1`) or a `@fission-ai/openspec@<version>` spec;
+ * reject floating ranges/tags — a reproducible bundle requires an exact pin that
+ * matches the vendored lockfile.
+ */
+function normalizeRequestedVersion(raw) {
+  let v = raw
+  if (v.startsWith(`${PACKAGE}@`)) v = v.slice(PACKAGE.length + 1)
+  if (!/^\d+\.\d+\.\d+(?:[-+][0-9A-Za-z.-]+)?$/.test(v)) {
+    throw new Error(
+      `bundled-openspec: version "${raw}" is not an exact version. Pass the exact ` +
+        `version the lockfile pins (e.g. ${PACKAGE}@<x.y.z>), or omit it. ` +
+        `Floating specs (latest, ^, ~, ranges) are rejected for reproducibility.`,
+    )
+  }
+  return v
+}
 
 function parseArgs(argv) {
-  let version = DEFAULT_VERSION
+  let requested = null
   let dest = path.join(repoRoot, 'src-tauri', 'openspec')
   for (let i = 0; i < argv.length; i++) {
     const a = argv[i]
     if (a === '--dest') {
       dest = path.resolve(argv[++i])
     } else if (!a.startsWith('-')) {
-      version = a
+      requested = a
     }
   }
-  return { version, dest }
+  const locked = lockedVersion()
+  if (requested !== null) {
+    const want = normalizeRequestedVersion(requested)
+    if (want !== locked) {
+      throw new Error(
+        `bundled-openspec: requested ${PACKAGE}@${want} but the vendored lockfile ` +
+          `pins ${locked}. Update assemble-bundled-openspec.lock.json (and ` +
+          `OPENSPEC_BUNDLE_VERSION) together so the bundle stays reproducible.`,
+      )
+    }
+  }
+  return { version: locked, dest }
 }
 
 function main() {
@@ -93,24 +161,32 @@ function main() {
   const spec = `${PACKAGE}@${version}`
   const tmp = mkdtempSync(path.join(os.tmpdir(), 'bundled-openspec-'))
   try {
-    // npm install resolves openspec + its runtime deps into <tmp>/node_modules.
-    // A minimal package.json keeps the install isolated (no workspace bleed).
+    // `npm ci` requires BOTH a package.json and a package-lock.json that agree.
+    // We write a package.json declaring the locked top-level dep and copy the
+    // VENDORED lockfile (resolved versions + integrity for the whole closure)
+    // next to it, then `npm ci` installs EXACTLY that locked tree — pinned +
+    // integrity-verified + reproducible (BUG-CI-03). A minimal package.json keeps
+    // the install isolated (no workspace bleed).
     writeFileSync(
       path.join(tmp, 'package.json'),
-      JSON.stringify({ name: 'bundled-openspec-stage', private: true, version: '0.0.0' }),
+      JSON.stringify({
+        name: 'bundled-openspec-stage',
+        private: true,
+        version: '0.0.0',
+        dependencies: { [PACKAGE]: version },
+      }),
     )
-    console.log(`[assemble-bundled-openspec] npm install ${spec} → ${tmp}`)
+    cpSync(LOCKFILE, path.join(tmp, 'package-lock.json'))
+    console.log(`[assemble-bundled-openspec] npm ci ${spec} (vendored lock) → ${tmp}`)
     // On Windows npm is `npm.cmd`; Node 20.12+ (CVE-2024-27980) refuses to
     // spawn a `.cmd` without a shell (EINVAL), so run through the shell there —
     // the shell resolves `npm` → `npm.cmd` from PATH. POSIX spawns directly.
     execFileSync(
       process.platform === 'win32' ? 'npm.cmd' : 'npm',
       [
-        'install',
-        spec,
+        'ci',
         '--no-audit',
         '--no-fund',
-        '--no-save',
         '--ignore-scripts',
         '--silent',
       ],

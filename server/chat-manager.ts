@@ -111,6 +111,12 @@ export class ChatManager {
    *  Holds long-lived claude children that survive between turns. */
   private _stdinSessions = new ExploreStdinSessions()
 
+  /** Fire-and-forget auxiliary CLI children (e.g. `_autoTitle`) that are NOT
+   *  keyed by conversation in `_activeProcesses`. Tracked so `shutdown()` can
+   *  tree-kill any in-flight one instead of orphaning it (BUG-CHAT-02). Each
+   *  entry self-removes on its own `'close'`. */
+  private _auxProcesses: Set<ChildProcess> = new Set()
+
   private _cwd: string | undefined
   private _projectName: string | undefined
   private _adapter: ProviderAdapter
@@ -1371,6 +1377,15 @@ export class ChatManager {
     }
     // Persistent-stdin children outlive individual turns — tear them down too.
     this._stdinSessions.killAll()
+    // Fire-and-forget auxiliary children (auto-title) are not keyed by
+    // conversation; tree-kill any in-flight one so it isn't orphaned on
+    // shutdown / project removal (BUG-CHAT-02).
+    for (const child of this._auxProcesses) {
+      if (child?.pid) {
+        try { treeKill(child.pid, 'SIGTERM') } catch { /* best-effort */ }
+      }
+    }
+    this._auxProcesses.clear()
     for (const id of this._exploreLifecycle.keys()) {
       this._clearIdleTimer(id)
     }
@@ -1404,6 +1419,9 @@ export class ChatManager {
         stdio: ['ignore', 'pipe', 'pipe'],
         cwd: this._cwd,
       })
+      // Track this fire-and-forget child so shutdown() can tree-kill it
+      // instead of orphaning it (BUG-CHAT-02). Self-removed on 'close'.
+      this._auxProcesses.add(child)
 
       let titleText = ''
       const reader = createInterface({ input: child.stdout!, crlfDelay: Infinity })
@@ -1418,6 +1436,7 @@ export class ChatManager {
       })
 
       child.on('close', (code) => {
+        this._auxProcesses.delete(child)
         if (code === 0 && titleText) {
           updateConversation(this._db, conversationId, { title: titleText })
           this._broadcast({

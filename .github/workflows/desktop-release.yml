@@ -17,9 +17,14 @@ env:
   GIT_BUNDLE_VERSION: "2.49.0"
   # Bundle a published specrails-core into the app so the framework can be
   # materialized + assembled OFFLINE (no per-project `npx specrails-core init`).
-  # `latest` tracks the newest published core; pin to a version for a reproducible
-  # tag rebuild. See scripts/assemble-bundled-core.mjs + server/bundled-core.ts.
-  CORE_BUNDLE_VERSION: "latest"
+  # EXACT pin (was floating `latest`, which let the three platform jobs each
+  # `npm install specrails-core@latest` on independent runners at different
+  # wall-clock times — a core publish mid-build embedded different versions in the
+  # macOS .dmg vs Windows .exe of one release, and defeated tag-rebuild
+  # reproducibility — BUG-CI-02). This MUST equal the version the vendored
+  # scripts/assemble-bundled-core.lock.json pins (assemble-bundled-core.mjs fails
+  # fast on mismatch). Bump both together via PR. See server/bundled-core.ts.
+  CORE_BUNDLE_VERSION: "4.10.0"
   # Bundle @fission-ai/openspec into the app so the LAST network step of
   # project-add (openspec init) runs OFFLINE from the bundle instead of
   # `npx @fission-ai/openspec`. Pinned to match specrails-core's
@@ -441,7 +446,16 @@ jobs:
           node scripts/obfuscate-chromium.mjs /tmp/chromium.tar.gz src-tauri/runtimes/chromium/chromium.pak
           rm -f /tmp/chromium.tar.gz
           test -f src-tauri/runtimes/chromium/chromium.pak
-          echo "Packed Chromium from ${PLATDIR}"
+          # Round-trip verify (BUG-CI-04): de-obfuscate the SHIPPED .pak, extract it,
+          # and confirm chrome.exe is discoverable — Windows previously only did
+          # `test -f chromium.pak`, so a corrupt/mis-keyed blob shipped unnoticed.
+          VTMP=$(mktemp -d)
+          node scripts/obfuscate-chromium.mjs src-tauri/runtimes/chromium/chromium.pak "${VTMP}/verify.tar.gz"
+          tar -xzf "${VTMP}/verify.tar.gz" -C "${VTMP}"
+          test -n "$(find "${VTMP}" -type f -name 'chrome.exe' | head -1)" \
+            || { echo "ERROR: chromium.pak did not round-trip to a chrome.exe (corrupt/mis-keyed)"; rm -rf "${VTMP}"; exit 1; }
+          rm -rf "${VTMP}"
+          echo "Packed + round-trip-verified Chromium from ${PLATDIR}"
 
       # Stage specrails-core into src-tauri/core/ (offline framework source).
       # Mirrors the runtimes-assembly steps — plain JS/text, no signing.
@@ -636,7 +650,16 @@ jobs:
           node scripts/obfuscate-chromium.mjs /tmp/chromium.tar.gz src-tauri/runtimes/chromium/chromium.pak
           rm -f /tmp/chromium.tar.gz
           test -f src-tauri/runtimes/chromium/chromium.pak
-          echo "Packed Chromium from ${PLATDIR}"
+          # Round-trip verify (BUG-CI-04): de-obfuscate the SHIPPED .pak, extract it,
+          # and confirm chrome.exe is discoverable — Windows previously only did
+          # `test -f chromium.pak`, so a corrupt/mis-keyed blob shipped unnoticed.
+          VTMP=$(mktemp -d)
+          node scripts/obfuscate-chromium.mjs src-tauri/runtimes/chromium/chromium.pak "${VTMP}/verify.tar.gz"
+          tar -xzf "${VTMP}/verify.tar.gz" -C "${VTMP}"
+          test -n "$(find "${VTMP}" -type f -name 'chrome.exe' | head -1)" \
+            || { echo "ERROR: chromium.pak did not round-trip to a chrome.exe (corrupt/mis-keyed)"; rm -rf "${VTMP}"; exit 1; }
+          rm -rf "${VTMP}"
+          echo "Packed + round-trip-verified Chromium from ${PLATDIR}"
 
       # Stage specrails-core into src-tauri/core/ (offline framework source).
       # Mirrors the runtimes-assembly steps — plain JS/text, no signing.
@@ -995,18 +1018,28 @@ jobs:
       # latest/ channel — openspec: add-latest-release-channel + add-windows-desktop-release
       # ---------------------------------------------------------------
       #
-      # Ordering matters (spec: desktop-release-channel):
-      #   1. Delete any prior installer files in latest/ (keep .htaccess untouched).
+      # Ordering matters (spec: desktop-release-channel) — ATOMIC CUTOVER (BUG-CI-01):
+      #   1. SNAPSHOT the prior installer filenames in latest/ (do NOT delete yet).
       #   2. Upload the new .dmg, .exe, and .msi.
       #   3. HEAD-verify every binary referenced by manifest.json is HTTP-reachable.
       #   4. Upload manifest.json.
       #   5. HEAD-verify manifest.json is HTTP-reachable and valid JSON.
+      #   6. ONLY NOW delete the prior installers snapshotted in step 1
+      #      (excluding any the new release re-uploaded under the same name).
       #
-      # A consumer that sees the new manifest must always find the
-      # referenced binary. Never upload manifest.json before step 3 passes
-      # for EVERY platform listed in the manifest.
+      # Why this order: filenames are version-stamped, so deleting the old
+      # installers FIRST left the still-live OLD manifest.json (served no-cache)
+      # pointing at filenames that 404 for the whole multi-hundred-MB FTP upload
+      # window. By uploading new binaries + the new manifest FIRST and deleting the
+      # stale ones LAST, the cutover is atomic: a consumer that sees the new
+      # manifest always finds the referenced binary, and the old manifest's
+      # binaries remain live until the new manifest has fully published.
+      #
+      # Never upload manifest.json before step 3 passes for EVERY platform listed
+      # in the manifest. Keep .htaccess untouched (server-managed).
 
-      - name: Delete stale installers in latest/
+      - name: Snapshot stale installers in latest/ (delete deferred to end)
+        id: stale
         env:
           HOST: ${{ secrets.HOSTINGER_HOST }}
           FTP_USER: ${{ secrets.HOSTINGER_USER }}
@@ -1016,19 +1049,20 @@ jobs:
           remote="domains/specrails.dev/public_html/downloads/specrails-desktop/latest/"
           # List the directory. Returns just filenames when using --list-only.
           # Match .dmg (mac), .exe (Windows NSIS), .msi (Windows MSI). Do NOT
-          # delete manifest.json (it gets overwritten) or .htaccess (server-managed).
+          # ever touch manifest.json or .htaccess (server-managed). We only RECORD
+          # the current installers here — the actual DELE runs in the final step,
+          # after the new binaries + manifest are published and verified, so the
+          # latest/ channel never references a deleted binary.
           stale="$(curl -s --ftp-pasv --user "${FTP_USER}:${FTP_PASS}" "ftp://${HOST}/${remote}" --list-only | grep -E '\.(dmg|exe|msi)$' || true)"
+          # Persist the newline-delimited list to a file (avoids GITHUB_OUTPUT
+          # multiline quoting pitfalls); the delete step reads it back.
+          printf '%s\n' "${stale}" > /tmp/stale-installers.txt
           if [[ -z "${stale}" ]]; then
-            echo "No stale installer files in latest/"
-            exit 0
+            echo "No prior installer files in latest/ to retire."
+          else
+            echo "Snapshotted prior installers (will delete AFTER new manifest publishes):"
+            echo "${stale}"
           fi
-          while IFS= read -r f; do
-            [[ -z "${f}" ]] && continue
-            echo "Deleting stale: ${f}"
-            curl -s --ftp-pasv --user "${FTP_USER}:${FTP_PASS}" \
-              -Q "DELE ${remote}${f}" \
-              "ftp://${HOST}/${remote}" || echo "  (DELE failed for ${f}; continuing)"
-          done <<< "${stale}"
 
       - name: Upload new installers to latest/
         env:
@@ -1114,3 +1148,53 @@ jobs:
           done
           echo "✗ manifest.json not reachable or invalid"
           exit 1
+
+      # FINAL step of the atomic cutover (BUG-CI-01): only NOW, with the new
+      # binaries + manifest published and HTTP-verified, retire the PRIOR
+      # installers snapshotted at the start. Excludes any filename the new release
+      # re-uploaded under the same name (a same-version rebuild), so we never
+      # delete a binary the live manifest now references. Runs even if a later
+      # step were to fail — these are stale files either way — but stays a no-op
+      # when there was nothing to retire.
+      - name: Retire stale installers in latest/ (atomic cutover)
+        if: always()
+        env:
+          HOST: ${{ secrets.HOSTINGER_HOST }}
+          FTP_USER: ${{ secrets.HOSTINGER_USER }}
+          FTP_PASS: ${{ secrets.HOSTINGER_PASSWORD }}
+          # Canonical filenames the new release just published — never delete these.
+          KEEP_DMG: ${{ steps.rename.outputs.dmg_filename }}
+          KEEP_EXE_X64: ${{ steps.rename.outputs.exe_x64_filename }}
+          KEEP_MSI_X64: ${{ steps.rename.outputs.msi_x64_filename }}
+          KEEP_EXE_ARM64: ${{ steps.rename.outputs.exe_arm64_filename }}
+          KEEP_MSI_ARM64: ${{ steps.rename.outputs.msi_arm64_filename }}
+        run: |
+          set -euo pipefail
+          remote="domains/specrails.dev/public_html/downloads/specrails-desktop/latest/"
+          if [[ ! -f /tmp/stale-installers.txt ]]; then
+            echo "No snapshot file (snapshot step did not run) — nothing to retire."
+            exit 0
+          fi
+          # Filenames the new release published; matching ones are NOT stale.
+          keep="${KEEP_DMG}
+          ${KEEP_EXE_X64}
+          ${KEEP_MSI_X64}
+          ${KEEP_EXE_ARM64}
+          ${KEEP_MSI_ARM64}"
+          deleted=0
+          while IFS= read -r f; do
+            f="$(echo "${f}" | tr -d '[:space:]')"
+            [[ -z "${f}" ]] && continue
+            # Never delete manifest.json / .htaccess (the snapshot grep already
+            # excluded them) or a name the new release just re-uploaded.
+            if grep -qxF "${f}" <<< "$(echo "${keep}" | sed 's/^[[:space:]]*//')"; then
+              echo "Keeping (re-uploaded this release): ${f}"
+              continue
+            fi
+            echo "Retiring stale: ${f}"
+            curl -s --ftp-pasv --user "${FTP_USER}:${FTP_PASS}" \
+              -Q "DELE ${remote}${f}" \
+              "ftp://${HOST}/${remote}" || echo "  (DELE failed for ${f}; continuing)"
+            deleted=$((deleted+1))
+          done < /tmp/stale-installers.txt
+          echo "Retired ${deleted} stale installer(s) from latest/"

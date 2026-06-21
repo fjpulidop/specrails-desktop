@@ -2,7 +2,8 @@ import { Router } from 'express'
 import type { Request, Response } from 'express'
 import { loadOrGenerateToken } from '../auth'
 import { redact } from './mobile-redact'
-import { createMobileAuthMiddleware } from './mobile-auth'
+import { createMobileAuthMiddleware, type MobileAuthedRequest } from './mobile-auth'
+import { getAllowedProjects, isProjectAllowed } from './mobile-devices'
 import type { DbInstance } from '../db'
 
 // The gateway's authenticated REST surface: the `/v1/*` allow-list. Each route
@@ -37,6 +38,31 @@ export function createMobileRouter(deps: MobileRouterDeps): Router {
   // ─── Authenticated allow-list (/v1) ─────────────────────────────────────────
   const v1 = Router()
   v1.use(createMobileAuthMiddleware({ db: deps.db, currentFingerprint: deps.currentFingerprint }))
+
+  // BUG-MOBILE-02: per-device project ACL. After auth resolves `req.mobileDevice`,
+  // any `:pid`-scoped route is gated against the device's granted project set.
+  // An unrestricted device (null grant ⇒ all projects, legacy default) passes
+  // through; a scoped device gets 403 for any project it wasn't granted. The
+  // bare `GET /v1/projects` list has no `:pid` and is unaffected.
+  v1.use('/projects/:pid', (req, res, next) => {
+    const pid = seg(req.params.pid)
+    if (!PID_RE.test(pid)) {
+      res.status(400).json({ error: 'Invalid parameter' })
+      return
+    }
+    const device = (req as MobileAuthedRequest).mobileDevice
+    if (!device) {
+      // Auth middleware should have set this; defensive 401.
+      res.status(401).json({ error: 'Unauthorized' })
+      return
+    }
+    const allowed = getAllowedProjects(deps.db, device.id)
+    if (!isProjectAllowed(allowed, pid)) {
+      res.status(403).json({ error: 'Forbidden: project not allowed' })
+      return
+    }
+    next()
+  })
 
   /** Forward to the internal desktop API with the master token injected; redact
    *  the JSON response. `internalPath` is built from validated params only. */

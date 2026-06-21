@@ -27,10 +27,21 @@ export interface RegisterDeviceDeps {
  *  offer's secret for the life of that connection — the secret must NOT live on
  *  the global "pending offer", which is cleared the moment the answer is
  *  accepted, well before the companion's `hello` arrives). Approval is implicit:
- *  the desktop user actively scanned the phone's answer QR. */
+ *  the desktop user actively scanned the phone's answer QR.
+ *
+ *  BUG-AUTH-01: `requireExistingToken` gates the RECONNECT path. The reconnect
+ *  offer (and its secret) travels through a PUBLIC mailbox, so the secret alone
+ *  must NOT be sufficient to mint a device. When set, a missing/unresolved token
+ *  returns `{ok:false}` — only an already-paired, non-revoked device token can
+ *  re-register. First-time QR pairing leaves it unset and may mint. */
 export function buildRegisterDevice(deps: RegisterDeviceDeps) {
   const genToken = deps.genToken ?? (() => randomBytes(32).toString('hex'))
-  return async (input: { deviceName: string; platform: string; token?: string }): Promise<WelcomeResult> => {
+  return async (input: {
+    deviceName: string
+    platform: string
+    token?: string
+    requireExistingToken?: boolean
+  }): Promise<WelcomeResult | { ok: false }> => {
     // Reconnect: a known, non-revoked device token → reuse that device (no new
     // row, no growing the paired-devices list on every reconnect).
     if (input.token) {
@@ -44,6 +55,12 @@ export function buildRegisterDevice(deps: RegisterDeviceDeps) {
           hubInstanceId: deps.desktopInstanceId(),
         }
       }
+    }
+    // Reconnect re-registration MUST present a valid existing token. An absent or
+    // unknown/revoked token here is an attacker who only read the mailbox secret —
+    // refuse rather than mint a brand-new full-scope companion device.
+    if (input.requireExistingToken) {
+      return { ok: false }
     }
     const token = genToken()
     const row = createDevice(deps.db, {

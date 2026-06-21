@@ -178,10 +178,10 @@ describe('writeJiraBacklogConfig', () => {
     })
   })
 
-  it('does NOT short-circuit on git_auto mismatch alone when provider+write_access match (rewrites to desired)', () => {
-    // The idempotency guard only checks provider + write_access, NOT git_auto.
-    // So a file matching provider+write_access but with git_auto:true is treated as
-    // already-correct and is left untouched (documenting actual behavior).
+  it('rewrites when only git_auto differs (BUG-JIRA-CLIENT-05): flips git_auto:true -> false', () => {
+    // Regression guard: a pre-existing config that matches provider + write_access
+    // but has git_auto:true (core would keep auto-committing) MUST be rewritten to
+    // git_auto:false. The idempotency short-circuit now also compares git_auto.
     const target = backlogConfigPath(projectDir)
     fs.mkdirSync(path.dirname(target), { recursive: true })
     const stale = { provider: 'local', write_access: false, git_auto: true }
@@ -189,8 +189,21 @@ describe('writeJiraBacklogConfig', () => {
 
     writeJiraBacklogConfig(projectDir)
 
-    // Guard short-circuits because provider+write_access already match -> file unchanged.
-    expect(readBacklogConfig(projectDir)).toEqual(stale)
+    expect(readBacklogConfig(projectDir)).toEqual({
+      provider: 'local',
+      write_access: false,
+      git_auto: false,
+    })
+  })
+
+  it('still short-circuits (mtime stable) when ALL three fields already match', () => {
+    writeJiraBacklogConfig(projectDir)
+    const target = backlogConfigPath(projectDir)
+    const firstStat = fs.statSync(target)
+
+    writeJiraBacklogConfig(projectDir)
+    const secondStat = fs.statSync(target)
+    expect(secondStat.mtimeMs).toBe(firstStat.mtimeMs)
   })
 })
 

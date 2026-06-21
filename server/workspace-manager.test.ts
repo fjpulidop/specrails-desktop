@@ -33,6 +33,25 @@ describe('workspace-manager', () => {
     )
   })
 
+  it('BUG-ARTREG-01: honors SPECRAILS_REGISTRY_HOME (matches artifact-registry) when no explicit home is threaded', () => {
+    const prev = process.env.SPECRAILS_REGISTRY_HOME
+    process.env.SPECRAILS_REGISTRY_HOME = home
+    try {
+      // No explicit home arg → must resolve through resolveHome() and land in the
+      // SAME tree the registry uses, not os.homedir().
+      expect(workspacePathFor('envslug')).toBe(
+        path.join(home, '.specrails', 'projects', 'envslug', 'workspace'),
+      )
+      const ws = ensureWorkspace('envslug2', projectRoot)
+      expect(ws).toBe(path.join(home, '.specrails', 'projects', 'envslug2', 'workspace'))
+      expect(fs.existsSync(ws)).toBe(true)
+      expect(fs.lstatSync(path.join(ws, 'project')).isSymbolicLink()).toBe(true)
+    } finally {
+      if (prev === undefined) delete process.env.SPECRAILS_REGISTRY_HOME
+      else process.env.SPECRAILS_REGISTRY_HOME = prev
+    }
+  })
+
   it('ensureWorkspace creates the dir and a project symlink to the repo', () => {
     const ws = ensureWorkspace('proj1', projectRoot, home)
     expect(ws).toBe(workspacePathFor('proj1', home))

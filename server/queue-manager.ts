@@ -33,18 +33,32 @@ import { extractTicketIdsFromCommand, readStore, resolveTicketStoragePath } from
 import { binaryOnPath } from './binary-probe'
 import { resolveProjectExecution, type ProjectExecution } from './workspace-resolution'
 import { readCurrentFrameworkVersion } from './framework-manager'
-import { ensureOpenspecShim, prependShimToPath, removeOpenspecShim } from './openspec-shim'
+import { ensureOpenspecShim, prependShimToPath, removeOpenspecShim, openspecShimDir } from './openspec-shim'
 import { resolveHome } from './artifact-registry'
 
 // ─── Telemetry env helpers ────────────────────────────────────────────────────
 
-/** Build the OTEL environment variable block for a spawned claude process.
- * Extracted as a pure function so it is unit-testable without a full spawn. */
+/** Build the OTLP/telemetry environment variable block for a spawned AI-CLI
+ * process. Extracted as a pure function so it is unit-testable without a full
+ * spawn.
+ *
+ * Provider-aware: claude and codex honour the standard `OTEL_*` env-var
+ * convention (plus claude's `CLAUDE_CODE_ENABLE_TELEMETRY=1` master switch),
+ * but the Gemini CLI does NOT — it reads its own `GEMINI_TELEMETRY_*` prefixed
+ * vars (verified against google-gemini/gemini-cli docs/cli/telemetry.md) and
+ * defaults to gRPC, so gemini rails need `GEMINI_TELEMETRY_OTLP_PROTOCOL=http`
+ * and the OTLP endpoint pointed at our loopback receiver. Resource attributes
+ * still flow via the standard `OTEL_RESOURCE_ATTRIBUTES` (read by the OTel JS
+ * SDK that the Gemini CLI uses), so the receiver can route by job/project id.
+ *
+ * The `providerId` argument defaults to `'claude'` so existing claude/codex
+ * call paths stay byte-identical. */
 export function buildTelemetryEnv(
   jobId: string,
   projectId: string,
   desktopPort: number,
   extraResourceAttributes: Record<string, string | number> = {},
+  providerId: ProviderId = 'claude',
 ): Record<string, string> {
   const baseAttrs: Array<[string, string]> = [
     ['specrails.job_id', jobId],
@@ -53,14 +67,34 @@ export function buildTelemetryEnv(
   for (const [k, v] of Object.entries(extraResourceAttributes)) {
     baseAttrs.push([k, String(v)])
   }
+  const resourceAttributes = baseAttrs.map(([k, v]) => `${k}=${v}`).join(',')
+  const endpoint = `http://127.0.0.1:${desktopPort}/otlp`
+
+  if (providerId === 'gemini') {
+    // Gemini CLI uses its own env contract (not OTEL_*). Defaults to gRPC, so we
+    // must force the http transport to reach our OTLP/HTTP JSON receiver, and
+    // target the `local` backend (not gcp). OTEL_RESOURCE_ATTRIBUTES is still
+    // honoured by the underlying OTel SDK for job/project routing.
+    return {
+      GEMINI_TELEMETRY_ENABLED: 'true',
+      GEMINI_TELEMETRY_TARGET: 'local',
+      GEMINI_TELEMETRY_OTLP_ENDPOINT: endpoint,
+      GEMINI_TELEMETRY_OTLP_PROTOCOL: 'http',
+      GEMINI_TELEMETRY_TRACES_ENABLED: 'true',
+      OTEL_RESOURCE_ATTRIBUTES: resourceAttributes,
+    }
+  }
+
+  // claude (master switch + OTEL_*) and codex (OTEL_* only) — byte-identical to
+  // the pre-fix block for both.
   return {
     CLAUDE_CODE_ENABLE_TELEMETRY: '1',
-    OTEL_EXPORTER_OTLP_ENDPOINT: `http://127.0.0.1:${desktopPort}/otlp`,
+    OTEL_EXPORTER_OTLP_ENDPOINT: endpoint,
     OTEL_EXPORTER_OTLP_PROTOCOL: 'http/json',
     OTEL_METRICS_EXPORTER: 'otlp',
     OTEL_LOGS_EXPORTER: 'otlp',
     OTEL_TRACES_EXPORTER: 'otlp',
-    OTEL_RESOURCE_ATTRIBUTES: baseAttrs.map(([k, v]) => `${k}=${v}`).join(','),
+    OTEL_RESOURCE_ATTRIBUTES: resourceAttributes,
   }
 }
 
@@ -281,6 +315,10 @@ export class QueueManager {
     if (this._db) {
       this._restoreFromDb()
     }
+
+    // One-time startup sweep of stale openspec shim dirs left by rails that
+    // exited without cleaning up (pre-fix builds / ungraceful shutdown).
+    this._sweepStaleOpenspecShims()
   }
 
   setCommands(commands: CommandInfo[]): void {
@@ -751,7 +789,11 @@ export class QueueManager {
     this._snapshotRefs.delete(jobId)
     this._jobModelSelection.delete(jobId)
     this._jobProfileSelection.delete(jobId)
+    this._jobProviderSelection.delete(jobId)
     this._jobInteractiveSelection.delete(jobId)
+    // A wedged job may have had its openspec shim materialised already (the
+    // wedge can land after _startJob's shim setup). Mirror the settle path.
+    this._cleanupOpenspecShim(jobId)
     if (this._db) {
       try {
         finishJob(this._db, jobId, { exit_code: -1, status: 'failed' })
@@ -767,6 +809,50 @@ export class QueueManager {
     this._persistQueueState()
     this._broadcastQueueState()
     console.error(`[QueueManager] job ${jobId} failed before spawn: ${reason}`)
+  }
+
+  /**
+   * Remove the per-job openspec PATH shim (relocated claude rails only) from
+   * BOTH the in-memory map and disk. Idempotent and best-effort: a no-op when
+   * no shim was materialised for the job. Centralised so every terminal path
+   * (_settleInteractiveJob, _onJobExit, _failWedgedJob, the SIGKILL-failure
+   * recovery) cleans up the dir + map entry the same way — the fix for the
+   * lifecycle-cleanup asymmetry that leaked one chmod-700 dir per rail.
+   */
+  private _cleanupOpenspecShim(jobId: string): void {
+    const shim = this._openspecShims.get(jobId)
+    if (!shim) return
+    this._openspecShims.delete(jobId)
+    if (this._projectSlug) {
+      removeOpenspecShim(this._projectSlug, jobId, resolveHome())
+    }
+  }
+
+  /**
+   * Startup sweep of stale per-job openspec shim dirs left on disk by rails that
+   * crashed/were killed before this code shipped the terminal-path cleanup (or
+   * by an ungraceful server exit). Best-effort: removes every `<jobId>` subdir
+   * under `~/.specrails/projects/<slug>/openspec-shim/`. The dirs are pure
+   * regeneratable PATH shims (no state), so an over-eager sweep is harmless —
+   * the next spawn re-materialises its own. No-op when no slug is set.
+   */
+  private _sweepStaleOpenspecShims(): void {
+    if (!this._projectSlug) return
+    try {
+      const home = resolveHome()
+      const shimRoot = pathNode.dirname(openspecShimDir(this._projectSlug, '_', home))
+      if (!fsNode.existsSync(shimRoot)) return
+      for (const entry of fsNode.readdirSync(shimRoot, { withFileTypes: true })) {
+        if (!entry.isDirectory()) continue
+        try {
+          fsNode.rmSync(pathNode.join(shimRoot, entry.name), { recursive: true, force: true })
+        } catch {
+          /* best-effort per-entry */
+        }
+      }
+    } catch {
+      /* best-effort: a missing shim root / unreadable dir is fine */
+    }
   }
 
   /**
@@ -890,11 +976,7 @@ export class QueueManager {
     this._snapshotRefs.delete(jobId)
 
     // Clean up the per-job openspec PATH shim (relocated claude rails only).
-    const shim = this._openspecShims.get(jobId)
-    if (shim) {
-      this._openspecShims.delete(jobId)
-      if (this._projectSlug) removeOpenspecShim(this._projectSlug, jobId, resolveHome())
-    }
+    this._cleanupOpenspecShim(jobId)
 
     if (this._disposed) return
     const job = this._jobs.get(jobId)
@@ -1180,7 +1262,7 @@ export class QueueManager {
       if (frameworkVersion) extra['specrails.framework_version'] = frameworkVersion
       spawnEnv = {
         ...process.env,
-        ...buildTelemetryEnv(jobId, this._projectId, this._desktopPort, extra),
+        ...buildTelemetryEnv(jobId, this._projectId, this._desktopPort, extra, adapter.id),
       }
     }
     // Inject the profile path whenever the adapter honours it (was: claude-
@@ -1573,6 +1655,12 @@ export class QueueManager {
     this._jobExecution.delete(jobId)
     const provenanceRepoDir = jobExecution?.repoDir ?? this._cwd
 
+    // Clean up the per-job openspec PATH shim (relocated claude rails only),
+    // BEFORE any early return, so a disposed/unknown-job exit can't leak the
+    // in-memory map entry or the on-disk chmod-700 dir. Mirrors the interactive
+    // settle path (the dominant non-interactive rail path lives here).
+    this._cleanupOpenspecShim(jobId)
+
     // A3: release the active slot for THIS job before any early return, so a
     // disposed/unknown-job exit can never leave the slot reserved (which would
     // wedge the queue). Guarded by identity in case a stale exit fires late.
@@ -1893,32 +1981,97 @@ export class QueueManager {
     this._killTimer = setTimeout(() => {
       treeKill(pid, 'SIGKILL', (err) => {
         if (err) {
-          // SIGKILL failed — force cleanup so queue is not permanently blocked
+          // SIGKILL failed — force cleanup so queue is not permanently blocked.
           console.error(`[kill] SIGKILL failed for pid ${pid}: ${err.message}`)
           if (this._activeJobId === jobId) {
-            const job = this._jobs.get(jobId)
-            if (job && job.status === 'running') {
-              job.status = 'failed'
-              job.finishedAt = new Date().toISOString()
-              if (this._db) {
-                try {
-                  this._db.prepare(
-                    `UPDATE jobs SET status = 'failed', finished_at = CURRENT_TIMESTAMP WHERE id = ?`
-                  ).run(jobId)
-                } catch { /* ignore */ }
-              }
-            }
-            this._activeProcess = null
-            this._activeJobId = null
-            this._cancelingJobs.delete(jobId)
-            this._zombieJobs.delete(jobId)
-            this._broadcastQueueState()
-            this._drainQueue()
+            this._forceFailUnkillableJob(jobId)
           }
         }
       })
       this._killTimer = null
     }, 5000)
+  }
+
+  /**
+   * Terminal handling for a still-`running` job whose child survived SIGKILL
+   * (the escalation `treeKill` errored — most likely on Windows via taskkill).
+   * Previously this branch only force-failed the row in memory + DB and released
+   * the slot, but skipped `_onJobFinished` (so ticket status never reverted/
+   * flagged and budget/webhook/Jira write-back never fired), skipped
+   * `recordInvocation`, and leaked every per-job map + the git-stash snapshot +
+   * the openspec shim. Route through the same complete teardown the rest of the
+   * terminal paths use so a zombie-surviving child can't wedge the rail forever.
+   */
+  private _forceFailUnkillableJob(jobId: string): void {
+    const job = this._jobs.get(jobId)
+    const isRunning = !!job && job.status === 'running'
+    if (job && isRunning) {
+      job.status = 'failed'
+      job.finishedAt = new Date().toISOString()
+      job.exitCode = -1
+      if (this._db) {
+        try {
+          finishJob(this._db, jobId, { exit_code: -1, status: 'failed' })
+        } catch {
+          /* DB may be closed mid-shutdown — never throw from the kill callback */
+        }
+      }
+
+      // ai_invocations capture (surface='job', aborted) so the failed rail still
+      // shows on Analytics with no token/cost data (none was finalised).
+      if (this._db && this._projectId) {
+        try {
+          const ticketIds = this._extractTicketIds(job.command)
+          const durationMs = job.startedAt
+            ? new Date(job.finishedAt).getTime() - new Date(job.startedAt).getTime()
+            : undefined
+          recordInvocation(this._db, {
+            id: randomUUID(),
+            project_id: this._projectId,
+            provider: this._adapter.id,
+            surface: 'job',
+            surface_ref_id: jobId,
+            ticket_id: ticketIds[0] ?? null,
+            status: 'aborted',
+            started_at: job.startedAt ?? new Date().toISOString(),
+            finished_at: job.finishedAt,
+            total_cost_usd_estimated: false,
+            duration_ms: durationMs,
+          })
+          this._broadcast({ type: 'spending.invalidated', projectId: this._projectId })
+        } catch (err) {
+          console.error('[queue-manager] recordInvocation (unkillable) failed:', err)
+        }
+      }
+    }
+
+    // Clear ALL per-job maps + the git-stash snapshot + the openspec shim so a
+    // surviving child cannot leak memory/disk (mirrors _onJobExit/_failWedgedJob).
+    this._snapshotRefs.delete(jobId)
+    this._jobExecution.delete(jobId)
+    this._jobModelSelection.delete(jobId)
+    this._jobProfileSelection.delete(jobId)
+    this._jobProviderSelection.delete(jobId)
+    this._jobInteractiveSelection.delete(jobId)
+    this._cleanupOpenspecShim(jobId)
+
+    this._activeProcess = null
+    this._activeJobId = null
+    this._cancelingJobs.delete(jobId)
+    this._zombieJobs.delete(jobId)
+
+    // Fire the rail/ticket completion callback so status reverts/flags and the
+    // budget/webhook/Jira write-back path runs — the whole point of the fix.
+    if (isRunning) {
+      try {
+        this._onJobFinished?.(jobId, 'failed', undefined)
+      } catch (err) {
+        console.error(`[QueueManager] onJobFinished failed for ${jobId}: ${(err as Error).message}`)
+      }
+    }
+
+    this._broadcastQueueState()
+    this._drainQueue()
   }
 
   private _broadcastQueueState(): void {

@@ -129,7 +129,10 @@ export class RingBuffer {
     if (this.total > this.capacity && this.chunks.length === 1) {
       const head = this.chunks[0]
       const excess = this.total - this.capacity
-      this.chunks[0] = head.subarray(excess)
+      // Copy the tail into a fresh allocation. `subarray` returns a view over the
+      // ORIGINAL (potentially multi-MB) ArrayBuffer, so keeping it would pin the
+      // whole oversized chunk in memory until the next append (BUG-TERM-02).
+      this.chunks[0] = Buffer.from(head.subarray(excess))
       this.total = this.chunks[0].length
     }
   }

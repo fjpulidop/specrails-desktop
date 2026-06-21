@@ -2,6 +2,17 @@ import { describe, it, expect, vi, afterEach } from 'vitest'
 import { EventEmitter } from 'node:events'
 import { Readable, Writable } from 'node:stream'
 import type { ChildProcess } from 'node:child_process'
+
+// tree-kill targets real OS pids; in tests the FakeChild pid is synthetic, so
+// mock it to capture (pid, signal) calls without touching the host.
+const treeKillCalls: Array<{ pid: number; signal?: string }> = []
+vi.mock('tree-kill', () => ({
+  default: (pid: number, signal?: string, cb?: (err?: Error) => void) => {
+    treeKillCalls.push({ pid, signal })
+    cb?.()
+  },
+}))
+
 import {
   ExploreStdinSessions,
   frameStreamJsonUserMessage,
@@ -44,6 +55,8 @@ function fakeSpawn(child: FakeChild) {
 
 afterEach(() => {
   delete process.env.SPECRAILS_EXPLORE_PERSISTENT_STDIN
+  treeKillCalls.length = 0
+  vi.useRealTimers()
 })
 
 describe('isExplorePersistentStdinEnabled', () => {
@@ -153,31 +166,84 @@ describe('ExploreStdinSessions', () => {
     expect(r.child).toBe(c2)
   })
 
-  it('kill() terminates the child and forgets it; writeTurn then fails', () => {
+  it('kill() tree-kills the child subtree with SIGTERM and forgets it; writeTurn then fails', () => {
     const sessions = new ExploreStdinSessions()
     const child = new FakeChild()
     sessions.getOrSpawn('c1', { binary: 'claude', args: [], spawn: fakeSpawn(child) })
     sessions.kill('c1')
-    expect(child.killed).toBe(true)
-    expect(child.killSignals).toContain('SIGTERM')
+    // BUG-CHAT-01: must treeKill(pid, 'SIGTERM') (whole subtree), NOT child.kill.
+    expect(child.killed).toBe(false)
+    expect(treeKillCalls).toEqual([{ pid: 4321, signal: 'SIGTERM' }])
     expect(sessions.has('c1')).toBe(false)
     expect(sessions.writeTurn('c1', 'x')).toBe(false)
   })
 
-  it('killAll() terminates every session', () => {
+  it('kill() escalates to SIGKILL via treeKill if the child ignores SIGTERM', () => {
+    vi.useFakeTimers()
     const sessions = new ExploreStdinSessions()
-    const a = new FakeChild(); const b = new FakeChild()
+    const child = new FakeChild()
+    sessions.getOrSpawn('c1', { binary: 'claude', args: [], spawn: fakeSpawn(child) })
+    sessions.kill('c1')
+    expect(treeKillCalls).toEqual([{ pid: 4321, signal: 'SIGTERM' }])
+    // Child never emits 'close' → after the 2s grace window SIGKILL fires.
+    vi.advanceTimersByTime(2000)
+    expect(treeKillCalls).toEqual([
+      { pid: 4321, signal: 'SIGTERM' },
+      { pid: 4321, signal: 'SIGKILL' },
+    ])
+  })
+
+  it('kill() cancels the SIGKILL escalation once the child closes', () => {
+    vi.useFakeTimers()
+    const sessions = new ExploreStdinSessions()
+    const child = new FakeChild()
+    sessions.getOrSpawn('c1', { binary: 'claude', args: [], spawn: fakeSpawn(child) })
+    sessions.kill('c1')
+    child.emit('close', 0) // child obeyed SIGTERM
+    vi.advanceTimersByTime(5000)
+    expect(treeKillCalls).toEqual([{ pid: 4321, signal: 'SIGTERM' }]) // no SIGKILL
+  })
+
+  it('killAll() tree-kills every session', () => {
+    const sessions = new ExploreStdinSessions()
+    const a = new FakeChild(); a.pid = 11
+    const b = new FakeChild(); b.pid = 22
     sessions.getOrSpawn('a', { binary: 'claude', args: [], spawn: fakeSpawn(a) })
     sessions.getOrSpawn('b', { binary: 'claude', args: [], spawn: fakeSpawn(b) })
     sessions.killAll()
-    expect(a.killed).toBe(true)
-    expect(b.killed).toBe(true)
+    expect(treeKillCalls.map((c) => c.pid).sort()).toEqual([11, 22])
+    expect(treeKillCalls.every((c) => c.signal === 'SIGTERM')).toBe(true)
     expect(sessions.size()).toBe(0)
   })
 
   it('writeTurn returns false for an unknown conversation', () => {
     const sessions = new ExploreStdinSessions()
     expect(sessions.writeTurn('nope', 'x')).toBe(false)
+  })
+
+  it('an async stdin error routes to onClose(null) and is not unhandled (BUG-CHAT-06)', () => {
+    const sessions = new ExploreStdinSessions()
+    const child = new FakeChild()
+    sessions.getOrSpawn('c1', { binary: 'claude', args: [], spawn: fakeSpawn(child) })
+    let closedCode: number | null | undefined = 999
+    sessions.setHandlers('c1', { onLine: () => {}, onStderr: () => {}, onClose: (c) => { closedCode = c } })
+    // The 'error' listener must exist — emitting on an unhandled Writable would
+    // otherwise throw and crash the process.
+    expect(() => child.stdin.emit('error', new Error('EPIPE'))).not.toThrow()
+    expect(closedCode).toBeNull()
+    expect(sessions.has('c1')).toBe(false)
+  })
+
+  it('writeTurn surfaces a delayed stdin write failure on the next turn (BUG-CHAT-06)', () => {
+    const sessions = new ExploreStdinSessions()
+    const child = new FakeChild()
+    sessions.getOrSpawn('c1', { binary: 'claude', args: [], spawn: fakeSpawn(child) })
+    sessions.setHandlers('c1', { onLine: () => {}, onStderr: () => {}, onClose: () => {} })
+    // First write enqueues fine; the buffered write then errors asynchronously.
+    expect(sessions.writeTurn('c1', 'first')).toBe(true)
+    child.stdin.emit('error', new Error('EPIPE'))
+    // Session is evicted, so a subsequent write must fail rather than report success.
+    expect(sessions.writeTurn('c1', 'second')).toBe(false)
   })
 
   it('setHandlers/clearHandlers/kill are no-ops for unknown ids', () => {

@@ -3,6 +3,7 @@ import express from 'express'
 import request from 'supertest'
 import path from 'path'
 import fs from 'fs'
+import dns from 'dns'
 
 vi.mock('./core-compat', async (importActual) => {
   const actual = await importActual<typeof import('./core-compat')>()
@@ -75,6 +76,7 @@ describe('desktop-router', () => {
   let desktopDb: DbInstance
   let existsSyncSpy: any
   let realpathSyncSpy: any
+  let dnsLookupSpy: any
 
   beforeEach(() => {
     vi.restoreAllMocks()
@@ -82,6 +84,12 @@ describe('desktop-router', () => {
     // Spy on fs.existsSync so the router's `fs.existsSync(resolvedPath)` is intercepted
     existsSyncSpy = vi.spyOn(fs, 'existsSync').mockReturnValue(true)
     realpathSyncSpy = vi.spyOn(fs, 'realpathSync').mockImplementation((p: fs.PathLike) => String(p))
+    // BUG-WEBHOOK-01: webhook create/update now DNS-resolves the host to block
+    // rebinding SSRF. Default the lookup to a public IP so existing tests using
+    // `example.com` stay hermetic (no real network); rebinding tests override.
+    dnsLookupSpy = vi
+      .spyOn(dns.promises, 'lookup')
+      .mockResolvedValue([{ address: '93.184.216.34', family: 4 }] as any)
   })
 
   function createApp() {
@@ -1045,6 +1053,92 @@ describe('desktop-router', () => {
       expect(res.status).toBe(201)
       expect(res.body.webhook.project_id).toBe(projectId)
     })
+
+    // ─── BUG-WEBHOOK-01: SSRF hardening ──────────────────────────────────────
+
+    it('rejects decimal-IPv4-encoded loopback (https://2130706433/)', async () => {
+      const { app } = createApp()
+      const res = await request(app)
+        .post('/api/webhooks')
+        .send({ url: 'https://2130706433/hook' })
+      expect(res.status).toBe(400)
+      expect(res.body.error).toContain('webhook url must be https')
+    })
+
+    it('rejects octal-IPv4-encoded loopback (https://0177.0.0.1/)', async () => {
+      const { app } = createApp()
+      const res = await request(app)
+        .post('/api/webhooks')
+        .send({ url: 'https://0177.0.0.1/hook' })
+      expect(res.status).toBe(400)
+    })
+
+    it('rejects hex-mapped IPv6 loopback (https://[::ffff:7f00:1]/)', async () => {
+      const { app } = createApp()
+      const res = await request(app)
+        .post('/api/webhooks')
+        .send({ url: 'https://[::ffff:7f00:1]/hook' })
+      expect(res.status).toBe(400)
+      expect(res.body.error).toContain('webhook url must be https')
+    })
+
+    it('rejects dotted-decimal IPv4-mapped IPv6 loopback (https://[::ffff:127.0.0.1]/)', async () => {
+      const { app } = createApp()
+      const res = await request(app)
+        .post('/api/webhooks')
+        .send({ url: 'https://[::ffff:127.0.0.1]/hook' })
+      expect(res.status).toBe(400)
+    })
+
+    it('rejects a public hostname that DNS-resolves to a private address (rebinding)', async () => {
+      dnsLookupSpy.mockResolvedValue([
+        { address: '93.184.216.34', family: 4 },
+        { address: '169.254.169.254', family: 4 }, // link-local metadata endpoint
+      ] as any)
+      const { app } = createApp()
+      const res = await request(app)
+        .post('/api/webhooks')
+        .send({ url: 'https://rebind.attacker.example/hook' })
+      expect(res.status).toBe(400)
+      expect(res.body.error).toContain('webhook url must be https')
+      expect(dnsLookupSpy).toHaveBeenCalled()
+    })
+
+    it('rejects a public hostname that DNS-resolves to loopback (rebinding)', async () => {
+      dnsLookupSpy.mockResolvedValue([{ address: '127.0.0.1', family: 4 }] as any)
+      const { app } = createApp()
+      const res = await request(app)
+        .post('/api/webhooks')
+        .send({ url: 'https://rebind2.attacker.example/hook' })
+      expect(res.status).toBe(400)
+    })
+
+    it('allows a public hostname that DNS-resolves only to public addresses', async () => {
+      dnsLookupSpy.mockResolvedValue([{ address: '93.184.216.34', family: 4 }] as any)
+      const { app } = createApp()
+      const res = await request(app)
+        .post('/api/webhooks')
+        .send({ url: 'https://good.example.com/hook' })
+      expect(res.status).toBe(201)
+    })
+
+    it('skips the DNS rebinding gate when SPECRAILS_ALLOW_LOCAL_WEBHOOKS=1', async () => {
+      const prev = process.env.SPECRAILS_ALLOW_LOCAL_WEBHOOKS
+      process.env.SPECRAILS_ALLOW_LOCAL_WEBHOOKS = '1'
+      dnsLookupSpy.mockResolvedValue([{ address: '127.0.0.1', family: 4 }] as any)
+      try {
+        const { app } = createApp()
+        const res = await request(app)
+          .post('/api/webhooks')
+          .send({ url: 'https://localhost/hook' })
+        expect(res.status).toBe(201)
+        // The gate was skipped entirely — no DNS lookup performed.
+        expect(dnsLookupSpy).not.toHaveBeenCalled()
+      } finally {
+        if (prev === undefined) delete process.env.SPECRAILS_ALLOW_LOCAL_WEBHOOKS
+        else process.env.SPECRAILS_ALLOW_LOCAL_WEBHOOKS = prev
+      }
+    })
   })
 
   describe('PATCH /api/webhooks/:id', () => {
@@ -1101,6 +1195,27 @@ describe('desktop-router', () => {
         .send({ url: 'https://127.0.0.1/hook' })
       expect(res.status).toBe(400)
       expect(res.body.error).toContain('webhook url must be https')
+    })
+
+    // BUG-WEBHOOK-01: the DNS-rebinding gate applies to updates too.
+    it('rejects an updated url whose host DNS-resolves to a private address', async () => {
+      addWebhook(desktopDb, { id: 'wh-1', projectId: null, url: 'https://example.com/hook', events: ['job.completed'] })
+      dnsLookupSpy.mockResolvedValue([{ address: '10.0.0.5', family: 4 }] as any)
+      const { app } = createApp()
+      const res = await request(app)
+        .patch('/api/webhooks/wh-1')
+        .send({ url: 'https://rebind.attacker.example/hook' })
+      expect(res.status).toBe(400)
+      expect(res.body.error).toContain('webhook url must be https')
+    })
+
+    it('rejects an updated url that is a decimal-encoded loopback', async () => {
+      addWebhook(desktopDb, { id: 'wh-1', projectId: null, url: 'https://example.com/hook', events: ['job.completed'] })
+      const { app } = createApp()
+      const res = await request(app)
+        .patch('/api/webhooks/wh-1')
+        .send({ url: 'https://2130706433/hook' })
+      expect(res.status).toBe(400)
     })
   })
 

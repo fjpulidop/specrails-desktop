@@ -1,5 +1,12 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
-import { JiraClient, detectDeployment, type FetchImpl, type JiraClientConfig } from './jira-client'
+import {
+  JiraClient,
+  detectDeployment,
+  assertSecureJiraBaseUrl,
+  JiraUrlError,
+  type FetchImpl,
+  type JiraClientConfig,
+} from './jira-client'
 
 // The fetchImpl produced by the most recent makeFetch() call. cloudCfg()/dcCfg()
 // default to it so every test that calls makeFetch() before constructing a
@@ -169,10 +176,103 @@ describe('detectDeployment', () => {
     expect(detectDeployment('https://atlassian.net.evil.com').deployment).toBe('dc')
   })
 
-  it('falls back to the raw string when the URL is unparseable', () => {
-    // No scheme => new URL throws => host = lowercased raw string.
-    expect(detectDeployment('mycompany.atlassian.net').deployment).toBe('cloud')
-    expect(detectDeployment('not a url').deployment).toBe('dc')
+  it('rejects an unparseable / scheme-less base URL (no insecure fallback)', () => {
+    // Previously these fell back to a raw-string match; that fallback was a
+    // security hole (no protocol validation) and is now rejected.
+    expect(() => detectDeployment('mycompany.atlassian.net')).toThrow(JiraUrlError)
+    expect(() => detectDeployment('not a url')).toThrow(JiraUrlError)
+  })
+
+  // ── BUG-JIRA-CLIENT-01: enforce https / loopback-only http ────────────────
+  it('rejects a plaintext http base URL (creds would travel in cleartext)', () => {
+    expect(() => detectDeployment('http://jira.internal.example.com')).toThrow(
+      /must use https/
+    )
+  })
+
+  it('allows http only for explicit localhost / loopback', () => {
+    expect(detectDeployment('http://localhost:8080').deployment).toBe('dc')
+    expect(detectDeployment('http://127.0.0.1:2990/jira').deployment).toBe('dc')
+    expect(detectDeployment('http://[::1]:8080').deployment).toBe('dc')
+  })
+
+  it('still rejects http for a non-loopback host that merely looks local', () => {
+    expect(() => detectDeployment('http://localhost.evil.com')).toThrow(/must use https/)
+  })
+
+  // ── BUG-JIRA-CLIENT-02: userinfo spoofing → wrong host ────────────────────
+  it('rejects a base URL carrying userinfo (host-spoof guard)', () => {
+    // new URL(...).host would be evil.com → classified dc → PAT sent to evil.com.
+    expect(() => detectDeployment('https://acme.atlassian.net@evil.com/')).toThrow(
+      JiraUrlError
+    )
+    expect(() => detectDeployment('https://user:pass@acme.atlassian.net/')).toThrow(
+      /must not contain credentials/
+    )
+  })
+
+  it('matches the parsed hostname (not host) so a port cannot spoof the suffix', () => {
+    // A real cloud host with an explicit port still classifies as cloud.
+    expect(detectDeployment('https://acme.atlassian.net:443/').deployment).toBe('cloud')
+    // atlassian.net.evil.com is still dc (suffix match on hostname).
+    expect(detectDeployment('https://atlassian.net.evil.com/').deployment).toBe('dc')
+  })
+})
+
+// ───────────────────────────────────────────────────────────────────────────
+// assertSecureJiraBaseUrl — the shared validation primitive
+// ───────────────────────────────────────────────────────────────────────────
+
+describe('assertSecureJiraBaseUrl', () => {
+  it('accepts a plain https cloud url and returns the lowercased hostname', () => {
+    const { hostname } = assertSecureJiraBaseUrl('https://ACME.Atlassian.NET/jira/')
+    expect(hostname).toBe('acme.atlassian.net')
+  })
+
+  it('rejects http for a non-loopback host', () => {
+    expect(() => assertSecureJiraBaseUrl('http://jira.example.com')).toThrow(/must use https/)
+  })
+
+  it('permits http for loopback only', () => {
+    expect(assertSecureJiraBaseUrl('http://127.0.0.1:2990').hostname).toBe('127.0.0.1')
+  })
+
+  it('rejects userinfo so the real host is never trusted', () => {
+    expect(() => assertSecureJiraBaseUrl('https://x@evil.com')).toThrow(
+      /must not contain credentials/
+    )
+  })
+
+  it('throws a JiraUrlError carrying status 400', () => {
+    try {
+      assertSecureJiraBaseUrl('ftp://nope')
+      throw new Error('expected throw')
+    } catch (err) {
+      expect(err).toBeInstanceOf(JiraUrlError)
+      expect((err as JiraUrlError).status).toBe(400)
+    }
+  })
+})
+
+// ───────────────────────────────────────────────────────────────────────────
+// constructor rejects insecure / spoofed base URLs (defence-in-depth)
+// ───────────────────────────────────────────────────────────────────────────
+
+describe('JiraClient constructor URL guard', () => {
+  it('refuses to construct with a plaintext http base url', () => {
+    expect(() => new JiraClient(dcCfg({ baseUrl: 'http://jira.example.com' }))).toThrow(
+      /must use https/
+    )
+  })
+
+  it('refuses to construct with a userinfo-bearing base url', () => {
+    expect(
+      () => new JiraClient(cloudCfg({ baseUrl: 'https://acme.atlassian.net@evil.com/' }))
+    ).toThrow(JiraUrlError)
+  })
+
+  it('still constructs for a loopback http base url', () => {
+    expect(new JiraClient(dcCfg({ baseUrl: 'http://localhost:8080' })).deployment).toBe('dc')
   })
 })
 

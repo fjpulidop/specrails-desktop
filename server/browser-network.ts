@@ -17,6 +17,35 @@ const URL_CAP = 2000
 const RESPONSE_BODY_CAP = 200_000
 const SHAPE_CAP = 400
 
+/**
+ * Strip the query string (and any embedded credentials / fragment) from a URL
+ * before it is persisted into a captured-network entry. Mirrors the body-sketch
+ * privacy invariant: the SHAPE (origin + path) is kept for spec usefulness, but
+ * the values — bearer tokens, API keys, signed-URL signatures, OAuth `code`/
+ * `state`, session ids — are dropped. A `?` marker is appended when a query was
+ * present so the AI still knows the request was parameterised. Non-parseable or
+ * non-http(s) URLs degrade to a truncated raw copy with the query lexically
+ * chopped, so we never persist a raw query even on a parse failure.
+ */
+export function redactUrlQuery(raw: string): string {
+  if (typeof raw !== 'string' || raw.length === 0) return ''
+  try {
+    const u = new URL(raw)
+    const hadQuery = u.search.length > 0
+    // Drop credentials, query, and fragment — keep origin + path only.
+    u.username = ''
+    u.password = ''
+    u.search = ''
+    u.hash = ''
+    return hadQuery ? `${u.toString()}?…` : u.toString()
+  } catch {
+    // Relative or malformed URL: lexically chop at the first '?' / '#'.
+    const cut = raw.search(/[?#]/)
+    const base = cut >= 0 ? raw.slice(0, cut) : raw
+    return cut >= 0 ? `${base}?…` : base
+  }
+}
+
 /** True when an entry should be dropped (static asset or non-network URL scheme). */
 export function shouldSkipNetworkEntry(resourceType: string, url: string): boolean {
   if (NETWORK_DENY_TYPES.has(resourceType)) return true
@@ -97,7 +126,10 @@ export class NetworkRingBuffer {
     }
     this.map.set(requestId, {
       method: info.method,
-      url: info.url.slice(0, URL_CAP),
+      // Redact the query string before storing — never persist tokens/PII into
+      // the spec attachment / LLM prompt (BUG-BROWSER-03). Mirrors the body-sketch
+      // policy: keep the structural origin+path, drop the values.
+      url: redactUrlQuery(info.url).slice(0, URL_CAP),
       status: null,
       resourceType: info.resourceType,
       mimeType: null,

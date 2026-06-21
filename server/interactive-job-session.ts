@@ -97,6 +97,15 @@ export class InteractiveJobSession {
   /** True between writing a turn to stdin and receiving its `result` event.
    *  Guards _onTurnResult against double-counting a duplicate `result` frame. */
   private _awaitingResult = false
+  /** Monotonic id assigned to each turn written to stdin. A `result` frame is only
+   *  counted when its turn-id matches the in-flight turn — so a stray/late/duplicate
+   *  result for a finished turn can never be folded into the NEXT turn's totals. */
+  private _turnSeq = 0
+  /** The turn-id currently awaiting a `result` (== _turnSeq while streaming). */
+  private _activeTurnId = 0
+  /** The highest turn-id whose `result` has already been counted. A result whose
+   *  turn-id is <= this has already settled and is rejected (stray/duplicate). */
+  private _lastSettledTurnId = 0
   private _pending: string[] = []
   private _turnEvents: AdapterEvent[] = []
 
@@ -148,12 +157,27 @@ export class InteractiveJobSession {
     this.send(firstPrompt)
   }
 
-  /** Accept a user prompt. Echoed immediately to the in-job chat; written to the
-   *  child now if idle, else queued and fed when the active turn's `result`
-   *  fires. Returns false if the session is gone. */
+  /** Accept a user prompt. Written to the child now if idle, else queued and fed
+   *  when the active turn's `result` fires. The prompt is only echoed to the
+   *  transcript (persist + `job.turn_user`) AFTER delivery is confirmed — a queued
+   *  prompt is "delivered" the moment it lands in the pending buffer (it will run),
+   *  an immediate prompt only after a confirmed stdin write. Returns false if the
+   *  session is gone OR the write could not be delivered (stdin destroyed/EPIPE). */
   send(text: string): boolean {
     if (this._disposed || this._finalizing || !this._child) return false
     const queued = this._streaming
+    if (queued) {
+      this._pending.push(text)
+    } else if (!this._writeTurn(text)) {
+      // The child is alive but stdin isn't writable (mid-crash/EPIPE). Do NOT echo
+      // the turn as accepted — surface a delivery-failure note instead, and settle
+      // the session as crashed since the transport is gone.
+      const note = `⚠️ Could not deliver your message — the agent's input channel is closed.`
+      this._persistLog('stderr', note)
+      this._emitLog('stderr', note)
+      this._settle('crashed')
+      return false
+    }
     // Surface the user turn in the transcript via the existing `log` channel so
     // it both renders live (the client's 'log' handler) and survives a reload
     // (persisted as a log event, picked up by GET /jobs/:id). The 🧑 prefix marks
@@ -170,11 +194,6 @@ export class InteractiveJobSession {
       queued,
       timestamp: new Date().toISOString(),
     })
-    if (queued) {
-      this._pending.push(text)
-    } else {
-      this._writeTurn(text)
-    }
     return true
   }
 
@@ -199,6 +218,11 @@ export class InteractiveJobSession {
     try { child.kill('SIGTERM') } catch { /* already gone */ }
     this._killTimer = setTimeout(() => {
       try { if (this._child && !this._child.killed) this._child.kill('SIGKILL') } catch { /* gone */ }
+      // Hard-deadline fallback: if the child never emits 'close' (D-state /
+      // uninterruptible / signal-swallowing), _handleClose never runs and the slot
+      // would leak forever. Force the settle here so the queue always drains. If
+      // 'close' does fire, _settle is idempotent so this is a no-op.
+      this._settle('finalized')
     }, FINALIZE_KILL_GRACE_MS)
   }
 
@@ -214,17 +238,27 @@ export class InteractiveJobSession {
 
   // ─── internals ─────────────────────────────────────────────────────────────
 
-  private _writeTurn(text: string): void {
-    this._streaming = true
-    this._awaitingResult = true
-    this._turnEvents = []
+  /** Write a single turn to the child's stdin. Returns true only on a confirmed
+   *  write; false when stdin is gone/destroyed or the write throws (EPIPE) — the
+   *  caller must NOT treat an unconfirmed turn as accepted. */
+  private _writeTurn(text: string): boolean {
     const child = this._child
-    if (!child || !child.stdin || child.stdin.destroyed) return
+    if (!child || !child.stdin || child.stdin.destroyed) return false
     try {
       child.stdin.write(frameStreamJsonUserMessage(text))
     } catch (err) {
       console.error('[interactive-job] stdin write failed:', err)
+      return false
     }
+    // Tag this turn so only its OWN `result` is counted (BUG-INTJOB-03): a late or
+    // duplicate result for a prior turn won't match _activeTurnId once a new turn
+    // has begun, so it can never inflate the next turn's totals.
+    this._turnSeq += 1
+    this._activeTurnId = this._turnSeq
+    this._streaming = true
+    this._awaitingResult = true
+    this._turnEvents = []
+    return true
   }
 
   private _handleStdoutLine(line: string): void {
@@ -270,9 +304,16 @@ export class InteractiveJobSession {
   }
 
   private _onTurnResult(_parsed: Record<string, unknown>): void {
-    // Guard against a duplicate `result` frame for the same turn — without it a
-    // second result would double-count this turn's tokens into _accum + the row.
+    // Count a result only for the in-flight turn, exactly once (BUG-INTJOB-03).
+    // `_awaitingResult` alone is insufficient: after a turn settles, the next
+    // queued prompt re-arms `_awaitingResult`, so a stray/duplicate result for the
+    // PRIOR turn would be folded into the new turn's (reset) events. Tagging each
+    // turn with a monotonic id and recording the last settled id closes that gap —
+    // a result is rejected unless a turn is genuinely awaiting AND its id hasn't
+    // already been settled.
     if (!this._awaitingResult) return
+    if (this._activeTurnId <= this._lastSettledTurnId) return
+    this._lastSettledTurnId = this._activeTurnId
     this._awaitingResult = false
     this._streaming = false
     const { result: normalised } = finaliseInvocationResult(this._adapter, this._turnEvents, {})
@@ -310,10 +351,22 @@ export class InteractiveJobSession {
       timestamp: new Date().toISOString(),
     })
 
-    // Feed the next queued prompt (if any) now that the turn is idle.
+    // Feed the next queued prompt (if any) now that the turn is idle. Deferred to a
+    // microtask so any stray/duplicate result for THIS just-settled turn that is
+    // sitting in the same synchronous stdout batch is processed (and rejected by
+    // the `!_awaitingResult` / turn-id guard above) BEFORE the next turn re-arms.
     if (!this._finalizing && this._pending.length > 0) {
-      const next = this._pending.shift() as string
-      this._writeTurn(next)
+      queueMicrotask(() => {
+        if (this._disposed || this._settled || this._finalizing || this._streaming) return
+        if (this._pending.length === 0) return
+        const next = this._pending.shift() as string
+        if (!this._writeTurn(next)) {
+          const note = `⚠️ Could not deliver a queued message — the agent's input channel is closed.`
+          this._persistLog('stderr', note)
+          this._emitLog('stderr', note)
+          this._settle('crashed')
+        }
+      })
     }
   }
 

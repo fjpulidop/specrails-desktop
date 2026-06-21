@@ -13,6 +13,7 @@ import {
   applySmashUndo,
   applyDeleteEpicChildren,
   prepareSmashSpawn,
+  readSmashChildOutput,
   runSmash,
   runSmashUndo,
 } from './smash-runner'
@@ -454,13 +455,16 @@ describe('runSmash', () => {
 
   it('B60: rejects a concurrent SMASH of the same ticket (in-progress guard)', async () => {
     seedTicket(projectPath, { id: 1 })
+    // BUG-PARSER-02: the in-flight early-return must broadcast smash.failed so a
+    // duplicate submit (already replied 202) doesn't leave a stuck spinner.
+    const events: Array<{ type?: string; reason?: string }> = []
     const deps = {
       db,
       projectId: 'proj-1',
       projectSlug: 'proj-1',
       projectPath,
       projectName: 'P',
-      broadcast: () => {},
+      broadcast: (m: unknown) => events.push(m as { type?: string; reason?: string }),
       spawn: fakeSpawn(streamLines(validSmashBlock(4))),
       timeoutMs: 5000,
     }
@@ -470,6 +474,9 @@ describe('runSmash', () => {
     const r2 = await runSmash(deps, 1)
     expect(r2.ok).toBe(false)
     expect(r2.reason).toBe('in-progress')
+    // The duplicate broadcasts smash.failed with reason in-progress.
+    const failed = events.find((e) => e.type === 'smash.failed' && e.reason === 'in-progress')
+    expect(failed).toBeDefined()
     const r1 = await p1
     expect(r1.ok).toBe(true) // first one completes normally and releases the slot
   })
@@ -683,5 +690,50 @@ describe('runSmashUndo', () => {
     } finally {
       process.env.SPECRAILS_SMASH = prev
     }
+  })
+})
+
+describe('BUG-PARSER-01: readSmashChildOutput timeout teardown', () => {
+  // A child that never emits `close` so the timeout path fires.
+  class HangingChild extends EventEmitter {
+    stdout: Readable
+    stderr: Readable | null = null
+    pid = 7777
+    constructor() {
+      super()
+      this.stdout = new Readable({ read() { /* never pushes/ends */ } })
+    }
+    kill(): boolean { return true }
+  }
+
+  it('treeKills the subtree with SIGTERM and SIGKILL-escalates on timeout', async () => {
+    const child = new HangingChild()
+    const kills: Array<{ pid: number; signal: string }> = []
+    const kill = (pid: number, signal: string, cb?: (err?: Error) => void) => {
+      kills.push({ pid, signal })
+      cb?.()
+    }
+    const result = await readSmashChildOutput(child as unknown as ChildProcess, 20, kill)
+    expect(result.timedOut).toBe(true)
+    expect(result.code).toBeNull()
+    expect(kills.some((k) => k.pid === 7777 && k.signal === 'SIGTERM')).toBe(true)
+    await new Promise((r) => setTimeout(r, 2100))
+    expect(kills.some((k) => k.pid === 7777 && k.signal === 'SIGKILL')).toBe(true)
+  })
+
+  it('cancels the SIGKILL escalation when the child closes within the grace window', async () => {
+    const child = new HangingChild()
+    const kills: Array<{ pid: number; signal: string }> = []
+    const kill = (pid: number, signal: string, cb?: (err?: Error) => void) => {
+      kills.push({ pid, signal })
+      cb?.()
+    }
+    const p = readSmashChildOutput(child as unknown as ChildProcess, 20, kill)
+    await new Promise((r) => setTimeout(r, 50))
+    child.emit('close', 143)
+    await p
+    await new Promise((r) => setTimeout(r, 2100))
+    expect(kills.some((k) => k.signal === 'SIGTERM')).toBe(true)
+    expect(kills.some((k) => k.signal === 'SIGKILL')).toBe(false)
   })
 })

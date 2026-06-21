@@ -88,7 +88,27 @@ export class AttachmentManager {
     return path.join(this.attachmentsRoot(slug), key)
   }
 
+  // BUG-ROUTER-01: attachmentId flows in from req.params (GET/DELETE attachment
+  // routes) and is concatenated into the sidecar filename as
+  // `${attachmentId}.meta.json`. Unlike ticketKey it was previously unvalidated,
+  // so `../../…` segments resolved outside the per-ticket dir → arbitrary
+  // `*.meta.json` read/unlink. Constrain it to an opaque-token rule (the ids we
+  // mint via newId() are UUID-shaped, so [A-Za-z0-9_-] is sufficient) and reject
+  // anything that isn't its own basename.
+  private static readonly ATTACHMENT_ID_RE = /^[A-Za-z0-9_-]{1,128}$/
+
+  private assertValidAttachmentId(attachmentId: string): void {
+    if (
+      typeof attachmentId !== 'string' ||
+      !AttachmentManager.ATTACHMENT_ID_RE.test(attachmentId) ||
+      attachmentId !== path.basename(attachmentId)
+    ) {
+      throw new Error(`Invalid attachment id: ${JSON.stringify(attachmentId)}`)
+    }
+  }
+
   private sidecarPath(slug: string, ticketKey: string | number, attachmentId: string): string {
+    this.assertValidAttachmentId(attachmentId)
     return path.join(this.ticketDir(slug, ticketKey), `${attachmentId}.meta.json`)
   }
 

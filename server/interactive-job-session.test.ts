@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach } from 'vitest'
+import { describe, it, expect, beforeEach, vi } from 'vitest'
 import { EventEmitter } from 'events'
 import { Readable } from 'stream'
 import { InteractiveJobSession, type SettleInfo } from './interactive-job-session'
@@ -216,6 +216,110 @@ describe('InteractiveJobSession', () => {
       (m) => m.type === 'log' && (m as any).source === 'stderr' && (m as any).line?.includes('were not sent'),
     )
     expect(note).toBeTruthy()
+  })
+
+  // ─── BUG-INTJOB-03: stray/late result for a finished turn must not corrupt the next ──
+  it('rejects a stray duplicate result for the prior turn so it cannot corrupt the next turn', async () => {
+    h.session.start({ binary: 'claude', args: [] }, 'go') // turn 1 streaming
+    // Queue a second prompt behind the active turn.
+    h.session.send('next')
+    // The REAL trigger: turn 1's result AND a stray duplicate of it are both already
+    // buffered in stdout. The next queued prompt (turn 2) is fed off turn 1's result;
+    // the stray duplicate (same synchronous batch) must be rejected, NOT folded into
+    // the freshly-armed turn 2.
+    h.child.stdout.push(resultFrame())
+    h.child.stdout.push(resultFrame()) // stray/duplicate for turn 1
+    await tick()
+
+    // Totals reflect exactly turn 1 — the stray was not counted into turn 2.
+    const totals = h.session.getTotals()
+    expect(totals.tokens_in).toBe(100) // not 200
+    expect(totals.num_turns).toBe(3)
+    expect(getJob(h.db, 'job-1')!.tokens_in).toBe(100)
+    // Turn 2 was fed and is genuinely awaiting its OWN result.
+    expect(h.session.isStreaming()).toBe(true)
+    expect(h.child.stdinWrites.length).toBe(2) // turn1 + turn2 written
+
+    // Turn 2's real result then arrives and is counted correctly.
+    h.child.stdout.push(resultFrame())
+    await tick()
+    expect(h.session.getTotals().tokens_in).toBe(200)
+    expect(h.session.getTotals().num_turns).toBe(6)
+  })
+
+  // ─── BUG-INTJOB-02: hard-deadline settle even if the child never emits 'close' ──
+  it('settles via the kill-timer fallback when the child never emits close after finalize', async () => {
+    vi.useFakeTimers()
+    try {
+      const h2 = setup('job-stuck')
+      // A child that swallows signals — kill() never emits 'close'.
+      h2.child.kill = (_sig?: string) => { h2.child.killed = true; return true }
+      h2.session.start({ binary: 'claude', args: [] }, 'go')
+      h2.session.finalize()
+      // Before the grace window the slot is NOT yet released.
+      expect(h2.settled.length).toBe(0)
+      // Advance past the SIGKILL grace window — the timer must force the settle.
+      vi.advanceTimersByTime(2001)
+      expect(h2.settled.length).toBe(1)
+      expect(h2.settled[0].reason).toBe('finalized')
+    } finally {
+      vi.useRealTimers()
+    }
+  })
+
+  it('does not double-settle when close arrives after the kill-timer already settled', async () => {
+    vi.useFakeTimers()
+    try {
+      const h2 = setup('job-late-close')
+      h2.child.kill = (_sig?: string) => { h2.child.killed = true; return true }
+      h2.session.start({ binary: 'claude', args: [] }, 'go')
+      h2.session.finalize()
+      vi.advanceTimersByTime(2001)
+      expect(h2.settled.length).toBe(1)
+      // A late 'close' now fires — must be a no-op (idempotent settle).
+      h2.child.emit('close', 0)
+      expect(h2.settled.length).toBe(1)
+    } finally {
+      vi.useRealTimers()
+    }
+  })
+
+  // ─── BUG-INTJOB-04: do not echo a turn that could not be delivered to stdin ──
+  it('does not echo the turn and settles crashed when stdin is destroyed at send time', async () => {
+    h.session.start({ binary: 'claude', args: [] }, 'go')
+    h.child.stdout.push(resultFrame())
+    await tick() // turn idle, stdin writable so far
+
+    // Simulate stdin gone (mid-crash) while the child object is still alive.
+    h.child.stdin.destroyed = true
+    const broadcastsBefore = h.broadcasts.length
+    const ok = h.session.send('lost message')
+    expect(ok).toBe(false)
+
+    // No turn_user echo for the undelivered prompt.
+    const echoed = h.broadcasts
+      .slice(broadcastsBefore)
+      .find((m) => m.type === 'job.turn_user' && (m as any).text === 'lost message')
+    expect(echoed).toBeUndefined()
+    // A delivery-failure note is surfaced on stderr.
+    const note = h.broadcasts
+      .slice(broadcastsBefore)
+      .find((m) => m.type === 'log' && (m as any).source === 'stderr' && (m as any).line?.includes('Could not deliver'))
+    expect(note).toBeTruthy()
+    // The session settled (transport gone) as crashed.
+    expect(h.settled.length).toBe(1)
+    expect(h.settled[0].reason).toBe('crashed')
+  })
+
+  it('echoes the turn only after a confirmed stdin write', async () => {
+    h.session.start({ binary: 'claude', args: [] }, 'go')
+    h.child.stdout.push(resultFrame())
+    await tick()
+    const ok = h.session.send('delivered')
+    expect(ok).toBe(true)
+    const echoed = h.broadcasts.find((m) => m.type === 'job.turn_user' && (m as any).text === 'delivered')
+    expect(echoed).toBeTruthy()
+    expect(h.child.stdinWrites.some((w: string) => w.includes('delivered'))).toBe(true)
   })
 
   it('persists streamed assistant frames + display log lines as events', async () => {

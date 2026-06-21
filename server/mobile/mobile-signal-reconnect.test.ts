@@ -38,12 +38,16 @@ describe('MobileSignalReconnect', () => {
     store.set('dev-1:req', '1') // phone asks to reconnect
     await r.poll()
     expect(makeOffer).toHaveBeenCalledOnce()
-    expect(JSON.parse(store.get('dev-1:offer') ?? '{}')).toMatchObject({
+    const posted = JSON.parse(store.get('dev-1:offer') ?? '{}') as Record<string, unknown>
+    expect(posted).toMatchObject({
       sdp: 'OFFER_SDP',
-      sec: 's1',
       hub: 'inst-1',
       name: 'Mac',
     })
+    // BUG-AUTH-01: the single-use secret must NEVER be published to the public
+    // mailbox on reconnect (the device's existing token is the credential).
+    expect(posted.sec).toBeUndefined()
+    expect(JSON.stringify(posted)).not.toContain('s1')
 
     store.set('dev-1:answer', JSON.stringify({ sdp: 'ANSWER_SDP' })) // phone answers
     await r.poll()

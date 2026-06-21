@@ -1,9 +1,9 @@
 import fs from 'fs'
 import path from 'path'
-import os from 'os'
 
 import { FrameworkManager } from './framework-manager'
 import { migrateWorkspaceToSymlinks } from './framework-migration'
+import { resolveHome } from './artifact-registry'
 
 /**
  * WorkspaceManager — a reusable materializer for the per-project workspace dir
@@ -23,9 +23,13 @@ import { migrateWorkspaceToSymlinks } from './framework-migration'
  * additive foundation — wiring spawn cwd/env to the workspace is a later stage.
  */
 
-/** Base dir holding all per-project app data. Overridable for tests. */
+/** Base dir holding all per-project app data. Overridable for tests.
+ *  Resolves `$HOME` through `artifact-registry.resolveHome()` so this module and
+ *  the registry NEVER diverge — both honour `SPECRAILS_REGISTRY_HOME` when no
+ *  explicit home is threaded. Diverging here would create the `./project` symlink
+ *  in a different tree than the registry's `workspaceDir` (BUG-ARTREG-01). */
 function projectsBaseDir(home?: string): string {
-  return path.join(home ?? os.homedir(), '.specrails', 'projects')
+  return path.join(resolveHome(home), '.specrails', 'projects')
 }
 
 /**

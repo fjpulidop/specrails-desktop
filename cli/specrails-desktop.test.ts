@@ -442,6 +442,45 @@ describe('resolveProjectFromCwd', () => {
     expect(await _internal.resolveProjectFromCwd(`http://127.0.0.1:${port}`)).toBeNull()
   })
   it('returns null on error', async () => { expect(await _internal.resolveProjectFromCwd('http://127.0.0.1:19991')).toBeNull() })
+
+  it('auto-picks on a unique --project name match', async () => {
+    ;({ server, port } = await createMockServer([
+      { path: '/api/projects', status: 200, body: { projects: [
+        { id: 'p1', name: 'app', path: '/repos/app' },
+        { id: 'p2', name: 'web', path: '/repos/web' },
+      ] } },
+    ]))
+    expect(await _internal.resolveProjectFromCwd(`http://127.0.0.1:${port}`, 'app'))
+      .toEqual({ id: 'p1', name: 'app', path: '/repos/app' })
+  })
+
+  it('errors and returns null on an ambiguous --project name collision', async () => {
+    ;({ server, port } = await createMockServer([
+      { path: '/api/projects', status: 200, body: { projects: [
+        { id: 'p1', name: 'app', path: '/repos/a/app' },
+        { id: 'p2', name: 'app', path: '/repos/b/app' },
+      ] } },
+    ]))
+    let result: unknown
+    const se = await captureStderrAsync(async () => {
+      result = await _internal.resolveProjectFromCwd(`http://127.0.0.1:${port}`, 'app')
+    })
+    expect(result).toBeNull()
+    expect(se).toContain('ambiguous')
+    expect(se).toContain('/repos/a/app')
+    expect(se).toContain('/repos/b/app')
+    expect(se).toContain('p1')
+    expect(se).toContain('p2')
+  })
+
+  it('returns null when no --project name matches', async () => {
+    ;({ server, port } = await createMockServer([
+      { path: '/api/projects', status: 200, body: { projects: [
+        { id: 'p1', name: 'app', path: '/repos/app' },
+      ] } },
+    ]))
+    expect(await _internal.resolveProjectFromCwd(`http://127.0.0.1:${port}`, 'nope')).toBeNull()
+  })
 })
 
 // ---------------------------------------------------------------------------
@@ -615,14 +654,51 @@ describe('runDirect', () => {
     process.env.PATH = `${tmpDir}:${origPath}`
   }
 
-  it('runs claude and handles stream-json', async () => {
+  it('runs claude and handles stream-json (real assistant + result shapes)', async () => {
+    // Real claude: assistant text comes as message.content[] {type:'text',text},
+    // cost is total_cost_usd, tokens nest under usage.* (mirror claude-adapter).
     mockClaude(`
-process.stdout.write(JSON.stringify({ type: 'text', content: 'Hello' }) + '\\n');
-process.stdout.write(JSON.stringify({ type: 'result', cost_usd: 0.01, input_tokens: 100, output_tokens: 50 }) + '\\n');
+process.stdout.write(JSON.stringify({ type: 'assistant', message: { content: [{ type: 'text', text: 'Hello' }] } }) + '\\n');
+process.stdout.write(JSON.stringify({ type: 'result', total_cost_usd: 0.01, usage: { input_tokens: 100, output_tokens: 50 } }) + '\\n');
 process.exit(0);
 `)
     let so = ''; await captureStderrAsync(async () => { so = await captureStdoutAsync(async () => { expect(await _internal.runDirect('/specrails:implement #42')).toBe(0) }) })
     expect(so).toContain('Hello'); expect(so).toContain('cost: $0.01'); expect(so).toContain('tokens: 150')
+  })
+
+  it('prints the final answer text from the result.result field', async () => {
+    mockClaude(`
+process.stdout.write(JSON.stringify({ type: 'result', result: 'final answer here', total_cost_usd: 0.02, usage: { input_tokens: 10, output_tokens: 5 } }) + '\\n');
+process.exit(0);
+`)
+    let so = ''; await captureStderrAsync(async () => { so = await captureStdoutAsync(async () => { expect(await _internal.runDirect('cmd')).toBe(0) }) })
+    expect(so).toContain('final answer here'); expect(so).toContain('cost: $0.02'); expect(so).toContain('tokens: 15')
+  })
+
+  it('concatenates multiple text blocks in an assistant message', async () => {
+    mockClaude(`
+process.stdout.write(JSON.stringify({ type: 'assistant', message: { content: [{ type: 'text', text: 'foo' }, { type: 'tool_use', name: 'Read' }, { type: 'text', text: 'bar' }] } }) + '\\n');
+process.exit(0);
+`)
+    let so = ''; await captureStderrAsync(async () => { so = await captureStdoutAsync(async () => { expect(await _internal.runDirect('cmd')).toBe(0) }) })
+    expect(so).toContain('foobar')
+  })
+
+  it('passes a multi-word prompt as a single argv element', async () => {
+    // BUG-CLI-01: the prompt must reach claude as ONE -p operand, not split on
+    // whitespace. The mock echoes its argv as JSON so we can assert the shape.
+    mockClaude(`
+process.stdout.write(JSON.stringify({ type: 'assistant', message: { content: [{ type: 'text', text: JSON.stringify(process.argv.slice(2)) }] } }) + '\\n');
+process.exit(0);
+`)
+    let so = ''; await captureStderrAsync(async () => { so = await captureStdoutAsync(async () => { expect(await _internal.runDirect('fix the   login bug')).toBe(0) }) })
+    const printed = so.split('\n').find((l) => l.trim().startsWith('['))
+    expect(printed).toBeDefined()
+    const argv = JSON.parse(printed!.trim()) as string[]
+    const pIdx = argv.indexOf('-p')
+    expect(pIdx).toBeGreaterThanOrEqual(0)
+    // The element right after -p is the whole prompt; no stray positionals.
+    expect(argv[pIdx + 1]).toBe('fix the   login bug')
   })
 
   it('handles non-json output', async () => {
@@ -652,8 +728,8 @@ process.exit(0);
     expect(so).toContain('after')
   })
 
-  it('handles result with partial token fields', async () => {
-    mockClaude(`process.stdout.write(JSON.stringify({ type: 'result', input_tokens: 200 }) + '\\n'); process.exit(0);`)
+  it('handles result with partial token fields (usage.input_tokens only)', async () => {
+    mockClaude(`process.stdout.write(JSON.stringify({ type: 'result', usage: { input_tokens: 200 } }) + '\\n'); process.exit(0);`)
     let so = ''; await captureStderrAsync(async () => { so = await captureStdoutAsync(async () => { expect(await _internal.runDirect('cmd')).toBe(0) }) })
     expect(so).toContain('tokens: 200')
   })

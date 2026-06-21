@@ -21,11 +21,40 @@ describe('WebhookManager', () => {
     manager = new WebhookManager(desktopDb)
     fetchMock = vi.fn()
     vi.stubGlobal('fetch', fetchMock)
+    // Keep these HMAC/retry tests hermetic: the delivery-time SSRF guard
+    // (BUG-WEBHOOK-01) would otherwise DNS-resolve example.com on every send.
+    // The guard itself is covered exhaustively in ssrf-guard.test.ts; the
+    // wiring (a private host is dropped) has its own test below.
+    process.env.SPECRAILS_ALLOW_LOCAL_WEBHOOKS = '1'
   })
 
   afterEach(() => {
     vi.unstubAllGlobals()
     vi.useRealTimers()
+    delete process.env.SPECRAILS_ALLOW_LOCAL_WEBHOOKS
+  })
+
+  // ─── delivery-time SSRF guard (BUG-WEBHOOK-01) ───────────────────────────────
+
+  describe('delivery SSRF guard', () => {
+    it('drops a delivery whose URL resolves to a private/loopback host (no POST)', async () => {
+      // No env opt-in for this test → the guard is active. A literal private IP
+      // resolves synchronously (no DNS), so the HMAC-signed POST is never sent.
+      delete process.env.SPECRAILS_ALLOW_LOCAL_WEBHOOKS
+      fetchMock.mockResolvedValue({ ok: true })
+      const webhook = addWebhook(desktopDb, {
+        id: 'wh-ssrf',
+        projectId: null,
+        url: 'http://127.0.0.1:9000/hook',
+        secret: 'shh',
+        events: ['job.completed'],
+      })
+
+      manager.deliverTest(webhook)
+      await flushAsync()
+
+      expect(fetchMock).not.toHaveBeenCalled()
+    })
   })
 
   // ─── deliverTest ─────────────────────────────────────────────────────────────

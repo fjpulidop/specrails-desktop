@@ -105,9 +105,15 @@ export class MobileWsBridge {
   private _flush: ReturnType<typeof setInterval> | null = null
   private _hb: ReturnType<typeof setInterval> | null = null
   private _clock: () => number
+  // BUG-MOBILE-02: resolve a device's per-project ACL. `null` ⇒ unrestricted
+  // (all projects, legacy). When provided, a `subscribe` is intersected against
+  // it so a companion can only subscribe to projects it was granted. Default
+  // resolver (undefined) keeps every device unrestricted — byte-identical legacy.
+  private _allowedProjectsFor: (deviceId: string) => Set<string> | null
 
-  constructor(opts: { clock?: () => number } = {}) {
+  constructor(opts: { clock?: () => number; allowedProjectsFor?: (deviceId: string) => Set<string> | null } = {}) {
     this._clock = opts.clock ?? (() => Date.now())
+    this._allowedProjectsFor = opts.allowedProjectsFor ?? (() => null)
   }
 
   start(): void {
@@ -178,7 +184,12 @@ export class MobileWsBridge {
       case 'subscribe': {
         const projects = Array.isArray(msg.projects) ? msg.projects.filter((x) => typeof x === 'string') as string[] : []
         const topics = Array.isArray(msg.topics) ? msg.topics.filter((x) => typeof x === 'string') as string[] : []
-        state.projects = new Set(projects)
+        // BUG-MOBILE-02: intersect the device-supplied project list against the
+        // device's granted set — a companion can never subscribe to a project it
+        // wasn't granted (unrestricted devices keep the full list verbatim).
+        const allowed = this._allowedProjectsFor(state.deviceId)
+        const scoped = allowed === null ? projects : projects.filter((p) => allowed.has(p))
+        state.projects = new Set(scoped)
         state.topics = new Set(topics)
         break
       }
@@ -205,11 +216,13 @@ export class MobileWsBridge {
         this.send(s, redact(toMobileWire(msg)))
         continue
       }
-      // App-level desktop budget alert: deliver to EVERY subscriber holding the
+      // App-level desktop budget alert: deliver to subscribers holding the
       // `alerts` topic regardless of which project tripped it (boundBroadcast
-      // stamps it with one project id, but it's an app-wide alert).
+      // stamps it with one project id, but it's an app-wide alert). Honour the
+      // topic gate like every other delivery — a device that never subscribed to
+      // `alerts` (topics init empty) must NOT receive these frames (BUG-MOBILE-05).
       if (topic === 'alerts' && msg.type === 'desktop_daily_budget_exceeded') {
-        this.send(s, redact(toMobileWire(msg)))
+        if (s.topics.has('alerts')) this.send(s, redact(toMobileWire(msg)))
         continue
       }
 

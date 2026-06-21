@@ -7,6 +7,7 @@
 //     (Done / revert + completion comment),
 // and stays completely inert until the project configures a Jira connection.
 
+import { randomUUID } from 'node:crypto'
 import type { DbInstance } from '../db'
 import { mutateStore, readStore, resolveTicketStoragePath, type Ticket, type TicketStatus } from '../ticket-store'
 import type { WsMessage } from '../types'
@@ -65,6 +66,8 @@ const POLL_INTERVAL_MS = 60_000
 const DRAIN_INTERVAL_MS = 10_000
 const POLL_OVERLAP_MS = 2 * 60_000
 const MAX_DRAIN_BATCH = 8
+/** Hard retry cap for a single outbox op before it dead-letters (any error class). */
+const MAX_OUTBOX_ATTEMPTS = 6
 const SEARCH_FIELDS = ['summary', 'description', 'labels', 'status', 'priority', 'assignee', 'updated', 'issuetype', 'parent']
 
 /** Local priority → Jira priority NAME (standard scheme; best-effort). A custom
@@ -161,13 +164,19 @@ export class JiraSyncManager {
       /* tables may not exist on a stale DB */
     }
     if (!conn) return
-    // Recover any inflight ops left by a crash, then arm timers if active.
+    // If timers are already armed, a drain may be inflight RIGHT NOW (awaiting an
+    // HTTP round-trip). A re-entrant start() (reachable from setEnabled(true) /
+    // connect() hot-swap) must NOT reset those inflight ops back to pending — the
+    // next 10s tick would re-claim and re-execute them, double-sending the write
+    // and inflating attempts toward a premature dead-letter. Bail before any reset.
+    if (this.pollTimer || this.drainTimer) return
+    // Crash-recovery: recover any inflight ops orphaned by a previous process
+    // (only reachable when no timers are armed, i.e. construction / first start).
     try {
       resetInflight(this.db)
     } catch {
       /* table may not exist on a stale DB */
     }
-    if (this.pollTimer || this.drainTimer) return
     this.pollTimer = setInterval(() => {
       void this.pollOnce().catch(() => undefined)
     }, POLL_INTERVAL_MS)
@@ -510,6 +519,10 @@ export class JiraSyncManager {
    * the cache is missing (e.g. sprint/epic data added after the last sync).
    */
   async pollOnce(full = false): Promise<{ upserted: number } | null> {
+    // Once a 401 has paused the project pending re-auth, skip the poll entirely —
+    // otherwise the 60s timer keeps firing authed requests at the dead credential
+    // and re-broadcasts jira.auth_expired every cycle (toast/banner spam).
+    if (this.authPaused) return null
     let conn = getConnection(this.db, this.projectId)
     if (!conn || !conn.enabled) return null
     const client = this.buildClient()
@@ -638,7 +651,11 @@ export class JiraSyncManager {
     }
     if (Object.keys(fields).length === 0) return
 
-    const nonce = Date.now().toString(36)
+    // A random component makes two saves of the same ticket inside one wall-clock
+    // millisecond produce distinct idempotency keys — otherwise the UNIQUE-key
+    // INSERT OR IGNORE silently drops the second edit while the local cache shows
+    // it (local↔Jira divergence). randomUUID() guarantees uniqueness per op.
+    const nonce = `${Date.now().toString(36)}:${randomUUID()}`
     enqueueMany(this.db, [
       {
         jiraIssueId: link.jiraIssueId,
@@ -904,6 +921,13 @@ export class JiraSyncManager {
       return true
     }
     if (code === 'rate_limit') {
+      // Respect the same MAX_ATTEMPTS cap as retryOrDead — a perpetual-429 op
+      // would otherwise re-queue and re-claim forever, never surfacing as dead.
+      if (op.attempts + 1 >= MAX_OUTBOX_ATTEMPTS) {
+        markOutboxDead(this.db, op.id, `exhausted retries: rate limited (429)`)
+        this.broadcastDegraded(null, 'Jira is rate-limiting requests — sync paused for this item')
+        return true
+      }
       const delay = retryAfterMs ?? backoffMs(op.attempts)
       markOutboxRetry(this.db, op.id, new Date(Date.now() + delay).toISOString(), `rate limited (429)`)
       return true
@@ -922,8 +946,7 @@ export class JiraSyncManager {
         return
       }
     }
-    const MAX_ATTEMPTS = 6
-    if (op.attempts + 1 >= MAX_ATTEMPTS) {
+    if (op.attempts + 1 >= MAX_OUTBOX_ATTEMPTS) {
       markOutboxDead(this.db, op.id, `exhausted retries: ${error}`)
       return
     }
@@ -931,6 +954,9 @@ export class JiraSyncManager {
   }
 
   private onAuth401(): void {
+    // Only broadcast on the false→true transition. A still-paused project that
+    // hits another 401 (e.g. an in-flight drain op) must not re-spam the banner.
+    if (this.authPaused) return
     this.authPaused = true
     const pending = listOutbox(this.db, { state: 'pending' }).length + listOutbox(this.db, { state: 'inflight' }).length
     this.broadcast({ type: 'jira.auth_expired', projectId: this.projectId, pending })

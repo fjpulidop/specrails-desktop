@@ -116,6 +116,9 @@ export class BrowserCaptureManager {
   private context: BrowserContextHandle | null = null
   private contextPromise: Promise<BrowserContextHandle> | null = null
   private readonly sessions = new Map<string, BrowserSession>()
+  /** Count of in-flight `create()` calls that have reserved a slot but not yet
+   *  committed their session — guards the cap against concurrent creates. */
+  private _reserved = 0
   private disposed = false
 
   constructor(opts: BrowserCaptureManagerOptions) {
@@ -197,12 +200,35 @@ export class BrowserCaptureManager {
   }
 
   async create(opts?: { initialUrl?: string; createdAtMs?: number }): Promise<BrowserSessionMeta> {
-    const live = [...this.sessions.values()].filter((s) => !s.closed)
-    if (live.length >= MAX_SESSIONS_PER_PROJECT) {
+    // Reserve the slot SYNCHRONOUSLY before any await so N concurrent creates can't
+    // all observe `< MAX` and race past the cap (BUG-BROWSER-02). `_reserved`
+    // counts in-flight (not-yet-inserted) sessions; it's the only state that
+    // mutates synchronously here.
+    const live = [...this.sessions.values()].filter((s) => !s.closed).length
+    if (live + this._reserved >= MAX_SESSIONS_PER_PROJECT) {
       throw new BrowserLimitExceededError(MAX_SESSIONS_PER_PROJECT)
     }
-    const ctx = await this.ensureContext()
-    const page = await ctx.newPage()
+    this._reserved++
+
+    let page: BrowserPageHandle
+    try {
+      const ctx = await this.ensureContext()
+      page = await ctx.newPage()
+    } catch (err) {
+      this._reserved--
+      throw err
+    }
+
+    // Re-check AFTER the awaits: another create that started before us may have
+    // committed its session in the meantime. If the cap is now exceeded, tear the
+    // extra page down and reject rather than silently exceeding the limit.
+    const liveNow = [...this.sessions.values()].filter((s) => !s.closed).length
+    if (liveNow >= MAX_SESSIONS_PER_PROJECT) {
+      this._reserved--
+      try { await page.close() } catch { /* ignore */ }
+      throw new BrowserLimitExceededError(MAX_SESSIONS_PER_PROJECT)
+    }
+
     const id = newId()
     const session: BrowserSession = {
       id,
@@ -220,6 +246,8 @@ export class BrowserCaptureManager {
       closed: false,
     }
     this.sessions.set(id, session)
+    // The reservation is now realised as a committed session — release it.
+    this._reserved--
 
     // Start capturing the page's network requests before the first navigation so
     // XHR/fetch made during page load are available at capture time. Best-effort:

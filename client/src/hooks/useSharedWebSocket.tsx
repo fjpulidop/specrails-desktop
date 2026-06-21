@@ -57,9 +57,15 @@ export function SharedWebSocketProvider({ url, children }: { url: string; childr
         } catch {
           return
         }
-        // Fan-out to all registered handlers
+        // Fan-out to all registered handlers. Each invocation is isolated in a
+        // try/catch so one throwing handler never starves the later-registered
+        // ones (the Map is insertion-ordered) — see BUG-CLIENT-01.
         for (const handler of handlers.current.values()) {
-          handler(parsed)
+          try {
+            handler(parsed)
+          } catch (err) {
+            console.error('[useSharedWebSocket] handler threw while processing message', err)
+          }
         }
       }
 

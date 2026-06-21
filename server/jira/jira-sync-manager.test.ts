@@ -16,6 +16,7 @@ import {
   setHighWater,
   tombstoneLink,
   getLinkByLocalId,
+  claimDrainable,
 } from './jira-db'
 import { readBacklogConfig } from './jira-backlog-config'
 import type { FetchImpl } from './jira-client'
@@ -516,6 +517,153 @@ describe('setEnabled / disconnect', () => {
     mgr.disconnect()
     expect(getConnection(db, PROJECT_ID)).toBeNull()
     expect(readBacklogConfig(projectPath)).toEqual({ provider: 'local', write_access: true, git_auto: false })
+  })
+})
+
+// ─── Regression: confirmed bugs (BUG-JIRA-SYNC-01..04) ────────────────────────
+
+describe('BUG-JIRA-SYNC-01: re-entrant start() does not reset inflight ops', () => {
+  it('a re-entrant start() (timers already armed) leaves inflight ops untouched', () => {
+    seedConnection()
+    const { fetchImpl } = makeFakeFetch()
+    const mgr = makeManager(fetchImpl)
+    // Arm timers FIRST (this is the only crash-recovery reset). Then simulate a
+    // drain going inflight while those timers are live.
+    mgr.start()
+    enqueueTransition('I-01', 'done', 'k-inflight-01')
+    const claimed = claimDrainable(db, 8)
+    expect(claimed.length).toBe(1)
+    expect(listOutbox(db, { state: 'inflight' }).length).toBe(1)
+
+    // A hot-swap re-enters start() while timers are armed and the op is inflight.
+    mgr.start() // re-entrant — must bail before resetInflight
+    mgr.stop()
+
+    // The op stays inflight — it was NOT reset back to pending mid-drain.
+    expect(listOutbox(db, { state: 'inflight' }).length).toBe(1)
+    expect(listOutbox(db, { state: 'pending' }).length).toBe(0)
+  })
+
+  it('setEnabled(true) while timers are armed does not reset inflight ops', () => {
+    seedConnection()
+    const { fetchImpl } = makeFakeFetch()
+    const mgr = makeManager(fetchImpl)
+    mgr.start() // arm timers (crash-recovery reset happens here, before inflight)
+    enqueueTransition('I-01b', 'done', 'k-inflight-01b')
+    claimDrainable(db, 8)
+    expect(listOutbox(db, { state: 'inflight' }).length).toBe(1)
+
+    mgr.setEnabled(true) // hot-swap toggle re-enters start()
+    mgr.stop()
+
+    expect(listOutbox(db, { state: 'inflight' }).length).toBe(1)
+  })
+
+  it('construction-path start() still recovers inflight ops left by a crash', () => {
+    seedConnection()
+    enqueueTransition('I-01c', 'done', 'k-inflight-01c')
+    claimDrainable(db, 8) // orphaned inflight (no timers armed yet)
+    expect(listOutbox(db, { state: 'inflight' }).length).toBe(1)
+
+    const { fetchImpl } = makeFakeFetch()
+    const mgr = makeManager(fetchImpl)
+    mgr.start() // first start, no timers armed → crash-recovery resets it
+    mgr.stop()
+
+    expect(listOutbox(db, { state: 'inflight' }).length).toBe(0)
+    expect(listOutbox(db, { state: 'pending' }).length).toBe(1)
+  })
+})
+
+describe('BUG-JIRA-SYNC-02: paused poll does not re-spam jira.auth_expired', () => {
+  it('a second pollOnce while authPaused returns null without re-broadcasting', async () => {
+    seedConnection()
+    const fake = makeFakeFetch()
+    // Two 401s queued, but only the first poll should reach the network.
+    fake.on('POST', '/search/jql', { status: 401, body: {} }, { status: 401, body: {} })
+    const mgr = makeManager(fake.fetchImpl)
+
+    expect(await mgr.pollOnce()).toBeNull()
+    expect(typesOf().filter((t) => t === 'jira.auth_expired').length).toBe(1)
+    const callsAfterFirst = fake.calls.filter((c) => c.url.includes('/search/jql')).length
+    expect(callsAfterFirst).toBe(1)
+
+    // Second poll: paused → no network call, no re-broadcast.
+    expect(await mgr.pollOnce()).toBeNull()
+    expect(typesOf().filter((t) => t === 'jira.auth_expired').length).toBe(1)
+    expect(fake.calls.filter((c) => c.url.includes('/search/jql')).length).toBe(1)
+  })
+
+  it('resumeAfterReauth clears the pause so a fresh 401 broadcasts again', async () => {
+    seedConnection()
+    const fake = makeFakeFetch()
+    fake.on('POST', '/search/jql', { status: 401, body: {} }, { status: 401, body: {} })
+    const mgr = makeManager(fake.fetchImpl)
+
+    await mgr.pollOnce()
+    expect(typesOf().filter((t) => t === 'jira.auth_expired').length).toBe(1)
+    mgr.resumeAfterReauth() // clears authPaused (drain finds nothing)
+    await mgr.pollOnce() // pause cleared → poll runs, hits the 2nd 401
+    expect(typesOf().filter((t) => t === 'jira.auth_expired').length).toBe(2)
+  })
+})
+
+describe('BUG-JIRA-SYNC-03: onSpecEdited idempotency key is collision-free', () => {
+  it('two sub-ms edits of the same ticket enqueue two distinct update ops', () => {
+    seedConnection()
+    seedLinkedTicket(7, 'I-07', 'todo')
+    const { fetchImpl } = makeFakeFetch()
+    const mgr = makeManager(fetchImpl)
+
+    // Pin the clock so both edits land on the identical millisecond — the old
+    // Date.now()-only nonce would collide and INSERT OR IGNORE would drop #2.
+    vi.useFakeTimers()
+    vi.setSystemTime(new Date('2025-06-01T00:00:00.000Z'))
+    mgr.onSpecEdited(7, { title: 'Edit one' })
+    mgr.onSpecEdited(7, { title: 'Edit two' })
+    vi.useRealTimers()
+
+    const updates = listOutbox(db, {}).filter((o) => o.opType === 'update')
+    expect(updates.length).toBe(2)
+    const keys = new Set(updates.map((o) => o.idempotencyKey))
+    expect(keys.size).toBe(2) // distinct keys → neither edit silently dropped
+    const summaries = updates.map((o) => JSON.parse(o.payload).fields.summary).sort()
+    expect(summaries).toEqual(['Edit one', 'Edit two'])
+  })
+})
+
+describe('BUG-JIRA-SYNC-04: perpetual 429 eventually dead-letters', () => {
+  it('a 429 op at the attempts cap is dead-lettered + broadcasts degraded', async () => {
+    seedConnection()
+    enqueueTransition('T-429cap', 'done', 'k-429cap')
+    // Push attempts to one below the cap (MAX_OUTBOX_ATTEMPTS = 6) so the next
+    // 429 exhausts retries instead of re-queuing forever.
+    db.prepare('UPDATE jira_outbox SET attempts = 5 WHERE idempotency_key = ?').run('k-429cap')
+    const fake = makeFakeFetch()
+    fake.on('GET', '/issue/T-429cap?', { status: 429, body: {}, retryAfter: '5' })
+    const mgr = makeManager(fake.fetchImpl)
+    await mgr.drainOnce()
+
+    expect(listOutbox(db, { state: 'dead' }).length).toBe(1)
+    expect(listOutbox(db, { state: 'pending' }).length).toBe(0)
+    const dead = listOutbox(db, { state: 'dead' })[0]
+    expect(dead.deadReason).toMatch(/exhausted retries/)
+    expect(typesOf()).toContain('jira.degraded')
+  })
+
+  it('a 429 op below the cap still retries (back to pending, attempts incremented)', async () => {
+    seedConnection()
+    enqueueTransition('T-429ok', 'done', 'k-429ok')
+    db.prepare('UPDATE jira_outbox SET attempts = 2 WHERE idempotency_key = ?').run('k-429ok')
+    const fake = makeFakeFetch()
+    fake.on('GET', '/issue/T-429ok?', { status: 429, body: {}, retryAfter: '5' })
+    const mgr = makeManager(fake.fetchImpl)
+    await mgr.drainOnce()
+
+    const pending = listOutbox(db, { state: 'pending' })
+    expect(pending.length).toBe(1)
+    expect(pending[0].attempts).toBe(3)
+    expect(listOutbox(db, { state: 'dead' }).length).toBe(0)
   })
 })
 

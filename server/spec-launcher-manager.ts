@@ -12,6 +12,19 @@ export class SpecLauncherManager {
   private _cwd: string
   private _activeProcesses: Map<string, ChildProcess>
   private _buffers: Map<string, string>
+  /**
+   * Launches whose child was intentionally killed via cancel(). The close
+   * handler short-circuits for these so a cancelled launch never emits a
+   * follow-up spec_launcher_done/error (BUG-LONGTAIL-04).
+   */
+  private _cancelledIds = new Set<string>()
+  /**
+   * Set in shutdown() so any in-flight close handler skips broadcasting on a
+   * removed/torn-down project (BUG-LONGTAIL-04).
+   */
+  private _disposed = false
+  /** Pending SIGKILL escalation timers, keyed by launch id (BUG-LONGTAIL-02). */
+  private _killTimers = new Map<string, ReturnType<typeof setTimeout>>()
 
   constructor(broadcast: (msg: WsMessage) => void, cwd: string) {
     this._broadcast = broadcast
@@ -25,14 +38,41 @@ export class SpecLauncherManager {
   }
 
   /**
+   * SIGTERM the child's process tree, then arm an unref'd 2s SIGKILL escalation
+   * (cleared on the child's 'close'). A child that swallows SIGTERM would
+   * otherwise become an unkillable orphan running with
+   * --dangerously-skip-permissions (BUG-LONGTAIL-02).
+   */
+  private _killWithEscalation(launchId: string, pid: number): void {
+    try { treeKill(pid, 'SIGTERM') } catch { /* best-effort */ }
+    const existing = this._killTimers.get(launchId)
+    if (existing) clearTimeout(existing)
+    const grace = setTimeout(() => {
+      this._killTimers.delete(launchId)
+      try { treeKill(pid, 'SIGKILL', () => { /* best-effort */ }) } catch { /* gone */ }
+    }, 2000)
+    grace.unref?.()
+    this._killTimers.set(launchId, grace)
+  }
+
+  private _clearKillTimer(launchId: string): void {
+    const timer = this._killTimers.get(launchId)
+    if (timer) {
+      clearTimeout(timer)
+      this._killTimers.delete(launchId)
+    }
+  }
+
+  /**
    * Tear down before the project is removed (M12). This manager holds no DB
    * handle (its close handler only broadcasts), so it cannot crash the app — but
    * an orphaned `/opsx:ff` child runs with --dangerously-skip-permissions against
    * a removed project and keeps burning spend, so SIGTERM it. Idempotent.
    */
   shutdown(): void {
-    for (const child of this._activeProcesses.values()) {
-      if (child.pid) { try { treeKill(child.pid, 'SIGTERM') } catch { /* ignore */ } }
+    this._disposed = true
+    for (const [launchId, child] of this._activeProcesses) {
+      if (child.pid) this._killWithEscalation(launchId, child.pid)
     }
     this._activeProcesses.clear()
     this._buffers.clear()
@@ -133,8 +173,13 @@ export class SpecLauncherManager {
     return new Promise<void>((resolve) => {
       child.on('close', (code) => {
         const fullText = this._buffers.get(launchId) ?? ''
+        this._clearKillTimer(launchId)
         this._activeProcesses.delete(launchId)
         this._buffers.delete(launchId)
+        // A cancel() killed this child intentionally, or shutdown() removed the
+        // project — either way do NOT emit a follow-up done/error broadcast for
+        // a cancelled/torn-down launch (BUG-LONGTAIL-04).
+        if (this._cancelledIds.delete(launchId) || this._disposed) { resolve(); return }
 
         if (code === 0) {
           // Also try to extract change ID from full text
@@ -159,9 +204,16 @@ export class SpecLauncherManager {
   }
 
   cancel(launchId: string): void {
+    // Mark intentionally-cancelled BEFORE killing so the child's later 'close'
+    // short-circuits instead of broadcasting a contradictory done/error for a
+    // cancelled launch (BUG-LONGTAIL-04).
+    this._cancelledIds.add(launchId)
     const child = this._activeProcesses.get(launchId)
     if (child?.pid) {
-      treeKill(child.pid, 'SIGTERM')
+      this._killWithEscalation(launchId, child.pid)
+    } else {
+      // No live child to close-out, so the flag would otherwise leak.
+      this._cancelledIds.delete(launchId)
     }
     this._activeProcesses.delete(launchId)
     this._buffers.delete(launchId)

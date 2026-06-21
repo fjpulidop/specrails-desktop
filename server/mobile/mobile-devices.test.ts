@@ -10,11 +10,17 @@ import {
   revokeAllDevices,
   touchDevice,
   sweepExpiredDevices,
+  getAllowedProjects,
+  setAllowedProjects,
+  intersectAllowedProjects,
+  isProjectAllowed,
+  _resetAclColumnCacheForTests,
 } from './mobile-devices'
 
 describe('mobile-devices', () => {
   let db: DbInstance
   beforeEach(() => {
+    _resetAclColumnCacheForTests()
     db = initDesktopDb(':memory:')
   })
 
@@ -63,6 +69,39 @@ describe('mobile-devices', () => {
     const found = getActiveDeviceByTokenHash(db, hashToken('a'))
     expect(found?.last_ip).toBe('192.168.1.5')
     expect(found?.last_seen_at).toBeTruthy()
+  })
+
+  // ── BUG-MOBILE-02: per-device project ACL ──
+  describe('allowed-projects ACL', () => {
+    it('a freshly-created device is UNRESTRICTED (null grant = all projects)', () => {
+      const row = createDevice(db, { name: 'A', platform: 'ios', tokenHash: hashToken('a'), certFingerprint: 'fp' })
+      expect(getAllowedProjects(db, row.id)).toBeNull()
+      expect(isProjectAllowed(getAllowedProjects(db, row.id), 'anything')).toBe(true)
+    })
+
+    it('setAllowedProjects scopes the device; getAllowedProjects returns the set', () => {
+      const row = createDevice(db, { name: 'A', platform: 'ios', tokenHash: hashToken('a'), certFingerprint: 'fp' })
+      setAllowedProjects(db, row.id, ['p1', 'p2', 'p1']) // dedupes
+      const allowed = getAllowedProjects(db, row.id)
+      expect(allowed).not.toBeNull()
+      expect([...(allowed as Set<string>)].sort()).toEqual(['p1', 'p2'])
+      expect(isProjectAllowed(allowed, 'p1')).toBe(true)
+      expect(isProjectAllowed(allowed, 'p3')).toBe(false)
+    })
+
+    it('an empty array clears the restriction back to unrestricted', () => {
+      const row = createDevice(db, { name: 'A', platform: 'ios', tokenHash: hashToken('a'), certFingerprint: 'fp' })
+      setAllowedProjects(db, row.id, ['p1'])
+      expect(getAllowedProjects(db, row.id)).not.toBeNull()
+      setAllowedProjects(db, row.id, [])
+      expect(getAllowedProjects(db, row.id)).toBeNull()
+    })
+
+    it('intersectAllowedProjects filters a requested list (unrestricted passes through)', () => {
+      expect(intersectAllowedProjects(null, ['p1', 'p2'])).toEqual(['p1', 'p2'])
+      expect(intersectAllowedProjects(new Set(['p1']), ['p1', 'p2', 'p3'])).toEqual(['p1'])
+      expect(intersectAllowedProjects(new Set(['x']), ['p1'])).toEqual([])
+    })
   })
 
   it('sweepExpiredDevices revokes devices older than the window', () => {
