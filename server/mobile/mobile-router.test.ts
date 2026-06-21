@@ -4,7 +4,7 @@ import http from 'http'
 import request from 'supertest'
 import { initDesktopDb } from '../desktop-db'
 import type { DbInstance } from '../db'
-import { createDevice, hashToken } from './mobile-devices'
+import { createDevice, hashToken, setAllowedProjects, _resetAclColumnCacheForTests } from './mobile-devices'
 import { createMobileRouter } from './mobile-router'
 
 // A stand-in "internal server" the gateway forwards to. Captures the last body so
@@ -49,6 +49,7 @@ describe('mobile-router', () => {
   let db: DbInstance
   let app: express.Express
   beforeEach(() => {
+    _resetAclColumnCacheForTests() // fresh in-memory db each test → re-run the idempotent ALTER
     db = initDesktopDb(':memory:')
     createDevice(db, { name: 'A', platform: 'ios', tokenHash: hashToken('tok'), certFingerprint: 'fp' })
     app = buildApp(db)
@@ -111,7 +112,10 @@ describe('mobile-router', () => {
       .set('Authorization', 'Bearer tok')
       .send({ text: 'hi', evil: 1 })
     expect(res.body.body).toEqual({ text: 'hi', lightweight: true })
-    expect(res.body.route).toBe('/api/projects/p1/chat/conversations/abc-123/messages')
+    // BUG-MOBILE-06: the (test-echoed) absolute `route` path is redacted out of
+    // the response before it reaches the phone. Reachability is proved by status
+    // + the narrowed body above.
+    expect(res.body.route).toBe('[path]')
   })
 
   it('chat: interrupt + spec-draft + default-spec-model reachable', async () => {
@@ -141,7 +145,8 @@ describe('mobile-router', () => {
       .send({ mode: 'implement', profileName: 'default', evil: 'x' })
     expect(res.status).toBe(200)
     expect(res.body.body).toEqual({ mode: 'implement', profileName: 'default' })
-    expect(res.body.route).toBe('/api/projects/p1/rails/0/launch')
+    // BUG-MOBILE-06: the echoed absolute `route` is redacted before reaching the phone.
+    expect(res.body.route).toBe('[path]')
   })
 
   it('rail stop, queue pause/resume, job delete, put rail tickets are reachable', async () => {
@@ -157,7 +162,8 @@ describe('mobile-router', () => {
   it('put rail name forwards a narrowed {name} body', async () => {
     const named = await request(app).put('/v1/projects/p1/rails/0/name').set('Authorization', 'Bearer tok').send({ name: 'Backend', evil: 1 })
     expect(named.status).toBe(200)
-    expect(named.body.route).toBe('/api/projects/p1/rails/0/name')
+    // BUG-MOBILE-06: the echoed absolute `route` is redacted before reaching the phone.
+    expect(named.body.route).toBe('[path]')
     expect(named.body.body).toEqual({ name: 'Backend' })
     // Non-string name coerces to null (clear).
     const cleared = await request(app).put('/v1/projects/p1/rails/0/name').set('Authorization', 'Bearer tok').send({ name: 42 })
@@ -187,6 +193,46 @@ describe('mobile-router', () => {
       const res = await request(app).get(p).set('Authorization', 'Bearer tok')
       expect(res.status, p).toBe(200)
     }
+  })
+
+  // ── BUG-MOBILE-02: per-device project ACL on the /v1 :pid forward ──
+  describe('per-device project ACL (BUG-MOBILE-02)', () => {
+    it('403 when a scoped device operates on a project it was NOT granted', async () => {
+      const scoped = createDevice(db, { name: 'Scoped', platform: 'ios', tokenHash: hashToken('scoped'), certFingerprint: 'fp' })
+      setAllowedProjects(db, scoped.id, ['p1'])
+      // Granted project → allowed.
+      const ok = await request(app).get('/v1/projects/p1/tickets').set('Authorization', 'Bearer scoped')
+      expect(ok.status).toBe(200)
+      // Non-granted project → blocked, never forwarded.
+      const denied = await request(app).get('/v1/projects/p2/tickets').set('Authorization', 'Bearer scoped')
+      expect(denied.status).toBe(403)
+      expect(denied.body.error).toMatch(/not allowed/i)
+    })
+
+    it('blocks scoped device on a non-granted project for ACTIONS too (delete/patch)', async () => {
+      const scoped = createDevice(db, { name: 'Scoped', platform: 'ios', tokenHash: hashToken('scoped2'), certFingerprint: 'fp' })
+      setAllowedProjects(db, scoped.id, ['p1'])
+      const del = await request(app).delete('/v1/projects/p2/jobs/job-1').set('Authorization', 'Bearer scoped2')
+      expect(del.status).toBe(403)
+      const patch = await request(app).patch('/v1/projects/p2/tickets/5').set('Authorization', 'Bearer scoped2').send({ status: 'done' })
+      expect(patch.status).toBe(403)
+    })
+
+    it('an UNRESTRICTED device (no grant set) reaches any project — legacy behaviour', async () => {
+      // The default beforeEach device 'tok' has no allowed_projects restriction.
+      const a = await request(app).get('/v1/projects/p1/tickets').set('Authorization', 'Bearer tok')
+      const b = await request(app).get('/v1/projects/p2/tickets').set('Authorization', 'Bearer tok')
+      expect(a.status).toBe(200)
+      expect(b.status).toBe(200)
+    })
+
+    it('clearing the grant (empty array) restores unrestricted access', async () => {
+      const scoped = createDevice(db, { name: 'Scoped', platform: 'ios', tokenHash: hashToken('scoped3'), certFingerprint: 'fp' })
+      setAllowedProjects(db, scoped.id, ['p1'])
+      expect((await request(app).get('/v1/projects/p2/tickets').set('Authorization', 'Bearer scoped3')).status).toBe(403)
+      setAllowedProjects(db, scoped.id, [])
+      expect((await request(app).get('/v1/projects/p2/tickets').set('Authorization', 'Bearer scoped3')).status).toBe(200)
+    })
   })
 
   it('502 when the internal server is unreachable', async () => {

@@ -23,6 +23,7 @@ import { isBrowserCaptureEnabled } from './feature-flags'
 import { MobileGateway, createMobileAdminRouter, getMobileEventBus } from './mobile'
 import type { BrowserWsClient } from './browser-capture-manager'
 import type { BrowserInputEvent } from './browser-capture-types'
+import { isNavigableUrl } from './browser-playwright'
 import { createTelemetryRouter } from './telemetry-receiver'
 import { runCompactionForAll } from './telemetry-compactor'
 import { FrameworkManager } from './framework-manager'
@@ -298,6 +299,8 @@ server.on('upgrade', (request, socket, head) => {
     }
     if (!projectId || session.projectId !== projectId) return rejectUpgrade(socket, 403, 'Forbidden')
     terminalWss.handleUpgrade(request, socket, head, (ws) => {
+      // BUG-MOBILE-07: throttle inbound control frames (PTY-tuned cap).
+      applyPtyWsRateLimiting(ws)
       const meta = tm.attach(sessionId, ws)
       if (!meta) {
         // Lost the race: the pty exited between the getUnsafe check and attach.
@@ -345,6 +348,8 @@ server.on('upgrade', (request, socket, head) => {
     const session = mgr?.getSession(sessionId)
     if (!mgr || !session) return rejectUpgrade(socket, 404, 'Not Found')
     browserWss.handleUpgrade(request, socket, head, (ws) => {
+      // BUG-MOBILE-07: throttle inbound control frames (PTY-tuned cap).
+      applyPtyWsRateLimiting(ws)
       const client = ws as unknown as BrowserWsClient
       void mgr.attach(sessionId, client).then((meta) => {
         if (!meta) {
@@ -363,7 +368,13 @@ server.on('upgrade', (request, socket, head) => {
           if (msg.type === 'input' && msg.event) {
             void mgr.handleInput(sessionId, msg.event)
           } else if (msg.type === 'navigate') {
-            void mgr.navigate(sessionId, msg.action ?? 'goto', msg.url)
+            // BUG-BROWSER-01: scheme-allowlist + SSRF guard for the WS navigate
+            // path (mirrors REST /navigate). Only `goto` carries a user URL; the
+            // history actions (back/forward/reload) replay already-vetted state.
+            const action = msg.action ?? 'goto'
+            if (action !== 'goto' || (typeof msg.url === 'string' && isNavigableUrl(msg.url))) {
+              void mgr.navigate(sessionId, action, msg.url)
+            }
           } else if (msg.type === 'probe' && Number.isFinite(msg.x) && Number.isFinite(msg.y) && msg.x >= 0 && msg.y >= 0) {
             // Hover-to-select: resolve the element under the cursor and reply with
             // its rect so the client can draw a highlight box.
@@ -423,20 +434,27 @@ app.use('/api', requireAuth)
 const WS_MAX_MESSAGES_PER_MINUTE = 120
 const WS_MAX_MESSAGE_BYTES = 65_536 // 64 KB
 
-function applyWsRateLimiting(ws: WebSocket): void {
+// PTY/screencast control sockets (terminal keystrokes, browser input/probe
+// frames) legitimately send far more small messages than the project event
+// stream, so they get a higher per-minute cap while keeping a per-message byte
+// cap and an absolute ceiling that still stops a tight flood loop (BUG-MOBILE-07).
+const WS_PTY_MAX_MESSAGES_PER_MINUTE = 6000
+const WS_PTY_MAX_MESSAGE_BYTES = 256 * 1024 // 256 KB (a paste / large resize burst)
+
+function applyWsRateLimitingWith(ws: WebSocket, maxPerMinute: number, maxBytes: number): void {
   let messageCount = 0
   const resetTimer = setInterval(() => { messageCount = 0 }, 60_000)
 
   ws.on('message', (data: Buffer | string) => {
-    const size = typeof data === 'string' ? Buffer.byteLength(data) : data.byteLength
+    const size = typeof data === 'string' ? Buffer.byteLength(data) : (data as Buffer).byteLength
 
-    if (size > WS_MAX_MESSAGE_BYTES) {
+    if (size > maxBytes) {
       ws.close(1009, 'Message too large')
       return
     }
 
     messageCount++
-    if (messageCount > WS_MAX_MESSAGES_PER_MINUTE) {
+    if (messageCount > maxPerMinute) {
       ws.close(1008, 'Rate limit exceeded')
     }
   })
@@ -444,6 +462,15 @@ function applyWsRateLimiting(ws: WebSocket): void {
   ws.on('close', () => {
     clearInterval(resetTimer)
   })
+}
+
+function applyWsRateLimiting(ws: WebSocket): void {
+  applyWsRateLimitingWith(ws, WS_MAX_MESSAGES_PER_MINUTE, WS_MAX_MESSAGE_BYTES)
+}
+
+/** PTY-tuned limiter for the terminal / browser control sockets. */
+function applyPtyWsRateLimiting(ws: WebSocket): void {
+  applyWsRateLimitingWith(ws, WS_PTY_MAX_MESSAGES_PER_MINUTE, WS_PTY_MAX_MESSAGE_BYTES)
 }
 
 // ─── Super-mode bootstrap ─────────────────────────────────────────────────────

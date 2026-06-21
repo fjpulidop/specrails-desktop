@@ -104,6 +104,27 @@ describe('RingBuffer', () => {
     expect(b.size()).toBe(0)
     expect(b.snapshot().length).toBe(0)
   })
+
+  it('does not pin the original oversized chunk allocation when trimming (BUG-TERM-02)', () => {
+    // A single chunk far larger than the capacity arrives, then the session
+    // goes idle. The retained tail must be a fresh allocation, not a view that
+    // pins the entire multi-MB original ArrayBuffer.
+    const b = new RingBuffer(5)
+    const big = Buffer.alloc(10_000, 65) // 'A' * 10_000
+    b.append(big)
+    expect(b.snapshot().length).toBe(5)
+    expect(b.snapshot().toString()).toBe('AAAAA')
+    // Inspect the stored chunk directly: with the bug it is a `subarray` view
+    // whose `.buffer.byteLength` is the full 10_000 of `big`; the fix copies the
+    // tail out into a fresh allocation no larger than the trimmed 5 bytes.
+    const stored = (b as unknown as { chunks: Buffer[] }).chunks[0]
+    expect(stored.length).toBe(5)
+    // The stored tail must be a fresh copy, NOT a view aliasing `big`'s
+    // ArrayBuffer (which would pin the whole 10_000-byte allocation). A copy-out
+    // never shares the original's underlying buffer.
+    expect(stored.buffer).not.toBe(big.buffer)
+    expect(stored.buffer.byteLength).toBeLessThan(big.buffer.byteLength)
+  })
 })
 
 describe('shell resolution', () => {

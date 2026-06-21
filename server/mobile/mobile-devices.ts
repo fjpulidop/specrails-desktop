@@ -10,6 +10,77 @@ export function hashToken(token: string): string {
   return createHash('sha256').update(token).digest('hex')
 }
 
+// ─── Per-device project ACL (BUG-MOBILE-02) ──────────────────────────────────
+// A companion may be scoped to a subset of projects. The grant is stored as a
+// JSON array in the `allowed_projects` column. The column is added idempotently
+// here (rather than via a desktop-db migration this module doesn't own) so it is
+// always present before any read/write.
+//   - column NULL / unset  → UNRESTRICTED (all projects). Backward-compatible:
+//     every pre-existing device keeps all-projects access (byte-identical).
+//   - column = JSON array   → the device may ONLY see/operate on those project ids.
+// Both the WS subscribe set and the /v1 `:pid` forward intersect against this.
+let _aclColumnReady = false
+function ensureAclColumn(db: DbInstance): void {
+  if (_aclColumnReady) return
+  try {
+    const cols = db.prepare('PRAGMA table_info(mobile_devices)').all() as Array<{ name: string }>
+    if (!cols.some((c) => c.name === 'allowed_projects')) {
+      db.exec('ALTER TABLE mobile_devices ADD COLUMN allowed_projects TEXT')
+    }
+    _aclColumnReady = true
+  } catch {
+    // Table not created yet (gateway disabled / fresh db) — retry on next call.
+  }
+}
+
+/** Test/lifecycle seam: forget the cached "column exists" flag so a fresh
+ *  in-memory db in another test re-runs the idempotent ALTER. */
+export function _resetAclColumnCacheForTests(): void {
+  _aclColumnReady = false
+}
+
+/** The set of project ids this device may access, or `null` when unrestricted
+ *  (all projects). A malformed/empty stored value is treated as unrestricted to
+ *  preserve legacy behaviour — restriction is opt-in. */
+export function getAllowedProjects(db: DbInstance, deviceId: string): Set<string> | null {
+  ensureAclColumn(db)
+  const row = db
+    .prepare('SELECT allowed_projects FROM mobile_devices WHERE id = ?')
+    .get(deviceId) as { allowed_projects: string | null } | undefined
+  if (!row || row.allowed_projects == null || row.allowed_projects === '') return null
+  try {
+    const parsed = JSON.parse(row.allowed_projects) as unknown
+    if (!Array.isArray(parsed)) return null
+    const ids = parsed.filter((x): x is string => typeof x === 'string')
+    return ids.length > 0 ? new Set(ids) : null
+  } catch {
+    return null
+  }
+}
+
+/** Restrict a device to a specific set of project ids. An empty array clears the
+ *  restriction (back to unrestricted/all-projects). Parameterised SQL only. */
+export function setAllowedProjects(db: DbInstance, deviceId: string, projectIds: string[]): void {
+  ensureAclColumn(db)
+  const deduped = [...new Set(projectIds.filter((x) => typeof x === 'string'))]
+  const value = deduped.length > 0 ? JSON.stringify(deduped) : null
+  db.prepare('UPDATE mobile_devices SET allowed_projects = ? WHERE id = ?').run(value, deviceId)
+}
+
+/** Intersect a requested project-id list against a device's allowed set. When the
+ *  device is unrestricted (`allowed === null`) the request passes through verbatim. */
+export function intersectAllowedProjects(allowed: Set<string> | null, requested: Iterable<string>): string[] {
+  if (allowed === null) return [...requested]
+  const out: string[] = []
+  for (const p of requested) if (allowed.has(p)) out.push(p)
+  return out
+}
+
+/** Whether a single project id is reachable by a device given its allowed set. */
+export function isProjectAllowed(allowed: Set<string> | null, projectId: string): boolean {
+  return allowed === null || allowed.has(projectId)
+}
+
 export function createDevice(
   db: DbInstance,
   opts: { name: string; platform: MobilePlatform; tokenHash: string; certFingerprint: string },

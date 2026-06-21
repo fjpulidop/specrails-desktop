@@ -20,11 +20,87 @@ import type {
 import { resolveBundledChromiumExecutable } from './chromium-resolver'
 import { NetworkRingBuffer, sketchJsonShape } from './browser-network'
 
-function normalizeUrl(raw: string): string {
-  const trimmed = raw.trim()
+/**
+ * Centralized SSRF / scheme guard for EVERY navigation path (WS `navigate`, REST
+ * `navigate`, REST create `initialUrl`). Returns true only for an `http`/`https`
+ * URL whose host is NOT a private / loopback / link-local address. `about:blank`
+ * is always allowed (the harmless empty page). Everything else — `file://`,
+ * `data:`, `chrome://`, link-local `169.254.0.0/16`, loopback `127.0.0.0/8` /
+ * `::1`, RFC1918 `10/8` / `172.16/12` / `192.168/16` — is rejected.
+ *
+ * This is intentionally conservative: a host that fails to parse, or a literal
+ * IP in a blocked range, is rejected. DNS-name hosts that *resolve* to a private
+ * IP are out of scope here (we don't resolve at navigate time); the loopback
+ * server bind + token-gated upgrade are the primary control — this is the
+ * defense-in-depth scheme + literal-IP block called out in BUG-BROWSER-01.
+ */
+export function isNavigableUrl(raw: string): boolean {
+  const trimmed = (raw ?? '').trim()
+  if (!trimmed) return false
+  if (trimmed === 'about:blank') return true
+  let u: URL
+  try {
+    u = new URL(trimmed)
+  } catch {
+    return false
+  }
+  if (u.protocol !== 'http:' && u.protocol !== 'https:') return false
+  const host = u.hostname.toLowerCase().replace(/^\[/, '').replace(/\]$/, '')
+  if (isBlockedHost(host)) return false
+  return true
+}
+
+/** True when a literal host string is a loopback / private / link-local address. */
+function isBlockedHost(host: string): boolean {
+  if (!host) return true
+  if (host === 'localhost' || host.endsWith('.localhost')) return true
+  // IPv6 loopback + IPv4-mapped/embedded forms.
+  if (host === '::1' || host === '::' || host === '0:0:0:0:0:0:0:1') return true
+  // IPv6 unique-local (fc00::/7) and link-local (fe80::/10).
+  if (/^f[cd][0-9a-f]{2}:/i.test(host)) return true
+  if (/^fe[89ab][0-9a-f]:/i.test(host)) return true
+  // IPv4-mapped IPv6 (::ffff:a.b.c.d) — fall through to the IPv4 check on the tail.
+  // The WHATWG URL parser also normalises the dotted tail into hex
+  // (`::ffff:7f00:1`), so decode that hextet form back to dotted quads too.
+  const mappedDotted = host.match(/^::ffff:(\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3})$/i)
+  const mappedHex = host.match(/^::ffff:([0-9a-f]{1,4}):([0-9a-f]{1,4})$/i)
+  let ipv4 = host
+  if (mappedDotted) {
+    ipv4 = mappedDotted[1]
+  } else if (mappedHex) {
+    const hi = parseInt(mappedHex[1], 16)
+    const lo = parseInt(mappedHex[2], 16)
+    ipv4 = `${(hi >> 8) & 0xff}.${hi & 0xff}.${(lo >> 8) & 0xff}.${lo & 0xff}`
+  }
+  const m = ipv4.match(/^(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})$/)
+  if (m) {
+    const [a, b] = [Number(m[1]), Number(m[2])]
+    if (a === 127) return true // 127.0.0.0/8 loopback
+    if (a === 10) return true // 10.0.0.0/8
+    if (a === 169 && b === 254) return true // 169.254.0.0/16 link-local
+    if (a === 172 && b >= 16 && b <= 31) return true // 172.16.0.0/12
+    if (a === 192 && b === 168) return true // 192.168.0.0/16
+    if (a === 0) return true // 0.0.0.0/8 "this host"
+  }
+  return false
+}
+
+/**
+ * Normalize a user-supplied address into a safe, navigable URL. A bare host
+ * (`example.com`) is upgraded to `https://`. The result is then validated by
+ * `isNavigableUrl`; anything that fails the SSRF/scheme guard collapses to
+ * `about:blank` so a blocked navigation never reaches Chromium.
+ */
+export function normalizeUrl(raw: string): string {
+  const trimmed = (raw ?? '').trim()
   if (!trimmed) return 'about:blank'
-  if (/^[a-z][a-z0-9+.-]*:\/\//i.test(trimmed) || trimmed.startsWith('about:')) return trimmed
-  return `https://${trimmed}`
+  let candidate: string
+  if (/^[a-z][a-z0-9+.-]*:\/\//i.test(trimmed) || trimmed.startsWith('about:')) {
+    candidate = trimmed
+  } else {
+    candidate = `https://${trimmed}`
+  }
+  return isNavigableUrl(candidate) ? candidate : 'about:blank'
 }
 
 class PlaywrightPageHandle implements BrowserPageHandle {
@@ -776,6 +852,19 @@ class PlaywrightContextHandle implements BrowserContextHandle {
 }
 
 /**
+ * Chromium launch args. The renderer SANDBOX is kept ENABLED on macOS/Windows
+ * (it works there and is the primary mitigation for navigating untrusted pages —
+ * BUG-BROWSER-04). `--no-sandbox` is only added on Linux, where the namespace
+ * sandbox frequently fails to initialise inside a packaged/headless app and would
+ * otherwise refuse to launch. We never disable the sandbox where it functions.
+ */
+export function chromiumLaunchArgs(): string[] {
+  const args = ['--disable-dev-shm-usage', '--disable-gpu']
+  if (process.platform === 'linux') args.unshift('--no-sandbox')
+  return args
+}
+
+/**
  * Build the real Playwright-backed launcher. Lazy-imports playwright so the
  * dependency is only loaded when the feature is actually used.
  */
@@ -793,7 +882,7 @@ export function createPlaywrightLauncher(): ContextLauncher {
       headless: true,
       executablePath,
       viewport: opts.viewport,
-      args: ['--no-sandbox', '--disable-dev-shm-usage', '--disable-gpu'],
+      args: chromiumLaunchArgs(),
     })
     return new PlaywrightContextHandle(context)
   }

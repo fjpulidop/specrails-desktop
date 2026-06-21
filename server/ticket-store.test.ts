@@ -6,7 +6,7 @@ import express from 'express'
 import request from 'supertest'
 
 import { createProjectRouter } from './project-router'
-import { readStore } from './ticket-store'
+import { readStore, mutateStore, withLock } from './ticket-store'
 import { initDb } from './db'
 import { initDesktopDb } from './desktop-db'
 import type { ProjectRegistry, ProjectContext } from './project-registry'
@@ -540,6 +540,149 @@ describe('ticket endpoints', () => {
       expect(store.tickets['1'].title).toBe('Valid one')
       expect(store.tickets['4'].title).toBe('Valid two')
       fs.rmSync(dir, { recursive: true, force: true })
+    })
+  })
+
+  // BUG-SQLITE-03: a present-but-unreadable store must THROW (preserving the
+  // on-disk bytes) instead of returning emptyStore() — otherwise the next
+  // mutateStore writes an empty store over real data.
+  describe('readStore present-but-unreadable handling (BUG-SQLITE-03)', () => {
+    let dir: string
+    let filePath: string
+
+    beforeEach(() => {
+      dir = fs.mkdtempSync(path.join(os.tmpdir(), 'ticket-store-sqlite03-'))
+      filePath = path.join(dir, 'local-tickets.json')
+    })
+    afterEach(() => {
+      fs.rmSync(dir, { recursive: true, force: true })
+    })
+
+    it('returns an empty store only when the file is genuinely absent (ENOENT)', () => {
+      const store = readStore(filePath)
+      expect(store.tickets).toEqual({})
+      expect(store.next_id).toBe(1)
+    })
+
+    it('throws on a present-but-unparseable JSON file', () => {
+      fs.writeFileSync(filePath, '{ this is not: valid json', 'utf-8')
+      expect(() => readStore(filePath)).toThrow(/invalid JSON/i)
+    })
+
+    it('throws on a present file with a foreign top-level shape (no tickets / no revision)', () => {
+      fs.writeFileSync(filePath, JSON.stringify({ some: 'other', tool: true }), 'utf-8')
+      expect(() => readStore(filePath)).toThrow(/unexpected top-level shape/i)
+    })
+
+    it('throws on a present file that is a JSON array (foreign shape)', () => {
+      fs.writeFileSync(filePath, JSON.stringify([1, 2, 3]), 'utf-8')
+      expect(() => readStore(filePath)).toThrow(/unexpected top-level shape/i)
+    })
+
+    it('mutateStore aborts and PRESERVES the on-disk bytes when the file is corrupt', () => {
+      const corrupt = '{ partial truncated write '
+      fs.writeFileSync(filePath, corrupt, 'utf-8')
+      expect(() =>
+        mutateStore(filePath, (store) => {
+          // Would have wiped everything pre-fix; the throw must prevent the write.
+          store.tickets = {}
+          store.next_id = 1
+        }),
+      ).toThrow()
+      // The corrupt file must be untouched — never blanked into an empty store.
+      expect(fs.readFileSync(filePath, 'utf-8')).toBe(corrupt)
+      // And the advisory lock must have been released despite the throw.
+      expect(fs.existsSync(filePath + '.lock')).toBe(false)
+    })
+
+    it('still reads a present, valid store normally', () => {
+      fs.writeFileSync(
+        filePath,
+        JSON.stringify({
+          schema_version: '1.3',
+          revision: 7,
+          last_updated: new Date().toISOString(),
+          next_id: 3,
+          tickets: {
+            '1': { id: 1, title: 'Real', status: 'todo', priority: 'high' },
+          },
+        }),
+        'utf-8',
+      )
+      const store = readStore(filePath)
+      expect(store.revision).toBe(7)
+      expect(store.tickets['1'].title).toBe('Real')
+    })
+  })
+
+  // BUG-SQLITE-02: a lock held by a DEAD pid must be reclaimable immediately
+  // (ESRCH), not only after the mtime TTL ages out.
+  describe('acquireLock owner-PID liveness (BUG-SQLITE-02)', () => {
+    let dir: string
+    let filePath: string
+
+    beforeEach(() => {
+      dir = fs.mkdtempSync(path.join(os.tmpdir(), 'ticket-store-sqlite02-'))
+      filePath = path.join(dir, 'local-tickets.json')
+    })
+    afterEach(() => {
+      fs.rmSync(dir, { recursive: true, force: true })
+    })
+
+    function findDeadPid(): number {
+      // Find a pid that does not exist on this host (process.kill(pid,0) ESRCH).
+      for (let candidate = 999_999; candidate > 900_000; candidate--) {
+        try {
+          process.kill(candidate, 0)
+        } catch (err: any) {
+          if (err && err.code === 'ESRCH') return candidate
+        }
+      }
+      throw new Error('could not find a dead pid for the test')
+    }
+
+    it('reclaims a lock whose owner pid is dead, even with a FRESH mtime', () => {
+      const lockPath = filePath + '.lock'
+      const deadPid = findDeadPid()
+      // Stale-by-owner but NOT stale-by-mtime: write a dead pid with a just-now
+      // mtime so the only path that lets the write proceed is the PID check.
+      fs.writeFileSync(lockPath, String(deadPid), 'utf-8')
+      const now = new Date()
+      fs.utimesSync(lockPath, now, now)
+      expect(Date.now() - fs.statSync(lockPath).mtimeMs).toBeLessThan(1000)
+
+      // withLock must acquire (reclaiming the dead lock) and complete quickly.
+      const started = Date.now()
+      const result = withLock(filePath, () => 'acquired')
+      expect(result).toBe('acquired')
+      // Far below the 10s mtime TTL — proves the PID path, not the TTL, freed it.
+      expect(Date.now() - started).toBeLessThan(2000)
+      // Lock released after the critical section.
+      expect(fs.existsSync(lockPath)).toBe(false)
+    })
+
+    it('does NOT reclaim a fresh lock owned by a LIVE pid (our own process)', () => {
+      const lockPath = filePath + '.lock'
+      // Our own pid is alive; a fresh mtime means neither path should free it,
+      // so acquireLock exhausts its retry budget and throws.
+      fs.writeFileSync(lockPath, String(process.pid), 'utf-8')
+      const now = new Date()
+      fs.utimesSync(lockPath, now, now)
+      expect(() => withLock(filePath, () => 'should-not-run')).toThrow(/Could not acquire lock/)
+      // The live lock must survive the failed attempt.
+      expect(fs.existsSync(lockPath)).toBe(true)
+    })
+
+    it('falls back to mtime TTL when the lock content is a malformed/foreign pid', () => {
+      const lockPath = filePath + '.lock'
+      // Non-numeric content => PID check cannot prove death; reclaim only via
+      // the aged mtime TTL fallback.
+      fs.writeFileSync(lockPath, 'not-a-pid', 'utf-8')
+      const old = new Date(Date.now() - 60_000) // 60s ago, well past the 10s TTL
+      fs.utimesSync(lockPath, old, old)
+      const result = withLock(filePath, () => 'acquired-via-ttl')
+      expect(result).toBe('acquired-via-ttl')
+      expect(fs.existsSync(lockPath)).toBe(false)
     })
   })
 })

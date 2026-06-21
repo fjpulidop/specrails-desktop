@@ -51,6 +51,15 @@ import { applyContributors, contributorPaths, revertContributors } from './plugi
 
 export type PluginBroadcast = (msg: WsMessage) => void
 
+/**
+ * State entry augmented with the plugin's owned `mcpServers` keys, persisted at
+ * install time (BUG-PLUGIN-04). Declared here as a local intersection rather
+ * than widening the shared `PluginStateEntry` interface — the field is an
+ * internal recovery record used only by orphan removal. Older state files
+ * (written before this field existed) simply lack it; readers tolerate that.
+ */
+type PluginStateEntryWithOwned = PluginStateEntry & { ownedMcpServers?: string[] }
+
 export type PrerequisiteCheck = (req: PluginRequirement) => Promise<{
   installed: boolean
   executable: boolean
@@ -125,10 +134,33 @@ export class PluginManager {
     })
   }
 
-  private async _writeProjectState(projectPath: string, state: PluginState): Promise<void> {
+  private static _readState(projectPath: string): PluginState {
+    return readJsonOr<PluginState>(stateFilePath(projectPath), {
+      schemaVersion: 1,
+      plugins: {},
+    })
+  }
+
+  /**
+   * Atomic read → mutate → write of `state.json` under ONE file lock keyed on
+   * the state-file path. The read happens INSIDE the lock so concurrent
+   * mutators (router install/uninstall racing a rail-spawn verify→_cacheHealth)
+   * never overwrite each other's snapshot (BUG-PLUGIN-02/03). The `mutate`
+   * callback receives the freshly-read state and may either mutate it in place
+   * or return a replacement; returning `false` aborts the write (no-op commit),
+   * which lets callers short-circuit when there's nothing to persist.
+   */
+  private async lockedUpdateState(
+    projectPath: string,
+    mutate: (state: PluginState) => PluginState | void | false,
+  ): Promise<void> {
     fs.mkdirSync(pluginsDir(projectPath), { recursive: true })
     await withFileLock(stateFilePath(projectPath), async () => {
-      atomicWriteFileSync(stateFilePath(projectPath), JSON.stringify(state, null, 2) + '\n')
+      const state = PluginManager._readState(projectPath)
+      const result = mutate(state)
+      if (result === false) return
+      const next = result === undefined ? state : result
+      atomicWriteFileSync(stateFilePath(projectPath), JSON.stringify(next, null, 2) + '\n')
     })
   }
 
@@ -425,15 +457,21 @@ export class PluginManager {
         )
       }
 
-      // Commit: write state.json with the install record.
-      const stateNow = this.getProjectState(projectPath)
-      stateNow.plugins[name] = {
-        version: plugin.manifest.version,
-        installedAt: new Date().toISOString(),
-        installedFiles,
-        health: 'ok',
-      }
-      await this._writeProjectState(projectPath, stateNow)
+      // Commit: write state.json with the install record. Persist the plugin's
+      // owned mcpServers keys (BUG-PLUGIN-04) so a future orphan removal — when
+      // the plugin code is gone from the registry — can still surgically strip
+      // the merged `.mcp.json` entries instead of leaving them loaded forever.
+      const ownedMcpServers = [...(plugin.manifest.owns.mcpServers ?? [])]
+      await this.lockedUpdateState(projectPath, (s) => {
+        const entry: PluginStateEntryWithOwned = {
+          version: plugin.manifest.version,
+          installedAt: new Date().toISOString(),
+          installedFiles,
+          health: 'ok',
+        }
+        if (ownedMcpServers.length > 0) entry.ownedMcpServers = ownedMcpServers
+        s.plugins[name] = entry
+      })
       // No additional approval write needed: any server in `.mcp.json` loads
       // automatically when Claude opens the project. Install IS active.
 
@@ -444,9 +482,10 @@ export class PluginManager {
         for (const p of sharedTouched) {
           if (!installedFiles.includes(p)) installedFiles.push(p)
         }
-        const stateNow2 = this.getProjectState(projectPath)
-        if (stateNow2.plugins[name]) stateNow2.plugins[name].installedFiles = installedFiles
-        await this._writeProjectState(projectPath, stateNow2)
+        await this.lockedUpdateState(projectPath, (s) => {
+          if (s.plugins[name]) s.plugins[name].installedFiles = installedFiles
+          else return false
+        })
       }
     } catch (err) {
       // Roll back every file we snapshotted. Byte-identical restore.
@@ -531,8 +570,16 @@ export class PluginManager {
       })
     } else {
       // Orphan removal: no plugin code available. Best-effort cleanup of
-      // recorded installedFiles + drop the state entry. We cannot know which
-      // mcpServers keys belonged to this plugin, so we leave .mcp.json alone.
+      // recorded installedFiles + drop the state entry. The plugin's owned
+      // mcpServers keys were persisted in state at install time (BUG-PLUGIN-04),
+      // so even with the plugin code gone we can surgically strip the merged
+      // `.mcp.json` entries instead of leaving them loaded by Claude forever.
+      const ownedMcpServers = (entry as PluginStateEntryWithOwned).ownedMcpServers ?? []
+      if (ownedMcpServers.length > 0) {
+        try {
+          await PluginManager.removeMcpServers(projectPath, ownedMcpServers)
+        } catch { /* best-effort: leave .mcp.json untouched on failure */ }
+      }
       const root = path.resolve(projectPath)
       for (const rel of entry.installedFiles ?? []) {
         const abs = path.resolve(projectPath, rel)
@@ -549,9 +596,9 @@ export class PluginManager {
       }
     }
 
-    const stateNow = this.getProjectState(projectPath)
-    delete stateNow.plugins[name]
-    await this._writeProjectState(projectPath, stateNow)
+    await this.lockedUpdateState(projectPath, (s) => {
+      delete s.plugins[name]
+    })
 
     broadcast({
       type: 'plugin.uninstalled',
@@ -708,15 +755,23 @@ export class PluginManager {
     result: PluginVerifyResult,
     broadcast?: PluginBroadcast,
   ): Promise<void> {
-    const state = this.getProjectState(projectPath)
-    const entry = state.plugins[name]
-    if (!entry) return
     const newHealth: PluginStateEntry['health'] = result.ok ? 'ok' : 'degraded'
-    const changed = entry.health !== newHealth || entry.healthReason !== result.reason
-    if (!changed) return // nothing to persist — avoids per-spawn write churn (verify runs on every rail spawn)
-    entry.health = newHealth
-    entry.healthReason = result.reason
-    await this._writeProjectState(projectPath, state)
+    // Read → compare → write under ONE lock so concurrent verifies on the same
+    // project (resolvePluginsForSpawn runs every installed plugin's verify in
+    // parallel — BUG-PLUGIN-03) never read the same start state and clobber each
+    // other's health update (last-writer-wins). lockedUpdateState re-reads the
+    // freshest state inside the lock; returning false skips the write entirely.
+    let didChange = false
+    await this.lockedUpdateState(projectPath, (state) => {
+      const entry = state.plugins[name]
+      if (!entry) return false
+      const changed = entry.health !== newHealth || entry.healthReason !== result.reason
+      if (!changed) return false // nothing to persist — avoids per-spawn write churn (verify runs on every rail spawn)
+      entry.health = newHealth
+      entry.healthReason = result.reason
+      didChange = true
+    })
+    if (!didChange) return
     if (broadcast) {
       const msg: PluginHealthChangedMessage = {
         type: 'plugin.health_changed',
@@ -739,7 +794,24 @@ export class PluginManager {
   ): Promise<void> {
     await surgicalMergeJson(mcpJsonPath(projectPath), (current) => {
       const next = (current ?? {}) as Record<string, unknown>
-      const servers = ((next.mcpServers as Record<string, unknown>) ?? {}) as Record<string, unknown>
+      // BUG-PLUGIN-05: `mcpServers` MUST be a plain object. The old `?? {}`
+      // fallback only covered null/undefined — if it was a JSON array (or any
+      // non-object), `servers[key] = v` attaches a non-index property that
+      // `JSON.stringify` silently drops, so the plugin records as installed but
+      // its MCP entry never lands in `.mcp.json`. Reject with an actionable
+      // error so the install surfaces a 409 instead of failing silently.
+      const raw = next.mcpServers
+      const isPlainObject =
+        raw === undefined ||
+        raw === null ||
+        (typeof raw === 'object' && !Array.isArray(raw))
+      if (!isPlainObject) {
+        throw new PluginInstallError(
+          `cannot merge mcpServers into '${mcpJsonPath(projectPath)}': ` +
+            `'mcpServers' must be a JSON object but is ${Array.isArray(raw) ? 'an array' : typeof raw}; fix it first.`,
+        )
+      }
+      const servers = ((raw as Record<string, unknown> | undefined) ?? {}) as Record<string, unknown>
       for (const [k, v] of Object.entries(entries)) servers[k] = v
       next.mcpServers = servers
       return next

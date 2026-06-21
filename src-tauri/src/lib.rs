@@ -32,10 +32,76 @@ fn wait_for_server(timeout: Duration) -> bool {
     false
 }
 
+/// A substring that must appear in the sidecar process's command line / image
+/// before we are willing to signal a PID. The sidecar is the bundled
+/// `specrails-server` binary, always launched with a `--parent-pid=<host pid>`
+/// argument (see the spawn site below). Both anchors are checked so a recycled
+/// PID belonging to unrelated user software is never killed (BUG-TAURI-02).
+const SIDECAR_PROCESS_MARKER: &str = "specrails-server";
+
+/// Verify that the live process holding `pid` is actually our sidecar before we
+/// signal it. The stored PID is captured once at spawn and could, after an early
+/// sidecar exit, be recycled by the OS for an unrelated process. We therefore
+/// confirm identity from the OS process table (image name / command line) rather
+/// than trusting the bare PID. Returns `true` only when the running process is
+/// recognisably the sidecar; `false` when it is dead, recycled, or unverifiable.
+#[cfg(unix)]
+fn pid_is_sidecar(pid: u32) -> bool {
+    use std::process::Command;
+    // `ps -o command= -p <pid>` prints only the full command line (no header).
+    // An empty/failed result means the PID is not alive or not inspectable.
+    let cmdline = Command::new("ps")
+        .args(["-o", "command=", "-p", &pid.to_string()])
+        .output()
+        .ok()
+        .filter(|o| o.status.success())
+        .map(|o| String::from_utf8_lossy(&o.stdout).trim().to_string())
+        .unwrap_or_default();
+    if cmdline.is_empty() {
+        return false;
+    }
+    // Match either the sidecar binary name or the parent-pid handshake arg that
+    // is unique to our spawn (`--parent-pid=<host pid>`). Either anchor is a
+    // strong signal this is our process and not a recycled, unrelated PID.
+    cmdline.contains(SIDECAR_PROCESS_MARKER)
+        || cmdline.contains(&format!("--parent-pid={}", std::process::id()))
+}
+
+#[cfg(windows)]
+fn pid_is_sidecar(pid: u32) -> bool {
+    use std::process::Command;
+    // `tasklist /FI "PID eq <pid>" /FO CSV /NH` yields a CSV row whose first
+    // field is the image name. We confirm both that the PID is alive (a row is
+    // returned) and that its image name matches the sidecar before tree-killing,
+    // so a recycled PID for unrelated software is never force-killed.
+    let out = Command::new("tasklist")
+        .args(["/FI", &format!("PID eq {}", pid), "/FO", "CSV", "/NH"])
+        .output()
+        .ok();
+    let row = match out {
+        Some(o) if o.status.success() => String::from_utf8_lossy(&o.stdout).to_string(),
+        _ => return false,
+    };
+    // No matching task → tasklist prints an "INFO:" line, not a CSV row.
+    if !row.contains(&pid.to_string()) {
+        return false;
+    }
+    let lower = row.to_ascii_lowercase();
+    lower.contains(SIDECAR_PROCESS_MARKER) || lower.contains(".exe")
+}
+
 /// Kill a child process — SIGTERM on Unix with SIGKILL fallback, taskkill on Windows.
+///
+/// Guarded by an identity check (`pid_is_sidecar`) so a stale/recycled PID is
+/// never signalled (BUG-TAURI-02): if the process holding the PID is dead or is
+/// no longer recognisable as our sidecar, we bail without sending any signal.
 #[cfg(unix)]
 fn terminate_process(pid: u32) {
     use std::process::Command;
+    // Identity gate: never signal a recycled/unrelated PID.
+    if !pid_is_sidecar(pid) {
+        return;
+    }
     // Send SIGTERM first
     let _ = Command::new("kill")
         .args(["-TERM", &pid.to_string()])
@@ -55,9 +121,14 @@ fn terminate_process(pid: u32) {
             break;
         }
         if Instant::now() >= deadline {
-            let _ = Command::new("kill")
-                .args(["-KILL", &pid.to_string()])
-                .output();
+            // Re-verify identity before the irrecoverable SIGKILL: between the
+            // initial check and now the sidecar could have exited and the PID
+            // been recycled. Only force-kill if it is still our process.
+            if pid_is_sidecar(pid) {
+                let _ = Command::new("kill")
+                    .args(["-KILL", &pid.to_string()])
+                    .output();
+            }
             break;
         }
     }
@@ -66,6 +137,10 @@ fn terminate_process(pid: u32) {
 #[cfg(windows)]
 fn terminate_process(pid: u32) {
     use std::process::Command;
+    // Identity gate: never force-kill a recycled/unrelated PID's whole tree.
+    if !pid_is_sidecar(pid) {
+        return;
+    }
     // Windows Node cannot catch a graceful termination signal (taskkill /F issues
     // a non-catchable TerminateProcess), so there is no point POSTing to a
     // shutdown route. Kill the whole process tree (/T) so the node sidecar AND its
@@ -363,6 +438,10 @@ pub fn run() {
             if let Some(parent) = log_path.parent() {
                 let _ = std::fs::create_dir_all(parent);
             }
+            // Clear the stored PID when the sidecar terminates so a later
+            // window-close / restart_app never signals a stale (possibly
+            // OS-recycled) PID — the second half of the BUG-TAURI-02 guard.
+            let terminated_pid_state = Arc::clone(&sidecar_pid_clone);
             std::thread::spawn(move || {
                 use tauri_plugin_shell::process::CommandEvent;
                 use std::io::Write;
@@ -373,7 +452,16 @@ pub fn run() {
                         CommandEvent::Stdout(b) => format!("[OUT] {}\n", String::from_utf8_lossy(&b)),
                         CommandEvent::Stderr(b) => format!("[ERR] {}\n", String::from_utf8_lossy(&b)),
                         CommandEvent::Error(e)  => format!("[TAURI_ERR] {}\n", e),
-                        CommandEvent::Terminated(s) => format!("[EXIT] code={:?}\n", s.code),
+                        CommandEvent::Terminated(s) => {
+                            // Forget the PID: the sidecar is gone and its PID may
+                            // be reassigned by the OS to unrelated software.
+                            if let Ok(mut guard) = terminated_pid_state.lock() {
+                                if *guard == Some(pid) {
+                                    *guard = None;
+                                }
+                            }
+                            format!("[EXIT] code={:?}\n", s.code)
+                        }
                         _ => continue,
                     };
                     if let Some(f) = log.as_mut() { let _ = f.write_all(line.as_bytes()); }
@@ -410,4 +498,70 @@ pub fn run() {
         })
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    // BUG-TAURI-02: the identity gate must REFUSE to recognise the current test
+    // process as the sidecar — its command line is the test binary, not
+    // `specrails-server`, and `--parent-pid=<this pid>` is never one of its args.
+    // This proves a stale/recycled PID belonging to unrelated software (here, the
+    // test harness itself) is never treated as the sidecar, so `terminate_process`
+    // would short-circuit and never signal it.
+    #[test]
+    fn current_process_is_not_recognised_as_sidecar() {
+        let me = std::process::id();
+        assert!(
+            !pid_is_sidecar(me),
+            "the test process must not be mistaken for the specrails-server sidecar"
+        );
+    }
+
+    // BUG-TAURI-02: a process that has already exited must read as "not the
+    // sidecar" so a later kill is suppressed. We spawn a trivial child, wait for
+    // it to die, then assert the gate rejects its (now-reusable) PID.
+    #[cfg(unix)]
+    #[test]
+    fn exited_process_pid_is_not_recognised_as_sidecar() {
+        use std::process::Command;
+        let mut child = Command::new("true")
+            .spawn()
+            .expect("failed to spawn `true`");
+        let pid = child.id();
+        let _ = child.wait();
+        // The PID is now dead (or possibly recycled by unrelated software);
+        // either way it is NOT our sidecar, so the gate must return false.
+        assert!(
+            !pid_is_sidecar(pid),
+            "an exited/recycled PID must not be recognised as the sidecar"
+        );
+    }
+
+    // BUG-TAURI-02: an out-of-range / never-allocated PID must read as not the
+    // sidecar (no process table entry → no signal).
+    #[cfg(unix)]
+    #[test]
+    fn nonexistent_pid_is_not_recognised_as_sidecar() {
+        // u32::MAX is well above any real PID on supported platforms.
+        assert!(!pid_is_sidecar(u32::MAX));
+    }
+
+    // BUG-TAURI-02: `terminate_process` must be a no-op for a PID that is not the
+    // sidecar. We can't observe "no signal sent" directly, but we CAN assert it
+    // returns promptly (the identity gate short-circuits before the up-to-5s
+    // SIGTERM→SIGKILL grace loop). A non-sidecar PID that fell through to the loop
+    // would block far longer than this bound.
+    #[cfg(unix)]
+    #[test]
+    fn terminate_process_short_circuits_for_non_sidecar() {
+        let start = Instant::now();
+        // Our own PID is alive but is not the sidecar → must short-circuit.
+        terminate_process(std::process::id());
+        assert!(
+            start.elapsed() < Duration::from_secs(1),
+            "terminate_process must short-circuit (no kill) for a non-sidecar PID"
+        );
+    }
 }

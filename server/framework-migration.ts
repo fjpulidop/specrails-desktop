@@ -286,9 +286,15 @@ function runMigration(
   preserveAgentMemory(wsProviderDir, backedUp)
 
   // ── Verify the new symlinks resolve INTO framework/current. ────────────────
+  // Use `.every()` (not `.some()`): EVERY shared subtree that was backed up must
+  // re-link into `current` before we trust the migration. With `.some()` a single
+  // linked subtree passed verify while siblings could be broken/missing, yet the
+  // unconditional cleanup below would still delete their byte-identical backups.
+  // Only consider the subtrees we actually backed up (a workspace need not hold
+  // all four) — a `.some`-vs-`.every` distinction only matters across those.
   const verified =
     assembled &&
-    SHARED_SUBTREES.some((sub) => linkResolvesIntoFramework(path.join(wsProviderDir, sub), fwCurrent))
+    backedUp.every(({ live }) => linkResolvesIntoFramework(live, fwCurrent))
 
   if (!verified) {
     // REVERT: remove any freshly-created (broken) symlinks/dirs, restore backups.
@@ -325,13 +331,19 @@ function runMigration(
       } catch {
         /* keep the .bak as-is if we cannot rename — still non-destructive */
       }
-    } else {
+    } else if (linkResolvesIntoFramework(live, fwCurrent)) {
+      // Defense-in-depth: only delete a backup once its corresponding live path
+      // is a VERIFIED symlink into `current`. The `.every()` verify above already
+      // proves this for every backed-up subtree, but re-checking per-`.bak` here
+      // means a future regression that leaves one subtree un-linked can never
+      // drop that subtree's recoverable backup — the stale `.bak` is retained.
       try {
         fs.rmSync(bak, { recursive: true, force: true, maxRetries: 5, retryDelay: 50 })
       } catch {
         /* leaving a stale .bak is harmless; never fail the migration on cleanup */
       }
     }
+    /* else: live is NOT a verified link — retain the .bak (recoverable). */
   }
   if (preservedCustom.length > 0) {
     emit(opts.broadcast, 'framework.custom_agents_preserved', { slug, provider, files: preservedCustom })

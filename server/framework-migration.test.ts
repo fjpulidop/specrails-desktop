@@ -68,6 +68,47 @@ if (sub === 'install-framework') {
 process.exit(7)
 `
 
+/**
+ * A PARTIAL assemble that links only `agents` (and exits 0) — the rest stay
+ * unlinked. Drives the `.some()` vs `.every()` verify distinction (BUG-FW-03):
+ * `.some()` would pass (agents linked) and delete EVERY backup, dropping the
+ * recoverable backups of the still-unlinked subtrees; `.every()` reverts instead.
+ */
+const FAKE_CLI_PARTIAL_ASSEMBLE = `
+const fs = require('fs')
+const path = require('path')
+function arg(name) {
+  const i = process.argv.indexOf('--' + name)
+  return i >= 0 ? process.argv[i + 1] : undefined
+}
+const sub = process.argv[2]
+const providerDirFor = (p) => p === 'codex' ? '.codex' : p === 'gemini' ? '.gemini' : '.claude'
+const SUBS = ['commands', 'agents', 'skills', 'rules']
+if (sub === 'install-framework') {
+  const fw = arg('framework-dir'); const provider = arg('provider'); const version = arg('version')
+  const pd = providerDirFor(provider)
+  for (const s of SUBS) {
+    const dir = path.join(fw, version, pd, s)
+    fs.mkdirSync(dir, { recursive: true })
+    fs.writeFileSync(path.join(dir, s + '.md'), '# framework ' + s + ' v1')
+  }
+  const cur = path.join(fw, 'current')
+  try { fs.unlinkSync(cur) } catch {}
+  fs.symlinkSync(version, cur)
+  process.exit(0)
+} else if (sub === 'assemble') {
+  const ws = arg('workspace'); const provider = arg('provider'); const fw = arg('framework-dir')
+  const pd = providerDirFor(provider)
+  fs.mkdirSync(path.join(ws, pd), { recursive: true })
+  // Link ONLY agents — leave commands/skills/rules unlinked (partial assemble).
+  const link = path.join(ws, pd, 'agents')
+  try { fs.rmSync(link, { recursive: true, force: true }) } catch {}
+  fs.symlinkSync(path.join(fw, 'current', pd, 'agents'), link)
+  process.exit(0)
+}
+process.exit(7)
+`
+
 /** A broken assemble that does NOT create symlinks (forces verify failure). */
 const FAKE_CLI_BROKEN_ASSEMBLE = `
 const fs = require('fs')
@@ -319,6 +360,35 @@ describe('framework-migration', () => {
         const s = SUBS[i]
         expect(isLink(path.join(wsPd, s))).toBe(false)
         expect(readFileSync(path.join(wsPd, s, s + '.md'), 'utf8')).toBe(before[i])
+        expect(existsSync(path.join(wsPd, s + '.pre-symlink.bak'))).toBe(false)
+      }
+      expect(broadcast).toHaveBeenCalledWith(
+        expect.objectContaining({ type: 'framework.migration_skipped', reason: 'verify-failed' }),
+      )
+    })
+
+    it('BUG-FW-03: a PARTIAL assemble (only agents linked) reverts — every backup is restored', () => {
+      // With the old `.some()` verify, one linked subtree (agents) passed verify
+      // and the unconditional cleanup deleted EVERY backup — silently dropping the
+      // recoverable backups of commands/skills/rules which were NOT re-linked.
+      // `.every()` requires all backed-up subtrees to link → this reverts instead,
+      // restoring every backup byte-for-byte (no data loss).
+      installFakeCore(FAKE_CLI_PARTIAL_ASSEMBLE)
+      const fwPd = materialize()
+      const wsPd = plantCopy(fwPd)
+      const before = SUBS.map((s) => readFileSync(path.join(wsPd, s, s + '.md'), 'utf8'))
+
+      const broadcast = vi.fn()
+      const res = migrateWorkspaceToSymlinks(SLUG, repo, PROVIDER, { home, broadcast })
+      expect(res.outcome).toBe('reverted')
+
+      // Every shared subtree is a REAL dir again with original bytes — including
+      // the ones the partial assemble linked (agents): full revert, nothing lost.
+      for (let i = 0; i < SUBS.length; i++) {
+        const s = SUBS[i]
+        expect(isLink(path.join(wsPd, s))).toBe(false)
+        expect(readFileSync(path.join(wsPd, s, s + '.md'), 'utf8')).toBe(before[i])
+        // No backup is left orphaned after a clean revert.
         expect(existsSync(path.join(wsPd, s + '.pre-symlink.bak'))).toBe(false)
       }
       expect(broadcast).toHaveBeenCalledWith(

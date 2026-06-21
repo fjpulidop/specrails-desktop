@@ -64,6 +64,35 @@ describe('resolvePluginsForSpawn', () => {
     expect(r.degraded).toEqual([{ name: 'serena', reason: 'uv-not-on-path' }])
   })
 
+  it('BUG-PLUGIN-03: parallel verify of >=2 plugins persists EVERY health update (no lost write)', async () => {
+    function named(name: string, key: string, ok: boolean, reason?: string): Plugin {
+      return {
+        manifest: { name, version: '1.0.0', description: '', whatItDoes: [], owns: { mcpServers: [key] } },
+        install: async (ctx) => { await PluginManager.mergeMcpServers(ctx.projectPath, { [key]: { command: key } }) },
+        uninstall: async (ctx) => { await PluginManager.removeMcpServers(ctx.projectPath, [key]) },
+        verify: async () => ({ ok, reason, checkedAt: new Date().toISOString() }),
+      }
+    }
+    // Install both healthy.
+    const installer = new PluginManager([named('a', 'a', true), named('b', 'b', true)])
+    setPluginManagerForTesting(installer)
+    await installer.install(projectPath, 'pid', 'a', () => {})
+    await installer.install(projectPath, 'pid', 'b', () => {})
+
+    // Spawn resolution where BOTH plugins now fail verify (parallel writes).
+    setPluginManagerForTesting(new PluginManager([
+      named('a', 'a', false, 'a-down'),
+      named('b', 'b', false, 'b-down'),
+    ]))
+    const r = await resolvePluginsForSpawn(projectPath, 'pid', 'job1')
+    expect(r.degraded).toHaveLength(2)
+
+    // Both degraded health flags must be persisted — pre-fix only one survived.
+    const s = JSON.parse(fs.readFileSync(path.join(projectPath, '.specrails', 'plugins', 'state.json'), 'utf8'))
+    expect(s.plugins.a.health).toBe('degraded')
+    expect(s.plugins.b.health).toBe('degraded')
+  })
+
   it('flags state-but-no-registry as orphan in degraded', async () => {
     // Pre-populate state.json with a plugin not in the registry.
     const stateDir = path.join(projectPath, '.specrails', 'plugins')

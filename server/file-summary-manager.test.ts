@@ -28,6 +28,8 @@ import {
   summaryFilePath,
   summariesDir,
   sweepOrphans,
+  isValidSummaryPayload,
+  SUMMARY_MAX_LENGTH,
   __resetDesktopSummaryStateForTests,
   type FileSummaryDeps,
   type GenerateInput,
@@ -531,6 +533,80 @@ describe('FileSummaryManager.enqueue', () => {
   })
 })
 
+describe('BUG-CODE-02: file-summary.v1 schema validation', () => {
+  const valid: SummaryPayload = {
+    schemaVersion: 1,
+    path: 'a.ts',
+    fileHash: 'a'.repeat(64),
+    summary: 'hello',
+    language: 'en',
+    generatedAt: '2026-05-23T00:00:00.000Z',
+    generatedBy: { model: 'claude-haiku-4-5', promptVersion: 1, truncated: false },
+    triggeredBy: { kind: 'job', id: 'job_1', ticketId: 42 },
+  }
+
+  it('isValidSummaryPayload accepts a well-formed payload', () => {
+    expect(isValidSummaryPayload(valid)).toBe(true)
+  })
+
+  it('isValidSummaryPayload rejects wrong schemaVersion / bad fileHash / oversized summary', () => {
+    expect(isValidSummaryPayload({ ...valid, schemaVersion: 2 })).toBe(false)
+    expect(isValidSummaryPayload({ ...valid, fileHash: 'nothex' })).toBe(false)
+    expect(isValidSummaryPayload({ ...valid, summary: 'x'.repeat(SUMMARY_MAX_LENGTH + 1) })).toBe(false)
+    expect(isValidSummaryPayload({ ...valid, language: 'xx' })).toBe(false)
+    expect(isValidSummaryPayload({ ...valid, extra: 'nope' })).toBe(false)
+  })
+
+  it('readSummary treats a non-conformant (hand-edited) summary file as absent → null', () => {
+    // Write a structurally invalid payload directly, bypassing writeSummary.
+    const dir = summariesDir(projectPath)
+    fs.mkdirSync(dir, { recursive: true })
+    fs.writeFileSync(summaryFilePath(projectPath, 'a.ts'), JSON.stringify({ schemaVersion: 99, path: 'a.ts' }), 'utf8')
+    expect(readSummary(projectPath, 'a.ts')).toBeNull()
+  })
+
+  it('readSummary treats an oversized summary file as absent → null', () => {
+    const dir = summariesDir(projectPath)
+    fs.mkdirSync(dir, { recursive: true })
+    fs.writeFileSync(
+      summaryFilePath(projectPath, 'a.ts'),
+      JSON.stringify({ ...valid, summary: 'x'.repeat(SUMMARY_MAX_LENGTH + 100) }),
+      'utf8',
+    )
+    expect(readSummary(projectPath, 'a.ts')).toBeNull()
+  })
+
+  it('writeSummary throws on a non-conformant payload', () => {
+    expect(() =>
+      writeSummary(projectPath, 'a.ts', { ...valid, fileHash: 'short' } as unknown as SummaryPayload),
+    ).toThrow(/schema validation/)
+  })
+
+  it('runOne caps a runaway LLM summary at SUMMARY_MAX_LENGTH instead of failing', async () => {
+    writeFile(projectPath, 'src/foo.ts', 'console.log(1)\n')
+    const huge = 'y'.repeat(SUMMARY_MAX_LENGTH + 5000)
+    const { deps } = makeDeps(db, {
+      generate: vi.fn(async (): Promise<GenerateOutput> => ({
+        summary: huge, model: 'm', provider: 'claude', costUsd: 0.0001, tokensIn: 1, tokensOut: 1, durationMs: 1,
+      })),
+    })
+    const mgr = new FileSummaryManager(deps)
+    const r = await mgr.enqueue({
+      projectPath, projectId: 'p1', projectSlug: 'p1', relPath: 'src/foo.ts',
+      triggeredBy: { kind: 'user', id: 'u', ticketId: null },
+    })
+    await mgr.flush()
+    expect(r).toBe('enqueued')
+    const stored = readSummary(projectPath, 'src/foo.ts')
+    expect(stored).not.toBeNull()
+    expect(stored!.summary.length).toBe(SUMMARY_MAX_LENGTH)
+    // Recorded as a SUCCESS (not mis-billed as failed by a schema throw).
+    const rows = db.prepare(`SELECT status FROM ai_invocations`).all() as Array<{ status: string }>
+    expect(rows).toHaveLength(1)
+    expect(rows[0].status).toBe('success')
+  })
+})
+
 describe('markStale', () => {
   it('broadcasts file.summary_updated with stale=true when a summary exists', () => {
     writeSummary(projectPath, 'a.ts', {
@@ -655,6 +731,69 @@ describe('FileSummaryManager bug-fix regressions', () => {
     const r = await mgr.enqueue({ projectPath, projectId: 'p1', projectSlug: 'p1', relPath: 'src/a.ts', force: true, triggeredBy: { kind: 'user', id: 'u1', ticketId: null } })
     expect(r).toBe('skipped:ttl')
     expect(genFn).not.toHaveBeenCalled()
+  })
+
+  it('BUG-CODE-05: reserved spend bounds concurrent generations to the budget cap', async () => {
+    // 3 files enqueued, budget = $0.02 = exactly 2 × $0.01 reservations. The
+    // 1st start sees spend $0.00, the 2nd sees $0.01, both < cap → run; the 3rd
+    // sees $0.02 >= cap → skipped:budget. Recorded cost is $0 in this test so
+    // the cap is hit purely by the optimistic reservation, proving the in-flight
+    // reservation (not the recorded cost) closes the overshoot window.
+    for (let i = 0; i < 3; i++) writeFile(projectPath, `f${i}.ts`, `// ${i}\n`)
+    let release: () => void = () => {}
+    const gate = new Promise<void>((r) => { release = r })
+    const genFn = vi.fn(async (): Promise<GenerateOutput> => {
+      await gate
+      return { summary: 's', model: 'm', provider: 'claude', costUsd: 0, tokensIn: 0, tokensOut: 0, durationMs: 0 }
+    })
+    const { deps } = makeDeps(db, {
+      monthToDateSpend: () => 0,
+      monthlyBudgetUsd: () => 0.02, // room for exactly 2 × $0.01 reservations
+      generate: genFn,
+    })
+    // perProjectConcurrency 3 so all three could otherwise start at once.
+    const mgr = new FileSummaryManager(deps, { perProjectConcurrency: 3, desktopConcurrency: 8 })
+    // Fire all three WITHOUT awaiting — the first two block on the gate, the
+    // third must be skipped:budget by the reservation re-check before release.
+    const promises = [0, 1, 2].map((i) =>
+      mgr.enqueue({
+        projectPath, projectId: 'p1', projectSlug: 'p1', relPath: `f${i}.ts`,
+        triggeredBy: { kind: 'user', id: 'u', ticketId: null },
+      }),
+    )
+    // Let the pump start the first two generations (they await the gate).
+    await new Promise((r) => setTimeout(r, 20))
+    // The third is held back by the reservation re-check, never started.
+    expect(genFn).toHaveBeenCalledTimes(2)
+    release()
+    const results = await Promise.all(promises)
+    await mgr.flush()
+    expect(results.filter((r) => r === 'skipped:budget')).toHaveLength(1)
+    expect(results.filter((r) => r === 'enqueued')).toHaveLength(2)
+  })
+
+  it('BUG-CODE-05: reservation is released after a generation completes (later enqueue can run)', async () => {
+    writeFile(projectPath, 'a.ts', '// a\n')
+    writeFile(projectPath, 'b.ts', '// b\n')
+    const { deps, generate } = makeDeps(db, {
+      monthToDateSpend: () => 0,
+      monthlyBudgetUsd: () => 0.015, // room for ONE in-flight reservation at a time
+    })
+    const mgr = new FileSummaryManager(deps)
+    const r1 = await mgr.enqueue({
+      projectPath, projectId: 'p1', projectSlug: 'p1', relPath: 'a.ts',
+      triggeredBy: { kind: 'user', id: 'u', ticketId: null },
+    })
+    await mgr.flush()
+    // First generation done → its reservation released, so the second can run.
+    const r2 = await mgr.enqueue({
+      projectPath, projectId: 'p1', projectSlug: 'p1', relPath: 'b.ts',
+      triggeredBy: { kind: 'user', id: 'u', ticketId: null },
+    })
+    await mgr.flush()
+    expect(r1).toBe('enqueued')
+    expect(r2).toBe('enqueued')
+    expect(generate).toHaveBeenCalledTimes(2)
   })
 
   it('dispose() aborts an in-flight generation and skips the closed-DB write', async () => {

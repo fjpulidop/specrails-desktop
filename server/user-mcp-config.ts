@@ -104,6 +104,11 @@ export function writeUserMcpConfig(
   fs.mkdirSync(dir, { recursive: true })
   const file = path.join(dir, 'user-mcp.json')
   fs.writeFileSync(file, JSON.stringify({ mcpServers: servers }, null, 2), { mode: 0o600 })
+  // `writeFileSync`'s `mode` is honoured only when the file is CREATED; if the
+  // file pre-exists its permissions are left untouched. Force 0o600
+  // unconditionally so a pre-existing loose-perm file is tightened (the contents
+  // can carry secrets from server `env` blocks).
+  fs.chmodSync(file, 0o600)
   return file
 }
 

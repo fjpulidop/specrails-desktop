@@ -31,6 +31,7 @@ import {
   renameSync,
   statSync,
   unlinkSync,
+  utimesSync,
   writeFileSync,
 } from 'fs'
 import os from 'os'
@@ -265,6 +266,20 @@ export function atomicWrite(filePath: string, data: string): void {
   for (let attempt = 0; attempt < 5; attempt++) {
     try {
       renameSync(tmp, filePath)
+      // BUG-ARTREG-03: on POSIX the rename's directory entry is not durable until
+      // the CONTAINING directory is fsynced — a crash in that window can lose the
+      // rename even though the temp file's data was fsynced. Best-effort dir fsync
+      // (Windows rejects opening a directory fd with EISDIR/EPERM — swallow it).
+      try {
+        const dirFd = openSync(dir, 'r')
+        try {
+          fsyncSync(dirFd)
+        } finally {
+          closeSync(dirFd)
+        }
+      } catch {
+        /* best-effort: Windows can't fsync a dir; data is already durable */
+      }
       return
     } catch (err) {
       lastErr = err
@@ -287,6 +302,29 @@ function syncSleep(ms: number): void {
 const LOCK_STALE_MS = 30_000
 const LOCK_SPIN_MS = 50
 const LOCK_MAX_WAIT_MS = 2_000
+/** Heartbeat cadence — well under LOCK_STALE_MS so a live holder never looks
+ *  stale to a contender. (BUG-ARTREG-04) */
+const LOCK_HEARTBEAT_MS = 10_000
+
+/**
+ * Refresh the lock file's mtime to "now" so a long-running but LIVE holder is
+ * never mistaken for a crashed one and stale-broken (BUG-ARTREG-04). Only
+ * touches the file when it still carries OUR token — if we were already
+ * stale-broken and another writer owns the file, we must NOT bump its mtime
+ * (that would mask the legitimate new owner). Returns true when the heartbeat
+ * landed, false when it was a no-op (token mismatch / file gone). Best-effort:
+ * never throws.
+ */
+export function refreshLockHeartbeat(lp: string, ourToken: string): boolean {
+  try {
+    if (readFileSync(lp, 'utf8') !== ourToken) return false
+    const now = Date.now() / 1000
+    utimesSync(lp, now, now)
+    return true
+  } catch {
+    return false
+  }
+}
 
 /**
  * Run `fn` while holding an advisory lock over the registry. Mutual exclusion
@@ -342,9 +380,21 @@ export function withFileLock<T>(home: string | undefined, fn: () => T): T {
       syncSleep(LOCK_SPIN_MS)
     }
   }
+  // BUG-ARTREG-04: keep the lock's mtime fresh while we hold it so a contender
+  // never stale-breaks a LIVE holder mid-fn() and races a concurrent read-
+  // modify-write (lost update). The interval is unref'd so it never keeps the
+  // process alive. It can only fire between event-loop turns (a single
+  // synchronous fn() blocks it, but that is sub-ms and never approaches the TTL);
+  // it protects holders that yield to the loop or whose process is paused and
+  // resumed with the timer still queued.
+  const heartbeat = setInterval(() => {
+    refreshLockHeartbeat(lp, ourToken)
+  }, LOCK_HEARTBEAT_MS)
+  if (typeof heartbeat.unref === 'function') heartbeat.unref()
   try {
     return fn()
   } finally {
+    clearInterval(heartbeat)
     if (fd !== undefined) {
       try {
         closeSync(fd)
@@ -423,19 +473,43 @@ function buildMirroredEntry(
 ): ProjectEntry {
   let entry: ProjectEntry
   if (existing) {
+    // A partially-written / hand-edited entry (missing one or more path fields)
+    // would otherwise be spread verbatim and written back as source:'desktop' —
+    // but `isCompleteEntry` rejects it on the read side, so `resolveArtifacts`
+    // treats it as ABSENT and the project is stranded in legacy mode FOREVER
+    // (BUG-ARTREG-02). Self-heal: when the existing entry is incomplete, rebuild
+    // every path field from `workspaceLayout` using the IMMUTABLE slug — the
+    // existing entry's own slug when it carries one (never re-home an adopted
+    // entry), else `desiredSlug`. Re-deriving paths is safe precisely because
+    // the slug is the immutable identity; the layout is a pure function of it.
+    // `existing` is statically typed `ProjectEntry`, but at RUNTIME a hand-edited
+    // / truncated registry.json can carry a row missing path fields. Treat it as a
+    // loose record so the completeness check below isn't statically narrowed to
+    // `never` (which would make the rebuild branch unreachable to the compiler).
+    const existingLoose = existing as ProjectEntry & Record<string, unknown>
+    const existingSlug =
+      typeof existingLoose.slug === 'string' && existingLoose.slug.length > 0
+        ? existingLoose.slug
+        : desiredSlug
+    const layoutBase: ProjectEntry & Record<string, unknown> = isCompleteEntry(existing)
+      ? existingLoose
+      : {
+          ...existingLoose,
+          ...workspaceLayout(home ?? resolveHome(home), existingSlug, canon),
+        }
     // Preserve the existing provider set on a metadata-only re-mirror (e.g. the
     // install step re-mirrors with no providers arg → normalizeProviders defaults
     // to ['claude']). Narrowing a multi-provider entry to claude-only would give
     // a concurrent core-standalone reader the wrong contract until next boot.
     // Only adopt the input providers when the caller EXPLICITLY supplied them.
     entry = {
-      ...existing,
-      providers: input.providersExplicit ? input.providers : existing.providers,
-      primaryProvider: input.providersExplicit ? input.primaryProvider : existing.primaryProvider,
-      coreVersion: input.coreVersion ?? existing.coreVersion,
+      ...layoutBase,
+      providers: input.providersExplicit ? input.providers : (layoutBase.providers ?? input.providers),
+      primaryProvider: input.providersExplicit ? input.primaryProvider : (layoutBase.primaryProvider ?? input.primaryProvider),
+      coreVersion: input.coreVersion ?? layoutBase.coreVersion,
       source: 'desktop',
-      createdAt: existing.createdAt ?? now,
-      lastInstallAt: touchInstall ? now : (existing.lastInstallAt ?? now),
+      createdAt: layoutBase.createdAt ?? now,
+      lastInstallAt: touchInstall ? now : (layoutBase.lastInstallAt ?? now),
       updatedAt: now,
     }
   } else {

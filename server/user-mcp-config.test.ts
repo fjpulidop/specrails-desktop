@@ -110,6 +110,28 @@ describe('user-mcp-config', () => {
       expect(mode & 0o077).toBe(0)
     })
 
+    it('tightens permissions on a PRE-EXISTING loose-perm file (chmod after write)', () => {
+      if (process.platform === 'win32') return
+      const fs = require('node:fs') as typeof import('node:fs')
+      const dir = join(base, 'reused')
+      fs.mkdirSync(dir, { recursive: true })
+      const file = join(dir, 'user-mcp.json')
+      // Pre-create with world-readable/writable perms. `writeFileSync`'s `mode`
+      // is ignored for an existing file, so without the explicit chmod the loose
+      // bits would survive.
+      fs.writeFileSync(file, '{}', { mode: 0o666 })
+      fs.chmodSync(file, 0o666)
+      expect(statSync(file).mode & 0o077).not.toBe(0)
+
+      writeUserMcpConfig({ a: { command: 'a' } }, 'reused', base)
+
+      const mode = statSync(file).mode
+      expect(mode & 0o077).toBe(0)
+      expect(JSON.parse(readFileSync(file, 'utf-8'))).toEqual({
+        mcpServers: { a: { command: 'a' } },
+      })
+    })
+
     it('throws on an unsafe slug (path-traversal defence-in-depth)', () => {
       expect(() => writeUserMcpConfig({ a: { command: 'a' } }, '../../etc', base)).toThrow(/unsafe project slug/)
       expect(() => writeUserMcpConfig({ a: { command: 'a' } }, 'a/b', base)).toThrow(/unsafe project slug/)

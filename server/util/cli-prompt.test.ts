@@ -101,6 +101,110 @@ describe('transformClaudeArgsForWindows', () => {
     expect(out.args).toEqual(['--verbose', '-p'])
     expect(out.stdinPayload).toBeNull()
   })
+
+  it('does NOT consume the next flag as a value for a valueless -p (chat-stream)', () => {
+    // BUG-SPAWN-01: persistent-stdin / interactive-ultracode emit a bare `-p`
+    // immediately followed by `--input-format stream-json` (the prompt arrives
+    // over stdin). The transform must NOT collect `--input-format` as a prompt,
+    // must leave the valueless `-p` in place, and must produce no stdin payload.
+    const out = transformClaudeArgsForWindows([
+      '--verbose',
+      '-p',
+      '--input-format',
+      'stream-json',
+      '--output-format',
+      'stream-json',
+    ])
+    expect(out.args).toEqual([
+      '--verbose',
+      '-p',
+      '--input-format',
+      'stream-json',
+      '--output-format',
+      'stream-json',
+    ])
+    expect(out.stdinPayload).toBeNull()
+  })
+
+  it('still routes a -p <multiline value> into stdin (value is not a flag)', () => {
+    const out = transformClaudeArgsForWindows([
+      '--verbose',
+      '-p',
+      'line one\nline two\nline three',
+    ])
+    expect(out.args).toEqual(['--verbose', '-p'])
+    expect(out.stdinPayload).toBe('line one\nline two\nline three')
+  })
+
+  it('does not duplicate -p when a system-prompt value coexists with a bare -p', () => {
+    // --system-prompt carries a real value; the bare `-p` is the chat-stream
+    // stdin marker. Only one `-p` may remain in the rewritten argv.
+    const out = transformClaudeArgsForWindows([
+      '--system-prompt',
+      'system rules',
+      '-p',
+      '--input-format',
+      'stream-json',
+    ])
+    expect(out.args).toEqual(['-p', '--input-format', 'stream-json'])
+    expect(out.args.filter((t) => t === '-p')).toHaveLength(1)
+    expect(out.stdinPayload).toBe('system rules')
+  })
+})
+
+describe('spawnClaude (Windows arg-rewrite path)', () => {
+  // Force the Windows branch regardless of host platform by re-importing the
+  // module with process.platform stubbed, so the bare-`-p` (stdin transport)
+  // and `-p <multiline>` cases are both exercised on CI (which runs on Linux).
+  it('passes a bare -p chat-stream argv through untouched and does NOT end() stdin', async () => {
+    vi.resetModules()
+    const endSpy = vi.fn()
+    vi.doMock('./win-spawn', () => ({
+      spawnCli: vi.fn(() => ({ stdin: { end: endSpy } })),
+    }))
+    const platformSpy = vi
+      .spyOn(process, 'platform', 'get')
+      .mockReturnValue('win32')
+    try {
+      const mod = await import('./cli-prompt')
+      const winSpawn = await import('./win-spawn')
+      const args = ['--verbose', '-p', '--input-format', 'stream-json']
+      mod.spawnClaude(args, { stdio: ['pipe', 'pipe', 'pipe'] })
+      const call = vi.mocked(winSpawn.spawnCli).mock.calls.at(-1)!
+      expect(call[0]).toBe('claude')
+      expect(call[1]).toEqual(args) // argv untouched — no consumed flag, no extra -p
+      expect(endSpy).not.toHaveBeenCalled() // no bogus stdin payload written
+    } finally {
+      platformSpy.mockRestore()
+      vi.doUnmock('./win-spawn')
+      vi.resetModules()
+    }
+  })
+
+  it('routes a -p <multiline value> through stdin on Windows', async () => {
+    vi.resetModules()
+    const endSpy = vi.fn()
+    vi.doMock('./win-spawn', () => ({
+      spawnCli: vi.fn(() => ({ stdin: { end: endSpy } })),
+    }))
+    const platformSpy = vi
+      .spyOn(process, 'platform', 'get')
+      .mockReturnValue('win32')
+    try {
+      const mod = await import('./cli-prompt')
+      const winSpawn = await import('./win-spawn')
+      mod.spawnClaude(['--verbose', '-p', 'multi\nline\nprompt'], {
+        stdio: ['pipe', 'pipe', 'pipe'],
+      })
+      const call = vi.mocked(winSpawn.spawnCli).mock.calls.at(-1)!
+      expect(call[1]).toEqual(['--verbose', '-p'])
+      expect(endSpy).toHaveBeenCalledWith('multi\nline\nprompt')
+    } finally {
+      platformSpy.mockRestore()
+      vi.doUnmock('./win-spawn')
+      vi.resetModules()
+    }
+  })
 })
 
 describe('transformCodexArgsForWindows', () => {

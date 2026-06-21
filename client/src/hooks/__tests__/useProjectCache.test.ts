@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { renderHook, act, waitFor } from '@testing-library/react'
-import { useProjectCache } from '../useProjectCache'
+import { useProjectCache, purgeProjectCache } from '../useProjectCache'
 
 // Access the module-level globalCache by re-importing the module
 // We'll clear it between tests by switching projectIds
@@ -169,6 +169,72 @@ describe('useProjectCache', () => {
     act(() => { result.current.refresh() })
     await waitFor(() => expect(result.current.data).toEqual(['v2']))
     expect(fetcher).toHaveBeenCalledTimes(2)
+  })
+
+  it('purgeProjectCache: drops cached entries so a later mount re-fetches (BUG-CLIENT-03)', async () => {
+    const fetcher = vi.fn()
+    fetcher.mockResolvedValueOnce(['purge-v1'])
+    fetcher.mockResolvedValueOnce(['purge-v2'])
+
+    // First mount caches under `proj-purge:purge-ns`.
+    const first = renderHook(() =>
+      useProjectCache({
+        namespace: 'purge-ns',
+        projectId: 'proj-purge',
+        initialValue: [] as string[],
+        fetcher,
+      })
+    )
+    await waitFor(() => expect(first.result.current.data).toEqual(['purge-v1']))
+    first.unmount()
+
+    // Purge that project's cache.
+    purgeProjectCache('proj-purge')
+
+    // A fresh mount must behave as a first-load (no cached data, isFirstLoad true)
+    // and fetch again — proving the entry was actually removed.
+    const second = renderHook(() =>
+      useProjectCache({
+        namespace: 'purge-ns',
+        projectId: 'proj-purge',
+        initialValue: [] as string[],
+        fetcher,
+      })
+    )
+    expect(second.result.current.isFirstLoad).toBe(true)
+    expect(second.result.current.data).toEqual([])
+    await waitFor(() => expect(second.result.current.data).toEqual(['purge-v2']))
+    expect(fetcher).toHaveBeenCalledTimes(2)
+  })
+
+  it('purgeProjectCache: only removes the targeted project, leaves others intact', async () => {
+    const fetcherA = vi.fn().mockResolvedValue(['keep-a'])
+    const fetcherB = vi.fn().mockResolvedValue(['drop-b'])
+
+    const a = renderHook(() =>
+      useProjectCache({ namespace: 'iso-ns', projectId: 'keep', initialValue: [] as string[], fetcher: fetcherA })
+    )
+    const b = renderHook(() =>
+      useProjectCache({ namespace: 'iso-ns', projectId: 'drop', initialValue: [] as string[], fetcher: fetcherB })
+    )
+    await waitFor(() => expect(a.result.current.data).toEqual(['keep-a']))
+    await waitFor(() => expect(b.result.current.data).toEqual(['drop-b']))
+    a.unmount()
+    b.unmount()
+
+    purgeProjectCache('drop')
+
+    // 'keep' still has its cached entry → instant restore, no first-load.
+    const keepAgain = renderHook(() =>
+      useProjectCache({ namespace: 'iso-ns', projectId: 'keep', initialValue: [] as string[], fetcher: fetcherA })
+    )
+    expect(keepAgain.result.current.isFirstLoad).toBe(false)
+    expect(keepAgain.result.current.data).toEqual(['keep-a'])
+  })
+
+  it('purgeProjectCache: empty projectId is a no-op', () => {
+    // Should not throw.
+    expect(() => purgeProjectCache('')).not.toThrow()
   })
 
   afterEach(() => {

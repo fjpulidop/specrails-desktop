@@ -181,6 +181,56 @@ describe('BrowserCaptureManager', () => {
     await expect(mgr.create()).rejects.toBeInstanceOf(BrowserLimitExceededError)
   })
 
+  it('does not let concurrent create() calls race past the cap (BUG-BROWSER-02)', async () => {
+    // A context whose newPage awaits a real async tick, so all creates interleave
+    // their cap-check → await → insert windows (the classic TOCTOU).
+    const pages: FakePage[] = []
+    const slowCtx: BrowserContextHandle = {
+      async newPage() {
+        await new Promise((r) => setTimeout(r, 5))
+        const p = new FakePage()
+        pages.push(p)
+        return p
+      },
+      async close() {},
+    }
+    const launcher: ContextLauncher = vi.fn(async () => slowCtx)
+    const { mgr } = makeManager({ db, launcher })
+
+    // Fire 10 creates at once; only MAX (4) may succeed.
+    const results = await Promise.allSettled(Array.from({ length: 10 }, () => mgr.create()))
+    const ok = results.filter((r) => r.status === 'fulfilled')
+    const rejected = results.filter((r) => r.status === 'rejected')
+    expect(ok).toHaveLength(4)
+    expect(rejected).toHaveLength(6)
+    for (const r of rejected) {
+      expect((r as PromiseRejectedResult).reason).toBeInstanceOf(BrowserLimitExceededError)
+    }
+    expect(mgr.sessionCount()).toBe(4)
+    // Any extra pages created by a losing-racer's already-awaited newPage are torn down.
+    const livePages = pages.filter((p) => !p.closed)
+    expect(livePages.length).toBe(4)
+  })
+
+  it('releases the reservation when newPage fails so later creates still work', async () => {
+    let attempt = 0
+    const ctx: BrowserContextHandle = {
+      async newPage() {
+        attempt++
+        if (attempt === 1) throw new Error('page boom')
+        return new FakePage()
+      },
+      async close() {},
+    }
+    const launcher: ContextLauncher = vi.fn(async () => ctx)
+    const { mgr } = makeManager({ db, launcher })
+    await expect(mgr.create()).rejects.toThrow('page boom')
+    // Reservation was released — a fresh create succeeds and the cap is intact.
+    const meta = await mgr.create()
+    expect(meta).toBeTruthy()
+    expect(mgr.sessionCount()).toBe(1)
+  })
+
   it('wraps launch failures and allows a retry', async () => {
     let attempt = 0
     const ctx = new FakeContext()

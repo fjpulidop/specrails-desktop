@@ -358,5 +358,118 @@ describe('SpecLauncherManager', () => {
       )
       expect(treeKill).not.toHaveBeenCalled()
     })
+
+    // ─── BUG-LONGTAIL-04: cancelled launch must not emit a follow-up done/error ─
+    it('does NOT broadcast spec_launcher_done/error when the killed child closes after cancel', async () => {
+      vi.mocked(resolveCommand).mockReturnValue('resolved prompt')
+      const child = createMockChildProcess()
+      vi.mocked(mockSpawn).mockReturnValue(child as any)
+
+      const launchPromise = manager.launch('launch-1', 'create spec')
+      manager.cancel('launch-1')
+
+      // Killed child exits non-zero a moment later.
+      child.stdout.push(null)
+      child.emit('close', 143)
+      await launchPromise
+
+      // Only the 'cancelled' error from cancel(); no spurious done or
+      // 'Spec generation failed' from the late close.
+      const errorCalls = (broadcast as ReturnType<typeof vi.fn>).mock.calls
+        .map(([m]) => m as WsMessage)
+        .filter((m) => m.type === 'spec_launcher_error')
+      expect(errorCalls).toHaveLength(1)
+      expect((errorCalls[0] as { error?: string }).error).toBe('cancelled')
+
+      const doneCalls = (broadcast as ReturnType<typeof vi.fn>).mock.calls
+        .map(([m]) => m as WsMessage)
+        .filter((m) => m.type === 'spec_launcher_done')
+      expect(doneCalls).toHaveLength(0)
+    })
+
+    // ─── BUG-LONGTAIL-02: SIGKILL escalation after SIGTERM ─────────────────────
+    it('escalates to SIGKILL ~2s after cancel when the child ignores SIGTERM', async () => {
+      vi.useFakeTimers()
+      try {
+        vi.mocked(resolveCommand).mockReturnValue('resolved prompt')
+        const child = createMockChildProcess()
+        vi.mocked(mockSpawn).mockReturnValue(child as any)
+
+        void manager.launch('launch-1', 'create spec')
+        manager.cancel('launch-1')
+
+        expect(treeKill).toHaveBeenCalledWith(99999, 'SIGTERM')
+        vi.advanceTimersByTime(2000)
+        expect(treeKill).toHaveBeenCalledWith(99999, 'SIGKILL', expect.any(Function))
+      } finally {
+        vi.useRealTimers()
+      }
+    })
+
+    it('does NOT escalate to SIGKILL when the child closes before the grace window', async () => {
+      vi.useFakeTimers()
+      try {
+        vi.mocked(resolveCommand).mockReturnValue('resolved prompt')
+        const child = createMockChildProcess()
+        vi.mocked(mockSpawn).mockReturnValue(child as any)
+
+        void manager.launch('launch-1', 'create spec')
+        manager.cancel('launch-1')
+        child.stdout.push(null)
+        child.emit('close', 143)
+
+        vi.advanceTimersByTime(5000)
+        const sigkillCalls = (treeKill as ReturnType<typeof vi.fn>).mock.calls.filter(
+          (c) => c[1] === 'SIGKILL',
+        )
+        expect(sigkillCalls).toHaveLength(0)
+      } finally {
+        vi.useRealTimers()
+      }
+    })
+  })
+
+  // ─── shutdown (BUG-LONGTAIL-02 / BUG-LONGTAIL-04) ───────────────────────────
+
+  describe('shutdown', () => {
+    it('SIGTERMs active children and arms SIGKILL escalation', async () => {
+      vi.useFakeTimers()
+      try {
+        vi.mocked(resolveCommand).mockReturnValue('resolved prompt')
+        const child = createMockChildProcess()
+        vi.mocked(mockSpawn).mockReturnValue(child as any)
+
+        void manager.launch('launch-1', 'create spec')
+        manager.shutdown()
+
+        expect(treeKill).toHaveBeenCalledWith(99999, 'SIGTERM')
+        vi.advanceTimersByTime(2000)
+        expect(treeKill).toHaveBeenCalledWith(99999, 'SIGKILL', expect.any(Function))
+      } finally {
+        vi.useRealTimers()
+      }
+    })
+
+    it('does NOT broadcast spec_launcher_done/error when a child closes after shutdown', async () => {
+      vi.mocked(resolveCommand).mockReturnValue('resolved prompt')
+      const child = createMockChildProcess()
+      vi.mocked(mockSpawn).mockReturnValue(child as any)
+
+      const launchPromise = manager.launch('launch-1', 'create spec')
+      manager.shutdown()
+      // The orphaned child closes after the project was torn down.
+      child.stdout.push(null)
+      child.emit('close', 0)
+      await launchPromise
+
+      const doneCalls = (broadcast as ReturnType<typeof vi.fn>).mock.calls
+        .map(([m]) => m as WsMessage)
+        .filter((m) => m.type === 'spec_launcher_done')
+      const lateErrorCalls = (broadcast as ReturnType<typeof vi.fn>).mock.calls
+        .map(([m]) => m as WsMessage)
+        .filter((m) => m.type === 'spec_launcher_error')
+      expect(doneCalls).toHaveLength(0)
+      expect(lateErrorCalls).toHaveLength(0)
+    })
   })
 })

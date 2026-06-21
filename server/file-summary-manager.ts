@@ -2,6 +2,8 @@ import { createHash, randomUUID, randomBytes } from 'crypto'
 import * as fs from 'fs'
 import * as path from 'path'
 import chokidar, { type FSWatcher } from 'chokidar'
+import Ajv2020 from 'ajv/dist/2020'
+import type { ValidateFunction } from 'ajv'
 import { isInBuildDir } from './build-dirs'
 import type { DbInstance } from './db'
 import type {
@@ -11,6 +13,7 @@ import type {
   FileSummarySkippedMessage,
 } from './types'
 import { recordInvocation, type Surface } from './ai-invocations'
+import fileSummarySchema from './schemas/file-summary.v1.json'
 
 export type SummaryLanguage = 'en' | 'es'
 
@@ -110,9 +113,45 @@ const CURRENT_PROMPT_VERSION = 1
 const MAX_JOB_COUNTERS = 2000
 const TOKEN_CHARS_PER_TOKEN = 4
 const TOKEN_LIMIT = 8000
+// Optimistic spend (USD) reserved per in-flight summary generation before its
+// real cost is known. A single Haiku file-summary turn costs well under a cent;
+// this conservative reservation only has to bound the concurrent-overshoot
+// window (≤ desktopConcurrency generations) — the real cost reconciles via the
+// recorded ai_invocations row the moment the generation completes.
+const PROJECTED_SUMMARY_COST_USD = 0.01
 const TRUNCATE_HEAD_CHARS = 16000
 const TRUNCATE_TAIL_CHARS = 8000
 const TRUNCATE_MARKER = '\n// … truncated … //\n'
+
+// Upper bound on the LLM-produced `summary` string. A plain-language file
+// summary is a short paragraph; anything beyond this is a tampered/runaway
+// payload we refuse so it can't bloat WS frames or the on-disk JSON. The schema
+// JSON is desktop-owned but shared, so the bound is injected here at compile
+// time rather than mutating the published file.
+export const SUMMARY_MAX_LENGTH = 8000
+
+// Compile the published file-summary schema ONCE with the existing ajv instance
+// (mirrors profile-manager). `strict:false` makes the schema's `format`
+// keywords no-ops (no ajv-formats dependency), matching profile validation. We
+// clone the schema and add the `maxLength` bound to `summary` so the on-disk and
+// just-generated payloads are both length-capped.
+let cachedSummaryValidator: ValidateFunction<SummaryPayload> | null = null
+function getSummaryValidator(): ValidateFunction<SummaryPayload> {
+  if (cachedSummaryValidator) return cachedSummaryValidator
+  const schema = JSON.parse(JSON.stringify(fileSummarySchema)) as {
+    properties: { summary: { maxLength?: number } }
+  }
+  schema.properties.summary.maxLength = SUMMARY_MAX_LENGTH
+  const ajv = new Ajv2020({ allErrors: true, strict: false })
+  cachedSummaryValidator = ajv.compile<SummaryPayload>(schema)
+  return cachedSummaryValidator
+}
+
+/** True when `payload` conforms to file-summary.v1.json (with the maxLength
+ *  bound on `summary`). Exported so callers/tests can pre-validate. */
+export function isValidSummaryPayload(payload: unknown): payload is SummaryPayload {
+  return getSummaryValidator()(payload) === true
+}
 
 export function summariesDir(projectPath: string): string {
   return path.join(projectPath, SUMMARIES_REL)
@@ -141,7 +180,12 @@ export function readSummary(projectPath: string, relPath: string): SummaryPayloa
   const file = summaryFilePath(projectPath, relPath)
   try {
     const raw = fs.readFileSync(file, 'utf8')
-    return JSON.parse(raw) as SummaryPayload
+    const parsed = JSON.parse(raw) as unknown
+    // Validate against file-summary.v1.json. A corrupt / hand-edited /
+    // cross-version / oversized summary is treated as ABSENT (null) instead of
+    // being trusted and surfaced verbatim — so the next request regenerates it.
+    if (!isValidSummaryPayload(parsed)) return null
+    return parsed
   } catch (err) {
     if ((err as NodeJS.ErrnoException).code === 'ENOENT') return null
     return null
@@ -156,6 +200,11 @@ export function writeSummary(
    *  `.gitignore` append — the workspace `.gitignore` is not the user's repo. */
   appendGitignore = true,
 ): void {
+  // Reject a non-conformant payload before it ever lands on disk so the
+  // documented "schema validated" invariant is real, not aspirational.
+  if (!isValidSummaryPayload(payload)) {
+    throw new Error('writeSummary: payload failed file-summary.v1 schema validation')
+  }
   const dir = summariesDir(summaryRoot)
   const firstWrite = !fs.existsSync(dir)
   fs.mkdirSync(dir, { recursive: true })
@@ -273,6 +322,13 @@ export class FileSummaryManager {
   // the module-level DESKTOP so it is shared across all per-project instances.
   private readonly queues = new Map<string, QueueEntry[]>()
   private readonly inFlightPerProject = new Map<string, number>()
+  // Per-project OPTIMISTICALLY-RESERVED spend (USD) for generations that have
+  // STARTED but whose ai_invocations cost row hasn't landed yet. Added on top of
+  // the recorded monthToDateSpend in every budget check so up to
+  // desktopConcurrency in-flight generations can no longer collectively blow
+  // past the monthly cap (BUG-CODE-05). Reserved at start in pump(), released in
+  // runOne's finally once the real cost has been recorded to the DB.
+  private readonly pendingSpend = new Map<string, number>()
   private readonly jobCounter = new Map<string, number>()
   private readonly watchers = new Map<string, WatcherState>()
   // Dedupe key (`projectId:relPath`) → in-flight enqueue promise. A second
@@ -374,7 +430,7 @@ export class FileSummaryManager {
     // confirmation in the UI). Previously only job-triggered requests were
     // gated, which left the manual-regenerate budget prompt unreachable.
     if (!req.overrideBudget) {
-      const spend = this.deps.monthToDateSpend(req.projectId)
+      const spend = this.effectiveSpend(req.projectId)
       const budget = this.deps.monthlyBudgetUsd()
       if (spend >= budget) {
         this.emitSkipped(req, 'budget')
@@ -399,6 +455,23 @@ export class FileSummaryManager {
     return result
   }
 
+  // Recorded month-to-date spend PLUS the optimistically-reserved spend of
+  // generations already in flight for this project. Both budget gates read this
+  // so in-flight generations count against the cap before their cost row lands.
+  private effectiveSpend(projectId: string): number {
+    return this.deps.monthToDateSpend(projectId) + (this.pendingSpend.get(projectId) ?? 0)
+  }
+
+  private reserveSpend(projectId: string): void {
+    this.pendingSpend.set(projectId, (this.pendingSpend.get(projectId) ?? 0) + PROJECTED_SUMMARY_COST_USD)
+  }
+
+  private releaseSpend(projectId: string): void {
+    const next = (this.pendingSpend.get(projectId) ?? 0) - PROJECTED_SUMMARY_COST_USD
+    if (next > 0) this.pendingSpend.set(projectId, next)
+    else this.pendingSpend.delete(projectId)
+  }
+
   private pump(projectId: string): void {
     if (this._disposed) return
     const queue = this.queues.get(projectId) ?? []
@@ -416,10 +489,12 @@ export class FileSummaryManager {
         continue
       }
       // Budget re-check at dequeue: an entry that crossed the monthly cap while
-      // waiting in the queue is skipped instead of spending, bounding the
-      // concurrent-overshoot window to the in-flight set.
+      // waiting in the queue is skipped instead of spending. effectiveSpend
+      // includes the optimistic reservation of generations already in flight, so
+      // the Nth concurrent start sees the (N-1) prior reservations and stops at
+      // the cap — closing the concurrent-overshoot window (BUG-CODE-05).
       if (!entry.req.overrideBudget) {
-        const spend = this.deps.monthToDateSpend(entry.req.projectId)
+        const spend = this.effectiveSpend(entry.req.projectId)
         const budget = this.deps.monthlyBudgetUsd()
         if (spend >= budget) {
           this.emitSkipped(entry.req, 'budget')
@@ -445,9 +520,16 @@ export class FileSummaryManager {
       }
       this.inFlightPerProject.set(projectId, perProject + 1)
       DESKTOP.inFlight += 1
+      // Reserve projected spend the instant this generation STARTS — before the
+      // (awaited) provider call — so concurrent starts each see prior reservations
+      // in their budget gate. Released in the finally once the real cost row has
+      // landed in the DB (or the generation failed/was skipped).
+      if (!entry.req.overrideBudget) this.reserveSpend(projectId)
+      const reservedSpend = !entry.req.overrideBudget
       const p = this.runOne(entry)
         .catch((err) => entry.reject(err))
         .finally(() => {
+          if (reservedSpend) this.releaseSpend(projectId)
           this.inFlightPerProject.set(
             projectId,
             (this.inFlightPerProject.get(projectId) ?? 1) - 1,
@@ -514,11 +596,16 @@ export class FileSummaryManager {
         entry.resolve('failed')
         return
       }
+      // Cap a runaway LLM summary at the schema bound so writeSummary's
+      // validation never rejects a real generation (it would otherwise throw and
+      // mis-record the row as failed). Truncation is the safe, lossy fallback.
+      const boundedSummary =
+        out.summary.length > SUMMARY_MAX_LENGTH ? out.summary.slice(0, SUMMARY_MAX_LENGTH) : out.summary
       const payload: SummaryPayload = {
         schemaVersion: 1,
         path: req.relPath,
         fileHash,
-        summary: out.summary,
+        summary: boundedSummary,
         language: lang,
         generatedAt: new Date((this.deps.now ?? Date.now)()).toISOString(),
         generatedBy: { model: out.model, promptVersion: CURRENT_PROMPT_VERSION, truncated },
@@ -718,6 +805,7 @@ export class FileSummaryManager {
     }
     this.queues.clear()
     this.inFlightByKey.clear()
+    this.pendingSpend.clear()
     for (const [, state] of this.watchers) {
       try { void state.watcher.close() } catch { /* best effort */ }
     }

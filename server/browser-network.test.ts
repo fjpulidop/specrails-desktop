@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { NetworkRingBuffer, sketchJsonShape, shouldSkipNetworkEntry, NETWORK_DENY_TYPES } from './browser-network'
+import { NetworkRingBuffer, sketchJsonShape, shouldSkipNetworkEntry, redactUrlQuery, NETWORK_DENY_TYPES } from './browser-network'
 
 describe('sketchJsonShape', () => {
   it('sketches a flat object as key:type pairs', () => {
@@ -58,6 +58,37 @@ describe('shouldSkipNetworkEntry', () => {
   })
 })
 
+describe('redactUrlQuery', () => {
+  it('keeps origin + path, drops the query, appends a marker', () => {
+    expect(redactUrlQuery('https://api.x/items?secret=abc&token=z')).toBe('https://api.x/items?…')
+    expect(redactUrlQuery('https://api.x/a/b/c?q=1')).toBe('https://api.x/a/b/c?…')
+  })
+
+  it('leaves a query-less URL unchanged (no marker)', () => {
+    expect(redactUrlQuery('https://api.x/items')).toBe('https://api.x/items')
+    expect(redactUrlQuery('https://api.x/')).toBe('https://api.x/')
+  })
+
+  it('strips embedded credentials and the fragment', () => {
+    const out = redactUrlQuery('https://user:pass@api.x/items?k=v#frag')
+    expect(out).not.toContain('user')
+    expect(out).not.toContain('pass')
+    expect(out).not.toContain('frag')
+    expect(out).not.toContain('k=v')
+  })
+
+  it('handles a relative / malformed URL by lexical chop', () => {
+    expect(redactUrlQuery('/api/items?secret=1')).toBe('/api/items?…')
+    expect(redactUrlQuery('/api/items')).toBe('/api/items')
+  })
+
+  it('returns an empty string for empty input', () => {
+    expect(redactUrlQuery('')).toBe('')
+    // @ts-expect-error runtime guard for non-string
+    expect(redactUrlQuery(undefined)).toBe('')
+  })
+})
+
 describe('NetworkRingBuffer', () => {
   it('records a full request lifecycle and exposes it via recent()', () => {
     const buf = new NetworkRingBuffer()
@@ -69,7 +100,21 @@ describe('NetworkRingBuffer', () => {
     expect(r.status).toBe(200)
     expect(r.mimeType).toBe('application/json')
     expect(r.durationMs).toBe(120)
-    expect(r.url).toContain('secret=abc') // URL preserved (window is local-dev)
+    // BUG-BROWSER-03: the query string (a secret here) is redacted before storage.
+    expect(r.url).toBe('https://api.x/items?…')
+    expect(r.url).not.toContain('secret')
+    expect(r.url).not.toContain('abc')
+  })
+
+  it('redacts the query string of every stored entry (BUG-BROWSER-03)', () => {
+    const buf = new NetworkRingBuffer()
+    buf.start('tok', { method: 'GET', url: 'https://api.x/me?token=ya29.SECRET&id=42', resourceType: 'Fetch', startedAt: 1 })
+    buf.start('oauth', { method: 'GET', url: 'https://auth.x/callback?code=AUTHCODE&state=xyz', resourceType: 'Document', startedAt: 2 })
+    const urls = buf.recent(0).map((r) => r.url)
+    for (const u of urls) {
+      expect(u).not.toMatch(/SECRET|AUTHCODE|token=|code=|state=/)
+      expect(u.endsWith('?…')).toBe(true)
+    }
   })
 
   it('drops static-asset and data: entries at insertion', () => {

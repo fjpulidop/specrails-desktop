@@ -96,26 +96,31 @@ describe('readStore', () => {
     expect(Object.keys(result.tickets)).toHaveLength(2)
   })
 
-  it('returns empty store when file contains invalid JSON', () => {
+  // BUG-SQLITE-03: a PRESENT-but-unreadable/unparseable/foreign-shaped tickets
+  // file must THROW (so mutateStore aborts and never blanks the on-disk backlog).
+  // Only a genuinely-absent file (ENOENT) returns an empty store.
+  it('throws (does NOT blank) when a present file contains invalid JSON', () => {
     const filePath = path.join(tmpDir, 'bad.json')
     fs.writeFileSync(filePath, '{ not valid json }', 'utf-8')
-    const result = readStore(filePath)
-    expect(result.revision).toBe(0)
-    expect(result.tickets).toEqual({})
+    expect(() => readStore(filePath)).toThrow(/invalid JSON/)
   })
 
-  it('returns empty store when file is missing tickets field', () => {
+  it('throws (does NOT blank) when a present file is missing the tickets field', () => {
     const filePath = path.join(tmpDir, 'partial.json')
     fs.writeFileSync(filePath, JSON.stringify({ revision: 1 }), 'utf-8')
-    const result = readStore(filePath)
-    expect(result.revision).toBe(0)
+    expect(() => readStore(filePath)).toThrow(/unexpected top-level shape/)
   })
 
-  it('returns empty store when revision is not a number', () => {
+  it('throws (does NOT blank) when revision is not a number', () => {
     const filePath = path.join(tmpDir, 'bad-rev.json')
     fs.writeFileSync(filePath, JSON.stringify({ tickets: {}, revision: 'bad' }), 'utf-8')
-    const result = readStore(filePath)
+    expect(() => readStore(filePath)).toThrow(/unexpected top-level shape/)
+  })
+
+  it('returns an empty store when the file is genuinely absent (ENOENT)', () => {
+    const result = readStore(path.join(tmpDir, 'does-not-exist.json'))
     expect(result.revision).toBe(0)
+    expect(result.tickets).toEqual({})
   })
 
   it('preserves all ticket fields', () => {

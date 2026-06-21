@@ -275,4 +275,82 @@ describe('adfToText', () => {
   it('returns empty string for a body whose content is not an array', () => {
     expect(adfToText({ type: 'doc', content: 'not-an-array' })).toBe('')
   })
+
+  // ── BUG-JIRA-ADF-06: block separators for code/quote/panel/table ──────────
+  it('emits a newline after a codeBlock (direct text children, no inner paragraph)', () => {
+    const adf = {
+      type: 'doc',
+      content: [
+        { type: 'paragraph', content: [{ type: 'text', text: 'before' }] },
+        { type: 'codeBlock', content: [{ type: 'text', text: 'const x = 1' }] },
+        { type: 'paragraph', content: [{ type: 'text', text: 'after' }] },
+      ],
+    }
+    // Without the fix the codeBlock text ran onto 'after': 'beforeconst x = 1after'.
+    expect(adfToText(adf)).toBe('before\nconst x = 1\nafter')
+  })
+
+  it('does not run a codeBlock onto a following heading', () => {
+    const adf = {
+      type: 'doc',
+      content: [
+        { type: 'codeBlock', content: [{ type: 'text', text: 'npm test' }] },
+        { type: 'heading', content: [{ type: 'text', text: 'Next' }] },
+      ],
+    }
+    expect(adfToText(adf)).toBe('npm test\nNext')
+  })
+
+  it('emits a newline after a blockquote container', () => {
+    const adf = {
+      type: 'doc',
+      content: [
+        {
+          type: 'blockquote',
+          content: [{ type: 'paragraph', content: [{ type: 'text', text: 'quoted' }] }],
+        },
+        { type: 'paragraph', content: [{ type: 'text', text: 'plain' }] },
+      ],
+    }
+    // The inner paragraph already breaks once; the blockquote boundary adds a
+    // second, so the quote is separated from the next block (was run-on before).
+    expect(adfToText(adf)).toBe('quoted\n\nplain')
+  })
+
+  it('emits a newline after a panel container', () => {
+    const adf = {
+      type: 'doc',
+      content: [
+        {
+          type: 'panel',
+          attrs: { panelType: 'info' },
+          content: [{ type: 'paragraph', content: [{ type: 'text', text: 'note' }] }],
+        },
+        { type: 'paragraph', content: [{ type: 'text', text: 'tail' }] },
+      ],
+    }
+    expect(adfToText(adf)).toBe('note\n\ntail')
+  })
+
+  it('separates table rows with newlines', () => {
+    const cell = (text: string) => ({
+      type: 'tableCell',
+      content: [{ type: 'paragraph', content: [{ type: 'text', text }] }],
+    })
+    const adf = {
+      type: 'doc',
+      content: [
+        {
+          type: 'table',
+          content: [
+            { type: 'tableRow', content: [cell('r1c1'), cell('r1c2')] },
+            { type: 'tableRow', content: [cell('r2c1'), cell('r2c2')] },
+          ],
+        },
+      ],
+    }
+    // Each cell's paragraph separates within a row; the row boundary now adds an
+    // extra break so the two rows don't run together (r1c2 ⇏ r2c1).
+    expect(adfToText(adf)).toBe('r1c1\nr1c2\n\nr2c1\nr2c2')
+  })
 })

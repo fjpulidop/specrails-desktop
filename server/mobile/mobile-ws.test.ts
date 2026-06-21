@@ -74,6 +74,35 @@ describe('MobileWsBridge', () => {
     expect(msg.desktopBudget).toBeUndefined()
   })
 
+  it('does NOT deliver desktop_daily_budget_exceeded to a device without the alerts topic (BUG-MOBILE-05)', () => {
+    const bridge = new MobileWsBridge()
+    const s = new StubSocket()
+    bridge.attach(s, 'dev-1')
+    // Never subscribed to anything → topics is empty.
+    bridge.dispatch({
+      type: 'desktop_daily_budget_exceeded', projectId: 'p1',
+      desktopDailySpend: 12.5, desktopBudget: 10, queuePaused: true,
+    } as unknown as WsMessage)
+    expect(s.sent).toHaveLength(0)
+
+    // Subscribed to a different topic but not 'alerts' → still dropped.
+    sub(s, ['p1'], ['queue'])
+    bridge.dispatch({
+      type: 'desktop_daily_budget_exceeded', projectId: 'p1',
+      desktopDailySpend: 12.5, desktopBudget: 10, queuePaused: true,
+    } as unknown as WsMessage)
+    expect(s.sent).toHaveLength(0)
+
+    // Only once it subscribes to 'alerts' does it receive the frame.
+    sub(s, ['p1'], ['alerts'])
+    bridge.dispatch({
+      type: 'desktop_daily_budget_exceeded', projectId: 'p1',
+      desktopDailySpend: 12.5, desktopBudget: 10, queuePaused: true,
+    } as unknown as WsMessage)
+    expect(s.sent).toHaveLength(1)
+    expect((s.sent[0] as { type: string }).type).toBe('hub_daily_budget_exceeded')
+  })
+
   it('buffers watched-job logs and flushes them as a batch', () => {
     const bridge = new MobileWsBridge()
     const s = new StubSocket()
@@ -200,6 +229,29 @@ describe('MobileWsBridge', () => {
     bridge.stop()
     expect(s.closed?.code).toBe(1001)
     expect(bridge.socketCount).toBe(0)
+  })
+
+  it('intersects subscribe.projects against the device ACL (BUG-MOBILE-02)', () => {
+    // dev-scoped is granted only p1; dev-open is unrestricted (null).
+    const bridge = new MobileWsBridge({
+      allowedProjectsFor: (id) => (id === 'dev-scoped' ? new Set(['p1']) : null),
+    })
+    const scoped = new StubSocket()
+    bridge.attach(scoped, 'dev-scoped')
+    // Companion tries to subscribe to p1 AND p2 — only p1 should stick.
+    sub(scoped, ['p1', 'p2'], ['queue'])
+
+    bridge.dispatch({ type: 'queue', jobs: [], activeJobId: null, paused: false, timestamp: '', projectId: 'p1' } as WsMessage)
+    expect(scoped.sent).toHaveLength(1) // granted project delivered
+    bridge.dispatch({ type: 'queue', jobs: [], activeJobId: null, paused: false, timestamp: '', projectId: 'p2' } as WsMessage)
+    expect(scoped.sent).toHaveLength(1) // non-granted project never reaches the device
+
+    // An unrestricted device still gets both.
+    const open = new StubSocket()
+    bridge.attach(open, 'dev-open')
+    sub(open, ['p1', 'p2'], ['queue'])
+    bridge.dispatch({ type: 'queue', jobs: [], activeJobId: null, paused: false, timestamp: '', projectId: 'p2' } as WsMessage)
+    expect(open.sent).toHaveLength(1)
   })
 
   it('removes a socket on close/error events', () => {

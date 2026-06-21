@@ -42,18 +42,33 @@ export function transformClaudeArgsForWindows(args: string[]): WindowsTransform 
   const out: string[] = []
   for (let i = 0; i < args.length; i++) {
     const a = args[i]
-    if (CLAUDE_PROMPT_FLAGS.has(a) && i + 1 < args.length) {
-      collected.push(args[i + 1])
-      i++ // skip the value
-      continue
+    // A prompt flag only carries an inline value when the next token exists
+    // AND is not itself a flag. The `chat-stream` action emits a VALUELESS
+    // `-p` immediately followed by `--input-format stream-json` (the prompt
+    // arrives over stdin); without the flag guard we would wrongly consume
+    // `--input-format` as the prompt, drop it from argv, and pipe the literal
+    // string `--input-format` to stdin. A bare trailing `-p` (stdin mode)
+    // likewise has no value to collect. Mirror the codex transform's
+    // `a.startsWith('-')` guard so both transports stay byte-correct.
+    if (CLAUDE_PROMPT_FLAGS.has(a)) {
+      const next = i + 1 < args.length ? args[i + 1] : undefined
+      if (next !== undefined && !next.startsWith('-')) {
+        collected.push(next)
+        i++ // skip the value
+        continue
+      }
     }
     out.push(a)
   }
   if (collected.length === 0) {
     return { args: out, stdinPayload: null }
   }
-  // Re-add `-p` so claude knows to read stdin (--print mode).
-  out.push('-p')
+  // Re-add `-p` so claude knows to read stdin (--print mode) — unless a bare
+  // `-p`/`--print` already survived in `out` (chat-stream emits its own
+  // valueless `-p`), in which case re-adding would duplicate the flag.
+  if (!out.some((t) => t === '-p' || t === '--print')) {
+    out.push('-p')
+  }
   return { args: out, stdinPayload: collected.join('\n\n---\n\n') }
 }
 

@@ -89,12 +89,20 @@ function migrateLegacyDbFile(dbPath: string): void {
   const legacyPath = path.join(path.dirname(dbPath), 'hub.sqlite') // legacy (pre-rebrand) filename
   try {
     if (fs.existsSync(legacyPath) && !fs.existsSync(dbPath)) {
-      fs.renameSync(legacyPath, dbPath)
+      // BUG-SQLITE-05: rename the -wal/-shm sidecars BEFORE the main DB file.
+      // SQLite matches a WAL to its database by base filename; if the main file
+      // is renamed first, a crash in the (sub-ms) window between renames leaves
+      // `desktop.sqlite` with no adjacent WAL -> un-checkpointed commits in the
+      // orphaned `hub.sqlite-wal` are silently discarded on next open. Moving the
+      // sidecars first means an interrupted migration leaves the WAL/SHM still
+      // matched to the legacy main file (the new file does not exist yet, so the
+      // guard above re-runs the whole migration on the next launch).
       for (const suffix of ['-wal', '-shm']) {
         if (fs.existsSync(legacyPath + suffix)) {
           fs.renameSync(legacyPath + suffix, dbPath + suffix)
         }
       }
+      fs.renameSync(legacyPath, dbPath)
     }
   } catch (err) {
     console.warn('[desktop-db] could not migrate legacy hub.sqlite:', err)

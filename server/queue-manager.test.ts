@@ -29,7 +29,7 @@ vi.mock('./hooks', () => ({
 import { spawn as mockSpawn, execSync as mockExecSync } from 'child_process'
 import treeKill from 'tree-kill'
 import { newId as mockUuidV4 } from './ids'
-import { QueueManager, ClaudeNotFoundError, JobNotFoundError, JobAlreadyTerminalError } from './queue-manager'
+import { QueueManager, ClaudeNotFoundError, JobNotFoundError, JobAlreadyTerminalError, buildTelemetryEnv } from './queue-manager'
 import { mirrorProjectEntry, workspaceLayout, resolveHome } from './artifact-registry'
 import { __resetBinaryProbeCacheForTest } from './binary-probe'
 import { attachmentManager } from './attachment-manager'
@@ -2204,6 +2204,182 @@ describe('QueueManager', () => {
         vi.advanceTimersByTime(5000)
         const sigkillCalls = vi.mocked(treeKill).mock.calls.filter((c) => c[1] === 'SIGKILL')
         expect(sigkillCalls.length).toBe(1)
+      } finally {
+        vi.useRealTimers()
+      }
+    })
+  })
+
+  // ─── BUG-QUEUE-03: provider-aware telemetry env ──────────────────────────────
+
+  describe('buildTelemetryEnv (provider-aware)', () => {
+    it('defaults to the claude/OTEL_* block (byte-identical to legacy)', () => {
+      const env = buildTelemetryEnv('job-1', 'proj-1', 4200)
+      expect(env).toEqual({
+        CLAUDE_CODE_ENABLE_TELEMETRY: '1',
+        OTEL_EXPORTER_OTLP_ENDPOINT: 'http://127.0.0.1:4200/otlp',
+        OTEL_EXPORTER_OTLP_PROTOCOL: 'http/json',
+        OTEL_METRICS_EXPORTER: 'otlp',
+        OTEL_LOGS_EXPORTER: 'otlp',
+        OTEL_TRACES_EXPORTER: 'otlp',
+        OTEL_RESOURCE_ATTRIBUTES: 'specrails.job_id=job-1,specrails.project_id=proj-1',
+      })
+      // GEMINI_TELEMETRY_* vars must never leak into the claude block.
+      expect(Object.keys(env).some((k) => k.startsWith('GEMINI_TELEMETRY_'))).toBe(false)
+    })
+
+    it('codex stays byte-identical to the claude block (OTEL_* only)', () => {
+      expect(buildTelemetryEnv('job-2', 'proj-2', 5000, {}, 'codex')).toEqual(
+        buildTelemetryEnv('job-2', 'proj-2', 5000, {}, 'claude'),
+      )
+    })
+
+    it('gemini emits GEMINI_TELEMETRY_* vars pointed at the loopback OTLP receiver (http transport)', () => {
+      const env = buildTelemetryEnv('job-g', 'proj-g', 4321, {}, 'gemini')
+      expect(env.GEMINI_TELEMETRY_ENABLED).toBe('true')
+      expect(env.GEMINI_TELEMETRY_TARGET).toBe('local')
+      expect(env.GEMINI_TELEMETRY_OTLP_ENDPOINT).toBe('http://127.0.0.1:4321/otlp')
+      // Gemini CLI defaults to gRPC — must force http to reach our JSON receiver.
+      expect(env.GEMINI_TELEMETRY_OTLP_PROTOCOL).toBe('http')
+      // Resource attrs still flow via the standard env so the receiver can route.
+      expect(env.OTEL_RESOURCE_ATTRIBUTES).toBe('specrails.job_id=job-g,specrails.project_id=proj-g')
+      // The claude-specific master switch must NOT be set for gemini.
+      expect(env.CLAUDE_CODE_ENABLE_TELEMETRY).toBeUndefined()
+      expect(env.OTEL_EXPORTER_OTLP_ENDPOINT).toBeUndefined()
+    })
+
+    it('threads extra resource attributes into OTEL_RESOURCE_ATTRIBUTES for both shapes', () => {
+      const extra = { 'specrails.profile_name': 'balanced' }
+      expect(buildTelemetryEnv('j', 'p', 1, extra, 'claude').OTEL_RESOURCE_ATTRIBUTES)
+        .toBe('specrails.job_id=j,specrails.project_id=p,specrails.profile_name=balanced')
+      expect(buildTelemetryEnv('j', 'p', 1, extra, 'gemini').OTEL_RESOURCE_ATTRIBUTES)
+        .toBe('specrails.job_id=j,specrails.project_id=p,specrails.profile_name=balanced')
+    })
+  })
+
+  // ─── BUG-QUEUE-01: openspec shim cleanup on the non-interactive exit path ─────
+
+  describe('openspec shim cleanup (relocated claude rails)', () => {
+    let regHome: string
+    let repo: string
+    let prevHome: string | undefined
+
+    function seedRelocated(slug: string): string {
+      mirrorProjectEntry({ repoPath: repo, slug, providers: ['claude'], desktopProjectId: 'p1' }, regHome)
+      const ws = workspaceLayout(resolveHome(regHome), slug, repo).workspaceDir
+      fs.mkdirSync(path.join(ws, '.specrails'), { recursive: true })
+      fs.writeFileSync(path.join(ws, '.specrails', 'specrails-version'), '4.8.0\n')
+      return ws
+    }
+
+    function shimRoot(slug: string): string {
+      return path.join(regHome, '.specrails', 'projects', slug, 'openspec-shim')
+    }
+
+    beforeEach(() => {
+      prevHome = process.env.SPECRAILS_REGISTRY_HOME
+      regHome = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), 'qm-shim-home-')))
+      fs.mkdirSync(path.join(regHome, '.specrails'), { recursive: true })
+      process.env.SPECRAILS_REGISTRY_HOME = regHome
+      repo = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), 'qm-shim-repo-')))
+    })
+
+    afterEach(() => {
+      if (prevHome !== undefined) process.env.SPECRAILS_REGISTRY_HOME = prevHome
+      else delete process.env.SPECRAILS_REGISTRY_HOME
+      fs.rmSync(regHome, { recursive: true, force: true })
+      fs.rmSync(repo, { recursive: true, force: true })
+    })
+
+    it('removes the per-job shim dir on _onJobExit (non-interactive path)', async () => {
+      seedRelocated('acme')
+      vi.mocked(mockExecSync).mockReturnValue(Buffer.from('/usr/bin/claude'))
+      const child = createMockChildProcess()
+      vi.mocked(mockSpawn).mockReturnValue(child as any)
+      vi.mocked(mockUuidV4).mockReturnValue('shim-exit-job' as any)
+
+      const db = initDb(':memory:')
+      const qmShim = new QueueManager(broadcast, db, [], repo, {
+        provider: 'claude', projectId: 'p1', projectSlug: 'acme',
+      })
+      qmShim.enqueue('/specrails:implement #1')
+
+      const shimDir = path.join(shimRoot('acme'), 'shim-exit-job')
+      // Shim materialised at spawn time.
+      expect(fs.existsSync(shimDir)).toBe(true)
+
+      child.stdout.push(null)
+      await new Promise((r) => setImmediate(r))
+      child.emit('close', 0)
+      await new Promise((r) => setTimeout(r, 30))
+
+      // Cleanup must run on the dominant non-interactive exit path.
+      expect(fs.existsSync(shimDir)).toBe(false)
+    })
+
+    it('startup sweep removes stale shim dirs left on disk by prior runs', () => {
+      // Pre-seed two stale shim dirs as if prior rails never cleaned up.
+      const root = shimRoot('acme')
+      fs.mkdirSync(path.join(root, 'stale-job-1'), { recursive: true })
+      fs.mkdirSync(path.join(root, 'stale-job-2'), { recursive: true })
+      expect(fs.existsSync(path.join(root, 'stale-job-1'))).toBe(true)
+
+      const db = initDb(':memory:')
+      // Construction runs the one-time startup sweep.
+      new QueueManager(broadcast, db, [], repo, {
+        provider: 'claude', projectId: 'p1', projectSlug: 'acme',
+      })
+
+      expect(fs.existsSync(path.join(root, 'stale-job-1'))).toBe(false)
+      expect(fs.existsSync(path.join(root, 'stale-job-2'))).toBe(false)
+    })
+  })
+
+  // ─── BUG-QUEUE-02: SIGKILL-failure recovery = full terminal handling ─────────
+
+  describe('SIGKILL-failure recovery (unkillable child)', () => {
+    it('fires onJobFinished, writes an ai_invocations row, and clears the slot', async () => {
+      vi.useFakeTimers()
+      try {
+        vi.mocked(mockExecSync).mockReturnValue(Buffer.from('/usr/bin/claude'))
+        const child = createMockChildProcess()
+        vi.mocked(mockSpawn).mockReturnValue(child as any)
+        vi.mocked(mockUuidV4).mockReturnValue('unkillable-job' as any)
+
+        // SIGKILL escalation reports failure → recovery branch runs.
+        vi.mocked(treeKill).mockImplementation(((pid: number, signal?: string, cb?: (e?: Error) => void) => {
+          if (signal === 'SIGKILL' && cb) cb(new Error('taskkill failed'))
+        }) as any)
+
+        const db = initDb(':memory:')
+        const onJobFinished = vi.fn()
+        const qmKill = new QueueManager(broadcast, db, [], '/tmp/repo', {
+          provider: 'claude', projectId: 'p1', projectSlug: 'proj', onJobFinished,
+        })
+        qmKill.enqueue('/specrails:implement #5')
+        expect(qmKill.getActiveJobId()).toBe('unkillable-job')
+
+        qmKill.cancel('unkillable-job')
+        // Advance past the 5s grace so the SIGKILL escalation (and its failing cb) fires.
+        vi.advanceTimersByTime(5100)
+
+        // Slot released — queue not wedged.
+        expect(qmKill.getActiveJobId()).toBeNull()
+        // Job force-failed.
+        const job = qmKill.getJobs().find((j) => j.id === 'unkillable-job')
+        expect(job?.status).toBe('failed')
+        // onJobFinished fired (ticket revert / budget / webhook / Jira write-back).
+        expect(onJobFinished).toHaveBeenCalledWith('unkillable-job', 'failed', undefined)
+        // DB row stamped failed.
+        const dbRow = db.prepare('SELECT status FROM jobs WHERE id = ?').get('unkillable-job') as { status: string } | undefined
+        expect(dbRow?.status).toBe('failed')
+        // ai_invocations row written (surface='job', aborted).
+        const inv = db.prepare(
+          `SELECT surface, status, provider FROM ai_invocations WHERE surface_ref_id = ?`
+        ).get('unkillable-job') as { surface: string; status: string; provider: string } | undefined
+        expect(inv?.surface).toBe('job')
+        expect(inv?.status).toBe('aborted')
+        expect(inv?.provider).toBe('claude')
       } finally {
         vi.useRealTimers()
       }

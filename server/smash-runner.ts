@@ -12,6 +12,7 @@
 import { randomUUID } from 'node:crypto'
 import { createInterface } from 'node:readline'
 import { ChildProcess } from 'node:child_process'
+import treeKill from 'tree-kill'
 
 import { spawnAiCli } from './util/cli-prompt'
 import {
@@ -191,12 +192,47 @@ export function prepareSmashSpawn(
   return { args: buildSmashArgs(model, systemPrompt, userPrompt, mode), cwd, env, systemPrompt, userPrompt, mode }
 }
 
+/** Grace before SIGKILL-escalating a child that swallowed SIGTERM. */
+const SMASH_SIGKILL_GRACE_MS = 2_000
+
+/**
+ * BUG-PARSER-01: tear down the FULL process subtree on timeout, mirroring the
+ * shared `spawn-lifecycle.ts` teardown. A bare `child.kill('SIGTERM')` leaves
+ * grandchildren orphaned and never force-kills a signal-swallowing CLI — a real
+ * risk for SMASH `full` mode (15-minute timeout, Read/Grep/Glob enabled). We
+ * treeKill SIGTERM, then SIGKILL-escalate after a grace window. The escalation
+ * timer is returned so the close handler can clear it. Inlined here (not a
+ * shared module) per file-ownership constraints.
+ *
+ * `kill` is injectable for tests so the timeout path can be asserted without
+ * spawning a real `ps`/`taskkill` against a fake pid.
+ */
+type TreeKiller = (pid: number, signal: string, cb?: (err?: Error) => void) => void
+
+function escalateSmashKill(
+  pid: number | undefined,
+  kill: TreeKiller,
+): NodeJS.Timeout | null {
+  if (typeof pid !== 'number') return null
+  try {
+    kill(pid, 'SIGTERM', () => { /* best-effort */ })
+  } catch { /* already gone */ }
+  const escalation = setTimeout(() => {
+    try {
+      kill(pid, 'SIGKILL', () => { /* best-effort */ })
+    } catch { /* already gone */ }
+  }, SMASH_SIGKILL_GRACE_MS)
+  if (typeof escalation.unref === 'function') escalation.unref()
+  return escalation
+}
+
 /**
  * Read stream-json output from a child process. Exported for tests.
  */
 export function readSmashChildOutput(
   child: ChildProcess,
   timeoutMs: number,
+  kill: TreeKiller = treeKill,
 ): Promise<{
   fullText: string
   resultEvent: Record<string, unknown> | null
@@ -212,6 +248,7 @@ export function readSmashChildOutput(
       resolve({ fullText, resultEvent, code: -1, timedOut: false })
       return
     }
+    let killEscalation: NodeJS.Timeout | null = null
     const reader = createInterface({ input: child.stdout, crlfDelay: Infinity })
     reader.on('line', (line: string) => {
       let parsed: Record<string, unknown> | null = null
@@ -230,7 +267,9 @@ export function readSmashChildOutput(
     })
     const timer = setTimeout(() => {
       timedOut = true
-      try { child.kill('SIGTERM') } catch { /* best effort */ }
+      // BUG-PARSER-01: treeKill the whole subtree (SIGTERM) and SIGKILL-escalate
+      // after a grace window so a signal-swallowing CLI tree is force-killed.
+      killEscalation = escalateSmashKill(child.pid, kill)
       if (!settled) {
         settled = true
         resolve({ fullText, resultEvent, code: null, timedOut: true })
@@ -238,12 +277,15 @@ export function readSmashChildOutput(
     }, timeoutMs)
     child.on('close', (code) => {
       clearTimeout(timer)
+      // The child exited — cancel the pending SIGKILL escalation.
+      if (killEscalation) { clearTimeout(killEscalation); killEscalation = null }
       if (settled) return
       settled = true
       resolve({ fullText, resultEvent, code, timedOut })
     })
     child.on('error', () => {
       clearTimeout(timer)
+      if (killEscalation) { clearTimeout(killEscalation); killEscalation = null }
       if (settled) return
       settled = true
       resolve({ fullText, resultEvent, code: -1, timedOut })
@@ -532,6 +574,18 @@ export async function runSmash(
   // pre-flight eligibility check leaves open. Released in the finally below.
   const inFlightKey = `${deps.projectId}:${ticketId}`
   if (_smashInFlight.has(inFlightKey)) {
+    // BUG-PARSER-02: every other failure branch broadcasts `smash.failed`, but
+    // this early-return previously returned silently — leaving the client (which
+    // already received a 202 for the duplicate submit) with a stuck spinner.
+    // Emit `smash.failed` so the UI can clear its pending state.
+    deps.broadcast({
+      type: 'smash.failed',
+      projectId: deps.projectId,
+      ticketId,
+      runId,
+      reason: 'in-progress',
+      timestamp: now().toISOString(),
+    })
     return { ok: false, reason: 'in-progress', ticketId, runId }
   }
   _smashInFlight.add(inFlightKey)

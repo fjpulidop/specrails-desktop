@@ -94,6 +94,66 @@ describe('AttachmentManager', () => {
     })
   })
 
+  describe('attachmentId path safety (BUG-ROUTER-01)', () => {
+    const MALICIOUS_IDS = [
+      '../../../etc/passwd',
+      '..',
+      '.',
+      'a/b',
+      'a\\b',
+      '../secret',
+      'foo/../../bar',
+      'foo bar', // space is outside the opaque-token charset
+      'id.with.dots',
+      '', // empty
+      'x'.repeat(129), // over the 128-char cap
+    ]
+
+    it('rejects malicious attachmentIds in getMeta (read traversal)', () => {
+      for (const id of MALICIOUS_IDS) {
+        expect(() => manager.getMeta('proj', '1', id)).toThrow(/Invalid attachment id/)
+      }
+    })
+
+    it('rejects malicious attachmentIds in getFilePath (read traversal)', () => {
+      for (const id of MALICIOUS_IDS) {
+        expect(() => manager.getFilePath('proj', '1', id)).toThrow(/Invalid attachment id/)
+      }
+    })
+
+    it('rejects malicious attachmentIds in delete (unlink traversal)', async () => {
+      for (const id of MALICIOUS_IDS) {
+        await expect(
+          manager.delete({ slug: 'proj', ticketKey: '1', attachmentId: id, ticketStorePath: null }),
+        ).rejects.toThrow(/Invalid attachment id/)
+      }
+    })
+
+    it('does not read a sibling .meta.json via traversal segments', async () => {
+      // Plant a meta file in a sibling ticket dir that traversal would reach.
+      const victimDir = manager.ticketDir('proj', '2')
+      fs.mkdirSync(victimDir, { recursive: true })
+      fs.writeFileSync(
+        path.join(victimDir, 'secret.meta.json'),
+        JSON.stringify({ id: 'secret', filename: 'secret', storedName: 's', mimeType: 'text/plain', size: 1, addedAt: '2020-01-01' }),
+        'utf-8',
+      )
+      // `../2/secret` would resolve to the victim file without validation.
+      expect(() => manager.getMeta('proj', '1', '../2/secret')).toThrow(/Invalid attachment id/)
+    })
+
+    it('still accepts well-formed opaque/UUID-shaped ids', async () => {
+      const att = await manager.upload({
+        slug: 'proj', ticketKey: '1', ticketStorePath: null, file: makeFile(),
+      })
+      // newId() output is UUID-shaped → matches the opaque-token rule.
+      expect(att.id).toMatch(/^[A-Za-z0-9_-]{1,128}$/)
+      expect(() => manager.getMeta('proj', '1', att.id)).not.toThrow()
+      // Valid-but-unknown ids resolve to null, not a throw.
+      expect(manager.getMeta('proj', '1', 'unknown-but-valid_id-123')).toBeNull()
+    })
+  })
+
   describe('upload', () => {
     it('stores file and sidecar, returns Attachment', async () => {
       const attachment = await manager.upload({

@@ -8,9 +8,15 @@ import { DataChannelPeer, type DataChannelLike, type DataChannelPeerDeps, type W
 // (unit-tested); this file is the thin, runtime-only wiring around werift.
 
 export interface MobileWebrtcGatewayDeps {
-  /** Creates (or, with a known token, re-uses) the device once the per-connection
-   *  secret check passes. */
-  registerDevice: (input: { deviceName: string; platform: string; token?: string }) => Promise<WelcomeResult>
+  /** Creates (or, with a known token, re-uses) the device. `requireExistingToken`
+   *  is forwarded for the reconnect path: when set, only an already-paired,
+   *  non-revoked device token may re-register (no mint). See BUG-AUTH-01. */
+  registerDevice: (input: {
+    deviceName: string
+    platform: string
+    token?: string
+    requireExistingToken?: boolean
+  }) => Promise<WelcomeResult | { ok: false }>
   rpcDispatch: DataChannelPeerDeps['rpcDispatch']
   bridge: DataChannelPeerDeps['bridge']
 }
@@ -44,20 +50,40 @@ export class MobileWebrtcGateway {
 
   /** Create a fresh pairing offer (peer + DataChannel + gathered offer SDP).
    *  Replaces any previously-open offer FOR THE SAME ROOM. Returns the SDP to
-   *  embed in the QR / post to the room's mailbox. */
+   *  embed in the QR / post to the room's mailbox.
+   *
+   *  The QR slot (default key) is FIRST-TIME pairing: the secret rides the QR the
+   *  desktop user scans, and a successful secret check mints a new device.
+   *  A per-room key (reconnect, key !== QR_KEY) goes through a PUBLIC mailbox, so
+   *  the secret is NOT the credential there — the companion MUST present its
+   *  existing device token (`requireExistingToken`). This blocks a mailbox reader
+   *  from minting a device with the broadcast secret alone (BUG-AUTH-01). */
   async createOffer(secret: string, key: string = QR_KEY): Promise<{ sdp: string }> {
     this.clearOffer(key)
+    const isReconnect = key !== QR_KEY
     const pc = new RTCPeerConnection({ iceServers: [] })
     const dc = pc.createDataChannel('mobile')
 
-    // The companion peer activates when the channel opens. It validates `hello`
-    // against THIS connection's offer secret (captured in this closure) — not a
-    // global pending secret, which is already null by the time hello arrives.
+    // The companion peer activates when the channel opens.
+    //  - QR pairing: validate `hello.sec` against THIS connection's offer secret
+    //    (captured in this closure) — not a global pending secret, which is
+    //    already null by the time hello arrives. A pass may mint a device.
+    //  - Reconnect: the secret is NOT trusted (it travelled a public mailbox);
+    //    require a valid existing device token instead, and never mint.
     new DataChannelPeer(toChannelLike(dc), {
-      registerDevice: async (input) =>
-        input.secret && safeEqual(input.secret, secret)
+      registerDevice: async (input) => {
+        if (isReconnect) {
+          return this._deps.registerDevice({
+            deviceName: input.deviceName,
+            platform: input.platform,
+            token: input.token,
+            requireExistingToken: true,
+          })
+        }
+        return input.secret && safeEqual(input.secret, secret)
           ? this._deps.registerDevice({ deviceName: input.deviceName, platform: input.platform, token: input.token })
-          : { ok: false },
+          : { ok: false }
+      },
       rpcDispatch: this._deps.rpcDispatch,
       bridge: this._deps.bridge,
     })

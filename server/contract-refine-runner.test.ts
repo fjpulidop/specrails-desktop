@@ -18,6 +18,7 @@ import {
   applyContractLayerToTicket,
   runContractRefine,
   runContractRefineForQuick,
+  readRefineChildOutput,
 } from './contract-refine-runner'
 import {
   CONTRACT_LAYER_SEPARATOR,
@@ -117,6 +118,33 @@ function streamLines(text: string): string[] {
       num_turns: 1,
       usage: { input_tokens: 10, output_tokens: 20, cache_creation_input_tokens: 0, cache_read_input_tokens: 0 },
       model: 'claude-haiku-4-5',
+    }),
+  ]
+}
+
+/**
+ * BUG-PARSER-04: stream lines whose final `result` event carries an error /
+ * truncation marker (the model never finished emitting the contract block) but
+ * the process still exits 0.
+ */
+function streamLinesWithResult(text: string, resultOverrides: Record<string, unknown>): string[] {
+  return [
+    JSON.stringify({ type: 'system', subtype: 'init', session_id: 'sess-1' }),
+    JSON.stringify({
+      type: 'assistant',
+      message: { content: [{ type: 'text', text }] },
+    }),
+    JSON.stringify({
+      type: 'result',
+      subtype: 'success',
+      session_id: 'sess-1',
+      total_cost_usd: 0.001,
+      duration_ms: 100,
+      duration_api_ms: 80,
+      num_turns: 1,
+      usage: { input_tokens: 10, output_tokens: 20, cache_creation_input_tokens: 0, cache_read_input_tokens: 0 },
+      model: 'claude-haiku-4-5',
+      ...resultOverrides,
     }),
   ]
 }
@@ -323,6 +351,48 @@ describe('runContractRefine', () => {
     expect(fail!.reason).toBe('malformed')
   })
 
+  it('BUG-PARSER-04: emits model_error (not malformed) on exit-0 result with is_error=true', async () => {
+    seedTicket(projectPath, 1)
+    makeExploreConv('conv-1')
+    // Exit 0, result event present, but truncated → no parseable block + is_error.
+    const lines = streamLinesWithResult('partial text, no fence', { is_error: true })
+    const deps = makeDeps({ spawn: fakeSpawn(lines, 0) })
+    const out = await runContractRefine(deps, 'conv-1', 1)
+    expect(out.ok).toBe(false)
+    expect(out.reason).toBe('model_error')
+    const fail = broadcastEvents.find((e) => e.type === 'explore.contract_refine_failed')
+    expect(fail!.reason).toBe('model_error')
+    // Records a failed invocation, ticket not patched.
+    const row = db.prepare('SELECT status FROM ai_invocations').get() as { status: string }
+    expect(row.status).toBe('failed')
+  })
+
+  it('BUG-PARSER-04: emits model_error (not malformed) on exit-0 error_max_turns subtype', async () => {
+    seedTicket(projectPath, 1)
+    makeExploreConv('conv-1')
+    const lines = streamLinesWithResult('truncated', { subtype: 'error_max_turns' })
+    const deps = makeDeps({ spawn: fakeSpawn(lines, 0) })
+    const out = await runContractRefine(deps, 'conv-1', 1)
+    expect(out.ok).toBe(false)
+    expect(out.reason).toBe('model_error')
+  })
+
+  it('BUG-PARSER-04 (quick): emits model_error on exit-0 error_max_turns subtype', async () => {
+    seedTicket(projectPath, 1)
+    const lines = streamLinesWithResult('truncated', { subtype: 'error_max_turns' })
+    const out = await runContractRefineForQuick(
+      makeDeps({ spawn: fakeSpawn(lines, 0) }),
+      1,
+      'Quick title',
+      'Quick description',
+      'haiku',
+    )
+    expect(out.ok).toBe(false)
+    expect(out.reason).toBe('model_error')
+    const fail = broadcastEvents.find((e) => e.type === 'explore.contract_refine_failed')
+    expect(fail!.reason).toBe('model_error')
+  })
+
   it('emits reason=model_error when claude exits non-zero with a result event', async () => {
     seedTicket(projectPath, 1)
     makeExploreConv('conv-1')
@@ -430,5 +500,56 @@ describe('runContractRefine', () => {
       if (prev === undefined) delete process.env.SPECRAILS_EXPLORE_CONTRACT_REFINE
       else process.env.SPECRAILS_EXPLORE_CONTRACT_REFINE = prev
     }
+  })
+})
+
+describe('BUG-PARSER-01: readRefineChildOutput timeout teardown', () => {
+  // A child that never emits `close` so the timeout path fires.
+  class HangingChild extends EventEmitter {
+    stdout: Readable
+    stderr: Readable | null = null
+    pid = 4242
+    constructor() {
+      super()
+      // An open, never-ending stream keeps the readline interface alive.
+      this.stdout = new Readable({ read() { /* never pushes/ends */ } })
+    }
+    kill(): boolean { return true }
+  }
+
+  it('treeKills the subtree with SIGTERM and SIGKILL-escalates on timeout', async () => {
+    const child = new HangingChild()
+    const kills: Array<{ pid: number; signal: string }> = []
+    const kill = (pid: number, signal: string, cb?: (err?: Error) => void) => {
+      kills.push({ pid, signal })
+      cb?.()
+    }
+    const result = await readRefineChildOutput(child as unknown as ChildProcess, 20, kill)
+    expect(result.timedOut).toBe(true)
+    expect(result.code).toBeNull()
+    // SIGTERM fired immediately against the whole subtree (not a bare child.kill).
+    expect(kills.some((k) => k.pid === 4242 && k.signal === 'SIGTERM')).toBe(true)
+    // SIGKILL escalation fires after the 2s grace window.
+    await new Promise((r) => setTimeout(r, 2100))
+    expect(kills.some((k) => k.pid === 4242 && k.signal === 'SIGKILL')).toBe(true)
+  })
+
+  it('cancels the SIGKILL escalation when the child closes within the grace window', async () => {
+    const child = new HangingChild()
+    const kills: Array<{ pid: number; signal: string }> = []
+    const kill = (pid: number, signal: string, cb?: (err?: Error) => void) => {
+      kills.push({ pid, signal })
+      cb?.()
+    }
+    const p = readRefineChildOutput(child as unknown as ChildProcess, 20, kill)
+    // After the timeout fires (SIGTERM sent), the CLI honours it and exits
+    // before the SIGKILL escalation window elapses.
+    await new Promise((r) => setTimeout(r, 50))
+    child.emit('close', 143)
+    await p
+    await new Promise((r) => setTimeout(r, 2100))
+    expect(kills.some((k) => k.signal === 'SIGTERM')).toBe(true)
+    // No SIGKILL — the escalation timer was cleared on close.
+    expect(kills.some((k) => k.signal === 'SIGKILL')).toBe(false)
   })
 })

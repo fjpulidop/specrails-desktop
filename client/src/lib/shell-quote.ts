@@ -39,16 +39,39 @@ export function quoteWindowsPowerShell(path: string): string {
 }
 
 /**
- * Pick the right quoting for the host runtime. POSIX outside Windows; on Windows
- * we quote for PowerShell — the integrated terminal's default shell
- * (server resolveShell → powershell.exe) — which (unlike cmd.exe) interpolates
- * inside double quotes, so cmd-style quoting would be an injection sink (M3).
+ * Resolved Windows shell family for a terminal session. The server's
+ * `resolveShellFor` resolves PowerShell when available and otherwise falls back
+ * to `COMSPEC`/cmd.exe; those two quote completely differently. When the server
+ * exposes the resolved family per session, callers thread it through here so a
+ * cmd.exe session quotes correctly (BUG-CLIENT-02).
  */
-export function quoteForHost(path: string, isWindows: boolean): string {
-  return isWindows ? quoteWindowsPowerShell(path) : quotePosix(path)
+export type WindowsShellHint = 'powershell' | 'cmd'
+
+/**
+ * Pick the right quoting for the host runtime. POSIX outside Windows. On Windows
+ * the quoting depends on the resolved shell: PowerShell (the default — the
+ * integrated terminal resolves powershell.exe when present) interpolates inside
+ * double quotes, so we single-quote (cmd-style doubles would be an injection
+ * sink, M3); cmd.exe passes single quotes literally, so it needs the double-quote
+ * `quoteWindowsCmd` path instead.
+ *
+ * `shellHint` defaults to `'powershell'` so the no-hint behaviour is byte-
+ * identical to before — only an explicit `'cmd'` hint changes anything.
+ */
+export function quoteForHost(
+  path: string,
+  isWindows: boolean,
+  shellHint: WindowsShellHint = 'powershell',
+): string {
+  if (!isWindows) return quotePosix(path)
+  return shellHint === 'cmd' ? quoteWindowsCmd(path) : quoteWindowsPowerShell(path)
 }
 
 /** Join multiple paths separated by spaces, each individually quoted. */
-export function quotePathList(paths: string[], isWindows: boolean): string {
-  return paths.map((p) => quoteForHost(p, isWindows)).join(' ')
+export function quotePathList(
+  paths: string[],
+  isWindows: boolean,
+  shellHint: WindowsShellHint = 'powershell',
+): string {
+  return paths.map((p) => quoteForHost(p, isWindows, shellHint)).join(' ')
 }

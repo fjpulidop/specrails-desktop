@@ -9,7 +9,7 @@ import { getDesktopSetting, setDesktopSetting } from '../desktop-db'
 import { loadOrCreateCert, rotateCert, mobileDir, type GatewayCert } from './mobile-tls'
 import { createMobileRouter } from './mobile-router'
 import { MobileWsBridge } from './mobile-ws'
-import { listDevices, revokeAllDevices, sweepExpiredDevices } from './mobile-devices'
+import { listDevices, revokeAllDevices, sweepExpiredDevices, getAllowedProjects } from './mobile-devices'
 import { MobileWebrtcGateway } from './mobile-webrtc-peer'
 import { MobileSignalReconnect } from './mobile-signal-reconnect'
 import { buildRegisterDevice, buildRpcDispatch, createLoopbackFetch } from './mobile-webrtc'
@@ -157,7 +157,11 @@ export class MobileGateway {
     }))
 
     const server = https.createServer({ cert: this._cert.certPem, key: this._cert.keyPem }, app)
-    const bridge = new MobileWsBridge()
+    // BUG-MOBILE-02: scope each socket's subscribe to the device's granted
+    // projects (null ⇒ unrestricted/all-projects, the default for paired devices).
+    const bridge = new MobileWsBridge({
+      allowedProjectsFor: (deviceId) => getAllowedProjects(this._db, deviceId),
+    })
     bridge.start()
 
     const port = this.configuredPort()
@@ -193,6 +197,9 @@ export class MobileGateway {
     this._webrtc = new MobileWebrtcGateway({
       bridge,
       registerDevice: async (input) => {
+        // `input` already carries `requireExistingToken` on the reconnect path
+        // (set by MobileWebrtcGateway.createOffer) so a mailbox-only attacker
+        // cannot mint a device — see BUG-AUTH-01.
         const r = await createWebDevice(input)
         if (r.ok) {
           this._broadcast({

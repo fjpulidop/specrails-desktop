@@ -50,6 +50,10 @@ export class JiraClient {
   private fetchImpl: FetchImpl
 
   constructor(cfg: JiraClientConfig) {
+    // Defence-in-depth: never let a client be built with an insecure / spoofed
+    // base URL — a thrown error here guarantees the credential is never sent.
+    // (detectDeployment validates the same way at the connect/probe boundary.)
+    assertSecureJiraBaseUrl(cfg.baseUrl)
     this.cfg = cfg
     // Node 18+ exposes a global fetch (undici); injectable for tests.
     this.fetchImpl = cfg.fetchImpl ?? ((globalThis as any).fetch as FetchImpl)
@@ -368,22 +372,84 @@ function truncate(s: string, max = 500): string {
 }
 
 /**
+ * Thrown when a Jira base URL is rejected by `assertSecureJiraBaseUrl` /
+ * `detectDeployment`. A typed error so callers (and tests) can distinguish a
+ * validation failure from a network/HTTP error. Carries `status:400` so a route
+ * could map it directly to a 400 response.
+ */
+export class JiraUrlError extends Error {
+  readonly status = 400
+  constructor(message: string) {
+    super(message)
+    this.name = 'JiraUrlError'
+  }
+}
+
+/** True for an explicit loopback host (the only place plain http is allowed). */
+function isLoopbackHost(hostname: string): boolean {
+  const h = hostname.toLowerCase()
+  if (h === 'localhost' || h === '::1' || h === '[::1]') return true
+  // 127.0.0.0/8
+  return /^127(?:\.\d{1,3}){3}$/.test(h)
+}
+
+/**
+ * Validate a Jira base URL and return its parsed, security-normalised form.
+ *
+ * Hardens two attacks (BUG-JIRA-CLIENT-01 / -02):
+ *  - rejects non-`https` URLs (the PAT / Basic creds would otherwise travel in
+ *    cleartext) — `http` is permitted ONLY for explicit localhost/loopback;
+ *  - rejects URLs carrying userinfo (`https://acme.atlassian.net@evil.com/`),
+ *    which would parse to host `evil.com` and exfiltrate the credential.
+ *
+ * Returns the parsed `URL` and the lowercased `hostname` (NOT `host`, so a
+ * `:port@evil.com` userinfo split can never re-enter the suffix match).
+ *
+ * @throws {JiraUrlError} on any rejected URL.
+ */
+export function assertSecureJiraBaseUrl(baseUrl: string): { url: URL; hostname: string } {
+  let url: URL
+  try {
+    url = new URL(baseUrl)
+  } catch {
+    throw new JiraUrlError('Jira base URL is not a valid URL')
+  }
+  if (url.username || url.password) {
+    // userinfo (user[:pass]@host) — reject outright; trusting host after this is unsafe.
+    throw new JiraUrlError('Jira base URL must not contain credentials in the URL')
+  }
+  const protocol = url.protocol.toLowerCase()
+  const hostname = url.hostname.toLowerCase()
+  if (protocol === 'http:' && isLoopbackHost(hostname)) {
+    return { url, hostname }
+  }
+  if (protocol !== 'https:') {
+    throw new JiraUrlError('Jira base URL must use https')
+  }
+  return { url, hostname }
+}
+
+/**
  * Detect Cloud vs Data Center from the base URL host. `*.atlassian.net` ⇒ Cloud
  * (v3, Basic, ADF); otherwise DC/Server (v2, Bearer, wiki). A `probe` caller can
  * still override after hitting /myself, but the host heuristic is the default.
+ *
+ * The URL is validated first (`assertSecureJiraBaseUrl`): an insecure or
+ * userinfo-spoofed base URL throws `JiraUrlError` BEFORE any auth scheme is
+ * chosen, so a spoofed host can never select a credential to leak.
+ *
+ * @throws {JiraUrlError} when the base URL is rejected.
  */
 export function detectDeployment(baseUrl: string): {
   deployment: JiraDeployment
   apiVersion: '2' | '3'
   authScheme: 'basic' | 'bearer'
 } {
-  let host = ''
-  try {
-    host = new URL(baseUrl).host.toLowerCase()
-  } catch {
-    host = baseUrl.toLowerCase()
-  }
-  const isCloud = host.endsWith('.atlassian.net') || host.endsWith('.jira.com')
+  // Match against the parsed hostname only — never the raw string or `host`
+  // (which can carry `:port` / leftover userinfo). This collapses the prior
+  // try/catch fallback that trusted the raw lowercased string.
+  const { hostname } = assertSecureJiraBaseUrl(baseUrl)
+  const isCloud = hostname.endsWith('.atlassian.net') || hostname.endsWith('.jira.com')
   return isCloud
     ? { deployment: 'cloud', apiVersion: '3', authScheme: 'basic' }
     : { deployment: 'dc', apiVersion: '2', authScheme: 'bearer' }

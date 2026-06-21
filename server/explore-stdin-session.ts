@@ -15,6 +15,7 @@
 
 import type { ChildProcess } from 'node:child_process'
 import { createInterface, type Interface } from 'node:readline'
+import treeKill from 'tree-kill'
 import { spawnAiCli } from './util/cli-prompt'
 
 /**
@@ -50,6 +51,12 @@ interface Session {
   child: ChildProcess
   reader: Interface
   handlers: TurnHandlers | null
+  /**
+   * Set true when a buffered stdin write later emits an async 'error' (e.g.
+   * EPIPE after the child dies). The next `writeTurn` surfaces it as failure so
+   * ChatManager can fail the turn instead of silently dropping the message.
+   */
+  writeFailed: boolean
 }
 
 export interface SpawnSpec {
@@ -95,7 +102,12 @@ export class ExploreStdinSessions {
       cwd: spec.cwd,
     } as Parameters<typeof spawnAiCli>[2])
 
-    const session: Session = { child, reader: null as unknown as Interface, handlers: null }
+    const session: Session = {
+      child,
+      reader: null as unknown as Interface,
+      handlers: null,
+      writeFailed: false,
+    }
 
     if (child.stdout) {
       session.reader = createInterface({ input: child.stdout, crlfDelay: Infinity })
@@ -111,6 +123,16 @@ export class ExploreStdinSessions {
     }
     child.on('close', onExit)
     child.on('error', () => onExit(null))
+    // A buffered stdin write can emit 'error' asynchronously (e.g. EPIPE once the
+    // child dies). Without a listener an unhandled 'error' on a Writable crashes
+    // the process — route it to onClose so the session settles, and flag it so a
+    // racing writeTurn surfaces the delayed failure instead of reporting success.
+    if (child.stdin) {
+      child.stdin.on('error', () => {
+        session.writeFailed = true
+        onExit(null)
+      })
+    }
 
     this._sessions.set(id, session)
     return { child, isNew: true }
@@ -138,6 +160,11 @@ export class ExploreStdinSessions {
   writeTurn(id: string, text: string): boolean {
     const s = this._sessions.get(id)
     if (!s || !s.child.stdin || s.child.stdin.destroyed) return false
+    // A prior buffered write may have already failed asynchronously (EPIPE on a
+    // dead child) — its 'error' listener flags the session, and we report that
+    // delayed failure here so ChatManager fails the turn rather than reporting a
+    // success that never reaches the (now-dead) child.
+    if (s.writeFailed) return false
     try {
       s.child.stdin.write(frameStreamJsonUserMessage(text)) // ignore backpressure boolean
       return true
@@ -155,7 +182,20 @@ export class ExploreStdinSessions {
       s.reader?.close()
     } catch { /* best-effort */ }
     try {
-      if (s.child.pid && !s.child.killed) s.child.kill('SIGTERM')
+      // treeKill the whole subtree — on Windows the child is the cmd.exe
+      // cross-spawn wrapper and the real claude (+ MCP subprocesses) is a
+      // grandchild that a bare child.kill leaves orphaned. Escalate to SIGKILL
+      // after a grace window if the child swallows SIGTERM. (Mirrors
+      // QueueManager._kill / spawn-lifecycle.)
+      if (s.child.pid && !s.child.killed) {
+        const pid = s.child.pid
+        treeKill(pid, 'SIGTERM')
+        const killTimer = setTimeout(() => {
+          try { treeKill(pid, 'SIGKILL', () => { /* best-effort */ }) } catch { /* gone */ }
+        }, 2000)
+        killTimer.unref?.()
+        s.child.once('close', () => clearTimeout(killTimer))
+      }
     } catch { /* already gone */ }
   }
 

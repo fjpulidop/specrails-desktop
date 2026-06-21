@@ -18,6 +18,23 @@ function cacheKey(projectId: string, namespace: string): string {
   return `${projectId}:${namespace}`
 }
 
+/**
+ * Purge all cached entries for a project (every `${projectId}:<namespace>` key).
+ *
+ * The module-level `globalCache` is keyed by `projectId` to prevent cross-project
+ * bleed, but it has no automatic deletion path — a long session that adds/removes
+ * many projects would grow it unbounded, and a reused project id would briefly
+ * flash the previous occupant's stale data (stale-while-revalidate). Callers MUST
+ * invoke this on project removal (BUG-CLIENT-03).
+ */
+export function purgeProjectCache(projectId: string): void {
+  if (!projectId) return
+  const prefix = `${projectId}:`
+  for (const cachedKey of globalCache.keys()) {
+    if (cachedKey.startsWith(prefix)) globalCache.delete(cachedKey)
+  }
+}
+
 interface UseProjectCacheOptions<T> {
   /** Unique namespace for this cache (e.g., 'commands', 'jobs', 'analytics') */
   namespace: string

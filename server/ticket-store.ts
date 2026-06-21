@@ -152,6 +152,38 @@ export function resolveTicketStoragePath(projectPath: string): string {
 
 // âââ Advisory file locking âââââââââââââââââââââââââââââââââââââââââââââââââââ
 
+/**
+ * BUG-SQLITE-02: read the pid recorded inside a lock file and report whether
+ * that owning process is provably dead on THIS host. Returns:
+ *  - `true`  only when the pid is a valid integer AND `process.kill(pid, 0)`
+ *    throws ESRCH (the process does not exist) -> the lock is reclaimable now.
+ *  - `false` when the pid is unreadable/malformed, is our own live pid, or the
+ *    process is alive (or owned by another user -> EPERM). The mtime TTL is the
+ *    cross-host fallback for these cases.
+ */
+function lockOwnerIsDead(lockPath: string): boolean {
+  let pid: number
+  try {
+    const contents = fs.readFileSync(lockPath, 'utf-8').trim()
+    pid = Number.parseInt(contents, 10)
+  } catch {
+    return false
+  }
+  if (!Number.isInteger(pid) || pid <= 0) {
+    // Foreign / partial-write lock content: cannot prove death, defer to TTL.
+    return false
+  }
+  try {
+    // Signal 0 performs error checking without delivering a signal.
+    process.kill(pid, 0)
+    return false // process exists -> owner alive
+  } catch (err: any) {
+    // ESRCH: no such process -> provably dead. EPERM: process exists but we may
+    // not signal it -> alive. Anything else: be conservative and defer to TTL.
+    return err && err.code === 'ESRCH'
+  }
+}
+
 function acquireLock(filePath: string): void {
   const lockPath = filePath + LOCK_SUFFIX
   const maxAttempts = 50
@@ -175,6 +207,18 @@ function acquireLock(filePath: string): void {
         // Check for stale lock
         try {
           const stat = fs.statSync(lockPath)
+          // BUG-SQLITE-02: owner-PID liveness check. The lock records the
+          // writer's pid; if that process is gone the lock is stale RIGHT NOW
+          // (no need to wait out the mtime TTL). process.kill(pid, 0) probes
+          // liveness without sending a signal: it throws ESRCH when the pid does
+          // not exist (-> stale, reclaim). EPERM means the process exists but is
+          // owned by another user (-> alive, keep the lock). A malformed pid
+          // (foreign/partial write) is ignored and we fall back to mtime TTL.
+          if (lockOwnerIsDead(lockPath)) {
+            fs.unlinkSync(lockPath)
+            continue
+          }
+          // Cross-host / unknown-owner fallback: reclaim on mtime TTL.
           if (Date.now() - stat.mtimeMs > LOCK_STALE_MS) {
             fs.unlinkSync(lockPath)
             continue
@@ -270,16 +314,45 @@ export function validateEpicChildIntegrity(store: TicketStore): string[] {
 }
 
 export function readStore(filePath: string): TicketStore {
-  if (!fs.existsSync(filePath)) {
-    return emptyStore()
-  }
+  // BUG-SQLITE-03: distinguish a genuinely-absent file (-> emptyStore, the first
+  // write creates it) from a PRESENT-but-unreadable/unparseable/foreign-shaped
+  // file. The latter must THROW so mutateStore aborts and never overwrites the
+  // on-disk data with an empty store (which would permanently wipe the backlog).
+  let raw: string
   try {
-    const raw = fs.readFileSync(filePath, 'utf-8')
-    const data = JSON.parse(raw) as TicketStore
-    // Basic validation
-    if (!data.tickets || typeof data.revision !== 'number') {
+    raw = fs.readFileSync(filePath, 'utf-8')
+  } catch (err: any) {
+    // ENOENT (file does not exist) is the only condition that maps to an empty
+    // store. Any other read error (EACCES, EISDIR, EIO, ...) is a present file
+    // we must not blank, so re-throw.
+    if (err && err.code === 'ENOENT') {
       return emptyStore()
     }
+    throw err
+  }
+
+  let data: TicketStore
+  try {
+    data = JSON.parse(raw) as TicketStore
+  } catch (err) {
+    // Present-but-unparseable JSON (hand-edit, partial external write, disk
+    // corruption). Throwing preserves the on-disk bytes - mutateStore aborts.
+    throw new Error(`ticket store at ${filePath} is present but contains invalid JSON: ${(err as Error).message}`)
+  }
+
+  // Foreign / wrong top-level shape: a present file that is valid JSON but does
+  // not look like a TicketStore. Throw rather than blank it.
+  if (
+    data === null ||
+    typeof data !== 'object' ||
+    Array.isArray(data) ||
+    !data.tickets ||
+    typeof data.tickets !== 'object' ||
+    typeof data.revision !== 'number'
+  ) {
+    throw new Error(`ticket store at ${filePath} is present but has an unexpected top-level shape`)
+  }
+  {
     // Normalise per-ticket fields added in schema 1.1 without rewriting the
     // file â version bump only happens on next write via writeStore. Guard each
     // entry so a single corrupt/non-object value (hand-edit, partial-write
@@ -298,8 +371,6 @@ export function readStore(filePath: string): TicketStore {
       }
     }
     return data
-  } catch {
-    return emptyStore()
   }
 }
 

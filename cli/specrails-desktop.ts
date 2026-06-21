@@ -431,14 +431,25 @@ async function resolveProjectFromCwd(baseUrl: string, projectOverride?: string):
           return data.project ?? null
         }
       } else {
-        // Resolve by name: fetch all projects and match
+        // Resolve by name: fetch all projects and match. Names are NOT unique
+        // (two repos with the same basename register the same name), so a bare
+        // first-match `find` would silently mis-route. Auto-pick only on a
+        // unique match; on collision, error out listing the candidates.
         const res = await httpGet(`${baseUrl}/api/projects`)
         if (res.status === 200) {
           const data = JSON.parse(res.body) as { projects?: DesktopProject[] }
-          const match = (data.projects ?? []).find(
+          const matches = (data.projects ?? []).filter(
             (p) => p.name.toLowerCase() === projectOverride.toLowerCase()
           )
-          return match ?? null
+          if (matches.length > 1) {
+            cliError(`--project "${projectOverride}" is ambiguous (${matches.length} projects share this name):`)
+            for (const m of matches) {
+              cliError(`  ${m.id}  ${m.path}`)
+            }
+            cliError('disambiguate with --project <path> instead of the name')
+            return null
+          }
+          return matches[0] ?? null
         }
       }
       return null
@@ -642,10 +653,16 @@ async function runViaWebManager(command: string, baseUrl: string, projectOverrid
 // Direct fallback path
 // ---------------------------------------------------------------------------
 
+// Mirrors the real claude stream-json `result` event (see claude-adapter.ts
+// extractClaudeResult): cost is `total_cost_usd`, tokens nest under `usage.*`,
+// and the final answer text is carried on `result`.
 interface StreamJsonResult {
-  cost_usd?: number
-  input_tokens?: number
-  output_tokens?: number
+  total_cost_usd?: number
+  result?: string
+  usage?: {
+    input_tokens?: number
+    output_tokens?: number
+  }
 }
 
 async function runDirect(command: string): Promise<number> {
@@ -653,8 +670,11 @@ async function runDirect(command: string): Promise<number> {
 
   const args = [
     '--dangerously-skip-permissions',
+    // `-p` takes a SINGLE operand — the whole prompt. Splitting on whitespace
+    // (the old `...command.trim().split(/\s+/)`) shattered multi-word prompts
+    // into stray positionals and lost quoting/whitespace. Pass it intact.
     '-p',
-    ...command.trim().split(/\s+/),
+    command.trim(),
     '--output-format', 'stream-json',
     '--verbose',
   ]
@@ -698,11 +718,24 @@ async function runDirect(command: string): Promise<number> {
       return
     }
 
-    if (parsed.type === 'text') {
+    if (parsed.type === 'assistant') {
+      // Real claude emits assistant text as `type:'assistant'` with
+      // `message.content[]` `{type:'text', text}` blocks (mirror
+      // parseClaudeStreamLine). The legacy `type:'text'`/`content` shape is
+      // kept as a fallback for older/synthetic streams.
+      const msg = (parsed as { message?: { content?: Array<{ type?: string; text?: string }> } }).message
+      const text = (msg?.content ?? [])
+        .filter((b) => b.type === 'text')
+        .map((b) => b.text ?? '')
+        .join('')
+      if (text) process.stdout.write(`${text}\n`)
+    } else if (parsed.type === 'text') {
       const content = (parsed as { content?: string }).content ?? ''
       if (content) process.stdout.write(`${content}\n`)
     } else if (parsed.type === 'result') {
       resultData = parsed as StreamJsonResult
+      // The `result` event also carries the final answer text on `result`.
+      if (resultData.result) process.stdout.write(`${resultData.result}\n`)
     }
     // All other types: silently ignore
   })
@@ -728,10 +761,11 @@ async function runDirect(command: string): Promise<number> {
   let totalTokens: number | undefined
 
   if (resultData) {
-    if (resultData.cost_usd != null) costUsd = resultData.cost_usd
-    const tokensIn = resultData.input_tokens ?? 0
-    const tokensOut = resultData.output_tokens ?? 0
-    if (resultData.input_tokens != null || resultData.output_tokens != null) {
+    if (resultData.total_cost_usd != null) costUsd = resultData.total_cost_usd
+    const usage = resultData.usage
+    const tokensIn = usage?.input_tokens ?? 0
+    const tokensOut = usage?.output_tokens ?? 0
+    if (usage?.input_tokens != null || usage?.output_tokens != null) {
       totalTokens = tokensIn + tokensOut
     }
   }

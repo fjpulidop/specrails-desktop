@@ -76,25 +76,67 @@ function currentLink(home?: string): string {
 }
 
 /**
+ * Read the framework version from the documented per-version stamp marker that
+ * core's `install-framework` writes at `<versionDir>/.framework-stamp<providerDir>.json`
+ * (`{ version, provider, at }`). When `current` is a real dir (Windows copy
+ * fallback) or a junction, the version is NOT recoverable from the path basename
+ * (`current`), so the marker inside the dir is the source of truth.
+ *
+ * Returns the first non-empty `version` field found among any stamp markers
+ * directly under `dir`, or null when none is present/readable.
+ */
+function readFrameworkVersionMarker(dir: string): string | null {
+  let entries: string[]
+  try {
+    entries = fs.readdirSync(dir)
+  } catch {
+    return null
+  }
+  for (const name of entries) {
+    // `.framework-stamp.claude.json` / `.framework-stamp.codex.json` / `.gemini`.
+    if (!name.startsWith('.framework-stamp') || !name.endsWith('.json')) continue
+    try {
+      const parsed = JSON.parse(fs.readFileSync(path.join(dir, name), 'utf8')) as { version?: unknown }
+      if (typeof parsed.version === 'string') {
+        const v = parsed.version.trim()
+        if (v.length > 0) return v
+      }
+    } catch {
+      /* unreadable / malformed marker — try the next one */
+    }
+  }
+  return null
+}
+
+/**
  * The version `framework/current` resolves to, or null when `current` is absent
- * / not a `<version>` dir. Reads the basename of the symlink target.
+ * / unresolvable. POSIX: reads the basename of the symlink target (the `<version>`
+ * dir name). Windows junction/copy fallback: `current` is a real dir (or a
+ * junction whose `lstat` is not a POSIX symlink), so the basename is `current`
+ * and the version is read from the documented `.framework-stamp*.json` marker
+ * inside it instead.
  */
 export function readCurrentFrameworkVersion(home?: string): string | null {
   const link = currentLink(home)
   try {
     const st = fs.lstatSync(link)
-    let target: string
     if (st.isSymbolicLink()) {
-      target = fs.readlinkSync(link)
-    } else if (st.isDirectory()) {
-      // Windows copy fallback: `current` is a real dir holding a marker.
-      target = link
-    } else {
-      return null
+      const target = fs.readlinkSync(link)
+      const resolved = path.isAbsolute(target) ? target : path.resolve(frameworkRoot(home), target)
+      const base = path.basename(resolved)
+      // A POSIX symlink targets the `<version>` dir by name. A Windows junction
+      // read as a symlink also yields the absolute `<version>` target, so the
+      // basename is the version. Only when the basename is still `current`
+      // (unresolvable) do we fall back to the stamp marker inside the dir.
+      if (base !== 'current') return base
+      return readFrameworkVersionMarker(resolved)
     }
-    const resolved = path.isAbsolute(target) ? target : path.resolve(frameworkRoot(home), target)
-    const base = path.basename(resolved)
-    return base === 'current' ? null : base
+    if (st.isDirectory()) {
+      // Windows copy fallback / non-symlink junction: `current` is a real dir
+      // holding the materialized framework. Read the version from its marker.
+      return readFrameworkVersionMarker(link)
+    }
+    return null
   } catch {
     return null
   }

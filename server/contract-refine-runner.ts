@@ -13,6 +13,7 @@
 import { randomUUID } from 'node:crypto'
 import { createInterface } from 'node:readline'
 import { ChildProcess } from 'node:child_process'
+import treeKill from 'tree-kill'
 import { spawnAiCli } from './util/cli-prompt'
 import { runAiCliInvocation } from './spawn-lifecycle'
 import { getAdapter } from './providers/registry'
@@ -87,6 +88,23 @@ export interface ContractRefineOutcome {
   conversationId: string
 }
 
+/**
+ * BUG-PARSER-04: a result event can carry `is_error: true` (with an exit code
+ * of 0) when the turn was truncated — most commonly `subtype: 'error_max_turns'`
+ * where the model never got to emit the contract block. Previously this fell
+ * through to the parser and surfaced as `malformed` (a misleading reason that
+ * implies the model produced bad output, when really the run was cut short).
+ * Detect the truncation/error markers and short-circuit to `model_error`.
+ */
+function isResultErrorEvent(resultEvent: Record<string, unknown> | null): boolean {
+  if (!resultEvent) return false
+  if (resultEvent.is_error === true) return true
+  const subtype = typeof resultEvent.subtype === 'string' ? resultEvent.subtype : ''
+  // `error_max_turns` is the canonical truncation subtype; treat any
+  // `error_*` subtype as a model-side error rather than malformed output.
+  return subtype === 'error_max_turns' || subtype.startsWith('error_')
+}
+
 function normalizeClaudeCodeModel(model: string | null | undefined): string {
   if (!model || typeof model !== 'string') return 'sonnet'
   return model
@@ -147,6 +165,40 @@ export function prepareContractRefineSpawn(
   return { args, cwd, systemPrompt, env }
 }
 
+/** Grace before SIGKILL-escalating a child that swallowed SIGTERM. */
+const REFINE_SIGKILL_GRACE_MS = 2_000
+
+/**
+ * BUG-PARSER-01: tear down the FULL process subtree on timeout, mirroring the
+ * shared `spawn-lifecycle.ts` teardown. A bare `child.kill('SIGTERM')` leaves
+ * grandchildren (cmd.exe / npx wrappers) orphaned and never force-kills a
+ * signal-swallowing CLI. We treeKill SIGTERM, then SIGKILL-escalate after a
+ * grace window. The escalation timer is returned so the close handler can clear
+ * it. Inlined here (not a shared module) per file-ownership constraints.
+ *
+ * `kill` is injectable for tests so the timeout path can be asserted without
+ * spawning a real `ps`/`taskkill` against a fake pid.
+ */
+type TreeKiller = (pid: number, signal: string, cb?: (err?: Error) => void) => void
+
+function escalateKill(
+  pid: number | undefined,
+  kill: TreeKiller,
+): NodeJS.Timeout | null {
+  if (typeof pid !== 'number') return null
+  try {
+    kill(pid, 'SIGTERM', () => { /* best-effort */ })
+  } catch { /* already gone */ }
+  const escalation = setTimeout(() => {
+    try {
+      kill(pid, 'SIGKILL', () => { /* best-effort */ })
+    } catch { /* already gone */ }
+  }, REFINE_SIGKILL_GRACE_MS)
+  // Don't let the escalation timer keep the event loop alive.
+  if (typeof escalation.unref === 'function') escalation.unref()
+  return escalation
+}
+
 /**
  * Test-friendly inner runner: takes a child-like object and returns the parsed
  * outcome (text + result event + close code). Does NOT touch the DB or the
@@ -155,6 +207,7 @@ export function prepareContractRefineSpawn(
 export function readRefineChildOutput(
   child: ChildProcess,
   timeoutMs: number,
+  kill: TreeKiller = treeKill,
 ): Promise<{
   fullText: string
   resultEvent: Record<string, unknown> | null
@@ -178,6 +231,7 @@ export function readRefineChildOutput(
         if (stderrBuf.length > 8192) stderrBuf = stderrBuf.slice(-8192)
       })
     }
+    let killEscalation: NodeJS.Timeout | null = null
     const reader = createInterface({ input: child.stdout, crlfDelay: Infinity })
     reader.on('line', (line: string) => {
       let parsed: Record<string, unknown> | null = null
@@ -196,7 +250,9 @@ export function readRefineChildOutput(
     })
     const timer = setTimeout(() => {
       timedOut = true
-      try { child.kill('SIGTERM') } catch { /* best effort */ }
+      // BUG-PARSER-01: treeKill the whole subtree (SIGTERM) and SIGKILL-escalate
+      // after a grace window so a signal-swallowing CLI tree is force-killed.
+      killEscalation = escalateKill(child.pid, kill)
       if (!settled) {
         settled = true
         resolve({ fullText, resultEvent, code: null, timedOut: true })
@@ -204,6 +260,9 @@ export function readRefineChildOutput(
     }, timeoutMs)
     child.on('close', (code) => {
       clearTimeout(timer)
+      // The child exited (possibly because SIGTERM was honoured) — cancel the
+      // pending SIGKILL escalation.
+      if (killEscalation) { clearTimeout(killEscalation); killEscalation = null }
       if (settled) return
       settled = true
       if (code !== 0 && stderrBuf) {
@@ -213,6 +272,7 @@ export function readRefineChildOutput(
     })
     child.on('error', (err) => {
       clearTimeout(timer)
+      if (killEscalation) { clearTimeout(killEscalation); killEscalation = null }
       console.log(`[contract-refine-runner] child error: ${(err as Error).message}; stderr=${JSON.stringify(stderrBuf.slice(-2000))}`)
       if (settled) return
       settled = true
@@ -401,6 +461,22 @@ export async function runContractRefine(
     return { ok: false, reason: result.resultEvent ? 'model_error' : 'crashed', ticketId, conversationId }
   }
 
+  // BUG-PARSER-04: exit-0 but the result event flags an error / max-turns
+  // truncation — classify as model_error, not malformed.
+  if (isResultErrorEvent(result.resultEvent)) {
+    const r = result.resultEvent as Record<string, unknown>
+    console.log(`[contract-refine-runner] result error event subtype=${r.subtype ?? '-'} is_error=${r.is_error ?? '-'}`)
+    recordSafely(deps, conversationId, ticketId, conversation.model, startedAt, finishedAt, 'failed', result.resultEvent)
+    deps.broadcast({
+      type: 'explore.contract_refine_failed',
+      projectId: deps.projectId,
+      ticketId,
+      reason: 'model_error',
+      timestamp: finishedAt,
+    })
+    return { ok: false, reason: 'model_error', ticketId, conversationId }
+  }
+
   const parse = parseContractLayerBlock(result.fullText)
   console.log(`[contract-refine-runner] parse ok=${parse.ok} reason=${!parse.ok ? parse.reason : '-'} firstChars=${JSON.stringify(result.fullText.slice(0, 200))}`)
   if (!parse.ok) {
@@ -560,6 +636,22 @@ export async function runContractRefineForQuick(
       timestamp: finishedAt,
     })
     return { ok: false, reason: result.resultEvent ? 'model_error' : 'crashed', ticketId, conversationId: '' }
+  }
+
+  // BUG-PARSER-04: exit-0 but the result event flags an error / max-turns
+  // truncation — classify as model_error, not malformed.
+  if (isResultErrorEvent(result.resultEvent)) {
+    const r = result.resultEvent as Record<string, unknown>
+    console.log(`[contract-refine-runner] quick result error event subtype=${r.subtype ?? '-'} is_error=${r.is_error ?? '-'}`)
+    recordSafelyQuick(deps, ticketId, model, startedAt, finishedAt, 'failed', result.resultEvent)
+    deps.broadcast({
+      type: 'explore.contract_refine_failed',
+      projectId: deps.projectId,
+      ticketId,
+      reason: 'model_error',
+      timestamp: finishedAt,
+    })
+    return { ok: false, reason: 'model_error', ticketId, conversationId: '' }
   }
 
   const parse = parseContractLayerBlock(result.fullText)

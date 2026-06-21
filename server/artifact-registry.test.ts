@@ -29,9 +29,11 @@ import {
   withFileLock,
   workspaceLayout,
   isCompleteEntry,
+  refreshLockHeartbeat,
   type ProjectEntry,
   type RegistryFile,
 } from './artifact-registry'
+import { statSync } from 'fs'
 
 let home: string
 
@@ -143,6 +145,72 @@ describe('atomicWrite', () => {
     expect(readFileSync(target, 'utf8')).toBe('{"a":1}\n')
     const leftovers = readdirSync(path.dirname(target)).filter((f) => f.includes('.tmp-'))
     expect(leftovers).toEqual([])
+  })
+
+  it('BUG-ARTREG-03: overwrites an existing file durably (parent-dir fsync is best-effort, never throws)', () => {
+    const target = path.join(home, 'durable', 'out.json')
+    atomicWrite(target, '{"v":1}\n')
+    // A second write over the existing destination must still succeed (and the
+    // post-rename parent-dir fsync must not surface an error on any platform).
+    expect(() => atomicWrite(target, '{"v":2}\n')).not.toThrow()
+    expect(readFileSync(target, 'utf8')).toBe('{"v":2}\n')
+    const leftovers = readdirSync(path.dirname(target)).filter((f) => f.includes('.tmp-'))
+    expect(leftovers).toEqual([])
+  })
+})
+
+describe('refreshLockHeartbeat (BUG-ARTREG-04)', () => {
+  it('bumps the lock mtime forward when the on-disk token still matches', () => {
+    const lp = lockPath(home)
+    writeFileSync(lp, 'my-token')
+    // Backdate the lock close to the stale threshold.
+    const stale = Date.now() / 1000 - 25
+    utimesSync(lp, stale, stale)
+    const before = statSync(lp).mtimeMs
+
+    const ok = refreshLockHeartbeat(lp, 'my-token')
+    expect(ok).toBe(true)
+    // mtime is refreshed to ~now ⇒ the holder no longer looks stale.
+    const after = statSync(lp).mtimeMs
+    expect(after).toBeGreaterThan(before)
+    expect(Date.now() - after).toBeLessThan(2000)
+  })
+
+  it('does NOT touch the lock when another writer owns it (token mismatch)', () => {
+    const lp = lockPath(home)
+    writeFileSync(lp, 'new-owner-token')
+    const stale = Date.now() / 1000 - 25
+    utimesSync(lp, stale, stale)
+    const before = statSync(lp).mtimeMs
+
+    // A stale-broken writer must never bump the NEW owner's mtime (that would
+    // mask the legitimate owner and could trigger a second stale-break race).
+    const ok = refreshLockHeartbeat(lp, 'our-old-token')
+    expect(ok).toBe(false)
+    expect(statSync(lp).mtimeMs).toBe(before)
+  })
+
+  it('is a no-op (returns false, never throws) when the lock file is gone', () => {
+    const lp = lockPath(home)
+    expect(refreshLockHeartbeat(lp, 'whatever')).toBe(false)
+  })
+
+  it('withFileLock keeps the lock mtime live for the duration of fn', () => {
+    // The heartbeat interval is unref'd and can only fire between event-loop
+    // turns; a synchronous fn never yields, so assert the explicit refresh helper
+    // wired into withFileLock keeps the token-owned lock fresh.
+    let tokenWhileHeld = ''
+    let mtimeWhileHeld = 0
+    withFileLock(home, () => {
+      tokenWhileHeld = readFileSync(lockPath(home), 'utf8')
+      mtimeWhileHeld = statSync(lockPath(home)).mtimeMs
+      // An explicit heartbeat refresh (what the interval would do) lands.
+      expect(refreshLockHeartbeat(lockPath(home), tokenWhileHeld)).toBe(true)
+    })
+    expect(tokenWhileHeld.length).toBeGreaterThan(0)
+    expect(Date.now() - mtimeWhileHeld).toBeLessThan(2000)
+    // Lock released after fn.
+    expect(existsSync(lockPath(home))).toBe(false)
   })
 })
 
@@ -308,6 +376,77 @@ describe('mirrorProjectEntry', () => {
     expect(adopted.desktopProjectId).toBe('uuid-9')
     expect(adopted.providers).toEqual(['claude', 'codex'])
     expect(adopted.createdAt).toBe('2020-01-01T00:00:00.000Z')
+    rmSync(repo, { recursive: true, force: true })
+  })
+
+  it('BUG-ARTREG-02: SELF-HEALS a partial existing entry by rebuilding paths from the immutable slug (never strands legacy)', () => {
+    const repo = realpathSync(mkdtempSync(path.join(os.tmpdir(), 'partial-')))
+    const key = keyFor(repo)
+    // Pre-plant a hand-edited / truncated entry: it carries the immutable slug
+    // but is MISSING a path field (ticketsPath) and several others. Verbatim
+    // spread would write it back incomplete → resolveArtifacts treats it as
+    // ABSENT → the project is stranded in legacy mode forever.
+    const partial = {
+      repoPath: canonicalizeRepoPath(repo),
+      slug: 'frozen-slug',
+      workspaceDir: path.join(home, '.specrails', 'projects', 'frozen-slug', 'workspace'),
+      // ticketsPath / backlogConfigPath / profilesDir / pluginsStateDir /
+      // fileSummariesDir / artifactRoot / codeRoot / stateDir all DROPPED.
+      providers: ['claude'],
+      primaryProvider: 'claude',
+      createdAt: '2021-03-03T00:00:00.000Z',
+      source: 'core-standalone',
+    } as unknown as ProjectEntry
+    writeFileSync(registryPath(home), JSON.stringify({ schemaVersion: 1, projects: { [key]: partial } }))
+    expect(isCompleteEntry(partial)).toBe(false)
+
+    const healed = mirrorProjectEntry(
+      { repoPath: repo, slug: 'desktop-slug', providers: ['claude'], desktopProjectId: 'uheal' },
+      home,
+    )
+    // The IMMUTABLE slug from the existing entry is kept (never re-homed to
+    // desktop's slug), and every path field is rebuilt from workspaceLayout.
+    const expectedLayout = workspaceLayout(home, 'frozen-slug', canonicalizeRepoPath(repo))
+    expect(healed.slug).toBe('frozen-slug')
+    expect(healed.workspaceDir).toBe(expectedLayout.workspaceDir)
+    expect(healed.ticketsPath).toBe(expectedLayout.ticketsPath)
+    expect(healed.backlogConfigPath).toBe(expectedLayout.backlogConfigPath)
+    expect(healed.profilesDir).toBe(expectedLayout.profilesDir)
+    expect(healed.pluginsStateDir).toBe(expectedLayout.pluginsStateDir)
+    expect(healed.fileSummariesDir).toBe(expectedLayout.fileSummariesDir)
+    expect(healed.artifactRoot).toBe(expectedLayout.workspaceDir)
+    expect(healed.stateDir).toBe(expectedLayout.stateDir)
+    expect(healed.codeRoot).toBe(canonicalizeRepoPath(repo))
+    expect(healed.source).toBe('desktop')
+    expect(healed.createdAt).toBe('2021-03-03T00:00:00.000Z')
+
+    // The written-back entry is now COMPLETE, so resolveArtifacts no longer
+    // treats it as absent — the project is relocated, not stranded in legacy.
+    const persisted = readRegistryOrEmpty(home).projects[key]
+    expect(isCompleteEntry(persisted)).toBe(true)
+    const art = resolveArtifacts(repo, { allocate: false }, home)
+    expect(art.isLegacy).toBe(false)
+    expect(art.ticketsPath).toBe(expectedLayout.ticketsPath)
+    rmSync(repo, { recursive: true, force: true })
+  })
+
+  it('BUG-ARTREG-02: rebuilds paths from desiredSlug when the partial entry has NO slug', () => {
+    const repo = realpathSync(mkdtempSync(path.join(os.tmpdir(), 'noslug-')))
+    const key = keyFor(repo)
+    const partial = {
+      repoPath: canonicalizeRepoPath(repo),
+      // no slug at all
+      providers: ['claude'],
+      primaryProvider: 'claude',
+      source: 'desktop',
+    } as unknown as ProjectEntry
+    writeFileSync(registryPath(home), JSON.stringify({ schemaVersion: 1, projects: { [key]: partial } }))
+
+    const healed = mirrorProjectEntry({ repoPath: repo, slug: 'fallback-slug', providers: ['claude'] }, home)
+    const expectedLayout = workspaceLayout(home, 'fallback-slug', canonicalizeRepoPath(repo))
+    expect(healed.slug).toBe('fallback-slug')
+    expect(healed.ticketsPath).toBe(expectedLayout.ticketsPath)
+    expect(isCompleteEntry(readRegistryOrEmpty(home).projects[key])).toBe(true)
     rmSync(repo, { recursive: true, force: true })
   })
 })

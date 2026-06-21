@@ -322,6 +322,52 @@ process.exit(7)
     it('returns null when current is absent', () => {
       expect(readCurrentFrameworkVersion(home)).toBeNull()
     })
+
+    it('reads the version from the stamp marker when current is a REAL dir (Windows copy fallback)', () => {
+      // BUG-FW-02: on the Windows copy fallback `current` is a real directory
+      // (a copy of `<version>/`), so its basename is `current` and the version is
+      // ONLY recoverable from the documented `.framework-stamp<providerDir>.json`
+      // marker core's install-framework writes inside the version dir.
+      const fw = frameworkRoot(home)
+      const current = path.join(fw, 'current')
+      mkdirSync(path.join(current, '.claude', 'agents'), { recursive: true })
+      writeFileSync(
+        path.join(current, '.framework-stamp.claude.json'),
+        JSON.stringify({ version: '5.3.0', provider: 'claude', at: new Date().toISOString() }),
+      )
+      // Pre-fix this returned null (basename('current') === 'current').
+      expect(readCurrentFrameworkVersion(home)).toBe('5.3.0')
+    })
+
+    it('reads the version from the marker for a non-claude provider (gemini/codex stamp)', () => {
+      const fw = frameworkRoot(home)
+      const current = path.join(fw, 'current')
+      mkdirSync(current, { recursive: true })
+      writeFileSync(
+        path.join(current, '.framework-stamp.gemini.json'),
+        JSON.stringify({ version: '6.1.0', provider: 'gemini', at: 'now' }),
+      )
+      expect(readCurrentFrameworkVersion(home)).toBe('6.1.0')
+    })
+
+    it('returns null when current is a real dir with no readable stamp marker', () => {
+      const fw = frameworkRoot(home)
+      const current = path.join(fw, 'current')
+      mkdirSync(path.join(current, '.claude'), { recursive: true })
+      // No stamp marker, plus a malformed one to prove it is skipped, not thrown.
+      writeFileSync(path.join(current, '.framework-stamp.claude.json'), 'not json{')
+      expect(readCurrentFrameworkVersion(home)).toBeNull()
+    })
+
+    it.skipIf(process.platform === 'win32')(
+      'still reads the version from a POSIX symlink target basename (legacy path unchanged)',
+      () => {
+        const fw = frameworkRoot(home)
+        mkdirSync(path.join(fw, '7.0.0'), { recursive: true })
+        symlinkSync('7.0.0', path.join(fw, 'current'))
+        expect(readCurrentFrameworkVersion(home)).toBe('7.0.0')
+      },
+    )
   })
 
   describe('versionCheck under the registry file-lock (boot pattern)', () => {

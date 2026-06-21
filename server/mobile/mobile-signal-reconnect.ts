@@ -6,8 +6,15 @@
 // that mailbox (OUTBOUND — no inbound needed, no cert wall), answers with a
 // fresh offer, and reads back the companion's answer. The mailbox only ever
 // carries the ~5s SDP handshake; once connected, all traffic is P2P. The desktop
-// authenticates the reconnecting device by its existing token (see
-// buildRegisterDevice), so no new pairing/device is created.
+// authenticates the reconnecting device by its EXISTING token (see
+// buildRegisterDevice + MobileWebrtcGateway reconnect path), so no new
+// pairing/device is created.
+//
+// BUG-AUTH-01: the offer's single-use pairing secret is NOT published to the
+// mailbox on reconnect. Reconnect auth is the device's existing token, not the
+// secret; broadcasting the secret in cleartext would let a mailbox reader / MITM
+// answer the offer. The secret is retained only for the QR (first-pairing) path,
+// which never goes through this mailbox.
 
 export interface SignalFetchResult {
   status: number
@@ -58,10 +65,13 @@ export class MobileSignalReconnect {
           if (req !== null) {
             const offer = await this._deps.makeOffer(room)
             if (offer) {
+              // BUG-AUTH-01: never publish `offer.secret` to the public mailbox.
+              // The reconnecting companion authenticates with its existing device
+              // token; the secret would only help an eavesdropper.
               await this._post(
                 room,
                 'offer',
-                JSON.stringify({ sdp: offer.sdp, sec: offer.secret, hub: offer.hubInstanceId, name: offer.hubName }),
+                JSON.stringify({ sdp: offer.sdp, hub: offer.hubInstanceId, name: offer.hubName }),
               )
             }
           }

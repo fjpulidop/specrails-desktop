@@ -3,6 +3,7 @@ import { randomUUID } from 'crypto'
 import path from 'path'
 import fs from 'fs'
 import net from 'net'
+import dns from 'dns'
 import type { WsMessage } from './types'
 import type { ProjectRegistry } from './project-registry'
 import { getDesktopSetting, setDesktopSetting, listProjects, listAgents, getAgent, addAgent, updateAgent, listWebhooks, getWebhook, addWebhook, updateWebhook, removeWebhook, getProjectSetupSession } from './desktop-db'
@@ -143,13 +144,63 @@ function isPrivateIpv4(addr: string): boolean {
     (a === 100 && b >= 64 && b <= 127) // 100.64.0.0/10 CGNAT
 }
 
+// BUG-WEBHOOK-01: alternate IPv4 encodings (decimal `2130706433`, octal
+// `0177.0.0.1`, hex `0x7f.0.0.1` or a single `0x7f000001`) all resolve to the
+// same address as `127.0.0.1` but evade the dotted-quad-only `isPrivateIpv4`.
+// Canonicalize any whole-number / non-dotted-decimal form to a dotted quad so
+// the private-range check sees the real address. Returns null when the input is
+// not an unambiguous IPv4 literal (e.g. a real DNS name) so callers fall back to
+// DNS resolution.
+function canonicalizeIpv4Literal(host: string): string | null {
+  const u32ToDotted = (n: number): string =>
+    `${(n >>> 24) & 0xff}.${(n >>> 16) & 0xff}.${(n >>> 8) & 0xff}.${n & 0xff}`
+  // Single integer form (decimal / 0x-hex / 0-octal): https://2130706433/
+  if (/^(0x[0-9a-f]+|0[0-7]*|[1-9][0-9]*)$/.test(host)) {
+    let n: number
+    if (host.startsWith('0x')) n = Number.parseInt(host.slice(2), 16)
+    else if (host.startsWith('0') && host !== '0') n = Number.parseInt(host, 8)
+    else n = Number.parseInt(host, 10)
+    if (!Number.isFinite(n) || n < 0 || n > 0xffffffff) return null
+    return u32ToDotted(n >>> 0)
+  }
+  // Dotted form where one or more octets are octal/hex: 0177.0.0.1 / 0x7f.0.0.1
+  if (/^[0-9a-fx.]+$/.test(host) && host.includes('.')) {
+    const segs = host.split('.')
+    if (segs.length !== 4) return null
+    const nums: number[] = []
+    for (const seg of segs) {
+      if (seg === '') return null
+      let v: number
+      if (/^0x[0-9a-f]+$/.test(seg)) v = Number.parseInt(seg.slice(2), 16)
+      else if (/^0[0-7]+$/.test(seg)) v = Number.parseInt(seg, 8)
+      else if (/^[0-9]+$/.test(seg)) v = Number.parseInt(seg, 10)
+      else return null
+      if (!Number.isFinite(v) || v < 0 || v > 255) return null
+      nums.push(v)
+    }
+    return nums.join('.')
+  }
+  return null
+}
+
 function isPrivateIp(hostname: string): boolean {
   // Strip IPv6 brackets that URL.hostname can include (else net.isIP returns 0
   // and an IPv6 literal would slip through as "not an IP").
   let host = hostname.toLowerCase().replace(/^\[|\]$/g, '')
-  // IPv4-mapped IPv6 (`::ffff:169.254.169.254`) → check the embedded v4.
-  const mapped = /^::ffff:(\d+\.\d+\.\d+\.\d+)$/.exec(host)
-  if (mapped) return isPrivateIpv4(mapped[1])
+  // IPv4-mapped IPv6 — both the dotted-decimal embedding (`::ffff:127.0.0.1`)
+  // and the hex embedding (`::ffff:7f00:1`) must be unwrapped to their v4 form.
+  const mappedDotted = /^::ffff:(\d+\.\d+\.\d+\.\d+)$/.exec(host)
+  if (mappedDotted) return isPrivateIpv4(mappedDotted[1])
+  const mappedHex = /^::ffff:([0-9a-f]{1,4}):([0-9a-f]{1,4})$/.exec(host)
+  if (mappedHex) {
+    const hi = Number.parseInt(mappedHex[1], 16)
+    const lo = Number.parseInt(mappedHex[2], 16)
+    const v4 = `${(hi >> 8) & 0xff}.${hi & 0xff}.${(lo >> 8) & 0xff}.${lo & 0xff}`
+    return isPrivateIpv4(v4)
+  }
+  // Alternate IPv4 encodings (decimal / octal / hex) → canonicalize then check.
+  const canon = canonicalizeIpv4Literal(host)
+  if (canon) return isPrivateIpv4(canon)
   const ipVersion = net.isIP(host)
   if (ipVersion === 0) return false
   if (ipVersion === 6) {
@@ -157,6 +208,25 @@ function isPrivateIp(hostname: string): boolean {
       host.startsWith('fc') || host.startsWith('fd') || host.startsWith('fe80:')
   }
   return isPrivateIpv4(host)
+}
+
+// BUG-WEBHOOK-01 (DNS-rebinding SSRF): `isPrivateIp` only inspects IP literals,
+// so a public DNS name that resolves to a loopback/private/link-local address
+// slips through. Resolve ALL addresses for the host and reject if ANY of them
+// is private. Returns true ⇒ the host is safe to target; false ⇒ blocked.
+// Tolerant of resolution failure: an unresolvable host can't be a confirmed
+// SSRF target, so it is allowed through (delivery will simply fail).
+async function resolvesToPublicOnly(hostname: string): Promise<boolean> {
+  const host = hostname.replace(/^\[|\]$/g, '')
+  // Literal IPs are already handled synchronously by isPrivateIp; skip lookup.
+  if (net.isIP(host) !== 0 || canonicalizeIpv4Literal(host.toLowerCase())) return true
+  let addrs: dns.LookupAddress[]
+  try {
+    addrs = await dns.promises.lookup(host, { all: true, verbatim: true })
+  } catch {
+    return true
+  }
+  return !addrs.some((a) => isPrivateIp(a.address))
 }
 
 function validateHttpUrl(raw: string, opts: { allowLoopback: boolean; requireHttps: boolean }): string | null {
@@ -645,8 +715,23 @@ export function createDesktopRouter(
     res.json({ webhooks: listWebhooks(registry.desktopDb).map(publicWebhook) })
   })
 
+  // BUG-WEBHOOK-01: webhook destinations must not resolve to internal hosts.
+  // `validateHttpUrl` blocks IP literals; this adds the DNS-resolution gate so a
+  // public hostname that resolves to a loopback/private/link-local address is
+  // rejected too. Skipped when loopback is explicitly allowed (dev opt-in).
+  async function webhookHostAllowed(normalizedUrl: string): Promise<boolean> {
+    if (process.env.SPECRAILS_ALLOW_LOCAL_WEBHOOKS === '1') return true
+    let hostname: string
+    try {
+      hostname = new URL(normalizedUrl).hostname
+    } catch {
+      return false
+    }
+    return resolvesToPublicOnly(hostname)
+  }
+
   // POST /api/webhooks — create a webhook
-  router.post('/webhooks', (req, res) => {
+  router.post('/webhooks', async (req, res) => {
     const { url, secret, events, projectId } = req.body ?? {}
     if (!url || typeof url !== 'string') {
       res.status(400).json({ error: 'url is required' })
@@ -680,6 +765,11 @@ export function createDesktopRouter(
       return
     }
 
+    if (!(await webhookHostAllowed(normalizedUrl))) {
+      res.status(400).json({ error: 'webhook url must be https and must not target localhost/private IPs' })
+      return
+    }
+
     const webhook = addWebhook(registry.desktopDb, {
       id: randomUUID(),
       projectId: projectId ?? null,
@@ -691,7 +781,7 @@ export function createDesktopRouter(
   })
 
   // PATCH /api/webhooks/:id — update a webhook
-  router.patch('/webhooks/:id', (req, res) => {
+  router.patch('/webhooks/:id', async (req, res) => {
     const existing = getWebhook(registry.desktopDb, req.params.id)
     if (!existing) {
       res.status(404).json({ error: 'Webhook not found' })
@@ -711,6 +801,10 @@ export function createDesktopRouter(
         requireHttps: true,
       })
       if (!candidate) {
+        res.status(400).json({ error: 'webhook url must be https and must not target localhost/private IPs' })
+        return
+      }
+      if (!(await webhookHostAllowed(candidate))) {
         res.status(400).json({ error: 'webhook url must be https and must not target localhost/private IPs' })
         return
       }

@@ -65,6 +65,15 @@ export class AgentRefineManager {
   private _activeProcesses = new Map<string, ChildProcess>()
   private _bodyBuffers = new Map<string, string>()
   private _disposed = false
+  /**
+   * Refine sessions whose child was intentionally killed via cancel(). The
+   * post-spawn settle path short-circuits for these so the killed child's
+   * non-zero exit does not overwrite the authoritative 'cancelled' status with
+   * 'error' nor emit a spurious failure (BUG-LONGTAIL-01).
+   */
+  private _cancelledIds = new Set<string>()
+  /** Pending SIGKILL escalation timers, keyed by refine id (BUG-LONGTAIL-02). */
+  private _killTimers = new Map<string, ReturnType<typeof setTimeout>>()
 
   constructor(
     broadcast: (msg: WsMessage) => void,
@@ -85,6 +94,32 @@ export class AgentRefineManager {
   }
 
   /**
+   * SIGTERM the child's process tree, then arm an unref'd 2s SIGKILL escalation
+   * (cleared once the spawn settles). A child that swallows SIGTERM — or has a
+   * blocked tool subprocess — would otherwise become an unkillable orphan
+   * running with --dangerously-skip-permissions (BUG-LONGTAIL-02).
+   */
+  private _killWithEscalation(refineId: string, pid: number): void {
+    try { treeKill(pid, 'SIGTERM') } catch { /* best-effort */ }
+    const existing = this._killTimers.get(refineId)
+    if (existing) clearTimeout(existing)
+    const grace = setTimeout(() => {
+      this._killTimers.delete(refineId)
+      try { treeKill(pid, 'SIGKILL', () => { /* best-effort */ }) } catch { /* gone */ }
+    }, 2000)
+    grace.unref?.()
+    this._killTimers.set(refineId, grace)
+  }
+
+  private _clearKillTimer(refineId: string): void {
+    const timer = this._killTimers.get(refineId)
+    if (timer) {
+      clearTimeout(timer)
+      this._killTimers.delete(refineId)
+    }
+  }
+
+  /**
    * Tear down before the project's DB is closed (M12). Marks the manager disposed
    * so in-flight close/error handlers short-circuit instead of writing to a
    * closed connection (which throws synchronously inside the EventEmitter and,
@@ -93,8 +128,8 @@ export class AgentRefineManager {
    */
   shutdown(): void {
     this._disposed = true
-    for (const child of this._activeProcesses.values()) {
-      if (child.pid) { try { treeKill(child.pid, 'SIGTERM') } catch { /* ignore */ } }
+    for (const [refineId, child] of this._activeProcesses) {
+      if (child.pid) this._killWithEscalation(refineId, child.pid)
     }
     this._activeProcesses.clear()
     this._bodyBuffers.clear()
@@ -141,7 +176,11 @@ export class AgentRefineManager {
   cancel(refineId: string): void {
     const child = this._activeProcesses.get(refineId)
     if (child?.pid) {
-      try { treeKill(child.pid, 'SIGTERM') } catch { /* ignore */ }
+      // Mark intentionally-cancelled BEFORE killing so the spawn's settle path
+      // short-circuits instead of clobbering 'cancelled' with 'error'
+      // (BUG-LONGTAIL-01), and escalate to SIGKILL (BUG-LONGTAIL-02).
+      this._cancelledIds.add(refineId)
+      this._killWithEscalation(refineId, child.pid)
     }
     const existing = getRefineSession(this._db, refineId)
     if (existing) {
@@ -328,9 +367,14 @@ export class AgentRefineManager {
       },
     })
 
+    this._clearKillTimer(refineId)
     this._activeProcesses.delete(refineId)
     const fullDraft = this._bodyBuffers.get(refineId) ?? ''
     this._bodyBuffers.delete(refineId)
+    // A cancel() killed this child intentionally; its non-zero exit must NOT
+    // overwrite the 'cancelled' status with 'error' or emit a failure
+    // (BUG-LONGTAIL-01).
+    if (this._cancelledIds.delete(refineId)) return
     if (this._disposed) return // M12: project removed mid-flight; DB closing
 
     if (run.spawnFailed) {

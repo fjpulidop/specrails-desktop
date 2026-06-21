@@ -62,4 +62,31 @@ describe('quoteForHost / quotePathList', () => {
     expect(quotePathList(['/a b', '/c'], false)).toBe(`'/a b' '/c'`)
     expect(quotePathList(['C:\\a b', 'C:\\c'], true)).toBe(`'C:\\a b' 'C:\\c'`)
   })
+
+  describe('Windows shell hint (BUG-CLIENT-02)', () => {
+    it('defaults to PowerShell quoting on Windows (byte-identical to no-hint)', () => {
+      // No hint and explicit 'powershell' must produce the same result.
+      expect(quoteForHost('C:\\a b', true)).toBe(quoteForHost('C:\\a b', true, 'powershell'))
+      expect(quoteForHost('C:\\a b', true, 'powershell')).toBe(`'C:\\a b'`)
+    })
+
+    it("cmd hint routes Windows quoting to quoteWindowsCmd (literal double quotes)", () => {
+      expect(quoteForHost('C:\\Program Files (x86)\\foo', true, 'cmd'))
+        .toBe(`"C:\\Program Files (x86)\\foo"`)
+      // cmd metacharacters get caret/double escaping, not single-quote wrapping.
+      expect(quoteForHost('foo%PATH%bar', true, 'cmd')).toBe(`"foo^%PATH^%bar"`)
+    })
+
+    it('hint is ignored on non-Windows (always POSIX)', () => {
+      expect(quoteForHost('/a b', false, 'cmd')).toBe(`'/a b'`)
+      expect(quoteForHost('/a b', false, 'powershell')).toBe(`'/a b'`)
+    })
+
+    it('quotePathList threads the cmd hint to each path', () => {
+      expect(quotePathList(['C:\\a b', 'C:\\c'], true, 'cmd')).toBe(`"C:\\a b" "C:\\c"`)
+      // default + explicit powershell stay single-quoted
+      expect(quotePathList(['C:\\a b'], true)).toBe(`'C:\\a b'`)
+      expect(quotePathList(['C:\\a b'], true, 'powershell')).toBe(`'C:\\a b'`)
+    })
+  })
 })

@@ -36,7 +36,12 @@ export function writeJiraBacklogConfig(projectPath: string): void {
   const target = backlogConfigPath(projectPath)
   const desired: BacklogConfig = { provider: 'local', write_access: false, git_auto: false }
   const existing = readBacklogConfig(projectPath)
-  if (existing && existing.provider === desired.provider && existing.write_access === desired.write_access) {
+  if (
+    existing &&
+    existing.provider === desired.provider &&
+    existing.write_access === desired.write_access &&
+    existing.git_auto === desired.git_auto
+  ) {
     return
   }
   fs.mkdirSync(path.dirname(target), { recursive: true })

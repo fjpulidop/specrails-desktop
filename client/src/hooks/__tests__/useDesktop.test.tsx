@@ -14,6 +14,13 @@ vi.mock('../../lib/api', () => ({
   getApiBase: () => '/api',
 }))
 
+// ─── Mock sonner toast (BUG-CLIENT-04) ──────────────────────────────────────────
+
+const mockToastSuccess = vi.fn()
+vi.mock('sonner', () => ({
+  toast: { success: (...args: unknown[]) => mockToastSuccess(...args) },
+}))
+
 // ─── Mock WebSocket ────────────────────────────────────────────────────────────
 
 class MockWebSocket {
@@ -245,6 +252,93 @@ describe('useDesktop', () => {
 
     act(() => { result.current.completeSetupWizard('proj-setup') })
     expect(result.current.setupProjectIds.has('proj-setup')).toBe(false)
+  })
+
+  it('WS desktop.project_added (from a peer): shows toast (BUG-CLIENT-04 not suppressed)', async () => {
+    ;(global.fetch as ReturnType<typeof vi.fn>).mockResolvedValueOnce({
+      ok: true,
+      json: () => Promise.resolve({ projects: [] }),
+    })
+
+    const { result } = renderHook(() => useDesktop(), { wrapper: makeWrapper() })
+    await waitFor(() => expect(result.current.isLoading).toBe(false))
+
+    await waitFor(() => MockWebSocket.instances.length > 0)
+    const ws = MockWebSocket.instances[0]
+    await act(async () => { ws.onopen?.() })
+
+    act(() => {
+      ws.simulateMessage({
+        type: 'desktop.project_added',
+        project: makeProject({ id: 'peer-proj', name: 'Peer Project' }),
+      })
+    })
+
+    expect(result.current.projects).toHaveLength(1)
+    expect(result.current.activeProjectId).toBe('peer-proj')
+    expect(mockToastSuccess).toHaveBeenCalledTimes(1)
+  })
+
+  it('self-initiated addProject: echoed broadcast does NOT re-toast or re-activate (BUG-CLIENT-04)', async () => {
+    const newProject = makeProject({ id: 'self-proj', name: 'Self Project' })
+    ;(global.fetch as ReturnType<typeof vi.fn>)
+      .mockResolvedValueOnce({ ok: true, json: () => Promise.resolve({ projects: [] }) })
+      .mockResolvedValueOnce({ ok: true, json: () => Promise.resolve({ project: newProject, has_specrails: true }) })
+
+    const { result } = renderHook(() => useDesktop(), { wrapper: makeWrapper() })
+    await waitFor(() => expect(result.current.isLoading).toBe(false))
+
+    await waitFor(() => MockWebSocket.instances.length > 0)
+    const ws = MockWebSocket.instances[0]
+    await act(async () => { ws.onopen?.() })
+
+    // Local add — appends + activates, no toast (toast is for the broadcast path).
+    await act(async () => { await result.current.addProject('/path/to/self') })
+    expect(result.current.activeProjectId).toBe('self-proj')
+    expect(mockToastSuccess).not.toHaveBeenCalled()
+
+    mockSetApiContext.mockClear()
+
+    // Server echoes the broadcast back to the initiator — must be suppressed.
+    act(() => {
+      ws.simulateMessage({ type: 'desktop.project_added', project: newProject })
+    })
+
+    expect(result.current.projects).toHaveLength(1)
+    expect(result.current.activeProjectId).toBe('self-proj')
+    expect(mockToastSuccess).not.toHaveBeenCalled()
+    // No redundant re-activation (setApiContext not called again for the echo).
+    expect(mockSetApiContext).not.toHaveBeenCalled()
+
+    // A SECOND identical broadcast (e.g. a genuinely new peer event reusing the
+    // id later) is no longer suppressed — the just-added flag is consumed once.
+    act(() => {
+      ws.simulateMessage({ type: 'desktop.project_added', project: newProject })
+    })
+    expect(mockToastSuccess).toHaveBeenCalledTimes(1)
+  })
+
+  it('WS desktop.projects: malformed frame (non-array) is ignored, not thrown (BUG-CLIENT-01)', async () => {
+    ;(global.fetch as ReturnType<typeof vi.fn>).mockResolvedValueOnce({
+      ok: true,
+      json: () => Promise.resolve({ projects: [makeProject({ id: 'pre' })] }),
+    })
+
+    const { result } = renderHook(() => useDesktop(), { wrapper: makeWrapper() })
+    await waitFor(() => expect(result.current.isLoading).toBe(false))
+
+    await waitFor(() => MockWebSocket.instances.length > 0)
+    const ws = MockWebSocket.instances[0]
+    await act(async () => { ws.onopen?.() })
+
+    // A malformed `desktop.projects` whose `projects` is not an array must not
+    // throw (pre-fix `incoming.find` crashed) and must leave state untouched.
+    expect(() => {
+      act(() => {
+        ws.simulateMessage({ type: 'desktop.projects', projects: 'oops-not-an-array' })
+      })
+    }).not.toThrow()
+    expect(result.current.projects).toEqual([makeProject({ id: 'pre' })])
   })
 
   it('legacy fallback: useDesktop() returns LEGACY_FALLBACK when no provider', () => {
