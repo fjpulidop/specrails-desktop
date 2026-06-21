@@ -1107,6 +1107,34 @@ export class QueueManager {
     // into --append-system-prompt, keeping the user prompt clean.
     let systemAppend = ''
 
+    // Repository orientation (relocated projects only). The rail spawns from the
+    // WORKSPACE cwd, which holds only `.specrails/` config — NOT the source code.
+    // The repo is reachable via `--add-dir <repoDir>` (injected below) and the
+    // `./project` link. The framework templates point at `${SPECRAILS_REPO_DIR:-.}`,
+    // but the agent's Read/Grep/Glob/Edit tools do NOT expand that shell-var form
+    // (and PowerShell/cmd.exe don't expand POSIX `${VAR:-default}` either) — so on
+    // Windows the agent reads a bogus literal path, falls back to the empty
+    // workspace cwd, finds only framework files, and hallucinates a wrong/"global"
+    // project. Tell it the concrete absolute repo path explicitly. Mirrors the
+    // Explore-cwd orientation. Legacy (non-relocated) ⇒ cwd IS the repo ⇒ skipped
+    // (byte-identical). The `\${` keeps the shell-var form literal in this string.
+    if (execution.relocated && execution.repoDir) {
+      systemAppend +=
+        `REPOSITORY LOCATION — READ THIS FIRST:\n` +
+        `This pipeline runs from a workspace directory that contains ONLY specrails ` +
+        `configuration (.specrails/, agent definitions) — NOT your project's source code. ` +
+        `Your project's source repository is at this ABSOLUTE path:\n` +
+        `  ${execution.repoDir}\n` +
+        `It is also exposed to your tools as an additional working directory (via --add-dir) ` +
+        `and mounted in this cwd as ./project. Use the absolute repo path above (or ./project) ` +
+        `for ALL source reads, edits, greps and globs. Your Read/Grep/Glob/Edit tools do NOT ` +
+        `expand shell variables — NEVER pass a literal "\${SPECRAILS_REPO_DIR:-.}" or ` +
+        `"\${SPECRAILS_REPO_DIR}" as a path; substitute the absolute path above instead. ` +
+        `The spec/ticket store (.specrails/local-tickets.json) lives in THIS workspace cwd. ` +
+        `Do NOT look for source files under this cwd — they exist only under the repository ` +
+        `path above.\n\n`
+    }
+
     // Output chaining: inject previous step's output as context for dependent jobs
     if (job.dependsOnJobId) {
       const parentJob = this._jobs.get(job.dependsOnJobId)
