@@ -256,6 +256,27 @@ describe('pickDirectTransition', () => {
       const got = pickDirectTransition(transitions, 'cancelled')
       expect(got!.id).toBe('tDiscard')
     })
+
+    it('"Discard" (without -ed) is also recognised as a reject for cancelled', () => {
+      const transitions = [tx({ id: 'tDiscard', toId: 's-disc', toName: 'Discard', category: 'done' })]
+      expect(pickDirectTransition(transitions, 'cancelled')!.id).toBe('tDiscard')
+    })
+  })
+
+  describe('whole-word lexicon matching (no substring false positives)', () => {
+    it('does NOT treat "Invalidate Cache" as a reject (substring "invalid")', () => {
+      // Old substring matching flagged this as cancel → a successful job would
+      // dead-letter. Whole-word matching treats it as a normal done status.
+      const transitions = [tx({ id: 'tInval', toId: 's-inval', toName: 'Invalidate Cache', category: 'done' })]
+      expect(pickDirectTransition(transitions, 'done')!.id).toBe('tInval')
+    })
+
+    it('does NOT treat "Completed Review" ship-word inside a larger word incorrectly', () => {
+      // 'complete'/'completed' are whole words here → ship; sanity that the
+      // success path still selects a legitimately ship-named status.
+      const transitions = [tx({ id: 'tDone', toId: 's-done', toName: 'Completed', category: 'done' })]
+      expect(pickDirectTransition(transitions, 'done')!.id).toBe('tDone')
+    })
   })
 
   describe('done category disambiguation — cancelled state', () => {
@@ -903,6 +924,46 @@ describe('walkToCategory', () => {
     })
     expect(out).toMatchObject({ status: 'applied', transitions: ['tReview'] })
     expect(applied.map((t) => t.id)).toEqual(['tReview'])
+  })
+
+  it('reaches a multi-hop explicit target (new → In Progress → On Review) without overshooting', async () => {
+    // statusMap.done = "On Review" reachable only via In Progress. The walk must
+    // step through the indeterminate status and direct-match On Review, never a
+    // generic done edge.
+    const hop0 = tx({ id: 'h1', toId: 's-prog', toName: 'In Progress', category: 'indeterminate' })
+    const hop1Review = tx({ id: 'h2', toId: 's-rev', toName: 'On Review', category: 'done' })
+    const hop1Closed = tx({ id: 'hClosed', toId: 's-closed', toName: 'Closed', category: 'done' })
+    const calls = [[hop0], [hop1Closed, hop1Review]]
+    let idx = 0
+    const getTransitions = vi.fn(async () => calls[idx++] ?? [])
+    const applied: string[] = []
+    const applyTransition = vi.fn(async (t: JiraTransition) => { applied.push(t.id) })
+    const out = await walkToCategory({ state: 'done', currentCategory: 'new', explicitTarget: 'On Review', getTransitions, applyTransition })
+    expect(out).toMatchObject({ status: 'applied' })
+    expect(applied).toEqual(['h1', 'h2']) // stepped through In Progress, landed On Review (not Closed)
+  })
+
+  it('explicit target unreachable + a generic ship edge present → dead-letters, never overshoots onto the ship status', async () => {
+    // statusMap.done = "On Review" but only a direct "Closed" (ship) done edge
+    // exists. The walk must NOT silently land on Closed — it dead-letters.
+    const closed = tx({ id: 'tClosed', toId: 's-closed', toName: 'Closed', category: 'done' })
+    const getTransitions = vi.fn(async () => [closed])
+    const applyTransition = vi.fn(async () => {})
+    const out = await walkToCategory({ state: 'done', currentCategory: 'indeterminate', explicitTarget: 'On Review', getTransitions, applyTransition })
+    expect(out.status).toBe('no_path')
+    expect(applyTransition).not.toHaveBeenCalled()
+  })
+
+  it('discard with an unreachable explicit discard status does NOT overshoot onto a ship status', async () => {
+    // discardSpec: state 'cancelled', explicitTarget = discardStatus "Discarded".
+    // Only a generic "Done" (ship) edge is reachable → must dead-letter, never
+    // mark the discarded spec as shipped.
+    const done = tx({ id: 'tDone', toId: 's-done', toName: 'Done', category: 'done' })
+    const getTransitions = vi.fn(async () => [done])
+    const applyTransition = vi.fn(async () => {})
+    const out = await walkToCategory({ state: 'cancelled', currentCategory: 'indeterminate', explicitTarget: 'Discarded', getTransitions, applyTransition })
+    expect(out.status).toBe('no_path')
+    expect(applyTransition).not.toHaveBeenCalled()
   })
 
   it('done walk dead-letters (no_path) rather than discarding when only a Discarded edge exists', async () => {

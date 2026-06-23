@@ -16,10 +16,12 @@
 
 import type { JiraStatusCategory, JiraTransition, SpecLogicalState } from './types'
 
-// 'discard' covers "Discard"/"Discarded" — a rejection status, never a success
-// target. Without it the success resolver treated "Discarded" as a valid ship
-// target and a completed job could be sent there (the reported Done→Discarded bug).
-const CANCEL_LEXICON = ['won\'t do', 'wont do', 'cancelled', 'canceled', 'rejected', 'abandoned', 'invalid', 'duplicate', 'declined', 'discard']
+// 'discard'/'discarded' cover "Discard"/"Discarded" — a rejection status, never a
+// success target. Without them the success resolver treated "Discarded" as a valid
+// ship target and a completed job could be sent there (the reported Done→Discarded
+// bug). Matching is WHOLE-WORD (see nameMatches) so a token never flags a larger
+// word (e.g. 'invalid' must not match "Invalidate", 'complete' not "incomplete").
+const CANCEL_LEXICON = ['won\'t do', 'wont do', 'cancelled', 'canceled', 'rejected', 'abandoned', 'invalid', 'duplicate', 'declined', 'discard', 'discarded']
 const SHIP_LEXICON = ['done', 'closed', 'released', 'resolved', 'complete', 'completed', 'shipped', 'merged']
 
 export function targetCategoryFor(state: SpecLogicalState): JiraStatusCategory {
@@ -38,16 +40,31 @@ export function categoryRank(cat: JiraStatusCategory): number {
   return cat === 'new' ? 0 : cat === 'indeterminate' ? 1 : 2
 }
 
+function escapeRegExp(s: string): string {
+  return s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+}
+
 function nameMatches(name: string | undefined, lexicon: string[]): boolean {
   if (!name) return false
   const n = name.toLowerCase()
-  return lexicon.some((w) => n.includes(w))
+  // Whole-word match (\b…\b) so a lexicon token never matches INSIDE a larger word
+  // ('invalid' must not flag "Invalidate", 'complete' not "incomplete"). Multi-word
+  // phrases ("won't do") still match as a whole.
+  return lexicon.some((w) => new RegExp(`\\b${escapeRegExp(w)}\\b`, 'i').test(n))
 }
 
 /** A status whose NAME reads as a cancellation/rejection (e.g. "Discarded",
  *  "Won't Do"). A successful (done) outcome must never auto-land on one of these. */
 function isCancelName(name: string | undefined): boolean {
   return nameMatches(name, CANCEL_LEXICON)
+}
+
+/** Does this transition's destination match the user's explicitly configured
+ *  target (by status id, status name, or transition id)? Case-insensitive on name.
+ *  The explicit config ALWAYS wins over the cancel/ship lexicon heuristics. */
+function matchesExplicit(t: JiraTransition, explicitTarget: string): boolean {
+  const e = explicitTarget.toLowerCase()
+  return t.to.id === explicitTarget || t.to.name.toLowerCase() === e || t.id === explicitTarget
 }
 
 function transitionCategory(t: JiraTransition): JiraStatusCategory | null {
@@ -68,10 +85,7 @@ export function pickDirectTransition(
   explicitTarget?: string
 ): JiraTransition | null {
   if (explicitTarget) {
-    const e = explicitTarget.toLowerCase()
-    const t = transitions.find(
-      (tr) => tr.to.id === explicitTarget || tr.to.name.toLowerCase() === e || tr.id === explicitTarget
-    )
+    const t = transitions.find((tr) => matchesExplicit(tr, explicitTarget))
     if (t) return t
     // The user explicitly configured a target status (e.g. statusMap.done =
     // "On Review") but there is no direct edge to it from here. NEVER substitute
@@ -114,7 +128,7 @@ export function pickProgressTransition(
   currentCategory: JiraStatusCategory,
   targetCategory: JiraStatusCategory,
   visitedStatusIds: Set<string>,
-  opts?: { avoidCancelNames?: boolean }
+  opts?: { avoidCancelNames?: boolean; explicitTarget?: string }
 ): JiraTransition | null {
   const goal = categoryRank(targetCategory)
   const cur = categoryRank(currentCategory)
@@ -128,6 +142,13 @@ export function pickProgressTransition(
     // done-category "Discarded"): it would terminate the issue in the wrong
     // place. Better to dead-letter than overshoot onto a cancellation.
     if (opts?.avoidCancelNames && isCancelName(t.to.name)) continue
+    // When the user configured an explicit target, never STEP onto a terminal
+    // done-category status that isn't that target — landing on a different done
+    // status (a generic "Done"/"Released", or for a discard the wrong terminal)
+    // would strand the issue on the wrong status. The configured target itself is
+    // reached via pickDirectTransition; here we only walk THROUGH non-terminal
+    // statuses toward it, dead-lettering if it's unreachable.
+    if (opts?.explicitTarget && transitionCategory(t) === 'done' && !matchesExplicit(t, opts.explicitTarget)) continue
     const cat = transitionCategory(t)
     if (!cat) continue
     const rank = categoryRank(cat)
@@ -234,6 +255,7 @@ export async function walkToCategory(args: {
     // "Discarded"-style terminal status while reaching for the real target.
     const step = pickProgressTransition(transitions, currentCategory, target, visited, {
       avoidCancelNames: args.state !== 'cancelled',
+      explicitTarget: args.explicitTarget,
     })
     if (!step) {
       return {

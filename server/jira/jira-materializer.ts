@@ -22,10 +22,19 @@ import { adfToText } from './jira-adf'
 import { getLinkByIssueId, insertLinkWithId, updateLinkStatusCategory } from './jira-db'
 import type { JiraConnection, JiraIssue, JiraStatusCategory } from './types'
 
-// Keep in sync with CANCEL_LEXICON in jira-status-resolver.ts. 'discard' covers
-// "Discard"/"Discarded" so an inbound issue parked in a Discarded status reads
-// back as `cancelled`, not a successful `done`.
-const CANCEL_NAMES = ['won\'t do', 'wont do', 'cancelled', 'canceled', 'rejected', 'abandoned', 'invalid', 'duplicate', 'declined', 'discard']
+// Keep in sync with CANCEL_LEXICON in jira-status-resolver.ts. 'discard'/'discarded'
+// cover "Discard"/"Discarded" so an inbound issue parked in a Discarded status reads
+// back as `cancelled`, not a successful `done`. Matched WHOLE-WORD (see below) so a
+// token never flags a larger word (e.g. 'invalid' must not match "Invalidate").
+const CANCEL_NAMES = ['won\'t do', 'wont do', 'cancelled', 'canceled', 'rejected', 'abandoned', 'invalid', 'duplicate', 'declined', 'discard', 'discarded']
+
+function escapeRegExp(s: string): string {
+  return s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+}
+
+function nameIsCancel(name: string): boolean {
+  return CANCEL_NAMES.some((w) => new RegExp(`\\b${escapeRegExp(w)}\\b`, 'i').test(name))
+}
 
 export function issueStatusCategory(issue: JiraIssue): JiraStatusCategory {
   const k = issue.fields.status?.statusCategory?.key
@@ -39,7 +48,7 @@ export function mapStatus(issue: JiraIssue): TicketStatus {
   if (cat === 'indeterminate') return 'in_progress'
   // done category: distinguish a cancelled/rejected resolution from a real ship.
   const name = (issue.fields.status?.name ?? '').toLowerCase()
-  return CANCEL_NAMES.some((w) => name.includes(w)) ? 'cancelled' : 'done'
+  return nameIsCancel(name) ? 'cancelled' : 'done'
 }
 
 /** Map a Jira priority name to a Specrails priority (best-effort, defaults medium). */
