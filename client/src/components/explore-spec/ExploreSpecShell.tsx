@@ -206,10 +206,13 @@ export function ExploreSpecShell({
   // True only when editing a ticket that is ALREADY a real spec (todo/backlog).
   // A draft opened via Continue Editing has `editTicket.status === 'draft'`, so
   // it is NOT a "real spec edit": its primary commit PUBLISHES (flips draft →
-  // todo) rather than PATCHing in place, and the button reads "Create Spec".
-  // editTicket without a status (legacy callers / tests) ⇒ real-spec edit, so
-  // the prior PATCH behaviour is preserved unchanged.
+  // todo) rather than PATCHing in place. editTicket without a status (legacy
+  // callers / tests) ⇒ real-spec edit, so the prior PATCH behaviour is preserved.
+  // NOTE: this flag drives the COMMIT BEHAVIOUR only. The button LABEL uses
+  // `isEditingExisting` below so editing ANY existing spec (draft included) reads
+  // "Update Spec", not "Create Spec" (only a fresh Explore reads "Create Spec").
   const isRealSpecEdit = !!editTicket && editTicket.status !== 'draft'
+  const isEditingExisting = !!editTicket
   const composerRef = useRef<RichAttachmentEditorHandle | null>(null)
   const conversationScrollRef = useRef<HTMLDivElement | null>(null)
   const conversationBottomRef = useRef<HTMLDivElement | null>(null)
@@ -784,7 +787,7 @@ export function ExploreSpecShell({
             onClick={handleCreate}
             disabled={!draft.title.trim() || isCreating}
             className="gap-1.5"
-            aria-label={isRealSpecEdit ? t('shell.updateSpecAriaLabel') : t('shell.createSpecAriaLabel')}
+            aria-label={isEditingExisting ? t('shell.updateSpecAriaLabel') : t('shell.createSpecAriaLabel')}
             data-testid="explore-spec-create"
             title={!draft.title.trim() ? t('shell.createSpecDisabledTitle') : undefined}
           >
@@ -795,7 +798,7 @@ export function ExploreSpecShell({
             ) : (
               <Check className="w-3.5 h-3.5" />
             )}
-            {isRealSpecEdit ? t('shell.updateSpec') : t('shell.createSpec')}
+            {isEditingExisting ? t('shell.updateSpec') : t('shell.createSpec')}
           </Button>
           {onMinimize && (
             <Button
@@ -1064,7 +1067,7 @@ export function ExploreSpecShell({
             priority: draft.priority ?? null,
             acceptanceCriteria: draft.acceptanceCriteria ?? [],
           } satisfies ReviewProposed}
-          mode={isRealSpecEdit ? 'edit' : 'create'}
+          mode={isEditingExisting ? 'edit' : 'create'}
           isCommitting={isCreating}
           onBack={() => setReviewOpen(false)}
           onCommit={async () => {
