@@ -193,8 +193,19 @@ export async function captureBrowserRegion(
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ rect, pendingSpecId, captureNetwork: opts?.captureNetwork ?? true }),
   })
-  if (!res.ok) throw new Error(`Capture failed (${res.status})`)
+  if (!res.ok) throw new Error(await captureErrorMessage(res))
   return (await res.json()) as CaptureResult
+}
+
+/** Build a capture error that includes the server's reason (e.g. an invalid-rect
+ *  or invalid-pendingSpecId 400) so the in-modal banner is actionable, not a bare
+ *  status code. */
+async function captureErrorMessage(res: Response): Promise<string> {
+  const detail = await res
+    .json()
+    .then((b) => (b as { error?: string }).error)
+    .catch(() => undefined)
+  return detail ? `Capture failed (${res.status}): ${detail}` : `Capture failed (${res.status})`
 }
 
 export async function captureBrowserBreakpoints(
@@ -209,7 +220,7 @@ export async function captureBrowserBreakpoints(
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ rect, anchorPoint, pendingSpecId, breakpoints }),
   })
-  if (!res.ok) throw new Error(`Capture failed (${res.status})`)
+  if (!res.ok) throw new Error(await captureErrorMessage(res))
   return (await res.json()) as CaptureResult
 }
 
@@ -347,6 +358,25 @@ export function rectFromPoints(a: Point, b: Point): CaptureRect {
  *  clicks producing 1px captures). */
 export function isUsableSelection(rect: CaptureRect, minPx = 8): boolean {
   return rect.width >= minPx && rect.height >= minPx
+}
+
+/**
+ * Clamp a capture rect into the page viewport so the server's `parseRect` guard
+ * (which REJECTS negative or out-of-bounds coords) never 400s a legitimate
+ * selection. A hovered/locked element's rect — taken from the page's own
+ * getBoundingClientRect — can legitimately start above/left of the viewport
+ * (x/y < 0) or extend past it; clamping keeps x,y ≥ 0 with a positive size and
+ * the far edge in bounds, screenshotting the visible region. (This was the cause
+ * of "Capture failed (400)" when selecting an edge element from Explore.)
+ */
+export function clampRectToViewport(rect: CaptureRect, viewport: { width: number; height: number }): CaptureRect {
+  const vw = Math.max(1, viewport.width)
+  const vh = Math.max(1, viewport.height)
+  const left = Math.max(0, Math.min(rect.x, vw - 1))
+  const top = Math.max(0, Math.min(rect.y, vh - 1))
+  const right = Math.min(vw, Math.max(left + 1, rect.x + rect.width))
+  const bottom = Math.min(vh, Math.max(top + 1, rect.y + rect.height))
+  return { x: Math.round(left), y: Math.round(top), width: Math.round(right - left), height: Math.round(bottom - top) }
 }
 
 /** Count populated (non-empty) facets of a captured DOM for the panel badge. */

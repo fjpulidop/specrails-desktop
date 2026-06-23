@@ -11,6 +11,7 @@ import {
   mapRectToDisplay,
   rectFromPoints,
   isUsableSelection,
+  clampRectToViewport,
   BREAKPOINT_DIMS,
   type CaptureRect,
   type CaptureResult,
@@ -256,7 +257,11 @@ export function BrowserCaptureModal({ open, onClose, projectId, pendingSpecId, o
 
   // ─── Select mode: hover-to-select an element, or drag a custom rectangle ──────
 
-  const runCapture = useCallback(async (rect: CaptureRect) => {
+  const runCapture = useCallback(async (rawRect: CaptureRect) => {
+    // Clamp into the viewport so a hovered/locked element rect that starts off-screen
+    // (negative x/y) or overflows the viewport never trips the server's parseRect
+    // guard → "Capture failed (400)". A real drag is already clamped by toViewport.
+    const rect = clampRectToViewport(rawRect, viewport)
     setCapturing(true)
     setCaptureError(null)
     try {
@@ -285,7 +290,7 @@ export function BrowserCaptureModal({ open, onClose, projectId, pendingSpecId, o
       setLocked(null)
       session.clearHover()
     }
-  }, [session, pendingSpecId, captureNetwork, captureAllSizes, onCaptured, onClose, t])
+  }, [session, pendingSpecId, captureNetwork, captureAllSizes, onCaptured, onClose, t, viewport])
 
   const onBreadcrumbClick = useCallback((segment: BreadcrumbSegment) => {
     void session.navigateElement(segment.selector, 'self').then((probe) => { if (probe) setLocked(probe) })
