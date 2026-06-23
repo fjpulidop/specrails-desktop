@@ -834,7 +834,16 @@ class PlaywrightContextHandle implements BrowserContextHandle {
   // mount→unmount→mount double-create) share one page — killing the throwaway
   // first session then closed the page out from under the live second session.
   private usedInitial = false
-  constructor(private readonly context: any) {}
+  // Flipped false when the underlying Chromium dies, so the shared-context pool
+  // drops this handle and re-launches instead of reusing a dead context.
+  private alive = true
+  constructor(private readonly context: any) {
+    try { context.on('close', () => { this.alive = false }) } catch { /* ignore */ }
+    try { context.browser()?.on('disconnected', () => { this.alive = false }) } catch { /* ignore */ }
+  }
+  isConnected(): boolean {
+    return this.alive
+  }
   async newPage(): Promise<BrowserPageHandle> {
     let page: any
     if (!this.usedInitial) {

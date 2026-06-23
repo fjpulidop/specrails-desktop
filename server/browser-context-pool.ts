@@ -47,7 +47,17 @@ export class SharedBrowserContextPool implements SharedBrowserContext {
    *  await the same in-flight launch. */
   async acquire(): Promise<BrowserContextHandle> {
     if (this.disposed) throw new BrowserLaunchError('browser context pool disposed')
-    if (this.context) return this.context
+    if (this.context) {
+      // If the shared Chromium died (crash / OOM / killed / dev-server restart),
+      // drop the dead handle so this acquire re-launches a fresh one. Without this
+      // a single crash would poison capture for EVERY project until app restart.
+      if (this.context.isConnected?.() === false) {
+        this.context = null
+        this.contextPromise = null // also drop the resolved promise → force a fresh launch
+      } else {
+        return this.context
+      }
+    }
     if (this.contextPromise) return this.contextPromise
     this.contextPromise = (async () => {
       try {

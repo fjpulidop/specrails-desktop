@@ -4,12 +4,14 @@ import type { BrowserContextHandle, BrowserPageHandle, ContextLauncher } from '.
 
 class FakeContext implements BrowserContextHandle {
   closed = false
+  alive = true
   newPageCalls = 0
   async newPage(): Promise<BrowserPageHandle> {
     this.newPageCalls++
     return {} as BrowserPageHandle
   }
   async close() { this.closed = true }
+  isConnected() { return this.alive }
 }
 
 describe('SharedBrowserContextPool', () => {
@@ -67,6 +69,34 @@ describe('SharedBrowserContextPool', () => {
     resolveLaunch(ctx)
     await Promise.allSettled([acquiring, disposing])
     expect(ctx.closed).toBe(true)
+  })
+
+  it('re-launches a fresh context after the shared one dies (crash recovery)', async () => {
+    const dead = new FakeContext()
+    const fresh = new FakeContext()
+    const launcher = vi.fn()
+      .mockResolvedValueOnce(dead)
+      .mockResolvedValueOnce(fresh) as unknown as ContextLauncher
+    const pool = new SharedBrowserContextPool({ launcher })
+
+    const first = await pool.acquire()
+    expect(first).toBe(dead)
+    // The shared Chromium dies (crash / OOM / killed).
+    dead.alive = false
+    // Next acquire must NOT hand back the corpse — it re-launches.
+    const second = await pool.acquire()
+    expect(second).toBe(fresh)
+    expect(launcher).toHaveBeenCalledTimes(2)
+  })
+
+  it('keeps returning the same context while it stays connected', async () => {
+    const ctx = new FakeContext()
+    const launcher = vi.fn(async () => ctx)
+    const pool = new SharedBrowserContextPool({ launcher })
+    await pool.acquire()
+    await pool.acquire()
+    await pool.acquire()
+    expect(launcher).toHaveBeenCalledTimes(1)
   })
 
   it('acquire after dispose throws', async () => {

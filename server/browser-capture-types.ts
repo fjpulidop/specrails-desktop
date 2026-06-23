@@ -204,6 +204,11 @@ export interface BrowserPageHandle {
 export interface BrowserContextHandle {
   newPage(): Promise<BrowserPageHandle>
   close(): Promise<void>
+  /** False once the underlying browser/context has died (crash, OOM, killed). The
+   *  shared-context pool uses this to drop a dead handle and re-launch instead of
+   *  handing out a corpse forever. Optional: handles that don't implement it are
+   *  treated as always-alive. */
+  isConnected?(): boolean
 }
 
 export interface LaunchContextOptions {
