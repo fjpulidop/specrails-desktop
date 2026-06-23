@@ -37,6 +37,9 @@ interface BrowserCaptureModalProps {
   projectId: string
   pendingSpecId: string
   onCaptured: (result: CaptureResult) => void
+  /** Label for the annotation editor's primary confirm button, so the caller can
+   *  reflect context ("Crear spec" vs "Actualizar spec"). */
+  confirmLabel?: string
 }
 
 interface SelectionBox {
@@ -60,7 +63,7 @@ const PRESET_DIMS: Record<Exclude<ViewportPreset, 'fit'>, { w: number; h: number
  * select mode a drag rectangle is captured (screenshot + DOM) and handed back to
  * Add Spec. Excluded from coverage (canvas + WS + pointer drag is not jsdom-able).
  */
-export function BrowserCaptureModal({ open, onClose, projectId, pendingSpecId, onCaptured }: BrowserCaptureModalProps) {
+export function BrowserCaptureModal({ open, onClose, projectId, pendingSpecId, onCaptured, confirmLabel }: BrowserCaptureModalProps) {
   const { t } = useTranslation('browser')
   const session = useBrowserCaptureSession({ projectId, open })
   const { canvasRef, viewport, status, errorMsg, url, title, hoverRect, hoverSelector, hoverPath } = session
@@ -397,6 +400,7 @@ export function BrowserCaptureModal({ open, onClose, projectId, pendingSpecId, o
           result={markup}
           pendingSpecId={pendingSpecId}
           macOverlay={macOverlay}
+          confirmLabel={confirmLabel}
           onConfirm={(aug) => { onCaptured(aug); onClose() }}
           onReselect={() => { setMarkup(null); setSelecting(true) }}
           onCancel={() => { setMarkup(null); onClose() }}

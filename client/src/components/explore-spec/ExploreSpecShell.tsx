@@ -1083,6 +1083,7 @@ export function ExploreSpecShell({
           projectId={activeProjectId}
           pendingSpecId={pendingSpecId}
           onCaptured={handleCaptured}
+          confirmLabel={isEditingExisting ? t('shell.updateSpec') : t('shell.createSpec')}
         />
       )}
     </div>
