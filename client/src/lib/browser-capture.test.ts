@@ -5,6 +5,7 @@ import {
   mapPointToViewport,
   rectFromPoints,
   isUsableSelection,
+  clampRectToViewport,
   mapRectToDisplay,
   domSummary,
   browserWsUrl,
@@ -79,6 +80,32 @@ describe('browser-capture lib', () => {
     it('rejects tiny selections', () => {
       expect(isUsableSelection({ x: 0, y: 0, width: 4, height: 50 })).toBe(false)
       expect(isUsableSelection({ x: 0, y: 0, width: 20, height: 20 })).toBe(true)
+    })
+
+    describe('clampRectToViewport', () => {
+      const vp = { width: 1280, height: 800 }
+
+      it('leaves an in-bounds rect unchanged', () => {
+        expect(clampRectToViewport({ x: 100, y: 50, width: 200, height: 120 }, vp)).toEqual({ x: 100, y: 50, width: 200, height: 120 })
+      })
+
+      it('clamps a negative origin to 0 while preserving the far edge (the 400 cause)', () => {
+        // An element that starts above/left of the viewport: x=-40,y=-10 → 0,0 with
+        // the right/bottom edge preserved. parseRect would have rejected x<0/y<0.
+        expect(clampRectToViewport({ x: -40, y: -10, width: 240, height: 110 }, vp)).toEqual({ x: 0, y: 0, width: 200, height: 100 })
+      })
+
+      it('caps a rect that overflows the viewport to the far edge', () => {
+        expect(clampRectToViewport({ x: 1200, y: 760, width: 400, height: 400 }, vp)).toEqual({ x: 1200, y: 760, width: 80, height: 40 })
+      })
+
+      it('always yields a positive size and non-negative origin', () => {
+        const out = clampRectToViewport({ x: -5, y: -5, width: 2, height: 2 }, vp)
+        expect(out.x).toBeGreaterThanOrEqual(0)
+        expect(out.y).toBeGreaterThanOrEqual(0)
+        expect(out.width).toBeGreaterThanOrEqual(1)
+        expect(out.height).toBeGreaterThanOrEqual(1)
+      })
     })
 
     it('maps a viewport rect back to displayed canvas coordinates (inverse of point map)', () => {

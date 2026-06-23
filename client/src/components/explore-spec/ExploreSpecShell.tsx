@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { ArrowLeft, Check, Send, Loader2, Minus, Sparkles, X, Plug } from 'lucide-react'
+import { ArrowLeft, Check, Send, Loader2, Minus, Sparkles, X, Plug, Globe, Ratio } from 'lucide-react'
 import { toast } from 'sonner'
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
@@ -15,6 +15,10 @@ import { getApiBase } from '../../lib/api'
 import { API_ORIGIN } from '../../lib/origin'
 import { markSpecGenInFlight, unmarkSpecGenInFlight } from '../../lib/spec-gen-suppression'
 import { RichAttachmentEditor, type RichAttachmentEditorHandle } from '../RichAttachmentEditor'
+import { BrowserCaptureModal } from '../browser-capture/BrowserCaptureModal'
+import { CapturedDomPanel } from '../browser-capture/CapturedDomPanel'
+import { isBrowserCaptureEnabled, type CaptureResult, type CapturedDom } from '../../lib/browser-capture'
+import { genPendingSpecId } from '../../lib/pending-spec-id'
 import { SpecDraftPanel } from './SpecDraftPanel'
 import { ExploreStatusPills } from './ExploreStatusPills'
 import { useSmoothStream } from './useSmoothStream'
@@ -25,6 +29,26 @@ function isMacTauriOverlay(): boolean {
   if (typeof window === 'undefined') return false
   if (!('__TAURI_INTERNALS__' in window)) return false
   return /mac/i.test(navigator.platform)
+}
+
+interface BrowserCaptureBreakpoint {
+  key: string
+  attachmentId: string
+  dataUrl: string
+  width: number
+}
+
+/** A "From a website" capture: a screenshot attachment + a DOM JSON attachment,
+ *  tracked separately from the editor's own pills (mirrors ProposeSpecModal) so
+ *  both ids can be merged into the next turn and cleanly removed together. */
+interface BrowserCaptureEntry {
+  screenshotId: string
+  screenshotName: string
+  screenshotDataUrl: string
+  domAttachmentId: string
+  dom: CapturedDom
+  /** Present for a multi-breakpoint capture: one screenshot per device size. */
+  breakpoints?: BrowserCaptureBreakpoint[]
 }
 
 export interface ExploreSpecShellProps {
@@ -119,7 +143,7 @@ export interface EditTicketSeed {
 
 export function ExploreSpecShell({
   initialIdea,
-  pendingSpecId,
+  pendingSpecId: pendingSpecIdProp,
   initialAttachmentIds,
   initialModel,
   initialProvider,
@@ -141,6 +165,13 @@ export function ExploreSpecShell({
   const jira = useJiraConnection()
   const chat = useChatContext()
   const { activeProjectId } = useDesktop()
+  // Bulletproof the attachment/capture key: some edit-mode launchers historically
+  // passed '' (which 400s the "From a website" capture with "pendingSpecId is
+  // required" and breaks attachment uploads). Always resolve to a real,
+  // filesystem-safe id; stable for the shell's lifetime.
+  const [pendingSpecId] = useState(() =>
+    pendingSpecIdProp && pendingSpecIdProp.trim() ? pendingSpecIdProp : genPendingSpecId(),
+  )
   const [conversationId, setConversationId] = useState<string | null>(
     resumeConversationId ?? null,
   )
@@ -159,6 +190,14 @@ export function ExploreSpecShell({
   const REVIEW_ENABLED = ((typeof import.meta !== 'undefined' &&
     (import.meta as unknown as { env?: Record<string, string> }).env?.VITE_FEATURE_EXPLORE_REVIEW) ?? 'true') !== 'false'
   const [accumulatedAttachments, setAccumulatedAttachments] = useState<Attachment[]>([])
+  // "From a website" capture (Globe button on the composer). Mirrors the Add Spec
+  // modal: captured screenshot/DOM ids ride the NEXT turn then clear. Gated on the
+  // same client+server browser-capture flags as Add Spec.
+  const browserCaptureEnabled = isBrowserCaptureEnabled()
+  const [browserOpen, setBrowserOpen] = useState(false)
+  const [captures, setCaptures] = useState<BrowserCaptureEntry[]>([])
+  const activeProjectIdRef = useRef(activeProjectId)
+  useEffect(() => { activeProjectIdRef.current = activeProjectId }, [activeProjectId])
   const previousFocusRef = useRef<Element | null>(null)
   const startedRef = useRef(false)
   // Tracks whether the current edit-mode shell session has already sent its
@@ -167,10 +206,13 @@ export function ExploreSpecShell({
   // True only when editing a ticket that is ALREADY a real spec (todo/backlog).
   // A draft opened via Continue Editing has `editTicket.status === 'draft'`, so
   // it is NOT a "real spec edit": its primary commit PUBLISHES (flips draft →
-  // todo) rather than PATCHing in place, and the button reads "Create Spec".
-  // editTicket without a status (legacy callers / tests) ⇒ real-spec edit, so
-  // the prior PATCH behaviour is preserved unchanged.
+  // todo) rather than PATCHing in place. editTicket without a status (legacy
+  // callers / tests) ⇒ real-spec edit, so the prior PATCH behaviour is preserved.
+  // NOTE: this flag drives the COMMIT BEHAVIOUR only. The button LABEL uses
+  // `isEditingExisting` below so editing ANY existing spec (draft included) reads
+  // "Update Spec", not "Create Spec" (only a fresh Explore reads "Create Spec").
   const isRealSpecEdit = !!editTicket && editTicket.status !== 'draft'
+  const isEditingExisting = !!editTicket
   const composerRef = useRef<RichAttachmentEditorHandle | null>(null)
   const conversationScrollRef = useRef<HTMLDivElement | null>(null)
   const conversationBottomRef = useRef<HTMLDivElement | null>(null)
@@ -203,6 +245,64 @@ export function ExploreSpecShell({
   useEffect(() => {
     void refreshAttachments()
   }, [refreshAttachments])
+
+  // ─── "From a website" capture ───────────────────────────────────────────────
+  // Wired after the send path is defined (avoids a TDZ on conversation/sendComposer).
+  const sendCaptureFeedbackRef = useRef<((ids: string[]) => void) | null>(null)
+  const canAutoSendCaptureRef = useRef(false)
+
+  const handleCaptured = useCallback((result: CaptureResult) => {
+    // A capture contributes a screenshot image + a DOM JSON attachment. If the
+    // user annotated, drop the raw screenshot the flattened one replaced so only
+    // the annotated image + DOM ride along.
+    if (result.rawScreenshot && result.rawScreenshot.id !== result.screenshot.id) {
+      const pid = activeProjectIdRef.current
+      fetch(`${API_ORIGIN}/api/projects/${pid}/tickets/${pendingSpecId}/attachments/${result.rawScreenshot.id}`, { method: 'DELETE' }).catch(() => {})
+    }
+    const breakpoints = result.breakpoints
+      ? Object.entries(result.breakpoints).map(([key, b]) => ({ key, attachmentId: b.attachment.id, dataUrl: b.dataUrl, width: b.viewport.width }))
+      : undefined
+    // Surface the new attachments in the Draft panel immediately.
+    void refreshAttachments()
+    const captureIds = [
+      ...(breakpoints ? breakpoints.map((b) => b.attachmentId) : [result.screenshot.id]),
+      result.domAttachment.id,
+    ]
+    // Drop the capture straight into the conversation and ask for feedback NOW so
+    // the AI reacts to what it sees and cross-references the conversation + (in edit
+    // mode) the spec being edited. If a turn is mid-stream we can't interrupt → queue
+    // it as a chip that rides the user's next message instead.
+    if (canAutoSendCaptureRef.current && sendCaptureFeedbackRef.current) {
+      sendCaptureFeedbackRef.current(captureIds)
+    } else {
+      setCaptures((c) => [...c, {
+        screenshotId: result.screenshot.id,
+        screenshotName: result.screenshot.filename,
+        screenshotDataUrl: result.screenshotDataUrl,
+        domAttachmentId: result.domAttachment.id,
+        dom: result.dom,
+        breakpoints,
+      }])
+    }
+  }, [pendingSpecId, refreshAttachments])
+
+  const removeCapture = useCallback((entry: BrowserCaptureEntry) => {
+    setCaptures((c) => c.filter((e) => e.domAttachmentId !== entry.domAttachmentId))
+    const ids = new Set<string>([entry.screenshotId, entry.domAttachmentId, ...(entry.breakpoints?.map((b) => b.attachmentId) ?? [])])
+    const pid = activeProjectIdRef.current
+    for (const id of ids) {
+      fetch(`${API_ORIGIN}/api/projects/${pid}/tickets/${pendingSpecId}/attachments/${id}`, { method: 'DELETE' }).catch(() => {})
+    }
+    setAccumulatedAttachments((prev) => prev.filter((a) => !ids.has(a.id)))
+  }, [pendingSpecId])
+
+  // Flatten the pending captures' attachment ids for the next turn.
+  const captureAttachmentIds = useCallback((): string[] => {
+    return captures.flatMap((c) => [
+      ...(c.breakpoints ? c.breakpoints.map((b) => b.attachmentId) : [c.screenshotId]),
+      c.domAttachmentId,
+    ])
+  }, [captures])
 
   // Re-fetch when the conversation becomes ready: by then the modal handoff
   // has flushed and any files uploaded in the Add Spec step are guaranteed
@@ -284,6 +384,11 @@ export function ExploreSpecShell({
   }, [chat, conversationId])
 
   const turnCount = conversation?.messages.length ?? 0
+  // Live ref so the window-level Esc handler (bound once) always reads the CURRENT
+  // turnCount. Tying it to `requestClose`'s deps made the "Esc doesn't close
+  // mid-conversation" guard rebind-racy under load (flaky in CI).
+  const turnCountRef = useRef(turnCount)
+  turnCountRef.current = turnCount
 
   // Char-by-char smoothing: render a steady ~60fps animation over the raw
   // (often bursty) streaming text. Falls back to raw when the feature flag
@@ -384,14 +489,16 @@ export function ExploreSpecShell({
   }, [seedDraftOverrides, setField, editTicket])
 
   const requestClose = useCallback(() => {
-    // Only confirm when the conversation has progressed beyond the initial user idea
-    const beyondIntro = turnCount > 1
+    // Only confirm when the conversation has progressed beyond the initial user idea.
+    // Read from the ref so this callback is stable and the Esc listener never goes
+    // stale on a turnCount change.
+    const beyondIntro = turnCountRef.current > 1
     if (beyondIntro) {
       setConfirmDiscard(true)
     } else {
       onClose()
     }
-  }, [turnCount, onClose])
+  }, [onClose])
 
   const sendComposer = useCallback(async (text: string) => {
     const v = text.trim()
@@ -403,12 +510,13 @@ export function ExploreSpecShell({
     // The wrapper is invisible in the bubble thanks to stripSlashPrefix.
     if (editTicket && !editFirstSendRef.current) {
       editFirstSendRef.current = true
-      const attIds = composerRef.current?.getAttachmentIds() ?? []
+      const attIds = [...(composerRef.current?.getAttachmentIds() ?? []), ...captureAttachmentIds()]
       composerRef.current?.clear()
       setHasComposerText(false)
       setComposerText('')
       setPendingTurn(true)
       clearManualOverrides()
+      if (captures.length > 0) { setCaptures([]); void refreshAttachments() }
       const ticketBlock = [
         `## Spec context`,
         `Ticket #${editTicket.id}: ${editTicket.title}`,
@@ -433,13 +541,16 @@ export function ExploreSpecShell({
     }
     if (!conversation || conversation.isStreaming) return
     // Pull current attachments off the editor (rich editor lets the user
-    // drop / paste files mid-conversation; each turn carries its own list).
-    const attIds = composerRef.current?.getAttachmentIds() ?? []
+    // drop / paste files mid-conversation; each turn carries its own list) PLUS
+    // any "From a website" captures taken since the last turn.
+    const attIds = [...(composerRef.current?.getAttachmentIds() ?? []), ...captureAttachmentIds()]
     composerRef.current?.clear()
     setHasComposerText(false)
     setComposerText('')
     setPendingTurn(true) // optimistic skeleton at T+0
     clearManualOverrides()
+    // Captures ride this turn only — clear so they aren't re-sent next turn.
+    if (captures.length > 0) setCaptures([])
     if (attIds.length > 0) {
       // New uploads went into pendingSpecId/, so refresh the accumulated list
       // so the user sees them in the Draft panel right away.
@@ -450,7 +561,46 @@ export function ExploreSpecShell({
       maxTurns: 20,
       attachments: attIds.length > 0 ? { ticketKey: pendingSpecId, ids: attIds } : undefined,
     })
-  }, [conversation, chat, clearManualOverrides, pendingSpecId, refreshAttachments, editTicket, initialModel])
+  }, [conversation, chat, clearManualOverrides, pendingSpecId, refreshAttachments, editTicket, initialModel, captureAttachmentIds, captures.length])
+
+  // Auto-send a feedback turn for a "From a website" capture: drop the screenshot +
+  // DOM into the conversation and ask the AI to react to it in context — the
+  // conversation so far AND, in edit mode, the spec being edited. Mirrors
+  // sendComposer's edit-first-turn wrapping but never touches the composer draft.
+  const sendCaptureFeedback = useCallback(async (captureIds: string[]) => {
+    if (!chat || captureIds.length === 0) return
+    const feedbackText = t('shell.captureFeedbackPrompt')
+    const attachments = { ticketKey: pendingSpecId, ids: captureIds }
+    setPendingTurn(true)
+    clearManualOverrides()
+    if (editTicket && !editFirstSendRef.current) {
+      editFirstSendRef.current = true
+      const ticketBlock = [
+        `## Spec context`,
+        `Ticket #${editTicket.id}: ${editTicket.title}`,
+        '',
+        editTicket.description || '(no description)',
+      ].join('\n')
+      const prompt = `/specrails:explore-spec\n\n${ticketBlock}\n\n---\n\n## Instruction\n\n${feedbackText}`
+      if (conversation) {
+        await chat.sendMessage(conversation.id, prompt, { lightweight: true, maxTurns: 20, attachments })
+      } else {
+        void chat.startWithMessage(prompt, { lightweight: true, maxTurns: 20, attachments }, initialModel, 'explore', undefined, initialProvider).then((id) => {
+          if (id) setConversationId(id)
+        })
+      }
+      return
+    }
+    if (!conversation || conversation.isStreaming) return
+    await chat.sendMessage(conversation.id, feedbackText, { lightweight: true, maxTurns: 20, attachments })
+  }, [chat, conversation, editTicket, pendingSpecId, initialModel, initialProvider, clearManualOverrides, t])
+
+  // Keep the capture handler's refs current (handleCaptured is defined earlier and
+  // must not depend on `conversation`/`sendCaptureFeedback` to avoid a TDZ).
+  useEffect(() => { sendCaptureFeedbackRef.current = sendCaptureFeedback }, [sendCaptureFeedback])
+  useEffect(() => {
+    canAutoSendCaptureRef.current = !!chat && (conversation ? !conversation.isStreaming : (!!editTicket && !editFirstSendRef.current))
+  }, [chat, conversation, editTicket])
 
   // Clear the optimistic skeleton flag as soon as the real streaming state
   // takes over (or surfaces an error). Without this, the skeleton would
@@ -698,7 +848,7 @@ export function ExploreSpecShell({
             onClick={handleCreate}
             disabled={!draft.title.trim() || isCreating}
             className="gap-1.5"
-            aria-label={isRealSpecEdit ? t('shell.updateSpecAriaLabel') : t('shell.createSpecAriaLabel')}
+            aria-label={isEditingExisting ? t('shell.updateSpecAriaLabel') : t('shell.createSpecAriaLabel')}
             data-testid="explore-spec-create"
             title={!draft.title.trim() ? t('shell.createSpecDisabledTitle') : undefined}
           >
@@ -709,7 +859,7 @@ export function ExploreSpecShell({
             ) : (
               <Check className="w-3.5 h-3.5" />
             )}
-            {isRealSpecEdit ? t('shell.updateSpec') : t('shell.createSpec')}
+            {isEditingExisting ? t('shell.updateSpec') : t('shell.createSpec')}
           </Button>
           {onMinimize && (
             <Button
@@ -816,7 +966,62 @@ export function ExploreSpecShell({
                 void refreshAttachments()
               }}
               onSubmit={submitComposer}
+              footerExtra={browserCaptureEnabled && activeProjectId ? (
+                <button
+                  type="button"
+                  onClick={() => setBrowserOpen(true)}
+                  data-testid="explore-from-browser-btn"
+                  title={t('shell.fromWebsiteTitle')}
+                  className="inline-flex items-center gap-1 px-2 py-1 rounded-md border border-accent-info/50 text-accent-info hover:bg-accent-info/10 transition-colors font-medium"
+                >
+                  <Globe className="w-3.5 h-3.5" />
+                  <span>{t('shell.fromWebsite')}</span>
+                </button>
+              ) : undefined}
             />
+            {captures.length > 0 && (
+              <div className="space-y-3 mt-2" data-testid="explore-captured-dom-list">
+                {captures.map((c) => (
+                  <div key={c.domAttachmentId} className="space-y-1.5">
+                    <div className="rounded-lg border border-accent-secondary/40 bg-accent-secondary/5 p-2 space-y-1.5">
+                      {c.breakpoints ? (
+                        <div className="space-y-1.5" data-testid="explore-capture-breakpoints">
+                          <div className="flex items-center gap-1 text-[10px] font-medium text-accent-highlight">
+                            <Ratio className="w-3 h-3 shrink-0" />
+                            {t('shell.captureResponsiveSizes', { count: c.breakpoints.length })}
+                          </div>
+                          <div className="flex items-end justify-center gap-2 flex-wrap">
+                            {c.breakpoints.map((b) => (
+                              <div key={b.key} className="flex flex-col items-center gap-1">
+                                <img
+                                  src={b.dataUrl}
+                                  alt={`${b.key} (${b.width}px)`}
+                                  className="max-h-28 w-auto max-w-[9rem] object-contain rounded border border-border/60 bg-background-deep block"
+                                />
+                                <span className="text-[10px] text-muted-foreground tabular-nums">{b.key} · {b.width}px</span>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      ) : (
+                        <img
+                          src={c.screenshotDataUrl}
+                          alt={c.screenshotName}
+                          className="max-h-36 w-auto max-w-full object-contain rounded border border-border/60 bg-background-deep mx-auto block"
+                        />
+                      )}
+                      {c.dom.url && c.dom.url !== 'about:blank' && (
+                        <div className="flex items-center gap-1.5 text-[10px] text-muted-foreground" title={c.dom.url}>
+                          <Globe className="w-3 h-3 shrink-0" />
+                          <span className="truncate">{c.dom.url}</span>
+                        </div>
+                      )}
+                    </div>
+                    <CapturedDomPanel dom={c.dom} onRemove={() => removeCapture(c)} />
+                  </div>
+                ))}
+              </div>
+            )}
             <div className="flex items-center justify-between mt-2 gap-3">
               <span />
               {/* Streaming indicator removed — ExploreStatusPills covers this state. */}
@@ -923,13 +1128,23 @@ export function ExploreSpecShell({
             priority: draft.priority ?? null,
             acceptanceCriteria: draft.acceptanceCriteria ?? [],
           } satisfies ReviewProposed}
-          mode={isRealSpecEdit ? 'edit' : 'create'}
+          mode={isEditingExisting ? 'edit' : 'create'}
           isCommitting={isCreating}
           onBack={() => setReviewOpen(false)}
           onCommit={async () => {
             await handleCreate()
             setReviewOpen(false)
           }}
+        />
+      )}
+      {browserCaptureEnabled && browserOpen && activeProjectId && (
+        <BrowserCaptureModal
+          open={browserOpen}
+          onClose={() => setBrowserOpen(false)}
+          projectId={activeProjectId}
+          pendingSpecId={pendingSpecId}
+          onCaptured={handleCaptured}
+          confirmLabel={isEditingExisting ? t('shell.updateSpec') : t('shell.createSpec')}
         />
       )}
     </div>

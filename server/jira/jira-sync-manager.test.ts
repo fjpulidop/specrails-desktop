@@ -1130,6 +1130,49 @@ describe('drainOnce()', () => {
     expect(listOutbox(db, { state: 'done' }).length).toBe(1)
   })
 
+  it('transition: honors statusMap.done="On Review" over a Discarded edge (reported bug)', async () => {
+    // The user configured Done → "On Review"; both On Review and Discarded are
+    // done-category. The drained transition must land on On Review, never Discarded.
+    seedConnection({ statusMap: { done: 'On Review' } })
+    enqueueTransition('T-rev', 'done', 'k-onreview')
+    const fake = makeFakeFetch()
+    fake.on('GET', '/issue/T-rev?', { status: 200, body: { id: 'T-rev', fields: { status: { statusCategory: { key: 'indeterminate' } } } } })
+    fake.on('GET', '/issue/T-rev/transitions', {
+      status: 200,
+      body: {
+        transitions: [
+          { id: '90', name: 'Discard', to: { id: 's-disc', name: 'Discarded', statusCategory: { key: 'done' } } },
+          { id: '32', name: 'Review', to: { id: 's-rev', name: 'On Review', statusCategory: { key: 'done' } } },
+        ],
+      },
+    })
+    fake.on('POST', '/issue/T-rev/transitions', { status: 204 })
+    const mgr = makeManager(fake.fetchImpl)
+    await mgr.drainOnce()
+    const post = fake.calls.find((c) => c.method === 'POST' && c.url.includes('/issue/T-rev/transitions'))
+    expect(post?.body?.transition?.id).toBe('32') // On Review, not '90' Discarded
+    expect(listOutbox(db, { state: 'done' }).length).toBe(1)
+  })
+
+  it('transition: success dead-letters instead of moving to Discarded when no ship/On Review edge', async () => {
+    // No statusMap; the only done edge is a reject status. A completed job must
+    // NOT be auto-discarded — it dead-letters for a manual move.
+    seedConnection()
+    enqueueTransition('T-disc', 'done', 'k-disc-only')
+    const fake = makeFakeFetch()
+    fake.on('GET', '/issue/T-disc?', { status: 200, body: { id: 'T-disc', fields: { status: { statusCategory: { key: 'indeterminate' } } } } })
+    fake.on('GET', '/issue/T-disc/transitions', {
+      status: 200,
+      body: { transitions: [{ id: '90', name: 'Discard', to: { id: 's-disc', name: 'Discarded', statusCategory: { key: 'done' } } }] },
+    })
+    const mgr = makeManager(fake.fetchImpl)
+    await mgr.drainOnce()
+    const post = fake.calls.find((c) => c.method === 'POST' && c.url.includes('/issue/T-disc/transitions'))
+    expect(post).toBeUndefined() // never applied the Discarded transition
+    expect(listOutbox(db, { state: 'dead' }).length).toBe(1)
+    expect(typesOf()).toContain('jira.degraded')
+  })
+
   it('transition: no path to target → dead + jira.degraded', async () => {
     seedConnection()
     enqueueTransition('T-3', 'done', 'k-nopath')

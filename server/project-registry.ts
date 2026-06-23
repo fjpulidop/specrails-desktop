@@ -17,6 +17,7 @@ import { WebhookManager } from './webhook-manager'
 import { TicketWatcher } from './ticket-watcher'
 import { getTerminalManager } from './terminal-manager'
 import { BrowserCaptureManager } from './browser-capture-manager'
+import { SharedBrowserContextPool } from './browser-context-pool'
 import { removeExploreCwd } from './explore-cwd-manager'
 import { dropPhaseScope } from './hooks'
 import { killTransientChildren } from './transient-children'
@@ -77,6 +78,10 @@ export class ProjectRegistry {
   // M9: projects whose per-project DB failed to load at startup (corrupt, locked,
   // or migration-stuck). They stay registered but have no live context.
   private _failedProjects: Map<string, { project: ProjectRow; error: string }>
+  // App-wide shared browser context for "Add Spec from a website": ONE persistent
+  // Chromium profile under ~/.specrails/browser-profile, so cookies/logins are
+  // shared across every project. Launched lazily, disposed once at shutdown().
+  private _browserContextPool: SharedBrowserContextPool
 
   constructor(broadcast: (msg: WsMessage) => void, desktopDbPath?: string, desktopPort?: number) {
     this._broadcast = broadcast
@@ -85,6 +90,7 @@ export class ProjectRegistry {
     this._webhookManager = new WebhookManager(this._desktopDb)
     this._desktopPort = desktopPort ?? 4200
     this._failedProjects = new Map()
+    this._browserContextPool = new SharedBrowserContextPool()
   }
 
   get desktopDb(): DbInstance {
@@ -310,6 +316,9 @@ export class ProjectRegistry {
       try { ctx.fileSummaryManager.dispose() } catch { /* ignore */ }
       ctx.ticketWatcher.close().catch(() => { /* ignore */ })
     }
+    // Close the shared browser context once, after every per-project manager has
+    // released its pages (they never close the shared context themselves).
+    void this._browserContextPool.dispose().catch(() => { /* ignore */ })
   }
 
   touchProject(id: string): void {
@@ -604,6 +613,9 @@ export class ProjectRegistry {
       projectSlug: project.slug,
       db,
       broadcast: boundBroadcast,
+      // Share ONE persistent Chromium profile (global cookies/logins) across all
+      // projects instead of a per-project profile.
+      contextPool: this._browserContextPool,
     })
 
     const ctx: ProjectContext = { project, db, queueManager, chatManager, setupManager, proposalManager, agentRefineManager, fileSummaryManager, specLauncherManager, ticketWatcher, browserCaptureManager, jiraSyncManager, broadcast: boundBroadcast, railJobs }

@@ -155,5 +155,21 @@ describe('attachments lib', () => {
       const file = new File([''], 'video.mp4', { type: 'video/mp4' })
       expect(isSupportedAttachmentFile(file)).toBe(false)
     })
+
+    it('accepts a PNG with an empty mime type (drag source / OS quirk)', () => {
+      const file = new File([''], 'screenshot.png', { type: '' })
+      expect(isSupportedAttachmentFile(file)).toBe(true)
+    })
+
+    it('accepts a PNG reported with the legacy image/x-png mime (Windows)', () => {
+      const file = new File([''], 'shot.PNG', { type: 'image/x-png' })
+      expect(isSupportedAttachmentFile(file)).toBe(true)
+    })
+
+    it('accepts jpg/jpeg/gif/webp by extension even with no mime', () => {
+      for (const name of ['a.jpg', 'b.jpeg', 'c.gif', 'd.webp']) {
+        expect(isSupportedAttachmentFile(new File([''], name, { type: '' }))).toBe(true)
+      }
+    })
   })
 })

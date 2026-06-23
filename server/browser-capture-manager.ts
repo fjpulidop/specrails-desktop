@@ -16,6 +16,7 @@ import {
   type CapturedDom,
   type ContextLauncher,
   type ElementProbe,
+  type SharedBrowserContext,
 } from './browser-capture-types'
 import { createPlaywrightLauncher } from './browser-playwright'
 
@@ -88,9 +89,16 @@ export interface BrowserCaptureManagerOptions {
   launcher?: ContextLauncher
   /** Injectable for tests — defaults to the shared AttachmentManager. */
   attachments?: AttachmentManager
-  /** Override the persistent-profile dir (tests). */
+  /** Override the persistent-profile dir (tests). Ignored when `contextPool` is
+   *  set — the global shared profile owns the dir. */
   profileDir?: string
   homeDir?: string
+  /** App-wide shared persistent context (GLOBAL cookies/logins across projects).
+   *  When provided, this manager opens pages in the shared context and never
+   *  owns/closes it — only its own pages. When omitted, the manager keeps the
+   *  legacy behaviour of launching + owning a per-project context (used by tests
+   *  and any non-pooled caller). */
+  contextPool?: SharedBrowserContext
 }
 
 /**
@@ -112,6 +120,9 @@ export class BrowserCaptureManager {
   private readonly launcher: ContextLauncher
   private readonly attachments: AttachmentManager
   private readonly profileDir: string
+  /** When set, pages are opened in this app-wide shared context (global cookies)
+   *  and this manager never owns/closes the context — only its own pages. */
+  private readonly contextPool: SharedBrowserContext | null
 
   private context: BrowserContextHandle | null = null
   private contextPromise: Promise<BrowserContextHandle> | null = null
@@ -128,6 +139,7 @@ export class BrowserCaptureManager {
     this.broadcast = opts.broadcast
     this.launcher = opts.launcher ?? createPlaywrightLauncher()
     this.attachments = opts.attachments ?? defaultAttachmentManager
+    this.contextPool = opts.contextPool ?? null
     this.profileDir =
       opts.profileDir ??
       path.join(opts.homeDir ?? os.homedir(), '.specrails', 'projects', opts.projectSlug, 'browser-profile')
@@ -158,6 +170,11 @@ export class BrowserCaptureManager {
 
   private async ensureContext(): Promise<BrowserContextHandle> {
     if (this.disposed) throw new BrowserLaunchError('manager disposed')
+    // Shared global profile: acquire the app-wide context (cookies/logins shared
+    // across every project). Never cached as `this.context`, so shutdown()/kill()
+    // close only this manager's pages and leave the shared context alive for the
+    // other projects (it's disposed once, by the pool owner, at app shutdown).
+    if (this.contextPool) return this.contextPool.acquire()
     if (this.context) return this.context
     if (this.contextPromise) return this.contextPromise
     this.contextPromise = (async () => {

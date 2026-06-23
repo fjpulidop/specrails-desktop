@@ -45,6 +45,7 @@ import { WS_URL } from './lib/ws-url'
 import { TerminalsProvider, useTerminals } from './context/TerminalsContext'
 import { MinimizedChatsProvider } from './context/MinimizedChatsContext'
 import { TicketDetailModalProvider } from './context/TicketDetailModalContext'
+import { WebViewModalProvider } from './context/WebViewModalContext'
 import { useCompareUrlSync } from './hooks/useCompareUrlSync'
 import { ThemeProvider, useTheme } from './context/ThemeContext'
 import { LanguageProvider } from './context/LanguageContext'
@@ -404,8 +405,10 @@ export default function App() {
                   <TerminalsProviderWithDesktop>
                     <MinimizedChatsProvider>
                       <TicketDetailModalProvider>
-                        <DesktopApp />
-                        <ThemedToaster />
+                        <WebViewModalProvider>
+                          <DesktopApp />
+                          <ThemedToaster />
+                        </WebViewModalProvider>
                       </TicketDetailModalProvider>
                     </MinimizedChatsProvider>
                   </TerminalsProviderWithDesktop>

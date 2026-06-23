@@ -16,7 +16,12 @@
 
 import type { JiraStatusCategory, JiraTransition, SpecLogicalState } from './types'
 
-const CANCEL_LEXICON = ['won\'t do', 'wont do', 'cancelled', 'canceled', 'rejected', 'abandoned', 'invalid', 'duplicate', 'declined']
+// 'discard'/'discarded' cover "Discard"/"Discarded" — a rejection status, never a
+// success target. Without them the success resolver treated "Discarded" as a valid
+// ship target and a completed job could be sent there (the reported Done→Discarded
+// bug). Matching is WHOLE-WORD (see nameMatches) so a token never flags a larger
+// word (e.g. 'invalid' must not match "Invalidate", 'complete' not "incomplete").
+const CANCEL_LEXICON = ['won\'t do', 'wont do', 'cancelled', 'canceled', 'rejected', 'abandoned', 'invalid', 'duplicate', 'declined', 'discard', 'discarded']
 const SHIP_LEXICON = ['done', 'closed', 'released', 'resolved', 'complete', 'completed', 'shipped', 'merged']
 
 export function targetCategoryFor(state: SpecLogicalState): JiraStatusCategory {
@@ -35,10 +40,31 @@ export function categoryRank(cat: JiraStatusCategory): number {
   return cat === 'new' ? 0 : cat === 'indeterminate' ? 1 : 2
 }
 
+function escapeRegExp(s: string): string {
+  return s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+}
+
 function nameMatches(name: string | undefined, lexicon: string[]): boolean {
   if (!name) return false
   const n = name.toLowerCase()
-  return lexicon.some((w) => n.includes(w))
+  // Whole-word match (\b…\b) so a lexicon token never matches INSIDE a larger word
+  // ('invalid' must not flag "Invalidate", 'complete' not "incomplete"). Multi-word
+  // phrases ("won't do") still match as a whole.
+  return lexicon.some((w) => new RegExp(`\\b${escapeRegExp(w)}\\b`, 'i').test(n))
+}
+
+/** A status whose NAME reads as a cancellation/rejection (e.g. "Discarded",
+ *  "Won't Do"). A successful (done) outcome must never auto-land on one of these. */
+function isCancelName(name: string | undefined): boolean {
+  return nameMatches(name, CANCEL_LEXICON)
+}
+
+/** Does this transition's destination match the user's explicitly configured
+ *  target (by status id, status name, or transition id)? Case-insensitive on name.
+ *  The explicit config ALWAYS wins over the cancel/ship lexicon heuristics. */
+function matchesExplicit(t: JiraTransition, explicitTarget: string): boolean {
+  const e = explicitTarget.toLowerCase()
+  return t.to.id === explicitTarget || t.to.name.toLowerCase() === e || t.id === explicitTarget
 }
 
 function transitionCategory(t: JiraTransition): JiraStatusCategory | null {
@@ -59,10 +85,15 @@ export function pickDirectTransition(
   explicitTarget?: string
 ): JiraTransition | null {
   if (explicitTarget) {
-    const t = transitions.find(
-      (tr) => tr.to.id === explicitTarget || tr.to.name.toLowerCase() === explicitTarget.toLowerCase() || tr.id === explicitTarget
-    )
+    const t = transitions.find((tr) => matchesExplicit(tr, explicitTarget))
     if (t) return t
+    // The user explicitly configured a target status (e.g. statusMap.done =
+    // "On Review") but there is no direct edge to it from here. NEVER substitute
+    // a different status from the target category — silently sending a completed
+    // job to some other done status (e.g. "Discarded") is exactly the bug this
+    // guards against. Signal "no direct" so the walker steps forward and looks
+    // for the configured target on the next hop, or dead-letters cleanly.
+    return null
   }
   const target = targetCategoryFor(state)
   const candidates = transitions.filter((t) => transitionCategory(t) === target)
@@ -72,17 +103,18 @@ export function pickDirectTransition(
   // Disambiguate the `done` category: cancelled prefers the cancel lexicon and
   // avoids ship words; done/success prefers ship words and avoids cancel words.
   if (state === 'cancelled') {
-    const cancel = candidates.find((t) => nameMatches(t.to.name, CANCEL_LEXICON))
-    if (cancel) return cancel
     // No explicit cancel status → do NOT fall back to a generic Done (that would
     // mark a cancelled spec as shipped). Signal "no suitable transition".
-    return null
+    return candidates.find((t) => isCancelName(t.to.name)) ?? null
   }
   // success
-  const ship = candidates.find((t) => nameMatches(t.to.name, SHIP_LEXICON) && !nameMatches(t.to.name, CANCEL_LEXICON))
+  const ship = candidates.find((t) => nameMatches(t.to.name, SHIP_LEXICON) && !isCancelName(t.to.name))
   if (ship) return ship
-  const nonCancel = candidates.find((t) => !nameMatches(t.to.name, CANCEL_LEXICON))
-  return nonCancel ?? candidates[0]
+  // Never auto-ship a successful job onto a cancel/reject status (e.g.
+  // "Discarded"). If every available done transition is a reject status, signal
+  // "no suitable transition" so the walk dead-letters rather than marking
+  // success as rejected.
+  return candidates.find((t) => !isCancelName(t.to.name)) ?? null
 }
 
 /**
@@ -95,7 +127,8 @@ export function pickProgressTransition(
   transitions: JiraTransition[],
   currentCategory: JiraStatusCategory,
   targetCategory: JiraStatusCategory,
-  visitedStatusIds: Set<string>
+  visitedStatusIds: Set<string>,
+  opts?: { avoidCancelNames?: boolean; explicitTarget?: string }
 ): JiraTransition | null {
   const goal = categoryRank(targetCategory)
   const cur = categoryRank(currentCategory)
@@ -105,6 +138,17 @@ export function pickProgressTransition(
   let bestRank = cur
   for (const t of transitions) {
     if (visitedStatusIds.has(t.to.id)) continue
+    // During a non-cancel walk never STEP onto a reject status (e.g. a
+    // done-category "Discarded"): it would terminate the issue in the wrong
+    // place. Better to dead-letter than overshoot onto a cancellation.
+    if (opts?.avoidCancelNames && isCancelName(t.to.name)) continue
+    // When the user configured an explicit target, never STEP onto a terminal
+    // done-category status that isn't that target — landing on a different done
+    // status (a generic "Done"/"Released", or for a discard the wrong terminal)
+    // would strand the issue on the wrong status. The configured target itself is
+    // reached via pickDirectTransition; here we only walk THROUGH non-terminal
+    // statuses toward it, dead-lettering if it's unreachable.
+    if (opts?.explicitTarget && transitionCategory(t) === 'done' && !matchesExplicit(t, opts.explicitTarget)) continue
     const cat = transitionCategory(t)
     if (!cat) continue
     const rank = categoryRank(cat)
@@ -206,8 +250,13 @@ export async function walkToCategory(args: {
       return { status: 'applied', finalCategory: target, transitions: applied }
     }
 
-    // No direct edge → step toward the target category.
-    const step = pickProgressTransition(transitions, currentCategory, target, visited)
+    // No direct edge → step toward the target category. For any non-cancel walk
+    // the step must avoid reject statuses so the issue never overshoots onto a
+    // "Discarded"-style terminal status while reaching for the real target.
+    const step = pickProgressTransition(transitions, currentCategory, target, visited, {
+      avoidCancelNames: args.state !== 'cancelled',
+      explicitTarget: args.explicitTarget,
+    })
     if (!step) {
       return {
         status: 'no_path',

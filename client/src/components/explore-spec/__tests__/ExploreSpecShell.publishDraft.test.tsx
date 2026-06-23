@@ -169,7 +169,7 @@ describe('ExploreSpecShell — publish vs update on Continue Editing', () => {
     return fetchMock
   }
 
-  it('draft edit: button reads "Create Spec" and commit flips the draft via from-draft', async () => {
+  it('draft edit: button reads "Update Spec" but commit still flips the draft via from-draft', async () => {
     const fetchMock = renderShell({
       id: 42,
       title: 'Saved draft',
@@ -181,8 +181,10 @@ describe('ExploreSpecShell — publish vs update on Continue Editing', () => {
     })
 
     const createBtn = await screen.findByTestId('explore-spec-create')
-    expect(createBtn).toHaveTextContent('Create Spec')
-    expect(createBtn).not.toHaveTextContent('Update Spec')
+    // Editing an existing spec (draft included) reads "Update Spec" — the COMMIT
+    // BEHAVIOUR (publish via from-draft) is unchanged, only the label.
+    expect(createBtn).toHaveTextContent('Update Spec')
+    expect(createBtn).not.toHaveTextContent('Create Spec')
 
     fireEvent.click(createBtn)
 

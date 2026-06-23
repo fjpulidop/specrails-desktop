@@ -21,6 +21,10 @@ interface AnnotationEditorProps {
   pendingSpecId: string
   /** Reserve the macOS traffic-light gutter on the floating toolbar. */
   macOverlay?: boolean
+  /** Label for the primary confirm button when the user has drawn annotations.
+   *  Lets the caller reflect context ("Crear spec" vs "Actualizar spec");
+   *  defaults to the generic create label. */
+  confirmLabel?: string
   /** Flattens + uploads, then hands back an augmented CaptureResult. */
   onConfirm: (augmented: CaptureResult) => void
   /** Discard markup, return to the rubber-band selection step. */
@@ -53,7 +57,7 @@ const newId = () => `a${++idSeq}-${Date.now().toString(36)}`
  * coverage — canvas + pointer drag is not exercisable under jsdom; the model and
  * geometry live in `lib/annotations.ts` and are unit-tested.
  */
-export function AnnotationEditor({ result, pendingSpecId, macOverlay, onConfirm, onReselect, onCancel }: AnnotationEditorProps) {
+export function AnnotationEditor({ result, pendingSpecId, macOverlay, confirmLabel, onConfirm, onReselect, onCancel }: AnnotationEditorProps) {
   const { t } = useTranslation('browser')
   const [state, dispatch] = useReducer(annotationReducer, initialEditorState)
   const [tool, setTool] = useState<AnnotationTool>('arrow')
@@ -354,7 +358,7 @@ export function AnnotationEditor({ result, pendingSpecId, macOverlay, onConfirm,
           <X className="w-3.5 h-3.5" /> {t('common:actions.cancel')}
         </Button>
         <Button size="sm" className="gap-1.5" onClick={() => void handleConfirm()} disabled={busy} data-testid="annotation-confirm">
-          <Check className="w-3.5 h-3.5" /> {objects.length > 0 ? t('editor.createSpec') : t('editor.skipContinue')}
+          <Check className="w-3.5 h-3.5" /> {objects.length > 0 ? (confirmLabel ?? t('editor.createSpec')) : t('editor.skipContinue')}
         </Button>
       </div>
     </div>

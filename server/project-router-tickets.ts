@@ -1839,9 +1839,15 @@ export function registerTicketsRoutes(deps: ProjectRoutesDeps): void {
   const attachmentUpload = multer({
     storage: multer.memoryStorage(),
     limits: { fileSize: 25 * 1024 * 1024 }, // 25 MB per file
-    fileFilter: (_req, file, cb) => {
-      if (isSupportedUploadedFile({ mimetype: file.mimetype, originalname: file.originalname })) cb(null, true)
-      else cb(null, false)
+    fileFilter: (req, file, cb) => {
+      if (isSupportedUploadedFile({ mimetype: file.mimetype, originalname: file.originalname })) {
+        cb(null, true)
+      } else {
+        // Record what was rejected so the route can return a clear error instead
+        // of the ambiguous "No file uploaded or file type unsupported".
+        ;(req as unknown as { fileRejected?: string }).fileRejected = file.mimetype || file.originalname || 'unknown'
+        cb(null, false)
+      }
     },
   })
 
@@ -1857,6 +1863,18 @@ export function registerTicketsRoutes(deps: ProjectRoutesDeps): void {
   router.post(
     '/:projectId/tickets/:ticketId/attachments',
     attachmentUpload.single('file'),
+    // Translate multer's own errors (which bypass the handler via next(err)) into
+    // a clear 400 instead of the generic 500 from the global error handler. The
+    // 25 MB cap is the common case (a big screenshot/PDF).
+    (err: unknown, _req: Request, res: Response, next: NextFunction) => {
+      if (err instanceof multer.MulterError) {
+        const msg = err.code === 'LIMIT_FILE_SIZE' ? 'File too large (max 25 MB)' : `Upload rejected: ${err.code}`
+        res.status(400).json({ error: msg })
+        return
+      }
+      if (err) { next(err); return }
+      next()
+    },
     async (req: Request, res: Response) => {
       const parsed = parseTicketKey(req.params.ticketId as string)
       if (!parsed) {
@@ -1865,7 +1883,8 @@ export function registerTicketsRoutes(deps: ProjectRoutesDeps): void {
       }
       const file = (req as unknown as { file?: Express.Multer.File }).file
       if (!file) {
-        res.status(400).json({ error: 'No file uploaded or file type unsupported' })
+        const rejected = (req as unknown as { fileRejected?: string }).fileRejected
+        res.status(400).json({ error: rejected ? `Unsupported file type: ${rejected}` : 'No file uploaded' })
         return
       }
       if (!parsed.isPending) {

@@ -42,7 +42,12 @@
       "createNetworkError": "Erro de rede ao criar a spec",
       "unsupportedFileType": "Tipo de ficheiro não suportado: {{name}}",
       "uploadFailed": "Falha no upload de {{name}}: {{message}}"
-    }
+    },
+    "fromWebsite": "A partir de um website",
+    "fromWebsiteTitle": "Abra uma página web real, selecione uma área e converta-a numa spec",
+    "captureResponsiveSizes_one": "Responsivo · {{count}} tamanho",
+    "captureResponsiveSizes_other": "Responsivo · {{count}} tamanhos",
+    "captureFeedbackPrompt": "Acabei de capturar parte de uma página web (a imagem e o conteúdo estão anexados). Brevemente: o que vês e como se relaciona com o que falámos e com a spec que estamos a definir? Dá-me o teu feedback."
   },
   "draftPanel": {
     "ready": "Rascunho pronto",

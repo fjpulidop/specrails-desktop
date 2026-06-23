@@ -155,8 +155,17 @@ describe('mapStatus', () => {
     'Duplicate',
     'Declined',
     'WONT DO',
+    'Discarded',
+    'Discard',
   ])('maps done + %s → cancelled', (name) => {
     expect(mapStatus(makeIssue({ statusCategoryKey: 'done', statusName: name }))).toBe('cancelled')
+  })
+
+  it('does NOT misclassify a done status whose name merely CONTAINS a cancel substring', () => {
+    // Whole-word matching: 'invalid' must not flag "Invalidate Cache", 'duplicate'
+    // must not flag a status like "Deduplicated" — these are legitimately done.
+    expect(mapStatus(makeIssue({ statusCategoryKey: 'done', statusName: 'Invalidate Cache' }))).toBe('done')
+    expect(mapStatus(makeIssue({ statusCategoryKey: 'done', statusName: 'Deduplicated' }))).toBe('done')
   })
 
   it('maps done with no status name → done (no cancel match)', () => {
