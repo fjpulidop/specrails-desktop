@@ -19,6 +19,7 @@ import { DiscardSpecDialog } from './jira/DiscardSpecDialog'
 import { JiraSpecDetailsPanel } from './jira/JiraSpecDetailsPanel'
 import { parseAcceptanceCriteria } from './explore-spec/acceptance-criteria'
 import { canRefineTicket } from '../lib/ticket-refine'
+import { genPendingSpecId } from '../lib/pending-spec-id'
 import { useDesktop } from '../hooks/useDesktop'
 import { SmashActions } from './specs-smash/SmashActions'
 import { EpicBreadcrumb } from './specs-smash/EpicChildrenSection'
@@ -841,7 +842,10 @@ function ContinueEditingButton({ ticket, title, description, priority, labels, o
       restoreRoute: '/',
       params: {
         initialIdea: '',
-        pendingSpecId: '',
+        // A real, filesystem-safe id (NOT '') so attachment uploads and the
+        // "From a website" capture work in edit mode (an empty id 400s capture
+        // with "pendingSpecId is required").
+        pendingSpecId: genPendingSpecId(),
         initialAttachmentIds: [],
         resumeConversationId: ticket.origin_conversation_id ?? undefined,
         editTicket: {

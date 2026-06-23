@@ -9,6 +9,7 @@ import { useMinimizedChats } from '../context/MinimizedChatsContext'
 import { useDesktop } from '../hooks/useDesktop'
 import { parseAcceptanceCriteria } from './explore-spec/acceptance-criteria'
 import { canRefineTicket } from '../lib/ticket-refine'
+import { genPendingSpecId } from '../lib/pending-spec-id'
 import type { LocalTicket, TicketPriority } from '../types'
 import type { RailState } from './RailsBoard'
 
@@ -141,7 +142,9 @@ export function TicketPostitCard({
       restoreRoute: '/',
       params: {
         initialIdea: '',
-        pendingSpecId: '',
+        // A real, filesystem-safe id (NOT '') so attachment uploads + "From a
+        // website" capture work in edit mode (empty 400s capture).
+        pendingSpecId: genPendingSpecId(),
         initialAttachmentIds: [],
         resumeConversationId: ticket.origin_conversation_id ?? undefined,
         editTicket: {
