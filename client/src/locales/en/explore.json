@@ -42,7 +42,11 @@
       "createNetworkError": "Network error creating spec",
       "unsupportedFileType": "Unsupported file type: {{name}}",
       "uploadFailed": "Upload failed for {{name}}: {{message}}"
-    }
+    },
+    "fromWebsite": "From a website",
+    "fromWebsiteTitle": "Open a real web page, select an area, and turn it into a spec",
+    "captureResponsiveSizes_one": "Responsive · {{count}} size",
+    "captureResponsiveSizes_other": "Responsive · {{count}} sizes"
   },
   "draftPanel": {
     "ready": "Draft ready",

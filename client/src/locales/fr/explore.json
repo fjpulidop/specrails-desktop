@@ -42,7 +42,11 @@
       "createNetworkError": "Erreur réseau lors de la création de la spec",
       "unsupportedFileType": "Type de fichier non pris en charge : {{name}}",
       "uploadFailed": "Échec de l'envoi de {{name}} : {{message}}"
-    }
+    },
+    "fromWebsite": "Depuis un site web",
+    "fromWebsiteTitle": "Ouvrez une vraie page web, sélectionnez une zone et transformez-la en spec",
+    "captureResponsiveSizes_one": "Responsive · {{count}} taille",
+    "captureResponsiveSizes_other": "Responsive · {{count}} tailles"
   },
   "draftPanel": {
     "ready": "Brouillon prêt",

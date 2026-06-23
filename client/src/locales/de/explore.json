@@ -42,7 +42,11 @@
       "createNetworkError": "Netzwerkfehler beim Erstellen der Spec",
       "unsupportedFileType": "Nicht unterstützter Dateityp: {{name}}",
       "uploadFailed": "Upload fehlgeschlagen für {{name}}: {{message}}"
-    }
+    },
+    "fromWebsite": "Von einer Website",
+    "fromWebsiteTitle": "Öffne eine echte Webseite, wähle einen Bereich aus und mach daraus eine Spec",
+    "captureResponsiveSizes_one": "Responsive · {{count}} Größe",
+    "captureResponsiveSizes_other": "Responsive · {{count}} Größen"
   },
   "draftPanel": {
     "ready": "Entwurf bereit",

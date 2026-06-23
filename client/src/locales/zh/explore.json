@@ -42,7 +42,11 @@
       "createNetworkError": "创建 Spec 时网络错误",
       "unsupportedFileType": "不支持的文件类型：{{name}}",
       "uploadFailed": "{{name}} 上传失败：{{message}}"
-    }
+    },
+    "fromWebsite": "从网站创建",
+    "fromWebsiteTitle": "打开真实网页，框选一块区域，把它变成 spec",
+    "captureResponsiveSizes_one": "响应式 · {{count}} 个尺寸",
+    "captureResponsiveSizes_other": "响应式 · {{count}} 个尺寸"
   },
   "draftPanel": {
     "ready": "草稿就绪",

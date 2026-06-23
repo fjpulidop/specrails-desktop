@@ -42,7 +42,11 @@
       "createNetworkError": "Error de red al crear la spec",
       "unsupportedFileType": "Tipo de archivo no compatible: {{name}}",
       "uploadFailed": "Error al subir {{name}}: {{message}}"
-    }
+    },
+    "fromWebsite": "Desde una web",
+    "fromWebsiteTitle": "Abre una página web real, selecciona un área y conviértela en una spec",
+    "captureResponsiveSizes_one": "Responsive · {{count}} tamaño",
+    "captureResponsiveSizes_other": "Responsive · {{count}} tamaños"
   },
   "draftPanel": {
     "ready": "Borrador listo",

@@ -42,7 +42,11 @@
       "createNetworkError": "スペック作成中にネットワークエラーが発生しました",
       "unsupportedFileType": "未対応のファイル形式: {{name}}",
       "uploadFailed": "{{name}} のアップロードに失敗しました: {{message}}"
-    }
+    },
+    "fromWebsite": "ウェブサイトから",
+    "fromWebsiteTitle": "実際のウェブページを開き、範囲を選択してスペックに変換",
+    "captureResponsiveSizes_one": "レスポンシブ · {{count}} サイズ",
+    "captureResponsiveSizes_other": "レスポンシブ · {{count}} サイズ"
   },
   "draftPanel": {
     "ready": "下書き準備完了",
