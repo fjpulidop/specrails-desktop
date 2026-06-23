@@ -247,11 +247,14 @@ export function ExploreSpecShell({
   }, [refreshAttachments])
 
   // ─── "From a website" capture ───────────────────────────────────────────────
+  // Wired after the send path is defined (avoids a TDZ on conversation/sendComposer).
+  const sendCaptureFeedbackRef = useRef<((ids: string[]) => void) | null>(null)
+  const canAutoSendCaptureRef = useRef(false)
+
   const handleCaptured = useCallback((result: CaptureResult) => {
-    // A capture contributes a screenshot image + a DOM JSON attachment. Track both
-    // (NOT as editor pills) so they can be removed together and merged into the
-    // next turn. If the user annotated, drop the raw screenshot the flattened one
-    // replaced so only the annotated image + DOM ride along.
+    // A capture contributes a screenshot image + a DOM JSON attachment. If the
+    // user annotated, drop the raw screenshot the flattened one replaced so only
+    // the annotated image + DOM ride along.
     if (result.rawScreenshot && result.rawScreenshot.id !== result.screenshot.id) {
       const pid = activeProjectIdRef.current
       fetch(`${API_ORIGIN}/api/projects/${pid}/tickets/${pendingSpecId}/attachments/${result.rawScreenshot.id}`, { method: 'DELETE' }).catch(() => {})
@@ -259,16 +262,28 @@ export function ExploreSpecShell({
     const breakpoints = result.breakpoints
       ? Object.entries(result.breakpoints).map(([key, b]) => ({ key, attachmentId: b.attachment.id, dataUrl: b.dataUrl, width: b.viewport.width }))
       : undefined
-    setCaptures((c) => [...c, {
-      screenshotId: result.screenshot.id,
-      screenshotName: result.screenshot.filename,
-      screenshotDataUrl: result.screenshotDataUrl,
-      domAttachmentId: result.domAttachment.id,
-      dom: result.dom,
-      breakpoints,
-    }])
     // Surface the new attachments in the Draft panel immediately.
     void refreshAttachments()
+    const captureIds = [
+      ...(breakpoints ? breakpoints.map((b) => b.attachmentId) : [result.screenshot.id]),
+      result.domAttachment.id,
+    ]
+    // Drop the capture straight into the conversation and ask for feedback NOW so
+    // the AI reacts to what it sees and cross-references the conversation + (in edit
+    // mode) the spec being edited. If a turn is mid-stream we can't interrupt → queue
+    // it as a chip that rides the user's next message instead.
+    if (canAutoSendCaptureRef.current && sendCaptureFeedbackRef.current) {
+      sendCaptureFeedbackRef.current(captureIds)
+    } else {
+      setCaptures((c) => [...c, {
+        screenshotId: result.screenshot.id,
+        screenshotName: result.screenshot.filename,
+        screenshotDataUrl: result.screenshotDataUrl,
+        domAttachmentId: result.domAttachment.id,
+        dom: result.dom,
+        breakpoints,
+      }])
+    }
   }, [pendingSpecId, refreshAttachments])
 
   const removeCapture = useCallback((entry: BrowserCaptureEntry) => {
@@ -540,6 +555,45 @@ export function ExploreSpecShell({
       attachments: attIds.length > 0 ? { ticketKey: pendingSpecId, ids: attIds } : undefined,
     })
   }, [conversation, chat, clearManualOverrides, pendingSpecId, refreshAttachments, editTicket, initialModel, captureAttachmentIds, captures.length])
+
+  // Auto-send a feedback turn for a "From a website" capture: drop the screenshot +
+  // DOM into the conversation and ask the AI to react to it in context — the
+  // conversation so far AND, in edit mode, the spec being edited. Mirrors
+  // sendComposer's edit-first-turn wrapping but never touches the composer draft.
+  const sendCaptureFeedback = useCallback(async (captureIds: string[]) => {
+    if (!chat || captureIds.length === 0) return
+    const feedbackText = t('shell.captureFeedbackPrompt')
+    const attachments = { ticketKey: pendingSpecId, ids: captureIds }
+    setPendingTurn(true)
+    clearManualOverrides()
+    if (editTicket && !editFirstSendRef.current) {
+      editFirstSendRef.current = true
+      const ticketBlock = [
+        `## Spec context`,
+        `Ticket #${editTicket.id}: ${editTicket.title}`,
+        '',
+        editTicket.description || '(no description)',
+      ].join('\n')
+      const prompt = `/specrails:explore-spec\n\n${ticketBlock}\n\n---\n\n## Instruction\n\n${feedbackText}`
+      if (conversation) {
+        await chat.sendMessage(conversation.id, prompt, { lightweight: true, maxTurns: 20, attachments })
+      } else {
+        void chat.startWithMessage(prompt, { lightweight: true, maxTurns: 20, attachments }, initialModel, 'explore', undefined, initialProvider).then((id) => {
+          if (id) setConversationId(id)
+        })
+      }
+      return
+    }
+    if (!conversation || conversation.isStreaming) return
+    await chat.sendMessage(conversation.id, feedbackText, { lightweight: true, maxTurns: 20, attachments })
+  }, [chat, conversation, editTicket, pendingSpecId, initialModel, initialProvider, clearManualOverrides, t])
+
+  // Keep the capture handler's refs current (handleCaptured is defined earlier and
+  // must not depend on `conversation`/`sendCaptureFeedback` to avoid a TDZ).
+  useEffect(() => { sendCaptureFeedbackRef.current = sendCaptureFeedback }, [sendCaptureFeedback])
+  useEffect(() => {
+    canAutoSendCaptureRef.current = !!chat && (conversation ? !conversation.isStreaming : (!!editTicket && !editFirstSendRef.current))
+  }, [chat, conversation, editTicket])
 
   // Clear the optimistic skeleton flag as soon as the real streaming state
   // takes over (or surfaces an error). Without this, the skeleton would

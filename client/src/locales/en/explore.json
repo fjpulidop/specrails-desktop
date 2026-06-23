@@ -46,7 +46,8 @@
     "fromWebsite": "From a website",
     "fromWebsiteTitle": "Open a real web page, select an area, and turn it into a spec",
     "captureResponsiveSizes_one": "Responsive · {{count}} size",
-    "captureResponsiveSizes_other": "Responsive · {{count}} sizes"
+    "captureResponsiveSizes_other": "Responsive · {{count}} sizes",
+    "captureFeedbackPrompt": "I've just captured part of a web page (its screenshot and content are attached). Briefly: what do you see, and how does it relate to what we've discussed so far and to the spec we're shaping? Give me your feedback."
   },
   "draftPanel": {
     "ready": "Draft ready",

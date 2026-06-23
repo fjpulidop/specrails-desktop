@@ -122,6 +122,14 @@ function readyConversation() {
   }]
 }
 
+function streamingConversation() {
+  conversationsRef.value = [{
+    id: 'conv-1', title: null, model: 'sonnet',
+    messages: [{ role: 'user', content: 'hi' }, { role: 'assistant', content: 'ok' }],
+    isStreaming: true, streamingText: '…', commandProposals: [],
+  }]
+}
+
 describe('ExploreSpecShell — From a website', () => {
   let onClose: ReturnType<typeof vi.fn>
 
@@ -142,50 +150,29 @@ describe('ExploreSpecShell — From a website', () => {
     expect(screen.getByTestId('explore-from-browser-btn')).toBeInTheDocument()
   })
 
-  it('opens the capture modal and renders a captured chip + DOM panel after a capture', async () => {
+  it('auto-sends a feedback turn with the capture when the conversation is idle', async () => {
     const ws = makeFakeWs()
     readyConversation()
     render(<ExploreSpecShell initialIdea="hi" pendingSpecId="pending-1" initialAttachmentIds={[]} onClose={onClose} />, { wrapper: wrap(ws) })
     await screen.findByText('ok')
 
     fireEvent.click(screen.getByTestId('explore-from-browser-btn'))
-    expect(screen.getByTestId('mock-capture-modal')).toBeInTheDocument()
-
     fireEvent.click(screen.getByTestId('mock-do-capture'))
-    expect(await screen.findByTestId('explore-captured-dom-list')).toBeInTheDocument()
-    expect(screen.getByTestId('mock-remove-capture')).toBeInTheDocument()
-  })
 
-  it('merges captured attachment ids into the next sent turn, then clears them', async () => {
-    const ws = makeFakeWs()
-    readyConversation()
-    render(<ExploreSpecShell initialIdea="hi" pendingSpecId="pending-1" initialAttachmentIds={[]} onClose={onClose} />, { wrapper: wrap(ws) })
-    await screen.findByText('ok')
-
-    // Capture, then send a reply.
-    fireEvent.click(screen.getByTestId('explore-from-browser-btn'))
-    fireEvent.click(screen.getByTestId('mock-do-capture'))
-    await screen.findByTestId('explore-captured-dom-list')
-
-    const textarea = screen.getByLabelText('Spec idea')
-    fireEvent.change(textarea, { target: { value: 'use this layout' } })
-    fireEvent.keyDown(textarea, { key: 'Enter', metaKey: true })
-
+    // The capture goes straight into the conversation as a feedback turn carrying
+    // the screenshot + DOM attachment ids (no manual message needed).
     await waitFor(() => {
       expect(mockSendMessage).toHaveBeenCalledWith(
         'conv-1',
-        'use this layout',
+        expect.stringContaining('feedback'),
         expect.objectContaining({ attachments: { ticketKey: 'pending-1', ids: ['shot-1', 'dom-1'] } }),
       )
     })
-    // Captures ride one turn only — the chip list disappears after sending.
-    await waitFor(() => expect(screen.queryByTestId('explore-captured-dom-list')).not.toBeInTheDocument())
+    // Auto-sent, so no pending chip is left behind.
+    expect(screen.queryByTestId('explore-captured-dom-list')).not.toBeInTheDocument()
   })
 
-  it('falls back to a real pendingSpecId when launched with an empty one (edit-mode 400 fix)', async () => {
-    // Some edit-mode launchers passed pendingSpecId: '' which 400s the capture
-    // with "pendingSpecId is required". The shell must mint a valid id so the
-    // captured attachments still ride the turn with a non-empty, safe ticketKey.
+  it('auto-send uses a real pendingSpecId even when launched with an empty one', async () => {
     const ws = makeFakeWs()
     readyConversation()
     render(<ExploreSpecShell initialIdea="hi" pendingSpecId="" initialAttachmentIds={[]} onClose={onClose} />, { wrapper: wrap(ws) })
@@ -193,11 +180,6 @@ describe('ExploreSpecShell — From a website', () => {
 
     fireEvent.click(screen.getByTestId('explore-from-browser-btn'))
     fireEvent.click(screen.getByTestId('mock-do-capture'))
-    await screen.findByTestId('explore-captured-dom-list')
-
-    const textarea = screen.getByLabelText('Spec idea')
-    fireEvent.change(textarea, { target: { value: 'use this' } })
-    fireEvent.keyDown(textarea, { key: 'Enter', metaKey: true })
 
     await waitFor(() => expect(mockSendMessage).toHaveBeenCalled())
     const opts = mockSendMessage.mock.calls[0][2] as { attachments?: { ticketKey: string; ids: string[] } }
@@ -206,9 +188,25 @@ describe('ExploreSpecShell — From a website', () => {
     expect(/^[A-Za-z0-9_-]{1,128}$/.test(opts.attachments!.ticketKey)).toBe(true)
   })
 
-  it('removing a capture drops the chip and DELETEs its attachments', async () => {
+  it('queues the capture as a chip (rides the next turn) while a turn is streaming', async () => {
     const ws = makeFakeWs()
-    readyConversation()
+    streamingConversation()
+    render(<ExploreSpecShell initialIdea="hi" pendingSpecId="pending-1" initialAttachmentIds={[]} onClose={onClose} />, { wrapper: wrap(ws) })
+    await screen.findByText('ok')
+    mockSendMessage.mockClear()
+
+    fireEvent.click(screen.getByTestId('explore-from-browser-btn'))
+    fireEvent.click(screen.getByTestId('mock-do-capture'))
+
+    // Mid-stream we can't interrupt → the capture is queued as a chip, not auto-sent.
+    expect(await screen.findByTestId('explore-captured-dom-list')).toBeInTheDocument()
+    expect(screen.getByTestId('mock-remove-capture')).toBeInTheDocument()
+    expect(mockSendMessage).not.toHaveBeenCalled()
+  })
+
+  it('removing a queued capture drops the chip and DELETEs its attachments', async () => {
+    const ws = makeFakeWs()
+    streamingConversation()
     render(<ExploreSpecShell initialIdea="hi" pendingSpecId="pending-1" initialAttachmentIds={[]} onClose={onClose} />, { wrapper: wrap(ws) })
     await screen.findByText('ok')
 

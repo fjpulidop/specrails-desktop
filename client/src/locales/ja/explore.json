@@ -46,7 +46,8 @@
     "fromWebsite": "ウェブサイトから",
     "fromWebsiteTitle": "実際のウェブページを開き、範囲を選択してスペックに変換",
     "captureResponsiveSizes_one": "レスポンシブ · {{count}} サイズ",
-    "captureResponsiveSizes_other": "レスポンシブ · {{count}} サイズ"
+    "captureResponsiveSizes_other": "レスポンシブ · {{count}} サイズ",
+    "captureFeedbackPrompt": "ウェブページの一部をキャプチャしました（スクリーンショットと内容を添付しています）。手短に: 何が見えますか？これまでの会話や、今まとめているスペックとどう関係しますか？フィードバックをください。"
   },
   "draftPanel": {
     "ready": "下書き準備完了",

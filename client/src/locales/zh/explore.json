@@ -46,7 +46,8 @@
     "fromWebsite": "从网站创建",
     "fromWebsiteTitle": "打开真实网页，框选一块区域，把它变成 spec",
     "captureResponsiveSizes_one": "响应式 · {{count}} 个尺寸",
-    "captureResponsiveSizes_other": "响应式 · {{count}} 个尺寸"
+    "captureResponsiveSizes_other": "响应式 · {{count}} 个尺寸",
+    "captureFeedbackPrompt": "我刚刚截取了一个网页的一部分（截图和内容已附上）。简要说说：你看到了什么？它与我们目前的讨论以及我们正在定义的 spec 有什么关联？给我你的反馈。"
   },
   "draftPanel": {
     "ready": "草稿就绪",

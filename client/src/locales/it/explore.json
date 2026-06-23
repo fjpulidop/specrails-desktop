@@ -46,7 +46,8 @@
     "fromWebsite": "Da un sito web",
     "fromWebsiteTitle": "Apri una pagina web reale, seleziona un'area e trasformala in una spec",
     "captureResponsiveSizes_one": "Responsive · {{count}} dimensione",
-    "captureResponsiveSizes_other": "Responsive · {{count}} dimensioni"
+    "captureResponsiveSizes_other": "Responsive · {{count}} dimensioni",
+    "captureFeedbackPrompt": "Ho appena catturato una parte di una pagina web (screenshot e contenuto sono allegati). In breve: cosa vedi e come si collega a ciò di cui abbiamo parlato e alla spec che stiamo definendo? Dammi il tuo feedback."
   },
   "draftPanel": {
     "ready": "Bozza pronta",
