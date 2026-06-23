@@ -182,6 +182,30 @@ describe('ExploreSpecShell — From a website', () => {
     await waitFor(() => expect(screen.queryByTestId('explore-captured-dom-list')).not.toBeInTheDocument())
   })
 
+  it('falls back to a real pendingSpecId when launched with an empty one (edit-mode 400 fix)', async () => {
+    // Some edit-mode launchers passed pendingSpecId: '' which 400s the capture
+    // with "pendingSpecId is required". The shell must mint a valid id so the
+    // captured attachments still ride the turn with a non-empty, safe ticketKey.
+    const ws = makeFakeWs()
+    readyConversation()
+    render(<ExploreSpecShell initialIdea="hi" pendingSpecId="" initialAttachmentIds={[]} onClose={onClose} />, { wrapper: wrap(ws) })
+    await screen.findByText('ok')
+
+    fireEvent.click(screen.getByTestId('explore-from-browser-btn'))
+    fireEvent.click(screen.getByTestId('mock-do-capture'))
+    await screen.findByTestId('explore-captured-dom-list')
+
+    const textarea = screen.getByLabelText('Spec idea')
+    fireEvent.change(textarea, { target: { value: 'use this' } })
+    fireEvent.keyDown(textarea, { key: 'Enter', metaKey: true })
+
+    await waitFor(() => expect(mockSendMessage).toHaveBeenCalled())
+    const opts = mockSendMessage.mock.calls[0][2] as { attachments?: { ticketKey: string; ids: string[] } }
+    expect(opts.attachments?.ticketKey).toBeTruthy()
+    expect(opts.attachments?.ticketKey).not.toBe('')
+    expect(/^[A-Za-z0-9_-]{1,128}$/.test(opts.attachments!.ticketKey)).toBe(true)
+  })
+
   it('removing a capture drops the chip and DELETEs its attachments', async () => {
     const ws = makeFakeWs()
     readyConversation()

@@ -18,6 +18,7 @@ import { RichAttachmentEditor, type RichAttachmentEditorHandle } from '../RichAt
 import { BrowserCaptureModal } from '../browser-capture/BrowserCaptureModal'
 import { CapturedDomPanel } from '../browser-capture/CapturedDomPanel'
 import { isBrowserCaptureEnabled, type CaptureResult, type CapturedDom } from '../../lib/browser-capture'
+import { genPendingSpecId } from '../../lib/pending-spec-id'
 import { SpecDraftPanel } from './SpecDraftPanel'
 import { ExploreStatusPills } from './ExploreStatusPills'
 import { useSmoothStream } from './useSmoothStream'
@@ -142,7 +143,7 @@ export interface EditTicketSeed {
 
 export function ExploreSpecShell({
   initialIdea,
-  pendingSpecId,
+  pendingSpecId: pendingSpecIdProp,
   initialAttachmentIds,
   initialModel,
   initialProvider,
@@ -164,6 +165,13 @@ export function ExploreSpecShell({
   const jira = useJiraConnection()
   const chat = useChatContext()
   const { activeProjectId } = useDesktop()
+  // Bulletproof the attachment/capture key: some edit-mode launchers historically
+  // passed '' (which 400s the "From a website" capture with "pendingSpecId is
+  // required" and breaks attachment uploads). Always resolve to a real,
+  // filesystem-safe id; stable for the shell's lifetime.
+  const [pendingSpecId] = useState(() =>
+    pendingSpecIdProp && pendingSpecIdProp.trim() ? pendingSpecIdProp : genPendingSpecId(),
+  )
   const [conversationId, setConversationId] = useState<string | null>(
     resumeConversationId ?? null,
   )
