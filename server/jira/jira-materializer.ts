@@ -22,7 +22,10 @@ import { adfToText } from './jira-adf'
 import { getLinkByIssueId, insertLinkWithId, updateLinkStatusCategory } from './jira-db'
 import type { JiraConnection, JiraIssue, JiraStatusCategory } from './types'
 
-const CANCEL_NAMES = ['won\'t do', 'wont do', 'cancelled', 'canceled', 'rejected', 'abandoned', 'invalid', 'duplicate', 'declined']
+// Keep in sync with CANCEL_LEXICON in jira-status-resolver.ts. 'discard' covers
+// "Discard"/"Discarded" so an inbound issue parked in a Discarded status reads
+// back as `cancelled`, not a successful `done`.
+const CANCEL_NAMES = ['won\'t do', 'wont do', 'cancelled', 'canceled', 'rejected', 'abandoned', 'invalid', 'duplicate', 'declined', 'discard']
 
 export function issueStatusCategory(issue: JiraIssue): JiraStatusCategory {
   const k = issue.fields.status?.statusCategory?.key

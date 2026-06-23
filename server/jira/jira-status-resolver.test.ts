@@ -123,14 +123,16 @@ describe('pickDirectTransition', () => {
     expect(got!.id).toBe('tB')
   })
 
-  it('explicit target that does not match falls back to category', () => {
+  it('explicit target that does not match returns null (never substitutes another status)', () => {
     const transitions = [
       tx({ id: 'tA', toId: 's-new', toName: 'New', category: 'new' }),
       tx({ id: 'tB', toId: 's-prog', toName: 'In Progress', category: 'indeterminate' }),
     ]
-    // explicit 'nonexistent' won't match → category for 'todo' = new → tA
+    // An explicit configured target that isn't directly reachable must NOT be
+    // silently swapped for a category candidate — the walker should step forward
+    // and look for the real target instead. Returning null signals "no direct".
     const got = pickDirectTransition(transitions, 'todo', 'nonexistent')
-    expect(got!.id).toBe('tA')
+    expect(got).toBeNull()
   })
 
   it('category match for non-done target returns first candidate', () => {
@@ -202,20 +204,57 @@ describe('pickDirectTransition', () => {
       expect(got!.id).toBe('tNeutral')
     })
 
-    it('falls back to first candidate when every done is a cancel word', () => {
+    it('returns null when every done candidate is a reject status (never auto-ship to a reject)', () => {
       const transitions = [
         tx({ id: 'tCancel1', toId: 's-rej', toName: 'Rejected', category: 'done' }),
         tx({ id: 'tCancel2', toId: 's-inv', toName: 'Invalid', category: 'done' }),
       ]
-      // No ship, no nonCancel → candidates[0]
+      // No ship, no nonCancel → null (a successful job must not be marked rejected).
       const got = pickDirectTransition(transitions, 'done')
-      expect(got!.id).toBe('tCancel1')
+      expect(got).toBeNull()
     })
 
     it('picks the ship transition when only a generic Done exists', () => {
       const transitions = [tx({ id: 'tDone', toId: 's-done', toName: 'Done', category: 'done' })]
       const got = pickDirectTransition(transitions, 'done')
       expect(got!.id).toBe('tDone')
+    })
+
+    it('picks "On Review" over "Discarded" for a successful done (the reported bug)', () => {
+      // Both are done-category and neither carries a ship word. "Discarded" is a
+      // reject status, so the success path must skip it and land on "On Review".
+      const transitions = [
+        tx({ id: 'tDiscard', toId: 's-disc', toName: 'Discarded', category: 'done' }),
+        tx({ id: 'tReview', toId: 's-rev', toName: 'On Review', category: 'done' }),
+      ]
+      const got = pickDirectTransition(transitions, 'done')
+      expect(got!.id).toBe('tReview')
+    })
+
+    it('returns null when the only done transition is "Discarded"', () => {
+      const transitions = [tx({ id: 'tDiscard', toId: 's-disc', toName: 'Discarded', category: 'done' })]
+      const got = pickDirectTransition(transitions, 'done')
+      expect(got).toBeNull()
+    })
+
+    it('honors an explicit "On Review" target even when a Discarded edge is present', () => {
+      const transitions = [
+        tx({ id: 'tDiscard', toId: 's-disc', toName: 'Discarded', category: 'done' }),
+        tx({ id: 'tReview', toId: 's-rev', toName: 'On Review', category: 'done' }),
+      ]
+      const got = pickDirectTransition(transitions, 'done', 'On Review')
+      expect(got!.id).toBe('tReview')
+    })
+  })
+
+  describe('done category disambiguation — discard recognised as a reject', () => {
+    it('selects "Discarded" for a cancelled spec', () => {
+      const transitions = [
+        tx({ id: 'tShip', toId: 's-released', toName: 'Released', category: 'done' }),
+        tx({ id: 'tDiscard', toId: 's-disc', toName: 'Discarded', category: 'done' }),
+      ]
+      const got = pickDirectTransition(transitions, 'cancelled')
+      expect(got!.id).toBe('tDiscard')
     })
   })
 
@@ -339,6 +378,24 @@ describe('pickProgressTransition', () => {
 
   it('returns null on empty transitions', () => {
     expect(pickProgressTransition([], 'new', 'done', new Set())).toBeNull()
+  })
+
+  it('avoidCancelNames skips a reject (Discarded) done edge', () => {
+    // From indeterminate toward done: the only forward edge is "Discarded".
+    // With avoidance on, it must not be taken (returns null → walk dead-letters).
+    const transitions = [tx({ id: 'tDisc', toId: 's-disc', toName: 'Discarded', category: 'done' })]
+    expect(pickProgressTransition(transitions, 'indeterminate', 'done', new Set(), { avoidCancelNames: true })).toBeNull()
+    // Without avoidance (legacy default) it is still eligible.
+    expect(pickProgressTransition(transitions, 'indeterminate', 'done', new Set())!.id).toBe('tDisc')
+  })
+
+  it('avoidCancelNames still takes a non-reject forward edge', () => {
+    const transitions = [
+      tx({ id: 'tDisc', toId: 's-disc', toName: 'Discarded', category: 'done' }),
+      tx({ id: 'tDone', toId: 's-done', toName: 'Done', category: 'done' }),
+    ]
+    const got = pickProgressTransition(transitions, 'indeterminate', 'done', new Set(), { avoidCancelNames: true })
+    expect(got!.id).toBe('tDone')
   })
 })
 
@@ -826,6 +883,42 @@ describe('walkToCategory', () => {
     })
     expect(out).toMatchObject({ status: 'applied', transitions: ['tExplicit'] })
     expect(applyTransition).toHaveBeenCalledWith(explicit, expect.anything())
+  })
+
+  it('done walk lands on the configured "On Review" target, not the Discarded edge', async () => {
+    // The reported scenario: a completed job whose statusMap.done = "On Review".
+    // From In Progress both an "On Review" and a "Discarded" done edge exist; the
+    // explicit target must win.
+    const review = tx({ id: 'tReview', toId: 's-rev', toName: 'On Review', category: 'done' })
+    const discard = tx({ id: 'tDiscard', toId: 's-disc', toName: 'Discarded', category: 'done' })
+    const getTransitions = vi.fn(async () => [discard, review])
+    const applied: JiraTransition[] = []
+    const applyTransition = vi.fn(async (t: JiraTransition) => { applied.push(t) })
+    const out = await walkToCategory({
+      state: 'done',
+      currentCategory: 'indeterminate',
+      explicitTarget: 'On Review',
+      getTransitions,
+      applyTransition,
+    })
+    expect(out).toMatchObject({ status: 'applied', transitions: ['tReview'] })
+    expect(applied.map((t) => t.id)).toEqual(['tReview'])
+  })
+
+  it('done walk dead-letters (no_path) rather than discarding when only a Discarded edge exists', async () => {
+    // No statusMap target; the only done-category edge is a reject status. A
+    // successful job must NOT be auto-discarded — it dead-letters for a manual move.
+    const discard = tx({ id: 'tDiscard', toId: 's-disc', toName: 'Discarded', category: 'done' })
+    const getTransitions = vi.fn(async () => [discard])
+    const applyTransition = vi.fn(async () => {})
+    const out = await walkToCategory({
+      state: 'done',
+      currentCategory: 'indeterminate',
+      getTransitions,
+      applyTransition,
+    })
+    expect(out.status).toBe('no_path')
+    expect(applyTransition).not.toHaveBeenCalled()
   })
 
   it('progress step updates current category and reaches target via category check', async () => {

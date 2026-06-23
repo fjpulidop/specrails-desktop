@@ -155,6 +155,8 @@ describe('mapStatus', () => {
     'Duplicate',
     'Declined',
     'WONT DO',
+    'Discarded',
+    'Discard',
   ])('maps done + %s → cancelled', (name) => {
     expect(mapStatus(makeIssue({ statusCategoryKey: 'done', statusName: name }))).toBe('cancelled')
   })
