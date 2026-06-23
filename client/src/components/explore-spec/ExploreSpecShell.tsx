@@ -384,6 +384,11 @@ export function ExploreSpecShell({
   }, [chat, conversationId])
 
   const turnCount = conversation?.messages.length ?? 0
+  // Live ref so the window-level Esc handler (bound once) always reads the CURRENT
+  // turnCount. Tying it to `requestClose`'s deps made the "Esc doesn't close
+  // mid-conversation" guard rebind-racy under load (flaky in CI).
+  const turnCountRef = useRef(turnCount)
+  turnCountRef.current = turnCount
 
   // Char-by-char smoothing: render a steady ~60fps animation over the raw
   // (often bursty) streaming text. Falls back to raw when the feature flag
@@ -484,14 +489,16 @@ export function ExploreSpecShell({
   }, [seedDraftOverrides, setField, editTicket])
 
   const requestClose = useCallback(() => {
-    // Only confirm when the conversation has progressed beyond the initial user idea
-    const beyondIntro = turnCount > 1
+    // Only confirm when the conversation has progressed beyond the initial user idea.
+    // Read from the ref so this callback is stable and the Esc listener never goes
+    // stale on a turnCount change.
+    const beyondIntro = turnCountRef.current > 1
     if (beyondIntro) {
       setConfirmDiscard(true)
     } else {
       onClose()
     }
-  }, [turnCount, onClose])
+  }, [onClose])
 
   const sendComposer = useCallback(async (text: string) => {
     const v = text.trim()
