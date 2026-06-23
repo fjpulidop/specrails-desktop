@@ -20,6 +20,7 @@ import { JiraSpecDetailsPanel } from './jira/JiraSpecDetailsPanel'
 import { parseAcceptanceCriteria } from './explore-spec/acceptance-criteria'
 import { canRefineTicket } from '../lib/ticket-refine'
 import { genPendingSpecId } from '../lib/pending-spec-id'
+import { useWebViewModal } from '../context/WebViewModalContext'
 import { useDesktop } from '../hooks/useDesktop'
 import { SmashActions } from './specs-smash/SmashActions'
 import { EpicBreadcrumb } from './specs-smash/EpicChildrenSection'
@@ -986,8 +987,29 @@ interface DescriptionRenderProps {
 
 function DescriptionRender({ description, onEdit }: DescriptionRenderProps) {
   const { t } = useTranslation('tickets')
+  const { openWebView } = useWebViewModal()
   const { user, contract } = splitDescriptionAtContractLayer(description)
   const userPart = user || description
+  // Open http(s) links from the description inside the app's embedded browser
+  // modal (sharing the global cookies/profile), instead of navigating away.
+  const markdownComponents = useMemo(() => ({
+    a: ({ href, children }: { href?: string; children?: React.ReactNode }) => (
+      <a
+        href={href}
+        target="_blank"
+        rel="noreferrer"
+        onClick={(e) => {
+          if (typeof href === 'string' && /^https?:\/\//i.test(href)) {
+            e.preventDefault()
+            e.stopPropagation() // don't trigger the card's enter-edit onClick
+            openWebView(href)
+          }
+        }}
+      >
+        {children}
+      </a>
+    ),
+  }), [openWebView])
   return (
     <div
       className="flex-1 rounded-lg bg-muted/20 px-3 py-2 overflow-y-auto transition-colors"
@@ -1000,7 +1022,7 @@ function DescriptionRender({ description, onEdit }: DescriptionRenderProps) {
       style={{ cursor: 'pointer' }}
     >
       <div className="prose prose-invert prose-xs max-w-none prose-p:my-1 prose-headings:mt-2 prose-headings:mb-1 prose-headings:text-sm prose-headings:font-semibold prose-ul:my-1 prose-ol:my-1 prose-li:my-0 prose-code:text-cyan-300 prose-code:text-[10px] prose-code:bg-muted/40 prose-code:px-1 prose-code:py-0.5 prose-code:rounded text-foreground/80 text-xs">
-        <ReactMarkdown remarkPlugins={[remarkGfm]}>{userPart}</ReactMarkdown>
+        <ReactMarkdown remarkPlugins={[remarkGfm]} components={markdownComponents}>{userPart}</ReactMarkdown>
       </div>
       {contract && (
         <details
@@ -1015,7 +1037,7 @@ function DescriptionRender({ description, onEdit }: DescriptionRenderProps) {
             </span>
           </summary>
           <div className="mt-2 prose prose-invert prose-xs max-w-none prose-p:my-1 prose-headings:mt-2 prose-headings:mb-1 prose-headings:text-sm prose-headings:font-semibold prose-ul:my-1 prose-ol:my-1 prose-li:my-0 prose-code:text-cyan-300 prose-code:text-[10px] prose-code:bg-muted/40 prose-code:px-1 prose-code:py-0.5 prose-code:rounded text-foreground/80 text-xs">
-            <ReactMarkdown remarkPlugins={[remarkGfm]}>{contract}</ReactMarkdown>
+            <ReactMarkdown remarkPlugins={[remarkGfm]} components={markdownComponents}>{contract}</ReactMarkdown>
           </div>
         </details>
       )}

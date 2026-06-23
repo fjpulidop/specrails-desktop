@@ -62,6 +62,9 @@ export default defineConfig({
         // lib/browser-capture.ts and CapturedDomPanel, both unit-tested.
         'src/components/browser-capture/useBrowserCaptureSession.ts',
         'src/components/browser-capture/BrowserCaptureModal.tsx',
+        // Read-only embedded-browser modal for opening spec-description links —
+        // same canvas/WS/pointer machinery as BrowserCaptureModal (not jsdom-able).
+        'src/components/browser-capture/WebViewModal.tsx',
         // Annotation markup editor: canvas flatten + pointer-drag drawing; the
         // model/geometry/undo-reducer live in lib/annotations.ts and are tested.
         'src/components/browser-capture/AnnotationEditor.tsx',
