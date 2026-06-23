@@ -76,6 +76,10 @@ export function BrowserCaptureModal({ open, onClose, projectId, pendingSpecId, o
   const [captureAllSizes, setCaptureAllSizes] = useState(false)
   // When set, a single capture is frozen and the markup editor is shown over it.
   const [markup, setMarkup] = useState<CaptureResult | null>(null)
+  // Last capture error, shown as a visible banner INSIDE the modal (a sonner toast
+  // would be occluded by this z-[80] portal, so a failure looked like "nothing
+  // happened"). Cleared when a new selection starts or a capture succeeds.
+  const [captureError, setCaptureError] = useState<string | null>(null)
   // Breadcrumb lock: when the user steps up/down the DOM tree (arrows / clicking a
   // segment) the selection locks to that element until the cursor moves again.
   const [locked, setLocked] = useState<ElementProbe | null>(null)
@@ -254,6 +258,7 @@ export function BrowserCaptureModal({ open, onClose, projectId, pendingSpecId, o
 
   const runCapture = useCallback(async (rect: CaptureRect) => {
     setCapturing(true)
+    setCaptureError(null)
     try {
       if (captureAllSizes) {
         // Multi-breakpoint = 3 reference images; no markup step.
@@ -267,7 +272,11 @@ export function BrowserCaptureModal({ open, onClose, projectId, pendingSpecId, o
         const result = await session.capture(rect, pendingSpecId, { captureNetwork })
         setMarkup(result)
       }
-    } catch {
+    } catch (err) {
+      // Surface the REAL failure (with its HTTP status) inside the modal — a
+      // sonner toast here is painted under the z-[80] portal and never seen.
+      const detail = err instanceof Error ? err.message : String(err)
+      setCaptureError(detail)
       toast.error(t('modal.toast.captureFailed'))
     } finally {
       setCapturing(false)
@@ -284,6 +293,7 @@ export function BrowserCaptureModal({ open, onClose, projectId, pendingSpecId, o
 
   const onSelectDown = useCallback((e: React.PointerEvent) => {
     ;(e.target as HTMLElement).setPointerCapture?.(e.pointerId)
+    setCaptureError(null) // clear any stale failure banner on a fresh selection
     setBox({ startX: e.clientX, startY: e.clientY, curX: e.clientX, curY: e.clientY })
   }, [])
 
@@ -388,6 +398,12 @@ export function BrowserCaptureModal({ open, onClose, projectId, pendingSpecId, o
         />
       ) : (
       <>
+      {captureError && (
+        <div role="alert" data-testid="capture-error-banner" className="flex items-center gap-2 px-3 py-2 text-xs bg-destructive/10 text-destructive border-b border-destructive/30 shrink-0">
+          <span className="font-medium">{t('modal.toast.captureFailed')}</span>
+          <span className="opacity-80 font-mono truncate">{captureError}</span>
+        </div>
+      )}
       {/* Toolbar */}
       <div className={`flex items-center gap-2 py-1.5 border-b border-border/50 bg-surface/80 shrink-0 ${macOverlay ? 'pr-3' : 'px-3'}`}>
         {/* On macOS desktop the native traffic-light controls float over the top-left;

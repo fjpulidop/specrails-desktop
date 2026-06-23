@@ -70,6 +70,10 @@ export function useBrowserCaptureSession(opts: {
   const wsRef = useRef<WebSocket | null>(null)
   const sessionIdRef = useRef<string | null>(null)
   const drawingRef = useRef(false)
+  // True while a capture POST is awaiting. The effect cleanup must NOT kill the
+  // session out from under an in-flight capture (a transient effect re-run /
+  // StrictMode double-invoke would otherwise 404 the capture).
+  const capturingRef = useRef(false)
 
   const [state, setState] = useState<BrowserSessionState>({
     status: 'connecting',
@@ -177,7 +181,10 @@ export function useBrowserCaptureSession(opts: {
       wsRef.current = null
       const sid = sessionIdRef.current
       sessionIdRef.current = null
-      if (sid) void killBrowserSession(sid)
+      // Never kill a session with a capture in flight — a transient re-run/unmount
+      // would otherwise make the awaiting POST hit a dead session (404). The server
+      // sweeps idle sessions, so deferring this kill is safe.
+      if (sid && !capturingRef.current) void killBrowserSession(sid)
     }
   }, [open, projectId, initialUrl, drawFrame])
 
@@ -202,13 +209,23 @@ export function useBrowserCaptureSession(opts: {
   const capture = useCallback(async (rect: CaptureRect, pendingSpecId: string, opts?: { captureNetwork?: boolean }): Promise<CaptureResult> => {
     const sid = sessionIdRef.current
     if (!sid) throw new Error('No active browser session')
-    return captureBrowserRegion(sid, rect, pendingSpecId, opts)
+    capturingRef.current = true
+    try {
+      return await captureBrowserRegion(sid, rect, pendingSpecId, opts)
+    } finally {
+      capturingRef.current = false
+    }
   }, [])
 
   const captureBreakpoints = useCallback(async (rect: CaptureRect, anchorPoint: { x: number; y: number }, pendingSpecId: string, breakpoints?: Record<string, { width: number; height: number }>): Promise<CaptureResult> => {
     const sid = sessionIdRef.current
     if (!sid) throw new Error('No active browser session')
-    return captureBrowserBreakpoints(sid, rect, anchorPoint, pendingSpecId, breakpoints)
+    capturingRef.current = true
+    try {
+      return await captureBrowserBreakpoints(sid, rect, anchorPoint, pendingSpecId, breakpoints)
+    } finally {
+      capturingRef.current = false
+    }
   }, [])
 
   const clipboard = useCallback(async (action: 'copy' | 'paste' | 'cut', text?: string): Promise<{ text: string }> => {
