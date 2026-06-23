@@ -1,5 +1,12 @@
 # Changelog
 
+## [2.12.0](https://github.com/fjpulidop/specrails-desktop/compare/v2.11.10...v2.12.0) (2026-06-23)
+
+
+### Features
+
+* From-website in Explore + global browser cookies, fix PNG attach & Jira Done status ([#457](https://github.com/fjpulidop/specrails-desktop/issues/457)) ([abbe0cc](https://github.com/fjpulidop/specrails-desktop/commit/abbe0cc91ad7975084ec139ad0c6ec6c679214d2))
+
 ## [2.11.10](https://github.com/fjpulidop/specrails-desktop/compare/v2.11.9...v2.11.10) (2026-06-21)
 
 
