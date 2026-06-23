@@ -1839,9 +1839,15 @@ export function registerTicketsRoutes(deps: ProjectRoutesDeps): void {
   const attachmentUpload = multer({
     storage: multer.memoryStorage(),
     limits: { fileSize: 25 * 1024 * 1024 }, // 25 MB per file
-    fileFilter: (_req, file, cb) => {
-      if (isSupportedUploadedFile({ mimetype: file.mimetype, originalname: file.originalname })) cb(null, true)
-      else cb(null, false)
+    fileFilter: (req, file, cb) => {
+      if (isSupportedUploadedFile({ mimetype: file.mimetype, originalname: file.originalname })) {
+        cb(null, true)
+      } else {
+        // Record what was rejected so the route can return a clear error instead
+        // of the ambiguous "No file uploaded or file type unsupported".
+        ;(req as unknown as { fileRejected?: string }).fileRejected = file.mimetype || file.originalname || 'unknown'
+        cb(null, false)
+      }
     },
   })
 
@@ -1865,7 +1871,8 @@ export function registerTicketsRoutes(deps: ProjectRoutesDeps): void {
       }
       const file = (req as unknown as { file?: Express.Multer.File }).file
       if (!file) {
-        res.status(400).json({ error: 'No file uploaded or file type unsupported' })
+        const rejected = (req as unknown as { fileRejected?: string }).fileRejected
+        res.status(400).json({ error: rejected ? `Unsupported file type: ${rejected}` : 'No file uploaded' })
         return
       }
       if (!parsed.isPending) {

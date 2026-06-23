@@ -28,6 +28,17 @@ const SQL_MIME_TYPES = new Set<string>([
   'text/x-sql',
 ])
 const SQL_EXTENSION_RE = /\.sql$/i
+// Map an image file extension to its canonical MIME. Used as a fallback when the
+// reported MIME is non-canonical or empty (e.g. Windows legacy `image/x-png`, or
+// an empty type from certain drag sources) so PNG/JPEG/GIF/WebP are still
+// accepted — and stored with a canonical mime so the image @-ref path + chip
+// icon work. Fixes "won't let me add .png".
+const IMAGE_EXTENSION_MIME: ReadonlyArray<readonly [RegExp, string]> = [
+  [/\.png$/i, 'image/png'],
+  [/\.jpe?g$/i, 'image/jpeg'],
+  [/\.gif$/i, 'image/gif'],
+  [/\.webp$/i, 'image/webp'],
+]
 const INLINE_TEXT_MIME_TYPES = new Set<string>([
   'text/csv',
   'text/plain',
@@ -49,6 +60,15 @@ export interface UploadedFile {
 export function normalizeUploadedMimeType(mimetype: string, originalname: string): string {
   if (SQL_MIME_TYPES.has(mimetype) || SQL_EXTENSION_RE.test(originalname)) {
     return 'text/plain'
+  }
+  // When the reported MIME isn't already a supported image type, fall back to the
+  // file extension so non-canonical/empty image MIMEs (e.g. `image/x-png`) are
+  // accepted and stored canonically.
+  const isSupportedImageMime = SUPPORTED_MIME_TYPES.has(mimetype) && mimetype.startsWith(IMAGE_MIME_PREFIX)
+  if (!isSupportedImageMime) {
+    for (const [re, canonical] of IMAGE_EXTENSION_MIME) {
+      if (re.test(originalname)) return canonical
+    }
   }
   return mimetype
 }

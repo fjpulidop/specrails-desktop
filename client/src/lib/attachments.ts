@@ -60,7 +60,17 @@ const SUPPORTED_ATTACHMENT_MIMES = new Set(
   ATTACHMENT_ACCEPT_MIME.split(',').filter((part) => !part.startsWith('.')),
 )
 const SQL_EXTENSION_RE = /\.sql$/i
+// Accept images by file extension even when the browser reports an empty or
+// non-canonical MIME (e.g. Windows reporting a PNG as `image/x-png`, or some
+// drag sources providing an empty `file.type`). This mirrors the server's
+// normalizeUploadedMimeType fallback so the client never blocks a file the
+// server would accept — the root cause of "won't let me add .png".
+const IMAGE_EXTENSION_RE = /\.(png|jpe?g|gif|webp)$/i
 
 export function isSupportedAttachmentFile(file: Pick<File, 'name' | 'type'>): boolean {
-  return SUPPORTED_ATTACHMENT_MIMES.has(file.type) || SQL_EXTENSION_RE.test(file.name)
+  return (
+    SUPPORTED_ATTACHMENT_MIMES.has(file.type) ||
+    SQL_EXTENSION_RE.test(file.name) ||
+    IMAGE_EXTENSION_RE.test(file.name)
+  )
 }

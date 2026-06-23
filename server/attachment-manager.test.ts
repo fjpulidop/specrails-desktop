@@ -228,6 +228,18 @@ describe('AttachmentManager', () => {
       expect(attachment.mimeType).toBe('text/plain')
     })
 
+    it('accepts a PNG reported with a non-standard MIME and stores it as image/png', async () => {
+      const attachment = await manager.upload({
+        slug: 'proj',
+        ticketKey: '1',
+        ticketStorePath: null,
+        file: makeFile({ originalname: 'shot.png', mimetype: 'image/x-png', buffer: Buffer.from('PNG') }),
+      })
+
+      expect(attachment.filename).toBe('shot.png')
+      expect(attachment.mimeType).toBe('image/png')
+    })
+
     it('skips store mutation for missing ticket when projectPath provided', async () => {
       const projPath = makeProjectDir(tmpDir)
       // ticket key 999 doesn't exist in the store - should not throw
@@ -633,6 +645,33 @@ describe('AttachmentManager', () => {
       expect(normalizeUploadedMimeType('application/sql', 'schema.sql')).toBe('text/plain')
       expect(normalizeUploadedMimeType('', 'schema.sql')).toBe('text/plain')
       expect(isSupportedUploadedFile({ mimetype: '', originalname: 'schema.sql' })).toBe(true)
+    })
+
+    it('canonicalizes non-standard/empty image MIMEs by extension (PNG add bug)', () => {
+      // Windows legacy MIME for PNG.
+      expect(normalizeUploadedMimeType('image/x-png', 'shot.png')).toBe('image/png')
+      // Empty type from some drag sources.
+      expect(normalizeUploadedMimeType('', 'shot.PNG')).toBe('image/png')
+      expect(normalizeUploadedMimeType('', 'photo.jpeg')).toBe('image/jpeg')
+      expect(normalizeUploadedMimeType('application/octet-stream', 'pic.jpg')).toBe('image/jpeg')
+      expect(normalizeUploadedMimeType('', 'anim.gif')).toBe('image/gif')
+      expect(normalizeUploadedMimeType('', 'img.webp')).toBe('image/webp')
+    })
+
+    it('leaves an already-canonical image MIME untouched', () => {
+      expect(normalizeUploadedMimeType('image/png', 'shot.png')).toBe('image/png')
+      expect(normalizeUploadedMimeType('image/jpeg', 'photo.jpg')).toBe('image/jpeg')
+    })
+
+    it('does not misclassify non-image files as images', () => {
+      expect(normalizeUploadedMimeType('application/pdf', 'doc.pdf')).toBe('application/pdf')
+      expect(normalizeUploadedMimeType('text/csv', 'data.csv')).toBe('text/csv')
+    })
+
+    it('treats a PNG with a non-standard/empty MIME as supported', () => {
+      expect(isSupportedUploadedFile({ mimetype: 'image/x-png', originalname: 'shot.png' })).toBe(true)
+      expect(isSupportedUploadedFile({ mimetype: '', originalname: 'shot.png' })).toBe(true)
+      expect(isSupportedUploadedFile({ mimetype: '', originalname: 'photo.jpg' })).toBe(true)
     })
   })
 })
