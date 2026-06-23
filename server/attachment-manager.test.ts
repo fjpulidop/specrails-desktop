@@ -668,6 +668,15 @@ describe('AttachmentManager', () => {
       expect(normalizeUploadedMimeType('text/csv', 'data.csv')).toBe('text/csv')
     })
 
+    it('does NOT clobber a correct non-image MIME that has an image-looking name', () => {
+      // A PDF/CSV/XLSX uploaded with a .png name must keep its real MIME so it is
+      // text-extracted for the agent and rendered correctly — not turned into a
+      // broken image/png.
+      expect(normalizeUploadedMimeType('application/pdf', 'report.png')).toBe('application/pdf')
+      expect(normalizeUploadedMimeType('text/csv', 'data.png')).toBe('text/csv')
+      expect(normalizeUploadedMimeType('application/vnd.ms-excel', 'sheet.jpg')).toBe('application/vnd.ms-excel')
+    })
+
     it('treats a PNG with a non-standard/empty MIME as supported', () => {
       expect(isSupportedUploadedFile({ mimetype: 'image/x-png', originalname: 'shot.png' })).toBe(true)
       expect(isSupportedUploadedFile({ mimetype: '', originalname: 'shot.png' })).toBe(true)

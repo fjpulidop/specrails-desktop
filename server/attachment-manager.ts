@@ -61,11 +61,12 @@ export function normalizeUploadedMimeType(mimetype: string, originalname: string
   if (SQL_MIME_TYPES.has(mimetype) || SQL_EXTENSION_RE.test(originalname)) {
     return 'text/plain'
   }
-  // When the reported MIME isn't already a supported image type, fall back to the
-  // file extension so non-canonical/empty image MIMEs (e.g. `image/x-png`) are
-  // accepted and stored canonically.
-  const isSupportedImageMime = SUPPORTED_MIME_TYPES.has(mimetype) && mimetype.startsWith(IMAGE_MIME_PREFIX)
-  if (!isSupportedImageMime) {
+  // Only fall back to the file extension when the reported MIME is NOT already a
+  // supported type. This accepts non-canonical/empty image MIMEs (e.g.
+  // `image/x-png`, '') by extension WITHOUT clobbering a correct non-image MIME
+  // that merely has an image-looking name (e.g. a PDF uploaded as `report.png`
+  // must stay `application/pdf`, not become a broken `image/png`).
+  if (!SUPPORTED_MIME_TYPES.has(mimetype)) {
     for (const [re, canonical] of IMAGE_EXTENSION_MIME) {
       if (re.test(originalname)) return canonical
     }

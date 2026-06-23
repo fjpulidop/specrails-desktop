@@ -1863,6 +1863,18 @@ export function registerTicketsRoutes(deps: ProjectRoutesDeps): void {
   router.post(
     '/:projectId/tickets/:ticketId/attachments',
     attachmentUpload.single('file'),
+    // Translate multer's own errors (which bypass the handler via next(err)) into
+    // a clear 400 instead of the generic 500 from the global error handler. The
+    // 25 MB cap is the common case (a big screenshot/PDF).
+    (err: unknown, _req: Request, res: Response, next: NextFunction) => {
+      if (err instanceof multer.MulterError) {
+        const msg = err.code === 'LIMIT_FILE_SIZE' ? 'File too large (max 25 MB)' : `Upload rejected: ${err.code}`
+        res.status(400).json({ error: msg })
+        return
+      }
+      if (err) { next(err); return }
+      next()
+    },
     async (req: Request, res: Response) => {
       const parsed = parseTicketKey(req.params.ticketId as string)
       if (!parsed) {
