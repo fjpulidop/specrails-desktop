@@ -1,6 +1,7 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest'
 import { initDb, type DbInstance } from './db'
 import { BrowserCaptureManager, type BrowserWsClient } from './browser-capture-manager'
+import { SharedBrowserContextPool } from './browser-context-pool'
 import {
   BrowserLimitExceededError,
   BrowserLaunchError,
@@ -571,5 +572,56 @@ describe('BrowserCaptureManager', () => {
     closed.close()
     const { mgr } = makeManager({ db: closed })
     expect(mgr.getLastUrl()).toBeNull()
+  })
+})
+
+// ─── Shared global browser context (cookies shared across projects) ────────────
+
+describe('BrowserCaptureManager with a shared context pool', () => {
+  function makePooledManager(pool: SharedBrowserContextPool, projectSlug: string) {
+    return new BrowserCaptureManager({
+      projectId: `proj-${projectSlug}`,
+      projectSlug,
+      db: initDb(':memory:'),
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      attachments: makeAttachments() as any,
+      contextPool: pool,
+    })
+  }
+
+  it('opens pages from TWO projects in the SAME shared context (shared cookies)', async () => {
+    const shared = new FakeContext()
+    const launcher: ContextLauncher = vi.fn(async () => shared)
+    const pool = new SharedBrowserContextPool({ launcher, profileDir: '/tmp/global' })
+
+    const mgrA = makePooledManager(pool, 'a')
+    const mgrB = makePooledManager(pool, 'b')
+    await mgrA.create()
+    await mgrB.create()
+
+    // One launch for the whole app, two pages in the one shared context.
+    expect(launcher).toHaveBeenCalledTimes(1)
+    expect(shared.pages).toHaveLength(2)
+  })
+
+  it('per-project shutdown closes only its pages, NOT the shared context', async () => {
+    const shared = new FakeContext()
+    const pool = new SharedBrowserContextPool({ launcher: vi.fn(async () => shared), profileDir: '/tmp/global' })
+
+    const mgrA = makePooledManager(pool, 'a')
+    const mgrB = makePooledManager(pool, 'b')
+    const a = await mgrA.create()
+    void a
+    await mgrB.create()
+
+    await mgrA.shutdown()
+    // mgrA's page is closed; the shared context survives for mgrB + globally.
+    expect(shared.closed).toBe(false)
+    expect(shared.pages[0].closed).toBe(true)
+    expect(shared.pages[1].closed).toBe(false)
+
+    // The pool owner (registry) closes the shared context exactly once at the end.
+    await pool.dispose()
+    expect(shared.closed).toBe(true)
   })
 })

@@ -214,6 +214,16 @@ export interface LaunchContextOptions {
 
 export type ContextLauncher = (opts: LaunchContextOptions) => Promise<BrowserContextHandle>
 
+/**
+ * App-wide provider of ONE shared persistent Chromium context (global profile =
+ * shared cookies/logins across every project). Per-project capture managers
+ * `acquire()` this handle and open their own pages in it; they never close it —
+ * only the pool's owner (the registry, at app shutdown) does.
+ */
+export interface SharedBrowserContext {
+  acquire(): Promise<BrowserContextHandle>
+}
+
 // ─── Error classes (mirror terminal-manager's typed errors) ───────────────────
 
 export class BrowserLimitExceededError extends Error {
