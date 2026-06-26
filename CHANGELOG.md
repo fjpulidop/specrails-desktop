@@ -1,5 +1,12 @@
 # Changelog
 
+## [2.13.0](https://github.com/fjpulidop/specrails-desktop/compare/v2.12.0...v2.13.0) (2026-06-26)
+
+
+### Features
+
+* visual loop builder, rails-as-loops, mobile mirror + cost guard ([#459](https://github.com/fjpulidop/specrails-desktop/issues/459)) ([50c1d3d](https://github.com/fjpulidop/specrails-desktop/commit/50c1d3dced4613c41321ee434a951d9a67044dc2))
+
 ## [2.12.0](https://github.com/fjpulidop/specrails-desktop/compare/v2.11.10...v2.12.0) (2026-06-23)
 
 
