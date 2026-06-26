@@ -20,11 +20,21 @@ export type SpawnAction =
   | 'setup-enrich-resume'
   | 'auto-title'
 
+/** Reasoning-effort tiers, shared by the spawn layer and the UI selectors. */
+export type ReasoningEffort = 'low' | 'medium' | 'high'
+
 export interface SpawnOptions {
   prompt: string
   systemPrompt?: string
   model: string
   sessionId?: string
+  /**
+   * Reasoning effort for this invocation. Honoured only by providers whose
+   * `capabilities.supportsReasoningEffort` is true: claude emits the native
+   * `--effort <level>` flag; codex emits `-c model_reasoning_effort=<value>`.
+   * Providers without support (gemini — no per-invocation knob) MUST ignore it.
+   */
+  reasoning_effort?: ReasoningEffort
   /** Bound on agentic tool-use turns. Honoured iff the provider supports it. */
   maxTurns?: number
   /** Pre-extracted text blocks for attachments (image refs or extracted text). */
@@ -99,6 +109,14 @@ export interface ProviderCapabilities {
    * respawning per turn. Optional — absent/false means spawn-per-turn only.
    */
   persistentStdin?: boolean
+  /**
+   * Provider honours `SpawnOptions.reasoning_effort` via a per-invocation knob:
+   * claude with the native `--effort <level>` flag, codex with
+   * `-c model_reasoning_effort=<value>`. The UI shows the effort selector when
+   * true. Optional — absent ⇒ false (e.g. gemini, which has no per-spawn knob —
+   * only settings.json thinking levels); such adapters MUST ignore the value.
+   */
+  supportsReasoningEffort?: boolean
 }
 
 export interface ProviderAdapter {

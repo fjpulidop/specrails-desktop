@@ -54,7 +54,15 @@ function topicFor(type: string): TopicName | 'jobtail' | 'hub' | null {
     case 'rail.job_started':
     case 'rail.job_stopped':
     case 'rail.job_completed':
-    case 'rail.updated': return 'rails'
+    case 'rail.updated':
+    // rails-as-loops: loop runs (no queue job) report their lifecycle via the
+    // loop.run_* family. Map them onto the EXISTING 'rails' topic (frozen-safe —
+    // the companion's subscribe set is unchanged; an old v1 client ignores the
+    // unknown `loop.run_*` types harmlessly, a new client mirrors the run).
+    case 'loop.run_started':
+    case 'loop.run_progress':
+    case 'loop.run_stopped':
+    case 'loop.run_completed': return 'rails'
     case 'spending.invalidated': return 'spending'
     case 'chat_stream':
     case 'chat_done':
@@ -88,6 +96,14 @@ const LEGACY_WIRE_TYPES: Record<string, string> = {
 }
 
 function toMobileWire(msg: WsMessage): unknown {
+  // SECURITY: loop.run_progress carries `reasoning` — free-text LLM output that
+  // the path-only `redact()` does NOT scrub for repo content. Drop it at the
+  // mobile boundary (forward only iteration/activeNode); it's the one field that
+  // would leak more than any existing rail.* frame. Forward everything else.
+  if (msg.type === 'loop.run_progress') {
+    const { reasoning: _drop, ...rest } = msg as unknown as Record<string, unknown>
+    return rest
+  }
   const legacyType = LEGACY_WIRE_TYPES[msg.type]
   if (!legacyType) return msg
   const out: Record<string, unknown> = { ...(msg as unknown as Record<string, unknown>), type: legacyType }

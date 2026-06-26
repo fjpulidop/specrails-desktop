@@ -1,13 +1,16 @@
 import { useState, useEffect, useRef } from 'react'
+import { useNavigate, useLocation } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
-import { PanelLeft, FolderOpen, Plus, BarChart2, BookOpen, Settings, X } from 'lucide-react'
+import { PanelLeft, FolderOpen, Plus, BarChart2, BookOpen, Settings, X, Workflow } from 'lucide-react'
 import { cn } from '../lib/utils'
 import { useDesktop } from '../hooks/useDesktop'
 import type { DesktopProject } from '../hooks/useDesktop'
 import { useSidebarPin } from '../context/SidebarPinContext'
+import { FEATURE_LOOPS_SECTION } from '../lib/feature-flags'
 
 interface ArcSidebarProps {
   onAddProject: () => void
+  onOpenLoops: () => void
   onOpenAnalytics: () => void
   onOpenDocs: () => void
   onOpenSettings: () => void
@@ -110,13 +113,38 @@ const LEFT_PIN_LABEL_KEY: Record<'pinned-open' | 'pinned-collapsed' | 'unpinned'
 
 export function ArcSidebar({
   onAddProject,
+  onOpenLoops,
   onOpenAnalytics,
   onOpenDocs,
   onOpenSettings,
 }: ArcSidebarProps) {
   const { t } = useTranslation('nav')
   const { projects, activeProjectId, setActiveProjectId, removeProject } = useDesktop()
+  const navigate = useNavigate()
+  const location = useLocation()
+  const onLoopsRoute = location.pathname.startsWith('/loops')
   const { leftMode, cycleLeftMode } = useSidebarPin()
+
+  // Selecting a project from the sidebar. When the user is on a GLOBAL route
+  // (/loops, /docs) and taps a project, switching activeProjectId alone doesn't
+  // leave the global page — and tapping the ALREADY-active project is a no-op
+  // (no state change → the route-memory effect never fires). So when on a global
+  // route, navigate the active project back to its dashboard explicitly; a
+  // different project still goes through setActiveProjectId (the route-memory
+  // effect restores its last surface).
+  function handleSelectProject(projectId: string) {
+    if (projectId === activeProjectId) {
+      // Already active: only meaningful when viewing a global page — return to
+      // the project's dashboard (no state change would fire the route effect).
+      if (location.pathname.startsWith('/loops') || location.pathname.startsWith('/docs')) {
+        navigate('/')
+      }
+      return
+    }
+    // Different project: switching activeProjectId fires the route-memory effect,
+    // which navigates to that project's last surface (off any global route).
+    setActiveProjectId(projectId)
+  }
   const [hovered, setHovered] = useState(false)
   const expanded = leftMode === 'pinned-open' || (leftMode === 'unpinned' && hovered)
   const lit = leftMode !== 'unpinned'
@@ -174,15 +202,41 @@ export function ArcSidebar({
         </button>
       </div>
 
+      {/* Loops — global section, above the project list with a separator below */}
+      {FEATURE_LOOPS_SECTION && (
+        <>
+          <div className="py-2 px-1.5">
+            <button
+              type="button"
+              onClick={onOpenLoops}
+              className={cn(
+                'flex items-center gap-2 w-full h-8 rounded-md transition-colors',
+                expanded ? 'px-2' : 'px-0 justify-center',
+                onLoopsRoute
+                  ? 'bg-muted text-foreground'
+                  : 'text-muted-foreground hover:text-foreground hover:bg-muted/50'
+              )}
+              aria-label={t('arcSidebar.loops')}
+              aria-current={onLoopsRoute ? 'page' : undefined}
+              title={!expanded ? t('arcSidebar.loops') : undefined}
+            >
+              <Workflow className={cn('w-4 h-4 flex-shrink-0', onLoopsRoute && 'text-accent-primary')} />
+              {expanded && <span className="text-xs whitespace-nowrap">{t('arcSidebar.loops')}</span>}
+            </button>
+          </div>
+          <div className="border-t border-border" aria-hidden />
+        </>
+      )}
+
       {/* Projects list */}
       <div className="flex-1 overflow-y-auto py-2 px-1.5 space-y-0.5">
         {projects.map((project) => (
           <ProjectItem
             key={project.id}
             project={project}
-            isActive={project.id === activeProjectId}
+            isActive={project.id === activeProjectId && !onLoopsRoute}
             expanded={expanded}
-            onSelect={() => setActiveProjectId(project.id)}
+            onSelect={() => handleSelectProject(project.id)}
             onRemove={() => handleRemove(project)}
           />
         ))}

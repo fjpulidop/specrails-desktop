@@ -1,6 +1,6 @@
 import i18n from '../lib/i18n'
 
-export type Surface = 'job' | 'quick-spec' | 'explore-spec' | 'ai-edit' | 'smash' | 'file-summary'
+export type Surface = 'job' | 'quick-spec' | 'explore-spec' | 'ai-edit' | 'smash' | 'file-summary' | 'loop'
 export type SurfaceFilter = Surface | 'all'
 export type Period = '7d' | '30d' | '90d' | 'all' | 'custom'
 
@@ -147,6 +147,7 @@ const SURFACE_LABEL_KEYS: Record<Surface, string> = {
   'ai-edit': 'analytics:surfaces.aiEdit',
   smash: 'analytics:surfaces.smash',
   'file-summary': 'analytics:surfaces.fileSummary',
+  loop: 'analytics:surfaces.loop',
 }
 
 /** Live-translated surface labels. Property getters resolve through i18next at
@@ -200,5 +201,11 @@ export const SURFACE_ACCENT: Record<Surface, { bg: string; text: string; ring: s
     text: 'text-accent-warning',
     ring: 'ring-accent-warning/40',
     dot: 'bg-accent-warning',
+  },
+  loop: {
+    bg: 'bg-accent-primary/15',
+    text: 'text-accent-primary',
+    ring: 'ring-accent-primary/40',
+    dot: 'bg-accent-primary',
   },
 }

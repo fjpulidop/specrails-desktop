@@ -34,9 +34,7 @@
       "configured": "<strong>{{projectName}}</strong> está agora configurado com fluxos de desenvolvimento assistidos por IA. Os seus agentes e comandos especializados estão prontos a usar.",
       "installedForEngines_one": "Instalado para {{count}} motor",
       "installedForEngines_other": "Instalado para {{count}} motores",
-
       "installed": "Instalado",
-
       "installFailed": "Falha na instalação",
       "learnMore": "Saiba como tirar o máximo partido do specrails:",
       "continueToProject": "Continuar para o projeto",
@@ -226,14 +224,16 @@
       "intro": "O lado direito do Dashboard são os seus <b>Rails</b> — faixas de execução. Arraste um cartão de spec para um rail e prima <play>▶ Play</play> para lançar um job de implementação.",
       "jobLabel": "O que cada job executa",
       "flowCaption": "Cada fase transmite os seus logs em direto enquanto trabalha.",
-      "modeLabel": "Escolha como um rail corre",
-      "modeBody": "Cada rail escolhe um modo: <b>Implement</b> (o pipeline estruturado completo), <b>Batch</b> (várias specs em sequência) ou <b>Ultracode</b> (o Claude trabalha de forma autónoma, sem pipeline fixo).",
+      "modeLabel": "Escolha um Loop para executar",
+      "modeBody": "Cada rail executa um <b>Loop</b>. Escolha um pré-definido — <b>Implement</b> (o pipeline estruturado completo), <b>Batch</b> (várias specs de uma vez) ou <b>Ultracode</b> (o Claude trabalha de forma autônoma, sem pipeline fixo) — ou um que você mesmo criou.",
       "profilesLabel": "Perfis de agentes",
       "profilesBody": "Um catálogo declarativo por projeto que decide quais agentes correm e que modelo cada um usa — escolhido por rail e congelado por job para que o trabalho concorrente fique isolado.",
       "jobDetailLabel": "Detalhe do job em direto",
       "jobDetailBody": "Cada job mostra um cabeçalho com a identidade do ticket, um contador de duração em direto e contagens de turnos/tokens em execução, com o custo definitivo resolvido no fim.",
       "isolationLabel": "Muitos projetos, isolados",
-      "isolationBody": "Cada projeto tem a sua própria base de dados e fila de jobs. Execute projetos diferentes ao mesmo tempo e alterne entre eles na barra lateral esquerda — a sua posição é memorizada por projeto."
+      "isolationBody": "Cada projeto tem a sua própria base de dados e fila de jobs. Execute projetos diferentes ao mesmo tempo e alterne entre eles na barra lateral esquerda — a sua posição é memorizada por projeto.",
+      "loopsLabel": "Crie seus próprios loops",
+      "loopsBody": "<b>Loops</b> é um construtor visual: encadeie etapas de IA, comandos de shell e um <b>Loop Decider</b> que repete até que uma meta seja atingida — por exemplo, verificar → corrigir → verificar até que tudo esteja verde. Publique um loop e selecione-o em qualquer rail."
     },
     "providers": {
       "nav": "O seu agente",

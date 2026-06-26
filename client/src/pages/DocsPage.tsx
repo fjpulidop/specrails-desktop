@@ -6,6 +6,7 @@ import remarkGfm from 'remark-gfm'
 import rehypeHighlight from 'rehype-highlight'
 import { BookOpen, ChevronRight, FileText, Loader2 } from 'lucide-react'
 import { cn } from '../lib/utils'
+import { resolveDocHref } from '../lib/docs-links'
 import 'highlight.js/styles/atom-one-dark.css'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -153,11 +154,45 @@ function DocsIndex({ categories }: { categories: DocCategory[] }) {
 
 // ─── Document view ────────────────────────────────────────────────────────────
 
-// Memoized markdown renderer — only re-renders when the actual content
-// changes, so navigating between cached docs doesn't re-parse / re-highlight.
-const MemoMarkdown = memo(function MemoMarkdown({ content }: { content: string }) {
+// Memoized markdown renderer — only re-renders when the content (or current
+// category, which scopes relative links) changes. Relative guide links navigate
+// via the router to /docs/<category>/<slug> instead of doing a bare-href full
+// reload (which would land off-route).
+const MemoMarkdown = memo(function MemoMarkdown({
+  content,
+  currentCategory,
+  onNavigateDoc,
+}: {
+  content: string
+  currentCategory: string
+  onNavigateDoc: (category: string, slug: string) => void
+}) {
   return (
-    <ReactMarkdown remarkPlugins={[remarkGfm]} rehypePlugins={[rehypeHighlight]}>
+    <ReactMarkdown
+      remarkPlugins={[remarkGfm]}
+      rehypePlugins={[rehypeHighlight]}
+      components={{
+        a({ href, children, ...props }) {
+          const handleClick = (e: React.MouseEvent<HTMLAnchorElement>) => {
+            if (!href) return
+            if (/^[a-z][a-z0-9+.-]*:/i.test(href)) {
+              e.preventDefault()
+              window.open(href, '_blank', 'noopener,noreferrer')
+              return
+            }
+            if (href.startsWith('#')) return
+            e.preventDefault()
+            const target = resolveDocHref(href, currentCategory)
+            if (target) onNavigateDoc(target.category, target.slug)
+          }
+          return (
+            <a href={href} onClick={handleClick} {...props}>
+              {children}
+            </a>
+          )
+        },
+      }}
+    >
       {content}
     </ReactMarkdown>
   )
@@ -243,7 +278,11 @@ function DocView({
           prose-th:text-foreground prose-td:text-foreground/90
           prose-li:text-foreground/90"
       >
-        <MemoMarkdown content={doc.content} />
+        <MemoMarkdown
+          content={doc.content}
+          currentCategory={doc.category}
+          onNavigateDoc={(cat, s) => navigate(`/docs/${cat}/${s}`)}
+        />
       </div>
     </article>
   )

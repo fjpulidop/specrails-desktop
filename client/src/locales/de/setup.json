@@ -34,9 +34,7 @@
       "configured": "<strong>{{projectName}}</strong> ist jetzt mit KI-gestützten Entwicklungs-Workflows konfiguriert. Ihre spezialisierten Agenten und Befehle sind einsatzbereit.",
       "installedForEngines_one": "Für {{count}} Engine installiert",
       "installedForEngines_other": "Für {{count}} Engines installiert",
-
       "installed": "Installiert",
-
       "installFailed": "Installation fehlgeschlagen",
       "learnMore": "Erfahren Sie, wie Sie das Beste aus specrails herausholen:",
       "continueToProject": "Weiter zum Projekt",
@@ -226,14 +224,16 @@
       "intro": "Die rechte Seite des Dashboards sind Ihre <b>Rails</b> – Ausführungsbahnen. Ziehen Sie eine Spec-Karte auf eine Rail und drücken Sie <play>▶ Play</play>, um einen Implementierungsjob zu starten.",
       "jobLabel": "Was jeder Job ausführt",
       "flowCaption": "Jede Phase streamt ihre Logs live, während sie arbeitet.",
-      "modeLabel": "Wählen Sie, wie eine Rail läuft",
-      "modeBody": "Jede Rail wählt einen Modus: <b>Implement</b> (die vollständige strukturierte Pipeline), <b>Batch</b> (mehrere Specs nacheinander) oder <b>Ultracode</b> (Claude arbeitet autonom, ohne feste Pipeline).",
+      "modeLabel": "Wähle einen Loop zum Ausführen",
+      "modeBody": "Jeder rail führt einen <b>Loop</b> aus. Wähle einen integrierten Loop — <b>Implement</b> (die vollständige strukturierte Pipeline), <b>Batch</b> (mehrere Specs auf einmal) oder <b>Ultracode</b> (Claude arbeitet autonom, ohne feste Pipeline) — oder einen, den du selbst erstellt hast.",
       "profilesLabel": "Agentenprofile",
       "profilesBody": "Ein deklarativer Katalog pro Projekt, der bestimmt, welche Agenten laufen und welches Modell jeder nutzt – pro Rail gewählt und pro Job eingefroren, damit parallele Arbeit isoliert bleibt.",
       "jobDetailLabel": "Live-Jobdetails",
       "jobDetailBody": "Jeder Job zeigt einen Ticket-Identitäts-Header, eine live tickende Laufzeit und laufende Turn-/Token-Zähler; die verbindlichen Kosten werden beim Beenden ermittelt.",
       "isolationLabel": "Viele Projekte, isoliert",
-      "isolationBody": "Jedes Projekt hat seine eigene Datenbank und Job-Queue. Lassen Sie verschiedene Projekte gleichzeitig laufen und wechseln Sie über die linke Seitenleiste – Ihre Position wird pro Projekt gemerkt."
+      "isolationBody": "Jedes Projekt hat seine eigene Datenbank und Job-Queue. Lassen Sie verschiedene Projekte gleichzeitig laufen und wechseln Sie über die linke Seitenleiste – Ihre Position wird pro Projekt gemerkt.",
+      "loopsLabel": "Erstelle deine eigenen Loops",
+      "loopsBody": "<b>Loops</b> ist ein visueller Builder: Verkette KI-Schritte, Shell-Befehle und einen <b>Loop Decider</b>, der so lange wiederholt, bis ein Ziel erreicht ist — z. B. prüfen → beheben → prüfen, bis alles grün ist. Veröffentliche einen Loop und wähle ihn auf jedem rail aus."
     },
     "providers": {
       "nav": "Ihr Agent",

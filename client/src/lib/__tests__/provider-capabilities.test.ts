@@ -5,6 +5,7 @@ import {
   sectionVisibleForProviders,
   isMultiProvider,
   providerLabel,
+  providerSupportsReasoningEffort,
 } from '../provider-capabilities'
 
 describe('isSmashCapable', () => {
@@ -166,5 +167,22 @@ describe('providerLabel', () => {
 
   it('returns "Claude" for undefined (backward-compat default)', () => {
     expect(providerLabel(undefined)).toBe('Claude')
+  })
+})
+
+describe('providerSupportsReasoningEffort', () => {
+  it('codex supports it (native -c model_reasoning_effort)', () => {
+    expect(providerSupportsReasoningEffort('codex')).toBe(true)
+  })
+  it('claude supports it (soft thinking-directive)', () => {
+    expect(providerSupportsReasoningEffort('claude')).toBe(true)
+  })
+  it('gemini does NOT (no per-invocation CLI mechanism)', () => {
+    expect(providerSupportsReasoningEffort('gemini')).toBe(false)
+  })
+  it('unknown / null / undefined → false (hide rather than offer a no-op)', () => {
+    expect(providerSupportsReasoningEffort('mystery')).toBe(false)
+    expect(providerSupportsReasoningEffort(null)).toBe(false)
+    expect(providerSupportsReasoningEffort(undefined)).toBe(false)
   })
 })

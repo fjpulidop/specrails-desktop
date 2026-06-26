@@ -1,6 +1,6 @@
 # Running pipelines
 
-You have specs on the board. Now let's ship them. This guide covers launching a rail, the three rail modes, agent profiles, plugins, and the Jobs page.
+You have specs on the board. Now let's ship them. This guide covers launching a rail, picking a **Loop** (built-in or your own), agent profiles, plugins, and the Jobs page.
 
 ## The big picture
 
@@ -21,7 +21,7 @@ SpecsBoard (left)            Rails (right)
 
 A **rail** is an execution lane. Drag a spec card from the SpecsBoard onto a rail and press **▶ Play** to launch the pipeline. Rails let you organise and queue work into named lanes.
 
-Rails run on **Claude** by default. If your project has more than one provider installed, a per-rail engine selector lets you launch a rail on **Codex** or **Gemini** instead — see [Using Codex](codex.md) and [Using Gemini](gemini.md). Only **Ultracode** mode is Claude-only; the standard Implement and Batch pipelines run on any installed provider.
+Rails run on **Claude** by default. If your project has more than one provider installed, a per-rail engine selector lets you launch a rail on **Codex** or **Gemini** instead — see [Using Codex](codex.md) and [Using Gemini](gemini.md). Only the **Ultracode** loop is Claude-only; the standard Implement and Batch loops run on any installed provider.
 
 > **One job at a time per project.** Each project has a single queue, so within a project only one rail job runs at a time; the rest queue behind it. Real parallelism is **across projects** — open two projects and their rails run independently. See [Running multiple rails](#running-multiple-rails).
 
@@ -31,20 +31,31 @@ Each rail has a header with:
 
 - **Status pill** — `idle`, `running`, or `failed`. (There's no separate "completed" state — a rail returns to `idle` when its job finishes cleanly.)
 - **Spec list** — the IDs of the specs assigned to this rail. Drag in more, drag out to detach. You can also use the **Move to rail** popover from a spec card; it shows a status dot per rail so you don't push work onto a busy lane.
-- **Mode segmented control** — `Implement`, `Batch`, and (Claude rails only) `Ultra`. See [Rail modes](#rail-modes).
+- **Loop picker** — the **Loop** this rail runs: a built-in (`Implement`, `Batch`, or `Ultracode`) or one of your published custom loops. See [Loops](#loops).
 - **Profile picker** — which agent profile this rail uses. This only appears once the project has **at least one** profile (create them on the Agents page). When present, `No profile` runs the rail in legacy mode.
 - **Engine selector** — pick which installed provider (Claude, Codex, or Gemini) runs this rail. Only renders on projects with more than one provider installed.
 - **Play / Stop button** — start or cancel.
 
-### Rail modes
+### Loops
 
-The mode is a segmented control in the rail header, persisted per rail.
+A rail runs a **Loop**, picked in the rail header and persisted per rail. The three **built-in** loops cover the common cases:
 
-| Mode | Command | What it does |
+| Built-in loop | Command | What it does |
 |------|---------|--------------|
 | **Implement** | `/specrails:implement` | One job covering all the specs on the rail. Runs the full Architect → Developer → Reviewer → Ship pipeline. |
 | **Batch** | `/specrails:batch-implement` | One job that works through the rail's specs sequentially, in dependency-aware waves. |
-| **Ultra** | (Ultracode) | Claude implements each spec autonomously, **bypassing** the OpenSpec pipeline. One independent job per spec. Claude only. |
+| **Ultracode** | (Ultracode) | Claude implements each spec autonomously, **bypassing** the OpenSpec pipeline. One independent job per spec. Claude only. |
+
+Beyond the built-ins, the **Loops** section (left sidebar, above the project list) is a global, n8n-style **visual builder** shared across all your projects. A loop is a graph of typed steps:
+
+- **AI Step** — runs a prompt or a magic command (`{{cmd:implement}}`, `{{cmd:verify}}`, `{{cmd:fix}}`, …), with `{{spec.*}}` data tokens and a global **constants** library (`{{const:*}}`).
+- **Shell** — runs a command and captures its output.
+- **Loop Decider** — an AI node that, each iteration, decides **continue** (loop back) or **stop** (exit) based on a goal you write — e.g. *“the verification step reported VERIFICATION: PASS”*. This is what powers autonomous **verify → fix → verify until green** loops.
+- **Start / End** — entry and terminal nodes.
+
+Each run is bounded by **max iterations**, a wall-clock **timeout**, and an optional **cost cap** (USD, checked between steps). The builder also has live validation, a dry-run preview (resolve every step's exact text without spawning), import/export to JSON, and copy/paste of steps across loops. **Fork** a built-in to start from a working graph, then **Publish** to make a loop selectable on any rail.
+
+> Loop runs stream live in the Jobs view exactly like a normal rail job. Provider/model/effort are governed by the **rail**, not the loop's steps.
 
 ### Pipeline phases
 
@@ -65,15 +76,15 @@ Each phase is a specialised agent invoked by the rail's engine (Claude, Codex, o
 
 In plain terms: the project's **agent profile** decides which AI agent handles each phase. The baseline trio (`sr-architect`, `sr-developer`, `sr-reviewer`) is always present; a profile's routing rules can add extra agents or swap which one runs a phase. The phase progress bar only renders when the command defines phases. For the full format, see [internals/profiles.md](internals/profiles.md).
 
-### Ultracode mode
+### Ultracode
 
-`Ultra` is a Claude-only mode that skips the Architect → Developer → Reviewer → Ship pipeline entirely. Instead of orchestrating the agent chain, it hands Claude a configurable pre-prompt plus the full spec text and lets it work autonomously with its native tools.
+`Ultracode` is a Claude-only loop that skips the Architect → Developer → Reviewer → Ship pipeline entirely. Instead of orchestrating the agent chain, it hands Claude a configurable pre-prompt plus the full spec text and lets it work autonomously with its native tools.
 
-- **One job per spec.** If the rail has three specs, `Ultra` launches three independent jobs.
+- **One job per spec.** If the rail has three specs, `Ultracode` launches three independent jobs.
 - **Variable cost.** Because the run is open-ended, pressing Play opens a confirmation dialog before anything spawns.
 - **Model picker.** A per-rail control lets you pick **Haiku / Sonnet / Opus** (default Sonnet) for the Ultracode run.
-- **Claude only.** The `Ultra` segment and its model picker only appear when the rail's engine is Claude. Codex and Gemini rails can't run Ultracode, and agent profiles don't apply to Ultracode rails.
-- **Interactive (optional).** An `Interactive` toggle next to the `Ultra` segment turns the run into a back-and-forth session: you can chat with the running job, send follow-up prompts, and click **Finalize** when you're done. Without it, the job runs to completion on its own. (Available when the rail is idle; can be disabled server-side via `SPECRAILS_INTERACTIVE_JOBS=false`.)
+- **Claude only.** The Ultracode loop and its model picker are offered only when the rail's engine is Claude. Codex and Gemini rails can't run Ultracode, and agent profiles don't apply to Ultracode rails.
+- **Interactive (optional).** An `Interactive` toggle next to the Ultracode launch turns the run into a back-and-forth session: you can chat with the running job, send follow-up prompts, and click **Finalize** when you're done. Without it, the job runs to completion on its own. (Available when the rail is idle; can be disabled server-side via `SPECRAILS_INTERACTIVE_JOBS=false`.)
 
 You can customise the Ultracode pre-prompt per project on the [Settings page](customizing.md#ultracode-pre-prompt).
 
@@ -223,10 +234,10 @@ specrails-core's installer also guarantees it never touches `.specrails/plugins/
 
 ## Running many specs at once
 
-Want a whole batch of specs to run from one rail? Use **Batch** mode:
+Want a whole batch of specs to run from one rail? Use the **Batch** loop:
 
 1. Drag all the specs you want onto a single rail.
-2. Switch that rail's mode to **Batch**.
+2. Pick the **Batch** loop on that rail.
 3. Press **▶ Play**.
 
 The rail launches one `/specrails:batch-implement` job that works through every assigned spec in dependency-aware waves. Monitor progress on the Jobs page. Because a project runs one job at a time, this is also the way to chain a list of specs without juggling multiple rails.

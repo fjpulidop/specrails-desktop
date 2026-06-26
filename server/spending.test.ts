@@ -27,7 +27,7 @@ describe('getSpending', () => {
     expect(r.summary.totalCostUsd).toBe(0)
     expect(r.summary.totalRuns).toBe(0)
     expect(r.summary.deltaPct).toBeNull()
-    expect(r.bySurface).toHaveLength(6)
+    expect(r.bySurface).toHaveLength(7) // job, quick-spec, explore-spec, ai-edit, smash, file-summary, loop
     expect(r.bySurface.every((s) => s.count === 0)).toBe(true)
     expect(r.topTickets).toEqual([])
   })

@@ -1,0 +1,205 @@
+{
+  "title": "Loops",
+  "subtitle": "Wiederverwendbare Automatisierungs-Loops – projektübergreifend geteilt.",
+  "newLoop": "Neuer Loop",
+  "sections": {
+    "drafts": "Entwürfe",
+    "published": "Veröffentlicht",
+    "templates": "Vorlagen",
+    "builtIn": "Integriert"
+  },
+  "status": {
+    "draft": "Entwurf",
+    "published": "Veröffentlicht",
+    "running": "Läuft"
+  },
+  "empty": {
+    "title": "Noch keine Loops",
+    "body": "Erstelle einen von Grund auf neu oder beginne mit einer Vorlage."
+  },
+  "actions": {
+    "edit": "Bearbeiten",
+    "delete": "Löschen",
+    "publish": "Veröffentlichen",
+    "unpublish": "Zurückziehen",
+    "duplicate": "Duplizieren",
+    "use": "Vorlage verwenden",
+    "preview": "Vorschau",
+    "fork": "Zum Bearbeiten forken",
+    "run": "Ausführen",
+    "export": "Exportieren",
+    "import": "Importieren",
+    "select": "{{name}} auswählen"
+  },
+  "card": {
+    "nodes_one": "{{count}} Knoten",
+    "nodes_other": "{{count}} Knoten",
+    "usedIn": "In Verwendung · {{project}}"
+  },
+  "confirmDelete": "Diesen Loop löschen? Er verschwindet aus jeder Rail-Auswahl.",
+  "newLoopName": "Neuer Loop",
+  "errors": {
+    "load": "Loops konnten nicht geladen werden",
+    "save": "Loop konnte nicht gespeichert werden",
+    "publishInvalid": "Dieser Loop kann noch nicht veröffentlicht werden – behebe die hervorgehobenen Probleme."
+  },
+  "builder": {
+    "back": "Zurück zu Loops",
+    "save": "Speichern",
+    "saved": "Loop gespeichert",
+    "publish": "Veröffentlichen",
+    "published": "Loop veröffentlicht",
+    "addNode": "Knoten hinzufügen",
+    "deleteNode": "Knoten löschen",
+    "config": {
+      "maxIterations": "Maximale Iterationen",
+      "timeout": "Timeout (Min.)",
+      "maxIterationsHint": "Obergrenze für Loop-Decider-Iterationen — der Loop stoppt beim Erreichen, auch wenn das Ziel nicht erfüllt ist. Verhindert Endlosschleifen.",
+      "timeoutHint": "Echtzeit-Limit für den gesamten Lauf, in Minuten. Bei Überschreitung wird der Lauf gestoppt und als fehlgeschlagen markiert — ein Sicherheitsnetz neben den max. Iterationen.",
+      "maxCost": "Max. Kosten ($)",
+      "maxCostHint": "Optionales USD-Budget für den gesamten Lauf. Wird ZWISCHEN Schritten geprüft (die Kosten eines Schritts stehen erst nach dessen Ende fest), der Loop stoppt vor dem nächsten Schritt, sobald die Summe es überschreitet — kann um einen Schritt überschreiten. Bei Nicht-Claude-Anbietern sind die Kosten geschätzt. Leer = kein Limit."
+    },
+    "nodes": {
+      "start": "Start",
+      "ai-step": "KI-Schritt",
+      "shell": "Shell",
+      "decider": "Loop-Entscheider",
+      "condition": "Bedingung",
+      "end": "Ende"
+    },
+    "inspector": {
+      "selectNode": "Wähle einen Knoten aus, um ihn zu bearbeiten.",
+      "prompt": "Prompt",
+      "provider": "Anbieter",
+      "model": "Modell",
+      "effort": "Denkaufwand",
+      "command": "Befehl",
+      "goal": "Ziel / Abbruchkriterien",
+      "join": "Verknüpfung",
+      "outcome": "Ergebnis",
+      "startNote": "Der Einstiegspunkt des Loops. Verbinde ihn mit dem ersten Schritt.",
+      "promptHint": "Klicke oder ziehe ein Token, um es in den Prompt einzufügen.",
+      "tokensSpec": "Spec-Felder",
+      "tokensJira": "Jira",
+      "tokensCommands": "Befehle",
+      "label": "Name"
+    },
+    "branch": {
+      "continue": "↻ Fortsetzen",
+      "stop": "✓ Stoppen"
+    },
+    "edgesHelp": {
+      "label": "Wie Schritte verbunden werden",
+      "body": "Pfeile legen die REIHENFOLGE der Ausführung fest, keine Daten — Boxen haben keine Eingangsports und Kanten übergeben keine Parameter. Jeder AI Step setzt automatisch seine Session fort (vollständiger vorheriger Kontext) plus eine kurze Zusammenfassung der vorherigen Schritte; nichts wird von Hand verdrahtet. Der Loop Decider hat zwei Ausgänge: ↻ Fortsetzen (Ziel nicht erreicht → zurück in die Schleife) und ✓ Stoppen (Ziel erreicht → beenden)."
+    },
+    "arrange": {
+      "label": "Anordnen",
+      "vertical": "Vertikal",
+      "horizontal": "Horizontal",
+      "grid": "Raster",
+      "reset": "Zurücksetzen"
+    },
+    "constants": {
+      "label": "Konstanten",
+      "manage": "Konstanten verwalten",
+      "title": "Loop-Konstanten",
+      "empty": "Noch keine eigenen Konstanten.",
+      "name": "NAME",
+      "value": "Wert",
+      "add": "Hinzufügen",
+      "builtinBadge": "Integriert"
+    },
+    "paste": {
+      "done_one": "{{count}} Schritt eingefügt",
+      "done_other": "{{count}} Schritte eingefügt"
+    },
+    "problems": {
+      "count_one": "{{count}} Problem",
+      "count_other": "{{count}} Probleme",
+      "NO_START": "Füge einen Start-Knoten hinzu.",
+      "MULTIPLE_START": "Nur ein Start-Knoten ist erlaubt.",
+      "NO_END": "Füge mindestens einen End-Knoten hinzu.",
+      "ORPHAN": "Dieser Schritt ist vom Start nicht erreichbar.",
+      "DECIDER_BRANCHES": "Der Loop Decider braucht einen Fortsetzen- und einen Stopp-Zweig.",
+      "EMPTY_PROMPT": "Der KI-Schritt hat einen leeren Prompt.",
+      "EMPTY_COMMAND": "Der Shell-Schritt hat einen leeren Befehl.",
+      "EMPTY_GOAL": "Der Loop Decider hat kein Ziel.",
+      "DEAD_END": "Dieser Schritt hat keine ausgehende Verbindung."
+    },
+    "preview": {
+      "label": "Vorschau",
+      "title": "Probelauf-Vorschau",
+      "sampleNote": "Spec-Werte sind Beispieldaten; Befehle und Konstanten werden wie zur Laufzeit aufgelöst.",
+      "empty": "Keine Schritte zur Vorschau.",
+      "error": "Vorschau fehlgeschlagen"
+    }
+  },
+  "preview": {
+    "steps": "Schritte",
+    "limits": "max. {{iterations}} Iterationen · {{timeout}} Min. Timeout"
+  },
+  "builtInBadge": "Integriert",
+  "run": {
+    "title": "{{name}} ausführen",
+    "subtitle": "Diesen Loop auf einem Projekt starten (kein Ticket nötig).",
+    "project": "Projekt",
+    "provider": "Anbieter",
+    "effort": "Reasoning-Aufwand",
+    "execute": "Ausführen",
+    "noProjects": "Keine Projekte verfügbar.",
+    "launched": "{{name}} wird ausgeführt"
+  },
+  "catalog": {
+    "ship-and-green": {
+      "name": "Ship & Green",
+      "description": "Vollständig autonom: spec implementieren, verifizieren und bei Fehlern nachbessern (Fix) — in der Schleife verifizieren → fixen → verifizieren, bis alles grün ist. Kein manuelles Eingreifen."
+    },
+    "verify-pass": {
+      "name": "Verify Pass",
+      "description": "Autonomes Verifizieren-und-Fixen: build/lint/Tests des Projekts erkennen und ausführen, dann bei Fehlern nachbessern — verifizieren → fixen → verifizieren, bis grün."
+    },
+    "ci-watch": {
+      "name": "CI Watch",
+      "description": "Fragt die CI-Checks des offenen PR ab (der Agent nutzt das CI-Tooling des Repos), bis jeder Check grün ist."
+    },
+    "lint-and-fix": {
+      "name": "Lint & Fix",
+      "description": "Der Agent erkennt und führt den lint des Projekts aus und behebt jedes Problem, iterierend, bis die Codebasis sauber ist."
+    },
+    "type-safe": {
+      "name": "Type Safe",
+      "description": "Der Agent erkennt und führt den Typchecker des Projekts aus und behebt jeden Fehler, iterierend, bis er sauber durchläuft."
+    },
+    "coverage-climb": {
+      "name": "Coverage Climb",
+      "description": "Der Agent führt das Coverage-Tooling des Projekts aus und ergänzt gezielte Tests, bis die Schwellenwerte erreicht sind."
+    },
+    "build-fix": {
+      "name": "Build Fix",
+      "description": "Der Agent erkennt und führt den Produktions-build des Projekts aus und behebt Kompilier-/Bundle-Fehler, bis er grün ist."
+    },
+    "deploy-check": {
+      "name": "Deploy Check",
+      "description": "Der Agent fragt den deploy-/Health-Status ab (mit dem deploy-Tooling des Projekts), bis der Dienst als gesund gemeldet wird."
+    },
+    "factory_implement": {
+      "name": "Implementieren",
+      "description": "Vollständig autonom: spec implementieren, verifizieren und bei Fehlern nachbessern (Fix) — in der Schleife, bis alle Tests bestehen."
+    },
+    "factory_batch": {
+      "name": "Batch-Implementierung",
+      "description": "Alle Tickets des Rails auf einmal als Batch implementieren, dann verifizieren + bei Fehlern nachbessern, bis grün."
+    },
+    "factory_ultracode": {
+      "name": "Ultracode",
+      "description": "Autonome Implementierung pro Ticket (keine Pipeline), dann verifizieren + nachbessern, bis grün. Nur Claude."
+    }
+  },
+  "import": {
+    "done_one": "{{count}} Loop importiert",
+    "done_other": "{{count}} Loops importiert",
+    "skipped_one": "{{count}} Duplikat übersprungen: {{names}}",
+    "skipped_other": "{{count}} Duplikate übersprungen: {{names}}",
+    "invalid": "Diese Datei ist kein gültiger Loops-Export."
+  }
+}

@@ -34,9 +34,7 @@
       "configured": "<strong>{{projectName}}</strong> 现已配置好 AI 驱动的开发工作流。你的专属 Agent 和命令已就绪。",
       "installedForEngines_one": "已为 {{count}} 个引擎安装",
       "installedForEngines_other": "已为 {{count}} 个引擎安装",
-
       "installed": "已安装",
-
       "installFailed": "安装失败",
       "learnMore": "了解如何充分利用 specrails：",
       "continueToProject": "进入项目",
@@ -226,14 +224,16 @@
       "intro": "Dashboard 右侧是你的 <b>Rails</b>——执行泳道。把 spec 卡片拖到 rail 上，按 <play>▶ 播放</play> 启动一次实现任务。",
       "jobLabel": "每个任务运行什么",
       "flowCaption": "每个阶段的日志都会实时流式展示。",
-      "modeLabel": "选择 rail 的运行模式",
-      "modeBody": "每条 rail 可选模式：<b>Implement</b>（完整的结构化流水线）、<b>Batch</b>（顺序执行多个 spec），或 <b>Ultracode</b>（Claude 自主工作，无固定流水线）。",
+      "modeLabel": "选择要运行的 Loop",
+      "modeBody": "每个 rail 都运行一个 <b>Loop</b>。可以选择内置的 Loop —— <b>Implement</b>（完整的结构化流水线）、<b>Batch</b>（一次处理多个 spec）或 <b>Ultracode</b>（Claude 自主工作，无固定流水线）—— 也可以选择你自己构建的 Loop。",
       "profilesLabel": "Agent Profile",
       "profilesBody": "项目级的声明式目录，决定运行哪些 Agent 以及各自使用的模型——按 rail 选择、按任务快照，并发工作互不干扰。",
       "jobDetailLabel": "实时任务详情",
       "jobDetailBody": "每个任务都显示工单标识头、实时计时器和持续累计的轮次 / token 数，最终成本在任务结束时确定。",
       "isolationLabel": "多项目，相互隔离",
-      "isolationBody": "每个项目都有独立的数据库和任务队列。可以同时运行多个项目，并从左侧边栏切换——每个项目的位置都会被记住。"
+      "isolationBody": "每个项目都有独立的数据库和任务队列。可以同时运行多个项目，并从左侧边栏切换——每个项目的位置都会被记住。",
+      "loopsLabel": "构建你自己的 loop",
+      "loopsBody": "<b>Loops</b> 是一个可视化构建器：串联 AI 步骤、shell 命令以及一个 <b>Loop Decider</b>，它会不断重复直到达成目标 —— 例如 验证 → 修复 → 验证，直到全部通过。发布一个 loop，即可在任意 rail 上选用它。"
     },
     "providers": {
       "nav": "你的 Agent",

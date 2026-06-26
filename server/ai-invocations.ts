@@ -1,7 +1,7 @@
 import type { DbInstance } from './db'
 import type { NormalisedResult } from './result-event'
 
-export type Surface = 'job' | 'quick-spec' | 'explore-spec' | 'ai-edit' | 'smash' | 'file-summary'
+export type Surface = 'job' | 'quick-spec' | 'explore-spec' | 'ai-edit' | 'smash' | 'file-summary' | 'loop'
 export type InvocationStatus = 'success' | 'failed' | 'aborted'
 
 const ALLOWED_SURFACES: ReadonlySet<Surface> = new Set([
@@ -11,6 +11,7 @@ const ALLOWED_SURFACES: ReadonlySet<Surface> = new Set([
   'ai-edit',
   'smash',
   'file-summary',
+  'loop',
 ])
 
 export interface RecordInput extends NormalisedResult {
@@ -30,6 +31,9 @@ export interface RecordInput extends NormalisedResult {
    *  (vs the provider's terminal event). Writes the `total_cost_usd_estimated`
    *  flag column. Default false. */
   total_cost_usd_estimated?: boolean
+  /** Links a loop's per-iteration AI Step / Loop Decider invocation (surface='loop')
+   *  to its loop_runs row for run-level rollups. NULL for all non-loop rows. */
+  loop_run_id?: string | null
 }
 
 export interface InvocationRow {
@@ -76,8 +80,8 @@ export function recordInvocation(db: DbInstance, input: RecordInput): void {
       id, project_id, provider, surface, surface_ref_id, ticket_id, conversation_id,
       model, status, started_at, finished_at, duration_ms, duration_api_ms,
       tokens_in, tokens_out, tokens_cache_read, tokens_cache_create,
-      total_cost_usd, total_cost_usd_estimated, num_turns, session_id
-    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      total_cost_usd, total_cost_usd_estimated, num_turns, session_id, loop_run_id
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
   `).run(
     input.id,
     input.project_id,
@@ -100,6 +104,7 @@ export function recordInvocation(db: DbInstance, input: RecordInput): void {
     input.total_cost_usd_estimated ? 1 : 0,
     input.num_turns ?? null,
     input.session_id ?? null,
+    input.loop_run_id ?? null,
   )
 }
 
@@ -156,6 +161,7 @@ export function getTicketSpendingSummary(
     'ai-edit': { count: 0, costUsd: 0 },
     smash: { count: 0, costUsd: 0 },
     'file-summary': { count: 0, costUsd: 0 },
+    loop: { count: 0, costUsd: 0 },
   }
   let totalCostUsd = 0
   let totalTokens = 0

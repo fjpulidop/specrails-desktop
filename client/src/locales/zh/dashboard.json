@@ -32,12 +32,18 @@
     "batch": "批量",
     "ultra": "Ultra",
     "ultraTitle": "Ultracode — Claude 自主实现该 Spec，不走流水线",
+    "loop": "Loop",
+    "loopTitle": "Loop — 针对该轨道的 Spec 运行已发布的自动化循环",
+    "pickLoop": "选择一个循环…",
+    "effortTitle": "推理强度",
     "interactive": "交互",
     "interactiveTitle": "交互 — 与运行中的任务对话；可继续发送提示，完成后再定稿",
     "stop": "停止",
     "play": "运行",
     "failedRetry": "任务失败 — 点击重试",
-    "addSpecsFirst": "请先向此 Rail 添加 Spec"
+    "addSpecsFirst": "请先向此 Rail 添加 Spec",
+    "builtInLoops": "内置",
+    "customLoops": "自定义循环"
   },
   "railRow": {
     "moveToSpecs": "移至 Specs",

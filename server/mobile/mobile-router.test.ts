@@ -149,6 +149,26 @@ describe('mobile-router', () => {
     expect(res.body.route).toBe('[path]')
   })
 
+  it('rail launch forwards loopId + reasoning_effort + interactive (rails-as-loops), drops junk', async () => {
+    const res = await request(app)
+      .post('/v1/projects/p1/rails/0/launch')
+      .set('Authorization', 'Bearer tok')
+      .send({ loopId: 'factory:implement', reasoning_effort: 'high', interactive: true, evil: 'x', reasoning_effort_bad: 'ultra' })
+    expect(res.status).toBe(200)
+    expect(res.body.body).toEqual({ loopId: 'factory:implement', reasoning_effort: 'high', interactive: true })
+  })
+
+  it('exposes the loop catalog + per-project loop-run reads for the mobile mirror', async () => {
+    const loops = await request(app).get('/v1/loops').set('Authorization', 'Bearer tok')
+    expect(loops.status).toBe(200)
+    expect(loops.body.echoed).toBe(true)
+    const factory = await request(app).get('/v1/loops/factory').set('Authorization', 'Bearer tok')
+    expect(factory.status).toBe(200)
+    const run = await request(app).get('/v1/projects/p1/loop-runs/abc-123').set('Authorization', 'Bearer tok')
+    expect(run.status).toBe(200)
+    expect(run.body.method).toBe('GET')
+  })
+
   it('rail stop, queue pause/resume, job delete, put rail tickets are reachable', async () => {
     expect((await request(app).post('/v1/projects/p1/rails/0/stop').set('Authorization', 'Bearer tok')).status).toBe(200)
     expect((await request(app).post('/v1/projects/p1/queue/pause').set('Authorization', 'Bearer tok')).status).toBe(200)

@@ -329,6 +329,54 @@ function applyDesktopMigrations(db: DbInstance): void {
         upd.run(h.events.split('hub_daily_budget_exceeded').join('desktop_daily_budget_exceeded'), h.id)
       }
     },
+    // Migration 14: loops — global, cross-project library of visual automation
+    // loop definitions (the Loops feature). Stored app-level (NOT per-project):
+    // a loop is a reusable recipe used from any project's rail. `graph` is the
+    // JSON node-graph (see server/loop-graph.ts); `status` is the Draft/Published
+    // lifecycle. "Running" is NOT stored here — it is derived from active
+    // per-project loop_runs at query time.
+    () => {
+      db.exec(`
+        CREATE TABLE IF NOT EXISTS loops (
+          id          TEXT PRIMARY KEY,
+          name        TEXT NOT NULL,
+          description TEXT,
+          status      TEXT NOT NULL DEFAULT 'draft',
+          graph       TEXT NOT NULL,
+          created_at  TEXT NOT NULL DEFAULT (datetime('now')),
+          updated_at  TEXT NOT NULL DEFAULT (datetime('now'))
+        );
+
+        CREATE INDEX IF NOT EXISTS idx_loops_status ON loops(status);
+      `)
+    },
+    // 15: global, cross-loop constants library. Draggable into loop steps as
+    // `{{const:NAME}}` tokens, resolved at run time by the engine. Shared by every
+    // loop (like the loops table itself); built-in sentinels live in code, not here.
+    () => {
+      db.exec(`
+        CREATE TABLE IF NOT EXISTS loop_constants (
+          id         TEXT PRIMARY KEY,
+          name       TEXT NOT NULL UNIQUE,
+          value      TEXT NOT NULL,
+          created_at TEXT NOT NULL DEFAULT (datetime('now')),
+          updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+        );
+      `)
+    },
+    // 16: seed a few EDITABLE starter constants so the library isn't bare — common
+    // loop-authoring conventions the user can edit or delete (templates don't
+    // auto-use them; only the read-only VERIFICATION_PASS/FAIL built-ins are wired
+    // into templates). Runs once: deleting a seed is permanent (migration won't
+    // re-insert). INSERT OR IGNORE so a pre-existing same-name user constant wins.
+    () => {
+      db.exec(`
+        INSERT OR IGNORE INTO loop_constants (id, name, value) VALUES
+          ('seed-main-branch',  'MAIN_BRANCH',  'main'),
+          ('seed-pkg-manager',  'PKG_MANAGER',  'npm'),
+          ('seed-min-coverage', 'MIN_COVERAGE', '80');
+      `)
+    },
   ]
 
   for (let i = 0; i < migrations.length; i++) {

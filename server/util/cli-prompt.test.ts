@@ -153,56 +153,42 @@ describe('transformClaudeArgsForWindows', () => {
 })
 
 describe('spawnClaude (Windows arg-rewrite path)', () => {
-  // Force the Windows branch regardless of host platform by re-importing the
-  // module with process.platform stubbed, so the bare-`-p` (stdin transport)
-  // and `-p <multiline>` cases are both exercised on CI (which runs on Linux).
-  it('passes a bare -p chat-stream argv through untouched and does NOT end() stdin', async () => {
-    vi.resetModules()
+  // Force the Windows branch by stubbing process.platform — `isWin` is now a
+  // per-call check, so NO module re-import is needed. We stub the (already
+  // top-level-mocked) spawnCli for one call with mockImplementationOnce so it
+  // returns a fake child instead of spawning a real `claude` (which would ENOENT
+  // on CI). This removes the old flaky vi.doMock + resetModules + dynamic-import
+  // dance that intermittently leaked a real spawn → unhandled ENOENT.
+  const fakeChild = (endSpy: () => void) =>
+    ({ stdin: { end: endSpy } }) as unknown as ReturnType<typeof spawnCli>
+
+  it('passes a bare -p chat-stream argv through untouched and does NOT end() stdin', () => {
     const endSpy = vi.fn()
-    vi.doMock('./win-spawn', () => ({
-      spawnCli: vi.fn(() => ({ stdin: { end: endSpy } })),
-    }))
-    const platformSpy = vi
-      .spyOn(process, 'platform', 'get')
-      .mockReturnValue('win32')
+    const platformSpy = vi.spyOn(process, 'platform', 'get').mockReturnValue('win32')
+    vi.mocked(spawnCli).mockImplementationOnce(() => fakeChild(endSpy))
     try {
-      const mod = await import('./cli-prompt')
-      const winSpawn = await import('./win-spawn')
       const args = ['--verbose', '-p', '--input-format', 'stream-json']
-      mod.spawnClaude(args, { stdio: ['pipe', 'pipe', 'pipe'] })
-      const call = vi.mocked(winSpawn.spawnCli).mock.calls.at(-1)!
+      spawnClaude(args, { stdio: ['pipe', 'pipe', 'pipe'] })
+      const call = vi.mocked(spawnCli).mock.calls.at(-1)!
       expect(call[0]).toBe('claude')
       expect(call[1]).toEqual(args) // argv untouched — no consumed flag, no extra -p
       expect(endSpy).not.toHaveBeenCalled() // no bogus stdin payload written
     } finally {
       platformSpy.mockRestore()
-      vi.doUnmock('./win-spawn')
-      vi.resetModules()
     }
   })
 
-  it('routes a -p <multiline value> through stdin on Windows', async () => {
-    vi.resetModules()
+  it('routes a -p <multiline value> through stdin on Windows', () => {
     const endSpy = vi.fn()
-    vi.doMock('./win-spawn', () => ({
-      spawnCli: vi.fn(() => ({ stdin: { end: endSpy } })),
-    }))
-    const platformSpy = vi
-      .spyOn(process, 'platform', 'get')
-      .mockReturnValue('win32')
+    const platformSpy = vi.spyOn(process, 'platform', 'get').mockReturnValue('win32')
+    vi.mocked(spawnCli).mockImplementationOnce(() => fakeChild(endSpy))
     try {
-      const mod = await import('./cli-prompt')
-      const winSpawn = await import('./win-spawn')
-      mod.spawnClaude(['--verbose', '-p', 'multi\nline\nprompt'], {
-        stdio: ['pipe', 'pipe', 'pipe'],
-      })
-      const call = vi.mocked(winSpawn.spawnCli).mock.calls.at(-1)!
+      spawnClaude(['--verbose', '-p', 'multi\nline\nprompt'], { stdio: ['pipe', 'pipe', 'pipe'] })
+      const call = vi.mocked(spawnCli).mock.calls.at(-1)!
       expect(call[1]).toEqual(['--verbose', '-p'])
       expect(endSpy).toHaveBeenCalledWith('multi\nline\nprompt')
     } finally {
       platformSpy.mockRestore()
-      vi.doUnmock('./win-spawn')
-      vi.resetModules()
     }
   })
 })

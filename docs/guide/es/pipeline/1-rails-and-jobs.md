@@ -23,7 +23,7 @@ Puedes tener varios rails para organizar el trabajo en carriles con nombre (uno 
 ## Lanzar un rail sobre una spec
 
 1. **Arrastra una tarjeta de spec** desde el SpecsBoard hasta un rail. El ID de la spec aparece en la lista de specs del rail. (¿Prefieres no arrastrar? Usa el popover **Mover a rail** en la tarjeta de la spec — muestra un punto de estado por cada rail para que no dejes trabajo en un carril ocupado.)
-2. **Elige un modo** si quieres algo distinto al predeterminado — el control segmentado de la cabecera del rail ofrece `Implement`, `Batch` y (solo en rails de Claude) `Ultra`.
+2. **Elige un Loop** en la cabecera del rail. Un rail ejecuta un **Loop** — eso es el trabajo que realiza. El predeterminado es el loop `Implement` integrado; también puedes elegir `Batch`, `Ultracode` o un loop personalizado que hayas construido tú mismo. Mira [El Loop Builder](the-loop-builder).
 3. **Pulsa ▶ Play.**
 
 Eso es todo. El rail arranca un proceso de la CLI de IA en tu proyecto y empieza el pipeline.
@@ -34,20 +34,24 @@ Eso es todo. El rail arranca un proceso de la CLI de IA en tu proyecto y empieza
 |---------|--------------|
 | **Pastilla de estado** | `idle`, `running` o `failed`. No hay un estado "completed" aparte — un rail vuelve a `idle` cuando su job termina limpiamente. |
 | **Lista de specs** | Los IDs asignados a este rail. Arrastra más para añadirlas, o sácalas para desvincularlas. |
-| **Control de modo** | `Implement` / `Batch` / `Ultra` — mira la tabla de más abajo. Se recuerda por rail. |
+| **Selector de Loop** | El Loop que ejecuta este rail — uno integrado (`Implement` / `Batch` / `Ultracode`) o un loop personalizado. Mira la tabla de más abajo. Se recuerda por rail. |
 | **Selector de perfil** | Qué perfil de agentes se ejecuta (solo en rails de Claude). Solo aparece cuando el proyecto tiene al menos un perfil. |
 | **Selector de motor** | Qué proveedor instalado ejecuta este rail — Claude, Codex o Gemini. Solo se muestra cuando el proyecto tiene más de un proveedor. Mira [Elegir un motor por rail](picking-an-engine-per-rail). |
 | **▶ Play / ■ Stop** | Iniciar o cancelar. |
 
-### Los tres modos de rail
+### Qué ejecuta un rail: Loops
 
-| Modo | Comando | Qué hace |
+Un rail ejecuta un **Loop** — la receta del trabajo. Tres loops están **integrados** y cubren los casos comunes:
+
+| Loop integrado | Comando | Qué hace |
 |------|---------|--------------|
 | **Implement** | `/specrails:implement` | Un job que cubre todas las specs del rail. Ejecuta el pipeline completo Architect → Developer → Reviewer → Ship. El predeterminado del día a día. |
 | **Batch** | `/specrails:batch-implement` | Un job que recorre las specs del rail de forma secuencial, en oleadas según sus dependencias. Lo mejor para varias specs relacionadas. |
-| **Ultra** | Ultracode | Claude implementa cada spec de forma autónoma, **saltándose** el pipeline. Un job independiente por spec. Solo Claude. |
+| **Ultracode** | Ultracode | Claude implementa cada spec de forma autónoma, **saltándose** el pipeline. Un job independiente por spec. Solo Claude. |
 
-Ultra es el caso especial: se salta la cadena de agentes y le entrega a Claude la spec en bruto para que la trabaje con sus herramientas nativas. Es de final abierto, así que al pulsar Play primero se abre una confirmación, y un selector de modelo por rail te deja elegir Haiku / Sonnet / Opus. Solo aparece cuando el motor del rail es Claude.
+Ultracode es el caso especial: se salta la cadena de agentes y le entrega a Claude la spec en bruto para que la trabaje con sus herramientas nativas. Es de final abierto, así que al pulsar Play primero se abre una confirmación, y un selector de modelo por rail te deja elegir Haiku / Sonnet / Opus. Solo aparece cuando el motor del rail es Claude.
+
+Más allá de los integrados, puedes **construir tus propios loops** — repetir un ciclo verify → fix → verify hasta cumplir un objetivo, encadenar comandos de shell entre pasos de IA y más. Esos loops personalizados aparecen en el mismo selector de Loop. Esa es la siguiente gran idea: [El Loop Builder](the-loop-builder).
 
 ## La cola de jobs
 
@@ -89,6 +93,7 @@ Si algo parece ir mal:
 
 ## A dónde ir después
 
+- [El Loop Builder](the-loop-builder) — qué ejecuta un rail y cómo construir tus propios loops.
 - [La vista de detalle del job](the-job-detail-view) — fases, métricas en vivo, tarjetas de ticket.
 - [Batch implement y multifuncionalidad](batch-implement-and-multi-feature) — ejecuta varias specs a la vez.
 - [Elegir un motor por rail](picking-an-engine-per-rail) — Claude vs Codex vs Gemini.

@@ -224,14 +224,16 @@
       "intro": "The right side of the Dashboard is your <b>Rails</b> — execution lanes. Drag a spec card onto a rail and press <play>▶ Play</play> to launch an implementation job.",
       "jobLabel": "What each job runs",
       "flowCaption": "Every phase streams its logs live as it works.",
-      "modeLabel": "Pick how a rail runs",
-      "modeBody": "Each rail chooses a mode: <b>Implement</b> (the full structured pipeline), <b>Batch</b> (several specs in sequence), or <b>Ultracode</b> (Claude works autonomously, no fixed pipeline).",
+      "modeLabel": "Pick a Loop to run",
+      "modeBody": "Each rail runs a <b>Loop</b>. Pick a built-in one — <b>Implement</b> (the full structured pipeline), <b>Batch</b> (several specs at once) or <b>Ultracode</b> (Claude works autonomously, no fixed pipeline) — or one you built yourself.",
       "profilesLabel": "Agent profiles",
       "profilesBody": "A per-project, declarative catalog that decides which agents run and which model each one uses — picked per rail and snapshotted per job so concurrent work stays isolated.",
       "jobDetailLabel": "Live job detail",
       "jobDetailBody": "Every job shows a ticket-identity header, a live duration ticker and running turn/token counts, with the authoritative cost resolved on exit.",
       "isolationLabel": "Many projects, isolated",
-      "isolationBody": "Each project has its own database and job queue. Run different projects at the same time and switch between them from the left sidebar — your place is remembered per project."
+      "isolationBody": "Each project has its own database and job queue. Run different projects at the same time and switch between them from the left sidebar — your place is remembered per project.",
+      "loopsLabel": "Build your own loops",
+      "loopsBody": "<b>Loops</b> is a visual builder: chain AI steps, shell commands and a <b>Loop Decider</b> that repeats until a goal is met — e.g. verify → fix → verify until everything is green. Publish a loop and pick it on any rail."
     },
     "providers": {
       "nav": "Your agent",

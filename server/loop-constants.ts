@@ -1,0 +1,100 @@
+/**
+ * Global, cross-loop constants library. Constants are dragged into loop steps as
+ * `{{const:NAME}}` tokens and resolved at RUN TIME by the engine — so editing a
+ * constant's value updates every loop that references it (the user-chosen "live
+ * token" model). Built-in sentinels (the verify/Decider contract) live in code
+ * and can't be edited or deleted; custom constants live in `desktop.sqlite`.
+ *
+ * Pure + DB helpers, no Express. The router (loops-router) and the engine
+ * (loop-run-manager, via loadConstantMap) are the only consumers.
+ */
+import type { DbInstance } from './db'
+
+/** Read-only built-ins. `VERIFICATION_PASS/FAIL` are the sentinel strings that
+ *  `{{cmd:verify}}` emits and the Loop Decider reads — keeping them as constants
+ *  means a Decider goal can drag the exact contract string instead of retyping. */
+export const BUILTIN_CONSTANTS: Record<string, string> = {
+  VERIFICATION_PASS: 'VERIFICATION: PASS',
+  VERIFICATION_FAIL: 'VERIFICATION: FAIL',
+}
+
+/** Token names: letters, digits, `_ . -`. Mirrors what the resolver matches. */
+export const CONSTANT_NAME_RE = /^[A-Za-z0-9_.-]+$/
+const CONST_TOKEN_RE = /\{\{const:([A-Za-z0-9_.-]+)\}\}/g
+
+export interface LoopConstant {
+  id: string
+  name: string
+  value: string
+  /** True for the read-only built-ins; absent/false for user constants. */
+  builtin?: boolean
+}
+
+export type LoopConstantErrorCode = 'invalid_name' | 'reserved_name' | 'duplicate' | 'not_found' | 'missing_value'
+export class LoopConstantError extends Error {
+  constructor(public code: LoopConstantErrorCode, message: string) {
+    super(message)
+    this.name = 'LoopConstantError'
+  }
+}
+
+interface ConstantRow { id: string; name: string; value: string }
+
+/** Built-ins first, then custom constants alphabetically. */
+export function listConstants(db: DbInstance): LoopConstant[] {
+  const custom = (db.prepare('SELECT id, name, value FROM loop_constants ORDER BY name').all() as ConstantRow[])
+    .map((r) => ({ id: r.id, name: r.name, value: r.value }))
+  const builtins = Object.entries(BUILTIN_CONSTANTS).map(([name, value]) => ({ id: `builtin:${name}`, name, value, builtin: true }))
+  return [...builtins, ...custom]
+}
+
+/** Flat name→value map (built-ins + custom) for run-time `{{const:*}}` resolution. */
+export function loadConstantMap(db: DbInstance): Record<string, string> {
+  const map: Record<string, string> = { ...BUILTIN_CONSTANTS }
+  for (const r of db.prepare('SELECT name, value FROM loop_constants').all() as { name: string; value: string }[]) {
+    map[r.name] = r.value
+  }
+  return map
+}
+
+/** Replace every `{{const:NAME}}` with its value; unknown/deleted names resolve to
+ *  '' (never leak the literal token to the model — same stance as `{{spec.*}}`). */
+export function resolveConstants(text: string, map: Record<string, string>): string {
+  return text.replace(CONST_TOKEN_RE, (_m, name: string) => map[name] ?? '')
+}
+
+function assertValidName(name: string): void {
+  if (!name || !CONSTANT_NAME_RE.test(name)) {
+    throw new LoopConstantError('invalid_name', 'Constant name may contain only letters, digits, "_", ".", "-".')
+  }
+  if (Object.prototype.hasOwnProperty.call(BUILTIN_CONSTANTS, name)) {
+    throw new LoopConstantError('reserved_name', `"${name}" is a built-in constant and cannot be redefined.`)
+  }
+}
+
+export function createConstant(db: DbInstance, input: { id: string; name: string; value: string }): LoopConstant {
+  assertValidName(input.name)
+  if (typeof input.value !== 'string' || input.value.length === 0) {
+    throw new LoopConstantError('missing_value', 'Constant value is required.')
+  }
+  const exists = db.prepare('SELECT 1 FROM loop_constants WHERE name = ?').get(input.name)
+  if (exists) throw new LoopConstantError('duplicate', `A constant named "${input.name}" already exists.`)
+  db.prepare('INSERT INTO loop_constants (id, name, value) VALUES (?, ?, ?)').run(input.id, input.name, input.value)
+  return { id: input.id, name: input.name, value: input.value }
+}
+
+/** Only the VALUE is editable — the name is the token key (immutable) so existing
+ *  `{{const:NAME}}` references never dangle. */
+export function updateConstant(db: DbInstance, id: string, value: string): LoopConstant {
+  if (typeof value !== 'string' || value.length === 0) {
+    throw new LoopConstantError('missing_value', 'Constant value is required.')
+  }
+  const row = db.prepare('SELECT id, name FROM loop_constants WHERE id = ?').get(id) as { id: string; name: string } | undefined
+  if (!row) throw new LoopConstantError('not_found', 'Constant not found.')
+  db.prepare("UPDATE loop_constants SET value = ?, updated_at = datetime('now') WHERE id = ?").run(value, id)
+  return { id, name: row.name, value }
+}
+
+export function deleteConstant(db: DbInstance, id: string): boolean {
+  return db.prepare('DELETE FROM loop_constants WHERE id = ?').run(id).changes > 0
+}

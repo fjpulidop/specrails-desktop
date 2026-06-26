@@ -1,13 +1,29 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { screen, waitFor } from '@testing-library/react'
+import { screen, waitFor, fireEvent } from '@testing-library/react'
 import { render } from '@testing-library/react'
 import { MemoryRouter, Routes, Route } from 'react-router-dom'
 import { TooltipProvider } from '../../components/ui/tooltip'
 import React from 'react'
 
-// Mock heavy deps
+// Mock heavy deps. Render children, plus (when DocsPage passes a custom `a`
+// component) fixed links so the relative-link router navigation is exercised.
 vi.mock('react-markdown', () => ({
-  default: ({ children }: { children: string }) => <div data-testid="markdown">{children}</div>,
+  default: ({
+    children,
+    components,
+  }: {
+    children: string
+    components?: { a?: React.ComponentType<{ href?: string; children?: React.ReactNode }> }
+  }) => {
+    const A = components?.a
+    return (
+      <div data-testid="markdown">
+        {children}
+        {A && <A href="the-loop-builder">internal-link</A>}
+        {A && <A href="https://example.com">external-link</A>}
+      </div>
+    )
+  },
 }))
 vi.mock('remark-gfm', () => ({ default: () => {} }))
 vi.mock('rehype-highlight', () => ({ default: () => {} }))
@@ -126,6 +142,27 @@ describe('DocsPage', () => {
       await waitFor(() => {
         expect(screen.getByText(/HTTP 500/i)).toBeInTheDocument()
       })
+    })
+
+    it('clicking an internal markdown link navigates to that doc route (SPA, no reload)', async () => {
+      renderWithRoute('/docs/engineering/architecture')
+      await waitFor(() => expect(screen.getByText('internal-link')).toBeInTheDocument())
+      fireEvent.click(screen.getByText('internal-link'))
+      // navigate('/docs/engineering/the-loop-builder') → DocView refetches that slug
+      await waitFor(() =>
+        expect(global.fetch).toHaveBeenCalledWith(
+          expect.stringContaining('/api/docs/engineering/the-loop-builder')
+        )
+      )
+    })
+
+    it('opens an external markdown link in a new window', async () => {
+      const openSpy = vi.spyOn(window, 'open').mockReturnValue(null)
+      renderWithRoute('/docs/engineering/architecture')
+      await waitFor(() => expect(screen.getByText('external-link')).toBeInTheDocument())
+      fireEvent.click(screen.getByText('external-link'))
+      expect(openSpy).toHaveBeenCalledWith('https://example.com', '_blank', 'noopener,noreferrer')
+      openSpy.mockRestore()
     })
   })
 })

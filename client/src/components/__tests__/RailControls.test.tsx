@@ -22,19 +22,12 @@ describe('RailControls', () => {
     vi.clearAllMocks()
   })
 
-  it('renders mode buttons and play button', () => {
+  it('renders the play button (mode selection moved to the rail Loop picker)', () => {
     render(<RailControls {...defaultProps} />)
-    expect(screen.getByText('Implement')).toBeInTheDocument()
-    expect(screen.getByText('Batch')).toBeInTheDocument()
     expect(screen.getByTitle('Play')).toBeInTheDocument()
-  })
-
-  it('calls onModeChange when mode buttons clicked', () => {
-    render(<RailControls {...defaultProps} />)
-    fireEvent.click(screen.getByText('Batch'))
-    expect(defaultProps.onModeChange).toHaveBeenCalledWith('batch-implement')
-    fireEvent.click(screen.getByText('Implement'))
-    expect(defaultProps.onModeChange).toHaveBeenCalledWith('implement')
+    // The old mode segmented control is gone — RailControls no longer renders it.
+    expect(screen.queryByText('Implement')).not.toBeInTheDocument()
+    expect(screen.queryByText('Batch')).not.toBeInTheDocument()
   })
 
   it('calls onToggle when play button clicked', () => {
@@ -77,22 +70,6 @@ describe('RailControls', () => {
   it('disables play button when no tickets', () => {
     render(<RailControls {...defaultProps} ticketCount={0} />)
     expect(screen.getByTitle('Add specs to this rail first')).toBeInTheDocument()
-  })
-
-  it('hides the Ultra segment by default', () => {
-    render(<RailControls {...defaultProps} />)
-    expect(screen.queryByText('Ultra')).not.toBeInTheDocument()
-  })
-
-  it('shows the Ultra segment when ultracodeAvailable', () => {
-    render(<RailControls {...defaultProps} ultracodeAvailable />)
-    expect(screen.getByText('Ultra')).toBeInTheDocument()
-  })
-
-  it('calls onModeChange with ultracode when Ultra clicked', () => {
-    render(<RailControls {...defaultProps} ultracodeAvailable />)
-    fireEvent.click(screen.getByText('Ultra'))
-    expect(defaultProps.onModeChange).toHaveBeenCalledWith('ultracode')
   })
 
   describe('Interactive toggle', () => {

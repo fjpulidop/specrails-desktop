@@ -3,8 +3,18 @@ import type { ProjectContext } from './project-registry'
 import { getRails, getRail, setRailTickets, setRailProfile, setRailEngine, setRailName, type RailState } from './rails-store'
 import { ClaudeNotFoundError, CodexNotFoundError } from './queue-manager'
 import { validateRequestedProvider } from './provider-selection'
-import { isInteractiveJobsEnabled } from './feature-flags'
-import type { RailJobStartedMessage, RailJobStoppedMessage, RailUpdatedMessage } from './types'
+import { isInteractiveJobsEnabled, isLoopsEnabled } from './feature-flags'
+import { getLoop } from './loops-store'
+import { getLoopRun } from './loop-runs-store'
+import { getAdapter } from './providers'
+import { resolveProjectExecution } from './workspace-resolution'
+import { isFactoryLoopId, factoryLoopMode, getFactoryLoop } from './loop-factory'
+import { loadConstantMap } from './loop-constants'
+import { dominantTicketScope, referencesClaudeOnlyCommand } from './loop-command-catalog'
+import type { LoopGraph } from './loop-graph'
+import { newId } from './ids'
+import type { ReasoningEffort } from './providers/types'
+import type { RailJobStartedMessage, RailJobStoppedMessage, RailUpdatedMessage, LoopRunStoppedMessage } from './types'
 
 // Extend Express Request to carry resolved ProjectContext (declared in project-router)
 declare module 'express-serve-static-core' {
@@ -13,10 +23,13 @@ declare module 'express-serve-static-core' {
   }
 }
 
-const VALID_MODES = new Set(['implement', 'batch-implement', 'ultracode'])
+const VALID_MODES = new Set(['implement', 'batch-implement', 'ultracode', 'loop'])
 // Models the ultracode picker exposes (Claude aliases). Mirrors the client
 // RailModelSelector options and the project-router orchestrator-model allow-list.
 const VALID_ULTRACODE_MODELS = new Set(['haiku', 'sonnet', 'opus'])
+// Reasoning-effort tiers a loop launch may request (mirrors the client selector
+// + the provider adapters' supported values).
+const VALID_REASONING_EFFORTS = new Set(['low', 'medium', 'high'])
 
 export function createRailsRouter(): Router {
   const router = Router({ mergeParams: true })
@@ -61,7 +74,21 @@ export function createRailsRouter(): Router {
       for (const [jobId, meta] of c.railJobs.entries()) {
         activeJobs[meta.railIndex] = { jobId, mode: meta.mode }
       }
-      res.json({ rails, activeJobs })
+      // Active loop runs (Loops mode) so clients can reconcile a 'running' rail
+      // that's executing a loop rather than a queue job. Enriched from the
+      // loop_runs row with the loop identity + resolved provider/model so a
+      // mirror (e.g. the mobile companion) can label the run instead of showing a
+      // stale `mode`/null engine — these never land on the rail row itself.
+      const activeLoopRuns: Record<number, {
+        loopRunId: string; loopId?: string; loopName?: string | null; provider?: string | null; model?: string | null; iteration?: number
+      }> = {}
+      for (const [runId, meta] of c.railLoopRuns.entries()) {
+        const run = getLoopRun(c.db, runId)
+        activeLoopRuns[meta.railIndex] = run
+          ? { loopRunId: runId, loopId: run.loop_id, loopName: run.loop_name, provider: run.provider, model: run.model, iteration: run.iteration_count }
+          : { loopRunId: runId }
+      }
+      res.json({ rails, activeJobs, activeLoopRuns })
     } catch (err) {
       console.error('[rails-router] get rails error:', err)
       res.status(500).json({ error: 'Failed to fetch rails' })
@@ -193,9 +220,22 @@ export function createRailsRouter(): Router {
       res.status(400).json({ error: 'Invalid rail index' }); return
     }
 
-    const { mode = 'implement', profileName, aiEngine, model, interactive } = req.body ?? {}
+    let { mode = 'implement' } = req.body ?? {}
+    const { profileName, aiEngine, model, interactive, loopId, reasoning_effort } = req.body ?? {}
+    // rails-as-loops: a FACTORY loop id (`factory:implement` etc.) maps to its
+    // legacy mode and runs through the EXISTING engine (QueueManager) — the rail
+    // "picks a Loop", the plumbing is unchanged. A CUSTOM loop id keeps mode='loop'
+    // (LoopRunManager). Legacy callers that still send a bare `mode` are unchanged.
+    if (typeof loopId === 'string' && isFactoryLoopId(loopId)) {
+      const fmode = factoryLoopMode(loopId)
+      if (!fmode) { res.status(404).json({ error: 'Factory loop not found' }); return }
+      mode = fmode
+    }
     if (!VALID_MODES.has(mode as string)) {
-      res.status(400).json({ error: 'mode must be "implement", "batch-implement" or "ultracode"' }); return
+      res.status(400).json({ error: 'mode must be "implement", "batch-implement", "ultracode" or "loop"' }); return
+    }
+    if (mode === 'loop' && !isLoopsEnabled()) {
+      res.status(403).json({ error: 'Loops are disabled on this server' }); return
     }
     // Ultracode model picker: optional, validated against the allow-list.
     // Ignored for non-ultracode modes (they use the orchestrator model).
@@ -260,6 +300,101 @@ export function createRailsRouter(): Router {
     }
 
     try {
+      // Loop mode: run a published loop (the Loops feature) against each spec,
+      // one app-driven LoopRun per ticket (mirrors ultracode's per-ticket model).
+      // Drives raw prompts via the LoopRunManager — NO queue job, NO slash command.
+      // rails-as-loops: a chosen loop (factory OR custom) runs through the
+      // LoopRunManager when Loops are enabled — so factory loops get their
+      // autonomous verify→fix loop too. (Loops off / no loopId → the legacy
+      // bare-mode QueueManager path below; `mode` is the derived factory mode.)
+      if (isLoopsEnabled() && typeof loopId === 'string' && loopId) {
+        let loopGraph: LoopGraph
+        let loopName: string
+        if (isFactoryLoopId(loopId)) {
+          const f = getFactoryLoop(loopId)
+          if (!f) { res.status(404).json({ error: 'Factory loop not found' }); return }
+          loopGraph = f.graph
+          loopName = f.name
+        } else {
+          const loop = getLoop(c.desktopDb, loopId)
+          if (!loop) { res.status(404).json({ error: 'Loop not found' }); return }
+          if (loop.status !== 'published') {
+            res.status(400).json({ error: 'Loop must be published before it can run on a rail' }); return
+          }
+          loopGraph = loop.graph
+          loopName = loop.name
+        }
+        let effort: ReasoningEffort | undefined
+        if (reasoning_effort !== undefined && reasoning_effort !== null) {
+          if (typeof reasoning_effort !== 'string' || !VALID_REASONING_EFFORTS.has(reasoning_effort)) {
+            res.status(400).json({ error: 'reasoning_effort must be one of: low, medium, high' }); return
+          }
+          effort = reasoning_effort as ReasoningEffort
+        }
+        const loopProvider = railProvider ?? c.project.provider ?? 'claude'
+        const loopModel =
+          typeof model === 'string' && model ? model : getAdapter(loopProvider).defaultModel()
+        // The loop's command(s) declare ticket scope + claude-only-ness.
+        const promptsText = loopGraph.nodes
+          .filter((n) => n.type === 'ai-step')
+          .map((n) => String(n.data?.prompt ?? ''))
+          .join('\n')
+        if (referencesClaudeOnlyCommand(promptsText) && loopProvider !== 'claude') {
+          res.status(400).json({ error: 'This loop uses a Claude-only command and requires the Claude provider' }); return
+        }
+        const scope = dominantTicketScope(promptsText)
+        // Spawn from the SAME cwd a rail uses (workspace when relocated, else the
+        // repo) so native `{{cmd:*}}` slash commands resolve — and surface the repo
+        // via SPECRAILS_REPO_DIR + `--add-dir` exactly like QueueManager.
+        const loopExec = resolveProjectExecution({ slug: c.project.slug, path: c.project.path })
+        const loopRunIds: string[] = []
+        const launchLoopRun = (runId: string, ticketIds: number[], spec: ReturnType<typeof c.getTicketSpec>) => {
+          c.railLoopRuns.set(runId, { railIndex, ticketIds })
+          c.loopRunManager
+            .run({
+              runId,
+              loopId,
+              loopName,
+              graph: loopGraph,
+              projectId: c.project.id,
+              cwd: loopExec.cwd,
+              repoDir: loopExec.relocated ? loopExec.repoDir : undefined,
+              railIndex,
+              ticketId: ticketIds[0],
+              spec: spec ? { ...spec, ticketIds } : { ticketIds },
+              constants: loadConstantMap(c.desktopDb),
+              provider: loopProvider,
+              model: loopModel,
+              effort,
+            })
+            .then((r) => c.onLoopRunFinished(r.runId, r.outcome))
+            .catch((err) => {
+              console.error('[rails-router] loop run failed:', err)
+              c.onLoopRunFinished(runId, 'failed')
+            })
+          loopRunIds.push(runId)
+          try { c.jiraSyncManager.onRailLaunch(ticketIds, runId) } catch { /* non-fatal */ }
+        }
+        if (scope === 'all') {
+          // ONE run over ALL the rail's tickets ({{spec.ids}} = #1 #2 #3).
+          const allIds = [...rail.ticketIds]
+          launchLoopRun(newId(), allIds, c.getTicketSpec(allIds[0]))
+        } else {
+          // One run per ticket.
+          for (const ticketId of rail.ticketIds) {
+            launchLoopRun(newId(), [ticketId], c.getTicketSpec(ticketId))
+          }
+        }
+        res.status(202).json({ loopRunIds, railIndex, mode })
+        return
+      }
+
+      // A custom-loop launch (mode='loop') with no loopId is invalid — there is
+      // no factory loop to fall back to (only implement/batch/ultracode do).
+      if (mode === 'loop') {
+        res.status(400).json({ error: 'loopId is required for loop mode' }); return
+      }
+
       let jobId: string
 
       if (mode === 'ultracode') {
@@ -353,8 +488,11 @@ export function createRailsRouter(): Router {
     const targetJobIds = Array.from(c.railJobs.entries())
       .filter(([, meta]) => meta.railIndex === railIndex)
       .map(([jobId]) => jobId)
+    const targetLoopRunIds = Array.from(c.railLoopRuns.entries())
+      .filter(([, meta]) => meta.railIndex === railIndex)
+      .map(([runId]) => runId)
 
-    if (targetJobIds.length === 0) {
+    if (targetJobIds.length === 0 && targetLoopRunIds.length === 0) {
       res.status(404).json({ error: 'No active rail job found for this rail' }); return
     }
 
@@ -382,7 +520,26 @@ export function createRailsRouter(): Router {
       c.broadcast(stopMsg)
     }
 
-    res.json({ ok: true, jobIds: targetJobIds, canceled: canceledCount })
+    // Loop runs (Loops mode): request cancellation. The engine settles 'stopped'
+    // at the next node boundary and onLoopRunFinished releases the rail's tickets
+    // (so we deliberately do NOT delete railLoopRuns here).
+    for (const runId of targetLoopRunIds) {
+      try {
+        c.loopRunManager.cancel(runId)
+        canceledCount++
+      } catch (err) {
+        console.warn(`[rails-router] stop: loop cancel(${runId}) failed: ${(err as Error).message}`)
+      }
+      const stopMsg: LoopRunStoppedMessage = {
+        type: 'loop.run_stopped',
+        projectId: c.project.id,
+        loopRunId: runId,
+        railIndex,
+      }
+      c.broadcast(stopMsg)
+    }
+
+    res.json({ ok: true, jobIds: targetJobIds, loopRunIds: targetLoopRunIds, canceled: canceledCount })
   })
 
   return router

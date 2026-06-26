@@ -1,0 +1,205 @@
+{
+  "title": "Loops",
+  "subtitle": "Loops de automação reutilizáveis — partilhados entre todos os seus projetos.",
+  "newLoop": "Novo loop",
+  "sections": {
+    "drafts": "Rascunhos",
+    "published": "Publicados",
+    "templates": "Modelos",
+    "builtIn": "Integrados"
+  },
+  "status": {
+    "draft": "Rascunho",
+    "published": "Publicado",
+    "running": "Em execução"
+  },
+  "empty": {
+    "title": "Ainda não há loops",
+    "body": "Crie um do zero ou comece a partir de um modelo."
+  },
+  "actions": {
+    "edit": "Editar",
+    "delete": "Eliminar",
+    "publish": "Publicar",
+    "unpublish": "Despublicar",
+    "duplicate": "Duplicar",
+    "use": "Usar modelo",
+    "preview": "Pré-visualização",
+    "fork": "Bifurcar para editar",
+    "run": "Executar",
+    "export": "Exportar",
+    "import": "Importar",
+    "select": "Selecionar {{name}}"
+  },
+  "card": {
+    "nodes_one": "{{count}} nó",
+    "nodes_other": "{{count}} nós",
+    "usedIn": "Em uso · {{project}}"
+  },
+  "confirmDelete": "Eliminar este loop? Desaparecerá de todos os seletores de rail.",
+  "newLoopName": "Novo loop",
+  "errors": {
+    "load": "Falha ao carregar os loops",
+    "save": "Falha ao guardar o loop",
+    "publishInvalid": "Este loop ainda não pode ser publicado — corrija os problemas assinalados."
+  },
+  "builder": {
+    "back": "Voltar aos Loops",
+    "save": "Guardar",
+    "saved": "Loop guardado",
+    "publish": "Publicar",
+    "published": "Loop publicado",
+    "addNode": "Adicionar nó",
+    "deleteNode": "Eliminar nó",
+    "config": {
+      "maxIterations": "Iterações máximas",
+      "timeout": "Tempo limite (min)",
+      "maxIterationsHint": "Limite de iterações do Loop Decider — o loop para ao atingi-lo mesmo que o objetivo não seja cumprido. Evita loops infinitos.",
+      "timeoutHint": "Limite de tempo real de toda a execução, em minutos. Se excedido, a execução é interrompida e marcada como falha — uma rede de segurança junto com as iterações máximas.",
+      "maxCost": "Custo máx ($)",
+      "maxCostHint": "Orçamento opcional em USD para toda a execução. Verificado ENTRE passos (o custo de um passo só é conhecido ao terminá-lo), o loop para antes do próximo passo quando o total ultrapassa — pode passar um passo. Em provedores não-Claude o custo é estimado. Vazio = sem limite."
+    },
+    "nodes": {
+      "start": "Início",
+      "ai-step": "Passo de IA",
+      "shell": "Shell",
+      "decider": "Decisor do Loop",
+      "condition": "Condição",
+      "end": "Fim"
+    },
+    "inspector": {
+      "selectNode": "Selecione um nó para o editar.",
+      "prompt": "Prompt",
+      "provider": "Fornecedor",
+      "model": "Modelo",
+      "effort": "Esforço de raciocínio",
+      "command": "Comando",
+      "goal": "Objetivo / critérios de paragem",
+      "join": "Junção",
+      "outcome": "Resultado",
+      "startNote": "O ponto de entrada do loop. Ligue-o ao primeiro passo.",
+      "promptHint": "Clique ou arraste um token para inseri-lo no prompt.",
+      "tokensSpec": "Campos da spec",
+      "tokensJira": "Jira",
+      "tokensCommands": "Comandos",
+      "label": "Nome"
+    },
+    "branch": {
+      "continue": "↻ Continuar",
+      "stop": "✓ Parar"
+    },
+    "edgesHelp": {
+      "label": "Como as etapas se conectam",
+      "body": "As setas definem a ORDEM de execução, não os dados — as caixas não têm portas de entrada e as conexões não carregam parâmetros. Cada AI Step retoma automaticamente sua sessão (todo o contexto anterior) mais um breve resumo das etapas anteriores; nada é ligado manualmente. O Loop Decider tem duas saídas: ↻ Continuar (objetivo não atingido → volta ao loop) e ✓ Parar (objetivo atingido → sai)."
+    },
+    "arrange": {
+      "label": "Organizar",
+      "vertical": "Vertical",
+      "horizontal": "Horizontal",
+      "grid": "Grade",
+      "reset": "Redefinir"
+    },
+    "constants": {
+      "label": "Constantes",
+      "manage": "Gerenciar constantes",
+      "title": "Constantes do loop",
+      "empty": "Ainda não há constantes personalizadas.",
+      "name": "NOME",
+      "value": "valor",
+      "add": "Adicionar",
+      "builtinBadge": "Integradas"
+    },
+    "paste": {
+      "done_one": "{{count}} passo colado",
+      "done_other": "{{count}} passos colados"
+    },
+    "problems": {
+      "count_one": "{{count}} problema",
+      "count_other": "{{count}} problemas",
+      "NO_START": "Adicione um nó de Início.",
+      "MULTIPLE_START": "Só é permitido um nó de Início.",
+      "NO_END": "Adicione pelo menos um nó de Fim.",
+      "ORPHAN": "Este passo não é acessível a partir do Início.",
+      "DECIDER_BRANCHES": "O Loop Decider precisa de uma ramificação Continuar e uma Parar.",
+      "EMPTY_PROMPT": "O AI Step está com o prompt vazio.",
+      "EMPTY_COMMAND": "O passo Shell está com o comando vazio.",
+      "EMPTY_GOAL": "O Loop Decider não tem objetivo.",
+      "DEAD_END": "Este passo não tem conexão de saída."
+    },
+    "preview": {
+      "label": "Pré-visualizar",
+      "title": "Pré-visualização (dry-run)",
+      "sampleNote": "Os valores do spec são exemplos; comandos e constantes são resolvidos como em execução.",
+      "empty": "Nenhum passo para pré-visualizar.",
+      "error": "Falha na pré-visualização"
+    }
+  },
+  "preview": {
+    "steps": "Passos",
+    "limits": "máx. {{iterations}} iterações · {{timeout}} min de timeout"
+  },
+  "builtInBadge": "Integrado",
+  "run": {
+    "title": "Executar {{name}}",
+    "subtitle": "Inicia este loop num projeto (sem ticket).",
+    "project": "Projeto",
+    "provider": "Provedor",
+    "effort": "Esforço de raciocínio",
+    "execute": "Executar",
+    "noProjects": "Sem projetos disponíveis.",
+    "launched": "Executando {{name}}"
+  },
+  "catalog": {
+    "ship-and-green": {
+      "name": "Ship & Green",
+      "description": "Totalmente autônomo: implementa a spec, verifica e refina (corrige) em caso de falha — repetindo verificar → corrigir → verificar até tudo ficar verde. Sem intervenção humana."
+    },
+    "verify-pass": {
+      "name": "Verificação",
+      "description": "Verificação e correção autônomas: detecta e executa o build/lint/testes do projeto e, em caso de falha, refina — verificar → corrigir → verificar até ficar verde."
+    },
+    "ci-watch": {
+      "name": "Monitorar CI",
+      "description": "Consulta as verificações de CI no PR aberto (o agente usa as ferramentas de CI do repositório) até que todas fiquem verdes."
+    },
+    "lint-and-fix": {
+      "name": "Lint & Corrigir",
+      "description": "O agente detecta e executa o lint do projeto e corrige cada problema, iterando até o código ficar limpo."
+    },
+    "type-safe": {
+      "name": "Tipos Seguros",
+      "description": "O agente detecta e executa o verificador de tipos do projeto e resolve cada erro, iterando até passar sem problemas."
+    },
+    "coverage-climb": {
+      "name": "Subir Cobertura",
+      "description": "O agente executa a ferramenta de cobertura do projeto e adiciona testes focados até atingir os limites exigidos."
+    },
+    "build-fix": {
+      "name": "Corrigir Build",
+      "description": "O agente detecta e executa o build de produção do projeto e corrige erros de compilação/empacotamento até ficar verde."
+    },
+    "deploy-check": {
+      "name": "Checar Deploy",
+      "description": "O agente consulta o status de deploy/saúde (usando as ferramentas de deploy do projeto) até o serviço reportar que está saudável."
+    },
+    "factory_implement": {
+      "name": "Implementar",
+      "description": "Totalmente autônomo: implementa a spec, verifica e refina (corrige) em caso de falha — repetindo até todos os testes passarem."
+    },
+    "factory_batch": {
+      "name": "Implementar em Lote",
+      "description": "Implementa de uma vez todos os tickets do trilho e, em seguida, verifica + refina em caso de falha até ficar verde."
+    },
+    "factory_ultracode": {
+      "name": "Ultracode",
+      "description": "Implementação autônoma por ticket (sem pipeline) e, em seguida, verifica + refina até ficar verde. Apenas Claude."
+    }
+  },
+  "import": {
+    "done_one": "{{count}} loop importado",
+    "done_other": "{{count}} loops importados",
+    "skipped_one": "{{count}} duplicado ignorado: {{names}}",
+    "skipped_other": "{{count}} duplicados ignorados: {{names}}",
+    "invalid": "Esse arquivo não é uma exportação de loops válida."
+  }
+}

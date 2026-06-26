@@ -23,7 +23,10 @@
 import type { ChildProcess, SpawnOptions, StdioOptions } from 'child_process'
 import { spawnCli } from './win-spawn'
 
-const isWin = process.platform === 'win32'
+// Per-call (not a frozen module const) so a test can flip the platform with a
+// `process.platform` spy without re-importing this module — which removes a
+// flaky vi.doMock + resetModules + dynamic-import dance in the spawn tests.
+const isWin = (): boolean => process.platform === 'win32'
 
 const CLAUDE_PROMPT_FLAGS = new Set([
   '--system-prompt',
@@ -146,7 +149,7 @@ export function ensureStdinPipe(stdio: StdioOptions | undefined): StdioOptions {
  * survive. POSIX call is identical to `spawnCli('claude', args, options)`.
  */
 export function spawnClaude(args: string[], options: SpawnOptions = {}): ChildProcess {
-  if (!isWin) {
+  if (!isWin()) {
     return spawnCli('claude', args, options)
   }
   /* c8 ignore start -- Windows-only branch; coverage runs on Linux/macOS */
@@ -168,7 +171,7 @@ export function spawnClaude(args: string[], options: SpawnOptions = {}): ChildPr
  * survive. POSIX call is identical to `spawnCli('codex', args, options)`.
  */
 export function spawnCodex(args: string[], options: SpawnOptions = {}): ChildProcess {
-  if (!isWin) {
+  if (!isWin()) {
     return spawnCli('codex', args, options)
   }
   /* c8 ignore start -- Windows-only branch; coverage runs on Linux/macOS */

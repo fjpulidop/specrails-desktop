@@ -34,6 +34,7 @@ const SURFACE_CHIPS: { value: Surface | 'all'; labelKey: string }[] = [
   { value: 'ai-edit', labelKey: 'surfaces.aiEdit' },
   { value: 'smash', labelKey: 'surfaces.smash' },
   { value: 'file-summary', labelKey: 'surfaces.fileSummary' },
+  { value: 'loop', labelKey: 'surfaces.loop' },
 ]
 
 function buildQuery(filters: SpendingFilters): string {

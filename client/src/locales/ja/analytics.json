@@ -5,7 +5,8 @@
     "exploreSpec": "Explore",
     "aiEdit": "リファイン",
     "smash": "SMASH",
-    "fileSummary": "ファイル要約"
+    "fileSummary": "ファイル要約",
+    "loop": "Loops"
   },
   "periods": {
     "d7": "7日",

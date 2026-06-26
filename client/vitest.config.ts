@@ -68,6 +68,12 @@ export default defineConfig({
         // Annotation markup editor: canvas flatten + pointer-drag drawing; the
         // model/geometry/undo-reducer live in lib/annotations.ts and are tested.
         'src/components/browser-capture/AnnotationEditor.tsx',
+        // Loop builder canvas (the Loops feature): renders @xyflow/react (React
+        // Flow) which needs getBoundingClientRect / ResizeObserver / pointer +
+        // viewport transforms unavailable under jsdom. The pure graph⇄react-flow
+        // conversion lives in lib/loop-graph-rf.ts and is unit-tested; the engine
+        // logic is tested server-side (loop-run-manager.test.ts).
+        'src/pages/LoopBuilderPage.tsx',
       ],
       thresholds: {
         lines: 80,

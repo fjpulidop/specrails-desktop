@@ -26,6 +26,24 @@ export function isSmashCapable(provider: string | null | undefined): boolean {
   return provider === 'claude'
 }
 
+/**
+ * Returns true when the given provider honours a per-invocation reasoning-effort
+ * (low/medium/high) control — so the effort selector should be offered.
+ *
+ *  - claude: native `--effort <level>` flag (low/medium/high/xhigh/max).
+ *  - codex: native via `-c model_reasoning_effort` (none/minimal/low/medium/high/xhigh).
+ *  - gemini: NO per-invocation mechanism — gemini-cli only supports thinking levels
+ *    via settings.json `thinkingConfig` + custom model aliases (no per-spawn flag),
+ *    so the selector is hidden and the adapter ignores `reasoning_effort`.
+ * (All verified empirically via each CLI's `--help`.)
+ *
+ * Mirrors each adapter's server-side `capabilities.supportsReasoningEffort`.
+ * null/undefined → false (safe default: hide rather than offer a no-op control).
+ */
+export function providerSupportsReasoningEffort(provider: string | null | undefined): boolean {
+  return provider === 'claude' || provider === 'codex'
+}
+
 // ─── Multi-provider capability matrix ────────────────────────────────────────
 //
 // Right-sidebar sections that depend on a provider-specific mechanic. When a

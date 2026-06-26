@@ -1,0 +1,205 @@
+{
+  "title": "Loops",
+  "subtitle": "再利用可能な自動化ループ — すべてのプロジェクトで共有されます。",
+  "newLoop": "新しいループ",
+  "sections": {
+    "drafts": "下書き",
+    "published": "公開済み",
+    "templates": "テンプレート",
+    "builtIn": "組み込み"
+  },
+  "status": {
+    "draft": "下書き",
+    "published": "公開済み",
+    "running": "実行中"
+  },
+  "empty": {
+    "title": "ループはまだありません",
+    "body": "ゼロから作成するか、テンプレートから始めましょう。"
+  },
+  "actions": {
+    "edit": "編集",
+    "delete": "削除",
+    "publish": "公開",
+    "unpublish": "公開を取り消す",
+    "duplicate": "複製",
+    "use": "テンプレートを使用",
+    "preview": "プレビュー",
+    "fork": "フォークして編集",
+    "run": "実行",
+    "export": "エクスポート",
+    "import": "インポート",
+    "select": "{{name}} を選択"
+  },
+  "card": {
+    "nodes_one": "{{count}} 個のノード",
+    "nodes_other": "{{count}} 個のノード",
+    "usedIn": "使用中 · {{project}}"
+  },
+  "confirmDelete": "このループを削除しますか？すべてのレールのピッカーから表示されなくなります。",
+  "newLoopName": "新しいループ",
+  "errors": {
+    "load": "ループの読み込みに失敗しました",
+    "save": "ループの保存に失敗しました",
+    "publishInvalid": "このループはまだ公開できません — ハイライトされた問題を修正してください。"
+  },
+  "builder": {
+    "back": "ループに戻る",
+    "save": "保存",
+    "saved": "ループを保存しました",
+    "publish": "公開",
+    "published": "ループを公開しました",
+    "addNode": "ノードを追加",
+    "deleteNode": "ノードを削除",
+    "config": {
+      "maxIterations": "最大反復回数",
+      "timeout": "タイムアウト（分）",
+      "maxIterationsHint": "Loop Decider の反復回数の上限 — 目標が未達でも到達したらループを停止。暴走ループを防ぎます。",
+      "timeoutHint": "実行全体の実時間の上限（分）。超過すると実行は停止し失敗として記録されます — 最大反復回数と並ぶ安全策です。",
+      "maxCost": "最大コスト ($)",
+      "maxCostHint": "実行全体の任意の USD 予算。ステップ間で確認（各ステップの費用はそのステップ終了時にのみ判明）するため、合計が超えると次のステップ前にループを停止します（1ステップ分超過する可能性あり）。Claude 以外のプロバイダーでは費用は推定値です。空欄 = 上限なし。"
+    },
+    "nodes": {
+      "start": "開始",
+      "ai-step": "AI ステップ",
+      "shell": "シェル",
+      "decider": "ループ判定",
+      "condition": "条件",
+      "end": "終了"
+    },
+    "inspector": {
+      "selectNode": "編集するノードを選択してください。",
+      "prompt": "プロンプト",
+      "provider": "プロバイダー",
+      "model": "モデル",
+      "effort": "推論の労力",
+      "command": "コマンド",
+      "goal": "目標 / 停止条件",
+      "join": "結合",
+      "outcome": "結果",
+      "startNote": "ループのエントリーポイント。最初のステップに接続してください。",
+      "promptHint": "トークンをクリックまたはドラッグしてプロンプトに挿入します。",
+      "tokensSpec": "Spec フィールド",
+      "tokensJira": "Jira",
+      "tokensCommands": "コマンド",
+      "label": "名前"
+    },
+    "branch": {
+      "continue": "↻ 続行",
+      "stop": "✓ 終了"
+    },
+    "edgesHelp": {
+      "label": "ステップの接続方法",
+      "body": "矢印は実行の順序を設定するもので、データの流れではありません — ボックスには入力ポートがなく、エッジはパラメータを運びません。各 AI Step は自動的にそのセッションを再開し (これまでの完全なコンテキスト)、加えて前のステップの短い要約を引き継ぎます。手作業での配線は一切ありません。Loop Decider には 2 つの出力があります: ↻ Continue (目標未達 → ループバック) と ✓ Stop (目標達成 → 終了)。"
+    },
+    "arrange": {
+      "label": "整列",
+      "vertical": "垂直",
+      "horizontal": "水平",
+      "grid": "グリッド",
+      "reset": "リセット"
+    },
+    "constants": {
+      "label": "定数",
+      "manage": "定数を管理",
+      "title": "ループ定数",
+      "empty": "カスタム定数はまだありません。",
+      "name": "名前",
+      "value": "値",
+      "add": "追加",
+      "builtinBadge": "組み込み"
+    },
+    "paste": {
+      "done_one": "{{count}} 個のステップを貼り付けました",
+      "done_other": "{{count}} 個のステップを貼り付けました"
+    },
+    "problems": {
+      "count_one": "{{count}} 件の問題",
+      "count_other": "{{count}} 件の問題",
+      "NO_START": "開始ノードを追加してください。",
+      "MULTIPLE_START": "開始ノードは1つだけ許可されます。",
+      "NO_END": "終了ノードを少なくとも1つ追加してください。",
+      "ORPHAN": "このステップは開始から到達できません。",
+      "DECIDER_BRANCHES": "Loop Decider には継続と停止の分岐が必要です。",
+      "EMPTY_PROMPT": "AI ステップのプロンプトが空です。",
+      "EMPTY_COMMAND": "Shell ステップのコマンドが空です。",
+      "EMPTY_GOAL": "Loop Decider に目標がありません。",
+      "DEAD_END": "このステップには出力接続がありません。"
+    },
+    "preview": {
+      "label": "プレビュー",
+      "title": "ドライラン プレビュー",
+      "sampleNote": "Spec の値はサンプルです。コマンドと定数は実行時と同じように解決されます。",
+      "empty": "プレビューするステップがありません。",
+      "error": "プレビューに失敗しました"
+    }
+  },
+  "preview": {
+    "steps": "ステップ",
+    "limits": "最大 {{iterations}} 回 · {{timeout}} 分タイムアウト"
+  },
+  "builtInBadge": "組み込み",
+  "run": {
+    "title": "{{name}} を実行",
+    "subtitle": "このループをプロジェクトで実行します（チケット不要）。",
+    "project": "プロジェクト",
+    "provider": "プロバイダー",
+    "effort": "推論の強度",
+    "execute": "実行",
+    "noProjects": "利用可能なプロジェクトがありません。",
+    "launched": "{{name}} を実行中"
+  },
+  "catalog": {
+    "ship-and-green": {
+      "name": "Ship & Green",
+      "description": "完全自律: spec を実装し、検証し、失敗時には修正 (refine) する — すべてがグリーンになるまで 検証 → 修正 → 検証 をループします。人手による介入は不要です。"
+    },
+    "verify-pass": {
+      "name": "Verify Pass",
+      "description": "自律的な検証と修正: プロジェクトの build / lint / テストを検出して実行し、失敗時には修正 — グリーンになるまで 検証 → 修正 → 検証 を繰り返します。"
+    },
+    "ci-watch": {
+      "name": "CI Watch",
+      "description": "オープンな PR の CI チェックをポーリングし (エージェントがリポジトリの CI ツールを使用)、すべてのチェックがグリーンになるまで続けます。"
+    },
+    "lint-and-fix": {
+      "name": "Lint & Fix",
+      "description": "エージェントがプロジェクトの linter を検出して実行し、すべての問題を修正します。コードベースがクリーンになるまで反復します。"
+    },
+    "type-safe": {
+      "name": "Type Safe",
+      "description": "エージェントがプロジェクトの型チェッカーを検出して実行し、すべてのエラーを解消します。問題なくパスするまで反復します。"
+    },
+    "coverage-climb": {
+      "name": "Coverage Climb",
+      "description": "エージェントがプロジェクトのカバレッジツールを実行し、しきい値をパスするまで的を絞ったテストを追加します。"
+    },
+    "build-fix": {
+      "name": "Build Fix",
+      "description": "エージェントがプロジェクトの本番 build を検出して実行し、グリーンになるまでコンパイル / バンドルのエラーを修正します。"
+    },
+    "deploy-check": {
+      "name": "Deploy Check",
+      "description": "エージェントがデプロイ / ヘルスステータスをポーリングし (プロジェクトの deploy ツールを使用)、サービスが正常を報告するまで続けます。"
+    },
+    "factory_implement": {
+      "name": "実装",
+      "description": "完全自律: spec を実装し、検証し、失敗時には修正 (refine) する — すべてのテストがパスするまでループします。"
+    },
+    "factory_batch": {
+      "name": "一括実装",
+      "description": "レールのすべてのチケットを一度に一括実装し、失敗時にはグリーンになるまで 検証 + 修正 を行います。"
+    },
+    "factory_ultracode": {
+      "name": "Ultracode",
+      "description": "チケットごとの自律実装 (パイプラインなし)、その後グリーンになるまで 検証 + 修正 を行います。Claude のみ。"
+    }
+  },
+  "import": {
+    "done_one": "{{count}} 個のループをインポートしました",
+    "done_other": "{{count}} 個のループをインポートしました",
+    "skipped_one": "{{count}} 件の重複をスキップ：{{names}}",
+    "skipped_other": "{{count}} 件の重複をスキップ：{{names}}",
+    "invalid": "そのファイルは有効なループのエクスポートではありません。"
+  }
+}

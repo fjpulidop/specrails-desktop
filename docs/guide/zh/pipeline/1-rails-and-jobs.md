@@ -7,10 +7,10 @@
 可以把你的屏幕想象成左右两半：
 
 ```
-SpecsBoard (left)            Rails (right)
+SpecsBoard (左)             Rails (右)
 ─────────────────            ─────────────────
 #1 Login flow      ─┐
-#2 Webhook retry    │  drag onto
+#2 Webhook retry    │  拖拽到
 #3 Cost limits      │ ────────────►   Rail 1   ▶ Play
 #4 Audit log        │
                     └────────────►   Rail 2   ▶ Play
@@ -23,7 +23,7 @@ rail 是一条**执行通道**。你从 SpecsBoard 上拖一张 spec 卡片放�
 ## 在某个 spec 上启动一条 rail
 
 1. **把一张 spec 卡片拖**到某条 rail 上。该 spec 的 ID 会出现在这条 rail 的 spec 列表里。（不想拖？用 spec 卡片上的 **放入 Rail** 弹窗——它会为每条 rail 显示一个状态圆点，避免你把活儿丢进一条正忙的通道。）
-2. 如果你不想用默认模式，就**挑一个模式**——rail 头部的分段控件提供了 `Implement`、`Batch`，以及（仅限 Claude rail 的）`Ultra`。
+2. **在 rail 头部挑一个 Loop。** 一条 rail 运行的是一个 **Loop**——也就是它要做的活儿。默认是内置的 `Implement` loop；你也可以挑 `Batch`、`Ultracode`，或者你自己搭的某个自定义 loop。见 [Loop Builder](the-loop-builder)。
 3. **按下 ▶ Play。**
 
 就这么简单。rail 会在你的项目里启动一个 AI CLI 进程，开始跑流水线。
@@ -34,20 +34,24 @@ rail 是一条**执行通道**。你从 SpecsBoard 上拖一张 spec 卡片放�
 |---------|--------------|
 | **状态标签** | `idle`、`running` 或 `failed`。这里没有单独的"completed"——任务干净地跑完后，rail 会回到 `idle`。 |
 | **spec 列表** | 分配给这条 rail 的 ID。可以再拖进来，也可以拖出去解除关联。 |
-| **模式控件** | `Implement` / `Batch` / `Ultra`——见下表。按 rail 单独记忆。 |
+| **Loop 选择器** | 这条 rail 运行的 Loop——内置的（`Implement` / `Batch` / `Ultracode`）或某个自定义 loop。见下表。按 rail 单独记忆。 |
 | **Profile 选择器** | 运行哪个 Agent Profile（仅限 Claude rail）。只有当项目至少有一个 Profile 时才会出现。 |
 | **引擎选择器** | 这条 rail 用哪个已安装的提供方来跑——Claude、Codex 或 Gemini。仅当项目装有不止一个提供方时才显示。见 [为每条 rail 选择引擎](picking-an-engine-per-rail)。 |
 | **▶ Play / ■ Stop** | 启动或取消。 |
 
-### 三种 rail 模式
+### rail 运行的是什么：Loop
 
-| 模式 | 命令 | 作用 |
+一条 rail 运行的是一个 **Loop**——干活的配方。有三个 loop 是**内置**的，覆盖了常见情况：
+
+| 内置 loop | 命令 | 作用 |
 |------|---------|--------------|
 | **Implement** | `/specrails:implement` | 一个任务覆盖这条 rail 上的所有 spec。跑完整的 Architect → Developer → Reviewer → Ship 流水线。日常默认选项。 |
 | **Batch** | `/specrails:batch-implement` | 一个任务，按依赖感知的批次（wave）依次处理 rail 上的各个 spec。最适合一组相关的 spec。 |
-| **Ultra** | Ultracode | Claude 自主实现每个 spec，**绕过**流水线。每个 spec 一个独立任务。仅限 Claude。 |
+| **Ultracode** | Ultracode | Claude 自主实现每个 spec，**绕过**流水线。每个 spec 一个独立任务。仅限 Claude。 |
 
-Ultra 是个特例：它跳过 Agent 链条，把原始 spec 直接交给 Claude，让它用自己的原生工具去做。因为它比较"放飞"，所以按下 Play 会先弹出一个确认框，而且有一个按 rail 单独的模型选择器，让你在 Haiku / Sonnet / Opus 之间挑选。只有当 rail 的引擎是 Claude 时它才会出现。
+Ultracode 是个特例：它跳过 Agent 链条，把原始 spec 直接交给 Claude，让它用自己的原生工具去做。因为它比较"放飞"，所以按下 Play 会先弹出一个确认框，而且有一个按 rail 单独的模型选择器，让你在 Haiku / Sonnet / Opus 之间挑选。只有当 rail 的引擎是 Claude 时它才会出现。
+
+除了这些内置 loop，你还可以**搭建自己的 loop**——重复一个 verify → fix → verify 的循环直到目标达成、在 AI 步骤之间串联 shell 命令，等等。这些自定义 loop 会出现在同一个 Loop 选择器里。这就是下一个大点子：[Loop Builder](the-loop-builder)。
 
 ## 任务队列
 
@@ -89,6 +93,7 @@ Ultra 是个特例：它跳过 Agent 链条，把原始 spec 直接交给 Claude
 
 ## 接下来去哪儿
 
+- [Loop Builder](the-loop-builder)——rail 运行的是什么，以及如何搭建你自己的 loop。
 - [任务详情视图](the-job-detail-view)——阶段、实时指标、工单卡片。
 - [批量实现与多功能](batch-implement-and-multi-feature)——一次跑多个 spec。
 - [为每条 rail 选择引擎](picking-an-engine-per-rail)——Claude、Codex 还是 Gemini。

@@ -6,6 +6,7 @@ import rehypeHighlight from 'rehype-highlight'
 import { BookOpen, ChevronRight, FileText, Loader2 } from 'lucide-react'
 import { cn } from '../lib/utils'
 import { Dialog, DialogContent, DialogTitle, DialogDescription } from './ui/dialog'
+import { resolveDocHref } from '../lib/docs-links'
 import 'highlight.js/styles/atom-one-dark.css'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -164,10 +165,46 @@ function DocsIndexView({
 // ─── Document view ────────────────────────────────────────────────────────────
 
 // Memoized markdown renderer — only re-renders when the actual content
-// changes, so navigating between cached docs doesn't re-parse / re-highlight.
-const MemoMarkdown = memo(function MemoMarkdown({ content }: { content: string }) {
+// (or the current category, which scopes relative links) changes, so navigating
+// between cached docs doesn't re-parse / re-highlight.
+const MemoMarkdown = memo(function MemoMarkdown({
+  content,
+  currentCategory,
+  onNavigateDoc,
+}: {
+  content: string
+  currentCategory: string
+  onNavigateDoc: (category: string, slug: string) => void
+}) {
   return (
-    <ReactMarkdown remarkPlugins={[remarkGfm]} rehypePlugins={[rehypeHighlight]}>
+    <ReactMarkdown
+      remarkPlugins={[remarkGfm]}
+      rehypePlugins={[rehypeHighlight]}
+      components={{
+        a({ href, children, ...props }) {
+          const handleClick = (e: React.MouseEvent<HTMLAnchorElement>) => {
+            if (!href) return
+            // External links open in the system browser, never inside the webview.
+            if (/^[a-z][a-z0-9+.-]*:/i.test(href)) {
+              e.preventDefault()
+              window.open(href, '_blank', 'noopener,noreferrer')
+              return
+            }
+            if (href.startsWith('#')) return // in-page anchor — let it scroll
+            // Internal guide link: NEVER let the router follow it (that bounces
+            // to the dashboard + closes the modal). Resolve + navigate in-modal.
+            e.preventDefault()
+            const target = resolveDocHref(href, currentCategory)
+            if (target) onNavigateDoc(target.category, target.slug)
+          }
+          return (
+            <a href={href} onClick={handleClick} {...props}>
+              {children}
+            </a>
+          )
+        },
+      }}
+    >
       {content}
     </ReactMarkdown>
   )
@@ -178,12 +215,14 @@ function DocView({
   slug,
   lang,
   onNotFound,
+  onNavigate,
   scrollContainerRef,
 }: {
   category: string
   slug: string
   lang: string
   onNotFound: () => void
+  onNavigate: (category: string, slug: string) => void
   scrollContainerRef: React.RefObject<HTMLElement | null>
 }) {
   // Stale-while-revalidate: keep the previous doc on screen until the new
@@ -257,7 +296,7 @@ function DocView({
           prose-th:text-foreground prose-td:text-foreground/90
           prose-li:text-foreground/90"
       >
-        <MemoMarkdown content={doc.content} />
+        <MemoMarkdown content={doc.content} currentCategory={doc.category} onNavigateDoc={onNavigate} />
       </div>
     </article>
   )
@@ -340,6 +379,7 @@ function DocsDialogImpl({ open, onClose }: DocsDialogProps) {
                 slug={activeSlug}
                 lang={lang}
                 onNotFound={handleHome}
+                onNavigate={handleSelect}
                 scrollContainerRef={scrollRef}
               />
             ) : (

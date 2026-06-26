@@ -200,8 +200,18 @@ export function registerJobsRoutes(deps: ProjectRoutesDeps): void {
   })
 
   router.delete('/:projectId/jobs/:id', (req: Request, res: Response) => {
+    const id = req.params.id as string
+    const c = ctx(req)
+    // A loop run is backed by a job row but is NOT a QueueManager job — it is
+    // driven by the LoopRunManager. Cancel it through the engine (which settles
+    // it 'stopped' → finishJob('canceled') + releases the rail's tickets).
+    if (c.railLoopRuns?.has(id)) {
+      c.loopRunManager?.cancel(id)
+      res.json({ ok: true, status: 'canceling' })
+      return
+    }
     try {
-      const result = ctx(req).queueManager.cancel(req.params.id as string)
+      const result = c.queueManager.cancel(id)
       res.json({ ok: true, status: result })
     } catch (err) {
       if (err instanceof JobNotFoundError) {

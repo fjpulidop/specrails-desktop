@@ -78,6 +78,9 @@ function commonFlagsFor(opts: SpawnOptions): string[] {
     ...COMMON_FLAGS,
     '--setting-sources',
     opts.loadUserEnv ? 'user,project,local' : 'project,local',
+    // Native reasoning-effort flag (claude CLI accepts low|medium|high|xhigh|max).
+    // Emitted only when requested; absent ⇒ the CLI's default effort.
+    ...(opts.reasoning_effort ? ['--effort', opts.reasoning_effort] : []),
   ]
 }
 
@@ -313,6 +316,7 @@ export const claudeAdapter: ProviderAdapter = {
     profileEnvSupport: true,
     systemPromptArg: true,
     persistentStdin: true,
+    supportsReasoningEffort: true,
   },
   modelCatalog: () => CLAUDE_MODELS,
   defaultModel: () => 'sonnet',

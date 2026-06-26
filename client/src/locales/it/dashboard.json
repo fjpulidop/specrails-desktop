@@ -32,12 +32,18 @@
     "batch": "Batch",
     "ultra": "Ultra",
     "ultraTitle": "Ultracode — Claude implementa la spec in autonomia, senza pipeline",
+    "loop": "Loop",
+    "loopTitle": "Loop — esegui un loop di automazione pubblicato sulle spec del rail",
+    "pickLoop": "Scegli un loop…",
+    "effortTitle": "Sforzo di ragionamento",
     "interactive": "Interattivo",
     "interactiveTitle": "Interattivo — chatta con il job in esecuzione; invia altri prompt e finalizza al termine",
     "stop": "Stop",
     "play": "Avvia",
     "failedRetry": "Job non riuscito — clicca per riprovare",
-    "addSpecsFirst": "Aggiungi prima delle spec a questo rail"
+    "addSpecsFirst": "Aggiungi prima delle spec a questo rail",
+    "builtInLoops": "Integrati",
+    "customLoops": "Loop personalizzati"
   },
   "railRow": {
     "moveToSpecs": "Sposta in Specs",

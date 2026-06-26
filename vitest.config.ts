@@ -22,6 +22,11 @@ export default defineConfig({
         // that consumes it (browser-capture-manager.ts) is fully tested through a
         // fake ContextLauncher. See server/browser-playwright.ts header.
         'server/browser-playwright.ts',
+        // Process-spawning glue for the Loops engine: wires runAiStep/runShell/
+        // runDecider to real AI-CLI + shell spawns. Not exercisable in the node
+        // test env (spawns claude/codex/shell); the engine's traversal/decision
+        // logic is fully tested against fake executors in loop-run-manager.test.ts.
+        'server/loop-executors.ts',
       ],
       // Global: 70% lines/functions (SPEA-380 target); branches excluded from global
       // because CLI has complex runtime code (HTTP/WebSocket/spawn) requiring integration tests

@@ -23,6 +23,8 @@ const IntegrationsPage = lazy(() => import('./pages/IntegrationsPage'))
 const DesktopAnalyticsPage = lazy(() => import('./pages/DesktopAnalyticsPage'))
 const DocsPage = lazy(() => import('./pages/DocsPage'))
 const DocsDialog = lazy(() => import('./components/DocsDialog'))
+const LoopsPage = lazy(() => import('./pages/LoopsPage'))
+const LoopBuilderPage = lazy(() => import('./pages/LoopBuilderPage'))
 import { ProjectLayout } from './components/ProjectLayout'
 import { ProjectErrorBoundary } from './components/ProjectErrorBoundary'
 import { WelcomeScreen } from './components/WelcomeScreen'
@@ -49,13 +51,22 @@ import { WebViewModalProvider } from './context/WebViewModalContext'
 import { useCompareUrlSync } from './hooks/useCompareUrlSync'
 import { ThemeProvider, useTheme } from './context/ThemeContext'
 import { LanguageProvider } from './context/LanguageContext'
-import { FEATURE_AGENTS_SECTION, FEATURE_CODE_EXPLORER, FEATURE_TERMINAL_PANEL } from './lib/feature-flags'
+import { FEATURE_AGENTS_SECTION, FEATURE_CODE_EXPLORER, FEATURE_TERMINAL_PANEL, FEATURE_LOOPS_SECTION } from './lib/feature-flags'
 
 // ─── Per-project route memory (in-memory only — resets on app restart) ───────
 
 // Paths that should never be remembered as a project's "last visited" —
 // re-entering a project should never land on a config/admin surface.
-const ROUTE_MEMORY_EXCLUDE = new Set<string>(['/settings'])
+const ROUTE_MEMORY_EXCLUDE = new Set<string>(['/settings', '/loops'])
+
+// Global (cross-project) routes must never be saved or restored as a project's
+// "last visited" surface — they aren't project-scoped, so persisting one would
+// e.g. restore the global Loops page when switching back to a project instead
+// of that project's dashboard. Covers exact excludes + the /loops and /docs
+// route trees (e.g. the loop builder at /loops/:id/edit).
+function isNonProjectRoute(path: string): boolean {
+  return ROUTE_MEMORY_EXCLUDE.has(path) || path.startsWith('/loops') || path.startsWith('/docs')
+}
 
 // One-time cleanup of legacy persisted route memory so users upgrading from a
 // version that wrote to localStorage don't keep their stale "last visited" routes.
@@ -94,16 +105,22 @@ function useProjectRouteMemory(activeProjectId: string | null) {
   }, [])
 
   useEffect(() => {
-    // Save the current route for the outgoing project
-    if (prevProjectId.current && prevProjectId.current !== activeProjectId) {
+    // Save the current route for the outgoing project — but never a global
+    // (non-project) route like /loops or /docs, which would otherwise be
+    // restored as that project's surface on the next switch.
+    if (
+      prevProjectId.current &&
+      prevProjectId.current !== activeProjectId &&
+      !isNonProjectRoute(location.pathname)
+    ) {
       routeMemory.current.set(prevProjectId.current, location.pathname)
     }
 
     // Restore route for the incoming project (defaults to Dashboard '/' when
-    // no in-session memory exists — i.e. first visit this session).
+    // no in-session memory exists, or when the remembered route is a global one).
     if (activeProjectId && activeProjectId !== prevProjectId.current) {
       const savedRoute = routeMemory.current.get(activeProjectId)
-      const targetRoute = savedRoute ?? '/'
+      const targetRoute = savedRoute && !isNonProjectRoute(savedRoute) ? savedRoute : '/'
       if (location.pathname !== targetRoute) {
         navigate(targetRoute, { replace: true })
       }
@@ -115,7 +132,7 @@ function useProjectRouteMemory(activeProjectId: string | null) {
   // Continuously update the in-memory map for the active project so a project
   // switch restores precisely the last surface the user was on.
   useEffect(() => {
-    if (activeProjectId && location.pathname !== '/' && !ROUTE_MEMORY_EXCLUDE.has(location.pathname)) {
+    if (activeProjectId && location.pathname !== '/' && !isNonProjectRoute(location.pathname)) {
       routeMemory.current.set(activeProjectId, location.pathname)
     }
   }, [activeProjectId, location.pathname])
@@ -128,6 +145,7 @@ function DesktopApp() {
   const { projects, activeProjectId, isLoading, isSwitchingProject, setupProjectIds, completeSetupWizard, setActiveProjectId } = useDesktop()
   const { cycleLeftMode, cycleRightMode } = useSidebarPin()
   const navigate = useNavigate()
+  const location = useLocation()
   const terminals = useTerminals()
 
   // Two-way sync between split-view comparison state and ?compare=… URL params.
@@ -206,6 +224,7 @@ function DesktopApp() {
       {/* Arc-style collapsible sidebar */}
       <ArcSidebar
         onAddProject={() => setAddDialogOpen(true)}
+        onOpenLoops={() => navigate('/loops')}
         onOpenAnalytics={() => setAnalyticsOpen(true)}
         onOpenDocs={() => setDocsOpen(true)}
         onOpenSettings={() => setSettingsOpen(true)}
@@ -235,6 +254,11 @@ function DesktopApp() {
               <Routes>
                 <Route path="/docs" element={<DocsPage />} />
                 <Route path="/docs/:category/:slug" element={<DocsPage />} />
+                {/* Loops — GLOBAL routes (cross-project), outside ProjectLayout.
+                    The builder route (/loops/:id/edit) lands in a later phase;
+                    until then it falls back to the library so Edit never dead-ends. */}
+                {FEATURE_LOOPS_SECTION && <Route path="/loops" element={<LoopsPage />} />}
+                {FEATURE_LOOPS_SECTION && <Route path="/loops/:id/edit" element={<LoopBuilderPage />} />}
                 {/* Project routes */}
                 {projects.length === 0 ? (
                   <Route path="*" element={<WelcomeScreen onAddProject={() => setAddDialogOpen(true)} />} />
@@ -264,8 +288,10 @@ function DesktopApp() {
         </div>
       </div>
 
-      {/* Right sidebar — full height, only when a project is active and not in setup */}
-      {activeProject && !isInSetup && <ProjectRightSidebar />}
+      {/* Right sidebar — full height, only when a project is active and not in
+          setup. Hidden on the global /loops surface so the builder/library use
+          the full width. */}
+      {activeProject && !isInSetup && !location.pathname.startsWith('/loops') && <ProjectRightSidebar />}
 
       <AddProjectDialog open={addDialogOpen} onClose={() => setAddDialogOpen(false)} />
       <SettingsDialog open={settingsOpen} onClose={() => setSettingsOpen(false)} onOpenOnboarding={() => { setSettingsOpen(false); setOnboardingOpen(true) }} />

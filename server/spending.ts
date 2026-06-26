@@ -32,6 +32,7 @@ export interface DailyEntry {
   aiEditCostUsd: number
   smashCostUsd: number
   fileSummaryCostUsd: number
+  loopCostUsd: number
   totalCostUsd: number
 }
 export interface ScatterPoint {
@@ -112,7 +113,7 @@ export interface InvocationWithTicket extends InvocationRow {
   ticket_title: string | null
 }
 
-const ALL_SURFACES: Surface[] = ['job', 'quick-spec', 'explore-spec', 'ai-edit', 'smash', 'file-summary']
+const ALL_SURFACES: Surface[] = ['job', 'quick-spec', 'explore-spec', 'ai-edit', 'smash', 'file-summary', 'loop']
 
 interface ResolvedRange {
   from: string
@@ -308,7 +309,7 @@ export function getSpending(
   const dayMap = new Map<string, DailyEntry>()
   for (const day of days) {
     dayMap.set(day, {
-      date: day, jobsCostUsd: 0, quickCostUsd: 0, exploreCostUsd: 0, aiEditCostUsd: 0, smashCostUsd: 0, fileSummaryCostUsd: 0, totalCostUsd: 0,
+      date: day, jobsCostUsd: 0, quickCostUsd: 0, exploreCostUsd: 0, aiEditCostUsd: 0, smashCostUsd: 0, fileSummaryCostUsd: 0, loopCostUsd: 0, totalCostUsd: 0,
     })
   }
   for (const r of dayRows) {
@@ -321,6 +322,7 @@ export function getSpending(
     else if (r.surface === 'ai-edit') entry.aiEditCostUsd += c
     else if (r.surface === 'smash') entry.smashCostUsd += c
     else if (r.surface === 'file-summary') entry.fileSummaryCostUsd += c // B58
+    else if (r.surface === 'loop') entry.loopCostUsd += c
     entry.totalCostUsd += c
   }
   const dailyTimeline = Array.from(dayMap.values())
@@ -420,6 +422,7 @@ export function getSpending(
           'ai-edit': { count: 0, costUsd: 0 },
           smash: { count: 0, costUsd: 0 },
           'file-summary': { count: 0, costUsd: 0 },
+          loop: { count: 0, costUsd: 0 },
         },
         isUnattributed: r.ticket_id === null ? true : undefined,
       })

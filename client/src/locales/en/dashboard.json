@@ -32,12 +32,18 @@
     "batch": "Batch",
     "ultra": "Ultra",
     "ultraTitle": "Ultracode — Claude implements the spec autonomously, no pipeline",
+    "loop": "Loop",
+    "loopTitle": "Loop — run a published automation loop against the rail's specs",
+    "pickLoop": "Pick a loop…",
+    "effortTitle": "Reasoning effort",
     "interactive": "Interactive",
     "interactiveTitle": "Interactive — chat with the running job; send more prompts and finalize when done",
     "stop": "Stop",
     "play": "Play",
     "failedRetry": "Job failed — click to retry",
-    "addSpecsFirst": "Add specs to this rail first"
+    "addSpecsFirst": "Add specs to this rail first",
+    "builtInLoops": "Built-in",
+    "customLoops": "Custom loops"
   },
   "railRow": {
     "moveToSpecs": "Move to Specs",
