@@ -11,6 +11,7 @@ import {
   Save,
   Columns2,
   Workflow,
+  Repeat,
   GitBranch,
   Bot,
   Gauge,
@@ -443,6 +444,9 @@ function buildSteps(t: TFunction): StepConfig[] {
           <div className="grid sm:grid-cols-2 gap-x-5 gap-y-4">
             <Feature icon={<GitBranch className="w-4 h-4" />} label={t('onboarding.rails.modeLabel')} accent={ACCENTS.success}>
               <Trans t={t} i18nKey="onboarding.rails.modeBody" components={{ b: <span className="text-foreground" /> }} />
+            </Feature>
+            <Feature icon={<Repeat className="w-4 h-4" />} label={t('onboarding.rails.loopsLabel')} accent={ACCENTS.success}>
+              <Trans t={t} i18nKey="onboarding.rails.loopsBody" components={{ b: <span className="text-foreground" /> }} />
             </Feature>
             <Feature icon={<Bot className="w-4 h-4" />} label={t('onboarding.rails.profilesLabel')} accent={ACCENTS.success}>
               {t('onboarding.rails.profilesBody')}
