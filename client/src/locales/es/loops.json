@@ -13,7 +13,11 @@
     "noResults": "Ninguna plantilla coincide con los filtros.",
     "clearFilter": "Limpiar filtros",
     "resultCount_one": "{{count}} plantilla",
-    "resultCount_other": "{{count}} plantillas"
+    "resultCount_other": "{{count}} plantillas",
+    "needsSpec": "Requiere spec",
+    "standalone": "Autónoma",
+    "needsSpecHint": "Se ejecuta en un rail con una spec arrastrada",
+    "standaloneHint": "Se ejecuta sola — solo elige un proyecto"
   },
   "categories": {
     "API": "API",

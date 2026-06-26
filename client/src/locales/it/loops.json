@@ -13,7 +13,11 @@
     "noResults": "Nessun modello corrisponde ai filtri.",
     "clearFilter": "Cancella filtri",
     "resultCount_one": "{{count}} modello",
-    "resultCount_other": "{{count}} modelli"
+    "resultCount_other": "{{count}} modelli",
+    "needsSpec": "Richiede spec",
+    "standalone": "Autonoma",
+    "needsSpecHint": "Gira su una rail con una spec trascinata",
+    "standaloneHint": "Gira da sola — basta scegliere un progetto"
   },
   "categories": {
     "API": "API",

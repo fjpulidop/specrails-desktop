@@ -13,7 +13,11 @@
     "noResults": "Keine Vorlagen entsprechen deinen Filtern.",
     "clearFilter": "Filter zurücksetzen",
     "resultCount_one": "{{count}} Vorlage",
-    "resultCount_other": "{{count}} Vorlagen"
+    "resultCount_other": "{{count}} Vorlagen",
+    "needsSpec": "Spec nötig",
+    "standalone": "Eigenständig",
+    "needsSpecHint": "Läuft auf einer Rail mit einer gezogenen Spec",
+    "standaloneHint": "Läuft eigenständig — einfach ein Projekt wählen"
   },
   "categories": {
     "API": "API",

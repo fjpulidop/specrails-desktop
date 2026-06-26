@@ -13,7 +13,11 @@
     "noResults": "No templates match your filters.",
     "clearFilter": "Clear filters",
     "resultCount_one": "{{count}} template",
-    "resultCount_other": "{{count}} templates"
+    "resultCount_other": "{{count}} templates",
+    "needsSpec": "Needs spec",
+    "standalone": "Standalone",
+    "needsSpecHint": "Runs on a rail with a dragged spec",
+    "standaloneHint": "Runs standalone — just pick a project"
   },
   "categories": {
     "API": "API",

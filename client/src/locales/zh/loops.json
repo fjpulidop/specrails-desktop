@@ -13,7 +13,11 @@
     "noResults": "没有模板符合筛选条件。",
     "clearFilter": "清除筛选",
     "resultCount_one": "{{count}} 个模板",
-    "resultCount_other": "{{count}} 个模板"
+    "resultCount_other": "{{count}} 个模板",
+    "needsSpec": "需要规格",
+    "standalone": "独立运行",
+    "needsSpecHint": "在 rail 上运行，需拖入一个规格",
+    "standaloneHint": "独立运行——只需选择一个项目"
   },
   "categories": {
     "API": "API",

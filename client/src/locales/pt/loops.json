@@ -13,7 +13,11 @@
     "noResults": "Nenhum modelo corresponde aos seus filtros.",
     "clearFilter": "Limpar filtros",
     "resultCount_one": "{{count}} modelo",
-    "resultCount_other": "{{count}} modelos"
+    "resultCount_other": "{{count}} modelos",
+    "needsSpec": "Requer spec",
+    "standalone": "Autônoma",
+    "needsSpecHint": "Roda em um rail com uma spec arrastada",
+    "standaloneHint": "Roda sozinha — basta escolher um projeto"
   },
   "categories": {
     "API": "API",

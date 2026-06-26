@@ -114,6 +114,29 @@ describe('LoopsPage', () => {
     { id: 'merge-conflict-resolver', name: 'Merge Conflict Resolver', description: 'resolve conflicts', category: 'Git', tags: ['git'], graph: tmplGraph },
   ]
 
+  const standaloneGraph = {
+    nodes: [
+      { id: 's', type: 'start' as const, position: { x: 0, y: 0 } },
+      { id: 'ai', type: 'ai-step' as const, position: { x: 0, y: 1 }, data: { prompt: '{{cmd:test}}' } },
+      { id: 'd', type: 'decider' as const, position: { x: 0, y: 2 }, data: { goal: 'green' } },
+      { id: 'e', type: 'end' as const, position: { x: 1, y: 2 }, data: { outcome: 'success' } },
+    ],
+    edges: [],
+    config: { maxIterations: 10, timeoutMinutes: 30 },
+  }
+
+  it('marks templates as spec-driven (Needs spec) or standalone', async () => {
+    api.templates.mockResolvedValue([
+      { id: 'ship-and-green', name: 'Ship & Green', description: 'd', category: 'CI', tags: [], graph: tmplGraph }, // {{cmd:implement}} → needs spec
+      { id: 'ci-watch', name: 'CI Watch', description: 'd', category: 'CI', tags: [], graph: standaloneGraph }, // no spec/ticket cmd → standalone
+    ])
+    renderPage()
+    const specCard = (await screen.findByText('Ship & Green')).closest('[data-testid="template-card"]')! as HTMLElement
+    expect(within(specCard).getByText('Needs spec')).toBeInTheDocument()
+    const standaloneCard = screen.getByText('CI Watch').closest('[data-testid="template-card"]')! as HTMLElement
+    expect(within(standaloneCard).getByText('Standalone')).toBeInTheDocument()
+  })
+
   it('renders a category badge on template cards', async () => {
     api.templates.mockResolvedValue(catTemplates)
     renderPage()

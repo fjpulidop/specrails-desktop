@@ -13,7 +13,11 @@
     "noResults": "フィルターに一致するテンプレートがありません。",
     "clearFilter": "フィルターをクリア",
     "resultCount_one": "{{count}} 件のテンプレート",
-    "resultCount_other": "{{count}} 件のテンプレート"
+    "resultCount_other": "{{count}} 件のテンプレート",
+    "needsSpec": "スペックが必要",
+    "standalone": "単独実行",
+    "needsSpecHint": "スペックをドラッグした rail で実行",
+    "standaloneHint": "単独で実行 — プロジェクトを選ぶだけ"
   },
   "categories": {
     "API": "API",

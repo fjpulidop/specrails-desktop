@@ -490,13 +490,20 @@ export default function LoopsPage() {
                           )}
                         </div>
                         <p className="text-xs text-muted-foreground flex-1">{locDesc(tmpl.id, tmpl.description)}</p>
-                        {tmpl.tags.length > 0 && (
-                          <div className="flex flex-wrap gap-1">
-                            {tmpl.tags.map((tag) => (
-                              <span key={tag} className="px-1.5 py-0.5 rounded text-[10px] bg-muted text-muted-foreground">{tag}</span>
-                            ))}
-                          </div>
-                        )}
+                        <div className="flex flex-wrap items-center gap-1">
+                          {loopNeedsTicket(tmpl.graph) ? (
+                            <span title={t('gallery.needsSpecHint')} className="px-1.5 py-0.5 rounded text-[10px] bg-accent-secondary/15 text-accent-secondary">
+                              {t('gallery.needsSpec')}
+                            </span>
+                          ) : (
+                            <span title={t('gallery.standaloneHint')} className="px-1.5 py-0.5 rounded text-[10px] bg-accent-success/15 text-accent-success">
+                              {t('gallery.standalone')}
+                            </span>
+                          )}
+                          {tmpl.tags.map((tag) => (
+                            <span key={tag} className="px-1.5 py-0.5 rounded text-[10px] bg-muted text-muted-foreground">{tag}</span>
+                          ))}
+                        </div>
                         <div className="flex items-center gap-1.5">
                           <button
                             type="button"
