@@ -172,6 +172,7 @@
     "subtitle": "Diesen Loop auf einem Projekt starten (kein Ticket nötig).",
     "project": "Projekt",
     "provider": "Anbieter",
+    "model": "Modell",
     "effort": "Reasoning-Aufwand",
     "execute": "Ausführen",
     "noProjects": "Keine Projekte verfügbar.",

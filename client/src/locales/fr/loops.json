@@ -172,6 +172,7 @@
     "subtitle": "Lance ce loop sur un projet (sans ticket).",
     "project": "Projet",
     "provider": "Fournisseur",
+    "model": "Modèle",
     "effort": "Effort de raisonnement",
     "execute": "Exécuter",
     "noProjects": "Aucun projet disponible.",

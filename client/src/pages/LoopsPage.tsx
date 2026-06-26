@@ -184,12 +184,12 @@ export default function LoopsPage() {
   // Launch a ticket-less loop standalone against a chosen project, then jump to
   // its job log (switching the active project to that target).
   const handleRunExecute = useCallback(
-    async ({ projectId, provider, effort }: { projectId: string; provider?: string; effort?: string }) => {
+    async ({ projectId, provider, model, effort }: { projectId: string; provider?: string; model?: string; effort?: string }) => {
       const loop = runLoop
       if (!loop) return
       setRunLoop(null)
       try {
-        const { loopRunId } = await loopsApi.runStandalone(projectId, loop.id, { aiEngine: provider, reasoning_effort: effort })
+        const { loopRunId } = await loopsApi.runStandalone(projectId, loop.id, { aiEngine: provider, model, reasoning_effort: effort })
         setActiveProjectId(projectId)
         navigate(`/jobs/${loopRunId}`)
         toast.success(t('run.launched', { name: loop.name }))

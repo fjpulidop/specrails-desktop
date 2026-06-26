@@ -203,7 +203,7 @@ export const loopsApi = {
   async runStandalone(
     projectId: string,
     loopId: string,
-    opts: { aiEngine?: string; reasoning_effort?: string } = {}
+    opts: { aiEngine?: string; model?: string; reasoning_effort?: string } = {}
   ): Promise<{ loopRunId: string }> {
     const res = await fetch(`/api/projects/${projectId}/loop-runs`, {
       method: 'POST',

@@ -35,6 +35,37 @@ describe('LoopRunModal', () => {
     expect(onExecute).toHaveBeenCalledWith(expect.objectContaining({ projectId: 'p2', provider: 'claude' }))
   })
 
+  it('offers a model picker and executes with the chosen model (default = provider default)', () => {
+    const onExecute = vi.fn()
+    render(<LoopRunModal loop={{ id: 'l1', name: 'CI Watch' }} projects={PROJECTS} onClose={() => {}} onExecute={onExecute} />)
+    const dialog = screen.getByRole('dialog')
+    // p1 is claude → claude catalog, default Claude Sonnet.
+    const modelSel = within(dialog).getByTestId('run-model-select') as HTMLSelectElement
+    expect(within(modelSel).getByRole('option', { name: 'Claude Sonnet' })).toBeInTheDocument()
+    expect(within(modelSel).getByRole('option', { name: 'Claude Opus' })).toBeInTheDocument()
+    expect(modelSel.value).toBe('sonnet')
+    // pick a non-default model
+    fireEvent.change(modelSel, { target: { value: 'opus' } })
+    fireEvent.click(within(dialog).getByRole('button', { name: /Execute/i }))
+    expect(onExecute).toHaveBeenCalledWith(expect.objectContaining({ projectId: 'p1', model: 'opus' }))
+  })
+
+  it('swaps the model catalog + default when the provider changes', () => {
+    const onExecute = vi.fn()
+    render(<LoopRunModal loop={{ id: 'l1', name: 'CI Watch' }} projects={PROJECTS} onClose={() => {}} onExecute={onExecute} />)
+    const dialog = screen.getByRole('dialog')
+    // Switch to p2 (claude+codex), then pick codex as the provider.
+    fireEvent.change(within(dialog).getByTestId('run-project-select'), { target: { value: 'p2' } })
+    fireEvent.change(within(dialog).getByLabelText('Provider'), { target: { value: 'codex' } })
+    const modelSel = within(dialog).getByTestId('run-model-select') as HTMLSelectElement
+    // Codex catalog, default GPT-5.5; no Claude models present.
+    expect(modelSel.value).toBe('gpt-5.5')
+    expect(within(modelSel).getByRole('option', { name: 'GPT-5.5' })).toBeInTheDocument()
+    expect(within(modelSel).queryByRole('option', { name: 'Claude Sonnet' })).not.toBeInTheDocument()
+    fireEvent.click(within(dialog).getByRole('button', { name: /Execute/i }))
+    expect(onExecute).toHaveBeenCalledWith(expect.objectContaining({ provider: 'codex', model: 'gpt-5.5' }))
+  })
+
   it('disables Execute when there are no projects', () => {
     render(<LoopRunModal loop={{ id: 'l1', name: 'CI Watch' }} projects={[]} onClose={() => {}} onExecute={() => {}} />)
     expect(within(screen.getByRole('dialog')).getByRole('button', { name: /Execute/i })).toBeDisabled()

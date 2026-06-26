@@ -172,6 +172,7 @@
     "subtitle": "Launch this loop on a project (no ticket needed).",
     "project": "Project",
     "provider": "Provider",
+    "model": "Model",
     "effort": "Reasoning effort",
     "execute": "Execute",
     "noProjects": "No projects available.",

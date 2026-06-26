@@ -172,6 +172,7 @@
     "subtitle": "在某个项目上启动此循环（无需工单）。",
     "project": "项目",
     "provider": "提供方",
+    "model": "模型",
     "effort": "推理强度",
     "execute": "执行",
     "noProjects": "没有可用的项目。",
