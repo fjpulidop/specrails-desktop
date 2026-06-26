@@ -11,7 +11,7 @@ import { resolveProjectExecution } from './workspace-resolution'
 import { isFactoryLoopId, factoryLoopMode, getFactoryLoop } from './loop-factory'
 import { loadConstantMap } from './loop-constants'
 import { dominantTicketScope, referencesClaudeOnlyCommand } from './loop-command-catalog'
-import type { LoopGraph } from './loop-graph'
+import { loopNeedsTicket, type LoopGraph } from './loop-graph'
 import { newId } from './ids'
 import type { ReasoningEffort } from './providers/types'
 import type { RailJobStartedMessage, RailJobStoppedMessage, RailUpdatedMessage, LoopRunStoppedMessage } from './types'
@@ -320,6 +320,13 @@ export function createRailsRouter(): Router {
           if (!loop) { res.status(404).json({ error: 'Loop not found' }); return }
           if (loop.status !== 'published') {
             res.status(400).json({ error: 'Loop must be published before it can run on a rail' }); return
+          }
+          // A standalone loop (no {{spec.*}} and no ticket command) ignores the
+          // rail's spec — it would just re-run once per ticket. Those belong to
+          // the Loops page "Run" action; reject them here as a defence-in-depth
+          // behind the rail picker, which already hides them.
+          if (!loopNeedsTicket(loop.graph)) {
+            res.status(400).json({ error: 'This loop runs standalone — launch it from the Loops page, not a rail.' }); return
           }
           loopGraph = loop.graph
           loopName = loop.name

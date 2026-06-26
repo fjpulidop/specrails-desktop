@@ -485,7 +485,9 @@ describe('rails-router loop mode', () => {
     return {
       nodes: [
         { id: 's', type: 'start', position: { x: 0, y: 0 } },
-        { id: 'ai', type: 'ai-step', position: { x: 0, y: 1 } },
+        // Spec-driven by default ({{spec.title}}) so it is rail-eligible (a rail
+        // feeds the spec). graphWithPrompt() overrides this for scope-specific tests.
+        { id: 'ai', type: 'ai-step', position: { x: 0, y: 1 }, data: { prompt: 'Implement {{spec.title}}' } },
         { id: 'e', type: 'end', position: { x: 0, y: 2 } },
       ],
       edges: [
@@ -548,6 +550,18 @@ describe('rails-router loop mode', () => {
     const app = appWith(db, { desktopDb, loopRunManager: { run: vi.fn(), cancel: vi.fn() } })
     const res = await request(app).post('/rails/0/launch').send({ mode: 'loop', loopId: 'ghost' })
     expect(res.status).toBe(404)
+  })
+
+  it('rejects launching a standalone (spec-less) loop on a rail (400)', async () => {
+    // No {{spec.*}} and no ticket command → standalone; belongs on the Loops page Run.
+    const loop = createLoop(desktopDb, { id: 'standalone-1', name: 'Lint repo', graph: graphWithPrompt('Lint the whole repo until clean') })
+    publishLoop(desktopDb, loop.id)
+    const run = vi.fn()
+    const app = appWith(db, { desktopDb, loopRunManager: { run, cancel: vi.fn() } })
+    const res = await request(app).post('/rails/0/launch').send({ mode: 'loop', loopId: 'standalone-1' })
+    expect(res.status).toBe(400)
+    expect(res.body.error).toMatch(/standalone/i)
+    expect(run).not.toHaveBeenCalled()
   })
 
   it('rejects an invalid reasoning_effort (400)', async () => {
