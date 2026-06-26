@@ -45,6 +45,16 @@ describe('filterTemplates', () => {
   it('whitespace-only query is treated as empty', () => {
     expect(filterTemplates(SAMPLE, { query: '   ', categories: [] })).toHaveLength(4)
   })
+
+  it('also matches localized searchTerms (text not present in the raw fields)', () => {
+    const localized = [
+      { ...T({ id: 'a', name: 'Flaky Test Triage', description: 'classify failures', category: 'Testing' }), searchTerms: 'Triaje de tests inestables pruebas' },
+      { ...T({ id: 'b', name: 'Merge Conflict Resolver', description: 'resolve conflicts', category: 'Git' }), searchTerms: 'Resolución de conflictos' },
+    ]
+    // "inestables" appears only in the searchTerms of a, not in any raw field
+    expect(filterTemplates(localized, { query: 'inestables', categories: [] }).map((t) => t.id)).toEqual(['a'])
+    expect(filterTemplates(localized, { query: 'conflictos', categories: [] }).map((t) => t.id)).toEqual(['b'])
+  })
 })
 
 describe('categoryCounts', () => {

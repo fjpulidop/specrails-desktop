@@ -18,6 +18,10 @@ export interface FilterableTemplate {
   description: string
   tags: string[]
   category?: string
+  /** Extra already-localized text (translated name/description/category label)
+   *  searched IN ADDITION to the raw fields, so a query in the user's language
+   *  matches the strings actually shown on the card. Optional. */
+  searchTerms?: string
 }
 
 export interface TemplateFilter {
@@ -35,7 +39,7 @@ export function filterTemplates<T extends FilterableTemplate>(templates: T[], fi
   return templates.filter((t) => {
     if (cats.length > 0 && !(t.category && cats.includes(t.category))) return false
     if (!q) return true
-    const haystack = `${t.name} ${t.description} ${t.tags.join(' ')} ${t.category ?? ''}`.toLowerCase()
+    const haystack = `${t.name} ${t.description} ${t.tags.join(' ')} ${t.category ?? ''} ${t.searchTerms ?? ''}`.toLowerCase()
     return haystack.includes(q)
   })
 }

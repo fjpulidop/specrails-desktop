@@ -267,7 +267,14 @@ export default function LoopsPage() {
   const drafts = loops.filter((l) => l.status === 'draft')
   const published = loops.filter((l) => l.status === 'published')
   const templateCounts = categoryCounts(templates)
-  const visibleTemplates = filterTemplates(templates, { query: templateQuery, categories: selectedCategories })
+  // Search also matches the LOCALIZED text shown on the card (name, description,
+  // category label), not just the server English, so a query in the user's
+  // language finds the right template.
+  const searchableTemplates = templates.map((tmpl) => ({
+    ...tmpl,
+    searchTerms: `${locName(tmpl.id, tmpl.name)} ${locDesc(tmpl.id, tmpl.description)} ${tmpl.category ? t(`categories.${tmpl.category}`, { defaultValue: tmpl.category }) : ''}`,
+  }))
+  const visibleTemplates = filterTemplates(searchableTemplates, { query: templateQuery, categories: selectedCategories })
   const templateFilterActive = templateQuery.trim() !== '' || selectedCategories.length > 0
 
   return (
