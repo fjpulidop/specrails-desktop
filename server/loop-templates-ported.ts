@@ -40,7 +40,7 @@ export const PORTED_TEMPLATES: PortSpec[] = [
     ],
     "steps": [
       "Run the project's end-to-end suite and read the report carefully. For the first failing spec, trace it to a single root cause — a broken selector, a missing wait/assertion, a real integration bug, or a stale fixture — and describe what you found before touching anything.",
-      "Apply the smallest fix that resolves that root cause. Favour resilient selectors and realistic waits over arbitrary sleeps, and fix the application defect rather than weakening the assertion. Then re-run the end-to-end suite to confirm that spec is green and nothing else regressed. {{const:GUARDRAILS}}"
+      "Apply the smallest fix that resolves that root cause. Favour resilient selectors and realistic waits over arbitrary sleeps, and fix the application defect rather than weakening the assertion. Then re-run the end-to-end suite to confirm that spec is green and nothing else regressed. {{const:GUARDRAILS}}\n\nEnd your reply with a single final line — exactly `VERIFICATION: PASS` when no critical findings remain, or `VERIFICATION: FAIL — <short reason>` otherwise. The loop reads this verdict to decide whether to stop."
     ],
     "goal": "The end-to-end suite runs to completion with no failing specs — it reports {{const:VERIFICATION_PASS}}.",
     "maxIterations": 10,
@@ -98,7 +98,7 @@ export const PORTED_TEMPLATES: PortSpec[] = [
     ],
     "steps": [
       "List the source files you changed in the most recent batch of edits, and map each to the tests most directly exercising it. Keep the set as small as possible so the check stays fast.",
-      "Run the smallest relevant slice of the test suite covering those changed files. If anything regressed, stop and fix it before making any further edits — do not pile new changes on top of a red test. {{const:GUARDRAILS}}"
+      "Run the smallest relevant slice of the test suite covering those changed files. If anything regressed, stop and fix it before making any further edits — do not pile new changes on top of a red test. {{const:GUARDRAILS}}\n\nEnd your reply with a single final line — exactly `VERIFICATION: PASS` when no critical findings remain, or `VERIFICATION: FAIL — <short reason>` otherwise. The loop reads this verdict to decide whether to stop."
     ],
     "goal": "The tests directly related to the just-edited files pass — they report {{const:VERIFICATION_PASS}} — before any further changes are made.",
     "maxIterations": 12,
@@ -117,7 +117,7 @@ export const PORTED_TEMPLATES: PortSpec[] = [
     ],
     "steps": [
       "Confirm a merge or rebase just completed. Read the diff stat for the merged range and note which areas of the codebase the incoming changes touched, so you know where integration regressions are most likely.",
-      "Run the fast smoke suite that exercises the critical paths. If anything fails, treat it as an integration regression introduced by the merge and fix it before starting any new feature work. {{const:GUARDRAILS}}"
+      "Run the fast smoke suite that exercises the critical paths. If anything fails, treat it as an integration regression introduced by the merge and fix it before starting any new feature work. {{const:GUARDRAILS}}\n\nEnd your reply with a single final line — exactly `VERIFICATION: PASS` when no critical findings remain, or `VERIFICATION: FAIL — <short reason>` otherwise. The loop reads this verdict to decide whether to stop."
     ],
     "goal": "The smoke suite passes after the merge or rebase — it reports {{const:VERIFICATION_PASS}} — so no integration regression is carried forward.",
     "maxIterations": 12,
@@ -137,7 +137,7 @@ export const PORTED_TEMPLATES: PortSpec[] = [
     "steps": [
       "Detect that a commit is about to happen and pause before it runs. Identify what is staged so you know the change being committed.",
       "Run the full test suite as the precondition for committing. {{const:GUARDRAILS}}",
-      "If the suite is red, fix the failures and re-run the gate — never weaken or skip a test to get the commit through. Only let the commit proceed once the suite is green. {{const:GUARDRAILS}}"
+      "If the suite is red, fix the failures and re-run the gate — never weaken or skip a test to get the commit through. Only let the commit proceed once the suite is green. {{const:GUARDRAILS}}\n\nEnd your reply with a single final line — exactly `VERIFICATION: PASS` when no critical findings remain, or `VERIFICATION: FAIL — <short reason>` otherwise. The loop reads this verdict to decide whether to stop."
     ],
     "goal": "The test suite reports {{const:VERIFICATION_PASS}} before the commit is allowed to proceed, so no commit lands on a red suite.",
     "maxIterations": 8,
@@ -306,7 +306,7 @@ export const PORTED_TEMPLATES: PortSpec[] = [
     "steps": [
       "Read the full diff on the current branch as if you were reviewing someone else's PR. Enumerate every concern: latent bugs, unhandled edge cases, weak or misleading names, and behavior that lacks test coverage.",
       "Resolve the highest-severity findings from that critique, keeping each change tightly scoped to the issue it fixes and nothing more. {{const:GUARDRAILS}}",
-      "Run an independent verification sweep over the touched code with {{cmd:review}}, then re-read the updated diff to confirm the prior findings are gone and no critical issue remains; surface anything still open for the next pass. {{const:GUARDRAILS}}"
+      "Run an independent verification sweep over the touched code with {{cmd:review}}, then re-read the updated diff to confirm the prior findings are gone and no critical issue remains; surface anything still open for the next pass. {{const:GUARDRAILS}}\n\nEnd your reply with a single final line — exactly `VERIFICATION: PASS` when no critical findings remain, or `VERIFICATION: FAIL — <short reason>` otherwise. The loop reads this verdict to decide whether to stop."
     ],
     "goal": "A fresh self-review pass over the current diff surfaces no critical findings and the automated review reports {{const:VERIFICATION_PASS}}.",
     "maxIterations": 4,

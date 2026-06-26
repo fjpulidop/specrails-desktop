@@ -115,6 +115,35 @@ describe('loop templates', () => {
     }
   })
 
+  it('a Decider goal that demands VERIFICATION_PASS is backed by a step that emits the sentinel', () => {
+    // The contract: if the Decider goal drags {{const:VERIFICATION_PASS}}, some
+    // step must actually END with that sentinel — otherwise the Decider can never
+    // confirm "done", loops to its iteration/timeout cap, and settles as FAILED
+    // even when the work is complete. (Regression: pr-self-review used {{cmd:review}},
+    // which does not emit the sentinel, so it never converged.)
+    const SENTINEL_CMDS = new Set(['test', 'lint', 'typecheck', 'build', 'coverage', 'format', 'verify'])
+    const emitsSentinel = (graph: LoopGraph): boolean => {
+      for (const n of graph.nodes) {
+        if (n.type !== 'ai-step') continue
+        const p = String(n.data?.prompt ?? '')
+        if (p.includes('VERIFICATION_PASS') || p.includes('VERIFICATION: PASS')) return true
+        for (const m of p.matchAll(/\{\{cmd:([\w-]+)\}\}/g)) if (SENTINEL_CMDS.has(m[1])) return true
+      }
+      return false
+    }
+    for (const tpl of LOOP_TEMPLATES) {
+      const goalDemandsSentinel = tpl.graph.nodes.some(
+        (n) => n.type === 'decider' && String(n.data?.goal ?? '').includes('VERIFICATION_PASS')
+      )
+      if (goalDemandsSentinel) {
+        expect(
+          emitsSentinel(tpl.graph),
+          `${tpl.id}: Decider goal demands VERIFICATION_PASS but no step emits it — the loop can never converge`
+        ).toBe(true)
+      }
+    }
+  })
+
   it('injects the guardrails anti-gaming contract across the ported catalog', () => {
     // Read-only poll/audit loops legitimately omit it, but the bulk of the
     // mutating starters must carry the guardrails contract.
