@@ -8,6 +8,30 @@
     "templates": "テンプレート",
     "builtIn": "組み込み"
   },
+  "gallery":   {
+    "search": "テンプレートを検索…",
+    "noResults": "フィルターに一致するテンプレートがありません。",
+    "clearFilter": "フィルターをクリア",
+    "resultCount_one": "{{count}} 件のテンプレート",
+    "resultCount_other": "{{count}} 件のテンプレート"
+  },
+  "categories":   {
+    "API": "API",
+    "Automation": "自動化",
+    "CI": "CI",
+    "Database": "データベース",
+    "Debugging": "デバッグ",
+    "DevOps": "DevOps",
+    "Docs": "ドキュメント",
+    "Git": "Git",
+    "Maintenance": "メンテナンス",
+    "Performance": "パフォーマンス",
+    "Planning": "計画",
+    "Quality": "品質",
+    "Review": "レビュー",
+    "Security": "セキュリティ",
+    "Testing": "テスト"
+  },
   "status": {
     "draft": "下書き",
     "published": "公開済み",

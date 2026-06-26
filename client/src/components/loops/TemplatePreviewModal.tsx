@@ -57,6 +57,11 @@ export function TemplatePreviewModal({
             </DialogHeader>
 
             <div className="flex flex-wrap gap-1.5">
+              {template.category && (
+                <span className="px-1.5 py-0.5 rounded text-[10px] bg-accent-info/15 text-accent-info">
+                  {t(`categories.${template.category}`, { defaultValue: template.category })}
+                </span>
+              )}
               {template.tags.map((tag) => (
                 <span key={tag} className="px-1.5 py-0.5 rounded text-[10px] bg-muted text-muted-foreground">
                   {tag}

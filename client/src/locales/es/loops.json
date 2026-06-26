@@ -8,6 +8,30 @@
     "templates": "Plantillas",
     "builtIn": "Integrados"
   },
+  "gallery":   {
+    "search": "Buscar plantillas…",
+    "noResults": "Ninguna plantilla coincide con los filtros.",
+    "clearFilter": "Limpiar filtros",
+    "resultCount_one": "{{count}} plantilla",
+    "resultCount_other": "{{count}} plantillas"
+  },
+  "categories":   {
+    "API": "API",
+    "Automation": "Automatización",
+    "CI": "CI",
+    "Database": "Base de datos",
+    "Debugging": "Depuración",
+    "DevOps": "DevOps",
+    "Docs": "Docs",
+    "Git": "Git",
+    "Maintenance": "Mantenimiento",
+    "Performance": "Rendimiento",
+    "Planning": "Planificación",
+    "Quality": "Calidad",
+    "Review": "Revisión",
+    "Security": "Seguridad",
+    "Testing": "Pruebas"
+  },
   "status": {
     "draft": "Borrador",
     "published": "Publicado",

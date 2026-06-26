@@ -14,14 +14,61 @@
  * Each template is a fully-publishable graph (passes validateLoopGraph).
  */
 import type { LoopGraph } from './loop-graph'
+import { PORTED_TEMPLATES } from './loop-templates-ported'
+
+/** Closed taxonomy a template's `category` must belong to. Single source of truth
+ *  for the gallery's category chips (the client derives its chip list from the
+ *  categories actually present in the served catalog). */
+export const LOOP_CATEGORIES = [
+  'API', 'Automation', 'CI', 'Database', 'Debugging', 'DevOps', 'Docs', 'Git',
+  'Maintenance', 'Performance', 'Planning', 'Quality', 'Review', 'Security', 'Testing',
+] as const
+export type LoopCategory = (typeof LOOP_CATEGORIES)[number]
 
 export interface LoopTemplate {
   id: string
   name: string
   description: string
+  /** Discovery category (one of LOOP_CATEGORIES) — drives the gallery chips. */
+  category: LoopCategory
   /** Topic tags, surfaced in the gallery. */
   tags: string[]
   graph: LoopGraph
+}
+
+/** Declarative shape for a ported starter loop. Compiled to a validated graph by
+ *  `compilePortSpec` so every template is structurally consistent. The `steps`
+ *  are Specrails-authored prompts (may embed `{{cmd:*}}` / `{{const:*}}` /
+ *  `{{spec.*}}`); `goal` is the Decider's exit condition. */
+export interface PortSpec {
+  id: string
+  name: string
+  description: string
+  category: LoopCategory
+  tags: string[]
+  steps: string[]
+  goal: string
+  maxIterations?: number
+  /** 'verify' ⇒ fixLoopGraph shape (steps run once, then verify→fix→verify).
+   *  'last' (default) ⇒ aiLoopGraph shape (re-run the last step until the goal). */
+  loopBack?: 'last' | 'verify'
+}
+
+/** Compile a PortSpec into a publishable LoopTemplate (graph passes validation,
+ *  no Shell nodes, exactly one continue+stop Decider branch — by construction). */
+export function compilePortSpec(spec: PortSpec): LoopTemplate {
+  const graph =
+    spec.loopBack === 'verify'
+      ? fixLoopGraph(spec.steps, spec.goal, spec.maxIterations ?? 12)
+      : aiLoopGraph(spec.steps, spec.goal, spec.maxIterations ?? 10)
+  return {
+    id: spec.id,
+    name: spec.name,
+    description: spec.description,
+    category: spec.category,
+    tags: spec.tags,
+    graph,
+  }
 }
 
 /** Helper: a linear chain of AI steps closed by a Loop Decider. The decider's
@@ -100,6 +147,7 @@ export const LOOP_TEMPLATES: LoopTemplate[] = [
     id: 'ship-and-green',
     name: 'Ship & Green',
     description: 'Fully autonomous: implement the spec, verify, and refine (fix) on failure — looping verify → fix → verify until everything is green. No human intervention.',
+    category: 'CI',
     tags: ['CI', 'testing'],
     graph: fixLoopGraph(
       ['{{cmd:implement}}'],
@@ -112,6 +160,7 @@ export const LOOP_TEMPLATES: LoopTemplate[] = [
     id: 'verify-pass',
     name: 'Verify Pass',
     description: 'Autonomous verify-and-fix: detect and run the project\'s build/lint/tests, then refine on failure — verify → fix → verify until green.',
+    category: 'Testing',
     tags: ['testing', 'quality'],
     graph: fixLoopGraph(
       [],
@@ -122,6 +171,7 @@ export const LOOP_TEMPLATES: LoopTemplate[] = [
     id: 'ci-watch',
     name: 'CI Watch',
     description: 'Poll CI checks on the open PR (the agent uses the repo\'s CI tooling) until every check is green.',
+    category: 'CI',
     tags: ['CI', 'DevOps'],
     graph: aiLoopGraph(
       ['Check the CI status of the current pull request using the repository\'s CI tooling (e.g. `gh pr checks`). Report whether every check has passed or is still running/failing.'],
@@ -133,6 +183,7 @@ export const LOOP_TEMPLATES: LoopTemplate[] = [
     id: 'lint-and-fix',
     name: 'Lint & Fix',
     description: 'The agent detects and runs the project\'s linter and fixes every issue, iterating until the codebase is clean.',
+    category: 'Quality',
     tags: ['quality', 'lint'],
     graph: aiLoopGraph(
       ['Detect this project\'s linter from its config and run it. Fix every issue it reports for spec "{{spec.title}}" (lint/format only — no behaviour change). Report whether the linter is now clean.'],
@@ -143,6 +194,7 @@ export const LOOP_TEMPLATES: LoopTemplate[] = [
     id: 'type-safe',
     name: 'Type Safe',
     description: 'The agent detects and runs the project\'s type checker and resolves every error, iterating until it passes cleanly.',
+    category: 'Quality',
     tags: ['quality', 'types'],
     graph: aiLoopGraph(
       ['Detect this project\'s type checker from its config and run it. Resolve every type error related to spec "{{spec.title}}" without `any`, ignore comments, or non-null assertions. Report whether it passes.'],
@@ -153,6 +205,7 @@ export const LOOP_TEMPLATES: LoopTemplate[] = [
     id: 'coverage-climb',
     name: 'Coverage Climb',
     description: 'The agent runs the project\'s coverage tooling and adds focused tests until the thresholds pass.',
+    category: 'Testing',
     tags: ['testing', 'coverage'],
     graph: aiLoopGraph(
       ['Detect this project\'s test/coverage tooling and run it with coverage. Add focused tests for the code implementing spec "{{spec.title}}" until the coverage gate passes; cover edge cases and error paths (tests must assert real behaviour). Report coverage status.'],
@@ -163,6 +216,7 @@ export const LOOP_TEMPLATES: LoopTemplate[] = [
     id: 'build-fix',
     name: 'Build Fix',
     description: 'The agent detects and runs the project\'s production build and fixes compile/bundle errors until it is green.',
+    category: 'CI',
     tags: ['CI', 'build'],
     graph: aiLoopGraph(
       ['Detect this project\'s production build command from its config and run it. Fix any compilation or bundling errors for spec "{{spec.title}}" without disabling type or build checks. Report whether the build succeeds.'],
@@ -173,6 +227,7 @@ export const LOOP_TEMPLATES: LoopTemplate[] = [
     id: 'deploy-check',
     name: 'Deploy Check',
     description: 'The agent polls the deployment/health status (using the project\'s deploy tooling) until the service reports healthy.',
+    category: 'DevOps',
     tags: ['DevOps', 'deploy'],
     graph: aiLoopGraph(
       ['Check the latest deployment/health status using the repository\'s deploy tooling (e.g. `gh run list --workflow deploy`, a health endpoint). Report whether the deployment finished successfully and the service is healthy.'],
@@ -180,6 +235,9 @@ export const LOOP_TEMPLATES: LoopTemplate[] = [
       20
     ),
   },
+  // Ported community-pattern starters (Specrails-authored), compiled from
+  // declarative PortSpecs so the catalog spans every category in the taxonomy.
+  ...PORTED_TEMPLATES.map(compilePortSpec),
 ]
 
 export function getLoopTemplate(id: string): LoopTemplate | undefined {

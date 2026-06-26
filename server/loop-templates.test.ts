@@ -1,6 +1,25 @@
 import { describe, it, expect } from 'vitest'
-import { LOOP_TEMPLATES, getLoopTemplate } from './loop-templates'
+import { LOOP_TEMPLATES, LOOP_CATEGORIES, getLoopTemplate } from './loop-templates'
 import { validateLoopGraph, type LoopGraph } from './loop-graph'
+import { LOOP_COMMANDS } from './loop-command-catalog'
+import { BUILTIN_CONSTANTS } from './loop-constants'
+
+/** All text a template carries (prompts / goals / commands) — for token scans. */
+function templateText(graph: LoopGraph): string {
+  return graph.nodes
+    .map((n) => [n.data?.prompt, n.data?.goal, n.data?.command].filter((v) => typeof v === 'string').join('\n'))
+    .join('\n')
+}
+const KNOWN_CMDS = new Set(LOOP_COMMANDS.map((c) => c.name))
+const KNOWN_CONSTS = new Set(Object.keys(BUILTIN_CONSTANTS))
+// Commands whose expansion embeds {{const:GUARDRAILS}} (the anti-gaming contract).
+const GUARDRAIL_CMDS = new Set(['test', 'lint', 'typecheck', 'build', 'coverage', 'format', 'audit', 'docs-sync', 'review'])
+function referencesGuardrails(graph: LoopGraph): boolean {
+  const text = templateText(graph)
+  if (text.includes('{{const:GUARDRAILS}}')) return true
+  for (const m of text.matchAll(/\{\{cmd:([\w-]+)\}\}/g)) if (GUARDRAIL_CMDS.has(m[1])) return true
+  return false
+}
 
 /** Every Decider must wire exactly one labeled 'continue' and one 'stop' edge —
  *  the contract the engine routes on and the canvas renders as two distinct
@@ -64,6 +83,43 @@ describe('loop templates', () => {
 
   it('getLoopTemplate returns undefined for an unknown id', () => {
     expect(getLoopTemplate('nope')).toBeUndefined()
+  })
+
+  it('ships a broad catalog (>= 40 templates)', () => {
+    expect(LOOP_TEMPLATES.length).toBeGreaterThanOrEqual(40)
+  })
+
+  it('every template has a category within the taxonomy', () => {
+    const allowed = new Set<string>(LOOP_CATEGORIES)
+    for (const t of LOOP_TEMPLATES) {
+      expect(allowed.has(t.category), `${t.id}: category "${t.category}" not in taxonomy`).toBe(true)
+    }
+  })
+
+  it('every taxonomy category is represented by at least one template', () => {
+    const present = new Set(LOOP_TEMPLATES.map((t) => t.category))
+    for (const cat of LOOP_CATEGORIES) {
+      expect(present.has(cat), `no template in category "${cat}"`).toBe(true)
+    }
+  })
+
+  it('uses only known {{cmd:*}} and {{const:*}} tokens (no invented/typo tokens)', () => {
+    for (const t of LOOP_TEMPLATES) {
+      const text = templateText(t.graph)
+      for (const m of text.matchAll(/\{\{cmd:([\w-]+)\}\}/g)) {
+        expect(KNOWN_CMDS.has(m[1]), `${t.id}: unknown command {{cmd:${m[1]}}}`).toBe(true)
+      }
+      for (const m of text.matchAll(/\{\{const:([A-Za-z0-9_.-]+)\}\}/g)) {
+        expect(KNOWN_CONSTS.has(m[1]), `${t.id}: unknown constant {{const:${m[1]}}}`).toBe(true)
+      }
+    }
+  })
+
+  it('injects the guardrails anti-gaming contract across the ported catalog', () => {
+    // Read-only poll/audit loops legitimately omit it, but the bulk of the
+    // mutating starters must carry the guardrails contract.
+    const withGuardrails = LOOP_TEMPLATES.filter((t) => referencesGuardrails(t.graph))
+    expect(withGuardrails.length).toBeGreaterThanOrEqual(15)
   })
 
   it('verify-loop templates reference the built-in {{const:VERIFICATION_PASS}} in their Decider goal', () => {

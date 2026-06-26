@@ -46,6 +46,9 @@ export interface LoopTemplateSummary {
   id: string
   name: string
   description: string
+  /** Discovery category (one of the server's LOOP_CATEGORIES). Optional on the
+   *  wire so older servers / factory-loop previews without a category still type. */
+  category?: string
   tags: string[]
   /** Full graph, included so the gallery can render a read-only preview. */
   graph: LoopGraph

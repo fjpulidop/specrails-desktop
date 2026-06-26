@@ -8,6 +8,30 @@
     "templates": "模板",
     "builtIn": "内置"
   },
+  "gallery":   {
+    "search": "搜索模板…",
+    "noResults": "没有模板符合筛选条件。",
+    "clearFilter": "清除筛选",
+    "resultCount_one": "{{count}} 个模板",
+    "resultCount_other": "{{count}} 个模板"
+  },
+  "categories":   {
+    "API": "API",
+    "Automation": "自动化",
+    "CI": "CI",
+    "Database": "数据库",
+    "Debugging": "调试",
+    "DevOps": "DevOps",
+    "Docs": "文档",
+    "Git": "Git",
+    "Maintenance": "维护",
+    "Performance": "性能",
+    "Planning": "规划",
+    "Quality": "质量",
+    "Review": "评审",
+    "Security": "安全",
+    "Testing": "测试"
+  },
   "status": {
     "draft": "草稿",
     "published": "已发布",

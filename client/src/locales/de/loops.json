@@ -8,6 +8,30 @@
     "templates": "Vorlagen",
     "builtIn": "Integriert"
   },
+  "gallery":   {
+    "search": "Vorlagen suchen…",
+    "noResults": "Keine Vorlagen entsprechen deinen Filtern.",
+    "clearFilter": "Filter zurücksetzen",
+    "resultCount_one": "{{count}} Vorlage",
+    "resultCount_other": "{{count}} Vorlagen"
+  },
+  "categories":   {
+    "API": "API",
+    "Automation": "Automatisierung",
+    "CI": "CI",
+    "Database": "Datenbank",
+    "Debugging": "Debugging",
+    "DevOps": "DevOps",
+    "Docs": "Doku",
+    "Git": "Git",
+    "Maintenance": "Wartung",
+    "Performance": "Performance",
+    "Planning": "Planung",
+    "Quality": "Qualität",
+    "Review": "Review",
+    "Security": "Sicherheit",
+    "Testing": "Tests"
+  },
   "status": {
     "draft": "Entwurf",
     "published": "Veröffentlicht",

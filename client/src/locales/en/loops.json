@@ -8,6 +8,30 @@
     "templates": "Templates",
     "builtIn": "Built-in"
   },
+  "gallery": {
+    "search": "Search templates…",
+    "noResults": "No templates match your filters.",
+    "clearFilter": "Clear filters",
+    "resultCount_one": "{{count}} template",
+    "resultCount_other": "{{count}} templates"
+  },
+  "categories": {
+    "API": "API",
+    "Automation": "Automation",
+    "CI": "CI",
+    "Database": "Database",
+    "Debugging": "Debugging",
+    "DevOps": "DevOps",
+    "Docs": "Docs",
+    "Git": "Git",
+    "Maintenance": "Maintenance",
+    "Performance": "Performance",
+    "Planning": "Planning",
+    "Quality": "Quality",
+    "Review": "Review",
+    "Security": "Security",
+    "Testing": "Testing"
+  },
   "status": {
     "draft": "Draft",
     "published": "Published",

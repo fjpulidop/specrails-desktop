@@ -10,12 +10,27 @@
  */
 import type { DbInstance } from './db'
 
+/** The canonical hardened anti-gaming contract. Templates that mutate code/tests
+ *  drag `{{const:GUARDRAILS}}` so the agent cannot quietly cheat its own exit
+ *  condition. Read-only (a built-in) on purpose: an editable guardrails block
+ *  could be weakened to defeat its own point. */
+const GUARDRAILS_CONTRACT = [
+  'Guardrails — do NOT violate these to satisfy the exit condition:',
+  '- Do not modify the check command, the exit criteria, or the goal to force success.',
+  '- Do not skip, disable, comment out, or otherwise bypass any check.',
+  '- Do not weaken, delete, or skip tests, and do not replace real assertions with always-pass tests.',
+  '- Prefer fixing the production code over patching the tests to go green.',
+  '- If you are stuck after several iterations, stop and report the blockers instead of gaming the metric.',
+].join('\n')
+
 /** Read-only built-ins. `VERIFICATION_PASS/FAIL` are the sentinel strings that
  *  `{{cmd:verify}}` emits and the Loop Decider reads — keeping them as constants
- *  means a Decider goal can drag the exact contract string instead of retyping. */
+ *  means a Decider goal can drag the exact contract string instead of retyping.
+ *  `GUARDRAILS` is the anti-gaming contract injected by mutating templates. */
 export const BUILTIN_CONSTANTS: Record<string, string> = {
   VERIFICATION_PASS: 'VERIFICATION: PASS',
   VERIFICATION_FAIL: 'VERIFICATION: FAIL',
+  GUARDRAILS: GUARDRAILS_CONTRACT,
 }
 
 /** Token names: letters, digits, `_ . -`. Mirrors what the resolver matches. */

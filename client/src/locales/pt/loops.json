@@ -8,6 +8,30 @@
     "templates": "Modelos",
     "builtIn": "Integrados"
   },
+  "gallery":   {
+    "search": "Buscar modelos…",
+    "noResults": "Nenhum modelo corresponde aos seus filtros.",
+    "clearFilter": "Limpar filtros",
+    "resultCount_one": "{{count}} modelo",
+    "resultCount_other": "{{count}} modelos"
+  },
+  "categories":   {
+    "API": "API",
+    "Automation": "Automação",
+    "CI": "CI",
+    "Database": "Banco de dados",
+    "Debugging": "Depuração",
+    "DevOps": "DevOps",
+    "Docs": "Docs",
+    "Git": "Git",
+    "Maintenance": "Manutenção",
+    "Performance": "Desempenho",
+    "Planning": "Planejamento",
+    "Quality": "Qualidade",
+    "Review": "Revisão",
+    "Security": "Segurança",
+    "Testing": "Testes"
+  },
   "status": {
     "draft": "Rascunho",
     "published": "Publicado",

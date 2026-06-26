@@ -47,6 +47,7 @@ function renderPage() {
 
 beforeEach(() => {
   vi.clearAllMocks()
+  try { localStorage.clear() } catch { /* jsdom */ }
   api.list.mockResolvedValue([])
   api.templates.mockResolvedValue([])
   api.create.mockResolvedValue(loop({ id: 'new' }))
@@ -106,6 +107,48 @@ describe('LoopsPage', () => {
     // Using from the modal clones the template.
     fireEvent.click(within(dialog).getByRole('button', { name: /Use template/i }))
     await waitFor(() => expect(api.fromTemplate).toHaveBeenCalledWith('ship-and-green'))
+  })
+
+  const catTemplates = [
+    { id: 'flaky-test-triage', name: 'Flaky Test Triage', description: 'classify failures', category: 'Testing', tags: ['testing', 'flaky'], graph: tmplGraph },
+    { id: 'merge-conflict-resolver', name: 'Merge Conflict Resolver', description: 'resolve conflicts', category: 'Git', tags: ['git'], graph: tmplGraph },
+  ]
+
+  it('renders a category badge on template cards', async () => {
+    api.templates.mockResolvedValue(catTemplates)
+    renderPage()
+    const card = (await screen.findByText('Flaky Test Triage')).closest('[data-testid="template-card"]')!
+    expect(within(card as HTMLElement).getByText('Testing')).toBeInTheDocument()
+  })
+
+  it('filters templates by the search box', async () => {
+    api.templates.mockResolvedValue(catTemplates)
+    renderPage()
+    await screen.findByText('Flaky Test Triage')
+    fireEvent.change(screen.getByTestId('template-search'), { target: { value: 'conflict' } })
+    await waitFor(() => expect(screen.queryByText('Flaky Test Triage')).not.toBeInTheDocument())
+    expect(screen.getByText('Merge Conflict Resolver')).toBeInTheDocument()
+  })
+
+  it('filters templates by clicking a category chip', async () => {
+    api.templates.mockResolvedValue(catTemplates)
+    renderPage()
+    await screen.findByText('Flaky Test Triage')
+    const chips = screen.getByTestId('category-chips')
+    fireEvent.click(within(chips).getByRole('button', { name: /Git/i }))
+    await waitFor(() => expect(screen.queryByText('Flaky Test Triage')).not.toBeInTheDocument())
+    expect(screen.getByText('Merge Conflict Resolver')).toBeInTheDocument()
+  })
+
+  it('shows a no-results empty state and clears the filter', async () => {
+    api.templates.mockResolvedValue(catTemplates)
+    renderPage()
+    await screen.findByText('Flaky Test Triage')
+    fireEvent.change(screen.getByTestId('template-search'), { target: { value: 'zzzz-nomatch' } })
+    expect(await screen.findByTestId('template-empty')).toBeInTheDocument()
+    // clearing restores all templates
+    fireEvent.click(within(screen.getByTestId('template-empty')).getByText('Clear filters'))
+    await waitFor(() => expect(screen.getByText('Flaky Test Triage')).toBeInTheDocument())
   })
 
   it('creates a new draft when clicking New loop', async () => {
