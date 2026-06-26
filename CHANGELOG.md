@@ -1,5 +1,12 @@
 # Changelog
 
+## [2.14.0](https://github.com/fjpulidop/specrails-desktop/compare/v2.13.0...v2.14.0) (2026-06-26)
+
+
+### Features
+
+* expand loop catalog with categories, search & provider-aware magic commands ([#461](https://github.com/fjpulidop/specrails-desktop/issues/461)) ([a3c25e3](https://github.com/fjpulidop/specrails-desktop/commit/a3c25e3ee639887b2944767b822b89cc799613a5))
+
 ## [2.13.0](https://github.com/fjpulidop/specrails-desktop/compare/v2.12.0...v2.13.0) (2026-06-26)
 
 
