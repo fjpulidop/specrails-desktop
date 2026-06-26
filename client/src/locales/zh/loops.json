@@ -8,14 +8,14 @@
     "templates": "模板",
     "builtIn": "内置"
   },
-  "gallery":   {
+  "gallery": {
     "search": "搜索模板…",
     "noResults": "没有模板符合筛选条件。",
     "clearFilter": "清除筛选",
     "resultCount_one": "{{count}} 个模板",
     "resultCount_other": "{{count}} 个模板"
   },
-  "categories":   {
+  "categories": {
     "API": "API",
     "Automation": "自动化",
     "CI": "CI",
@@ -217,6 +217,146 @@
     "factory_ultracode": {
       "name": "Ultracode",
       "description": "按工单自动实现(无流水线),然后验证 + 修正,直到全部通过。仅支持 Claude。"
+    },
+    "autoloop-tdd": {
+      "name": "自动循环 TDD",
+      "description": "针对 {{spec.title}} 严格执行红-绿-重构循环：先用失败的测试锁定每个行为，再写刚好够让它变绿的代码，然后整理代码——如此反复，直到完整覆盖该规格。"
+    },
+    "e2e-until-green": {
+      "name": "E2E 直到通过",
+      "description": "运行 {{spec.title}} 的 E2E 测试套件，逐一诊断失败的用户流程，修复底层的 UI 或集成缺陷，持续循环直到每条 E2E 用例都通过。"
+    },
+    "flaky-test-triage": {
+      "name": "不稳定测试分诊",
+      "description": "多次重跑 {{spec.title}} 相关的失败测试，区分真正的回归与偶发的不稳定，然后修复真正的故障，并稳定或记录那些不稳定的用例。"
+    },
+    "independent-verifier-pass": {
+      "name": "独立验证一遍",
+      "description": "对 {{spec.title}} 做对抗式验证：从零重新运行构建、lint 和测试，只信任命令的原始输出（不信任此前任何「能用」的说法），并暴露或修复每个缺口。"
+    },
+    "post-edit-test-guard": {
+      "name": "改后测试守卫",
+      "description": "针对 {{spec.title}} 每改完一批代码，立刻运行覆盖改动文件的最小测试集——在回归出现的当下就捕获，而非拖到最后。"
+    },
+    "post-merge-regression-guard": {
+      "name": "合并后回归守卫",
+      "description": "在合并或变基把他人的工作引入 {{spec.title}} 后，立即运行快速 smoke test 套件以第一时间发现集成破坏——在新功能开发动工之前。"
+    },
+    "pre-commit-guard": {
+      "name": "提交前守卫",
+      "description": "为 {{spec.title}} 把守每次提交：先运行测试套件，只要测试为红就拒绝提交，让坏代码永远进不了历史记录。"
+    },
+    "visual-regression-until-match": {
+      "name": "视觉回归直到匹配",
+      "description": "对改动的 UI 截取视觉快照，揪出每一处非预期的像素差异并自我修正，直到视觉套件全部通过、且只保留经审批的有意设计变更。"
+    },
+    "format-until-clean": {
+      "name": "格式化直到干净",
+      "description": "运行项目格式化工具，手动收拾它无法自动修复的少量风格问题，持续进行直到再次格式化不再改动工作区。"
+    },
+    "lint-typecheck-fix": {
+      "name": "Lint 与类型检查修复",
+      "description": "运行 lint 工具和类型检查器，以尽可能小的改动逐一解决每个报告的问题，循环直到两道关卡都彻底通过。"
+    },
+    "a11y-audit-until-clean": {
+      "name": "无障碍审计直到干净",
+      "description": "对改动的页面运行自动化无障碍检查，按类别逐项修复违规，反复进行直到审计返回零问题。"
+    },
+    "de-sloppify-pass": {
+      "name": "清理杂乱一遍",
+      "description": "功能落地后，把改动从头扫一遍清除残留杂乱——调试输出、死分支、随意命名、臃肿函数——清理干净，并证明清理没有破坏任何东西。"
+    },
+    "fix-ci-until-green": {
+      "name": "修复 CI 直到通过",
+      "description": "拉取本分支最近一次失败的 CI 运行，在本地复现故障，修复真正的根因并推送，持续循环直到每项检查都报告成功。"
+    },
+    "pr-babysitter": {
+      "name": "PR 看护",
+      "description": "按固定间隔巡查你关注的开放 PR，让每个都保持可合并状态：救活失败的 CI，对落后于基线分支的进行变基，催促停滞的——并把需要人来决策的事项上报。"
+    },
+    "pr-watch-loop": {
+      "name": "PR 监视循环",
+      "description": "以稳定节奏轮询监视列表中的 PR，汇总各自的 CI 与评审健康度，要么顺手解决琐碎的阻塞项，要么标记出需要负责人处理的事项。"
+    },
+    "pr-self-review": {
+      "name": "PR 自审",
+      "description": "像挑剔的资深评审者那样审视自己的工作改动，逐一修复发现的问题，反复自审直到一遍下来再无关键问题——赶在 PR 离手之前。"
+    },
+    "spec-first-ship": {
+      "name": "规格优先交付",
+      "description": "逐项推进一份书面需求清单直至全部完成——每一遍只实现一条未勾选的需求、验证它、再打勾——让规格成为「完成」的契约。"
+    },
+    "dependency-audit-weekly": {
+      "name": "每周依赖审计",
+      "description": "每周盘点哪些依赖包已落后，将其分为可安全升级与有风险两类，并交还一份你可直接执行的清晰升级计划。"
+    },
+    "dependency-upgrade-one-by-one": {
+      "name": "逐个升级依赖",
+      "description": "每一遍只升级一个过时的依赖包，修好升级带来的破坏，证明项目仍可正常运行后再提交——远比一次性全部升级更安全。"
+    },
+    "knip-until-clean": {
+      "name": "清除死代码直到干净",
+      "description": "揪出无人引用的导出、孤立文件和没人导入的依赖，安全地移除它们，持续进行直到死代码扫描工具再无可报告的内容。"
+    },
+    "docs-sync-after-edits": {
+      "name": "文档同步代码改动",
+      "description": "在一轮代码改动之后，找出每一份被改动波及的文档——README、API 参考、内联注释——让它们与代码现在的实际行为重新对齐。"
+    },
+    "security-audit-weekly": {
+      "name": "每周安全审计",
+      "description": "每周对依赖树运行一次漏洞扫描，按严重程度和真实暴露面对结果分诊，并交还一份按优先级排序的修复计划。"
+    },
+    "npm-audit-fix-loop": {
+      "name": "逐个修补漏洞",
+      "description": "有条不紊地清除高危和严重的依赖告警——每一遍只修一个，并用测试套件逐一验证——而非可能悄悄弄坏构建的盲目强制修复。"
+    },
+    "api-contract-until-match": {
+      "name": "API 契约直到匹配",
+      "description": "推动实现直到其响应符合已发布的 API 契约，弥合 schema 承诺与处理函数实际返回之间的任何差距。"
+    },
+    "openapi-sync-until-valid": {
+      "name": "OpenAPI 同步直到有效",
+      "description": "保持 OpenAPI 文档格式良好且忠实于真实的路由处理函数，每一遍修复规格错误和代码与文档的偏差，直到 lint 工具满意为止。"
+    },
+    "migration-until-applied": {
+      "name": "迁移直到生效",
+      "description": "干净地推进数据库 schema：运行待执行的迁移，修复其暴露出的任何 schema 或 SQL 错误，并确认迁移历史保持一致。"
+    },
+    "bundle-size-budget": {
+      "name": "打包体积预算",
+      "description": "在不让客户端打包体积超出预算的前提下交付功能——每一遍测量并精简、代码拆分或懒加载，直到体积关卡通过。"
+    },
+    "changelog-sync-after-ship": {
+      "name": "交付后同步变更日志",
+      "description": "交付后确保变更日志讲清面向用户的来龙去脉：回顾落地的内容，按 Keep a Changelog 规范撰写条目，并确认没有遗漏任何可见变更。"
+    },
+    "guardrails-learning-loop": {
+      "name": "护栏学习循环",
+      "description": "持续迭代直到各项关卡通过，但每当某项检查以同样的方式失败两次，先记下一条护栏笔记，让循环不再浪费迭代去重试一个已经失败的方案。"
+    },
+    "ralph-story-executor": {
+      "name": "待办故事执行器",
+      "description": "以每遍全新上下文逐个处理用户故事待办：挑出下一个未完成的故事，只构建它，证明项目各项关卡保持通过，提交并标记完成，再继续下一个。"
+    },
+    "investigation-script-loop": {
+      "name": "探查脚本循环",
+      "description": "凭实证锁定 bug 的真正根因：写一个一次性的小脚本来触发可疑行为，运行它、读取真实输出，并不断打磨探针，直到输出本身证明根因所在。"
+    },
+    "reflexion-debug-loop": {
+      "name": "反思调试循环",
+      "description": "不靠瞎试就让失败的测试变绿：每次尝试失败时把一段简短反思写入磁盘，并在下次尝试前查阅它，让循环不再重复已被排除的修法。"
+    },
+    "merge-conflict-resolver": {
+      "name": "合并冲突解决器",
+      "description": "通过变基把分支更新到与目标一致，然后逐个文件解决每处冲突、保留双方意图，并在宣布分支已同步前证明结果仍然通过。"
+    },
+    "staging-smoke-test": {
+      "name": "预发布 Smoke Test",
+      "description": "在预发布部署后，走一遍固定的 smoke test 清单——认证、核心用户路径和关键集成——每次出问题就修复最小的那个并重跑，直到整份清单全部通过。"
+    },
+    "deploy-verification-loop": {
+      "name": "部署验证循环",
+      "description": "部署上线后，按间隔轮询健康检查和 smoke test 端点，对任何非健康响应进行排查、修复或上报，并持续检查直到每个配置的端点都报告成功。"
     }
   },
   "import": {

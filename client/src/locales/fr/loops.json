@@ -8,14 +8,14 @@
     "templates": "Modèles",
     "builtIn": "Intégrés"
   },
-  "gallery":   {
+  "gallery": {
     "search": "Rechercher des modèles…",
     "noResults": "Aucun modèle ne correspond à vos filtres.",
     "clearFilter": "Effacer les filtres",
     "resultCount_one": "{{count}} modèle",
     "resultCount_other": "{{count}} modèles"
   },
-  "categories":   {
+  "categories": {
     "API": "API",
     "Automation": "Automatisation",
     "CI": "CI",
@@ -217,6 +217,146 @@
     "factory_ultracode": {
       "name": "Ultracode",
       "description": "Implémentation autonome par ticket (sans pipeline), puis vérification et correction jusqu'au vert. Claude uniquement."
+    },
+    "autoloop-tdd": {
+      "name": "Autoloop TDD",
+      "description": "Un cycle red-green-refactor strict pour {{spec.title}} : chaque comportement est d'abord verrouillé par un test qui échoue, puis on écrit juste ce qu'il faut de code pour le faire passer au vert, avant de nettoyer — en répétant jusqu'à couvrir entièrement la spec."
+    },
+    "e2e-until-green": {
+      "name": "E2E jusqu'au vert",
+      "description": "Lance la suite E2E pour {{spec.title}}, diagnostique chaque parcours utilisateur en échec, corrige le défaut d'UI ou d'intégration sous-jacent, et continue le cycle jusqu'à ce que toutes les specs E2E passent."
+    },
+    "flaky-test-triage": {
+      "name": "Tri des tests instables",
+      "description": "Relance plusieurs fois les tests en échec autour de {{spec.title}} pour distinguer les vraies régressions des instabilités passagères, puis répare les vraies casses et stabilise ou documente les tests instables."
+    },
+    "independent-verifier-pass": {
+      "name": "Vérification indépendante",
+      "description": "Une vérification adversariale de {{spec.title}} : relance build, lint et tests à zéro, ne fais confiance qu'à la sortie brute des commandes (jamais à un « ça marche » antérieur), et fais remonter ou corrige chaque écart."
+    },
+    "post-edit-test-guard": {
+      "name": "Garde-fou post-édition",
+      "description": "Après chaque lot de modifications pour {{spec.title}}, lance aussitôt l'ensemble de tests le plus ciblé touchant les fichiers modifiés — pour attraper les régressions dès leur apparition plutôt qu'à la fin."
+    },
+    "post-merge-regression-guard": {
+      "name": "Garde anti-régression post-merge",
+      "description": "Juste après qu'un merge ou un rebase fait entrer le travail des autres dans {{spec.title}}, lance le smoke test rapide pour repérer immédiatement toute casse d'intégration — avant de bâtir de nouvelles fonctionnalités par-dessus."
+    },
+    "pre-commit-guard": {
+      "name": "Garde pré-commit",
+      "description": "Un verrou de sécurité pour {{spec.title}} qui intercepte chaque commit : la suite de tests passe d'abord, et le commit est refusé tant qu'elle est au rouge, pour que du code cassé n'entre jamais dans l'historique."
+    },
+    "visual-regression-until-match": {
+      "name": "Régression visuelle jusqu'à correspondance",
+      "description": "Capture des instantanés visuels de l'UI modifiée, traque chaque écart de pixels involontaire, et corrige jusqu'à ce que la suite visuelle soit au vert avec uniquement les changements de design approuvés."
+    },
+    "format-until-clean": {
+      "name": "Formater jusqu'au propre",
+      "description": "Applique le formateur du projet, règle les quelques problèmes de style qu'il ne peut pas corriger automatiquement, et continue jusqu'à ce qu'un nouveau passage ne touche plus rien dans l'arbre de travail."
+    },
+    "lint-typecheck-fix": {
+      "name": "Corriger lint et typage",
+      "description": "Lance le lint et le vérificateur de types, résous chaque problème signalé avec la modification la plus minime possible, et boucle jusqu'à ce que les deux contrôles reviennent parfaitement propres."
+    },
+    "a11y-audit-until-clean": {
+      "name": "Audit a11y jusqu'au propre",
+      "description": "Lance les contrôles d'accessibilité automatisés sur les écrans modifiés, corrige les violations catégorie par catégorie, et répète jusqu'à ce que l'audit ne remonte plus aucun problème."
+    },
+    "de-sloppify-pass": {
+      "name": "Passe de nettoyage",
+      "description": "Une fois la fonctionnalité livrée, balaie le diff pour traquer les restes négligés — sorties de debug, branches mortes, noms bâclés, fonctions surchargées — nettoie-les, et prouve que le nettoyage n'a rien cassé."
+    },
+    "fix-ci-until-green": {
+      "name": "Réparer la CI jusqu'au vert",
+      "description": "Récupère le dernier run CI rouge de cette branche, reproduis la casse en local, corrige la vraie cause, pousse, et continue le cycle jusqu'à ce que tous les contrôles soient au vert."
+    },
+    "pr-babysitter": {
+      "name": "Nounou de PR",
+      "description": "À intervalle régulier, passe en revue les pull requests que tu surveilles et garde chacune fusionnable : relance la CI rouge, rebase celles en retard sur la branche de base, et relance celles qui stagnent — en escaladant tout ce qui demande une décision humaine."
+    },
+    "pr-watch-loop": {
+      "name": "Boucle de veille PR",
+      "description": "Interroge à cadence régulière les pull requests de ta liste de veille, résume l'état de la CI et de la revue de chacune, puis règle les blocages triviaux ou fais remonter ce qui requiert un responsable."
+    },
+    "pr-self-review": {
+      "name": "Auto-revue de PR",
+      "description": "Critique ton propre diff comme le ferait un reviewer senior exigeant, corrige ce que tu trouves, et re-révise jusqu'à ce qu'un passage propre ne remonte plus rien de critique — avant même que la PR ne quitte tes mains."
+    },
+    "spec-first-ship": {
+      "name": "Livrer par la spec",
+      "description": "Mène une checklist d'exigences écrite jusqu'au bout, point par point — chaque passe implémente une seule exigence non cochée, la prouve et la coche — pour que la spec soit le contrat du « terminé »."
+    },
+    "dependency-audit-weekly": {
+      "name": "Audit hebdo des dépendances",
+      "description": "Chaque semaine, fais le point sur les paquets en retard, trie-les entre mises à jour sûres et risquées, et restitue un plan de montée de version clair et actionnable."
+    },
+    "dependency-upgrade-one-by-one": {
+      "name": "Mettre à jour une dépendance à la fois",
+      "description": "Monte exactement un paquet obsolète par passe, répare ce que la montée casse, prouve que le projet fonctionne toujours, et committe — bien plus sûr que de tout mettre à jour d'un coup."
+    },
+    "knip-until-clean": {
+      "name": "Élaguer le code mort jusqu'au propre",
+      "description": "Traque les exports non référencés, les fichiers orphelins et les dépendances que personne n'importe, supprime-les en toute sécurité, et continue jusqu'à ce que le scanner de code mort n'ait plus rien à signaler."
+    },
+    "docs-sync-after-edits": {
+      "name": "Synchroniser la doc au code",
+      "description": "Après une série de modifications de code, retrouve chaque doc concernée — README, référence API, commentaires inline — et remets-la en phase avec le comportement réel du code."
+    },
+    "security-audit-weekly": {
+      "name": "Audit de sécurité hebdo",
+      "description": "Lance chaque semaine un scan de vulnérabilités sur l'arbre des dépendances, trie les résultats par gravité et exposition réelle, et restitue un plan de remédiation priorisé."
+    },
+    "npm-audit-fix-loop": {
+      "name": "Corriger les vulnérabilités une à une",
+      "description": "Traite les alertes de dépendances critiques et élevées de manière maîtrisée — une correction par passe, chacune vérifiée contre la suite de tests — plutôt qu'un force-fix aveugle qui peut casser le build en silence."
+    },
+    "api-contract-until-match": {
+      "name": "Contrat API jusqu'à correspondance",
+      "description": "Fais évoluer l'implémentation jusqu'à ce que ses réponses respectent le contrat API publié, en comblant tout écart entre ce que le schéma promet et ce que les handlers renvoient réellement."
+    },
+    "openapi-sync-until-valid": {
+      "name": "Synchroniser OpenAPI jusqu'à validité",
+      "description": "Maintiens le document OpenAPI bien formé et fidèle aux vrais handlers de routes, en corrigeant les erreurs de spec et les écarts code/doc à chaque passe jusqu'à ce que le lint soit satisfait."
+    },
+    "migration-until-applied": {
+      "name": "Migration jusqu'à application",
+      "description": "Fais avancer proprement le schéma de la base : exécute les migrations en attente, répare les défauts de schéma ou de SQL qu'elles révèlent, et confirme que l'historique de migration reste cohérent."
+    },
+    "bundle-size-budget": {
+      "name": "Budget de taille du bundle",
+      "description": "Livre la fonctionnalité sans faire dépasser au bundle client son budget — mesure à chaque passe puis élague, découpe le code ou charge à la demande jusqu'à ce que le seuil de taille soit au vert."
+    },
+    "changelog-sync-after-ship": {
+      "name": "Synchroniser le changelog après livraison",
+      "description": "Après une livraison, assure-toi que le changelog raconte l'histoire côté utilisateur : passe en revue ce qui a été livré, rédige des entrées au format Keep a Changelog, et confirme que rien de visible n'a été oublié."
+    },
+    "guardrails-learning-loop": {
+      "name": "Boucle d'apprentissage des garde-fous",
+      "description": "Itère sur les contrôles jusqu'à les faire passer au vert, mais chaque fois qu'un contrôle échoue deux fois de la même manière, note d'abord un garde-fou pour que la boucle ne gaspille jamais d'itérations à retenter une approche déjà vouée à l'échec."
+    },
+    "ralph-story-executor": {
+      "name": "Exécuteur de stories du backlog",
+      "description": "Traite un backlog de user stories une à une avec un contexte neuf à chaque passe : prends la prochaine story inachevée, construis-la seule, prouve que les contrôles du projet restent au vert, committe, et marque-la terminée avant de passer à la suivante."
+    },
+    "investigation-script-loop": {
+      "name": "Boucle de script d'investigation",
+      "description": "Cerne empiriquement la vraie cause d'un bug : écris un petit script jetable qui exerce le comportement suspect, lance-le, lis la sortie réelle, et affine la sonde jusqu'à ce que la sortie elle-même prouve la cause racine."
+    },
+    "reflexion-debug-loop": {
+      "name": "Boucle de debug réflexive",
+      "description": "Fais passer un test en échec au vert sans tourner en rond : à chaque tentative ratée, note une courte réflexion sur disque et consulte-la avant l'essai suivant, pour que la boucle ne répète jamais une correction déjà écartée."
+    },
+    "merge-conflict-resolver": {
+      "name": "Résolveur de conflits de merge",
+      "description": "Mets la branche à jour avec sa cible par un rebase, puis résous chaque fichier en conflit un par un en préservant l'intention des deux côtés, et prouve que le résultat passe toujours avant de déclarer la branche à jour."
+    },
+    "staging-smoke-test": {
+      "name": "Smoke test de staging",
+      "description": "Après un déploiement en staging, déroule une checklist de smoke test fixe — auth, parcours utilisateur principaux, intégrations clés — en corrigeant le plus petit problème à chaque casse et en relançant jusqu'à ce que toute la checklist revienne propre."
+    },
+    "deploy-verification-loop": {
+      "name": "Boucle de vérification de déploiement",
+      "description": "Une fois le déploiement sorti, interroge les endpoints de santé et de smoke test à intervalle régulier, en investiguant et corrigeant ou escaladant toute réponse non saine, et continue de vérifier jusqu'à ce que chaque endpoint configuré reporte un succès."
     }
   },
   "import": {

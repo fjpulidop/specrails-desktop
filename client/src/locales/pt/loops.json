@@ -8,14 +8,14 @@
     "templates": "Modelos",
     "builtIn": "Integrados"
   },
-  "gallery":   {
+  "gallery": {
     "search": "Buscar modelos…",
     "noResults": "Nenhum modelo corresponde aos seus filtros.",
     "clearFilter": "Limpar filtros",
     "resultCount_one": "{{count}} modelo",
     "resultCount_other": "{{count}} modelos"
   },
-  "categories":   {
+  "categories": {
     "API": "API",
     "Automation": "Automação",
     "CI": "CI",
@@ -217,6 +217,146 @@
     "factory_ultracode": {
       "name": "Ultracode",
       "description": "Implementação autônoma por ticket (sem pipeline) e, em seguida, verifica + refina até ficar verde. Apenas Claude."
+    },
+    "autoloop-tdd": {
+      "name": "Autoloop TDD",
+      "description": "Um ciclo rigoroso de red-green-refactor para {{spec.title}}: defina cada comportamento primeiro com um teste que falha, escreva só o código necessário para deixá-lo verde e então organize — repetindo até cobrir totalmente a spec."
+    },
+    "e2e-until-green": {
+      "name": "E2E até passar",
+      "description": "Rode a suíte end-to-end de {{spec.title}}, diagnostique cada fluxo de usuário que falha, corrija o defeito de UI ou integração por trás dele e siga iterando até todas as specs E2E passarem."
+    },
+    "flaky-test-triage": {
+      "name": "Triagem de testes instáveis",
+      "description": "Reexecute várias vezes os testes que falham em torno de {{spec.title}} para separar regressões reais de instabilidades intermitentes, depois conserte as quebras reais e estabilize ou documente as instáveis."
+    },
+    "independent-verifier-pass": {
+      "name": "Verificação independente",
+      "description": "Uma verificação adversarial de {{spec.title}}: rode build, lint e testes do zero, confie só na saída crua dos comandos (não em qualquer alegação prévia de 'funciona') e exponha ou corrija cada falha."
+    },
+    "post-edit-test-guard": {
+      "name": "Teste pós-edição",
+      "description": "Após cada lote de edições em {{spec.title}}, rode imediatamente o menor conjunto de testes que toca os arquivos alterados — pegando regressões no instante em que surgem, em vez de só no final."
+    },
+    "post-merge-regression-guard": {
+      "name": "Guarda pós-merge",
+      "description": "Logo após um merge ou rebase trazer o trabalho de outras pessoas para {{spec.title}}, rode o smoke test rápido para pegar quebras de integração na hora — antes de começar qualquer nova feature em cima disso."
+    },
+    "pre-commit-guard": {
+      "name": "Guarda pré-commit",
+      "description": "Um portão de segurança para {{spec.title}} que intercepta cada commit: roda a suíte de testes primeiro e se recusa a commitar enquanto ela estiver vermelha, para que código quebrado nunca entre no histórico."
+    },
+    "visual-regression-until-match": {
+      "name": "Regressão visual até bater",
+      "description": "Capture snapshots visuais da UI alterada, cace cada diferença de pixel não intencional e se autocorrija até a suíte visual ficar verde, com apenas as mudanças de design deliberadas aprovadas."
+    },
+    "format-until-clean": {
+      "name": "Formatar até limpar",
+      "description": "Aplique o formatador do projeto, resolva os poucos problemas de estilo que ele não corrige sozinho e siga até uma nova formatação não alterar mais nada na árvore de trabalho."
+    },
+    "lint-typecheck-fix": {
+      "name": "Corrigir lint e tipos",
+      "description": "Rode o lint e o verificador de tipos, resolva cada problema reportado com a menor edição possível e itere até ambos os portões voltarem completamente limpos."
+    },
+    "a11y-audit-until-clean": {
+      "name": "Auditoria de a11y",
+      "description": "Rode as verificações automáticas de acessibilidade nas telas alteradas, corrija as violações uma categoria por vez e repita até a auditoria voltar sem nenhum problema."
+    },
+    "de-sloppify-pass": {
+      "name": "Passada de limpeza",
+      "description": "Depois que a feature entra, varra o diff atrás de sobras desleixadas — saída de debug, ramos mortos, nomes ruins, funções inchadas — limpe tudo e comprove que a limpeza não quebrou nada."
+    },
+    "fix-ci-until-green": {
+      "name": "Corrigir CI até passar",
+      "description": "Pegue a execução de CI mais recente que ficou vermelha nesta branch, reproduza a quebra na sua máquina, corrija a causa real, faça push e siga iterando até todas as checagens reportarem sucesso."
+    },
+    "pr-babysitter": {
+      "name": "Babá de PRs",
+      "description": "Em intervalos recorrentes, varra os pull requests que você acompanha e mantenha cada um mergeável: reviva CI vermelho, faça rebase dos que ficaram atrás da branch base e cutuque os parados — escalando tudo o que precisa da decisão de um humano."
+    },
+    "pr-watch-loop": {
+      "name": "Acompanhar PRs",
+      "description": "Consulte os pull requests da sua lista de acompanhamento em cadência constante, resuma a saúde de CI e revisão de cada um e resolva os bloqueios triviais ou destaque o que precisa de um responsável."
+    },
+    "pr-self-review": {
+      "name": "Auto-revisão de PR",
+      "description": "Critique o seu próprio diff como faria um revisor sênior exigente, resolva o que encontrar e revise de novo até uma passada limpa não apontar nada crítico — antes mesmo do PR sair das suas mãos."
+    },
+    "spec-first-ship": {
+      "name": "Spec primeiro",
+      "description": "Leve um checklist escrito de requisitos até o fim, um item por vez — cada passada implementa um único requisito não marcado, comprova e o risca — para que a spec seja o contrato do 'pronto'."
+    },
+    "dependency-audit-weekly": {
+      "name": "Auditoria semanal de deps",
+      "description": "A cada semana, faça um balanço de quais pacotes ficaram para trás, separe-os entre seguros de atualizar e arriscados e devolva um plano de upgrade claro e acionável."
+    },
+    "dependency-upgrade-one-by-one": {
+      "name": "Atualizar deps uma a uma",
+      "description": "Atualize exatamente um pacote desatualizado por passada, conserte o que a atualização quebrar, comprove que o projeto ainda funciona e commite — bem mais seguro do que atualizar tudo de uma vez."
+    },
+    "knip-until-clean": {
+      "name": "Podar código morto",
+      "description": "Cace exports sem referência, arquivos órfãos e dependências que ninguém importa, remova-os com segurança e siga até o scanner de código morto não ter mais nada a reportar."
+    },
+    "docs-sync-after-edits": {
+      "name": "Sincronizar docs com o código",
+      "description": "Após uma rodada de edições, rastreie cada doc que as mudanças tocaram — README, referência de API, comentários inline — e alinhe-os de novo com o real comportamento atual do código."
+    },
+    "security-audit-weekly": {
+      "name": "Auditoria semanal de segurança",
+      "description": "Rode um scan semanal de vulnerabilidades sobre a árvore de dependências, faça a triagem do que aparecer por severidade e exposição real e devolva um plano de remediação priorizado."
+    },
+    "npm-audit-fix-loop": {
+      "name": "Corrigir vulnerabilidades uma a uma",
+      "description": "Resolva os alertas altos e críticos de dependências de forma deliberada — uma correção por passada, cada uma verificada contra a suíte de testes — em vez de um force-fix cego que pode quebrar o build em silêncio."
+    },
+    "api-contract-until-match": {
+      "name": "Contrato de API até bater",
+      "description": "Conduza a implementação até suas respostas honrarem o contrato de API publicado, fechando qualquer lacuna entre o que o schema promete e o que os handlers de fato retornam."
+    },
+    "openapi-sync-until-valid": {
+      "name": "Sincronizar OpenAPI",
+      "description": "Mantenha o documento OpenAPI bem-formado e fiel aos handlers de rota reais, corrigindo erros da spec e o descompasso código-vs-doc a cada passada até o lint ficar satisfeito."
+    },
+    "migration-until-applied": {
+      "name": "Migração até aplicar",
+      "description": "Leve o schema do banco adiante de forma limpa: rode as migrações pendentes, corrija qualquer falha de schema ou SQL que elas revelem e confirme que o histórico de migração permanece consistente."
+    },
+    "bundle-size-budget": {
+      "name": "Orçamento de bundle",
+      "description": "Entregue a feature sem inflar o bundle do cliente além do orçamento — meça a cada passada e enxugue, faça code-split ou carregamento lazy até o portão de tamanho ficar verde."
+    },
+    "changelog-sync-after-ship": {
+      "name": "Sincronizar changelog",
+      "description": "Após entregar, garanta que o changelog conte a história voltada ao usuário: revise o que entrou, escreva as entradas no padrão Keep-a-Changelog e confirme que nada visível ficou de fora."
+    },
+    "guardrails-learning-loop": {
+      "name": "Loop de guardrails",
+      "description": "Siga iterando nos portões até ficarem verdes, mas toda vez que uma checagem falhar do mesmo jeito duas vezes, anote primeiro uma nota de guardrail para que o loop nunca gaste iterações tentando de novo uma abordagem que já falhou."
+    },
+    "ralph-story-executor": {
+      "name": "Executor de histórias",
+      "description": "Trabalhe um backlog de histórias de usuário uma por vez, com contexto novo a cada passada: pegue a próxima história pendente, construa só ela, comprove que os portões do projeto seguem verdes, commite e marque como pronta antes de seguir."
+    },
+    "investigation-script-loop": {
+      "name": "Script de investigação",
+      "description": "Identifique empiricamente a verdadeira causa de um bug: escreva um script descartável minúsculo que exercita o comportamento suspeito, rode-o, leia a saída real e refine a sonda até a própria saída provar a causa raiz."
+    },
+    "reflexion-debug-loop": {
+      "name": "Debug com reflexão",
+      "description": "Deixe um teste que falha verde sem ficar patinando: cada vez que uma tentativa falha, registre uma reflexão curta em disco e consulte-a antes da próxima tentativa, para que o loop nunca repita uma correção já descartada."
+    },
+    "merge-conflict-resolver": {
+      "name": "Resolver conflitos de merge",
+      "description": "Atualize a branch em relação ao alvo via rebase, depois resolva cada arquivo em conflito um a um preservando a intenção dos dois lados e comprove que o resultado ainda passa antes de declarar a branch em dia."
+    },
+    "staging-smoke-test": {
+      "name": "Smoke test em staging",
+      "description": "Após um deploy em staging, percorra um checklist fixo de smoke — auth, os fluxos centrais de usuário e as integrações-chave — corrigindo o menor problema sempre que algo quebra e reexecutando até o checklist inteiro voltar limpo."
+    },
+    "deploy-verification-loop": {
+      "name": "Verificação de deploy",
+      "description": "Depois que um deploy sai, consulte os endpoints de saúde e smoke em intervalos, investigando e corrigindo ou escalando qualquer resposta não saudável, e siga checando até todos os endpoints configurados reportarem sucesso."
     }
   },
   "import": {
