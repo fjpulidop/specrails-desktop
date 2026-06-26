@@ -8,6 +8,34 @@
     "templates": "Modelli",
     "builtIn": "Integrati"
   },
+  "gallery": {
+    "search": "Cerca modelli…",
+    "noResults": "Nessun modello corrisponde ai filtri.",
+    "clearFilter": "Cancella filtri",
+    "resultCount_one": "{{count}} modello",
+    "resultCount_other": "{{count}} modelli",
+    "needsSpec": "Richiede spec",
+    "standalone": "Autonoma",
+    "needsSpecHint": "Gira su una rail con una spec trascinata",
+    "standaloneHint": "Gira da sola — basta scegliere un progetto"
+  },
+  "categories": {
+    "API": "API",
+    "Automation": "Automazione",
+    "CI": "CI",
+    "Database": "Database",
+    "Debugging": "Debug",
+    "DevOps": "DevOps",
+    "Docs": "Docs",
+    "Git": "Git",
+    "Maintenance": "Manutenzione",
+    "Performance": "Prestazioni",
+    "Planning": "Pianificazione",
+    "Quality": "Qualità",
+    "Review": "Revisione",
+    "Security": "Sicurezza",
+    "Testing": "Test"
+  },
   "status": {
     "draft": "Bozza",
     "published": "Pubblicato",
@@ -144,6 +172,7 @@
     "subtitle": "Avvia questo loop su un progetto (senza ticket).",
     "project": "Progetto",
     "provider": "Provider",
+    "model": "Modello",
     "effort": "Sforzo di ragionamento",
     "execute": "Esegui",
     "noProjects": "Nessun progetto disponibile.",
@@ -193,6 +222,146 @@
     "factory_ultracode": {
       "name": "Ultracode",
       "description": "Implementazione autonoma per ticket (senza pipeline), poi verifica + affina finché non è verde. Solo Claude."
+    },
+    "autoloop-tdd": {
+      "name": "Autoloop TDD",
+      "description": "Un ciclo rigoroso red-green-refactor per {{spec.title}}: fissa ogni comportamento con un test che prima fallisce, scrivi solo il codice necessario a farlo passare, poi rifinisci — ripetendo finché la spec non è coperta del tutto."
+    },
+    "e2e-until-green": {
+      "name": "E2E fino al verde",
+      "description": "Esegui la suite end-to-end per {{spec.title}}, diagnostica ogni flusso utente che fallisce, correggi il difetto di UI o integrazione alla radice e ripeti finché ogni spec E2E non passa."
+    },
+    "flaky-test-triage": {
+      "name": "Triage test instabili",
+      "description": "Riesegui più volte i test che falliscono attorno a {{spec.title}} per distinguere le vere regressioni dai fallimenti intermittenti, poi correggi i problemi reali e stabilizza o documenta quelli instabili."
+    },
+    "independent-verifier-pass": {
+      "name": "Verifica indipendente",
+      "description": "Una verifica avversariale di {{spec.title}}: riesegui da zero build, lint e test, fidati solo dell'output grezzo dei comandi (non delle dichiarazioni 'funziona') e individua o correggi ogni lacuna."
+    },
+    "post-edit-test-guard": {
+      "name": "Guardia test post-modifica",
+      "description": "Dopo ogni gruppo di modifiche per {{spec.title}}, esegui subito il set di test più ristretto che tocca i file cambiati — cogliendo le regressioni nel momento in cui appaiono, non alla fine."
+    },
+    "post-merge-regression-guard": {
+      "name": "Guardia post-merge",
+      "description": "Subito dopo che un merge o un rebase porta il lavoro altrui in {{spec.title}}, esegui lo smoke test rapido per cogliere subito le rotture di integrazione — prima di costruirci sopra qualunque nuova funzionalità."
+    },
+    "pre-commit-guard": {
+      "name": "Guardia pre-commit",
+      "description": "Un cancello di sicurezza per {{spec.title}} che intercetta ogni commit: esegue prima la suite di test e rifiuta il commit finché è rossa, così il codice rotto non entra mai nella storia."
+    },
+    "visual-regression-until-match": {
+      "name": "Regressione visiva fino al match",
+      "description": "Cattura snapshot visivi della UI modificata, scova ogni differenza di pixel non voluta e correggi finché la suite visiva non è verde, con approvate solo le modifiche di design intenzionali."
+    },
+    "format-until-clean": {
+      "name": "Formatta fino a pulito",
+      "description": "Applica il formatter del progetto, sistema i pochi problemi di stile che non riesce a correggere da solo e prosegui finché una nuova formattazione non lascia il working tree intatto."
+    },
+    "lint-typecheck-fix": {
+      "name": "Correggi lint e tipi",
+      "description": "Esegui il lint e il type checker, risolvi ogni problema segnalato con la modifica più piccola possibile e ripeti finché entrambi i controlli non tornano del tutto puliti."
+    },
+    "a11y-audit-until-clean": {
+      "name": "Audit a11y fino a pulito",
+      "description": "Esegui i controlli automatici di accessibilità sulle schermate modificate, correggi le violazioni una categoria alla volta e ripeti finché l'audit non torna senza alcun problema."
+    },
+    "de-sloppify-pass": {
+      "name": "Passata di pulizia",
+      "description": "Dopo che la funzionalità è pronta, setaccia il diff per residui di sciatteria — output di debug, rami morti, nomi approssimativi, funzioni gonfie — ripuliscili e dimostra che la pulizia non ha rotto nulla."
+    },
+    "fix-ci-until-green": {
+      "name": "Correggi la CI fino al verde",
+      "description": "Recupera l'ultima esecuzione CI rossa su questo branch, riproduci la rottura sulla tua macchina, correggi la vera causa, fai push e ripeti finché ogni check non riporta successo."
+    },
+    "pr-babysitter": {
+      "name": "Babysitter PR",
+      "description": "A intervalli regolari, passa in rassegna le pull request che segui e mantieni ognuna mergeabile: rianima la CI rossa, fai il rebase di quelle rimaste indietro rispetto al branch base e sollecita quelle ferme — escalando tutto ciò che deve decidere una persona."
+    },
+    "pr-watch-loop": {
+      "name": "Loop di monitoraggio PR",
+      "description": "Controlla a cadenza costante le pull request nella tua watch list, riassumi lo stato di CI e review di ognuna e risolvi i blocchi banali o evidenzia ciò che richiede un proprietario."
+    },
+    "pr-self-review": {
+      "name": "Auto-review della PR",
+      "description": "Critica il tuo diff di lavoro come farebbe un reviewer senior esigente, risolvi ciò che trovi e ripeti la review finché una passata pulita non rivela nulla di critico — prima ancora che la PR lasci le tue mani."
+    },
+    "spec-first-ship": {
+      "name": "Prima la spec",
+      "description": "Porta a termine una checklist di requisiti scritti un elemento alla volta — ogni passata implementa un singolo requisito non spuntato, lo dimostra e lo segna fatto — così la spec è il contratto del 'completato'."
+    },
+    "dependency-audit-weekly": {
+      "name": "Audit dipendenze settimanale",
+      "description": "Ogni settimana fai il punto su quali pacchetti sono rimasti indietro, dividili tra sicuri da aggiornare e rischiosi e restituisci un piano di upgrade chiaro e attuabile."
+    },
+    "dependency-upgrade-one-by-one": {
+      "name": "Aggiorna le dipendenze una alla volta",
+      "description": "Aggiorna esattamente un pacchetto obsoleto per passata, ripara ciò che l'aggiornamento rompe, dimostra che il progetto funziona ancora e fai commit — molto più sicuro che aggiornare tutto insieme."
+    },
+    "knip-until-clean": {
+      "name": "Elimina il codice morto",
+      "description": "Scova export non referenziati, file orfani e dipendenze che nessuno importa, rimuovili in sicurezza e prosegui finché lo scanner del codice morto non ha più nulla da segnalare."
+    },
+    "docs-sync-after-edits": {
+      "name": "Allinea i doc al codice",
+      "description": "Dopo un giro di modifiche al codice, rintraccia ogni documento toccato dai cambiamenti — README, riferimento API, commenti inline — e riallinealo a come il codice si comporta davvero ora."
+    },
+    "security-audit-weekly": {
+      "name": "Audit sicurezza settimanale",
+      "description": "Esegui ogni settimana una scansione delle vulnerabilità sull'albero delle dipendenze, fai il triage di ciò che emerge per gravità ed esposizione reale e restituisci un piano di remediation prioritizzato."
+    },
+    "npm-audit-fix-loop": {
+      "name": "Correggi le vulnerabilità una alla volta",
+      "description": "Risolvi gli advisory critici e ad alta gravità delle dipendenze in modo deliberato — una correzione per passata, ognuna verificata contro la suite di test — invece di un force-fix alla cieca che può rompere la build di nascosto."
+    },
+    "api-contract-until-match": {
+      "name": "Contratto API fino al match",
+      "description": "Porta avanti l'implementazione finché le sue risposte non rispettano il contratto API pubblicato, colmando ogni divario tra ciò che lo schema promette e ciò che gli handler restituiscono davvero."
+    },
+    "openapi-sync-until-valid": {
+      "name": "Sync OpenAPI fino a valido",
+      "description": "Mantieni il documento OpenAPI ben formato e fedele agli handler delle route reali, riparando errori di spec e divergenze codice-doc a ogni passata finché il lint non è soddisfatto."
+    },
+    "migration-until-applied": {
+      "name": "Migrazione fino ad applicata",
+      "description": "Porta avanti lo schema del database in modo pulito: esegui le migrazioni pendenti, ripara eventuali errori di schema o SQL che emergono e verifica che la storia delle migrazioni resti coerente."
+    },
+    "bundle-size-budget": {
+      "name": "Budget dimensione bundle",
+      "description": "Rilascia la funzionalità senza gonfiare il bundle client oltre il suo budget — misura a ogni passata e taglia, fai code-split o lazy-load finché il controllo sulla dimensione non è verde."
+    },
+    "changelog-sync-after-ship": {
+      "name": "Sync changelog dopo il rilascio",
+      "description": "Dopo il rilascio, assicurati che il changelog racconti la storia rivolta all'utente: rivedi cosa è stato rilasciato, scrivi le voci in stile Keep a Changelog e verifica che nulla di visibile sia stato omesso."
+    },
+    "guardrails-learning-loop": {
+      "name": "Loop con guardrail",
+      "description": "Continua a iterare sui controlli finché non diventano verdi, ma ogni volta che un check fallisce allo stesso modo due volte, scrivi prima una nota guardrail così il loop non spreca mai iterazioni ritentando un approccio già fallito."
+    },
+    "ralph-story-executor": {
+      "name": "Esecutore di story",
+      "description": "Lavora un backlog di user story una alla volta con un contesto fresco a ogni passata: scegli la prossima story incompiuta, costruisci solo quella, dimostra che i controlli del progetto restano verdi, fai commit e segnala completata prima di proseguire."
+    },
+    "investigation-script-loop": {
+      "name": "Loop di script d'indagine",
+      "description": "Individua empiricamente la vera causa di un bug: scrivi un piccolo script usa e getta che esercita il comportamento sospetto, eseguilo, leggi l'output reale e affina la sonda finché l'output stesso non prova la causa radice."
+    },
+    "reflexion-debug-loop": {
+      "name": "Loop di debug riflessivo",
+      "description": "Fai diventare verde un test che fallisce senza girare a vuoto: ogni volta che un tentativo fallisce, registra una breve riflessione su disco e consultala prima del tentativo successivo, così il loop non ripete mai una correzione già esclusa."
+    },
+    "merge-conflict-resolver": {
+      "name": "Risolutore di conflitti merge",
+      "description": "Aggiorna il branch rispetto al suo target con un rebase, poi risolvi ogni conflitto file per file preservando l'intento di entrambe le parti e dimostra che il risultato passa ancora prima di dichiarare il branch aggiornato."
+    },
+    "staging-smoke-test": {
+      "name": "Smoke test su staging",
+      "description": "Dopo un deploy su staging, percorri una checklist di smoke fissa — auth, i percorsi utente principali e le integrazioni chiave — correggendo il problema più piccolo ogni volta che qualcosa si rompe e rieseguendo finché tutta la checklist non torna pulita."
+    },
+    "deploy-verification-loop": {
+      "name": "Loop di verifica deploy",
+      "description": "Dopo che un deploy è andato in produzione, interroga a intervalli gli endpoint di health e smoke, indaga e correggi o esegui escalation per ogni risposta non sana, e continua a controllare finché ogni endpoint configurato non riporta successo."
     }
   },
   "import": {

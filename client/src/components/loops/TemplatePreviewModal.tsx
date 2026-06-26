@@ -2,6 +2,7 @@ import { useTranslation } from 'react-i18next'
 import { Play, Brain, Terminal, GitBranch, Square, Download, Copy } from 'lucide-react'
 import { Dialog, DialogContent, DialogHeader, DialogFooter, DialogTitle, DialogDescription } from '../ui/dialog'
 import { Button } from '../ui/button'
+import { loopNeedsTicket } from '../../lib/loop-ticket-need'
 import type { LoopTemplateSummary, LoopNode, LoopNodeType } from '../../lib/loops-api'
 
 const NODE_ICON: Record<LoopNodeType, typeof Play> = {
@@ -57,6 +58,20 @@ export function TemplatePreviewModal({
             </DialogHeader>
 
             <div className="flex flex-wrap gap-1.5">
+              {loopNeedsTicket(template.graph) ? (
+                <span title={t('gallery.needsSpecHint')} className="px-1.5 py-0.5 rounded text-[10px] bg-accent-secondary/15 text-accent-secondary">
+                  {t('gallery.needsSpec')}
+                </span>
+              ) : (
+                <span title={t('gallery.standaloneHint')} className="px-1.5 py-0.5 rounded text-[10px] bg-accent-success/15 text-accent-success">
+                  {t('gallery.standalone')}
+                </span>
+              )}
+              {template.category && (
+                <span className="px-1.5 py-0.5 rounded text-[10px] bg-accent-info/15 text-accent-info">
+                  {t(`categories.${template.category}`, { defaultValue: template.category })}
+                </span>
+              )}
               {template.tags.map((tag) => (
                 <span key={tag} className="px-1.5 py-0.5 rounded text-[10px] bg-muted text-muted-foreground">
                   {tag}

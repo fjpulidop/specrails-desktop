@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Workflow } from 'lucide-react'
 import { loopsApi, type LoopDefinition } from '../../lib/loops-api'
+import { loopNeedsTicket } from '../../lib/loop-ticket-need'
 import { FACTORY_RAIL_LOOPS } from '../../lib/rail-loops'
 
 /**
@@ -32,7 +33,9 @@ export function RailLoopSelector({
     let cancelled = false
     loopsApi
       .list()
-      .then((ls) => { if (!cancelled) setPublished(ls.filter((l) => l.status === 'published')) })
+      // Only spec-driven loops belong on a rail (the rail feeds the spec).
+      // Standalone loops are launched from the Loops page "Run" instead.
+      .then((ls) => { if (!cancelled) setPublished(ls.filter((l) => l.status === 'published' && loopNeedsTicket(l.graph))) })
       .catch(() => { /* leave empty; built-in loops still available */ })
     return () => { cancelled = true }
   }, [loopsEnabled])

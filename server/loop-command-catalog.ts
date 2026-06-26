@@ -35,6 +35,12 @@ export interface LoopCommand {
   template?: string
   /** Raw autonomous command (ultracode): expands to a self-contained prompt. */
   native?: boolean
+  /** Per-provider native invocation prefix, keyed by ProviderId. When present it
+   *  wins over `template` for the providers it lists (e.g. `{{cmd:loop}}` →
+   *  claude `/loop`, codex `$goal`); providers NOT listed fall back to `template`.
+   *  Used for agent-native loop entry points that aren't specrails-core slash
+   *  commands. */
+  providerNative?: Record<string, string>
   /** Restrict to the claude provider (e.g. ultracode). */
   claudeOnly?: boolean
 }
@@ -49,6 +55,26 @@ const ULTRACODE_PROMPT = [
   '',
   '{{spec.description}}',
 ].join('\n')
+
+/** The portable fallback `{{cmd:loop}}` expands to on providers without a native
+ *  loop entry point (e.g. gemini). The author writes the goal text after the
+ *  token; this preamble turns the AI Step into a self-paced autonomous loop. */
+const LOOP_FALLBACK_PROMPT =
+  'Work autonomously toward the goal stated next. After every change, re-check the goal and keep iterating until it holds; stop as soon as it is met, or when you hit a hard blocker you cannot resolve (report it).'
+
+/** Distilled, tooling-agnostic verification/fix step shared by the gate commands.
+ *  `verb` is the one job; `gate` is what "done" means. Mutating gates drag the
+ *  guardrails contract so a loop using them can't quietly cheat its exit. */
+function gateTemplate(verb: string, gate: string): string {
+  return [
+    `Detect THIS project's tooling from its config (package.json scripts, Makefile, pyproject, cargo, go.mod, etc.) and ${verb}. Do NOT assume a specific stack — inspect first.`,
+    `Fix everything needed so that ${gate} (smallest change, no unrelated edits). Re-run until it is clean.`,
+    '',
+    '{{const:GUARDRAILS}}',
+    '',
+    'Finish with exactly `VERIFICATION: PASS` when it is clean, or `VERIFICATION: FAIL — <short reason>` otherwise.',
+  ].join('\n')
+}
 
 /** Open, append-only registry. Add an entry to expose a new chip. */
 export const LOOP_COMMANDS: LoopCommand[] = [
@@ -106,6 +132,71 @@ export const LOOP_COMMANDS: LoopCommand[] = [
       'If anything fails, fix it and re-run until green (do not change unrelated code). Finish with a clear final line — exactly `VERIFICATION: PASS` when everything is green, or `VERIFICATION: FAIL — <short reason>` otherwise.',
     ].join('\n'),
   },
+
+  // ── Provider-native autonomous loop ─────────────────────────────────────────
+  {
+    name: 'loop',
+    label: 'loop',
+    description: "The agent's own autonomous loop runner — Claude /loop, Codex $goal, or a self-paced prompt fallback elsewhere. Write the goal after the token.",
+    ticketScope: 'per-ticket',
+    providerNative: { claude: '/loop', codex: '$goal' },
+    template: LOOP_FALLBACK_PROMPT,
+  },
+
+  // ── Distilled gate commands (tooling-agnostic; mutating ⇒ carry guardrails) ──
+  { name: 'test', label: 'test', description: "Detect and run the project's test suite, fixing failures until green.", ticketScope: 'per-ticket', template: gateTemplate('run the full test suite', 'every test passes') },
+  { name: 'lint', label: 'lint', description: "Detect and run the project's linter, fixing every issue (no behaviour change).", ticketScope: 'per-ticket', template: gateTemplate('run the linter/formatter check', 'the linter reports zero errors and warnings') },
+  { name: 'typecheck', label: 'typecheck', description: "Detect and run the project's type checker, resolving every error (no any / ignore / non-null).", ticketScope: 'per-ticket', template: gateTemplate('run the type checker', 'the type checker passes with zero errors and no new suppressions') },
+  { name: 'build', label: 'build', description: "Detect and run the project's production build, fixing compile/bundle errors.", ticketScope: 'per-ticket', template: gateTemplate('run the production build', 'the build completes with no errors and no disabled checks') },
+  { name: 'coverage', label: 'coverage', description: "Run the project's coverage tooling and add focused tests until the thresholds pass.", ticketScope: 'per-ticket', template: gateTemplate('run the test suite with coverage and add focused tests for the change (cover edge cases and error paths; assert real behaviour)', 'the coverage thresholds pass') },
+  { name: 'format', label: 'format', description: "Detect and run the project's formatter and apply it (formatting only).", ticketScope: 'per-ticket', template: gateTemplate('run the code formatter', 'all files are formatted with no diff remaining') },
+  {
+    name: 'commit', label: 'commit', ticketScope: 'per-ticket',
+    description: 'Stage the work and create one clear commit (conventional message, no secrets, no unrelated files).',
+    template: 'Review the working diff, then stage the changes for this work and create a single commit with a concise conventional message describing what changed and why. Never commit secrets, credentials, or unrelated files.',
+  },
+  {
+    name: 'push', label: 'push', ticketScope: 'per-ticket',
+    description: 'Push the current branch to its remote (sets upstream if needed; never force-pushes a shared branch).',
+    template: 'Push the current branch to its remote, setting the upstream if it has none. Do not force-push a shared branch. Report the result.',
+  },
+  {
+    name: 'pr', label: 'pr', ticketScope: 'all',
+    description: "Open or update a pull request for the rail's work via the repo's tooling, summarising the change.",
+    template: "Open a pull request for the current branch using the repository's tooling (e.g. `gh pr create`), or update the existing one. Write a clear title and a body summarising what changed and how it was verified. Report the PR URL.",
+  },
+  {
+    name: 'ci-status', label: 'ci-status', ticketScope: 'per-ticket',
+    description: "Poll CI on the current branch / open PR via the repo's tooling and report green / running / failing.",
+    template: "Check the CI status of the current branch and its open PR using the repository's tooling (e.g. `gh pr checks`, `gh run list --branch <current>`). Report whether every check has passed, is still running, or has failed — name any failing checks.",
+  },
+  {
+    name: 'audit', label: 'audit', ticketScope: 'per-ticket',
+    description: 'Run the dependency/security audit and fix high/critical findings one at a time with re-verification.',
+    template: [
+      "Detect this project's dependency/security audit tooling and run it (e.g. `npm audit`, `pip-audit`, `cargo audit`, `govulncheck`). Fix the high and critical findings ONE AT A TIME, re-running the audit and the test suite after each fix to confirm nothing regressed. Do not blanket-force upgrades.",
+      '',
+      '{{const:GUARDRAILS}}',
+    ].join('\n'),
+  },
+  {
+    name: 'docs-sync', label: 'docs-sync', ticketScope: 'per-ticket',
+    description: 'Find docs affected by the change (README/API refs/inline) and update them to match.',
+    template: [
+      'Find the documentation affected by the current change — README, API references, usage examples, and inline comments — and update it to match the new behaviour. Do not document features that do not exist.',
+      '',
+      '{{const:GUARDRAILS}}',
+    ].join('\n'),
+  },
+  {
+    name: 'review', label: 'review', ticketScope: 'per-ticket',
+    description: 'Self-review the working diff for correctness and quality, then fix what you find.',
+    template: [
+      'Review the current working diff as a critical reviewer: look for correctness bugs, missing edge cases, security issues, and quality problems. Fix what you find with minimal, well-scoped changes; leave a short note on anything you deliberately did not change.',
+      '',
+      '{{const:GUARDRAILS}}',
+    ].join('\n'),
+  },
 ]
 
 const COMMANDS_BY_NAME = new Map(LOOP_COMMANDS.map((c) => [c.name, c]))
@@ -145,6 +236,12 @@ export function expandCommands(text: string, opts: ExpandCommandOpts): string {
     if (!cmd) return ''
     if (cmd.coreCommand) return nativeInvocation(cmd.coreCommand, opts.provider, ids)
     if (cmd.native) return ULTRACODE_PROMPT
+    // Provider-native prefix (e.g. {{cmd:loop}} → /loop | $goal) wins for the
+    // providers it lists; everyone else falls back to the generic template.
+    if (cmd.providerNative) {
+      const native = cmd.providerNative[opts.provider]
+      if (native != null) return native
+    }
     return cmd.template ?? ''
   })
 }

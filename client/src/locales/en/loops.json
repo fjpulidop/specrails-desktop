@@ -8,6 +8,34 @@
     "templates": "Templates",
     "builtIn": "Built-in"
   },
+  "gallery": {
+    "search": "Search templates…",
+    "noResults": "No templates match your filters.",
+    "clearFilter": "Clear filters",
+    "resultCount_one": "{{count}} template",
+    "resultCount_other": "{{count}} templates",
+    "needsSpec": "Needs spec",
+    "standalone": "Standalone",
+    "needsSpecHint": "Runs on a rail with a dragged spec",
+    "standaloneHint": "Runs standalone — just pick a project"
+  },
+  "categories": {
+    "API": "API",
+    "Automation": "Automation",
+    "CI": "CI",
+    "Database": "Database",
+    "Debugging": "Debugging",
+    "DevOps": "DevOps",
+    "Docs": "Docs",
+    "Git": "Git",
+    "Maintenance": "Maintenance",
+    "Performance": "Performance",
+    "Planning": "Planning",
+    "Quality": "Quality",
+    "Review": "Review",
+    "Security": "Security",
+    "Testing": "Testing"
+  },
   "status": {
     "draft": "Draft",
     "published": "Published",
@@ -144,6 +172,7 @@
     "subtitle": "Launch this loop on a project (no ticket needed).",
     "project": "Project",
     "provider": "Provider",
+    "model": "Model",
     "effort": "Reasoning effort",
     "execute": "Execute",
     "noProjects": "No projects available.",
@@ -193,6 +222,146 @@
     "factory_ultracode": {
       "name": "Ultracode",
       "description": "Autonomous per-ticket implementation (no pipeline), then verify + refine until green. Claude only."
+    },
+    "autoloop-tdd": {
+      "name": "Autoloop TDD",
+      "description": "A strict red-green-refactor cycle for {{spec.title}}: pin down each behavior with a failing test first, write only enough code to turn it green, then tidy up — repeating until the spec is fully covered."
+    },
+    "e2e-until-green": {
+      "name": "E2E Until Green",
+      "description": "Run the end-to-end suite for {{spec.title}}, diagnose each failing user-flow, fix the underlying UI or integration defect, and keep cycling until every E2E spec passes."
+    },
+    "flaky-test-triage": {
+      "name": "Flaky Test Triage",
+      "description": "Re-run the failing tests around {{spec.title}} several times to separate genuine regressions from intermittent flakes, then repair the real breaks and stabilize or document the flaky ones."
+    },
+    "independent-verifier-pass": {
+      "name": "Independent Verifier Pass",
+      "description": "An adversarial verification of {{spec.title}}: re-run build, lint, and tests from scratch, trust only the raw command output (not any prior 'it works' claim), and surface or fix every gap."
+    },
+    "post-edit-test-guard": {
+      "name": "Post-Edit Test Guard",
+      "description": "After each batch of edits for {{spec.title}}, immediately run the narrowest set of tests touching the changed files — catching regressions the moment they appear instead of at the end."
+    },
+    "post-merge-regression-guard": {
+      "name": "Post-Merge Regression Guard",
+      "description": "Right after a merge or rebase brings other people's work into {{spec.title}}, run the fast smoke suite to catch integration breakage immediately — before any new feature work starts on top of it."
+    },
+    "pre-commit-guard": {
+      "name": "Pre-Commit Guard",
+      "description": "A safety gate for {{spec.title}} that intercepts every commit: run the test suite first and refuse to commit while it is red, so broken code never enters history."
+    },
+    "visual-regression-until-match": {
+      "name": "Visual Regression Until Match",
+      "description": "Capture visual snapshots of the changed UI, hunt down every unintended pixel diff, and self-correct until the visual suite is green with only deliberate design changes approved."
+    },
+    "format-until-clean": {
+      "name": "Format Until Clean",
+      "description": "Apply the project formatter, mop up the handful of style problems it cannot auto-fix, and keep going until a fresh format run leaves the working tree untouched."
+    },
+    "lint-typecheck-fix": {
+      "name": "Lint and Typecheck Fix",
+      "description": "Run the linter and the type checker, resolve each reported problem with the smallest possible edit, and loop until both gates come back completely clean."
+    },
+    "a11y-audit-until-clean": {
+      "name": "A11y Audit Until Clean",
+      "description": "Run the automated accessibility checks over the changed screens, fix the violations one category at a time, and repeat until the audit comes back with zero issues."
+    },
+    "de-sloppify-pass": {
+      "name": "De-Sloppify Pass",
+      "description": "After the feature lands, sweep the diff for leftover slop — debug output, dead branches, sloppy names, bloated functions — clean it up, and prove the cleanup did not break anything."
+    },
+    "fix-ci-until-green": {
+      "name": "Fix CI Until Green",
+      "description": "Pull the most recent red CI run on this branch, reproduce the breakage on your machine, patch the real cause, push, and keep cycling until every check reports success."
+    },
+    "pr-babysitter": {
+      "name": "PR Babysitter",
+      "description": "On a recurring interval, sweep the open pull requests you are watching and keep each one mergeable: revive red CI, rebase the ones that have fallen behind the base branch, and ping the stale ones — escalating anything a human has to decide."
+    },
+    "pr-watch-loop": {
+      "name": "PR Watch Loop",
+      "description": "Poll the pull requests on your watch list at a steady cadence, summarize each one's CI and review health, and either knock out trivial blockers or surface what needs an owner."
+    },
+    "pr-self-review": {
+      "name": "PR Self-Review",
+      "description": "Critique your own working diff the way a demanding senior reviewer would, resolve what you find, and re-review until a clean pass turns up nothing critical — before the PR ever leaves your hands."
+    },
+    "spec-first-ship": {
+      "name": "Spec-First Ship",
+      "description": "Drive a written requirements checklist to completion one item at a time — each pass implements a single unchecked requirement, proves it, and ticks it off — so the spec is the contract for done."
+    },
+    "dependency-audit-weekly": {
+      "name": "Weekly Dependency Audit",
+      "description": "Each week, take stock of which packages have fallen behind, sort them into safe-to-bump versus risky, and hand back a clear upgrade plan you can act on."
+    },
+    "dependency-upgrade-one-by-one": {
+      "name": "Upgrade Dependencies One at a Time",
+      "description": "Bump exactly one outdated package per pass, repair whatever the bump breaks, prove the project still works, and commit — far safer than upgrading everything at once."
+    },
+    "knip-until-clean": {
+      "name": "Prune Dead Code Until Clean",
+      "description": "Hunt down unreferenced exports, orphaned files, and dependencies nobody imports, remove them safely, and keep going until the dead-code scanner has nothing left to report."
+    },
+    "docs-sync-after-edits": {
+      "name": "Sync Docs to Code Changes",
+      "description": "After a round of code edits, track down every doc the changes touched — README, API reference, inline comments — and bring them back in line with how the code actually behaves now."
+    },
+    "security-audit-weekly": {
+      "name": "Weekly Security Audit",
+      "description": "Run a weekly vulnerability scan over the dependency tree, triage what turns up by severity and real-world exposure, and hand back a prioritized remediation plan."
+    },
+    "npm-audit-fix-loop": {
+      "name": "Patch Vulnerabilities One at a Time",
+      "description": "Clear high and critical dependency advisories deliberately — one fix per pass, each verified against the test suite — instead of a blind force-fix that can quietly break the build."
+    },
+    "api-contract-until-match": {
+      "name": "API Contract Until Match",
+      "description": "Drive the implementation until its responses honor the published API contract, closing any gap between what the schema promises and what the handlers actually return."
+    },
+    "openapi-sync-until-valid": {
+      "name": "OpenAPI Sync Until Valid",
+      "description": "Keep the OpenAPI document well-formed and faithful to the real route handlers, repairing spec errors and code-vs-doc drift on each pass until the linter is satisfied."
+    },
+    "migration-until-applied": {
+      "name": "Migration Until Applied",
+      "description": "Bring the database schema forward cleanly: run the pending migrations, repair any schema or SQL faults they surface, and confirm migration history stays consistent."
+    },
+    "bundle-size-budget": {
+      "name": "Bundle Size Budget",
+      "description": "Land the feature without inflating the client bundle past its budget — measure each pass and trim, code-split, or lazy-load until the size gate is green."
+    },
+    "changelog-sync-after-ship": {
+      "name": "Changelog Sync After Ship",
+      "description": "After shipping, make sure the changelog tells the user-facing story: review what landed, write Keep-a-Changelog entries, and confirm nothing visible was missed."
+    },
+    "guardrails-learning-loop": {
+      "name": "Guardrails Learning Loop",
+      "description": "Keep iterating on the gates until they go green, but every time a check fails the same way twice, write down a guardrail note first so the loop never burns iterations re-attempting an approach that already failed."
+    },
+    "ralph-story-executor": {
+      "name": "Backlog Story Executor",
+      "description": "Work a backlog of user stories one at a time with a fresh context each pass: pick the next unfinished story, build only it, prove the project gates stay green, commit, and mark it done before moving on."
+    },
+    "investigation-script-loop": {
+      "name": "Investigation Script Loop",
+      "description": "Pin down a bug's true cause empirically: write a tiny disposable script that exercises the suspect behaviour, run it, read the real output, and refine the probe until the output itself proves the root cause."
+    },
+    "reflexion-debug-loop": {
+      "name": "Reflection Debug Loop",
+      "description": "Turn a failing test green without thrashing: each time an attempt fails, record a short reflection to disk and consult it before the next try, so the loop never repeats a fix that has already been ruled out."
+    },
+    "merge-conflict-resolver": {
+      "name": "Merge Conflict Resolver",
+      "description": "Bring the branch up to date with its target by rebasing, then resolve every conflict file by file while preserving both sides' intent, and prove the result still passes before declaring the branch current."
+    },
+    "staging-smoke-test": {
+      "name": "Staging Smoke Test",
+      "description": "After a staging deploy, walk a fixed smoke checklist — auth, the core user paths, and key integrations — fixing the smallest issue each time something breaks and re-running until the whole checklist comes back clean."
+    },
+    "deploy-verification-loop": {
+      "name": "Deploy Verification Loop",
+      "description": "After a deploy goes out, poll the health and smoke endpoints on an interval, investigating and fixing or escalating any non-healthy response, and keep checking until every configured endpoint reports success."
     }
   },
   "import": {

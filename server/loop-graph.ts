@@ -228,6 +228,25 @@ export interface LoopSpec {
   jira_url?: string | null
 }
 
+/** Whether a loop "needs a ticket/spec" — it references a `{{spec.*}}` token or a
+ *  ticket-consuming command (`{{cmd:implement|batch|ultracode}}`). Ticket-needing
+ *  loops belong on a rail (the rail provides the spec). Ticket-LESS loops are
+ *  standalone (repo-wide CI watch, lint, audit…) and run from the Loops page's
+ *  "Run" action, NOT a rail — launching one on a rail would just re-run the same
+ *  spec-less loop once per ticket. Mirrors the client's `loop-ticket-need.ts`. */
+const SPEC_TOKEN_RE = /\{\{\s*spec\./
+const TICKET_CMD_RE = /\{\{\s*cmd:(implement|batch|ultracode)\b/
+export function loopNeedsTicket(graph: LoopGraph | undefined): boolean {
+  if (!graph) return false
+  for (const node of graph.nodes) {
+    const text = [node.data?.prompt, node.data?.command, node.data?.goal]
+      .filter((v) => typeof v === 'string')
+      .join('\n')
+    if (SPEC_TOKEN_RE.test(text) || TICKET_CMD_RE.test(text)) return true
+  }
+  return false
+}
+
 export function interpolateSpec(text: string, spec?: LoopSpec): string {
   return text.replace(/\{\{\s*spec\.(\w+)\s*\}\}/g, (_match, key: string) => {
     // `{{spec.ids}}` → all rail ticket ids as `#1 #2 #3` (used by implement/batch).

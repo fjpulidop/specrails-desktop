@@ -13,6 +13,7 @@ import { getLoopRun } from './loop-runs-store'
 import { loadConstantMap } from './loop-constants'
 import { getAdapter } from './providers'
 import { validateRequestedProvider } from './provider-selection'
+import { isValidModelForProvider, getModelsForProvider, type SpecProvider } from './spec-models'
 import { resolveProjectExecution } from './workspace-resolution'
 import { referencesClaudeOnlyCommand } from './loop-command-catalog'
 import { newId } from './ids'
@@ -39,7 +40,7 @@ export function registerLoopRunRoutes(deps: ProjectRoutesDeps): void {
     if (!isLoopsEnabled()) { res.status(404).json({ error: 'Not Found' }); return }
     const c = ctx(req)
     const body = req.body ?? {}
-    const { loopId, aiEngine, provider: providerAlias, reasoning_effort } = body
+    const { loopId, aiEngine, provider: providerAlias, reasoning_effort, model: requestedModel } = body
 
     if (typeof loopId !== 'string' || !loopId) {
       res.status(400).json({ error: 'loopId is required' }); return
@@ -71,7 +72,17 @@ export function registerLoopRunRoutes(deps: ProjectRoutesDeps): void {
       res.status(400).json({ error: 'This loop uses a Claude-only command and requires the Claude provider' }); return
     }
 
-    const model = getAdapter(provider).defaultModel()
+    // Optional explicit model — validated against the chosen provider's catalog
+    // (mirrors Add Spec). Omitted ⇒ the provider's default.
+    let model: string
+    if (requestedModel !== undefined && requestedModel !== null) {
+      if (!isValidModelForProvider(requestedModel, provider as SpecProvider)) {
+        res.status(400).json({ error: `model is not valid for provider "${provider}"`, allowed: getModelsForProvider(provider as SpecProvider) }); return
+      }
+      model = requestedModel
+    } else {
+      model = getAdapter(provider).defaultModel()
+    }
     const exec = resolveProjectExecution({ slug: c.project.slug, path: c.project.path })
     const runId = newId()
     c.loopRunManager

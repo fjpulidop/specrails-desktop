@@ -39,8 +39,22 @@ describe('loop-constants CRUD', () => {
     createConstant(db, { id: 'b', name: 'BETA', value: '2' })
     createConstant(db, { id: 'a', name: 'ALPHA', value: '1' })
     const list = listConstants(db)
-    expect(list.filter((c) => c.builtin).map((c) => c.name)).toEqual(['VERIFICATION_PASS', 'VERIFICATION_FAIL'])
+    expect(list.filter((c) => c.builtin).map((c) => c.name)).toEqual(['VERIFICATION_PASS', 'VERIFICATION_FAIL', 'GUARDRAILS'])
     expect(list.filter((c) => !c.builtin).map((c) => c.name)).toEqual(['ALPHA', 'BETA'])
+  })
+
+  it('exposes GUARDRAILS as a read-only built-in anti-gaming contract', () => {
+    expect(BUILTIN_CONSTANTS.GUARDRAILS).toMatch(/do not weaken, delete, or skip tests/i)
+    // resolves at run time wherever the token appears
+    const out = resolveConstants('Rules:\n{{const:GUARDRAILS}}', loadConstantMap(db))
+    expect(out).toContain('Guardrails')
+    expect(out).toContain('Prefer fixing the production code')
+    // listed as a built-in (read-only)
+    expect(listConstants(db).find((c) => c.name === 'GUARDRAILS')?.builtin).toBe(true)
+  })
+
+  it('reserves GUARDRAILS — a custom constant cannot redefine it', () => {
+    expect(() => createConstant(db, { id: 'g', name: 'GUARDRAILS', value: 'weakened' })).toThrow(/built-in/)
   })
 
   it('seeds editable starter constants (migration 16) — present, custom, with the expected values', () => {

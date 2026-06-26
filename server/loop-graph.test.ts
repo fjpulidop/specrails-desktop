@@ -6,10 +6,38 @@ import {
   findStartNode,
   successors,
   interpolateSpec,
+  loopNeedsTicket,
   type LoopGraph,
   type LoopNode,
   type LoopEdge,
 } from './loop-graph'
+
+function graphWith(data: Record<string, unknown>): LoopGraph {
+  return { nodes: [{ id: 'ai', type: 'ai-step', position: { x: 0, y: 0 }, data }], edges: [], config: { maxIterations: 5, timeoutMinutes: 10 } }
+}
+
+describe('loopNeedsTicket', () => {
+  it('true when a node references a {{spec.*}} token', () => {
+    expect(loopNeedsTicket(graphWith({ prompt: 'Implement {{spec.title}}' }))).toBe(true)
+    expect(loopNeedsTicket(graphWith({ goal: 'covers {{spec.ids}}' }))).toBe(true)
+  })
+
+  it('true when a node references a ticket command (implement/batch/ultracode)', () => {
+    expect(loopNeedsTicket(graphWith({ prompt: '{{cmd:implement}}' }))).toBe(true)
+    expect(loopNeedsTicket(graphWith({ prompt: '{{cmd:batch}}' }))).toBe(true)
+    expect(loopNeedsTicket(graphWith({ prompt: '{{cmd:ultracode}}' }))).toBe(true)
+  })
+
+  it('false for standalone loops (no spec token, no ticket command)', () => {
+    expect(loopNeedsTicket(graphWith({ prompt: 'Lint the whole repo until clean' }))).toBe(false)
+    // non-ticket commands do NOT count as needing a spec
+    expect(loopNeedsTicket(graphWith({ prompt: '{{cmd:test}} {{cmd:lint}}' }))).toBe(false)
+  })
+
+  it('false for an undefined graph', () => {
+    expect(loopNeedsTicket(undefined)).toBe(false)
+  })
+})
 
 // ── Builders ───────────────────────────────────────────────────────────────
 function node(id: string, type: LoopNode['type']): LoopNode {

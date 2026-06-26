@@ -46,6 +46,9 @@ export interface LoopTemplateSummary {
   id: string
   name: string
   description: string
+  /** Discovery category (one of the server's LOOP_CATEGORIES). Optional on the
+   *  wire so older servers / factory-loop previews without a category still type. */
+  category?: string
   tags: string[]
   /** Full graph, included so the gallery can render a read-only preview. */
   graph: LoopGraph
@@ -200,7 +203,7 @@ export const loopsApi = {
   async runStandalone(
     projectId: string,
     loopId: string,
-    opts: { aiEngine?: string; reasoning_effort?: string } = {}
+    opts: { aiEngine?: string; model?: string; reasoning_effort?: string } = {}
   ): Promise<{ loopRunId: string }> {
     const res = await fetch(`/api/projects/${projectId}/loop-runs`, {
       method: 'POST',

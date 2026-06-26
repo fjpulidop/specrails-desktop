@@ -62,6 +62,7 @@ export function registerLoopsRoutes(router: Router, deps: LoopsRoutesDeps): void
         id: t.id,
         name: t.name,
         description: t.description,
+        category: t.category,
         tags: t.tags,
         // Include the graph so the gallery can render a read-only preview modal
         // (steps/prompts/decider goal) before the user clones it.

@@ -4,6 +4,7 @@ import { Play } from 'lucide-react'
 import { Dialog, DialogContent, DialogHeader, DialogFooter, DialogTitle, DialogDescription } from '../ui/dialog'
 import { Button } from '../ui/button'
 import { providerSupportsReasoningEffort } from '../../lib/provider-capabilities'
+import { modelsForProvider, defaultModelForProvider } from '../../lib/loop-run-models'
 
 export interface RunModalProject {
   id: string
@@ -27,17 +28,20 @@ export function LoopRunModal({
   loop: { id: string; name: string } | null
   projects: RunModalProject[]
   onClose: () => void
-  onExecute: (args: { projectId: string; provider?: string; effort?: string }) => void
+  onExecute: (args: { projectId: string; provider?: string; model?: string; effort?: string }) => void
 }) {
   const { t } = useTranslation('loops')
   const open = loop !== null
   const [projectId, setProjectId] = useState('')
   const [provider, setProvider] = useState('')
+  const [model, setModel] = useState('')
   const [effort, setEffort] = useState('medium')
 
   const selected = projects.find((p) => p.id === (projectId || projects[0]?.id))
   const providerList = useMemo(() => selected?.providers ?? (selected?.provider ? [selected.provider] : []), [selected])
   const effectiveProvider = provider || providerList[0] || ''
+  const modelOptions = useMemo(() => modelsForProvider(effectiveProvider), [effectiveProvider])
+  const effectiveModel = model || defaultModelForProvider(effectiveProvider)
   const showEffort = effectiveProvider ? providerSupportsReasoningEffort(effectiveProvider) : false
 
   const execute = () => {
@@ -46,6 +50,7 @@ export function LoopRunModal({
     onExecute({
       projectId: pid,
       provider: providerList.length > 1 ? effectiveProvider : undefined,
+      model: modelOptions.length > 0 ? effectiveModel : undefined,
       effort: showEffort ? effort : undefined,
     })
   }
@@ -68,7 +73,7 @@ export function LoopRunModal({
                 aria-label={t('run.project')}
                 data-testid="run-project-select"
                 value={projectId || projects[0]?.id}
-                onChange={(e) => { setProjectId(e.target.value); setProvider('') }}
+                onChange={(e) => { setProjectId(e.target.value); setProvider(''); setModel('') }}
                 className="w-full text-xs rounded border border-border bg-transparent px-2 py-1 text-foreground focus:outline-none focus:ring-1 focus:ring-accent-primary/40"
               >
                 {projects.map((p) => (
@@ -83,11 +88,28 @@ export function LoopRunModal({
                 <select
                   aria-label={t('run.provider')}
                   value={effectiveProvider}
-                  onChange={(e) => setProvider(e.target.value)}
+                  onChange={(e) => { setProvider(e.target.value); setModel('') }}
                   className="w-full text-xs rounded border border-border bg-transparent px-2 py-1 text-foreground focus:outline-none focus:ring-1 focus:ring-accent-primary/40"
                 >
                   {providerList.map((p) => (
                     <option key={p} value={p}>{p}</option>
+                  ))}
+                </select>
+              </>
+            )}
+
+            {modelOptions.length > 0 && (
+              <>
+                <label className="block text-[11px] font-medium text-muted-foreground">{t('run.model')}</label>
+                <select
+                  aria-label={t('run.model')}
+                  data-testid="run-model-select"
+                  value={effectiveModel}
+                  onChange={(e) => setModel(e.target.value)}
+                  className="w-full text-xs rounded border border-border bg-transparent px-2 py-1 text-foreground focus:outline-none focus:ring-1 focus:ring-accent-primary/40"
+                >
+                  {modelOptions.map((m) => (
+                    <option key={m.value} value={m.value}>{m.label}</option>
                   ))}
                 </select>
               </>

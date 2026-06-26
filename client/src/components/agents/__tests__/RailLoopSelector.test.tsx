@@ -32,15 +32,30 @@ describe('RailLoopSelector (unified rail Loop picker)', () => {
     expect(within(screen.getByTestId('rail-loop-selector')).getByRole('option', { name: 'Ultra' })).toBeInTheDocument()
   })
 
-  it('lists published custom loops when the Loops section is enabled', async () => {
+  // A spec-driven graph (references {{spec.*}}) — rail-eligible.
+  const specGraph = { nodes: [{ id: 'ai', type: 'ai-step' as const, position: { x: 0, y: 0 }, data: { prompt: 'Implement {{spec.title}}' } }], edges: [], config: { maxIterations: 10, timeoutMinutes: 30 } }
+  // A standalone graph (no spec/ticket tokens) — NOT rail-eligible.
+  const standaloneGraph = { nodes: [{ id: 'ai', type: 'ai-step' as const, position: { x: 0, y: 0 }, data: { prompt: 'Lint the whole repo until clean' } }], edges: [], config: { maxIterations: 10, timeoutMinutes: 30 } }
+
+  it('lists published spec-driven custom loops when the Loops section is enabled', async () => {
     api.list.mockResolvedValue([
-      { id: 'c1', name: 'My Loop', status: 'published', graph: { nodes: [], edges: [], config: { maxIterations: 10, timeoutMinutes: 30 } }, description: null, createdAt: '', updatedAt: '' },
-      { id: 'd1', name: 'Draft One', status: 'draft', graph: { nodes: [], edges: [], config: { maxIterations: 10, timeoutMinutes: 30 } }, description: null, createdAt: '', updatedAt: '' },
+      { id: 'c1', name: 'My Loop', status: 'published', graph: specGraph, description: null, createdAt: '', updatedAt: '' },
+      { id: 'd1', name: 'Draft One', status: 'draft', graph: specGraph, description: null, createdAt: '', updatedAt: '' },
     ])
     render(<RailLoopSelector value={null} onChange={() => {}} loopsEnabled />)
     await waitFor(() => expect(screen.getByRole('option', { name: 'My Loop' })).toBeInTheDocument())
     // Drafts are not selectable.
     expect(screen.queryByRole('option', { name: 'Draft One' })).not.toBeInTheDocument()
+  })
+
+  it('does NOT offer standalone (spec-less) loops — those run from the Loops page', async () => {
+    api.list.mockResolvedValue([
+      { id: 'c1', name: 'Spec Loop', status: 'published', graph: specGraph, description: null, createdAt: '', updatedAt: '' },
+      { id: 'c2', name: 'Standalone Loop', status: 'published', graph: standaloneGraph, description: null, createdAt: '', updatedAt: '' },
+    ])
+    render(<RailLoopSelector value={null} onChange={() => {}} loopsEnabled />)
+    await waitFor(() => expect(screen.getByRole('option', { name: 'Spec Loop' })).toBeInTheDocument())
+    expect(screen.queryByRole('option', { name: 'Standalone Loop' })).not.toBeInTheDocument()
   })
 
   it('does not fetch custom loops when the Loops section is disabled', () => {

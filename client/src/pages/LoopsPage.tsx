@@ -4,6 +4,7 @@ import { useNavigate } from 'react-router-dom'
 import { toast } from 'sonner'
 import { Workflow, Plus, Pencil, Trash2, Copy, Upload, Download, Sparkles, Eye, Play, FileDown, FileUp } from 'lucide-react'
 import { buildExportEnvelope, parseImportFile, exportFilename } from '../lib/loop-export'
+import { filterTemplates, categoryCounts } from '../lib/loop-template-filter'
 import { TemplatePreviewModal } from '../components/loops/TemplatePreviewModal'
 import { LoopRunModal } from '../components/loops/LoopRunModal'
 import { loopNeedsTicket } from '../lib/loop-ticket-need'
@@ -61,6 +62,27 @@ export default function LoopsPage() {
   const [runLoop, setRunLoop] = useState<LoopDefinition | null>(null)
   // Multi-select for export. Selection is over user loops only (drafts+published).
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set())
+  // Template-gallery discovery filter (search query + selected category chips),
+  // restored from localStorage (best-effort; never blocks render).
+  const TEMPLATE_FILTER_KEY = 'specrails-desktop:loop-template-filter'
+  const restoredFilter = (() => {
+    try {
+      const raw = localStorage.getItem(TEMPLATE_FILTER_KEY)
+      const parsed = raw ? (JSON.parse(raw) as { query?: string; categories?: string[] }) : null
+      return { query: typeof parsed?.query === 'string' ? parsed.query : '', categories: Array.isArray(parsed?.categories) ? parsed!.categories : [] }
+    } catch {
+      return { query: '', categories: [] as string[] }
+    }
+  })()
+  const [templateQuery, setTemplateQuery] = useState(restoredFilter.query)
+  const [selectedCategories, setSelectedCategories] = useState<string[]>(restoredFilter.categories)
+  useEffect(() => {
+    try { localStorage.setItem(TEMPLATE_FILTER_KEY, JSON.stringify({ query: templateQuery, categories: selectedCategories })) } catch { /* best-effort */ }
+  }, [templateQuery, selectedCategories])
+  const toggleCategory = useCallback((cat: string) => {
+    setSelectedCategories((prev) => (prev.includes(cat) ? prev.filter((c) => c !== cat) : [...prev, cat]))
+  }, [])
+  const clearTemplateFilter = useCallback(() => { setTemplateQuery(''); setSelectedCategories([]) }, [])
   const importInputRef = useRef<HTMLInputElement>(null)
   const { projects, setActiveProjectId } = useDesktop()
 
@@ -162,12 +184,12 @@ export default function LoopsPage() {
   // Launch a ticket-less loop standalone against a chosen project, then jump to
   // its job log (switching the active project to that target).
   const handleRunExecute = useCallback(
-    async ({ projectId, provider, effort }: { projectId: string; provider?: string; effort?: string }) => {
+    async ({ projectId, provider, model, effort }: { projectId: string; provider?: string; model?: string; effort?: string }) => {
       const loop = runLoop
       if (!loop) return
       setRunLoop(null)
       try {
-        const { loopRunId } = await loopsApi.runStandalone(projectId, loop.id, { aiEngine: provider, reasoning_effort: effort })
+        const { loopRunId } = await loopsApi.runStandalone(projectId, loop.id, { aiEngine: provider, model, reasoning_effort: effort })
         setActiveProjectId(projectId)
         navigate(`/jobs/${loopRunId}`)
         toast.success(t('run.launched', { name: loop.name }))
@@ -244,6 +266,16 @@ export default function LoopsPage() {
 
   const drafts = loops.filter((l) => l.status === 'draft')
   const published = loops.filter((l) => l.status === 'published')
+  const templateCounts = categoryCounts(templates)
+  // Search also matches the LOCALIZED text shown on the card (name, description,
+  // category label), not just the server English, so a query in the user's
+  // language finds the right template.
+  const searchableTemplates = templates.map((tmpl) => ({
+    ...tmpl,
+    searchTerms: `${locName(tmpl.id, tmpl.name)} ${locDesc(tmpl.id, tmpl.description)} ${tmpl.category ? t(`categories.${tmpl.category}`, { defaultValue: tmpl.category }) : ''}`,
+  }))
+  const visibleTemplates = filterTemplates(searchableTemplates, { query: templateQuery, categories: selectedCategories })
+  const templateFilterActive = templateQuery.trim() !== '' || selectedCategories.length > 0
 
   return (
     <div className="h-full overflow-y-auto">
@@ -386,39 +418,115 @@ export default function LoopsPage() {
             )}
 
             {templates.length > 0 && (
-              <Section title={t('sections.templates')}>
-                {templates.map((tmpl) => (
-                  <div
-                    key={tmpl.id}
-                    className="rounded-lg border border-border bg-card p-3 flex flex-col gap-2"
-                    data-testid="template-card"
-                  >
-                    <div className="flex items-center gap-2">
-                      <Sparkles className="w-3.5 h-3.5 text-accent-highlight" />
-                      <span className="text-sm font-medium text-foreground">{locName(tmpl.id, tmpl.name)}</span>
-                    </div>
-                    <p className="text-xs text-muted-foreground flex-1">{locDesc(tmpl.id, tmpl.description)}</p>
-                    <div className="flex items-center gap-1.5">
+              <section>
+                <div className="flex items-center justify-between gap-3 mb-2 flex-wrap">
+                  <h2 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">{t('sections.templates')}</h2>
+                  <input
+                    type="search"
+                    value={templateQuery}
+                    onChange={(e) => setTemplateQuery(e.target.value)}
+                    placeholder={t('gallery.search')}
+                    aria-label={t('gallery.search')}
+                    data-testid="template-search"
+                    className="h-7 w-48 max-w-full rounded-md border border-border bg-surface/40 px-2.5 text-xs text-foreground placeholder:text-muted-foreground/70 focus:outline-none focus:ring-1 focus:ring-accent-primary"
+                  />
+                </div>
+
+                {/* Category chips (multi-select, counts). */}
+                <div className="flex flex-wrap items-center gap-1.5 mb-3" data-testid="category-chips">
+                  {templateCounts.map(({ category, count }) => {
+                    const active = selectedCategories.includes(category)
+                    return (
                       <button
+                        key={category}
                         type="button"
-                        onClick={() => { setPreviewMode('use'); setPreviewTemplate({ ...tmpl, name: locName(tmpl.id, tmpl.name), description: locDesc(tmpl.id, tmpl.description) }) }}
-                        className="inline-flex items-center gap-1.5 h-7 px-2.5 rounded-md text-xs border border-border hover:bg-muted text-foreground"
+                        aria-pressed={active}
+                        onClick={() => toggleCategory(category)}
+                        className={cn(
+                          'inline-flex items-center gap-1 h-6 px-2 rounded-full text-[11px] border transition-colors',
+                          active
+                            ? 'border-accent-primary bg-accent-primary/15 text-accent-primary'
+                            : 'border-border bg-surface/40 text-muted-foreground hover:text-foreground hover:bg-muted'
+                        )}
                       >
-                        <Eye className="w-3 h-3" />
-                        {t('actions.preview')}
+                        {t(`categories.${category}`, { defaultValue: category })}
+                        <span className="opacity-60 tabular-nums">{count}</span>
                       </button>
-                      <button
-                        type="button"
-                        onClick={() => handleUseTemplate(tmpl.id)}
-                        className="inline-flex items-center gap-1.5 h-7 px-2.5 rounded-md text-xs border border-border hover:bg-muted text-foreground"
-                      >
-                        <Download className="w-3 h-3" />
-                        {t('actions.use')}
-                      </button>
-                    </div>
+                    )
+                  })}
+                  {templateFilterActive && (
+                    <button
+                      type="button"
+                      onClick={clearTemplateFilter}
+                      className="inline-flex items-center h-6 px-2 rounded-full text-[11px] text-accent-primary hover:underline"
+                    >
+                      {t('gallery.clearFilter')}
+                    </button>
+                  )}
+                </div>
+
+                {visibleTemplates.length === 0 ? (
+                  <div className="rounded-lg border border-dashed border-border p-6 text-center" data-testid="template-empty">
+                    <p className="text-xs text-muted-foreground">{t('gallery.noResults')}</p>
+                    <button type="button" onClick={clearTemplateFilter} className="mt-2 text-xs text-accent-primary hover:underline">
+                      {t('gallery.clearFilter')}
+                    </button>
                   </div>
-                ))}
-              </Section>
+                ) : (
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+                    {visibleTemplates.map((tmpl) => (
+                      <div
+                        key={tmpl.id}
+                        className="rounded-lg border border-border bg-card p-3 flex flex-col gap-2"
+                        data-testid="template-card"
+                      >
+                        <div className="flex items-center gap-2">
+                          <Sparkles className="w-3.5 h-3.5 text-accent-highlight flex-shrink-0" />
+                          <span className="text-sm font-medium text-foreground truncate">{locName(tmpl.id, tmpl.name)}</span>
+                          {tmpl.category && (
+                            <span className="ml-auto px-1.5 py-0.5 rounded text-[10px] bg-accent-info/15 text-accent-info flex-shrink-0">
+                              {t(`categories.${tmpl.category}`, { defaultValue: tmpl.category })}
+                            </span>
+                          )}
+                        </div>
+                        <p className="text-xs text-muted-foreground flex-1">{locDesc(tmpl.id, tmpl.description)}</p>
+                        <div className="flex flex-wrap items-center gap-1">
+                          {loopNeedsTicket(tmpl.graph) ? (
+                            <span title={t('gallery.needsSpecHint')} className="px-1.5 py-0.5 rounded text-[10px] bg-accent-secondary/15 text-accent-secondary">
+                              {t('gallery.needsSpec')}
+                            </span>
+                          ) : (
+                            <span title={t('gallery.standaloneHint')} className="px-1.5 py-0.5 rounded text-[10px] bg-accent-success/15 text-accent-success">
+                              {t('gallery.standalone')}
+                            </span>
+                          )}
+                          {tmpl.tags.map((tag) => (
+                            <span key={tag} className="px-1.5 py-0.5 rounded text-[10px] bg-muted text-muted-foreground">{tag}</span>
+                          ))}
+                        </div>
+                        <div className="flex items-center gap-1.5">
+                          <button
+                            type="button"
+                            onClick={() => { setPreviewMode('use'); setPreviewTemplate({ ...tmpl, name: locName(tmpl.id, tmpl.name), description: locDesc(tmpl.id, tmpl.description) }) }}
+                            className="inline-flex items-center gap-1.5 h-7 px-2.5 rounded-md text-xs border border-border hover:bg-muted text-foreground"
+                          >
+                            <Eye className="w-3 h-3" />
+                            {t('actions.preview')}
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => handleUseTemplate(tmpl.id)}
+                            className="inline-flex items-center gap-1.5 h-7 px-2.5 rounded-md text-xs border border-border hover:bg-muted text-foreground"
+                          >
+                            <Download className="w-3 h-3" />
+                            {t('actions.use')}
+                          </button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </section>
             )}
           </div>
         )}

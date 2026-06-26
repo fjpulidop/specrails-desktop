@@ -54,6 +54,45 @@ describe('loop command catalog', () => {
     expect(referencesClaudeOnlyCommand('{{cmd:implement}}')).toBe(false)
   })
 
+  it('{{cmd:loop}} resolves to the provider-native loop entry point, with a portable fallback', () => {
+    expect(expandCommands('{{cmd:loop}}', { provider: 'claude' })).toBe('/loop')
+    expect(expandCommands('{{cmd:loop}}', { provider: 'codex' })).toBe('$goal')
+    // a provider without a native entry point falls back to the autonomous preamble (never empty)
+    const gem = expandCommands('{{cmd:loop}}', { provider: 'gemini' })
+    expect(gem.length).toBeGreaterThan(0)
+    expect(gem).not.toBe('/loop')
+    expect(gem.toLowerCase()).toContain('autonomously')
+  })
+
+  it('{{cmd:loop}} is NOT a claude-only command (portable across providers)', () => {
+    expect(getLoopCommand('loop')?.claudeOnly).toBeFalsy()
+    expect(referencesClaudeOnlyCommand('{{cmd:loop}}')).toBe(false)
+  })
+
+  it('providerNative precedence does not change commands that lack it', () => {
+    // verify is a plain template command — identical for every provider, no providerNative branch
+    const a = expandCommands('{{cmd:verify}}', { provider: 'claude' })
+    const b = expandCommands('{{cmd:verify}}', { provider: 'gemini' })
+    expect(a).toBe(b)
+    expect(a).toContain('VERIFICATION: PASS')
+  })
+
+  it('ships the distilled common commands; gate commands are tooling-agnostic and carry the guardrails', () => {
+    for (const name of ['test', 'lint', 'typecheck', 'build', 'coverage', 'format', 'commit', 'push', 'pr', 'ci-status', 'audit', 'docs-sync', 'review']) {
+      const out = expandCommands(`{{cmd:${name}}}`, { provider: 'claude' })
+      expect(out.length, name).toBeGreaterThan(0)
+    }
+    // gate/fix commands instruct detection (no hardcoded single stack) and inject GUARDRAILS
+    for (const name of ['test', 'lint', 'typecheck', 'build', 'coverage', 'format', 'audit', 'docs-sync', 'review']) {
+      const out = expandCommands(`{{cmd:${name}}}`, { provider: 'claude' })
+      expect(out, name).toContain('{{const:GUARDRAILS}}')
+    }
+    expect(expandCommands('{{cmd:test}}', { provider: 'claude' }).toLowerCase()).toContain('detect')
+    // pr runs once over ALL the rail's tickets
+    expect(getLoopCommand('pr')?.ticketScope).toBe('all')
+    expect(dominantTicketScope('{{cmd:pr}}')).toBe('all')
+  })
+
   it('command-then-spec resolves end-to-end with all ticket ids', () => {
     const out = interpolateSpec(
       expandCommands('{{cmd:implement}}', { provider: 'claude', ticketIds: [1, 2] }),

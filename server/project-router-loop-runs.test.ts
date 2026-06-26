@@ -88,6 +88,31 @@ describe('project-router standalone loop runs', () => {
     expect(run).not.toHaveBeenCalled()
   })
 
+  it('defaults to the provider default model when none is given', async () => {
+    const id = publish('ci-watch')
+    const res = await request(buildApp({ provider: 'claude', providers: ['claude'] }))
+      .post('/api/projects/p1/loop-runs').send({ loopId: id })
+    expect(res.status).toBe(202)
+    expect((run.mock.calls[0][0] as { model: string }).model).toBe('sonnet')
+  })
+
+  it('passes a valid explicit model through to the run', async () => {
+    const id = publish('ci-watch')
+    const res = await request(buildApp({ provider: 'claude', providers: ['claude'] }))
+      .post('/api/projects/p1/loop-runs').send({ loopId: id, model: 'opus' })
+    expect(res.status).toBe(202)
+    expect((run.mock.calls[0][0] as { model: string }).model).toBe('opus')
+  })
+
+  it('400s a model that is not in the provider catalog', async () => {
+    const id = publish('ci-watch')
+    const res = await request(buildApp({ provider: 'claude', providers: ['claude'] }))
+      .post('/api/projects/p1/loop-runs').send({ loopId: id, model: 'gpt-5.5' }) // codex model, not claude
+    expect(res.status).toBe(400)
+    expect(res.body.allowed).toBeTruthy()
+    expect(run).not.toHaveBeenCalled()
+  })
+
   it('404s when the Loops section is disabled', async () => {
     process.env.SPECRAILS_LOOPS_SECTION = 'false'
     const id = publish('ci')
