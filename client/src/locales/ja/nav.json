@@ -22,6 +22,7 @@
   },
   "arcSidebar": {
     "desktopTitle": "Desktop",
+    "loops": "Loops",
     "docs": "ドキュメント",
     "analytics": "分析",
     "settings": "設定"

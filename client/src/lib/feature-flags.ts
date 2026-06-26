@@ -39,3 +39,13 @@ export const FEATURE_INTERACTIVE_JOBS = (() => {
   if (typeof override === 'string') return override !== 'false'
   return true
 })()
+
+/** Gates the global Loops section (sidebar entry above the project list + the
+ *  /loops route + the rail "loop" mode). Default ON; mirrors server
+ *  SPECRAILS_LOOPS_SECTION. Opt-out by setting VITE_FEATURE_LOOPS_SECTION=false. */
+export const FEATURE_LOOPS_SECTION = (() => {
+  const env = (import.meta as unknown as { env?: Record<string, string | undefined> }).env
+  const override = env?.VITE_FEATURE_LOOPS_SECTION
+  if (typeof override === 'string') return override !== 'false'
+  return true
+})()

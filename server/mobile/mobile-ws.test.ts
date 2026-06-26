@@ -262,4 +262,28 @@ describe('MobileWsBridge', () => {
     s.emit('close')
     expect(bridge.socketCount).toBe(0)
   })
+
+  it('forwards loop.run_* lifecycle to a rails subscriber (rails-as-loops)', () => {
+    const bridge = new MobileWsBridge()
+    const s = new StubSocket()
+    bridge.attach(s, 'dev-1')
+    sub(s, ['p1'], ['rails'])
+    bridge.dispatch({ type: 'loop.run_started', projectId: 'p1', loopRunId: 'r1', loopId: 'factory:implement', railIndex: 0, timestamp: '' } as unknown as WsMessage)
+    bridge.dispatch({ type: 'loop.run_completed', projectId: 'p1', loopRunId: 'r1', railIndex: 0, status: 'success', timestamp: '' } as unknown as WsMessage)
+    expect(s.sent.map((m) => (m as { type: string }).type)).toEqual(['loop.run_started', 'loop.run_completed'])
+  })
+
+  it('DROPS loop.run_progress.reasoning at the mobile boundary (unredacted LLM text)', () => {
+    const bridge = new MobileWsBridge()
+    const s = new StubSocket()
+    bridge.attach(s, 'dev-1')
+    sub(s, ['p1'], ['rails'])
+    bridge.dispatch({ type: 'loop.run_progress', projectId: 'p1', loopRunId: 'r1', iteration: 2, activeNode: 'verify', reasoning: 'secret repo content /Users/x/p/src', timestamp: '' } as unknown as WsMessage)
+    expect(s.sent).toHaveLength(1)
+    const frame = s.sent[0] as Record<string, unknown>
+    expect(frame.type).toBe('loop.run_progress')
+    expect(frame.iteration).toBe(2)
+    expect(frame.activeNode).toBe('verify')
+    expect(frame.reasoning).toBeUndefined() // must not leak
+  })
 })

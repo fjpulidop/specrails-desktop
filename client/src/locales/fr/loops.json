@@ -1,0 +1,205 @@
+{
+  "title": "Loops",
+  "subtitle": "Boucles d'automatisation réutilisables — partagées entre tous vos projets.",
+  "newLoop": "Nouvelle boucle",
+  "sections": {
+    "drafts": "Brouillons",
+    "published": "Publiées",
+    "templates": "Modèles",
+    "builtIn": "Intégrés"
+  },
+  "status": {
+    "draft": "Brouillon",
+    "published": "Publiée",
+    "running": "En cours"
+  },
+  "empty": {
+    "title": "Aucune boucle pour l'instant",
+    "body": "Créez-en une de zéro ou partez d'un modèle."
+  },
+  "actions": {
+    "edit": "Modifier",
+    "delete": "Supprimer",
+    "publish": "Publier",
+    "unpublish": "Dépublier",
+    "duplicate": "Dupliquer",
+    "use": "Utiliser le modèle",
+    "preview": "Aperçu",
+    "fork": "Dupliquer pour éditer",
+    "run": "Exécuter",
+    "export": "Exporter",
+    "import": "Importer",
+    "select": "Sélectionner {{name}}"
+  },
+  "card": {
+    "nodes_one": "{{count}} nœud",
+    "nodes_other": "{{count}} nœuds",
+    "usedIn": "En cours d'utilisation · {{project}}"
+  },
+  "confirmDelete": "Supprimer cette boucle ? Elle disparaîtra de tous les sélecteurs de rail.",
+  "newLoopName": "Nouvelle boucle",
+  "errors": {
+    "load": "Échec du chargement des boucles",
+    "save": "Échec de l'enregistrement de la boucle",
+    "publishInvalid": "Cette boucle ne peut pas encore être publiée — corrigez les problèmes signalés."
+  },
+  "builder": {
+    "back": "Retour aux boucles",
+    "save": "Enregistrer",
+    "saved": "Boucle enregistrée",
+    "publish": "Publier",
+    "published": "Boucle publiée",
+    "addNode": "Ajouter un nœud",
+    "deleteNode": "Supprimer le nœud",
+    "config": {
+      "maxIterations": "Itérations max",
+      "timeout": "Délai (min)",
+      "maxIterationsHint": "Plafond d'itérations du Loop Decider — la boucle s'arrête une fois atteint, même si l'objectif n'est pas rempli. Évite les boucles infinies.",
+      "timeoutHint": "Limite de temps réel pour toute l'exécution, en minutes. Si dépassée, l'exécution est arrêtée et marquée échouée — un filet de sécurité avec le nombre max d'itérations.",
+      "maxCost": "Coût max ($)",
+      "maxCostHint": "Budget USD optionnel pour toute l’exécution. Vérifié ENTRE les étapes (le coût d’une étape n’est connu qu’à sa fin), la boucle s’arrête avant l’étape suivante une fois le total dépassé — peut dépasser d’une étape. Pour les fournisseurs non-Claude, le coût est estimé. Vide = aucune limite."
+    },
+    "nodes": {
+      "start": "Début",
+      "ai-step": "Étape IA",
+      "shell": "Shell",
+      "decider": "Décideur de boucle",
+      "condition": "Condition",
+      "end": "Fin"
+    },
+    "inspector": {
+      "selectNode": "Sélectionnez un nœud pour le modifier.",
+      "prompt": "Invite",
+      "provider": "Fournisseur",
+      "model": "Modèle",
+      "effort": "Effort de raisonnement",
+      "command": "Commande",
+      "goal": "Objectif / critères d'arrêt",
+      "join": "Jointure",
+      "outcome": "Résultat",
+      "startNote": "Le point d'entrée de la boucle. Connectez-le à la première étape.",
+      "promptHint": "Cliquez ou glissez un jeton pour l'insérer dans le prompt.",
+      "tokensSpec": "Champs du spec",
+      "tokensJira": "Jira",
+      "tokensCommands": "Commandes",
+      "label": "Nom"
+    },
+    "branch": {
+      "continue": "↻ Continuer",
+      "stop": "✓ Arrêter"
+    },
+    "edgesHelp": {
+      "label": "Comment les étapes se connectent",
+      "body": "Les flèches définissent l'ORDRE d'exécution, pas les données — les boîtes n'ont pas de ports d'entrée et les arêtes ne transportent aucun paramètre. Chaque AI Step reprend automatiquement sa session (tout le contexte précédent) plus un bref résumé des étapes antérieures ; rien n'est câblé à la main. Le Loop Decider a deux sorties : ↻ Continuer (objectif non atteint → retour en boucle) et ✓ Arrêter (objectif atteint → sortie)."
+    },
+    "arrange": {
+      "label": "Disposer",
+      "vertical": "Vertical",
+      "horizontal": "Horizontal",
+      "grid": "Grille",
+      "reset": "Réinitialiser"
+    },
+    "constants": {
+      "label": "Constantes",
+      "manage": "Gérer les constantes",
+      "title": "Constantes du loop",
+      "empty": "Aucune constante personnalisée.",
+      "name": "NOM",
+      "value": "valeur",
+      "add": "Ajouter",
+      "builtinBadge": "Intégrées"
+    },
+    "paste": {
+      "done_one": "{{count}} étape collée",
+      "done_other": "{{count}} étapes collées"
+    },
+    "problems": {
+      "count_one": "{{count}} problème",
+      "count_other": "{{count}} problèmes",
+      "NO_START": "Ajoutez un nœud de départ.",
+      "MULTIPLE_START": "Un seul nœud de départ est autorisé.",
+      "NO_END": "Ajoutez au moins un nœud de fin.",
+      "ORPHAN": "Cette étape n'est pas accessible depuis le départ.",
+      "DECIDER_BRANCHES": "Le Loop Decider a besoin d'une branche Continuer et d'une branche Arrêter.",
+      "EMPTY_PROMPT": "L'AI Step a un prompt vide.",
+      "EMPTY_COMMAND": "L'étape Shell a une commande vide.",
+      "EMPTY_GOAL": "Le Loop Decider n'a pas d'objectif.",
+      "DEAD_END": "Cette étape n'a aucune connexion sortante."
+    },
+    "preview": {
+      "label": "Aperçu",
+      "title": "Aperçu (dry-run)",
+      "sampleNote": "Les valeurs du spec sont des exemples ; commandes et constantes sont résolues telles qu'à l'exécution.",
+      "empty": "Aucune étape à prévisualiser.",
+      "error": "Échec de l'aperçu"
+    }
+  },
+  "preview": {
+    "steps": "Étapes",
+    "limits": "{{iterations}} itérations max · {{timeout}} min de délai"
+  },
+  "builtInBadge": "Intégré",
+  "run": {
+    "title": "Exécuter {{name}}",
+    "subtitle": "Lance ce loop sur un projet (sans ticket).",
+    "project": "Projet",
+    "provider": "Fournisseur",
+    "effort": "Effort de raisonnement",
+    "execute": "Exécuter",
+    "noProjects": "Aucun projet disponible.",
+    "launched": "Exécution de {{name}}"
+  },
+  "catalog": {
+    "ship-and-green": {
+      "name": "Ship & Green",
+      "description": "Totalement autonome : implémente le spec, vérifie, puis corrige en cas d'échec — en bouclant vérifier → corriger → vérifier jusqu'à ce que tout soit au vert. Aucune intervention humaine."
+    },
+    "verify-pass": {
+      "name": "Passe de vérification",
+      "description": "Vérification et correction autonomes : détecte et lance le build/lint/tests du projet, puis corrige en cas d'échec — vérifier → corriger → vérifier jusqu'au vert."
+    },
+    "ci-watch": {
+      "name": "Surveillance CI",
+      "description": "Interroge les contrôles CI sur la PR ouverte (l'agent utilise l'outillage CI du dépôt) jusqu'à ce que chaque contrôle soit au vert."
+    },
+    "lint-and-fix": {
+      "name": "Lint & correction",
+      "description": "L'agent détecte et lance le linter du projet et corrige chaque problème, en itérant jusqu'à ce que le code soit propre."
+    },
+    "type-safe": {
+      "name": "Types sûrs",
+      "description": "L'agent détecte et lance le vérificateur de types du projet et résout chaque erreur, en itérant jusqu'à ce qu'il passe sans accroc."
+    },
+    "coverage-climb": {
+      "name": "Montée de couverture",
+      "description": "L'agent lance l'outillage de couverture du projet et ajoute des tests ciblés jusqu'à ce que les seuils soient atteints."
+    },
+    "build-fix": {
+      "name": "Correction de build",
+      "description": "L'agent détecte et lance le build de production du projet et corrige les erreurs de compilation/bundle jusqu'à ce qu'il soit au vert."
+    },
+    "deploy-check": {
+      "name": "Contrôle de deploy",
+      "description": "L'agent interroge l'état de deploy/santé (à l'aide de l'outillage de deploy du projet) jusqu'à ce que le service se déclare en bonne santé."
+    },
+    "factory_implement": {
+      "name": "Implémenter",
+      "description": "Totalement autonome : implémente le spec, vérifie, puis corrige en cas d'échec — en bouclant jusqu'à ce que tous les tests passent."
+    },
+    "factory_batch": {
+      "name": "Implémentation par lots",
+      "description": "Implémente d'un coup tous les tickets du rail, puis vérifie et corrige en cas d'échec jusqu'au vert."
+    },
+    "factory_ultracode": {
+      "name": "Ultracode",
+      "description": "Implémentation autonome par ticket (sans pipeline), puis vérification et correction jusqu'au vert. Claude uniquement."
+    }
+  },
+  "import": {
+    "done_one": "{{count}} loop importé",
+    "done_other": "{{count}} loops importés",
+    "skipped_one": "{{count}} doublon ignoré : {{names}}",
+    "skipped_other": "{{count}} doublons ignorés : {{names}}",
+    "invalid": "Ce fichier n'est pas un export de loops valide."
+  }
+}

@@ -27,6 +27,8 @@ import { TicketDetailModal } from '../components/TicketDetailModal'
 import { CreateTicketModal } from '../components/CreateTicketModal'
 import { UltracodeLaunchDialog } from '../components/UltracodeLaunchDialog'
 import { getApiBase } from '../lib/api'
+import { FEATURE_LOOPS_SECTION } from '../lib/feature-flags'
+import { effectiveLoopId, deriveRailMode } from '../lib/rail-loops'
 import { useDesktop, projectProviders } from '../hooks/useDesktop'
 import { useSharedWebSocket } from '../hooks/useSharedWebSocket'
 import { useSpecGenTracker } from '../hooks/useSpecGenTracker'
@@ -170,16 +172,23 @@ export default function DashboardPage() {
     let cancelled = false
     fetch(`${getApiBase()}/rails`)
       .then((res) => res.ok ? res.json() : null)
-      .then((data: { activeJobs?: Record<string, { jobId: string }> } | null) => {
+      .then((data: { activeJobs?: Record<string, { jobId: string }>; activeLoopRuns?: Record<string, { loopRunId: string }> } | null) => {
         if (cancelled || !data) return
         const activeJobs = data.activeJobs ?? {}
-        const activeIndices = new Set(Object.keys(activeJobs).map(Number))
+        // Loop-mode rails track an active LOOP run (not a queue job), so a rail
+        // running a loop must be treated as still-running here too — otherwise
+        // refresh wrongly clears it and releases its in-flight ticket.
+        const activeLoopRuns = data.activeLoopRuns ?? {}
+        const activeIndices = new Set<number>([
+          ...Object.keys(activeJobs).map(Number),
+          ...Object.keys(activeLoopRuns).map(Number),
+        ])
         setRails((prev) => {
           const next = prev.map((r, idx) => {
             if (r.status !== 'running') return r
             if (activeIndices.has(idx)) {
-              // Still running — restore jobId if somehow lost
-              const serverJobId = activeJobs[String(idx)]?.jobId
+              // Still running — restore the active id (job or loop run) if lost.
+              const serverJobId = activeJobs[String(idx)]?.jobId ?? activeLoopRuns[String(idx)]?.loopRunId
               if (serverJobId && !r.activeJobId) return { ...r, activeJobId: serverJobId }
               return r
             }
@@ -357,6 +366,20 @@ export default function DashboardPage() {
       if (m.status === 'completed') {
         toast.info(t('toasts.railCompleted', { n: targetIndex + 1 }))
       } else if (m.status === 'failed' || m.status === 'zombie_terminated') {
+        toast.error(t('toasts.railFailed', { n: targetIndex + 1 }))
+      } else {
+        toast.info(t('toasts.railEnded', { n: targetIndex + 1, status: m.status ?? 'finished' }))
+      }
+    }
+
+    // Loop runs (Loops mode) mirror rail.job_completed: strip the run's tickets
+    // and reset the rail. The engine emits one completed event per per-ticket run.
+    if (m.type === 'loop.run_completed') {
+      const targetIndex = m.railIndex ?? 0
+      updateRails((prev) => applyRailJobOutcome(prev, targetIndex, m.ticketIds ?? []))
+      if (m.status === 'success') {
+        toast.info(t('toasts.railCompleted', { n: targetIndex + 1 }))
+      } else if (m.status === 'failed' || m.status === 'max-iterations') {
         toast.error(t('toasts.railFailed', { n: targetIndex + 1 }))
       } else {
         toast.info(t('toasts.railEnded', { n: targetIndex + 1, status: m.status ?? 'finished' }))
@@ -722,13 +745,32 @@ export default function DashboardPage() {
     updateRails((prev) => prev.map((r) => (r.id === railId ? { ...r, interactive } : r)))
   }
 
+  function handleLoopChange(railId: string, loopId: string) {
+    // rails-as-loops: the chosen Loop (factory or custom) drives the rail; derive
+    // the legacy `mode` from it so launch + selector gating stay correct. Stored
+    // in localStorage and sent inline at launch.
+    const mode = deriveRailMode(loopId)
+    updateRails((prev) => prev.map((r) => (r.id === railId ? { ...r, selectedLoopId: loopId, mode } : r)))
+  }
+
+  function handleEffortChange(railId: string, effort: import('../components/agents/RailEffortSelector').ReasoningEffort) {
+    updateRails((prev) => prev.map((r) => (r.id === railId ? { ...r, reasoningEffort: effort } : r)))
+  }
+
   async function handleEngineChange(railId: string, aiEngine: string) {
-    // Ultracode is Claude-only — if the rail leaves Claude while in Ultracode,
-    // fall back to implement so the launch can't 400.
-    updateRails((prev) => prev.map((r) =>
-      r.id === railId
-        ? { ...r, aiEngine, mode: aiEngine !== 'claude' && r.mode === 'ultracode' ? 'implement' : r.mode }
-        : r))
+    // Ultracode is Claude-only — if the rail leaves Claude while on the Ultracode
+    // loop, fall back to the Implement loop so the launch can't 400.
+    updateRails((prev) => prev.map((r) => {
+      if (r.id !== railId) return r
+      const onUltra = r.mode === 'ultracode' || r.selectedLoopId === 'factory:ultracode'
+      const fallback = aiEngine !== 'claude' && onUltra
+      return {
+        ...r,
+        aiEngine,
+        mode: fallback ? 'implement' : r.mode,
+        selectedLoopId: fallback ? 'factory:implement' : r.selectedLoopId,
+      }
+    }))
     const railIndex = rails.findIndex((r) => r.id === railId)
     if (railIndex === -1) return
     try {
@@ -777,6 +819,14 @@ export default function DashboardPage() {
     const rail = rails[railIndex]
     if (rail.ticketIds.length === 0) return
 
+    // rails-as-loops: every rail launches a Loop. Factory modes resolve to their
+    // built-in loop; a custom (loop) rail needs an explicit pick.
+    const launchLoopId = effectiveLoopId(rail.selectedLoopId, rail.mode)
+    if (!launchLoopId) {
+      toast.error(t('railControls.pickLoop'))
+      return
+    }
+
     // M24: capture the API base ONCE up front. getApiBase() is a module-level
     // store that flips on project switch; evaluating it on both sides of the
     // await below let a mid-flight switch (e.g. desktop.project_added auto-activation,
@@ -814,6 +864,10 @@ export default function DashboardPage() {
           ...(rail.mode === 'ultracode' && rail.ultracodeModel ? { model: rail.ultracodeModel } : {}),
           // Interactive toggle — only meaningful for ultracode launches.
           ...(rail.mode === 'ultracode' && rail.interactive ? { interactive: true } : {}),
+          // rails-as-loops: always send the chosen Loop. The server maps a
+          // factory loop → its legacy mode; a custom loop runs the loop engine.
+          loopId: launchLoopId,
+          ...(rail.mode === 'loop' && rail.reasoningEffort ? { reasoning_effort: rail.reasoningEffort } : {}),
         }),
       })
       if (!res.ok) {
@@ -821,8 +875,12 @@ export default function DashboardPage() {
         toast.error(data.error || t('toasts.launchFailed'))
         return
       }
-      const { jobId } = await res.json() as { jobId: string }
-      updateRails((prev) => prev.map((r) => (r.id === railId ? { ...r, status: 'running', activeJobId: jobId } : r)))
+      // Implement/ultracode return { jobId }; loop mode returns { loopRunIds }.
+      // A loop run IS backed by a job (id === loopRunId), so set activeJobId to
+      // the first run id → "View Log" → /jobs/:id streams the live session.
+      const data = await res.json() as { jobId?: string; loopRunIds?: string[] }
+      const activeJobId = data.jobId ?? data.loopRunIds?.[0]
+      updateRails((prev) => prev.map((r) => (r.id === railId ? { ...r, status: 'running', activeJobId } : r)))
       toast.success(t('toasts.railLaunched', { rail: rail.label }), {
         description: t('toasts.launchDescription', { mode: rail.mode, count: rail.ticketIds.length }),
       })
@@ -892,6 +950,9 @@ export default function DashboardPage() {
             onEngineChange={handleEngineChange}
             onUltracodeModelChange={handleUltracodeModelChange}
             onInteractiveChange={handleInteractiveChange}
+            loopAvailable={FEATURE_LOOPS_SECTION}
+            onLoopChange={handleLoopChange}
+            onEffortChange={handleEffortChange}
             onToggle={handleToggle}
             onTicketClick={setDetailTicket}
             onAddRail={handleAddRail}

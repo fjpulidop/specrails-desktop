@@ -38,3 +38,16 @@ export function isJiraEnabled(): boolean {
 export function isInteractiveJobsEnabled(): boolean {
   return process.env.SPECRAILS_INTERACTIVE_JOBS !== 'false'
 }
+
+/**
+ * Loops ("automation loops"): a global, cross-project library of visually-authored
+ * iterative workflows, plus a 4th rail mode ("loop") that runs a published loop
+ * against the dragged spec. App-driven engine; the stop/continue decision is a
+ * dedicated AI "Loop Decider" node. Server-side default ON; set
+ * SPECRAILS_LOOPS_SECTION="false" to 404 the /api/loops routes and hide the
+ * section (emergency rollback). Inert until a loop is actually run, so default-on
+ * is safe. The client gates separately on VITE_FEATURE_LOOPS_SECTION.
+ */
+export function isLoopsEnabled(): boolean {
+  return process.env.SPECRAILS_LOOPS_SECTION !== 'false'
+}

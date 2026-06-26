@@ -152,6 +152,17 @@ export function createMobileRouter(deps: MobileRouterDeps): Router {
     void forward(res, 'GET', `/api/projects/${encodeURIComponent(pid)}/jobs/${encodeURIComponent(jid)}`, '')
   })
 
+  // rails-as-loops reads: the global Loop catalog (for the mobile loop picker)
+  // and per-project loop-run state (the running surface — a loop run has no jobId
+  // so it can't be tailed via /jobs/:id). 404s downstream when Loops are disabled.
+  v1.get('/loops', (_req, res) => { void forward(res, 'GET', '/api/loops', '') })
+  v1.get('/loops/factory', (_req, res) => { void forward(res, 'GET', '/api/loops/factory', '') })
+  v1.get('/projects/:pid/loop-runs/:id', (req, res) => {
+    const pid = seg(req.params.pid), rid = seg(req.params.id)
+    if (!validate(res, [pid, PID_RE], [rid, JOBID_RE])) return
+    void forward(res, 'GET', `/api/projects/${encodeURIComponent(pid)}/loop-runs/${encodeURIComponent(rid)}`, '')
+  })
+
   v1.get('/projects/:pid/tickets/:tid/spending-summary', (req, res) => {
     const pid = seg(req.params.pid), tid = seg(req.params.tid)
     if (!validate(res, [pid, PID_RE], [tid, NUM_RE])) return
@@ -193,6 +204,11 @@ export function createMobileRouter(deps: MobileRouterDeps): Router {
     if (typeof b.profileName === 'string') narrowed.profileName = b.profileName
     if (typeof b.aiEngine === 'string') narrowed.aiEngine = b.aiEngine
     if (typeof b.model === 'string') narrowed.model = b.model // ultracode model
+    // rails-as-loops: let a mobile client launch a chosen Loop (factory or custom).
+    // Additive — the frozen bare-`mode` path is untouched (a v1 client sends no loopId).
+    if (typeof b.loopId === 'string') narrowed.loopId = b.loopId
+    if (b.reasoning_effort === 'low' || b.reasoning_effort === 'medium' || b.reasoning_effort === 'high') narrowed.reasoning_effort = b.reasoning_effort
+    if (typeof b.interactive === 'boolean') narrowed.interactive = b.interactive
     void forward(res, 'POST', `/api/projects/${encodeURIComponent(pid)}/rails/${encodeURIComponent(i)}/launch`, '', narrowed)
   })
 
@@ -369,6 +385,9 @@ export const MOBILE_ALLOWLIST: Array<{ method: string; path: string }> = [
   { method: 'GET', path: '/v1/projects/:pid/tickets/:tid' },
   { method: 'GET', path: '/v1/projects/:pid/jobs' },
   { method: 'GET', path: '/v1/projects/:pid/jobs/:jid' },
+  { method: 'GET', path: '/v1/loops' },
+  { method: 'GET', path: '/v1/loops/factory' },
+  { method: 'GET', path: '/v1/projects/:pid/loop-runs/:id' },
   { method: 'GET', path: '/v1/projects/:pid/queue' },
   { method: 'GET', path: '/v1/projects/:pid/rails' },
   { method: 'GET', path: '/v1/projects/:pid/activity' },

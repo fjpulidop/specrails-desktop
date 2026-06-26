@@ -1,0 +1,205 @@
+{
+  "title": "Loops",
+  "subtitle": "Bucles de automatización reutilizables — compartidos entre todos tus proyectos.",
+  "newLoop": "Nuevo loop",
+  "sections": {
+    "drafts": "Borradores",
+    "published": "Publicados",
+    "templates": "Plantillas",
+    "builtIn": "Integrados"
+  },
+  "status": {
+    "draft": "Borrador",
+    "published": "Publicado",
+    "running": "En ejecución"
+  },
+  "empty": {
+    "title": "Aún no hay loops",
+    "body": "Crea uno desde cero o empieza a partir de una plantilla."
+  },
+  "actions": {
+    "edit": "Editar",
+    "delete": "Eliminar",
+    "publish": "Publicar",
+    "unpublish": "Despublicar",
+    "duplicate": "Duplicar",
+    "use": "Usar plantilla",
+    "preview": "Vista previa",
+    "fork": "Bifurcar para editar",
+    "run": "Ejecutar",
+    "export": "Exportar",
+    "import": "Importar",
+    "select": "Seleccionar {{name}}"
+  },
+  "card": {
+    "nodes_one": "{{count}} nodo",
+    "nodes_other": "{{count}} nodos",
+    "usedIn": "En uso · {{project}}"
+  },
+  "confirmDelete": "¿Eliminar este loop? Desaparecerá de todos los selectores de rieles.",
+  "newLoopName": "Nuevo loop",
+  "errors": {
+    "load": "No se pudieron cargar los loops",
+    "save": "No se pudo guardar el loop",
+    "publishInvalid": "Este loop aún no se puede publicar — corrige los problemas resaltados."
+  },
+  "builder": {
+    "back": "Volver a los loops",
+    "save": "Guardar",
+    "saved": "Loop guardado",
+    "publish": "Publicar",
+    "published": "Loop publicado",
+    "addNode": "Añadir nodo",
+    "deleteNode": "Eliminar nodo",
+    "config": {
+      "maxIterations": "Iteraciones máximas",
+      "timeout": "Tiempo límite (min)",
+      "maxIterationsHint": "Tope de iteraciones del Loop Decider — el loop se detiene al alcanzarlo aunque no se cumpla el objetivo. Evita bucles infinitos.",
+      "timeoutHint": "Límite de tiempo real de toda la ejecución, en minutos. Si se supera, la ejecución se detiene y se marca como fallida — una red de seguridad junto a las iteraciones máximas.",
+      "maxCost": "Coste máx ($)",
+      "maxCostHint": "Presupuesto opcional en USD para toda la ejecución. Se comprueba ENTRE pasos (el coste de un paso solo se sabe al terminarlo), así que el loop para antes del siguiente paso cuando el total lo supera — puede pasarse un paso. En proveedores no-Claude el coste es estimado. Vacío = sin tope."
+    },
+    "nodes": {
+      "start": "Inicio",
+      "ai-step": "Paso de IA",
+      "shell": "Shell",
+      "decider": "Decisor del loop",
+      "condition": "Condición",
+      "end": "Fin"
+    },
+    "inspector": {
+      "selectNode": "Selecciona un nodo para editarlo.",
+      "prompt": "Prompt",
+      "provider": "Proveedor",
+      "model": "Modelo",
+      "effort": "Esfuerzo de razonamiento",
+      "command": "Comando",
+      "goal": "Objetivo / criterio de parada",
+      "join": "Unión",
+      "outcome": "Resultado",
+      "startNote": "El punto de entrada del loop. Conéctalo al primer paso.",
+      "promptHint": "Haz clic o arrastra un token para insertarlo en el prompt.",
+      "tokensSpec": "Campos del spec",
+      "tokensJira": "Jira",
+      "tokensCommands": "Comandos",
+      "label": "Nombre"
+    },
+    "branch": {
+      "continue": "↻ Continuar",
+      "stop": "✓ Detener"
+    },
+    "edgesHelp": {
+      "label": "Cómo se conectan los pasos",
+      "body": "Las flechas marcan el ORDEN de ejecución, no los datos: las cajas no tienen puertos de entrada y las conexiones no transportan parámetros. Cada AI Step reanuda automáticamente su sesión (con todo el contexto previo) más un resumen breve de los pasos anteriores; nada se conecta a mano. El Loop Decider tiene dos salidas: ↻ Continuar (objetivo no cumplido → volver al bucle) y ✓ Detener (objetivo cumplido → salir)."
+    },
+    "arrange": {
+      "label": "Ordenar",
+      "vertical": "Vertical",
+      "horizontal": "Horizontal",
+      "grid": "Cuadrícula",
+      "reset": "Restablecer"
+    },
+    "constants": {
+      "label": "Constantes",
+      "manage": "Gestionar constantes",
+      "title": "Constantes del loop",
+      "empty": "Aún no hay constantes personalizadas.",
+      "name": "NOMBRE",
+      "value": "valor",
+      "add": "Añadir",
+      "builtinBadge": "Integradas"
+    },
+    "paste": {
+      "done_one": "{{count}} paso pegado",
+      "done_other": "{{count}} pasos pegados"
+    },
+    "problems": {
+      "count_one": "{{count}} problema",
+      "count_other": "{{count}} problemas",
+      "NO_START": "Añade un nodo de Inicio.",
+      "MULTIPLE_START": "Solo se permite un nodo de Inicio.",
+      "NO_END": "Añade al menos un nodo de Fin.",
+      "ORPHAN": "Este paso no es alcanzable desde Inicio.",
+      "DECIDER_BRANCHES": "El Decisor necesita una rama Continuar y otra Detener.",
+      "EMPTY_PROMPT": "El Paso de IA tiene el prompt vacío.",
+      "EMPTY_COMMAND": "El paso Shell tiene el comando vacío.",
+      "EMPTY_GOAL": "El Decisor no tiene objetivo.",
+      "DEAD_END": "Este paso no tiene conexión de salida."
+    },
+    "preview": {
+      "label": "Previsualizar",
+      "title": "Previsualización (dry-run)",
+      "sampleNote": "Los valores del spec son de ejemplo; comandos y constantes se resuelven tal cual en ejecución.",
+      "empty": "No hay pasos que previsualizar.",
+      "error": "Falló la previsualización"
+    }
+  },
+  "preview": {
+    "steps": "Pasos",
+    "limits": "máx. {{iterations}} iteraciones · {{timeout}} min de timeout"
+  },
+  "builtInBadge": "Integrado",
+  "run": {
+    "title": "Ejecutar {{name}}",
+    "subtitle": "Lanza este loop en un proyecto (sin ticket).",
+    "project": "Proyecto",
+    "provider": "Proveedor",
+    "effort": "Esfuerzo de razonamiento",
+    "execute": "Ejecutar",
+    "noProjects": "No hay proyectos disponibles.",
+    "launched": "Ejecutando {{name}}"
+  },
+  "catalog": {
+    "ship-and-green": {
+      "name": "Ship & Green",
+      "description": "Totalmente autónomo: implementa la spec, verifica y refina (corrige) cuando falla, encadenando verificar → corregir → verificar hasta que todo esté en verde. Sin intervención humana."
+    },
+    "verify-pass": {
+      "name": "Verificación",
+      "description": "Verifica y corrige de forma autónoma: detecta y ejecuta el build, el lint y los tests del proyecto y luego refina cuando falla, encadenando verificar → corregir → verificar hasta que esté en verde."
+    },
+    "ci-watch": {
+      "name": "Vigilar CI",
+      "description": "Consulta los checks de CI del PR abierto (el agente usa las herramientas de CI del repositorio) hasta que todos los checks estén en verde."
+    },
+    "lint-and-fix": {
+      "name": "Lint y corregir",
+      "description": "El agente detecta y ejecuta el linter del proyecto y corrige cada incidencia, iterando hasta que el código esté limpio."
+    },
+    "type-safe": {
+      "name": "Tipado seguro",
+      "description": "El agente detecta y ejecuta el comprobador de tipos del proyecto y resuelve cada error, iterando hasta que pase sin problemas."
+    },
+    "coverage-climb": {
+      "name": "Subir cobertura",
+      "description": "El agente ejecuta las herramientas de cobertura del proyecto y añade tests específicos hasta superar los umbrales."
+    },
+    "build-fix": {
+      "name": "Arreglar build",
+      "description": "El agente detecta y ejecuta el build de producción del proyecto y corrige los errores de compilación o de empaquetado hasta que esté en verde."
+    },
+    "deploy-check": {
+      "name": "Comprobar deploy",
+      "description": "El agente consulta el estado del deploy y de salud (usando las herramientas de deploy del proyecto) hasta que el servicio se reporte saludable."
+    },
+    "factory_implement": {
+      "name": "Implementar",
+      "description": "Totalmente autónomo: implementa la spec, verifica y refina (corrige) cuando falla, encadenando hasta que pasen todos los tests."
+    },
+    "factory_batch": {
+      "name": "Implementar en lote",
+      "description": "Implementa de golpe todos los tickets del raíl y luego verifica y refina cuando falla hasta que esté en verde."
+    },
+    "factory_ultracode": {
+      "name": "Ultracode",
+      "description": "Implementación autónoma por ticket (sin pipeline) y luego verifica y refina hasta que esté en verde. Solo con Claude."
+    }
+  },
+  "import": {
+    "done_one": "{{count}} loop importado",
+    "done_other": "{{count}} loops importados",
+    "skipped_one": "Omitido {{count}} duplicado: {{names}}",
+    "skipped_other": "Omitidos {{count}} duplicados: {{names}}",
+    "invalid": "Ese archivo no es una exportación de loops válida."
+  }
+}

@@ -5,10 +5,14 @@ import { useDroppable, useDndContext } from '@dnd-kit/core'
 import { SortableContext, verticalListSortingStrategy } from '@dnd-kit/sortable'
 import { GripVertical, Trash2, ArrowLeft } from 'lucide-react'
 import { RailControls, type RailMode, type RailStatus } from './RailControls'
+import { effectiveLoopId } from '../lib/rail-loops'
 import { SpecCard } from './SpecCard'
 import { RailProfileSelector } from './agents/RailProfileSelector'
 import { RailEngineSelector } from './agents/RailEngineSelector'
 import { RailModelSelector, type UltracodeModel } from './agents/RailModelSelector'
+import { RailLoopSelector } from './agents/RailLoopSelector'
+import { RailEffortSelector, type ReasoningEffort } from './agents/RailEffortSelector'
+import { providerSupportsReasoningEffort } from '../lib/provider-capabilities'
 import type { LocalTicket } from '../types'
 
 const LONG_PRESS_MS = 800
@@ -32,6 +36,12 @@ interface RailRowProps {
   interactiveAvailable?: boolean
   /** Installed providers — when >1 the rail header shows an AI engine selector. */
   providers?: readonly string[]
+  /** When true, the rail offers "Loop" mode (run a published loop). */
+  loopAvailable?: boolean
+  /** Selected published-loop id (loop mode). */
+  selectedLoopId?: string | null
+  /** Selected reasoning effort (loop mode). */
+  reasoningEffort?: ReasoningEffort | null
   jiggleMode: boolean
   dragHandleListeners?: Record<string, Function>
   dragHandleAttributes?: Record<string, any>
@@ -48,6 +58,8 @@ interface RailRowProps {
   onProfileChange?: (profileName: string | null) => void
   onEngineChange?: (aiEngine: string) => void
   onUltracodeModelChange?: (model: UltracodeModel) => void
+  onLoopChange?: (loopId: string) => void
+  onEffortChange?: (effort: ReasoningEffort) => void
   onInteractiveChange?: (interactive: boolean) => void
   onToggle: () => void
   onTicketClick: (ticket: LocalTicket) => void
@@ -61,9 +73,10 @@ interface RailRowProps {
 }
 
 export function RailRow({
-  id, label, tickets, mode, status, activeJobId, profileName, aiEngine, ultracodeModel, interactive, interactiveAvailable, providers, jiggleMode,
+  id, label, tickets, mode, status, activeJobId, profileName, aiEngine, ultracodeModel, interactive, interactiveAvailable, providers,
+  loopAvailable, selectedLoopId, reasoningEffort, jiggleMode,
   dragHandleListeners, dragHandleAttributes, density = 'normal',
-  onModeChange, onProfileChange, onEngineChange, onUltracodeModelChange, onInteractiveChange, onToggle, onTicketClick, onDelete, onLongPress, onRename,
+  onModeChange, onProfileChange, onEngineChange, onUltracodeModelChange, onLoopChange, onEffortChange, onInteractiveChange, onToggle, onTicketClick, onDelete, onLongPress, onRename,
   onTicketMoveToSpecs,
 }: RailRowProps) {
   const { t } = useTranslation('dashboard')
@@ -74,17 +87,23 @@ export function RailRow({
   // the project's primary provider (providers[0]); default to claude when
   // unknown (single-provider claude projects pass no providers list).
   const engineIsClaude = (aiEngine ?? providers?.[0] ?? 'claude') === 'claude'
+  // Reasoning effort applies only to providers with a per-invocation knob
+  // (codex native, claude soft) — NOT gemini, so its selector is hidden there.
+  const effortApplies = providerSupportsReasoningEffort(aiEngine ?? providers?.[0] ?? 'claude')
   // Which secondary selectors are visible right now. When any is shown we move
   // them onto their own row beneath the rail name so the header doesn't cram
   // engine + model + mode segments + play into a single line.
   const showEngineSel = !!onEngineChange && status !== 'running' && (providers?.length ?? 0) > 1
-  const showProfileSel = !!onProfileChange && status !== 'running' && profileApplies
+  const showProfileSel = !!onProfileChange && status !== 'running' && profileApplies && mode !== 'loop'
   const showModelSel = !!onUltracodeModelChange && status !== 'running' && mode === 'ultracode' && engineIsClaude
+  // The rail's unified Loop picker (factory + custom loops) replaces the old mode
+  // segmented control — always shown when idle. Effort shows for custom loops.
+  const showLoopSel = !!onLoopChange && status !== 'running'
   // Only the engine + model selectors crowd the header (and always render when
   // their condition holds). The profile selector self-hides when the project
   // has no profiles, so it can't trigger an empty row — it rides along the
   // second row when one exists, else stays inline on the top row.
-  const hasSelectorRow = showEngineSel || showModelSel
+  const hasSelectorRow = showEngineSel || showModelSel || showLoopSel
   // Compact-tier right-click context menu state. `{ticketId, x, y}` while
   // open, `null` otherwise. Closed by outside-click, Escape, or selection.
   const [ticketCtxMenu, setTicketCtxMenu] = useState<{ ticketId: number; x: number; y: number } | null>(null)
@@ -386,11 +405,22 @@ export function RailRow({
           {onEngineChange && !isRunning && (
             <RailEngineSelector value={aiEngine ?? null} providers={providers ?? []} onChange={onEngineChange} />
           )}
-          {onProfileChange && !isRunning && profileApplies && (
+          {onProfileChange && !isRunning && profileApplies && mode !== 'loop' && (
             <RailProfileSelector value={profileName ?? null} onChange={onProfileChange} />
           )}
           {onUltracodeModelChange && !isRunning && mode === 'ultracode' && engineIsClaude && (
             <RailModelSelector value={ultracodeModel ?? null} onChange={onUltracodeModelChange} />
+          )}
+          {onLoopChange && !isRunning && (
+            <RailLoopSelector
+              value={effectiveLoopId(selectedLoopId, mode)}
+              onChange={onLoopChange}
+              ultracodeAvailable={engineIsClaude}
+              loopsEnabled={loopAvailable}
+            />
+          )}
+          {onEffortChange && !isRunning && mode === 'loop' && effortApplies && (
+            <RailEffortSelector value={reasoningEffort ?? null} onChange={onEffortChange} />
           )}
           <RailControls
             mode={mode}
@@ -398,6 +428,7 @@ export function RailRow({
             activeJobId={activeJobId}
             ticketCount={tickets.length}
             ultracodeAvailable={engineIsClaude}
+            loopAvailable={loopAvailable}
             interactive={interactive}
             interactiveAvailable={interactiveAvailable}
             onModeChange={onModeChange}
@@ -535,7 +566,7 @@ export function RailRow({
             {!hasSelectorRow && showProfileSel && onProfileChange && (
               <RailProfileSelector value={profileName ?? null} onChange={onProfileChange} />
             )}
-            <RailControls mode={mode} status={status} activeJobId={activeJobId} ticketCount={tickets.length} ultracodeAvailable={engineIsClaude} interactive={interactive} interactiveAvailable={interactiveAvailable} onModeChange={onModeChange} onInteractiveChange={onInteractiveChange} onToggle={onToggle} />
+            <RailControls mode={mode} status={status} activeJobId={activeJobId} ticketCount={tickets.length} ultracodeAvailable={engineIsClaude} loopAvailable={loopAvailable} interactive={interactive} interactiveAvailable={interactiveAvailable} onModeChange={onModeChange} onInteractiveChange={onInteractiveChange} onToggle={onToggle} />
             {/* Jiggle-mode delete button */}
             {jiggleMode && canDelete && (
               <button
@@ -562,6 +593,17 @@ export function RailRow({
               )}
               {showModelSel && onUltracodeModelChange && (
                 <RailModelSelector value={ultracodeModel ?? null} onChange={onUltracodeModelChange} />
+              )}
+              {showLoopSel && onLoopChange && (
+                <RailLoopSelector
+                  value={effectiveLoopId(selectedLoopId, mode)}
+                  onChange={onLoopChange}
+                  ultracodeAvailable={engineIsClaude}
+                  loopsEnabled={loopAvailable}
+                />
+              )}
+              {mode === 'loop' && !isRunning && effortApplies && onEffortChange && (
+                <RailEffortSelector value={reasoningEffort ?? null} onChange={onEffortChange} />
               )}
             </div>
           )}

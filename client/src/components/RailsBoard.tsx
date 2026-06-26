@@ -6,6 +6,7 @@ import { Layers, Plus } from 'lucide-react'
 import { RailRow } from './RailRow'
 import type { RailMode, RailStatus } from './RailControls'
 import type { UltracodeModel } from './agents/RailModelSelector'
+import type { ReasoningEffort } from './agents/RailEffortSelector'
 import type { LocalTicket } from '../types'
 
 export const RAIL_SORT_PREFIX = '__rail:'
@@ -31,6 +32,10 @@ export interface RailState {
   /** Per-rail "Interactive" toggle (ultracode only). When true, the launched job
    *  becomes a persistent chat session with a Finalize button. */
   interactive?: boolean
+  /** Selected published-loop id (loop mode). */
+  selectedLoopId?: string | null
+  /** Selected reasoning effort (loop mode). */
+  reasoningEffort?: ReasoningEffort | null
 }
 
 /**
@@ -72,6 +77,10 @@ interface RailsBoardProps {
   onEngineChange?: (railId: string, aiEngine: string) => void
   onUltracodeModelChange?: (railId: string, model: UltracodeModel) => void
   onInteractiveChange?: (railId: string, interactive: boolean) => void
+  /** When true, rails offer "Loop" mode. */
+  loopAvailable?: boolean
+  onLoopChange?: (railId: string, loopId: string) => void
+  onEffortChange?: (railId: string, effort: ReasoningEffort) => void
   onToggle: (railId: string) => void
   onTicketClick: (ticket: LocalTicket) => void
   onAddRail: () => void
@@ -100,7 +109,7 @@ function SortableRailWrapper({ railId, children }: { railId: string; children: (
 /** Width threshold below which rail rows switch to the compact mini-card layout. */
 export const RAILS_COMPACT_THRESHOLD_PX = 320
 
-export function RailsBoard({ rails, ticketMap, providers, onModeChange, onProfileChange, onEngineChange, onUltracodeModelChange, onInteractiveChange, onToggle, onTicketClick, onAddRail, onDeleteRail, onRenameRail, onTicketMoveToSpecs }: RailsBoardProps) {
+export function RailsBoard({ rails, ticketMap, providers, onModeChange, onProfileChange, onEngineChange, onUltracodeModelChange, onInteractiveChange, loopAvailable, onLoopChange, onEffortChange, onToggle, onTicketClick, onAddRail, onDeleteRail, onRenameRail, onTicketMoveToSpecs }: RailsBoardProps) {
   const { t } = useTranslation('dashboard')
   const activeRails = rails.filter((r) => r.status === 'running').length
   const [jiggleMode, setJiggleMode] = useState(false)
@@ -180,6 +189,9 @@ export function RailsBoard({ rails, ticketMap, providers, onModeChange, onProfil
                     ultracodeModel={rail.ultracodeModel ?? null}
                     interactive={rail.interactive ?? false}
                     providers={providers}
+                    loopAvailable={loopAvailable}
+                    selectedLoopId={rail.selectedLoopId ?? null}
+                    reasoningEffort={rail.reasoningEffort ?? null}
                     jiggleMode={jiggleMode}
                     density={density}
                     dragHandleListeners={listeners}
@@ -188,6 +200,8 @@ export function RailsBoard({ rails, ticketMap, providers, onModeChange, onProfil
                     onProfileChange={onProfileChange ? (p) => onProfileChange(rail.id, p) : undefined}
                     onEngineChange={onEngineChange ? (e) => onEngineChange(rail.id, e) : undefined}
                     onUltracodeModelChange={onUltracodeModelChange ? (m) => onUltracodeModelChange(rail.id, m) : undefined}
+                    onLoopChange={onLoopChange ? (l) => onLoopChange(rail.id, l) : undefined}
+                    onEffortChange={onEffortChange ? (eff) => onEffortChange(rail.id, eff) : undefined}
                     onInteractiveChange={onInteractiveChange ? (v) => onInteractiveChange(rail.id, v) : undefined}
                     onToggle={() => onToggle(rail.id)}
                     onTicketClick={onTicketClick}

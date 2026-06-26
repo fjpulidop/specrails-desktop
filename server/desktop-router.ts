@@ -22,6 +22,8 @@ import {
   TerminalSettingsValidationError,
 } from './terminal-settings'
 import type { AnalyticsOpts, AnalyticsPeriod } from './types'
+import { registerLoopsRoutes } from './loops-router'
+import { countRunningForLoop } from './loop-runs-store'
 
 function slugify(name: string): string {
   return name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '')
@@ -255,6 +257,16 @@ export function createDesktopRouter(
   broadcast: (msg: WsMessage) => void
 ): Router {
   const router = Router()
+
+  // Loops (global, cross-project library) — /api/loops*. Registered here so the
+  // routes live on the global `/api` router (loops are NOT project-scoped). The
+  // A loop is "running" iff any project's per-project DB has an in-flight
+  // loop_run for it — so edit/unpublish/delete are blocked (409) while it runs.
+  registerLoopsRoutes(router, {
+    db: registry.desktopDb,
+    isLoopRunning: (loopId) =>
+      registry.listContexts().some((c) => countRunningForLoop(c.db, loopId) > 0),
+  })
 
   // GET /api/projects — list all registered projects
   router.get('/projects', (_req, res) => {

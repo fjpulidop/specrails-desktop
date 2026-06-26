@@ -5,7 +5,8 @@
     "exploreSpec": "Explore",
     "aiEdit": "Raffinamento",
     "smash": "SMASH",
-    "fileSummary": "Riepiloghi file"
+    "fileSummary": "Riepiloghi file",
+    "loop": "Loops"
   },
   "periods": {
     "d7": "7d",

@@ -749,6 +749,46 @@ export interface RailUpdatedMessage {
   aiEngine: string | null
 }
 
+// ── Loop run lifecycle (the Loops feature) ───────────────────────────────────
+// A loop run is driven by the app-side LoopRunManager (NOT the job queue), so it
+// has its own lifecycle events, mirroring rail.job_* but keyed by loopRunId.
+
+export interface LoopRunStartedMessage {
+  type: 'loop.run_started'
+  projectId: string
+  loopRunId: string
+  loopId: string
+  railIndex: number | null
+}
+
+export interface LoopRunProgressMessage {
+  type: 'loop.run_progress'
+  projectId: string
+  loopRunId: string
+  iteration: number
+  /** Id of the node currently executing. */
+  activeNode: string
+  /** The Loop Decider's latest reasoning, present on decision steps. */
+  reasoning?: string
+}
+
+export interface LoopRunStoppedMessage {
+  type: 'loop.run_stopped'
+  projectId: string
+  loopRunId: string
+  railIndex: number | null
+}
+
+export interface LoopRunCompletedMessage {
+  type: 'loop.run_completed'
+  projectId: string
+  loopRunId: string
+  railIndex: number | null
+  /** Final outcome: 'success' | 'max-iterations' | 'max-cost' | 'stopped' | 'failed'. */
+  status: string
+  ticketIds: number[]
+}
+
 // ─── Plugin system ──────────────────────────────────────────────────────────
 
 export interface PluginRequirement {
@@ -1017,6 +1057,7 @@ export type WsMessage =
   | TicketAiEditStreamMessage | TicketAiEditDoneMessage | TicketAiEditErrorMessage
   | SpecGenStreamMessage | SpecGenDoneMessage | SpecGenErrorMessage
   | RailJobStartedMessage | RailJobStoppedMessage | RailJobCompletedMessage | RailUpdatedMessage
+  | LoopRunStartedMessage | LoopRunProgressMessage | LoopRunStoppedMessage | LoopRunCompletedMessage
   | AgentRefineStreamMessage | AgentRefinePhaseMessage | AgentRefineReadyMessage
   | AgentRefineTestMessage | AgentRefineErrorMessage | AgentRefineCancelledMessage
   | AgentRefineAppliedMessage

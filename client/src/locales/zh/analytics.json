@@ -5,7 +5,8 @@
     "exploreSpec": "Explore",
     "aiEdit": "AI 编辑",
     "smash": "SMASH",
-    "fileSummary": "文件摘要"
+    "fileSummary": "文件摘要",
+    "loop": "Loops"
   },
   "periods": {
     "d7": "7天",

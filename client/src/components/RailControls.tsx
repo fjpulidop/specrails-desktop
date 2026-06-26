@@ -4,7 +4,7 @@ import { useTranslation } from 'react-i18next'
 import { Button } from './ui/button'
 import { FEATURE_INTERACTIVE_JOBS } from '../lib/feature-flags'
 
-export type RailMode = 'implement' | 'batch-implement' | 'ultracode'
+export type RailMode = 'implement' | 'batch-implement' | 'ultracode' | 'loop'
 export type RailStatus = 'idle' | 'running' | 'failed'
 
 interface RailControlsProps {
@@ -15,6 +15,9 @@ interface RailControlsProps {
   /** When true, show the Claude-only Ultracode segment. Ultracode bypasses
    *  the OpenSpec pipeline and lets Claude implement the spec autonomously. */
   ultracodeAvailable?: boolean
+  /** When true, show the "Loop" segment (runs a published global loop against
+   *  the rail's specs). Gated by FEATURE_LOOPS_SECTION at the call site. */
+  loopAvailable?: boolean
   /** Per-rail "Interactive" toggle state (ultracode only). When checked, the
    *  launched job becomes a persistent chat session with a Finalize button. */
   interactive?: boolean
@@ -25,7 +28,7 @@ interface RailControlsProps {
   onToggle: () => void
 }
 
-export function RailControls({ mode, status, activeJobId, ticketCount, ultracodeAvailable, interactive, interactiveAvailable, onModeChange, onInteractiveChange, onToggle }: RailControlsProps) {
+export function RailControls({ mode, status, activeJobId, ticketCount, ultracodeAvailable, interactive, interactiveAvailable, onInteractiveChange, onToggle }: RailControlsProps) {
   const { t } = useTranslation('dashboard')
   const navigate = useNavigate()
   const canPlay = ticketCount > 0
@@ -45,49 +48,9 @@ export function RailControls({ mode, status, activeJobId, ticketCount, ultracode
         </Button>
       )}
 
-      {/* Mode segmented control */}
-      <div className="flex items-center rounded-md border border-border/40 bg-muted/20 overflow-hidden text-[10px]">
-        <button
-          type="button"
-          className={`px-2 py-0.5 transition-colors ${
-            mode === 'implement'
-              ? 'bg-primary/15 text-primary font-medium'
-              : 'text-muted-foreground hover:text-foreground hover:bg-muted/30'
-          }`}
-          onClick={() => onModeChange('implement')}
-        >
-          {t('railControls.implement')}
-        </button>
-        <div className="w-px h-3 bg-border/40 shrink-0" />
-        <button
-          type="button"
-          className={`px-2 py-0.5 transition-colors ${
-            mode === 'batch-implement'
-              ? 'bg-primary/15 text-primary font-medium'
-              : 'text-muted-foreground hover:text-foreground hover:bg-muted/30'
-          }`}
-          onClick={() => onModeChange('batch-implement')}
-        >
-          {t('railControls.batch')}
-        </button>
-        {ultracodeAvailable && (
-          <>
-            <div className="w-px h-3 bg-border/40 shrink-0" />
-            <button
-              type="button"
-              className={`px-2 py-0.5 transition-colors ${
-                mode === 'ultracode'
-                  ? 'bg-accent-highlight/20 text-accent-highlight font-semibold'
-                  : 'text-muted-foreground hover:text-foreground hover:bg-muted/30'
-              }`}
-              onClick={() => onModeChange('ultracode')}
-              title={t('railControls.ultraTitle')}
-            >
-              {t('railControls.ultra')}
-            </button>
-          </>
-        )}
-      </div>
+      {/* The rail's Loop picker (factory + custom loops) lives in RailRow and
+          replaces the old mode segmented control — the chosen Loop derives the
+          legacy `mode`. RailControls keeps Log / Interactive / Play. */}
 
       {/* Interactive toggle — ultracode only, when the feature is on and the
           rail is idle (mode is fixed once a job is running). */}

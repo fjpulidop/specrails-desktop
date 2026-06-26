@@ -25,8 +25,12 @@ import { dropBlobStatesForProject } from './telemetry-receiver'
 import { mirrorProjectEntry, removeRegistryEntry, reconcileFromProjects, resolveArtifacts, resolveHome } from './artifact-registry'
 import { resolveProjectExecution } from './workspace-resolution'
 import { removeWorkspace } from './workspace-manager'
-import { resolveTicketStoragePath, mutateStore, applyJobOutcomeToTickets, type JobOutcome } from './ticket-store'
+import { resolveTicketStoragePath, mutateStore, applyJobOutcomeToTickets, readStore, type JobOutcome } from './ticket-store'
 import { JiraSyncManager } from './jira/jira-sync-manager'
+import { LoopRunManager } from './loop-run-manager'
+import { createLoopExecutors } from './loop-executors'
+import { reconcileOrphanLoopRuns } from './loop-runs-store'
+import type { LoopSpec } from './loop-graph'
 import type { WsMessage, TicketUpdatedMessage, RailUpdatedMessage } from './types'
 import { getRails, setRailTickets } from './rails-store'
 import {
@@ -65,6 +69,19 @@ export interface ProjectContext {
   broadcast: (msg: WsMessage) => void
   /** Maps jobId → rail metadata for active rail-launched jobs */
   railJobs: Map<string, { railIndex: number; mode: string; ticketIds: number[] }>
+  // ── Loops (the Loops feature) ──────────────────────────────────────────────
+  /** App-driven loop engine for this project (Loops mode rails). */
+  loopRunManager: LoopRunManager
+  /** Maps loopRunId → rail metadata for active rail-launched loop runs. */
+  railLoopRuns: Map<string, { railIndex: number; ticketIds: number[] }>
+  /** Completion handler for a loop run: releases its tickets + rail slots,
+   *  mapping the loop outcome to a ticket outcome. The engine already emits the
+   *  loop.run_completed event. */
+  onLoopRunFinished: (runId: string, outcome: string) => void
+  /** Read a spec's fields for {{spec.*}} interpolation at launch. */
+  getTicketSpec: (ticketId: number) => LoopSpec | undefined
+  /** App-level DB (project registry + the global `loops` table). */
+  desktopDb: DbInstance
 }
 
 // ─── ProjectRegistry ──────────────────────────────────────────────────────────
@@ -618,7 +635,99 @@ export class ProjectRegistry {
       contextPool: this._browserContextPool,
     })
 
-    const ctx: ProjectContext = { project, db, queueManager, chatManager, setupManager, proposalManager, agentRefineManager, fileSummaryManager, specLauncherManager, ticketWatcher, browserCaptureManager, jiraSyncManager, broadcast: boundBroadcast, railJobs }
+    // ── Loops engine (the Loops feature) ──────────────────────────────────────
+    const railLoopRuns = new Map<string, { railIndex: number; ticketIds: number[] }>()
+    // A restart kills any in-flight loop process, so reconcile orphan 'running'
+    // rows to terminal — otherwise they keep the loop un-editable (isRunning 409).
+    try {
+      const orphans = reconcileOrphanLoopRuns(db, new Date().toISOString())
+      if (orphans > 0) console.log(`[loops] reconciled ${orphans} orphan loop run(s) for ${project.slug}`)
+    } catch { /* non-fatal */ }
+    const loopRunManager = new LoopRunManager(db, boundBroadcast, createLoopExecutors())
+
+    const getTicketSpec = (ticketId: number): LoopSpec | undefined => {
+      try {
+        const exec = resolveProjectExecution({ slug: project.slug, path: project.path })
+        const ticketFile = exec.relocated ? exec.ticketsPath : resolveTicketStoragePath(project.path)
+        const t = readStore(ticketFile).tickets[String(ticketId)]
+        if (!t) return undefined
+        // Expose every field a loop prompt can reference via `{{spec.*}}`.
+        return {
+          id: t.id,
+          title: t.title,
+          description: t.description,
+          status: t.status,
+          priority: t.priority,
+          labels: t.labels,
+          jira_key: t.jira_key ?? null,
+          jira_url: t.jira_url ?? null,
+        }
+      } catch {
+        return undefined
+      }
+    }
+
+    // Releases a finished loop run's tickets + rail slots. The engine already
+    // emitted loop.run_completed; this mirrors onJobFinished's ticket/rail
+    // release (kept separate so the critical job path is untouched).
+    const onLoopRunFinished = (runId: string, outcome: string): void => {
+      const meta = railLoopRuns.get(runId)
+      if (!meta) return
+      railLoopRuns.delete(runId)
+      const ticketIds = meta.ticketIds
+      if (ticketIds.length === 0) return
+      const status: JobOutcome =
+        outcome === 'success' ? 'completed' : outcome === 'stopped' ? 'canceled' : 'failed'
+      try {
+        const exec = resolveProjectExecution({ slug: project.slug, path: project.path })
+        const ticketFile = exec.relocated ? exec.ticketsPath : resolveTicketStoragePath(project.path)
+        const now = new Date().toISOString()
+        let changedIds: number[] = []
+        const store = mutateStore(ticketFile, (s) => {
+          changedIds = applyJobOutcomeToTickets(s, ticketIds, status, now)
+        })
+        for (const tid of changedIds) {
+          const ticket = store.tickets[String(tid)]
+          if (!ticket) continue
+          boundBroadcast({
+            type: 'ticket_updated',
+            ticket: ticket as unknown as TicketUpdatedMessage['ticket'],
+            projectId: project.id,
+            timestamp: ticket.updated_at,
+          } as TicketUpdatedMessage)
+        }
+        try {
+          const needsReviewIds = ticketIds.filter((tid) => store.tickets[String(tid)]?.needs_review === true)
+          jiraSyncManager.onJobOutcome({ ticketIds, status, jobId: runId, costUsd: null, durationMs: null, needsReviewIds })
+        } catch (err) {
+          console.error('[project-registry] jira loop onJobOutcome failed:', err)
+        }
+      } catch (err) {
+        console.error('[project-registry] failed to apply loop outcome to tickets:', err)
+      }
+      try {
+        for (const rail of getRails(db)) {
+          const remaining = rail.ticketIds.filter((id) => !ticketIds.includes(id))
+          if (remaining.length === rail.ticketIds.length) continue
+          setRailTickets(db, rail.railIndex, remaining, rail.mode, rail.profileName, rail.aiEngine)
+          boundBroadcast({
+            type: 'rail.updated',
+            projectId: project.id,
+            railIndex: rail.railIndex,
+            changed: 'tickets',
+            ticketIds: remaining,
+            name: rail.name ?? null,
+            mode: rail.mode,
+            profileName: rail.profileName ?? null,
+            aiEngine: rail.aiEngine ?? null,
+          } as RailUpdatedMessage)
+        }
+      } catch (err) {
+        console.error('[project-registry] failed to release rail tickets after loop run:', err)
+      }
+    }
+
+    const ctx: ProjectContext = { project, db, queueManager, chatManager, setupManager, proposalManager, agentRefineManager, fileSummaryManager, specLauncherManager, ticketWatcher, browserCaptureManager, jiraSyncManager, broadcast: boundBroadcast, railJobs, loopRunManager, railLoopRuns, onLoopRunFinished, getTicketSpec, desktopDb: this._desktopDb }
     this._contexts.set(project.id, ctx)
     return ctx
   }

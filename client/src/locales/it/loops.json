@@ -1,0 +1,205 @@
+{
+  "title": "Loops",
+  "subtitle": "Loop di automazione riutilizzabili — condivisi tra tutti i tuoi progetti.",
+  "newLoop": "Nuovo loop",
+  "sections": {
+    "drafts": "Bozze",
+    "published": "Pubblicati",
+    "templates": "Modelli",
+    "builtIn": "Integrati"
+  },
+  "status": {
+    "draft": "Bozza",
+    "published": "Pubblicato",
+    "running": "In esecuzione"
+  },
+  "empty": {
+    "title": "Ancora nessun loop",
+    "body": "Creane uno da zero o parti da un modello."
+  },
+  "actions": {
+    "edit": "Modifica",
+    "delete": "Elimina",
+    "publish": "Pubblica",
+    "unpublish": "Annulla pubblicazione",
+    "duplicate": "Duplica",
+    "use": "Usa modello",
+    "preview": "Anteprima",
+    "fork": "Fork per modificare",
+    "run": "Esegui",
+    "export": "Esporta",
+    "import": "Importa",
+    "select": "Seleziona {{name}}"
+  },
+  "card": {
+    "nodes_one": "{{count}} nodo",
+    "nodes_other": "{{count}} nodi",
+    "usedIn": "In uso · {{project}}"
+  },
+  "confirmDelete": "Eliminare questo loop? Scomparirà da ogni selettore di rail.",
+  "newLoopName": "Nuovo loop",
+  "errors": {
+    "load": "Impossibile caricare i loop",
+    "save": "Impossibile salvare il loop",
+    "publishInvalid": "Questo loop non può ancora essere pubblicato — correggi i problemi evidenziati."
+  },
+  "builder": {
+    "back": "Torna ai loop",
+    "save": "Salva",
+    "saved": "Loop salvato",
+    "publish": "Pubblica",
+    "published": "Loop pubblicato",
+    "addNode": "Aggiungi nodo",
+    "deleteNode": "Elimina nodo",
+    "config": {
+      "maxIterations": "Iterazioni massime",
+      "timeout": "Timeout (min)",
+      "maxIterationsHint": "Limite massimo di iterazioni del Loop Decider — il loop si ferma al raggiungimento anche se l'obiettivo non è soddisfatto. Evita loop infiniti.",
+      "timeoutHint": "Limite di tempo reale per l'intera esecuzione, in minuti. Se superato, l'esecuzione viene interrotta e segnata come fallita — una rete di sicurezza insieme alle iterazioni massime.",
+      "maxCost": "Costo max ($)",
+      "maxCostHint": "Budget USD opzionale per l’intera esecuzione. Controllato TRA i passi (il costo di un passo si conosce solo al termine), il loop si ferma prima del passo successivo quando il totale lo supera — può sforare di un passo. Per i provider non-Claude il costo è stimato. Vuoto = nessun limite."
+    },
+    "nodes": {
+      "start": "Inizio",
+      "ai-step": "Passo IA",
+      "shell": "Shell",
+      "decider": "Decisore del loop",
+      "condition": "Condizione",
+      "end": "Fine"
+    },
+    "inspector": {
+      "selectNode": "Seleziona un nodo per modificarlo.",
+      "prompt": "Prompt",
+      "provider": "Provider",
+      "model": "Modello",
+      "effort": "Sforzo di ragionamento",
+      "command": "Comando",
+      "goal": "Obiettivo / criteri di arresto",
+      "join": "Unione",
+      "outcome": "Esito",
+      "startNote": "Il punto di ingresso del loop. Collegalo al primo passo.",
+      "promptHint": "Clicca o trascina un token per inserirlo nel prompt.",
+      "tokensSpec": "Campi della spec",
+      "tokensJira": "Jira",
+      "tokensCommands": "Comandi",
+      "label": "Nome"
+    },
+    "branch": {
+      "continue": "↻ Continua",
+      "stop": "✓ Ferma"
+    },
+    "edgesHelp": {
+      "label": "Come si collegano i passaggi",
+      "body": "Le frecce definiscono l'ORDINE di esecuzione, non i dati — i box non hanno porte di input e gli archi non trasportano parametri. Ogni AI Step riprende automaticamente la propria sessione (intero contesto precedente) più un breve riepilogo dei passaggi precedenti; nulla viene collegato a mano. Il Loop Decider ha due uscite: ↻ Continua (obiettivo non raggiunto → torna al ciclo) e ✓ Ferma (obiettivo raggiunto → esci)."
+    },
+    "arrange": {
+      "label": "Disponi",
+      "vertical": "Verticale",
+      "horizontal": "Orizzontale",
+      "grid": "Griglia",
+      "reset": "Reimposta"
+    },
+    "constants": {
+      "label": "Costanti",
+      "manage": "Gestisci costanti",
+      "title": "Costanti del loop",
+      "empty": "Ancora nessuna costante personalizzata.",
+      "name": "NOME",
+      "value": "valore",
+      "add": "Aggiungi",
+      "builtinBadge": "Integrate"
+    },
+    "paste": {
+      "done_one": "{{count}} passo incollato",
+      "done_other": "{{count}} passi incollati"
+    },
+    "problems": {
+      "count_one": "{{count}} problema",
+      "count_other": "{{count}} problemi",
+      "NO_START": "Aggiungi un nodo di Avvio.",
+      "MULTIPLE_START": "È consentito un solo nodo di Avvio.",
+      "NO_END": "Aggiungi almeno un nodo di Fine.",
+      "ORPHAN": "Questo passo non è raggiungibile dall'Avvio.",
+      "DECIDER_BRANCHES": "Il Loop Decider richiede un ramo Continua e uno Ferma.",
+      "EMPTY_PROMPT": "L'AI Step ha il prompt vuoto.",
+      "EMPTY_COMMAND": "Il passo Shell ha il comando vuoto.",
+      "EMPTY_GOAL": "Il Loop Decider non ha un obiettivo.",
+      "DEAD_END": "Questo passo non ha connessioni in uscita."
+    },
+    "preview": {
+      "label": "Anteprima",
+      "title": "Anteprima (dry-run)",
+      "sampleNote": "I valori dello spec sono di esempio; comandi e costanti si risolvono come a runtime.",
+      "empty": "Nessun passo da visualizzare.",
+      "error": "Anteprima non riuscita"
+    }
+  },
+  "preview": {
+    "steps": "Passi",
+    "limits": "max {{iterations}} iterazioni · {{timeout}} min di timeout"
+  },
+  "builtInBadge": "Integrato",
+  "run": {
+    "title": "Esegui {{name}}",
+    "subtitle": "Avvia questo loop su un progetto (senza ticket).",
+    "project": "Progetto",
+    "provider": "Provider",
+    "effort": "Sforzo di ragionamento",
+    "execute": "Esegui",
+    "noProjects": "Nessun progetto disponibile.",
+    "launched": "Esecuzione di {{name}}"
+  },
+  "catalog": {
+    "ship-and-green": {
+      "name": "Ship & Green",
+      "description": "Completamente autonomo: implementa la spec, verifica e affina (corregge) in caso di fallimento — ripetendo il ciclo verifica → correggi → verifica finché tutto è verde. Nessun intervento umano."
+    },
+    "verify-pass": {
+      "name": "Verify Pass",
+      "description": "Verifica e correzione autonome: rileva ed esegue build/lint/test del progetto, poi affina in caso di fallimento — verifica → correggi → verifica finché è verde."
+    },
+    "ci-watch": {
+      "name": "CI Watch",
+      "description": "Controlla i check di CI sulla PR aperta (l'agente usa gli strumenti di CI del repository) finché ogni check non è verde."
+    },
+    "lint-and-fix": {
+      "name": "Lint & Fix",
+      "description": "L'agente rileva ed esegue il linter del progetto e corregge ogni problema, iterando finché il codice non è pulito."
+    },
+    "type-safe": {
+      "name": "Type Safe",
+      "description": "L'agente rileva ed esegue il type checker del progetto e risolve ogni errore, iterando finché non passa senza errori."
+    },
+    "coverage-climb": {
+      "name": "Coverage Climb",
+      "description": "L'agente esegue gli strumenti di copertura del progetto e aggiunge test mirati finché le soglie non vengono superate."
+    },
+    "build-fix": {
+      "name": "Build Fix",
+      "description": "L'agente rileva ed esegue il build di produzione del progetto e corregge gli errori di compilazione/bundle finché non è verde."
+    },
+    "deploy-check": {
+      "name": "Deploy Check",
+      "description": "L'agente controlla lo stato di deploy/salute (usando gli strumenti di deploy del progetto) finché il servizio non risulta integro."
+    },
+    "factory_implement": {
+      "name": "Implementa",
+      "description": "Completamente autonomo: implementa la spec, verifica e affina (corregge) in caso di fallimento — ripetendo il ciclo finché tutti i test non passano."
+    },
+    "factory_batch": {
+      "name": "Implementa in batch",
+      "description": "Implementa in batch tutti i ticket del rail in una sola volta, poi verifica + affina in caso di fallimento finché non è verde."
+    },
+    "factory_ultracode": {
+      "name": "Ultracode",
+      "description": "Implementazione autonoma per ticket (senza pipeline), poi verifica + affina finché non è verde. Solo Claude."
+    }
+  },
+  "import": {
+    "done_one": "{{count}} loop importato",
+    "done_other": "{{count}} loop importati",
+    "skipped_one": "{{count}} duplicato saltato: {{names}}",
+    "skipped_other": "{{count}} duplicati saltati: {{names}}",
+    "invalid": "Quel file non è un export di loop valido."
+  }
+}

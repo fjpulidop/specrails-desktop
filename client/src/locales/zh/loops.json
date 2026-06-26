@@ -1,0 +1,205 @@
+{
+  "title": "Loops",
+  "subtitle": "可复用的自动化循环——在你所有项目间共享。",
+  "newLoop": "新建循环",
+  "sections": {
+    "drafts": "草稿",
+    "published": "已发布",
+    "templates": "模板",
+    "builtIn": "内置"
+  },
+  "status": {
+    "draft": "草稿",
+    "published": "已发布",
+    "running": "运行中"
+  },
+  "empty": {
+    "title": "暂无循环",
+    "body": "从零创建一个，或从模板开始。"
+  },
+  "actions": {
+    "edit": "编辑",
+    "delete": "删除",
+    "publish": "发布",
+    "unpublish": "取消发布",
+    "duplicate": "复制",
+    "use": "使用模板",
+    "preview": "预览",
+    "fork": "复刻以编辑",
+    "run": "运行",
+    "export": "导出",
+    "import": "导入",
+    "select": "选择 {{name}}"
+  },
+  "card": {
+    "nodes_one": "{{count}} 个节点",
+    "nodes_other": "{{count}} 个节点",
+    "usedIn": "使用中 · {{project}}"
+  },
+  "confirmDelete": "删除此循环？它将从所有 rail 选择器中消失。",
+  "newLoopName": "新建循环",
+  "errors": {
+    "load": "加载循环失败",
+    "save": "保存循环失败",
+    "publishInvalid": "此循环暂时无法发布——请修复高亮显示的问题。"
+  },
+  "builder": {
+    "back": "返回循环列表",
+    "save": "保存",
+    "saved": "循环已保存",
+    "publish": "发布",
+    "published": "循环已发布",
+    "addNode": "添加节点",
+    "deleteNode": "删除节点",
+    "config": {
+      "maxIterations": "最大迭代次数",
+      "timeout": "超时（分钟）",
+      "maxIterationsHint": "Loop Decider 迭代次数上限——达到后即使目标未达成也会停止循环。防止无限循环。",
+      "timeoutHint": "整个运行的实际时间上限（分钟）。超过后运行将停止并标记为失败——与最大迭代次数一起作为安全网。",
+      "maxCost": "最大费用 ($)",
+      "maxCostHint": "整个运行的可选美元预算。在步骤之间检查（每步费用只有在该步结束后才知道），因此当总额超过时循环会在下一步之前停止——可能超出一步。非 Claude 提供方的费用为估算。留空 = 不限制。"
+    },
+    "nodes": {
+      "start": "开始",
+      "ai-step": "AI 步骤",
+      "shell": "Shell",
+      "decider": "循环决策器",
+      "condition": "条件",
+      "end": "结束"
+    },
+    "inspector": {
+      "selectNode": "选择一个节点进行编辑。",
+      "prompt": "提示词",
+      "provider": "提供方",
+      "model": "模型",
+      "effort": "推理强度",
+      "command": "命令",
+      "goal": "目标 / 停止条件",
+      "join": "合并",
+      "outcome": "结果",
+      "startNote": "循环的入口点。将其连接到第一个步骤。",
+      "promptHint": "点击或拖动令牌将其插入提示词。",
+      "tokensSpec": "Spec 字段",
+      "tokensJira": "Jira",
+      "tokensCommands": "命令",
+      "label": "名称"
+    },
+    "branch": {
+      "continue": "↻ 继续",
+      "stop": "✓ 停止"
+    },
+    "edgesHelp": {
+      "label": "步骤如何连接",
+      "body": "箭头设定的是运行顺序,而非数据——节点没有输入端口,连线也不携带任何参数。每个 AI Step 都会自动恢复其会话(完整的先前上下文),并附带前序步骤的简短摘要;无需手动连线。Loop Decider 有两个输出:↻ 继续(目标未达成 → 循环返回)和 ✓ 停止(目标达成 → 退出)。"
+    },
+    "arrange": {
+      "label": "排列",
+      "vertical": "垂直",
+      "horizontal": "水平",
+      "grid": "网格",
+      "reset": "重置"
+    },
+    "constants": {
+      "label": "常量",
+      "manage": "管理常量",
+      "title": "循环常量",
+      "empty": "还没有自定义常量。",
+      "name": "名称",
+      "value": "值",
+      "add": "添加",
+      "builtinBadge": "内置"
+    },
+    "paste": {
+      "done_one": "已粘贴 {{count}} 个步骤",
+      "done_other": "已粘贴 {{count}} 个步骤"
+    },
+    "problems": {
+      "count_one": "{{count}} 个问题",
+      "count_other": "{{count}} 个问题",
+      "NO_START": "添加一个开始节点。",
+      "MULTIPLE_START": "只允许一个开始节点。",
+      "NO_END": "至少添加一个结束节点。",
+      "ORPHAN": "该步骤无法从开始到达。",
+      "DECIDER_BRANCHES": "Loop Decider 需要一个继续分支和一个停止分支。",
+      "EMPTY_PROMPT": "AI 步骤的提示词为空。",
+      "EMPTY_COMMAND": "Shell 步骤的命令为空。",
+      "EMPTY_GOAL": "Loop Decider 没有目标。",
+      "DEAD_END": "该步骤没有出向连接。"
+    },
+    "preview": {
+      "label": "预览",
+      "title": "试运行预览",
+      "sampleNote": "Spec 值为示例数据；命令和常量按运行时的实际值解析。",
+      "empty": "没有可预览的步骤。",
+      "error": "预览失败"
+    }
+  },
+  "preview": {
+    "steps": "步骤",
+    "limits": "最多 {{iterations}} 次迭代 · {{timeout}} 分钟超时"
+  },
+  "builtInBadge": "内置",
+  "run": {
+    "title": "运行 {{name}}",
+    "subtitle": "在某个项目上启动此循环（无需工单）。",
+    "project": "项目",
+    "provider": "提供方",
+    "effort": "推理强度",
+    "execute": "执行",
+    "noProjects": "没有可用的项目。",
+    "launched": "正在运行 {{name}}"
+  },
+  "catalog": {
+    "ship-and-green": {
+      "name": "交付并通过",
+      "description": "全自动:实现 spec、验证,失败时自动修正(fix)——循环执行 验证 → 修复 → 验证,直到全部通过。无需人工干预。"
+    },
+    "verify-pass": {
+      "name": "验证通过",
+      "description": "自动验证并修复:检测并运行项目的 build/lint/测试,失败时自动修正——验证 → 修复 → 验证,直到全部通过。"
+    },
+    "ci-watch": {
+      "name": "CI 监视",
+      "description": "轮询当前已打开 PR 的 CI 检查(由 agent 使用仓库的 CI 工具),直到每一项检查都通过。"
+    },
+    "lint-and-fix": {
+      "name": "Lint 修复",
+      "description": "agent 检测并运行项目的 linter,修复每一个问题,持续迭代直到代码库干净无误。"
+    },
+    "type-safe": {
+      "name": "类型安全",
+      "description": "agent 检测并运行项目的类型检查器,解决每一个错误,持续迭代直到顺利通过。"
+    },
+    "coverage-climb": {
+      "name": "覆盖率提升",
+      "description": "agent 运行项目的覆盖率工具并补充针对性测试,直到达到阈值。"
+    },
+    "build-fix": {
+      "name": "构建修复",
+      "description": "agent 检测并运行项目的生产 build,修复编译/打包错误,直到顺利通过。"
+    },
+    "deploy-check": {
+      "name": "部署检查",
+      "description": "agent 轮询部署/健康状态(使用项目的 deploy 工具),直到服务报告健康。"
+    },
+    "factory_implement": {
+      "name": "实现",
+      "description": "全自动:实现 spec、验证,失败时自动修正(fix)——循环直到所有测试通过。"
+    },
+    "factory_batch": {
+      "name": "批量实现",
+      "description": "一次性批量实现该 rail 的全部工单,然后验证 + 失败时修正,直到全部通过。"
+    },
+    "factory_ultracode": {
+      "name": "Ultracode",
+      "description": "按工单自动实现(无流水线),然后验证 + 修正,直到全部通过。仅支持 Claude。"
+    }
+  },
+  "import": {
+    "done_one": "已导入 {{count}} 个循环",
+    "done_other": "已导入 {{count}} 个循环",
+    "skipped_one": "已跳过 {{count}} 个重复项：{{names}}",
+    "skipped_other": "已跳过 {{count}} 个重复项：{{names}}",
+    "invalid": "该文件不是有效的循环导出。"
+  }
+}

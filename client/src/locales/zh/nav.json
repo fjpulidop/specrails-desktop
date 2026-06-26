@@ -22,6 +22,7 @@
   },
   "arcSidebar": {
     "desktopTitle": "Desktop",
+    "loops": "Loops",
     "docs": "文档",
     "analytics": "分析",
     "settings": "设置"

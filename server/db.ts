@@ -704,6 +704,55 @@ const MIGRATIONS: Migration[] = [
       db.exec(`ALTER TABLE jobs ADD COLUMN interactive INTEGER NOT NULL DEFAULT 0`)
     }
   },
+
+  // Migration 33: loop_runs — per-project record of an executed Loop (the Loops
+  // feature). A loop DEFINITION is global (desktop.sqlite `loops`); a RUN happens
+  // in a project, bound to a rail + spec. Powers loop analytics (iterations,
+  // final outcome, success rate, totals) alongside the per-step ai_invocations
+  // rows (surface='loop', linked via loop_run_id). "Running" loop state is
+  // derived from rows here with status='running'.
+  (db) => {
+    db.exec(`
+      CREATE TABLE IF NOT EXISTS loop_runs (
+        id                TEXT PRIMARY KEY,
+        project_id        TEXT NOT NULL,
+        loop_id           TEXT NOT NULL,
+        loop_name         TEXT,
+        rail_index        INTEGER,
+        ticket_id         INTEGER,
+        provider          TEXT,
+        model             TEXT,
+        reasoning_effort  TEXT,
+        status            TEXT NOT NULL DEFAULT 'running',
+        final_outcome     TEXT,
+        iteration_limit   INTEGER NOT NULL DEFAULT 0,
+        iteration_count   INTEGER NOT NULL DEFAULT 0,
+        total_cost_usd    REAL NOT NULL DEFAULT 0,
+        total_tokens      INTEGER NOT NULL DEFAULT 0,
+        total_duration_ms INTEGER NOT NULL DEFAULT 0,
+        started_at        TEXT NOT NULL,
+        finished_at       TEXT,
+        created_at        TEXT NOT NULL DEFAULT (datetime('now'))
+      );
+      CREATE INDEX IF NOT EXISTS idx_loop_runs_project_started ON loop_runs(project_id, started_at DESC);
+      CREATE INDEX IF NOT EXISTS idx_loop_runs_outcome ON loop_runs(project_id, final_outcome);
+      CREATE INDEX IF NOT EXISTS idx_loop_runs_loop ON loop_runs(loop_id);
+    `)
+  },
+
+  // Migration 34: ai_invocations.loop_run_id — links a loop's per-iteration AI
+  // invocations (AI Step + Loop Decider, surface='loop') to their loop_runs row
+  // for run-level rollups. NULL for every non-loop invocation. Additive +
+  // idempotent (guarded by PRAGMA table_info, mirroring migrations 18–32).
+  (db) => {
+    const cols = (db.prepare(`PRAGMA table_info(ai_invocations)`).all() as { name: string }[]).map((r) => r.name)
+    if (!cols.includes('loop_run_id')) {
+      db.exec(`ALTER TABLE ai_invocations ADD COLUMN loop_run_id TEXT`)
+      db.exec(
+        `CREATE INDEX IF NOT EXISTS idx_ai_invocations_loop_run ON ai_invocations(loop_run_id) WHERE loop_run_id IS NOT NULL`
+      )
+    }
+  },
 ]
 
 function applyMigrations(db: DbInstance): void {

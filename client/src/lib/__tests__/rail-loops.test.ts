@@ -1,0 +1,38 @@
+import { describe, it, expect } from 'vitest'
+import { factoryIdForMode, deriveRailMode, effectiveLoopId, FACTORY_LOOP_ID, FACTORY_RAIL_LOOPS } from '../rail-loops'
+
+describe('rail-loops helpers', () => {
+  it('maps each legacy mode to its factory loop id', () => {
+    expect(factoryIdForMode('implement')).toBe('factory:implement')
+    expect(factoryIdForMode('batch-implement')).toBe('factory:batch')
+    expect(factoryIdForMode('ultracode')).toBe('factory:ultracode')
+    expect(factoryIdForMode('loop')).toBe('') // custom loops have no factory id
+    expect(FACTORY_LOOP_ID.implement).toBe('factory:implement')
+  })
+
+  it('derives the legacy mode from a chosen loop id', () => {
+    expect(deriveRailMode('factory:implement')).toBe('implement')
+    expect(deriveRailMode('factory:batch')).toBe('batch-implement')
+    expect(deriveRailMode('factory:ultracode')).toBe('ultracode')
+    expect(deriveRailMode('some-custom-id')).toBe('loop')
+    expect(deriveRailMode(null)).toBe('loop')
+  })
+
+  it('round-trips mode → factory id → mode', () => {
+    for (const mode of ['implement', 'batch-implement', 'ultracode'] as const) {
+      expect(deriveRailMode(factoryIdForMode(mode))).toBe(mode)
+    }
+  })
+
+  it('effectiveLoopId prefers the explicit pick, else the factory id for the mode', () => {
+    expect(effectiveLoopId('custom-x', 'loop')).toBe('custom-x')
+    expect(effectiveLoopId(null, 'implement')).toBe('factory:implement')
+    expect(effectiveLoopId(undefined, 'ultracode')).toBe('factory:ultracode')
+    expect(effectiveLoopId('', 'loop')).toBe('') // custom mode + no pick → empty (blocks launch)
+  })
+
+  it('exposes the built-in rail loops with ultracode flagged claude-only', () => {
+    expect(FACTORY_RAIL_LOOPS.map((f) => f.id)).toEqual(['factory:implement', 'factory:batch', 'factory:ultracode'])
+    expect(FACTORY_RAIL_LOOPS.find((f) => f.id === 'factory:ultracode')?.claudeOnly).toBe(true)
+  })
+})

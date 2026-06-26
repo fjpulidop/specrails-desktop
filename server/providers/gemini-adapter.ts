@@ -242,6 +242,10 @@ export const geminiAdapter: ProviderAdapter = {
     nativeOtelEnv: true,
     profileEnvSupport: true,
     systemPromptArg: false,
+    // gemini-cli has NO per-invocation reasoning-effort flag (thinking levels
+    // require settings.json `thinkingConfig` + custom model aliases, not a
+    // per-spawn arg), so effort is not offered and the adapter ignores it.
+    supportsReasoningEffort: false,
   },
   modelCatalog: () => GEMINI_MODELS,
   defaultModel: () => 'gemini-3.5-flash',

@@ -76,6 +76,9 @@ function buildCodexArgs(action: SpawnAction, opts: SpawnOptions): string[] {
       args.push('exec', '--json', ...SANDBOX_FLAGS, SKIP_GIT_CHECK)
       args.push(opts.prompt)
       args.push('--model', opts.model)
+      // Native reasoning effort (codex 0.139+). String value is quoted to match
+      // the `-c key="value"` override form used elsewhere in this adapter.
+      if (opts.reasoning_effort) args.push('-c', `model_reasoning_effort="${opts.reasoning_effort}"`)
       if (opts.extraArgs) args.push(...opts.extraArgs)
       return args
     }
@@ -86,6 +89,9 @@ function buildCodexArgs(action: SpawnAction, opts: SpawnOptions): string[] {
       args.push('exec', '--json', ...SANDBOX_FLAGS, SKIP_GIT_CHECK)
       args.push(fold(opts.systemPrompt, opts.prompt))
       args.push('--model', opts.model)
+      // Native reasoning effort (codex 0.139+). String value is quoted to match
+      // the `-c key="value"` override form used elsewhere in this adapter.
+      if (opts.reasoning_effort) args.push('-c', `model_reasoning_effort="${opts.reasoning_effort}"`)
       if (opts.extraArgs) args.push(...opts.extraArgs)
       return args
     }
@@ -100,6 +106,9 @@ function buildCodexArgs(action: SpawnAction, opts: SpawnOptions): string[] {
       args.push(opts.sessionId)
       args.push(opts.prompt)
       args.push('--model', opts.model)
+      // Native reasoning effort (codex 0.139+). String value is quoted to match
+      // the `-c key="value"` override form used elsewhere in this adapter.
+      if (opts.reasoning_effort) args.push('-c', `model_reasoning_effort="${opts.reasoning_effort}"`)
       if (opts.extraArgs) args.push(...opts.extraArgs)
       return args
     }
@@ -111,6 +120,9 @@ function buildCodexArgs(action: SpawnAction, opts: SpawnOptions): string[] {
       args.push(opts.sessionId)
       args.push(fold(opts.systemPrompt, opts.prompt))
       args.push('--model', opts.model)
+      // Native reasoning effort (codex 0.139+). String value is quoted to match
+      // the `-c key="value"` override form used elsewhere in this adapter.
+      if (opts.reasoning_effort) args.push('-c', `model_reasoning_effort="${opts.reasoning_effort}"`)
       if (opts.extraArgs) args.push(...opts.extraArgs)
       return args
     }
@@ -129,6 +141,9 @@ function buildCodexArgs(action: SpawnAction, opts: SpawnOptions): string[] {
       args.push('exec', '--json', ...RAIL_SANDBOX_FLAGS, SKIP_GIT_CHECK)
       args.push(fold(opts.systemPrompt, opts.prompt))
       args.push('--model', opts.model)
+      // Native reasoning effort (codex 0.139+). String value is quoted to match
+      // the `-c key="value"` override form used elsewhere in this adapter.
+      if (opts.reasoning_effort) args.push('-c', `model_reasoning_effort="${opts.reasoning_effort}"`)
       if (opts.extraArgs) args.push(...opts.extraArgs)
       return args
     }
@@ -301,6 +316,7 @@ export const codexAdapter: ProviderAdapter = {
     nativeOtelEnv: false,
     profileEnvSupport: true,
     systemPromptArg: false,
+    supportsReasoningEffort: true,
   },
   modelCatalog: () => CODEX_MODELS,
   defaultModel: () => 'gpt-5.5',

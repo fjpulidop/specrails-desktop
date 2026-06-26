@@ -1,0 +1,205 @@
+{
+  "title": "Loops",
+  "subtitle": "Reusable automation loops — shared across all your projects.",
+  "newLoop": "New loop",
+  "sections": {
+    "drafts": "Drafts",
+    "published": "Published",
+    "templates": "Templates",
+    "builtIn": "Built-in"
+  },
+  "status": {
+    "draft": "Draft",
+    "published": "Published",
+    "running": "Running"
+  },
+  "empty": {
+    "title": "No loops yet",
+    "body": "Create one from scratch or start from a template."
+  },
+  "actions": {
+    "edit": "Edit",
+    "delete": "Delete",
+    "publish": "Publish",
+    "unpublish": "Unpublish",
+    "duplicate": "Duplicate",
+    "use": "Use template",
+    "preview": "Preview",
+    "fork": "Fork to edit",
+    "run": "Run",
+    "export": "Export",
+    "import": "Import",
+    "select": "Select {{name}}"
+  },
+  "card": {
+    "nodes_one": "{{count}} node",
+    "nodes_other": "{{count}} nodes",
+    "usedIn": "In use · {{project}}"
+  },
+  "confirmDelete": "Delete this loop? It will disappear from every rail picker.",
+  "newLoopName": "New loop",
+  "errors": {
+    "load": "Failed to load loops",
+    "save": "Failed to save loop",
+    "publishInvalid": "This loop can't be published yet — fix the highlighted issues."
+  },
+  "builder": {
+    "back": "Back to Loops",
+    "save": "Save",
+    "saved": "Loop saved",
+    "publish": "Publish",
+    "published": "Loop published",
+    "addNode": "Add node",
+    "deleteNode": "Delete node",
+    "config": {
+      "maxIterations": "Max iterations",
+      "timeout": "Timeout (min)",
+      "maxIterationsHint": "Hard cap on Loop Decider iterations — the loop stops when it's reached even if the goal isn't met. Prevents runaway loops.",
+      "timeoutHint": "Wall-clock limit for the whole run, in minutes. If exceeded, the run is stopped and marked failed — a safety net alongside max iterations.",
+      "maxCost": "Max cost ($)",
+      "maxCostHint": "Optional USD budget for the whole run. Checked BETWEEN steps (a step’s cost is only known once it finishes), so the loop stops before the next step once the total crosses it — may overshoot by one step. For non-Claude providers the cost is an estimate. Empty = no cap."
+    },
+    "nodes": {
+      "start": "Start",
+      "ai-step": "AI Step",
+      "shell": "Shell",
+      "decider": "Loop Decider",
+      "condition": "Condition",
+      "end": "End"
+    },
+    "inspector": {
+      "selectNode": "Select a node to edit it.",
+      "prompt": "Prompt",
+      "provider": "Provider",
+      "model": "Model",
+      "effort": "Reasoning effort",
+      "command": "Command",
+      "goal": "Goal / stop criteria",
+      "join": "Join",
+      "outcome": "Outcome",
+      "startNote": "The entry point of the loop. Connect it to the first step.",
+      "promptHint": "Click or drag a token to insert it into the prompt.",
+      "tokensSpec": "Spec fields",
+      "tokensJira": "Jira",
+      "tokensCommands": "Commands",
+      "label": "Name"
+    },
+    "branch": {
+      "continue": "↻ Continue",
+      "stop": "✓ Stop"
+    },
+    "edgesHelp": {
+      "label": "How steps connect",
+      "body": "Arrows set the run ORDER, not data — boxes have no input ports and edges carry no parameters. Each AI Step automatically resumes its session (full prior context) plus a short summary of previous steps; nothing is wired by hand. The Loop Decider has two outputs: ↻ Continue (goal not met → loop back) and ✓ Stop (goal met → exit)."
+    },
+    "arrange": {
+      "label": "Arrange",
+      "vertical": "Vertical",
+      "horizontal": "Horizontal",
+      "grid": "Grid",
+      "reset": "Reset"
+    },
+    "constants": {
+      "label": "Constants",
+      "manage": "Manage constants",
+      "title": "Loop constants",
+      "empty": "No custom constants yet.",
+      "name": "NAME",
+      "value": "value",
+      "add": "Add",
+      "builtinBadge": "Built-in"
+    },
+    "paste": {
+      "done_one": "Pasted {{count}} step",
+      "done_other": "Pasted {{count}} steps"
+    },
+    "problems": {
+      "count_one": "{{count}} problem",
+      "count_other": "{{count}} problems",
+      "NO_START": "Add a Start node.",
+      "MULTIPLE_START": "Only one Start node is allowed.",
+      "NO_END": "Add at least one End node.",
+      "ORPHAN": "This step isn't reachable from Start.",
+      "DECIDER_BRANCHES": "Loop Decider needs a Continue and a Stop branch.",
+      "EMPTY_PROMPT": "AI Step has an empty prompt.",
+      "EMPTY_COMMAND": "Shell step has an empty command.",
+      "EMPTY_GOAL": "Loop Decider has no goal.",
+      "DEAD_END": "This step has no outgoing connection."
+    },
+    "preview": {
+      "label": "Preview",
+      "title": "Dry-run preview",
+      "sampleNote": "Spec values use sample data; commands and constants resolve exactly as they will at run time.",
+      "empty": "No steps to preview.",
+      "error": "Preview failed"
+    }
+  },
+  "preview": {
+    "steps": "Steps",
+    "limits": "{{iterations}} iterations max · {{timeout}} min timeout"
+  },
+  "builtInBadge": "Built-in",
+  "run": {
+    "title": "Run {{name}}",
+    "subtitle": "Launch this loop on a project (no ticket needed).",
+    "project": "Project",
+    "provider": "Provider",
+    "effort": "Reasoning effort",
+    "execute": "Execute",
+    "noProjects": "No projects available.",
+    "launched": "Running {{name}}"
+  },
+  "catalog": {
+    "ship-and-green": {
+      "name": "Ship & Green",
+      "description": "Fully autonomous: implement the spec, verify, and refine (fix) on failure — looping verify → fix → verify until everything is green. No human intervention."
+    },
+    "verify-pass": {
+      "name": "Verify Pass",
+      "description": "Autonomous verify-and-fix: detect and run the project's build/lint/tests, then refine on failure — verify → fix → verify until green."
+    },
+    "ci-watch": {
+      "name": "CI Watch",
+      "description": "Poll CI checks on the open PR (the agent uses the repo's CI tooling) until every check is green."
+    },
+    "lint-and-fix": {
+      "name": "Lint & Fix",
+      "description": "The agent detects and runs the project's linter and fixes every issue, iterating until the codebase is clean."
+    },
+    "type-safe": {
+      "name": "Type Safe",
+      "description": "The agent detects and runs the project's type checker and resolves every error, iterating until it passes cleanly."
+    },
+    "coverage-climb": {
+      "name": "Coverage Climb",
+      "description": "The agent runs the project's coverage tooling and adds focused tests until the thresholds pass."
+    },
+    "build-fix": {
+      "name": "Build Fix",
+      "description": "The agent detects and runs the project's production build and fixes compile/bundle errors until it is green."
+    },
+    "deploy-check": {
+      "name": "Deploy Check",
+      "description": "The agent polls the deployment/health status (using the project's deploy tooling) until the service reports healthy."
+    },
+    "factory_implement": {
+      "name": "Implement",
+      "description": "Fully autonomous: implement the spec, verify, and refine (fix) on failure — looping until all tests pass."
+    },
+    "factory_batch": {
+      "name": "Batch Implement",
+      "description": "Batch-implement all the rail's tickets at once, then verify + refine on failure until green."
+    },
+    "factory_ultracode": {
+      "name": "Ultracode",
+      "description": "Autonomous per-ticket implementation (no pipeline), then verify + refine until green. Claude only."
+    }
+  },
+  "import": {
+    "done_one": "Imported {{count}} loop",
+    "done_other": "Imported {{count}} loops",
+    "skipped_one": "Skipped {{count}} duplicate: {{names}}",
+    "skipped_other": "Skipped {{count}} duplicates: {{names}}",
+    "invalid": "That file isn't a valid loops export."
+  }
+}
