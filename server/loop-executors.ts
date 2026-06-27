@@ -107,6 +107,11 @@ export function createLoopExecutors(opts: { env?: NodeJS.ProcessEnv } = {}): Loo
             : undefined
       if (repoDir) { try { ensureFrameworkAgents(cwd, adapter.projectDirName) } catch { /* best-effort */ } }
       let text = ''
+      // The adapter parses provider failures (codex `turn.failed`, etc.) into a
+      // structured `error` event on the stdout stream — capture its message so we
+      // surface the REAL reason (e.g. "You've hit your usage limit") instead of
+      // the `stderrTail`, which often holds only an informational line.
+      let errorText: string | undefined
       const res = await runAiCliInvocation({
         adapter,
         action,
@@ -124,14 +129,29 @@ export function createLoopExecutors(opts: { env?: NodeJS.ProcessEnv } = {}): Loo
         onEvent: (ev) => {
           if (ev.kind === 'text-delta') { text += ev.text; onLine?.(ev.text) }
           else if (ev.kind === 'tool-use') onLine?.(`🔧 ${ev.name} ${ev.inputPreview ?? ''}`.trim())
+          else if (ev.kind === 'error' && ev.message) errorText = ev.message
         },
       })
+      const failed = res.spawnFailed || res.timedOut || (res.code != null && res.code !== 0)
       if (res.spawnFailed) {
-        const msg = `AI step: failed to spawn "${adapter.binary}" (on PATH?)`
+        errorText = errorText ?? `failed to spawn "${adapter.binary}" (on PATH?)`
+        const msg = `AI step: ${errorText}`
+        console.error(`[loop] ${msg}`)
+        onLine?.(msg, 'stderr')
+      } else if (res.timedOut) {
+        // A wedged/unresponsive provider settles with code=null + timedOut. Count
+        // it as a failure so the engine's fail-fast can bail instead of paying the
+        // full timeout every pass.
+        errorText = errorText ?? `${adapter.binary} timed out`
+        const msg = `AI step: ${errorText}`
         console.error(`[loop] ${msg}`)
         onLine?.(msg, 'stderr')
       } else if (res.code != null && res.code !== 0) {
-        const msg = `AI step: ${adapter.binary} exited code=${res.code}${res.stderrTail ? ` — ${res.stderrTail.slice(0, 300)}` : ''}`
+        // Prefer the adapter's structured error (e.g. codex `turn.failed`:
+        // "You've hit your usage limit") over `stderrTail`, which for codex holds
+        // only the informational "Reading additional input from stdin…" line.
+        const reason = errorText ?? (res.stderrTail ? res.stderrTail.slice(0, 300) : '')
+        const msg = `AI step: ${adapter.binary} exited code=${res.code}${reason ? ` — ${reason}` : ''}`
         console.error(`[loop] ${msg}`)
         onLine?.(msg, 'stderr')
       }
@@ -145,6 +165,8 @@ export function createLoopExecutors(opts: { env?: NodeJS.ProcessEnv } = {}): Loo
         provider: adapter.id,
         model: result.model ?? model,
         estimated,
+        failed,
+        errorText,
       }
     },
 

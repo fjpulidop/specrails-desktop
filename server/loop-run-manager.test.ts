@@ -101,6 +101,61 @@ beforeEach(() => {
   broadcasts = []
 })
 
+describe('LoopRunManager fail-fast (provider down / out of quota)', () => {
+  it('aborts after AI_FAILFAST_THRESHOLD consecutive hard-failures instead of grinding to the cap', async () => {
+    // Provider is genuinely down: every AI step hard-fails with no output AND the
+    // Decider (same provider) can't produce a verdict either (parsed=false) — the
+    // real codex-out-of-quota shape.
+    const runAiStep = vi.fn(async () => ({ text: '', failed: true, errorText: "You've hit your usage limit", provider: 'codex', model: 'gpt-5.5' }))
+    const runDecider = vi.fn(async () => ({ continue: true, reasoning: '(could not parse decision; continuing)', parsed: false }))
+    const ex = makeExecutors({ runAiStep, runDecider })
+    const res = await manager(ex).run({ ...baseReq(), graph: loopGraph(20) })
+    expect(res.outcome).toBe('failed')
+    // loopGraph has ONE ai-step per pass → abort on the 2nd consecutive failure,
+    // NOT 20 iterations of grinding.
+    expect((ex.runAiStep as ReturnType<typeof vi.fn>).mock.calls.length).toBe(2)
+    const run = getLoopRun(db, res.runId)!
+    expect(run.final_outcome).toBe('failed')
+  })
+
+  it('does NOT fail-fast when the Decider (same provider) keeps succeeding — the provider is alive', async () => {
+    // ai-steps fail every pass, but the Decider produces a parseable verdict each
+    // time → provider is demonstrably up → the streak resets → no false abort.
+    const runAiStep = vi.fn(async () => ({ text: '', failed: true, errorText: 'transient blip', provider: 'claude', model: 'sonnet' }))
+    const runDecider = vi.fn(async () => ({ continue: true, reasoning: 'not met', parsed: true }))
+    const ex = makeExecutors({ runAiStep, runDecider })
+    const res = await manager(ex).run({ ...baseReq(), graph: loopGraph(3) })
+    // Runs to the iteration cap (the safety net), NOT a 'provider down' abort —
+    // it ran well past the 2-failure fail-fast threshold without aborting.
+    expect(res.outcome).toBe('max-iterations')
+    expect((ex.runAiStep as ReturnType<typeof vi.fn>).mock.calls.length).toBeGreaterThan(2)
+  })
+
+  it('does NOT abort when a step fails once then recovers (counter resets)', async () => {
+    let n = 0
+    const runAiStep = vi.fn(async () => {
+      n += 1
+      return n === 1
+        ? { text: '', failed: true, errorText: 'transient blip', provider: 'claude', model: 'sonnet' }
+        : { text: 'did work', sessionId: 's1', provider: 'claude', model: 'sonnet' }
+    })
+    let d = 0
+    const runDecider = vi.fn(async () => (++d >= 2
+      ? { continue: false, reasoning: 'green', parsed: true }
+      : { continue: true, reasoning: 'more', parsed: true }))
+    const res = await manager(makeExecutors({ runAiStep, runDecider })).run({ ...baseReq(), graph: loopGraph(20) })
+    expect(res.outcome).toBe('success')
+  })
+
+  it('does NOT count a failed step that still produced output (partial progress)', async () => {
+    // Hard-fail BUT with text → not a dead spawn; never trips the fail-fast.
+    const runAiStep = vi.fn(async () => ({ text: 'partial output', failed: true, errorText: 'exited 1', provider: 'claude', model: 'sonnet' }))
+    const runDecider = vi.fn(async () => ({ continue: false, reasoning: 'stop', parsed: true }))
+    const res = await manager(makeExecutors({ runAiStep, runDecider })).run({ ...baseReq(), graph: loopGraph(20) })
+    expect(res.outcome).toBe('success')
+  })
+})
+
 describe('LoopRunManager session bounding (provider-agnostic)', () => {
   // Mock that records the sessionId each AI step was called with and hands back a
   // fresh one (so a resume would carry it forward).

@@ -45,6 +45,10 @@ export interface AiStepResult {
   provider?: string
   model?: string
   estimated?: boolean
+  /** True when the AI CLI hard-failed (spawn error or non-zero exit). */
+  failed?: boolean
+  /** The real failure reason (adapter error event, else stderr tail). */
+  errorText?: string
 }
 
 export interface ShellResult {
@@ -131,6 +135,10 @@ export interface LoopRunResult {
 }
 
 const HISTORY_MAX_CHARS = 1500
+/** Abort the run after this many CONSECUTIVE AI steps hard-fail with no output.
+ *  One failure can be transient; N in a row means the provider isn't running at
+ *  all (quota, auth, crash) — bail instead of grinding to the iteration cap. */
+const AI_FAILFAST_THRESHOLD = 2
 
 /** Shrink a step's output for the Decider history. Keeps BOTH ends — the opening
  *  context AND the trailing lines — because the Decider keys off a final verdict
@@ -261,6 +269,9 @@ export class LoopRunManager {
     let totalTokens = 0
     let totalDuration = 0
     let aiSessionId: string | undefined
+    // Consecutive AI steps that hard-failed with no output (provider down /
+    // out of quota / crashing). Reset on any step that runs or produces output.
+    let consecutiveAiFailures = 0
     // True for the step that runs immediately after a Decider 'continue' — that
     // step must see the cross-iteration history (the verdict it acts on). Mid-body
     // RESUMED steps already carry prior context in their session, so re-appending
@@ -382,9 +393,28 @@ export class LoopRunManager {
             logLine(`Command: ${base.length > 2000 ? base.slice(0, 2000) + '…(truncated)' : base}`)
             const res = await this.executors.runAiStep({ prompt, sessionId: aiSessionId, provider: nodeProvider, model: nodeModel, effort: nodeEffort, cwd: req.cwd, repoDir: req.repoDir, onLine: logLine, onRawLine, onSpawn: (c) => this._activeChild.set(runId, c) })
             this._activeChild.delete(runId)
-            if (res.sessionId) aiSessionId = res.sessionId
+            // Only carry forward the session of a step that actually ran — a
+            // hard-failed turn (codex still emits thread.started before its error)
+            // would otherwise make the next step `--resume` a dead session.
+            if (res.sessionId && !res.failed) aiSessionId = res.sessionId
             history.push(`AI Step: ${truncate(res.text)}`)
             record(`loop:${runId}`, res)
+            // Fail-fast: a hard-failed step (non-zero exit / spawn error) that
+            // produced NO output means the provider never really ran — quota,
+            // auth, crash. One can be transient; AI_FAILFAST_THRESHOLD in a row
+            // is systemic, so abort with the real reason instead of spinning to
+            // the iteration cap (wasting wall-clock and, on paid providers, money).
+            if (res.failed && !res.text.trim()) {
+              consecutiveAiFailures += 1
+              if (consecutiveAiFailures >= AI_FAILFAST_THRESHOLD) {
+                logLine(`Loop aborted: provider appears down — ${consecutiveAiFailures} AI steps failed with no output and no successful AI call in between${res.errorText ? ` — ${res.errorText}` : ''}`, 'stderr')
+                outcome = 'failed'
+                settled = true
+                break
+              }
+            } else {
+              consecutiveAiFailures = 0
+            }
             nodeId = succs[0]?.id
             break
           }
@@ -421,6 +451,12 @@ export class LoopRunManager {
               onSpawn: (c) => this._activeChild.set(runId, c),
             })
             this._activeChild.delete(runId)
+            // A parseable Decider verdict means this AI invocation (SAME
+            // provider/model) succeeded → the provider is alive, so clear any
+            // ai-step failure streak. This stops a false fail-fast abort when an
+            // ai-step blips but the provider is demonstrably up. (When the provider
+            // is truly down the Decider also fails → parsed=false → no reset.)
+            if (dec.parsed) consecutiveAiFailures = 0
             record(`loop:${runId}:decider`, dec)
             logLine(`Decision: ${dec.continue ? 'continue' : 'stop'} — ${dec.reasoning}`)
             history.push(`Decider: ${dec.continue ? 'continue' : 'stop'} — ${dec.reasoning}`)
