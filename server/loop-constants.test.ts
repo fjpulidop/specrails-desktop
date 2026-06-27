@@ -39,7 +39,7 @@ describe('loop-constants CRUD', () => {
     createConstant(db, { id: 'b', name: 'BETA', value: '2' })
     createConstant(db, { id: 'a', name: 'ALPHA', value: '1' })
     const list = listConstants(db)
-    expect(list.filter((c) => c.builtin).map((c) => c.name)).toEqual(['VERIFICATION_PASS', 'VERIFICATION_FAIL', 'GUARDRAILS', 'ONE_PER_PASS'])
+    expect(list.filter((c) => c.builtin).map((c) => c.name)).toEqual(['VERIFICATION_PASS', 'VERIFICATION_FAIL', 'GUARDRAILS', 'ONE_PER_PASS', 'REMAINING_RULE'])
     expect(list.filter((c) => !c.builtin).map((c) => c.name)).toEqual(['ALPHA', 'BETA'])
   })
 
@@ -62,6 +62,15 @@ describe('loop-constants CRUD', () => {
     expect(resolveConstants('{{const:ONE_PER_PASS}}', loadConstantMap(db))).toContain('Do NOT start, implement, or fix any other item')
     expect(listConstants(db).find((c) => c.name === 'ONE_PER_PASS')?.builtin).toBe(true)
     expect(() => createConstant(db, { id: 'o', name: 'ONE_PER_PASS', value: 'x' })).toThrow(/built-in/)
+  })
+
+  it('exposes REMAINING_RULE as a read-only built-in (only-unimplemented-is-remaining)', () => {
+    const out = resolveConstants('{{const:REMAINING_RULE}}', loadConstantMap(db))
+    expect(out).toContain('REMAINING: none')
+    // the key distinction that stops the wasteful no-op pass
+    expect(out).toMatch(/already works is NOT remaining/i)
+    expect(listConstants(db).find((c) => c.name === 'REMAINING_RULE')?.builtin).toBe(true)
+    expect(() => createConstant(db, { id: 'r', name: 'REMAINING_RULE', value: 'x' })).toThrow(/built-in/)
   })
 
   it('seeds editable starter constants (migration 16) — present, custom, with the expected values', () => {

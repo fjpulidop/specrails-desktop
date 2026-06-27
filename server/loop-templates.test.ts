@@ -174,9 +174,11 @@ describe('loop templates', () => {
     expect(joined).toMatch(/TDD REFACTOR/)
     // single-item discipline injected into EVERY step
     expect(steps.every((s) => s.includes('{{const:ONE_PER_PASS}}'))).toBe(true)
-    // completeness is judged by the Decider via a REMAINING report — NOT by the
-    // trivially-green {{cmd:test}} sentinel (which caused premature stops)
-    expect(joined).toContain('REMAINING:')
+    // completeness is reported via the shared REMAINING_RULE constant (only
+    // unimplemented behavior counts as remaining) and judged by the Decider —
+    // NOT by the trivially-green {{cmd:test}} sentinel (which caused premature stops)
+    expect(joined).toContain('{{const:REMAINING_RULE}}')
+    expect(String(decider.data?.goal ?? '')).toContain('REMAINING: none')
     expect(g.nodes.every((n) => !String(n.data?.prompt ?? '').includes('{{cmd:test}}'))).toBe(true)
     // generous timeout for many strict passes
     expect(g.config.timeoutMinutes).toBeGreaterThanOrEqual(60)

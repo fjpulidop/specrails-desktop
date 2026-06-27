@@ -32,6 +32,18 @@ const ONE_PER_PASS_CONTRACT = [
   'Do NOT start, implement, or fix any other item the spec or list describes — the loop runs again and will pick the next one. Front-loading several items into one pass defeats the loop.',
 ].join('\n')
 
+/** How a per-item loop reports what is left, so the Loop Decider can stop at the
+ *  right pass. The key distinction: a behavior is "remaining" only when its
+ *  IMPLEMENTATION is missing (a failing test could target it) — NOT when it is
+ *  already implemented but merely lacks a dedicated unit test. Listing
+ *  already-working behavior as remaining just burns an extra (no-op) pass. */
+const REMAINING_RULE_CONTRACT = [
+  'End your reply with a single final line:',
+  '- `REMAINING: <behavior>; <behavior>` — listing ONLY spec behaviors whose IMPLEMENTATION is still missing (ones a failing test could target);',
+  '- or exactly `REMAINING: none` when every behavior the spec describes is implemented.',
+  'A behavior that already works is NOT remaining — even if it has no dedicated unit test, or is a UI/integration behavior that cannot be red-tested in isolation. Never list already-working behavior as remaining.',
+].join('\n')
+
 /** Read-only built-ins. `VERIFICATION_PASS/FAIL` are the sentinel strings that
  *  `{{cmd:verify}}` emits and the Loop Decider reads — keeping them as constants
  *  means a Decider goal can drag the exact contract string instead of retyping.
@@ -42,6 +54,7 @@ export const BUILTIN_CONSTANTS: Record<string, string> = {
   VERIFICATION_FAIL: 'VERIFICATION: FAIL',
   GUARDRAILS: GUARDRAILS_CONTRACT,
   ONE_PER_PASS: ONE_PER_PASS_CONTRACT,
+  REMAINING_RULE: REMAINING_RULE_CONTRACT,
 }
 
 /** Token names: letters, digits, `_ . -`. Mirrors what the resolver matches. */
