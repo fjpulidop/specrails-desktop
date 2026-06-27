@@ -306,6 +306,15 @@ export class LoopRunManager {
       return joined.length > HISTORY_MAX_CHARS ? '…' + joined.slice(-HISTORY_MAX_CHARS) : joined
     }
 
+    // The first step of the body (the start node's successor). When the Decider's
+    // 'continue' edge routes BACK here, the whole body re-runs — that's an
+    // iterate-per-item loop (strict TDD, story executors, …) whose per-pass state
+    // lives in the code on disk, not the chat. We drop the resumed AI session at
+    // that loop-back so each iteration starts FRESH (re-reading the current code),
+    // keeping context bounded regardless of pass count. Within an iteration the
+    // steps still resume, so RED→GREEN→REFACTOR share context.
+    const firstStepId = start ? req.graph.edges.find((e) => e.source === start.id)?.target : undefined
+
     try {
       let nodeId: string | undefined = start?.id
       let settled = !start // no start node → fall through to settle as failed
@@ -431,7 +440,15 @@ export class LoopRunManager {
             const conts = succs.filter((n) => n.type !== 'end')
             if (dec.continue) {
               const target = branchTarget('continue') ?? conts[0]?.id
-              if (target) nodeId = target
+              if (target) {
+                nodeId = target
+                // New iteration of an iterate-per-item loop → drop the resumed AI
+                // session so the next pass starts fresh (re-reads the code on disk).
+                // Provider-agnostic: clearing aiSessionId makes runAiStep use the
+                // 'rail-job' (fresh) action, which every adapter maps to its own
+                // native spawn — no claude/codex/gemini branching here.
+                if (target === firstStepId) aiSessionId = undefined
+              }
               else { outcome = 'success'; settled = true }
             } else {
               const target = branchTarget('stop') ?? ends[0]?.id

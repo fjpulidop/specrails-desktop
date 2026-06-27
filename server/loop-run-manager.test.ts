@@ -42,6 +42,28 @@ function loopGraph(maxIterations = 10): LoopGraph {
   }
 }
 
+// Two AI steps per pass → Decider. `continueTo` controls the loop-back target:
+// 'a1' = re-run the whole body (iterate-per-item), 'a2' = re-run only the last step.
+function twoStepGraph(continueTo: 'a1' | 'a2'): LoopGraph {
+  return {
+    nodes: [
+      { id: 's', type: 'start', position: { x: 0, y: 0 } },
+      { id: 'a1', type: 'ai-step', position: { x: 0, y: 1 }, data: { prompt: 'red' } },
+      { id: 'a2', type: 'ai-step', position: { x: 0, y: 2 }, data: { prompt: 'green' } },
+      { id: 'd', type: 'decider', position: { x: 0, y: 3 }, data: { goal: 'g' } },
+      { id: 'e', type: 'end', position: { x: 1, y: 3 } },
+    ],
+    edges: [
+      { id: 'e1', source: 's', target: 'a1' },
+      { id: 'e2', source: 'a1', target: 'a2' },
+      { id: 'e3', source: 'a2', target: 'd' },
+      { id: 'e4', source: 'd', target: continueTo, branch: 'continue' },
+      { id: 'e5', source: 'd', target: 'e', branch: 'stop' },
+    ],
+    config: { maxIterations: 5, timeoutMinutes: 30 },
+  }
+}
+
 let db: DbInstance
 let broadcasts: WsMessage[]
 
@@ -77,6 +99,43 @@ function baseReq() {
 beforeEach(() => {
   db = initDb(':memory:')
   broadcasts = []
+})
+
+describe('LoopRunManager session bounding (provider-agnostic)', () => {
+  // Mock that records the sessionId each AI step was called with and hands back a
+  // fresh one (so a resume would carry it forward).
+  function trackingExecutors() {
+    let n = 0
+    const runAiStep = vi.fn(async () => ({ text: 'x', sessionId: `sess-${++n}`, cost: 0, tokens: 1, provider: 'claude', model: 'sonnet' }))
+    let d = 0
+    const runDecider = vi.fn(async () => (++d >= 2
+      ? { continue: false, reasoning: 'done', parsed: true, cost: 0, tokens: 1 }
+      : { continue: true, reasoning: 'more', parsed: true, cost: 0, tokens: 1 }))
+    return makeExecutors({ runAiStep, runDecider })
+  }
+  const sessionArg = (ex: LoopExecutors, i: number) =>
+    ((ex.runAiStep as ReturnType<typeof vi.fn>).mock.calls[i][0] as { sessionId?: string }).sessionId
+
+  it('iterate-loops (continue → first step) start each pass FRESH but resume within the pass', async () => {
+    const ex = trackingExecutors()
+    await manager(ex).run({ ...baseReq(), graph: twoStepGraph('a1') })
+    // pass 1: a1 fresh, a2 resumes a1 → pass 2: a1 FRESH again (session dropped at loop-back), a2 resumes
+    expect((ex.runAiStep as ReturnType<typeof vi.fn>)).toHaveBeenCalledTimes(4)
+    expect(sessionArg(ex, 0)).toBeUndefined() // a1, pass 1 — fresh
+    expect(sessionArg(ex, 1)).toBeDefined()   // a2, pass 1 — resumes within the pass
+    expect(sessionArg(ex, 2)).toBeUndefined() // a1, pass 2 — RESET: fresh, re-reads the code
+    expect(sessionArg(ex, 3)).toBeDefined()   // a2, pass 2 — resumes within the pass
+  })
+
+  it('non-iterate loops (continue → last step) keep resuming across iterations', async () => {
+    const ex = trackingExecutors()
+    await manager(ex).run({ ...baseReq(), graph: twoStepGraph('a2') })
+    // pass 1: a1 fresh, a2 resumes → continue routes to a2 (not the first step) → no reset
+    expect((ex.runAiStep as ReturnType<typeof vi.fn>)).toHaveBeenCalledTimes(3)
+    expect(sessionArg(ex, 0)).toBeUndefined() // a1 — fresh start
+    expect(sessionArg(ex, 1)).toBeDefined()   // a2 — resumes
+    expect(sessionArg(ex, 2)).toBeDefined()   // a2 again — still resuming (session NOT dropped)
+  })
 })
 
 describe('LoopRunManager', () => {
