@@ -158,18 +158,42 @@ describe('loop templates', () => {
     expect(lastCont.target).toBe(lastTpl.graph.nodes.filter((n) => n.type === 'ai-step').at(-1)!.id)
   })
 
-  it('autoloop-tdd iterates the whole TDD body (continue → first step) with a single completeness gate', () => {
-    const g = getLoopTemplate('autoloop-tdd')!.graph
-    const ai = g.nodes.filter((n) => n.type === 'ai-step').map((n) => n.id)
+  it('autoloop-tdd enforces strict one-behavior-per-pass TDD (continue → first, no front-loading)', () => {
+    const tpl = getLoopTemplate('autoloop-tdd')!
+    const g = tpl.graph
+    const aiNodes = g.nodes.filter((n) => n.type === 'ai-step')
     const decider = g.nodes.find((n) => n.type === 'decider')!
     const cont = g.edges.find((e) => e.source === decider.id && e.branch === 'continue')!
-    // continue loops back to the FIRST step (re-pick the next behavior), not the last
-    expect(cont.target).toBe(ai[0])
-    // exactly one step carries the literal sentinel (the terminal completeness gate);
-    // it must NOT use {{cmd:test}} (whose green-suite PASS would stop the loop early)
-    const sentinelSteps = g.nodes.filter((n) => n.type === 'ai-step' && String(n.data?.prompt).includes('VERIFICATION: PASS'))
-    expect(sentinelSteps.length).toBe(1)
+    // each pass re-runs the WHOLE body from step 1 to pick the next behavior
+    expect(cont.target).toBe(aiNodes[0].id)
+    const steps = aiNodes.map((n) => String(n.data?.prompt ?? ''))
+    const joined = steps.join('\n')
+    // red → green → refactor discipline
+    expect(joined).toMatch(/TDD RED/)
+    expect(joined).toMatch(/TDD GREEN/)
+    expect(joined).toMatch(/TDD REFACTOR/)
+    // single-item discipline injected into EVERY step
+    expect(steps.every((s) => s.includes('{{const:ONE_PER_PASS}}'))).toBe(true)
+    // completeness is judged by the Decider via a REMAINING report — NOT by the
+    // trivially-green {{cmd:test}} sentinel (which caused premature stops)
+    expect(joined).toContain('REMAINING:')
     expect(g.nodes.every((n) => !String(n.data?.prompt ?? '').includes('{{cmd:test}}'))).toBe(true)
+    // generous timeout for many strict passes
+    expect(g.config.timeoutMinutes).toBeGreaterThanOrEqual(60)
+  })
+
+  it('one-item-per-pass loops carry the ONE_PER_PASS discipline so the agent cannot front-load', () => {
+    for (const id of ['autoloop-tdd', 'spec-first-ship', 'ralph-story-executor', 'dependency-upgrade-one-by-one', 'npm-audit-fix-loop']) {
+      const text = getLoopTemplate(id)!.graph.nodes.map((n) => String(n.data?.prompt ?? '')).join('\n')
+      expect(text, `${id} must inject {{const:ONE_PER_PASS}}`).toContain('{{const:ONE_PER_PASS}}')
+    }
+  })
+
+  it('compilePortSpec honors a custom timeoutMinutes (default 30)', () => {
+    const base = { id: 'z', name: 'Z', description: 'd', category: 'Testing' as const, tags: ['t'], steps: ['a'], goal: 'g' }
+    expect(compilePortSpec(base).graph.config.timeoutMinutes).toBe(30)
+    expect(compilePortSpec({ ...base, timeoutMinutes: 60 }).graph.config.timeoutMinutes).toBe(60)
+    expect(compilePortSpec({ ...base, loopBack: 'verify', timeoutMinutes: 45 }).graph.config.timeoutMinutes).toBe(45)
   })
 
   it('iterate-until-complete loops re-run the WHOLE body each pass (continue → first step)', () => {

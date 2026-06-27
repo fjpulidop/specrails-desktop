@@ -23,14 +23,25 @@ const GUARDRAILS_CONTRACT = [
   '- If you are stuck after several iterations, stop and report the blockers instead of gaming the metric.',
 ].join('\n')
 
+/** The per-pass iteration discipline for "one item at a time" loops (strict TDD,
+ *  story executors, one-by-one upgrades). It stops a capable agent from
+ *  front-loading the whole feature into a single pass — which collapses the loop
+ *  to one iteration and defeats its per-item audit trail. */
+const ONE_PER_PASS_CONTRACT = [
+  'Do EXACTLY one unit of work in this pass — only the single item you selected.',
+  'Do NOT start, implement, or fix any other item the spec or list describes — the loop runs again and will pick the next one. Front-loading several items into one pass defeats the loop.',
+].join('\n')
+
 /** Read-only built-ins. `VERIFICATION_PASS/FAIL` are the sentinel strings that
  *  `{{cmd:verify}}` emits and the Loop Decider reads — keeping them as constants
  *  means a Decider goal can drag the exact contract string instead of retyping.
- *  `GUARDRAILS` is the anti-gaming contract injected by mutating templates. */
+ *  `GUARDRAILS` is the anti-gaming contract; `ONE_PER_PASS` is the per-item
+ *  iteration discipline — both injected by templates. */
 export const BUILTIN_CONSTANTS: Record<string, string> = {
   VERIFICATION_PASS: 'VERIFICATION: PASS',
   VERIFICATION_FAIL: 'VERIFICATION: FAIL',
   GUARDRAILS: GUARDRAILS_CONTRACT,
+  ONE_PER_PASS: ONE_PER_PASS_CONTRACT,
 }
 
 /** Token names: letters, digits, `_ . -`. Mirrors what the resolver matches. */

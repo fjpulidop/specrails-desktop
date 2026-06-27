@@ -19,13 +19,14 @@ export const PORTED_TEMPLATES: PortSpec[] = [
       "red-green-refactor"
     ],
     "loopBack": "first",
-    "maxIterations": 15,
+    "maxIterations": 20,
     "steps": [
-      "Compare {{spec.description}} against the CURRENT code and list the behaviors the spec requires that are NOT yet implemented. Pick the SINGLE next unimplemented behavior and write one tight, focused failing test for it — confirm it fails for the intended reason (the behavior is genuinely missing). If every behavior in the spec is already implemented and covered, make no change and say the spec is fully covered. {{const:GUARDRAILS}}",
-      "Implement the smallest REAL production code that makes the new test pass — actual working behavior, never a stub or hardcoded return. Then run the project's full test suite and fix any regression you introduced (do not weaken or skip tests). {{const:GUARDRAILS}}",
-      "Refactor what you just touched without changing behavior (keep the suite green). Then assess COMPLETENESS: re-read {{spec.description}} and confirm that EVERY behavior it describes is now implemented AND covered by a test, with the full suite green. End with a final line of exactly `VERIFICATION: PASS` ONLY when the ENTIRE spec is implemented and green; otherwise `VERIFICATION: FAIL — <behaviors still missing>`. A green suite with spec behaviors still unbuilt is NOT done. {{const:GUARDRAILS}}"
+      "TDD RED. Compare {{spec.description}} against the CURRENT code and list the spec behaviors NOT yet implemented. Pick the SINGLE next unimplemented behavior and write ONE small, focused failing test for just that behavior; run it and confirm it fails for the intended reason (the behavior is genuinely missing). Write NO production code in this step. If every behavior in the spec is already implemented and covered, change nothing and say the spec is fully covered.\n\n{{const:ONE_PER_PASS}}\n\n{{const:GUARDRAILS}}",
+      "TDD GREEN. Write the SMALLEST real production code that makes the one failing test from the previous step pass — actual working behavior, never a stub or hardcoded return. Then run the project's full test suite and fix any regression you caused.\n\n{{const:ONE_PER_PASS}}\n\n{{const:GUARDRAILS}}",
+      "TDD REFACTOR. Refactor ONLY the code and test you just touched, with no behavior change (keep the suite green). Then re-read {{spec.description}} and END with a single final line listing the spec behaviors still NOT implemented as `REMAINING: <behavior>; <behavior>`, or exactly `REMAINING: none` when every behavior the spec describes is implemented AND covered by a test.\n\n{{const:ONE_PER_PASS}}\n\n{{const:GUARDRAILS}}"
     ],
-    "goal": "The latest step reports {{const:VERIFICATION_PASS}}, confirming EVERY behavior described in the spec is implemented and covered by a test — not merely that the suite is green. If any behavior the spec describes is still unbuilt, continue."
+    "goal": "Every behavior the spec describes is implemented and covered by a test. The latest step ends with a `REMAINING:` line — STOP only when it reports `REMAINING: none` and that is consistent with the full spec; if any behavior the spec describes is still unbuilt, CONTINUE. A green suite alone is not enough to stop.",
+    "timeoutMinutes": 60
   },
   {
     "id": "e2e-until-green",
@@ -322,13 +323,14 @@ export const PORTED_TEMPLATES: PortSpec[] = [
       "requirements"
     ],
     "steps": [
-      "Read the spec for {{spec.title}} ({{spec.ids}}) and its requirement checklist. Select the single first still-unchecked requirement and restate its acceptance criteria; do not begin more than one requirement in a pass.",
+      "Read the spec for {{spec.title}} ({{spec.ids}}) and its requirement checklist. Select the single first still-unchecked requirement and restate its acceptance criteria; do not begin more than one requirement in a pass.\n\n{{const:ONE_PER_PASS}}",
       "Implement that one requirement against its acceptance criteria, adding the tests it needs as you go. Mark the checklist item done only once it is built. {{const:GUARDRAILS}}",
       "Verify just-built requirement against the spec by running the project's test gate with {{cmd:test}} plus any manual checks the requirement calls for; confirm it reports {{const:VERIFICATION_PASS}} before ticking the box and moving on to the next unchecked item. Finally, report how many checklist requirements are still unchecked; state 'all requirements complete' only when none remain."
     ],
     "goal": "Every requirement in the spec checklist for {{spec.title}} is implemented, verified to {{const:VERIFICATION_PASS}}, and checked off.",
     "maxIterations": 12,
-    "loopBack": "first"
+    "loopBack": "first",
+    "timeoutMinutes": 45
   },
   {
     "id": "dependency-audit-weekly",
@@ -359,14 +361,15 @@ export const PORTED_TEMPLATES: PortSpec[] = [
       "upgrades"
     ],
     "steps": [
-      "Scan the dependency manifest for outdated packages and choose a single highest-impact one to upgrade this pass — exactly one, no more. Record its current and target version, then apply the version bump. Update any code the new version forces you to change: renamed APIs, removed options, changed types, adjusted signatures. {{const:GUARDRAILS}}",
+      "Scan the dependency manifest for outdated packages and choose a single highest-impact one to upgrade this pass — exactly one, no more. Record its current and target version, then apply the version bump. Update any code the new version forces you to change: renamed APIs, removed options, changed types, adjusted signatures. {{const:GUARDRAILS}}\n\n{{const:ONE_PER_PASS}}",
       "{{cmd:typecheck}}",
       "{{cmd:test}}",
       "Once the project is green, commit just this single dependency bump with a clear conventional message that names the package and the version it moved to (for example, chore(deps): bump <package> to <version>). Then report which package was upgraded and whether outdated packages still remain."
     ],
     "goal": "This pass upgraded exactly one outdated package, the typecheck and test gates report {{const:VERIFICATION_PASS}}, the bump is committed on its own, and either no meaningful outdated packages remain or the user has chosen to stop.",
     "maxIterations": 12,
-    "loopBack": "first"
+    "loopBack": "first",
+    "timeoutMinutes": 45
   },
   {
     "id": "knip-until-clean",
@@ -439,12 +442,13 @@ export const PORTED_TEMPLATES: PortSpec[] = [
     ],
     "steps": [
       "{{cmd:audit}}",
-      "From the high- and critical-severity advisories, pick a single one to resolve this pass. Apply the safest available remedy — a scoped automatic fix for that advisory or a targeted bump of the offending direct dependency — and avoid forced, breaking-change resolutions unless there is genuinely no other path. Adjust any code the patched version requires. {{const:GUARDRAILS}}",
+      "From the high- and critical-severity advisories, pick a single one to resolve this pass. Apply the safest available remedy — a scoped automatic fix for that advisory or a targeted bump of the offending direct dependency — and avoid forced, breaking-change resolutions unless there is genuinely no other path. Adjust any code the patched version requires. {{const:GUARDRAILS}}\n\n{{const:ONE_PER_PASS}}",
       "{{cmd:test}}\n\nThen re-run the audit and report how many high- and critical-severity advisories still remain; state 'no high or critical advisories remain' only when the tree is clean."
     ],
     "goal": "No high- or critical-severity dependency advisories remain, every fix was applied deliberately one at a time, and the test gate reports {{const:VERIFICATION_PASS}}.",
     "maxIterations": 10,
-    "loopBack": "first"
+    "loopBack": "first",
+    "timeoutMinutes": 45
   },
   {
     "id": "api-contract-until-match",
@@ -569,14 +573,15 @@ export const PORTED_TEMPLATES: PortSpec[] = [
       "fresh-context"
     ],
     "steps": [
-      "Read .ralph/prd.json and .ralph/progress.md. If a story is flagged inProgress, resume it; otherwise select the lowest-priority story whose passes flag is still false. Flag exactly that one story inProgress in prd.json before writing any code.",
+      "Read .ralph/prd.json and .ralph/progress.md. If a story is flagged inProgress, resume it; otherwise select the lowest-priority story whose passes flag is still false. Flag exactly that one story inProgress in prd.json before writing any code.\n\n{{const:ONE_PER_PASS}}",
       "Implement that single story end to end at the smallest reasonable scope. Touch nothing outside what the story requires. {{const:GUARDRAILS}}",
       "Run the project's gates and resolve every failure before committing. {{cmd:test}} {{cmd:lint}} {{cmd:build}}",
       "{{cmd:commit}} with a message scoped to this story, then set its passes flag to true in .ralph/prd.json and append what you learned to .ralph/progress.md. Finally, report how many stories in .ralph/prd.json still have passes=false; state 'backlog complete' only when none remain."
     ],
     "goal": "Every story in .ralph/prd.json has passes set to true, with each one committed and its gates reporting {{const:VERIFICATION_PASS}}.",
     "maxIterations": 20,
-    "loopBack": "first"
+    "loopBack": "first",
+    "timeoutMinutes": 45
   },
   {
     "id": "investigation-script-loop",

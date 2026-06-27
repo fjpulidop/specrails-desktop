@@ -39,7 +39,7 @@ describe('loop-constants CRUD', () => {
     createConstant(db, { id: 'b', name: 'BETA', value: '2' })
     createConstant(db, { id: 'a', name: 'ALPHA', value: '1' })
     const list = listConstants(db)
-    expect(list.filter((c) => c.builtin).map((c) => c.name)).toEqual(['VERIFICATION_PASS', 'VERIFICATION_FAIL', 'GUARDRAILS'])
+    expect(list.filter((c) => c.builtin).map((c) => c.name)).toEqual(['VERIFICATION_PASS', 'VERIFICATION_FAIL', 'GUARDRAILS', 'ONE_PER_PASS'])
     expect(list.filter((c) => !c.builtin).map((c) => c.name)).toEqual(['ALPHA', 'BETA'])
   })
 
@@ -55,6 +55,13 @@ describe('loop-constants CRUD', () => {
 
   it('reserves GUARDRAILS — a custom constant cannot redefine it', () => {
     expect(() => createConstant(db, { id: 'g', name: 'GUARDRAILS', value: 'weakened' })).toThrow(/built-in/)
+  })
+
+  it('exposes ONE_PER_PASS as a read-only built-in (per-item loop discipline)', () => {
+    expect(BUILTIN_CONSTANTS.ONE_PER_PASS).toMatch(/exactly one/i)
+    expect(resolveConstants('{{const:ONE_PER_PASS}}', loadConstantMap(db))).toContain('Do NOT start, implement, or fix any other item')
+    expect(listConstants(db).find((c) => c.name === 'ONE_PER_PASS')?.builtin).toBe(true)
+    expect(() => createConstant(db, { id: 'o', name: 'ONE_PER_PASS', value: 'x' })).toThrow(/built-in/)
   })
 
   it('seeds editable starter constants (migration 16) — present, custom, with the expected values', () => {
