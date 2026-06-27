@@ -26,7 +26,7 @@ export const PORTED_TEMPLATES: PortSpec[] = [
       "TDD REFACTOR. Refactor ONLY the code and test you just touched, with no behavior change (keep the suite green). Then re-read {{spec.description}} and END with a single final line listing the spec behaviors still NOT implemented as `REMAINING: <behavior>; <behavior>`, or exactly `REMAINING: none` when every behavior the spec describes is implemented AND covered by a test.\n\n{{const:ONE_PER_PASS}}\n\n{{const:GUARDRAILS}}"
     ],
     "goal": "Every behavior the spec describes is implemented and covered by a test. The latest step ends with a `REMAINING:` line — STOP only when it reports `REMAINING: none` and that is consistent with the full spec; if any behavior the spec describes is still unbuilt, CONTINUE. A green suite alone is not enough to stop.",
-    "timeoutMinutes": 60
+    "timeoutMinutes": 120
   },
   {
     "id": "e2e-until-green",
