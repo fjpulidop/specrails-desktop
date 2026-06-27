@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { LOOP_TEMPLATES, LOOP_CATEGORIES, getLoopTemplate } from './loop-templates'
+import { LOOP_TEMPLATES, LOOP_CATEGORIES, getLoopTemplate, compilePortSpec } from './loop-templates'
 import { validateLoopGraph, type LoopGraph } from './loop-graph'
 import { LOOP_COMMANDS } from './loop-command-catalog'
 import { BUILTIN_CONSTANTS } from './loop-constants'
@@ -141,6 +141,52 @@ describe('loop templates', () => {
           `${tpl.id}: Decider goal demands VERIFICATION_PASS but no step emits it — the loop can never converge`
         ).toBe(true)
       }
+    }
+  })
+
+  it('compilePortSpec loopBack="first" routes the Decider continue edge back to the FIRST step', () => {
+    const tpl = compilePortSpec({ id: 'x', name: 'X', description: 'd', category: 'Testing', tags: ['t'], steps: ['a', 'b', 'c'], goal: 'g', loopBack: 'first' })
+    const decider = tpl.graph.nodes.find((n) => n.type === 'decider')!
+    const cont = tpl.graph.edges.find((e) => e.source === decider.id && e.branch === 'continue')!
+    const firstAi = tpl.graph.nodes.find((n) => n.type === 'ai-step')!
+    expect(cont.target).toBe(firstAi.id)
+    expect(validateLoopGraph(tpl.graph).valid).toBe(true)
+    // contrast: loopBack='last' loops to the LAST step
+    const lastTpl = compilePortSpec({ id: 'y', name: 'Y', description: 'd', category: 'Testing', tags: ['t'], steps: ['a', 'b', 'c'], goal: 'g', loopBack: 'last' })
+    const lastDec = lastTpl.graph.nodes.find((n) => n.type === 'decider')!
+    const lastCont = lastTpl.graph.edges.find((e) => e.source === lastDec.id && e.branch === 'continue')!
+    expect(lastCont.target).toBe(lastTpl.graph.nodes.filter((n) => n.type === 'ai-step').at(-1)!.id)
+  })
+
+  it('autoloop-tdd iterates the whole TDD body (continue → first step) with a single completeness gate', () => {
+    const g = getLoopTemplate('autoloop-tdd')!.graph
+    const ai = g.nodes.filter((n) => n.type === 'ai-step').map((n) => n.id)
+    const decider = g.nodes.find((n) => n.type === 'decider')!
+    const cont = g.edges.find((e) => e.source === decider.id && e.branch === 'continue')!
+    // continue loops back to the FIRST step (re-pick the next behavior), not the last
+    expect(cont.target).toBe(ai[0])
+    // exactly one step carries the literal sentinel (the terminal completeness gate);
+    // it must NOT use {{cmd:test}} (whose green-suite PASS would stop the loop early)
+    const sentinelSteps = g.nodes.filter((n) => n.type === 'ai-step' && String(n.data?.prompt).includes('VERIFICATION: PASS'))
+    expect(sentinelSteps.length).toBe(1)
+    expect(g.nodes.every((n) => !String(n.data?.prompt ?? '').includes('{{cmd:test}}'))).toBe(true)
+  })
+
+  it('iterate-until-complete loops re-run the WHOLE body each pass (continue → first step)', () => {
+    // These templates process one item per pass (a behavior / requirement / story
+    // / package / advisory / CI failure / endpoint), so the Decider's "continue"
+    // MUST return to the first step to re-pick — not just re-run the last step.
+    const ITERATE_LOOPS = [
+      'autoloop-tdd', 'spec-first-ship', 'ralph-story-executor',
+      'dependency-upgrade-one-by-one', 'npm-audit-fix-loop',
+      'fix-ci-until-green', 'deploy-verification-loop',
+    ]
+    for (const id of ITERATE_LOOPS) {
+      const g = getLoopTemplate(id)!.graph
+      const ai = g.nodes.filter((n) => n.type === 'ai-step').map((n) => n.id)
+      const decider = g.nodes.find((n) => n.type === 'decider')!
+      const cont = g.edges.find((e) => e.source === decider.id && e.branch === 'continue')!
+      expect(cont.target, `${id}: continue edge must return to the first step`).toBe(ai[0])
     }
   })
 

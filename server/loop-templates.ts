@@ -49,9 +49,12 @@ export interface PortSpec {
   steps: string[]
   goal: string
   maxIterations?: number
-  /** 'verify' ⇒ fixLoopGraph shape (steps run once, then verify→fix→verify).
-   *  'last' (default) ⇒ aiLoopGraph shape (re-run the last step until the goal). */
-  loopBack?: 'last' | 'verify'
+  /** 'verify' ⇒ fixLoopGraph shape (main steps run once, then verify→fix→verify).
+   *  'last' (default) ⇒ aiLoopGraph re-running only the LAST step (single-concern
+   *  gate loops). 'first' ⇒ aiLoopGraph re-running the WHOLE body from step 1
+   *  (iterate one item per pass until the spec is fully covered: TDD, story
+   *  executors, one-by-one upgrades). */
+  loopBack?: 'last' | 'verify' | 'first'
 }
 
 /** Compile a PortSpec into a publishable LoopTemplate (graph passes validation,
@@ -60,7 +63,7 @@ export function compilePortSpec(spec: PortSpec): LoopTemplate {
   const graph =
     spec.loopBack === 'verify'
       ? fixLoopGraph(spec.steps, spec.goal, spec.maxIterations ?? 12)
-      : aiLoopGraph(spec.steps, spec.goal, spec.maxIterations ?? 10)
+      : aiLoopGraph(spec.steps, spec.goal, spec.maxIterations ?? 10, spec.loopBack === 'first' ? 'first' : 'last')
   return {
     id: spec.id,
     name: spec.name,
@@ -85,8 +88,19 @@ const COL_X = 0
 const COL_RIGHT_X = 280
 const ROW_GAP = 110
 
-export function aiLoopGraph(prompts: string[], deciderGoal: string, maxIterations = 10): LoopGraph {
+export function aiLoopGraph(
+  prompts: string[],
+  deciderGoal: string,
+  maxIterations = 10,
+  loopBackTo: 'first' | 'last' = 'last',
+): LoopGraph {
   const lastAi = `ai-${prompts.length}`
+  // Where the Decider's 'continue' edge returns. 'last' (default) re-runs only the
+  // final step — right for single-concern "re-run the gate until clean" loops.
+  // 'first' re-runs the WHOLE body from step 1 — right for "iterate one item per
+  // pass until the spec is fully covered" loops (TDD, story executors, one-by-one
+  // upgrades) where each pass must re-pick the next item.
+  const continueTarget = loopBackTo === 'first' ? 'ai-1' : lastAi
   const decideRow = prompts.length + 1
   const nodes: LoopGraph['nodes'] = [
     { id: 'start', type: 'start', position: { x: COL_X, y: 0 } },
@@ -103,7 +117,7 @@ export function aiLoopGraph(prompts: string[], deciderGoal: string, maxIteration
     { id: 'e-start', source: 'start', target: 'ai-1' },
     ...prompts.slice(0, -1).map((_p, i) => ({ id: `e-ai-${i + 1}`, source: `ai-${i + 1}`, target: `ai-${i + 2}` })),
     { id: 'e-to-decide', source: lastAi, target: 'decide' },
-    { id: 'e-continue', source: 'decide', target: lastAi, branch: 'continue' }, // not-done → loop back up to the last step
+    { id: 'e-continue', source: 'decide', target: continueTarget, branch: 'continue' }, // not-done → loop back (first step or last per loopBackTo)
     { id: 'e-stop', source: 'decide', target: 'done', branch: 'stop' }, // done → exit down
   ]
   return { nodes, edges, config: { maxIterations, timeoutMinutes: 30 } }

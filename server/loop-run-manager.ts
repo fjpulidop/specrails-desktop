@@ -132,8 +132,14 @@ export interface LoopRunResult {
 
 const HISTORY_MAX_CHARS = 1500
 
-function truncate(s: string, max = 600): string {
-  return s.length > max ? s.slice(0, max) + '…' : s
+/** Shrink a step's output for the Decider history. Keeps BOTH ends — the opening
+ *  context AND the trailing lines — because the Decider keys off a final verdict
+ *  line (e.g. `VERIFICATION: PASS`) that a head-only cut would silently drop. */
+export function truncate(s: string, max = 600): string {
+  if (s.length <= max) return s
+  const head = Math.ceil(max * 0.6)
+  const tail = max - head
+  return s.slice(0, head) + '\n…\n' + s.slice(s.length - tail)
 }
 
 export class LoopRunManager {

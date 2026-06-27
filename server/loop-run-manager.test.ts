@@ -1,10 +1,25 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest'
 import { initDb, getJob, type DbInstance } from './db'
-import { LoopRunManager, type LoopExecutors } from './loop-run-manager'
+import { LoopRunManager, truncate, type LoopExecutors } from './loop-run-manager'
 import { getLoopRun } from './loop-runs-store'
 import { fixLoopGraph } from './loop-templates'
 import type { LoopGraph } from './loop-graph'
 import type { WsMessage } from './types'
+
+describe('truncate (Decider history shrink)', () => {
+  it('returns short strings unchanged', () => {
+    expect(truncate('short output', 600)).toBe('short output')
+  })
+
+  it('keeps BOTH ends so a trailing verdict survives (the Decider reads it)', () => {
+    const body = 'A'.repeat(2000)
+    const out = truncate(`${body}\nVERIFICATION: PASS`, 600)
+    expect(out.length).toBeLessThan(700)
+    expect(out).toContain('VERIFICATION: PASS') // trailing verdict preserved
+    expect(out.startsWith('A')).toBe(true) // opening context preserved
+    expect(out).toContain('…')
+  })
+})
 
 // Start → AI → Shell → Decider →(continue) AI / (stop) End
 function loopGraph(maxIterations = 10): LoopGraph {
