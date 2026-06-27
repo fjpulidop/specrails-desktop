@@ -127,6 +127,17 @@ describe('LoopRunManager session bounding (provider-agnostic)', () => {
     expect(sessionArg(ex, 3)).toBeDefined()   // a2, pass 2 — resumes within the pass
   })
 
+  it('appends cross-iteration history only when fresh or right after a Decider continue', async () => {
+    const ex = trackingExecutors()
+    await manager(ex).run({ ...baseReq(), graph: twoStepGraph('a2') })
+    const prompt = (i: number) => ((ex.runAiStep as ReturnType<typeof vi.fn>).mock.calls[i][0] as { prompt: string }).prompt
+    const HIST = 'Context from previous iterations'
+    // a2 in pass 1 is a mid-body RESUMED step → its session already has a1's output → no redundant history
+    expect(prompt(1)).not.toContain(HIST)
+    // a2 right after the Decider 'continue' must see the verdict it acts on → history included
+    expect(prompt(2)).toContain(HIST)
+  })
+
   it('non-iterate loops (continue → last step) keep resuming across iterations', async () => {
     const ex = trackingExecutors()
     await manager(ex).run({ ...baseReq(), graph: twoStepGraph('a2') })

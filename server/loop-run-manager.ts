@@ -261,6 +261,11 @@ export class LoopRunManager {
     let totalTokens = 0
     let totalDuration = 0
     let aiSessionId: string | undefined
+    // True for the step that runs immediately after a Decider 'continue' — that
+    // step must see the cross-iteration history (the verdict it acts on). Mid-body
+    // RESUMED steps already carry prior context in their session, so re-appending
+    // the history there is redundant tokens; this flag keeps it off for them.
+    let justContinued = false
     // Fail-open honesty: flips true the first time a cost-bearing step yields no
     // priced cost while a cap is set (non-Claude estimate / unknown model / a
     // failed step) → the cap can under-count, so we warn once in the run log.
@@ -363,7 +368,12 @@ export class LoopRunManager {
               ),
               constMap
             )
-            const prompt = history.length > 0 ? `${base}\n\n---\nContext from previous iterations:\n${composeHistory()}` : base
+            // Inject the cross-iteration history only when there's no live session
+            // to carry it (a fresh pass) OR right after a Decider 'continue' (so the
+            // step sees the verdict). A mid-body resumed step already has it.
+            const includeHistory = history.length > 0 && (!aiSessionId || justContinued)
+            const prompt = includeHistory ? `${base}\n\n---\nContext from previous iterations:\n${composeHistory()}` : base
+            justContinued = false
             emitStep('ai-step', `🤖 ${nodeLabel || 'AI Step'} (${nodeProvider}/${nodeModel}${nodeEffort ? `, effort: ${nodeEffort}` : ''})`)
             // Show the authored template AND the actual COMMAND sent. For magic
             // commands this is the short native invocation (so it's plainly visible
@@ -442,6 +452,8 @@ export class LoopRunManager {
               const target = branchTarget('continue') ?? conts[0]?.id
               if (target) {
                 nodeId = target
+                // The next step acts on this verdict → let it see the history.
+                justContinued = true
                 // New iteration of an iterate-per-item loop → drop the resumed AI
                 // session so the next pass starts fresh (re-reads the code on disk).
                 // Provider-agnostic: clearing aiSessionId makes runAiStep use the
