@@ -384,12 +384,14 @@ export class LoopRunManager {
           case 'decider': {
             if (iteration >= maxIterations) { outcome = 'max-iterations'; settled = true; break }
             iteration += 1
-            const goal = resolveConstants(String(node.data?.goal ?? 'The loop goal is met.'), constMap)
+            const goal = resolveConstants(interpolateSpec(String(node.data?.goal ?? 'The loop goal is met.'), req.spec), constMap)
             emitStep('decider', `🔍 ${nodeLabel || 'Loop Decider'} (iteration ${iteration})`)
             logLine(`Goal: ${goal}`)
             const dec = await this.executors.runDecider({
               systemPrompt: buildDeciderSystemPrompt(),
-              userPrompt: buildDeciderUserPrompt({ goal, history }),
+              // Give the Decider the spec so it can verify completeness against the
+              // FULL scope instead of trusting a step's self-reported success.
+              userPrompt: buildDeciderUserPrompt({ goal, history, spec: req.spec ? { title: req.spec.title, description: req.spec.description } : undefined }),
               provider: nodeProvider,
               model: nodeModel,
               effort: nodeEffort,
