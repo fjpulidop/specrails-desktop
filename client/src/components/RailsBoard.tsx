@@ -8,6 +8,7 @@ import type { RailMode, RailStatus } from './RailControls'
 import type { UltracodeModel } from './agents/RailModelSelector'
 import type { ReasoningEffort } from './agents/RailEffortSelector'
 import type { LocalTicket } from '../types'
+import { worktreeSummary, type RailWorktreeMap } from '../lib/worktree-progress'
 
 export const RAIL_SORT_PREFIX = '__rail:'
 export function railSortId(railId: string) { return `${RAIL_SORT_PREFIX}${railId}` }
@@ -70,6 +71,8 @@ export function applyRailJobOutcome(
 interface RailsBoardProps {
   rails: RailState[]
   ticketMap: Map<number, LocalTicket>
+  /** Per-rail worktree merge-back progress (parallel/isolated launches). */
+  railWorktrees?: RailWorktreeMap
   /** Installed providers — when >1 the rail header shows an AI engine selector. */
   providers?: readonly string[]
   onModeChange: (railId: string, mode: RailMode) => void
@@ -109,7 +112,7 @@ function SortableRailWrapper({ railId, children }: { railId: string; children: (
 /** Width threshold below which rail rows switch to the compact mini-card layout. */
 export const RAILS_COMPACT_THRESHOLD_PX = 320
 
-export function RailsBoard({ rails, ticketMap, providers, onModeChange, onProfileChange, onEngineChange, onUltracodeModelChange, onInteractiveChange, loopAvailable, onLoopChange, onEffortChange, onToggle, onTicketClick, onAddRail, onDeleteRail, onRenameRail, onTicketMoveToSpecs }: RailsBoardProps) {
+export function RailsBoard({ rails, ticketMap, railWorktrees, providers, onModeChange, onProfileChange, onEngineChange, onUltracodeModelChange, onInteractiveChange, loopAvailable, onLoopChange, onEffortChange, onToggle, onTicketClick, onAddRail, onDeleteRail, onRenameRail, onTicketMoveToSpecs }: RailsBoardProps) {
   const { t } = useTranslation('dashboard')
   const activeRails = rails.filter((r) => r.status === 'running').length
   const [jiggleMode, setJiggleMode] = useState(false)
@@ -188,6 +191,7 @@ export function RailsBoard({ rails, ticketMap, providers, onModeChange, onProfil
                     aiEngine={rail.aiEngine ?? null}
                     ultracodeModel={rail.ultracodeModel ?? null}
                     interactive={rail.interactive ?? false}
+                    worktreeSummary={worktreeSummary(railWorktrees?.[Number(rail.id.split('-')[1]) - 1])}
                     providers={providers}
                     loopAvailable={loopAvailable}
                     selectedLoopId={rail.selectedLoopId ?? null}

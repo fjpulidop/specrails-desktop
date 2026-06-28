@@ -18,7 +18,8 @@
     "launchNetworkError": "启动 Rail 时网络错误",
     "railLaunched": "{{rail}} 已启动",
     "launchDescription_one": "{{mode}}，共 {{count}} 个 Spec",
-    "launchDescription_other": "{{mode}}，共 {{count}} 个 Spec"
+    "launchDescription_other": "{{mode}}，共 {{count}} 个 Spec",
+    "railWorktreeNeedsReview": "Rail {{n}}：合并后 spec #{{ticket}} 需要复查"
   },
   "railsBoard": {
     "title": "Rails",
@@ -43,7 +44,9 @@
     "failedRetry": "任务失败 — 点击重试",
     "addSpecsFirst": "请先向此 Rail 添加 Spec",
     "builtInLoops": "内置",
-    "customLoops": "自定义循环"
+    "customLoops": "自定义循环",
+    "worktreesMerged": "已合并 {{count}}",
+    "worktreesNeedsReview": "{{count}} 需复查"
   },
   "railRow": {
     "moveToSpecs": "移至 Specs",

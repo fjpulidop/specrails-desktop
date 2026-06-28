@@ -18,7 +18,8 @@
     "launchNetworkError": "Errore di rete durante l'avvio del rail",
     "railLaunched": "{{rail}} avviato",
     "launchDescription_one": "{{mode}} con {{count}} spec",
-    "launchDescription_other": "{{mode}} con {{count}} spec"
+    "launchDescription_other": "{{mode}} con {{count}} spec",
+    "railWorktreeNeedsReview": "Rail {{n}}: la spec #{{ticket}} richiede revisione dopo il merge"
   },
   "railsBoard": {
     "title": "Rails",
@@ -43,7 +44,9 @@
     "failedRetry": "Job non riuscito — clicca per riprovare",
     "addSpecsFirst": "Aggiungi prima delle spec a questo rail",
     "builtInLoops": "Integrati",
-    "customLoops": "Loop personalizzati"
+    "customLoops": "Loop personalizzati",
+    "worktreesMerged": "{{count}} uniti",
+    "worktreesNeedsReview": "{{count}} da rivedere"
   },
   "railRow": {
     "moveToSpecs": "Sposta in Specs",

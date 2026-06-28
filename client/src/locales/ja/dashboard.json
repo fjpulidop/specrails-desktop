@@ -18,7 +18,8 @@
     "launchNetworkError": "レール起動中にネットワークエラーが発生しました",
     "railLaunched": "{{rail}} を起動しました",
     "launchDescription_one": "{{mode}} · スペック {{count}} 件",
-    "launchDescription_other": "{{mode}} · スペック {{count}} 件"
+    "launchDescription_other": "{{mode}} · スペック {{count}} 件",
+    "railWorktreeNeedsReview": "Rail {{n}}：マージ後、spec #{{ticket}} は要確認です"
   },
   "railsBoard": {
     "title": "レール",
@@ -43,7 +44,9 @@
     "failedRetry": "ジョブが失敗しました — クリックして再試行",
     "addSpecsFirst": "先にこのレールにスペックを追加してください",
     "builtInLoops": "組み込み",
-    "customLoops": "カスタムループ"
+    "customLoops": "カスタムループ",
+    "worktreesMerged": "{{count}} 件マージ済み",
+    "worktreesNeedsReview": "{{count}} 件要確認"
   },
   "railRow": {
     "moveToSpecs": "Specs に移動",

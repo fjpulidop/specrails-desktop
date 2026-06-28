@@ -42,6 +42,8 @@ interface RailRowProps {
   selectedLoopId?: string | null
   /** Selected reasoning effort (loop mode). */
   reasoningEffort?: ReasoningEffort | null
+  /** Merge-back progress for a parallel/isolated launch (null when none). */
+  worktreeSummary?: { merged: number; needsReview: number; failed: number; reported: number } | null
   jiggleMode: boolean
   dragHandleListeners?: Record<string, Function>
   dragHandleAttributes?: Record<string, any>
@@ -74,7 +76,7 @@ interface RailRowProps {
 
 export function RailRow({
   id, label, tickets, mode, status, activeJobId, profileName, aiEngine, ultracodeModel, interactive, interactiveAvailable, providers,
-  loopAvailable, selectedLoopId, reasoningEffort, jiggleMode,
+  loopAvailable, selectedLoopId, reasoningEffort, worktreeSummary, jiggleMode,
   dragHandleListeners, dragHandleAttributes, density = 'normal',
   onModeChange, onProfileChange, onEngineChange, onUltracodeModelChange, onLoopChange, onEffortChange, onInteractiveChange, onToggle, onTicketClick, onDelete, onLongPress, onRename,
   onTicketMoveToSpecs,
@@ -436,6 +438,18 @@ export function RailRow({
             onToggle={onToggle}
           />
         </div>
+
+        {/* Parallel/isolated merge-back progress */}
+        {worktreeSummary && (worktreeSummary.merged > 0 || worktreeSummary.needsReview > 0) && (
+          <div className="mt-1 flex items-center gap-2 text-[10px]" data-testid="rail-worktree-summary">
+            {worktreeSummary.merged > 0 && (
+              <span className="text-accent-success">{t('railControls.worktreesMerged', { count: worktreeSummary.merged })}</span>
+            )}
+            {worktreeSummary.needsReview > 0 && (
+              <span className="text-accent-warning">{t('railControls.worktreesNeedsReview', { count: worktreeSummary.needsReview })}</span>
+            )}
+          </div>
+        )}
 
         {/* Jiggle-mode delete button */}
         {jiggleMode && canDelete && (
