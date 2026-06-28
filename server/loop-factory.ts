@@ -30,20 +30,28 @@ export interface FactoryLoop {
 
 const GREEN_GOAL = 'The verification step reported {{const:VERIFICATION_PASS}} — the spec is implemented and all tests pass.'
 
+// Factory loops run the WHOLE architect→developer→reviewer pipeline inside a
+// single AI step (`/specrails:implement` etc.), so they need far more headroom
+// than the engine defaults (loop 30 min / step 15 min): a real implement can run
+// for a long time. 360 min loop deadline, 60 min per AI step.
+const FACTORY_MAX_ITERATIONS = 12
+const FACTORY_LOOP_TIMEOUT_MIN = 360
+const FACTORY_AI_STEP_TIMEOUT_MIN = 60
+
 export const FACTORY_LOOPS: FactoryLoop[] = [
   {
     id: 'factory:implement',
     name: 'Implement',
     description: 'Fully autonomous: implement the spec, verify, and refine (fix) on failure — looping until all tests pass.',
     mode: 'implement',
-    graph: fixLoopGraph(['{{cmd:implement}}'], GREEN_GOAL),
+    graph: fixLoopGraph(['{{cmd:implement}}'], GREEN_GOAL, FACTORY_MAX_ITERATIONS, FACTORY_LOOP_TIMEOUT_MIN, FACTORY_AI_STEP_TIMEOUT_MIN),
   },
   {
     id: 'factory:batch',
     name: 'Batch Implement',
     description: 'Batch-implement all the rail\'s tickets at once, then verify + refine on failure until green.',
     mode: 'batch-implement',
-    graph: fixLoopGraph(['{{cmd:batch}}'], GREEN_GOAL),
+    graph: fixLoopGraph(['{{cmd:batch}}'], GREEN_GOAL, FACTORY_MAX_ITERATIONS, FACTORY_LOOP_TIMEOUT_MIN, FACTORY_AI_STEP_TIMEOUT_MIN),
   },
   {
     id: 'factory:ultracode',
@@ -51,7 +59,7 @@ export const FACTORY_LOOPS: FactoryLoop[] = [
     description: 'Autonomous per-ticket implementation (no pipeline), then verify + refine until green. Claude only.',
     mode: 'ultracode',
     claudeOnly: true,
-    graph: fixLoopGraph(['{{cmd:ultracode}}'], GREEN_GOAL),
+    graph: fixLoopGraph(['{{cmd:ultracode}}'], GREEN_GOAL, FACTORY_MAX_ITERATIONS, FACTORY_LOOP_TIMEOUT_MIN, FACTORY_AI_STEP_TIMEOUT_MIN),
   },
 ]
 

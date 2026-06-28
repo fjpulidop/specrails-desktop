@@ -78,7 +78,7 @@ function runShellCommand(
 export function createLoopExecutors(opts: { env?: NodeJS.ProcessEnv } = {}): LoopExecutors {
   const env = opts.env ?? process.env
   return {
-    async runAiStep({ prompt, sessionId, provider, model, effort, cwd, repoDir, onLine, onRawLine, onSpawn }) {
+    async runAiStep({ prompt, sessionId, provider, model, effort, cwd, repoDir, onLine, onRawLine, onSpawn, aiStepTimeoutMs }) {
       const adapter = getAdapter(provider)
       // First iteration spawns headless (rail-job); subsequent iterations resume
       // the session so the agent keeps prior context across iterations.
@@ -118,7 +118,7 @@ export function createLoopExecutors(opts: { env?: NodeJS.ProcessEnv } = {}): Loo
         buildOpts: { prompt, model, sessionId: sessionId ?? undefined, reasoning_effort: effort, extraArgs },
         cwd,
         env: stepEnv,
-        timeoutMs: AI_STEP_TIMEOUT_MS,
+        timeoutMs: aiStepTimeoutMs ?? AI_STEP_TIMEOUT_MS,
         onSpawn,
         // Two complementary streams, mirroring QueueManager's contract:
         //  • RAW JSONL via onStdoutLine → engine emits parsed `event`s that drive

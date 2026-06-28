@@ -87,6 +87,8 @@ export interface LoopExecutors {
     onLine?: LoopLogSink
     onRawLine?: (line: string) => void
     onSpawn?: LoopSpawnSink
+    /** Per-step wall-clock timeout (ms). Undefined ⇒ executor default (15 min). */
+    aiStepTimeoutMs?: number
   }): Promise<AiStepResult>
   runShell(input: { command: string; cwd: string; onLine?: LoopLogSink; onSpawn?: LoopSpawnSink }): Promise<ShellResult>
   runDecider(input: {
@@ -182,6 +184,10 @@ export class LoopRunManager {
     const maxIterations = req.graph.config.maxIterations
     const timeoutMs = req.graph.config.timeoutMinutes * 60_000
     const deadline = this.now() + timeoutMs
+    // Per-step AI timeout (ms) — undefined falls back to the executor default.
+    const aiStepTimeoutMs = req.graph.config.aiStepTimeoutMinutes != null
+      ? req.graph.config.aiStepTimeoutMinutes * 60_000
+      : undefined
     // Optional cost cap (USD). Like maxIterations/timeout, it's a BETWEEN-STEPS
     // guard: per-step cost is only known when that step's process exits, so the
     // loop is stopped before the NEXT step once the accumulated total crosses the
@@ -285,6 +291,13 @@ export class LoopRunManager {
     // priced cost while a cap is set (non-Claude estimate / unknown model / a
     // failed step) → the cap can under-count, so we warn once in the run log.
     let costUnknownWarned = false
+    // Honest total: flips true whenever a cost-bearing step ends without a priced
+    // figure — most commonly a claude AI step killed by AI_STEP_TIMEOUT_MS, which
+    // never emits its terminal `result` event, so its tokens AND cost are lost
+    // (claude cost is all-or-nothing — no rate-card fallback for native-cost
+    // providers). When set, the displayed loop total is a LOWER BOUND (`≥`), not
+    // an exact figure — so an expensive step that billed $0 isn't read as cheap.
+    let costUncertain = false
     // Built-ins always resolve even if the caller omitted `constants`; custom
     // values layer on top. Used to expand `{{const:*}}` in every node's text.
     const constMap = { ...BUILTIN_CONSTANTS, ...(req.constants ?? {}) }
@@ -294,8 +307,22 @@ export class LoopRunManager {
     const stepCap = (maxIterations + 1) * (req.graph.nodes.length + 2) + 16
     let steps = 0
 
-    const record = (refSuffix: string, r: { cost?: number; tokens?: number; durationMs?: number; provider?: string; model?: string; estimated?: boolean }) => {
+    const record = (refSuffix: string, r: { cost?: number; tokens?: number; durationMs?: number; provider?: string; model?: string; estimated?: boolean; failed?: boolean }) => {
       totalCost += r.cost ?? 0
+      // A cost-bearing step that produced work (tokens) or hard-failed but reports
+      // no priced cost → its real spend is missing from the total. The common case
+      // is a claude step killed by timeout before its terminal `result` event:
+      // tokens streamed, but cost (and tokens) are dropped, so the step bills $0.
+      // Flag the run total as a lower bound and say so, per occurrence.
+      const costBearingButUnpriced = r.cost == null && (r.failed === true || (r.tokens ?? 0) > 0)
+      if (costBearingButUnpriced) {
+        costUncertain = true
+        costUnknownWarned = true // this line already carries the cap caveat below
+        logLine(
+          `⚠️ Step cost unknown — the process ended before billing (timeout/crash), so it counts as $0. The loop total is a lower bound.${maxCostUsd !== undefined ? ' The cost cap may under-count.' : ''}`,
+          'stderr',
+        )
+      }
       // Honest cost-cap caveat: a cost-bearing step that reports no figure means
       // the cap can't be enforced precisely from here on. Warn once (live).
       if (maxCostUsd !== undefined && r.cost == null && !costUnknownWarned) {
@@ -395,7 +422,7 @@ export class LoopRunManager {
             // that `/specrails:implement` ran); a long free-text prompt is capped.
             logLine(`Template: ${rawTemplate.length > 1000 ? rawTemplate.slice(0, 1000) + '…' : rawTemplate}`)
             logLine(`Command: ${base.length > 2000 ? base.slice(0, 2000) + '…(truncated)' : base}`)
-            const res = await this.executors.runAiStep({ prompt, sessionId: aiSessionId, provider: nodeProvider, model: nodeModel, effort: nodeEffort, cwd: req.cwd, repoDir: req.repoDir, onLine: logLine, onRawLine, onSpawn: (c) => this._activeChild.set(runId, c) })
+            const res = await this.executors.runAiStep({ prompt, sessionId: aiSessionId, provider: nodeProvider, model: nodeModel, effort: nodeEffort, cwd: req.cwd, repoDir: req.repoDir, onLine: logLine, onRawLine, onSpawn: (c) => this._activeChild.set(runId, c), aiStepTimeoutMs })
             this._activeChild.delete(runId)
             // Only carry forward the session of a step that actually ran — a
             // hard-failed turn (codex still emits thread.started before its error)
@@ -541,7 +568,9 @@ export class LoopRunManager {
     // status, and emit job.finalized so an open JobDetail re-fetches + stops the
     // live stream (mirrors QueueManager).
     const jobStatus: JobStatus = outcome === 'success' ? 'completed' : outcome === 'stopped' ? 'canceled' : 'failed'
-    logLine(`\n■ Loop finished: ${outcome} — ${iteration} iteration${iteration === 1 ? '' : 's'}, $${totalCost.toFixed(4)}`)
+    // `≥` when any cost-bearing step ended unpriced (timeout/crash) — the figure
+    // is a lower bound, not exact.
+    logLine(`\n■ Loop finished: ${outcome} — ${iteration} iteration${iteration === 1 ? '' : 's'}, ${costUncertain ? '≥ ' : ''}$${totalCost.toFixed(4)}`)
     try {
       finishJob(this.db, runId, {
         exit_code: outcome === 'success' ? 0 : 1,

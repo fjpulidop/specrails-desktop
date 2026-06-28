@@ -140,7 +140,7 @@ export function aiLoopGraph(
  *  `{{cmd:fix}}` (refinement) and RE-verifies — `verify → fix → verify → …` until
  *  the verification passes. No human in the loop. (main may be empty for a
  *  verify-only loop.) */
-export function fixLoopGraph(mainPrompts: string[], deciderGoal: string, maxIterations = 12, timeoutMinutes = 30): LoopGraph {
+export function fixLoopGraph(mainPrompts: string[], deciderGoal: string, maxIterations = 12, timeoutMinutes = 30, aiStepTimeoutMinutes?: number): LoopGraph {
   const nodes: LoopGraph['nodes'] = [{ id: 'start', type: 'start', position: { x: COL_X, y: 0 } }]
   let row = 1
   mainPrompts.forEach((prompt, i) => {
@@ -165,7 +165,7 @@ export function fixLoopGraph(mainPrompts: string[], deciderGoal: string, maxIter
   edges.push({ id: 'e-fix', source: 'decide', target: 'fix', branch: 'continue' }) // not-done → refine (exits right)
   edges.push({ id: 'e-refix', source: 'fix', target: 'verify' }) // then re-verify (arcs back up)
   edges.push({ id: 'e-stop', source: 'decide', target: 'done', branch: 'stop' }) // green → exit (drops down)
-  return { nodes, edges, config: { maxIterations, timeoutMinutes } }
+  return { nodes, edges, config: { maxIterations, timeoutMinutes, ...(aiStepTimeoutMinutes != null ? { aiStepTimeoutMinutes } : {}) } }
 }
 
 export const LOOP_TEMPLATES: LoopTemplate[] = [
