@@ -601,6 +601,22 @@ export function RailRow({
           </div>
           </div>
 
+          {/* Live execution metrics (elapsed · steps · lines) — same WS source as Jobs */}
+          {isRunning && executionMetric && (
+            <div className="px-3 pb-1"><RailExecutionInfo metric={executionMetric} /></div>
+          )}
+          {/* Parallel/isolated merge-back progress */}
+          {worktreeSummary && (worktreeSummary.merged > 0 || worktreeSummary.needsReview > 0) && (
+            <div className="px-3 pb-1 flex items-center gap-2 text-[10px]">
+              {worktreeSummary.merged > 0 && (
+                <span className="text-accent-success">{t('railControls.worktreesMerged', { count: worktreeSummary.merged })}</span>
+              )}
+              {worktreeSummary.needsReview > 0 && (
+                <span className="text-accent-warning">{t('railControls.worktreesNeedsReview', { count: worktreeSummary.needsReview })}</span>
+              )}
+            </div>
+          )}
+
           {/* Secondary selector strip (engine / profile / ultracode model).
               A recessed bar with its own divider + faint inset background so it
               reads as the rail's config row instead of floating controls. */}
