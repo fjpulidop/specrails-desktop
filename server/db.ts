@@ -753,6 +753,28 @@ const MIGRATIONS: Migration[] = [
       )
     }
   },
+
+  // Migration 35: rail_worktrees — per-(rail launch, ticket) ledger for parallel
+  // worktree isolation + merge-back. Lets a restarted server reconcile orphaned
+  // worktrees and lets the UI render integration state. Additive + idempotent.
+  (db) => {
+    db.exec(`
+      CREATE TABLE IF NOT EXISTS rail_worktrees (
+        id            TEXT PRIMARY KEY,
+        rail_index    INTEGER NOT NULL,
+        ticket_id     INTEGER NOT NULL,
+        run_id        TEXT,
+        branch        TEXT NOT NULL,
+        worktree_path TEXT NOT NULL,
+        overlay_path  TEXT,
+        merge_state   TEXT NOT NULL DEFAULT 'building',
+        created_at    TEXT NOT NULL DEFAULT (datetime('now')),
+        updated_at    TEXT NOT NULL DEFAULT (datetime('now'))
+      );
+      CREATE INDEX IF NOT EXISTS idx_rail_worktrees_state ON rail_worktrees(merge_state);
+      CREATE INDEX IF NOT EXISTS idx_rail_worktrees_rail ON rail_worktrees(rail_index);
+    `)
+  },
 ]
 
 function applyMigrations(db: DbInstance): void {
