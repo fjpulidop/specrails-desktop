@@ -41,11 +41,14 @@ describe('isolationApplies', () => {
   beforeEach(() => { process.env.SPECRAILS_RAIL_WORKTREES = '1' }) // opt-in for these cases
   afterEach(() => { delete process.env.SPECRAILS_RAIL_WORKTREES })
 
-  it('true for multi-ticket per-ticket mutating loop when enabled', () => {
+  it('true for a multi-ticket per-ticket mutating loop when enabled', () => {
     expect(isolationApplies(base)).toBe(true)
   })
-  it('false when only one ticket', () => {
-    expect(isolationApplies({ ...base, ticketCount: 1 })).toBe(false)
+  it('true for a SINGLE-ticket rail too (concurrent single-ticket rails are concurrent writers)', () => {
+    expect(isolationApplies({ ...base, ticketCount: 1 })).toBe(true)
+  })
+  it('false when the rail has no tickets', () => {
+    expect(isolationApplies({ ...base, ticketCount: 0 })).toBe(false)
   })
   it('false for scope=all (single run)', () => {
     expect(isolationApplies({ ...base, scope: 'all' })).toBe(false)

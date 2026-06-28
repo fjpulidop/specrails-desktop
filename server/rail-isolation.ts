@@ -10,9 +10,13 @@
  *  - "mutates the repo" is the DEFAULT. A loop is read-only only when it explicitly
  *    says so — a false read-only would corrupt the shared tree, a false mutating
  *    only costs a (cleaned-up) empty worktree.
- *  - Isolation only matters when there are MULTIPLE concurrent writers, i.e. a
- *    per-ticket rail with >1 ticket. A single writer (N=1 / scope=all / standalone)
- *    has nothing to collide with and keeps today's shared-cwd behaviour.
+ *  - When the flag is on we isolate EVERY mutating per-ticket run, not just rails
+ *    with >1 ticket. Two separate single-ticket rails launched concurrently are
+ *    ALSO concurrent writers on the same repo, and partial isolation is unsafe (an
+ *    isolated rail merging back into another rail's dirty shared tree). So it is
+ *    all-or-nothing: opt in (the flag) → everything isolates → always safe. The
+ *    cross-rail merge-back is serialised by a per-repo lock. `scope: all` (one run)
+ *    and standalone runs stay on the shared cwd (single writer by construction).
  */
 
 /** A loop mutates the repo unless it is explicitly flagged read-only. */
@@ -36,7 +40,7 @@ export function isRailWorktreesEnabled(): boolean {
 export interface IsolationDecisionInput {
   /** Loops feature enabled for the server. */
   loopsEnabled: boolean
-  /** Rail launch scope — only per-ticket fans out concurrent writers. */
+  /** Rail launch scope — only per-ticket fans out per-ticket runs. */
   scope: 'per-ticket' | 'all'
   /** Number of tickets the rail will fan out over. */
   ticketCount: number
@@ -46,15 +50,16 @@ export interface IsolationDecisionInput {
 
 /**
  * True when this launch should isolate each ticket's run in its own worktree.
- * ALL must hold: loops enabled, kill-switch off, per-ticket scope, >1 ticket, and
- * the loop mutates the repo.
+ * ALL must hold: loops enabled, flag on, per-ticket scope, at least one ticket,
+ * and the loop mutates the repo. (Not gated on ticketCount>1 — concurrent
+ * single-ticket rails are also concurrent writers; see the module note.)
  */
 export function isolationApplies(input: IsolationDecisionInput): boolean {
   return (
     input.loopsEnabled &&
     isRailWorktreesEnabled() &&
     input.scope === 'per-ticket' &&
-    input.ticketCount > 1 &&
+    input.ticketCount > 0 &&
     mutatesRepo({ readOnly: input.readOnly })
   )
 }

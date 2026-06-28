@@ -12,6 +12,7 @@
 import { expandCommands } from './loop-command-catalog'
 import { resolveConstants } from './loop-constants'
 import { mergeBack, type BranchToMerge, type MergeOutcome, type MergeState } from './merge-manager'
+import { withRepoLock } from './repo-lock'
 import type { GitRunner } from './worktree-manager'
 import type { AiStepResult, LoopExecutors } from './loop-run-manager'
 import type { ReasoningEffort } from './providers/types'
@@ -73,8 +74,12 @@ export async function runMergeBack(ctx: MergeBackContext): Promise<MergeOutcome[
     return verifyIntegrated()
   }
 
-  return mergeBack(
-    { git, baseDir, resolveConflict, verifyIntegrated, rebaseAndFix, onState: ctx.onState },
-    ctx.branches
+  // Serialise the WHOLE merge-back per base repo so two concurrent rails (e.g. two
+  // single-ticket rails launched together) never merge/reset the same repo at once.
+  return withRepoLock(baseDir, () =>
+    mergeBack(
+      { git, baseDir, resolveConflict, verifyIntegrated, rebaseAndFix, onState: ctx.onState },
+      ctx.branches
+    )
   )
 }
