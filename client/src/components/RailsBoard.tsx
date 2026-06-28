@@ -194,8 +194,8 @@ export function RailsBoard({ rails, ticketMap, railWorktrees, railMetrics, provi
                     aiEngine={rail.aiEngine ?? null}
                     ultracodeModel={rail.ultracodeModel ?? null}
                     interactive={rail.interactive ?? false}
-                    worktreeSummary={worktreeSummary(railWorktrees?.[Number(rail.id.split('-')[1]) - 1])}
-                    executionMetric={railMetrics?.[Number(rail.id.split('-')[1]) - 1] ?? null}
+                    worktreeSummary={worktreeSummary(railWorktrees?.[idx])}
+                    executionMetric={railMetrics?.[idx] ?? null}
                     providers={providers}
                     loopAvailable={loopAvailable}
                     selectedLoopId={rail.selectedLoopId ?? null}
