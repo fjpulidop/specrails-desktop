@@ -12,6 +12,8 @@ import { isFactoryLoopId, factoryLoopMode, getFactoryLoop } from './loop-factory
 import { loadConstantMap } from './loop-constants'
 import { dominantTicketScope, referencesClaudeOnlyCommand } from './loop-command-catalog'
 import { loopNeedsTicket, type LoopGraph } from './loop-graph'
+import { isolationApplies } from './rail-isolation'
+import { launchIsolatedRail } from './rail-isolated-launch'
 import { newId } from './ids'
 import type { ReasoningEffort } from './providers/types'
 import type { RailJobStartedMessage, RailJobStoppedMessage, RailUpdatedMessage, LoopRunStoppedMessage } from './types'
@@ -214,7 +216,7 @@ export function createRailsRouter(): Router {
   })
 
   // POST /rails/:railIndex/launch — launch job(s) for a rail
-  router.post('/:railIndex/launch', (req: Request, res: Response) => {
+  router.post('/:railIndex/launch', async (req: Request, res: Response) => {
     const railIndex = parseInt(req.params.railIndex as string, 10)
     if (isNaN(railIndex) || railIndex < 0) {
       res.status(400).json({ error: 'Invalid rail index' }); return
@@ -350,6 +352,25 @@ export function createRailsRouter(): Router {
           res.status(400).json({ error: 'This loop uses a Claude-only command and requires the Claude provider' }); return
         }
         const scope = dominantTicketScope(promptsText)
+
+        // Parallel isolation (opt-in via SPECRAILS_RAIL_WORKTREES): a per-ticket
+        // rail fanning out >1 ticket on a repo-mutating loop runs each ticket in
+        // its own git worktree, then merges the branches back. Inert by default —
+        // falls through to the shared-cwd path below unless the flag is on; a
+        // worktree-allocation failure also falls back. See rail-isolation.ts.
+        if (isolationApplies({ loopsEnabled: isLoopsEnabled(), scope, ticketCount: rail.ticketIds.length, readOnly: false })) {
+          try {
+            const ids = await launchIsolatedRail({
+              ctx: c, railIndex, ticketIds: [...rail.ticketIds], loopId, loopName, loopGraph,
+              provider: loopProvider, model: loopModel, effort,
+            })
+            res.status(202).json({ loopRunIds: ids, railIndex, mode, isolated: true })
+            return
+          } catch (err) {
+            console.error('[rails-router] isolated launch failed; falling back to shared cwd:', err)
+          }
+        }
+
         // Spawn from the SAME cwd a rail uses (workspace when relocated, else the
         // repo) so native `{{cmd:*}}` slash commands resolve — and surface the repo
         // via SPECRAILS_REPO_DIR + `--add-dir` exactly like QueueManager.

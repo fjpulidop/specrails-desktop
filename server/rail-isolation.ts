@@ -21,14 +21,16 @@ export function mutatesRepo(loop: { readOnly?: boolean }): boolean {
 }
 
 /**
- * The global kill-switch. Worktree isolation is ON by default; set
- * `SPECRAILS_RAIL_WORKTREES` to `0`/`false`/`off` to force every loop run back to
- * the legacy single shared cwd (emergency rollback). Read per-call so a test can
- * flip the env without re-importing.
+ * The isolation gate flag. **Opt-in during rollout**: worktree isolation runs
+ * ONLY when `SPECRAILS_RAIL_WORKTREES` is `1`/`true`/`on`; otherwise every loop run
+ * keeps the legacy single shared cwd (byte-identical to before this feature). This
+ * lets the integration land inert and be validated on a live rail before it is
+ * flipped to default-on. Read per-call so a test can flip the env without
+ * re-importing.
  */
 export function isRailWorktreesEnabled(): boolean {
   const v = (process.env.SPECRAILS_RAIL_WORKTREES ?? '').trim().toLowerCase()
-  return v !== '0' && v !== 'false' && v !== 'off'
+  return v === '1' || v === 'true' || v === 'on'
 }
 
 export interface IsolationDecisionInput {
