@@ -1,8 +1,8 @@
 import { describe, it, expect, vi } from 'vitest'
-import { launchIsolatedRail, type IsolatedLaunchIO } from './rail-isolated-launch'
+import { launchIsolatedRail, reconcileRailWorktrees, type IsolatedLaunchIO } from './rail-isolated-launch'
 import { initDb } from './db'
 import { initDesktopDb } from './desktop-db'
-import { listRailWorktrees } from './rail-worktrees-store'
+import { listRailWorktrees, createRailWorktree, updateRailWorktreeState, getRailWorktree } from './rail-worktrees-store'
 import type { ProjectContext } from './project-registry'
 
 function fakeCtx() {
@@ -64,5 +64,36 @@ describe('launchIsolatedRail', () => {
     // the one successfully-allocated worktree (#1) is torn down; no runs spawned
     expect(remove).toHaveBeenCalledTimes(1)
     expect(run).not.toHaveBeenCalled()
+  })
+})
+
+describe('reconcileRailWorktrees (startup sweep)', () => {
+  it('removes non-terminal orphans (keeping branches) and marks them failed; leaves terminal rows', async () => {
+    const db = initDb(':memory:')
+    createRailWorktree(db, { id: 'a', railIndex: 0, ticketId: 1, branch: 'sr/p/ticket-1', worktreePath: '/wt/1' })
+    createRailWorktree(db, { id: 'b', railIndex: 0, ticketId: 2, branch: 'sr/p/ticket-2', worktreePath: '/wt/2' })
+    createRailWorktree(db, { id: 'c', railIndex: 0, ticketId: 3, branch: 'sr/p/ticket-3', worktreePath: '/wt/3' })
+    updateRailWorktreeState(db, 'a', 'merged')      // terminal — untouched
+    updateRailWorktreeState(db, 'c', 'merging')     // non-terminal — swept
+    // b stays 'building' — non-terminal — swept
+    const remove = vi.fn(async () => {})
+
+    const n = await reconcileRailWorktrees(db, '/repo', { git: { run: async () => ({ code: 0, stdout: '', stderr: '' }) }, remove })
+
+    expect(n).toBe(2)
+    expect(remove).toHaveBeenCalledTimes(2)
+    // branches kept for inspection
+    expect(remove.mock.calls.every((c) => (c[1] as { deleteBranch?: boolean }).deleteBranch === false)).toBe(true)
+    expect(getRailWorktree(db, 'a')?.merge_state).toBe('merged')
+    expect(getRailWorktree(db, 'b')?.merge_state).toBe('failed')
+    expect(getRailWorktree(db, 'c')?.merge_state).toBe('failed')
+  })
+
+  it('is a no-op (no git/remove calls) when there are no orphans', async () => {
+    const db = initDb(':memory:')
+    const remove = vi.fn(async () => {})
+    const n = await reconcileRailWorktrees(db, '/repo', { git: { run: async () => ({ code: 0, stdout: '', stderr: '' }) }, remove })
+    expect(n).toBe(0)
+    expect(remove).not.toHaveBeenCalled()
   })
 })

@@ -20,7 +20,8 @@ import { resolveHome } from './artifact-registry'
 import { newId } from './ids'
 import { loadConstantMap } from './loop-constants'
 import { defaultGitRunner, createWorktree, removeWorktree, type GitRunner, type WorktreeHandle } from './worktree-manager'
-import { createRailWorktree, updateRailWorktreeState } from './rail-worktrees-store'
+import { createRailWorktree, updateRailWorktreeState, listNonTerminalRailWorktrees } from './rail-worktrees-store'
+import type { DbInstance } from './db'
 import { runMergeBack } from './rail-merge-orchestrator'
 import { createLoopExecutors } from './loop-executors'
 import type { BranchToMerge } from './merge-manager'
@@ -155,4 +156,26 @@ export async function launchIsolatedRail(input: IsolatedLaunchInput, io: Isolate
   })
 
   return allocated.map((a) => a.runId)
+}
+
+/**
+ * Startup reconciliation: a crash mid-fan-out leaves worktrees on disk and ledger
+ * rows stuck in a non-terminal state. Remove each orphan's worktree (best-effort,
+ * keeping its branch for inspection) and mark the row `failed`. No-op (no git
+ * calls) when there are no stuck rows — so it is free for projects that never used
+ * isolation. Returns how many rows were reconciled.
+ */
+export async function reconcileRailWorktrees(
+  db: DbInstance,
+  repoDir: string,
+  io: { git?: GitRunner; remove?: typeof removeWorktree } = {}
+): Promise<number> {
+  const git = io.git ?? defaultGitRunner
+  const remove = io.remove ?? removeWorktree
+  const stuck = listNonTerminalRailWorktrees(db)
+  for (const row of stuck) {
+    await remove(git, { repoDir, worktreePath: row.worktree_path, branch: row.branch, deleteBranch: false }).catch(() => {})
+    updateRailWorktreeState(db, row.id, 'failed')
+  }
+  return stuck.length
 }

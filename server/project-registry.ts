@@ -29,6 +29,7 @@ import { resolveTicketStoragePath, mutateStore, applyJobOutcomeToTickets, readSt
 import { JiraSyncManager } from './jira/jira-sync-manager'
 import { LoopRunManager } from './loop-run-manager'
 import { createLoopExecutors } from './loop-executors'
+import { reconcileRailWorktrees } from './rail-isolated-launch'
 import { reconcileOrphanLoopRuns } from './loop-runs-store'
 import type { LoopSpec } from './loop-graph'
 import type { WsMessage, TicketUpdatedMessage, RailUpdatedMessage } from './types'
@@ -643,6 +644,11 @@ export class ProjectRegistry {
       const orphans = reconcileOrphanLoopRuns(db, new Date().toISOString())
       if (orphans > 0) console.log(`[loops] reconciled ${orphans} orphan loop run(s) for ${project.slug}`)
     } catch { /* non-fatal */ }
+    // Sweep worktrees left behind by a crashed parallel-rail fan-out (no-op +
+    // no git calls when isolation was never used). Best-effort, non-blocking.
+    void reconcileRailWorktrees(db, project.path)
+      .then((n) => { if (n > 0) console.log(`[loops] reconciled ${n} orphan worktree(s) for ${project.slug}`) })
+      .catch(() => { /* non-fatal */ })
     const loopRunManager = new LoopRunManager(db, boundBroadcast, createLoopExecutors())
 
     const getTicketSpec = (ticketId: number): LoopSpec | undefined => {
