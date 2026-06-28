@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 import { useTranslation } from 'react-i18next'
 import { formatElapsed } from '../lib/format-duration'
-import type { RailExecMetric } from '../hooks/useRailExecutionMetrics'
+import type { RailExecMetric } from '../context/RailMetricsContext'
 
 /**
  * Compact live execution summary on a running rail card — elapsed · steps · log

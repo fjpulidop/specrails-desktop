@@ -1,19 +1,17 @@
-import { useState, useEffect, useRef, useCallback, useLayoutEffect, useMemo } from 'react'
-import { useSharedWebSocket } from './useSharedWebSocket'
+import { createContext, useContext, useState, useEffect, useRef, useCallback, useLayoutEffect, useMemo } from 'react'
+import { useSharedWebSocket } from '../hooks/useSharedWebSocket'
 
 /**
- * Live per-rail execution metrics (elapsed start, steps, log lines) for the
- * dashboard, derived from the SAME WS emission source the Jobs view consumes —
- * no new server metric, no reinvention:
- *   - `loop.run_started`  → begin tracking a run (carries railIndex + projectId)
- *   - `event`/`loop_step` → step count = the event's `payload.index`
- *   - `log` (processId)   → +1 log line
- *   - `loop.run_completed`→ stop tracking (clears the metric when the rail's last
- *                            run ends — on success, stop, or cancel)
+ * Live per-rail execution metrics (elapsed start, steps, log lines) derived from
+ * the SAME WS emission stream the Jobs view consumes — no new server metric:
+ *   - loop.run_started  → begin tracking (railIndex + projectId)
+ *   - event/loop_step   → steps = the event's payload.index
+ *   - log (processId)   → +1 log line
+ *   - loop.run_completed→ stop tracking (clears on success / stop / cancel)
  *
- * Aggregated per railIndex (a rail may fan out into several per-ticket runs).
- * Elapsed is rendered by a self-ticking component from `startedAt`, so this hook
- * does NOT re-render every second.
+ * App-LEVEL provider (mounted above the route outlet) so the metrics survive
+ * page navigation (Dashboard ⇄ Jobs) and keep accumulating even while the
+ * dashboard is unmounted — the WS handler is never torn down on a page switch.
  */
 export interface RailExecMetric {
   startedAt: number
@@ -34,13 +32,20 @@ interface WsLike {
   processId?: string
 }
 
-export function useRailExecutionMetrics(activeProjectId: string | null): Record<number, RailExecMetric> {
+const RailMetricsContext = createContext<Record<number, RailExecMetric>>({})
+
+/** Per-rail live execution metrics keyed by railIndex (or {} when none). */
+export function useRailMetrics(): Record<number, RailExecMetric> {
+  return useContext(RailMetricsContext)
+}
+
+export function RailMetricsProvider({ activeProjectId, children }: { activeProjectId: string | null; children: React.ReactNode }) {
   const [runs, setRuns] = useState<Map<string, RunMetric>>(new Map())
   const { registerHandler, unregisterHandler } = useSharedWebSocket()
   const projRef = useRef(activeProjectId)
   useEffect(() => { projRef.current = activeProjectId }, [activeProjectId])
 
-  // Reset accumulated metrics on project switch.
+  // Reset on project switch (metrics are per-project).
   useEffect(() => { setRuns(new Map()) }, [activeProjectId])
 
   const handleMessage = useCallback((data: unknown) => {
@@ -57,12 +62,11 @@ export function useRailExecutionMetrics(activeProjectId: string | null): Record<
       return
     }
     if (m.type === 'loop.run_completed') {
-      // Clears the metric (success / stop / cancel all emit this).
       setRuns((prev) => { if (!m.loopRunId || !prev.has(m.loopRunId)) return prev; const n = new Map(prev); n.delete(m.loopRunId); return n })
       return
     }
-    // Below: log/loop_step carry only the run id (no projectId) — we gate on the
-    // run already being tracked (i.e. its run_started passed the project filter).
+    // log/loop_step carry only the run id — gate on the run being tracked (its
+    // run_started already passed the project filter).
     if (m.type === 'event' && m.event_type === 'loop_step' && m.jobId) {
       setRuns((prev) => {
         const cur = prev.get(m.jobId!)
@@ -87,7 +91,7 @@ export function useRailExecutionMetrics(activeProjectId: string | null): Record<
     return () => unregisterHandler('rail-exec-metrics')
   }, [handleMessage, registerHandler, unregisterHandler])
 
-  return useMemo(() => {
+  const value = useMemo(() => {
     const out: Record<number, RailExecMetric> = {}
     for (const r of runs.values()) {
       const e = out[r.railIndex]
@@ -96,4 +100,6 @@ export function useRailExecutionMetrics(activeProjectId: string | null): Record<
     }
     return out
   }, [runs])
+
+  return <RailMetricsContext.Provider value={value}>{children}</RailMetricsContext.Provider>
 }

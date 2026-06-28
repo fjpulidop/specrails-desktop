@@ -47,7 +47,7 @@ interface RailRowProps {
   worktreeSummary?: { merged: number; needsReview: number; failed: number; reported: number } | null
   /** Live execution metrics (elapsed/steps/lines) while running — same WS source
    *  as the Jobs view. Null when not running / no data. */
-  executionMetric?: import('../hooks/useRailExecutionMetrics').RailExecMetric | null
+  executionMetric?: import('../context/RailMetricsContext').RailExecMetric | null
   jiggleMode: boolean
   dragHandleListeners?: Record<string, Function>
   dragHandleAttributes?: Record<string, any>

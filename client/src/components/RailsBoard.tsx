@@ -9,7 +9,7 @@ import type { UltracodeModel } from './agents/RailModelSelector'
 import type { ReasoningEffort } from './agents/RailEffortSelector'
 import type { LocalTicket } from '../types'
 import { worktreeSummary, type RailWorktreeMap } from '../lib/worktree-progress'
-import type { RailExecMetric } from '../hooks/useRailExecutionMetrics'
+import type { RailExecMetric } from '../context/RailMetricsContext'
 
 export const RAIL_SORT_PREFIX = '__rail:'
 export function railSortId(railId: string) { return `${RAIL_SORT_PREFIX}${railId}` }
