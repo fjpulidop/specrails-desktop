@@ -39,7 +39,7 @@ describe('loop-constants CRUD', () => {
     createConstant(db, { id: 'b', name: 'BETA', value: '2' })
     createConstant(db, { id: 'a', name: 'ALPHA', value: '1' })
     const list = listConstants(db)
-    expect(list.filter((c) => c.builtin).map((c) => c.name)).toEqual(['VERIFICATION_PASS', 'VERIFICATION_FAIL', 'GUARDRAILS', 'ONE_PER_PASS', 'REMAINING_RULE'])
+    expect(list.filter((c) => c.builtin).map((c) => c.name)).toEqual(['VERIFICATION_PASS', 'VERIFICATION_FAIL', 'GUARDRAILS', 'ONE_PER_PASS', 'REMAINING_RULE', 'MERGE_SAFE'])
     expect(list.filter((c) => !c.builtin).map((c) => c.name)).toEqual(['ALPHA', 'BETA'])
   })
 
@@ -71,6 +71,15 @@ describe('loop-constants CRUD', () => {
     expect(out).toMatch(/already works is NOT remaining/i)
     expect(listConstants(db).find((c) => c.name === 'REMAINING_RULE')?.builtin).toBe(true)
     expect(() => createConstant(db, { id: 'r', name: 'REMAINING_RULE', value: 'x' })).toThrow(/built-in/)
+  })
+
+  it('exposes MERGE_SAFE as a read-only built-in (anti-destructive merge contract)', () => {
+    const out = resolveConstants('{{const:MERGE_SAFE}}', loadConstantMap(db))
+    expect(out).toMatch(/KEEP BOTH sides/i)
+    expect(out).toMatch(/RESOLVE: needs-review/)
+    expect(out).toMatch(/conflict markers/i)
+    expect(listConstants(db).find((c) => c.name === 'MERGE_SAFE')?.builtin).toBe(true)
+    expect(() => createConstant(db, { id: 'm', name: 'MERGE_SAFE', value: 'x' })).toThrow(/built-in/)
   })
 
   it('seeds editable starter constants (migration 16) — present, custom, with the expected values', () => {

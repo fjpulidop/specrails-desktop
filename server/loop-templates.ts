@@ -33,6 +33,11 @@ export interface LoopTemplate {
   category: LoopCategory
   /** Topic tags, surfaced in the gallery. */
   tags: string[]
+  /** True ONLY for loops that provably never write the repo (PR/CI watchers,
+   *  read-only audits). Drives parallel-rail isolation: read-only loops are NOT
+   *  worktree-isolated (nothing to collide). Absent/false ⇒ treated as mutating
+   *  (the safe default; a false read-only would corrupt the shared tree). */
+  readOnly?: boolean
   graph: LoopGraph
 }
 
@@ -58,6 +63,8 @@ export interface PortSpec {
    *  (iterate one item per pass until the spec is fully covered: TDD, story
    *  executors, one-by-one upgrades). */
   loopBack?: 'last' | 'verify' | 'first'
+  /** See LoopTemplate.readOnly — default-false (mutating). */
+  readOnly?: boolean
 }
 
 /** Compile a PortSpec into a publishable LoopTemplate (graph passes validation,
@@ -73,6 +80,7 @@ export function compilePortSpec(spec: PortSpec): LoopTemplate {
     description: spec.description,
     category: spec.category,
     tags: spec.tags,
+    ...(spec.readOnly ? { readOnly: true } : {}),
     graph,
   }
 }
