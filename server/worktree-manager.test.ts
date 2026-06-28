@@ -7,11 +7,12 @@ import {
   listWorktrees,
   commitWorktree,
   isGitRepo,
+  repoIsolationStatus,
   type GitRunner,
   type GitResult,
 } from './worktree-manager'
 
-function fakeGit(opts: { worktrees?: string[]; branchExists?: boolean; addFails?: boolean; insideWorktree?: boolean } = {}) {
+function fakeGit(opts: { worktrees?: string[]; branchExists?: boolean; addFails?: boolean; insideWorktree?: boolean; hasCommits?: boolean } = {}) {
   const calls: string[][] = []
   const git: GitRunner = {
     async run(args): Promise<GitResult> {
@@ -22,6 +23,9 @@ function fakeGit(opts: { worktrees?: string[]; branchExists?: boolean; addFails?
       }
       if (args[0] === 'rev-parse' && args.includes('--is-inside-work-tree')) {
         return opts.insideWorktree === false ? { code: 128, stdout: '', stderr: 'not a git repo' } : { code: 0, stdout: 'true\n', stderr: '' }
+      }
+      if (args[0] === 'rev-parse' && args.includes('--verify') && args.includes('HEAD')) {
+        return opts.hasCommits === false ? { code: 1, stdout: '', stderr: '' } : { code: 0, stdout: 'headsha\n', stderr: '' }
       }
       if (args[0] === 'rev-parse' && args.includes('--verify')) {
         return opts.branchExists ? { code: 0, stdout: 'sha\n', stderr: '' } : { code: 1, stdout: '', stderr: '' }
@@ -99,6 +103,21 @@ describe('isGitRepo', () => {
   it('false when not a git repo', async () => {
     const { git } = fakeGit({ insideWorktree: false })
     expect(await isGitRepo(git, '/tmp/plain')).toBe(false)
+  })
+})
+
+describe('repoIsolationStatus', () => {
+  it('ok for a git repo with commits', async () => {
+    const { git } = fakeGit({ insideWorktree: true, hasCommits: true })
+    expect(await repoIsolationStatus(git, '/repo')).toBe('ok')
+  })
+  it('no-git when not a git repo', async () => {
+    const { git } = fakeGit({ insideWorktree: false })
+    expect(await repoIsolationStatus(git, '/tmp/plain')).toBe('no-git')
+  })
+  it('no-commits when HEAD is unborn (git init, no commit)', async () => {
+    const { git } = fakeGit({ insideWorktree: true, hasCommits: false })
+    expect(await repoIsolationStatus(git, '/repo')).toBe('no-commits')
   })
 })
 

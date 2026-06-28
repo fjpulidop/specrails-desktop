@@ -898,6 +898,8 @@ export default function DashboardPage() {
       const data = await res.json() as { jobId?: string; loopRunIds?: string[]; isolationUnavailable?: string }
       if (data.isolationUnavailable === 'no-git') {
         toast.info(t('toasts.railWorktreesNoGit'))
+      } else if (data.isolationUnavailable === 'no-commits') {
+        toast.info(t('toasts.railWorktreesNoCommits'))
       }
       const activeJobId = data.jobId ?? data.loopRunIds?.[0]
       updateRails((prev) => prev.map((r) => (r.id === railId ? { ...r, status: 'running', activeJobId } : r)))

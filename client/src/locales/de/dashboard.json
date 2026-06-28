@@ -20,7 +20,8 @@
     "launchDescription_one": "{{mode}} mit {{count}} Spec",
     "launchDescription_other": "{{mode}} mit {{count}} Specs",
     "railWorktreeNeedsReview": "Rail {{n}}: Spec #{{ticket}} muss nach dem Merge geprüft werden",
-    "railWorktreesNoGit": "Worktree-Isolation nicht verfügbar: Dieses Projekt ist kein Git-Repository — Ausführung im gemeinsamen Modus."
+    "railWorktreesNoGit": "Worktree-Isolation nicht verfügbar: Dieses Projekt ist kein Git-Repository — Ausführung im gemeinsamen Modus.",
+    "railWorktreesNoCommits": "Worktree-Isolation nicht verfügbar: Das Repository hat noch keine Commits — erstelle einen ersten Commit und starte neu."
   },
   "railsBoard": {
     "title": "Rails",

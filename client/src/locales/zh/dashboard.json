@@ -20,7 +20,8 @@
     "launchDescription_one": "{{mode}}，共 {{count}} 个 Spec",
     "launchDescription_other": "{{mode}}，共 {{count}} 个 Spec",
     "railWorktreeNeedsReview": "Rail {{n}}：合并后 spec #{{ticket}} 需要复查",
-    "railWorktreesNoGit": "worktree 隔离不可用：该项目不是 git 仓库 — 以共享模式运行。"
+    "railWorktreesNoGit": "worktree 隔离不可用：该项目不是 git 仓库 — 以共享模式运行。",
+    "railWorktreesNoCommits": "worktree 隔离不可用：仓库还没有任何提交 — 先做一次初始提交再重新启动。"
   },
   "railsBoard": {
     "title": "Rails",

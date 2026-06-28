@@ -20,7 +20,8 @@
     "launchDescription_one": "{{mode}} with {{count}} spec",
     "launchDescription_other": "{{mode}} with {{count}} specs",
     "railWorktreeNeedsReview": "Rail {{n}}: spec #{{ticket}} needs review after merge",
-    "railWorktreesNoGit": "Worktree isolation unavailable: this project isn't a git repository — running in shared mode."
+    "railWorktreesNoGit": "Worktree isolation unavailable: this project isn't a git repository — running in shared mode.",
+    "railWorktreesNoCommits": "Worktree isolation unavailable: the repository has no commits yet — make an initial commit, then relaunch."
   },
   "railsBoard": {
     "title": "Rails",

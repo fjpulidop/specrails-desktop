@@ -14,7 +14,7 @@ import { dominantTicketScope, referencesClaudeOnlyCommand } from './loop-command
 import { loopNeedsTicket, type LoopGraph } from './loop-graph'
 import { isolationApplies } from './rail-isolation'
 import { launchIsolatedRail } from './rail-isolated-launch'
-import { isGitRepo, defaultGitRunner } from './worktree-manager'
+import { repoIsolationStatus, defaultGitRunner } from './worktree-manager'
 import { newId } from './ids'
 import type { ReasoningEffort } from './providers/types'
 import type { RailJobStartedMessage, RailJobStoppedMessage, RailUpdatedMessage, LoopRunStoppedMessage } from './types'
@@ -361,11 +361,12 @@ export function createRailsRouter(): Router {
         // worktree-allocation failure also falls back. See rail-isolation.ts.
         let isolationUnavailable: string | undefined
         if (isolationApplies({ loopsEnabled: isLoopsEnabled(), scope, ticketCount: rail.ticketIds.length, readOnly: false })) {
-          // Worktree isolation needs a git repo — fall back (with a message) when
-          // the project isn't one.
-          if (!(await isGitRepo(defaultGitRunner, c.project.path))) {
-            isolationUnavailable = 'no-git'
-            console.warn('[rails-router] worktree isolation requested but project is not a git repo; running shared cwd')
+          // Worktree isolation needs a git repo WITH at least one commit (an
+          // unborn HEAD can't be branched). Fall back (with a message) otherwise.
+          const status = await repoIsolationStatus(defaultGitRunner, c.project.path)
+          if (status !== 'ok') {
+            isolationUnavailable = status // 'no-git' | 'no-commits'
+            console.warn(`[rails-router] worktree isolation unavailable (${status}); running shared cwd`)
           } else {
             try {
               const ids = await launchIsolatedRail({

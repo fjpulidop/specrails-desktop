@@ -42,6 +42,20 @@ export async function isGitRepo(git: GitRunner, dir: string): Promise<boolean> {
   return r.code === 0 && r.stdout.trim() === 'true'
 }
 
+/**
+ * Whether a repo can be worktree-isolated:
+ *  - `no-git`     → not a git working tree.
+ *  - `no-commits` → a git repo with an UNBORN HEAD (no commits yet) — `git
+ *    worktree add … HEAD` fails ("invalid reference: HEAD"), so isolation is
+ *    impossible until there's an initial commit.
+ *  - `ok`         → has a resolvable HEAD; safe to branch worktrees from it.
+ */
+export async function repoIsolationStatus(git: GitRunner, dir: string): Promise<'ok' | 'no-git' | 'no-commits'> {
+  if (!(await isGitRepo(git, dir))) return 'no-git'
+  const head = await git.run(['rev-parse', '--verify', '--quiet', 'HEAD'], dir)
+  return head.code === 0 ? 'ok' : 'no-commits'
+}
+
 /** Stable branch name for a ticket's isolated run. */
 export function worktreeBranch(slug: string, ticketId: number): string {
   return `sr/${slug}/ticket-${ticketId}`

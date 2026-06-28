@@ -20,7 +20,8 @@
     "launchDescription_one": "{{mode}} · スペック {{count}} 件",
     "launchDescription_other": "{{mode}} · スペック {{count}} 件",
     "railWorktreeNeedsReview": "Rail {{n}}：マージ後、spec #{{ticket}} は要確認です",
-    "railWorktreesNoGit": "worktree 分離は利用できません：このプロジェクトは git リポジトリではありません — 共有モードで実行します。"
+    "railWorktreesNoGit": "worktree 分離は利用できません：このプロジェクトは git リポジトリではありません — 共有モードで実行します。",
+    "railWorktreesNoCommits": "worktree 分離は利用できません：リポジトリにまだコミットがありません — 初回コミットを作成してから再実行してください。"
   },
   "railsBoard": {
     "title": "レール",

@@ -20,7 +20,8 @@
     "launchDescription_one": "{{mode}} con {{count}} spec",
     "launchDescription_other": "{{mode}} con {{count}} specs",
     "railWorktreeNeedsReview": "Rail {{n}}: la spec #{{ticket}} necesita revisión tras el merge",
-    "railWorktreesNoGit": "Aislamiento por worktrees no disponible: el proyecto no es un repositorio git — ejecutando en modo compartido."
+    "railWorktreesNoGit": "Aislamiento por worktrees no disponible: el proyecto no es un repositorio git — ejecutando en modo compartido.",
+    "railWorktreesNoCommits": "Aislamiento por worktrees no disponible: el repositorio aún no tiene commits — haz un commit inicial y relanza."
   },
   "railsBoard": {
     "title": "Rails",
