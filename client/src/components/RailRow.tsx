@@ -11,6 +11,7 @@ import { RailProfileSelector } from './agents/RailProfileSelector'
 import { RailEngineSelector } from './agents/RailEngineSelector'
 import { RailModelSelector, type UltracodeModel } from './agents/RailModelSelector'
 import { RailLoopSelector } from './agents/RailLoopSelector'
+import { RailExecutionInfo } from './RailExecutionInfo'
 import { RailEffortSelector, type ReasoningEffort } from './agents/RailEffortSelector'
 import { providerSupportsReasoningEffort } from '../lib/provider-capabilities'
 import type { LocalTicket } from '../types'
@@ -44,6 +45,9 @@ interface RailRowProps {
   reasoningEffort?: ReasoningEffort | null
   /** Merge-back progress for a parallel/isolated launch (null when none). */
   worktreeSummary?: { merged: number; needsReview: number; failed: number; reported: number } | null
+  /** Live execution metrics (elapsed/steps/lines) while running — same WS source
+   *  as the Jobs view. Null when not running / no data. */
+  executionMetric?: import('../hooks/useRailExecutionMetrics').RailExecMetric | null
   jiggleMode: boolean
   dragHandleListeners?: Record<string, Function>
   dragHandleAttributes?: Record<string, any>
@@ -76,7 +80,7 @@ interface RailRowProps {
 
 export function RailRow({
   id, label, tickets, mode, status, activeJobId, profileName, aiEngine, ultracodeModel, interactive, interactiveAvailable, providers,
-  loopAvailable, selectedLoopId, reasoningEffort, worktreeSummary, jiggleMode,
+  loopAvailable, selectedLoopId, reasoningEffort, worktreeSummary, executionMetric, jiggleMode,
   dragHandleListeners, dragHandleAttributes, density = 'normal',
   onModeChange, onProfileChange, onEngineChange, onUltracodeModelChange, onLoopChange, onEffortChange, onInteractiveChange, onToggle, onTicketClick, onDelete, onLongPress, onRename,
   onTicketMoveToSpecs,
@@ -438,6 +442,9 @@ export function RailRow({
             onToggle={onToggle}
           />
         </div>
+
+        {/* Live execution metrics (elapsed · steps · lines) — same WS source as Jobs */}
+        {isRunning && executionMetric && <RailExecutionInfo metric={executionMetric} />}
 
         {/* Parallel/isolated merge-back progress */}
         {worktreeSummary && (worktreeSummary.merged > 0 || worktreeSummary.needsReview > 0) && (

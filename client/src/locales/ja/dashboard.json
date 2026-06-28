@@ -48,7 +48,9 @@
     "builtInLoops": "組み込み",
     "customLoops": "カスタムループ",
     "worktreesMerged": "{{count}} 件マージ済み",
-    "worktreesNeedsReview": "{{count}} 件要確認"
+    "worktreesNeedsReview": "{{count}} 件要確認",
+    "execSteps": "{{count}} ステップ",
+    "execLines": "{{count}} 行"
   },
   "railRow": {
     "moveToSpecs": "Specs に移動",

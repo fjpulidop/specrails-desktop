@@ -48,7 +48,9 @@
     "builtInLoops": "Intégrés",
     "customLoops": "Loops personnalisés",
     "worktreesMerged": "{{count}} fusionnés",
-    "worktreesNeedsReview": "{{count}} à vérifier"
+    "worktreesNeedsReview": "{{count}} à vérifier",
+    "execSteps": "{{count}} étapes",
+    "execLines": "{{count}} lignes"
   },
   "railRow": {
     "moveToSpecs": "Déplacer vers Specs",

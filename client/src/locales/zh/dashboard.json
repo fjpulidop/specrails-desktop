@@ -48,7 +48,9 @@
     "builtInLoops": "内置",
     "customLoops": "自定义循环",
     "worktreesMerged": "已合并 {{count}}",
-    "worktreesNeedsReview": "{{count}} 需复查"
+    "worktreesNeedsReview": "{{count}} 需复查",
+    "execSteps": "{{count}} 步",
+    "execLines": "{{count}} 行"
   },
   "railRow": {
     "moveToSpecs": "移至 Specs",

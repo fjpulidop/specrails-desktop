@@ -22,6 +22,7 @@ import { SpecsBoard } from '../components/SpecsBoard'
 import { JiraDiscardProvider } from '../context/JiraDiscardContext'
 import { RailsBoard, type RailState, applyRailJobOutcome, isRailSortId, extractRailId } from '../components/RailsBoard'
 import { applyWorktreeProgress, type RailWorktreeMap, type WorktreeState } from '../lib/worktree-progress'
+import { useRailExecutionMetrics } from '../hooks/useRailExecutionMetrics'
 import { DashboardSplitter } from '../components/DashboardSplitter'
 import { useDashboardSplit } from '../hooks/useDashboardSplit'
 import { TicketDetailModal } from '../components/TicketDetailModal'
@@ -134,6 +135,8 @@ export default function DashboardPage() {
   const [rails, setRails] = useState<RailState[]>(() => loadRails(activeProjectId) ?? INITIAL_RAILS)
   // Per-rail worktree merge-back progress (parallel/isolated launches). railIndex → ticketId → state.
   const [railWorktrees, setRailWorktrees] = useState<RailWorktreeMap>({})
+  // Live per-rail execution metrics (elapsed/steps/lines) from the shared WS stream.
+  const railMetrics = useRailExecutionMetrics(activeProjectId)
   const initialSort = loadSpecSort(activeProjectId)
   const [sortMode, setSortMode] = useState<SpecSortMode>(initialSort.mode)
   const [sortDir, setSortDir] = useState<SpecSortDir>(initialSort.dir)
@@ -967,6 +970,7 @@ export default function DashboardPage() {
             rails={rails}
             ticketMap={ticketMap}
             railWorktrees={railWorktrees}
+            railMetrics={railMetrics}
             providers={railProviders}
             onModeChange={handleModeChange}
             onProfileChange={handleProfileChange}
