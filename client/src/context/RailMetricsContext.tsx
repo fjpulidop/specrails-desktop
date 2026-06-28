@@ -45,8 +45,38 @@ export function RailMetricsProvider({ activeProjectId, children }: { activeProje
   const projRef = useRef(activeProjectId)
   useEffect(() => { projRef.current = activeProjectId }, [activeProjectId])
 
-  // Reset on project switch (metrics are per-project).
-  useEffect(() => { setRuns(new Map()) }, [activeProjectId])
+  // Reset on project switch, then SEED from the server so live metrics survive a
+  // page refresh (the WS stream can't replay run_started/log/loop_step that already
+  // fired). GET /rails carries active loop runs with their startedAt + step/line
+  // counts; live WS updates take over from there.
+  useEffect(() => {
+    setRuns(new Map())
+    if (!activeProjectId) return
+    let cancelled = false
+    fetch(`/api/projects/${activeProjectId}/rails`)
+      .then((r) => (r.ok ? r.json() : null))
+      .then((data: { activeLoopRuns?: Record<string, { loopRunId?: string; startedAt?: string; steps?: number; lines?: number }> } | null) => {
+        if (cancelled || !data?.activeLoopRuns) return
+        const seeded = new Map<string, RunMetric>()
+        for (const [idxStr, run] of Object.entries(data.activeLoopRuns)) {
+          if (!run?.loopRunId) continue
+          seeded.set(run.loopRunId, {
+            railIndex: Number(idxStr),
+            startedAt: run.startedAt ? new Date(run.startedAt).getTime() : Date.now(),
+            steps: run.steps ?? 0,
+            lines: run.lines ?? 0,
+          })
+        }
+        if (seeded.size === 0) return
+        setRuns((prev) => {
+          const next = new Map(prev)
+          for (const [id, m] of seeded) if (!next.has(id)) next.set(id, m) // never clobber a live entry
+          return next
+        })
+      })
+      .catch(() => { /* best-effort seed */ })
+    return () => { cancelled = true }
+  }, [activeProjectId])
 
   const handleMessage = useCallback((data: unknown) => {
     const m = data as WsLike

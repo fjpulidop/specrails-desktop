@@ -5,7 +5,7 @@ import { ClaudeNotFoundError, CodexNotFoundError } from './queue-manager'
 import { validateRequestedProvider } from './provider-selection'
 import { isInteractiveJobsEnabled, isLoopsEnabled } from './feature-flags'
 import { getLoop } from './loops-store'
-import { getLoopRun } from './loop-runs-store'
+import { getLoopRun, getRunEventCounts } from './loop-runs-store'
 import { getAdapter } from './providers'
 import { resolveProjectExecution } from './workspace-resolution'
 import { isFactoryLoopId, factoryLoopMode, getFactoryLoop } from './loop-factory'
@@ -84,12 +84,15 @@ export function createRailsRouter(): Router {
       // stale `mode`/null engine — these never land on the rail row itself.
       const activeLoopRuns: Record<number, {
         loopRunId: string; loopId?: string; loopName?: string | null; provider?: string | null; model?: string | null; iteration?: number
+        startedAt?: string; steps?: number; lines?: number
       }> = {}
       for (const [runId, meta] of c.railLoopRuns.entries()) {
         const run = getLoopRun(c.db, runId)
+        // Seed counts so the dashboard's live metrics survive a page refresh.
+        const counts = getRunEventCounts(c.db, runId)
         activeLoopRuns[meta.railIndex] = run
-          ? { loopRunId: runId, loopId: run.loop_id, loopName: run.loop_name, provider: run.provider, model: run.model, iteration: run.iteration_count }
-          : { loopRunId: runId }
+          ? { loopRunId: runId, loopId: run.loop_id, loopName: run.loop_name, provider: run.provider, model: run.model, iteration: run.iteration_count, startedAt: run.started_at, steps: counts.steps, lines: counts.lines }
+          : { loopRunId: runId, steps: counts.steps, lines: counts.lines }
       }
       res.json({ rails, activeJobs, activeLoopRuns })
     } catch (err) {

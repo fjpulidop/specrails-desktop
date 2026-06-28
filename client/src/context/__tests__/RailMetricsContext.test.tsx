@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { render, act } from '@testing-library/react'
+import { render, act, waitFor } from '@testing-library/react'
 
 let capturedHandler: ((data: unknown) => void) | null = null
 vi.mock('../../hooks/useSharedWebSocket', () => ({
@@ -19,7 +19,12 @@ function renderProvider(projectId: string | null = 'proj') {
 }
 const send = (msg: unknown) => act(() => { capturedHandler?.(msg) })
 
-beforeEach(() => { capturedHandler = null; latest = {} })
+beforeEach(() => {
+  capturedHandler = null
+  latest = {}
+  // Default: no active runs to seed (existing WS-driven tests are unaffected).
+  global.fetch = vi.fn().mockResolvedValue({ ok: true, json: async () => ({ activeLoopRuns: {} }) }) as unknown as typeof fetch
+})
 
 describe('RailMetricsProvider', () => {
   it('tracks steps (from loop_step index) + log lines per rail', () => {
@@ -45,6 +50,16 @@ describe('RailMetricsProvider', () => {
     expect(latest[1]).toMatchObject({ lines: 1 })
     send({ type: 'loop.run_completed', projectId: 'proj', loopRunId: 'r1', railIndex: 1 })
     expect(latest[1]).toBeUndefined()
+  })
+
+  it('SEEDS from the server on mount so metrics survive a page refresh', async () => {
+    global.fetch = vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({ activeLoopRuns: { '2': { loopRunId: 'r9', startedAt: '2026-06-24T10:00:00.000Z', steps: 4, lines: 20 } } }),
+    }) as unknown as typeof fetch
+    renderProvider()
+    await waitFor(() => expect(latest[2]).toMatchObject({ steps: 4, lines: 20 }))
+    expect(latest[2].startedAt).toBe(new Date('2026-06-24T10:00:00.000Z').getTime())
   })
 
   it('aggregates multiple runs of the same rail', () => {

@@ -678,6 +678,6 @@ describe('rails-router GET / — activeLoopRuns enrichment (mirror labelling)', 
   it('falls back to a bare loopRunId when the loop_runs row is missing', async () => {
     const railLoopRuns = new Map([['ghost', { railIndex: 0, ticketIds: [] }]])
     const res = await request(appWith(db, { railLoopRuns })).get('/rails')
-    expect(res.body.activeLoopRuns['0']).toEqual({ loopRunId: 'ghost' })
+    expect(res.body.activeLoopRuns['0']).toEqual({ loopRunId: 'ghost', steps: 0, lines: 0 })
   })
 })

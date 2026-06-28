@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach } from 'vitest'
-import { initDb, type DbInstance } from './db'
+import { initDb, createJob, appendEvent, type DbInstance } from './db'
 import {
   createLoopRun,
   updateLoopRunCounters,
@@ -8,6 +8,7 @@ import {
   listLoopRuns,
   countRunningForLoop,
   reconcileOrphanLoopRuns,
+  getRunEventCounts,
 } from './loop-runs-store'
 
 let db: DbInstance
@@ -105,5 +106,20 @@ describe('loop-runs-store', () => {
     expect(r1.finished_at).toBe('2026-06-24T12:00:00.000Z')
     // A second pass is a no-op (nothing left running).
     expect(reconcileOrphanLoopRuns(db, '2026-06-24T13:00:00.000Z')).toBe(0)
+  })
+
+  describe('getRunEventCounts', () => {
+    it('counts loop_step and log events for a run (for refresh-seeding)', () => {
+      createJob(db, { id: 'run-x', command: 'loop: x', started_at: '2026-06-24T10:00:00.000Z' })
+      appendEvent(db, 'run-x', 1, { event_type: 'loop_step', source: 'stdout', payload: '{"index":1}' })
+      appendEvent(db, 'run-x', 2, { event_type: 'log', source: 'stdout', payload: '{"line":"a"}' })
+      appendEvent(db, 'run-x', 3, { event_type: 'log', source: 'stdout', payload: '{"line":"b"}' })
+      appendEvent(db, 'run-x', 4, { event_type: 'loop_step', source: 'stdout', payload: '{"index":2}' })
+      appendEvent(db, 'run-x', 5, { event_type: 'result', source: 'stdout', payload: '{}' }) // ignored
+      expect(getRunEventCounts(db, 'run-x')).toEqual({ steps: 2, lines: 2 })
+    })
+    it('returns zeros for an unknown run', () => {
+      expect(getRunEventCounts(db, 'nope')).toEqual({ steps: 0, lines: 0 })
+    })
   })
 })

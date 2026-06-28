@@ -107,6 +107,23 @@ export function getLoopRun(db: DbInstance, id: string): LoopRunRow | undefined {
   return db.prepare('SELECT * FROM loop_runs WHERE id = ?').get(id) as LoopRunRow | undefined
 }
 
+/** Step + log-line counts for a run, derived from its persisted events. Used to
+ *  SEED the dashboard's live rail metrics after a page refresh — the WS stream
+ *  alone can't replay the run_started/log/loop_step events that already fired.
+ *  steps = number of `loop_step` events; lines = number of `log` events. */
+export function getRunEventCounts(db: DbInstance, runId: string): { steps: number; lines: number } {
+  const rows = db
+    .prepare("SELECT event_type, COUNT(*) AS n FROM events WHERE job_id = ? AND event_type IN ('loop_step','log') GROUP BY event_type")
+    .all(runId) as { event_type: string; n: number }[]
+  let steps = 0
+  let lines = 0
+  for (const r of rows) {
+    if (r.event_type === 'loop_step') steps = r.n
+    else if (r.event_type === 'log') lines = r.n
+  }
+  return { steps, lines }
+}
+
 export function listLoopRuns(db: DbInstance, projectId: string, limit = 100): LoopRunRow[] {
   return db
     .prepare('SELECT * FROM loop_runs WHERE project_id = ? ORDER BY started_at DESC LIMIT ?')
