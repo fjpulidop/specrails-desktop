@@ -156,11 +156,25 @@ export function createLoopExecutors(opts: { env?: NodeJS.ProcessEnv } = {}): Loo
         onLine?.(msg, 'stderr')
       }
       const { result, estimated } = finaliseInvocationResult(adapter, res.events, { fallbackModel: model })
+      const tokensIn = result.tokens_in ?? 0
+      const tokensOut = result.tokens_out ?? 0
+      const tokensCacheRead = result.tokens_cache_read ?? 0
+      const tokensCacheCreate = result.tokens_cache_create ?? 0
       return {
         text,
         sessionId: res.sessionId ?? undefined,
         cost: result.total_cost_usd,
-        tokens: (result.tokens_in ?? 0) + (result.tokens_out ?? 0),
+        // Derived scalar = input+output ONLY (legacy semantics). It feeds the
+        // in-memory running total + cost-uncertainty heuristic AND the job-level
+        // tokens_out counter (loop_runs / job.finalized), so it must NOT include
+        // cache tokens or the claude loop-job token display would inflate. The
+        // full cache breakdown is persisted to the ai_invocations row via the
+        // structured tokensCacheRead/tokensCacheCreate fields below.
+        tokens: tokensIn + tokensOut,
+        tokensIn,
+        tokensOut,
+        tokensCacheRead,
+        tokensCacheCreate,
         durationMs: result.duration_ms,
         provider: adapter.id,
         model: result.model ?? model,
@@ -193,10 +207,24 @@ export function createLoopExecutors(opts: { env?: NodeJS.ProcessEnv } = {}): Loo
       })
       const decision = parseDeciderDecision(text)
       const { result, estimated } = finaliseInvocationResult(adapter, res.events, { fallbackModel: model })
+      const tokensIn = result.tokens_in ?? 0
+      const tokensOut = result.tokens_out ?? 0
+      const tokensCacheRead = result.tokens_cache_read ?? 0
+      const tokensCacheCreate = result.tokens_cache_create ?? 0
       return {
         ...decision,
         cost: result.total_cost_usd,
-        tokens: (result.tokens_in ?? 0) + (result.tokens_out ?? 0),
+        // Derived scalar = input+output ONLY (legacy semantics). It feeds the
+        // in-memory running total + cost-uncertainty heuristic AND the job-level
+        // tokens_out counter (loop_runs / job.finalized), so it must NOT include
+        // cache tokens or the claude loop-job token display would inflate. The
+        // full cache breakdown is persisted to the ai_invocations row via the
+        // structured tokensCacheRead/tokensCacheCreate fields below.
+        tokens: tokensIn + tokensOut,
+        tokensIn,
+        tokensOut,
+        tokensCacheRead,
+        tokensCacheCreate,
         durationMs: result.duration_ms,
         provider: adapter.id,
         model: result.model ?? model,

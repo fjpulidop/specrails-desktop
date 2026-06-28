@@ -25,7 +25,9 @@
     "all": "Alle",
     "engine": "Engine",
     "ticketChip": "Ticket #{{id}} ·  ✕",
-    "failedToLoad": "Laden fehlgeschlagen: {{error}}"
+    "failedToLoad": "Laden fehlgeschlagen: {{error}}",
+    "modelChip": "Modell: {{model}}",
+    "clearModelFilter": "Modellfilter zurücksetzen"
   },
   "hero": {
     "spending": "Ausgaben",
@@ -45,7 +47,9 @@
     "title": "Nach Provider",
     "description": "So verteilen sich die Kosten auf die KI-CLIs in diesem Projekt. Das Präfix <tilde>~</tilde> markiert Zeilen, deren Kosten über die lokale Preistabelle geschätzt sind (der Provider meldet sie nicht nativ).",
     "noCost": "Noch keine Kosten in diesem Zeitraum erfasst.",
-    "segmentTitle": "{{label}}: {{value}} ({{count}})"
+    "segmentTitle": "{{label}}: {{value}} ({{count}})",
+    "costUnavailable": "Kosten nicht verfügbar",
+    "costUnavailableTooltip": "Dieser Anbieter lief, aber sein Modell ist nicht in der Preistabelle, daher konnten keine Kosten berechnet werden."
   },
   "timeline": {
     "title": "Täglicher Verlauf",
@@ -62,17 +66,21 @@
     "perSpec": "pro Spec",
     "createdRuns": "<strong>{{created}}</strong> erstellt · {{runs}} Läufe",
     "avgDuration": "Ø {{duration}}",
-    "ratio": "{{ratio}}× mehr pro Spec"
+    "ratio": "{{ratio}}× mehr pro Spec",
+    "estimatedTooltip": "Geschätzte Kosten (Rückgriff auf Preistabelle für codex/gemini, nicht vom Anbieter abgerechnet)",
+    "estimatedFootnote": "~ Enthält geschätzte Kosten (codex/gemini)"
   },
   "models": {
     "title": "Modelle",
-    "empty": "Keine Modelle erfasst."
+    "empty": "Keine Modelle erfasst.",
+    "estimatedTooltip": "Geschätzt aus der lokalen Preistabelle — dieser Anbieter meldet die Kosten nicht nativ."
   },
   "scatter": {
     "title": "Kosten vs. Turns",
     "empty": "Keine Aufrufe zum Darstellen.",
     "turnsLabel": "Turns",
-    "costLabel": "Kosten"
+    "costLabel": "Kosten",
+    "truncated": "Zeige {{shown}} von {{total}} — der teuerste Punkt bleibt erhalten, frühere Punkte werden ausgeblendet"
   },
   "topTickets": {
     "title": "Top-Tickets",
@@ -110,7 +118,11 @@
       "failed": "fehlgeschlagen",
       "aborted": "abgebrochen"
     },
-    "truncated": "Zeige die ersten {{shown}} von {{total}} passenden Zeilen."
+    "truncated": "Zeige die ersten {{shown}} von {{total}} passenden Zeilen.",
+    "colProvider": "Anbieter",
+    "sortLabel": "Sortieren",
+    "sortRecency": "Neueste",
+    "sortCost": "Kosten"
   },
   "export": {
     "summaryCsv": "Zusammenfassung (CSV)",
@@ -140,6 +152,13 @@
     "jobsCount_one": "{{count}} Job",
     "jobsCount_other": "{{count}} Jobs",
     "successPct": "{{pct}} % Erfolg",
-    "costByProject": "Kosten nach Projekt"
+    "costByProject": "Kosten nach Projekt",
+    "includesEstimated": "~{{amount}} geschätzt",
+    "includesEstimatedTooltip": "Enthält {{amount}} geschätzte Kosten aus der Preistabelle (codex/gemini), nicht vom Anbieter abgerechnet.",
+    "includesEstimatedShort": "inkl. geschätzt",
+    "timelineEstimatedTooltip": "Einige Tage enthalten geschätzte Kosten aus der Preistabelle (codex/gemini), markiert mit ~.",
+    "estimatedBadge": "gesch.",
+    "projectEstimatedTooltip": "{{amount}} der Kosten dieses Projekts sind eine Schätzung aus der Preistabelle (codex/gemini), nicht vom Anbieter abgerechnet.",
+    "statusBarEstimatedTooltip": "Enthält geschätzte Kosten aus der Preistabelle (codex/gemini), nicht vom Anbieter abgerechnet."
   }
 }

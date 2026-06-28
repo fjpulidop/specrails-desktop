@@ -1318,22 +1318,33 @@ export function getPipelineJobs(db: DbInstance, pipelineId: string): JobRow[] {
 export function getStats(db: DbInstance): StatsRow {
   const today = new Date().toISOString().slice(0, 10) // YYYY-MM-DD
 
+  // Cost SUMs keep AUTHORITATIVE cost (total_cost_usd_estimated=0) on every
+  // status — so the claude path is byte-identical to a bare SUM(total_cost_usd)
+  // — and drop only the ESTIMATED rate-card cost of a non-success terminal job
+  // (the misleading figure a crashed/canceled codex/gemini run leaves behind).
+  // estimatedCost* is the estimated portion that IS counted, so StatusBar can
+  // mark it with `~` (BUG-ANALYTICS-27). Mirrors server/desktop-analytics.ts.
+  const costSum = `SUM(CASE WHEN total_cost_usd_estimated = 1 AND status IN ('failed','canceled','zombie_terminated') THEN 0 ELSE total_cost_usd END)`
+  const estSum = `SUM(CASE WHEN total_cost_usd_estimated = 1 AND status NOT IN ('failed','canceled','zombie_terminated') THEN total_cost_usd ELSE 0 END)`
+
   const totalRow = db.prepare(`
     SELECT
       COUNT(*) as totalJobs,
       SUM(CASE WHEN status = 'failed' THEN 1 ELSE 0 END) as failedJobs,
-      SUM(total_cost_usd) as totalCostUsd,
+      ${costSum} as totalCostUsd,
+      ${estSum} as estimatedCostUsd,
       AVG(duration_ms) as avgDurationMs
     FROM jobs
-  `).get() as { totalJobs: number; failedJobs: number; totalCostUsd: number | null; avgDurationMs: number | null }
+  `).get() as { totalJobs: number; failedJobs: number; totalCostUsd: number | null; estimatedCostUsd: number | null; avgDurationMs: number | null }
 
   const todayRow = db.prepare(`
     SELECT
       COUNT(*) as jobsToday,
-      SUM(total_cost_usd) as costToday
+      ${costSum} as costToday,
+      ${estSum} as estimatedCostToday
     FROM jobs
     WHERE strftime('%Y-%m-%d', started_at) = ?
-  `).get(today) as { jobsToday: number; costToday: number | null }
+  `).get(today) as { jobsToday: number; costToday: number | null; estimatedCostToday: number | null }
 
   return {
     totalJobs: totalRow.totalJobs,
@@ -1341,6 +1352,8 @@ export function getStats(db: DbInstance): StatsRow {
     jobsToday: todayRow.jobsToday,
     totalCostUsd: totalRow.totalCostUsd ?? 0,
     costToday: todayRow.costToday ?? 0,
+    estimatedCostUsd: totalRow.estimatedCostUsd ?? 0,
+    estimatedCostToday: todayRow.estimatedCostToday ?? 0,
     avgDurationMs: totalRow.avgDurationMs,
   }
 }

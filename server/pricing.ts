@@ -65,7 +65,16 @@ export const PRICING: Record<string, PriceEntry> = {
 /**
  * Estimate cost in USD from a token usage breakdown. Returns `null` when:
  *   - the model is null/empty,
- *   - the `${providerId}:${model}` key is not in the pricing table.
+ *   - the `${providerId}:${model}` key is not in the pricing table,
+ *   - the usage breakdown is entirely empty (every token field undefined/0).
+ *
+ * The last case is the fix for the provider asymmetry where a codex/gemini turn
+ * that ends WITHOUT a usage block (abort/crash before `turn.completed`) would
+ * otherwise estimate the number `0` and persist `total_cost_usd=0, estimated=1`,
+ * while the equivalent claude failure leaves `total_cost_usd` NULL. Treating an
+ * all-zero usage breakdown as "no cost to estimate" (→ `null`) keeps failed
+ * non-native-cost rows NULL, exactly like claude, so they're excluded from the
+ * scatter/`byProvider` estimated branch rather than rendering as `~$0.00` dots.
  *
  * Cache-creation tokens are not modelled (OpenAI does not surface a separate
  * cache-write tier as of 2026-05-17). When `tokens_cache_create` is present we
@@ -80,6 +89,16 @@ export function estimateCostUsd(
   if (!model) return null
   const entry = PRICING[`${providerId}:${model}`]
   if (!entry) return null
+  // Entirely-empty usage breakdown → there is no real usage to price. Return
+  // null (not 0) so the row persists NULL, matching claude's failed-row shape.
+  // Note: tokens_cache_create is intentionally excluded — it is never billed
+  // here, so a payload carrying only cache-create tokens still has no billable
+  // usage and must estimate to null rather than 0.
+  const hasBillableUsage =
+    (usage.tokens_in ?? 0) > 0 ||
+    (usage.tokens_out ?? 0) > 0 ||
+    (usage.tokens_cache_read ?? 0) > 0
+  if (!hasBillableUsage) return null
   // `tokens_in` is the TOTAL prompt token count and `tokens_cache_read` is a
   // SUBSET already inside it (OpenAI/codex usage semantics: input_tokens
   // includes cached_input_tokens). Bill the cached portion at the cache rate

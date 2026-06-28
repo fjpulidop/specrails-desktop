@@ -5,7 +5,7 @@ import type { SpendingResponse, ByModeEntry } from '../../../types/spending'
 
 function makeMode(overrides: Partial<ByModeEntry>): ByModeEntry {
   return {
-    mode: 'quick', totalRuns: 0, ticketsCreated: 0, totalCostUsd: 0,
+    mode: 'quick', totalRuns: 0, ticketsCreated: 0, totalCostUsd: 0, estimatedCostUsd: 0,
     avgCostPerSpec: null, avgDurationMs: null, dominantModel: null, sparkline: [],
     ...overrides,
   } as ByModeEntry
@@ -27,6 +27,37 @@ describe('QuickVsExploreCard', () => {
     expect(screen.getByText('Quick')).toBeInTheDocument()
     expect(screen.getByText('Explore')).toBeInTheDocument()
     expect(screen.getByText(/8.9× more per spec/)).toBeInTheDocument()
+  })
+
+  it('renders the per-spec cost as authoritative (no ~, no footnote) for a claude-only project', () => {
+    const { container } = render(<QuickVsExploreCard data={data} loading={false} />)
+    // claude-only: per-spec figure is the plain authoritative dollar amount
+    expect(screen.getByText('$0.080')).toBeInTheDocument()
+    expect(container.textContent).not.toContain('~')
+    expect(screen.queryByTestId('quick-vs-explore-estimated-footnote')).not.toBeInTheDocument()
+    expect(container.querySelector('[data-estimated="true"]')).toBeNull()
+  })
+
+  it('marks the codex/gemini estimated per-spec cost with ~ and a footnote', () => {
+    const estimated: SpendingResponse = {
+      ...data,
+      byMode: [
+        // Quick = claude (authoritative)
+        makeMode({ mode: 'quick', totalRuns: 50, ticketsCreated: 40, avgCostPerSpec: 0.08, estimatedCostUsd: 0 }),
+        // Explore = codex/gemini (pricing-table estimate → estimatedCostUsd > 0)
+        makeMode({ mode: 'explore', totalRuns: 30, ticketsCreated: 20, avgCostPerSpec: 0.71, totalCostUsd: 21.3, estimatedCostUsd: 21.3 }),
+      ],
+    }
+    const { container } = render(<QuickVsExploreCard data={estimated} loading={false} />)
+    // Estimated explore figure carries the ~ prefix (fmtUsd → $0.710 for <1)
+    expect(screen.getByText('~$0.710')).toBeInTheDocument()
+    // Authoritative quick figure stays bare
+    expect(screen.getByText('$0.080')).toBeInTheDocument()
+    // The estimated column is flagged; the authoritative one is not
+    const flagged = container.querySelectorAll('[data-estimated="true"]')
+    expect(flagged.length).toBe(1)
+    // Footnote disclaimer present
+    expect(screen.getByTestId('quick-vs-explore-estimated-footnote')).toBeInTheDocument()
   })
 
   it('shows sparse-data CTA when Explore has < 5 runs', () => {

@@ -40,7 +40,15 @@ export interface AiStepResult {
   text: string
   sessionId?: string
   cost?: number
+  /** Derived total (in+out+cache) for the in-memory running total / cost-uncertainty
+   *  heuristic only. The per-direction breakdown below is what gets persisted. */
   tokens?: number
+  /** Structured token breakdown — persisted to the matching ai_invocations columns
+   *  so cache tokens and the in/out split are preserved (not folded into tokens_out). */
+  tokensIn?: number
+  tokensOut?: number
+  tokensCacheRead?: number
+  tokensCacheCreate?: number
   durationMs?: number
   provider?: string
   model?: string
@@ -60,7 +68,14 @@ export interface ShellResult {
 
 export interface DeciderRunResult extends DeciderDecision {
   cost?: number
+  /** Derived total (in+out+cache) for the in-memory running total / cost-uncertainty
+   *  heuristic only. The per-direction breakdown below is what gets persisted. */
   tokens?: number
+  /** Structured token breakdown — persisted to the matching ai_invocations columns. */
+  tokensIn?: number
+  tokensOut?: number
+  tokensCacheRead?: number
+  tokensCacheCreate?: number
   durationMs?: number
   provider?: string
   model?: string
@@ -307,7 +322,25 @@ export class LoopRunManager {
     const stepCap = (maxIterations + 1) * (req.graph.nodes.length + 2) + 16
     let steps = 0
 
-    const record = (refSuffix: string, r: { cost?: number; tokens?: number; durationMs?: number; provider?: string; model?: string; estimated?: boolean; failed?: boolean }) => {
+    const record = (
+      refSuffix: string,
+      r: {
+        cost?: number
+        tokens?: number
+        tokensIn?: number
+        tokensOut?: number
+        tokensCacheRead?: number
+        tokensCacheCreate?: number
+        durationMs?: number
+        provider?: string
+        model?: string
+        estimated?: boolean
+        failed?: boolean
+      },
+      // The REAL turn-start instant, captured before the step/decider await. The
+      // row is bucketed/ordered by started_at, so it must be the start, not finish.
+      startedAt: string,
+    ) => {
       totalCost += r.cost ?? 0
       // A cost-bearing step that produced work (tokens) or hard-failed but reports
       // no priced cost → its real spend is missing from the total. The common case
@@ -338,14 +371,35 @@ export class LoopRunManager {
         surface: 'loop',
         surface_ref_id: refSuffix,
         ticket_id: req.ticketId ?? null,
-        status: 'success',
-        started_at: new Date(this.now()).toISOString(),
+        // A hard-failed step (spawn error / non-zero exit / timeout) must NOT be
+        // recorded as success — that under-states failureRate and lets a crashed
+        // step into the success-only avg-cost. The result object doesn't separate
+        // timeout from other hard-failures, so all map to 'failed'.
+        status: r.failed ? 'failed' : 'success',
+        // BUG-32: started_at is the real turn-start (captured before the await),
+        // not the finish instant — so daily-timeline bucketing + scatter/table
+        // ORDER BY started_at reflect when the step actually began.
+        started_at: startedAt,
+        finished_at: new Date(this.now()).toISOString(),
         total_cost_usd: r.cost,
         total_cost_usd_estimated: r.estimated ?? false,
-        tokens_out: r.tokens,
+        // BUG-04: persist the per-direction breakdown to its matching column —
+        // folding everything into tokens_out drops cache tokens (the largest
+        // component on cache-hit claude runs) and corrupts the in/out split.
+        tokens_in: r.tokensIn,
+        tokens_out: r.tokensOut,
+        tokens_cache_read: r.tokensCacheRead,
+        tokens_cache_create: r.tokensCacheCreate,
         model: r.model ?? req.model,
         loop_run_id: runId,
       })
+      // BUG-07: the loop path is the only recordInvocation callsite that never
+      // invalidated open spending dashboards — they'd freeze for the whole (often
+      // multi-hour) run. Broadcast after each row, wrapped so a broadcast failure
+      // can't break traversal (mirrors the file-summary callsite).
+      try {
+        this.broadcast({ type: 'spending.invalidated', projectId: req.projectId })
+      } catch { /* best-effort — never break traversal on a broadcast failure */ }
     }
 
     const composeHistory = (): string => {
@@ -422,6 +476,10 @@ export class LoopRunManager {
             // that `/specrails:implement` ran); a long free-text prompt is capped.
             logLine(`Template: ${rawTemplate.length > 1000 ? rawTemplate.slice(0, 1000) + '…' : rawTemplate}`)
             logLine(`Command: ${base.length > 2000 ? base.slice(0, 2000) + '…(truncated)' : base}`)
+            // BUG-32: capture the REAL start instant BEFORE the await — the row is
+            // bucketed/ordered by started_at, which must be the turn-start, not the
+            // finish time (this.now() evaluated after the await would be the finish).
+            const aiStepStart = new Date(this.now()).toISOString()
             const res = await this.executors.runAiStep({ prompt, sessionId: aiSessionId, provider: nodeProvider, model: nodeModel, effort: nodeEffort, cwd: req.cwd, repoDir: req.repoDir, onLine: logLine, onRawLine, onSpawn: (c) => this._activeChild.set(runId, c), aiStepTimeoutMs })
             this._activeChild.delete(runId)
             // Only carry forward the session of a step that actually ran — a
@@ -429,7 +487,7 @@ export class LoopRunManager {
             // would otherwise make the next step `--resume` a dead session.
             if (res.sessionId && !res.failed) aiSessionId = res.sessionId
             history.push(`AI Step: ${truncate(res.text)}`)
-            record(`loop:${runId}`, res)
+            record(`loop:${runId}`, res, aiStepStart)
             // Fail-fast: a hard-failed step (non-zero exit / spawn error) that
             // produced NO output means the provider never really ran — quota,
             // auth, crash. One can be transient; AI_FAILFAST_THRESHOLD in a row
@@ -467,6 +525,8 @@ export class LoopRunManager {
             const goal = resolveConstants(interpolateSpec(String(node.data?.goal ?? 'The loop goal is met.'), req.spec), constMap)
             emitStep('decider', `🔍 ${nodeLabel || 'Loop Decider'} (iteration ${iteration})`)
             logLine(`Goal: ${goal}`)
+            // BUG-32: capture the real Decider start BEFORE the await (see AI step).
+            const deciderStart = new Date(this.now()).toISOString()
             const dec = await this.executors.runDecider({
               systemPrompt: buildDeciderSystemPrompt(),
               // Give the Decider the spec so it can verify completeness against the
@@ -488,7 +548,9 @@ export class LoopRunManager {
             // ai-step blips but the provider is demonstrably up. (When the provider
             // is truly down the Decider also fails → parsed=false → no reset.)
             if (dec.parsed) consecutiveAiFailures = 0
-            record(`loop:${runId}:decider`, dec)
+            // BUG-03: a Decider that couldn't parse a verdict (dec.parsed === false)
+            // is a failed AI invocation — record it as such, not as success.
+            record(`loop:${runId}:decider`, { ...dec, failed: !dec.parsed }, deciderStart)
             logLine(`Decision: ${dec.continue ? 'continue' : 'stop'} — ${dec.reasoning}`)
             history.push(`Decider: ${dec.continue ? 'continue' : 'stop'} — ${dec.reasoning}`)
             updateLoopRunCounters(this.db, runId, {

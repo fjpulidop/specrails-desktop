@@ -2425,5 +2425,126 @@ describe('QueueManager', () => {
         vi.useRealTimers()
       }
     })
+
+    // BUG-ANALYTICS-01: the SIGKILL-survived row must stamp the provider the
+    // child ACTUALLY ran on (per-job override), not the project primary.
+    it('stamps the per-job provider override (codex), not the claude primary', async () => {
+      vi.useFakeTimers()
+      try {
+        vi.mocked(mockExecSync).mockReturnValue(Buffer.from('/usr/bin/codex'))
+        const child = createMockChildProcess()
+        vi.mocked(mockSpawn).mockReturnValue(child as any)
+        vi.mocked(mockUuidV4).mockReturnValue('codex-unkillable-job' as any)
+
+        vi.mocked(treeKill).mockImplementation(((pid: number, signal?: string, cb?: (e?: Error) => void) => {
+          if (signal === 'SIGKILL' && cb) cb(new Error('taskkill failed'))
+        }) as any)
+
+        const db = initDb(':memory:')
+        // claude-primary, multi-provider project; this job overrides to codex.
+        const qmKill = new QueueManager(broadcast, db, [], '/tmp/repo', {
+          provider: 'claude', projectId: 'p1', projectSlug: 'proj',
+        })
+        qmKill.enqueue('/specrails:implement #7', { provider: 'codex' })
+        expect(qmKill.getActiveJobId()).toBe('codex-unkillable-job')
+
+        qmKill.cancel('codex-unkillable-job')
+        vi.advanceTimersByTime(5100)
+
+        const inv = db.prepare(
+          `SELECT provider, status, surface, total_cost_usd FROM ai_invocations WHERE surface_ref_id = ?`
+        ).get('codex-unkillable-job') as
+          | { provider: string; status: string; surface: string; total_cost_usd: number | null }
+          | undefined
+        // Was 'claude' (primary) pre-fix; now correctly the per-job codex override.
+        expect(inv?.provider).toBe('codex')
+        expect(inv?.status).toBe('aborted')
+        expect(inv?.surface).toBe('job')
+        // No usage was finalised (child never produced a result) → no cost.
+        expect(inv?.total_cost_usd).toBeNull()
+      } finally {
+        vi.useRealTimers()
+      }
+    })
+  })
+
+  // ─── Startup-failure capture (BUG-ANALYTICS-02) ─────────────────────────────
+  describe('pre-spawn startup failure (_failWedgedJob)', () => {
+    it('writes a failed ai_invocations row + broadcasts spending.invalidated when _startJob throws before spawn', async () => {
+      vi.mocked(mockExecSync).mockReturnValue(Buffer.from('/usr/bin/claude'))
+      // spawnAiCli throws synchronously inside _startJob, before a child is
+      // established → _drainQueue's catch routes to _failWedgedJob.
+      vi.mocked(mockSpawn).mockImplementation((() => {
+        throw new Error('spawn ENOENT')
+      }) as any)
+      vi.mocked(mockUuidV4).mockReturnValue('wedged-job' as any)
+
+      const db = initDb(':memory:')
+      const onJobFinished = vi.fn()
+      const qm2 = new QueueManager(broadcast, db, [], '/tmp/repo', {
+        provider: 'claude', projectId: 'p1', projectSlug: 'proj', onJobFinished,
+      })
+      qm2.enqueue('/specrails:implement #9')
+      // Let the async _startJob run and reject into _drainQueue's catch.
+      await new Promise((r) => setImmediate(r))
+      await new Promise((r) => setTimeout(r, 10))
+
+      // Slot released, queue not wedged.
+      expect(qm2.getActiveJobId()).toBeNull()
+      // Job stamped failed in-memory. (The `jobs` DB row is intentionally NOT
+      // asserted: a throw at spawn precedes `createJob`, so no jobs row exists —
+      // which is exactly why the ai_invocations row is the only Analytics signal
+      // and BUG-ANALYTICS-02 had to write it here.)
+      const job = qm2.getJobs().find((j) => j.id === 'wedged-job')
+      expect(job?.status).toBe('failed')
+
+      // BUG-ANALYTICS-02: a startup-failed job is now counted on Analytics.
+      const inv = db.prepare(
+        `SELECT surface, status, provider, ticket_id, total_cost_usd, total_cost_usd_estimated
+         FROM ai_invocations WHERE surface_ref_id = ?`
+      ).get('wedged-job') as
+        | { surface: string; status: string; provider: string; ticket_id: number | null; total_cost_usd: number | null; total_cost_usd_estimated: number }
+        | undefined
+      expect(inv).toBeDefined()
+      expect(inv?.surface).toBe('job')
+      expect(inv?.status).toBe('failed')
+      expect(inv?.provider).toBe('claude')
+      expect(inv?.ticket_id).toBe(9)
+      expect(inv?.total_cost_usd).toBeNull()
+      expect(inv?.total_cost_usd_estimated).toBe(0)
+
+      // spending.invalidated broadcast so open dashboards refetch.
+      const invalidated = broadcast.mock.calls.filter(
+        (args: unknown[]) => (args[0] as WsMessage).type === 'spending.invalidated'
+      )
+      expect(invalidated.length).toBeGreaterThanOrEqual(1)
+      // onJobFinished still fired (rail/webhook settle path unchanged).
+      expect(onJobFinished).toHaveBeenCalledWith('wedged-job', 'failed', undefined)
+    })
+
+    it('stamps the resolved per-job provider (codex) on the startup-failed row', async () => {
+      vi.mocked(mockExecSync).mockReturnValue(Buffer.from('/usr/bin/codex'))
+      vi.mocked(mockSpawn).mockImplementation((() => {
+        throw new Error('spawn ENOENT')
+      }) as any)
+      vi.mocked(mockUuidV4).mockReturnValue('wedged-codex-job' as any)
+
+      const db = initDb(':memory:')
+      // claude-primary; this job overrides to codex. The resolved provider is
+      // captured at _startJob (after override consumption) so the wedged row
+      // stamps codex, not the claude primary.
+      const qm2 = new QueueManager(broadcast, db, [], '/tmp/repo', {
+        provider: 'claude', projectId: 'p1', projectSlug: 'proj',
+      })
+      qm2.enqueue('/specrails:implement #3', { provider: 'codex' })
+      await new Promise((r) => setImmediate(r))
+      await new Promise((r) => setTimeout(r, 10))
+
+      const inv = db.prepare(
+        `SELECT provider, status FROM ai_invocations WHERE surface_ref_id = ?`
+      ).get('wedged-codex-job') as { provider: string; status: string } | undefined
+      expect(inv?.provider).toBe('codex')
+      expect(inv?.status).toBe('failed')
+    })
   })
 })

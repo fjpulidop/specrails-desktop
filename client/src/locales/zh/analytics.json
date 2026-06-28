@@ -25,7 +25,9 @@
     "all": "全部",
     "engine": "引擎",
     "ticketChip": "工单 #{{id}} ·  ✕",
-    "failedToLoad": "加载失败：{{error}}"
+    "failedToLoad": "加载失败：{{error}}",
+    "modelChip": "模型：{{model}}",
+    "clearModelFilter": "清除模型筛选"
   },
   "hero": {
     "spending": "支出",
@@ -45,7 +47,9 @@
     "title": "按提供方",
     "description": "此项目中各 AI CLI 的成本分布。<tilde>~</tilde> 前缀表示该行成本由本地价格表估算（提供方不原生上报）。",
     "noCost": "此时间窗口内暂无成本记录。",
-    "segmentTitle": "{{label}}：{{value}}（{{count}}）"
+    "segmentTitle": "{{label}}：{{value}}（{{count}}）",
+    "costUnavailable": "成本不可用",
+    "costUnavailableTooltip": "此提供商已运行，但其模型不在价格表中，因此无法计算成本。"
   },
   "timeline": {
     "title": "每日时间线",
@@ -62,17 +66,21 @@
     "perSpec": "每个 spec",
     "createdRuns": "已创建 <strong>{{created}}</strong> · {{runs}} 次运行",
     "avgDuration": "平均 {{duration}}",
-    "ratio": "每个 spec 多 {{ratio}}×"
+    "ratio": "每个 spec 多 {{ratio}}×",
+    "estimatedTooltip": "估算成本（codex/gemini 价格表回退，非提供商计费）",
+    "estimatedFootnote": "~ 包含估算成本（codex/gemini）"
   },
   "models": {
     "title": "模型",
-    "empty": "暂无模型记录。"
+    "empty": "暂无模型记录。",
+    "estimatedTooltip": "根据本地价格表估算 — 此提供商不原生报告成本。"
   },
   "scatter": {
     "title": "成本 vs 轮次",
     "empty": "暂无可绘制的调用。",
     "turnsLabel": "轮次",
-    "costLabel": "成本"
+    "costLabel": "成本",
+    "truncated": "显示 {{total}} 中的 {{shown}} 个 — 保留成本最高的点，但隐藏较早的点"
   },
   "topTickets": {
     "title": "热门工单",
@@ -110,7 +118,11 @@
       "failed": "失败",
       "aborted": "已中止"
     },
-    "truncated": "显示前 {{shown}} 条，共 {{total}} 条匹配记录。"
+    "truncated": "显示前 {{shown}} 条，共 {{total}} 条匹配记录。",
+    "colProvider": "提供商",
+    "sortLabel": "排序",
+    "sortRecency": "最近",
+    "sortCost": "成本"
   },
   "export": {
     "summaryCsv": "摘要 CSV",
@@ -140,6 +152,13 @@
     "jobsCount_one": "{{count}} 个任务",
     "jobsCount_other": "{{count}} 个任务",
     "successPct": "成功率 {{pct}}%",
-    "costByProject": "按项目统计成本"
+    "costByProject": "按项目统计成本",
+    "includesEstimated": "~{{amount}} 估算",
+    "includesEstimatedTooltip": "包含 {{amount}} 的价格表估算成本（codex/gemini），非提供商计费。",
+    "includesEstimatedShort": "含估算",
+    "timelineEstimatedTooltip": "某些天包含以 ~ 标记的价格表估算成本（codex/gemini）。",
+    "estimatedBadge": "估算",
+    "projectEstimatedTooltip": "此项目成本中的 {{amount}} 为价格表估算（codex/gemini），非提供商计费。",
+    "statusBarEstimatedTooltip": "包含价格表估算成本（codex/gemini），非提供商计费。"
   }
 }

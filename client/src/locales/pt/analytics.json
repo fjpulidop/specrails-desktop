@@ -25,7 +25,9 @@
     "all": "Tudo",
     "engine": "Motor",
     "ticketChip": "ticket #{{id}} ·  ✕",
-    "failedToLoad": "Falha ao carregar: {{error}}"
+    "failedToLoad": "Falha ao carregar: {{error}}",
+    "modelChip": "Modelo: {{model}}",
+    "clearModelFilter": "Limpar filtro de modelo"
   },
   "hero": {
     "spending": "Gastos",
@@ -45,7 +47,9 @@
     "title": "Por fornecedor",
     "description": "Como o custo se divide entre as CLIs de IA deste projeto. O prefixo <tilde>~</tilde> assinala as linhas em que o custo é estimado a partir da tabela de preços local (o fornecedor não o reporta nativamente).",
     "noCost": "Ainda não há custo registado nesta janela.",
-    "segmentTitle": "{{label}}: {{value}} ({{count}})"
+    "segmentTitle": "{{label}}: {{value}} ({{count}})",
+    "costUnavailable": "custo indisponível",
+    "costUnavailableTooltip": "Este provedor foi executado, mas seu modelo não está na tabela de preços, portanto nenhum custo pôde ser calculado."
   },
   "timeline": {
     "title": "Cronologia diária",
@@ -62,17 +66,21 @@
     "perSpec": "por spec",
     "createdRuns": "<strong>{{created}}</strong> criadas · {{runs}} execuções",
     "avgDuration": "{{duration}} em média",
-    "ratio": "{{ratio}}× mais por spec"
+    "ratio": "{{ratio}}× mais por spec",
+    "estimatedTooltip": "Custo estimado (estimativa pela tabela de preços para codex/gemini, não faturado pelo provedor)",
+    "estimatedFootnote": "~ Inclui custos estimados (codex/gemini)"
   },
   "models": {
     "title": "Modelos",
-    "empty": "Nenhum modelo registado."
+    "empty": "Nenhum modelo registado.",
+    "estimatedTooltip": "Estimado a partir da tabela de preços local — este provedor não informa o custo nativamente."
   },
   "scatter": {
     "title": "Custo vs Turnos",
     "empty": "Sem invocações para representar.",
     "turnsLabel": "turnos",
-    "costLabel": "custo"
+    "costLabel": "custo",
+    "truncated": "Mostrando {{shown}} de {{total}} — o ponto mais caro é mantido, mas os pontos anteriores ficam ocultos"
   },
   "topTickets": {
     "title": "Top tickets",
@@ -110,7 +118,11 @@
       "failed": "falhada",
       "aborted": "abortada"
     },
-    "truncated": "A mostrar as primeiras {{shown}} de {{total}} linhas correspondentes."
+    "truncated": "A mostrar as primeiras {{shown}} de {{total}} linhas correspondentes.",
+    "colProvider": "Provedor",
+    "sortLabel": "Ordenar",
+    "sortRecency": "Recente",
+    "sortCost": "Custo"
   },
   "export": {
     "summaryCsv": "CSV de resumo",
@@ -140,6 +152,13 @@
     "jobsCount_one": "{{count}} job",
     "jobsCount_other": "{{count}} jobs",
     "successPct": "{{pct}}% de sucesso",
-    "costByProject": "Custo por projeto"
+    "costByProject": "Custo por projeto",
+    "includesEstimated": "~{{amount}} estimado",
+    "includesEstimatedTooltip": "Inclui {{amount}} de custo estimado pela tabela de preços (codex/gemini), não faturado pelo provedor.",
+    "includesEstimatedShort": "incl. estimado",
+    "timelineEstimatedTooltip": "Alguns dias incluem custo estimado pela tabela de preços (codex/gemini) marcado com ~.",
+    "estimatedBadge": "est.",
+    "projectEstimatedTooltip": "{{amount}} do custo deste projeto é uma estimativa pela tabela de preços (codex/gemini), não faturado pelo provedor.",
+    "statusBarEstimatedTooltip": "Inclui custo estimado pela tabela de preços (codex/gemini), não faturado pelo provedor."
   }
 }

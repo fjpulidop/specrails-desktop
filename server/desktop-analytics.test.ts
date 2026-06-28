@@ -6,19 +6,22 @@ import type { DbInstance } from './db'
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
-function makeProjectDb(jobs: Array<{ costUsd: number; status: string; startedAt?: string }>): DbInstance {
+function makeProjectDb(
+  jobs: Array<{ costUsd: number; status: string; startedAt?: string; estimated?: boolean }>
+): DbInstance {
   const db = initDb(':memory:')
   const today = new Date().toISOString().slice(0, 10)
   for (const job of jobs) {
     db.prepare(`
-      INSERT INTO jobs (id, command, status, started_at, finished_at, total_cost_usd, duration_ms)
-      VALUES (?, 'implement', ?, ?, ?, ?, 1000)
+      INSERT INTO jobs (id, command, status, started_at, finished_at, total_cost_usd, total_cost_usd_estimated, duration_ms)
+      VALUES (?, 'implement', ?, ?, ?, ?, ?, 1000)
     `).run(
       crypto.randomUUID(),
       job.status,
       job.startedAt ?? `${today}T10:00:00.000Z`,
       `${today}T10:01:00.000Z`,
-      job.costUsd
+      job.costUsd,
+      job.estimated ? 1 : 0
     )
   }
   return db
@@ -81,6 +84,9 @@ describe('getDesktopAnalytics', () => {
     const result = getDesktopAnalytics(registry, { period: '7d' })
 
     expect(result.kpi.totalJobs).toBe(3)
+    // BUG-28 (review-corrected): the $0.03 failed job is AUTHORITATIVE (claude,
+    // estimated=0) so its real billed cost is still counted — only the ESTIMATED
+    // cost of a failed codex/gemini job would be dropped. All three count.
     expect(result.kpi.totalCostUsd).toBeCloseTo(0.06, 5)
     expect(result.kpi.successRate).toBeCloseTo(2 / 3, 5)
   })
@@ -149,6 +155,100 @@ describe('getDesktopAnalytics', () => {
   })
 })
 
+// ─── Estimated-cost split (codex/gemini) ──────────────────────────────────────
+// BUG-ANALYTICS-24/25/26/28: jobs.total_cost_usd_estimated=1 marks rate-card
+// estimates (codex/gemini). The HOME rollup must surface that split and must
+// NOT count failed/aborted jobs in the cost SUM.
+
+describe('getDesktopAnalytics — estimated cost split', () => {
+  it('splits estimated (codex/gemini) cost out of the grand total KPI', () => {
+    const today = new Date().toISOString().slice(0, 10)
+    const db = makeProjectDb([
+      { costUsd: 0.10, status: 'completed', startedAt: `${today}T10:00:00.000Z` }, // claude (authoritative)
+      { costUsd: 0.04, status: 'completed', estimated: true, startedAt: `${today}T11:00:00.000Z` }, // codex (estimated)
+    ])
+    const registry = makeRegistry([{ id: 'p1', name: 'Mixed', db }])
+
+    const result = getDesktopAnalytics(registry, { period: '7d' })
+
+    expect(result.kpi.totalCostUsd).toBeCloseTo(0.14, 5)
+    expect(result.kpi.estimatedCostUsd).toBeCloseTo(0.04, 5)
+    expect(result.kpi.includesEstimated).toBe(true)
+    expect(result.kpi.estimatedCostToday).toBeCloseTo(0.04, 5)
+  })
+
+  it('claude-only project reports zero estimated and includesEstimated=false', () => {
+    const db = makeProjectDb([
+      { costUsd: 0.10, status: 'completed' },
+      { costUsd: 0.20, status: 'completed' },
+    ])
+    const registry = makeRegistry([{ id: 'p1', name: 'Claude', db }])
+
+    const result = getDesktopAnalytics(registry, { period: '7d' })
+
+    expect(result.kpi.totalCostUsd).toBeCloseTo(0.30, 5)
+    expect(result.kpi.estimatedCostUsd).toBe(0)
+    expect(result.kpi.includesEstimated).toBe(false)
+    expect(result.kpi.estimatedCostToday).toBe(0)
+  })
+
+  it('per-project breakdown row carries an estimatedCostUsd split', () => {
+    const db = makeProjectDb([
+      { costUsd: 0.05, status: 'completed' }, // authoritative
+      { costUsd: 0.03, status: 'completed', estimated: true }, // estimated
+    ])
+    const registry = makeRegistry([{ id: 'p1', name: 'Mixed', db }])
+
+    const result = getDesktopAnalytics(registry, { period: '7d' })
+
+    expect(result.projectBreakdown[0].totalCostUsd).toBeCloseTo(0.08, 5)
+    expect(result.projectBreakdown[0].estimatedCostUsd).toBeCloseTo(0.03, 5)
+  })
+
+  it('cost timeline carries a per-day estimatedCostUsd split', () => {
+    const today = new Date().toISOString().slice(0, 10)
+    const db = makeProjectDb([
+      { costUsd: 0.06, status: 'completed', startedAt: `${today}T09:00:00.000Z` },
+      { costUsd: 0.02, status: 'completed', estimated: true, startedAt: `${today}T12:00:00.000Z` },
+    ])
+    const registry = makeRegistry([{ id: 'p1', name: 'Mixed', db }])
+
+    const result = getDesktopAnalytics(registry, { period: '7d' })
+
+    const todayEntry = result.costTimeline.find((e) => e.date === today)
+    expect(todayEntry).toBeDefined()
+    expect(todayEntry!.costUsd).toBeCloseTo(0.08, 5)
+    expect(todayEntry!.estimatedCostUsd).toBeCloseTo(0.02, 5)
+  })
+
+  it('BUG-28 (review-corrected): keeps authoritative cost on failed jobs, drops only the estimated cost of failed/canceled jobs', () => {
+    const today = new Date().toISOString().slice(0, 10)
+    const db = makeProjectDb([
+      { costUsd: 0.10, status: 'completed', startedAt: `${today}T10:00:00.000Z` },                    // claude completed (auth) → kept
+      { costUsd: 0.07, status: 'failed', startedAt: `${today}T10:10:00.000Z` },                       // claude FAILED (auth, real billed) → kept
+      { costUsd: 0.50, status: 'failed', estimated: true, startedAt: `${today}T10:30:00.000Z` },      // codex failed (estimate, phantom) → dropped
+      { costUsd: 0.40, status: 'canceled', estimated: true, startedAt: `${today}T10:45:00.000Z` },    // codex canceled (estimate) → dropped
+      { costUsd: 0.04, status: 'completed', estimated: true, startedAt: `${today}T11:00:00.000Z` },   // codex completed (estimate) → kept
+    ])
+    const registry = makeRegistry([{ id: 'p1', name: 'Proj', db }])
+
+    const result = getDesktopAnalytics(registry, { period: '7d' })
+
+    // Authoritative (claude, estimated=0) cost counts on EVERY status incl.
+    // failed; only the ESTIMATED cost of a failed/canceled codex job is dropped.
+    expect(result.kpi.totalCostUsd).toBeCloseTo(0.10 + 0.07 + 0.04, 5) // 0.21
+    expect(result.kpi.estimatedCostUsd).toBeCloseTo(0.04, 5)           // only the completed-codex estimate
+    expect(result.kpi.costToday).toBeCloseTo(0.21, 5)
+    expect(result.kpi.estimatedCostToday).toBeCloseTo(0.04, 5)
+    // But every run is still counted.
+    expect(result.kpi.totalJobs).toBe(5)
+    expect(result.kpi.jobsToday).toBe(5)
+    const todayEntry = result.costTimeline.find((e) => e.date === today)
+    expect(todayEntry!.costUsd).toBeCloseTo(0.21, 5)
+    expect(todayEntry!.estimatedCostUsd).toBeCloseTo(0.04, 5)
+  })
+})
+
 describe('getDesktopTodayStats', () => {
   it('returns zeros when no projects', () => {
     const registry = makeRegistry([])
@@ -169,6 +269,34 @@ describe('getDesktopTodayStats', () => {
     const stats = getDesktopTodayStats(registry)
     expect(stats.jobsToday).toBe(2)
     expect(stats.costToday).toBeCloseTo(0.12, 5)
+  })
+
+  it('BUG-27: splits estimated cost out and excludes failed/aborted from costToday', () => {
+    const today = new Date().toISOString().slice(0, 10)
+    const db = makeProjectDb([
+      { costUsd: 0.08, status: 'completed', startedAt: `${today}T10:00:00.000Z` }, // claude
+      { costUsd: 0.05, status: 'completed', estimated: true, startedAt: `${today}T10:30:00.000Z` }, // codex
+      { costUsd: 0.99, status: 'failed', estimated: true, startedAt: `${today}T11:00:00.000Z` }, // excluded
+    ])
+    const registry = makeRegistry([{ id: 'p1', name: 'Mixed', db }])
+
+    const stats = getDesktopTodayStats(registry)
+
+    expect(stats.costToday).toBeCloseTo(0.13, 5)
+    expect(stats.estimatedCostToday).toBeCloseTo(0.05, 5)
+    expect(stats.includesEstimated).toBe(true)
+    expect(stats.jobsToday).toBe(3)
+  })
+
+  it('claude-only project reports zero estimated today', () => {
+    const today = new Date().toISOString().slice(0, 10)
+    const db = makeProjectDb([{ costUsd: 0.05, status: 'completed', startedAt: `${today}T10:00:00.000Z` }])
+    const registry = makeRegistry([{ id: 'p1', name: 'Claude', db }])
+
+    const stats = getDesktopTodayStats(registry)
+
+    expect(stats.estimatedCostToday).toBe(0)
+    expect(stats.includesEstimated).toBe(false)
   })
 })
 

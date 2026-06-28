@@ -364,8 +364,8 @@ describe('H24 derived aggregates', () => {
     ])
     const r = getSpending(db, 'p1', { period: 'all' })
     expect(r.byModel).toEqual([
-      { model: 'opus', count: 1, costUsd: 5 },
-      { model: 'sonnet', count: 2, costUsd: 3 },
+      { provider: 'claude', model: 'opus', count: 1, costUsd: 5, estimatedCostUsd: 0 },
+      { provider: 'claude', model: 'sonnet', count: 2, costUsd: 3, estimatedCostUsd: 0 },
     ])
   })
 
@@ -451,5 +451,257 @@ describe('parseSpendingFilters surface validation (M17)', () => {
   })
   it('drops unknown surfaces', () => {
     expect(parseSpendingFilters({ surface: 'job,bogus' }).surface).toEqual(['job'])
+  })
+})
+
+// BUG-ANALYTICS-08/29/30/31: byModel carries provider + an estimated/authoritative
+// split, and is keyed on (provider, model) so codex/gemini estimated spend never
+// merges into a claude bar of the same id.
+describe('byModel provider + estimated split', () => {
+  let db: DbInstance
+  beforeEach(() => { db = initDb(':memory:') })
+
+  it('carries provider and estimatedCostUsd per model entry', () => {
+    const now = new Date().toISOString()
+    seed(db, [
+      { id: 'a', provider: 'claude', surface: 'job', model: 'sonnet', total_cost_usd: 2, total_cost_usd_estimated: false, started_at: now },
+      { id: 'b', provider: 'codex', surface: 'job', model: 'gpt-5.5', total_cost_usd: 0.05, total_cost_usd_estimated: true, started_at: now },
+    ])
+    const r = getSpending(db, 'p1', { period: 'all' })
+    const sonnet = r.byModel.find((m) => m.model === 'sonnet')!
+    expect(sonnet.provider).toBe('claude')
+    expect(sonnet.costUsd).toBeCloseTo(2)
+    expect(sonnet.estimatedCostUsd).toBe(0)
+    const gpt = r.byModel.find((m) => m.model === 'gpt-5.5')!
+    expect(gpt.provider).toBe('codex')
+    expect(gpt.costUsd).toBeCloseTo(0.05)
+    expect(gpt.estimatedCostUsd).toBeCloseTo(0.05)
+  })
+
+  it('does NOT merge a cross-provider model-id collision into one bar (BUG-30)', () => {
+    const now = new Date().toISOString()
+    // Same free-form model id 'shared-x' on two providers — must stay two entries.
+    seed(db, [
+      { id: 'a', provider: 'claude', surface: 'job', model: 'shared-x', total_cost_usd: 1, total_cost_usd_estimated: false, started_at: now },
+      { id: 'b', provider: 'codex', surface: 'job', model: 'shared-x', total_cost_usd: 0.2, total_cost_usd_estimated: true, started_at: now },
+    ])
+    const r = getSpending(db, 'p1', { period: 'all' })
+    const entries = r.byModel.filter((m) => m.model === 'shared-x')
+    expect(entries).toHaveLength(2)
+    const byProv = new Map(entries.map((e) => [e.provider, e]))
+    expect(byProv.get('claude')!.costUsd).toBeCloseTo(1)
+    expect(byProv.get('claude')!.estimatedCostUsd).toBe(0)
+    expect(byProv.get('codex')!.costUsd).toBeCloseTo(0.2)
+    expect(byProv.get('codex')!.estimatedCostUsd).toBeCloseTo(0.2)
+  })
+
+  it('coalesces legacy NULL provider rows to claude in byModel', () => {
+    const now = new Date().toISOString()
+    db.prepare(`INSERT INTO ai_invocations (id, project_id, provider, surface, status, started_at, model, total_cost_usd)
+                VALUES (?, ?, NULL, 'job', 'success', ?, 'sonnet', 1.0)`).run('legacy', 'p1', now)
+    const r = getSpending(db, 'p1', { period: 'all' })
+    const sonnet = r.byModel.find((m) => m.model === 'sonnet')!
+    expect(sonnet.provider).toBe('claude')
+  })
+})
+
+// BUG-ANALYTICS-30/31: provider-aligned model filter via modelKeys.
+describe('provider-aligned model filter (modelKeys)', () => {
+  let db: DbInstance
+  beforeEach(() => { db = initDb(':memory:') })
+
+  it('scopes the model predicate to its provider when modelKeys is set', () => {
+    const now = new Date().toISOString()
+    seed(db, [
+      { id: 'a', provider: 'claude', surface: 'job', model: 'shared-x', total_cost_usd: 1, started_at: now },
+      { id: 'b', provider: 'codex', surface: 'job', model: 'shared-x', total_cost_usd: 5, total_cost_usd_estimated: true, started_at: now },
+    ])
+    // Filtering to (codex, shared-x) must NOT pull the claude row.
+    const r = getSpending(db, 'p1', { period: 'all', modelKeys: [{ provider: 'codex', model: 'shared-x' }] })
+    expect(r.summary.totalCostUsd).toBeCloseTo(5)
+    expect(r.summary.totalRuns).toBe(1)
+  })
+
+  it('legacy bare model filter still matches across providers (unchanged)', () => {
+    const now = new Date().toISOString()
+    seed(db, [
+      { id: 'a', provider: 'claude', surface: 'job', model: 'shared-x', total_cost_usd: 1, started_at: now },
+      { id: 'b', provider: 'codex', surface: 'job', model: 'shared-x', total_cost_usd: 5, started_at: now },
+    ])
+    const r = getSpending(db, 'p1', { period: 'all', model: ['shared-x'] })
+    expect(r.summary.totalRuns).toBe(2)
+  })
+
+  it('parseSpendingFilters builds modelKeys from index-aligned modelProvider CSV', () => {
+    const f = parseSpendingFilters({ model: 'gpt-5.5,sonnet', modelProvider: 'codex,claude' })
+    expect(f.modelKeys).toEqual([
+      { provider: 'codex', model: 'gpt-5.5' },
+      { provider: 'claude', model: 'sonnet' },
+    ])
+  })
+
+  it('parseSpendingFilters ignores modelProvider when lengths mismatch', () => {
+    const f = parseSpendingFilters({ model: 'gpt-5.5,sonnet', modelProvider: 'codex' })
+    expect(f.modelKeys).toBeUndefined()
+    expect(f.model).toEqual(['gpt-5.5', 'sonnet'])
+  })
+})
+
+// BUG-ANALYTICS-33: byMode carries an estimated split so QuickVsExploreCard can
+// mark codex/gemini per-spec figures as estimates.
+describe('byMode estimated split', () => {
+  let db: DbInstance
+  beforeEach(() => { db = initDb(':memory:') })
+
+  it('splits estimatedCostUsd per mode', () => {
+    const now = new Date().toISOString()
+    seed(db, [
+      { id: 'q1', provider: 'claude', surface: 'quick-spec', status: 'success', ticket_id: 1, total_cost_usd: 0.2, total_cost_usd_estimated: false, started_at: now },
+      { id: 'e1', provider: 'codex', surface: 'explore-spec', status: 'success', ticket_id: 2, total_cost_usd: 0.5, total_cost_usd_estimated: true, started_at: now },
+    ])
+    const r = getSpending(db, 'p1', { period: 'all' })
+    const quick = r.byMode.find((m) => m.mode === 'quick')!
+    expect(quick.totalCostUsd).toBeCloseTo(0.2)
+    expect(quick.estimatedCostUsd).toBe(0)
+    const explore = r.byMode.find((m) => m.mode === 'explore')!
+    expect(explore.totalCostUsd).toBeCloseTo(0.5)
+    expect(explore.estimatedCostUsd).toBeCloseTo(0.5)
+  })
+
+  it('estimatedCostUsd is 0 for a pure-claude mode', () => {
+    const now = new Date().toISOString()
+    seed(db, [
+      { id: 'q1', surface: 'quick-spec', status: 'success', ticket_id: 1, total_cost_usd: 0.3, started_at: now },
+    ])
+    const r = getSpending(db, 'p1', { period: 'all' })
+    expect(r.byMode.find((m) => m.mode === 'quick')!.estimatedCostUsd).toBe(0)
+  })
+})
+
+// BUG-ANALYTICS-18/36: topTickets title/isDeleted enrichment via injected resolver.
+describe('topTickets title enrichment', () => {
+  let db: DbInstance
+  beforeEach(() => { db = initDb(':memory:') })
+
+  it('populates ticketTitle and isDeleted via the injected resolver', () => {
+    const now = new Date().toISOString()
+    seed(db, [
+      { id: 'a', surface: 'job', ticket_id: 7, total_cost_usd: 5, started_at: now },
+      { id: 'b', surface: 'job', ticket_id: 99, total_cost_usd: 3, started_at: now },
+      { id: 'c', surface: 'job', ticket_id: null, total_cost_usd: 1, started_at: now },
+    ])
+    const resolver = (id: number) =>
+      id === 7 ? { title: 'Live spec', deleted: false } : { title: null, deleted: true }
+    const r = getSpending(db, 'p1', { period: 'all' }, resolver)
+    const t7 = r.topTickets.find((t) => t.ticketId === 7)!
+    expect(t7.ticketTitle).toBe('Live spec')
+    expect(t7.isDeleted).toBe(false)
+    const t99 = r.topTickets.find((t) => t.ticketId === 99)!
+    expect(t99.ticketTitle).toBeNull()
+    expect(t99.isDeleted).toBe(true)
+    // Unattributed bucket keeps null title and is not marked deleted.
+    const unatt = r.topTickets.find((t) => t.ticketId === null)!
+    expect(unatt.ticketTitle).toBeNull()
+    expect(unatt.isDeleted).toBeUndefined()
+  })
+
+  it('keeps legacy ticketTitle:null / no isDeleted when no resolver passed', () => {
+    const now = new Date().toISOString()
+    seed(db, [{ id: 'a', surface: 'job', ticket_id: 7, total_cost_usd: 5, started_at: now }])
+    const r = getSpending(db, 'p1', { period: 'all' })
+    const t7 = r.topTickets.find((t) => t.ticketId === 7)!
+    expect(t7.ticketTitle).toBeNull()
+    expect(t7.isDeleted).toBeUndefined()
+  })
+})
+
+// BUG-ANALYTICS-34: scatter truncation signal + outlier guarantee.
+describe('scatter truncation + outlier (BUG-34)', () => {
+  let db: DbInstance
+  beforeEach(() => { db = initDb(':memory:') })
+
+  it('reports scatterTotal and not-truncated under the cap', () => {
+    const now = new Date().toISOString()
+    seed(db, [
+      { id: 'a', surface: 'job', total_cost_usd: 1, started_at: now },
+      { id: 'b', surface: 'job', total_cost_usd: 2, started_at: now },
+      { id: 'n', surface: 'job', total_cost_usd: null, started_at: now }, // unpriced excluded
+    ])
+    const r = getSpending(db, 'p1', { period: 'all' })
+    expect(r.scatterTotal).toBe(2)
+    expect(r.scatterTruncated).toBe(false)
+    expect(r.scatter).toHaveLength(2)
+  })
+
+  it('truncates beyond 500 priced rows and always includes the costliest outlier', () => {
+    const base = Date.now()
+    const rows: Array<Partial<Parameters<typeof recordInvocation>[1]>> = []
+    // The single most expensive row is the OLDEST, so recency-cap would drop it.
+    rows.push({ id: 'outlier', surface: 'job', total_cost_usd: 9999, started_at: new Date(base - 600 * 1000).toISOString() })
+    for (let i = 0; i < 520; i++) {
+      rows.push({ id: `r${i}`, surface: 'job', total_cost_usd: 0.01, started_at: new Date(base - i * 1000).toISOString() })
+    }
+    seed(db, rows)
+    const r = getSpending(db, 'p1', { period: 'all' })
+    expect(r.scatterTotal).toBe(521)
+    expect(r.scatterTruncated).toBe(true)
+    // 500 recency-capped + 1 unioned outlier.
+    expect(r.scatter.length).toBe(501)
+    expect(r.scatter.some((p) => p.id === 'outlier' && p.costUsd === 9999)).toBe(true)
+  })
+})
+
+// BUG-ANALYTICS-21: tz-offset day bucketing.
+describe('dailyTimeline tz offset (BUG-21)', () => {
+  let db: DbInstance
+  beforeEach(() => { db = initDb(':memory:') })
+
+  it('buckets a late-UTC instant into the next local day for a +offset user', () => {
+    // 2026-06-27T23:30:00Z → with +600 min (UTC+10) becomes 2026-06-28 local.
+    seed(db, [
+      { id: 'a', surface: 'job', total_cost_usd: 1, started_at: '2026-06-27T23:30:00Z' },
+    ])
+    const utc = getSpending(db, 'p1', { period: 'all' })
+    expect(utc.dailyTimeline.some((d) => d.date === '2026-06-27' && d.jobsCostUsd === 1)).toBe(true)
+    const local = getSpending(db, 'p1', { period: 'all', tzOffsetMinutes: 600 })
+    expect(local.dailyTimeline.some((d) => d.date === '2026-06-28' && d.jobsCostUsd === 1)).toBe(true)
+    expect(local.dailyTimeline.some((d) => d.date === '2026-06-27' && d.jobsCostUsd === 1)).toBe(false)
+  })
+
+  it('default (no offset) is byte-identical UTC bucketing', () => {
+    seed(db, [{ id: 'a', surface: 'job', total_cost_usd: 1, started_at: '2026-06-27T23:30:00Z' }])
+    const r = getSpending(db, 'p1', { period: 'all' })
+    expect(r.dailyTimeline.find((d) => d.date === '2026-06-27')!.jobsCostUsd).toBe(1)
+  })
+
+  it('parseSpendingFilters parses and clamps tzOffsetMinutes', () => {
+    expect(parseSpendingFilters({ tzOffsetMinutes: '600' }).tzOffsetMinutes).toBe(600)
+    expect(parseSpendingFilters({ tzOffsetMinutes: '-300' }).tzOffsetMinutes).toBe(-300)
+    expect(parseSpendingFilters({ tzOffsetMinutes: '99999' }).tzOffsetMinutes).toBeUndefined()
+    expect(parseSpendingFilters({ tzOffsetMinutes: 'abc' }).tzOffsetMinutes).toBeUndefined()
+  })
+})
+
+// BUG-ANALYTICS-35: cost-sorted raw table order.
+describe('getInvocations cost sort (BUG-35)', () => {
+  let db: DbInstance
+  beforeEach(() => { db = initDb(':memory:') })
+
+  it('orders by cost desc when sortBy=cost so the costliest is on page 1', () => {
+    const base = Date.now()
+    // The most expensive row is the OLDEST — recency order would hide it on page 1.
+    recordInvocation(db, { id: 'cheap-recent', project_id: 'p1', provider: 'claude', surface: 'job', status: 'success', total_cost_usd: 0.01, started_at: new Date(base).toISOString() })
+    recordInvocation(db, { id: 'pricey-old', project_id: 'p1', provider: 'claude', surface: 'job', status: 'success', total_cost_usd: 50, started_at: new Date(base - 100000).toISOString() })
+    const recency = getInvocations(db, 'p1', { period: 'all', limit: 1 })
+    expect(recency.rows[0].id).toBe('cheap-recent')
+    const byCost = getInvocations(db, 'p1', { period: 'all', limit: 1, sortBy: 'cost' })
+    expect(byCost.rows[0].id).toBe('pricey-old')
+    expect(byCost.totalAvailable).toBe(2)
+  })
+
+  it('parseSpendingFilters parses sortBy', () => {
+    expect(parseSpendingFilters({ sortBy: 'cost' }).sortBy).toBe('cost')
+    expect(parseSpendingFilters({ sortBy: 'recency' }).sortBy).toBe('recency')
+    expect(parseSpendingFilters({ sortBy: 'bogus' }).sortBy).toBeUndefined()
   })
 })

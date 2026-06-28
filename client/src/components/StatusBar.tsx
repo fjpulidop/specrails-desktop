@@ -8,6 +8,12 @@ interface Stats {
   jobsToday: number
   costToday: number
   totalCostUsd: number
+  /** Portion of cost that is a rate-card ESTIMATE (codex/gemini), not
+   *  provider-billed. Optional — absent on legacy claude-only surfaces. */
+  estimatedCostToday?: number
+  estimatedCostUsd?: number
+  /** True when any part of the surfaced cost is a rate-card estimate. */
+  includesEstimated?: boolean
 }
 
 interface StatusBarProps {
@@ -18,6 +24,7 @@ interface StatusBarProps {
 
 export function StatusBar({ connectionStatus, rightSlot }: StatusBarProps) {
   const { t } = useTranslation('nav')
+  const { t: tAnalytics } = useTranslation('analytics')
   const [stats, setStats] = useState<Stats | null>(null)
   const [isSyncing, setIsSyncing] = useState(false)
   const prevStatusRef = useRef<'connecting' | 'connected' | 'disconnected'>('connecting')
@@ -95,7 +102,21 @@ export function StatusBar({ connectionStatus, rightSlot }: StatusBarProps) {
 
       {/* Stats + right slot (terminal chevron) */}
       <div className="flex items-center gap-2">
-        {stats && stats.totalCostUsd > 0 && <span>${stats.totalCostUsd.toFixed(2)}</span>}
+        {stats && stats.totalCostUsd > 0 && (() => {
+          // BUG-ANALYTICS-27: never present a codex/gemini rate-card estimate as
+          // a billed figure — prefix '~' + tooltip when any part is estimated.
+          const estimated =
+            stats.includesEstimated ??
+            ((stats.estimatedCostUsd ?? 0) > 0 || (stats.estimatedCostToday ?? 0) > 0)
+          return (
+            <span
+              data-estimated={estimated ? 'true' : undefined}
+              title={estimated ? tAnalytics('desktop.statusBarEstimatedTooltip') : undefined}
+            >
+              {estimated ? '~' : ''}${stats.totalCostUsd.toFixed(2)}
+            </span>
+          )
+        })()}
         {rightSlot}
       </div>
     </footer>

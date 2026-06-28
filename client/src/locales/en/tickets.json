@@ -100,7 +100,8 @@
     "turns_one": "{{count}} turn",
     "turns_other": "{{count}} turns",
     "active": "{{duration}} active",
-    "breakdownItem": "{{n}} {{label}}"
+    "breakdownItem": "{{n}} {{label}}",
+    "estimatedTooltip": "Estimated from the local pricing table — this provider does not report cost natively."
   },
   "toasts": {
     "newTicket": "New ticket: {{title}}",

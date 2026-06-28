@@ -133,6 +133,13 @@ export function getTicketSpendingSummary(
   ticketId: number
 ): {
   totalCostUsd: number
+  /**
+   * Portion of `totalCostUsd` from rows flagged `total_cost_usd_estimated=1`
+   * (codex/gemini pricing-table fallback). Lets TicketSpendingLine render a `~`
+   * when the ticket's cost is wholly/partly estimated (BUG-ANALYTICS-12).
+   * 0 for a ticket implemented entirely via claude.
+   */
+  estimatedCostUsd: number
   totalTokens: number
   totalTurns: number
   activeDurationMs: number
@@ -140,13 +147,14 @@ export function getTicketSpendingSummary(
   totalRuns: number
 } {
   const rows = db.prepare(
-    `SELECT surface, status, total_cost_usd, num_turns, duration_ms,
+    `SELECT surface, status, total_cost_usd, total_cost_usd_estimated, num_turns, duration_ms,
             tokens_in, tokens_out, tokens_cache_read, tokens_cache_create
      FROM ai_invocations WHERE ticket_id = ?`
   ).all(ticketId) as Array<{
     surface: Surface
     status: InvocationStatus
     total_cost_usd: number | null
+    total_cost_usd_estimated: number
     num_turns: number | null
     duration_ms: number | null
     tokens_in: number | null
@@ -164,6 +172,7 @@ export function getTicketSpendingSummary(
     loop: { count: 0, costUsd: 0 },
   }
   let totalCostUsd = 0
+  let estimatedCostUsd = 0
   let totalTokens = 0
   let totalTurns = 0
   let activeDurationMs = 0
@@ -171,6 +180,7 @@ export function getTicketSpendingSummary(
     bySurface[r.surface].count += 1
     bySurface[r.surface].costUsd += r.total_cost_usd ?? 0
     totalCostUsd += r.total_cost_usd ?? 0
+    if (r.total_cost_usd_estimated === 1) estimatedCostUsd += r.total_cost_usd ?? 0
     // Real total tokens = fresh input + output + cache-read + cache-create.
     totalTokens +=
       (r.tokens_in ?? 0) +
@@ -180,7 +190,7 @@ export function getTicketSpendingSummary(
     totalTurns += r.num_turns ?? 0
     activeDurationMs += r.duration_ms ?? 0
   }
-  return { totalCostUsd, totalTokens, totalTurns, activeDurationMs, bySurface, totalRuns: rows.length }
+  return { totalCostUsd, estimatedCostUsd, totalTokens, totalTurns, activeDurationMs, bySurface, totalRuns: rows.length }
 }
 
 /**

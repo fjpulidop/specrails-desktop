@@ -55,6 +55,51 @@ describe('InvocationsTable', () => {
     expect(screen.getByText(/Showing first 1 of 50,000/)).toBeInTheDocument()
   })
 
+  it('shows truncation note when totalAvailable exceeds shown rows even if truncated flag is false (BUG-ANALYTICS-19)', () => {
+    render(
+      <InvocationsTable rows={[row({ id: 'a' }), row({ id: 'b' })]} loading={false}
+        truncated={false} totalAvailable={150}
+        tableFilters={{}} onTableFiltersChange={() => {}} />
+    )
+    expect(screen.getByText(/Showing first 2 of 150/)).toBeInTheDocument()
+  })
+
+  it('does not show a truncation note when all rows are shown', () => {
+    render(
+      <InvocationsTable rows={[row()]} loading={false} truncated={false} totalAvailable={1}
+        tableFilters={{}} onTableFiltersChange={() => {}} />
+    )
+    expect(screen.queryByText(/Showing first/)).not.toBeInTheDocument()
+  })
+
+  it('hides the Provider column for a single-provider (claude) project (BUG-ANALYTICS-11)', () => {
+    render(
+      <InvocationsTable
+        rows={[row({ id: 'a', provider: 'claude' }), row({ id: 'b', provider: null })]}
+        loading={false} truncated={false} totalAvailable={2}
+        tableFilters={{}} onTableFiltersChange={() => {}}
+      />
+    )
+    expect(screen.queryByText('Codex')).not.toBeInTheDocument()
+    // No "Provider" header column is rendered
+    expect(screen.queryByRole('columnheader', { name: /provider/i })).not.toBeInTheDocument()
+  })
+
+  it('renders a Provider column with per-row labels in a multi-provider project (BUG-ANALYTICS-11)', () => {
+    render(
+      <InvocationsTable
+        rows={[
+          row({ id: 'a', provider: 'claude' }),
+          row({ id: 'b', provider: 'codex', total_cost_usd: 0.05, total_cost_usd_estimated: 1 }),
+        ]}
+        loading={false} truncated={false} totalAvailable={2}
+        tableFilters={{}} onTableFiltersChange={() => {}}
+      />
+    )
+    expect(screen.getByText('Claude')).toBeInTheDocument()
+    expect(screen.getByText('Codex')).toBeInTheDocument()
+  })
+
   it('labels Contract Layer invocations distinctly from the source ticket', () => {
     render(
       <InvocationsTable

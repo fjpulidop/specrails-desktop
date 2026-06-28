@@ -156,6 +156,29 @@ describe('LoopRunManager fail-fast (provider down / out of quota)', () => {
   })
 })
 
+describe('LoopRunManager honest cost (unpriced step → lower bound)', () => {
+  it('marks the total `≥` and warns when a cost-bearing step ends unpriced (claude timeout)', async () => {
+    // A claude AI step killed by timeout: it streamed work (tokens) but the child
+    // died before the terminal `result` event, so cost is undefined and the step
+    // bills $0. The decider then stops with a real cost.
+    const runAiStep = vi.fn(async () => ({ text: 'partial work', failed: true, errorText: 'claude timed out', tokens: 1200, provider: 'claude', model: 'sonnet' }))
+    const runDecider = vi.fn(async () => ({ continue: false, reasoning: 'done', parsed: true, cost: 0.001, tokens: 20, provider: 'claude', model: 'sonnet' }))
+    const res = await manager(makeExecutors({ runAiStep, runDecider })).run(baseReq())
+
+    // Per-occurrence honesty warning surfaced in the run log.
+    expect(broadcasts.some((m) => m.type === 'log' && /Step cost unknown/.test((m as { line: string }).line))).toBe(true)
+    // Final total rendered as a lower bound (only the decider's $0.001 is priced).
+    expect(broadcasts.some((m) => m.type === 'log' && /Loop finished:.*≥ \$0\.0010/.test((m as { line: string }).line))).toBe(true)
+    expect(res.totalCostUsd).toBeCloseTo(0.001, 5)
+  })
+
+  it('does NOT flag the total when every cost-bearing step reports a price', async () => {
+    const res = await manager(makeExecutors()).run(baseReq())
+    expect(broadcasts.some((m) => m.type === 'log' && /Step cost unknown/.test((m as { line: string }).line))).toBe(false)
+    expect(broadcasts.some((m) => m.type === 'log' && /Loop finished:.*≥/.test((m as { line: string }).line))).toBe(false)
+  })
+})
+
 describe('LoopRunManager session bounding (provider-agnostic)', () => {
   // Mock that records the sessionId each AI step was called with and hands back a
   // fresh one (so a resume would carry it forward).
@@ -201,6 +224,131 @@ describe('LoopRunManager session bounding (provider-agnostic)', () => {
     expect(sessionArg(ex, 0)).toBeUndefined() // a1 — fresh start
     expect(sessionArg(ex, 1)).toBeDefined()   // a2 — resumes
     expect(sessionArg(ex, 2)).toBeDefined()   // a2 again — still resuming (session NOT dropped)
+  })
+})
+
+describe('LoopRunManager ai_invocations accounting (BUG-ANALYTICS-03/04/07/32)', () => {
+  // Single AI step → End, so exactly ONE loop ai_invocations row is written and
+  // its column values are unambiguous to assert.
+  function singleStepGraph(): LoopGraph {
+    return {
+      nodes: [
+        { id: 's', type: 'start', position: { x: 0, y: 0 } },
+        { id: 'ai', type: 'ai-step', position: { x: 0, y: 1 }, data: { prompt: 'work' } },
+        { id: 'e', type: 'end', position: { x: 0, y: 2 } },
+      ],
+      edges: [
+        { id: 'e1', source: 's', target: 'ai' },
+        { id: 'e2', source: 'ai', target: 'e' },
+      ],
+      config: { maxIterations: 5, timeoutMinutes: 30 },
+    }
+  }
+
+  it('BUG-04: persists the per-direction token breakdown (incl. cache) to its matching column, not folded into tokens_out', async () => {
+    // Mirrors a cache-hit claude step: in/out small, cache large. Folding into a
+    // single tokens_out scalar would drop the cache volume entirely.
+    const ex = makeExecutors({
+      runAiStep: vi.fn(async () => ({
+        text: 'x', cost: 0.05, provider: 'claude', model: 'sonnet',
+        tokens: 24500, tokensIn: 1500, tokensOut: 1000, tokensCacheRead: 20000, tokensCacheCreate: 2000,
+      })),
+    })
+    const res = await manager(ex).run({ ...baseReq(), graph: singleStepGraph() })
+    expect(res.outcome).toBe('success')
+    const row = db.prepare(
+      `SELECT tokens_in, tokens_out, tokens_cache_read, tokens_cache_create FROM ai_invocations WHERE surface='loop' AND loop_run_id=?`
+    ).get(res.runId) as { tokens_in: number; tokens_out: number; tokens_cache_read: number; tokens_cache_create: number }
+    expect(row.tokens_in).toBe(1500)
+    expect(row.tokens_out).toBe(1000)
+    expect(row.tokens_cache_read).toBe(20000)
+    expect(row.tokens_cache_create).toBe(2000)
+  })
+
+  it('BUG-03 (⊛ codex): a hard-failed AI step is recorded status=failed, not success', async () => {
+    // A codex step that exits non-zero (quota/usage-limit) but still produces text
+    // so it does NOT trip the fail-fast — the row must still be flagged failed.
+    const ex = makeExecutors({
+      runAiStep: vi.fn(async () => ({ text: 'partial', failed: true, errorText: "You've hit your usage limit", provider: 'codex', model: 'gpt-5.5', cost: 0.02, estimated: true })),
+    })
+    const res = await manager(ex).run({ ...baseReq(), graph: singleStepGraph(), provider: 'codex', model: 'gpt-5.5' })
+    const row = db.prepare(
+      `SELECT status, provider, total_cost_usd_estimated FROM ai_invocations WHERE surface='loop' AND loop_run_id=?`
+    ).get(res.runId) as { status: string; provider: string; total_cost_usd_estimated: number }
+    expect(row.status).toBe('failed')
+    expect(row.provider).toBe('codex')
+    expect(row.total_cost_usd_estimated).toBe(1) // estimated cost preserved alongside the failed status
+  })
+
+  it('BUG-03: a successful AI step stays status=success (claude-only path unchanged)', async () => {
+    const res = await manager(makeExecutors()).run({ ...baseReq(), graph: singleStepGraph() })
+    const row = db.prepare(`SELECT status FROM ai_invocations WHERE surface='loop' AND loop_run_id=?`).get(res.runId) as { status: string }
+    expect(row.status).toBe('success')
+  })
+
+  it('BUG-03: an unparseable Decider verdict (dec.parsed=false) is recorded status=failed', async () => {
+    // ai-step succeeds (so no fail-fast), Decider can't parse but is treated as
+    // continue → loop runs to the iteration cap; every decider row is failed.
+    const ex = makeExecutors({
+      runAiStep: vi.fn(async () => ({ text: 'ok', provider: 'claude', model: 'sonnet' })),
+      runDecider: vi.fn(async () => ({ continue: true, reasoning: '(could not parse)', parsed: false, provider: 'claude', model: 'sonnet' })),
+    })
+    const res = await manager(ex).run({ ...baseReq(), graph: loopGraph(2) })
+    const rows = db.prepare(`SELECT status FROM ai_invocations WHERE surface='loop' AND surface_ref_id LIKE '%:decider' AND loop_run_id=?`).all(res.runId) as { status: string }[]
+    expect(rows.length).toBeGreaterThan(0)
+    expect(rows.every((r) => r.status === 'failed')).toBe(true)
+  })
+
+  it('BUG-03: a parseable Decider verdict stays status=success', async () => {
+    const res = await manager(makeExecutors()).run(baseReq())
+    const rows = db.prepare(`SELECT status FROM ai_invocations WHERE surface='loop' AND surface_ref_id LIKE '%:decider' AND loop_run_id=?`).all(res.runId) as { status: string }[]
+    expect(rows.length).toBeGreaterThan(0)
+    expect(rows.every((r) => r.status === 'success')).toBe(true)
+  })
+
+  it('BUG-07: broadcasts spending.invalidated after each recorded invocation', async () => {
+    const res = await manager(makeExecutors()).run(baseReq())
+    const invalidations = broadcasts.filter((m) => m.type === 'spending.invalidated') as { type: string; projectId: string }[]
+    // baseReq's default decider STOPS on the first call → 1 AI step + 1 decider =
+    // 2 ai_invocations rows = exactly 2 spending.invalidated broadcasts. There must
+    // be one broadcast per recorded row (and none on a claude-only project today
+    // were emitted before this fix).
+    const rowCount = (db.prepare(`SELECT COUNT(*) AS n FROM ai_invocations WHERE surface='loop' AND loop_run_id=?`).get(res.runId) as { n: number }).n
+    expect(invalidations.length).toBe(rowCount)
+    expect(invalidations.length).toBe(2)
+    expect(invalidations.every((m) => m.projectId === 'p1')).toBe(true)
+  })
+
+  it('BUG-07: a broadcast failure never breaks traversal', async () => {
+    let calls = 0
+    // Throw on every spending.invalidated broadcast; the run must still settle.
+    const throwingBroadcast = (m: WsMessage) => {
+      broadcasts.push(m)
+      if (m.type === 'spending.invalidated') { calls += 1; throw new Error('ws down') }
+    }
+    const mgr = new LoopRunManager(db, throwingBroadcast, makeExecutors(), () => 1000)
+    const res = await mgr.run({ ...baseReq(), graph: singleStepGraph() })
+    expect(res.outcome).toBe('success')
+    expect(calls).toBeGreaterThan(0) // the throwing path was exercised
+  })
+
+  it('BUG-32: started_at is the turn-START instant and finished_at the finish, not both at finish', async () => {
+    // Advancing clock: each this.now() call returns a later ms. The step start is
+    // captured before the await, the finish after → started_at < finished_at.
+    let t = 1000
+    const tickingNow = () => { t += 1000; return t }
+    const ex = makeExecutors({
+      // Burn a clock tick inside the step so its finish is strictly after its start.
+      runAiStep: vi.fn(async () => ({ text: 'x', cost: 0.01, tokens: 10, tokensIn: 4, tokensOut: 6, provider: 'claude', model: 'sonnet' })),
+    })
+    const mgr = new LoopRunManager(db, (m) => broadcasts.push(m), ex, tickingNow)
+    const res = await mgr.run({ ...baseReq(), graph: singleStepGraph() })
+    const row = db.prepare(`SELECT started_at, finished_at FROM ai_invocations WHERE surface='loop' AND loop_run_id=?`).get(res.runId) as { started_at: string; finished_at: string }
+    expect(row.started_at).toBeTruthy()
+    expect(row.finished_at).toBeTruthy()
+    // The row's started_at must be EARLIER than its finished_at (the bug stamped
+    // both at the finish instant).
+    expect(new Date(row.started_at).getTime()).toBeLessThan(new Date(row.finished_at).getTime())
   })
 })
 

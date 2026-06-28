@@ -95,6 +95,12 @@ export interface StatsRow {
   jobsToday: number
   totalCostUsd: number
   costToday: number
+  /** Portion of totalCostUsd / costToday that is a rate-card ESTIMATE
+   *  (codex/gemini, total_cost_usd_estimated=1), not provider-billed. Lets the
+   *  StatusBar mark an estimated cost with `~` instead of presenting it as a
+   *  billed figure (BUG-ANALYTICS-27). 0 on claude-only surfaces. */
+  estimatedCostUsd: number
+  estimatedCostToday: number
   avgDurationMs: number | null
 }
 

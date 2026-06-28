@@ -1,6 +1,6 @@
 import { useTranslation } from 'react-i18next'
 import { ResponsiveContainer, ScatterChart, Scatter, XAxis, YAxis, CartesianGrid, Tooltip, ZAxis } from 'recharts'
-import type { SpendingResponse, ScatterPoint } from '../../types/spending'
+import type { SpendingResponse, ScatterPoint, Surface } from '../../types/spending'
 import { SURFACE_LABEL } from '../../types/spending'
 
 interface Props {
@@ -19,13 +19,23 @@ interface ChartPoint {
   raw: ScatterPoint
 }
 
-const COLOR: Record<string, string> = {
+// Per-surface point/legend colour. Mirrors SURFACE_ACCENT's token mapping but
+// as inline CSS-var strings (recharts `fill` / inline `background` can't consume
+// Tailwind class names). Keyed on the full Surface union so file-summary + loop
+// points are never silently dropped from the plot or the legend.
+const COLOR: Record<Surface, string> = {
   job: 'var(--accent-info, #5fa8d3)',
   'quick-spec': 'var(--accent-secondary, #f7768e)',
   'explore-spec': 'var(--accent-highlight, #c084fc)',
   'ai-edit': 'var(--accent-success, #50fa7b)',
   smash: 'var(--accent-highlight, #c084fc)',
+  'file-summary': 'var(--accent-warning, #f1fa8c)',
+  loop: 'var(--accent-primary, #7aa2f7)',
 }
+
+// All surfaces, drawn in a stable order. Derived from SURFACE_LABEL keys so a
+// newly added surface can never drift out of the scatter again.
+const SURFACES = Object.keys(SURFACE_LABEL) as Surface[]
 
 export function CostScatter({ data, loading, onSelectPoint }: Props) {
   const { t } = useTranslation('analytics')
@@ -34,7 +44,7 @@ export function CostScatter({ data, loading, onSelectPoint }: Props) {
   }
   if (!data) return null
 
-  const surfaces: Array<'job' | 'quick-spec' | 'explore-spec' | 'ai-edit' | 'smash'> = ['job', 'quick-spec', 'explore-spec', 'ai-edit', 'smash']
+  const surfaces = SURFACES
   const datasets = surfaces.map((s) => ({
     surface: s,
     points: data.scatter
@@ -50,6 +60,12 @@ export function CostScatter({ data, loading, onSelectPoint }: Props) {
       })),
   }))
   const isEmpty = data.scatter.length === 0
+  // The server caps the scatter at the 500 most-recent priced rows. When it
+  // reports a truncation it UNION-s in the single costliest row so the
+  // budget-blowing outlier is never invisible, but earlier mid-cost points are
+  // still dropped — surface a notice so the user knows the plot is incomplete.
+  const truncated = data.scatterTruncated === true
+  const scatterTotal = data.scatterTotal ?? data.scatter.length
 
   return (
     <div className="rounded-xl border border-border/50 bg-card/40 p-4">
@@ -64,6 +80,14 @@ export function CostScatter({ data, loading, onSelectPoint }: Props) {
           ))}
         </div>
       </div>
+      {truncated && !isEmpty && (
+        <div
+          data-testid="scatter-truncation-notice"
+          className="mb-2 text-[10px] text-accent-warning"
+        >
+          {t('scatter.truncated', { shown: data.scatter.length, total: scatterTotal })}
+        </div>
+      )}
       {isEmpty ? (
         <div className="h-40 flex items-center justify-center text-xs text-muted-foreground/70">
           {t('scatter.empty')}

@@ -80,12 +80,16 @@ export function ProviderBreakdownCard({ data, loading }: Props) {
               const sum = p.costUsd + p.estimatedCostUsd
               const pct = total > 0 ? (sum / total) * 100 : 0
               if (pct === 0) return null
+              // Mirror the legend row: prefix `~` for estimated-only providers
+              // so the bar-segment tooltip carries the same trust signal.
+              const allEstimated = p.costUsd === 0 && p.estimatedCostUsd > 0
+              const value = `${allEstimated ? '~' : ''}${fmtUsd(sum)}`
               return (
                 <div
                   key={p.provider}
                   className={`h-full ${providerAccent(p.provider)}`}
                   style={{ width: `${pct}%` }}
-                  title={t('providerCard.segmentTitle', { label: providerLabel(p.provider), value: fmtUsd(sum), count: p.count })}
+                  title={t('providerCard.segmentTitle', { label: providerLabel(p.provider), value, count: p.count })}
                 />
               )
             })}
@@ -105,6 +109,10 @@ function ProviderRow({ entry }: { entry: ByProviderEntry }) {
   const { t } = useTranslation('analytics')
   const sum = entry.costUsd + entry.estimatedCostUsd
   const allEstimated = entry.costUsd === 0 && entry.estimatedCostUsd > 0
+  // A provider with real runs but zero priced/estimated cost means its model
+  // is absent from the pricing table (catalog drift) — render an explicit
+  // "cost unavailable" affordance rather than a misleading authoritative $0.
+  const costUnavailable = entry.count > 0 && entry.costUsd === 0 && entry.estimatedCostUsd === 0
   return (
     <div className="flex items-center gap-2.5 rounded-md border border-border/30 px-2.5 py-1.5">
       <span className={`w-2 h-2 rounded-full shrink-0 ${providerAccent(entry.provider)}`} />
@@ -112,9 +120,18 @@ function ProviderRow({ entry }: { entry: ByProviderEntry }) {
       <span className="text-[10px] text-muted-foreground tabular-nums">
         {t('runs', { count: entry.count })}
       </span>
-      <span className="ml-auto text-xs font-medium tabular-nums">
-        {allEstimated ? '~' : ''}{fmtUsd(sum)}
-      </span>
+      {costUnavailable ? (
+        <span
+          className="ml-auto text-xs font-medium text-muted-foreground/80 italic"
+          title={t('providerCard.costUnavailableTooltip')}
+        >
+          {t('providerCard.costUnavailable')}
+        </span>
+      ) : (
+        <span className="ml-auto text-xs font-medium tabular-nums">
+          {allEstimated ? '~' : ''}{fmtUsd(sum)}
+        </span>
+      )}
     </div>
   )
 }

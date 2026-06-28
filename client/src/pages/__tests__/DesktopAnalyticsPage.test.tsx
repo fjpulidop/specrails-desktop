@@ -170,4 +170,119 @@ describe('DesktopAnalyticsPage', () => {
       expect(screen.getByText('No projects registered.')).toBeInTheDocument()
     })
   })
+
+  // ─── Estimated (codex/gemini) split — BUG-ANALYTICS-24/25/26/28 ──────────────
+
+  const estimatedData = {
+    period: { label: 'Last 7 days', from: null, to: null },
+    kpi: {
+      totalCostUsd: 3.0,
+      totalJobs: 40,
+      successRate: 0.9,
+      costToday: 0.5,
+      jobsToday: 4,
+      estimatedCostUsd: 1.2, // codex/gemini rate-card portion
+      estimatedCostToday: 0.3,
+      includesEstimated: true,
+    },
+    costTimeline: [
+      { date: '2024-01-01', costUsd: 1.0, estimatedCostUsd: 0.4 },
+      { date: '2024-01-02', costUsd: 2.0, estimatedCostUsd: 0 },
+    ],
+    projectBreakdown: [
+      {
+        projectId: 'proj-codex',
+        projectName: 'Codex Project',
+        totalCostUsd: 2.0,
+        totalJobs: 25,
+        successRate: 0.8,
+        avgDurationMs: 50000,
+        estimatedCostUsd: 2.0, // wholly estimated
+      },
+      {
+        projectId: 'proj-claude',
+        projectName: 'Claude Project',
+        totalCostUsd: 1.0,
+        totalJobs: 15,
+        successRate: 1.0,
+        avgDurationMs: 40000,
+        estimatedCostUsd: 0, // wholly authoritative
+      },
+    ],
+  }
+
+  it('marks grand-total cost with ~ and shows estimated footnote (BUG-24)', async () => {
+    ;(global.fetch as ReturnType<typeof vi.fn>).mockResolvedValue({
+      ok: true,
+      json: async () => estimatedData,
+    })
+    const DesktopAnalyticsPage = (await import('../DesktopAnalyticsPage')).default
+    render(<DesktopAnalyticsPage />)
+
+    await waitFor(() => {
+      expect(screen.getByText('~$3.0000')).toBeInTheDocument()
+    })
+    expect(screen.getByTestId('kpi-estimated-footnote')).toBeInTheDocument()
+  })
+
+  it('marks avg-cost-per-job with ~ when total includes estimate (BUG-28)', async () => {
+    ;(global.fetch as ReturnType<typeof vi.fn>).mockResolvedValue({
+      ok: true,
+      json: async () => estimatedData,
+    })
+    const DesktopAnalyticsPage = (await import('../DesktopAnalyticsPage')).default
+    render(<DesktopAnalyticsPage />)
+
+    // 3.0 / 40 = 0.07500
+    await waitFor(() => {
+      expect(screen.getByText('~$0.07500')).toBeInTheDocument()
+    })
+  })
+
+  it('badges estimate-heavy project rows and prefixes ~ (BUG-25)', async () => {
+    ;(global.fetch as ReturnType<typeof vi.fn>).mockResolvedValue({
+      ok: true,
+      json: async () => estimatedData,
+    })
+    const DesktopAnalyticsPage = (await import('../DesktopAnalyticsPage')).default
+    render(<DesktopAnalyticsPage />)
+
+    await waitFor(() => {
+      expect(screen.getByText('Codex Project')).toBeInTheDocument()
+    })
+    // The codex project is wholly estimated → exactly one estimated badge + ~ figure
+    const badges = screen.getAllByTestId('project-estimated-badge')
+    expect(badges).toHaveLength(1)
+    expect(screen.getByText('~$2.0000')).toBeInTheDocument()
+    // Claude project shows an authoritative figure (no ~)
+    expect(screen.getByText('$1.0000')).toBeInTheDocument()
+  })
+
+  it('shows the timeline estimated note when any day is estimated (BUG-26)', async () => {
+    ;(global.fetch as ReturnType<typeof vi.fn>).mockResolvedValue({
+      ok: true,
+      json: async () => estimatedData,
+    })
+    const DesktopAnalyticsPage = (await import('../DesktopAnalyticsPage')).default
+    render(<DesktopAnalyticsPage />)
+
+    await waitFor(() => {
+      expect(screen.getByTestId('timeline-estimated-note')).toBeInTheDocument()
+    })
+  })
+
+  it('does NOT mark anything estimated on a claude-only rollup (legacy)', async () => {
+    // mockAnalyticsData has no estimated fields → byte-identical legacy behaviour
+    const DesktopAnalyticsPage = (await import('../DesktopAnalyticsPage')).default
+    render(<DesktopAnalyticsPage />)
+
+    await waitFor(() => {
+      expect(screen.getByText('$2.5000')).toBeInTheDocument()
+    })
+    expect(screen.queryByTestId('kpi-estimated-footnote')).not.toBeInTheDocument()
+    expect(screen.queryByTestId('timeline-estimated-note')).not.toBeInTheDocument()
+    expect(screen.queryByTestId('project-estimated-badge')).not.toBeInTheDocument()
+    // No ~-prefixed figure anywhere
+    expect(screen.queryByText(/^~\$/)).not.toBeInTheDocument()
+  })
 })

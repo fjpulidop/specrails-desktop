@@ -67,9 +67,31 @@ describe('estimateCostUsd', () => {
     expect(cost).toBeCloseTo(0.00075, 6)
   })
 
-  it('returns 0 when usage is empty', () => {
-    const cost = estimateCostUsd('codex', 'gpt-5.4-mini', {})
-    expect(cost).toBe(0)
+  it('returns null when usage is entirely empty (no billable usage to price)', () => {
+    // BUG-ANALYTICS-05: an all-empty usage breakdown (e.g. a codex/gemini turn
+    // aborted before its usage block) must price to NULL, not the number 0, so
+    // failed non-native-cost rows stay NULL like the equivalent claude row.
+    expect(estimateCostUsd('codex', 'gpt-5.4-mini', {})).toBeNull()
+  })
+
+  it('returns null when every token field is explicitly 0', () => {
+    expect(
+      estimateCostUsd('codex', 'gpt-5.4-mini', {
+        tokens_in: 0,
+        tokens_out: 0,
+        tokens_cache_read: 0,
+      }),
+    ).toBeNull()
+  })
+
+  it('returns null when only non-billable cache_create tokens are present', () => {
+    // cache_create is never billed, so a cache-create-only payload has no
+    // billable usage → null (not 0).
+    expect(estimateCostUsd('codex', 'gpt-5.4-mini', { tokens_cache_create: 500_000 })).toBeNull()
+  })
+
+  it('still prices when any single billable field is > 0', () => {
+    expect(estimateCostUsd('codex', 'gpt-5.4-mini', { tokens_out: 1 })).toBeGreaterThan(0)
   })
 
   it('treats missing usage fields as zero', () => {
