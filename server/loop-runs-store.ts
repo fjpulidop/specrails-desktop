@@ -124,6 +124,15 @@ export function getRunEventCounts(db: DbInstance, runId: string): { steps: numbe
   return { steps, lines }
 }
 
+/** All currently-running loop runs for a project, straight from the DB (NOT the
+ *  in-memory rail map, which is cleared on every server restart). Authoritative
+ *  source for seeding the dashboard's live rail metrics after a refresh. */
+export function listRunningLoopRuns(db: DbInstance, projectId: string): LoopRunRow[] {
+  return db
+    .prepare("SELECT * FROM loop_runs WHERE project_id = ? AND status = 'running' ORDER BY started_at ASC")
+    .all(projectId) as LoopRunRow[]
+}
+
 export function listLoopRuns(db: DbInstance, projectId: string, limit = 100): LoopRunRow[] {
   return db
     .prepare('SELECT * FROM loop_runs WHERE project_id = ? ORDER BY started_at DESC LIMIT ?')

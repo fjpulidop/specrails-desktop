@@ -5,7 +5,7 @@ import { ClaudeNotFoundError, CodexNotFoundError } from './queue-manager'
 import { validateRequestedProvider } from './provider-selection'
 import { isInteractiveJobsEnabled, isLoopsEnabled } from './feature-flags'
 import { getLoop } from './loops-store'
-import { getLoopRun, getRunEventCounts } from './loop-runs-store'
+import { getLoopRun, getRunEventCounts, listRunningLoopRuns } from './loop-runs-store'
 import { getAdapter } from './providers'
 import { resolveProjectExecution } from './workspace-resolution'
 import { isFactoryLoopId, factoryLoopMode, getFactoryLoop } from './loop-factory'
@@ -93,6 +93,14 @@ export function createRailsRouter(): Router {
         activeLoopRuns[meta.railIndex] = run
           ? { loopRunId: runId, loopId: run.loop_id, loopName: run.loop_name, provider: run.provider, model: run.model, iteration: run.iteration_count, startedAt: run.started_at, steps: counts.steps, lines: counts.lines }
           : { loopRunId: runId, steps: counts.steps, lines: counts.lines }
+      }
+      // Also surface DB 'running' runs not tracked in-memory (the rail map is
+      // cleared on every server restart) — DB is the authoritative source, so the
+      // dashboard metrics survive both a page refresh AND a server restart.
+      for (const run of listRunningLoopRuns(c.db, c.project.id)) {
+        if (run.rail_index == null || activeLoopRuns[run.rail_index]) continue
+        const counts = getRunEventCounts(c.db, run.id)
+        activeLoopRuns[run.rail_index] = { loopRunId: run.id, loopId: run.loop_id, loopName: run.loop_name, provider: run.provider, model: run.model, iteration: run.iteration_count, startedAt: run.started_at, steps: counts.steps, lines: counts.lines }
       }
       res.json({ rails, activeJobs, activeLoopRuns })
     } catch (err) {

@@ -680,4 +680,17 @@ describe('rails-router GET / — activeLoopRuns enrichment (mirror labelling)', 
     const res = await request(appWith(db, { railLoopRuns })).get('/rails')
     expect(res.body.activeLoopRuns['0']).toEqual({ loopRunId: 'ghost', steps: 0, lines: 0 })
   })
+
+  it('surfaces a DB running run NOT tracked in-memory (survives a server restart)', async () => {
+    createLoopRun(db, {
+      id: 'run-db', projectId: 'p1', loopId: 'loop-x', loopName: 'X',
+      railIndex: 1, ticketId: 5, provider: 'claude', model: 'sonnet', iterationLimit: 10,
+      startedAt: new Date(2000).toISOString(),
+    })
+    // railLoopRuns EMPTY (as right after a server restart) — the run must still
+    // appear, sourced from the DB (status='running').
+    const res = await request(appWith(db, { railLoopRuns: new Map() })).get('/rails')
+    expect(res.body.activeLoopRuns['1']).toMatchObject({ loopRunId: 'run-db', loopId: 'loop-x', steps: 0, lines: 0 })
+    expect(res.body.activeLoopRuns['1'].startedAt).toBeTruthy()
+  })
 })
