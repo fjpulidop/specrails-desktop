@@ -1,5 +1,7 @@
 import { createContext, useContext, useState, useEffect, useRef, useCallback, useLayoutEffect, useMemo } from 'react'
 import { useSharedWebSocket } from '../hooks/useSharedWebSocket'
+import { deriveFrameActivity } from '../lib/frame-activity'
+import type { EventRow } from '../types'
 
 /**
  * Live per-rail execution metrics (elapsed start, steps, log lines) derived from
@@ -95,15 +97,17 @@ export function RailMetricsProvider({ activeProjectId, children }: { activeProje
       setRuns((prev) => { if (!m.loopRunId || !prev.has(m.loopRunId)) return prev; const n = new Map(prev); n.delete(m.loopRunId); return n })
       return
     }
-    // log/loop_step carry only the run id — gate on the run being tracked (its
-    // run_started already passed the project filter).
-    if (m.type === 'event' && m.event_type === 'loop_step' && m.jobId) {
+    // event/log carry only the run id — gate on the run being tracked (its
+    // run_started already passed the project filter). Steps = activity steps from
+    // the SAME deriveFrameActivity the Job panel uses (a frame may be several
+    // parallel tool_use blocks), so the rail's "pasos" matches the job exactly.
+    if (m.type === 'event' && m.event_type && m.jobId) {
+      const act = deriveFrameActivity({ event_type: m.event_type, payload: m.payload ?? '' } as EventRow)
+      if (!act.step) return
       setRuns((prev) => {
         const cur = prev.get(m.jobId!)
         if (!cur) return prev
-        let index = cur.steps
-        try { index = (JSON.parse(m.payload ?? '{}') as { index?: number }).index ?? cur.steps } catch { /* keep */ }
-        const n = new Map(prev); n.set(m.jobId!, { ...cur, steps: index }); return n
+        const n = new Map(prev); n.set(m.jobId!, { ...cur, steps: cur.steps + (act.stepCount ?? 1) }); return n
       })
       return
     }

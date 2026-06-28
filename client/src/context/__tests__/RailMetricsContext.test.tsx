@@ -27,13 +27,18 @@ beforeEach(() => {
 })
 
 describe('RailMetricsProvider', () => {
-  it('tracks steps (from loop_step index) + log lines per rail', () => {
+  it('counts ACTIVITY steps (same source as the Job panel) + log lines per rail', () => {
     renderProvider()
     send({ type: 'loop.run_started', projectId: 'proj', loopRunId: 'r1', railIndex: 0 })
-    send({ type: 'event', event_type: 'loop_step', jobId: 'r1', payload: JSON.stringify({ index: 2 }) })
+    // assistant frame with 2 parallel tool_use blocks → 2 steps
+    send({ type: 'event', event_type: 'assistant', jobId: 'r1', payload: JSON.stringify({ message: { content: [{ type: 'tool_use', name: 'Edit' }, { type: 'tool_use', name: 'Read' }] } }) })
+    // bare tool_use → 1 step
+    send({ type: 'event', event_type: 'tool_use', jobId: 'r1', payload: '{}' })
+    // loop_step is NOT an activity step → ignored
+    send({ type: 'event', event_type: 'loop_step', jobId: 'r1', payload: JSON.stringify({ index: 9 }) })
     send({ type: 'log', processId: 'r1' })
     send({ type: 'log', processId: 'r1' })
-    expect(latest[0]).toMatchObject({ steps: 2, lines: 2 })
+    expect(latest[0]).toMatchObject({ steps: 3, lines: 2 })
   })
 
   it('ignores runs from another project', () => {
@@ -66,9 +71,10 @@ describe('RailMetricsProvider', () => {
     renderProvider()
     send({ type: 'loop.run_started', projectId: 'proj', loopRunId: 'a', railIndex: 2 })
     send({ type: 'loop.run_started', projectId: 'proj', loopRunId: 'b', railIndex: 2 })
-    send({ type: 'event', event_type: 'loop_step', jobId: 'a', payload: JSON.stringify({ index: 2 }) })
-    send({ type: 'event', event_type: 'loop_step', jobId: 'b', payload: JSON.stringify({ index: 5 }) })
+    // run a: assistant with 2 tool_use → 2 steps; run b: assistant with 3 tool_use → 3 steps
+    send({ type: 'event', event_type: 'assistant', jobId: 'a', payload: JSON.stringify({ message: { content: [{ type: 'tool_use' }, { type: 'tool_use' }] } }) })
+    send({ type: 'event', event_type: 'assistant', jobId: 'b', payload: JSON.stringify({ message: { content: [{ type: 'tool_use' }, { type: 'tool_use' }, { type: 'tool_use' }] } }) })
     send({ type: 'log', processId: 'a' })
-    expect(latest[2]).toMatchObject({ steps: 7, lines: 1 })
+    expect(latest[2]).toMatchObject({ steps: 5, lines: 1 })
   })
 })
