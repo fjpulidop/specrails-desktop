@@ -35,6 +35,13 @@ export const defaultGitRunner: GitRunner = {
   },
 }
 
+/** True when `dir` is inside a git working tree. Worktree isolation is impossible
+ *  without git, so the caller falls back to the shared cwd + tells the user. */
+export async function isGitRepo(git: GitRunner, dir: string): Promise<boolean> {
+  const r = await git.run(['rev-parse', '--is-inside-work-tree'], dir)
+  return r.code === 0 && r.stdout.trim() === 'true'
+}
+
 /** Stable branch name for a ticket's isolated run. */
 export function worktreeBranch(slug: string, ticketId: number): string {
   return `sr/${slug}/ticket-${ticketId}`
@@ -68,13 +75,37 @@ export async function createWorktree(git: GitRunner, input: CreateWorktreeInput)
   const branch = worktreeBranch(input.slug, input.ticketId)
   const wt = worktreePath(input.worktreesRoot, input.ticketId)
   const base = input.baseRef ?? 'HEAD'
-  // `-B` so a stale branch from a crashed prior run is reset to base rather than
-  // failing the whole launch.
-  const res = await git.run(['worktree', 'add', '-B', branch, wt, base], input.repoDir)
+
+  // RESUME-AWARE (idempotency): a re-launched rail must pick up the partial work
+  // from a prior stopped run, NEVER wipe it. So:
+  //  1. worktree still checked out → reuse it as-is.
+  //  2. branch exists (worktree was cleaned but its commits were kept) → re-check
+  //     it out into a worktree (resume from the committed partial work).
+  //  3. neither → create a fresh branch off base.
+  const existing = await listWorktrees(git, input.repoDir)
+  if (existing.some((p) => path.resolve(p) === path.resolve(wt))) {
+    return { branch, worktreePath: wt }
+  }
+  const hasBranch = (await git.run(['rev-parse', '--verify', '--quiet', `refs/heads/${branch}`], input.repoDir)).code === 0
+  const args = hasBranch
+    ? ['worktree', 'add', wt, branch]
+    : ['worktree', 'add', '-b', branch, wt, base]
+  const res = await git.run(args, input.repoDir)
   if (res.code !== 0) {
     throw new Error(`git worktree add failed for ${branch}: ${res.stderr.trim() || res.stdout.trim() || `exit ${res.code}`}`)
   }
   return { branch, worktreePath: wt }
+}
+
+/**
+ * Commit the worktree's current changes to its branch so the work is durable in
+ * git — it survives worktree removal, is mergeable by the merge-back, and lets a
+ * re-launched rail resume from it. No-op (the commit just exits non-zero) when
+ * there is nothing to commit. Best-effort: never throws.
+ */
+export async function commitWorktree(git: GitRunner, worktreePath: string, message: string): Promise<void> {
+  await git.run(['add', '-A'], worktreePath).catch(() => {})
+  await git.run(['commit', '-m', message], worktreePath).catch(() => {})
 }
 
 export interface RemoveWorktreeInput {

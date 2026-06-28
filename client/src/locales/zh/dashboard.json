@@ -19,7 +19,8 @@
     "railLaunched": "{{rail}} 已启动",
     "launchDescription_one": "{{mode}}，共 {{count}} 个 Spec",
     "launchDescription_other": "{{mode}}，共 {{count}} 个 Spec",
-    "railWorktreeNeedsReview": "Rail {{n}}：合并后 spec #{{ticket}} 需要复查"
+    "railWorktreeNeedsReview": "Rail {{n}}：合并后 spec #{{ticket}} 需要复查",
+    "railWorktreesNoGit": "worktree 隔离不可用：该项目不是 git 仓库 — 以共享模式运行。"
   },
   "railsBoard": {
     "title": "Rails",

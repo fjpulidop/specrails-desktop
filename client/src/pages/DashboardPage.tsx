@@ -895,7 +895,10 @@ export default function DashboardPage() {
       // Implement/ultracode return { jobId }; loop mode returns { loopRunIds }.
       // A loop run IS backed by a job (id === loopRunId), so set activeJobId to
       // the first run id → "View Log" → /jobs/:id streams the live session.
-      const data = await res.json() as { jobId?: string; loopRunIds?: string[] }
+      const data = await res.json() as { jobId?: string; loopRunIds?: string[]; isolationUnavailable?: string }
+      if (data.isolationUnavailable === 'no-git') {
+        toast.info(t('toasts.railWorktreesNoGit'))
+      }
       const activeJobId = data.jobId ?? data.loopRunIds?.[0]
       updateRails((prev) => prev.map((r) => (r.id === railId ? { ...r, status: 'running', activeJobId } : r)))
       toast.success(t('toasts.railLaunched', { rail: rail.label }), {

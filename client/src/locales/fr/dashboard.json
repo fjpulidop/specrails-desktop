@@ -19,7 +19,8 @@
     "railLaunched": "{{rail}} lancé",
     "launchDescription_one": "{{mode}} avec {{count}} spec",
     "launchDescription_other": "{{mode}} avec {{count}} specs",
-    "railWorktreeNeedsReview": "Rail {{n}} : la spec #{{ticket}} nécessite une revue après le merge"
+    "railWorktreeNeedsReview": "Rail {{n}} : la spec #{{ticket}} nécessite une revue après le merge",
+    "railWorktreesNoGit": "Isolation par worktree indisponible : ce projet n'est pas un dépôt git — exécution en mode partagé."
   },
   "railsBoard": {
     "title": "Rails",

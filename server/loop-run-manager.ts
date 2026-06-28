@@ -125,6 +125,9 @@ export interface LoopRunRequest {
   provider: string
   model: string
   effort?: ReasoningEffort
+  /** Set when this run executes in an isolated git worktree (parallel rail) — only
+   *  drives a header line in the run log so the worktree/branch is visible. */
+  isolation?: { branch: string; worktreePath: string }
 }
 
 export interface LoopRunResult {
@@ -258,6 +261,7 @@ export class LoopRunManager {
       seq += 1
     }
     logLine(`▶ Loop "${req.loopName ?? req.loopId}" started${req.spec?.title ? ` — spec: ${req.spec.title}` : ''}`)
+    if (req.isolation) logLine(`⎇ Isolated worktree: ${req.isolation.worktreePath} (branch ${req.isolation.branch})`)
     console.log(`[loop] start run=${runId} loop=${req.loopId} provider=${req.provider} model=${req.model} nodes=${req.graph.nodes.length} cwd=${req.cwd}`)
 
     const byId = nodesById(req.graph)

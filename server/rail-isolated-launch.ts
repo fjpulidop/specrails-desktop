@@ -19,7 +19,7 @@ import * as path from 'path'
 import { resolveHome } from './artifact-registry'
 import { newId } from './ids'
 import { loadConstantMap } from './loop-constants'
-import { defaultGitRunner, createWorktree, removeWorktree, type GitRunner, type WorktreeHandle } from './worktree-manager'
+import { defaultGitRunner, createWorktree, removeWorktree, commitWorktree, type GitRunner, type WorktreeHandle } from './worktree-manager'
 import { createRailWorktree, updateRailWorktreeState, listNonTerminalRailWorktrees } from './rail-worktrees-store'
 import type { DbInstance } from './db'
 import { runMergeBack } from './rail-merge-orchestrator'
@@ -102,19 +102,25 @@ export async function launchIsolatedRail(input: IsolatedLaunchInput, io: Isolate
       .run({
         runId: a.runId, loopId, loopName, graph: loopGraph, projectId: ctx.project.id,
         cwd: a.handle.worktreePath, repoDir: a.handle.worktreePath,
+        isolation: { branch: a.handle.branch, worktreePath: a.handle.worktreePath },
         railIndex, ticketId: a.ticketId,
         spec: spec ? { ...spec, ticketIds: [a.ticketId] } : { ticketIds: [a.ticketId] },
         constants, provider, model, effort,
       })
-      .then((r) => {
+      .then(async (r) => {
         ctx.onLoopRunFinished(r.runId, r.outcome)
         const succeeded = r.outcome === 'success'
+        // Commit the run's work to its branch so the merge-back can integrate it
+        // (loops like autoloop-tdd don't commit) and a re-launch can resume it.
+        await commitWorktree(git, a.handle.worktreePath, `specrails: ticket-${a.ticketId} (run ${a.runId})`)
         updateRailWorktreeState(ctx.db, a.ledgerId, succeeded ? 'built' : 'failed')
         return { run: a, succeeded }
       })
-      .catch((err) => {
+      .catch(async (err) => {
         console.error('[rail-isolated] loop run failed:', err)
         ctx.onLoopRunFinished(a.runId, 'failed')
+        // Commit partial work too → durable in git → resumable on re-launch.
+        await commitWorktree(git, a.handle.worktreePath, `specrails: ticket-${a.ticketId} partial (run ${a.runId})`)
         updateRailWorktreeState(ctx.db, a.ledgerId, 'failed')
         return { run: a, succeeded: false }
       })

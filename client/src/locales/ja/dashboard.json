@@ -19,7 +19,8 @@
     "railLaunched": "{{rail}} を起動しました",
     "launchDescription_one": "{{mode}} · スペック {{count}} 件",
     "launchDescription_other": "{{mode}} · スペック {{count}} 件",
-    "railWorktreeNeedsReview": "Rail {{n}}：マージ後、spec #{{ticket}} は要確認です"
+    "railWorktreeNeedsReview": "Rail {{n}}：マージ後、spec #{{ticket}} は要確認です",
+    "railWorktreesNoGit": "worktree 分離は利用できません：このプロジェクトは git リポジトリではありません — 共有モードで実行します。"
   },
   "railsBoard": {
     "title": "レール",

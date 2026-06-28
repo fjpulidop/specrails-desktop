@@ -14,6 +14,7 @@ import { dominantTicketScope, referencesClaudeOnlyCommand } from './loop-command
 import { loopNeedsTicket, type LoopGraph } from './loop-graph'
 import { isolationApplies } from './rail-isolation'
 import { launchIsolatedRail } from './rail-isolated-launch'
+import { isGitRepo, defaultGitRunner } from './worktree-manager'
 import { newId } from './ids'
 import type { ReasoningEffort } from './providers/types'
 import type { RailJobStartedMessage, RailJobStoppedMessage, RailUpdatedMessage, LoopRunStoppedMessage } from './types'
@@ -358,16 +359,25 @@ export function createRailsRouter(): Router {
         // its own git worktree, then merges the branches back. Inert by default —
         // falls through to the shared-cwd path below unless the flag is on; a
         // worktree-allocation failure also falls back. See rail-isolation.ts.
+        let isolationUnavailable: string | undefined
         if (isolationApplies({ loopsEnabled: isLoopsEnabled(), scope, ticketCount: rail.ticketIds.length, readOnly: false })) {
-          try {
-            const ids = await launchIsolatedRail({
-              ctx: c, railIndex, ticketIds: [...rail.ticketIds], loopId, loopName, loopGraph,
-              provider: loopProvider, model: loopModel, effort,
-            })
-            res.status(202).json({ loopRunIds: ids, railIndex, mode, isolated: true })
-            return
-          } catch (err) {
-            console.error('[rails-router] isolated launch failed; falling back to shared cwd:', err)
+          // Worktree isolation needs a git repo — fall back (with a message) when
+          // the project isn't one.
+          if (!(await isGitRepo(defaultGitRunner, c.project.path))) {
+            isolationUnavailable = 'no-git'
+            console.warn('[rails-router] worktree isolation requested but project is not a git repo; running shared cwd')
+          } else {
+            try {
+              const ids = await launchIsolatedRail({
+                ctx: c, railIndex, ticketIds: [...rail.ticketIds], loopId, loopName, loopGraph,
+                provider: loopProvider, model: loopModel, effort,
+              })
+              res.status(202).json({ loopRunIds: ids, railIndex, mode, isolated: true })
+              return
+            } catch (err) {
+              console.error('[rails-router] isolated launch failed; falling back to shared cwd:', err)
+              isolationUnavailable = 'error'
+            }
           }
         }
 
@@ -413,7 +423,7 @@ export function createRailsRouter(): Router {
             launchLoopRun(newId(), [ticketId], c.getTicketSpec(ticketId))
           }
         }
-        res.status(202).json({ loopRunIds, railIndex, mode })
+        res.status(202).json({ loopRunIds, railIndex, mode, ...(isolationUnavailable ? { isolationUnavailable } : {}) })
         return
       }
 
