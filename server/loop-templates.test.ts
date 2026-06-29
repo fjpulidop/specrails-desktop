@@ -68,8 +68,17 @@ describe('loop templates', () => {
     expect(String(aiStep.data?.prompt)).toContain('{{cmd:implement}}')
   })
 
-  it('verification is agent-driven — NO template hardcodes a Shell node', () => {
+  it('verification is agent-driven — NO template hardcodes a Shell node (except the opsx-lifecycle archive)', () => {
+    // The opsx-lifecycle template intentionally uses ONE shell node for the
+    // deterministic, unattended `openspec archive -y` close — a CLI call, not test
+    // verification (which stays agent-driven everywhere). Exempt it precisely.
     for (const tpl of LOOP_TEMPLATES) {
+      if (tpl.id === 'opsx-lifecycle') {
+        const shells = tpl.graph.nodes.filter((n) => n.type === 'shell')
+        expect(shells.length).toBe(1)
+        expect(String(shells[0].data?.command)).toContain('openspec archive')
+        continue
+      }
       expect(tpl.graph.nodes.some((n) => n.type === 'shell'), `${tpl.id} should not use a Shell node`).toBe(false)
     }
   })

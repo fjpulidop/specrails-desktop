@@ -163,6 +163,70 @@ describe('workspace-manager', () => {
     expect(fs.existsSync(fallback)).toBe(false)
   })
 
+  describe('openspec carve-out link', () => {
+    it('links <ws>/openspec to the repo openspec (created if absent); writes land in the repo', () => {
+      const ws = ensureWorkspace('osp1', projectRoot, home)
+      const link = path.join(ws, 'openspec')
+      expect(fs.lstatSync(link).isSymbolicLink()).toBe(true)
+      expect(path.resolve(ws, fs.readlinkSync(link))).toBe(path.join(projectRoot, 'openspec'))
+      // The carve-out target was created in the repo.
+      expect(fs.existsSync(path.join(projectRoot, 'openspec'))).toBe(true)
+      // A write through the link lands in the user's repo (the whole point).
+      fs.writeFileSync(path.join(link, 'probe.txt'), 'x')
+      expect(fs.existsSync(path.join(projectRoot, 'openspec', 'probe.txt'))).toBe(true)
+    })
+
+    it('is idempotent — an already-correct link is left untouched', () => {
+      ensureWorkspace('osp2', projectRoot, home)
+      const ws = ensureWorkspace('osp2', projectRoot, home)
+      const link = path.join(ws, 'openspec')
+      expect(fs.lstatSync(link).isSymbolicLink()).toBe(true)
+      expect(path.resolve(ws, fs.readlinkSync(link))).toBe(path.join(projectRoot, 'openspec'))
+    })
+
+    it('migrates a pre-carve-out REAL openspec dir into the repo, then links (non-destructive)', () => {
+      const ws = workspacePathFor('osp3', home)
+      // A workspace stranded by the openspec binary writing to its cwd.
+      const stranded = path.join(ws, 'openspec', 'changes', 'archive', 'my-change')
+      fs.mkdirSync(stranded, { recursive: true })
+      fs.writeFileSync(path.join(stranded, 'proposal.md'), '# stranded\n')
+      // The repo already has a committed file that must NOT be clobbered.
+      fs.mkdirSync(path.join(projectRoot, 'openspec'), { recursive: true })
+      fs.writeFileSync(path.join(projectRoot, 'openspec', 'project.md'), '# committed\n')
+
+      ensureWorkspace('osp3', projectRoot, home)
+
+      expect(fs.lstatSync(path.join(ws, 'openspec')).isSymbolicLink()).toBe(true)
+      // Stranded artifact rescued into the repo.
+      expect(
+        fs.readFileSync(path.join(projectRoot, 'openspec', 'changes', 'archive', 'my-change', 'proposal.md'), 'utf8'),
+      ).toContain('stranded')
+      // Repo's committed file untouched.
+      expect(fs.readFileSync(path.join(projectRoot, 'openspec', 'project.md'), 'utf8')).toContain('committed')
+    })
+
+    it('migration never clobbers an existing repo file on a name collision (repo wins)', () => {
+      const ws = workspacePathFor('osp4', home)
+      fs.mkdirSync(path.join(ws, 'openspec'), { recursive: true })
+      fs.writeFileSync(path.join(ws, 'openspec', 'config.yaml'), 'workspace-version\n')
+      fs.mkdirSync(path.join(projectRoot, 'openspec'), { recursive: true })
+      fs.writeFileSync(path.join(projectRoot, 'openspec', 'config.yaml'), 'repo-version\n')
+
+      ensureWorkspace('osp4', projectRoot, home)
+      expect(fs.readFileSync(path.join(projectRoot, 'openspec', 'config.yaml'), 'utf8')).toBe('repo-version\n')
+    })
+
+    it('removeWorkspace unlinks the openspec link WITHOUT deleting the repo openspec', () => {
+      const ws = ensureWorkspace('osp5', projectRoot, home)
+      fs.writeFileSync(path.join(ws, 'openspec', 'keep.md'), '# keep\n') // lands in the repo via the link
+      expect(fs.existsSync(path.join(projectRoot, 'openspec', 'keep.md'))).toBe(true)
+      removeWorkspace('osp5', home)
+      expect(fs.existsSync(ws)).toBe(false)
+      // Repo openspec + its files survive (link unlinked, never followed).
+      expect(fs.readFileSync(path.join(projectRoot, 'openspec', 'keep.md'), 'utf8')).toContain('keep')
+    })
+  })
+
   describe('assembleWorkspaceFramework', () => {
     it('no-ops (assembled=false) when no bundled core is present, but still ensures the workspace', () => {
       const prev = process.env.SPECRAILS_BUNDLED_CORE_PATH
