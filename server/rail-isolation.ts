@@ -25,16 +25,17 @@ export function mutatesRepo(loop: { readOnly?: boolean }): boolean {
 }
 
 /**
- * The isolation gate flag. **Opt-in during rollout**: worktree isolation runs
- * ONLY when `SPECRAILS_RAIL_WORKTREES` is `1`/`true`/`on`; otherwise every loop run
- * keeps the legacy single shared cwd (byte-identical to before this feature). This
- * lets the integration land inert and be validated on a live rail before it is
- * flipped to default-on. Read per-call so a test can flip the env without
- * re-importing.
+ * The isolation gate flag. **Default-on kill-switch**: worktree isolation runs for
+ * every repo-mutating per-ticket rail UNLESS `SPECRAILS_RAIL_WORKTREES` is set to
+ * `0`/`false`/`off`, which restores the legacy single shared cwd (byte-identical to
+ * before this feature). Default-on is safe because the launch path degrades
+ * gracefully when isolation is unavailable — a non-git repo, an unborn HEAD, or a
+ * worktree-allocation error all fall back to the shared cwd (see rails-router).
+ * Read per-call so a test can flip the env without re-importing.
  */
 export function isRailWorktreesEnabled(): boolean {
   const v = (process.env.SPECRAILS_RAIL_WORKTREES ?? '').trim().toLowerCase()
-  return v === '1' || v === 'true' || v === 'on'
+  return v !== '0' && v !== 'false' && v !== 'off'
 }
 
 export interface IsolationDecisionInput {
