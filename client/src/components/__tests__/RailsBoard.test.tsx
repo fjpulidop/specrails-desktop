@@ -25,6 +25,40 @@ function renderBoard(rails: RailState[], railMetrics: Record<number, { startedAt
   )
 }
 
+describe('RailsBoard loop model wiring', () => {
+  it('passes loopModel and onLoopModelChange through to RailRow so the loop model selector renders', () => {
+    const onLoopModelChange = vi.fn()
+    const rails: RailState[] = [
+      {
+        id: 'rail-loop',
+        label: 'Loop Rail',
+        ticketIds: [],
+        mode: 'loop',
+        status: 'idle',
+        loopModel: 'haiku',
+      },
+    ]
+    const { container } = render(
+      <MemoryRouter>
+        <DndContext>
+          <RailsBoard
+            rails={rails}
+            ticketMap={new Map()}
+            onModeChange={noop}
+            onToggle={noop}
+            onTicketClick={noop}
+            onAddRail={noop}
+            onDeleteRail={noop}
+            onRenameRail={noop}
+            onLoopModelChange={onLoopModelChange}
+          />
+        </DndContext>
+      </MemoryRouter>,
+    )
+    expect(container.querySelector('[data-testid="loop-model-selector"]')).not.toBeNull()
+  })
+})
+
 describe('RailsBoard execution-metric mapping', () => {
   it('keys metrics by ARRAY INDEX, not by parsing rail.id (non-sequential ids after delete+add)', () => {
     const rails: RailState[] = [

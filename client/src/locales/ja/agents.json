@@ -172,6 +172,7 @@
     "profileTitle": "このレールのエージェントプロファイル",
     "noProfile": "プロファイルなし",
     "modelTitle": "この ultracode レールのモデル",
+    "loopModelTitle": "このループのモデル",
     "engineTitle": "このレールの AI エンジン"
   }
 }
