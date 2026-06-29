@@ -17,21 +17,21 @@ describe('mutatesRepo', () => {
   })
 })
 
-describe('isRailWorktreesEnabled (opt-in during rollout, default off)', () => {
-  it('is OFF when unset', () => {
+describe('isRailWorktreesEnabled (default-on kill-switch)', () => {
+  it('is ON when unset (default-on)', () => {
     delete process.env.SPECRAILS_RAIL_WORKTREES
-    expect(isRailWorktreesEnabled()).toBe(false)
+    expect(isRailWorktreesEnabled()).toBe(true)
   })
-  it('on for 1/true/on (case-insensitive)', () => {
-    for (const v of ['1', 'true', 'on', 'ON', 'True']) {
-      process.env.SPECRAILS_RAIL_WORKTREES = v
-      expect(isRailWorktreesEnabled()).toBe(true)
-    }
-  })
-  it('off for any other value', () => {
-    for (const v of ['0', 'false', 'off', 'yes', '']) {
+  it('OFF only for 0/false/off (case-insensitive)', () => {
+    for (const v of ['0', 'false', 'off', 'OFF', 'False']) {
       process.env.SPECRAILS_RAIL_WORKTREES = v
       expect(isRailWorktreesEnabled()).toBe(false)
+    }
+  })
+  it('ON for explicit truthy AND any unrecognized value (incl. empty)', () => {
+    for (const v of ['1', 'true', 'on', 'yes', '']) {
+      process.env.SPECRAILS_RAIL_WORKTREES = v
+      expect(isRailWorktreesEnabled()).toBe(true)
     }
   })
 })
@@ -59,8 +59,12 @@ describe('isolationApplies', () => {
   it('false when loops disabled', () => {
     expect(isolationApplies({ ...base, loopsEnabled: false })).toBe(false)
   })
-  it('false when the flag is not set (default off)', () => {
+  it('true when the flag is not set (default-on)', () => {
     delete process.env.SPECRAILS_RAIL_WORKTREES
+    expect(isolationApplies(base)).toBe(true)
+  })
+  it('false when explicitly disabled with the kill-switch', () => {
+    process.env.SPECRAILS_RAIL_WORKTREES = '0'
     expect(isolationApplies(base)).toBe(false)
   })
 })

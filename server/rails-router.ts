@@ -365,11 +365,11 @@ export function createRailsRouter(): Router {
         }
         const scope = dominantTicketScope(promptsText)
 
-        // Parallel isolation (opt-in via SPECRAILS_RAIL_WORKTREES): a per-ticket
-        // rail fanning out >1 ticket on a repo-mutating loop runs each ticket in
-        // its own git worktree, then merges the branches back. Inert by default —
-        // falls through to the shared-cwd path below unless the flag is on; a
-        // worktree-allocation failure also falls back. See rail-isolation.ts.
+        // Parallel isolation (default-on; disable with SPECRAILS_RAIL_WORKTREES=0):
+        // a per-ticket rail on a repo-mutating loop runs each ticket in its own git
+        // worktree, then merges the branches back. Degrades gracefully — a non-git
+        // repo, an unborn HEAD, or a worktree-allocation failure all fall through to
+        // the shared-cwd path below. See rail-isolation.ts.
         let isolationUnavailable: string | undefined
         if (isolationApplies({ loopsEnabled: isLoopsEnabled(), scope, ticketCount: rail.ticketIds.length, readOnly: false })) {
           // Worktree isolation needs a git repo WITH at least one commit (an
