@@ -1,5 +1,13 @@
 # Changelog
 
+## [2.16.0](https://github.com/fjpulidop/specrails-desktop/compare/v2.15.0...v2.16.0) (2026-06-29)
+
+
+### Features
+
+* enable parallel-rail worktree isolation by default ([#466](https://github.com/fjpulidop/specrails-desktop/issues/466)) ([2de5731](https://github.com/fjpulidop/specrails-desktop/commit/2de5731af600c4fe763a354d6bee07bb93f25e50))
+* OpenSpec-lifecycle loop template + openspec carve-out fix ([#465](https://github.com/fjpulidop/specrails-desktop/issues/465)) ([ff7ef98](https://github.com/fjpulidop/specrails-desktop/commit/ff7ef98dc447304016012211087330f76da03cbc))
+
 ## [2.15.0](https://github.com/fjpulidop/specrails-desktop/compare/v2.14.0...v2.15.0) (2026-06-29)
 
 
