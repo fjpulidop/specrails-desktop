@@ -7,6 +7,7 @@ import { isInteractiveJobsEnabled, isLoopsEnabled } from './feature-flags'
 import { getLoop } from './loops-store'
 import { getLoopRun, getRunEventCounts, listRunningLoopRuns } from './loop-runs-store'
 import { getAdapter } from './providers'
+import { isValidModelForProvider, getModelsForProvider, type SpecProvider } from './spec-models'
 import { resolveProjectExecution } from './workspace-resolution'
 import { isFactoryLoopId, factoryLoopMode, getFactoryLoop } from './loop-factory'
 import { loadConstantMap } from './loop-constants'
@@ -353,6 +354,9 @@ export function createRailsRouter(): Router {
           effort = reasoning_effort as ReasoningEffort
         }
         const loopProvider = railProvider ?? c.project.provider ?? 'claude'
+        if (typeof model === 'string' && model && !isValidModelForProvider(model, loopProvider as SpecProvider)) {
+          res.status(400).json({ error: `model is not valid for provider "${loopProvider}"`, allowed: getModelsForProvider(loopProvider as SpecProvider) }); return
+        }
         const loopModel =
           typeof model === 'string' && model ? model : getAdapter(loopProvider).defaultModel()
         // The loop's command(s) declare ticket scope + claude-only-ness.

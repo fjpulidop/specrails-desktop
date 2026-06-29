@@ -774,6 +774,10 @@ export default function DashboardPage() {
     updateRails((prev) => prev.map((r) => (r.id === railId ? { ...r, selectedLoopId: loopId, mode } : r)))
   }
 
+  function handleLoopModelChange(railId: string, model: string) {
+    updateRails((prev) => prev.map((r) => (r.id === railId ? { ...r, loopModel: model } : r)))
+  }
+
   function handleEffortChange(railId: string, effort: import('../components/agents/RailEffortSelector').ReasoningEffort) {
     updateRails((prev) => prev.map((r) => (r.id === railId ? { ...r, reasoningEffort: effort } : r)))
   }
@@ -883,6 +887,8 @@ export default function DashboardPage() {
           ...(rail.aiEngine != null ? { aiEngine: rail.aiEngine } : {}),
           // Ultracode model picker — only meaningful for ultracode launches.
           ...(rail.mode === 'ultracode' && rail.ultracodeModel ? { model: rail.ultracodeModel } : {}),
+          // Loop model picker — only meaningful for custom loop launches.
+          ...(rail.mode === 'loop' && rail.loopModel ? { model: rail.loopModel } : {}),
           // Interactive toggle — only meaningful for ultracode launches.
           ...(rail.mode === 'ultracode' && rail.interactive ? { interactive: true } : {}),
           // rails-as-loops: always send the chosen Loop. The server maps a
@@ -977,6 +983,7 @@ export default function DashboardPage() {
             onProfileChange={handleProfileChange}
             onEngineChange={handleEngineChange}
             onUltracodeModelChange={handleUltracodeModelChange}
+            onLoopModelChange={handleLoopModelChange}
             onInteractiveChange={handleInteractiveChange}
             loopAvailable={FEATURE_LOOPS_SECTION}
             onLoopChange={handleLoopChange}

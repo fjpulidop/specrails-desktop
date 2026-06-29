@@ -169,4 +169,25 @@ describe('RailRow', () => {
       expect(onDelete).toHaveBeenCalled()
     })
   })
+
+  describe('custom loop model picker', () => {
+    it('renders a loop model picker only when mode is loop (custom loop) and not for factory modes', () => {
+      // Custom loop — model picker must appear.
+      const { rerender } = renderRailRow({
+        ...defaultProps,
+        mode: 'loop' as const,
+        selectedLoopId: 'custom-uuid-123',
+        onLoopModelChange: vi.fn(),
+      } as any)
+      expect(screen.getByTestId('loop-model-selector')).toBeInTheDocument()
+
+      // Factory mode (implement) — model picker must NOT appear.
+      rerender(
+        <DndContext>
+          <RailRow {...defaultProps} mode="implement" onLoopModelChange={vi.fn()} />
+        </DndContext>
+      )
+      expect(screen.queryByTestId('loop-model-selector')).not.toBeInTheDocument()
+    })
+  })
 })

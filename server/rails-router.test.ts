@@ -643,6 +643,18 @@ describe('rails-router loop mode', () => {
     expect(run).not.toHaveBeenCalled()
   })
 
+  it('rejects an invalid model for a custom loop launch with 400 and the provider allow-list', async () => {
+    const loopId = publishedLoop()
+    const run = vi.fn()
+    const app = appWith(db, { desktopDb, loopRunManager: { run, cancel: vi.fn() } })
+    const res = await request(app)
+      .post('/rails/0/launch')
+      .send({ mode: 'loop', loopId, model: 'not-a-real-model' })
+    expect(res.status).toBe(400)
+    expect(res.body.allowed).toBeDefined()
+    expect(run).not.toHaveBeenCalled()
+  })
+
   it('stop cancels an active loop run and broadcasts loop.run_stopped', async () => {
     const railLoopRuns = new Map([['rid-1', { railIndex: 0, ticketIds: [7] }]])
     const cancel = vi.fn()

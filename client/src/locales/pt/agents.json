@@ -172,6 +172,7 @@
     "profileTitle": "Perfil de agentes para este rail",
     "noProfile": "Sem perfil",
     "modelTitle": "Modelo para este rail ultracode",
+    "loopModelTitle": "Modelo para este loop",
     "engineTitle": "Motor de IA para este rail"
   }
 }
