@@ -178,6 +178,43 @@ describe('finaliseInvocationResult (new adapter-aware API)', () => {
     expect(result.total_cost_usd).toBeUndefined()
   })
 
+  it('codex: aborted turn with a priced model but EMPTY usage leaves cost NULL (no $0 estimate)', () => {
+    // BUG-ANALYTICS-05: a codex turn that ends without a usage block (abort/
+    // crash before turn.completed) must NOT estimate $0. With a known pricing
+    // model the estimator would otherwise return the number 0 → persisted
+    // total_cost_usd=0, estimated=1, diverging from the claude failed-row NULL.
+    const adapter = getAdapter('codex')
+    const events: AdapterEvent[] = [{ kind: 'session-started', sessionId: 'T' }]
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {})
+    try {
+      const { result, estimated } = finaliseInvocationResult(adapter, events, {
+        fallbackModel: 'gpt-5.4-mini', // a model that IS in PRICING
+      })
+      expect(estimated).toBe(false)
+      expect(result.total_cost_usd).toBeUndefined()
+      expect(result.model).toBe('gpt-5.4-mini')
+      // No usage → no estimation attempt → no misleading "no rate-card" warn.
+      expect(warn).not.toHaveBeenCalled()
+    } finally {
+      warn.mockRestore()
+    }
+  })
+
+  it('codex: all-zero usage tokens with a priced model also leaves cost NULL', () => {
+    const adapter = getAdapter('codex')
+    const events: AdapterEvent[] = [
+      {
+        kind: 'result',
+        payload: { type: 'turn.completed', usage: { input_tokens: 0, output_tokens: 0, cached_input_tokens: 0 } },
+      },
+    ]
+    const { result, estimated } = finaliseInvocationResult(adapter, events, {
+      fallbackModel: 'gpt-5.4-mini',
+    })
+    expect(estimated).toBe(false)
+    expect(result.total_cost_usd).toBeUndefined()
+  })
+
   it('passes the events through the adapter extractor (claude reasoning fold check N/A)', () => {
     const adapter = getAdapter('codex')
     const events: AdapterEvent[] = [

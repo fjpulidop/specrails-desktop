@@ -1,10 +1,25 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest'
 import { initDb, getJob, type DbInstance } from './db'
-import { LoopRunManager, type LoopExecutors } from './loop-run-manager'
+import { LoopRunManager, truncate, type LoopExecutors } from './loop-run-manager'
 import { getLoopRun } from './loop-runs-store'
 import { fixLoopGraph } from './loop-templates'
 import type { LoopGraph } from './loop-graph'
 import type { WsMessage } from './types'
+
+describe('truncate (Decider history shrink)', () => {
+  it('returns short strings unchanged', () => {
+    expect(truncate('short output', 600)).toBe('short output')
+  })
+
+  it('keeps BOTH ends so a trailing verdict survives (the Decider reads it)', () => {
+    const body = 'A'.repeat(2000)
+    const out = truncate(`${body}\nVERIFICATION: PASS`, 600)
+    expect(out.length).toBeLessThan(700)
+    expect(out).toContain('VERIFICATION: PASS') // trailing verdict preserved
+    expect(out.startsWith('A')).toBe(true) // opening context preserved
+    expect(out).toContain('…')
+  })
+})
 
 // Start → AI → Shell → Decider →(continue) AI / (stop) End
 function loopGraph(maxIterations = 10): LoopGraph {
@@ -24,6 +39,28 @@ function loopGraph(maxIterations = 10): LoopGraph {
       { id: 'e5', source: 'd', target: 'e' }, // stop
     ],
     config: { maxIterations, timeoutMinutes: 30 },
+  }
+}
+
+// Two AI steps per pass → Decider. `continueTo` controls the loop-back target:
+// 'a1' = re-run the whole body (iterate-per-item), 'a2' = re-run only the last step.
+function twoStepGraph(continueTo: 'a1' | 'a2'): LoopGraph {
+  return {
+    nodes: [
+      { id: 's', type: 'start', position: { x: 0, y: 0 } },
+      { id: 'a1', type: 'ai-step', position: { x: 0, y: 1 }, data: { prompt: 'red' } },
+      { id: 'a2', type: 'ai-step', position: { x: 0, y: 2 }, data: { prompt: 'green' } },
+      { id: 'd', type: 'decider', position: { x: 0, y: 3 }, data: { goal: 'g' } },
+      { id: 'e', type: 'end', position: { x: 1, y: 3 } },
+    ],
+    edges: [
+      { id: 'e1', source: 's', target: 'a1' },
+      { id: 'e2', source: 'a1', target: 'a2' },
+      { id: 'e3', source: 'a2', target: 'd' },
+      { id: 'e4', source: 'd', target: continueTo, branch: 'continue' },
+      { id: 'e5', source: 'd', target: 'e', branch: 'stop' },
+    ],
+    config: { maxIterations: 5, timeoutMinutes: 30 },
   }
 }
 
@@ -62,6 +99,257 @@ function baseReq() {
 beforeEach(() => {
   db = initDb(':memory:')
   broadcasts = []
+})
+
+describe('LoopRunManager fail-fast (provider down / out of quota)', () => {
+  it('aborts after AI_FAILFAST_THRESHOLD consecutive hard-failures instead of grinding to the cap', async () => {
+    // Provider is genuinely down: every AI step hard-fails with no output AND the
+    // Decider (same provider) can't produce a verdict either (parsed=false) — the
+    // real codex-out-of-quota shape.
+    const runAiStep = vi.fn(async () => ({ text: '', failed: true, errorText: "You've hit your usage limit", provider: 'codex', model: 'gpt-5.5' }))
+    const runDecider = vi.fn(async () => ({ continue: true, reasoning: '(could not parse decision; continuing)', parsed: false }))
+    const ex = makeExecutors({ runAiStep, runDecider })
+    const res = await manager(ex).run({ ...baseReq(), graph: loopGraph(20) })
+    expect(res.outcome).toBe('failed')
+    // loopGraph has ONE ai-step per pass → abort on the 2nd consecutive failure,
+    // NOT 20 iterations of grinding.
+    expect((ex.runAiStep as ReturnType<typeof vi.fn>).mock.calls.length).toBe(2)
+    const run = getLoopRun(db, res.runId)!
+    expect(run.final_outcome).toBe('failed')
+  })
+
+  it('does NOT fail-fast when the Decider (same provider) keeps succeeding — the provider is alive', async () => {
+    // ai-steps fail every pass, but the Decider produces a parseable verdict each
+    // time → provider is demonstrably up → the streak resets → no false abort.
+    const runAiStep = vi.fn(async () => ({ text: '', failed: true, errorText: 'transient blip', provider: 'claude', model: 'sonnet' }))
+    const runDecider = vi.fn(async () => ({ continue: true, reasoning: 'not met', parsed: true }))
+    const ex = makeExecutors({ runAiStep, runDecider })
+    const res = await manager(ex).run({ ...baseReq(), graph: loopGraph(3) })
+    // Runs to the iteration cap (the safety net), NOT a 'provider down' abort —
+    // it ran well past the 2-failure fail-fast threshold without aborting.
+    expect(res.outcome).toBe('max-iterations')
+    expect((ex.runAiStep as ReturnType<typeof vi.fn>).mock.calls.length).toBeGreaterThan(2)
+  })
+
+  it('does NOT abort when a step fails once then recovers (counter resets)', async () => {
+    let n = 0
+    const runAiStep = vi.fn(async () => {
+      n += 1
+      return n === 1
+        ? { text: '', failed: true, errorText: 'transient blip', provider: 'claude', model: 'sonnet' }
+        : { text: 'did work', sessionId: 's1', provider: 'claude', model: 'sonnet' }
+    })
+    let d = 0
+    const runDecider = vi.fn(async () => (++d >= 2
+      ? { continue: false, reasoning: 'green', parsed: true }
+      : { continue: true, reasoning: 'more', parsed: true }))
+    const res = await manager(makeExecutors({ runAiStep, runDecider })).run({ ...baseReq(), graph: loopGraph(20) })
+    expect(res.outcome).toBe('success')
+  })
+
+  it('does NOT count a failed step that still produced output (partial progress)', async () => {
+    // Hard-fail BUT with text → not a dead spawn; never trips the fail-fast.
+    const runAiStep = vi.fn(async () => ({ text: 'partial output', failed: true, errorText: 'exited 1', provider: 'claude', model: 'sonnet' }))
+    const runDecider = vi.fn(async () => ({ continue: false, reasoning: 'stop', parsed: true }))
+    const res = await manager(makeExecutors({ runAiStep, runDecider })).run({ ...baseReq(), graph: loopGraph(20) })
+    expect(res.outcome).toBe('success')
+  })
+})
+
+describe('LoopRunManager honest cost (unpriced step → lower bound)', () => {
+  it('marks the total `≥` and warns when a cost-bearing step ends unpriced (claude timeout)', async () => {
+    // A claude AI step killed by timeout: it streamed work (tokens) but the child
+    // died before the terminal `result` event, so cost is undefined and the step
+    // bills $0. The decider then stops with a real cost.
+    const runAiStep = vi.fn(async () => ({ text: 'partial work', failed: true, errorText: 'claude timed out', tokens: 1200, provider: 'claude', model: 'sonnet' }))
+    const runDecider = vi.fn(async () => ({ continue: false, reasoning: 'done', parsed: true, cost: 0.001, tokens: 20, provider: 'claude', model: 'sonnet' }))
+    const res = await manager(makeExecutors({ runAiStep, runDecider })).run(baseReq())
+
+    // Per-occurrence honesty warning surfaced in the run log.
+    expect(broadcasts.some((m) => m.type === 'log' && /Step cost unknown/.test((m as { line: string }).line))).toBe(true)
+    // Final total rendered as a lower bound (only the decider's $0.001 is priced).
+    expect(broadcasts.some((m) => m.type === 'log' && /Loop finished:.*≥ \$0\.0010/.test((m as { line: string }).line))).toBe(true)
+    expect(res.totalCostUsd).toBeCloseTo(0.001, 5)
+  })
+
+  it('does NOT flag the total when every cost-bearing step reports a price', async () => {
+    const res = await manager(makeExecutors()).run(baseReq())
+    expect(broadcasts.some((m) => m.type === 'log' && /Step cost unknown/.test((m as { line: string }).line))).toBe(false)
+    expect(broadcasts.some((m) => m.type === 'log' && /Loop finished:.*≥/.test((m as { line: string }).line))).toBe(false)
+  })
+})
+
+describe('LoopRunManager session bounding (provider-agnostic)', () => {
+  // Mock that records the sessionId each AI step was called with and hands back a
+  // fresh one (so a resume would carry it forward).
+  function trackingExecutors() {
+    let n = 0
+    const runAiStep = vi.fn(async () => ({ text: 'x', sessionId: `sess-${++n}`, cost: 0, tokens: 1, provider: 'claude', model: 'sonnet' }))
+    let d = 0
+    const runDecider = vi.fn(async () => (++d >= 2
+      ? { continue: false, reasoning: 'done', parsed: true, cost: 0, tokens: 1 }
+      : { continue: true, reasoning: 'more', parsed: true, cost: 0, tokens: 1 }))
+    return makeExecutors({ runAiStep, runDecider })
+  }
+  const sessionArg = (ex: LoopExecutors, i: number) =>
+    ((ex.runAiStep as ReturnType<typeof vi.fn>).mock.calls[i][0] as { sessionId?: string }).sessionId
+
+  it('iterate-loops (continue → first step) start each pass FRESH but resume within the pass', async () => {
+    const ex = trackingExecutors()
+    await manager(ex).run({ ...baseReq(), graph: twoStepGraph('a1') })
+    // pass 1: a1 fresh, a2 resumes a1 → pass 2: a1 FRESH again (session dropped at loop-back), a2 resumes
+    expect((ex.runAiStep as ReturnType<typeof vi.fn>)).toHaveBeenCalledTimes(4)
+    expect(sessionArg(ex, 0)).toBeUndefined() // a1, pass 1 — fresh
+    expect(sessionArg(ex, 1)).toBeDefined()   // a2, pass 1 — resumes within the pass
+    expect(sessionArg(ex, 2)).toBeUndefined() // a1, pass 2 — RESET: fresh, re-reads the code
+    expect(sessionArg(ex, 3)).toBeDefined()   // a2, pass 2 — resumes within the pass
+  })
+
+  it('appends cross-iteration history only when fresh or right after a Decider continue', async () => {
+    const ex = trackingExecutors()
+    await manager(ex).run({ ...baseReq(), graph: twoStepGraph('a2') })
+    const prompt = (i: number) => ((ex.runAiStep as ReturnType<typeof vi.fn>).mock.calls[i][0] as { prompt: string }).prompt
+    const HIST = 'Context from previous iterations'
+    // a2 in pass 1 is a mid-body RESUMED step → its session already has a1's output → no redundant history
+    expect(prompt(1)).not.toContain(HIST)
+    // a2 right after the Decider 'continue' must see the verdict it acts on → history included
+    expect(prompt(2)).toContain(HIST)
+  })
+
+  it('non-iterate loops (continue → last step) keep resuming across iterations', async () => {
+    const ex = trackingExecutors()
+    await manager(ex).run({ ...baseReq(), graph: twoStepGraph('a2') })
+    // pass 1: a1 fresh, a2 resumes → continue routes to a2 (not the first step) → no reset
+    expect((ex.runAiStep as ReturnType<typeof vi.fn>)).toHaveBeenCalledTimes(3)
+    expect(sessionArg(ex, 0)).toBeUndefined() // a1 — fresh start
+    expect(sessionArg(ex, 1)).toBeDefined()   // a2 — resumes
+    expect(sessionArg(ex, 2)).toBeDefined()   // a2 again — still resuming (session NOT dropped)
+  })
+})
+
+describe('LoopRunManager ai_invocations accounting (BUG-ANALYTICS-03/04/07/32)', () => {
+  // Single AI step → End, so exactly ONE loop ai_invocations row is written and
+  // its column values are unambiguous to assert.
+  function singleStepGraph(): LoopGraph {
+    return {
+      nodes: [
+        { id: 's', type: 'start', position: { x: 0, y: 0 } },
+        { id: 'ai', type: 'ai-step', position: { x: 0, y: 1 }, data: { prompt: 'work' } },
+        { id: 'e', type: 'end', position: { x: 0, y: 2 } },
+      ],
+      edges: [
+        { id: 'e1', source: 's', target: 'ai' },
+        { id: 'e2', source: 'ai', target: 'e' },
+      ],
+      config: { maxIterations: 5, timeoutMinutes: 30 },
+    }
+  }
+
+  it('BUG-04: persists the per-direction token breakdown (incl. cache) to its matching column, not folded into tokens_out', async () => {
+    // Mirrors a cache-hit claude step: in/out small, cache large. Folding into a
+    // single tokens_out scalar would drop the cache volume entirely.
+    const ex = makeExecutors({
+      runAiStep: vi.fn(async () => ({
+        text: 'x', cost: 0.05, provider: 'claude', model: 'sonnet',
+        tokens: 24500, tokensIn: 1500, tokensOut: 1000, tokensCacheRead: 20000, tokensCacheCreate: 2000,
+      })),
+    })
+    const res = await manager(ex).run({ ...baseReq(), graph: singleStepGraph() })
+    expect(res.outcome).toBe('success')
+    const row = db.prepare(
+      `SELECT tokens_in, tokens_out, tokens_cache_read, tokens_cache_create FROM ai_invocations WHERE surface='loop' AND loop_run_id=?`
+    ).get(res.runId) as { tokens_in: number; tokens_out: number; tokens_cache_read: number; tokens_cache_create: number }
+    expect(row.tokens_in).toBe(1500)
+    expect(row.tokens_out).toBe(1000)
+    expect(row.tokens_cache_read).toBe(20000)
+    expect(row.tokens_cache_create).toBe(2000)
+  })
+
+  it('BUG-03 (⊛ codex): a hard-failed AI step is recorded status=failed, not success', async () => {
+    // A codex step that exits non-zero (quota/usage-limit) but still produces text
+    // so it does NOT trip the fail-fast — the row must still be flagged failed.
+    const ex = makeExecutors({
+      runAiStep: vi.fn(async () => ({ text: 'partial', failed: true, errorText: "You've hit your usage limit", provider: 'codex', model: 'gpt-5.5', cost: 0.02, estimated: true })),
+    })
+    const res = await manager(ex).run({ ...baseReq(), graph: singleStepGraph(), provider: 'codex', model: 'gpt-5.5' })
+    const row = db.prepare(
+      `SELECT status, provider, total_cost_usd_estimated FROM ai_invocations WHERE surface='loop' AND loop_run_id=?`
+    ).get(res.runId) as { status: string; provider: string; total_cost_usd_estimated: number }
+    expect(row.status).toBe('failed')
+    expect(row.provider).toBe('codex')
+    expect(row.total_cost_usd_estimated).toBe(1) // estimated cost preserved alongside the failed status
+  })
+
+  it('BUG-03: a successful AI step stays status=success (claude-only path unchanged)', async () => {
+    const res = await manager(makeExecutors()).run({ ...baseReq(), graph: singleStepGraph() })
+    const row = db.prepare(`SELECT status FROM ai_invocations WHERE surface='loop' AND loop_run_id=?`).get(res.runId) as { status: string }
+    expect(row.status).toBe('success')
+  })
+
+  it('BUG-03: an unparseable Decider verdict (dec.parsed=false) is recorded status=failed', async () => {
+    // ai-step succeeds (so no fail-fast), Decider can't parse but is treated as
+    // continue → loop runs to the iteration cap; every decider row is failed.
+    const ex = makeExecutors({
+      runAiStep: vi.fn(async () => ({ text: 'ok', provider: 'claude', model: 'sonnet' })),
+      runDecider: vi.fn(async () => ({ continue: true, reasoning: '(could not parse)', parsed: false, provider: 'claude', model: 'sonnet' })),
+    })
+    const res = await manager(ex).run({ ...baseReq(), graph: loopGraph(2) })
+    const rows = db.prepare(`SELECT status FROM ai_invocations WHERE surface='loop' AND surface_ref_id LIKE '%:decider' AND loop_run_id=?`).all(res.runId) as { status: string }[]
+    expect(rows.length).toBeGreaterThan(0)
+    expect(rows.every((r) => r.status === 'failed')).toBe(true)
+  })
+
+  it('BUG-03: a parseable Decider verdict stays status=success', async () => {
+    const res = await manager(makeExecutors()).run(baseReq())
+    const rows = db.prepare(`SELECT status FROM ai_invocations WHERE surface='loop' AND surface_ref_id LIKE '%:decider' AND loop_run_id=?`).all(res.runId) as { status: string }[]
+    expect(rows.length).toBeGreaterThan(0)
+    expect(rows.every((r) => r.status === 'success')).toBe(true)
+  })
+
+  it('BUG-07: broadcasts spending.invalidated after each recorded invocation', async () => {
+    const res = await manager(makeExecutors()).run(baseReq())
+    const invalidations = broadcasts.filter((m) => m.type === 'spending.invalidated') as { type: string; projectId: string }[]
+    // baseReq's default decider STOPS on the first call → 1 AI step + 1 decider =
+    // 2 ai_invocations rows = exactly 2 spending.invalidated broadcasts. There must
+    // be one broadcast per recorded row (and none on a claude-only project today
+    // were emitted before this fix).
+    const rowCount = (db.prepare(`SELECT COUNT(*) AS n FROM ai_invocations WHERE surface='loop' AND loop_run_id=?`).get(res.runId) as { n: number }).n
+    expect(invalidations.length).toBe(rowCount)
+    expect(invalidations.length).toBe(2)
+    expect(invalidations.every((m) => m.projectId === 'p1')).toBe(true)
+  })
+
+  it('BUG-07: a broadcast failure never breaks traversal', async () => {
+    let calls = 0
+    // Throw on every spending.invalidated broadcast; the run must still settle.
+    const throwingBroadcast = (m: WsMessage) => {
+      broadcasts.push(m)
+      if (m.type === 'spending.invalidated') { calls += 1; throw new Error('ws down') }
+    }
+    const mgr = new LoopRunManager(db, throwingBroadcast, makeExecutors(), () => 1000)
+    const res = await mgr.run({ ...baseReq(), graph: singleStepGraph() })
+    expect(res.outcome).toBe('success')
+    expect(calls).toBeGreaterThan(0) // the throwing path was exercised
+  })
+
+  it('BUG-32: started_at is the turn-START instant and finished_at the finish, not both at finish', async () => {
+    // Advancing clock: each this.now() call returns a later ms. The step start is
+    // captured before the await, the finish after → started_at < finished_at.
+    let t = 1000
+    const tickingNow = () => { t += 1000; return t }
+    const ex = makeExecutors({
+      // Burn a clock tick inside the step so its finish is strictly after its start.
+      runAiStep: vi.fn(async () => ({ text: 'x', cost: 0.01, tokens: 10, tokensIn: 4, tokensOut: 6, provider: 'claude', model: 'sonnet' })),
+    })
+    const mgr = new LoopRunManager(db, (m) => broadcasts.push(m), ex, tickingNow)
+    const res = await mgr.run({ ...baseReq(), graph: singleStepGraph() })
+    const row = db.prepare(`SELECT started_at, finished_at FROM ai_invocations WHERE surface='loop' AND loop_run_id=?`).get(res.runId) as { started_at: string; finished_at: string }
+    expect(row.started_at).toBeTruthy()
+    expect(row.finished_at).toBeTruthy()
+    // The row's started_at must be EARLIER than its finished_at (the bug stamped
+    // both at the finish instant).
+    expect(new Date(row.started_at).getTime()).toBeLessThan(new Date(row.finished_at).getTime())
+  })
 })
 
 describe('LoopRunManager', () => {

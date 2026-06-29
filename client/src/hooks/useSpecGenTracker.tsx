@@ -78,6 +78,12 @@ export function SpecGenTrackerProvider({ children }: { children: ReactNode }) {
   // explore mode: conversationId → TrackedSpec
   const exploreRef = useRef<Map<string, TrackedSpec>>(new Map())
 
+  // persistIds already being handled this session — populated BOTH when a spec
+  // is live-registered (registerSpec) AND when restored from localStorage. The
+  // localStorage-restore effect skips any id in here, so a spec that is already
+  // in flight is never re-created as a duplicate toast (the navigation-dup bug).
+  const restoredRef = useRef<Set<string>>(new Set())
+
   const activeProjectIdRef = useRef<string | null>(null)
   const { activeProjectId } = useDesktop()
   useEffect(() => { activeProjectIdRef.current = activeProjectId }, [activeProjectId])
@@ -112,6 +118,12 @@ export function SpecGenTrackerProvider({ children }: { children: ReactNode }) {
       if (window.location.pathname !== '/') navigate('/')
     }
   }, [setActiveProjectId, navigate])
+
+  // Keep the latest openTicket in a ref so the once-on-mount restore effect can
+  // call it without taking it as a dependency (openTicket changes identity when
+  // `navigate` does — i.e. on every route change — which must NOT re-run restore).
+  const openTicketRef = useRef(openTicket)
+  useEffect(() => { openTicketRef.current = openTicket }, [openTicket])
 
   const successToast = useCallback((spec: TrackedSpec, ticket: LocalTicket) => {
     resolveSpec(spec)
@@ -160,6 +172,9 @@ export function SpecGenTrackerProvider({ children }: { children: ReactNode }) {
 
   const registerSpec = useCallback((reg: SpecRegistration): TrackedSpec => {
     const spec: TrackedSpec = { ...reg, timerId: 0 as unknown as ReturnType<typeof setInterval> }
+    // Mark as handled so the localStorage-restore effect (which sees this spec
+    // once savePendingSpec writes it) never re-creates it as a duplicate toast.
+    restoredRef.current.add(reg.persistId)
     markSpecGenInFlight(reg.projectId)
     startTimer(spec)
     savePendingSpec({
@@ -252,8 +267,9 @@ export function SpecGenTrackerProvider({ children }: { children: ReactNode }) {
   }, [handleSpecGenWs, handleChatDone, handleTicketWs, registerHandler, unregisterHandler])
 
   // ── Restore pending specs from localStorage on mount ──────────────────────
-
-  const restoredRef = useRef<Set<string>>(new Set())
+  // Runs ONCE on mount (the provider never unmounts during a session). It must
+  // NOT depend on openTicket: that changes identity on every navigation, and a
+  // re-run would re-restore a still-in-flight spec as a second toast.
 
   useEffect(() => {
     const pending = readPendingSpecs()
@@ -304,7 +320,7 @@ export function SpecGenTrackerProvider({ children }: { children: ReactNode }) {
               id: toastId,
               duration: 10_000,
               description: i18n.t('activity:specGen.generatedIn', { elapsed }),
-              action: { label: i18n.t('activity:specGen.view'), onClick: () => openTicket(restoredSpec, newTicket) },
+              action: { label: i18n.t('activity:specGen.view'), onClick: () => openTicketRef.current(restoredSpec, newTicket) },
             })
             return
           }
@@ -320,7 +336,8 @@ export function SpecGenTrackerProvider({ children }: { children: ReactNode }) {
       }
       attempt()
     }
-  }, [openTicket])
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- mount-once: see comment above
+  }, [])
 
   const clearSpecToOpen = useCallback(() => setSpecToOpen(null), [])
 

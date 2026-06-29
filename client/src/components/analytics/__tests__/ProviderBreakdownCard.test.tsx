@@ -93,7 +93,8 @@ describe('ProviderBreakdownCard', () => {
 
     // Stacked bar: one segment per provider with a cost, titled label: value (count)
     const claudeSegment = container.querySelector('[title="Claude: $150 (12)"]')
-    const codexSegment = container.querySelector('[title="Codex: $12.3 (1)"]')
+    // codex is wholly estimated → tooltip carries the ~ marker (BUG-ANALYTICS-10)
+    const codexSegment = container.querySelector('[title="Codex: ~$12.3 (1)"]')
     expect(claudeSegment).toBeInTheDocument()
     expect(codexSegment).toBeInTheDocument()
     expect(claudeSegment).toHaveClass('bg-accent-info')
@@ -142,8 +143,36 @@ describe('ProviderBreakdownCard', () => {
     // Both rows still render
     expect(screen.getByText('Claude')).toBeInTheDocument()
     expect(screen.getByText('Codex')).toBeInTheDocument()
-    // zero-cost codex row is not marked estimated (~ only when estimated > 0)
+  })
+
+  it('renders a cost-unavailable affordance instead of $0.0000 for an unpriced codex provider (BUG-ANALYTICS-09)', () => {
+    const data = makeData([
+      makeProvider({ provider: 'claude', count: 5, costUsd: 10 }),
+      // real runs, but no priced and no estimated cost → model absent from pricing table
+      makeProvider({ provider: 'codex', count: 40, costUsd: 0, estimatedCostUsd: 0 }),
+    ])
+    render(<ProviderBreakdownCard data={data} loading={false} />)
+
+    // The misleading authoritative $0 is gone
+    expect(screen.queryByText('$0.0000')).not.toBeInTheDocument()
     expect(screen.queryByText('~$0.0000')).not.toBeInTheDocument()
-    expect(screen.getByText('$0.0000')).toBeInTheDocument()
+    // The codex run count is still shown so the row is not silently empty
+    expect(screen.getByText('40 runs')).toBeInTheDocument()
+  })
+
+  it('prefixes ~ on the bar-segment tooltip for an estimated-only provider (BUG-ANALYTICS-10)', () => {
+    const data = makeData([
+      makeProvider({ provider: 'claude', count: 5, costUsd: 10 }),
+      makeProvider({ provider: 'codex', count: 3, costUsd: 0, estimatedCostUsd: 4 }),
+    ])
+    const { container } = render(<ProviderBreakdownCard data={data} loading={false} />)
+
+    // Estimated-only codex segment tooltip carries the ~, mirroring the legend row
+    const codexSegment = container.querySelector('[title^="Codex:"]')
+    expect(codexSegment).toBeInTheDocument()
+    expect(codexSegment!.getAttribute('title')).toMatch(/Codex: ~\$/)
+    // Authoritative claude segment has no ~
+    const claudeSegment = container.querySelector('[title^="Claude:"]')
+    expect(claudeSegment!.getAttribute('title')).not.toMatch(/~/)
   })
 })

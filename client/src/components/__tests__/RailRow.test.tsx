@@ -86,6 +86,22 @@ describe('RailRow', () => {
     expect(onRename).toHaveBeenCalledWith('New Name')
   })
 
+  it('shows live execution metrics in the normal layout when running, hidden when idle', () => {
+    const running = renderRailRow({
+      ...defaultProps,
+      status: 'running' as const,
+      executionMetric: { startedAt: Date.now() - 5000, steps: 3, lines: 42 },
+    })
+    // scope to this render's container (testing-library doesn't clean up between renders in one test)
+    const info = running.container.querySelector('[data-testid="rail-exec-info"]')
+    expect(info).not.toBeNull()
+    expect(info!.textContent).toContain('3')   // steps
+    expect(info!.textContent).toContain('42')  // lines
+
+    const idle = renderRailRow({ ...defaultProps, status: 'idle' as const, executionMetric: { startedAt: Date.now(), steps: 1, lines: 1 } })
+    expect(idle.container.querySelector('[data-testid="rail-exec-info"]')).toBeNull()
+  })
+
   it('delete button calls onDelete in jiggle mode', () => {
     const onDelete = vi.fn()
     const { container } = renderRailRow({ ...defaultProps, jiggleMode: true, onDelete })

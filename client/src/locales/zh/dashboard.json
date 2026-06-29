@@ -18,7 +18,10 @@
     "launchNetworkError": "启动 Rail 时网络错误",
     "railLaunched": "{{rail}} 已启动",
     "launchDescription_one": "{{mode}}，共 {{count}} 个 Spec",
-    "launchDescription_other": "{{mode}}，共 {{count}} 个 Spec"
+    "launchDescription_other": "{{mode}}，共 {{count}} 个 Spec",
+    "railWorktreeNeedsReview": "Rail {{n}}：合并后 spec #{{ticket}} 需要复查",
+    "railWorktreesNoGit": "worktree 隔离不可用：该项目不是 git 仓库 — 以共享模式运行。",
+    "railWorktreesNoCommits": "worktree 隔离不可用：仓库还没有任何提交 — 先做一次初始提交再重新启动。"
   },
   "railsBoard": {
     "title": "Rails",
@@ -43,7 +46,11 @@
     "failedRetry": "任务失败 — 点击重试",
     "addSpecsFirst": "请先向此 Rail 添加 Spec",
     "builtInLoops": "内置",
-    "customLoops": "自定义循环"
+    "customLoops": "自定义循环",
+    "worktreesMerged": "已合并 {{count}}",
+    "worktreesNeedsReview": "{{count}} 需复查",
+    "execSteps": "{{count}} 步",
+    "execLines": "{{count}} 行"
   },
   "railRow": {
     "moveToSpecs": "移至 Specs",

@@ -11,6 +11,8 @@ import { Tooltip, TooltipContent, TooltipTrigger } from './ui/tooltip'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from './ui/dialog'
 import { PipelineProgress } from './PipelineProgress'
 import { LogViewer } from './LogViewer'
+import { useMovableResizableModal } from '../hooks/useMovableResizableModal'
+import { ResizeGrips } from './ui/ResizeGrips'
 import { useWebSocket } from '../hooks/useWebSocket'
 import { WS_URL } from '../lib/ws-url'
 import type { JobSummary, EventRow, PhaseDefinition } from '../types'
@@ -172,18 +174,27 @@ export function JobDetailModal({ jobId, onClose }: JobDetailModalProps) {
   const statusInfo = job ? (STATUS_BADGE[job.status] ?? STATUS_BADGE.queued) : STATUS_BADGE.queued
   const isRunning = job?.status === 'running'
 
+  const { panelRef, panelStyle, headerHandleProps, resizeHandles, isFloating, guardBackdrop } = useMovableResizableModal()
+
   return (
     <div className="fixed inset-0 z-50 flex items-stretch justify-center">
       {/* Backdrop */}
       <div
         className="absolute inset-0 bg-black/50 backdrop-blur-sm"
-        onClick={onClose}
+        onClick={guardBackdrop(onClose)}
       />
 
       {/* Panel */}
-      <div className="relative w-full m-3 rounded-xl glass-card border border-border/30 flex flex-col animate-in fade-in zoom-in-95 duration-200 overflow-hidden">
+      <div
+        ref={panelRef}
+        className="relative w-full m-3 rounded-xl glass-card border border-border/30 flex flex-col animate-in fade-in zoom-in-95 duration-200 overflow-hidden"
+        style={panelStyle}
+      >
         {/* Header */}
-        <div className="flex items-center justify-between px-4 py-3 border-b border-border/30">
+        <div
+          {...headerHandleProps}
+          className={`flex items-center justify-between px-4 py-3 border-b border-border/30${isFloating ? ' cursor-grab active:cursor-grabbing' : ''}`}
+        >
           <div className="flex items-center gap-3 min-w-0">
             {job && (
               <>
@@ -263,6 +274,8 @@ export function JobDetailModal({ jobId, onClose }: JobDetailModalProps) {
           )}
         </div>
       </div>
+
+      <ResizeGrips handles={resizeHandles} />
 
       {/* Cancel confirmation dialog */}
       <Dialog open={showCancelConfirm} onOpenChange={setShowCancelConfirm}>

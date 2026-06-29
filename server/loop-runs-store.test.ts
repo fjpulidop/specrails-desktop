@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach } from 'vitest'
-import { initDb, type DbInstance } from './db'
+import { initDb, createJob, appendEvent, type DbInstance } from './db'
 import {
   createLoopRun,
   updateLoopRunCounters,
@@ -8,6 +8,7 @@ import {
   listLoopRuns,
   countRunningForLoop,
   reconcileOrphanLoopRuns,
+  getRunEventCounts,
 } from './loop-runs-store'
 
 let db: DbInstance
@@ -105,5 +106,27 @@ describe('loop-runs-store', () => {
     expect(r1.finished_at).toBe('2026-06-24T12:00:00.000Z')
     // A second pass is a no-op (nothing left running).
     expect(reconcileOrphanLoopRuns(db, '2026-06-24T13:00:00.000Z')).toBe(0)
+  })
+
+  describe('getRunEventCounts', () => {
+    it('counts ACTIVITY steps (same source as the Job panel) + log lines', () => {
+      createJob(db, { id: 'run-x', command: 'loop: x', started_at: '2026-06-24T10:00:00.000Z' })
+      // assistant with 1 tool_use → 1 step
+      appendEvent(db, 'run-x', 1, { event_type: 'assistant', source: 'stdout', payload: JSON.stringify({ message: { content: [{ type: 'tool_use', name: 'Edit' }] } }) })
+      // assistant with 2 parallel tool_use → 2 steps
+      appendEvent(db, 'run-x', 2, { event_type: 'assistant', source: 'stdout', payload: JSON.stringify({ message: { content: [{ type: 'tool_use' }, { type: 'tool_use' }] } }) })
+      // bare tool_use → 1 step
+      appendEvent(db, 'run-x', 3, { event_type: 'tool_use', source: 'stdout', payload: '{}' })
+      // log lines
+      appendEvent(db, 'run-x', 4, { event_type: 'log', source: 'stdout', payload: '{"line":"a"}' })
+      appendEvent(db, 'run-x', 5, { event_type: 'log', source: 'stdout', payload: '{"line":"b"}' })
+      // loop_step / result are NOT activity steps → ignored
+      appendEvent(db, 'run-x', 6, { event_type: 'loop_step', source: 'stdout', payload: '{"index":1}' })
+      appendEvent(db, 'run-x', 7, { event_type: 'result', source: 'stdout', payload: '{}' })
+      expect(getRunEventCounts(db, 'run-x')).toEqual({ steps: 4, lines: 2 })
+    })
+    it('returns zeros for an unknown run', () => {
+      expect(getRunEventCounts(db, 'nope')).toEqual({ steps: 0, lines: 0 })
+    })
   })
 })

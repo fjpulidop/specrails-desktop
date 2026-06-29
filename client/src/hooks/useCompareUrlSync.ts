@@ -2,6 +2,7 @@ import { useEffect, useRef } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
 import { useTicketDetailModal } from '../context/TicketDetailModalContext'
 import { useTickets } from './useTickets'
+import { MODAL_FLOAT_VIEWPORT_MIN } from '../lib/viewport'
 
 /**
  * Two-way sync between split-view state and the URL query string.
@@ -32,7 +33,7 @@ export function useCompareUrlSync() {
     // inSplit=false + hadCompare=true, and permanently STRIP the params (so a
     // rotate-back-to-wide could never restore the comparison).
     const compareRawEarly = new URLSearchParams(location.search).get('compare')
-    if (compareRawEarly && typeof window !== 'undefined' && window.innerWidth < 900) {
+    if (compareRawEarly && typeof window !== 'undefined' && window.innerWidth < MODAL_FLOAT_VIEWPORT_MIN) {
       return
     }
 

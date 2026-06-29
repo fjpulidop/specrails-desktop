@@ -15,10 +15,48 @@ export interface SpendingFilters {
   ticketId?: number
   /** Provider ids to include (multi-provider segmentation). Empty/undefined = all. */
   provider?: string[]
+  /**
+   * Provider-aligned model filter. When set, the model predicate is scoped to
+   * `(provider, model)` pairs instead of a bare `model IN (...)`. Wire format:
+   * `modelProvider` CSV index-aligned with `model` CSV (lengths must match or it
+   * is ignored). `provider` here is the COALESCE'd value (legacy NULL → 'claude').
+   * Single-provider claude projects never populate this (byte-identical).
+   */
+  modelKeys?: Array<{ provider: string; model: string }>
+  /**
+   * Minutes to add to UTC `started_at` before day-bucketing `dailyTimeline`
+   * (positive = east of UTC). Client passes its local offset so "today" lines
+   * up. Default 0 = legacy UTC bucketing. Clamped to ±840 server-side.
+   */
+  tzOffsetMinutes?: number
+  /**
+   * Row ordering for the raw invocations table. 'recency' (default,
+   * `started_at DESC`) or 'cost' (`total_cost_usd DESC` NULLs last) so the
+   * costliest rows surface on page 1.
+   */
+  sortBy?: 'recency' | 'cost'
 }
 
 export interface BySurfaceCount { surface: Surface; count: number; costUsd: number }
-export interface ByModelEntry { model: string; count: number; costUsd: number }
+export interface ByModelEntry {
+  model: string
+  /**
+   * Provider that produced this model's rows (COALESCE'd, legacy NULL →
+   * 'claude'). `byModel` is keyed on (provider, model) so codex/gemini estimated
+   * spend never merges into a claude bar of the same id. Client must pass
+   * `provider` alongside `model` on click-to-filter (via `modelProvider`).
+   */
+  provider: string
+  count: number
+  /** Total cost (authoritative + estimated). */
+  costUsd: number
+  /**
+   * Portion of `costUsd` from rows flagged `total_cost_usd_estimated=1`
+   * (codex/gemini pricing-table fallback). Client renders a `~` when > 0.
+   * 0 for a pure-claude model.
+   */
+  estimatedCostUsd: number
+}
 export interface DailyEntry {
   date: string
   jobsCostUsd: number
@@ -26,7 +64,8 @@ export interface DailyEntry {
   exploreCostUsd: number
   aiEditCostUsd: number
   smashCostUsd: number
-  fileSummaryCostUsd?: number
+  fileSummaryCostUsd: number
+  loopCostUsd: number
   totalCostUsd: number
 }
 export interface ScatterPoint {
@@ -52,6 +91,12 @@ export interface ByModeEntry {
   totalRuns: number
   ticketsCreated: number
   totalCostUsd: number
+  /**
+   * Portion of `totalCostUsd` from estimated rows (codex/gemini). Lets
+   * QuickVsExploreCard render a `~` on the per-spec figure when > 0.
+   * 0 for a pure-claude mode.
+   */
+  estimatedCostUsd: number
   avgCostPerSpec: number | null
   avgDurationMs: number | null
   dominantModel: string | null
@@ -89,6 +134,16 @@ export interface SpendingResponse {
   byProvider: ByProviderEntry[]
   dailyTimeline: DailyEntry[]
   scatter: ScatterPoint[]
+  /**
+   * Total count of priced rows (`total_cost_usd IS NOT NULL`) in the window.
+   * When `scatterTruncated`, this exceeds `scatter.length` so CostScatter can
+   * show a "showing N of M — costliest may be hidden" notice. When truncated,
+   * the single costliest priced row is always UNION-ed into `scatter[]` so the
+   * budget-blowing outlier is never invisible (`scatter[]` may then be 501 long).
+   */
+  scatterTotal: number
+  /** True when `scatterTotal` exceeds the 500-capped `scatter.length`. */
+  scatterTruncated: boolean
   topTickets: TopTicketEntry[]
   trackingStartedAt: string | null
   rangeFrom: string
@@ -134,6 +189,12 @@ export interface InvocationsResponse {
 
 export interface TicketSpendingSummary {
   totalCostUsd: number
+  /**
+   * Portion of `totalCostUsd` from rows with `total_cost_usd_estimated=1`
+   * (codex/gemini). TicketSpendingLine / modal render a `~` when > 0.
+   * 0 for a ticket implemented entirely via claude.
+   */
+  estimatedCostUsd: number
   totalTurns: number
   activeDurationMs: number
   bySurface: Record<Surface, { count: number; costUsd: number }>

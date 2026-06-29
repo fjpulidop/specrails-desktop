@@ -46,7 +46,7 @@ export function TemplatePreviewModal({
 
   return (
     <Dialog open={open} onOpenChange={(o) => { if (!o) onClose() }}>
-      <DialogContent className="max-w-lg">
+      <DialogContent movableResizable className="max-w-lg">
         {template && (
           <>
             <DialogHeader>

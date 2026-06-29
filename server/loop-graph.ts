@@ -44,6 +44,10 @@ export interface LoopGraphConfig {
   maxIterations: number
   /** Wall-clock timeout for the whole run, in minutes. */
   timeoutMinutes: number
+  /** Per-AI-step wall-clock timeout, in minutes. Undefined ⇒ the engine default
+   *  (15 min). Factory pipeline loops (implement/batch/ultracode) raise this
+   *  because a single step runs the whole architect→developer→reviewer pipeline. */
+  aiStepTimeoutMinutes?: number
   /** Optional cost cap (USD) for the whole run. Enforced BETWEEN steps (per-step
    *  cost is only known when a step's process exits), so the loop stops before
    *  the next step once the accumulated cost crosses this — may overshoot by one

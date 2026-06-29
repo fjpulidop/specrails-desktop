@@ -3,6 +3,7 @@ import { useTickets } from '../hooks/useTickets'
 import { useDesktop } from '../hooks/useDesktop'
 import { SplitViewShell } from '../components/SplitViewShell'
 import { TicketDetailModal } from '../components/TicketDetailModal'
+import { MODAL_FLOAT_VIEWPORT_MIN } from '../lib/viewport'
 
 export type CompareSide = 'left' | 'right'
 
@@ -99,7 +100,7 @@ interface TicketDetailModalContextValue {
 
 const TicketDetailModalContext = createContext<TicketDetailModalContextValue | null>(null)
 
-const COMPARE_VIEWPORT_MIN = 900
+const COMPARE_VIEWPORT_MIN = MODAL_FLOAT_VIEWPORT_MIN
 
 export function TicketDetailModalProvider({ children }: { children: ReactNode }) {
   const [state, dispatch] = useReducer(reduceSplit, INITIAL_STATE)

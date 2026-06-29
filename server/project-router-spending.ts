@@ -108,6 +108,24 @@ import {
 
 export function registerSpendingRoutes(deps: ProjectRoutesDeps): void {
   const { router, registry, ctx, ticketPath } = deps
+
+  // Build a YAML-store-backed title resolver for getSpending's 4th arg
+  // (BUG-ANALYTICS-18/36). Without it, topTickets keeps ticketTitle:null and the
+  // client mislabels every live ticket "Deleted ticket #N". Returns undefined
+  // when the store can't be read so the legacy null-title shape is preserved.
+  function makeTitleResolver(req: Request): ((id: number) => { title: string | null; deleted: boolean }) | undefined {
+    let store: { tickets: Record<string, { title?: string }> }
+    try {
+      store = readStore(ticketPath(req)) as unknown as { tickets: Record<string, { title?: string }> }
+    } catch {
+      return undefined // tickets store may not exist yet
+    }
+    return (id: number) => {
+      const t = store.tickets[String(id)]
+      return { title: t?.title ?? null, deleted: !t }
+    }
+  }
+
   // ─── Spending dashboard ──────────────────────────────────────────────────────
   router.get('/:projectId/spending', (req: Request, res: Response) => {
     const filters = parseSpendingFilters(req.query as Record<string, unknown>)
@@ -116,7 +134,7 @@ export function registerSpendingRoutes(deps: ProjectRoutesDeps): void {
       return
     }
     try {
-      res.json(getSpending(ctx(req).db, ctx(req).project.id, filters))
+      res.json(getSpending(ctx(req).db, ctx(req).project.id, filters, makeTitleResolver(req)))
     } catch (err) {
       console.error('[project-router] spending error:', err)
       res.status(500).json({ error: 'Failed to compute spending' })
@@ -149,6 +167,11 @@ export function registerSpendingRoutes(deps: ProjectRoutesDeps): void {
           }
         }
       } catch { /* tickets store may not exist yet */ }
+      // BUG-ANALYTICS-19: getInvocations only sets `truncated` on the `cap` path,
+      // so the `limit` path the client uses always reports truncated=false even
+      // when rows were withheld. Recompute it from totalAvailable so the client
+      // can render the "showing N of M" notice on the only path it uses.
+      result.truncated = result.truncated || result.totalAvailable > result.rows.length
       res.json(result)
     } catch (err) {
       console.error('[project-router] invocations error:', err)
@@ -163,7 +186,19 @@ export function registerSpendingRoutes(deps: ProjectRoutesDeps): void {
       res.status(400).json({ error: 'Invalid ticket id' }); return
     }
     try {
-      res.json(getTicketSpendingSummary(ctx(req).db, ticketId))
+      const summary = getTicketSpendingSummary(ctx(req).db, ticketId)
+      // BUG-ANALYTICS-36: resolve the ticket title from the YAML store so the
+      // modal payload carries a human-readable name (getTicketSpendingSummary
+      // takes only db+ticketId and can't read the store itself).
+      let ticketTitle: string | null = null
+      let isDeleted = false
+      try {
+        const store = readStore(ticketPath(req)) as unknown as { tickets: Record<string, { title?: string }> }
+        const t = store.tickets[String(ticketId)]
+        ticketTitle = t?.title ?? null
+        isDeleted = !t
+      } catch { /* tickets store may not exist yet */ }
+      res.json({ ...summary, ticketTitle, isDeleted })
     } catch (err) {
       console.error('[project-router] ticket spending summary error:', err)
       res.status(500).json({ error: 'Failed to compute ticket spending' })
@@ -203,7 +238,9 @@ export function registerSpendingRoutes(deps: ProjectRoutesDeps): void {
 
     try {
       if (mode === 'summary') {
-        const data = getSpending(ctx(req).db, projectId, filters)
+        // BUG-ANALYTICS-36: inject the YAML-store title resolver so the summary
+        // CSV "Top tickets" section (and JSON export) carry human-readable names.
+        const data = getSpending(ctx(req).db, projectId, filters, makeTitleResolver(req))
         if (format === 'json') {
           res.setHeader('Content-Disposition', `attachment; filename="${project.slug}-analytics-${periodTag}-${dateStamp}.json"`)
           res.json(data)
@@ -223,9 +260,9 @@ export function registerSpendingRoutes(deps: ProjectRoutesDeps): void {
         ].join(','))
         lines.push('')
         lines.push('# Daily timeline')
-        lines.push('date,jobsCostUsd,quickCostUsd,exploreCostUsd,aiEditCostUsd,smashCostUsd,fileSummaryCostUsd,totalCostUsd')
+        lines.push('date,jobsCostUsd,quickCostUsd,exploreCostUsd,aiEditCostUsd,smashCostUsd,fileSummaryCostUsd,loopCostUsd,totalCostUsd')
         for (const d of data.dailyTimeline) {
-          lines.push(`${d.date},${d.jobsCostUsd},${d.quickCostUsd},${d.exploreCostUsd},${d.aiEditCostUsd},${d.smashCostUsd},${d.fileSummaryCostUsd},${d.totalCostUsd}`)
+          lines.push(`${d.date},${d.jobsCostUsd},${d.quickCostUsd},${d.exploreCostUsd},${d.aiEditCostUsd},${d.smashCostUsd},${d.fileSummaryCostUsd},${d.loopCostUsd},${d.totalCostUsd}`)
         }
         lines.push('')
         lines.push('# By surface')
@@ -237,16 +274,23 @@ export function registerSpendingRoutes(deps: ProjectRoutesDeps): void {
         for (const m of data.byModel) lines.push(`${csvEscape(m.model)},${m.count},${m.costUsd}`)
         lines.push('')
         lines.push('# Top tickets')
-        lines.push('ticketId,totalCostUsd,totalRuns,jobCost,quickCost,exploreCost,aiEditCost')
+        // BUG-ANALYTICS-17: emit all 7 surface cost columns (was 4) so they sum to
+        // totalCostUsd. BUG-ANALYTICS-36: add a ticketTitle column so the export is
+        // reconcilable to a human-readable ticket (topTickets is enriched above).
+        lines.push('ticketId,ticketTitle,totalCostUsd,totalRuns,jobCost,quickCost,exploreCost,aiEditCost,smashCost,fileSummaryCost,loopCost')
         for (const t of data.topTickets) {
           lines.push([
             t.ticketId ?? '(unattributed)',
+            csvEscape(t.ticketTitle ?? ''),
             t.totalCostUsd,
             t.totalRuns,
             t.bySurface.job.costUsd,
             t.bySurface['quick-spec'].costUsd,
             t.bySurface['explore-spec'].costUsd,
             t.bySurface['ai-edit'].costUsd,
+            t.bySurface.smash.costUsd,
+            t.bySurface['file-summary'].costUsd,
+            t.bySurface.loop.costUsd,
           ].join(','))
         }
         res.setHeader('Content-Type', 'text/csv')
@@ -267,11 +311,15 @@ export function registerSpendingRoutes(deps: ProjectRoutesDeps): void {
           res.json(result)
           return
         }
+        // BUG-ANALYTICS-06: include `provider` and `total_cost_usd_estimated` so a
+        // codex/gemini estimated row exports distinguishably from a claude
+        // authoritative one (JSON export already carries both). The csvEscape map
+        // loop below picks them up from the row object automatically.
         const headers = [
           'id','surface','surface_ref_id','ticket_id','ticket_title','conversation_id',
-          'model','status','started_at','finished_at','duration_ms','duration_api_ms',
+          'provider','model','status','started_at','finished_at','duration_ms','duration_api_ms',
           'tokens_in','tokens_out','tokens_cache_read','tokens_cache_create',
-          'total_cost_usd','num_turns','session_id'
+          'total_cost_usd','total_cost_usd_estimated','num_turns','session_id'
         ]
         const lines = [headers.join(',')]
         for (const r of result.rows) {

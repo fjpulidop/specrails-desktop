@@ -6,6 +6,8 @@ import { getApiBase } from '../../lib/api'
 import { useDesktop } from '../../hooks/useDesktop'
 import { useSharedWebSocket } from '../../hooks/useSharedWebSocket'
 import { useTicketDetailModal } from '../../context/TicketDetailModalContext'
+import { useMovableResizableModal } from '../../hooks/useMovableResizableModal'
+import { ResizeGrips } from '../ui/ResizeGrips'
 import { CodeViewerMonaco } from './CodeViewerMonaco'
 import { SummaryHeader, type SummaryPayload } from './SummaryHeader'
 import { MarkdownPreview } from './MarkdownPreview'
@@ -124,6 +126,7 @@ export function FileViewer({ relPath, onFilterJob, onSummaryActionChange, onCopy
   const { activeProjectId } = useDesktop()
   const { openTicketDetail } = useTicketDetailModal()
   const { registerHandler, unregisterHandler } = useSharedWebSocket()
+  const budgetModal = useMovableResizableModal({ allowMove: false })
   const viewerRef = useRef<HTMLDivElement | null>(null)
   const [file, setFile] = useState<FileResponse | null>(null)
   const [loading, setLoading] = useState(true)
@@ -552,8 +555,14 @@ export function FileViewer({ relPath, onFilterJob, onSummaryActionChange, onCopy
           role="dialog"
           aria-modal="true"
           data-testid="budget-prompt"
+          onClick={budgetModal.guardBackdrop(() => setBudgetPromptOpen(false))}
         >
-          <div className="bg-card border border-border rounded-lg p-4 w-80 flex flex-col gap-3">
+          <div
+            ref={budgetModal.panelRef}
+            onClick={(e) => e.stopPropagation()}
+            className="bg-card border border-border rounded-lg p-4 w-80 flex flex-col gap-3"
+            style={budgetModal.panelStyle}
+          >
             <p className="text-sm text-foreground">{t('viewer.budgetPrompt')}</p>
             <div className="flex justify-end gap-2">
               <button
@@ -572,6 +581,7 @@ export function FileViewer({ relPath, onFilterJob, onSummaryActionChange, onCopy
               </button>
             </div>
           </div>
+          <ResizeGrips handles={budgetModal.resizeHandles} />
         </div>
       )}
     </div>

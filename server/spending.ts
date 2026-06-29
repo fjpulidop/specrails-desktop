@@ -14,16 +14,56 @@ export interface SpendingFilters {
   ticketId?: number
   /** Provider ids to include (multi-provider segmentation). Empty/undefined = all. */
   provider?: string[]
+  /**
+   * Provider-aligned model filter (BUG-ANALYTICS-30/31). When set, the model
+   * predicate is scoped to `(provider, model)` pairs instead of a bare
+   * `model IN (...)`, so a click on a `byModel` row (which is now keyed on
+   * provider+model) filters to exactly that provider's rows. When undefined the
+   * legacy bare-`model` filter is used unchanged. `provider` here is the
+   * COALESCE'd value (legacy NULL → 'claude'). Single-provider claude projects
+   * never populate this, so their behaviour is byte-identical.
+   */
+  modelKeys?: Array<{ provider: string; model: string }>
+  /**
+   * Minutes to add to the stored UTC `started_at` before bucketing the
+   * dailyTimeline by calendar day (BUG-ANALYTICS-21). Positive = east of UTC.
+   * Default 0 ⇒ UTC bucketing, byte-identical to legacy behaviour. The client
+   * passes its local offset so "today" lines up with the user's wall clock.
+   */
+  tzOffsetMinutes?: number
 }
 
 export interface InvocationsFilters extends SpendingFilters {
   limit?: number
   offset?: number
   cap?: number
+  /**
+   * Row ordering for the raw invocations table (BUG-ANALYTICS-35). 'recency'
+   * (default) = `started_at DESC` (legacy). 'cost' = `total_cost_usd DESC`
+   * (NULLs last) so the costliest rows surface on page 1 for outlier hunting.
+   */
+  sortBy?: 'recency' | 'cost'
 }
 
 export interface BySurfaceCount { surface: Surface; count: number; costUsd: number }
-export interface ByModelEntry { model: string; count: number; costUsd: number }
+export interface ByModelEntry {
+  model: string
+  /**
+   * Provider that produced this model's rows (COALESCE'd, legacy NULL →
+   * 'claude'). byModel is keyed on (provider, model) so codex/gemini estimated
+   * spend never merges into a claude bar of the same id (BUG-ANALYTICS-29/30/31).
+   */
+  provider: string
+  count: number
+  /** Total cost (authoritative + estimated). */
+  costUsd: number
+  /**
+   * Portion of `costUsd` from rows flagged `total_cost_usd_estimated=1`
+   * (codex/gemini pricing-table fallback). Lets ModelBreakdown render a `~`
+   * (BUG-ANALYTICS-08). 0 for a pure-claude model.
+   */
+  estimatedCostUsd: number
+}
 export interface DailyEntry {
   date: string
   jobsCostUsd: number
@@ -58,6 +98,12 @@ export interface ByModeEntry {
   totalRuns: number
   ticketsCreated: number
   totalCostUsd: number
+  /**
+   * Portion of `totalCostUsd` from estimated rows (codex/gemini). Lets
+   * QuickVsExploreCard render a `~` on the per-spec figure (BUG-ANALYTICS-33).
+   * 0 for a pure-claude mode.
+   */
+  estimatedCostUsd: number
   avgCostPerSpec: number | null
   avgDurationMs: number | null
   dominantModel: string | null
@@ -96,6 +142,14 @@ export interface SpendingResponse {
   byProvider: ByProviderEntry[]
   dailyTimeline: DailyEntry[]
   scatter: ScatterPoint[]
+  /**
+   * Total count of priced rows (`total_cost_usd IS NOT NULL`) in the window
+   * (BUG-ANALYTICS-34). When `scatterTruncated`, this exceeds `scatter.length`
+   * so CostScatter can show a "showing N of M — costliest may be hidden" notice.
+   */
+  scatterTotal: number
+  /** True when more than the cap of priced rows exist (`scatterTotal > scatter.length`). */
+  scatterTruncated: boolean
   topTickets: TopTicketEntry[]
   trackingStartedAt: string | null
   rangeFrom: string
@@ -177,7 +231,17 @@ function buildWhere(
     conditions.push(`${a}surface IN (${placeholders})`)
     params.push(...filters.surface)
   }
-  if (filters.model && filters.model.length > 0) {
+  if (filters.modelKeys && filters.modelKeys.length > 0) {
+    // Provider-aligned model filter (BUG-ANALYTICS-30/31): scope each model id
+    // to its provider so a (provider, model) click never pulls another
+    // provider's rows that happen to share the model string. Coalesce legacy
+    // NULL provider to 'claude' to match byModel's keying.
+    const clauses = filters.modelKeys.map(() => `(COALESCE(${a}provider, 'claude') = ? AND ${a}model = ?)`)
+    conditions.push(`(${clauses.join(' OR ')})`)
+    for (const k of filters.modelKeys) {
+      params.push(k.provider, k.model)
+    }
+  } else if (filters.model && filters.model.length > 0) {
     const placeholders = filters.model.map(() => '?').join(',')
     conditions.push(`${a}model IN (${placeholders})`)
     params.push(...filters.model)
@@ -208,14 +272,44 @@ function dateOnly(iso: string): string {
   return iso.slice(0, 10)
 }
 
-function eachDay(fromIso: string, toIso: string): string[] {
+/**
+ * Calendar day (YYYY-MM-DD) of a UTC ISO instant shifted by `tzOffsetMinutes`
+ * (BUG-ANALYTICS-21). Offset 0 ⇒ the raw UTC day, byte-identical to legacy
+ * `iso.slice(0,10)`. The same shift is applied in the day-bucketing SQL via
+ * `datetime(started_at, '<sign>N minutes')`, so eachDay's labels and the SQL
+ * buckets stay aligned.
+ */
+function localDay(iso: string, tzOffsetMinutes = 0): string {
+  if (!tzOffsetMinutes) return iso.slice(0, 10)
+  // A bare YYYY-MM-DD (already a bucketed day, e.g. the period-'all' clamp
+  // pulled from dayRows) is returned as-is — shifting it would double-apply
+  // the offset. Only full ISO instants (with a 'T') get the tz shift.
+  if (iso.length === 10 && !iso.includes('T')) return iso
+  const ms = new Date(iso).getTime()
+  if (Number.isNaN(ms)) return iso.slice(0, 10)
+  return new Date(ms + tzOffsetMinutes * 60_000).toISOString().slice(0, 10)
+}
+
+function eachDay(fromIso: string, toIso: string, tzOffsetMinutes = 0): string[] {
   const out: string[] = []
-  const fromDay = new Date(dateOnly(fromIso) + 'T00:00:00Z').getTime()
-  const toDay = new Date(dateOnly(toIso) + 'T00:00:00Z').getTime()
+  const fromDay = new Date(localDay(fromIso, tzOffsetMinutes) + 'T00:00:00Z').getTime()
+  const toDay = new Date(localDay(toIso, tzOffsetMinutes) + 'T00:00:00Z').getTime()
   for (let t = fromDay; t <= toDay; t += 86_400_000) {
     out.push(new Date(t).toISOString().slice(0, 10))
   }
   return out
+}
+
+/**
+ * SQLite expression that yields the tz-shifted calendar day for `started_at`.
+ * `datetime(started_at, '+N minutes')` honours SQLite's modifier grammar; when
+ * the offset is 0 we keep the cheaper `substr(...)` so the UTC path is unchanged.
+ */
+function dayBucketExpr(tzOffsetMinutes: number): string {
+  if (!tzOffsetMinutes) return `substr(started_at, 1, 10)`
+  const sign = tzOffsetMinutes >= 0 ? '+' : '-'
+  const abs = Math.abs(Math.trunc(tzOffsetMinutes))
+  return `substr(datetime(started_at, '${sign}${abs} minutes'), 1, 10)`
 }
 
 interface RowAggDay { day: string; surface: Surface; cost: number | null }
@@ -226,13 +320,24 @@ interface RowAggTicket {
   cost: number | null
 }
 
+/**
+ * Resolves a committed ticket id to its current title, or returns
+ * `{ title: null, deleted: true }` when the id no longer exists in the store
+ * (BUG-ANALYTICS-18/36). The route (rest-export group) injects a reader backed
+ * by the YAML ticket store; when omitted, topTickets keeps the legacy
+ * `ticketTitle: null` / no `isDeleted` shape so existing callers are unchanged.
+ */
+export type TicketTitleResolver = (ticketId: number) => { title: string | null; deleted: boolean }
+
 export function getSpending(
   db: DbInstance,
   projectId: string,
-  filters: SpendingFilters = {}
+  filters: SpendingFilters = {},
+  resolveTitle?: TicketTitleResolver
 ): SpendingResponse {
   const range = resolveRange(filters)
   const where = buildWhere(projectId, filters, { from: range.from, to: range.to })
+  const tzOffset = filters.tzOffsetMinutes ?? 0
 
   // summary
   const summaryRow = db.prepare(`
@@ -268,31 +373,60 @@ export function getSpending(
   // byModel (top 10) + per-mode dominant models — one GROUP BY model, surface
   // query serves both (H24: previously byModel plus two per-mode dominant-model
   // queries re-scanned the same rows).
+  // byModel is keyed on (provider, model) — BUG-ANALYTICS-29/30/31: a codex
+  // `gpt-*` estimated bar must never merge into a claude bar of the same id, and
+  // the per-model cost carries an authoritative-vs-estimated split (BUG-08).
   const modelRows = db.prepare(`
-    SELECT model, surface, COUNT(*) AS cnt, COALESCE(SUM(total_cost_usd), 0) AS cost
+    SELECT
+      COALESCE(provider, 'claude') AS provider,
+      model, surface,
+      COUNT(*) AS cnt,
+      COALESCE(SUM(total_cost_usd), 0) AS cost,
+      COALESCE(SUM(CASE WHEN total_cost_usd_estimated = 1 THEN total_cost_usd ELSE 0 END), 0) AS estCost
     FROM ai_invocations WHERE ${where.sql} AND model IS NOT NULL
-    GROUP BY model, surface
-  `).all(...where.params) as Array<{ model: string; surface: Surface; cnt: number; cost: number | null }>
-  const modelTotals = new Map<string, { cnt: number; cost: number }>()
+    GROUP BY provider, model, surface
+  `).all(...where.params) as Array<{
+    provider: string
+    model: string
+    surface: Surface
+    cnt: number
+    cost: number | null
+    estCost: number | null
+  }>
+  const modelTotals = new Map<string, { provider: string; model: string; cnt: number; cost: number; est: number }>()
   for (const r of modelRows) {
-    const agg = modelTotals.get(r.model) ?? { cnt: 0, cost: 0 }
+    const key = `${r.provider} ${r.model}`
+    const agg = modelTotals.get(key) ?? { provider: r.provider, model: r.model, cnt: 0, cost: 0, est: 0 }
     agg.cnt += r.cnt
     agg.cost += r.cost ?? 0
-    modelTotals.set(r.model, agg)
+    agg.est += r.estCost ?? 0
+    modelTotals.set(key, agg)
   }
-  const byModel: ByModelEntry[] = Array.from(modelTotals.entries())
-    .map(([model, t]) => ({ model, count: t.cnt, costUsd: t.cost }))
+  const byModel: ByModelEntry[] = Array.from(modelTotals.values())
+    .map((t) => ({ provider: t.provider, model: t.model, count: t.cnt, costUsd: t.cost, estimatedCostUsd: t.est }))
     .sort((a, b) => b.costUsd - a.costUsd)
     .slice(0, 10)
+  // dominantModel is the most-frequent model per surface (provider-agnostic —
+  // the label only needs the model id). Fold provider+model rows back per model.
   const dominantBySurface = new Map<Surface, { model: string; cnt: number }>()
+  const dominantTally = new Map<string, number>()
   for (const r of modelRows) {
-    const cur = dominantBySurface.get(r.surface)
-    if (!cur || r.cnt > cur.cnt) dominantBySurface.set(r.surface, { model: r.model, cnt: r.cnt })
+    const k = `${r.surface} ${r.model}`
+    dominantTally.set(k, (dominantTally.get(k) ?? 0) + r.cnt)
+  }
+  for (const [k, cnt] of dominantTally.entries()) {
+    const sep = k.indexOf(' ')
+    const surface = k.slice(0, sep) as Surface
+    const model = k.slice(sep + 1)
+    const cur = dominantBySurface.get(surface)
+    if (!cur || cnt > cur.cnt) dominantBySurface.set(surface, { model, cnt })
   }
 
-  // dailyTimeline (zero-filled, stacked by surface)
+  // dailyTimeline (zero-filled, stacked by surface). Bucketed by tz-shifted
+  // calendar day (BUG-ANALYTICS-21): the client passes its local offset so
+  // "today" lines up with the user's wall clock; offset 0 ⇒ legacy UTC days.
   const dayRows = db.prepare(`
-    SELECT substr(started_at, 1, 10) AS day, surface, COALESCE(SUM(total_cost_usd), 0) AS cost
+    SELECT ${dayBucketExpr(tzOffset)} AS day, surface, COALESCE(SUM(total_cost_usd), 0) AS cost
     FROM ai_invocations WHERE ${where.sql}
     GROUP BY day, surface
   `).all(...where.params) as RowAggDay[]
@@ -303,9 +437,9 @@ export function getSpending(
   if (filters.period === 'all') {
     timelineFrom = dayRows.length > 0
       ? dayRows.reduce((min, r) => (r.day < min ? r.day : min), dayRows[0].day)
-      : range.to.slice(0, 10)
+      : localDay(range.to, tzOffset)
   }
-  const days = eachDay(timelineFrom, range.to)
+  const days = eachDay(timelineFrom, range.to, tzOffset)
   const dayMap = new Map<string, DailyEntry>()
   for (const day of days) {
     dayMap.set(day, {
@@ -342,6 +476,7 @@ export function getSpending(
       COUNT(*) AS totalRuns,
       COUNT(DISTINCT ticket_id) AS ticketsCreated,
       COALESCE(SUM(total_cost_usd), 0) AS totalCost,
+      COALESCE(SUM(CASE WHEN total_cost_usd_estimated = 1 THEN total_cost_usd ELSE 0 END), 0) AS estCost,
       COALESCE(SUM(CASE WHEN status = 'success' AND ticket_id IS NOT NULL THEN total_cost_usd ELSE 0 END), 0) AS specCostSum,
       COUNT(DISTINCT CASE WHEN status = 'success' AND ticket_id IS NOT NULL THEN ticket_id END) AS specCount,
       AVG(CASE WHEN status = 'success' THEN duration_ms END) AS avgDur
@@ -352,6 +487,7 @@ export function getSpending(
     totalRuns: number
     ticketsCreated: number | null
     totalCost: number
+    estCost: number
     specCostSum: number
     specCount: number
     avgDur: number | null
@@ -369,6 +505,7 @@ export function getSpending(
       totalRuns: r?.totalRuns ?? 0,
       ticketsCreated: r?.ticketsCreated ?? 0,
       totalCostUsd: r?.totalCost ?? 0,
+      estimatedCostUsd: r?.estCost ?? 0,
       avgCostPerSpec,
       avgDurationMs: r?.avgDur ?? null,
       dominantModel: dominantBySurface.get(surface)?.model ?? null,
@@ -376,11 +513,21 @@ export function getSpending(
     }
   })
 
-  // scatter (capped at 500 points to avoid heavy payloads)
+  // scatter (capped at 500 most-recent points to avoid heavy payloads).
+  // BUG-ANALYTICS-34: the whole point of the chart is to surface cost outliers,
+  // so the costliest priced row is UNION-ed in even when it falls outside the
+  // recency cap, and scatterTotal/scatterTruncated tell the client when points
+  // were dropped.
+  const SCATTER_CAP = 500
+  const scatterTotalRow = db.prepare(`
+    SELECT COUNT(*) AS total FROM ai_invocations
+    WHERE ${where.sql} AND total_cost_usd IS NOT NULL
+  `).get(...where.params) as { total: number }
+  const scatterTotal = scatterTotalRow.total
   const scatterRows = db.prepare(`
     SELECT id, surface, total_cost_usd, num_turns, duration_ms, ticket_id, started_at
     FROM ai_invocations WHERE ${where.sql} AND total_cost_usd IS NOT NULL
-    ORDER BY started_at DESC LIMIT 500
+    ORDER BY started_at DESC LIMIT ${SCATTER_CAP}
   `).all(...where.params) as Array<{
     id: string
     surface: Surface
@@ -399,6 +546,36 @@ export function getSpending(
     ticketId: r.ticket_id,
     startedAt: r.started_at,
   }))
+  const scatterTruncated = scatterTotal > scatter.length
+  if (scatterTruncated) {
+    // Always include the single costliest priced row so a budget-blowing outlier
+    // older than the recency window is never invisible. Skip if already present.
+    const have = new Set(scatter.map((p) => p.id))
+    const outlier = db.prepare(`
+      SELECT id, surface, total_cost_usd, num_turns, duration_ms, ticket_id, started_at
+      FROM ai_invocations WHERE ${where.sql} AND total_cost_usd IS NOT NULL
+      ORDER BY total_cost_usd DESC LIMIT 1
+    `).get(...where.params) as {
+      id: string
+      surface: Surface
+      total_cost_usd: number
+      num_turns: number | null
+      duration_ms: number | null
+      ticket_id: number | null
+      started_at: string
+    } | undefined
+    if (outlier && !have.has(outlier.id)) {
+      scatter.push({
+        id: outlier.id,
+        surface: outlier.surface,
+        costUsd: outlier.total_cost_usd,
+        numTurns: outlier.num_turns,
+        durationMs: outlier.duration_ms,
+        ticketId: outlier.ticket_id,
+        startedAt: outlier.started_at,
+      })
+    }
+  }
 
   // topTickets (cross-surface aggregation)
   const ticketRows = db.prepare(`
@@ -436,6 +613,18 @@ export function getSpending(
   const topTickets = Array.from(ticketMap.values())
     .sort((a, b) => b.totalCostUsd - a.totalCostUsd)
     .slice(0, 10)
+  // BUG-ANALYTICS-18/36: resolve committed-ticket titles + deleted state via the
+  // injected store reader so the card (and the summary-CSV / modal consumers
+  // built on this same shape) show names instead of "Deleted ticket #N". Without
+  // a resolver the legacy `ticketTitle: null` / no-`isDeleted` shape is kept.
+  if (resolveTitle) {
+    for (const t of topTickets) {
+      if (t.ticketId === null) continue // unattributed bucket — no title
+      const resolved = resolveTitle(t.ticketId)
+      t.ticketTitle = resolved.title
+      t.isDeleted = resolved.deleted
+    }
+  }
 
   // bySurface — derived from ticketRows (same WHERE, grouped by
   // ticket_id+surface): summing across tickets equals a GROUP BY surface
@@ -500,6 +689,8 @@ export function getSpending(
     byProvider,
     dailyTimeline,
     scatter,
+    scatterTotal,
+    scatterTruncated,
     topTickets,
     trackingStartedAt: trackingRow.first,
     rangeFrom: range.from,
@@ -545,9 +736,15 @@ export function getInvocations(
   const cap = filters.cap
   const limit = cap ?? Math.min(filters.limit ?? 50, 200)
   const offset = filters.offset ?? 0
+  // BUG-ANALYTICS-35: offer a cost-sorted order so the costliest rows surface on
+  // page 1 for outlier hunting (NULL cost sorts last); recency (started_at DESC)
+  // stays the default so the legacy table ordering is unchanged.
+  const orderBy = filters.sortBy === 'cost'
+    ? 'total_cost_usd DESC NULLS LAST, started_at DESC'
+    : 'started_at DESC'
   const rows = db.prepare(`
     SELECT * FROM ai_invocations WHERE ${where.sql}
-    ORDER BY started_at DESC LIMIT ? OFFSET ?
+    ORDER BY ${orderBy} LIMIT ? OFFSET ?
   `).all(...where.params, limit, offset) as InvocationRow[]
   // For Explore rows (conversation_id non-null) without a committed ticket,
   // surface the conversation title as the provisional ticket label so the
@@ -593,8 +790,8 @@ export function getInvocations(
   }
 }
 
-export function parseSpendingFilters(query: Record<string, unknown>): SpendingFilters {
-  const f: SpendingFilters = {}
+export function parseSpendingFilters(query: Record<string, unknown>): SpendingFilters & { sortBy?: 'recency' | 'cost' } {
+  const f: SpendingFilters & { sortBy?: 'recency' | 'cost' } = {}
   if (typeof query.period === 'string') f.period = query.period as Period
   if (typeof query.from === 'string') f.from = query.from
   if (typeof query.to === 'string') f.to = query.to
@@ -609,6 +806,24 @@ export function parseSpendingFilters(query: Record<string, unknown>): SpendingFi
   }
   if (typeof query.model === 'string') {
     f.model = query.model.split(',').filter((s) => s.length > 0)
+  }
+  // Provider-aligned model filter (BUG-ANALYTICS-30/31). `modelProvider` is a CSV
+  // index-aligned with `model` (e.g. model=gpt-5.5,sonnet & modelProvider=codex,claude);
+  // when present and the lengths match it scopes each model id to its provider.
+  if (typeof query.modelProvider === 'string' && f.model && f.model.length > 0) {
+    const provs = query.modelProvider.split(',').filter((s) => s.length > 0)
+    if (provs.length === f.model.length) {
+      f.modelKeys = f.model.map((model, i) => ({ provider: provs[i], model }))
+    }
+  }
+  if (typeof query.sortBy === 'string' && (query.sortBy === 'cost' || query.sortBy === 'recency')) {
+    f.sortBy = query.sortBy
+  }
+  if (typeof query.tzOffsetMinutes === 'string') {
+    const v = parseInt(query.tzOffsetMinutes, 10)
+    // Clamp to the realistic UTC-offset range (±14h = ±840 min) to keep the
+    // datetime modifier sane.
+    if (!Number.isNaN(v) && Math.abs(v) <= 840) f.tzOffsetMinutes = v
   }
   if (typeof query.provider === 'string') {
     const provs = query.provider.split(',').filter((s) => s.length > 0)

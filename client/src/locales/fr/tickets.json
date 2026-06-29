@@ -100,7 +100,8 @@
     "turns_one": "{{count}} tour",
     "turns_other": "{{count}} tours",
     "active": "{{duration}} actif",
-    "breakdownItem": "{{n}} {{label}}"
+    "breakdownItem": "{{n}} {{label}}",
+    "estimatedTooltip": "Estimé à partir de la table de tarifs locale — ce fournisseur ne signale pas le coût de manière native."
   },
   "toasts": {
     "newTicket": "Nouveau ticket : {{title}}",

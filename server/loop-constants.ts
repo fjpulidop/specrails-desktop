@@ -23,14 +23,53 @@ const GUARDRAILS_CONTRACT = [
   '- If you are stuck after several iterations, stop and report the blockers instead of gaming the metric.',
 ].join('\n')
 
+/** The per-pass iteration discipline for "one item at a time" loops (strict TDD,
+ *  story executors, one-by-one upgrades). It stops a capable agent from
+ *  front-loading the whole feature into a single pass — which collapses the loop
+ *  to one iteration and defeats its per-item audit trail. */
+const ONE_PER_PASS_CONTRACT = [
+  'Do EXACTLY one unit of work in this pass — only the single item you selected.',
+  'Do NOT start, implement, or fix any other item the spec or list describes — the loop runs again and will pick the next one. Front-loading several items into one pass defeats the loop.',
+].join('\n')
+
+/** How a per-item loop reports what is left, so the Loop Decider can stop at the
+ *  right pass. The key distinction: a behavior is "remaining" only when its
+ *  IMPLEMENTATION is missing (a failing test could target it) — NOT when it is
+ *  already implemented but merely lacks a dedicated unit test. Listing
+ *  already-working behavior as remaining just burns an extra (no-op) pass. */
+const REMAINING_RULE_CONTRACT = [
+  'End your reply with a single final line:',
+  '- `REMAINING: <behavior>; <behavior>` — listing ONLY spec behaviors whose IMPLEMENTATION is still missing (ones a failing test could target);',
+  '- or exactly `REMAINING: none` when every behavior the spec describes is implemented.',
+  'A behavior that already works is NOT remaining — even if it has no dedicated unit test, or is a UI/integration behavior that cannot be red-tested in isolation. Never list already-working behavior as remaining.',
+].join('\n')
+
+/** The conflict-resolution guardrail for the AI merge-resolver ({{cmd:resolve-merge}}).
+ *  Load-bearing for parallel rails: most merge conflicts when N specs integrate
+ *  are trivial add-add (two new lines in a shared registry/barrel) — this contract
+ *  keeps the resolver from "resolving" by deleting one branch's work, and forces an
+ *  escalation when the merge is non-obvious so a human decides instead of a guess. */
+const MERGE_SAFE_CONTRACT = [
+  'You are resolving a git merge conflict. Edit ONLY within the conflict markers — touch nothing else in the file or repo.',
+  '- For ADDITIVE conflicts (both sides added different lines at the same place), KEEP BOTH sides.',
+  "- NEVER delete, overwrite, or weaken either branch's code to make the conflict go away.",
+  '- Do NOT introduce new behaviour, refactors, or formatting changes while resolving.',
+  '- If the correct resolution is not obvious, do NOT guess — leave it unresolved and end with `RESOLVE: needs-review`.',
+  'When you resolve cleanly, remove the conflict markers and end with `RESOLVE: done`.',
+].join('\n')
+
 /** Read-only built-ins. `VERIFICATION_PASS/FAIL` are the sentinel strings that
  *  `{{cmd:verify}}` emits and the Loop Decider reads — keeping them as constants
  *  means a Decider goal can drag the exact contract string instead of retyping.
- *  `GUARDRAILS` is the anti-gaming contract injected by mutating templates. */
+ *  `GUARDRAILS` is the anti-gaming contract; `ONE_PER_PASS` is the per-item
+ *  iteration discipline — both injected by templates. */
 export const BUILTIN_CONSTANTS: Record<string, string> = {
   VERIFICATION_PASS: 'VERIFICATION: PASS',
   VERIFICATION_FAIL: 'VERIFICATION: FAIL',
   GUARDRAILS: GUARDRAILS_CONTRACT,
+  ONE_PER_PASS: ONE_PER_PASS_CONTRACT,
+  REMAINING_RULE: REMAINING_RULE_CONTRACT,
+  MERGE_SAFE: MERGE_SAFE_CONTRACT,
 }
 
 /** Token names: letters, digits, `_ . -`. Mirrors what the resolver matches. */

@@ -436,6 +436,33 @@ describe('db', () => {
       expect(stats.costToday).toBeCloseTo(0.03)
       expect(stats.avgDurationMs).toBeCloseTo(2000)
     })
+
+    it('splits estimated (codex/gemini) cost and drops the estimate on failed jobs (BUG-ANALYTICS-27)', () => {
+      const db = makeDb()
+      const today = new Date().toISOString()
+
+      // claude completed (authoritative) → counted, not estimated
+      createJob(db, { id: 'e-1', command: '/a', started_at: today })
+      finishJob(db, 'e-1', { exit_code: 0, status: 'completed', total_cost_usd: 0.10, duration_ms: 1000 })
+
+      // codex completed (estimated) → counted in total AND estimated
+      createJob(db, { id: 'e-2', command: '/b', started_at: today })
+      finishJob(db, 'e-2', { exit_code: 0, status: 'completed', total_cost_usd: 0.04, total_cost_usd_estimated: true, duration_ms: 1000 })
+
+      // codex FAILED (estimated) → phantom estimate dropped from BOTH totals
+      createJob(db, { id: 'e-3', command: '/c', started_at: today })
+      finishJob(db, 'e-3', { exit_code: 1, status: 'failed', total_cost_usd: 0.50, total_cost_usd_estimated: true, duration_ms: 1000 })
+
+      // claude FAILED (authoritative) → real billed cost still counted
+      createJob(db, { id: 'e-4', command: '/d', started_at: today })
+      finishJob(db, 'e-4', { exit_code: 1, status: 'failed', total_cost_usd: 0.07, duration_ms: 1000 })
+
+      const stats = getStats(db)
+      expect(stats.totalCostUsd).toBeCloseTo(0.10 + 0.04 + 0.07, 5) // codex-failed $0.50 dropped
+      expect(stats.estimatedCostUsd).toBeCloseTo(0.04, 5)
+      expect(stats.costToday).toBeCloseTo(0.21, 5)
+      expect(stats.estimatedCostToday).toBeCloseTo(0.04, 5)
+    })
   })
 })
 

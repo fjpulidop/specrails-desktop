@@ -42,6 +42,15 @@ describe('loop command catalog', () => {
     expect(expandCommands('x {{cmd:bogus}} y', { provider: 'claude' })).toBe('x  y')
   })
 
+  it('resolve-merge expands to a conflict-resolution prompt carrying the MERGE_SAFE token, not claude-only', () => {
+    expect(getLoopCommand('resolve-merge')).toMatchObject({ ticketScope: 'per-ticket' })
+    expect(getLoopCommand('resolve-merge')?.claudeOnly).toBeFalsy()
+    const out = expandCommands('{{cmd:resolve-merge}}', { provider: 'codex', ticketIds: [1] })
+    expect(out).toMatch(/conflict/i)
+    // command expansion leaves the constant token for the constants pass to resolve
+    expect(out).toContain('{{const:MERGE_SAFE}}')
+  })
+
   it('dominantTicketScope reads the command scope', () => {
     expect(dominantTicketScope('{{cmd:implement}}')).toBe('all')
     expect(dominantTicketScope('{{cmd:batch}}')).toBe('all')

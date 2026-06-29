@@ -7,7 +7,7 @@
  * maxIterations + timeout, so an unparseable verdict safely defaults to CONTINUE.
  */
 
-export const DECIDER_PROMPT_VERSION = 1
+export const DECIDER_PROMPT_VERSION = 2
 
 export interface DeciderDecision {
   /** true → run another iteration; false → stop the loop. */
@@ -21,24 +21,38 @@ export interface DeciderDecision {
 export function buildDeciderSystemPrompt(): string {
   return [
     'You are the Loop Decider for an automation loop run by an external engine.',
-    'You are given the loop GOAL, the history of prior iterations, and the latest output.',
+    'You are given the loop GOAL, the SPEC being implemented (when provided), the history of prior iterations, and the latest output.',
     'Decide whether the goal is now met (STOP) or another iteration is needed (CONTINUE).',
     'Be strict: only STOP when the goal is genuinely satisfied by the evidence in the history.',
+    'A step CLAIMING success (e.g. printing "VERIFICATION: PASS") is NOT proof on its own — weigh it against the SPEC. If the spec describes work the history does not yet evidence as done, CONTINUE even if a step reported success.',
     'Respond with ONLY a single-line JSON object — no prose, no markdown, no code fences:',
     '{"action":"continue"|"stop","reasoning":"<one short sentence>"}',
   ].join('\n')
 }
 
-export function buildDeciderUserPrompt(input: { goal: string; history: string[] }): string {
+export function buildDeciderUserPrompt(input: {
+  goal: string
+  history: string[]
+  /** The spec the loop is implementing — so the Decider can judge completeness
+   *  against the FULL scope instead of trusting a step's self-reported success. */
+  spec?: { title?: string; description?: string }
+}): string {
   const history = input.history.length > 0 ? input.history.join('\n') : '(no output yet)'
-  return [
-    `LOOP GOAL: ${input.goal}`,
-    '',
-    'ITERATION HISTORY (most recent last):',
-    history,
-    '',
-    'Is the goal met? Reply with the JSON decision object only.',
-  ].join('\n')
+  const lines: string[] = [`LOOP GOAL: ${input.goal}`, '']
+  const specTitle = input.spec?.title?.trim()
+  const specDesc = input.spec?.description?.trim()
+  if (specTitle || specDesc) {
+    // Cap the description so a huge spec can't blow up the Decider prompt.
+    const desc = specDesc ? (specDesc.length > 2000 ? specDesc.slice(0, 2000) + '…' : specDesc) : ''
+    lines.push(
+      'SPEC BEING IMPLEMENTED (judge completeness against THIS — do not stop just because a step claimed success):',
+      ...(specTitle ? [`Title: ${specTitle}`] : []),
+      ...(desc ? [desc] : []),
+      '',
+    )
+  }
+  lines.push('ITERATION HISTORY (most recent last):', history, '', 'Is the goal met? Reply with the JSON decision object only.')
+  return lines.join('\n')
 }
 
 /**

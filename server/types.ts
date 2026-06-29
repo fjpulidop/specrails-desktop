@@ -95,6 +95,12 @@ export interface StatsRow {
   jobsToday: number
   totalCostUsd: number
   costToday: number
+  /** Portion of totalCostUsd / costToday that is a rate-card ESTIMATE
+   *  (codex/gemini, total_cost_usd_estimated=1), not provider-billed. Lets the
+   *  StatusBar mark an estimated cost with `~` instead of presenting it as a
+   *  billed figure (BUG-ANALYTICS-27). 0 on claude-only surfaces. */
+  estimatedCostUsd: number
+  estimatedCostToday: number
   avgDurationMs: number | null
 }
 
@@ -734,6 +740,15 @@ export interface RailJobCompletedMessage {
  * (desktop dashboard + mobile companion) reflects the change live. Carries the
  * full post-mutation rail snapshot so receivers need no follow-up fetch.
  */
+export interface RailWorktreeProgressMessage {
+  type: 'rail.worktree_progress'
+  projectId: string
+  railIndex: number
+  ticketId: number
+  /** Fan-out / merge-back state for this ticket's isolated run. */
+  state: 'building' | 'built' | 'merging' | 'merged' | 'needs-review' | 'failed'
+}
+
 export interface RailUpdatedMessage {
   type: 'rail.updated'
   projectId: string
@@ -1056,7 +1071,7 @@ export type WsMessage =
   | TicketCreatedMessage | TicketUpdatedMessage | TicketDeletedMessage
   | TicketAiEditStreamMessage | TicketAiEditDoneMessage | TicketAiEditErrorMessage
   | SpecGenStreamMessage | SpecGenDoneMessage | SpecGenErrorMessage
-  | RailJobStartedMessage | RailJobStoppedMessage | RailJobCompletedMessage | RailUpdatedMessage
+  | RailJobStartedMessage | RailJobStoppedMessage | RailJobCompletedMessage | RailUpdatedMessage | RailWorktreeProgressMessage
   | LoopRunStartedMessage | LoopRunProgressMessage | LoopRunStoppedMessage | LoopRunCompletedMessage
   | AgentRefineStreamMessage | AgentRefinePhaseMessage | AgentRefineReadyMessage
   | AgentRefineTestMessage | AgentRefineErrorMessage | AgentRefineCancelledMessage

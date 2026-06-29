@@ -121,7 +121,7 @@ export function FeatureProposalModal({ open, onClose }: FeatureProposalModalProp
 
   return (
     <Dialog open={open} onOpenChange={(o) => !o && handleClose()}>
-      <DialogContent className="max-w-3xl glass-card flex flex-col max-h-[85vh]">
+      <DialogContent movableResizable className="max-w-3xl glass-card flex flex-col max-h-[85vh]">
 
         {/* ─── idle: input step ──────────────────────────────────────────── */}
         {state.status === 'idle' && (

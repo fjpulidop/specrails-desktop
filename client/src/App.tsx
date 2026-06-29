@@ -45,6 +45,7 @@ import { useDesktopUpdateNotifier } from './hooks/useDesktopUpdateNotifier'
 import { useSuppressNativeContextMenu } from './hooks/useSuppressNativeContextMenu'
 import { WS_URL } from './lib/ws-url'
 import { TerminalsProvider, useTerminals } from './context/TerminalsContext'
+import { RailMetricsProvider } from './context/RailMetricsContext'
 import { MinimizedChatsProvider } from './context/MinimizedChatsContext'
 import { TicketDetailModalProvider } from './context/TicketDetailModalContext'
 import { WebViewModalProvider } from './context/WebViewModalContext'
@@ -328,6 +329,14 @@ function TerminalsProviderWithDesktop({ children }: { children: React.ReactNode 
   return <TerminalsProvider activeProjectId={activeProjectId}>{children}</TerminalsProvider>
 }
 
+// Rail execution metrics provider — app-level (above the routes) so live metrics
+// persist across Dashboard ⇄ Jobs navigation. Reads the active project for the
+// per-project WS filter + reset.
+function RailMetricsProviderWithDesktop({ children }: { children: React.ReactNode }) {
+  const { activeProjectId } = useDesktop()
+  return <RailMetricsProvider activeProjectId={activeProjectId}>{children}</RailMetricsProvider>
+}
+
 // ─── Themed Toaster — single global instance, glass-card chrome ──────────────
 // Unified across the app so every toast looks the same and stacks together.
 // `unstyled: true` strips sonner's defaults; classNames apply our glass-card
@@ -429,6 +438,7 @@ export default function App() {
                 <SmashTrackerProvider>
                 <SidebarPinProvider>
                   <TerminalsProviderWithDesktop>
+                    <RailMetricsProviderWithDesktop>
                     <MinimizedChatsProvider>
                       <TicketDetailModalProvider>
                         <WebViewModalProvider>
@@ -437,6 +447,7 @@ export default function App() {
                         </WebViewModalProvider>
                       </TicketDetailModalProvider>
                     </MinimizedChatsProvider>
+                    </RailMetricsProviderWithDesktop>
                   </TerminalsProviderWithDesktop>
                 </SidebarPinProvider>
                 </SmashTrackerProvider>

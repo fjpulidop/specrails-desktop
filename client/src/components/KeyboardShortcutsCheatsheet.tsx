@@ -54,7 +54,7 @@ export function KeyboardShortcutsCheatsheet({ open, onOpenChange }: KeyboardShor
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-md" data-testid="shortcuts-cheatsheet">
+      <DialogContent movableResizable className="max-w-md" data-testid="shortcuts-cheatsheet">
         <DialogHeader>
           <DialogTitle>{t('shortcuts.title')}</DialogTitle>
           <DialogDescription>

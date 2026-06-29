@@ -45,7 +45,7 @@ export function DiscardSpecDialog({ open, onOpenChange, ticket, discardStatus, o
 
   return (
     <Dialog open={open} onOpenChange={(o) => { if (!busy) onOpenChange(o) }}>
-      <DialogContent className="max-w-md" data-testid="jira-discard-dialog">
+      <DialogContent movableResizable className="max-w-md" data-testid="jira-discard-dialog">
         <DialogHeader>
           <DialogTitle>{t('discard.title', { status: discardStatus })}</DialogTitle>
           <DialogDescription>

@@ -28,8 +28,11 @@ import { EpicFamilySidebar } from './specs-smash/EpicFamilySidebar'
 import { MoveToRailPopover } from './MoveToRailPopover'
 import type { RailState } from './RailsBoard'
 import type { Attachment, LocalTicket, TicketPriority } from '../types'
+import { MODAL_FLOAT_VIEWPORT_MIN } from '../lib/viewport'
+import { useMovableResizableModal } from '../hooks/useMovableResizableModal'
+import { ResizeGrips } from './ui/ResizeGrips'
 
-const COMPARE_VIEWPORT_MIN = 900
+const COMPARE_VIEWPORT_MIN = MODAL_FLOAT_VIEWPORT_MIN
 const DRAG_SNAP_THRESHOLD = 0.20 // 20% of viewport width
 
 // ─── Constants ──────────────────────────────────────────────────────────────
@@ -318,16 +321,28 @@ export function TicketDetailModal({
     if (!isProviderModal) onClose()
   }, [canDrag, enterSplit, splitState.leftId, ticket.id, onClose])
 
+  // ─── Resize-only floating (header stays the split gesture) ──────────────────
+  const { panelRef, panelStyle, resizeHandles, guardBackdrop } = useMovableResizableModal({
+    enabled: !embedded,
+    allowMove: false,
+  })
+
   // ─── Layout helpers ────────────────────────────────────────────────────────
   const panel = (
     <>
       <div
+        ref={panelRef}
         className={
           embedded
             ? 'relative w-full h-full rounded-xl bg-card border border-border/40 shadow-2xl shadow-black/50 flex flex-col overflow-hidden'
             : 'relative w-full max-w-[67rem] m-4 rounded-xl bg-card border border-border/40 shadow-2xl shadow-black/50 flex flex-col animate-in fade-in zoom-in-95 duration-200 h-[90vh]'
         }
-        style={dragOffset !== 0 ? { transform: `translateX(${dragOffset}px)`, transition: 'none' } : { transition: 'transform 220ms cubic-bezier(0.34, 1.56, 0.64, 1)' }}
+        style={{
+          ...(dragOffset !== 0
+            ? { transform: `translateX(${dragOffset}px)`, transition: 'none' }
+            : { transition: 'transform 220ms cubic-bezier(0.34, 1.56, 0.64, 1)' }),
+          ...panelStyle,
+        }}
       >
         {/* Épica breadcrumb (children only) */}
         {epicParent && (
@@ -780,8 +795,9 @@ export function TicketDetailModal({
   if (embedded) return panel
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center">
-      <div className="absolute inset-0 bg-black/70" onClick={onClose} />
+      <div className="absolute inset-0 bg-black/70" onClick={guardBackdrop(onClose)} />
       {panel}
+      <ResizeGrips handles={resizeHandles} />
     </div>
   )
 }

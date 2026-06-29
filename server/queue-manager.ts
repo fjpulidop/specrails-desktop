@@ -230,6 +230,13 @@ export class QueueManager {
    *  In-memory only (mirrors _jobProfileSelection): a queued job that survives a
    *  restart falls back to the project's primary provider. */
   private _jobProviderSelection: Map<string, ProviderId>
+  /** Resolved adapter id per RUNNING job, captured at `_startJob` time AFTER the
+   *  per-job override has been consumed-and-deleted from `_jobProviderSelection`.
+   *  Read by `_forceFailUnkillableJob` (and any other terminal path that runs
+   *  without a child exit) to stamp `ai_invocations.provider` with the provider
+   *  the child ACTUALLY ran on — the override map is empty by then. Cleared with
+   *  the other per-job maps at every teardown. In-memory only. */
+  private _jobResolvedProvider: Map<string, ProviderId>
   /** Pending per-job model override keyed by jobId — read at spawn time.
    *  In-memory only (mirrors _jobProviderSelection). */
   private _jobModelSelection: Map<string, string>
@@ -301,6 +308,7 @@ export class QueueManager {
     this._projectSlug = options?.projectSlug ?? null
     this._jobProfileSelection = new Map()
     this._jobProviderSelection = new Map()
+    this._jobResolvedProvider = new Map()
     this._jobModelSelection = new Map()
     this._snapshotRefs = new Map()
     this._jobExecution = new Map()
@@ -381,6 +389,7 @@ export class QueueManager {
     // Release any per-job provenance snapshots so teardown leaves no map entries.
     this._snapshotRefs.clear()
     this._jobExecution.clear()
+    this._jobResolvedProvider.clear()
     this._openspecShims.clear()
     // Drop the DB reference last so any in-flight 'close' callback sees null
     // and skips all DB work via the existing `if (this._db)` guards.
@@ -495,6 +504,7 @@ export class QueueManager {
       // job STARTS (_resolveJobAdapter et al.). Cancelling it while queued means
       // it never starts, so drop them here to avoid leaking map entries forever.
       this._jobProviderSelection.delete(jobId)
+      this._jobResolvedProvider.delete(jobId)
       this._jobModelSelection.delete(jobId)
       this._jobProfileSelection.delete(jobId)
       this._jobInteractiveSelection.delete(jobId)
@@ -781,9 +791,53 @@ export class QueueManager {
    */
   private _failWedgedJob(jobId: string, reason: string): void {
     const job = this._jobs.get(jobId)
+    // The wedge can land before _startJob set status='running' (an early throw in
+    // execution/agent resolution) OR after it. Either way the job is terminal-
+    // failed now — capture a finished_at to drive the invocation row regardless.
+    const finishedAt = new Date().toISOString()
     if (job && job.status === 'running') {
       job.status = 'failed'
-      job.finishedAt = new Date().toISOString()
+      job.finishedAt = finishedAt
+    }
+    if (this._db) {
+      try {
+        finishJob(this._db, jobId, { exit_code: -1, status: 'failed' })
+      } catch {
+        /* DB may be closed mid-shutdown — never throw from the drain catch */
+      }
+
+      // ai_invocations capture (surface='job', failed) so a startup-failed job
+      // still counts toward totalRuns/failureRate on Analytics. _onJobExit never
+      // runs without a child, so this is the ONLY place the row can be written.
+      // No token/cost data was ever finalised (the spawn never produced output).
+      // BUG-ANALYTICS-01's limitation applies to the provider stamp here too: by
+      // this point the per-job override is consumed, so we read the resolved
+      // provider captured at _startJob (set right after adapter resolution; may
+      // be absent if the throw preceded it) with _adapter.id as the fallback.
+      if (this._projectId && job) {
+        try {
+          const ticketIds = this._extractTicketIds(job.command)
+          const durationMs = job.startedAt
+            ? new Date(finishedAt).getTime() - new Date(job.startedAt).getTime()
+            : undefined
+          recordInvocation(this._db, {
+            id: randomUUID(),
+            project_id: this._projectId,
+            provider: this._jobResolvedProvider.get(jobId) ?? this._adapter.id,
+            surface: 'job',
+            surface_ref_id: jobId,
+            ticket_id: ticketIds[0] ?? null,
+            status: 'failed',
+            started_at: job.startedAt ?? finishedAt,
+            finished_at: finishedAt,
+            total_cost_usd_estimated: false,
+            duration_ms: durationMs,
+          })
+          this._broadcast({ type: 'spending.invalidated', projectId: this._projectId })
+        } catch (err) {
+          console.error('[queue-manager] recordInvocation (wedged) failed:', err)
+        }
+      }
     }
     // Clear per-job selection/snapshot maps (none were consumed by a spawn).
     this._jobExecution.delete(jobId)
@@ -791,17 +845,11 @@ export class QueueManager {
     this._jobModelSelection.delete(jobId)
     this._jobProfileSelection.delete(jobId)
     this._jobProviderSelection.delete(jobId)
+    this._jobResolvedProvider.delete(jobId)
     this._jobInteractiveSelection.delete(jobId)
     // A wedged job may have had its openspec shim materialised already (the
     // wedge can land after _startJob's shim setup). Mirror the settle path.
     this._cleanupOpenspecShim(jobId)
-    if (this._db) {
-      try {
-        finishJob(this._db, jobId, { exit_code: -1, status: 'failed' })
-      } catch {
-        /* DB may be closed mid-shutdown — never throw from the drain catch */
-      }
-    }
     try {
       this._onJobFinished?.(jobId, 'failed', undefined)
     } catch {
@@ -975,6 +1023,7 @@ export class QueueManager {
     // Interactive jobs skip provenance, but a defensive delete keeps the map
     // clean if a snapshot was ever recorded for this id.
     this._snapshotRefs.delete(jobId)
+    this._jobResolvedProvider.delete(jobId)
 
     // Clean up the per-job openspec PATH shim (relocated claude rails only).
     this._cleanupOpenspecShim(jobId)
@@ -1078,6 +1127,10 @@ export class QueueManager {
     // primary; everything in this spawn (binary, argv, model, profile, OTEL,
     // plugins, result parsing, ai_invocations.provider) flows from `adapter`.
     const adapter = this._resolveJobAdapter(jobId)
+    // Remember the provider this job actually runs on, for terminal paths that
+    // fire without a child 'close' (e.g. _forceFailUnkillableJob) where the
+    // per-job override has already been consumed from _jobProviderSelection.
+    this._jobResolvedProvider.set(jobId, adapter.id)
 
     // Relocate-artifacts gate: resolve cwd/repoDir/env for this spawn. Legacy
     // projects get cwd = project.path + empty env (byte-identical to today);
@@ -1695,6 +1748,9 @@ export class QueueManager {
     // map existed (e.g. restored-from-db) so provenance still targets the repo.
     const jobExecution = this._jobExecution.get(jobId)
     this._jobExecution.delete(jobId)
+    // Release the resolved-provider entry on the normal child-exit path (the
+    // adapter is threaded into _onJobExit directly, so this is pure cleanup).
+    this._jobResolvedProvider.delete(jobId)
     const provenanceRepoDir = jobExecution?.repoDir ?? this._cwd
 
     // Clean up the per-job openspec PATH shim (relocated claude rails only),
@@ -2080,7 +2136,10 @@ export class QueueManager {
           recordInvocation(this._db, {
             id: randomUUID(),
             project_id: this._projectId,
-            provider: this._adapter.id,
+            // Stamp the provider the child ACTUALLY ran on (per-job override
+            // already consumed from _jobProviderSelection); _adapter.id is the
+            // final fallback for jobs with no resolved-provider entry.
+            provider: this._jobResolvedProvider.get(jobId) ?? this._adapter.id,
             surface: 'job',
             surface_ref_id: jobId,
             ticket_id: ticketIds[0] ?? null,
@@ -2104,6 +2163,7 @@ export class QueueManager {
     this._jobModelSelection.delete(jobId)
     this._jobProfileSelection.delete(jobId)
     this._jobProviderSelection.delete(jobId)
+    this._jobResolvedProvider.delete(jobId)
     this._jobInteractiveSelection.delete(jobId)
     this._cleanupOpenspecShim(jobId)
 

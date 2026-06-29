@@ -3,14 +3,14 @@
 ## Purpose
 
 TBD - created by promoting delta spec from change `add-specs-smash`. Defines the SMASH feature that converts a Contract-Layer-enriched ticket into an épica with 3–8 auto-generated child tickets.
-
 ## Requirements
-
 ### Requirement: SMASH action visibility gate
 
-The system SHALL render the SMASH action affordance in `TicketDetailModal` only when ALL of the following are true: (a) the ticket's `status` is not `'draft'`, (b) the ticket's `description` contains a `## Contract Layer` block (matching the separator used by the contract-refine feature), (c) the ticket has `parent_epic_id === null` (children cannot themselves be SMASHed), and (d) the app-wide kill switch `SPECRAILS_SMASH` is not disabled.
+The system SHALL render the SMASH action affordance in `TicketDetailModal` only when ALL of the following are true: (a) the ticket's `status` is not `'draft'`, (b) the ticket's `description` contains a `## Contract Layer` block (matching the separator used by the contract-refine feature), (c) the ticket has `parent_epic_id === null` (children cannot themselves be SMASHed), (d) the hub-wide kill switch `SPECRAILS_SMASH` is not disabled, and (e) the project's provider is NOT `'codex'`.
 
-When any of (a)–(d) is false, the SMASH button MUST be hidden entirely (not rendered greyed-out). When the button would be hidden specifically because of (b) (no Contract Layer), the UI MAY surface an inert tooltip or helper text guiding the user to generate a Contract Layer first.
+When any of (a)–(e) is false, the SMASH button MUST be hidden entirely (not rendered greyed-out). When the button would be hidden specifically because of (b) (no Contract Layer), the UI MAY surface an inert tooltip or helper text guiding the user to generate a Contract Layer first.
+
+**Note:** Condition (e) is a new addition in this change. Conditions (a)–(d) and all non-provider scenarios are unchanged from the prior version of this requirement.
 
 #### Scenario: Draft ticket with Contract Layer
 - **WHEN** user opens `TicketDetailModal` for a ticket with `status === 'draft'` and a `## Contract Layer` block
@@ -20,8 +20,8 @@ When any of (a)–(d) is false, the SMASH button MUST be hidden entirely (not re
 - **WHEN** user opens `TicketDetailModal` for a ticket with `status === 'todo'` and no `## Contract Layer` block
 - **THEN** the SMASH button is not rendered
 
-#### Scenario: Committed ticket with Contract Layer
-- **WHEN** user opens `TicketDetailModal` for a ticket with `status === 'todo'` and a `## Contract Layer` block, no parent, kill switch off
+#### Scenario: Committed ticket with Contract Layer, Claude project
+- **WHEN** user opens `TicketDetailModal` for a ticket with `status === 'todo'` and a `## Contract Layer` block, no parent, kill switch off, and the project's provider is `'claude'`
 - **THEN** the SMASH button is rendered in the secondary actions row alongside Refresh Contract
 
 #### Scenario: Child ticket
@@ -285,3 +285,4 @@ Both SMASH modes (Simple and Full) SHALL request a `shortSummary` field for each
 - **WHEN** a parent ticket is decomposed using SMASH Full
 - **THEN** each child ticket created has `short_summary` populated from the model's response
 - **AND** missing values default to null without aborting decomposition
+

@@ -143,6 +143,17 @@ export const LOOP_COMMANDS: LoopCommand[] = [
     template: LOOP_FALLBACK_PROMPT,
   },
 
+  // ── Merge-resolver (parallel rails: integrate worktree branches back) ───────
+  {
+    name: 'resolve-merge', label: 'resolve-merge', ticketScope: 'per-ticket',
+    description: 'Resolve the current git merge conflict, preserving both branches\' work (load-bearing for parallel/worktree rails).',
+    template: [
+      'The repository is mid-merge with conflict markers in one or more files. Resolve the conflict(s) so both branches\' work is preserved.',
+      '',
+      '{{const:MERGE_SAFE}}',
+    ].join('\n'),
+  },
+
   // ── Distilled gate commands (tooling-agnostic; mutating ⇒ carry guardrails) ──
   { name: 'test', label: 'test', description: "Detect and run the project's test suite, fixing failures until green.", ticketScope: 'per-ticket', template: gateTemplate('run the full test suite', 'every test passes') },
   { name: 'lint', label: 'lint', description: "Detect and run the project's linter, fixing every issue (no behaviour change).", ticketScope: 'per-ticket', template: gateTemplate('run the linter/formatter check', 'the linter reports zero errors and warnings') },

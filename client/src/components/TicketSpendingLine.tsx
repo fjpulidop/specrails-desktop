@@ -61,7 +61,12 @@ export function TicketSpendingLine({ ticketId }: Props) {
       className="mt-1.5 group inline-flex items-center gap-1.5 text-[11px] text-muted-foreground hover:text-foreground transition-colors cursor-pointer"
       aria-label={t('spendingLine.ariaLabel')}
     >
-      <span className="tabular-nums font-medium text-foreground">{fmtCost(summary.totalCostUsd)}</span>
+      <span
+        className="tabular-nums font-medium text-foreground"
+        title={(summary.estimatedCostUsd ?? 0) > 0 ? t('spendingLine.estimatedTooltip') : undefined}
+      >
+        {(summary.estimatedCostUsd ?? 0) > 0 ? '~' : ''}{fmtCost(summary.totalCostUsd)}
+      </span>
       <span className="text-muted-foreground/60">·</span>
       <span className="tabular-nums">{t('spendingLine.turns', { count: summary.totalTurns })}</span>
       <span className="text-muted-foreground/60">·</span>

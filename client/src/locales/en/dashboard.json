@@ -18,7 +18,10 @@
     "launchNetworkError": "Network error launching rail",
     "railLaunched": "{{rail}} launched",
     "launchDescription_one": "{{mode}} with {{count}} spec",
-    "launchDescription_other": "{{mode}} with {{count}} specs"
+    "launchDescription_other": "{{mode}} with {{count}} specs",
+    "railWorktreeNeedsReview": "Rail {{n}}: spec #{{ticket}} needs review after merge",
+    "railWorktreesNoGit": "Worktree isolation unavailable: this project isn't a git repository — running in shared mode.",
+    "railWorktreesNoCommits": "Worktree isolation unavailable: the repository has no commits yet — make an initial commit, then relaunch."
   },
   "railsBoard": {
     "title": "Rails",
@@ -43,7 +46,11 @@
     "failedRetry": "Job failed — click to retry",
     "addSpecsFirst": "Add specs to this rail first",
     "builtInLoops": "Built-in",
-    "customLoops": "Custom loops"
+    "customLoops": "Custom loops",
+    "worktreesMerged": "{{count}} merged",
+    "worktreesNeedsReview": "{{count}} need review",
+    "execSteps": "{{count}} steps",
+    "execLines": "{{count}} lines"
   },
   "railRow": {
     "moveToSpecs": "Move to Specs",

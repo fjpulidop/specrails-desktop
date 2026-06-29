@@ -3,6 +3,8 @@ import { useTranslation, Trans } from 'react-i18next'
 import { Split, Zap, X } from 'lucide-react'
 
 import { Button } from '../ui/button'
+import { useMovableResizableModal } from '../../hooks/useMovableResizableModal'
+import { ResizeGrips } from '../ui/ResizeGrips'
 
 export type SmashMode = 'simple' | 'full'
 
@@ -53,6 +55,8 @@ export function SmashConfirmModal({
 }: SmashConfirmModalProps) {
   const { t } = useTranslation('activity')
   const [mode, setMode] = useState<SmashMode>('simple')
+  const { panelRef, panelStyle, headerHandleProps, resizeHandles, isFloating, guardBackdrop } =
+    useMovableResizableModal()
 
   if (!open) return null
 
@@ -63,10 +67,17 @@ export function SmashConfirmModal({
       aria-modal="true"
       data-testid="smash-confirm-modal"
     >
-      <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={onCancel} />
-      <div className="relative w-full max-w-lg m-4 rounded-xl glass-card border border-border/30 animate-in fade-in zoom-in-95 duration-150">
+      <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={guardBackdrop(onCancel)} />
+      <div
+        ref={panelRef}
+        className="relative w-full max-w-lg m-4 rounded-xl glass-card border border-border/30 animate-in fade-in zoom-in-95 duration-150"
+        style={panelStyle}
+      >
         {/* Header */}
-        <div className="flex items-start justify-between gap-3 px-5 py-4 border-b border-border/30">
+        <div
+          {...headerHandleProps}
+          className={`flex items-start justify-between gap-3 px-5 py-4 border-b border-border/30 ${isFloating ? 'cursor-grab active:cursor-grabbing' : ''}`}
+        >
           <div className="flex items-start gap-2 min-w-0">
             <Split className="w-5 h-5 text-accent-highlight shrink-0 mt-0.5" aria-hidden />
             <div className="min-w-0">
@@ -165,6 +176,7 @@ export function SmashConfirmModal({
           </Button>
         </div>
       </div>
+      <ResizeGrips handles={resizeHandles} />
     </div>
   )
 }

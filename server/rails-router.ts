@@ -5,13 +5,16 @@ import { ClaudeNotFoundError, CodexNotFoundError } from './queue-manager'
 import { validateRequestedProvider } from './provider-selection'
 import { isInteractiveJobsEnabled, isLoopsEnabled } from './feature-flags'
 import { getLoop } from './loops-store'
-import { getLoopRun } from './loop-runs-store'
+import { getLoopRun, getRunEventCounts, listRunningLoopRuns } from './loop-runs-store'
 import { getAdapter } from './providers'
 import { resolveProjectExecution } from './workspace-resolution'
 import { isFactoryLoopId, factoryLoopMode, getFactoryLoop } from './loop-factory'
 import { loadConstantMap } from './loop-constants'
 import { dominantTicketScope, referencesClaudeOnlyCommand } from './loop-command-catalog'
 import { loopNeedsTicket, type LoopGraph } from './loop-graph'
+import { isolationApplies } from './rail-isolation'
+import { launchIsolatedRail } from './rail-isolated-launch'
+import { repoIsolationStatus, defaultGitRunner } from './worktree-manager'
 import { newId } from './ids'
 import type { ReasoningEffort } from './providers/types'
 import type { RailJobStartedMessage, RailJobStoppedMessage, RailUpdatedMessage, LoopRunStoppedMessage } from './types'
@@ -81,12 +84,23 @@ export function createRailsRouter(): Router {
       // stale `mode`/null engine — these never land on the rail row itself.
       const activeLoopRuns: Record<number, {
         loopRunId: string; loopId?: string; loopName?: string | null; provider?: string | null; model?: string | null; iteration?: number
+        startedAt?: string; steps?: number; lines?: number
       }> = {}
       for (const [runId, meta] of c.railLoopRuns.entries()) {
         const run = getLoopRun(c.db, runId)
+        // Seed counts so the dashboard's live metrics survive a page refresh.
+        const counts = getRunEventCounts(c.db, runId)
         activeLoopRuns[meta.railIndex] = run
-          ? { loopRunId: runId, loopId: run.loop_id, loopName: run.loop_name, provider: run.provider, model: run.model, iteration: run.iteration_count }
-          : { loopRunId: runId }
+          ? { loopRunId: runId, loopId: run.loop_id, loopName: run.loop_name, provider: run.provider, model: run.model, iteration: run.iteration_count, startedAt: run.started_at, steps: counts.steps, lines: counts.lines }
+          : { loopRunId: runId, steps: counts.steps, lines: counts.lines }
+      }
+      // Also surface DB 'running' runs not tracked in-memory (the rail map is
+      // cleared on every server restart) — DB is the authoritative source, so the
+      // dashboard metrics survive both a page refresh AND a server restart.
+      for (const run of listRunningLoopRuns(c.db, c.project.id)) {
+        if (run.rail_index == null || activeLoopRuns[run.rail_index]) continue
+        const counts = getRunEventCounts(c.db, run.id)
+        activeLoopRuns[run.rail_index] = { loopRunId: run.id, loopId: run.loop_id, loopName: run.loop_name, provider: run.provider, model: run.model, iteration: run.iteration_count, startedAt: run.started_at, steps: counts.steps, lines: counts.lines }
       }
       res.json({ rails, activeJobs, activeLoopRuns })
     } catch (err) {
@@ -214,7 +228,7 @@ export function createRailsRouter(): Router {
   })
 
   // POST /rails/:railIndex/launch — launch job(s) for a rail
-  router.post('/:railIndex/launch', (req: Request, res: Response) => {
+  router.post('/:railIndex/launch', async (req: Request, res: Response) => {
     const railIndex = parseInt(req.params.railIndex as string, 10)
     if (isNaN(railIndex) || railIndex < 0) {
       res.status(400).json({ error: 'Invalid rail index' }); return
@@ -350,6 +364,35 @@ export function createRailsRouter(): Router {
           res.status(400).json({ error: 'This loop uses a Claude-only command and requires the Claude provider' }); return
         }
         const scope = dominantTicketScope(promptsText)
+
+        // Parallel isolation (opt-in via SPECRAILS_RAIL_WORKTREES): a per-ticket
+        // rail fanning out >1 ticket on a repo-mutating loop runs each ticket in
+        // its own git worktree, then merges the branches back. Inert by default —
+        // falls through to the shared-cwd path below unless the flag is on; a
+        // worktree-allocation failure also falls back. See rail-isolation.ts.
+        let isolationUnavailable: string | undefined
+        if (isolationApplies({ loopsEnabled: isLoopsEnabled(), scope, ticketCount: rail.ticketIds.length, readOnly: false })) {
+          // Worktree isolation needs a git repo WITH at least one commit (an
+          // unborn HEAD can't be branched). Fall back (with a message) otherwise.
+          const status = await repoIsolationStatus(defaultGitRunner, c.project.path)
+          if (status !== 'ok') {
+            isolationUnavailable = status // 'no-git' | 'no-commits'
+            console.warn(`[rails-router] worktree isolation unavailable (${status}); running shared cwd`)
+          } else {
+            try {
+              const ids = await launchIsolatedRail({
+                ctx: c, railIndex, ticketIds: [...rail.ticketIds], loopId, loopName, loopGraph,
+                provider: loopProvider, model: loopModel, effort,
+              })
+              res.status(202).json({ loopRunIds: ids, railIndex, mode, isolated: true })
+              return
+            } catch (err) {
+              console.error('[rails-router] isolated launch failed; falling back to shared cwd:', err)
+              isolationUnavailable = 'error'
+            }
+          }
+        }
+
         // Spawn from the SAME cwd a rail uses (workspace when relocated, else the
         // repo) so native `{{cmd:*}}` slash commands resolve — and surface the repo
         // via SPECRAILS_REPO_DIR + `--add-dir` exactly like QueueManager.
@@ -392,7 +435,7 @@ export function createRailsRouter(): Router {
             launchLoopRun(newId(), [ticketId], c.getTicketSpec(ticketId))
           }
         }
-        res.status(202).json({ loopRunIds, railIndex, mode })
+        res.status(202).json({ loopRunIds, railIndex, mode, ...(isolationUnavailable ? { isolationUnavailable } : {}) })
         return
       }
 

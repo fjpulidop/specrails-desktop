@@ -1,0 +1,2216 @@
+[
+  {
+    "slug": "a11y-audit-until-clean",
+    "title": "A11y Audit Until Clean",
+    "description": "Run automated accessibility checks on changed routes, fix violations, and repeat until the audit is clean.",
+    "category": "Quality",
+    "tags": [
+      "a11y",
+      "quality",
+      "frontend"
+    ],
+    "source": "curated",
+    "author": "loops!",
+    "featured": false,
+    "kickoffPrompt": "Start the \"A11y Audit Until Clean\" loop.\n\nGoal: zero serious accessibility violations on changed UI\nMax iterations: 8\nBetween iterations run: npm run test:a11y\nExit when: a11y audit exits 0\n\nStep 1: Run the a11y audit on changed routes. Fix each violation, prioritizing keyboard and screen reader issues.\n\nSelf-pace this loop. After each iteration, run the check command, read the output, and only continue if the exit condition is not met. Stop when the exit condition passes or max iterations is reached. Give a short status update each pass.",
+    "exitCondition": {
+      "type": "tests_pass",
+      "command": "npm run test:a11y",
+      "description": "Accessibility audit reports zero violations",
+      "maxIterations": 8
+    },
+    "guardrails": [],
+    "steps": [
+      {
+        "name": "Run a11y audit",
+        "prompt": "Run axe, pa11y, or eslint-plugin-jsx-a11y on changed pages. List violations with selectors.",
+        "shellCheck": "npm run test:a11y"
+      },
+      {
+        "name": "Fix violations",
+        "prompt": "Fix labels, contrast, focus order, and ARIA roles. Prefer semantic HTML over aria hacks."
+      }
+    ],
+    "triggerType": "manual",
+    "triggerConfig": {
+      "type": "manual"
+    },
+    "compatibleAgents": [
+      "cursor",
+      "claude-code",
+      "any"
+    ],
+    "bestForAgents": [
+      "cursor"
+    ],
+    "examples": [],
+    "installBundle": {
+      "files": []
+    }
+  },
+  {
+    "slug": "api-contract-until-match",
+    "title": "API Contract Until Match",
+    "description": "Loop until API responses match the OpenAPI or JSON Schema contract — catch drift between docs and implementation.",
+    "category": "API",
+    "tags": [
+      "api",
+      "openapi",
+      "contract-testing"
+    ],
+    "source": "curated",
+    "author": "loops!",
+    "featured": false,
+    "kickoffPrompt": "Start the \"API Contract Until Match\" loop.\n\nGoal: API implementation matches the published contract\nMax iterations: 10\nBetween iterations run: npm run test:contract\nExit when: contract test suite exits 0\n\nStep 1: Run contract tests. Fix each schema/response mismatch with minimal diffs, then re-run.\n\nSelf-pace this loop. After each iteration, run the check command, read the output, and only continue if the exit condition is not met. Stop when the exit condition passes or max iterations is reached. Give a short status update each pass.",
+    "exitCondition": {
+      "type": "tests_pass",
+      "command": "npm run test:contract",
+      "description": "All API contract tests pass",
+      "maxIterations": 10
+    },
+    "guardrails": [],
+    "steps": [
+      {
+        "name": "Run contract tests",
+        "prompt": "Run contract tests against openapi.yaml or schema fixtures. List every mismatch with endpoint and field.",
+        "shellCheck": "npm run test:contract"
+      },
+      {
+        "name": "Fix implementation or spec",
+        "prompt": "Fix the smallest change: update handler types/validation or correct the spec if the code is canonical."
+      }
+    ],
+    "triggerType": "manual",
+    "triggerConfig": {
+      "type": "manual"
+    },
+    "compatibleAgents": [
+      "cursor",
+      "claude-code",
+      "any"
+    ],
+    "bestForAgents": [
+      "cursor"
+    ],
+    "examples": [],
+    "installBundle": {
+      "files": []
+    }
+  },
+  {
+    "slug": "autoloop-tdd",
+    "title": "Autoloop TDD",
+    "description": "Test-first loop: write a failing test, implement the minimum code to pass, refactor, and repeat.",
+    "category": "Testing",
+    "tags": [
+      "tdd",
+      "testing",
+      "red-green-refactor"
+    ],
+    "source": "curated",
+    "author": "loops!",
+    "featured": false,
+    "kickoffPrompt": "Start the \"Autoloop TDD\" loop.\n\nGoal: implement the target behavior test-first with a green suite\nMax iterations: 12\nBetween iterations run: npm test\nExit when: target behavior is covered and all tests pass\n\nStep 1: Write a failing test for the next behavior, implement the minimum code to pass, refactor, and repeat.\n\nSelf-pace this loop. After each iteration, run the check command, read the output, and only continue if the exit condition is not met. Stop when the exit condition passes or max iterations is reached. Give a short status update each pass.",
+    "exitCondition": {
+      "type": "tests_pass",
+      "command": "npm test",
+      "description": "Target behavior covered by tests and full suite passes",
+      "maxIterations": 12
+    },
+    "guardrails": [],
+    "steps": [
+      {
+        "name": "Write failing test",
+        "prompt": "Write a focused test for the next behavior. Run it and confirm it fails for the right reason.",
+        "shellCheck": "npm test -- --testPathPattern=<new-test>"
+      },
+      {
+        "name": "Implement minimum code",
+        "prompt": "Write the smallest implementation that makes the new test pass. No extra features."
+      },
+      {
+        "name": "Verify green",
+        "prompt": "Run the new test and full suite to confirm everything passes.",
+        "shellCheck": "npm test"
+      },
+      {
+        "name": "Refactor",
+        "prompt": "Clean up duplication and naming while keeping tests green. Run tests after each refactor.",
+        "shellCheck": "npm test"
+      }
+    ],
+    "triggerType": "manual",
+    "triggerConfig": {
+      "type": "manual"
+    },
+    "compatibleAgents": [
+      "cursor",
+      "claude-code"
+    ],
+    "bestForAgents": [
+      "claude-code"
+    ],
+    "examples": [],
+    "installBundle": {
+      "files": []
+    }
+  },
+  {
+    "slug": "build-until-green",
+    "title": "Build Until Green",
+    "description": "Run the production build, fix compile and bundling errors, and loop until the build succeeds.",
+    "category": "Testing",
+    "tags": [
+      "build",
+      "compile",
+      "ci"
+    ],
+    "source": "curated",
+    "author": "loops!",
+    "featured": true,
+    "kickoffPrompt": "Start the \"Build Until Green\" loop.\n\nGoal: production build succeeds\nMax iterations: 10\nBetween iterations run: npm run build\nExit when: npm run build exits 0\n\nStep 1: Run the build. If it fails, fix the first error, then repeat until green.\n\nSelf-pace this loop. After each iteration, run the check command, read the output, and only continue if the exit condition is not met. Stop when the exit condition passes or max iterations is reached. Give a short status update each pass.",
+    "exitCondition": {
+      "type": "tests_pass",
+      "command": "npm run build",
+      "description": "Production build completes with exit code 0",
+      "maxIterations": 10
+    },
+    "guardrails": [],
+    "steps": [
+      {
+        "name": "Run build",
+        "prompt": "Run the project build command and capture all errors.",
+        "shellCheck": "npm run build"
+      },
+      {
+        "name": "Fix build errors",
+        "prompt": "Fix compile, type, and bundling errors one at a time. Prefer minimal diffs."
+      },
+      {
+        "name": "Re-run build",
+        "prompt": "Run the build again and confirm errors are resolved.",
+        "shellCheck": "npm run build"
+      }
+    ],
+    "triggerType": "manual",
+    "triggerConfig": {
+      "type": "manual"
+    },
+    "compatibleAgents": [
+      "cursor",
+      "claude-code"
+    ],
+    "bestForAgents": [
+      "cursor",
+      "claude-code"
+    ],
+    "examples": [],
+    "installBundle": {
+      "files": []
+    }
+  },
+  {
+    "slug": "bundle-size-budget",
+    "title": "Bundle Size Budget",
+    "description": "Ship features without bloating the client bundle — loop until size checks pass under your budget threshold.",
+    "category": "Performance",
+    "tags": [
+      "performance",
+      "bundle",
+      "frontend"
+    ],
+    "source": "curated",
+    "author": "loops!",
+    "featured": false,
+    "kickoffPrompt": "Start the \"Bundle Size Budget\" loop.\n\nGoal: client bundle stays under the size-limit budget\nMax iterations: 6\nBetween iterations run: npm run build && npm run size-limit\nExit when: size-limit exits 0\n\nStep 1: Build and measure bundle size. If over budget, lazy-load or trim deps until size-limit passes.\n\nSelf-pace this loop. After each iteration, run the check command, read the output, and only continue if the exit condition is not met. Stop when the exit condition passes or max iterations is reached. Give a short status update each pass.",
+    "exitCondition": {
+      "type": "tests_pass",
+      "command": "npm run size-limit",
+      "description": "Bundle size is under the configured budget",
+      "maxIterations": 6
+    },
+    "guardrails": [],
+    "steps": [
+      {
+        "name": "Measure bundle",
+        "prompt": "Run the production build and bundle size check. Report total KB and the largest new chunks.",
+        "shellCheck": "npm run build && npm run size-limit"
+      },
+      {
+        "name": "Trim or lazy-load",
+        "prompt": "If over budget: dynamic-import heavy modules, remove unused deps, or split routes. No feature cuts unless necessary."
+      }
+    ],
+    "triggerType": "manual",
+    "triggerConfig": {
+      "type": "manual"
+    },
+    "compatibleAgents": [
+      "cursor",
+      "any"
+    ],
+    "bestForAgents": [
+      "cursor"
+    ],
+    "examples": [],
+    "installBundle": {
+      "files": []
+    }
+  },
+  {
+    "slug": "changelog-sync-after-ship",
+    "title": "Changelog Sync After Ship",
+    "description": "After shipping a feature, loop until CHANGELOG.md has a user-facing entry and conventional commits are reflected.",
+    "category": "Docs",
+    "tags": [
+      "docs",
+      "changelog",
+      "release"
+    ],
+    "source": "curated",
+    "author": "loops!",
+    "featured": false,
+    "kickoffPrompt": "Start the \"Changelog Sync After Ship\" loop.\n\nGoal: CHANGELOG.md has accurate [Unreleased] entries for this ship\nMax iterations: 3\nBetween iterations run: git log -5 --oneline\nExit when: changelog covers all user-visible changes\n\nStep 1: Review recent commits, write Keep-a-Changelog entries for user-visible changes, and verify completeness.\n\nSelf-pace this loop. After each iteration, run the check command, read the output, and only continue if the exit condition is not met. Stop when the exit condition passes or max iterations is reached. Give a short status update each pass.",
+    "exitCondition": {
+      "type": "manual",
+      "description": "CHANGELOG.md documents all user-visible changes in this ship",
+      "maxIterations": 3
+    },
+    "guardrails": [],
+    "steps": [
+      {
+        "name": "Diff since last tag",
+        "prompt": "List commits and user-visible changes since the last release tag or CHANGELOG section.",
+        "shellCheck": "git log $(git describe --tags --abbrev=0 2>/dev/null || echo HEAD~20)..HEAD --oneline"
+      },
+      {
+        "name": "Write changelog entry",
+        "prompt": "Add a Keep-a-Changelog entry under [Unreleased]: Added, Changed, Fixed. User-facing language only."
+      },
+      {
+        "name": "Verify format",
+        "prompt": "Confirm CHANGELOG follows project format and links issues/PRs where relevant."
+      }
+    ],
+    "triggerType": "manual",
+    "triggerConfig": {
+      "type": "manual"
+    },
+    "compatibleAgents": [
+      "cursor",
+      "claude-code",
+      "any"
+    ],
+    "bestForAgents": [
+      "claude-code"
+    ],
+    "examples": [],
+    "installBundle": {
+      "files": []
+    }
+  },
+  {
+    "slug": "ci-failure-watcher",
+    "title": "CI Failure Watcher",
+    "description": "Poll CI on an interval, investigate failures when checks go red, and push fixes until green.",
+    "category": "CI",
+    "tags": [
+      "ci",
+      "github",
+      "devops"
+    ],
+    "source": "curated",
+    "author": "loops!",
+    "featured": true,
+    "kickoffPrompt": "/loop 5m Start the \"CI Failure Watcher\" loop.\n\nGoal: latest CI run on this branch is green.\nMax iterations: 12.\nBetween iterations run: gh run list --branch $(git branch --show-current) --limit 1\nExit when: latest run conclusion is success.\n\nStep 1: Check CI status. If failed, read logs, fix root cause, verify locally, and push if needed.",
+    "exitCondition": {
+      "type": "ci_green",
+      "command": "gh run list --branch $(git branch --show-current) --limit 1 --json conclusion -q '.[0].conclusion'",
+      "description": "Latest CI run conclusion is success",
+      "maxIterations": 12
+    },
+    "guardrails": [],
+    "steps": [
+      {
+        "name": "Check CI status",
+        "prompt": "Check the latest CI run for the current branch using gh CLI.",
+        "shellCheck": "gh run list --branch $(git branch --show-current) --limit 1"
+      },
+      {
+        "name": "Investigate failure",
+        "prompt": "If CI failed, read logs, identify the root cause, and apply the smallest fix."
+      },
+      {
+        "name": "Verify locally",
+        "prompt": "Run the failing CI step locally before pushing again."
+      }
+    ],
+    "triggerType": "interval",
+    "triggerConfig": {
+      "interval": "5m"
+    },
+    "compatibleAgents": [
+      "cursor",
+      "claude-code"
+    ],
+    "bestForAgents": [
+      "cursor",
+      "claude-code"
+    ],
+    "examples": [],
+    "installBundle": {
+      "files": [
+        {
+          "path": ".cursor/loops/ci-failure-watcher/watch.sh",
+          "content": "#!/usr/bin/env bash\nset -euo pipefail\nBRANCH=\"$(git branch --show-current)\"\ngh run list --branch \"$BRANCH\" --limit 1 --json conclusion,url -q '.[0]'\n"
+        },
+        {
+          "path": ".cursor/loops/ci-failure-watcher/README.md",
+          "content": "# CI Failure Watcher\n\nPoll CI every 5 minutes and fix failures until green.\n\nPair with: /loop 5m <kickoff prompt from loops!>\n"
+        }
+      ]
+    }
+  },
+  {
+    "slug": "coverage-until-threshold",
+    "title": "Coverage Until Threshold",
+    "description": "Add focused tests until coverage meets your threshold (e.g. 80%), without changing production behavior unnecessarily.",
+    "category": "Testing",
+    "tags": [
+      "coverage",
+      "testing",
+      "quality"
+    ],
+    "source": "curated",
+    "author": "loops!",
+    "featured": true,
+    "kickoffPrompt": "Start the \"Coverage Until Threshold\" loop.\n\nGoal: coverage meets the target threshold (default 80%) with all tests passing\nMax iterations: 12\nBetween iterations run: npm test -- --coverage\nExit when: coverage threshold is met and tests exit 0\n\nStep 1: Run coverage. Add focused tests for the biggest uncovered gaps, then repeat.\n\nSelf-pace this loop. After each iteration, run the check command, read the output, and only continue if the exit condition is not met. Stop when the exit condition passes or max iterations is reached. Give a short status update each pass.",
+    "exitCondition": {
+      "type": "tests_pass",
+      "command": "npm test -- --coverage",
+      "description": "Coverage threshold met and all tests pass",
+      "maxIterations": 12
+    },
+    "guardrails": [],
+    "steps": [
+      {
+        "name": "Measure coverage",
+        "prompt": "Run tests with coverage reporting enabled.",
+        "shellCheck": "npm test -- --coverage"
+      },
+      {
+        "name": "Add tests",
+        "prompt": "Write the smallest tests needed to cover uncovered branches. No snapshot spam or trivial asserts."
+      },
+      {
+        "name": "Re-measure",
+        "prompt": "Re-run coverage and confirm threshold is met.",
+        "shellCheck": "npm test -- --coverage"
+      }
+    ],
+    "triggerType": "manual",
+    "triggerConfig": {
+      "type": "manual"
+    },
+    "compatibleAgents": [
+      "claude-code",
+      "cursor"
+    ],
+    "bestForAgents": [
+      "claude-code"
+    ],
+    "examples": [],
+    "installBundle": {
+      "files": []
+    }
+  },
+  {
+    "slug": "de-sloppify-pass",
+    "title": "De-Sloppify Pass",
+    "description": "After implementation, run a cleanup pass: remove debug code, tighten naming, delete dead branches, and align with project conventions.",
+    "category": "Review",
+    "tags": [
+      "review",
+      "quality",
+      "cleanup"
+    ],
+    "source": "curated",
+    "author": "loops!",
+    "featured": true,
+    "kickoffPrompt": "Start the \"De-Sloppify Pass\" loop.\n\nGoal: recent changes are clean, minimal, and convention-aligned\nMax iterations: 4\nBetween iterations run: npm run lint && npm test\nExit when: review finds no slop and checks pass\n\nStep 1: Review the diff for debug code, dead branches, and naming issues. Fix them with minimal diffs.\n\nSelf-pace this loop. After each iteration, run the check command, read the output, and only continue if the exit condition is not met. Stop when the exit condition passes or max iterations is reached. Give a short status update each pass.",
+    "exitCondition": {
+      "type": "lint_clean",
+      "command": "npm run lint && npm test",
+      "description": "No slop remains and lint/tests still pass",
+      "maxIterations": 4
+    },
+    "guardrails": [],
+    "steps": [
+      {
+        "name": "Scan for slop",
+        "prompt": "Review recent changes for debug logs, commented code, TODO hacks, oversized functions, and inconsistent naming."
+      },
+      {
+        "name": "Clean up",
+        "prompt": "Apply minimal fixes: delete dead code, extract helpers, align types, and match surrounding style."
+      },
+      {
+        "name": "Verify",
+        "prompt": "Run lint and tests to ensure cleanup did not break behavior.",
+        "shellCheck": "npm run lint && npm test"
+      }
+    ],
+    "triggerType": "manual",
+    "triggerConfig": {
+      "type": "manual"
+    },
+    "compatibleAgents": [
+      "cursor",
+      "claude-code",
+      "any"
+    ],
+    "bestForAgents": [
+      "claude-code",
+      "cursor"
+    ],
+    "examples": [],
+    "installBundle": {
+      "files": []
+    }
+  },
+  {
+    "slug": "dependency-audit-weekly",
+    "title": "Dependency Audit Weekly",
+    "description": "Weekly loop to check outdated dependencies, propose safe upgrades, and open a summary.",
+    "category": "Maintenance",
+    "tags": [
+      "dependencies",
+      "maintenance",
+      "security"
+    ],
+    "source": "curated",
+    "author": "loops!",
+    "featured": false,
+    "kickoffPrompt": "/loop 7d Start the \"Dependency Audit Weekly\" loop.\n\nGoal: deliver a weekly dependency audit summary.\nBetween iterations run: npm outdated || true\nExit when: summary is posted with recommended upgrades.\n\nStep 1: Run npm outdated, categorize updates, and propose a safe upgrade plan.",
+    "exitCondition": {
+      "type": "manual",
+      "description": "Weekly audit summary delivered"
+    },
+    "guardrails": [],
+    "steps": [
+      {
+        "name": "List outdated packages",
+        "prompt": "Run npm outdated and summarize major vs patch updates.",
+        "shellCheck": "npm outdated || true"
+      },
+      {
+        "name": "Propose upgrades",
+        "prompt": "Recommend safe upgrades. Flag breaking changes and required code changes."
+      }
+    ],
+    "triggerType": "interval",
+    "triggerConfig": {
+      "interval": "7d"
+    },
+    "compatibleAgents": [
+      "cursor",
+      "claude-code"
+    ],
+    "bestForAgents": [
+      "claude-code"
+    ],
+    "examples": [],
+    "installBundle": {
+      "files": []
+    }
+  },
+  {
+    "slug": "dependency-upgrade-one-by-one",
+    "title": "Dependency Upgrade One-by-One",
+    "description": "Upgrade a single outdated package per iteration, fix breakages, and commit — safer than bulk npm update.",
+    "category": "Maintenance",
+    "tags": [
+      "dependencies",
+      "maintenance",
+      "upgrades"
+    ],
+    "source": "curated",
+    "author": "loops!",
+    "featured": false,
+    "kickoffPrompt": "Start the \"Dependency Upgrade One-by-One\" loop.\n\nGoal: critical outdated deps are upgraded with green tests\nMax iterations: 15\nBetween iterations run: npm outdated && npm test && npm run build\nExit when: npm outdated shows no critical packages left or user stops\n\nStep 1: Pick one outdated package, upgrade it, fix breakages, commit, and stop. One package per iteration.\n\nSelf-pace this loop. After each iteration, run the check command, read the output, and only continue if the exit condition is not met. Stop when the exit condition passes or max iterations is reached. Give a short status update each pass.",
+    "exitCondition": {
+      "type": "manual",
+      "maxIterations": 15,
+      "description": "No outdated production dependencies remain (or user stops)"
+    },
+    "guardrails": "$18:props:initialData:0:guardrails",
+    "steps": [
+      {
+        "name": "Pick one package",
+        "prompt": "Run npm outdated. Pick the highest-impact outdated package (one only). Note its current and target version.",
+        "shellCheck": "npm outdated"
+      },
+      {
+        "name": "Upgrade and fix",
+        "prompt": "Upgrade that single package. Fix type errors, API changes, and test failures caused by the bump.",
+        "shellCheck": "npm test && npm run build"
+      },
+      {
+        "name": "Commit bump",
+        "prompt": "Commit with message like chore(deps): bump <package> to <version>."
+      }
+    ],
+    "triggerType": "manual",
+    "triggerConfig": {
+      "type": "manual"
+    },
+    "compatibleAgents": [
+      "cursor",
+      "claude-code",
+      "any"
+    ],
+    "bestForAgents": [
+      "cursor"
+    ],
+    "examples": "$18:props:initialData:0:examples",
+    "installBundle": {
+      "files": []
+    }
+  },
+  {
+    "slug": "deploy-verification-loop",
+    "title": "Deploy Verification Loop",
+    "description": "On an interval, hit health and smoke endpoints after a deploy until all checks return healthy responses.",
+    "category": "DevOps",
+    "tags": [
+      "deploy",
+      "devops",
+      "smoke-test"
+    ],
+    "source": "curated",
+    "author": "loops!",
+    "featured": true,
+    "kickoffPrompt": "/loop 15m Start the \"Deploy Verification Loop\".\n\nGoal: all post-deploy health and smoke endpoints return success.\nMax iterations: 8.\nBetween iterations run: curl -fsS <your-health-url>\nExit when: every configured endpoint succeeds.\n\nStep 1: Hit health/smoke URLs. If any fail, inspect deploy logs and fix or escalate.",
+    "exitCondition": {
+      "type": "ci_green",
+      "command": "curl -fsS https://your-app.example/health",
+      "description": "All configured health endpoints return success",
+      "maxIterations": 8
+    },
+    "guardrails": [],
+    "steps": [
+      {
+        "name": "Check health endpoints",
+        "prompt": "Curl configured health/smoke URLs. Record status codes and response bodies.",
+        "shellCheck": "curl -fsS https://your-app.example/health"
+      },
+      {
+        "name": "Investigate failures",
+        "prompt": "If any endpoint fails, check recent deploy logs, env vars, and migrations. Apply the smallest fix."
+      },
+      {
+        "name": "Re-verify",
+        "prompt": "Re-run health checks after fixes or rollback decision."
+      }
+    ],
+    "triggerType": "interval",
+    "triggerConfig": {
+      "interval": "15m"
+    },
+    "compatibleAgents": [
+      "codex",
+      "cursor",
+      "claude-code"
+    ],
+    "bestForAgents": [
+      "codex",
+      "cursor"
+    ],
+    "examples": [],
+    "installBundle": {
+      "files": []
+    }
+  },
+  {
+    "slug": "docs-sync-after-edits",
+    "title": "Docs Sync After Edits",
+    "description": "After code changes, find affected docs and update README, API references, and inline comments to match.",
+    "category": "Maintenance",
+    "tags": [
+      "docs",
+      "maintenance",
+      "sync"
+    ],
+    "source": "curated",
+    "author": "loops!",
+    "featured": false,
+    "kickoffPrompt": "Start the \"Docs Sync After Edits\" loop.\n\nGoal: documentation matches the current code changes\nMax iterations: 3\nBetween iterations run: git diff main...HEAD --name-only\nExit when: all affected docs are updated and verified\n\nStep 1: Review the diff, find stale docs, update them, and verify accuracy.\n\nSelf-pace this loop. After each iteration, run the check command, read the output, and only continue if the exit condition is not met. Stop when the exit condition passes or max iterations is reached. Give a short status update each pass.",
+    "exitCondition": {
+      "type": "manual",
+      "description": "All affected documentation updated and verified against the diff"
+    },
+    "guardrails": [],
+    "steps": [
+      {
+        "name": "Identify changed areas",
+        "prompt": "Review the current diff. List public APIs, config options, and behaviors that changed."
+      },
+      {
+        "name": "Find stale docs",
+        "prompt": "Search README, docs/, and code comments for references to changed behavior. Flag outdated sections."
+      },
+      {
+        "name": "Update documentation",
+        "prompt": "Update docs to match the code. Keep examples runnable and accurate. Remove obsolete sections."
+      },
+      {
+        "name": "Verify accuracy",
+        "prompt": "Re-read updated docs against the diff. Confirm no contradictions remain."
+      }
+    ],
+    "triggerType": "manual",
+    "triggerConfig": {
+      "type": "manual"
+    },
+    "compatibleAgents": [
+      "cursor",
+      "any"
+    ],
+    "bestForAgents": [
+      "cursor"
+    ],
+    "examples": [],
+    "installBundle": {
+      "files": []
+    }
+  },
+  {
+    "slug": "e2e-until-green",
+    "title": "E2E Until Green",
+    "description": "Run end-to-end tests, fix UI and integration failures, and loop until the E2E suite passes.",
+    "category": "Testing",
+    "tags": [
+      "e2e",
+      "playwright",
+      "testing"
+    ],
+    "source": "curated",
+    "author": "loops!",
+    "featured": false,
+    "kickoffPrompt": "Start the \"E2E Until Green\" loop.\n\nGoal: E2E suite passes\nMax iterations: 10\nBetween iterations run: npm run test:e2e\nExit when: E2E command exits 0\n\nStep 1: Run E2E tests. Fix the first failing spec, then repeat.\n\nSelf-pace this loop. After each iteration, run the check command, read the output, and only continue if the exit condition is not met. Stop when the exit condition passes or max iterations is reached. Give a short status update each pass.",
+    "exitCondition": {
+      "type": "tests_pass",
+      "command": "npm run test:e2e",
+      "description": "E2E suite exits 0",
+      "maxIterations": 10
+    },
+    "guardrails": [],
+    "steps": [
+      {
+        "name": "Run E2E",
+        "prompt": "Run the project's E2E test command and capture failures.",
+        "shellCheck": "npm run test:e2e"
+      },
+      {
+        "name": "Fix failures",
+        "prompt": "Fix the smallest root cause for failing E2E specs. Prefer stable selectors and realistic waits."
+      },
+      {
+        "name": "Re-run E2E",
+        "prompt": "Re-run E2E until all specs pass.",
+        "shellCheck": "npm run test:e2e"
+      }
+    ],
+    "triggerType": "manual",
+    "triggerConfig": {
+      "type": "manual"
+    },
+    "compatibleAgents": [
+      "cursor",
+      "claude-code"
+    ],
+    "bestForAgents": [
+      "cursor"
+    ],
+    "examples": [],
+    "installBundle": {
+      "files": []
+    }
+  },
+  {
+    "slug": "fix-ci-until-green",
+    "title": "Fix CI Until Green",
+    "description": "Fetch the latest failed CI run, reproduce the failure locally, fix it, and repeat until checks pass.",
+    "category": "CI",
+    "tags": [
+      "ci",
+      "github",
+      "fix"
+    ],
+    "source": "curated",
+    "author": "loops!",
+    "featured": true,
+    "kickoffPrompt": "Start the \"Fix CI Until Green\" loop.\n\nGoal: latest CI run on this branch passes\nMax iterations: 8\nBetween iterations run: gh run list --branch $(git branch --show-current) --limit 1 --json conclusion -q '.[0].conclusion'\nExit when: latest run conclusion is success\n\nStep 1: Find the latest failed CI run, read logs, reproduce locally, fix root cause, push, and verify.\n\nSelf-pace this loop. After each iteration, run the check command, read the output, and only continue if the exit condition is not met. Stop when the exit condition passes or max iterations is reached. Give a short status update each pass.",
+    "exitCondition": {
+      "type": "ci_green",
+      "command": "gh run list --branch $(git branch --show-current) --limit 1 --json conclusion -q '.[0].conclusion'",
+      "maxIterations": 8,
+      "description": "Latest CI run conclusion is success"
+    },
+    "guardrails": "$18:props:initialData:0:guardrails",
+    "steps": [
+      {
+        "name": "Fetch failed run",
+        "prompt": "Use gh to find the latest failed CI run on this branch. Pull logs for the failing job.",
+        "shellCheck": "gh run list --branch $(git branch --show-current) --status failure --limit 1"
+      },
+      {
+        "name": "Reproduce locally",
+        "prompt": "Run the failing CI step locally (test, lint, build). Confirm you can reproduce the error."
+      },
+      {
+        "name": "Apply fix",
+        "prompt": "Fix the root cause with a minimal diff. Avoid unrelated refactors."
+      },
+      {
+        "name": "Push and verify",
+        "prompt": "Push the fix and wait for CI. Re-check status before the next iteration.",
+        "shellCheck": "gh run list --branch $(git branch --show-current) --limit 1 --json conclusion -q '.[0].conclusion'"
+      }
+    ],
+    "triggerType": "manual",
+    "triggerConfig": {
+      "type": "manual"
+    },
+    "compatibleAgents": [
+      "cursor",
+      "claude-code"
+    ],
+    "bestForAgents": [
+      "cursor",
+      "claude-code"
+    ],
+    "examples": "$18:props:initialData:0:examples",
+    "installBundle": {
+      "files": []
+    }
+  },
+  {
+    "slug": "flaky-test-triage",
+    "title": "Flaky Test Triage",
+    "description": "Run failing tests repeatedly, classify each failure as flaky or real, and fix only confirmed regressions.",
+    "category": "Testing",
+    "tags": [
+      "testing",
+      "flaky",
+      "triage"
+    ],
+    "source": "curated",
+    "author": "loops!",
+    "featured": false,
+    "kickoffPrompt": "Start the \"Flaky Test Triage\" loop.\n\nGoal: classify failing tests as flaky vs real and fix only real regressions\nMax iterations: 5\nBetween iterations run: npm test -- --testPathPattern=<failing-suite>\nExit when: every failure is classified and real regressions are fixed or explicitly deferred\n\nStep 1: Run the failing suite multiple times. Classify each failure, fix real ones, and document flaky behavior.\n\nSelf-pace this loop. After each iteration, run the check command, read the output, and only continue if the exit condition is not met. Stop when the exit condition passes or max iterations is reached. Give a short status update each pass.",
+    "exitCondition": {
+      "type": "manual",
+      "description": "All failures classified; real regressions fixed; flaky tests documented or stabilized"
+    },
+    "guardrails": [],
+    "steps": [
+      {
+        "name": "Run failing tests",
+        "prompt": "Run the failing test file or suite 3–5 times. Record pass/fail pattern per test.",
+        "shellCheck": "npm test -- --testPathPattern=<failing-suite>"
+      },
+      {
+        "name": "Classify failures",
+        "prompt": "Label each failure as flaky (intermittent) or real (consistent). Note timing, ordering, or env dependencies."
+      },
+      {
+        "name": "Fix real failures",
+        "prompt": "Fix confirmed real failures with minimal changes. For flaky tests, propose stabilization (retries, isolation, mocks)."
+      },
+      {
+        "name": "Confirm stability",
+        "prompt": "Re-run the suite multiple times to confirm real failures are gone and flakiness is reduced or documented.",
+        "shellCheck": "npm test -- --testPathPattern=<failing-suite>"
+      }
+    ],
+    "triggerType": "manual",
+    "triggerConfig": {
+      "type": "manual"
+    },
+    "compatibleAgents": [
+      "cursor",
+      "claude-code"
+    ],
+    "bestForAgents": [
+      "claude-code",
+      "cursor"
+    ],
+    "examples": [],
+    "installBundle": {
+      "files": []
+    }
+  },
+  {
+    "slug": "format-until-clean",
+    "title": "Format Until Clean",
+    "description": "Run the formatter, fix any remaining style issues, and loop until the codebase formats cleanly with no diffs.",
+    "category": "Testing",
+    "tags": [
+      "format",
+      "prettier",
+      "quality"
+    ],
+    "source": "curated",
+    "author": "loops!",
+    "featured": false,
+    "kickoffPrompt": "Start the \"Format Until Clean\" loop.\n\nGoal: formatter runs cleanly with no remaining diff\nMax iterations: 5\nBetween iterations run: npm run format\nExit when: format command succeeds and git diff is empty\n\nStep 1: Run the formatter. Fix any issues it cannot auto-fix, then repeat.\n\nSelf-pace this loop. After each iteration, run the check command, read the output, and only continue if the exit condition is not met. Stop when the exit condition passes or max iterations is reached. Give a short status update each pass.",
+    "exitCondition": {
+      "type": "lint_clean",
+      "command": "npm run format && git diff --quiet",
+      "maxIterations": 5,
+      "description": "Formatter produces no remaining diff"
+    },
+    "guardrails": "$18:props:initialData:0:guardrails",
+    "steps": [
+      {
+        "name": "Run formatter",
+        "prompt": "Run the project formatter (prettier, biome, etc.).",
+        "shellCheck": "npm run format"
+      },
+      {
+        "name": "Check diff",
+        "prompt": "If formatting changed files, review diff for unintended edits. Fix manual style issues formatter missed."
+      },
+      {
+        "name": "Confirm clean",
+        "prompt": "Re-run formatter and confirm working tree is stable.",
+        "shellCheck": "npm run format && git diff --quiet"
+      }
+    ],
+    "triggerType": "manual",
+    "triggerConfig": {
+      "type": "manual"
+    },
+    "compatibleAgents": [
+      "cursor",
+      "any"
+    ],
+    "bestForAgents": [
+      "cursor"
+    ],
+    "examples": "$18:props:initialData:0:examples",
+    "installBundle": {
+      "files": []
+    }
+  },
+  {
+    "slug": "guardrails-learning-loop",
+    "title": "Guardrails Learning Loop",
+    "description": "When a check fails twice the same way, append a guardrail sign to .ralph/guardrails.md so the next iteration avoids repeating it.",
+    "category": "Automation",
+    "tags": [
+      "ralph",
+      "guardrails",
+      "learning"
+    ],
+    "source": "curated",
+    "author": "loops!",
+    "featured": false,
+    "kickoffPrompt": "Start the \"Guardrails Learning Loop\" loop.\n\nGoal: tests and lint pass without repeating prior failure patterns\nMax iterations: 12\nBetween iterations run: npm test && npm run lint\nExit when: all checks pass\n\nStep 1: Read .ralph/guardrails.md, run checks, and if a failure repeats, add a sign before fixing.\n\nSelf-pace this loop. After each iteration, run the check command, read the output, and only continue if the exit condition is not met. Stop when the exit condition passes or max iterations is reached. Give a short status update each pass.",
+    "exitCondition": {
+      "type": "tests_pass",
+      "command": "npm test && npm run lint",
+      "description": "Checks pass and no repeated failure pattern remains",
+      "maxIterations": 12
+    },
+    "guardrails": [],
+    "steps": [
+      {
+        "name": "Read guardrails",
+        "prompt": "Read .ralph/guardrails.md before any work. Treat each sign as a hard constraint."
+      },
+      {
+        "name": "Run checks",
+        "prompt": "Run the project's backpressure commands.",
+        "shellCheck": "npm test && npm run lint"
+      },
+      {
+        "name": "Record failure sign",
+        "prompt": "If the same error occurred before, append a concise sign to guardrails.md: what failed and how to avoid it."
+      },
+      {
+        "name": "Fix with guardrails",
+        "prompt": "Apply a fix that respects all guardrail signs. Do not repeat prior failed approaches."
+      }
+    ],
+    "triggerType": "manual",
+    "triggerConfig": {
+      "type": "manual"
+    },
+    "compatibleAgents": [
+      "cursor",
+      "claude-code",
+      "codex"
+    ],
+    "bestForAgents": [
+      "cursor",
+      "claude-code"
+    ],
+    "examples": [],
+    "installBundle": {
+      "files": [
+        {
+          "path": ".ralph/guardrails.md",
+          "content": "# Guardrails\n\nSigns from repeated failures. Read before every iteration.\n\n## Signs\n- Never commit without running tests first.\n"
+        }
+      ]
+    }
+  },
+  {
+    "slug": "independent-verifier-pass",
+    "title": "Independent Verifier Pass",
+    "description": "When implementation claims done, a separate verifier pass runs build, lint, and tests with no access to the implementer's rationale.",
+    "category": "Testing",
+    "tags": [
+      "verification",
+      "testing",
+      "letitloop"
+    ],
+    "source": "curated",
+    "author": "loops!",
+    "featured": true,
+    "kickoffPrompt": "Start the \"Independent Verifier Pass\" loop.\n\nGoal: build, lint, and tests pass under independent verification\nMax iterations: 8\nBetween iterations run: npm run build && npm run lint && npm test\nExit when: all verifier commands exit 0\n\nStep 1: Run build, lint, and tests as a verifier. Trust only command output, not prior claims.\n\nSelf-pace this loop. After each iteration, run the check command, read the output, and only continue if the exit condition is not met. Stop when the exit condition passes or max iterations is reached. Give a short status update each pass.",
+    "exitCondition": {
+      "type": "tests_pass",
+      "command": "npm run build && npm run lint && npm test",
+      "description": "Build, lint, and tests all pass under independent verification",
+      "maxIterations": 8
+    },
+    "guardrails": [],
+    "steps": [
+      {
+        "name": "Run verifier checks",
+        "prompt": "As an independent verifier, run build, lint, and tests. Do not assume the prior pass was correct.",
+        "shellCheck": "npm run build && npm run lint && npm test"
+      },
+      {
+        "name": "Report gaps",
+        "prompt": "List every failing check with file paths and error excerpts. No self-reporting — only command output counts."
+      },
+      {
+        "name": "Fix or hand back",
+        "prompt": "If failures exist, fix them or produce a concise failure report for the implementer to continue."
+      }
+    ],
+    "triggerType": "manual",
+    "triggerConfig": {
+      "type": "manual"
+    },
+    "compatibleAgents": [
+      "claude-code",
+      "cursor"
+    ],
+    "bestForAgents": [
+      "claude-code"
+    ],
+    "examples": [],
+    "installBundle": {
+      "files": []
+    }
+  },
+  {
+    "slug": "investigation-script-loop",
+    "title": "Investigation Script Loop",
+    "description": "Write a small throwaway script to reproduce a bug, run it, read output, and iterate until the root cause is proven.",
+    "category": "Debugging",
+    "tags": [
+      "debugging",
+      "repro",
+      "scripts"
+    ],
+    "source": "curated",
+    "author": "loops!",
+    "featured": false,
+    "kickoffPrompt": "Start the \"Investigation Script Loop\" loop.\n\nGoal: prove the root cause with a minimal repro script\nMax iterations: 8\nBetween iterations run: node scripts/investigate.mjs\nExit when: script output demonstrates root cause\n\nStep 1: Write a tiny throwaway script that reproduces the issue. Run it and iterate on what the output shows.\n\nSelf-pace this loop. After each iteration, run the check command, read the output, and only continue if the exit condition is not met. Stop when the exit condition passes or max iterations is reached. Give a short status update each pass.",
+    "exitCondition": {
+      "type": "manual",
+      "maxIterations": 8,
+      "description": "Root cause demonstrated by script output with a written summary"
+    },
+    "guardrails": "$18:props:initialData:0:guardrails",
+    "steps": [
+      {
+        "name": "Write probe script",
+        "prompt": "Create a ~20-line script that reproduces the bug or queries the failing state. One file only."
+      },
+      {
+        "name": "Run and read",
+        "prompt": "Execute the script and capture stdout/stderr. No guessing — read actual output."
+      },
+      {
+        "name": "Adjust hypothesis",
+        "prompt": "Update the script or notes based on output. Stop when root cause is demonstrated."
+      }
+    ],
+    "triggerType": "manual",
+    "triggerConfig": {
+      "type": "manual"
+    },
+    "compatibleAgents": [
+      "cursor",
+      "claude-code",
+      "codex",
+      "any"
+    ],
+    "bestForAgents": [
+      "cursor",
+      "claude-code"
+    ],
+    "examples": "$18:props:initialData:0:examples",
+    "installBundle": {
+      "files": []
+    }
+  },
+  {
+    "slug": "knip-until-clean",
+    "title": "Knip Until Clean",
+    "description": "Find and remove dead exports, unused files, and orphan dependencies — loop until knip reports clean.",
+    "category": "Maintenance",
+    "tags": [
+      "maintenance",
+      "dead-code",
+      "deps"
+    ],
+    "source": "curated",
+    "author": "loops!",
+    "featured": false,
+    "kickoffPrompt": "Start the \"Knip Until Clean\" loop.\n\nGoal: knip reports no unused code or dependencies\nMax iterations: 5\nBetween iterations run: npx knip\nExit when: knip exits 0\n\nStep 1: Run knip. Remove dead exports and unused deps with minimal diffs; verify tests still pass.\n\nSelf-pace this loop. After each iteration, run the check command, read the output, and only continue if the exit condition is not met. Stop when the exit condition passes or max iterations is reached. Give a short status update each pass.",
+    "exitCondition": {
+      "type": "lint_clean",
+      "command": "npx knip",
+      "description": "Knip reports no unused files, exports, or dependencies",
+      "maxIterations": 5
+    },
+    "guardrails": [],
+    "steps": [
+      {
+        "name": "Run knip",
+        "prompt": "Run knip (or depcheck) and categorize unused files, exports, and dependencies.",
+        "shellCheck": "npx knip"
+      },
+      {
+        "name": "Remove or justify",
+        "prompt": "Delete confirmed dead code. For false positives, add knip ignore entries with a one-line reason."
+      }
+    ],
+    "triggerType": "manual",
+    "triggerConfig": {
+      "type": "manual"
+    },
+    "compatibleAgents": [
+      "cursor",
+      "any"
+    ],
+    "bestForAgents": [
+      "cursor"
+    ],
+    "examples": [],
+    "installBundle": {
+      "files": []
+    }
+  },
+  {
+    "slug": "lint-typecheck-fix",
+    "title": "Lint and Typecheck Fix",
+    "description": "Run lint and typecheck, fix reported issues, and loop until the codebase is clean.",
+    "category": "Testing",
+    "tags": [
+      "lint",
+      "typescript",
+      "quality"
+    ],
+    "source": "curated",
+    "author": "loops!",
+    "featured": true,
+    "kickoffPrompt": "Start the \"Lint and Typecheck Fix\" loop.\n\nGoal: lint and typecheck are clean\nMax iterations: 8\nBetween iterations run: npm run lint && npx tsc --noEmit\nExit when: both commands exit 0\n\nStep 1: Run lint and typecheck. Fix reported issues with minimal diffs, then repeat.\n\nSelf-pace this loop. After each iteration, run the check command, read the output, and only continue if the exit condition is not met. Stop when the exit condition passes or max iterations is reached. Give a short status update each pass.",
+    "exitCondition": {
+      "type": "lint_clean",
+      "command": "npm run lint && npx tsc --noEmit",
+      "description": "Lint and typecheck pass with no errors",
+      "maxIterations": 8
+    },
+    "guardrails": [
+      "Do not modify the check command or exit criteria to force success",
+      "Do not skip, disable, or bypass checks to pass the exit condition",
+      "If stuck after several iterations, stop and report blockers instead of gaming metrics"
+    ],
+    "steps": [
+      {
+        "name": "Run lint and typecheck",
+        "prompt": "Run lint and TypeScript checks.",
+        "shellCheck": "npm run lint && npx tsc --noEmit"
+      },
+      {
+        "name": "Fix issues",
+        "prompt": "Fix lint and type errors with minimal changes. Do not disable rules unless necessary."
+      }
+    ],
+    "triggerType": "manual",
+    "triggerConfig": {
+      "type": "manual"
+    },
+    "compatibleAgents": [
+      "cursor",
+      "any"
+    ],
+    "bestForAgents": [
+      "cursor"
+    ],
+    "examples": [
+      {
+        "title": "Monorepo cleanup pass",
+        "summary": "Cleared 24 ESLint warnings and 8 TypeScript errors across 5 files without disabling rules."
+      }
+    ],
+    "installBundle": {
+      "files": []
+    }
+  },
+  {
+    "slug": "merge-conflict-resolver",
+    "title": "Merge Conflict Resolver",
+    "description": "Rebase or merge target branch, resolve conflicts file by file, and loop until the branch is current and tests pass.",
+    "category": "Git",
+    "tags": [
+      "git",
+      "rebase",
+      "merge"
+    ],
+    "source": "curated",
+    "author": "loops!",
+    "featured": false,
+    "kickoffPrompt": "Start the \"Merge Conflict Resolver\" loop.\n\nGoal: branch is rebased on main with no conflicts and tests pass\nMax iterations: 8\nBetween iterations run: npm test\nExit when: rebase completes and tests exit 0\n\nStep 1: Rebase on main. Resolve conflicts one file at a time, run tests, continue.\n\nSelf-pace this loop. After each iteration, run the check command, read the output, and only continue if the exit condition is not met. Stop when the exit condition passes or max iterations is reached. Give a short status update each pass.",
+    "exitCondition": {
+      "type": "tests_pass",
+      "command": "git rebase --continue 2>/dev/null; npm test",
+      "description": "Rebase complete with no conflicts and tests passing",
+      "maxIterations": 8
+    },
+    "guardrails": [],
+    "steps": [
+      {
+        "name": "Update branch",
+        "prompt": "Fetch latest main and attempt rebase or merge.",
+        "shellCheck": "git fetch origin && git rebase origin/main"
+      },
+      {
+        "name": "Resolve conflicts",
+        "prompt": "For each conflict, read both sides, preserve intent, and resolve with minimal changes."
+      },
+      {
+        "name": "Verify",
+        "prompt": "Run tests after each resolution batch.",
+        "shellCheck": "npm test"
+      }
+    ],
+    "triggerType": "manual",
+    "triggerConfig": {
+      "type": "manual"
+    },
+    "compatibleAgents": [
+      "cursor",
+      "claude-code"
+    ],
+    "bestForAgents": [
+      "cursor",
+      "claude-code"
+    ],
+    "examples": [],
+    "installBundle": {
+      "files": []
+    }
+  },
+  {
+    "slug": "migration-until-applied",
+    "title": "Migration Until Applied",
+    "description": "Run database migrations, fix schema issues, and loop until migrations apply cleanly in dev.",
+    "category": "Database",
+    "tags": [
+      "database",
+      "prisma",
+      "migrations"
+    ],
+    "source": "curated",
+    "author": "loops!",
+    "featured": false,
+    "kickoffPrompt": "Start the \"Migration Until Applied\" loop.\n\nGoal: all database migrations apply cleanly\nMax iterations: 6\nBetween iterations run: npx prisma migrate status\nExit when: migrate status shows no pending failures\n\nStep 1: Run migrations. Fix schema or SQL errors, then repeat until status is clean.\n\nSelf-pace this loop. After each iteration, run the check command, read the output, and only continue if the exit condition is not met. Stop when the exit condition passes or max iterations is reached. Give a short status update each pass.",
+    "exitCondition": {
+      "type": "tests_pass",
+      "command": "npx prisma migrate status",
+      "description": "All migrations applied with clean status",
+      "maxIterations": 6
+    },
+    "guardrails": [],
+    "steps": [
+      {
+        "name": "Run migrations",
+        "prompt": "Apply pending migrations with the project's migration command.",
+        "shellCheck": "npx prisma migrate dev"
+      },
+      {
+        "name": "Fix schema errors",
+        "prompt": "If migration fails, fix schema or SQL, regenerate client if needed, and retry."
+      },
+      {
+        "name": "Verify",
+        "prompt": "Confirm migration history is consistent and app still starts.",
+        "shellCheck": "npx prisma migrate status"
+      }
+    ],
+    "triggerType": "manual",
+    "triggerConfig": {
+      "type": "manual"
+    },
+    "compatibleAgents": [
+      "cursor",
+      "claude-code"
+    ],
+    "bestForAgents": [
+      "cursor"
+    ],
+    "examples": [],
+    "installBundle": {
+      "files": []
+    }
+  },
+  {
+    "slug": "npm-audit-fix-loop",
+    "title": "npm Audit Fix Loop",
+    "description": "Fix high/critical npm audit findings one at a time with test verification — not a blind npm audit fix --force.",
+    "category": "Security",
+    "tags": [
+      "security",
+      "npm",
+      "audit"
+    ],
+    "source": "curated",
+    "author": "loops!",
+    "featured": false,
+    "kickoffPrompt": "Start the \"npm Audit Fix Loop\" loop.\n\nGoal: no high or critical npm audit vulnerabilities\nMax iterations: 10\nBetween iterations run: npm audit --audit-level=high && npm test\nExit when: npm audit reports no high/critical issues\n\nStep 1: Pick one high/critical advisory, apply the safest fix, run tests, and repeat.\n\nSelf-pace this loop. After each iteration, run the check command, read the output, and only continue if the exit condition is not met. Stop when the exit condition passes or max iterations is reached. Give a short status update each pass.",
+    "exitCondition": {
+      "type": "lint_clean",
+      "command": "npm audit --audit-level=high",
+      "description": "No high or critical npm audit vulnerabilities remain",
+      "maxIterations": 10
+    },
+    "guardrails": [],
+    "steps": [
+      {
+        "name": "List vulnerabilities",
+        "prompt": "Run npm audit --json. Pick the highest severity fixable issue (one at a time).",
+        "shellCheck": "npm audit --audit-level=high"
+      },
+      {
+        "name": "Apply safe fix",
+        "prompt": "Use npm audit fix for that advisory or bump the direct dependency. Avoid --force unless unavoidable.",
+        "shellCheck": "npm test"
+      }
+    ],
+    "triggerType": "manual",
+    "triggerConfig": {
+      "type": "manual"
+    },
+    "compatibleAgents": [
+      "cursor",
+      "claude-code",
+      "any"
+    ],
+    "bestForAgents": [
+      "cursor"
+    ],
+    "examples": [],
+    "installBundle": {
+      "files": []
+    }
+  },
+  {
+    "slug": "openapi-sync-until-valid",
+    "title": "OpenAPI Sync Until Valid",
+    "description": "Keep openapi.yaml valid and in sync with route handlers — lint the spec and fix drift each pass.",
+    "category": "API",
+    "tags": [
+      "api",
+      "openapi",
+      "docs"
+    ],
+    "source": "curated",
+    "author": "loops!",
+    "featured": false,
+    "kickoffPrompt": "Start the \"OpenAPI Sync Until Valid\" loop.\n\nGoal: openapi.yaml lints clean and matches implemented routes\nMax iterations: 8\nBetween iterations run: npx @redocly/cli lint openapi.yaml\nExit when: OpenAPI lint exits 0\n\nStep 1: Lint openapi.yaml. Fix spec errors and handler drift until lint passes.\n\nSelf-pace this loop. After each iteration, run the check command, read the output, and only continue if the exit condition is not met. Stop when the exit condition passes or max iterations is reached. Give a short status update each pass.",
+    "exitCondition": {
+      "type": "lint_clean",
+      "command": "npx @redocly/cli lint openapi.yaml",
+      "description": "OpenAPI spec lints with zero errors",
+      "maxIterations": 8
+    },
+    "guardrails": [],
+    "steps": [
+      {
+        "name": "Lint OpenAPI",
+        "prompt": "Validate openapi.yaml with spectral or swagger-cli. List every error with line numbers.",
+        "shellCheck": "npx @redocly/cli lint openapi.yaml"
+      },
+      {
+        "name": "Sync handlers",
+        "prompt": "Update route handlers or the spec so documented paths, schemas, and status codes match reality."
+      }
+    ],
+    "triggerType": "manual",
+    "triggerConfig": {
+      "type": "manual"
+    },
+    "compatibleAgents": [
+      "cursor",
+      "any"
+    ],
+    "bestForAgents": [
+      "cursor"
+    ],
+    "examples": [],
+    "installBundle": {
+      "files": []
+    }
+  },
+  {
+    "slug": "post-edit-test-guard",
+    "title": "Post-Edit Test Guard",
+    "description": "Hook-based loop that runs related tests after file edits to catch regressions early.",
+    "category": "Testing",
+    "tags": [
+      "hooks",
+      "testing",
+      "regression"
+    ],
+    "source": "curated",
+    "author": "loops!",
+    "featured": true,
+    "kickoffPrompt": "Install and run the \"Post-Edit Test Guard\" loop.\n\nGoal: after each batch of file edits, related tests must pass before continuing.\nBetween iterations run: npm test -- --findRelatedTests <edited files>\nExit when: related tests exit 0.\n\nStep 1: After edits, run related tests. If they fail, fix before making more changes.",
+    "exitCondition": {
+      "type": "tests_pass",
+      "command": "npm test -- --findRelatedTests",
+      "description": "Related tests pass after each edit batch"
+    },
+    "guardrails": [],
+    "steps": [
+      {
+        "name": "Detect edited files",
+        "prompt": "Identify which source files were edited in the last turn."
+      },
+      {
+        "name": "Run related tests",
+        "prompt": "Run the smallest relevant test subset for edited files. Fix failures before continuing.",
+        "shellCheck": "npm test -- --findRelatedTests"
+      }
+    ],
+    "triggerType": "event",
+    "triggerConfig": {
+      "event": "file_edit"
+    },
+    "compatibleAgents": [
+      "cursor",
+      "claude-code"
+    ],
+    "bestForAgents": [
+      "cursor"
+    ],
+    "examples": [],
+    "installBundle": {
+      "files": [
+        {
+          "path": ".cursor/hooks.json",
+          "content": "{\n  \"version\": 1,\n  \"hooks\": {\n    \"afterFileEdit\": [\n      {\n        \"type\": \"prompt\",\n        \"prompt\": \"Post-Edit Test Guard: run related tests for the files just edited. If tests fail, fix them before continuing other work.\"\n      }\n    ]\n  }\n}"
+        },
+        {
+          "path": ".claude/settings.json",
+          "content": "{\n  \"hooks\": {\n    \"PostToolUse\": [\n      {\n        \"matcher\": \"Write|Edit\",\n        \"hooks\": [\n          {\n            \"type\": \"prompt\",\n            \"prompt\": \"Post-Edit Test Guard: run related tests for the files just edited. If tests fail, fix them before continuing other work.\"\n          }\n        ]\n      }\n    ]\n  }\n}"
+        },
+        {
+          "path": ".cursor/loops/post-edit-test-guard/README.md",
+          "content": "# Post-Edit Test Guard\n\nUses the `afterFileEdit` hook (Cursor) and `PostToolUse` hook (Claude Code) to run related tests after edits.\n\n## Pair with\nCopy the kickoff prompt from loops! to align agent behavior with the hook.\n"
+        }
+      ]
+    }
+  },
+  {
+    "slug": "post-merge-regression-guard",
+    "title": "Post-Merge Regression Guard",
+    "description": "Hook that runs smoke tests after git merge or rebase to catch integration regressions immediately.",
+    "category": "Testing",
+    "tags": [
+      "hooks",
+      "testing",
+      "git",
+      "merge"
+    ],
+    "source": "curated",
+    "author": "loops!",
+    "featured": false,
+    "kickoffPrompt": "Install and run the \"Post-Merge Regression Guard\" loop.\n\nGoal: smoke tests pass immediately after every merge or rebase.\nBetween iterations run: npm run test:smoke\nExit when: smoke suite exits 0.\n\nStep 1: After a merge, run smoke tests. Fix regressions before continuing other work.",
+    "exitCondition": {
+      "type": "tests_pass",
+      "command": "npm run test:smoke",
+      "description": "Smoke tests pass after merge"
+    },
+    "guardrails": [],
+    "steps": [
+      {
+        "name": "Detect merge",
+        "prompt": "Confirm a merge or rebase just completed. Identify affected areas from the diff stat."
+      },
+      {
+        "name": "Run smoke suite",
+        "prompt": "Run the fast smoke test suite. Fix any failures before starting new feature work.",
+        "shellCheck": "npm run test:smoke"
+      }
+    ],
+    "triggerType": "event",
+    "triggerConfig": {
+      "event": "git_merge"
+    },
+    "compatibleAgents": [
+      "cursor",
+      "claude-code"
+    ],
+    "bestForAgents": [
+      "cursor"
+    ],
+    "examples": [],
+    "installBundle": {
+      "files": [
+        {
+          "path": ".cursor/hooks.json",
+          "content": "{\n  \"version\": 1,\n  \"hooks\": {\n    \"stop\": [\n      {\n        \"type\": \"prompt\",\n        \"prompt\": \"Post-Merge Regression Guard: if the last git operation was a merge or rebase, run npm run test:smoke and fix failures before stopping.\"\n      }\n    ]\n  }\n}"
+        },
+        {
+          "path": ".claude/settings.json",
+          "content": "{\n  \"hooks\": {\n    \"Stop\": [\n      {\n        \"hooks\": [\n          {\n            \"type\": \"prompt\",\n            \"prompt\": \"Post-Merge Regression Guard: if a merge or rebase just happened, run npm run test:smoke and fix failures.\"\n          }\n        ]\n      }\n    ]\n  }\n}"
+        },
+        {
+          "path": ".cursor/loops/post-merge-regression-guard/README.md",
+          "content": "# Post-Merge Regression Guard\n\nRuns smoke tests after merge/rebase operations via stop hooks.\n\nPair with the kickoff prompt from loops! for agent behavior."
+        }
+      ]
+    }
+  },
+  {
+    "slug": "pr-babysitter",
+    "title": "PR Babysitter",
+    "description": "Every 15 minutes, inspect open PRs with a watch label: nudge reviewers, fix CI, rebase if behind main.",
+    "category": "CI",
+    "tags": [
+      "pr",
+      "github",
+      "ci",
+      "boris-cherny"
+    ],
+    "source": "curated",
+    "author": "loops!",
+    "featured": true,
+    "kickoffPrompt": "/loop 15m Start the \"PR Babysitter\" loop.\n\nGoal: open PRs labeled codex-watch are healthy (CI green, rebased, not stale).\nMax iterations: 20.\nBetween iterations run: gh pr list --label \"codex-watch\"\nExit when: each watched PR is green and current, or escalated.\n\nStep 1: List watched PRs. Fix CI once, rebase if behind, comment if stale. Escalate repeated failures.",
+    "exitCondition": {
+      "type": "manual",
+      "description": "All watched PRs are green, rebased, or escalated with a clear blocker note",
+      "maxIterations": 20
+    },
+    "guardrails": [],
+    "steps": [
+      {
+        "name": "List watched PRs",
+        "prompt": "List open PRs with the watch label. Skip merged, draft, or conflict-only PRs that need human product input.",
+        "shellCheck": "gh pr list --label \"codex-watch\" --json number,title,mergeable,statusCheckRollup"
+      },
+      {
+        "name": "Triage each PR",
+        "prompt": "For each PR: if CI failed, fix once; if behind main, rebase; if stale review, leave a short status comment."
+      },
+      {
+        "name": "Escalate blockers",
+        "prompt": "Stop on merge conflicts needing product decisions or the same failure twice. Report blockers clearly."
+      }
+    ],
+    "triggerType": "interval",
+    "triggerConfig": {
+      "interval": "15m"
+    },
+    "compatibleAgents": [
+      "codex",
+      "cursor"
+    ],
+    "bestForAgents": [
+      "codex",
+      "cursor"
+    ],
+    "examples": [],
+    "installBundle": {
+      "files": []
+    }
+  },
+  {
+    "slug": "pr-self-review",
+    "title": "PR Self-Review",
+    "description": "Review your own diff like a senior reviewer, fix issues, and repeat for three passes before opening the PR.",
+    "category": "Review",
+    "tags": [
+      "review",
+      "pr",
+      "quality"
+    ],
+    "source": "curated",
+    "author": "loops!",
+    "featured": false,
+    "kickoffPrompt": "Start the \"PR Self-Review\" loop.\n\nGoal: three clean self-review passes on the current diff\nMax iterations: 3\nBetween iterations run: git diff main...HEAD\nExit when: three passes complete with no critical findings\n\nStep 1: Review the diff like a senior reviewer. Fix findings, then re-review.\n\nSelf-pace this loop. After each iteration, run the check command, read the output, and only continue if the exit condition is not met. Stop when the exit condition passes or max iterations is reached. Give a short status update each pass.",
+    "exitCondition": {
+      "type": "max_iterations",
+      "maxIterations": 3,
+      "description": "Three review passes completed with no critical findings"
+    },
+    "guardrails": [
+      "Do not modify the check command or exit criteria to force success",
+      "Do not skip, disable, or bypass checks to pass the exit condition",
+      "If stuck after several iterations, stop and report blockers instead of gaming metrics"
+    ],
+    "steps": [
+      {
+        "name": "Review diff",
+        "prompt": "Review the current branch diff. List bugs, edge cases, naming issues, and missing tests."
+      },
+      {
+        "name": "Address findings",
+        "prompt": "Fix the highest-severity findings from the review with minimal scope."
+      },
+      {
+        "name": "Re-review",
+        "prompt": "Review the updated diff and confirm prior findings are resolved."
+      }
+    ],
+    "triggerType": "manual",
+    "triggerConfig": {
+      "type": "manual"
+    },
+    "compatibleAgents": [
+      "cursor",
+      "claude-code",
+      "any"
+    ],
+    "bestForAgents": [
+      "claude-code",
+      "cursor"
+    ],
+    "examples": [
+      {
+        "title": "Feature branch self-review",
+        "summary": "Three review passes caught a race condition, missing null check, and outdated test. PR opened with zero critical findings."
+      }
+    ],
+    "installBundle": {
+      "files": []
+    }
+  },
+  {
+    "slug": "pr-watch-loop",
+    "title": "PR Watch Loop",
+    "description": "Poll open PRs labeled codex-watch every 15 minutes, review activity, and flag regressions or stale threads.",
+    "category": "CI",
+    "tags": [
+      "ci",
+      "pr",
+      "watch",
+      "codex"
+    ],
+    "source": "curated",
+    "author": "loops!",
+    "featured": true,
+    "kickoffPrompt": "/loop 15m Start the \"PR Watch Loop\".\n\nGoal: keep codex-watch PRs healthy and unblocked.\nBetween iterations run: gh pr list --label codex-watch --json number,title,state,statusCheckRollup\nExit when: status report is delivered for every watched PR.\n\nStep 1: List codex-watch PRs, check CI and reviews, and report or fix trivial blockers.",
+    "exitCondition": {
+      "type": "manual",
+      "description": "Watch report delivered for all codex-watch PRs"
+    },
+    "guardrails": [],
+    "steps": [
+      {
+        "name": "List watched PRs",
+        "prompt": "List open PRs with the codex-watch label. Summarize CI status, review state, and last activity.",
+        "shellCheck": "gh pr list --label codex-watch --json number,title,state,statusCheckRollup"
+      },
+      {
+        "name": "Check CI and reviews",
+        "prompt": "For each watched PR, check failing checks, unresolved review comments, and merge conflicts."
+      },
+      {
+        "name": "Report or act",
+        "prompt": "Post a brief status update. Fix trivial CI failures or ping the author for blockers."
+      }
+    ],
+    "triggerType": "interval",
+    "triggerConfig": {
+      "interval": "15m"
+    },
+    "compatibleAgents": [
+      "codex",
+      "cursor"
+    ],
+    "bestForAgents": [
+      "codex",
+      "cursor"
+    ],
+    "examples": [],
+    "installBundle": {
+      "files": []
+    }
+  },
+  {
+    "slug": "pre-commit-guard",
+    "title": "Pre-Commit Guard",
+    "description": "Hook that runs tests before git commit commands to block commits when the suite is red.",
+    "category": "Testing",
+    "tags": [
+      "hooks",
+      "testing",
+      "git",
+      "pre-commit"
+    ],
+    "source": "curated",
+    "author": "loops!",
+    "featured": true,
+    "kickoffPrompt": "Install and run the \"Pre-Commit Guard\" loop.\n\nGoal: block git commits when tests are failing.\nBetween iterations run: npm test\nExit when: tests exit 0 before each commit.\n\nStep 1: Before any git commit, run tests. Fix failures before committing.",
+    "exitCondition": {
+      "type": "tests_pass",
+      "command": "npm test",
+      "description": "Tests pass before each git commit"
+    },
+    "guardrails": [],
+    "steps": [
+      {
+        "name": "Detect commit intent",
+        "prompt": "When a git commit command is about to run, pause and run the test suite first."
+      },
+      {
+        "name": "Run tests",
+        "prompt": "Run the full test suite before allowing the commit to proceed.",
+        "shellCheck": "npm test"
+      },
+      {
+        "name": "Block or allow",
+        "prompt": "If tests fail, fix failures and re-run. Only allow the commit when tests pass."
+      }
+    ],
+    "triggerType": "event",
+    "triggerConfig": {
+      "event": "file_edit"
+    },
+    "compatibleAgents": [
+      "cursor",
+      "claude-code"
+    ],
+    "bestForAgents": [
+      "cursor"
+    ],
+    "examples": [],
+    "installBundle": {
+      "files": [
+        {
+          "path": ".cursor/hooks.json",
+          "content": "{\n  \"version\": 1,\n  \"hooks\": {\n    \"beforeShellExecution\": [\n      {\n        \"type\": \"prompt\",\n        \"matcher\": \"git commit\",\n        \"prompt\": \"Pre-Commit Guard: run npm test before committing. If tests fail, fix them and do not commit until the suite is green.\"\n      }\n    ]\n  }\n}"
+        },
+        {
+          "path": ".claude/settings.json",
+          "content": "{\n  \"hooks\": {\n    \"PreToolUse\": [\n      {\n        \"matcher\": \"Bash\",\n        \"hooks\": [\n          {\n            \"type\": \"prompt\",\n            \"prompt\": \"Pre-Commit Guard: if this is a git commit, run npm test first. Block the commit if tests fail.\"\n          }\n        ]\n      }\n    ]\n  }\n}"
+        },
+        {
+          "path": ".cursor/loops/pre-commit-guard/README.md",
+          "content": "# Pre-Commit Guard\n\nUses `beforeShellExecution` (Cursor) and `PreToolUse` (Claude Code) to run tests before git commits.\n\n## Pair with\nCopy the kickoff prompt from loops! to align agent behavior with the hook.\n"
+        }
+      ]
+    }
+  },
+  {
+    "slug": "ralph-story-executor",
+    "title": "Ralph Story Executor",
+    "description": "Fresh-context loop: pick one incomplete story from prd.json, implement it, run backpressure checks, commit, and update progress before the next iteration.",
+    "category": "Automation",
+    "tags": [
+      "ralph",
+      "automation",
+      "prd",
+      "fresh-context"
+    ],
+    "source": "curated",
+    "author": "loops!",
+    "featured": true,
+    "kickoffPrompt": "Start the \"Ralph Story Executor\" loop.\n\nGoal: every story in .ralph/prd.json has passes: true\nMax iterations: 20\nBetween iterations run: npm test && npm run lint && npm run build\nExit when: no stories remain with passes: false (respond \"ALL STORIES ARE COMPLETE\")\n\nStep 1: Read .ralph/prd.json and .ralph/progress.md. Pick one incomplete story, implement it, run backpressure checks, commit, update prd.json and progress.md, then stop this iteration.\n\nSelf-pace this loop. Each iteration does exactly one story. State lives on disk, not in chat history.",
+    "exitCondition": {
+      "type": "manual",
+      "command": "cat .ralph/prd.json | grep -c '\"passes\": false' || true",
+      "maxIterations": 20,
+      "description": "All stories in prd.json have passes: true"
+    },
+    "guardrails": "$18:props:initialData:0:guardrails",
+    "steps": [
+      {
+        "name": "Read state",
+        "prompt": "Read .ralph/prd.json and .ralph/progress.md. Resume any story marked inProgress, else pick the lowest-priority story with passes: false."
+      },
+      {
+        "name": "Implement one story",
+        "prompt": "Implement exactly one user story with minimal scope. Mark it inProgress in prd.json before coding."
+      },
+      {
+        "name": "Run backpressure",
+        "prompt": "Run the project's test, lint, and build commands from AGENTS.md. Fix failures before committing.",
+        "shellCheck": "npm test && npm run lint && npm run build"
+      },
+      {
+        "name": "Commit and record",
+        "prompt": "Commit with a story-scoped message. Set passes: true in prd.json and append learnings to progress.md."
+      }
+    ],
+    "triggerType": "manual",
+    "triggerConfig": {
+      "type": "manual"
+    },
+    "compatibleAgents": [
+      "cursor",
+      "claude-code",
+      "codex"
+    ],
+    "bestForAgents": [
+      "cursor",
+      "claude-code"
+    ],
+    "examples": "$18:props:initialData:0:examples",
+    "installBundle": {
+      "files": [
+        {
+          "path": ".ralph/prd.json",
+          "content": "{\n  \"stories\": [\n    {\n      \"id\": \"story-1\",\n      \"title\": \"Example user story\",\n      \"description\": \"Replace with your first atomic task\",\n      \"priority\": 1,\n      \"passes\": false,\n      \"inProgress\": false\n    }\n  ]\n}\n"
+        },
+        {
+          "path": ".ralph/progress.md",
+          "content": "# Ralph progress\n\nAppend one short learning per iteration. The next fresh context reads this file first.\n\n## Iteration log\n"
+        },
+        {
+          "path": ".ralph/guardrails.md",
+          "content": "# Guardrails\n\nSigns learned from failures. The agent must read this before each story.\n\n- Run tests before every commit.\n- One story per iteration — no scope creep.\n"
+        },
+        {
+          "path": ".cursor/loops/ralph-story-executor/README.md",
+          "content": "# Ralph Story Executor\n\nFilesystem-backed Ralph loop. Each /ralph-loop or kickoff iteration implements one story.\n\n## Files\n- `.ralph/prd.json` — task list with passes/inProgress flags\n- `.ralph/progress.md` — iteration learnings\n- `.ralph/guardrails.md` — failure signs\n\nInspired by Geoffrey Huntley's Ralph pattern and fresh-context agent loops.\n"
+        }
+      ]
+    }
+  },
+  {
+    "slug": "reflexion-debug-loop",
+    "title": "Reflexion Debug Loop",
+    "description": "On each failed repro attempt, write a short reflection to disk, then retry with that memory — avoids repeating the same wrong fix.",
+    "category": "Debugging",
+    "tags": [
+      "debugging",
+      "reflexion",
+      "memory"
+    ],
+    "source": "curated",
+    "author": "loops!",
+    "featured": true,
+    "kickoffPrompt": "Start the \"Reflexion Debug Loop\" loop.\n\nGoal: the failing test or repro passes\nMax iterations: 8\nBetween iterations run: npm test -- --testNamePattern=<failing-test>\nExit when: the repro test exits 0\n\nStep 1: Reproduce the bug. If it fails, append a reflection to .loops/reflexion.md before trying a new fix.\n\nSelf-pace this loop. After each iteration, run the check command, read the output, and only continue if the exit condition is not met. Stop when the exit condition passes or max iterations is reached. Give a short status update each pass.",
+    "exitCondition": {
+      "type": "tests_pass",
+      "command": "npm test -- --testNamePattern=<failing-test>",
+      "description": "Previously failing test passes",
+      "maxIterations": 8
+    },
+    "guardrails": [],
+    "steps": [
+      {
+        "name": "Reproduce bug",
+        "prompt": "Run the minimal repro steps or failing test. Capture exact error output.",
+        "shellCheck": "npm test -- --testNamePattern=<failing-test>"
+      },
+      {
+        "name": "Reflect on failure",
+        "prompt": "Append to .loops/reflexion.md: what you tried, what failed, and one hypothesis to avoid next pass."
+      },
+      {
+        "name": "Apply targeted fix",
+        "prompt": "Read reflexion.md. Apply a different fix than prior attempts. Prefer root cause over symptoms."
+      }
+    ],
+    "triggerType": "manual",
+    "triggerConfig": {
+      "type": "manual"
+    },
+    "compatibleAgents": [
+      "cursor",
+      "claude-code",
+      "any"
+    ],
+    "bestForAgents": [
+      "claude-code",
+      "cursor"
+    ],
+    "examples": [],
+    "installBundle": {
+      "files": [
+        {
+          "path": ".loops/reflexion.md",
+          "content": "# Reflexion log\n\nEach failed attempt gets one short entry: what was tried, what failed, what to try differently.\n\n## Attempts\n"
+        }
+      ]
+    }
+  },
+  {
+    "slug": "security-audit-weekly",
+    "title": "Security Audit Weekly",
+    "description": "Weekly npm audit scan, triage vulnerabilities by severity, and propose or apply safe patches.",
+    "category": "Maintenance",
+    "tags": [
+      "security",
+      "npm",
+      "audit",
+      "maintenance"
+    ],
+    "source": "curated",
+    "author": "loops!",
+    "featured": false,
+    "kickoffPrompt": "/loop 7d Start the \"Security Audit Weekly\" loop.\n\nGoal: deliver a weekly npm audit summary with a remediation plan.\nBetween iterations run: npm audit --json\nExit when: summary is posted with prioritized fixes.\n\nStep 1: Run npm audit, triage by severity, and propose safe remediation steps.",
+    "exitCondition": {
+      "type": "manual",
+      "description": "Weekly security audit summary delivered with remediation plan"
+    },
+    "guardrails": "$18:props:initialData:0:guardrails",
+    "steps": [
+      {
+        "name": "Run npm audit",
+        "prompt": "Run npm audit and capture critical, high, and moderate findings.",
+        "shellCheck": "npm audit --json"
+      },
+      {
+        "name": "Triage findings",
+        "prompt": "Group vulnerabilities by severity and exploitability. Flag dev-only vs production exposure."
+      },
+      {
+        "name": "Propose fixes",
+        "prompt": "Recommend npm audit fix, targeted overrides, or dependency bumps. Note breaking changes."
+      }
+    ],
+    "triggerType": "interval",
+    "triggerConfig": {
+      "interval": "7d"
+    },
+    "compatibleAgents": [
+      "cursor",
+      "claude-code"
+    ],
+    "bestForAgents": [
+      "claude-code"
+    ],
+    "examples": "$18:props:initialData:0:examples",
+    "installBundle": {
+      "files": []
+    }
+  },
+  {
+    "slug": "ship-pr-until-green",
+    "title": "Ship PR Until Green",
+    "description": "Implement on a branch, run tests, push, open a PR, wait for CI, and loop until checks pass and the PR is ready to merge.",
+    "category": "CI",
+    "tags": [
+      "pr",
+      "ci",
+      "ship",
+      "continuous-claude"
+    ],
+    "source": "curated",
+    "author": "loops!",
+    "featured": true,
+    "kickoffPrompt": "Start the \"Ship PR Until Green\" loop.\n\nGoal: PR is open with all CI checks passing\nMax iterations: 10\nBetween iterations run: gh pr checks\nExit when: all PR checks are success\n\nStep 1: Implement the change, test locally, push, open PR, and fix CI until green.\n\nSelf-pace this loop. After each iteration, run the check command, read the output, and only continue if the exit condition is not met. Stop when the exit condition passes or max iterations is reached. Give a short status update each pass.",
+    "exitCondition": {
+      "type": "ci_green",
+      "command": "gh pr checks --watch",
+      "description": "PR checks pass and PR is merge-ready",
+      "maxIterations": 10
+    },
+    "guardrails": [],
+    "steps": [
+      {
+        "name": "Implement and test",
+        "prompt": "Make the scoped change and run local tests.",
+        "shellCheck": "npm test"
+      },
+      {
+        "name": "Commit and push",
+        "prompt": "Commit with a clear message and push the branch."
+      },
+      {
+        "name": "Open or update PR",
+        "prompt": "Open a PR with summary and test plan, or update existing PR.",
+        "shellCheck": "gh pr view --json statusCheckRollup,url"
+      },
+      {
+        "name": "Fix CI",
+        "prompt": "If CI fails, read logs, fix once locally, push, and re-wait."
+      }
+    ],
+    "triggerType": "manual",
+    "triggerConfig": {
+      "type": "manual"
+    },
+    "compatibleAgents": [
+      "claude-code",
+      "cursor",
+      "codex"
+    ],
+    "bestForAgents": [
+      "claude-code",
+      "cursor"
+    ],
+    "examples": [],
+    "installBundle": {
+      "files": []
+    }
+  },
+  {
+    "slug": "spec-first-ship",
+    "title": "Spec-First Ship",
+    "description": "Implement from a written spec.md checklist — each iteration completes one unchecked requirement with verification.",
+    "category": "Planning",
+    "tags": [
+      "planning",
+      "spec",
+      "requirements"
+    ],
+    "source": "curated",
+    "author": "loops!",
+    "featured": true,
+    "kickoffPrompt": "Start the \"Spec-First Ship\" loop.\n\nGoal: every requirement in spec.md is implemented and checked off\nMax iterations: 15\nBetween iterations run: npm test\nExit when: spec.md has no unchecked requirements\n\nStep 1: Read spec.md, implement the first unchecked item, verify it, mark [x], and stop this iteration.\n\nSelf-pace this loop. After each iteration, run the check command, read the output, and only continue if the exit condition is not met. Stop when the exit condition passes or max iterations is reached. Give a short status update each pass.",
+    "exitCondition": {
+      "type": "manual",
+      "description": "Every requirement in spec.md is checked off",
+      "maxIterations": 15
+    },
+    "guardrails": [],
+    "steps": [
+      {
+        "name": "Read spec",
+        "prompt": "Read spec.md. Pick the first unchecked requirement. Do not start multiple requirements in one pass."
+      },
+      {
+        "name": "Implement requirement",
+        "prompt": "Implement that single requirement with tests. Mark it [x] in spec.md only after verification."
+      },
+      {
+        "name": "Verify",
+        "prompt": "Run tests and manual checks listed in the spec for this requirement.",
+        "shellCheck": "npm test"
+      }
+    ],
+    "triggerType": "manual",
+    "triggerConfig": {
+      "type": "manual"
+    },
+    "compatibleAgents": [
+      "cursor",
+      "claude-code",
+      "codex",
+      "any"
+    ],
+    "bestForAgents": [
+      "claude-code",
+      "cursor"
+    ],
+    "examples": [],
+    "installBundle": {
+      "files": [
+        {
+          "path": "spec.md",
+          "content": "# Feature spec\n\nCheck off each item only after it is implemented and verified.\n\n## Requirements\n- [ ] Requirement 1 — describe acceptance criteria\n- [ ] Requirement 2 — describe acceptance criteria\n"
+        }
+      ]
+    }
+  },
+  {
+    "slug": "staging-smoke-test",
+    "title": "Staging Smoke Test",
+    "description": "Run a fixed smoke checklist against staging after deploy: auth, core flows, and error budgets.",
+    "category": "DevOps",
+    "tags": [
+      "staging",
+      "smoke-test",
+      "deploy"
+    ],
+    "source": "curated",
+    "author": "loops!",
+    "featured": false,
+    "kickoffPrompt": "Start the \"Staging Smoke Test\" loop.\n\nGoal: staging smoke checklist passes\nMax iterations: 6\nBetween iterations run: npm run smoke:staging\nExit when: smoke command exits 0\n\nStep 1: Run the staging smoke checklist. Fix the first failing item, then repeat.\n\nSelf-pace this loop. After each iteration, run the check command, read the output, and only continue if the exit condition is not met. Stop when the exit condition passes or max iterations is reached. Give a short status update each pass.",
+    "exitCondition": {
+      "type": "ci_green",
+      "command": "npm run smoke:staging",
+      "description": "Staging smoke checklist passes",
+      "maxIterations": 6
+    },
+    "guardrails": [],
+    "steps": [
+      {
+        "name": "Run smoke checklist",
+        "prompt": "Execute the staging smoke script or manual checklist (login, critical path, webhooks).",
+        "shellCheck": "npm run smoke:staging"
+      },
+      {
+        "name": "Fix failures",
+        "prompt": "If smoke fails, trace logs, fix the smallest issue, and redeploy or hotfix as appropriate."
+      },
+      {
+        "name": "Confirm green",
+        "prompt": "Re-run smoke until all checklist items pass.",
+        "shellCheck": "npm run smoke:staging"
+      }
+    ],
+    "triggerType": "manual",
+    "triggerConfig": {
+      "type": "manual"
+    },
+    "compatibleAgents": [
+      "cursor",
+      "claude-code"
+    ],
+    "bestForAgents": [
+      "cursor"
+    ],
+    "examples": [],
+    "installBundle": {
+      "files": []
+    }
+  },
+  {
+    "slug": "test-until-green",
+    "title": "Test Until Green",
+    "description": "Run your test suite, fix the smallest root cause on failure, and repeat until every test passes.",
+    "category": "Testing",
+    "tags": [
+      "testing",
+      "tdd",
+      "ci"
+    ],
+    "source": "curated",
+    "author": "loops!",
+    "featured": true,
+    "kickoffPrompt": "Start the \"Test Until Green\" loop.\n\nGoal: all tests pass\nMax iterations: 10\nBetween iterations run: npm test\nExit when: tests exit 0\n\nStep 1: Run tests. If there are failures, fix the smallest root cause, then repeat.\n\nSelf-pace this loop. After each iteration, run the check command, read the output, and only continue if the exit condition is not met. Stop when the exit condition passes or max iterations is reached. Give a short status update each pass.",
+    "exitCondition": {
+      "type": "tests_pass",
+      "command": "npm test",
+      "description": "All tests pass (exit code 0)",
+      "maxIterations": 10
+    },
+    "guardrails": [
+      "Do not modify the check command or exit criteria to force success",
+      "Do not skip, disable, or bypass checks to pass the exit condition",
+      "If stuck after several iterations, stop and report blockers instead of gaming metrics",
+      "Do not weaken, delete, or skip tests to make the suite pass",
+      "Do not replace real assertions with trivial always-pass tests",
+      "Prefer fixing production code over patching tests to go green"
+    ],
+    "steps": [
+      {
+        "name": "Run tests",
+        "prompt": "Run the project test command and capture failures.",
+        "shellCheck": "npm test"
+      },
+      {
+        "name": "Fix failures",
+        "prompt": "Fix the smallest root cause for the current failing tests. Prefer minimal diffs."
+      },
+      {
+        "name": "Re-run tests",
+        "prompt": "Run tests again and verify progress toward zero failures.",
+        "shellCheck": "npm test"
+      }
+    ],
+    "triggerType": "manual",
+    "triggerConfig": {
+      "type": "manual"
+    },
+    "compatibleAgents": [
+      "cursor",
+      "claude-code",
+      "any"
+    ],
+    "bestForAgents": [
+      "cursor",
+      "claude-code"
+    ],
+    "examples": [
+      {
+        "title": "Next.js app test suite",
+        "summary": "Fixed 3 failing Jest suites in 6 iterations. Root causes were async timing, missing mocks, and stale snapshots — no tests skipped."
+      }
+    ],
+    "installBundle": {
+      "files": [
+        {
+          "path": ".cursor/loops/test-until-green/README.md",
+          "content": "# Test Until Green\n\nRun tests after agent work until the suite is green.\n\n## Exit condition\n- `npm test` exits 0\n\n## Max iterations\n10\n"
+        }
+      ]
+    }
+  },
+  {
+    "slug": "visual-regression-until-match",
+    "title": "Visual Regression Until Match",
+    "description": "Run Playwright or Percy visual snapshots on UI changes; fix unintended diffs until baselines match intentionally.",
+    "category": "Testing",
+    "tags": [
+      "testing",
+      "visual",
+      "playwright",
+      "ui"
+    ],
+    "source": "curated",
+    "author": "loops!",
+    "featured": false,
+    "kickoffPrompt": "Start the \"Visual Regression Until Match\" loop.\n\nGoal: visual regression suite passes with intentional UI only\nMax iterations: 6\nBetween iterations run: npx playwright test --grep @visual\nExit when: visual tests exit 0\n\nStep 1: Run visual tests. Fix unintended UI diffs; update baselines only for deliberate design changes.\n\nSelf-pace this loop. After each iteration, run the check command, read the output, and only continue if the exit condition is not met. Stop when the exit condition passes or max iterations is reached. Give a short status update each pass.",
+    "exitCondition": {
+      "type": "tests_pass",
+      "command": "npx playwright test --grep @visual",
+      "description": "Visual regression tests pass with approved baselines",
+      "maxIterations": 6
+    },
+    "guardrails": [],
+    "steps": [
+      {
+        "name": "Run visual tests",
+        "prompt": "Run visual regression tests. List screenshots that differ from baseline with component names.",
+        "shellCheck": "npx playwright test --grep @visual"
+      },
+      {
+        "name": "Fix or approve",
+        "prompt": "If diffs are bugs, fix CSS/markup. If intentional, update snapshots only after verifying in report."
+      }
+    ],
+    "triggerType": "manual",
+    "triggerConfig": {
+      "type": "manual"
+    },
+    "compatibleAgents": [
+      "cursor",
+      "any"
+    ],
+    "bestForAgents": [
+      "cursor"
+    ],
+    "examples": [],
+    "installBundle": {
+      "files": []
+    }
+  }
+]

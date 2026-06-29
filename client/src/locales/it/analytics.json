@@ -25,7 +25,9 @@
     "all": "Tutti",
     "engine": "Engine",
     "ticketChip": "ticket #{{id}} ·  ✕",
-    "failedToLoad": "Caricamento non riuscito: {{error}}"
+    "failedToLoad": "Caricamento non riuscito: {{error}}",
+    "modelChip": "Modello: {{model}}",
+    "clearModelFilter": "Rimuovi filtro modello"
   },
   "hero": {
     "spending": "Spesa",
@@ -45,7 +47,9 @@
     "title": "Per provider",
     "description": "Come si ripartisce il costo tra le CLI AI di questo progetto. Il prefisso <tilde>~</tilde> indica le righe in cui il costo è stimato dalla tabella prezzi locale (il provider non lo riporta nativamente).",
     "noCost": "Ancora nessun costo registrato in questa finestra.",
-    "segmentTitle": "{{label}}: {{value}} ({{count}})"
+    "segmentTitle": "{{label}}: {{value}} ({{count}})",
+    "costUnavailable": "costo non disponibile",
+    "costUnavailableTooltip": "Questo provider è stato eseguito ma il suo modello non è nella tabella prezzi, quindi non è stato possibile calcolare alcun costo."
   },
   "timeline": {
     "title": "Timeline giornaliera",
@@ -62,17 +66,21 @@
     "perSpec": "per spec",
     "createdRuns": "<strong>{{created}}</strong> create · {{runs}} esecuzioni",
     "avgDuration": "{{duration}} in media",
-    "ratio": "{{ratio}}× in più per spec"
+    "ratio": "{{ratio}}× in più per spec",
+    "estimatedTooltip": "Costo stimato (stima da tabella prezzi per codex/gemini, non fatturato dal provider)",
+    "estimatedFootnote": "~ Include costi stimati (codex/gemini)"
   },
   "models": {
     "title": "Modelli",
-    "empty": "Nessun modello registrato."
+    "empty": "Nessun modello registrato.",
+    "estimatedTooltip": "Stimato dalla tabella prezzi locale — questo provider non riporta il costo in modo nativo."
   },
   "scatter": {
     "title": "Costo vs Turni",
     "empty": "Nessuna invocazione da rappresentare.",
     "turnsLabel": "turni",
-    "costLabel": "costo"
+    "costLabel": "costo",
+    "truncated": "Visualizzati {{shown}} di {{total}} — il punto più costoso viene mantenuto, ma i punti precedenti sono nascosti"
   },
   "topTickets": {
     "title": "Top ticket",
@@ -110,7 +118,11 @@
       "failed": "fallita",
       "aborted": "interrotta"
     },
-    "truncated": "Mostrate le prime {{shown}} di {{total}} righe corrispondenti."
+    "truncated": "Mostrate le prime {{shown}} di {{total}} righe corrispondenti.",
+    "colProvider": "Provider",
+    "sortLabel": "Ordina",
+    "sortRecency": "Recenti",
+    "sortCost": "Costo"
   },
   "export": {
     "summaryCsv": "CSV riepilogo",
@@ -140,6 +152,13 @@
     "jobsCount_one": "{{count}} job",
     "jobsCount_other": "{{count}} job",
     "successPct": "{{pct}}% di successo",
-    "costByProject": "Costo per progetto"
+    "costByProject": "Costo per progetto",
+    "includesEstimated": "~{{amount}} stimato",
+    "includesEstimatedTooltip": "Include {{amount}} di costo stimato da tabella prezzi (codex/gemini), non fatturato dal provider.",
+    "includesEstimatedShort": "incl. stimato",
+    "timelineEstimatedTooltip": "Alcuni giorni includono un costo stimato da tabella prezzi (codex/gemini) contrassegnato con ~.",
+    "estimatedBadge": "stim.",
+    "projectEstimatedTooltip": "{{amount}} del costo di questo progetto è una stima da tabella prezzi (codex/gemini), non fatturato dal provider.",
+    "statusBarEstimatedTooltip": "Include un costo stimato da tabella prezzi (codex/gemini), non fatturato dal provider."
   }
 }

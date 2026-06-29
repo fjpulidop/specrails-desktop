@@ -25,7 +25,9 @@
     "all": "All",
     "engine": "Engine",
     "ticketChip": "ticket #{{id}} ·  ✕",
-    "failedToLoad": "Failed to load: {{error}}"
+    "failedToLoad": "Failed to load: {{error}}",
+    "modelChip": "Model: {{model}}",
+    "clearModelFilter": "Clear model filter"
   },
   "hero": {
     "spending": "Spending",
@@ -45,7 +47,9 @@
     "title": "By provider",
     "description": "How cost splits across the AI CLIs in this project. The <tilde>~</tilde> prefix marks rows where cost is estimated from the local pricing table (the provider does not report it natively).",
     "noCost": "No cost recorded yet in this window.",
-    "segmentTitle": "{{label}}: {{value}} ({{count}})"
+    "segmentTitle": "{{label}}: {{value}} ({{count}})",
+    "costUnavailable": "cost unavailable",
+    "costUnavailableTooltip": "This provider ran but its model is not in the pricing table, so no cost could be computed."
   },
   "timeline": {
     "title": "Daily timeline",
@@ -62,17 +66,21 @@
     "perSpec": "per spec",
     "createdRuns": "<strong>{{created}}</strong> created · {{runs}} runs",
     "avgDuration": "{{duration}} avg",
-    "ratio": "{{ratio}}× more per spec"
+    "ratio": "{{ratio}}× more per spec",
+    "estimatedTooltip": "Estimated cost (codex/gemini pricing-table fallback, not provider-billed)",
+    "estimatedFootnote": "~ Includes estimated costs (codex/gemini)"
   },
   "models": {
     "title": "Models",
-    "empty": "No models recorded."
+    "empty": "No models recorded.",
+    "estimatedTooltip": "Estimated from the local pricing table — this provider does not report cost natively."
   },
   "scatter": {
     "title": "Cost vs Turns",
     "empty": "No invocations to plot.",
     "turnsLabel": "turns",
-    "costLabel": "cost"
+    "costLabel": "cost",
+    "truncated": "Showing {{shown}} of {{total}} — the costliest point is kept, but earlier points are hidden"
   },
   "topTickets": {
     "title": "Top tickets",
@@ -110,7 +118,11 @@
       "failed": "failed",
       "aborted": "aborted"
     },
-    "truncated": "Showing first {{shown}} of {{total}} matching rows."
+    "truncated": "Showing first {{shown}} of {{total}} matching rows.",
+    "colProvider": "Provider",
+    "sortLabel": "Sort",
+    "sortRecency": "Recent",
+    "sortCost": "Cost"
   },
   "export": {
     "summaryCsv": "Summary CSV",
@@ -140,6 +152,13 @@
     "jobsCount_one": "{{count}} job",
     "jobsCount_other": "{{count}} jobs",
     "successPct": "{{pct}}% success",
-    "costByProject": "Cost by Project"
+    "costByProject": "Cost by Project",
+    "includesEstimated": "~{{amount}} estimated",
+    "includesEstimatedTooltip": "Includes {{amount}} of rate-card estimated cost (codex/gemini), not provider-billed.",
+    "includesEstimatedShort": "incl. estimated",
+    "timelineEstimatedTooltip": "Some days include rate-card estimated cost (codex/gemini) marked with ~.",
+    "estimatedBadge": "est.",
+    "projectEstimatedTooltip": "{{amount}} of this project's cost is a rate-card estimate (codex/gemini), not provider-billed.",
+    "statusBarEstimatedTooltip": "Includes rate-card estimated cost (codex/gemini), not provider-billed."
   }
 }

@@ -21,19 +21,36 @@ export function SpendingTimeline({ data, loading }: Props) {
     quick: t('surfaces.quickSpec'),
     refine: t('surfaces.aiEdit'),
     fileSummaries: t('surfaces.fileSummary'),
+    smash: t('surfaces.smash'),
+    loop: t('surfaces.loop'),
   }
 
+  // The server already re-buckets dailyTimeline by the viewer's LOCAL calendar
+  // day (it receives tzOffsetMinutes and applies it in the day-bucket SQL), so
+  // each d.date is already a local YYYY-MM-DD string. The ONLY correct client
+  // step is to drop the year for the MM-DD axis label — re-parsing it as UTC and
+  // reformatting locally would double-apply the offset and shift the label a day.
   const chartData = data.dailyTimeline.map((d) => ({
-    date: d.date.slice(5), // MM-DD
+    date: d.date.slice(5),
     [labels.jobs]: d.jobsCostUsd,
     [labels.explore]: d.exploreCostUsd,
     [labels.quick]: d.quickCostUsd,
     [labels.refine]: d.aiEditCostUsd,
     [labels.fileSummaries]: d.fileSummaryCostUsd ?? 0,
+    [labels.smash]: d.smashCostUsd ?? 0,
+    [labels.loop]: d.loopCostUsd ?? 0,
   }))
 
   const isEmpty = data.dailyTimeline.every(
-    (d) => d.jobsCostUsd + d.exploreCostUsd + d.quickCostUsd + d.aiEditCostUsd + (d.fileSummaryCostUsd ?? 0) === 0
+    (d) =>
+      d.jobsCostUsd +
+        d.exploreCostUsd +
+        d.quickCostUsd +
+        d.aiEditCostUsd +
+        (d.fileSummaryCostUsd ?? 0) +
+        (d.smashCostUsd ?? 0) +
+        (d.loopCostUsd ?? 0) ===
+      0
   )
 
   return (
@@ -62,6 +79,8 @@ export function SpendingTimeline({ data, loading }: Props) {
               <Bar dataKey={labels.quick} stackId="a" fill="var(--accent-secondary, #f7768e)" />
               <Bar dataKey={labels.refine} stackId="a" fill="var(--accent-success, #50fa7b)" />
               <Bar dataKey={labels.fileSummaries} stackId="a" fill="var(--accent-warning, #f1fa8c)" />
+              <Bar dataKey={labels.smash} stackId="a" fill="var(--accent-highlight, #c084fc)" />
+              <Bar dataKey={labels.loop} stackId="a" fill="var(--accent-primary, #7aa2f7)" />
             </BarChart>
           </ResponsiveContainer>
         </div>

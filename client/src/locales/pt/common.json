@@ -48,5 +48,18 @@
     "failed": "Falhou",
     "canceled": "Cancelado",
     "draft": "Rascunho"
+  },
+  "modal": {
+    "resize": {
+      "nw": "Redimensionar — canto superior esquerdo",
+      "n": "Redimensionar — borda superior",
+      "ne": "Redimensionar — canto superior direito",
+      "e": "Redimensionar — borda direita",
+      "se": "Redimensionar — canto inferior direito",
+      "s": "Redimensionar — borda inferior",
+      "sw": "Redimensionar — canto inferior esquerdo",
+      "w": "Redimensionar — borda esquerda"
+    },
+    "resetPosition": "Repor posição"
   }
 }

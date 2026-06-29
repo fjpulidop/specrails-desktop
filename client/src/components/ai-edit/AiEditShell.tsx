@@ -13,6 +13,8 @@ import {
   ChevronRight,
 } from 'lucide-react'
 import { Button } from '../ui/button'
+import { useMovableResizableModal } from '../../hooks/useMovableResizableModal'
+import { ResizeGrips } from '../ui/ResizeGrips'
 
 /**
  * Detect Tauri-on-Mac so we can reserve ~80px on the left for the native
@@ -122,7 +124,8 @@ export interface AiEditShellProps {
 export function AiEditShell(props: AiEditShellProps) {
   const [confirmDiscard, setConfirmDiscard] = useState(false)
   const previousFocusRef = useRef<Element | null>(null)
-  const containerRef = useRef<HTMLDivElement>(null)
+  const { panelRef, panelStyle, headerHandleProps, resizeHandles, isFloating } =
+    useMovableResizableModal()
 
   useEffect(() => {
     previousFocusRef.current = document.activeElement
@@ -177,11 +180,12 @@ export function AiEditShell(props: AiEditShellProps) {
       data-testid="ai-edit-backdrop"
     >
     <div
-      ref={containerRef}
+      ref={panelRef}
       role="dialog"
       aria-modal="true"
       aria-label={`${props.eyebrow} · ${props.targetLabel}`}
       className="m-auto w-full h-full max-w-[1600px] flex flex-col bg-background rounded-xl border border-border/40 shadow-2xl overflow-hidden"
+      style={panelStyle}
     >
       <Header
         eyebrow={props.eyebrow}
@@ -192,6 +196,8 @@ export function AiEditShell(props: AiEditShellProps) {
         onApply={props.onApply}
         onDiscard={requestDiscard}
         onMinimize={props.onMinimize}
+        headerHandleProps={headerHandleProps}
+        isFloating={isFloating}
       />
 
       {isFocused && (
@@ -225,6 +231,7 @@ export function AiEditShell(props: AiEditShellProps) {
         />
       )}
     </div>
+    <ResizeGrips handles={resizeHandles} />
     </div>
   )
 }
@@ -240,6 +247,8 @@ function Header({
   onApply,
   onDiscard,
   onMinimize,
+  headerHandleProps,
+  isFloating,
 }: {
   eyebrow: string
   targetLabel: string
@@ -249,6 +258,8 @@ function Header({
   onApply: () => void
   onDiscard: () => void
   onMinimize?: () => void
+  headerHandleProps: { onPointerDown: (e: React.PointerEvent<HTMLElement>) => void }
+  isFloating: boolean
 }) {
   const { t } = useTranslation('aiedit')
   // On Mac (Tauri overlay titlebar), traffic lights occupy ~80px at the
@@ -256,7 +267,10 @@ function Header({
   const macPadLeft = isMacTauriOverlay() ? 'pl-[88px]' : 'pl-4'
   return (
     <div
-      className={`flex-shrink-0 flex items-center justify-between ${macPadLeft} pr-4 h-14 border-b border-border bg-card/60 backdrop-blur-sm`}
+      {...headerHandleProps}
+      className={`flex-shrink-0 flex items-center justify-between ${macPadLeft} pr-4 h-14 border-b border-border bg-card/60 backdrop-blur-sm${
+        isFloating ? ' cursor-grab active:cursor-grabbing' : ''
+      }`}
     >
       <button
         type="button"

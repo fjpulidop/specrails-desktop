@@ -100,7 +100,8 @@
     "turns_one": "{{count}} 轮",
     "turns_other": "{{count}} 轮",
     "active": "活跃 {{duration}}",
-    "breakdownItem": "{{n}} {{label}}"
+    "breakdownItem": "{{n}} {{label}}",
+    "estimatedTooltip": "根据本地价格表估算 — 此提供商不原生报告成本。"
   },
   "toasts": {
     "newTicket": "新工单：{{title}}",

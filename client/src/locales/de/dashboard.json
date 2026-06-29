@@ -18,7 +18,10 @@
     "launchNetworkError": "Netzwerkfehler beim Starten des Rails",
     "railLaunched": "{{rail}} gestartet",
     "launchDescription_one": "{{mode}} mit {{count}} Spec",
-    "launchDescription_other": "{{mode}} mit {{count}} Specs"
+    "launchDescription_other": "{{mode}} mit {{count}} Specs",
+    "railWorktreeNeedsReview": "Rail {{n}}: Spec #{{ticket}} muss nach dem Merge geprüft werden",
+    "railWorktreesNoGit": "Worktree-Isolation nicht verfügbar: Dieses Projekt ist kein Git-Repository — Ausführung im gemeinsamen Modus.",
+    "railWorktreesNoCommits": "Worktree-Isolation nicht verfügbar: Das Repository hat noch keine Commits — erstelle einen ersten Commit und starte neu."
   },
   "railsBoard": {
     "title": "Rails",
@@ -43,7 +46,11 @@
     "failedRetry": "Job fehlgeschlagen – zum Wiederholen klicken",
     "addSpecsFirst": "Füge zuerst Specs zu diesem Rail hinzu",
     "builtInLoops": "Integriert",
-    "customLoops": "Eigene Loops"
+    "customLoops": "Eigene Loops",
+    "worktreesMerged": "{{count}} zusammengeführt",
+    "worktreesNeedsReview": "{{count}} zu prüfen",
+    "execSteps": "{{count}} Schritte",
+    "execLines": "{{count}} Zeilen"
   },
   "railRow": {
     "moveToSpecs": "Nach Specs verschieben",

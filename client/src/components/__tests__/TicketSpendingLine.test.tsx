@@ -66,6 +66,39 @@ describe('TicketSpendingLine', () => {
     expect(navigateMock).toHaveBeenCalledWith('/analytics?ticketId=42')
   })
 
+  it('prefixes ~ when the ticket cost is wholly/partly estimated (codex) — BUG-ANALYTICS-12', async () => {
+    global.fetch = vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({
+        totalCostUsd: 2.5,
+        estimatedCostUsd: 2.5,
+        totalTurns: 6,
+        activeDurationMs: 30000,
+        totalRuns: 2,
+        bySurface: { job: { count: 2, costUsd: 2.5 }, 'quick-spec': { count: 0, costUsd: 0 }, 'explore-spec': { count: 0, costUsd: 0 }, 'ai-edit': { count: 0, costUsd: 0 } },
+      }),
+    })
+    render(<TicketSpendingLine ticketId={99} />)
+    await waitFor(() => expect(screen.getByText(/~\$2\.50/)).toBeInTheDocument())
+  })
+
+  it('does not prefix ~ for a claude-only ticket (estimatedCostUsd 0) — byte-identical legacy', async () => {
+    global.fetch = vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({
+        totalCostUsd: 4.2,
+        estimatedCostUsd: 0,
+        totalTurns: 12,
+        activeDurationMs: 204000,
+        totalRuns: 4,
+        bySurface: { job: { count: 4, costUsd: 4.2 }, 'quick-spec': { count: 0, costUsd: 0 }, 'explore-spec': { count: 0, costUsd: 0 }, 'ai-edit': { count: 0, costUsd: 0 } },
+      }),
+    })
+    render(<TicketSpendingLine ticketId={42} />)
+    await waitFor(() => expect(screen.getByText(/\$4\.20/)).toBeInTheDocument())
+    expect(screen.queryByText(/~\$4\.20/)).not.toBeInTheDocument()
+  })
+
   it('formats short duration in seconds', async () => {
     global.fetch = vi.fn().mockResolvedValue({
       ok: true,

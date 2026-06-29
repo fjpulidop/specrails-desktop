@@ -100,7 +100,8 @@
     "turns_one": "{{count}} ターン",
     "turns_other": "{{count}} ターン",
     "active": "アクティブ {{duration}}",
-    "breakdownItem": "{{n}} {{label}}"
+    "breakdownItem": "{{n}} {{label}}",
+    "estimatedTooltip": "ローカルの料金表からの推定値 — このプロバイダーはコストをネイティブに報告しません。"
   },
   "toasts": {
     "newTicket": "新しいチケット: {{title}}",

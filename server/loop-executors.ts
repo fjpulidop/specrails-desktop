@@ -78,7 +78,7 @@ function runShellCommand(
 export function createLoopExecutors(opts: { env?: NodeJS.ProcessEnv } = {}): LoopExecutors {
   const env = opts.env ?? process.env
   return {
-    async runAiStep({ prompt, sessionId, provider, model, effort, cwd, repoDir, onLine, onRawLine, onSpawn }) {
+    async runAiStep({ prompt, sessionId, provider, model, effort, cwd, repoDir, onLine, onRawLine, onSpawn, aiStepTimeoutMs }) {
       const adapter = getAdapter(provider)
       // First iteration spawns headless (rail-job); subsequent iterations resume
       // the session so the agent keeps prior context across iterations.
@@ -107,13 +107,18 @@ export function createLoopExecutors(opts: { env?: NodeJS.ProcessEnv } = {}): Loo
             : undefined
       if (repoDir) { try { ensureFrameworkAgents(cwd, adapter.projectDirName) } catch { /* best-effort */ } }
       let text = ''
+      // The adapter parses provider failures (codex `turn.failed`, etc.) into a
+      // structured `error` event on the stdout stream — capture its message so we
+      // surface the REAL reason (e.g. "You've hit your usage limit") instead of
+      // the `stderrTail`, which often holds only an informational line.
+      let errorText: string | undefined
       const res = await runAiCliInvocation({
         adapter,
         action,
         buildOpts: { prompt, model, sessionId: sessionId ?? undefined, reasoning_effort: effort, extraArgs },
         cwd,
         env: stepEnv,
-        timeoutMs: AI_STEP_TIMEOUT_MS,
+        timeoutMs: aiStepTimeoutMs ?? AI_STEP_TIMEOUT_MS,
         onSpawn,
         // Two complementary streams, mirroring QueueManager's contract:
         //  • RAW JSONL via onStdoutLine → engine emits parsed `event`s that drive
@@ -124,27 +129,58 @@ export function createLoopExecutors(opts: { env?: NodeJS.ProcessEnv } = {}): Loo
         onEvent: (ev) => {
           if (ev.kind === 'text-delta') { text += ev.text; onLine?.(ev.text) }
           else if (ev.kind === 'tool-use') onLine?.(`🔧 ${ev.name} ${ev.inputPreview ?? ''}`.trim())
+          else if (ev.kind === 'error' && ev.message) errorText = ev.message
         },
       })
+      const failed = res.spawnFailed || res.timedOut || (res.code != null && res.code !== 0)
       if (res.spawnFailed) {
-        const msg = `AI step: failed to spawn "${adapter.binary}" (on PATH?)`
+        errorText = errorText ?? `failed to spawn "${adapter.binary}" (on PATH?)`
+        const msg = `AI step: ${errorText}`
+        console.error(`[loop] ${msg}`)
+        onLine?.(msg, 'stderr')
+      } else if (res.timedOut) {
+        // A wedged/unresponsive provider settles with code=null + timedOut. Count
+        // it as a failure so the engine's fail-fast can bail instead of paying the
+        // full timeout every pass.
+        errorText = errorText ?? `${adapter.binary} timed out`
+        const msg = `AI step: ${errorText}`
         console.error(`[loop] ${msg}`)
         onLine?.(msg, 'stderr')
       } else if (res.code != null && res.code !== 0) {
-        const msg = `AI step: ${adapter.binary} exited code=${res.code}${res.stderrTail ? ` — ${res.stderrTail.slice(0, 300)}` : ''}`
+        // Prefer the adapter's structured error (e.g. codex `turn.failed`:
+        // "You've hit your usage limit") over `stderrTail`, which for codex holds
+        // only the informational "Reading additional input from stdin…" line.
+        const reason = errorText ?? (res.stderrTail ? res.stderrTail.slice(0, 300) : '')
+        const msg = `AI step: ${adapter.binary} exited code=${res.code}${reason ? ` — ${reason}` : ''}`
         console.error(`[loop] ${msg}`)
         onLine?.(msg, 'stderr')
       }
       const { result, estimated } = finaliseInvocationResult(adapter, res.events, { fallbackModel: model })
+      const tokensIn = result.tokens_in ?? 0
+      const tokensOut = result.tokens_out ?? 0
+      const tokensCacheRead = result.tokens_cache_read ?? 0
+      const tokensCacheCreate = result.tokens_cache_create ?? 0
       return {
         text,
         sessionId: res.sessionId ?? undefined,
         cost: result.total_cost_usd,
-        tokens: (result.tokens_in ?? 0) + (result.tokens_out ?? 0),
+        // Derived scalar = input+output ONLY (legacy semantics). It feeds the
+        // in-memory running total + cost-uncertainty heuristic AND the job-level
+        // tokens_out counter (loop_runs / job.finalized), so it must NOT include
+        // cache tokens or the claude loop-job token display would inflate. The
+        // full cache breakdown is persisted to the ai_invocations row via the
+        // structured tokensCacheRead/tokensCacheCreate fields below.
+        tokens: tokensIn + tokensOut,
+        tokensIn,
+        tokensOut,
+        tokensCacheRead,
+        tokensCacheCreate,
         durationMs: result.duration_ms,
         provider: adapter.id,
         model: result.model ?? model,
         estimated,
+        failed,
+        errorText,
       }
     },
 
@@ -171,10 +207,24 @@ export function createLoopExecutors(opts: { env?: NodeJS.ProcessEnv } = {}): Loo
       })
       const decision = parseDeciderDecision(text)
       const { result, estimated } = finaliseInvocationResult(adapter, res.events, { fallbackModel: model })
+      const tokensIn = result.tokens_in ?? 0
+      const tokensOut = result.tokens_out ?? 0
+      const tokensCacheRead = result.tokens_cache_read ?? 0
+      const tokensCacheCreate = result.tokens_cache_create ?? 0
       return {
         ...decision,
         cost: result.total_cost_usd,
-        tokens: (result.tokens_in ?? 0) + (result.tokens_out ?? 0),
+        // Derived scalar = input+output ONLY (legacy semantics). It feeds the
+        // in-memory running total + cost-uncertainty heuristic AND the job-level
+        // tokens_out counter (loop_runs / job.finalized), so it must NOT include
+        // cache tokens or the claude loop-job token display would inflate. The
+        // full cache breakdown is persisted to the ai_invocations row via the
+        // structured tokensCacheRead/tokensCacheCreate fields below.
+        tokens: tokensIn + tokensOut,
+        tokensIn,
+        tokensOut,
+        tokensCacheRead,
+        tokensCacheCreate,
         durationMs: result.duration_ms,
         provider: adapter.id,
         model: result.model ?? model,

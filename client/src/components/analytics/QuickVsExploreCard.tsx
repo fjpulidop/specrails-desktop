@@ -40,6 +40,10 @@ function Sparkline({ values }: { values: number[] }) {
 function ModeColumn({ mode, label, accentClass }: { mode: ByModeEntry; label: string; accentClass: string }) {
   const { t } = useTranslation('analytics')
   const sparseExplore = mode.mode === 'explore' && mode.totalRuns < 5
+  // codex/gemini per-spec cost is a pricing-table ESTIMATE — never present it as
+  // an authoritative claude figure. Prefix a `~` when any of this mode's cost is
+  // estimate-derived (mirrors the Hero footnote treatment).
+  const isEstimated = (mode.estimatedCostUsd ?? 0) > 0
   return (
     <div className="flex-1 p-4 first:pr-2 last:pl-2">
       <div className="flex items-center gap-2 mb-2">
@@ -55,7 +59,12 @@ function ModeColumn({ mode, label, accentClass }: { mode: ByModeEntry; label: st
         </div>
       ) : (
         <>
-          <div className="text-3xl font-semibold tabular-nums tracking-tight">
+          <div
+            className="text-3xl font-semibold tabular-nums tracking-tight"
+            data-estimated={isEstimated ? 'true' : undefined}
+            title={isEstimated ? t('quickVsExplore.estimatedTooltip') : undefined}
+          >
+            {isEstimated && mode.avgCostPerSpec != null ? '~' : ''}
             {fmtUsd(mode.avgCostPerSpec)}
           </div>
           <div className="text-[11px] text-muted-foreground mt-0.5">{t('quickVsExplore.perSpec')}</div>
@@ -94,6 +103,10 @@ export function QuickVsExploreCard({ data, loading }: Props) {
     : null
   const showRatio = ratio !== null && quick.totalRuns >= 1 && explore.totalRuns >= 5
 
+  // Any displayed per-spec figure (or the ratio derived from them) is partly a
+  // codex/gemini pricing-table estimate → footnote it, matching the Hero card.
+  const hasEstimated = (quick.estimatedCostUsd ?? 0) > 0 || (explore.estimatedCostUsd ?? 0) > 0
+
   return (
     <div className="rounded-xl border border-border/50 bg-card/40">
       <div className="px-4 pt-3 pb-1">
@@ -108,6 +121,11 @@ export function QuickVsExploreCard({ data, loading }: Props) {
           <div className="text-center text-[11px] text-muted-foreground tabular-nums">
             <span className="px-2">━━━━━━ {t('quickVsExplore.ratio', { ratio: ratio!.toFixed(1) })} ━━━━━━</span>
           </div>
+        </div>
+      )}
+      {hasEstimated && (
+        <div className="px-4 pb-3 -mt-1" data-testid="quick-vs-explore-estimated-footnote">
+          <p className="text-[10px] text-muted-foreground">{t('quickVsExplore.estimatedFootnote')}</p>
         </div>
       )}
     </div>

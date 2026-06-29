@@ -25,7 +25,9 @@
     "all": "Tout",
     "engine": "Moteur",
     "ticketChip": "ticket #{{id}} ·  ✕",
-    "failedToLoad": "Échec du chargement : {{error}}"
+    "failedToLoad": "Échec du chargement : {{error}}",
+    "modelChip": "Modèle : {{model}}",
+    "clearModelFilter": "Effacer le filtre de modèle"
   },
   "hero": {
     "spending": "Dépenses",
@@ -45,7 +47,9 @@
     "title": "Par fournisseur",
     "description": "Répartition du coût entre les CLI IA de ce projet. Le préfixe <tilde>~</tilde> marque les lignes dont le coût est estimé à partir de la table de tarifs locale (le fournisseur ne le rapporte pas nativement).",
     "noCost": "Aucun coût enregistré sur cette période.",
-    "segmentTitle": "{{label}} : {{value}} ({{count}})"
+    "segmentTitle": "{{label}} : {{value}} ({{count}})",
+    "costUnavailable": "coût indisponible",
+    "costUnavailableTooltip": "Ce fournisseur s'est exécuté mais son modèle n'est pas dans la table de tarifs, donc aucun coût n'a pu être calculé."
   },
   "timeline": {
     "title": "Chronologie quotidienne",
@@ -62,17 +66,21 @@
     "perSpec": "par spec",
     "createdRuns": "<strong>{{created}}</strong> créées · {{runs}} exécutions",
     "avgDuration": "{{duration}} en moyenne",
-    "ratio": "{{ratio}}× de plus par spec"
+    "ratio": "{{ratio}}× de plus par spec",
+    "estimatedTooltip": "Coût estimé (repli sur la table de tarifs codex/gemini, non facturé par le fournisseur)",
+    "estimatedFootnote": "~ Inclut des coûts estimés (codex/gemini)"
   },
   "models": {
     "title": "Modèles",
-    "empty": "Aucun modèle enregistré."
+    "empty": "Aucun modèle enregistré.",
+    "estimatedTooltip": "Estimé à partir de la table de tarifs locale — ce fournisseur ne signale pas le coût de manière native."
   },
   "scatter": {
     "title": "Coût vs tours",
     "empty": "Aucune invocation à tracer.",
     "turnsLabel": "tours",
-    "costLabel": "coût"
+    "costLabel": "coût",
+    "truncated": "Affichage de {{shown}} sur {{total}} — le point le plus coûteux est conservé, mais les points précédents sont masqués"
   },
   "topTickets": {
     "title": "Top tickets",
@@ -110,7 +118,11 @@
       "failed": "échec",
       "aborted": "interrompu"
     },
-    "truncated": "Affichage des {{shown}} premières lignes sur {{total}} correspondantes."
+    "truncated": "Affichage des {{shown}} premières lignes sur {{total}} correspondantes.",
+    "colProvider": "Fournisseur",
+    "sortLabel": "Trier",
+    "sortRecency": "Récent",
+    "sortCost": "Coût"
   },
   "export": {
     "summaryCsv": "CSV résumé",
@@ -140,6 +152,13 @@
     "jobsCount_one": "{{count}} job",
     "jobsCount_other": "{{count}} jobs",
     "successPct": "{{pct}} % de réussite",
-    "costByProject": "Coût par projet"
+    "costByProject": "Coût par projet",
+    "includesEstimated": "~{{amount}} estimé",
+    "includesEstimatedTooltip": "Inclut {{amount}} de coût estimé par la table de tarifs (codex/gemini), non facturé par le fournisseur.",
+    "includesEstimatedShort": "incl. estimé",
+    "timelineEstimatedTooltip": "Certains jours incluent un coût estimé par la table de tarifs (codex/gemini) marqué d'un ~.",
+    "estimatedBadge": "est.",
+    "projectEstimatedTooltip": "{{amount}} du coût de ce projet est une estimation par table de tarifs (codex/gemini), non facturé par le fournisseur.",
+    "statusBarEstimatedTooltip": "Inclut un coût estimé par la table de tarifs (codex/gemini), non facturé par le fournisseur."
   }
 }

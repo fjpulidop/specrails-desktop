@@ -40,11 +40,23 @@ export interface AiStepResult {
   text: string
   sessionId?: string
   cost?: number
+  /** Derived total (in+out+cache) for the in-memory running total / cost-uncertainty
+   *  heuristic only. The per-direction breakdown below is what gets persisted. */
   tokens?: number
+  /** Structured token breakdown — persisted to the matching ai_invocations columns
+   *  so cache tokens and the in/out split are preserved (not folded into tokens_out). */
+  tokensIn?: number
+  tokensOut?: number
+  tokensCacheRead?: number
+  tokensCacheCreate?: number
   durationMs?: number
   provider?: string
   model?: string
   estimated?: boolean
+  /** True when the AI CLI hard-failed (spawn error or non-zero exit). */
+  failed?: boolean
+  /** The real failure reason (adapter error event, else stderr tail). */
+  errorText?: string
 }
 
 export interface ShellResult {
@@ -56,7 +68,14 @@ export interface ShellResult {
 
 export interface DeciderRunResult extends DeciderDecision {
   cost?: number
+  /** Derived total (in+out+cache) for the in-memory running total / cost-uncertainty
+   *  heuristic only. The per-direction breakdown below is what gets persisted. */
   tokens?: number
+  /** Structured token breakdown — persisted to the matching ai_invocations columns. */
+  tokensIn?: number
+  tokensOut?: number
+  tokensCacheRead?: number
+  tokensCacheCreate?: number
   durationMs?: number
   provider?: string
   model?: string
@@ -83,6 +102,8 @@ export interface LoopExecutors {
     onLine?: LoopLogSink
     onRawLine?: (line: string) => void
     onSpawn?: LoopSpawnSink
+    /** Per-step wall-clock timeout (ms). Undefined ⇒ executor default (15 min). */
+    aiStepTimeoutMs?: number
   }): Promise<AiStepResult>
   runShell(input: { command: string; cwd: string; onLine?: LoopLogSink; onSpawn?: LoopSpawnSink }): Promise<ShellResult>
   runDecider(input: {
@@ -121,6 +142,9 @@ export interface LoopRunRequest {
   provider: string
   model: string
   effort?: ReasoningEffort
+  /** Set when this run executes in an isolated git worktree (parallel rail) — only
+   *  drives a header line in the run log so the worktree/branch is visible. */
+  isolation?: { branch: string; worktreePath: string }
 }
 
 export interface LoopRunResult {
@@ -131,9 +155,19 @@ export interface LoopRunResult {
 }
 
 const HISTORY_MAX_CHARS = 1500
+/** Abort the run after this many CONSECUTIVE AI steps hard-fail with no output.
+ *  One failure can be transient; N in a row means the provider isn't running at
+ *  all (quota, auth, crash) — bail instead of grinding to the iteration cap. */
+const AI_FAILFAST_THRESHOLD = 2
 
-function truncate(s: string, max = 600): string {
-  return s.length > max ? s.slice(0, max) + '…' : s
+/** Shrink a step's output for the Decider history. Keeps BOTH ends — the opening
+ *  context AND the trailing lines — because the Decider keys off a final verdict
+ *  line (e.g. `VERIFICATION: PASS`) that a head-only cut would silently drop. */
+export function truncate(s: string, max = 600): string {
+  if (s.length <= max) return s
+  const head = Math.ceil(max * 0.6)
+  const tail = max - head
+  return s.slice(0, head) + '\n…\n' + s.slice(s.length - tail)
 }
 
 export class LoopRunManager {
@@ -165,6 +199,10 @@ export class LoopRunManager {
     const maxIterations = req.graph.config.maxIterations
     const timeoutMs = req.graph.config.timeoutMinutes * 60_000
     const deadline = this.now() + timeoutMs
+    // Per-step AI timeout (ms) — undefined falls back to the executor default.
+    const aiStepTimeoutMs = req.graph.config.aiStepTimeoutMinutes != null
+      ? req.graph.config.aiStepTimeoutMinutes * 60_000
+      : undefined
     // Optional cost cap (USD). Like maxIterations/timeout, it's a BETWEEN-STEPS
     // guard: per-step cost is only known when that step's process exits, so the
     // loop is stopped before the NEXT step once the accumulated total crosses the
@@ -244,6 +282,7 @@ export class LoopRunManager {
       seq += 1
     }
     logLine(`▶ Loop "${req.loopName ?? req.loopId}" started${req.spec?.title ? ` — spec: ${req.spec.title}` : ''}`)
+    if (req.isolation) logLine(`⎇ Isolated worktree: ${req.isolation.worktreePath} (branch ${req.isolation.branch})`)
     console.log(`[loop] start run=${runId} loop=${req.loopId} provider=${req.provider} model=${req.model} nodes=${req.graph.nodes.length} cwd=${req.cwd}`)
 
     const byId = nodesById(req.graph)
@@ -255,10 +294,25 @@ export class LoopRunManager {
     let totalTokens = 0
     let totalDuration = 0
     let aiSessionId: string | undefined
+    // Consecutive AI steps that hard-failed with no output (provider down /
+    // out of quota / crashing). Reset on any step that runs or produces output.
+    let consecutiveAiFailures = 0
+    // True for the step that runs immediately after a Decider 'continue' — that
+    // step must see the cross-iteration history (the verdict it acts on). Mid-body
+    // RESUMED steps already carry prior context in their session, so re-appending
+    // the history there is redundant tokens; this flag keeps it off for them.
+    let justContinued = false
     // Fail-open honesty: flips true the first time a cost-bearing step yields no
     // priced cost while a cap is set (non-Claude estimate / unknown model / a
     // failed step) → the cap can under-count, so we warn once in the run log.
     let costUnknownWarned = false
+    // Honest total: flips true whenever a cost-bearing step ends without a priced
+    // figure — most commonly a claude AI step killed by AI_STEP_TIMEOUT_MS, which
+    // never emits its terminal `result` event, so its tokens AND cost are lost
+    // (claude cost is all-or-nothing — no rate-card fallback for native-cost
+    // providers). When set, the displayed loop total is a LOWER BOUND (`≥`), not
+    // an exact figure — so an expensive step that billed $0 isn't read as cheap.
+    let costUncertain = false
     // Built-ins always resolve even if the caller omitted `constants`; custom
     // values layer on top. Used to expand `{{const:*}}` in every node's text.
     const constMap = { ...BUILTIN_CONSTANTS, ...(req.constants ?? {}) }
@@ -268,8 +322,40 @@ export class LoopRunManager {
     const stepCap = (maxIterations + 1) * (req.graph.nodes.length + 2) + 16
     let steps = 0
 
-    const record = (refSuffix: string, r: { cost?: number; tokens?: number; durationMs?: number; provider?: string; model?: string; estimated?: boolean }) => {
+    const record = (
+      refSuffix: string,
+      r: {
+        cost?: number
+        tokens?: number
+        tokensIn?: number
+        tokensOut?: number
+        tokensCacheRead?: number
+        tokensCacheCreate?: number
+        durationMs?: number
+        provider?: string
+        model?: string
+        estimated?: boolean
+        failed?: boolean
+      },
+      // The REAL turn-start instant, captured before the step/decider await. The
+      // row is bucketed/ordered by started_at, so it must be the start, not finish.
+      startedAt: string,
+    ) => {
       totalCost += r.cost ?? 0
+      // A cost-bearing step that produced work (tokens) or hard-failed but reports
+      // no priced cost → its real spend is missing from the total. The common case
+      // is a claude step killed by timeout before its terminal `result` event:
+      // tokens streamed, but cost (and tokens) are dropped, so the step bills $0.
+      // Flag the run total as a lower bound and say so, per occurrence.
+      const costBearingButUnpriced = r.cost == null && (r.failed === true || (r.tokens ?? 0) > 0)
+      if (costBearingButUnpriced) {
+        costUncertain = true
+        costUnknownWarned = true // this line already carries the cap caveat below
+        logLine(
+          `⚠️ Step cost unknown — the process ended before billing (timeout/crash), so it counts as $0. The loop total is a lower bound.${maxCostUsd !== undefined ? ' The cost cap may under-count.' : ''}`,
+          'stderr',
+        )
+      }
       // Honest cost-cap caveat: a cost-bearing step that reports no figure means
       // the cap can't be enforced precisely from here on. Warn once (live).
       if (maxCostUsd !== undefined && r.cost == null && !costUnknownWarned) {
@@ -285,20 +371,50 @@ export class LoopRunManager {
         surface: 'loop',
         surface_ref_id: refSuffix,
         ticket_id: req.ticketId ?? null,
-        status: 'success',
-        started_at: new Date(this.now()).toISOString(),
+        // A hard-failed step (spawn error / non-zero exit / timeout) must NOT be
+        // recorded as success — that under-states failureRate and lets a crashed
+        // step into the success-only avg-cost. The result object doesn't separate
+        // timeout from other hard-failures, so all map to 'failed'.
+        status: r.failed ? 'failed' : 'success',
+        // BUG-32: started_at is the real turn-start (captured before the await),
+        // not the finish instant — so daily-timeline bucketing + scatter/table
+        // ORDER BY started_at reflect when the step actually began.
+        started_at: startedAt,
+        finished_at: new Date(this.now()).toISOString(),
         total_cost_usd: r.cost,
         total_cost_usd_estimated: r.estimated ?? false,
-        tokens_out: r.tokens,
+        // BUG-04: persist the per-direction breakdown to its matching column —
+        // folding everything into tokens_out drops cache tokens (the largest
+        // component on cache-hit claude runs) and corrupts the in/out split.
+        tokens_in: r.tokensIn,
+        tokens_out: r.tokensOut,
+        tokens_cache_read: r.tokensCacheRead,
+        tokens_cache_create: r.tokensCacheCreate,
         model: r.model ?? req.model,
         loop_run_id: runId,
       })
+      // BUG-07: the loop path is the only recordInvocation callsite that never
+      // invalidated open spending dashboards — they'd freeze for the whole (often
+      // multi-hour) run. Broadcast after each row, wrapped so a broadcast failure
+      // can't break traversal (mirrors the file-summary callsite).
+      try {
+        this.broadcast({ type: 'spending.invalidated', projectId: req.projectId })
+      } catch { /* best-effort — never break traversal on a broadcast failure */ }
     }
 
     const composeHistory = (): string => {
       const joined = history.join('\n')
       return joined.length > HISTORY_MAX_CHARS ? '…' + joined.slice(-HISTORY_MAX_CHARS) : joined
     }
+
+    // The first step of the body (the start node's successor). When the Decider's
+    // 'continue' edge routes BACK here, the whole body re-runs — that's an
+    // iterate-per-item loop (strict TDD, story executors, …) whose per-pass state
+    // lives in the code on disk, not the chat. We drop the resumed AI session at
+    // that loop-back so each iteration starts FRESH (re-reading the current code),
+    // keeping context bounded regardless of pass count. Within an iteration the
+    // steps still resume, so RED→GREEN→REFACTOR share context.
+    const firstStepId = start ? req.graph.edges.find((e) => e.source === start.id)?.target : undefined
 
     try {
       let nodeId: string | undefined = start?.id
@@ -348,18 +464,46 @@ export class LoopRunManager {
               ),
               constMap
             )
-            const prompt = history.length > 0 ? `${base}\n\n---\nContext from previous iterations:\n${composeHistory()}` : base
+            // Inject the cross-iteration history only when there's no live session
+            // to carry it (a fresh pass) OR right after a Decider 'continue' (so the
+            // step sees the verdict). A mid-body resumed step already has it.
+            const includeHistory = history.length > 0 && (!aiSessionId || justContinued)
+            const prompt = includeHistory ? `${base}\n\n---\nContext from previous iterations:\n${composeHistory()}` : base
+            justContinued = false
             emitStep('ai-step', `🤖 ${nodeLabel || 'AI Step'} (${nodeProvider}/${nodeModel}${nodeEffort ? `, effort: ${nodeEffort}` : ''})`)
             // Show the authored template AND the actual COMMAND sent. For magic
             // commands this is the short native invocation (so it's plainly visible
             // that `/specrails:implement` ran); a long free-text prompt is capped.
             logLine(`Template: ${rawTemplate.length > 1000 ? rawTemplate.slice(0, 1000) + '…' : rawTemplate}`)
             logLine(`Command: ${base.length > 2000 ? base.slice(0, 2000) + '…(truncated)' : base}`)
-            const res = await this.executors.runAiStep({ prompt, sessionId: aiSessionId, provider: nodeProvider, model: nodeModel, effort: nodeEffort, cwd: req.cwd, repoDir: req.repoDir, onLine: logLine, onRawLine, onSpawn: (c) => this._activeChild.set(runId, c) })
+            // BUG-32: capture the REAL start instant BEFORE the await — the row is
+            // bucketed/ordered by started_at, which must be the turn-start, not the
+            // finish time (this.now() evaluated after the await would be the finish).
+            const aiStepStart = new Date(this.now()).toISOString()
+            const res = await this.executors.runAiStep({ prompt, sessionId: aiSessionId, provider: nodeProvider, model: nodeModel, effort: nodeEffort, cwd: req.cwd, repoDir: req.repoDir, onLine: logLine, onRawLine, onSpawn: (c) => this._activeChild.set(runId, c), aiStepTimeoutMs })
             this._activeChild.delete(runId)
-            if (res.sessionId) aiSessionId = res.sessionId
+            // Only carry forward the session of a step that actually ran — a
+            // hard-failed turn (codex still emits thread.started before its error)
+            // would otherwise make the next step `--resume` a dead session.
+            if (res.sessionId && !res.failed) aiSessionId = res.sessionId
             history.push(`AI Step: ${truncate(res.text)}`)
-            record(`loop:${runId}`, res)
+            record(`loop:${runId}`, res, aiStepStart)
+            // Fail-fast: a hard-failed step (non-zero exit / spawn error) that
+            // produced NO output means the provider never really ran — quota,
+            // auth, crash. One can be transient; AI_FAILFAST_THRESHOLD in a row
+            // is systemic, so abort with the real reason instead of spinning to
+            // the iteration cap (wasting wall-clock and, on paid providers, money).
+            if (res.failed && !res.text.trim()) {
+              consecutiveAiFailures += 1
+              if (consecutiveAiFailures >= AI_FAILFAST_THRESHOLD) {
+                logLine(`Loop aborted: provider appears down — ${consecutiveAiFailures} AI steps failed with no output and no successful AI call in between${res.errorText ? ` — ${res.errorText}` : ''}`, 'stderr')
+                outcome = 'failed'
+                settled = true
+                break
+              }
+            } else {
+              consecutiveAiFailures = 0
+            }
             nodeId = succs[0]?.id
             break
           }
@@ -378,12 +522,16 @@ export class LoopRunManager {
           case 'decider': {
             if (iteration >= maxIterations) { outcome = 'max-iterations'; settled = true; break }
             iteration += 1
-            const goal = resolveConstants(String(node.data?.goal ?? 'The loop goal is met.'), constMap)
+            const goal = resolveConstants(interpolateSpec(String(node.data?.goal ?? 'The loop goal is met.'), req.spec), constMap)
             emitStep('decider', `🔍 ${nodeLabel || 'Loop Decider'} (iteration ${iteration})`)
             logLine(`Goal: ${goal}`)
+            // BUG-32: capture the real Decider start BEFORE the await (see AI step).
+            const deciderStart = new Date(this.now()).toISOString()
             const dec = await this.executors.runDecider({
               systemPrompt: buildDeciderSystemPrompt(),
-              userPrompt: buildDeciderUserPrompt({ goal, history }),
+              // Give the Decider the spec so it can verify completeness against the
+              // FULL scope instead of trusting a step's self-reported success.
+              userPrompt: buildDeciderUserPrompt({ goal, history, spec: req.spec ? { title: req.spec.title, description: req.spec.description } : undefined }),
               provider: nodeProvider,
               model: nodeModel,
               effort: nodeEffort,
@@ -394,7 +542,15 @@ export class LoopRunManager {
               onSpawn: (c) => this._activeChild.set(runId, c),
             })
             this._activeChild.delete(runId)
-            record(`loop:${runId}:decider`, dec)
+            // A parseable Decider verdict means this AI invocation (SAME
+            // provider/model) succeeded → the provider is alive, so clear any
+            // ai-step failure streak. This stops a false fail-fast abort when an
+            // ai-step blips but the provider is demonstrably up. (When the provider
+            // is truly down the Decider also fails → parsed=false → no reset.)
+            if (dec.parsed) consecutiveAiFailures = 0
+            // BUG-03: a Decider that couldn't parse a verdict (dec.parsed === false)
+            // is a failed AI invocation — record it as such, not as success.
+            record(`loop:${runId}:decider`, { ...dec, failed: !dec.parsed }, deciderStart)
             logLine(`Decision: ${dec.continue ? 'continue' : 'stop'} — ${dec.reasoning}`)
             history.push(`Decider: ${dec.continue ? 'continue' : 'stop'} — ${dec.reasoning}`)
             updateLoopRunCounters(this.db, runId, {
@@ -423,7 +579,17 @@ export class LoopRunManager {
             const conts = succs.filter((n) => n.type !== 'end')
             if (dec.continue) {
               const target = branchTarget('continue') ?? conts[0]?.id
-              if (target) nodeId = target
+              if (target) {
+                nodeId = target
+                // The next step acts on this verdict → let it see the history.
+                justContinued = true
+                // New iteration of an iterate-per-item loop → drop the resumed AI
+                // session so the next pass starts fresh (re-reads the code on disk).
+                // Provider-agnostic: clearing aiSessionId makes runAiStep use the
+                // 'rail-job' (fresh) action, which every adapter maps to its own
+                // native spawn — no claude/codex/gemini branching here.
+                if (target === firstStepId) aiSessionId = undefined
+              }
               else { outcome = 'success'; settled = true }
             } else {
               const target = branchTarget('stop') ?? ends[0]?.id
@@ -464,7 +630,9 @@ export class LoopRunManager {
     // status, and emit job.finalized so an open JobDetail re-fetches + stops the
     // live stream (mirrors QueueManager).
     const jobStatus: JobStatus = outcome === 'success' ? 'completed' : outcome === 'stopped' ? 'canceled' : 'failed'
-    logLine(`\n■ Loop finished: ${outcome} — ${iteration} iteration${iteration === 1 ? '' : 's'}, $${totalCost.toFixed(4)}`)
+    // `≥` when any cost-bearing step ended unpriced (timeout/crash) — the figure
+    // is a lower bound, not exact.
+    logLine(`\n■ Loop finished: ${outcome} — ${iteration} iteration${iteration === 1 ? '' : 's'}, ${costUncertain ? '≥ ' : ''}$${totalCost.toFixed(4)}`)
     try {
       finishJob(this.db, runId, {
         exit_code: outcome === 'success' ? 0 : 1,

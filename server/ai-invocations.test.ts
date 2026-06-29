@@ -105,6 +105,21 @@ describe('ai-invocations', () => {
     expect(summary.bySurface['quick-spec'].count).toBe(0)
   })
 
+  it('splits estimatedCostUsd for codex/gemini estimated rows (BUG-ANALYTICS-12)', () => {
+    recordInvocation(db, fixedInput({ id: 'cl', surface: 'job', ticket_id: 11, total_cost_usd: 1.0, total_cost_usd_estimated: false, provider: 'claude' }))
+    recordInvocation(db, fixedInput({ id: 'cx', surface: 'job', ticket_id: 11, total_cost_usd: 0.25, total_cost_usd_estimated: true, provider: 'codex' }))
+    const summary = getTicketSpendingSummary(db, 11)
+    expect(summary.totalCostUsd).toBeCloseTo(1.25)
+    expect(summary.estimatedCostUsd).toBeCloseTo(0.25)
+  })
+
+  it('estimatedCostUsd is 0 for a ticket implemented entirely via claude', () => {
+    recordInvocation(db, fixedInput({ id: 'cl', surface: 'job', ticket_id: 12, total_cost_usd: 2.0, total_cost_usd_estimated: false }))
+    const summary = getTicketSpendingSummary(db, 12)
+    expect(summary.totalCostUsd).toBeCloseTo(2.0)
+    expect(summary.estimatedCostUsd).toBe(0)
+  })
+
   it('totalTokens includes cache-read and cache-create tiers', () => {
     recordInvocation(db, fixedInput({
       id: 'c1', surface: 'job', ticket_id: 9,

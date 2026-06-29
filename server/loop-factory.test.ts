@@ -48,6 +48,13 @@ describe('factory loops', () => {
     expect(prompts.some((p) => p.includes('{{cmd:fix}}'))).toBe(true) // refinement on failure
   })
 
+  it('every factory loop gets generous timeouts (pipeline-in-one-step needs headroom)', () => {
+    for (const f of FACTORY_LOOPS) {
+      expect(f.graph.config.timeoutMinutes, f.id).toBe(360)
+      expect(f.graph.config.aiStepTimeoutMinutes, f.id).toBe(60)
+    }
+  })
+
   it('id helpers recognise factory ids and map modes both ways', () => {
     expect(isFactoryLoopId('factory:implement')).toBe(true)
     expect(isFactoryLoopId('abc123')).toBe(false)

@@ -25,7 +25,9 @@
     "all": "すべて",
     "engine": "エンジン",
     "ticketChip": "チケット #{{id}} ·  ✕",
-    "failedToLoad": "読み込みに失敗しました: {{error}}"
+    "failedToLoad": "読み込みに失敗しました: {{error}}",
+    "modelChip": "モデル：{{model}}",
+    "clearModelFilter": "モデルフィルターをクリア"
   },
   "hero": {
     "spending": "支出",
@@ -45,7 +47,9 @@
     "title": "プロバイダー別",
     "description": "このプロジェクトの AI CLI 間でのコストの内訳。<tilde>~</tilde> プレフィックスは、コストがローカル料金表からの推定値である行を示します（プロバイダーがネイティブに報告しない場合）。",
     "noCost": "この期間に記録されたコストはまだありません。",
-    "segmentTitle": "{{label}}: {{value}} ({{count}})"
+    "segmentTitle": "{{label}}: {{value}} ({{count}})",
+    "costUnavailable": "コスト利用不可",
+    "costUnavailableTooltip": "このプロバイダーは実行されましたが、そのモデルが料金表にないため、コストを計算できませんでした。"
   },
   "timeline": {
     "title": "日次タイムライン",
@@ -62,17 +66,21 @@
     "perSpec": "スペックあたり",
     "createdRuns": "<strong>{{created}}</strong> 件作成 · {{runs}} 回実行",
     "avgDuration": "平均 {{duration}}",
-    "ratio": "スペックあたり {{ratio}}× 多い"
+    "ratio": "スペックあたり {{ratio}}× 多い",
+    "estimatedTooltip": "推定コスト（codex/gemini の料金表フォールバック、プロバイダー請求ではありません）",
+    "estimatedFootnote": "~ 推定コストを含みます（codex/gemini）"
   },
   "models": {
     "title": "モデル",
-    "empty": "記録されたモデルはありません。"
+    "empty": "記録されたモデルはありません。",
+    "estimatedTooltip": "ローカルの料金表からの推定値 — このプロバイダーはコストをネイティブに報告しません。"
   },
   "scatter": {
     "title": "コスト vs ターン",
     "empty": "プロットする呼び出しがありません。",
     "turnsLabel": "ターン",
-    "costLabel": "コスト"
+    "costLabel": "コスト",
+    "truncated": "{{total}} 件中 {{shown}} 件を表示 — 最もコストの高いポイントは保持されますが、それ以前のポイントは非表示になります"
   },
   "topTickets": {
     "title": "上位チケット",
@@ -110,7 +118,11 @@
       "failed": "失敗",
       "aborted": "中断"
     },
-    "truncated": "一致する {{total}} 行のうち最初の {{shown}} 行を表示しています。"
+    "truncated": "一致する {{total}} 行のうち最初の {{shown}} 行を表示しています。",
+    "colProvider": "プロバイダー",
+    "sortLabel": "並べ替え",
+    "sortRecency": "最近",
+    "sortCost": "コスト"
   },
   "export": {
     "summaryCsv": "サマリー CSV",
@@ -140,6 +152,13 @@
     "jobsCount_one": "{{count}} 件のジョブ",
     "jobsCount_other": "{{count}} 件のジョブ",
     "successPct": "成功率 {{pct}}%",
-    "costByProject": "プロジェクト別コスト"
+    "costByProject": "プロジェクト別コスト",
+    "includesEstimated": "~{{amount}} 推定",
+    "includesEstimatedTooltip": "料金表による推定コスト {{amount}} を含みます（codex/gemini）。プロバイダー請求ではありません。",
+    "includesEstimatedShort": "推定含む",
+    "timelineEstimatedTooltip": "一部の日には ~ で示された料金表による推定コスト（codex/gemini）が含まれます。",
+    "estimatedBadge": "推定",
+    "projectEstimatedTooltip": "このプロジェクトのコストのうち {{amount}} は料金表による推定値です（codex/gemini）。プロバイダー請求ではありません。",
+    "statusBarEstimatedTooltip": "料金表による推定コスト（codex/gemini）を含みます。プロバイダー請求ではありません。"
   }
 }

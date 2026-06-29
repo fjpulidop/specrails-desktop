@@ -8,6 +8,9 @@ export interface DesktopProjectStats {
   projectId: string
   projectName: string
   totalCostUsd: number
+  /** Portion of `totalCostUsd` that is a rate-card estimate (codex/gemini,
+   *  `jobs.total_cost_usd_estimated=1`) rather than provider-billed (claude). */
+  estimatedCostUsd: number
   totalJobs: number
   successRate: number
   avgDurationMs: number | null
@@ -21,13 +24,19 @@ export interface DesktopAnalyticsResponse {
   }
   kpi: {
     totalCostUsd: number
+    /** Portion of `totalCostUsd` that is estimated (codex/gemini). */
+    estimatedCostUsd: number
+    /** True when any part of the grand total is a rate-card estimate. */
+    includesEstimated: boolean
     totalJobs: number
     successRate: number
     costToday: number
+    /** Portion of `costToday` that is estimated (codex/gemini). */
+    estimatedCostToday: number
     jobsToday: number
   }
   projectBreakdown: DesktopProjectStats[]
-  costTimeline: Array<{ date: string; costUsd: number }>
+  costTimeline: Array<{ date: string; costUsd: number; estimatedCostUsd: number }>
 }
 
 // ─── Period resolution ────────────────────────────────────────────────────────
@@ -82,15 +91,27 @@ function buildWhere(bounds: DateBounds): { clause: string; params: unknown[] } {
 
 interface ProjectKpi {
   totalCostUsd: number
+  estimatedCostUsd: number
   totalJobs: number
   successCount: number
   avgDurationMs: number | null
 }
 
+// BUG-ANALYTICS-28/24/27 (review-corrected): the cost SUM keeps AUTHORITATIVE
+// (provider-billed, total_cost_usd_estimated=0) cost on EVERY status — so a
+// failed claude job's real billed cost is still counted and the claude path is
+// byte-identical to the pre-fix `SUM(total_cost_usd)`. It drops only the
+// ESTIMATED rate-card cost of a NON-success terminal job (the misleading
+// figure a crashed/canceled codex/gemini run leaves behind). The jobs.status
+// vocabulary is queued|running|completed|failed|canceled|zombie_terminated|
+// skipped — there is NO 'aborted' status here ('aborted' is an ai_invocations
+// value), so we exclude the real terminal-failure trio. estimatedCostUsd is the
+// estimated portion that IS counted (non-failed), so the client can footnote it.
 function queryProjectKpi(db: DbInstance, clause: string, params: unknown[]): ProjectKpi {
   return db.prepare(`
     SELECT
-      COALESCE(SUM(total_cost_usd), 0) as totalCostUsd,
+      COALESCE(SUM(CASE WHEN total_cost_usd_estimated = 1 AND status IN ('failed','canceled','zombie_terminated') THEN 0 ELSE total_cost_usd END), 0) as totalCostUsd,
+      COALESCE(SUM(CASE WHEN total_cost_usd_estimated = 1 AND status NOT IN ('failed','canceled','zombie_terminated') THEN total_cost_usd ELSE 0 END), 0) as estimatedCostUsd,
       COUNT(*) as totalJobs,
       SUM(CASE WHEN status = 'completed' THEN 1 ELSE 0 END) as successCount,
       AVG(CASE WHEN duration_ms IS NOT NULL THEN duration_ms END) as avgDurationMs
@@ -101,13 +122,18 @@ function queryProjectKpi(db: DbInstance, clause: string, params: unknown[]): Pro
 interface TimelineRow {
   date: string
   costUsd: number
+  estimatedCostUsd: number
 }
 
+// BUG-ANALYTICS-26: split the per-day cost into authoritative vs estimated
+// (and exclude failed/aborted, consistent with the KPI) so the timeline can
+// annotate days that mix billed and rate-card-estimated dollars.
 function queryProjectTimeline(db: DbInstance, clause: string, params: unknown[]): TimelineRow[] {
   return db.prepare(`
     SELECT
       strftime('%Y-%m-%d', started_at) as date,
-      COALESCE(SUM(total_cost_usd), 0) as costUsd
+      COALESCE(SUM(CASE WHEN total_cost_usd_estimated = 1 AND status IN ('failed','canceled','zombie_terminated') THEN 0 ELSE total_cost_usd END), 0) as costUsd,
+      COALESCE(SUM(CASE WHEN total_cost_usd_estimated = 1 AND status NOT IN ('failed','canceled','zombie_terminated') THEN total_cost_usd ELSE 0 END), 0) as estimatedCostUsd
     FROM jobs ${clause}
     GROUP BY date
     ORDER BY date ASC
@@ -131,13 +157,15 @@ export function getDesktopAnalytics(
   const contexts = registry.listContexts()
 
   let totalCostUsd = 0
+  let estimatedCostUsd = 0
   let totalJobs = 0
   let totalSuccess = 0
   let costToday = 0
+  let estimatedCostToday = 0
   let jobsToday = 0
 
   const projectBreakdown: DesktopProjectStats[] = []
-  const timelineMap = new Map<string, number>()
+  const timelineMap = new Map<string, { costUsd: number; estimatedCostUsd: number }>()
 
   // Iterate sequentially to avoid SQLite contention
   for (const ctx of contexts) {
@@ -146,29 +174,35 @@ export function getDesktopAnalytics(
     const timeline = queryProjectTimeline(ctx.db, clause, params)
 
     totalCostUsd += kpi.totalCostUsd
+    estimatedCostUsd += kpi.estimatedCostUsd
     totalJobs += kpi.totalJobs
     totalSuccess += kpi.successCount
     costToday += todayKpi.totalCostUsd
+    estimatedCostToday += todayKpi.estimatedCostUsd
     jobsToday += todayKpi.totalJobs
 
     projectBreakdown.push({
       projectId: ctx.project.id,
       projectName: ctx.project.name,
       totalCostUsd: kpi.totalCostUsd,
+      estimatedCostUsd: kpi.estimatedCostUsd,
       totalJobs: kpi.totalJobs,
       successRate: kpi.totalJobs > 0 ? kpi.successCount / kpi.totalJobs : 0,
       avgDurationMs: kpi.avgDurationMs,
     })
 
     for (const row of timeline) {
-      timelineMap.set(row.date, (timelineMap.get(row.date) ?? 0) + row.costUsd)
+      const acc = timelineMap.get(row.date) ?? { costUsd: 0, estimatedCostUsd: 0 }
+      acc.costUsd += row.costUsd
+      acc.estimatedCostUsd += row.estimatedCostUsd
+      timelineMap.set(row.date, acc)
     }
   }
 
   // Build sorted cost timeline
   const costTimeline = Array.from(timelineMap.entries())
     .sort(([a], [b]) => a.localeCompare(b))
-    .map(([date, costUsd]) => ({ date, costUsd }))
+    .map(([date, v]) => ({ date, costUsd: v.costUsd, estimatedCostUsd: v.estimatedCostUsd }))
 
   // Sort projects by cost descending
   projectBreakdown.sort((a, b) => b.totalCostUsd - a.totalCostUsd)
@@ -177,9 +211,12 @@ export function getDesktopAnalytics(
     period: { label, from: current.from, to: current.to },
     kpi: {
       totalCostUsd,
+      estimatedCostUsd,
+      includesEstimated: estimatedCostUsd > 0,
       totalJobs,
       successRate: totalJobs > 0 ? totalSuccess / totalJobs : 0,
       costToday,
+      estimatedCostToday,
       jobsToday,
     },
     projectBreakdown,
@@ -232,9 +269,17 @@ export function getDesktopRecentJobs(registry: ProjectRegistry, limit = 10): Des
 
 export interface DesktopTodayStats {
   costToday: number
+  /** Portion of `costToday` that is a rate-card estimate (codex/gemini). */
+  estimatedCostToday: number
+  /** True when any part of `costToday` is an estimate. */
+  includesEstimated: boolean
   jobsToday: number
 }
 
+// BUG-ANALYTICS-27: this feeds the always-visible StatusBar / /api/state
+// costToday — the most prominent cost number in the app. Split out the
+// estimated portion (and exclude failed/aborted, matching the KPI) so the
+// consumer can flag that the figure may include rate-card estimates.
 export function getDesktopTodayStats(registry: ProjectRegistry): DesktopTodayStats {
   const today = new Date().toISOString().slice(0, 10)
   const tomorrow = new Date(Date.now() + 86400000).toISOString().slice(0, 10)
@@ -242,18 +287,21 @@ export function getDesktopTodayStats(registry: ProjectRegistry): DesktopTodaySta
   const params = [today, tomorrow]
 
   let costToday = 0
+  let estimatedCostToday = 0
   let jobsToday = 0
 
   for (const ctx of registry.listContexts()) {
     const row = ctx.db.prepare(`
       SELECT
-        COALESCE(SUM(total_cost_usd), 0) as costToday,
+        COALESCE(SUM(CASE WHEN total_cost_usd_estimated = 1 AND status IN ('failed','canceled','zombie_terminated') THEN 0 ELSE total_cost_usd END), 0) as costToday,
+        COALESCE(SUM(CASE WHEN total_cost_usd_estimated = 1 AND status NOT IN ('failed','canceled','zombie_terminated') THEN total_cost_usd ELSE 0 END), 0) as estimatedCostToday,
         COUNT(*) as jobsToday
       FROM jobs ${clause}
-    `).get(...params) as { costToday: number; jobsToday: number }
+    `).get(...params) as { costToday: number; estimatedCostToday: number; jobsToday: number }
     costToday += row.costToday
+    estimatedCostToday += row.estimatedCostToday
     jobsToday += row.jobsToday
   }
 
-  return { costToday, jobsToday }
+  return { costToday, estimatedCostToday, includesEstimated: estimatedCostToday > 0, jobsToday }
 }

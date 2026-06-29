@@ -2,6 +2,8 @@ import { useEffect, useState } from 'react'
 import { X, CheckCircle2, XCircle } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { getApiBase } from '../lib/api'
+import { useMovableResizableModal } from '../hooks/useMovableResizableModal'
+import { ResizeGrips } from './ui/ResizeGrips'
 import type { JobCompareEntry, JobCompareResponse } from '../types'
 
 interface JobComparisonModalProps {
@@ -57,6 +59,7 @@ export function JobComparisonModal({ jobIds, onClose }: JobComparisonModalProps)
   const [data, setData] = useState<JobCompareResponse | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const { panelRef, panelStyle, headerHandleProps, resizeHandles, isFloating, guardBackdrop } = useMovableResizableModal()
 
   useEffect(() => {
     const controller = new AbortController()
@@ -96,14 +99,19 @@ export function JobComparisonModal({ jobIds, onClose }: JobComparisonModalProps)
   return (
     <div
       className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm"
-      onClick={onClose}
+      onClick={guardBackdrop(onClose)}
     >
       <div
+        ref={panelRef}
         className="w-full max-w-lg rounded-xl border border-border/30 bg-popover p-5 shadow-xl space-y-4 mx-4"
         onClick={(e) => e.stopPropagation()}
+        style={panelStyle}
       >
         {/* Header */}
-        <div className="flex items-center justify-between">
+        <div
+          className={`flex items-center justify-between ${isFloating ? 'cursor-grab active:cursor-grabbing' : ''}`}
+          {...headerHandleProps}
+        >
           <h2 className="text-sm font-semibold">{t('comparison.title')}</h2>
           <button
             type="button"
@@ -199,6 +207,7 @@ export function JobComparisonModal({ jobIds, onClose }: JobComparisonModalProps)
           </p>
         )}
       </div>
+      <ResizeGrips handles={resizeHandles} />
     </div>
   )
 }

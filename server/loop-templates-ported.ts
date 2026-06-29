@@ -11,22 +11,22 @@ export const PORTED_TEMPLATES: PortSpec[] = [
   {
     "id": "autoloop-tdd",
     "name": "Autoloop TDD",
-    "description": "A strict red-green-refactor cycle for {{spec.title}}: pin down each behavior with a failing test first, write only enough code to turn it green, then tidy up — repeating until the spec is fully covered.",
+    "description": "A strict red-green-refactor cycle for {{spec.title}}: pin down each behavior with a failing test first, write only enough real code to turn it green, then tidy up — repeating across every behavior until the spec is fully implemented.",
     "category": "Testing",
     "tags": [
       "tdd",
       "testing",
       "red-green-refactor"
     ],
+    "loopBack": "first",
+    "maxIterations": 20,
     "steps": [
-      "Pick the next behavior described in {{spec.description}} that is not yet covered. Write one tight, focused test that asserts that behavior and nothing more. Confirm it FAILS for the intended reason (the behavior is genuinely missing) — a test that passes immediately or errors for the wrong reason is not a valid red. {{const:GUARDRAILS}}",
-      "Add the smallest possible production change that flips the new test from red to green. No speculative abstractions, no extra features, no code the failing test does not demand. {{const:GUARDRAILS}}",
-      "{{cmd:test}}",
-      "With the suite green, refactor the code and tests you just touched: remove duplication, sharpen names, and align with the surrounding conventions. Make no behavioral changes — every refactor must keep the suite green, so re-run the gate after each adjustment. {{const:GUARDRAILS}}"
+      "TDD RED. Compare {{spec.description}} against the CURRENT code and list the spec behaviors NOT yet implemented. Pick the SINGLE next unimplemented behavior and write ONE small, focused failing test for just that behavior; run it and confirm it fails for the intended reason (the behavior is genuinely missing). Write NO production code in this step. If every behavior in the spec is already implemented and covered, change nothing and say the spec is fully covered.\n\n{{const:ONE_PER_PASS}}\n\n{{const:GUARDRAILS}}",
+      "TDD GREEN. Write the SMALLEST real production code that makes the one failing test from the previous step pass — actual working behavior, never a stub or hardcoded return. Then run the project's full test suite and fix any regression you caused.\n\n{{const:ONE_PER_PASS}}\n\n{{const:GUARDRAILS}}",
+      "TDD REFACTOR. Refactor ONLY the code and test you just touched, with no behavior change (keep the suite green). Then re-read {{spec.description}} and assess what the spec still needs.\n\n{{const:REMAINING_RULE}}\n\n{{const:ONE_PER_PASS}}\n\n{{const:GUARDRAILS}}"
     ],
-    "goal": "Every behavior in {{spec.title}} is driven by a test that started red, and the full suite reports {{const:VERIFICATION_PASS}}.",
-    "maxIterations": 12,
-    "loopBack": "verify"
+    "goal": "Every behavior the spec describes is implemented and covered by a test. The latest step ends with a `REMAINING:` line — STOP only when it reports `REMAINING: none` and that is consistent with the full spec; if any behavior the spec describes is still unbuilt, CONTINUE. A green suite alone is not enough to stop.",
+    "timeoutMinutes": 120
   },
   {
     "id": "e2e-until-green",
@@ -252,7 +252,7 @@ export const PORTED_TEMPLATES: PortSpec[] = [
     ],
     "goal": "The most recent CI run on the current branch concludes successfully with every required check green.",
     "maxIterations": 15,
-    "loopBack": "last"
+    "loopBack": "first"
   },
   {
     "id": "pr-babysitter",
@@ -323,13 +323,14 @@ export const PORTED_TEMPLATES: PortSpec[] = [
       "requirements"
     ],
     "steps": [
-      "Read the spec for {{spec.title}} ({{spec.ids}}) and its requirement checklist. Select the single first still-unchecked requirement and restate its acceptance criteria; do not begin more than one requirement in a pass.",
+      "Read the spec for {{spec.title}} ({{spec.ids}}) and its requirement checklist. Select the single first still-unchecked requirement and restate its acceptance criteria; do not begin more than one requirement in a pass.\n\n{{const:ONE_PER_PASS}}",
       "Implement that one requirement against its acceptance criteria, adding the tests it needs as you go. Mark the checklist item done only once it is built. {{const:GUARDRAILS}}",
-      "Verify just-built requirement against the spec by running the project's test gate with {{cmd:test}} plus any manual checks the requirement calls for; confirm it reports {{const:VERIFICATION_PASS}} before ticking the box and moving on to the next unchecked item."
+      "Verify just-built requirement against the spec by running the project's test gate with {{cmd:test}} plus any manual checks the requirement calls for; confirm it reports {{const:VERIFICATION_PASS}} before ticking the box and moving on to the next unchecked item. Finally, report how many checklist requirements are still unchecked; state 'all requirements complete' only when none remain."
     ],
     "goal": "Every requirement in the spec checklist for {{spec.title}} is implemented, verified to {{const:VERIFICATION_PASS}}, and checked off.",
     "maxIterations": 12,
-    "loopBack": "last"
+    "loopBack": "first",
+    "timeoutMinutes": 45
   },
   {
     "id": "dependency-audit-weekly",
@@ -360,14 +361,15 @@ export const PORTED_TEMPLATES: PortSpec[] = [
       "upgrades"
     ],
     "steps": [
-      "Scan the dependency manifest for outdated packages and choose a single highest-impact one to upgrade this pass — exactly one, no more. Record its current and target version, then apply the version bump. Update any code the new version forces you to change: renamed APIs, removed options, changed types, adjusted signatures. {{const:GUARDRAILS}}",
+      "Scan the dependency manifest for outdated packages and choose a single highest-impact one to upgrade this pass — exactly one, no more. Record its current and target version, then apply the version bump. Update any code the new version forces you to change: renamed APIs, removed options, changed types, adjusted signatures. {{const:GUARDRAILS}}\n\n{{const:ONE_PER_PASS}}",
       "{{cmd:typecheck}}",
       "{{cmd:test}}",
       "Once the project is green, commit just this single dependency bump with a clear conventional message that names the package and the version it moved to (for example, chore(deps): bump <package> to <version>). Then report which package was upgraded and whether outdated packages still remain."
     ],
     "goal": "This pass upgraded exactly one outdated package, the typecheck and test gates report {{const:VERIFICATION_PASS}}, the bump is committed on its own, and either no meaningful outdated packages remain or the user has chosen to stop.",
     "maxIterations": 12,
-    "loopBack": "last"
+    "loopBack": "first",
+    "timeoutMinutes": 45
   },
   {
     "id": "knip-until-clean",
@@ -440,12 +442,13 @@ export const PORTED_TEMPLATES: PortSpec[] = [
     ],
     "steps": [
       "{{cmd:audit}}",
-      "From the high- and critical-severity advisories, pick a single one to resolve this pass. Apply the safest available remedy — a scoped automatic fix for that advisory or a targeted bump of the offending direct dependency — and avoid forced, breaking-change resolutions unless there is genuinely no other path. Adjust any code the patched version requires. {{const:GUARDRAILS}}",
-      "{{cmd:test}}"
+      "From the high- and critical-severity advisories, pick a single one to resolve this pass. Apply the safest available remedy — a scoped automatic fix for that advisory or a targeted bump of the offending direct dependency — and avoid forced, breaking-change resolutions unless there is genuinely no other path. Adjust any code the patched version requires. {{const:GUARDRAILS}}\n\n{{const:ONE_PER_PASS}}",
+      "{{cmd:test}}\n\nThen re-run the audit and report how many high- and critical-severity advisories still remain; state 'no high or critical advisories remain' only when the tree is clean."
     ],
     "goal": "No high- or critical-severity dependency advisories remain, every fix was applied deliberately one at a time, and the test gate reports {{const:VERIFICATION_PASS}}.",
     "maxIterations": 10,
-    "loopBack": "last"
+    "loopBack": "first",
+    "timeoutMinutes": 45
   },
   {
     "id": "api-contract-until-match",
@@ -570,14 +573,15 @@ export const PORTED_TEMPLATES: PortSpec[] = [
       "fresh-context"
     ],
     "steps": [
-      "Read .ralph/prd.json and .ralph/progress.md. If a story is flagged inProgress, resume it; otherwise select the lowest-priority story whose passes flag is still false. Flag exactly that one story inProgress in prd.json before writing any code.",
+      "Read .ralph/prd.json and .ralph/progress.md. If a story is flagged inProgress, resume it; otherwise select the lowest-priority story whose passes flag is still false. Flag exactly that one story inProgress in prd.json before writing any code.\n\n{{const:ONE_PER_PASS}}",
       "Implement that single story end to end at the smallest reasonable scope. Touch nothing outside what the story requires. {{const:GUARDRAILS}}",
       "Run the project's gates and resolve every failure before committing. {{cmd:test}} {{cmd:lint}} {{cmd:build}}",
-      "{{cmd:commit}} with a message scoped to this story, then set its passes flag to true in .ralph/prd.json and append what you learned to .ralph/progress.md."
+      "{{cmd:commit}} with a message scoped to this story, then set its passes flag to true in .ralph/prd.json and append what you learned to .ralph/progress.md. Finally, report how many stories in .ralph/prd.json still have passes=false; state 'backlog complete' only when none remain."
     ],
     "goal": "Every story in .ralph/prd.json has passes set to true, with each one committed and its gates reporting {{const:VERIFICATION_PASS}}.",
     "maxIterations": 20,
-    "loopBack": "last"
+    "loopBack": "first",
+    "timeoutMinutes": 45
   },
   {
     "id": "investigation-script-loop",
@@ -672,6 +676,6 @@ export const PORTED_TEMPLATES: PortSpec[] = [
     ],
     "goal": "Every configured health and smoke endpoint returns a successful response and verification reports {{const:VERIFICATION_PASS}}.",
     "maxIterations": 16,
-    "loopBack": "last"
+    "loopBack": "first"
   }
 ]

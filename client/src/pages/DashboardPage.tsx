@@ -21,6 +21,8 @@ import { useTickets } from '../hooks/useTickets'
 import { SpecsBoard } from '../components/SpecsBoard'
 import { JiraDiscardProvider } from '../context/JiraDiscardContext'
 import { RailsBoard, type RailState, applyRailJobOutcome, isRailSortId, extractRailId } from '../components/RailsBoard'
+import { applyWorktreeProgress, type RailWorktreeMap, type WorktreeState } from '../lib/worktree-progress'
+import { useRailMetrics } from '../context/RailMetricsContext'
 import { DashboardSplitter } from '../components/DashboardSplitter'
 import { useDashboardSplit } from '../hooks/useDashboardSplit'
 import { TicketDetailModal } from '../components/TicketDetailModal'
@@ -131,6 +133,11 @@ export default function DashboardPage() {
   const [activeRailDragLabel, setActiveRailDragLabel] = useState<string | null>(null)
   const [specOrderIds, setSpecOrderIds] = useState<number[] | null>(() => loadSpecOrder(activeProjectId))
   const [rails, setRails] = useState<RailState[]>(() => loadRails(activeProjectId) ?? INITIAL_RAILS)
+  // Per-rail worktree merge-back progress (parallel/isolated launches). railIndex → ticketId → state.
+  const [railWorktrees, setRailWorktrees] = useState<RailWorktreeMap>({})
+  // Live per-rail execution metrics (elapsed/steps/lines) — app-level provider so
+  // they survive Dashboard ⇄ Jobs navigation.
+  const railMetrics = useRailMetrics()
   const initialSort = loadSpecSort(activeProjectId)
   const [sortMode, setSortMode] = useState<SpecSortMode>(initialSort.mode)
   const [sortDir, setSortDir] = useState<SpecSortDir>(initialSort.dir)
@@ -140,6 +147,7 @@ export default function DashboardPage() {
   useEffect(() => {
     setSpecOrderIds(loadSpecOrder(activeProjectId))
     setRails(loadRails(activeProjectId) ?? INITIAL_RAILS)
+    setRailWorktrees({})
     const s = loadSpecSort(activeProjectId)
     setSortMode(s.mode)
     setSortDir(s.dir)
@@ -354,6 +362,19 @@ export default function DashboardPage() {
         if (m.changed !== 'tickets' || r.status === 'running') return { ...r, label }
         return { ...r, label, ticketIds: serverTicketIds }
       }))
+      return
+    }
+
+    if (m.type === 'rail.worktree_progress') {
+      const idx = m.railIndex ?? 0
+      const ticketId = (m as { ticketId?: number }).ticketId
+      const state = (m as { state?: WorktreeState }).state
+      if (typeof ticketId === 'number' && state) {
+        setRailWorktrees((prev) => applyWorktreeProgress(prev, idx, ticketId, state))
+        if (state === 'needs-review') {
+          toast.error(t('toasts.railWorktreeNeedsReview', { n: idx + 1, ticket: ticketId }))
+        }
+      }
       return
     }
 
@@ -878,7 +899,12 @@ export default function DashboardPage() {
       // Implement/ultracode return { jobId }; loop mode returns { loopRunIds }.
       // A loop run IS backed by a job (id === loopRunId), so set activeJobId to
       // the first run id → "View Log" → /jobs/:id streams the live session.
-      const data = await res.json() as { jobId?: string; loopRunIds?: string[] }
+      const data = await res.json() as { jobId?: string; loopRunIds?: string[]; isolationUnavailable?: string }
+      if (data.isolationUnavailable === 'no-git') {
+        toast.info(t('toasts.railWorktreesNoGit'))
+      } else if (data.isolationUnavailable === 'no-commits') {
+        toast.info(t('toasts.railWorktreesNoCommits'))
+      }
       const activeJobId = data.jobId ?? data.loopRunIds?.[0]
       updateRails((prev) => prev.map((r) => (r.id === railId ? { ...r, status: 'running', activeJobId } : r)))
       toast.success(t('toasts.railLaunched', { rail: rail.label }), {
@@ -944,6 +970,8 @@ export default function DashboardPage() {
           <RailsBoard
             rails={rails}
             ticketMap={ticketMap}
+            railWorktrees={railWorktrees}
+            railMetrics={railMetrics}
             providers={railProviders}
             onModeChange={handleModeChange}
             onProfileChange={handleProfileChange}

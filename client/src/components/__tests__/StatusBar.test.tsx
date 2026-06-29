@@ -90,6 +90,43 @@ describe('StatusBar', () => {
     })
   })
 
+  it('prefixes ~ and marks data-estimated when cost includes an estimate (BUG-27)', async () => {
+    global.fetch = vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({
+        jobsToday: 3,
+        costToday: 0.5,
+        totalCostUsd: 1.5,
+        estimatedCostToday: 0.3,
+        estimatedCostUsd: 0.4,
+        includesEstimated: true,
+      }),
+    })
+    render(<StatusBar connectionStatus="connected" />)
+
+    const el = await screen.findByText('~$1.50')
+    expect(el).toBeInTheDocument()
+    expect(el).toHaveAttribute('data-estimated', 'true')
+  })
+
+  it('does NOT prefix ~ on a pure-claude (authoritative) cost (legacy)', async () => {
+    global.fetch = vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({
+        jobsToday: 3,
+        costToday: 0.5,
+        totalCostUsd: 1.5,
+        // no estimated fields → legacy claude-only path
+      }),
+    })
+    render(<StatusBar connectionStatus="connected" />)
+
+    const el = await screen.findByText('$1.50')
+    expect(el).toBeInTheDocument()
+    expect(el).not.toHaveAttribute('data-estimated')
+    expect(screen.queryByText('~$1.50')).not.toBeInTheDocument()
+  })
+
   it('does not show cost when totalCostUsd is 0', async () => {
     global.fetch = vi.fn().mockResolvedValue({
       ok: true,

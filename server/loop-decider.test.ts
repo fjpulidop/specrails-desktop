@@ -23,8 +23,34 @@ describe('decider prompts', () => {
     expect(buildDeciderUserPrompt({ goal: 'g', history: [] })).toContain('(no output yet)')
   })
 
+  it('includes the spec so completeness is judged against full scope, not a self-reported claim', () => {
+    const p = buildDeciderUserPrompt({
+      goal: 'every behavior implemented',
+      history: ['AI Step: VERIFICATION: PASS'],
+      spec: { title: 'Flappy Bird', description: 'Bird falls under gravity; Space flaps; pipes scroll; score on pass.' },
+    })
+    expect(p).toContain('SPEC BEING IMPLEMENTED')
+    expect(p).toContain('Flappy Bird')
+    expect(p).toContain('pipes scroll')
+    expect(p).toContain('do not stop just because a step claimed success')
+    // the system prompt reinforces the same stance
+    expect(buildDeciderSystemPrompt()).toContain('is NOT proof on its own')
+  })
+
+  it('omits the spec block when no spec is provided (back-compat)', () => {
+    const p = buildDeciderUserPrompt({ goal: 'g', history: ['x'] })
+    expect(p).not.toContain('SPEC BEING IMPLEMENTED')
+  })
+
+  it('caps a huge spec description', () => {
+    const big = 'x'.repeat(5000)
+    const p = buildDeciderUserPrompt({ goal: 'g', history: [], spec: { description: big } })
+    expect(p).toContain('…')
+    expect(p.length).toBeLessThan(3000)
+  })
+
   it('exposes a prompt version', () => {
-    expect(DECIDER_PROMPT_VERSION).toBe(1)
+    expect(DECIDER_PROMPT_VERSION).toBe(2)
   })
 })
 

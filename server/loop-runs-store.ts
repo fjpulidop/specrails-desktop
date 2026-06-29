@@ -107,6 +107,53 @@ export function getLoopRun(db: DbInstance, id: string): LoopRunRow | undefined {
   return db.prepare('SELECT * FROM loop_runs WHERE id = ?').get(id) as LoopRunRow | undefined
 }
 
+/** Activity-step count for one event, mirroring the client's deriveFrameActivity
+ *  (../../client/src/lib/frame-activity.ts) so the seeded count matches the live
+ *  "pasos" the Job panel shows. A single assistant frame may carry several
+ *  parallel tool_use blocks → each counts. Non-activity events → 0. */
+function activityStepCount(eventType: string, payload: string): number {
+  if (eventType === 'tool_use') return 1
+  if (eventType === 'item.completed') return 1
+  if (eventType === 'assistant') {
+    try {
+      const j = JSON.parse(payload) as { message?: { content?: Array<{ type?: string }> } }
+      const content = j?.message?.content
+      if (Array.isArray(content)) {
+        const tu = content.filter((c) => c?.type === 'tool_use').length
+        return tu > 0 ? tu : 1
+      }
+    } catch { /* unparseable → count the frame as 1 below */ }
+    return 1
+  }
+  return 0
+}
+
+/** Step + log-line counts for a run, derived from its persisted events. Used to
+ *  SEED the dashboard's live rail metrics after a page refresh — the WS stream
+ *  alone can't replay events that already fired. steps = activity steps (SAME
+ *  source as the Job panel's "pasos"); lines = number of `log` events. */
+export function getRunEventCounts(db: DbInstance, runId: string): { steps: number; lines: number } {
+  const rows = db
+    .prepare("SELECT event_type, payload FROM events WHERE job_id = ? AND event_type IN ('log','assistant','tool_use','item.completed')")
+    .all(runId) as { event_type: string; payload: string }[]
+  let steps = 0
+  let lines = 0
+  for (const r of rows) {
+    if (r.event_type === 'log') lines += 1
+    else steps += activityStepCount(r.event_type, r.payload)
+  }
+  return { steps, lines }
+}
+
+/** All currently-running loop runs for a project, straight from the DB (NOT the
+ *  in-memory rail map, which is cleared on every server restart). Authoritative
+ *  source for seeding the dashboard's live rail metrics after a refresh. */
+export function listRunningLoopRuns(db: DbInstance, projectId: string): LoopRunRow[] {
+  return db
+    .prepare("SELECT * FROM loop_runs WHERE project_id = ? AND status = 'running' ORDER BY started_at ASC")
+    .all(projectId) as LoopRunRow[]
+}
+
 export function listLoopRuns(db: DbInstance, projectId: string, limit = 100): LoopRunRow[] {
   return db
     .prepare('SELECT * FROM loop_runs WHERE project_id = ? ORDER BY started_at DESC LIMIT ?')

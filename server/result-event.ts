@@ -61,7 +61,22 @@ export function finaliseInvocationResult(
   }
 
   let estimated = false
-  if (!adapter.capabilities.nativeCostUsd) {
+  // Guard: when the breakdown carries NO billable usage (every token field
+  // undefined/0 — e.g. a codex/gemini turn aborted/crashed before its
+  // `turn.completed` usage block), do NOT estimate. The estimator would return
+  // the number `0` for a priced model, persisting `total_cost_usd=0,
+  // estimated=1`, while the equivalent claude failure leaves NULL. Skipping it
+  // keeps `total_cost_usd` undefined → persisted NULL, identical to claude, and
+  // also avoids the misleading "no rate-card entry" warn below for a known
+  // model that simply had no usage. (BUG-ANALYTICS-05.)
+  // cache_create is intentionally excluded — it is never billed by the pricing
+  // table, so a row carrying only cache-create tokens has no billable usage and
+  // must be treated as no-cost (NULL), mirroring estimateCostUsd.
+  const hasBillableUsage =
+    (cloned.tokens_in ?? 0) > 0 ||
+    (cloned.tokens_out ?? 0) > 0 ||
+    (cloned.tokens_cache_read ?? 0) > 0
+  if (!adapter.capabilities.nativeCostUsd && hasBillableUsage) {
     const estimator = opts.estimator ?? estimateCostUsd
     const computed = estimator(adapter.id, cloned.model, {
       tokens_in: cloned.tokens_in,

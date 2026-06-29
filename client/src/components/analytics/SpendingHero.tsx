@@ -27,7 +27,7 @@ function fmtTokens(v: number): string {
   return `${v}`
 }
 
-const SURFACES: Surface[] = ['job', 'explore-spec', 'quick-spec', 'ai-edit', 'smash']
+const SURFACES: Surface[] = ['job', 'explore-spec', 'quick-spec', 'ai-edit', 'smash', 'file-summary', 'loop']
 
 export function SpendingHero({ data, loading }: Props) {
   const { t } = useTranslation('analytics')
