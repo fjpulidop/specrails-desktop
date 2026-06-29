@@ -124,6 +124,7 @@ export function ensureWorkspace(slug: string, projectPath: string, home?: string
   const ws = workspacePathFor(slug, home)
   fs.mkdirSync(ws, { recursive: true })
   ensureProjectLink(ws, projectPath)
+  ensureOpenspecLink(ws, projectPath)
   return ws
 }
 
@@ -205,17 +206,21 @@ export function removeWorkspace(slug: string, home?: string): void {
   const ws = workspacePathFor(slug, home)
   if (!fs.existsSync(ws)) return
 
-  const linkPath = path.join(ws, 'project')
-  try {
-    const st = fs.lstatSync(linkPath)
-    if (st.isSymbolicLink() || (process.platform === 'win32' && st.isDirectory())) {
-      // unlink works on POSIX symlinks; rmdir on Windows junctions
-      try { fs.unlinkSync(linkPath) } catch {
-        try { fs.rmdirSync(linkPath) } catch { /* best-effort */ }
+  // Unlink the carve-out links BEFORE the recursive remove so the user's repo is
+  // never followed/deleted: `project` → the repo, and `openspec` → the repo's
+  // openspec carve-out. (POSIX symlinks unlink; Windows junctions rmdir.)
+  for (const name of ['project', 'openspec']) {
+    const linkPath = path.join(ws, name)
+    try {
+      const st = fs.lstatSync(linkPath)
+      if (st.isSymbolicLink() || (process.platform === 'win32' && st.isDirectory())) {
+        try { fs.unlinkSync(linkPath) } catch {
+          try { fs.rmdirSync(linkPath) } catch { /* best-effort */ }
+        }
       }
+    } catch {
+      /* link may not exist */
     }
-  } catch {
-    /* link may not exist */
   }
 
   fs.rmSync(ws, { recursive: true, force: true })
@@ -276,5 +281,80 @@ function ensureProjectLink(cwd: string, projectPath: string): void {
   // fallback file from a prior failed attempt.
   if (fs.existsSync(fallbackPath)) {
     try { fs.unlinkSync(fallbackPath) } catch { /* ignore */ }
+  }
+}
+
+/**
+ * Ensure `<ws>/openspec` is a LINK to `<repo>/openspec` — the openspec carve-out.
+ *
+ * openspec is a repo-resident deliverable (CLAUDE.md: "openspec/** … the versioned
+ * spec deliverable … repo-relative by design"). For specrails-core's own slash
+ * commands the `${SPECRAILS_REPO_DIR:-.}` indirection re-points openspec I/O to the
+ * repo — but the EXTERNAL `openspec` binary (invoked as `openspec new change` /
+ * `openspec archive` by the opsx lifecycle) does NOT read that env var; it writes
+ * relative to its cwd. Since relocated rails/loops spawn with cwd = the WORKSPACE,
+ * without this link every `openspec` write would strand the change under
+ * `~/.specrails/projects/<slug>/workspace/openspec` instead of the user's repo.
+ *
+ * Mirrors `ensureProjectLink` (symlink on POSIX, junction on Windows) and adds a
+ * one-time, NON-DESTRUCTIVE migration: a pre-carve-out workspace that already holds
+ * a REAL `openspec/` dir (created by the binary writing to the workspace cwd) has
+ * its contents rescued into the repo — never clobbering the repo's own files —
+ * before the dir is replaced by the link. Idempotent: a no-op once the correct
+ * link exists. Best-effort throughout — a link failure must never abort a spawn.
+ */
+function ensureOpenspecLink(cwd: string, projectPath: string): void {
+  const linkPath = path.join(cwd, 'openspec')
+  const repoOpenspec = path.join(projectPath, 'openspec')
+
+  try {
+    const st = fs.lstatSync(linkPath)
+    if (st.isSymbolicLink()) {
+      const current = fs.readlinkSync(linkPath)
+      if (path.resolve(cwd, current) === path.resolve(repoOpenspec)) return // already correct
+      try { fs.unlinkSync(linkPath) } catch { /* replaced below */ }
+    } else if (st.isDirectory()) {
+      // Pre-carve-out workspace: a real openspec/ dir the binary wrote to the
+      // workspace cwd. Rescue its contents into the repo, then replace with a link.
+      mergeDirInto(linkPath, repoOpenspec)
+      try { fs.rmSync(linkPath, { recursive: true, force: true }) } catch { return }
+    } else {
+      try { fs.unlinkSync(linkPath) } catch { return }
+    }
+  } catch {
+    /* does not exist — create below */
+  }
+
+  // The carve-out target must exist for the link to resolve (the binary expects to
+  // write under it). openspec/** is an intentional repo carve-out, so creating it
+  // does not violate the pristine-repo guarantee.
+  try { fs.mkdirSync(repoOpenspec, { recursive: true }) } catch { /* best-effort */ }
+
+  if (process.platform === 'win32') {
+    try { fs.symlinkSync(repoOpenspec, linkPath, 'junction'); return } catch { /* fall through to POSIX symlink */ }
+  }
+  try { fs.symlinkSync(repoOpenspec, linkPath) } catch { /* best-effort: a failed link just means the binary writes a fresh workspace dir next run */ }
+}
+
+/**
+ * Recursively copy `src` into `dest`, creating directories and copying only files
+ * that do NOT already exist in `dest` (the repo's own copy always wins). Used by
+ * the openspec carve-out migration to rescue workspace-stranded artifacts into the
+ * repo without overwriting committed content. Best-effort per entry.
+ */
+function mergeDirInto(src: string, dest: string): void {
+  let entries: fs.Dirent[]
+  try { entries = fs.readdirSync(src, { withFileTypes: true }) } catch { return }
+  try { fs.mkdirSync(dest, { recursive: true }) } catch { /* best-effort */ }
+  for (const e of entries) {
+    const s = path.join(src, e.name)
+    const d = path.join(dest, e.name)
+    if (e.isDirectory()) {
+      mergeDirInto(s, d)
+    } else if (e.isSymbolicLink()) {
+      if (!fs.existsSync(d)) { try { fs.symlinkSync(fs.readlinkSync(s), d) } catch { /* skip */ } }
+    } else if (!fs.existsSync(d)) {
+      try { fs.copyFileSync(s, d) } catch { /* skip */ }
+    }
   }
 }

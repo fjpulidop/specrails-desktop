@@ -143,6 +143,34 @@ export const LOOP_COMMANDS: LoopCommand[] = [
     template: LOOP_FALLBACK_PROMPT,
   },
 
+  // ── OpenSpec lifecycle (opsx:*) — provider-native slash commands ─────────────
+  // The opsx commands are installed by OpenSpec itself (NOT the specrails
+  // framework) and live under the `/opsx:` namespace, so they are `providerNative`
+  // — NOT `coreCommand` (which would wrongly emit `/specrails:<name>`). claude and
+  // gemini use the slash form; codex uses the `$`-skill form. Providers without a
+  // native opsx command fall back to the `template` prompt. Archive is invoked via
+  // the `openspec` CLI in a shell node (provider-independent) and has no command.
+  // NOTE: opsx commands are confirmed on claude today; codex/gemini lean on the
+  // fallback until OpenSpec ships their native commands (see opsx-lifecycle loop).
+  {
+    name: 'opsx:ff', label: 'opsx:ff', ticketScope: 'per-ticket',
+    description: 'OpenSpec fast-forward: create (or continue) a change and generate all its artifacts (proposal, specs, design, tasks). Native /opsx:ff (claude/gemini) or $opsx:ff (codex).',
+    providerNative: { claude: '/opsx:ff', gemini: '/opsx:ff', codex: '$opsx:ff' },
+    template: 'Create or continue an OpenSpec change for the work described next and generate all of its artifacts (proposal, specs, design, and tasks) so it is ready to implement.',
+  },
+  {
+    name: 'opsx:apply', label: 'opsx:apply', ticketScope: 'per-ticket',
+    description: 'OpenSpec apply: implement all pending tasks of the active change. Native /opsx:apply (claude/gemini) or $opsx:apply (codex).',
+    providerNative: { claude: '/opsx:apply', gemini: '/opsx:apply', codex: '$opsx:apply' },
+    template: 'Implement every pending task of the active OpenSpec change, editing the code as needed and marking each task complete as you finish it.',
+  },
+  {
+    name: 'opsx:verify', label: 'opsx:verify', ticketScope: 'per-ticket',
+    description: "OpenSpec verify: check the active change's implementation against its specs/tasks; ends with VERIFICATION: PASS|FAIL. Native /opsx:verify (claude/gemini) or $opsx:verify (codex).",
+    providerNative: { claude: '/opsx:verify', gemini: '/opsx:verify', codex: '$opsx:verify' },
+    template: 'Verify the active OpenSpec change: inspect the REAL implementation against its specs, design, and tasks. Finish with exactly `VERIFICATION: PASS` when nothing required is missing, or `VERIFICATION: FAIL — <what is still missing>` otherwise.',
+  },
+
   // ── Merge-resolver (parallel rails: integrate worktree branches back) ───────
   {
     name: 'resolve-merge', label: 'resolve-merge', ticketScope: 'per-ticket',
@@ -216,7 +244,9 @@ export function getLoopCommand(name: string): LoopCommand | undefined {
   return COMMANDS_BY_NAME.get(name)
 }
 
-const CMD_TOKEN_RE = /\{\{\s*cmd:([\w-]+)\s*\}\}/g
+// Allow `:` in the command name so namespaced commands like `{{cmd:opsx:ff}}`
+// (whose name is literally `opsx:ff`) tokenize — colon-free names are unaffected.
+const CMD_TOKEN_RE = /\{\{\s*cmd:([\w:-]+)\s*\}\}/g
 
 export interface ExpandCommandOpts {
   /** The provider the loop run will spawn (rail-governed). */

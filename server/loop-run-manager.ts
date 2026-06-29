@@ -170,6 +170,29 @@ export function truncate(s: string, max = 600): string {
   return s.slice(0, head) + '\n…\n' + s.slice(s.length - tail)
 }
 
+// ── Run-scoped captured variables ({{run.<name>}}) ───────────────────────────
+// A run can capture values from a step's output and reference them in LATER
+// ai-step prompts and shell commands as `{{run.<name>}}`. v1 captures exactly one
+// — `changeId`, the OpenSpec change id — written so the family can generalize.
+
+const RUN_TOKEN_RE = /\{\{\s*run\.(\w+)\s*\}\}/g
+/** First `openspec/changes/<id>` path mentioned in a step's output (the same
+ *  detection SpecLauncherManager uses). The id stops at the first `/`. */
+const CHANGE_ID_RE = /openspec\/changes\/([A-Za-z0-9._-]+)/
+
+/** Replace `{{run.<name>}}` with the captured value; uncaptured → '' (never a
+ *  leaked literal token). Applied AFTER `{{cmd:*}}` and `{{spec.*}}`. */
+export function resolveRunVars(text: string, vars: Record<string, string>): string {
+  return text.replace(RUN_TOKEN_RE, (_m, key: string) => vars[key] ?? '')
+}
+
+/** Extract the OpenSpec change id from a step's output (first match wins), or
+ *  undefined when none is present. */
+export function extractChangeId(text: string): string | undefined {
+  const m = CHANGE_ID_RE.exec(text)
+  return m ? m[1] : undefined
+}
+
 export class LoopRunManager {
   private readonly _cancelled = new Set<string>()
   /** The currently-spawned child per run, so cancel/stop can actually KILL a
@@ -317,6 +340,10 @@ export class LoopRunManager {
     // values layer on top. Used to expand `{{const:*}}` in every node's text.
     const constMap = { ...BUILTIN_CONSTANTS, ...(req.constants ?? {}) }
     const history: string[] = []
+    // Run-scoped captured variables ({{run.<name>}}). Populated as steps run
+    // (e.g. `changeId` from the first opsx:ff step's output) and resolved in later
+    // ai-step prompts and shell commands. Empty until something is captured.
+    const runVars: Record<string, string> = {}
     // Backstop against a cycle with no Decider (would otherwise never increment
     // `iteration`): cap total node executions well above any honest run.
     const stepCap = (maxIterations + 1) * (req.graph.nodes.length + 2) + 16
@@ -458,9 +485,12 @@ export class LoopRunManager {
             // data tokens and finally `{{const:*}}` library constants.
             const rawTemplate = String(node.data?.prompt ?? '')
             const base = resolveConstants(
-              interpolateSpec(
-                expandCommands(rawTemplate, { provider: nodeProvider, ticketIds: req.spec?.ticketIds, specId: req.spec?.id }),
-                req.spec
+              resolveRunVars(
+                interpolateSpec(
+                  expandCommands(rawTemplate, { provider: nodeProvider, ticketIds: req.spec?.ticketIds, specId: req.spec?.id }),
+                  req.spec
+                ),
+                runVars
               ),
               constMap
             )
@@ -488,6 +518,14 @@ export class LoopRunManager {
             if (res.sessionId && !res.failed) aiSessionId = res.sessionId
             history.push(`AI Step: ${truncate(res.text)}`)
             record(`loop:${runId}`, res, aiStepStart)
+            // Capture the OpenSpec change id from a step's output the FIRST time it
+            // appears (first-match-wins, kept stable across loop-back iterations so
+            // the re-pass amends the same change). Used by `{{run.changeId}}` in the
+            // loop-back ff prompt and the unattended archive shell node.
+            if (!runVars.changeId) {
+              const cid = extractChangeId(res.text)
+              if (cid) { runVars.changeId = cid; logLine(`↪ Captured OpenSpec change id: ${cid}`) }
+            }
             // Fail-fast: a hard-failed step (non-zero exit / spawn error) that
             // produced NO output means the provider never really ran — quota,
             // auth, crash. One can be transient; AI_FAILFAST_THRESHOLD in a row
@@ -508,7 +546,23 @@ export class LoopRunManager {
             break
           }
           case 'shell': {
-            const command = resolveConstants(interpolateSpec(String(node.data?.command ?? ''), req.spec), constMap)
+            // Guard: refuse to run when a declared run-variable was never captured
+            // (e.g. an archive node whose `{{run.changeId}}` is empty) — running
+            // `openspec archive  -y` against an unknown change would archive the
+            // wrong thing. Settle the run failed with a clear reason instead.
+            const reqVarsRaw = node.data?.requireRunVars
+            const requireRunVars = Array.isArray(reqVarsRaw)
+              ? reqVarsRaw.filter((v): v is string => typeof v === 'string')
+              : []
+            const missingRunVars = requireRunVars.filter((name) => !runVars[name])
+            if (missingRunVars.length > 0) {
+              emitStep('shell', `⚡ ${nodeLabel || 'Shell'}`)
+              logLine(`Skipped: required run variable(s) not captured: ${missingRunVars.map((n) => `{{run.${n}}}`).join(', ')} — refusing to run the command against an unknown target.`, 'stderr')
+              outcome = 'failed'
+              settled = true
+              break
+            }
+            const command = resolveConstants(resolveRunVars(interpolateSpec(String(node.data?.command ?? ''), req.spec), runVars), constMap)
             emitStep('shell', `⚡ ${nodeLabel || 'Shell'}`)
             logLine(`$ ${command}`)
             const sh = await this.executors.runShell({ command, cwd: req.cwd, onLine: logLine, onSpawn: (c) => this._activeChild.set(runId, c) })

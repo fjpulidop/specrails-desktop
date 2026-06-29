@@ -168,7 +168,85 @@ export function fixLoopGraph(mainPrompts: string[], deciderGoal: string, maxIter
   return { nodes, edges, config: { maxIterations, timeoutMinutes, ...(aiStepTimeoutMinutes != null ? { aiStepTimeoutMinutes } : {}) } }
 }
 
+// ── OpenSpec lifecycle loop ──────────────────────────────────────────────────
+// A hand-authored graph (NOT a PortSpec) because it combines an AI-step spine, a
+// Decider, a `shell` archive node, AND a terminal action on the Decider's `stop`
+// branch — a shape the stock aiLoopGraph/fixLoopGraph builders do not produce.
+// Per iteration: opsx:ff → opsx:apply → opsx:verify → Decider. The Decider stops
+// when verify reports PASS (→ unattended `openspec archive <id> -y` shell node);
+// otherwise it loops back to opsx:ff, which AMENDS the same change ({{run.changeId}}
+// captured by the engine from ff's first-pass output) using the gaps verify found.
+const OPSX_FF_PROMPT = [
+  '{{cmd:opsx:ff}} {{spec.title}}',
+  '',
+  '{{spec.description}}',
+  '',
+  'If a change id appears here — "{{run.changeId}}" — an OpenSpec change for this ticket already exists: CONTINUE that change (do NOT create a new one) and address only what the verification reported as still missing (see the context below). If it is blank, create the change and generate all required artifacts.',
+  '',
+  'Run fully unattended: make reasonable decisions to keep momentum and NEVER stop to ask — there is no human to answer. When something is unclear, pick the most sensible option, proceed, and note the assumption.',
+].join('\n')
+
+const OPSX_APPLY_PROMPT = [
+  '{{cmd:opsx:apply}}',
+  '',
+  'Implement every pending task of the active OpenSpec change for ticket "{{spec.title}}", editing code as needed and marking tasks complete as you finish them.',
+  '',
+  'Run fully unattended: decide and keep momentum, never pause to ask. If you hit an ambiguity or blocker, make the most reasonable choice, implement it, and continue.',
+].join('\n')
+
+const OPSX_VERIFY_PROMPT = [
+  '{{cmd:opsx:verify}}',
+  '',
+  'Verify the active OpenSpec change against its specs, design, and tasks for ticket "{{spec.title}}". Be strict and honest — inspect the REAL code and tests, not any step\'s self-report.',
+  '',
+  'Finish with a clear final line: exactly `{{const:VERIFICATION_PASS}}` when the change fully matches the ticket with nothing required missing, or `{{const:VERIFICATION_FAIL}} — <what is still missing>` otherwise.',
+].join('\n')
+
+const OPSX_DECIDER_GOAL =
+  'The verify step reported {{const:VERIFICATION_PASS}} — the implementation fully matches ticket "{{spec.title}}" and nothing required is missing.'
+
+/** The OpenSpec-lifecycle graph (see comment above). Exported for unit testing. */
+export function opsxLifecycleGraph(): LoopGraph {
+  return {
+    nodes: [
+      { id: 'start', type: 'start', position: { x: COL_X, y: 0 } },
+      { id: 'ff', type: 'ai-step', position: { x: COL_X, y: ROW_GAP * 1 }, data: { label: 'opsx:ff', prompt: OPSX_FF_PROMPT } },
+      { id: 'apply', type: 'ai-step', position: { x: COL_X, y: ROW_GAP * 2 }, data: { label: 'opsx:apply', prompt: OPSX_APPLY_PROMPT } },
+      { id: 'verify', type: 'ai-step', position: { x: COL_X, y: ROW_GAP * 3 }, data: { label: 'opsx:verify', prompt: OPSX_VERIFY_PROMPT } },
+      { id: 'decide', type: 'decider', position: { x: COL_X, y: ROW_GAP * 4 }, data: { goal: OPSX_DECIDER_GOAL } },
+      // Unattended archive: deterministic CLI, no AI, no prompt. `requireRunVars`
+      // makes the engine REFUSE to run if no change id was captured (never archive
+      // an unknown change); `openspec archive -y` syncs the main specs by default.
+      { id: 'archive', type: 'shell', position: { x: COL_X, y: ROW_GAP * 5 }, data: { label: 'archive', command: 'openspec archive {{run.changeId}} -y', requireRunVars: ['changeId'] } },
+      { id: 'done', type: 'end', position: { x: COL_X, y: ROW_GAP * 6 }, data: { outcome: 'success' } },
+    ],
+    edges: [
+      { id: 'e-start', source: 'start', target: 'ff' },
+      { id: 'e-ff', source: 'ff', target: 'apply' },
+      { id: 'e-apply', source: 'apply', target: 'verify' },
+      { id: 'e-verify', source: 'verify', target: 'decide' },
+      // not-done (verify FAIL) → loop back to ff (firstStepId ⇒ session resets, the
+      // pass re-reads disk; verify's gaps ride in the injected history).
+      { id: 'e-continue', source: 'decide', target: 'ff', branch: 'continue' },
+      // done (verify PASS) → archive then end.
+      { id: 'e-stop', source: 'decide', target: 'archive', branch: 'stop' },
+      { id: 'e-archive', source: 'archive', target: 'done' },
+    ],
+    // Conservative bounds so a never-satisfied verify can't spin: at most 3 full
+    // lifecycle passes; per-step cap raised (apply can implement a whole change).
+    config: { maxIterations: 3, timeoutMinutes: 180, aiStepTimeoutMinutes: 45 },
+  }
+}
+
 export const LOOP_TEMPLATES: LoopTemplate[] = [
+  {
+    id: 'opsx-lifecycle',
+    name: 'OpenSpec Lifecycle',
+    description: 'Single-agent, ticket-to-archive OpenSpec lifecycle: generate artifacts (opsx:ff) → implement (opsx:apply) → verify (opsx:verify); on a FAIL verdict loop back to amend the SAME change, on PASS archive it unattended. The artifact-centric counterpart to the implement pipeline. Claude-first — codex/gemini fall back to a generic prompt until OpenSpec ships their native opsx commands.',
+    category: 'Automation',
+    tags: ['Automation', 'openspec', 'lifecycle'],
+    graph: opsxLifecycleGraph(),
+  },
   {
     id: 'ship-and-green',
     name: 'Ship & Green',
