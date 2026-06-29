@@ -1,5 +1,12 @@
 # Changelog
 
+## [2.15.0](https://github.com/fjpulidop/specrails-desktop/compare/v2.14.0...v2.15.0) (2026-06-29)
+
+
+### Features
+
+* loop template library, worktree isolation, live rail metrics & resizable modals ([#463](https://github.com/fjpulidop/specrails-desktop/issues/463)) ([dee154f](https://github.com/fjpulidop/specrails-desktop/commit/dee154f3f3a559112a6b694dfee43d6bfe65fe09))
+
 ## [2.14.0](https://github.com/fjpulidop/specrails-desktop/compare/v2.13.0...v2.14.0) (2026-06-26)
 
 
