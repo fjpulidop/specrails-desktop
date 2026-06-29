@@ -57,7 +57,7 @@ export function LoopRunModal({
 
   return (
     <Dialog open={open} onOpenChange={(o) => { if (!o) onClose() }}>
-      <DialogContent className="max-w-sm">
+      <DialogContent movableResizable className="max-w-sm">
         {loop && (
           <>
             <DialogHeader>

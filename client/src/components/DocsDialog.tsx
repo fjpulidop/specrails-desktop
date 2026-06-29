@@ -345,7 +345,7 @@ function DocsDialogImpl({ open, onClose }: DocsDialogProps) {
 
   return (
     <Dialog open={open} onOpenChange={(isOpen) => { if (!isOpen) onClose() }}>
-      <DialogContent className="max-w-5xl max-h-[90vh] overflow-hidden p-0 flex flex-col">
+      <DialogContent movableResizable className="max-w-5xl max-h-[90vh] overflow-hidden p-0 flex flex-col">
         {/* Accessibility: Radix requires DialogTitle + DialogDescription on every
             DialogContent or it logs a warning on every render (and a flood of
             warnings can contribute to perceived flicker). The visible heading

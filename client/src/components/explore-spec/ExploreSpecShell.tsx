@@ -19,6 +19,8 @@ import { BrowserCaptureModal } from '../browser-capture/BrowserCaptureModal'
 import { CapturedDomPanel } from '../browser-capture/CapturedDomPanel'
 import { isBrowserCaptureEnabled, type CaptureResult, type CapturedDom } from '../../lib/browser-capture'
 import { genPendingSpecId } from '../../lib/pending-spec-id'
+import { useMovableResizableModal } from '../../hooks/useMovableResizableModal'
+import { ResizeGrips } from '../ui/ResizeGrips'
 import { SpecDraftPanel } from './SpecDraftPanel'
 import { ExploreStatusPills } from './ExploreStatusPills'
 import { useSmoothStream } from './useSmoothStream'
@@ -160,6 +162,8 @@ export function ExploreSpecShell({
 }: ExploreSpecShellProps) {
   const { t } = useTranslation('explore')
   const { t: tj } = useTranslation('jira')
+  const { panelRef, panelStyle, headerHandleProps, resizeHandles, isFloating } =
+    useMovableResizableModal()
   // On a Jira-backed project a committed Explore spec is always created in Jira;
   // the indicator makes that explicit. (Private specs use Save as Draft.)
   const jira = useJiraConnection()
@@ -765,13 +769,18 @@ export function ExploreSpecShell({
       data-testid="explore-spec-backdrop"
     >
       <div
+        ref={panelRef}
         role="dialog"
         aria-modal="true"
         aria-label={t('shell.dialogAriaLabel')}
         className="m-auto w-full h-full max-w-[1600px] flex flex-col bg-background rounded-xl border border-border/40 shadow-2xl overflow-hidden"
+        style={panelStyle}
       >
       {/* Header */}
-      <div className={`flex-shrink-0 flex items-center justify-between ${macPadLeft} pr-4 h-14 border-b border-border bg-card/60 backdrop-blur-sm`}>
+      <div
+        {...headerHandleProps}
+        className={`flex-shrink-0 flex items-center justify-between ${macPadLeft} pr-4 h-14 border-b border-border bg-card/60 backdrop-blur-sm${isFloating ? ' cursor-grab active:cursor-grabbing' : ''}`}
+      >
         <button
           type="button"
           onClick={requestClose}
@@ -1110,6 +1119,7 @@ export function ExploreSpecShell({
         </DialogContent>
       </Dialog>
       </div>
+      <ResizeGrips handles={resizeHandles} />
       {REVIEW_ENABLED && reviewOpen && (
         <ExploreReviewOverlay
           baseline={editTicket

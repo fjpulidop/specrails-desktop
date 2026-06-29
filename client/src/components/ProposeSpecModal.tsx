@@ -399,7 +399,7 @@ export function ProposeSpecModal({ open, onClose, tickets, onExploreLaunch }: Pr
           canvas). DialogContent stays mounted with state preserved while the
           capture modal is stacked above at a higher z-index. */}
       <Dialog open={open} modal={!browserOpen} onOpenChange={(o) => { if (!o && !browserOpen) onClose() }}>
-        <DialogContent className="max-w-4xl flex flex-col gap-0 p-0 overflow-hidden">
+        <DialogContent movableResizable className="max-w-4xl flex flex-col gap-0 p-0 overflow-hidden">
           <DialogHeader className="px-5 py-4 border-b border-border/40 shrink-0">
             <DialogTitle className="text-sm flex items-center gap-2">
               <Sparkles className="w-4 h-4 text-primary/70" />

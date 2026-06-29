@@ -153,7 +153,7 @@ export function PairWebCompanionModal({ open, onClose, onPaired }: { open: boole
 
   return (
     <Dialog open={open} onOpenChange={(o) => { if (!o) close() }}>
-      <DialogContent className="max-w-md">
+      <DialogContent movableResizable className="max-w-md">
         <DialogHeader>
           <DialogTitle>{t('pairWeb.title')}</DialogTitle>
           <DialogDescription>{t('pairWeb.description')}</DialogDescription>

@@ -98,7 +98,7 @@ export function CreateTemplateDialog({ open, template, commands = [], onClose, o
 
   return (
     <Dialog open={open} onOpenChange={(o) => !o && handleClose()}>
-      <DialogContent className="max-w-lg glass-card">
+      <DialogContent movableResizable className="max-w-lg glass-card">
         <DialogHeader>
           <DialogTitle>{isEditing ? t('templateDialog.editTitle') : t('templateDialog.newTitle')}</DialogTitle>
         </DialogHeader>

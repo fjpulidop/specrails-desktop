@@ -164,7 +164,7 @@ export function AddProjectDialog({ open, onClose }: AddProjectDialogProps) {
 
   return (
     <Dialog open={open} onOpenChange={handleOpenChange}>
-      <DialogContent className="max-w-md">
+      <DialogContent movableResizable className="max-w-md">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <FolderOpen className="w-4 h-4" />

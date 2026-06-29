@@ -47,6 +47,7 @@ export function UltracodeLaunchDialog({ open, railLabel, specCount, model, onCon
   return (
     <Dialog open={open} onOpenChange={(o) => { if (!o) onCancel() }}>
       <DialogContent
+        movableResizable
         showCloseButton={false}
         className="max-w-md gap-5"
         onOpenAutoFocus={(e) => { e.preventDefault(); confirmRef.current?.focus() }}

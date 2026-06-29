@@ -62,7 +62,7 @@ export function RoutingRuleDialog({
 
   return (
     <Dialog open={open} onOpenChange={(o) => { if (!o) onCancel() }}>
-      <DialogContent className="max-w-md">
+      <DialogContent movableResizable className="max-w-md">
         <DialogHeader>
           <DialogTitle>{mode === 'edit' ? t('routingRule.editTitle') : t('routingRule.addTitle')}</DialogTitle>
           <DialogDescription>

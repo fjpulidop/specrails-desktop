@@ -7,6 +7,8 @@ import { useSharedWebSocket } from '../hooks/useSharedWebSocket'
 import { useProjectCache } from '../hooks/useProjectCache'
 import { JiraIntegrationCard } from '../components/jira/JiraIntegrationCard'
 import { FEATURE_JIRA } from '../lib/feature-flags'
+import { useMovableResizableModal } from '../hooks/useMovableResizableModal'
+import { ResizeGrips } from '../components/ui/ResizeGrips'
 
 interface PluginRequirement {
   name: string
@@ -682,12 +684,19 @@ function UninstallDialog({
 }
 
 function ModalShell({ title, onClose, children }: { title: string; onClose: () => void; children: React.ReactNode }) {
+  const { panelRef, panelStyle, headerHandleProps, resizeHandles, isFloating, guardBackdrop } = useMovableResizableModal()
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40" role="dialog" tabIndex={-1} onClick={onClose}>
-      <div className="bg-card border border-border rounded-lg shadow-xl w-full max-w-md p-5 flex flex-col gap-3" onClick={(e) => e.stopPropagation()}>
-        <h3 className="text-sm font-semibold">{title}</h3>
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40" role="dialog" tabIndex={-1} onClick={guardBackdrop(onClose)}>
+      <div
+        ref={panelRef}
+        className="bg-card border border-border rounded-lg shadow-xl w-full max-w-md p-5 flex flex-col gap-3"
+        onClick={(e) => e.stopPropagation()}
+        style={panelStyle}
+      >
+        <h3 className={`text-sm font-semibold ${isFloating ? 'cursor-grab active:cursor-grabbing' : ''}`} {...headerHandleProps}>{title}</h3>
         {children}
       </div>
+      <ResizeGrips handles={resizeHandles} />
     </div>
   )
 }

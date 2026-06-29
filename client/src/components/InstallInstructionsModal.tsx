@@ -246,7 +246,7 @@ export function InstallInstructionsModal({ open, onClose, status, onRecheck, isR
   if (hasCorruptedBundle) {
     return (
       <Dialog open={open} onOpenChange={(o) => { if (!o) onClose() }}>
-        <DialogContent className="max-w-xl" data-testid="install-modal-corrupted-bundle">
+        <DialogContent movableResizable className="max-w-xl" data-testid="install-modal-corrupted-bundle">
           <DialogHeader>
             <DialogTitle>{t('instructions.corrupted.title')}</DialogTitle>
             <DialogDescription>
@@ -268,7 +268,7 @@ export function InstallInstructionsModal({ open, onClose, status, onRecheck, isR
 
   return (
     <Dialog open={open} onOpenChange={(o) => { if (!o) onClose() }}>
-      <DialogContent className="max-w-xl">
+      <DialogContent movableResizable className="max-w-xl">
         <DialogHeader>
           <DialogTitle>{t('instructions.title')}</DialogTitle>
           <DialogDescription>

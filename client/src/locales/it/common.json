@@ -48,5 +48,18 @@
     "failed": "Non riuscito",
     "canceled": "Annullato",
     "draft": "Bozza"
+  },
+  "modal": {
+    "resize": {
+      "nw": "Ridimensiona — angolo in alto a sinistra",
+      "n": "Ridimensiona — bordo superiore",
+      "ne": "Ridimensiona — angolo in alto a destra",
+      "e": "Ridimensiona — bordo destro",
+      "se": "Ridimensiona — angolo in basso a destra",
+      "s": "Ridimensiona — bordo inferiore",
+      "sw": "Ridimensiona — angolo in basso a sinistra",
+      "w": "Ridimensiona — bordo sinistro"
+    },
+    "resetPosition": "Reimposta posizione"
   }
 }

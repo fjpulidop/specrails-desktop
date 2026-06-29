@@ -315,7 +315,7 @@ export default function SettingsDialog({ open, onClose, onOpenOnboarding }: Sett
 
   return (
     <Dialog open={open} onOpenChange={(isOpen) => { if (!isOpen) onClose() }}>
-      <DialogContent className="max-w-2xl max-h-[85vh] overflow-x-hidden">
+      <DialogContent movableResizable className="max-w-2xl max-h-[85vh] overflow-x-hidden">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <Settings className="w-4 h-4" />

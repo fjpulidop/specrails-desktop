@@ -48,5 +48,18 @@
     "failed": "Échec",
     "canceled": "Annulé",
     "draft": "Brouillon"
+  },
+  "modal": {
+    "resize": {
+      "nw": "Redimensionner — coin supérieur gauche",
+      "n": "Redimensionner — bord supérieur",
+      "ne": "Redimensionner — coin supérieur droit",
+      "e": "Redimensionner — bord droit",
+      "se": "Redimensionner — coin inférieur droit",
+      "s": "Redimensionner — bord inférieur",
+      "sw": "Redimensionner — coin inférieur gauche",
+      "w": "Redimensionner — bord gauche"
+    },
+    "resetPosition": "Réinitialiser la position"
   }
 }

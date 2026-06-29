@@ -14,6 +14,8 @@ import { JobComparisonModal } from './JobComparisonModal'
 import type { JobSummary, JobStatus, JobPriority } from '../types'
 import { useDesktop } from '../hooks/useDesktop'
 import { formatCommandForProvider } from '../lib/format-command'
+import { useMovableResizableModal } from '../hooks/useMovableResizableModal'
+import { ResizeGrips } from './ui/ResizeGrips'
 
 type BadgeVariant = 'default' | 'secondary' | 'destructive' | 'outline' | 'success' | 'warning' | 'running' | 'queued' | 'failed' | 'canceled'
 
@@ -98,6 +100,9 @@ export function RecentJobs({ jobs, isLoading, onJobsCleared, onProposalClick, on
   const [compareMode, setCompareMode] = useState(false)
   const [compareSelection, setCompareSelection] = useState<string[]>([])
   const [compareJobIds, setCompareJobIds] = useState<[string, string] | null>(null)
+
+  // Movable + resizable geometry for the clear-history confirm modal.
+  const { panelRef, panelStyle, headerHandleProps, resizeHandles, isFloating, guardBackdrop } = useMovableResizableModal()
 
   // Reset display limit when jobs list changes (new job added, etc.)
   useEffect(() => {
@@ -433,9 +438,17 @@ export function RecentJobs({ jobs, isLoading, onJobsCleared, onProposalClick, on
 
       {/* Clear jobs modal */}
       {showClearModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm" onClick={() => setShowClearModal(false)}>
-          <div className="w-80 rounded-xl border border-border/30 bg-popover p-4 shadow-lg space-y-4" onClick={(e) => e.stopPropagation()}>
-            <div>
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm" onClick={guardBackdrop(() => setShowClearModal(false))}>
+          <div
+            ref={panelRef}
+            className="w-80 rounded-xl border border-border/30 bg-popover p-4 shadow-lg space-y-4"
+            onClick={(e) => e.stopPropagation()}
+            style={panelStyle}
+          >
+            <div
+              {...headerHandleProps}
+              className={isFloating ? 'cursor-grab active:cursor-grabbing' : undefined}
+            >
               <h3 className="text-sm font-semibold">{t('recent.clearModal.title')}</h3>
               <p className="text-xs text-muted-foreground mt-0.5">
                 {t('recent.clearModal.jobsInHistory', { count: jobs.length })}
@@ -490,6 +503,7 @@ export function RecentJobs({ jobs, isLoading, onJobsCleared, onProposalClick, on
               {t('common:actions.cancel')}
             </Button>
           </div>
+          <ResizeGrips handles={resizeHandles} />
         </div>
       )}
 

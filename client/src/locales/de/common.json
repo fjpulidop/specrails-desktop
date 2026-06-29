@@ -48,5 +48,18 @@
     "failed": "Fehlgeschlagen",
     "canceled": "Abgebrochen",
     "draft": "Entwurf"
+  },
+  "modal": {
+    "resize": {
+      "nw": "Größe ändern — obere linke Ecke",
+      "n": "Größe ändern — obere Kante",
+      "ne": "Größe ändern — obere rechte Ecke",
+      "e": "Größe ändern — rechte Kante",
+      "se": "Größe ändern — untere rechte Ecke",
+      "s": "Größe ändern — untere Kante",
+      "sw": "Größe ändern — untere linke Ecke",
+      "w": "Größe ändern — linke Kante"
+    },
+    "resetPosition": "Position zurücksetzen"
   }
 }

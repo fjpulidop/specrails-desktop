@@ -92,7 +92,7 @@ export function CreateTicketModal({ open, allLabels, onClose, onCreate }: Create
 
   return (
     <Dialog open={open} onOpenChange={(o) => !o && onClose()}>
-      <DialogContent className="max-w-lg glass-card">
+      <DialogContent movableResizable className="max-w-lg glass-card">
         <DialogHeader>
           <DialogTitle>{t('createModal.title')}</DialogTitle>
         </DialogHeader>

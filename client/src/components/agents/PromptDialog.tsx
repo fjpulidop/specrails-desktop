@@ -42,7 +42,7 @@ export function PromptDialog({
 
   return (
     <Dialog open={open} onOpenChange={(o) => { if (!o) onCancel() }}>
-      <DialogContent className="max-w-md">
+      <DialogContent movableResizable className="max-w-md">
         <DialogHeader>
           <DialogTitle>{title}</DialogTitle>
         </DialogHeader>
@@ -101,7 +101,7 @@ export function ConfirmDialog({
   const { t } = useTranslation()
   return (
     <Dialog open={open} onOpenChange={(o) => { if (!o) onCancel() }}>
-      <DialogContent className="max-w-md">
+      <DialogContent movableResizable className="max-w-md">
         <DialogHeader>
           <DialogTitle>{title}</DialogTitle>
         </DialogHeader>

@@ -48,5 +48,18 @@
     "failed": "Failed",
     "canceled": "Canceled",
     "draft": "Draft"
+  },
+  "modal": {
+    "resize": {
+      "nw": "Resize modal — top-left corner",
+      "n": "Resize modal — top edge",
+      "ne": "Resize modal — top-right corner",
+      "e": "Resize modal — right edge",
+      "se": "Resize modal — bottom-right corner",
+      "s": "Resize modal — bottom edge",
+      "sw": "Resize modal — bottom-left corner",
+      "w": "Resize modal — left edge"
+    },
+    "resetPosition": "Reset modal position"
   }
 }
