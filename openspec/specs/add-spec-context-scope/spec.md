@@ -3,7 +3,6 @@
 ## Purpose
 TBD - created by archiving change add-spec-context-scope. Update Purpose after archive.
 ## Requirements
-
 ### Requirement: Context Scope picker in Add Spec modal
 The `Add Spec` modal SHALL render a `Context Scope` section containing four independent toggles in this order: `specrails specs`, `openspec specs`, `Full codebase`, `External tools (MCPs)`. The toggles MUST be visible in both Quick and Explore modes. The `External tools (MCPs)` toggle MUST be rendered as disabled in Quick mode with a tooltip "Explore mode only".
 
@@ -178,3 +177,44 @@ The project-wide `explore_mcp_enabled` setting SHALL serve as the default boot v
 - **WHEN** the global setting is `true` and the user toggles MCPs OFF for one spec and submits
 - **THEN** `GET /api/projects/:id/explore-mcp-enabled` continues to return `true`
 - **AND** the persisted `add_spec_context_scope_last.mcp` is `false`
+
+### Requirement: ContextScopeSlider gates the SMASH hint by capability, not provider
+
+The `ContextScopeSlider` component (`client/src/components/ContextScopeSlider.tsx`) SHALL accept an optional `smashCapable?: boolean` prop that defaults to `true`, and SHALL NOT accept any `provider` prop. The slider MUST render the SMASH-capable hint (`data-testid="scope-smash-hint"`) only when BOTH `value.contractRefine` (a field of the required `value: ContextScope` prop) is true AND the `smashCapable` prop is truthy — the exact gating condition `value.contractRefine && smashCapable`. The slider itself MUST remain provider-agnostic: it never decides which engine is SMASH-capable; the parent computes that boolean and threads it down via `smashCapable`. The default `smashCapable = true` MUST preserve byte-identical behaviour for pre-multi-provider call sites that omit the prop (the hint shows whenever `contractRefine` is on). When rendered, the hint MUST display the i18n key `t('contextScope.smashCapable')` (English "SMASH-capable") in a `<strong>`, followed by `' · '` and `t('contextScope.smashHint')` (English "Contract Layer is on, so this spec can later be decomposed into Sub-Specs."), with an `aria-hidden` decorative arrow span containing the literal `⊢→`. Both keys MUST resolve from the `addspec` i18n namespace.
+
+#### Scenario: Hint shown when contractRefine is on and capability is true
+- **WHEN** `ContextScopeSlider` is rendered with `value.contractRefine === true` and `smashCapable={true}` (or `smashCapable` omitted, defaulting to true)
+- **THEN** the `data-testid="scope-smash-hint"` element renders, containing the bold text "SMASH-capable" followed by " · Contract Layer is on, so this spec can later be decomposed into Sub-Specs." and the decorative `⊢→` arrow
+
+#### Scenario: Hint suppressed when capability is false even though contractRefine is on
+- **WHEN** `ContextScopeSlider` is rendered with `value.contractRefine === true` and `smashCapable={false}`
+- **THEN** no `data-testid="scope-smash-hint"` element is rendered (the engine is not SMASH-capable, so the parent passed `false`)
+
+#### Scenario: Hint suppressed when contractRefine is off regardless of capability
+- **WHEN** `ContextScopeSlider` is rendered with `value.contractRefine === false` and `smashCapable={true}`
+- **THEN** no `data-testid="scope-smash-hint"` element is rendered
+
+#### Scenario: Provider→capability mapping is computed by the parent and passed as a boolean
+- **WHEN** `ProposeSpecModal` (`client/src/components/ProposeSpecModal.tsx`) renders `<ContextScopeSlider>` in quick or explore mode
+- **THEN** it derives `const smashCapable = isSmashCapable(effectiveProvider)` (where `effectiveProvider = engine ?? provider` and `isSmashCapable(p) === (p === 'claude')` per `client/src/lib/provider-capabilities.ts`) and passes `smashCapable={smashCapable}` — never a `provider` prop — so a non-Claude engine yields `smashCapable={false}` and the hint is suppressed
+
+### Requirement: ContextScopeChecks renders a static Contract Layer hint with no provider awareness
+
+The `ContextScopeChecks` component (`client/src/components/ContextScopeChecks.tsx`) SHALL expose exactly the props `scope: ContextScope`, `mode: SpecMode`, `onChange`, `defaultOpen?`, `label?`, and `showSummary?`, and SHALL NOT accept any `provider` or `smashCapable` prop or any provider-derived value. The contractRefine `CheckRow` MUST always render (never hidden, never disabled), with label `t('contextScope.checks.contractLabel')` (English "Enrich with Contract Layer") and a single static hint `t('contextScope.checks.contractHint')` (English "post-commit refinement · enables SMASH"). The hint MUST NOT vary by provider or capability — there is only one hint state, and the "enables SMASH" text is a hardcoded substring of that one key's value, gated by nothing. The only `contractRefine`-conditioned rendering MUST be the collapsed-summary chip tag at the `scope.contractRefine && t('contextScope.tags.contract')` site (English "contract"), driven purely by the user's own toggle state in `scope.contractRefine`, not by any provider input.
+
+#### Scenario: Contract row always renders with the single static hint
+- **WHEN** `ContextScopeChecks` is rendered expanded (`defaultOpen` true), for any `mode` and any `scope`
+- **THEN** the `ctx-contract-refine` row is present and enabled, showing label "Enrich with Contract Layer" and hint "post-commit refinement · enables SMASH"
+
+#### Scenario: Hint text is invariant across providers
+- **WHEN** `ContextScopeChecks` is rendered by a caller for a Claude project and again for a Codex/Gemini project
+- **THEN** the contractRefine hint is identical in both cases ("post-commit refinement · enables SMASH"), because the component receives no provider information and never selects an alternate hint
+
+#### Scenario: Contract summary tag follows the user toggle, not a provider
+- **WHEN** `ContextScopeChecks` is collapsed (`showSummary` true) and `scope.contractRefine === true`
+- **THEN** the collapsed summary includes the "contract" tag; **WHEN** `scope.contractRefine === false` **THEN** the "contract" tag is absent — the tag tracks the toggle state alone
+
+#### Scenario: ProposeSpecModal passes no provider-derived value to ContextScopeChecks
+- **WHEN** `ProposeSpecModal` renders `<ContextScopeChecks>` in quick or explore mode
+- **THEN** it passes only `scope`, `mode`, `onChange`, `label={t('contextScope.fineTune')}` (English "Fine-tune"), and `showSummary={false}` — no `provider` prop and no `smashCapable` prop — so the component remains provider-agnostic
+
