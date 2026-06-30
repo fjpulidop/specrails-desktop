@@ -7,6 +7,8 @@ import { LanguageSection } from '../components/settings/LanguageSection'
 import { CodeSectionSettings } from '../components/settings/CodeSectionSettings'
 import { CoreUpdateSection } from '../components/settings/CoreUpdateSection'
 import { MobileAccessSection } from '../components/settings/MobileAccessSection'
+import { McpSettingsSection } from '../components/settings/McpSettingsSection'
+import { FEATURE_MCP } from '../lib/feature-flags'
 import { Settings, Trash2, Zap, Plus, Bell, GraduationCap } from 'lucide-react'
 import { Button } from '../components/ui/button'
 import { Input } from '../components/ui/input'
@@ -342,6 +344,8 @@ export default function SettingsDialog({ open, onClose, onOpenOnboarding }: Sett
             <CoreUpdateSection />
 
             <MobileAccessSection />
+
+            {FEATURE_MCP && <McpSettingsSection />}
 
             {/* Projects section */}
             <div className="space-y-2">

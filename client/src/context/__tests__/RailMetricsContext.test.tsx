@@ -67,6 +67,37 @@ describe('RailMetricsProvider', () => {
     expect(latest[2].startedAt).toBe(new Date('2026-06-24T10:00:00.000Z').getTime())
   })
 
+  it('tracks a LEGACY rail job (rail.job_started — e.g. an MCP launch) like a loop run', () => {
+    renderProvider()
+    // No loop.run_started — a bare-mode queue job (what the MCP launch emits).
+    send({ type: 'rail.job_started', projectId: 'proj', jobId: 'job1', railIndex: 0 })
+    send({ type: 'event', event_type: 'assistant', jobId: 'job1', payload: JSON.stringify({ message: { content: [{ type: 'tool_use' }, { type: 'tool_use' }] } }) })
+    send({ type: 'log', processId: 'job1' })
+    expect(latest[0]).toMatchObject({ steps: 2, lines: 1 })
+  })
+
+  it('ignores a rail.job_started from another project', () => {
+    renderProvider('proj')
+    send({ type: 'rail.job_started', projectId: 'other', jobId: 'jX', railIndex: 0 })
+    send({ type: 'log', processId: 'jX' })
+    expect(latest[0]).toBeUndefined()
+  })
+
+  it('clears a legacy rail job metric on completion AND on stop', () => {
+    renderProvider()
+    send({ type: 'rail.job_started', projectId: 'proj', jobId: 'jc', railIndex: 1 })
+    send({ type: 'log', processId: 'jc' })
+    expect(latest[1]).toMatchObject({ lines: 1 })
+    send({ type: 'rail.job_completed', projectId: 'proj', jobId: 'jc', railIndex: 1 })
+    expect(latest[1]).toBeUndefined()
+    // stop path on a fresh job
+    send({ type: 'rail.job_started', projectId: 'proj', jobId: 'js', railIndex: 1 })
+    send({ type: 'log', processId: 'js' })
+    expect(latest[1]).toMatchObject({ lines: 1 })
+    send({ type: 'rail.job_stopped', projectId: 'proj', jobId: 'js', railIndex: 1 })
+    expect(latest[1]).toBeUndefined()
+  })
+
   it('aggregates multiple runs of the same rail', () => {
     renderProvider()
     send({ type: 'loop.run_started', projectId: 'proj', loopRunId: 'a', railIndex: 2 })

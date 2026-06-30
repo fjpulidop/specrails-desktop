@@ -1,0 +1,58 @@
+{
+  "heading": "MCP サーバー",
+  "explainer": {
+    "what": "MCP（Model Context Protocol）サーバーを使うと、Claude Desktop や Cursor などの外部 AI ツール、あるいは任意の MCP クライアントが Specrails と直接やり取りできます。プロジェクトの閲覧、仕様の読み取り、そして許可すれば作業の起動まで、すべて安全なローカル接続を通じて行えます。",
+    "how": "下で有効にしてから、クライアント設定を AI ツールにコピーしてください。Specrails はあなたのマシン上でのみ待ち受けます。インターネットには何も公開されません。",
+    "grants": "デフォルトではツールは読み取り専用アクセスです。権限ティアを使って、1 つずつ機能を付与してください。"
+  },
+  "enable": {
+    "on": "MCP サーバー オン",
+    "off": "MCP サーバー オフ",
+    "running_one": "実行中 · {{count}} 個のツール",
+    "running_other": "実行中 · {{count}} 個のツール",
+    "stopped": "停止中",
+    "activeSessions_one": "{{count}} 件のアクティブセッション",
+    "activeSessions_other": "{{count}} 件のアクティブセッション",
+    "turnOn": "オンにする",
+    "turnOff": "オフにする",
+    "enableFailed": "MCP サーバーを有効にできませんでした: {{message}}",
+    "disableFailed": "MCP サーバーを無効にできませんでした: {{message}}"
+  },
+  "tiers": {
+    "heading": "権限ティア",
+    "description": "クライアントが使用できる各ティア。読み取りは常にオンで、それ以外は付与するまでオフです。",
+    "read": "読み取り",
+    "readHelp": "プロジェクト、仕様、分析を閲覧します。常に許可されます。",
+    "write": "書き込み",
+    "writeHelp": "仕様とチケットを作成・編集します。",
+    "aiSpawn": "AI 起動",
+    "aiSpawnHelp": "CLI を実行する AI レールとジョブを起動します。",
+    "destructive": "破壊的操作",
+    "destructiveHelp": "仕様、チケット、その他のプロジェクトデータを削除します。",
+    "updateFailed": "権限を更新できませんでした: {{message}}"
+  },
+  "config": {
+    "heading": "クライアント設定",
+    "description": "これを MCP クライアントに貼り付けてください。シークレットは含まれません。トークンは別途コピーします。",
+    "copyConfig": "設定をコピー",
+    "configCopied": "設定をコピーしました",
+    "copyFailed": "コピーに失敗しました"
+  },
+  "token": {
+    "heading": "アクセストークン",
+    "description": "クライアントはこのトークンで認証します。パスワードと同様に扱ってください。",
+    "hint": "{{hint}} で終わるトークン",
+    "copyToken": "トークンをコピー",
+    "tokenCopied": "トークンをコピーしました",
+    "regenerate": "再生成",
+    "regenerateConfirm": "アクセストークンを再生成しますか？古いトークンを使用しているクライアントは、設定を更新するまで動作しなくなります。",
+    "regenerated": "アクセストークンを再生成しました",
+    "regenerateFailed": "トークンを再生成できませんでした: {{message}}"
+  },
+  "tray": {
+    "open": "開く",
+    "exit": "終了",
+    "statusOn": "MCP サーバー: オン",
+    "statusOff": "MCP サーバー: オフ"
+  }
+}

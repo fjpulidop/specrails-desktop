@@ -1,0 +1,8 @@
+{
+  "//": "Emit-only config for `build:server`. Type-checking is done separately by `npm run typecheck` using the root tsconfig (moduleResolution: bundler, needed to resolve @modelcontextprotocol/sdk's exports-map-only types). This config emits CommonJS for server/dist (the CLI spawns `node server/dist/index.js`), and uses --noCheck so the bundler-only SDK type shapes don't block emit.",
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "module": "commonjs",
+    "moduleResolution": "node10"
+  }
+}

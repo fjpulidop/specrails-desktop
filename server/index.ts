@@ -21,6 +21,7 @@ import { getTerminalManager } from './terminal-manager'
 import { cleanupStaleShimDirs } from './terminal-shell-integration'
 import { isBrowserCaptureEnabled } from './feature-flags'
 import { MobileGateway, createMobileAdminRouter, getMobileEventBus } from './mobile'
+import { McpServerManager, requireMcpAuth, createMcpAdminRouter } from './mcp'
 import type { BrowserWsClient } from './browser-capture-manager'
 import type { BrowserInputEvent } from './browser-capture-types'
 import { isNavigableUrl } from './browser-playwright'
@@ -169,6 +170,27 @@ app.use(corsMiddleware)
 // these paths. (The actual /otlp router still requires loopback.)
 app.use('/otlp', express.json({ limit: '12mb' }))
 
+// ─── MCP streamable-HTTP transport (design D1) ───────────────────────────────
+// Mounted BEFORE the global express.json so it claims `/api/mcp` with a larger
+// body limit (req._body makes the global parser no-op for this path), and
+// BEFORE `app.use('/api', requireAuth)` so it uses the SCOPED mcp token via
+// requireMcpAuth rather than inheriting the all-powerful master token. The
+// dispatcher delegates to the McpServerManager constructed during Super-mode
+// bootstrap (lazily referenced — it exists by request time).
+app.use(
+  '/api/mcp',
+  express.json({ limit: '4mb' }),
+  requireLoopback,
+  requireMcpAuth,
+  (req, res) => {
+    if (_mcpManager) {
+      void _mcpManager.handleHttp(req, res)
+      return
+    }
+    res.status(503).json({ jsonrpc: '2.0', error: { code: -32000, message: 'MCP transport not ready' }, id: null })
+  },
+)
+
 app.use(express.json({ limit: '1mb' }))
 
 const server = http.createServer(app)
@@ -262,6 +284,7 @@ let _getProjectCount: () => number = () => 0
 let _registry: ProjectRegistry | null = null
 /** The mobile companion gateway (off by default); torn down on shutdown. */
 let _mobileGateway: MobileGateway | null = null
+let _mcpManager: McpServerManager | null = null
 
 server.on('upgrade', (request, socket, head) => {
   const urlStr = request.url ?? '/'
@@ -538,6 +561,20 @@ function applyPtyWsRateLimiting(ws: WebSocket): void {
     mobileGateway.start().catch((err) => console.error('[mobile-gateway] boot start failed:', err))
   }
 
+  // ─── Embedded MCP server (the /api/mcp transport mounted above) ─────────────
+  const mcpManager = new McpServerManager({ registry, broadcast, desktopPort: port, version: PKG_VERSION })
+  _mcpManager = mcpManager
+  // Loopback + master-token control plane for the Settings ▸ MCP panel.
+  app.use('/api/mcp-admin', requireLoopback, createMcpAdminRouter({
+    manager: mcpManager,
+    desktopDb: registry.desktopDb,
+    desktopPort: port,
+    broadcast,
+  }))
+  if (mcpManager.isEnabledSetting()) {
+    mcpManager.start().catch((err) => console.error('[mcp] boot start failed:', err))
+  }
+
   // App-level routes. CRITICAL mount order: the desktop router is mounted at
   // '/api' BEFORE the project router below so its exact routes (e.g.
   // GET /api/projects, DELETE /api/projects/:id) are handled here, while
@@ -653,6 +690,7 @@ async function shutdown(): Promise<void> {
   } catch { /* ignore */ }
   try {
     await _mobileGateway?.stop()
+    await _mcpManager?.stop()
   } catch { /* ignore */ }
   try { wss.close() } catch { /* ignore */ }
   try { terminalWss.close() } catch { /* ignore */ }

@@ -13,8 +13,10 @@ export type { LocalTicket }
 // ─── Types ────────────────────────────────────────────────────────────────────
 
 interface TicketWsMessage {
-  type: 'ticket_created' | 'ticket_updated' | 'ticket_deleted' | 'explore.contract_refine_started' | 'explore.contract_refine_failed'
+  type: 'ticket_created' | 'ticket_updated' | 'ticket_deleted' | 'explore.contract_refine_started' | 'explore.contract_refine_failed' | 'mcp.activity'
   projectId?: string
+  /** mcp.activity: the project an external-MCP action touched (no top-level projectId so it isn't filtered). */
+  affectedProjectId?: string
   ticket?: LocalTicket
   ticketId?: number
   timestamp?: string
@@ -74,7 +76,11 @@ export function useTickets() {
 
   const fetchTickets = useCallback(async (signal?: AbortSignal): Promise<LocalTicket[]> => {
     const base = getApiBase()
-    const res = await fetch(`${base}/tickets`, { signal })
+    // `cache: 'no-store'` is REQUIRED: the API sends a weak ETag and the webview
+    // (WKWebView/Tauri) would otherwise serve a stale cached /tickets response —
+    // tickets created out-of-band (e.g. via the MCP) never appeared until a full
+    // app restart. Live data must always hit the server.
+    const res = await fetch(`${base}/tickets`, { signal, cache: 'no-store' })
     if (!res.ok) throw new Error(`Failed to fetch tickets: ${res.status}`)
     const data = (await res.json()) as { tickets: LocalTicket[] } | LocalTicket[]
     return Array.isArray(data) ? data : data.tickets ?? []
@@ -168,6 +174,17 @@ export function useTickets() {
     if ((msg as { projectId?: string }).projectId && (msg as { projectId?: string }).projectId !== currentProjectId) return
 
     switch (msg.type) {
+      case 'mcp.activity': {
+        // An external MCP client mutated something. The event is app-level (no
+        // top-level projectId, so it isn't filtered above); refetch when it
+        // touched the active project so the board reflects it live regardless of
+        // which specific event the action emitted.
+        if (msg.affectedProjectId && msg.affectedProjectId === currentProjectId) {
+          refetch()
+        }
+        break
+      }
+
       case 'ticket_created': {
         if (!msg.ticket) break
         const ticket = msg.ticket

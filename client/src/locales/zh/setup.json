@@ -43,7 +43,8 @@
         "subtitle": "可选——用 Jira 看板支撑此项目的规格。你也可以稍后在设置中完成。",
         "configure": "配置 Jira",
         "optional": "可选"
-      }
+      },
+      "mcpHint": "通过安全的本地 MCP 服务器将外部 AI 工具连接到 Specrails——在设置中开启。"
     },
     "error": {
       "title": "设置失败",
@@ -156,7 +157,8 @@
     "title": "欢迎使用 <spec>spec</spec><rails>rails</rails>",
     "description": "Specrails 让你在一个界面中管理多个项目。添加第一个项目即可开始。",
     "addFirstProject": "添加你的第一个项目",
-    "jiraHint": "将每个项目连接到各自的 Jira 看板——规格在两个方向保持同步。"
+    "jiraHint": "将每个项目连接到各自的 Jira 看板——规格在两个方向保持同步。",
+    "mcpHint": "通过安全的本地 MCP 服务器将外部 AI 工具连接到 Specrails——在设置中开启。"
   },
   "onboarding": {
     "productTour": "产品导览",

@@ -24,15 +24,16 @@
     "dev:server": "tsx watch server/index.ts",
     "dev:client": "cd client && npm run dev",
     "dev:desktop": "tauri dev",
-    "build:server": "node -e \"require('fs').rmSync('server/dist',{recursive:true,force:true})\" && tsc --project tsconfig.json",
+    "build:server": "node -e \"require('fs').rmSync('server/dist',{recursive:true,force:true})\" && tsc --project tsconfig.build.json --noCheck",
     "build:cli": "tsc --project tsconfig.cli.json",
     "build": "npm run build:server && cd client && npm run build && cd .. && npm run build:cli",
     "build:sidecar": "node scripts/build-sidecar.mjs",
-    "build:desktop": "npm run build:server && cd client && npm run build && cd .. && npm run build:sidecar && tauri build",
+    "build:mcp-bridge": "node scripts/build-mcp-bridge.mjs",
+    "build:desktop": "npm run build:server && cd client && npm run build && cd .. && npm run build:sidecar && npm run build:mcp-bridge && tauri build",
     "assemble-runtimes": "node scripts/assemble-runtimes-local.mjs",
     "build:desktop:local": "npm run assemble-runtimes && npm run build:desktop",
     "generate-icons": "tauri icon src-tauri/icons/icon.svg",
-    "typecheck": "tsc --noEmit && tsc -p tsconfig.cli.json --noEmit && cd client && tsc --noEmit",
+    "typecheck": "tsc --noEmit && tsc -p tsconfig.cli.json --noEmit && tsc -p mcp-bridge/tsconfig.json --noEmit && cd client && tsc --noEmit",
     "check-core-compat": "tsx scripts/check-core-compat.ts",
     "test": "vitest run && tsx scripts/check-core-compat.ts",
     "test:watch": "vitest",
@@ -42,6 +43,7 @@
     "ci": "npm run typecheck && npm run check-core-compat && npm run test:coverage && cd client && npm run test:coverage"
   },
   "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.29.0",
     "@tailwindcss/typography": "^0.5.19",
     "ajv": "^8.17.1",
     "better-sqlite3": "^12.8.0",
@@ -57,7 +59,8 @@
     "selfsigned": "^5.5.0",
     "tree-kill": "^1.2.2",
     "werift": "^0.23.0",
-    "ws": "^8.16.0"
+    "ws": "^8.16.0",
+    "zod": "^3.25.76"
   },
   "devDependencies": {
     "@tauri-apps/cli": "^2.0.0",

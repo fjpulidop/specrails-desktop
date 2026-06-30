@@ -43,7 +43,8 @@
         "subtitle": "Optional — hinterlege die Specs dieses Projekts mit einem Jira-Board. Du kannst das auch später in den Einstellungen tun.",
         "configure": "Jira einrichten",
         "optional": "optional"
-      }
+      },
+      "mcpHint": "Verbinde externe KI-Tools über einen sicheren lokalen MCP-Server mit Specrails — aktiviere ihn in den Einstellungen."
     },
     "error": {
       "title": "Setup fehlgeschlagen",
@@ -156,7 +157,8 @@
     "title": "Willkommen bei <spec>spec</spec><rails>rails</rails>",
     "description": "Specrails verwaltet mehrere Projekte über eine einzige Oberfläche. Fügen Sie Ihr erstes Projekt hinzu, um loszulegen.",
     "addFirstProject": "Erstes Projekt hinzufügen",
-    "jiraHint": "Verbinde jedes Projekt mit seinem eigenen Jira-Board — Specs bleiben in beide Richtungen synchron."
+    "jiraHint": "Verbinde jedes Projekt mit seinem eigenen Jira-Board — Specs bleiben in beide Richtungen synchron.",
+    "mcpHint": "Verbinde externe KI-Tools über einen sicheren lokalen MCP-Server mit Specrails — aktiviere ihn in den Einstellungen."
   },
   "onboarding": {
     "productTour": "Produkttour",
