@@ -1406,8 +1406,8 @@ export function registerTicketsRoutes(deps: ProjectRoutesDeps): void {
           short_summary: null,
           created_at: now,
           updated_at: now,
-          created_by: 'hub', // legacy on-disk wire value (tickets.json, shared with specrails-core) — do not rename
-          source: source === 'product-backlog' || source === 'propose-spec' || source === 'manual' ? source : 'hub', // legacy on-disk wire value — do not rename
+          created_by: source === 'mcp' ? 'mcp' : 'hub', // 'hub' = legacy on-disk wire value (tickets.json, shared with specrails-core) — do not rename
+          source: source === 'product-backlog' || source === 'propose-spec' || source === 'manual' || source === 'mcp' ? source : 'hub', // 'hub' legacy wire value — do not rename
         }
         s.tickets[String(id)] = ticket
         created = ticket

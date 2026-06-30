@@ -12,7 +12,7 @@ import type { WsMessage } from '../types'
 // via a real loopback HTTP request (so it re-enters requireAuth and never hits
 // the SPA catch-all) — only the WS path uses this bus.
 
-class MobileEventBus extends EventEmitter {
+export class MobileEventBus extends EventEmitter {
   /** Emit a broadcast copy to any subscribed gateway sockets. Never throws into
    *  the caller (the main broadcast loop must not be perturbed by a mobile bug). */
   publish(msg: WsMessage): void {

@@ -43,7 +43,8 @@
         "subtitle": "任意 — このプロジェクトのスペックを Jira ボードで裏付けます。後で設定からも行えます。",
         "configure": "Jira を設定",
         "optional": "任意"
-      }
+      },
+      "mcpHint": "安全なローカル MCP サーバーを通じて外部 AI ツールを Specrails に接続 — 設定で有効にできます。"
     },
     "error": {
       "title": "セットアップに失敗しました",
@@ -156,7 +157,8 @@
     "title": "<spec>spec</spec><rails>rails</rails> へようこそ",
     "description": "Specrails は複数のプロジェクトを単一のインターフェースで管理します。最初のプロジェクトを追加して始めましょう。",
     "addFirstProject": "最初のプロジェクトを追加",
-    "jiraHint": "各プロジェクトを専用の Jira ボードに接続 — スペックは双方向で同期され続けます。"
+    "jiraHint": "各プロジェクトを専用の Jira ボードに接続 — スペックは双方向で同期され続けます。",
+    "mcpHint": "安全なローカル MCP サーバーを通じて外部 AI ツールを Specrails に接続 — 設定で有効にできます。"
   },
   "onboarding": {
     "productTour": "プロダクトツアー",

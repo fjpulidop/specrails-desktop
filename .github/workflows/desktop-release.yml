@@ -325,6 +325,15 @@ jobs:
           # Confirm the shipped node is validly signed with hardened runtime.
           codesign --verify --strict "${RT}/node/bin/node" || { echo "node sig invalid"; exit 1; }
           codesign --verify --strict "${RT}/git/bin/git" || { echo "git sig invalid"; exit 1; }
+          # MCP bridge: it must ship inside the .app and start under the BUNDLED node.
+          # With no app running it answers initialize with a clean "app is not running"
+          # JSON-RPC error (it relays over stdio, so it stays resident — we drive it
+          # with one request, capture stdout, then kill it).
+          BRIDGE="${APP}/Contents/Resources/binaries/specrails-mcp.js"
+          test -f "${BRIDGE}" || { echo "bundled MCP bridge missing: ${BRIDGE}"; exit 1; }
+          REQ='{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2024-11-05","capabilities":{},"clientInfo":{"name":"smoke","version":"0"}}}'
+          OUT=$(printf '%s\n' "${REQ}" | SPECRAILS_MCP_PORT=49999 "${RT}/node/bin/node" "${BRIDGE}" 2>&1 & BPID=$!; sleep 3; kill $BPID 2>/dev/null; wait $BPID 2>/dev/null)
+          echo "${OUT}" | grep -q "Specrails app is not running" || { echo "MCP bridge smoke failed; got: ${OUT}"; exit 1; }
           echo "In-bundle smoke test PASSED."
 
       - name: Upload .dmg artifact
@@ -533,6 +542,22 @@ jobs:
           & $git -C $tmp -c user.email=ci@specrails.dev -c user.name=ci commit -q --allow-empty -m smoke; if ($LASTEXITCODE -ne 0) { Write-Error "git commit failed"; exit 1 }
           & $git -C $tmp log --oneline; if ($LASTEXITCODE -ne 0) { Write-Error "git log failed"; exit 1 }
           Remove-Item -Recurse -Force $tmp
+
+          # MCP bridge: it must be staged and start under the BUNDLED node.exe. With
+          # no app running it answers initialize with a clean "app is not running"
+          # JSON-RPC error (it relays over stdio, so it stays resident — we drive it
+          # with one request, capture stdout, then kill it).
+          $bridge = "src-tauri\binaries\specrails-mcp.js"
+          if (-not (Test-Path $bridge)) { Write-Error "bundled MCP bridge missing: ${bridge}"; exit 1 }
+          $req = '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2024-11-05","capabilities":{},"clientInfo":{"name":"smoke","version":"0"}}}'
+          $env:SPECRAILS_MCP_PORT = "49999"
+          $p = Start-Process -FilePath $node -ArgumentList $bridge -NoNewWindow -PassThru `
+            -RedirectStandardInput (New-Item -ItemType File -Path (Join-Path $env:TEMP "mcp-in.txt") -Force -Value "$req`n") `
+            -RedirectStandardOutput (Join-Path $env:TEMP "mcp-out.txt")
+          Start-Sleep -Seconds 3
+          if (-not $p.HasExited) { Stop-Process -Id $p.Id -Force }
+          $out = Get-Content -Raw (Join-Path $env:TEMP "mcp-out.txt")
+          if ($out -notmatch "Specrails app is not running") { Write-Error "MCP bridge smoke failed; got: ${out}"; exit 1 }
           Write-Host "Smoke test PASSED."
 
       - name: Upload Windows installer artifacts
@@ -711,6 +736,22 @@ jobs:
           & $git -C $tmp -c user.email=ci@specrails.dev -c user.name=ci commit -q --allow-empty -m smoke; if ($LASTEXITCODE -ne 0) { Write-Error "git commit failed"; exit 1 }
           & $git -C $tmp log --oneline; if ($LASTEXITCODE -ne 0) { Write-Error "git log failed"; exit 1 }
           Remove-Item -Recurse -Force $tmp
+
+          # MCP bridge: it must be staged and start under the BUNDLED node.exe. With
+          # no app running it answers initialize with a clean "app is not running"
+          # JSON-RPC error (it relays over stdio, so it stays resident — we drive it
+          # with one request, capture stdout, then kill it).
+          $bridge = "src-tauri\binaries\specrails-mcp.js"
+          if (-not (Test-Path $bridge)) { Write-Error "bundled MCP bridge missing: ${bridge}"; exit 1 }
+          $req = '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2024-11-05","capabilities":{},"clientInfo":{"name":"smoke","version":"0"}}}'
+          $env:SPECRAILS_MCP_PORT = "49999"
+          $p = Start-Process -FilePath $node -ArgumentList $bridge -NoNewWindow -PassThru `
+            -RedirectStandardInput (New-Item -ItemType File -Path (Join-Path $env:TEMP "mcp-in.txt") -Force -Value "$req`n") `
+            -RedirectStandardOutput (Join-Path $env:TEMP "mcp-out.txt")
+          Start-Sleep -Seconds 3
+          if (-not $p.HasExited) { Stop-Process -Id $p.Id -Force }
+          $out = Get-Content -Raw (Join-Path $env:TEMP "mcp-out.txt")
+          if ($out -notmatch "Specrails app is not running") { Write-Error "MCP bridge smoke failed; got: ${out}"; exit 1 }
           Write-Host "Smoke test PASSED."
 
       - name: Upload Windows ARM64 installer artifacts

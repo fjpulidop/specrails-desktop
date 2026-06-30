@@ -14,7 +14,7 @@ import { type DesktopProject, projectProviders } from '../hooks/useDesktop'
 import { providerLabel, type ProviderId } from '../lib/provider-capabilities'
 import { usePrerequisites, type SetupPrerequisitesStatus } from '../hooks/usePrerequisites'
 import { PrerequisitesPanel } from './PrerequisitesPanel'
-import { FEATURE_JIRA } from '../lib/feature-flags'
+import { FEATURE_JIRA, FEATURE_MCP } from '../lib/feature-flags'
 import { JiraConnectWizard } from './jira/JiraConnectWizard'
 
 // ─── Wizard step types ────────────────────────────────────────────────────────
@@ -439,6 +439,17 @@ function CompleteStep({
           {t('wizard.complete.jira.configure')}
           <span className="font-normal text-muted-foreground">· {t('wizard.complete.jira.optional')}</span>
         </button>
+      )}
+
+      {/* Single-line MCP hint — enabled later in Settings ▸ MCP, not a sub-wizard. */}
+      {FEATURE_MCP && (
+        <div
+          data-testid="setup-mcp-hint"
+          className="inline-flex items-center gap-2 rounded-md border border-border/60 bg-muted/10 px-3 py-1.5 text-xs text-muted-foreground"
+        >
+          <Bot className="w-3.5 h-3.5 text-accent-info" />
+          {t('wizard.complete.mcpHint')}
+        </div>
       )}
 
       <div className="flex items-center gap-1.5 text-[11px] text-muted-foreground">

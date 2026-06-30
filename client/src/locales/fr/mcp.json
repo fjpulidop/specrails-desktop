@@ -1,0 +1,58 @@
+{
+  "heading": "Serveur MCP",
+  "explainer": {
+    "what": "Un serveur MCP (Model Context Protocol) permet à des outils d'IA externes — comme Claude Desktop, Cursor ou tout client MCP — de communiquer directement avec Specrails. Ils peuvent parcourir vos projets, lire les spécifications et, si vous l'autorisez, lancer des tâches, le tout via une seule connexion locale sécurisée.",
+    "how": "Activez-le ci-dessous, puis copiez la configuration du client dans votre outil d'IA. Specrails n'écoute que sur votre propre machine : rien n'est exposé à internet.",
+    "grants": "Par défaut, les outils ont un accès en lecture seule. Utilisez les niveaux de permission pour en accorder davantage, une capacité à la fois."
+  },
+  "enable": {
+    "on": "Serveur MCP activé",
+    "off": "Serveur MCP désactivé",
+    "running_one": "En cours · {{count}} outil",
+    "running_other": "En cours · {{count}} outils",
+    "stopped": "Arrêté",
+    "activeSessions_one": "{{count}} session active",
+    "activeSessions_other": "{{count}} sessions actives",
+    "turnOn": "Activer",
+    "turnOff": "Désactiver",
+    "enableFailed": "Impossible d'activer le serveur MCP : {{message}}",
+    "disableFailed": "Impossible de désactiver le serveur MCP : {{message}}"
+  },
+  "tiers": {
+    "heading": "Niveaux de permission",
+    "description": "Chaque niveau qu'un client peut utiliser. La lecture est toujours active ; le reste est désactivé jusqu'à ce que vous l'accordiez.",
+    "read": "Lecture",
+    "readHelp": "Parcourir les projets, les spécifications et les analyses. Toujours autorisé.",
+    "write": "Écriture",
+    "writeHelp": "Créer et modifier des spécifications et des tickets.",
+    "aiSpawn": "Lancer l'IA",
+    "aiSpawnHelp": "Lancer des rails et des tâches d'IA qui exécutent la CLI.",
+    "destructive": "Destructif",
+    "destructiveHelp": "Supprimer des spécifications, des tickets et d'autres données du projet.",
+    "updateFailed": "Impossible de mettre à jour les permissions : {{message}}"
+  },
+  "config": {
+    "heading": "Configuration du client",
+    "description": "Collez ceci dans votre client MCP. Elle ne contient aucun secret : le jeton se copie séparément.",
+    "copyConfig": "Copier la configuration",
+    "configCopied": "Configuration copiée",
+    "copyFailed": "Échec de la copie"
+  },
+  "token": {
+    "heading": "Jeton d'accès",
+    "description": "Votre client s'authentifie avec ce jeton. Traitez-le comme un mot de passe.",
+    "hint": "Jeton se terminant par {{hint}}",
+    "copyToken": "Copier le jeton",
+    "tokenCopied": "Jeton copié",
+    "regenerate": "Régénérer",
+    "regenerateConfirm": "Régénérer le jeton d'accès ? Tout client utilisant l'ancien jeton cessera de fonctionner jusqu'à ce que vous mettiez à jour sa configuration.",
+    "regenerated": "Jeton d'accès régénéré",
+    "regenerateFailed": "Impossible de régénérer le jeton : {{message}}"
+  },
+  "tray": {
+    "open": "Ouvrir",
+    "exit": "Quitter",
+    "statusOn": "Serveur MCP : activé",
+    "statusOff": "Serveur MCP : désactivé"
+  }
+}

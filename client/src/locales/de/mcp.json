@@ -1,0 +1,58 @@
+{
+  "heading": "MCP-Server",
+  "explainer": {
+    "what": "Ein MCP-Server (Model Context Protocol) ermöglicht es externen KI-Tools – wie Claude Desktop, Cursor oder jedem MCP-Client – direkt mit Specrails zu kommunizieren. Sie können Ihre Projekte durchsuchen, Spezifikationen lesen und – wenn Sie es erlauben – Arbeiten starten, alles über eine einzige sichere lokale Verbindung.",
+    "how": "Aktivieren Sie ihn unten und kopieren Sie dann die Client-Konfiguration in Ihr KI-Tool. Specrails lauscht nur auf Ihrem eigenen Rechner – nichts wird ins Internet veröffentlicht.",
+    "grants": "Standardmäßig erhalten Tools nur Lesezugriff. Verwenden Sie die Berechtigungsstufen, um mehr zu gewähren – eine Fähigkeit nach der anderen."
+  },
+  "enable": {
+    "on": "MCP-Server an",
+    "off": "MCP-Server aus",
+    "running_one": "Läuft · {{count}} Tool",
+    "running_other": "Läuft · {{count}} Tools",
+    "stopped": "Nicht aktiv",
+    "activeSessions_one": "{{count}} aktive Sitzung",
+    "activeSessions_other": "{{count}} aktive Sitzungen",
+    "turnOn": "Einschalten",
+    "turnOff": "Ausschalten",
+    "enableFailed": "MCP-Server konnte nicht aktiviert werden: {{message}}",
+    "disableFailed": "MCP-Server konnte nicht deaktiviert werden: {{message}}"
+  },
+  "tiers": {
+    "heading": "Berechtigungsstufen",
+    "description": "Jede Stufe, die ein Client verwenden darf. Lesen ist immer aktiv; der Rest ist aus, bis Sie ihn gewähren.",
+    "read": "Lesen",
+    "readHelp": "Projekte, Spezifikationen und Analysen durchsuchen. Immer erlaubt.",
+    "write": "Schreiben",
+    "writeHelp": "Spezifikationen und Tickets erstellen und bearbeiten.",
+    "aiSpawn": "KI starten",
+    "aiSpawnHelp": "KI-Rails und Jobs starten, die die CLI ausführen.",
+    "destructive": "Destruktiv",
+    "destructiveHelp": "Spezifikationen, Tickets und andere Projektdaten löschen.",
+    "updateFailed": "Berechtigungen konnten nicht aktualisiert werden: {{message}}"
+  },
+  "config": {
+    "heading": "Client-Konfiguration",
+    "description": "Fügen Sie dies in Ihren MCP-Client ein. Sie enthält kein Geheimnis – das Token wird separat kopiert.",
+    "copyConfig": "Konfiguration kopieren",
+    "configCopied": "Konfiguration kopiert",
+    "copyFailed": "Kopieren fehlgeschlagen"
+  },
+  "token": {
+    "heading": "Zugriffstoken",
+    "description": "Ihr Client authentifiziert sich mit diesem Token. Behandeln Sie es wie ein Passwort.",
+    "hint": "Token endet auf {{hint}}",
+    "copyToken": "Token kopieren",
+    "tokenCopied": "Token kopiert",
+    "regenerate": "Neu generieren",
+    "regenerateConfirm": "Zugriffstoken neu generieren? Jeder Client, der das alte Token verwendet, funktioniert nicht mehr, bis Sie seine Konfiguration aktualisieren.",
+    "regenerated": "Zugriffstoken neu generiert",
+    "regenerateFailed": "Token konnte nicht neu generiert werden: {{message}}"
+  },
+  "tray": {
+    "open": "Öffnen",
+    "exit": "Beenden",
+    "statusOn": "MCP-Server: an",
+    "statusOff": "MCP-Server: aus"
+  }
+}

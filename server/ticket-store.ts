@@ -49,7 +49,7 @@ export interface Ticket {
   // legacy wire value kept for compat, do not rename.
   // 'jira' marks a spec materialized from a Jira issue (see server/jira/). The
   // jira_key / jira_url fields below are additive — specrails-core ignores them.
-  source: 'manual' | 'product-backlog' | 'propose-spec' | 'get-backlog-specs' | 'hub' | 'explore-draft' | 'specs-smash' | 'free-prompt' | 'jira'
+  source: 'manual' | 'product-backlog' | 'propose-spec' | 'get-backlog-specs' | 'hub' | 'explore-draft' | 'specs-smash' | 'free-prompt' | 'mcp' | 'jira'
   /** Display key of the linked Jira issue (e.g. "PROJ-123"), null for local specs. */
   jira_key?: string | null
   /** Browser URL of the linked Jira issue, null for local specs. */

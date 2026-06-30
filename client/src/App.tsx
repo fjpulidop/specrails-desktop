@@ -42,6 +42,7 @@ import { ContractRefineTrackerProvider } from './hooks/useContractRefineTracker'
 import { SmashTrackerProvider } from './context/SmashTrackerContext'
 import { useOsNotifications } from './hooks/useOsNotifications'
 import { useDesktopUpdateNotifier } from './hooks/useDesktopUpdateNotifier'
+import { useTrayLabels } from './hooks/useTrayLabels'
 import { useSuppressNativeContextMenu } from './hooks/useSuppressNativeContextMenu'
 import { WS_URL } from './lib/ws-url'
 import { TerminalsProvider, useTerminals } from './context/TerminalsContext'
@@ -161,6 +162,9 @@ function DesktopApp() {
 
   // Remember which page each project was on
   useProjectRouteMemory(activeProjectId)
+
+  // Push localized system-tray labels to the Rust host (no-op outside Tauri).
+  useTrayLabels()
 
   // Keyboard shortcuts
   const { cheatsheetOpen, setCheatsheetOpen, openCheatsheet } = useCheatsheetState()
