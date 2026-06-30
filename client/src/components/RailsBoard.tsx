@@ -38,6 +38,8 @@ export interface RailState {
   selectedLoopId?: string | null
   /** Selected reasoning effort (loop mode). */
   reasoningEffort?: ReasoningEffort | null
+  /** Selected model for custom loop rails. null/undefined = provider default. */
+  loopModel?: string | null
 }
 
 /**
@@ -82,6 +84,7 @@ interface RailsBoardProps {
   onProfileChange?: (railId: string, profileName: string | null) => void
   onEngineChange?: (railId: string, aiEngine: string) => void
   onUltracodeModelChange?: (railId: string, model: UltracodeModel) => void
+  onLoopModelChange?: (railId: string, model: string) => void
   onInteractiveChange?: (railId: string, interactive: boolean) => void
   /** When true, rails offer "Loop" mode. */
   loopAvailable?: boolean
@@ -115,7 +118,7 @@ function SortableRailWrapper({ railId, children }: { railId: string; children: (
 /** Width threshold below which rail rows switch to the compact mini-card layout. */
 export const RAILS_COMPACT_THRESHOLD_PX = 320
 
-export function RailsBoard({ rails, ticketMap, railWorktrees, railMetrics, providers, onModeChange, onProfileChange, onEngineChange, onUltracodeModelChange, onInteractiveChange, loopAvailable, onLoopChange, onEffortChange, onToggle, onTicketClick, onAddRail, onDeleteRail, onRenameRail, onTicketMoveToSpecs }: RailsBoardProps) {
+export function RailsBoard({ rails, ticketMap, railWorktrees, railMetrics, providers, onModeChange, onProfileChange, onEngineChange, onUltracodeModelChange, onLoopModelChange, onInteractiveChange, loopAvailable, onLoopChange, onEffortChange, onToggle, onTicketClick, onAddRail, onDeleteRail, onRenameRail, onTicketMoveToSpecs }: RailsBoardProps) {
   const { t } = useTranslation('dashboard')
   const activeRails = rails.filter((r) => r.status === 'running').length
   const [jiggleMode, setJiggleMode] = useState(false)
@@ -193,6 +196,7 @@ export function RailsBoard({ rails, ticketMap, railWorktrees, railMetrics, provi
                     profileName={rail.profileName ?? null}
                     aiEngine={rail.aiEngine ?? null}
                     ultracodeModel={rail.ultracodeModel ?? null}
+                    loopModel={rail.loopModel ?? null}
                     interactive={rail.interactive ?? false}
                     worktreeSummary={worktreeSummary(railWorktrees?.[idx])}
                     executionMetric={railMetrics?.[idx] ?? null}
@@ -208,6 +212,7 @@ export function RailsBoard({ rails, ticketMap, railWorktrees, railMetrics, provi
                     onProfileChange={onProfileChange ? (p) => onProfileChange(rail.id, p) : undefined}
                     onEngineChange={onEngineChange ? (e) => onEngineChange(rail.id, e) : undefined}
                     onUltracodeModelChange={onUltracodeModelChange ? (m) => onUltracodeModelChange(rail.id, m) : undefined}
+                    onLoopModelChange={onLoopModelChange ? (m) => onLoopModelChange(rail.id, m) : undefined}
                     onLoopChange={onLoopChange ? (l) => onLoopChange(rail.id, l) : undefined}
                     onEffortChange={onEffortChange ? (eff) => onEffortChange(rail.id, eff) : undefined}
                     onInteractiveChange={onInteractiveChange ? (v) => onInteractiveChange(rail.id, v) : undefined}

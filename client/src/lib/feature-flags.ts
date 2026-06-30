@@ -31,6 +31,16 @@ export const FEATURE_JIRA = (() => {
   return true
 })()
 
+/** Gates the MCP onboarding UI (Settings ▸ MCP panel + welcome hint). Default ON.
+ *  The server still gates the actual MCP server behind the persisted `mcp_enabled`
+ *  setting, so this flag only hides the explainer/toggle UI. */
+export const FEATURE_MCP = (() => {
+  const env = (import.meta as unknown as { env?: Record<string, string | undefined> }).env
+  const override = env?.VITE_FEATURE_MCP
+  if (typeof override === 'string') return override !== 'false'
+  return true
+})()
+
 /** Gates interactive ultracode jobs UI (rail "Interactive" toggle + in-job chat
  *  + Finalize button). Default ON; mirrors server SPECRAILS_INTERACTIVE_JOBS. */
 export const FEATURE_INTERACTIVE_JOBS = (() => {

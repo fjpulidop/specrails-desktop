@@ -14,6 +14,7 @@ import { RailLoopSelector } from './agents/RailLoopSelector'
 import { RailExecutionInfo } from './RailExecutionInfo'
 import { RailEffortSelector, type ReasoningEffort } from './agents/RailEffortSelector'
 import { providerSupportsReasoningEffort } from '../lib/provider-capabilities'
+import { modelsForProvider, defaultModelForProvider } from '../lib/loop-run-models'
 import type { LocalTicket } from '../types'
 
 const LONG_PRESS_MS = 800
@@ -31,6 +32,8 @@ interface RailRowProps {
   aiEngine?: string | null
   /** Selected model for ultracode rails. null/undefined = default (sonnet). */
   ultracodeModel?: UltracodeModel | null
+  /** Selected model for custom loop rails. null/undefined = provider default. */
+  loopModel?: string | null
   /** Per-rail "Interactive" toggle (ultracode only). */
   interactive?: boolean
   /** Whether the interactive toggle should be offered (client feature flag). */
@@ -64,6 +67,7 @@ interface RailRowProps {
   onProfileChange?: (profileName: string | null) => void
   onEngineChange?: (aiEngine: string) => void
   onUltracodeModelChange?: (model: UltracodeModel) => void
+  onLoopModelChange?: (model: string) => void
   onLoopChange?: (loopId: string) => void
   onEffortChange?: (effort: ReasoningEffort) => void
   onInteractiveChange?: (interactive: boolean) => void
@@ -79,10 +83,10 @@ interface RailRowProps {
 }
 
 export function RailRow({
-  id, label, tickets, mode, status, activeJobId, profileName, aiEngine, ultracodeModel, interactive, interactiveAvailable, providers,
+  id, label, tickets, mode, status, activeJobId, profileName, aiEngine, ultracodeModel, loopModel, interactive, interactiveAvailable, providers,
   loopAvailable, selectedLoopId, reasoningEffort, worktreeSummary, executionMetric, jiggleMode,
   dragHandleListeners, dragHandleAttributes, density = 'normal',
-  onModeChange, onProfileChange, onEngineChange, onUltracodeModelChange, onLoopChange, onEffortChange, onInteractiveChange, onToggle, onTicketClick, onDelete, onLongPress, onRename,
+  onModeChange, onProfileChange, onEngineChange, onUltracodeModelChange, onLoopModelChange, onLoopChange, onEffortChange, onInteractiveChange, onToggle, onTicketClick, onDelete, onLongPress, onRename,
   onTicketMoveToSpecs,
 }: RailRowProps) {
   const { t } = useTranslation('dashboard')
@@ -102,6 +106,22 @@ export function RailRow({
   const showEngineSel = !!onEngineChange && status !== 'running' && (providers?.length ?? 0) > 1
   const showProfileSel = !!onProfileChange && status !== 'running' && profileApplies && mode !== 'loop'
   const showModelSel = !!onUltracodeModelChange && status !== 'running' && mode === 'ultracode' && engineIsClaude
+  // Model picker for custom loop rails (non-factory loops) — provider-aware.
+  const showLoopModelSel = !!onLoopModelChange && status !== 'running' && mode === 'loop'
+  const loopModelProvider = aiEngine ?? providers?.[0] ?? 'claude'
+  const loopModelOptions = modelsForProvider(loopModelProvider)
+  const effectiveLoopModel = loopModel ?? defaultModelForProvider(loopModelProvider)
+  const loopModelPickerEl = showLoopModelSel && onLoopModelChange ? (
+    <select
+      data-testid="loop-model-selector"
+      aria-label={t('railSelectors.loopModelTitle')}
+      value={effectiveLoopModel}
+      onChange={(e) => onLoopModelChange(e.target.value)}
+      className="h-5 text-[10px] rounded border border-border/50 bg-transparent text-muted-foreground hover:text-foreground pr-4 pl-1 focus:outline-none focus:ring-1 focus:ring-primary/40"
+    >
+      {loopModelOptions.map((m) => <option key={m.value} value={m.value}>{m.label}</option>)}
+    </select>
+  ) : null
   // The rail's unified Loop picker (factory + custom loops) replaces the old mode
   // segmented control — always shown when idle. Effort shows for custom loops.
   const showLoopSel = !!onLoopChange && status !== 'running'
@@ -109,7 +129,7 @@ export function RailRow({
   // their condition holds). The profile selector self-hides when the project
   // has no profiles, so it can't trigger an empty row — it rides along the
   // second row when one exists, else stays inline on the top row.
-  const hasSelectorRow = showEngineSel || showModelSel || showLoopSel
+  const hasSelectorRow = showEngineSel || showModelSel || showLoopModelSel || showLoopSel
   // Compact-tier right-click context menu state. `{ticketId, x, y}` while
   // open, `null` otherwise. Closed by outside-click, Escape, or selection.
   const [ticketCtxMenu, setTicketCtxMenu] = useState<{ ticketId: number; x: number; y: number } | null>(null)
@@ -417,6 +437,7 @@ export function RailRow({
           {onUltracodeModelChange && !isRunning && mode === 'ultracode' && engineIsClaude && (
             <RailModelSelector value={ultracodeModel ?? null} onChange={onUltracodeModelChange} />
           )}
+          {loopModelPickerEl}
           {onLoopChange && !isRunning && (
             <RailLoopSelector
               value={effectiveLoopId(selectedLoopId, mode)}
@@ -631,6 +652,7 @@ export function RailRow({
               {showModelSel && onUltracodeModelChange && (
                 <RailModelSelector value={ultracodeModel ?? null} onChange={onUltracodeModelChange} />
               )}
+              {loopModelPickerEl}
               {showLoopSel && onLoopChange && (
                 <RailLoopSelector
                   value={effectiveLoopId(selectedLoopId, mode)}

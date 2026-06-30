@@ -43,7 +43,8 @@
         "subtitle": "Optional — back this project's specs with a Jira board. You can also do it later in Settings.",
         "configure": "Configure Jira",
         "optional": "optional"
-      }
+      },
+      "mcpHint": "Connect external AI tools to Specrails over a secure local MCP server — enable it in Settings."
     },
     "error": {
       "title": "Setup failed",
@@ -156,7 +157,8 @@
     "title": "Welcome to <spec>spec</spec><rails>rails</rails>",
     "description": "Specrails manages multiple projects from a single interface. Add your first project to get started.",
     "addFirstProject": "Add your first project",
-    "jiraHint": "Connect each project to its own Jira board — specs stay in sync, both ways."
+    "jiraHint": "Connect each project to its own Jira board — specs stay in sync, both ways.",
+    "mcpHint": "Connect external AI tools to Specrails over a secure local MCP server — enable it in Settings."
   },
   "onboarding": {
     "productTour": "Product tour",

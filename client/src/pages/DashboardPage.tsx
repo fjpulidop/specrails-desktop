@@ -343,10 +343,29 @@ export default function DashboardPage() {
 
   const handleRailWsMessage = useCallback((msg: unknown) => {
     const m = msg as {
-      type?: string; projectId?: string; railIndex?: number; status?: string
+      type?: string; projectId?: string; railIndex?: number | null; status?: string
       ticketIds?: number[]; changed?: 'tickets' | 'name' | 'profile' | 'engine'; name?: string | null
+      jobId?: string; loopRunId?: string
     }
     if (m.projectId !== activeProjectIdRef.current) return
+
+    // A rail started running ELSEWHERE — the MCP server, the mobile companion, or
+    // another desktop tab. The local launch path (doLaunchRail) sets this
+    // optimistically; mirror it for external launches so any rail the MCP starts
+    // lights up here (status + the active id for "View Log"). Without this the
+    // dashboard only ever reacted to the *completion* of an external launch, so
+    // an MCP-launched rail looked idle the whole time it ran. Covers both the
+    // legacy queue job (rail.job_started) and the loop run (loop.run_started)
+    // paths; a loop run with railIndex==null is a Loops-page run, not a rail.
+    if (m.type === 'rail.job_started' || m.type === 'loop.run_started') {
+      if (m.railIndex == null) return
+      const railId = `rail-${m.railIndex + 1}`
+      const startedJobId = m.jobId ?? m.loopRunId
+      updateRails((prev) => prev.map((r) =>
+        r.id === railId ? { ...r, status: 'running' as const, activeJobId: startedJobId ?? r.activeJobId } : r
+      ))
+      return
+    }
 
     // A rail's config changed elsewhere (mobile companion / another desktop).
     // Adopt the name on every variant; adopt ticketIds ONLY on a tickets-change
@@ -471,6 +490,8 @@ export default function DashboardPage() {
           t.source === 'explore-draft' ||
           t.source === 'specs-smash' ||
           t.source === 'free-prompt' ||
+          // Specs created by an external LLM through the MCP server.
+          t.source === 'mcp' ||
           // Jira-backed specs are materialized into local-tickets.json with
           // source:'jira' — they must show on the board like any other spec.
           t.source === 'jira') &&
@@ -774,6 +795,10 @@ export default function DashboardPage() {
     updateRails((prev) => prev.map((r) => (r.id === railId ? { ...r, selectedLoopId: loopId, mode } : r)))
   }
 
+  function handleLoopModelChange(railId: string, model: string) {
+    updateRails((prev) => prev.map((r) => (r.id === railId ? { ...r, loopModel: model } : r)))
+  }
+
   function handleEffortChange(railId: string, effort: import('../components/agents/RailEffortSelector').ReasoningEffort) {
     updateRails((prev) => prev.map((r) => (r.id === railId ? { ...r, reasoningEffort: effort } : r)))
   }
@@ -883,6 +908,8 @@ export default function DashboardPage() {
           ...(rail.aiEngine != null ? { aiEngine: rail.aiEngine } : {}),
           // Ultracode model picker — only meaningful for ultracode launches.
           ...(rail.mode === 'ultracode' && rail.ultracodeModel ? { model: rail.ultracodeModel } : {}),
+          // Loop model picker — only meaningful for custom loop launches.
+          ...(rail.mode === 'loop' && rail.loopModel ? { model: rail.loopModel } : {}),
           // Interactive toggle — only meaningful for ultracode launches.
           ...(rail.mode === 'ultracode' && rail.interactive ? { interactive: true } : {}),
           // rails-as-loops: always send the chosen Loop. The server maps a
@@ -977,6 +1004,7 @@ export default function DashboardPage() {
             onProfileChange={handleProfileChange}
             onEngineChange={handleEngineChange}
             onUltracodeModelChange={handleUltracodeModelChange}
+            onLoopModelChange={handleLoopModelChange}
             onInteractiveChange={handleInteractiveChange}
             loopAvailable={FEATURE_LOOPS_SECTION}
             onLoopChange={handleLoopChange}

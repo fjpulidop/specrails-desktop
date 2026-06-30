@@ -1,0 +1,15 @@
+{
+  "name": "specrails-mcp",
+  "version": "2.0.0",
+  "description": "Stdio↔HTTP bridge for the Specrails Desktop MCP server. Relays MCP stdio from any client to the embedded server at http://127.0.0.1:4200/api/mcp. v2 replaces the legacy filesystem-based specrails-mcp@1.x.",
+  "license": "MIT",
+  "bin": {
+    "specrails-mcp": "dist/specrails-mcp.js"
+  },
+  "files": [
+    "dist"
+  ],
+  "devDependencies": {
+    "@modelcontextprotocol/sdk": "^1.29.0"
+  }
+}

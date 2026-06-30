@@ -2,7 +2,7 @@ import { defineConfig } from 'vitest/config'
 
 export default defineConfig({
   test: {
-    include: ['server/**/*.test.ts', 'cli/**/*.test.ts'],
+    include: ['server/**/*.test.ts', 'cli/**/*.test.ts', 'mcp-bridge/**/*.test.ts'],
     environment: 'node',
     // Safety net: pin SPECRAILS_REGISTRY_HOME to a throwaway tmp dir so no test
     // can write the relocation registry into the real ~/.specrails.

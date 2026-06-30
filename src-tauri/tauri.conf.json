@@ -40,6 +40,7 @@
     "resources": [
       "binaries/better_sqlite3.node",
       "binaries/pty.node",
+      "binaries/specrails-mcp.js",
       "binaries/node-pty/**/*",
       "binaries/shell-integration/**/*",
       "binaries/node_modules/**/*",

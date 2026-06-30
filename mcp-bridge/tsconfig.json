@@ -1,0 +1,17 @@
+{
+  "//": "Type-check only (build is via scripts/build-mcp-bridge.mjs / esbuild). bundler/preserve resolves the SDK's exports-map-only types, same as the server.",
+  "compilerOptions": {
+    "target": "ES2022",
+    "module": "preserve",
+    "moduleResolution": "bundler",
+    "esModuleInterop": true,
+    "resolveJsonModule": true,
+    "strict": true,
+    "skipLibCheck": true,
+    "noEmit": true,
+    "rootDir": "src",
+    "types": ["node"]
+  },
+  "include": ["src/**/*.ts"],
+  "exclude": ["node_modules", "dist"]
+}

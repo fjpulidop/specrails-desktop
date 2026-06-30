@@ -1,7 +1,10 @@
 use std::net::TcpListener;
 use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};
+use tauri::menu::{Menu, MenuItem};
+use tauri::tray::{MouseButton, MouseButtonState, TrayIconBuilder, TrayIconEvent};
 use tauri::Manager;
+use tauri::{RunEvent, WindowEvent};
 use tauri_plugin_dialog::DialogExt;
 use tauri_plugin_shell::ShellExt;
 
@@ -170,6 +173,88 @@ struct SidecarState {
     pid: Arc<Mutex<Option<u32>>>,
 }
 
+/// Stable id for the single system-tray / menu-bar item, used to retrieve and
+/// relabel the tray at runtime via `set_tray_labels`.
+const TRAY_ID: &str = "main-tray";
+
+/// Runtime handle to the live tray icon so the `set_tray_labels` IPC command can
+/// rebuild its menu in the user's active UI language without restarting the app.
+struct TrayState {
+    tray: Mutex<Option<tauri::tray::TrayIcon>>,
+}
+
+/// Actions a tray menu item can trigger. Extracted as a pure mapping so the
+/// id → action dispatch is unit-testable without a live event loop.
+#[derive(Debug, PartialEq, Eq)]
+enum TrayAction {
+    Open,
+    Exit,
+    Unknown,
+}
+
+/// Pure mapping from a tray menu item id to the action it triggers. The tray's
+/// `on_menu_event` closure (which DOES need a live app handle) delegates here so
+/// the routing logic itself can be tested headlessly.
+fn tray_action_for_id(id: &str) -> TrayAction {
+    match id {
+        "open" => TrayAction::Open,
+        "exit" => TrayAction::Exit,
+        _ => TrayAction::Unknown,
+    }
+}
+
+/// Terminate the sidecar (if still running) using the identity-gated kill
+/// primitive. Shared by the tray "Exit" path and the true-quit
+/// `RunEvent::ExitRequested` hook so both reap the sidecar identically.
+///
+/// Idempotent: `terminate_process` no-ops when the PID is `None` (the
+/// `CommandEvent::Terminated` handler nulled it) or when `pid_is_sidecar`
+/// rejects a recycled/unrelated PID — so calling this twice (tray Exit then the
+/// `ExitRequested` fired by `app.exit(0)`) is safe.
+fn shutdown_sidecar(state: &SidecarState) {
+    let pid = *state.pid.lock().unwrap();
+    if let Some(pid) = pid {
+        terminate_process(pid);
+    }
+}
+
+/// Rebuild the tray menu with new "Open"/"Exit" labels. Invoked from the client
+/// on startup and on every UI-language change so the menu matches the active
+/// language. Builds a fresh `Menu` each call (menu item text is not mutated in
+/// place) and swaps it onto the live tray via `set_menu`.
+#[tauri::command]
+fn set_tray_labels(
+    app: tauri::AppHandle,
+    tray: tauri::State<'_, TrayState>,
+    open: String,
+    exit: String,
+) -> Result<(), String> {
+    let guard = tray.tray.lock().map_err(|e| e.to_string())?;
+    let Some(tray_icon) = guard.as_ref() else {
+        return Err("tray not initialized".to_string());
+    };
+    let open_i = MenuItem::with_id(&app, "open", &open, true, None::<&str>)
+        .map_err(|e| e.to_string())?;
+    let exit_i = MenuItem::with_id(&app, "exit", &exit, true, None::<&str>)
+        .map_err(|e| e.to_string())?;
+    let menu =
+        Menu::with_items(&app, &[&open_i, &exit_i]).map_err(|e| e.to_string())?;
+    tray_icon.set_menu(Some(menu)).map_err(|e| e.to_string())?;
+    Ok(())
+}
+
+/// Show, unminimize, and focus the main window. Used by the tray "Open" menu
+/// item, the tray-icon left click, and the single-instance relaunch callback.
+/// `unminimize` runs before `set_focus` so a hidden-then-minimized window is
+/// always brought back to the front.
+fn show_main_window(app: &tauri::AppHandle) {
+    if let Some(win) = app.get_webview_window("main") {
+        let _ = win.show();
+        let _ = win.unminimize();
+        let _ = win.set_focus();
+    }
+}
+
 /// Cleanly restart the desktop app after a self-update.
 ///
 /// The naive path — calling plugin-process `relaunch()` from the frontend —
@@ -203,22 +288,31 @@ fn restart_app(app: tauri::AppHandle, sidecar: tauri::State<'_, SidecarState>) {
 }
 
 pub fn run() {
+    // Shared, captured by `move` into the setup closure; exposed to commands via
+    // SidecarState. The window-close handler no longer needs the PID (close now
+    // hides to tray); sidecar termination runs from the tray Exit path and the
+    // true-quit `RunEvent::ExitRequested` hook, which read SidecarState.
     let sidecar_pid: Arc<Mutex<Option<u32>>> = Arc::new(Mutex::new(None));
-    let sidecar_pid_clone = Arc::clone(&sidecar_pid);
 
     tauri::Builder::default()
+        // Single-instance MUST be registered FIRST so a second launch focuses the
+        // existing window before any sidecar can spawn — never contending port 4200.
+        .plugin(tauri_plugin_single_instance::init(|app, _argv, _cwd| {
+            show_main_window(app);
+        }))
         .plugin(tauri_plugin_shell::init())
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_process::init())
         .plugin(tauri_plugin_updater::Builder::new().build())
         .plugin(tauri_plugin_clipboard_manager::init())
-        .invoke_handler(tauri::generate_handler![restart_app])
+        .invoke_handler(tauri::generate_handler![restart_app, set_tray_labels])
         .setup(move |app| {
             let app_handle = app.handle().clone();
 
-            // Expose the sidecar PID to the `restart_app` command.
+            // Expose the sidecar PID to the `restart_app` command, the tray Exit
+            // handler, and the `RunEvent::ExitRequested` quit hook.
             app.manage(SidecarState {
-                pid: Arc::clone(&sidecar_pid_clone),
+                pid: Arc::clone(&sidecar_pid),
             });
 
             // --- Port conflict check (with a grace window) ---
@@ -249,6 +343,48 @@ pub fn run() {
             if let Some(win) = app.get_webview_window("main") {
                 let _ = win.maximize();
             }
+
+            // --- System tray / menu-bar item ---
+            // Built BEFORE the sidecar spawn so the tray is present at launch
+            // independent of the server. Labels default to English; the client
+            // pushes the active-language labels via `set_tray_labels` on startup
+            // and on every language change. The icon comes from the configured
+            // bundle icon (tauri.conf.json `bundle.icon`) — no separate tray asset.
+            // We deliberately do NOT set ActivationPolicy::Accessory, so macOS
+            // keeps the regular Dock presence.
+            let open_i = MenuItem::with_id(app, "open", "Open", true, None::<&str>)?;
+            let exit_i = MenuItem::with_id(app, "exit", "Exit", true, None::<&str>)?;
+            let tray_menu = Menu::with_items(app, &[&open_i, &exit_i])?;
+            let tray = TrayIconBuilder::with_id(TRAY_ID)
+                .icon(app.default_window_icon().unwrap().clone())
+                .menu(&tray_menu)
+                .tooltip("Specrails")
+                .on_menu_event(|app, event| match tray_action_for_id(event.id.as_ref()) {
+                    TrayAction::Open => show_main_window(app),
+                    TrayAction::Exit => {
+                        // Terminate the sidecar, then quit. `app.exit(0)` also
+                        // fires `RunEvent::ExitRequested`, which calls
+                        // `shutdown_sidecar` again — idempotent by design.
+                        let state = app.state::<SidecarState>();
+                        shutdown_sidecar(&state);
+                        app.exit(0);
+                    }
+                    TrayAction::Unknown => {}
+                })
+                .on_tray_icon_event(|tray, event| {
+                    if let TrayIconEvent::Click {
+                        button: MouseButton::Left,
+                        button_state: MouseButtonState::Up,
+                        ..
+                    } = event
+                    {
+                        show_main_window(tray.app_handle());
+                    }
+                })
+                .build(app)?;
+            app.manage(TrayState {
+                tray: Mutex::new(Some(tray)),
+            });
 
             // --- Spawn sidecar ---
             let parent_pid_arg = format!("--parent-pid={}", std::process::id());
@@ -428,7 +564,7 @@ pub fn run() {
                 .expect("failed to spawn specrails-server sidecar");
 
             let pid = child.pid();
-            *sidecar_pid_clone.lock().unwrap() = Some(pid);
+            *sidecar_pid.lock().unwrap() = Some(pid);
 
             // Drain sidecar stdout/stderr to prevent pipe buffer blocking.
             // Write to ~/Library/Logs/Specrails/sidecar.log for diagnostics.
@@ -441,7 +577,7 @@ pub fn run() {
             // Clear the stored PID when the sidecar terminates so a later
             // window-close / restart_app never signals a stale (possibly
             // OS-recycled) PID — the second half of the BUG-TAURI-02 guard.
-            let terminated_pid_state = Arc::clone(&sidecar_pid_clone);
+            let terminated_pid_state = Arc::clone(&sidecar_pid);
             std::thread::spawn(move || {
                 use tauri_plugin_shell::process::CommandEvent;
                 use std::io::Write;
@@ -487,17 +623,27 @@ pub fn run() {
 
             Ok(())
         })
-        .on_window_event(move |_window, event| {
-            if let tauri::WindowEvent::CloseRequested { .. } = event {
-                if let Some(pid) = *sidecar_pid.lock().unwrap() {
-                    std::thread::spawn(move || {
-                        terminate_process(pid);
-                    });
-                }
+        .on_window_event(|window, event| {
+            // Closing the window now MINIMIZES TO TRAY instead of quitting: the
+            // close is prevented and the window hidden, so the `specrails-server`
+            // sidecar keeps running and the tray item can reopen it. Sidecar
+            // termination moved to the tray "Exit" path and the true-quit
+            // `RunEvent::ExitRequested` hook below.
+            if let WindowEvent::CloseRequested { api, .. } = event {
+                api.prevent_close();
+                let _ = window.hide();
             }
         })
-        .run(tauri::generate_context!())
-        .expect("error while running tauri application");
+        .build(tauri::generate_context!())
+        .expect("error while running tauri application")
+        .run(|app_handle, event| {
+            // A TRUE OS quit (Cmd-Q / app.exit / the tray "Exit" path) reaps the
+            // sidecar here. Idempotent via `shutdown_sidecar` + the identity gate.
+            if let RunEvent::ExitRequested { .. } = event {
+                let state = app_handle.state::<SidecarState>();
+                shutdown_sidecar(&state);
+            }
+        });
 }
 
 #[cfg(test)]
@@ -562,6 +708,55 @@ mod tests {
         assert!(
             start.elapsed() < Duration::from_secs(1),
             "terminate_process must short-circuit (no kill) for a non-sidecar PID"
+        );
+    }
+
+    // Tray menu dispatch: the pure id → action mapping the live `on_menu_event`
+    // closure delegates to. "open"/"exit" map to their actions; anything else is
+    // Unknown (a no-op in the closure) so an unexpected menu id never quits.
+    #[test]
+    fn tray_action_maps_known_ids() {
+        assert_eq!(tray_action_for_id("open"), TrayAction::Open);
+        assert_eq!(tray_action_for_id("exit"), TrayAction::Exit);
+        assert_eq!(tray_action_for_id("something-else"), TrayAction::Unknown);
+        assert_eq!(tray_action_for_id(""), TrayAction::Unknown);
+    }
+
+    // `shutdown_sidecar` must be a no-op when no sidecar PID is recorded (the
+    // `CommandEvent::Terminated` handler nulls it on exit). This guards the
+    // double-fire path: tray "Exit" calls it, then `app.exit(0)` fires
+    // `RunEvent::ExitRequested` which calls it again — the second call must not
+    // signal anything. We assert it returns promptly with a None pid.
+    #[test]
+    fn shutdown_sidecar_is_noop_when_pid_is_none() {
+        let state = SidecarState {
+            pid: Arc::new(Mutex::new(None)),
+        };
+        let start = Instant::now();
+        shutdown_sidecar(&state);
+        assert!(
+            start.elapsed() < Duration::from_secs(1),
+            "shutdown_sidecar must return immediately when no PID is recorded"
+        );
+        // The PID stays None — nothing was spawned or signalled.
+        assert!(state.pid.lock().unwrap().is_none());
+    }
+
+    // `shutdown_sidecar` with a non-sidecar PID (our own, which is alive but not
+    // the sidecar) must short-circuit via the identity gate, exactly like
+    // `terminate_process_short_circuits_for_non_sidecar`. This proves the
+    // Exit/ExitRequested paths inherit the BUG-TAURI-02 guard.
+    #[cfg(unix)]
+    #[test]
+    fn shutdown_sidecar_short_circuits_for_non_sidecar_pid() {
+        let state = SidecarState {
+            pid: Arc::new(Mutex::new(Some(std::process::id()))),
+        };
+        let start = Instant::now();
+        shutdown_sidecar(&state);
+        assert!(
+            start.elapsed() < Duration::from_secs(1),
+            "shutdown_sidecar must short-circuit (no kill) for a non-sidecar PID"
         );
     }
 }

@@ -1,0 +1,58 @@
+{
+  "heading": "Servidor MCP",
+  "explainer": {
+    "what": "Un servidor MCP (Model Context Protocol) permite que herramientas de IA externas —como Claude Desktop, Cursor o cualquier cliente MCP— se comuniquen directamente con Specrails. Pueden explorar tus proyectos, leer especificaciones y, si lo permites, lanzar trabajos, todo a través de una única conexión local segura.",
+    "how": "Actívalo abajo y copia la configuración del cliente en tu herramienta de IA. Specrails solo escucha en tu propia máquina: nada queda expuesto a internet.",
+    "grants": "Por defecto las herramientas tienen acceso de solo lectura. Usa los niveles de permiso para conceder más, una capacidad cada vez."
+  },
+  "enable": {
+    "on": "Servidor MCP activado",
+    "off": "Servidor MCP desactivado",
+    "running_one": "En ejecución · {{count}} herramienta",
+    "running_other": "En ejecución · {{count}} herramientas",
+    "stopped": "Detenido",
+    "activeSessions_one": "{{count}} sesión activa",
+    "activeSessions_other": "{{count}} sesiones activas",
+    "turnOn": "Activar",
+    "turnOff": "Desactivar",
+    "enableFailed": "No se pudo activar el servidor MCP: {{message}}",
+    "disableFailed": "No se pudo desactivar el servidor MCP: {{message}}"
+  },
+  "tiers": {
+    "heading": "Niveles de permiso",
+    "description": "Cada nivel que un cliente puede usar. Lectura siempre está activa; el resto están desactivados hasta que los concedas.",
+    "read": "Lectura",
+    "readHelp": "Explorar proyectos, especificaciones y analíticas. Siempre permitido.",
+    "write": "Escritura",
+    "writeHelp": "Crear y editar especificaciones y tickets.",
+    "aiSpawn": "Lanzar IA",
+    "aiSpawnHelp": "Lanzar rails y trabajos de IA que ejecutan la CLI.",
+    "destructive": "Destructivo",
+    "destructiveHelp": "Eliminar especificaciones, tickets y otros datos del proyecto.",
+    "updateFailed": "No se pudieron actualizar los permisos: {{message}}"
+  },
+  "config": {
+    "heading": "Configuración del cliente",
+    "description": "Pega esto en tu cliente MCP. No contiene ningún secreto: el token se copia por separado.",
+    "copyConfig": "Copiar configuración",
+    "configCopied": "Configuración copiada",
+    "copyFailed": "Error al copiar"
+  },
+  "token": {
+    "heading": "Token de acceso",
+    "description": "Tu cliente se autentica con este token. Trátalo como una contraseña.",
+    "hint": "Token que termina en {{hint}}",
+    "copyToken": "Copiar token",
+    "tokenCopied": "Token copiado",
+    "regenerate": "Regenerar",
+    "regenerateConfirm": "¿Regenerar el token de acceso? Cualquier cliente que use el token antiguo dejará de funcionar hasta que actualices su configuración.",
+    "regenerated": "Token de acceso regenerado",
+    "regenerateFailed": "No se pudo regenerar el token: {{message}}"
+  },
+  "tray": {
+    "open": "Abrir",
+    "exit": "Salir",
+    "statusOn": "Servidor MCP: activado",
+    "statusOff": "Servidor MCP: desactivado"
+  }
+}

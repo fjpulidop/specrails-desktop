@@ -43,7 +43,8 @@
         "subtitle": "Opcional — respalda las specs de este proyecto con un tablero de Jira. También puedes hacerlo más tarde en Ajustes.",
         "configure": "Configurar Jira",
         "optional": "opcional"
-      }
+      },
+      "mcpHint": "Conecta herramientas de IA externas a Specrails mediante un servidor MCP local seguro — actívalo en Ajustes."
     },
     "error": {
       "title": "La configuración ha fallado",
@@ -156,7 +157,8 @@
     "title": "Bienvenido a <spec>spec</spec><rails>rails</rails>",
     "description": "Specrails gestiona varios proyectos desde una única interfaz. Añade tu primer proyecto para empezar.",
     "addFirstProject": "Añade tu primer proyecto",
-    "jiraHint": "Conecta cada proyecto a su propio tablero de Jira — las specs se sincronizan en ambos sentidos."
+    "jiraHint": "Conecta cada proyecto a su propio tablero de Jira — las specs se sincronizan en ambos sentidos.",
+    "mcpHint": "Conecta herramientas de IA externas a Specrails mediante un servidor MCP local seguro — actívalo en Ajustes."
   },
   "onboarding": {
     "productTour": "Tour del producto",

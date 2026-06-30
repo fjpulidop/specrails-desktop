@@ -97,6 +97,24 @@ export function RailMetricsProvider({ activeProjectId, children }: { activeProje
       setRuns((prev) => { if (!m.loopRunId || !prev.has(m.loopRunId)) return prev; const n = new Map(prev); n.delete(m.loopRunId); return n })
       return
     }
+    // A LEGACY rail job (implement/batch/ultracode via the QueueManager — e.g. an
+    // MCP launch with a bare `mode`, or an ultracode rail) emits rail.job_started,
+    // NOT loop.run_started. Track it the same way (keyed by jobId) so its live
+    // elapsed/steps/lines render on the rail card exactly like a loop launch — the
+    // event/log handlers below already key off jobId/processId.
+    if (m.type === 'rail.job_started') {
+      if (m.projectId !== projRef.current || !m.jobId || m.railIndex == null) return
+      setRuns((prev) => {
+        const next = new Map(prev)
+        next.set(m.jobId!, { railIndex: m.railIndex!, startedAt: Date.now(), steps: 0, lines: 0 })
+        return next
+      })
+      return
+    }
+    if (m.type === 'rail.job_completed' || m.type === 'rail.job_stopped') {
+      setRuns((prev) => { if (!m.jobId || !prev.has(m.jobId)) return prev; const n = new Map(prev); n.delete(m.jobId!); return n })
+      return
+    }
     // event/log carry only the run id — gate on the run being tracked (its
     // run_started already passed the project filter). Steps = activity steps from
     // the SAME deriveFrameActivity the Job panel uses (a frame may be several

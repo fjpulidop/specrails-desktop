@@ -172,6 +172,7 @@
     "profileTitle": "Agent-Profil für diese Rail",
     "noProfile": "Kein Profil",
     "modelTitle": "Modell für diese ultracode-Rail",
+    "loopModelTitle": "Modell für diesen Loop",
     "engineTitle": "KI-Engine für diese Rail"
   }
 }

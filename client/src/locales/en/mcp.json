@@ -1,0 +1,58 @@
+{
+  "heading": "MCP server",
+  "explainer": {
+    "what": "An MCP (Model Context Protocol) server lets external AI tools — like Claude Desktop, Cursor, or any MCP client — talk to Specrails directly. They can browse your projects, read specs, and (if you allow it) launch work, all through one secure local connection.",
+    "how": "Turn it on below, then copy the client config into your AI tool. Specrails only listens on your own machine — nothing is exposed to the internet.",
+    "grants": "By default tools get read-only access. Use the permission tiers to grant more, one capability at a time."
+  },
+  "enable": {
+    "on": "MCP server on",
+    "off": "MCP server off",
+    "running_one": "Running · {{count}} tool",
+    "running_other": "Running · {{count}} tools",
+    "stopped": "Not running",
+    "activeSessions_one": "{{count}} active session",
+    "activeSessions_other": "{{count}} active sessions",
+    "turnOn": "Turn on",
+    "turnOff": "Turn off",
+    "enableFailed": "Could not enable the MCP server: {{message}}",
+    "disableFailed": "Could not disable the MCP server: {{message}}"
+  },
+  "tiers": {
+    "heading": "Permission tiers",
+    "description": "Each tier a client may use. Read is always on; the rest are off until you grant them.",
+    "read": "Read",
+    "readHelp": "Browse projects, specs, and analytics. Always allowed.",
+    "write": "Write",
+    "writeHelp": "Create and edit specs and tickets.",
+    "aiSpawn": "AI spawn",
+    "aiSpawnHelp": "Launch AI rails and jobs that run the CLI.",
+    "destructive": "Destructive",
+    "destructiveHelp": "Delete specs, tickets, and other project data.",
+    "updateFailed": "Could not update permissions: {{message}}"
+  },
+  "config": {
+    "heading": "Client config",
+    "description": "Paste this into your MCP client. It contains no secret — the token is copied separately.",
+    "copyConfig": "Copy config",
+    "configCopied": "Config copied",
+    "copyFailed": "Copy failed"
+  },
+  "token": {
+    "heading": "Access token",
+    "description": "Your client authenticates with this token. Treat it like a password.",
+    "hint": "Token ending in {{hint}}",
+    "copyToken": "Copy token",
+    "tokenCopied": "Token copied",
+    "regenerate": "Regenerate",
+    "regenerateConfirm": "Regenerate the access token? Any client using the old token will stop working until you update its config.",
+    "regenerated": "Access token regenerated",
+    "regenerateFailed": "Could not regenerate the token: {{message}}"
+  },
+  "tray": {
+    "open": "Open",
+    "exit": "Exit",
+    "statusOn": "MCP server: on",
+    "statusOff": "MCP server: off"
+  }
+}
