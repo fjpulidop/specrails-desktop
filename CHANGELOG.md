@@ -1,5 +1,12 @@
 # Changelog
 
+## [2.17.0](https://github.com/fjpulidop/specrails-desktop/compare/v2.16.0...v2.17.0) (2026-06-30)
+
+
+### Features
+
+* embed Desktop MCP server (expose Specrails to external LLMs) ([#468](https://github.com/fjpulidop/specrails-desktop/issues/468)) ([8d7fc78](https://github.com/fjpulidop/specrails-desktop/commit/8d7fc7841e588c2ea9ba5cfacaa888725ce0d7b6))
+
 ## [2.16.0](https://github.com/fjpulidop/specrails-desktop/compare/v2.15.0...v2.16.0) (2026-06-29)
 
 
