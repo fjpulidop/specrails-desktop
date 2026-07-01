@@ -4,6 +4,7 @@
   "trigger": "Agent",
   "composerPlaceholder": "Bitte den Agenten um alles…",
   "send": "Senden",
+  "stop": "Stopp",
   "copy": "Kopieren",
   "maximize": "Maximieren",
   "restore": "Wiederherstellen",
@@ -72,6 +73,11 @@
     "addProject": "Projekt hinzufügen…",
     "homeHint": "Kein Projekt ausgewählt — über alle Projekte hinweg.",
     "askCreateOrSearch": "Es ist kein Projekt ausgewählt. Möchtest du ein neues Projekt erstellen oder über alle Projekte hinweg suchen?"
+  },
+  "noProvider": {
+    "title": "Kein KI-Anbieter installiert",
+    "body": "Der Agent benötigt Claude, Codex oder Gemini auf deinem Rechner. Installiere einen und öffne den Agenten erneut, um zu chatten.",
+    "placeholder": "Installiere einen KI-Anbieter, um den Agenten zu nutzen…"
   },
   "degraded": {
     "title": "Specrails MCP ist aus",

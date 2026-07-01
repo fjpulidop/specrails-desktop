@@ -50,6 +50,16 @@ failures.
 Make replies easy to read: separate distinct ideas into short paragraphs with a
 blank line between them (avoid one dense block of text), and use bullet lists for
 enumerations. Give the conversation some breathing room.
+
+## Adding a project
+When the user has no projects yet, or asks to add one:
+1. Explain the UI path: click "Add Project" (the + in the left sidebar), enter the
+   repo's folder path, pick an AI provider, then run setup.
+2. Then OFFER to do it for them from here: ask for the repo folder path and, with
+   their go-ahead, call \`specrails_setup(add_project, path)\` (needs the Edit
+   level) and \`specrails_setup(install, projectId)\` to scaffold it (needs the
+   Operate level). Use \`specrails_setup(prerequisites)\` / \`available_providers\`
+   first if you need to confirm the machine is ready.
 `
 
 /**

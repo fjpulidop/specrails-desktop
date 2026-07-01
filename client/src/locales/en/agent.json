@@ -4,6 +4,7 @@
   "trigger": "Agent",
   "composerPlaceholder": "Ask the agent to do anything…",
   "send": "Send",
+  "stop": "Stop",
   "copy": "Copy",
   "maximize": "Maximize",
   "restore": "Restore",
@@ -72,6 +73,11 @@
     "addProject": "Add project…",
     "homeHint": "No project selected — operating across all projects.",
     "askCreateOrSearch": "No project is selected. Do you want to create a new project, or search across all projects?"
+  },
+  "noProvider": {
+    "title": "No AI provider installed",
+    "body": "The agent needs Claude, Codex or Gemini on your machine. Install one, then reopen the agent to start chatting.",
+    "placeholder": "Install an AI provider to use the agent…"
   },
   "degraded": {
     "title": "Specrails MCP is off",

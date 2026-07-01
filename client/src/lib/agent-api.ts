@@ -102,6 +102,15 @@ export async function abortAgentTurn(id: string): Promise<void> {
   await fetch(`${base}/conversations/${id}/abort`, { method: 'POST' })
 }
 
+// ── Provider availability (no AI CLI installed → degraded banner) ─────────────
+export async function getAvailableProviders(): Promise<{ any: boolean; installed: string[] }> {
+  const data = await json<Record<string, unknown>>(await fetch(`${API_ORIGIN}/api/available-providers`))
+  const installed = Object.entries(data)
+    .filter(([k, v]) => k !== 'tiers' && v === true)
+    .map(([k]) => k)
+  return { any: installed.length > 0, installed }
+}
+
 // ── MCP enable (degraded banner) ──────────────────────────────────────────────
 export async function getMcpStatus(): Promise<{ enabled: boolean; running: boolean }> {
   return json(await fetch(`${API_ORIGIN}/api/mcp-admin/status`))

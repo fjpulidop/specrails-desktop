@@ -4,6 +4,7 @@
   "trigger": "エージェント",
   "composerPlaceholder": "エージェントに何でも頼んでください…",
   "send": "送信",
+  "stop": "停止",
   "copy": "コピー",
   "maximize": "最大化",
   "restore": "元に戻す",
@@ -72,6 +73,11 @@
     "addProject": "プロジェクトを追加…",
     "homeHint": "プロジェクトが未選択 — すべてのプロジェクトを横断して操作中。",
     "askCreateOrSearch": "プロジェクトが選択されていません。新しいプロジェクトを作成しますか、それともすべてのプロジェクトを検索しますか？"
+  },
+  "noProvider": {
+    "title": "AIプロバイダーが未インストール",
+    "body": "エージェントには Claude、Codex、Gemini のいずれかが必要です。インストールしてからエージェントを再度開いてください。",
+    "placeholder": "AIプロバイダーをインストールしてエージェントを利用…"
   },
   "degraded": {
     "title": "Specrails MCP がオフです",

@@ -4,6 +4,7 @@
   "trigger": "Agent",
   "composerPlaceholder": "Demandez à l'agent ce que vous voulez…",
   "send": "Envoyer",
+  "stop": "Arrêter",
   "copy": "Copier",
   "maximize": "Agrandir",
   "restore": "Restaurer",
@@ -72,6 +73,11 @@
     "addProject": "Ajouter un projet…",
     "homeHint": "Aucun projet sélectionné — opération sur tous les projets.",
     "askCreateOrSearch": "Aucun projet n'est sélectionné. Voulez-vous créer un nouveau projet ou rechercher dans tous les projets ?"
+  },
+  "noProvider": {
+    "title": "Aucun fournisseur d'IA installé",
+    "body": "L'agent a besoin de Claude, Codex ou Gemini sur votre machine. Installez-en un, puis rouvrez l'agent pour discuter.",
+    "placeholder": "Installez un fournisseur d'IA pour utiliser l'agent…"
   },
   "degraded": {
     "title": "Le MCP Specrails est désactivé",

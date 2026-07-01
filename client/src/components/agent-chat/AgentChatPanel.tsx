@@ -1,7 +1,7 @@
 import { useState, useRef, useEffect, useMemo } from 'react'
 import { useTranslation } from 'react-i18next'
 import { motion } from 'motion/react'
-import { Bot, X, Plus, SendHorizontal, ShieldAlert, Maximize2, Minimize2, History } from 'lucide-react'
+import { Bot, X, Plus, SendHorizontal, ShieldAlert, Maximize2, Minimize2, History, PackageOpen, Square } from 'lucide-react'
 import type { CSSProperties } from 'react'
 import { useAgentChat } from '../../context/AgentChatContext'
 import { useMovableResizableModal } from '../../hooks/useMovableResizableModal'
@@ -20,8 +20,8 @@ export function AgentChatPanel() {
   const { t } = useTranslation('agent')
   const {
     active, messages, streamingText, isStreaming, liveTools,
-    mcpEnabled, enablingMcp, enableMcpServer,
-    minimize, send, cycleTier, setProvider, setModel, setPinnedProject, newConversation,
+    mcpEnabled, enablingMcp, enableMcpServer, providersReady,
+    minimize, send, abort, cycleTier, setProvider, setModel, setPinnedProject, newConversation,
   } = useAgentChat()
   const [input, setInput] = useState('')
   const [maximized, setMaximized] = useState(false)
@@ -62,8 +62,9 @@ export function AgentChatPanel() {
   const inHistory = histIndex !== null
   const history = useMemo(() => messages.filter((m) => m.role === 'user').map((m) => m.content), [messages])
 
+  const blocked = providersReady === false // no AI provider installed → read-only
   const submit = () => {
-    if (!input.trim()) return
+    if (blocked || !input.trim()) return
     void send(input)
     setInput('')
     setHistIndex(null)
@@ -153,8 +154,19 @@ export function AgentChatPanel() {
         </div>
       </div>
 
-      {/* ── Degraded banner ── */}
-      {!mcpEnabled && (
+      {/* ── No AI provider installed: recommend installing one, block input ── */}
+      {providersReady === false && (
+        <div className="flex items-start gap-2 border-b border-border/50 bg-accent-warning/10 px-3 py-2 text-xs text-foreground">
+          <PackageOpen className="mt-0.5 h-4 w-4 shrink-0 text-accent-warning" />
+          <div className="flex-1">
+            <p className="font-medium">{t('noProvider.title')}</p>
+            <p className="mt-0.5 text-foreground/70">{t('noProvider.body')}</p>
+          </div>
+        </div>
+      )}
+
+      {/* ── Degraded banner (MCP off) ── */}
+      {providersReady !== false && !mcpEnabled && (
         <div className="flex items-center gap-2 border-b border-border/50 bg-accent-warning/10 px-3 py-2 text-xs text-foreground">
           <ShieldAlert className="h-4 w-4 shrink-0 text-accent-warning" />
           <span className="flex-1">{t('degraded.body')}</span>
@@ -224,22 +236,35 @@ export function AgentChatPanel() {
             }}
             onKeyDown={onComposerKeyDown}
             rows={2}
-            placeholder={t('composerPlaceholder')}
+            disabled={blocked}
+            placeholder={blocked ? t('noProvider.placeholder') : t('composerPlaceholder')}
             data-agent-interactive
             title={inHistory ? t('history.hint') : undefined}
-            className={`min-h-[3.25rem] max-h-64 flex-1 resize-y bg-transparent text-sm outline-none placeholder:text-foreground/40 ${
+            className={`min-h-[3.25rem] max-h-64 flex-1 resize-y bg-transparent text-sm outline-none placeholder:text-foreground/40 disabled:opacity-60 ${
               inHistory ? 'italic text-foreground/50' : 'text-foreground'
             }`}
           />
-          <button
-            type="button"
-            onClick={submit}
-            disabled={!input.trim()}
-            aria-label={t('send')}
-            className="rounded-lg bg-accent-primary p-1.5 text-white transition-opacity disabled:opacity-40"
-          >
-            <SendHorizontal className="h-4 w-4" />
-          </button>
+          {isStreaming ? (
+            <button
+              type="button"
+              onClick={() => void abort()}
+              aria-label={t('stop')}
+              title={t('stop')}
+              className="rounded-lg bg-destructive p-1.5 text-white transition-colors hover:opacity-90"
+            >
+              <Square className="h-4 w-4" fill="currentColor" />
+            </button>
+          ) : (
+            <button
+              type="button"
+              onClick={submit}
+              disabled={blocked || !input.trim()}
+              aria-label={t('send')}
+              className="rounded-lg bg-accent-primary p-1.5 text-white transition-opacity disabled:opacity-40"
+            >
+              <SendHorizontal className="h-4 w-4" />
+            </button>
+          )}
         </div>
       </div>
 

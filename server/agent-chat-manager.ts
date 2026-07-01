@@ -31,7 +31,14 @@ const OPERATOR_SYSTEM_PROMPT =
   'which level it needs rather than working around it. Be concise; report tool ' +
   'outputs faithfully, including failures. Format replies for easy reading: ' +
   'separate distinct ideas into short paragraphs with a blank line between them ' +
-  '(not one dense block), and use bullet lists for enumerations.'
+  '(not one dense block), and use bullet lists for enumerations. ' +
+  'When the user has no projects yet, or wants to add one, first explain the UI ' +
+  'steps (click "Add Project" / the + in the left sidebar, enter the repo\'s ' +
+  'folder path, pick an AI provider, then run setup), THEN offer to do it for ' +
+  'them from here: ask for the repo folder path and, with their go-ahead, call ' +
+  'specrails_setup add_project (needs the Edit level) and specrails_setup install ' +
+  'to scaffold it (needs the Operate level). Use specrails_setup prerequisites / ' +
+  'available_providers first if you need to check the machine is ready.'
 
 export interface AgentTurnOptions {
   tierLevel?: AgentTierLevel

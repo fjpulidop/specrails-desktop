@@ -21,6 +21,7 @@ import {
   abortAgentTurn,
   getMcpStatus,
   enableMcp,
+  getAvailableProviders,
   type AgentConversation,
   type AgentMessage,
   type AgentTierLevel,
@@ -52,6 +53,9 @@ export interface AgentChatContextValue {
   mcpEnabled: boolean
   enablingMcp: boolean
   enableMcpServer: () => Promise<void>
+
+  /** null = not yet checked; false = no AI provider CLI is installed. */
+  providersReady: boolean | null
 
   send: (text: string) => Promise<void>
   abort: () => Promise<void>
@@ -90,6 +94,7 @@ export function AgentChatProvider({ children }: { children: ReactNode }) {
   const [liveTools, setLiveTools] = useState<AgentLiveTool[]>([])
   const [mcpEnabled, setMcpEnabled] = useState(true)
   const [enablingMcp, setEnablingMcp] = useState(false)
+  const [providersReady, setProvidersReady] = useState<boolean | null>(null)
 
   const activeIdRef = useRef<string | null>(null)
   activeIdRef.current = active?.id ?? null
@@ -109,6 +114,15 @@ export function AgentChatProvider({ children }: { children: ReactNode }) {
       setMcpEnabled(s.enabled)
     } catch {
       setMcpEnabled(false)
+    }
+  }, [])
+
+  const refreshProviders = useCallback(async () => {
+    try {
+      setProvidersReady((await getAvailableProviders()).any)
+    } catch {
+      // On a probe failure, don't hard-block the agent — leave it usable.
+      setProvidersReady(true)
     }
   }, [])
 
@@ -178,8 +192,9 @@ export function AgentChatProvider({ children }: { children: ReactNode }) {
     setVisibility('open')
     void refreshConversations()
     void refreshMcp()
+    void refreshProviders()
     void ensureActive()
-  }, [refreshConversations, refreshMcp, ensureActive])
+  }, [refreshConversations, refreshMcp, refreshProviders, ensureActive])
 
   const close = useCallback(() => setVisibility('hidden'), [])
   const minimize = useCallback(() => setVisibility('minimized'), [])
@@ -188,9 +203,10 @@ export function AgentChatProvider({ children }: { children: ReactNode }) {
     if (visibility !== 'open') {
       void refreshConversations()
       void refreshMcp()
+      void refreshProviders()
       void ensureActive()
     }
-  }, [visibility, refreshConversations, refreshMcp, ensureActive])
+  }, [visibility, refreshConversations, refreshMcp, refreshProviders, ensureActive])
 
   const send = useCallback(async (text: string) => {
     const trimmed = text.trim()
@@ -260,13 +276,13 @@ export function AgentChatProvider({ children }: { children: ReactNode }) {
   const value = useMemo<AgentChatContextValue>(() => ({
     visibility, open, close, minimize, toggle,
     conversations, active, messages, streamingText, isStreaming, liveTools,
-    mcpEnabled, enablingMcp, enableMcpServer,
+    mcpEnabled, enablingMcp, enableMcpServer, providersReady,
     send, abort, cycleTier, setTier, setProvider, setModel, setPinnedProject,
     newConversation, selectConversation, deleteConversation,
   }), [
     visibility, open, close, minimize, toggle,
     conversations, active, messages, streamingText, isStreaming, liveTools,
-    mcpEnabled, enablingMcp, enableMcpServer,
+    mcpEnabled, enablingMcp, enableMcpServer, providersReady,
     send, abort, cycleTier, setTier, setProvider, setModel, setPinnedProject,
     newConversation, selectConversation, deleteConversation,
   ])
@@ -286,7 +302,7 @@ const NOOP_AGENT_CHAT: AgentChatContextValue = {
   visibility: 'hidden',
   open: () => {}, close: () => {}, minimize: () => {}, toggle: () => {},
   conversations: [], active: null, messages: [], streamingText: '', isStreaming: false, liveTools: [],
-  mcpEnabled: true, enablingMcp: false, enableMcpServer: async () => {},
+  mcpEnabled: true, enablingMcp: false, enableMcpServer: async () => {}, providersReady: true,
   send: async () => {}, abort: async () => {}, cycleTier: async () => {}, setTier: async () => {},
   setProvider: async () => {}, setModel: async () => {}, setPinnedProject: async () => {},
   newConversation: async () => {}, selectConversation: async () => {}, deleteConversation: async () => {},

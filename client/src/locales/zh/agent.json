@@ -4,6 +4,7 @@
   "trigger": "智能体",
   "composerPlaceholder": "让智能体做任何事…",
   "send": "发送",
+  "stop": "停止",
   "copy": "复制",
   "maximize": "最大化",
   "restore": "还原",
@@ -72,6 +73,11 @@
     "addProject": "添加项目…",
     "homeHint": "未选择项目 — 正在跨所有项目操作。",
     "askCreateOrSearch": "未选择任何项目。你想创建一个新项目，还是在所有项目中搜索？"
+  },
+  "noProvider": {
+    "title": "未安装 AI 提供方",
+    "body": "智能体需要在你的机器上安装 Claude、Codex 或 Gemini。安装其中之一后重新打开智能体即可开始对话。",
+    "placeholder": "请安装 AI 提供方以使用智能体…"
   },
   "degraded": {
     "title": "Specrails MCP 已关闭",
