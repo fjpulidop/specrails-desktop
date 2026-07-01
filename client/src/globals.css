@@ -260,6 +260,14 @@
   --glass-card-opacity:          34%;
 }
 
+/* Global bevel for native <select> "selection bars" across the whole app.
+   Deliberately UNLAYERED so it wins over Tailwind's `rounded-*` utilities (which
+   live in @layer utilities) without needing !important. The Radix dropdown
+   trigger is a <button>, styled to match in components/ui/select.tsx. */
+select {
+  border-radius: 0.5rem;
+}
+
 @layer base {
   *,
   *::before,

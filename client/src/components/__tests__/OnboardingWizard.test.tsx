@@ -13,6 +13,7 @@ const STEP_TITLES = [
   'Welcome to Specrails',
   'Turn ideas into specs',
   'Run the pipeline on rails',
+  'Operate the app by chatting',
   'Bring your own agent',
   'Track every cent',
   'Make it your workspace',
@@ -53,7 +54,7 @@ describe('OnboardingWizard', () => {
     expect(screen.getByText(STEP_TITLES[0])).toBeTruthy()
   })
 
-  it('navigates through all 10 steps', () => {
+  it('navigates through all steps', () => {
     render(<OnboardingWizard open={true} onClose={onClose} />)
     expect(screen.getByText(STEP_TITLES[0])).toBeTruthy()
     for (let i = 1; i < STEP_TITLES.length; i++) {
@@ -125,7 +126,7 @@ describe('OnboardingWizard', () => {
   it('renders the keyboard keys inside the shortcut chips (regression: empty <Kbd>)', () => {
     render(<OnboardingWizard open={true} onClose={onClose} />)
     const navButtons = screen.getAllByRole('button', { name: /^Go to step/ })
-    fireEvent.click(navButtons[9]) // move-fast step
+    fireEvent.click(navButtons[STEP_TITLES.length - 1]) // move-fast step (last)
     // jsdom has no Mac platform, so the modifier resolves to Ctrl / Alt.
     expect(screen.getAllByText('Ctrl').length).toBeGreaterThan(0)
     expect(screen.getAllByText('K').length).toBeGreaterThan(0)
@@ -138,8 +139,9 @@ describe('OnboardingWizard', () => {
   it('companion step links to the web companion (specrails.dev/companion-app)', () => {
     render(<OnboardingWizard open={true} onClose={onClose} />)
     const navButtons = screen.getAllByRole('button', { name: /^Go to step/ })
-    fireEvent.click(navButtons[8]) // companion step
-    expect(screen.getByText(STEP_TITLES[8])).toBeTruthy()
+    const companionIdx = STEP_TITLES.indexOf('Take Specrails with you')
+    fireEvent.click(navButtons[companionIdx]) // companion step
+    expect(screen.getByText(STEP_TITLES[companionIdx])).toBeTruthy()
     const link = screen.getByTestId('companion-web-link')
     expect(link).toHaveAttribute('href', COMPANION_WEB_URL)
     expect(link).toHaveAttribute('target', '_blank')

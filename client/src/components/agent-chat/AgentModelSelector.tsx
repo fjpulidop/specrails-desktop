@@ -30,7 +30,7 @@ export function AgentModelSelector({ provider, model, onSelect }: Props) {
       onChange={(e) => onSelect(e.target.value)}
       aria-label={t('model.label')}
       data-agent-interactive
-      className="rounded-md border border-border/50 bg-surface/60 px-2 py-1 text-xs text-foreground outline-none hover:bg-surface"
+      className="rounded-lg border border-border/60 bg-surface/70 px-2.5 py-1 text-xs text-foreground outline-none hover:bg-surface"
     >
       {models.map((m) => (
         <option key={m.value} value={m.value}>{m.label}</option>

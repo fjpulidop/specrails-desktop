@@ -44,7 +44,8 @@
         "configure": "Configurer Jira",
         "optional": "facultatif"
       },
-      "mcpHint": "Connectez des outils d'IA externes à Specrails via un serveur MCP local sécurisé — activez-le dans les Paramètres."
+      "mcpHint": "Connectez des outils d'IA externes à Specrails via un serveur MCP local sécurisé — activez-le dans les Paramètres.",
+      "agentChatHint": "Pilotez Specrails en discutant — l'agent intégré pilote toute l'app pour vous. Ouvrez-le depuis la bulle ou avec ⌘⇧A."
     },
     "error": {
       "title": "Échec de la configuration",
@@ -158,7 +159,8 @@
     "description": "Specrails gère plusieurs projets depuis une seule interface. Ajoutez votre premier projet pour commencer.",
     "addFirstProject": "Ajouter votre premier projet",
     "jiraHint": "Connectez chaque projet à son propre tableau Jira — les specs restent synchronisées dans les deux sens.",
-    "mcpHint": "Connectez des outils d'IA externes à Specrails via un serveur MCP local sécurisé — activez-le dans les Paramètres."
+    "mcpHint": "Connectez des outils d'IA externes à Specrails via un serveur MCP local sécurisé — activez-le dans les Paramètres.",
+    "agentChatHint": "Pilotez Specrails en discutant — un agent intégré gère les specs, les rails et les analyses pour vous via le MCP local. Ouvrez-le depuis la bulle ou avec ⌘⇧A."
   },
   "onboarding": {
     "productTour": "Visite guidée",
@@ -236,6 +238,22 @@
       "isolationBody": "Chaque projet a sa propre base de données et sa propre file de jobs. Exécutez plusieurs projets en même temps et passez de l'un à l'autre depuis la barre latérale gauche — votre position est mémorisée par projet.",
       "loopsLabel": "Créez vos propres loops",
       "loopsBody": "<b>Loops</b> est un éditeur visuel : enchaînez des étapes IA, des commandes shell et un <b>Loop Decider</b> qui répète jusqu'à ce qu'un objectif soit atteint — p. ex. vérifier → corriger → vérifier jusqu'à ce que tout soit au vert. Publiez un loop et choisissez-le sur n'importe quel rail."
+    },
+    "agent": {
+      "nav": "Chat de l'agent",
+      "title": "Pilotez l'app en discutant",
+      "subtitle": "Un copilote qui pilote Specrails pour vous",
+      "intro": "Le <b>chat de l'agent</b> intégré vous permet de piloter Specrails en demandant — créer des specs, lancer des rails, consulter les analyses — au lieu de cliquer partout. Il fonctionne via les propres outils <b>MCP</b> de Specrails et, comme tout est en direct, vous voyez le tableau changer pendant qu'il travaille.",
+      "openLabel": "Toujours à portée de clic",
+      "openBody": "Ouvrez-le depuis la bulle flottante en bas, ou appuyez sur ⌘⇧A (Ctrl+Shift+A) depuis n'importe où. Le panneau se déplace, se redimensionne, s'agrandit et se souvient de l'endroit où vous l'avez laissé.",
+      "operateLabel": "Pilote toute l'app",
+      "operateBody": "Choisissez un projet (ou Accueil pour tout) et un fournisseur, puis demandez simplement : “lance les trois tickets les plus prioritaires”, “combien ai-je dépensé cette semaine ?”.",
+      "levelsLabel": "C'est vous qui tenez la laisse",
+      "levelsBody": "Un niveau en direct — <b>Observer → Modifier → Opérer → Autonome</b>, que l'on fait défiler avec Shift+Tab — décide jusqu'où il peut aller. Il n'agit jamais au-dessus du niveau que vous définissez.",
+      "watchLabel": "Regardez-le faire",
+      "watchBody": "Le panneau n'est pas modal : les rails et les specs apparaissent sur le tableau de bord en temps réel pendant que l'agent travaille. Une pastille d'état indique ce qu'il fait en ce moment.",
+      "mcpLabel": "Fonctionne sur le MCP local",
+      "mcpBody": "L'agent pilote l'app via le serveur MCP intégré de Specrails. S'il est désactivé, le panneau propose de l'activer en un clic — rien n'est installé."
     },
     "providers": {
       "nav": "Votre agent",
