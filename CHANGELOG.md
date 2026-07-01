@@ -1,5 +1,12 @@
 # Changelog
 
+## [2.18.0](https://github.com/fjpulidop/specrails-desktop/compare/v2.17.0...v2.18.0) (2026-07-01)
+
+
+### Features
+
+* global agent chat — operate Specrails via its own MCP ([#470](https://github.com/fjpulidop/specrails-desktop/issues/470)) ([a7d39c1](https://github.com/fjpulidop/specrails-desktop/commit/a7d39c1077b6f00452ec13d32e9a4df60c1281df))
+
 ## [2.17.0](https://github.com/fjpulidop/specrails-desktop/compare/v2.16.0...v2.17.0) (2026-06-30)
 
 
