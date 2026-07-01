@@ -1,5 +1,4 @@
 import { useState } from 'react'
-import { motion } from 'motion/react'
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
 import { Copy, Check } from 'lucide-react'
@@ -78,31 +77,16 @@ export function AgentMessage({ role, content, streaming }: Props) {
     )
   }
 
-  // While streaming, render PLAIN text with a soft caret — never re-parse
-  // half-typed markdown (partial **bold**, unterminated tables/code fences cause
-  // the flicker/glitches). Rich markdown is applied once, when the turn settles.
-  if (streaming) {
-    return (
-      <div className="group flex flex-col gap-1">
-        <div className="max-w-full whitespace-pre-wrap text-sm leading-7 text-foreground">
-          {content}
-          <motion.span
-            aria-hidden
-            className="ml-0.5 inline-block h-[1.05em] w-[2px] translate-y-[3px] rounded-full bg-accent-primary align-baseline"
-            animate={{ opacity: [1, 0.15, 1] }}
-            transition={{ duration: 1, repeat: Infinity, ease: 'easeInOut' }}
-          />
-        </div>
-      </div>
-    )
-  }
-
+  // Assistant messages are always markdown-rendered — including WHILE streaming,
+  // so formatting (bold, lists, tables) appears live instead of showing raw
+  // markdown until the turn settles. The bottom activity chip signals streaming;
+  // the copy button appears once it's done.
   return (
     <div className="group flex flex-col gap-1">
       <div className={cn('max-w-full', MD)}>
         <ReactMarkdown remarkPlugins={[remarkGfm]}>{content}</ReactMarkdown>
       </div>
-      {content.trim() && (
+      {!streaming && content.trim() && (
         <div className="flex justify-start">
           <CopyButton text={content} />
         </div>
