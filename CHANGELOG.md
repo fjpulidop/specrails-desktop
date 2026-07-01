@@ -1,5 +1,12 @@
 # Changelog
 
+## [2.18.1](https://github.com/fjpulidop/specrails-desktop/compare/v2.18.0...v2.18.1) (2026-07-01)
+
+
+### Bug Fixes
+
+* wire in-app agent MCP in packaged app (bundle bridge path) ([#472](https://github.com/fjpulidop/specrails-desktop/issues/472)) ([9d40767](https://github.com/fjpulidop/specrails-desktop/commit/9d40767d44d4245c83cafa0e939d7258a01b5405))
+
 ## [2.18.0](https://github.com/fjpulidop/specrails-desktop/compare/v2.17.0...v2.18.0) (2026-07-01)
 
 
