@@ -519,6 +519,37 @@ pub fn run() {
                 sidecar
             };
 
+            // Resolve the bundled specrails-mcp stdio bridge from Tauri's resource
+            // directory (mirrors the blocks above). Without this env the sidecar's
+            // resolveBridgeScript() falls back to a repo-relative climb
+            // (src-tauri/binaries/specrails-mcp.js) that only exists in dev — in the
+            // packaged .app it returns null, so the in-app agent chat spawns WITHOUT
+            // --mcp-config and can't see any specrails_* tools. The bridge JS is
+            // declared as `binaries/specrails-mcp.js` in tauri.conf.json.
+            //   On macOS:   <app>.app/Contents/Resources/binaries/specrails-mcp.js
+            //   On Windows: <install-dir>/resources/binaries/specrails-mcp.js
+            let mcp_bridge_path = app_handle
+                .path()
+                .resource_dir()
+                .ok()
+                .map(|p| {
+                    p.join("binaries")
+                        .join("specrails-mcp.js")
+                        .to_string_lossy()
+                        .into_owned()
+                })
+                .unwrap_or_default();
+
+            // EXISTENCE-GATE exactly like the bundled core/openspec: only export the
+            // env when the bridge JS actually exists on disk, so a build that somehow
+            // shipped without it falls back to the relative climb rather than pointing
+            // the server at a non-existent file.
+            let sidecar = if std::path::Path::new(&mcp_bridge_path).exists() {
+                sidecar.env("SPECRAILS_BUNDLED_MCP_BRIDGE_PATH", &mcp_bridge_path)
+            } else {
+                sidecar
+            };
+
             // On macOS, GUI apps launched from Finder/Dock inherit a minimal PATH
             // from launchd that omits user tool dirs (homebrew, cargo, bun,
             // ~/.local/bin). We rebuild PATH from a zsh login shell and prepend
