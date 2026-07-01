@@ -80,7 +80,7 @@ export function AgentBubble() {
       onHoverStart={() => setHovered(true)}
       onHoverEnd={() => setHovered(false)}
       aria-label={t('trigger')}
-      title={`${t('trigger')} (⌘K)`}
+      title={`${t('trigger')} (⌘⇧A)`}
       drag
       dragMomentum={false}
       dragElastic={0}

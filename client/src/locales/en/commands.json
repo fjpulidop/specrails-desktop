@@ -76,6 +76,7 @@
       "toggleRightSidebar": "Toggle right sidebar",
       "toggleLeftSidebar": "Toggle left sidebar",
       "toggleTerminal": "Toggle terminal panel",
+      "toggleAgent": "Toggle agent chat",
       "navigateProjectPageWithAgents": "Navigate to project page (Dashboard/Jobs/Analytics/Agents/Settings)",
       "navigateProjectPage": "Navigate to project page (Dashboard/Jobs/Analytics/Settings)",
       "switchProject": "Switch to project by position",
