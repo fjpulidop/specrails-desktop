@@ -118,6 +118,7 @@ export function AgentChatPanel() {
   }
 
   return (
+    <>
     <motion.div
       ref={panelRef}
       initial={{ opacity: 0, scale: 0.85, y: 8 }}
@@ -242,8 +243,18 @@ export function AgentChatPanel() {
         </div>
       </div>
 
-      {!maximized && <ResizeGrips handles={resizeHandles} />}
-    </motion.div>
+      </motion.div>
+
+      {/* Resize grips live OUTSIDE the panel: the panel's backdrop-blur/transform
+          create a containing block that would trap the grips' `position: fixed`
+          inside it (they'd appear over the conversation). This viewport-fixed
+          overlay sits above the panel; only the grips capture pointer events. */}
+      {!maximized && (
+        <div className="pointer-events-none fixed inset-0 z-[61] [&>*]:pointer-events-auto">
+          <ResizeGrips handles={resizeHandles} />
+        </div>
+      )}
+    </>
   )
 }
 
