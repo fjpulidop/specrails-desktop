@@ -60,6 +60,18 @@
     "saveThresholdFailed": "しきい値の保存に失敗しました"
   },
   "desktop": {
+    "nav": {
+      "appearance": "外観",
+      "code": "コード",
+      "terminal": "ターミナル",
+      "updates": "更新",
+      "mobile": "モバイル",
+      "mcp": "MCP",
+      "projects": "プロジェクト",
+      "advanced": "詳細",
+      "webhooks": "Webhooks",
+      "about": "概要"
+    },
     "title": "Desktop 設定",
     "description": "登録済みプロジェクトの管理と Desktop 情報の表示。",
     "registeredProjects": "登録済みプロジェクト",

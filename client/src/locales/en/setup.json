@@ -44,7 +44,8 @@
         "configure": "Configure Jira",
         "optional": "optional"
       },
-      "mcpHint": "Connect external AI tools to Specrails over a secure local MCP server — enable it in Settings."
+      "mcpHint": "Connect external AI tools to Specrails over a secure local MCP server — enable it in Settings.",
+      "agentChatHint": "Operate Specrails by chatting — the built-in agent drives the whole app for you. Open it from the bubble or ⌘⇧A."
     },
     "error": {
       "title": "Setup failed",
@@ -158,7 +159,8 @@
     "description": "Specrails manages multiple projects from a single interface. Add your first project to get started.",
     "addFirstProject": "Add your first project",
     "jiraHint": "Connect each project to its own Jira board — specs stay in sync, both ways.",
-    "mcpHint": "Connect external AI tools to Specrails over a secure local MCP server — enable it in Settings."
+    "mcpHint": "Connect external AI tools to Specrails over a secure local MCP server — enable it in Settings.",
+    "agentChatHint": "Operate Specrails by chatting — a built-in agent drives specs, rails and analytics for you through the local MCP. Open it from the bubble or ⌘⇧A."
   },
   "onboarding": {
     "productTour": "Product tour",
@@ -236,6 +238,22 @@
       "isolationBody": "Each project has its own database and job queue. Run different projects at the same time and switch between them from the left sidebar — your place is remembered per project.",
       "loopsLabel": "Build your own loops",
       "loopsBody": "<b>Loops</b> is a visual builder: chain AI steps, shell commands and a <b>Loop Decider</b> that repeats until a goal is met — e.g. verify → fix → verify until everything is green. Publish a loop and pick it on any rail."
+    },
+    "agent": {
+      "nav": "Agent chat",
+      "title": "Operate the app by chatting",
+      "subtitle": "A copilot that drives Specrails for you",
+      "intro": "The built-in <b>agent chat</b> lets you run Specrails by asking — create specs, launch rails, check analytics — instead of clicking around. It works through Specrails' own <b>MCP</b> tools, and because everything is live you watch the board change as it works.",
+      "openLabel": "Always a click away",
+      "openBody": "Open it from the floating bubble at the bottom, or press ⌘⇧A (Ctrl+Shift+A) from anywhere. The panel moves, resizes, maximizes and remembers where you left it.",
+      "operateLabel": "Drives the whole app",
+      "operateBody": "Pick a project (or Home for everything) and a provider, then just ask: “launch the three highest-priority tickets”, “how much did I spend this week?”.",
+      "levelsLabel": "You hold the leash",
+      "levelsBody": "A live level — <b>Observe → Edit → Operate → Autonomous</b>, cycled with Shift+Tab — decides how far it can go. It never acts above the level you set.",
+      "watchLabel": "Watch it happen",
+      "watchBody": "The panel is non-modal, so rails and specs appear on the dashboard in real time while the agent works. A status chip shows what it's doing right now.",
+      "mcpLabel": "Runs on the local MCP",
+      "mcpBody": "The agent drives the app through the embedded Specrails MCP server. If it's off, the panel offers a one-click enable — nothing is installed."
     },
     "providers": {
       "nav": "Your agent",

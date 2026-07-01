@@ -304,8 +304,9 @@ describe('GlobalSettingsPage (Desktop Settings dialog)', () => {
     mockProjects = []
     render(<GlobalSettingsPage open={true} onClose={vi.fn()} />)
     await waitFor(() => {
-      // Desktop Information > Projects count
-      expect(screen.getByText('Projects')).toBeInTheDocument()
+      // "Projects" now appears both as a left-nav section and the Desktop
+      // Information count label — assert at least one is present.
+      expect(screen.getAllByText('Projects').length).toBeGreaterThan(0)
     })
   })
 

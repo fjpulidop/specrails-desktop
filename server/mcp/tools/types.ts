@@ -7,8 +7,18 @@ import type { WsMessage } from '../../types'
 import type { MobileEventBus } from '../../mobile/mobile-event-bus'
 import { isTierEnabled, tierRefusalMessage, type McpTier } from '../mcp-tiers'
 import { loadOrGenerateToken } from '../../auth'
+import { AGENT_TIER_HEADER, AGENT_PROJECT_HEADER, levelFromHeader, levelAllowsTier } from '../../agent-tier'
 
 export type { McpTier } from '../mcp-tiers'
+
+/**
+ * The subset of the MCP SDK's per-call `RequestHandlerExtra` we read: the
+ * inbound HTTP request headers (populated by StreamableHTTPServerTransport).
+ * Kept structural so we don't couple to the SDK's exact type export.
+ */
+export interface ToolHandlerExtra {
+  requestInfo?: { headers?: Record<string, string | string[] | undefined> }
+}
 
 /** Everything a tool handler needs to drive the in-process managers. */
 export interface McpToolContext {
@@ -165,9 +175,25 @@ export function registerTieredTool(server: McpServer, ctx: McpToolContext, spec:
       inputSchema: spec.inputSchema,
       annotations: tierAnnotations(hintTier),
     },
-    async (args: Record<string, unknown>): Promise<CallToolResult> => {
+    async (args: Record<string, unknown>, extra?: ToolHandlerExtra): Promise<CallToolResult> => {
+      // In-app agent: a per-request active-project header (loopback-only, set by
+      // the agent's bridge from the Cursor-style selector) pins the project for
+      // this call so project-scoped tools resolve without specrails_select_project.
+      const projectHeader = extra?.requestInfo?.headers?.[AGENT_PROJECT_HEADER]
+      if (projectHeader != null) {
+        const pid = Array.isArray(projectHeader) ? projectHeader[0] : projectHeader
+        if (typeof pid === 'string' && pid.trim()) setActiveProject(pid.trim())
+      }
       const tier: McpTier = typeof spec.tier === 'function' ? spec.tier(args ?? {}) : spec.tier
-      if (!isTierEnabled(ctx.desktopDb, tier)) {
+      // In-app agent: when the request carries the loopback-only agent-tier header,
+      // enforce the cumulative ladder instead of the external Settings checkboxes
+      // (design D4). Absent header → external client → unchanged Settings gate.
+      const agentLevel = levelFromHeader(extra?.requestInfo?.headers?.[AGENT_TIER_HEADER])
+      if (agentLevel !== null) {
+        if (!levelAllowsTier(agentLevel, tier)) {
+          return errorResult(tierRefusalMessage(tier))
+        }
+      } else if (!isTierEnabled(ctx.desktopDb, tier)) {
         return errorResult(tierRefusalMessage(tier))
       }
       try {

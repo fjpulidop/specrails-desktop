@@ -1,6 +1,6 @@
 import { useEffect, useRef, useCallback, useState } from 'react'
 import { useNavigate, useLocation } from 'react-router-dom'
-import { FEATURE_AGENTS_SECTION } from '../lib/feature-flags'
+import { FEATURE_AGENTS_SECTION, FEATURE_AGENT_CHAT } from '../lib/feature-flags'
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -19,6 +19,9 @@ export const SHORTCUTS: Shortcut[] = [
   { keys: '⌘B', descriptionKey: 'shortcuts.items.toggleRightSidebar', category: 'general' },
   { keys: '⌥⌘B', descriptionKey: 'shortcuts.items.toggleLeftSidebar', category: 'general' },
   { keys: '⌘J', descriptionKey: 'shortcuts.items.toggleTerminal', category: 'general' },
+  ...(FEATURE_AGENT_CHAT
+    ? [{ keys: '⌘⇧A', descriptionKey: 'shortcuts.items.toggleAgent', category: 'general' as const }]
+    : []),
   {
     keys: FEATURE_AGENTS_SECTION ? '⌘1–5' : '⌘1–4',
     descriptionKey: FEATURE_AGENTS_SECTION
@@ -78,6 +81,8 @@ interface UseKeyboardShortcutsOptions {
   onSwitchProjectPage?: (index: number) => void
   /** Toggle the bottom terminal panel (Cmd+J / Ctrl+J) */
   onToggleTerminalPanel?: () => void
+  /** Toggle the global agent chat (Cmd+Shift+A / Ctrl+Shift+A) */
+  onToggleAgentChat?: () => void
 }
 
 export function useKeyboardShortcuts({
@@ -88,6 +93,7 @@ export function useKeyboardShortcuts({
   onSwitchProject,
   onSwitchProjectPage,
   onToggleTerminalPanel,
+  onToggleAgentChat,
 }: UseKeyboardShortcutsOptions) {
   const navigate = useNavigate()
   const location = useLocation()
@@ -109,6 +115,8 @@ export function useKeyboardShortcuts({
   onSwitchProjectPageRef.current = onSwitchProjectPage
   const onToggleTerminalPanelRef = useRef(onToggleTerminalPanel)
   onToggleTerminalPanelRef.current = onToggleTerminalPanel
+  const onToggleAgentChatRef = useRef(onToggleAgentChat)
+  onToggleAgentChatRef.current = onToggleAgentChat
   const locationRef = useRef(location)
   locationRef.current = location
 
@@ -120,6 +128,16 @@ export function useKeyboardShortcuts({
         if (isInsideDialog(e)) return
         e.preventDefault()
         onToggleTerminalPanelRef.current?.()
+        return
+      }
+
+      // ⌘⇧A / Ctrl+Shift+A → toggle the global agent chat ("A" for Agent). Uses
+      // Shift so it never clashes with the native ⌘A (select-all), and avoids the
+      // app's ⌘K (command palette) / ⌘J (terminal) / ⌘B (sidebars).
+      if ((e.metaKey || e.ctrlKey) && e.shiftKey && !e.altKey && e.code === 'KeyA') {
+        if (isInsideDialog(e)) return
+        e.preventDefault()
+        onToggleAgentChatRef.current?.()
         return
       }
 

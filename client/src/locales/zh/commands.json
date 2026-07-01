@@ -76,6 +76,7 @@
       "toggleRightSidebar": "切换右侧边栏",
       "toggleLeftSidebar": "切换左侧边栏",
       "toggleTerminal": "切换终端面板",
+      "toggleAgent": "切换智能体聊天",
       "navigateProjectPageWithAgents": "导航到项目页面（仪表盘/任务/分析/Agent/设置）",
       "navigateProjectPage": "导航到项目页面（仪表盘/任务/分析/设置）",
       "switchProject": "按位置切换项目",

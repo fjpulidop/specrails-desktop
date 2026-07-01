@@ -14,7 +14,7 @@ import { type DesktopProject, projectProviders } from '../hooks/useDesktop'
 import { providerLabel, type ProviderId } from '../lib/provider-capabilities'
 import { usePrerequisites, type SetupPrerequisitesStatus } from '../hooks/usePrerequisites'
 import { PrerequisitesPanel } from './PrerequisitesPanel'
-import { FEATURE_JIRA, FEATURE_MCP } from '../lib/feature-flags'
+import { FEATURE_JIRA, FEATURE_MCP, FEATURE_AGENT_CHAT } from '../lib/feature-flags'
 import { JiraConnectWizard } from './jira/JiraConnectWizard'
 
 // ─── Wizard step types ────────────────────────────────────────────────────────
@@ -449,6 +449,15 @@ function CompleteStep({
         >
           <Bot className="w-3.5 h-3.5 text-accent-info" />
           {t('wizard.complete.mcpHint')}
+        </div>
+      )}
+      {FEATURE_AGENT_CHAT && (
+        <div
+          data-testid="setup-agent-hint"
+          className="inline-flex items-center gap-2 rounded-md border border-border/60 bg-muted/10 px-3 py-1.5 text-xs text-muted-foreground"
+        >
+          <Bot className="w-3.5 h-3.5 text-accent-primary" />
+          {t('wizard.complete.agentChatHint')}
         </div>
       )}
 

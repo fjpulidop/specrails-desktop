@@ -44,7 +44,7 @@ import { Button } from './ui/button'
 import { LanguagePickerGrid } from './pickers/LanguagePickerGrid'
 import { ThemePickerGrid } from './pickers/ThemePickerGrid'
 import { COMPANION_WEB_URL } from '../lib/companion'
-import { FEATURE_JIRA } from '../lib/feature-flags'
+import { FEATURE_JIRA, FEATURE_AGENT_CHAT } from '../lib/feature-flags'
 
 const ONBOARDING_KEY = 'specrails-desktop:onboarding-dismissed'
 
@@ -461,6 +461,43 @@ function buildSteps(t: TFunction): StepConfig[] {
         </div>
       ),
     },
+
+    // 5b — Agent Chat (operate the app by chatting) — gated on FEATURE_AGENT_CHAT
+    ...(FEATURE_AGENT_CHAT
+      ? [
+          {
+            navLabel: t('onboarding.agent.nav'),
+            icon: <Bot className="w-6 h-6" />,
+            accent: ACCENTS.primary,
+            title: t('onboarding.agent.title'),
+            subtitle: t('onboarding.agent.subtitle'),
+            content: (
+              <div className="space-y-4">
+                <p className="text-sm text-muted-foreground leading-relaxed">
+                  <Trans t={t} i18nKey="onboarding.agent.intro" components={{ b: <span className="text-foreground font-medium" /> }} />
+                </p>
+                <div className="grid sm:grid-cols-2 gap-x-5 gap-y-4">
+                  <Feature icon={<Command className="w-4 h-4" />} label={t('onboarding.agent.openLabel')} accent={ACCENTS.primary}>
+                    {t('onboarding.agent.openBody')}
+                  </Feature>
+                  <Feature icon={<MessageSquare className="w-4 h-4" />} label={t('onboarding.agent.operateLabel')} accent={ACCENTS.primary}>
+                    {t('onboarding.agent.operateBody')}
+                  </Feature>
+                  <Feature icon={<ShieldCheck className="w-4 h-4" />} label={t('onboarding.agent.levelsLabel')} accent={ACCENTS.primary}>
+                    <Trans t={t} i18nKey="onboarding.agent.levelsBody" components={{ b: <span className="text-foreground font-medium" /> }} />
+                  </Feature>
+                  <Feature icon={<Zap className="w-4 h-4" />} label={t('onboarding.agent.watchLabel')} accent={ACCENTS.primary}>
+                    {t('onboarding.agent.watchBody')}
+                  </Feature>
+                </div>
+                <Callout accent={ACCENTS.primary} label={t('onboarding.agent.mcpLabel')}>
+                  {t('onboarding.agent.mcpBody')}
+                </Callout>
+              </div>
+            ),
+          },
+        ]
+      : []),
 
     // 6 — Providers
     {

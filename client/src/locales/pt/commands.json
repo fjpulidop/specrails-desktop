@@ -76,6 +76,7 @@
       "toggleRightSidebar": "Alternar barra lateral direita",
       "toggleLeftSidebar": "Alternar barra lateral esquerda",
       "toggleTerminal": "Alternar painel do terminal",
+      "toggleAgent": "Mostrar/ocultar chat do agente",
       "navigateProjectPageWithAgents": "Navegar para página do projeto (Dashboard/Jobs/Análises/Agentes/Definições)",
       "navigateProjectPage": "Navegar para página do projeto (Dashboard/Jobs/Análises/Definições)",
       "switchProject": "Mudar de projeto por posição",

@@ -44,7 +44,8 @@
         "configure": "配置 Jira",
         "optional": "可选"
       },
-      "mcpHint": "通过安全的本地 MCP 服务器将外部 AI 工具连接到 Specrails——在设置中开启。"
+      "mcpHint": "通过安全的本地 MCP 服务器将外部 AI 工具连接到 Specrails——在设置中开启。",
+      "agentChatHint": "通过聊天操作 Specrails——内置 agent 为你驱动整个应用。可从气泡或按 ⌘⇧A 打开。"
     },
     "error": {
       "title": "设置失败",
@@ -158,7 +159,8 @@
     "description": "Specrails 让你在一个界面中管理多个项目。添加第一个项目即可开始。",
     "addFirstProject": "添加你的第一个项目",
     "jiraHint": "将每个项目连接到各自的 Jira 看板——规格在两个方向保持同步。",
-    "mcpHint": "通过安全的本地 MCP 服务器将外部 AI 工具连接到 Specrails——在设置中开启。"
+    "mcpHint": "通过安全的本地 MCP 服务器将外部 AI 工具连接到 Specrails——在设置中开启。",
+    "agentChatHint": "通过聊天操作 Specrails——内置 agent 通过本地 MCP 为你处理 specs、rails 和分析。可从气泡或按 ⌘⇧A 打开。"
   },
   "onboarding": {
     "productTour": "产品导览",
@@ -236,6 +238,22 @@
       "isolationBody": "每个项目都有独立的数据库和任务队列。可以同时运行多个项目，并从左侧边栏切换——每个项目的位置都会被记住。",
       "loopsLabel": "构建你自己的 loop",
       "loopsBody": "<b>Loops</b> 是一个可视化构建器：串联 AI 步骤、shell 命令以及一个 <b>Loop Decider</b>，它会不断重复直到达成目标 —— 例如 验证 → 修复 → 验证，直到全部通过。发布一个 loop，即可在任意 rail 上选用它。"
+    },
+    "agent": {
+      "nav": "Agent 聊天",
+      "title": "通过聊天操作应用",
+      "subtitle": "为你驱动 Specrails 的副驾",
+      "intro": "内置的 <b>agent 聊天</b> 让你通过提问来操作 Specrails——创建 specs、启动 rails、查看分析——而无需到处点击。它通过 Specrails 自带的 <b>MCP</b> 工具运行，而且因为一切都是实时的，你可以看着看板随它的操作而变化。",
+      "openLabel": "始终触手可及",
+      "openBody": "从底部的悬浮气泡打开，或在任意位置按 ⌘⇧A（Ctrl+Shift+A）。面板可移动、可调整大小、可最大化，并会记住你上次离开的位置。",
+      "operateLabel": "驱动整个应用",
+      "operateBody": "选择一个项目（或选择主页查看全部）和一个提供方，然后直接提问：“启动优先级最高的三个工单”“我这周花了多少钱？”。",
+      "levelsLabel": "缰绳在你手中",
+      "levelsBody": "一个实时级别——<b>观察 → 编辑 → 操作 → 自主</b>，用 Shift+Tab 循环切换——决定它能走多远。它永远不会超出你设定的级别行事。",
+      "watchLabel": "亲眼见证",
+      "watchBody": "面板为非模态，因此在 agent 工作时，rails 和 specs 会实时出现在仪表盘上。状态标记会显示它此刻正在做什么。",
+      "mcpLabel": "运行于本地 MCP",
+      "mcpBody": "agent 通过内嵌的 Specrails MCP 服务器驱动应用。如果它已关闭，面板会提供一键启用——不会安装任何东西。"
     },
     "providers": {
       "nav": "你的 Agent",

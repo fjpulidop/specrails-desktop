@@ -76,6 +76,7 @@
       "toggleRightSidebar": "Mostra/nascondi barra laterale destra",
       "toggleLeftSidebar": "Mostra/nascondi barra laterale sinistra",
       "toggleTerminal": "Mostra/nascondi pannello terminale",
+      "toggleAgent": "Mostra/nascondi chat dell'agente",
       "navigateProjectPageWithAgents": "Vai alla pagina del progetto (Dashboard/Job/Analytics/Agenti/Impostazioni)",
       "navigateProjectPage": "Vai alla pagina del progetto (Dashboard/Job/Analytics/Impostazioni)",
       "switchProject": "Passa al progetto per posizione",

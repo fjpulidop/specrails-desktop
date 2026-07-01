@@ -377,6 +377,33 @@ function applyDesktopMigrations(db: DbInstance): void {
           ('seed-min-coverage', 'MIN_COVERAGE', '80');
       `)
     },
+    // 17: app-global agent chat (design D2). The agent chat lives ABOVE projects,
+    // so its conversations are stored in the app registry DB (not any per-project
+    // jobs.sqlite). `pinned_project_id` records the Cursor-style selector target
+    // (NULL = Home / app-global); `tier_level` records the Shift+Tab ladder.
+    () => {
+      db.exec(`
+        CREATE TABLE IF NOT EXISTS agent_conversations (
+          id                TEXT PRIMARY KEY,
+          title             TEXT,
+          provider          TEXT NOT NULL DEFAULT 'claude',
+          model             TEXT,
+          session_id        TEXT,
+          pinned_project_id TEXT,
+          tier_level        INTEGER NOT NULL DEFAULT 0,
+          created_at        TEXT NOT NULL DEFAULT (datetime('now')),
+          updated_at        TEXT NOT NULL DEFAULT (datetime('now'))
+        );
+        CREATE TABLE IF NOT EXISTS agent_messages (
+          id              TEXT PRIMARY KEY,
+          conversation_id TEXT NOT NULL REFERENCES agent_conversations(id) ON DELETE CASCADE,
+          role            TEXT NOT NULL,
+          content         TEXT NOT NULL,
+          created_at      TEXT NOT NULL DEFAULT (datetime('now'))
+        );
+        CREATE INDEX IF NOT EXISTS idx_agent_messages_conv ON agent_messages(conversation_id, created_at);
+      `)
+    },
   ]
 
   for (let i = 0; i < migrations.length; i++) {

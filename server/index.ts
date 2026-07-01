@@ -22,6 +22,8 @@ import { cleanupStaleShimDirs } from './terminal-shell-integration'
 import { isBrowserCaptureEnabled } from './feature-flags'
 import { MobileGateway, createMobileAdminRouter, getMobileEventBus } from './mobile'
 import { McpServerManager, requireMcpAuth, createMcpAdminRouter } from './mcp'
+import { AgentChatManager } from './agent-chat-manager'
+import { createAgentChatRouter } from './agent-chat-router'
 import type { BrowserWsClient } from './browser-capture-manager'
 import type { BrowserInputEvent } from './browser-capture-types'
 import { isNavigableUrl } from './browser-playwright'
@@ -285,6 +287,7 @@ let _registry: ProjectRegistry | null = null
 /** The mobile companion gateway (off by default); torn down on shutdown. */
 let _mobileGateway: MobileGateway | null = null
 let _mcpManager: McpServerManager | null = null
+let _agentChatManager: AgentChatManager | null = null
 
 server.on('upgrade', (request, socket, head) => {
   const urlStr = request.url ?? '/'
@@ -575,6 +578,11 @@ function applyPtyWsRateLimiting(ws: WebSocket): void {
     mcpManager.start().catch((err) => console.error('[mcp] boot start failed:', err))
   }
 
+  // ─── App-global agent chat (drives the app via its own MCP) ────────────────
+  const agentChatManager = new AgentChatManager(broadcast, registry.desktopDb, port)
+  _agentChatManager = agentChatManager
+  app.use('/api/agent', createAgentChatRouter({ manager: agentChatManager, desktopDb: registry.desktopDb }))
+
   // App-level routes. CRITICAL mount order: the desktop router is mounted at
   // '/api' BEFORE the project router below so its exact routes (e.g.
   // GET /api/projects, DELETE /api/projects/:id) are handled here, while
@@ -691,6 +699,7 @@ async function shutdown(): Promise<void> {
   try {
     await _mobileGateway?.stop()
     await _mcpManager?.stop()
+    await _agentChatManager?.shutdown()
   } catch { /* ignore */ }
   try { wss.close() } catch { /* ignore */ }
   try { terminalWss.close() } catch { /* ignore */ }

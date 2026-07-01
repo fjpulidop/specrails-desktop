@@ -76,6 +76,7 @@
       "toggleRightSidebar": "右サイドバーの表示を切り替え",
       "toggleLeftSidebar": "左サイドバーの表示を切り替え",
       "toggleTerminal": "ターミナルパネルの表示を切り替え",
+      "toggleAgent": "エージェントチャットの切り替え",
       "navigateProjectPageWithAgents": "プロジェクトページへ移動 (ダッシュボード/ジョブ/分析/エージェント/設定)",
       "navigateProjectPage": "プロジェクトページへ移動 (ダッシュボード/ジョブ/分析/設定)",
       "switchProject": "位置でプロジェクトを切り替え",

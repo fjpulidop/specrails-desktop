@@ -60,6 +60,18 @@
     "saveThresholdFailed": "Salvataggio della soglia non riuscito"
   },
   "desktop": {
+    "nav": {
+      "appearance": "Aspetto",
+      "code": "Codice",
+      "terminal": "Terminale",
+      "updates": "Aggiornamenti",
+      "mobile": "Mobile",
+      "mcp": "MCP",
+      "projects": "Progetti",
+      "advanced": "Avanzate",
+      "webhooks": "Webhooks",
+      "about": "Info"
+    },
     "title": "Impostazioni Desktop",
     "description": "Gestisci i progetti registrati e visualizza le informazioni di Desktop.",
     "registeredProjects": "Progetti registrati",

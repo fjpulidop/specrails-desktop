@@ -1,0 +1,103 @@
+{
+  "title": "Agente",
+  "subtitle": "Opere o Specrails conversando",
+  "trigger": "Agente",
+  "composerPlaceholder": "Peça ao agente o que quiser…",
+  "send": "Enviar",
+  "stop": "Parar",
+  "copy": "Copiar",
+  "maximize": "Maximizar",
+  "restore": "Restaurar",
+  "minimize": "Minimizar",
+  "close": "Fechar",
+  "newConversation": "Nova conversa",
+  "emptyTitle": "O que o agente deve fazer?",
+  "emptyHint": "Escolha um projeto e depois pergunte. O quadro é atualizado ao vivo enquanto o agente trabalha.",
+  "thinking": "Pensando…",
+  "connecting": "Conectando…",
+  "consultingCode": "Consultando o app…",
+  "size": {
+    "compact": "Compacto",
+    "comfortable": "Confortável",
+    "max": "Maximizar"
+  },
+  "model": {
+    "label": "Modelo"
+  },
+  "history": {
+    "hint": "Explorando histórico — escreva para editar, ↑↓ para navegar"
+  },
+  "provider": {
+    "label": "Provedor",
+    "claude": "Claude",
+    "codex": "Codex",
+    "gemini": "Gemini"
+  },
+  "tier": {
+    "cycleHint": "⇧⇥ para mudar",
+    "observe": {
+      "name": "Observa",
+      "desc": "Somente leitura — nada muda"
+    },
+    "edit": {
+      "name": "Edita",
+      "desc": "Criar e editar (reversível)"
+    },
+    "operate": {
+      "name": "Opera",
+      "desc": "Lançar IA — tem custo"
+    },
+    "autonomous": {
+      "name": "Autônomo",
+      "desc": "Excluir e encerrar — irreversível"
+    },
+    "lockedTitle": "Precisa de um nível superior",
+    "lockedBody": "Essa ação precisa do nível \"{{level}}\". Você está no \"{{current}}\".",
+    "raiseHint": "⇧⇥ para aumentar o nível, ou peça de outra forma."
+  },
+  "approval": {
+    "title": "Confirmar ação",
+    "costAction": "{{action}} · ~{{cost}} · {{tier}}",
+    "approve": "Aprovar",
+    "cancel": "Cancelar",
+    "dontAskAgain": "Não perguntar de novo nesta sessão",
+    "approved": "Aprovado",
+    "cancelled": "Cancelado"
+  },
+  "project": {
+    "home": "Início",
+    "searchPlaceholder": "Fale com o Specrails…",
+    "recents": "Recentes",
+    "allProjects": "Todos os projetos",
+    "searchAll": "Buscar em todos os projetos",
+    "addProject": "Adicionar projeto…",
+    "homeHint": "Nenhum projeto selecionado — operando em todos os projetos.",
+    "askCreateOrSearch": "Nenhum projeto está selecionado. Você quer criar um novo projeto ou buscar em todos os projetos?"
+  },
+  "noProvider": {
+    "title": "Nenhum provedor de IA instalado",
+    "body": "O agente precisa de Claude, Codex ou Gemini na sua máquina. Instale um e reabra o agente para começar a conversar.",
+    "placeholder": "Instale um provedor de IA para usar o agente…"
+  },
+  "degraded": {
+    "title": "O MCP do Specrails está desligado",
+    "body": "O agente precisa do servidor MCP integrado para operar o app.",
+    "enable": "Ativar o MCP do Specrails",
+    "enabling": "Ativando…",
+    "enabled": "MCP ativado"
+  },
+  "toolCard": {
+    "live": "ao vivo",
+    "queued": "na fila",
+    "running": "em execução",
+    "done": "concluído",
+    "failed": "falhou"
+  },
+  "error": {
+    "generic": "Algo deu errado. Tente novamente.",
+    "busy": "O agente está ocupado. Tente novamente em um instante."
+  },
+  "chip": {
+    "kindAgent": "Chat do agente"
+  }
+}

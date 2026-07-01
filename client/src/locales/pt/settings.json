@@ -60,6 +60,18 @@
     "saveThresholdFailed": "Falha ao guardar o limiar"
   },
   "desktop": {
+    "nav": {
+      "appearance": "Aparência",
+      "code": "Código",
+      "terminal": "Terminal",
+      "updates": "Atualizações",
+      "mobile": "Móvel",
+      "mcp": "MCP",
+      "projects": "Projetos",
+      "advanced": "Avançado",
+      "webhooks": "Webhooks",
+      "about": "Sobre"
+    },
     "title": "Definições do Desktop",
     "description": "Faça a gestão dos projetos registados e consulte informações do Desktop.",
     "registeredProjects": "Projetos registados",

@@ -41,8 +41,10 @@ export function ResizeGrips({ handles }: ResizeGripsProps) {
           onPointerDown={handle.onPointerDown}
           onKeyDown={handle.onKeyDown}
           className={cn(
-            'z-[51] bg-transparent transition-colors duration-150',
-            'hover:bg-accent-primary/40 focus:outline-none focus-visible:bg-accent-primary/60',
+            // Rounded, subtle highlight — a soft beveled hint on hover/focus,
+            // never a harsh rectangular bar poking past the panel's rounded edge.
+            'z-[51] rounded-full bg-transparent transition-colors duration-150',
+            'hover:bg-accent-primary/20 focus:outline-none focus-visible:bg-accent-primary/30',
             GRIP_CURSOR[handle.position],
           )}
         />

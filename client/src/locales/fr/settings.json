@@ -60,6 +60,18 @@
     "saveThresholdFailed": "Échec de l'enregistrement du seuil"
   },
   "desktop": {
+    "nav": {
+      "appearance": "Apparence",
+      "code": "Code",
+      "terminal": "Terminal",
+      "updates": "Mises à jour",
+      "mobile": "Mobile",
+      "mcp": "MCP",
+      "projects": "Projets",
+      "advanced": "Avancé",
+      "webhooks": "Webhooks",
+      "about": "À propos"
+    },
     "title": "Paramètres de Desktop",
     "description": "Gérez les projets enregistrés et consultez les informations de Desktop.",
     "registeredProjects": "Projets enregistrés",

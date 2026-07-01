@@ -60,6 +60,18 @@
     "saveThresholdFailed": "No se pudo guardar el umbral"
   },
   "desktop": {
+    "nav": {
+      "appearance": "Apariencia",
+      "code": "Código",
+      "terminal": "Terminal",
+      "updates": "Actualizaciones",
+      "mobile": "Móvil",
+      "mcp": "MCP",
+      "projects": "Proyectos",
+      "advanced": "Avanzado",
+      "webhooks": "Webhooks",
+      "about": "Acerca de"
+    },
     "title": "Ajustes de Desktop",
     "description": "Gestiona los proyectos registrados y consulta la información de Desktop.",
     "registeredProjects": "Proyectos registrados",

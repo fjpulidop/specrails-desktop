@@ -222,6 +222,21 @@ describe('codexAdapter.parseStreamLine — fixture-based', () => {
     if (ev?.kind === 'other') expect(ev.type).toBe('turn.started')
   })
 
+  it('parses an mcp_tool_call with a NON-STRING arguments object without throwing', () => {
+    // Regression: MCP tool calls carry a structured `arguments` object; the old
+    // code called .slice on it and crashed the whole server process.
+    const line = JSON.stringify({
+      type: 'item.completed',
+      item: { type: 'mcp_tool_call', name: 'specrails_jobs', arguments: { action: 'list', projectId: 'p1' } },
+    })
+    const ev = codexAdapter.parseStreamLine(line)
+    expect(ev?.kind).toBe('tool-use')
+    if (ev?.kind === 'tool-use') {
+      expect(ev.name).toBe('specrails_jobs')
+      expect(ev.inputPreview).toContain('action')
+    }
+  })
+
   it('parses item.completed agent_message as text-delta', () => {
     const ev = codexAdapter.parseStreamLine(
       '{"type":"item.completed","item":{"id":"item_0","type":"agent_message","text":"hi"}}',

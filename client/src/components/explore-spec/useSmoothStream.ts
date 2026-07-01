@@ -15,10 +15,19 @@ import { useEffect, useRef, useState } from 'react'
 
 const SAFETY_FLUSH_BYTES = 4096
 const TARGET_DRAIN_MS = 250
+// Steady base pace (~18 chars/frame @60fps) — smooth "typing" that never chunks.
+const BASE_CHARS_PER_SEC = 1100
+// Gentle proportional catch-up when behind, capped so a burst reveals smoothly.
+const CATCHUP_FRACTION = 0.1
+const MAX_CATCHUP_CHARS = 40
 
 export function useSmoothStream(target: string, isStreaming: boolean): string {
-  const [displayed, setDisplayed] = useState('')
-  const displayedRef = useRef('')
+  // Initialise to the CURRENT target (not '') so a component that mounts into an
+  // already-in-progress stream — e.g. restoring a minimized agent chat mid-turn —
+  // starts caught-up instead of re-typing the whole accumulated output. For a
+  // fresh turn the target is empty, so first-token behaviour is unchanged.
+  const [displayed, setDisplayed] = useState(target)
+  const displayedRef = useRef(target)
   const targetRef = useRef(target)
   const lastTickRef = useRef<number>(0)
   const rafRef = useRef<number | null>(null)
@@ -57,12 +66,18 @@ export function useSmoothStream(target: string, isStreaming: boolean): string {
       }
 
       const last = lastTickRef.current || now
-      const dtMs = Math.max(0, now - last)
+      // Clamp dt so a paused/backgrounded tab (huge dt) doesn't reveal a whole
+      // chunk in one frame when it resumes.
+      const dtMs = Math.min(48, Math.max(0, now - last))
       lastTickRef.current = now
-      // Aim to drain the entire current backlog in TARGET_DRAIN_MS, with a
-      // floor of 1 char/frame so very tiny deltas still feel alive.
-      const charsPerMs = backlog / TARGET_DRAIN_MS
-      const advance = Math.max(1, Math.ceil(charsPerMs * dtMs))
+      // Luxurious, steady cadence: a constant base reading pace plus a gently
+      // capped proportional catch-up, so a large burst never dumps in one frame
+      // (that "chunking" is what reads as a glitch). Drain-in-window is kept as a
+      // floor so tiny deltas still finish promptly.
+      const base = (BASE_CHARS_PER_SEC * dtMs) / 1000
+      const catchUp = Math.min(backlog * CATCHUP_FRACTION, MAX_CATCHUP_CHARS)
+      const drainFloor = (backlog / TARGET_DRAIN_MS) * dtMs
+      const advance = Math.max(1, Math.min(Math.round(Math.max(base + catchUp, drainFloor)), backlog))
       const next = tgt.slice(0, Math.min(tgt.length, cur.length + advance))
       setDisplayed(next)
       displayedRef.current = next

@@ -4,6 +4,7 @@ import path from 'path'
 import { FrameworkManager, frameworkRoot } from './framework-manager'
 import { migrateWorkspaceToSymlinks } from './framework-migration'
 import { resolveHome } from './artifact-registry'
+import { mergeSpecrailsIntoWorkspaceMcp } from './agent-mcp-config'
 
 /** Highest-first semver-ish sort for framework version dir names. */
 function compareFrameworkVersionDesc(a: string, b: string): number {
@@ -194,6 +195,17 @@ export function assembleWorkspaceFramework(
     codeRoot: projectPath,
   })
   if (!res.ran) return { assembled: false, workspace: ws }
+
+  // Part A: make the Specrails MCP available to this project's own AI spawns by
+  // merging a `specrails` server into the workspace .mcp.json (app-managed, never
+  // the repo). Best-effort: a failure here must not break workspace assembly.
+  try {
+    const port = Number(process.env.SPECRAILS_MCP_PORT || process.env.SPECRAILS_PORT || 4200)
+    mergeSpecrailsIntoWorkspaceMcp(ws, port)
+  } catch {
+    /* non-fatal */
+  }
+
   return { assembled: true, workspace: ws, error: res.error }
 }
 

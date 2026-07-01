@@ -76,6 +76,7 @@
       "toggleRightSidebar": "Rechte Seitenleiste umschalten",
       "toggleLeftSidebar": "Linke Seitenleiste umschalten",
       "toggleTerminal": "Terminal-Panel umschalten",
+      "toggleAgent": "Agent-Chat umschalten",
       "navigateProjectPageWithAgents": "Zu Projektseite navigieren (Dashboard/Jobs/Analytics/Agenten/Einstellungen)",
       "navigateProjectPage": "Zu Projektseite navigieren (Dashboard/Jobs/Analytics/Einstellungen)",
       "switchProject": "Projekt nach Position wechseln",

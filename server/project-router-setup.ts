@@ -153,10 +153,22 @@ export function registerSetupRoutes(deps: ProjectRoutesDeps): void {
     // Multi-provider installs send the provider being installed so startInstall
     // reads that provider's per-provider install-config (additive — never the
     // clobbered shared file). Optional: single-provider/legacy callers omit it.
-    const requested = (req.body ?? {}) as { provider?: unknown }
+    const requested = (req.body ?? {}) as { provider?: unknown; providers?: unknown; all?: unknown }
     const provider = typeof requested.provider === 'string' ? requested.provider : undefined
     res.status(202).json({ ok: true })
-    setupManager.startInstall(project.id, project.path, project.slug, provider)
+    // One-shot multi-provider install: an explicit `providers` list, or `all:true`
+    // to install every provider the project is registered with (used by the MCP/
+    // agent so a single `install` provisions them all). Else single-provider.
+    const explicit = Array.isArray(requested.providers)
+      ? (requested.providers as unknown[]).filter((p): p is string => typeof p === 'string')
+      : undefined
+    if (explicit && explicit.length > 0) {
+      setupManager.startInstallProviders(project.id, project.path, project.slug, explicit)
+    } else if (requested.all === true) {
+      setupManager.startInstallProviders(project.id, project.path, project.slug, project.providers)
+    } else {
+      setupManager.startInstall(project.id, project.path, project.slug, provider)
+    }
   })
 
   router.post('/:projectId/enrich/start', (req: Request, res: Response) => {
