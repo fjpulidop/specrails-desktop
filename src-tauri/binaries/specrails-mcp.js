@@ -7034,6 +7034,10 @@ function connectBridge(clientFacing, appFacing) {
 async function main() {
   const token = readMcpToken();
   const headers = token ? { Authorization: `Bearer ${token}` } : {};
+  const agentTier = process.env.SPECRAILS_AGENT_TIER;
+  if (agentTier && agentTier.trim()) headers["x-specrails-agent-tier"] = agentTier.trim();
+  const activeProject = process.env.SPECRAILS_ACTIVE_PROJECT;
+  if (activeProject && activeProject.trim()) headers["x-specrails-active-project"] = activeProject.trim();
   const appFacing = new StreamableHTTPClientTransport(appUrl(), { requestInit: { headers } });
   const clientFacing = new StdioServerTransport();
   connectBridge(clientFacing, appFacing);
