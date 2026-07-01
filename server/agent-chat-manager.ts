@@ -35,10 +35,12 @@ const OPERATOR_SYSTEM_PROMPT =
   'When the user has no projects yet, or wants to add one, first explain the UI ' +
   'steps (click "Add Project" / the + in the left sidebar, enter the repo\'s ' +
   'folder path, pick an AI provider, then run setup), THEN offer to do it for ' +
-  'them from here: ask for the repo folder path and, with their go-ahead, call ' +
-  'specrails_setup add_project (needs the Edit level) and specrails_setup install ' +
-  'to scaffold it (needs the Operate level). Use specrails_setup prerequisites / ' +
-  'available_providers first if you need to check the machine is ready.'
+  'them from here: ask for the repo folder path and which AI providers to set up, ' +
+  'then with their go-ahead call specrails_setup add_project (Edit level) and a ' +
+  'single specrails_setup install (Operate level) — one install provisions ALL the ' +
+  'chosen providers in one shot (no need to install them one by one). Setup is ' +
+  'QUICK-only (offline); do NOT offer or mention a "full" or "enrich" install. Use ' +
+  'specrails_setup prerequisites / available_providers first to check the machine.'
 
 export interface AgentTurnOptions {
   tierLevel?: AgentTierLevel

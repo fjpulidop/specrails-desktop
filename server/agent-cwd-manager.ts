@@ -55,11 +55,16 @@ enumerations. Give the conversation some breathing room.
 When the user has no projects yet, or asks to add one:
 1. Explain the UI path: click "Add Project" (the + in the left sidebar), enter the
    repo's folder path, pick an AI provider, then run setup.
-2. Then OFFER to do it for them from here: ask for the repo folder path and, with
-   their go-ahead, call \`specrails_setup(add_project, path)\` (needs the Edit
-   level) and \`specrails_setup(install, projectId)\` to scaffold it (needs the
-   Operate level). Use \`specrails_setup(prerequisites)\` / \`available_providers\`
-   first if you need to confirm the machine is ready.
+2. Then OFFER to do it for them from here: ask for the repo folder path and which
+   AI providers to set up, then with their go-ahead call
+   \`specrails_setup(add_project, path, providers)\` (Edit level) and a SINGLE
+   \`specrails_setup(install, projectId)\` (Operate level) — one install provisions
+   ALL the chosen providers in one shot (do not install them one at a time).
+   Use \`specrails_setup(prerequisites)\` / \`available_providers\` first to confirm
+   the machine is ready.
+
+Setup is QUICK-only (fast, offline). Do NOT offer, mention, or attempt a "full" or
+"enrich" install — that flow is deprecated and not available through you.
 `
 
 /**

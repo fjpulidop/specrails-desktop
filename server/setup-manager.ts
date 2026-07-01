@@ -768,6 +768,9 @@ export class SetupManager {
   private _installLogBuffer: Map<string, string[]>
   // Track each project's chosen AI provider for binary selection
   private _projectProviders: Map<string, CLIProvider>
+  // Multi-provider one-shot install: remaining providers to install after the
+  // current one completes (chained sequentially in the install close handler).
+  private _installQueue: Map<string, { projectPath: string; slug?: string; remaining: string[] }> = new Map()
   // Track each project's install tier (quick vs full)
   private _projectTiers: Map<string, InstallTier>
   // Track project names for codex context header injection
@@ -793,6 +796,23 @@ export class SetupManager {
   }
 
   // ─── Full Install: TUI installer (npx specrails-core) ────────────────────────
+
+  /**
+   * Install ALL of the given providers in one shot: installs the first, then
+   * chains the rest sequentially as each completes (in the install close
+   * handler). A single-element list just delegates to `startInstall`. This is
+   * what the MCP/agent path uses so "add project + install (claude, codex,
+   * gemini)" provisions every provider without the caller looping.
+   */
+  startInstallProviders(projectId: string, projectPath: string, projectSlug?: string, providers?: string[]): void {
+    const list = (providers ?? []).filter((p) => hasAdapter(p))
+    if (list.length <= 1) {
+      this.startInstall(projectId, projectPath, projectSlug, list[0])
+      return
+    }
+    this._installQueue.set(projectId, { projectPath, slug: projectSlug, remaining: list.slice(1) })
+    this.startInstall(projectId, projectPath, projectSlug, list[0])
+  }
 
   startInstall(projectId: string, projectPath: string, projectSlug?: string, provider?: string): void {
     this._abortedProjects.delete(projectId) // fresh run — clear any prior abort flag
@@ -1020,7 +1040,15 @@ export class SetupManager {
           summary,
         })
         validateCoreContract().catch(() => { /* non-fatal */ })
+        // Multi-provider one-shot: chain the next queued provider's install.
+        const queued = this._installQueue.get(projectId)
+        if (queued && queued.remaining.length > 0) {
+          const next = queued.remaining.shift()!
+          if (queued.remaining.length === 0) this._installQueue.delete(projectId)
+          this.startInstall(projectId, queued.projectPath, queued.slug, next)
+        }
       } else {
+        this._installQueue.delete(projectId) // a failed provider stops the chain
         const logBuffer = this._installLogBuffer.get(projectId) ?? []
         const logPath = persistInstallLog(projectId, logBuffer)
         this._broadcast({
