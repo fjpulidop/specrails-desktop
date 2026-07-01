@@ -34,6 +34,19 @@ export interface UseMovableResizableModalOptions {
   allowMove?: boolean
   minWidth?: number
   minHeight?: number
+  /**
+   * On the FIRST drag, seed the float geometry from the panel's CURRENT on-screen
+   * rect instead of re-centering it. Use for panels that don't start centered
+   * (e.g. a bottom-right agent chat) so a click on the header doesn't jump them
+   * to the middle. Default `false` (center — correct for centered modals).
+   */
+  anchorFromCurrentRect?: boolean
+  /**
+   * When set, the panel's floating geometry (position + size) is persisted to
+   * localStorage under this key and restored on next mount — so a panel reopened
+   * from a bubble/trigger reappears where it was left.
+   */
+  persistKey?: string
 }
 
 export interface ResizeHandleProps {
@@ -86,7 +99,7 @@ const INTERACTIVE_SELECTOR = 'button, input, textarea, select, a, [role="button"
 export function useMovableResizableModal(
   options: UseMovableResizableModalOptions = {},
 ): UseMovableResizableModalResult {
-  const { enabled: enabledOption = true, allowMove = true, minWidth = 320, minHeight = 200 } = options
+  const { enabled: enabledOption = true, allowMove = true, minWidth = 320, minHeight = 200, anchorFromCurrentRect = false, persistKey } = options
 
   const panelNodeRef = useRef<HTMLDivElement | null>(null)
   const [panelNode, setPanelNode] = useState<HTMLDivElement | null>(null)
@@ -94,7 +107,20 @@ export function useMovableResizableModal(
     panelNodeRef.current = node
     setPanelNode(node)
   }, [])
-  const [geom, setGeom] = useState<ModalGeometry | null>(null)
+  const [geom, setGeom] = useState<ModalGeometry | null>(() => {
+    if (!persistKey || typeof window === 'undefined') return null
+    try {
+      const raw = window.localStorage.getItem(persistKey)
+      if (!raw) return null
+      const g = JSON.parse(raw) as ModalGeometry
+      if ([g?.x, g?.y, g?.w, g?.h].every((n) => typeof n === 'number' && Number.isFinite(n)) && g.w > 0 && g.h > 0) {
+        return clampPosition(g, readViewport()) // clamp into the current viewport
+      }
+    } catch {
+      /* ignore corrupt value */
+    }
+    return null
+  })
   const [panelRect, setPanelRect] = useState<ModalGeometry | null>(null)
   const [viewportOk, setViewportOk] = useState<boolean>(
     () => typeof window === 'undefined' || window.innerWidth >= MODAL_FLOAT_VIEWPORT_MIN,
@@ -124,6 +150,18 @@ export function useMovableResizableModal(
   useEffect(() => {
     if (!enabledOption) setGeom(null)
   }, [enabledOption])
+
+  // Persist the floating geometry so a reopened panel restores its place. Only
+  // non-null geom is written (a transient null from a viewport/disable reset must
+  // not wipe the saved position).
+  useEffect(() => {
+    if (!persistKey || typeof window === 'undefined' || !geom) return
+    try {
+      window.localStorage.setItem(persistKey, JSON.stringify(geom))
+    } catch {
+      /* storage full / unavailable — non-fatal */
+    }
+  }, [geom, persistKey])
 
   // ─── Measure the centered panel so grips can overlay it before any drag ─────
   // (Grips are a viewport-fixed overlay, independent of the modal's internal
@@ -203,9 +241,13 @@ export function useMovableResizableModal(
         // Guard against a degenerate (not-yet-laid-out / hidden) measurement —
         // seeding {0,0,0,0} would jam the modal into the top-left corner.
         if (rect.width <= 0 || rect.height <= 0) return
-        // Center by size (NOT rect.left/top) so a mid-animation transform can't
-        // skew the initial float into the corner.
-        startGeom = clampPosition(centerGeom(rect, readViewport()), readViewport())
+        // Anchor from the panel's current on-screen position (for non-centered
+        // panels), else center by size (NOT rect.left/top) so a mid-animation
+        // transform can't skew a centered modal into the corner.
+        startGeom = clampPosition(
+          anchorFromCurrentRect ? seedFromRect(rect) : centerGeom(rect, readViewport()),
+          readViewport(),
+        )
       }
       geomRef.current = startGeom
       pendingRef.current = startGeom
@@ -219,7 +261,7 @@ export function useMovableResizableModal(
       window.addEventListener('pointerup', endDrag)
       window.addEventListener('pointercancel', endDrag)
     },
-    [effectiveEnabled, onPointerMove, endDrag],
+    [effectiveEnabled, onPointerMove, endDrag, anchorFromCurrentRect],
   )
 
   const onHeaderPointerDown = useCallback(

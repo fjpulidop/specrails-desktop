@@ -91,6 +91,33 @@ describe('useMovableResizableModal', () => {
     expect(panelStyle().top).toBe('290px')
   })
 
+  it('anchorFromCurrentRect seeds from the panel rect instead of centering', () => {
+    render(<Harness anchorFromCurrentRect />)
+    fireEvent.pointerDown(screen.getByTestId('header'), { button: 0, pointerId: 1, clientX: 130, clientY: 130 })
+    pointerMove(190, 170) // delta 60,40
+    pointerUp()
+    // Seed from rect (100,100) + delta (60,40) = (160,140) — NOT centered (500,250).
+    expect(panelStyle().left).toBe('160px')
+    expect(panelStyle().top).toBe('140px')
+  })
+
+  it('persistKey restores geometry on mount and saves it after a drag', () => {
+    localStorage.setItem('agent-geom', JSON.stringify({ x: 200, y: 150, w: 400, h: 300 }))
+    render(<Harness persistKey="agent-geom" />)
+    expect(panelStyle().position).toBe('fixed')
+    expect(panelStyle().left).toBe('200px')
+    cleanup()
+
+    localStorage.removeItem('agent-geom')
+    render(<Harness persistKey="agent-geom" anchorFromCurrentRect />)
+    fireEvent.pointerDown(screen.getByTestId('header'), { button: 0, pointerId: 2, clientX: 130, clientY: 130 })
+    pointerMove(190, 170)
+    pointerUp()
+    const saved = JSON.parse(localStorage.getItem('agent-geom') as string)
+    expect(saved.x).toBe(160)
+    expect(saved.y).toBe(140)
+  })
+
   it('a click with no movement keeps the modal centered (no top-left jump)', () => {
     render(<Harness />)
     fireEvent.pointerDown(screen.getByTestId('header'), { button: 0, pointerId: 5, clientX: 130, clientY: 130 })

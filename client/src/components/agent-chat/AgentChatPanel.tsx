@@ -1,7 +1,7 @@
 import { useState, useRef, useEffect, useMemo } from 'react'
 import { useTranslation } from 'react-i18next'
 import { motion } from 'motion/react'
-import { Bot, Minus, X, Plus, SendHorizontal, ShieldAlert, Maximize2, Minimize2, History } from 'lucide-react'
+import { Bot, X, Plus, SendHorizontal, ShieldAlert, Maximize2, Minimize2, History } from 'lucide-react'
 import type { CSSProperties } from 'react'
 import { useAgentChat } from '../../context/AgentChatContext'
 import { useMovableResizableModal } from '../../hooks/useMovableResizableModal'
@@ -21,17 +21,19 @@ export function AgentChatPanel() {
   const {
     active, messages, streamingText, isStreaming, liveTools,
     mcpEnabled, enablingMcp, enableMcpServer,
-    minimize, close, send, cycleTier, setProvider, setModel, setPinnedProject, newConversation,
+    minimize, send, cycleTier, setProvider, setModel, setPinnedProject, newConversation,
   } = useAgentChat()
   const [input, setInput] = useState('')
   const [maximized, setMaximized] = useState(false)
   const scrollRef = useRef<HTMLDivElement>(null)
 
   const { panelRef, panelStyle, headerHandleProps, resizeHandles } = useMovableResizableModal({
-    enabled: !maximized, // no drag/resize while maximized
+    enabled: true,
     allowMove: true,
     minWidth: 400,
     minHeight: 420,
+    anchorFromCurrentRect: true, // bottom-right panel — don't jump to center on first drag
+    persistKey: 'specrails-desktop:agent-panel-geom', // reopen where you left it
   })
 
   // When maximized, fill the viewport (minus a small inset) and ignore the
@@ -40,8 +42,19 @@ export function AgentChatPanel() {
 
   const smoothed = useSmoothStream(streamingText, isStreaming)
 
+  // Stick-to-bottom: only auto-scroll while the user is already near the bottom.
+  // If they scroll up to read, DON'T yank them back on every streamed frame
+  // (that "fights" the scroll and makes text jitter). Returning to the bottom
+  // re-arms the follow.
+  const pinnedRef = useRef(true)
+  const onMessagesScroll = () => {
+    const el = scrollRef.current
+    if (!el) return
+    pinnedRef.current = el.scrollHeight - el.scrollTop - el.clientHeight < 48
+  }
   useEffect(() => {
-    scrollRef.current?.scrollTo?.({ top: scrollRef.current.scrollHeight, behavior: 'smooth' })
+    if (!pinnedRef.current) return
+    scrollRef.current?.scrollTo?.({ top: scrollRef.current.scrollHeight, behavior: 'auto' })
   }, [messages.length, smoothed, liveTools.length])
 
   // ── Prompt history (shell-style): ↑/↓ recalls previous prompts when empty ────
@@ -133,10 +146,7 @@ export function AgentChatPanel() {
           <button type="button" onClick={() => setMaximized((m) => !m)} aria-label={maximized ? t('restore') : t('maximize')} title={maximized ? t('restore') : t('maximize')} data-agent-interactive className="rounded-md p-1 text-foreground/60 hover:bg-surface hover:text-foreground">
             {maximized ? <Minimize2 className="h-4 w-4" /> : <Maximize2 className="h-4 w-4" />}
           </button>
-          <button type="button" onClick={minimize} aria-label={t('minimize')} data-agent-interactive className="rounded-md p-1 text-foreground/60 hover:bg-surface hover:text-foreground">
-            <Minus className="h-4 w-4" />
-          </button>
-          <button type="button" onClick={close} aria-label={t('close')} data-agent-interactive className="rounded-md p-1 text-foreground/60 hover:bg-surface hover:text-foreground">
+          <button type="button" onClick={minimize} aria-label={t('minimize')} title={t('minimize')} data-agent-interactive className="rounded-md p-1 text-foreground/60 hover:bg-surface hover:text-foreground">
             <X className="h-4 w-4" />
           </button>
         </div>
@@ -154,7 +164,7 @@ export function AgentChatPanel() {
       )}
 
       {/* ── Messages ── */}
-      <div ref={scrollRef} className="flex-1 space-y-3 overflow-y-auto px-4 py-4">
+      <div ref={scrollRef} onScroll={onMessagesScroll} className="flex-1 space-y-5 overflow-y-auto px-4 py-4">
         {messages.length === 0 && !isStreaming && (
           <div className="flex h-full flex-col items-center justify-center text-center text-foreground/50">
             <Bot className="mb-2 h-8 w-8 text-accent-primary/60" />
@@ -167,8 +177,10 @@ export function AgentChatPanel() {
         ))}
         {isStreaming && (
           <div className="space-y-2">
-            <AgentActivityChip tool={liveTools.length ? liveTools[liveTools.length - 1].tool : null} />
             {smoothed && <AgentMessage role="assistant" content={smoothed} streaming />}
+            {/* Status chip pinned at the very bottom of the conversation so the
+                current state is always the last thing you read. */}
+            <AgentActivityChip tool={liveTools.length ? liveTools[liveTools.length - 1].tool : null} />
           </div>
         )}
       </div>
@@ -230,7 +242,7 @@ export function AgentChatPanel() {
         </div>
       </div>
 
-      <ResizeGrips handles={resizeHandles} />
+      {!maximized && <ResizeGrips handles={resizeHandles} />}
     </motion.div>
   )
 }

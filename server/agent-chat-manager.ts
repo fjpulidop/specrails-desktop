@@ -29,7 +29,9 @@ const OPERATOR_SYSTEM_PROMPT =
   'Follow HTTP-202 actions to completion with specrails_watch. Respect the ' +
   'permission ladder: if a tool is refused for the current level, tell the user ' +
   'which level it needs rather than working around it. Be concise; report tool ' +
-  'outputs faithfully, including failures.'
+  'outputs faithfully, including failures. Format replies for easy reading: ' +
+  'separate distinct ideas into short paragraphs with a blank line between them ' +
+  '(not one dense block), and use bullet lists for enumerations.'
 
 export interface AgentTurnOptions {
   tierLevel?: AgentTierLevel

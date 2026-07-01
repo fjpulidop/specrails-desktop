@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { motion } from 'motion/react'
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
 import { Copy, Check } from 'lucide-react'
@@ -8,15 +9,15 @@ import { cn } from '../../lib/utils'
 // Token-based markdown styling — works across ALL themes (no prose-invert, which
 // would break light themes). Tables, bold, code, lists, blockquotes, links.
 const MD = cn(
-  'text-sm leading-relaxed text-foreground',
-  '[&_p]:my-2 [&_p:first-child]:mt-0 [&_p:last-child]:mb-0',
-  '[&_h1]:mt-3 [&_h1]:mb-1 [&_h1]:text-base [&_h1]:font-semibold',
-  '[&_h2]:mt-3 [&_h2]:mb-1 [&_h2]:text-[15px] [&_h2]:font-semibold',
-  '[&_h3]:mt-2 [&_h3]:mb-1 [&_h3]:text-sm [&_h3]:font-semibold',
+  'text-sm leading-7 text-foreground',
+  '[&_p]:my-3.5 [&_p:first-child]:mt-0 [&_p:last-child]:mb-0',
+  '[&_h1]:mt-5 [&_h1]:mb-2 [&_h1]:text-base [&_h1]:font-semibold',
+  '[&_h2]:mt-5 [&_h2]:mb-2 [&_h2]:text-[15px] [&_h2]:font-semibold',
+  '[&_h3]:mt-4 [&_h3]:mb-1.5 [&_h3]:text-sm [&_h3]:font-semibold',
   '[&_strong]:font-semibold [&_strong]:text-foreground',
   '[&_em]:italic',
   '[&_a]:text-accent-info [&_a]:underline [&_a]:underline-offset-2',
-  '[&_ul]:my-2 [&_ul]:list-disc [&_ul]:pl-5 [&_ol]:my-2 [&_ol]:list-decimal [&_ol]:pl-5 [&_li]:my-0.5',
+  '[&_ul]:my-3 [&_ul]:list-disc [&_ul]:pl-5 [&_ol]:my-3 [&_ol]:list-decimal [&_ol]:pl-5 [&_li]:my-1',
   '[&_code]:rounded [&_code]:bg-surface [&_code]:px-1 [&_code]:py-0.5 [&_code]:font-mono [&_code]:text-[0.85em] [&_code]:text-accent-info',
   '[&_pre]:my-2 [&_pre]:overflow-x-auto [&_pre]:rounded-lg [&_pre]:bg-surface [&_pre]:p-3',
   '[&_pre_code]:bg-transparent [&_pre_code]:p-0 [&_pre_code]:text-foreground',
@@ -77,12 +78,31 @@ export function AgentMessage({ role, content, streaming }: Props) {
     )
   }
 
+  // While streaming, render PLAIN text with a soft caret — never re-parse
+  // half-typed markdown (partial **bold**, unterminated tables/code fences cause
+  // the flicker/glitches). Rich markdown is applied once, when the turn settles.
+  if (streaming) {
+    return (
+      <div className="group flex flex-col gap-1">
+        <div className="max-w-full whitespace-pre-wrap text-sm leading-7 text-foreground">
+          {content}
+          <motion.span
+            aria-hidden
+            className="ml-0.5 inline-block h-[1.05em] w-[2px] translate-y-[3px] rounded-full bg-accent-primary align-baseline"
+            animate={{ opacity: [1, 0.15, 1] }}
+            transition={{ duration: 1, repeat: Infinity, ease: 'easeInOut' }}
+          />
+        </div>
+      </div>
+    )
+  }
+
   return (
     <div className="group flex flex-col gap-1">
       <div className={cn('max-w-full', MD)}>
         <ReactMarkdown remarkPlugins={[remarkGfm]}>{content}</ReactMarkdown>
       </div>
-      {!streaming && content.trim() && (
+      {content.trim() && (
         <div className="flex justify-start">
           <CopyButton text={content} />
         </div>
