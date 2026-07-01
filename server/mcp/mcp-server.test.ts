@@ -66,6 +66,22 @@ describe('McpServerManager (embedded MCP server)', () => {
     expect(res.status).toBe(404)
   })
 
+  it('serves the first-party in-app agent (agent-tier header) even when the toggle is disabled', async () => {
+    expect(manager.isEnabledSetting()).toBe(false)
+    const res = await fetch(url, {
+      method: 'POST',
+      headers: {
+        'content-type': 'application/json',
+        accept: 'application/json, text/event-stream',
+        'x-specrails-agent-tier': 'observe',
+      },
+      body: JSON.stringify({ jsonrpc: '2.0', method: 'initialize', id: 1, params: { protocolVersion: '2025-06-18', capabilities: {}, clientInfo: { name: 't', version: '1' } } }),
+    })
+    // Not the 404 the toggle would otherwise produce — the initialize is handled.
+    expect(res.status).not.toBe(404)
+    expect(res.headers.get('mcp-session-id')).toBeTruthy()
+  })
+
   it('initializes and lists the tool catalog when enabled', async () => {
     setDesktopSetting(db, 'mcp_enabled', 'true')
     const client = await connectClient(url)
