@@ -1,5 +1,12 @@
 # Changelog
 
+## [2.18.2](https://github.com/fjpulidop/specrails-desktop/compare/v2.18.1...v2.18.2) (2026-07-01)
+
+
+### Bug Fixes
+
+* in-app agent MCP truly zero-config (recover lost toggle-bypass + rebuild bridge) ([#474](https://github.com/fjpulidop/specrails-desktop/issues/474)) ([6d11dd0](https://github.com/fjpulidop/specrails-desktop/commit/6d11dd0d04a3d96dcbce5f3b29e9e36ecb38e51e))
+
 ## [2.18.1](https://github.com/fjpulidop/specrails-desktop/compare/v2.18.0...v2.18.1) (2026-07-01)
 
 
