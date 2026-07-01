@@ -60,6 +60,18 @@
     "saveThresholdFailed": "Schwellenwert konnte nicht gespeichert werden"
   },
   "desktop": {
+    "nav": {
+      "appearance": "Darstellung",
+      "code": "Code",
+      "terminal": "Terminal",
+      "updates": "Updates",
+      "mobile": "Mobil",
+      "mcp": "MCP",
+      "projects": "Projekte",
+      "advanced": "Erweitert",
+      "webhooks": "Webhooks",
+      "about": "Info"
+    },
     "title": "Desktop-Einstellungen",
     "description": "Registrierte Projekte verwalten und Desktop-Informationen einsehen.",
     "registeredProjects": "Registrierte Projekte",

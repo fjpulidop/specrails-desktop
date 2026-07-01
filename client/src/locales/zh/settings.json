@@ -60,6 +60,18 @@
     "saveThresholdFailed": "保存阈值失败"
   },
   "desktop": {
+    "nav": {
+      "appearance": "外观",
+      "code": "代码",
+      "terminal": "终端",
+      "updates": "更新",
+      "mobile": "移动端",
+      "mcp": "MCP",
+      "projects": "项目",
+      "advanced": "高级",
+      "webhooks": "Webhooks",
+      "about": "关于"
+    },
     "title": "Desktop 设置",
     "description": "管理已注册的项目并查看 Desktop 信息。",
     "registeredProjects": "已注册项目",

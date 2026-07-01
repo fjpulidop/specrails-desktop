@@ -60,6 +60,18 @@
     "saveThresholdFailed": "Failed to save threshold"
   },
   "desktop": {
+    "nav": {
+      "appearance": "Appearance",
+      "code": "Code",
+      "terminal": "Terminal",
+      "updates": "Updates",
+      "mobile": "Mobile",
+      "mcp": "MCP",
+      "projects": "Projects",
+      "advanced": "Advanced",
+      "webhooks": "Webhooks",
+      "about": "About"
+    },
     "title": "Desktop Settings",
     "description": "Manage registered projects and view Desktop information.",
     "registeredProjects": "Registered Projects",

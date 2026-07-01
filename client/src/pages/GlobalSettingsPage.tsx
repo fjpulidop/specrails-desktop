@@ -9,7 +9,8 @@ import { CoreUpdateSection } from '../components/settings/CoreUpdateSection'
 import { MobileAccessSection } from '../components/settings/MobileAccessSection'
 import { McpSettingsSection } from '../components/settings/McpSettingsSection'
 import { FEATURE_MCP } from '../lib/feature-flags'
-import { Settings, Trash2, Zap, Plus, Bell, GraduationCap } from 'lucide-react'
+import { Settings, Trash2, Zap, Plus, Bell, GraduationCap, Palette, Code2, RefreshCw, Smartphone, Bot, FolderOpen, SlidersHorizontal, Webhook, Info, TerminalSquare } from 'lucide-react'
+import { cn } from '../lib/utils'
 import { Button } from '../components/ui/button'
 import { Input } from '../components/ui/input'
 import {
@@ -83,9 +84,26 @@ function ProjectListItem({
   )
 }
 
+// Left-nav sections for the two-pane settings layout. Each id matches a pane
+// wrapper in the content area; contiguous settings blocks are grouped per tab.
+const SETTINGS_SECTIONS = [
+  { id: 'appearance', icon: Palette, labelKey: 'desktop.nav.appearance' },
+  { id: 'code', icon: Code2, labelKey: 'desktop.nav.code' },
+  { id: 'terminal', icon: TerminalSquare, labelKey: 'desktop.nav.terminal' },
+  { id: 'updates', icon: RefreshCw, labelKey: 'desktop.nav.updates' },
+  { id: 'mobile', icon: Smartphone, labelKey: 'desktop.nav.mobile' },
+  { id: 'mcp', icon: Bot, labelKey: 'desktop.nav.mcp' },
+  { id: 'projects', icon: FolderOpen, labelKey: 'desktop.nav.projects' },
+  { id: 'advanced', icon: SlidersHorizontal, labelKey: 'desktop.nav.advanced' },
+  { id: 'webhooks', icon: Webhook, labelKey: 'desktop.nav.webhooks' },
+  { id: 'about', icon: Info, labelKey: 'desktop.nav.about' },
+] as const
+
 export default function SettingsDialog({ open, onClose, onOpenOnboarding }: SettingsDialogProps) {
   const { t } = useTranslation('settings')
   const { projects, removeProject } = useDesktop()
+  const [activeSection, setActiveSection] = useState<string>('appearance')
+  const paneCls = (id: string) => cn('space-y-5', activeSection === id ? '' : 'hidden')
   const [desktopSettings, setDesktopSettings] = useState<DesktopSettings | null>(null)
   const [isLoading, setIsLoading] = useState(true)
   const [specrailsTechUrl, setSpecrailsTechUrl] = useState('')
@@ -317,7 +335,7 @@ export default function SettingsDialog({ open, onClose, onOpenOnboarding }: Sett
 
   return (
     <Dialog open={open} onOpenChange={(isOpen) => { if (!isOpen) onClose() }}>
-      <DialogContent movableResizable className="max-w-2xl max-h-[85vh] overflow-x-hidden">
+      <DialogContent movableResizable className="flex max-w-5xl w-[92vw] h-[82vh] flex-col overflow-hidden">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <Settings className="w-4 h-4" />
@@ -334,20 +352,56 @@ export default function SettingsDialog({ open, onClose, onOpenOnboarding }: Sett
             <div className="h-16 bg-muted/30 rounded-lg animate-pulse" />
           </div>
         ) : (
-          <div className="space-y-5 py-2">
+          <div className="flex min-h-0 flex-1 gap-5 py-2">
+            {/* Left section nav */}
+            <nav className="w-40 shrink-0 space-y-0.5 overflow-y-auto border-r border-border pr-2">
+              {SETTINGS_SECTIONS.map((s) => {
+                if (s.id === 'mcp' && !FEATURE_MCP) return null
+                const Icon = s.icon
+                return (
+                  <button
+                    key={s.id}
+                    type="button"
+                    onClick={() => setActiveSection(s.id)}
+                    className={cn(
+                      'flex w-full items-center gap-2 rounded-lg px-2.5 py-1.5 text-left text-xs transition-colors',
+                      activeSection === s.id
+                        ? 'bg-accent-primary/15 font-medium text-foreground'
+                        : 'text-muted-foreground hover:bg-muted/40 hover:text-foreground',
+                    )}
+                  >
+                    <Icon className="w-3.5 h-3.5 shrink-0" />
+                    <span className="truncate">{t(s.labelKey)}</span>
+                  </button>
+                )
+              })}
+            </nav>
+
+            {/* Active section content — fills the fixed-height dialog and scrolls,
+                so switching sections never resizes the modal. */}
+            <div className="min-w-0 flex-1 overflow-y-auto pr-1">
+            <div className={paneCls('appearance')}>
             <AppearanceSection />
 
             <LanguageSection />
+            </div>
 
+            <div className={paneCls('code')}>
             <CodeSectionSettings />
+            </div>
 
+            <div className={paneCls('updates')}>
             <CoreUpdateSection />
+            </div>
 
+            <div className={paneCls('mobile')}>
             <MobileAccessSection />
+            </div>
 
-            {FEATURE_MCP && <McpSettingsSection />}
+            {FEATURE_MCP && <div className={paneCls('mcp')}><McpSettingsSection /></div>}
 
             {/* Projects section */}
+            <div className={paneCls('projects')}>
             <div className="space-y-2">
               <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
                 {t('desktop.registeredProjects')}
@@ -369,6 +423,9 @@ export default function SettingsDialog({ open, onClose, onOpenOnboarding }: Sett
               )}
             </div>
 
+            </div>
+
+            <div className={paneCls('advanced')}>
             {/* specrails-tech config */}
             <div className="space-y-2">
               <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
@@ -508,6 +565,9 @@ export default function SettingsDialog({ open, onClose, onOpenOnboarding }: Sett
               </div>
             </div>
 
+            </div>
+
+            <div className={paneCls('webhooks')}>
             {/* Webhooks */}
             <div className="space-y-2">
               <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
@@ -602,6 +662,9 @@ export default function SettingsDialog({ open, onClose, onOpenOnboarding }: Sett
               </div>
             </div>
 
+            </div>
+
+            <div className={paneCls('about')}>
             {/* Onboarding */}
             {onOpenOnboarding && (
               <div className="space-y-2">
@@ -631,6 +694,9 @@ export default function SettingsDialog({ open, onClose, onOpenOnboarding }: Sett
               </div>
             )}
 
+            </div>
+
+            <div className={paneCls('terminal')}>
             {/* Terminal panel */}
             <div className="space-y-2">
               <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
@@ -638,7 +704,9 @@ export default function SettingsDialog({ open, onClose, onOpenOnboarding }: Sett
               </h3>
               <TerminalSettingsSection mode="desktop" />
             </div>
+            </div>
 
+            <div className={paneCls('about')}>
             {/* Desktop info */}
             <div className="space-y-2">
               <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
@@ -659,6 +727,8 @@ export default function SettingsDialog({ open, onClose, onOpenOnboarding }: Sett
                 </div>
               </div>
             </div>
+            </div>{/* /pane about */}
+            </div>{/* /section content */}
           </div>
         )}
       </DialogContent>
