@@ -1,0 +1,97 @@
+{
+  "title": "Agent",
+  "subtitle": "Pilotez Specrails en discutant",
+  "trigger": "Agent",
+  "composerPlaceholder": "Demandez à l'agent ce que vous voulez…",
+  "send": "Envoyer",
+  "copy": "Copier",
+  "maximize": "Agrandir",
+  "restore": "Restaurer",
+  "minimize": "Réduire",
+  "close": "Fermer",
+  "newConversation": "Nouvelle conversation",
+  "emptyTitle": "Que doit faire l'agent ?",
+  "emptyHint": "Choisissez un projet, puis demandez. Le tableau se met à jour en direct pendant que l'agent travaille.",
+  "thinking": "Réflexion…",
+  "connecting": "Connexion…",
+  "consultingCode": "Consultation de l'app…",
+  "size": {
+    "compact": "Compact",
+    "comfortable": "Confortable",
+    "max": "Agrandir"
+  },
+  "model": {
+    "label": "Modèle"
+  },
+  "history": {
+    "hint": "Parcours de l'historique — tapez pour modifier, ↑↓ pour naviguer"
+  },
+  "provider": {
+    "label": "Fournisseur",
+    "claude": "Claude",
+    "codex": "Codex",
+    "gemini": "Gemini"
+  },
+  "tier": {
+    "cycleHint": "⇧⇥ pour changer",
+    "observe": {
+      "name": "Observer",
+      "desc": "Lecture seule — rien ne change"
+    },
+    "edit": {
+      "name": "Modifier",
+      "desc": "Créer et modifier (réversible)"
+    },
+    "operate": {
+      "name": "Opérer",
+      "desc": "Lancer l'IA — c'est payant"
+    },
+    "autonomous": {
+      "name": "Autonome",
+      "desc": "Supprimer et arrêter — irréversible"
+    },
+    "lockedTitle": "Nécessite un niveau supérieur",
+    "lockedBody": "Cette action nécessite le niveau « {{level}} ». Vous êtes sur « {{current}} ».",
+    "raiseHint": "⇧⇥ pour augmenter le niveau, ou demandez autrement."
+  },
+  "approval": {
+    "title": "Confirmer l'action",
+    "costAction": "{{action}} · ~{{cost}} · {{tier}}",
+    "approve": "Approuver",
+    "cancel": "Annuler",
+    "dontAskAgain": "Ne plus demander durant cette session",
+    "approved": "Approuvé",
+    "cancelled": "Annulé"
+  },
+  "project": {
+    "home": "Accueil",
+    "searchPlaceholder": "Parlez à Specrails…",
+    "recents": "Récents",
+    "allProjects": "Tous les projets",
+    "searchAll": "Rechercher dans tous les projets",
+    "addProject": "Ajouter un projet…",
+    "homeHint": "Aucun projet sélectionné — opération sur tous les projets.",
+    "askCreateOrSearch": "Aucun projet n'est sélectionné. Voulez-vous créer un nouveau projet ou rechercher dans tous les projets ?"
+  },
+  "degraded": {
+    "title": "Le MCP Specrails est désactivé",
+    "body": "L'agent a besoin du serveur MCP intégré pour piloter l'app.",
+    "enable": "Activer le MCP Specrails",
+    "enabling": "Activation…",
+    "enabled": "MCP activé"
+  },
+  "toolCard": {
+    "live": "en direct",
+    "queued": "en file",
+    "running": "en cours",
+    "done": "terminé",
+    "failed": "échoué"
+  },
+  "error": {
+    "generic": "Une erreur est survenue. Réessayez.",
+    "busy": "L'agent est occupé. Réessayez dans un instant."
+  },
+  "chip": {
+    "kindAgent": "Chat de l'agent"
+  }
+}

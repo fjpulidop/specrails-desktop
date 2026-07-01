@@ -41,6 +41,16 @@ export const FEATURE_MCP = (() => {
   return true
 })()
 
+/** Gates the global Agent Chat (floating Bot trigger + Cmd/Ctrl+K panel that
+ *  operates the whole app via the Specrails MCP). Default ON; mirrors server
+ *  SPECRAILS_AGENT_CHAT. Opt-out by setting VITE_FEATURE_AGENT_CHAT=false. */
+export const FEATURE_AGENT_CHAT = (() => {
+  const env = (import.meta as unknown as { env?: Record<string, string | undefined> }).env
+  const override = env?.VITE_FEATURE_AGENT_CHAT
+  if (typeof override === 'string') return override !== 'false'
+  return true
+})()
+
 /** Gates interactive ultracode jobs UI (rail "Interactive" toggle + in-job chat
  *  + Finalize button). Default ON; mirrors server SPECRAILS_INTERACTIVE_JOBS. */
 export const FEATURE_INTERACTIVE_JOBS = (() => {

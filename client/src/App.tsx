@@ -47,13 +47,14 @@ import { useSuppressNativeContextMenu } from './hooks/useSuppressNativeContextMe
 import { WS_URL } from './lib/ws-url'
 import { TerminalsProvider, useTerminals } from './context/TerminalsContext'
 import { RailMetricsProvider } from './context/RailMetricsContext'
-import { MinimizedChatsProvider } from './context/MinimizedChatsContext'
+import { MinimizedChatsProvider, } from './context/MinimizedChatsContext'
+import { AgentChatProvider, useAgentChat } from './context/AgentChatContext'
 import { TicketDetailModalProvider } from './context/TicketDetailModalContext'
 import { WebViewModalProvider } from './context/WebViewModalContext'
 import { useCompareUrlSync } from './hooks/useCompareUrlSync'
 import { ThemeProvider, useTheme } from './context/ThemeContext'
 import { LanguageProvider } from './context/LanguageContext'
-import { FEATURE_AGENTS_SECTION, FEATURE_CODE_EXPLORER, FEATURE_TERMINAL_PANEL, FEATURE_LOOPS_SECTION } from './lib/feature-flags'
+import { FEATURE_AGENTS_SECTION, FEATURE_CODE_EXPLORER, FEATURE_TERMINAL_PANEL, FEATURE_LOOPS_SECTION, FEATURE_AGENT_CHAT } from './lib/feature-flags'
 
 // ─── Per-project route memory (in-memory only — resets on app restart) ───────
 
@@ -149,6 +150,7 @@ function DesktopApp() {
   const navigate = useNavigate()
   const location = useLocation()
   const terminals = useTerminals()
+  const agentChat = useAgentChat()
 
   // Two-way sync between split-view comparison state and ?compare=… URL params.
   useCompareUrlSync()
@@ -201,6 +203,7 @@ function DesktopApp() {
         queueMicrotask(() => terminals.focusActive(activeProjectId))
       }
     } : undefined,
+    onToggleAgentChat: FEATURE_AGENT_CHAT ? () => agentChat.toggle() : undefined,
   })
 
   // OS notifications for job completions/failures
@@ -444,12 +447,14 @@ export default function App() {
                   <TerminalsProviderWithDesktop>
                     <RailMetricsProviderWithDesktop>
                     <MinimizedChatsProvider>
-                      <TicketDetailModalProvider>
-                        <WebViewModalProvider>
-                          <DesktopApp />
-                          <ThemedToaster />
-                        </WebViewModalProvider>
-                      </TicketDetailModalProvider>
+                      <AgentChatProvider>
+                        <TicketDetailModalProvider>
+                          <WebViewModalProvider>
+                            <DesktopApp />
+                            <ThemedToaster />
+                          </WebViewModalProvider>
+                        </TicketDetailModalProvider>
+                      </AgentChatProvider>
                     </MinimizedChatsProvider>
                     </RailMetricsProviderWithDesktop>
                   </TerminalsProviderWithDesktop>

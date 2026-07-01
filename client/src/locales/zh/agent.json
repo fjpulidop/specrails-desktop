@@ -1,0 +1,97 @@
+{
+  "title": "智能体",
+  "subtitle": "通过对话操作 Specrails",
+  "trigger": "智能体",
+  "composerPlaceholder": "让智能体做任何事…",
+  "send": "发送",
+  "copy": "复制",
+  "maximize": "最大化",
+  "restore": "还原",
+  "minimize": "最小化",
+  "close": "关闭",
+  "newConversation": "新对话",
+  "emptyTitle": "要让智能体做什么？",
+  "emptyHint": "先选择一个项目，然后提问。智能体工作时看板会实时更新。",
+  "thinking": "思考中…",
+  "connecting": "连接中…",
+  "consultingCode": "正在查询应用…",
+  "size": {
+    "compact": "紧凑",
+    "comfortable": "舒适",
+    "max": "最大化"
+  },
+  "model": {
+    "label": "模型"
+  },
+  "history": {
+    "hint": "浏览提示历史 — 输入以编辑，↑↓ 导航"
+  },
+  "provider": {
+    "label": "提供方",
+    "claude": "Claude",
+    "codex": "Codex",
+    "gemini": "Gemini"
+  },
+  "tier": {
+    "cycleHint": "⇧⇥ 切换",
+    "observe": {
+      "name": "观察",
+      "desc": "只读 — 不做任何更改"
+    },
+    "edit": {
+      "name": "编辑",
+      "desc": "创建和编辑（可撤销）"
+    },
+    "operate": {
+      "name": "操作",
+      "desc": "启动 AI — 会产生费用"
+    },
+    "autonomous": {
+      "name": "自主",
+      "desc": "删除和终止 — 不可逆"
+    },
+    "lockedTitle": "需要更高的级别",
+    "lockedBody": "该操作需要「{{level}}」级别。你当前处于「{{current}}」。",
+    "raiseHint": "⇧⇥ 提升级别，或换一种方式询问。"
+  },
+  "approval": {
+    "title": "确认操作",
+    "costAction": "{{action}} · ~{{cost}} · {{tier}}",
+    "approve": "批准",
+    "cancel": "取消",
+    "dontAskAgain": "本次会话不再询问",
+    "approved": "已批准",
+    "cancelled": "已取消"
+  },
+  "project": {
+    "home": "主页",
+    "searchPlaceholder": "与 Specrails 对话…",
+    "recents": "最近",
+    "allProjects": "所有项目",
+    "searchAll": "在所有项目中搜索",
+    "addProject": "添加项目…",
+    "homeHint": "未选择项目 — 正在跨所有项目操作。",
+    "askCreateOrSearch": "未选择任何项目。你想创建一个新项目，还是在所有项目中搜索？"
+  },
+  "degraded": {
+    "title": "Specrails MCP 已关闭",
+    "body": "智能体需要内置的 MCP 服务器来操作应用。",
+    "enable": "启用 Specrails MCP",
+    "enabling": "正在启用…",
+    "enabled": "MCP 已启用"
+  },
+  "toolCard": {
+    "live": "实时",
+    "queued": "排队中",
+    "running": "运行中",
+    "done": "已完成",
+    "failed": "失败"
+  },
+  "error": {
+    "generic": "出了点问题。请重试。",
+    "busy": "智能体正忙。请稍后重试。"
+  },
+  "chip": {
+    "kindAgent": "智能体聊天"
+  }
+}

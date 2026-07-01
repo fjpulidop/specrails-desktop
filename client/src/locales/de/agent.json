@@ -1,0 +1,97 @@
+{
+  "title": "Agent",
+  "subtitle": "Specrails per Chat bedienen",
+  "trigger": "Agent",
+  "composerPlaceholder": "Bitte den Agenten um alles…",
+  "send": "Senden",
+  "copy": "Kopieren",
+  "maximize": "Maximieren",
+  "restore": "Wiederherstellen",
+  "minimize": "Minimieren",
+  "close": "Schließen",
+  "newConversation": "Neue Unterhaltung",
+  "emptyTitle": "Was soll der Agent tun?",
+  "emptyHint": "Wähle ein Projekt und frag dann. Das Board aktualisiert sich live, während der Agent arbeitet.",
+  "thinking": "Denkt nach…",
+  "connecting": "Verbinden…",
+  "consultingCode": "App wird abgefragt…",
+  "size": {
+    "compact": "Kompakt",
+    "comfortable": "Komfortabel",
+    "max": "Maximieren"
+  },
+  "model": {
+    "label": "Modell"
+  },
+  "history": {
+    "hint": "Verlauf durchsuchen — tippen zum Bearbeiten, ↑↓ zum Navigieren"
+  },
+  "provider": {
+    "label": "Anbieter",
+    "claude": "Claude",
+    "codex": "Codex",
+    "gemini": "Gemini"
+  },
+  "tier": {
+    "cycleHint": "⇧⇥ zum Wechseln",
+    "observe": {
+      "name": "Beobachten",
+      "desc": "Nur lesen — nichts ändert sich"
+    },
+    "edit": {
+      "name": "Bearbeiten",
+      "desc": "Erstellen und bearbeiten (umkehrbar)"
+    },
+    "operate": {
+      "name": "Ausführen",
+      "desc": "KI starten — kostet Geld"
+    },
+    "autonomous": {
+      "name": "Autonom",
+      "desc": "Löschen und beenden — unumkehrbar"
+    },
+    "lockedTitle": "Höhere Stufe erforderlich",
+    "lockedBody": "Diese Aktion erfordert die Stufe „{{level}}“. Du bist auf „{{current}}“.",
+    "raiseHint": "⇧⇥ um die Stufe zu erhöhen, oder frag anders."
+  },
+  "approval": {
+    "title": "Aktion bestätigen",
+    "costAction": "{{action}} · ~{{cost}} · {{tier}}",
+    "approve": "Genehmigen",
+    "cancel": "Abbrechen",
+    "dontAskAgain": "In dieser Sitzung nicht mehr fragen",
+    "approved": "Genehmigt",
+    "cancelled": "Abgebrochen"
+  },
+  "project": {
+    "home": "Start",
+    "searchPlaceholder": "Mit Specrails sprechen…",
+    "recents": "Zuletzt verwendet",
+    "allProjects": "Alle Projekte",
+    "searchAll": "In allen Projekten suchen",
+    "addProject": "Projekt hinzufügen…",
+    "homeHint": "Kein Projekt ausgewählt — über alle Projekte hinweg.",
+    "askCreateOrSearch": "Es ist kein Projekt ausgewählt. Möchtest du ein neues Projekt erstellen oder über alle Projekte hinweg suchen?"
+  },
+  "degraded": {
+    "title": "Specrails MCP ist aus",
+    "body": "Der Agent braucht den eingebetteten MCP-Server, um die App zu bedienen.",
+    "enable": "Specrails MCP aktivieren",
+    "enabling": "Wird aktiviert…",
+    "enabled": "MCP aktiviert"
+  },
+  "toolCard": {
+    "live": "live",
+    "queued": "in Warteschlange",
+    "running": "läuft",
+    "done": "fertig",
+    "failed": "fehlgeschlagen"
+  },
+  "error": {
+    "generic": "Etwas ist schiefgelaufen. Versuch es erneut.",
+    "busy": "Der Agent ist beschäftigt. Versuch es gleich noch einmal."
+  },
+  "chip": {
+    "kindAgent": "Agent-Chat"
+  }
+}

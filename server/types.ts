@@ -1090,6 +1090,41 @@ export type WsMessage =
   | MobileDeviceRevokedMessage | MobileGatewayStateMessage
   | JiraSyncedMessage | JiraSyncErrorMessage | JiraAuthExpiredMessage
   | JiraOutboxChangedMessage | JiraDegradedMessage
+  | AgentStreamMessage | AgentDoneMessage | AgentErrorMessage | AgentToolMessage
+
+// ─── App-global agent chat (no projectId — fans to all subscribers) ───────────
+
+/** A text delta from the agent's current turn. */
+export interface AgentStreamMessage {
+  type: 'agent_stream'
+  conversationId: string
+  delta: string
+  timestamp: string
+}
+
+/** The agent's turn finished; `fullText` is the persisted assistant message. */
+export interface AgentDoneMessage {
+  type: 'agent_done'
+  conversationId: string
+  fullText: string
+  timestamp: string
+}
+
+/** The agent's turn failed (spawn error / non-zero exit / busy). */
+export interface AgentErrorMessage {
+  type: 'agent_error'
+  conversationId: string
+  error: string
+  timestamp: string
+}
+
+/** The agent invoked a tool — drives the live tool-card in the panel. */
+export interface AgentToolMessage {
+  type: 'agent_tool'
+  conversationId: string
+  tool: string
+  timestamp: string
+}
 
 /** Inbound poll completed: N issues materialized into the local cache. */
 export interface JiraSyncedMessage {

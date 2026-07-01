@@ -1,0 +1,97 @@
+{
+  "title": "Agent",
+  "subtitle": "Operate Specrails by chatting",
+  "trigger": "Agent",
+  "composerPlaceholder": "Ask the agent to do anything…",
+  "send": "Send",
+  "copy": "Copy",
+  "maximize": "Maximize",
+  "restore": "Restore",
+  "minimize": "Minimize",
+  "close": "Close",
+  "newConversation": "New conversation",
+  "emptyTitle": "What should the agent do?",
+  "emptyHint": "Pick a project, then ask. The board updates live as the agent works.",
+  "thinking": "Thinking…",
+  "connecting": "Connecting…",
+  "consultingCode": "Consulting the app…",
+  "size": {
+    "compact": "Compact",
+    "comfortable": "Comfortable",
+    "max": "Maximize"
+  },
+  "model": {
+    "label": "Model"
+  },
+  "history": {
+    "hint": "Browsing prompt history — type to edit, ↑↓ to navigate"
+  },
+  "provider": {
+    "label": "Provider",
+    "claude": "Claude",
+    "codex": "Codex",
+    "gemini": "Gemini"
+  },
+  "tier": {
+    "cycleHint": "⇧⇥ to change",
+    "observe": {
+      "name": "Observe",
+      "desc": "Read only — nothing changes"
+    },
+    "edit": {
+      "name": "Edit",
+      "desc": "Create and edit (reversible)"
+    },
+    "operate": {
+      "name": "Operate",
+      "desc": "Launch AI — costs money"
+    },
+    "autonomous": {
+      "name": "Autonomous",
+      "desc": "Delete and kill — irreversible"
+    },
+    "lockedTitle": "Needs a higher level",
+    "lockedBody": "That action needs the \"{{level}}\" level. You're on \"{{current}}\".",
+    "raiseHint": "⇧⇥ to raise the level, or ask another way."
+  },
+  "approval": {
+    "title": "Confirm action",
+    "costAction": "{{action}} · ~{{cost}} · {{tier}}",
+    "approve": "Approve",
+    "cancel": "Cancel",
+    "dontAskAgain": "Don't ask again this session",
+    "approved": "Approved",
+    "cancelled": "Cancelled"
+  },
+  "project": {
+    "home": "Home",
+    "searchPlaceholder": "Talk to Specrails…",
+    "recents": "Recents",
+    "allProjects": "All projects",
+    "searchAll": "Search across all projects",
+    "addProject": "Add project…",
+    "homeHint": "No project selected — operating across all projects.",
+    "askCreateOrSearch": "No project is selected. Do you want to create a new project, or search across all projects?"
+  },
+  "degraded": {
+    "title": "Specrails MCP is off",
+    "body": "The agent needs the embedded MCP server to operate the app.",
+    "enable": "Enable Specrails MCP",
+    "enabling": "Enabling…",
+    "enabled": "MCP enabled"
+  },
+  "toolCard": {
+    "live": "live",
+    "queued": "queued",
+    "running": "running",
+    "done": "done",
+    "failed": "failed"
+  },
+  "error": {
+    "generic": "Something went wrong. Try again.",
+    "busy": "The agent is busy. Try again in a moment."
+  },
+  "chip": {
+    "kindAgent": "Agent chat"
+  }
+}

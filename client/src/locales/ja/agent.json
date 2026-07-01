@@ -1,0 +1,97 @@
+{
+  "title": "エージェント",
+  "subtitle": "チャットで Specrails を操作",
+  "trigger": "エージェント",
+  "composerPlaceholder": "エージェントに何でも頼んでください…",
+  "send": "送信",
+  "copy": "コピー",
+  "maximize": "最大化",
+  "restore": "元に戻す",
+  "minimize": "最小化",
+  "close": "閉じる",
+  "newConversation": "新しい会話",
+  "emptyTitle": "エージェントに何をさせますか？",
+  "emptyHint": "プロジェクトを選んでから尋ねてください。エージェントの作業中、ボードはリアルタイムで更新されます。",
+  "thinking": "考え中…",
+  "connecting": "接続中…",
+  "consultingCode": "アプリを確認中…",
+  "size": {
+    "compact": "コンパクト",
+    "comfortable": "快適",
+    "max": "最大化"
+  },
+  "model": {
+    "label": "モデル"
+  },
+  "history": {
+    "hint": "プロンプト履歴を表示中 — 入力で編集、↑↓ で移動"
+  },
+  "provider": {
+    "label": "プロバイダー",
+    "claude": "Claude",
+    "codex": "Codex",
+    "gemini": "Gemini"
+  },
+  "tier": {
+    "cycleHint": "⇧⇥ で変更",
+    "observe": {
+      "name": "観察",
+      "desc": "読み取り専用 — 何も変更しません"
+    },
+    "edit": {
+      "name": "編集",
+      "desc": "作成と編集（取り消し可能）"
+    },
+    "operate": {
+      "name": "操作",
+      "desc": "AI を起動 — 費用がかかります"
+    },
+    "autonomous": {
+      "name": "自律",
+      "desc": "削除と停止 — 取り消し不可"
+    },
+    "lockedTitle": "より高いレベルが必要です",
+    "lockedBody": "その操作には「{{level}}」レベルが必要です。現在は「{{current}}」です。",
+    "raiseHint": "⇧⇥ でレベルを上げるか、別の方法で尋ねてください。"
+  },
+  "approval": {
+    "title": "操作を確認",
+    "costAction": "{{action}} · ~{{cost}} · {{tier}}",
+    "approve": "承認",
+    "cancel": "キャンセル",
+    "dontAskAgain": "このセッションでは今後確認しない",
+    "approved": "承認しました",
+    "cancelled": "キャンセルしました"
+  },
+  "project": {
+    "home": "ホーム",
+    "searchPlaceholder": "Specrails に話しかける…",
+    "recents": "最近",
+    "allProjects": "すべてのプロジェクト",
+    "searchAll": "すべてのプロジェクトを検索",
+    "addProject": "プロジェクトを追加…",
+    "homeHint": "プロジェクトが未選択 — すべてのプロジェクトを横断して操作中。",
+    "askCreateOrSearch": "プロジェクトが選択されていません。新しいプロジェクトを作成しますか、それともすべてのプロジェクトを検索しますか？"
+  },
+  "degraded": {
+    "title": "Specrails MCP がオフです",
+    "body": "エージェントがアプリを操作するには、組み込みの MCP サーバーが必要です。",
+    "enable": "Specrails MCP を有効化",
+    "enabling": "有効化中…",
+    "enabled": "MCP を有効化しました"
+  },
+  "toolCard": {
+    "live": "ライブ",
+    "queued": "待機中",
+    "running": "実行中",
+    "done": "完了",
+    "failed": "失敗"
+  },
+  "error": {
+    "generic": "問題が発生しました。もう一度お試しください。",
+    "busy": "エージェントは処理中です。しばらくしてからお試しください。"
+  },
+  "chip": {
+    "kindAgent": "エージェントチャット"
+  }
+}

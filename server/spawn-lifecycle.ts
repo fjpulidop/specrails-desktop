@@ -153,18 +153,25 @@ export function runAiCliInvocation(hooks: RunInvocationHooks): Promise<Invocatio
       const reader = createInterface({ input: child.stdout, crlfDelay: Infinity })
       if (hooks.onData) child.stdout.on('data', () => hooks.onData!('stdout'))
       reader.on('line', (line) => {
-        hooks.onStdoutLine?.(line)
-        const ev = hooks.adapter.parseStreamLine(line)
-        if (!ev) return
-        events.push(ev)
-        if (ev.kind === 'session-started') {
-          sessionId = ev.sessionId
-        } else if (ev.kind === 'result') {
-          lastResultEvent = ev
-          const sid = (ev.payload as { session_id?: string }).session_id
-          if (sid) sessionId = sid
+        // A malformed line or a buggy adapter parser must NEVER crash the whole
+        // server process — a throw in this readline handler is otherwise an
+        // uncaught exception that takes the sidecar down.
+        try {
+          hooks.onStdoutLine?.(line)
+          const ev = hooks.adapter.parseStreamLine(line)
+          if (!ev) return
+          events.push(ev)
+          if (ev.kind === 'session-started') {
+            sessionId = ev.sessionId
+          } else if (ev.kind === 'result') {
+            lastResultEvent = ev
+            const sid = (ev.payload as { session_id?: string }).session_id
+            if (sid) sessionId = sid
+          }
+          hooks.onEvent?.(ev)
+        } catch (err) {
+          console.error('[spawn-lifecycle] stdout line handler error (ignored):', err)
         }
-        hooks.onEvent?.(ev)
       })
     }
 

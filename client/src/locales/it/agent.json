@@ -1,0 +1,97 @@
+{
+  "title": "Agente",
+  "subtitle": "Gestisci Specrails chattando",
+  "trigger": "Agente",
+  "composerPlaceholder": "Chiedi all'agente qualsiasi cosa…",
+  "send": "Invia",
+  "copy": "Copia",
+  "maximize": "Massimizza",
+  "restore": "Ripristina",
+  "minimize": "Riduci a icona",
+  "close": "Chiudi",
+  "newConversation": "Nuova conversazione",
+  "emptyTitle": "Cosa deve fare l'agente?",
+  "emptyHint": "Scegli un progetto, poi chiedi. La board si aggiorna in tempo reale mentre l'agente lavora.",
+  "thinking": "Sto pensando…",
+  "connecting": "Connessione…",
+  "consultingCode": "Consulto l'app…",
+  "size": {
+    "compact": "Compatto",
+    "comfortable": "Comodo",
+    "max": "Ingrandisci"
+  },
+  "model": {
+    "label": "Modello"
+  },
+  "history": {
+    "hint": "Cronologia prompt — scrivi per modificare, ↑↓ per navigare"
+  },
+  "provider": {
+    "label": "Provider",
+    "claude": "Claude",
+    "codex": "Codex",
+    "gemini": "Gemini"
+  },
+  "tier": {
+    "cycleHint": "⇧⇥ per cambiare",
+    "observe": {
+      "name": "Osserva",
+      "desc": "Solo lettura — niente cambia"
+    },
+    "edit": {
+      "name": "Modifica",
+      "desc": "Crea e modifica (reversibile)"
+    },
+    "operate": {
+      "name": "Opera",
+      "desc": "Avvia l'IA — ha un costo"
+    },
+    "autonomous": {
+      "name": "Autonomo",
+      "desc": "Elimina e arresta — irreversibile"
+    },
+    "lockedTitle": "Serve un livello superiore",
+    "lockedBody": "Quell'azione richiede il livello «{{level}}». Sei su «{{current}}».",
+    "raiseHint": "⇧⇥ per alzare il livello, o chiedi in un altro modo."
+  },
+  "approval": {
+    "title": "Conferma azione",
+    "costAction": "{{action}} · ~{{cost}} · {{tier}}",
+    "approve": "Approva",
+    "cancel": "Annulla",
+    "dontAskAgain": "Non chiedere più in questa sessione",
+    "approved": "Approvato",
+    "cancelled": "Annullato"
+  },
+  "project": {
+    "home": "Home",
+    "searchPlaceholder": "Parla con Specrails…",
+    "recents": "Recenti",
+    "allProjects": "Tutti i progetti",
+    "searchAll": "Cerca in tutti i progetti",
+    "addProject": "Aggiungi progetto…",
+    "homeHint": "Nessun progetto selezionato — operando su tutti i progetti.",
+    "askCreateOrSearch": "Nessun progetto è selezionato. Vuoi creare un nuovo progetto o cercare in tutti i progetti?"
+  },
+  "degraded": {
+    "title": "L'MCP di Specrails è spento",
+    "body": "L'agente ha bisogno del server MCP integrato per gestire l'app.",
+    "enable": "Attiva l'MCP di Specrails",
+    "enabling": "Attivazione…",
+    "enabled": "MCP attivato"
+  },
+  "toolCard": {
+    "live": "in diretta",
+    "queued": "in coda",
+    "running": "in corso",
+    "done": "completato",
+    "failed": "fallito"
+  },
+  "error": {
+    "generic": "Qualcosa è andato storto. Riprova.",
+    "busy": "L'agente è occupato. Riprova tra un momento."
+  },
+  "chip": {
+    "kindAgent": "Chat dell'agente"
+  }
+}

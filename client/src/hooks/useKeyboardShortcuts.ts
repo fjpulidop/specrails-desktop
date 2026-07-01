@@ -78,6 +78,8 @@ interface UseKeyboardShortcutsOptions {
   onSwitchProjectPage?: (index: number) => void
   /** Toggle the bottom terminal panel (Cmd+J / Ctrl+J) */
   onToggleTerminalPanel?: () => void
+  /** Toggle the global agent chat (Cmd+K / Ctrl+K) */
+  onToggleAgentChat?: () => void
 }
 
 export function useKeyboardShortcuts({
@@ -88,6 +90,7 @@ export function useKeyboardShortcuts({
   onSwitchProject,
   onSwitchProjectPage,
   onToggleTerminalPanel,
+  onToggleAgentChat,
 }: UseKeyboardShortcutsOptions) {
   const navigate = useNavigate()
   const location = useLocation()
@@ -109,6 +112,8 @@ export function useKeyboardShortcuts({
   onSwitchProjectPageRef.current = onSwitchProjectPage
   const onToggleTerminalPanelRef = useRef(onToggleTerminalPanel)
   onToggleTerminalPanelRef.current = onToggleTerminalPanel
+  const onToggleAgentChatRef = useRef(onToggleAgentChat)
+  onToggleAgentChatRef.current = onToggleAgentChat
   const locationRef = useRef(location)
   locationRef.current = location
 
@@ -120,6 +125,15 @@ export function useKeyboardShortcuts({
         if (isInsideDialog(e)) return
         e.preventDefault()
         onToggleTerminalPanelRef.current?.()
+        return
+      }
+
+      // ⌘K / Ctrl+K → toggle the global agent chat (works from anywhere except
+      // an open dialog, so it doesn't hijack other modals' own Cmd+K).
+      if ((e.metaKey || e.ctrlKey) && !e.altKey && !e.shiftKey && e.code === 'KeyK') {
+        if (isInsideDialog(e)) return
+        e.preventDefault()
+        onToggleAgentChatRef.current?.()
         return
       }
 

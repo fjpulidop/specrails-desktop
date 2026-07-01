@@ -61,6 +61,17 @@ function fold(systemPrompt: string | undefined, prompt: string): string {
   return `${systemPrompt}\n\n---\n\n${prompt}`
 }
 
+/** Coerce any codex payload value to a string (objects → JSON) so `.slice` is safe. */
+function asString(v: unknown): string {
+  if (typeof v === 'string') return v
+  if (v == null) return ''
+  try {
+    return JSON.stringify(v)
+  } catch {
+    return String(v)
+  }
+}
+
 function buildCodexArgs(action: SpawnAction, opts: SpawnOptions): string[] {
   const args: string[] = []
 
@@ -184,7 +195,7 @@ function parseCodexStreamLine(line: string): AdapterEvent | null {
   }
 
   if (type === 'item.completed') {
-    const item = parsed.item as { type?: string; text?: string; name?: string; arguments?: string; command?: string } | undefined
+    const item = parsed.item as { type?: string; text?: string; name?: unknown; arguments?: unknown; command?: unknown } | undefined
     if (item?.type === 'agent_message') {
       const text = item.text ?? ''
       if (text) return { kind: 'text-delta', text }
@@ -193,18 +204,21 @@ function parseCodexStreamLine(line: string): AdapterEvent | null {
     // Tool/shell invocations. Names drifted across codex versions:
     //   0.128 → function_call / local_shell_call (name + arguments)
     //   0.139 → command_execution / mcp_tool_call (command)
+    // `command`/`arguments` may be a NON-STRING (e.g. MCP tool calls carry a
+    // structured `arguments` object) — coerce so `.slice` never throws (an
+    // uncaught throw here previously crashed the whole server process).
     if (
       item?.type === 'command_execution' ||
       item?.type === 'mcp_tool_call' ||
       item?.type === 'function_call' ||
       item?.type === 'local_shell_call'
     ) {
-      const name =
+      const nameRaw =
         item.name ??
         item.command ??
         (item.type === 'local_shell_call' || item.type === 'command_execution' ? 'shell' : '<unnamed>')
-      const rawInput = item.command ?? item.arguments ?? ''
-      const inputPreview = rawInput ? rawInput.slice(0, 200) : ''
+      const name = typeof nameRaw === 'string' ? nameRaw : asString(nameRaw)
+      const inputPreview = asString(item.command ?? item.arguments ?? '').slice(0, 200)
       return { kind: 'tool-use', name, inputPreview }
     }
     return { kind: 'other', type, raw: parsed }
