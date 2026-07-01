@@ -114,7 +114,7 @@ export function useTickets() {
 
         if (newIds.size > 0 && oldIds.size > 0) {
           setNewTicketIds(newIds)
-          toast.success(t('toasts.newTicketsAdded', { count: newIds.size }))
+          toast.success(t('toasts.newTicketsAdded', { count: newIds.size }), { id: `tickets-added-${activeProjectIdRef.current}` })
           setTimeout(() => setNewTicketIds(new Set()), GLOW_DURATION_MS)
         }
       })
@@ -195,7 +195,9 @@ export function useTickets() {
         knownIdsRef.current.add(ticket.id)
         setNewTicketIds((prev) => new Set([...prev, ticket.id]))
         if (!isSpecGenInFlight(currentProjectId)) {
-          toast.success(t('toasts.newTicket', { title: ticket.title }))
+          // Stable id so the several live useTickets instances (dashboard, ticket
+          // modal context, …) collapse to ONE toast instead of one each.
+          toast.success(t('toasts.newTicket', { title: ticket.title }), { id: `new-ticket-${ticket.id}` })
         }
         setTimeout(() => {
           setNewTicketIds((prev) => {
