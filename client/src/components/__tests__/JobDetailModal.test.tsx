@@ -91,6 +91,17 @@ describe('JobDetailModal', () => {
     })
   })
 
+  it('mounts WITHOUT an ancestor TooltipProvider (Agent-Mode jobs pane)', async () => {
+    // Regression: opening the modal from the Agent-Mode surface (a tree with no
+    // ProjectLayout TooltipProvider) crashed Radix Tooltip and blanked the app.
+    // test-utils wraps providers, so this renders BARE on purpose.
+    const { render: bareRender, screen: bareScreen, waitFor: bareWaitFor } = await import('@testing-library/react')
+    bareRender(<JobDetailModal jobId="job-abc123" onClose={onClose} />)
+    await bareWaitFor(() => {
+      expect(bareScreen.getByText('/specrails:implement --spec SPEA-001')).toBeInTheDocument()
+    })
+  })
+
   it('renders status badge for completed job', async () => {
     render(<JobDetailModal jobId="job-abc123" onClose={onClose} />)
     await waitFor(() => {

@@ -242,5 +242,15 @@
     "unavailable": "アップデートはデスクトップアプリでのみ利用できます。",
     "toastUpToDate": "Specrails Desktop は最新です",
     "toastCheckFailed": "アップデートの確認に失敗しました: {{message}}"
+  },
+  "projectDialog": {
+    "title": "{{name}} — 設定",
+    "description": "プロジェクト設定：プロンプト、予算、テレメトリ、ターミナル。",
+    "nav": {
+      "general": "一般",
+      "budget": "予算",
+      "telemetry": "テレメトリ",
+      "terminal": "ターミナル"
+    }
   }
 }

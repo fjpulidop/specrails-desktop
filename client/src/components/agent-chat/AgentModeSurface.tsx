@@ -12,6 +12,9 @@ import { AgentComposer } from './AgentComposer'
 const AgentModeCodePane = lazy(() =>
   import('./AgentModeCodePane').then((m) => ({ default: m.AgentModeCodePane })),
 )
+const AgentModeJobsPane = lazy(() =>
+  import('./AgentModeJobsPane').then((m) => ({ default: m.AgentModeJobsPane })),
+)
 const AgentBrowserCapture = lazy(() =>
   import('./AgentBrowserCapture').then((m) => ({ default: m.AgentBrowserCapture })),
 )
@@ -25,7 +28,7 @@ const AgentBrowserCapture = lazy(() =>
 export function AgentModeSurface() {
   const { t } = useTranslation('agent')
   const { active, refreshConversations } = useAgentChat()
-  const { codePaneOpen, browserOpen } = useAgentWorkspace()
+  const { codePaneOpen, jobsPaneOpen, browserOpen } = useAgentWorkspace()
   const { activeProjectId } = useDesktop()
   // Easter egg: on the Matrix theme, the agent becomes agent Smith.
   const emptyTitle = useActiveTheme().id === 'matrix' ? t('emptyTitleMatrix') : t('emptyTitle')
@@ -39,6 +42,7 @@ export function AgentModeSurface() {
   // thread — it only needs an active project (its own store is per-conversation,
   // falling back to a Home key when no conversation is open yet).
   const showCode = codePaneOpen && !!activeProjectId
+  const showJobs = jobsPaneOpen && !!activeProjectId
 
   return (
     <MotionConfig reducedMotion="user">
@@ -58,7 +62,7 @@ export function AgentModeSurface() {
         {active === null ? (
           // ── EMPTY: centered composer card. The card carries the shared
           // `layoutId`, so the first send morphs it down into the docked
-          // composer of the conversation view (and New Agent morphs it back).
+          // composer of the conversation view (and New Mission morphs it back).
           <div className="relative z-10 flex h-full w-full items-center justify-center px-6">
             <motion.div
               layoutId="agent-composer-dock"
@@ -85,6 +89,12 @@ export function AgentModeSurface() {
           </div>
         )}
       </div>
+
+      {showJobs && (
+        <Suspense fallback={<div className="w-[480px] border-l border-border" />}>
+          <AgentModeJobsPane projectId={activeProjectId!} />
+        </Suspense>
+      )}
 
       {showCode && (
         <Suspense fallback={<div className="w-[520px] border-l border-border" />}>

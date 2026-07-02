@@ -20,7 +20,8 @@
     "added": "已添加项目：{{name}}",
     "removed": "项目已移除",
     "expand": "展开 {{name}}",
-    "collapse": "折叠 {{name}}"
+    "collapse": "折叠 {{name}}",
+    "settings": "{{name}} 的设置"
   },
   "arcSidebar": {
     "desktopTitle": "Desktop",

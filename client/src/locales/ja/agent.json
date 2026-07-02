@@ -1,7 +1,7 @@
 {
-  "title": "エージェント",
+  "title": "ミッションセンター",
   "subtitle": "チャットで Specrails を操作",
-  "trigger": "エージェント",
+  "trigger": "ミッションセンター",
   "composerPlaceholder": "エージェントに何でも頼んでください…",
   "send": "送信",
   "stop": "停止",
@@ -10,8 +10,8 @@
   "restore": "元に戻す",
   "minimize": "最小化",
   "close": "閉じる",
-  "newConversation": "新しい会話",
-  "emptyTitle": "エージェントに何をさせますか？",
+  "newConversation": "新しいミッション",
+  "emptyTitle": "ミッションは何ですか？",
   "emptyHint": "プロジェクトを選んでから尋ねてください。エージェントの作業中、ボードはリアルタイムで更新されます。",
   "thinking": "考え中…",
   "connecting": "接続中…",
@@ -26,6 +26,25 @@
   },
   "history": {
     "hint": "プロンプト履歴を表示中 — 入力で編集、↑↓ で移動"
+  },
+  "queue": {
+    "queued": "待機中",
+    "send": "キューに送信",
+    "sendHint": "エージェントは作業中です — このメッセージはキューに入り、次に実行されます",
+    "placeholder": "エージェントの作業中に追加できます — キューに入ります…"
+  },
+  "git": {
+    "branch": "ブランチ",
+    "detached": "（detached）",
+    "dirty": "未コミットの変更あり",
+    "switched": "{{branch}} に切り替えました",
+    "switchFailed": "ブランチを切り替えられませんでした",
+    "lockedWhileWorking": "エージェントの作業中はブランチをロックしています",
+    "searchPlaceholder": "ブランチを検索…",
+    "noMatches": "一致するブランチがありません",
+    "worktrees": "ワークツリー",
+    "worktreePathCopied": "ワークツリーのパスをコピーしました",
+    "copyWorktreePath": "ワークツリーのパスをコピー"
   },
   "provider": {
     "label": "プロバイダー",
@@ -98,11 +117,11 @@
     "busy": "エージェントは処理中です。しばらくしてからお試しください。"
   },
   "chip": {
-    "kindAgent": "エージェントチャット"
+    "kindAgent": "エージェントのミッション"
   },
-  "newAgent": "新しいエージェント",
-  "switchToAgent": "エージェントモードに切替",
-  "switchToKanban": "カンバンモードに切替",
+  "newAgent": "新しいミッション",
+  "switchToAgent": "ミッションセンターに切り替え",
+  "switchToKanban": "ボードに切り替え",
   "search": "検索",
   "home": "ホーム",
   "untitled": "無題",
@@ -117,7 +136,11 @@
     "browserConfirm": "エージェントに追加",
     "browserCaptured": "キャプチャを追加しました",
     "uploadFailed": "アップロードに失敗しました",
-    "requiresConversation": "このツールを使うには会話を開始してください"
+    "requiresConversation": "このツールを使うにはミッションを開始してください",
+    "jobs": "ジョブ",
+    "closeJobs": "ジョブを閉じる",
+    "resizeJobs": "ジョブパネルのサイズ変更",
+    "noJobs": "まだジョブがありません — エージェントに実行を頼んでみましょう"
   },
   "attachFile": "ファイルを添付",
   "deleteConversation": "「{{title}}」を削除",
@@ -132,5 +155,5 @@
     "high": "高",
     "xhigh": "最高"
   },
-  "emptyTitleMatrix": "エージェント・スミスに何をさせますか？"
+  "emptyTitleMatrix": "ミッションは何ですか、ネオ？"
 }

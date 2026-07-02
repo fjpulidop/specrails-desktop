@@ -1,7 +1,7 @@
 {
-  "title": "智能体",
+  "title": "任务中心",
   "subtitle": "通过对话操作 Specrails",
-  "trigger": "智能体",
+  "trigger": "任务中心",
   "composerPlaceholder": "让智能体做任何事…",
   "send": "发送",
   "stop": "停止",
@@ -10,8 +10,8 @@
   "restore": "还原",
   "minimize": "最小化",
   "close": "关闭",
-  "newConversation": "新对话",
-  "emptyTitle": "要让智能体做什么？",
+  "newConversation": "新任务",
+  "emptyTitle": "这次的任务是什么？",
   "emptyHint": "先选择一个项目，然后提问。智能体工作时看板会实时更新。",
   "thinking": "思考中…",
   "connecting": "连接中…",
@@ -26,6 +26,25 @@
   },
   "history": {
     "hint": "浏览提示历史 — 输入以编辑，↑↓ 导航"
+  },
+  "queue": {
+    "queued": "排队中",
+    "send": "发送到队列",
+    "sendHint": "智能体仍在工作——此消息将排队并在之后执行",
+    "placeholder": "智能体工作时可继续输入——消息将排队…"
+  },
+  "git": {
+    "branch": "分支",
+    "detached": "（分离头指针）",
+    "dirty": "有未提交的更改",
+    "switched": "已切换到 {{branch}}",
+    "switchFailed": "无法切换分支",
+    "lockedWhileWorking": "智能体工作时分支已锁定",
+    "searchPlaceholder": "搜索分支…",
+    "noMatches": "没有匹配的分支",
+    "worktrees": "工作树",
+    "worktreePathCopied": "已复制工作树路径",
+    "copyWorktreePath": "复制工作树路径"
   },
   "provider": {
     "label": "提供方",
@@ -98,11 +117,11 @@
     "busy": "智能体正忙。请稍后重试。"
   },
   "chip": {
-    "kindAgent": "智能体聊天"
+    "kindAgent": "智能体任务"
   },
-  "newAgent": "新建智能体",
-  "switchToAgent": "切换到智能体模式",
-  "switchToKanban": "切换到看板模式",
+  "newAgent": "新任务",
+  "switchToAgent": "切换到任务中心",
+  "switchToKanban": "切换到看板",
   "search": "搜索",
   "home": "主页",
   "untitled": "未命名",
@@ -117,7 +136,11 @@
     "browserConfirm": "添加到智能体",
     "browserCaptured": "已添加捕获",
     "uploadFailed": "上传失败",
-    "requiresConversation": "开始一段对话以使用此工具"
+    "requiresConversation": "启动任务后才能使用此工具",
+    "jobs": "作业",
+    "closeJobs": "关闭作业",
+    "resizeJobs": "调整作业面板大小",
+    "noJobs": "还没有作业——让智能体启动一个吧"
   },
   "attachFile": "附加文件",
   "deleteConversation": "删除「{{title}}」",
@@ -132,5 +155,5 @@
     "high": "高",
     "xhigh": "极高"
   },
-  "emptyTitleMatrix": "让史密斯特工做什么？"
+  "emptyTitleMatrix": "这次的任务是什么，Neo？"
 }

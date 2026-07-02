@@ -117,15 +117,16 @@ export async function deleteAgentConversation(id: string): Promise<void> {
 export async function sendAgentMessage(
   id: string,
   text: string,
-  opts: { tierLevel?: AgentTierLevel; model?: string; attachments?: { ids: string[] } } = {},
-): Promise<void> {
+  opts: { tierLevel?: AgentTierLevel; model?: string; attachments?: { ids: string[] }; queueId?: string } = {},
+): Promise<{ queued: boolean }> {
   // Through json() so a non-OK response (400/404) throws — the caller resets its
   // streaming state instead of waiting for WS events that will never arrive.
-  await json(await fetch(`${base}/conversations/${id}/send`, {
+  const body = await json<{ accepted: boolean; queued?: boolean } | null>(await fetch(`${base}/conversations/${id}/send`, {
     method: 'POST',
     headers: { 'content-type': 'application/json' },
     body: JSON.stringify({ text, ...opts }),
   }))
+  return { queued: body?.queued === true }
 }
 
 export async function uploadAgentAttachment(conversationId: string, file: File): Promise<AgentAttachment> {

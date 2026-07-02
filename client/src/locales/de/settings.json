@@ -242,5 +242,15 @@
     "unavailable": "App-Updates sind nur in der Desktop-App verfügbar.",
     "toastUpToDate": "Specrails Desktop ist aktuell",
     "toastCheckFailed": "Update-Prüfung fehlgeschlagen: {{message}}"
+  },
+  "projectDialog": {
+    "title": "{{name}} — Einstellungen",
+    "description": "Projektkonfiguration: Prompts, Budget, Telemetrie und Terminal.",
+    "nav": {
+      "general": "Allgemein",
+      "budget": "Budget",
+      "telemetry": "Telemetrie",
+      "terminal": "Terminal"
+    }
   }
 }

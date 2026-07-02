@@ -1,15 +1,28 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
-import { SendHorizontal, History, Square, Paperclip, X } from 'lucide-react'
+import { SendHorizontal, History, Square, Paperclip, X, Clock } from 'lucide-react'
 import { useAgentChat } from '../../context/AgentChatContext'
 import { useAgentWorkspace } from '../../context/AgentWorkspaceContext'
 import { uploadAgentAttachment, deleteAgentAttachment, getAgentModels, type AgentAttachment } from '../../lib/agent-api'
 import { AgentProjectSelector } from './AgentProjectSelector'
 import { AgentTierChip } from './AgentTierChip'
 import { AgentModelSelector } from './AgentModelSelector'
+import { AgentGitBar } from './AgentGitBar'
 
 const PROVIDERS = ['claude', 'codex', 'gemini'] as const
+
+// Session-scoped composer drafts (design D15 — context/session state, never the
+// URL): the Mission⇄Board mode switch UNMOUNTS the composer, so a typed-but-
+// unsent prompt must survive outside component state. Keyed per conversation;
+// the EMPTY "new mission" compose screen shares one draft slot.
+const composerDrafts = new Map<string, string>()
+const NEW_MISSION_DRAFT_KEY = '__new-mission__'
+
+/** Test-only: reset the session draft store between cases. */
+export function __clearComposerDrafts(): void {
+  composerDrafts.clear()
+}
 
 /**
  * Shared agent composer — controls row (project · provider · model · tier),
@@ -35,7 +48,15 @@ export function AgentComposer({
     send, abort, cycleTier, setProvider, setModel, setPinnedProject,
   } = useAgentChat()
   const { pendingCaptures, consumePendingCaptures } = useAgentWorkspace()
-  const [input, setInput] = useState('')
+  const draftKey = active?.id ?? NEW_MISSION_DRAFT_KEY
+  const [input, setInputState] = useState(() => composerDrafts.get(draftKey) ?? '')
+  // Every keystroke mirrors into the session draft store so an unmount
+  // (mode switch, panel close) never loses a typed-but-unsent prompt.
+  const setInput = (v: string): void => {
+    setInputState(v)
+    if (v) composerDrafts.set(draftKey, v)
+    else composerDrafts.delete(draftKey)
+  }
   const [histIndex, setHistIndex] = useState<number | null>(null)
   const [attached, setAttached] = useState<AgentAttachment[]>([])
   const [uploading, setUploading] = useState(false)
@@ -50,6 +71,9 @@ export function AgentComposer({
   // once a conversation exists (EMPTY state has none — send once to create it).
   const canAttach = !!active && !blocked
   const provider = active?.provider ?? draftProvider
+  // The git strip follows the MISSION's pinned project (or the draft pin on the
+  // EMPTY compose screen) — never the app's active project.
+  const gitProjectId = active ? active.pinned_project_id : draftPinnedProjectId
 
   const activeId = active?.id ?? null
   // The composer survives conversation switches (no key/remount): pending chips
@@ -58,6 +82,8 @@ export function AgentComposer({
   useEffect(() => {
     setAttached([])
     setHistIndex(null)
+    // Restore the target conversation's own unsent draft (or the new-mission one).
+    setInputState(composerDrafts.get(activeId ?? NEW_MISSION_DRAFT_KEY) ?? '')
   }, [activeId])
 
   // Browser captures land as already-uploaded agent attachments — adopt them as
@@ -127,6 +153,16 @@ export function AgentComposer({
     setInput(history[i])
   }
   const onKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
+    // Shift+Tab cycles the tier ladder from INSIDE the textarea too. Handled
+    // here (not only on the conversation-view wrapper) because the EMPTY
+    // compose card renders the composer without that wrapper — there the
+    // browser default (focus previous element) was winning on macOS.
+    if (e.key === 'Tab' && e.shiftKey) {
+      e.preventDefault()
+      e.stopPropagation() // the view wrapper also listens — don't cycle twice
+      void cycleTier()
+      return
+    }
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault()
       submit()
@@ -158,7 +194,10 @@ export function AgentComposer({
 
   return (
     <div className="shrink-0">
-      <div className="mb-2 flex items-center gap-2">
+      {/* flex-wrap: with a workspace pane (Jobs/Code) narrowing the center
+          column, the tier chip must wrap under the selectors instead of
+          overflowing the composer card. */}
+      <div className="mb-2 flex flex-wrap items-center gap-2">
         {/* The project pin is chosen while composing a NEW conversation (EMPTY
             state); once a conversation exists the pin is fixed here. The Kanban
             floating panel hides this copy — its header carries the selector. */}
@@ -272,14 +311,17 @@ export function AgentComposer({
           }}
           rows={2}
           disabled={blocked}
-          placeholder={blocked ? t('noProvider.placeholder') : t('composerPlaceholder')}
+          placeholder={blocked ? t('noProvider.placeholder') : isStreaming ? t('queue.placeholder') : t('composerPlaceholder')}
           data-agent-interactive
           title={inHistory ? t('history.hint') : undefined}
           className={`min-h-[3.25rem] max-h-64 flex-1 resize-y bg-transparent text-sm outline-none placeholder:text-foreground/40 disabled:opacity-60 ${
             inHistory ? 'italic text-foreground/50' : 'text-foreground'
           }`}
         />
-        {isStreaming ? (
+        {/* Tri-state action: idle → send; streaming + empty box → red stop;
+            streaming + text → "send to queue" (the agent keeps working, the
+            message parks behind the in-flight turn). */}
+        {isStreaming && !input.trim() ? (
           <button
             type="button"
             onClick={() => void abort()}
@@ -288,6 +330,20 @@ export function AgentComposer({
             className="rounded-lg bg-destructive p-1.5 text-white transition-colors hover:opacity-90"
           >
             <Square className="h-4 w-4" fill="currentColor" />
+          </button>
+        ) : isStreaming ? (
+          <button
+            type="button"
+            onClick={submit}
+            disabled={blocked}
+            aria-label={t('queue.send')}
+            title={t('queue.sendHint')}
+            className="relative rounded-lg bg-accent-info p-1.5 text-white transition-colors hover:opacity-90"
+          >
+            <SendHorizontal className="h-4 w-4" />
+            <span className="absolute -right-1 -top-1 flex h-3.5 w-3.5 items-center justify-center rounded-full bg-background ring-1 ring-border">
+              <Clock className="h-2.5 w-2.5 text-accent-info" />
+            </span>
           </button>
         ) : (
           <button
@@ -301,6 +357,9 @@ export function AgentComposer({
           </button>
         )}
       </div>
+      {/* Git strip: current branch (switchable) + last commit of the mission's
+          pinned project. Hidden without a project or outside a git repo. */}
+      {gitProjectId && <AgentGitBar projectId={gitProjectId} />}
     </div>
   )
 }

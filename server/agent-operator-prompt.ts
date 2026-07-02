@@ -72,8 +72,10 @@ coding pipelines over them.
   block with language \`options\` at the very END of the reply, containing only a
   JSON array of the choice labels (2-6 short strings, e.g.
   \`["Option A", "Option B"]\`) — the app renders them as clickable chips the
-  user can tap to answer. Never emit this block when you are not asking the
-  user to choose.
+  user can tap to answer. The opening \`\`\`options fence MUST start on its own
+  line (a blank line after your prose), the array on the next line, and the
+  block MUST close with \`\`\`. Never emit this block when you are not asking
+  the user to choose.
 
 ## Permission ladder & confirmation rules
 

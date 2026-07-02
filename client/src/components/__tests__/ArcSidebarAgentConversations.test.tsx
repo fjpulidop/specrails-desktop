@@ -9,11 +9,12 @@ const mockProjects: DesktopProject[] = [
   { id: 'proj-1', slug: 'proj-1', name: 'Project Alpha', path: '/alpha', db_path: '/alpha/.db', added_at: '', last_seen_at: '' },
 ]
 
+const mockSetActiveProjectId = vi.fn()
 vi.mock('../../hooks/useDesktop', () => ({
   useDesktop: () => ({
     projects: mockProjects,
     activeProjectId: 'proj-1',
-    setActiveProjectId: vi.fn(),
+    setActiveProjectId: mockSetActiveProjectId,
     removeProject: vi.fn(),
     isLoading: false,
     setupProjectIds: new Set(),
@@ -21,6 +22,11 @@ vi.mock('../../hooks/useDesktop', () => ({
     completeSetupWizard: vi.fn(),
     addProject: vi.fn(),
   }),
+}))
+
+vi.mock('../settings/ProjectSettingsDialog', () => ({
+  ProjectSettingsDialog: ({ open }: { open: boolean }) =>
+    open ? <div data-testid="project-settings-dialog" /> : null,
 }))
 
 vi.mock('../../context/UiModeContext', () => ({
@@ -38,16 +44,17 @@ const mockDeleteConversation = vi.fn(() => Promise.resolve())
 const mockSelectConversation = vi.fn(() => Promise.resolve())
 
 // Mutable so individual tests can activate a conversation / streaming state.
-const agentChatState: { active: AgentConversation | null; isStreaming: boolean } = {
+const agentChatState: { active: AgentConversation | null; streamingIds: Set<string> } = {
   active: null,
-  isStreaming: false,
+  streamingIds: new Set(),
 }
 
 vi.mock('../../context/AgentChatContext', () => ({
   useAgentChat: () => ({
     conversations: [conv('c-1', 'Fix the build', 'proj-1'), conv('c-2', null, null)],
     active: agentChatState.active,
-    isStreaming: agentChatState.isStreaming,
+    isStreaming: agentChatState.active ? agentChatState.streamingIds.has(agentChatState.active.id) : false,
+    streamingConversationIds: agentChatState.streamingIds,
     selectConversation: mockSelectConversation,
     deleteConversation: mockDeleteConversation,
     startNewConversation: vi.fn(),
@@ -72,7 +79,7 @@ beforeEach(() => {
   window.localStorage.clear()
   vi.clearAllMocks()
   agentChatState.active = null
-  agentChatState.isStreaming = false
+  agentChatState.streamingIds = new Set()
 })
 
 describe('ArcSidebar agent-mode conversation rows', () => {
@@ -134,7 +141,7 @@ describe('ArcSidebar agent-mode conversation rows', () => {
 
   it('sweeps the title shimmer while the active conversation streams', () => {
     agentChatState.active = conv('c-1', 'Fix the build', 'proj-1')
-    agentChatState.isStreaming = true
+    agentChatState.streamingIds = new Set(['c-1'])
     renderExpanded()
     const overlay = document.querySelector('.title-shimmer')
     expect(overlay).toBeInTheDocument()
@@ -142,9 +149,30 @@ describe('ArcSidebar agent-mode conversation rows', () => {
     expect(overlay?.className).toContain('opacity-100')
   })
 
+  it('keeps the shimmer on a BACKGROUND conversation that is still streaming', () => {
+    // Focus moved to c-2 (Home) while c-1's agent keeps working — the c-1 row
+    // must keep its luminous working cue.
+    agentChatState.active = conv('c-2', null, null)
+    agentChatState.streamingIds = new Set(['c-1'])
+    renderExpanded()
+    const overlay = document.querySelector('.title-shimmer')
+    expect(overlay).toBeInTheDocument()
+    expect(overlay?.textContent).toBe('Fix the build')
+    expect(overlay?.className).toContain('opacity-100')
+  })
+
+  it('hover gear opens the project settings modal and selects the project', async () => {
+    renderExpanded()
+    fireEvent.click(screen.getByRole('button', { name: 'Settings for Project Alpha' }))
+    expect(mockSetActiveProjectId).toHaveBeenCalledWith('proj-1')
+    expect(await screen.findByTestId('project-settings-dialog')).toBeInTheDocument()
+    // The gear never selects the row itself.
+    expect(mockSelectConversation).not.toHaveBeenCalled()
+  })
+
   it('no shimmer overlay when idle', () => {
     agentChatState.active = conv('c-1', 'Fix the build', 'proj-1')
-    agentChatState.isStreaming = false
+    agentChatState.streamingIds = new Set()
     renderExpanded()
     expect(document.querySelector('.title-shimmer')).not.toBeInTheDocument()
   })

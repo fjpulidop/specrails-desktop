@@ -242,5 +242,15 @@
     "unavailable": "Les mises à jour ne sont disponibles que dans l'app de bureau.",
     "toastUpToDate": "Specrails Desktop est à jour",
     "toastCheckFailed": "Échec de la recherche de mises à jour : {{message}}"
+  },
+  "projectDialog": {
+    "title": "{{name}} — Paramètres",
+    "description": "Configuration du projet : prompts, budget, télémétrie et terminal.",
+    "nav": {
+      "general": "Général",
+      "budget": "Budget",
+      "telemetry": "Télémétrie",
+      "terminal": "Terminal"
+    }
   }
 }

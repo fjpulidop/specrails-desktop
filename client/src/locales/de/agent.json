@@ -1,7 +1,7 @@
 {
-  "title": "Agent",
+  "title": "Missionszentrale",
   "subtitle": "Specrails per Chat bedienen",
-  "trigger": "Agent",
+  "trigger": "Missionszentrale",
   "composerPlaceholder": "Bitte den Agenten um alles…",
   "send": "Senden",
   "stop": "Stopp",
@@ -10,8 +10,8 @@
   "restore": "Wiederherstellen",
   "minimize": "Minimieren",
   "close": "Schließen",
-  "newConversation": "Neue Unterhaltung",
-  "emptyTitle": "Was soll der Agent tun?",
+  "newConversation": "Neue Mission",
+  "emptyTitle": "Wie lautet die Mission?",
   "emptyHint": "Wähle ein Projekt und frag dann. Das Board aktualisiert sich live, während der Agent arbeitet.",
   "thinking": "Denkt nach…",
   "connecting": "Verbinden…",
@@ -26,6 +26,25 @@
   },
   "history": {
     "hint": "Verlauf durchsuchen — tippen zum Bearbeiten, ↑↓ zum Navigieren"
+  },
+  "queue": {
+    "queued": "In Warteschlange",
+    "send": "In Warteschlange senden",
+    "sendHint": "Der Agent arbeitet noch — diese Nachricht wird eingereiht und danach ausgeführt",
+    "placeholder": "Mehr hinzufügen, während der Agent arbeitet — wird eingereiht…"
+  },
+  "git": {
+    "branch": "Branch",
+    "detached": "(detached)",
+    "dirty": "Nicht committete Änderungen",
+    "switched": "Zu {{branch}} gewechselt",
+    "switchFailed": "Branch-Wechsel fehlgeschlagen",
+    "lockedWhileWorking": "Branch gesperrt, während der Agent arbeitet",
+    "searchPlaceholder": "Branches durchsuchen…",
+    "noMatches": "Keine passenden Branches",
+    "worktrees": "Worktrees",
+    "worktreePathCopied": "Worktree-Pfad kopiert",
+    "copyWorktreePath": "Worktree-Pfad kopieren"
   },
   "provider": {
     "label": "Anbieter",
@@ -98,11 +117,11 @@
     "busy": "Der Agent ist beschäftigt. Versuch es gleich noch einmal."
   },
   "chip": {
-    "kindAgent": "Agent-Chat"
+    "kindAgent": "Agenten-Mission"
   },
-  "newAgent": "Neuer Agent",
-  "switchToAgent": "Zum Agentenmodus wechseln",
-  "switchToKanban": "Zum Kanban-Modus wechseln",
+  "newAgent": "Neue Mission",
+  "switchToAgent": "Zur Missionszentrale wechseln",
+  "switchToKanban": "Zum Board wechseln",
   "search": "Suchen",
   "home": "Start",
   "untitled": "Ohne Titel",
@@ -117,7 +136,11 @@
     "browserConfirm": "Zum Agenten hinzufügen",
     "browserCaptured": "Aufnahme hinzugefügt",
     "uploadFailed": "Upload fehlgeschlagen",
-    "requiresConversation": "Starte eine Unterhaltung, um dieses Werkzeug zu nutzen"
+    "requiresConversation": "Starte eine Mission, um dieses Werkzeug zu nutzen",
+    "jobs": "Jobs",
+    "closeJobs": "Jobs schließen",
+    "resizeJobs": "Jobs-Bereich anpassen",
+    "noJobs": "Noch keine Jobs — bitte den Agenten, einen zu starten"
   },
   "attachFile": "Datei anhängen",
   "deleteConversation": "„{{title}}“ löschen",
@@ -132,5 +155,5 @@
     "high": "Hoch",
     "xhigh": "Sehr hoch"
   },
-  "emptyTitleMatrix": "Was soll der Agent Smith tun?"
+  "emptyTitleMatrix": "Wie lautet die Mission, Neo?"
 }

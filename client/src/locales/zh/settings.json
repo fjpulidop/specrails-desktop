@@ -242,5 +242,15 @@
     "unavailable": "更新仅在桌面应用中可用。",
     "toastUpToDate": "Specrails Desktop 已是最新",
     "toastCheckFailed": "检查更新失败: {{message}}"
+  },
+  "projectDialog": {
+    "title": "{{name}} — 设置",
+    "description": "项目级配置：提示词、预算、遥测和终端。",
+    "nav": {
+      "general": "常规",
+      "budget": "预算",
+      "telemetry": "遥测",
+      "terminal": "终端"
+    }
   }
 }

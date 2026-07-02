@@ -1,7 +1,7 @@
 {
-  "title": "Agent",
+  "title": "Mission Control",
   "subtitle": "Operate Specrails by chatting",
-  "trigger": "Agent",
+  "trigger": "Mission Control",
   "composerPlaceholder": "Ask the agent to do anything…",
   "send": "Send",
   "stop": "Stop",
@@ -10,8 +10,8 @@
   "restore": "Restore",
   "minimize": "Minimize",
   "close": "Close",
-  "newConversation": "New conversation",
-  "emptyTitle": "What should the agent do?",
+  "newConversation": "New mission",
+  "emptyTitle": "What's the mission?",
   "emptyHint": "Pick a project, then ask. The board updates live as the agent works.",
   "thinking": "Thinking…",
   "connecting": "Connecting…",
@@ -26,6 +26,25 @@
   },
   "history": {
     "hint": "Browsing prompt history — type to edit, ↑↓ to navigate"
+  },
+  "queue": {
+    "queued": "Queued",
+    "send": "Send to queue",
+    "sendHint": "The agent is still working — this message will queue and run next",
+    "placeholder": "Add more while the agent works — it will queue…"
+  },
+  "git": {
+    "branch": "Branch",
+    "detached": "(detached)",
+    "dirty": "Uncommitted changes",
+    "switched": "Switched to {{branch}}",
+    "switchFailed": "Couldn't switch branch",
+    "lockedWhileWorking": "Branch locked while the agent works",
+    "searchPlaceholder": "Search branches…",
+    "noMatches": "No branches match",
+    "worktrees": "Worktrees",
+    "worktreePathCopied": "Worktree path copied",
+    "copyWorktreePath": "Copy worktree path"
   },
   "provider": {
     "label": "Provider",
@@ -98,11 +117,11 @@
     "busy": "The agent is busy. Try again in a moment."
   },
   "chip": {
-    "kindAgent": "Agent chat"
+    "kindAgent": "Agent mission"
   },
-  "newAgent": "New Agent",
-  "switchToAgent": "Switch to Agent Mode",
-  "switchToKanban": "Switch to Kanban mode",
+  "newAgent": "New Mission",
+  "switchToAgent": "Switch to Mission Control",
+  "switchToKanban": "Switch to Board",
   "search": "Search",
   "home": "Home",
   "untitled": "Untitled",
@@ -117,7 +136,11 @@
     "browserConfirm": "Add to agent",
     "browserCaptured": "Capture added",
     "uploadFailed": "Upload failed",
-    "requiresConversation": "Start a conversation to use this tool"
+    "requiresConversation": "Start a mission to use this tool",
+    "jobs": "Jobs",
+    "closeJobs": "Close jobs",
+    "resizeJobs": "Resize jobs pane",
+    "noJobs": "No jobs yet — ask the agent to launch one"
   },
   "attachFile": "Attach file",
   "deleteConversation": "Delete \"{{title}}\"",
@@ -132,5 +155,5 @@
     "high": "High",
     "xhigh": "Extra high"
   },
-  "emptyTitleMatrix": "What should the agent Smith do?"
+  "emptyTitleMatrix": "What's the mission, Neo?"
 }

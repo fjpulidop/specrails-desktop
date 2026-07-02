@@ -38,6 +38,24 @@ export interface AgentLiveTool {
   tool: string
 }
 
+/** A message sent while the agent was busy — parked server-side, shown as a
+ *  dimmed chip below the streaming bubble until its turn starts. */
+export interface AgentQueuedItem {
+  queueId: string
+  text: string
+}
+
+/** Live turn state for ONE conversation. Kept per-conversation so background
+ *  agents keep streaming while the user reads another thread. */
+export interface AgentConvLive {
+  streamingText: string
+  isStreaming: boolean
+  liveTools: AgentLiveTool[]
+  queued: AgentQueuedItem[]
+}
+
+const EMPTY_LIVE: AgentConvLive = { streamingText: '', isStreaming: false, liveTools: [], queued: [] }
+
 export interface AgentChatContextValue {
   visibility: AgentVisibility
   open: () => void
@@ -51,6 +69,10 @@ export interface AgentChatContextValue {
   streamingText: string
   isStreaming: boolean
   liveTools: AgentLiveTool[]
+  /** Messages waiting behind the in-flight turn (FIFO, server-drained). */
+  queuedMessages: AgentQueuedItem[]
+  /** Every conversation with a live turn — feeds the sidebar title shimmer. */
+  streamingConversationIds: ReadonlySet<string>
 
   mcpEnabled: boolean
   enablingMcp: boolean
@@ -95,9 +117,12 @@ interface WsAgentMsg {
   fullText?: string
   error?: string
   tool?: string
+  queueId?: string | null
+  text?: string
 }
 
 let _toolSeq = 0
+let _queueSeq = 0
 
 export function AgentChatProvider({ children }: { children: ReactNode }) {
   const { registerHandler, unregisterHandler } = useSharedWebSocket()
@@ -108,9 +133,10 @@ export function AgentChatProvider({ children }: { children: ReactNode }) {
   const [conversations, setConversations] = useState<AgentConversation[]>([])
   const [active, setActive] = useState<AgentConversation | null>(null)
   const [messages, setMessages] = useState<AgentMessage[]>([])
-  const [streamingText, setStreamingText] = useState('')
-  const [isStreaming, setIsStreaming] = useState(false)
-  const [liveTools, setLiveTools] = useState<AgentLiveTool[]>([])
+  // Live turn state is PER CONVERSATION: agents keep working in the background,
+  // so switching threads never drops streamed text, tool chips or queued
+  // messages. The view derives the active conversation's slice below.
+  const [liveByConv, setLiveByConv] = useState<ReadonlyMap<string, AgentConvLive>>(new Map())
   const [mcpEnabled, setMcpEnabled] = useState(true)
   const [enablingMcp, setEnablingMcp] = useState(false)
   const [providersReady, setProvidersReady] = useState<boolean | null>(null)
@@ -132,6 +158,42 @@ export function AgentChatProvider({ children }: { children: ReactNode }) {
 
   const activeIdRef = useRef<string | null>(null)
   activeIdRef.current = active?.id ?? null
+  // send() decides queue-vs-direct from a ref (liveByConv is not among its deps).
+  const liveRef = useRef(liveByConv)
+  liveRef.current = liveByConv
+  // queueIds whose agent_dequeued already ran — send()'s race reconciliation
+  // must never re-add a chip that was consumed while the POST was in flight.
+  const consumedQueueIdsRef = useRef(new Set<string>())
+
+  /** Update one conversation's live slice; a fully-idle slice drops its entry. */
+  const patchLive = useCallback((id: string, fn: (prev: AgentConvLive) => AgentConvLive | null) => {
+    setLiveByConv((m) => {
+      const next = fn(m.get(id) ?? EMPTY_LIVE)
+      const copy = new Map(m)
+      if (
+        next === null ||
+        (!next.isStreaming && !next.streamingText && next.liveTools.length === 0 && next.queued.length === 0)
+      ) {
+        copy.delete(id)
+      } else {
+        copy.set(id, next)
+      }
+      return copy
+    })
+  }, [])
+
+  // The view's slice — everything downstream (panel, composer, Agent Mode
+  // surface) keeps consuming the same flat fields as before.
+  const activeLive = (active ? liveByConv.get(active.id) : undefined) ?? EMPTY_LIVE
+  const streamingText = activeLive.streamingText
+  const isStreaming = activeLive.isStreaming
+  const liveTools = activeLive.liveTools
+  const queuedMessages = activeLive.queued
+  const streamingConversationIds = useMemo(() => {
+    const ids = new Set<string>()
+    for (const [id, live] of liveByConv) if (live.isStreaming) ids.add(id)
+    return ids
+  }, [liveByConv])
 
   // Refresh the conversation list + MCP status lazily on first open.
   const refreshConversations = useCallback(async () => {
@@ -174,45 +236,81 @@ export function AgentChatProvider({ children }: { children: ReactNode }) {
         setActive((a) => (a && a.id === msg.conversationId ? { ...a, title } : a))
         return
       }
-      if (!msg.conversationId || msg.conversationId !== activeIdRef.current) return
+      const convId = msg.conversationId
+      if (!convId) return
+      // NO active-conversation filter for live state: background turns keep
+      // accumulating in their own slice so a switch-back shows the full stream.
+      // Only the `messages` list (the active thread) is gated on isActive.
+      const isActive = convId === activeIdRef.current
       if (msg.type === 'agent_stream') {
-        setIsStreaming(true)
-        setStreamingText((t) => t + (msg.delta ?? ''))
+        patchLive(convId, (p) => ({ ...p, isStreaming: true, streamingText: p.streamingText + (msg.delta ?? '') }))
       } else if (msg.type === 'agent_tool') {
-        setLiveTools((tools) => [...tools, { id: `t${_toolSeq++}`, tool: msg.tool ?? 'tool' }])
+        patchLive(convId, (p) => ({ ...p, isStreaming: true, liveTools: [...p.liveTools, { id: `t${_toolSeq++}`, tool: msg.tool ?? 'tool' }] }))
       } else if (msg.type === 'agent_done') {
         const full = msg.fullText ?? ''
-        setMessages((m) => [
-          ...m,
-          { id: `local-${Date.now()}`, conversation_id: msg.conversationId!, role: 'assistant', content: full, created_at: new Date().toISOString() },
-        ])
-        setStreamingText('')
-        setIsStreaming(false)
-        setLiveTools([])
+        if (isActive) {
+          setMessages((m) => {
+            // A switch-back refetch can already contain this reply (it is
+            // persisted before the broadcast) — don't append it twice. Only
+            // server-fetched rows (non-local ids) dedupe: two legitimately
+            // identical consecutive replies both arrive as local appends.
+            const last = m[m.length - 1]
+            if (last && last.role === 'assistant' && last.content === full && !last.id.startsWith('local-')) return m
+            return [
+              ...m,
+              { id: `local-${Date.now()}`, conversation_id: convId, role: 'assistant', content: full, created_at: new Date().toISOString() },
+            ]
+          })
+        }
+        // Keep queued chips: with a non-empty queue the next drained turn is
+        // about to start (agent_dequeued follows).
+        patchLive(convId, (p) => ({ ...EMPTY_LIVE, queued: p.queued }))
       } else if (msg.type === 'agent_error') {
-        setStreamingText('')
-        setIsStreaming(false)
-        setLiveTools([])
+        patchLive(convId, (p) => ({ ...EMPTY_LIVE, queued: p.queued }))
         const err = msg.error || 'The agent turn failed.'
         toast.error(err)
         // Also surface it inline so it's visible in the conversation.
-        setMessages((m) => [
-          ...m,
-          { id: `err-${Date.now()}`, conversation_id: msg.conversationId!, role: 'assistant', content: `⚠️ ${err}`, created_at: new Date().toISOString() },
-        ])
+        if (isActive) {
+          setMessages((m) => [
+            ...m,
+            { id: `err-${Date.now()}`, conversation_id: convId, role: 'assistant', content: `⚠️ ${err}`, created_at: new Date().toISOString() },
+          ])
+        }
+      } else if (msg.type === 'agent_queued') {
+        // Dedupe by queueId: the sending window already parked its own chip.
+        patchLive(convId, (p) => {
+          if (msg.queueId && p.queued.some((q) => q.queueId === msg.queueId)) return p
+          return { ...p, queued: [...p.queued, { queueId: msg.queueId ?? `srv-${_queueSeq++}`, text: msg.text ?? '' }] }
+        })
+      } else if (msg.type === 'agent_dequeued') {
+        // The queued message's turn starts now: chip → real user bubble.
+        if (msg.queueId) consumedQueueIdsRef.current.add(msg.queueId)
+        patchLive(convId, (p) => {
+          const idx = msg.queueId ? p.queued.findIndex((q) => q.queueId === msg.queueId) : 0
+          const drop = idx === -1 ? 0 : idx
+          return { ...p, queued: p.queued.filter((_, i) => i !== drop), isStreaming: true, streamingText: '', liveTools: [] }
+        })
+        if (isActive && msg.text) {
+          setMessages((m) => [
+            ...m,
+            { id: `local-u-${Date.now()}`, conversation_id: convId, role: 'user', content: msg.text!, created_at: new Date().toISOString() },
+          ])
+        }
+      } else if (msg.type === 'agent_queue_cleared') {
+        patchLive(convId, (p) => ({ ...p, queued: [] }))
       }
     }
     registerHandler('agent-chat', handler)
     return () => unregisterHandler('agent-chat')
-  }, [registerHandler, unregisterHandler])
+  }, [registerHandler, unregisterHandler, patchLive])
 
   const loadConversation = useCallback(async (id: string) => {
     const { conversation, messages: msgs } = await getAgentConversation(id)
     setActive(conversation)
     setMessages(msgs)
-    setStreamingText('')
-    setIsStreaming(false)
-    setLiveTools([])
+    // Live state (stream text / tools / queue) is per-conversation and is
+    // deliberately NOT reset here — a background turn keeps its full context
+    // and re-appears mid-stream when the user switches back.
   }, [])
 
   const ensureActive = useCallback(async (): Promise<AgentConversation> => {
@@ -268,30 +366,64 @@ export function AgentChatProvider({ children }: { children: ReactNode }) {
       setActive(conv)
       setMessages([])
     }
-    setMessages((m) => [
-      ...m,
-      { id: `local-u-${Date.now()}`, conversation_id: conv.id, role: 'user', content: trimmed, attachment_ids: opts?.attachmentIds ?? [], created_at: new Date().toISOString() },
-    ])
-    setIsStreaming(true)
-    setStreamingText('')
+    const queueId = `q-${Date.now()}-${_queueSeq++}`
+    const userBubble = {
+      id: `local-u-${Date.now()}`,
+      conversation_id: conv.id,
+      role: 'user' as const,
+      content: trimmed,
+      attachment_ids: opts?.attachmentIds ?? [],
+      created_at: new Date().toISOString(),
+    }
+    // Busy conversation → the message QUEUES (server-side FIFO) and shows as a
+    // parked chip below the streaming bubble instead of a normal bubble.
+    const wasBusy = liveRef.current.get(conv.id)?.isStreaming === true
+    if (wasBusy) {
+      patchLive(conv.id, (p) => ({ ...p, queued: [...p.queued, { queueId, text: trimmed }] }))
+    } else {
+      setMessages((m) => [...m, userBubble])
+      patchLive(conv.id, (p) => ({ ...p, isStreaming: true, streamingText: '', liveTools: [] }))
+    }
     const attachments = opts?.attachmentIds && opts.attachmentIds.length ? { ids: opts.attachmentIds } : undefined
     try {
-      await sendAgentMessage(conv.id, trimmed, { tierLevel: conv.tier_level, attachments })
+      const res = await sendAgentMessage(conv.id, trimmed, { tierLevel: conv.tier_level, attachments, queueId })
+      const queued = res?.queued === true
+      if (queued && !wasBusy) {
+        // Rare race: the server was actually mid-turn — re-home the optimistic
+        // bubble as a queued chip (the agent_queued event dedupes by queueId).
+        // If its agent_dequeued ALREADY ran while this POST was in flight, the
+        // chip is consumed — re-adding it would park a phantom chip forever.
+        setMessages((m) => m.filter((x) => x.id !== userBubble.id))
+        if (!consumedQueueIdsRef.current.has(queueId)) {
+          patchLive(conv.id, (p) =>
+            p.queued.some((q) => q.queueId === queueId) ? p : { ...p, queued: [...p.queued, { queueId, text: trimmed }] },
+          )
+        }
+      } else if (!queued && wasBusy) {
+        // Rare race: the turn had just settled — our chip is running as a direct
+        // turn (no agent_dequeued will ever come for it), promote it now.
+        patchLive(conv.id, (p) => ({ ...p, queued: p.queued.filter((q) => q.queueId !== queueId), isStreaming: true }))
+        setMessages((m) => [...m, userBubble])
+      }
     } catch (e) {
       // No agent_* WS event will arrive (the POST never spawned a turn) — reset
-      // the streaming state here, mirroring the agent_error handler.
-      setStreamingText('')
-      setIsStreaming(false)
-      setLiveTools([])
+      // the optimistic state here, mirroring the agent_error handler.
+      if (wasBusy) {
+        patchLive(conv.id, (p) => ({ ...p, queued: p.queued.filter((q) => q.queueId !== queueId) }))
+      } else {
+        patchLive(conv.id, (p) => ({ ...p, isStreaming: false, streamingText: '', liveTools: [] }))
+      }
       toast.error(e instanceof Error ? e.message : 'Failed to send message.')
     }
-  }, [active])
+  }, [active, patchLive])
 
   const abort = useCallback(async () => {
-    if (active) await abortAgentTurn(active.id)
-    setIsStreaming(false)
-    setStreamingText('')
-  }, [active])
+    if (!active) return
+    // Stop means stop: drop the stream state AND any queued chips immediately
+    // (the server discards its queue too and broadcasts agent_queue_cleared).
+    patchLive(active.id, () => null)
+    await abortAgentTurn(active.id)
+  }, [active, patchLive])
 
   const patchActive = useCallback(async (patch: Parameters<typeof patchAgentConversation>[1]) => {
     if (!active) return
@@ -336,9 +468,6 @@ export function AgentChatProvider({ children }: { children: ReactNode }) {
   const startNewConversation = useCallback((projectId?: string | null) => {
     setActive(null)
     setMessages([])
-    setStreamingText('')
-    setIsStreaming(false)
-    setLiveTools([])
     setDraftPinnedProjectId(projectId ?? null)
     setDraftProvider('claude')
     setDraftModel(null)
@@ -354,8 +483,6 @@ export function AgentChatProvider({ children }: { children: ReactNode }) {
     setConversations((c) => [created, ...c])
     setActive(created)
     setMessages([])
-    setStreamingText('')
-    setIsStreaming(false)
   }, [active])
 
   const selectConversation = useCallback(async (id: string) => { await loadConversation(id) }, [loadConversation])
@@ -363,14 +490,12 @@ export function AgentChatProvider({ children }: { children: ReactNode }) {
   const deleteConversation = useCallback(async (id: string) => {
     await deleteAgentConversation(id)
     setConversations((c) => c.filter((x) => x.id !== id))
+    patchLive(id, () => null)
     if (activeIdRef.current === id) {
       setActive(null)
       setMessages([])
-      setStreamingText('')
-      setIsStreaming(false)
-      setLiveTools([])
     }
-  }, [])
+  }, [patchLive])
 
   const enableMcpServer = useCallback(async () => {
     setEnablingMcp(true)
@@ -385,6 +510,7 @@ export function AgentChatProvider({ children }: { children: ReactNode }) {
   const value = useMemo<AgentChatContextValue>(() => ({
     visibility, open, close, minimize, toggle,
     conversations, active, messages, streamingText, isStreaming, liveTools,
+    queuedMessages, streamingConversationIds,
     mcpEnabled, enablingMcp, enableMcpServer, providersReady,
     send, abort, cycleTier, setTier, setProvider, setModel, setPinnedProject,
     newConversation, startNewConversation, draftPinnedProjectId,
@@ -393,6 +519,7 @@ export function AgentChatProvider({ children }: { children: ReactNode }) {
   }), [
     visibility, open, close, minimize, toggle,
     conversations, active, messages, streamingText, isStreaming, liveTools,
+    queuedMessages, streamingConversationIds,
     mcpEnabled, enablingMcp, enableMcpServer, providersReady,
     send, abort, cycleTier, setTier, setProvider, setModel, setPinnedProject,
     newConversation, startNewConversation, draftPinnedProjectId,
@@ -420,6 +547,7 @@ const NOOP_AGENT_CHAT: AgentChatContextValue = {
   visibility: 'hidden',
   open: () => {}, close: () => {}, minimize: () => {}, toggle: () => {},
   conversations: [], active: null, messages: [], streamingText: '', isStreaming: false, liveTools: [],
+  queuedMessages: [], streamingConversationIds: new Set<string>(),
   mcpEnabled: true, enablingMcp: false, enableMcpServer: async () => {}, providersReady: true,
   send: async () => {}, abort: async () => {}, cycleTier: async () => {}, setTier: async () => {},
   setProvider: async () => {}, setModel: async () => {}, setPinnedProject: async () => {},

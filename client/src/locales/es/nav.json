@@ -20,7 +20,8 @@
     "added": "Proyecto añadido: {{name}}",
     "removed": "Proyecto eliminado",
     "expand": "Expandir {{name}}",
-    "collapse": "Contraer {{name}}"
+    "collapse": "Contraer {{name}}",
+    "settings": "Ajustes de {{name}}"
   },
   "arcSidebar": {
     "desktopTitle": "Desktop",

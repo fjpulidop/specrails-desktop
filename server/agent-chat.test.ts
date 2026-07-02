@@ -331,6 +331,7 @@ describe('agent-chat-router', () => {
         sent.push({ id, text })
       },
       abort: () => true,
+      isBusy: () => false,
     }
     app = makeApp(db, manager)
   })
@@ -352,6 +353,7 @@ describe('agent-chat-router', () => {
 
     const send = await req(app, 'POST', `/api/agent/conversations/${id}/send`, { text: 'do it', tierLevel: 3 })
     expect(send.status).toBe(202)
+    expect(send.body.queued).toBe(false)
     expect(sent).toEqual([{ id, text: 'do it' }])
     // tier persisted before dispatch
     expect((await req(app, 'GET', `/api/agent/conversations/${id}`)).body.conversation.tier_level).toBe(3)
@@ -416,6 +418,26 @@ describe('agent-chat-router', () => {
     const c = await req(app, 'POST', '/api/agent/conversations', {})
     expect((await req(app, 'POST', `/api/agent/conversations/${c.body.conversation.id}/send`, { text: '  ' })).status).toBe(400)
     expect((await req(app, 'POST', '/api/agent/conversations/missing/send', { text: 'x' })).status).toBe(404)
+  })
+
+  it('reports queued=true when a turn is in flight and forwards the queueId', async () => {
+    const captured: unknown[] = []
+    const busyManager: Partial<AgentChatManager> = {
+      sendMessage: async (_id, _text, options) => {
+        captured.push(options)
+      },
+      abort: () => true,
+      isBusy: () => true,
+    }
+    const busyApp = makeApp(db, busyManager)
+    const c = await req(busyApp, 'POST', '/api/agent/conversations', {})
+    const send = await req(busyApp, 'POST', `/api/agent/conversations/${c.body.conversation.id}/send`, {
+      text: 'later please',
+      queueId: 'q-front-1',
+    })
+    expect(send.status).toBe(202)
+    expect(send.body.queued).toBe(true)
+    expect((captured[0] as { queueId?: string }).queueId).toBe('q-front-1')
   })
 
   it('404s the whole surface when SPECRAILS_AGENT_CHAT=false', async () => {
@@ -486,27 +508,116 @@ describe('AgentChatManager', () => {
     expect(events.some((e) => e.type === 'agent_error')).toBe(true)
   })
 
-  it('refuses a second concurrent turn as busy', async () => {
+  it('queues a second concurrent turn and drains it FIFO after the first settles', async () => {
     const c = createAgentConversation(db, { provider: 'claude' })
     let release: () => void = () => {}
-    vi.mocked(runAiCliInvocation).mockImplementation(
-      (hooks) =>
-        new Promise<InvocationResult>((resolve) => {
-          hooks.onSpawn?.({ kill: () => true } as never)
+    let calls = 0
+    vi.mocked(runAiCliInvocation).mockImplementation((hooks) => {
+      calls++
+      hooks.onSpawn?.({ kill: () => true } as never)
+      if (calls === 1) {
+        hooks.onEvent?.({ kind: 'text-delta', text: 'first reply' })
+        return new Promise<InvocationResult>((resolve) => {
           release = () =>
             resolve({ code: 0, timedOut: false, spawnFailed: false, events: [], lastResultEvent: null, sessionId: null, stderrTail: '', child: null } as InvocationResult)
-        }),
-    )
+        })
+      }
+      hooks.onEvent?.({ kind: 'text-delta', text: 'second reply' })
+      return Promise.resolve({ code: 0, timedOut: false, spawnFailed: false, events: [], lastResultEvent: null, sessionId: null, stderrTail: '', child: null } as InvocationResult)
+    })
     const first = manager.sendMessage(c.id, 'one')
-    await manager.sendMessage(c.id, 'two') // rejected as busy while first is mid-flight
-    expect(events.some((e) => e.type === 'agent_error')).toBe(true)
+    // Mid-flight send: never rejected, parked on the queue with its queueId.
+    await manager.sendMessage(c.id, 'two', { queueId: 'q-77' })
+    expect(events.some((e) => e.type === 'agent_error')).toBe(false)
+    const queuedEv = events.find((e) => e.type === 'agent_queued') as { queueId?: string; position?: number } | undefined
+    expect(queuedEv?.queueId).toBe('q-77')
+    expect(queuedEv?.position).toBe(1)
+
     release()
     await first
+    // Drained: dequeued event + BOTH turns persisted in FIFO order.
+    const dequeuedEv = events.find((e) => e.type === 'agent_dequeued') as { queueId?: string } | undefined
+    expect(dequeuedEv?.queueId).toBe('q-77')
+    expect(calls).toBe(2)
+    const msgs = listAgentMessages(db, c.id).map((m) => `${m.role}:${m.content}`)
+    expect(msgs).toEqual(['user:one', 'assistant:first reply', 'user:two', 'assistant:second reply'])
+  })
+
+  it('abort discards the queue (agent_queue_cleared) and the queued turn never runs', async () => {
+    const c = createAgentConversation(db, { provider: 'claude' })
+    let release: () => void = () => {}
+    let calls = 0
+    vi.mocked(runAiCliInvocation).mockImplementation((hooks) => {
+      calls++
+      hooks.onSpawn?.({ kill: () => true } as never)
+      return new Promise<InvocationResult>((resolve) => {
+        release = () =>
+          resolve({ code: 0, timedOut: false, spawnFailed: false, events: [], lastResultEvent: null, sessionId: null, stderrTail: '', child: null } as InvocationResult)
+      })
+    })
+    const first = manager.sendMessage(c.id, 'one')
+    await manager.sendMessage(c.id, 'two', { queueId: 'q-88' })
+    expect(manager.isBusy(c.id)).toBe(true)
+    manager.abort(c.id)
+    expect(events.some((e) => e.type === 'agent_queue_cleared')).toBe(true)
+    release()
+    await first
+    expect(calls).toBe(1) // the queued turn was discarded, never spawned
+    expect(events.some((e) => e.type === 'agent_dequeued')).toBe(false)
+    expect(listAgentMessages(db, c.id).some((m) => m.content === 'two')).toBe(false)
   })
 
   it('errors on unknown conversation', async () => {
     await manager.sendMessage('nope', 'hi')
     expect(events[0]?.type).toBe('agent_error')
+  })
+
+  it('abort never resurrects the stopped prompt via the stale-session auto-heal', async () => {
+    const c = createAgentConversation(db, { provider: 'claude' })
+    updateAgentConversation(db, c.id, { session_id: 'live-session' }) // → canResume
+    let release: () => void = () => {}
+    let calls = 0
+    vi.mocked(runAiCliInvocation).mockImplementation((hooks) => {
+      calls++
+      hooks.onSpawn?.({ kill: () => true } as never)
+      // Pre-first-delta window: the child is killed before emitting anything.
+      return new Promise<InvocationResult>((resolve) => {
+        release = () =>
+          resolve({ code: null, timedOut: false, spawnFailed: false, events: [], lastResultEvent: null, sessionId: null, stderrTail: '', child: null } as InvocationResult)
+      })
+    })
+    const turn = manager.sendMessage(c.id, 'stop me')
+    manager.abort(c.id) // user presses Stop before any text streamed
+    release()
+    await turn
+    expect(calls).toBe(1) // NO fresh respawn of the aborted prompt
+    expect(events.some((e) => e.type === 'agent_error')).toBe(false) // a stop is not an error
+    expect(events.some((e) => e.type === 'agent_done')).toBe(false) // nothing streamed → nothing persisted
+    expect(listAgentMessages(db, c.id).some((m) => m.role === 'assistant')).toBe(false)
+  })
+
+  it('settle never clobbers a mid-turn provider switch (config is PATCH-owned)', async () => {
+    const c = createAgentConversation(db, { provider: 'claude' })
+    let release: () => void = () => {}
+    vi.mocked(runAiCliInvocation).mockImplementation((hooks) => {
+      hooks.onSpawn?.({ kill: () => true } as never)
+      hooks.onEvent?.({ kind: 'text-delta', text: 'claude reply' })
+      hooks.onEvent?.({ kind: 'session-started', sessionId: 'claude-sess' })
+      return new Promise<InvocationResult>((resolve) => {
+        release = () =>
+          resolve({ code: 0, timedOut: false, spawnFailed: false, events: [], lastResultEvent: null, sessionId: null, stderrTail: '', child: null } as InvocationResult)
+      })
+    })
+    const turn = manager.sendMessage(c.id, 'hola')
+    // Mid-turn the user switches provider — PATCH semantics: session/model reset.
+    updateAgentConversation(db, c.id, { provider: 'codex', session_id: null, model: null })
+    release()
+    await turn
+    const row = getAgentConversation(db, c.id)
+    expect(row?.provider).toBe('codex') // NOT reverted to claude
+    expect(row?.session_id).toBeNull() // claude session never pollutes codex state
+    expect(row?.model).toBeNull()
+    expect(events.some((e) => e.type === 'agent_done')).toBe(true) // reply still lands
   })
 
   it('auto-heals a stale/foreign session: a resume with no text retries fresh', async () => {
