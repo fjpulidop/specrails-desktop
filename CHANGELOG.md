@@ -1,5 +1,12 @@
 # Changelog
 
+## [2.20.0](https://github.com/fjpulidop/specrails-desktop/compare/v2.19.1...v2.20.0) (2026-07-02)
+
+
+### Features
+
+* Mission Control suite — message queue, background missions, jobs pane, git bar ([#480](https://github.com/fjpulidop/specrails-desktop/issues/480)) ([fcbfc83](https://github.com/fjpulidop/specrails-desktop/commit/fcbfc839c8141893f1ef613e181f9bf70ce29b48))
+
 ## [2.19.1](https://github.com/fjpulidop/specrails-desktop/compare/v2.19.0...v2.19.1) (2026-07-02)
 
 
