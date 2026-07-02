@@ -1,5 +1,12 @@
 # Changelog
 
+## [2.19.1](https://github.com/fjpulidop/specrails-desktop/compare/v2.19.0...v2.19.1) (2026-07-02)
+
+
+### Bug Fixes
+
+* **ci:** build bundled macOS git from the github.com/git/git tag ([#478](https://github.com/fjpulidop/specrails-desktop/issues/478)) ([028cbae](https://github.com/fjpulidop/specrails-desktop/commit/028cbaeebe296710b5decd2a59e0a506eb005aae))
+
 ## [2.19.0](https://github.com/fjpulidop/specrails-desktop/compare/v2.18.2...v2.19.0) (2026-07-02)
 
 
