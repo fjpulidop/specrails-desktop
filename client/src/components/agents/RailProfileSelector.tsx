@@ -26,7 +26,9 @@ export function RailProfileSelector({ value, onChange }: Props) {
     fetch(`${getApiBase()}/profiles`)
       .then((r) => (r.ok ? (r.json() as Promise<{ profiles: ProfileListEntry[] }>) : { profiles: [] }))
       .then((data) => {
-        if (!cancelled) setProfiles(data.profiles)
+        // A malformed/empty payload must degrade to "no profiles", never crash
+        // the rail header render.
+        if (!cancelled) setProfiles(Array.isArray(data.profiles) ? data.profiles : [])
       })
       .catch(() => {
         if (!cancelled) setProfiles([])

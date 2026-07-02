@@ -111,6 +111,11 @@ describe('DashboardPage — server rail reconcile (adopt agent/MCP launches)', (
       if (typeof url === 'string' && url.endsWith('/rails')) {
         return Promise.resolve({ ok: true, json: () => Promise.resolve(payload) })
       }
+      // Adopted rails go 'running', which mounts RailProfileSelector — it needs
+      // a well-formed profiles payload or its render crashes (CI 'Errors: 5').
+      if (typeof url === 'string' && url.includes('/profiles')) {
+        return Promise.resolve({ ok: true, json: () => Promise.resolve({ profiles: [] }) })
+      }
       return Promise.resolve({ ok: true, json: () => Promise.resolve({}) })
     })
 
