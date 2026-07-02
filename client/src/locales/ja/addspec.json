@@ -168,7 +168,8 @@
     "tier": {
       "balanced": "バランス",
       "mostCapable": "最高性能",
-      "fastest": "最速"
+      "fastest": "最速",
+      "frontier": "フロンティア"
     }
   },
   "costMeter": {

@@ -35,7 +35,7 @@ Jede Phase ist ein spezialisierter Agent, den die Engine der Rail in deinem Proj
 | **Reviewer** | `sr-reviewer` | Prüft das Ergebnis. |
 | **Ship** | (variiert) | Letzter Feinschliff: Tests, Commit, PR-Entwurf. |
 
-Welcher Agent welche Phase übernimmt, entscheidet das **Agent-Profil** des Projekts. Das Basistrio (`sr-architect`, `sr-developer`, `sr-reviewer`) ist immer vorhanden; Routing-Regeln in einem Profil können weitere Agents hinzufügen oder austauschen, wer eine Phase ausführt. Die Phasen-Fortschrittsleiste erscheint nur, wenn der Befehl tatsächlich Phasen definiert — Ultracode-Jobs (die die Pipeline umgehen) zeigen keine an.
+Welcher Agent welche Phase übernimmt, entscheidet das **Agent-Profil** des Projekts. Das Basistrio (`sr-architect`, `sr-developer`, `sr-reviewer`) ist immer vorhanden; Routing-Regeln in einem Profil können weitere Agents hinzufügen oder austauschen, wer eine Phase ausführt. Die Phasen-Fortschrittsleiste erscheint nur, wenn der Befehl tatsächlich Phasen definiert — Freestyle-Jobs (die die Pipeline umgehen) zeigen keine an.
 
 ## Live-Metriken — ehrlich von Grund auf
 

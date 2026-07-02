@@ -98,7 +98,7 @@ The committed spec lands on your board with status `todo`.
 The right pane of the Dashboard is your **Rails** — execution lanes:
 
 1. Drag a spec card from the left pane onto a Rail.
-2. Pick a **Loop** in the rail header — start with the built-in **Implement** (the full pipeline). You can also pick **Batch**, **Ultracode**, or a custom loop you built in the **Loops** section. See [Running pipelines → Loops](running-pipelines.md#loops).
+2. Pick a **Loop** in the rail header — start with the built-in **Implement** (the full pipeline). You can also pick **Batch**, **Freestyle**, or a custom loop you built in the **Loops** section. See [Running pipelines → Loops](running-pipelines.md#loops).
 3. (Optional) pick an **agent profile** from the rail header. This picker only appears once the project has profiles (create them on the **Agents** page); otherwise the rail runs in legacy mode (single orchestrator, no per-agent overrides).
 4. Press **▶ Play** on the rail.
 

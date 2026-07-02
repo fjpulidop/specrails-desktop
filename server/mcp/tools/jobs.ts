@@ -23,10 +23,11 @@ export function jobsTools(): McpToolSpec[] {
         'cancel (destructive — cancels a running/queued job or deletes a terminal one), ' +
         'purge (destructive — bulk-delete persisted job rows in a date range), ' +
         'pause / resume (queue), reorder (queued-job order), priority (change a queued job\'s priority), ' +
-        'compare (two jobs side-by-side), export (up to 10k rows as JSON/CSV), ' +
+        'compare (two jobs side-by-side), export (up to 10k rows as JSON/CSV — inlines everything; prefer list/stats for token economy), ' +
         'diagnostic (binary ZIP — returns a note, not the bytes), run_state (project run state), ' +
+        'pipeline (read a pipeline\'s jobs + statuses — use after composing dependent spawns), ' +
         'activity (recent activity feed), stats, metrics, default_spec_model, ' +
-        'interactive_turn (ai-spawn — send one more prompt to a running interactive ultracode job), ' +
+        'interactive_turn (ai-spawn — send one more prompt to a running interactive Freestyle/ultracode job), ' +
         'finalize (finalize a running interactive job).',
       hintTier: 'read',
       tier: (a) => {
@@ -53,6 +54,7 @@ export function jobsTools(): McpToolSpec[] {
             'export',
             'diagnostic',
             'run_state',
+            'pipeline',
             'activity',
             'stats',
             'metrics',
@@ -81,7 +83,7 @@ export function jobsTools(): McpToolSpec[] {
           .optional()
           .describe('Priority for spawn / priority action'),
         dependsOnJobId: z.string().optional().describe('Make the spawned job depend on this job id'),
-        pipelineId: z.string().optional().describe('Group the spawned job into this pipeline'),
+        pipelineId: z.string().optional().describe('Pipeline id: group the spawned job into this pipeline (spawn) / pipeline to read (pipeline)'),
         profileName: z
           .string()
           .optional()
@@ -137,7 +139,7 @@ export function jobsTools(): McpToolSpec[] {
             })
             return {
               ...(r as Record<string, unknown>),
-              hint: 'Spawned an AI CLI job (incurs token cost). Use specrails_watch with the returned jobId to await completion.',
+              hint: 'Spawned an AI CLI job (incurs token cost). Use specrails_jobs(get, jobId) to poll status; specrails_watch settles for this jobId via its 5s job-status poll fallback (terminal events stream only for rail-launched or interactive jobs).',
             }
           }
 
@@ -187,7 +189,11 @@ export function jobsTools(): McpToolSpec[] {
             qs.set('format', (args.format as string | undefined) ?? 'json')
             if (args.from) qs.set('from', args.from as string)
             if (args.to) qs.set('to', args.to as string)
-            return apiCall(ctx, 'GET', `${base}/jobs/export?${qs.toString()}`)
+            const data = await apiCall(ctx, 'GET', `${base}/jobs/export?${qs.toString()}`)
+            return {
+              note: 'Inlines up to 10k rows — prefer list/stats for token economy.',
+              data,
+            }
           }
 
           case 'diagnostic': {
@@ -207,6 +213,12 @@ export function jobsTools(): McpToolSpec[] {
 
           case 'run_state':
             return apiCall(ctx, 'GET', `${base}/state`)
+
+          case 'pipeline': {
+            const id = args.pipelineId as string | undefined
+            if (!id) throw new Error('pipeline requires a "pipelineId".')
+            return apiCall(ctx, 'GET', `${base}/pipelines/${encodeURIComponent(id)}`)
+          }
 
           case 'activity': {
             const qs = new URLSearchParams()
@@ -237,7 +249,7 @@ export function jobsTools(): McpToolSpec[] {
             const r = await apiCall(ctx, 'POST', `${base}/jobs/${encodeURIComponent(id)}/messages`, { text })
             return {
               ...(r as Record<string, unknown>),
-              hint: 'Queued an additional interactive turn (incurs token cost). Use specrails_watch with the jobId to follow the job.',
+              hint: 'Queued an additional interactive turn (incurs token cost). specrails_watch settles when the whole job finalizes; a single turn\'s completion arrives as job.turn_done in the events array.',
             }
           }
 

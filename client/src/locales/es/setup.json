@@ -229,7 +229,7 @@
       "jobLabel": "Qué ejecuta cada job",
       "flowCaption": "Cada fase retransmite sus logs en directo mientras trabaja.",
       "modeLabel": "Elige un Loop para ejecutar",
-      "modeBody": "Cada rail ejecuta un <b>Loop</b>. Elige uno de serie — <b>Implement</b> (el pipeline estructurado completo), <b>Batch</b> (varias specs a la vez) o <b>Ultracode</b> (Claude trabaja de forma autónoma, sin pipeline fijo) — o uno que hayas creado tú.",
+      "modeBody": "Cada rail ejecuta un <b>Loop</b>. Elige uno de serie — <b>Implement</b> (el pipeline estructurado completo), <b>Batch</b> (varias specs a la vez) o <b>Freestyle</b> (Claude trabaja de forma autónoma, sin pipeline fijo) — o uno que hayas creado tú.",
       "profilesLabel": "Perfiles de agentes",
       "profilesBody": "Un catálogo declarativo por proyecto que decide qué agentes se ejecutan y qué modelo usa cada uno — se elige por rail y se congela por job para que el trabajo concurrente quede aislado.",
       "jobDetailLabel": "Detalle del job en directo",

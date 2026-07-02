@@ -14,7 +14,7 @@ const base = {
 describe('UltracodeLaunchDialog', () => {
   it('renders the warning content with rail context', () => {
     render(<UltracodeLaunchDialog {...base} onConfirm={vi.fn()} onCancel={vi.fn()} />)
-    expect(screen.getByText('Launch in Ultracode mode')).toBeInTheDocument()
+    expect(screen.getByText('Launch in Freestyle mode')).toBeInTheDocument()
     expect(screen.getByText(/Rail 1 · 2 specs · opus/)).toBeInTheDocument()
     expect(screen.getByText(/No OpenSpec pipeline/)).toBeInTheDocument()
     expect(screen.getByText(/Variable cost/)).toBeInTheDocument()

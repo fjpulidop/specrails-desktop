@@ -8,6 +8,7 @@ import type { ProviderId } from '../lib/provider-capabilities'
 const CLAUDE_MODEL_OPTIONS = [
   { value: 'opus', label: 'Opus' },
   { value: 'sonnet', label: 'Sonnet' },
+  { value: 'fable', label: 'Fable' },
   { value: 'haiku', label: 'Haiku' },
 ]
 

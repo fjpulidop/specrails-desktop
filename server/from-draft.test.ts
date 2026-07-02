@@ -145,6 +145,8 @@ describe('POST /tickets/from-draft', () => {
   })
 
   it('B62: a second commit for the same conversation does not insert a duplicate', async () => {
+    // conversationId must reference a real chat conversation (B5 guard).
+    createConversation(db, { id: 'conv-dup', model: 'sonnet', kind: 'explore' })
     const app = createApp(ctx)
     const r1 = await request(app)
       .post('/api/projects/proj-1/tickets/from-draft')
@@ -208,6 +210,46 @@ describe('POST /tickets/from-draft', () => {
       })
     expect(res.status).toBe(201)
     expect(res.body.ticket.short_summary).toBe('Users need a clear postit summary immediately after creation.')
+  })
+
+  it('400 when conversationId does not reference a real chat conversation (B5 guard)', async () => {
+    const app = createApp(ctx)
+    const res = await request(app)
+      .post('/api/projects/proj-1/tickets/from-draft')
+      .send({ title: 'Bad origin', conversationId: 'agent-conv-not-in-chat' })
+    expect(res.status).toBe(400)
+    expect(res.body.error).toBe(
+      "conversationId not found in this project's chat conversations — agent conversations are not valid origins; omit conversationId",
+    )
+    expect(ctx.broadcast).not.toHaveBeenCalled()
+  })
+
+  it('accepts optional assignee/prerequisites/metadata on the legacy insert (one-shot commit_draft)', async () => {
+    const app = createApp(ctx)
+    const res = await request(app)
+      .post('/api/projects/proj-1/tickets/from-draft')
+      .send({
+        title: 'One shot',
+        assignee: 'sr-developer',
+        prerequisites: [3, 'x', 7, null],
+        metadata: { area: 'server' },
+      })
+    expect(res.status).toBe(201)
+    expect(res.body.ticket.assignee).toBe('sr-developer')
+    // Non-number entries are dropped (same normalization as PATCH).
+    expect(res.body.ticket.prerequisites).toEqual([3, 7])
+    expect(res.body.ticket.metadata).toEqual({ area: 'server' })
+  })
+
+  it('defaults assignee/prerequisites/metadata when omitted', async () => {
+    const app = createApp(ctx)
+    const res = await request(app)
+      .post('/api/projects/proj-1/tickets/from-draft')
+      .send({ title: 'Defaults' })
+    expect(res.status).toBe(201)
+    expect(res.body.ticket.assignee).toBeNull()
+    expect(res.body.ticket.prerequisites).toEqual([])
+    expect(res.body.ticket.metadata).toEqual({})
   })
 
   it('accepts pendingSpecId without crashing when no attachments exist', async () => {
@@ -299,6 +341,7 @@ describe('POST /tickets/from-draft — flip-in-place', () => {
   })
 
   it('falls back to looking up the draft by conversationId', async () => {
+    createConversation(db, { id: 'conv-fallback', model: 'sonnet', kind: 'explore' })
     const draftId = seedDraft({ conversationId: 'conv-fallback' })
     const app = createApp(ctx)
     const res = await request(app)
@@ -307,6 +350,48 @@ describe('POST /tickets/from-draft — flip-in-place', () => {
     expect(res.status).toBe(201)
     expect(res.body.ticket.id).toBe(draftId)
     expect(res.body.ticket.status).toBe('todo')
+  })
+
+  it('applies assignee/prerequisites/metadata on the flip (merging metadata keys)', async () => {
+    const draftId = seedDraft({ conversationId: 'conv-fields' })
+    const filePath = resolveTicketStoragePath(tmpDir)
+    mutateStore(filePath, (s) => {
+      s.tickets[String(draftId)].metadata = { area: 'client' }
+    })
+    const app = createApp(ctx)
+    const res = await request(app)
+      .post('/api/projects/proj-1/tickets/from-draft')
+      .send({
+        title: 'Final',
+        priority: 'high',
+        draftTicketId: draftId,
+        assignee: 'sr-developer',
+        prerequisites: [1, 2],
+        metadata: { effort_level: 'low' },
+      })
+    expect(res.status).toBe(201)
+    expect(res.body.ticket.assignee).toBe('sr-developer')
+    expect(res.body.ticket.prerequisites).toEqual([1, 2])
+    // Metadata merges (PATCH semantics), preserving pre-existing keys.
+    expect(res.body.ticket.metadata).toEqual({ area: 'client', effort_level: 'low' })
+  })
+
+  it('leaves assignee/prerequisites/metadata untouched on flip when omitted', async () => {
+    const draftId = seedDraft({ conversationId: 'conv-untouched' })
+    const filePath = resolveTicketStoragePath(tmpDir)
+    mutateStore(filePath, (s) => {
+      s.tickets[String(draftId)].assignee = 'keep-me'
+      s.tickets[String(draftId)].prerequisites = [9]
+      s.tickets[String(draftId)].metadata = { area: 'server' }
+    })
+    const app = createApp(ctx)
+    const res = await request(app)
+      .post('/api/projects/proj-1/tickets/from-draft')
+      .send({ title: 'Final', priority: 'medium', draftTicketId: draftId })
+    expect(res.status).toBe(201)
+    expect(res.body.ticket.assignee).toBe('keep-me')
+    expect(res.body.ticket.prerequisites).toEqual([9])
+    expect(res.body.ticket.metadata).toEqual({ area: 'server' })
   })
 
   it('legacy path (no draftTicketId, no matching draft) still inserts a new ticket', async () => {

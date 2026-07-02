@@ -1,12 +1,166 @@
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useMemo, useRef } from 'react'
 import { useNavigate, useLocation } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
-import { PanelLeft, FolderOpen, Plus, BarChart2, BookOpen, Settings, X, Workflow } from 'lucide-react'
+import { PanelLeft, FolderOpen, Plus, BarChart2, BookOpen, Settings, X, Workflow, ChevronRight, ChevronDown, MessageSquare, Bot, LayoutGrid, Search, Home } from 'lucide-react'
 import { cn } from '../lib/utils'
 import { useDesktop } from '../hooks/useDesktop'
 import type { DesktopProject } from '../hooks/useDesktop'
 import { useSidebarPin } from '../context/SidebarPinContext'
-import { FEATURE_LOOPS_SECTION } from '../lib/feature-flags'
+import { useUiMode } from '../context/UiModeContext'
+import { useAgentChat } from '../context/AgentChatContext'
+import type { AgentConversation } from '../lib/agent-api'
+import { FEATURE_LOOPS_SECTION, FEATURE_AGENT_MODE } from '../lib/feature-flags'
+
+const TREE_EXPAND_KEY = 'specrails-desktop:agentTreeExpanded'
+
+function loadExpanded(): Set<string> {
+  try {
+    const raw = localStorage.getItem(TREE_EXPAND_KEY)
+    if (!raw) return new Set()
+    const arr = JSON.parse(raw) as unknown
+    return Array.isArray(arr) ? new Set(arr.filter((x): x is string => typeof x === 'string')) : new Set()
+  } catch {
+    return new Set()
+  }
+}
+
+function saveExpanded(s: Set<string>): void {
+  try { localStorage.setItem(TREE_EXPAND_KEY, JSON.stringify([...s])) } catch { /* ignore */ }
+}
+
+/** Dispatch the same synthetic Cmd+K the title-bar SearchPill uses so the
+ *  already-mounted CommandPalette opens (works on Windows/Linux via ctrlKey). */
+function openCommandPalette(): void {
+  window.dispatchEvent(new KeyboardEvent('keydown', { key: 'k', metaKey: true, ctrlKey: true, bubbles: true }))
+}
+
+/** Sentinel key for the Home (null-pinned) conversation group. */
+const HOME_KEY = '__home__'
+
+function ConversationRow({
+  conversation,
+  active,
+  expanded,
+  streaming = false,
+  onSelect,
+  onDelete,
+}: {
+  conversation: AgentConversation
+  active: boolean
+  expanded: boolean
+  /** A live agent turn (prompt sent / reply streaming) — sweeps a highlight
+   *  over the title; on stop the sweep fades out slowly. */
+  streaming?: boolean
+  onSelect: () => void
+  onDelete: () => void
+}) {
+  const { t } = useTranslation('agent')
+  const label = conversation.title?.trim() || t('untitled')
+  const [confirming, setConfirming] = useState(false)
+  const confirmTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+
+  // Keep the shimmer overlay mounted briefly after the turn ends so its
+  // opacity can ease to zero (the requested "slow stop") instead of snapping.
+  const [fading, setFading] = useState(false)
+  const prevStreamingRef = useRef(streaming)
+  useEffect(() => {
+    if (prevStreamingRef.current && !streaming) {
+      setFading(true)
+      const timer = setTimeout(() => setFading(false), 900)
+      prevStreamingRef.current = streaming
+      return () => clearTimeout(timer)
+    }
+    prevStreamingRef.current = streaming
+  }, [streaming])
+
+  useEffect(() => {
+    return () => {
+      if (confirmTimerRef.current) clearTimeout(confirmTimerRef.current)
+    }
+  }, [])
+
+  function handleDeleteClick(e: React.MouseEvent) {
+    e.stopPropagation()
+    if (confirming) {
+      if (confirmTimerRef.current) clearTimeout(confirmTimerRef.current)
+      setConfirming(false)
+      onDelete()
+    } else {
+      setConfirming(true)
+      confirmTimerRef.current = setTimeout(() => {
+        setConfirming(false)
+        confirmTimerRef.current = null
+      }, 3000)
+    }
+  }
+
+  function handleSelectKeyDown(e: React.KeyboardEvent) {
+    // Keys pressed on the inner delete button must reach IT, not select the row.
+    if (e.target !== e.currentTarget) return
+    if (e.key !== 'Enter' && e.key !== ' ') return
+    e.preventDefault()
+    onSelect()
+  }
+
+  return (
+    <div
+      role="button"
+      tabIndex={0}
+      onClick={onSelect}
+      onKeyDown={handleSelectKeyDown}
+      className={cn(
+        'group relative flex items-center gap-2 w-full h-7 rounded-md transition-colors',
+        expanded ? 'pl-7 pr-2' : 'px-0 justify-center',
+        active
+          ? 'bg-muted text-foreground'
+          : 'text-muted-foreground hover:text-foreground hover:bg-muted/50',
+      )}
+      title={!expanded ? label : undefined}
+      aria-current={active ? 'true' : undefined}
+    >
+      <MessageSquare
+        className={cn(
+          'w-3.5 h-3.5 flex-shrink-0',
+          active && 'text-accent-primary',
+          // Secondary live cue alongside the title shimmer.
+          streaming && 'text-accent-primary animate-pulse',
+        )}
+      />
+      {expanded && (
+        <>
+          <span className="relative text-[11px] truncate flex-1 text-left">
+            {label}
+            {(streaming || fading) && (
+              <span
+                aria-hidden
+                className={cn(
+                  'title-shimmer pointer-events-none absolute inset-0 truncate transition-opacity duration-700',
+                  streaming ? 'opacity-100' : 'opacity-0',
+                )}
+              >
+                {label}
+              </span>
+            )}
+          </span>
+          <button
+            type="button"
+            onClick={handleDeleteClick}
+            className={cn(
+              'flex-shrink-0 flex items-center justify-center rounded-sm transition-all',
+              'opacity-0 group-hover:opacity-50 hover:!opacity-100 hover:bg-muted',
+              confirming
+                ? 'opacity-100 px-1 h-4 text-[10px] text-destructive bg-destructive/10 hover:bg-destructive/20'
+                : 'w-3.5 h-3.5'
+            )}
+            aria-label={confirming ? t('confirmDeleteConversation', { title: label }) : t('deleteConversation', { title: label })}
+          >
+            {confirming ? t('confirmShort') : <X className="w-2.5 h-2.5" />}
+          </button>
+        </>
+      )}
+    </div>
+  )
+}
 
 interface ArcSidebarProps {
   onAddProject: () => void
@@ -22,12 +176,30 @@ function ProjectItem({
   expanded,
   onSelect,
   onRemove,
+  agentMode = false,
+  hasTree = false,
+  treeOpen = false,
+  onToggleTree,
+  conversations = [],
+  activeConversationId = null,
+  streamingConversationId = null,
+  onSelectConversation,
+  onDeleteConversation,
 }: {
   project: DesktopProject
   isActive: boolean
   expanded: boolean
   onSelect: () => void
   onRemove: () => void
+  agentMode?: boolean
+  hasTree?: boolean
+  treeOpen?: boolean
+  onToggleTree?: () => void
+  conversations?: AgentConversation[]
+  activeConversationId?: string | null
+  streamingConversationId?: string | null
+  onSelectConversation?: (id: string) => void
+  onDeleteConversation?: (id: string) => void
 }) {
   const { t } = useTranslation('nav')
   const [confirming, setConfirming] = useState(false)
@@ -55,51 +227,84 @@ function ProjectItem({
   }
 
   function handleSelectKeyDown(e: React.KeyboardEvent) {
+    // Keys pressed on inner buttons (chevron / remove) must reach THEM, not select the row.
+    if (e.target !== e.currentTarget) return
     if (e.key !== 'Enter' && e.key !== ' ') return
     e.preventDefault()
     onSelect()
   }
 
+  const showChevron = agentMode && hasTree && expanded
+
   return (
-    <div
-      role="button"
-      tabIndex={0}
-      onClick={onSelect}
-      onKeyDown={handleSelectKeyDown}
-      className={cn(
-        'group relative flex items-center gap-2 w-full h-8 rounded-md transition-colors',
-        expanded ? 'px-2' : 'px-0 justify-center',
-        isActive
-          ? 'bg-muted text-foreground'
-          : 'text-muted-foreground hover:text-foreground hover:bg-muted/50'
-      )}
-      title={!expanded ? project.name : undefined}
-      aria-current={isActive ? 'page' : undefined}
-    >
-      <FolderOpen
+    <div>
+      <div
+        role="button"
+        tabIndex={0}
+        onClick={onSelect}
+        onKeyDown={handleSelectKeyDown}
         className={cn(
-          'flex-shrink-0 w-4 h-4',
-          isActive && 'text-accent-primary'
+          'group relative flex items-center gap-2 w-full h-8 rounded-md transition-colors',
+          expanded ? 'px-2' : 'px-0 justify-center',
+          isActive
+            ? 'bg-muted text-foreground'
+            : 'text-muted-foreground hover:text-foreground hover:bg-muted/50'
         )}
-      />
-      {expanded && (
-        <>
-          <span className="text-xs truncate flex-1 text-left">{project.name}</span>
+        title={!expanded ? project.name : undefined}
+        aria-current={isActive ? 'page' : undefined}
+      >
+        {showChevron ? (
           <button
             type="button"
-            onClick={handleRemoveClick}
-            className={cn(
-              'flex-shrink-0 flex items-center justify-center rounded-sm transition-all',
-              'opacity-0 group-hover:opacity-50 hover:!opacity-100 hover:bg-muted',
-              confirming
-                ? 'opacity-100 px-1 h-4 text-[10px] text-destructive bg-destructive/10 hover:bg-destructive/20'
-                : 'w-3.5 h-3.5'
-            )}
-            aria-label={confirming ? t('projects.confirmRemove', { name: project.name }) : t('projects.remove', { name: project.name })}
+            onClick={(e) => { e.stopPropagation(); onToggleTree?.() }}
+            className="flex-shrink-0 flex items-center justify-center w-4 h-4 rounded-sm hover:bg-muted"
+            aria-label={treeOpen ? t('projects.collapse', { name: project.name }) : t('projects.expand', { name: project.name })}
+            aria-expanded={treeOpen}
           >
-            {confirming ? t('projects.confirmShort') : <X className="w-2.5 h-2.5" />}
+            {treeOpen ? <ChevronDown className="w-3.5 h-3.5" /> : <ChevronRight className="w-3.5 h-3.5" />}
           </button>
-        </>
+        ) : (
+          <FolderOpen
+            className={cn(
+              'flex-shrink-0 w-4 h-4',
+              isActive && 'text-accent-primary'
+            )}
+          />
+        )}
+        {expanded && (
+          <>
+            <span className="text-xs truncate flex-1 text-left">{project.name}</span>
+            <button
+              type="button"
+              onClick={handleRemoveClick}
+              className={cn(
+                'flex-shrink-0 flex items-center justify-center rounded-sm transition-all',
+                'opacity-0 group-hover:opacity-50 hover:!opacity-100 hover:bg-muted',
+                confirming
+                  ? 'opacity-100 px-1 h-4 text-[10px] text-destructive bg-destructive/10 hover:bg-destructive/20'
+                  : 'w-3.5 h-3.5'
+              )}
+              aria-label={confirming ? t('projects.confirmRemove', { name: project.name }) : t('projects.remove', { name: project.name })}
+            >
+              {confirming ? t('projects.confirmShort') : <X className="w-2.5 h-2.5" />}
+            </button>
+          </>
+        )}
+      </div>
+      {agentMode && treeOpen && expanded && conversations.length > 0 && (
+        <div className="mt-0.5 space-y-0.5">
+          {conversations.map((c) => (
+            <ConversationRow
+              key={c.id}
+              conversation={c}
+              active={c.id === activeConversationId}
+              streaming={c.id === streamingConversationId}
+              expanded={expanded}
+              onSelect={() => onSelectConversation?.(c.id)}
+              onDelete={() => onDeleteConversation?.(c.id)}
+            />
+          ))}
+        </div>
       )}
     </div>
   )
@@ -119,11 +324,70 @@ export function ArcSidebar({
   onOpenSettings,
 }: ArcSidebarProps) {
   const { t } = useTranslation('nav')
+  const { t: tAgent } = useTranslation('agent')
   const { projects, activeProjectId, setActiveProjectId, removeProject } = useDesktop()
   const navigate = useNavigate()
   const location = useLocation()
   const onLoopsRoute = location.pathname.startsWith('/loops')
+  const onGlobalRoute = onLoopsRoute || location.pathname.startsWith('/docs')
   const { leftMode, cycleLeftMode } = useSidebarPin()
+  const { uiMode, toggleUiMode } = useUiMode()
+  const agentChat = useAgentChat()
+  const agentMode = uiMode === 'agent'
+
+  // Conversations grouped by pinned project (null → Home). A pin to a
+  // since-removed project folds into Home — nothing server-side nulls
+  // pinned_project_id on project removal, and an unrendered bucket would make
+  // the conversation permanently unreachable.
+  const grouped = useMemo(() => {
+    const map = new Map<string, AgentConversation[]>()
+    const liveProjectIds = new Set(projects.map((p) => p.id))
+    for (const c of agentChat.conversations) {
+      const key = c.pinned_project_id && liveProjectIds.has(c.pinned_project_id) ? c.pinned_project_id : HOME_KEY
+      const arr = map.get(key)
+      if (arr) arr.push(c)
+      else map.set(key, [c])
+    }
+    return map
+  }, [agentChat.conversations, projects])
+  const homeConversations = grouped.get(HOME_KEY) ?? []
+
+  const [expandedTree, setExpandedTree] = useState<Set<string>>(loadExpanded)
+  // Default-expand the active project the first time we enter Agent Mode.
+  useEffect(() => {
+    if (!agentMode || !activeProjectId) return
+    setExpandedTree((prev) => {
+      if (prev.has(activeProjectId)) return prev
+      const next = new Set(prev)
+      next.add(activeProjectId)
+      saveExpanded(next)
+      return next
+    })
+    // Only on entering agent mode / active project change.
+  }, [agentMode, activeProjectId])
+
+  const toggleTree = (projectId: string) => {
+    setExpandedTree((prev) => {
+      const next = new Set(prev)
+      if (next.has(projectId)) next.delete(projectId)
+      else next.add(projectId)
+      saveExpanded(next)
+      return next
+    })
+  }
+
+  const handleSelectConversation = (id: string) => {
+    void agentChat.selectConversation(id)
+    // A global route (/loops, /docs) occupies the center in Agent Mode — leave
+    // it so the selected thread is actually visible on the agent surface.
+    if (onGlobalRoute) navigate('/')
+  }
+
+  const handleDeleteConversation = (id: string) => {
+    agentChat.deleteConversation(id).catch(() => {
+      /* network failure — the list refresh on next open reconciles */
+    })
+  }
 
   // Selecting a project from the sidebar. When the user is on a GLOBAL route
   // (/loops, /docs) and taps a project, switching activeProjectId alone doesn't
@@ -133,6 +397,13 @@ export function ArcSidebar({
   // different project still goes through setActiveProjectId (the route-memory
   // effect restores its last surface).
   function handleSelectProject(projectId: string) {
+    // Agent Mode: selecting a project sets it active AND toggles its tree —
+    // never navigates routes (the center is the agent surface, not a route).
+    if (agentMode) {
+      setActiveProjectId(projectId)
+      toggleTree(projectId)
+      return
+    }
     if (projectId === activeProjectId) {
       // Already active: only meaningful when viewing a global page — return to
       // the project's dashboard (no state change would fire the route effect).
@@ -202,6 +473,68 @@ export function ArcSidebar({
         </button>
       </div>
 
+      {/* Agent Mode cluster — Switch (both modes), New agent + Search (agent) */}
+      {FEATURE_AGENT_MODE && (
+        <div className="py-2 px-1.5 space-y-0.5 border-b border-border">
+          {agentMode && (
+            <button
+              type="button"
+              onClick={() => {
+                // Default the draft pin to the active project (null ⇒ Home).
+                agentChat.startNewConversation(activeProjectId)
+                if (onGlobalRoute) navigate('/')
+              }}
+              className={cn(
+                'flex items-center gap-2 w-full h-8 rounded-md transition-colors',
+                'bg-accent-primary/15 text-accent-primary hover:bg-accent-primary/25',
+                expanded ? 'px-2' : 'px-0 justify-center',
+              )}
+              aria-label={tAgent('newAgent')}
+              title={!expanded ? tAgent('newAgent') : undefined}
+            >
+              <Plus className="w-4 h-4 flex-shrink-0" />
+              {expanded && <span className="text-xs whitespace-nowrap">{tAgent('newAgent')}</span>}
+            </button>
+          )}
+          <button
+            type="button"
+            onClick={toggleUiMode}
+            className={cn(
+              'flex items-center gap-2 w-full h-8 rounded-md transition-colors',
+              'text-muted-foreground hover:text-foreground hover:bg-muted/50',
+              expanded ? 'px-2' : 'px-0 justify-center',
+            )}
+            aria-label={agentMode ? tAgent('switchToKanban') : tAgent('switchToAgent')}
+            title={!expanded ? (agentMode ? tAgent('switchToKanban') : tAgent('switchToAgent')) : undefined}
+          >
+            {agentMode
+              ? <LayoutGrid className="w-4 h-4 flex-shrink-0" />
+              : <Bot className="w-4 h-4 flex-shrink-0 text-accent-primary" />}
+            {expanded && (
+              <span className="text-xs whitespace-nowrap">
+                {agentMode ? tAgent('switchToKanban') : tAgent('switchToAgent')}
+              </span>
+            )}
+          </button>
+          {agentMode && (
+            <button
+              type="button"
+              onClick={openCommandPalette}
+              className={cn(
+                'flex items-center gap-2 w-full h-8 rounded-md transition-colors',
+                'text-muted-foreground hover:text-foreground hover:bg-muted/50',
+                expanded ? 'px-2' : 'px-0 justify-center',
+              )}
+              aria-label={tAgent('search')}
+              title={!expanded ? tAgent('search') : undefined}
+            >
+              <Search className="w-4 h-4 flex-shrink-0" />
+              {expanded && <span className="text-xs whitespace-nowrap">{tAgent('search')}</span>}
+            </button>
+          )}
+        </div>
+      )}
+
       {/* Loops — global section, above the project list with a separator below */}
       {FEATURE_LOOPS_SECTION && (
         <>
@@ -230,16 +563,65 @@ export function ArcSidebar({
 
       {/* Projects list */}
       <div className="flex-1 overflow-y-auto py-2 px-1.5 space-y-0.5">
-        {projects.map((project) => (
-          <ProjectItem
-            key={project.id}
-            project={project}
-            isActive={project.id === activeProjectId && !onLoopsRoute}
-            expanded={expanded}
-            onSelect={() => handleSelectProject(project.id)}
-            onRemove={() => handleRemove(project)}
-          />
-        ))}
+        {/* Home group (agent mode) — conversations with no pinned project */}
+        {agentMode && homeConversations.length > 0 && (
+          <div>
+            <button
+              type="button"
+              onClick={() => toggleTree(HOME_KEY)}
+              className={cn(
+                'flex items-center gap-2 w-full h-8 rounded-md transition-colors',
+                'text-muted-foreground hover:text-foreground hover:bg-muted/50',
+                expanded ? 'px-2' : 'px-0 justify-center',
+              )}
+              aria-label={tAgent('home')}
+              aria-expanded={expandedTree.has(HOME_KEY)}
+              title={!expanded ? tAgent('home') : undefined}
+            >
+              {expanded
+                ? (expandedTree.has(HOME_KEY) ? <ChevronDown className="w-3.5 h-3.5 flex-shrink-0" /> : <ChevronRight className="w-3.5 h-3.5 flex-shrink-0" />)
+                : <Home className="w-4 h-4 flex-shrink-0" />}
+              {expanded && <span className="text-xs truncate flex-1 text-left">{tAgent('home')}</span>}
+            </button>
+            {expandedTree.has(HOME_KEY) && expanded && (
+              <div className="mt-0.5 space-y-0.5">
+                {homeConversations.map((c) => (
+                  <ConversationRow
+                    key={c.id}
+                    conversation={c}
+                    active={c.id === agentChat.active?.id}
+                    streaming={agentChat.isStreaming && c.id === agentChat.active?.id}
+                    expanded={expanded}
+                    onSelect={() => handleSelectConversation(c.id)}
+                    onDelete={() => handleDeleteConversation(c.id)}
+                  />
+                ))}
+              </div>
+            )}
+          </div>
+        )}
+        {projects.map((project) => {
+          const convs = grouped.get(project.id) ?? []
+          return (
+            <ProjectItem
+              key={project.id}
+              project={project}
+              isActive={project.id === activeProjectId && !onLoopsRoute}
+              expanded={expanded}
+              onSelect={() => handleSelectProject(project.id)}
+              onRemove={() => handleRemove(project)}
+              agentMode={agentMode}
+              hasTree={convs.length > 0}
+              treeOpen={expandedTree.has(project.id)}
+              onToggleTree={() => toggleTree(project.id)}
+              conversations={convs}
+              activeConversationId={agentChat.active?.id ?? null}
+              streamingConversationId={agentChat.isStreaming ? agentChat.active?.id ?? null : null}
+              onSelectConversation={handleSelectConversation}
+              onDeleteConversation={handleDeleteConversation}
+            />
+          )
+        })}
 
         {/* Add project */}
         <button

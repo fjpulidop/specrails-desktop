@@ -229,7 +229,7 @@
       "jobLabel": "各ジョブの実行内容",
       "flowCaption": "各フェーズは作業中のログをライブでストリーミングします。",
       "modeLabel": "実行する Loop を選択",
-      "modeBody": "各 rail は <b>Loop</b> を実行します。組み込みの Loop を選ぶ — <b>Implement</b>（構造化された完全なパイプライン）、<b>Batch</b>（複数の spec を一度に）、<b>Ultracode</b>（Claude が固定パイプラインなしで自律的に作業）— か、自分で作った Loop を選びます。",
+      "modeBody": "各 rail は <b>Loop</b> を実行します。組み込みの Loop を選ぶ — <b>Implement</b>（構造化された完全なパイプライン）、<b>Batch</b>（複数の spec を一度に）、<b>Freestyle</b>（Claude が固定パイプラインなしで自律的に作業）— か、自分で作った Loop を選びます。",
       "profilesLabel": "エージェントプロファイル",
       "profilesBody": "どのエージェントを実行し、それぞれどのモデルを使うかを決めるプロジェクトごとの宣言的カタログ — レールごとに選択され、ジョブごとにスナップショットされるため並行作業が分離されます。",
       "jobDetailLabel": "ライブジョブ詳細",

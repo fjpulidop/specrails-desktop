@@ -24,7 +24,7 @@ All three run the standard **Implement** and **Batch** pipelines. Here's a pract
 
 | Engine | Reach for it when… | Notes |
 |--------|--------------------|-------|
-| **Claude** | You want the full feature set: agent profiles, Ultracode, native cost reporting, the richest tool support. The default for most work. | The only engine that supports **agent profiles**, **Ultracode**, and a few Claude-only spec features (Contract Layer, SMASH). |
+| **Claude** | You want the full feature set: agent profiles, Freestyle, native cost reporting, the richest tool support. The default for most work. | The only engine that supports **agent profiles**, **Freestyle**, and a few Claude-only spec features (Contract Layer, SMASH). |
 | **Codex** | You prefer the OpenAI Codex CLI or want to compare implementations across providers. | `codex` ≥ 0.128.0. No native cost reporting — the app fills in cost from its rate card. Profiles don't apply. |
 | **Gemini** | You want Google's Gemini CLI, native telemetry, or a cheaper run for routine specs. | `gemini` ≥ 0.11.0 (set `GEMINI_API_KEY`). Native OTLP telemetry. Profiles don't apply. |
 
@@ -33,7 +33,7 @@ All three run the standard **Implement** and **Batch** pipelines. Here's a pract
 A few things only work on Claude rails — pick Claude if you need them:
 
 - **Agent profiles** — per-agent model routing. On Codex or Gemini rails the run always uses legacy mode and any selected profile is **ignored**. The profile picker is hidden for non-Claude engines.
-- **Ultracode (`Ultra` mode)** — the autonomous, pipeline-bypassing mode. The `Ultra` segment and its Haiku/Sonnet/Opus model picker only appear when the rail's engine is Claude.
+- **Freestyle** — the autonomous, pipeline-bypassing mode. The `Freestyle` segment and its Haiku/Sonnet/Opus model picker only appear when the rail's engine is Claude.
 - **Contract Layer & SMASH** — Claude-only spec-refinement features (these are Add-Spec options, not rail options, but the same constraint applies).
 
 If a project mixes engines, the right sidebar only shows sections **every** installed provider supports — so the **Agents** section disappears entirely on a project that includes any non-Claude provider, because profiles are Claude-specific.

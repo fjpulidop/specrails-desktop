@@ -15,6 +15,8 @@ export interface AgentConversation {
   session_id: string | null
   pinned_project_id: string | null
   tier_level: AgentTierLevel
+  /** Reasoning effort for spawns; null = app default ("medium"). */
+  reasoning_effort: string | null
   created_at: string
   updated_at: string
 }
@@ -24,7 +26,17 @@ export interface AgentMessage {
   conversation_id: string
   role: 'user' | 'assistant'
   content: string
+  attachment_ids?: string[]
   created_at: string
+}
+
+export interface AgentAttachment {
+  id: string
+  filename: string
+  storedName: string
+  mimeType: string
+  size: number
+  addedAt: string
 }
 
 const base = `${API_ORIGIN}/api/agent`
@@ -42,8 +54,23 @@ export interface AgentModel {
   default?: boolean
 }
 
-export async function getAgentModels(provider: string): Promise<AgentModel[]> {
-  return (await json<{ models: AgentModel[] }>(await fetch(`${base}/models?provider=${encodeURIComponent(provider)}`))).models
+export interface AgentModelsResponse {
+  models: AgentModel[]
+  /** Composer gates the image affordance on this capability (design D22). */
+  supportsImageInput: boolean
+  /** Provider's reasoning-effort tiers, ascending. Empty ⇒ no selector (gemini). */
+  efforts: string[]
+}
+
+export async function getAgentModels(provider: string): Promise<AgentModelsResponse> {
+  const data = await json<{ models: AgentModel[]; supportsImageInput?: boolean; efforts?: string[] }>(
+    await fetch(`${base}/models?provider=${encodeURIComponent(provider)}`),
+  )
+  return {
+    models: data.models,
+    supportsImageInput: data.supportsImageInput !== false,
+    efforts: Array.isArray(data.efforts) ? data.efforts : [],
+  }
 }
 
 export async function listAgentConversations(): Promise<AgentConversation[]> {
@@ -55,6 +82,7 @@ export async function createAgentConversation(input: {
   model?: string | null
   pinnedProjectId?: string | null
   tierLevel?: AgentTierLevel
+  reasoningEffort?: string | null
 }): Promise<AgentConversation> {
   const res = await fetch(`${base}/conversations`, {
     method: 'POST',
@@ -72,7 +100,7 @@ export async function getAgentConversation(
 
 export async function patchAgentConversation(
   id: string,
-  patch: Partial<{ title: string | null; provider: string; model: string | null; pinnedProjectId: string | null; tierLevel: AgentTierLevel }>,
+  patch: Partial<{ title: string | null; provider: string; model: string | null; pinnedProjectId: string | null; tierLevel: AgentTierLevel; reasoningEffort: string | null }>,
 ): Promise<AgentConversation> {
   const res = await fetch(`${base}/conversations/${id}`, {
     method: 'PATCH',
@@ -89,13 +117,26 @@ export async function deleteAgentConversation(id: string): Promise<void> {
 export async function sendAgentMessage(
   id: string,
   text: string,
-  opts: { tierLevel?: AgentTierLevel; model?: string } = {},
+  opts: { tierLevel?: AgentTierLevel; model?: string; attachments?: { ids: string[] } } = {},
 ): Promise<void> {
-  await fetch(`${base}/conversations/${id}/send`, {
+  // Through json() so a non-OK response (400/404) throws — the caller resets its
+  // streaming state instead of waiting for WS events that will never arrive.
+  await json(await fetch(`${base}/conversations/${id}/send`, {
     method: 'POST',
     headers: { 'content-type': 'application/json' },
     body: JSON.stringify({ text, ...opts }),
-  })
+  }))
+}
+
+export async function uploadAgentAttachment(conversationId: string, file: File): Promise<AgentAttachment> {
+  const form = new FormData()
+  form.append('file', file)
+  const res = await fetch(`${base}/conversations/${conversationId}/attachments`, { method: 'POST', body: form })
+  return (await json<{ attachment: AgentAttachment }>(res)).attachment
+}
+
+export async function deleteAgentAttachment(conversationId: string, attachmentId: string): Promise<void> {
+  await fetch(`${base}/conversations/${conversationId}/attachments/${attachmentId}`, { method: 'DELETE' })
 }
 
 export async function abortAgentTurn(id: string): Promise<void> {

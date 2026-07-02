@@ -13,15 +13,17 @@
  * (which are random) and the rail resolver can recognise a factory loop.
  */
 import type { LoopGraph } from './loop-graph'
-import { fixLoopGraph } from './loop-templates'
+import { fixLoopGraph, opsxLifecycleGraph } from './loop-templates'
 
 export interface FactoryLoop {
   /** Stable namespaced id, e.g. `factory:implement`. */
   id: string
   name: string
   description: string
-  /** Legacy rail mode this loop maps to (for back-compat routing). */
-  mode: 'implement' | 'batch-implement' | 'ultracode'
+  /** Rail mode this loop maps to: a legacy engine mode for back-compat routing,
+   *  or `'loop'` for graph-native factory loops that ONLY run through the
+   *  LoopRunManager (no legacy fallback — launch 403s when Loops are disabled). */
+  mode: 'implement' | 'batch-implement' | 'ultracode' | 'loop'
   /** claude-only (ultracode). */
   claudeOnly?: boolean
   /** Faithful graph for preview + fork seed. */
@@ -55,11 +57,21 @@ export const FACTORY_LOOPS: FactoryLoop[] = [
   },
   {
     id: 'factory:ultracode',
-    name: 'Ultracode',
-    description: 'Autonomous per-ticket implementation (no pipeline), then verify + refine until green. Claude only.',
+    // Renamed from "Ultracode": the mode hands the spec straight to the model
+    // with full freedom — no pipeline, it works like a regular coding agent.
+    // The id/mode strings stay 'ultracode' (wire + rail back-compat).
+    name: 'Freestyle',
+    description: 'Hands the spec straight to the model with full freedom — no pipeline, it works like a regular coding agent, then verify + refine until green. Claude only.',
     mode: 'ultracode',
     claudeOnly: true,
     graph: fixLoopGraph(['{{cmd:ultracode}}'], GREEN_GOAL, FACTORY_MAX_ITERATIONS, FACTORY_LOOP_TIMEOUT_MIN, FACTORY_AI_STEP_TIMEOUT_MIN),
+  },
+  {
+    id: 'factory:openspec',
+    name: 'OpenSpec Lifecycle',
+    description: 'Ticket-to-archive OpenSpec lifecycle: generate artifacts (opsx:ff) → implement (opsx:apply) → verify (opsx:verify); on FAIL loop back and amend the same change, on PASS archive it unattended.',
+    mode: 'loop',
+    graph: opsxLifecycleGraph(),
   },
 ]
 

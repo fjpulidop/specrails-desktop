@@ -17,7 +17,7 @@ the same across them.
 **What works with Gemini:** Explore Spec, Quick spec, AI Edit, the terminal
 "Open AI CLI" launcher, cost analytics, **and the full rails pipeline**
 (`/specrails:implement`, `batch-implement`). The one exception is
-**Ultracode rails**, which remain Claude-only.
+**Freestyle rails**, which remain Claude-only.
 
 ## Prerequisites
 
@@ -109,7 +109,7 @@ single-provider project — no engine pickers, no provider persisted on spawns.
 | **Native OTEL** | ✅ | 🔧 synthesized by the app | ✅ native (no bridge) |
 | **`--system-prompt` flag** | ✅ | ❌ folded into prompt | ❌ folded into prompt |
 | **Rails pipeline** | ✅ | ✅ | ✅ |
-| **Ultracode rails** | ✅ | ❌ Claude-only | ❌ Claude-only |
+| **Freestyle rails** | ✅ | ❌ Claude-only | ❌ Claude-only |
 | **Agent profiles on rails** | ✅ | ❌ forced legacy | ❌ forced legacy |
 | **SMASH / Contract Refine** | ✅ | ❌ Claude-only | ❌ Claude-only |
 | **Plugins (Serena)** | ✅ | ❌ | ✅ |

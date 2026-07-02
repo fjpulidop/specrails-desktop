@@ -1,6 +1,6 @@
 # Der Loop Builder
 
-Eine **rail führt einen Loop aus**. Die eingebauten Loops (`Implement`, `Batch`, `Ultracode`) decken die Alltagsfälle ab, aber der **Loop Builder** lässt dich deine eigenen entwerfen — ein visueller Editor im n8n-Stil für Automatisierung, die sich wiederholt, bis ein Ziel erreicht ist. Diese Seite erklärt, was ein Loop ist, wie du einen baust und wie du ihn auf einer rail ausführst.
+Eine **rail führt einen Loop aus**. Die eingebauten Loops (`Implement`, `Batch`, `Freestyle`) decken die Alltagsfälle ab, aber der **Loop Builder** lässt dich deine eigenen entwerfen — ein visueller Editor im n8n-Stil für Automatisierung, die sich wiederholt, bis ein Ziel erreicht ist. Diese Seite erklärt, was ein Loop ist, wie du einen baust und wie du ihn auf einer rail ausführst.
 
 ## Loops und rails — die Beziehung
 
@@ -11,7 +11,7 @@ Ein **Loop** ist das *Rezept* für die Arbeit; eine **rail** ist die *Spur*, die
    ───────────────────────────             ─────────────
    Implement   (eingebaut)                  Rail 1
    Batch       (eingebaut)     wählen auf ►    Loop: Verify-until-green
-   Ultracode   (eingebaut)                     ▶ Play
+   Freestyle   (eingebaut)                     ▶ Play
    Verify-until-green (deiner)
 ```
 

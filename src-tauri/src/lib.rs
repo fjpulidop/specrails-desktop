@@ -355,8 +355,17 @@ pub fn run() {
             let open_i = MenuItem::with_id(app, "open", "Open", true, None::<&str>)?;
             let exit_i = MenuItem::with_id(app, "exit", "Exit", true, None::<&str>)?;
             let tray_menu = Menu::with_items(app, &[&open_i, &exit_i])?;
+            // macOS: a monochrome TEMPLATE icon (black + alpha) so the menu bar
+            // tints it white/dark like native items. Other platforms keep the
+            // colored app icon (a white glyph would vanish on light taskbars).
+            #[cfg(target_os = "macos")]
+            let tray_icon = tauri::image::Image::from_bytes(include_bytes!("../icons/tray-icon.png"))
+                .expect("bundled tray-icon.png must decode");
+            #[cfg(not(target_os = "macos"))]
+            let tray_icon = app.default_window_icon().unwrap().clone();
             let tray = TrayIconBuilder::with_id(TRAY_ID)
-                .icon(app.default_window_icon().unwrap().clone())
+                .icon(tray_icon)
+                .icon_as_template(cfg!(target_os = "macos"))
                 .menu(&tray_menu)
                 .tooltip("Specrails")
                 .on_menu_event(|app, event| match tray_action_for_id(event.id.as_ref()) {

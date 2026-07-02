@@ -65,9 +65,9 @@ The daily counter is the sum of completed-job cost since midnight, so it resets 
 
 A custom instruction appended to every **Implement** and **Batch-implement** rail job, after the ticket context and before execution. Use it for stable project guidance that should accompany every rail run (e.g. "keep migrations backward compatible, add tests for every change"). Leave it blank for none.
 
-### Ultracode pre-prompt
+### Freestyle pre-prompt
 
-The instruction sent to Claude for **Ultracode** rails (Claude-only). Ultracode skips the OpenSpec pipeline — it hands Claude this pre-prompt plus the spec text and lets it implement autonomously. The spec text is appended automatically after the pre-prompt. Leave it blank to use the built-in default.
+The instruction sent to Claude for **Freestyle** rails (Claude-only). Freestyle skips the OpenSpec pipeline — it hands Claude this pre-prompt plus the spec text and lets it implement autonomously. The spec text is appended automatically after the pre-prompt. Leave it blank to use the built-in default.
 
 ### Telemetry
 
@@ -155,7 +155,7 @@ Most settings live in the UI. A few app-level switches are env-only because they
 | `SPECRAILS_JIRA_SECTION=false` | Hide the Jira integration and 404 its routes |
 | `SPECRAILS_TERMINAL_PANEL=false` | Disable the bottom terminal panel everywhere |
 | `SPECRAILS_CODE_EXPLORER=false` | Disable the Code section server-side |
-| `SPECRAILS_INTERACTIVE_JOBS=false` | Reject the interactive-ultracode toggle and the per-job message/finalize routes |
+| `SPECRAILS_INTERACTIVE_JOBS=false` | Reject the interactive Freestyle toggle and the per-job message/finalize routes |
 | `SPECRAILS_BROWSER_CAPTURE=false` | Disable Add-Spec-from-browser capture |
 | `SPECRAILS_CODEX_BETA=0` | Emergency rollback — disable the Codex provider (only the exact string `0`; the legacy `SPECRAILS_HUB_CODEX_BETA` is read as a fallback **only when `SPECRAILS_CODEX_BETA` is unset**) |
 | `SPECRAILS_GEMINI_BETA=0` | Emergency rollback — disable the Gemini provider (default unset = enabled; only the exact string `0` disables; **no legacy fallback name**) |
@@ -175,7 +175,7 @@ These feature flags are **default ON**. Set the flag to `false` to hide the feat
 | `VITE_FEATURE_AGENTS_SECTION=false` | Hide the Agents section |
 | `VITE_FEATURE_CODE_EXPLORER=false` | Hide the Code section |
 | `VITE_FEATURE_JIRA=false` | Hide the Jira integration UI (settings section + spec badges) |
-| `VITE_FEATURE_INTERACTIVE_JOBS=false` | Hide the interactive-ultracode UI (rail "Interactive" toggle + in-job chat + Finalize) |
+| `VITE_FEATURE_INTERACTIVE_JOBS=false` | Hide the interactive Freestyle UI (rail "Interactive" toggle + in-job chat + Finalize) |
 | `VITE_FEATURE_EXPLORE_REVIEW=false` | Disable the Review step in the Explore shell |
 | `VITE_FEATURE_EXPLORE_PREMIUM_UX=false` | Disable the "Conectando…/Pensando…/Consultando código…" pills above the Explore streaming bubble |
 

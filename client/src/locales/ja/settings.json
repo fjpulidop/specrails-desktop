@@ -32,15 +32,15 @@
     "saveFailed": "プレプロンプトの保存に失敗しました"
   },
   "ultraPrePrompt": {
-    "title": "Ultracode プレプロンプト",
-    "description": "Ultracode（Claude 専用レール）で Claude に送られる指示です。Ultracode は OpenSpec パイプラインをスキップし、このプレプロンプトとスペックテキストを Claude に渡して自律的に実装させます。空欄の場合は組み込みのデフォルトを使用します。",
-    "label": "Ultra プレプロンプト",
-    "placeholder": "空欄の場合はデフォルトの Ultracode 指示を使用します。",
+    "title": "Freestyle プレプロンプト",
+    "description": "Freestyle（Claude 専用レール）で Claude に送られる指示です。Freestyle は OpenSpec パイプラインをスキップし、このプレプロンプトとスペックテキストを Claude に渡して自律的に実装させます。空欄の場合は組み込みのデフォルトを使用します。",
+    "label": "Freestyle プレプロンプト",
+    "placeholder": "空欄の場合はデフォルトの Freestyle 指示を使用します。",
     "helper": "スペックテキストはこのプレプロンプトの後に自動で追加されます。空欄 = デフォルト。",
-    "saveButton": "Ultra プレプロンプトを保存",
-    "resetToDefault": "Ultra プレプロンプトをデフォルトにリセットしました",
-    "saved": "Ultra プレプロンプトを保存しました",
-    "saveFailed": "Ultra プレプロンプトの保存に失敗しました"
+    "saveButton": "Freestyle プレプロンプトを保存",
+    "resetToDefault": "Freestyle プレプロンプトをデフォルトにリセットしました",
+    "saved": "Freestyle プレプロンプトを保存しました",
+    "saveFailed": "Freestyle プレプロンプトの保存に失敗しました"
   },
   "budget": {
     "title": "予算",
@@ -230,5 +230,17 @@
     "toastError": "コアの更新に失敗しました: {{message}}",
     "toastUpToDate": "Specrails Core は最新です",
     "toastCheckFailed": "更新の確認に失敗しました: {{message}}"
+  },
+  "appUpdate": {
+    "heading": "Specrails Desktop",
+    "installed": "インストール済み:",
+    "check": "アップデートを確認",
+    "checking": "確認中…",
+    "upToDate": "最新バージョンです",
+    "updateAvailable": "アップデートあり: {{version}}",
+    "autoHint": "起動時と6時間ごとに自動確認します。",
+    "unavailable": "アップデートはデスクトップアプリでのみ利用できます。",
+    "toastUpToDate": "Specrails Desktop は最新です",
+    "toastCheckFailed": "アップデートの確認に失敗しました: {{message}}"
   }
 }

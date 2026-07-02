@@ -404,6 +404,18 @@ function applyDesktopMigrations(db: DbInstance): void {
         CREATE INDEX IF NOT EXISTS idx_agent_messages_conv ON agent_messages(conversation_id, created_at);
       `)
     },
+    // 18: persist the per-turn attachment id list on user messages so historical
+    // agent turns re-render pills/thumbnails after refresh (design D20). Nullable
+    // JSON array of attachment ids; NULL/absent = text-only turn (all old rows).
+    () => {
+      db.exec(`ALTER TABLE agent_messages ADD COLUMN attachment_ids TEXT;`)
+    },
+    // 19: per-conversation reasoning effort for agent spawns. NULL = the app
+    // default ("medium"); validated against the provider's effort catalog at the
+    // router (claude: low…xhigh, codex: minimal…high, gemini: none).
+    () => {
+      db.exec(`ALTER TABLE agent_conversations ADD COLUMN reasoning_effort TEXT;`)
+    },
   ]
 
   for (let i = 0; i < migrations.length; i++) {
@@ -494,6 +506,9 @@ export function addProject(
 
 export function removeProject(db: DbInstance, id: string): void {
   db.prepare('DELETE FROM projects WHERE id = ?').run(id)
+  // No FK on agent_conversations.pinned_project_id — unpin so orphaned agent
+  // conversations fold into Home instead of dangling on a dead project id.
+  db.prepare('UPDATE agent_conversations SET pinned_project_id = NULL WHERE pinned_project_id = ?').run(id)
 }
 
 export function touchProject(db: DbInstance, id: string): void {

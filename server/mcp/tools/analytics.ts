@@ -95,7 +95,7 @@ export function analyticsTools(): McpToolSpec[] {
           .number()
           .nullable()
           .optional()
-          .describe('budget_set: daily budget cap USD (>0); null clears it'),
+          .describe('budget_set: daily budget cap USD (>0); null clears it. PER-PROJECT daily cap — pauses this project\'s queue when exceeded. For the app-wide budget across all projects use specrails_settings.'),
         jobCostThresholdUsd: z
           .number()
           .nullable()

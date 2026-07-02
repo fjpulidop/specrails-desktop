@@ -341,6 +341,34 @@ select {
   animation: jiggle 0.4s ease-in-out infinite;
 }
 
+/* Conversation-title shimmer — a bright band sweeping left→right over the text
+   while the agent turn is live (sidebar). Rendered as a text-clipped gradient
+   OVERLAY above the normal title, so fading the overlay's opacity gives the
+   requested slow stop. */
+@keyframes title-shimmer-sweep {
+  from { background-position: 150% 0; }
+  to   { background-position: -50% 0; }
+}
+.title-shimmer {
+  background-image: linear-gradient(
+    100deg,
+    transparent 30%,
+    var(--color-accent-primary) 42%,
+    color-mix(in srgb, var(--color-foreground) 70%, white) 50%,
+    var(--color-accent-primary) 58%,
+    transparent 70%
+  );
+  background-size: 200% 100%;
+  background-repeat: no-repeat;
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  animation: title-shimmer-sweep 1.3s linear infinite;
+}
+@media (prefers-reduced-motion: reduce) {
+  .title-shimmer { animation: none; }
+}
+
 /* Glow effects — theme-aware via CSS-var-driven box-shadow */
 @utility glow-primary    { box-shadow: 0 0 20px color-mix(in srgb, var(--color-accent-primary) 22%, transparent); }
 @utility glow-secondary  { box-shadow: 0 0 20px color-mix(in srgb, var(--color-accent-secondary) 22%, transparent); }

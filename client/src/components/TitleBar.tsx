@@ -3,6 +3,7 @@ import { useTranslation } from 'react-i18next'
 import { getCurrentWindow } from '@tauri-apps/api/window'
 import { Minus, Search, Square, X } from 'lucide-react'
 import { useDesktop } from '../hooks/useDesktop'
+import { useUiMode } from '../context/UiModeContext'
 
 // ─── Detect Tauri environment ─────────────────────────────────────────────────
 
@@ -63,7 +64,7 @@ function WinButton({
 
 // ─── macOS search pill ────────────────────────────────────────────────────────
 
-function SearchPill({ projectName }: { projectName: string | null }) {
+function SearchPill({ projectName, hidden = false }: { projectName: string | null; hidden?: boolean }) {
   const { t } = useTranslation('nav')
   const [hovered, setHovered] = useState(false)
 
@@ -73,17 +74,21 @@ function SearchPill({ projectName }: { projectName: string | null }) {
     )
   }
 
+  // Agent Mode hides the pill with a fade (stays mounted so the CSS transition
+  // runs BOTH ways: fade-out entering agent, fade-in returning to kanban).
   return (
     <button
       onClick={handleClick}
       onMouseEnter={() => setHovered(true)}
       onMouseLeave={() => setHovered(false)}
       aria-label={t('titleBar.searchShortcut')}
+      aria-hidden={hidden || undefined}
+      tabIndex={hidden ? -1 : undefined}
       style={{
         position: 'absolute',
         left: '50%',
         top: '50%',
-        transform: 'translate(-50%, -50%)',
+        transform: `translate(-50%, -50%) scale(${hidden ? 0.96 : 1})`,
         width: '40%',
         maxWidth: 360,
         minWidth: 160,
@@ -104,7 +109,9 @@ function SearchPill({ projectName }: { projectName: string | null }) {
         fontSize: 12,
         fontWeight: 400,
         letterSpacing: 0,
-        transition: 'background 0.12s ease',
+        opacity: hidden ? 0 : 1,
+        pointerEvents: hidden ? 'none' : 'auto',
+        transition: 'background 0.12s ease, opacity 0.22s ease, transform 0.22s ease',
         // pill is clickable, not a drag target
         WebkitAppRegion: 'no-drag',
         overflow: 'hidden',
@@ -155,6 +162,7 @@ export function TitleBar() {
 
 function MacTitleBar() {
   const { projects, activeProjectId } = useDesktop()
+  const { uiMode } = useUiMode()
   const activeProject = projects.find((p) => p.id === activeProjectId) ?? null
 
   return (
@@ -172,7 +180,7 @@ function MacTitleBar() {
         borderBottom: '1px solid var(--color-border)',
       }}
     >
-      <SearchPill projectName={activeProject?.name ?? null} />
+      <SearchPill projectName={activeProject?.name ?? null} hidden={uiMode === 'agent'} />
     </div>
   )
 }
@@ -180,6 +188,7 @@ function MacTitleBar() {
 function DefaultTitleBar() {
   const { t } = useTranslation('nav')
   const { projects, activeProjectId } = useDesktop()
+  const { uiMode } = useUiMode()
   const activeProject = projects.find((p) => p.id === activeProjectId) ?? null
   const appWindow = getCurrentWindow()
 
@@ -212,7 +221,9 @@ function DefaultTitleBar() {
         borderBottom: '1px solid var(--color-border)',
       }}
     >
-      <SearchPill projectName={activeProject?.name ?? null} />
+      {/* Absolutely positioned — never occupies a flex slot, so rendering it in
+          both modes keeps the in-flow children identical. */}
+      <SearchPill projectName={activeProject?.name ?? null} hidden={uiMode === 'agent'} />
 
       <div data-tauri-drag-region style={{ minWidth: 116, height: '100%' }} />
 

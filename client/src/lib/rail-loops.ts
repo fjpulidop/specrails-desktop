@@ -18,10 +18,13 @@ export const FACTORY_LOOP_ID: Record<Exclude<RailMode, 'loop'>, string> = {
  * Loops section feature is off. `labelKey` reuses the existing `railControls.*`
  * i18n; `claudeOnly` hides Ultracode on non-Claude rails.
  */
-export const FACTORY_RAIL_LOOPS: { id: string; labelKey: string; claudeOnly?: boolean }[] = [
+export const FACTORY_RAIL_LOOPS: { id: string; labelKey: string; claudeOnly?: boolean; requiresLoops?: boolean }[] = [
   { id: 'factory:implement', labelKey: 'railControls.implement' },
   { id: 'factory:batch', labelKey: 'railControls.batch' },
   { id: 'factory:ultracode', labelKey: 'railControls.ultra', claudeOnly: true },
+  // Graph-native built-in: runs only through the LoopRunManager, so it is
+  // offered only while the Loops feature is enabled.
+  { id: 'factory:openspec', labelKey: 'railControls.openspec', requiresLoops: true },
 ]
 
 /** The factory loop id a legacy `mode` maps to ('' for the custom `loop` mode). */

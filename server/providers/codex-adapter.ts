@@ -90,6 +90,8 @@ function buildCodexArgs(action: SpawnAction, opts: SpawnOptions): string[] {
       // Native reasoning effort (codex 0.139+). String value is quoted to match
       // the `-c key="value"` override form used elsewhere in this adapter.
       if (opts.reasoning_effort) args.push('-c', `model_reasoning_effort="${opts.reasoning_effort}"`)
+      // Native image input (codex 0.141+): one `--image <abs>` per file.
+      if (opts.imagePaths) for (const p of opts.imagePaths) args.push('--image', p)
       if (opts.extraArgs) args.push(...opts.extraArgs)
       return args
     }
@@ -120,6 +122,8 @@ function buildCodexArgs(action: SpawnAction, opts: SpawnOptions): string[] {
       // Native reasoning effort (codex 0.139+). String value is quoted to match
       // the `-c key="value"` override form used elsewhere in this adapter.
       if (opts.reasoning_effort) args.push('-c', `model_reasoning_effort="${opts.reasoning_effort}"`)
+      // Native image input (codex 0.141+): one `--image <abs>` per file.
+      if (opts.imagePaths) for (const p of opts.imagePaths) args.push('--image', p)
       if (opts.extraArgs) args.push(...opts.extraArgs)
       return args
     }
@@ -331,6 +335,8 @@ export const codexAdapter: ProviderAdapter = {
     profileEnvSupport: true,
     systemPromptArg: false,
     supportsReasoningEffort: true,
+    reasoningEfforts: ['minimal', 'low', 'medium', 'high'], // codex model_reasoning_effort values
+    supportsImageInput: true, // codex-cli `-i/--image <FILE>...` (verified 0.141)
   },
   modelCatalog: () => CODEX_MODELS,
   defaultModel: () => 'gpt-5.5',

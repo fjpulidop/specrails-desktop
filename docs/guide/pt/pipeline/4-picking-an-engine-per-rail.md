@@ -24,7 +24,7 @@ Os três correm os pipelines standard **Implement** e **Batch**. Aqui fica um gu
 
 | Motor | Recorra a ele quando… | Notas |
 |--------|--------------------|-------|
-| **Claude** | Quer o conjunto completo de funcionalidades: perfis de agentes, Ultracode, reporte de custo nativo, o suporte de ferramentas mais rico. O default para a maioria do trabalho. | O único motor que suporta **perfis de agentes**, **Ultracode** e algumas funcionalidades de spec exclusivas do Claude (Contract Layer, SMASH). |
+| **Claude** | Quer o conjunto completo de funcionalidades: perfis de agentes, Freestyle, reporte de custo nativo, o suporte de ferramentas mais rico. O default para a maioria do trabalho. | O único motor que suporta **perfis de agentes**, **Freestyle** e algumas funcionalidades de spec exclusivas do Claude (Contract Layer, SMASH). |
 | **Codex** | Prefere o Codex CLI da OpenAI ou quer comparar implementações entre fornecedores. | `codex` ≥ 0.128.0. Sem reporte de custo nativo — a app preenche o custo a partir da sua tabela de preços. Os perfis não se aplicam. |
 | **Gemini** | Quer o Gemini CLI da Google, telemetria nativa ou uma execução mais barata para specs de rotina. | `gemini` ≥ 0.11.0 (defina `GEMINI_API_KEY`). Telemetria OTLP nativa. Os perfis não se aplicam. |
 
@@ -33,7 +33,7 @@ Os três correm os pipelines standard **Implement** e **Batch**. Aqui fica um gu
 Algumas coisas só funcionam em rails Claude — escolha o Claude se precisar delas:
 
 - **Perfis de agentes** — encaminhamento de modelo por agente. Em rails Codex ou Gemini a execução usa sempre o modo legado e qualquer perfil selecionado é **ignorado**. O seletor de perfil fica escondido nos motores que não são Claude.
-- **Ultracode (modo `Ultra`)** — o modo autónomo que ignora o pipeline. O segmento `Ultra` e o seu seletor de modelo Haiku/Sonnet/Opus só aparecem quando o motor do rail é o Claude.
+- **Freestyle** — o modo autónomo que ignora o pipeline. O segmento `Freestyle` e o seu seletor de modelo Haiku/Sonnet/Opus só aparecem quando o motor do rail é o Claude.
 - **Contract Layer e SMASH** — funcionalidades de refinamento de spec exclusivas do Claude (são opções de Add Spec, não opções de rail, mas aplica-se a mesma restrição).
 
 Se um projeto mistura motores, a barra lateral direita só mostra as secções que **todos** os fornecedores instalados suportam — por isso a secção **Agentes** desaparece por completo num projeto que inclua qualquer fornecedor que não seja Claude, porque os perfis são específicos do Claude.

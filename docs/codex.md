@@ -119,8 +119,8 @@ the [Gemini guide](gemini.md).)
 | **Default model** | `sonnet` | `gpt-5.5` | `gemini-3.5-flash` |
 | **Agent format** | `.claude/agents/<id>.md` with `model:` frontmatter | `.codex/skills/<id>/SKILL.md` Skill format | `.gemini/` command + agent target |
 | **Agent profiles** | Full support (rail `RailProfileSelector`) | **None** — rails force the profile to `null` | **None** — rails force the profile to `null` |
-| **Pipeline rails** | ✅ all rail types | ✅ (except Ultracode) | ✅ (except Ultracode) |
-| **Ultracode rails** | ✅ Claude-only | ❌ rejected (`Ultracode requires the Claude provider`) | ❌ rejected |
+| **Pipeline rails** | ✅ all rail types | ✅ (except Freestyle) | ✅ (except Freestyle) |
+| **Freestyle rails** (mode `ultracode`) | ✅ Claude-only | ❌ rejected (`Freestyle requires the Claude provider`) | ❌ rejected |
 | **Contract Refine** | Claude-only (it `--resume`s the Explore session and runs `/specrails:contract-refine`) | **Skipped** — toggling "Enrich with Contract Layer" is a no-op | **Skipped** |
 | **MCP registration** | Surgical merge of `<project>/.mcp.json` | `codex mcp add` against per-project `CODEX_HOME=~/.specrails/projects/<slug>/codex-home/` (isolated) | Project `.mcp.json` (so Serena-style plugins **do** resolve) |
 | **Session resume** | `--resume <session_id>` | `exec resume <thread_id>` | `--resume` |
@@ -134,9 +134,9 @@ A few Codex-specific behaviours worth calling out:
   a rail can read and write anywhere in the project. This is intentional —
   rails need to apply edits across the repo — but it's worth knowing if
   you're surprised by a rail touching files outside the working tree.
-- **Ultracode rails are Claude-only.** Launching an Ultracode rail on a
-  Codex (or Gemini) engine is rejected with a 400 (`Ultracode requires the
-  Claude provider`). Pick Claude for that rail.
+- **Freestyle rails are Claude-only.** Launching a Freestyle rail (mode
+  `ultracode`) on a Codex (or Gemini) engine is rejected with a 400
+  (`Freestyle requires the Claude provider`). Pick Claude for that rail.
 
 ## Estimated cost
 

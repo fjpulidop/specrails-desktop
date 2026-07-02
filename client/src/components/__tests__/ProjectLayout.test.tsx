@@ -82,9 +82,9 @@ const mockProject: DesktopProject = {
 }
 
 describe('ProjectLayout', () => {
-  it('renders StatusBar', () => {
+  it('does NOT render StatusBar (hoisted to DesktopApp for both modes)', () => {
     render(<ProjectLayout project={mockProject} />)
-    expect(screen.getByTestId('status-bar')).toBeInTheDocument()
+    expect(screen.queryByTestId('status-bar')).not.toBeInTheDocument()
   })
 
   it('renders ChatPanel', () => {

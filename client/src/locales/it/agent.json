@@ -99,5 +99,38 @@
   },
   "chip": {
     "kindAgent": "Chat dell'agente"
-  }
+  },
+  "newAgent": "Nuovo agente",
+  "switchToAgent": "Passa alla modalità Agente",
+  "switchToKanban": "Passa alla modalità Kanban",
+  "search": "Cerca",
+  "home": "Home",
+  "untitled": "Senza titolo",
+  "workspace": {
+    "title": "Nel workspace",
+    "terminal": "Terminale",
+    "files": "File",
+    "browser": "Browser",
+    "requiresProject": "Seleziona un progetto per usare questo strumento",
+    "resizeCode": "Ridimensiona pannello codice",
+    "closeFiles": "Chiudi codice",
+    "browserConfirm": "Aggiungi all'agente",
+    "browserCaptured": "Cattura aggiunta",
+    "uploadFailed": "Caricamento non riuscito",
+    "requiresConversation": "Avvia una conversazione per usare questo strumento"
+  },
+  "attachFile": "Allega file",
+  "deleteConversation": "Elimina «{{title}}»",
+  "confirmDeleteConversation": "Conferma eliminazione di «{{title}}»",
+  "confirmShort": "confermare?",
+  "imagesUnsupported": "Questo provider non legge ancora le immagini — allega file di testo",
+  "effort": {
+    "label": "Sforzo",
+    "minimal": "Minimo",
+    "low": "Basso",
+    "medium": "Medio",
+    "high": "Alto",
+    "xhigh": "Extra alto"
+  },
+  "emptyTitleMatrix": "Cosa dovrebbe fare l'agente Smith?"
 }

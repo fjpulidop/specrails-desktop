@@ -32,15 +32,15 @@
     "saveFailed": "保存前置提示词失败"
   },
   "ultraPrePrompt": {
-    "title": "Ultracode 前置提示词",
-    "description": "在 Ultracode（仅限 Claude 的 rail）模式下发送给 Claude 的指令。Ultracode 跳过 OpenSpec 流水线——直接把该前置提示词加上 spec 文本交给 Claude，让其自主实现。留空则使用内置默认值。",
-    "label": "Ultra 前置提示词",
-    "placeholder": "留空以使用默认的 Ultracode 指令。",
+    "title": "Freestyle 前置提示词",
+    "description": "在 Freestyle（仅限 Claude 的 rail）模式下发送给 Claude 的指令。Freestyle 跳过 OpenSpec 流水线——直接把该前置提示词加上 spec 文本交给 Claude，让其自主实现。留空则使用内置默认值。",
+    "label": "Freestyle 前置提示词",
+    "placeholder": "留空以使用默认的 Freestyle 指令。",
     "helper": "spec 文本会自动追加在该前置提示词之后。留空 = 使用默认值。",
-    "saveButton": "保存 Ultra 前置提示词",
-    "resetToDefault": "Ultra 前置提示词已重置为默认值",
-    "saved": "Ultra 前置提示词已保存",
-    "saveFailed": "保存 Ultra 前置提示词失败"
+    "saveButton": "保存 Freestyle 前置提示词",
+    "resetToDefault": "Freestyle 前置提示词已重置为默认值",
+    "saved": "Freestyle 前置提示词已保存",
+    "saveFailed": "保存 Freestyle 前置提示词失败"
   },
   "budget": {
     "title": "预算",
@@ -230,5 +230,17 @@
     "toastError": "核心更新失败：{{message}}",
     "toastUpToDate": "Specrails Core 已是最新",
     "toastCheckFailed": "检查更新失败：{{message}}"
+  },
+  "appUpdate": {
+    "heading": "Specrails Desktop",
+    "installed": "已安装:",
+    "check": "检查更新",
+    "checking": "检查中…",
+    "upToDate": "已是最新版本",
+    "updateAvailable": "有可用更新: {{version}}",
+    "autoHint": "启动时及每 6 小时自动检查。",
+    "unavailable": "更新仅在桌面应用中可用。",
+    "toastUpToDate": "Specrails Desktop 已是最新",
+    "toastCheckFailed": "检查更新失败: {{message}}"
   }
 }

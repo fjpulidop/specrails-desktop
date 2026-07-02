@@ -32,15 +32,15 @@
     "saveFailed": "Falha ao guardar o pre-prompt"
   },
   "ultraPrePrompt": {
-    "title": "Pre-prompt de Ultracode",
-    "description": "Instrução enviada ao Claude em Ultracode (rails apenas Claude). O Ultracode salta o pipeline OpenSpec — entrega ao Claude este pre-prompt mais o texto da spec e deixa-o implementar de forma autónoma. Deixe em branco para usar o valor predefinido.",
-    "label": "Pre-prompt Ultra",
-    "placeholder": "Deixe em branco para usar a instrução Ultracode predefinida.",
+    "title": "Pre-prompt de Freestyle",
+    "description": "Instrução enviada ao Claude em Freestyle (rails apenas Claude). O Freestyle salta o pipeline OpenSpec — entrega ao Claude este pre-prompt mais o texto da spec e deixa-o implementar de forma autónoma. Deixe em branco para usar o valor predefinido.",
+    "label": "Pre-prompt Freestyle",
+    "placeholder": "Deixe em branco para usar a instrução Freestyle predefinida.",
     "helper": "O texto da spec é acrescentado automaticamente depois deste pre-prompt. Vazio = predefinição.",
-    "saveButton": "Guardar pre-prompt Ultra",
-    "resetToDefault": "Pre-prompt Ultra reposto na predefinição",
-    "saved": "Pre-prompt Ultra guardado",
-    "saveFailed": "Falha ao guardar o pre-prompt Ultra"
+    "saveButton": "Guardar pre-prompt Freestyle",
+    "resetToDefault": "Pre-prompt Freestyle reposto na predefinição",
+    "saved": "Pre-prompt Freestyle guardado",
+    "saveFailed": "Falha ao guardar o pre-prompt Freestyle"
   },
   "budget": {
     "title": "Orçamento",
@@ -229,6 +229,18 @@
     "toastDone": "Specrails Core atualizado para {{version}}",
     "toastError": "Falha na atualização do core: {{message}}",
     "toastUpToDate": "O Specrails Core está atualizado",
+    "toastCheckFailed": "Falha ao verificar atualizações: {{message}}"
+  },
+  "appUpdate": {
+    "heading": "Specrails Desktop",
+    "installed": "Instalada:",
+    "check": "Verificar atualizações",
+    "checking": "Verificando…",
+    "upToDate": "Você está na versão mais recente",
+    "updateAvailable": "Atualização disponível: {{version}}",
+    "autoHint": "Verificação automática ao iniciar e a cada 6 horas.",
+    "unavailable": "Atualizações estão disponíveis apenas no app desktop.",
+    "toastUpToDate": "O Specrails Desktop está atualizado",
     "toastCheckFailed": "Falha ao verificar atualizações: {{message}}"
   }
 }

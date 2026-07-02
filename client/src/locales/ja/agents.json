@@ -171,7 +171,7 @@
   "railSelectors": {
     "profileTitle": "このレールのエージェントプロファイル",
     "noProfile": "プロファイルなし",
-    "modelTitle": "この ultracode レールのモデル",
+    "modelTitle": "この Freestyle レールのモデル",
     "loopModelTitle": "このループのモデル",
     "engineTitle": "このレールの AI エンジン"
   }

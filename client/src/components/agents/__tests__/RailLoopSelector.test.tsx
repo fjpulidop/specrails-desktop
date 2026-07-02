@@ -24,12 +24,12 @@ describe('RailLoopSelector (unified rail Loop picker)', () => {
   it('hides the Claude-only Ultracode built-in when ultracode is unavailable', () => {
     render(<RailLoopSelector value={null} onChange={() => {}} ultracodeAvailable={false} loopsEnabled={false} />)
     const sel = screen.getByTestId('rail-loop-selector')
-    expect(within(sel).queryByRole('option', { name: 'Ultra' })).not.toBeInTheDocument()
+    expect(within(sel).queryByRole('option', { name: 'Freestyle' })).not.toBeInTheDocument()
   })
 
   it('shows the Ultracode built-in when available', () => {
     render(<RailLoopSelector value={null} onChange={() => {}} ultracodeAvailable loopsEnabled={false} />)
-    expect(within(screen.getByTestId('rail-loop-selector')).getByRole('option', { name: 'Ultra' })).toBeInTheDocument()
+    expect(within(screen.getByTestId('rail-loop-selector')).getByRole('option', { name: 'Freestyle' })).toBeInTheDocument()
   })
 
   // A spec-driven graph (references {{spec.*}}) — rail-eligible.

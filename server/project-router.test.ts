@@ -3253,7 +3253,7 @@ describe('project-router', () => {
       expect(res.status).toBe(200)
       expect(res.body.provider).toBe('claude')
       expect(res.body.model).toBe('sonnet')
-      expect(res.body.allowed.map((m: { value: string }) => m.value)).toEqual(['sonnet', 'opus', 'haiku'])
+      expect(res.body.allowed.map((m: { value: string }) => m.value)).toEqual(['sonnet', 'fable', 'opus', 'haiku'])
     })
 
     it('returns codex default when provider is codex', async () => {
@@ -3405,7 +3405,7 @@ describe('project-router', () => {
         .send({ idea: 'do a thing', model: 'not-a-real-model' })
       expect(res.status).toBe(400)
       expect(res.body.error).toMatch(/Invalid model/)
-      expect(res.body.allowed).toEqual(['sonnet', 'opus', 'haiku'])
+      expect(res.body.allowed).toEqual(['sonnet', 'fable', 'opus', 'haiku'])
     })
 
     it('rejects a cross-provider model with 400', async () => {
@@ -3441,7 +3441,7 @@ describe('project-router', () => {
         .post('/api/projects/proj-1/chat/conversations')
         .send({ model: 'not-real' })
       expect(res.status).toBe(400)
-      expect(res.body.allowed).toEqual(['sonnet', 'opus', 'haiku'])
+      expect(res.body.allowed).toEqual(['sonnet', 'fable', 'opus', 'haiku'])
     })
 
     it('falls back to provider default when no model is sent', async () => {

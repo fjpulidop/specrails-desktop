@@ -1,16 +1,21 @@
 import { z } from 'zod'
 import type { McpToolSpec } from './types'
-import { apiCall } from './types'
+import { apiCall, projectPath } from './types'
 
 /**
  * Loops — the GLOBAL (cross-project) visual loop-builder library. Routes live at
  * `/api/loops*` and `/api/loop-templates` (NOT under `/projects` — no projectId).
  * Gated server-side by SPECRAILS_LOOPS_SECTION (every route 404s when off).
+ * Exception: the standalone run actions (`run` / `run_get`) ARE project-scoped
+ * (`/api/projects/:projectId/loop-runs*`) — a ticket-less loop runs directly
+ * against a project with no rail and no ticket.
  *
  * A single domain-facade tool with an `action` enum and a dynamic tier:
- *   - read:        list, get, templates, factory, commands, constants_list, preview
+ *   - read:        list, get, templates, factory, commands, constants_list,
+ *                  preview, run_get
  *   - write:       constant_create, constant_update, import, create, from_template,
  *                  fork, update, publish, unpublish, duplicate
+ *   - ai-spawn:    run (spawns an AI CLI, incurs cost, async 202)
  *   - destructive: constant_delete, delete
  */
 export function loopsTools(): McpToolSpec[] {
@@ -20,7 +25,9 @@ export function loopsTools(): McpToolSpec[] {
       title: 'Loops',
       description:
         'Manage the global (cross-project) loop library and its templates/factory/constants. ' +
-        'Loops are visual builder graphs reused across projects; this is an APP-LEVEL domain (no projectId). ' +
+        'Loops are visual builder graphs reused across projects; this is an APP-LEVEL domain (no projectId, except the run actions). ' +
+        'To RUN a loop on a project\'s tickets: publish it, then specrails_rails(launch, mode:\'loop\', loopId=…). ' +
+        'For a standalone ticket-less run use the run action. ' +
         'Actions: ' +
         'list (all saved loops), ' +
         'get (one loop by id), ' +
@@ -37,11 +44,14 @@ export function loopsTools(): McpToolSpec[] {
         'update (name/description/graph — reverts to Draft, 409 while running), ' +
         'publish (graph-validated), unpublish (409 while running), ' +
         'duplicate (copy a loop), ' +
-        'delete (destructive — 409 while running).',
+        'delete (destructive — 409 while running), ' +
+        'run (ai-spawn — standalone ticket-less run of a Published loop against a project: spawns an AI CLI, incurs token cost, returns 202 with loopRunId), ' +
+        'run_get (read one loop run\'s live/terminal state — the post-timeout recovery read).',
       hintTier: 'read',
       tier: (a) => {
         const action = a.action as string
         if (action === 'delete' || action === 'constant_delete') return 'destructive'
+        if (action === 'run') return 'ai-spawn'
         if (
           [
             'constant_create',
@@ -82,9 +92,16 @@ export function loopsTools(): McpToolSpec[] {
             'unpublish',
             'duplicate',
             'delete',
+            'run',
+            'run_get',
           ])
           .describe('Operation to perform'),
-        loopId: z.string().optional().describe('Loop id (for get / update / publish / unpublish / duplicate / delete)'),
+        projectId: z
+          .string()
+          .optional()
+          .describe('Project id (run / run_get only — defaults to the active project; ignored by every other action)'),
+        loopId: z.string().optional().describe('Loop id (for get / update / publish / unpublish / duplicate / delete / run — must be Published for run)'),
+        loopRunId: z.string().optional().describe('Loop run id (for run_get — returned by run)'),
         constantId: z.string().optional().describe('Constant id (for constant_update / constant_delete)'),
         templateId: z.string().optional().describe('Template id (for from_template)'),
         factoryId: z.string().optional().describe('Factory loop id (for fork)'),
@@ -98,7 +115,18 @@ export function loopsTools(): McpToolSpec[] {
           .optional()
           .describe('Loop graph object { nodes, edges, ... } (for create / update; required for preview)'),
         value: z.string().optional().describe('Constant value (for constant_create / constant_update)'),
-        provider: z.string().optional().describe('Provider for token resolution in preview (default "claude")'),
+        provider: z
+          .string()
+          .optional()
+          .describe('Provider for token resolution in preview (default "claude") / AI engine for run (must be installed on the project; default = project primary)'),
+        model: z
+          .string()
+          .optional()
+          .describe('Model for run — validated against the chosen provider\'s catalog; omit for the provider default'),
+        reasoning_effort: z
+          .enum(['low', 'medium', 'high'])
+          .optional()
+          .describe('Reasoning-effort tier for run'),
         loops: z.array(z.unknown()).optional().describe('Array of loop export envelopes (for import)'),
       },
       async handler(ctx, args) {
@@ -201,6 +229,28 @@ export function loopsTools(): McpToolSpec[] {
             return apiCall(ctx, 'POST', `/loops/${encodeURIComponent(loopId)}/duplicate`, {
               ...(args.name !== undefined ? { name: args.name as string } : {}),
             })
+          }
+
+          // ── Standalone runs (project-scoped) ────────────────────────────────
+          case 'run': {
+            if (!loopId) throw new Error('run requires a "loopId" (the loop must be Published).')
+            const base = projectPath(ctx, args.projectId as string | undefined)
+            const r = await apiCall(ctx, 'POST', `${base}/loop-runs`, {
+              loopId,
+              ...(args.provider !== undefined ? { provider: args.provider as string } : {}),
+              ...(args.model !== undefined ? { model: args.model as string } : {}),
+              ...(args.reasoning_effort !== undefined ? { reasoning_effort: args.reasoning_effort as string } : {}),
+            })
+            return {
+              ...(r as Record<string, unknown>),
+              hint: 'Run accepted (202). Use specrails_watch with the returned loopRunId (loop.run_completed / loop.run_stopped are terminal), or poll specrails_loops(run_get, loopRunId) after a timeout.',
+            }
+          }
+          case 'run_get': {
+            const loopRunId = args.loopRunId as string | undefined
+            if (!loopRunId) throw new Error('run_get requires a "loopRunId".')
+            const base = projectPath(ctx, args.projectId as string | undefined)
+            return apiCall(ctx, 'GET', `${base}/loop-runs/${encodeURIComponent(loopRunId)}`)
           }
 
           // ── Destructive ─────────────────────────────────────────────────────

@@ -168,7 +168,8 @@
     "tier": {
       "balanced": "Equilibrado",
       "mostCapable": "Más capaz",
-      "fastest": "Más rápido"
+      "fastest": "Más rápido",
+      "frontier": "Frontier"
     }
   },
   "costMeter": {

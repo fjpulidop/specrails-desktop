@@ -99,5 +99,38 @@
   },
   "chip": {
     "kindAgent": "Agent chat"
-  }
+  },
+  "newAgent": "New Agent",
+  "switchToAgent": "Switch to Agent Mode",
+  "switchToKanban": "Switch to Kanban mode",
+  "search": "Search",
+  "home": "Home",
+  "untitled": "Untitled",
+  "workspace": {
+    "title": "On workspace",
+    "terminal": "Terminal",
+    "files": "Files",
+    "browser": "Browser",
+    "requiresProject": "Select a project to use this tool",
+    "resizeCode": "Resize code pane",
+    "closeFiles": "Close code",
+    "browserConfirm": "Add to agent",
+    "browserCaptured": "Capture added",
+    "uploadFailed": "Upload failed",
+    "requiresConversation": "Start a conversation to use this tool"
+  },
+  "attachFile": "Attach file",
+  "deleteConversation": "Delete \"{{title}}\"",
+  "confirmDeleteConversation": "Confirm delete \"{{title}}\"",
+  "confirmShort": "confirm?",
+  "imagesUnsupported": "This provider can't read images yet — attach text files instead",
+  "effort": {
+    "label": "Effort",
+    "minimal": "Minimal",
+    "low": "Low",
+    "medium": "Medium",
+    "high": "High",
+    "xhigh": "Extra high"
+  },
+  "emptyTitleMatrix": "What should the agent Smith do?"
 }

@@ -345,6 +345,148 @@ export class AttachmentManager {
     }
     return textBlocks
   }
+
+  // ── Agent-scoped attachments ──────────────────────────────────────────────
+  // App-global agent conversations have no project slug/ticket, so their
+  // attachments live under a distinct, conversation-keyed root
+  // `~/.specrails/agent/<conversationId>/attachments/` (never the project
+  // attachments root — that risks slug collisions and doesn't fit Home convos).
+
+  private static readonly AGENT_CONV_ID_RE = /^[A-Za-z0-9][A-Za-z0-9_-]*$/
+
+  private agentDir(conversationId: string): string {
+    const key = String(conversationId)
+    if (
+      key === '' || key === '.' || key === '..' || key !== path.basename(key) ||
+      key.includes('/') || key.includes('\\') || !AttachmentManager.AGENT_CONV_ID_RE.test(key)
+    ) {
+      throw new Error(`Invalid agent conversation id: ${JSON.stringify(key)}`)
+    }
+    return path.join(this.homeDir, '.specrails', 'agent', key, 'attachments')
+  }
+
+  private agentSidecarPath(conversationId: string, attachmentId: string): string {
+    this.assertValidAttachmentId(attachmentId)
+    return path.join(this.agentDir(conversationId), `${attachmentId}.meta.json`)
+  }
+
+  private readAgentMeta(conversationId: string, attachmentId: string): Attachment | null {
+    const p = this.agentSidecarPath(conversationId, attachmentId)
+    if (!fs.existsSync(p)) return null
+    try {
+      return JSON.parse(fs.readFileSync(p, 'utf-8')) as Attachment
+    } catch {
+      return null
+    }
+  }
+
+  async uploadAgent(opts: { conversationId: string; file: UploadedFile }): Promise<Attachment> {
+    const normalizedMimeType = normalizeUploadedMimeType(opts.file.mimetype, opts.file.originalname)
+    if (!SUPPORTED_MIME_TYPES.has(normalizedMimeType)) {
+      const err = new Error(`Unsupported file type: ${opts.file.mimetype}`) as Error & { status?: number }
+      err.status = 400
+      throw err
+    }
+    const id = newId()
+    const storedName = `${id}-${sanitizeFilename(opts.file.originalname)}`
+    const attachment: Attachment = {
+      id,
+      filename: opts.file.originalname,
+      storedName,
+      mimeType: normalizedMimeType,
+      size: opts.file.size,
+      addedAt: new Date().toISOString(),
+    }
+    const dir = this.agentDir(opts.conversationId)
+    fs.mkdirSync(dir, { recursive: true })
+    fs.writeFileSync(path.join(dir, storedName), opts.file.buffer)
+    fs.writeFileSync(this.agentSidecarPath(opts.conversationId, id), JSON.stringify(attachment, null, 2), 'utf-8')
+    return attachment
+  }
+
+  listAgent(conversationId: string): Attachment[] {
+    let dir: string
+    try {
+      dir = this.agentDir(conversationId)
+    } catch {
+      return []
+    }
+    if (!fs.existsSync(dir)) return []
+    return fs
+      .readdirSync(dir)
+      .filter((f) => f.endsWith('.meta.json'))
+      .map((f) => {
+        try {
+          return JSON.parse(fs.readFileSync(path.join(dir, f), 'utf-8')) as Attachment
+        } catch {
+          return null
+        }
+      })
+      .filter((m): m is Attachment => m !== null)
+      .sort((a, b) => (a.addedAt < b.addedAt ? 1 : -1))
+  }
+
+  getAgentMeta(conversationId: string, attachmentId: string): Attachment | null {
+    return this.readAgentMeta(conversationId, attachmentId)
+  }
+
+  getAgentFilePath(conversationId: string, attachmentId: string): string | null {
+    const meta = this.readAgentMeta(conversationId, attachmentId)
+    if (!meta) return null
+    const abs = path.join(this.agentDir(conversationId), meta.storedName)
+    return fs.existsSync(abs) ? abs : null
+  }
+
+  async deleteAgent(conversationId: string, attachmentId: string): Promise<boolean> {
+    const meta = this.readAgentMeta(conversationId, attachmentId)
+    if (!meta) return false
+    const dir = this.agentDir(conversationId)
+    const bin = path.join(dir, meta.storedName)
+    if (fs.existsSync(bin)) fs.unlinkSync(bin)
+    const side = this.agentSidecarPath(conversationId, attachmentId)
+    if (fs.existsSync(side)) fs.unlinkSync(side)
+    return true
+  }
+
+  /** Remove the entire per-conversation agent directory (attachments + siblings). */
+  async deleteAllAgent(conversationId: string): Promise<void> {
+    // Validate the id (throws on traversal) then remove the parent conversation dir.
+    this.agentDir(conversationId)
+    const dir = path.join(this.homeDir, '.specrails', 'agent', String(conversationId))
+    if (fs.existsSync(dir)) fs.rmSync(dir, { recursive: true, force: true })
+  }
+
+  /**
+   * Agent variant of getClaudeArgs, keyed by conversation id. Returns extracted
+   * text blocks (all providers) AND absolute image paths (codex `--image`). The
+   * image `@<abs-path>` stays in textBlocks so claude resolves it and gemini gets
+   * a best-effort shot; `imagePaths` is additive and only codex consumes it.
+   */
+  async getClaudeArgsAgent(
+    conversationId: string,
+    attachmentIds: string[],
+  ): Promise<{ textBlocks: string[]; imagePaths: string[] }> {
+    const textBlocks: string[] = []
+    const imagePaths: string[] = []
+    for (const id of attachmentIds) {
+      const meta = this.readAgentMeta(conversationId, id)
+      if (!meta) continue
+      const abs = path.join(this.agentDir(conversationId), meta.storedName)
+      if (!fs.existsSync(abs)) continue
+      if (meta.mimeType.startsWith(IMAGE_MIME_PREFIX)) {
+        imagePaths.push(abs)
+        textBlocks.push(wrapUserAttachment(meta, `@${abs}`))
+        continue
+      }
+      try {
+        const text = await extractText(abs, meta.mimeType)
+        textBlocks.push(wrapUserAttachment(meta, text))
+      } catch {
+        textBlocks.push(wrapUserAttachment(meta, '[extraction failed]'))
+      }
+    }
+    return { textBlocks, imagePaths }
+  }
 }
 
 function wrapUserAttachment(meta: Attachment, content: string): string {

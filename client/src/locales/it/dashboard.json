@@ -33,14 +33,12 @@
     "log": "Log",
     "implement": "Implementa",
     "batch": "Batch",
-    "ultra": "Ultra",
-    "ultraTitle": "Ultracode — Claude implementa la spec in autonomia, senza pipeline",
+    "ultra": "Freestyle",
+    "ultraTitle": "Freestyle — Claude implementa la spec in autonomia, senza pipeline",
     "loop": "Loop",
     "loopTitle": "Loop — esegui un loop di automazione pubblicato sulle spec del rail",
     "pickLoop": "Scegli un loop…",
     "effortTitle": "Sforzo di ragionamento",
-    "interactive": "Interattivo",
-    "interactiveTitle": "Interattivo — chatta con il job in esecuzione; invia altri prompt e finalizza al termine",
     "stop": "Stop",
     "play": "Avvia",
     "failedRetry": "Job non riuscito — clicca per riprovare",
@@ -50,7 +48,8 @@
     "worktreesMerged": "{{count}} uniti",
     "worktreesNeedsReview": "{{count}} da rivedere",
     "execSteps": "{{count}} passi",
-    "execLines": "{{count}} righe"
+    "execLines": "{{count}} righe",
+    "openspec": "OpenSpec"
   },
   "railRow": {
     "moveToSpecs": "Sposta in Specs",
@@ -60,7 +59,7 @@
     "dragSpecsHere": "Trascina qui le spec"
   },
   "ultracodeDialog": {
-    "title": "Avvia in modalità Ultracode",
+    "title": "Avvia in modalità Freestyle",
     "context_one": "{{rail}} · {{count}} spec",
     "context_other": "{{rail}} · {{count}} spec",
     "noPipelineTitle": "Nessuna pipeline OpenSpec.",

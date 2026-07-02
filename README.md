@@ -52,7 +52,7 @@
 | | |
 |---|---|
 | 🛤️ **Execution rails** | Each rail is an independent lane. Drag specs in, **pick a Loop**, and press Play. Within a project, jobs run **one at a time** (rails let you queue and organise the work); true parallelism is **across projects**. Each rail carries its own **agent profile** and provider. |
-| 🔁 **Loops** | A global, visual **Loop Builder** (n8n-style). The built-in loops — **Implement**, **Batch**, **Ultracode** — are what a rail runs by default, or build your own: chain AI steps, shell commands and a **Loop Decider** that repeats until a goal is met (e.g. *verify → fix → verify until green*). Publish a loop and pick it on any rail. See [Running pipelines](docs/running-pipelines.md). |
+| 🔁 **Loops** | A global, visual **Loop Builder** (n8n-style). The built-in loops — **Implement**, **Batch**, **Freestyle** — are what a rail runs by default, or build your own: chain AI steps, shell commands and a **Loop Decider** that repeats until a goal is met (e.g. *verify → fix → verify until green*). Publish a loop and pick it on any rail. See [Running pipelines](docs/running-pipelines.md). |
 | 🧩 **Agent profiles** | A per-project, declarative catalog that tells the implement pipeline which agents to run and at what model — snapshotted per job so concurrent rails stay isolated. |
 | 📡 **Live job detail** | A premium ticket-identity header, live duration ticker, incremental turns/tokens, and authoritative cost on exit. |
 | 🔌 **Plugins** | A per-project marketplace of MCP-based integrations (**Serena** semantic code-nav bundled today). Additive by design — installing plugin N+1 never disturbs plugin N. |

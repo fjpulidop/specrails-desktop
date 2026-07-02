@@ -19,7 +19,12 @@ export function chatTools(): McpToolSpec[] {
       title: 'Chat / Explore',
       description:
         'Manage a project\'s chat & Explore-Spec conversations and drive their AI turns. ' +
+        'EXPLORE RECIPE: create(kind:\'explore\', contextScope) → send the bootstrap text "/specrails:explore-spec\\n\\n<idea>" ' +
+        'with {lightweight:true, maxTurns:20} → watch chat_done per turn → spec_draft to read the accumulated draft → ' +
+        'persist via specrails_specs(commit_draft, conversationId=<this conversation>) which preserves origin linkage, ' +
+        'Contract Refine and "Continue Explore". NOTE: spec_draft state is in-memory; it returns {draft:null} after a server restart. ' +
         'Actions: list_conversations, get (conversation + messages), create (kind sidebar|explore, optional provider/model/contextScope), ' +
+        'update (rename title / change model), ' +
         'send (cost-incurring — spawns the AI CLI and streams the reply async over WS), abort (interrupt the in-flight turn), ' +
         'delete (destructive — removes the conversation, its messages, and clears linked draft origin), minimize (arm Explore idle-kill timer), ' +
         'restore (cancel the idle-kill timer), spec_draft (read the in-memory Explore spec-draft state), messages (persisted history only).',
@@ -56,7 +61,11 @@ export function chatTools(): McpToolSpec[] {
         contextScope: z
           .record(z.unknown())
           .optional()
-          .describe('Explore-only context scope flags for create (mcp/userMcp/full/specrails/openspec/contractRefine)'),
+          .describe(
+            'Explore-only context scope flags for create: {full: repo-wide investigation, specrails: specs context, ' +
+            'openspec: openspec context, mcp: load project .mcp.json (spawns from repo cwd, slower), ' +
+            "userMcp: user's approved MCP servers, contractRefine: append Contract Layer on commit}",
+          ),
         // update params
         title: z.string().optional().describe('New title for update'),
         // send params
@@ -113,7 +122,7 @@ export function chatTools(): McpToolSpec[] {
             return {
               ...r,
               conversationId: requireConv(),
-              hint: `Turn accepted (202). The assistant reply streams over WebSocket — use specrails_watch with conversationId "${requireConv()}" to await completion (chat_done / chat_error).`,
+              hint: `Turn accepted (202). The assistant reply streams over WebSocket — use specrails_watch with conversationId "${requireConv()}" to await completion (chat_done / chat_error). Each send spawns a fresh AI CLI turn (cost); Explore turns accumulate the spec_draft.`,
             }
           }
           case 'abort':

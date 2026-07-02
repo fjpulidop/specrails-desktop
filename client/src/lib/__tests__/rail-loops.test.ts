@@ -14,6 +14,8 @@ describe('rail-loops helpers', () => {
     expect(deriveRailMode('factory:implement')).toBe('implement')
     expect(deriveRailMode('factory:batch')).toBe('batch-implement')
     expect(deriveRailMode('factory:ultracode')).toBe('ultracode')
+    // Graph-native factory loops run through the loop engine like custom loops.
+    expect(deriveRailMode('factory:openspec')).toBe('loop')
     expect(deriveRailMode('some-custom-id')).toBe('loop')
     expect(deriveRailMode(null)).toBe('loop')
   })
@@ -32,7 +34,9 @@ describe('rail-loops helpers', () => {
   })
 
   it('exposes the built-in rail loops with ultracode flagged claude-only', () => {
-    expect(FACTORY_RAIL_LOOPS.map((f) => f.id)).toEqual(['factory:implement', 'factory:batch', 'factory:ultracode'])
+    expect(FACTORY_RAIL_LOOPS.map((f) => f.id)).toEqual(['factory:implement', 'factory:batch', 'factory:ultracode', 'factory:openspec'])
     expect(FACTORY_RAIL_LOOPS.find((f) => f.id === 'factory:ultracode')?.claudeOnly).toBe(true)
+    // Graph-native built-in: only offered while the Loops feature is enabled.
+    expect(FACTORY_RAIL_LOOPS.find((f) => f.id === 'factory:openspec')?.requiresLoops).toBe(true)
   })
 })

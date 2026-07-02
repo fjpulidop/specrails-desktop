@@ -4,6 +4,7 @@ import remarkGfm from 'remark-gfm'
 import { Copy, Check } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { cn } from '../../lib/utils'
+import { extractAgentOptions } from './agent-options'
 
 // Token-based markdown styling — works across ALL themes (no prose-invert, which
 // would break light themes). Tables, bold, code, lists, blockquotes, links.
@@ -60,10 +61,14 @@ interface Props {
   content: string
   /** Streaming assistant bubble: render markdown live, hide the copy button. */
   streaming?: boolean
+  /** True only for the newest message while no turn is streaming — gates chips. */
+  isLast?: boolean
+  /** Sends the clicked option label as the user's reply. */
+  onPickOption?: (option: string) => void
 }
 
 /** A single agent chat message: markdown-rendered, with a subtle per-bubble copy. */
-export function AgentMessage({ role, content, streaming }: Props) {
+export function AgentMessage({ role, content, streaming, isLast, onPickOption }: Props) {
   const isUser = role === 'user'
 
   if (isUser) {
@@ -81,14 +86,35 @@ export function AgentMessage({ role, content, streaming }: Props) {
   // so formatting (bold, lists, tables) appears live instead of showing raw
   // markdown until the turn settles. The bottom activity chip signals streaming;
   // the copy button appears once it's done.
+  //
+  // A valid trailing ```options block (the agent asking the user to choose) is
+  // ALWAYS stripped from the rendered markdown; the chips themselves render only
+  // on the last settled message — older questions keep just their prose.
+  const { body, options } = extractAgentOptions(content)
+  const showChips = !!options && !!isLast && !streaming && !!onPickOption
   return (
     <div className="group flex flex-col gap-1">
       <div className={cn('max-w-full', MD)}>
-        <ReactMarkdown remarkPlugins={[remarkGfm]}>{content}</ReactMarkdown>
+        <ReactMarkdown remarkPlugins={[remarkGfm]}>{body}</ReactMarkdown>
       </div>
-      {!streaming && content.trim() && (
+      {showChips && (
+        <div className="flex flex-wrap gap-1.5 pt-1">
+          {options.map((option, i) => (
+            <button
+              key={`${i}-${option}`}
+              type="button"
+              onClick={() => onPickOption?.(option)}
+              className="rounded-full border border-border/60 bg-surface/70 px-3 py-1 text-xs text-foreground/80 transition-colors hover:border-accent-primary/45 hover:bg-accent-primary/15 hover:text-foreground"
+              data-agent-interactive
+            >
+              {option}
+            </button>
+          ))}
+        </div>
+      )}
+      {!streaming && body.trim() && (
         <div className="flex justify-start">
-          <CopyButton text={content} />
+          <CopyButton text={body} />
         </div>
       )}
     </div>

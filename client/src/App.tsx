@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useMemo, useCallback, lazy, Suspense } from 'react'
+import { useState, useEffect, useLayoutEffect, useRef, useMemo, useCallback, lazy, Suspense }from 'react'
 import { Routes, Route, Navigate, useLocation, useNavigate } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { Toaster } from 'sonner'
@@ -34,9 +34,10 @@ import { ArcSidebar } from './components/ArcSidebar'
 import { ProjectRightSidebar } from './components/ProjectRightSidebar'
 import { AddProjectDialog } from './components/AddProjectDialog'
 import { SidebarPinProvider, useSidebarPin } from './context/SidebarPinContext'
+import { UiModeProvider } from './context/UiModeContext'
 import { CommandPalette } from './components/CommandPalette'
 import { SharedWebSocketProvider } from './hooks/useSharedWebSocket'
-import { DesktopProvider, useDesktop } from './hooks/useDesktop'
+import { DesktopProvider, useDesktop, projectProviders } from './hooks/useDesktop'
 import { SpecGenTrackerProvider } from './hooks/useSpecGenTracker'
 import { ContractRefineTrackerProvider } from './hooks/useContractRefineTracker'
 import { SmashTrackerProvider } from './context/SmashTrackerContext'
@@ -45,7 +46,15 @@ import { useDesktopUpdateNotifier } from './hooks/useDesktopUpdateNotifier'
 import { useTrayLabels } from './hooks/useTrayLabels'
 import { useSuppressNativeContextMenu } from './hooks/useSuppressNativeContextMenu'
 import { WS_URL } from './lib/ws-url'
-import { TerminalsProvider, useTerminals } from './context/TerminalsContext'
+import { TerminalsProvider, useTerminals, useProjectTerminals } from './context/TerminalsContext'
+import { usePipeline } from './hooks/usePipeline'
+import { BottomPanel } from './components/terminal/BottomPanel'
+import { StatusBar } from './components/StatusBar'
+import { PanelChevronButton } from './components/terminal/PanelChevronButton'
+import { useUiMode } from './context/UiModeContext'
+import { AgentWorkspaceProvider } from './context/AgentWorkspaceContext'
+import { AgentWorkspaceSidebar } from './components/agent-chat/AgentWorkspaceSidebar'
+import { AgentModeSurface } from './components/agent-chat/AgentModeSurface'
 import { RailMetricsProvider } from './context/RailMetricsContext'
 import { MinimizedChatsProvider, } from './context/MinimizedChatsContext'
 import { AgentChatProvider, useAgentChat } from './context/AgentChatContext'
@@ -55,6 +64,8 @@ import { useCompareUrlSync } from './hooks/useCompareUrlSync'
 import { ThemeProvider, useTheme } from './context/ThemeContext'
 import { LanguageProvider } from './context/LanguageContext'
 import { FEATURE_AGENTS_SECTION, FEATURE_CODE_EXPLORER, FEATURE_TERMINAL_PANEL, FEATURE_LOOPS_SECTION, FEATURE_AGENT_CHAT } from './lib/feature-flags'
+
+const STATUSBAR_HEIGHT_PX = 28
 
 // ─── Per-project route memory (in-memory only — resets on app restart) ───────
 
@@ -151,6 +162,7 @@ function DesktopApp() {
   const location = useLocation()
   const terminals = useTerminals()
   const agentChat = useAgentChat()
+  const { uiMode } = useUiMode()
 
   // Two-way sync between split-view comparison state and ?compare=… URL params.
   useCompareUrlSync()
@@ -203,7 +215,9 @@ function DesktopApp() {
         queueMicrotask(() => terminals.focusActive(activeProjectId))
       }
     } : undefined,
-    onToggleAgentChat: FEATURE_AGENT_CHAT ? () => agentChat.toggle() : undefined,
+    // In Agent Mode the floating panel/bubble are suppressed — toggling would
+    // invisibly mutate state (ensureActive clobbers the EMPTY compose screen).
+    onToggleAgentChat: FEATURE_AGENT_CHAT && uiMode !== 'agent' ? () => agentChat.toggle() : undefined,
   })
 
   // OS notifications for job completions/failures
@@ -215,6 +229,44 @@ function DesktopApp() {
 
   const activeProject = projects.find((p) => p.id === activeProjectId)
   const isInSetup = activeProjectId !== null && setupProjectIds.has(activeProjectId)
+  // Global routes render in the center in BOTH modes (Loops/Docs stay-in-mode).
+  const onGlobalRoute =
+    location.pathname.startsWith('/loops') || location.pathname.startsWith('/docs')
+
+  // ─── Hoisted terminal panel (single instance, both modes) ───────────────────
+  // BottomPanel + StatusBar live here (not in ProjectLayout) so the terminal
+  // survives when the center is the agent surface rather than a project route.
+  // Exactly one BottomPanel/TerminalViewport is ever mounted → the terminal
+  // single-adopter invariant holds.
+  const { connectionStatus } = usePipeline()
+  const panelState = useProjectTerminals(activeProjectId)
+  const mainColRef = useRef<HTMLDivElement | null>(null)
+  const [viewportHeight, setViewportHeight] = useState<number>(
+    typeof window !== 'undefined' ? window.innerHeight : 820,
+  )
+  useLayoutEffect(() => {
+    if (!FEATURE_TERMINAL_PANEL) return
+    const el = mainColRef.current
+    // On first mount the isLoading skeleton renders WITHOUT the mainColRef div —
+    // re-run when loading flips so the observer attaches to the real column.
+    if (!el) return
+    const update = () => setViewportHeight(el.clientHeight)
+    update()
+    const ro = new ResizeObserver(update)
+    ro.observe(el)
+    return () => ro.disconnect()
+  }, [isLoading])
+  useEffect(() => {
+    if (!FEATURE_TERMINAL_PANEL || !activeProjectId) return
+    terminals.ensureProject(activeProjectId)
+  }, [activeProjectId, terminals])
+  const chevronSlot =
+    FEATURE_TERMINAL_PANEL && uiMode === 'kanban' && panelState.visibility === 'hidden' ? (
+      <PanelChevronButton
+        isOpen={false}
+        onClick={() => activeProjectId && terminals.setVisibility(activeProjectId, 'restored')}
+      />
+    ) : null
 
   if (isLoading) {
     return (
@@ -239,7 +291,7 @@ function DesktopApp() {
       />
 
       {/* Main area — navbar + content */}
-      <div className="flex flex-col flex-1 overflow-hidden">
+      <div ref={mainColRef} className="flex flex-col flex-1 overflow-hidden">
         {/* Project switching progress bar */}
         {isSwitchingProject && (
           <div
@@ -257,6 +309,10 @@ function DesktopApp() {
               onComplete={() => completeSetupWizard(activeProject.id)}
               onSkip={() => completeSetupWizard(activeProject.id)}
             />
+          ) : uiMode === 'agent' && !onGlobalRoute ? (
+            // Agent Mode replaces the routed dashboard; global routes (/loops,
+            // /docs) still fall through to <Routes> below and render in-place.
+            <AgentModeSurface />
           ) : (
             <Suspense fallback={<div className="flex-1 flex items-center justify-center"><p className="text-sm text-muted-foreground">{t('states.loading')}</p></div>}>
               <Routes>
@@ -294,12 +350,29 @@ function DesktopApp() {
             </Suspense>
           )}
         </div>
+
+        {/* Hoisted terminal panel + status bar — single instance shared by both
+            modes. Footer chevron entry point is gated to Kanban (in Agent Mode
+            the entry point is the workspace sidebar's Terminal tool). */}
+        {FEATURE_TERMINAL_PANEL && activeProjectId && activeProject && (
+          <BottomPanel
+            projectId={activeProjectId}
+            provider={activeProject.provider}
+            providers={projectProviders(activeProject)}
+            state={panelState}
+            viewportHeight={viewportHeight}
+            statusBarHeight={STATUSBAR_HEIGHT_PX}
+          />
+        )}
+        <StatusBar connectionStatus={connectionStatus} rightSlot={chevronSlot} minimal={uiMode === 'agent'} />
       </div>
 
-      {/* Right sidebar — full height, only when a project is active and not in
-          setup. Hidden on the global /loops surface so the builder/library use
-          the full width. */}
-      {activeProject && !isInSetup && !location.pathname.startsWith('/loops') && <ProjectRightSidebar />}
+      {/* Right sidebar — full height. In Agent Mode this is the "On workspace"
+          toolbar; in Kanban it's the project sidebar. Hidden on global routes
+          and during setup. */}
+      {uiMode === 'agent'
+        ? !isInSetup && !onGlobalRoute && <AgentWorkspaceSidebar />
+        : activeProject && !isInSetup && !onGlobalRoute && <ProjectRightSidebar />}
 
       <AddProjectDialog open={addDialogOpen} onClose={() => setAddDialogOpen(false)} />
       <SettingsDialog open={settingsOpen} onClose={() => setSettingsOpen(false)} onOpenOnboarding={() => { setSettingsOpen(false); setOnboardingOpen(true) }} />
@@ -438,6 +511,7 @@ export default function App() {
                 `components/theme-effects/ThemeEffectLayer.tsx`. */}
             <ThemeEffectLayer />
             <DesktopProvider>
+              <UiModeProvider>
               {/* Custom frameless titlebar inside DesktopProvider so it can read active project */}
               <TitleBar />
               <SpecGenTrackerProvider>
@@ -448,12 +522,14 @@ export default function App() {
                     <RailMetricsProviderWithDesktop>
                     <MinimizedChatsProvider>
                       <AgentChatProvider>
+                        <AgentWorkspaceProvider>
                         <TicketDetailModalProvider>
                           <WebViewModalProvider>
                             <DesktopApp />
                             <ThemedToaster />
                           </WebViewModalProvider>
                         </TicketDetailModalProvider>
+                        </AgentWorkspaceProvider>
                       </AgentChatProvider>
                     </MinimizedChatsProvider>
                     </RailMetricsProviderWithDesktop>
@@ -462,6 +538,7 @@ export default function App() {
                 </SmashTrackerProvider>
                 </ContractRefineTrackerProvider>
               </SpecGenTrackerProvider>
+              </UiModeProvider>
             </DesktopProvider>
             </LanguageProvider>
           </ThemeProvider>

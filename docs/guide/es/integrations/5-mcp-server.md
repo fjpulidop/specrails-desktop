@@ -31,6 +31,25 @@ En un cliente como Claude Desktop o Cursor, la configuración tiene este aspecto
 
 Los clientes que admiten servidores MCP remotos por HTTP pueden, en su lugar, apuntar directamente a `http://127.0.0.1:4200/api/mcp` con el token del panel.
 
+### Desde la terminal: Claude Code, Gemini CLI, Codex CLI
+
+Copia tu token desde **Ajustes ▸ MCP ▸ Copiar token** y después:
+
+```bash
+# Claude Code
+claude mcp add --transport http specrails http://localhost:4200/api/mcp \
+  --header "X-Desktop-Token: <tu token>"
+
+# Gemini CLI
+gemini mcp add --transport http specrails http://localhost:4200/api/mcp \
+  --header "X-Desktop-Token: <tu token>"
+
+# Codex CLI (stdio — registra el comando del bridge que muestra Ajustes ▸ MCP)
+codex mcp add specrails -- <comando del bridge de Ajustes ▸ MCP>
+```
+
+La cabecera `Authorization: Bearer <token>` también funciona. Si cambiaste el puerto de la app, sustituye `4200` por el tuyo.
+
 Una vez conectado, tu asistente ve unas **18 herramientas** que cubren toda la app — proyectos, specs, rails y trabajos, chat/Explore, agentes, plugins, Jira, loops, el explorador de código, analíticas, configuración — más una herramienta de **guía** incorporada que lee primero para entender cómo funciona Specrails sin que tú tengas que explicar nada.
 
 ## Qué puedes hacer con él
@@ -51,7 +70,7 @@ Mantén **Destructivo** desactivado y podrá trabajar toda la noche sin borrar n
 > *"Revisa todos mis proyectos. Dime cuáles tienen specs en el backlog y ningún rail en marcha, y arranca el de mayor prioridad en cada uno."*
 
 **Sin manos mientras programas.** Maneja Specrails desde tu editor o por voz, sin cambiar de ventana:
-> *"Lanza el rail 0 en modo ultracode con Opus para el ticket #42 y avísame cuando termine."*
+> *"Lanza el rail 0 en modo Freestyle con Opus para el ticket #42 y avísame cuando termine."*
 
 **Pregunta por el coste y el historial.** Tus analíticas, en lenguaje natural:
 > *"¿Dónde he gastado más en IA esta semana, por proyecto y por modelo? Enséñame los cinco tickets más caros."*

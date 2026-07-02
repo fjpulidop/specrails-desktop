@@ -1,20 +1,13 @@
 import { Outlet } from 'react-router-dom'
 import { toast } from 'sonner'
-import { useEffect, useLayoutEffect, useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { TooltipProvider } from './ui/tooltip'
-import { StatusBar } from './StatusBar'
 import { ChatPanel } from './ChatPanel'
-import { usePipeline } from '../hooks/usePipeline'
 import { useChat, ChatContext } from '../hooks/useChat'
 import { useSharedWebSocket } from '../hooks/useSharedWebSocket'
-import { type DesktopProject, projectProviders } from '../hooks/useDesktop'
-import { FEATURE_CHAT_ENABLED, FEATURE_TERMINAL_PANEL } from '../lib/feature-flags'
-import { BottomPanel } from './terminal/BottomPanel'
-import { PanelChevronButton } from './terminal/PanelChevronButton'
-import { useTerminals, useProjectTerminals } from '../context/TerminalsContext'
-
-const STATUSBAR_HEIGHT_PX = 28
+import { type DesktopProject } from '../hooks/useDesktop'
+import { FEATURE_CHAT_ENABLED } from '../lib/feature-flags'
 
 interface ProjectLayoutProps {
   project: DesktopProject
@@ -22,7 +15,6 @@ interface ProjectLayoutProps {
 
 export function ProjectLayout({ project }: ProjectLayoutProps) {
   const { t } = useTranslation('nav')
-  const { connectionStatus } = usePipeline()
   const chat = useChat()
   const { registerHandler, unregisterHandler } = useSharedWebSocket()
   const [budgetExceeded, setBudgetExceeded] = useState<{ dailySpend: number; budget: number } | null>(null)
@@ -63,41 +55,14 @@ export function ProjectLayout({ project }: ProjectLayoutProps) {
     return () => unregisterHandler(id)
   }, [project.id, registerHandler, unregisterHandler, t])
 
-  // ─── Terminal panel integration ─────────────────────────────────────────────
-  const terminals = useTerminals()
-  const panelState = useProjectTerminals(project.id)
-  const outerRef = useRef<HTMLDivElement | null>(null)
-  const [viewportHeight, setViewportHeight] = useState<number>(
-    typeof window !== 'undefined' ? window.innerHeight : 820,
-  )
-
-  useLayoutEffect(() => {
-    if (!FEATURE_TERMINAL_PANEL) return
-    const el = outerRef.current
-    if (!el) return
-    const update = () => setViewportHeight(el.clientHeight)
-    update()
-    const ro = new ResizeObserver(update)
-    ro.observe(el)
-    return () => ro.disconnect()
-  }, [])
-
-  useEffect(() => {
-    if (!FEATURE_TERMINAL_PANEL) return
-    terminals.ensureProject(project.id)
-  }, [project.id, terminals])
-
-  const chevronSlot = FEATURE_TERMINAL_PANEL && panelState.visibility === 'hidden' ? (
-    <PanelChevronButton
-      isOpen={false}
-      onClick={() => terminals.setVisibility(project.id, 'restored')}
-    />
-  ) : null
+  // Terminal panel + StatusBar are hoisted to DesktopApp (single instance,
+  // shared by Kanban and Agent Mode) — see App.tsx. ProjectLayout only owns the
+  // routed <main> + chat panel now.
 
   return (
     <TooltipProvider delayDuration={400}>
       <ChatContext.Provider value={chat}>
-      <div ref={outerRef} className="flex flex-col h-full overflow-hidden">
+      <div className="flex flex-col h-full overflow-hidden">
         {budgetExceeded && (
           <div className="flex items-center justify-between px-4 py-2 bg-destructive/10 border-b border-destructive/20 text-xs">
             <span className="text-destructive font-medium">
@@ -121,17 +86,6 @@ export function ProjectLayout({ project }: ProjectLayoutProps) {
           </main>
           {FEATURE_CHAT_ENABLED && <ChatPanel chat={chat} project={project} />}
         </div>
-        {FEATURE_TERMINAL_PANEL && (
-          <BottomPanel
-            projectId={project.id}
-            provider={project.provider}
-            providers={projectProviders(project)}
-            state={panelState}
-            viewportHeight={viewportHeight}
-            statusBarHeight={STATUSBAR_HEIGHT_PX}
-          />
-        )}
-        <StatusBar connectionStatus={connectionStatus} rightSlot={chevronSlot} />
       </div>
       </ChatContext.Provider>
     </TooltipProvider>

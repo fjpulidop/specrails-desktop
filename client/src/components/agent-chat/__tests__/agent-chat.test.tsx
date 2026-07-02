@@ -35,9 +35,13 @@ vi.mock('../../../lib/agent-api', async (orig) => {
     abortAgentTurn: vi.fn(async () => {}),
     getMcpStatus: vi.fn(async () => ({ enabled: true, running: true })),
     enableMcp: vi.fn(async () => {}),
-    getAgentModels: vi.fn(async (p: string) => (p === 'codex'
-      ? [{ value: 'gpt-5.5', label: 'GPT-5.5', default: true }, { value: 'gpt-5.4', label: 'GPT-5.4' }]
-      : [{ value: 'sonnet', label: 'Claude Sonnet', default: true }, { value: 'opus', label: 'Claude Opus' }])),
+    getAgentModels: vi.fn(async (p: string) => ({
+      models: p === 'codex'
+        ? [{ value: 'gpt-5.5', label: 'GPT-5.5', default: true }, { value: 'gpt-5.4', label: 'GPT-5.4' }]
+        : [{ value: 'sonnet', label: 'Claude Sonnet', default: true }, { value: 'opus', label: 'Claude Opus' }],
+      supportsImageInput: p !== 'gemini',
+      efforts: p === 'gemini' ? [] : p === 'codex' ? ['minimal', 'low', 'medium', 'high'] : ['low', 'medium', 'high', 'xhigh'],
+    })),
   }
 })
 
@@ -142,6 +146,69 @@ describe('AgentMessage', () => {
     await act(async () => { fireEvent.click(screen.getByLabelText('Copy')) })
     expect(writeText).toHaveBeenCalledWith('copy me')
     vi.unstubAllGlobals()
+  })
+})
+
+// ── AgentMessage option chips (```options protocol) ───────────────────────────
+describe('AgentMessage option chips', () => {
+  const withOptions = 'Which one do you prefer?\n\n```options\n["Option A", "Option B"]\n```'
+
+  it('renders chips and strips the block on the last settled message', () => {
+    const { container } = render(
+      <AgentMessage role="assistant" content={withOptions} isLast onPickOption={vi.fn()} />,
+    )
+    expect(screen.getByRole('button', { name: 'Option A' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Option B' })).toBeInTheDocument()
+    expect(screen.getByText('Which one do you prefer?')).toBeInTheDocument()
+    expect(container.querySelector('pre')).not.toBeInTheDocument() // block stripped
+  })
+
+  it('clicking a chip sends that option text', () => {
+    const onPick = vi.fn()
+    render(<AgentMessage role="assistant" content={withOptions} isLast onPickOption={onPick} />)
+    fireEvent.click(screen.getByRole('button', { name: 'Option B' }))
+    expect(onPick).toHaveBeenCalledWith('Option B')
+  })
+
+  it.each([
+    ['invalid JSON', '```options\nnot json at all\n```'],
+    ['a single option', '```options\n["Only one"]\n```'],
+    ['too many options', '```options\n' + JSON.stringify(Array.from({ length: 9 }, (_, i) => `O${i}`)) + '\n```'],
+    ['a non-string item', '```options\n["A", 2]\n```'],
+    ['an overlong label', '```options\n["A", "' + 'x'.repeat(81) + '"]\n```'],
+    ['a non-array payload', '```options\n{"a": "b"}\n```'],
+  ])('renders %s as a normal code block (no chips)', (_name, block) => {
+    const { container } = render(
+      <AgentMessage role="assistant" content={'Pick:\n\n' + block} isLast onPickOption={vi.fn()} />,
+    )
+    expect(container.querySelector('pre')).toBeInTheDocument() // kept as code
+    expect(container.querySelectorAll('button').length).toBe(1) // only the copy button
+  })
+
+  it('ignores an options block that is not at the end of the message', () => {
+    const content = 'Intro\n\n```options\n["A", "B"]\n```\n\ntrailing prose'
+    const { container } = render(
+      <AgentMessage role="assistant" content={content} isLast onPickOption={vi.fn()} />,
+    )
+    expect(screen.queryByRole('button', { name: 'A' })).not.toBeInTheDocument()
+    expect(container.querySelector('pre')).toBeInTheDocument()
+  })
+
+  it('suppresses chips while streaming but still strips a complete block', () => {
+    const { container } = render(
+      <AgentMessage role="assistant" content={withOptions} isLast streaming onPickOption={vi.fn()} />,
+    )
+    expect(screen.queryByRole('button', { name: 'Option A' })).not.toBeInTheDocument()
+    expect(container.querySelector('pre')).not.toBeInTheDocument()
+  })
+
+  it('hides chips entirely on non-last messages but still strips the block', () => {
+    const { container } = render(
+      <AgentMessage role="assistant" content={withOptions} onPickOption={vi.fn()} />,
+    )
+    expect(screen.queryByRole('button', { name: 'Option A' })).not.toBeInTheDocument()
+    expect(container.querySelector('pre')).not.toBeInTheDocument()
+    expect(screen.getByText('Which one do you prefer?')).toBeInTheDocument()
   })
 })
 
@@ -277,6 +344,23 @@ describe('AgentChatProvider', () => {
     expect(bubble.style.left).toBe('123px')
     expect(bubble.style.top).toBe('234px')
     localStorage.clear()
+  })
+
+  it('clicking an option chip in the panel sends that option as the reply', async () => {
+    render(<AgentChatProvider><Harness /></AgentChatProvider>)
+    await act(async () => { fireEvent.click(screen.getByText('open')) })
+    await waitFor(() => expect(agentApi.createAgentConversation).toHaveBeenCalled())
+    // A settled assistant turn asking the user to choose, with an options block.
+    await act(async () => {
+      wsHandler!({
+        type: 'agent_done',
+        conversationId: 'c1',
+        fullText: 'Which rail?\n\n```options\n["Launch it", "Not yet"]\n```',
+      })
+    })
+    const chip = await screen.findByRole('button', { name: 'Launch it' })
+    await act(async () => { fireEvent.click(chip) })
+    expect(agentApi.sendAgentMessage).toHaveBeenCalledWith('c1', 'Launch it', expect.anything())
   })
 
   it('Shift+Tab inside the panel cycles the tier', async () => {

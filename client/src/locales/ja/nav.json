@@ -18,7 +18,9 @@
     "confirmRemove": "{{name}} の削除を確認",
     "confirmShort": "削除しますか？",
     "added": "プロジェクトを追加しました: {{name}}",
-    "removed": "プロジェクトを削除しました"
+    "removed": "プロジェクトを削除しました",
+    "expand": "{{name}} を展開",
+    "collapse": "{{name}} を折りたたむ"
   },
   "arcSidebar": {
     "desktopTitle": "Desktop",

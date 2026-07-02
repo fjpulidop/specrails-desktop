@@ -35,9 +35,6 @@ interface RailRowProps {
   /** Selected model for custom loop rails. null/undefined = provider default. */
   loopModel?: string | null
   /** Per-rail "Interactive" toggle (ultracode only). */
-  interactive?: boolean
-  /** Whether the interactive toggle should be offered (client feature flag). */
-  interactiveAvailable?: boolean
   /** Installed providers — when >1 the rail header shows an AI engine selector. */
   providers?: readonly string[]
   /** When true, the rail offers "Loop" mode (run a published loop). */
@@ -70,7 +67,6 @@ interface RailRowProps {
   onLoopModelChange?: (model: string) => void
   onLoopChange?: (loopId: string) => void
   onEffortChange?: (effort: ReasoningEffort) => void
-  onInteractiveChange?: (interactive: boolean) => void
   onToggle: () => void
   onTicketClick: (ticket: LocalTicket) => void
   onDelete: () => void
@@ -83,10 +79,10 @@ interface RailRowProps {
 }
 
 export function RailRow({
-  id, label, tickets, mode, status, activeJobId, profileName, aiEngine, ultracodeModel, loopModel, interactive, interactiveAvailable, providers,
+  id, label, tickets, mode, status, activeJobId, profileName, aiEngine, ultracodeModel, loopModel, providers,
   loopAvailable, selectedLoopId, reasoningEffort, worktreeSummary, executionMetric, jiggleMode,
   dragHandleListeners, dragHandleAttributes, density = 'normal',
-  onModeChange, onProfileChange, onEngineChange, onUltracodeModelChange, onLoopModelChange, onLoopChange, onEffortChange, onInteractiveChange, onToggle, onTicketClick, onDelete, onLongPress, onRename,
+  onModeChange, onProfileChange, onEngineChange, onUltracodeModelChange, onLoopModelChange, onLoopChange, onEffortChange, onToggle, onTicketClick, onDelete, onLongPress, onRename,
   onTicketMoveToSpecs,
 }: RailRowProps) {
   const { t } = useTranslation('dashboard')
@@ -456,11 +452,8 @@ export function RailRow({
             ticketCount={tickets.length}
             ultracodeAvailable={engineIsClaude}
             loopAvailable={loopAvailable}
-            interactive={interactive}
-            interactiveAvailable={interactiveAvailable}
             onModeChange={onModeChange}
-            onInteractiveChange={onInteractiveChange}
-            onToggle={onToggle}
+                onToggle={onToggle}
           />
         </div>
 
@@ -608,7 +601,7 @@ export function RailRow({
             {!hasSelectorRow && showProfileSel && onProfileChange && (
               <RailProfileSelector value={profileName ?? null} onChange={onProfileChange} />
             )}
-            <RailControls mode={mode} status={status} activeJobId={activeJobId} ticketCount={tickets.length} ultracodeAvailable={engineIsClaude} loopAvailable={loopAvailable} interactive={interactive} interactiveAvailable={interactiveAvailable} onModeChange={onModeChange} onInteractiveChange={onInteractiveChange} onToggle={onToggle} />
+            <RailControls mode={mode} status={status} activeJobId={activeJobId} ticketCount={tickets.length} ultracodeAvailable={engineIsClaude} loopAvailable={loopAvailable} onModeChange={onModeChange} onToggle={onToggle} />
             {/* Jiggle-mode delete button */}
             {jiggleMode && canDelete && (
               <button

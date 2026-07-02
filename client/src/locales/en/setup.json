@@ -229,7 +229,7 @@
       "jobLabel": "What each job runs",
       "flowCaption": "Every phase streams its logs live as it works.",
       "modeLabel": "Pick a Loop to run",
-      "modeBody": "Each rail runs a <b>Loop</b>. Pick a built-in one — <b>Implement</b> (the full structured pipeline), <b>Batch</b> (several specs at once) or <b>Ultracode</b> (Claude works autonomously, no fixed pipeline) — or one you built yourself.",
+      "modeBody": "Each rail runs a <b>Loop</b>. Pick a built-in one — <b>Implement</b> (the full structured pipeline), <b>Batch</b> (several specs at once) or <b>Freestyle</b> (Claude works autonomously, no fixed pipeline) — or one you built yourself.",
       "profilesLabel": "Agent profiles",
       "profilesBody": "A per-project, declarative catalog that decides which agents run and which model each one uses — picked per rail and snapshotted per job so concurrent work stays isolated.",
       "jobDetailLabel": "Live job detail",

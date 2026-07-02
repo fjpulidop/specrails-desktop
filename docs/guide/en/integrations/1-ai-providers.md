@@ -6,7 +6,7 @@ Specrails isn't tied to a single AI. Every part of the app that talks to an AI �
 
 | Provider | CLI | Made by | Notes |
 |---|---|---|---|
-| **Claude** | `claude` | Anthropic | The most fully featured. The only provider for Agents (profiles) and Ultracode rails, and for Contract Refine. |
+| **Claude** | `claude` | Anthropic | The most fully featured. The only provider for Agents (profiles) and Freestyle rails, and for Contract Refine. |
 | **Codex** | `codex` | OpenAI | Needs codex `0.128.0+`. Reads its MCP servers from your global `~/.codex/config.toml`. |
 | **Gemini** | `gemini` | Google | Needs gemini `0.11.0+`. Uses native telemetry and a `GEMINI.md` instructions file. |
 
@@ -43,7 +43,7 @@ Your choice is remembered per project, defaulting to the primary provider, so yo
 A handful of features are Claude-specific by nature, so they're either hidden or skipped when another provider is in play:
 
 - **Agents (profiles)** — the per-project agent catalog and model routing. Hidden on any project that includes a non-Claude provider.
-- **Ultracode rails** — always run on Claude.
+- **Freestyle rails** — always run on Claude.
 - **Contract Refine** — the extra "Contract Layer" pass on a committed spec runs only when the conversation's provider is Claude.
 - **Add Spec advanced modes** (SMASH / Contract Layer) — hidden for non-Claude engines.
 

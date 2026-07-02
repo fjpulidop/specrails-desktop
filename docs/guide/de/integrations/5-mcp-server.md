@@ -31,6 +31,25 @@ In einem Client wie Claude Desktop oder Cursor sieht die Konfiguration so aus:
 
 Clients, die entfernte HTTP-MCP-Server unterstützen, können stattdessen direkt auf `http://127.0.0.1:4200/api/mcp` mit dem Token aus dem Panel zeigen.
 
+### Vom Terminal aus: Claude Code, Gemini CLI, Codex CLI
+
+Kopiere dein Token unter **Einstellungen ▸ MCP ▸ Token kopieren**, dann:
+
+```bash
+# Claude Code
+claude mcp add --transport http specrails http://localhost:4200/api/mcp \
+  --header "X-Desktop-Token: <dein Token>"
+
+# Gemini CLI
+gemini mcp add --transport http specrails http://localhost:4200/api/mcp \
+  --header "X-Desktop-Token: <dein Token>"
+
+# Codex CLI (stdio — registriere den Bridge-Befehl aus Einstellungen ▸ MCP)
+codex mcp add specrails -- <Bridge-Befehl aus Einstellungen ▸ MCP>
+```
+
+Der Header `Authorization: Bearer <token>` funktioniert ebenfalls. Falls du den App-Port geändert hast, ersetze `4200`.
+
 Einmal verbunden, sieht dein Assistent etwa **18 Tools**, die die ganze App abdecken — Projekte, Specs, Rails und Jobs, Chat/Explore, Agenten, Plugins, Jira, Loops, den Code-Explorer, Analytics, Einstellungen — plus ein eingebautes **Guide**-Tool, das er zuerst liest, sodass er versteht, wie Specrails funktioniert, ohne dass du irgendetwas erklären musst.
 
 ## Was du damit machen kannst
@@ -51,7 +70,7 @@ Lass **Destruktiv** aus, und es kann die ganze Nacht bauen, ohne jemals etwas zu
 > *„Prüfe alle meine Projekte. Sag mir, welche Specs im Backlog haben und kein laufendes Rail, und starte in jedem das mit der höchsten Priorität."*
 
 **Freihändig, während du programmierst.** Steuere Specrails aus deinem Editor oder per Sprache, ohne das Fenster zu wechseln:
-> *„Starte Rail 0 im Ultracode-Modus mit Opus für Ticket #42 und sag mir, wenn es fertig ist."*
+> *„Starte Rail 0 im Freestyle-Modus mit Opus für Ticket #42 und sag mir, wenn es fertig ist."*
 
 **Frag nach Kosten und Verlauf.** Deine Analytics, in einfacher Sprache:
 > *„Wofür habe ich diese Woche am meisten für KI ausgegeben, nach Projekt und nach Modell? Zeig mir die fünf teuersten Tickets."*

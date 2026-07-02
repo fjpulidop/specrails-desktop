@@ -168,11 +168,17 @@ describe('loops-router factory loops', () => {
     const res = await request(app).get('/api/loops/factory')
     expect(res.status).toBe(200)
     const ids = res.body.factoryLoops.map((f: { id: string }) => f.id)
-    expect(ids).toEqual(['factory:implement', 'factory:batch', 'factory:ultracode'])
+    expect(ids).toEqual(['factory:implement', 'factory:batch', 'factory:ultracode', 'factory:openspec'])
     const ultra = res.body.factoryLoops.find((f: { id: string }) => f.id === 'factory:ultracode')
     expect(ultra.mode).toBe('ultracode')
+    expect(ultra.name).toBe('Freestyle')
     expect(ultra.claudeOnly).toBe(true)
     expect(ultra.graph.nodes.length).toBeGreaterThan(0)
+    const openspec = res.body.factoryLoops.find((f: { id: string }) => f.id === 'factory:openspec')
+    expect(openspec.mode).toBe('loop')
+    expect(openspec.claudeOnly ?? false).toBe(false)
+    // The graph is the opsx lifecycle: ff → apply → verify → decider → archive.
+    expect(openspec.graph.nodes.some((n: { type: string }) => n.type === 'shell')).toBe(true)
   })
 
   it('forks a factory loop into a new editable draft (factory unchanged)', async () => {

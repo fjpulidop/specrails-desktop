@@ -73,6 +73,38 @@ function formatRelTime(dateStr: string): string {
   }
 }
 
+// ─── Local-day range helpers ─────────────────────────────────────────────────
+// `started_at` is a UTC ISO timestamp (`new Date().toISOString()` server-side)
+// while <input type="date"> yields a local calendar day (`YYYY-MM-DD`).
+// Comparing them as strings implicitly treats the picked day as a *UTC* day,
+// so any job near local midnight lands on the wrong side of the boundary
+// (e.g. 00:30 local in UTC+2 is stored under the previous UTC day), and
+// `> "${to}T23:59:59"` drops the last second of the "to" day. Compare epoch
+// millis against local-day boundaries instead.
+
+/** Epoch ms of local midnight at the start of a `YYYY-MM-DD` day. */
+export function localDayStartMs(day: string): number {
+  const [y, m, d] = day.split('-').map(Number)
+  return new Date(y, m - 1, d).getTime()
+}
+
+/** Epoch ms of the last millisecond of a `YYYY-MM-DD` day, local time. */
+export function localDayEndMs(day: string): number {
+  const [y, m, d] = day.split('-').map(Number)
+  // Date ctor rolls day-overflow into the next month/year.
+  return new Date(y, m - 1, d + 1).getTime() - 1
+}
+
+/** Whether a timestamp falls within [from, to] local days (inclusive). */
+export function isWithinLocalDayRange(startedAt: string, from: string, to: string): boolean {
+  if (!from && !to) return true
+  const t = new Date(startedAt).getTime()
+  if (Number.isNaN(t)) return true // unparsable timestamp — keep the job visible
+  if (from && t < localDayStartMs(from)) return false
+  if (to && t > localDayEndMs(to)) return false
+  return true
+}
+
 interface RecentJobsProps {
   jobs: JobSummary[]
   isLoading?: boolean
@@ -126,24 +158,25 @@ export function RecentJobs({ jobs, isLoading, onJobsCleared, onProposalClick, on
 
   const filteredJobs = jobs.filter((j) => {
     if (statusFilter && j.status !== statusFilter) return false
-    if (dateFrom && j.started_at < dateFrom) return false
-    if (dateTo && j.started_at > `${dateTo}T23:59:59`) return false
-    return true
+    return isWithinLocalDayRange(j.started_at, dateFrom, dateTo)
   })
 
-  const clearRangeCount = jobs.filter((j) => {
-    if (clearFrom && j.started_at < clearFrom) return false
-    if (clearTo && j.started_at > `${clearTo}T23:59:59`) return false
-    return true
-  }).length
+  const clearRangeCount = jobs.filter((j) =>
+    isWithinLocalDayRange(j.started_at, clearFrom, clearTo)
+  ).length
 
   async function handleClear(mode: 'all' | 'range') {
     setIsClearing(true)
     try {
       const body: Record<string, string> = {}
       if (mode === 'range') {
-        if (clearFrom) body.from = clearFrom
-        if (clearTo) body.to = clearTo
+        // The server (purgeJobs) string-compares `started_at >= from AND
+        // started_at <= to` against UTC ISO timestamps, so send full ISO
+        // local-day boundaries: a raw `YYYY-MM-DD` "to" would exclude the
+        // entire selected end day (and both ends would drift by the UTC
+        // offset), diverging from the count previewed on the button.
+        if (clearFrom) body.from = new Date(localDayStartMs(clearFrom)).toISOString()
+        if (clearTo) body.to = new Date(localDayEndMs(clearTo)).toISOString()
       }
       const res = await fetch(`${getApiBase()}/jobs`, {
         method: 'DELETE',

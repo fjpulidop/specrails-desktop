@@ -28,6 +28,14 @@ export interface McpToolContext {
   eventBus: MobileEventBus
   /** Port the loopback REST API listens on (for apiCall). */
   desktopPort: number
+  /**
+   * Per-REQUEST active project, set by `registerTieredTool` from the in-app
+   * agent's loopback project header. Scoped to a single tool call (a fresh ctx
+   * copy per dispatch) so a concurrent external client and the in-app agent can
+   * never clobber each other's active project. Takes precedence over the sticky
+   * process-wide selection made via `specrails_select_project`.
+   */
+  requestProjectId?: string
 }
 
 /**
@@ -103,13 +111,17 @@ export function requireProject(ctx: McpToolContext, projectId: string | undefine
 }
 
 // ── Active-project stickiness (per server process) ────────────────────────────
-// The active project is a soft default; an explicit projectId always wins.
+// The active project is a soft default; an explicit projectId always wins, and
+// a per-request pin (ctx.requestProjectId, from the in-app agent's loopback
+// header) wins over the process-wide selection. `setActiveProject` remains for
+// `specrails_select_project` (and, fallback-only, the agent-chat manager's
+// per-turn pin) — request headers must never mutate this global.
 let _activeProjectId: string | null = null
 export function setActiveProject(id: string | null): void {
   _activeProjectId = id
 }
-export function getActiveProject(_ctx: McpToolContext): string | null {
-  return _activeProjectId
+export function getActiveProject(ctx: McpToolContext): string | null {
+  return ctx.requestProjectId ?? _activeProjectId
 }
 
 function tierAnnotations(tier: McpTier): { readOnlyHint?: boolean; destructiveHint?: boolean; openWorldHint?: boolean } {
@@ -145,7 +157,9 @@ function errorResult(message: string): CallToolResult {
 function emitMcpActivity(ctx: McpToolContext, spec: McpToolSpec, args: Record<string, unknown>, tier: McpTier): void {
   try {
     const affectedProjectId =
-      (typeof args.projectId === 'string' ? args.projectId : null) ?? getActiveProject(ctx)
+      (typeof args.projectId === 'string' ? args.projectId : null) ??
+      ctx.requestProjectId ??
+      getActiveProject(ctx)
     ctx.broadcast({
       type: 'mcp.activity',
       tool: spec.name,
@@ -178,11 +192,14 @@ export function registerTieredTool(server: McpServer, ctx: McpToolContext, spec:
     async (args: Record<string, unknown>, extra?: ToolHandlerExtra): Promise<CallToolResult> => {
       // In-app agent: a per-request active-project header (loopback-only, set by
       // the agent's bridge from the Cursor-style selector) pins the project for
-      // this call so project-scoped tools resolve without specrails_select_project.
+      // THIS CALL ONLY via a per-call ctx copy — it must never mutate the
+      // process-wide active project, or a concurrent external MCP client and the
+      // in-app agent would clobber each other (wrong-project delete/launch).
       const projectHeader = extra?.requestInfo?.headers?.[AGENT_PROJECT_HEADER]
+      let callCtx = ctx
       if (projectHeader != null) {
         const pid = Array.isArray(projectHeader) ? projectHeader[0] : projectHeader
-        if (typeof pid === 'string' && pid.trim()) setActiveProject(pid.trim())
+        if (typeof pid === 'string' && pid.trim()) callCtx = { ...ctx, requestProjectId: pid.trim() }
       }
       const tier: McpTier = typeof spec.tier === 'function' ? spec.tier(args ?? {}) : spec.tier
       // In-app agent: when the request carries the loopback-only agent-tier header,
@@ -197,8 +214,8 @@ export function registerTieredTool(server: McpServer, ctx: McpToolContext, spec:
         return errorResult(tierRefusalMessage(tier))
       }
       try {
-        const data = await spec.handler(ctx, args ?? {})
-        if (tier !== 'read') emitMcpActivity(ctx, spec, args ?? {}, tier)
+        const data = await spec.handler(callCtx, args ?? {})
+        if (tier !== 'read') emitMcpActivity(callCtx, spec, args ?? {}, tier)
         return toResult(data)
       } catch (err) {
         return errorResult(err instanceof Error ? err.message : String(err))

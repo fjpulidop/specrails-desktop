@@ -35,7 +35,7 @@ Each phase is a specialised agent the rail's engine invokes in your project dire
 | **Reviewer** | `sr-reviewer` | Reviews the output. |
 | **Ship** | (varies) | Final wrap-up: tests, commit, PR draft. |
 
-Which agent handles each phase is decided by the project's **agent profile**. The baseline trio (`sr-architect`, `sr-developer`, `sr-reviewer`) is always present; routing rules in a profile can add agents or swap which one runs a phase. The phase progress bar only appears when the command actually defines phases — Ultracode jobs (which bypass the pipeline) won't show one.
+Which agent handles each phase is decided by the project's **agent profile**. The baseline trio (`sr-architect`, `sr-developer`, `sr-reviewer`) is always present; routing rules in a profile can add agents or swap which one runs a phase. The phase progress bar only appears when the command actually defines phases — Freestyle jobs (which bypass the pipeline) won't show one.
 
 ## Live metrics — honest by design
 

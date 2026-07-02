@@ -6,7 +6,7 @@ Specrails は特定の AI に縛られません。アプリの中で AI とや�
 
 | プロバイダー | CLI | 提供元 | 備考 |
 |---|---|---|---|
-| **Claude** | `claude` | Anthropic | 最も機能が充実しています。エージェント（プロファイル）と Ultracode レール、そして Contract Refine を使えるのは Claude だけです。 |
+| **Claude** | `claude` | Anthropic | 最も機能が充実しています。エージェント（プロファイル）と Freestyle レール、そして Contract Refine を使えるのは Claude だけです。 |
 | **Codex** | `codex` | OpenAI | codex `0.128.0+` が必要です。MCP サーバーはグローバルな `~/.codex/config.toml` から読み込みます。 |
 | **Gemini** | `gemini` | Google | gemini `0.11.0+` が必要です。ネイティブのテレメトリと `GEMINI.md` 指示ファイルを使用します。 |
 
@@ -43,7 +43,7 @@ Specrails は特定の AI に縛られません。アプリの中で AI とや�
 いくつかの機能はその性質上 Claude 専用なので、ほかのプロバイダーが使われているときは非表示になるかスキップされます。
 
 - **エージェント（プロファイル）** — プロジェクトごとのエージェントカタログとモデルルーティング。Claude 以外のプロバイダーを含むプロジェクトでは非表示になります。
-- **Ultracode レール** — 常に Claude で実行されます。
+- **Freestyle レール** — 常に Claude で実行されます。
 - **Contract Refine** — コミット済みスペックに対する「Contract Layer」の追加パスは、会話のプロバイダーが Claude のときだけ実行されます。
 - **Add Spec の高度なモード**（SMASH / Contract Layer） — Claude 以外のエンジンでは非表示になります。
 

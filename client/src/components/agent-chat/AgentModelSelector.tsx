@@ -16,7 +16,7 @@ export function AgentModelSelector({ provider, model, onSelect }: Props) {
   useEffect(() => {
     let alive = true
     getAgentModels(provider)
-      .then((m) => { if (alive) setModels(m) })
+      .then((r) => { if (alive) setModels(r.models) })
       .catch(() => { if (alive) setModels([]) })
     return () => { alive = false }
   }, [provider])

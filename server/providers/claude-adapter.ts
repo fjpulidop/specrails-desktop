@@ -20,6 +20,7 @@ const WHICH_CMD = process.platform === 'win32' ? 'where' : 'which'
 
 const CLAUDE_MODELS = [
   { value: 'sonnet', label: 'Claude Sonnet', default: true as const },
+  { value: 'fable', label: 'Claude Fable' },
   { value: 'opus', label: 'Claude Opus' },
   { value: 'haiku', label: 'Claude Haiku' },
 ] as const
@@ -28,11 +29,14 @@ const CLAUDE_MODELS = [
  *  CLI accepts collapse to the short alias. */
 function normaliseModel(model: string | null | undefined): string {
   switch (model) {
+    case 'claude-sonnet-5':
     case 'claude-sonnet-4-6':
     case 'claude-sonnet-4-5':
     case 'claude-sonnet-4-0':
     case 'claude-sonnet-4-20250514':
       return 'sonnet'
+    case 'claude-fable-5':
+      return 'fable'
     case 'claude-opus-4-8':
     case 'claude-opus-4-5':
     case 'claude-opus-4-1-20250805':
@@ -317,6 +321,8 @@ export const claudeAdapter: ProviderAdapter = {
     systemPromptArg: true,
     persistentStdin: true,
     supportsReasoningEffort: true,
+    reasoningEfforts: ['low', 'medium', 'high', 'xhigh'], // claude-code --effort tiers
+    supportsImageInput: true, // images ride as `@<abs-path>` prompt refs
   },
   modelCatalog: () => CLAUDE_MODELS,
   defaultModel: () => 'sonnet',

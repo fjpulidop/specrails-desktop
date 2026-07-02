@@ -18,7 +18,9 @@
     "confirmRemove": "Confirmer la suppression de {{name}}",
     "confirmShort": "confirmer ?",
     "added": "Projet ajouté : {{name}}",
-    "removed": "Projet supprimé"
+    "removed": "Projet supprimé",
+    "expand": "Développer {{name}}",
+    "collapse": "Réduire {{name}}"
   },
   "arcSidebar": {
     "desktopTitle": "Desktop",
