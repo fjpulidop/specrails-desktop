@@ -105,6 +105,109 @@ describe('DashboardPage — rail interactions', () => {
   })
 })
 
+describe('DashboardPage — server rail reconcile (adopt agent/MCP launches)', () => {
+  const railsResponse = (payload: unknown) =>
+    vi.fn().mockImplementation((url: unknown) => {
+      if (typeof url === 'string' && url.endsWith('/rails')) {
+        return Promise.resolve({ ok: true, json: () => Promise.resolve(payload) })
+      }
+      return Promise.resolve({ ok: true, json: () => Promise.resolve({}) })
+    })
+
+  it('adopts a server-active job into an idle local rail (running + tickets + jobId)', async () => {
+    // A launch made while this board was UNMOUNTED (global agent via MCP in
+    // Agent Mode, mobile companion, another window): localStorage knows nothing,
+    // but GET /rails reports the active job + the rail's ticket assignment.
+    mockActiveProjectId = 'proj-1'
+    global.fetch = railsResponse({
+      rails: [{ railIndex: 0, ticketIds: [7], mode: 'implement' }],
+      activeJobs: { '0': { jobId: 'job-9', mode: 'implement' } },
+      activeLoopRuns: {},
+    })
+    render(<DashboardPage />)
+    await waitFor(() => {
+      const raw = localStorage.getItem('specrails-desktop:rails:proj-1')
+      expect(raw).toBeTruthy()
+      const rails = JSON.parse(raw!)
+      expect(rails[0].status).toBe('running')
+      expect(rails[0].activeJobId).toBe('job-9')
+      expect(rails[0].ticketIds).toEqual([7])
+      expect(rails[1].status).toBe('idle')
+    })
+  })
+
+  it('still clears a locally-running rail the server no longer reports active', async () => {
+    mockActiveProjectId = 'proj-1'
+    localStorage.setItem('specrails-desktop:rails:proj-1', JSON.stringify([
+      { id: 'rail-1', label: 'Rail 1', ticketIds: [3], mode: 'implement', status: 'running', activeJobId: 'gone' },
+      { id: 'rail-2', label: 'Rail 2', ticketIds: [], mode: 'implement', status: 'idle' },
+      { id: 'rail-3', label: 'Rail 3', ticketIds: [], mode: 'implement', status: 'idle' },
+    ]))
+    global.fetch = railsResponse({ rails: [], activeJobs: {}, activeLoopRuns: {} })
+    render(<DashboardPage />)
+    await waitFor(() => {
+      const rails = JSON.parse(localStorage.getItem('specrails-desktop:rails:proj-1')!)
+      expect(rails[0].status).toBe('idle')
+      expect(rails[0].ticketIds).toEqual([])
+      expect(rails[0].activeJobId).toBeUndefined()
+    })
+  })
+
+  it('adopts an active LOOP run with mode loop and no ticket clobber', async () => {
+    mockActiveProjectId = 'proj-1'
+    global.fetch = railsResponse({
+      rails: [{ railIndex: 1, ticketIds: [] }],
+      activeJobs: {},
+      activeLoopRuns: { '1': { loopRunId: 'run-4', loopId: 'custom:my-loop' } },
+    })
+    render(<DashboardPage />)
+    await waitFor(() => {
+      const rails = JSON.parse(localStorage.getItem('specrails-desktop:rails:proj-1')!)
+      expect(rails[1].status).toBe('running')
+      expect(rails[1].activeJobId).toBe('run-4')
+      expect(rails[1].mode).toBe('loop')
+      expect(rails[1].selectedLoopId).toBe('custom:my-loop')
+    })
+  })
+
+  it('derives the REAL mode from a factory loopId (desktop launches register as loop runs)', async () => {
+    mockActiveProjectId = 'proj-1'
+    global.fetch = railsResponse({
+      rails: [{ railIndex: 0, ticketIds: [4] }],
+      activeJobs: {},
+      activeLoopRuns: { '0': { loopRunId: 'run-7', loopId: 'factory:implement' } },
+    })
+    render(<DashboardPage />)
+    await waitFor(() => {
+      const rails = JSON.parse(localStorage.getItem('specrails-desktop:rails:proj-1')!)
+      expect(rails[0].status).toBe('running')
+      expect(rails[0].mode).toBe('implement') // NOT hardcoded 'loop'
+      expect(rails[0].ticketIds).toEqual([4])
+    })
+  })
+
+  it('strips adopted tickets from OTHER rails (no ticket on two rails at once)', async () => {
+    mockActiveProjectId = 'proj-1'
+    // Ticket 7 was locally dragged onto rail-2, but the server launched it on slot 0.
+    localStorage.setItem('specrails-desktop:rails:proj-1', JSON.stringify([
+      { id: 'rail-1', label: 'Rail 1', ticketIds: [], mode: 'implement', status: 'idle' },
+      { id: 'rail-2', label: 'Rail 2', ticketIds: [7], mode: 'implement', status: 'idle' },
+      { id: 'rail-3', label: 'Rail 3', ticketIds: [], mode: 'implement', status: 'idle' },
+    ]))
+    global.fetch = railsResponse({
+      rails: [{ railIndex: 0, ticketIds: [7] }],
+      activeJobs: { '0': { jobId: 'job-1', mode: 'implement' } },
+      activeLoopRuns: {},
+    })
+    render(<DashboardPage />)
+    await waitFor(() => {
+      const rails = JSON.parse(localStorage.getItem('specrails-desktop:rails:proj-1')!)
+      expect(rails[0].ticketIds).toEqual([7])
+      expect(rails[1].ticketIds).toEqual([]) // stripped from the local drag target
+    })
+  })
+})
+
 describe('DashboardPage — loop model picker wiring', () => {
   it('model picker change updates loopModel and subsequent launch includes the new model', async () => {
     mockActiveProjectId = 'proj-1'

@@ -1,7 +1,7 @@
 {
-  "title": "Agent",
+  "title": "Contrôle des missions",
   "subtitle": "Pilotez Specrails en discutant",
-  "trigger": "Agent",
+  "trigger": "Contrôle des missions",
   "composerPlaceholder": "Demandez à l'agent ce que vous voulez…",
   "send": "Envoyer",
   "stop": "Arrêter",
@@ -10,8 +10,8 @@
   "restore": "Restaurer",
   "minimize": "Réduire",
   "close": "Fermer",
-  "newConversation": "Nouvelle conversation",
-  "emptyTitle": "Que doit faire l'agent ?",
+  "newConversation": "Nouvelle mission",
+  "emptyTitle": "Quelle est la mission ?",
   "emptyHint": "Choisissez un projet, puis demandez. Le tableau se met à jour en direct pendant que l'agent travaille.",
   "thinking": "Réflexion…",
   "connecting": "Connexion…",
@@ -26,6 +26,25 @@
   },
   "history": {
     "hint": "Parcours de l'historique — tapez pour modifier, ↑↓ pour naviguer"
+  },
+  "queue": {
+    "queued": "En file",
+    "send": "Envoyer dans la file",
+    "sendHint": "L'agent travaille encore — ce message sera mis en file puis traité",
+    "placeholder": "Ajoutez-en pendant que l'agent travaille — mis en file…"
+  },
+  "git": {
+    "branch": "Branche",
+    "detached": "(détaché)",
+    "dirty": "Modifications non commitées",
+    "switched": "Basculé sur {{branch}}",
+    "switchFailed": "Impossible de changer de branche",
+    "lockedWhileWorking": "Branche verrouillée pendant que l'agent travaille",
+    "searchPlaceholder": "Rechercher des branches…",
+    "noMatches": "Aucune branche ne correspond",
+    "worktrees": "Worktrees",
+    "worktreePathCopied": "Chemin du worktree copié",
+    "copyWorktreePath": "Copier le chemin du worktree"
   },
   "provider": {
     "label": "Fournisseur",
@@ -98,11 +117,11 @@
     "busy": "L'agent est occupé. Réessayez dans un instant."
   },
   "chip": {
-    "kindAgent": "Chat de l'agent"
+    "kindAgent": "Mission de l'agent"
   },
-  "newAgent": "Nouvel agent",
-  "switchToAgent": "Passer en mode Agent",
-  "switchToKanban": "Passer en mode Kanban",
+  "newAgent": "Nouvelle mission",
+  "switchToAgent": "Passer au Contrôle des missions",
+  "switchToKanban": "Passer au tableau",
   "search": "Rechercher",
   "home": "Accueil",
   "untitled": "Sans titre",
@@ -117,7 +136,11 @@
     "browserConfirm": "Ajouter à l'agent",
     "browserCaptured": "Capture ajoutée",
     "uploadFailed": "Échec du téléversement",
-    "requiresConversation": "Démarrez une conversation pour utiliser cet outil"
+    "requiresConversation": "Lancez une mission pour utiliser cet outil",
+    "jobs": "Jobs",
+    "closeJobs": "Fermer les jobs",
+    "resizeJobs": "Redimensionner le panneau des jobs",
+    "noJobs": "Aucun job pour l'instant — demandez à l'agent d'en lancer un"
   },
   "attachFile": "Joindre un fichier",
   "deleteConversation": "Supprimer « {{title}} »",
@@ -132,5 +155,5 @@
     "high": "Élevé",
     "xhigh": "Très élevé"
   },
-  "emptyTitleMatrix": "Que doit faire l'agent Smith ?"
+  "emptyTitleMatrix": "Quelle est la mission, Neo ?"
 }

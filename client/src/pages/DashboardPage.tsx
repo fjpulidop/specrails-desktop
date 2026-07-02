@@ -164,22 +164,31 @@ export default function DashboardPage() {
     saveSpecsViewTier(activeProjectId, tier)
   }, [activeProjectId])
 
-  // ── Reconcile stale 'running' rails on mount / project switch / WS reconnect ─
-  // If the user navigates away while a rail is running, the WS handler is
-  // unregistered and the rail.job_completed event is missed. Also, after a
-  // server restart the WS reconnects but stale 'running' state persists in
-  // localStorage. On re-mount or reconnect, check the server for active rail
-  // jobs and reset any stale 'running' rails.
+  // ── Reconcile rails against the server on mount / project switch / reconnect ─
+  // The Kanban's rail state is a client-local projection (localStorage + live WS
+  // while THIS component is mounted). Launches can happen while it is unmounted
+  // — the global agent via MCP (Agent Mode), the mobile companion, another
+  // window — and after a server restart stale 'running' state persists locally.
+  // So this reconcile is BIDIRECTIONAL and always runs:
+  //   • server-active rail, local idle  → ADOPT (running + activeJobId + the
+  //     server's ticket assignment), so an agent-launched rail lights up here;
+  //   • local running, server inactive  → CLEAR (finished while we were away);
+  //   • both running                    → restore a lost activeJobId only.
   useEffect(() => {
-    if (connectionStatus !== 'connected') return
-    const currentRails = loadRails(activeProjectId) ?? INITIAL_RAILS
-    const hasRunning = currentRails.some((r) => r.status === 'running')
-    if (!hasRunning || !activeProjectId) return
+    if (connectionStatus !== 'connected' || !activeProjectId) return
 
     let cancelled = false
+    // Snapshot BEFORE the fetch: a rail that goes running only AFTER this point
+    // was launched locally while the request was in flight — the (stale)
+    // response must not clear that optimistic state back to idle.
+    const preRails = loadRails(activeProjectId) ?? INITIAL_RAILS
     fetch(`${getApiBase()}/rails`)
       .then((res) => res.ok ? res.json() : null)
-      .then((data: { activeJobs?: Record<string, { jobId: string }>; activeLoopRuns?: Record<string, { loopRunId: string }> } | null) => {
+      .then((data: {
+        rails?: { railIndex: number; ticketIds?: number[]; mode?: string }[]
+        activeJobs?: Record<string, { jobId: string; mode?: string }>
+        activeLoopRuns?: Record<string, { loopRunId: string; loopId?: string }>
+      } | null) => {
         if (cancelled || !data) return
         const activeJobs = data.activeJobs ?? {}
         // Loop-mode rails track an active LOOP run (not a queue job), so a rail
@@ -190,22 +199,79 @@ export default function DashboardPage() {
           ...Object.keys(activeJobs).map(Number),
           ...Object.keys(activeLoopRuns).map(Number),
         ])
+        const serverTicketsByIndex = new Map<number, number[]>()
+        for (const r of data.rails ?? []) {
+          serverTicketsByIndex.set(r.railIndex, Array.isArray(r.ticketIds) ? r.ticketIds : [])
+        }
+        const isRailMode = (m: string | undefined): m is RailMode =>
+          m === 'implement' || m === 'batch-implement' || m === 'ultracode' || m === 'loop'
         setRails((prev) => {
+          let changed = false
+          const adoptedTickets = new Map<number, number[]>()
           const next = prev.map((r, idx) => {
-            if (r.status !== 'running') return r
+            const loopRun = activeLoopRuns[String(idx)]
+            const serverJobId = activeJobs[String(idx)]?.jobId ?? loopRun?.loopRunId
             if (activeIndices.has(idx)) {
-              // Still running — restore the active id (job or loop run) if lost.
-              const serverJobId = activeJobs[String(idx)]?.jobId ?? activeLoopRuns[String(idx)]?.loopRunId
-              if (serverJobId && !r.activeJobId) return { ...r, activeJobId: serverJobId }
-              return r
+              if (r.status === 'running') {
+                // Still running — restore the active id (job or loop run) if lost.
+                if (serverJobId && !r.activeJobId) {
+                  changed = true
+                  return { ...r, activeJobId: serverJobId }
+                }
+                return r
+              }
+              // Was running when the fetch STARTED but idle now: a completion WS
+              // event landed during the round-trip — the response is stale, do
+              // not resurrect the finished run.
+              if (preRails[idx]?.status === 'running') return r
+              // Idle locally but EXECUTING server-side: launched while this board
+              // was unmounted (agent via MCP, mobile, another window). Adopt the
+              // run + the server's ticket assignment. Desktop launches always
+              // register as LOOP runs (factory:implement etc.) — derive the real
+              // mode from the loopId instead of hardcoding 'loop'.
+              const serverTickets = serverTicketsByIndex.get(idx) ?? []
+              const jobMode = activeJobs[String(idx)]?.mode
+              const serverMode = isRailMode(jobMode) ? jobMode : loopRun ? deriveRailMode(loopRun.loopId) : undefined
+              const ticketIds = serverTickets.length ? serverTickets : r.ticketIds
+              adoptedTickets.set(idx, ticketIds)
+              changed = true
+              return {
+                ...r,
+                status: 'running' as const,
+                activeJobId: serverJobId,
+                ticketIds,
+                mode: serverMode ?? r.mode,
+                // A custom loop needs its id selected for the rail header to
+                // label the run; factory loops keep the rail's own selection.
+                ...(loopRun?.loopId && loopRun.loopId.startsWith('custom:')
+                  ? { selectedLoopId: loopRun.loopId }
+                  : {}),
+              }
             }
+            if (r.status !== 'running') return r
+            // Launched locally AFTER the fetch started (optimistic 202 state):
+            // the response predates the launch — leave it alone.
+            if (preRails[idx]?.status !== 'running') return r
             // Rail was running but server has no active job → job finished while
             // we were away. Clear tickets so they reappear in Specs/Done based
             // on their current server-side status (useTickets re-fetches on mount).
+            changed = true
             return { ...r, status: 'idle' as const, activeJobId: undefined, ticketIds: [] }
           })
-          saveRails(activeProjectId, next)
-          return next
+          if (!changed) return prev
+          // An adopted ticket may still sit on ANOTHER rail from a local drag —
+          // strip it there (mirrors handleMoveTicketToRail) so no ticket renders
+          // on two rails at once (duplicate dnd ids / double-launch risk).
+          const adoptedIdSet = new Set([...adoptedTickets.values()].flat())
+          const deduped = adoptedIdSet.size
+            ? next.map((r, idx) => {
+                if (adoptedTickets.has(idx)) return r
+                const filtered = r.ticketIds.filter((id) => !adoptedIdSet.has(id))
+                return filtered.length === r.ticketIds.length ? r : { ...r, ticketIds: filtered }
+              })
+            : next
+          saveRails(activeProjectId, deduped)
+          return deduped
         })
       })
       .catch(() => {})
@@ -263,7 +329,10 @@ export default function DashboardPage() {
       saveRails(activeProjectId, next)
       return next
     })
-  }, [tickets, activeProjectId])
+    // `rails` is a dep so a reconcile ADOPTION that re-introduces a done ticket
+    // is stripped too (the updater returns `prev` identity when nothing changes,
+    // so this cannot loop).
+  }, [tickets, activeProjectId, rails])
 
   // Persist-aware spec order updater
   const updateSpecOrder = useCallback((updater: (prev: number[] | null) => number[] | null) => {

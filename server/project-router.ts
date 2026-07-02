@@ -16,6 +16,7 @@ import { registerTicketsRoutes } from './project-router-tickets'
 import { registerTerminalsRoutes } from './project-router-terminals'
 import { registerSettingsRoutes } from './project-router-settings'
 import { registerLoopRunRoutes } from './project-router-loop-runs'
+import { registerGitRoutes } from './project-router-git'
 import type { ProjectRoutesDeps } from './project-router-helpers'
 
 // Re-export the spec helpers from their new home so existing importers
@@ -139,6 +140,7 @@ export function createProjectRouter(registry: ProjectRegistry): Router {
   registerTerminalsRoutes(deps)
   registerSettingsRoutes(deps)
   registerLoopRunRoutes(deps)
+  registerGitRoutes(deps)
 
   return router
 }

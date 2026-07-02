@@ -242,5 +242,15 @@
     "unavailable": "Atualizações estão disponíveis apenas no app desktop.",
     "toastUpToDate": "O Specrails Desktop está atualizado",
     "toastCheckFailed": "Falha ao verificar atualizações: {{message}}"
+  },
+  "projectDialog": {
+    "title": "{{name}} — Configurações",
+    "description": "Configuração do projeto: prompts, orçamento, telemetria e terminal.",
+    "nav": {
+      "general": "Geral",
+      "budget": "Orçamento",
+      "telemetry": "Telemetria",
+      "terminal": "Terminal"
+    }
   }
 }

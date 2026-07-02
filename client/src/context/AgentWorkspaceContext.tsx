@@ -12,6 +12,10 @@ interface AgentWorkspaceContextValue {
   openCodePane: () => void
   closeCodePane: () => void
   toggleCodePane: () => void
+  jobsPaneOpen: boolean
+  openJobsPane: () => void
+  closeJobsPane: () => void
+  toggleJobsPane: () => void
   browserOpen: boolean
   openBrowser: () => void
   closeBrowser: () => void
@@ -26,12 +30,16 @@ const AgentWorkspaceContext = createContext<AgentWorkspaceContextValue | null>(n
 
 export function AgentWorkspaceProvider({ children }: { children: ReactNode }) {
   const [codePaneOpen, setCodePaneOpen] = useState(false)
+  const [jobsPaneOpen, setJobsPaneOpen] = useState(false)
   const [browserOpen, setBrowserOpen] = useState(false)
   const [pendingCaptures, setPendingCaptures] = useState<AgentAttachment[]>([])
 
   const openCodePane = useCallback(() => setCodePaneOpen(true), [])
   const closeCodePane = useCallback(() => setCodePaneOpen(false), [])
   const toggleCodePane = useCallback(() => setCodePaneOpen((v) => !v), [])
+  const openJobsPane = useCallback(() => setJobsPaneOpen(true), [])
+  const closeJobsPane = useCallback(() => setJobsPaneOpen(false), [])
+  const toggleJobsPane = useCallback(() => setJobsPaneOpen((v) => !v), [])
   const openBrowser = useCallback(() => setBrowserOpen(true), [])
   const closeBrowser = useCallback(() => setBrowserOpen(false), [])
   const queueCapture = useCallback((att: AgentAttachment) => {
@@ -49,10 +57,11 @@ export function AgentWorkspaceProvider({ children }: { children: ReactNode }) {
   const value = useMemo(
     () => ({
       codePaneOpen, openCodePane, closeCodePane, toggleCodePane,
+      jobsPaneOpen, openJobsPane, closeJobsPane, toggleJobsPane,
       browserOpen, openBrowser, closeBrowser,
       pendingCaptures, queueCapture, consumePendingCaptures,
     }),
-    [codePaneOpen, openCodePane, closeCodePane, toggleCodePane, browserOpen, openBrowser, closeBrowser, pendingCaptures, queueCapture, consumePendingCaptures],
+    [codePaneOpen, openCodePane, closeCodePane, toggleCodePane, jobsPaneOpen, openJobsPane, closeJobsPane, toggleJobsPane, browserOpen, openBrowser, closeBrowser, pendingCaptures, queueCapture, consumePendingCaptures],
   )
   return <AgentWorkspaceContext.Provider value={value}>{children}</AgentWorkspaceContext.Provider>
 }
@@ -62,6 +71,10 @@ const NOOP: AgentWorkspaceContextValue = {
   openCodePane: () => {},
   closeCodePane: () => {},
   toggleCodePane: () => {},
+  jobsPaneOpen: false,
+  openJobsPane: () => {},
+  closeJobsPane: () => {},
+  toggleJobsPane: () => {},
   browserOpen: false,
   openBrowser: () => {},
   closeBrowser: () => {},

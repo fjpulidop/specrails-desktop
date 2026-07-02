@@ -31,7 +31,7 @@ vi.mock('../../../lib/agent-api', async (orig) => {
     getAgentConversation: vi.fn(async () => ({ conversation: api.conv, messages: [] })),
     patchAgentConversation: vi.fn(async (_id: string, patch: Record<string, unknown>) => ({ ...api.conv, ...patch, tier_level: patch.tierLevel ?? api.conv.tier_level })),
     deleteAgentConversation: vi.fn(async () => {}),
-    sendAgentMessage: vi.fn(async () => {}),
+    sendAgentMessage: vi.fn(async () => ({ queued: false })),
     abortAgentTurn: vi.fn(async () => {}),
     getMcpStatus: vi.fn(async () => ({ enabled: true, running: true })),
     enableMcp: vi.fn(async () => {}),
@@ -45,8 +45,14 @@ vi.mock('../../../lib/agent-api', async (orig) => {
   }
 })
 
+const mockOpenWebView = vi.fn()
+vi.mock('../../../context/WebViewModalContext', () => ({
+  useWebViewModal: () => ({ openWebView: mockOpenWebView, canOpenWebView: true }),
+}))
+
 import * as agentApi from '../../../lib/agent-api'
 import { AgentChatProvider, useAgentChat } from '../../../context/AgentChatContext'
+import { __clearComposerDrafts } from '../AgentComposer'
 import { AgentTierChip } from '../AgentTierChip'
 import { AgentProjectSelector } from '../AgentProjectSelector'
 import { AgentActivityChip, toolChipLabel } from '../AgentActivityChip'
@@ -57,6 +63,7 @@ import { AgentModelSelector } from '../AgentModelSelector'
 beforeEach(() => {
   wsHandler = null
   vi.clearAllMocks()
+  __clearComposerDrafts()
   vi.mocked(agentApi.listAgentConversations).mockResolvedValue([])
   vi.mocked(agentApi.createAgentConversation).mockResolvedValue(api.conv)
   vi.mocked(agentApi.getAgentConversation).mockResolvedValue({ conversation: api.conv, messages: [] })
@@ -139,6 +146,14 @@ describe('AgentMessage', () => {
     expect(screen.queryByLabelText('Copy')).not.toBeInTheDocument()
   })
 
+  it('opens http(s) links in the embedded browser instead of navigating the app', () => {
+    render(<AgentMessage role="assistant" content="See [the docs](https://specrails.dev/docs) for more." />)
+    const link = screen.getByRole('link', { name: 'the docs' })
+    expect(link).toHaveAttribute('target', '_blank')
+    fireEvent.click(link)
+    expect(mockOpenWebView).toHaveBeenCalledWith('https://specrails.dev/docs')
+  })
+
   it('copies the content to the clipboard on click', async () => {
     const writeText = vi.fn().mockResolvedValue(undefined)
     vi.stubGlobal('navigator', { clipboard: { writeText } })
@@ -194,6 +209,43 @@ describe('AgentMessage option chips', () => {
     expect(container.querySelector('pre')).toBeInTheDocument()
   })
 
+  it('renders chips for a REAL-WORLD malformed fence: glued to prose, inline JSON, no closing fence', () => {
+    // Regression: the model emitted "…extra?```options [\"A\", \"B\"]" (no
+    // newline before the fence, array on the fence line, unclosed) and the raw
+    // protocol text leaked into the bubble alongside an empty code block.
+    const content = 'sin tocar mayúsculas/espacios extra?```options ["Sí a ambas", "Live lessons también", "Decide tú"]'
+    const { container } = render(
+      <AgentMessage role="assistant" content={content} isLast onPickOption={vi.fn()} />,
+    )
+    expect(screen.getByRole('button', { name: 'Sí a ambas' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Decide tú' })).toBeInTheDocument()
+    expect(container.querySelector('pre')).not.toBeInTheDocument()
+    expect(container.textContent).not.toContain('```options')
+  })
+
+  it('renders chips when the closing fence is present but the array sits on the fence line', () => {
+    const content = 'Pick one:\n\n```options ["A", "B"]\n```'
+    render(<AgentMessage role="assistant" content={content} isLast onPickOption={vi.fn()} />)
+    expect(screen.getByRole('button', { name: 'A' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'B' })).toBeInTheDocument()
+  })
+
+  it('an ```options mention INSIDE a label does not shadow the real block (first-valid wins)', () => {
+    const content = 'Pick one:\n\n```options\n["Use the ```options fence", "Skip it"]\n```'
+    render(<AgentMessage role="assistant" content={content} isLast onPickOption={vi.fn()} />)
+    expect(screen.getByRole('button', { name: 'Use the ```options fence' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Skip it' })).toBeInTheDocument()
+  })
+
+  it('never treats a longer ````options fence as the protocol block', () => {
+    const content = 'The protocol looks like this:\n\n````options\n["A", "B"]'
+    const { container } = render(
+      <AgentMessage role="assistant" content={content} isLast onPickOption={vi.fn()} />,
+    )
+    expect(screen.queryByRole('button', { name: 'A' })).not.toBeInTheDocument()
+    expect(container.textContent).toContain('The protocol looks like this:')
+  })
+
   it('suppresses chips while streaming but still strips a complete block', () => {
     const { container } = render(
       <AgentMessage role="assistant" content={withOptions} isLast streaming onPickOption={vi.fn()} />,
@@ -232,11 +284,17 @@ function Harness() {
       <span data-testid="streaming">{String(a.isStreaming)}</span>
       <span data-testid="stream">{a.streamingText}</span>
       <span data-testid="tools">{a.liveTools.length}</span>
+      <span data-testid="queued">{a.queuedMessages.length}</span>
+      <span data-testid="live-ids">{[...a.streamingConversationIds].sort().join(',')}</span>
       <span data-testid="mcp">{String(a.mcpEnabled)}</span>
       <span data-testid="tier">{a.active?.tier_level ?? -1}</span>
       <span data-testid="msgs">{a.messages.length}</span>
       <button onClick={a.open}>open</button>
       <button onClick={() => void a.send('hi')}>send</button>
+      <button onClick={() => void a.send('extra')}>send-extra</button>
+      <button onClick={() => void a.abort()}>abort</button>
+      <button onClick={() => void a.selectConversation('c2')}>go-c2</button>
+      <button onClick={() => void a.selectConversation('c1')}>go-c1</button>
       <button onClick={() => void a.cycleTier()}>cycle</button>
       <button onClick={a.minimize}>min</button>
       <button onClick={a.close}>close</button>
@@ -331,7 +389,7 @@ describe('AgentChatProvider', () => {
   it('renders the persistent bubble when not open and opens on click', async () => {
     render(<AgentChatProvider><Harness /></AgentChatProvider>)
     // visibility starts hidden → bubble present
-    const bubble = screen.getByLabelText('Agent')
+    const bubble = screen.getByLabelText('Mission Control')
     expect(bubble).toBeInTheDocument()
     await act(async () => { fireEvent.click(bubble) })
     await waitFor(() => expect(agentApi.createAgentConversation).toHaveBeenCalled())
@@ -340,7 +398,7 @@ describe('AgentChatProvider', () => {
   it('restores the bubble at the remembered position', () => {
     localStorage.setItem('specrails-desktop:agent-bubble-pos', JSON.stringify({ left: 123, top: 234 }))
     render(<AgentChatProvider><Harness /></AgentChatProvider>)
-    const bubble = screen.getByLabelText('Agent')
+    const bubble = screen.getByLabelText('Mission Control')
     expect(bubble.style.left).toBe('123px')
     expect(bubble.style.top).toBe('234px')
     localStorage.clear()
@@ -363,11 +421,147 @@ describe('AgentChatProvider', () => {
     expect(agentApi.sendAgentMessage).toHaveBeenCalledWith('c1', 'Launch it', expect.anything())
   })
 
+  it('parks a mid-stream send as a queued chip and promotes it on agent_dequeued', async () => {
+    vi.mocked(agentApi.sendAgentMessage)
+      .mockResolvedValueOnce({ queued: false }) // first turn runs directly
+      .mockResolvedValue({ queued: true })      // mid-stream send parks
+    render(<AgentChatProvider><Harness /></AgentChatProvider>)
+    await act(async () => { fireEvent.click(screen.getByText('open')) })
+    await act(async () => { fireEvent.click(screen.getByText('send')) })
+    await waitFor(() => expect(screen.getByTestId('msgs').textContent).toBe('1'))
+    await act(async () => { wsHandler!({ type: 'agent_stream', conversationId: 'c1', delta: 'Working…' }) })
+
+    await act(async () => { fireEvent.click(screen.getByText('send-extra')) })
+    // Parked, NOT appended to the thread.
+    expect(screen.getByTestId('queued').textContent).toBe('1')
+    expect(screen.getByTestId('msgs').textContent).toBe('1')
+    const opts = vi.mocked(agentApi.sendAgentMessage).mock.calls[1][2] as { queueId?: string }
+    expect(typeof opts.queueId).toBe('string')
+
+    // First turn settles → the chip SURVIVES (its drained turn is about to start).
+    await act(async () => { wsHandler!({ type: 'agent_done', conversationId: 'c1', fullText: 'First reply' }) })
+    expect(screen.getByTestId('queued').textContent).toBe('1')
+    expect(screen.getByTestId('msgs').textContent).toBe('2')
+
+    // Dequeue: chip → real user bubble, streaming resumes for the drained turn.
+    await act(async () => {
+      wsHandler!({ type: 'agent_dequeued', conversationId: 'c1', queueId: opts.queueId, text: 'extra' })
+    })
+    expect(screen.getByTestId('queued').textContent).toBe('0')
+    expect(screen.getByTestId('msgs').textContent).toBe('3')
+    expect(screen.getByTestId('streaming').textContent).toBe('true')
+  })
+
+  it('abort drops the queued chips immediately', async () => {
+    vi.mocked(agentApi.sendAgentMessage)
+      .mockResolvedValueOnce({ queued: false })
+      .mockResolvedValue({ queued: true })
+    render(<AgentChatProvider><Harness /></AgentChatProvider>)
+    await act(async () => { fireEvent.click(screen.getByText('open')) })
+    await act(async () => { fireEvent.click(screen.getByText('send')) })
+    await act(async () => { wsHandler!({ type: 'agent_stream', conversationId: 'c1', delta: 'x' }) })
+    await act(async () => { fireEvent.click(screen.getByText('send-extra')) })
+    expect(screen.getByTestId('queued').textContent).toBe('1')
+    await act(async () => { fireEvent.click(screen.getByText('abort')) })
+    expect(agentApi.abortAgentTurn).toHaveBeenCalledWith('c1')
+    expect(screen.getByTestId('queued').textContent).toBe('0')
+    expect(screen.getByTestId('streaming').textContent).toBe('false')
+  })
+
+  it('keeps a background conversation streaming and restores its text on switch-back', async () => {
+    const conv2 = { ...api.conv, id: 'c2' }
+    vi.mocked(agentApi.getAgentConversation).mockImplementation(async (id: string) => ({
+      conversation: id === 'c2' ? conv2 : api.conv,
+      messages: [],
+    }))
+    render(<AgentChatProvider><Harness /></AgentChatProvider>)
+    await act(async () => { fireEvent.click(screen.getByText('open')) })
+    await waitFor(() => expect(agentApi.createAgentConversation).toHaveBeenCalled())
+    await act(async () => { wsHandler!({ type: 'agent_stream', conversationId: 'c1', delta: 'Hel' }) })
+    expect(screen.getByTestId('stream').textContent).toBe('Hel')
+
+    // Focus another thread mid-stream: the view empties but NOTHING is lost.
+    await act(async () => { fireEvent.click(screen.getByText('go-c2')) })
+    expect(screen.getByTestId('stream').textContent).toBe('')
+    expect(screen.getByTestId('streaming').textContent).toBe('false')
+
+    // Background deltas keep accumulating + the working cue stays exposed.
+    await act(async () => { wsHandler!({ type: 'agent_stream', conversationId: 'c1', delta: 'lo' }) })
+    expect(screen.getByTestId('live-ids').textContent).toBe('c1')
+    expect(screen.getByTestId('stream').textContent).toBe('')
+
+    // Switch back: the FULL accumulated stream re-appears mid-flight.
+    await act(async () => { fireEvent.click(screen.getByText('go-c1')) })
+    expect(screen.getByTestId('stream').textContent).toBe('Hello')
+    expect(screen.getByTestId('streaming').textContent).toBe('true')
+  })
+
+  it('does not duplicate the assistant reply when the refetch already contains it', async () => {
+    vi.mocked(agentApi.getAgentConversation).mockResolvedValue({
+      conversation: api.conv,
+      messages: [{ id: 'a1', conversation_id: 'c1', role: 'assistant', content: 'Same reply', created_at: '' }],
+    })
+    vi.mocked(agentApi.listAgentConversations).mockResolvedValue([api.conv])
+    render(<AgentChatProvider><Harness /></AgentChatProvider>)
+    await act(async () => { fireEvent.click(screen.getByText('open')) })
+    await waitFor(() => expect(screen.getByTestId('msgs').textContent).toBe('1'))
+    await act(async () => { wsHandler!({ type: 'agent_done', conversationId: 'c1', fullText: 'Same reply' }) })
+    expect(screen.getByTestId('msgs').textContent).toBe('1') // deduped
+  })
+
+  it('composer tri-state: red stop only with an empty box; typing flips to queue-send', async () => {
+    render(<AgentChatProvider><Harness /></AgentChatProvider>)
+    await act(async () => { fireEvent.click(screen.getByText('open')) })
+    await waitFor(() => expect(agentApi.createAgentConversation).toHaveBeenCalled())
+    // Start a turn → streaming, box empty → red Stop.
+    await act(async () => { fireEvent.click(screen.getByText('send')) })
+    expect(screen.getByLabelText('Stop')).toBeInTheDocument()
+    const box = screen.getByPlaceholderText('Add more while the agent works — it will queue…') as HTMLTextAreaElement
+    // Typing mid-stream → third state: send-to-queue (Stop hidden).
+    fireEvent.change(box, { target: { value: 'follow-up' } })
+    expect(screen.queryByLabelText('Stop')).not.toBeInTheDocument()
+    expect(screen.getByLabelText('Send to queue')).toBeInTheDocument()
+    // Clearing the box restores the red Stop.
+    fireEvent.change(box, { target: { value: '' } })
+    expect(screen.getByLabelText('Stop')).toBeInTheDocument()
+    expect(screen.queryByLabelText('Send to queue')).not.toBeInTheDocument()
+  })
+
+  it('a typed-but-unsent draft SURVIVES unmounting the composer (Mission⇄Board switch)', async () => {
+    const first = render(<AgentChatProvider><Harness /></AgentChatProvider>)
+    await act(async () => { fireEvent.click(screen.getByText('open')) })
+    const box = await screen.findByPlaceholderText('Ask the agent to do anything…') as HTMLTextAreaElement
+    fireEvent.change(box, { target: { value: 'idea a medio escribir' } })
+    // Switch to Board mode = the whole agent surface unmounts.
+    first.unmount()
+    // Back to Mission Control: the draft is right where it was left.
+    render(<AgentChatProvider><Harness /></AgentChatProvider>)
+    await act(async () => { fireEvent.click(screen.getByText('open')) })
+    const box2 = await screen.findByPlaceholderText('Ask the agent to do anything…') as HTMLTextAreaElement
+    expect(box2.value).toBe('idea a medio escribir')
+    // Sending clears the stored draft — a fresh mount starts empty again.
+    await act(async () => { fireEvent.keyDown(box2, { key: 'Enter' }) })
+    expect(box2.value).toBe('')
+  })
+
   it('Shift+Tab inside the panel cycles the tier', async () => {
     render(<AgentChatProvider><Harness /></AgentChatProvider>)
     await act(async () => { fireEvent.click(screen.getByText('open')) })
     const dialog = await screen.findByRole('dialog')
     await act(async () => { fireEvent.keyDown(dialog, { key: 'Tab', shiftKey: true }) })
     expect(agentApi.patchAgentConversation).toHaveBeenCalledWith('c1', { tierLevel: 1 })
+  })
+
+  it('Shift+Tab inside the TEXTAREA cycles the tier exactly once (no focus jump, no double-cycle)', async () => {
+    render(<AgentChatProvider><Harness /></AgentChatProvider>)
+    await act(async () => { fireEvent.click(screen.getByText('open')) })
+    const box = await screen.findByPlaceholderText('Ask the agent to do anything…')
+    await act(async () => { fireEvent.keyDown(box, { key: 'Tab', shiftKey: true }) })
+    // Once — the textarea handler stops propagation so the view wrapper's
+    // Shift+Tab listener doesn't cycle a second time.
+    const cycleCalls = vi.mocked(agentApi.patchAgentConversation).mock.calls.filter(
+      (c) => (c[1] as { tierLevel?: number }).tierLevel !== undefined,
+    )
+    expect(cycleCalls).toEqual([['c1', { tierLevel: 1 }]])
   })
 })

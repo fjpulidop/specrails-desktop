@@ -36,6 +36,17 @@ export function useSmoothStream(target: string, isStreaming: boolean): string {
   useEffect(() => { displayedRef.current = displayed }, [displayed])
 
   useEffect(() => {
+    // Target REPLACED rather than extended — e.g. switching to a DIFFERENT
+    // conversation whose stream is shorter, or a drained queued turn resetting
+    // the stream to ''. The incremental typing model only holds while target
+    // grows in place; on replacement, snap to the new target immediately
+    // (otherwise backlog goes negative and the stale text sticks forever).
+    if (!target.startsWith(displayedRef.current)) {
+      displayedRef.current = target
+      lastTickRef.current = 0
+      if (displayed !== target) setDisplayed(target)
+      return
+    }
     if (!isStreaming && target.length <= displayedRef.current.length) {
       // Idle and nothing pending — make sure we don't have a stale RAF.
       if (rafRef.current != null) {

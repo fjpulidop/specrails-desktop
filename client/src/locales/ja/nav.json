@@ -20,7 +20,8 @@
     "added": "プロジェクトを追加しました: {{name}}",
     "removed": "プロジェクトを削除しました",
     "expand": "{{name}} を展開",
-    "collapse": "{{name}} を折りたたむ"
+    "collapse": "{{name}} を折りたたむ",
+    "settings": "{{name}} の設定"
   },
   "arcSidebar": {
     "desktopTitle": "Desktop",

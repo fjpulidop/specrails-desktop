@@ -7,7 +7,7 @@ import { toast } from 'sonner'
 import { X, ExternalLink } from 'lucide-react'
 import { Badge } from './ui/badge'
 import { Button } from './ui/button'
-import { Tooltip, TooltipContent, TooltipTrigger } from './ui/tooltip'
+import { Tooltip, TooltipContent, TooltipTrigger, TooltipProvider } from './ui/tooltip'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from './ui/dialog'
 import { PipelineProgress } from './PipelineProgress'
 import { LogViewer } from './LogViewer'
@@ -177,6 +177,10 @@ export function JobDetailModal({ jobId, onClose }: JobDetailModalProps) {
   const { panelRef, panelStyle, headerHandleProps, resizeHandles, isFloating, guardBackdrop } = useMovableResizableModal()
 
   return (
+    // Own TooltipProvider: this modal mounts from trees WITHOUT one (the
+    // Agent-Mode surface bypasses ProjectLayout) — without it Radix throws and
+    // blanks the whole app on open.
+    <TooltipProvider delayDuration={400}>
     <div className="fixed inset-0 z-50 flex items-stretch justify-center">
       {/* Backdrop */}
       <div
@@ -301,5 +305,6 @@ export function JobDetailModal({ jobId, onClose }: JobDetailModalProps) {
         </DialogContent>
       </Dialog>
     </div>
+    </TooltipProvider>
   )
 }

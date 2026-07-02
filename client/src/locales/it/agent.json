@@ -1,7 +1,7 @@
 {
-  "title": "Agente",
+  "title": "Controllo missioni",
   "subtitle": "Gestisci Specrails chattando",
-  "trigger": "Agente",
+  "trigger": "Controllo missioni",
   "composerPlaceholder": "Chiedi all'agente qualsiasi cosa…",
   "send": "Invia",
   "stop": "Ferma",
@@ -10,8 +10,8 @@
   "restore": "Ripristina",
   "minimize": "Riduci a icona",
   "close": "Chiudi",
-  "newConversation": "Nuova conversazione",
-  "emptyTitle": "Cosa deve fare l'agente?",
+  "newConversation": "Nuova missione",
+  "emptyTitle": "Qual è la missione?",
   "emptyHint": "Scegli un progetto, poi chiedi. La board si aggiorna in tempo reale mentre l'agente lavora.",
   "thinking": "Sto pensando…",
   "connecting": "Connessione…",
@@ -26,6 +26,25 @@
   },
   "history": {
     "hint": "Cronologia prompt — scrivi per modificare, ↑↓ per navigare"
+  },
+  "queue": {
+    "queued": "In coda",
+    "send": "Invia in coda",
+    "sendHint": "L'agente sta ancora lavorando — questo messaggio verrà messo in coda ed eseguito dopo",
+    "placeholder": "Aggiungi altro mentre l'agente lavora — verrà messo in coda…"
+  },
+  "git": {
+    "branch": "Branch",
+    "detached": "(detached)",
+    "dirty": "Modifiche non committate",
+    "switched": "Passato a {{branch}}",
+    "switchFailed": "Impossibile cambiare branch",
+    "lockedWhileWorking": "Branch bloccato mentre l'agente lavora",
+    "searchPlaceholder": "Cerca branch…",
+    "noMatches": "Nessun branch corrisponde",
+    "worktrees": "Worktree",
+    "worktreePathCopied": "Percorso del worktree copiato",
+    "copyWorktreePath": "Copia percorso del worktree"
   },
   "provider": {
     "label": "Provider",
@@ -98,11 +117,11 @@
     "busy": "L'agente è occupato. Riprova tra un momento."
   },
   "chip": {
-    "kindAgent": "Chat dell'agente"
+    "kindAgent": "Missione dell'agente"
   },
-  "newAgent": "Nuovo agente",
-  "switchToAgent": "Passa alla modalità Agente",
-  "switchToKanban": "Passa alla modalità Kanban",
+  "newAgent": "Nuova missione",
+  "switchToAgent": "Passa al Controllo missioni",
+  "switchToKanban": "Passa alla board",
   "search": "Cerca",
   "home": "Home",
   "untitled": "Senza titolo",
@@ -117,7 +136,11 @@
     "browserConfirm": "Aggiungi all'agente",
     "browserCaptured": "Cattura aggiunta",
     "uploadFailed": "Caricamento non riuscito",
-    "requiresConversation": "Avvia una conversazione per usare questo strumento"
+    "requiresConversation": "Avvia una missione per usare questo strumento",
+    "jobs": "Jobs",
+    "closeJobs": "Chiudi jobs",
+    "resizeJobs": "Ridimensiona pannello jobs",
+    "noJobs": "Ancora nessun job — chiedi all'agente di lanciarne uno"
   },
   "attachFile": "Allega file",
   "deleteConversation": "Elimina «{{title}}»",
@@ -132,5 +155,5 @@
     "high": "Alto",
     "xhigh": "Extra alto"
   },
-  "emptyTitleMatrix": "Cosa dovrebbe fare l'agente Smith?"
+  "emptyTitleMatrix": "Qual è la missione, Neo?"
 }

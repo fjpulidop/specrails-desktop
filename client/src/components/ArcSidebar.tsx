@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo, useRef } from 'react'
+import { useState, useEffect, useMemo, useRef, lazy, Suspense } from 'react'
 import { useNavigate, useLocation } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { PanelLeft, FolderOpen, Plus, BarChart2, BookOpen, Settings, X, Workflow, ChevronRight, ChevronDown, MessageSquare, Bot, LayoutGrid, Search, Home } from 'lucide-react'
@@ -10,6 +10,10 @@ import { useUiMode } from '../context/UiModeContext'
 import { useAgentChat } from '../context/AgentChatContext'
 import type { AgentConversation } from '../lib/agent-api'
 import { FEATURE_LOOPS_SECTION, FEATURE_AGENT_MODE } from '../lib/feature-flags'
+
+const ProjectSettingsDialog = lazy(() =>
+  import('./settings/ProjectSettingsDialog').then((m) => ({ default: m.ProjectSettingsDialog })),
+)
 
 const TREE_EXPAND_KEY = 'specrails-desktop:agentTreeExpanded'
 
@@ -182,9 +186,10 @@ function ProjectItem({
   onToggleTree,
   conversations = [],
   activeConversationId = null,
-  streamingConversationId = null,
+  streamingConversationIds,
   onSelectConversation,
   onDeleteConversation,
+  onOpenProjectSettings,
 }: {
   project: DesktopProject
   isActive: boolean
@@ -197,9 +202,13 @@ function ProjectItem({
   onToggleTree?: () => void
   conversations?: AgentConversation[]
   activeConversationId?: string | null
-  streamingConversationId?: string | null
+  /** Ids of EVERY conversation with a live agent turn — background threads keep
+   *  their title shimmer, not just the focused one. */
+  streamingConversationIds?: ReadonlySet<string>
   onSelectConversation?: (id: string) => void
   onDeleteConversation?: (id: string) => void
+  /** Hover gear (Agent Mode): open this project's settings modal. */
+  onOpenProjectSettings?: () => void
 }) {
   const { t } = useTranslation('nav')
   const [confirming, setConfirming] = useState(false)
@@ -274,6 +283,20 @@ function ProjectItem({
         {expanded && (
           <>
             <span className="text-xs truncate flex-1 text-left">{project.name}</span>
+            {onOpenProjectSettings && (
+              <button
+                type="button"
+                onClick={(e) => { e.stopPropagation(); onOpenProjectSettings() }}
+                className={cn(
+                  'flex-shrink-0 flex items-center justify-center rounded-sm transition-all w-3.5 h-3.5',
+                  'opacity-0 group-hover:opacity-50 hover:!opacity-100 hover:bg-muted',
+                )}
+                aria-label={t('projects.settings', { name: project.name })}
+                title={t('projects.settings', { name: project.name })}
+              >
+                <Settings className="w-2.5 h-2.5" />
+              </button>
+            )}
             <button
               type="button"
               onClick={handleRemoveClick}
@@ -298,7 +321,7 @@ function ProjectItem({
               key={c.id}
               conversation={c}
               active={c.id === activeConversationId}
-              streaming={c.id === streamingConversationId}
+              streaming={streamingConversationIds?.has(c.id) ?? false}
               expanded={expanded}
               onSelect={() => onSelectConversation?.(c.id)}
               onDelete={() => onDeleteConversation?.(c.id)}
@@ -353,6 +376,8 @@ export function ArcSidebar({
   const homeConversations = grouped.get(HOME_KEY) ?? []
 
   const [expandedTree, setExpandedTree] = useState<Set<string>>(loadExpanded)
+  // Per-project settings modal (Agent Mode hover gear on a project folder).
+  const [projectSettingsOpen, setProjectSettingsOpen] = useState(false)
   // Default-expand the active project the first time we enter Agent Mode.
   useEffect(() => {
     if (!agentMode || !activeProjectId) return
@@ -440,7 +465,9 @@ export function ArcSidebar({
       className={cn(
         'relative flex flex-col h-full border-r border-border bg-background flex-shrink-0',
         'transition-all duration-200 ease-in-out overflow-hidden',
-        expanded ? 'w-52' : 'w-11'
+        // w-60: wide enough for the localized mode-toggle labels ("Cambiar a
+        // Control de misiones") without clipping.
+        expanded ? 'w-60' : 'w-11'
       )}
       onMouseEnter={() => { if (leftMode === 'unpinned') setHovered(true) }}
       onMouseLeave={() => { if (leftMode === 'unpinned') setHovered(false) }}
@@ -505,13 +532,13 @@ export function ArcSidebar({
               expanded ? 'px-2' : 'px-0 justify-center',
             )}
             aria-label={agentMode ? tAgent('switchToKanban') : tAgent('switchToAgent')}
-            title={!expanded ? (agentMode ? tAgent('switchToKanban') : tAgent('switchToAgent')) : undefined}
+            title={agentMode ? tAgent('switchToKanban') : tAgent('switchToAgent')}
           >
             {agentMode
               ? <LayoutGrid className="w-4 h-4 flex-shrink-0" />
               : <Bot className="w-4 h-4 flex-shrink-0 text-accent-primary" />}
             {expanded && (
-              <span className="text-xs whitespace-nowrap">
+              <span className="min-w-0 truncate text-xs">
                 {agentMode ? tAgent('switchToKanban') : tAgent('switchToAgent')}
               </span>
             )}
@@ -590,7 +617,7 @@ export function ArcSidebar({
                     key={c.id}
                     conversation={c}
                     active={c.id === agentChat.active?.id}
-                    streaming={agentChat.isStreaming && c.id === agentChat.active?.id}
+                    streaming={agentChat.streamingConversationIds.has(c.id)}
                     expanded={expanded}
                     onSelect={() => handleSelectConversation(c.id)}
                     onDelete={() => handleDeleteConversation(c.id)}
@@ -616,9 +643,16 @@ export function ArcSidebar({
               onToggleTree={() => toggleTree(project.id)}
               conversations={convs}
               activeConversationId={agentChat.active?.id ?? null}
-              streamingConversationId={agentChat.isStreaming ? agentChat.active?.id ?? null : null}
+              streamingConversationIds={agentChat.streamingConversationIds}
               onSelectConversation={handleSelectConversation}
               onDeleteConversation={handleDeleteConversation}
+              onOpenProjectSettings={agentMode ? () => {
+                // The settings sections talk to the ACTIVE project's API base —
+                // opening a project's settings selects it first (same semantics
+                // as clicking the folder).
+                setActiveProjectId(project.id)
+                setProjectSettingsOpen(true)
+              } : undefined}
             />
           )
         })}
@@ -660,6 +694,12 @@ export function ArcSidebar({
           </button>
         ))}
       </div>
+
+      {projectSettingsOpen && (
+        <Suspense fallback={null}>
+          <ProjectSettingsDialog open onClose={() => setProjectSettingsOpen(false)} />
+        </Suspense>
+      )}
     </div>
   )
 }

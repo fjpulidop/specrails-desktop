@@ -52,10 +52,14 @@ export function AgentModeCodePane({ projectId, conversationId }: { projectId: st
   }, [width])
 
   return (
+    // Maximized = REALLY maximized: cover the whole Agent-Mode surface
+    // (absolute over the relative surface root), not just grow in the flex row.
     <div
       ref={paneRef}
-      className="flex h-full flex-col overflow-hidden border-l border-border bg-background"
-      style={maximized ? { flex: 1 } : { width, flexShrink: 0 }}
+      className={`flex h-full flex-col overflow-hidden border-l border-border bg-background${
+        maximized ? ' absolute inset-0 z-30 border-l-0' : ''
+      }`}
+      style={maximized ? undefined : { width, flexShrink: 0 }}
       // key by project+conversation so the embedded tree/viewer reset on switch
       // and each conversation restores its own last file (design D15)
       key={selectionKey}

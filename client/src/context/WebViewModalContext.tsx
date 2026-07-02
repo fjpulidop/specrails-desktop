@@ -7,6 +7,9 @@ interface WebViewModalApi {
   /** Open an http(s) URL in the in-app embedded browser modal (shares the global
    *  browser profile / cookies). */
   openWebView: (url: string) => void
+  /** False when the embedded browser cannot open (feature disabled or no active
+   *  project) — callers keep the link's default target=_blank behaviour then. */
+  canOpenWebView: boolean
 }
 
 const WebViewModalContext = createContext<WebViewModalApi | null>(null)
@@ -18,7 +21,7 @@ export function WebViewModalProvider({ children }: { children: ReactNode }) {
   const enabled = isBrowserCaptureEnabled()
 
   return (
-    <WebViewModalContext.Provider value={{ openWebView }}>
+    <WebViewModalContext.Provider value={{ openWebView, canOpenWebView: enabled && !!activeProjectId }}>
       {children}
       {enabled && url && activeProjectId && (
         <WebViewModal open url={url} projectId={activeProjectId} onClose={() => setUrl(null)} />
@@ -33,5 +36,5 @@ export function WebViewModalProvider({ children }: { children: ReactNode }) {
  * and the link keeps its default behaviour.
  */
 export function useWebViewModal(): WebViewModalApi {
-  return useContext(WebViewModalContext) ?? { openWebView: () => {} }
+  return useContext(WebViewModalContext) ?? { openWebView: () => {}, canOpenWebView: false }
 }

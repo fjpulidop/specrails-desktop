@@ -44,8 +44,12 @@ describe('agent-api', () => {
     await api.deleteAgentConversation('c1')
     expect(del).toHaveBeenCalledWith(expect.stringContaining('/c1'), expect.objectContaining({ method: 'DELETE' }))
     const send = mockFetch(undefined)
-    await api.sendAgentMessage('c1', 'hi', { tierLevel: 2 })
+    expect(await api.sendAgentMessage('c1', 'hi', { tierLevel: 2 })).toEqual({ queued: false })
     expect(send).toHaveBeenCalledWith(expect.stringContaining('/c1/send'), expect.objectContaining({ method: 'POST' }))
+    const sendQueued = mockFetch({ accepted: true, queued: true })
+    expect(await api.sendAgentMessage('c1', 'later', { queueId: 'q-1' })).toEqual({ queued: true })
+    const [, init] = sendQueued.mock.calls[0] as [string, RequestInit]
+    expect(JSON.parse(String(init.body))).toMatchObject({ text: 'later', queueId: 'q-1' })
     const ab = mockFetch(undefined)
     await api.abortAgentTurn('c1')
     expect(ab).toHaveBeenCalledWith(expect.stringContaining('/c1/abort'), expect.objectContaining({ method: 'POST' }))

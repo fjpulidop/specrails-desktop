@@ -1,9 +1,10 @@
-import { useState } from 'react'
+import { useMemo, useState } from 'react'
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
 import { Copy, Check } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { cn } from '../../lib/utils'
+import { useWebViewModal } from '../../context/WebViewModalContext'
 import { extractAgentOptions } from './agent-options'
 
 // Token-based markdown styling — works across ALL themes (no prose-invert, which
@@ -70,6 +71,30 @@ interface Props {
 /** A single agent chat message: markdown-rendered, with a subtle per-bubble copy. */
 export function AgentMessage({ role, content, streaming, isLast, onPickOption }: Props) {
   const isUser = role === 'user'
+  const { openWebView, canOpenWebView } = useWebViewModal()
+
+  // http(s) links open in the app's embedded browser (same pattern as spec
+  // descriptions) instead of navigating the whole webview away. When the
+  // embedded browser can't open (no project / feature off), keep target=_blank.
+  const markdownComponents = useMemo(() => ({
+    a: ({ href, children }: { href?: string; children?: React.ReactNode }) => (
+      <a
+        href={href}
+        target="_blank"
+        rel="noreferrer"
+        data-agent-interactive
+        onClick={(e) => {
+          if (canOpenWebView && typeof href === 'string' && /^https?:\/\//i.test(href)) {
+            e.preventDefault()
+            e.stopPropagation()
+            openWebView(href)
+          }
+        }}
+      >
+        {children}
+      </a>
+    ),
+  }), [openWebView, canOpenWebView])
 
   if (isUser) {
     return (
@@ -95,7 +120,7 @@ export function AgentMessage({ role, content, streaming, isLast, onPickOption }:
   return (
     <div className="group flex flex-col gap-1">
       <div className={cn('max-w-full', MD)}>
-        <ReactMarkdown remarkPlugins={[remarkGfm]}>{body}</ReactMarkdown>
+        <ReactMarkdown remarkPlugins={[remarkGfm]} components={markdownComponents}>{body}</ReactMarkdown>
       </div>
       {showChips && (
         <div className="flex flex-wrap gap-1.5 pt-1">

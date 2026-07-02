@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { Globe, TerminalSquare, FileCode2, PanelRight } from 'lucide-react'
+import { Globe, TerminalSquare, FileCode2, PanelRight, Briefcase } from 'lucide-react'
 import { cn } from '../../lib/utils'
 import { useSidebarPin } from '../../context/SidebarPinContext'
 import { useDesktop } from '../../hooks/useDesktop'
@@ -37,6 +37,13 @@ export function AgentWorkspaceSidebar() {
   const noProject = !activeProjectId
 
   const tools = [
+    // Jobs sits ABOVE Browser: the executions the agent launches are the first
+    // thing the user reaches for from Agent Mode.
+    {
+      key: 'jobs', icon: Briefcase, label: t('workspace.jobs'),
+      onClick: () => workspace.toggleJobsPane(),
+      disabled: noProject, disabledTitle: t('workspace.requiresProject'),
+    },
     ...(isBrowserCaptureEnabled()
       ? [{
           key: 'browser', icon: Globe, label: t('workspace.browser'),

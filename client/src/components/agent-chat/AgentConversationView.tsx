@@ -1,7 +1,7 @@
 import { useEffect, useRef } from 'react'
 import { useTranslation } from 'react-i18next'
 import { motion } from 'motion/react'
-import { Bot, ShieldAlert, PackageOpen } from 'lucide-react'
+import { Bot, ShieldAlert, PackageOpen, Clock } from 'lucide-react'
 import { useAgentChat } from '../../context/AgentChatContext'
 import { useActiveTheme } from '../../context/ThemeContext'
 import { useSmoothStream } from '../explore-spec/useSmoothStream'
@@ -18,7 +18,7 @@ import { AgentComposer } from './AgentComposer'
 export function AgentConversationView({ variant }: { variant: 'floating' | 'inline' }) {
   const { t } = useTranslation('agent')
   const {
-    messages, streamingText, isStreaming, liveTools,
+    messages, streamingText, isStreaming, liveTools, queuedMessages,
     mcpEnabled, enablingMcp, enableMcpServer, providersReady, cycleTier, send,
   } = useAgentChat()
   const scrollRef = useRef<HTMLDivElement>(null)
@@ -36,7 +36,7 @@ export function AgentConversationView({ variant }: { variant: 'floating' | 'inli
   useEffect(() => {
     if (!pinnedRef.current) return
     scrollRef.current?.scrollTo?.({ top: scrollRef.current.scrollHeight, behavior: 'auto' })
-  }, [messages.length, smoothed, liveTools.length])
+  }, [messages.length, smoothed, liveTools.length, queuedMessages.length])
 
   // Shift+Tab anywhere in the view (incl. the composer) cycles the tier ladder.
   const onKeyDown = (e: React.KeyboardEvent) => {
@@ -108,6 +108,23 @@ export function AgentConversationView({ variant }: { variant: 'floating' | 'inli
             <div className="space-y-2">
               {smoothed && <AgentMessage role="assistant" content={smoothed} streaming />}
               <AgentActivityChip tool={liveTools.length ? liveTools[liveTools.length - 1].tool : null} />
+            </div>
+          )}
+          {/* Messages parked behind the in-flight turn — dimmed user-style chips
+              pinned below the stream; each becomes a real bubble on dequeue. */}
+          {queuedMessages.length > 0 && (
+            <div className="space-y-2" data-testid="agent-queued-messages">
+              {queuedMessages.map((q) => (
+                <div key={q.queueId} className="flex justify-end">
+                  <div className="max-w-[85%] whitespace-pre-wrap rounded-2xl rounded-br-sm border border-dashed border-border/70 bg-foreground/[0.03] px-3.5 py-2 text-sm text-foreground/60">
+                    <span className="mb-0.5 flex items-center justify-end gap-1 text-[10px] font-medium uppercase tracking-wide text-foreground/45">
+                      <Clock className="h-3 w-3" />
+                      {t('queue.queued')}
+                    </span>
+                    {q.text}
+                  </div>
+                </div>
+              ))}
             </div>
           )}
         </motion.div>

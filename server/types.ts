@@ -1092,6 +1092,7 @@ export type WsMessage =
   | JiraOutboxChangedMessage | JiraDegradedMessage
   | AgentStreamMessage | AgentDoneMessage | AgentErrorMessage | AgentToolMessage
   | AgentTitleMessage
+  | AgentQueuedMessage | AgentDequeuedMessage | AgentQueueClearedMessage
 
 // ─── App-global agent chat (no projectId — fans to all subscribers) ───────────
 
@@ -1132,6 +1133,33 @@ export interface AgentToolMessage {
   type: 'agent_tool'
   conversationId: string
   tool: string
+  timestamp: string
+}
+
+/** A message sent mid-turn was queued; it runs after the current turn settles. */
+export interface AgentQueuedMessage {
+  type: 'agent_queued'
+  conversationId: string
+  /** Client-generated correlation id (null when the sender didn't provide one). */
+  queueId: string | null
+  text: string
+  position: number
+  timestamp: string
+}
+
+/** A queued message left the queue and its turn is starting now. */
+export interface AgentDequeuedMessage {
+  type: 'agent_dequeued'
+  conversationId: string
+  queueId: string | null
+  text: string
+  timestamp: string
+}
+
+/** The pending queue was discarded (abort or conversation deletion). */
+export interface AgentQueueClearedMessage {
+  type: 'agent_queue_cleared'
+  conversationId: string
   timestamp: string
 }
 

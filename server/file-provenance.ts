@@ -38,7 +38,9 @@ const GIT_MAX_BUFFER = 16 * 1024 * 1024
 // the on-demand diff patches beyond this cap are skipped (the UI shows "diff
 // unavailable" for them). Mirrors the existing large-job warn threshold (50).
 const MAX_PATCH_FILES = 50
-const GIT_EXEC_ENV = (() => {
+// Exported: project-git.ts (the Agent-Mode git bar) runs the same cwd-scoped
+// git calls and needs the identical hostile-repo hardening.
+export const GIT_EXEC_ENV = (() => {
   // Inherit the parent env but STRIP git-location vars. If the app process (or a
   // parent) ever exports GIT_DIR / GIT_WORK_TREE / GIT_INDEX_FILE, every cwd-scoped
   // git call below would silently operate on that repo instead of the project —

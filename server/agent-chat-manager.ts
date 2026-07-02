@@ -30,6 +30,14 @@ export interface AgentTurnOptions {
   tierLevel?: AgentTierLevel
   model?: string
   attachmentIds?: string[]
+  /** Client-generated correlation id echoed on agent_queued / agent_dequeued. */
+  queueId?: string | null
+}
+
+interface QueuedTurn {
+  queueId: string | null
+  text: string
+  options: AgentTurnOptions
 }
 
 export class AgentChatManager {
@@ -41,6 +49,12 @@ export class AgentChatManager {
    *  window the attachment-extraction await opens between the busy guard and
    *  `_active.set` in onSpawn (mirrors ChatManager's reservation pattern). */
   private readonly _reserved = new Set<string>()
+  /** Messages sent while a turn was in flight — drained FIFO after it settles. */
+  private readonly _queue = new Map<string, QueuedTurn[]>()
+  /** Conversations whose in-flight turn the user deliberately stopped. Consulted
+   *  at settle so an abort is never mistaken for a stale session (auto-heal
+   *  would resurrect the aborted prompt) nor surfaced as an error. */
+  private readonly _abortedTurns = new Set<string>()
 
   constructor(broadcast: (msg: WsMessage) => void, db: DbInstance, port: number) {
     this._broadcast = broadcast
@@ -53,10 +67,20 @@ export class AgentChatManager {
     return this._active.has(conversationId)
   }
 
+  /** True while a turn is in flight (spawned or reserved) — a send now queues. */
+  isBusy(conversationId: string): boolean {
+    return this._active.has(conversationId) || this._reserved.has(conversationId)
+  }
+
   /**
    * Runs one agent turn: persists the user message, spawns the AI CLI pointed at
    * the Specrails MCP, streams deltas + tool-use as `agent_*` events, then
    * persists the assistant reply and the session id. Settles once.
+   *
+   * A send while a turn is in flight is QUEUED (never rejected): the busy check
+   * and the enqueue are synchronous (before any await), so the router's isBusy
+   * read in the same event-loop frame is consistent with what happens here.
+   * Queued turns drain FIFO after the current turn settles; abort discards them.
    */
   async sendMessage(conversationId: string, userText: string, options: AgentTurnOptions = {}): Promise<void> {
     const conversation = getAgentConversation(this._db, conversationId)
@@ -64,15 +88,60 @@ export class AgentChatManager {
       this._emitError(conversationId, 'Unknown conversation')
       return
     }
-    if (this._active.has(conversationId) || this._reserved.has(conversationId)) {
-      this._emitError(conversationId, 'The agent is busy. Try again in a moment.')
+    if (this.isBusy(conversationId)) {
+      const pending = this._queue.get(conversationId) ?? []
+      const queueId = options.queueId ?? null
+      pending.push({ queueId, text: userText, options })
+      this._queue.set(conversationId, pending)
+      this._broadcast({
+        type: 'agent_queued',
+        conversationId,
+        queueId,
+        text: userText,
+        position: pending.length,
+        timestamp: new Date().toISOString(),
+      })
       return
     }
     this._reserved.add(conversationId)
     try {
-      await this._runTurn(conversation, userText, options)
+      await this._runTurnSafely(conversation, userText, options)
+      // Drain messages queued while we were running. Each drained turn re-reads
+      // the conversation row so a mid-flight tier/provider/model change applies.
+      for (;;) {
+        const pending = this._queue.get(conversationId)
+        const next = pending?.shift()
+        if (!next) break
+        if (pending && pending.length === 0) this._queue.delete(conversationId)
+        const conv = getAgentConversation(this._db, conversationId)
+        if (!conv) break // deleted mid-drain (abort() already cleared the queue)
+        this._broadcast({
+          type: 'agent_dequeued',
+          conversationId,
+          queueId: next.queueId,
+          text: next.text,
+          timestamp: new Date().toISOString(),
+        })
+        await this._runTurnSafely(conv, next.text, next.options)
+      }
     } finally {
       this._reserved.delete(conversationId)
+      this._abortedTurns.delete(conversationId)
+    }
+  }
+
+  /** One turn that can never break the drain loop (or leave the client hung
+   *  streaming): an unexpected throw surfaces as agent_error instead. */
+  private async _runTurnSafely(
+    conversation: NonNullable<ReturnType<typeof getAgentConversation>>,
+    userText: string,
+    options: AgentTurnOptions,
+  ): Promise<void> {
+    try {
+      await this._runTurn(conversation, userText, options)
+    } catch (err) {
+      console.error(`[agent-chat] turn failed (${conversation.id}):`, err)
+      this._emitError(conversation.id, err instanceof Error ? err.message : 'The agent turn failed.')
     }
   }
 
@@ -213,10 +282,17 @@ export class AgentChatManager {
           switch (ev.kind) {
             case 'text-delta':
               streamed += ev.text
-              this._broadcast({ type: 'agent_stream', conversationId, delta: ev.text, timestamp: timestamp() })
+              // A killed child (abort / conversation DELETE) keeps flushing its
+              // buffered stdout — suppress the broadcasts once it left _active
+              // so stragglers can't resurrect client-side streaming state.
+              if (this._active.has(conversationId)) {
+                this._broadcast({ type: 'agent_stream', conversationId, delta: ev.text, timestamp: timestamp() })
+              }
               break
             case 'tool-use':
-              this._broadcast({ type: 'agent_tool', conversationId, tool: ev.name, timestamp: timestamp() })
+              if (this._active.has(conversationId)) {
+                this._broadcast({ type: 'agent_tool', conversationId, tool: ev.name, timestamp: timestamp() })
+              }
               break
             case 'session-started':
               if (ev.sessionId) capturedSessionId = ev.sessionId
@@ -247,12 +323,38 @@ export class AgentChatManager {
       return { text, sessionId: capturedSessionId, error: capturedError, code: result.code, spawnFailed: result.spawnFailed, stderrTail: result.stderrTail }
     }
 
+    // Conversation CONFIG (provider/model/tier) is owned by the PATCH route —
+    // never write turn-START snapshots back at settle, or a mid-turn provider
+    // switch would be silently reverted and a queued turn drained onto the old
+    // provider. Only the session id persists, and only while the row's provider
+    // is still the one this turn actually ran on (a foreign session id must not
+    // pollute the new provider's freshly-reset state).
+    const persistSession = (sessionId: string | null): void => {
+      const fresh = getAgentConversation(this._db, conversationId)
+      if (fresh && fresh.provider === conversation.provider) {
+        updateAgentConversation(this._db, conversationId, { session_id: sessionId })
+      }
+    }
+    const settleAborted = (r: { text: string; sessionId: string | null }): void => {
+      // Deliberate user Stop: keep any partial text (it was already streamed to
+      // the client), never auto-heal, never surface an error.
+      if (r.text && getAgentConversation(this._db, conversationId)) {
+        addAgentMessage(this._db, { conversationId, role: 'assistant', content: r.text })
+        persistSession(r.sessionId)
+        this._broadcast({ type: 'agent_done', conversationId, fullText: r.text, timestamp: timestamp() })
+      }
+    }
+
     const canResume = !!conversation.session_id && adapter.capabilities.nativeResume
     let r = await invoke(canResume)
 
     // Deleted mid-turn (DELETE aborts the child and drops the row): stop here —
     // no auto-heal respawn, no FK-violating assistant INSERT.
     if (!getAgentConversation(this._db, conversationId)) return
+    if (this._abortedTurns.delete(conversationId)) {
+      settleAborted(r)
+      return
+    }
 
     // Auto-heal a stale/foreign session: a resume that produced no text (e.g. a
     // provider switch leaving another provider's session id, or codex
@@ -262,6 +364,10 @@ export class AgentChatManager {
       updateAgentConversation(this._db, conversationId, { session_id: null })
       r = await invoke(false)
       if (!getAgentConversation(this._db, conversationId)) return
+      if (this._abortedTurns.delete(conversationId)) {
+        settleAborted(r)
+        return
+      }
     }
 
     if (r.spawnFailed) {
@@ -271,19 +377,14 @@ export class AgentChatManager {
 
     if (r.text) {
       addAgentMessage(this._db, { conversationId, role: 'assistant', content: r.text })
-      updateAgentConversation(this._db, conversationId, {
-        session_id: r.sessionId,
-        provider: conversation.provider,
-        model,
-        tier_level: tierLevel,
-      })
+      persistSession(r.sessionId)
       this._broadcast({ type: 'agent_done', conversationId, fullText: r.text, timestamp: timestamp() })
       return
     }
 
     // Failure: reset the session so the NEXT turn starts fresh, and surface the
     // real reason instead of silently doing nothing.
-    updateAgentConversation(this._db, conversationId, { session_id: null, provider: conversation.provider, model, tier_level: tierLevel })
+    persistSession(null)
     const reason =
       r.error ||
       (r.stderrTail ? r.stderrTail.split('\n').filter(Boolean).slice(-3).join(' ').slice(0, 300) : '') ||
@@ -315,8 +416,13 @@ export class AgentChatManager {
     }
   }
 
-  /** Aborts the active turn for a conversation, if any. */
+  /** Aborts the active turn for a conversation, if any. Stop means stop: any
+   *  queued messages are discarded too (broadcast so the client drops chips),
+   *  and the settling turn is marked aborted so the stale-session auto-heal
+   *  can never resurrect the stopped prompt as a fresh spawn. */
   abort(conversationId: string): boolean {
+    this._clearQueue(conversationId)
+    if (this.isBusy(conversationId)) this._abortedTurns.add(conversationId)
     const child = this._active.get(conversationId)
     if (!child) return false
     try {
@@ -328,8 +434,16 @@ export class AgentChatManager {
     return true
   }
 
+  private _clearQueue(conversationId: string): void {
+    const pending = this._queue.get(conversationId)
+    if (!pending || pending.length === 0) return
+    this._queue.delete(conversationId)
+    this._broadcast({ type: 'agent_queue_cleared', conversationId, timestamp: new Date().toISOString() })
+  }
+
   /** Kills all active turns (graceful shutdown). */
   async shutdown(): Promise<void> {
+    this._queue.clear()
     for (const [, child] of this._active) {
       try {
         child.kill('SIGTERM')

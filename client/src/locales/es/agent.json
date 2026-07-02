@@ -1,7 +1,7 @@
 {
-  "title": "Agente",
+  "title": "Control de misiones",
   "subtitle": "Maneja Specrails conversando",
-  "trigger": "Agente",
+  "trigger": "Control de misiones",
   "composerPlaceholder": "Pídele al agente lo que necesites…",
   "send": "Enviar",
   "stop": "Detener",
@@ -10,8 +10,8 @@
   "restore": "Restaurar",
   "minimize": "Minimizar",
   "close": "Cerrar",
-  "newConversation": "Nueva conversación",
-  "emptyTitle": "¿Qué debe hacer el agente?",
+  "newConversation": "Nueva misión",
+  "emptyTitle": "¿Cuál es la misión?",
   "emptyHint": "Elige un proyecto y luego pregunta. El tablero se actualiza en vivo mientras el agente trabaja.",
   "thinking": "Pensando…",
   "connecting": "Conectando…",
@@ -26,6 +26,25 @@
   },
   "history": {
     "hint": "Explorando historial de prompts — escribe para editar, ↑↓ para navegar"
+  },
+  "queue": {
+    "queued": "En cola",
+    "send": "Enviar a la cola",
+    "sendHint": "El agente sigue trabajando — este mensaje se pondrá en cola y se ejecutará después",
+    "placeholder": "Añade más mientras el agente trabaja — se pondrá en cola…"
+  },
+  "git": {
+    "branch": "Rama",
+    "detached": "(detached)",
+    "dirty": "Cambios sin commitear",
+    "switched": "Cambiado a {{branch}}",
+    "switchFailed": "No se pudo cambiar de rama",
+    "lockedWhileWorking": "Rama bloqueada mientras el agente trabaja",
+    "searchPlaceholder": "Buscar ramas…",
+    "noMatches": "Ninguna rama coincide",
+    "worktrees": "Worktrees",
+    "worktreePathCopied": "Ruta del worktree copiada",
+    "copyWorktreePath": "Copiar ruta del worktree"
   },
   "provider": {
     "label": "Proveedor",
@@ -98,11 +117,11 @@
     "busy": "El agente está ocupado. Inténtalo de nuevo en un momento."
   },
   "chip": {
-    "kindAgent": "Chat del agente"
+    "kindAgent": "Misión del agente"
   },
-  "newAgent": "Nuevo agente",
-  "switchToAgent": "Cambiar a modo Agente",
-  "switchToKanban": "Cambiar a modo Kanban",
+  "newAgent": "Nueva misión",
+  "switchToAgent": "Cambiar a Control de misiones",
+  "switchToKanban": "Cambiar al tablero",
   "search": "Buscar",
   "home": "Inicio",
   "untitled": "Sin título",
@@ -117,7 +136,11 @@
     "browserConfirm": "Añadir al agente",
     "browserCaptured": "Captura añadida",
     "uploadFailed": "Error al subir",
-    "requiresConversation": "Inicia una conversación para usar esta herramienta"
+    "requiresConversation": "Inicia una misión para usar esta herramienta",
+    "jobs": "Jobs",
+    "closeJobs": "Cerrar jobs",
+    "resizeJobs": "Redimensionar panel de jobs",
+    "noJobs": "Aún no hay jobs — pide al agente que lance uno"
   },
   "attachFile": "Adjuntar archivo",
   "deleteConversation": "Borrar «{{title}}»",
@@ -132,5 +155,5 @@
     "high": "Alto",
     "xhigh": "Extra alto"
   },
-  "emptyTitleMatrix": "¿Qué debería hacer el agente Smith?"
+  "emptyTitleMatrix": "¿Cuál es la misión, Neo?"
 }

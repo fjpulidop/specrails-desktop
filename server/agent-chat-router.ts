@@ -318,13 +318,18 @@ export function createAgentChatRouter(deps: AgentRouterDeps): Router {
     if (rawAtt && typeof rawAtt === 'object' && Array.isArray((rawAtt as { ids?: unknown }).ids)) {
       attachmentIds = ((rawAtt as { ids: unknown[] }).ids).filter((x): x is string => typeof x === 'string')
     }
+    const queueId = typeof body.queueId === 'string' ? body.queueId : null
     // Fire-and-forget: the turn streams over WS. Persist the chosen tier first so
     // a refresh mid-turn restores the right level.
     if (tierLevel !== undefined) updateAgentConversation(desktopDb, conversation.id, { tier_level: tierLevel })
-    void manager.sendMessage(conversation.id, text, { tierLevel, model, attachmentIds }).catch((e) =>
+    // isBusy here and sendMessage's own busy/enqueue branch run in the same
+    // synchronous frame (the enqueue happens before sendMessage's first await),
+    // so the flag the client gets always matches what actually happened.
+    const queued = manager.isBusy(conversation.id)
+    void manager.sendMessage(conversation.id, text, { tierLevel, model, attachmentIds, queueId }).catch((e) =>
       console.error('[agent-chat] send failed:', e),
     )
-    res.status(202).json({ accepted: true })
+    res.status(202).json({ accepted: true, queued })
   })
 
   router.post('/conversations/:id/abort', (req: Request, res: Response) => {
