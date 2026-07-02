@@ -17,6 +17,9 @@ export interface AgentConversation {
   session_id: string | null
   pinned_project_id: string | null
   tier_level: AgentTierLevel
+  /** Reasoning effort for spawns (null = default "medium"). Validated against
+   *  the provider's `capabilities.reasoningEfforts` at the router. */
+  reasoning_effort: string | null
   created_at: string
   updated_at: string
 }
@@ -26,7 +29,38 @@ export interface AgentMessage {
   conversation_id: string
   role: 'user' | 'assistant'
   content: string
+  /** Attachment ids carried by this (user) turn; [] for text-only turns. */
+  attachment_ids: string[]
   created_at: string
+}
+
+interface AgentMessageRaw {
+  id: string
+  conversation_id: string
+  role: 'user' | 'assistant'
+  content: string
+  attachment_ids: string | null
+  created_at: string
+}
+
+function mapMessage(row: AgentMessageRaw): AgentMessage {
+  let ids: string[] = []
+  if (row.attachment_ids) {
+    try {
+      const parsed = JSON.parse(row.attachment_ids) as unknown
+      if (Array.isArray(parsed)) ids = parsed.filter((x): x is string => typeof x === 'string')
+    } catch {
+      /* ignore malformed */
+    }
+  }
+  return {
+    id: row.id,
+    conversation_id: row.conversation_id,
+    role: row.role,
+    content: row.content,
+    attachment_ids: ids,
+    created_at: row.created_at,
+  }
 }
 
 interface AgentConversationRaw {
@@ -37,6 +71,7 @@ interface AgentConversationRaw {
   session_id: string | null
   pinned_project_id: string | null
   tier_level: number
+  reasoning_effort: string | null
   created_at: string
   updated_at: string
 }
@@ -48,18 +83,19 @@ function mapConversation(row: AgentConversationRaw | undefined): AgentConversati
 
 export function createAgentConversation(
   db: DbInstance,
-  input: { provider?: string; model?: string | null; pinnedProjectId?: string | null; tierLevel?: AgentTierLevel } = {},
+  input: { provider?: string; model?: string | null; pinnedProjectId?: string | null; tierLevel?: AgentTierLevel; reasoningEffort?: string | null } = {},
 ): AgentConversation {
   const id = randomUUID()
   db.prepare(
-    `INSERT INTO agent_conversations (id, provider, model, pinned_project_id, tier_level)
-     VALUES (?, ?, ?, ?, ?)`,
+    `INSERT INTO agent_conversations (id, provider, model, pinned_project_id, tier_level, reasoning_effort)
+     VALUES (?, ?, ?, ?, ?, ?)`,
   ).run(
     id,
     input.provider ?? 'claude',
     input.model ?? null,
     input.pinnedProjectId ?? null,
     input.tierLevel ?? 0,
+    input.reasoningEffort ?? null,
   )
   return getAgentConversation(db, id)!
 }
@@ -89,6 +125,7 @@ export function updateAgentConversation(
     session_id: string | null
     pinned_project_id: string | null
     tier_level: AgentTierLevel
+    reasoning_effort: string | null
   }>,
 ): AgentConversation | undefined {
   const sets: string[] = []
@@ -110,19 +147,22 @@ export function deleteAgentConversation(db: DbInstance, id: string): void {
 
 export function addAgentMessage(
   db: DbInstance,
-  input: { conversationId: string; role: 'user' | 'assistant'; content: string },
+  input: { conversationId: string; role: 'user' | 'assistant'; content: string; attachmentIds?: string[] },
 ): AgentMessage {
   const id = randomUUID()
+  const attachmentIds = input.attachmentIds && input.attachmentIds.length ? JSON.stringify(input.attachmentIds) : null
   db.prepare(
-    'INSERT INTO agent_messages (id, conversation_id, role, content) VALUES (?, ?, ?, ?)',
-  ).run(id, input.conversationId, input.role, input.content)
+    'INSERT INTO agent_messages (id, conversation_id, role, content, attachment_ids) VALUES (?, ?, ?, ?, ?)',
+  ).run(id, input.conversationId, input.role, input.content, attachmentIds)
   // Touch the parent so the list stays ordered by latest activity.
   db.prepare("UPDATE agent_conversations SET updated_at = datetime('now') WHERE id = ?").run(input.conversationId)
-  return db.prepare('SELECT * FROM agent_messages WHERE id = ?').get(id) as AgentMessage
+  return mapMessage(db.prepare('SELECT * FROM agent_messages WHERE id = ?').get(id) as AgentMessageRaw)
 }
 
 export function listAgentMessages(db: DbInstance, conversationId: string): AgentMessage[] {
-  return db
-    .prepare('SELECT * FROM agent_messages WHERE conversation_id = ? ORDER BY created_at ASC, rowid ASC')
-    .all(conversationId) as AgentMessage[]
+  return (
+    db
+      .prepare('SELECT * FROM agent_messages WHERE conversation_id = ? ORDER BY created_at ASC, rowid ASC')
+      .all(conversationId) as AgentMessageRaw[]
+  ).map(mapMessage)
 }

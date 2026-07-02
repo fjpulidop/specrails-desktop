@@ -6,7 +6,7 @@ Specrails 并不绑定在某一个 AI 上。应用里所有会调用 AI 的环�
 
 | 提供方 | CLI | 出品方 | 说明 |
 |---|---|---|---|
-| **Claude** | `claude` | Anthropic | 功能最完整。Agents（profile）、Ultracode rail 以及 Contract Refine 都只有它支持。 |
+| **Claude** | `claude` | Anthropic | 功能最完整。Agents（profile）、Freestyle rail 以及 Contract Refine 都只有它支持。 |
 | **Codex** | `codex` | OpenAI | 需要 codex `0.128.0+`。从你的全局 `~/.codex/config.toml` 读取 MCP 服务器。 |
 | **Gemini** | `gemini` | Google | 需要 gemini `0.11.0+`。使用原生遥测，以及 `GEMINI.md` 指令文件。 |
 
@@ -43,7 +43,7 @@ Specrails 并不绑定在某一个 AI 上。应用里所有会调用 AI 的环�
 有少数功能天生就是 Claude 专属的，因此当其他提供方参与时，它们要么被隐藏、要么被跳过：
 
 - **Agents（profile）**——按项目的 agent 目录与模型路由。在任何包含非 Claude 提供方的项目上都会隐藏。
-- **Ultracode rail**——始终在 Claude 上运行。
+- **Freestyle rail**——始终在 Claude 上运行。
 - **Contract Refine**——对已提交规格追加的「Contract Layer」环节，只有当对话的提供方是 Claude 时才会运行。
 - **Add Spec 高级模式**（SMASH / Contract Layer）——对非 Claude 引擎隐藏。
 

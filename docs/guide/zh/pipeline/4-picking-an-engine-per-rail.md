@@ -24,7 +24,7 @@ Specrails desktop 把 **Claude Code**、**Codex CLI** 和 **Gemini CLI** 都当�
 
 | 引擎 | 在什么情况下选它…… | 说明 |
 |--------|--------------------|-------|
-| **Claude** | 你想要全套功能：Agent Profile、Ultracode、原生成本上报、最丰富的工具支持。大多数工作的默认之选。 | 唯一支持 **Agent Profile**、**Ultracode** 以及几个 Claude 专属 spec 功能（Contract Layer、SMASH）的引擎。 |
+| **Claude** | 你想要全套功能：Agent Profile、Freestyle、原生成本上报、最丰富的工具支持。大多数工作的默认之选。 | 唯一支持 **Agent Profile**、**Freestyle** 以及几个 Claude 专属 spec 功能（Contract Layer、SMASH）的引擎。 |
 | **Codex** | 你更喜欢 OpenAI Codex CLI，或想跨提供方对比实现。 | `codex` ≥ 0.128.0。无原生成本上报——应用会用自己的价格表来补上成本。Profile 不适用。 |
 | **Gemini** | 你想用 Google 的 Gemini CLI、原生遥测，或为常规 spec 跑得更省钱。 | `gemini` ≥ 0.11.0（需设置 `GEMINI_API_KEY`）。原生 OTLP 遥测。Profile 不适用。 |
 
@@ -33,7 +33,7 @@ Specrails desktop 把 **Claude Code**、**Codex CLI** 和 **Gemini CLI** 都当�
 有几样东西只在 Claude rail 上能用——如果你需要它们，就选 Claude：
 
 - **Agent Profile**——按 Agent 的模型路由。在 Codex 或 Gemini rail 上，运行始终走传统模式，所选的任何 Profile 都会被**忽略**。非 Claude 引擎下 Profile 选择器会被隐藏。
-- **Ultracode（`Ultra` 模式）**——那个自主的、绕过流水线的模式。`Ultra` 分段及其 Haiku/Sonnet/Opus 模型选择器，只有当 rail 的引擎是 Claude 时才会出现。
+- **Freestyle**——那个自主的、绕过流水线的模式。`Freestyle` 分段及其 Haiku/Sonnet/Opus 模型选择器，只有当 rail 的引擎是 Claude 时才会出现。
 - **Contract Layer 与 SMASH**——Claude 专属的 spec 优化功能（这些是 Add Spec 的选项，不是 rail 的选项，但同样的限制适用）。
 
 如果一个项目混用了引擎，右侧栏只会显示**每一个**已安装提供方都支持的区块——所以在一个含有任何非 Claude 提供方的项目上，**Agents** 区会彻底消失，因为 Profile 是 Claude 特有的。

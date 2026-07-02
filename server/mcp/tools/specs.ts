@@ -28,7 +28,14 @@ function resolveSpecsTier(action: string): McpTier {
 const WATCH_HINT =
   'Returns 202 immediately; the actual result streams over the WebSocket. ' +
   'Use specrails_watch with the returned requestId/scheduled ref to await completion ' +
-  '(WS events: spec_gen_*, ticket_ai_edit_*, explore.contract_refine_*, smash.*).'
+  '(WS events: spec_gen_*, ticket_ai_edit_*, smash.*).'
+
+// Contract Refine settles asymmetrically: only FAILURE emits a watch-terminal
+// event (explore.contract_refine_failed); success lands as a plain
+// ticket_updated broadcast, which watch does not treat as terminal.
+const CONTRACT_REFINE_HINT =
+  'Returns 202 immediately. Failure settles via specrails_watch (explore.contract_refine_failed); ' +
+  "success arrives as ticket_updated — poll specrails_specs(get) for the '## Contract Layer' section."
 
 export function specsTools(): McpToolSpec[] {
   return [
@@ -40,9 +47,16 @@ export function specsTools(): McpToolSpec[] {
         'Actions: list, get, ' +
         'create (ai-spawn — THE way to add a spec: routes through Quick Add Spec, so the specrails agent generates a structured spec with AI from the user request, exactly matching the app\'s "Add Spec → Quick" flow; pass the request as title/description, it becomes the idea; async), ' +
         'update, delete (destructive), ' +
-        'from_prompt (verbatim insert, no AI — use ONLY when you already have a complete finished spec to store as-is), ' +
-        'save_draft (persist an Explore conversation as a draft), commit_draft (flip a draft to a real spec), ' +
-        'generate (alias of create — Quick AI spec generation), ai_edit (ai-spawn, AI-edit a ticket title+description), ' +
+        'from_prompt (verbatim insert, no AI — use ONLY when you already have a complete finished spec to store as-is; ' +
+        'cannot set acceptanceCriteria or shortSummary — prefer commit_draft for structured specs), ' +
+        'save_draft (persist an Explore conversation as a draft), ' +
+        'commit_draft (write, no AI — TWO uses: (a) flip an Explore draft to a real spec, passing conversationId from ' +
+        'specrails_chat and/or draftTicketId; (b) with NO conversationId/draftTicketId, insert a COMPLETE spec you ' +
+        'authored in ONE call: title (required), description, acceptanceCriteria, priority, labels, shortSummary, ' +
+        'assignee, prerequisites, metadata. THE canonical way to persist a spec refined in conversation — do NOT route ' +
+        'a finished spec through create/generate, which re-generate the content with AI and lossily rewrite it), ' +
+        'generate (same as create but takes a pre-formed idea string; both accept contextScope/attachments/createLocal), ' +
+        'ai_edit (ai-spawn, AI-edit a ticket title+description), ' +
         'cancel_ai_edit (abort an in-flight ai-edit), contract_refine (ai-spawn, append a Contract Layer — Claude-only), ' +
         'smash (ai-spawn, decompose a spec into N child sub-specs under an epic — Claude-only), ' +
         'smash_undo (destructive, reverse a prior SMASH), delete_epic_children (destructive, delete all children of an epic), ' +
@@ -88,7 +102,7 @@ export function specsTools(): McpToolSpec[] {
         status: z
           .string()
           .optional()
-          .describe('list: filter by status (CSV: draft|todo|in_progress|done|cancelled). create/update: set ticket status'),
+          .describe('list: CSV status filter (draft|todo|in_progress|done|cancelled). update: set ticket status — note job outcomes set in_progress/done automatically; do not fight the pipeline.'),
         label: z.string().optional().describe('list: filter by label (CSV)'),
         q: z.string().optional().describe('list: free-text search over title + description'),
 
@@ -100,13 +114,13 @@ export function specsTools(): McpToolSpec[] {
           .describe('Ticket description. For ai_edit this is the REQUIRED current baseline description'),
         priority: z
           .enum(['critical', 'high', 'medium', 'low'])
+          .nullable()
           .optional()
-          .describe('Ticket priority (defaults to medium; may be null only for drafts)'),
-        labels: z.array(z.string()).optional().describe('Labels array'),
-        assignee: z.string().optional().describe('create/update: assignee'),
-        prerequisites: z.array(z.number().int()).optional().describe('create/update: prerequisite ticket ids'),
-        metadata: z.record(z.unknown()).optional().describe('create/update: free-form metadata object'),
-        source: z.string().optional().describe('create: source tag'),
+          .describe('update/from_prompt/commit_draft: ticket priority. update: null allowed only for drafts'),
+        labels: z.array(z.string()).optional().describe('update/from_prompt/save_draft/commit_draft: labels array'),
+        assignee: z.string().optional().describe('update/commit_draft: assignee'),
+        prerequisites: z.array(z.number().int()).optional().describe('update/commit_draft: prerequisite ticket ids'),
+        metadata: z.record(z.unknown()).optional().describe('update/commit_draft: free-form metadata object (update merges keys)'),
         acceptanceCriteria: z
           .array(z.string())
           .optional()
@@ -114,33 +128,33 @@ export function specsTools(): McpToolSpec[] {
         shortSummary: z.string().optional().describe('commit_draft: explicit short summary (camelCase key)'),
         short_summary: z.string().optional().describe('update: explicit short summary (snake_case key; null clears)'),
         structured: z.boolean().optional().describe('from_prompt: lightly structure the verbatim prompt'),
-        createLocal: z.boolean().optional().describe('commit_draft/generate: keep the spec local (skip Jira promote)'),
+        createLocal: z.boolean().optional().describe('create/generate/commit_draft: keep the spec local (skip Jira promote)'),
 
         // ── draft linkage ────────────────────────────────────────────────
         conversationId: z
           .string()
           .optional()
-          .describe('save_draft (required) / commit_draft: origin Explore conversation id'),
+          .describe("save_draft (required) / commit_draft: origin Explore conversation id — obtained from specrails_chat(create kind:'explore'); NEVER an agent/desktop conversation id"),
         draftTicketId: z.number().int().optional().describe('commit_draft: explicit draft ticket id to flip in place'),
         editTicketId: z.number().int().optional().describe('save_draft: existing ticket id to demote to a draft in place'),
         pendingSpecId: z
           .string()
           .optional()
-          .describe('generate/from_prompt/commit_draft: pending-spec UUID owning pre-creation attachments'),
+          .describe('create/generate/from_prompt/commit_draft: pending-spec UUID owning pre-creation attachments'),
 
-        // ── generate (Quick AI spec) ─────────────────────────────────────
+        // ── create / generate (Quick AI spec) ────────────────────────────
         idea: z.string().optional().describe('generate: the idea/prompt to turn into a spec (required)'),
-        model: z.string().optional().describe('generate/smash: model override (validated against the provider catalog)'),
+        model: z.string().optional().describe('create/generate/smash: model override (validated against the provider catalog)'),
         aiEngine: z
           .string()
           .optional()
-          .describe('generate: provider/engine override (must be an installed provider; defaults to primary)'),
+          .describe('create/generate: provider/engine override (must be an installed provider; defaults to primary)'),
         contextScope: z
           .record(z.unknown())
           .optional()
-          .describe('generate: context-awareness flags {specrails,openspec,full,mcp,userMcp,contractRefine}'),
-        contractRefine: z.boolean().optional().describe('generate: enrich the spec with a Contract Layer (Claude-only)'),
-        attachmentIds: z.array(z.string()).optional().describe('generate: attachment ids (requires pendingSpecId)'),
+          .describe('create/generate: context-awareness flags {specrails,openspec,full,mcp,userMcp,contractRefine}'),
+        contractRefine: z.boolean().optional().describe('create/generate: enrich the spec with a Contract Layer (Claude-only)'),
+        attachmentIds: z.array(z.string()).optional().describe('create/generate/ai_edit: attachment ids (create/generate require pendingSpecId)'),
 
         // ── ai_edit ──────────────────────────────────────────────────────
         instructions: z.string().optional().describe('ai_edit: natural-language editing instructions (required)'),
@@ -170,6 +184,21 @@ export function specsTools(): McpToolSpec[] {
           }
           return id
         }
+
+        // Shared body builder for the two Quick Add Spec entry points
+        // (POST /tickets/generate-spec): `create` derives the idea from
+        // title/description, `generate` takes it pre-formed. Both forward the
+        // full option set (undefined fields are dropped by JSON.stringify).
+        const buildGenerateSpecBody = (idea: string): Record<string, unknown> => ({
+          idea,
+          model: args.model,
+          aiEngine: args.aiEngine,
+          contextScope: args.contextScope,
+          contractRefine: args.contractRefine,
+          attachmentIds: args.attachmentIds,
+          pendingSpecId: args.pendingSpecId,
+          createLocal: args.createLocal,
+        })
 
         switch (action) {
           // ── reads ──────────────────────────────────────────────────────
@@ -212,18 +241,24 @@ export function specsTools(): McpToolSpec[] {
             // following the project's conventions, instead of a raw insert of
             // whatever the external LLM wrote. The user's request becomes the
             // `idea`. For a verbatim insert with no AI, use `from_prompt`.
+            // generate-spec accepts none of labels/priority/status/assignee —
+            // throwing turns the likeliest silent misuse into a self-correcting error.
+            if (
+              args.labels !== undefined ||
+              args.priority !== undefined ||
+              args.status !== undefined ||
+              args.assignee !== undefined
+            ) {
+              throw new Error(
+                'create generates the spec with AI and cannot set labels/priority directly — use commit_draft (you control everything) or update after generation.',
+              )
+            }
             const idea = [args.title, args.description]
               .filter((v): v is string => typeof v === 'string' && v.trim().length > 0)
               .join('\n\n')
               .trim()
             if (!idea) throw new Error('create requires a "title" and/or "description" to use as the spec idea.')
-            const r = await apiCall(ctx, 'POST', `${base}/tickets/generate-spec`, {
-              idea,
-              model: args.model,
-              aiEngine: args.aiEngine,
-              provider: args.provider,
-              contractRefine: args.contractRefine,
-            })
+            const r = await apiCall(ctx, 'POST', `${base}/tickets/generate-spec`, buildGenerateSpecBody(idea))
             return { ...(r as Record<string, unknown>), hint: WATCH_HINT }
           }
           case 'update':
@@ -269,6 +304,9 @@ export function specsTools(): McpToolSpec[] {
               acceptanceCriteria: args.acceptanceCriteria,
               priority: args.priority,
               shortSummary: args.shortSummary,
+              assignee: args.assignee,
+              prerequisites: args.prerequisites,
+              metadata: args.metadata,
               createLocal: args.createLocal,
             })
           case 'cancel_ai_edit': {
@@ -295,16 +333,7 @@ export function specsTools(): McpToolSpec[] {
           // ── ai-spawn (async 202 → WS) ──────────────────────────────────
           case 'generate': {
             if (!args.idea) throw new Error('generate requires an "idea".')
-            const r = await apiCall(ctx, 'POST', `${base}/tickets/generate-spec`, {
-              idea: args.idea,
-              model: args.model,
-              aiEngine: args.aiEngine,
-              contextScope: args.contextScope,
-              contractRefine: args.contractRefine,
-              attachmentIds: args.attachmentIds,
-              pendingSpecId: args.pendingSpecId,
-              createLocal: args.createLocal,
-            })
+            const r = await apiCall(ctx, 'POST', `${base}/tickets/generate-spec`, buildGenerateSpecBody(args.idea as string))
             return { ...(r as Record<string, unknown>), hint: WATCH_HINT }
           }
           case 'ai_edit': {
@@ -322,7 +351,7 @@ export function specsTools(): McpToolSpec[] {
           }
           case 'contract_refine': {
             const r = await apiCall(ctx, 'POST', `${base}/tickets/${requireId()}/contract-refine`)
-            return { ...(r as Record<string, unknown>), hint: WATCH_HINT }
+            return { ...(r as Record<string, unknown>), hint: CONTRACT_REFINE_HINT }
           }
           case 'smash': {
             const r = await apiCall(ctx, 'POST', `${base}/tickets/${requireId()}/smash`, {

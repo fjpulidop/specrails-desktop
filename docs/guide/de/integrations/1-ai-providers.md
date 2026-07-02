@@ -6,7 +6,7 @@ Specrails ist nicht an eine einzige KI gebunden. Jeder Teil der App, der mit ein
 
 | Anbieter | CLI | Hersteller | Hinweise |
 |---|---|---|---|
-| **Claude** | `claude` | Anthropic | Der mit Abstand umfangreichste. Der einzige Anbieter für Agents (Profile), Ultracode-Rails und Contract Refine. |
+| **Claude** | `claude` | Anthropic | Der mit Abstand umfangreichste. Der einzige Anbieter für Agents (Profile), Freestyle-Rails und Contract Refine. |
 | **Codex** | `codex` | OpenAI | Benötigt codex `0.128.0+`. Liest seine MCP-Server aus deiner globalen `~/.codex/config.toml`. |
 | **Gemini** | `gemini` | Google | Benötigt gemini `0.11.0+`. Nutzt native Telemetrie und eine `GEMINI.md`-Instruktionsdatei. |
 
@@ -43,7 +43,7 @@ Deine Wahl wird pro Projekt gemerkt und fällt standardmäßig auf den primären
 Eine Handvoll Funktionen sind ihrer Natur nach Claude-spezifisch und werden daher ausgeblendet oder übersprungen, wenn ein anderer Anbieter im Spiel ist:
 
 - **Agents (Profile)** — der projektbezogene Agenten-Katalog und das Modell-Routing. Auf jedem Projekt ausgeblendet, das einen Nicht-Claude-Anbieter enthält.
-- **Ultracode-Rails** — laufen immer auf Claude.
+- **Freestyle-Rails** — laufen immer auf Claude.
 - **Contract Refine** — der zusätzliche „Contract Layer“-Durchlauf auf einer committeten Spec läuft nur, wenn der Anbieter der Konversation Claude ist.
 - **Erweiterte Modi bei „Spec hinzufügen“** (SMASH / Contract Layer) — bei Nicht-Claude-Engines ausgeblendet.
 

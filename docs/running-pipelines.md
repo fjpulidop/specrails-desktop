@@ -21,7 +21,7 @@ SpecsBoard (left)            Rails (right)
 
 A **rail** is an execution lane. Drag a spec card from the SpecsBoard onto a rail and press **▶ Play** to launch the pipeline. Rails let you organise and queue work into named lanes.
 
-Rails run on **Claude** by default. If your project has more than one provider installed, a per-rail engine selector lets you launch a rail on **Codex** or **Gemini** instead — see [Using Codex](codex.md) and [Using Gemini](gemini.md). Only the **Ultracode** loop is Claude-only; the standard Implement and Batch loops run on any installed provider.
+Rails run on **Claude** by default. If your project has more than one provider installed, a per-rail engine selector lets you launch a rail on **Codex** or **Gemini** instead — see [Using Codex](codex.md) and [Using Gemini](gemini.md). Only the **Freestyle** loop is Claude-only; the standard Implement and Batch loops run on any installed provider.
 
 > **One job at a time per project.** Each project has a single queue, so within a project only one rail job runs at a time; the rest queue behind it. Real parallelism is **across projects** — open two projects and their rails run independently. See [Running multiple rails](#running-multiple-rails).
 
@@ -31,7 +31,7 @@ Each rail has a header with:
 
 - **Status pill** — `idle`, `running`, or `failed`. (There's no separate "completed" state — a rail returns to `idle` when its job finishes cleanly.)
 - **Spec list** — the IDs of the specs assigned to this rail. Drag in more, drag out to detach. You can also use the **Move to rail** popover from a spec card; it shows a status dot per rail so you don't push work onto a busy lane.
-- **Loop picker** — the **Loop** this rail runs: a built-in (`Implement`, `Batch`, or `Ultracode`) or one of your published custom loops. See [Loops](#loops).
+- **Loop picker** — the **Loop** this rail runs: a built-in (`Implement`, `Batch`, or `Freestyle`) or one of your published custom loops. See [Loops](#loops).
 - **Profile picker** — which agent profile this rail uses. This only appears once the project has **at least one** profile (create them on the Agents page). When present, `No profile` runs the rail in legacy mode.
 - **Engine selector** — pick which installed provider (Claude, Codex, or Gemini) runs this rail. Only renders on projects with more than one provider installed.
 - **Play / Stop button** — start or cancel.
@@ -44,7 +44,7 @@ A rail runs a **Loop**, picked in the rail header and persisted per rail. The th
 |------|---------|--------------|
 | **Implement** | `/specrails:implement` | One job covering all the specs on the rail. Runs the full Architect → Developer → Reviewer → Ship pipeline. |
 | **Batch** | `/specrails:batch-implement` | One job that works through the rail's specs sequentially, in dependency-aware waves. |
-| **Ultracode** | (Ultracode) | Claude implements each spec autonomously, **bypassing** the OpenSpec pipeline. One independent job per spec. Claude only. |
+| **Freestyle** | (Freestyle) | Claude implements each spec autonomously, **bypassing** the OpenSpec pipeline. One independent job per spec. Claude only. |
 
 Beyond the built-ins, the **Loops** section (left sidebar, above the project list) is a global, n8n-style **visual builder** shared across all your projects. A loop is a graph of typed steps:
 
@@ -76,17 +76,17 @@ Each phase is a specialised agent invoked by the rail's engine (Claude, Codex, o
 
 In plain terms: the project's **agent profile** decides which AI agent handles each phase. The baseline trio (`sr-architect`, `sr-developer`, `sr-reviewer`) is always present; a profile's routing rules can add extra agents or swap which one runs a phase. The phase progress bar only renders when the command defines phases. For the full format, see [internals/profiles.md](internals/profiles.md).
 
-### Ultracode
+### Freestyle
 
-`Ultracode` is a Claude-only loop that skips the Architect → Developer → Reviewer → Ship pipeline entirely. Instead of orchestrating the agent chain, it hands Claude a configurable pre-prompt plus the full spec text and lets it work autonomously with its native tools.
+`Freestyle` (mode value `ultracode` on the API — its original name) is a Claude-only loop that skips the Architect → Developer → Reviewer → Ship pipeline entirely. Instead of orchestrating the agent chain, it hands Claude a configurable pre-prompt plus the full spec text and lets it work autonomously with its native tools.
 
-- **One job per spec.** If the rail has three specs, `Ultracode` launches three independent jobs.
+- **One job per spec.** If the rail has three specs, `Freestyle` launches three independent jobs.
 - **Variable cost.** Because the run is open-ended, pressing Play opens a confirmation dialog before anything spawns.
-- **Model picker.** A per-rail control lets you pick **Haiku / Sonnet / Opus** (default Sonnet) for the Ultracode run.
-- **Claude only.** The Ultracode loop and its model picker are offered only when the rail's engine is Claude. Codex and Gemini rails can't run Ultracode, and agent profiles don't apply to Ultracode rails.
-- **Interactive (optional).** An `Interactive` toggle next to the Ultracode launch turns the run into a back-and-forth session: you can chat with the running job, send follow-up prompts, and click **Finalize** when you're done. Without it, the job runs to completion on its own. (Available when the rail is idle; can be disabled server-side via `SPECRAILS_INTERACTIVE_JOBS=false`.)
+- **Model picker.** A per-rail control lets you pick **Haiku / Sonnet / Opus** (default Sonnet) for the Freestyle run.
+- **Claude only.** The Freestyle loop and its model picker are offered only when the rail's engine is Claude. Codex and Gemini rails can't run Freestyle, and agent profiles don't apply to Freestyle rails.
+- **Interactive (optional).** An `Interactive` toggle next to the Freestyle launch turns the run into a back-and-forth session: you can chat with the running job, send follow-up prompts, and click **Finalize** when you're done. Without it, the job runs to completion on its own. (Available when the rail is idle; can be disabled server-side via `SPECRAILS_INTERACTIVE_JOBS=false`.)
 
-You can customise the Ultracode pre-prompt per project on the [Settings page](customizing.md#ultracode-pre-prompt).
+You can customise the Freestyle pre-prompt per project on the [Settings page](customizing.md#freestyle-pre-prompt).
 
 ### Running multiple rails
 

@@ -35,7 +35,7 @@ Cada fase es un agente especializado que el motor del rail invoca en el director
 | **Reviewer** | `sr-reviewer` | Revisa el resultado. |
 | **Ship** | (varía) | Cierre final: tests, commit, borrador de PR. |
 
-Qué agente se encarga de cada fase lo decide el **perfil de agentes** del proyecto. El trío base (`sr-architect`, `sr-developer`, `sr-reviewer`) está siempre presente; las reglas de enrutamiento de un perfil pueden añadir agentes o cambiar cuál ejecuta una fase. La barra de progreso de fases solo aparece cuando el comando define realmente fases — los jobs de Ultracode (que se saltan el pipeline) no mostrarán ninguna.
+Qué agente se encarga de cada fase lo decide el **perfil de agentes** del proyecto. El trío base (`sr-architect`, `sr-developer`, `sr-reviewer`) está siempre presente; las reglas de enrutamiento de un perfil pueden añadir agentes o cambiar cuál ejecuta una fase. La barra de progreso de fases solo aparece cuando el comando define realmente fases — los jobs de Freestyle (que se saltan el pipeline) no mostrarán ninguna.
 
 ## Métricas en vivo — honestas por diseño
 

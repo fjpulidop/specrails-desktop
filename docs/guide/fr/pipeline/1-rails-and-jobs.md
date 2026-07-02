@@ -23,7 +23,7 @@ Vous pouvez avoir plusieurs rails pour organiser le travail en voies nommées (u
 ## Lancer un rail sur un spec
 
 1. **Glissez une carte de spec** depuis le SpecsBoard sur un rail. L'ID du spec apparaît dans la liste de specs du rail. (Vous préférez ne pas glisser ? Utilisez le popover **Move to rail** sur la carte de spec — il affiche un point de statut par rail pour que vous ne déposiez pas de travail sur une voie occupée.)
-2. **Choisissez un Loop** dans l'en-tête du rail. Un rail exécute un **Loop** — c'est le travail qu'il effectue. Par défaut, c'est le Loop intégré `Implement` ; vous pouvez aussi choisir `Batch`, `Ultracode`, ou un loop personnalisé que vous avez construit vous-même. Voir [Le Loop Builder](the-loop-builder).
+2. **Choisissez un Loop** dans l'en-tête du rail. Un rail exécute un **Loop** — c'est le travail qu'il effectue. Par défaut, c'est le Loop intégré `Implement` ; vous pouvez aussi choisir `Batch`, `Freestyle`, ou un loop personnalisé que vous avez construit vous-même. Voir [Le Loop Builder](the-loop-builder).
 3. **Appuyez sur ▶ Play.**
 
 Voilà. Le rail démarre un processus AI CLI dans votre projet et lance le pipeline.
@@ -34,7 +34,7 @@ Voilà. Le rail démarre un processus AI CLI dans votre projet et lance le pipel
 |---------|--------------|
 | **Pastille de statut** | `idle`, `running`, ou `failed`. Il n'y a pas de « completed » séparé — un rail revient à `idle` quand son job se termine proprement. |
 | **Liste de specs** | Les IDs assignés à ce rail. Glissez-en d'autres, retirez-les pour les détacher. |
-| **Sélecteur de Loop** | Le Loop que ce rail exécute — un intégré (`Implement` / `Batch` / `Ultracode`) ou un loop personnalisé. Voir le tableau ci-dessous. Persisté par rail. |
+| **Sélecteur de Loop** | Le Loop que ce rail exécute — un intégré (`Implement` / `Batch` / `Freestyle`) ou un loop personnalisé. Voir le tableau ci-dessous. Persisté par rail. |
 | **Sélecteur de profil** | Quel profil d'agent s'exécute (rails Claude uniquement). N'apparaît que lorsque le projet a au moins un profil. |
 | **Sélecteur de moteur** | Quel provider installé exécute ce rail — Claude, Codex, ou Gemini. Ne s'affiche que lorsque le projet a plus d'un provider. Voir [Choisir un moteur par rail](picking-an-engine-per-rail). |
 | **▶ Play / ■ Stop** | Démarrer ou annuler. |
@@ -47,9 +47,9 @@ Un rail exécute un **Loop** — la recette du travail. Trois loops sont **inté
 |------|---------|--------------|
 | **Implement** | `/specrails:implement` | Un seul job couvrant tous les specs du rail. Exécute tout le pipeline Architect → Developer → Reviewer → Ship. Le choix par défaut au quotidien. |
 | **Batch** | `/specrails:batch-implement` | Un seul job qui traite les specs du rail séquentiellement, en vagues tenant compte des dépendances. Idéal pour plusieurs specs liés. |
-| **Ultracode** | Ultracode | Claude implémente chaque spec de manière autonome, en **contournant** le pipeline. Un job indépendant par spec. Claude uniquement. |
+| **Freestyle** | Freestyle | Claude implémente chaque spec de manière autonome, en **contournant** le pipeline. Un job indépendant par spec. Claude uniquement. |
 
-Ultracode est le cas à part : il saute la chaîne d'agents et confie le spec brut à Claude pour qu'il travaille avec ses outils natifs. C'est ouvert, donc appuyer sur Play ouvre d'abord une confirmation, et un sélecteur de modèle par rail vous laisse choisir Haiku / Sonnet / Opus. Il n'apparaît que lorsque le moteur du rail est Claude.
+Freestyle est le cas à part : il saute la chaîne d'agents et confie le spec brut à Claude pour qu'il travaille avec ses outils natifs. C'est ouvert, donc appuyer sur Play ouvre d'abord une confirmation, et un sélecteur de modèle par rail vous laisse choisir Haiku / Sonnet / Opus. Il n'apparaît que lorsque le moteur du rail est Claude.
 
 Au-delà des intégrés, vous pouvez **construire vos propres loops** — répéter un cycle verify → fix → verify jusqu'à ce qu'un objectif soit atteint, enchaîner des commandes shell entre les étapes IA, et plus encore. Ces loops personnalisés apparaissent dans le même sélecteur de Loop. C'est la prochaine grande idée : [Le Loop Builder](the-loop-builder).
 

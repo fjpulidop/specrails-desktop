@@ -33,14 +33,12 @@
     "log": "ログ",
     "implement": "実装",
     "batch": "バッチ",
-    "ultra": "Ultra",
-    "ultraTitle": "Ultracode — Claude がパイプラインなしでスペックを自律的に実装します",
+    "ultra": "Freestyle",
+    "ultraTitle": "Freestyle — Claude がパイプラインなしでスペックを自律的に実装します",
     "loop": "Loop",
     "loopTitle": "Loop — 公開済みの自動化ループをレールのスペックに対して実行します",
     "pickLoop": "ループを選択…",
     "effortTitle": "推論の労力",
-    "interactive": "インタラクティブ",
-    "interactiveTitle": "インタラクティブ — 実行中のジョブとチャットし、さらにプロンプトを送信して完了時にファイナライズします",
     "stop": "停止",
     "play": "実行",
     "failedRetry": "ジョブが失敗しました — クリックして再試行",
@@ -50,7 +48,8 @@
     "worktreesMerged": "{{count}} 件マージ済み",
     "worktreesNeedsReview": "{{count}} 件要確認",
     "execSteps": "{{count}} ステップ",
-    "execLines": "{{count}} 行"
+    "execLines": "{{count}} 行",
+    "openspec": "OpenSpec"
   },
   "railRow": {
     "moveToSpecs": "Specs に移動",
@@ -60,7 +59,7 @@
     "dragSpecsHere": "ここにスペックをドラッグ"
   },
   "ultracodeDialog": {
-    "title": "Ultracode モードで起動",
+    "title": "Freestyle モードで起動",
     "context_one": "{{rail}} · スペック {{count}} 件",
     "context_other": "{{rail}} · スペック {{count}} 件",
     "noPipelineTitle": "OpenSpec パイプラインなし。",

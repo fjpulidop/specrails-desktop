@@ -40,7 +40,9 @@ export function RailLoopSelector({
     return () => { cancelled = true }
   }, [loopsEnabled])
 
-  const builtIn = FACTORY_RAIL_LOOPS.filter((f) => ultracodeAvailable || !f.claudeOnly)
+  const builtIn = FACTORY_RAIL_LOOPS.filter(
+    (f) => (ultracodeAvailable || !f.claudeOnly) && (loopsEnabled || !f.requiresLoops),
+  )
 
   return (
     <div

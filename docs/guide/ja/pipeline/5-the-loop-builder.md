@@ -1,6 +1,6 @@
 # Loop Builder
 
-**レールは Loop を実行します。** 組み込みの Loop（`Implement`、`Batch`、`Ultracode`）は日常的なケースをカバーしますが、**Loop Builder** を使えば自分だけの Loop を設計できます — 目標が達成されるまで繰り返す自動化のための、n8n スタイルのビジュアルエディターです。このページでは、Loop とは何か、どう作るのか、そしてレールでどう実行するのかを説明します。
+**レールは Loop を実行します。** 組み込みの Loop（`Implement`、`Batch`、`Freestyle`）は日常的なケースをカバーしますが、**Loop Builder** を使えば自分だけの Loop を設計できます — 目標が達成されるまで繰り返す自動化のための、n8n スタイルのビジュアルエディターです。このページでは、Loop とは何か、どう作るのか、そしてレールでどう実行するのかを説明します。
 
 ## Loop とレール — その関係
 
@@ -11,7 +11,7 @@
    ───────────────────────────             ─────────────
    Implement   （組み込み）                  レール 1
    Batch       （組み込み）      ► で選ぶ      Loop: Verify-until-green
-   Ultracode   （組み込み）                    ▶ Play
+   Freestyle   （組み込み）                    ▶ Play
    Verify-until-green （あなたの作ったもの）
 ```
 

@@ -24,7 +24,7 @@ Alle drei führen die Standard-Pipelines **Implement** und **Batch** aus. Hier e
 
 | Engine | Greif dazu, wenn… | Hinweise |
 |--------|--------------------|-------|
-| **Claude** | Du den vollen Funktionsumfang willst: Agent-Profile, Ultracode, native Kostenmeldung, die umfangreichste Tool-Unterstützung. Der Standard für die meiste Arbeit. | Die einzige Engine, die **Agent-Profile**, **Ultracode** und ein paar Claude-exklusive Spec-Features (Contract Layer, SMASH) unterstützt. |
+| **Claude** | Du den vollen Funktionsumfang willst: Agent-Profile, Freestyle, native Kostenmeldung, die umfangreichste Tool-Unterstützung. Der Standard für die meiste Arbeit. | Die einzige Engine, die **Agent-Profile**, **Freestyle** und ein paar Claude-exklusive Spec-Features (Contract Layer, SMASH) unterstützt. |
 | **Codex** | Du die OpenAI Codex CLI bevorzugst oder Implementierungen über verschiedene Provider hinweg vergleichen willst. | `codex` ≥ 0.128.0. Keine native Kostenmeldung — die App ergänzt die Kosten aus ihrer Preistabelle. Profile gelten nicht. |
 | **Gemini** | Du Googles Gemini CLI, native Telemetrie oder einen günstigeren Lauf für Routine-Specs willst. | `gemini` ≥ 0.11.0 (setze `GEMINI_API_KEY`). Native OTLP-Telemetrie. Profile gelten nicht. |
 
@@ -33,7 +33,7 @@ Alle drei führen die Standard-Pipelines **Implement** und **Batch** aus. Hier e
 Ein paar Dinge funktionieren nur auf Claude-Rails — wähle Claude, wenn du sie brauchst:
 
 - **Agent-Profile** — Modell-Routing pro Agent. Auf Codex- oder Gemini-Rails läuft der Lauf immer im Legacy-Modus, und ein ausgewähltes Profil wird **ignoriert**. Die Profil-Auswahl ist für Nicht-Claude-Engines ausgeblendet.
-- **Ultracode (`Ultra`-Modus)** — der autonome, pipeline-umgehende Modus. Das `Ultra`-Segment und seine Haiku/Sonnet/Opus-Modell-Auswahl erscheinen nur, wenn die Engine der Rail Claude ist.
+- **Freestyle** — der autonome, pipeline-umgehende Modus. Das `Freestyle`-Segment und seine Haiku/Sonnet/Opus-Modell-Auswahl erscheinen nur, wenn die Engine der Rail Claude ist.
 - **Contract Layer & SMASH** — Claude-exklusive Features zur Spec-Verfeinerung (das sind Add-Spec-Optionen, keine Rail-Optionen, aber dieselbe Einschränkung gilt).
 
 Wenn ein Projekt Engines mischt, zeigt die rechte Seitenleiste nur Bereiche, die **jeder** installierte Provider unterstützt — der **Agents**-Bereich verschwindet also komplett bei einem Projekt, das irgendeinen Nicht-Claude-Provider enthält, weil Profile Claude-spezifisch sind.

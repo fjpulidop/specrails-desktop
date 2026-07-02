@@ -32,15 +32,15 @@
     "saveFailed": "Échec de l'enregistrement du pré-prompt"
   },
   "ultraPrePrompt": {
-    "title": "Pré-prompt Ultracode",
-    "description": "Instruction envoyée à Claude en mode Ultracode (rails Claude uniquement). Ultracode saute le pipeline OpenSpec — il transmet à Claude ce pré-prompt plus le texte de la spec et le laisse implémenter en autonomie. Laissez vide pour utiliser la valeur par défaut intégrée.",
-    "label": "Pré-prompt Ultra",
-    "placeholder": "Laissez vide pour utiliser l'instruction Ultracode par défaut.",
+    "title": "Pré-prompt Freestyle",
+    "description": "Instruction envoyée à Claude en mode Freestyle (rails Claude uniquement). Freestyle saute le pipeline OpenSpec — il transmet à Claude ce pré-prompt plus le texte de la spec et le laisse implémenter en autonomie. Laissez vide pour utiliser la valeur par défaut intégrée.",
+    "label": "Pré-prompt Freestyle",
+    "placeholder": "Laissez vide pour utiliser l'instruction Freestyle par défaut.",
     "helper": "Le texte de la spec est ajouté automatiquement après ce pré-prompt. Vide = défaut.",
-    "saveButton": "Enregistrer le pré-prompt Ultra",
-    "resetToDefault": "Pré-prompt Ultra réinitialisé à la valeur par défaut",
-    "saved": "Pré-prompt Ultra enregistré",
-    "saveFailed": "Échec de l'enregistrement du pré-prompt Ultra"
+    "saveButton": "Enregistrer le pré-prompt Freestyle",
+    "resetToDefault": "Pré-prompt Freestyle réinitialisé à la valeur par défaut",
+    "saved": "Pré-prompt Freestyle enregistré",
+    "saveFailed": "Échec de l'enregistrement du pré-prompt Freestyle"
   },
   "budget": {
     "title": "Budget",
@@ -230,5 +230,17 @@
     "toastError": "Échec de la mise à jour du core : {{message}}",
     "toastUpToDate": "Specrails Core est à jour",
     "toastCheckFailed": "Échec de la vérification : {{message}}"
+  },
+  "appUpdate": {
+    "heading": "Specrails Desktop",
+    "installed": "Installée :",
+    "check": "Rechercher des mises à jour",
+    "checking": "Vérification…",
+    "upToDate": "Vous avez la dernière version",
+    "updateAvailable": "Mise à jour disponible : {{version}}",
+    "autoHint": "Vérification automatique au lancement et toutes les 6 heures.",
+    "unavailable": "Les mises à jour ne sont disponibles que dans l'app de bureau.",
+    "toastUpToDate": "Specrails Desktop est à jour",
+    "toastCheckFailed": "Échec de la recherche de mises à jour : {{message}}"
   }
 }

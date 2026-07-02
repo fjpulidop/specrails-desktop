@@ -48,31 +48,50 @@ function clampTreeWidth(width: number, containerWidth: number): number {
   return Math.min(Math.max(width, MIN_TREE_WIDTH), max)
 }
 
-export default function CodePage() {
+export interface CodePageProps {
+  /** When embedded (Agent-Mode Files split pane), CodePage is controlled: it
+   *  never navigates to /code and never reads/writes the URL — selection +
+   *  provenance filters live in local state (seeded by `initialPath`) and file
+   *  opens report via `onSelectedPathChange`. */
+  embedded?: boolean
+  initialPath?: string | null
+  onSelectedPathChange?: (path: string | null) => void
+}
+
+export default function CodePage({ embedded = false, initialPath = null, onSelectedPathChange }: CodePageProps = {}) {
   const { t } = useTranslation('code')
   const { activeProjectId } = useDesktop()
   const [searchParams] = useSearchParams()
   const navigate = useNavigate()
   const containerRef = useRef<HTMLDivElement | null>(null)
-  const initial = searchParams.get('path')
-  const [relPath, setRelPath] = useState<string | null>(initial)
+  const initial = embedded ? initialPath : searchParams.get('path')
+  const [relPath, setRelPathState] = useState<string | null>(initial)
+  const setRelPath = useCallback((p: string | null) => {
+    setRelPathState(p)
+    onSelectedPathChange?.(p)
+  }, [onSelectedPathChange])
   const [summaryAction, setSummaryAction] = useState<SummaryAction | null>(null)
   const [copyPathAction, setCopyPathAction] = useState<CopyPathAction | null>(null)
   const [treeWidth, setTreeWidth] = useState(() => loadTreeWidth(activeProjectId))
-  const jobId = searchParams.get('jobId')
+  // Provenance filters: route-driven normally, local state when embedded.
+  const [embJobId, setEmbJobId] = useState<string | null>(null)
+  const [embTicketId, setEmbTicketId] = useState<number | null>(null)
+  const jobId = embedded ? embJobId : searchParams.get('jobId')
   const ticketId = useMemo(() => {
+    if (embedded) return embTicketId
     const raw = searchParams.get('ticketId')
     if (!raw) return null
     const n = Number(raw)
     return Number.isInteger(n) && n > 0 ? n : null
-  }, [searchParams])
+  }, [embedded, embTicketId, searchParams])
   const [ticketInput, setTicketInput] = useState(ticketId != null ? String(ticketId) : '')
 
   useEffect(() => {
+    if (embedded) return
     const next = searchParams.get('path')
-    if (next !== relPath) setRelPath(next)
+    if (next !== relPath) setRelPathState(next)
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [searchParams])
+  }, [searchParams, embedded])
 
   useEffect(() => {
     setTicketInput(ticketId != null ? String(ticketId) : '')
@@ -128,24 +147,35 @@ export default function CodePage() {
 
   const onOpenFile = useCallback((p: string) => {
     setRelPath(p)
+    if (embedded) return
     const params = new URLSearchParams(searchParams)
     params.set('path', p)
     navigate({ pathname: '/code', search: `?${params.toString()}` }, { replace: true })
-  }, [navigate, searchParams])
+  }, [embedded, navigate, searchParams, setRelPath])
 
   const onFilterJob = useCallback((nextJobId: string) => {
+    if (embedded) {
+      setEmbJobId(nextJobId)
+      setEmbTicketId(null)
+      return
+    }
     const params = new URLSearchParams(searchParams)
     params.set('jobId', nextJobId)
     params.delete('ticketId')
     navigate({ pathname: '/code', search: `?${params.toString()}` }, { replace: true })
-  }, [navigate, searchParams])
+  }, [embedded, navigate, searchParams])
 
   const clearProvenanceFilter = useCallback(() => {
+    if (embedded) {
+      setEmbJobId(null)
+      setEmbTicketId(null)
+      return
+    }
     const params = new URLSearchParams(searchParams)
     params.delete('jobId')
     params.delete('ticketId')
     navigate({ pathname: '/code', search: params.toString() ? `?${params.toString()}` : '' }, { replace: true })
-  }, [navigate, searchParams])
+  }, [embedded, navigate, searchParams])
 
   const applyTicketFilter = useCallback((value: string) => {
     const n = Number(value.trim())
@@ -153,11 +183,16 @@ export default function CodePage() {
       clearProvenanceFilter()
       return
     }
+    if (embedded) {
+      setEmbTicketId(n)
+      setEmbJobId(null)
+      return
+    }
     const params = new URLSearchParams(searchParams)
     params.set('ticketId', String(n))
     params.delete('jobId')
     navigate({ pathname: '/code', search: `?${params.toString()}` }, { replace: true })
-  }, [clearProvenanceFilter, navigate, searchParams])
+  }, [clearProvenanceFilter, embedded, navigate, searchParams])
 
   return (
     <div ref={containerRef} className="flex h-full w-full" data-testid="code-page">

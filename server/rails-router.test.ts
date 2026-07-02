@@ -444,33 +444,28 @@ describe('rails-router POST /:railIndex/launch interactive (ultracode)', () => {
     return { app, enqueue }
   }
 
-  it('threads interactive:true into the ultracode enqueue', async () => {
+  it('enables interactive by default on every ultracode launch (feature on)', async () => {
     const { app, enqueue } = launch({})
-    const res = await request(app).post('/rails/0/launch').send({ mode: 'ultracode', interactive: true })
+    const res = await request(app).post('/rails/0/launch').send({ mode: 'ultracode' })
     expect(res.status).toBe(202)
     const opts = enqueue.mock.calls[0]?.[2] as Record<string, unknown>
     expect(opts.interactive).toBe(true)
     expect(opts.provider).toBe('claude')
   })
 
-  it('rejects interactive on a non-ultracode mode (400)', async () => {
+  it('ignores the legacy interactive body param on non-ultracode modes (wire compat)', async () => {
     const { app, enqueue } = launch({})
     const res = await request(app).post('/rails/0/launch').send({ mode: 'implement', interactive: true })
-    expect(res.status).toBe(400)
-    expect(enqueue).not.toHaveBeenCalled()
+    // No 400 anymore: the param is accepted-and-ignored; the launch proceeds.
+    expect(res.status).toBe(202)
+    const opts = enqueue.mock.calls[0]?.[2] as Record<string, unknown>
+    expect(opts.interactive).toBeUndefined()
   })
 
-  it('rejects interactive when the feature flag is off (403)', async () => {
+  it('omits interactive when the feature flag is off', async () => {
     process.env.SPECRAILS_INTERACTIVE_JOBS = 'false'
     const { app, enqueue } = launch({})
     const res = await request(app).post('/rails/0/launch').send({ mode: 'ultracode', interactive: true })
-    expect(res.status).toBe(403)
-    expect(enqueue).not.toHaveBeenCalled()
-  })
-
-  it('omits interactive when not requested (back-compat)', async () => {
-    const { app, enqueue } = launch({})
-    const res = await request(app).post('/rails/0/launch').send({ mode: 'ultracode' })
     expect(res.status).toBe(202)
     const opts = enqueue.mock.calls[0]?.[2] as Record<string, unknown>
     expect(opts.interactive).toBeUndefined()

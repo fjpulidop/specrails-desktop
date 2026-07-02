@@ -10,11 +10,14 @@ import { validateLoopGraph } from './loop-graph'
 import { assertDeciderBranches } from './loop-templates.test'
 
 describe('factory loops', () => {
-  it('ships implement / batch / ultracode mapped to legacy modes', () => {
-    expect(FACTORY_LOOPS.map((f) => f.id)).toEqual(['factory:implement', 'factory:batch', 'factory:ultracode'])
+  it('ships implement / batch / ultracode mapped to legacy modes + the graph-native openspec loop', () => {
+    expect(FACTORY_LOOPS.map((f) => f.id)).toEqual(['factory:implement', 'factory:batch', 'factory:ultracode', 'factory:openspec'])
     expect(getFactoryLoop('factory:implement')?.mode).toBe('implement')
     expect(getFactoryLoop('factory:batch')?.mode).toBe('batch-implement')
     expect(getFactoryLoop('factory:ultracode')?.mode).toBe('ultracode')
+    // Graph-native: no legacy engine fallback — runs only via the LoopRunManager.
+    expect(getFactoryLoop('factory:openspec')?.mode).toBe('loop')
+    expect(getFactoryLoop('factory:ultracode')?.name).toBe('Freestyle')
   })
 
   it('ultracode is claude-only; the others are not', () => {
@@ -48,11 +51,14 @@ describe('factory loops', () => {
     expect(prompts.some((p) => p.includes('{{cmd:fix}}'))).toBe(true) // refinement on failure
   })
 
-  it('every factory loop gets generous timeouts (pipeline-in-one-step needs headroom)', () => {
+  it('every legacy-mode factory loop gets generous timeouts (pipeline-in-one-step needs headroom)', () => {
     for (const f of FACTORY_LOOPS) {
+      if (f.mode === 'loop') continue // graph-native loops carry their own authored bounds
       expect(f.graph.config.timeoutMinutes, f.id).toBe(360)
       expect(f.graph.config.aiStepTimeoutMinutes, f.id).toBe(60)
     }
+    // The openspec lifecycle keeps its own conservative bounds (3 passes max).
+    expect(getFactoryLoop('factory:openspec')?.graph.config.maxIterations).toBe(3)
   })
 
   it('id helpers recognise factory ids and map modes both ways', () => {

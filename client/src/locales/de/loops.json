@@ -220,8 +220,8 @@
       "description": "Alle Tickets des Rails auf einmal als Batch implementieren, dann verifizieren + bei Fehlern nachbessern, bis grün."
     },
     "factory_ultracode": {
-      "name": "Ultracode",
-      "description": "Autonome Implementierung pro Ticket (keine Pipeline), dann verifizieren + nachbessern, bis grün. Nur Claude."
+      "name": "Freestyle",
+      "description": "Übergibt die Spec direkt an das Modell mit voller Freiheit — ohne Pipeline, es arbeitet wie ein normaler Coding-Agent, dann verifizieren + verfeinern bis alles grün ist. Nur Claude."
     },
     "autoloop-tdd": {
       "name": "Autoloop TDD",
@@ -362,6 +362,10 @@
     "deploy-verification-loop": {
       "name": "Deploy-Verifikations-Loop",
       "description": "Nachdem ein Deploy raus ist, die Health- und Smoke-Endpoints im Intervall abfragen, jede nicht gesunde Antwort untersuchen und beheben oder eskalieren und so lange weiter prüfen, bis jeder konfigurierte Endpoint Erfolg meldet."
+    },
+    "factory_openspec": {
+      "name": "OpenSpec Lifecycle",
+      "description": "OpenSpec-Lebenszyklus vom Ticket bis zum Archiv: Artefakte generieren (opsx:ff) → implementieren (opsx:apply) → verifizieren (opsx:verify); bei FAIL zurück und denselben Change nachbessern, bei PASS unbeaufsichtigt archivieren."
     }
   },
   "import": {

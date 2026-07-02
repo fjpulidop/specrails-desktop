@@ -20,8 +20,12 @@ export type SpawnAction =
   | 'setup-enrich-resume'
   | 'auto-title'
 
-/** Reasoning-effort tiers, shared by the spawn layer and the UI selectors. */
-export type ReasoningEffort = 'low' | 'medium' | 'high'
+/** Reasoning-effort tiers, shared by the spawn layer and the UI selectors.
+ *  This is the cross-provider SUPERSET — each adapter advertises the subset it
+ *  actually accepts via `capabilities.reasoningEfforts` (claude adds `xhigh`,
+ *  codex adds `minimal`; legacy rail/loop surfaces keep their own low|medium|high
+ *  validation). */
+export type ReasoningEffort = 'minimal' | 'low' | 'medium' | 'high' | 'xhigh'
 
 export interface SpawnOptions {
   prompt: string
@@ -39,6 +43,13 @@ export interface SpawnOptions {
   maxTurns?: number
   /** Pre-extracted text blocks for attachments (image refs or extracted text). */
   attachmentTextBlocks?: string[]
+  /**
+   * Absolute paths to image attachments for providers with a native image flag
+   * (codex `-i/--image <FILE>...`). Providers without one (claude/gemini) ignore
+   * this and rely on `@<abs-path>` refs already folded into `prompt`. Honoured
+   * only when `capabilities.supportsImageInput` is true.
+   */
+  imagePaths?: string[]
   /** Additional argv to forward verbatim (provider-specific extras). */
   extraArgs?: string[]
   /**
@@ -117,6 +128,20 @@ export interface ProviderCapabilities {
    * only settings.json thinking levels); such adapters MUST ignore the value.
    */
   supportsReasoningEffort?: boolean
+  /**
+   * The effort tiers this provider's CLI actually accepts, in ascending order.
+   * Drives per-provider effort selectors (e.g. the agent chat). Absent/empty ⇒
+   * no selector (gemini). Only meaningful when `supportsReasoningEffort`.
+   */
+  reasoningEfforts?: readonly ReasoningEffort[]
+  /**
+   * CLI can vision-load image attachments. codex: native `-i/--image <FILE>...`
+   * (verified). claude: `@<abs-path>` in the prompt, resolved natively. gemini:
+   * no dedicated flag — default false until a live `-p @path` vision test passes.
+   * Managers gate the composer's image affordance on this flag, never on `id`.
+   * Optional — absent ⇒ false.
+   */
+  supportsImageInput?: boolean
 }
 
 export interface ProviderAdapter {

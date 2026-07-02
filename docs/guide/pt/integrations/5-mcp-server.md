@@ -31,6 +31,25 @@ Num cliente como o Claude Desktop ou o Cursor, a configuração tem este aspeto:
 
 Os clientes que suportam servidores MCP HTTP remotos podem, em alternativa, apontar diretamente para `http://127.0.0.1:4200/api/mcp` com o token do painel.
 
+### Pelo terminal: Claude Code, Gemini CLI, Codex CLI
+
+Copie seu token em **Configurações ▸ MCP ▸ Copiar token** e depois:
+
+```bash
+# Claude Code
+claude mcp add --transport http specrails http://localhost:4200/api/mcp \
+  --header "X-Desktop-Token: <seu token>"
+
+# Gemini CLI
+gemini mcp add --transport http specrails http://localhost:4200/api/mcp \
+  --header "X-Desktop-Token: <seu token>"
+
+# Codex CLI (stdio — registre o comando do bridge mostrado em Configurações ▸ MCP)
+codex mcp add specrails -- <comando do bridge de Configurações ▸ MCP>
+```
+
+O cabeçalho `Authorization: Bearer <token>` também funciona. Se você mudou a porta do app, troque `4200`.
+
 Uma vez ligado, o seu assistente vê cerca de **18 ferramentas** que cobrem a app inteira — projetos, specs, rails e trabalhos, chat/Explore, agentes, plugins, Jira, loops, o explorador de código, análises, definições — mais uma ferramenta de **guia** incorporada que lê primeiro, para que perceba como o Specrails funciona sem que lhe explique seja o que for.
 
 ## O que pode fazer com ele
@@ -51,7 +70,7 @@ Mantenha o **Destrutivo** desativado e ele pode trabalhar a noite toda sem nunca
 > *"Verifica todos os meus projetos. Diz-me quais têm specs no backlog e nenhum rail a correr, e arranca o de prioridade mais alta em cada um."*
 
 **Sem usar as mãos enquanto programa.** Conduza o Specrails a partir do seu editor ou por voz, sem trocar de janela:
-> *"Lança o rail 0 em modo ultracode com o Opus para o ticket #42 e avisa-me quando estiver pronto."*
+> *"Lança o rail 0 em modo Freestyle com o Opus para o ticket #42 e avisa-me quando estiver pronto."*
 
 **Pergunte sobre custos e histórico.** As suas análises, em linguagem simples:
 > *"Onde gastei mais em IA esta semana, por projeto e por modelo? Mostra-me os cinco tickets mais caros."*

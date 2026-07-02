@@ -129,7 +129,7 @@ describe('tool handlers', () => {
   it('specrails_guide returns the guide text', async () => {
     const ctx = makeCtx(db)
     const text = await tool('specrails_guide').handler(ctx, {})
-    expect(String(text)).toContain('Permission tiers')
+    expect(String(text)).toContain('Permissions — two regimes')
   })
 
   it('specrails_search ranks tools by query terms', async () => {
@@ -139,10 +139,24 @@ describe('tool handlers', () => {
     expect(res.some((r) => r.name === 'specrails_projects')).toBe(true)
   })
 
-  it('specrails_describe returns fields or throws on unknown', async () => {
+  it('specrails_describe returns per-field metadata or throws on unknown', async () => {
     const ctx = makeCtx(db)
-    const d = (await tool('specrails_describe').handler(ctx, { name: 'specrails_watch' })) as { inputFields: string[] }
-    expect(d.inputFields).toContain('ref')
+    const d = (await tool('specrails_describe').handler(ctx, { name: 'specrails_watch' })) as {
+      inputFields: Array<{ name: string; description?: string; type: string; enumValues?: string[]; optional: boolean }>
+    }
+    const names = d.inputFields.map((f) => f.name)
+    expect(names).toContain('ref')
+    const ref = d.inputFields.find((f) => f.name === 'ref')!
+    expect(ref.type).toBe('string')
+    expect(ref.optional).toBe(false)
+    expect(ref.description).toMatch(/jobId/)
+    // Wrappers unwrap: an optional+default number keeps its describe + base type.
+    const untilMs = d.inputFields.find((f) => f.name === 'untilMs')!
+    expect(untilMs.type).toBe('number')
+    expect(untilMs.optional).toBe(true)
+    // Enums surface their values.
+    const kind = d.inputFields.find((f) => f.name === 'kind')!
+    expect(kind.enumValues).toEqual(['job'])
     await expect(async () => tool('specrails_describe').handler(ctx, { name: 'nope' })).rejects.toThrow(/Unknown tool/)
   })
 
@@ -156,6 +170,21 @@ describe('tool handlers', () => {
     const got2 = (await t.handler(ctx, { action: 'get' })) as { theme: string }
     expect(got2.theme).toBe('dracula')
     await expect(async () => t.handler(ctx, { action: 'set' })).rejects.toThrow(/at least one field/)
+  })
+
+  it('specrails_settings surfaces the code-explorer settings (get defaults, set validates + persists)', async () => {
+    const ctx = makeCtx(db)
+    const t = tool('specrails_settings')
+    const got = (await t.handler(ctx, { action: 'get' })) as { summaryLanguage: string; summaryMonthlyBudgetUsd: number }
+    expect(got.summaryLanguage).toBe('en')
+    expect(got.summaryMonthlyBudgetUsd).toBe(5.0)
+    const set = (await t.handler(ctx, { action: 'set', summaryLanguage: 'es', summaryMonthlyBudgetUsd: 12.5 })) as { changed: string[] }
+    expect(set.changed).toEqual(['summaryLanguage', 'summaryMonthlyBudgetUsd'])
+    const got2 = (await t.handler(ctx, { action: 'get' })) as { summaryLanguage: string; summaryMonthlyBudgetUsd: number }
+    expect(got2.summaryLanguage).toBe('es')
+    expect(got2.summaryMonthlyBudgetUsd).toBe(12.5)
+    await expect(async () => t.handler(ctx, { action: 'set', summaryLanguage: 'fr' })).rejects.toThrow(/summaryLanguage/)
+    await expect(async () => t.handler(ctx, { action: 'set', summaryMonthlyBudgetUsd: -1 })).rejects.toThrow(/non-negative/)
   })
 
   it('specrails_select_project sets and clears the active project', async () => {
@@ -183,18 +212,175 @@ describe('specrails_watch', () => {
     expect(r.reason).toContain('rail.job_completed')
   })
 
-  it('times out (settled:false) when nothing settles', async () => {
+  it('times out (settled:false) with a recovery suggestion when nothing settles', async () => {
     vi.useFakeTimers()
     try {
       const ctx = makeCtx(db)
-      const p = tool('specrails_watch').handler(ctx, { projectId: 'p1', ref: 'job-x', untilMs: 1000 }) as Promise<{ settled: boolean; reason: string }>
+      const p = tool('specrails_watch').handler(ctx, { projectId: 'p1', ref: 'job-x', untilMs: 1000 }) as Promise<{ settled: boolean; reason: string; suggestion?: string }>
       await vi.advanceTimersByTimeAsync(1000)
       const r = await p
       expect(r.settled).toBe(false)
       expect(r.reason).toBe('timeout')
+      expect(r.suggestion).toMatch(/timeout ≠ failure/)
+      expect(r.suggestion).toMatch(/specrails_jobs\(get\)/)
     } finally {
       vi.useRealTimers()
     }
+  })
+
+  it('projectId is optional: without one (and no active project) the project filter is skipped', async () => {
+    const ctx = makeCtx(db)
+    const p = tool('specrails_watch').handler(ctx, { ref: 'req-7', untilMs: 5000 }) as Promise<{ settled: boolean; reason: string; projectId: string | null }>
+    // An app-level event (no projectId) settles the watch on ref match alone.
+    ctx.eventBus.publish({ type: 'agent_refine_ready', requestId: 'req-7' } as unknown as WsMessage)
+    const r = await p
+    expect(r.settled).toBe(true)
+    expect(r.reason).toContain('agent_refine_ready')
+    expect(r.projectId).toBeNull()
+  })
+
+  it('settles on the new terminal patterns (plugin.installed)', async () => {
+    const ctx = makeCtx(db)
+    const p = tool('specrails_watch').handler(ctx, { projectId: 'p1', ref: 'serena', untilMs: 5000 }) as Promise<{ settled: boolean; reason: string }>
+    ctx.eventBus.publish({ type: 'plugin.installed', projectId: 'p1', name: 'serena' } as unknown as WsMessage)
+    const r = await p
+    expect(r.settled).toBe(true)
+    expect(r.reason).toContain('plugin.installed')
+  })
+
+  it('polls the job read every 5s for a UUID ref and settles on a terminal status', async () => {
+    vi.useFakeTimers()
+    const fetchMock = vi.fn(async () => ({
+      ok: true,
+      status: 200,
+      text: async () => JSON.stringify({ job: { status: 'completed' } }),
+    }))
+    vi.stubGlobal('fetch', fetchMock)
+    try {
+      const ctx = makeCtx(db)
+      const uuid = 'aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee'
+      const p = tool('specrails_watch').handler(ctx, { projectId: 'p1', ref: uuid, untilMs: 60000 }) as Promise<{
+        settled: boolean
+        reason: string
+        terminalEvent: { type?: string } | null
+      }>
+      await vi.advanceTimersByTimeAsync(5000)
+      const r = await p
+      expect(r.settled).toBe(true)
+      expect(r.reason).toBe('poll:job:completed')
+      expect(r.terminalEvent?.type).toBe('job.poll_settled')
+      expect(fetchMock).toHaveBeenCalledTimes(1)
+      expect(String(fetchMock.mock.calls[0]?.[0])).toContain(`/projects/p1/jobs/${uuid}`)
+    } finally {
+      vi.unstubAllGlobals()
+      vi.useRealTimers()
+    }
+  })
+
+  it('poll errors are ignored and the watch keeps waiting (kind:"job" forces polling)', async () => {
+    vi.useFakeTimers()
+    const fetchMock = vi.fn(async () => ({
+      ok: false,
+      status: 404,
+      text: async () => JSON.stringify({ error: 'not found' }),
+    }))
+    vi.stubGlobal('fetch', fetchMock)
+    try {
+      const ctx = makeCtx(db)
+      const p = tool('specrails_watch').handler(ctx, { projectId: 'p1', ref: 'job-77', kind: 'job', untilMs: 12000 }) as Promise<{ settled: boolean; reason: string }>
+      await vi.advanceTimersByTimeAsync(12000)
+      const r = await p
+      expect(r.settled).toBe(false)
+      expect(r.reason).toBe('timeout')
+      expect(fetchMock).toHaveBeenCalledTimes(2)
+    } finally {
+      vi.unstubAllGlobals()
+      vi.useRealTimers()
+    }
+  })
+})
+
+// ── registerTieredTool per-request active project (B1) ───────────────────────
+import { registerTieredTool, getActiveProject, setActiveProject, type ToolHandlerExtra } from './tools/types'
+import { AGENT_PROJECT_HEADER, AGENT_TIER_HEADER } from '../agent-tier'
+import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js'
+
+describe('registerTieredTool per-request active project', () => {
+  type ToolCb = (args: Record<string, unknown>, extra?: ToolHandlerExtra) => Promise<{ content: Array<{ text: string }>; isError?: boolean }>
+  let db: DbInstance
+  let captured: ToolCb | undefined
+  const fakeServer = {
+    registerTool: (_name: string, _cfg: unknown, cb: ToolCb) => {
+      captured = cb
+    },
+  } as unknown as McpServer
+
+  beforeEach(() => {
+    db = initDesktopDb(':memory:')
+    captured = undefined
+    setActiveProject(null)
+  })
+
+  it('the project header pins the project for THAT call only — the process-wide global is untouched', async () => {
+    const ctx = makeCtx(db)
+    registerTieredTool(fakeServer, ctx, {
+      name: 'echo',
+      title: 'Echo',
+      description: 'echo active project',
+      tier: 'read',
+      inputSchema: {},
+      handler: (c) => ({ active: getActiveProject(c) }),
+    })
+    const extra: ToolHandlerExtra = { requestInfo: { headers: { [AGENT_PROJECT_HEADER]: 'proj-42', [AGENT_TIER_HEADER]: 'observe' } } }
+    const r1 = await captured!({}, extra)
+    expect(JSON.parse(r1.content[0].text).active).toBe('proj-42')
+    // A concurrent/subsequent call WITHOUT the header must not see the pin.
+    const r2 = await captured!({})
+    expect(JSON.parse(r2.content[0].text).active).toBeNull()
+    expect(getActiveProject(ctx)).toBeNull()
+  })
+
+  it('explicit sticky selection still applies and a header overrides it per call', async () => {
+    const ctx = makeCtx(db)
+    registerTieredTool(fakeServer, ctx, {
+      name: 'echo2',
+      title: 'Echo2',
+      description: 'echo active project',
+      tier: 'read',
+      inputSchema: {},
+      handler: (c) => ({ active: getActiveProject(c) }),
+    })
+    setActiveProject('sticky-1')
+    try {
+      const r1 = await captured!({})
+      expect(JSON.parse(r1.content[0].text).active).toBe('sticky-1')
+      const extra: ToolHandlerExtra = { requestInfo: { headers: { [AGENT_PROJECT_HEADER]: 'proj-9', [AGENT_TIER_HEADER]: 'observe' } } }
+      const r2 = await captured!({}, extra)
+      expect(JSON.parse(r2.content[0].text).active).toBe('proj-9')
+      // The override was per-request: sticky selection survives.
+      const r3 = await captured!({})
+      expect(JSON.parse(r3.content[0].text).active).toBe('sticky-1')
+    } finally {
+      setActiveProject(null)
+    }
+  })
+
+  it('mcp.activity carries the per-request project as affectedProjectId', async () => {
+    const seen: Array<Record<string, unknown>> = []
+    const ctx: McpToolContext = { ...makeCtx(db), broadcast: (msg) => seen.push(msg as unknown as Record<string, unknown>) }
+    registerTieredTool(fakeServer, ctx, {
+      name: 'mutate',
+      title: 'Mutate',
+      description: 'a write tool',
+      tier: 'write',
+      inputSchema: {},
+      handler: () => ({ ok: true }),
+    })
+    const extra: ToolHandlerExtra = { requestInfo: { headers: { [AGENT_PROJECT_HEADER]: 'proj-77', [AGENT_TIER_HEADER]: 'edit' } } }
+    const r = await captured!({}, extra)
+    expect(r.isError).toBeFalsy()
+    const activity = seen.find((m) => m.type === 'mcp.activity')
+    expect(activity?.affectedProjectId).toBe('proj-77')
   })
 })
 

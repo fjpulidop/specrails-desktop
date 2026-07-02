@@ -23,7 +23,7 @@ Du kannst mehrere rails anlegen, um deine Arbeit in benannten Spuren zu organisi
 ## Eine Rail auf einer Spec starten
 
 1. **Zieh eine Spec-Karte** vom SpecsBoard auf eine rail. Die ID der Spec taucht in der Spec-Liste der rail auf. (Du ziehst lieber nicht? Nutze das **Move to rail**-Popover auf der Spec-Karte — es zeigt pro rail einen Status-Punkt, damit du keine Arbeit auf eine belegte Spur ablegst.)
-2. **Wähle einen Loop** im rail-Header. Eine rail führt einen **Loop** aus — das ist die Arbeit, die sie erledigt. Standard ist der eingebaute `Implement`-Loop; du kannst auch `Batch`, `Ultracode` oder einen selbst gebauten Loop wählen. Siehe [Der Loop Builder](the-loop-builder).
+2. **Wähle einen Loop** im rail-Header. Eine rail führt einen **Loop** aus — das ist die Arbeit, die sie erledigt. Standard ist der eingebaute `Implement`-Loop; du kannst auch `Batch`, `Freestyle` oder einen selbst gebauten Loop wählen. Siehe [Der Loop Builder](the-loop-builder).
 3. **Drück ▶ Play.**
 
 Das war's. Die rail startet einen KI-CLI-Prozess in deinem Projekt und legt mit der Pipeline los.
@@ -34,7 +34,7 @@ Das war's. Die rail startet einen KI-CLI-Prozess in deinem Projekt und legt mit 
 |---------|--------------|
 | **Status-Pill** | `idle`, `running` oder `failed`. Es gibt kein eigenes „completed“ — eine rail kehrt auf `idle` zurück, wenn ihr Job sauber durchläuft. |
 | **Spec-Liste** | Die IDs, die dieser rail zugewiesen sind. Zieh weitere hinein oder heraus, um sie wieder zu lösen. |
-| **Loop-Auswahl** | Der Loop, den diese rail ausführt — ein eingebauter (`Implement` / `Batch` / `Ultracode`) oder ein eigener Loop. Siehe Tabelle unten. Pro rail gespeichert. |
+| **Loop-Auswahl** | Der Loop, den diese rail ausführt — ein eingebauter (`Implement` / `Batch` / `Freestyle`) oder ein eigener Loop. Siehe Tabelle unten. Pro rail gespeichert. |
 | **Profil-Auswahl** | Welches Agent-Profil läuft (nur bei Claude-rails). Erscheint erst, wenn das Projekt mindestens ein Profil hat. |
 | **Engine-Auswahl** | Welcher installierte Provider diese rail ausführt — Claude, Codex oder Gemini. Wird nur angezeigt, wenn das Projekt mehr als einen Provider hat. Siehe [Engine pro Rail wählen](picking-an-engine-per-rail). |
 | **▶ Play / ■ Stop** | Starten oder abbrechen. |
@@ -47,9 +47,9 @@ Eine rail führt einen **Loop** aus — das Rezept für die Arbeit. Drei Loops s
 |------|---------|--------------|
 | **Implement** | `/specrails:implement` | Ein Job für alle Specs auf der rail. Durchläuft die komplette Pipeline Architect → Developer → Reviewer → Ship. Der Alltagsstandard. |
 | **Batch** | `/specrails:batch-implement` | Ein Job, der die Specs der rail nacheinander abarbeitet — in abhängigkeitsbewussten Wellen. Ideal für mehrere zusammenhängende Specs. |
-| **Ultracode** | Ultracode | Claude implementiert jede Spec eigenständig und **umgeht** dabei die Pipeline. Ein unabhängiger Job pro Spec. Nur Claude. |
+| **Freestyle** | Freestyle | Claude implementiert jede Spec eigenständig und **umgeht** dabei die Pipeline. Ein unabhängiger Job pro Spec. Nur Claude. |
 
-Ultracode ist der Sonderfall: Es überspringt die Agent-Kette und übergibt Claude die rohe Spec, an der es mit seinen nativen Tools arbeitet. Das ist offen angelegt, deshalb öffnet Play zuerst eine Bestätigung, und eine Modell-Auswahl pro rail lässt dich zwischen Haiku / Sonnet / Opus wählen. Es erscheint nur, wenn die Engine der rail Claude ist.
+Freestyle ist der Sonderfall: Es überspringt die Agent-Kette und übergibt Claude die rohe Spec, an der es mit seinen nativen Tools arbeitet. Das ist offen angelegt, deshalb öffnet Play zuerst eine Bestätigung, und eine Modell-Auswahl pro rail lässt dich zwischen Haiku / Sonnet / Opus wählen. Es erscheint nur, wenn die Engine der rail Claude ist.
 
 Über die eingebauten Loops hinaus kannst du **deine eigenen Loops bauen** — einen verify → fix → verify-Zyklus wiederholen, bis ein Ziel erreicht ist, Shell-Befehle zwischen KI-Schritten verketten und mehr. Diese eigenen Loops erscheinen in derselben Loop-Auswahl. Das ist die nächste große Idee: [Der Loop Builder](the-loop-builder).
 

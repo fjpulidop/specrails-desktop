@@ -31,6 +31,25 @@ In a client like Claude Desktop or Cursor, the config looks like:
 
 Clients that support remote HTTP MCP servers can instead point straight at `http://127.0.0.1:4200/api/mcp` with the token from the panel.
 
+### From the terminal: Claude Code, Gemini CLI, Codex CLI
+
+Copy your token from **Settings ▸ MCP ▸ Copy token**, then:
+
+```bash
+# Claude Code
+claude mcp add --transport http specrails http://localhost:4200/api/mcp \
+  --header "X-Desktop-Token: <your token>"
+
+# Gemini CLI
+gemini mcp add --transport http specrails http://localhost:4200/api/mcp \
+  --header "X-Desktop-Token: <your token>"
+
+# Codex CLI (stdio — register the bridge command shown in Settings ▸ MCP)
+codex mcp add specrails -- <bridge command from Settings ▸ MCP>
+```
+
+The `Authorization: Bearer <token>` header works too. If you changed the app port, swap `4200` for yours.
+
 Once connected, your assistant sees about **18 tools** covering the whole app — projects, specs, rails and jobs, chat/Explore, agents, plugins, Jira, loops, the code explorer, analytics, settings — plus a built-in **guide** tool it reads first so it understands how Specrails works without you explaining anything.
 
 ## What you can do with it
@@ -51,7 +70,7 @@ Keep **Destructive** off and it can build all night without ever deleting anythi
 > *"Check all my projects. Tell me which have specs in the backlog and no rail running, and start the highest-priority one in each."*
 
 **Hands-free while you code.** Drive Specrails from your editor or by voice, without switching windows:
-> *"Launch rail 0 in ultracode mode with Opus for ticket #42 and tell me when it's done."*
+> *"Launch rail 0 in Freestyle mode with Opus for ticket #42 and tell me when it's done."*
 
 **Ask about cost and history.** Your analytics, in plain language:
 > *"Where did I spend the most on AI this week, by project and by model? Show me the five most expensive tickets."*

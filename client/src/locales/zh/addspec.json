@@ -168,7 +168,8 @@
     "tier": {
       "balanced": "均衡",
       "mostCapable": "能力最强",
-      "fastest": "最快"
+      "fastest": "最快",
+      "frontier": "前沿"
     }
   },
   "costMeter": {

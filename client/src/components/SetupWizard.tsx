@@ -70,6 +70,7 @@ interface InstallConfig {
 
 // Map full model IDs to short names used by specrails-core
 function toShortModelName(modelId: string): string {
+  if (modelId.includes('fable')) return 'fable'
   if (modelId.includes('opus')) return 'opus'
   if (modelId.includes('haiku')) return 'haiku'
   if (modelId.includes('sonnet')) return 'sonnet'

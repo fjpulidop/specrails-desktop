@@ -69,19 +69,19 @@ export function railsTools(): McpToolSpec[] {
         mode: z
           .enum(['implement', 'batch-implement', 'ultracode', 'loop'])
           .optional()
-          .describe('Launch mode (launch; default "implement"). ultracode is Claude-only and runs one job per ticket; loop runs an app-driven loop per ticket.'),
+          .describe('Launch mode (launch; default "implement"). "ultracode" is the wire value for Freestyle mode — hands the spec straight to the model, Claude-only, one job per ticket; loop runs an app-driven loop per ticket.'),
         model: z
-          .enum(['haiku', 'sonnet', 'opus'])
+          .string()
           .optional()
-          .describe('Ultracode Claude model (launch, ultracode mode only). For loop mode, a provider-valid model string.'),
+          .describe('Model for launch. Freestyle mode (wire value \'ultracode\') is Claude-only and takes a Claude alias (haiku | sonnet | opus | fable). For loop mode, any model string valid for the rail\'s provider (claude/codex/gemini).'),
         interactive: z
           .boolean()
           .optional()
-          .describe('Interactive ultracode session (launch, ultracode + Claude only; requires the interactive-jobs feature)'),
+          .describe('DEPRECATED — accepted and ignored: Freestyle jobs are interactive by default whenever the interactive-jobs feature is enabled'),
         loopId: z
           .string()
           .optional()
-          .describe('Loop id to run (launch). Factory ids (e.g. "factory:implement") map to a legacy mode; a custom published loop id keeps mode="loop".'),
+          .describe('Loop id to run (launch). Factory ids (e.g. "factory:implement") map to a legacy mode; a custom published loop id keeps mode="loop". Browse/author loops with specrails_loops; the loop must be Published.'),
         reasoning_effort: z
           .enum(['low', 'medium', 'high'])
           .optional()
@@ -159,7 +159,7 @@ export function railsTools(): McpToolSpec[] {
             const r = await apiCall(ctx, 'POST', `${base}/${railIndex}/launch`, body)
             return {
               ...(r as Record<string, unknown>),
-              hint: 'Launch accepted (202). Use specrails_watch with the returned jobId/jobIds (or loopRunIds for loop mode) to await completion. Live output streams over the job WS.',
+              hint: 'Launch accepted (202). Use specrails_watch with the returned jobId/jobIds (or loopRunIds for loop mode) to await completion. Live output streams over the job WS. Rails run for minutes; pass untilMs up to 600000 and re-watch on timeout.',
             }
           }
 

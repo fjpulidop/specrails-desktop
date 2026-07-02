@@ -1,7 +1,7 @@
 // Shared TypeScript types for the Agents section client code.
 // Mirror of server/profile-manager.ts types — kept narrow to avoid a shared package.
 
-export type ModelAlias = 'sonnet' | 'opus' | 'haiku'
+export type ModelAlias = 'sonnet' | 'fable' | 'opus' | 'haiku'
 
 export interface ProfileAgent {
   id: string
@@ -44,4 +44,4 @@ export const BASELINE_REQUIRED_AGENTS = new Set([
   'sr-merge-resolver',
 ])
 
-export const MODEL_ALIASES: ModelAlias[] = ['sonnet', 'opus', 'haiku']
+export const MODEL_ALIASES: ModelAlias[] = ['sonnet', 'fable', 'opus', 'haiku']

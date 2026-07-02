@@ -20,9 +20,13 @@ interface StatusBarProps {
   connectionStatus: 'connecting' | 'connected' | 'disconnected'
   /** Optional slot rendered at the far right (e.g. the terminal panel chevron). */
   rightSlot?: React.ReactNode
+  /** Agent Mode: quiet footer. No spend figure, and the connection cluster only
+   *  renders when there is something worth saying (reconnecting / disconnected /
+   *  post-reconnect sync) — silence means healthy. */
+  minimal?: boolean
 }
 
-export function StatusBar({ connectionStatus, rightSlot }: StatusBarProps) {
+export function StatusBar({ connectionStatus, rightSlot, minimal = false }: StatusBarProps) {
   const { t } = useTranslation('nav')
   const { t: tAnalytics } = useTranslation('analytics')
   const [stats, setStats] = useState<Stats | null>(null)
@@ -53,6 +57,7 @@ export function StatusBar({ connectionStatus, rightSlot }: StatusBarProps) {
   }, [])
 
   useEffect(() => {
+    if (minimal) return // spend figure never shown — skip the polling entirely
     async function fetchStats() {
       try {
         const res = await fetch(`${getApiBase()}/stats`)
@@ -69,12 +74,16 @@ export function StatusBar({ connectionStatus, rightSlot }: StatusBarProps) {
     // Refresh stats every 30 seconds
     const interval = setInterval(fetchStats, 30_000)
     return () => clearInterval(interval)
-  }, [connectionStatus])
+  }, [connectionStatus, minimal])
+
+  // Minimal (Agent Mode): only speak when something is off — a steady
+  // "connected" is presence noise; its absence reads as healthy.
+  const showConnection = !minimal || connectionStatus !== 'connected' || isSyncing
 
   return (
     <footer className="h-7 flex items-center justify-between px-4 border-t border-border/30 bg-background/80 backdrop-blur-sm text-[10px] text-muted-foreground">
       {/* Connection status */}
-      <div className="flex items-center gap-1.5">
+      <div className={cn('flex items-center gap-1.5 transition-opacity duration-300', !showConnection && 'opacity-0')} aria-hidden={!showConnection || undefined}>
         <span
           className={cn(
             'w-1.5 h-1.5 rounded-full transition-colors',
@@ -102,7 +111,7 @@ export function StatusBar({ connectionStatus, rightSlot }: StatusBarProps) {
 
       {/* Stats + right slot (terminal chevron) */}
       <div className="flex items-center gap-2">
-        {stats && stats.totalCostUsd > 0 && (() => {
+        {!minimal && stats && stats.totalCostUsd > 0 && (() => {
           // BUG-ANALYTICS-27: never present a codex/gemini rate-card estimate as
           // a billed figure — prefix '~' + tooltip when any part is estimated.
           const estimated =

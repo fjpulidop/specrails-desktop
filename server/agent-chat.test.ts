@@ -386,6 +386,31 @@ describe('agent-chat-router', () => {
     expect(ok.body.conversation.model).toBe('gpt-5.5')
   })
 
+  it('GET /models exposes per-provider reasoning-effort tiers (gemini: none)', async () => {
+    const claude = await req(app, 'GET', '/api/agent/models?provider=claude')
+    expect(claude.body.efforts).toEqual(['low', 'medium', 'high', 'xhigh'])
+    const codex = await req(app, 'GET', '/api/agent/models?provider=codex')
+    expect(codex.body.efforts).toEqual(['minimal', 'low', 'medium', 'high'])
+    const gemini = await req(app, 'GET', '/api/agent/models?provider=gemini')
+    expect(gemini.body.efforts).toEqual([])
+  })
+
+  it('validates reasoningEffort against the provider catalog and clears it on provider switch', async () => {
+    const c = await req(app, 'POST', '/api/agent/conversations', { provider: 'claude', reasoningEffort: 'xhigh' })
+    const id = c.body.conversation.id
+    expect(c.body.conversation.reasoning_effort).toBe('xhigh')
+    // codex has no xhigh → invalid for the target provider on an explicit pick
+    expect((await req(app, 'PATCH', `/api/agent/conversations/${id}`, { reasoningEffort: 'bogus' })).status).toBe(400)
+    // provider switch clears the stale effort (xhigh is claude-only)
+    const switched = await req(app, 'PATCH', `/api/agent/conversations/${id}`, { provider: 'codex' })
+    expect(switched.body.conversation.reasoning_effort).toBeNull()
+    // an in-catalog pick for the new provider sticks; null resets to default
+    const set = await req(app, 'PATCH', `/api/agent/conversations/${id}`, { reasoningEffort: 'minimal' })
+    expect(set.body.conversation.reasoning_effort).toBe('minimal')
+    const reset = await req(app, 'PATCH', `/api/agent/conversations/${id}`, { reasoningEffort: null })
+    expect(reset.body.conversation.reasoning_effort).toBeNull()
+  })
+
   it('rejects unknown provider and empty send text', async () => {
     expect((await req(app, 'POST', '/api/agent/conversations', { provider: 'bogus' })).status).toBe(400)
     const c = await req(app, 'POST', '/api/agent/conversations', {})

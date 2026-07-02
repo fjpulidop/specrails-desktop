@@ -35,7 +35,7 @@ Architect ──► Developer ──► Reviewer ──► Ship
 | **Reviewer** | `sr-reviewer` | 审查产出。 |
 | **Ship** | （视情况而定） | 收尾：测试、提交、起草 PR。 |
 
-每个阶段由哪个 Agent 来处理，是由项目的 **Agent Profile** 决定的。基线三人组（`sr-architect`、`sr-developer`、`sr-reviewer`）始终在场；Profile 里的路由规则可以添加 Agent，或替换某个阶段由谁来跑。只有当命令确实定义了阶段时，阶段进度条才会出现——Ultracode 任务（绕过了流水线）不会显示进度条。
+每个阶段由哪个 Agent 来处理，是由项目的 **Agent Profile** 决定的。基线三人组（`sr-architect`、`sr-developer`、`sr-reviewer`）始终在场；Profile 里的路由规则可以添加 Agent，或替换某个阶段由谁来跑。只有当命令确实定义了阶段时，阶段进度条才会出现——Freestyle 任务（绕过了流水线）不会显示进度条。
 
 ## 实时指标——为诚实而设计
 

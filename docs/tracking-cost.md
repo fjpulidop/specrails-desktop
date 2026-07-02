@@ -8,7 +8,7 @@ Six surfaces, all per-project:
 
 | Surface | What it captures |
 |---------|------------------|
-| **`job`** | Every rail run (the Architect → Developer → Reviewer → Ship pipeline, plus Ultracode and Batch runs) |
+| **`job`** | Every rail run (the Architect → Developer → Reviewer → Ship pipeline, plus Freestyle and Batch runs) |
 | **`quick-spec`** | One-shot Quick spec generation (including a Quick-mode Contract Refine run) |
 | **`explore-spec`** | Every Explore conversation turn (including the Explore Contract Refine run) |
 | **`ai-edit`** | The **AI Edit / Refine** overlay (refining an agent or a ticket) |

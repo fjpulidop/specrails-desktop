@@ -2,15 +2,20 @@ import type { ChildProcess } from 'child_process'
 import type { DbInstance } from './db'
 import type { WsMessage } from './types'
 import { getAdapter } from './providers'
+import type { ReasoningEffort } from './providers/types'
 import { runAiCliInvocation } from './spawn-lifecycle'
 import { ensureAgentCwd } from './agent-cwd-manager'
+import { OPERATOR_SYSTEM_PROMPT } from './agent-operator-prompt'
 import { prepareAgentMcp } from './agent-mcp-config'
 import { normalizeLevel, type AgentTierLevel } from './agent-tier'
+import { attachmentManager, USER_ATTACHMENT_SYSTEM_NOTE } from './attachment-manager'
 import {
   getAgentConversation,
   addAgentMessage,
   updateAgentConversation,
+  listAgentMessages,
 } from './agent-store'
+import { generateAutoTitle } from './explore-draft-title'
 import { setActiveProject } from './mcp/tools/types'
 
 // ─── AgentChatManager (design D1) ─────────────────────────────────────────────
@@ -21,30 +26,10 @@ import { setActiveProject } from './mcp/tools/types'
 // persists to the app registry DB. It reuses the shared spawn→stream→settle core
 // (runAiCliInvocation) rather than re-implementing ChatManager's loop.
 
-const OPERATOR_SYSTEM_PROMPT =
-  'You are the Specrails operator agent. Drive the Specrails Desktop app on the ' +
-  "user's behalf using the specrails_* MCP tools. Target a project with " +
-  'specrails_select_project (or the projectId argument); if none is selected and ' +
-  'the request is project-specific, ask whether to create a project or search all. ' +
-  'Follow HTTP-202 actions to completion with specrails_watch. Respect the ' +
-  'permission ladder: if a tool is refused for the current level, tell the user ' +
-  'which level it needs rather than working around it. Be concise; report tool ' +
-  'outputs faithfully, including failures. Format replies for easy reading: ' +
-  'separate distinct ideas into short paragraphs with a blank line between them ' +
-  '(not one dense block), and use bullet lists for enumerations. ' +
-  'When the user has no projects yet, or wants to add one, first explain the UI ' +
-  'steps (click "Add Project" / the + in the left sidebar, enter the repo\'s ' +
-  'folder path, pick an AI provider, then run setup), THEN offer to do it for ' +
-  'them from here: ask for the repo folder path and which AI providers to set up, ' +
-  'then with their go-ahead call specrails_setup add_project (Edit level) and a ' +
-  'single specrails_setup install (Operate level) — one install provisions ALL the ' +
-  'chosen providers in one shot (no need to install them one by one). Setup is ' +
-  'QUICK-only (offline); do NOT offer or mention a "full" or "enrich" install. Use ' +
-  'specrails_setup prerequisites / available_providers first to check the machine.'
-
 export interface AgentTurnOptions {
   tierLevel?: AgentTierLevel
   model?: string
+  attachmentIds?: string[]
 }
 
 export class AgentChatManager {
@@ -52,6 +37,10 @@ export class AgentChatManager {
   private readonly _db: DbInstance
   private readonly _port: number
   private readonly _active = new Map<string, ChildProcess>()
+  /** Conversations with a turn in-flight but not yet spawned. Closes the TOCTOU
+   *  window the attachment-extraction await opens between the busy guard and
+   *  `_active.set` in onSpawn (mirrors ChatManager's reservation pattern). */
+  private readonly _reserved = new Set<string>()
 
   constructor(broadcast: (msg: WsMessage) => void, db: DbInstance, port: number) {
     this._broadcast = broadcast
@@ -75,11 +64,24 @@ export class AgentChatManager {
       this._emitError(conversationId, 'Unknown conversation')
       return
     }
-    if (this._active.has(conversationId)) {
+    if (this._active.has(conversationId) || this._reserved.has(conversationId)) {
       this._emitError(conversationId, 'The agent is busy. Try again in a moment.')
       return
     }
+    this._reserved.add(conversationId)
+    try {
+      await this._runTurn(conversation, userText, options)
+    } finally {
+      this._reserved.delete(conversationId)
+    }
+  }
 
+  private async _runTurn(
+    conversation: NonNullable<ReturnType<typeof getAgentConversation>>,
+    userText: string,
+    options: AgentTurnOptions,
+  ): Promise<void> {
+    const conversationId = conversation.id
     const tierLevel = normalizeLevel(options.tierLevel ?? conversation.tier_level)
     const adapter = getAdapter(conversation.provider)
     // Resolve a model that is VALID for this provider. A stale model from another
@@ -88,18 +90,66 @@ export class AgentChatManager {
     const catalog = new Set(adapter.modelCatalog().map((m) => m.value))
     const requested = options.model || conversation.model
     const model = requested && catalog.has(requested) ? requested : adapter.defaultModel()
+    // Reasoning effort: stored per conversation; null = the app default
+    // ("medium"). Passed only to providers with a per-spawn knob, and only when
+    // the value is in the provider's catalog (a provider switch clears it, but
+    // belt-and-braces against stale rows).
+    const efforts = (adapter.capabilities.reasoningEfforts ?? []) as readonly string[]
+    const storedEffort = conversation.reasoning_effort
+    const reasoningEffort = efforts.length
+      ? ((storedEffort && efforts.includes(storedEffort) ? storedEffort : 'medium') as ReasoningEffort)
+      : undefined
 
     // Make the pinned project (Cursor-style selector) the MCP active project for
     // this turn, so project-scoped tools resolve without the agent having to call
     // specrails_select_project. Home (null) clears it → app-global mode.
     setActiveProject(conversation.pinned_project_id ?? null)
 
-    addAgentMessage(this._db, { conversationId, role: 'user', content: userText })
+    // Resolve attachments (conversation-keyed) into extracted text blocks +
+    // absolute image paths. Extraction failure degrades to a text-only turn.
+    const attachmentIds = options.attachmentIds ?? []
+    let userWithAttachments = userText
+    let imagePaths: string[] = []
+    let hasAttachments = false
+    if (attachmentIds.length > 0) {
+      try {
+        const resolved = await attachmentManager.getClaudeArgsAgent(conversationId, attachmentIds)
+        if (resolved.textBlocks.length > 0) {
+          userWithAttachments = `${userText}\n\n## Attached Resources\n\n${resolved.textBlocks.join('\n\n')}`
+          hasAttachments = true
+        }
+        imagePaths = resolved.imagePaths
+      } catch (err) {
+        console.error(`[agent-chat] attachment extraction failed (${conversationId}):`, err)
+      }
+    }
 
-    // Tell the agent which project is pinned (so it phrases + passes projectId).
-    const prompt = conversation.pinned_project_id
-      ? `[Active project: projectId="${conversation.pinned_project_id}". Use it for project-scoped tools unless told otherwise.]\n\n${userText}`
-      : userText
+    // The conversation may have been deleted while attachments were extracting
+    // (DELETE aborts the child and drops the row) — inserting would violate the FK.
+    if (!getAgentConversation(this._db, conversationId)) return
+    addAgentMessage(this._db, { conversationId, role: 'user', content: userText, attachmentIds })
+    this._autoTitle(conversationId, conversation.title)
+
+    // Providers WITHOUT a --system-prompt flag (codex, gemini) drop opts.systemPrompt
+    // for chat turns, so the attachment prompt-injection note would never reach them —
+    // fold it into the user turn instead (same capability-gated pattern as ChatManager).
+    if (hasAttachments && !adapter.capabilities.systemPromptArg) {
+      userWithAttachments = `${USER_ATTACHMENT_SYSTEM_NOTE}\n\n${userWithAttachments}`
+    }
+
+    // Per-turn dynamic context (pinned project, permission level, provider) rides
+    // the USER turn, never the system prompt — byte-stability contract (see
+    // agent-operator-prompt.ts).
+    const contextPrefix = conversation.pinned_project_id
+      ? `[Active project: projectId="${conversation.pinned_project_id}" | Permission level: ${tierLevel} | Provider: ${adapter.id}. Use the project for project-scoped tools unless told otherwise.]`
+      : `[No project pinned (Home) | Permission level: ${tierLevel} | Provider: ${adapter.id}]`
+    const prompt = `${contextPrefix}\n\n${userWithAttachments}`
+    const systemPrompt = hasAttachments
+      ? `${OPERATOR_SYSTEM_PROMPT}\n\n${USER_ATTACHMENT_SYSTEM_NOTE}`
+      : OPERATOR_SYSTEM_PROMPT
+    // Only pass native image paths to providers that can vision-load them (codex
+    // `--image`); claude/gemini already have the `@path` ref folded into prompt.
+    const spawnImagePaths = adapter.capabilities.supportsImageInput ? imagePaths : undefined
 
     const cwd = ensureAgentCwd()
     let mcpArgs: string[] = []
@@ -149,10 +199,12 @@ export class AgentChatManager {
         env: { ...process.env, ...mcpEnv },
         buildOpts: {
           prompt,
-          systemPrompt: adapter.capabilities.systemPromptArg ? OPERATOR_SYSTEM_PROMPT : undefined,
+          systemPrompt: adapter.capabilities.systemPromptArg ? systemPrompt : undefined,
           model,
           sessionId: useResume ? conversation.session_id ?? undefined : undefined,
           extraArgs: mcpArgs,
+          imagePaths: spawnImagePaths,
+          reasoning_effort: reasoningEffort,
         },
         onSpawn: (child) => {
           this._active.set(conversationId, child)
@@ -198,6 +250,10 @@ export class AgentChatManager {
     const canResume = !!conversation.session_id && adapter.capabilities.nativeResume
     let r = await invoke(canResume)
 
+    // Deleted mid-turn (DELETE aborts the child and drops the row): stop here —
+    // no auto-heal respawn, no FK-violating assistant INSERT.
+    if (!getAgentConversation(this._db, conversationId)) return
+
     // Auto-heal a stale/foreign session: a resume that produced no text (e.g. a
     // provider switch leaving another provider's session id, or codex
     // "no rollout found for thread id") retries once as a fresh turn.
@@ -205,6 +261,7 @@ export class AgentChatManager {
       console.log(`[agent-chat] resume produced no text — retrying fresh conv=${conversationId}`)
       updateAgentConversation(this._db, conversationId, { session_id: null })
       r = await invoke(false)
+      if (!getAgentConversation(this._db, conversationId)) return
     }
 
     if (r.spawnFailed) {
@@ -232,6 +289,30 @@ export class AgentChatManager {
       (r.stderrTail ? r.stderrTail.split('\n').filter(Boolean).slice(-3).join(' ').slice(0, 300) : '') ||
       (r.code !== 0 ? `${adapter.binary} exited with code ${r.code}` : 'The agent returned no output.')
     this._emitError(conversationId, reason)
+  }
+
+  /**
+   * Auto-title a conversation from its first TWO user prompts (deterministic —
+   * no AI spend). Turn 1 sets the title when none exists; turn 2 refines it,
+   * but ONLY while the current title is still turn 1's auto title (a manual
+   * rename is recomputable-detectable and never clobbered). Broadcasts
+   * `agent_title` so the sidebar list updates live.
+   */
+  private _autoTitle(conversationId: string, currentTitle: string | null): void {
+    try {
+      const userMsgs = listAgentMessages(this._db, conversationId).filter((m) => m.role === 'user')
+      if (userMsgs.length === 0 || userMsgs.length > 2) return
+      const autoFromFirst = generateAutoTitle([{ role: 'user', content: userMsgs[0].content }])
+      const stillAuto = currentTitle === null || (userMsgs.length === 2 && currentTitle === autoFromFirst)
+      if (!stillAuto) return
+      const source = userMsgs.map((m) => m.content).join(' — ')
+      const title = generateAutoTitle([{ role: 'user', content: source }])
+      if (!title || title === currentTitle) return
+      updateAgentConversation(this._db, conversationId, { title })
+      this._broadcast({ type: 'agent_title', conversationId, title, timestamp: new Date().toISOString() })
+    } catch (err) {
+      console.error(`[agent-chat] auto-title failed (${conversationId}):`, err)
+    }
   }
 
   /** Aborts the active turn for a conversation, if any. */

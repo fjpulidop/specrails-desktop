@@ -1,5 +1,5 @@
 import React from 'react'
-import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { describe, it, expect, vi, beforeEach, beforeAll, afterAll } from 'vitest'
 import { render, screen, waitFor, fireEvent } from '../../test-utils'
 import userEvent from '@testing-library/user-event'
 import { RecentJobs } from '../RecentJobs'
@@ -143,6 +143,108 @@ describe('RecentJobs - extended coverage', () => {
     })
   })
 
+  describe('date range filter — local-day boundaries', () => {
+    // These timestamps are built with the LOCAL Date constructor so the
+    // assertions are deterministic in every timezone: whichever side of UTC
+    // the test machine sits on, one of the two midnight-adjacent jobs
+    // crosses the UTC day boundary when serialised to ISO.
+
+    it('keeps a job started at 23:30 local visible when filtering to that same day', () => {
+      // In UTC-negative timezones this is stored under the NEXT UTC day.
+      const lateJob: JobSummary = {
+        ...baseJob, id: 'late', command: '/late-job',
+        started_at: new Date(2024, 4, 15, 23, 30).toISOString(),
+      }
+      render(<RecentJobs jobs={[lateJob]} />)
+      fireEvent.change(screen.getByTitle('From date'), { target: { value: '2024-05-15' } })
+      fireEvent.change(screen.getByTitle('To date'), { target: { value: '2024-05-15' } })
+      expect(screen.getByText('/late-job')).toBeInTheDocument()
+    })
+
+    it('keeps a job started at 00:30 local visible when filtering from that day', () => {
+      // In UTC-positive timezones this is stored under the PREVIOUS UTC day.
+      const earlyJob: JobSummary = {
+        ...baseJob, id: 'early', command: '/early-job',
+        started_at: new Date(2024, 4, 15, 0, 30).toISOString(),
+      }
+      render(<RecentJobs jobs={[earlyJob]} />)
+      fireEvent.change(screen.getByTitle('From date'), { target: { value: '2024-05-15' } })
+      expect(screen.getByText('/early-job')).toBeInTheDocument()
+    })
+
+    it('includes the "to" day up to its last millisecond (end-date inclusive)', () => {
+      const lastSecond: JobSummary = {
+        ...baseJob, id: 'last', command: '/last-second-job',
+        started_at: new Date(2024, 4, 15, 23, 59, 59, 500).toISOString(),
+      }
+      render(<RecentJobs jobs={[lastSecond]} />)
+      fireEvent.change(screen.getByTitle('To date'), { target: { value: '2024-05-15' } })
+      expect(screen.getByText('/last-second-job')).toBeInTheDocument()
+    })
+
+    it('excludes jobs started before the local "from" day', () => {
+      const beforeFrom: JobSummary = {
+        ...baseJob, id: 'before', command: '/before-job',
+        started_at: new Date(2024, 4, 14, 23, 59, 59).toISOString(),
+      }
+      render(<RecentJobs jobs={[beforeFrom]} />)
+      fireEvent.change(screen.getByTitle('From date'), { target: { value: '2024-05-15' } })
+      expect(screen.queryByText('/before-job')).not.toBeInTheDocument()
+    })
+
+    it('excludes jobs started after the local "to" day', () => {
+      const afterTo: JobSummary = {
+        ...baseJob, id: 'after', command: '/after-job',
+        started_at: new Date(2024, 4, 16, 0, 0, 1).toISOString(),
+      }
+      render(<RecentJobs jobs={[afterTo]} />)
+      fireEvent.change(screen.getByTitle('To date'), { target: { value: '2024-05-15' } })
+      expect(screen.queryByText('/after-job')).not.toBeInTheDocument()
+    })
+
+    it('keeps jobs with unparsable timestamps visible', () => {
+      const weird: JobSummary = {
+        ...baseJob, id: 'weird', command: '/weird-job', started_at: 'not-a-date',
+      }
+      render(<RecentJobs jobs={[weird]} />)
+      fireEvent.change(screen.getByTitle('From date'), { target: { value: '2024-05-15' } })
+      expect(screen.getByText('/weird-job')).toBeInTheDocument()
+    })
+  })
+
+  describe('date range filter — UTC-midnight crossing (America/New_York)', () => {
+    const originalTZ = process.env.TZ
+
+    beforeAll(() => { process.env.TZ = 'America/New_York' })
+    afterAll(() => {
+      if (originalTZ === undefined) delete process.env.TZ
+      else process.env.TZ = originalTZ
+    })
+
+    it('a job at 23:30 local stored past UTC midnight lands on its local day', () => {
+      // 2024-05-16T03:30:00Z == 2024-05-15 23:30 in New York (UTC-4, DST).
+      // The old string comparison against `2024-05-15T23:59:59` dropped it.
+      const crossJob: JobSummary = {
+        ...baseJob, id: 'cross', command: '/cross-job',
+        started_at: '2024-05-16T03:30:00.000Z',
+      }
+      render(<RecentJobs jobs={[crossJob]} />)
+      fireEvent.change(screen.getByTitle('From date'), { target: { value: '2024-05-15' } })
+      fireEvent.change(screen.getByTitle('To date'), { target: { value: '2024-05-15' } })
+      expect(screen.getByText('/cross-job')).toBeInTheDocument()
+    })
+
+    it('the same job is excluded when filtering the next local day', () => {
+      const crossJob: JobSummary = {
+        ...baseJob, id: 'cross', command: '/cross-job',
+        started_at: '2024-05-16T03:30:00.000Z',
+      }
+      render(<RecentJobs jobs={[crossJob]} />)
+      fireEvent.change(screen.getByTitle('From date'), { target: { value: '2024-05-16' } })
+      expect(screen.queryByText('/cross-job')).not.toBeInTheDocument()
+    })
+  })
+
   describe('handleClear - date range mode', () => {
     it('clears range with from/to dates via "Clear range" button', async () => {
       const user = userEvent.setup()
@@ -178,6 +280,15 @@ describe('RecentJobs - extended coverage', () => {
       await waitFor(() => {
         expect(toast.success).toHaveBeenCalledWith('Cleared 5 jobs')
       })
+
+      // The body must carry full ISO local-day boundaries (not raw
+      // YYYY-MM-DD): the server string-compares them against UTC ISO
+      // `started_at`, so a bare "to" date would exclude the whole end day.
+      const deleteCall = (global.fetch as ReturnType<typeof vi.fn>).mock.calls
+        .find(([url, init]) => url === '/api/jobs' && (init as RequestInit)?.method === 'DELETE')!
+      const body = JSON.parse((deleteCall[1] as RequestInit).body as string)
+      expect(body.from).toBe(new Date(2024, 0, 1).toISOString())
+      expect(body.to).toBe(new Date(new Date(2024, 5, 2).getTime() - 1).toISOString())
     })
 
     it('shows toast error when clear range fails', async () => {

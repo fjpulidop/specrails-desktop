@@ -171,7 +171,7 @@
   "railSelectors": {
     "profileTitle": "Perfil de agentes para este rail",
     "noProfile": "Sem perfil",
-    "modelTitle": "Modelo para este rail ultracode",
+    "modelTitle": "Modelo para este rail Freestyle",
     "loopModelTitle": "Modelo para este loop",
     "engineTitle": "Motor de IA para este rail"
   }

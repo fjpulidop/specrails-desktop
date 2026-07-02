@@ -24,7 +24,7 @@ Les trois exécutent les pipelines standards **Implement** et **Batch**. Voici u
 
 | Moteur | À privilégier quand… | Notes |
 |--------|--------------------|-------|
-| **Claude** | Vous voulez l'ensemble complet des fonctionnalités : profils d'agents, Ultracode, rapport de coût natif, le support d'outils le plus riche. Le choix par défaut pour la plupart du travail. | Le seul moteur qui prend en charge les **profils d'agents**, **Ultracode**, et quelques fonctionnalités de spec réservées à Claude (Contract Layer, SMASH). |
+| **Claude** | Vous voulez l'ensemble complet des fonctionnalités : profils d'agents, Freestyle, rapport de coût natif, le support d'outils le plus riche. Le choix par défaut pour la plupart du travail. | Le seul moteur qui prend en charge les **profils d'agents**, **Freestyle**, et quelques fonctionnalités de spec réservées à Claude (Contract Layer, SMASH). |
 | **Codex** | Vous préférez la CLI Codex d'OpenAI ou vous voulez comparer les implémentations entre fournisseurs. | `codex` ≥ 0.128.0. Pas de rapport de coût natif — l'application complète le coût à partir de sa table de tarifs. Les profils ne s'appliquent pas. |
 | **Gemini** | Vous voulez la CLI Gemini de Google, la télémétrie native, ou une exécution moins chère pour les specs de routine. | `gemini` ≥ 0.11.0 (définissez `GEMINI_API_KEY`). Télémétrie OTLP native. Les profils ne s'appliquent pas. |
 
@@ -33,7 +33,7 @@ Les trois exécutent les pipelines standards **Implement** et **Batch**. Voici u
 Quelques éléments ne fonctionnent que sur les rails Claude — choisissez Claude si vous en avez besoin :
 
 - **Profils d'agents** — routage de modèle par agent. Sur les rails Codex ou Gemini, l'exécution utilise toujours le mode legacy et tout profil sélectionné est **ignoré**. Le sélecteur de profil est masqué pour les moteurs non-Claude.
-- **Ultracode (mode `Ultra`)** — le mode autonome qui contourne le pipeline. Le segment `Ultra` et son sélecteur de modèle Haiku/Sonnet/Opus n'apparaissent que lorsque le moteur du rail est Claude.
+- **Freestyle** — le mode autonome qui contourne le pipeline. Le segment `Freestyle` et son sélecteur de modèle Haiku/Sonnet/Opus n'apparaissent que lorsque le moteur du rail est Claude.
 - **Contract Layer et SMASH** — fonctionnalités de raffinement de spec réservées à Claude (ce sont des options d'Add Spec, pas des options de rail, mais la même contrainte s'applique).
 
 Si un projet mélange les moteurs, la barre latérale droite n'affiche que les sections prises en charge par **tous** les fournisseurs installés — la section **Agents** disparaît donc entièrement sur un projet qui inclut un fournisseur non-Claude, car les profils sont spécifiques à Claude.

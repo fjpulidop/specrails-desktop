@@ -181,21 +181,12 @@ describe('ProjectLayout (extended: cost alerts + terminal panel)', () => {
     expect(screen.queryByText(/Queue is paused/)).not.toBeInTheDocument()
   })
 
-  it('renders the BottomPanel, registers the project and shows the restore chevron when hidden', () => {
+  it('no longer renders the BottomPanel/chevron (hoisted to DesktopApp, single instance for both modes)', () => {
     render(<ProjectLayout project={mockProject} />)
-    expect(h.ensureProject).toHaveBeenCalledWith('proj-1')
-    expect(screen.getByTestId('bottom-panel')).toHaveTextContent('proj-1')
-
-    const chevron = screen.getByTestId('panel-chevron')
-    fireEvent.click(chevron)
-    expect(h.setVisibility).toHaveBeenCalledWith('proj-1', 'restored')
-  })
-
-  it('hides the chevron when the panel is already restored', () => {
-    h.panelVisibility = 'restored'
-    render(<ProjectLayout project={mockProject} />)
+    // The terminal panel + StatusBar + restore chevron moved up to DesktopApp so
+    // one instance serves Kanban AND Agent Mode (single-adopter invariant).
+    expect(screen.queryByTestId('bottom-panel')).not.toBeInTheDocument()
     expect(screen.queryByTestId('panel-chevron')).not.toBeInTheDocument()
-    expect(screen.getByTestId('bottom-panel')).toBeInTheDocument()
   })
 
   it('does not render the ChatPanel when chat is feature-flagged off', () => {

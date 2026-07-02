@@ -3,6 +3,52 @@ import { SPECRAILS_GUIDE } from '../guide'
 import type { McpToolSpec } from './types'
 import { setActiveProject, requireProject } from './types'
 
+/** One serialized input field for `specrails_describe`. */
+interface DescribedField {
+  name: string
+  description?: string
+  type: string
+  enumValues?: string[]
+  optional: boolean
+}
+
+/**
+ * Serialize a raw-shape zod field into `{ name, description, type, enumValues?,
+ * optional }`. Unwraps optional/default/nullable wrappers (keeping the OUTERMOST
+ * `.describe()` string, the convention across the tool files) down to the base
+ * type so the model sees the real type + enum values instead of a bare key name.
+ */
+function describeZodField(name: string, field: z.ZodTypeAny): DescribedField {
+  let current: z.ZodTypeAny = field
+  let optional = false
+  let nullable = false
+  let description: string | undefined
+  for (;;) {
+    if (description === undefined && current.description !== undefined) description = current.description
+    const def = (current as { _def?: { typeName?: string; innerType?: z.ZodTypeAny } })._def
+    const typeName = def?.typeName
+    if ((typeName === 'ZodOptional' || typeName === 'ZodDefault') && def?.innerType) {
+      optional = true
+      current = def.innerType
+      continue
+    }
+    if (typeName === 'ZodNullable' && def?.innerType) {
+      nullable = true
+      current = def.innerType
+      continue
+    }
+    break
+  }
+  const baseName = ((current as { _def?: { typeName?: string } })._def?.typeName ?? 'ZodUnknown')
+    .replace(/^Zod/, '')
+    .toLowerCase()
+  const type = nullable ? `${baseName} | null` : baseName
+  const out: DescribedField = { name, type, optional }
+  if (description !== undefined) out.description = description
+  if (current instanceof z.ZodEnum) out.enumValues = [...(current.options as string[])]
+  return out
+}
+
 /**
  * Meta tools that teach the platform and aid discovery.
  * `getSpecs` returns the full catalog (passed lazily to avoid a cycle).
@@ -12,7 +58,9 @@ export function metaTools(getSpecs: () => McpToolSpec[]): McpToolSpec[] {
     {
       name: 'specrails_guide',
       title: 'Platform guide',
-      description: 'Returns a self-contained guide to Specrails: concepts, workflow, invariants, and how to use these tools. Read this first.',
+      description:
+        'Returns a self-contained guide to Specrails: concepts, workflow, invariants, and how to use these tools. ' +
+        'Read this first — call once per session before your first domain call.',
       tier: 'read',
       inputSchema: {},
       handler: () => SPECRAILS_GUIDE,
@@ -44,7 +92,7 @@ export function metaTools(getSpecs: () => McpToolSpec[]): McpToolSpec[] {
     {
       name: 'specrails_describe',
       title: 'Describe a tool',
-      description: 'Return the full description and input schema summary for a named Specrails tool.',
+      description: 'Return the full description and per-field input schema (name, description, type, enum values, optionality) for a named Specrails tool.',
       tier: 'read',
       inputSchema: {
         name: z.string().describe('Tool name, e.g. "specrails_rails"'),
@@ -57,7 +105,9 @@ export function metaTools(getSpecs: () => McpToolSpec[]): McpToolSpec[] {
           name: spec.name,
           title: spec.title,
           description: spec.description,
-          inputFields: Object.keys(spec.inputSchema),
+          inputFields: Object.entries(spec.inputSchema).map(([fieldName, field]) =>
+            describeZodField(fieldName, field as z.ZodTypeAny),
+          ),
         }
       },
     },

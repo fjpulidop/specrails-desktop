@@ -10,12 +10,13 @@ interface ModelOption {
   alias: string
   label: string
   /** Key under `addspec:modelCombobox.tier.*` for the displayed tier badge. */
-  tierKey: 'balanced' | 'mostCapable' | 'fastest'
-  tierColor: 'neutral' | 'accent' | 'green'
+  tierKey: 'balanced' | 'mostCapable' | 'fastest' | 'frontier'
+  tierColor: 'neutral' | 'accent' | 'green' | 'gold'
 }
 
 export const MODEL_OPTIONS: ModelOption[] = [
   { alias: 'sonnet', label: 'Sonnet', tierKey: 'balanced',    tierColor: 'neutral' },
+  { alias: 'fable',  label: 'Fable',  tierKey: 'frontier',    tierColor: 'gold'    },
   { alias: 'opus',   label: 'Opus',   tierKey: 'mostCapable', tierColor: 'accent'  },
   { alias: 'haiku',  label: 'Haiku',  tierKey: 'fastest',     tierColor: 'green'   },
 ]
@@ -25,6 +26,7 @@ function tierBadgeClass(color: ModelOption['tierColor']): string {
     case 'neutral': return 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300 aurora-light:bg-accent-info/10 aurora-light:text-accent-info'
     case 'accent':  return 'bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-300 aurora-light:bg-accent-primary/10 aurora-light:text-accent-primary'
     case 'green':   return 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-300 aurora-light:bg-accent-success/10 aurora-light:text-accent-success'
+    case 'gold':    return 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-300 aurora-light:bg-accent-warning/10 aurora-light:text-accent-warning'
   }
 }
 

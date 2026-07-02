@@ -220,8 +220,8 @@
       "description": "レールのすべてのチケットを一度に一括実装し、失敗時にはグリーンになるまで 検証 + 修正 を行います。"
     },
     "factory_ultracode": {
-      "name": "Ultracode",
-      "description": "チケットごとの自律実装 (パイプラインなし)、その後グリーンになるまで 検証 + 修正 を行います。Claude のみ。"
+      "name": "Freestyle",
+      "description": "スペックをそのままモデルに渡して完全な自由を与えます — パイプラインなしで通常のコーディングエージェントのように動作し、その後グリーンになるまで検証+改善します。Claude 専用。"
     },
     "autoloop-tdd": {
       "name": "TDD 自動ループ",
@@ -362,6 +362,10 @@
     "deploy-verification-loop": {
       "name": "デプロイ検証ループ",
       "description": "デプロイ後、health と smoke のエンドポイントを一定間隔でポーリングし、不健全な応答を調査して修正またはエスカレーション。設定したすべてのエンドポイントが成功を報告するまでチェックを続けます。"
+    },
+    "factory_openspec": {
+      "name": "OpenSpec Lifecycle",
+      "description": "チケットからアーカイブまでの OpenSpec ライフサイクル: アーティファクト生成 (opsx:ff) → 実装 (opsx:apply) → 検証 (opsx:verify)。FAIL なら同じ change を修正しに戻り、PASS なら無人でアーカイブします。"
     }
   },
   "import": {

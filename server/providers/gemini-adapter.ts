@@ -246,6 +246,9 @@ export const geminiAdapter: ProviderAdapter = {
     // require settings.json `thinkingConfig` + custom model aliases, not a
     // per-spawn arg), so effort is not offered and the adapter ignores it.
     supportsReasoningEffort: false,
+    // No dedicated image flag; `@path` in the prompt is unverified for vision
+    // under `-p`. Disabled until a live smoke-test passes (design D22).
+    supportsImageInput: false,
   },
   modelCatalog: () => GEMINI_MODELS,
   defaultModel: () => 'gemini-3.5-flash',

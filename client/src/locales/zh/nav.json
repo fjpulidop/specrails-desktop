@@ -18,7 +18,9 @@
     "confirmRemove": "确认移除 {{name}}",
     "confirmShort": "确认？",
     "added": "已添加项目：{{name}}",
-    "removed": "项目已移除"
+    "removed": "项目已移除",
+    "expand": "展开 {{name}}",
+    "collapse": "折叠 {{name}}"
   },
   "arcSidebar": {
     "desktopTitle": "Desktop",

@@ -28,6 +28,8 @@ import {
 } from '../lib/agent-api'
 import { AgentChatPanel } from '../components/agent-chat/AgentChatPanel'
 import { AgentBubble } from '../components/agent-chat/AgentBubble'
+import { useUiMode } from './UiModeContext'
+import { useDesktop } from '../hooks/useDesktop'
 
 export type AgentVisibility = 'hidden' | 'open' | 'minimized'
 
@@ -57,16 +59,31 @@ export interface AgentChatContextValue {
   /** null = not yet checked; false = no AI provider CLI is installed. */
   providersReady: boolean | null
 
-  send: (text: string) => Promise<void>
+  send: (text: string, opts?: { attachmentIds?: string[] }) => Promise<void>
   abort: () => Promise<void>
   cycleTier: () => Promise<void>
   setTier: (level: AgentTierLevel) => Promise<void>
   setProvider: (provider: string) => Promise<void>
   setModel: (model: string) => Promise<void>
   setPinnedProject: (projectId: string | null) => Promise<void>
-  newConversation: () => Promise<void>
+  newConversation: (projectId?: string | null) => Promise<void>
+  /** Reset to the EMPTY compose screen (active=null) with a draft pin — the next
+   *  send creates a fresh conversation. This is the "+ New Agent" action. */
+  startNewConversation: (projectId?: string | null) => void
+  /** Pinned project for the EMPTY compose screen (before a conversation exists). */
+  draftPinnedProjectId: string | null
+  /** Provider/model/tier/effort for the EMPTY compose screen — the first send
+   *  creates the conversation with these (the setters branch on `active === null`). */
+  draftProvider: string
+  draftModel: string | null
+  draftTierLevel: AgentTierLevel
+  draftEffort: string | null
+  setEffort: (effort: string | null) => Promise<void>
   selectConversation: (id: string) => Promise<void>
   deleteConversation: (id: string) => Promise<void>
+  /** Refresh the conversation list WITHOUT opening the floating panel. Used on
+   *  entering Agent Mode (open() would mount the now-suppressed panel). */
+  refreshConversations: () => Promise<void>
 }
 
 const AgentChatContext = createContext<AgentChatContextValue | null>(null)
@@ -84,6 +101,8 @@ let _toolSeq = 0
 
 export function AgentChatProvider({ children }: { children: ReactNode }) {
   const { registerHandler, unregisterHandler } = useSharedWebSocket()
+  const { uiMode } = useUiMode()
+  const { setActiveProjectId } = useDesktop()
 
   const [visibility, setVisibility] = useState<AgentVisibility>('hidden')
   const [conversations, setConversations] = useState<AgentConversation[]>([])
@@ -95,6 +114,21 @@ export function AgentChatProvider({ children }: { children: ReactNode }) {
   const [mcpEnabled, setMcpEnabled] = useState(true)
   const [enablingMcp, setEnablingMcp] = useState(false)
   const [providersReady, setProvidersReady] = useState<boolean | null>(null)
+  // Pinned project chosen on the EMPTY compose screen (no conversation yet). The
+  // first send materialises a conversation with this pin.
+  const [draftPinnedProjectId, setDraftPinnedProjectId] = useState<string | null>(null)
+  const draftPinRef = useRef<string | null>(null)
+  draftPinRef.current = draftPinnedProjectId
+  // Provider/model/tier chosen on the EMPTY compose screen (no conversation yet).
+  // The first send materialises a conversation with these — mirrors the draft pin;
+  // without them the EMPTY controls would visibly snap back (patchActive no-ops).
+  const [draftProvider, setDraftProvider] = useState('claude')
+  const [draftModel, setDraftModel] = useState<string | null>(null)
+  const [draftTierLevel, setDraftTierLevel] = useState<AgentTierLevel>(0)
+  // null = the app default ("medium") — shown as Medium in the selector.
+  const [draftEffort, setDraftEffort] = useState<string | null>(null)
+  const draftConvRef = useRef({ provider: 'claude', model: null as string | null, tierLevel: 0 as AgentTierLevel, effort: null as string | null })
+  draftConvRef.current = { provider: draftProvider, model: draftModel, tierLevel: draftTierLevel, effort: draftEffort }
 
   const activeIdRef = useRef<string | null>(null)
   activeIdRef.current = active?.id ?? null
@@ -132,6 +166,14 @@ export function AgentChatProvider({ children }: { children: ReactNode }) {
     const handler = (raw: unknown): void => {
       const msg = raw as WsAgentMsg
       if (typeof msg.type !== 'string' || !msg.type.startsWith('agent_')) return
+      // Auto-title updates apply to the LIST (any conversation), not just the
+      // active one — handle before the active-conversation filter.
+      if (msg.type === 'agent_title' && msg.conversationId) {
+        const title = (msg as { title?: string }).title ?? null
+        setConversations((cs) => cs.map((c) => (c.id === msg.conversationId ? { ...c, title } : c)))
+        setActive((a) => (a && a.id === msg.conversationId ? { ...a, title } : a))
+        return
+      }
       if (!msg.conversationId || msg.conversationId !== activeIdRef.current) return
       if (msg.type === 'agent_stream') {
         setIsStreaming(true)
@@ -208,18 +250,42 @@ export function AgentChatProvider({ children }: { children: ReactNode }) {
     }
   }, [visibility, refreshConversations, refreshMcp, refreshProviders, ensureActive])
 
-  const send = useCallback(async (text: string) => {
+  const send = useCallback(async (text: string, opts?: { attachmentIds?: string[] }) => {
     const trimmed = text.trim()
     if (!trimmed) return
-    const conv = await ensureActive()
+    // EMPTY compose screen (no active conversation) ALWAYS starts a fresh
+    // conversation with the draft pin — it never resurrects the latest chat.
+    let conv = active
+    if (!conv) {
+      conv = await createAgentConversation({
+        pinnedProjectId: draftPinRef.current,
+        provider: draftConvRef.current.provider,
+        model: draftConvRef.current.model,
+        tierLevel: draftConvRef.current.tierLevel,
+        reasoningEffort: draftConvRef.current.effort,
+      })
+      setConversations((c) => [conv!, ...c])
+      setActive(conv)
+      setMessages([])
+    }
     setMessages((m) => [
       ...m,
-      { id: `local-u-${Date.now()}`, conversation_id: conv.id, role: 'user', content: trimmed, created_at: new Date().toISOString() },
+      { id: `local-u-${Date.now()}`, conversation_id: conv.id, role: 'user', content: trimmed, attachment_ids: opts?.attachmentIds ?? [], created_at: new Date().toISOString() },
     ])
     setIsStreaming(true)
     setStreamingText('')
-    await sendAgentMessage(conv.id, trimmed, { tierLevel: conv.tier_level })
-  }, [ensureActive])
+    const attachments = opts?.attachmentIds && opts.attachmentIds.length ? { ids: opts.attachmentIds } : undefined
+    try {
+      await sendAgentMessage(conv.id, trimmed, { tierLevel: conv.tier_level, attachments })
+    } catch (e) {
+      // No agent_* WS event will arrive (the POST never spawned a turn) — reset
+      // the streaming state here, mirroring the agent_error handler.
+      setStreamingText('')
+      setIsStreaming(false)
+      setLiveTools([])
+      toast.error(e instanceof Error ? e.message : 'Failed to send message.')
+    }
+  }, [active])
 
   const abort = useCallback(async () => {
     if (active) await abortAgentTurn(active.id)
@@ -234,17 +300,57 @@ export function AgentChatProvider({ children }: { children: ReactNode }) {
     setConversations((c) => c.map((x) => (x.id === updated.id ? updated : x)))
   }, [active])
 
-  const setTier = useCallback(async (level: AgentTierLevel) => { await patchActive({ tierLevel: level }) }, [patchActive])
+  const setTier = useCallback(async (level: AgentTierLevel) => {
+    if (active) await patchActive({ tierLevel: level })
+    else setDraftTierLevel(level)
+  }, [active, patchActive])
   const cycleTier = useCallback(async () => {
-    const next = (((active?.tier_level ?? 0) + 1) % 4) as AgentTierLevel
+    const next = (((active?.tier_level ?? draftTierLevel) + 1) % 4) as AgentTierLevel
     await setTier(next)
-  }, [active, setTier])
-  const setProvider = useCallback(async (provider: string) => { await patchActive({ provider }) }, [patchActive])
-  const setModel = useCallback(async (model: string) => { await patchActive({ model }) }, [patchActive])
-  const setPinnedProject = useCallback(async (projectId: string | null) => { await patchActive({ pinnedProjectId: projectId }) }, [patchActive])
+  }, [active, draftTierLevel, setTier])
+  const setProvider = useCallback(async (provider: string) => {
+    if (active) await patchActive({ provider })
+    // Model + effort reset on provider switch (mirrors the server's stale reset).
+    else { setDraftProvider(provider); setDraftModel(null); setDraftEffort(null) }
+  }, [active, patchActive])
+  const setModel = useCallback(async (model: string) => {
+    if (active) await patchActive({ model })
+    else setDraftModel(model)
+  }, [active, patchActive])
+  const setEffort = useCallback(async (effort: string | null) => {
+    if (active) await patchActive({ reasoningEffort: effort })
+    else setDraftEffort(effort)
+  }, [active, patchActive])
+  const setPinnedProject = useCallback(async (projectId: string | null) => {
+    // On the EMPTY compose screen there's no conversation yet — record the pick
+    // as a draft pin; otherwise patch the live conversation.
+    if (active) await patchActive({ pinnedProjectId: projectId })
+    else setDraftPinnedProjectId(projectId)
+    // Agent Mode coherence: picking a project on the "+ New Agent" compose
+    // screen also moves the left sidebar's highlighted project (the reverse
+    // already holds — sidebar clicks seed the draft pin). Home (null) leaves
+    // the sidebar untouched; the Kanban floating panel is unaffected.
+    if (!active && projectId && uiMode === 'agent') setActiveProjectId(projectId)
+  }, [active, patchActive, uiMode, setActiveProjectId])
 
-  const newConversation = useCallback(async () => {
-    const created = await createAgentConversation({ pinnedProjectId: active?.pinned_project_id ?? null })
+  const startNewConversation = useCallback((projectId?: string | null) => {
+    setActive(null)
+    setMessages([])
+    setStreamingText('')
+    setIsStreaming(false)
+    setLiveTools([])
+    setDraftPinnedProjectId(projectId ?? null)
+    setDraftProvider('claude')
+    setDraftModel(null)
+    setDraftTierLevel(0)
+    setDraftEffort(null)
+  }, [])
+
+  const newConversation = useCallback(async (projectId?: string | null) => {
+    // Explicit arg pins to that project (null ⇒ Home); arg-less preserves the
+    // legacy behavior of inheriting the active conversation's pin.
+    const pinnedProjectId = projectId !== undefined ? projectId : (active?.pinned_project_id ?? null)
+    const created = await createAgentConversation({ pinnedProjectId })
     setConversations((c) => [created, ...c])
     setActive(created)
     setMessages([])
@@ -260,6 +366,9 @@ export function AgentChatProvider({ children }: { children: ReactNode }) {
     if (activeIdRef.current === id) {
       setActive(null)
       setMessages([])
+      setStreamingText('')
+      setIsStreaming(false)
+      setLiveTools([])
     }
   }, [])
 
@@ -278,22 +387,31 @@ export function AgentChatProvider({ children }: { children: ReactNode }) {
     conversations, active, messages, streamingText, isStreaming, liveTools,
     mcpEnabled, enablingMcp, enableMcpServer, providersReady,
     send, abort, cycleTier, setTier, setProvider, setModel, setPinnedProject,
-    newConversation, selectConversation, deleteConversation,
+    newConversation, startNewConversation, draftPinnedProjectId,
+    draftProvider, draftModel, draftTierLevel, draftEffort, setEffort,
+    selectConversation, deleteConversation, refreshConversations,
   }), [
     visibility, open, close, minimize, toggle,
     conversations, active, messages, streamingText, isStreaming, liveTools,
     mcpEnabled, enablingMcp, enableMcpServer, providersReady,
     send, abort, cycleTier, setTier, setProvider, setModel, setPinnedProject,
-    newConversation, selectConversation, deleteConversation,
+    newConversation, startNewConversation, draftPinnedProjectId,
+    draftProvider, draftModel, draftTierLevel, draftEffort, setEffort,
+    selectConversation, deleteConversation, refreshConversations,
   ])
+
+  // In Agent Mode the conversation UI is the full-screen surface, so the
+  // floating panel + bubble are suppressed. (`uiMode` is read at the top of the
+  // provider — it also gates the sidebar-highlight sync in setPinnedProject.)
+  const floatingAllowed = FEATURE_AGENT_CHAT && uiMode !== 'agent'
 
   return (
     <AgentChatContext.Provider value={value}>
       {children}
-      {FEATURE_AGENT_CHAT && visibility === 'open' && <AgentChatPanel />}
+      {floatingAllowed && visibility === 'open' && <AgentChatPanel />}
       {/* Persistent bottom-center bubble: the single entry point when the panel
           is not open (summon from hidden AND restore from minimized). */}
-      {FEATURE_AGENT_CHAT && visibility !== 'open' && <AgentBubble />}
+      {floatingAllowed && visibility !== 'open' && <AgentBubble />}
     </AgentChatContext.Provider>
   )
 }
@@ -305,7 +423,11 @@ const NOOP_AGENT_CHAT: AgentChatContextValue = {
   mcpEnabled: true, enablingMcp: false, enableMcpServer: async () => {}, providersReady: true,
   send: async () => {}, abort: async () => {}, cycleTier: async () => {}, setTier: async () => {},
   setProvider: async () => {}, setModel: async () => {}, setPinnedProject: async () => {},
-  newConversation: async () => {}, selectConversation: async () => {}, deleteConversation: async () => {},
+  newConversation: async () => {}, startNewConversation: () => {}, draftPinnedProjectId: null,
+  draftProvider: 'claude', draftModel: null, draftTierLevel: 0,
+  draftEffort: null, setEffort: async () => {},
+  selectConversation: async () => {}, deleteConversation: async () => {},
+  refreshConversations: async () => {},
 }
 
 /**

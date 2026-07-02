@@ -1091,6 +1091,7 @@ export type WsMessage =
   | JiraSyncedMessage | JiraSyncErrorMessage | JiraAuthExpiredMessage
   | JiraOutboxChangedMessage | JiraDegradedMessage
   | AgentStreamMessage | AgentDoneMessage | AgentErrorMessage | AgentToolMessage
+  | AgentTitleMessage
 
 // ─── App-global agent chat (no projectId — fans to all subscribers) ───────────
 
@@ -1099,6 +1100,14 @@ export interface AgentStreamMessage {
   type: 'agent_stream'
   conversationId: string
   delta: string
+  timestamp: string
+}
+
+/** Auto-generated conversation title (from the first two user prompts). */
+export interface AgentTitleMessage {
+  type: 'agent_title'
+  conversationId: string
+  title: string
   timestamp: string
 }
 

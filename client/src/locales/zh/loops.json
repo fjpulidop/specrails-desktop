@@ -220,8 +220,8 @@
       "description": "一次性批量实现该 rail 的全部工单,然后验证 + 失败时修正,直到全部通过。"
     },
     "factory_ultracode": {
-      "name": "Ultracode",
-      "description": "按工单自动实现(无流水线),然后验证 + 修正,直到全部通过。仅支持 Claude。"
+      "name": "Freestyle",
+      "description": "将 spec 直接交给模型, 给予完全自由 — 无管线, 像普通编码智能体一样工作, 然后验证+改进直到全部通过。仅限 Claude。"
     },
     "autoloop-tdd": {
       "name": "自动循环 TDD",
@@ -362,6 +362,10 @@
     "deploy-verification-loop": {
       "name": "部署验证循环",
       "description": "部署上线后，按间隔轮询健康检查和 smoke test 端点，对任何非健康响应进行排查、修复或上报，并持续检查直到每个配置的端点都报告成功。"
+    },
+    "factory_openspec": {
+      "name": "OpenSpec Lifecycle",
+      "description": "从 ticket 到归档的 OpenSpec 生命周期: 生成工件 (opsx:ff) → 实现 (opsx:apply) → 验证 (opsx:verify); FAIL 则回环修正同一 change, PASS 则无人值守归档。"
     }
   },
   "import": {

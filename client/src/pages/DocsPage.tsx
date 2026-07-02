@@ -45,57 +45,63 @@ function DocsSidebar({
   activeSlug?: string
 }) {
   const { t } = useTranslation('integrations')
+  // Mirrors the Settings dialog's left nav grammar: rounded-lg rows, xs text,
+  // accent-primary/15 active state, muted hover.
   return (
-    <nav className="w-56 flex-shrink-0 border-r border-border overflow-y-auto py-4 px-3">
+    <nav className="w-56 flex-shrink-0 border-r border-border overflow-y-auto py-4 px-3 space-y-4">
       <Link
         to="/docs"
-        className="flex items-center gap-2 mb-4 px-2 text-xs font-bold text-muted-foreground hover:text-foreground transition-colors"
+        className={cn(
+          'flex w-full items-center gap-2 rounded-lg px-2.5 py-1.5 text-left text-xs transition-colors',
+          !activeCategory && !activeSlug
+            ? 'bg-accent-primary/15 font-medium text-foreground'
+            : 'text-muted-foreground hover:bg-muted/40 hover:text-foreground',
+        )}
       >
-        <BookOpen className="w-3.5 h-3.5" />
-        {t('docs.title')}
+        <BookOpen className="w-3.5 h-3.5 shrink-0" />
+        <span className="truncate">{t('docs.title')}</span>
       </Link>
 
-      <div className="space-y-4">
-        {categories.map((cat) => (
-          <div key={cat.slug}>
-            <div className="px-2 mb-1 flex items-center justify-between">
-              <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
-                {cat.name}
+      {categories.map((cat) => (
+        <div key={cat.slug} className="space-y-0.5">
+          <div className="px-2.5 mb-1 flex items-center justify-between">
+            <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+              {cat.name}
+            </span>
+            {cat.docs.length > 0 && (
+              <span className="text-[9px] font-medium text-muted-foreground/60 bg-muted/40 rounded px-1 py-0.5 leading-none">
+                {cat.docs.length}
               </span>
-              {cat.docs.length > 0 && (
-                <span className="text-[9px] font-medium text-muted-foreground/60 bg-muted/40 rounded px-1 py-0.5 leading-none">
-                  {cat.docs.length}
-                </span>
-              )}
-            </div>
-            {cat.docs.length === 0 ? (
-              <p className="px-2 text-xs text-muted-foreground italic">{t('docs.sidebarEmpty')}</p>
-            ) : (
-              <ul className="space-y-0.5">
-                {cat.docs.map((doc) => {
-                  const isActive = activeCategory === cat.slug && activeSlug === doc.slug
-                  return (
-                    <li key={doc.slug}>
-                      <Link
-                        to={`/docs/${cat.slug}/${doc.slug}`}
-                        className={cn(
-                          'flex items-center gap-1.5 px-2 py-1 rounded-md text-xs transition-colors',
-                          isActive
-                            ? 'bg-accent text-foreground'
-                            : 'text-muted-foreground hover:text-foreground hover:bg-accent/50'
-                        )}
-                      >
-                        <FileText className="w-3 h-3 flex-shrink-0" />
-                        {doc.title}
-                      </Link>
-                    </li>
-                  )
-                })}
-              </ul>
             )}
           </div>
-        ))}
-      </div>
+          {cat.docs.length === 0 ? (
+            <p className="px-2.5 text-xs text-muted-foreground italic">{t('docs.sidebarEmpty')}</p>
+          ) : (
+            <ul className="space-y-0.5">
+              {cat.docs.map((doc) => {
+                const isActive = activeCategory === cat.slug && activeSlug === doc.slug
+                return (
+                  <li key={doc.slug}>
+                    <Link
+                      to={`/docs/${cat.slug}/${doc.slug}`}
+                      title={doc.title}
+                      className={cn(
+                        'flex w-full items-center gap-2 rounded-lg px-2.5 py-1.5 text-left text-xs transition-colors',
+                        isActive
+                          ? 'bg-accent-primary/15 font-medium text-foreground'
+                          : 'text-muted-foreground hover:bg-muted/40 hover:text-foreground'
+                      )}
+                    >
+                      <FileText className="w-3.5 h-3.5 shrink-0" />
+                      <span className="truncate">{doc.title}</span>
+                    </Link>
+                  </li>
+                )
+              })}
+            </ul>
+          )}
+        </div>
+      ))}
     </nav>
   )
 }
@@ -107,10 +113,15 @@ function DocsIndex({ categories }: { categories: DocCategory[] }) {
   const total = categories.reduce((sum, c) => sum + c.docs.length, 0)
   const nonEmptyCategories = categories.filter((c) => c.docs.length > 0).length
 
+  // Mirrors a Settings section pane: icon header, uppercase xs section headings
+  // + bordered rounded-md list rows (same grammar as the Settings "Projects" list).
   return (
-    <div className="max-w-2xl mx-auto py-8 px-6">
-      <div className="mb-8">
-        <h1 className="text-xl font-bold mb-2">{t('docs.title')}</h1>
+    <div className="max-w-2xl mx-auto py-8 px-6 space-y-5">
+      <div className="space-y-1.5">
+        <h1 className="flex items-center gap-2 text-lg font-semibold">
+          <BookOpen className="w-4 h-4" />
+          {t('docs.title')}
+        </h1>
         <p className="text-sm text-muted-foreground">
           {total === 0
             ? t('docs.indexEmpty')
@@ -121,33 +132,31 @@ function DocsIndex({ categories }: { categories: DocCategory[] }) {
         </p>
       </div>
 
-      <div className="space-y-6">
-        {categories.map((cat) => (
-          <div key={cat.slug}>
-            <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider mb-2">
-              {cat.name}
-            </h2>
-            {cat.docs.length === 0 ? (
-              <p className="text-xs text-muted-foreground italic pl-2">{t('docs.categoryEmpty')}</p>
-            ) : (
-              <ul className="space-y-1">
-                {cat.docs.map((doc) => (
-                  <li key={doc.slug}>
-                    <Link
-                      to={`/docs/${cat.slug}/${doc.slug}`}
-                      className="flex items-center gap-2 px-3 py-2 rounded-md text-sm hover:bg-accent transition-colors group"
-                    >
-                      <FileText className="w-3.5 h-3.5 text-muted-foreground flex-shrink-0" />
-                      <span className="text-foreground group-hover:text-foreground">{doc.title}</span>
-                      <ChevronRight className="w-3 h-3 text-muted-foreground ml-auto md:opacity-0 md:group-hover:opacity-100 transition-opacity" />
-                    </Link>
-                  </li>
-                ))}
-              </ul>
-            )}
-          </div>
-        ))}
-      </div>
+      {categories.map((cat) => (
+        <div key={cat.slug} className="space-y-2">
+          <h2 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+            {cat.name}
+          </h2>
+          {cat.docs.length === 0 ? (
+            <p className="text-xs text-muted-foreground italic pl-2">{t('docs.categoryEmpty')}</p>
+          ) : (
+            <ul className="space-y-2">
+              {cat.docs.map((doc) => (
+                <li key={doc.slug}>
+                  <Link
+                    to={`/docs/${cat.slug}/${doc.slug}`}
+                    className="flex items-center gap-3 p-2.5 rounded-md border border-border transition-colors hover:bg-muted/40 group"
+                  >
+                    <FileText className="w-3.5 h-3.5 text-muted-foreground flex-shrink-0" />
+                    <span className="text-xs font-medium text-foreground truncate">{doc.title}</span>
+                    <ChevronRight className="w-3 h-3 text-muted-foreground ml-auto md:opacity-0 md:group-hover:opacity-100 transition-opacity" />
+                  </Link>
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
+      ))}
     </div>
   )
 }

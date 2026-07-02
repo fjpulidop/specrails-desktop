@@ -164,12 +164,12 @@ describe('GlobalSettingsPage', () => {
     })
   })
 
-  it('renders specrails-tech URL field after loading', async () => {
+  it('does not render the removed specrails-tech URL field', async () => {
     const GlobalSettingsPage = (await import('../GlobalSettingsPage')).default
     render(<GlobalSettingsPage open={true} onClose={vi.fn()} />)
 
     await waitFor(() => {
-      expect(screen.getByPlaceholderText('http://localhost:3000')).toBeInTheDocument()
+      expect(screen.queryByPlaceholderText('http://localhost:3000')).not.toBeInTheDocument()
     })
   })
 

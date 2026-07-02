@@ -20,7 +20,7 @@ tauri-build = { version = "2", features = [] }
 # inspector while release builds ship WITHOUT it — this both removes the
 # "embedded web page" Inspect Element entry from production and avoids shipping
 # the WKWebView private devtools API (a macOS App Store blocker).
-tauri = { version = "2", features = ["tray-icon"] }
+tauri = { version = "2", features = ["tray-icon", "image-png"] }
 tauri-plugin-shell = "2"
 tauri-plugin-dialog = "2"
 tauri-plugin-process = "2"

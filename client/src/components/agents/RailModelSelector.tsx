@@ -3,7 +3,7 @@ import { Sparkles } from 'lucide-react'
 
 /** Models the ultracode picker exposes (Claude aliases). Mirrors the server
  *  rails-router allow-list. */
-export const ULTRACODE_MODELS = ['haiku', 'sonnet', 'opus'] as const
+export const ULTRACODE_MODELS = ['haiku', 'sonnet', 'opus', 'fable'] as const
 export type UltracodeModel = (typeof ULTRACODE_MODELS)[number]
 export const DEFAULT_ULTRACODE_MODEL: UltracodeModel = 'sonnet'
 
@@ -11,6 +11,7 @@ const LABELS: Record<UltracodeModel, string> = {
   haiku: 'Haiku',
   sonnet: 'Sonnet',
   opus: 'Opus',
+  fable: 'Fable',
 }
 
 interface Props {

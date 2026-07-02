@@ -70,7 +70,7 @@ function serializeInstallConfigYaml(config: Record<string, unknown>): string {
 
 // ─── Agent model helpers ──────────────────────────────────────────────────────
 
-const VALID_MODEL_ALIASES = ['sonnet', 'opus', 'haiku'] as const
+const VALID_MODEL_ALIASES = ['sonnet', 'fable', 'opus', 'haiku'] as const
 type ModelAlias = typeof VALID_MODEL_ALIASES[number]
 
 /** Minimal project shape the agent-model helpers need. `slug` resolves the

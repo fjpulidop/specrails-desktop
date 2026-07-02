@@ -39,6 +39,29 @@ describe('StatusBar', () => {
     expect(indicator).toBeInTheDocument()
   })
 
+  it('minimal: hides the connection cluster while healthy and never fetches stats', () => {
+    global.fetch = vi.fn().mockResolvedValue({ ok: false })
+    render(<StatusBar connectionStatus="connected" minimal />)
+    // Cluster rendered but faded out + aria-hidden ("silence means healthy").
+    expect(screen.getByText('connected').parentElement).toHaveAttribute('aria-hidden', 'true')
+    expect(global.fetch).not.toHaveBeenCalled()
+  })
+
+  it('minimal: still surfaces a disconnected state', () => {
+    global.fetch = vi.fn().mockResolvedValue({ ok: false })
+    render(<StatusBar connectionStatus="disconnected" minimal />)
+    expect(screen.getByText('disconnected').parentElement).not.toHaveAttribute('aria-hidden')
+  })
+
+  it('minimal: never renders the spend figure', async () => {
+    global.fetch = vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({ jobsToday: 2, costToday: 1, totalCostUsd: 12.34 }),
+    })
+    render(<StatusBar connectionStatus="connected" minimal />)
+    await waitFor(() => expect(screen.queryByText(/\$12\.34/)).not.toBeInTheDocument())
+  })
+
   it('orange indicator is present when connecting', () => {
     global.fetch = vi.fn().mockResolvedValue({ ok: false })
     render(<StatusBar connectionStatus="connecting" />)

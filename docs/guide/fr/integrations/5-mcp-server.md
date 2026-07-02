@@ -31,6 +31,25 @@ Dans un client comme Claude Desktop ou Cursor, la configuration ressemble à cec
 
 Les clients qui prennent en charge les serveurs MCP HTTP distants peuvent à la place pointer directement vers `http://127.0.0.1:4200/api/mcp` avec le jeton du panneau.
 
+### Depuis le terminal : Claude Code, Gemini CLI, Codex CLI
+
+Copiez votre jeton depuis **Réglages ▸ MCP ▸ Copier le jeton**, puis :
+
+```bash
+# Claude Code
+claude mcp add --transport http specrails http://localhost:4200/api/mcp \
+  --header "X-Desktop-Token: <votre jeton>"
+
+# Gemini CLI
+gemini mcp add --transport http specrails http://localhost:4200/api/mcp \
+  --header "X-Desktop-Token: <votre jeton>"
+
+# Codex CLI (stdio — enregistrez la commande du bridge affichée dans Réglages ▸ MCP)
+codex mcp add specrails -- <commande du bridge depuis Réglages ▸ MCP>
+```
+
+L'en-tête `Authorization: Bearer <token>` fonctionne aussi. Si vous avez changé le port de l'app, remplacez `4200`.
+
 Une fois connecté, votre assistant voit environ **18 outils** couvrant toute l'app — projets, specs, rails et jobs, chat/Explore, agents, plugins, Jira, loops, l'explorateur de code, les analyses, les paramètres — plus un outil **guide** intégré qu'il lit en premier afin de comprendre le fonctionnement de Specrails sans que vous ayez à expliquer quoi que ce soit.
 
 ## Ce que vous pouvez en faire
@@ -51,7 +70,7 @@ Gardez **Destructif** désactivé et il peut construire toute la nuit sans jamai
 > *« Vérifie tous mes projets. Dis-moi lesquels ont des specs dans le backlog sans aucun rail en cours, et démarre la plus prioritaire dans chacun. »*
 
 **Sans les mains pendant que vous codez.** Pilotez Specrails depuis votre éditeur ou à la voix, sans changer de fenêtre :
-> *« Lance le rail 0 en mode ultracode avec Opus pour le ticket #42 et préviens-moi quand c'est terminé. »*
+> *« Lance le rail 0 en mode Freestyle avec Opus pour le ticket #42 et préviens-moi quand c'est terminé. »*
 
 **Interrogez les coûts et l'historique.** Vos analyses, en langage clair :
 > *« Où ai-je le plus dépensé en IA cette semaine, par projet et par modèle ? Montre-moi les cinq tickets les plus coûteux. »*

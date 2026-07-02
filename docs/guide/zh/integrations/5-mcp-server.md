@@ -31,6 +31,25 @@ Specrails 可以把**自己**暴露给任何会说 [Model Context Protocol](http
 
 支持远程 HTTP MCP 服务器的客户端，则可以直接指向 `http://127.0.0.1:4200/api/mcp`，并配上面板里的令牌。
 
+### 从终端连接: Claude Code、Gemini CLI、Codex CLI
+
+先在 **设置 ▸ MCP ▸ 复制令牌** 复制令牌, 然后:
+
+```bash
+# Claude Code
+claude mcp add --transport http specrails http://localhost:4200/api/mcp \
+  --header "X-Desktop-Token: <你的令牌>"
+
+# Gemini CLI
+gemini mcp add --transport http specrails http://localhost:4200/api/mcp \
+  --header "X-Desktop-Token: <你的令牌>"
+
+# Codex CLI (stdio — 注册 设置 ▸ MCP 中显示的 bridge 命令)
+codex mcp add specrails -- <设置 ▸ MCP 中的 bridge 命令>
+```
+
+也可以使用 `Authorization: Bearer <token>` 请求头。如果修改过应用端口, 请替换 `4200`。
+
 一旦连上，你的助手会看到大约 **18 个工具**，覆盖整个应用——项目、规格、rail 和任务、聊天 / Explore、agent、插件、Jira、loop、代码浏览器、分析、设置——外加一个内置的**指南（guide）**工具，它会先读这个工具，从而无需你解释任何东西就能理解 Specrails 是怎么运作的。
 
 ## 你能用它做些什么
@@ -51,7 +70,7 @@ Specrails 可以把**自己**暴露给任何会说 [Model Context Protocol](http
 > *「检查我所有的项目。告诉我哪些在 backlog 里有规格却没有 rail 在跑，并在每个项目里启动优先级最高的那一个。」*
 
 **写代码时不用动手。** 从你的编辑器里或用语音来驱动 Specrails，无需切换窗口：
-> *「用 Opus、以 ultracode 模式在 rail 0 上为任务 #42 启动一条 rail，跑完了告诉我。」*
+> *「用 Opus、以 Freestyle 模式在 rail 0 上为任务 #42 启动一条 rail，跑完了告诉我。」*
 
 **询问费用和历史。** 用大白话查你的分析数据：
 > *「我这周在 AI 上花得最多的是哪里，按项目、按模型分别列出来？给我看最贵的五个任务。」*

@@ -99,5 +99,38 @@
   },
   "chip": {
     "kindAgent": "智能体聊天"
-  }
+  },
+  "newAgent": "新建智能体",
+  "switchToAgent": "切换到智能体模式",
+  "switchToKanban": "切换到看板模式",
+  "search": "搜索",
+  "home": "主页",
+  "untitled": "未命名",
+  "workspace": {
+    "title": "工作区",
+    "terminal": "终端",
+    "files": "文件",
+    "browser": "浏览器",
+    "requiresProject": "请选择一个项目以使用此工具",
+    "resizeCode": "调整代码面板",
+    "closeFiles": "关闭代码",
+    "browserConfirm": "添加到智能体",
+    "browserCaptured": "已添加捕获",
+    "uploadFailed": "上传失败",
+    "requiresConversation": "开始一段对话以使用此工具"
+  },
+  "attachFile": "附加文件",
+  "deleteConversation": "删除「{{title}}」",
+  "confirmDeleteConversation": "确认删除「{{title}}」",
+  "confirmShort": "确认？",
+  "imagesUnsupported": "该提供商暂不支持读取图片 — 请附加文本文件",
+  "effort": {
+    "label": "推理强度",
+    "minimal": "最小",
+    "low": "低",
+    "medium": "中",
+    "high": "高",
+    "xhigh": "极高"
+  },
+  "emptyTitleMatrix": "让史密斯特工做什么？"
 }

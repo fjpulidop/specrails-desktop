@@ -33,14 +33,12 @@
     "log": "日志",
     "implement": "实现",
     "batch": "批量",
-    "ultra": "Ultra",
-    "ultraTitle": "Ultracode — Claude 自主实现该 Spec，不走流水线",
+    "ultra": "Freestyle",
+    "ultraTitle": "Freestyle — Claude 自主实现该 Spec，不走流水线",
     "loop": "Loop",
     "loopTitle": "Loop — 针对该轨道的 Spec 运行已发布的自动化循环",
     "pickLoop": "选择一个循环…",
     "effortTitle": "推理强度",
-    "interactive": "交互",
-    "interactiveTitle": "交互 — 与运行中的任务对话；可继续发送提示，完成后再定稿",
     "stop": "停止",
     "play": "运行",
     "failedRetry": "任务失败 — 点击重试",
@@ -50,7 +48,8 @@
     "worktreesMerged": "已合并 {{count}}",
     "worktreesNeedsReview": "{{count}} 需复查",
     "execSteps": "{{count}} 步",
-    "execLines": "{{count}} 行"
+    "execLines": "{{count}} 行",
+    "openspec": "OpenSpec"
   },
   "railRow": {
     "moveToSpecs": "移至 Specs",
@@ -60,7 +59,7 @@
     "dragSpecsHere": "将 Spec 拖到此处"
   },
   "ultracodeDialog": {
-    "title": "以 Ultracode 模式启动",
+    "title": "以 Freestyle 模式启动",
     "context_one": "{{rail}} · {{count}} 个 Spec",
     "context_other": "{{rail}} · {{count}} 个 Spec",
     "noPipelineTitle": "无 OpenSpec 流水线。",

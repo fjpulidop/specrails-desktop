@@ -876,6 +876,28 @@ export function registerTicketsRoutes(deps: ProjectRoutesDeps): void {
           .filter((c) => c.length > 0)
       : []
     const priority = isValidPriority(body.priority) ? body.priority : 'medium'
+    // Optional assignee/prerequisites/metadata (same normalization as the
+    // PATCH /tickets/:id route) so an MCP commit_draft is a true one-shot
+    // insert — no follow-up update call needed for these fields.
+    const hasAssignee = body.assignee !== undefined
+    const assignee = typeof body.assignee === 'string' ? body.assignee : null
+    const hasPrerequisites = Array.isArray(body.prerequisites)
+    const prerequisites = hasPrerequisites
+      ? (body.prerequisites as unknown[]).filter((p): p is number => typeof p === 'number')
+      : []
+    const hasMetadata = typeof body.metadata === 'object' && body.metadata !== null
+    const metadata = hasMetadata ? (body.metadata as Ticket['metadata']) : {}
+
+    // A supplied conversationId must reference a REAL chat conversation in this
+    // project (an Explore row in chat_conversations). Agent/desktop conversation
+    // ids are NOT valid origins — stamping one would corrupt the ticket's origin
+    // linkage ("Continue Explore") and mis-schedule Contract Refine.
+    if (conversationId && !getConversation(ctx(req).db, conversationId)) {
+      res.status(400).json({
+        error: "conversationId not found in this project's chat conversations — agent conversations are not valid origins; omit conversationId",
+      })
+      return
+    }
 
     // Compose the final ticket body. The title is already its own ticket
     // field, so we deliberately do NOT echo it as a `## Spec Title` heading
@@ -941,6 +963,11 @@ export function registerTicketsRoutes(deps: ProjectRoutesDeps): void {
           flipTarget.title = rawTitle
           flipTarget.description = descriptionForStore
           if (labels.length > 0) flipTarget.labels = labels
+          // PATCH-route semantics: apply only when the field was supplied;
+          // metadata merges keys instead of replacing the object.
+          if (hasAssignee) flipTarget.assignee = assignee
+          if (hasPrerequisites) flipTarget.prerequisites = prerequisites
+          if (hasMetadata) flipTarget.metadata = { ...flipTarget.metadata, ...metadata }
           flipTarget.updated_at = now
           // Preserve prior short_summary on flip when the model/body omits one;
           // overwrite only when a non-null value is provided.
@@ -976,9 +1003,9 @@ export function registerTicketsRoutes(deps: ProjectRoutesDeps): void {
           status: 'todo',
           priority,
           labels,
-          assignee: null,
-          prerequisites: [],
-          metadata: {},
+          assignee,
+          prerequisites,
+          metadata,
           comments: [],
           origin_conversation_id: conversationId,
           is_epic: false,
@@ -1950,7 +1977,15 @@ export function registerTicketsRoutes(deps: ProjectRoutesDeps): void {
       'Content-Disposition',
       `inline; filename="${asciiName}"; filename*=UTF-8''${encodeURIComponent(meta.filename)}`,
     )
-    fs.createReadStream(abs).pipe(res)
+    // The exists check above is not atomic with the stream's async open — a
+    // concurrent attachment DELETE can rm the file in between, and an unhandled
+    // ReadStream 'error' would take down the sidecar.
+    const stream = fs.createReadStream(abs)
+    stream.on('error', () => {
+      if (!res.headersSent) res.status(404).json({ error: 'Attachment not found' })
+      else res.destroy()
+    })
+    stream.pipe(res)
   })
 
   router.delete('/:projectId/tickets/:ticketId/attachments/:attachmentId', async (req: Request, res: Response) => {

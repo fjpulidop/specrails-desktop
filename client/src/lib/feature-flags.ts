@@ -51,6 +51,18 @@ export const FEATURE_AGENT_CHAT = (() => {
   return true
 })()
 
+/** Gates the full-screen Agent Mode (persisted uiMode: kanban|agent). When off,
+ *  uiMode is pinned to 'kanban' and Kanban stays byte-identical. Default ON;
+ *  kill path = VITE_FEATURE_AGENT_MODE=false. Requires FEATURE_AGENT_CHAT —
+ *  Agent Mode rides the same conversation machinery (agent_* WS events), so
+ *  killing agent chat also pins uiMode to 'kanban'. */
+export const FEATURE_AGENT_MODE = (() => {
+  const env = (import.meta as unknown as { env?: Record<string, string | undefined> }).env
+  const override = env?.VITE_FEATURE_AGENT_MODE
+  const own = typeof override === 'string' ? override !== 'false' : true
+  return FEATURE_AGENT_CHAT && own
+})()
+
 /** Gates interactive ultracode jobs UI (rail "Interactive" toggle + in-job chat
  *  + Finalize button). Default ON; mirrors server SPECRAILS_INTERACTIVE_JOBS. */
 export const FEATURE_INTERACTIVE_JOBS = (() => {

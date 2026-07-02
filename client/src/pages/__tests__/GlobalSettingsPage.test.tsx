@@ -211,74 +211,10 @@ describe('GlobalSettingsPage (Desktop Settings dialog)', () => {
     })
   })
 
-  it('renders specrails-tech section with URL input', async () => {
-    render(<GlobalSettingsPage open={true} onClose={vi.fn()} />)
-    await waitFor(() => {
-      expect(screen.getByPlaceholderText('http://localhost:3000')).toBeInTheDocument()
-    })
-  })
 
-  it('pre-fills URL input with value from settings', async () => {
-    render(<GlobalSettingsPage open={true} onClose={vi.fn()} />)
-    await waitFor(() => {
-      const input = screen.getByPlaceholderText('http://localhost:3000') as HTMLInputElement
-      expect(input.value).toBe('http://localhost:3000')
-    })
-  })
 
-  it('renders Save button for specrails-tech URL', async () => {
-    render(<GlobalSettingsPage open={true} onClose={vi.fn()} />)
-    await waitFor(() => {
-      const saveButtons = screen.getAllByRole('button', { name: /save/i })
-      expect(saveButtons[0]).toBeInTheDocument()
-    })
-  })
 
-  it('saves specrails-tech URL successfully and shows toast', async () => {
-    const user = userEvent.setup()
-    const { toast } = await import('sonner')
 
-    global.fetch = vi.fn()
-      .mockResolvedValueOnce({ ok: true, json: async () => desktopSettings })          // GET settings
-      .mockResolvedValueOnce({ ok: true, json: async () => ({ webhooks: [] }) })   // GET webhooks
-      .mockResolvedValueOnce({ ok: true, json: async () => budgetResponse })       // GET budget
-      .mockResolvedValue({ ok: true, json: async () => defaultTerminalSettings }) // catch-all (terminal-settings + PUT settings)
-
-    render(<GlobalSettingsPage open={true} onClose={vi.fn()} />)
-
-    await waitFor(() => {
-      expect(screen.getByPlaceholderText('http://localhost:3000')).toBeInTheDocument()
-    })
-
-    await user.click(screen.getAllByRole('button', { name: /save/i })[0])
-
-    await waitFor(() => {
-      expect(toast.success).toHaveBeenCalledWith('specrails-tech URL saved')
-    })
-  })
-
-  it('shows error toast when save URL request fails', async () => {
-    const user = userEvent.setup()
-    const { toast } = await import('sonner')
-
-    global.fetch = vi.fn()
-      .mockResolvedValueOnce({ ok: true, json: async () => desktopSettings })          // GET settings
-      .mockResolvedValueOnce({ ok: true, json: async () => ({ webhooks: [] }) })   // GET webhooks
-      .mockResolvedValueOnce({ ok: true, json: async () => budgetResponse })       // GET budget
-      .mockResolvedValueOnce({ ok: false })                                         // PUT fails
-
-    render(<GlobalSettingsPage open={true} onClose={vi.fn()} />)
-
-    await waitFor(() => {
-      expect(screen.getByPlaceholderText('http://localhost:3000')).toBeInTheDocument()
-    })
-
-    await user.click(screen.getAllByRole('button', { name: /save/i })[0])
-
-    await waitFor(() => {
-      expect(toast.error).toHaveBeenCalledWith('Failed to save URL')
-    })
-  })
 
   it('renders Desktop Information section with port', async () => {
     render(<GlobalSettingsPage open={true} onClose={vi.fn()} />)
@@ -320,17 +256,6 @@ describe('GlobalSettingsPage (Desktop Settings dialog)', () => {
     })
   })
 
-  it('updates URL input when user types', async () => {
-    const user = userEvent.setup()
-    render(<GlobalSettingsPage open={true} onClose={vi.fn()} />)
-    await waitFor(() => {
-      expect(screen.getByPlaceholderText('http://localhost:3000')).toBeInTheDocument()
-    })
-    const input = screen.getByPlaceholderText('http://localhost:3000') as HTMLInputElement
-    await user.clear(input)
-    await user.type(input, 'http://localhost:4000')
-    expect(input.value).toBe('http://localhost:4000')
-  })
 
   it('renders Budget & Alerts section', async () => {
     render(<GlobalSettingsPage open={true} onClose={vi.fn()} />)
@@ -354,7 +279,7 @@ describe('GlobalSettingsPage (Desktop Settings dialog)', () => {
     })
     const input = screen.getByPlaceholderText(/e\.g\. 0\.50/i) as HTMLInputElement
     await user.type(input, '0.50')
-    await user.click(screen.getAllByRole('button', { name: /save/i })[2])
+    await user.click(screen.getAllByRole('button', { name: /save/i })[1])
     await waitFor(() => {
       expect(toast.success).toHaveBeenCalledWith('Alert set for jobs over $0.5')
     })
@@ -372,7 +297,7 @@ describe('GlobalSettingsPage (Desktop Settings dialog)', () => {
     await waitFor(() => {
       expect(screen.getByPlaceholderText(/e\.g\. 0\.50/i)).toBeInTheDocument()
     })
-    await user.click(screen.getAllByRole('button', { name: /save/i })[2])
+    await user.click(screen.getAllByRole('button', { name: /save/i })[1])
     await waitFor(() => {
       expect(toast.success).toHaveBeenCalledWith('Cost alerts disabled')
     })
@@ -388,7 +313,7 @@ describe('GlobalSettingsPage (Desktop Settings dialog)', () => {
     })
     const input = screen.getByPlaceholderText(/e\.g\. 0\.50/i) as HTMLInputElement
     await user.type(input, '-1')
-    await user.click(screen.getAllByRole('button', { name: /save/i })[2])
+    await user.click(screen.getAllByRole('button', { name: /save/i })[1])
     await waitFor(() => {
       expect(toast.error).toHaveBeenCalledWith('Enter a positive number or leave blank to disable')
     })

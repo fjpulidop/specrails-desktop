@@ -36,7 +36,8 @@ export function setupTools(): McpToolSpec[] {
         'Per-project actions: install_config (persist install-config.yaml), install (spawn offline framework scaffold — async/202), ' +
         'checkpoints (poll live setup/install state — the canonical completion signal when not streaming WS), ' +
         'abort (SIGTERM/SIGKILL the in-progress install child), integration_contract (read the ticket-provider contract). ' +
-        'Install is QUICK-only and provisions every registered provider in one shot; the legacy full/enrich AI flow is not exposed here.',
+        'Install is QUICK-only and provisions every registered provider in one shot; the legacy full/enrich AI flow is not exposed here. ' +
+        'Lifecycle: 1) prerequisites 2) add_project(path, providers) 3) install_config per provider 4) ONE install (provisions ALL chosen providers; quick-only, offline) 5) poll checkpoints until isInstalling === false.',
       hintTier: 'read',
       tier: (a) => {
         const action = a.action as string

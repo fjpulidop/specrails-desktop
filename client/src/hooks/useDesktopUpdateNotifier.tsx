@@ -13,16 +13,16 @@ const RECHECK_INTERVAL_MS = 6 * 60 * 60 * 1000 // 6h — surface releases publis
 
 type UpdateToastState = 'available' | 'downloading' | 'installing' | 'ready' | 'error'
 
-type DesktopUpdate = Pick<Update, 'currentVersion' | 'version'> & {
+export type DesktopUpdate = Pick<Update, 'currentVersion' | 'version'> & {
   isMock?: boolean
   downloadAndInstall: (onEvent: (event: DownloadEvent) => void) => Promise<void>
 }
 
-function isTauriRuntime(): boolean {
+export function isTauriRuntime(): boolean {
   return typeof window !== 'undefined' && '__TAURI_INTERNALS__' in window
 }
 
-function isMockUpdateEnabled(): boolean {
+export function isMockUpdateEnabled(): boolean {
   const env = (import.meta as unknown as { env?: Record<string, string | undefined> }).env
   return env?.VITE_MOCK_DESKTOP_UPDATE === 'true'
 }
@@ -36,7 +36,7 @@ function delay(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms))
 }
 
-function createMockUpdate(): DesktopUpdate {
+export function createMockUpdate(): DesktopUpdate {
   return {
     currentVersion: '1.40.1',
     version: mockUpdateVersion(),
@@ -315,6 +315,19 @@ export function DesktopUpdateToast({
       </div>
     </div>
   )
+}
+
+/** Surface the standard update card for an already-checked update. Used by the
+ *  Settings ▸ Updates manual check — an explicit user action, so it bypasses the
+ *  dismissed-version gate (the fixed toast id keeps it idempotent). */
+export function showDesktopUpdateToast(update: DesktopUpdate): void {
+  toast.custom(() => <DesktopUpdateToast update={update} />, {
+    id: UPDATE_TOAST_ID,
+    duration: Infinity,
+    dismissible: false,
+    unstyled: true,
+    closeButton: false,
+  })
 }
 
 export function useDesktopUpdateNotifier() {

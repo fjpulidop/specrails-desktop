@@ -10,8 +10,9 @@ import { apiCall, projectPath } from './types'
  *
  * Every op is per-project under `/api/projects/:projectId/code/*`. The v1 edit
  * path (PUT /code/file) is intentionally NOT exposed — Code Explorer is
- * read-only here. The app-level GET/PATCH /api/code-explorer-settings ops are
- * app-scoped settings, surfaced by the settings domain, not here.
+ * read-only here. The app-level code-explorer settings (summary language +
+ * monthly summary budget) are surfaced by specrails_settings
+ * (summaryLanguage / summaryMonthlyBudgetUsd), not here.
  *
  * Encode query strings explicitly so file paths with spaces/`#`/`?` survive.
  */

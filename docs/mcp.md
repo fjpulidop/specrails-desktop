@@ -154,10 +154,11 @@ bridge and connect to:
 http://127.0.0.1:4200/api/mcp
 ```
 
-with the scoped token as a bearer header:
+with the scoped token in either header form (both are accepted):
 
 ```
 Authorization: Bearer <your mcp token>
+X-Desktop-Token: <your mcp token>
 ```
 
 Get the token from **Settings ▸ MCP ▸ Copy token** (or read
@@ -166,6 +167,30 @@ request that doesn't originate from `127.0.0.1`, so this path is for local
 HTTP-capable clients, not for exposing Specrails on a network. (`4200` is the
 default app port; if you've changed it, the panel's config reflects the real
 one.)
+
+#### One-liners for the common CLIs
+
+**Claude Code** (HTTP transport):
+
+```bash
+claude mcp add --transport http specrails http://localhost:4200/api/mcp \
+  --header "X-Desktop-Token: <your mcp token>"
+```
+
+**Gemini CLI** (HTTP transport — same shape):
+
+```bash
+gemini mcp add --transport http specrails http://localhost:4200/api/mcp \
+  --header "X-Desktop-Token: <your mcp token>"
+```
+
+**Codex CLI** (stdio — register the bundled bridge; copy the exact bridge
+command from **Settings ▸ MCP ▸ Copy config**, it embeds the app's bundled
+Node + script path):
+
+```bash
+codex mcp add specrails -- <bridge command from Settings ▸ MCP>
+```
 
 ## Security model
 

@@ -31,6 +31,25 @@ In un client come Claude Desktop o Cursor, la configurazione si presenta così:
 
 I client che supportano i server MCP HTTP remoti possono invece puntare direttamente a `http://127.0.0.1:4200/api/mcp` con il token preso dal pannello.
 
+### Dal terminale: Claude Code, Gemini CLI, Codex CLI
+
+Copia il tuo token da **Impostazioni ▸ MCP ▸ Copia token**, poi:
+
+```bash
+# Claude Code
+claude mcp add --transport http specrails http://localhost:4200/api/mcp \
+  --header "X-Desktop-Token: <il tuo token>"
+
+# Gemini CLI
+gemini mcp add --transport http specrails http://localhost:4200/api/mcp \
+  --header "X-Desktop-Token: <il tuo token>"
+
+# Codex CLI (stdio — registra il comando bridge mostrato in Impostazioni ▸ MCP)
+codex mcp add specrails -- <comando bridge da Impostazioni ▸ MCP>
+```
+
+Funziona anche l'header `Authorization: Bearer <token>`. Se hai cambiato la porta dell'app, sostituisci `4200`.
+
 Una volta collegato, il tuo assistente vede circa **18 strumenti** che coprono l'intera app — progetti, spec, rail e job, chat/Explore, agenti, plugin, Jira, loop, l'esploratore del codice, le analisi, le impostazioni — più uno strumento **guida** integrato che legge per primo, così capisce come funziona Specrails senza che tu debba spiegargli nulla.
 
 ## Cosa puoi farci
@@ -51,7 +70,7 @@ Tieni **Distruttivo** disattivato e potrà lavorare tutta la notte senza mai eli
 > *"Controlla tutti i miei progetti. Dimmi quali hanno spec nel backlog e nessun rail in esecuzione, e avvia in ognuno quella a priorità più alta."*
 
 **Senza mani mentre programmi.** Pilota Specrails dal tuo editor o a voce, senza cambiare finestra:
-> *"Lancia il rail 0 in modalità ultracode con Opus per il ticket #42 e dimmi quando ha finito."*
+> *"Lancia il rail 0 in modalità Freestyle con Opus per il ticket #42 e dimmi quando ha finito."*
 
 **Chiedi di costi e cronologia.** Le tue analisi, in linguaggio naturale:
 > *"Dove ho speso di più in AI questa settimana, per progetto e per modello? Mostrami i cinque ticket più costosi."*

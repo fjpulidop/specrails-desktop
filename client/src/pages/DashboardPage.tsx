@@ -83,7 +83,6 @@ interface PersistedRail {
   status: RailStatus
   profileName?: string | null
   ultracodeModel?: import('../components/agents/RailModelSelector').UltracodeModel | null
-  interactive?: boolean
 }
 
 function loadRails(projectId: string | null): RailState[] | null {
@@ -781,12 +780,6 @@ export default function DashboardPage() {
     updateRails((prev) => prev.map((r) => (r.id === railId ? { ...r, ultracodeModel: model } : r)))
   }
 
-  function handleInteractiveChange(railId: string, interactive: boolean) {
-    // Interactive flag lives in localStorage (like the ultracode model) and is
-    // sent inline at launch — only meaningful for ultracode rails.
-    updateRails((prev) => prev.map((r) => (r.id === railId ? { ...r, interactive } : r)))
-  }
-
   function handleLoopChange(railId: string, loopId: string) {
     // rails-as-loops: the chosen Loop (factory or custom) drives the rail; derive
     // the legacy `mode` from it so launch + selector gating stay correct. Stored
@@ -911,7 +904,6 @@ export default function DashboardPage() {
           // Loop model picker — only meaningful for custom loop launches.
           ...(rail.mode === 'loop' && rail.loopModel ? { model: rail.loopModel } : {}),
           // Interactive toggle — only meaningful for ultracode launches.
-          ...(rail.mode === 'ultracode' && rail.interactive ? { interactive: true } : {}),
           // rails-as-loops: always send the chosen Loop. The server maps a
           // factory loop → its legacy mode; a custom loop runs the loop engine.
           loopId: launchLoopId,
@@ -1005,8 +997,7 @@ export default function DashboardPage() {
             onEngineChange={handleEngineChange}
             onUltracodeModelChange={handleUltracodeModelChange}
             onLoopModelChange={handleLoopModelChange}
-            onInteractiveChange={handleInteractiveChange}
-            loopAvailable={FEATURE_LOOPS_SECTION}
+              loopAvailable={FEATURE_LOOPS_SECTION}
             onLoopChange={handleLoopChange}
             onEffortChange={handleEffortChange}
             onToggle={handleToggle}

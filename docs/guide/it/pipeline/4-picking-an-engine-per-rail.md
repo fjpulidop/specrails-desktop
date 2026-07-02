@@ -24,7 +24,7 @@ Tutti e tre eseguono le pipeline standard **Implement** e **Batch**. Ecco una gu
 
 | Engine | Scegli questo quando… | Note |
 |--------|--------------------|-------|
-| **Claude** | Vuoi l'intero set di funzionalità: profili agente, Ultracode, reportistica nativa dei costi, il supporto agli strumenti più ricco. L'impostazione predefinita per la maggior parte del lavoro. | L'unico engine che supporta i **profili agente**, **Ultracode** e alcune funzionalità delle spec esclusive di Claude (Contract Layer, SMASH). |
+| **Claude** | Vuoi l'intero set di funzionalità: profili agente, Freestyle, reportistica nativa dei costi, il supporto agli strumenti più ricco. L'impostazione predefinita per la maggior parte del lavoro. | L'unico engine che supporta i **profili agente**, **Freestyle** e alcune funzionalità delle spec esclusive di Claude (Contract Layer, SMASH). |
 | **Codex** | Preferisci la CLI Codex di OpenAI o vuoi confrontare le implementazioni tra provider diversi. | `codex` ≥ 0.128.0. Nessuna reportistica nativa dei costi — l'app ricava il costo dalla sua tabella prezzi. I profili non si applicano. |
 | **Gemini** | Vuoi la CLI Gemini di Google, telemetria nativa o un'esecuzione più economica per le spec di routine. | `gemini` ≥ 0.11.0 (imposta `GEMINI_API_KEY`). Telemetria OTLP nativa. I profili non si applicano. |
 
@@ -33,7 +33,7 @@ Tutti e tre eseguono le pipeline standard **Implement** e **Batch**. Ecco una gu
 Alcune cose funzionano solo sui rail Claude — scegli Claude se ne hai bisogno:
 
 - **Profili agente** — routing del modello per ogni agente. Sui rail Codex o Gemini l'esecuzione usa sempre la modalità legacy e qualsiasi profilo selezionato viene **ignorato**. Il selettore di profilo è nascosto per gli engine diversi da Claude.
-- **Ultracode (modalità `Ultra`)** — la modalità autonoma che bypassa la pipeline. Il segmento `Ultra` e il suo selettore di modello Haiku/Sonnet/Opus compaiono solo quando l'engine del rail è Claude.
+- **Freestyle** — la modalità autonoma che bypassa la pipeline. Il segmento `Freestyle` e il suo selettore di modello Haiku/Sonnet/Opus compaiono solo quando l'engine del rail è Claude.
 - **Contract Layer e SMASH** — funzionalità di affinamento delle spec esclusive di Claude (sono opzioni di Add Spec, non opzioni del rail, ma vale lo stesso vincolo).
 
 Se un progetto mescola engine, la barra laterale destra mostra solo le sezioni supportate da **ogni** provider installato — quindi la sezione **Agenti** sparisce del tutto su un progetto che include un provider diverso da Claude, perché i profili sono specifici di Claude.

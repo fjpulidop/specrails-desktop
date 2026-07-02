@@ -171,7 +171,7 @@
   "railSelectors": {
     "profileTitle": "此 rail 使用的 Agent Profile",
     "noProfile": "无 Profile",
-    "modelTitle": "此 Ultracode rail 使用的模型",
+    "modelTitle": "此 Freestyle rail 使用的模型",
     "loopModelTitle": "此 Loop 使用的模型",
     "engineTitle": "此 rail 使用的 AI 引擎"
   }

@@ -32,15 +32,15 @@
     "saveFailed": "Failed to save pre-prompt"
   },
   "ultraPrePrompt": {
-    "title": "Ultracode pre-prompt",
-    "description": "Instruction sent to Claude in Ultracode (Claude-only rails). Ultracode skips the OpenSpec pipeline — it hands Claude this pre-prompt plus the spec text and lets it implement autonomously. Leave blank to use the built-in default.",
-    "label": "Ultra pre-prompt",
-    "placeholder": "Leave blank to use the default Ultracode instruction.",
+    "title": "Freestyle pre-prompt",
+    "description": "Instruction sent to Claude in Freestyle (Claude-only rails). Freestyle skips the OpenSpec pipeline — it hands Claude this pre-prompt plus the spec text and lets it implement autonomously. Leave blank to use the built-in default.",
+    "label": "Freestyle pre-prompt",
+    "placeholder": "Leave blank to use the default Freestyle instruction.",
     "helper": "The spec text is appended automatically after this pre-prompt. Empty = default.",
-    "saveButton": "Save Ultra pre-prompt",
-    "resetToDefault": "Ultra pre-prompt reset to default",
-    "saved": "Ultra pre-prompt saved",
-    "saveFailed": "Failed to save Ultra pre-prompt"
+    "saveButton": "Save Freestyle pre-prompt",
+    "resetToDefault": "Freestyle pre-prompt reset to default",
+    "saved": "Freestyle pre-prompt saved",
+    "saveFailed": "Failed to save Freestyle pre-prompt"
   },
   "budget": {
     "title": "Budget",
@@ -229,6 +229,18 @@
     "toastDone": "Specrails Core updated to {{version}}",
     "toastError": "Core update failed: {{message}}",
     "toastUpToDate": "Specrails Core is up to date",
+    "toastCheckFailed": "Update check failed: {{message}}"
+  },
+  "appUpdate": {
+    "heading": "Specrails Desktop",
+    "installed": "Installed:",
+    "check": "Check for updates",
+    "checking": "Checking…",
+    "upToDate": "You're on the latest version",
+    "updateAvailable": "Update available: {{version}}",
+    "autoHint": "Checks automatically at launch and every 6 hours.",
+    "unavailable": "App updates are only available in the desktop app.",
+    "toastUpToDate": "Specrails Desktop is up to date",
     "toastCheckFailed": "Update check failed: {{message}}"
   }
 }

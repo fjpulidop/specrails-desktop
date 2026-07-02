@@ -30,7 +30,7 @@ declare module 'express-serve-static-core' {
 const VALID_MODES = new Set(['implement', 'batch-implement', 'ultracode', 'loop'])
 // Models the ultracode picker exposes (Claude aliases). Mirrors the client
 // RailModelSelector options and the project-router orchestrator-model allow-list.
-const VALID_ULTRACODE_MODELS = new Set(['haiku', 'sonnet', 'opus'])
+const VALID_ULTRACODE_MODELS = new Set(['haiku', 'sonnet', 'opus', 'fable'])
 // Reasoning-effort tiers a loop launch may request (mirrors the client selector
 // + the provider adapters' supported values).
 const VALID_REASONING_EFFORTS = new Set(['low', 'medium', 'high'])
@@ -236,7 +236,7 @@ export function createRailsRouter(): Router {
     }
 
     let { mode = 'implement' } = req.body ?? {}
-    const { profileName, aiEngine, model, interactive, loopId, reasoning_effort } = req.body ?? {}
+    const { profileName, aiEngine, model, loopId, reasoning_effort } = req.body ?? {}
     // rails-as-loops: a FACTORY loop id (`factory:implement` etc.) maps to its
     // legacy mode and runs through the EXISTING engine (QueueManager) — the rail
     // "picks a Loop", the plumbing is unchanged. A CUSTOM loop id keeps mode='loop'
@@ -256,19 +256,12 @@ export function createRailsRouter(): Router {
     // Ignored for non-ultracode modes (they use the orchestrator model).
     if (mode === 'ultracode' && model !== undefined && model !== null) {
       if (typeof model !== 'string' || !VALID_ULTRACODE_MODELS.has(model)) {
-        res.status(400).json({ error: 'model must be one of: haiku, sonnet, opus' }); return
+        res.status(400).json({ error: 'model must be one of: haiku, sonnet, opus, fable' }); return
       }
     }
-    // Interactive toggle: only valid for ultracode (Claude-only) and only when
-    // the feature is enabled. Reject loudly so the client never silently drops it.
-    if (interactive === true) {
-      if (mode !== 'ultracode') {
-        res.status(400).json({ error: 'interactive mode is only available for ultracode rails' }); return
-      }
-      if (!isInteractiveJobsEnabled()) {
-        res.status(403).json({ error: 'Interactive jobs are disabled on this server' }); return
-      }
-    }
+    // Interactive in-job chat is ON by default for every Freestyle (ultracode)
+    // job whenever the feature is enabled — the per-rail toggle is gone. A
+    // legacy `interactive` body param is accepted and ignored (wire compat).
 
     const c = ctx(req)
     const rail = getRail(c.db, railIndex)
@@ -292,7 +285,7 @@ export function createRailsRouter(): Router {
     // Ultracode bypasses the OpenSpec pipeline and hands the raw spec to
     // Claude. It is Claude-only — reject when the effective engine is not claude.
     if (mode === 'ultracode' && engineCheck.provider !== 'claude') {
-      res.status(400).json({ error: 'Ultracode requires the Claude provider' }); return
+      res.status(400).json({ error: 'Freestyle requires the Claude provider' }); return
     }
 
     // Profile selection precedence: explicit body param > stored rail profile > default resolution.
@@ -469,7 +462,7 @@ export function createRailsRouter(): Router {
             profileName: null,
             provider: 'claude',
             ...(ultracodeModel ? { model: ultracodeModel } : {}),
-            ...(interactive === true ? { interactive: true } : {}),
+            ...(isInteractiveJobsEnabled() ? { interactive: true } : {}),
           })
           jobIds.push(job.id)
           c.railJobs.set(job.id, { railIndex, mode, ticketIds: [ticketId] })

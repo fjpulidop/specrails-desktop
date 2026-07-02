@@ -220,8 +220,8 @@
       "description": "Implementa de golpe todos los tickets del raíl y luego verifica y refina cuando falla hasta que esté en verde."
     },
     "factory_ultracode": {
-      "name": "Ultracode",
-      "description": "Implementación autónoma por ticket (sin pipeline) y luego verifica y refina hasta que esté en verde. Solo con Claude."
+      "name": "Freestyle",
+      "description": "Entrega la spec directamente al modelo con total libertad — sin pipeline, trabaja como un agente de código normal, y después verifica + refina hasta quedar en verde. Solo Claude."
     },
     "autoloop-tdd": {
       "name": "Autoloop TDD",
@@ -362,6 +362,10 @@
     "deploy-verification-loop": {
       "name": "Bucle de verificación del despliegue",
       "description": "Tras salir un despliegue, sondea a intervalos los endpoints de salud y de smoke, investiga y corrige o escala cualquier respuesta no saludable, y sigue comprobando hasta que todos los endpoints configurados reporten éxito."
+    },
+    "factory_openspec": {
+      "name": "OpenSpec Lifecycle",
+      "description": "Ciclo OpenSpec de ticket a archivo: genera artefactos (opsx:ff) → implementa (opsx:apply) → verifica (opsx:verify); con FAIL vuelve atrás y enmienda el mismo change, con PASS lo archiva sin intervención."
     }
   },
   "import": {

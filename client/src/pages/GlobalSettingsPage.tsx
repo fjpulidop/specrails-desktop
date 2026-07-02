@@ -6,6 +6,7 @@ import { AppearanceSection } from '../components/settings/AppearanceSection'
 import { LanguageSection } from '../components/settings/LanguageSection'
 import { CodeSectionSettings } from '../components/settings/CodeSectionSettings'
 import { CoreUpdateSection } from '../components/settings/CoreUpdateSection'
+import { AppUpdateSection } from '../components/settings/AppUpdateSection'
 import { MobileAccessSection } from '../components/settings/MobileAccessSection'
 import { McpSettingsSection } from '../components/settings/McpSettingsSection'
 import { FEATURE_MCP } from '../lib/feature-flags'
@@ -106,8 +107,6 @@ export default function SettingsDialog({ open, onClose, onOpenOnboarding }: Sett
   const paneCls = (id: string) => cn('space-y-5', activeSection === id ? '' : 'hidden')
   const [desktopSettings, setDesktopSettings] = useState<DesktopSettings | null>(null)
   const [isLoading, setIsLoading] = useState(true)
-  const [specrailsTechUrl, setSpecrailsTechUrl] = useState('')
-  const [isSavingUrl, setIsSavingUrl] = useState(false)
   const [costAlertThreshold, setCostAlertThreshold] = useState('')
   const [isSavingThreshold, setIsSavingThreshold] = useState(false)
   const [desktopDailyBudget, setDesktopDailyBudget] = useState('')
@@ -154,7 +153,6 @@ export default function SettingsDialog({ open, onClose, onOpenOnboarding }: Sett
         if (res.ok) {
           const data = await res.json() as DesktopSettings
           setDesktopSettings(data)
-          setSpecrailsTechUrl(data.specrailsTechUrl ?? 'http://localhost:3000')
           setCostAlertThreshold(data.costAlertThresholdUsd != null ? String(data.costAlertThresholdUsd) : '')
         }
       } catch {
@@ -177,27 +175,6 @@ export default function SettingsDialog({ open, onClose, onOpenOnboarding }: Sett
       })
       .catch(() => {})
   }, [open])
-
-  async function handleSaveSpecrailsTechUrl() {
-    if (!specrailsTechUrl.trim()) return
-    setIsSavingUrl(true)
-    try {
-      const res = await fetch('/api/settings', {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ specrailsTechUrl: specrailsTechUrl.trim() }),
-      })
-      if (res.ok) {
-        toast.success(t('desktop.techUrlSaved'))
-      } else {
-        toast.error(t('desktop.techUrlSaveFailed'))
-      }
-    } catch {
-      toast.error(t('desktop.techUrlSaveFailed'))
-    } finally {
-      setIsSavingUrl(false)
-    }
-  }
 
   async function handleSaveCostAlertThreshold() {
     setIsSavingThreshold(true)
@@ -391,6 +368,8 @@ export default function SettingsDialog({ open, onClose, onOpenOnboarding }: Sett
             </div>
 
             <div className={paneCls('updates')}>
+            <AppUpdateSection />
+
             <CoreUpdateSection />
             </div>
 
@@ -426,35 +405,6 @@ export default function SettingsDialog({ open, onClose, onOpenOnboarding }: Sett
             </div>
 
             <div className={paneCls('advanced')}>
-            {/* specrails-tech config */}
-            <div className="space-y-2">
-              <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
-                specrails-tech
-              </h3>
-              <div className="rounded-md border border-border p-3 space-y-2">
-                <p className="text-[10px] text-muted-foreground">
-                  {t('desktop.techUrlDescription')}
-                </p>
-                <div className="flex gap-2">
-                  <Input
-                    value={specrailsTechUrl}
-                    onChange={(e) => setSpecrailsTechUrl(e.target.value)}
-                    placeholder="http://localhost:3000"
-                    className="h-7 text-xs font-mono"
-                  />
-                  <Button
-                    size="sm"
-                    variant="secondary"
-                    className="h-7 text-xs shrink-0"
-                    disabled={isSavingUrl}
-                    onClick={handleSaveSpecrailsTechUrl}
-                  >
-                    {t('common:actions.save')}
-                  </Button>
-                </div>
-              </div>
-            </div>
-
             {/* Budget & Alerts */}
             <div className="space-y-2">
               <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">

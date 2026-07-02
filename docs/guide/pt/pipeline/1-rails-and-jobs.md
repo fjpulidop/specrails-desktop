@@ -23,7 +23,7 @@ Você pode ter vários rails para organizar o trabalho em pistas nomeadas (uma p
 ## Lançando um rail sobre uma spec
 
 1. **Arraste um cartão de spec** do SpecsBoard para um rail. O ID da spec aparece na lista de specs do rail. (Prefere não arrastar? Use o popover **Mover para o rail** no cartão da spec — ele mostra um indicador de status por rail, para você não soltar trabalho numa pista ocupada.)
-2. **Escolha um Loop** no cabeçalho do rail. Um rail roda um **Loop** — é o trabalho que ele realiza. O padrão é o Loop `Implement` embutido; você também pode escolher `Batch`, `Ultracode` ou um loop personalizado que você mesmo construiu. Veja [O Loop Builder](the-loop-builder).
+2. **Escolha um Loop** no cabeçalho do rail. Um rail roda um **Loop** — é o trabalho que ele realiza. O padrão é o Loop `Implement` embutido; você também pode escolher `Batch`, `Freestyle` ou um loop personalizado que você mesmo construiu. Veja [O Loop Builder](the-loop-builder).
 3. **Aperte ▶ Play.**
 
 É isso. O rail sobe um processo de CLI de IA no seu projeto e começa o pipeline.
@@ -34,7 +34,7 @@ Você pode ter vários rails para organizar o trabalho em pistas nomeadas (uma p
 |---------|--------------|
 | **Pílula de status** | `idle`, `running` ou `failed`. Não há um "completed" separado — um rail volta para `idle` quando seu job termina sem erros. |
 | **Lista de specs** | Os IDs atribuídos a este rail. Arraste mais para dentro, arraste para fora para desanexar. |
-| **Seletor de Loop** | O Loop que este rail roda — um embutido (`Implement` / `Batch` / `Ultracode`) ou um loop personalizado. Veja a tabela abaixo. Persistido por rail. |
+| **Seletor de Loop** | O Loop que este rail roda — um embutido (`Implement` / `Batch` / `Freestyle`) ou um loop personalizado. Veja a tabela abaixo. Persistido por rail. |
 | **Seletor de perfil** | Qual perfil de agente roda (apenas rails Claude). Só aparece quando o projeto tem ao menos um perfil. |
 | **Seletor de motor** | Qual provedor instalado roda este rail — Claude, Codex ou Gemini. Só é renderizado quando o projeto tem mais de um provedor. Veja [Escolhendo um motor por rail](picking-an-engine-per-rail). |
 | **▶ Play / ■ Stop** | Iniciar ou cancelar. |
@@ -47,9 +47,9 @@ Um rail roda um **Loop** — a receita do trabalho. Três loops são **embutidos
 |------|---------|--------------|
 | **Implement** | `/specrails:implement` | Um job cobrindo todas as specs do rail. Roda o pipeline completo Architect → Developer → Reviewer → Ship. O padrão do dia a dia. |
 | **Batch** | `/specrails:batch-implement` | Um job que percorre as specs do rail sequencialmente, em ondas que respeitam as dependências. Melhor para várias specs relacionadas. |
-| **Ultracode** | Ultracode | O Claude implementa cada spec de forma autônoma, **ignorando** o pipeline. Um job independente por spec. Apenas Claude. |
+| **Freestyle** | Freestyle | O Claude implementa cada spec de forma autônoma, **ignorando** o pipeline. Um job independente por spec. Apenas Claude. |
 
-O Ultracode é o caso atípico: ele pula a cadeia de agentes e entrega a spec crua ao Claude para trabalhar com suas ferramentas nativas. É aberto, então apertar Play abre primeiro uma confirmação, e um seletor de modelo por rail deixa você escolher Haiku / Sonnet / Opus. Ele só aparece quando o motor do rail é o Claude.
+O Freestyle é o caso atípico: ele pula a cadeia de agentes e entrega a spec crua ao Claude para trabalhar com suas ferramentas nativas. É aberto, então apertar Play abre primeiro uma confirmação, e um seletor de modelo por rail deixa você escolher Haiku / Sonnet / Opus. Ele só aparece quando o motor do rail é o Claude.
 
 Além dos embutidos, você pode **construir seus próprios loops** — repetir um ciclo verify → fix → verify até atingir uma meta, encadear comandos de shell entre AI Steps e muito mais. Esses loops personalizados aparecem no mesmo seletor de Loop. Essa é a próxima grande ideia: [O Loop Builder](the-loop-builder).
 
