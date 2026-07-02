@@ -1,5 +1,12 @@
 # Changelog
 
+## [2.19.0](https://github.com/fjpulidop/specrails-desktop/compare/v2.18.2...v2.19.0) (2026-07-02)
+
+
+### Features
+
+* Agent Mode suite — Specrails-native operator, Freestyle rename, premium UX ([#476](https://github.com/fjpulidop/specrails-desktop/issues/476)) ([b06f0c9](https://github.com/fjpulidop/specrails-desktop/commit/b06f0c9fd9bc542b8f4129fb538cfd398650de06))
+
 ## [2.18.2](https://github.com/fjpulidop/specrails-desktop/compare/v2.18.1...v2.18.2) (2026-07-01)
 
 
