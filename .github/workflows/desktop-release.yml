@@ -131,16 +131,22 @@ jobs:
         run: |
           set -euo pipefail
           GIT_VERSION="${{ env.GIT_BUNDLE_VERSION }}"
-          GIT_SHA256="618190cf590b7e9f6c11f91f23b1d267cd98c3ab33b850416d8758f8b5a85628"  # git-2.49.0.tar.xz (kernel.org signed sha256sums)
-          TARBALL="git-${GIT_VERSION}.tar.xz"
-          curl -fsSL "https://mirrors.edge.kernel.org/pub/software/scm/git/${TARBALL}" -o "${TARBALL}"
-          ACTUAL_SHA=$(shasum -a 256 "${TARBALL}" | awk '{print $1}')
-          if [[ "${GIT_SHA256}" != "${ACTUAL_SHA}" ]]; then
-            echo "CHECKSUM MISMATCH for ${TARBALL}: expected=${GIT_SHA256} actual=${ACTUAL_SHA}"
+          # kernel.org stopped hosting the git tarballs (pub/software/scm/git is
+          # gone and every mirror followed), so build from the official
+          # github.com/git/git tag instead, pinning the tag's COMMIT SHA. Git
+          # object hashes are self-verifying, so this is at least as strong as
+          # the old tarball SHA256 pin and independent of archive hosting. The
+          # checkout builds identically to the tarball here: this pipeline uses
+          # plain make flags (no ./configure) and installs no docs, and
+          # GIT-VERSION-GEN resolves the version via `git describe` on the tag.
+          GIT_COMMIT_SHA="683c54c999c301c2cd6f715c411407c413b1d84e"  # v2.49.0
+          git clone --depth 1 --branch "v${GIT_VERSION}" https://github.com/git/git.git "git-${GIT_VERSION}"
+          ACTUAL_SHA=$(git -C "git-${GIT_VERSION}" rev-parse HEAD)
+          if [[ "${GIT_COMMIT_SHA}" != "${ACTUAL_SHA}" ]]; then
+            echo "COMMIT MISMATCH for v${GIT_VERSION}: expected=${GIT_COMMIT_SHA} actual=${ACTUAL_SHA}"
             exit 1
           fi
-          echo "Checksum OK: ${ACTUAL_SHA}"
-          tar xf "${TARBALL}"
+          echo "Pinned commit OK: ${ACTUAL_SHA}"
           DEST="$PWD/src-tauri/runtimes/git"
           rm -rf "${DEST}"; mkdir -p "${DEST}"
           pushd "git-${GIT_VERSION}" >/dev/null
@@ -174,7 +180,7 @@ jobs:
           make -j"$(sysctl -n hw.ncpu)" "${MAKE_FLAGS[@]}"
           make "${MAKE_FLAGS[@]}" DESTDIR="${DEST}" install
           popd >/dev/null
-          rm -rf "git-${GIT_VERSION}" "${TARBALL}"
+          rm -rf "git-${GIT_VERSION}"
           # Collapse the libexec/git-core builtin hardlinks (each a full copy of git after a
           # link-unaware resource copy) — git dispatches builtins internally and does not need
           # them on disk. Keep the genuine helper binaries (git-http-*, git-remote-*, git-shell,
