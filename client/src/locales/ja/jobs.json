@@ -115,7 +115,9 @@
       "working": "作業中…",
       "connecting": "エージェントに接続中…",
       "starting": "起動中…"
-    }
+    },
+    "pipelinePartial": "≥ は部分値 — {{count}} 個のフェーズにコスト記録がありません",
+    "pipelinePartialTooltip": "一部のフェーズはコストを報告する前に終了したため、この合計は下限値です。"
   },
   "ticketHeader": {
     "showMore": "+ 他 {{count}} 件",

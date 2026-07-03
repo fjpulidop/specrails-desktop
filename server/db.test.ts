@@ -34,9 +34,25 @@ import {
   DEFAULT_ULTRACODE_PRE_PROMPT,
 } from './db'
 import type { DbInstance } from './db'
+import { recordInvocation } from './ai-invocations'
 
 function makeDb(): DbInstance {
   return initDb(':memory:')
+}
+
+// Seed one ai_invocations row (the ledger getStats now sums cost from — MED-8).
+function seedInvocation(
+  db: DbInstance,
+  r: Partial<Parameters<typeof recordInvocation>[1]> & { id: string },
+): void {
+  recordInvocation(db, {
+    project_id: 'p1',
+    provider: 'claude',
+    surface: 'job',
+    status: 'success',
+    started_at: new Date().toISOString(),
+    ...r,
+  } as Parameters<typeof recordInvocation>[1])
 }
 
 function makeJobId(suffix = '1'): string {
@@ -223,6 +239,22 @@ describe('db', () => {
       expect(row.status).toBe('running')         // still running
     })
 
+    it('accumulateInteractiveTurn stickily flags the jobs row when a folded turn is estimated (CRIT-4)', () => {
+      const db = makeDb()
+      const now = new Date().toISOString()
+      createJob(db, { id: 'j', command: '/specrails:ultracode #1', started_at: now, interactive: true })
+      // Two authoritative turns keep the row un-flagged.
+      accumulateInteractiveTurn(db, 'j', turn)
+      accumulateInteractiveTurn(db, 'j', turn)
+      expect(getJob(db, 'j')!.total_cost_usd_estimated).toBe(0)
+      // An in-flight turn folded at finalize is priced from the rate card → sets 1.
+      accumulateInteractiveTurn(db, 'j', { ...turn, estimated: true })
+      expect(getJob(db, 'j')!.total_cost_usd_estimated).toBe(1)
+      // A later authoritative turn must NOT clear the sticky flag.
+      accumulateInteractiveTurn(db, 'j', turn)
+      expect(getJob(db, 'j')!.total_cost_usd_estimated).toBe(1)
+    })
+
     it('finalizeInteractiveJob flips status + finished_at without clobbering totals', () => {
       const db = makeDb()
       const now = new Date().toISOString()
@@ -400,68 +432,58 @@ describe('db', () => {
   })
 
   describe('getStats', () => {
-    it('computes correct totals from seeded data', () => {
+    it('computes job counts from jobs and cost from the ai_invocations ledger (MED-8)', () => {
       const db = makeDb()
       const today = new Date().toISOString()
 
+      // Job COUNT / duration metrics stay job-sourced.
       createJob(db, { id: 'stats-1', command: '/a', started_at: today })
-      finishJob(db, 'stats-1', {
-        exit_code: 0,
-        status: 'completed',
-        total_cost_usd: 0.01,
-        duration_ms: 1000,
-      })
-
+      finishJob(db, 'stats-1', { exit_code: 0, status: 'completed', total_cost_usd: 0.01, duration_ms: 1000 })
       createJob(db, { id: 'stats-2', command: '/b', started_at: today })
-      finishJob(db, 'stats-2', {
-        exit_code: 0,
-        status: 'completed',
-        total_cost_usd: 0.02,
-        duration_ms: 3000,
-      })
-
+      finishJob(db, 'stats-2', { exit_code: 0, status: 'completed', total_cost_usd: 0.02, duration_ms: 3000 })
       // Old job from yesterday
       createJob(db, { id: 'stats-3', command: '/c', started_at: '2020-01-01T00:00:00.000Z' })
-      finishJob(db, 'stats-3', {
-        exit_code: 1,
-        status: 'failed',
-        total_cost_usd: 0.05,
-        duration_ms: 2000,
-      })
+      finishJob(db, 'stats-3', { exit_code: 1, status: 'failed', total_cost_usd: 0.05, duration_ms: 2000 })
+
+      // Cost is now sourced from ai_invocations — INCLUDING non-job surfaces that
+      // the jobs table never held (this is exactly the MED-8 undercount fix).
+      seedInvocation(db, { id: 'inv-1', surface: 'job', total_cost_usd: 0.01, started_at: today })
+      seedInvocation(db, { id: 'inv-2', surface: 'job', total_cost_usd: 0.02, started_at: today })
+      seedInvocation(db, { id: 'inv-3', surface: 'explore-spec', total_cost_usd: 0.04, started_at: today })
+      seedInvocation(db, { id: 'inv-old', surface: 'job', total_cost_usd: 0.05, started_at: '2020-01-01T00:00:00.000Z' })
 
       const stats = getStats(db)
+      // Counts / duration from jobs.
       expect(stats.totalJobs).toBe(3)
       expect(stats.jobsToday).toBe(2)
-      expect(stats.totalCostUsd).toBeCloseTo(0.08)
-      expect(stats.costToday).toBeCloseTo(0.03)
       expect(stats.avgDurationMs).toBeCloseTo(2000)
+      // Cost from ai_invocations across ALL surfaces (0.01 + 0.02 + 0.04 today,
+      // + 0.05 yesterday). The explore-spec $0.04 would be invisible under the
+      // old jobs-only SUM.
+      expect(stats.totalCostUsd).toBeCloseTo(0.12, 5)
+      expect(stats.costToday).toBeCloseTo(0.07, 5)
     })
 
-    it('splits estimated (codex/gemini) cost and drops the estimate on failed jobs (BUG-ANALYTICS-27)', () => {
+    it('counts a killed/failed run estimate and splits the estimated portion (MED-8, post CRIT-1)', () => {
       const db = makeDb()
       const today = new Date().toISOString()
 
-      // claude completed (authoritative) → counted, not estimated
-      createJob(db, { id: 'e-1', command: '/a', started_at: today })
-      finishJob(db, 'e-1', { exit_code: 0, status: 'completed', total_cost_usd: 0.10, duration_ms: 1000 })
-
-      // codex completed (estimated) → counted in total AND estimated
-      createJob(db, { id: 'e-2', command: '/b', started_at: today })
-      finishJob(db, 'e-2', { exit_code: 0, status: 'completed', total_cost_usd: 0.04, total_cost_usd_estimated: true, duration_ms: 1000 })
-
-      // codex FAILED (estimated) → phantom estimate dropped from BOTH totals
-      createJob(db, { id: 'e-3', command: '/c', started_at: today })
-      finishJob(db, 'e-3', { exit_code: 1, status: 'failed', total_cost_usd: 0.50, total_cost_usd_estimated: true, duration_ms: 1000 })
-
-      // claude FAILED (authoritative) → real billed cost still counted
-      createJob(db, { id: 'e-4', command: '/d', started_at: today })
-      finishJob(db, 'e-4', { exit_code: 1, status: 'failed', total_cost_usd: 0.07, duration_ms: 1000 })
+      // claude success (authoritative) → counted, not estimated
+      seedInvocation(db, { id: 'e-1', surface: 'job', status: 'success', total_cost_usd: 0.10, started_at: today })
+      // codex success (estimated) → counted in total AND estimated
+      seedInvocation(db, { id: 'e-2', provider: 'codex', surface: 'job', status: 'success', total_cost_usd: 0.04, total_cost_usd_estimated: true, started_at: today })
+      // codex FAILED (estimated) → post-CRIT-1 the real burned tokens DO count now
+      seedInvocation(db, { id: 'e-3', provider: 'codex', surface: 'job', status: 'failed', total_cost_usd: 0.50, total_cost_usd_estimated: true, started_at: today })
+      // claude aborted (authoritative kill-path estimate would be flagged; here a
+      // real billed figure) → counted, not marked estimated
+      seedInvocation(db, { id: 'e-4', surface: 'ai-edit', status: 'aborted', total_cost_usd: 0.07, started_at: today })
 
       const stats = getStats(db)
-      expect(stats.totalCostUsd).toBeCloseTo(0.10 + 0.04 + 0.07, 5) // codex-failed $0.50 dropped
-      expect(stats.estimatedCostUsd).toBeCloseTo(0.04, 5)
-      expect(stats.costToday).toBeCloseTo(0.21, 5)
-      expect(stats.estimatedCostToday).toBeCloseTo(0.04, 5)
+      // All four count now (no more dropping failed estimates — those tokens billed).
+      expect(stats.totalCostUsd).toBeCloseTo(0.10 + 0.04 + 0.50 + 0.07, 5)
+      expect(stats.estimatedCostUsd).toBeCloseTo(0.04 + 0.50, 5)
+      expect(stats.costToday).toBeCloseTo(0.71, 5)
+      expect(stats.estimatedCostToday).toBeCloseTo(0.54, 5)
     })
   })
 })

@@ -1,6 +1,18 @@
 import i18n from '../lib/i18n'
 
-export type Surface = 'job' | 'quick-spec' | 'explore-spec' | 'ai-edit' | 'smash' | 'file-summary' | 'loop'
+export type Surface =
+  | 'job'
+  | 'quick-spec'
+  | 'explore-spec'
+  | 'ai-edit'
+  | 'smash'
+  | 'file-summary'
+  | 'loop'
+  | 'chat-sidebar'
+  | 'spec-launcher'
+  | 'proposal'
+  | 'agent-studio'
+  | 'setup'
 export type SurfaceFilter = Surface | 'all'
 export type Period = '7d' | '30d' | '90d' | 'all' | 'custom'
 
@@ -209,24 +221,31 @@ const SURFACE_LABEL_KEYS: Record<Surface, string> = {
   smash: 'analytics:surfaces.smash',
   'file-summary': 'analytics:surfaces.fileSummary',
   loop: 'analytics:surfaces.loop',
+  'chat-sidebar': 'analytics:surfaces.chatSidebar',
+  'spec-launcher': 'analytics:surfaces.specLauncher',
+  proposal: 'analytics:surfaces.proposal',
+  'agent-studio': 'analytics:surfaces.agentStudio',
+  setup: 'analytics:surfaces.setup',
 }
 
-/** Live-translated surface labels. Property getters resolve through i18next at
- *  access time, so consumers that re-render on language change (anything
- *  calling `useTranslation`) always read the active language — no signature
- *  change required for existing `SURFACE_LABEL[s]` call sites. */
-export const SURFACE_LABEL: Record<Surface, string> = Object.defineProperties(
-  {} as Record<Surface, string>,
-  Object.fromEntries(
-    (Object.keys(SURFACE_LABEL_KEYS) as Surface[]).map((s) => [
-      s,
-      { get: () => i18n.t(SURFACE_LABEL_KEYS[s]), enumerable: true },
-    ])
-  ) as PropertyDescriptorMap
-)
+export interface SurfaceAccent {
+  bg: string
+  text: string
+  ring: string
+  dot: string
+}
 
-/** Surface → semantic accent token (Tailwind class name) used across the dashboard. */
-export const SURFACE_ACCENT: Record<Surface, { bg: string; text: string; ring: string; dot: string }> = {
+/** Neutral fallback accent for any surface id the client does not know about
+ *  (a server surface added after this build shipped). Muted, no brand tokens —
+ *  the dashboard renders the row instead of crashing on an undefined lookup. */
+export const NEUTRAL_SURFACE_ACCENT: SurfaceAccent = {
+  bg: 'bg-muted/40',
+  text: 'text-muted-foreground',
+  ring: 'ring-border/40',
+  dot: 'bg-muted-foreground',
+}
+
+const SURFACE_ACCENT_MAP: Record<Surface, SurfaceAccent> = {
   job: {
     bg: 'bg-accent-info/15',
     text: 'text-accent-info',
@@ -269,4 +288,84 @@ export const SURFACE_ACCENT: Record<Surface, { bg: string; text: string; ring: s
     ring: 'ring-accent-primary/40',
     dot: 'bg-accent-primary',
   },
+  'chat-sidebar': {
+    bg: 'bg-accent-info/15',
+    text: 'text-accent-info',
+    ring: 'ring-accent-info/40',
+    dot: 'bg-accent-info',
+  },
+  'spec-launcher': {
+    bg: 'bg-accent-secondary/15',
+    text: 'text-accent-secondary',
+    ring: 'ring-accent-secondary/40',
+    dot: 'bg-accent-secondary',
+  },
+  proposal: {
+    bg: 'bg-accent-highlight/15',
+    text: 'text-accent-highlight',
+    ring: 'ring-accent-highlight/40',
+    dot: 'bg-accent-highlight',
+  },
+  'agent-studio': {
+    bg: 'bg-accent-success/15',
+    text: 'text-accent-success',
+    ring: 'ring-accent-success/40',
+    dot: 'bg-accent-success',
+  },
+  setup: {
+    bg: 'bg-accent-primary/15',
+    text: 'text-accent-primary',
+    ring: 'ring-accent-primary/40',
+    dot: 'bg-accent-primary',
+  },
+}
+
+/**
+ * Wrap an exhaustive surface map so an UNKNOWN surface id (a future server
+ * surface not in this build's `Surface` union) resolves to a neutral fallback
+ * instead of `undefined` — a bare `SURFACE_ACCENT[unknown].dot` would otherwise
+ * throw and take down the whole analytics dashboard. Object.keys / iteration
+ * still report only the known surfaces (default `ownKeys` trap).
+ */
+function tolerantSurfaceMap<T>(target: Record<Surface, T>, fallback: (id: string) => T): Record<Surface, T> {
+  return new Proxy(target, {
+    get(obj, prop, receiver) {
+      if (typeof prop === 'string' && !(prop in obj)) return fallback(prop)
+      return Reflect.get(obj, prop, receiver)
+    },
+  })
+}
+
+/** Live-translated surface labels. Property getters resolve through i18next at
+ *  access time, so consumers that re-render on language change (anything
+ *  calling `useTranslation`) always read the active language — no signature
+ *  change required for existing `SURFACE_LABEL[s]` call sites. Unknown surface
+ *  ids fall back to their raw id (see `tolerantSurfaceMap`). */
+export const SURFACE_LABEL: Record<Surface, string> = tolerantSurfaceMap(
+  Object.defineProperties(
+    {} as Record<Surface, string>,
+    Object.fromEntries(
+      (Object.keys(SURFACE_LABEL_KEYS) as Surface[]).map((s) => [
+        s,
+        { get: () => i18n.t(SURFACE_LABEL_KEYS[s]), enumerable: true },
+      ])
+    ) as PropertyDescriptorMap
+  ),
+  (id) => id,
+)
+
+/** Surface → semantic accent token (Tailwind class name) used across the
+ *  dashboard. Unknown surface ids fall back to `NEUTRAL_SURFACE_ACCENT`. */
+export const SURFACE_ACCENT: Record<Surface, SurfaceAccent> = tolerantSurfaceMap(
+  SURFACE_ACCENT_MAP,
+  () => NEUTRAL_SURFACE_ACCENT,
+)
+
+/** Explicit tolerant accessors (equivalent to indexing the maps above, but
+ *  convenient for callers that hold a raw `string` surface). */
+export function surfaceLabel(surface: string): string {
+  return SURFACE_LABEL[surface as Surface]
+}
+export function surfaceAccent(surface: string): SurfaceAccent {
+  return SURFACE_ACCENT[surface as Surface]
 }

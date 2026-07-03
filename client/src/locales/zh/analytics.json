@@ -6,7 +6,12 @@
     "aiEdit": "AI 编辑",
     "smash": "SMASH",
     "fileSummary": "文件摘要",
-    "loop": "Loops"
+    "loop": "Loops",
+    "chatSidebar": "对话",
+    "specLauncher": "规格启动器",
+    "proposal": "提案",
+    "agentStudio": "Agent Studio",
+    "setup": "设置"
   },
   "periods": {
     "d7": "7天",
@@ -73,7 +78,8 @@
   "models": {
     "title": "模型",
     "empty": "暂无模型记录。",
-    "estimatedTooltip": "根据本地价格表估算 — 此提供商不原生报告成本。"
+    "estimatedTooltip": "根据本地价格表估算 — 此提供商不原生报告成本。",
+    "others": "其他"
   },
   "scatter": {
     "title": "成本 vs 轮次",
@@ -160,5 +166,12 @@
     "estimatedBadge": "估算",
     "projectEstimatedTooltip": "此项目成本中的 {{amount}} 为价格表估算（codex/gemini），非提供商计费。",
     "statusBarEstimatedTooltip": "包含价格表估算成本（codex/gemini），非提供商计费。"
+  },
+  "windowLabels": {
+    "7d": "最近 7 天",
+    "30d": "最近 30 天",
+    "90d": "最近 90 天",
+    "all": "全部时间",
+    "custom": "自定义范围"
   }
 }

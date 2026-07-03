@@ -109,17 +109,37 @@ describe('InteractiveJobSession', () => {
     expect(turnDone.jobId).toBe('job-1')
   })
 
-  it('sums usage across multiple turns', async () => {
+  it('sums per-turn tokens but records cost/turns as deltas of the cumulative reading (HIGH-2)', async () => {
+    // The resident stream-json child reports total_cost_usd + num_turns
+    // CUMULATIVELY per turn (turn 2's result carries the running session total).
+    // Tokens are per-turn. So two $0.05 turns report cumulative 0.05 then 0.10.
     h.session.start({ binary: 'claude', args: [] }, 'go')
-    h.child.stdout.push(resultFrame())
+    h.child.stdout.push(resultFrame()) // cumulative: cost 0.05, num_turns 3
     await tick()
     h.session.send('again')
-    h.child.stdout.push(resultFrame())
+    h.child.stdout.push(resultFrame({ total_cost_usd: 0.1, num_turns: 6 })) // cumulative
     await tick()
     const totals = h.session.getTotals()
-    expect(totals.tokens_in).toBe(200)
-    expect(totals.num_turns).toBe(6)
-    expect(totals.total_cost_usd).toBeCloseTo(0.1)
+    expect(totals.tokens_in).toBe(200) // per-turn: 100 + 100
+    expect(totals.num_turns).toBe(6) // deltas 3 + 3, NOT 3 + 6 = 9
+    expect(totals.total_cost_usd).toBeCloseTo(0.1) // deltas 0.05 + 0.05, NOT 0.15
+    // The jobs row mirrors the deltas.
+    const row = getJob(h.db, 'job-1')!
+    expect(row.total_cost_usd).toBeCloseTo(0.1)
+    expect(row.num_turns).toBe(6)
+  })
+
+  it('clamps a lower cumulative cost reading to a 0 delta (never subtracts)', async () => {
+    h.session.start({ binary: 'claude', args: [] }, 'go')
+    h.child.stdout.push(resultFrame({ total_cost_usd: 0.2, num_turns: 4 }))
+    await tick()
+    h.session.send('again')
+    // A stray lower reading (or a mid-session counter reset) must not subtract.
+    h.child.stdout.push(resultFrame({ total_cost_usd: 0.1, num_turns: 2 }))
+    await tick()
+    const totals = h.session.getTotals()
+    expect(totals.total_cost_usd).toBeCloseTo(0.2) // 0.2 + max(0, 0.1-0.2)
+    expect(totals.num_turns).toBe(4) // 4 + max(0, 2-4)
   })
 
   it('sends immediately when idle; broadcasts turn_user(queued=false) + a log echo', async () => {
@@ -166,6 +186,10 @@ describe('InteractiveJobSession', () => {
     expect(h.settled[0].totals.total_cost_usd).toBeCloseTo(0.05)
     expect(h.settled[0].sessionId).toBe('sess-1')
     expect(h.settled[0].model).toBe('claude-opus-4-8')
+    // Clean finalize (no in-flight turn) is authoritative, not estimated (CRIT-4).
+    expect(h.settled[0].estimated).toBe(false)
+    // Active duration is tracked per turn-segment (LOW-15).
+    expect(h.settled[0].activeDurationMs).toBeGreaterThanOrEqual(0)
   })
 
   it('finalize() is idempotent', async () => {
@@ -240,8 +264,8 @@ describe('InteractiveJobSession', () => {
     expect(h.session.isStreaming()).toBe(true)
     expect(h.child.stdinWrites.length).toBe(2) // turn1 + turn2 written
 
-    // Turn 2's real result then arrives and is counted correctly.
-    h.child.stdout.push(resultFrame())
+    // Turn 2's real result then arrives (cumulative) and is counted correctly.
+    h.child.stdout.push(resultFrame({ total_cost_usd: 0.1, num_turns: 6 }))
     await tick()
     expect(h.session.getTotals().tokens_in).toBe(200)
     expect(h.session.getTotals().num_turns).toBe(6)
@@ -330,5 +354,79 @@ describe('InteractiveJobSession', () => {
     expect(eventMsg).toBeTruthy()
     const logMsg = h.broadcasts.find((m) => m.type === 'log' && (m as any).line === 'hello world')
     expect(logMsg).toBeTruthy()
+  })
+
+  // ─── CRIT-4: fold an in-flight turn's streamed usage on a mid-turn finalize ──
+  function assistantFrame(over: Record<string, unknown> = {}): string {
+    return JSON.stringify({
+      type: 'assistant',
+      message: {
+        id: 'm-inflight',
+        model: 'claude-opus-4-8',
+        usage: { input_tokens: 1000, output_tokens: 500, cache_read_input_tokens: 200, cache_creation_input_tokens: 50 },
+        content: [{ type: 'text', text: 'working' }],
+        ...over,
+      },
+    }) + '\n'
+  }
+
+  it('folds an in-flight turn (no result frame) into the totals on a mid-turn finalize (CRIT-4)', async () => {
+    h.session.start({ binary: 'claude', args: [] }, 'go')
+    h.child.stdout.push(assistantFrame()) // work streams, but no terminal `result`
+    await tick()
+    expect(h.session.isStreaming()).toBe(true) // still awaiting result
+
+    h.session.finalize()
+    await tick()
+
+    expect(h.settled.length).toBe(1)
+    const info = h.settled[0]
+    expect(info.reason).toBe('finalized')
+    // The killed turn's tokens are folded in, not dropped.
+    expect(info.totals.tokens_in).toBe(1000)
+    expect(info.totals.tokens_out).toBe(500)
+    // Its cost is rate-card estimated (no native `result` cost arrived).
+    expect(info.totals.total_cost_usd).toBeGreaterThan(0)
+    expect(info.estimated).toBe(true)
+    // The jobs row also carries the folded usage (not an authoritative $0).
+    const row = getJob(h.db, 'job-1')!
+    expect(row.tokens_in).toBe(1000)
+    expect(row.total_cost_usd!).toBeGreaterThan(0)
+  })
+
+  it('folds an in-flight turn on an unexpected crash mid-turn (CRIT-4)', async () => {
+    h.session.start({ binary: 'claude', args: [] }, 'go')
+    h.child.stdout.push(assistantFrame())
+    await tick()
+    h.child.emit('close', 1) // crash before the result frame
+    await tick()
+    expect(h.settled.length).toBe(1)
+    expect(h.settled[0].reason).toBe('crashed')
+    expect(h.settled[0].totals.tokens_in).toBe(1000)
+    expect(h.settled[0].totals.total_cost_usd).toBeGreaterThan(0)
+    expect(h.settled[0].estimated).toBe(true)
+  })
+
+  // ─── HIGH-1: snapshotForAbort folds + returns totals without settling ────────
+  it('snapshotForAbort folds an in-flight turn and returns accumulated totals without settling', async () => {
+    h.session.start({ binary: 'claude', args: [] }, 'go')
+    h.child.stdout.push(resultFrame()) // turn 1 completes: native cost 0.05
+    await tick()
+    h.session.send('next')
+    h.child.stdout.push(assistantFrame({ id: 'm2' })) // turn 2 streams, no result
+    await tick()
+
+    const snap = h.session.snapshotForAbort()
+    expect(snap.totals.tokens_in).toBe(100 + 1000)
+    // turn 1 native (0.05) + turn 2 estimated (>0).
+    expect(snap.totals.total_cost_usd).toBeGreaterThan(0.05)
+    expect(snap.estimated).toBe(true)
+    expect(snap.activeDurationMs).toBeGreaterThanOrEqual(0)
+    // Does NOT settle — the caller writes the aborted row then disposes.
+    expect(h.settled.length).toBe(0)
+
+    // Fold is idempotent: a following dispose neither settles nor re-folds.
+    h.session.dispose()
+    expect(h.settled.length).toBe(0)
   })
 })

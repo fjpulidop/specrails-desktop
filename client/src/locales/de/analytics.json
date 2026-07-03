@@ -6,7 +6,12 @@
     "aiEdit": "Verfeinern",
     "smash": "SMASH",
     "fileSummary": "Dateizusammenfassungen",
-    "loop": "Loops"
+    "loop": "Loops",
+    "chatSidebar": "Chat",
+    "specLauncher": "Spec-Starter",
+    "proposal": "Vorschlag",
+    "agentStudio": "Agent Studio",
+    "setup": "Einrichtung"
   },
   "periods": {
     "d7": "7d",
@@ -73,7 +78,8 @@
   "models": {
     "title": "Modelle",
     "empty": "Keine Modelle erfasst.",
-    "estimatedTooltip": "Geschätzt aus der lokalen Preistabelle — dieser Anbieter meldet die Kosten nicht nativ."
+    "estimatedTooltip": "Geschätzt aus der lokalen Preistabelle — dieser Anbieter meldet die Kosten nicht nativ.",
+    "others": "Andere"
   },
   "scatter": {
     "title": "Kosten vs. Turns",
@@ -160,5 +166,12 @@
     "estimatedBadge": "gesch.",
     "projectEstimatedTooltip": "{{amount}} der Kosten dieses Projekts sind eine Schätzung aus der Preistabelle (codex/gemini), nicht vom Anbieter abgerechnet.",
     "statusBarEstimatedTooltip": "Enthält geschätzte Kosten aus der Preistabelle (codex/gemini), nicht vom Anbieter abgerechnet."
+  },
+  "windowLabels": {
+    "7d": "Letzte 7 Tage",
+    "30d": "Letzte 30 Tage",
+    "90d": "Letzte 90 Tage",
+    "all": "Gesamter Zeitraum",
+    "custom": "Benutzerdefiniert"
   }
 }

@@ -1,7 +1,66 @@
 import { createInterface } from 'readline'
-import { createHash } from 'crypto'
+import { createHash, randomUUID } from 'crypto'
 import treeKill from 'tree-kill'
 import { spawnClaude } from './util/cli-prompt'
+import { getAdapter, type ProviderAdapter, type AdapterEvent } from './providers'
+import { finaliseInvocationResult } from './result-event'
+import { recordInvocation, type InvocationStatus } from './ai-invocations'
+import type { DbInstance } from './db'
+import type { WsMessage } from './types'
+
+/**
+ * Optional recording context threaded from the caller (profiles-router Studio
+ * generate/test, agent-refine-manager auto-test). When present, the custom-agent
+ * generate/test spawns write an `ai_invocations` row (surface='agent-studio')
+ * on EVERY terminal path — success, non-zero exit, empty output, spawn error,
+ * and timeout/kill — using the pricing-table fallback for killed runs that never
+ * emitted a terminal `result` event (COST-ACCOUNTING-AUDIT MED-3). When absent
+ * the functions behave byte-identically to before (no DB handle required, so the
+ * legacy call sites keep compiling).
+ */
+export interface AgentStudioRecordCtx {
+  db: DbInstance
+  projectId: string
+  /** launch/refine/session id, stored as `surface_ref_id`. */
+  surfaceRefId?: string | null
+  broadcast?: (msg: WsMessage) => void
+}
+
+const AGENT_STUDIO_ADAPTER: ProviderAdapter = getAdapter('claude')
+
+/**
+ * Finalise the accumulated adapter events (native cost, or pricing-table
+ * estimate when the run was killed before its `result` event) and persist one
+ * surface='agent-studio' row. Best-effort — a recording failure is logged, never
+ * thrown, so it can never break the generate/test flow.
+ */
+function recordAgentStudioInvocation(
+  ctx: AgentStudioRecordCtx,
+  events: readonly AdapterEvent[],
+  status: InvocationStatus,
+  startedAtIso: string,
+): void {
+  try {
+    const { result, estimated } = finaliseInvocationResult(AGENT_STUDIO_ADAPTER, events, {
+      fallbackModel: AGENT_STUDIO_ADAPTER.defaultModel(),
+    })
+    recordInvocation(ctx.db, {
+      id: randomUUID(),
+      project_id: ctx.projectId,
+      provider: AGENT_STUDIO_ADAPTER.id,
+      surface: 'agent-studio',
+      surface_ref_id: ctx.surfaceRefId ?? null,
+      status,
+      started_at: startedAtIso,
+      finished_at: new Date().toISOString(),
+      total_cost_usd_estimated: estimated,
+      ...result,
+    })
+    ctx.broadcast?.({ type: 'spending.invalidated', projectId: ctx.projectId })
+  } catch (err) {
+    console.error('[agent-generator] recordInvocation failed:', err)
+  }
+}
 
 /**
  * Generate a draft `custom-*.md` body by spawning a one-shot claude
@@ -34,7 +93,7 @@ function escalateKill(child: { pid?: number; once: (e: string, cb: () => void) =
 
 export async function generateCustomAgent(
   cwd: string,
-  opts: { name: string; description: string },
+  opts: { name: string; description: string; record?: AgentStudioRecordCtx },
 ): Promise<string> {
   const systemPrompt = [
     'You are a specrails agent-authoring assistant.',
@@ -84,13 +143,24 @@ export async function generateCustomAgent(
     )
 
     let collected = ''
+    // Accumulate adapter events so a killed/failed generate run is still costed
+    // from the per-assistant-event usage snapshots (MED-3).
+    const adapterEvents: AdapterEvent[] = []
+    const startedAt = new Date().toISOString()
+    const record = opts.record
     const killer = setTimeout(() => {
       escalateKill(child)
+      // Timeout kill — cost whatever tokens were burned before the SIGTERM.
+      if (record) recordAgentStudioInvocation(record, adapterEvents, 'aborted', startedAt)
       reject(new Error('agent generation timed out after 90s'))
     }, 90_000)
 
     const reader = createInterface({ input: child.stdout!, crlfDelay: Infinity })
     reader.on('line', (line) => {
+      if (record) {
+        const ev = AGENT_STUDIO_ADAPTER.parseStreamLine(line)
+        if (ev) adapterEvents.push(ev)
+      }
       let parsed: unknown
       try { parsed = JSON.parse(line) } catch { return }
       if (!parsed || typeof parsed !== 'object') return
@@ -113,16 +183,21 @@ export async function generateCustomAgent(
 
     child.on('error', (err) => {
       clearTimeout(killer)
+      if (record) recordAgentStudioInvocation(record, adapterEvents, 'failed', startedAt)
       reject(err)
     })
 
     child.on('close', (code) => {
       clearTimeout(killer)
+      const trimmed = collected.trim()
+      if (record) {
+        const status: InvocationStatus = code === 0 && trimmed ? 'success' : 'failed'
+        recordAgentStudioInvocation(record, adapterEvents, status, startedAt)
+      }
       if (code !== 0) {
         reject(new Error(`claude exited with code ${code}${stderr ? `: ${stderr.slice(-500)}` : ''}`))
         return
       }
-      const trimmed = collected.trim()
       if (!trimmed) {
         reject(new Error('claude returned empty output'))
         return
@@ -152,7 +227,7 @@ export interface TestAgentResult {
  */
 export async function testCustomAgent(
   cwd: string,
-  opts: { draftBody: string; sampleTask: string; tokenCeiling?: number },
+  opts: { draftBody: string; sampleTask: string; tokenCeiling?: number; record?: AgentStudioRecordCtx },
 ): Promise<TestAgentResult> {
   const tokenCeiling = opts.tokenCeiling ?? 4000
   // Strip YAML frontmatter so we feed only the agent's instructions.
@@ -193,16 +268,39 @@ export async function testCustomAgent(
     )
 
     let collected = ''
-    let tokensIn = 0
-    let tokensOut = 0
+    // LOW-14 double-count fix: the claude stream emits `message.usage` on EVERY
+    // assistant frame AND a top-level cumulative `usage` on the terminal `result`
+    // frame. Summing both (the old `p.usage ?? message?.usage` accumulator)
+    // roughly doubled the count and tripped the token ceiling at ~half the real
+    // budget. Track them separately: the result event's cumulative usage is the
+    // authoritative total when it arrives; the per-message running sum is only a
+    // fallback for a run killed before its result frame — and is what the live
+    // ceiling check reads until (if) the result frame lands.
+    let msgTokensIn = 0
+    let msgTokensOut = 0
+    let resultTokensIn: number | undefined
+    let resultTokensOut: number | undefined
     let truncated = false
+    // Accumulate adapter events for cost recording (surface='agent-studio', MED-3).
+    const adapterEvents: AdapterEvent[] = []
+    const startedAt = new Date().toISOString()
+    const record = opts.record
+    const runningTotalTokens = (): number =>
+      resultTokensIn !== undefined || resultTokensOut !== undefined
+        ? (resultTokensIn ?? 0) + (resultTokensOut ?? 0)
+        : msgTokensIn + msgTokensOut
     const killer = setTimeout(() => {
       escalateKill(child)
+      if (record) recordAgentStudioInvocation(record, adapterEvents, 'aborted', startedAt)
       reject(new Error('test agent run timed out after 120s'))
     }, 120_000)
 
     const reader = createInterface({ input: child.stdout!, crlfDelay: Infinity })
     reader.on('line', (line) => {
+      if (record) {
+        const ev = AGENT_STUDIO_ADAPTER.parseStreamLine(line)
+        if (ev) adapterEvents.push(ev)
+      }
       let parsed: unknown
       try { parsed = JSON.parse(line) } catch { return }
       if (!parsed || typeof parsed !== 'object') return
@@ -218,14 +316,24 @@ export async function testCustomAgent(
           }
         }
       }
-      // Usage in result / stop events
-      const usage = (p.usage ?? message?.usage) as Record<string, unknown> | undefined
-      if (usage) {
-        if (typeof usage.input_tokens === 'number') tokensIn += usage.input_tokens as number
-        if (typeof usage.output_tokens === 'number') tokensOut += usage.output_tokens as number
+      // Usage: the terminal `result` frame carries the cumulative total at the
+      // top level; assistant frames carry a per-call `message.usage`. Route each
+      // to its own accumulator so they are never double-counted.
+      if (p.type === 'result') {
+        const usage = p.usage as Record<string, unknown> | undefined
+        if (usage) {
+          if (typeof usage.input_tokens === 'number') resultTokensIn = usage.input_tokens as number
+          if (typeof usage.output_tokens === 'number') resultTokensOut = usage.output_tokens as number
+        }
+      } else {
+        const usage = message?.usage as Record<string, unknown> | undefined
+        if (usage) {
+          if (typeof usage.input_tokens === 'number') msgTokensIn += usage.input_tokens as number
+          if (typeof usage.output_tokens === 'number') msgTokensOut += usage.output_tokens as number
+        }
       }
-      // Enforce token ceiling
-      if (tokensIn + tokensOut >= tokenCeiling && !truncated) {
+      // Enforce token ceiling on the corrected running total.
+      if (runningTotalTokens() >= tokenCeiling && !truncated) {
         truncated = true
         escalateKill(child)
       }
@@ -236,13 +344,19 @@ export async function testCustomAgent(
 
     child.on('error', (err) => {
       clearTimeout(killer)
+      if (record) recordAgentStudioInvocation(record, adapterEvents, 'failed', startedAt)
       reject(err)
     })
 
     child.on('close', (code) => {
       clearTimeout(killer)
       const durationMs = Date.now() - started
-      if (!truncated && code !== 0 && !collected) {
+      const failedHard = !truncated && code !== 0 && !collected
+      if (record) {
+        const status: InvocationStatus = truncated ? 'aborted' : failedHard ? 'failed' : 'success'
+        recordAgentStudioInvocation(record, adapterEvents, status, startedAt)
+      }
+      if (failedHard) {
         reject(new Error(`claude exited with code ${code}${stderr ? `: ${stderr.slice(-500)}` : ''}`))
         return
       }
@@ -250,7 +364,7 @@ export async function testCustomAgent(
         output: truncated
           ? collected + `\n\n[… output truncated after reaching ${tokenCeiling}-token ceiling]`
           : collected,
-        tokens: tokensIn + tokensOut,
+        tokens: runningTotalTokens(),
         durationMs,
         draftHash,
       })

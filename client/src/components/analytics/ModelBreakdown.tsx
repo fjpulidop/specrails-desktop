@@ -21,8 +21,17 @@ export function ModelBreakdown({ data, loading, onSelectModel, activeModel }: Pr
   }
   if (!data) return null
 
-  const total = data.byModel.reduce((acc, m) => acc + m.costUsd, 0)
+  // Reconcile bars against the WINDOW total (summary), not the top-10-capped
+  // byModel sum — otherwise the visible five overstate their share and never
+  // add up to the hero figure (LOW-11).
+  const windowTotal = data.summary.totalCostUsd
   const top = data.byModel.slice(0, 5)
+  const shownCost = top.reduce((acc, m) => acc + m.costUsd, 0)
+  // Everything not in the visible five: models ranked 6+ (byModel is server-
+  // capped at 10) plus any window cost byModel doesn't itemise. Rendered as an
+  // "Others" remainder row so the bars reconcile to the window total.
+  const othersCost = Math.max(0, windowTotal - shownCost)
+  const showOthers = othersCost >= 0.005
 
   return (
     <div className="rounded-xl border border-border/50 bg-card/40 p-4">
@@ -32,7 +41,7 @@ export function ModelBreakdown({ data, loading, onSelectModel, activeModel }: Pr
       ) : (
         <ul className="space-y-1.5">
           {top.map((m) => {
-            const pct = total > 0 ? (m.costUsd / total) * 100 : 0
+            const pct = windowTotal > 0 ? (m.costUsd / windowTotal) * 100 : 0
             const isActive = activeModel === m.model
             // A model is "estimated" when any portion of its cost came from the
             // server-side pricing-table fallback (codex/gemini). Prefix `~` so
@@ -66,6 +75,22 @@ export function ModelBreakdown({ data, loading, onSelectModel, activeModel }: Pr
               </li>
             )
           })}
+          {showOthers && (
+            <li data-testid="model-others">
+              <div className="w-full rounded-md px-2 py-1.5">
+                <div className="flex items-center justify-between text-[12px] mb-1 tabular-nums">
+                  <span className="truncate font-medium text-muted-foreground">{t('models.others')}</span>
+                  <span className="text-muted-foreground">${othersCost.toFixed(2)}</span>
+                </div>
+                <div className="h-1.5 rounded-full bg-background-deep overflow-hidden">
+                  <div
+                    className="h-full bg-foreground/25"
+                    style={{ width: `${windowTotal > 0 ? (othersCost / windowTotal) * 100 : 0}%` }}
+                  />
+                </div>
+              </div>
+            </li>
+          )}
         </ul>
       )}
     </div>

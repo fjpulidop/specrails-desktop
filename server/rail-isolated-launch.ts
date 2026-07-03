@@ -139,6 +139,16 @@ export async function launchIsolatedRail(input: IsolatedLaunchInput, io: Isolate
       const outcomes = await runMergeBack({
         git, executor: createLoopExecutors(), baseDir: baseRepo,
         provider, model, effort, constants, branches,
+        // CRIT-2: record every merge-back AI step (verify/resolve-merge/fix) as a
+        // `surface='job'` invocation tied to the rail (surface_ref_id
+        // `${jobId}:merge:${step}`), primary ticket = ticketIds[0].
+        recording: {
+          db: ctx.db,
+          projectId: ctx.project.id,
+          jobId: `rail-${railIndex}-${loopId}`,
+          ticketId: ticketIds[0] ?? null,
+          broadcast: (msg) => ctx.broadcast(msg),
+        },
         onState: (ticketId, state) => {
           const r = results.find((x) => x.run.ticketId === ticketId)
           if (state === 'merged' || state === 'needs-review') {

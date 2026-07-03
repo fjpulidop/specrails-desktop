@@ -115,7 +115,9 @@
       "working": "Travail en cours…",
       "connecting": "Connexion à l'agent…",
       "starting": "Démarrage…"
-    }
+    },
+    "pipelinePartial": "≥ affiché — {{count}} phase(s) sans coût enregistré",
+    "pipelinePartialTooltip": "Certaines phases se sont arrêtées avant de rapporter leur coût ; ce total est donc une borne inférieure."
   },
   "ticketHeader": {
     "showMore": "+ {{count}} de plus",

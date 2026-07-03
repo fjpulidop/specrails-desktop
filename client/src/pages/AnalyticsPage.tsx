@@ -420,7 +420,7 @@ export default function AnalyticsPage() {
       )}
 
       {/* Block 1: Hero */}
-      <SpendingHero data={data} loading={loading} />
+      <SpendingHero data={data} loading={loading} period={filters.period} />
 
       {/* Block 1b: Provider breakdown (renders only on multi-provider projects) */}
       <ProviderBreakdownCard data={data} loading={loading} />

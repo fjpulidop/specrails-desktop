@@ -115,7 +115,9 @@
       "working": "Arbeitet…",
       "connecting": "Verbinde mit dem Agenten…",
       "starting": "Startet…"
-    }
+    },
+    "pipelinePartial": "≥ angezeigt — {{count}} Phase(n) ohne erfasste Kosten",
+    "pipelinePartialTooltip": "Einige Phasen wurden beendet, bevor ihre Kosten gemeldet wurden – dieser Gesamtwert ist eine Untergrenze."
   },
   "ticketHeader": {
     "showMore": "+ {{count}} weitere",

@@ -265,6 +265,24 @@ describe('LoopRunManager ai_invocations accounting (BUG-ANALYTICS-03/04/07/32)',
     expect(row.tokens_cache_create).toBe(2000)
   })
 
+  it('LOW-8: threads num_turns / session_id / duration_ms / duration_api_ms from the executor result to the loop row', async () => {
+    const ex = makeExecutors({
+      runAiStep: vi.fn(async () => ({
+        text: 'x', cost: 0.05, provider: 'claude', model: 'sonnet',
+        sessionId: 'sess-low8', numTurns: 7, durationMs: 4200, durationApiMs: 3100,
+      })),
+    })
+    const res = await manager(ex).run({ ...baseReq(), graph: singleStepGraph() })
+    expect(res.outcome).toBe('success')
+    const row = db.prepare(
+      `SELECT num_turns, session_id, duration_ms, duration_api_ms FROM ai_invocations WHERE surface='loop' AND loop_run_id=?`
+    ).get(res.runId) as { num_turns: number; session_id: string; duration_ms: number; duration_api_ms: number }
+    expect(row.num_turns).toBe(7)
+    expect(row.session_id).toBe('sess-low8')
+    expect(row.duration_ms).toBe(4200)
+    expect(row.duration_api_ms).toBe(3100)
+  })
+
   it('BUG-03 (⊛ codex): a hard-failed AI step is recorded status=failed, not success', async () => {
     // A codex step that exits non-zero (quota/usage-limit) but still produces text
     // so it does NOT trip the fail-fast — the row must still be flagged failed.

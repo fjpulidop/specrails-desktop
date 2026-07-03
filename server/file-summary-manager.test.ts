@@ -531,6 +531,45 @@ describe('FileSummaryManager.enqueue', () => {
     expect(rows[0].status).toBe('failed')
     expect(broadcasts.some((b) => b.type === 'file.summary_failed')).toBe(true)
   })
+
+  // MED-13: when the generator's rejection carries captured usage (`.partial`),
+  // the failed row records the REAL cost/tokens instead of $0, so the monthly
+  // budget reader accounts for the burned spend.
+  it('failure path stamps the rejection .partial cost onto the failed row (MED-13)', async () => {
+    writeFile(projectPath, 'src/foo.ts', 'x\n')
+    const { deps } = makeDeps(db, {
+      generate: vi.fn(async () => {
+        const err = new Error('boom after billing') as Error & { partial?: Partial<GenerateOutput> }
+        err.partial = {
+          provider: 'claude',
+          model: 'claude-haiku-4-5',
+          costUsd: 0.0042,
+          costEstimated: true,
+          tokensIn: 40,
+          tokensOut: 10,
+          durationMs: 7,
+        }
+        throw err
+      }),
+    })
+    const mgr = new FileSummaryManager(deps)
+    await mgr.enqueue({
+      projectPath, projectId: 'p1', projectSlug: 'p1', relPath: 'src/foo.ts',
+      triggeredBy: { kind: 'user', id: 'u1', ticketId: null },
+    })
+    await mgr.flush()
+    const rows = db.prepare(
+      `SELECT status, total_cost_usd, total_cost_usd_estimated, tokens_in, tokens_out FROM ai_invocations`,
+    ).all() as Array<{
+      status: string; total_cost_usd: number; total_cost_usd_estimated: number; tokens_in: number; tokens_out: number
+    }>
+    expect(rows).toHaveLength(1)
+    expect(rows[0].status).toBe('failed')
+    expect(rows[0].total_cost_usd).toBeCloseTo(0.0042)
+    expect(rows[0].total_cost_usd_estimated).toBe(1)
+    expect(rows[0].tokens_in).toBe(40)
+    expect(rows[0].tokens_out).toBe(10)
+  })
 })
 
 describe('BUG-CODE-02: file-summary.v1 schema validation', () => {

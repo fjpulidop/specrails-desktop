@@ -27,7 +27,7 @@ type EstimatedTimelinePoint = DesktopAnalyticsResponse['costTimeline'][number] &
 
 // ─── KPI Cards ────────────────────────────────────────────────────────────────
 
-function DesktopKpiCards({ kpi }: { kpi: EstimatedKpi }) {
+function DesktopKpiCards({ kpi, windowLabel }: { kpi: EstimatedKpi; windowLabel: string }) {
   const { t } = useTranslation('analytics')
   const estimatedTotal = kpi.estimatedCostUsd ?? 0
   const estimatedToday = kpi.estimatedCostToday ?? 0
@@ -44,6 +44,9 @@ function DesktopKpiCards({ kpi }: { kpi: EstimatedKpi }) {
       value: `${totalIsEstimated ? '~' : ''}$${kpi.totalCostUsd.toFixed(4)}`,
       sub: t('desktop.costToday', { value: `${todayIsEstimated ? '~' : ''}$${kpi.costToday.toFixed(4)}` }),
       estimated: totalIsEstimated,
+      // The KPI is windowed (default 7d) but labelled "Total cost" — state the
+      // window explicitly so it is never read as a grand all-time total (MED-10).
+      window: windowLabel,
     },
     {
       key: 'totalJobs',
@@ -77,7 +80,17 @@ function DesktopKpiCards({ kpi }: { kpi: EstimatedKpi }) {
             className="rounded-lg border border-border/40 bg-card/50 p-4"
             data-estimated={card.estimated ? 'true' : undefined}
           >
-            <p className="text-xs text-muted-foreground mb-1">{card.label}</p>
+            <div className="flex items-center justify-between gap-1 mb-1">
+              <p className="text-xs text-muted-foreground">{card.label}</p>
+              {'window' in card && card.window && (
+                <span
+                  data-testid="kpi-window-label"
+                  className="text-[10px] text-muted-foreground/70 whitespace-nowrap"
+                >
+                  {card.window}
+                </span>
+              )}
+            </div>
             <p className="text-xl font-semibold font-mono">{card.value}</p>
             <p className="text-xs text-muted-foreground mt-1">{card.sub}</p>
           </div>
@@ -292,8 +305,13 @@ export default function DesktopAnalyticsPage() {
   // Refresh KPIs when jobs complete via WebSocket
   const { registerHandler, unregisterHandler } = useSharedWebSocket()
   const handleWsMessage = useCallback((raw: unknown) => {
-    const msg = raw as { type?: string; event_type?: string }
-    if (msg.type === 'log' && msg.event_type === 'job_done') {
+    const msg = raw as { type?: string }
+    // Cross-project page: refetch on any spend-affecting broadcast regardless of
+    // projectId (MED-11). 'spending.invalidated' fires from every
+    // recordInvocation site; 'rail.job_completed' is the rail job-completion
+    // broadcast the server actually emits (the previous 'log'/'job_done' gate
+    // matched a message the server never sends, so totals went stale).
+    if (msg.type === 'spending.invalidated' || msg.type === 'rail.job_completed') {
       void load(period, from, to)
     }
   }, [period, from, to]) // eslint-disable-line react-hooks/exhaustive-deps
@@ -386,7 +404,10 @@ export default function DesktopAnalyticsPage() {
         {/* Content */}
         {data && (
           <div className="space-y-3">
-            <DesktopKpiCards kpi={data.kpi} />
+            <DesktopKpiCards
+              kpi={data.kpi}
+              windowLabel={period === 'custom' ? data.period.label : t(`windowLabels.${period}`)}
+            />
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
               <DesktopCostTimeline data={data.costTimeline} />

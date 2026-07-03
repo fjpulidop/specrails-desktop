@@ -115,7 +115,9 @@
       "working": "Working…",
       "connecting": "Connecting to the agent…",
       "starting": "Starting…"
-    }
+    },
+    "pipelinePartial": "≥ shown — {{count}} phase(s) have no recorded cost yet",
+    "pipelinePartialTooltip": "Some phases were killed before their cost was reported, so this total is a lower bound."
   },
   "ticketHeader": {
     "showMore": "+ {{count}} more",

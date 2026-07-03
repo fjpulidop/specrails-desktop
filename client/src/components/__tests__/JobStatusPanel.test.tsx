@@ -182,6 +182,73 @@ describe('JobStatusPanel', () => {
     expect(screen.getByText('1000.0k')).toBeInTheDocument()
   })
 
+  it('HIGH-10: shows a ≥ lower-bound prefix + partial hint when a phase cost is null', () => {
+    render(
+      <JobStatusPanel
+        job={completedJob}
+        events={[]}
+        pipelineTotals={{
+          totalCostUsd: 28,
+          hasNullCost: true,
+          costEstimated: false,
+          nullCostCount: 1,
+          totalTokensIn: 1000,
+          totalTokensOut: 500,
+          totalTokensCacheRead: 0,
+          totalTokensCacheCreate: 0,
+          jobCount: 3,
+        }}
+      />,
+    )
+    // Lower-bound prefix present; the total is NOT rendered as a precise $28.0000.
+    expect(screen.getByText('≥$28.0000')).toBeInTheDocument()
+    expect(screen.queryByText('$28.0000')).not.toBeInTheDocument()
+    expect(screen.getByTestId('pipeline-partial-hint')).toBeInTheDocument()
+  })
+
+  it('HIGH-10: keeps the ~ estimated marker together with ≥ when a phase is both estimated and null', () => {
+    render(
+      <JobStatusPanel
+        job={completedJob}
+        events={[]}
+        pipelineTotals={{
+          totalCostUsd: 12.5,
+          hasNullCost: true,
+          costEstimated: true,
+          nullCostCount: 2,
+          totalTokensIn: 0,
+          totalTokensOut: 0,
+          totalTokensCacheRead: 0,
+          totalTokensCacheCreate: 0,
+          jobCount: 4,
+        }}
+      />,
+    )
+    expect(screen.getByText('~≥$12.5000')).toBeInTheDocument()
+  })
+
+  it('HIGH-10: renders a clean total with no indicator when every phase cost is present', () => {
+    render(
+      <JobStatusPanel
+        job={completedJob}
+        events={[]}
+        pipelineTotals={{
+          totalCostUsd: 40,
+          hasNullCost: false,
+          costEstimated: false,
+          nullCostCount: 0,
+          totalTokensIn: 0,
+          totalTokensOut: 0,
+          totalTokensCacheRead: 0,
+          totalTokensCacheCreate: 0,
+          jobCount: 3,
+        }}
+      />,
+    )
+    expect(screen.getByText('$40.0000')).toBeInTheDocument()
+    expect(screen.queryByTestId('pipeline-partial-hint')).not.toBeInTheDocument()
+  })
+
   // ── Running (HONEST live state) ─────────────────────────────────────────────
 
   describe('running', () => {

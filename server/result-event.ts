@@ -4,8 +4,10 @@
 //
 //   - finaliseInvocationResult(adapter, events, opts) — new contract used by
 //     post-adapter managers. Walks an AdapterEvent stream, calls
-//     `adapter.extractResult`, and falls back to the local pricing table when
-//     the adapter declares `capabilities.nativeCostUsd === false`. Returns
+//     `adapter.extractResult`, and falls back to the local pricing table
+//     whenever the extracted result carries billable usage but no native
+//     `total_cost_usd` (kill/abort/timeout paths included, for EVERY provider
+//     — not just those with `capabilities.nativeCostUsd === false`). Returns
 //     both the NormalisedResult and an `estimated` flag for the
 //     `total_cost_usd_estimated` DB column.
 //
@@ -69,14 +71,25 @@ export function finaliseInvocationResult(
   // keeps `total_cost_usd` undefined → persisted NULL, identical to claude, and
   // also avoids the misleading "no rate-card entry" warn below for a known
   // model that simply had no usage. (BUG-ANALYTICS-05.)
-  // cache_create is intentionally excluded — it is never billed by the pricing
-  // table, so a row carrying only cache-create tokens has no billable usage and
-  // must be treated as no-cost (NULL), mirroring estimateCostUsd.
+  // cache_create now counts as billable usage: claude rate-card entries price
+  // cache writes, so a killed claude spawn whose captured usage is cache-write
+  // heavy must still enter the estimation branch. Providers without a
+  // cache-write tier still estimate a cache-create-only payload to null inside
+  // estimateCostUsd, preserving the BUG-ANALYTICS-05 NULL shape.
   const hasBillableUsage =
     (cloned.tokens_in ?? 0) > 0 ||
     (cloned.tokens_out ?? 0) > 0 ||
-    (cloned.tokens_cache_read ?? 0) > 0
-  if (!adapter.capabilities.nativeCostUsd && hasBillableUsage) {
+    (cloned.tokens_cache_read ?? 0) > 0 ||
+    (cloned.tokens_cache_create ?? 0) > 0
+  // Estimate whenever the provider did NOT report a native cost for THIS
+  // invocation — regardless of `capabilities.nativeCostUsd`. A claude spawn
+  // killed before its terminal `result` event has billable usage (aggregated
+  // from per-assistant-event snapshots) but no native cost; gating on the
+  // capability flag left those rows NULL → $0 in every dashboard SUM
+  // (COST-ACCOUNTING-AUDIT CRIT-1). A genuine native cost — including a
+  // numeric 0 — still passes through untouched with estimated=false.
+  const nativeCostAbsent = cloned.total_cost_usd === null || cloned.total_cost_usd === undefined
+  if (nativeCostAbsent && hasBillableUsage) {
     const estimator = opts.estimator ?? estimateCostUsd
     const computed = estimator(adapter.id, cloned.model, {
       tokens_in: cloned.tokens_in,
