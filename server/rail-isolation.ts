@@ -38,6 +38,19 @@ export function isRailWorktreesEnabled(): boolean {
   return v !== '0' && v !== 'false' && v !== 'off'
 }
 
+/**
+ * Flag for the NEW draft-PR delivery path (safe-pr-workflow). **Default OFF** — an
+ * opt-in switch: only `1`/`true`/`on` enables it. When off, a settled isolated rail
+ * uses the legacy local merge-back (byte-identical to before). When on, the rail's
+ * ticket branches are assembled onto a batch branch and delivered as ONE draft PR
+ * (specrails never merges into the base). Kept separate from the isolation gate so
+ * the two roll out independently.
+ */
+export function isRailPrDeliveryEnabled(): boolean {
+  const v = (process.env.SPECRAILS_RAIL_DELIVER_PR ?? '').trim().toLowerCase()
+  return v === '1' || v === 'true' || v === 'on'
+}
+
 export interface IsolationDecisionInput {
   /** Loops feature enabled for the server. */
   loopsEnabled: boolean

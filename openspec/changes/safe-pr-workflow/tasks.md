@@ -8,8 +8,8 @@
 
 ## 2. App-owned git/PR primitive (`safe-pr-workflow` / `core-git-agnostic-contract`)
 - [x] 2.1 New desktop primitive (`server/pr-publisher.ts` + tests): `git push -u origin <branch>` → `gh pr create --draft --base <baseBranch> --head <branch>`; parses + returns the PR URL.
-- [~] 2.2 Degradation ladder IMPLEMENTED in the primitive (`pr-created` / `pushed` / `local-only`, never throws). **Pending:** wiring the degraded outcome to a WS broadcast — done at integration time (with 2.3).
-- [ ] 2.3 Retire local merge-back on the mutating path (`merge-manager.ts` `git merge --no-ff` into HEAD removed from this flow).
+- [x] 2.2 Degradation ladder in the primitive + WS surfacing DONE — `rail.pr_delivered` broadcast carries `{delivery, prState, prUrl, branch}` (`server/types.ts` + `rail-isolated-launch.ts`).
+- [~] 2.3 Flag-gated draft-PR delivery path added (`SPECRAILS_RAIL_DELIVER_PR`, default OFF): when on, a settled isolated rail delivers a draft PR instead of merging back (`server/rail-pr-delivery.ts`, wired in `rail-isolated-launch.ts`). **Full retirement of the local merge-back is deferred** — the default path is still merge-back until the PR path is validated in the field.
 - [ ] 2.4 Hard git guardrails: block force-push and direct commits to the integration branch (technical block, not prompt text).
 
 ## 3. Platform-law enforcement (`safe-pr-workflow`)
@@ -25,9 +25,9 @@
 - [ ] 4.5 Interim stopgap: write `git_auto:false` for all projects + ensure present inside the worktree (until 4.1 ships).
 
 ## 5. Combined batch PR (`combined-batch-pr`)
-- [ ] 5.1 Repurpose the AI merge-resolver to assemble N ticket branches onto `sr/<slug>/batch-<id>` (off the designated base), kept clean.
-- [ ] 5.2 One draft PR per batch; body = per-ticket checklist + per-ticket verification; preserve per-ticket commit history (no squash).
-- [ ] 5.3 Safe failure mode: cannot combine → fall back to N PRs or flag "needs a human to combine"; never touch the base.
+- [x] 5.1 `server/rail-pr-delivery.ts` `deliverRailAsPr` assembles N ticket branches onto `sr/<slug>/batch-<railKey>` off the designated integration branch (transient worktree, `git merge --no-ff`), kept clean.
+- [x] 5.2 One draft PR per batch; body = per-ticket checklist (`buildBatchPrBody`); per-ticket commit history preserved (`--no-ff`, no squash). (AI-resolver-assisted conflict resolution during assembly = follow-up; v1 uses plain merge.)
+- [x] 5.3 Safe failure mode: conflict → `merge --abort` + teardown of the batch branch/worktree → `assembly-failed` (ticket branches left for a human); the base is never touched.
 
 ## 6. Relocation overlay blocker (D7)
 - [ ] 6.1 Implement the per-run workspace overlay so a relocated project under isolation has `.specrails/` (agents, `.mcp.json`, `/specrails:*`) inside the worktree.
