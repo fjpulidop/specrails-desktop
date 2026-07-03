@@ -118,14 +118,14 @@ describe('loop-executors runAiStep — relocated-repo sandbox grant', () => {
       else process.env.SPECRAILS_RAIL_DELIVER_PR = ORIG
     })
 
-    it('injects SPECRAILS_GIT_AUTO=false when the delivery flag is ON', async () => {
-      process.env.SPECRAILS_RAIL_DELIVER_PR = '1'
+    it('injects SPECRAILS_GIT_AUTO=false when the delivery flag is ON (default)', async () => {
+      delete process.env.SPECRAILS_RAIL_DELIVER_PR
       const inv = await callStep('claude', { repoDir: '/repo', cwd: '/ws' })
       expect(inv.env.SPECRAILS_GIT_AUTO).toBe('false')
     })
 
-    it('does NOT inject the signal when the flag is OFF (default)', async () => {
-      delete process.env.SPECRAILS_RAIL_DELIVER_PR
+    it('does NOT inject the signal when the flag is explicitly OFF', async () => {
+      process.env.SPECRAILS_RAIL_DELIVER_PR = 'off'
       const inv = await callStep('claude', { repoDir: '/repo', cwd: '/ws' })
       expect(inv.env.SPECRAILS_GIT_AUTO).toBeUndefined()
     })

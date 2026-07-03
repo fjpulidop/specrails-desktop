@@ -1804,7 +1804,7 @@ export class QueueManager {
     // Safe-PR flow: when active (SPECRAILS_RAIL_DELIVER_PR on), desktop owns version
     // control — tell specrails-core's implement to be git-agnostic (skip its Ship
     // phase) via SPECRAILS_GIT_AUTO=false so it never opens an uncoordinated PR
-    // alongside the app's own draft-PR delivery. Default off ⇒ no change.
+    // alongside the app's own draft-PR delivery. Default ON (flag=0/false/off disables).
     if (isRailPrDeliveryEnabled()) {
       spawnEnv = { ...spawnEnv, SPECRAILS_GIT_AUTO: 'false' }
     }
