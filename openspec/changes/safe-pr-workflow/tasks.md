@@ -20,9 +20,9 @@
 ## 4. Cross-repo git-agnostic contract (`core-git-agnostic-contract`)
 - [ ] 4.1 **specrails-core**: parse `--no-ship` (and read `SPECRAILS_GIT_AUTO`) in `implement.md` Phase 0; short-circuit Phase 4c/4d like `GIT_AUTO=false`.
 - [ ] 4.2 **specrails-core**: reconcile `backend-developer.md`/`frontend-developer.md` self-commit behavior under git-agnostic mode; document the signal in the desktop↔core integration contract.
-- [ ] 4.3 **desktop**: pass the git-agnostic signal on every rail invocation (all 3 providers, both `all`-scoped and per-ticket paths).
-- [ ] 4.4 **desktop**: run `{{cmd:implement}}` per-ticket isolated (change from `ticketScope:'all'`); verify dependency ordering.
-- [ ] 4.5 Interim stopgap: write `git_auto:false` for all projects + ensure present inside the worktree (until 4.1 ships).
+- [x] 4.3 **desktop**: injects `SPECRAILS_GIT_AUTO=false` into every rail spawn when `SPECRAILS_RAIL_DELIVER_PR` is on — both the loop-engine path (`loop-executors.ts`) and the legacy QueueManager path (`queue-manager.ts`, covers implement/batch/ultracode). The signal travels with the invocation (survives into a worktree), superseding the fragile backlog-config stopgap. Gated OFF ⇒ no change.
+- [ ] 4.4 **desktop**: run `{{cmd:implement}}` per-ticket isolated (change from `ticketScope:'all'`); verify dependency ordering. (Deferred — orthogonal to the git-agnostic signal.)
+- [x] 4.5 Superseded by 4.3: a travelling env signal (`SPECRAILS_GIT_AUTO=false`) is more robust than writing `git_auto:false` into a gitignored backlog-config that is absent in a fresh worktree.
 
 ## 5. Combined batch PR (`combined-batch-pr`)
 - [x] 5.1 `server/rail-pr-delivery.ts` `deliverRailAsPr` assembles N ticket branches onto `sr/<slug>/batch-<railKey>` off the designated integration branch (transient worktree, `git merge --no-ff`), kept clean.
