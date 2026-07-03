@@ -185,6 +185,40 @@ describe('project-router', () => {
     })
   })
 
+  // ─── Project settings: integration branch ──────────────────────────────────
+
+  describe('project settings — integration branch', () => {
+    function appWithProject() {
+      const contexts = new Map<string, ProjectContext>()
+      contexts.set('proj-1', makeContext(db))
+      return createApp(contexts)
+    }
+
+    it('rejects an invalid integrationBranch (arg-injection guard)', async () => {
+      const { app } = appWithProject()
+      const res = await request(app).patch('/api/projects/proj-1/settings').send({ integrationBranch: '--upload-pack=x' })
+      expect(res.status).toBe(400)
+      expect(res.body.error).toMatch(/integrationBranch/)
+    })
+
+    it('persists a valid integrationBranch and clears it with empty string', async () => {
+      const { app } = appWithProject()
+      let res = await request(app).patch('/api/projects/proj-1/settings').send({ integrationBranch: 'develop' })
+      expect(res.status).toBe(200)
+      expect(res.body.settings.integrationBranch).toBe('develop')
+      res = await request(app).patch('/api/projects/proj-1/settings').send({ integrationBranch: '' })
+      expect(res.body.settings.integrationBranch).toBe('')
+    })
+
+    it('resolve endpoint echoes the configured setting (project-setting short-circuits git)', async () => {
+      const { app } = appWithProject()
+      await request(app).patch('/api/projects/proj-1/settings').send({ integrationBranch: 'develop' })
+      const res = await request(app).get('/api/projects/proj-1/integration-branch')
+      expect(res.status).toBe(200)
+      expect(res.body).toEqual({ configured: 'develop', branch: 'develop', source: 'project-setting' })
+    })
+  })
+
   // ─── Hooks mount (H18: memoized per ProjectContext) ─────────────────────────
 
   describe('hooks sub-router mount', () => {

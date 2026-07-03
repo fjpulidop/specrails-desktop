@@ -17,6 +17,8 @@ import {
   getTelemetryBlob, getTelemetrySummaries, getJobsWithTelemetry, hasJobTelemetry,
 } from './db'
 import { createDiagnosticZip } from './telemetry-export'
+import { resolveIntegrationBranch, isValidBranchName } from './integration-branch'
+import { defaultGitRunner } from './worktree-manager'
 import { getProjectSetupSession } from './desktop-db'
 import { ClaudeNotFoundError, JobNotFoundError, JobAlreadyTerminalError, DEFAULT_ZOMBIE_TIMEOUT_MS } from './queue-manager'
 import type { JobPriority } from './types'
@@ -199,12 +201,43 @@ export function registerSettingsRoutes(deps: ProjectRoutesDeps): void {
       }
       patch.ultraPrePrompt = ultraPrePrompt
     }
+    if (req.body?.integrationBranch !== undefined) {
+      const ib = req.body.integrationBranch
+      if (typeof ib !== 'string') {
+        res.status(400).json({ error: 'integrationBranch must be a string' })
+        return
+      }
+      // Empty = clear (auto-resolve). A non-empty value flows into `git worktree
+      // add … <base>`, so it must be a safe branch name (no arg-injection).
+      if (ib.trim() !== '' && !isValidBranchName(ib)) {
+        res.status(400).json({ error: 'integrationBranch is not a valid branch name' })
+        return
+      }
+      patch.integrationBranch = ib
+    }
     try {
       updateProjectSettings(ctx(req).db, patch)
       res.json({ ok: true, settings: getProjectSettings(ctx(req).db) })
     } catch (err) {
       console.error('[project-router] settings patch error:', err)
       res.status(500).json({ error: 'Failed to update settings' })
+    }
+  })
+
+  // Resolve the effective integration branch (configured value + what it resolves
+  // to right now + provenance) so the client can show the base before launch.
+  router.get('/:projectId/integration-branch', async (req: Request, res: Response) => {
+    const { project, db } = ctx(req)
+    const configured = getProjectSettings(db).integrationBranch
+    try {
+      const resolved = await resolveIntegrationBranch(defaultGitRunner, {
+        repoDir: project.path,
+        projectSetting: configured,
+      })
+      res.json({ configured, branch: resolved.branch, source: resolved.source })
+    } catch (err) {
+      console.error('[project-router] integration-branch resolve failed:', err)
+      res.status(500).json({ error: 'failed to resolve integration branch' })
     }
   })
 

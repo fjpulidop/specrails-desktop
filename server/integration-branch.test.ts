@@ -3,6 +3,7 @@ import {
   resolveIntegrationBranch,
   repoDefaultBranch,
   currentBranch,
+  isValidBranchName,
 } from './integration-branch'
 import type { GitRunner, GitResult } from './worktree-manager'
 
@@ -40,6 +41,19 @@ describe('currentBranch', () => {
   })
   it('returns null when detached (HEAD)', async () => {
     expect(await currentBranch(fakeGit({ abbrevHead: null }), '/r')).toBeNull()
+  })
+})
+
+describe('isValidBranchName (input-boundary guard)', () => {
+  it('accepts normal branch names', () => {
+    for (const ok of ['main', 'develop', 'release/1.2', 'feature/foo-bar', 'v2.20.1', 'a_b.c']) {
+      expect(isValidBranchName(ok)).toBe(true)
+    }
+  })
+  it('rejects argument-injection and malformed refs', () => {
+    for (const bad of ['--upload-pack=x', '-x', 'a b', 'foo..bar', 'a//b', 'ends/', '/starts', 'x.lock', 'tab\tname', '', '   ', 'na$me', 'a;rm -rf']) {
+      expect(isValidBranchName(bad)).toBe(false)
+    }
   })
 })
 

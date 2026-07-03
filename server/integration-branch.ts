@@ -52,6 +52,23 @@ export async function currentBranch(git: GitRunner, repoDir: string): Promise<st
   return null
 }
 
+/**
+ * Conservative git branch-name validator. The integration branch flows into
+ * `git worktree add -b <branch> <path> <base>` as `<base>`, so a value starting
+ * with `-` or containing whitespace/control chars would be an argument-injection
+ * vector. We allow only a safe subset (letters, digits, `._/-`), reject a leading
+ * `-`, `..`, a trailing `/` or `.lock`, and cap the length. This is stricter than
+ * git's own rules on purpose — it is an input-boundary guard, not a git parser.
+ */
+export function isValidBranchName(name: string): boolean {
+  if (typeof name !== 'string') return false
+  const n = name.trim()
+  if (!n || n.length > 255) return false
+  if (n.startsWith('-') || n.startsWith('/') || n.endsWith('/')) return false
+  if (n.includes('..') || n.includes('//') || n.endsWith('.lock')) return false
+  return /^[A-Za-z0-9._/-]+$/.test(n)
+}
+
 export async function resolveIntegrationBranch(
   git: GitRunner,
   input: ResolveIntegrationBranchInput,
