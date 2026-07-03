@@ -718,6 +718,17 @@ describe('project settings — ultracode pre-prompt', () => {
     expect(getProjectSettings(db).ultraPrePrompt).toBe('')
   })
 
+  it('defaults integrationBranch to empty string (auto-resolve)', () => {
+    expect(getProjectSettings(db).integrationBranch).toBe('')
+  })
+
+  it('persists, trims, and clears the integrationBranch setting', () => {
+    updateProjectSettings(db, { integrationBranch: '  develop  ' })
+    expect(getProjectSettings(db).integrationBranch).toBe('develop')
+    updateProjectSettings(db, { integrationBranch: '   ' })
+    expect(getProjectSettings(db).integrationBranch).toBe('')
+  })
+
   it('getUltracodePrePrompt falls back to the default when unset', () => {
     expect(getUltracodePrePrompt(db)).toBe(DEFAULT_ULTRACODE_PRE_PROMPT)
   })
