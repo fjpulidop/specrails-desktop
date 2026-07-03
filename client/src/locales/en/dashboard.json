@@ -21,7 +21,12 @@
     "launchDescription_other": "{{mode}} with {{count}} specs",
     "railWorktreeNeedsReview": "Rail {{n}}: spec #{{ticket}} needs review after merge",
     "railWorktreesNoGit": "Worktree isolation unavailable: this project isn't a git repository — running in shared mode.",
-    "railWorktreesNoCommits": "Worktree isolation unavailable: the repository has no commits yet — make an initial commit, then relaunch."
+    "railWorktreesNoCommits": "Worktree isolation unavailable: the repository has no commits yet — make an initial commit, then relaunch.",
+    "railPrDelivered": "Draft PR ready for rail {{n}}",
+    "railPrOpen": "Open PR",
+    "railPrPushed": "Rail {{n}}: branch pushed — open the PR when ready",
+    "railPrLocal": "Rail {{n}}: changes saved to a local branch",
+    "railPrAssemblyFailed": "Rail {{n}}: couldn't combine branches — needs a human"
   },
   "railsBoard": {
     "title": "Rails",

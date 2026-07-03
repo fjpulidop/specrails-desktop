@@ -465,6 +465,27 @@ export default function DashboardPage() {
       return
     }
 
+    if (m.type === 'rail.pr_delivered') {
+      const n = (m.railIndex ?? 0) + 1
+      const d = m as { delivery?: string; prState?: string; prUrl?: string }
+      if (d.delivery === 'delivered') {
+        if (d.prState === 'pr-created' && d.prUrl) {
+          const url = d.prUrl
+          toast.success(t('toasts.railPrDelivered', { n }), {
+            description: url,
+            action: { label: t('toasts.railPrOpen'), onClick: () => window.open(url, '_blank') },
+          })
+        } else if (d.prState === 'pushed') {
+          toast.info(t('toasts.railPrPushed', { n }))
+        } else {
+          toast.info(t('toasts.railPrLocal', { n }))
+        }
+      } else if (d.delivery === 'assembly-failed') {
+        toast.error(t('toasts.railPrAssemblyFailed', { n }))
+      }
+      return
+    }
+
     if (m.type === 'rail.job_completed') {
       const targetIndex = m.railIndex ?? 0
       // Strip this job's tickets from the rail on every terminal outcome so they

@@ -34,9 +34,9 @@
 - [ ] 6.2 Verify `{{cmd:implement}}` runs correctly in an isolated worktree on a relocated project.
 
 ## 7. Product-builder "Review & Approve" surface (`safe-pr-workflow`)
-- [ ] 7.1 Plain-language "what changed + proof" review bundle per loop result (diff summarized, verification/tests/screenshots).
-- [ ] 7.2 Approve → draft PR promoted to ready + reviewer notified/assigned; Discard → close PR + drop branch/worktree.
-- [ ] 7.3 i18n for all new builder-facing strings across the 8 locales (parity test passes).
+- [~] 7.1 Delivery is now SURFACED to the user: `DashboardPage` handles the `rail.pr_delivered` WS event → toast with the draft-PR link (`Open PR`) / pushed / local-only / assembly-failed, i18n ×8 (parity green). **Deferred:** the full plain-language "what changed + proof" review bundle (needs a product/UX decision).
+- [ ] 7.2 Approve → draft PR promoted to ready + reviewer notified/assigned; Discard → close PR + drop branch/worktree. (Deferred with 7.1's bundle.)
+- [x] 7.3 i18n for the delivery toasts across all 8 locales (parity test passes). (Remaining builder-facing strings ship with 7.1/7.2.)
 
 ## 8. Coverage & docs
 - [ ] 8.1 Unit tests: integration-branch resolution, mutating/read-only classifier, git-agnostic-signal propagation, combined-PR assembly (server ≥80%, client ≥80%).

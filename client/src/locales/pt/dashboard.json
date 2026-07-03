@@ -21,7 +21,12 @@
     "launchDescription_other": "{{mode}} com {{count}} specs",
     "railWorktreeNeedsReview": "Rail {{n}}: a spec #{{ticket}} precisa de revisão após o merge",
     "railWorktreesNoGit": "Isolamento por worktree indisponível: este projeto não é um repositório git — executando em modo compartilhado.",
-    "railWorktreesNoCommits": "Isolamento por worktree indisponível: o repositório ainda não tem commits — faça um commit inicial e relance."
+    "railWorktreesNoCommits": "Isolamento por worktree indisponível: o repositório ainda não tem commits — faça um commit inicial e relance.",
+    "railPrDelivered": "PR em rascunho pronta para o rail {{n}}",
+    "railPrOpen": "Abrir PR",
+    "railPrPushed": "Rail {{n}}: ramo enviado — abre a PR quando quiseres",
+    "railPrLocal": "Rail {{n}}: alterações guardadas num ramo local",
+    "railPrAssemblyFailed": "Rail {{n}}: não foi possível combinar os ramos — requer um humano"
   },
   "railsBoard": {
     "title": "Rails",
