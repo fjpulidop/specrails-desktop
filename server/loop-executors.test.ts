@@ -7,7 +7,7 @@
 //
 // All real spawn machinery is mocked; we assert only the `buildOpts.extraArgs`
 // (and `action`) handed to `runAiCliInvocation`.
-import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 
 const { runAiCliInvocation, getAdapter, ensureFrameworkAgents } = vi.hoisted(() => ({
   runAiCliInvocation: vi.fn(),
@@ -50,6 +50,7 @@ async function callStep(
   return runAiCliInvocation.mock.calls[0][0] as {
     action: string
     buildOpts: { extraArgs?: string[] }
+    env: Record<string, string | undefined>
   }
 }
 
@@ -108,5 +109,25 @@ describe('loop-executors runAiStep — relocated-repo sandbox grant', () => {
     expect(
       (await callStep('codex', { repoDir: '/repo', cwd: '/ws', sessionId: 's' })).action
     ).toBe('chat-resume')
+  })
+
+  describe('git-agnostic signal (SPECRAILS_GIT_AUTO)', () => {
+    const ORIG = process.env.SPECRAILS_RAIL_DELIVER_PR
+    afterEach(() => {
+      if (ORIG === undefined) delete process.env.SPECRAILS_RAIL_DELIVER_PR
+      else process.env.SPECRAILS_RAIL_DELIVER_PR = ORIG
+    })
+
+    it('injects SPECRAILS_GIT_AUTO=false when the delivery flag is ON', async () => {
+      process.env.SPECRAILS_RAIL_DELIVER_PR = '1'
+      const inv = await callStep('claude', { repoDir: '/repo', cwd: '/ws' })
+      expect(inv.env.SPECRAILS_GIT_AUTO).toBe('false')
+    })
+
+    it('does NOT inject the signal when the flag is OFF (default)', async () => {
+      delete process.env.SPECRAILS_RAIL_DELIVER_PR
+      const inv = await callStep('claude', { repoDir: '/repo', cwd: '/ws' })
+      expect(inv.env.SPECRAILS_GIT_AUTO).toBeUndefined()
+    })
   })
 })

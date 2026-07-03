@@ -13,6 +13,7 @@ import { ensureFrameworkAgents } from './workspace-manager'
 import { runAiCliInvocation } from './spawn-lifecycle'
 import { finaliseInvocationResult } from './result-event'
 import { parseDeciderDecision } from './loop-decider'
+import { isRailPrDeliveryEnabled } from './rail-isolation'
 import type { LoopExecutors, ShellResult } from './loop-run-manager'
 
 // Per-step wall-clock caps so a single hung step can't block the engine's
@@ -87,7 +88,13 @@ export function createLoopExecutors(opts: { env?: NodeJS.ProcessEnv } = {}): Loo
       // live, so native `/specrails:*` slash commands resolve). Surface the repo
       // for the pipeline's I/O exactly like QueueManager: SPECRAILS_REPO_DIR +
       // claude `--add-dir <repoDir>`. Best-effort agent self-heal on Windows.
-      const stepEnv = repoDir ? { ...env, SPECRAILS_REPO_DIR: repoDir } : env
+      // When the safe-PR flow is active (SPECRAILS_RAIL_DELIVER_PR on), desktop
+      // owns version control — tell specrails-core's implement to be git-agnostic
+      // (skip its Ship phase) so it never opens an uncoordinated PR alongside the
+      // app's own draft-PR delivery. Default off ⇒ no change. See rail-isolation +
+      // the specrails-core `SPECRAILS_GIT_AUTO` contract.
+      const base = repoDir ? { ...env, SPECRAILS_REPO_DIR: repoDir } : env
+      const stepEnv = isRailPrDeliveryEnabled() ? { ...base, SPECRAILS_GIT_AUTO: 'false' } : base
       // Relocated cwd is the workspace; the source repo is reached via the
       // `./project` symlink + SPECRAILS_REPO_DIR. Each provider must be told the
       // repo is an allowed working dir or it can READ but not WRITE source files:
