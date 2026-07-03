@@ -10,7 +10,7 @@
 - [x] 2.1 New desktop primitive (`server/pr-publisher.ts` + tests): `git push -u origin <branch>` → `gh pr create --draft --base <baseBranch> --head <branch>`; parses + returns the PR URL.
 - [x] 2.2 Degradation ladder in the primitive + WS surfacing DONE — `rail.pr_delivered` broadcast carries `{delivery, prState, prUrl, branch}` (`server/types.ts` + `rail-isolated-launch.ts`).
 - [~] 2.3 Flag-gated draft-PR delivery path added (`SPECRAILS_RAIL_DELIVER_PR`, default OFF): when on, a settled isolated rail delivers a draft PR instead of merging back (`server/rail-pr-delivery.ts`, wired in `rail-isolated-launch.ts`). **Full retirement of the local merge-back is deferred** — the default path is still merge-back until the PR path is validated in the field.
-- [ ] 2.4 Hard git guardrails: block force-push and direct commits to the integration branch (technical block, not prompt text).
+- [~] 2.4 `server/git-guardrails.ts` `assertGitAllowed` blocks force-push and direct push to the integration branch, wired into `pr-publisher` (the app's sanctioned push path) as defense-in-depth. **Deferred:** blocking git issued by the AI agent *inside* a loop turn needs a per-worktree pre-push hook (documented follow-up).
 
 ## 3. Platform-law enforcement (`safe-pr-workflow`)
 - [x] 3.1 `server/loop-effect.ts` `classifyLoopEffect` — server-authoritative, derived from node content (read-only iff no `ai-step`/`shell` node), unit-tested.
