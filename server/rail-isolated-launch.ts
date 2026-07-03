@@ -22,6 +22,8 @@ import { loadConstantMap } from './loop-constants'
 import { defaultGitRunner, createWorktree, removeWorktree, commitWorktree, type GitRunner, type WorktreeHandle } from './worktree-manager'
 import { createRailWorktree, updateRailWorktreeState, listNonTerminalRailWorktrees } from './rail-worktrees-store'
 import type { DbInstance } from './db'
+import { getProjectSettings } from './db'
+import { resolveIntegrationBranch } from './integration-branch'
 import { runMergeBack } from './rail-merge-orchestrator'
 import { createLoopExecutors } from './loop-executors'
 import type { BranchToMerge } from './merge-manager'
@@ -72,12 +74,20 @@ export async function launchIsolatedRail(input: IsolatedLaunchInput, io: Isolate
   const worktreesRoot = path.join(resolveHome(), '.specrails', 'projects', slug, 'worktrees')
   const constants = loadConstantMap(ctx.desktopDb)
 
+  // Resolve the project's designated integration branch ONCE, and branch every
+  // ticket's worktree off it (not the ambient HEAD). Empty setting → auto-resolve
+  // (repo default → HEAD fallback). See server/integration-branch.ts.
+  const integration = await resolveIntegrationBranch(git, {
+    repoDir: baseRepo,
+    projectSetting: getProjectSettings(ctx.db).integrationBranch,
+  })
+
   // 1. Allocate ALL worktrees up front (all-or-nothing) so a mid-way failure
   //    can't leave the rail half-isolated.
   const allocated: AllocatedRun[] = []
   try {
     for (const ticketId of ticketIds) {
-      const handle = await create(git, { repoDir: baseRepo, worktreesRoot, slug, ticketId })
+      const handle = await create(git, { repoDir: baseRepo, worktreesRoot, slug, ticketId, baseRef: integration.branch })
       const runId = newId()
       const ledgerId = newId()
       createRailWorktree(ctx.db, {

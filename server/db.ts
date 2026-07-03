@@ -1397,6 +1397,10 @@ export interface ProjectSettings {
   /** Per-project Ultracode pre-prompt override. Empty string = use
    *  DEFAULT_ULTRACODE_PRE_PROMPT at spawn time. */
   ultraPrePrompt: string
+  /** Designated integration branch that mutating loops branch worktrees from and
+   *  target draft PRs at. Empty string = auto-resolve (repo default → HEAD) via
+   *  `resolveIntegrationBranch`. */
+  integrationBranch: string
 }
 
 export function getProjectSettings(db: DbInstance): ProjectSettings {
@@ -1412,11 +1416,15 @@ export function getProjectSettings(db: DbInstance): ProjectSettings {
   const ultraPrePromptRow = db.prepare(
     `SELECT value FROM queue_state WHERE key = 'config.ultracode_pre_prompt'`
   ).get() as { value: string } | undefined
+  const integrationBranchRow = db.prepare(
+    `SELECT value FROM queue_state WHERE key = 'config.integration_branch'`
+  ).get() as { value: string } | undefined
   return {
     pipelineTelemetryEnabled: telemetryRow?.value === 'true',
     orchestratorModel: modelRow?.value ?? 'sonnet',
     prePrompt: prePromptRow?.value ?? '',
     ultraPrePrompt: ultraPrePromptRow?.value ?? '',
+    integrationBranch: integrationBranchRow?.value ?? '',
   }
 }
 
@@ -1454,6 +1462,15 @@ export function updateProjectSettings(db: DbInstance, patch: Partial<ProjectSett
       db.prepare(
         `INSERT OR REPLACE INTO queue_state (key, value) VALUES ('config.ultracode_pre_prompt', ?)`
       ).run(patch.ultraPrePrompt)
+    }
+  }
+  if (patch.integrationBranch !== undefined) {
+    if (patch.integrationBranch.trim() === '') {
+      db.prepare(`DELETE FROM queue_state WHERE key = 'config.integration_branch'`).run()
+    } else {
+      db.prepare(
+        `INSERT OR REPLACE INTO queue_state (key, value) VALUES ('config.integration_branch', ?)`
+      ).run(patch.integrationBranch.trim())
     }
   }
 }

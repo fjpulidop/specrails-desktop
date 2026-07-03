@@ -50,6 +50,22 @@ describe('launchIsolatedRail', () => {
     expect(ledger.every((r) => r.merge_state === 'building')).toBe(true)
   })
 
+  it('branches worktrees off the resolved integration branch (repo default)', async () => {
+    const { ctx } = fakeCtx()
+    const create = vi.fn(async (_g, { ticketId }: { ticketId: number }) => ({ branch: `sr/p/ticket-${ticketId}`, worktreePath: `/wt/ticket-${ticketId}` }))
+    const git = {
+      run: async (args: string[]) =>
+        args[0] === 'symbolic-ref'
+          ? { code: 0, stdout: 'refs/remotes/origin/develop\n', stderr: '' }
+          : { code: 0, stdout: '', stderr: '' },
+    }
+    const io: IsolatedLaunchIO = { git, create, remove: vi.fn(async () => {}) }
+
+    await launchIsolatedRail(input([1], ctx), io)
+
+    expect(create).toHaveBeenCalledWith(git, expect.objectContaining({ ticketId: 1, baseRef: 'develop' }))
+  })
+
   it('tears down partial allocation and throws when a worktree fails (all-or-nothing)', async () => {
     const { ctx, run } = fakeCtx()
     let n = 0
