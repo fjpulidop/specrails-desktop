@@ -749,6 +749,22 @@ export interface RailWorktreeProgressMessage {
   state: 'building' | 'built' | 'merging' | 'merged' | 'needs-review' | 'failed'
 }
 
+/**
+ * A parallel rail's isolated ticket branches were delivered as a draft PR
+ * (safe-pr-workflow, behind `SPECRAILS_RAIL_DELIVER_PR`). `delivery` is the
+ * outcome; when `delivered`, `prState`/`prUrl` carry the degradation-ladder
+ * result and (if opened) the PR URL.
+ */
+export interface RailPrDeliveredMessage {
+  type: 'rail.pr_delivered'
+  projectId: string
+  railIndex: number
+  delivery: 'delivered' | 'assembly-failed' | 'no-op'
+  prState?: 'pr-created' | 'pushed' | 'local-only'
+  prUrl?: string
+  branch?: string
+}
+
 export interface RailUpdatedMessage {
   type: 'rail.updated'
   projectId: string
@@ -1071,7 +1087,7 @@ export type WsMessage =
   | TicketCreatedMessage | TicketUpdatedMessage | TicketDeletedMessage
   | TicketAiEditStreamMessage | TicketAiEditDoneMessage | TicketAiEditErrorMessage
   | SpecGenStreamMessage | SpecGenDoneMessage | SpecGenErrorMessage
-  | RailJobStartedMessage | RailJobStoppedMessage | RailJobCompletedMessage | RailUpdatedMessage | RailWorktreeProgressMessage
+  | RailJobStartedMessage | RailJobStoppedMessage | RailJobCompletedMessage | RailUpdatedMessage | RailWorktreeProgressMessage | RailPrDeliveredMessage
   | LoopRunStartedMessage | LoopRunProgressMessage | LoopRunStoppedMessage | LoopRunCompletedMessage
   | AgentRefineStreamMessage | AgentRefinePhaseMessage | AgentRefineReadyMessage
   | AgentRefineTestMessage | AgentRefineErrorMessage | AgentRefineCancelledMessage

@@ -1,10 +1,13 @@
 import { describe, it, expect, beforeEach, afterEach } from 'vitest'
-import { mutatesRepo, isRailWorktreesEnabled, isolationApplies } from './rail-isolation'
+import { mutatesRepo, isRailWorktreesEnabled, isRailPrDeliveryEnabled, isolationApplies } from './rail-isolation'
 
 const ORIG = process.env.SPECRAILS_RAIL_WORKTREES
+const ORIG_PR = process.env.SPECRAILS_RAIL_DELIVER_PR
 afterEach(() => {
   if (ORIG === undefined) delete process.env.SPECRAILS_RAIL_WORKTREES
   else process.env.SPECRAILS_RAIL_WORKTREES = ORIG
+  if (ORIG_PR === undefined) delete process.env.SPECRAILS_RAIL_DELIVER_PR
+  else process.env.SPECRAILS_RAIL_DELIVER_PR = ORIG_PR
 })
 
 describe('mutatesRepo', () => {
@@ -32,6 +35,25 @@ describe('isRailWorktreesEnabled (default-on kill-switch)', () => {
     for (const v of ['1', 'true', 'on', 'yes', '']) {
       process.env.SPECRAILS_RAIL_WORKTREES = v
       expect(isRailWorktreesEnabled()).toBe(true)
+    }
+  })
+})
+
+describe('isRailPrDeliveryEnabled (default-off opt-in)', () => {
+  it('is OFF when unset (default-off)', () => {
+    delete process.env.SPECRAILS_RAIL_DELIVER_PR
+    expect(isRailPrDeliveryEnabled()).toBe(false)
+  })
+  it('ON only for 1/true/on (case-insensitive)', () => {
+    for (const v of ['1', 'true', 'on', 'ON', 'True']) {
+      process.env.SPECRAILS_RAIL_DELIVER_PR = v
+      expect(isRailPrDeliveryEnabled()).toBe(true)
+    }
+  })
+  it('OFF for any other value', () => {
+    for (const v of ['0', 'false', 'off', 'yes', '']) {
+      process.env.SPECRAILS_RAIL_DELIVER_PR = v
+      expect(isRailPrDeliveryEnabled()).toBe(false)
     }
   })
 })

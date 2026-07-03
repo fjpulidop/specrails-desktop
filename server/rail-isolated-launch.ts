@@ -24,6 +24,9 @@ import { createRailWorktree, updateRailWorktreeState, listNonTerminalRailWorktre
 import type { DbInstance } from './db'
 import { getProjectSettings } from './db'
 import { resolveIntegrationBranch } from './integration-branch'
+import { isRailPrDeliveryEnabled } from './rail-isolation'
+import { deliverRailAsPr, buildBatchPrBody } from './rail-pr-delivery'
+import { defaultExec } from './pr-publisher'
 import { runMergeBack } from './rail-merge-orchestrator'
 import { createLoopExecutors } from './loop-executors'
 import type { BranchToMerge } from './merge-manager'
@@ -138,13 +141,43 @@ export async function launchIsolatedRail(input: IsolatedLaunchInput, io: Isolate
     try { ctx.jiraSyncManager.onRailLaunch([a.ticketId], a.runId) } catch { /* non-fatal */ }
   }
 
-  // 3. When ALL runs settle → merge-back on the base repo (background; the HTTP
-  //    response has already returned the run ids).
+  // 3. When ALL runs settle → integrate on the base repo (background; the HTTP
+  //    response has already returned the run ids). Two mutually-exclusive paths:
+  //     • DEFAULT (flag off): legacy local merge-back into the checked-out branch.
+  //     • SPECRAILS_RAIL_DELIVER_PR on: assemble the ticket branches into a batch
+  //       branch off the designated integration branch and open ONE draft PR —
+  //       specrails never merges into base (safe-pr-workflow).
   void Promise.allSettled(runPromises).then(async (settled) => {
     const results = settled.flatMap((s) => (s.status === 'fulfilled' ? [s.value] : []))
     const branches: BranchToMerge[] = results.map((r) => ({
       ticketId: r.run.ticketId, branch: r.run.handle.branch, succeeded: r.succeeded,
     }))
+
+    if (isRailPrDeliveryEnabled()) {
+      try {
+        const succeededTickets = results.filter((r) => r.succeeded).map((r) => ({
+          ticketId: r.run.ticketId, title: ctx.getTicketSpec(r.run.ticketId)?.title,
+        }))
+        const delivery = await deliverRailAsPr(git, defaultExec, {
+          baseRepo, integrationBranch: integration.branch, slug,
+          railKey: `${railIndex}-${loopId}`, batchWorktreeRoot: worktreesRoot,
+          branches,
+          title: `${loopName}: ${succeededTickets.length} ticket(s)`,
+          body: buildBatchPrBody(loopName, succeededTickets),
+        })
+        ctx.broadcast({
+          type: 'rail.pr_delivered', projectId: ctx.project.id, railIndex,
+          delivery: delivery.state,
+          ...(delivery.state === 'delivered'
+            ? { prState: delivery.pr.state, prUrl: delivery.pr.prUrl, branch: delivery.branch }
+            : {}),
+        })
+      } catch (err) {
+        console.error('[rail-isolated] pr-delivery failed:', err)
+      }
+      return
+    }
+
     try {
       const outcomes = await runMergeBack({
         git, executor: createLoopExecutors(), baseDir: baseRepo,
