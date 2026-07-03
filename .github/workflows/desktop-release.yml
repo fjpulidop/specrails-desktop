@@ -24,7 +24,7 @@ env:
   # reproducibility — BUG-CI-02). This MUST equal the version the vendored
   # scripts/assemble-bundled-core.lock.json pins (assemble-bundled-core.mjs fails
   # fast on mismatch). Bump both together via PR. See server/bundled-core.ts.
-  CORE_BUNDLE_VERSION: "4.10.0"
+  CORE_BUNDLE_VERSION: "4.11.0"
   # Bundle @fission-ai/openspec into the app so the LAST network step of
   # project-add (openspec init) runs OFFLINE from the bundle instead of
   # `npx @fission-ai/openspec`. Pinned to match specrails-core's
