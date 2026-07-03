@@ -16,6 +16,7 @@ interface ProjectSettingsPayload {
   pipelineTelemetryEnabled?: boolean
   prePrompt?: string
   ultraPrePrompt?: string
+  integrationBranch?: string
 }
 
 /** Skeleton shown until a section's GET settles — fields never flash empty and
@@ -104,6 +105,90 @@ export function ProjectTelemetrySection() {
             />
           </button>
         </div>
+      </CardContent>
+    </Card>
+  )
+}
+
+/** Designated integration branch: the base parallel rails branch from and target
+ *  their draft PRs at. Empty = auto-resolve to the repo default. Shows the
+ *  resolved base so it is a certainty, not an implicit surprise. */
+export function ProjectIntegrationBranchSection() {
+  const { t } = useTranslation('settings')
+  const { activeProjectId } = useDesktop()
+  const [configured, setConfigured] = useState('')
+  const [resolved, setResolved] = useState<{ branch: string; source: string } | null>(null)
+  const [isSaving, setIsSaving] = useState(false)
+  const [loaded, setLoaded] = useState(false)
+
+  async function reload(cancelledRef?: { current: boolean }) {
+    const r = await fetch(`${getApiBase()}/integration-branch`)
+      .then((res) => (res.ok ? res.json() : null))
+      .catch(() => null) as { configured?: string; branch?: string; source?: string } | null
+    if (cancelledRef?.current) return
+    if (r) {
+      setConfigured(r.configured ?? '')
+      if (r.branch) setResolved({ branch: r.branch, source: r.source ?? '' })
+    }
+  }
+
+  useEffect(() => {
+    if (!activeProjectId) return
+    const cancelled = { current: false }
+    setLoaded(false)
+    reload(cancelled).finally(() => { if (!cancelled.current) setLoaded(true) })
+    return () => { cancelled.current = true }
+  }, [activeProjectId])
+
+  if (!loaded) return <SectionSkeleton />
+
+  async function save() {
+    setIsSaving(true)
+    try {
+      const res = await fetch(`${getApiBase()}/settings`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ integrationBranch: configured.trim() }),
+      })
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({} as { error?: string }))
+        throw new Error(body.error || 'Failed to save')
+      }
+      toast.success(t('integrationBranch.saved'))
+      await reload()
+    } catch (err) {
+      toast.error(t('integrationBranch.saveFailed'), { description: (err as Error).message })
+    } finally {
+      setIsSaving(false)
+    }
+  }
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle>{t('integrationBranch.title')}</CardTitle>
+        <CardDescription>{t('integrationBranch.description')}</CardDescription>
+      </CardHeader>
+      <CardContent className="space-y-3">
+        <Input
+          value={configured}
+          onChange={(e) => setConfigured(e.target.value)}
+          placeholder={t('integrationBranch.placeholder')}
+          data-testid="integration-branch-input"
+        />
+        {resolved && (
+          <p className="text-[10px] text-muted-foreground" data-testid="integration-branch-resolved">
+            <Trans
+              ns="settings"
+              i18nKey="integrationBranch.resolved"
+              values={{ branch: resolved.branch }}
+              components={{ mono: <span className="font-mono" /> }}
+            />
+          </p>
+        )}
+        <Button size="sm" onClick={save} disabled={isSaving} data-testid="integration-branch-save">
+          {t('integrationBranch.save')}
+        </Button>
       </CardContent>
     </Card>
   )

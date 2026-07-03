@@ -9,6 +9,7 @@ import {
   ProjectTelemetrySection,
   ProjectPrePromptsSection,
   ProjectBudgetSection,
+  ProjectIntegrationBranchSection,
 } from '../components/settings/ProjectSettingsSections'
 
 export default function SettingsPage() {
@@ -104,6 +105,8 @@ export default function SettingsPage() {
       {isSuperMode && <ProjectTelemetrySection />}
 
       <ProjectPrePromptsSection />
+
+      <ProjectIntegrationBranchSection />
 
       <ProjectBudgetSection />
 

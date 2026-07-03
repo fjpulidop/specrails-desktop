@@ -252,5 +252,14 @@
       "telemetry": "Télémétrie",
       "terminal": "Terminal"
     }
+  },
+  "integrationBranch": {
+    "title": "Branche d'intégration",
+    "description": "La branche depuis laquelle les rails parallèles se ramifient et que ciblent leurs PR en brouillon. Laissez vide pour résoudre automatiquement vers la branche par défaut du dépôt.",
+    "placeholder": "automatique (branche par défaut)",
+    "resolved": "Les rails partent de <mono>{{branch}}</mono>",
+    "save": "Enregistrer la branche",
+    "saved": "Branche d'intégration enregistrée",
+    "saveFailed": "Impossible d'enregistrer la branche d'intégration"
   }
 }

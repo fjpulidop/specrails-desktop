@@ -252,5 +252,14 @@
       "telemetry": "Telemetry",
       "terminal": "Terminal"
     }
+  },
+  "integrationBranch": {
+    "title": "Integration branch",
+    "description": "The branch parallel rails branch from and target their draft PRs at. Leave empty to auto-resolve to the repository's default branch.",
+    "placeholder": "auto (repository default)",
+    "resolved": "Rails branch off <mono>{{branch}}</mono>",
+    "save": "Save branch",
+    "saved": "Integration branch saved",
+    "saveFailed": "Could not save the integration branch"
   }
 }

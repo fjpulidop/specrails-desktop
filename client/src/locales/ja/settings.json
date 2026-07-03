@@ -252,5 +252,14 @@
       "telemetry": "テレメトリ",
       "terminal": "ターミナル"
     }
+  },
+  "integrationBranch": {
+    "title": "統合ブランチ",
+    "description": "並列レールが分岐し、ドラフト PR の対象となるブランチです。空欄にするとリポジトリのデフォルトブランチに自動解決されます。",
+    "placeholder": "自動（リポジトリのデフォルト）",
+    "resolved": "レールは <mono>{{branch}}</mono> から分岐します",
+    "save": "ブランチを保存",
+    "saved": "統合ブランチを保存しました",
+    "saveFailed": "統合ブランチを保存できませんでした"
   }
 }
