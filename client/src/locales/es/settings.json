@@ -252,5 +252,14 @@
       "telemetry": "Telemetría",
       "terminal": "Terminal"
     }
+  },
+  "integrationBranch": {
+    "title": "Rama de integración",
+    "description": "La rama desde la que parten los rails paralelos y a la que apuntan sus PRs en borrador. Déjalo vacío para resolver automáticamente a la rama por defecto del repositorio.",
+    "placeholder": "automático (rama por defecto)",
+    "resolved": "Los rails parten de <mono>{{branch}}</mono>",
+    "save": "Guardar rama",
+    "saved": "Rama de integración guardada",
+    "saveFailed": "No se pudo guardar la rama de integración"
   }
 }

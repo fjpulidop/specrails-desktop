@@ -4,7 +4,7 @@
 - [x] 1.1 Add a per-project `integrationBranch` setting (`ProjectSettings`, stored as a `queue_state` KV `config.integration_branch` — no migration needed as-built); default resolver = `git symbolic-ref refs/remotes/origin/HEAD` → else current `HEAD`.
 - [x] 1.2 Pure resolution module (`server/integration-branch.ts` + tests) — precedence explicit → project setting → repo default → head-fallback, returning `{branch, source}`.
 - [x] 1.3 Make `CreateWorktreeInput.baseRef` live: `rail-isolated-launch.ts` resolves the integration branch once and passes it as `baseRef` to every `createWorktree` (was implicit `HEAD`).
-- [~] 1.4 Server half DONE: `PATCH /:projectId/settings` accepts+validates `integrationBranch` (arg-injection guard `isValidBranchName`), `GET /:projectId/integration-branch` resolves `{configured, branch, source}` for pre-launch display. **Pending (own PR):** client picker in project settings + resolved base shown before launch + i18n ×8.
+- [x] 1.4 Server API + client picker DONE: `PATCH /settings` accepts+validates `integrationBranch` (`isValidBranchName`), `GET /:projectId/integration-branch` resolves `{configured, branch, source}`; `ProjectIntegrationBranchSection` in project Settings lets the user set it and shows the resolved base (`Rails branch off <branch>`), i18n ×8 (parity green). **Deferred:** surfacing the resolved base in the rail-launch header (Settings surfaces it today).
 
 ## 2. App-owned git/PR primitive (`safe-pr-workflow` / `core-git-agnostic-contract`)
 - [x] 2.1 New desktop primitive (`server/pr-publisher.ts` + tests): `git push -u origin <branch>` → `gh pr create --draft --base <baseBranch> --head <branch>`; parses + returns the PR URL.

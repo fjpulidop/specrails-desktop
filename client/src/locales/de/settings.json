@@ -252,5 +252,14 @@
       "telemetry": "Telemetrie",
       "terminal": "Terminal"
     }
+  },
+  "integrationBranch": {
+    "title": "Integrationszweig",
+    "description": "Der Branch, von dem parallele Rails abzweigen und auf den ihre Entwurfs-PRs zielen. Leer lassen, um automatisch den Standard-Branch des Repositorys zu verwenden.",
+    "placeholder": "automatisch (Standard-Branch)",
+    "resolved": "Rails zweigen von <mono>{{branch}}</mono> ab",
+    "save": "Branch speichern",
+    "saved": "Integrationszweig gespeichert",
+    "saveFailed": "Integrationszweig konnte nicht gespeichert werden"
   }
 }

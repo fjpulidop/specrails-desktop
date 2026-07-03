@@ -252,5 +252,14 @@
       "telemetry": "遥测",
       "terminal": "终端"
     }
+  },
+  "integrationBranch": {
+    "title": "集成分支",
+    "description": "并行 rail 从此分支创建，其草稿 PR 也以此为目标。留空则自动解析为仓库的默认分支。",
+    "placeholder": "自动（仓库默认分支）",
+    "resolved": "Rail 从 <mono>{{branch}}</mono> 创建分支",
+    "save": "保存分支",
+    "saved": "集成分支已保存",
+    "saveFailed": "无法保存集成分支"
   }
 }

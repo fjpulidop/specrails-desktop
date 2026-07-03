@@ -252,5 +252,14 @@
       "telemetry": "Telemetria",
       "terminal": "Terminale"
     }
+  },
+  "integrationBranch": {
+    "title": "Ramo di integrazione",
+    "description": "Il ramo da cui i rail paralleli si diramano e a cui puntano le loro PR in bozza. Lascia vuoto per risolvere automaticamente al ramo predefinito del repository.",
+    "placeholder": "automatico (ramo predefinito)",
+    "resolved": "I rail si diramano da <mono>{{branch}}</mono>",
+    "save": "Salva ramo",
+    "saved": "Ramo di integrazione salvato",
+    "saveFailed": "Impossibile salvare il ramo di integrazione"
   }
 }
