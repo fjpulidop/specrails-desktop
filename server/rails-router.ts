@@ -14,6 +14,7 @@ import { loadConstantMap } from './loop-constants'
 import { dominantTicketScope, referencesClaudeOnlyCommand } from './loop-command-catalog'
 import { loopNeedsTicket, type LoopGraph } from './loop-graph'
 import { isolationApplies } from './rail-isolation'
+import { classifyLoopEffect } from './loop-effect'
 import { launchIsolatedRail } from './rail-isolated-launch'
 import { repoIsolationStatus, defaultGitRunner } from './worktree-manager'
 import { newId } from './ids'
@@ -368,7 +369,11 @@ export function createRailsRouter(): Router {
         // repo, an unborn HEAD, or a worktree-allocation failure all fall through to
         // the shared-cwd path below. See rail-isolation.ts.
         let isolationUnavailable: string | undefined
-        if (isolationApplies({ loopsEnabled: isLoopsEnabled(), scope, ticketCount: rail.ticketIds.length, readOnly: false })) {
+        // Read-only vs mutating is DERIVED from the loop's nodes (see loop-effect),
+        // not a user flag — a content-read-only loop (no ai-step/shell) never writes,
+        // so it is not isolated; anything that can write is.
+        const loopReadOnly = classifyLoopEffect(loopGraph) === 'read-only'
+        if (isolationApplies({ loopsEnabled: isLoopsEnabled(), scope, ticketCount: rail.ticketIds.length, readOnly: loopReadOnly })) {
           // Worktree isolation needs a git repo WITH at least one commit (an
           // unborn HEAD can't be branched). Fall back (with a message) otherwise.
           const status = await repoIsolationStatus(defaultGitRunner, c.project.path)
