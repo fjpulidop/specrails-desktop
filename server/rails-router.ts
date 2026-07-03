@@ -17,6 +17,7 @@ import { isolationApplies } from './rail-isolation'
 import { classifyLoopEffect } from './loop-effect'
 import { launchIsolatedRail } from './rail-isolated-launch'
 import { repoIsolationStatus, defaultGitRunner } from './worktree-manager'
+import { defaultExec } from './pr-publisher'
 import { newId } from './ids'
 import type { ReasoningEffort } from './providers/types'
 import type { RailJobStartedMessage, RailJobStoppedMessage, RailUpdatedMessage, LoopRunStoppedMessage } from './types'
@@ -592,6 +593,35 @@ export function createRailsRouter(): Router {
     }
 
     res.json({ ok: true, jobIds: targetJobIds, loopRunIds: targetLoopRunIds, canceled: canceledCount })
+  })
+
+  // POST /rails/pr-review — the product builder's Approve / Discard action on a
+  // draft PR a rail delivered (safe-pr-workflow). Approve promotes the draft to
+  // ready-for-review (hands off to the engineer's GitHub review); Discard closes
+  // it and drops the branch. specrails never merges — the engineer owns the merge.
+  router.post('/pr-review', async (req: Request, res: Response) => {
+    const c = ctx(req)
+    const prUrl = (req.body ?? {}).prUrl
+    const action = (req.body ?? {}).action
+    if (typeof prUrl !== 'string' || !/^https?:\/\/[^\s]+\/pull\/\d+$/.test(prUrl)) {
+      res.status(400).json({ error: 'prUrl must be a valid pull-request URL' }); return
+    }
+    if (action !== 'ready' && action !== 'discard') {
+      res.status(400).json({ error: "action must be 'ready' or 'discard'" }); return
+    }
+    const args = action === 'ready'
+      ? ['pr', 'ready', prUrl]
+      : ['pr', 'close', prUrl, '--delete-branch']
+    try {
+      const r = await defaultExec.run('gh', args, c.project.path)
+      if (r.code !== 0) {
+        res.status(502).json({ error: `gh pr ${action} failed`, detail: (r.stderr.trim() || r.stdout.trim()).split('\n')[0] || `exit ${r.code}` })
+        return
+      }
+      res.json({ ok: true, action })
+    } catch (err) {
+      res.status(500).json({ error: 'pr-review failed', detail: (err as Error).message })
+    }
   })
 
   return router

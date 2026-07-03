@@ -405,6 +405,26 @@ export default function DashboardPage() {
   }, [updateRails])
 
 
+  // The product builder's Approve: promote a rail's delivered DRAFT PR to
+  // ready-for-review (hands off to the engineer's GitHub review). specrails never
+  // merges — the engineer owns the merge (safe-pr-workflow).
+  async function approveRailPr(prUrl: string) {
+    try {
+      const res = await fetch(`${getApiBase()}/rails/pr-review`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ prUrl, action: 'ready' }),
+      })
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({} as { error?: string }))
+        throw new Error(body.error || 'failed')
+      }
+      toast.success(t('toasts.railPrApproved'))
+    } catch {
+      toast.error(t('toasts.railPrApproveFailed'))
+    }
+  }
+
   // ── WebSocket: listen for rail.job_completed to reset rail status ────────────
   const activeProjectIdRef = useRef(activeProjectId)
   useEffect(() => { activeProjectIdRef.current = activeProjectId }, [activeProjectId])
@@ -472,8 +492,10 @@ export default function DashboardPage() {
         if (d.prState === 'pr-created' && d.prUrl) {
           const url = d.prUrl
           toast.success(t('toasts.railPrDelivered', { n }), {
+            duration: Infinity,
             description: url,
-            action: { label: t('toasts.railPrOpen'), onClick: () => window.open(url, '_blank') },
+            action: { label: t('toasts.railPrApprove'), onClick: () => approveRailPr(url) },
+            cancel: { label: t('toasts.railPrOpen'), onClick: () => window.open(url, '_blank') },
           })
         } else if (d.prState === 'pushed') {
           toast.info(t('toasts.railPrPushed', { n }))

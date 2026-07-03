@@ -26,7 +26,10 @@
     "railPrOpen": "PR を開く",
     "railPrPushed": "レール {{n}}：ブランチをプッシュしました — 必要に応じて PR を開いてください",
     "railPrLocal": "レール {{n}}：変更をローカルブランチに保存しました",
-    "railPrAssemblyFailed": "レール {{n}}：ブランチを結合できませんでした — 手動対応が必要です"
+    "railPrAssemblyFailed": "レール {{n}}：ブランチを結合できませんでした — 手動対応が必要です",
+    "railPrApprove": "承認",
+    "railPrApproved": "PR をレビューに送信しました",
+    "railPrApproveFailed": "PR をレビューに送信できませんでした"
   },
   "railsBoard": {
     "title": "レール",

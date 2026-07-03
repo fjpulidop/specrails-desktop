@@ -9,6 +9,12 @@ import { createLoop, publishLoop } from './loops-store'
 import { createLoopRun } from './loop-runs-store'
 import type { LoopGraph } from './loop-graph'
 
+const { mockExecRun } = vi.hoisted(() => ({ mockExecRun: vi.fn() }))
+vi.mock('./pr-publisher', async (importActual) => ({
+  ...(await (importActual as () => Promise<Record<string, unknown>>)()),
+  defaultExec: { run: mockExecRun },
+}))
+
 function appWith(
   db: DbInstance,
   opts?: {
@@ -699,5 +705,45 @@ describe('rails-router GET / — activeLoopRuns enrichment (mirror labelling)', 
     const res = await request(appWith(db, { railLoopRuns: new Map() })).get('/rails')
     expect(res.body.activeLoopRuns['1']).toMatchObject({ loopRunId: 'run-db', loopId: 'loop-x', steps: 0, lines: 0 })
     expect(res.body.activeLoopRuns['1'].startedAt).toBeTruthy()
+  })
+})
+
+describe('rails-router POST /pr-review', () => {
+  let db: DbInstance
+  beforeEach(() => { db = initDb(':memory:'); mockExecRun.mockReset() })
+  afterEach(() => { db.close() })
+
+  const url = 'https://github.com/o/r/pull/7'
+
+  it('400 on a non-PR URL', async () => {
+    const res = await request(appWith(db)).post('/rails/pr-review').send({ prUrl: 'not-a-url', action: 'ready' })
+    expect(res.status).toBe(400)
+  })
+
+  it('400 on an invalid action', async () => {
+    const res = await request(appWith(db)).post('/rails/pr-review').send({ prUrl: url, action: 'merge' })
+    expect(res.status).toBe(400)
+  })
+
+  it('ready → runs gh pr ready and returns ok', async () => {
+    mockExecRun.mockResolvedValue({ code: 0, stdout: '', stderr: '' })
+    const res = await request(appWith(db)).post('/rails/pr-review').send({ prUrl: url, action: 'ready' })
+    expect(res.status).toBe(200)
+    expect(res.body).toEqual({ ok: true, action: 'ready' })
+    expect(mockExecRun).toHaveBeenCalledWith('gh', ['pr', 'ready', url], '/repo')
+  })
+
+  it('discard → runs gh pr close --delete-branch', async () => {
+    mockExecRun.mockResolvedValue({ code: 0, stdout: '', stderr: '' })
+    const res = await request(appWith(db)).post('/rails/pr-review').send({ prUrl: url, action: 'discard' })
+    expect(res.status).toBe(200)
+    expect(mockExecRun).toHaveBeenCalledWith('gh', ['pr', 'close', url, '--delete-branch'], '/repo')
+  })
+
+  it('502 when gh fails', async () => {
+    mockExecRun.mockResolvedValue({ code: 1, stdout: '', stderr: 'gh: not authenticated' })
+    const res = await request(appWith(db)).post('/rails/pr-review').send({ prUrl: url, action: 'ready' })
+    expect(res.status).toBe(502)
+    expect(res.body.detail).toContain('not authenticated')
   })
 })

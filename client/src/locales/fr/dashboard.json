@@ -26,7 +26,10 @@
     "railPrOpen": "Ouvrir la PR",
     "railPrPushed": "Rail {{n}} : branche poussée — ouvrez la PR quand vous voulez",
     "railPrLocal": "Rail {{n}} : modifications enregistrées dans une branche locale",
-    "railPrAssemblyFailed": "Rail {{n}} : impossible de combiner les branches — intervention humaine requise"
+    "railPrAssemblyFailed": "Rail {{n}} : impossible de combiner les branches — intervention humaine requise",
+    "railPrApprove": "Approuver",
+    "railPrApproved": "PR envoyée en revue",
+    "railPrApproveFailed": "Impossible d'envoyer la PR en revue"
   },
   "railsBoard": {
     "title": "Rails",
