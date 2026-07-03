@@ -91,8 +91,8 @@ export function createLoopExecutors(opts: { env?: NodeJS.ProcessEnv } = {}): Loo
       // When the safe-PR flow is active (SPECRAILS_RAIL_DELIVER_PR on), desktop
       // owns version control — tell specrails-core's implement to be git-agnostic
       // (skip its Ship phase) so it never opens an uncoordinated PR alongside the
-      // app's own draft-PR delivery. Default off ⇒ no change. See rail-isolation +
-      // the specrails-core `SPECRAILS_GIT_AUTO` contract.
+      // app's own draft-PR delivery. Default ON (set the flag to 0/false/off to
+      // disable). See rail-isolation + the specrails-core `SPECRAILS_GIT_AUTO` contract.
       const base = repoDir ? { ...env, SPECRAILS_REPO_DIR: repoDir } : env
       const stepEnv = isRailPrDeliveryEnabled() ? { ...base, SPECRAILS_GIT_AUTO: 'false' } : base
       // Relocated cwd is the workspace; the source repo is reached via the

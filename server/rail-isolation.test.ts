@@ -39,21 +39,21 @@ describe('isRailWorktreesEnabled (default-on kill-switch)', () => {
   })
 })
 
-describe('isRailPrDeliveryEnabled (default-off opt-in)', () => {
-  it('is OFF when unset (default-off)', () => {
+describe('isRailPrDeliveryEnabled (default-on kill-switch)', () => {
+  it('is ON when unset (default-on)', () => {
     delete process.env.SPECRAILS_RAIL_DELIVER_PR
-    expect(isRailPrDeliveryEnabled()).toBe(false)
+    expect(isRailPrDeliveryEnabled()).toBe(true)
   })
-  it('ON only for 1/true/on (case-insensitive)', () => {
-    for (const v of ['1', 'true', 'on', 'ON', 'True']) {
-      process.env.SPECRAILS_RAIL_DELIVER_PR = v
-      expect(isRailPrDeliveryEnabled()).toBe(true)
-    }
-  })
-  it('OFF for any other value', () => {
-    for (const v of ['0', 'false', 'off', 'yes', '']) {
+  it('OFF only for 0/false/off (case-insensitive)', () => {
+    for (const v of ['0', 'false', 'off', 'OFF', 'False']) {
       process.env.SPECRAILS_RAIL_DELIVER_PR = v
       expect(isRailPrDeliveryEnabled()).toBe(false)
+    }
+  })
+  it('ON for explicit truthy AND any unrecognized value (incl. empty)', () => {
+    for (const v of ['1', 'true', 'on', 'yes', '']) {
+      process.env.SPECRAILS_RAIL_DELIVER_PR = v
+      expect(isRailPrDeliveryEnabled()).toBe(true)
     }
   })
 })
