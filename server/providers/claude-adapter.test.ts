@@ -298,6 +298,105 @@ describe('claudeAdapter.parseStreamLine', () => {
   })
 })
 
+describe('claudeAdapter.parseStreamLine — per-assistant-event usage capture (HIGH-8)', () => {
+  it('carries message.usage + model + messageId onto a text-delta event', () => {
+    const ev = claudeAdapter.parseStreamLine(
+      '{"type":"assistant","message":{"id":"msg_1","model":"claude-sonnet-4-6","usage":{"input_tokens":1000,"output_tokens":200,"cache_read_input_tokens":50,"cache_creation_input_tokens":10},"content":[{"type":"text","text":"hi"}]}}',
+    ) as (AdapterEvent & { usage?: Record<string, number>; model?: string; messageId?: string }) | null
+    expect(ev?.kind).toBe('text-delta')
+    expect(ev?.usage).toEqual({
+      input_tokens: 1000,
+      output_tokens: 200,
+      cache_read_input_tokens: 50,
+      cache_creation_input_tokens: 10,
+    })
+    expect(ev?.model).toBe('claude-sonnet-4-6')
+    expect(ev?.messageId).toBe('msg_1')
+  })
+
+  it('carries usage onto a tool-use assistant frame too', () => {
+    const ev = claudeAdapter.parseStreamLine(
+      '{"type":"assistant","message":{"id":"msg_2","model":"claude-opus-4-8","usage":{"input_tokens":500,"output_tokens":0},"content":[{"type":"tool_use","name":"Read","input":{"path":"x"}}]}}',
+    ) as (AdapterEvent & { usage?: Record<string, number>; messageId?: string }) | null
+    expect(ev?.kind).toBe('tool-use')
+    expect(ev?.usage).toEqual({ input_tokens: 500, output_tokens: 0 })
+    expect(ev?.messageId).toBe('msg_2')
+  })
+
+  it('does not attach a usage key when the assistant frame has no usage block', () => {
+    const ev = claudeAdapter.parseStreamLine(
+      '{"type":"assistant","message":{"content":[{"type":"text","text":"hi"}]}}',
+    ) as (AdapterEvent & { usage?: unknown }) | null
+    expect(ev?.kind).toBe('text-delta')
+    expect(ev && 'usage' in ev).toBe(false)
+  })
+})
+
+describe('claudeAdapter.extractResult — no-result aggregation (CRIT-1 / HIGH-8)', () => {
+  function assistantLine(id: string, usage: Record<string, number>, model = 'claude-sonnet-4-6') {
+    return JSON.stringify({
+      type: 'assistant',
+      message: { id, model, usage, content: [{ type: 'text', text: 'x' }] },
+    })
+  }
+
+  it('aggregates usage across DISTINCT assistant messages when no result event arrives', () => {
+    const events = [
+      '{"type":"system","subtype":"init","session_id":"S-AGG"}',
+      assistantLine('m1', { input_tokens: 100, output_tokens: 10, cache_read_input_tokens: 5, cache_creation_input_tokens: 2 }),
+      assistantLine('m2', { input_tokens: 300, output_tokens: 40, cache_read_input_tokens: 7, cache_creation_input_tokens: 3 }),
+    ]
+      .map((l) => claudeAdapter.parseStreamLine(l))
+      .filter((e): e is AdapterEvent => e !== null)
+    const result = claudeAdapter.extractResult(events)
+    expect(result.tokens_in).toBe(400)
+    expect(result.tokens_out).toBe(50)
+    expect(result.tokens_cache_read).toBe(12)
+    expect(result.tokens_cache_create).toBe(5)
+    expect(result.total_cost_usd).toBeUndefined() // estimation is the caller's job
+    expect(result.model).toBe('claude-sonnet-4-6')
+    expect(result.session_id).toBe('S-AGG')
+  })
+
+  it('dedups repeated frames of the SAME message id (last snapshot wins, no double count)', () => {
+    // One logical message split into multiple content-block frames repeats the
+    // same usage; the growing snapshot for msg id m1 must be counted once.
+    const events = [
+      assistantLine('m1', { input_tokens: 100, output_tokens: 10 }),
+      assistantLine('m1', { input_tokens: 100, output_tokens: 25 }), // later snapshot of same msg
+    ]
+      .map((l) => claudeAdapter.parseStreamLine(l))
+      .filter((e): e is AdapterEvent => e !== null)
+    const result = claudeAdapter.extractResult(events)
+    expect(result.tokens_in).toBe(100) // NOT 200
+    expect(result.tokens_out).toBe(25) // last snapshot wins
+  })
+
+  it('treats usage frames without a message id as distinct anonymous calls', () => {
+    const events: AdapterEvent[] = [
+      { kind: 'text-delta', text: 'a', usage: { input_tokens: 10, output_tokens: 1 } } as AdapterEvent,
+      { kind: 'text-delta', text: 'b', usage: { input_tokens: 20, output_tokens: 2 } } as AdapterEvent,
+    ]
+    const result = claudeAdapter.extractResult(events)
+    expect(result.tokens_in).toBe(30)
+    expect(result.tokens_out).toBe(3)
+  })
+
+  it('a result event overrides the aggregation path entirely (byte-compat)', () => {
+    const events = [
+      assistantLine('m1', { input_tokens: 100, output_tokens: 10 }),
+      '{"type":"result","session_id":"S","total_cost_usd":0.5,"model":"claude-sonnet-4-6","usage":{"input_tokens":999,"output_tokens":111}}',
+    ]
+      .map((l) => claudeAdapter.parseStreamLine(l))
+      .filter((e): e is AdapterEvent => e !== null)
+    const result = claudeAdapter.extractResult(events)
+    // Result payload usage wins; the aggregated assistant usage is ignored.
+    expect(result.tokens_in).toBe(999)
+    expect(result.tokens_out).toBe(111)
+    expect(result.total_cost_usd).toBe(0.5)
+  })
+})
+
 describe('claudeAdapter.extractResult — from fixture', () => {
   it('extracts every NormalisedResult field for a complete stream', () => {
     const events = parseFixture('hello-3-words.jsonl')

@@ -21,6 +21,13 @@ function formatWallClock(startedAt: string, finishedAt: string | number): string
 
 interface PipelineTotals {
   totalCostUsd: number
+  /** True when at least one phase reports a null cost — the sum is a lower
+   *  bound, rendered with a "≥" prefix + a partial hint (HIGH-10). */
+  hasNullCost?: boolean
+  /** True when at least one phase's cost is a pricing-table estimate. */
+  costEstimated?: boolean
+  /** How many phases have no cost recorded (drives the partial hint copy). */
+  nullCostCount?: number
   totalTokensIn: number
   totalTokensOut: number
   totalTokensCacheRead: number
@@ -338,7 +345,7 @@ export function JobStatusPanel({
                   <div className="grid grid-cols-2 gap-2">
                     <SummaryMetric
                       label={t('statusPanel.totalCost')}
-                      value={`$${pipelineTotals.totalCostUsd.toFixed(4)}`}
+                      value={`${pipelineTotals.costEstimated ? '~' : ''}${pipelineTotals.hasNullCost ? '≥' : ''}$${pipelineTotals.totalCostUsd.toFixed(4)}`}
                       valueClass="text-yellow-400 aurora-light:text-accent-warning"
                     />
                     <SummaryMetric
@@ -349,6 +356,15 @@ export function JobStatusPanel({
                         pipelineTotals.totalTokensCacheCreate) / 1000).toFixed(1)}k`}
                     />
                   </div>
+                  {pipelineTotals.hasNullCost && (
+                    <p
+                      data-testid="pipeline-partial-hint"
+                      className="text-[10px] text-muted-foreground/70 mt-1.5"
+                      title={t('statusPanel.pipelinePartialTooltip')}
+                    >
+                      {t('statusPanel.pipelinePartial', { count: pipelineTotals.nullCostCount ?? 0 })}
+                    </p>
+                  )}
                 </div>
               )}
 

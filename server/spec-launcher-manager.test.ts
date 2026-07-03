@@ -19,6 +19,7 @@ import { spawn as mockSpawn } from 'child_process'
 import treeKill from 'tree-kill'
 import { resolveCommand } from './command-resolver'
 import { SpecLauncherManager } from './spec-launcher-manager'
+import { initDb, type DbInstance } from './db'
 import type { WsMessage } from './types'
 
 function createMockChildProcess() {
@@ -426,6 +427,119 @@ describe('SpecLauncherManager', () => {
       } finally {
         vi.useRealTimers()
       }
+    })
+  })
+
+  // ─── ai_invocations recording (COST-ACCOUNTING-AUDIT HIGH-5) ────────────────
+
+  describe('recording (surface=spec-launcher)', () => {
+    let db: DbInstance
+    let dbManager: SpecLauncherManager
+
+    function assistantLine(text: string, usage?: Record<string, number>, model = 'claude-sonnet-4-6', id = 'msg-1') {
+      return JSON.stringify({
+        type: 'assistant',
+        message: { id, model, usage, content: [{ type: 'text', text }] },
+      })
+    }
+    function resultLine(opts: Record<string, unknown>) {
+      return JSON.stringify({ type: 'result', ...opts })
+    }
+    function rows() {
+      return db.prepare('SELECT * FROM ai_invocations ORDER BY started_at ASC').all() as Array<Record<string, unknown>>
+    }
+
+    beforeEach(() => {
+      db = initDb(':memory:')
+      dbManager = new SpecLauncherManager(broadcast, CWD, db, 'p1')
+    })
+
+    it('records a success row with native cost on clean exit', async () => {
+      vi.mocked(resolveCommand).mockReturnValue('resolved prompt')
+      const child = createMockChildProcess()
+      vi.mocked(mockSpawn).mockReturnValue(child as any)
+
+      const launchPromise = dbManager.launch('launch-1', 'create spec')
+      await emitLinesAndFlush(child.stdout, [
+        assistantLine('openspec/changes/my-change working', { input_tokens: 100, output_tokens: 50 }),
+        resultLine({ total_cost_usd: 1.23, usage: { input_tokens: 100, output_tokens: 50 } }),
+      ])
+      child.emit('close', 0)
+      await launchPromise
+
+      const r = rows()
+      expect(r).toHaveLength(1)
+      expect(r[0].surface).toBe('spec-launcher')
+      expect(r[0].surface_ref_id).toBe('launch-1')
+      expect(r[0].status).toBe('success')
+      expect(r[0].total_cost_usd).toBe(1.23)
+      expect(r[0].total_cost_usd_estimated).toBe(0)
+      expect(broadcast).toHaveBeenCalledWith({ type: 'spending.invalidated', projectId: 'p1' })
+    })
+
+    it('records an estimated-cost aborted row when cancelled mid-run', async () => {
+      vi.mocked(resolveCommand).mockReturnValue('resolved prompt')
+      const child = createMockChildProcess()
+      vi.mocked(mockSpawn).mockReturnValue(child as any)
+
+      const launchPromise = dbManager.launch('launch-1', 'create spec')
+      await emitLinesAndFlush(child.stdout, [
+        assistantLine('working', { input_tokens: 5000, output_tokens: 2000 }),
+      ])
+      dbManager.cancel('launch-1')
+      child.stdout.push(null)
+      child.emit('close', 143)
+      await launchPromise
+
+      const r = rows()
+      expect(r).toHaveLength(1)
+      expect(r[0].status).toBe('aborted')
+      expect(r[0].total_cost_usd_estimated).toBe(1)
+      expect(r[0].total_cost_usd as number).toBeGreaterThan(0)
+    })
+
+    it('records a failed row on non-zero exit', async () => {
+      vi.mocked(resolveCommand).mockReturnValue('resolved prompt')
+      const child = createMockChildProcess()
+      vi.mocked(mockSpawn).mockReturnValue(child as any)
+
+      const launchPromise = dbManager.launch('launch-1', 'create spec')
+      child.emit('close', 1)
+      await launchPromise
+
+      const r = rows()
+      expect(r).toHaveLength(1)
+      expect(r[0].status).toBe('failed')
+    })
+
+    it('does NOT record when the project is being torn down (shutdown)', async () => {
+      vi.mocked(resolveCommand).mockReturnValue('resolved prompt')
+      const child = createMockChildProcess()
+      vi.mocked(mockSpawn).mockReturnValue(child as any)
+
+      const launchPromise = dbManager.launch('launch-1', 'create spec')
+      dbManager.shutdown()
+      child.stdout.push(null)
+      child.emit('close', 0)
+      await launchPromise
+
+      expect(rows()).toHaveLength(0)
+    })
+
+    it('records nothing when constructed without a project DB (byte-identical)', async () => {
+      vi.mocked(resolveCommand).mockReturnValue('resolved prompt')
+      const child = createMockChildProcess()
+      vi.mocked(mockSpawn).mockReturnValue(child as any)
+
+      // `manager` (from the outer beforeEach) has no db/projectId.
+      const launchPromise = manager.launch('launch-1', 'create spec')
+      await emitLinesAndFlush(child.stdout, [
+        resultLine({ total_cost_usd: 1.0 }),
+      ])
+      child.emit('close', 0)
+      await launchPromise
+
+      expect(rows()).toHaveLength(0)
     })
   })
 

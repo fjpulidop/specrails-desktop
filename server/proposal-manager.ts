@@ -1,5 +1,6 @@
 import { ChildProcess } from 'child_process'
 import { createInterface } from 'readline'
+import { randomUUID } from 'crypto'
 import treeKill from 'tree-kill'
 import { spawnClaude } from './util/cli-prompt'
 import type { WsMessage } from './types'
@@ -9,6 +10,9 @@ import {
   updateProposal,
 } from './db'
 import { resolveCommand } from './command-resolver'
+import { getAdapter, type ProviderAdapter, type AdapterEvent } from './providers'
+import { finaliseInvocationResult } from './result-event'
+import { recordInvocation, type InvocationStatus } from './ai-invocations'
 
 // ─── ProposalManager ──────────────────────────────────────────────────────────
 
@@ -28,13 +32,57 @@ export class ProposalManager {
   private _cancelledIds = new Set<string>()
   /** Pending SIGKILL escalation timers, keyed by proposal id (BUG-LONGTAIL-02). */
   private _killTimers = new Map<string, ReturnType<typeof setTimeout>>()
+  /** Per-project id for ai_invocations recording (COST-ACCOUNTING-AUDIT
+   *  HIGH-6). Optional so pre-wiring call sites keep compiling; recording only
+   *  fires when present (the DB is always available on this manager). */
+  private _projectId?: string
+  /** claude adapter — the proposal flows only ever spawn claude. */
+  private _adapter: ProviderAdapter = getAdapter('claude')
 
-  constructor(broadcast: (msg: WsMessage) => void, db: DbInstance, cwd: string) {
+  constructor(broadcast: (msg: WsMessage) => void, db: DbInstance, cwd: string, projectId?: string) {
     this._broadcast = broadcast
     this._db = db
     this._cwd = cwd
+    this._projectId = projectId
     this._activeProcesses = new Map()
     this._buffers = new Map()
+  }
+
+  /**
+   * Persist one surface='proposal' ai_invocations row per spawn (exploration,
+   * each refinement turn, and issue creation are all separate billable claude
+   * runs — HIGH-6). Cost is the native `total_cost_usd` when a terminal `result`
+   * event arrived, else the pricing-table estimate over the accumulated
+   * per-assistant-event usage (cancelled/killed runs still burned tokens).
+   * Best-effort: a recording failure is logged, never thrown.
+   */
+  private _recordInvocation(
+    proposalId: string,
+    events: readonly AdapterEvent[],
+    status: InvocationStatus,
+    startedAtIso: string,
+  ): void {
+    if (!this._projectId) return
+    try {
+      const { result, estimated } = finaliseInvocationResult(this._adapter, events, {
+        fallbackModel: this._adapter.defaultModel(),
+      })
+      recordInvocation(this._db, {
+        id: randomUUID(),
+        project_id: this._projectId,
+        provider: this._adapter.id,
+        surface: 'proposal',
+        surface_ref_id: proposalId,
+        status,
+        started_at: startedAtIso,
+        finished_at: new Date().toISOString(),
+        total_cost_usd_estimated: estimated,
+        ...result,
+      })
+      this._broadcast({ type: 'spending.invalidated', projectId: this._projectId })
+    } catch (err) {
+      console.error('[ProposalManager] recordInvocation failed:', err)
+    }
   }
 
   /**
@@ -262,10 +310,19 @@ export class ProposalManager {
     this._buffers.set(proposalId, '')
 
     let capturedSessionId: string | null = null
+    // Accumulate adapter events so a killed/failed spawn is still costed from the
+    // per-assistant-event usage snapshots (HIGH-6). Only when project-wired.
+    const adapterEvents: AdapterEvent[] = []
+    const turnStartedAt = new Date().toISOString()
 
     const stdoutReader = createInterface({ input: child.stdout!, crlfDelay: Infinity })
 
     stdoutReader.on('line', (line) => {
+      if (this._projectId) {
+        const ev = this._adapter.parseStreamLine(line)
+        if (ev) adapterEvents.push(ev)
+      }
+
       let parsed: Record<string, unknown> | null = null
       try { parsed = JSON.parse(line) } catch { /* skip non-JSON */ }
       if (!parsed) return
@@ -323,7 +380,12 @@ export class ProposalManager {
         this._clearKillTimer(proposalId)
         this._activeProcesses.delete(proposalId)
         this._buffers.delete(proposalId)
-        if (this._cancelledIds.delete(proposalId)) { resolve(); return } // intentional cancel; keep 'cancelled' (BUG-LONGTAIL-01)
+        const wasCancelled = this._cancelledIds.delete(proposalId)
+        // Record the spend unless the project is being torn down (DB closing).
+        if (!this._disposed) {
+          this._recordInvocation(proposalId, adapterEvents, wasCancelled ? 'aborted' : 'failed', turnStartedAt)
+        }
+        if (wasCancelled) { resolve(); return } // intentional cancel; keep 'cancelled' (BUG-LONGTAIL-01)
         if (this._disposed) { resolve(); return } // M12: project removed mid-flight; DB closing
         this._broadcastError(proposalId, `Failed to launch claude: ${err.message}`)
         onError()
@@ -335,9 +397,18 @@ export class ProposalManager {
         this._clearKillTimer(proposalId)
         this._activeProcesses.delete(proposalId)
         this._buffers.delete(proposalId)
+        const wasCancelled = this._cancelledIds.delete(proposalId)
+        // Record the spend regardless of cancel/done outcome (the tokens were
+        // burned either way) — but NOT when the project is being torn down, since
+        // its DB is closing (recordInvocation would throw). Cancel/kill → aborted;
+        // non-zero exit → failed; clean exit → success (HIGH-6).
+        if (!this._disposed) {
+          const status: InvocationStatus = wasCancelled ? 'aborted' : code === 0 ? 'success' : 'failed'
+          this._recordInvocation(proposalId, adapterEvents, status, turnStartedAt)
+        }
         // A cancel() killed this child intentionally; its non-zero exit must NOT
         // overwrite the 'cancelled' status or emit a failure (BUG-LONGTAIL-01).
-        if (this._cancelledIds.delete(proposalId)) { resolve(); return }
+        if (wasCancelled) { resolve(); return }
         if (this._disposed) { resolve(); return } // M12: project removed mid-flight; DB closing
 
         if (code === 0) {

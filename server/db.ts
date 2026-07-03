@@ -44,6 +44,11 @@ export interface InteractiveTurnUsage {
   num_turns: number
   model?: string | null
   session_id?: string | null
+  /** 1/true when this turn's cost is a pricing-table estimate rather than the
+   *  provider's native `total_cost_usd` (e.g. an in-flight turn folded at
+   *  finalize — CRIT-4). Sticky: once any folded turn is estimated the jobs
+   *  row stays flagged so Job Detail / StatusBar can badge it with `~`. */
+  estimated?: boolean
 }
 
 export interface JobResult {
@@ -883,7 +888,7 @@ export function accumulateInteractiveTurn(
       tokens_cache_create = COALESCE(tokens_cache_create, 0) + ?,
       total_cost_usd      = COALESCE(total_cost_usd, 0) + ?,
       num_turns           = COALESCE(num_turns, 0) + ?,
-      total_cost_usd_estimated = 0,
+      total_cost_usd_estimated = CASE WHEN ? = 1 THEN 1 ELSE total_cost_usd_estimated END,
       model               = COALESCE(model, ?),
       session_id          = COALESCE(?, session_id)
     WHERE id = ?
@@ -894,6 +899,7 @@ export function accumulateInteractiveTurn(
     turn.tokens_cache_create,
     turn.total_cost_usd,
     turn.num_turns,
+    turn.estimated ? 1 : 0,
     turn.model ?? null,
     turn.session_id ?? null,
     jobId,
@@ -1318,42 +1324,52 @@ export function getPipelineJobs(db: DbInstance, pipelineId: string): JobRow[] {
 export function getStats(db: DbInstance): StatsRow {
   const today = new Date().toISOString().slice(0, 10) // YYYY-MM-DD
 
-  // Cost SUMs keep AUTHORITATIVE cost (total_cost_usd_estimated=0) on every
-  // status — so the claude path is byte-identical to a bare SUM(total_cost_usd)
-  // — and drop only the ESTIMATED rate-card cost of a non-success terminal job
-  // (the misleading figure a crashed/canceled codex/gemini run leaves behind).
-  // estimatedCost* is the estimated portion that IS counted, so StatusBar can
-  // mark it with `~` (BUG-ANALYTICS-27). Mirrors server/desktop-analytics.ts.
-  const costSum = `SUM(CASE WHEN total_cost_usd_estimated = 1 AND status IN ('failed','canceled','zombie_terminated') THEN 0 ELSE total_cost_usd END)`
-  const estSum = `SUM(CASE WHEN total_cost_usd_estimated = 1 AND status NOT IN ('failed','canceled','zombie_terminated') THEN total_cost_usd ELSE 0 END)`
-
+  // Job-COUNT metrics (totalJobs / failedJobs / jobsToday / avgDurationMs) are
+  // genuinely about pipeline jobs, so they stay on the jobs table.
   const totalRow = db.prepare(`
     SELECT
       COUNT(*) as totalJobs,
       SUM(CASE WHEN status = 'failed' THEN 1 ELSE 0 END) as failedJobs,
-      ${costSum} as totalCostUsd,
-      ${estSum} as estimatedCostUsd,
       AVG(duration_ms) as avgDurationMs
     FROM jobs
-  `).get() as { totalJobs: number; failedJobs: number; totalCostUsd: number | null; estimatedCostUsd: number | null; avgDurationMs: number | null }
+  `).get() as { totalJobs: number; failedJobs: number | null; avgDurationMs: number | null }
 
-  const todayRow = db.prepare(`
-    SELECT
-      COUNT(*) as jobsToday,
-      ${costSum} as costToday,
-      ${estSum} as estimatedCostToday
+  const jobsTodayRow = db.prepare(`
+    SELECT COUNT(*) as jobsToday
     FROM jobs
     WHERE strftime('%Y-%m-%d', started_at) = ?
-  `).get(today) as { jobsToday: number; costToday: number | null; estimatedCostToday: number | null }
+  `).get(today) as { jobsToday: number }
+
+  // MED-8: cost SUMs come from ai_invocations — ALL billable surfaces (job,
+  // explore-spec, chat-sidebar, quick-spec, ai-edit, agent-studio, spec-launcher,
+  // proposal, setup, smash, file-summary, loop), not just the jobs table — across
+  // every status, mirroring server/desktop-analytics.ts + server/spending.ts so
+  // the per-project StatusBar reconciles with /analytics and /budget for the same
+  // project. A killed/failed run's rate-card estimate now counts (it billed real
+  // tokens) instead of vanishing; estimatedCost* is the portion sourced from the
+  // rate card so the StatusBar can badge the total with `~`.
+  const costSum = `COALESCE(SUM(total_cost_usd), 0)`
+  const estSum = `COALESCE(SUM(CASE WHEN total_cost_usd_estimated = 1 THEN total_cost_usd ELSE 0 END), 0)`
+
+  const costRow = db.prepare(`
+    SELECT ${costSum} as totalCostUsd, ${estSum} as estimatedCostUsd
+    FROM ai_invocations
+  `).get() as { totalCostUsd: number; estimatedCostUsd: number }
+
+  const costTodayRow = db.prepare(`
+    SELECT ${costSum} as costToday, ${estSum} as estimatedCostToday
+    FROM ai_invocations
+    WHERE strftime('%Y-%m-%d', started_at) = ?
+  `).get(today) as { costToday: number; estimatedCostToday: number }
 
   return {
     totalJobs: totalRow.totalJobs,
     failedJobs: totalRow.failedJobs ?? 0,
-    jobsToday: todayRow.jobsToday,
-    totalCostUsd: totalRow.totalCostUsd ?? 0,
-    costToday: todayRow.costToday ?? 0,
-    estimatedCostUsd: totalRow.estimatedCostUsd ?? 0,
-    estimatedCostToday: todayRow.estimatedCostToday ?? 0,
+    jobsToday: jobsTodayRow.jobsToday,
+    totalCostUsd: costRow.totalCostUsd,
+    costToday: costTodayRow.costToday,
+    estimatedCostUsd: costRow.estimatedCostUsd,
+    estimatedCostToday: costTodayRow.estimatedCostToday,
     avgDurationMs: totalRow.avgDurationMs,
   }
 }

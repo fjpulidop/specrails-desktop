@@ -106,6 +106,34 @@ import {
   resolveDefaultSpecModel,
 } from './project-router-helpers'
 
+/**
+ * Parse + clamp a `tzOffsetMinutes` query param (minutes east of UTC, the value
+ * `Date.prototype.getTimezoneOffset()` negates). Non-numeric / out-of-range
+ * (±14h) values fall back to 0 (UTC), matching parseSpendingFilters.
+ */
+export function parseTzOffsetMinutes(raw: unknown): number {
+  if (typeof raw !== 'string') return 0
+  const v = parseInt(raw, 10)
+  if (Number.isNaN(v) || Math.abs(v) > 840) return 0
+  return v
+}
+
+/**
+ * UTC ISO instants bounding the user's LOCAL calendar day (MED-6). `now` is the
+ * current instant; `tzOffsetMinutes` is minutes east of UTC. Returns
+ * `[startIso, endIso)` so a `started_at >= startIso AND started_at < endIso`
+ * predicate captures exactly today's rows in the user's wall clock.
+ */
+export function localDayBoundsUtc(tzOffsetMinutes: number, now: number = Date.now()): { startIso: string; endIso: string } {
+  const localNow = now + tzOffsetMinutes * 60_000
+  const localDay = new Date(localNow).toISOString().slice(0, 10)
+  const startUtcMs = Date.parse(`${localDay}T00:00:00Z`) - tzOffsetMinutes * 60_000
+  return {
+    startIso: new Date(startUtcMs).toISOString(),
+    endIso: new Date(startUtcMs + 86_400_000).toISOString(),
+  }
+}
+
 export function registerSpendingRoutes(deps: ProjectRoutesDeps): void {
   const { router, registry, ctx, ticketPath } = deps
 
@@ -272,6 +300,15 @@ export function registerSpendingRoutes(deps: ProjectRoutesDeps): void {
         lines.push('# By model')
         lines.push('model,count,costUsd')
         for (const m of data.byModel) lines.push(`${csvEscape(m.model)},${m.count},${m.costUsd}`)
+        // LOW-3: byModel is top-10 AND excludes NULL-model rows (every
+        // killed/aborted claude run), so the section silently under-sums the
+        // grand total. Append an explicit remainder row for the un-listed tail +
+        // NULL-model spend so '# By model' reconciles to '# Totals'.
+        const byModelSum = data.byModel.reduce((s, m) => s + m.costUsd, 0)
+        const byModelRemainder = data.summary.totalCostUsd - byModelSum
+        if (Math.abs(byModelRemainder) > 1e-9) {
+          lines.push(`${csvEscape('(other / unmodeled)')},,${byModelRemainder}`)
+        }
         lines.push('')
         lines.push('# Top tickets')
         // BUG-ANALYTICS-17: emit all 7 surface cost columns (was 4) so they sum to
@@ -408,9 +445,15 @@ export function registerSpendingRoutes(deps: ProjectRoutesDeps): void {
       const dailyBudgetUsd = dailyBudgetRaw != null ? parseFloat(dailyBudgetRaw) : null
       const jobThresholdRaw = (db.prepare(`SELECT value FROM queue_state WHERE key = 'config.job_cost_threshold_usd'`).get() as { value: string } | undefined)?.value
       const jobCostThresholdUsd = jobThresholdRaw != null ? parseFloat(jobThresholdRaw) : null
+      // MED-6: sum ALL billable surfaces (ai_invocations, every status) over the
+      // user's LOCAL day, not just the jobs table on a UTC `date('now')`
+      // boundary. The prior query missed Explore/quick-spec/ai-edit/etc. spend
+      // and skewed the day boundary by the tz offset, so the meter disagreed
+      // with both the /analytics dashboard and Claude's per-day accounting.
+      const { startIso, endIso } = localDayBoundsUtc(parseTzOffsetMinutes(req.query.tzOffsetMinutes))
       const costRow = db.prepare(
-        `SELECT COALESCE(SUM(total_cost_usd), 0) as costToday FROM jobs WHERE started_at >= date('now')`
-      ).get() as { costToday: number }
+        `SELECT COALESCE(SUM(total_cost_usd), 0) as costToday FROM ai_invocations WHERE started_at >= ? AND started_at < ?`
+      ).get(startIso, endIso) as { costToday: number }
       const costToday = costRow.costToday
       const budgetUtilizationPct = dailyBudgetUsd != null && dailyBudgetUsd > 0
         ? (costToday / dailyBudgetUsd) * 100

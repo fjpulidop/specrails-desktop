@@ -702,7 +702,12 @@ export function registerTicketsRoutes(deps: ProjectRoutesDeps): void {
           surface: 'quick-spec',
           surface_ref_id: requestId,
           ticket_id: createdTicketId,
-          status: code === 0 && buffer.trim() ? 'success' : 'failed',
+          // A ticket was delivered — whether via the clean code===0 path OR the
+          // error_max_turns salvage path — iff createdTicketId is set. Record
+          // 'success' for any delivered ticket so success-scoped averages and
+          // failureRate are not skewed by salvaged runs (LOW-13). Genuine
+          // failures (no ticket) stay 'failed'.
+          status: createdTicketId !== null ? 'success' : 'failed',
           started_at: turnStartedAt,
           finished_at: new Date().toISOString(),
           total_cost_usd_estimated: estimated,
@@ -1570,8 +1575,13 @@ export function registerTicketsRoutes(deps: ProjectRoutesDeps): void {
 
     const { project, broadcast } = ctx(req)
     const provider = project.provider ?? 'claude'
+    const adapter = getAdapter(provider)
     const requestId = uuidv4()
     const projectId = project.id
+    // Model used for the spawn (claude runs its CLI default, codex is pinned to
+    // gpt-5.5, other providers use the adapter default). Used only as the
+    // fallback model for cost accounting when the stream carries none.
+    const aiEditModel = provider === 'codex' ? 'gpt-5.5' : adapter.defaultModel()
 
     // Build the focused pre-prompt
     const baseRules =
@@ -1651,7 +1661,6 @@ export function registerTicketsRoutes(deps: ProjectRoutesDeps): void {
       // Adapter-driven path (gemini + any future provider): binary, argv, and
       // stream parsing all come from the registered adapter — no per-provider
       // hardcoding. The claude/codex shapes above are kept byte-identical.
-      const adapter = getAdapter(provider)
       binary = adapter.binary
       args = adapter.buildArgs('agent-refine', {
         prompt: userPrompt,
@@ -1698,9 +1707,18 @@ export function registerTicketsRoutes(deps: ProjectRoutesDeps): void {
     res.status(202).json({ requestId })
 
     let buffer = ''
+    // Accumulate provider-agnostic adapter events (usage/cost/model) alongside
+    // the hand-parsed text buffer so the close handler can record an
+    // ai_invocations row for this billable run (HIGH-4). Parsing is pure, so a
+    // per-line parse here is independent of the provider-specific text handling
+    // below.
+    const adapterEvents: AdapterEvent[] = []
+    const aiEditStartedAt = new Date().toISOString()
     const stdoutReader = createInterface({ input: child.stdout!, crlfDelay: Infinity })
 
     stdoutReader.on('line', (line) => {
+      const aev = adapter.parseStreamLine(line)
+      if (aev) adapterEvents.push(aev)
       if (provider === 'codex') {
         if (line) {
           buffer += line + '\n'
@@ -1732,8 +1750,8 @@ export function registerTicketsRoutes(deps: ProjectRoutesDeps): void {
         }
       } else {
         // Adapter-driven parse (gemini + future providers): uniform AdapterEvent
-        // stream — accumulate assistant text deltas.
-        const ev = getAdapter(provider).parseStreamLine(line)
+        // stream — accumulate assistant text deltas (reuse the event parsed above).
+        const ev = aev
         if (ev?.kind === 'text-delta' && ev.text) {
           buffer += ev.text
           const wsMsg: TicketAiEditStreamMessage = {
@@ -1747,7 +1765,8 @@ export function registerTicketsRoutes(deps: ProjectRoutesDeps): void {
 
     child.on('close', (code) => {
       _aiEditProcesses.delete(requestId)
-      if (code === 0 && buffer.trim()) {
+      const delivered = code === 0 && buffer.trim().length > 0
+      if (delivered) {
         const msg: TicketAiEditDoneMessage = {
           type: 'ticket_ai_edit_done', projectId, ticketId: Number(ticketId),
           requestId, fullText: buffer.trim(), timestamp: new Date().toISOString(),
@@ -1766,6 +1785,36 @@ export function registerTicketsRoutes(deps: ProjectRoutesDeps): void {
           timestamp: new Date().toISOString(),
         }
         broadcast(msg)
+      }
+
+      // ai_invocations capture (surface='ai-edit'). One row per ticket AI-Edit
+      // run — this is a billable multi-turn agentic claude/codex run that was
+      // previously invisible to spending (HIGH-4). finaliseInvocationResult
+      // yields native cost when present, else a pricing-table estimate over the
+      // captured token usage (estimated=true) — including runs killed before a
+      // result event.
+      try {
+        const { result: normalised, estimated } = finaliseInvocationResult(
+          adapter,
+          adapterEvents,
+          { fallbackModel: aiEditModel },
+        )
+        recordInvocation(ctx(req).db, {
+          id: randomUUID(),
+          project_id: projectId,
+          provider: adapter.id,
+          surface: 'ai-edit',
+          surface_ref_id: requestId,
+          ticket_id: Number(ticketId),
+          status: delivered ? 'success' : 'failed',
+          started_at: aiEditStartedAt,
+          finished_at: new Date().toISOString(),
+          total_cost_usd_estimated: estimated,
+          ...normalised,
+        })
+        broadcast({ type: 'spending.invalidated', projectId })
+      } catch (err) {
+        console.error('[project-router] ai-edit recordInvocation failed:', err)
       }
     })
   })

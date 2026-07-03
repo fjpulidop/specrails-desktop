@@ -257,4 +257,74 @@ describe('finaliseInvocationResult (new adapter-aware API)', () => {
     expect(estimated).toBe(false)
     expect(result.total_cost_usd).toBeUndefined()
   })
+
+  it('claude: killed before result event ESTIMATES cost from aggregated assistant usage (CRIT-1)', () => {
+    // A claude spawn interrupted before its terminal `result` frame carries
+    // per-assistant-event usage only. finaliseInvocationResult must estimate its
+    // cost from the rate card even though claude declares nativeCostUsd:true —
+    // the native cost is simply ABSENT for this run.
+    const adapter = getAdapter('claude')
+    const lines = [
+      '{"type":"system","subtype":"init","session_id":"S-KILL"}',
+      '{"type":"assistant","message":{"id":"msg_1","model":"claude-sonnet-4-6","usage":{"input_tokens":1000,"output_tokens":200,"cache_read_input_tokens":500,"cache_creation_input_tokens":100},"content":[{"type":"text","text":"hi"}]}}',
+    ]
+    const events = lines
+      .map((l) => adapter.parseStreamLine(l))
+      .filter((e): e is AdapterEvent => e !== null)
+    const { result, estimated } = finaliseInvocationResult(adapter, events)
+    expect(estimated).toBe(true)
+    // claude:sonnet → input 3.00, output 15.00, cache_read 0.30, cache_write 3.75
+    // input billed as-is (Anthropic semantics): 1000*3 + 200*15 + 500*0.30 + 100*3.75 /1M
+    // = 3000 + 3000 + 150 + 375 = 6525 → 0.006525
+    expect(result.total_cost_usd).toBeCloseTo(0.006525, 8)
+    expect(result.model).toBe('claude-sonnet-4-6')
+    expect(result.tokens_in).toBe(1000)
+    expect(result.tokens_out).toBe(200)
+    expect(result.tokens_cache_read).toBe(500)
+    expect(result.tokens_cache_create).toBe(100)
+    expect(result.session_id).toBe('S-KILL')
+  })
+
+  it('claude: WITH a result event stays byte-identical — native cost passes through, estimated=false', () => {
+    // The estimation branch must never fire when the terminal result carries a
+    // native total_cost_usd, even if per-assistant usage was also captured.
+    const adapter = getAdapter('claude')
+    const lines = [
+      '{"type":"assistant","message":{"id":"msg_1","model":"claude-sonnet-4-6","usage":{"input_tokens":1000,"output_tokens":200},"content":[{"type":"text","text":"hi"}]}}',
+      '{"type":"result","session_id":"S1","total_cost_usd":0.0164211,"num_turns":1,"model":"claude-sonnet-4-6","usage":{"input_tokens":1000,"output_tokens":200,"cache_read_input_tokens":50,"cache_creation_input_tokens":10}}',
+    ]
+    const events = lines
+      .map((l) => adapter.parseStreamLine(l))
+      .filter((e): e is AdapterEvent => e !== null)
+    const { result, estimated } = finaliseInvocationResult(adapter, events)
+    expect(estimated).toBe(false)
+    expect(result.total_cost_usd).toBe(0.0164211)
+    expect(result.tokens_in).toBe(1000)
+    expect(result.tokens_cache_read).toBe(50)
+    expect(result.tokens_cache_create).toBe(10)
+  })
+
+  it('claude: native cost of exactly 0 passes through as authoritative (estimated=false)', () => {
+    // Native non-null cost — including a genuine numeric 0 — is authoritative and
+    // is never overwritten by an estimate (refuted-#2 shape preserved).
+    const adapter = getAdapter('claude')
+    const events: AdapterEvent[] = [
+      { kind: 'result', payload: { type: 'result', total_cost_usd: 0, usage: { input_tokens: 1000, output_tokens: 200 } } },
+    ]
+    const { result, estimated } = finaliseInvocationResult(adapter, events)
+    expect(estimated).toBe(false)
+    expect(result.total_cost_usd).toBe(0)
+  })
+
+  it('claude: killed run with NO usage anywhere leaves cost NULL (nothing to estimate)', () => {
+    const adapter = getAdapter('claude')
+    const events: AdapterEvent[] = [
+      { kind: 'session-started', sessionId: 'S' },
+      { kind: 'text-delta', text: 'partial' },
+    ]
+    const { result, estimated } = finaliseInvocationResult(adapter, events)
+    expect(estimated).toBe(false)
+    expect(result.total_cost_usd).toBeUndefined()
+    expect(result.session_id).toBe('S')
+  })
 })

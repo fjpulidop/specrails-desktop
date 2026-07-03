@@ -115,7 +115,9 @@
       "working": "Trabajando…",
       "connecting": "Conectando con el agente…",
       "starting": "Iniciando…"
-    }
+    },
+    "pipelinePartial": "≥ mostrado — {{count}} fase(s) aún sin coste registrado",
+    "pipelinePartialTooltip": "Algunas fases terminaron antes de reportar su coste, por lo que este total es un mínimo."
   },
   "ticketHeader": {
     "showMore": "+ {{count}} más",

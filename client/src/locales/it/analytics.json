@@ -6,7 +6,12 @@
     "aiEdit": "Raffinamento",
     "smash": "SMASH",
     "fileSummary": "Riepiloghi file",
-    "loop": "Loops"
+    "loop": "Loops",
+    "chatSidebar": "Chat",
+    "specLauncher": "Avvio spec",
+    "proposal": "Proposta",
+    "agentStudio": "Agent Studio",
+    "setup": "Configurazione"
   },
   "periods": {
     "d7": "7d",
@@ -73,7 +78,8 @@
   "models": {
     "title": "Modelli",
     "empty": "Nessun modello registrato.",
-    "estimatedTooltip": "Stimato dalla tabella prezzi locale — questo provider non riporta il costo in modo nativo."
+    "estimatedTooltip": "Stimato dalla tabella prezzi locale — questo provider non riporta il costo in modo nativo.",
+    "others": "Altri"
   },
   "scatter": {
     "title": "Costo vs Turni",
@@ -160,5 +166,12 @@
     "estimatedBadge": "stim.",
     "projectEstimatedTooltip": "{{amount}} del costo di questo progetto è una stima da tabella prezzi (codex/gemini), non fatturato dal provider.",
     "statusBarEstimatedTooltip": "Include un costo stimato da tabella prezzi (codex/gemini), non fatturato dal provider."
+  },
+  "windowLabels": {
+    "7d": "Ultimi 7 giorni",
+    "30d": "Ultimi 30 giorni",
+    "90d": "Ultimi 90 giorni",
+    "all": "Sempre",
+    "custom": "Intervallo personalizzato"
   }
 }

@@ -42,6 +42,15 @@ export interface SettleInfo {
   totals: AccumulatedUsage
   model: string | null
   sessionId: string | null
+  /** True when any part of `totals.total_cost_usd` was priced from the rate card
+   *  rather than a native `result` cost — set when an in-flight turn was folded
+   *  in on a mid-turn finalize/crash (COST-ACCOUNTING-AUDIT CRIT-4). */
+  estimated: boolean
+  /** Sum of every turn's active wall-clock segment (write→result), NOT
+   *  finished_at − started_at. Excludes idle time between turns so per-ticket
+   *  "active duration" analytics don't inflate a long-open session
+   *  (COST-ACCOUNTING-AUDIT LOW-15). */
+  activeDurationMs: number
 }
 
 export interface InteractiveSpawnSpec {
@@ -113,6 +122,22 @@ export class InteractiveJobSession {
   private _model: string | null = null
   private _sessionId: string | null = null
 
+  /** Previous turn's CUMULATIVE `total_cost_usd` / `num_turns` reading. The
+   *  persistent stream-json transport reports both cumulatively per turn, so we
+   *  accumulate deltas against these baselines (HIGH-2). Reset to 0 when the
+   *  child (re)spawns. */
+  private _baselineCost = 0
+  private _baselineTurns = 0
+  /** Set once the in-flight (unfinished) turn has been folded into `_accum` so a
+   *  finalize→_settle and a shutdown→snapshotForAbort can never fold it twice. */
+  private _inflightFolded = false
+  /** True when the folded in-flight turn's cost was rate-card estimated. */
+  private _inflightEstimated = false
+  /** Wall-clock start of the in-flight turn (write→result), or null when idle. */
+  private _turnStartMs: number | null = null
+  /** Running sum of active turn wall-segments (LOW-15). */
+  private _activeDurationMs = 0
+
   private _finalizing = false
   private _settled = false
   private _disposed = false
@@ -153,6 +178,12 @@ export class InteractiveJobSession {
       this._stderrReader.on('line', (line) => this._handleStderrLine(line))
     }
     child.on('close', (code) => this._handleClose(code))
+
+    // Fresh child ⇒ fresh cumulative baselines (HIGH-2). Field initializers
+    // already zero these, but reset explicitly so a future respawn is safe.
+    this._baselineCost = 0
+    this._baselineTurns = 0
+    this._inflightFolded = false
 
     this.send(firstPrompt)
   }
@@ -258,6 +289,8 @@ export class InteractiveJobSession {
     this._streaming = true
     this._awaitingResult = true
     this._turnEvents = []
+    // Start the active-duration segment for this turn (LOW-15).
+    this._turnStartMs = Date.now()
     return true
   }
 
@@ -316,13 +349,38 @@ export class InteractiveJobSession {
     this._lastSettledTurnId = this._activeTurnId
     this._awaitingResult = false
     this._streaming = false
+    // Close the active-duration segment for this turn (LOW-15).
+    if (this._turnStartMs !== null) {
+      this._activeDurationMs += Math.max(0, Date.now() - this._turnStartMs)
+      this._turnStartMs = null
+    }
     const { result: normalised } = finaliseInvocationResult(this._adapter, this._turnEvents, {})
+
+    // COST-ACCOUNTING-AUDIT HIGH-2: this ONE resident `claude -p --input-format
+    // stream-json` child reports `total_cost_usd` and `num_turns` CUMULATIVELY
+    // per turn (empirically verified — turn N's result carries the running
+    // SESSION total, not that turn's own spend). Summing the raw readings counts
+    // turn 1 N times over an N-turn session (Σ of prefix sums). Record the DELTA
+    // against the previous cumulative snapshot instead, and clamp at 0 so a
+    // stray lower reading (or a mid-session counter reset) can never subtract.
+    // Token fields ARE per-turn (correct) and keep summing unchanged.
+    let costDelta = 0
+    if (typeof normalised.total_cost_usd === 'number') {
+      costDelta = Math.max(0, normalised.total_cost_usd - this._baselineCost)
+      this._baselineCost = normalised.total_cost_usd
+    }
+    let turnsDelta = 1
+    if (typeof normalised.num_turns === 'number') {
+      turnsDelta = Math.max(0, normalised.num_turns - this._baselineTurns)
+      this._baselineTurns = normalised.num_turns
+    }
+
     this._accum.tokens_in += normalised.tokens_in ?? 0
     this._accum.tokens_out += normalised.tokens_out ?? 0
     this._accum.tokens_cache_read += normalised.tokens_cache_read ?? 0
     this._accum.tokens_cache_create += normalised.tokens_cache_create ?? 0
-    this._accum.total_cost_usd += normalised.total_cost_usd ?? 0
-    this._accum.num_turns += normalised.num_turns ?? 1
+    this._accum.total_cost_usd += costDelta
+    this._accum.num_turns += turnsDelta
     if (!this._model && normalised.model) this._model = normalised.model
     if (normalised.session_id) this._sessionId = normalised.session_id
 
@@ -333,8 +391,8 @@ export class InteractiveJobSession {
           tokens_out: normalised.tokens_out ?? 0,
           tokens_cache_read: normalised.tokens_cache_read ?? 0,
           tokens_cache_create: normalised.tokens_cache_create ?? 0,
-          total_cost_usd: normalised.total_cost_usd ?? 0,
-          num_turns: normalised.num_turns ?? 1,
+          total_cost_usd: costDelta,
+          num_turns: turnsDelta,
           model: normalised.model,
           session_id: normalised.session_id,
         })
@@ -406,6 +464,74 @@ export class InteractiveJobSession {
     })
   }
 
+  /**
+   * Fold an in-flight (unfinished) turn's streamed usage into the running totals
+   * so a finalize/crash mid-turn does NOT drop the whole turn's spend
+   * (COST-ACCOUNTING-AUDIT CRIT-4). The killed turn never emitted a terminal
+   * `result` frame, so its `_turnEvents` carry only per-assistant-event usage;
+   * finaliseInvocationResult reconstructs the tokens and prices them via the
+   * rate card (estimated). Idempotent — a settle and a shutdown snapshot can each
+   * request the fold but it happens at most once.
+   */
+  private _foldInflightTurn(): void {
+    if (this._inflightFolded) return
+    if (!this._awaitingResult || this._turnEvents.length === 0) return
+    this._inflightFolded = true
+    // Close the in-flight active-duration segment (LOW-15).
+    if (this._turnStartMs !== null) {
+      this._activeDurationMs += Math.max(0, Date.now() - this._turnStartMs)
+      this._turnStartMs = null
+    }
+    const { result: partial, estimated } = finaliseInvocationResult(this._adapter, this._turnEvents, {})
+    const partialCost = partial.total_cost_usd ?? 0
+    this._accum.tokens_in += partial.tokens_in ?? 0
+    this._accum.tokens_out += partial.tokens_out ?? 0
+    this._accum.tokens_cache_read += partial.tokens_cache_read ?? 0
+    this._accum.tokens_cache_create += partial.tokens_cache_create ?? 0
+    this._accum.total_cost_usd += partialCost
+    // The killed turn is one turn of real work even though no `result` counted it.
+    this._accum.num_turns += partial.num_turns ?? 1
+    if (partialCost > 0 && estimated) this._inflightEstimated = true
+    if (!this._model && partial.model) this._model = partial.model
+    if (partial.session_id) this._sessionId = partial.session_id
+    if (this._db) {
+      try {
+        accumulateInteractiveTurn(this._db, this._jobId, {
+          tokens_in: partial.tokens_in ?? 0,
+          tokens_out: partial.tokens_out ?? 0,
+          tokens_cache_read: partial.tokens_cache_read ?? 0,
+          tokens_cache_create: partial.tokens_cache_create ?? 0,
+          total_cost_usd: partialCost,
+          num_turns: partial.num_turns ?? 1,
+          model: partial.model,
+          session_id: partial.session_id,
+          // Mark the jobs row estimated when this folded turn was priced from the
+          // rate card (no terminal `result` frame) — keeps Job Detail honest.
+          estimated: partialCost > 0 && estimated,
+        })
+      } catch (err) {
+        console.error('[interactive-job] fold in-flight turn failed:', err)
+      }
+    }
+  }
+
+  /**
+   * Fold any in-flight turn and return the accumulated totals for an aborted
+   * teardown row (shutdown / project removal). Does NOT settle or kill the child
+   * — the caller writes the ai_invocations row from this snapshot and then calls
+   * dispose(). (COST-ACCOUNTING-AUDIT HIGH-1 / CRIT-3.)
+   */
+  snapshotForAbort(): { totals: AccumulatedUsage; model: string | null; sessionId: string | null; estimated: boolean; activeDurationMs: number } {
+    this._foldInflightTurn()
+    return {
+      totals: { ...this._accum },
+      model: this._model,
+      sessionId: this._sessionId,
+      estimated: this._inflightEstimated,
+      activeDurationMs: this._activeDurationMs,
+    }
+  }
+
   private _handleClose(_code: number | null): void {
     if (this._disposed || this._settled) return
     this._settle(this._finalizing ? 'finalized' : 'crashed')
@@ -414,6 +540,9 @@ export class InteractiveJobSession {
   private _settle(reason: 'finalized' | 'crashed'): void {
     if (this._settled) return
     this._settled = true
+    // Fold any unfinished turn BEFORE snapshotting totals so a mid-turn
+    // finalize/crash keeps that turn's spend (CRIT-4).
+    this._foldInflightTurn()
     this._streaming = false
     this._awaitingResult = false
     this._clearKillTimer()
@@ -432,6 +561,8 @@ export class InteractiveJobSession {
       totals: { ...this._accum },
       model: this._model,
       sessionId: this._sessionId,
+      estimated: this._inflightEstimated,
+      activeDurationMs: this._activeDurationMs,
     })
   }
 

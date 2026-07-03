@@ -653,6 +653,44 @@ describe('ChatManager', () => {
     expect(vi.mocked(treeKill)).not.toHaveBeenCalledWith(titleChild.pid, 'SIGTERM')
   })
 
+  // ─── LOW-1: auto-title spawn records its own ai_invocations row ────────────
+
+  it('LOW-1: auto-title spawn records a row (surface_ref_id=title:<conv>)', async () => {
+    const projectId = 'proj-autotitle'
+    const cmT = new ChatManager(broadcast, db, undefined, undefined, 'claude', projectId)
+    const convId = 'conv-autotitle'
+    createConversation(db, { id: convId, model: 'sonnet', kind: 'explore' })
+    const mainChild = createMockChildProcess()
+    const titleChild = createMockChildProcess()
+    vi.mocked(mockSpawn)
+      .mockReturnValueOnce(mainChild as any)
+      .mockReturnValueOnce(titleChild as any)
+
+    // First turn (NOT lightweight) so auto-title fires.
+    const sendPromise = cmT.sendMessage(convId, 'Hello world')
+    pushLine(mainChild, assistantEvent('Hi there!'))
+    pushLine(mainChild, resultEvent('sess-title'))
+    await finishProcess(mainChild, 0)
+    await sendPromise
+
+    // Auto-title child streams a title + result carrying usage, then closes.
+    pushLine(titleChild, assistantEvent('A Friendly Greeting'))
+    pushLine(titleChild, JSON.stringify({
+      type: 'result', session_id: 't', total_cost_usd: 0.001, num_turns: 1,
+      model: 'sonnet', usage: { input_tokens: 50, output_tokens: 6 },
+    }))
+    await finishProcess(titleChild, 0)
+
+    const titleRows = db.prepare(
+      `SELECT * FROM ai_invocations WHERE project_id = ? AND surface_ref_id = ?`
+    ).all(projectId, `title:${convId}`) as any[]
+    expect(titleRows).toHaveLength(1)
+    expect(titleRows[0].surface).toBe('explore-spec')
+    expect(titleRows[0].conversation_id).toBe(convId)
+    expect(titleRows[0].status).toBe('success')
+    expect(titleRows[0].total_cost_usd).toBeCloseTo(0.001)
+  })
+
   // ─── Test 13: session resumption uses --resume flag ─────────────────────────
 
   it('uses --resume flag when conversation has session_id', async () => {
@@ -904,7 +942,11 @@ describe('ChatManager', () => {
       expect(inv).toBeDefined()
     })
 
-    it('does NOT write a row when conversation kind=sidebar', async () => {
+    // MED-4: sidebar chat is now recorded (surface='chat-sidebar'). This
+    // reverses the earlier "sidebar out of scope" decision — every sidebar turn
+    // is billable (project cwd + live dashboard context) and was previously
+    // invisible to analytics.
+    it('writes a chat-sidebar row when conversation kind=sidebar', async () => {
       const projectId = 'proj-cap-2'
       const cmCap = new ChatManager(broadcast, db, undefined, undefined, 'claude', projectId)
       const convId = 'conv-sidebar-1'
@@ -914,12 +956,19 @@ describe('ChatManager', () => {
       const sendPromise = cmCap.sendMessage(convId, 'Hello')
 
       pushLine(child, assistantEvent('Hi'))
-      pushLine(child, resultEvent('sess'))
+      pushLine(child, JSON.stringify({
+        type: 'result', session_id: 'sess', total_cost_usd: 0.03, num_turns: 1,
+        model: 'sonnet', usage: { input_tokens: 8, output_tokens: 3 },
+      }))
       await finishProcess(child, 0)
       await sendPromise
 
       const rows = db.prepare(`SELECT * FROM ai_invocations WHERE project_id = ?`).all(projectId) as any[]
-      expect(rows).toHaveLength(0)
+      expect(rows).toHaveLength(1)
+      expect(rows[0].surface).toBe('chat-sidebar')
+      expect(rows[0].conversation_id).toBe(convId)
+      expect(rows[0].status).toBe('success')
+      expect(rows[0].total_cost_usd).toBeCloseTo(0.03)
     })
 
     it('writes a failed row when explore process exits non-zero before result event', async () => {
@@ -939,10 +988,56 @@ describe('ChatManager', () => {
       await finishProcess(second, 1)
       await sendPromise
 
+      // MED-2: the crashed FIRST spawn now records its own 'failed' row (before
+      // the respawn zeroes its accumulator), plus the respawn's own failed row.
+      // Neither carried usage here, so both cost NULL.
       const rows = db.prepare(`SELECT * FROM ai_invocations WHERE project_id = ?`).all(projectId) as any[]
-      expect(rows).toHaveLength(1)
+      expect(rows).toHaveLength(2)
+      expect(rows.every((r) => r.status === 'failed')).toBe(true)
+      expect(rows.every((r) => r.total_cost_usd === null)).toBe(true)
+    })
+
+    // MED-2: a heavy explore turn that burns tokens (per-assistant-event usage)
+    // then crashes before its result event must record that pre-crash burn on
+    // the crashed spawn's row — previously the accumulator was zeroed for the
+    // respawn and only the second process's (cheaper) cost was ever recorded.
+    it('MED-2: records the crashed spawn pre-crash token burn on its own row', async () => {
+      const projectId = 'proj-cap-med2'
+      const cmCap = new ChatManager(broadcast, db, undefined, undefined, 'claude', projectId)
+      const convId = 'conv-explore-med2'
+      createConversation(db, { id: convId, model: 'sonnet', kind: 'explore' })
+      const first = createMockChildProcess()
+      const second = createMockChildProcess()
+      vi.mocked(mockSpawn).mockReturnValueOnce(first as any).mockReturnValueOnce(second as any)
+      const sendPromise = cmCap.sendMessage(convId, 'Heavy turn')
+
+      // First spawn streams an assistant frame WITH usage, then crashes before
+      // any result event. The usage is aggregated by the claude adapter.
+      pushLine(first, JSON.stringify({
+        type: 'assistant',
+        message: {
+          id: 'msg-1', model: 'claude-sonnet-4-5',
+          usage: { input_tokens: 2000, output_tokens: 800 },
+          content: [{ type: 'text', text: 'partial work' }],
+        },
+      }))
+      await finishProcess(first, 1)
+      await finishProcess(second, 1)
+      await sendPromise
+
+      const rows = db.prepare(
+        `SELECT * FROM ai_invocations WHERE project_id = ? ORDER BY rowid ASC`
+      ).all(projectId) as any[]
+      expect(rows).toHaveLength(2)
+      // Row 0 = crashed spawn: carries the pre-crash usage, cost estimated.
       expect(rows[0].status).toBe('failed')
-      expect(rows[0].total_cost_usd).toBeNull()
+      expect(rows[0].tokens_in).toBe(2000)
+      expect(rows[0].tokens_out).toBe(800)
+      expect(rows[0].total_cost_usd).toBeGreaterThan(0)
+      expect(rows[0].total_cost_usd_estimated).toBe(1)
+      // Row 1 = respawn (no usage streamed): NULL cost.
+      expect(rows[1].status).toBe('failed')
+      expect(rows[1].total_cost_usd).toBeNull()
     })
 
     it('skips capture when projectId is not provided', async () => {
@@ -1119,6 +1214,125 @@ describe('ChatManager', () => {
       expect(rows[0].status).toBe('success')
       const conv = getConversation(db, convId)
       expect(conv?.session_id).toBe('sess-keep')
+    })
+
+    // MED-1: claude's persistent-stdin `result` event reports SESSION-CUMULATIVE
+    // cost/tokens/num_turns. Each recorded row must carry the per-turn DELTA so
+    // summing rows equals the session total instead of ~×(N+1)/2.
+    it('MED-1: records per-turn cost/token deltas against the cumulative result', async () => {
+      const projectId = 'proj-pstdin-cumul'
+      const cmP = new ChatManager(broadcast, db, undefined, undefined, 'claude', projectId)
+      const convId = 'conv-pstdin-cumul'
+      createConversation(db, { id: convId, model: 'sonnet', kind: 'explore' })
+      const child = createMockChildWithStdin()
+      vi.mocked(mockSpawn).mockReturnValue(child as any)
+
+      // Turn 1: cumulative cost 0.05, 6 input tokens, 1 turn.
+      const t1 = cmP.sendMessage(convId, 'first', { lightweight: true })
+      await driveTurn(child, [
+        assistantEvent('a1'),
+        JSON.stringify({
+          type: 'result', session_id: 's', total_cost_usd: 0.05, num_turns: 1,
+          model: 'sonnet', usage: { input_tokens: 6, output_tokens: 3 },
+        }),
+      ])
+      await t1
+
+      // Turn 2: cumulative cost 0.12, 10 input tokens, 2 turns.
+      const t2 = cmP.sendMessage(convId, 'second', { lightweight: true })
+      await driveTurn(child, [
+        assistantEvent('a2'),
+        JSON.stringify({
+          type: 'result', session_id: 's', total_cost_usd: 0.12, num_turns: 2,
+          model: 'sonnet', usage: { input_tokens: 10, output_tokens: 7 },
+        }),
+      ])
+      await t2
+
+      const rows = db.prepare(
+        'SELECT * FROM ai_invocations WHERE project_id = ? ORDER BY rowid ASC'
+      ).all(projectId) as any[]
+      expect(rows).toHaveLength(2)
+      // Row 0 = turn 1 (delta vs zero baseline).
+      expect(rows[0].total_cost_usd).toBeCloseTo(0.05)
+      expect(rows[0].num_turns).toBe(1)
+      expect(rows[0].tokens_in).toBe(6)
+      // Row 1 = turn 2 (delta vs turn 1 cumulative), NOT the raw 0.12.
+      expect(rows[1].total_cost_usd).toBeCloseTo(0.07)
+      expect(rows[1].num_turns).toBe(1)
+      expect(rows[1].tokens_in).toBe(4)
+      // Summing the recorded rows equals the session total.
+      const total = rows.reduce((s, r) => s + r.total_cost_usd, 0)
+      expect(total).toBeCloseTo(0.12)
+    })
+
+    // MED-1: a persistent child that (re)spawns resets claude's cumulative
+    // counters, so the baseline must reset too — otherwise the first turn on the
+    // new child would clamp to a negative delta (recorded as 0) or subtract a
+    // stale baseline.
+    it('MED-1: resets the cumulative baseline when the persistent child respawns', async () => {
+      const projectId = 'proj-pstdin-respawn'
+      const cmP = new ChatManager(broadcast, db, undefined, undefined, 'claude', projectId)
+      const convId = 'conv-pstdin-respawn'
+      createConversation(db, { id: convId, model: 'sonnet', kind: 'explore' })
+      const child1 = createMockChildWithStdin()
+      const child2 = createMockChildWithStdin()
+      vi.mocked(mockSpawn).mockReturnValueOnce(child1 as any).mockReturnValueOnce(child2 as any)
+
+      const t1 = cmP.sendMessage(convId, 'first', { lightweight: true })
+      await driveTurn(child1, [
+        assistantEvent('a1'),
+        JSON.stringify({ type: 'result', session_id: 's', total_cost_usd: 0.30, num_turns: 1, model: 'sonnet' }),
+      ])
+      await t1
+
+      // Evict the first child's session WITHOUT clearing the cumulative baseline
+      // (the turn's handlers were already detached on finish, so this 'close'
+      // records nothing and just removes the session). The next turn therefore
+      // spawns a fresh child (isNew=true), and the baseline reset must come from
+      // that isNew branch — proving it, not the forget path.
+      child1.emit('close', 0)
+
+      const t2 = cmP.sendMessage(convId, 'second', { lightweight: true })
+      await driveTurn(child2, [
+        assistantEvent('a2'),
+        JSON.stringify({ type: 'result', session_id: 's', total_cost_usd: 0.08, num_turns: 1, model: 'sonnet' }),
+      ])
+      await t2
+
+      const rows = db.prepare(
+        'SELECT * FROM ai_invocations WHERE project_id = ? ORDER BY rowid ASC'
+      ).all(projectId) as any[]
+      // The respawn's turn is a fresh baseline: full 0.08, not clamped to 0 by a
+      // stale 0.30 baseline.
+      expect(rows[rows.length - 1].total_cost_usd).toBeCloseTo(0.08)
+    })
+
+    // LOW-7: a persistent turn whose result event reports a failure (is_error /
+    // error subtype) is recorded status='failed' — but the cost is still kept.
+    it('LOW-7: records failed (cost kept) when the result frame reports is_error', async () => {
+      const projectId = 'proj-pstdin-err'
+      const cmP = new ChatManager(broadcast, db, undefined, undefined, 'claude', projectId)
+      const convId = 'conv-pstdin-err'
+      createConversation(db, { id: convId, model: 'sonnet', kind: 'explore' })
+      const child = createMockChildWithStdin()
+      vi.mocked(mockSpawn).mockReturnValue(child as any)
+      const t = cmP.sendMessage(convId, 'hello', { lightweight: true })
+      await driveTurn(child, [
+        assistantEvent('partial'),
+        JSON.stringify({
+          type: 'result', session_id: 's', is_error: true, subtype: 'error_max_turns',
+          total_cost_usd: 0.09, num_turns: 1, model: 'sonnet',
+          usage: { input_tokens: 5, output_tokens: 2 },
+        }),
+      ])
+      await t
+
+      const rows = db.prepare('SELECT * FROM ai_invocations WHERE project_id = ?').all(projectId) as any[]
+      expect(rows).toHaveLength(1)
+      expect(rows[0].status).toBe('failed')
+      // Cost is still kept despite the error.
+      expect(rows[0].total_cost_usd).toBeCloseTo(0.09)
     })
 
     it('surfaces a chat_error and records failed when the persistent child dies before result', async () => {

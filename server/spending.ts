@@ -167,7 +167,25 @@ export interface InvocationWithTicket extends InvocationRow {
   ticket_title: string | null
 }
 
-const ALL_SURFACES: Surface[] = ['job', 'quick-spec', 'explore-spec', 'ai-edit', 'smash', 'file-summary', 'loop']
+// The surfaces enumerated in the bySurface breakdown. Keep the original seven
+// analytics surfaces first (stable ordering / column layout), then the
+// cost-accounting-audit additions so a newly-recorded billable surface is
+// enumerated and its per-ticket bucket exists (a missing key would crash the
+// `entry.bySurface[r.surface]` aggregation below). The grand-total summary is
+// surface-agnostic (`SUM(total_cost_usd)`), so new surfaces always counted in
+// the headline regardless.
+const ALL_SURFACES: Surface[] = [
+  'job', 'quick-spec', 'explore-spec', 'ai-edit', 'smash', 'file-summary', 'loop',
+  'chat-sidebar', 'spec-launcher', 'proposal', 'agent-studio', 'setup',
+]
+
+/** Fresh zeroed per-surface bucket covering every Surface, so aggregation
+ *  writes (`bySurface[r.surface]`) can never index an undefined key. */
+function emptyBySurface(): Record<Surface, { count: number; costUsd: number }> {
+  const out = {} as Record<Surface, { count: number; costUsd: number }>
+  for (const s of ALL_SURFACES) out[s] = { count: 0, costUsd: 0 }
+  return out
+}
 
 interface ResolvedRange {
   from: string
@@ -176,21 +194,49 @@ interface ResolvedRange {
   prevTo: string
 }
 
+/**
+ * A `<input type="date">` custom bound is a bare `YYYY-MM-DD` local calendar
+ * day, but `started_at` is a full UTC ISO instant (HIGH-7). Comparing
+ * `'2026-07-02T09:15:00.000Z' <= '2026-07-02'` is FALSE, so every row started
+ * on the range's end date was silently dropped. Normalise a bare date to the
+ * UTC instant of the user's local day boundary; a full ISO instant (with a
+ * 'T') is a precise instant and is kept verbatim.
+ *
+ * `edge='start'` → local-day 00:00:00.000 (inclusive lower bound).
+ * `edge='end'`   → local-day 23:59:59.999 (inclusive upper bound, so the whole
+ * final day is included under buildWhere's `started_at <= ?`).
+ */
+function normalizeCustomBound(raw: string, edge: 'start' | 'end', tzOffsetMinutes: number): string {
+  if (raw.includes('T')) return raw // precise instant — keep verbatim
+  const dayStartUtc = Date.parse(`${raw}T00:00:00Z`)
+  if (Number.isNaN(dayStartUtc)) return raw
+  // Shift the UTC-parsed day boundary back to the user's local wall clock: a
+  // user at +120min asking for 2026-07-02 means [2026-07-01T22:00Z, 2026-07-02T22:00Z).
+  const localStartUtc = dayStartUtc - tzOffsetMinutes * 60_000
+  if (edge === 'start') return new Date(localStartUtc).toISOString()
+  return new Date(localStartUtc + 86_400_000 - 1).toISOString()
+}
+
 function resolveRange(filters: SpendingFilters, now: Date = new Date()): ResolvedRange {
   const period = filters.period ?? '30d'
+  const tzOffset = filters.tzOffsetMinutes ?? 0
   // Only take the custom branch when BOTH dates parse — otherwise
   // `new Date(NaN).toISOString()` throws a RangeError (surfaced as a 500).
   // Unparseable custom dates fall through to the default 30d range below.
   const customFromMs = filters.from ? new Date(filters.from).getTime() : NaN
   const customToMs = filters.to ? new Date(filters.to).getTime() : NaN
   if (period === 'custom' && !Number.isNaN(customFromMs) && !Number.isNaN(customToMs)) {
-    const fromMs = customFromMs
-    const span = customToMs - fromMs
+    // HIGH-7: extend a bare-date 'to' to the end of its (local) day so rows
+    // started on the final day are not dropped; 'from' anchors to day start.
+    const fromBound = normalizeCustomBound(filters.from as string, 'start', tzOffset)
+    const toBound = normalizeCustomBound(filters.to as string, 'end', tzOffset)
+    const fromMs = new Date(fromBound).getTime()
+    const span = new Date(toBound).getTime() - fromMs
     return {
-      from: filters.from as string,
-      to: filters.to as string,
+      from: fromBound,
+      to: toBound,
       prevFrom: new Date(fromMs - span).toISOString(),
-      prevTo: filters.from as string,
+      prevTo: fromBound,
     }
   }
   if (period === 'all') {
@@ -257,7 +303,12 @@ function buildWhere(
     conditions.push(`${a}status = ?`)
     params.push(filters.status)
   }
-  if (typeof filters.minCostUsd === 'number') {
+  // LOW-4: apply the minimum-cost predicate ONLY for a positive threshold.
+  // `total_cost_usd >= 0` looks like a no-op but SQLite evaluates `NULL >= 0`
+  // to NULL, silently dropping every unpriced (aborted/killed) row — exactly
+  // the rows a user typing 0 to "show everything" wants to see. 0 must be a
+  // true no-op that keeps NULL-cost rows.
+  if (typeof filters.minCostUsd === 'number' && filters.minCostUsd > 0) {
     conditions.push(`${a}total_cost_usd >= ?`)
     params.push(filters.minCostUsd)
   }
@@ -592,15 +643,7 @@ export function getSpending(
         ticketTitle: null,
         totalCostUsd: 0,
         totalRuns: 0,
-        bySurface: {
-          job: { count: 0, costUsd: 0 },
-          'quick-spec': { count: 0, costUsd: 0 },
-          'explore-spec': { count: 0, costUsd: 0 },
-          'ai-edit': { count: 0, costUsd: 0 },
-          smash: { count: 0, costUsd: 0 },
-          'file-summary': { count: 0, costUsd: 0 },
-          loop: { count: 0, costUsd: 0 },
-        },
+        bySurface: emptyBySurface(),
         isUnattributed: r.ticket_id === null ? true : undefined,
       })
     }
