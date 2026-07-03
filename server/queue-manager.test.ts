@@ -4,7 +4,7 @@ import { Readable } from 'stream'
 import fs from 'fs'
 import os from 'os'
 import path from 'path'
-import { initDb, updateProjectSettings } from './db'
+import { initDb, updateProjectSettings, createJob } from './db'
 
 // Mock child_process and ids before importing queue-manager
 vi.mock('child_process', () => ({
@@ -991,7 +991,9 @@ describe('QueueManager', () => {
       const db = initDb(':memory:')
       // Set a daily budget
       db.prepare(`INSERT OR REPLACE INTO queue_state (key, value) VALUES ('config.daily_budget_usd', '0.01')`).run()
-      const qmWithDb = new QueueManager(broadcast, db)
+      // projectId is required for the per-project daily-budget sum, which now
+      // reads the ai_invocations ledger (MED-5) rather than the jobs table.
+      const qmWithDb = new QueueManager(broadcast, db, [], undefined, { projectId: 'p1' })
       qmWithDb.enqueue('/implement')
 
       const resultEvent = JSON.stringify({ type: 'result', total_cost_usd: 0.05, usage: {} })
@@ -2218,6 +2220,205 @@ describe('QueueManager', () => {
       // never start the queued job.
       child1.emit('close', 0)
       expect(vi.mocked(mockSpawn)).toHaveBeenCalledTimes(1)
+    })
+
+    it('flushes an aborted, cost-estimated ai_invocations row for the in-flight job (CRIT-3)', async () => {
+      vi.mocked(mockExecSync).mockReturnValue(Buffer.from('/usr/bin/claude'))
+      const child = createMockChildProcess()
+      vi.mocked(mockSpawn).mockReturnValue(child as any)
+      vi.mocked(mockUuidV4).mockReturnValue('inflight-job' as any)
+
+      const db = initDb(':memory:')
+      const qm2 = new QueueManager(broadcast, db, [], undefined, { projectId: 'p1' })
+      qm2.enqueue('/specrails:implement #7')
+
+      // The child streams assistant work carrying usage, but no terminal `result`
+      // arrives before the app is torn down.
+      child.stdout.push(JSON.stringify({
+        type: 'assistant',
+        message: {
+          id: 'm1', model: 'claude-opus-4-8',
+          usage: { input_tokens: 5000, output_tokens: 2000, cache_read_input_tokens: 1000, cache_creation_input_tokens: 100 },
+          content: [{ type: 'text', text: 'work' }],
+        },
+      }) + '\n')
+      await new Promise((r) => setTimeout(r, 30))
+
+      qm2.shutdown()
+
+      const row = db.prepare(
+        `SELECT status, total_cost_usd, total_cost_usd_estimated, tokens_in FROM ai_invocations WHERE surface_ref_id = 'inflight-job'`
+      ).get() as { status: string; total_cost_usd: number | null; total_cost_usd_estimated: number; tokens_in: number | null } | undefined
+      expect(row).toBeDefined()
+      expect(row!.status).toBe('aborted')
+      expect(row!.tokens_in).toBe(5000)
+      expect(row!.total_cost_usd!).toBeGreaterThan(0)
+      expect(row!.total_cost_usd_estimated).toBe(1)
+
+      // The jobs row is flipped to failed and carries the estimated cost.
+      const jrow = db.prepare(`SELECT status, total_cost_usd FROM jobs WHERE id = 'inflight-job'`).get() as { status: string; total_cost_usd: number | null }
+      expect(jrow.status).toBe('failed')
+      expect(jrow.total_cost_usd!).toBeGreaterThan(0)
+    })
+  })
+
+  // ─── cost-accounting audit fixes ─────────────────────────────────────────────
+
+  describe('multi-ticket attribution (MED-7)', () => {
+    it('splits cost/tokens/turns into one ai_invocations row per ticket, summing exactly', async () => {
+      vi.mocked(mockExecSync).mockReturnValue(Buffer.from('/usr/bin/claude'))
+      const child = createMockChildProcess()
+      vi.mocked(mockSpawn).mockReturnValue(child as any)
+      vi.mocked(mockUuidV4).mockReturnValue('batch-job' as any)
+
+      const db = initDb(':memory:')
+      const qm2 = new QueueManager(broadcast, db, [], undefined, { projectId: 'p1' })
+      qm2.enqueue('/specrails:implement #12 #13 #14')
+
+      child.stdout.push(JSON.stringify({
+        type: 'result', total_cost_usd: 0.9, num_turns: 6, model: 'claude-opus-4-8',
+        usage: { input_tokens: 300, output_tokens: 150, cache_read_input_tokens: 30, cache_creation_input_tokens: 9 },
+      }) + '\n')
+      await new Promise((r) => setTimeout(r, 40))
+      child.emit('close', 0)
+      await new Promise((r) => setTimeout(r, 40))
+
+      const rows = db.prepare(
+        `SELECT surface_ref_id, ticket_id, total_cost_usd, tokens_in, tokens_cache_create, num_turns
+         FROM ai_invocations WHERE surface = 'job' ORDER BY ticket_id`
+      ).all() as Array<{ surface_ref_id: string; ticket_id: number; total_cost_usd: number; tokens_in: number; tokens_cache_create: number; num_turns: number }>
+      expect(rows.length).toBe(3)
+      expect(rows.map((r) => r.ticket_id)).toEqual([12, 13, 14])
+      expect(rows.map((r) => r.surface_ref_id)).toEqual(['batch-job#t12', 'batch-job#t13', 'batch-job#t14'])
+      // Cost split evenly and sums back to the original.
+      expect(rows.reduce((s, r) => s + r.total_cost_usd, 0)).toBeCloseTo(0.9, 6)
+      // Integer fields split via largest-remainder — sum EXACTLY to the totals.
+      expect(rows.reduce((s, r) => s + r.tokens_in, 0)).toBe(300)
+      expect(rows.reduce((s, r) => s + r.tokens_cache_create, 0)).toBe(9)
+      expect(rows.reduce((s, r) => s + r.num_turns, 0)).toBe(6)
+    })
+
+    it('keeps the plain jobId surface_ref_id for a single-ticket job (byte-compatible)', async () => {
+      vi.mocked(mockExecSync).mockReturnValue(Buffer.from('/usr/bin/claude'))
+      const child = createMockChildProcess()
+      vi.mocked(mockSpawn).mockReturnValue(child as any)
+      vi.mocked(mockUuidV4).mockReturnValue('single-job' as any)
+
+      const db = initDb(':memory:')
+      const qm2 = new QueueManager(broadcast, db, [], undefined, { projectId: 'p1' })
+      qm2.enqueue('/specrails:implement #5')
+
+      child.stdout.push(JSON.stringify({ type: 'result', total_cost_usd: 0.3, num_turns: 2, usage: { input_tokens: 100 } }) + '\n')
+      await new Promise((r) => setTimeout(r, 40))
+      child.emit('close', 0)
+      await new Promise((r) => setTimeout(r, 40))
+
+      const rows = db.prepare(
+        `SELECT surface_ref_id, ticket_id FROM ai_invocations WHERE surface = 'job'`
+      ).all() as Array<{ surface_ref_id: string; ticket_id: number | null }>
+      expect(rows.length).toBe(1)
+      expect(rows[0].surface_ref_id).toBe('single-job')
+      expect(rows[0].ticket_id).toBe(5)
+    })
+  })
+
+  describe('daily budget on non-completed jobs (MED-5)', () => {
+    it('pauses the queue when a FAILED job that still cost money exceeds the daily budget', async () => {
+      vi.mocked(mockExecSync).mockReturnValue(Buffer.from('/usr/bin/claude'))
+      const child = createMockChildProcess()
+      vi.mocked(mockSpawn).mockReturnValue(child as any)
+      vi.mocked(mockUuidV4).mockReturnValue('failed-cost-job' as any)
+
+      const db = initDb(':memory:')
+      db.prepare(`INSERT OR REPLACE INTO queue_state (key, value) VALUES ('config.daily_budget_usd', '0.01')`).run()
+      const qm2 = new QueueManager(broadcast, db, [], undefined, { projectId: 'p1' })
+      qm2.enqueue('/implement')
+
+      // A claude run that emits real cost but exits non-zero (error_max_turns).
+      child.stdout.push(JSON.stringify({ type: 'result', total_cost_usd: 0.05, is_error: true, usage: {} }) + '\n')
+      await new Promise((r) => setTimeout(r, 40))
+      child.emit('close', 1) // non-zero → failed
+      await new Promise((r) => setTimeout(r, 40))
+
+      const job = qm2.getJobs().find((j) => j.id === 'failed-cost-job')
+      expect(job?.status).toBe('failed')
+      expect(qm2.isPaused()).toBe(true)
+      const budgetCalls = broadcast.mock.calls.filter(
+        (args: unknown[]) => (args[0] as WsMessage).type === 'daily_budget_exceeded'
+      )
+      expect(budgetCalls.length).toBeGreaterThan(0)
+    })
+  })
+
+  describe('restore backfill (CRIT-3 crash path)', () => {
+    it('writes an aborted ai_invocations row for a job orphaned running by a crash', () => {
+      const db = initDb(':memory:')
+      createJob(db, { id: 'orphan', command: '/specrails:implement #3', started_at: new Date().toISOString() })
+      // Simulate accumulated interactive spend on the still-running row.
+      db.prepare(
+        `UPDATE jobs SET status = 'running', total_cost_usd = 4.5, tokens_in = 1000, num_turns = 5, model = 'claude-opus-4-8' WHERE id = 'orphan'`
+      ).run()
+
+      // Construction runs _restoreFromDb → backfill + status flip.
+      new QueueManager(broadcast, db, [], undefined, { projectId: 'p1' })
+
+      const row = db.prepare(
+        `SELECT status, total_cost_usd, tokens_in, num_turns, ticket_id FROM ai_invocations WHERE surface_ref_id = 'orphan'`
+      ).get() as { status: string; total_cost_usd: number; tokens_in: number; num_turns: number; ticket_id: number } | undefined
+      expect(row).toBeDefined()
+      expect(row!.status).toBe('aborted')
+      expect(row!.total_cost_usd).toBeCloseTo(4.5)
+      expect(row!.tokens_in).toBe(1000)
+      expect(row!.num_turns).toBe(5)
+      expect(row!.ticket_id).toBe(3)
+
+      const jrow = db.prepare(`SELECT status FROM jobs WHERE id = 'orphan'`).get() as { status: string }
+      expect(jrow.status).toBe('failed')
+    })
+  })
+
+  describe('unkillable-job double-record guard (LOW-6)', () => {
+    it('reconciles a late close with real cost into the placeholder row (no duplicate, no double callback)', async () => {
+      vi.mocked(mockExecSync).mockReturnValue(Buffer.from('/usr/bin/claude'))
+      const child = createMockChildProcess()
+      vi.mocked(mockSpawn).mockReturnValue(child as any)
+      vi.mocked(mockUuidV4).mockReturnValue('ff-job' as any)
+      // Make the SIGKILL escalation "fail" so _forceFailUnkillableJob runs.
+      vi.mocked(treeKill).mockImplementation(((_pid: number, sig: string, cb?: (e?: Error) => void) => {
+        if (sig === 'SIGKILL' && cb) cb(new Error('taskkill failed'))
+        else if (cb) cb(undefined)
+      }) as any)
+
+      const db = initDb(':memory:')
+      const onJobFinished = vi.fn()
+      const qm2 = new QueueManager(broadcast, db, [], undefined, { projectId: 'p1', onJobFinished })
+      qm2.enqueue('/specrails:implement #9')
+      await new Promise((r) => setTimeout(r, 30))
+
+      // Cancel → SIGTERM → 5s kill-timer → SIGKILL (errors) → force-fail placeholder.
+      vi.useFakeTimers()
+      qm2.cancel('ff-job')
+      vi.advanceTimersByTime(5100)
+      vi.useRealTimers()
+
+      let rows = db.prepare(`SELECT status, total_cost_usd FROM ai_invocations WHERE surface = 'job'`).all() as Array<{ status: string; total_cost_usd: number | null }>
+      expect(rows.length).toBe(1)
+      expect(rows[0].status).toBe('aborted')
+      expect(onJobFinished).toHaveBeenCalledTimes(1)
+
+      // The wedged child finally dies, emitting a real result event.
+      child.stdout.push(JSON.stringify({ type: 'result', total_cost_usd: 0.42, num_turns: 3, model: 'claude-opus-4-8', usage: { input_tokens: 100, output_tokens: 50 } }) + '\n')
+      await new Promise((r) => setTimeout(r, 30))
+      child.emit('close', 0)
+      await new Promise((r) => setTimeout(r, 30))
+
+      rows = db.prepare(`SELECT status, total_cost_usd FROM ai_invocations WHERE surface = 'job'`).all() as Array<{ status: string; total_cost_usd: number | null }>
+      // The placeholder was REPLACED, not duplicated.
+      expect(rows.length).toBe(1)
+      expect(rows[0].status).toBe('success')
+      expect(rows[0].total_cost_usd!).toBeCloseTo(0.42)
+      // onJobFinished did NOT fire a second time.
+      expect(onJobFinished).toHaveBeenCalledTimes(1)
     })
   })
 

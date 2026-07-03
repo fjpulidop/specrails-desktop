@@ -1,7 +1,22 @@
 import type { DbInstance } from './db'
 import type { NormalisedResult } from './result-event'
 
-export type Surface = 'job' | 'quick-spec' | 'explore-spec' | 'ai-edit' | 'smash' | 'file-summary' | 'loop'
+export type Surface =
+  | 'job'
+  | 'quick-spec'
+  | 'explore-spec'
+  | 'ai-edit'
+  | 'smash'
+  | 'file-summary'
+  | 'loop'
+  // Cost-accounting audit additions — previously-unrecorded billable spawners
+  // (sidebar chat, /opsx:ff spec launcher, proposal manager, custom-agent
+  // studio generate/test, setup-wizard AI turns).
+  | 'chat-sidebar'
+  | 'spec-launcher'
+  | 'proposal'
+  | 'agent-studio'
+  | 'setup'
 export type InvocationStatus = 'success' | 'failed' | 'aborted'
 
 const ALLOWED_SURFACES: ReadonlySet<Surface> = new Set([
@@ -12,6 +27,11 @@ const ALLOWED_SURFACES: ReadonlySet<Surface> = new Set([
   'smash',
   'file-summary',
   'loop',
+  'chat-sidebar',
+  'spec-launcher',
+  'proposal',
+  'agent-studio',
+  'setup',
 ])
 
 export interface RecordInput extends NormalisedResult {
@@ -170,6 +190,11 @@ export function getTicketSpendingSummary(
     smash: { count: 0, costUsd: 0 },
     'file-summary': { count: 0, costUsd: 0 },
     loop: { count: 0, costUsd: 0 },
+    'chat-sidebar': { count: 0, costUsd: 0 },
+    'spec-launcher': { count: 0, costUsd: 0 },
+    proposal: { count: 0, costUsd: 0 },
+    'agent-studio': { count: 0, costUsd: 0 },
+    setup: { count: 0, costUsd: 0 },
   }
   let totalCostUsd = 0
   let estimatedCostUsd = 0
@@ -177,6 +202,9 @@ export function getTicketSpendingSummary(
   let totalTurns = 0
   let activeDurationMs = 0
   for (const r of rows) {
+    // Defensive: a row written by a newer schema with a surface this build
+    // doesn't know must not crash the summary.
+    if (!bySurface[r.surface]) bySurface[r.surface] = { count: 0, costUsd: 0 }
     bySurface[r.surface].count += 1
     bySurface[r.surface].costUsd += r.total_cost_usd ?? 0
     totalCostUsd += r.total_cost_usd ?? 0

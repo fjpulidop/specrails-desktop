@@ -416,6 +416,44 @@ function applyDesktopMigrations(db: DbInstance): void {
     () => {
       db.exec(`ALTER TABLE agent_conversations ADD COLUMN reasoning_effort TEXT;`)
     },
+    // 20: agent-chat cost accounting (COST-ACCOUNTING-AUDIT HIGH-3). The Desktop
+    // Agent Chat / Mission Control operator turns are billable app-driving AI
+    // invocations, but they live ABOVE projects (desktop.sqlite) so there was
+    // nowhere to record them — the per-project `ai_invocations` table (in each
+    // jobs.sqlite) does not fit an app-global turn. This mirrors ai_invocations'
+    // columns but keeps `project_id` NULLABLE (the pinned project id when one is
+    // set at turn time, else NULL for Home / app-global) and fixes
+    // `surface = 'agent-chat'`. One row per agent-chat turn (all providers), cost
+    // native-or-estimated via finaliseInvocationResult.
+    () => {
+      db.exec(`
+        CREATE TABLE IF NOT EXISTS agent_invocations (
+          id                       TEXT    PRIMARY KEY,
+          conversation_id          TEXT,
+          project_id               TEXT,
+          provider                 TEXT,
+          surface                  TEXT    NOT NULL DEFAULT 'agent-chat',
+          model                    TEXT,
+          status                   TEXT    NOT NULL,
+          started_at               TEXT    NOT NULL,
+          finished_at              TEXT,
+          duration_ms              INTEGER,
+          duration_api_ms          INTEGER,
+          tokens_in                INTEGER,
+          tokens_out               INTEGER,
+          tokens_cache_read        INTEGER,
+          tokens_cache_create      INTEGER,
+          total_cost_usd           REAL,
+          total_cost_usd_estimated INTEGER NOT NULL DEFAULT 0,
+          num_turns                INTEGER,
+          session_id               TEXT,
+          created_at               TEXT    NOT NULL DEFAULT (datetime('now'))
+        );
+
+        CREATE INDEX IF NOT EXISTS idx_agent_inv_started ON agent_invocations(started_at DESC);
+        CREATE INDEX IF NOT EXISTS idx_agent_inv_conv ON agent_invocations(conversation_id);
+      `)
+    },
   ]
 
   for (let i = 0; i < migrations.length; i++) {
@@ -540,6 +578,104 @@ export function getProjectSetupSession(db: DbInstance, projectId: string): strin
 
 export function clearProjectSetupSession(db: DbInstance, projectId: string): void {
   db.prepare('DELETE FROM desktop_settings WHERE key = ?').run(`setup_session:${projectId}`)
+}
+
+// ─── Agent-chat invocations (cost accounting, HIGH-3) ───────────────────────────
+
+export type AgentInvocationStatus = 'success' | 'failed' | 'aborted'
+
+/** One agent-chat turn's billable accounting. App-global — `project_id` is the
+ *  pinned project id when the turn ran project-scoped, else NULL (Home). Cost is
+ *  native when the provider reports it, else estimated (from the pricing table);
+ *  `total_cost_usd_estimated` flags which. */
+export interface AgentInvocationInput {
+  id: string
+  conversation_id: string
+  project_id?: string | null
+  provider: string
+  model?: string | null
+  status: AgentInvocationStatus
+  started_at: string
+  finished_at?: string | null
+  duration_ms?: number | null
+  duration_api_ms?: number | null
+  tokens_in?: number | null
+  tokens_out?: number | null
+  tokens_cache_read?: number | null
+  tokens_cache_create?: number | null
+  total_cost_usd?: number | null
+  total_cost_usd_estimated?: boolean
+  num_turns?: number | null
+  session_id?: string | null
+}
+
+export interface AgentInvocationRow {
+  id: string
+  conversation_id: string | null
+  project_id: string | null
+  provider: string | null
+  surface: string
+  model: string | null
+  status: AgentInvocationStatus
+  started_at: string
+  finished_at: string | null
+  duration_ms: number | null
+  duration_api_ms: number | null
+  tokens_in: number | null
+  tokens_out: number | null
+  tokens_cache_read: number | null
+  tokens_cache_create: number | null
+  total_cost_usd: number | null
+  total_cost_usd_estimated: number
+  num_turns: number | null
+  session_id: string | null
+  created_at: string
+}
+
+export function recordAgentInvocation(db: DbInstance, input: AgentInvocationInput): void {
+  db.prepare(`
+    INSERT INTO agent_invocations (
+      id, conversation_id, project_id, provider, surface, model, status,
+      started_at, finished_at, duration_ms, duration_api_ms,
+      tokens_in, tokens_out, tokens_cache_read, tokens_cache_create,
+      total_cost_usd, total_cost_usd_estimated, num_turns, session_id
+    ) VALUES (?, ?, ?, ?, 'agent-chat', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+  `).run(
+    input.id,
+    input.conversation_id,
+    input.project_id ?? null,
+    input.provider,
+    input.model ?? null,
+    input.status,
+    input.started_at,
+    input.finished_at ?? null,
+    input.duration_ms ?? null,
+    input.duration_api_ms ?? null,
+    input.tokens_in ?? null,
+    input.tokens_out ?? null,
+    input.tokens_cache_read ?? null,
+    input.tokens_cache_create ?? null,
+    input.total_cost_usd ?? null,
+    input.total_cost_usd_estimated ? 1 : 0,
+    input.num_turns ?? null,
+    input.session_id ?? null,
+  )
+}
+
+/**
+ * Sum of all agent-chat turn costs, optionally since an ISO instant (inclusive).
+ * Read helper for the analytics package so app-level surfaces (HOME, StatusBar,
+ * exports) can include the previously-invisible orchestration spend. NULL costs
+ * (a spawn-fail / no-usage turn) contribute 0.
+ */
+export function sumAgentInvocationsCost(db: DbInstance, sinceIso?: string): number {
+  const row = (sinceIso
+    ? db.prepare(
+        'SELECT COALESCE(SUM(total_cost_usd), 0) AS total FROM agent_invocations WHERE started_at >= ?'
+      ).get(sinceIso)
+    : db.prepare('SELECT COALESCE(SUM(total_cost_usd), 0) AS total FROM agent_invocations').get()
+  ) as { total: number }
+  return row.total
 }
 
 // ─── Agent CRUD ───────────────────────────────────────────────────────────────

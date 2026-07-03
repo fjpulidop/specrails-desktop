@@ -10,7 +10,7 @@ import { resolveCommand } from './command-resolver'
 import { spawnAiCli } from './util/cli-prompt'
 import { extractDisplayText } from './util/stream-display'
 import { resetPhases, setActivePhases } from './hooks'
-import { recordInvocation } from './ai-invocations'
+import { recordInvocation, type InvocationStatus } from './ai-invocations'
 import { isCodeExplorerEnabled } from './feature-flags'
 import {
   snapshotWorkingTree,
@@ -119,6 +119,32 @@ export function projectSupportsProfiles(projectPath: string): boolean {
     }
   }
   return false
+}
+
+/**
+ * Distribute an integer `total` across `n` buckets via the largest-remainder
+ * method so the per-bucket values sum EXACTLY back to `total` (no floor loss).
+ * Mirrors smash-runner's `distributeInt` — used to split a multi-ticket job's
+ * token / turn totals across one ai_invocations row per ticket
+ * (COST-ACCOUNTING-AUDIT MED-7). Returns `undefined` per bucket when the input
+ * is absent so the row carries NULL rather than a spurious 0.
+ */
+export function distributeIntEvenly(
+  total: number | null | undefined,
+  n: number,
+): (number | undefined)[] {
+  if (total === null || total === undefined) return new Array(n).fill(undefined)
+  const t = Math.trunc(total)
+  const base = Math.floor(t / n)
+  let remainder = t - base * n
+  const out: (number | undefined)[] = new Array(n)
+  for (let i = 0; i < n; i++) {
+    // Hand the leftover to the leading buckets; sign-safe for negative totals.
+    if (remainder > 0) { out[i] = base + 1; remainder -= 1 }
+    else if (remainder < 0) { out[i] = base - 1; remainder += 1 }
+    else out[i] = base
+  }
+  return out
 }
 
 const LOG_BUFFER_MAX = 5000
@@ -256,6 +282,20 @@ export class QueueManager {
   /** Live interactive job sessions keyed by jobId (the resident persistent-stdin
    *  child + per-turn accounting). Present only while an interactive job runs. */
   private _interactiveSessions: Map<string, InteractiveJobSession>
+  /** Live per-job accounting handle for the RUNNING non-interactive job, keyed by
+   *  jobId. Holds the growing `adapterEvents` array (by reference), the resolved
+   *  adapter and the spawn model so `shutdown()` can flush an aborted
+   *  ai_invocations row (with a rate-card cost estimate) for a job still in flight
+   *  when the manager is torn down — otherwise `_onJobExit` early-returns on
+   *  `_disposed` and the whole job's spend is lost (COST-ACCOUNTING-AUDIT CRIT-3).
+   *  Cleared on every terminal path. In-memory only. */
+  private _jobLiveAccounting: Map<string, { events: AdapterEvent[]; adapter: ProviderAdapter; model?: string }>
+  /** Jobs terminated by `_forceFailUnkillableJob` (SIGKILL-escalation failure)
+   *  whose surviving child's `close` may still fire `_onJobExit` later. Guards
+   *  against a duplicate ai_invocations row + a double `_onJobFinished`; a late
+   *  close that carries REAL cost replaces the no-cost placeholder rows
+   *  (COST-ACCOUNTING-AUDIT LOW-6). In-memory only. */
+  private _forceFailedRowJobs: Set<string>
 
   constructor(
     broadcast: (msg: WsMessage) => void,
@@ -314,6 +354,8 @@ export class QueueManager {
     this._jobExecution = new Map()
     this._jobInteractiveSelection = new Map()
     this._interactiveSessions = new Map()
+    this._jobLiveAccounting = new Map()
+    this._forceFailedRowJobs = new Set()
 
     const envTimeout = process.env.WM_ZOMBIE_TIMEOUT_MS !== undefined
       ? parseInt(process.env.WM_ZOMBIE_TIMEOUT_MS, 10)
@@ -378,10 +420,17 @@ export class QueueManager {
       if (typeof grace.unref === 'function') grace.unref()
     }
 
+    // Flush accounting for every in-flight job BEFORE dropping the DB handle:
+    // the treeKill'd child's later 'close' hits `if (this._disposed) return` in
+    // _onJobExit, so without this flush the whole job's spend is lost
+    // (COST-ACCOUNTING-AUDIT CRIT-3 / HIGH-1). Best-effort — never throws.
+    this._flushInFlightAccounting()
+
     this._activeProcess = null
     this._activeJobId = null
     // Tear down any resident interactive sessions (SIGTERM their children) so
-    // teardown orphans no persistent claude process. dispose() does not settle.
+    // teardown orphans no persistent claude process. dispose() does not settle
+    // (the aborted row was already written by _flushInFlightAccounting).
     for (const session of this._interactiveSessions.values()) {
       try { session.dispose() } catch { /* best-effort */ }
     }
@@ -390,10 +439,109 @@ export class QueueManager {
     this._snapshotRefs.clear()
     this._jobExecution.clear()
     this._jobResolvedProvider.clear()
+    this._jobLiveAccounting.clear()
     this._openspecShims.clear()
     // Drop the DB reference last so any in-flight 'close' callback sees null
     // and skips all DB work via the existing `if (this._db)` guards.
     this._db = null
+  }
+
+  /**
+   * Write an aborted ai_invocations row (+ persist onto the jobs row) for every
+   * job still in flight when the manager is torn down (shutdown / project
+   * removal). For a non-interactive rail the cost is estimated from the live
+   * `adapterEvents` captured so far (foundation contract); for an interactive
+   * session it is the accumulated per-turn spend plus any folded in-flight turn.
+   * Called once from shutdown() BEFORE `_db` is nulled. Best-effort per job.
+   */
+  private _flushInFlightAccounting(): void {
+    const db = this._db
+    const projectId = this._projectId
+    if (!db || !projectId) return
+
+    // ── Active non-interactive rail ──────────────────────────────────────────
+    const activeJobId = this._activeJobId
+    if (activeJobId) {
+      const job = this._jobs.get(activeJobId)
+      if (job && job.status === 'running') {
+        try {
+          const live = this._jobLiveAccounting.get(activeJobId)
+          const { result: normalised, estimated } = live
+            ? finaliseInvocationResult(live.adapter, live.events, { fallbackModel: live.model })
+            : { result: {} as ReturnType<typeof finaliseInvocationResult>['result'], estimated: false }
+          const provider = live?.adapter.id ?? this._jobResolvedProvider.get(activeJobId) ?? this._adapter.id
+          const finishedAt = new Date().toISOString()
+          job.status = 'failed'
+          job.finishedAt = finishedAt
+          try {
+            finishJob(db, activeJobId, {
+              exit_code: -1,
+              status: 'failed',
+              tokens_in: normalised.tokens_in,
+              tokens_out: normalised.tokens_out,
+              tokens_cache_read: normalised.tokens_cache_read,
+              tokens_cache_create: normalised.tokens_cache_create,
+              total_cost_usd: normalised.total_cost_usd,
+              total_cost_usd_estimated: estimated,
+              num_turns: normalised.num_turns,
+              model: normalised.model,
+              duration_ms: normalised.duration_ms,
+              duration_api_ms: normalised.duration_api_ms,
+              session_id: normalised.session_id,
+            })
+          } catch { /* DB may be mid-close */ }
+          this._recordJobInvocations({
+            jobId: activeJobId,
+            provider,
+            status: 'aborted',
+            startedAt: job.startedAt ?? finishedAt,
+            finishedAt,
+            ticketIds: this._extractTicketIds(job.command),
+            estimated,
+            result: normalised,
+          })
+          this._broadcast({ type: 'spending.invalidated', projectId })
+        } catch (err) {
+          console.error('[queue-manager] shutdown flush (active job) failed:', err)
+        }
+      }
+    }
+
+    // ── Resident interactive sessions ────────────────────────────────────────
+    for (const [jobId, session] of this._interactiveSessions) {
+      const job = this._jobs.get(jobId)
+      if (!job || job.status !== 'running') continue
+      try {
+        const snap = session.snapshotForAbort()
+        const finishedAt = new Date().toISOString()
+        job.status = 'failed'
+        job.finishedAt = finishedAt
+        try { finalizeInteractiveJob(db, jobId, 'failed') } catch { /* DB may be mid-close */ }
+        this._recordJobInvocations({
+          jobId,
+          provider: 'claude',
+          status: 'aborted',
+          startedAt: job.startedAt ?? finishedAt,
+          finishedAt,
+          ticketIds: this._extractTicketIds(job.command),
+          estimated: snap.estimated,
+          result: {
+            tokens_in: snap.totals.tokens_in,
+            tokens_out: snap.totals.tokens_out,
+            tokens_cache_read: snap.totals.tokens_cache_read,
+            tokens_cache_create: snap.totals.tokens_cache_create,
+            total_cost_usd: snap.totals.total_cost_usd,
+            num_turns: snap.totals.num_turns,
+            model: snap.model ?? undefined,
+            session_id: snap.sessionId ?? undefined,
+            duration_ms: snap.activeDurationMs,
+          },
+        })
+        this._broadcast({ type: 'spending.invalidated', projectId })
+      } catch (err) {
+        console.error('[queue-manager] shutdown flush (interactive job) failed:', err)
+      }
+    }
   }
 
   // ─── Public API ─────────────────────────────────────────────────────────────
@@ -677,6 +825,179 @@ export class QueueManager {
     return extractTicketIdsFromCommand(command)
   }
 
+  /**
+   * Write the ai_invocations row(s) for one job exit (surface='job'). Requires
+   * `this._db` and `this._projectId` — callers guard.
+   *
+   * Multi-ticket attribution (COST-ACCOUNTING-AUDIT MED-7): a batch rail carries
+   * N tickets but the whole cost previously landed on `ticketIds[0]`, so every
+   * other ticket read $0 in topTickets / the per-ticket spending-summary. When
+   * >1 ticket is present we now write ONE row per ticket with cost/tokens/turns
+   * split — cost & duration evenly (float), token & turn totals via
+   * largest-remainder so the splits sum EXACTLY to the original (mirrors
+   * smash-runner). `surface_ref_id` stays the plain jobId for the single-ticket
+   * (and no-ticket) case so it is byte-compatible with the old behaviour; a split
+   * row uses `<jobId>#t<ticketId>` so the N rows never collide.
+   *
+   * Returns the surface_ref_id(s) written so a caller (LOW-6 reconciliation) can
+   * locate/replace the rows later.
+   */
+  private _recordJobInvocations(params: {
+    jobId: string
+    provider: string
+    status: InvocationStatus
+    startedAt: string
+    finishedAt: string | null
+    ticketIds: number[]
+    estimated: boolean
+    result: {
+      tokens_in?: number
+      tokens_out?: number
+      tokens_cache_read?: number
+      tokens_cache_create?: number
+      total_cost_usd?: number
+      num_turns?: number
+      model?: string
+      session_id?: string
+      duration_ms?: number
+      duration_api_ms?: number
+    }
+    conversationId?: string | null
+  }): string[] {
+    const { jobId, provider, status, startedAt, finishedAt, ticketIds, estimated, result } = params
+    const db = this._db
+    const projectId = this._projectId
+    if (!db || !projectId) return []
+
+    // Single-ticket / no-ticket: one row, plain jobId (byte-compatible).
+    if (ticketIds.length <= 1) {
+      recordInvocation(db, {
+        id: randomUUID(),
+        project_id: projectId,
+        provider,
+        surface: 'job',
+        surface_ref_id: jobId,
+        ticket_id: ticketIds[0] ?? null,
+        conversation_id: params.conversationId ?? null,
+        status,
+        started_at: startedAt,
+        finished_at: finishedAt,
+        total_cost_usd_estimated: estimated,
+        ...result,
+      })
+      return [jobId]
+    }
+
+    // Multi-ticket: split across one row per ticket. Cost & duration split evenly
+    // as floats; token & turn totals via largest-remainder (sum exactly to total).
+    const n = ticketIds.length
+    const evenSplit = (v: number | undefined): number | undefined =>
+      v === undefined ? undefined : v / n
+    const tokensIn = distributeIntEvenly(result.tokens_in, n)
+    const tokensOut = distributeIntEvenly(result.tokens_out, n)
+    const cacheRead = distributeIntEvenly(result.tokens_cache_read, n)
+    const cacheCreate = distributeIntEvenly(result.tokens_cache_create, n)
+    const numTurns = distributeIntEvenly(result.num_turns, n)
+    const refIds: string[] = []
+    ticketIds.forEach((ticketId, i) => {
+      const refId = `${jobId}#t${ticketId}`
+      refIds.push(refId)
+      recordInvocation(db, {
+        id: randomUUID(),
+        project_id: projectId,
+        provider,
+        surface: 'job',
+        surface_ref_id: refId,
+        ticket_id: ticketId,
+        conversation_id: params.conversationId ?? null,
+        status,
+        started_at: startedAt,
+        finished_at: finishedAt,
+        total_cost_usd_estimated: estimated,
+        tokens_in: tokensIn[i],
+        tokens_out: tokensOut[i],
+        tokens_cache_read: cacheRead[i],
+        tokens_cache_create: cacheCreate[i],
+        total_cost_usd: evenSplit(result.total_cost_usd),
+        num_turns: numTurns[i],
+        model: result.model,
+        session_id: result.session_id,
+        duration_ms: evenSplit(result.duration_ms),
+        duration_api_ms: evenSplit(result.duration_api_ms),
+      })
+    })
+    return refIds
+  }
+
+  /**
+   * Local calendar-day start, expressed as a UTC-ISO instant so it compares
+   * correctly against the UTC-ISO `started_at` strings (which sort
+   * lexicographically). Fixes the UTC `date('now')` boundary that bucketed spend
+   * near local midnight on the wrong day (MED-5). Overridable in tests via the
+   * injected clock is unnecessary — it reads the real local day.
+   */
+  private _localDayStartIso(): string {
+    const now = new Date()
+    return new Date(now.getFullYear(), now.getMonth(), now.getDate()).toISOString()
+  }
+
+  /**
+   * Evaluate the per-project and app-level daily budgets and pause the queue when
+   * exceeded. Called on every terminal job exit (MED-5). Best-effort: never
+   * throws (the DB may have been closed mid-job).
+   */
+  private _enforceDailyBudget(): void {
+    const db = this._db
+    if (!db) return
+    try {
+      // Per-project daily budget: sum the ai_invocations ledger for the LOCAL day
+      // across ALL statuses + surfaces (failed/aborted runs cost real money).
+      const dailyBudgetRow = db.prepare(
+        `SELECT value FROM queue_state WHERE key = 'config.daily_budget_usd'`
+      ).get() as { value: string } | undefined
+      if (dailyBudgetRow && this._projectId) {
+        const dailyBudget = parseFloat(dailyBudgetRow.value)
+        if (dailyBudget > 0) {
+          const fromIso = this._localDayStartIso()
+          const spendRow = db.prepare(
+            `SELECT COALESCE(SUM(total_cost_usd), 0) as total FROM ai_invocations
+             WHERE project_id = ? AND total_cost_usd IS NOT NULL AND started_at >= ?`
+          ).get(this._projectId, fromIso) as { total: number }
+          const dailySpend = spendRow.total
+          if (dailySpend >= dailyBudget) {
+            const wasPaused = this._paused
+            this._paused = true
+            if (!wasPaused) {
+              db.prepare(`INSERT OR REPLACE INTO queue_state (key, value) VALUES ('paused', 'true')`).run()
+            }
+            this._broadcast({ type: 'daily_budget_exceeded', projectId: '', dailySpend, budget: dailyBudget, queuePaused: true })
+            try {
+              this._onBudgetExceeded?.('daily_budget_exceeded', { dailySpend, budget: dailyBudget, queuePaused: true })
+            } catch { /* webhook delivery is best-effort */ }
+          }
+        }
+      }
+
+      // App-level daily budget enforcement (totalSpend computed by the caller).
+      if (this._getDesktopDailyBudget) {
+        const { budget: desktopBudget, totalSpend: desktopTotalSpend } = this._getDesktopDailyBudget()
+        if (desktopBudget != null && desktopBudget > 0 && desktopTotalSpend >= desktopBudget) {
+          const wasPaused = this._paused
+          this._paused = true
+          if (!wasPaused) {
+            db.prepare(`INSERT OR REPLACE INTO queue_state (key, value) VALUES ('paused', 'true')`).run()
+          }
+          this._broadcast({ type: 'desktop_daily_budget_exceeded', projectId: '', desktopDailySpend: desktopTotalSpend, desktopBudget, queuePaused: true })
+          try {
+            this._onBudgetExceeded?.('desktop_daily_budget_exceeded', { desktopDailySpend: desktopTotalSpend, desktopBudget, queuePaused: true })
+          } catch { /* webhook delivery is best-effort */ }
+        }
+      }
+    } catch (err) {
+      console.error('[queue-manager] daily-budget enforcement failed (db unavailable?):', err)
+    }
+  }
+
   private _buildImplementAttachmentContext(command: string): string {
     if (!this._cwd || !this._projectSlug) return ''
 
@@ -847,6 +1168,7 @@ export class QueueManager {
     this._jobProviderSelection.delete(jobId)
     this._jobResolvedProvider.delete(jobId)
     this._jobInteractiveSelection.delete(jobId)
+    this._jobLiveAccounting.delete(jobId)
     // A wedged job may have had its openspec shim materialised already (the
     // wedge can land after _startJob's shim setup). Mirror the settle path.
     this._cleanupOpenspecShim(jobId)
@@ -1054,35 +1376,34 @@ export class QueueManager {
 
       if (this._projectId) {
         try {
-          const invStatus = finalStatus === 'completed'
+          const invStatus: InvocationStatus = finalStatus === 'completed'
             ? 'success'
             : finalStatus === 'canceled'
               ? 'aborted'
               : 'failed'
           const ticketIds = this._extractTicketIds(job.command)
-          const durationMs = job.startedAt
-            ? new Date(job.finishedAt).getTime() - new Date(job.startedAt).getTime()
-            : undefined
-          recordInvocation(this._db, {
-            id: randomUUID(),
-            project_id: this._projectId,
+          this._recordJobInvocations({
+            jobId,
             provider: 'claude',
-            surface: 'job',
-            surface_ref_id: jobId,
-            ticket_id: ticketIds[0] ?? null,
             status: invStatus,
-            started_at: job.startedAt ?? new Date().toISOString(),
-            finished_at: job.finishedAt,
-            total_cost_usd_estimated: false,
-            tokens_in: totals.tokens_in,
-            tokens_out: totals.tokens_out,
-            tokens_cache_read: totals.tokens_cache_read,
-            tokens_cache_create: totals.tokens_cache_create,
-            total_cost_usd: totals.total_cost_usd,
-            num_turns: totals.num_turns,
-            model: info.model ?? undefined,
-            session_id: info.sessionId ?? undefined,
-            duration_ms: durationMs,
+            startedAt: job.startedAt ?? new Date().toISOString(),
+            finishedAt: job.finishedAt,
+            ticketIds,
+            // CRIT-4: true when a mid-turn finalize/crash folded an in-flight
+            // turn's rate-card-priced usage into the accumulated totals.
+            estimated: info.estimated,
+            result: {
+              tokens_in: totals.tokens_in,
+              tokens_out: totals.tokens_out,
+              tokens_cache_read: totals.tokens_cache_read,
+              tokens_cache_create: totals.tokens_cache_create,
+              total_cost_usd: totals.total_cost_usd,
+              num_turns: totals.num_turns,
+              model: info.model ?? undefined,
+              session_id: info.sessionId ?? undefined,
+              // LOW-15: sum of active turn wall-segments, not finished−started.
+              duration_ms: info.activeDurationMs,
+            },
           })
           this._broadcast({ type: 'spending.invalidated', projectId: this._projectId })
         } catch (err) {
@@ -1561,6 +1882,10 @@ export class QueueManager {
 
     // Accumulator of parsed AdapterEvent for finaliseInvocationResult on close.
     const adapterEvents: AdapterEvent[] = []
+    // Expose the (growing) accumulator + adapter/model so shutdown() can flush an
+    // aborted, cost-estimated ai_invocations row if this job is still in flight
+    // when the manager is torn down (CRIT-3). Cleared on every terminal path.
+    this._jobLiveAccounting.set(jobId, { events: adapterEvents, adapter, model: railModel })
 
     // Synthetic OTEL bridge for providers whose CLI does not honour OTEL_*
     // env vars (codex today). Lifecycle bound to the spawn's close handler.
@@ -1751,6 +2076,9 @@ export class QueueManager {
     // Release the resolved-provider entry on the normal child-exit path (the
     // adapter is threaded into _onJobExit directly, so this is pure cleanup).
     this._jobResolvedProvider.delete(jobId)
+    // Reclaim the live-accounting handle unconditionally (shutdown flush no longer
+    // needs it once the child has exited).
+    this._jobLiveAccounting.delete(jobId)
     const provenanceRepoDir = jobExecution?.repoDir ?? this._cwd
 
     // Clean up the per-job openspec PATH shim (relocated claude rails only),
@@ -1774,6 +2102,17 @@ export class QueueManager {
 
     const job = this._jobs.get(jobId)
     if (!job) return
+
+    // LOW-6: this is the LATE close of a job already force-failed by
+    // _forceFailUnkillableJob (SIGKILL escalation failed, then the child died on
+    // its own). The terminal side-effects (status, onJobFinished, dependents,
+    // pipeline, slot release) already ran, so route to a cost-only reconciliation
+    // that replaces the no-cost placeholder row(s) IF this close captured real
+    // spend — never a duplicate row nor a second onJobFinished.
+    if (this._forceFailedRowJobs.has(jobId)) {
+      this._reconcileForceFailedJobExit(jobId, code, adapterEvents, adapter, spawnedModel)
+      return
+    }
 
     const wasZombie = this._zombieJobs.has(jobId)
     const wasCanceling = this._cancelingJobs.has(jobId)
@@ -1838,27 +2177,25 @@ export class QueueManager {
         console.error('[queue-manager] finishJob failed (db unavailable?):', err)
       }
 
-      // ai_invocations capture (surface='job'). One row per job exit.
+      // ai_invocations capture (surface='job'). One row per job exit, or one row
+      // per extracted ticket for a multi-ticket batch (MED-7).
       if (this._projectId) {
         try {
-          const invStatus = finalStatus === 'completed'
+          const invStatus: InvocationStatus = finalStatus === 'completed'
             ? 'success'
             : (finalStatus === 'canceled' || finalStatus === 'zombie_terminated')
               ? 'aborted'
               : 'failed'
           const ticketIds = this._extractTicketIds(job.command)
-          recordInvocation(this._db, {
-            id: randomUUID(),
-            project_id: this._projectId,
+          this._recordJobInvocations({
+            jobId,
             provider: adapter.id,
-            surface: 'job',
-            surface_ref_id: jobId,
-            ticket_id: ticketIds[0] ?? null,
             status: invStatus,
-            started_at: job.startedAt ?? new Date().toISOString(),
-            finished_at: job.finishedAt,
-            total_cost_usd_estimated: estimated,
-            ...normalised,
+            startedAt: job.startedAt ?? new Date().toISOString(),
+            finishedAt: job.finishedAt,
+            ticketIds,
+            estimated,
+            result: normalised,
           })
           this._broadcast({ type: 'spending.invalidated', projectId: this._projectId })
         } catch (err) {
@@ -1926,50 +2263,20 @@ export class QueueManager {
             }
           }
 
-          // Per-project daily budget: check total spend for today
-          const dailyBudgetRow = this._db.prepare(
-            `SELECT value FROM queue_state WHERE key = 'config.daily_budget_usd'`
-          ).get() as { value: string } | undefined
-          if (dailyBudgetRow) {
-            const dailyBudget = parseFloat(dailyBudgetRow.value)
-            if (dailyBudget > 0) {
-              const spendRow = this._db.prepare(
-                `SELECT COALESCE(SUM(total_cost_usd), 0) as total FROM jobs WHERE status = 'completed' AND total_cost_usd IS NOT NULL AND started_at >= date('now')`
-              ).get() as { total: number }
-              const dailySpend = spendRow.total
-              if (dailySpend >= dailyBudget) {
-                const wasPaused = this._paused
-                this._paused = true
-                if (!wasPaused) {
-                  this._db.prepare(`INSERT OR REPLACE INTO queue_state (key, value) VALUES ('paused', 'true')`).run()
-                }
-                this._broadcast({ type: 'daily_budget_exceeded', projectId: '', dailySpend, budget: dailyBudget, queuePaused: true })
-                try {
-                  this._onBudgetExceeded?.('daily_budget_exceeded', { dailySpend, budget: dailyBudget, queuePaused: true })
-                } catch { /* webhook delivery is best-effort */ }
-              }
-            }
-          }
-
-          // App-level daily budget enforcement
-          if (this._getDesktopDailyBudget) {
-            const { budget: desktopBudget, totalSpend: desktopTotalSpend } = this._getDesktopDailyBudget()
-            if (desktopBudget != null && desktopBudget > 0 && desktopTotalSpend >= desktopBudget) {
-              const wasPaused = this._paused
-              this._paused = true
-              if (!wasPaused) {
-                this._db.prepare(`INSERT OR REPLACE INTO queue_state (key, value) VALUES ('paused', 'true')`).run()
-              }
-              this._broadcast({ type: 'desktop_daily_budget_exceeded', projectId: '', desktopDailySpend: desktopTotalSpend, desktopBudget, queuePaused: true })
-              try {
-                this._onBudgetExceeded?.('desktop_daily_budget_exceeded', { desktopDailySpend: desktopTotalSpend, desktopBudget, queuePaused: true })
-              } catch { /* webhook delivery is best-effort */ }
-            }
-          }
         } catch (err) {
           console.error('[queue-manager] cost-alert bookkeeping failed (db unavailable?):', err)
         }
       }
+
+      // ─── Daily-budget enforcement (MED-5) ───────────────────────────────────
+      // Runs on EVERY terminal exit, not just completed jobs: a failed/aborted
+      // claude run still emits real cost (error_max_turns etc.), so a day of
+      // expensive failures must still trip the cap. The spend sum reads the
+      // canonical ai_invocations ledger (ALL statuses + ALL surfaces — jobs,
+      // explore, quick-spec, ai-edit, file-summary, loop, smash) for the server's
+      // LOCAL calendar day, not the UTC `date('now')` boundary that mis-buckets
+      // spend near local midnight and disagreed with the /budget meter.
+      this._enforceDailyBudget()
     } else {
       emitLine('stdout', `[process exited with code ${code ?? 'unknown'}]`)
     }
@@ -2126,29 +2433,30 @@ export class QueueManager {
       }
 
       // ai_invocations capture (surface='job', aborted) so the failed rail still
-      // shows on Analytics with no token/cost data (none was finalised).
+      // shows on Analytics with no token/cost data (none was finalised). LOW-6:
+      // the surviving child's `close` may still fire `_onJobExit` later — mark the
+      // job so that late close replaces this no-cost placeholder with the real
+      // captured cost instead of inserting a SECOND row / re-firing onJobFinished.
       if (this._db && this._projectId) {
         try {
           const ticketIds = this._extractTicketIds(job.command)
           const durationMs = job.startedAt
             ? new Date(job.finishedAt).getTime() - new Date(job.startedAt).getTime()
             : undefined
-          recordInvocation(this._db, {
-            id: randomUUID(),
-            project_id: this._projectId,
+          this._recordJobInvocations({
+            jobId,
             // Stamp the provider the child ACTUALLY ran on (per-job override
             // already consumed from _jobProviderSelection); _adapter.id is the
             // final fallback for jobs with no resolved-provider entry.
             provider: this._jobResolvedProvider.get(jobId) ?? this._adapter.id,
-            surface: 'job',
-            surface_ref_id: jobId,
-            ticket_id: ticketIds[0] ?? null,
             status: 'aborted',
-            started_at: job.startedAt ?? new Date().toISOString(),
-            finished_at: job.finishedAt,
-            total_cost_usd_estimated: false,
-            duration_ms: durationMs,
+            startedAt: job.startedAt ?? new Date().toISOString(),
+            finishedAt: job.finishedAt,
+            ticketIds,
+            estimated: false,
+            result: { duration_ms: durationMs },
           })
+          this._forceFailedRowJobs.add(jobId)
           this._broadcast({ type: 'spending.invalidated', projectId: this._projectId })
         } catch (err) {
           console.error('[queue-manager] recordInvocation (unkillable) failed:', err)
@@ -2165,6 +2473,7 @@ export class QueueManager {
     this._jobProviderSelection.delete(jobId)
     this._jobResolvedProvider.delete(jobId)
     this._jobInteractiveSelection.delete(jobId)
+    this._jobLiveAccounting.delete(jobId)
     this._cleanupOpenspecShim(jobId)
 
     this._activeProcess = null
@@ -2184,6 +2493,87 @@ export class QueueManager {
 
     this._broadcastQueueState()
     this._drainQueue()
+  }
+
+  /**
+   * Cost-only reconciliation for the LATE `close` of a job already force-failed
+   * by `_forceFailUnkillableJob` (LOW-6). All terminal side-effects
+   * (onJobFinished, dependents, pipeline, slot release) already ran, so this
+   * neither re-fires them nor inserts a duplicate row. If the child ultimately
+   * captured real spend, the no-cost placeholder row(s) are replaced with the
+   * real cost; otherwise the placeholder is left untouched.
+   */
+  private _reconcileForceFailedJobExit(
+    jobId: string,
+    code: number | null,
+    adapterEvents: readonly AdapterEvent[],
+    adapter: ProviderAdapter,
+    spawnedModel?: string,
+  ): void {
+    this._forceFailedRowJobs.delete(jobId)
+    const job = this._jobs.get(jobId)
+    // Remove the job now that its terminal handling is fully settled — a further
+    // stray close then hits the `if (!job) return` guard in _onJobExit.
+    this._jobs.delete(jobId)
+    this._jobLiveAccounting.delete(jobId)
+    if (!this._db || !this._projectId || !job) return
+
+    try {
+      const { result: normalised, estimated } = finaliseInvocationResult(
+        adapter,
+        adapterEvents,
+        { fallbackModel: spawnedModel },
+      )
+      const hasRealSpend =
+        (normalised.total_cost_usd ?? 0) > 0 ||
+        (normalised.tokens_in ?? 0) > 0 ||
+        (normalised.tokens_out ?? 0) > 0 ||
+        (normalised.tokens_cache_read ?? 0) > 0 ||
+        (normalised.tokens_cache_create ?? 0) > 0
+      if (!hasRealSpend) return // placeholder stands; nothing real to record.
+
+      // Replace the placeholder row(s) with the real captured spend. Delete the
+      // plain-jobId row and any per-ticket split rows, then re-record.
+      this._db.prepare(
+        `DELETE FROM ai_invocations WHERE surface_ref_id = ? OR surface_ref_id LIKE ?`
+      ).run(jobId, `${jobId}#t%`)
+
+      const finalStatus: InvocationStatus = code === 0 ? 'success' : 'failed'
+      const ticketIds = this._extractTicketIds(job.command)
+      this._recordJobInvocations({
+        jobId,
+        provider: adapter.id,
+        status: finalStatus,
+        startedAt: job.startedAt ?? new Date().toISOString(),
+        finishedAt: job.finishedAt ?? new Date().toISOString(),
+        ticketIds,
+        estimated,
+        result: normalised,
+      })
+      // Reflect the real cost on the jobs row too (it was stamped failed w/o cost).
+      try {
+        finishJob(this._db, jobId, {
+          exit_code: code ?? -1,
+          status: 'failed',
+          tokens_in: normalised.tokens_in,
+          tokens_out: normalised.tokens_out,
+          tokens_cache_read: normalised.tokens_cache_read,
+          tokens_cache_create: normalised.tokens_cache_create,
+          total_cost_usd: normalised.total_cost_usd,
+          total_cost_usd_estimated: estimated,
+          num_turns: normalised.num_turns,
+          model: normalised.model,
+          duration_ms: normalised.duration_ms,
+          duration_api_ms: normalised.duration_api_ms,
+          session_id: normalised.session_id,
+        })
+      } catch (err) {
+        console.error('[queue-manager] force-fail reconcile finishJob failed:', err)
+      }
+      this._broadcast({ type: 'spending.invalidated', projectId: this._projectId })
+    } catch (err) {
+      console.error('[queue-manager] force-fail reconcile failed:', err)
+    }
   }
 
   private _broadcastQueueState(): void {
@@ -2227,6 +2617,60 @@ export class QueueManager {
     if (!this._db) return
 
     try {
+      // Backfill an aborted ai_invocations row for every job orphaned 'running'
+      // by an UNGRACEFUL crash (no shutdown() flush ran). Each row carries
+      // whatever spend the jobs row accumulated — interactive per-turn writes
+      // hold real cost; a non-interactive rail whose finishJob never ran holds
+      // NULL — so the run still counts toward totalRuns/failureRate and an
+      // interactive session's cost is not lost from Analytics
+      // (COST-ACCOUNTING-AUDIT CRIT-3 / HIGH-1, crash path). Runs BEFORE the
+      // status flip so we can read the pre-fail token/cost columns.
+      if (this._projectId) {
+        try {
+          const orphans = this._db.prepare(
+            `SELECT id, command, started_at, model, tokens_in, tokens_out, tokens_cache_read,
+                    tokens_cache_create, total_cost_usd, total_cost_usd_estimated, num_turns,
+                    duration_ms, duration_api_ms, session_id
+             FROM jobs WHERE status = 'running'`
+          ).all() as Array<{
+            id: string; command: string; started_at: string | null; model: string | null
+            tokens_in: number | null; tokens_out: number | null; tokens_cache_read: number | null
+            tokens_cache_create: number | null; total_cost_usd: number | null
+            total_cost_usd_estimated: number | null; num_turns: number | null
+            duration_ms: number | null; duration_api_ms: number | null; session_id: string | null
+          }>
+          const finishedAt = new Date().toISOString()
+          for (const o of orphans) {
+            this._recordJobInvocations({
+              jobId: o.id,
+              provider: this._adapter.id,
+              status: 'aborted',
+              startedAt: o.started_at ?? finishedAt,
+              finishedAt,
+              ticketIds: extractTicketIdsFromCommand(o.command),
+              estimated: !!o.total_cost_usd_estimated,
+              result: {
+                tokens_in: o.tokens_in ?? undefined,
+                tokens_out: o.tokens_out ?? undefined,
+                tokens_cache_read: o.tokens_cache_read ?? undefined,
+                tokens_cache_create: o.tokens_cache_create ?? undefined,
+                total_cost_usd: o.total_cost_usd ?? undefined,
+                num_turns: o.num_turns ?? undefined,
+                model: o.model ?? undefined,
+                session_id: o.session_id ?? undefined,
+                duration_ms: o.duration_ms ?? undefined,
+                duration_api_ms: o.duration_api_ms ?? undefined,
+              },
+            })
+          }
+          if (orphans.length > 0) {
+            this._broadcast({ type: 'spending.invalidated', projectId: this._projectId })
+          }
+        } catch (err) {
+          console.error('[queue-manager] restore backfill failed:', err)
+        }
+      }
+
       // Fail any jobs that were running when the server last shut down
       this._db.prepare(
         `UPDATE jobs SET status = 'failed', finished_at = CURRENT_TIMESTAMP WHERE status = 'running'`

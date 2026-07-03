@@ -30,6 +30,8 @@ import {
   updateWebhook,
   removeWebhook,
   listWebhooksForProject,
+  recordAgentInvocation,
+  sumAgentInvocationsCost,
 } from './desktop-db'
 import type { DbInstance } from './db'
 
@@ -73,17 +75,17 @@ describe('desktop-db', () => {
       expect(names).toContain('idx_projects_path')
     })
 
-    it('applies migrations 1 through 19 and records them', () => {
+    it('applies migrations 1 through 20 and records them', () => {
       const versions = db.prepare('SELECT version FROM schema_migrations ORDER BY version').all() as { version: number }[]
-      expect(versions).toHaveLength(19)
-      expect(versions.map((v) => v.version)).toEqual([1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19])
+      expect(versions).toHaveLength(20)
+      expect(versions.map((v) => v.version)).toEqual([1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20])
     })
 
     it('is idempotent — calling initDesktopDb again does not fail', () => {
       // Re-init on same DB (in-memory so we just call again)
       const db2 = makeDb()
       const versions = db2.prepare('SELECT version FROM schema_migrations').all() as { version: number }[]
-      expect(versions).toHaveLength(19)
+      expect(versions).toHaveLength(20)
     })
   })
 
@@ -610,5 +612,103 @@ describe('legacy hub → desktop migrations', () => {
     // survives the rename + the table rename.
     expect(getDesktopSetting(db, 'wal_only_key')).toBe('in-wal')
     db.close()
+  })
+})
+
+describe('agent_invocations (HIGH-3: agent-chat cost accounting)', () => {
+  let db: DbInstance
+
+  beforeEach(() => {
+    db = makeDb()
+  })
+
+  it('creates the agent_invocations table + indexes', () => {
+    const tables = (db.prepare("SELECT name FROM sqlite_master WHERE type='table'").all() as { name: string }[])
+      .map((t) => t.name)
+    expect(tables).toContain('agent_invocations')
+    const indexes = (db.prepare("SELECT name FROM sqlite_master WHERE type='index'").all() as { name: string }[])
+      .map((i) => i.name)
+    expect(indexes).toContain('idx_agent_inv_started')
+    expect(indexes).toContain('idx_agent_inv_conv')
+  })
+
+  it('records a row with fixed surface=agent-chat and native cost (estimated=0)', () => {
+    recordAgentInvocation(db, {
+      id: 'inv-1',
+      conversation_id: 'conv-1',
+      project_id: 'proj-1',
+      provider: 'claude',
+      model: 'claude-sonnet-4',
+      status: 'success',
+      started_at: '2026-07-01T10:00:00.000Z',
+      finished_at: '2026-07-01T10:00:30.000Z',
+      tokens_in: 100,
+      tokens_out: 200,
+      total_cost_usd: 0.5,
+      total_cost_usd_estimated: false,
+      num_turns: 3,
+      session_id: 'sess-1',
+    })
+    const row = db.prepare('SELECT * FROM agent_invocations WHERE id = ?').get('inv-1') as Record<string, unknown>
+    expect(row.surface).toBe('agent-chat')
+    expect(row.project_id).toBe('proj-1')
+    expect(row.provider).toBe('claude')
+    expect(row.total_cost_usd).toBe(0.5)
+    expect(row.total_cost_usd_estimated).toBe(0)
+    expect(row.status).toBe('success')
+    expect(row.num_turns).toBe(3)
+  })
+
+  it('allows NULL project_id (Home / app-global) and flags estimated costs', () => {
+    recordAgentInvocation(db, {
+      id: 'inv-2',
+      conversation_id: 'conv-2',
+      project_id: null,
+      provider: 'codex',
+      status: 'aborted',
+      started_at: '2026-07-01T11:00:00.000Z',
+      total_cost_usd: 0.25,
+      total_cost_usd_estimated: true,
+    })
+    const row = db.prepare('SELECT * FROM agent_invocations WHERE id = ?').get('inv-2') as Record<string, unknown>
+    expect(row.project_id).toBeNull()
+    expect(row.total_cost_usd_estimated).toBe(1)
+    expect(row.status).toBe('aborted')
+  })
+
+  it('defaults optional numeric/text fields to NULL', () => {
+    recordAgentInvocation(db, {
+      id: 'inv-3',
+      conversation_id: 'conv-3',
+      provider: 'gemini',
+      status: 'failed',
+      started_at: '2026-07-01T12:00:00.000Z',
+    })
+    const row = db.prepare('SELECT * FROM agent_invocations WHERE id = ?').get('inv-3') as Record<string, unknown>
+    expect(row.total_cost_usd).toBeNull()
+    expect(row.tokens_in).toBeNull()
+    expect(row.num_turns).toBeNull()
+    expect(row.total_cost_usd_estimated).toBe(0)
+    expect(row.project_id).toBeNull()
+  })
+
+  describe('sumAgentInvocationsCost', () => {
+    it('returns 0 on an empty table', () => {
+      expect(sumAgentInvocationsCost(db)).toBe(0)
+    })
+
+    it('sums all costs when no since filter is given, treating NULL as 0', () => {
+      recordAgentInvocation(db, { id: 'a', conversation_id: 'c', provider: 'claude', status: 'success', started_at: '2026-07-01T09:00:00.000Z', total_cost_usd: 1.0 })
+      recordAgentInvocation(db, { id: 'b', conversation_id: 'c', provider: 'claude', status: 'success', started_at: '2026-07-02T09:00:00.000Z', total_cost_usd: 2.5 })
+      recordAgentInvocation(db, { id: 'c', conversation_id: 'c', provider: 'claude', status: 'failed', started_at: '2026-07-03T09:00:00.000Z' })
+      expect(sumAgentInvocationsCost(db)).toBeCloseTo(3.5, 6)
+    })
+
+    it('filters by since (inclusive on started_at)', () => {
+      recordAgentInvocation(db, { id: 'a', conversation_id: 'c', provider: 'claude', status: 'success', started_at: '2026-07-01T09:00:00.000Z', total_cost_usd: 1.0 })
+      recordAgentInvocation(db, { id: 'b', conversation_id: 'c', provider: 'claude', status: 'success', started_at: '2026-07-02T09:00:00.000Z', total_cost_usd: 2.5 })
+      expect(sumAgentInvocationsCost(db, '2026-07-02T00:00:00.000Z')).toBeCloseTo(2.5, 6)
+      expect(sumAgentInvocationsCost(db, '2026-07-02T09:00:00.000Z')).toBeCloseTo(2.5, 6)
+    })
   })
 })

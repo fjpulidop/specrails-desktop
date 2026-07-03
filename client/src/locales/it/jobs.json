@@ -115,7 +115,9 @@
       "working": "Al lavoro…",
       "connecting": "Connessione all'agente…",
       "starting": "Avvio…"
-    }
+    },
+    "pipelinePartial": "≥ mostrato — {{count}} fase/i senza costo registrato",
+    "pipelinePartialTooltip": "Alcune fasi si sono interrotte prima di riportare il costo, quindi questo totale è un limite inferiore."
   },
   "ticketHeader": {
     "showMore": "+ altri {{count}}",

@@ -486,10 +486,40 @@ function recordSafely(
 }
 
 /**
+ * Distribute an integer `total` across `n` buckets using the largest-remainder
+ * method so the per-bucket values sum EXACTLY to `total` (no floor loss). The
+ * base share goes to every bucket; the leftover remainder is handed out one
+ * unit at a time to the leading buckets. Returns `undefined` when the input is
+ * absent so the recorded row carries no value (rather than a spurious 0).
+ *
+ * LOW-9: the previous `Math.floor(total / n)` dropped up to n-1 units per field
+ * and — because SMASH turn counts (1-30) are the same magnitude as the child
+ * count (3-8) — regularly collapsed num_turns to 0 for every child.
+ */
+function distributeInt(
+  total: number | null | undefined,
+  n: number,
+): (number | undefined)[] {
+  if (total === null || total === undefined) return new Array(n).fill(undefined)
+  const t = Math.trunc(total)
+  const base = Math.floor(t / n)
+  let remainder = t - base * n
+  const out: (number | undefined)[] = new Array(n)
+  for (let i = 0; i < n; i++) {
+    // Hand the leftover to the leading buckets; sign-safe for negative totals.
+    if (remainder > 0) { out[i] = base + 1; remainder -= 1 }
+    else if (remainder < 0) { out[i] = base - 1; remainder += 1 }
+    else out[i] = base
+  }
+  return out
+}
+
+/**
  * On a successful SMASH, attribute the spawn cost/tokens proportionally to
  * each Sub-Spec so the per-child spending line is populated immediately.
- * Cost / tokens / duration are split evenly across N children; num_turns is
- * floor(turns/N) per row (small loss of precision, acceptable).
+ * Cost / duration are split evenly (float-exact); token fields and num_turns
+ * are split via largest-remainder so the per-child rows sum EXACTLY back to the
+ * spawn total (LOW-9).
  */
 function recordChildrenInvocations(
   deps: SmashDeps,
@@ -501,18 +531,22 @@ function recordChildrenInvocations(
   model: string | null | undefined,
 ): void {
   if (childrenIds.length === 0 || !resultEvent) return
-  try {
-    const normalised = normaliseResultEvent(resultEvent, 'claude')
-    const n = childrenIds.length
-    const split = <T extends number | null | undefined>(v: T): number | undefined => {
-      if (v === null || v === undefined) return undefined
-      return (v as number) / n
-    }
-    const splitInt = <T extends number | null | undefined>(v: T): number | undefined => {
-      if (v === null || v === undefined) return undefined
-      return Math.floor((v as number) / n)
-    }
-    for (const childId of childrenIds) {
+  const normalised = normaliseResultEvent(resultEvent, 'claude')
+  const n = childrenIds.length
+  const split = <T extends number | null | undefined>(v: T): number | undefined => {
+    if (v === null || v === undefined) return undefined
+    return (v as number) / n
+  }
+  // Largest-remainder splits for the integer fields (sum exactly to the total).
+  const tokensIn = distributeInt(normalised.tokens_in, n)
+  const tokensOut = distributeInt(normalised.tokens_out, n)
+  const tokensCacheRead = distributeInt(normalised.tokens_cache_read, n)
+  const tokensCacheCreate = distributeInt(normalised.tokens_cache_create, n)
+  const numTurns = distributeInt(normalised.num_turns, n)
+  childrenIds.forEach((childId, i) => {
+    // LOW-12: try/catch INSIDE the loop so one failed row (e.g. a transient
+    // SQLITE_BUSY) cannot abandon the remaining children's cost.
+    try {
       recordInvocation(deps.db, {
         id: randomUUID(),
         project_id: deps.projectId,
@@ -526,19 +560,19 @@ function recordChildrenInvocations(
         finished_at: finishedAt,
         duration_ms: split(normalised.duration_ms),
         duration_api_ms: split(normalised.duration_api_ms),
-        tokens_in: splitInt(normalised.tokens_in),
-        tokens_out: splitInt(normalised.tokens_out),
-        tokens_cache_read: splitInt(normalised.tokens_cache_read),
-        tokens_cache_create: splitInt(normalised.tokens_cache_create),
+        tokens_in: tokensIn[i],
+        tokens_out: tokensOut[i],
+        tokens_cache_read: tokensCacheRead[i],
+        tokens_cache_create: tokensCacheCreate[i],
         total_cost_usd: split(normalised.total_cost_usd),
-        num_turns: splitInt(normalised.num_turns),
+        num_turns: numTurns[i],
         session_id: normalised.session_id,
         model: (resultEvent.model as string | undefined) ?? model ?? undefined,
       })
+    } catch (err) {
+      console.error('[smash-runner] recordChildrenInvocations failed for child', childId, err)
     }
-  } catch (err) {
-    console.error('[smash-runner] recordChildrenInvocations failed:', err)
-  }
+  })
 }
 
 // ─── Public runner ───────────────────────────────────────────────────────────
@@ -647,6 +681,8 @@ export async function runSmash(
       reason: 'crashed',
       timestamp: finishedAt,
     })
+    // LOW-10: a row was recorded — invalidate open dashboards.
+    deps.broadcast({ type: 'spending.invalidated', projectId: deps.projectId })
     return { ok: false, reason: 'crashed', ticketId, runId }
   }
 
@@ -682,6 +718,8 @@ export async function runSmash(
       reason: 'timeout',
       timestamp: finishedAt,
     })
+    // LOW-10: a costed row was recorded — invalidate open dashboards.
+    deps.broadcast({ type: 'spending.invalidated', projectId: deps.projectId })
     return { ok: false, reason: 'timeout', ticketId, runId }
   }
   if (result.code !== 0 || !result.resultEvent) {
@@ -695,6 +733,8 @@ export async function runSmash(
       reason,
       timestamp: finishedAt,
     })
+    // LOW-10: a row was recorded — invalidate open dashboards.
+    deps.broadcast({ type: 'spending.invalidated', projectId: deps.projectId })
     return { ok: false, reason, ticketId, runId }
   }
 
@@ -711,6 +751,9 @@ export async function runSmash(
       detail: parse.reason as SmashValidationReason,
       timestamp: finishedAt,
     })
+    // LOW-10: this branch recorded a costed row (the process exited 0 with a
+    // result event), so invalidate any open dashboard like the success path.
+    deps.broadcast({ type: 'spending.invalidated', projectId: deps.projectId })
     return { ok: false, reason: 'invalid-output', ticketId, runId }
   }
 
@@ -735,6 +778,8 @@ export async function runSmash(
       reason: 'mutation-failed',
       timestamp: finishedAt,
     })
+    // LOW-10: costed row recorded above — invalidate open dashboards.
+    deps.broadcast({ type: 'spending.invalidated', projectId: deps.projectId })
     return { ok: false, reason: 'mutation-failed', ticketId, runId }
   }
 

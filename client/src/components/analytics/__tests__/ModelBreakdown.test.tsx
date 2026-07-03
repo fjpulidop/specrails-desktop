@@ -86,4 +86,44 @@ describe('ModelBreakdown', () => {
     expect(screen.queryByText('m-5')).not.toBeInTheDocument()
     expect(screen.getByText('m-0')).toBeInTheDocument()
   })
+
+  // ── LOW-11 · reconcile bars against the window total + Others remainder ──────
+
+  function withSummaryTotal(total: number, byModel: PartialModel[]): SpendingResponse {
+    const d = emptyData(byModel)
+    return { ...d, summary: { ...d.summary, totalCostUsd: total } }
+  }
+
+  it('LOW-11: renders an Others remainder row when the window total exceeds the visible models', () => {
+    // Window total $20; the two visible models only sum to $10 → $10 is Others
+    // (models ranked 6+, capped by the server, plus non-model window spend).
+    const data = withSummaryTotal(20, [
+      { model: 'opus', count: 10, costUsd: 8 },
+      { model: 'sonnet', count: 50, costUsd: 2 },
+    ])
+    render(<ModelBreakdown data={data} loading={false} onSelectModel={() => {}} activeModel={undefined} />)
+    const others = screen.getByTestId('model-others')
+    expect(others).toBeInTheDocument()
+    expect(others).toHaveTextContent('$10.00')
+  })
+
+  it('LOW-11: sizes each bar against the window total, not the top-N sum', () => {
+    const data = withSummaryTotal(20, [{ model: 'opus', count: 10, costUsd: 8 }])
+    const { container } = render(
+      <ModelBreakdown data={data} loading={false} onSelectModel={() => {}} activeModel={undefined} />
+    )
+    // opus is $8 of a $20 window → 40% bar (would be 100% against its own sum).
+    const bars = Array.from(container.querySelectorAll<HTMLElement>('.h-1\\.5 > div'))
+    const widths = bars.map((el) => /width:\s*([\d.]+)%/.exec(el.getAttribute('style') ?? '')?.[1])
+    expect(widths).toContain('40')
+  })
+
+  it('LOW-11: omits the Others row when the visible models already reconcile to the window total', () => {
+    const data = withSummaryTotal(10, [
+      { model: 'opus', count: 10, costUsd: 8 },
+      { model: 'sonnet', count: 50, costUsd: 2 },
+    ])
+    render(<ModelBreakdown data={data} loading={false} onSelectModel={() => {}} activeModel={undefined} />)
+    expect(screen.queryByTestId('model-others')).not.toBeInTheDocument()
+  })
 })

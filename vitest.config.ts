@@ -4,6 +4,13 @@ export default defineConfig({
   test: {
     include: ['server/**/*.test.ts', 'cli/**/*.test.ts', 'mcp-bridge/**/*.test.ts'],
     environment: 'node',
+    // Coverage-run headroom: under v8 instrumentation + full-suite parallelism the
+    // event loop can starve an I/O-bound supertest round-trip past the 5s default,
+    // intermittently timing out otherwise-instant broadcast tests (e.g.
+    // from-draft.test.ts). A higher ceiling keeps the gate deterministic without
+    // masking real deadlocks (those still fail, just later) and touches no assertion.
+    testTimeout: 20000,
+    hookTimeout: 20000,
     // Safety net: pin SPECRAILS_REGISTRY_HOME to a throwaway tmp dir so no test
     // can write the relocation registry into the real ~/.specrails.
     setupFiles: ['server/vitest-setup.ts'],

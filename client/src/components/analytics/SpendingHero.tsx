@@ -1,12 +1,15 @@
 import { useEffect, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { ArrowUpRight, ArrowDownRight } from 'lucide-react'
-import type { SpendingResponse, Surface } from '../../types/spending'
+import type { SpendingResponse, Surface, Period } from '../../types/spending'
 import { SURFACE_LABEL, SURFACE_ACCENT } from '../../types/spending'
 
 interface Props {
   data: SpendingResponse | null
   loading: boolean
+  /** Active window (period) so the headline states the range it covers
+   *  explicitly — a 30-day figure must never read as an all-time total. */
+  period?: Period
 }
 
 function fmtUsd(v: number): string {
@@ -27,32 +30,58 @@ function fmtTokens(v: number): string {
   return `${v}`
 }
 
-const SURFACES: Surface[] = ['job', 'explore-spec', 'quick-spec', 'ai-edit', 'smash', 'file-summary', 'loop']
+const SURFACES: Surface[] = [
+  'job', 'explore-spec', 'quick-spec', 'ai-edit', 'chat-sidebar',
+  'spec-launcher', 'proposal', 'agent-studio', 'setup', 'smash', 'file-summary', 'loop',
+]
 
-export function SpendingHero({ data, loading }: Props) {
+export function SpendingHero({ data, loading, period }: Props) {
   const { t } = useTranslation('analytics')
   const [displayedTotal, setDisplayedTotal] = useState(0)
   const lastValueRef = useRef(0)
+  // Guards the count-up animation against a stale-frame race (HIGH-9): a rAF id
+  // to cancel the scheduled frame plus a generation counter so a frame that
+  // still fires after a fresher SpendingResponse arrived abandons itself instead
+  // of overwriting the newest total with the old one's final frame.
+  const rafRef = useRef<number | null>(null)
+  const genRef = useRef(0)
 
   useEffect(() => {
     if (!data) return
     const target = data.summary.totalCostUsd
+    // A new data arrival supersedes any running count-up: bump the generation
+    // and cancel the scheduled frame so the freshest total always wins.
+    const gen = ++genRef.current
+    if (rafRef.current !== null) {
+      cancelAnimationFrame(rafRef.current)
+      rafRef.current = null
+    }
     // Count up only on first non-zero arrival, not on filter changes.
     if (lastValueRef.current === 0 && target > 0) {
       const start = performance.now()
       const duration = 600
       const from = 0
       const animate = (now: number) => {
+        // A newer arrival took over while this frame was queued — abandon it so
+        // the stale target never clobbers the current one.
+        if (gen !== genRef.current) return
         const t = Math.min(1, (now - start) / duration)
         const eased = 1 - Math.pow(1 - t, 3)
         setDisplayedTotal(from + (target - from) * eased)
-        if (t < 1) requestAnimationFrame(animate)
+        if (t < 1) rafRef.current = requestAnimationFrame(animate)
+        else rafRef.current = null
       }
-      requestAnimationFrame(animate)
+      rafRef.current = requestAnimationFrame(animate)
     } else {
       setDisplayedTotal(target)
     }
     lastValueRef.current = target
+    return () => {
+      if (rafRef.current !== null) {
+        cancelAnimationFrame(rafRef.current)
+        rafRef.current = null
+      }
+    }
   }, [data])
 
   if (loading && !data) {
@@ -70,17 +99,33 @@ export function SpendingHero({ data, loading }: Props) {
   // pricing-table fallback (currently codex; future providers without a
   // native cost field will trigger this too).
   const hasEstimatedCost = totalEstimated > 0
-  const segments = SURFACES.map((s) => {
+  // Append any surface the server reported that isn't in the canonical list (a
+  // future surface added after this build) so its cost is never dropped from
+  // the breakdown — the accent/label lookups tolerate unknown ids.
+  const extraSurfaces = data.bySurface
+    .map((b) => b.surface)
+    .filter((s) => !SURFACES.includes(s))
+  const segments = [...SURFACES, ...extraSurfaces].map((s) => {
     const row = data.bySurface.find((b) => b.surface === s)
     return { surface: s, costUsd: row?.costUsd ?? 0, count: row?.count ?? 0 }
   })
+  // Human window label so the headline can never be read as an all-time total.
+  const windowLabel = period ? t(`windowLabels.${period}`) : null
 
   return (
     <div className="rounded-xl border border-border/50 bg-gradient-to-br from-card/80 to-card/40 p-5">
       <div className="flex flex-wrap items-end justify-between gap-3 mb-4">
         <div>
-          <div className="text-[11px] uppercase tracking-wider text-muted-foreground mb-1">
-            {t('hero.spending')}
+          <div className="text-[11px] uppercase tracking-wider text-muted-foreground mb-1 flex items-center gap-1.5">
+            <span>{t('hero.spending')}</span>
+            {windowLabel && (
+              <span
+                data-testid="hero-window-label"
+                className="normal-case tracking-normal text-muted-foreground/70 font-normal"
+              >
+                · {windowLabel}
+              </span>
+            )}
           </div>
           <div className="flex items-baseline gap-3">
             <div className="text-5xl font-semibold tabular-nums tracking-tight">

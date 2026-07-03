@@ -1,4 +1,4 @@
-import { describe, it, expect } from 'vitest'
+import { describe, it, expect, vi, afterEach } from 'vitest'
 import { render, screen } from '../../../test-utils'
 import { SpendingHero } from '../SpendingHero'
 import type { SpendingResponse } from '../../../types/spending'
@@ -76,5 +76,68 @@ describe('SpendingHero', () => {
     // Loop legend value renders (this surface was previously omitted entirely).
     expect(screen.getByText('Loops')).toBeInTheDocument()
     expect(screen.getByText('File summaries')).toBeInTheDocument()
+  })
+
+  describe('HIGH-9 · count-up race', () => {
+    afterEach(() => vi.restoreAllMocks())
+
+    it('cancels the in-flight count-up so a fresher total is never overwritten by the stale frame', () => {
+      const rafCallbacks: Array<(t: number) => void> = []
+      let nextId = 1
+      const cancelled: number[] = []
+      vi.spyOn(window, 'requestAnimationFrame').mockImplementation((cb) => {
+        rafCallbacks.push(cb as (t: number) => void)
+        return nextId++
+      })
+      vi.spyOn(window, 'cancelAnimationFrame').mockImplementation((id) => {
+        cancelled.push(id as number)
+      })
+
+      const dataA: SpendingResponse = { ...baseData, summary: { ...baseData.summary, totalCostUsd: 28 } }
+      const dataB: SpendingResponse = { ...baseData, summary: { ...baseData.summary, totalCostUsd: 40 } }
+
+      const { rerender } = render(<SpendingHero data={dataA} loading={false} />)
+      // First non-zero arrival scheduled a count-up frame (not yet run).
+      expect(rafCallbacks.length).toBe(1)
+
+      // Fresh data lands mid-animation.
+      rerender(<SpendingHero data={dataB} loading={false} />)
+      // The scheduled stale frame was cancelled and the headline reflects $40.
+      expect(cancelled).toContain(1)
+      expect(screen.getByText('$40.00')).toBeInTheDocument()
+
+      // Even if the stale frame still fires, the generation guard must abandon
+      // it so it cannot write $28 back over the fresh total.
+      rafCallbacks[0](1_000_000)
+      expect(screen.getByText('$40.00')).toBeInTheDocument()
+      expect(screen.queryByText('$28.00')).not.toBeInTheDocument()
+    })
+  })
+
+  describe('MED-9 · window label', () => {
+    it('renders the active window next to the amount so a 30d figure is not read as all-time', () => {
+      render(<SpendingHero data={baseData} loading={false} period="30d" />)
+      expect(screen.getByTestId('hero-window-label')).toHaveTextContent('Last 30 days')
+    })
+
+    it('omits the window label when no period is supplied', () => {
+      render(<SpendingHero data={baseData} loading={false} />)
+      expect(screen.queryByTestId('hero-window-label')).not.toBeInTheDocument()
+    })
+  })
+
+  it('tolerates an unknown server surface: labels it with its raw id and never crashes', () => {
+    const data = {
+      ...baseData,
+      summary: { ...baseData.summary, totalCostUsd: 5, totalRuns: 5 },
+      bySurface: [
+        { surface: 'job', count: 3, costUsd: 3 },
+        // A surface id this build's Surface union does not know about.
+        { surface: 'future-surface', count: 2, costUsd: 2 },
+      ],
+    } as unknown as SpendingResponse
+    render(<SpendingHero data={data} loading={false} />)
+    // The unknown surface is still itemised (neutral fallback label = raw id).
+    expect(screen.getByText('future-surface')).toBeInTheDocument()
   })
 })

@@ -1,9 +1,12 @@
 import type { ChildProcess } from 'child_process'
+import { randomUUID } from 'crypto'
 import type { DbInstance } from './db'
 import type { WsMessage } from './types'
 import { getAdapter } from './providers'
-import type { ReasoningEffort } from './providers/types'
+import type { ReasoningEffort, AdapterEvent, ProviderAdapter } from './providers/types'
 import { runAiCliInvocation } from './spawn-lifecycle'
+import { finaliseInvocationResult } from './result-event'
+import { recordAgentInvocation, type AgentInvocationStatus } from './desktop-db'
 import { ensureAgentCwd } from './agent-cwd-manager'
 import { OPERATOR_SYSTEM_PROMPT } from './agent-operator-prompt'
 import { prepareAgentMcp } from './agent-mcp-config'
@@ -248,10 +251,15 @@ export class AgentChatManager {
       code: number | null
       spawnFailed: boolean
       stderrTail: string
+      /** Parsed adapter events for cost finalisation (HIGH-3). */
+      events: AdapterEvent[]
+      /** ISO instant this spawn started, for the ai-invocation row. */
+      startedAt: string
     }
 
     const invoke = async (useResume: boolean): Promise<TurnOutcome> => {
       const action = useResume ? 'chat-resume' : 'chat-turn'
+      const startedAt = new Date().toISOString()
       let streamed = ''
       let capturedSessionId: string | null = useResume ? conversation.session_id ?? null : null
       let capturedError: string | null = null
@@ -320,7 +328,7 @@ export class AgentChatManager {
       if (result.stderrTail && (result.spawnFailed || (result.code ?? 0) !== 0 || !text)) {
         console.error(`[agent-chat] ${adapter.id} stderr:\n${result.stderrTail}`)
       }
-      return { text, sessionId: capturedSessionId, error: capturedError, code: result.code, spawnFailed: result.spawnFailed, stderrTail: result.stderrTail }
+      return { text, sessionId: capturedSessionId, error: capturedError, code: result.code, spawnFailed: result.spawnFailed, stderrTail: result.stderrTail, events: result.events, startedAt }
     }
 
     // Conversation CONFIG (provider/model/tier) is owned by the PATCH route —
@@ -345,14 +353,26 @@ export class AgentChatManager {
       }
     }
 
+    // Cost accounting (HIGH-3): exactly one row per settled turn, whichever
+    // terminal branch we exit through. `pinned_project_id` is captured at turn
+    // start (NULL = Home / app-global).
+    const record = (outcome: TurnOutcome, status: AgentInvocationStatus): void => {
+      this._recordTurn(conversation, adapter, model, outcome, status)
+    }
+
     const canResume = !!conversation.session_id && adapter.capabilities.nativeResume
     let r = await invoke(canResume)
 
     // Deleted mid-turn (DELETE aborts the child and drops the row): stop here —
-    // no auto-heal respawn, no FK-violating assistant INSERT.
-    if (!getAgentConversation(this._db, conversationId)) return
+    // no auto-heal respawn, no FK-violating assistant INSERT. The spawn still
+    // billed, so record it (aborted) before returning.
+    if (!getAgentConversation(this._db, conversationId)) {
+      record(r, 'aborted')
+      return
+    }
     if (this._abortedTurns.delete(conversationId)) {
       settleAborted(r)
+      record(r, 'aborted')
       return
     }
 
@@ -363,15 +383,20 @@ export class AgentChatManager {
       console.log(`[agent-chat] resume produced no text — retrying fresh conv=${conversationId}`)
       updateAgentConversation(this._db, conversationId, { session_id: null })
       r = await invoke(false)
-      if (!getAgentConversation(this._db, conversationId)) return
+      if (!getAgentConversation(this._db, conversationId)) {
+        record(r, 'aborted')
+        return
+      }
       if (this._abortedTurns.delete(conversationId)) {
         settleAborted(r)
+        record(r, 'aborted')
         return
       }
     }
 
     if (r.spawnFailed) {
       this._emitError(conversationId, `Failed to launch ${adapter.binary}. Is it installed and on PATH?`)
+      record(r, 'failed')
       return
     }
 
@@ -379,6 +404,7 @@ export class AgentChatManager {
       addAgentMessage(this._db, { conversationId, role: 'assistant', content: r.text })
       persistSession(r.sessionId)
       this._broadcast({ type: 'agent_done', conversationId, fullText: r.text, timestamp: timestamp() })
+      record(r, 'success')
       return
     }
 
@@ -390,6 +416,45 @@ export class AgentChatManager {
       (r.stderrTail ? r.stderrTail.split('\n').filter(Boolean).slice(-3).join(' ').slice(0, 300) : '') ||
       (r.code !== 0 ? `${adapter.binary} exited with code ${r.code}` : 'The agent returned no output.')
     this._emitError(conversationId, reason)
+    record(r, 'failed')
+  }
+
+  /**
+   * Finalise one agent-chat turn's billable accounting (COST-ACCOUNTING-AUDIT
+   * HIGH-3) and persist an `agent_invocations` row. Cost is the provider's
+   * native `total_cost_usd` when reported, else the pricing-table estimate
+   * (`total_cost_usd_estimated=1`) — including claude turns killed/aborted
+   * before their terminal `result` event. Never throws into the turn path.
+   * Broadcasts `spending.invalidated` for the pinned project (app-global Home
+   * turns carry no projectId, so no per-project dashboard to invalidate).
+   */
+  private _recordTurn(
+    conversation: NonNullable<ReturnType<typeof getAgentConversation>>,
+    adapter: ProviderAdapter,
+    model: string,
+    outcome: { events: AdapterEvent[]; startedAt: string; sessionId: string | null },
+    status: AgentInvocationStatus,
+  ): void {
+    try {
+      const { result, estimated } = finaliseInvocationResult(adapter, outcome.events, {
+        fallbackModel: model,
+      })
+      recordAgentInvocation(this._db, {
+        id: randomUUID(),
+        conversation_id: conversation.id,
+        project_id: conversation.pinned_project_id ?? null,
+        provider: adapter.id,
+        status,
+        started_at: outcome.startedAt,
+        finished_at: new Date().toISOString(),
+        total_cost_usd_estimated: estimated,
+        ...result,
+      })
+      const projectId = conversation.pinned_project_id
+      if (projectId) this._broadcast({ type: 'spending.invalidated', projectId })
+    } catch (err) {
+      console.error(`[agent-chat] recordAgentInvocation failed (${conversation.id}):`, err)
+    }
   }
 
   /**

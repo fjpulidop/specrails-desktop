@@ -50,6 +50,13 @@ export interface AiStepResult {
   tokensCacheRead?: number
   tokensCacheCreate?: number
   durationMs?: number
+  /** Provider-reported API-active duration (excludes local idle time). Persisted
+   *  to ai_invocations.duration_api_ms so per-ticket active-duration rollups count
+   *  loop steps. */
+  durationApiMs?: number
+  /** Turn count for this AI step, threaded to ai_invocations.num_turns so scatter
+   *  / totalTurns include loop steps (LOW-8). */
+  numTurns?: number
   provider?: string
   model?: string
   estimated?: boolean
@@ -77,6 +84,12 @@ export interface DeciderRunResult extends DeciderDecision {
   tokensCacheRead?: number
   tokensCacheCreate?: number
   durationMs?: number
+  /** Provider-reported API-active duration; persisted to duration_api_ms (LOW-8). */
+  durationApiMs?: number
+  /** Turn count; persisted to num_turns (LOW-8). */
+  numTurns?: number
+  /** Provider session id; persisted to session_id (LOW-8). */
+  sessionId?: string
   provider?: string
   model?: string
   estimated?: boolean
@@ -359,6 +372,9 @@ export class LoopRunManager {
         tokensCacheRead?: number
         tokensCacheCreate?: number
         durationMs?: number
+        durationApiMs?: number
+        numTurns?: number
+        sessionId?: string
         provider?: string
         model?: string
         estimated?: boolean
@@ -417,6 +433,13 @@ export class LoopRunManager {
         tokens_out: r.tokensOut,
         tokens_cache_read: r.tokensCacheRead,
         tokens_cache_create: r.tokensCacheCreate,
+        // LOW-8: thread the finalised result's turn/session/duration metadata so
+        // surface='loop' rows aren't NULL on these columns — otherwise scatter
+        // numTurns, totalTurns and activeDurationMs silently exclude every loop step.
+        num_turns: r.numTurns,
+        session_id: r.sessionId,
+        duration_ms: r.durationMs,
+        duration_api_ms: r.durationApiMs,
         model: r.model ?? req.model,
         loop_run_id: runId,
       })

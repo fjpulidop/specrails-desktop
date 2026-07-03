@@ -382,6 +382,14 @@ export default function JobDetailPage() {
 
   const pipelineTotals = pipelineJobs.length > 1 ? {
     totalCostUsd: pipelineJobs.reduce((s, j) => s + (j.total_cost_usd ?? 0), 0),
+    // A phase whose cost is null (killed before its result event, provider gap)
+    // contributes $0 to the sum with no signal — flag it so the panel shows a
+    // "≥" incomplete indicator instead of a falsely-precise total (HIGH-10).
+    hasNullCost: pipelineJobs.some((j) => j.total_cost_usd == null),
+    // Preserve the estimated marker when any constituent phase's cost came from
+    // the pricing-table fallback.
+    costEstimated: pipelineJobs.some((j) => !!j.total_cost_usd_estimated),
+    nullCostCount: pipelineJobs.filter((j) => j.total_cost_usd == null).length,
     totalTokensIn: pipelineJobs.reduce((s, j) => s + (j.tokens_in ?? 0), 0),
     totalTokensOut: pipelineJobs.reduce((s, j) => s + (j.tokens_out ?? 0), 0),
     totalTokensCacheRead: pipelineJobs.reduce((s, j) => s + (j.tokens_cache_read ?? 0), 0),

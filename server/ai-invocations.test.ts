@@ -157,6 +157,31 @@ describe('ai-invocations', () => {
     const row = db.prepare(`SELECT total_cost_usd_estimated FROM ai_invocations WHERE id = ?`).get('auth') as { total_cost_usd_estimated: number }
     expect(row.total_cost_usd_estimated).toBe(0)
   })
+
+  it('accepts the cost-accounting-audit surfaces (previously-unrecorded spawners)', () => {
+    const newSurfaces = ['chat-sidebar', 'spec-launcher', 'proposal', 'agent-studio', 'setup'] as const
+    for (const surface of newSurfaces) {
+      recordInvocation(db, fixedInput({ id: `s-${surface}`, surface }))
+    }
+    const rows = db
+      .prepare(`SELECT surface FROM ai_invocations WHERE surface IN ('chat-sidebar','spec-launcher','proposal','agent-studio','setup') ORDER BY surface`)
+      .all() as Array<{ surface: string }>
+    expect(rows.map((r) => r.surface)).toEqual(['agent-studio', 'chat-sidebar', 'proposal', 'setup', 'spec-launcher'])
+  })
+
+  it('still rejects an unknown surface not in the allow-list', () => {
+    expect(() =>
+      recordInvocation(db, fixedInput({ surface: 'totally-unknown' as unknown as 'job' }))
+    ).toThrow(InvalidSurfaceError)
+  })
+
+  it('aggregates ticket spending across a new surface (setup) without crashing bySurface', () => {
+    recordInvocation(db, fixedInput({ id: 'st', surface: 'setup', ticket_id: 21, total_cost_usd: 0.7 }))
+    const summary = getTicketSpendingSummary(db, 21)
+    expect(summary.bySurface.setup.count).toBe(1)
+    expect(summary.bySurface.setup.costUsd).toBeCloseTo(0.7)
+    expect(summary.totalCostUsd).toBeCloseTo(0.7)
+  })
 })
 
 describe('getInvocationsByProvider', () => {

@@ -6,7 +6,12 @@
     "aiEdit": "Refinado",
     "smash": "SMASH",
     "fileSummary": "Resúmenes de archivo",
-    "loop": "Loops"
+    "loop": "Loops",
+    "chatSidebar": "Chat",
+    "specLauncher": "Lanzador de specs",
+    "proposal": "Propuesta",
+    "agentStudio": "Agent Studio",
+    "setup": "Configuración"
   },
   "periods": {
     "d7": "7d",
@@ -73,7 +78,8 @@
   "models": {
     "title": "Modelos",
     "empty": "No hay modelos registrados.",
-    "estimatedTooltip": "Estimado a partir de la tabla de precios local — este proveedor no informa el coste de forma nativa."
+    "estimatedTooltip": "Estimado a partir de la tabla de precios local — este proveedor no informa el coste de forma nativa.",
+    "others": "Otros"
   },
   "scatter": {
     "title": "Coste vs turnos",
@@ -160,5 +166,12 @@
     "estimatedBadge": "est.",
     "projectEstimatedTooltip": "{{amount}} del coste de este proyecto es una estimación por tabla de precios (codex/gemini), no facturado por el proveedor.",
     "statusBarEstimatedTooltip": "Incluye coste estimado por tabla de precios (codex/gemini), no facturado por el proveedor."
+  },
+  "windowLabels": {
+    "7d": "Últimos 7 días",
+    "30d": "Últimos 30 días",
+    "90d": "Últimos 90 días",
+    "all": "Todo el tiempo",
+    "custom": "Rango personalizado"
   }
 }
