@@ -40,15 +40,20 @@ Wave 3:  #7 (docs across all)   ← waits for #4 and #5
 
 Within the job, each wave's specs are implemented before the next wave starts. You don't configure this by hand — the orchestrator derives the waves from the specs themselves. Watch it unfold in the [Job Detail view](the-job-detail-view): the streaming log narrates which spec the batch is on, and the ticket header shows every spec the job touched.
 
-## Worktree isolation
+## Worktree isolation and how work is delivered
 
-When several specs are implemented in one run, the pipeline keeps each unit of work isolated so concurrent or sequential changes don't trample each other's files. The batch orchestrator runs each spec's implementation in its own clean working context, then integrates the results — so a half-finished spec never leaves your tree in a broken intermediate state visible to the next one.
+When several specs are implemented in one run, the pipeline keeps each unit of work isolated so concurrent or sequential changes don't trample each other's files. Each spec's implementation runs in its own clean **git worktree** — a separate checkout that shares your repository's history but never touches your working tree while the AI works.
+
+When the run finishes, the isolated branches are assembled and delivered as **one draft pull request** off your project's designated integration branch (set it in **Settings → Integration branch**; it defaults to your repository's default branch). specrails **never merges, and never commits to your integration branch directly** — you get a draft PR to review, and a human owns the merge. It's the safe hand-off: specrails produces the pull request, your engineers review and merge it in GitHub the way they already do.
 
 In practice this means:
 
 - Each spec gets a clean slate to implement against, rather than inheriting the in-flight edits of the previous spec mid-stream.
-- Reviews and ship steps operate on a coherent snapshot, not a moving target.
-- A failure in one wave is contained — it doesn't silently corrupt the specs that already shipped.
+- Your working tree is never modified while the run is in flight — nothing lands until you say so.
+- When the run is done you get a notification with the draft PR: **Open PR** to view it, or **Approve** to promote it to ready-for-review and hand it to your team's normal GitHub review.
+- If the isolated branches can't be combined cleanly, specrails stops safely and leaves the branches for a human — it never forces a broken merge onto your base.
+
+> Delivering the PR needs the GitHub CLI (`gh`) authenticated and a remote configured. Without them, specrails still commits the work to a branch you can open a pull request from yourself — nothing is lost. To fall back to the older behaviour (integrate locally instead of opening a PR), set `SPECRAILS_RAIL_DELIVER_PR=0`.
 
 The app records, per job, exactly which files were touched and which ticket touched them (you'll see this surface as provenance chips in the **Code** section and as a "Files touched by this ticket" list on each spec's detail modal). That attribution is what lets you trust a multi-spec run: you can always trace a file change back to the spec that caused it.
 

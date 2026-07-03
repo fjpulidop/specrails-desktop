@@ -40,17 +40,20 @@ Welle 3:  #7 (Docs über alles)     ← wartet auf #4 und #5
 
 Innerhalb des Jobs werden die Specs jeder Welle implementiert, bevor die nächste Welle beginnt. Du konfigurierst das nicht von Hand — der Orchestrator leitet die Wellen aus den Specs selbst ab. Sieh dabei zu, wie es sich in der [Job-Detail-Ansicht](the-job-detail-view) entfaltet: Das Streaming-Log erzählt, an welcher Spec der Batch gerade arbeitet, und der Ticket-Header zeigt jede Spec, die der Job berührt hat.
 
-## Worktree-Isolation
+## Worktree-Isolation und wie die Arbeit ausgeliefert wird
 
-Wenn in einem Lauf mehrere Specs implementiert werden, hält die Pipeline jede Arbeitseinheit isoliert, damit gleichzeitige oder aufeinanderfolgende Änderungen sich nicht gegenseitig die Dateien zertrampeln. Der Batch-Orchestrator führt die Implementierung jeder Spec in ihrem eigenen sauberen Arbeitskontext aus und integriert dann die Ergebnisse — eine halbfertige Spec hinterlässt deinen Tree also nie in einem kaputten Zwischenzustand, den die nächste zu sehen bekäme.
+Wenn in einem Lauf mehrere Specs implementiert werden, hält die Pipeline jede Arbeitseinheit isoliert, damit gleichzeitige oder aufeinanderfolgende Änderungen sich nicht gegenseitig die Dateien zertrampeln. Die Implementierung jeder Spec läuft in ihrem eigenen sauberen **git-Worktree** — einem separaten Checkout, der die Historie deines Repositories teilt, aber deinen Arbeitsbaum niemals berührt, während die KI arbeitet.
+
+Wenn der Lauf fertig ist, werden die isolierten Branches zusammengefügt und als **ein einziger Entwurfs-Pull-Request** von dem für dein Projekt festgelegten Integrations-Branch ausgeliefert (lege ihn unter **Einstellungen → Integrations-Branch** fest; standardmäßig ist es der Default-Branch deines Repositories). specrails **merged niemals und committet niemals direkt auf deinen Integrations-Branch** — du erhältst einen Entwurfs-PR zur Prüfung, und ein Mensch verantwortet den Merge. Das ist die sichere Übergabe: specrails erstellt den Pull-Request, deine Entwickler prüfen ihn und mergen ihn in GitHub genau so, wie sie es ohnehin schon tun.
 
 In der Praxis heißt das:
 
 - Jede Spec bekommt zum Implementieren eine saubere Ausgangslage, statt die noch laufenden Änderungen der vorherigen Spec mitten im Fluss zu erben.
-- Reviews und Ship-Schritte arbeiten auf einem kohärenten Snapshot, nicht auf einem beweglichen Ziel.
-- Ein Fehler in einer Welle bleibt eingegrenzt — er beschädigt nicht stillschweigend die Specs, die bereits ausgeliefert wurden.
+- Dein Arbeitsbaum wird während des laufenden Durchgangs nie verändert — nichts landet, bevor du es freigibst.
+- Wenn der Lauf fertig ist, bekommst du eine Benachrichtigung mit dem Entwurfs-PR: **PR öffnen**, um ihn anzusehen, oder **Freigeben**, um ihn auf „bereit zur Prüfung“ hochzustufen und ihn an das normale GitHub-Review deines Teams zu übergeben.
+- Falls die isolierten Branches nicht sauber kombiniert werden können, stoppt specrails auf sichere Weise und überlässt die Branches einem Menschen — es erzwingt niemals einen kaputten Merge auf deinen Basis-Branch.
 
-Die App protokolliert pro Job genau, welche Dateien berührt wurden und welches Ticket sie berührt hat (du siehst das als Provenance-Chips im **Code**-Bereich und als „Von diesem Ticket berührte Dateien“-Liste im Detail-Modal jeder Spec). Genau diese Zuordnung lässt dich einem Multi-Spec-Lauf vertrauen: Du kannst eine Dateiänderung immer bis zu der Spec zurückverfolgen, die sie verursacht hat.
+> Für die Auslieferung des PR müssen die GitHub-CLI (`gh`) authentifiziert und ein Remote konfiguriert sein. Ohne sie committet specrails die Arbeit trotzdem auf einen Branch, von dem aus du selbst einen Pull-Request öffnen kannst — es geht nichts verloren. Um auf das ältere Verhalten zurückzufallen (lokal integrieren, statt einen PR zu öffnen), setze `SPECRAILS_RAIL_DELIVER_PR=0`.
 
 ## Multi-Feature über Projekte hinweg
 

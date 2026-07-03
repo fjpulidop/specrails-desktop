@@ -40,17 +40,20 @@ Vague 3 :  #7 (docs sur l'ensemble) ← attend #4 et #5
 
 Au sein du job, les specs de chaque vague sont implémentées avant que la vague suivante ne commence. Vous ne configurez rien à la main — l'orchestrateur déduit les vagues à partir des specs elles-mêmes. Regardez-le se dérouler dans la [vue détaillée du job](the-job-detail-view) : le log en streaming raconte sur quelle spec le batch travaille, et l'en-tête de ticket affiche chaque spec touchée par le job.
 
-## Isolation par worktree
+## Isolation par worktree et livraison du travail
 
-Lorsque plusieurs specs sont implémentées en une seule exécution, le pipeline garde chaque unité de travail isolée pour que les changements concurrents ou séquentiels ne piétinent pas les fichiers des autres. L'orchestrateur de batch exécute l'implémentation de chaque spec dans son propre contexte de travail propre, puis intègre les résultats — ainsi une spec à moitié finie ne laisse jamais votre arbre dans un état intermédiaire cassé et visible par la suivante.
+Lorsque plusieurs specs sont implémentées en une seule exécution, le pipeline garde chaque unité de travail isolée pour que les changements concurrents ou séquentiels ne piétinent pas les fichiers des autres. L'implémentation de chaque spec s'exécute dans son propre **worktree git** propre — un checkout séparé qui partage l'historique de votre dépôt mais ne touche jamais votre arbre de travail pendant que l'IA travaille.
+
+Lorsque l'exécution se termine, les branches isolées sont assemblées et livrées sous forme d'**une seule pull request en brouillon** à partir de la branche d'intégration désignée de votre projet (définissez-la dans **Réglages → Branche d'intégration** ; par défaut, c'est la branche par défaut de votre dépôt). specrails **ne fusionne jamais, et ne commite jamais directement sur votre branche d'intégration** — vous obtenez une PR en brouillon à relire, et c'est un humain qui décide de la fusion. C'est le passage de relais sûr : specrails produit la pull request, et vos ingénieurs la relisent et la fusionnent dans GitHub comme ils le font déjà.
 
 En pratique, cela signifie :
 
 - Chaque spec part d'une page blanche pour son implémentation, plutôt que d'hériter des modifications en cours de la spec précédente.
-- Les relectures et les étapes de ship opèrent sur un instantané cohérent, pas sur une cible mouvante.
-- Un échec dans une vague est contenu — il ne corrompt pas silencieusement les specs déjà livrées.
+- Votre arbre de travail n'est jamais modifié pendant que l'exécution est en cours — rien n'est intégré tant que vous ne l'avez pas décidé.
+- Lorsque l'exécution est terminée, vous recevez une notification avec la PR en brouillon : **Ouvrir la PR** pour la consulter, ou **Approuver** pour la faire passer en prête à relire et la confier au processus de relecture GitHub habituel de votre équipe.
+- Si les branches isolées ne peuvent pas être combinées proprement, specrails s'arrête en toute sécurité et laisse les branches à un humain — il ne force jamais une fusion cassée sur votre branche de base.
 
-L'application enregistre, par job, exactement quels fichiers ont été touchés et quel ticket les a touchés (vous verrez cela apparaître sous forme de puces de provenance dans la section **Code** et de liste « Fichiers touchés par ce ticket » dans la fenêtre de détail de chaque spec). Cette attribution est ce qui vous permet de faire confiance à une exécution multi-spec : vous pouvez toujours remonter d'une modification de fichier jusqu'à la spec qui l'a provoquée.
+> La livraison de la PR nécessite le CLI GitHub (`gh`) authentifié et un dépôt distant configuré. Sans eux, specrails commite quand même le travail sur une branche à partir de laquelle vous pouvez ouvrir une pull request vous-même — rien n'est perdu. Pour revenir à l'ancien comportement (intégrer en local au lieu d'ouvrir une PR), définissez `SPECRAILS_RAIL_DELIVER_PR=0`.
 
 ## Multi-fonctionnalité entre projets
 

@@ -40,17 +40,20 @@ Onda 3:  #7 (docs sobre tudo)     ← espera por #4 e #5
 
 Dentro do job, as specs de cada onda são implementadas antes de a onda seguinte começar. Não configura isto à mão — o orquestrador deriva as ondas a partir das próprias specs. Veja-o desenrolar-se na [vista de detalhe do job](the-job-detail-view): o log em streaming narra em que spec o batch está, e o cabeçalho de tickets mostra todas as specs que o job tocou.
 
-## Isolamento por worktree
+## Isolamento por worktree e como o trabalho é entregue
 
-Quando várias specs são implementadas numa só execução, o pipeline mantém cada unidade de trabalho isolada para que alterações concorrentes ou sequenciais não pisem os ficheiros umas das outras. O orquestrador de batch corre a implementação de cada spec no seu próprio contexto de trabalho limpo e depois integra os resultados — por isso uma spec a meio nunca deixa a sua árvore num estado intermédio partido visível para a seguinte.
+Quando várias specs são implementadas numa só execução, o pipeline mantém cada unidade de trabalho isolada para que alterações concorrentes ou sequenciais não pisem os ficheiros umas das outras. A implementação de cada spec corre no seu próprio **git worktree** limpo — um checkout separado que partilha o histórico do seu repositório mas nunca toca na sua árvore de trabalho enquanto a IA trabalha.
+
+Quando a execução termina, os branches isolados são reunidos e entregues como **um pull request em rascunho** a partir do branch de integração designado do seu projeto (defina-o em **Settings → Integration branch**; por omissão é o branch por defeito do seu repositório). O specrails **nunca faz merge, e nunca faz commit diretamente no seu branch de integração** — recebe um PR em rascunho para rever, e um humano é responsável pelo merge. É a passagem de testemunho segura: o specrails produz o pull request, os seus engenheiros revêem-no e fazem merge no GitHub da forma como já o fazem.
 
 Na prática isto significa:
 
 - Cada spec recebe um ponto de partida limpo para implementar, em vez de herdar as edições em curso da spec anterior a meio do processo.
-- As revisões e os passos de ship operam sobre um snapshot coerente, não sobre um alvo em movimento.
-- Uma falha numa onda fica contida — não corrompe em silêncio as specs que já foram entregues.
+- A sua árvore de trabalho nunca é modificada enquanto a execução decorre — nada é aplicado até você o autorizar.
+- Quando a execução termina, recebe uma notificação com o PR em rascunho: **Open PR** para o ver, ou **Approve** para o promover a pronto-para-revisão e entregá-lo à revisão normal da sua equipa no GitHub.
+- Se os branches isolados não puderem ser combinados de forma limpa, o specrails para em segurança e deixa os branches para um humano — nunca força um merge partido sobre a sua base.
 
-A app regista, por job, exatamente que ficheiros foram tocados e qual ticket os tocou (vai ver isto surgir como chips de proveniência na secção **Code** e como uma lista "Ficheiros tocados por este ticket" na modal de detalhe de cada spec). É essa atribuição que lhe permite confiar numa execução com várias specs: pode sempre rastrear uma alteração de ficheiro até à spec que a causou.
+> A entrega do PR precisa do GitHub CLI (`gh`) autenticado e de um remote configurado. Sem eles, o specrails na mesma faz commit do trabalho para um branch a partir do qual pode abrir um pull request por si mesmo — nada se perde. Para voltar ao comportamento anterior (integrar localmente em vez de abrir um PR), defina `SPECRAILS_RAIL_DELIVER_PR=0`.
 
 ## Multi-feature entre projetos
 
