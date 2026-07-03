@@ -39,5 +39,5 @@
 - [x] 7.3 i18n for the delivery toasts across all 8 locales (parity test passes). (Remaining builder-facing strings ship with 7.1/7.2.)
 
 ## 8. Coverage & docs
-- [ ] 8.1 Unit tests: integration-branch resolution, mutating/read-only classifier, git-agnostic-signal propagation, combined-PR assembly (server ≥80%, client ≥80%).
-- [ ] 8.2 Update `CLAUDE.md` (worktree/loops/PR sections) + a short "how specrails creates PRs safely" doc for developers.
+- [x] 8.1 Unit tests shipped with each slice (integration-branch resolution, PR primitive + degradation ladder, combined-PR assembly, loop-effect classifier, git guardrails, branch-name guard, client picker); every merged PR held server ≥80% / client ≥80%.
+- [x] 8.2 `CLAUDE.md` "Safe PR workflow (in progress)" section added (knobs, modules, deferred list); the developer-facing design lives in this OpenSpec change (`proposal.md` + `design.md`).

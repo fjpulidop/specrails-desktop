@@ -92,6 +92,16 @@ Single WS connection broadcasts all messages. Every project-scoped message inclu
 
 `QueueManager` and `ChatManager` spawn `claude` CLI processes. Both accept a `cwd` parameter (set to `project.path` from `ProjectRegistry`) so Claude runs in the correct project directory. **(Under artifact relocation: relocated projects spawn with `cwd = ~/.specrails/projects/<slug>/workspace` + `SPECRAILS_REPO_DIR=<project.path>`; legacy/non-relocated projects keep `cwd = project.path`. The provenance/git split keeps `QueueManager`'s git calls on `_codeRoot` = `project.path`, never the workspace — see the Artifact relocation section.)**
 
+### Safe PR workflow (in progress)
+
+A predefined methodology so every repo-mutating loop isolates off the correct base and is delivered as a **draft PR** a human merges — specrails is a PR producer, never a merge authority. Tracked by the OpenSpec change `safe-pr-workflow`; the core is landed, some pieces are deferred (see below).
+
+- **Designated integration branch (per project).** `ProjectSettings.integrationBranch` (KV `config.integration_branch`); `server/integration-branch.ts` `resolveIntegrationBranch` resolves it (explicit → project setting → repo default `origin/HEAD` → `HEAD` fallback). `rail-isolated-launch.ts` passes it as the worktree `baseRef` (was the implicit ambient HEAD). REST: `PATCH /:projectId/settings` (validated by `isValidBranchName` — arg-injection guard) + `GET /:projectId/integration-branch`. UI: `ProjectIntegrationBranchSection` in project Settings.
+- **App-owned draft-PR primitive.** `server/pr-publisher.ts` `publishDraftPr`: `git push -u` → `gh pr create --draft`, with a degradation ladder (`pr-created` / `pushed` / `local-only`) that NEVER throws. Guarded by `server/git-guardrails.ts` `assertGitAllowed` (no force-push, no push to the integration branch).
+- **Flag-gated delivery.** `SPECRAILS_RAIL_DELIVER_PR` (**default OFF**): when on, a settled isolated rail delivers a combined draft PR via `server/rail-pr-delivery.ts` `deliverRailAsPr` (1 ticket → its branch; N → assembled onto `sr/<slug>/batch-<key>` off the integration branch, one PR listing every ticket; conflict → safe teardown, base untouched) instead of the legacy local merge-back. Surfaced by the `rail.pr_delivered` WS event (dashboard toast + "Open PR"). Default off ⇒ byte-identical legacy merge-back.
+- **Isolation is content-derived.** `server/loop-effect.ts` `classifyLoopEffect` (read-only iff no `ai-step`/`shell` node) feeds the isolation gate in `rails-router.ts` — a custom loop cannot declare itself read-only to escape isolation.
+- **Deferred (need a human / coordination):** full retirement of the local merge-back (until the PR path is field-validated); the cross-repo specrails-core `--no-ship` contract (core's Claude `implement` still self-ships under `GIT_AUTO=true`); the relocation per-run workspace overlay; the full plain-language "Review & Approve" bundle; a per-worktree pre-push hook to block AGENT-issued git.
+
 ### Setup wizard
 
 When adding a project without specrails, a 5-phase wizard runs:
