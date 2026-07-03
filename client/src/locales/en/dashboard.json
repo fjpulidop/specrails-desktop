@@ -26,7 +26,10 @@
     "railPrOpen": "Open PR",
     "railPrPushed": "Rail {{n}}: branch pushed — open the PR when ready",
     "railPrLocal": "Rail {{n}}: changes saved to a local branch",
-    "railPrAssemblyFailed": "Rail {{n}}: couldn't combine branches — needs a human"
+    "railPrAssemblyFailed": "Rail {{n}}: couldn't combine branches — needs a human",
+    "railPrApprove": "Approve",
+    "railPrApproved": "PR sent for review",
+    "railPrApproveFailed": "Couldn't send the PR for review"
   },
   "railsBoard": {
     "title": "Rails",

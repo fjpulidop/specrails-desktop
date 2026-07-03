@@ -26,7 +26,10 @@
     "railPrOpen": "Apri PR",
     "railPrPushed": "Rail {{n}}: ramo inviato — apri la PR quando vuoi",
     "railPrLocal": "Rail {{n}}: modifiche salvate in un ramo locale",
-    "railPrAssemblyFailed": "Rail {{n}}: impossibile combinare i rami — serve un intervento umano"
+    "railPrAssemblyFailed": "Rail {{n}}: impossibile combinare i rami — serve un intervento umano",
+    "railPrApprove": "Approva",
+    "railPrApproved": "PR inviata in revisione",
+    "railPrApproveFailed": "Impossibile inviare la PR in revisione"
   },
   "railsBoard": {
     "title": "Rails",

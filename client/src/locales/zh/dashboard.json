@@ -26,7 +26,10 @@
     "railPrOpen": "打开 PR",
     "railPrPushed": "Rail {{n}}：分支已推送 — 可随时打开 PR",
     "railPrLocal": "Rail {{n}}：更改已保存到本地分支",
-    "railPrAssemblyFailed": "Rail {{n}}：无法合并分支 — 需要人工处理"
+    "railPrAssemblyFailed": "Rail {{n}}：无法合并分支 — 需要人工处理",
+    "railPrApprove": "批准",
+    "railPrApproved": "PR 已提交审核",
+    "railPrApproveFailed": "无法提交 PR 审核"
   },
   "railsBoard": {
     "title": "Rails",
