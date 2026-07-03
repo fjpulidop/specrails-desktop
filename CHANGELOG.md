@@ -1,5 +1,12 @@
 # Changelog
 
+## [2.20.1](https://github.com/fjpulidop/specrails-desktop/compare/v2.20.0...v2.20.1) (2026-07-03)
+
+
+### Bug Fixes
+
+* correct AI spend undercounting across all cost-accounting surfaces ([#482](https://github.com/fjpulidop/specrails-desktop/issues/482)) ([#484](https://github.com/fjpulidop/specrails-desktop/issues/484)) ([552fd3e](https://github.com/fjpulidop/specrails-desktop/commit/552fd3ec2d38be58325928c8c0793d98b60632c0))
+
 ## [2.20.0](https://github.com/fjpulidop/specrails-desktop/compare/v2.19.1...v2.20.0) (2026-07-02)
 
 
