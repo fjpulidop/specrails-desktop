@@ -17,6 +17,7 @@
  * Pure over an injectable `Exec` so it is unit-tested without git/gh or a network.
  */
 import { execFile } from 'child_process'
+import { assertGitAllowed } from './git-guardrails'
 
 export interface ExecResult {
   code: number
@@ -75,7 +76,10 @@ export async function publishDraftPr(exec: Exec, input: PublishDraftPrInput): Pr
   const { repoDir, branch, baseBranch } = input
 
   // 1. Push the branch (set upstream). Failure → local-only, never throw.
-  const push = await exec.run('git', ['push', '-u', remote, branch], repoDir)
+  //    Guardrail: never force-push, never push the integration branch itself.
+  const pushArgs = ['push', '-u', remote, branch]
+  assertGitAllowed('git', pushArgs, { protectedBranch: baseBranch })
+  const push = await exec.run('git', pushArgs, repoDir)
   if (push.code !== 0) {
     return { state: 'local-only', branch, reason: reasonFrom(push) }
   }
