@@ -21,7 +21,12 @@
     "launchDescription_other": "{{mode}} · スペック {{count}} 件",
     "railWorktreeNeedsReview": "Rail {{n}}：マージ後、spec #{{ticket}} は要確認です",
     "railWorktreesNoGit": "worktree 分離は利用できません：このプロジェクトは git リポジトリではありません — 共有モードで実行します。",
-    "railWorktreesNoCommits": "worktree 分離は利用できません：リポジトリにまだコミットがありません — 初回コミットを作成してから再実行してください。"
+    "railWorktreesNoCommits": "worktree 分離は利用できません：リポジトリにまだコミットがありません — 初回コミットを作成してから再実行してください。",
+    "railPrDelivered": "レール {{n}} のドラフト PR が準備できました",
+    "railPrOpen": "PR を開く",
+    "railPrPushed": "レール {{n}}：ブランチをプッシュしました — 必要に応じて PR を開いてください",
+    "railPrLocal": "レール {{n}}：変更をローカルブランチに保存しました",
+    "railPrAssemblyFailed": "レール {{n}}：ブランチを結合できませんでした — 手動対応が必要です"
   },
   "railsBoard": {
     "title": "レール",

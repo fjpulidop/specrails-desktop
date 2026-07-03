@@ -21,7 +21,12 @@
     "launchDescription_other": "{{mode}}，共 {{count}} 个 Spec",
     "railWorktreeNeedsReview": "Rail {{n}}：合并后 spec #{{ticket}} 需要复查",
     "railWorktreesNoGit": "worktree 隔离不可用：该项目不是 git 仓库 — 以共享模式运行。",
-    "railWorktreesNoCommits": "worktree 隔离不可用：仓库还没有任何提交 — 先做一次初始提交再重新启动。"
+    "railWorktreesNoCommits": "worktree 隔离不可用：仓库还没有任何提交 — 先做一次初始提交再重新启动。",
+    "railPrDelivered": "rail {{n}} 的草稿 PR 已就绪",
+    "railPrOpen": "打开 PR",
+    "railPrPushed": "Rail {{n}}：分支已推送 — 可随时打开 PR",
+    "railPrLocal": "Rail {{n}}：更改已保存到本地分支",
+    "railPrAssemblyFailed": "Rail {{n}}：无法合并分支 — 需要人工处理"
   },
   "railsBoard": {
     "title": "Rails",

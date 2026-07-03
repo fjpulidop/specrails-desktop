@@ -21,7 +21,12 @@
     "launchDescription_other": "{{mode}} mit {{count}} Specs",
     "railWorktreeNeedsReview": "Rail {{n}}: Spec #{{ticket}} muss nach dem Merge geprüft werden",
     "railWorktreesNoGit": "Worktree-Isolation nicht verfügbar: Dieses Projekt ist kein Git-Repository — Ausführung im gemeinsamen Modus.",
-    "railWorktreesNoCommits": "Worktree-Isolation nicht verfügbar: Das Repository hat noch keine Commits — erstelle einen ersten Commit und starte neu."
+    "railWorktreesNoCommits": "Worktree-Isolation nicht verfügbar: Das Repository hat noch keine Commits — erstelle einen ersten Commit und starte neu.",
+    "railPrDelivered": "Entwurfs-PR bereit für Rail {{n}}",
+    "railPrOpen": "PR öffnen",
+    "railPrPushed": "Rail {{n}}: Branch gepusht — öffne die PR bei Bedarf",
+    "railPrLocal": "Rail {{n}}: Änderungen in einem lokalen Branch gespeichert",
+    "railPrAssemblyFailed": "Rail {{n}}: Branches konnten nicht kombiniert werden — manueller Eingriff nötig"
   },
   "railsBoard": {
     "title": "Rails",
