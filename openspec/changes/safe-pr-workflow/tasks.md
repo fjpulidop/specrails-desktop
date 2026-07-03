@@ -13,9 +13,9 @@
 - [ ] 2.4 Hard git guardrails: block force-push and direct commits to the integration branch (technical block, not prompt text).
 
 ## 3. Platform-law enforcement (`safe-pr-workflow`)
-- [ ] 3.1 Server-authoritative `mutating` vs `read-only` classifier derived from loop node content; unit-tested.
-- [ ] 3.2 Enforce at launch: mutating loop ⇒ isolated worktree + draft PR; read-only ⇒ no branch/PR. Custom loops cannot opt out.
-- [ ] 3.3 Client mirror of the classifier (advisory), server remains authoritative.
+- [x] 3.1 `server/loop-effect.ts` `classifyLoopEffect` — server-authoritative, derived from node content (read-only iff no `ai-step`/`shell` node), unit-tested.
+- [x] 3.2 Wired into `rails-router.ts` (replaces the hardcoded `readOnly:false`): the isolation gate now derives read-only from content, so a custom loop cannot declare itself read-only to escape isolation (there is no user flag to lie with — it's derived).
+- [~] 3.3 Client mirror deferred — there is no user-facing read-only flag to mirror (the classifier is purely server-derived), so an advisory client mirror is moot until a UI exposes the effect.
 
 ## 4. Cross-repo git-agnostic contract (`core-git-agnostic-contract`)
 - [ ] 4.1 **specrails-core**: parse `--no-ship` (and read `SPECRAILS_GIT_AUTO`) in `implement.md` Phase 0; short-circuit Phase 4c/4d like `GIT_AUTO=false`.
