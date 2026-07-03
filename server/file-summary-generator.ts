@@ -184,12 +184,17 @@ export function createFileSummaryGenerator(opts: GeneratorOpts): (input: Generat
         settled = true
         if (code !== 0) {
           const tail = stderrBuf.slice(-500)
-          reject(new Error(`${adapter.binary} exit code=${code}; ${tail ? `stderr=${tail}` : 'no stderr'}`))
+          // Carry any captured usage (the provider may have billed tokens before
+          // exiting non-zero) so the manager records the real cost on the failed
+          // row instead of $0, and the monthly budget gate counts it (MED-13).
+          rejectWithPartial(`${adapter.binary} exit code=${code}; ${tail ? `stderr=${tail}` : 'no stderr'}`)
           return
         }
         const summary = fullText.trim()
         if (!summary) {
-          reject(new Error(`${adapter.binary} returned empty summary text`))
+          // Empty-summary rejection also carries captured usage — a clean exit
+          // with no text still billed tokens (MED-13).
+          rejectWithPartial(`${adapter.binary} returned empty summary text`)
           return
         }
         const { result, estimated } = finaliseInvocationResult(adapter, events, { fallbackModel: model })

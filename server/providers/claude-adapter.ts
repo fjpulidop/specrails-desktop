@@ -188,6 +188,51 @@ function buildClaudeArgs(action: SpawnAction, opts: SpawnOptions): string[] {
   }
 }
 
+/** Per-API-call usage block carried on claude `assistant` stream events
+ *  (`message.usage`). Anthropic semantics: `input_tokens` EXCLUDES the cache
+ *  read/write counts (they are reported separately). */
+export interface AssistantEventUsage {
+  input_tokens?: number
+  output_tokens?: number
+  cache_read_input_tokens?: number
+  cache_creation_input_tokens?: number
+}
+
+/**
+ * Claude adapter events optionally carry the assistant frame's usage snapshot
+ * so cumulative token usage can be reconstructed for runs killed before their
+ * terminal `result` event (COST-ACCOUNTING-AUDIT HIGH-8 / CRIT-1). `messageId`
+ * is the API message id — the dedup key, because one message can be split into
+ * multiple `assistant` frames (one per content block) that all repeat the same
+ * usage; summing frames naively would double-count. `model` is the full model
+ * id from `message.model`.
+ */
+export type ClaudeUsageEvent = AdapterEvent & {
+  usage?: AssistantEventUsage
+  messageId?: string
+  model?: string
+}
+
+function readNumber(value: unknown): number {
+  return typeof value === 'number' && Number.isFinite(value) ? value : 0
+}
+
+/** Attach the assistant frame's usage/model/message-id onto the emitted
+ *  adapter event (mutating in place keeps the union shape intact). No-op when
+ *  the frame carries no usage block. */
+function withAssistantUsage(
+  ev: AdapterEvent,
+  msg: { id?: unknown; model?: unknown; usage?: unknown } | undefined,
+): AdapterEvent {
+  const usage = msg?.usage
+  if (!usage || typeof usage !== 'object') return ev
+  const carrier = ev as ClaudeUsageEvent
+  carrier.usage = usage as AssistantEventUsage
+  if (typeof msg?.id === 'string') carrier.messageId = msg.id
+  if (typeof msg?.model === 'string') carrier.model = msg.model
+  return ev
+}
+
 function parseClaudeStreamLine(line: string): AdapterEvent | null {
   if (line.length === 0) return null
   let parsed: Record<string, unknown>
@@ -213,17 +258,21 @@ function parseClaudeStreamLine(line: string): AdapterEvent | null {
   }
 
   if (type === 'assistant') {
-    const msg = parsed.message as { content?: Array<{ type: string; text?: string; name?: string }> } | undefined
+    const msg = parsed.message as
+      | { id?: unknown; model?: unknown; usage?: unknown; content?: Array<{ type: string; text?: string; name?: string }> }
+      | undefined
     const blocks = msg?.content ?? []
     // Concatenate all text blocks; tool_use blocks are surfaced separately as a
     // tool-use event. For simplicity we synthesise the first text block here
     // and let callers consume tool_use from a fan-out (matching current
-    // chat-manager behaviour).
+    // chat-manager behaviour). Every assistant-derived event carries the
+    // frame's `message.usage` (see withAssistantUsage) so interrupted runs
+    // remain estimable.
     const text = blocks
       .filter((b) => b.type === 'text')
       .map((b) => b.text ?? '')
       .join('')
-    if (text) return { kind: 'text-delta', text }
+    if (text) return withAssistantUsage({ kind: 'text-delta', text }, msg)
     // Surface a single tool-use (the historical pattern only emitted one per
     // assistant frame anyway).
     const tool = blocks.find((b) => b.type === 'tool_use')
@@ -231,9 +280,12 @@ function parseClaudeStreamLine(line: string): AdapterEvent | null {
       const input = JSON.stringify(
         (parsed.message as { content?: Array<{ input?: unknown }> })?.content?.[0]?.input ?? {},
       )
-      return { kind: 'tool-use', name: tool.name, inputPreview: input.slice(0, 200) }
+      return withAssistantUsage(
+        { kind: 'tool-use', name: tool.name, inputPreview: input.slice(0, 200) },
+        msg,
+      )
     }
-    return { kind: 'other', type, raw: parsed }
+    return withAssistantUsage({ kind: 'other', type, raw: parsed }, msg)
   }
 
   if (type === 'tool_use') {
@@ -253,7 +305,46 @@ function extractClaudeResult(events: readonly AdapterEvent[]): NormalisedResult 
     if (ev.kind === 'result') resultPayload = ev.payload
     else if (ev.kind === 'session-started') sessionId = ev.sessionId
   }
-  if (!resultPayload) return { session_id: sessionId }
+  if (!resultPayload) {
+    // No terminal `result` frame arrived (spawn killed/aborted/timed out).
+    // Reconstruct cumulative token usage from the per-assistant-event usage
+    // snapshots so the caller can estimate cost from the rate card instead of
+    // persisting NULL/$0 (COST-ACCOUNTING-AUDIT CRIT-1 / HIGH-8). Dedup by
+    // message id, last snapshot wins: a multi-block message emits several
+    // assistant frames repeating the same usage, and later snapshots of the
+    // same message supersede earlier ones. Each DISTINCT message is a separate
+    // API call, so summing across messages is the correct billing model
+    // (every call bills its own full input). `total_cost_usd` is deliberately
+    // left undefined — estimation is the caller's job (finaliseInvocationResult).
+    const perMessage = new Map<string, AssistantEventUsage>()
+    let model: string | undefined
+    let anonymous = 0
+    for (const ev of events) {
+      const carrier = ev as ClaudeUsageEvent
+      if (!carrier.usage) continue
+      perMessage.set(carrier.messageId ?? `__anon-${anonymous++}`, carrier.usage)
+      if (carrier.model) model = carrier.model
+    }
+    if (perMessage.size === 0) return { session_id: sessionId }
+    let tokensIn = 0
+    let tokensOut = 0
+    let cacheRead = 0
+    let cacheCreate = 0
+    for (const u of perMessage.values()) {
+      tokensIn += readNumber(u.input_tokens)
+      tokensOut += readNumber(u.output_tokens)
+      cacheRead += readNumber(u.cache_read_input_tokens)
+      cacheCreate += readNumber(u.cache_creation_input_tokens)
+    }
+    return {
+      tokens_in: tokensIn,
+      tokens_out: tokensOut,
+      tokens_cache_read: cacheRead,
+      tokens_cache_create: cacheCreate,
+      model,
+      session_id: sessionId,
+    }
+  }
 
   const usage = resultPayload.usage as Record<string, number> | undefined
   // result event may also carry session_id directly — prefer that over the

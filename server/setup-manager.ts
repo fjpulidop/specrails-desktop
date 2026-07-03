@@ -10,7 +10,11 @@ import { spawnAiCli } from './util/cli-prompt'
 import { spawnCli, windowsSpawnEnv } from './util/win-spawn'
 import { formatMissingSetupPrerequisites } from './setup-prerequisites'
 import { CORE_PACKAGE_SPEC } from './core-package'
-import { getAdapter, hasAdapter } from './providers'
+import { getAdapter, hasAdapter, type AdapterEvent } from './providers'
+import { finaliseInvocationResult } from './result-event'
+import { recordInvocation, type InvocationStatus } from './ai-invocations'
+import { randomUUID } from 'crypto'
+import type { DbInstance } from './db'
 import { mirrorProjectEntry, resolveArtifacts, resolveHome } from './artifact-registry'
 import { installConfigPath, installConfigPathForProvider, type InstallConfigProject } from './install-config-path'
 import { getBundledCoreCli, getBundledCoreRoot, getBundledCoreVersion } from './bundled-core'
@@ -776,14 +780,25 @@ export class SetupManager {
   // Track project names for codex context header injection
   private _projectNames: Map<string, string>
 
+  // Optional accessor to the per-project jobs.sqlite so the wizard's phase-4
+  // AI /setup chat spawns can be recorded to ai_invocations (surface='setup',
+  // COST-ACCOUNTING-AUDIT LOW-2). SetupManager holds no DB of its own — the
+  // registry passes this so recording resolves the project's DB at the moment a
+  // setup turn finishes (the project row + DB already exist by phase 4). When
+  // the accessor is absent, or returns null (DB genuinely not created yet), no
+  // row is written and behaviour is byte-identical to before.
+  private _dbForProject?: (projectId: string) => DbInstance | null | undefined
+
   constructor(
     broadcast: (msg: WsMessage) => void,
     onSessionCaptured?: (projectId: string, sessionId: string) => void,
-    onSetupDone?: (projectId: string) => void
+    onSetupDone?: (projectId: string) => void,
+    dbForProject?: (projectId: string) => DbInstance | null | undefined,
   ) {
     this._broadcast = broadcast
     this._onSessionCaptured = onSessionCaptured
     this._onSetupDone = onSetupDone
+    this._dbForProject = dbForProject
     this._installProcesses = new Map()
     this._setupProcesses = new Map()
     this._checkpoints = new Map()
@@ -1178,6 +1193,46 @@ export class SetupManager {
   }
 
   /**
+   * Persist one surface='setup' ai_invocations row for a phase-4 wizard AI turn
+   * (LOW-2). Cost is the provider's native `total_cost_usd` when a terminal
+   * `result` event arrived, else the pricing-table estimate over the accumulated
+   * per-assistant-event usage. Resolves the project DB lazily via the injected
+   * accessor: if the accessor is absent or the DB does not exist yet, nothing is
+   * recorded. Best-effort — a recording failure is logged, never thrown, so it
+   * can never break the setup wizard.
+   */
+  private _recordSetupInvocation(
+    projectId: string,
+    adapter: ProviderAdapter,
+    events: readonly AdapterEvent[],
+    status: InvocationStatus,
+    startedAtIso: string,
+  ): void {
+    const db = this._dbForProject?.(projectId)
+    if (!db) return
+    try {
+      const { result, estimated } = finaliseInvocationResult(adapter, events, {
+        fallbackModel: adapter.defaultModel(),
+      })
+      recordInvocation(db, {
+        id: randomUUID(),
+        project_id: projectId,
+        provider: adapter.id,
+        surface: 'setup',
+        surface_ref_id: projectId,
+        status,
+        started_at: startedAtIso,
+        finished_at: new Date().toISOString(),
+        total_cost_usd_estimated: estimated,
+        ...result,
+      })
+      this._broadcast({ type: 'spending.invalidated', projectId })
+    } catch (err) {
+      console.error('[SetupManager] recordInvocation failed:', err)
+    }
+  }
+
+  /**
    * Adapter-driven enrich spawn. Provider-aware prompt resolution
    * (slash command for claude vs file-content fold for codex), real
    * thread_id capture from `session-started` events (no more synthetic
@@ -1239,9 +1294,15 @@ export class SetupManager {
 
     this._setupProcesses.set(projectId, child)
 
+    // Accumulate adapter events + spawn time so a killed/failed/aborted setup
+    // turn is still costed to ai_invocations (surface='setup', LOW-2).
+    const adapterEvents: AdapterEvent[] = []
+    const turnStartedAt = new Date().toISOString()
+
     /* c8 ignore start -- spawn-failure path; exercised manually, not in CI */
     child.on('error', (err) => {
       console.error(`[SetupManager] ${adapter.binary} spawn failed for ${projectId}: ${err.message}`)
+      this._recordSetupInvocation(projectId, adapter, adapterEvents, 'failed', turnStartedAt)
       this._setupProcesses.delete(projectId)
       this._stopFilesystemPoll(projectId)
       this._broadcast({
@@ -1262,6 +1323,7 @@ export class SetupManager {
 
     stdoutReader.on('line', (line) => {
       const ev = adapter.parseStreamLine(line)
+      if (ev) adapterEvents.push(ev)
       if (!ev) {
         // Non-parseable line — emit as raw log.
         if (line) this._broadcast({ type: 'setup_log', projectId, line, stream: 'stdout' })
@@ -1326,8 +1388,22 @@ export class SetupManager {
       this._setupProcesses.delete(projectId)
       this._stopFilesystemPoll(projectId)
       // Explicit abort already tore down + fired onSetupDone — suppress the
-      // failure branch (spurious error + a second onSetupDone) here.
-      if (this._abortedProjects.has(projectId)) return
+      // failure branch (spurious error + a second onSetupDone) here. The tokens
+      // burned before the abort are still real, so record an 'aborted' row.
+      if (this._abortedProjects.has(projectId)) {
+        this._recordSetupInvocation(projectId, adapter, adapterEvents, 'aborted', turnStartedAt)
+        return
+      }
+
+      // Record the completed setup turn's spend (success on clean exit, failed
+      // otherwise). LOW-2.
+      this._recordSetupInvocation(
+        projectId,
+        adapter,
+        adapterEvents,
+        code === 0 ? 'success' : 'failed',
+        turnStartedAt,
+      )
 
       // Final filesystem sync
       this._syncFilesystemCheckpoints(projectId, projectPath)

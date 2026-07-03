@@ -373,9 +373,15 @@ export class AgentRefineManager {
     this._bodyBuffers.delete(refineId)
     // A cancel() killed this child intentionally; its non-zero exit must NOT
     // overwrite the 'cancelled' status with 'error' or emit a failure
-    // (BUG-LONGTAIL-01).
-    if (this._cancelledIds.delete(refineId)) return
-    if (this._disposed) return // M12: project removed mid-flight; DB closing
+    // (BUG-LONGTAIL-01). But real tokens may already have streamed, so record an
+    // 'aborted' ai_invocations row (with an estimated cost over the accumulated
+    // adapter events) BEFORE short-circuiting — otherwise the cancel path loses
+    // 100% of its spend (MED-12). No status overwrite, no failure emit.
+    const wasCancelled = this._cancelledIds.delete(refineId)
+    if (wasCancelled || this._disposed) {
+      this._recordRefineInvocation(refineId, run.events, refineModel, 'aborted', turnStartedAt)
+      return // cancel (BUG-LONGTAIL-01) / M12 dispose: project removed mid-flight
+    }
 
     if (run.spawnFailed) {
       this._emitError(refineId, `Failed to launch claude: ${spawnState.err?.message ?? 'spawn error'}`)
@@ -389,31 +395,8 @@ export class AgentRefineManager {
     const stderr = run.stderrTail
 
     // ai_invocations capture (surface='ai-edit'). One row per refine turn.
-    if (this._projectId) {
-      try {
-        const invStatus = code === 0 && fullDraft.trim() ? 'success' : 'failed'
-        const { result: normalised, estimated } = finaliseInvocationResult(
-          this._adapter,
-          adapterEvents,
-          { fallbackModel: refineModel },
-        )
-        recordInvocation(this._db, {
-          id: randomUUID(),
-          project_id: this._projectId,
-          provider: this._adapter.id,
-          surface: 'ai-edit',
-          surface_ref_id: refineId,
-          status: invStatus,
-          started_at: turnStartedAt,
-          finished_at: new Date().toISOString(),
-          total_cost_usd_estimated: estimated,
-          ...normalised,
-        })
-        this._broadcast({ type: 'spending.invalidated', projectId: this._projectId })
-      } catch (err) {
-        console.error('[agent-refine-manager] recordInvocation failed:', err)
-      }
-    }
+    const invStatus = code === 0 && fullDraft.trim() ? 'success' : 'failed'
+    this._recordRefineInvocation(refineId, adapterEvents, refineModel, invStatus, turnStartedAt)
 
     if (code !== 0 || !fullDraft.trim()) {
       this._emitError(
@@ -474,6 +457,46 @@ export class AgentRefineManager {
     }
   }
 
+  /**
+   * Record one ai_invocations row (surface='ai-edit') for a refine turn. Used
+   * by the normal settle path (status 'success'|'failed') AND the cancel/dispose
+   * early-return path (status 'aborted') so streamed tokens are never lost
+   * (MED-12). finaliseInvocationResult yields native cost when present, else an
+   * estimated cost over the accumulated adapter events (estimated=true). Wrapped
+   * so a DB failure (e.g. a closing DB during dispose) never crashes the manager.
+   */
+  private _recordRefineInvocation(
+    refineId: string,
+    adapterEvents: AdapterEvent[],
+    model: string,
+    status: 'success' | 'failed' | 'aborted',
+    startedAt: string,
+  ): void {
+    if (!this._projectId) return
+    try {
+      const { result: normalised, estimated } = finaliseInvocationResult(
+        this._adapter,
+        adapterEvents,
+        { fallbackModel: model },
+      )
+      recordInvocation(this._db, {
+        id: randomUUID(),
+        project_id: this._projectId,
+        provider: this._adapter.id,
+        surface: 'ai-edit',
+        surface_ref_id: refineId,
+        status,
+        started_at: startedAt,
+        finished_at: new Date().toISOString(),
+        total_cost_usd_estimated: estimated,
+        ...normalised,
+      })
+      this._broadcast({ type: 'spending.invalidated', projectId: this._projectId })
+    } catch (err) {
+      console.error('[agent-refine-manager] recordInvocation failed:', err)
+    }
+  }
+
   private async _runAutoTest(
     refineId: string,
     agentId: string,
@@ -484,7 +507,15 @@ export class AgentRefineManager {
     this._emitPhase(refineId, 'testing')
     const sampleTask = pickSampleTask(this._db, agentId)
     try {
-      const result = await testCustomAgent(this._projectPath, { draftBody, sampleTask })
+      const result = await testCustomAgent(this._projectPath, {
+        draftBody,
+        sampleTask,
+        // MED-3: the default-on per-refine-turn auto-test is a billable claude
+        // spawn — record it (surface='agent-studio') when we have a project DB.
+        record: this._projectId
+          ? { db: this._db, projectId: this._projectId, surfaceRefId: refineId, broadcast: this._broadcast }
+          : undefined,
+      })
       this._db.prepare(
         `INSERT INTO agent_tests (agent_name, draft_hash, sample_task_id, tokens, duration_ms, output, created_at)
          VALUES (?, ?, ?, ?, ?, ?, ?)`,

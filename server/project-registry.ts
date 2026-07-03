@@ -555,15 +555,19 @@ export class ProjectRegistry {
     const setupManager = new SetupManager(
       boundBroadcast,
       (pid, sid) => setProjectSetupSession(this._desktopDb, pid, sid),
-      (pid) => clearProjectSetupSession(this._desktopDb, pid)
+      (pid) => clearProjectSetupSession(this._desktopDb, pid),
+      // LOW-2: resolve the per-project DB so phase-4 setup-chat AI turns record
+      // an `ai_invocations` row (surface='setup'). Returns null until the project
+      // context exists, in which case nothing is recorded (best-effort).
+      (pid) => this._contexts.get(pid)?.db ?? null,
     )
-    const proposalManager = new ProposalManager(boundBroadcast, db, project.path)
+    const proposalManager = new ProposalManager(boundBroadcast, db, project.path, project.id)
     const agentRefineManager = new AgentRefineManager(boundBroadcast, db, project.path, project.id, project.provider ?? 'claude')
     // Retention prune: drop stale/abandoned refine sessions on project load.
     try { pruneStaleRefineSessions(db) } catch (err) {
       console.error('[project-registry] prune refine sessions failed:', err)
     }
-    const specLauncherManager = new SpecLauncherManager(boundBroadcast, project.path)
+    const specLauncherManager = new SpecLauncherManager(boundBroadcast, project.path, db, project.id)
 
     // FileSummaryManager — code-explorer. The class is constructed for every
     // project regardless of the feature flag; the router 404s when the flag

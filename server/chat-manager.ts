@@ -7,7 +7,7 @@ import { getConversation, addMessage, updateConversation, getStats, listJobs } f
 import { resolveCommand } from './command-resolver'
 import { spawnAiCli } from './util/cli-prompt'
 import { ensureExploreCwd } from './explore-cwd-manager'
-import { recordInvocation } from './ai-invocations'
+import { recordInvocation, type Surface, type InvocationStatus } from './ai-invocations'
 import { finaliseInvocationResult } from './result-event'
 import { randomUUID } from 'crypto'
 import { parseSpecDraftBlocks, applyBlocks, type ConversationDraftState } from './spec-draft-parser'
@@ -78,6 +78,16 @@ interface ExploreLifecycle {
   lastActivityAt: number
 }
 
+/** MED-1: last-seen cumulative usage for a persistent-stdin Explore session. */
+interface StdinCumulativeSnapshot {
+  cost: number
+  turns: number
+  tokensIn: number
+  tokensOut: number
+  cacheRead: number
+  cacheCreate: number
+}
+
 // ─── ChatManager ──────────────────────────────────────────────────────────────
 
 export class ChatManager {
@@ -110,6 +120,13 @@ export class ChatManager {
   /** Persistent-stdin Explore transport (big bet #3, flag-gated default OFF).
    *  Holds long-lived claude children that survive between turns. */
   private _stdinSessions = new ExploreStdinSessions()
+
+  /** MED-1: per-conversation cumulative usage snapshot for the persistent-stdin
+   *  transport. One long-lived child serves every turn, so claude's `result`
+   *  event reports SESSION-CUMULATIVE cost/tokens/num_turns. We diff each turn
+   *  against this snapshot to record per-turn deltas (see recordInv in
+   *  `_streamPersistentExploreTurn`). Reset when the child (re)spawns. */
+  private _stdinCumulative = new Map<string, StdinCumulativeSnapshot>()
 
   /** Fire-and-forget auxiliary CLI children (e.g. `_autoTitle`) that are NOT
    *  keyed by conversation in `_activeProcesses`. Tracked so `shutdown()` can
@@ -898,6 +915,23 @@ export class ChatManager {
               })
               currentChild = newChild
               args = respawnArgs
+              // MED-2: the crashed spawn already burned tokens (tool-call rounds
+              // before the crash). Its usage was aggregated into adapterEvents by
+              // the adapter's per-assistant-event capture; record it as a 'failed'
+              // row (priced via the pricing-table fallback) BEFORE we zero the
+              // accumulator for the respawn. Without this the turn only ever
+              // records the respawned process's cost, undercounting by the entire
+              // pre-crash burn (the respawn's --resume restores conversation
+              // state, not the cost counter).
+              this._recordChatInvocation({
+                conversationId,
+                kind: conversation.kind,
+                adapter,
+                events: adapterEvents,
+                model,
+                status: 'failed',
+                startedAt: turnStartedAt,
+              })
               // Reset the per-turn accumulators so the resumed turn REPLACES the
               // pre-crash partial output instead of appending to it (which would
               // duplicate the assistant text and double-count tokens/cost).
@@ -918,6 +952,19 @@ export class ChatManager {
               /* c8 ignore start -- respawn spawn-failure path; exercised manually, not in CI */
               newChild.on('error', (err) => {
                 console.error(`[chat-manager] explore crash-respawn spawn failed for ${conversationId}: ${err.message}`)
+                // MED-2: the respawn never streamed a result event, so the normal
+                // close-path recording is bypassed. Record whatever usage the
+                // respawn accumulated (typically none) as a 'failed' row so the
+                // turn is never entirely invisible to analytics.
+                this._recordChatInvocation({
+                  conversationId,
+                  kind: conversation.kind,
+                  adapter,
+                  events: adapterEvents,
+                  model,
+                  status: 'failed',
+                  startedAt: turnStartedAt,
+                })
                 this._activeProcesses.delete(conversationId)
                 this._buffers.delete(conversationId)
                 this._emittedProposals.delete(conversationId)
@@ -970,35 +1017,22 @@ export class ChatManager {
           this._drainExploreQueue()
         }
 
-        // ai_invocations capture (surface='explore-spec'). Gated on conversation kind.
-        if (this._projectId && conversation.kind === 'explore') {
-          try {
-            const invStatus = wasAborting
-              ? 'aborted'
-              : code === 0
-                ? 'success'
-                : 'failed'
-            const { result, estimated } = finaliseInvocationResult(adapter, adapterEvents, {
-              fallbackModel: model,
-            })
-            recordInvocation(this._db, {
-              id: randomUUID(),
-              project_id: this._projectId,
-              provider: adapter.id,
-              surface: 'explore-spec',
-              surface_ref_id: conversationId,
-              conversation_id: conversationId,
-              status: invStatus,
-              started_at: turnStartedAt,
-              finished_at: new Date().toISOString(),
-              total_cost_usd_estimated: estimated,
-              ...result,
-            })
-            this._broadcast({ type: 'spending.invalidated', projectId: this._projectId })
-          } catch (err) {
-            console.error('[chat-manager] recordInvocation failed:', err)
-          }
-        }
+        // ai_invocations capture. MED-4: records explore (surface='explore-spec')
+        // AND sidebar (surface='chat-sidebar') turns — see _recordChatInvocation.
+        const invStatus: InvocationStatus = wasAborting
+          ? 'aborted'
+          : code === 0
+            ? 'success'
+            : 'failed'
+        this._recordChatInvocation({
+          conversationId,
+          kind: conversation.kind,
+          adapter,
+          events: adapterEvents,
+          model,
+          status: invStatus,
+          startedAt: turnStartedAt,
+        })
 
         if (wasAborting) {
           // abort already emitted chat_error
@@ -1120,9 +1154,12 @@ export class ChatManager {
       loadUserEnv: adapter.id === 'claude' && !!conversationScope?.userMcp,
     })
 
-    const { child } = this._stdinSessions.getOrSpawn(conversationId, {
+    const { child, isNew } = this._stdinSessions.getOrSpawn(conversationId, {
       binary, args: sessionArgs, cwd: spawnCwd, env: process.env,
     })
+    // MED-1: a fresh child restarts claude's session-cumulative counters at 0,
+    // so drop any stale baseline. The next turn diffs against zero.
+    if (isNew) this._stdinCumulative.delete(conversationId)
     this._activeProcesses.set(conversationId, child)
     this._buffers.set(conversationId, '')
     this._emittedProposals.set(conversationId, new Set())
@@ -1169,6 +1206,38 @@ export class ChatManager {
         const { result, estimated } = finaliseInvocationResult(adapter, adapterEvents, {
           fallbackModel: model,
         })
+        // MED-1: the persistent-stdin transport reuses ONE long-lived child for
+        // the whole session, so claude's `result` event reports
+        // SESSION-CUMULATIVE cost/tokens/num_turns — row n carries the totals of
+        // turns 1..n. Recording them verbatim multiplies conversation cost
+        // (~×(N+1)/2). Diff each cumulative field against the previous snapshot
+        // and record the per-turn DELTA (clamped ≥0 for safety against any
+        // non-monotonic report), so summing the rows equals the session total.
+        // The baseline resets on (re)spawn (see `isNew` above).
+        const prev = this._stdinCumulative.get(conversationId) ?? {
+          cost: 0, turns: 0, tokensIn: 0, tokensOut: 0, cacheRead: 0, cacheCreate: 0,
+        }
+        // Returns the per-turn delta to record, and the next cumulative baseline.
+        // A field the provider did not report (undefined) leaves the baseline
+        // untouched and records NULL for that field this turn.
+        const step = (cur: number | undefined, base: number): { delta: number | undefined; next: number } =>
+          cur === undefined || cur === null
+            ? { delta: undefined, next: base }
+            : { delta: Math.max(0, cur - base), next: cur }
+        const dCost = step(result.total_cost_usd, prev.cost)
+        const dTurns = step(result.num_turns, prev.turns)
+        const dIn = step(result.tokens_in, prev.tokensIn)
+        const dOut = step(result.tokens_out, prev.tokensOut)
+        const dCacheRead = step(result.tokens_cache_read, prev.cacheRead)
+        const dCacheCreate = step(result.tokens_cache_create, prev.cacheCreate)
+        this._stdinCumulative.set(conversationId, {
+          cost: dCost.next,
+          turns: dTurns.next,
+          tokensIn: dIn.next,
+          tokensOut: dOut.next,
+          cacheRead: dCacheRead.next,
+          cacheCreate: dCacheCreate.next,
+        })
         recordInvocation(this._db, {
           id: randomUUID(),
           project_id: this._projectId,
@@ -1180,7 +1249,15 @@ export class ChatManager {
           started_at: turnStartedAt,
           finished_at: new Date().toISOString(),
           total_cost_usd_estimated: estimated,
+          // Non-cumulative fields (model, durations, session_id) pass through.
           ...result,
+          // …cumulative fields are overwritten with the per-turn delta.
+          total_cost_usd: dCost.delta,
+          num_turns: dTurns.delta,
+          tokens_in: dIn.delta,
+          tokens_out: dOut.delta,
+          tokens_cache_read: dCacheRead.delta,
+          tokens_cache_create: dCacheCreate.delta,
         })
         this._broadcast({ type: 'spending.invalidated', projectId: this._projectId })
       } catch (err) {
@@ -1208,6 +1285,12 @@ export class ChatManager {
 
     return new Promise<void>((resolve) => {
       let settled = false
+      // LOW-7: the persistent transport ends the turn on the `result` event even
+      // when that event reports a failure (is_error / an `error_*` subtype, e.g.
+      // error_max_turns). Recording those as status='success' misreports the
+      // turn; flip to 'failed' (the cost is still kept — the result carries real
+      // usage). Set at result time, read by finishTurn.
+      let resultIsError = false
 
       const finishTurn = () => {
         if (settled) return
@@ -1218,7 +1301,7 @@ export class ChatManager {
         cleanupTurnState()
         this._abortingConversations.delete(conversationId)
         markStreamingEnded(true)
-        recordInv(wasAborting ? 'aborted' : 'success')
+        recordInv(wasAborting ? 'aborted' : resultIsError ? 'failed' : 'success')
 
         // On abort, the abort() path already emitted chat_error and the turn is
         // user-cancelled — do NOT persist the partial assistant message, update
@@ -1303,8 +1386,12 @@ export class ChatManager {
             if (ev.sessionId) capturedSessionId = ev.sessionId
             break
           case 'result': {
-            const sid = (ev.payload as { session_id?: string }).session_id
-            if (sid) capturedSessionId = sid
+            const payload = ev.payload as { session_id?: string; is_error?: unknown; subtype?: unknown }
+            if (payload.session_id) capturedSessionId = payload.session_id
+            // LOW-7: detect a failed turn reported through the result frame.
+            resultIsError =
+              payload.is_error === true ||
+              (typeof payload.subtype === 'string' && payload.subtype.startsWith('error'))
             finishTurn()
             break
           }
@@ -1359,6 +1446,7 @@ export class ChatManager {
       this._exploreQueue.splice(idx, 1)
     }
     this._stdinSessions.kill(conversationId)
+    this._stdinCumulative.delete(conversationId)
     this._exploreLifecycle.delete(conversationId)
   }
 
@@ -1377,6 +1465,7 @@ export class ChatManager {
     }
     // Persistent-stdin children outlive individual turns — tear them down too.
     this._stdinSessions.killAll()
+    this._stdinCumulative.clear()
     // Fire-and-forget auxiliary children (auto-title) are not keyed by
     // conversation; tree-kill any in-flight one so it isn't orphaned on
     // shutdown / project removal (BUG-CHAT-02).
@@ -1399,6 +1488,59 @@ export class ChatManager {
     this._abortingConversations.clear()
     this._streamFilters.clear()
     this._exploreLifecycle.clear()
+  }
+
+  /**
+   * Record an ai_invocations row for a chat turn (explore or sidebar).
+   *
+   * MED-4: this records BOTH `kind='explore'` (surface `explore-spec`) AND
+   * `kind='sidebar'` (surface `chat-sidebar`) turns. Sidebar was previously
+   * documented as intentionally out-of-scope (CLAUDE.md), but every sidebar
+   * turn is fully billable — it spawns in the project path (so the project
+   * CLAUDE.md auto-loads), prepends the live dashboard context, and uses the
+   * full live-context system prompt — so leaving it unrecorded is a systemic
+   * undercount versus Claude's own accounting. This deliberately reverses that
+   * earlier exclusion. No-op for any other kind, or when no project is set.
+   *
+   * Cost/tokens still come from `finaliseInvocationResult`, which applies the
+   * pricing-table fallback (estimated=true) when the provider reported no
+   * native cost — so kill/crash paths still record a priced row.
+   */
+  private _recordChatInvocation(opts: {
+    conversationId: string
+    kind: string | null | undefined
+    adapter: ProviderAdapter
+    events: AdapterEvent[]
+    model: string
+    status: InvocationStatus
+    startedAt: string
+    /** Defaults to `conversationId`. Auto-title passes `title:<conversationId>`. */
+    surfaceRefId?: string
+  }): void {
+    if (!this._projectId) return
+    if (opts.kind !== 'explore' && opts.kind !== 'sidebar') return
+    const surface: Surface = opts.kind === 'explore' ? 'explore-spec' : 'chat-sidebar'
+    try {
+      const { result, estimated } = finaliseInvocationResult(opts.adapter, opts.events, {
+        fallbackModel: opts.model,
+      })
+      recordInvocation(this._db, {
+        id: randomUUID(),
+        project_id: this._projectId,
+        provider: opts.adapter.id,
+        surface,
+        surface_ref_id: opts.surfaceRefId ?? opts.conversationId,
+        conversation_id: opts.conversationId,
+        status: opts.status,
+        started_at: opts.startedAt,
+        finished_at: new Date().toISOString(),
+        total_cost_usd_estimated: estimated,
+        ...result,
+      })
+      this._broadcast({ type: 'spending.invalidated', projectId: this._projectId })
+    } catch (err) {
+      console.error('[chat-manager] recordInvocation failed:', err)
+    }
   }
 
   private _autoTitle(conversationId: string, firstUserMsg: string, firstResponse: string): void {
@@ -1424,12 +1566,21 @@ export class ChatManager {
       this._auxProcesses.add(child)
 
       let titleText = ''
+      // LOW-1: the auto-title spawn is a real, billable CLI invocation fired on
+      // the first turn of EVERY conversation. Accumulate its parsed events so we
+      // can record an ai_invocations row at close (surface = the conversation's
+      // kind, surface_ref_id = `title:<conversationId>`), instead of leaving it
+      // invisible to analytics.
+      const titleEvents: AdapterEvent[] = []
+      const titleStartedAt = new Date().toISOString()
       const reader = createInterface({ input: child.stdout!, crlfDelay: Infinity })
 
       reader.on('line', (line) => {
-        if (titleText) return
         const ev = adapter.parseStreamLine(line)
-        if (ev?.kind === 'text-delta') {
+        if (!ev) return
+        titleEvents.push(ev)
+        // Keep the FIRST non-empty text-delta as the title (unchanged behaviour).
+        if (!titleText && ev.kind === 'text-delta') {
           const trimmed = ev.text.trim()
           if (trimmed) titleText = trimmed
         }
@@ -1437,6 +1588,16 @@ export class ChatManager {
 
       child.on('close', (code) => {
         this._auxProcesses.delete(child)
+        this._recordChatInvocation({
+          conversationId,
+          kind: conv?.kind,
+          adapter,
+          events: titleEvents,
+          model: adapter.defaultModel(),
+          status: code === 0 ? 'success' : 'failed',
+          startedAt: titleStartedAt,
+          surfaceRefId: `title:${conversationId}`,
+        })
         if (code === 0 && titleText) {
           updateConversation(this._db, conversationId, { title: titleText })
           this._broadcast({

@@ -27,7 +27,9 @@ describe('getSpending', () => {
     expect(r.summary.totalCostUsd).toBe(0)
     expect(r.summary.totalRuns).toBe(0)
     expect(r.summary.deltaPct).toBeNull()
-    expect(r.bySurface).toHaveLength(7) // job, quick-spec, explore-spec, ai-edit, smash, file-summary, loop
+    // The 7 original analytics surfaces + the 5 cost-accounting-audit additions
+    // (chat-sidebar, spec-launcher, proposal, agent-studio, setup).
+    expect(r.bySurface).toHaveLength(12)
     expect(r.bySurface.every((s) => s.count === 0)).toBe(true)
     expect(r.topTickets).toEqual([])
   })
@@ -321,6 +323,62 @@ describe('getSpending edge cases', () => {
     const r = getSpending(db, 'p1', { period: 'all', model: ['opus'], minCostUsd: 3 })
     expect(r.summary.totalCostUsd).toBe(5)
     expect(r.summary.totalRuns).toBe(1)
+  })
+
+  // ─── HIGH-7: custom period must include the ENTIRE final day ─────────────────
+  it('HIGH-7: a bare YYYY-MM-DD custom `to` includes rows started that day', () => {
+    const today = new Date().toISOString().slice(0, 10)
+    // A full-ISO instant at 09:15 today — previously dropped by `started_at <= '<today>'`.
+    seed(db, [{ id: 'heavy', surface: 'job', total_cost_usd: 12, started_at: `${today}T09:15:00.000Z` }])
+    const r = getSpending(db, 'p1', { period: 'custom', from: '2000-01-01', to: today })
+    expect(r.summary.totalCostUsd).toBe(12)
+    expect(r.summary.totalRuns).toBe(1)
+    // rangeTo is extended to the end of the day, not the bare date.
+    expect(r.rangeTo.startsWith(today)).toBe(true)
+    expect(r.rangeTo > today).toBe(true)
+  })
+
+  it('HIGH-7: a full-ISO custom `to` is kept verbatim (precise instant)', () => {
+    const base = new Date()
+    const instant = new Date(base.getTime() - 1000).toISOString()
+    seed(db, [{ id: 'a', surface: 'job', total_cost_usd: 3, started_at: instant }])
+    const to = new Date(base.getTime() + 2000).toISOString()
+    const r = getSpending(db, 'p1', { period: 'custom', from: new Date(base.getTime() - 10_000).toISOString(), to })
+    expect(r.rangeTo).toBe(to) // not extended
+    expect(r.summary.totalCostUsd).toBe(3)
+  })
+
+  it('HIGH-7: bare-date `to` respects tzOffsetMinutes (local end-of-day)', () => {
+    // A user at UTC+2 on 2026-07-02 local includes rows up to 2026-07-02T21:59:59.999Z.
+    seed(db, [{ id: 'inrange', surface: 'job', total_cost_usd: 4, started_at: '2026-07-02T21:00:00.000Z' }])
+    seed(db, [{ id: 'nextday', surface: 'job', total_cost_usd: 9, started_at: '2026-07-02T22:30:00.000Z' }])
+    const r = getSpending(db, 'p1', { period: 'custom', from: '2026-07-01', to: '2026-07-02', tzOffsetMinutes: 120 })
+    expect(r.summary.totalCostUsd).toBe(4) // 22:30Z is the next local day, excluded
+  })
+
+  // ─── LOW-4: minCostUsd=0 is a true no-op (keeps NULL-cost rows) ──────────────
+  it('LOW-4: minCostUsd=0 keeps NULL-cost (aborted/killed) rows', () => {
+    const now = new Date().toISOString()
+    seed(db, [
+      { id: 'priced', surface: 'job', status: 'success', total_cost_usd: 1, started_at: now },
+      { id: 'killed', surface: 'job', status: 'aborted', total_cost_usd: null, started_at: now },
+    ])
+    const r = getSpending(db, 'p1', { period: 'all', minCostUsd: 0 })
+    expect(r.summary.totalRuns).toBe(2) // NULL-cost row retained
+    const raw = getInvocations(db, 'p1', { period: 'all', minCostUsd: 0 })
+    expect(raw.rows.length).toBe(2)
+  })
+
+  it('LOW-4: minCostUsd>0 still drops NULL-cost rows and sub-threshold rows', () => {
+    const now = new Date().toISOString()
+    seed(db, [
+      { id: 'big', surface: 'job', status: 'success', total_cost_usd: 5, started_at: now },
+      { id: 'small', surface: 'job', status: 'success', total_cost_usd: 0.1, started_at: now },
+      { id: 'killed', surface: 'job', status: 'aborted', total_cost_usd: null, started_at: now },
+    ])
+    const r = getSpending(db, 'p1', { period: 'all', minCostUsd: 0.5 })
+    expect(r.summary.totalRuns).toBe(1)
+    expect(r.summary.totalCostUsd).toBe(5)
   })
 
   it('applies ticketId filter end-to-end', () => {

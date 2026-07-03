@@ -1,6 +1,7 @@
 import type { ProjectRegistry } from './project-registry'
 import type { AnalyticsOpts } from './types'
 import type { DbInstance } from './db'
+import { sumAgentInvocationsCost } from './desktop-db'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -97,26 +98,74 @@ interface ProjectKpi {
   avgDurationMs: number | null
 }
 
-// BUG-ANALYTICS-28/24/27 (review-corrected): the cost SUM keeps AUTHORITATIVE
-// (provider-billed, total_cost_usd_estimated=0) cost on EVERY status — so a
-// failed claude job's real billed cost is still counted and the claude path is
-// byte-identical to the pre-fix `SUM(total_cost_usd)`. It drops only the
-// ESTIMATED rate-card cost of a NON-success terminal job (the misleading
-// figure a crashed/canceled codex/gemini run leaves behind). The jobs.status
-// vocabulary is queued|running|completed|failed|canceled|zombie_terminated|
-// skipped — there is NO 'aborted' status here ('aborted' is an ai_invocations
-// value), so we exclude the real terminal-failure trio. estimatedCostUsd is the
-// estimated portion that IS counted (non-failed), so the client can footnote it.
-function queryProjectKpi(db: DbInstance, clause: string, params: unknown[]): ProjectKpi {
+interface ProjectCost {
+  totalCostUsd: number
+  estimatedCostUsd: number
+}
+
+// MED-8: the app-level cost KPIs must aggregate ALL billable surfaces, not just
+// the jobs table. Per-project `ai_invocations` records six additional surfaces
+// (explore-spec, quick-spec, ai-edit, smash, file-summary, loop) plus the job
+// surface itself, so the cost SUM is sourced HERE (all surfaces, all statuses),
+// mirroring server/spending.ts's summary — a killed/failed run's estimated
+// fallback cost now counts instead of vanishing. `started_at` exists on both
+// tables so the same window clause/params apply unchanged. The job-COUNT fields
+// (totalJobs/successRate/avgDuration) stay job-centric and are queried
+// separately against the jobs table.
+function queryProjectCost(db: DbInstance, clause: string, params: unknown[]): ProjectCost {
   return db.prepare(`
     SELECT
-      COALESCE(SUM(CASE WHEN total_cost_usd_estimated = 1 AND status IN ('failed','canceled','zombie_terminated') THEN 0 ELSE total_cost_usd END), 0) as totalCostUsd,
-      COALESCE(SUM(CASE WHEN total_cost_usd_estimated = 1 AND status NOT IN ('failed','canceled','zombie_terminated') THEN total_cost_usd ELSE 0 END), 0) as estimatedCostUsd,
+      COALESCE(SUM(total_cost_usd), 0) as totalCostUsd,
+      COALESCE(SUM(CASE WHEN total_cost_usd_estimated = 1 THEN total_cost_usd ELSE 0 END), 0) as estimatedCostUsd
+    FROM ai_invocations ${clause}
+  `).get(...params) as ProjectCost
+}
+
+// Job-count metrics (genuinely about pipeline jobs, not spend) stay on the jobs
+// table. Cost fields come from queryProjectCost above.
+function queryProjectJobCounts(
+  db: DbInstance,
+  clause: string,
+  params: unknown[]
+): { totalJobs: number; successCount: number; avgDurationMs: number | null } {
+  return db.prepare(`
+    SELECT
       COUNT(*) as totalJobs,
       SUM(CASE WHEN status = 'completed' THEN 1 ELSE 0 END) as successCount,
       AVG(CASE WHEN duration_ms IS NOT NULL THEN duration_ms END) as avgDurationMs
     FROM jobs ${clause}
-  `).get(...params) as ProjectKpi
+  `).get(...params) as { totalJobs: number; successCount: number; avgDurationMs: number | null }
+}
+
+function queryProjectKpi(db: DbInstance, clause: string, params: unknown[]): ProjectKpi {
+  const cost = queryProjectCost(db, clause, params)
+  const counts = queryProjectJobCounts(db, clause, params)
+  return {
+    totalCostUsd: cost.totalCostUsd,
+    estimatedCostUsd: cost.estimatedCostUsd,
+    totalJobs: counts.totalJobs,
+    successCount: counts.successCount ?? 0,
+    avgDurationMs: counts.avgDurationMs,
+  }
+}
+
+/**
+ * App-level agent-chat (Mission Control) spend lives in desktop.sqlite's
+ * `agent_invocations` table (not per-project). MED-8: fold it into the grand
+ * cost total. Defensive: a DB without the table (older schema / a stubbed test
+ * registry) yields 0 instead of throwing. `sinceIso` is a lower bound only —
+ * for windowed periods ending "now" that captures exactly the window; a custom
+ * period with a past upper bound may marginally over-count agent spend (the
+ * helper offers no upper bound).
+ */
+function agentCostSince(registry: ProjectRegistry, sinceIso?: string): number {
+  try {
+    const ddb = registry.desktopDb
+    if (!ddb) return 0
+    return sumAgentInvocationsCost(ddb, sinceIso)
+  } catch {
+    return 0
+  }
 }
 
 interface TimelineRow {
@@ -125,16 +174,17 @@ interface TimelineRow {
   estimatedCostUsd: number
 }
 
-// BUG-ANALYTICS-26: split the per-day cost into authoritative vs estimated
-// (and exclude failed/aborted, consistent with the KPI) so the timeline can
-// annotate days that mix billed and rate-card-estimated dollars.
+// MED-8 + BUG-ANALYTICS-26: per-day cost across ALL billable surfaces
+// (ai_invocations, all statuses), split into authoritative vs estimated so the
+// timeline can annotate days that mix billed and rate-card-estimated dollars.
+// Sourced from ai_invocations (not jobs) to match the KPI's all-surface scope.
 function queryProjectTimeline(db: DbInstance, clause: string, params: unknown[]): TimelineRow[] {
   return db.prepare(`
     SELECT
       strftime('%Y-%m-%d', started_at) as date,
-      COALESCE(SUM(CASE WHEN total_cost_usd_estimated = 1 AND status IN ('failed','canceled','zombie_terminated') THEN 0 ELSE total_cost_usd END), 0) as costUsd,
-      COALESCE(SUM(CASE WHEN total_cost_usd_estimated = 1 AND status NOT IN ('failed','canceled','zombie_terminated') THEN total_cost_usd ELSE 0 END), 0) as estimatedCostUsd
-    FROM jobs ${clause}
+      COALESCE(SUM(total_cost_usd), 0) as costUsd,
+      COALESCE(SUM(CASE WHEN total_cost_usd_estimated = 1 THEN total_cost_usd ELSE 0 END), 0) as estimatedCostUsd
+    FROM ai_invocations ${clause}
     GROUP BY date
     ORDER BY date ASC
   `).all(...params) as TimelineRow[]
@@ -198,6 +248,12 @@ export function getDesktopAnalytics(
       timelineMap.set(row.date, acc)
     }
   }
+
+  // MED-8: add app-level agent-chat (Mission Control) spend to the grand cost
+  // totals. It is not per-project, so it contributes to the KPI headline and
+  // costToday only (not the per-project breakdown / per-day timeline).
+  totalCostUsd += agentCostSince(registry, current.from ?? undefined)
+  costToday += agentCostSince(registry, today)
 
   // Build sorted cost timeline
   const costTimeline = Array.from(timelineMap.entries())
@@ -276,10 +332,13 @@ export interface DesktopTodayStats {
   jobsToday: number
 }
 
-// BUG-ANALYTICS-27: this feeds the always-visible StatusBar / /api/state
-// costToday — the most prominent cost number in the app. Split out the
-// estimated portion (and exclude failed/aborted, matching the KPI) so the
-// consumer can flag that the figure may include rate-card estimates.
+// BUG-ANALYTICS-27 + MED-8: this feeds the always-visible StatusBar / /api/state
+// costToday — the most prominent cost number in the app. The cost SUM is sourced
+// from ai_invocations across ALL billable surfaces and statuses (not just the
+// jobs table), plus the app-level agent_invocations spend, so Explore /
+// quick-spec / ai-edit / file-summary / agent-chat dollars are no longer
+// invisible. The estimated portion is split out so the consumer can flag the
+// figure. jobsToday stays a jobs-table count.
 export function getDesktopTodayStats(registry: ProjectRegistry): DesktopTodayStats {
   const today = new Date().toISOString().slice(0, 10)
   const tomorrow = new Date(Date.now() + 86400000).toISOString().slice(0, 10)
@@ -291,17 +350,22 @@ export function getDesktopTodayStats(registry: ProjectRegistry): DesktopTodaySta
   let jobsToday = 0
 
   for (const ctx of registry.listContexts()) {
-    const row = ctx.db.prepare(`
+    const costRow = ctx.db.prepare(`
       SELECT
-        COALESCE(SUM(CASE WHEN total_cost_usd_estimated = 1 AND status IN ('failed','canceled','zombie_terminated') THEN 0 ELSE total_cost_usd END), 0) as costToday,
-        COALESCE(SUM(CASE WHEN total_cost_usd_estimated = 1 AND status NOT IN ('failed','canceled','zombie_terminated') THEN total_cost_usd ELSE 0 END), 0) as estimatedCostToday,
-        COUNT(*) as jobsToday
-      FROM jobs ${clause}
-    `).get(...params) as { costToday: number; estimatedCostToday: number; jobsToday: number }
-    costToday += row.costToday
-    estimatedCostToday += row.estimatedCostToday
-    jobsToday += row.jobsToday
+        COALESCE(SUM(total_cost_usd), 0) as costToday,
+        COALESCE(SUM(CASE WHEN total_cost_usd_estimated = 1 THEN total_cost_usd ELSE 0 END), 0) as estimatedCostToday
+      FROM ai_invocations ${clause}
+    `).get(...params) as { costToday: number; estimatedCostToday: number }
+    const jobsRow = ctx.db.prepare(`
+      SELECT COUNT(*) as jobsToday FROM jobs ${clause}
+    `).get(...params) as { jobsToday: number }
+    costToday += costRow.costToday
+    estimatedCostToday += costRow.estimatedCostToday
+    jobsToday += jobsRow.jobsToday
   }
+
+  // App-level agent-chat spend (desktop.sqlite), added to the headline figure.
+  costToday += agentCostSince(registry, today)
 
   return { costToday, estimatedCostToday, includesEstimated: estimatedCostToday > 0, jobsToday }
 }

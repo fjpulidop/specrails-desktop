@@ -50,6 +50,7 @@ import { existsSync, readdirSync, rmSync, mkdirSync, readFileSync, writeFileSync
 import { detectCLISync } from './core-compat'
 import { SetupManager, CHECKPOINTS, QUICK_CHECKPOINTS, computeSummary, sweepLegacySrCommands, validateInstalledCore } from './setup-manager'
 import { CORE_PACKAGE_SPEC } from './core-package'
+import { initDb, type DbInstance } from './db'
 
 function createMockChildProcess() {
   const child = new EventEmitter() as any
@@ -1509,6 +1510,91 @@ describe('SetupManager', () => {
 
       const copyCalls = vi.mocked(copyFileSync).mock.calls
       expect(copyCalls).toHaveLength(0)
+    })
+  })
+
+  // ─── ai_invocations recording (COST-ACCOUNTING-AUDIT LOW-2) ──────────────────
+
+  describe('setup AI turn recording (surface=setup)', () => {
+    let db: DbInstance
+    let smRec: SetupManager
+
+    function assistantUsageLine(text: string, usage: Record<string, number>, model = 'claude-sonnet-4-6', id = 'msg-1') {
+      return JSON.stringify({
+        type: 'assistant',
+        message: { id, model, usage, content: [{ type: 'text', text }] },
+      })
+    }
+    function resultCostLine(sessionId: string, opts: Record<string, unknown>) {
+      return JSON.stringify({ type: 'result', session_id: sessionId, ...opts })
+    }
+    function rows() {
+      return db.prepare('SELECT * FROM ai_invocations ORDER BY started_at ASC').all() as Array<Record<string, unknown>>
+    }
+
+    beforeEach(() => {
+      vi.mocked(detectCLISync).mockReturnValue('claude')
+      db = initDb(':memory:')
+      // Accessor resolves the per-project DB lazily at record time.
+      smRec = new SetupManager(broadcast, undefined, undefined, () => db)
+    })
+
+    it('records a success row with native cost on a clean enrich turn', async () => {
+      const child = createMockChildProcess()
+      vi.mocked(mockSpawn).mockReturnValue(child as any)
+
+      smRec.startEnrich('p1', '/path/to/project')
+      pushLine(child, assistantUsageLine('enriching', { input_tokens: 100, output_tokens: 50 }))
+      pushLine(child, resultCostLine('sess-1', { total_cost_usd: 0.75, usage: { input_tokens: 100, output_tokens: 50 } }))
+      await finishProcess(child, 0)
+
+      const r = rows()
+      expect(r).toHaveLength(1)
+      expect(r[0].surface).toBe('setup')
+      expect(r[0].surface_ref_id).toBe('p1')
+      expect(r[0].status).toBe('success')
+      expect(r[0].total_cost_usd).toBe(0.75)
+      expect(r[0].total_cost_usd_estimated).toBe(0)
+      expect(getBroadcastedByType(broadcast, 'spending.invalidated')).toHaveLength(1)
+    })
+
+    it('records an estimated-cost failed row on non-zero exit (no result event)', async () => {
+      const child = createMockChildProcess()
+      vi.mocked(mockSpawn).mockReturnValue(child as any)
+
+      smRec.startEnrich('p1', '/path/to/project')
+      pushLine(child, assistantUsageLine('working', { input_tokens: 3000, output_tokens: 1500 }))
+      await finishProcess(child, 1)
+
+      const r = rows()
+      expect(r).toHaveLength(1)
+      expect(r[0].status).toBe('failed')
+      expect(r[0].total_cost_usd_estimated).toBe(1)
+      expect(r[0].total_cost_usd as number).toBeGreaterThan(0)
+    })
+
+    it('records nothing when no DB accessor is supplied (byte-identical)', async () => {
+      const smNoDb = new SetupManager(broadcast)
+      const child = createMockChildProcess()
+      vi.mocked(mockSpawn).mockReturnValue(child as any)
+
+      smNoDb.startEnrich('p1', '/path/to/project')
+      pushLine(child, resultCostLine('sess-1', { total_cost_usd: 0.75 }))
+      await finishProcess(child, 0)
+
+      expect(rows()).toHaveLength(0)
+    })
+
+    it('records nothing when the accessor returns null (DB not created yet)', async () => {
+      const smNullDb = new SetupManager(broadcast, undefined, undefined, () => null)
+      const child = createMockChildProcess()
+      vi.mocked(mockSpawn).mockReturnValue(child as any)
+
+      smNullDb.startEnrich('p1', '/path/to/project')
+      pushLine(child, resultCostLine('sess-1', { total_cost_usd: 0.75 }))
+      await finishProcess(child, 0)
+
+      expect(rows()).toHaveLength(0)
     })
   })
 })

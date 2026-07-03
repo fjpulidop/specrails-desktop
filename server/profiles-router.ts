@@ -467,7 +467,7 @@ export function createProfilesRouter(): Router {
   // Persists the result to agent_tests; returns { output, tokens, durationMs }.
   router.post('/catalog/test', async (req, res) => {
     try {
-      const { project, db } = ctx(req)
+      const { project, db, broadcast } = ctx(req)
       const agentId = (req.body?.agentId ?? '').toString().trim() || 'draft'
       const draftBody = (req.body?.draftBody ?? '').toString()
       const sampleTask = (req.body?.sampleTask ?? '').toString().trim()
@@ -479,7 +479,11 @@ export function createProfilesRouter(): Router {
         res.status(400).json({ error: 'sampleTask is required' })
         return
       }
-      const result = await testCustomAgent(project.path, { draftBody, sampleTask })
+      const result = await testCustomAgent(project.path, {
+        draftBody,
+        sampleTask,
+        record: { db, projectId: project.id, surfaceRefId: agentId, broadcast },
+      })
       db.prepare(
         `INSERT INTO agent_tests (agent_name, draft_hash, sample_task_id, tokens, duration_ms, output, created_at)
          VALUES (?, ?, ?, ?, ?, ?, ?)`,
@@ -496,7 +500,7 @@ export function createProfilesRouter(): Router {
   // Returns { draft: string } — caller (the Studio UI) previews and optionally saves.
   router.post('/catalog/generate', async (req, res) => {
     try {
-      const { project } = ctx(req)
+      const { project, db, broadcast } = ctx(req)
       const name = (req.body?.name ?? '').toString().trim()
       const description = (req.body?.description ?? '').toString().trim()
       if (!/^custom-[a-z0-9][a-z0-9-]*$/.test(name)) {
@@ -507,7 +511,11 @@ export function createProfilesRouter(): Router {
         res.status(400).json({ error: 'description is required' })
         return
       }
-      const draft = await generateCustomAgent(project.path, { name, description })
+      const draft = await generateCustomAgent(project.path, {
+        name,
+        description,
+        record: { db, projectId: project.id, surfaceRefId: name, broadcast },
+      })
       res.json({ draft })
     } catch (err) {
       handleError(res, err)

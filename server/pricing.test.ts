@@ -132,17 +132,108 @@ describe('estimateCostUsd', () => {
   })
 
   it('computes deterministic cost for each table entry', () => {
+    const tokens_in = 1_500_000       // 1M fresh + 500k cached (default semantics)
+    const tokens_out = 1_000_000
+    const tokens_cache_read = 500_000 // subset of tokens_in under default semantics
     for (const [key, entry] of Object.entries(PRICING)) {
       const [providerId, model] = key.split(':')
-      const cost = estimateCostUsd(providerId!, model!, {
-        tokens_in: 1_500_000,       // 1M fresh + 500k cached
-        tokens_out: 1_000_000,
-        tokens_cache_read: 500_000, // subset of tokens_in
-      })
-      // fresh input = 1.5M - 0.5M = 1M → entry.inputPer1M; out = entry.outputPer1M;
-      // cache = 0.5M * cacheReadPer1M / 1M = 0.5 * cacheReadPer1M
-      expect(cost).toBeCloseTo(entry.inputPer1M + entry.outputPer1M + entry.cacheReadPer1M * 0.5, 6)
+      const cost = estimateCostUsd(providerId!, model!, { tokens_in, tokens_out, tokens_cache_read })
+      // Mirror estimateCostUsd's own branching so the property holds across the
+      // three semantics now in the table: default OpenAI/Google (input includes
+      // cache reads), claude (input billed as-is, inputIncludesCacheReads:false),
+      // and Gemini Pro long-context (whole-request re-rate above the threshold).
+      const rates =
+        entry.longContext && tokens_in > entry.longContext.thresholdTokens
+          ? entry.longContext
+          : entry
+      const freshInput =
+        entry.inputIncludesCacheReads === false
+          ? tokens_in
+          : Math.max(0, tokens_in - tokens_cache_read)
+      const expected =
+        (freshInput * rates.inputPer1M +
+          tokens_out * rates.outputPer1M +
+          tokens_cache_read * rates.cacheReadPer1M) /
+        1_000_000
+      expect(cost, key).toBeCloseTo(expected, 6)
     }
+  })
+})
+
+describe('estimateCostUsd — claude cache-write tier + Anthropic usage semantics (CRIT-1 / refuted-#3)', () => {
+  it('bills tokens_cache_create at cacheWritePer1M (1.25x input) for claude', () => {
+    // claude:sonnet → input 3.00, output 15.00, cache_read 0.30, cache_write 3.75
+    const cost = estimateCostUsd('claude', 'sonnet', { tokens_cache_create: 1_000_000 })
+    // Only cache-write tokens present → 1M * 3.75 / 1M = 3.75
+    expect(cost).toBeCloseTo(3.75, 6)
+  })
+
+  it('cache-create-only payload IS billable for claude (opposite of codex/gemini null)', () => {
+    // For providers WITHOUT a cache-write tier a cache-create-only payload
+    // prices to null; claude models a cache-write tier so it must price > 0.
+    expect(estimateCostUsd('claude', 'opus', { tokens_cache_create: 500_000 })).toBeGreaterThan(0)
+  })
+
+  it('bills input as-is under Anthropic semantics (does NOT subtract cache reads)', () => {
+    // claude:sonnet inputIncludesCacheReads:false → input_tokens EXCLUDES cache
+    // reads, so tokens_in is billed whole and cache reads add on top.
+    const cost = estimateCostUsd('claude', 'sonnet', {
+      tokens_in: 1_000_000,
+      tokens_cache_read: 1_000_000,
+    })
+    // 1M * 3.00 (input, not reduced) + 1M * 0.30 (cache read) / 1M = 3.30
+    expect(cost).toBeCloseTo(3.3, 6)
+  })
+
+  it('sums input + output + cache-read + cache-write for a full claude breakdown', () => {
+    const cost = estimateCostUsd('claude', 'sonnet', {
+      tokens_in: 100_000,
+      tokens_out: 20_000,
+      tokens_cache_read: 500_000,
+      tokens_cache_create: 40_000,
+    })
+    // 100k*3.00 + 20k*15.00 + 500k*0.30 + 40k*3.75 all /1M
+    // = 0.30 + 0.30 + 0.15 + 0.15 = 0.90
+    expect(cost).toBeCloseTo(0.9, 6)
+  })
+
+  it('prices full claude model ids by collapsing to the family alias', () => {
+    const viaFull = estimateCostUsd('claude', 'claude-sonnet-4-6', { tokens_in: 1_000_000 })
+    const viaAlias = estimateCostUsd('claude', 'sonnet', { tokens_in: 1_000_000 })
+    expect(viaFull).toBe(viaAlias)
+    expect(viaFull).toBeCloseTo(3.0, 6)
+  })
+})
+
+describe('estimateCostUsd — Gemini Pro long-context threshold tier (LOW-5)', () => {
+  it('uses base rates at/below the 200k threshold', () => {
+    const cost = estimateCostUsd('gemini', 'gemini-3.1-pro-preview', { tokens_in: 200_000 })
+    // base input 2.00 → 200k * 2.00 / 1M = 0.40
+    expect(cost).toBeCloseTo(0.4, 6)
+  })
+
+  it('re-rates the WHOLE request at long-context rates above the threshold', () => {
+    const cost = estimateCostUsd('gemini', 'gemini-3.1-pro-preview', { tokens_in: 200_001 })
+    // 200_001 > 200k → longContext input 4.00 over the ENTIRE prompt (not just the excess)
+    expect(cost).toBeCloseTo((200_001 * 4.0) / 1_000_000, 6)
+  })
+
+  it('applies long-context output + cache-read tiers together on a large prompt', () => {
+    const cost = estimateCostUsd('gemini', 'gemini-3.1-pro-preview', {
+      tokens_in: 500_000,
+      tokens_out: 100_000,
+      tokens_cache_read: 100_000,
+    })
+    // >200k → longContext: input 4.00 / output 18.00 / cache_read 0.40
+    // fresh input = 500k - 100k = 400k (default gemini semantics)
+    // 400k*4.00 + 100k*18.00 + 100k*0.40 /1M = 1.60 + 1.80 + 0.04 = 3.44
+    expect(cost).toBeCloseTo(3.44, 6)
+  })
+
+  it('flat (non-long-context) gemini models never switch tiers', () => {
+    const cost = estimateCostUsd('gemini', 'gemini-3.5-flash', { tokens_in: 5_000_000 })
+    // no longContext entry → base input 1.50 regardless of size
+    expect(cost).toBeCloseTo((5_000_000 * 1.5) / 1_000_000, 6)
   })
 })
 

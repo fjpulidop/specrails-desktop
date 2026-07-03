@@ -15,11 +15,20 @@ vi.mock('recharts', () => ({
   Tooltip: () => null,
 }))
 
-// Mock useSharedWebSocket
+// Mock useSharedWebSocket — capture the registered handler so tests can drive
+// the app-level refetch triggers (MED-11).
+const wsMock = vi.hoisted(() => {
+  let handler: ((msg: unknown) => void) | null = null
+  return {
+    register: (_id: string, fn: (msg: unknown) => void) => { handler = fn },
+    unregister: () => {},
+    emit: (msg: unknown) => handler?.(msg),
+  }
+})
 vi.mock('../../hooks/useSharedWebSocket', () => ({
   useSharedWebSocket: () => ({
-    registerHandler: vi.fn(),
-    unregisterHandler: vi.fn(),
+    registerHandler: wsMock.register,
+    unregisterHandler: wsMock.unregister,
     connectionStatus: 'connected' as const,
   }),
 }))
@@ -269,6 +278,46 @@ describe('DesktopAnalyticsPage', () => {
     await waitFor(() => {
       expect(screen.getByTestId('timeline-estimated-note')).toBeInTheDocument()
     })
+  })
+
+  // ── MED-10 · window label on the "Total cost" KPI ────────────────────────────
+
+  it('MED-10: shows the active window next to the Total cost KPI (default 7d)', async () => {
+    const DesktopAnalyticsPage = (await import('../DesktopAnalyticsPage')).default
+    render(<DesktopAnalyticsPage />)
+    await waitFor(() => expect(screen.getByText('Total Cost')).toBeInTheDocument())
+    expect(screen.getByTestId('kpi-window-label')).toHaveTextContent('Last 7 days')
+  })
+
+  // ── MED-11 · app-level auto-refresh on real broadcasts ───────────────────────
+
+  it('MED-11: refetches on spending.invalidated (any project) and rail.job_completed', async () => {
+    const fetchMock = global.fetch as ReturnType<typeof vi.fn>
+    const DesktopAnalyticsPage = (await import('../DesktopAnalyticsPage')).default
+    render(<DesktopAnalyticsPage />)
+    await waitFor(() => expect(screen.getByText('Total Cost')).toBeInTheDocument())
+
+    const before = fetchMock.mock.calls.length
+    // Cross-project page: a spend broadcast from ANY project must refetch.
+    wsMock.emit({ type: 'spending.invalidated', projectId: 'some-other-project' })
+    await waitFor(() => expect(fetchMock.mock.calls.length).toBeGreaterThan(before))
+
+    const mid = fetchMock.mock.calls.length
+    wsMock.emit({ type: 'rail.job_completed', projectId: 'x', jobId: 'j', status: 'completed' })
+    await waitFor(() => expect(fetchMock.mock.calls.length).toBeGreaterThan(mid))
+  })
+
+  it('MED-11: ignores the legacy log/job_done message the server never emits', async () => {
+    const fetchMock = global.fetch as ReturnType<typeof vi.fn>
+    const DesktopAnalyticsPage = (await import('../DesktopAnalyticsPage')).default
+    render(<DesktopAnalyticsPage />)
+    await waitFor(() => expect(screen.getByText('Total Cost')).toBeInTheDocument())
+
+    const before = fetchMock.mock.calls.length
+    wsMock.emit({ type: 'log', event_type: 'job_done' })
+    // Give any (erroneous) refetch a chance to fire, then assert none did.
+    await new Promise((r) => setTimeout(r, 30))
+    expect(fetchMock.mock.calls.length).toBe(before)
   })
 
   it('does NOT mark anything estimated on a claude-only rollup (legacy)', async () => {

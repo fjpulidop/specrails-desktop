@@ -599,6 +599,113 @@ describe('runSmash', () => {
     expect(r.reason).toBe('model_error')
   })
 
+  it('LOW-9: splits num_turns / tokens via largest-remainder so they sum EXACTLY (never collapse to 0)', async () => {
+    seedTicket(projectPath, { id: 1 })
+    // num_turns=6, input=20, output=41 across 8 children: floor(6/8)=0 would have
+    // recorded 0 turns for every child. Largest-remainder must sum back exactly.
+    const lines = [
+      JSON.stringify({ type: 'system', subtype: 'init', session_id: 'sess-1' }),
+      JSON.stringify({ type: 'assistant', message: { content: [{ type: 'text', text: validSmashBlock(8) }] } }),
+      JSON.stringify({
+        type: 'result', subtype: 'success', session_id: 'sess-1',
+        total_cost_usd: 0.008, duration_ms: 800, duration_api_ms: 640, num_turns: 6,
+        usage: { input_tokens: 20, output_tokens: 41, cache_creation_input_tokens: 5, cache_read_input_tokens: 0 },
+        model: 'claude-sonnet-4-6',
+      }),
+    ]
+    const r = await runSmash(
+      {
+        db, projectId: 'proj-1', projectSlug: 'proj-1', projectPath, projectName: 'P',
+        broadcast: () => {}, spawn: fakeSpawn(lines), timeoutMs: 5000,
+      },
+      1,
+    )
+    expect(r.ok).toBe(true)
+    const rows = db.prepare(`SELECT num_turns, tokens_in, tokens_out, tokens_cache_create FROM ai_invocations WHERE surface = 'smash'`).all() as Array<{ num_turns: number | null; tokens_in: number | null; tokens_out: number | null; tokens_cache_create: number | null }>
+    expect(rows).toHaveLength(8)
+    const sum = (k: 'num_turns' | 'tokens_in' | 'tokens_out' | 'tokens_cache_create') => rows.reduce((s, row) => s + (row[k] ?? 0), 0)
+    expect(sum('num_turns')).toBe(6)
+    expect(sum('tokens_in')).toBe(20)
+    expect(sum('tokens_out')).toBe(41)
+    expect(sum('tokens_cache_create')).toBe(5)
+    // The leading rows carry the +1 remainder; no field is uniformly 0.
+    expect(rows.filter((row) => (row.num_turns ?? 0) > 0)).toHaveLength(6)
+  })
+
+  it('LOW-10: broadcasts spending.invalidated on the successful path', async () => {
+    seedTicket(projectPath, { id: 1 })
+    const events: Array<{ type?: string }> = []
+    await runSmash(
+      {
+        db, projectId: 'proj-1', projectSlug: 'proj-1', projectPath, projectName: 'P',
+        broadcast: (m) => events.push(m as { type?: string }), spawn: fakeSpawn(streamLines(validSmashBlock(4))), timeoutMs: 5000,
+      },
+      1,
+    )
+    expect(events.some((e) => e.type === 'spending.invalidated')).toBe(true)
+  })
+
+  it('LOW-10: broadcasts spending.invalidated on the invalid-output failure path (costed row recorded)', async () => {
+    seedTicket(projectPath, { id: 1 })
+    const events: Array<{ type?: string }> = []
+    const r = await runSmash(
+      {
+        db, projectId: 'proj-1', projectSlug: 'proj-1', projectPath, projectName: 'P',
+        broadcast: (m) => events.push(m as { type?: string }), spawn: fakeSpawn(streamLines('not a smash fence at all')), timeoutMs: 5000,
+      },
+      1,
+    )
+    expect(r.reason).toBe('invalid-output')
+    // A costed 'failed' row was recorded (process exited 0 with a result event).
+    const rows = db.prepare(`SELECT total_cost_usd FROM ai_invocations WHERE surface = 'smash'`).all() as Array<{ total_cost_usd: number | null }>
+    expect(rows).toHaveLength(1)
+    expect(rows[0].total_cost_usd).toBeCloseTo(0.002, 5)
+    expect(events.some((e) => e.type === 'spending.invalidated')).toBe(true)
+  })
+
+  it('LOW-12: a mid-loop recordInvocation failure does not drop the remaining children', async () => {
+    seedTicket(projectPath, { id: 1 })
+    // Wrap the db so the 2nd INSERT into ai_invocations throws once, simulating a
+    // transient SQLITE_BUSY. The per-child try/catch must keep recording the rest.
+    let insertCount = 0
+    const dbProxy = new Proxy(db, {
+      get(target, prop, receiver) {
+        if (prop === 'prepare') {
+          return (sql: string) => {
+            const stmt = target.prepare(sql)
+            if (/INSERT INTO ai_invocations/i.test(sql)) {
+              return new Proxy(stmt, {
+                get(sTarget, sProp, sRecv) {
+                  if (sProp === 'run') {
+                    return (...args: unknown[]) => {
+                      insertCount += 1
+                      if (insertCount === 2) throw new Error('SQLITE_BUSY')
+                      return (sTarget.run as (...a: unknown[]) => unknown)(...args)
+                    }
+                  }
+                  return Reflect.get(sTarget, sProp, sRecv)
+                },
+              })
+            }
+            return stmt
+          }
+        }
+        return Reflect.get(target, prop, receiver)
+      },
+    }) as DbInstance
+    const r = await runSmash(
+      {
+        db: dbProxy, projectId: 'proj-1', projectSlug: 'proj-1', projectPath, projectName: 'P',
+        broadcast: () => {}, spawn: fakeSpawn(streamLines(validSmashBlock(4))), timeoutMs: 5000,
+      },
+      1,
+    )
+    expect(r.ok).toBe(true)
+    // 4 children attempted, 1 insert threw → 3 rows survive (no wholesale drop).
+    const rows = db.prepare(`SELECT ticket_id FROM ai_invocations WHERE surface = 'smash'`).all() as Array<{ ticket_id: number }>
+    expect(rows).toHaveLength(3)
+  })
+
   it('rejects ticket without Contract Layer at pre-flight', async () => {
     seedTicket(projectPath, { id: 1, description: 'no contract here' })
     let broadcastCount = 0

@@ -115,7 +115,9 @@
       "working": "正在处理…",
       "connecting": "正在连接代理…",
       "starting": "正在启动…"
-    }
+    },
+    "pipelinePartial": "≥ 表示部分 — {{count}} 个阶段尚无成本记录",
+    "pipelinePartialTooltip": "部分阶段在报告成本前已结束，因此该总额为下限。"
   },
   "ticketHeader": {
     "showMore": "+ 还有 {{count}} 个",

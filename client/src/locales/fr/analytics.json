@@ -6,7 +6,12 @@
     "aiEdit": "Affinage",
     "smash": "SMASH",
     "fileSummary": "Résumés de fichiers",
-    "loop": "Loops"
+    "loop": "Loops",
+    "chatSidebar": "Chat",
+    "specLauncher": "Lanceur de spec",
+    "proposal": "Proposition",
+    "agentStudio": "Agent Studio",
+    "setup": "Configuration"
   },
   "periods": {
     "d7": "7j",
@@ -73,7 +78,8 @@
   "models": {
     "title": "Modèles",
     "empty": "Aucun modèle enregistré.",
-    "estimatedTooltip": "Estimé à partir de la table de tarifs locale — ce fournisseur ne signale pas le coût de manière native."
+    "estimatedTooltip": "Estimé à partir de la table de tarifs locale — ce fournisseur ne signale pas le coût de manière native.",
+    "others": "Autres"
   },
   "scatter": {
     "title": "Coût vs tours",
@@ -160,5 +166,12 @@
     "estimatedBadge": "est.",
     "projectEstimatedTooltip": "{{amount}} du coût de ce projet est une estimation par table de tarifs (codex/gemini), non facturé par le fournisseur.",
     "statusBarEstimatedTooltip": "Inclut un coût estimé par la table de tarifs (codex/gemini), non facturé par le fournisseur."
+  },
+  "windowLabels": {
+    "7d": "7 derniers jours",
+    "30d": "30 derniers jours",
+    "90d": "90 derniers jours",
+    "all": "Tout l'historique",
+    "custom": "Plage personnalisée"
   }
 }

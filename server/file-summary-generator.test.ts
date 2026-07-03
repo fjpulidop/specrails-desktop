@@ -79,4 +79,74 @@ describe('createFileSummaryGenerator', () => {
     child.emit('close', 2)
     expect(await p).toContain('exit code=2')
   })
+
+  // ─── MED-13: failure paths must carry captured usage on the rejection ────────
+  it('carries captured usage on the rejection when a non-zero exit follows billed tokens', async () => {
+    const child = fakeChild()
+    const gen = createFileSummaryGenerator({
+      adapter: getAdapter('claude'),
+      cwd: '/tmp',
+      spawn: (() => child) as any,
+    })
+    const p = gen(INPUT).then(
+      () => null,
+      (e: Error & { partial?: Record<string, unknown> }) => e.partial ?? null,
+    )
+    // The provider streamed an assistant frame (billing tokens) then exited 1.
+    child.stdout.push(
+      JSON.stringify({
+        type: 'assistant',
+        message: {
+          model: 'claude-3-5-haiku-20241022',
+          usage: { input_tokens: 40, output_tokens: 10 },
+          content: [{ type: 'text', text: 'partial explanation' }],
+        },
+      }) + '\n',
+    )
+    child.stdout.push(null)
+    await new Promise((r) => setImmediate(r))
+    child.emit('close', 1)
+
+    const partial = await p
+    expect(partial).not.toBeNull()
+    expect(partial!.provider).toBe('claude')
+    expect(partial!.tokensIn).toBe(40)
+    expect(partial!.tokensOut).toBe(10)
+    // Haiku is priced, so the estimate is > 0 and flagged estimated.
+    expect(partial!.costUsd as number).toBeGreaterThan(0)
+    expect(partial!.costEstimated).toBe(true)
+  })
+
+  it('carries captured usage on the rejection when the summary text is empty', async () => {
+    const child = fakeChild()
+    const gen = createFileSummaryGenerator({
+      adapter: getAdapter('claude'),
+      cwd: '/tmp',
+      spawn: (() => child) as any,
+    })
+    const p = gen(INPUT).then(
+      () => null,
+      (e: Error & { partial?: Record<string, unknown> }) => ({ message: e.message, partial: e.partial ?? null }),
+    )
+    // Assistant frame with usage but a tool_use block (no text) → empty summary
+    // on a clean exit. The usage snapshot must still ride the rejection.
+    child.stdout.push(
+      JSON.stringify({
+        type: 'assistant',
+        message: {
+          model: 'claude-3-5-haiku-20241022',
+          usage: { input_tokens: 25, output_tokens: 5 },
+          content: [{ type: 'tool_use', name: 'Read', input: {} }],
+        },
+      }) + '\n',
+    )
+    child.stdout.push(null)
+    await new Promise((r) => setImmediate(r))
+    child.emit('close', 0)
+
+    const res = await p
+    expect(res.message).toContain('empty summary')
+    expect(res.partial).not.toBeNull()
+    expect((res.partial as Record<string, unknown>).tokensIn).toBe(25)
+  })
 })

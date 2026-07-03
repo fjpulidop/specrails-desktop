@@ -5,7 +5,7 @@ import path from 'path'
 import express, { type Request } from 'express'
 import request from 'supertest'
 
-import { registerSpendingRoutes } from './project-router-spending'
+import { registerSpendingRoutes, parseTzOffsetMinutes, localDayBoundsUtc } from './project-router-spending'
 import { recordInvocation } from './ai-invocations'
 import { mutateStore, type Ticket } from './ticket-store'
 import { initDb, type DbInstance } from './db'
@@ -278,6 +278,83 @@ describe('project-router-spending', () => {
     })
   })
 
+  // ─── MED-6: GET /budget costToday sums ALL ai_invocations surfaces/statuses ──
+  describe('GET /budget — costToday over all surfaces (MED-6)', () => {
+    it('sums every ai_invocations surface (not just the jobs table)', async () => {
+      insert(h.db, { surface: 'job', cost: 1, status: 'success' })
+      insert(h.db, { surface: 'explore-spec', cost: 2, status: 'success' })
+      insert(h.db, { surface: 'ai-edit', cost: 0.5, status: 'success' })
+      const res = await request(h.app).get(`/api/projects/${PROJECT_ID}/budget`)
+      expect(res.status).toBe(200)
+      // Previously this read `FROM jobs` (0 rows here) → costToday 0; now 3.5.
+      expect(res.body.costToday).toBeCloseTo(3.5, 5)
+    })
+
+    it('counts non-success statuses (failed/aborted billed runs)', async () => {
+      insert(h.db, { surface: 'job', cost: 1, status: 'success' })
+      insert(h.db, { surface: 'job', cost: 0.4, status: 'failed' })
+      insert(h.db, { surface: 'explore-spec', cost: 0.2, status: 'aborted' })
+      const res = await request(h.app).get(`/api/projects/${PROJECT_ID}/budget`)
+      expect(res.body.costToday).toBeCloseTo(1.6, 5)
+    })
+
+    it('computes budgetUtilizationPct against the daily budget', async () => {
+      h.db.prepare(`INSERT OR REPLACE INTO queue_state (key, value) VALUES ('config.daily_budget_usd', '10')`).run()
+      insert(h.db, { surface: 'job', cost: 2.5, status: 'success' })
+      const res = await request(h.app).get(`/api/projects/${PROJECT_ID}/budget`)
+      expect(res.body.dailyBudgetUsd).toBe(10)
+      expect(res.body.budgetUtilizationPct).toBeCloseTo(25, 5)
+    })
+  })
+
+  // ─── LOW-3: summary CSV '# By model' reconciles to '# Totals' ────────────────
+  describe('GET /analytics/export?mode=summary — By model reconciliation (LOW-3)', () => {
+    it('appends a remainder row so By model sums to Totals (NULL-model spend)', async () => {
+      insert(h.db, { surface: 'job', model: 'sonnet', cost: 2, status: 'success' })
+      // A killed/aborted claude run with NULL model + NULL... actually NULL model,
+      // real cost — excluded from byModel but present in the grand total.
+      recordInvocation(h.db, {
+        id: 'inv-nullmodel',
+        project_id: PROJECT_ID,
+        provider: 'claude',
+        surface: 'job',
+        model: null,
+        status: 'success',
+        started_at: new Date().toISOString(),
+        total_cost_usd: 0.75,
+        total_cost_usd_estimated: false,
+      } as Parameters<typeof recordInvocation>[1])
+
+      const res = await request(h.app)
+        .get(`/api/projects/${PROJECT_ID}/analytics/export?mode=summary&format=csv&period=all`)
+      expect(res.status).toBe(200)
+      const lines = res.text.split('\n')
+      const byModelIdx = lines.findIndex((l) => l === '# By model')
+      // Rows follow until the next blank line.
+      const section: string[] = []
+      for (let i = byModelIdx + 2; i < lines.length && lines[i] !== ''; i++) section.push(lines[i])
+      // costUsd is the 3rd column; sum every row (incl. the remainder row).
+      const sectionSum = section.reduce((s, row) => {
+        const cols = row.split(',')
+        return s + Number(cols[cols.length - 1])
+      }, 0)
+
+      const totalsIdx = lines.findIndex((l) => l === '# Totals')
+      const totalCostUsd = Number(lines[totalsIdx + 2].split(',')[0])
+
+      expect(sectionSum).toBeCloseTo(totalCostUsd, 6)
+      expect(section.some((r) => r.startsWith('(other / unmodeled)'))).toBe(true)
+    })
+
+    it('omits the remainder row when By model already reconciles', async () => {
+      insert(h.db, { surface: 'job', model: 'sonnet', cost: 2, status: 'success' })
+      const res = await request(h.app)
+        .get(`/api/projects/${PROJECT_ID}/analytics/export?mode=summary&format=csv&period=all`)
+      const lines = res.text.split('\n')
+      expect(lines.some((l) => l.startsWith('(other / unmodeled)'))).toBe(false)
+    })
+  })
+
   // ─── Absent-store path mirrors /invocations (empty store ⇒ no title) ───────
   it('reports null title for spend against an absent ticket store', async () => {
     insert(h.db, { surface: 'job', ticketId: 7, cost: 1 })
@@ -288,5 +365,46 @@ describe('project-router-spending', () => {
     const t = res.body.topTickets.find((x: { ticketId: number }) => x.ticketId === 7)
     expect(t.ticketTitle).toBeNull()
     expect(t.isDeleted).toBe(true)
+  })
+})
+
+// ─── Helper units (MED-6) ─────────────────────────────────────────────────────
+
+describe('parseTzOffsetMinutes', () => {
+  it('parses a valid offset', () => {
+    expect(parseTzOffsetMinutes('600')).toBe(600)
+    expect(parseTzOffsetMinutes('-300')).toBe(-300)
+    expect(parseTzOffsetMinutes('0')).toBe(0)
+  })
+  it('falls back to 0 for non-string / non-numeric / out-of-range', () => {
+    expect(parseTzOffsetMinutes(undefined)).toBe(0)
+    expect(parseTzOffsetMinutes(600)).toBe(0) // not a string
+    expect(parseTzOffsetMinutes('abc')).toBe(0)
+    expect(parseTzOffsetMinutes('9999')).toBe(0) // beyond ±840
+  })
+})
+
+describe('localDayBoundsUtc', () => {
+  it('UTC (offset 0) bounds the calendar day', () => {
+    const now = Date.parse('2026-07-02T15:30:00Z')
+    const { startIso, endIso } = localDayBoundsUtc(0, now)
+    expect(startIso).toBe('2026-07-02T00:00:00.000Z')
+    expect(endIso).toBe('2026-07-03T00:00:00.000Z')
+  })
+
+  it('shifts the boundary to the user local day (UTC+2)', () => {
+    // 23:30Z is 01:30 local the NEXT day → local day 2026-07-03.
+    const now = Date.parse('2026-07-02T23:30:00Z')
+    const { startIso, endIso } = localDayBoundsUtc(120, now)
+    expect(startIso).toBe('2026-07-02T22:00:00.000Z')
+    expect(endIso).toBe('2026-07-03T22:00:00.000Z')
+  })
+
+  it('shifts the boundary west of UTC (UTC-5)', () => {
+    // 02:00Z is 21:00 local the PREVIOUS day → local day 2026-07-01.
+    const now = Date.parse('2026-07-02T02:00:00Z')
+    const { startIso, endIso } = localDayBoundsUtc(-300, now)
+    expect(startIso).toBe('2026-07-01T05:00:00.000Z')
+    expect(endIso).toBe('2026-07-02T05:00:00.000Z')
   })
 })

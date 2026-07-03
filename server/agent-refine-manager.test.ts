@@ -331,18 +331,33 @@ memory: project
       expect(getBroadcastsByType(broadcast, 'agent_refine_error')).toHaveLength(0)
     })
 
-    it('does NOT write an ai_invocations row for a cancelled turn', async () => {
+    // MED-12: a cancelled turn still burned tokens, so it records an 'aborted'
+    // ai_invocations row (surface='ai-edit') before short-circuiting — but keeps
+    // the BUG-LONGTAIL-01 semantics (status stays 'cancelled', no error emit).
+    it('writes an aborted ai_invocations row for a cancelled turn (MED-12)', async () => {
       const projectId = 'proj-refine-cancel'
       const mgrCap = new AgentRefineManager(broadcast, db, projectPath, projectId)
       const child = createMockChild()
       vi.mocked(mockSpawnClaude).mockReturnValue(child as never)
       const { refineId } = await mgrCap.startRefine({ agentId: 'custom-foo', instruction: 'go', autoTest: false })
 
+      // Some assistant text streams before the user cancels — real spend.
+      pushLine(child, assistantText('partial draft before cancel'))
       mgrCap.cancel(refineId)
       await close(child, 143)
 
-      const rows = db.prepare(`SELECT * FROM ai_invocations WHERE project_id = ?`).all(projectId)
-      expect(rows).toHaveLength(0)
+      const rows = db.prepare(`SELECT * FROM ai_invocations WHERE project_id = ?`).all(projectId) as Array<{
+        surface: string
+        surface_ref_id: string
+        status: string
+      }>
+      expect(rows).toHaveLength(1)
+      expect(rows[0].surface).toBe('ai-edit')
+      expect(rows[0].surface_ref_id).toBe(refineId)
+      expect(rows[0].status).toBe('aborted')
+      // BUG-LONGTAIL-01 preserved: no error broadcast, session stays cancelled.
+      expect(getBroadcastsByType(broadcast, 'agent_refine_error')).toHaveLength(0)
+      expect(getRefineSession(db, refineId)!.status).toBe('cancelled')
     })
 
     // ─── BUG-LONGTAIL-02: SIGKILL escalation after SIGTERM ─────────────────────
@@ -594,6 +609,23 @@ memory: project
       const rows = db.prepare(`SELECT * FROM ai_invocations WHERE project_id = ?`).all(projectId) as Array<Record<string, unknown>>
       expect(rows).toHaveLength(1)
       expect(rows[0].status).toBe('failed')
+    })
+
+    it('writes an aborted row when disposed mid-turn (MED-12)', async () => {
+      const projectId = 'proj-refine-dispose'
+      const mgrCap = new AgentRefineManager(broadcast, db, projectPath, projectId)
+      const child = createMockChild()
+      vi.mocked(mockSpawnClaude).mockReturnValue(child as never)
+      const { refineId } = await mgrCap.startRefine({ agentId: 'custom-foo', instruction: 'go', autoTest: false })
+      pushLine(child, assistantText('partial before dispose'))
+      // Project removed mid-flight: shutdown() marks the manager disposed.
+      mgrCap.shutdown()
+      await close(child, 143)
+      const rows = db.prepare(`SELECT * FROM ai_invocations WHERE project_id = ?`).all(projectId) as Array<Record<string, unknown>>
+      expect(rows).toHaveLength(1)
+      expect(rows[0].status).toBe('aborted')
+      expect(rows[0].surface).toBe('ai-edit')
+      expect(rows[0].surface_ref_id).toBe(refineId)
     })
 
     it('skips capture when projectId is not provided', async () => {

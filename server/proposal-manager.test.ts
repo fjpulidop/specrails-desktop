@@ -493,4 +493,131 @@ describe('ProposalManager', () => {
       expect(pm.isActive(proposalId)).toBe(false)
     })
   })
+
+  // ─── ai_invocations recording (COST-ACCOUNTING-AUDIT HIGH-6) ─────────────────
+
+  describe('recording (surface=proposal)', () => {
+    let pmRec: ProposalManager
+
+    function assistantUsageEvent(text: string, usage: Record<string, number>, model = 'claude-sonnet-4-6', id = 'msg-1') {
+      return JSON.stringify({
+        type: 'assistant',
+        message: { id, model, usage, content: [{ type: 'text', text }] },
+      })
+    }
+    function resultCostEvent(sessionId: string, opts: Record<string, unknown>) {
+      return JSON.stringify({ type: 'result', session_id: sessionId, ...opts })
+    }
+    function rows() {
+      return db.prepare('SELECT * FROM ai_invocations ORDER BY started_at ASC').all() as Array<Record<string, unknown>>
+    }
+
+    beforeEach(() => {
+      pmRec = new ProposalManager(broadcast, db, TEST_CWD, 'p1')
+    })
+
+    it('records a success row with native cost on a completed exploration', async () => {
+      const proposalId = setupProposal()
+      const child = createMockChildProcess()
+      vi.mocked(mockSpawn).mockReturnValue(child as any)
+
+      const p = pmRec.startExploration(proposalId, 'Add dark mode')
+      pushLine(child, assistantUsageEvent('exploring', { input_tokens: 100, output_tokens: 50 }))
+      pushLine(child, resultCostEvent('sess-1', { total_cost_usd: 0.9, usage: { input_tokens: 100, output_tokens: 50 } }))
+      await finishProcess(child, 0)
+      await p
+
+      const r = rows()
+      expect(r).toHaveLength(1)
+      expect(r[0].surface).toBe('proposal')
+      expect(r[0].surface_ref_id).toBe(proposalId)
+      expect(r[0].status).toBe('success')
+      expect(r[0].total_cost_usd).toBe(0.9)
+      expect(r[0].total_cost_usd_estimated).toBe(0)
+      expect(getBroadcastedByType(broadcast, 'spending.invalidated')).toHaveLength(1)
+    })
+
+    it('records a distinct row per spawn (exploration + refinement)', async () => {
+      const proposalId = setupProposal()
+      const child1 = createMockChildProcess()
+      vi.mocked(mockSpawn).mockReturnValue(child1 as any)
+      const explore = pmRec.startExploration(proposalId, 'Add dark mode')
+      pushLine(child1, resultCostEvent('sess-1', { total_cost_usd: 0.5, usage: { input_tokens: 10, output_tokens: 5 } }))
+      await finishProcess(child1, 0)
+      await explore
+
+      const child2 = createMockChildProcess()
+      vi.mocked(mockSpawn).mockReturnValue(child2 as any)
+      const refine = pmRec.sendRefinement(proposalId, 'make it darker')
+      pushLine(child2, resultCostEvent('sess-1', { total_cost_usd: 0.3, usage: { input_tokens: 8, output_tokens: 4 } }))
+      await finishProcess(child2, 0)
+      await refine
+
+      const r = rows()
+      expect(r).toHaveLength(2)
+      expect(r.every((row) => row.surface === 'proposal')).toBe(true)
+    })
+
+    it('records an estimated-cost aborted row on cancel', async () => {
+      const proposalId = setupProposal()
+      const child = createMockChildProcess()
+      vi.mocked(mockSpawn).mockReturnValue(child as any)
+
+      const p = pmRec.startExploration(proposalId, 'Add dark mode')
+      pushLine(child, assistantUsageEvent('working', { input_tokens: 4000, output_tokens: 2000 }))
+      await new Promise<void>((resolve) => setImmediate(resolve))
+      pmRec.cancel(proposalId)
+      await finishProcess(child, 143)
+      await p
+
+      const r = rows()
+      expect(r).toHaveLength(1)
+      expect(r[0].status).toBe('aborted')
+      expect(r[0].total_cost_usd_estimated).toBe(1)
+      expect(r[0].total_cost_usd as number).toBeGreaterThan(0)
+    })
+
+    it('records a failed row on non-zero exit', async () => {
+      const proposalId = setupProposal()
+      const child = createMockChildProcess()
+      vi.mocked(mockSpawn).mockReturnValue(child as any)
+
+      const p = pmRec.startExploration(proposalId, 'Add dark mode')
+      await finishProcess(child, 1)
+      await p
+
+      const r = rows()
+      expect(r).toHaveLength(1)
+      expect(r[0].status).toBe('failed')
+    })
+
+    it('does NOT record when the project is being disposed', async () => {
+      const proposalId = setupProposal()
+      const child = createMockChildProcess()
+      vi.mocked(mockSpawn).mockReturnValue(child as any)
+
+      const p = pmRec.startExploration(proposalId, 'Add dark mode')
+      pushLine(child, assistantUsageEvent('working', { input_tokens: 100, output_tokens: 50 }))
+      await new Promise<void>((resolve) => setImmediate(resolve))
+      pmRec.shutdown()
+      await finishProcess(child, 143)
+      await p
+
+      expect(rows()).toHaveLength(0)
+    })
+
+    it('records nothing when constructed without a projectId (byte-identical)', async () => {
+      const proposalId = setupProposal()
+      const child = createMockChildProcess()
+      vi.mocked(mockSpawn).mockReturnValue(child as any)
+
+      // `pm` from the outer beforeEach has no projectId.
+      const p = pm.startExploration(proposalId, 'Add dark mode')
+      pushLine(child, resultCostEvent('sess-1', { total_cost_usd: 0.9 }))
+      await finishProcess(child, 0)
+      await p
+
+      expect(rows()).toHaveLength(0)
+    })
+  })
 })
