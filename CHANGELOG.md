@@ -1,5 +1,21 @@
 # Changelog
 
+## [2.21.0](https://github.com/fjpulidop/specrails-desktop/compare/v2.20.1...v2.21.0) (2026-07-03)
+
+
+### Features
+
+* adopt safe-PR draft delivery as the default (kill-switch) ([#498](https://github.com/fjpulidop/specrails-desktop/issues/498)) ([395d278](https://github.com/fjpulidop/specrails-desktop/commit/395d2783bf2036b6d27cbff72f1b2286e6e12aac))
+* Approve/Discard action on a rail's delivered draft PR (task 7.2) ([#495](https://github.com/fjpulidop/specrails-desktop/issues/495)) ([307c43b](https://github.com/fjpulidop/specrails-desktop/commit/307c43b346b1982c58b673c27511f098746a00d7))
+* derive rail isolation from a loop-effect classifier (mutating vs read-only) ([#492](https://github.com/fjpulidop/specrails-desktop/issues/492)) ([09b4713](https://github.com/fjpulidop/specrails-desktop/commit/09b47131035875b0c6c6ceb1b9d64c746dd816c9))
+* flag-gated draft-PR delivery for isolated rails (combined batch PR) ([#489](https://github.com/fjpulidop/specrails-desktop/issues/489)) ([9860872](https://github.com/fjpulidop/specrails-desktop/commit/98608726fd33d2b2e51e08caddb6f93b2dcdf904))
+* git guardrails on the app push path (no force-push, no push to integration) ([#493](https://github.com/fjpulidop/specrails-desktop/issues/493)) ([53f7d70](https://github.com/fjpulidop/specrails-desktop/commit/53f7d70e346343876b111ca6dd7f3dc0c37ed280))
+* inject SPECRAILS_GIT_AUTO=false into rail spawns under the safe-PR flag (4.3) ([#496](https://github.com/fjpulidop/specrails-desktop/issues/496)) ([65f04ee](https://github.com/fjpulidop/specrails-desktop/commit/65f04ee1733ac325852c03a38a01f48d5274a941))
+* integration-branch picker in project Settings (client, i18n x8) ([#490](https://github.com/fjpulidop/specrails-desktop/issues/490)) ([dadf231](https://github.com/fjpulidop/specrails-desktop/commit/dadf2313446581ef6bd13ba1a9d83b478259148e))
+* integration-branch REST API + branch-name arg-injection guard ([#488](https://github.com/fjpulidop/specrails-desktop/issues/488)) ([4a2b0ea](https://github.com/fjpulidop/specrails-desktop/commit/4a2b0eabd485ccf372432e69b932e4d240b58a85))
+* safe-PR workflow foundation — integration branch + draft-PR primitive ([#486](https://github.com/fjpulidop/specrails-desktop/issues/486)) ([706bf9e](https://github.com/fjpulidop/specrails-desktop/commit/706bf9e4700c8ffc7c29f7de6e06d7b7d5c722af))
+* surface rail.pr_delivered in the dashboard (draft-PR toast + link) ([#491](https://github.com/fjpulidop/specrails-desktop/issues/491)) ([4cb3f92](https://github.com/fjpulidop/specrails-desktop/commit/4cb3f9289acbcf79afb13a53b692d39edcb4a872))
+
 ## [2.20.1](https://github.com/fjpulidop/specrails-desktop/compare/v2.20.0...v2.20.1) (2026-07-03)
 
 
