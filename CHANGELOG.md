@@ -1,5 +1,12 @@
 # Changelog
 
+## [2.23.0](https://github.com/fjpulidop/specrails-desktop/compare/v2.22.0...v2.23.0) (2026-07-04)
+
+
+### Features
+
+* **rails:** merge-local — remote-less acceptance for the ask-first PR flow ([#503](https://github.com/fjpulidop/specrails-desktop/issues/503)) ([3589e9b](https://github.com/fjpulidop/specrails-desktop/commit/3589e9bfd502a29ac6299a58727cda78ecd2aa9d))
+
 ## [2.22.0](https://github.com/fjpulidop/specrails-desktop/compare/v2.21.0...v2.22.0) (2026-07-04)
 
 
