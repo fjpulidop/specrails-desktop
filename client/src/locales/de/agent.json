@@ -220,7 +220,8 @@
       "marker": "Implementierungskarte — oben angeheftet",
       "collapse": "Angeheftete Karte minimieren",
       "expand": "Angeheftete Karte ausklappen",
-      "showCard": "Diese Karte anzeigen",
+      "expandCard": "Diese Karte ausklappen",
+      "collapseCard": "Diese Karte minimieren",
       "collapsed_one": "Implementierungskarte",
       "collapsed_other": "{{count}} Implementierungskarten",
       "state": {
@@ -245,8 +246,10 @@
   "refs": {
     "openTicket": "Spec #{{id}} öffnen",
     "openJob": "Job {{id}} öffnen",
+    "openLoop": "Loop {{id}} öffnen",
     "ticketNotFound": "Spec #{{id}} nicht gefunden — möglicherweise gelöscht",
     "jobNotFound": "Job nicht gefunden — möglicherweise gelöscht",
+    "loopNotFound": "Loop nicht gefunden — er wurde möglicherweise gelöscht",
     "lookupFailed": "Referenz konnte nicht geprüft werden — bitte erneut versuchen"
   }
 }

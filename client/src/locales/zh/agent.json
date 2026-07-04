@@ -220,7 +220,8 @@
       "marker": "实现卡片 — 已固定在上方",
       "collapse": "最小化固定卡片",
       "expand": "展开固定卡片",
-      "showCard": "显示此卡片",
+      "expandCard": "展开此卡片",
+      "collapseCard": "最小化此卡片",
       "collapsed_one": "实现卡片",
       "collapsed_other": "{{count}} 张实现卡片",
       "state": {
@@ -245,8 +246,10 @@
   "refs": {
     "openTicket": "打开 Spec #{{id}}",
     "openJob": "打开任务 {{id}}",
+    "openLoop": "打开循环 {{id}}",
     "ticketNotFound": "未找到 Spec #{{id}} — 可能已被删除",
     "jobNotFound": "未找到任务 — 可能已被删除",
+    "loopNotFound": "未找到循环 — 可能已被删除",
     "lookupFailed": "无法验证该引用 — 请重试"
   }
 }

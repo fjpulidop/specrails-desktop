@@ -220,7 +220,8 @@
       "marker": "Cartão de implementação — fixado acima",
       "collapse": "Minimizar cartão fixado",
       "expand": "Expandir cartão fixado",
-      "showCard": "Mostrar este cartão",
+      "expandCard": "Expandir este cartão",
+      "collapseCard": "Minimizar este cartão",
       "collapsed_one": "Cartão de implementação",
       "collapsed_other": "{{count}} cartões de implementação",
       "state": {
@@ -245,8 +246,10 @@
   "refs": {
     "openTicket": "Abrir spec #{{id}}",
     "openJob": "Abrir job {{id}}",
+    "openLoop": "Abrir loop {{id}}",
     "ticketNotFound": "Spec #{{id}} não encontrada — pode ter sido excluída",
     "jobNotFound": "Job não encontrado — pode ter sido excluído",
+    "loopNotFound": "Loop não encontrado — pode ter sido excluído",
     "lookupFailed": "Não foi possível verificar a referência — tente novamente"
   }
 }

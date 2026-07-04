@@ -220,7 +220,8 @@
       "marker": "Scheda di implementazione — fissata sopra",
       "collapse": "Riduci la scheda fissata",
       "expand": "Espandi la scheda fissata",
-      "showCard": "Mostra questa scheda",
+      "expandCard": "Espandi questa scheda",
+      "collapseCard": "Riduci questa scheda",
       "collapsed_one": "Scheda di implementazione",
       "collapsed_other": "{{count}} schede di implementazione",
       "state": {
@@ -245,8 +246,10 @@
   "refs": {
     "openTicket": "Apri la spec #{{id}}",
     "openJob": "Apri il job {{id}}",
+    "openLoop": "Apri loop {{id}}",
     "ticketNotFound": "Spec #{{id}} non trovata — potrebbe essere stata eliminata",
     "jobNotFound": "Job non trovato — potrebbe essere stato eliminato",
+    "loopNotFound": "Loop non trovato — potrebbe essere stato eliminato",
     "lookupFailed": "Impossibile verificare il riferimento — riprova"
   }
 }

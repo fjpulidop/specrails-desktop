@@ -17,8 +17,8 @@ const PILL_TONE: Record<AgentPrDecisionValue, string> = {
   discarded: 'border-border/60 bg-surface/60 text-foreground/50',
 }
 
-/** Compact decision-state pill — shared by the pinned dock (chips + collapsed
- *  bar) and the history reference marker. */
+/** Compact decision-state pill — shared by the pinned dock (per-card headers +
+ *  collapsed bar) and the history reference marker. */
 export function PrDecisionPill({ decision }: { decision: AgentPrDecisionValue }) {
   const { t } = useTranslation('agent')
   return (
@@ -34,10 +34,12 @@ export function PrDecisionPill({ decision }: { decision: AgentPrDecisionValue })
   )
 }
 
-// Collapse-to-chip is per conversation and SESSION-ONLY by design (never
+// Collapse state is per conversation and SESSION-ONLY by design (never
 // localStorage): a fresh app session re-surfaces every attention-demanding card.
 const collapseKey = (conversationId: string) =>
   `specrails-desktop:agent-pr-dock-collapsed:${conversationId}`
+const cardCollapseKey = (conversationId: string) =>
+  `specrails-desktop:agent-pr-dock-card-collapsed:${conversationId}`
 
 function readCollapsed(conversationId: string): boolean {
   try {
@@ -56,13 +58,35 @@ function writeCollapsed(conversationId: string, collapsed: boolean): void {
   }
 }
 
+/** Per-card collapse picks, keyed by prDeliveryId (stable across WS updates). */
+function readCollapsedCards(conversationId: string): Set<string> {
+  try {
+    const raw = sessionStorage.getItem(cardCollapseKey(conversationId))
+    const parsed: unknown = raw ? JSON.parse(raw) : []
+    return new Set(Array.isArray(parsed) ? parsed.filter((v): v is string => typeof v === 'string') : [])
+  } catch {
+    return new Set()
+  }
+}
+
+function writeCollapsedCards(conversationId: string, ids: Set<string>): void {
+  try {
+    if (ids.size === 0) sessionStorage.removeItem(cardCollapseKey(conversationId))
+    else sessionStorage.setItem(cardCollapseKey(conversationId), JSON.stringify([...ids]))
+  } catch {
+    /* storage unavailable — collapse stays component-local */
+  }
+}
+
 /**
  * The pinned implementation-card slot rendered just above the chat composer
  * (both the floating panel and the Agent-Mode inline surface, via
- * `AgentConversationView`). Shows the FULL `AgentPrDecisionCard` for the newest
- * attention-demanding delivery; additional active deliveries stack as a compact
- * chip row above it (click a chip to expand that card in place). A subtle
- * chevron collapses the whole dock to a slim bar. Purely presentational — the
+ * `AgentConversationView`). EVERY attention-demanding delivery renders as its
+ * own full `AgentPrDecisionCard`, stacked oldest→newest (newest adjacent to
+ * the composer) — parallel rails each keep their own card, each advancing at
+ * its own pace. Each card carries a slim per-card header (rail + tickets +
+ * decision pill) with an independent collapse-to-header toggle; a dock-level
+ * chevron collapses everything to one slim bar. Purely presentational — the
  * pinned set is derived upstream from the conversation's system rows.
  */
 export function AgentPrPinnedDock({
@@ -78,27 +102,35 @@ export function AgentPrPinnedDock({
 }) {
   const { t } = useTranslation('agent')
   const [collapsed, setCollapsed] = useState(() => readCollapsed(conversationId))
-  // Chip-row expand-in-place pick; null = follow the newest pinned card.
-  const [selectedId, setSelectedId] = useState<string | null>(null)
+  const [collapsedCards, setCollapsedCards] = useState<Set<string>>(() =>
+    readCollapsedCards(conversationId),
+  )
 
-  // Collapse + pick are per conversation — re-read/reset on mission switch.
+  // Collapse state is per conversation — re-read on mission switch.
   useEffect(() => {
     setCollapsed(readCollapsed(conversationId))
-    setSelectedId(null)
+    setCollapsedCards(readCollapsedCards(conversationId))
   }, [conversationId])
 
   if (pinned.length === 0) return null // parent gates; defensive
   const newest = pinned[pinned.length - 1]
-  // A stale pick (its card unpinned meanwhile) falls back to the newest.
-  const expanded = pinned.find((p) => p.messageId === selectedId) ?? newest
-  const others = pinned.filter((p) => p.messageId !== expanded.messageId)
 
   const setCollapsedPersist = (v: boolean) => {
     writeCollapsed(conversationId, v)
     setCollapsed(v)
   }
 
-  const chipLabel = (e: AgentPrDecisionEnvelope): string => {
+  const toggleCard = (deliveryId: string) => {
+    setCollapsedCards((prev) => {
+      const next = new Set(prev)
+      if (next.has(deliveryId)) next.delete(deliveryId)
+      else next.add(deliveryId)
+      writeCollapsedCards(conversationId, next)
+      return next
+    })
+  }
+
+  const cardLabel = (e: AgentPrDecisionEnvelope): string => {
     const rail = t('prCard.rail', { index: e.railIndex + 1 })
     const tickets = e.ticketIds.map((id) => `#${id}`).join(' ')
     return tickets ? `${rail} · ${tickets}` : rail
@@ -134,32 +166,16 @@ export function AgentPrPinnedDock({
           </button>
         ) : (
           <div className="space-y-1.5">
-            {/* Additional active deliveries — newest-first compact chips;
-                clicking one expands it in place below. */}
-            {others.length > 0 && (
-              <div className="flex flex-wrap items-center gap-1.5" data-testid="agent-pr-dock-chips">
-                {[...others].reverse().map((p) => (
-                  <button
-                    key={p.messageId}
-                    type="button"
-                    data-testid="agent-pr-dock-chip"
-                    data-agent-interactive
-                    onClick={() => setSelectedId(p.messageId)}
-                    title={t('prCard.pinned.showCard')}
-                    className="inline-flex max-w-full items-center gap-1.5 rounded-full border border-border/60 bg-card/80 px-2 py-0.5 text-[11px] text-foreground/70 shadow backdrop-blur-xl transition-colors hover:border-accent-primary/40 hover:bg-surface/70"
-                  >
-                    <GitPullRequest className="h-3 w-3 shrink-0 text-accent-primary/70" />
-                    <span className="max-w-[180px] truncate">{chipLabel(p.envelope)}</span>
-                    <PrDecisionPill decision={p.envelope.decision} />
-                  </button>
-                ))}
-              </div>
-            )}
-            {/* Slim pinned header + the FULL decision card (reused verbatim). */}
+            {/* Dock header: pinned label (+ count) and the collapse-all chevron. */}
             <div className="flex items-center justify-between px-1">
               <span className="inline-flex items-center gap-1 text-[10px] font-medium uppercase tracking-wide text-foreground/45">
                 <Pin className="h-3 w-3 text-accent-primary/60" />
                 {t('prCard.pinned.label')}
+                {pinned.length > 1 && (
+                  <span className="rounded-full border border-border/60 bg-surface/60 px-1.5 py-px text-[9px] tabular-nums text-foreground/55">
+                    {pinned.length}
+                  </span>
+                )}
               </span>
               <button
                 type="button"
@@ -173,7 +189,49 @@ export function AgentPrPinnedDock({
                 <ChevronDown className="h-3.5 w-3.5" />
               </button>
             </div>
-            <AgentPrDecisionCard envelope={expanded.envelope} />
+            {/* Every pinned delivery stacks as its own full card — oldest→newest
+                so the freshest one sits next to the composer. Scroll-bounded so
+                many parallel rails never eat the whole viewport. */}
+            <div
+              data-testid="agent-pr-dock-stack"
+              className="max-h-[45vh] space-y-1.5 overflow-y-auto overscroll-contain"
+            >
+              {pinned.map((p) => {
+                const deliveryId = p.envelope.prDeliveryId
+                const isCardCollapsed = collapsedCards.has(deliveryId)
+                return (
+                  <div key={p.messageId} data-testid="agent-pr-dock-card" className="space-y-1">
+                    <button
+                      type="button"
+                      data-testid="agent-pr-dock-card-toggle"
+                      data-agent-interactive
+                      onClick={() => toggleCard(deliveryId)}
+                      aria-expanded={!isCardCollapsed}
+                      aria-label={t(isCardCollapsed ? 'prCard.pinned.expandCard' : 'prCard.pinned.collapseCard')}
+                      title={t(isCardCollapsed ? 'prCard.pinned.expandCard' : 'prCard.pinned.collapseCard')}
+                      className={cn(
+                        'flex w-full items-center gap-2 rounded-lg border px-2.5 py-1 text-[11px] text-foreground/70 transition-colors',
+                        isCardCollapsed
+                          ? 'border-border/60 bg-card/80 shadow backdrop-blur-xl hover:border-accent-primary/40 hover:bg-surface/70'
+                          : 'border-transparent bg-transparent hover:bg-surface/50',
+                      )}
+                    >
+                      <GitPullRequest className="h-3 w-3 shrink-0 text-accent-primary/70" />
+                      <span className="min-w-0 flex-1 truncate text-left font-medium">
+                        {cardLabel(p.envelope)}
+                      </span>
+                      <PrDecisionPill decision={p.envelope.decision} />
+                      {isCardCollapsed ? (
+                        <ChevronUp className="h-3 w-3 shrink-0 opacity-60" />
+                      ) : (
+                        <ChevronDown className="h-3 w-3 shrink-0 opacity-60" />
+                      )}
+                    </button>
+                    {!isCardCollapsed && <AgentPrDecisionCard envelope={p.envelope} />}
+                  </div>
+                )
+              })}
+            </div>
           </div>
         )}
       </div>

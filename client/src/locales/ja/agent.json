@@ -220,7 +220,8 @@
       "marker": "実装カード — 上部にピン留め中",
       "collapse": "ピン留めカードを最小化",
       "expand": "ピン留めカードを展開",
-      "showCard": "このカードを表示",
+      "expandCard": "このカードを展開",
+      "collapseCard": "このカードを最小化",
       "collapsed_one": "実装カード",
       "collapsed_other": "{{count}} 件の実装カード",
       "state": {
@@ -245,8 +246,10 @@
   "refs": {
     "openTicket": "スペック #{{id}} を開く",
     "openJob": "ジョブ {{id}} を開く",
+    "openLoop": "ループ {{id}} を開く",
     "ticketNotFound": "スペック #{{id}} が見つかりません — 削除された可能性があります",
     "jobNotFound": "ジョブが見つかりません — 削除された可能性があります",
+    "loopNotFound": "ループが見つかりません — 削除された可能性があります",
     "lookupFailed": "参照を確認できませんでした — もう一度お試しください"
   }
 }

@@ -220,7 +220,8 @@
       "marker": "Implementation card — pinned above",
       "collapse": "Minimize pinned card",
       "expand": "Expand pinned card",
-      "showCard": "Show this card",
+      "expandCard": "Expand this card",
+      "collapseCard": "Minimize this card",
       "collapsed_one": "Implementation card",
       "collapsed_other": "{{count}} implementation cards",
       "state": {
@@ -245,8 +246,10 @@
   "refs": {
     "openTicket": "Open spec #{{id}}",
     "openJob": "Open job {{id}}",
+    "openLoop": "Open loop {{id}}",
     "ticketNotFound": "Spec #{{id}} not found — it may have been deleted",
     "jobNotFound": "Job not found — it may have been deleted",
+    "loopNotFound": "Loop not found — it may have been deleted",
     "lookupFailed": "Couldn't verify the reference — try again"
   }
 }

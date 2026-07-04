@@ -229,38 +229,52 @@ describe('multi-card stacking', () => {
     sysRow('s2', { prDeliveryId: 'd2', railIndex: 1, decision: 'pr_draft', ticketIds: [7], prUrl: 'https://github.com/o/r/pull/9', prState: 'pr-created' }),
   ]
 
-  it('newest expanded, older as a compact chip; chip click expands in place', async () => {
+  it('EVERY pinned delivery renders as its own full card, stacked oldest→newest', async () => {
     await renderPanelWithMessages(twoPinned)
     const d = await screen.findByTestId('agent-pr-pinned-dock')
-    // Newest (d2 / pr_draft) is the full card…
-    expect(within(d).getByText('Draft PR created')).toBeInTheDocument()
-    // …the older one is a single chip (rail + tickets + decision pill).
-    const chips = within(d).getAllByTestId('agent-pr-dock-chip')
-    expect(chips).toHaveLength(1)
-    expect(chips[0].textContent).toContain('Rail 1')
-    expect(chips[0].textContent).toContain('#4')
-    // Both history slots are markers; exactly ONE full card total.
-    expect(markers()).toHaveLength(2)
-    expect(fullCards()).toHaveLength(1)
-
-    // Expand-in-place: the older card becomes the full one, newest becomes a chip.
-    fireEvent.click(chips[0])
+    // Both full cards render in the dock…
     expect(within(d).getByText('Implementation ready for review')).toBeInTheDocument()
-    const swapped = within(d).getAllByTestId('agent-pr-dock-chip')
-    expect(swapped).toHaveLength(1)
-    expect(swapped[0].textContent).toContain('Rail 2')
+    expect(within(d).getByText('Draft PR created')).toBeInTheDocument()
+    expect(within(d).getAllByTestId('agent-pr-decision-card')).toHaveLength(2)
+    expect(fullCards()).toHaveLength(2)
+    // …with per-card headers in message order (oldest first, newest by the composer).
+    const headers = within(d).getAllByTestId('agent-pr-dock-card-toggle')
+    expect(headers).toHaveLength(2)
+    expect(headers[0].textContent).toContain('Rail 1')
+    expect(headers[0].textContent).toContain('#4')
+    expect(headers[1].textContent).toContain('Rail 2')
+    expect(headers[1].textContent).toContain('#7')
+    // Both history slots are markers.
+    expect(markers()).toHaveLength(2)
   })
 
-  it('when the expanded card unpins, the remaining pinned card takes the slot', async () => {
+  it('per-card collapse is independent; state survives remount via sessionStorage', async () => {
+    await renderPanelWithMessages(twoPinned)
+    const d = await screen.findByTestId('agent-pr-pinned-dock')
+    // Collapse only the OLDER card (d1) to its header row.
+    fireEvent.click(within(d).getAllByTestId('agent-pr-dock-card-toggle')[0])
+    expect(within(d).getAllByTestId('agent-pr-decision-card')).toHaveLength(1)
+    expect(within(d).getByText('Draft PR created')).toBeInTheDocument()
+    expect(within(d).queryByText('Implementation ready for review')).toBeNull()
+    expect(sessionStorage.getItem('specrails-desktop:agent-pr-dock-card-collapsed:c1')).toBe(
+      JSON.stringify(['d1']),
+    )
+    // Expand it back.
+    fireEvent.click(within(d).getAllByTestId('agent-pr-dock-card-toggle')[0])
+    expect(within(d).getAllByTestId('agent-pr-decision-card')).toHaveLength(2)
+    expect(sessionStorage.getItem('specrails-desktop:agent-pr-dock-card-collapsed:c1')).toBeNull()
+  })
+
+  it('when one card unpins, the remaining pinned card keeps its own slot', async () => {
     await renderPanelWithMessages(twoPinned)
     await screen.findByTestId('agent-pr-pinned-dock')
-    // d2 (the expanded newest) publishes → unpins.
+    // d2 publishes → unpins; d1 keeps its full card in the dock.
     await act(async () => {
       wsHandler!(wsEnvelope({ prDeliveryId: 'd2', railIndex: 1, decision: 'pr_ready', ticketIds: [7], prUrl: 'https://github.com/o/r/pull/9', prState: 'pr-created' }))
     })
     const d = await screen.findByTestId('agent-pr-pinned-dock')
-    await waitFor(() => expect(within(d).getByText('Implementation ready for review')).toBeInTheDocument())
-    expect(within(d).queryAllByTestId('agent-pr-dock-chip')).toHaveLength(0)
+    await waitFor(() => expect(within(d).getAllByTestId('agent-pr-decision-card')).toHaveLength(1))
+    expect(within(d).getByText('Implementation ready for review')).toBeInTheDocument()
     // History: one marker (d1 still pinned) + the unpinned d2 full card.
     expect(markers()).toHaveLength(1)
     expect(screen.getByText('PR ready for merge')).toBeInTheDocument()

@@ -220,7 +220,8 @@
       "marker": "Carte d’implémentation — épinglée ci-dessus",
       "collapse": "Réduire la carte épinglée",
       "expand": "Déployer la carte épinglée",
-      "showCard": "Afficher cette carte",
+      "expandCard": "Développer cette carte",
+      "collapseCard": "Réduire cette carte",
       "collapsed_one": "Carte d’implémentation",
       "collapsed_other": "{{count}} cartes d’implémentation",
       "state": {
@@ -245,8 +246,10 @@
   "refs": {
     "openTicket": "Ouvrir la spec #{{id}}",
     "openJob": "Ouvrir le job {{id}}",
+    "openLoop": "Ouvrir la boucle {{id}}",
     "ticketNotFound": "Spec #{{id}} introuvable — elle a peut-être été supprimée",
     "jobNotFound": "Job introuvable — il a peut-être été supprimé",
+    "loopNotFound": "Boucle introuvable — elle a peut-être été supprimée",
     "lookupFailed": "Impossible de vérifier la référence — réessayez"
   }
 }
