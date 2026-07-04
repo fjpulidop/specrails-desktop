@@ -233,7 +233,12 @@
         "merged": "Merged",
         "discarded": "Discarded"
       }
-    }
+    },
+    "mergeLocal": "Integrate locally",
+    "mergeLocalTooltip": "Merge the delivered branches into {{base}} in your local checkout (no GitHub needed)",
+    "mergeLocalBlockedDirty": "Cannot integrate: your working tree on {{base}} has uncommitted changes. Commit or stash them, then retry.",
+    "mergeLocalBlockedBranch": "Cannot integrate: your checkout is on {{current}}, not {{base}}. Check out {{base}}, then retry.",
+    "mergedLocally": "Integrated into {{base}} locally"
   },
   "specDraft": {
     "heading": "Spec draft",

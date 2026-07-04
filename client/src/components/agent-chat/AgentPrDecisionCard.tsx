@@ -166,10 +166,17 @@ export function AgentPrDecisionCard({ envelope }: { envelope: AgentPrDecisionEnv
         // Neutral: the row was already resolved elsewhere — the next
         // agent_pr_decision broadcast re-renders this card to the real state.
         toast.info(t('prCard.alreadyResolved'))
+      } else if (r.kind === 'blocked') {
+        // merge-local precondition — user-fixable, name exactly what to fix.
+        toast.warning(r.reason === 'dirty'
+          ? t('prCard.mergeLocalBlockedDirty', { base: r.base || envelope.baseBranch })
+          : t('prCard.mergeLocalBlockedBranch', { base: r.base || envelope.baseBranch, current: r.current ?? '?' }))
       } else if (r.kind === 'failed') {
         toast.error(t('prCard.actionFailed'), { description: r.detail })
       } else if (action === 'poll-merge' && !r.merged) {
         toast.info(t('prCard.notMergedYet'))
+      } else if (action === 'merge-local' && r.kind === 'ok' && r.decision === 'merged') {
+        toast.success(t('prCard.mergedLocally', { base: envelope.baseBranch }))
       }
     } catch (e) {
       toast.error(t('prCard.actionFailed'), { description: e instanceof Error ? e.message : undefined })
@@ -292,6 +299,22 @@ export function AgentPrDecisionCard({ envelope }: { envelope: AgentPrDecisionEnv
     </button>
   )
 
+  // Remote-less acceptance (no PR exists yet): merge into the base locally.
+  const mergeLocalAction = (
+    <button
+      type="button"
+      onClick={() => void act('merge-local')}
+      disabled={anyBusy}
+      data-testid="agent-pr-merge-local"
+      data-agent-interactive
+      title={t('prCard.mergeLocalTooltip', { base: envelope.baseBranch })}
+      className="inline-flex items-center gap-1 rounded-md border border-accent-success/40 bg-accent-success/10 px-2 py-1 text-[11px] font-medium text-accent-success transition-colors hover:bg-accent-success/20 disabled:pointer-events-none disabled:opacity-50"
+    >
+      {busy === 'merge-local' && spinner}
+      {t('prCard.mergeLocal')}
+    </button>
+  )
+
   const discardAction = (
     <button type="button" onClick={onDiscardClick} disabled={anyBusy} data-agent-interactive className={ghostBtn}>
       {busy === 'discard' && spinner}
@@ -378,6 +401,7 @@ export function AgentPrDecisionCard({ envelope }: { envelope: AgentPrDecisionEnv
           {decision === 'on_review' && (
             <div className="flex items-center gap-1.5">
               {primaryAction('create-pr', t('prCard.createPr'))}
+              {mergeLocalAction}
               {discardAction}
             </div>
           )}
@@ -390,6 +414,7 @@ export function AgentPrDecisionCard({ envelope }: { envelope: AgentPrDecisionEnv
           {degradedDraft && (
             <div className="flex items-center gap-1.5">
               {primaryAction('create-pr', t('prCard.retryPr'))}
+              {mergeLocalAction}
               {discardAction}
             </div>
           )}
@@ -402,6 +427,7 @@ export function AgentPrDecisionCard({ envelope }: { envelope: AgentPrDecisionEnv
           {decision === 'pr_failed' && (
             <div className="flex items-center gap-1.5">
               {primaryAction('create-pr', t('prCard.retry'))}
+              {mergeLocalAction}
               {discardAction}
             </div>
           )}

@@ -270,7 +270,7 @@ export type RailPrDecision =
 export type RailPrDeliveryState = 'none' | 'local-only' | 'pushed' | 'pr-created'
 
 /** The four actions POST /rails/pr-decision accepts. */
-export type RailPrDecisionAction = 'create-pr' | 'publish' | 'discard' | 'poll-merge'
+export type RailPrDecisionAction = 'create-pr' | 'publish' | 'discard' | 'poll-merge' | 'merge-local'
 
 /**
  * Durable snapshot of a rail launch's ask-first PR decision. The client keeps

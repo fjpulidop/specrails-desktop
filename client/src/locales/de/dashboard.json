@@ -29,6 +29,7 @@
     "railWorktreeNeedsReview": "Rail {{n}}: Spec #{{ticket}} muss nach dem Merge geprüft werden",
     "railWorktreesNoGit": "Worktree-Isolation nicht verfügbar: Dieses Projekt ist kein Git-Repository — Ausführung im gemeinsamen Modus.",
     "railWorktreesNoCommits": "Worktree-Isolation nicht verfügbar: Das Repository hat noch keine Commits — erstelle einen ersten Commit und starte neu.",
+    "railWorktreesError": "Worktree-Isolation fehlgeschlagen — dieser Lauf läuft OHNE den PR-Review-Flow weiter (keine Implementierungskarte). Siehe Fehlerdetail unten.",
     "onReviewCannotMoveToRail": "Diese Spec wartet auf die PR-Prüfung — löse zuerst die PR-Entscheidung",
     "onReviewNotLaunchable": "Eine Spec auf diesem Rail wartet auf die PR-Prüfung — löse die PR-Entscheidung vor dem Start"
   },
@@ -61,7 +62,15 @@
     "discardedToast": "PR verworfen — Tickets zurück in Specs",
     "decisionPending": "Dieser Rail hat eine ausstehende PR-Entscheidung — erstelle, veröffentliche oder verwirf sie, bevor du neu startest",
     "discardConfirmTitle": "Diese Lieferung verwerfen?",
-    "discardConfirmBody": "Die Branches und Worktrees des Launches werden verworfen und die Tickets kehren zurück zu Specs. Das kann nicht rückgängig gemacht werden."
+    "discardConfirmBody": "Die Branches und Worktrees des Launches werden verworfen und die Tickets kehren zurück zu Specs. Das kann nicht rückgängig gemacht werden.",
+    "mergeLocal": "Lokal integrieren",
+    "mergeLocalTooltip": "Führt die gelieferten Branches lokal in {{base}} zusammen (ohne GitHub)",
+    "mergeLocalConfirmTitle": "Lokal integrieren?",
+    "mergeLocalConfirmBody": "Die gelieferten Branches werden lokal in {{base}} zusammengeführt. Dein Checkout muss auf {{base}} stehen und sauber sein.",
+    "mergeLocalBlockedDirty": "Integration nicht möglich: dein Arbeitsverzeichnis auf {{base}} hat uncommittete Änderungen. Committe oder stashe sie und versuche es erneut.",
+    "mergeLocalBlockedBranch": "Integration nicht möglich: dein Checkout steht auf {{current}}, nicht auf {{base}}. Wechsle zu {{base}} und versuche es erneut.",
+    "mergeLocalFailed": "Lokaler Merge fehlgeschlagen: {{detail}}",
+    "mergedLocally": "Lokal in {{base}} integriert"
   },
   "railsBoard": {
     "title": "Rails",

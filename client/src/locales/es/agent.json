@@ -233,7 +233,12 @@
         "merged": "Fusionada",
         "discarded": "Descartada"
       }
-    }
+    },
+    "mergeLocal": "Integrar en local",
+    "mergeLocalTooltip": "Fusiona las ramas entregadas en {{base}} en tu checkout local (sin necesidad de GitHub)",
+    "mergeLocalBlockedDirty": "No se puede integrar: tu árbol de trabajo en {{base}} tiene cambios sin commitear. Haz commit o stash y reintenta.",
+    "mergeLocalBlockedBranch": "No se puede integrar: tu checkout está en {{current}}, no en {{base}}. Cambia a {{base}} y reintenta.",
+    "mergedLocally": "Integrado en {{base}} en local"
   },
   "specDraft": {
     "heading": "Borrador de spec",

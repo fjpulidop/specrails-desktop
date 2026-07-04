@@ -29,6 +29,7 @@
     "railWorktreeNeedsReview": "Rail {{n}}：マージ後、spec #{{ticket}} は要確認です",
     "railWorktreesNoGit": "worktree 分離は利用できません：このプロジェクトは git リポジトリではありません — 共有モードで実行します。",
     "railWorktreesNoCommits": "worktree 分離は利用できません：リポジトリにまだコミットがありません — 初回コミットを作成してから再実行してください。",
+    "railWorktreesError": "ワークツリー分離に失敗しました — この実行は PR レビューフローなし（実装カードなし）で続行されます。下のエラー詳細を確認してください。",
     "onReviewCannotMoveToRail": "このスペックは PR レビュー待ちです — まず PR の決定を処理してください",
     "onReviewNotLaunchable": "このレールのスペックが PR レビュー待ちです — 起動する前に PR の決定を処理してください"
   },
@@ -61,7 +62,15 @@
     "discardedToast": "PR を破棄しました — チケットは Specs に戻されました",
     "decisionPending": "このレールには未処理の PR 決定があります — 再起動する前に作成・公開・破棄のいずれかを行ってください",
     "discardConfirmTitle": "この成果物を破棄しますか？",
-    "discardConfirmBody": "この起動のブランチと worktree は削除され、チケットは Specs に戻ります。この操作は元に戻せません。"
+    "discardConfirmBody": "この起動のブランチと worktree は削除され、チケットは Specs に戻ります。この操作は元に戻せません。",
+    "mergeLocal": "ローカルに統合",
+    "mergeLocalTooltip": "配信されたブランチをローカルチェックアウトの {{base}} にマージします（GitHub 不要）",
+    "mergeLocalConfirmTitle": "ローカルに統合しますか？",
+    "mergeLocalConfirmBody": "配信されたブランチがローカルチェックアウトの {{base}} にマージされます。チェックアウトは {{base}} でワークツリーがクリーンである必要があります。",
+    "mergeLocalBlockedDirty": "統合できません：{{base}} のワークツリーに未コミットの変更があります。コミットまたはスタッシュして再試行してください。",
+    "mergeLocalBlockedBranch": "統合できません：チェックアウトは {{current}} で、{{base}} ではありません。{{base}} に切り替えて再試行してください。",
+    "mergeLocalFailed": "ローカルマージに失敗しました：{{detail}}",
+    "mergedLocally": "ローカルで {{base}} に統合しました"
   },
   "railsBoard": {
     "title": "レール",

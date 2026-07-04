@@ -13,6 +13,11 @@
  *   discard    → close the PR, sweep the launch's worktrees + branches, revert
  *                the on_review tickets to todo.
  *   poll-merge → `gh pr view` — MERGED promotes the tickets to done.
+ *   merge-local→ the REMOTE-LESS acceptance path: merge the delivered branches
+ *                into the integration branch directly in the user's checkout
+ *                (guarded: correct branch checked out + clean tree, abort on
+ *                conflict). Without it, a repo with no GitHub remote wedges
+ *                forever in retry(local-only)/discard — no way to ACCEPT work.
  *
  * Every mutation rides the compare-and-set `transitionDecision` (a raced
  * concurrent decision loses with a 409) and re-broadcasts the durable
@@ -40,7 +45,7 @@ import { resolveProjectExecution } from './workspace-resolution'
 import { getAgentChatManager } from './agent-chat-registry'
 import type { WsMessage, TicketUpdatedMessage, PrDecisionCardEnvelope } from './types'
 
-export const PR_DECISION_ACTIONS = ['create-pr', 'publish', 'discard', 'poll-merge'] as const
+export const PR_DECISION_ACTIONS = ['create-pr', 'publish', 'discard', 'poll-merge', 'merge-local'] as const
 export type PrDecisionAction = (typeof PR_DECISION_ACTIONS)[number]
 
 export function isPrDecisionAction(v: unknown): v is PrDecisionAction {
@@ -107,6 +112,11 @@ function actionAllowed(action: PrDecisionAction, row: RailPrDeliveryRow): boolea
         row.decision === 'pr_ready' || row.decision === 'pr_failed'
     case 'poll-merge':
       return (row.decision === 'pr_draft' || row.decision === 'pr_ready') && row.pr_url !== null
+    case 'merge-local':
+      // Remote-less acceptance ONLY: once a real PR exists (pr_url), GitHub is
+      // the merge authority — merging under an open PR would leave it dangling.
+      return row.pr_url === null &&
+        (row.decision === 'on_review' || row.decision === 'pr_failed' || row.decision === 'pr_draft')
   }
 }
 
@@ -124,6 +134,7 @@ export async function executePrDecision(deps: PrDecisionDeps, input: PrDecisionI
     case 'publish': return runPublish(deps, row)
     case 'discard': return runDiscard(deps, row)
     case 'poll-merge': return runPollMerge(deps, row)
+    case 'merge-local': return runMergeLocal(deps, row)
   }
 }
 
@@ -477,6 +488,103 @@ async function runPollMerge(deps: PrDecisionDeps, row: RailPrDeliveryRow): Promi
     console.error('[rail-pr-decision] jira onRailMerged failed:', err)
   }
   return { status: 200, body: { ok: true, decision: 'merged', merged: true, prUrl: row.pr_url } }
+}
+
+/**
+ * Remote-less acceptance: merge the delivery's branches into the integration
+ * branch DIRECTLY in the user's checkout. This is the one decision that touches
+ * the user's working tree, so it is triple-guarded and transactional-ish:
+ *
+ *   - The checkout must have the integration branch checked out (a branch can
+ *     only be checked out in one worktree — merging via a temp worktree is
+ *     impossible while the user holds it) → 409 `merge_local_blocked` otherwise.
+ *   - The working tree must be CLEAN → 409 `merge_local_blocked` otherwise.
+ *   - Merge = the assembled head when one exists (row.branch), else each
+ *     succeeded unit branch sequentially, `--no-ff --no-edit`. Any conflict →
+ *     `merge --abort` + 502 `merge_failed`, NO transition (retry or discard).
+ *
+ * Success mirrors poll-merge's MERGED arm: decision → merged (prUrl stays
+ * null), worktrees/branches swept, tickets → done, Jira onRailMerged(null).
+ */
+async function runMergeLocal(deps: PrDecisionDeps, row: RailPrDeliveryRow): Promise<PrDecisionResult> {
+  const snap = toPrDeliverySnapshot(row)
+
+  // Guards on the user's checkout.
+  const head = await deps.git.run(['rev-parse', '--abbrev-ref', 'HEAD'], deps.project.path)
+  const currentBranch = head.code === 0 ? head.stdout.trim() : ''
+  if (currentBranch !== row.base_branch) {
+    return {
+      status: 409,
+      body: { error: 'merge_local_blocked', reason: 'wrong_branch', current: currentBranch || null, base: row.base_branch },
+    }
+  }
+  const status = await deps.git.run(['status', '--porcelain'], deps.project.path)
+  if (status.code !== 0 || status.stdout.trim() !== '') {
+    return { status: 409, body: { error: 'merge_local_blocked', reason: 'dirty', base: row.base_branch } }
+  }
+
+  // What to merge: the assembled head carries every unit already; without one
+  // (straight from on_review) merge each succeeded unit branch in order.
+  let toMerge: string[]
+  if (row.branch && (await branchExists(deps, row.branch))) {
+    toMerge = [row.branch]
+  } else {
+    toMerge = []
+    for (const unit of snap.branches.filter((b) => b.succeeded)) {
+      let branch: string | null = unit.branch
+      if (!(await branchExists(deps, branch))) branch = await findRecoverableBranch(deps, unit, row.base_branch)
+      if (!branch) {
+        return {
+          status: 502,
+          body: { error: 'merge_failed', detail: `branch '${unit.branch}' (ticket #${unit.ticketId}) no longer exists locally — nothing to merge` },
+        }
+      }
+      toMerge.push(branch)
+    }
+  }
+  if (toMerge.length === 0) {
+    return { status: 502, body: { error: 'merge_failed', detail: 'no succeeded branch to merge' } }
+  }
+
+  for (const branch of toMerge) {
+    const r = await deps.git.run(['merge', '--no-ff', '--no-edit', branch], deps.project.path)
+    if (r.code !== 0) {
+      await deps.git.run(['merge', '--abort'], deps.project.path).catch(() => {})
+      const detail = (r.stderr.trim() || r.stdout.trim()).split('\n')[0] || `exit ${r.code}`
+      return { status: 502, body: { error: 'merge_failed', detail: `merging '${branch}': ${detail}` } }
+    }
+  }
+
+  // Post-merge sweep (same shape as discard steps 2-3): the work now lives on
+  // the integration branch, so the launch's worktrees + branches are spent.
+  const branchSet = new Set<string>(toMerge)
+  for (const b of snap.branches) branchSet.add(b.branch)
+  if (row.branch) branchSet.add(row.branch)
+  for (const wtId of snap.worktreeIds) {
+    const wt = getRailWorktree(deps.db, wtId)
+    if (!wt) continue
+    branchSet.add(wt.branch)
+    await removeWorktree(deps.git, {
+      repoDir: deps.project.path, worktreePath: wt.worktree_path, branch: wt.branch, deleteBranch: false,
+    }).catch(() => {})
+    if (!isTerminalMergeState(wt.merge_state)) updateRailWorktreeState(deps.db, wt.id, 'merged')
+  }
+  for (const branch of branchSet) {
+    if (!branch || branch === row.base_branch) continue
+    await deps.git.run(['branch', '-D', branch], deps.project.path).catch(() => {})
+  }
+
+  const conflict = casTransition(deps, row, 'merged')
+  if (conflict) return conflict
+  finalizeTransition(deps, row.id)
+
+  const changed = applyTicketTransition(deps, snap.ticketIds, 'done')
+  try {
+    deps.jiraSyncManager?.onRailMerged(changed, row.id, null)
+  } catch (err) {
+    console.error('[rail-pr-decision] jira onRailMerged (local) failed:', err)
+  }
+  return { status: 200, body: { ok: true, decision: 'merged', merged: true, local: true } }
 }
 
 function resolveTicketFile(deps: PrDecisionDeps): string {

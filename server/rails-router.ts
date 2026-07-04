@@ -485,6 +485,10 @@ export function createRailsRouter(): Router {
         // repo, an unborn HEAD, or a worktree-allocation failure all fall through to
         // the shared-cwd path below. See rail-isolation.ts.
         let isolationUnavailable: string | undefined
+        // Human-readable failure detail for the 'error' case — surfaced to the
+        // client so a silent fallback (no delivery row → no implementation
+        // cards) is diagnosable from the UI, not just the server log.
+        let isolationUnavailableDetail: string | undefined
         // Read-only vs mutating is DERIVED from the loop's nodes (see loop-effect),
         // not a user flag — a content-read-only loop (no ai-step/shell) never writes,
         // so it is not isolated; anything that can write is.
@@ -519,6 +523,7 @@ export function createRailsRouter(): Router {
             } catch (err) {
               console.error('[rails-router] isolated launch failed; falling back to shared cwd:', err)
               isolationUnavailable = 'error'
+              isolationUnavailableDetail = err instanceof Error ? err.message : String(err)
             }
           }
         }
@@ -595,7 +600,11 @@ export function createRailsRouter(): Router {
             launchLoopRun(newId(), [ticketId], c.getTicketSpec(ticketId))
           }
         }
-        res.status(202).json({ loopRunIds, railIndex, mode, ...(isolationUnavailable ? { isolationUnavailable } : {}) })
+        res.status(202).json({
+          loopRunIds, railIndex, mode,
+          ...(isolationUnavailable ? { isolationUnavailable } : {}),
+          ...(isolationUnavailableDetail ? { isolationUnavailableDetail } : {}),
+        })
         return
       }
 
