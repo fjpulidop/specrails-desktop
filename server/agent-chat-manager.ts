@@ -1,10 +1,13 @@
 import type { ChildProcess } from 'child_process'
 import { randomUUID } from 'crypto'
+import { createInterface } from 'readline'
+import { tmpdir } from 'os'
 import type { DbInstance } from './db'
 import type { WsMessage } from './types'
 import { getAdapter } from './providers'
 import type { ReasoningEffort, AdapterEvent, ProviderAdapter } from './providers/types'
 import { runAiCliInvocation } from './spawn-lifecycle'
+import { spawnAiCli } from './util/cli-prompt'
 import { finaliseInvocationResult } from './result-event'
 import { recordAgentInvocation, type AgentInvocationStatus } from './desktop-db'
 import { ensureAgentCwd } from './agent-cwd-manager'
@@ -61,6 +64,10 @@ export class AgentChatManager {
    *  at settle so an abort is never mistaken for a stale session (auto-heal
    *  would resurrect the aborted prompt) nor surfaced as an error. */
   private readonly _abortedTurns = new Set<string>()
+  /** Fire-and-forget auxiliary children (the AI title spawn) tracked so
+   *  shutdown() can tree-kill them instead of orphaning them. Self-removed on
+   *  'close'/'error'. */
+  private readonly _auxProcesses = new Set<ChildProcess>()
 
   constructor(broadcast: (msg: WsMessage) => void, db: DbInstance, port: number) {
     this._broadcast = broadcast
@@ -408,6 +415,10 @@ export class AgentChatManager {
       persistSession(r.sessionId)
       this._broadcast({ type: 'agent_done', conversationId, fullText: r.text, timestamp: timestamp() })
       record(r, 'success')
+      // AI title after the FIRST completed turn (industry standard — ChatGPT /
+      // Claude.ai), on the conversation's own provider. The deterministic title
+      // set at send stays the instant fallback; this upgrades it a moment later.
+      this._maybeAiTitle(conversation, userText, r.text)
       return
     }
 
@@ -481,6 +492,95 @@ export class AgentChatManager {
       this._broadcast({ type: 'agent_title', conversationId, title, timestamp: new Date().toISOString() })
     } catch (err) {
       console.error(`[agent-chat] auto-title failed (${conversationId}):`, err)
+    }
+  }
+
+  /**
+   * Gate + fire the AI title upgrade. Runs ONLY on the first completed assistant
+   * turn and ONLY while the stored title is still the deterministic turn-1
+   * auto-title (a manual rename is recomputable-detectable and never clobbered),
+   * so the cheap spawn is skipped when it would be pointless.
+   */
+  private _maybeAiTitle(
+    conversation: NonNullable<ReturnType<typeof getAgentConversation>>,
+    firstUserMsg: string,
+    firstResponse: string,
+  ): void {
+    try {
+      const conversationId = conversation.id
+      const assistantCount = listAgentMessages(this._db, conversationId).filter((m) => m.role === 'assistant').length
+      if (assistantCount !== 1) return
+      const deterministic = generateAutoTitle([{ role: 'user', content: firstUserMsg }])
+      const fresh = getAgentConversation(this._db, conversationId)
+      if (!fresh || fresh.title !== deterministic) return
+      this._aiTitle(fresh, firstUserMsg, firstResponse)
+    } catch (err) {
+      console.error(`[agent-chat] ai-title gate failed (${conversation.id}):`, err)
+    }
+  }
+
+  /**
+   * Fire-and-forget AI title: a cheap one-shot on the conversation's OWN provider
+   * (default model) that summarizes the first exchange into a 3-6 word title.
+   * Spawned from an empty tmp cwd so no operator CLAUDE.md / `.mcp.json` /
+   * user-scope settings are auto-loaded (leanest possible spawn, no tool wiring).
+   * On close it records the billable turn (parity with ChatManager's LOW-1 title
+   * accounting), then overwrites the title only if it is STILL the deterministic
+   * one (never clobbers a rename made during the ~1s generation). Never throws
+   * into the turn path — title generation failing must not surface an error.
+   */
+  private _aiTitle(
+    conversation: NonNullable<ReturnType<typeof getAgentConversation>>,
+    firstUserMsg: string,
+    firstResponse: string,
+  ): void {
+    try {
+      const conversationId = conversation.id
+      const adapter = getAdapter(conversation.provider)
+      const model = adapter.defaultModel()
+      const prompt =
+        'Generate a concise 3-6 word title for this conversation. ' +
+        'Output ONLY the title text — no quotes, no punctuation, no markdown, no preamble.\n\n' +
+        `User: ${firstUserMsg.slice(0, 240)}\nAssistant: ${firstResponse.slice(0, 320)}`
+      const args = adapter.buildArgs('auto-title', { prompt, model })
+      const child = spawnAiCli(adapter.binary, args, {
+        env: process.env,
+        stdio: ['ignore', 'pipe', 'pipe'],
+        cwd: tmpdir(),
+      })
+      this._auxProcesses.add(child)
+
+      let raw = ''
+      const events: AdapterEvent[] = []
+      const startedAt = new Date().toISOString()
+      const reader = createInterface({ input: child.stdout!, crlfDelay: Infinity })
+      reader.on('line', (line) => {
+        const ev = adapter.parseStreamLine(line)
+        if (!ev) return
+        events.push(ev)
+        if (ev.kind === 'text-delta') raw += ev.text
+      })
+      child.on('error', () => {
+        this._auxProcesses.delete(child)
+      })
+      child.on('close', (code) => {
+        this._auxProcesses.delete(child)
+        const fresh = getAgentConversation(this._db, conversationId)
+        if (!fresh) return // deleted mid-generation — FK-safe: skip record + update
+        // Cost accounting parity with ChatManager LOW-1: the title spawn is a
+        // real billable invocation — record one agent_invocations row.
+        this._recordTurn(fresh, adapter, model, { events, startedAt, sessionId: null }, code === 0 ? 'success' : 'failed')
+        if (code !== 0) return
+        const title = sanitizeAgentTitle(raw)
+        if (!title || title === fresh.title) return
+        // Never clobber a manual rename made while the title was generating.
+        const deterministic = generateAutoTitle([{ role: 'user', content: firstUserMsg }])
+        if (fresh.title !== deterministic) return
+        updateAgentConversation(this._db, conversationId, { title })
+        this._broadcast({ type: 'agent_title', conversationId, title, timestamp: new Date().toISOString() })
+      })
+    } catch (err) {
+      console.error(`[agent-chat] ai-title spawn failed (${conversation.id}):`, err)
     }
   }
 
@@ -600,9 +700,40 @@ export class AgentChatManager {
       }
     }
     this._active.clear()
+    for (const child of this._auxProcesses) {
+      try {
+        child.kill('SIGTERM')
+      } catch {
+        /* ignore */
+      }
+    }
+    this._auxProcesses.clear()
   }
 
   private _emitError(conversationId: string, error: string): void {
     this._broadcast({ type: 'agent_error', conversationId, error, timestamp: new Date().toISOString() })
   }
+}
+
+const MAX_AI_TITLE_LEN = 80
+
+/**
+ * Coerce a model's title output into a clean single-line title: first non-empty
+ * line, surrounding quotes / markdown emphasis / leading list markers stripped,
+ * whitespace collapsed, word-aware length cap. Returns '' when nothing usable
+ * remains (the caller then keeps the deterministic title).
+ */
+export function sanitizeAgentTitle(raw: string): string {
+  const firstLine = raw.split('\n').map((s) => s.trim()).find((s) => s.length > 0) ?? ''
+  const stripped = firstLine
+    .replace(/^[\s>*_#-]+/, '') // leading markdown/list markers
+    .replace(/^["'`]+/, '')
+    .replace(/["'`*_\s]+$/, '')
+    .replace(/\s+/g, ' ')
+    .trim()
+  if (!stripped) return ''
+  if (stripped.length <= MAX_AI_TITLE_LEN) return stripped
+  const head = stripped.slice(0, MAX_AI_TITLE_LEN)
+  const lastSpace = head.lastIndexOf(' ')
+  return (lastSpace > 20 ? head.slice(0, lastSpace) : head).trim() + '…'
 }
