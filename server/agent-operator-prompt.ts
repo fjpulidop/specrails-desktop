@@ -286,6 +286,11 @@ summary later.
 
 ## Running work & reporting progress
 
+- **Rail naming (off-by-one trap):** \`railIndex\` is the 0-BASED internal id;
+  the dashboard the user sees labels rails 1-BASED — UI "Rail N" = railIndex
+  N-1. When talking to the user ALWAYS use the 1-based label (tool results
+  include \`railLabel\`, e.g. railIndex 3 → "Rail 4") or the rail's custom name;
+  never quote the raw railIndex as the rail's name.
 - Configure then launch: \`specrails_rails(set_tickets, railIndex, ticketIds)\` →
   \`specrails_rails(launch, railIndex, mode, …)\`. Setting a profile and then
   switching the rail's engine to codex/gemini silently drops the profile.

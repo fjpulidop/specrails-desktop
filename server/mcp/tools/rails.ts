@@ -30,7 +30,8 @@ export function railsTools(): McpToolSpec[] {
         'launch (ai-spawn — spawns claude/codex/gemini CLI job(s) that WRITE CODE, RUN TESTS, COMMIT, and INCUR TOKEN COST; returns 202 with jobId/jobIds/loopRunIds), ' +
         'launch_all (ai-spawn — launches EVERY rail that has tickets and no active run/pending PR decision, in parallel, using each rail\'s stored mode/engine/profile; returns per-rail outcomes with skip reasons), ' +
         'stop (destructive — kills all active jobs and loop runs for the rail). ' +
-        'When launched from the in-app agent chat without an explicit aiEngine, the engine defaults to your conversation\'s provider (pass aiEngine to override; launch_all always uses each rail\'s stored engine).',
+        'When launched from the in-app agent chat without an explicit aiEngine, the engine defaults to your conversation\'s provider (pass aiEngine to override; launch_all always uses each rail\'s stored engine). ' +
+        'NAMING: railIndex is the 0-BASED internal identity; the dashboard shows rails 1-based ("Rail N" = railIndex N-1). When talking to the user, ALWAYS say "Rail <railIndex + 1>" (or the rail\'s custom name) — results include railLabel with the correct user-facing label.',
       hintTier: 'read',
       tier: (a) => {
         const action = a.action as string
@@ -49,7 +50,7 @@ export function railsTools(): McpToolSpec[] {
           .int()
           .min(0)
           .optional()
-          .describe('Rail slot index (required for every action except list)'),
+          .describe('Rail slot index, 0-BASED (required for every action except list). The dashboard labels rails 1-based: UI "Rail N" = railIndex N-1.'),
         // set_tickets
         ticketIds: z
           .array(z.number().int())
@@ -115,9 +116,13 @@ export function railsTools(): McpToolSpec[] {
             const body: Record<string, unknown> = {}
             if (typeof args.name === 'string' && args.name.trim()) body.name = (args.name as string).trim()
             const r = await apiCall(ctx, 'POST', base, body)
+            const created = (r as { rail?: { railIndex?: number } }).rail
+            const label =
+              typeof created?.railIndex === 'number' ? `Rail ${created.railIndex + 1}` : undefined
             return {
               ...(r as Record<string, unknown>),
-              hint: 'Rail created. Assign tickets with set_tickets on the returned railIndex, then launch. Up to 12 rails per project.',
+              ...(label ? { railLabel: label } : {}),
+              hint: `Rail created${label ? ` — the user sees it as "${label}" (railIndex is 0-based, UI labels are 1-based; refer to it as "${label}" when talking to the user)` : ''}. Assign tickets with set_tickets on the returned railIndex, then launch. Up to 12 rails per project.`,
             }
           }
 
@@ -201,7 +206,8 @@ export function railsTools(): McpToolSpec[] {
             const r = await apiCall(ctx, 'POST', `${base}/${railIndex}/launch`, body)
             return {
               ...(r as Record<string, unknown>),
-              hint: 'Launch accepted (202). Use specrails_watch with the returned jobId/jobIds (or loopRunIds for loop mode) to await completion. Live output streams over the job WS. Rails run for minutes; pass untilMs up to 600000 and re-watch on timeout.',
+              railLabel: `Rail ${railIndex + 1}`,
+              hint: `Launch accepted (202) on railIndex ${railIndex} — tell the user it runs on "Rail ${railIndex + 1}" (UI labels are 1-based). Use specrails_watch with the returned jobId/jobIds (or loopRunIds for loop mode) to await completion. Live output streams over the job WS. Rails run for minutes; pass untilMs up to 600000 and re-watch on timeout.`,
             }
           }
 
@@ -227,6 +233,8 @@ export function railsTools(): McpToolSpec[] {
 
             type LaunchAllOutcome = {
               railIndex: number
+              /** User-facing 1-based dashboard label ("Rail <railIndex+1>"). */
+              railLabel?: string
               outcome: 'launched' | 'skipped' | 'failed'
               reason?: 'empty' | 'already-running' | 'pr-decision-pending' | 'tickets-in-flight'
               mode?: string
@@ -288,6 +296,7 @@ export function railsTools(): McpToolSpec[] {
             }
             await Promise.allSettled(launches)
             results.sort((a, b) => a.railIndex - b.railIndex)
+            for (const r of results) r.railLabel = `Rail ${r.railIndex + 1}`
             const launched = results.filter((r) => r.outcome === 'launched').length
             const skipped = results.filter((r) => r.outcome === 'skipped').length
             const failed = results.filter((r) => r.outcome === 'failed').length

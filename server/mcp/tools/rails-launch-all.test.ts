@@ -112,6 +112,10 @@ describe('specrails_rails — create_rail + launch_all', () => {
     const { res, data } = await call({ action: 'create_rail' })
     expect(res.isError).toBeUndefined()
     expect(data.rail).toMatchObject({ railIndex: 3, ticketIds: [] })
+    // UI label is 1-based — the tool spells it out so the agent never quotes
+    // the raw 0-based railIndex as the rail's name.
+    expect(data.railLabel).toBe('Rail 4')
+    expect(data.hint).toContain('Rail 4')
     expect(data.hint).toContain('set_tickets')
     // With a name, and visible on list.
     const second = await call({ action: 'create_rail', name: 'Overflow' })
@@ -150,7 +154,8 @@ describe('specrails_rails — create_rail + launch_all', () => {
     expect(data.skipped).toBe(3)
     expect(data.failed).toBe(0)
     const byIndex = new Map((data.results as { railIndex: number }[]).map((r) => [r.railIndex, r]))
-    expect(byIndex.get(0)).toMatchObject({ outcome: 'launched', ticketIds: [1, 2] })
+    expect(byIndex.get(0)).toMatchObject({ outcome: 'launched', ticketIds: [1, 2], railLabel: 'Rail 1' })
+    expect(byIndex.get(4)).toMatchObject({ railLabel: 'Rail 5' })
     expect(byIndex.get(0)).toHaveProperty('jobId')
     expect(byIndex.get(1)).toMatchObject({ outcome: 'skipped', reason: 'empty' })
     expect(byIndex.get(2)).toMatchObject({ outcome: 'launched', ticketIds: [3] })
