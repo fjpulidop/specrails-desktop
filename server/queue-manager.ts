@@ -32,7 +32,7 @@ import type { CommandInfo } from './config'
 import { attachmentManager, USER_ATTACHMENT_SYSTEM_NOTE } from './attachment-manager'
 import { extractTicketIdsFromCommand, readStore, resolveTicketStoragePath } from './ticket-store'
 import { binaryOnPath } from './binary-probe'
-import { ensureFrameworkAgents } from './workspace-manager'
+import { ensureFrameworkAgents, ensureFrameworkCommandSubtrees } from './workspace-manager'
 import { resolveProjectExecution, type ProjectExecution } from './workspace-resolution'
 import { readCurrentFrameworkVersion } from './framework-manager'
 import { ensureOpenspecShim, prependShimToPath, removeOpenspecShim, openspecShimDir } from './openspec-shim'
@@ -1581,6 +1581,10 @@ export class QueueManager {
     if (execution.relocated) {
       try {
         ensureFrameworkAgents(execution.cwd, adapter.projectDirName)
+        // AND the dir-linked subtrees (commands/skills/rules): a broken Windows
+        // `current` junction leaves the workspace with no `/specrails:*` commands
+        // → the CLI reports "Unknown command: /specrails:implement".
+        ensureFrameworkCommandSubtrees(execution.cwd, adapter.projectDirName)
       } catch {
         /* best-effort — never block a rail spawn on the repair */
       }

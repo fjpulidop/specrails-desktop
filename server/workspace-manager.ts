@@ -39,20 +39,24 @@ function compareFrameworkVersionDesc(a: string, b: string): number {
  * byte-identical). Additive (never touches user `custom-*.md`) + idempotent.
  * Returns the number of agents copied.
  */
+/** Newest REAL framework version dir under the root — resolved by LISTING (not
+ *  via the `current` junction, which is the very thing that may be untraversable
+ *  on Windows). Null when the framework isn't materialized. */
+function newestFrameworkVersion(root: string): string | null {
+  try {
+    return fs
+      .readdirSync(root)
+      .filter((n) => /^\d+\.\d+\.\d+$/.test(n))
+      .sort(compareFrameworkVersionDesc)[0] ?? null
+  } catch {
+    return null
+  }
+}
+
 export function ensureFrameworkAgents(workspaceDir: string, providerDir: string, home?: string): number {
   if (process.platform !== 'win32') return 0
   const root = frameworkRoot(home)
-  // Resolve the framework version by listing REAL version dirs — NOT via the
-  // `current` junction (which is the very thing that may be untraversable here).
-  let version: string | undefined
-  try {
-    version = fs
-      .readdirSync(root)
-      .filter((n) => /^\d+\.\d+\.\d+$/.test(n))
-      .sort(compareFrameworkVersionDesc)[0]
-  } catch {
-    return 0
-  }
+  const version = newestFrameworkVersion(root)
   if (!version) return 0
   const src = path.join(root, version, providerDir, 'agents')
   let entries: string[]
@@ -77,6 +81,83 @@ export function ensureFrameworkAgents(workspaceDir: string, providerDir: string,
     }
   }
   return copied
+}
+
+/** The framework subtrees `assemble` installs as a single DIR-symlink into
+ *  `current/<provider>/` (unlike agents, which are per-file). `/specrails:*`
+ *  and `/opsx:*` slash commands live under `commands/`. */
+const DIR_LINKED_SUBTREES = ['commands', 'skills', 'rules'] as const
+
+/**
+ * Windows repair for the DIR-symlinked framework subtrees (`commands`, `skills`,
+ * `rules`) — the sibling of `ensureFrameworkAgents` for the whole-directory links.
+ *
+ * Why a SEPARATE repair: agents are linked per-file, so a broken `current`
+ * junction leaves an EMPTY-but-real `agents/` dir that `ensureFrameworkAgents`
+ * refills file-by-file. `commands`/`skills`/`rules` are instead a single
+ * dir-symlink INTO `current/<provider>/<subtree>`; when the `current` junction is
+ * untraversable by the sidecar (the documented Windows failure), that link is
+ * unreadable and the workspace has NO `/specrails:*` commands at all — the claude
+ * CLI then reports `Unknown command: /specrails:implement`. This replaces an
+ * unreadable/missing link with a REAL recursively-copied directory read straight
+ * from the versioned framework dir (never through `current`).
+ *
+ * SAFETY: only heals when the dest is missing OR unreadable OR empty — a dest
+ * that lists content is a working link/dir and is left untouched, so a working
+ * symlink's real target is NEVER deleted through. NO-OP on POSIX (per-provider
+ * symlinks resolve normally). Best-effort + idempotent. Returns the count healed.
+ */
+export function ensureFrameworkCommandSubtrees(workspaceDir: string, providerDir: string, home?: string): number {
+  if (process.platform !== 'win32') return 0
+  const root = frameworkRoot(home)
+  const version = newestFrameworkVersion(root)
+  if (!version) return 0
+  let healed = 0
+  for (const subtree of DIR_LINKED_SUBTREES) {
+    const src = path.join(root, version, providerDir, subtree)
+    // The versioned source must be a real, readable, non-empty dir to heal from.
+    let srcEntries: string[]
+    try {
+      srcEntries = fs.readdirSync(src)
+    } catch {
+      continue // this provider/version ships no such subtree
+    }
+    if (srcEntries.length === 0) continue
+
+    const dest = path.join(workspaceDir, providerDir, subtree)
+    // A dest that lists entries is a working link/dir → leave it (never risk
+    // deleting through a live symlink). Heal only when unreadable / empty.
+    try {
+      if (fs.readdirSync(dest).length > 0) continue
+    } catch {
+      /* unreadable (broken/untraversable link, or missing) → heal below */
+    }
+
+    // Remove the broken link / empty dir. We only reach here when there is no
+    // traversable content, so no real framework files can be destroyed. Layered
+    // removal because a Windows dir-junction resists unlink/rmdir differently.
+    try {
+      const st = fs.lstatSync(dest)
+      if (st.isSymbolicLink()) {
+        fs.unlinkSync(dest)
+      } else {
+        fs.rmSync(dest, { recursive: true, force: true })
+      }
+    } catch {
+      try { fs.rmdirSync(dest) } catch {
+        try { fs.rmSync(dest, { recursive: true, force: true }) } catch { /* dest may be absent — fine */ }
+      }
+    }
+
+    try {
+      fs.mkdirSync(path.dirname(dest), { recursive: true })
+      fs.cpSync(src, dest, { recursive: true })
+      healed += 1
+    } catch {
+      /* best-effort per subtree — a copy failure must never abort the spawn */
+    }
+  }
+  return healed
 }
 
 /**
