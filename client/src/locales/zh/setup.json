@@ -102,7 +102,9 @@
     "reinstallHint": "请重新安装 Specrails 应用以恢复内置工具。",
     "installMissingHint": "请安装缺失的工具以继续。",
     "moreInfo": "更多信息",
-    "bundledBadge": "内置"
+    "bundledBadge": "内置",
+    "optional": "可选",
+    "ghNoAuth": "未登录 — 请运行 `gh auth login`"
   },
   "instructions": {
     "title": "安装开发工具",

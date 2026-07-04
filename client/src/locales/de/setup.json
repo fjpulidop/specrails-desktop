@@ -102,7 +102,9 @@
     "reinstallHint": "Installieren Sie die Specrails-App neu, um die mitgelieferten Tools wiederherzustellen.",
     "installMissingHint": "Installieren Sie die fehlenden Tools, um fortzufahren.",
     "moreInfo": "Mehr Infos",
-    "bundledBadge": "mitgeliefert"
+    "bundledBadge": "mitgeliefert",
+    "optional": "optional",
+    "ghNoAuth": "Nicht angemeldet — führe `gh auth login` aus"
   },
   "instructions": {
     "title": "Entwickler-Tools installieren",

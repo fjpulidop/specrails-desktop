@@ -102,6 +102,20 @@ function resolveBundledBinDirs(runtimesPath: string): { nodeBinDir: string | nul
   return { nodeBinDir, gitBinDir }
 }
 
+/**
+ * Bin dir of the bundled GitHub CLI (`runtimes/gh/bin/gh[.exe]`), or null.
+ * Unlike node/git, gh is a SYSTEM-FIRST tool: the user's own gh (with their
+ * auth/hosts config, GHES setups, aliases) must always win, so this dir is
+ * APPENDED to the END of PATH — it only resolves when no system gh exists.
+ * It also never participates in the bundle-activation gate (node+git only).
+ */
+function resolveBundledGhBinDir(runtimesPath: string): string | null {
+  const bin = process.platform === 'win32'
+    ? path.join(runtimesPath, 'gh', 'bin', 'gh.exe')
+    : path.join(runtimesPath, 'gh', 'bin', 'gh')
+  return fileExists(bin) ? path.join(runtimesPath, 'gh', 'bin') : null
+}
+
 function getDelimiter(): string {
   return process.platform === 'win32' ? ';' : ':'
 }
@@ -214,6 +228,35 @@ export function resolveBundledNodeExe(): string | null {
  * Records the resulting segments and their sources for diagnostic reporting.
  */
 export function resolveStartupPath(): void {
+  resolveStartupPathBase()
+  appendBundledGhDir()
+}
+
+/**
+ * Desktop mode: append the bundled gh bin dir to the END of `process.env.PATH`
+ * so a system-installed gh (earlier in PATH) always wins and the bundled one is
+ * pure fallback. Runs AFTER the base resolution regardless of which branch it
+ * took (active bundle, partial bundle, non-desktop no-op). Later login-shell
+ * augmentation only PREPENDS, so the appended dir stays last.
+ */
+function appendBundledGhDir(): void {
+  if (process.env.SPECRAILS_IS_DESKTOP !== '1') return
+  const runtimesPath = process.env.SPECRAILS_BUNDLED_RUNTIMES_PATH
+  if (!runtimesPath) return
+  const ghBinDir = resolveBundledGhBinDir(runtimesPath)
+  if (!ghBinDir) return
+  const current = splitPath(process.env.PATH)
+  if (current.includes(ghBinDir)) return
+  const merged = [...current, ghBinDir]
+  process.env.PATH = joinPath(merged)
+  diagnostic = {
+    pathSegments: merged,
+    pathSources: [...diagnostic.pathSources, 'bundled' as PathSource],
+    loginShellStatus: diagnostic.loginShellStatus,
+  }
+}
+
+function resolveStartupPathBase(): void {
   // Desktop mode: bundled runtimes win when present. We existence-gate every
   // candidate dir so a runtimes-less or partially-extracted build degrades to
   // normal system PATH discovery instead of prepending dead dirs and disabling

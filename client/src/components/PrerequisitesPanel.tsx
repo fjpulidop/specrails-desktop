@@ -174,6 +174,14 @@ export function PrerequisitesPanel({ status, isLoading, error, onRefresh, onMore
           const isCorrupted = item.error === 'corrupted-bundle'
           const isBundledOk = item.bundled === true && item.executable === true && !isCorrupted
           const ok = !isCorrupted && item.installed && item.meetsMinimum
+          // Optional tools (gh, uv) never block Add Project — a missing one
+          // renders muted, not alarm-red.
+          // Only the genuinely optional tools: providers are required:false too
+          // (the "at least one" rule lives elsewhere) and npm/npx flip to
+          // required:false under the bundled-offline setup — neither should
+          // carry an "(optional)" tag.
+          const isOptionalTool = item.key === 'gh' || item.key === 'uv'
+          const missingOptional = !ok && !isCorrupted && isOptionalTool
           return (
             <li
               key={item.key}
@@ -187,7 +195,9 @@ export function PrerequisitesPanel({ status, isLoading, error, onRefresh, onMore
                   ? 'border-destructive/40 bg-destructive/10 text-foreground'
                   : ok
                     ? 'border-border/30 bg-background/30 text-muted-foreground'
-                    : 'border-accent-primary/30 bg-background/50 text-foreground',
+                    : missingOptional
+                      ? 'border-border/30 bg-background/30 text-muted-foreground'
+                      : 'border-accent-primary/30 bg-background/50 text-foreground',
               )}
             >
               {isCorrupted ? (
@@ -196,10 +206,25 @@ export function PrerequisitesPanel({ status, isLoading, error, onRefresh, onMore
                 <CheckCircle2 className="w-3.5 h-3.5 text-accent-success flex-shrink-0" />
               ) : ok ? (
                 <CheckCircle2 className="w-3.5 h-3.5 text-accent-success flex-shrink-0" />
+              ) : missingOptional ? (
+                <XCircle className="w-3.5 h-3.5 text-muted-foreground/60 flex-shrink-0" />
               ) : (
                 <XCircle className="w-3.5 h-3.5 text-accent-primary flex-shrink-0" />
               )}
               <span className="font-medium">{item.label}</span>
+              {isOptionalTool && (
+                <span className="text-[10px] text-muted-foreground/70">
+                  {t('prerequisites.optional')}
+                </span>
+              )}
+              {item.key === 'gh' && item.executable && item.authenticated === false && (
+                <span
+                  data-testid="prereq-gh-noauth"
+                  className="inline-flex items-center rounded px-1 py-0.5 text-[10px] font-medium bg-accent-warning/15 text-accent-warning border border-accent-warning/30"
+                >
+                  {t('prerequisites.ghNoAuth')}
+                </span>
+              )}
               {isBundledOk && (
                 <span
                   data-testid={`prereq-bundled-badge-${item.key}`}

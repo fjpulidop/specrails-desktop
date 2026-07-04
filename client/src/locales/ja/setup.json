@@ -102,7 +102,9 @@
     "reinstallHint": "Specrails アプリを再インストールしてバンドルツールを復元してください。",
     "installMissingHint": "続行するには不足しているツールをインストールしてください。",
     "moreInfo": "詳細",
-    "bundledBadge": "バンドル"
+    "bundledBadge": "バンドル",
+    "optional": "任意",
+    "ghNoAuth": "未ログイン — `gh auth login` を実行してください"
   },
   "instructions": {
     "title": "開発者ツールをインストール",

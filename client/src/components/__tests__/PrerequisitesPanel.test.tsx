@@ -119,3 +119,48 @@ describe('PrerequisitesPanel', () => {
     expect(onRefresh).toHaveBeenCalledTimes(1)
   })
 })
+
+describe('gh row (optional tool + auth badge)', () => {
+  const ghInstalledNoAuth: SetupPrerequisitesStatus = {
+    ok: false,
+    platform: 'darwin',
+    prerequisites: [
+      { ...okStatus.prerequisites[3], installed: false, meetsMinimum: false, version: undefined },
+      { key: 'gh', kind: 'tool', label: 'GitHub CLI', command: 'gh', required: false, installed: true, executable: true, version: 'gh version 2.63.2', meetsMinimum: true, installUrl: '', installHint: '', authenticated: false },
+    ],
+    missingRequired: [{ ...okStatus.prerequisites[3], installed: false, meetsMinimum: false, version: undefined }],
+  }
+
+  it('shows the not-signed-in badge when gh is executable but unauthenticated', () => {
+    render(<PrerequisitesPanel status={ghInstalledNoAuth} isLoading={false} error={null} />)
+    expect(screen.getByTestId('prereq-gh-noauth')).toBeInTheDocument()
+    expect(screen.getByText('optional')).toBeInTheDocument()
+  })
+
+  it('a missing gh renders muted (optional), never alarm-red, and no auth badge', () => {
+    const missingGh: SetupPrerequisitesStatus = {
+      ...ghInstalledNoAuth,
+      prerequisites: [
+        ghInstalledNoAuth.prerequisites[0],
+        { ...ghInstalledNoAuth.prerequisites[1], installed: false, executable: false, meetsMinimum: false, version: undefined, authenticated: undefined },
+      ],
+    }
+    render(<PrerequisitesPanel status={missingGh} isLoading={false} error={null} />)
+    const row = screen.getByTestId('prereq-row-gh')
+    expect(row).toHaveAttribute('data-ok', 'false')
+    expect(row.className).not.toContain('border-accent-primary')
+    expect(screen.queryByTestId('prereq-gh-noauth')).toBeNull()
+  })
+
+  it('an authenticated gh shows no auth badge', () => {
+    const authed: SetupPrerequisitesStatus = {
+      ...ghInstalledNoAuth,
+      prerequisites: [
+        ghInstalledNoAuth.prerequisites[0],
+        { ...ghInstalledNoAuth.prerequisites[1], authenticated: true },
+      ],
+    }
+    render(<PrerequisitesPanel status={authed} isLoading={false} error={null} />)
+    expect(screen.queryByTestId('prereq-gh-noauth')).toBeNull()
+  })
+})

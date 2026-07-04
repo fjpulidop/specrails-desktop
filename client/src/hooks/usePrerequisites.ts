@@ -4,7 +4,10 @@ import { API_ORIGIN } from '../lib/origin'
 export type Platform = 'darwin' | 'win32' | 'linux'
 
 export interface SetupPrerequisite {
-  key: 'node' | 'npm' | 'npx' | 'git'
+  /** node/npm/npx/git/gh for tools; the adapter id for provider CLIs. */
+  key: string
+  /** 'tool' (node/npm/npx/git/gh/uv) vs 'provider' (claude/codex/gemini). */
+  kind?: 'tool' | 'provider'
   label: string
   command: string
   required: boolean
@@ -24,6 +27,8 @@ export interface SetupPrerequisite {
   bundled?: true
   /** Desktop mode: 'corrupted-bundle' when the bundled binary fails --version probe. */
   error?: 'corrupted-bundle'
+  /** gh only: whether `gh auth token` found a credential (offline check). */
+  authenticated?: boolean
 }
 
 export interface SetupPrerequisitesStatus {

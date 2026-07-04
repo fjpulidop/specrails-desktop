@@ -69,6 +69,10 @@ export interface SetupPrerequisite {
   bundled?: true
   /** Desktop mode: 'corrupted-bundle' when the bundled binary fails --version probe. */
   error?: 'corrupted-bundle'
+  /** gh only: true when `gh auth token` exits 0 (a credential exists — offline
+   *  check, the token value is never read or logged). Undefined for other tools
+   *  and when gh is not executable. */
+  authenticated?: boolean
 }
 
 export interface SetupPrerequisitesStatus {
@@ -173,7 +177,11 @@ function brokenSymlinkHint(label: string, command: string, resolvedPath: string 
 
 // ─── Desktop-mode bundled runtime helpers ─────────────────────────────────
 
-type BundledToolKey = 'node' | 'npm' | 'npx' | 'git'
+// NOTE: 'gh' is deliberately NOT in BUNDLED_TOOL_KEYS — the bundled-first probe
+// branch below must never claim it. gh is SYSTEM-FIRST (the user's own gh
+// carries their auth/hosts config); the bundled copy is pure fallback, probed
+// only when no system gh resolves. See probeGhPrerequisite.
+type BundledToolKey = 'node' | 'npm' | 'npx' | 'git' | 'gh'
 const BUNDLED_TOOL_KEYS: ReadonlySet<string> = new Set(['node', 'npm', 'npx', 'git'])
 
 function isBundledTool(key: string): key is BundledToolKey {
@@ -191,6 +199,7 @@ function getBundledToolCandidates(runtimesBase: string, tool: BundledToolKey): s
       npm:  [path.join(runtimesBase, 'node', 'npm.cmd')],
       npx:  [path.join(runtimesBase, 'node', 'npx.cmd')],
       git:  [path.join(runtimesBase, 'git', 'cmd', 'git.exe'), path.join(runtimesBase, 'git', 'bin', 'git.exe')],
+      gh:   [path.join(runtimesBase, 'gh', 'bin', 'gh.exe')],
     }
     return map[tool]
   }
@@ -199,6 +208,7 @@ function getBundledToolCandidates(runtimesBase: string, tool: BundledToolKey): s
     npm:  [path.join(runtimesBase, 'node', 'bin', 'npm')],
     npx:  [path.join(runtimesBase, 'node', 'bin', 'npx')],
     git:  [path.join(runtimesBase, 'git', 'bin', 'git')],
+    gh:   [path.join(runtimesBase, 'gh', 'bin', 'gh')],
   }
   return map[tool]
 }
@@ -342,6 +352,23 @@ function computeSetupPrerequisitesStatus(options: PrerequisiteOptions = {}): Set
         ? 'Install Git for Windows and enable the option that adds Git to PATH, then restart Specrails.'
         : 'Install Git and restart Specrails if PATH changed.',
     },
+    {
+      key: 'gh',
+      kind: 'tool',
+      label: 'GitHub CLI',
+      command: 'gh',
+      // Optional: the app degrades gracefully without gh (the PR-delivery flow
+      // reports local-only/pushed instead of creating the PR) — never blocks
+      // Add Project. Desktop builds bundle a fallback gh; the system one wins
+      // when installed (it carries the user's auth/hosts config).
+      required: false,
+      installUrl: 'https://cli.github.com',
+      installHint: process.platform === 'win32'
+        ? 'Install GitHub CLI via winget (`winget install GitHub.cli`), run `gh auth login`, then restart Specrails.'
+        : process.platform === 'darwin'
+          ? 'Install GitHub CLI via Homebrew (`brew install gh`), run `gh auth login`, then restart Specrails.'
+          : 'Install GitHub CLI (https://cli.github.com), run `gh auth login`, then restart Specrails.',
+    },
   ]
 
   // Provider CLIs (one entry per registered adapter). Individually `required:
@@ -378,6 +405,12 @@ function computeSetupPrerequisitesStatus(options: PrerequisiteOptions = {}): Set
   }
 
   const prerequisites: SetupPrerequisite[] = definitions.map((definition) => {
+    // gh is SYSTEM-FIRST with a bundled fallback (the inverse of node/git):
+    // the user's own gh must win because it carries their auth/hosts config.
+    if (definition.key === 'gh') {
+      return probeGhPrerequisite(definition, isDesktop, runtimesBase)
+    }
+
     // Desktop mode: probe bundled absolute paths for node/npm/npx/git.
     // Provider CLIs (claude, codex) are always probed via system PATH regardless of mode.
     if (isDesktop && definition.kind === 'tool' && isBundledTool(definition.key)) {
@@ -483,6 +516,102 @@ function computeSetupPrerequisitesStatus(options: PrerequisiteOptions = {}): Set
     platform,
     prerequisites,
     missingRequired,
+  }
+}
+
+// ─── GitHub CLI (system-first, bundled fallback, auth-aware) ────────────────
+
+type PrerequisiteDefinition = Omit<
+  SetupPrerequisite,
+  'installed' | 'executable' | 'version' | 'resolvedPath' | 'meetsMinimum'
+>
+
+/** Offline auth check: `gh auth token` exits 0 iff a credential exists for the
+ *  default host. No network (unlike `gh auth status`, which validates the token
+ *  against the API and would misreport "not signed in" offline). The token
+ *  value is intentionally never read. */
+function probeGhAuthenticated(ghBin: string): boolean {
+  const result = runVersionSpawn(ghBin, ['auth', 'token'], VERSION_PROBE_TIMEOUT_MS)
+  return !result.error && (result.status ?? 1) === 0
+}
+
+/**
+ * gh probe order — the INVERSE of node/git:
+ *   1. System PATH (`which gh`) — the user's install always wins (their
+ *      auth/hosts config, GHES setups, aliases live there).
+ *   2. Desktop bundled fallback (`runtimes/gh/bin/gh[.exe]`) — only when no
+ *      system gh resolves. File exists but fails its probe → corrupted-bundle
+ *      (same semantics as node/git).
+ * Either way, an executable gh also reports `authenticated` (bundling removes
+ * the INSTALL step, not the `gh auth login` step — the config at ~/.config/gh
+ * is shared by any gh binary, so a system login carries over to the bundled
+ * one automatically).
+ */
+function probeGhPrerequisite(
+  definition: PrerequisiteDefinition,
+  isDesktop: boolean,
+  runtimesBase: string,
+): SetupPrerequisite {
+  // 1. System probe.
+  const lookup = locateCommand(definition.command)
+  if (lookup.found) {
+    const probe = probeVersion(definition.command, lookup.resolvedPath)
+    const executable = probe.executed
+    return {
+      ...definition,
+      installed: true,
+      executable,
+      version: probe.version,
+      resolvedPath: lookup.resolvedPath,
+      executionError: probe.error,
+      meetsMinimum: executable && meetsMinimumVersion(probe.version, definition.minVersion),
+      installHint: executable
+        ? definition.installHint
+        : brokenSymlinkHint(definition.label, definition.command, lookup.resolvedPath),
+      ...(executable && lookup.resolvedPath
+        ? { authenticated: probeGhAuthenticated(lookup.resolvedPath) }
+        : {}),
+    }
+  }
+
+  // 2. Bundled fallback (desktop mode only, existence-gated).
+  if (isDesktop && runtimesBase) {
+    const bundledPath = getBundledToolCandidates(runtimesBase, 'gh').find(fileExists)
+    if (bundledPath) {
+      const probe = probeVersion('gh', bundledPath)
+      if (!probe.executed) {
+        return {
+          ...definition,
+          installed: true,
+          executable: false,
+          bundled: true as const,
+          error: 'corrupted-bundle' as const,
+          resolvedPath: bundledPath,
+          executionError: probe.error,
+          meetsMinimum: false,
+          installHint: 'Bundle corrupted — reinstall the Specrails app.',
+        }
+      }
+      return {
+        ...definition,
+        installed: true,
+        executable: true,
+        bundled: true as const,
+        version: probe.version,
+        resolvedPath: bundledPath,
+        meetsMinimum: meetsMinimumVersion(probe.version, definition.minVersion),
+        installHint: '',
+        authenticated: probeGhAuthenticated(bundledPath),
+      }
+    }
+  }
+
+  // Neither system nor bundled gh present.
+  return {
+    ...definition,
+    installed: false,
+    executable: false,
+    meetsMinimum: false,
   }
 }
 

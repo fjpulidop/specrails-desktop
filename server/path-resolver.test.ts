@@ -760,3 +760,88 @@ describe('ensureWindowsBaseEnv', () => {
     }
   })
 })
+
+describe('resolveStartupPath — bundled gh (system-first fallback, APPENDED)', () => {
+  const ORIGINAL_PATH = process.env.PATH
+  const ORIGINAL_PLATFORM = process.platform
+  let rt: ReturnType<typeof makeRuntimesDir>
+  let ghBin: string
+
+  beforeEach(() => {
+    __resetPathResolverForTest()
+    process.env.SPECRAILS_IS_DESKTOP = '1'
+    rt = makeRuntimesDir()
+    ghBin = path.join(rt.base, 'gh', 'bin')
+    fs.mkdirSync(ghBin, { recursive: true })
+    process.env.SPECRAILS_BUNDLED_RUNTIMES_PATH = rt.base
+  })
+
+  afterEach(() => {
+    process.env.PATH = ORIGINAL_PATH
+    delete process.env.SPECRAILS_IS_DESKTOP
+    delete process.env.SPECRAILS_BUNDLED_RUNTIMES_PATH
+    Object.defineProperty(process, 'platform', { value: ORIGINAL_PLATFORM })
+    fs.rmSync(rt.base, { recursive: true, force: true })
+  })
+
+  it('appends gh/bin at the END of PATH (system gh wins; bundled is pure fallback)', () => {
+    Object.defineProperty(process, 'platform', { value: 'darwin' })
+    fs.writeFileSync(path.join(ghBin, 'gh'), '#!/bin/sh\n')
+    process.env.PATH = '/usr/bin:/bin'
+    resolveStartupPath()
+    const parts = (process.env.PATH ?? '').split(':')
+    expect(parts[parts.length - 1]).toBe(ghBin)
+    // Bundled node still FIRST — gh never disturbs the prepend order.
+    expect(parts[0]).toBe(rt.nodeBin)
+  })
+
+  it('no gh binary in the bundle → PATH untouched by the gh append', () => {
+    Object.defineProperty(process, 'platform', { value: 'darwin' })
+    process.env.PATH = '/usr/bin:/bin'
+    resolveStartupPath()
+    expect(process.env.PATH).not.toContain(ghBin)
+  })
+
+  it('appends gh even when the node/git bundle is absent (partial build): system discovery + gh fallback', () => {
+    Object.defineProperty(process, 'platform', { value: 'darwin' })
+    fs.rmSync(path.join(rt.nodeBin, 'node'), { force: true })
+    fs.writeFileSync(path.join(ghBin, 'gh'), '#!/bin/sh\n')
+    process.env.PATH = '/usr/bin:/bin'
+    resolveStartupPath()
+    const parts = (process.env.PATH ?? '').split(':')
+    expect(parts[parts.length - 1]).toBe(ghBin)
+    // Bundle not active → node dir NOT prepended.
+    expect(process.env.PATH).not.toContain(rt.nodeBin)
+  })
+
+  it('idempotent: a second resolve does not duplicate the gh dir', () => {
+    Object.defineProperty(process, 'platform', { value: 'darwin' })
+    fs.writeFileSync(path.join(ghBin, 'gh'), '#!/bin/sh\n')
+    process.env.PATH = '/usr/bin:/bin'
+    resolveStartupPath()
+    resolveStartupPath()
+    const count = (process.env.PATH ?? '').split(':').filter((p) => p === ghBin).length
+    expect(count).toBe(1)
+  })
+
+  it('non-desktop mode: never appends the gh dir', () => {
+    Object.defineProperty(process, 'platform', { value: 'darwin' })
+    delete process.env.SPECRAILS_IS_DESKTOP
+    fs.writeFileSync(path.join(ghBin, 'gh'), '#!/bin/sh\n')
+    process.env.PATH = '/usr/bin:/bin'
+    resolveStartupPath()
+    expect(process.env.PATH).not.toContain(ghBin)
+  })
+
+  it('diagnostic tags the appended gh dir as bundled', () => {
+    Object.defineProperty(process, 'platform', { value: 'darwin' })
+    fs.writeFileSync(path.join(ghBin, 'gh'), '#!/bin/sh\n')
+    process.env.PATH = '/usr/bin:/bin'
+    resolveStartupPath()
+    const diag = getPathDiagnostic()
+    const idx = diag.pathSegments.indexOf(ghBin)
+    expect(idx).toBe(diag.pathSegments.length - 1)
+    expect(diag.pathSources[idx]).toBe('bundled')
+    expect(diag.pathSegments.length).toBe(diag.pathSources.length)
+  })
+})

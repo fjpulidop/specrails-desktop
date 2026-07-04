@@ -39,6 +39,14 @@ echo "npm:  $("${NPM}" --version)"
 echo "npx:  $("${NPX}" --version)"
 echo "git:  $("${GIT}" --version)"
 
+# Optional: bundled GitHub CLI (system-first fallback — see path-resolver.ts).
+# Only validated when present; a runtimes tree without gh is still valid.
+if [[ -e "${RT}/gh/bin/gh" ]]; then
+  echo "gh:   $("${RT}/gh/bin/gh" --version | head -1)"
+elif [[ -e "${RT}/gh/bin/gh.exe" ]]; then
+  echo "gh:   $("${RT}/gh/bin/gh.exe" --version | head -1)"
+fi
+
 # Functional git check in an isolated temp repo with no global/system config.
 T="$(mktemp -d 2>/dev/null || mktemp -d -t smokegit)"
 export GIT_CONFIG_GLOBAL=/dev/null GIT_CONFIG_SYSTEM=/dev/null

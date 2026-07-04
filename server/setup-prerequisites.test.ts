@@ -57,8 +57,8 @@ describe('setup prerequisites', () => {
     expect(status.ok).toBe(true)
     expect(status.missingRequired).toEqual([])
     const tools = status.prerequisites.filter((p) => p.kind === 'tool')
-    expect(tools).toHaveLength(4)
-    expect(tools.map((item) => item.command)).toEqual(['node', 'npm', 'npx', 'git'])
+    expect(tools).toHaveLength(5)
+    expect(tools.map((item) => item.command)).toEqual(['node', 'npm', 'npx', 'git', 'gh'])
     expect(tools.every((item) => item.installed)).toBe(true)
     expect(tools.every((item) => item.executable)).toBe(true)
     expect(tools.every((item) => item.meetsMinimum)).toBe(true)
@@ -363,7 +363,7 @@ describe('getSetupPrerequisitesStatus — desktop mode', () => {
     })
 
     const status = getSetupPrerequisitesStatus()
-    const tools = status.prerequisites.filter((p) => p.kind === 'tool' && p.key !== 'uv')
+    const tools = status.prerequisites.filter((p) => p.kind === 'tool' && p.key !== 'uv' && p.key !== 'gh')
     expect(tools.every((t) => t.bundled === true)).toBe(true)
     expect(tools.every((t) => t.installed === true)).toBe(true)
     expect(tools.every((t) => t.executable === true)).toBe(true)
@@ -399,7 +399,7 @@ describe('getSetupPrerequisitesStatus — desktop mode', () => {
     })
 
     const status = getSetupPrerequisitesStatus()
-    const tools = status.prerequisites.filter((p) => p.kind === 'tool' && p.key !== 'uv')
+    const tools = status.prerequisites.filter((p) => p.kind === 'tool' && p.key !== 'uv' && p.key !== 'gh')
     expect(tools.every((t) => t.meetsMinimum === true)).toBe(true)
   })
 
@@ -482,7 +482,7 @@ describe('getSetupPrerequisitesStatus — desktop mode', () => {
     })
 
     const status = getSetupPrerequisitesStatus()
-    const tools = status.prerequisites.filter((p) => p.kind === 'tool' && p.key !== 'uv')
+    const tools = status.prerequisites.filter((p) => p.kind === 'tool' && p.key !== 'uv' && p.key !== 'gh')
     expect(tools.every((t) => t.bundled === undefined)).toBe(true)
     expect(tools.every((t) => t.error === undefined)).toBe(true)
     expect(tools.every((t) => t.installed === true)).toBe(true)
@@ -682,5 +682,116 @@ describe('compareVersions', () => {
   it('returns 0 for unparseable inputs (conservative)', () => {
     expect(compareVersions('weird', '1.0.0')).toBe(0)
     expect(compareVersions('1.0.0', 'weird')).toBe(0)
+  })
+})
+
+describe('gh prerequisite (system-first, bundled fallback, auth-aware)', () => {
+  const ORIGINAL_PLATFORM = process.platform
+  let tmpRoot: string
+  let runtimesBase: string
+
+  function makeGhRuntimes(withGh = true): string {
+    const base = path.join(tmpRoot, 'runtimes')
+    fs.mkdirSync(path.join(base, 'gh', 'bin'), { recursive: true })
+    if (withGh) fs.writeFileSync(path.join(base, 'gh', 'bin', 'gh'), '#!/bin/sh\n')
+    return base
+  }
+
+  beforeEach(() => {
+    vi.resetAllMocks()
+    mockCrossSpawnSync.mockImplementation((cmd: any, args: any, opts: any) =>
+      mockSpawnSync(cmd, args, opts) as any,
+    )
+    __resetSetupPrerequisitesCacheForTest()
+    tmpRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'sprq-gh-'))
+    Object.defineProperty(process, 'platform', { value: 'linux', configurable: true })
+    process.env.SPECRAILS_IS_DESKTOP = '1'
+    runtimesBase = makeGhRuntimes()
+    process.env.SPECRAILS_BUNDLED_RUNTIMES_PATH = runtimesBase
+  })
+
+  afterEach(() => {
+    delete process.env.SPECRAILS_IS_DESKTOP
+    delete process.env.SPECRAILS_BUNDLED_RUNTIMES_PATH
+    Object.defineProperty(process, 'platform', { value: ORIGINAL_PLATFORM, configurable: true })
+    fs.rmSync(tmpRoot, { recursive: true, force: true })
+  })
+
+  it('SYSTEM gh wins even when a bundled gh exists (auth config lives with the user install)', () => {
+    mockSpawnSync.mockImplementation((cmd: any, args: any) => {
+      if (cmd === 'which' && args?.[0] === 'gh') return { status: 0, stdout: '/usr/local/bin/gh\n' } as any
+      if (cmd === 'which' || cmd === 'where') return { status: 1 } as any
+      if (cmd === '/usr/local/bin/gh' && args?.[0] === '--version') return { status: 0, stdout: 'gh version 2.63.2 (2024-12-05)\n' } as any
+      if (cmd === '/usr/local/bin/gh' && args?.[0] === 'auth') return { status: 0, stdout: 'gho_****\n' } as any
+      return { status: 1, stdout: '', stderr: '' } as any
+    })
+    const gh = getSetupPrerequisitesStatus().prerequisites.find((p) => p.key === 'gh')
+    expect(gh?.installed).toBe(true)
+    expect(gh?.executable).toBe(true)
+    expect(gh?.bundled).toBeUndefined()
+    expect(gh?.resolvedPath).toBe('/usr/local/bin/gh')
+    expect(gh?.authenticated).toBe(true)
+  })
+
+  it('falls back to the bundled gh when no system gh resolves', () => {
+    mockSpawnSync.mockImplementation((cmd: any, args: any) => {
+      if (cmd === 'which' || cmd === 'where') return { status: 1 } as any
+      if (typeof cmd === 'string' && cmd.includes('runtimes/gh/bin/gh')) {
+        if (args?.[0] === '--version') return { status: 0, stdout: 'gh version 2.63.2 (2024-12-05)\n' } as any
+        if (args?.[0] === 'auth') return { status: 1, stdout: '', stderr: 'no oauth token' } as any
+      }
+      return { status: 1, stdout: '', stderr: '' } as any
+    })
+    const status = getSetupPrerequisitesStatus()
+    const gh = status.prerequisites.find((p) => p.key === 'gh')
+    expect(gh?.installed).toBe(true)
+    expect(gh?.bundled).toBe(true)
+    expect(gh?.resolvedPath).toBe(path.join(runtimesBase, 'gh', 'bin', 'gh'))
+    // No credential yet: bundling removes the install step, not the login step.
+    expect(gh?.authenticated).toBe(false)
+    // Optional: never blocks Add Project.
+    expect(status.missingRequired.some((p) => p.key === 'gh')).toBe(false)
+  })
+
+  it('bundled gh present but failing its probe reports corrupted-bundle WITHOUT blocking', () => {
+    mockSpawnSync.mockImplementation((cmd: any) => {
+      if (cmd === 'which' || cmd === 'where') return { status: 1 } as any
+      if (typeof cmd === 'string' && cmd.includes('runtimes/gh/bin/gh')) return { status: 126, stdout: '', stderr: 'exec format error' } as any
+      return { status: 1, stdout: '', stderr: '' } as any
+    })
+    const status = getSetupPrerequisitesStatus()
+    const gh = status.prerequisites.find((p) => p.key === 'gh')
+    expect(gh?.error).toBe('corrupted-bundle')
+    expect(gh?.executable).toBe(false)
+    expect(status.missingRequired.some((p) => p.key === 'gh')).toBe(false)
+  })
+
+  it('no system gh and no bundled file → plainly not installed, still optional', () => {
+    fs.rmSync(path.join(runtimesBase, 'gh', 'bin', 'gh'), { force: true })
+    mockSpawnSync.mockImplementation((cmd: any) => {
+      if (cmd === 'which' || cmd === 'where') return { status: 1 } as any
+      return { status: 1, stdout: '', stderr: '' } as any
+    })
+    const status = getSetupPrerequisitesStatus()
+    const gh = status.prerequisites.find((p) => p.key === 'gh')
+    expect(gh?.installed).toBe(false)
+    expect(gh?.required).toBe(false)
+    expect(gh?.bundled).toBeUndefined()
+    expect(status.missingRequired.some((p) => p.key === 'gh')).toBe(false)
+  })
+
+  it('non-desktop mode: gh probed via system PATH only, never the bundle', () => {
+    delete process.env.SPECRAILS_IS_DESKTOP
+    mockSpawnSync.mockImplementation((cmd: any, args: any) => {
+      if (cmd === 'which' && args?.[0] === 'gh') return { status: 0, stdout: '/opt/homebrew/bin/gh\n' } as any
+      if (cmd === 'which' || cmd === 'where') return { status: 1 } as any
+      if (cmd === '/opt/homebrew/bin/gh' && args?.[0] === '--version') return { status: 0, stdout: 'gh version 2.65.0\n' } as any
+      if (cmd === '/opt/homebrew/bin/gh' && args?.[0] === 'auth') return { status: 1 } as any
+      return { status: 1, stdout: '', stderr: '' } as any
+    })
+    const gh = getSetupPrerequisitesStatus().prerequisites.find((p) => p.key === 'gh')
+    expect(gh?.installed).toBe(true)
+    expect(gh?.bundled).toBeUndefined()
+    expect(gh?.authenticated).toBe(false)
   })
 })

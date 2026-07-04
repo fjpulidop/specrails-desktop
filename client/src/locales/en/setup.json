@@ -102,7 +102,9 @@
     "reinstallHint": "Reinstall the Specrails app to restore bundled tools.",
     "installMissingHint": "Install the missing tools to continue.",
     "moreInfo": "More info",
-    "bundledBadge": "bundled"
+    "bundledBadge": "bundled",
+    "optional": "optional",
+    "ghNoAuth": "Not signed in — run `gh auth login`"
   },
   "instructions": {
     "title": "Install developer tools",

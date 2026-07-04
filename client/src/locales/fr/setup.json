@@ -102,7 +102,9 @@
     "reinstallHint": "Réinstallez l'application Specrails pour restaurer les outils embarqués.",
     "installMissingHint": "Installez les outils manquants pour continuer.",
     "moreInfo": "Plus d'infos",
-    "bundledBadge": "embarqué"
+    "bundledBadge": "embarqué",
+    "optional": "optionnel",
+    "ghNoAuth": "Non connecté — exécutez `gh auth login`"
   },
   "instructions": {
     "title": "Installer les outils de développement",
