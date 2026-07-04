@@ -203,11 +203,34 @@ export function railsTools(): McpToolSpec[] {
             if (body.reasoning_effort === undefined && defaults.reasoningEffort && RAIL_REASONING_EFFORTS.has(defaults.reasoningEffort)) {
               body.reasoning_effort = defaults.reasoningEffort
             }
-            const r = await apiCall(ctx, 'POST', `${base}/${railIndex}/launch`, body)
+            const r = await apiCall(ctx, 'POST', `${base}/${railIndex}/launch`, body) as Record<string, unknown>
+            const railLabel = `Rail ${railIndex + 1}`
+            // Isolation status governs whether a PR-decision card EXISTS. When
+            // the router reports `isolationUnavailable`, the run fell back to the
+            // shared working tree: NO git worktree, NO PR delivery row, and so
+            // NO implementation/PR card will EVER appear (not in this chat, not
+            // in the rail header). The agent MUST NOT promise one — it must tell
+            // the user the run writes changes DIRECTLY to their files and why.
+            const isoReason = typeof r.isolationUnavailable === 'string' ? r.isolationUnavailable : null
+            if (isoReason) {
+              const why = isoReason === 'no-git'
+                ? 'the project folder is NOT a git repository'
+                : isoReason === 'no-commits'
+                  ? 'the git repository has NO commits yet (an unborn HEAD cannot be branched)'
+                  : `worktree isolation failed${typeof r.isolationUnavailableDetail === 'string' ? `: ${r.isolationUnavailableDetail}` : ''}`
+              const fix = isoReason === 'error'
+                ? 'This is unexpected — report the detail to the user.'
+                : 'To get the PR flow, the user should `git init` the folder and make at least one commit (a GitHub remote is NOT required — the review flow then offers "Integrate locally" to accept without GitHub), then relaunch.'
+              return {
+                ...r,
+                railLabel,
+                hint: `Launch accepted (202) on ${railLabel}, but WORKTREE ISOLATION IS UNAVAILABLE because ${why}. The run proceeds on the SHARED working tree and writes changes DIRECTLY into the user's files — there is NO PR-decision/implementation card and NO branch. Do NOT tell the user to look for a PR card; tell them the run writes to their files in place, and explain why. ${fix} When it finishes, the spec parks at on_review — the user accepts it by moving it to Done on the board (the changes are already in their files) or reverts the spec's status (which does NOT undo the file changes).`,
+              }
+            }
             return {
-              ...(r as Record<string, unknown>),
-              railLabel: `Rail ${railIndex + 1}`,
-              hint: `Launch accepted (202) on railIndex ${railIndex} — tell the user it runs on "Rail ${railIndex + 1}" (UI labels are 1-based). Use specrails_watch with the returned jobId/jobIds (or loopRunIds for loop mode) to await completion. Live output streams over the job WS. Rails run for minutes; pass untilMs up to 600000 and re-watch on timeout.`,
+              ...r,
+              railLabel,
+              hint: `Launch accepted (202) on ${railLabel} (isolated worktree, PR flow active) — tell the user it runs on "${railLabel}" (UI labels are 1-based) and that the PR-decision card will appear here and on the rail header when it settles. Use specrails_watch with the returned loopRunIds to await completion only if asked. Rails run for minutes; pass untilMs up to 600000 and re-watch on timeout.`,
             }
           }
 
