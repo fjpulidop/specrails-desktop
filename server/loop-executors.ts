@@ -9,7 +9,7 @@
 import { spawn } from 'node:child_process'
 import treeKill from 'tree-kill'
 import { getAdapter } from './providers'
-import { ensureFrameworkAgents } from './workspace-manager'
+import { ensureFrameworkAgents, ensureFrameworkCommandSubtrees } from './workspace-manager'
 import { runAiCliInvocation } from './spawn-lifecycle'
 import { finaliseInvocationResult } from './result-event'
 import { parseDeciderDecision } from './loop-decider'
@@ -143,7 +143,7 @@ export function createLoopExecutors(
       // agent self-heal on Windows.
       const stepEnv = aiStepEnv(resolveEnv(), repoDir)
       const extraArgs = aiStepExtraArgs(adapter, cwd, repoDir)
-      if (repoDir) { try { ensureFrameworkAgents(cwd, adapter.projectDirName) } catch { /* best-effort */ } }
+      if (repoDir) { try { ensureFrameworkAgents(cwd, adapter.projectDirName); ensureFrameworkCommandSubtrees(cwd, adapter.projectDirName) } catch { /* best-effort */ } }
       let text = ''
       // The adapter parses provider failures (codex `turn.failed`, etc.) into a
       // structured `error` event on the stdout stream — capture its message so we
@@ -240,7 +240,7 @@ export function createLoopExecutors(
       if (!adapter.capabilities.persistentStdin) return null
       const stepEnv = aiStepEnv(resolveEnv(), repoDir)
       const extraArgs = aiStepExtraArgs(adapter, cwd, repoDir)
-      if (repoDir) { try { ensureFrameworkAgents(cwd, adapter.projectDirName) } catch { /* best-effort */ } }
+      if (repoDir) { try { ensureFrameworkAgents(cwd, adapter.projectDirName); ensureFrameworkCommandSubtrees(cwd, adapter.projectDirName) } catch { /* best-effort */ } }
       const args = adapter.buildArgs('chat-stream', {
         // chat-stream feeds the prompt over stdin per-turn, so the argv `prompt`
         // is unused — pass empty to satisfy the shared SpawnOptions shape.

@@ -8,6 +8,7 @@ import {
   workspacePathFor,
   assembleWorkspaceFramework,
   ensureFrameworkAgents,
+  ensureFrameworkCommandSubtrees,
 } from './workspace-manager'
 import { FrameworkManager } from './framework-manager'
 
@@ -87,6 +88,82 @@ describe('workspace-manager', () => {
       win32()
       const ws = workspacePathFor('acme', home)
       expect(ensureFrameworkAgents(ws, '.claude', home)).toBe(0)
+    })
+  })
+
+  describe('ensureFrameworkCommandSubtrees (win32 repair for /specrails:* commands)', () => {
+    const ORIG = process.platform
+    const win32 = () => Object.defineProperty(process, 'platform', { value: 'win32', configurable: true })
+    afterEach(() => Object.defineProperty(process, 'platform', { value: ORIG, configurable: true }))
+
+    function seedSubtrees(version = '4.11.0'): string {
+      const base = path.join(home, '.specrails', 'framework', version, '.claude')
+      // Namespaced command: /specrails:implement → commands/specrails/implement.md
+      fs.mkdirSync(path.join(base, 'commands', 'specrails'), { recursive: true })
+      fs.writeFileSync(path.join(base, 'commands', 'specrails', 'implement.md'), '# implement\n')
+      fs.writeFileSync(path.join(base, 'commands', 'top.md'), '# top\n')
+      fs.mkdirSync(path.join(base, 'skills'), { recursive: true })
+      fs.writeFileSync(path.join(base, 'skills', 'a.md'), '# a\n')
+      fs.mkdirSync(path.join(base, 'rules'), { recursive: true })
+      fs.writeFileSync(path.join(base, 'rules', 'layer.md'), '# rules\n')
+      return base
+    }
+
+    it('recursively copies commands/skills/rules when the workspace has none (broken junction)', () => {
+      win32()
+      seedSubtrees()
+      const ws = workspacePathFor('acme', home)
+      fs.mkdirSync(path.join(ws, '.claude'), { recursive: true })
+      expect(ensureFrameworkCommandSubtrees(ws, '.claude', home)).toBe(3)
+      // The namespaced command that produced "Unknown command" now exists.
+      expect(fs.readFileSync(path.join(ws, '.claude', 'commands', 'specrails', 'implement.md'), 'utf8')).toBe('# implement\n')
+      expect(fs.existsSync(path.join(ws, '.claude', 'commands', 'top.md'))).toBe(true)
+      expect(fs.existsSync(path.join(ws, '.claude', 'skills', 'a.md'))).toBe(true)
+      expect(fs.existsSync(path.join(ws, '.claude', 'rules', 'layer.md'))).toBe(true)
+    })
+
+    it('heals an UNREADABLE dir-symlink (points at a missing target) by replacing it with a real copy', () => {
+      win32()
+      seedSubtrees()
+      const ws = workspacePathFor('acme', home)
+      const claudeDir = path.join(ws, '.claude')
+      fs.mkdirSync(claudeDir, { recursive: true })
+      // Simulate the broken assemble link: a symlink to a non-existent target
+      // (readdir throws → treated as unreadable). Skip if the FS can't symlink.
+      try {
+        fs.symlinkSync(path.join(home, 'does-not-exist'), path.join(claudeDir, 'commands'), 'junction')
+      } catch {
+        return
+      }
+      const healed = ensureFrameworkCommandSubtrees(ws, '.claude', home)
+      expect(healed).toBeGreaterThanOrEqual(1)
+      expect(fs.readFileSync(path.join(claudeDir, 'commands', 'specrails', 'implement.md'), 'utf8')).toBe('# implement\n')
+    })
+
+    it('leaves an already-populated dir untouched (idempotent, never deletes through a working link)', () => {
+      win32()
+      seedSubtrees()
+      const ws = workspacePathFor('acme', home)
+      const cmds = path.join(ws, '.claude', 'commands', 'specrails')
+      fs.mkdirSync(cmds, { recursive: true })
+      fs.writeFileSync(path.join(cmds, 'implement.md'), '# already here\n')
+      // skills + rules missing → those two heal; commands is populated → skipped.
+      expect(ensureFrameworkCommandSubtrees(ws, '.claude', home)).toBe(2)
+      expect(fs.readFileSync(path.join(cmds, 'implement.md'), 'utf8')).toBe('# already here\n')
+    })
+
+    it('is a NO-OP on POSIX (assemble symlinks resolve normally)', () => {
+      Object.defineProperty(process, 'platform', { value: 'linux', configurable: true })
+      seedSubtrees()
+      const ws = workspacePathFor('acme', home)
+      expect(ensureFrameworkCommandSubtrees(ws, '.claude', home)).toBe(0)
+      expect(fs.existsSync(path.join(ws, '.claude', 'commands'))).toBe(false)
+    })
+
+    it('no-op when the framework subtree source is absent', () => {
+      win32()
+      const ws = workspacePathFor('acme', home)
+      expect(ensureFrameworkCommandSubtrees(ws, '.claude', home)).toBe(0)
     })
   })
 

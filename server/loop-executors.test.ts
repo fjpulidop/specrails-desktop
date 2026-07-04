@@ -13,6 +13,7 @@ const { runAiCliInvocation, getAdapter, ensureFrameworkAgents } = vi.hoisted(() 
   runAiCliInvocation: vi.fn(),
   getAdapter: vi.fn(),
   ensureFrameworkAgents: vi.fn(),
+  ensureFrameworkCommandSubtrees: vi.fn(),
 }))
 
 vi.mock('./spawn-lifecycle', () => ({ runAiCliInvocation }))
