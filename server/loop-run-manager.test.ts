@@ -1165,10 +1165,13 @@ describe('LoopRunManager zero-work ai-steps', () => {
 
     // Identical routing: both runs abort 'failed' via the fail-fast threshold
     // after exactly two ai-steps, with identical per-step end statuses.
+    // durationMs is wall-clock noise (0 vs 1 ms flake) — normalize it out.
+    const stripDuration = (ends: Array<{ nodeId: string; status: string }>) =>
+      ends.map(({ durationMs: _d, ...rest }: { nodeId: string; status: string; durationMs?: number }) => rest)
     expect(resA.outcome).toBe('failed')
     expect(resB.outcome).toBe(resA.outcome)
     expect(zw.children.length).toBe(crashed.children.length)
-    expect(endPayloads(resB.runId)).toEqual(endPayloads(resA.runId))
+    expect(stripDuration(endPayloads(resB.runId))).toEqual(stripDuration(endPayloads(resA.runId)))
     expect(getLoopRun(db, resB.runId)!.final_outcome).toBe(getLoopRun(db, resA.runId)!.final_outcome)
   })
 
