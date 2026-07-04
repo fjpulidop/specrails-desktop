@@ -337,7 +337,7 @@ export function JobDetailModal({ jobId, onClose, projectId }: JobDetailModalProp
         {/* Interactive in-job agent composer — the SAME control the board's Job
             Detail page mounts, so a mission-mode user steers the running job
             without leaving the workspace. */}
-        {job?.interactive && job.status === 'running' && (
+        {!!job?.interactive && job.status === 'running' && (
           <InteractiveJobComposer
             jobId={jobId}
             projectId={projectId}

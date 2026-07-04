@@ -75,7 +75,7 @@ export function AgentWorkspaceSidebar() {
       className={cn(
         'relative flex flex-col h-full border-l border-border bg-background flex-shrink-0',
         'transition-all duration-200 ease-in-out overflow-hidden',
-        expanded ? 'w-44' : 'w-11',
+        expanded ? 'w-52' : 'w-11',
       )}
       onMouseEnter={() => { if (rightMode === 'unpinned') setHovered(true) }}
       onMouseLeave={() => { if (rightMode === 'unpinned') setHovered(false) }}

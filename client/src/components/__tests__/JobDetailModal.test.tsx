@@ -619,6 +619,10 @@ describe('JobDetailModal', () => {
         expect(screen.getByText('running')).toBeInTheDocument()
       })
       expect(screen.queryByTestId('interactive-job-composer')).not.toBeInTheDocument()
+      // Regression: `job.interactive` is a SQLite 0/1 number, so the composer
+      // guard must coerce to boolean. `{0 && …}` would leak a stray "0" text
+      // node below the log panel — assert it never renders.
+      expect(screen.queryByText('0')).not.toBeInTheDocument()
     })
 
     it('does NOT mount the composer for a finished interactive job', async () => {
