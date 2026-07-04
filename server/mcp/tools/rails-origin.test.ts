@@ -27,10 +27,13 @@ import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js'
 // and at settle the agent-chat card driver fires for that conversation.
 // Only the git/worktree IO is faked (module mock), so no real repo is needed.
 
+// Mutable isolation status so a test can drive the no-git fallback path.
+const isoStatus = vi.hoisted(() => ({ value: 'ok' as 'ok' | 'no-git' | 'no-commits' }))
+
 vi.mock('../../worktree-manager', async (importActual) => ({
   ...(await (importActual as () => Promise<Record<string, unknown>>)()),
   defaultGitRunner: { run: async () => ({ code: 1, stdout: '', stderr: '' }) }, // integration branch → 'HEAD' fallback
-  repoIsolationStatus: async () => 'ok',
+  repoIsolationStatus: async () => isoStatus.value,
   createWorktree: async (_git: unknown, input: { slug: string; ticketId: number; branch?: string }) => ({
     // The launch threads the conventional preferred name (pr-naming); echo it
     // back like the real createWorktree, with the legacy fallback when absent.
@@ -60,6 +63,7 @@ describe('MCP → rails launch → rail_pr_deliveries origin link (end-to-end)',
 
   beforeEach(async () => {
     delete process.env.SPECRAILS_RAIL_DELIVER_PR // PR delivery default-on
+    isoStatus.value = 'ok'
     db = initDb(':memory:')
     desktopDb = initDesktopDb(':memory:')
     setRailTickets(db, 0, [1, 2], 'loop')
@@ -175,6 +179,27 @@ describe('MCP → rails launch → rail_pr_deliveries origin link (end-to-end)',
       ticketIds: [1, 2],
       runIds: payload.loopRunIds,
     })
+  })
+
+  it('a no-git repo falls back to shared cwd: NO card, and the hint tells the agent to be honest (not promise a card)', async () => {
+    isoStatus.value = 'no-git'
+    const r = await captured!(
+      { action: 'launch', projectId: 'p1', railIndex: 0, loopId: 'factory:implement' },
+      launchExtra({ [AGENT_CONVERSATION_HEADER]: 'conv-nogit' }),
+    )
+    expect(r.isError).toBeFalsy()
+    const payload = JSON.parse(r.content[0].text)
+    // Shared-cwd fallback surfaced verbatim + isolated flag absent.
+    expect(payload.isolationUnavailable).toBe('no-git')
+    expect(payload.isolated).toBeUndefined()
+    // No delivery row → no card ever posted, despite the origin header.
+    expect(getActivePrDeliveryByRail(db, 0)).toBeFalsy()
+    expect(postPrDecisionCard).not.toHaveBeenCalled()
+    // The hint forbids promising a card and explains the shared-cwd reality.
+    expect(payload.hint).toMatch(/ISOLATION IS UNAVAILABLE/i)
+    expect(payload.hint).toMatch(/NO PR-decision/i)
+    expect(payload.hint).toMatch(/git init/i)
+    expect(payload.hint).toMatch(/directly into the user's files/i)
   })
 
   it('without the conversation header the launch lands as dashboard/NULL and no card fires', async () => {
