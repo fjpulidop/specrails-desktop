@@ -121,7 +121,10 @@ describe('IntegrationsPage', () => {
     })
   })
 
-  it('shows Auto-install button when uv prerequisite is missing', async () => {
+  // NOTE the explicit 15s TEST timeout: the inner findBy* retry budget (5s)
+  // equalled vitest's default per-test 5s, so on a loaded CI runner the query
+  // wait exhausted the whole test budget and died at ~5009ms (flaky).
+  it('shows Auto-install button when uv prerequisite is missing', { timeout: 15000 }, async () => {
     routeFetch(sampleCatalog, {
       pluginName: 'serena',
       files: [{ path: '.mcp.json', op: 'create' }],
