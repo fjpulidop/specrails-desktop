@@ -29,6 +29,7 @@
     "railWorktreeNeedsReview": "Rail {{n}}: spec #{{ticket}} needs review after merge",
     "railWorktreesNoGit": "Worktree isolation unavailable: this project isn't a git repository — running in shared mode.",
     "railWorktreesNoCommits": "Worktree isolation unavailable: the repository has no commits yet — make an initial commit, then relaunch.",
+    "railWorktreesError": "Worktree isolation failed — this run continues WITHOUT the PR review flow (no implementation card). See the error detail below.",
     "onReviewCannotMoveToRail": "This spec is awaiting PR review — resolve the PR decision first",
     "onReviewNotLaunchable": "A spec on this rail is awaiting PR review — resolve the PR decision before launching"
   },
@@ -61,7 +62,15 @@
     "discardedToast": "PR discarded — tickets returned to Specs",
     "decisionPending": "This rail has a pending PR decision — create, publish or discard it before relaunching",
     "discardConfirmTitle": "Discard this delivery?",
-    "discardConfirmBody": "The launch's branches and worktrees will be dropped and its tickets will return to Specs. This cannot be undone."
+    "discardConfirmBody": "The launch's branches and worktrees will be dropped and its tickets will return to Specs. This cannot be undone.",
+    "mergeLocal": "Integrate locally",
+    "mergeLocalTooltip": "Merge the delivered branches into {{base}} in your local checkout (no GitHub needed)",
+    "mergeLocalConfirmTitle": "Integrate locally?",
+    "mergeLocalConfirmBody": "The delivered branches will be merged into {{base}} in your local checkout. Your checkout must be on {{base}} with a clean working tree.",
+    "mergeLocalBlockedDirty": "Cannot integrate: your working tree on {{base}} has uncommitted changes. Commit or stash them, then retry.",
+    "mergeLocalBlockedBranch": "Cannot integrate: your checkout is on {{current}}, not {{base}}. Check out {{base}}, then retry.",
+    "mergeLocalFailed": "Local merge failed: {{detail}}",
+    "mergedLocally": "Integrated into {{base}} locally"
   },
   "railsBoard": {
     "title": "Rails",

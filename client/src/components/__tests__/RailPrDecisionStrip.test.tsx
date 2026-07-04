@@ -4,7 +4,7 @@ import { render, screen, fireEvent, waitFor, within } from '../../test-utils'
 import { DndContext } from '@dnd-kit/core'
 
 const { mockToast } = vi.hoisted(() => ({
-  mockToast: { success: vi.fn(), error: vi.fn(), info: vi.fn() },
+  mockToast: { success: vi.fn(), error: vi.fn(), info: vi.fn(), warning: vi.fn() },
 }))
 vi.mock('sonner', () => ({ toast: mockToast }))
 
@@ -234,5 +234,60 @@ describe('RailPrDecisionStrip interactions', () => {
     renderStrip(snapshot(), act)
     fireEvent.click(screen.getByTestId('rail-pr-create'))
     await waitFor(() => expect(mockToast.error).toHaveBeenCalledWith("Couldn't apply the PR decision"))
+  })
+})
+
+// ─── merge-local (remote-less acceptance) ─────────────────────────────────────
+
+describe('merge-local action', () => {
+  it('offers Integrate-locally on on_review, degraded draft and pr_failed — never once a PR exists', () => {
+    for (const snap of [
+      snapshot({ decision: 'on_review' }),
+      snapshot({ decision: 'pr_draft', prUrl: null, prState: 'local-only' }),
+      snapshot({ decision: 'pr_failed' }),
+    ]) {
+      const { unmount } = render(<RailPrDecisionStrip decision={snap} density="normal" act={vi.fn()} />)
+      expect(screen.getByTestId('rail-pr-merge-local')).toBeInTheDocument()
+      unmount()
+    }
+    for (const snap of [
+      snapshot({ decision: 'pr_draft', prUrl: 'https://github.com/o/r/pull/7', prNumber: 7, prState: 'pr-created' }),
+      snapshot({ decision: 'pr_ready', prUrl: 'https://github.com/o/r/pull/7', prNumber: 7, prState: 'pr-created' }),
+    ]) {
+      const { unmount } = render(<RailPrDecisionStrip decision={snap} density="normal" act={vi.fn()} />)
+      expect(screen.queryByTestId('rail-pr-merge-local')).toBeNull()
+      unmount()
+    }
+  })
+
+  it('confirms before acting, then POSTs merge-local with the current decision', async () => {
+    const act = vi.fn().mockResolvedValue({ ok: true, status: 200, decision: 'merged', merged: true })
+    render(<RailPrDecisionStrip decision={snapshot({ decision: 'on_review' })} density="normal" act={act} />)
+    fireEvent.click(screen.getByTestId('rail-pr-merge-local'))
+    expect(act).not.toHaveBeenCalled() // confirm dialog first
+    fireEvent.click(screen.getByTestId('rail-pr-merge-local-confirm-btn'))
+    await waitFor(() => expect(act).toHaveBeenCalledWith('merge-local', 'on_review'))
+    await waitFor(() => expect(mockToast.success).toHaveBeenCalled())
+  })
+
+  it('a blocked precondition surfaces the fix-it toast, never "already resolved"', async () => {
+    const act = vi.fn().mockResolvedValue({
+      ok: false, status: 409, error: 'merge_local_blocked', reason: 'dirty', base: 'main',
+    })
+    render(<RailPrDecisionStrip decision={snapshot({ decision: 'on_review' })} density="normal" act={act} />)
+    fireEvent.click(screen.getByTestId('rail-pr-merge-local'))
+    fireEvent.click(screen.getByTestId('rail-pr-merge-local-confirm-btn'))
+    await waitFor(() => expect(mockToast.warning).toHaveBeenCalled())
+    expect(mockToast.info).not.toHaveBeenCalled()
+  })
+
+  it('a merge conflict surfaces the merge_failed detail', async () => {
+    const act = vi.fn().mockResolvedValue({
+      ok: false, status: 502, error: 'merge_failed', detail: "merging 'feat/1': CONFLICT",
+    })
+    render(<RailPrDecisionStrip decision={snapshot({ decision: 'pr_failed' })} density="normal" act={act} />)
+    fireEvent.click(screen.getByTestId('rail-pr-merge-local'))
+    fireEvent.click(screen.getByTestId('rail-pr-merge-local-confirm-btn'))
+    await waitFor(() => expect(mockToast.error).toHaveBeenCalled())
   })
 })

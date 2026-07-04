@@ -29,6 +29,7 @@
     "railWorktreeNeedsReview": "Rail {{n}}: a spec #{{ticket}} precisa de revisão após o merge",
     "railWorktreesNoGit": "Isolamento por worktree indisponível: este projeto não é um repositório git — executando em modo compartilhado.",
     "railWorktreesNoCommits": "Isolamento por worktree indisponível: o repositório ainda não tem commits — faça um commit inicial e relance.",
+    "railWorktreesError": "O isolamento por worktrees falhou — esta execução continua SEM o fluxo de revisão por PR (sem cartão de implementação). Veja o detalhe do erro abaixo.",
     "onReviewCannotMoveToRail": "Esta spec aguarda revisão da PR — resolva primeiro a decisão da PR",
     "onReviewNotLaunchable": "Uma spec deste rail aguarda revisão da PR — resolva a decisão da PR antes de lançar"
   },
@@ -61,7 +62,15 @@
     "discardedToast": "PR descartada — tickets devolvidos a Specs",
     "decisionPending": "Este rail tem uma decisão de PR pendente — crie, publique ou descarte-a antes de relançar",
     "discardConfirmTitle": "Descartar esta entrega?",
-    "discardConfirmBody": "Os ramos e worktrees do lançamento serão eliminados e os seus tickets voltarão a Specs. Esta ação não pode ser anulada."
+    "discardConfirmBody": "Os ramos e worktrees do lançamento serão eliminados e os seus tickets voltarão a Specs. Esta ação não pode ser anulada.",
+    "mergeLocal": "Integrar localmente",
+    "mergeLocalTooltip": "Faz merge dos branches entregues em {{base}} no seu checkout local (sem GitHub)",
+    "mergeLocalConfirmTitle": "Integrar localmente?",
+    "mergeLocalConfirmBody": "Os branches entregues serão mesclados em {{base}} no seu checkout local. Seu checkout deve estar em {{base}} com a árvore de trabalho limpa.",
+    "mergeLocalBlockedDirty": "Não é possível integrar: sua árvore de trabalho em {{base}} tem mudanças sem commit. Faça commit ou stash e tente de novo.",
+    "mergeLocalBlockedBranch": "Não é possível integrar: seu checkout está em {{current}}, não em {{base}}. Mude para {{base}} e tente de novo.",
+    "mergeLocalFailed": "O merge local falhou: {{detail}}",
+    "mergedLocally": "Integrado em {{base}} localmente"
   },
   "railsBoard": {
     "title": "Rails",

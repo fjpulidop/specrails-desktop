@@ -29,6 +29,7 @@
     "railWorktreeNeedsReview": "Rail {{n}}：合并后 spec #{{ticket}} 需要复查",
     "railWorktreesNoGit": "worktree 隔离不可用：该项目不是 git 仓库 — 以共享模式运行。",
     "railWorktreesNoCommits": "worktree 隔离不可用：仓库还没有任何提交 — 先做一次初始提交再重新启动。",
+    "railWorktreesError": "Worktree 隔离失败 — 此次运行将在没有 PR 审查流程的情况下继续（无实施卡片）。请查看下方错误详情。",
     "onReviewCannotMoveToRail": "该 Spec 正在等待 PR 评审 — 请先处理 PR 决定",
     "onReviewNotLaunchable": "该 Rail 上有 Spec 正在等待 PR 评审 — 请先处理 PR 决定再启动"
   },
@@ -61,7 +62,15 @@
     "discardedToast": "PR 已丢弃 — 工单已退回 Specs",
     "decisionPending": "该 Rail 有待处理的 PR 决定 — 请先创建、发布或丢弃，再重新启动",
     "discardConfirmTitle": "丢弃本次交付？",
-    "discardConfirmBody": "将删除本次启动的分支和 worktree，其工单会退回 Specs。此操作无法撤销。"
+    "discardConfirmBody": "将删除本次启动的分支和 worktree，其工单会退回 Specs。此操作无法撤销。",
+    "mergeLocal": "本地集成",
+    "mergeLocalTooltip": "将交付的分支合并到本地检出的 {{base}}（无需 GitHub）",
+    "mergeLocalConfirmTitle": "本地集成？",
+    "mergeLocalConfirmBody": "交付的分支将合并到本地检出的 {{base}}。你的检出必须位于 {{base}} 且工作树干净。",
+    "mergeLocalBlockedDirty": "无法集成：{{base}} 上的工作树有未提交的更改。请提交或暂存后重试。",
+    "mergeLocalBlockedBranch": "无法集成：当前检出在 {{current}}，而不是 {{base}}。请切换到 {{base}} 后重试。",
+    "mergeLocalFailed": "本地合并失败：{{detail}}",
+    "mergedLocally": "已在本地集成到 {{base}}"
   },
   "railsBoard": {
     "title": "Rails",

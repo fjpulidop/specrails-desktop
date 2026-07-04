@@ -233,7 +233,12 @@
         "merged": "已合并",
         "discarded": "已丢弃"
       }
-    }
+    },
+    "mergeLocal": "本地集成",
+    "mergeLocalTooltip": "将交付的分支合并到本地检出的 {{base}}（无需 GitHub）",
+    "mergeLocalBlockedDirty": "无法集成：{{base}} 上的工作树有未提交的更改。请提交或暂存后重试。",
+    "mergeLocalBlockedBranch": "无法集成：当前检出在 {{current}}，而不是 {{base}}。请切换到 {{base}} 后重试。",
+    "mergedLocally": "已在本地集成到 {{base}}"
   },
   "specDraft": {
     "heading": "规格草稿",

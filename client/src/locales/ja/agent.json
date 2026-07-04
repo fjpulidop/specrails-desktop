@@ -233,7 +233,12 @@
         "merged": "マージ済み",
         "discarded": "破棄済み"
       }
-    }
+    },
+    "mergeLocal": "ローカルに統合",
+    "mergeLocalTooltip": "配信されたブランチをローカルチェックアウトの {{base}} にマージします（GitHub 不要）",
+    "mergeLocalBlockedDirty": "統合できません：{{base}} のワークツリーに未コミットの変更があります。コミットまたはスタッシュして再試行してください。",
+    "mergeLocalBlockedBranch": "統合できません：チェックアウトは {{current}} で、{{base}} ではありません。{{base}} に切り替えて再試行してください。",
+    "mergedLocally": "ローカルで {{base}} に統合しました"
   },
   "specDraft": {
     "heading": "スペック下書き",

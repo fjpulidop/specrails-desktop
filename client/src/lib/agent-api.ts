@@ -243,12 +243,14 @@ export function parsePrDecisionEnvelope(content: string): AgentPrDecisionEnvelop
   }
 }
 
-export type AgentPrDecisionAction = 'create-pr' | 'publish' | 'discard' | 'poll-merge'
+export type AgentPrDecisionAction = 'create-pr' | 'publish' | 'discard' | 'poll-merge' | 'merge-local'
 
 export type AgentPrDecisionOutcome =
   | { kind: 'ok'; decision: string; prUrl: string | null; merged: boolean }
   /** ANY 409 — the other surface answered first; the next broadcast reconciles. */
   | { kind: 'stale'; current: string }
+  /** merge-local precondition failed — USER-fixable (checkout base / clean tree). */
+  | { kind: 'blocked'; reason: 'wrong_branch' | 'dirty'; base: string; current: string | null }
   | { kind: 'failed'; detail: string }
 
 /**
@@ -282,7 +284,17 @@ export async function postRailPrDecision(
       merged: data?.merged === true,
     }
   }
-  if (res.status === 409) return { kind: 'stale', current: String(data?.current ?? '') }
+  if (res.status === 409) {
+    if (data?.error === 'merge_local_blocked') {
+      return {
+        kind: 'blocked',
+        reason: data?.reason === 'dirty' ? 'dirty' : 'wrong_branch',
+        base: String(data?.base ?? ''),
+        current: typeof data?.current === 'string' ? data.current : null,
+      }
+    }
+    return { kind: 'stale', current: String(data?.current ?? '') }
+  }
   return { kind: 'failed', detail: String(data?.detail ?? data?.error ?? `HTTP ${res.status}`) }
 }
 

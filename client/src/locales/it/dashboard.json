@@ -29,6 +29,7 @@
     "railWorktreeNeedsReview": "Rail {{n}}: la spec #{{ticket}} richiede revisione dopo il merge",
     "railWorktreesNoGit": "Isolamento con worktree non disponibile: il progetto non è un repository git — esecuzione in modalità condivisa.",
     "railWorktreesNoCommits": "Isolamento con worktree non disponibile: il repository non ha ancora commit — crea un commit iniziale e rilancia.",
+    "railWorktreesError": "L'isolamento tramite worktree è fallito — questa esecuzione continua SENZA il flusso di revisione PR (nessuna scheda di implementazione). Vedi il dettaglio dell'errore sotto.",
     "onReviewCannotMoveToRail": "Questa spec è in attesa della revisione della PR — risolvi prima la decisione sulla PR",
     "onReviewNotLaunchable": "Una spec di questo rail è in attesa della revisione della PR — risolvi la decisione sulla PR prima di lanciare"
   },
@@ -61,7 +62,15 @@
     "discardedToast": "PR scartata — i ticket sono tornati in Specs",
     "decisionPending": "Questo rail ha una decisione sulla PR in sospeso — creala, pubblicala o scartala prima di rilanciare",
     "discardConfirmTitle": "Scartare questa consegna?",
-    "discardConfirmBody": "I rami e i worktree del lancio verranno eliminati e i loro ticket torneranno in Specs. L'operazione non può essere annullata."
+    "discardConfirmBody": "I rami e i worktree del lancio verranno eliminati e i loro ticket torneranno in Specs. L'operazione non può essere annullata.",
+    "mergeLocal": "Integra in locale",
+    "mergeLocalTooltip": "Unisce i branch consegnati in {{base}} nel tuo checkout locale (senza GitHub)",
+    "mergeLocalConfirmTitle": "Integrare in locale?",
+    "mergeLocalConfirmBody": "I branch consegnati verranno uniti in {{base}} nel tuo checkout locale. Il checkout deve essere su {{base}} con albero di lavoro pulito.",
+    "mergeLocalBlockedDirty": "Impossibile integrare: il tuo albero di lavoro su {{base}} ha modifiche non committate. Fai commit o stash e riprova.",
+    "mergeLocalBlockedBranch": "Impossibile integrare: il tuo checkout è su {{current}}, non su {{base}}. Passa a {{base}} e riprova.",
+    "mergeLocalFailed": "Merge locale fallito: {{detail}}",
+    "mergedLocally": "Integrato in {{base}} in locale"
   },
   "railsBoard": {
     "title": "Rails",

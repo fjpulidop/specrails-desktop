@@ -36,11 +36,26 @@ on_review | pr_failed ──[Create PR]────▶ pr_draft        (delivere
 pr_draft (pr_url != null) ──[Publish]──▶ pr_ready        (gh pr ready — opens the draft for team review)
 pr_draft | pr_ready ──[Check merge]────▶ merged          (gh pr view reports MERGED; else 200 no-op)
 on_review | pr_draft | pr_ready | pr_failed ──[Discard]─▶ discarded
+on_review | pr_failed | pr_draft (pr_url = null) ──[Integrate locally]─▶ merged   (remote-less acceptance)
 ```
 
 `merged` / `discarded` are terminal. A **degraded** draft (`pr_state` `pushed`/`local-only`,
-`pr_url = null`) offers no Publish — only retry (`create-pr` is legal from a `pr_draft` whose
-`pr_url` is null) or Discard. Every transition is the compare-and-set
+`pr_url = null`) offers no Publish — retry (`create-pr` is legal from a `pr_draft` whose
+`pr_url` is null), **Integrate locally**, or Discard.
+
+**`merge-local` (remote-less acceptance).** A repo with no GitHub remote can never leave
+`local-only` — retry loops forever and Discard destroys the work, so `merge-local` is the way to
+say *yes* without GitHub. Legal ONLY while `pr_url` is null (once a real PR exists, GitHub is the
+merge authority). It merges directly into the USER'S CHECKOUT, so it is triple-guarded: the
+checkout must have the integration branch checked out (a branch can only be checked out in one
+worktree, so a temp-worktree merge is impossible while the user holds it) and the working tree
+must be clean — violations return **409 `merge_local_blocked`** (`reason: 'wrong_branch' | 'dirty'`,
+user-fixable, no transition). Merge = the assembled head (`row.branch`) when it exists, else each
+succeeded unit branch sequentially, `--no-ff --no-edit`; any conflict → `merge --abort` +
+**502 `merge_failed`** (no transition — retry after manual resolution, or discard). Success sweeps
+worktrees + branches (ledger rows → `merged`), transitions to `merged` with `pr_url` still null,
+promotes tickets to `done` and fires Jira `onRailMerged(ticketIds, refId, null)`. Both surfaces
+offer it wherever no PR exists yet (on_review / degraded draft / pr_failed) behind a confirm. Every transition is the compare-and-set
 `transitionDecision(db, id, expected, next, patch)` — one atomic
 `UPDATE … WHERE id = ? AND decision = ?` — so two surfaces racing on the same delivery cannot
 both win; the loser's `false` return maps to **409 `stale_decision`**.
