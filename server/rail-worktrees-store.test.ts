@@ -3,9 +3,11 @@ import { initDb, type DbInstance } from './db'
 import {
   createRailWorktree,
   getRailWorktree,
+  railWorktreeBranchExistsForTicket,
   updateRailWorktreeState,
   setRailWorktreeRunId,
   listRailWorktrees,
+  listRailWorktreesForTicket,
   listNonTerminalRailWorktrees,
   deleteRailWorktree,
   isTerminalMergeState,
@@ -58,5 +60,21 @@ describe('rail_worktrees ledger', () => {
     mk('a', 0, 1)
     expect(deleteRailWorktree(db, 'a')).toBe(true)
     expect(getRailWorktree(db, 'a')).toBeUndefined()
+  })
+
+  it('listRailWorktreesForTicket returns ONLY the ticket rows, newest first (recovery scan order)', () => {
+    // Insertion order: oldest first — created_at ties (same second) resolve by rowid DESC.
+    createRailWorktree(db, { id: 'old', railIndex: 0, ticketId: 7, branch: 'sr/p/ticket-7', worktreePath: '/wt/ticket-7', mergeState: 'failed' })
+    createRailWorktree(db, { id: 'new', railIndex: 1, ticketId: 7, branch: 'feat/7-add-x', worktreePath: '/wt/ticket-7', mergeState: 'built' })
+    createRailWorktree(db, { id: 'other', railIndex: 0, ticketId: 8, branch: 'feat/8-y', worktreePath: '/wt/ticket-8' })
+    expect(listRailWorktreesForTicket(db, 7).map((r) => r.id)).toEqual(['new', 'old'])
+    expect(listRailWorktreesForTicket(db, 9)).toEqual([])
+  })
+
+  it('railWorktreeBranchExistsForTicket matches only the exact (ticket, branch) pair', () => {
+    createRailWorktree(db, { id: 'x', railIndex: 0, ticketId: 7, branch: 'feat/7-add-x', worktreePath: '/wt/7' })
+    expect(railWorktreeBranchExistsForTicket(db, 7, 'feat/7-add-x')).toBe(true)
+    expect(railWorktreeBranchExistsForTicket(db, 7, 'feat/7-add-x-2')).toBe(false)
+    expect(railWorktreeBranchExistsForTicket(db, 8, 'feat/7-add-x')).toBe(false)
   })
 })

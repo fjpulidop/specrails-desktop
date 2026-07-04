@@ -250,9 +250,21 @@ app-level `PluginManager` already threads `providerId` through every
 relevant method.
 
 For `mcpRegistration === 'project-json'` providers, the existing
-`.mcp.json` surgical-merge path applies — nothing to add. (This is why
-Serena-style plugins resolve for Claude and Gemini rails but are skipped
-for Codex-only projects, which use `cli-add`.)
+`.mcp.json` surgical-merge path applies — **but only if your CLI actually
+reads claude-style `.mcp.json`**. `project-json` really names that one
+mechanism, and Gemini is the proof it isn't universal: gemini-cli has
+never read `.mcp.json` — its only MCP surface is `mcpServers` in
+`settings.json` (user scope `~/.gemini/`, project scope
+`<cwd>/.gemini/`), and an untrusted cwd suppresses MCP entirely (headless
+runs exit 55 with `FatalUntrustedWorkspaceError`; the app injects
+`GEMINI_CLI_TRUST_WORKSPACE=true` per spawn). The desktop agent chat
+registers its MCP for gemini via `<agent-cwd>/.gemini/settings.json` +
+that trust env (`prepareAgentMcp` in `server/agent-mcp-config.ts`);
+the plugin `.mcp.json` merge path still runs for gemini rails but the
+server silently never loads there — a known deferred gap. Full facts +
+the gap table: [gemini-mcp-registration.md](gemini-mcp-registration.md).
+If your provider has its own config surface, mirror the gemini branch of
+`prepareAgentMcp` rather than assuming `.mcp.json` is enough.
 
 ### 6. (If the binary needs a spawn-env quirk) add it to cli-prompt.ts
 

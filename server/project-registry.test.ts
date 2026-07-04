@@ -631,4 +631,225 @@ describe('ProjectRegistry', () => {
       expect(reg.projects[otherKey].source).toBe('core-standalone')
     })
   })
+
+  // ─── onLoopRunFinished — ticket completion status (ask-first PR delivery) ────
+
+  describe('onLoopRunFinished ticket completion status', () => {
+    let projDir: string
+    const ticketFile = () => path.join(projDir, '.specrails', 'local-tickets.json')
+
+    const seedTicket = (status: string) => {
+      fs.mkdirSync(path.dirname(ticketFile()), { recursive: true })
+      const now = new Date().toISOString()
+      fs.writeFileSync(ticketFile(), JSON.stringify({
+        schema_version: '1.3', revision: 1, last_updated: now, next_id: 2,
+        tickets: {
+          '1': {
+            id: 1, title: 'T', description: '', status, priority: null, labels: [],
+            assignee: null, prerequisites: [], metadata: {}, origin_conversation_id: null,
+            is_epic: false, parent_epic_id: null, execution_order: null, short_summary: null,
+            created_at: now, updated_at: now, created_by: 'test', source: 'manual',
+          },
+        },
+      }))
+    }
+
+    const readStatus = () =>
+      (JSON.parse(fs.readFileSync(ticketFile(), 'utf-8')) as { tickets: Record<string, { status: string }> }).tickets['1'].status
+
+    // Register the project + spy on the two Jira write-back hooks.
+    const setup = () => {
+      const ctx = registry.addProject({ id: 'pLoop', slug: 'loop-proj', name: 'Loop', path: projDir })
+      const onJobOutcome = vi.fn()
+      const onRailReview = vi.fn()
+      ;(ctx.jiraSyncManager as unknown as Record<string, unknown>).onJobOutcome = onJobOutcome
+      ;(ctx.jiraSyncManager as unknown as Record<string, unknown>).onRailReview = onRailReview
+      ctx.railLoopRuns.set('run-1', { railIndex: 0, ticketIds: [1] })
+      return { ctx, onJobOutcome, onRailReview }
+    }
+
+    const savedPrFlag = process.env.SPECRAILS_RAIL_DELIVER_PR
+    beforeEach(() => {
+      projDir = fs.mkdtempSync(path.join(os.tmpdir(), 'pr-loop-tickets-'))
+      delete process.env.SPECRAILS_RAIL_DELIVER_PR // PR delivery default-on
+    })
+    afterEach(() => {
+      try { registry.removeProject('pLoop') } catch { /* already gone */ }
+      fs.rmSync(projDir, { recursive: true, force: true })
+      if (savedPrFlag === undefined) delete process.env.SPECRAILS_RAIL_DELIVER_PR
+      else process.env.SPECRAILS_RAIL_DELIVER_PR = savedPrFlag
+    })
+
+    it("parks a completed run's tickets at on_review and calls the Jira on-review hook instead of onJobOutcome", () => {
+      seedTicket('in_progress')
+      const { ctx, onJobOutcome, onRailReview } = setup()
+
+      ctx.onLoopRunFinished('run-1', 'success', { ticketCompletionStatus: 'on_review' })
+
+      expect(readStatus()).toBe('on_review')
+      expect(onRailReview).toHaveBeenCalledWith([1], 'run-1')
+      expect(onJobOutcome).not.toHaveBeenCalled()
+      expect(broadcast.mock.calls.some(([m]) => {
+        const msg = m as { type?: string; projectId?: string }
+        return msg.type === 'ticket_updated' && msg.projectId === 'pLoop'
+      })).toBe(true)
+    })
+
+    it('without opts the DEFAULT derives from the PR-delivery flag (default-on ⇒ on_review + on-review Jira hook) — universal ask-first', () => {
+      // Shared-cwd rail runs / standalone loop runs / isolation-unavailable
+      // fallbacks call onLoopRunFinished with NO opts — under the default-on
+      // methodology switch they must park at on_review too, never done.
+      seedTicket('in_progress')
+      const { ctx, onJobOutcome, onRailReview } = setup()
+
+      ctx.onLoopRunFinished('run-1', 'success')
+
+      expect(readStatus()).toBe('on_review')
+      expect(onRailReview).toHaveBeenCalledWith([1], 'run-1')
+      expect(onJobOutcome).not.toHaveBeenCalled()
+    })
+
+    it('kill-switch off (SPECRAILS_RAIL_DELIVER_PR=0): no opts defaults to done with the done-flavoured Jira enqueue (legacy byte-identical)', () => {
+      process.env.SPECRAILS_RAIL_DELIVER_PR = '0'
+      seedTicket('in_progress')
+      const { ctx, onJobOutcome, onRailReview } = setup()
+
+      ctx.onLoopRunFinished('run-1', 'success')
+
+      expect(readStatus()).toBe('done')
+      expect(onJobOutcome).toHaveBeenCalledWith(
+        expect.objectContaining({ ticketIds: [1], status: 'completed', jobId: 'run-1' }),
+      )
+      expect(onRailReview).not.toHaveBeenCalled()
+    })
+
+    it("an explicit 'done' wins over the flag-derived default (legacy promotion)", () => {
+      seedTicket('todo')
+      const { ctx, onJobOutcome, onRailReview } = setup()
+
+      ctx.onLoopRunFinished('run-1', 'success', { ticketCompletionStatus: 'done' })
+
+      expect(readStatus()).toBe('done')
+      expect(onJobOutcome).toHaveBeenCalled()
+      expect(onRailReview).not.toHaveBeenCalled()
+    })
+
+    it('failure outcome ignores ticketCompletionStatus (in_progress → todo, done-flavoured enqueue)', () => {
+      seedTicket('in_progress')
+      const { ctx, onJobOutcome, onRailReview } = setup()
+
+      ctx.onLoopRunFinished('run-1', 'failed', { ticketCompletionStatus: 'on_review' })
+
+      expect(readStatus()).toBe('todo')
+      expect(onJobOutcome).toHaveBeenCalledWith(expect.objectContaining({ status: 'failed' }))
+      expect(onRailReview).not.toHaveBeenCalled()
+    })
+  })
+
+  // ─── onJobFinished — ticket completion status (universal ask-first) ─────────
+
+  describe('onJobFinished ticket completion status (QueueManager jobs)', () => {
+    let projDir: string
+    const ticketFile = () => path.join(projDir, '.specrails', 'local-tickets.json')
+
+    const seedTicket = (status: string) => {
+      fs.mkdirSync(path.dirname(ticketFile()), { recursive: true })
+      const now = new Date().toISOString()
+      fs.writeFileSync(ticketFile(), JSON.stringify({
+        schema_version: '1.3', revision: 1, last_updated: now, next_id: 2,
+        tickets: {
+          '1': {
+            id: 1, title: 'T', description: '', status, priority: null, labels: [],
+            assignee: null, prerequisites: [], metadata: {}, origin_conversation_id: null,
+            is_epic: false, parent_epic_id: null, execution_order: null, short_summary: null,
+            created_at: now, updated_at: now, created_by: 'test', source: 'manual',
+          },
+        },
+      }))
+    }
+
+    const readStatus = () =>
+      (JSON.parse(fs.readFileSync(ticketFile(), 'utf-8')) as { tickets: Record<string, { status: string }> }).tickets['1'].status
+
+    // Register the project (real ticket store on disk), spy on the Jira hooks,
+    // and grab the onJobFinished closure handed to the (mocked) QueueManager.
+    const setup = async () => {
+      const { QueueManager } = await import('./queue-manager')
+      const ctx = registry.addProject({ id: 'pJob', slug: 'job-proj', name: 'Job', path: projDir })
+      const onJobOutcome = vi.fn()
+      const onRailReview = vi.fn()
+      ;(ctx.jiraSyncManager as unknown as Record<string, unknown>).onJobOutcome = onJobOutcome
+      ;(ctx.jiraSyncManager as unknown as Record<string, unknown>).onRailReview = onRailReview
+      // A jobs row so the closure can resolve command → ticket ids (#1).
+      ctx.db.prepare(
+        `INSERT OR REPLACE INTO jobs (id, command, started_at, status) VALUES (?, ?, ?, 'completed')`
+      ).run('job-1', '/specrails:implement #1 --yes', new Date().toISOString())
+      const constructorCalls = vi.mocked(QueueManager).mock.calls
+      const options = constructorCalls[constructorCalls.length - 1][4] as {
+        onJobFinished: (
+          jobId: string,
+          status: string,
+          costUsd?: number | null,
+          opts?: { ticketCompletionStatus?: 'done' | 'on_review' },
+        ) => void
+      }
+      return { ctx, onJobOutcome, onRailReview, onJobFinished: options.onJobFinished }
+    }
+
+    beforeEach(() => { projDir = fs.mkdtempSync(path.join(os.tmpdir(), 'pr-job-tickets-')) })
+    afterEach(() => {
+      try { registry.removeProject('pJob') } catch { /* already gone */ }
+      fs.rmSync(projDir, { recursive: true, force: true })
+    })
+
+    it("ticketCompletionStatus 'on_review' (the spawn-captured PR mode) parks a completed job's tickets at on_review and calls the Jira on-review hook", async () => {
+      seedTicket('in_progress')
+      const { onJobOutcome, onRailReview, onJobFinished } = await setup()
+
+      onJobFinished('job-1', 'completed', 0.02, { ticketCompletionStatus: 'on_review' })
+
+      expect(readStatus()).toBe('on_review')
+      expect(onRailReview).toHaveBeenCalledWith([1], 'job-1')
+      expect(onJobOutcome).not.toHaveBeenCalled()
+      expect(broadcast.mock.calls.some(([m]) => {
+        const msg = m as { type?: string; projectId?: string }
+        return msg.type === 'ticket_updated' && msg.projectId === 'pJob'
+      })).toBe(true)
+    })
+
+    it("no opts (legacy caller / kill-switch-off spawn) promotes to done with the done-flavoured onJobOutcome — byte-identical", async () => {
+      seedTicket('in_progress')
+      const { onJobOutcome, onRailReview, onJobFinished } = await setup()
+
+      onJobFinished('job-1', 'completed', 0.02)
+
+      expect(readStatus()).toBe('done')
+      expect(onJobOutcome).toHaveBeenCalledWith(
+        expect.objectContaining({ ticketIds: [1], status: 'completed', jobId: 'job-1' }),
+      )
+      expect(onRailReview).not.toHaveBeenCalled()
+    })
+
+    it("an explicit 'done' behaves exactly like the legacy promotion", async () => {
+      seedTicket('todo')
+      const { onJobOutcome, onRailReview, onJobFinished } = await setup()
+
+      onJobFinished('job-1', 'completed', null, { ticketCompletionStatus: 'done' })
+
+      expect(readStatus()).toBe('done')
+      expect(onJobOutcome).toHaveBeenCalled()
+      expect(onRailReview).not.toHaveBeenCalled()
+    })
+
+    it('failure keeps the legacy revert + done-flavoured enqueue even when opts ride along (defensive)', async () => {
+      seedTicket('in_progress')
+      const { onJobOutcome, onRailReview, onJobFinished } = await setup()
+
+      onJobFinished('job-1', 'failed', null, { ticketCompletionStatus: 'on_review' })
+
+      expect(readStatus()).toBe('todo')
+      expect(onJobOutcome).toHaveBeenCalledWith(expect.objectContaining({ status: 'failed' }))
+      expect(onRailReview).not.toHaveBeenCalled()
+    })
+  })
 })

@@ -13,7 +13,7 @@ El tablero tiene dos modos de vista, que se cambian con un botón de la barra de
 - **Vista post-it** (la predeterminada): tarjetas con resúmenes breves.
 - **Vista de lista**: filas compactas de una sola línea.
 
-También puedes filtrar por **estado** (Todos / Por hacer / Hechos) y por **etiqueta**, y ordenar por **Por defecto**, **Ticket #** o **Prioridad** (cada uno con un interruptor ascendente/descendente).
+El **selector de estados** de la barra de herramientas muestra cada estado como su propio chip con un contador en vivo — más dos grupos inteligentes: **Activas** (el valor por defecto — todo lo que sigue en movimiento: borradores, por hacer, en curso y en revisión) y **Todos** (todo, con Hecho fijado al final). Tu selección se recuerda por proyecto y se refleja en la URL, así que un refresco o un enlace compartido restaura la vista exacta. En proyectos conectados a Jira aparece además un desplegable de **estado de Jira**, que lista los estados *reales* del flujo de trabajo del tablero (sus nombres tal cual, p. ej. "Code Review", cada uno con su contador en vivo) agrupados bajo el estado al que mapean — se combina con los chips de estado. También puedes filtrar por **etiqueta**, y ordenar por **Por defecto**, **Ticket #** o **Prioridad** (cada uno con un interruptor ascendente/descendente).
 
 ## Estados
 
@@ -24,7 +24,8 @@ Una spec recorre un pequeño conjunto de estados. El tablero le da a cada uno un
 | **Borrador** | Una idea en curso guardada desde una conversación de Explore. Todavía no está lista para implementar; puedes volver y seguir dándole forma. Muestra una píldora `Draft`. |
 | **Por hacer** | Lista para retomarse. Aquí es donde aterriza una spec terminada cuando la creas. |
 | **En curso** | El pipeline está trabajando en ella ahora mismo (un punto azul pulsante). |
-| **Hecho** | Completada por el pipeline (una marca de verificación verde). |
+| **En revisión** | Implementada — cada ejecución terminada aparca aquí sus specs para tu aprobación: fusiona la PR en borrador o muévelas tú mismo (una píldora ámbar). |
+| **Hecho** | Aprobada — su PR se fusionó, o la moviste aquí tú mismo (una marca de verificación verde). |
 | **Cancelado** | Abandonada (una X roja). |
 
 Los borradores viven en el mismo grupo activo que las specs Por hacer (no hay una columna separada para ellos), pero llevan un borde con un tinte sutil y una píldora `Draft` para que se distingan fácilmente. Consulta [Borradores y la Contract Layer](drafts-and-contract-layer.md) para conocer todos los detalles sobre los borradores.

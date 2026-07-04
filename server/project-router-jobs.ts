@@ -52,6 +52,7 @@ import {
 import { resolveProvider, validateRequestedProvider, isMultiProvider } from './provider-selection'
 import type { ChatConversationRow, JobTemplate, JobRow } from './types'
 import { readChanges } from './changes-reader'
+import { getLoopRun } from './loop-runs-store'
 import { getProjectMetrics } from './metrics'
 import {
   resolveTicketStoragePath, readStore, mutateStore, filterTickets,
@@ -215,6 +216,16 @@ export function registerJobsRoutes(deps: ProjectRoutesDeps): void {
       res.json({ ok: true, status: result })
     } catch (err) {
       if (err instanceof JobNotFoundError) {
+        // STANDALONE loop runs (railIndex=null, POST /loop-runs) never enter
+        // railLoopRuns, so they fall through to the queue and land here while
+        // the loop is still executing — cancel through the engine instead of
+        // 404ing with a live child (the mission-modal "cancel did nothing" bug).
+        const loopRun = getLoopRun(c.db, id)
+        if (loopRun && loopRun.status === 'running' && c.loopRunManager) {
+          c.loopRunManager.cancel(id)
+          res.json({ ok: true, status: 'canceling' })
+          return
+        }
         res.status(404).json({ error: 'Job not found' })
       } else if (err instanceof JobAlreadyTerminalError) {
         // Job already finished — delete it from the DB
@@ -231,10 +242,14 @@ export function registerJobsRoutes(deps: ProjectRoutesDeps): void {
     }
   })
 
-  // ─── Interactive ultracode jobs ────────────────────────────────────────────
+  // ─── Interactive jobs (manager-agnostic) ───────────────────────────────────
   // Send one more user prompt to a running interactive job (queued behind the
-  // active turn — see InteractiveJobSession). 202 = accepted; 409 = the job is
-  // not an active interactive session (unknown / non-interactive / finalized).
+  // active turn — see InteractiveJobSession). The job row may be owned by
+  // EITHER manager: QueueManager (rail/ultracode/spawned jobs) or
+  // LoopRunManager (a loop run's job row, addressed by its ACTIVE step
+  // session). Try the queue first, then the loop engine. 202 = accepted;
+  // 409 = neither manager has an active interactive session for the id
+  // (unknown / non-interactive / finalized / between loop steps).
   router.post('/:projectId/jobs/:id/messages', (req: Request, res: Response) => {
     if (!isInteractiveJobsEnabled()) {
       res.status(403).json({ error: 'Interactive jobs are disabled on this server' })
@@ -245,9 +260,10 @@ export function registerJobsRoutes(deps: ProjectRoutesDeps): void {
       res.status(400).json({ error: 'text is required' })
       return
     }
-    const { queueManager } = ctx(req)
+    const c = ctx(req)
     const jobId = req.params.id as string
-    const accepted = queueManager.sendInteractiveTurn(jobId, text)
+    const accepted = c.queueManager.sendInteractiveTurn(jobId, text)
+      || (c.loopRunManager?.sendInteractiveTurn(jobId, text) ?? false)
     if (!accepted) {
       res.status(409).json({ error: 'Job is not an active interactive session' })
       return
@@ -256,22 +272,25 @@ export function registerJobsRoutes(deps: ProjectRoutesDeps): void {
   })
 
   // Finalize a running interactive job: SIGTERM the resident child; the summed
-  // token/cost totals + 'completed' status are stamped asynchronously when the
+  // token/cost totals + terminal status are stamped asynchronously when the
   // child closes (the client also learns the final state via the job.finalized
-  // WS broadcast). 202 = finalize scheduled; 409 = not an active interactive job.
+  // WS broadcast). On a QueueManager job this completes the JOB; on a loop
+  // run's job it settles the ACTIVE STEP now — the loop advances with what the
+  // step produced. 202 = finalize scheduled; 409 = not an active interactive job.
   router.post('/:projectId/jobs/:id/finalize', (req: Request, res: Response) => {
     if (!isInteractiveJobsEnabled()) {
       res.status(403).json({ error: 'Interactive jobs are disabled on this server' })
       return
     }
-    const { db, queueManager } = ctx(req)
+    const c = ctx(req)
     const jobId = req.params.id as string
-    const scheduled = queueManager.finalizeInteractive(jobId)
+    const scheduled = c.queueManager.finalizeInteractive(jobId)
+      || (c.loopRunManager?.finalizeInteractive(jobId) ?? false)
     if (!scheduled) {
       res.status(409).json({ error: 'Job is not an active interactive session' })
       return
     }
-    res.status(202).json({ ok: true, job: getJob(db, jobId) ?? null })
+    res.status(202).json({ ok: true, job: getJob(c.db, jobId) ?? null })
   })
 
   router.patch('/:projectId/jobs/:id/priority', (req: Request, res: Response) => {
@@ -474,7 +493,8 @@ export function registerJobsRoutes(deps: ProjectRoutesDeps): void {
   })
 
   router.get('/:projectId/jobs/:id', (req: Request, res: Response) => {
-    const { db, queueManager, project } = ctx(req)
+    const c = ctx(req)
+    const { db, queueManager, project } = c
     const jobId = req.params.id as string
     const job = getJob(db, jobId)
     if (!job) {
@@ -509,13 +529,33 @@ export function registerJobsRoutes(deps: ProjectRoutesDeps): void {
       }
       const phaseDefinitions = queueManager.phasesForCommand(synthetic.command)
       const tickets = resolveTicketsFromCommand(project.path, synthetic.command, ticketPath(req))
-      res.json({ job: { ...synthetic, hasTelemetry: false, tickets }, events: [], phaseDefinitions })
+      // Queued ⇒ no resident session yet; the client refetches on the
+      // queued→running flip to learn the real interactive surface state.
+      res.json({
+        job: { ...synthetic, hasTelemetry: false, tickets, interactiveSettleMode: null, interactiveAcceptingTurns: false },
+        events: [],
+        phaseDefinitions,
+      })
       return
     }
     const events = getJobEvents(db, jobId)
     const phaseDefinitions = queueManager.phasesForCommand(job.command)
     const tickets = resolveTicketsFromCommand(project.path, job.command, ticketPath(req))
-    const annotated = { ...job, hasTelemetry: hasJobTelemetry(db, jobId), tickets }
+    // Interactive surface state (S3): the settle mode of the resident session
+    // plus whether it is accepting turns RIGHT NOW. A QueueManager job's session
+    // lives for the whole run; a loop run's ACTIVE ai-step owns it (absent
+    // between steps / decider / shell nodes — POST /messages would 409 there).
+    // A between-steps loop GET still reports 'auto' via its loop_runs row so the
+    // composer can phrase the waiting state truthfully instead of guessing.
+    let interactiveSettleMode: 'finalize' | 'auto' | null = null
+    let interactiveAcceptingTurns = false
+    if (isInteractiveJobsEnabled() && job.interactive && job.status === 'running') {
+      const qmMode = queueManager.getInteractiveSettleMode?.(jobId) ?? null
+      const loopStepActive = c.loopRunManager?.isInteractiveJob?.(jobId) ?? false
+      interactiveAcceptingTurns = qmMode !== null || loopStepActive
+      interactiveSettleMode = qmMode ?? ((loopStepActive || getLoopRun(db, jobId)) ? 'auto' : null)
+    }
+    const annotated = { ...job, hasTelemetry: hasJobTelemetry(db, jobId), tickets, interactiveSettleMode, interactiveAcceptingTurns }
     res.json({ job: annotated, events, phaseDefinitions })
   })
 

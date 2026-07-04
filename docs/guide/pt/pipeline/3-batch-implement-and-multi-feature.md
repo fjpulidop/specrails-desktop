@@ -44,16 +44,17 @@ Dentro do job, as specs de cada onda são implementadas antes de a onda seguinte
 
 Quando várias specs são implementadas numa só execução, o pipeline mantém cada unidade de trabalho isolada para que alterações concorrentes ou sequenciais não pisem os ficheiros umas das outras. A implementação de cada spec corre no seu próprio **git worktree** limpo — um checkout separado que partilha o histórico do seu repositório mas nunca toca na sua árvore de trabalho enquanto a IA trabalha.
 
-Quando a execução termina, os branches isolados são reunidos e entregues como **um pull request em rascunho** a partir do branch de integração designado do seu projeto (defina-o em **Settings → Integration branch**; por omissão é o branch por defeito do seu repositório). O specrails **nunca faz merge, e nunca faz commit diretamente no seu branch de integração** — recebe um PR em rascunho para rever, e um humano é responsável pelo merge. É a passagem de testemunho segura: o specrails produz o pull request, os seus engenheiros revêem-no e fazem merge no GitHub da forma como já o fazem.
+Quando a execução termina, **nada é enviado e ainda não é aberto nenhum pull request**. O trabalho fica commitado em segurança nos seus branches isolados, as specs passam a um novo estado **Em revisão**, e o specrails **pergunta-lhe primeiro**: no rail aparece uma barra de decisão persistente com **Criar PR** — um pull request em rascunho a partir do branch de integração designado do seu projeto (defina-o em **Settings → Integration branch**; por omissão é o branch por defeito do seu repositório), combinado através de todas as specs do rail — e **Descartar**. O specrails **nunca faz merge, e nunca faz commit diretamente no seu branch de integração** — é você quem decide se sequer existe um PR, e um humano é responsável pelo merge. É a passagem de testemunho segura: o specrails produz o pull request apenas quando você o autoriza, e os seus engenheiros revêem-no e fazem merge no GitHub da forma como já o fazem.
 
 Na prática isto significa:
 
 - Cada spec recebe um ponto de partida limpo para implementar, em vez de herdar as edições em curso da spec anterior a meio do processo.
 - A sua árvore de trabalho nunca é modificada enquanto a execução decorre — nada é aplicado até você o autorizar.
-- Quando a execução termina, recebe uma notificação com o PR em rascunho: **Open PR** para o ver, ou **Approve** para o promover a pronto-para-revisão e entregá-lo à revisão normal da sua equipa no GitHub.
-- Se os branches isolados não puderem ser combinados de forma limpa, o specrails para em segurança e deixa os branches para um humano — nunca força um merge partido sobre a sua base.
+- Quando a execução termina, as specs mostram um selo **Em revisão** e o rail faz-lhe a pergunta: **Criar PR** para abrir o pull request em rascunho combinado, ou **Descartar** para limpar os branches e devolver as specs ao backlog. Se lançou o rail a partir do chat do agente, a mesma pergunta aparece como um cartão nessa conversa — responda em qualquer um dos dois lugares: ambos ficam sincronizados.
+- Depois de criado, **Abrir PR** mostra o rascunho, **Publicar** abre-o à revisão e entrega-o à revisão normal da sua equipa no GitHub, e **Verificar merge** passa as specs a Concluído assim que a sua equipa o tiver mergeado.
+- Se os branches isolados não puderem ser combinados de forma limpa ao criar o PR, o specrails para em segurança e deixa os branches para um humano — nunca força um merge partido sobre a sua base. Pode tentar de novo ou descartar a partir da mesma barra.
 
-> A entrega do PR precisa do GitHub CLI (`gh`) autenticado e de um remote configurado. Sem eles, o specrails na mesma faz commit do trabalho para um branch a partir do qual pode abrir um pull request por si mesmo — nada se perde. Para voltar ao comportamento anterior (integrar localmente em vez de abrir um PR), defina `SPECRAILS_RAIL_DELIVER_PR=0`.
+> Criar o PR precisa do GitHub CLI (`gh`) autenticado e de um remote configurado. Sem eles, o specrails mantém na mesma o trabalho commitado num branch a partir do qual pode abrir um pull request por si mesmo — nada se perde, e a barra de decisão permite tentar de novo. Para voltar ao comportamento anterior (integrar localmente em vez de perguntar), defina `SPECRAILS_RAIL_DELIVER_PR=0`.
 
 ## Multi-feature entre projetos
 

@@ -33,6 +33,14 @@
     "sendHint": "智能体仍在工作——此消息将排队并在之后执行",
     "placeholder": "智能体工作时可继续输入——消息将排队…"
   },
+  "queueEdit": {
+    "editing": "正在编辑排队消息 {{n}}/{{m}}",
+    "hint": "↑↓ 导航 · 回车保存 · Esc 取消",
+    "save": "保存排队消息",
+    "cancel": "取消编辑",
+    "dispatched": "该排队消息已发送——你的文本已保留为草稿",
+    "saveFailed": "无法保存排队消息"
+  },
   "git": {
     "branch": "分支",
     "detached": "（分离头指针）",
@@ -92,6 +100,21 @@
     "addProject": "添加项目…",
     "homeHint": "未选择项目 — 正在跨所有项目操作。",
     "askCreateOrSearch": "未选择任何项目。你想创建一个新项目，还是在所有项目中搜索？"
+  },
+  "mission": {
+    "label": "切换任务",
+    "untitled": "新任务",
+    "new": "新任务",
+    "searchPlaceholder": "搜索任务…",
+    "noMatches": "没有匹配的任务",
+    "working": "代理正在工作",
+    "queuedBadge": "{{n}} 条排队",
+    "delete": "删除任务 \"{{title}}\"",
+    "deleteConfirm": "删除？",
+    "deleteLiveConfirm": "代理正在工作 — 仍要删除？",
+    "confirmDelete": "确认删除",
+    "cancelDelete": "保留任务",
+    "deleteFailed": "无法删除任务"
   },
   "noProvider": {
     "title": "未安装 AI 提供方",
@@ -155,5 +178,75 @@
     "high": "高",
     "xhigh": "极高"
   },
-  "emptyTitleMatrix": "这次的任务是什么，Neo？"
+  "emptyTitleMatrix": "这次的任务是什么，Neo？",
+  "prCard": {
+    "rail": "Rail {{index}}",
+    "specCount_one": "{{count}} 个 Spec",
+    "specCount_other": "{{count}} 个 Spec",
+    "base": "基础分支",
+    "openPr": "打开 PR",
+    "title": {
+      "building": "正在隔离的 worktree 中实现…",
+      "on_review": "实现已完成，待评审",
+      "pr_draft": "已创建草稿 PR",
+      "pr_draft_degraded": "PR 交付未完成",
+      "pr_ready": "PR 已就绪，可合并",
+      "pr_failed": "PR 创建失败",
+      "merged": "PR 已合并",
+      "discarded": "已丢弃"
+    },
+    "buildingHint": "完成后会询问你是否创建 PR。",
+    "createPr": "创建 PR",
+    "publish": "发布",
+    "retry": "重试",
+    "retryPr": "重试 PR",
+    "checkMerge": "检查合并",
+    "discard": "丢弃",
+    "confirmDiscard": "确认丢弃？",
+    "mergedNote": "已合并 — Spec 已移至完成",
+    "discardedNote": "已丢弃 — Spec 已退回待办",
+    "degraded": {
+      "pushed": "分支已推送，但无法创建 PR — 请重试以完成。",
+      "localOnly": "更改已在本地组装但未推送 — 请重试以发布 PR。"
+    },
+    "alreadyResolved": "已在其他地方处理",
+    "actionFailed": "操作失败",
+    "notMergedYet": "尚未合并",
+    "viewLog": "查看 {{ref}} 的运行日志",
+    "runElapsedAria": "已运行 {{elapsed}}",
+    "runCostAria": "已花费 {{cost}}",
+    "pinned": {
+      "label": "已固定",
+      "marker": "实现卡片 — 已固定在上方",
+      "collapse": "最小化固定卡片",
+      "expand": "展开固定卡片",
+      "showCard": "显示此卡片",
+      "collapsed_one": "实现卡片",
+      "collapsed_other": "{{count}} 张实现卡片",
+      "state": {
+        "building": "构建中",
+        "on_review": "待审阅",
+        "pr_draft": "草稿 PR",
+        "pr_ready": "已发布",
+        "pr_failed": "失败",
+        "merged": "已合并",
+        "discarded": "已丢弃"
+      }
+    }
+  },
+  "specDraft": {
+    "heading": "规格草稿",
+    "drafting": "正在更新草稿…",
+    "acceptanceCriteria": "验收标准",
+    "untitled": "未命名规格",
+    "expand": "显示完整描述",
+    "collapse": "收起描述"
+  },
+  "refs": {
+    "openTicket": "打开 Spec #{{id}}",
+    "openJob": "打开任务 {{id}}",
+    "ticketNotFound": "未找到 Spec #{{id}} — 可能已被删除",
+    "jobNotFound": "未找到任务 — 可能已被删除",
+    "lookupFailed": "无法验证该引用 — 请重试"
+  }
 }

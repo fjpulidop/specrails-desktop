@@ -101,5 +101,11 @@
     "tooManySessions": "Demasiadas sesiones de navegador abiertas. Cierra una y reinténtalo.",
     "launchFailed": "El navegador no pudo iniciarse en el servidor.",
     "openFailed": "No se pudo abrir el navegador."
+  },
+  "popup": {
+    "loginWindow": "Ventana de inicio de sesión — {{origin}}",
+    "stacked": "+{{count}} más",
+    "backToPage": "Volver a la página",
+    "show": "Mostrar ventana de inicio de sesión"
   }
 }

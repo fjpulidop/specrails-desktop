@@ -23,13 +23,14 @@ import { dropPhaseScope } from './hooks'
 import { killTransientChildren } from './transient-children'
 import { dropBlobStatesForProject } from './telemetry-receiver'
 import { mirrorProjectEntry, removeRegistryEntry, reconcileFromProjects, resolveArtifacts, resolveHome } from './artifact-registry'
-import { resolveProjectExecution } from './workspace-resolution'
+import { resolveProjectExecution, resolveLoopBaseEnv } from './workspace-resolution'
 import { removeWorkspace } from './workspace-manager'
 import { resolveTicketStoragePath, mutateStore, applyJobOutcomeToTickets, readStore, type JobOutcome } from './ticket-store'
 import { JiraSyncManager } from './jira/jira-sync-manager'
 import { LoopRunManager } from './loop-run-manager'
 import { createLoopExecutors } from './loop-executors'
 import { reconcileRailWorktrees } from './rail-isolated-launch'
+import { isRailPrDeliveryEnabled } from './rail-isolation'
 import { reconcileOrphanLoopRuns } from './loop-runs-store'
 import type { LoopSpec } from './loop-graph'
 import type { WsMessage, TicketUpdatedMessage, RailUpdatedMessage } from './types'
@@ -77,8 +78,17 @@ export interface ProjectContext {
   railLoopRuns: Map<string, { railIndex: number; ticketIds: number[] }>
   /** Completion handler for a loop run: releases its tickets + rail slots,
    *  mapping the loop outcome to a ticket outcome. The engine already emits the
-   *  loop.run_completed event. */
-  onLoopRunFinished: (runId: string, outcome: string) => void
+   *  loop.run_completed event. `opts.ticketCompletionStatus` overrides where a
+   *  COMPLETED run's tickets land (the isolated-rail launch passes its
+   *  launch-captured prMode). When ABSENT the default derives from the
+   *  PR-delivery flag: on ⇒ on_review (the universal ask-first methodology —
+   *  the human decides done vs discard), off ⇒ legacy done. Failure/cancel
+   *  outcomes ignore it (byte-identical). */
+  onLoopRunFinished: (
+    runId: string,
+    outcome: string,
+    opts?: { ticketCompletionStatus?: 'done' | 'on_review' },
+  ) => void
   /** Read a spec's fields for {{spec.*}} interpolation at launch. */
   getTicketSpec: (ticketId: number) => LoopSpec | undefined
   /** App-level DB (project registry + the global `loops` table). */
@@ -215,6 +225,10 @@ export class ProjectRegistry {
       // children. All are idempotent no-ops when nothing is running.
       try { ctx.queueManager.shutdown() } catch { /* ignore */ }
       try { ctx.chatManager.shutdown() } catch { /* ignore */ }
+      // Loop engine teardown: dispose any resident interactive step sessions
+      // (SIGTERM, no settle) + kill in-flight one-shot loop children — BEFORE
+      // db.close() so a late close handler can't write to the closed handle.
+      try { ctx.loopRunManager.shutdown() } catch { /* ignore */ }
       try { ctx.setupManager.abort(id) } catch { /* ignore */ }
       // Kill untracked fire-and-forget children (Quick spec-gen) for this project.
       try { killTransientChildren(id) } catch { /* ignore */ }
@@ -319,6 +333,9 @@ export class ProjectRegistry {
     for (const ctx of this._contexts.values()) {
       try { ctx.queueManager.shutdown() } catch { /* ignore */ }
       try { ctx.chatManager.shutdown() } catch { /* ignore */ }
+      // Loop engine: dispose resident interactive step sessions + kill in-flight
+      // one-shot loop children so a quit mid-run doesn't orphan claude processes.
+      try { ctx.loopRunManager.shutdown() } catch { /* ignore */ }
       // Install/enrich wizard children + the 3s install poll interval are NOT
       // torn down by the spawner shutdowns above — mirror removeProject()'s
       // setupManager.abort() so a quit mid-wizard doesn't orphan them.
@@ -421,7 +438,7 @@ export class ProjectRegistry {
           webhookManager.deliver(project.id, event as Parameters<typeof webhookManager.deliver>[1], data)
         } catch { /* best-effort */ }
       },
-      onJobFinished: (jobId, status, costUsd) => {
+      onJobFinished: (jobId, status, costUsd, opts) => {
         const jobRow = db.prepare('SELECT command, duration_ms FROM jobs WHERE id = ?').get(jobId) as
           | { command: string; duration_ms: number | null }
           | undefined
@@ -448,10 +465,20 @@ export class ProjectRegistry {
         }
 
         // Apply the job outcome to its tickets. Success promotes todo/in_progress
-        // → done (→ Specs Done); failure/cancel/zombie reverts in_progress → todo
+        // → done (→ Specs Done) — or → on_review under the ask-first PR-delivery
+        // methodology (below); failure/cancel/zombie reverts in_progress → todo
         // (→ Specs) or flags an already-done spec for review. zombie_terminated is
         // treated as a failure here (and is included in the _onJobExit callback
         // guard) so a timed-out rail releases its specs instead of stranding them.
+        //
+        // Ask-first methodology (safe-pr-workflow, universal): QueueManager
+        // captures the PR-delivery flag ONCE at this job's spawn and threads it
+        // here as `opts.ticketCompletionStatus` — so a mid-flight env flip can't
+        // split one job's behavior. Under the flag a COMPLETED job parks its
+        // tickets at on_review (the human decides done via PR merge or a manual
+        // move), never done. Absent opts (legacy callers / never-spawned failure
+        // paths) ⇒ 'done', byte-identical to the pre-change promotion.
+        const completedStatus = opts?.ticketCompletionStatus ?? 'done'
         if (
           completedTicketIds.length > 0 &&
           (status === 'completed' || status === 'failed' || status === 'canceled' || status === 'zombie_terminated')
@@ -466,7 +493,7 @@ export class ProjectRegistry {
             const now = new Date().toISOString()
             let changedIds: number[] = []
             const store = mutateStore(ticketFile, (s) => {
-              changedIds = applyJobOutcomeToTickets(s, completedTicketIds, status as JobOutcome, now)
+              changedIds = applyJobOutcomeToTickets(s, completedTicketIds, status as JobOutcome, now, { completedStatus })
             })
             for (const tid of changedIds) {
               const ticket = store.tickets[String(tid)]
@@ -484,17 +511,25 @@ export class ProjectRegistry {
             // wrapped so a Jira failure can never break the job-exit handler.
             if (status === 'completed' || status === 'failed' || status === 'canceled' || status === 'zombie_terminated') {
               try {
-                const needsReviewIds = completedTicketIds.filter(
-                  (tid) => store.tickets[String(tid)]?.needs_review === true
-                )
-                jiraSyncManager.onJobOutcome({
-                  ticketIds: completedTicketIds,
-                  status,
-                  jobId,
-                  costUsd: costUsd ?? null,
-                  durationMs: jobRow?.duration_ms ?? null,
-                  needsReviewIds,
-                })
+                if (status === 'completed' && completedStatus === 'on_review') {
+                  // Under review, not done — enqueue the Jira on_review
+                  // transition instead of the done-flavoured completion
+                  // (comment + Done). Mirrors onLoopRunFinished's split; the
+                  // Done transition rides the later PR-merge / manual move.
+                  jiraSyncManager.onRailReview(changedIds, jobId)
+                } else {
+                  const needsReviewIds = completedTicketIds.filter(
+                    (tid) => store.tickets[String(tid)]?.needs_review === true
+                  )
+                  jiraSyncManager.onJobOutcome({
+                    ticketIds: completedTicketIds,
+                    status,
+                    jobId,
+                    costUsd: costUsd ?? null,
+                    durationMs: jobRow?.duration_ms ?? null,
+                    needsReviewIds,
+                  })
+                }
               } catch (err) {
                 console.error('[project-registry] jira onJobOutcome failed:', err)
               }
@@ -653,7 +688,16 @@ export class ProjectRegistry {
     void reconcileRailWorktrees(db, project.path)
       .then((n) => { if (n > 0) console.log(`[loops] reconciled ${n} orphan worktree(s) for ${project.slug}`) })
       .catch(() => { /* non-fatal */ })
-    const loopRunManager = new LoopRunManager(db, boundBroadcast, createLoopExecutors())
+    // Loop executors resolve their base env LAZILY per step: a RELOCATED project
+    // injects core's env-first artifact indirection (tickets/backlog/profiles/
+    // state → the workspace) so an ISOLATED worktree run — whose cwd-relative
+    // `${ENV:-legacy}` defaults resolve inside the worktree, where only tracked
+    // files exist — still reads the real project state. SPECRAILS_REPO_DIR stays
+    // per-run (the worktree for isolated runs). Legacy projects keep process.env
+    // byte-identical. See resolveLoopBaseEnv.
+    const loopRunManager = new LoopRunManager(db, boundBroadcast, createLoopExecutors({
+      env: () => resolveLoopBaseEnv({ slug: project.slug, path: project.path }),
+    }))
 
     const getTicketSpec = (ticketId: number): LoopSpec | undefined => {
       try {
@@ -680,7 +724,11 @@ export class ProjectRegistry {
     // Releases a finished loop run's tickets + rail slots. The engine already
     // emitted loop.run_completed; this mirrors onJobFinished's ticket/rail
     // release (kept separate so the critical job path is untouched).
-    const onLoopRunFinished = (runId: string, outcome: string): void => {
+    const onLoopRunFinished = (
+      runId: string,
+      outcome: string,
+      opts?: { ticketCompletionStatus?: 'done' | 'on_review' },
+    ): void => {
       const meta = railLoopRuns.get(runId)
       if (!meta) return
       railLoopRuns.delete(runId)
@@ -688,13 +736,24 @@ export class ProjectRegistry {
       if (ticketIds.length === 0) return
       const status: JobOutcome =
         outcome === 'success' ? 'completed' : outcome === 'stopped' ? 'canceled' : 'failed'
+      // Ask-first PR delivery parks a completed run's tickets at on_review (the
+      // user decides done vs discard via the PR decision flow / a manual move).
+      // Explicit opts (the isolated-rail launch passes its launch-captured
+      // prMode) always win — idempotent with the default. ABSENT opts
+      // (shared-cwd rail runs, standalone loop runs, isolation-unavailable
+      // fallbacks) derive the default from the PR-delivery flag, read ONCE here
+      // and reused by the Jira split below so one settle can never split across
+      // the two paths. Kill-switch off ⇒ 'done', the legacy promotion
+      // byte-identical; failures ignore the field.
+      const completedStatus =
+        opts?.ticketCompletionStatus ?? (isRailPrDeliveryEnabled() ? 'on_review' : 'done')
       try {
         const exec = resolveProjectExecution({ slug: project.slug, path: project.path })
         const ticketFile = exec.relocated ? exec.ticketsPath : resolveTicketStoragePath(project.path)
         const now = new Date().toISOString()
         let changedIds: number[] = []
         const store = mutateStore(ticketFile, (s) => {
-          changedIds = applyJobOutcomeToTickets(s, ticketIds, status, now)
+          changedIds = applyJobOutcomeToTickets(s, ticketIds, status, now, { completedStatus })
         })
         for (const tid of changedIds) {
           const ticket = store.tickets[String(tid)]
@@ -707,8 +766,15 @@ export class ProjectRegistry {
           } as TicketUpdatedMessage)
         }
         try {
-          const needsReviewIds = ticketIds.filter((tid) => store.tickets[String(tid)]?.needs_review === true)
-          jiraSyncManager.onJobOutcome({ ticketIds, status, jobId: runId, costUsd: null, durationMs: null, needsReviewIds })
+          if (status === 'completed' && completedStatus === 'on_review') {
+            // Under review, not done — enqueue the Jira on_review transition
+            // instead of the done-flavoured completion (comment + Done). The
+            // Done transition rides the later PR-merge / manual move.
+            jiraSyncManager.onRailReview(changedIds, runId)
+          } else {
+            const needsReviewIds = ticketIds.filter((tid) => store.tickets[String(tid)]?.needs_review === true)
+            jiraSyncManager.onJobOutcome({ ticketIds, status, jobId: runId, costUsd: null, durationMs: null, needsReviewIds })
+          }
         } catch (err) {
           console.error('[project-registry] jira loop onJobOutcome failed:', err)
         }

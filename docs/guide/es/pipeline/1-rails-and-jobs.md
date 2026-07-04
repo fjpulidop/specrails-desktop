@@ -18,7 +18,7 @@ SpecsBoard (izquierda)      Rails (derecha)
 
 Un rail es un **carril de ejecución**. Arrastras una tarjeta de spec desde el SpecsBoard hasta un rail y luego pulsas **▶ Play**. El rail lanza el pipeline y trabaja la spec de principio a fin, directamente en el directorio de trabajo de tu proyecto — editando archivos, ejecutando tests, todo lo necesario.
 
-Puedes tener varios rails para organizar el trabajo en carriles con nombre (uno para la funcionalidad en la que estás centrado, otro en cola detrás). Tienes más sobre multi-rail y procesamiento por lotes en [Batch implement y multifuncionalidad](batch-implement-and-multi-feature).
+Puedes tener varios rails para organizar el trabajo en carriles con nombre (uno para la funcionalidad en la que estás centrado, otro en cola detrás). Los rails son **dinámicos**: el botón **+ Añadir** de la cabecera de Rails crea un carril nuevo (hasta 12 por proyecto) y los carriles vacíos e inactivos se pueden borrar. Cada rail está respaldado por el servidor, así que tu conjunto de carriles sobrevive a las recargas y es visible para el companion móvil y el agente integrado — el agente incluso puede crear un rail por sí mismo cuando todos los carriles están ocupados. Tienes más sobre multi-rail y procesamiento por lotes en [Batch implement y multifuncionalidad](batch-implement-and-multi-feature).
 
 ## Lanzar un rail sobre una spec
 
@@ -49,7 +49,7 @@ Un rail ejecuta un **Loop** — la receta del trabajo. Tres loops están **integ
 | **Batch** | `/specrails:batch-implement` | Un job que recorre las specs del rail de forma secuencial, en oleadas según sus dependencias. Lo mejor para varias specs relacionadas. |
 | **Freestyle** | Freestyle | Claude implementa cada spec de forma autónoma, **saltándose** el pipeline. Un job independiente por spec. Solo Claude. |
 
-Freestyle es el caso especial: se salta la cadena de agentes y le entrega a Claude la spec en bruto para que la trabaje con sus herramientas nativas. Es de final abierto, así que al pulsar Play primero se abre una confirmación, y un selector de modelo por rail te deja elegir Haiku / Sonnet / Opus. Solo aparece cuando el motor del rail es Claude.
+Freestyle es el caso especial: se salta la cadena de agentes y le entrega a Claude la spec en bruto para que la trabaje con sus herramientas nativas. Es de final abierto, así que al pulsar Play primero se abre una confirmación, y un selector de modelo por rail te deja elegir Haiku / Sonnet / Opus. Solo aparece cuando el motor del rail es Claude. Una ejecución Freestyle es además el único job que **se queda abierto esperándote**: chatea con él desde el compositor del detalle del job y pulsa **Finalize** cuando estés satisfecho (todos los demás jobs terminan solos).
 
 Más allá de los integrados, puedes **construir tus propios loops** — repetir un ciclo verify → fix → verify hasta cumplir un objetivo, encadenar comandos de shell entre pasos de IA y más. Esos loops personalizados aparecen en el mismo selector de Loop. Esa es la siguiente gran idea: [El Loop Builder](the-loop-builder).
 
@@ -57,11 +57,11 @@ Más allá de los integrados, puedes **construir tus propios loops** — repetir
 
 Cada vez que pulsas Play, la ejecución del rail se convierte en un **job**. La regla más importante que debes interiorizar:
 
-> **Un job a la vez, por proyecto.** Cada proyecto tiene una única cola. Dentro de un mismo proyecto solo se ejecuta un job de rail a la vez — el resto esperan en cola detrás y arrancan automáticamente a medida que se liberan huecos.
+> **Los rails se ejecutan en paralelo.** Cada lanzamiento aísla su trabajo en un worktree de git por spec, así que varios rails pueden ejecutarse a la vez dentro del mismo proyecto sin pisarse — los cambios de cada ejecución vuelven como merge o como draft PR cuando termina.
 
-Esto sorprende a quien añade tres rails esperando que se ejecuten en paralelo. No lo harán — no dentro del mismo proyecto. Añadir rails *organiza* tu trabajo en carriles; no hace que esos carriles se ejecuten a la vez.
+¿Quieres que todo arranque a la vez? El botón **Lanzar todos** de la cabecera de Rails inicia todos los carriles listos de una tacada, tras una única confirmación que enmarca el coste total (N rails × gasto de IA). Los rails vacíos, ya en ejecución o a la espera de una decisión de PR se omiten y se informan en un toast resumen compacto. El agente integrado tiene el mismo poder mediante `specrails_rails(launch_all)` — y creará un rail nuevo cuando no quede ningún carril libre.
 
-**El paralelismo real es entre proyectos.** Cada proyecto tiene su propia cola independiente, así que un rail en el Proyecto A y un rail en el Proyecto B se ejecutan al mismo tiempo sin competir. ¿Quieres más rendimiento? Abre más proyectos.
+Solo la ruta legacy (con la funcionalidad de Loops desactivada) recurre a la antigua cola de un-job-a-la-vez por proyecto, donde los rails adicionales esperan detrás del que está en marcha. El paralelismo entre proyectos no cambia: cada proyecto sigue siendo totalmente independiente.
 
 No hay ninguna palanca global de concurrencia que ajustar. El único freno automático se basa en el presupuesto: si has fijado un presupuesto diario (de proyecto o de toda la app), la cola se pausa sola en cuanto el gasto de ese día llega al tope.
 
@@ -73,7 +73,7 @@ Encuentra todos los jobs en **Jobs**, en la barra lateral derecha del proyecto �
 - **Filtro por rango de fechas** — acota a una ventana temporal.
 - **Comparar** — elige dos jobs y velos lado a lado.
 
-Pulsa cualquier tarjeta para abrir la **vista de detalle del job**, donde están el log en streaming en vivo y las métricas en vivo. Eso es la página siguiente: [La vista de detalle del job](the-job-detail-view).
+Pulsa cualquier tarjeta para abrir la **vista de detalle del job**, donde están el log en streaming en vivo y las métricas en vivo — y donde, en los jobs de Claude, un compositor de chat te permite **hacerle preguntas al agente en marcha o dirigirlo a mitad de ejecución** sin detener nada. Eso es la página siguiente: [La vista de detalle del job](the-job-detail-view).
 
 ## Cancelar un job
 

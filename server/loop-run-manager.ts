@@ -13,9 +13,15 @@
  */
 import type { ChildProcess } from 'node:child_process'
 import treeKill from 'tree-kill'
-import { createJob, finishJob, appendEvent, type DbInstance } from './db'
+import { createJob, finishJob, appendEvent, markJobInteractive, type DbInstance } from './db'
+import {
+  InteractiveJobSession,
+  isZeroWorkSettle,
+  type InteractiveJobSessionDeps,
+  type InteractiveSpawnSpec,
+} from './interactive-job-session'
 import type { WsMessage, JobStatus } from './types'
-import type { ReasoningEffort } from './providers/types'
+import type { ProviderAdapter, ReasoningEffort } from './providers/types'
 import {
   type LoopGraph,
   type LoopSpec,
@@ -64,6 +70,13 @@ export interface AiStepResult {
   failed?: boolean
   /** The real failure reason (adapter error event, else stderr tail). */
   errorText?: string
+  /** True when the step's settle consumed NO model work across its whole life
+   *  (the claude CLI's synthetic `Unknown command:` result frame — see
+   *  isZeroWorkSettle in interactive-job-session.ts). Set authoritatively by
+   *  the interactive path; `undefined` means "not evaluated" and the engine
+   *  derives it from the result's accumulated signals (one-shot path). A
+   *  zero-work step is FAILED — its command never actually ran. */
+  zeroWork?: boolean
 }
 
 export interface ShellResult {
@@ -103,6 +116,36 @@ export type LoopLogSink = (line: string, source?: 'stdout' | 'stderr') => void
  *  cooperative `_cancelled` flag alone can't interrupt a blocked `await`). */
 export type LoopSpawnSink = (child: ChildProcess) => void
 
+/** Input for the optional interactive-plan builder (mirrors runAiStep's spawn
+ *  context — everything the one-shot path derives its cwd/env/argv from). */
+export interface InteractivePlanInput {
+  provider: string
+  model: string
+  effort?: ReasoningEffort
+  cwd: string
+  repoDir?: string
+  /** Resume a prior step's session (mid-pass continuity — the interactive
+   *  equivalent of the one-shot path's chat-resume). Absent on a fresh pass. */
+  sessionId?: string
+  /** Per-step wall-clock timeout (ms). Undefined ⇒ executor default (15 min). */
+  aiStepTimeoutMs?: number
+}
+
+/** A resident interactive-session spawn plan for ONE ai-step (the interactive
+ *  jobs default). The EXECUTORS build it (process glue: adapter, argv, env —
+ *  byte-mirroring what the one-shot spawn passes); the ENGINE runs it (owns the
+ *  InteractiveJobSession lifecycle: step timeout, turn routing, settle → step
+ *  result). `spawn` is the tests' injection seam, exactly like the session's. */
+export interface InteractiveAiStepPlan {
+  adapter: ProviderAdapter
+  spec: InteractiveSpawnSpec
+  /** Wall-clock bound for the WHOLE step, user turns included. On expiry the
+   *  session is aborted (fold in-flight turn → settle 'crashed'). */
+  stepTimeoutMs: number
+  /** Injectable spawn (tests). Defaults to the session's spawnAiCli. */
+  spawn?: InteractiveJobSessionDeps['spawn']
+}
+
 export interface LoopExecutors {
   runAiStep(input: {
     prompt: string
@@ -118,6 +161,11 @@ export interface LoopExecutors {
     /** Per-step wall-clock timeout (ms). Undefined ⇒ executor default (15 min). */
     aiStepTimeoutMs?: number
   }): Promise<AiStepResult>
+  /** OPTIONAL interactive upgrade for ai-steps: return a resident-session spawn
+   *  plan when interactive jobs are enabled AND the provider supports persistent
+   *  stdin (claude); return null/undefined (or omit the method) to run the step
+   *  through the one-shot `runAiStep` — byte-identical legacy behaviour. */
+  planInteractiveAiStep?(input: InteractivePlanInput): InteractiveAiStepPlan | null
   runShell(input: { command: string; cwd: string; onLine?: LoopLogSink; onSpawn?: LoopSpawnSink }): Promise<ShellResult>
   runDecider(input: {
     systemPrompt: string
@@ -167,7 +215,79 @@ export interface LoopRunResult {
   totalCostUsd: number
 }
 
+// ── Structured run-event payloads (loop-step log explorer contract) ──────────
+// These ride the run's backing job row as persisted `events` rows + `event`
+// broadcasts (event_type below, payload = JSON of the interface). All additive
+// to the existing stream — no DB migration; the client segments the flat log by
+// them. Seq ordering guarantees: `loop_graph` precedes the first `loop_step`;
+// each `loop_step_end` is appended after its step's last persisted output line
+// (the interactive session shares the run's seq allocator, so its final frames
+// land at lower seqs than the end event).
+
+/** `loop_step` — appended+broadcast BEFORE each step spawns. */
+export interface LoopStepEventPayload {
+  /** 1-based ordinal of the step within the WHOLE run (monotonic across iterations). */
+  index: number
+  kind: 'ai-step' | 'shell' | 'decider'
+  title: string
+  /** Id of the graph node this step executes (resolves against `loop_graph`'s snapshot). */
+  nodeId: string
+  /** The run's current iteration (1-based) at emission. Pass 1 = 1; increments
+   *  when a Decider evaluates (the Decider itself belongs to the pass it closes). */
+  iteration: number
+  /** ai-step only — the AUTHORED prompt (the raw `{{cmd:X}}` template string),
+   *  present only when rendering changed it (a plain free-text prompt would
+   *  duplicate `command`). Capped at STEP_TEMPLATE_CAP — payloads persist per
+   *  event. Surfaced by the step explorer's header detail disclosure; the old
+   *  `Template: …` flat-log line is no longer emitted. */
+  template?: string
+  /** ai-step only — the rendered prompt actually sent to the provider (magic
+   *  commands expanded, spec/run/const tokens resolved; EXCLUDES the injected
+   *  cross-iteration history). Capped at STEP_COMMAND_CAP with an ellipsis.
+   *  Replaces the removed `Command: …` flat-log line. */
+  command?: string
+}
+
+/** `loop_step_end` — appended+broadcast at each step's tail. A step torn down
+ *  by manager shutdown / project removal (dispose, never settles) gets NO end
+ *  event — the client reads missing-end + settled run as "interrupted". */
+export interface LoopStepEndEventPayload {
+  /** Matches the opening `loop_step`'s index. */
+  index: number
+  nodeId: string
+  status: 'ok' | 'failed'
+  /** Shell steps: the real exit code. ai-step/decider: null (the one-shot
+   *  executor result does not expose an exit code). */
+  exitCode: number | null
+  durationMs: number
+  /** Decider steps only — the verdict the run actually routed by. */
+  decision?: 'continue' | 'stop'
+}
+
+/** `loop_graph` — emitted ONCE at run start (after the run-header log lines,
+ *  before the first `loop_step`): the run's graph SNAPSHOT, verbatim, so
+ *  historical replay stays faithful when the loop is later edited or deleted
+ *  (loop_runs stores no graph). */
+export interface LoopGraphEventPayload {
+  graph: LoopGraph
+  loopId: string
+  /** Display name; falls back to the loop id when the request carried no name. */
+  loopName: string
+  provider: string
+  model: string
+  iterationLimit: number
+}
+
 const HISTORY_MAX_CHARS = 1500
+/** Caps for the `loop_step` detail fields (`template` / `command`) — the
+ *  payload persists per event, so a runaway prompt must not bloat the events
+ *  table. Head-only cut with an ellipsis (unlike `truncate` there is no
+ *  trailing verdict to preserve here — the opening of a prompt is the signal). */
+const STEP_TEMPLATE_CAP = 1000
+const STEP_COMMAND_CAP = 2000
+function capText(s: string, max: number): string {
+  return s.length <= max ? s : s.slice(0, max) + '…'
+}
 /** Abort the run after this many CONSECUTIVE AI steps hard-fail with no output.
  *  One failure can be transient; N in a row means the provider isn't running at
  *  all (quota, auth, crash) — bail instead of grinding to the iteration cap. */
@@ -211,6 +331,12 @@ export class LoopRunManager {
   /** The currently-spawned child per run, so cancel/stop can actually KILL a
    *  blocked spawn (the cooperative `_cancelled` flag can't interrupt an await). */
   private readonly _activeChild = new Map<string, ChildProcess>()
+  /** The ACTIVE interactive step session per run (present only while an ai-step
+   *  runs as a resident persistent-stdin session — between steps the entry is
+   *  gone, so a mid-decider/shell turn correctly routes 409). Keyed by the run
+   *  id, which IS the backing job row's id — the manager-agnostic turn routing
+   *  (project-router-jobs) addresses sessions by that job id. */
+  private readonly _interactiveSteps = new Map<string, InteractiveJobSession>()
 
   constructor(
     private readonly db: DbInstance,
@@ -221,13 +347,64 @@ export class LoopRunManager {
 
   /** Cancel an in-flight run: flag it AND kill the active spawned child so a
    *  blocked AI Step / Shell returns immediately (the engine then settles
-   *  'stopped' at the next boundary). */
+   *  'stopped' at the next boundary). An interactive step is torn down through
+   *  its session's abort() (fold in-flight turn → settle 'crashed' → the
+   *  awaited step resolves) — NOT dispose(), which never settles and would
+   *  leave the engine's `await` hanging forever. */
   cancel(runId: string): void {
     this._cancelled.add(runId)
+    const session = this._interactiveSteps.get(runId)
+    if (session) {
+      session.abort('■ Run canceled — tearing down the interactive step session.')
+    }
     const child = this._activeChild.get(runId)
     if (child?.pid) {
       try { treeKill(child.pid, 'SIGKILL', () => { /* best-effort */ }) } catch { /* already gone */ }
     }
+  }
+
+  // ─── Interactive step routing (manager-agnostic /jobs/:id/messages) ─────────
+
+  /** True while an interactive step session is resident for this run/job id. */
+  isInteractiveJob(jobId: string): boolean {
+    return this._interactiveSteps.has(jobId)
+  }
+
+  /** Feed one more user prompt to the ACTIVE step session owning this job row
+   *  (queued behind the active turn — steering; the loop tends to continue its
+   *  plan). Returns false when no interactive step is live for the id. */
+  sendInteractiveTurn(jobId: string, text: string): boolean {
+    const session = this._interactiveSteps.get(jobId)
+    if (!session) return false
+    return session.send(text)
+  }
+
+  /** Settle-now for THIS step: SIGTERM the resident child; the session settles
+   *  'finalized' and the loop advances with what the step produced. Returns
+   *  false when no interactive step is live for the id. */
+  finalizeInteractive(jobId: string): boolean {
+    const session = this._interactiveSteps.get(jobId)
+    if (!session) return false
+    session.finalize()
+    return true
+  }
+
+  /** Teardown for project removal / process shutdown: dispose every resident
+   *  interactive step session (SIGTERM, NO settle — mirrors QueueManager's
+   *  shutdown) and kill any in-flight one-shot children. Does not settle the
+   *  runs — the startup orphan sweeps (jobs + loop_runs) reconcile the rows on
+   *  the next boot, exactly as they do for a crash today. */
+  shutdown(): void {
+    for (const session of this._interactiveSteps.values()) {
+      try { session.dispose() } catch { /* ignore */ }
+    }
+    this._interactiveSteps.clear()
+    for (const child of this._activeChild.values()) {
+      if (child?.pid) {
+        try { treeKill(child.pid, 'SIGKILL', () => { /* best-effort */ }) } catch { /* gone */ }
+      }
+    }
+    this._activeChild.clear()
   }
 
   async run(req: LoopRunRequest): Promise<LoopRunResult> {
@@ -279,25 +456,70 @@ export class LoopRunManager {
       createJob(this.db, { id: runId, command: jobCommand, started_at: new Date(this.now()).toISOString() })
     } catch { /* best-effort; the run still proceeds */ }
     let seq = 0
+    // Monotonic event-seq allocator for THIS run's job row. Shared with an
+    // interactive step session (which persists its own provider events/logs on
+    // the same job id) so replay ordering (getJobEvents ORDER BY seq) stays
+    // correct — two independent counters would collide/interleave wrongly.
+    const takeSeq = (): number => seq++
     let stepNum = 0
+    // The last emitted step still awaiting its `loop_step_end` (cleared by
+    // emitStepEnd). The settle path closes a step left open by a traversal
+    // exception as 'failed', so the persisted stream only ever lacks an end
+    // event when the manager was disposed mid-flight (shutdown / project
+    // removal — the client reads that as "interrupted").
+    let openStep: { index: number; nodeId: string; startMs: number } | null = null
+    // Persist + broadcast ONE structured JSON event on the run's job row (the
+    // same wire shape the raw-provider forwarder uses).
+    const emitRunEvent = (eventType: string, payload: unknown): void => {
+      const s = takeSeq()
+      const json = JSON.stringify(payload)
+      try {
+        appendEvent(this.db, runId, s, { event_type: eventType, source: 'stdout', payload: json })
+      } catch { /* best-effort */ }
+      this.broadcast({ type: 'event', jobId: runId, event_type: eventType, source: 'stdout', payload: json, seq: s, timestamp: new Date(this.now()).toISOString() })
+    }
     // Emit a structured step-boundary event (for a segmented/collapsible client
     // view) AND a visual divider line in the flat log, so each loop step is a
-    // clearly-delimited section.
-    const emitStep = (kind: string, title: string): void => {
+    // clearly-delimited section. `iteration` is the 1-based pass number at
+    // emission (see LoopStepEventPayload).
+    const emitStep = (
+      kind: LoopStepEventPayload['kind'],
+      title: string,
+      nodeId: string,
+      iteration: number,
+      detail?: Pick<LoopStepEventPayload, 'template' | 'command'>,
+    ): void => {
       stepNum += 1
-      try {
-        appendEvent(this.db, runId, seq, { event_type: 'loop_step', source: 'stdout', payload: JSON.stringify({ index: stepNum, kind, title }) })
-      } catch { /* best-effort */ }
-      this.broadcast({ type: 'event', jobId: runId, event_type: 'loop_step', source: 'stdout', payload: JSON.stringify({ index: stepNum, kind, title }), seq, timestamp: new Date(this.now()).toISOString() })
-      seq += 1
+      openStep = { index: stepNum, nodeId, startMs: this.now() }
+      const payload: LoopStepEventPayload = { index: stepNum, kind, title, nodeId, iteration, ...(detail ?? {}) }
+      emitRunEvent('loop_step', payload)
       logLine(`\n━━━━━━ Step ${stepNum} · ${title} ━━━━━━`)
     }
+    // Close the CURRENTLY-open step (no-op when none is open). Appended AFTER
+    // the step's last persisted output line — every call site sits past the
+    // step's settle `await`, and the interactive session takes its seqs from the
+    // SAME allocator synchronously as it streams, so this event's seq is always
+    // greater. durationMs falls back to the step's wall-clock when the executor
+    // reported none.
+    const emitStepEnd = (input: { status: 'ok' | 'failed'; exitCode?: number | null; durationMs?: number; decision?: 'continue' | 'stop' }): void => {
+      if (!openStep) return
+      const payload: LoopStepEndEventPayload = {
+        index: openStep.index,
+        nodeId: openStep.nodeId,
+        status: input.status,
+        exitCode: input.exitCode ?? null,
+        durationMs: input.durationMs ?? Math.max(0, this.now() - openStep.startMs),
+        ...(input.decision ? { decision: input.decision } : {}),
+      }
+      openStep = null
+      emitRunEvent('loop_step_end', payload)
+    }
     const logLine = (line: string, source: 'stdout' | 'stderr' = 'stdout'): void => {
+      const s = takeSeq()
       try {
-        appendEvent(this.db, runId, seq, { event_type: 'log', source, payload: JSON.stringify({ line }) })
+        appendEvent(this.db, runId, s, { event_type: 'log', source, payload: JSON.stringify({ line }) })
       } catch { /* events table best-effort */ }
       this.broadcast({ type: 'log', source, line, timestamp: new Date(this.now()).toISOString(), processId: runId })
-      seq += 1
     }
     // Forward a RAW provider stdout line (claude/codex JSONL) as an `event` —
     // identical to QueueManager — so JobStatusPanel parses real activity
@@ -311,14 +533,25 @@ export class LoopRunManager {
         if (typeof parsed.type === 'string') eventType = parsed.type
       } catch { /* not JSON */ }
       if (!eventType) { logLine(line); return }
+      const s = takeSeq()
       try {
-        appendEvent(this.db, runId, seq, { event_type: eventType, source: 'stdout', payload: line })
+        appendEvent(this.db, runId, s, { event_type: eventType, source: 'stdout', payload: line })
       } catch { /* best-effort */ }
-      this.broadcast({ type: 'event', jobId: runId, event_type: eventType, source: 'stdout', payload: line, seq, timestamp: new Date(this.now()).toISOString() })
-      seq += 1
+      this.broadcast({ type: 'event', jobId: runId, event_type: eventType, source: 'stdout', payload: line, seq: s, timestamp: new Date(this.now()).toISOString() })
     }
     logLine(`▶ Loop "${req.loopName ?? req.loopId}" started${req.spec?.title ? ` — spec: ${req.spec.title}` : ''}`)
     if (req.isolation) logLine(`⎇ Isolated worktree: ${req.isolation.worktreePath} (branch ${req.isolation.branch})`)
+    // Per-run graph SNAPSHOT — once, before the first loop_step — so a later
+    // edit/delete of the loop never breaks the historical replay of this run.
+    const graphPayload: LoopGraphEventPayload = {
+      graph: req.graph,
+      loopId: req.loopId,
+      loopName: req.loopName ?? req.loopId,
+      provider: req.provider,
+      model: req.model,
+      iterationLimit: maxIterations,
+    }
+    emitRunEvent('loop_graph', graphPayload)
     console.log(`[loop] start run=${runId} loop=${req.loopId} provider=${req.provider} model=${req.model} nodes=${req.graph.nodes.length} cwd=${req.cwd}`)
 
     const byId = nodesById(req.graph)
@@ -523,24 +756,88 @@ export class LoopRunManager {
             const includeHistory = history.length > 0 && (!aiSessionId || justContinued)
             const prompt = includeHistory ? `${base}\n\n---\nContext from previous iterations:\n${composeHistory()}` : base
             justContinued = false
-            emitStep('ai-step', `🤖 ${nodeLabel || 'AI Step'} (${nodeProvider}/${nodeModel}${nodeEffort ? `, effort: ${nodeEffort}` : ''})`)
-            // Show the authored template AND the actual COMMAND sent. For magic
-            // commands this is the short native invocation (so it's plainly visible
-            // that `/specrails:implement` ran); a long free-text prompt is capped.
-            logLine(`Template: ${rawTemplate.length > 1000 ? rawTemplate.slice(0, 1000) + '…' : rawTemplate}`)
-            logLine(`Command: ${base.length > 2000 ? base.slice(0, 2000) + '…(truncated)' : base}`)
+            // The authored template + the actual COMMAND sent ride the loop_step
+            // payload (NOT the flat log — the old `Template:`/`Command:` log lines
+            // were noise once the step explorer landed; the log now opens on real
+            // output). `template` is omitted when rendering changed nothing (a
+            // plain free-text prompt would just duplicate `command`).
+            emitStep('ai-step', `🤖 ${nodeLabel || 'AI Step'} (${nodeProvider}/${nodeModel}${nodeEffort ? `, effort: ${nodeEffort}` : ''})`, node.id, iteration + 1, {
+              ...(rawTemplate && rawTemplate !== base ? { template: capText(rawTemplate, STEP_TEMPLATE_CAP) } : {}),
+              ...(base ? { command: capText(base, STEP_COMMAND_CAP) } : {}),
+            })
             // BUG-32: capture the REAL start instant BEFORE the await — the row is
             // bucketed/ordered by started_at, which must be the turn-start, not the
             // finish time (this.now() evaluated after the await would be the finish).
             const aiStepStart = new Date(this.now()).toISOString()
-            const res = await this.executors.runAiStep({ prompt, sessionId: aiSessionId, provider: nodeProvider, model: nodeModel, effort: nodeEffort, cwd: req.cwd, repoDir: req.repoDir, onLine: logLine, onRawLine, onSpawn: (c) => this._activeChild.set(runId, c), aiStepTimeoutMs })
+            // Interactive upgrade (default for persistent-stdin providers): the
+            // executors return a resident-session plan when the kill-switch is on
+            // and the provider is capable (claude); null falls through to the
+            // byte-identical one-shot spawn. The plan mirrors the one-shot's
+            // cwd/env/argv derivation; the engine owns the session lifecycle.
+            const interactivePlan = this.executors.planInteractiveAiStep?.({
+              provider: nodeProvider,
+              model: nodeModel,
+              effort: nodeEffort,
+              cwd: req.cwd,
+              repoDir: req.repoDir,
+              sessionId: aiSessionId,
+              aiStepTimeoutMs,
+            }) ?? null
+            const res = interactivePlan
+              ? await this._runInteractiveAiStep({
+                  runId,
+                  projectId: req.projectId,
+                  plan: interactivePlan,
+                  prompt,
+                  fallbackModel: nodeModel,
+                  nextEventSeq: takeSeq,
+                })
+              : await this.executors.runAiStep({ prompt, sessionId: aiSessionId, provider: nodeProvider, model: nodeModel, effort: nodeEffort, cwd: req.cwd, repoDir: req.repoDir, onLine: logLine, onRawLine, onSpawn: (c) => this._activeChild.set(runId, c), aiStepTimeoutMs })
             this._activeChild.delete(runId)
+            // Zero-work strictness (run 01f41203): a settle that consumed NO
+            // model work — the claude CLI's synthetic `Unknown command:` result
+            // frame (num_turns 0, no assistant events, zero usage tokens) —
+            // means the step's command never actually ran. A step that didn't
+            // run is FAILED, never 'ok'. The interactive path evaluates the
+            // predicate at session settle (res.zeroWork set); for the one-shot
+            // path the engine derives it here from the result's accumulated
+            // signals (text accumulates ONLY from assistant text-delta events,
+            // so non-empty text ⇒ assistant events were seen).
+            const oneShotZeroWork = res.zeroWork === undefined && !res.failed && isZeroWorkSettle({
+              numTurns: res.numTurns ?? 0,
+              tokensIn: res.tokensIn ?? 0,
+              tokensOut: res.tokensOut ?? 0,
+              tokensCacheRead: res.tokensCacheRead ?? 0,
+              tokensCacheCreate: res.tokensCacheCreate ?? 0,
+              sawAssistantEvent: res.text.trim().length > 0,
+              resultText: res.text.trim() ? res.text : null,
+            })
+            const zeroWork = res.zeroWork === true || oneShotZeroWork
+            const stepFailed = res.failed === true || zeroWork
+            const stepErrorText = res.errorText ?? (zeroWork
+              ? `zero work performed — the command never ran${res.text.trim() ? `: ${res.text.trim()}` : ''}`
+              : undefined)
+            // Make the failure reason land visibly INSIDE the step's log
+            // segment (the interactive session already surfaced its own note at
+            // settle; the Template/Command flat-log lines are gone, so without
+            // this the one-shot `Unknown command:` text would never be seen).
+            if (oneShotZeroWork) {
+              logLine(`✖ Zero work performed — the command never ran${res.text.trim() ? `: ${res.text.trim()}` : ''}`, 'stderr')
+            }
+            // Step tail marker — after the step's last streamed output (both the
+            // one-shot and interactive paths have fully persisted their frames by
+            // here: the session resolves inside onSettle, past its final writes).
+            // Failure mirrors what the engine already treats as step failure
+            // (res.failed: non-zero exit / spawn error / timeout / crashed
+            // session — plus zero-work); no exit code is exposed by the AI
+            // executors → null.
+            emitStepEnd({ status: stepFailed ? 'failed' : 'ok', durationMs: res.durationMs })
             // Only carry forward the session of a step that actually ran — a
             // hard-failed turn (codex still emits thread.started before its error)
             // would otherwise make the next step `--resume` a dead session.
-            if (res.sessionId && !res.failed) aiSessionId = res.sessionId
+            if (res.sessionId && !stepFailed) aiSessionId = res.sessionId
             history.push(`AI Step: ${truncate(res.text)}`)
-            record(`loop:${runId}`, res, aiStepStart)
+            record(`loop:${runId}`, { ...res, failed: stepFailed }, aiStepStart)
             // Capture the OpenSpec change id from a step's output the FIRST time it
             // appears (first-match-wins, kept stable across loop-back iterations so
             // the re-pass amends the same change). Used by `{{run.changeId}}` in the
@@ -554,10 +851,14 @@ export class LoopRunManager {
             // auth, crash. One can be transient; AI_FAILFAST_THRESHOLD in a row
             // is systemic, so abort with the real reason instead of spinning to
             // the iteration cap (wasting wall-clock and, on paid providers, money).
-            if (res.failed && !res.text.trim()) {
+            // A ZERO-WORK step routes the SAME way a crashed no-output step does
+            // (its `Unknown command:` text is a CLI synthetic, not model output),
+            // so a persistently-unresolvable command aborts the run identically
+            // instead of grinding to the cap.
+            if (stepFailed && (zeroWork || !res.text.trim())) {
               consecutiveAiFailures += 1
               if (consecutiveAiFailures >= AI_FAILFAST_THRESHOLD) {
-                logLine(`Loop aborted: provider appears down — ${consecutiveAiFailures} AI steps failed with no output and no successful AI call in between${res.errorText ? ` — ${res.errorText}` : ''}`, 'stderr')
+                logLine(`Loop aborted: provider appears down — ${consecutiveAiFailures} AI steps failed with no output and no successful AI call in between${stepErrorText ? ` — ${stepErrorText}` : ''}`, 'stderr')
                 outcome = 'failed'
                 settled = true
                 break
@@ -579,18 +880,21 @@ export class LoopRunManager {
               : []
             const missingRunVars = requireRunVars.filter((name) => !runVars[name])
             if (missingRunVars.length > 0) {
-              emitStep('shell', `⚡ ${nodeLabel || 'Shell'}`)
+              emitStep('shell', `⚡ ${nodeLabel || 'Shell'}`, node.id, iteration + 1)
               logLine(`Skipped: required run variable(s) not captured: ${missingRunVars.map((n) => `{{run.${n}}}`).join(', ')} — refusing to run the command against an unknown target.`, 'stderr')
+              // Never spawned → no exit code; the refusal is a failed step.
+              emitStepEnd({ status: 'failed' })
               outcome = 'failed'
               settled = true
               break
             }
             const command = resolveConstants(resolveRunVars(interpolateSpec(String(node.data?.command ?? ''), req.spec), runVars), constMap)
-            emitStep('shell', `⚡ ${nodeLabel || 'Shell'}`)
+            emitStep('shell', `⚡ ${nodeLabel || 'Shell'}`, node.id, iteration + 1)
             logLine(`$ ${command}`)
             const sh = await this.executors.runShell({ command, cwd: req.cwd, onLine: logLine, onSpawn: (c) => this._activeChild.set(runId, c) })
             this._activeChild.delete(runId)
             logLine(`(exit ${sh.exitCode})`)
+            emitStepEnd({ status: sh.exitCode === 0 ? 'ok' : 'failed', exitCode: sh.exitCode, durationMs: sh.durationMs })
             totalDuration += sh.durationMs ?? 0
             history.push(`Shell \`${command}\` exit=${sh.exitCode}: ${truncate(sh.stdout || sh.stderr)}`)
             nodeId = succs[0]?.id
@@ -600,7 +904,8 @@ export class LoopRunManager {
             if (iteration >= maxIterations) { outcome = 'max-iterations'; settled = true; break }
             iteration += 1
             const goal = resolveConstants(interpolateSpec(String(node.data?.goal ?? 'The loop goal is met.'), req.spec), constMap)
-            emitStep('decider', `🔍 ${nodeLabel || 'Loop Decider'} (iteration ${iteration})`)
+            // `iteration` was just incremented — it IS this pass's 1-based number.
+            emitStep('decider', `🔍 ${nodeLabel || 'Loop Decider'} (iteration ${iteration})`, node.id, iteration)
             logLine(`Goal: ${goal}`)
             // BUG-32: capture the real Decider start BEFORE the await (see AI step).
             const deciderStart = new Date(this.now()).toISOString()
@@ -629,6 +934,14 @@ export class LoopRunManager {
             // is a failed AI invocation — record it as such, not as success.
             record(`loop:${runId}:decider`, { ...dec, failed: !dec.parsed }, deciderStart)
             logLine(`Decision: ${dec.continue ? 'continue' : 'stop'} — ${dec.reasoning}`)
+            // The verdict line above is the decider step's last output. `decision`
+            // is the route actually taken (an unparseable verdict defaults to
+            // continue AND flags the step failed — mirrors record()'s status).
+            emitStepEnd({
+              status: dec.parsed ? 'ok' : 'failed',
+              durationMs: dec.durationMs,
+              decision: dec.continue ? 'continue' : 'stop',
+            })
             history.push(`Decider: ${dec.continue ? 'continue' : 'stop'} — ${dec.reasoning}`)
             updateLoopRunCounters(this.db, runId, {
               iterationCount: iteration,
@@ -695,6 +1008,12 @@ export class LoopRunManager {
       logLine(`error: ${(err as Error)?.message ?? String(err)}`, 'stderr')
     }
 
+    // Backstop: a traversal exception (or any future path that breaks out
+    // mid-step) must not leave the last step dangling — close it as failed.
+    // The ONLY way a persisted stream ends with an open step is a mid-flight
+    // dispose (shutdown/project removal), where this code never runs.
+    emitStepEnd({ status: 'failed' })
+
     console.log(`[loop] settle run=${runId} outcome=${outcome} iterations=${iteration} cost=$${totalCost.toFixed(4)}`)
 
     finishLoopRun(this.db, runId, {
@@ -745,5 +1064,129 @@ export class LoopRunManager {
     })
 
     return { runId, outcome, iterations: iteration, totalCostUsd: totalCost }
+  }
+
+  /**
+   * Run ONE ai-step as a resident interactive session (settleMode 'auto'):
+   * first stdin frame = the step's rendered prompt (slash or prose — both
+   * expand, spike-verified), user turns mid-step queue+extend, and the moment
+   * the session goes QUIESCENT (turn result, nothing pending) it settles itself
+   * and the loop advances exactly as after a one-shot. The SettleInfo maps onto
+   * the same AiStepResult shape the one-shot executor returns, so everything
+   * downstream (history, changeId capture, fail-fast, `record()`'s single
+   * ai_invocations row per step) is untouched.
+   *
+   * Ownership/teardown matrix (never leaks the child, never double-settles —
+   * the session's _settle is idempotent and every path funnels through it):
+   *  • quiescence / explicit finalizeInteractive → settle 'finalized' (step ok)
+   *  • step timeout → session.abort() → fold in-flight turn → settle 'crashed'
+   *  • run cancel → cancel() calls session.abort() → settle 'crashed' → the
+   *    engine's next boundary check settles the run 'stopped'
+   *  • manager shutdown / project removal → dispose() (kill, NO settle; the
+   *    startup orphan sweeps reconcile the rows — mirrors QueueManager)
+   *
+   * Accounting: the session accumulates per-turn REAL usage onto the jobs row
+   * live (accumulateInteractiveTurn) and folds any killed in-flight turn as a
+   * rate-card ESTIMATE; the ENGINE stays the sole ai_invocations authority —
+   * one `record()` row per step from the settle-derived totals (no session-side
+   * invocation row, so nothing double-records).
+   */
+  private _runInteractiveAiStep(input: {
+    runId: string
+    projectId: string
+    plan: InteractiveAiStepPlan
+    prompt: string
+    fallbackModel: string
+    nextEventSeq: () => number
+  }): Promise<AiStepResult> {
+    return new Promise<AiStepResult>((resolve) => {
+      let timer: ReturnType<typeof setTimeout> | null = null
+      let timedOut = false
+      const session = new InteractiveJobSession({
+        jobId: input.runId,
+        projectId: input.projectId,
+        db: this.db,
+        adapter: input.plan.adapter,
+        broadcast: this.broadcast,
+        settleMode: 'auto',
+        // The step timeout below is the sole watchdog — the one-shot loop path
+        // has no zombie detector either (byte-parity), so none is armed here.
+        nextEventSeq: input.nextEventSeq,
+        spawn: input.plan.spawn,
+        onSettle: (info) => {
+          if (timer) { clearTimeout(timer); timer = null }
+          this._interactiveSteps.delete(input.runId)
+          // The step's session is gone — the composer flips to its gentle
+          // "waiting for the next step" state instead of erroring on 409.
+          this.broadcast({
+            type: 'job.interactive',
+            projectId: input.projectId,
+            jobId: input.runId,
+            acceptingTurns: false,
+            settleMode: 'auto',
+            timestamp: new Date(this.now()).toISOString(),
+          })
+          // Zero-work strictness: a session that settled cleanly but consumed
+          // NO model work across its whole life (the synthetic `Unknown
+          // command:` frame) is a FAILED step — the command never ran. Judged
+          // by the session itself over the accumulated totals (whole-session,
+          // so a multi-turn step ending on one synthetic frame is unaffected).
+          const failed = info.reason === 'crashed' || info.zeroWork
+          resolve({
+            // The last turn's `result` payload — the same terminal text the
+            // one-shot path captures (feeds history/changeId/fail-fast).
+            text: info.resultText ?? '',
+            sessionId: info.sessionId ?? undefined,
+            cost: info.totals.total_cost_usd,
+            // Derived scalar = input+output ONLY (legacy semantics — see the
+            // one-shot executor's note); cache volume rides the structured fields.
+            tokens: info.totals.tokens_in + info.totals.tokens_out,
+            tokensIn: info.totals.tokens_in,
+            tokensOut: info.totals.tokens_out,
+            tokensCacheRead: info.totals.tokens_cache_read,
+            tokensCacheCreate: info.totals.tokens_cache_create,
+            // Sum of active turn wall-segments (write→result), excluding idle
+            // gaps between turns — matches the queue's interactive semantics.
+            durationMs: info.activeDurationMs,
+            numTurns: info.totals.num_turns,
+            provider: input.plan.adapter.id,
+            model: info.model ?? input.fallbackModel,
+            estimated: info.estimated,
+            failed,
+            zeroWork: info.zeroWork,
+            errorText: failed
+              ? (info.reason === 'crashed'
+                  ? (timedOut ? 'AI step timed out' : 'interactive step session crashed')
+                  : `zero work performed — the command never ran${info.resultText ? `: ${info.resultText}` : ''}`)
+              : undefined,
+          })
+        },
+      })
+      this._interactiveSteps.set(input.runId, session)
+      // The run's backing job row was created without the flag (before this
+      // step's capability gate); stamp it now so GET /jobs/:id advertises the
+      // in-job chat affordance. Idempotent across steps.
+      try { markJobInteractive(this.db, input.runId) } catch { /* best-effort */ }
+      // A resident step session is live — an open Job Detail composer re-enables
+      // without polling (mirror flip of the onSettle broadcast above).
+      this.broadcast({
+        type: 'job.interactive',
+        projectId: input.projectId,
+        jobId: input.runId,
+        acceptingTurns: true,
+        settleMode: 'auto',
+        timestamp: new Date(this.now()).toISOString(),
+      })
+      if (input.plan.stepTimeoutMs > 0) {
+        timer = setTimeout(() => {
+          timedOut = true
+          session.abort(
+            `AI step timed out after ${Math.round(input.plan.stepTimeoutMs / 1000)}s — tearing down the interactive session`,
+          )
+        }, input.plan.stepTimeoutMs)
+        timer.unref?.()
+      }
+      session.start(input.plan.spec, input.prompt)
+    })
   }
 }

@@ -1,5 +1,6 @@
 import { useState, useRef, useCallback, useEffect, useMemo } from 'react'
 import { useTranslation } from 'react-i18next'
+import { useSearchParams } from 'react-router-dom'
 import { useDroppable } from '@dnd-kit/core'
 import { SortableContext, verticalListSortingStrategy } from '@dnd-kit/sortable'
 import { FileText, Plus, CheckCircle2 } from 'lucide-react'
@@ -12,15 +13,20 @@ import type { RailState } from './RailsBoard'
 import { SpecLabelFilterDropdown } from './SpecLabelFilterDropdown'
 import { SpecEpicFilterDropdown } from './SpecEpicFilterDropdown'
 import { SpecSprintFilterDropdown } from './SpecSprintFilterDropdown'
-
-/** Which spec bucket the board shows. The ToDo/Done navbar tabs drive this. */
-type SpecStatusFilterValue = 'all' | 'todo' | 'done'
+import { SpecStatusFilter } from './SpecStatusFilter'
+import { SpecJiraStatusFilterDropdown } from './SpecJiraStatusFilterDropdown'
+import {
+  isSpecStatusFilterValue,
+  loadSpecStatusFilter,
+  saveSpecStatusFilter,
+  statusMatchesFilter,
+  type SpecStatusFilterValue,
+} from '../lib/spec-status-filter'
 import { SpecSortControl } from './SpecSortControl'
 import { SpecsViewTierToggle } from './SpecsViewTierToggle'
 import type { SpecsViewTier } from '../lib/specs-view-tier'
 import { applySpecSort } from '../lib/spec-sort'
 import { loadSpecFilters, saveSpecFilters } from '../lib/spec-filters'
-import { cn } from '../lib/utils'
 import type { SpecSortMode, SpecSortDir } from '../types/spec-sort'
 import { ProposeSpecModal, type ExploreLaunchPayload } from './ProposeSpecModal'
 import { ExploreSpecShell } from './explore-spec/ExploreSpecShell'
@@ -115,31 +121,9 @@ interface ExploreState {
     /** Current ticket status. `'draft'` makes the shell PUBLISH on commit
      *  (flip draft → real spec) instead of PATCHing in place. Optional for
      *  backward-compat; absent ⇒ treated as a real-spec edit. */
-    status?: 'draft' | 'todo' | 'in_progress' | 'done' | 'cancelled'
+    status?: 'draft' | 'todo' | 'in_progress' | 'on_review' | 'done' | 'cancelled'
   }
   contextScope?: import('../types/context-scope').ContextScope
-}
-
-const STATUS_TAB_KEY = (projectId: string) => `specrails-desktop:spec-status-tab:${projectId}`
-
-/** Persisted ToDo/Done tab selection. Defaults to 'todo' so the board opens on
- *  the active specs; 'done' is one click away (no scrolling the whole list). */
-function loadStatusTab(projectId: string | null): SpecStatusFilterValue {
-  if (!projectId) return 'todo'
-  try {
-    const v = localStorage.getItem(STATUS_TAB_KEY(projectId))
-    return v === 'done' ? 'done' : 'todo'
-  } catch {
-    return 'todo'
-  }
-}
-function saveStatusTab(projectId: string | null, v: SpecStatusFilterValue): void {
-  if (!projectId) return
-  try {
-    localStorage.setItem(STATUS_TAB_KEY(projectId), v)
-  } catch {
-    /* ignore */
-  }
 }
 
 /** Returns true when at least one draft field carries a meaningful value. */
@@ -210,16 +194,41 @@ export function SpecsBoard({
   const [proposeOpen, setProposeOpen] = useState(false)
   const [explore, setExplore] = useState<ExploreState | null>(null)
   const { activeProjectId } = useDesktop()
+  const [searchParams, setSearchParams] = useSearchParams()
   // Filters persist per-project (and across app restarts) — restored from
   // localStorage on mount and on every project switch (see the effect below).
   const [activeLabels, setActiveLabels] = useState<Set<string>>(() => loadSpecFilters(activeProjectId).labels)
   const [activeEpic, setActiveEpic] = useState<string | null>(() => loadSpecFilters(activeProjectId).epic)
   const [activeSprint, setActiveSprint] = useState<string | null>(() => loadSpecFilters(activeProjectId).sprint)
-  const [statusFilter, setStatusFilter] = useState<SpecStatusFilterValue>(() => loadStatusTab(activeProjectId))
-  const handleStatusTabChange = useCallback((v: SpecStatusFilterValue) => {
+  // Status dimensions are URL-synced (`?status=…&jiraStatus=…`) so a refresh /
+  // shared link restores the exact view. On mount the URL wins over the
+  // per-project persisted selection; on project switch the persisted one wins
+  // (any lingering params belonged to the previous project).
+  const [statusFilter, setStatusFilter] = useState<SpecStatusFilterValue>(() => {
+    const fromUrl = searchParams.get('status')
+    return isSpecStatusFilterValue(fromUrl) ? fromUrl : loadSpecStatusFilter(activeProjectId)
+  })
+  const [activeJiraStatus, setActiveJiraStatus] = useState<string | null>(
+    () => searchParams.get('jiraStatus') ?? loadSpecFilters(activeProjectId).jiraStatus,
+  )
+  const handleStatusFilterChange = useCallback((v: SpecStatusFilterValue) => {
     setStatusFilter(v)
-    saveStatusTab(activeProjectId, v)
+    saveSpecStatusFilter(activeProjectId, v)
   }, [activeProjectId])
+
+  // Mirror the two status dimensions into the URL. Default values are DELETED
+  // (a pristine `/` stays pristine); foreign params (e.g. `?compare=…`) are
+  // preserved via the functional form.
+  useEffect(() => {
+    setSearchParams((prev) => {
+      const next = new URLSearchParams(prev)
+      if (statusFilter === 'active') next.delete('status')
+      else next.set('status', statusFilter)
+      if (activeJiraStatus === null) next.delete('jiraStatus')
+      else next.set('jiraStatus', activeJiraStatus)
+      return next.toString() === prev.toString() ? prev : next
+    }, { replace: true })
+  }, [statusFilter, activeJiraStatus, setSearchParams])
   const { minimize } = useMinimizedChats()
   // SMASH: build lookup maps so each SpecCard renders the épica badge / child
   // pill without re-scanning the full ticket list per render.
@@ -248,28 +257,41 @@ export function SpecsBoard({
   // On project switch, restore THIS project's saved filters (not a reset) so
   // the bug where switching projects wiped the filter bar is gone — and the
   // same restore runs on mount, so a close/reopen lands on the same filters.
+  // The status dimensions are skipped on FIRST run only: their useState
+  // initializers already applied URL-else-persisted, and a deep link
+  // (`?status=done`) must not be clobbered by the persisted value.
+  const didRestoreStatusRef = useRef(false)
   useEffect(() => {
     const f = loadSpecFilters(activeProjectId)
     setActiveLabels(f.labels)
     setActiveEpic(f.epic)
     setActiveSprint(f.sprint)
-    setStatusFilter(loadStatusTab(activeProjectId))
+    if (didRestoreStatusRef.current) {
+      setStatusFilter(loadSpecStatusFilter(activeProjectId))
+      setActiveJiraStatus(f.jiraStatus)
+    }
+    didRestoreStatusRef.current = true
   }, [activeProjectId])
 
   const handleLabelsChange = useCallback((next: Set<string>) => {
     setActiveLabels(next)
-    saveSpecFilters(activeProjectId, { labels: next, epic: activeEpic, sprint: activeSprint })
-  }, [activeProjectId, activeEpic, activeSprint])
+    saveSpecFilters(activeProjectId, { labels: next, epic: activeEpic, sprint: activeSprint, jiraStatus: activeJiraStatus })
+  }, [activeProjectId, activeEpic, activeSprint, activeJiraStatus])
 
   const handleEpicChange = useCallback((next: string | null) => {
     setActiveEpic(next)
-    saveSpecFilters(activeProjectId, { labels: activeLabels, epic: next, sprint: activeSprint })
-  }, [activeProjectId, activeLabels, activeSprint])
+    saveSpecFilters(activeProjectId, { labels: activeLabels, epic: next, sprint: activeSprint, jiraStatus: activeJiraStatus })
+  }, [activeProjectId, activeLabels, activeSprint, activeJiraStatus])
 
   const handleSprintChange = useCallback((next: string | null) => {
     setActiveSprint(next)
-    saveSpecFilters(activeProjectId, { labels: activeLabels, epic: activeEpic, sprint: next })
-  }, [activeProjectId, activeLabels, activeEpic])
+    saveSpecFilters(activeProjectId, { labels: activeLabels, epic: activeEpic, sprint: next, jiraStatus: activeJiraStatus })
+  }, [activeProjectId, activeLabels, activeEpic, activeJiraStatus])
+
+  const handleJiraStatusChange = useCallback((next: string | null) => {
+    setActiveJiraStatus(next)
+    saveSpecFilters(activeProjectId, { labels: activeLabels, epic: activeEpic, sprint: activeSprint, jiraStatus: next })
+  }, [activeProjectId, activeLabels, activeEpic, activeSprint])
 
   const matchesFilters = useCallback(
     (t: LocalTicket): boolean => {
@@ -308,14 +330,46 @@ export function SpecsBoard({
     () => tickets.some((t) => t.jira_key) || doneTickets.some((t) => t.jira_key),
     [tickets, doneTickets],
   )
+  // The Jira-status dimension appears only when the inbound sync has
+  // materialized at least one RAW workflow status name (implicitly Jira-only,
+  // same as the epic/sprint filters).
+  const hasJiraStatuses = useMemo(
+    () => tickets.some((t) => t.jira_status) || doneTickets.some((t) => t.jira_status),
+    [tickets, doneTickets],
+  )
 
-  // Done specs follow the SAME general sort as the active board (the Done tab no
-  // longer has its own sort/view controls — see the toolbar above).
+  // Live per-status counts for the selector — computed AFTER the label/epic/
+  // sprint filters (they narrow what the board can show at all) but BEFORE the
+  // status dimensions themselves (a chip must keep announcing what selecting
+  // it would reveal). Recomputes on every ticket prop change, so WS
+  // `ticket_updated` events keep the counts live.
+  const statusCounts = useMemo(() => {
+    const c: Record<TicketStatus, number> = {
+      draft: 0, todo: 0, in_progress: 0, on_review: 0, done: 0, cancelled: 0,
+    }
+    for (const t of filteredTickets) c[t.status] += 1
+    for (const t of filteredDoneTickets) c[t.status] += 1
+    return c
+  }, [filteredTickets, filteredDoneTickets])
+
+  const matchesJiraStatus = useCallback(
+    (t: LocalTicket): boolean => activeJiraStatus === null || t.jira_status === activeJiraStatus,
+    [activeJiraStatus],
+  )
+
+  // The active (non-done) bucket after BOTH status dimensions. Order comes
+  // from the parent (drag order / sort) — filtering preserves it.
+  const visibleActiveTickets = useMemo(
+    () => filteredTickets.filter((t) => statusMatchesFilter(t.status, statusFilter) && matchesJiraStatus(t)),
+    [filteredTickets, statusFilter, matchesJiraStatus],
+  )
+
+  // Done specs follow the SAME general sort as the active board (the Done
+  // bucket has no controls of its own — see the toolbar above).
   const visibleDoneTickets = useMemo(() => {
-    return sortMode === 'default'
-      ? filteredDoneTickets
-      : applySpecSort(filteredDoneTickets, sortMode, sortDir)
-  }, [filteredDoneTickets, sortMode, sortDir])
+    const base = filteredDoneTickets.filter(matchesJiraStatus)
+    return sortMode === 'default' ? base : applySpecSort(base, sortMode, sortDir)
+  }, [filteredDoneTickets, matchesJiraStatus, sortMode, sortDir])
 
   // Snapshot of the live shell so we can auto-minimize the current session
   // before restoring another (mutual-exclusion: only one shell visible at
@@ -474,57 +528,51 @@ export function SpecsBoard({
   const { isOver, setNodeRef } = useDroppable({ id: 'specs' })
   const { isOver: isDoneOver, setNodeRef: setDoneNodeRef } = useDroppable({ id: 'done-specs' })
 
-  // Status filter ⇒ which buckets render. In `all`, todo first then done at
-  // the bottom (always). `todo` / `done` show only that bucket.
-  const showTodoBucket = statusFilter === 'all' || statusFilter === 'todo'
+  // Status filter ⇒ which buckets render. In `all`, active specs first, done
+  // pinned at the bottom (always). `done` shows only the Done bucket; every
+  // other value filters within the active bucket.
+  const showTodoBucket = statusFilter !== 'done'
   const showDoneBucket = statusFilter === 'all' || statusFilter === 'done'
+  // Whether either status dimension is narrowing the view (drives the empty
+  // states + header count pill).
+  const statusNarrowed = statusFilter !== 'active' || activeJiraStatus !== null
 
   return (
     <div className="flex flex-col h-full" onClick={handleBackgroundClick}>
       {/* Header — a single row (aligns with the rails header): title + the
-          ToDo/Done state tabs, a separator, then filters + sort + view + add. */}
+          premium status selector, a separator, then filters + sort + view + add. */}
       <div className="flex items-center px-4 h-12 border-b border-border/40 shrink-0 gap-2">
         <div className="flex items-center gap-2 shrink-0">
           <FileText className="w-4 h-4 text-muted-foreground" />
           <h2 className="text-sm font-semibold text-accent-primary">{t('board.title')}</h2>
           {tickets.length + doneTickets.length > 0 && (
             <span className="text-[10px] text-muted-foreground bg-muted/30 rounded-full px-1.5 py-0.5">
-              {!noFilters
-                ? `${filteredTickets.length + filteredDoneTickets.length}/${tickets.length + doneTickets.length}`
+              {!noFilters || activeJiraStatus !== null
+                ? `${filteredTickets.filter(matchesJiraStatus).length + filteredDoneTickets.filter(matchesJiraStatus).length}/${tickets.length + doneTickets.length}`
                 : tickets.length + doneTickets.length}
             </span>
           )}
         </div>
 
-        {/* ToDo / Done state tabs — inline beside the title */}
-        <div className="flex items-center gap-1 shrink-0" role="tablist">
-          {(['todo', 'done'] as const).map((tab) => {
-            const active = statusFilter === tab
-            return (
-              <button
-                key={tab}
-                type="button"
-                role="tab"
-                aria-selected={active}
-                onClick={() => handleStatusTabChange(tab)}
-                data-testid={`specs-tab-${tab}`}
-                className={cn(
-                  'inline-flex items-center gap-1.5 rounded-md px-2.5 py-1 text-xs font-medium transition-colors',
-                  active
-                    ? 'bg-accent-primary/15 text-accent-primary'
-                    : 'text-muted-foreground hover:text-foreground hover:bg-muted/40',
-                )}
-              >
-                {t(`statusFilter.${tab}`)}
-                <span className="text-[10px] tabular-nums opacity-70">
-                  {tab === 'todo' ? filteredTickets.length : filteredDoneTickets.length}
-                </span>
-              </button>
-            )
-          })}
-        </div>
+        {/* Premium status selector — every state with a live count. Shrinks
+            (and scrolls) before anything else in the row does. */}
+        <SpecStatusFilter
+          value={statusFilter}
+          onChange={handleStatusFilterChange}
+          counts={statusCounts}
+        />
 
-        {/* Separator between the state tabs and the filters */}
+        {/* Jira dimension — the board's REAL workflow statuses (raw names),
+            present only once the inbound sync materialized at least one. */}
+        {hasJiraStatuses && (
+          <SpecJiraStatusFilterDropdown
+            tickets={[...filteredTickets, ...filteredDoneTickets]}
+            active={activeJiraStatus}
+            onChange={handleJiraStatusChange}
+          />
+        )}
+
+        {/* Separator between the status selector and the filters */}
         <div className="h-5 w-px bg-border/60 shrink-0" aria-hidden />
 
         {/* Filters are direct children (NO overflow wrapper — an overflow
@@ -598,7 +646,7 @@ export function SpecsBoard({
                   <div key={i} className="h-10 rounded-lg border border-border/40 bg-card/50 animate-pulse" />
                 ))}
               </div>
-            ) : filteredTickets.length === 0 ? (
+            ) : visibleActiveTickets.length === 0 ? (
               <div
                 className={`flex flex-col items-center justify-center py-12 text-center transition-colors ${
                   isOver ? 'text-primary/50' : 'text-muted-foreground'
@@ -610,22 +658,24 @@ export function SpecsBoard({
                     ? t('board.dropHere')
                     : tickets.length === 0
                       ? t('board.emptyNoSpecs')
-                      : activeLabels.size > 0
+                      : filteredTickets.length === 0 && activeLabels.size > 0
                         ? t('board.emptyNoLabelMatch')
-                        : t('board.emptyNoActiveSpecs')}
+                        : statusNarrowed
+                          ? t('board.emptyNoStatusMatch')
+                          : t('board.emptyNoActiveSpecs')}
                 </p>
                 {!isOver && tickets.length === 0 && (
                   <p className="text-xs mt-1 opacity-60">{t('board.emptyHint')}</p>
                 )}
               </div>
             ) : viewTier === 'postit' && onMoveToRail ? (
-              <SortableContext items={filteredTickets.map((t) => t.id)} strategy={verticalListSortingStrategy}>
+              <SortableContext items={visibleActiveTickets.map((t) => t.id)} strategy={verticalListSortingStrategy}>
                 <div
                   data-testid="specs-board-postit-grid"
                   className="grid gap-3"
                   style={{ gridTemplateColumns: 'repeat(auto-fill, minmax(240px, 1fr))' }}
                 >
-                  {filteredTickets.map((ticket) => (
+                  {visibleActiveTickets.map((ticket) => (
                     <MaybeContextMenu
                       key={ticket.id}
                       ticket={ticket}
@@ -651,13 +701,13 @@ export function SpecsBoard({
                 </div>
               </SortableContext>
             ) : (
-              <SortableContext items={filteredTickets.map((t) => t.id)} strategy={verticalListSortingStrategy}>
+              <SortableContext items={visibleActiveTickets.map((t) => t.id)} strategy={verticalListSortingStrategy}>
                 <div
                   data-testid="specs-board-list"
                   data-tier="row"
                   className="space-y-1.5"
                 >
-                  {filteredTickets.map((ticket) => (
+                  {visibleActiveTickets.map((ticket) => (
                     <MaybeContextMenu
                       key={ticket.id}
                       ticket={ticket}
@@ -693,7 +743,7 @@ export function SpecsBoard({
               isDoneOver ? 'bg-emerald-500/[0.04] aurora-light:bg-accent-success/10' : ''
             } ${showTodoBucket ? 'border-t border-border/30 mt-1' : ''}`}
           >
-            {/* No per-Done header: the Done TAB labels this bucket and the board
+            {/* No per-Done header: the Done CHIP labels this bucket and the board
                 toolbar's sort + list/postit toggle now drive it too. */}
             {visibleDoneTickets.length === 0 ? (
               <div className="flex flex-col items-center justify-center py-6 text-center text-muted-foreground">
@@ -703,7 +753,9 @@ export function SpecsBoard({
                     ? t('board.dropToMarkDone')
                     : activeLabels.size > 0 && doneTickets.length > 0
                       ? t('board.emptyNoDoneLabelMatch')
-                      : t('board.emptyNoCompleted')}
+                      : activeJiraStatus !== null && filteredDoneTickets.length > 0
+                        ? t('board.emptyNoStatusMatch')
+                        : t('board.emptyNoCompleted')}
                 </p>
               </div>
             ) : viewTier === 'postit' && onMoveToRail ? (

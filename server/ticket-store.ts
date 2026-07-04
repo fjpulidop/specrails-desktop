@@ -3,7 +3,7 @@ import path from 'path'
 
 // âââ Types âââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââ
 
-export type TicketStatus = 'draft' | 'todo' | 'in_progress' | 'done' | 'cancelled'
+export type TicketStatus = 'draft' | 'todo' | 'in_progress' | 'on_review' | 'done' | 'cancelled'
 export type TicketPriority = 'critical' | 'high' | 'medium' | 'low'
 
 export interface Attachment {
@@ -65,6 +65,13 @@ export interface Ticket {
   /** State of that sprint: 'active' (the current sprint) | 'future' | 'closed'. */
   jira_sprint_state?: string | null
   /**
+   * RAW Jira workflow status name exactly as the board shows it (e.g. "Code
+   * Review", "QA"), refreshed on every inbound poll. Additive — powers the
+   * board's Jira-status filter dimension; specrails-core ignores it. Distinct
+   * from `status`, which is the MAPPED Specrails logical state.
+   */
+  jira_status?: string | null
+  /**
    * App-managed review flag. Set when a job had already marked this spec `done`
    * (the agent reached its Ship phase) but the job then failed / was canceled /
    * was zombie-killed â so the spec stays in the Done column but the board warns
@@ -82,7 +89,7 @@ export interface TicketStore {
   tickets: Record<string, Ticket>
 }
 
-const VALID_STATUSES = new Set<TicketStatus>(['draft', 'todo', 'in_progress', 'done', 'cancelled'])
+const VALID_STATUSES = new Set<TicketStatus>(['draft', 'todo', 'in_progress', 'on_review', 'done', 'cancelled'])
 const VALID_PRIORITIES = new Set<TicketPriority>(['critical', 'high', 'medium', 'low'])
 
 export const CURRENT_SCHEMA_VERSION = '1.3'
@@ -403,6 +410,10 @@ export type JobOutcome = 'completed' | 'failed' | 'canceled' | 'zombie_terminate
  *
  * - `completed`: promote `todo`/`in_progress` â `done` (never resurrect a `draft`
  *   or a `cancelled` spec into Done); clear any stale `needs_review` flag.
+ *   When `opts.completedStatus` is `'on_review'` (the ask-first PR-delivery
+ *   path), the same promotable set moves to `on_review` instead of `done` —
+ *   the spec only reaches Done once the delivered PR merges. The default
+ *   `'done'` is byte-identical to the legacy behaviour.
  * - `failed`/`canceled`/`zombie_terminated`: revert an `in_progress` spec â `todo`
  *   (back to the Specs column). If the agent had already marked it `done` (its
  *   Ship phase ran, then the process died), keep it `done` but set `needs_review`
@@ -413,6 +424,7 @@ export function applyJobOutcomeToTickets(
   ticketIds: readonly number[],
   outcome: JobOutcome,
   now: string,
+  opts?: { completedStatus?: 'done' | 'on_review' },
 ): number[] {
   const changed: number[] = []
   for (const tid of ticketIds) {
@@ -422,7 +434,7 @@ export function applyJobOutcomeToTickets(
       const promotable = ticket.status === 'todo' || ticket.status === 'in_progress'
       const clearWarning = ticket.needs_review === true
       if (!promotable && !clearWarning) continue
-      if (promotable) ticket.status = 'done'
+      if (promotable) ticket.status = opts?.completedStatus ?? 'done'
       if (clearWarning) delete ticket.needs_review
       ticket.updated_at = now
       changed.push(tid)

@@ -258,8 +258,8 @@
     "providers": {
       "nav": "あなたのエージェント",
       "title": "自分のエージェントを持ち込む",
-      "subtitle": "Claude Code と Codex をファーストクラスのエンジンとして",
-      "intro": "アプリは <b>Claude Code</b> と <b>Codex CLI</b> を、単一のコントラクトの背後で交換可能なエンジンとして扱います。プロジェクトには片方または両方をインストールでき、選択はインストール時に行います。",
+      "subtitle": "Claude Code・Codex・Gemini を第一級エンジンとして",
+      "intro": "アプリは <b>Claude Code</b>・<b>Codex CLI</b>・<b>Gemini CLI</b> を同一契約の下で交換可能なエンジンとして扱います。プロジェクトには 1 つ以上をインストールできます — 選択はインストール時に行います。",
       "table": {
         "capability": "機能",
         "streamingResume": "ストリーミングとセッション再開",
@@ -271,7 +271,7 @@
         "synthesized": "合成",
         "agentProfiles": "エージェントプロファイル"
       },
-      "calloutLabel": "両方インストールされている場合",
+      "calloutLabel": "複数インストールされている場合",
       "calloutBody": "<b>スペックごと、レールごと、ターミナル起動ごと</b>にエンジンを選べます。アプリはプロジェクトごとに最後の選択を記憶します。Codex のコストはローカルのレートカードからの推定で、常に <mono>~</mono> が付きます。"
     },
     "cost": {

@@ -47,7 +47,8 @@
     "completed": "已完成",
     "failed": "失败",
     "canceled": "已取消",
-    "draft": "草稿"
+    "draft": "草稿",
+    "onReview": "评审中"
   },
   "modal": {
     "resize": {

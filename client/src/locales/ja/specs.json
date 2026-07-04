@@ -9,11 +9,14 @@
     "dropToMarkDone": "ドロップして完了にする",
     "emptyNoDoneLabelMatch": "アクティブなラベルに一致する完了スペックはありません",
     "emptyNoCompleted": "完了したスペックはまだありません",
+    "emptyNoStatusMatch": "選択したステータスに一致するスペックはありません",
     "untitledSpec": "無題のスペック"
   },
   "status": {
     "todo": "Todo",
     "inProgress": "進行中",
+    "onReview": "レビュー中",
+    "onReviewHint": "実装済み — ドラフト PR があなたのレビュー判断を待っています",
     "done": "完了",
     "cancelled": "キャンセル"
   },
@@ -56,6 +59,7 @@
       "draft": "下書き",
       "todo": "Todo",
       "inProgress": "進行中",
+      "onReview": "レビュー中",
       "done": "完了",
       "cancelled": "キャンセル"
     },
@@ -83,8 +87,13 @@
   "statusFilter": {
     "ariaLabel": "ステータスで絞り込み",
     "all": "すべて",
-    "todo": "ToDo",
-    "done": "完了"
+    "active": "アクティブ"
+  },
+  "jiraStatusFilter": {
+    "ariaLabel": "Jira ステータスで絞り込み",
+    "triggerLabel": "Jira ステータス",
+    "all": "すべての Jira ステータス",
+    "other": "その他"
   },
   "sortControl": {
     "modeAriaLabel": "並べ替えモード",

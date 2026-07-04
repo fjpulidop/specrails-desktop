@@ -12,7 +12,7 @@ import { spawnAiCli } from './util/cli-prompt'
 import { extractDisplayText } from './util/stream-display'
 import { resetPhases, setActivePhases } from './hooks'
 import { recordInvocation, type InvocationStatus } from './ai-invocations'
-import { isCodeExplorerEnabled } from './feature-flags'
+import { isCodeExplorerEnabled, isInteractiveJobsEnabled } from './feature-flags'
 import {
   snapshotWorkingTree,
   diffAgainstSnapshot,
@@ -205,11 +205,16 @@ export interface EnqueueOptions {
    *  value, taking precedence over the project orchestrator model. In-memory
    *  only — a queued job that survives a restart falls back to the default. */
   model?: string
-  /** When true, an ultracode (claude) job becomes an interactive persistent
-   *  session: it spawns one resident `claude -p --input-format stream-json`
-   *  child, accepts more prompts across turns, stays 'running' until an explicit
-   *  finalize, and sums every turn's real usage into the job row. Ignored for
-   *  non-ultracode commands and providers without persistent-stdin support. */
+  /** Per-job OVERRIDE of the interactive-by-default spawn (tri-state):
+   *  `undefined` = default ON — every job whose resolved adapter supports
+   *  persistent stdin (claude) spawns as an interactive session (ultracode
+   *  idles until an explicit Finalize; every other command auto-settles when
+   *  quiescent). `true` = force interactive where capable (same as default).
+   *  `false` = force the legacy one-shot static spawn. Ignored (legacy spawn)
+   *  for providers without persistent-stdin support and when the
+   *  SPECRAILS_INTERACTIVE_JOBS kill-switch is off. In-memory only — a queued
+   *  job that survives a restart loses the override and falls back to the
+   *  default (which is interactive, so restart is durable). */
   interactive?: boolean
 }
 
@@ -243,7 +248,14 @@ export class QueueManager {
    *  For codex it controls the catalog model used at spawn time and as the
    *  fallback model name stamped onto the ai_invocations row. */
   private _resolvedModel: string | null
-  private _onJobFinished: ((jobId: string, status: Job['status'], costUsd?: number) => void) | null
+  private _onJobFinished:
+    | ((
+        jobId: string,
+        status: Job['status'],
+        costUsd?: number,
+        opts?: { ticketCompletionStatus?: 'done' | 'on_review' },
+      ) => void)
+    | null
   private _onBudgetExceeded: ((event: string, data: Record<string, unknown>) => void) | null
   /** Project ID used for OTEL resource attributes (Super mode only) */
   private _projectId: string | null
@@ -280,6 +292,16 @@ export class QueueManager {
   /** Pending per-job interactive flag keyed by jobId — read at spawn time.
    *  In-memory only (mirrors _jobModelSelection). */
   private _jobInteractiveSelection: Map<string, boolean>
+  /** Per-job PR-delivery mode (safe-pr-workflow), captured ONCE at spawn time by
+   *  the SAME `isRailPrDeliveryEnabled()` read that injects
+   *  SPECRAILS_GIT_AUTO=false — so a mid-flight env flip can never split one job
+   *  between the ask-first on_review parking and the legacy done promotion.
+   *  Restart-durable by construction (like the interactive gate): a queued job
+   *  that survives a restart recomputes the flag at its own spawn. Consumed at
+   *  settle (_onJobExit / _settleInteractiveJob) to thread
+   *  `ticketCompletionStatus` into onJobFinished; cleared on every terminal
+   *  path. In-memory only. */
+  private _jobPrDelivery: Map<string, boolean>
   /** Live interactive job sessions keyed by jobId (the resident persistent-stdin
    *  child + per-turn accounting). Present only while an interactive job runs. */
   private _interactiveSessions: Map<string, InteractiveJobSession>
@@ -310,7 +332,17 @@ export class QueueManager {
       provider?: ProviderId
       /** Effective model for codex spawns. If omitted, falls back to 'gpt-5.5'. */
       resolvedModel?: string
-      onJobFinished?: (jobId: string, status: Job['status'], costUsd?: number) => void
+      /** Terminal-status callback. On `completed` exits the 4th arg carries the
+       *  spawn-captured PR-delivery mode as `ticketCompletionStatus`
+       *  (`'on_review'` when SPECRAILS_RAIL_DELIVER_PR was on at spawn — the
+       *  universal ask-first methodology — else `'done'`). Failure statuses
+       *  keep the legacy 3-arg call shape. */
+      onJobFinished?: (
+        jobId: string,
+        status: Job['status'],
+        costUsd?: number,
+        opts?: { ticketCompletionStatus?: 'done' | 'on_review' },
+      ) => void
       /** Fired when a daily/desktop budget is crossed so app-level consumers
        *  (webhooks) can deliver the budget event (the WS broadcast alone never
        *  reached webhook subscribers). */
@@ -354,6 +386,7 @@ export class QueueManager {
     this._snapshotRefs = new Map()
     this._jobExecution = new Map()
     this._jobInteractiveSelection = new Map()
+    this._jobPrDelivery = new Map()
     this._interactiveSessions = new Map()
     this._jobLiveAccounting = new Map()
     this._forceFailedRowJobs = new Set()
@@ -440,6 +473,7 @@ export class QueueManager {
     this._snapshotRefs.clear()
     this._jobExecution.clear()
     this._jobResolvedProvider.clear()
+    this._jobPrDelivery.clear()
     this._jobLiveAccounting.clear()
     this._openspecShims.clear()
     // Drop the DB reference last so any in-flight 'close' callback sees null
@@ -607,10 +641,12 @@ export class QueueManager {
       this._jobModelSelection.set(id, resolvedOpts.model)
     }
 
-    // Record per-job interactive flag (ultracode + claude only — enforced at
-    // spawn time against the resolved adapter's persistent-stdin capability).
-    if (resolvedOpts?.interactive) {
-      this._jobInteractiveSelection.set(id, true)
+    // Record per-job interactive OVERRIDE only when explicitly provided
+    // (tri-state — see EnqueueOptions.interactive). Absent ⇒ the spawn-time
+    // default decides, so a queued job that survives a restart (map lost)
+    // still spawns interactive.
+    if (typeof resolvedOpts?.interactive === 'boolean') {
+      this._jobInteractiveSelection.set(id, resolvedOpts.interactive)
     }
 
     // Insert at the correct position based on priority (higher priority first, FIFO within same level)
@@ -776,9 +812,17 @@ export class QueueManager {
     return [...this._logBuffer]
   }
 
-  /** True while an interactive ultracode session is resident for this job. */
+  /** True while an interactive session is resident for this job. */
   isInteractiveJob(jobId: string): boolean {
     return this._interactiveSessions.has(jobId)
+  }
+
+  /** Settle mode of the LIVE interactive session for this job ('finalize' for
+   *  ultracode, 'auto' for everything else), or null when no session is
+   *  resident (unknown / not interactive / already settled). Feeds the
+   *  `interactiveSettleMode` field on GET /jobs/:id. */
+  getInteractiveSettleMode(jobId: string): 'finalize' | 'auto' | null {
+    return this._interactiveSessions.get(jobId)?.getSettleMode() ?? null
   }
 
   /** Feed one more user prompt to a running interactive job (queued behind the
@@ -1169,6 +1213,7 @@ export class QueueManager {
     this._jobProviderSelection.delete(jobId)
     this._jobResolvedProvider.delete(jobId)
     this._jobInteractiveSelection.delete(jobId)
+    this._jobPrDelivery.delete(jobId)
     this._jobLiveAccounting.delete(jobId)
     // A wedged job may have had its openspec shim materialised already (the
     // wedge can land after _startJob's shim setup). Mirror the settle path.
@@ -1287,12 +1332,15 @@ export class QueueManager {
   }
 
   /**
-   * Spawn an interactive ultracode session. The job row is created with the
-   * `interactive` flag set; the resident child runs the first turn (the
-   * ultracode prompt) and stays alive for follow-up turns until finalize/crash.
-   * No zombie timer is armed (the child idles between turns by design) and
-   * `_activeProcess` is left null — the session owns the child; the active SLOT
-   * (`_activeJobId`, reserved by _drainQueue) is held until settle.
+   * Spawn an interactive session. The job row is created with the `interactive`
+   * flag set; the resident child runs the first turn (the ultracode prompt, or
+   * the slash command itself — spike-verified to expand over stream-json stdin)
+   * and stays alive for follow-up turns until settle. `_activeProcess` is left
+   * null — the session owns the child; the active SLOT (`_activeJobId`,
+   * reserved by _drainQueue) is held until settle. QueueManager's own zombie
+   * timer is never armed for interactive jobs; 'auto' sessions instead run
+   * their OWN wedge detector on the same inactivity budget, while 'finalize'
+   * sessions idle awaiting the human by design (no timer).
    */
   private _startInteractiveJob(
     jobId: string,
@@ -1300,6 +1348,7 @@ export class QueueManager {
     adapter: ProviderAdapter,
     spec: InteractiveSpawnSpec,
     firstPrompt: string,
+    settleMode: 'finalize' | 'auto',
   ): void {
     if (this._db) {
       try {
@@ -1324,6 +1373,10 @@ export class QueueManager {
       adapter,
       broadcast: this._broadcast,
       onSettle: (info) => this._settleInteractiveJob(jobId, info),
+      settleMode,
+      // Auto sessions arm a wedge detector on the SAME inactivity budget the
+      // one-shot path uses; finalize sessions idle awaiting the human.
+      zombieTimeoutMs: settleMode === 'auto' ? this._zombieTimeoutMs : undefined,
     })
     this._interactiveSessions.set(jobId, session)
     session.start(spec, firstPrompt)
@@ -1332,10 +1385,13 @@ export class QueueManager {
 
   /**
    * Terminal bookkeeping for an interactive job (called once by the session's
-   * onSettle). Releases the active slot, stamps the job's terminal status +
-   * finished_at (token/cost totals were already accumulated per turn), writes a
-   * single ai_invocations row with the summed usage, fires the rail/ticket
-   * completion callback, and drains the queue.
+   * onSettle — human finalize, auto-quiescence, wedge, or crash). Releases the
+   * active slot, stamps the job's terminal status + finished_at (token/cost
+   * totals were already accumulated per turn), writes a single ai_invocations
+   * row with the summed usage, records Code-Explorer provenance against the
+   * pre-spawn snapshot, enforces cost alerts + daily budgets, fires the
+   * rail/ticket completion callback + dependent/pipeline bookkeeping, and
+   * drains the queue.
    */
   private _settleInteractiveJob(jobId: string, info: SettleInfo): void {
     this._interactiveSessions.delete(jobId)
@@ -1343,10 +1399,20 @@ export class QueueManager {
       this._activeProcess = null
       this._activeJobId = null
     }
-    // Interactive jobs skip provenance, but a defensive delete keeps the map
-    // clean if a snapshot was ever recorded for this id.
+    // Consume the pre-spawn provenance snapshot + the resolved execution
+    // context BEFORE any early return (mirrors _onJobExit) so a disposed/
+    // unknown-job settle can never leak the map entries.
+    const snapshot = this._snapshotRefs.get(jobId)
     this._snapshotRefs.delete(jobId)
+    const jobExecution = this._jobExecution.get(jobId)
+    this._jobExecution.delete(jobId)
+    const provenanceRepoDir = jobExecution?.repoDir ?? this._cwd
     this._jobResolvedProvider.delete(jobId)
+    // Consume the spawn-captured PR-delivery mode (before any early return so a
+    // disposed/unknown-job settle can never leak the entry). Decides whether a
+    // COMPLETED job's tickets park at on_review (ask-first) or done (legacy).
+    const prDelivery = this._jobPrDelivery.get(jobId) ?? false
+    this._jobPrDelivery.delete(jobId)
 
     // Clean up the per-job openspec PATH shim (relocated claude rails only).
     this._cleanupOpenspecShim(jobId)
@@ -1357,15 +1423,27 @@ export class QueueManager {
 
     const wasCanceling = this._cancelingJobs.has(jobId)
     this._cancelingJobs.delete(jobId)
+    // Zero-work strictness: a session whose WHOLE life consumed no model work
+    // (the claude CLI's synthetic `Unknown command:` result frame — num_turns
+    // 0, no assistant events, zero usage tokens) settles FAILED even on a
+    // clean finalize (either settle mode): the job's command never actually
+    // ran. A multi-turn session where only the LAST turn was synthetic
+    // accumulated real work and still completes (the predicate is
+    // whole-session — see isZeroWorkSettle in interactive-job-session.ts).
     const finalStatus: Job['status'] = wasCanceling
       ? 'canceled'
-      : info.reason === 'finalized'
+      : info.reason === 'finalized' && !info.zeroWork
         ? 'completed'
         : 'failed'
 
     job.status = finalStatus
     job.finishedAt = new Date().toISOString()
-    job.exitCode = info.reason === 'finalized' ? 0 : 1
+    job.exitCode = info.reason === 'finalized' && finalStatus !== 'failed' ? 0 : 1
+    // Result text for output chaining between dependent pipeline steps — the
+    // same field the one-shot path captures from its last `result` event.
+    if (info.resultText != null) {
+      job.resultText = info.resultText
+    }
 
     const totals = info.totals
     if (this._db) {
@@ -1411,6 +1489,20 @@ export class QueueManager {
           console.error('[queue-manager] recordInvocation (interactive) failed:', err)
         }
       }
+
+      // Code-Explorer post-settle provenance hook — the interactive lifecycle
+      // equivalent of _onJobExit's post-exit diff (pre-spawn snapshot taken in
+      // _startJob's interactive branch, against the REPO dir, never the
+      // workspace).
+      this._recordProvenance(jobId, job.command, provenanceRepoDir, snapshot)
+
+      // Cost alerts + daily-budget enforcement. Interactive is the DEFAULT
+      // spawn path for claude jobs now, so its settle must trip the same
+      // thresholds and caps the one-shot exit path does.
+      if (totals.total_cost_usd > 0 && finalStatus === 'completed') {
+        this._emitCostAlerts(jobId, totals.total_cost_usd)
+      }
+      this._enforceDailyBudget()
     }
 
     this._persistJob(job)
@@ -1426,10 +1518,29 @@ export class QueueManager {
 
     if (this._onJobFinished) {
       try {
-        this._onJobFinished(jobId, finalStatus, totals.total_cost_usd)
+        if (finalStatus === 'completed') {
+          // Thread the spawn-captured PR-delivery mode: under the ask-first
+          // methodology a completed job's tickets park at on_review, never done.
+          // Failure statuses keep the legacy 3-arg call shape (the field is
+          // completion-only).
+          this._onJobFinished(jobId, finalStatus, totals.total_cost_usd, {
+            ticketCompletionStatus: prDelivery ? 'on_review' : 'done',
+          })
+        } else {
+          this._onJobFinished(jobId, finalStatus, totals.total_cost_usd)
+        }
       } catch (err) {
         console.error(`[QueueManager] onJobFinished failed for ${jobId}: ${(err as Error).message}`)
       }
+    }
+
+    // Dependent-job + pipeline bookkeeping (mirrors _onJobExit) — chained /
+    // template jobs flow through the interactive settle path by default now.
+    if (finalStatus !== 'completed') {
+      this._skipDependents(jobId, `Parent job ${jobId} ${finalStatus}`)
+    }
+    if (job.pipelineId) {
+      this._checkPipelineStatus(job.pipelineId)
     }
 
     this._drainQueue()
@@ -1492,6 +1603,30 @@ export class QueueManager {
 
     const commandToRun = job.command.trim()
 
+    // ─── Interactive-by-default gate (spawn-time, restart-durable) ──────────
+    // Spike-verified (2026-07-03, claude 2.1.198): the claude CLI expands slash
+    // commands arriving as stream-json stdin user frames exactly like the argv
+    // `-p "/cmd"` path, so EVERY claude job (implement/batch/custom commands,
+    // not just ultracode prose) is prompt-compatible with the persistent-stdin
+    // transport. The default is therefore interactive whenever the kill-switch
+    // is on and the resolved adapter supports persistent stdin (claude only
+    // today); codex/gemini always take the legacy one-shot spawn below.
+    // EnqueueOptions.interactive is a per-job OVERRIDE: false forces legacy,
+    // true forces interactive where capable, undefined = default ON. Derived
+    // HERE (spawn time), not at enqueue, so a queued job that survives a server
+    // restart (selection map lost) still spawns interactive.
+    const isUltracode = adapter.id === 'claude' && ULTRACODE_COMMAND_RE.test(commandToRun)
+    const interactiveOverride = this._jobInteractiveSelection.get(jobId)
+    this._jobInteractiveSelection.delete(jobId)
+    const spawnInteractive =
+      isInteractiveJobsEnabled() &&
+      adapter.capabilities.persistentStdin &&
+      (interactiveOverride ?? true)
+    // Ultracode sessions idle awaiting the human (settle only on explicit
+    // Finalize — the pre-flip behaviour); every other command auto-settles the
+    // moment a turn result lands with nothing queued behind it.
+    const interactiveSettleMode: 'finalize' | 'auto' = isUltracode ? 'finalize' : 'auto'
+
     // Build supplementary context (output chaining + headless mode) that goes
     // into --append-system-prompt, keeping the user prompt clean.
     let systemAppend = ''
@@ -1536,18 +1671,28 @@ export class QueueManager {
       }
     }
 
-    // Headless mode: when --yes is in the command, instruct Claude to auto-proceed
-    // (stdin is ignored in spawned processes, so no user confirmation is possible)
+    // Headless mode: when --yes is in the command, instruct Claude to auto-proceed.
+    // For a LEGACY one-shot spawn stdin is genuinely disconnected; for an
+    // INTERACTIVE session stdin IS connected (a human may inject guidance), so
+    // the wording softens — autonomous by default, steering welcome — without
+    // re-opening approval prompts.
     if (job.command.includes('--yes')) {
-      systemAppend += '\n\nCRITICAL — FULLY AUTONOMOUS MODE (--yes flag):\n' +
-        'This pipeline is running headless with NO human operator. stdin is disconnected — nobody can reply.\n' +
-        '- NEVER ask for approval, confirmation, review, or feedback. There is nobody to answer.\n' +
-        '- NEVER output prompts like "Reply with approved", "Do you want to proceed?", "Please confirm", or "Ready for review".\n' +
-        '- NEVER stop between pipeline phases to wait for input. Run ALL phases end-to-end without pausing.\n' +
-        '- When there are multiple options or decisions, always choose the RECOMMENDED option and proceed.\n' +
-        '- Auto-approve all proposals, designs, and artifacts. Treat everything as "approved" by default.\n' +
-        '- Skip any instructions that say "wait for user", "present for review", or "ask the user".\n' +
-        '- The pipeline must complete fully from start to finish in a single uninterrupted run.'
+      systemAppend += spawnInteractive
+        ? '\n\nCRITICAL — AUTONOMOUS MODE WITH LIVE GUIDANCE (--yes flag):\n' +
+          'This pipeline runs autonomously end-to-end, but a human operator MAY inject guidance messages while it runs (stdin IS connected).\n' +
+          '- NEVER stop to ask for approval, confirmation, review, or feedback. When options exist, choose the RECOMMENDED one and proceed.\n' +
+          '- Auto-approve all proposals, designs, and artifacts; skip instructions that say "wait for user" or "present for review".\n' +
+          '- If a human message arrives mid-run, treat it as steering: incorporate the guidance and continue the plan without pausing.\n' +
+          '- Answer direct questions from the human concisely, then resume the remaining work until the plan is complete.'
+        : '\n\nCRITICAL — FULLY AUTONOMOUS MODE (--yes flag):\n' +
+          'This pipeline is running headless with NO human operator. stdin is disconnected — nobody can reply.\n' +
+          '- NEVER ask for approval, confirmation, review, or feedback. There is nobody to answer.\n' +
+          '- NEVER output prompts like "Reply with approved", "Do you want to proceed?", "Please confirm", or "Ready for review".\n' +
+          '- NEVER stop between pipeline phases to wait for input. Run ALL phases end-to-end without pausing.\n' +
+          '- When there are multiple options or decisions, always choose the RECOMMENDED option and proceed.\n' +
+          '- Auto-approve all proposals, designs, and artifacts. Treat everything as "approved" by default.\n' +
+          '- Skip any instructions that say "wait for user", "present for review", or "ask the user".\n' +
+          '- The pipeline must complete fully from start to finish in a single uninterrupted run.'
     }
 
     // Local ticket store: implement/batch-implement jobs must read specs from
@@ -1588,7 +1733,7 @@ export class QueueManager {
     // pre-prompt + spec text directly as the prompt. The server route guards
     // that ultracode never reaches a non-claude adapter; defensively, a codex
     // adapter still falls through to its skill-translation path below.
-    const isUltracode = adapter.id === 'claude' && ULTRACODE_COMMAND_RE.test(commandToRun)
+    // (`isUltracode` itself is resolved above, before the systemAppend build.)
     const railPrompt = isUltracode
       ? this._buildUltracodePrompt(commandToRun)
       : adapter.id === 'codex'
@@ -1805,26 +1950,48 @@ export class QueueManager {
     // control — tell specrails-core's implement to be git-agnostic (skip its Ship
     // phase) via SPECRAILS_GIT_AUTO=false so it never opens an uncoordinated PR
     // alongside the app's own draft-PR delivery. Default ON (flag=0/false/off disables).
-    if (isRailPrDeliveryEnabled()) {
+    // The flag is read ONCE per job, HERE (spawn time — mirroring
+    // launchIsolatedRail's prMode capture), and recorded so the settle paths park
+    // this job's tickets under the SAME value that shaped the spawn env: a
+    // completed job promotes its tickets to on_review (ask-first) instead of
+    // done. A mid-flight env flip can never split one job across the two
+    // methodologies.
+    const prDelivery = isRailPrDeliveryEnabled()
+    this._jobPrDelivery.set(jobId, prDelivery)
+    if (prDelivery) {
       spawnEnv = { ...spawnEnv, SPECRAILS_GIT_AUTO: 'false' }
     }
 
-    // ─── Interactive ultracode branch ──────────────────────────────────────
-    // When the launch requested interactive mode AND the command is ultracode
-    // AND the adapter supports persistent stdin (claude), hand off to a resident
-    // session instead of the one-shot spawn below. The session keeps the child
-    // alive across turns and settles only on finalize/crash. Code-Explorer
-    // provenance is intentionally skipped for interactive jobs (v1 — deferred).
-    const wantsInteractive = this._jobInteractiveSelection.get(jobId) === true
-    this._jobInteractiveSelection.delete(jobId)
-    if (wantsInteractive && isUltracode && adapter.capabilities.persistentStdin) {
+    // ─── Interactive branch (default for persistent-stdin providers) ───────
+    // Hand off to a resident persistent-stdin session instead of the one-shot
+    // spawn below. Ultracode keeps 'finalize' settle-mode (idles until the
+    // human Finalizes); every other command runs 'auto' (the session settles
+    // itself the moment a turn result lands with nothing queued). Code-Explorer
+    // provenance is captured around the SESSION lifecycle exactly like the
+    // one-shot path: pre-spawn snapshot here, diff at settle.
+    if (spawnInteractive) {
+      if (isCodeExplorerEnabled()) {
+        try {
+          const snap = snapshotWorkingTree(execution.repoDir)
+          this._snapshotRefs.set(jobId, snap)
+        } catch (err) {
+          console.warn(`[queue-manager] provenance snapshot failed: ${(err as Error).message}`)
+        }
+      }
       const interactiveArgs = adapter.buildArgs('chat-stream', {
         // chat-stream feeds the prompt over stdin per-turn, so the argv `prompt`
         // is unused — pass empty to satisfy the shared SpawnOptions shape.
         prompt: '',
-        systemPrompt: systemAppend || undefined,
+        // Ultracode's prose prompt brings no system prompt of its own, so the
+        // supplementary context rides `--system-prompt` (byte-identical to the
+        // pre-flip interactive-ultracode spawn). A slash-command job's EXPANDED
+        // command brings its own system prompt — mirror the legacy rail-job
+        // spawn and APPEND on top of the CLI default instead of replacing it.
+        systemPrompt: isUltracode ? (systemAppend || undefined) : undefined,
         model: railModel,
-        extraArgs: railExtraArgs,
+        extraArgs: !isUltracode && systemAppend
+          ? ['--append-system-prompt', systemAppend, ...(railExtraArgs ?? [])]
+          : railExtraArgs,
       })
       this._startInteractiveJob(
         jobId,
@@ -1832,6 +1999,7 @@ export class QueueManager {
         adapter,
         { binary, args: interactiveArgs, cwd: spawnCwd, env: spawnEnv },
         railPrompt,
+        interactiveSettleMode,
       )
       return
     }
@@ -2088,6 +2256,11 @@ export class QueueManager {
     // Reclaim the live-accounting handle unconditionally (shutdown flush no longer
     // needs it once the child has exited).
     this._jobLiveAccounting.delete(jobId)
+    // Consume the spawn-captured PR-delivery mode (before any early return so a
+    // disposed/unknown-job exit can never leak the entry). Decides whether a
+    // COMPLETED job's tickets park at on_review (ask-first) or done (legacy).
+    const prDelivery = this._jobPrDelivery.get(jobId) ?? false
+    this._jobPrDelivery.delete(jobId)
     const provenanceRepoDir = jobExecution?.repoDir ?? this._cwd
 
     // Clean up the per-job openspec PATH shim (relocated claude rails only),
@@ -2216,31 +2389,7 @@ export class QueueManager {
       // the pre-spawn snapshot and inserts one row per touched path. Gated by
       // SPECRAILS_CODE_EXPLORER (re-checked at each completion so the flag can
       // be flipped off mid-session without leaving partial writes).
-      if (isCodeExplorerEnabled() && provenanceRepoDir && this._projectId) {
-        const ref = snapshot?.ref ?? ''
-        try {
-          const diff = diffAgainstSnapshot(provenanceRepoDir, ref, snapshot?.untracked, snapshot?.headSha)
-          const patches = collectDiffPatches(provenanceRepoDir, ref, diff, snapshot?.headSha)
-          if (diff.length > 50) {
-            console.warn(`[provenance.large_job] job=${jobId} files=${diff.length}`)
-          }
-          const ticketIds = this._extractTicketIds(job.command)
-          const rows = recordProvenanceForJob(
-            this._db,
-            this._projectId,
-            jobId,
-            ticketIds[0] ?? null,
-            diff,
-            Date.now(),
-            patches,
-          )
-          for (const row of rows) {
-            broadcastProvenanceUpdated(this._broadcast, this._projectId, row)
-          }
-        } catch (err) {
-          console.warn(`[queue-manager] provenance recording failed: ${(err as Error).message}`)
-        }
-      }
+      this._recordProvenance(jobId, job.command, provenanceRepoDir, snapshot)
 
       // Cost comes from the normalised result so providers without a native
       // total_cost_usd field (codex today) still trigger cost alerts based on
@@ -2252,29 +2401,8 @@ export class QueueManager {
       emitLine('stdout', `[process exited with code ${code ?? 'unknown'}${costStr}]`)
 
       // Cost alert: check per-job threshold (app-level, then per-project).
-      // These prepared statements touch the DB, which may have been closed
-      // mid-job; guard so a throw never escapes the child 'close' listener.
       if (jobCost != null && finalStatus === 'completed') {
-        try {
-          const desktopThreshold = this._getCostAlertThreshold?.() ?? null
-          if (desktopThreshold != null && jobCost >= desktopThreshold) {
-            this._broadcast({ type: 'cost_alert', projectId: '', jobId, cost: jobCost, threshold: desktopThreshold })
-          }
-
-          // Per-project job cost threshold (alerts independently of app threshold)
-          const projectThresholdRow = this._db.prepare(
-            `SELECT value FROM queue_state WHERE key = 'config.job_cost_threshold_usd'`
-          ).get() as { value: string } | undefined
-          if (projectThresholdRow) {
-            const projectThreshold = parseFloat(projectThresholdRow.value)
-            if (projectThreshold > 0 && jobCost >= projectThreshold) {
-              this._broadcast({ type: 'cost_alert', projectId: '', jobId, cost: jobCost, threshold: projectThreshold })
-            }
-          }
-
-        } catch (err) {
-          console.error('[queue-manager] cost-alert bookkeeping failed (db unavailable?):', err)
-        }
+        this._emitCostAlerts(jobId, jobCost)
       }
 
       // ─── Daily-budget enforcement (MED-5) ───────────────────────────────────
@@ -2306,7 +2434,17 @@ export class QueueManager {
       } catch (err) {
         console.error('[queue-manager] cost read for webhook failed (db unavailable?):', err)
       }
-      this._onJobFinished(jobId, finalStatus, costUsd ?? undefined)
+      if (finalStatus === 'completed') {
+        // Thread the spawn-captured PR-delivery mode: under the ask-first
+        // methodology a completed job's tickets park at on_review, never done.
+        // Failure statuses keep the legacy 3-arg call shape (the field is
+        // completion-only).
+        this._onJobFinished(jobId, finalStatus, costUsd ?? undefined, {
+          ticketCompletionStatus: prDelivery ? 'on_review' : 'done',
+        })
+      } else {
+        this._onJobFinished(jobId, finalStatus, costUsd ?? undefined)
+      }
     }
 
     // Handle dependent jobs: skip them if parent did not complete successfully
@@ -2321,6 +2459,75 @@ export class QueueManager {
 
     this._broadcastQueueState()
     this._drainQueue()
+  }
+
+  /**
+   * Code-Explorer provenance recording, shared by the one-shot exit path
+   * (_onJobExit) and the interactive settle path (_settleInteractiveJob).
+   * Diffs the REPO working tree against the pre-spawn snapshot and inserts one
+   * `file_provenance` row per touched path, broadcasting each. Gated by
+   * SPECRAILS_CODE_EXPLORER (re-checked at each completion so the flag can be
+   * flipped off mid-session without leaving partial writes). Best-effort.
+   */
+  private _recordProvenance(
+    jobId: string,
+    command: string,
+    provenanceRepoDir: string | undefined,
+    snapshot: WorkingTreeSnapshot | undefined,
+  ): void {
+    if (!isCodeExplorerEnabled() || !provenanceRepoDir || !this._projectId || !this._db) return
+    const ref = snapshot?.ref ?? ''
+    try {
+      const diff = diffAgainstSnapshot(provenanceRepoDir, ref, snapshot?.untracked, snapshot?.headSha)
+      const patches = collectDiffPatches(provenanceRepoDir, ref, diff, snapshot?.headSha)
+      if (diff.length > 50) {
+        console.warn(`[provenance.large_job] job=${jobId} files=${diff.length}`)
+      }
+      const ticketIds = this._extractTicketIds(command)
+      const rows = recordProvenanceForJob(
+        this._db,
+        this._projectId,
+        jobId,
+        ticketIds[0] ?? null,
+        diff,
+        Date.now(),
+        patches,
+      )
+      for (const row of rows) {
+        broadcastProvenanceUpdated(this._broadcast, this._projectId, row)
+      }
+    } catch (err) {
+      console.warn(`[queue-manager] provenance recording failed: ${(err as Error).message}`)
+    }
+  }
+
+  /**
+   * Per-job cost alerts (app-level threshold, then per-project threshold),
+   * shared by the one-shot exit path and the interactive settle path. The
+   * prepared statement touches the DB, which may have been closed mid-job;
+   * guarded so a throw never escapes a child 'close'/settle listener.
+   */
+  private _emitCostAlerts(jobId: string, jobCost: number): void {
+    if (!this._db) return
+    try {
+      const desktopThreshold = this._getCostAlertThreshold?.() ?? null
+      if (desktopThreshold != null && jobCost >= desktopThreshold) {
+        this._broadcast({ type: 'cost_alert', projectId: '', jobId, cost: jobCost, threshold: desktopThreshold })
+      }
+
+      // Per-project job cost threshold (alerts independently of app threshold)
+      const projectThresholdRow = this._db.prepare(
+        `SELECT value FROM queue_state WHERE key = 'config.job_cost_threshold_usd'`
+      ).get() as { value: string } | undefined
+      if (projectThresholdRow) {
+        const projectThreshold = parseFloat(projectThresholdRow.value)
+        if (projectThreshold > 0 && jobCost >= projectThreshold) {
+          this._broadcast({ type: 'cost_alert', projectId: '', jobId, cost: jobCost, threshold: projectThreshold })
+        }
+      }
+    } catch (err) {
+      console.error('[queue-manager] cost-alert bookkeeping failed (db unavailable?):', err)
+    }
   }
 
   private _resetZombieTimer(): void {
@@ -2482,6 +2689,7 @@ export class QueueManager {
     this._jobProviderSelection.delete(jobId)
     this._jobResolvedProvider.delete(jobId)
     this._jobInteractiveSelection.delete(jobId)
+    this._jobPrDelivery.delete(jobId)
     this._jobLiveAccounting.delete(jobId)
     this._cleanupOpenspecShim(jobId)
 

@@ -258,8 +258,8 @@
     "providers": {
       "nav": "Votre agent",
       "title": "Apportez votre propre agent",
-      "subtitle": "Claude Code et Codex, des moteurs de premier rang",
-      "intro": "L'application traite <b>Claude Code</b> et <b>Codex CLI</b> comme des moteurs interchangeables derrière un même contrat. Un projet peut en installer un ou les deux — le choix se fait à l'installation.",
+      "subtitle": "Claude Code, Codex et Gemini comme moteurs de premier ordre",
+      "intro": "L'app traite <b>Claude Code</b>, <b>Codex CLI</b> et <b>Gemini CLI</b> comme des moteurs interchangeables derrière un même contrat. Un projet peut en installer un ou plusieurs — le choix se fait à l'installation.",
       "table": {
         "capability": "Capacité",
         "streamingResume": "Streaming & reprise de session",
@@ -271,7 +271,7 @@
         "synthesized": "Synthétisée",
         "agentProfiles": "Profils d'agents"
       },
-      "calloutLabel": "Quand les deux sont installés",
+      "calloutLabel": "Quand plusieurs sont installés",
       "calloutBody": "Choisissez le moteur <b>par spec, par rail ou par lancement de terminal</b>. L'application mémorise votre dernier choix par projet. Le coût de Codex est estimé à partir d'une grille tarifaire locale et toujours signalé par un <mono>~</mono>."
     },
     "cost": {

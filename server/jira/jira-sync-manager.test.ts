@@ -14,6 +14,7 @@ import {
   listLinks,
   enqueueMany,
   setHighWater,
+  setDiscardStatus,
   tombstoneLink,
   getLinkByLocalId,
   claimDrainable,
@@ -25,6 +26,7 @@ import {
   backoffMs,
   formatJqlDate,
   buildCompletionComment,
+  buildPrMergedComment,
   type JiraSyncManagerOpts,
 } from './jira-sync-manager'
 
@@ -274,6 +276,20 @@ describe('buildCompletionComment', () => {
     )
     expect(text).toMatch(/\(job j\)/)
     expect(text).not.toContain('duration')
+  })
+})
+
+describe('buildPrMergedComment', () => {
+  it('appends the PR URL on its own line when present', () => {
+    const text = buildPrMergedComment('https://github.com/acme/repo/pull/7')
+    expect(text).toContain('merged')
+    expect(text.endsWith('\nhttps://github.com/acme/repo/pull/7')).toBe(true)
+  })
+  it('omits the URL line when prUrl is null', () => {
+    const text = buildPrMergedComment(null)
+    expect(text).toContain('merged')
+    expect(text).not.toContain('\n')
+    expect(text).not.toContain('http')
   })
 })
 
@@ -1058,6 +1074,182 @@ describe('onJobOutcome()', () => {
     const { fetchImpl } = makeFakeFetch()
     const mgr = makeManager(fetchImpl)
     mgr.onJobOutcome({ ticketIds: [14, 999], status: 'completed', jobId: 'j', costUsd: null, durationMs: null })
+    expect(listOutbox(db, {}).length).toBe(0)
+  })
+})
+
+// ─── onRailReview() ───────────────────────────────────────────────────────────
+
+describe('onRailReview()', () => {
+  it('no-op when not active (no connection)', () => {
+    const { fetchImpl } = makeFakeFetch()
+    const mgr = makeManager(fetchImpl)
+    mgr.onRailReview([1], 'pd-1')
+    expect(listOutbox(db, {}).length).toBe(0)
+    expect(broadcasts.length).toBe(0)
+  })
+
+  it('no-op when the connection is disabled', () => {
+    seedConnection({ enabled: false })
+    seedLinkedTicket(20, 'I-20', 'todo')
+    const { fetchImpl } = makeFakeFetch()
+    const mgr = makeManager(fetchImpl)
+    mgr.onRailReview([20], 'pd-20')
+    expect(listOutbox(db, {}).length).toBe(0)
+  })
+
+  it('enqueues an on_review transition per LINKED ticket, outbox-only (no local write)', () => {
+    seedConnection()
+    seedLinkedTicket(21, 'I-21', 'todo')
+    const fake = makeFakeFetch()
+    // Best-effort drain: no statusMap.on_review configured and the issue is
+    // already indeterminate → the walk noops and the op completes cleanly.
+    fake.on('GET', '/issue/I-21?', { status: 200, body: { id: 'I-21', key: 'ACME-21', fields: { status: { name: 'In Progress', statusCategory: { key: 'indeterminate' } } } } })
+    const mgr = makeManager(fake.fetchImpl)
+    mgr.onRailReview([21, 999], 'pd-21')
+
+    const ops = listOutbox(db, {})
+    expect(ops).toHaveLength(1)
+    expect(ops[0].opType).toBe('transition')
+    expect(ops[0].idempotencyKey).toBe('pd-21:21:transition:on_review')
+    expect(JSON.parse(ops[0].payload)).toMatchObject({ localId: 21, jiraIssueId: 'I-21', logicalState: 'on_review' })
+
+    // NO local-cache write: the ticket store already parked the ticket before
+    // this hook fires (unlike onRailLaunch) — status untouched, no ticket_updated.
+    const store = readStore(resolveTicketStoragePath(projectPath))
+    expect(store.tickets['21'].status).toBe('todo')
+    expect(typesOf()).toContain('jira.outbox_changed')
+    expect(typesOf()).not.toContain('ticket_updated')
+  })
+
+  it('skips tombstoned links (no enqueue, no broadcast)', () => {
+    seedConnection()
+    seedLinkedTicket(22, 'I-22', 'todo')
+    tombstoneLink(db, 'I-22')
+    const { fetchImpl } = makeFakeFetch()
+    const mgr = makeManager(fetchImpl)
+    mgr.onRailReview([22], 'pd-22')
+    expect(listOutbox(db, {}).length).toBe(0)
+    expect(broadcasts.length).toBe(0)
+  })
+})
+
+// ─── onRailMerged() ───────────────────────────────────────────────────────────
+
+describe('onRailMerged()', () => {
+  it('no-op when not active', () => {
+    const { fetchImpl } = makeFakeFetch()
+    const mgr = makeManager(fetchImpl)
+    mgr.onRailMerged([1], 'pd-1', 'https://github.com/acme/repo/pull/7')
+    expect(listOutbox(db, {}).length).toBe(0)
+  })
+
+  it('enqueues a "PR merged" comment (with URL + marker) and a done transition per linked ticket', () => {
+    seedConnection()
+    seedLinkedTicket(31, 'I-31', 'on_review')
+    const fake = makeFakeFetch()
+    fake.on('GET', '/issue/I-31/comment', { status: 200, body: { comments: [] } })
+    fake.on('POST', '/issue/I-31/comment', { status: 201, body: { id: 'c' } })
+    fake.on('GET', '/issue/I-31?', { status: 200, body: { id: 'I-31', key: 'ACME-31', fields: { status: { name: 'Done', statusCategory: { key: 'done' } } } } })
+    const mgr = makeManager(fake.fetchImpl)
+    mgr.onRailMerged([31], 'pd-31', 'https://github.com/acme/repo/pull/7')
+
+    const ops = listOutbox(db, {})
+    expect(ops.map((o) => o.opType).sort()).toEqual(['comment', 'transition'])
+    const comment = ops.find((o) => o.opType === 'comment')!
+    expect(comment.idempotencyKey).toBe('pd-31:31:comment:pr-merged')
+    const cPayload = JSON.parse(comment.payload)
+    expect(cPayload.jiraIssueId).toBe('I-31')
+    expect(cPayload.text).toContain('merged')
+    expect(cPayload.text).toContain('https://github.com/acme/repo/pull/7')
+    expect(cPayload.marker).toBe('[specrails:pr-merged=pd-31:ticket=31]')
+    const transition = ops.find((o) => o.opType === 'transition')!
+    expect(transition.idempotencyKey).toBe('pd-31:31:transition:done')
+    expect(JSON.parse(transition.payload)).toMatchObject({ localId: 31, jiraIssueId: 'I-31', logicalState: 'done' })
+
+    // Outbox-only: the local on_review→done write belongs to the caller.
+    expect(readStore(resolveTicketStoragePath(projectPath)).tickets['31'].status).toBe('on_review')
+    expect(typesOf()).not.toContain('ticket_updated')
+  })
+
+  it('omits the URL from the comment when prUrl is null', () => {
+    seedConnection()
+    seedLinkedTicket(32, 'I-32', 'on_review')
+    const { fetchImpl } = makeFakeFetch()
+    const mgr = makeManager(fetchImpl)
+    mgr.onRailMerged([32], 'pd-32', null)
+    const comment = listOutbox(db, {}).find((o) => o.opType === 'comment')!
+    const cPayload = JSON.parse(comment.payload)
+    expect(cPayload.text).toContain('merged')
+    expect(cPayload.text).not.toContain('http')
+  })
+
+  it('skips unlinked + tombstoned tickets, no enqueue', () => {
+    seedConnection()
+    seedLinkedTicket(33, 'I-33', 'on_review')
+    tombstoneLink(db, 'I-33')
+    const { fetchImpl } = makeFakeFetch()
+    const mgr = makeManager(fetchImpl)
+    mgr.onRailMerged([33, 999], 'pd-33', null)
+    expect(listOutbox(db, {}).length).toBe(0)
+  })
+})
+
+// ─── onRailDiscard() ──────────────────────────────────────────────────────────
+
+describe('onRailDiscard()', () => {
+  it('no-op when not active', () => {
+    const { fetchImpl } = makeFakeFetch()
+    const mgr = makeManager(fetchImpl)
+    mgr.onRailDiscard([1], 'pd-1')
+    expect(listOutbox(db, {}).length).toBe(0)
+  })
+
+  it('uses the configured discardStatus (cancelled transition with explicit targetStatus)', () => {
+    seedConnection()
+    setDiscardStatus(db, PROJECT_ID, 'Discarded')
+    seedLinkedTicket(41, 'I-41', 'on_review')
+    const { fetchImpl } = makeFakeFetch()
+    const mgr = makeManager(fetchImpl)
+    mgr.onRailDiscard([41], 'pd-41')
+
+    const ops = listOutbox(db, {})
+    expect(ops).toHaveLength(1)
+    expect(ops[0].opType).toBe('transition')
+    expect(ops[0].idempotencyKey).toBe('pd-41:41:transition:discard')
+    expect(JSON.parse(ops[0].payload)).toMatchObject({
+      localId: 41,
+      jiraIssueId: 'I-41',
+      logicalState: 'cancelled',
+      targetStatus: 'Discarded',
+    })
+    // Outbox-only: no local write, no ticket_updated.
+    expect(readStore(resolveTicketStoragePath(projectPath)).tickets['41'].status).toBe('on_review')
+    expect(typesOf()).not.toContain('ticket_updated')
+  })
+
+  it('falls back to a plain todo transition when no discardStatus is configured (never throws)', () => {
+    seedConnection() // discardStatus null
+    seedLinkedTicket(42, 'I-42', 'on_review')
+    const { fetchImpl } = makeFakeFetch()
+    const mgr = makeManager(fetchImpl)
+    expect(() => mgr.onRailDiscard([42], 'pd-42')).not.toThrow()
+
+    const ops = listOutbox(db, {})
+    expect(ops).toHaveLength(1)
+    expect(ops[0].idempotencyKey).toBe('pd-42:42:transition:discard')
+    const payload = JSON.parse(ops[0].payload)
+    expect(payload).toMatchObject({ localId: 42, jiraIssueId: 'I-42', logicalState: 'todo' })
+    expect(payload.targetStatus).toBeUndefined()
+  })
+
+  it('skips unlinked + tombstoned tickets, no enqueue', () => {
+    seedConnection()
+    seedLinkedTicket(43, 'I-43', 'on_review')
+    tombstoneLink(db, 'I-43')
+    const { fetchImpl } = makeFakeFetch()
+    const mgr = makeManager(fetchImpl)
+    mgr.onRailDiscard([43, 999], 'pd-43')
     expect(listOutbox(db, {}).length).toBe(0)
   })
 })

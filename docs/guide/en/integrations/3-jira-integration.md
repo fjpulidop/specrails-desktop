@@ -7,7 +7,7 @@ Want your specs to live on a real **Jira board** instead of inside Specrails? Th
 Specrails acts as a **sync layer** between Jira and your project. The big idea: your local spec store stays the canonical thing the pipeline reads, and Specrails is responsible for keeping it and Jira in agreement.
 
 - When you launch a rail, Specrails moves the linked Jira issue to **In Progress**.
-- When a job finishes, Specrails transitions the issue (to **Done**, or back to **To Do** if it failed) and posts a completion comment with the job id, cost, and duration.
+- When a job finishes, Specrails transitions the issue: on success it moves to your mapped **review** status and only reaches **Done** once you approve the work (merging the draft PR posts a "PR merged" comment); on failure it goes back to **To Do** with a completion comment (job id, cost, duration).
 - Periodically Specrails **polls** Jira for changes anyone made on the board and reflects them back into your specs.
 
 All write-backs go through a durable, crash-safe outbox, so a momentary Jira hiccup never breaks a job — the update just retries.

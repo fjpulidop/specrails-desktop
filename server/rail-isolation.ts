@@ -70,11 +70,22 @@ export interface IsolationDecisionInput {
  * single-ticket rails are also concurrent writers; see the module note.)
  */
 export function isolationApplies(input: IsolationDecisionInput): boolean {
-  return (
-    input.loopsEnabled &&
-    isRailWorktreesEnabled() &&
-    input.scope === 'per-ticket' &&
-    input.ticketCount > 0 &&
-    mutatesRepo({ readOnly: input.readOnly })
-  )
+  if (
+    !input.loopsEnabled ||
+    !isRailWorktreesEnabled() ||
+    input.ticketCount <= 0 ||
+    !mutatesRepo({ readOnly: input.readOnly })
+  ) {
+    return false
+  }
+  // per-ticket: isolate every concurrent per-ticket writer (collision safety). The
+  // delivery flag decides PR-vs-merge-back at settle, not whether we isolate.
+  if (input.scope === 'per-ticket') return true
+  // all: ONE run over all tickets — a single writer, so collision safety doesn't
+  // require isolation. We isolate it ONLY to deliver a PR (safe-pr-workflow): when
+  // PR delivery is on, an `all`-scoped rail (implement/batch) runs in one worktree
+  // and ships one combined draft PR instead of writing into the live tree. With the
+  // kill-switch off it stays on the shared cwd — byte-identical legacy behaviour.
+  if (input.scope === 'all') return isRailPrDeliveryEnabled()
+  return false
 }

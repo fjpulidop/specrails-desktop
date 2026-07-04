@@ -47,7 +47,8 @@
     "completed": "完了",
     "failed": "失敗",
     "canceled": "キャンセル済み",
-    "draft": "下書き"
+    "draft": "下書き",
+    "onReview": "レビュー中"
   },
   "modal": {
     "resize": {

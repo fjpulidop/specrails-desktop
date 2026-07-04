@@ -62,7 +62,19 @@
       "working": "代理处理中…",
       "placeholder": "向运行中的任务发送消息…",
       "send": "发送",
-      "liveTotals": "{{turns}} 轮 · ${{cost}}"
+      "liveTotals": "{{turns}} 轮 · ${{cost}}",
+      "autoHint": "该任务会按计划自行完成 — 消息只是可选的引导。",
+      "wrapUp": "立即收尾",
+      "wrapUpTooltip": "立即结束会话 — 任务以目前已产出的工作完成，每一轮的 token 与费用都会计入总额。",
+      "wrapUpStep": "结算此步骤",
+      "wrapUpStepTooltip": "立即结束当前步骤 — 循环将带着该步骤目前的产出继续推进。",
+      "wrappingUp": "正在收尾…",
+      "queued_one": "{{count}} 条排队消息",
+      "queued_other": "{{count}} 条排队消息",
+      "waitingForStep": "步骤间隙 — 循环正在决定接下来运行什么。下一个 AI 步骤开始后即可发送消息。",
+      "waitingForStepShort": "等待下一个步骤…",
+      "sendDisabledEmpty": "请先输入消息",
+      "sendDisabledWaiting": "当前没有活跃的步骤会话"
     },
     "toast": {
       "jobDeleted": "任务已删除",
@@ -76,7 +88,9 @@
       "spawnFailed": "启动任务失败",
       "finalizeScheduled": "正在定稿交互任务…",
       "finalizeFailed": "任务定稿失败",
-      "sendFailed": "发送消息失败"
+      "sendFailed": "发送消息失败",
+      "wrapUpScheduled": "正在收尾任务…",
+      "wrapUpStepScheduled": "正在结算步骤 — 循环将带着已有产出继续"
     }
   },
   "statusPanel": {
@@ -126,15 +140,19 @@
     "deletedTooltip": "工单已不存在"
   },
   "modal": {
-    "openInNewTab": "在新标签页中打开",
     "notFound": "未找到任务",
     "cancelConfirmTitle": "取消任务？",
     "cancelConfirmDescription": "任务将在下一个安全点停止。此操作无法撤销。",
     "keepRunning": "继续运行",
     "cancelJob": "取消任务",
+    "stopRun": "停止运行",
+    "stopRunConfirmTitle": "停止此运行？",
+    "stopRunConfirmDescription": "循环运行将在下一个步骤边界停止。此操作无法撤销。",
     "toast": {
       "cancelSignalSent": "已发送取消信号",
       "cancelSignalSentDescription": "任务将在下一个安全点停止",
+      "stopSignalSent": "已发送停止信号",
+      "stopSignalSentDescription": "运行将在下一个步骤边界停止",
       "cancelFailed": "取消失败",
       "networkError": "网络错误"
     }
@@ -220,6 +238,24 @@
       "cancelFailed": "取消任务失败",
       "networkError": "取消任务时发生网络错误"
     }
+  },
+  "loopExplorer": {
+    "setup": "准备",
+    "iteration": "迭代 {{current}}/{{limit}}",
+    "iterationBadge": "迭代 {{count}}",
+    "follow": "实时跟随中",
+    "resumeFollow": "恢复跟随",
+    "expandAll": "全部展开",
+    "collapseAll": "全部折叠",
+    "copyStep": "复制步骤",
+    "copied": "步骤已复制到剪贴板",
+    "stepDetail": "步骤详情",
+    "stepDetailTemplate": "模板",
+    "stepDetailCommand": "命令",
+    "copyCommand": "复制",
+    "interrupted": "已中断",
+    "waiting": "等待下一个步骤…",
+    "stepMapAria": "循环步骤图"
   },
   "logViewer": {
     "loading": "正在加载日志…",

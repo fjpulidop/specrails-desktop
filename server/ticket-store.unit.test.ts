@@ -466,6 +466,7 @@ describe('isValidStatus', () => {
   it('accepts draft', () => expect(isValidStatus('draft')).toBe(true))
   it('accepts todo', () => expect(isValidStatus('todo')).toBe(true))
   it('accepts in_progress', () => expect(isValidStatus('in_progress')).toBe(true))
+  it('accepts on_review', () => expect(isValidStatus('on_review')).toBe(true))
   it('accepts done', () => expect(isValidStatus('done')).toBe(true))
   it('accepts cancelled', () => expect(isValidStatus('cancelled')).toBe(true))
   it('rejects invalid string', () => expect(isValidStatus('invalid')).toBe(false))
@@ -498,6 +499,12 @@ describe('validatePriorityForStatus', () => {
   })
   it('rejects null priority on in_progress', () => {
     expect(validatePriorityForStatus('in_progress', null)).toMatch(/required/)
+  })
+  it('rejects null priority on on_review (priority stays mandatory outside draft)', () => {
+    expect(validatePriorityForStatus('on_review', null)).toMatch(/required/)
+  })
+  it('accepts valid priority on on_review', () => {
+    expect(validatePriorityForStatus('on_review', 'high')).toBeNull()
   })
   it('accepts valid priority on todo', () => {
     expect(validatePriorityForStatus('todo', 'medium')).toBeNull()

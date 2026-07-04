@@ -4,10 +4,11 @@ import { useTranslation } from 'react-i18next'
 import { Button } from '../ui/button'
 import { jiraApi, type ConnectionState, type JiraStatusOption, type OutboxOp, type SpecLogicalState } from '../../lib/jira-api'
 
-const STATE_KEYS: SpecLogicalState[] = ['todo', 'in_progress', 'done', 'cancelled']
+const STATE_KEYS: SpecLogicalState[] = ['todo', 'in_progress', 'on_review', 'done', 'cancelled']
 const STATE_LABEL: Record<SpecLogicalState, string> = {
   todo: 'todo',
   in_progress: 'inProgress',
+  on_review: 'onReview',
   done: 'done',
   cancelled: 'cancelled',
 }

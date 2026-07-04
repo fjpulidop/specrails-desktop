@@ -62,7 +62,19 @@
       "working": "エージェント作業中…",
       "placeholder": "実行中のジョブにメッセージを送信…",
       "send": "送信",
-      "liveTotals": "{{turns}} ターン · ${{cost}}"
+      "liveTotals": "{{turns}} ターン · ${{cost}}",
+      "autoHint": "このジョブは計画に沿って自動で完了します — メッセージは任意の指示です。",
+      "wrapUp": "今すぐ切り上げる",
+      "wrapUpTooltip": "セッションを今すぐ終了します — これまでの成果でジョブが完了し、各ターンのトークンとコストは合計に計上されます。",
+      "wrapUpStep": "このステップを確定",
+      "wrapUpStepTooltip": "現在のステップを今すぐ終了します — ループはこれまでの成果を持って次へ進みます。",
+      "wrappingUp": "切り上げ中…",
+      "queued_one": "{{count}} 件のキュー済みメッセージ",
+      "queued_other": "{{count}} 件のキュー済みメッセージ",
+      "waitingForStep": "ステップの合間です — ループが次に実行する内容を決めています。次の AI ステップが始まるとメッセージを送信できます。",
+      "waitingForStepShort": "次のステップを待機中…",
+      "sendDisabledEmpty": "先にメッセージを入力してください",
+      "sendDisabledWaiting": "現在アクティブなステップセッションはありません"
     },
     "toast": {
       "jobDeleted": "ジョブを削除しました",
@@ -76,7 +88,9 @@
       "spawnFailed": "ジョブの起動に失敗しました",
       "finalizeScheduled": "インタラクティブジョブをファイナライズ中…",
       "finalizeFailed": "ジョブのファイナライズに失敗しました",
-      "sendFailed": "メッセージの送信に失敗しました"
+      "sendFailed": "メッセージの送信に失敗しました",
+      "wrapUpScheduled": "ジョブを切り上げ中…",
+      "wrapUpStepScheduled": "ステップを確定中 — ループは産出済みの成果で先へ進みます"
     }
   },
   "statusPanel": {
@@ -126,15 +140,19 @@
     "deletedTooltip": "チケットはもう存在しません"
   },
   "modal": {
-    "openInNewTab": "新しいタブで開く",
     "notFound": "ジョブが見つかりません",
     "cancelConfirmTitle": "ジョブをキャンセルしますか？",
     "cancelConfirmDescription": "ジョブは次の安全なポイントで停止します。この操作は元に戻せません。",
     "keepRunning": "実行を続ける",
     "cancelJob": "ジョブをキャンセル",
+    "stopRun": "実行を停止",
+    "stopRunConfirmTitle": "この実行を停止しますか？",
+    "stopRunConfirmDescription": "ループ実行は次のステップ境界で停止します。この操作は取り消せません。",
     "toast": {
       "cancelSignalSent": "キャンセルシグナルを送信しました",
       "cancelSignalSentDescription": "ジョブは次の安全なポイントで停止します",
+      "stopSignalSent": "停止シグナルを送信しました",
+      "stopSignalSentDescription": "実行は次のステップ境界で停止します",
       "cancelFailed": "キャンセルに失敗しました",
       "networkError": "ネットワークエラー"
     }
@@ -220,6 +238,24 @@
       "cancelFailed": "ジョブのキャンセルに失敗しました",
       "networkError": "ジョブのキャンセル中にネットワークエラーが発生しました"
     }
+  },
+  "loopExplorer": {
+    "setup": "セットアップ",
+    "iteration": "反復 {{current}}/{{limit}}",
+    "iterationBadge": "反復 {{count}}",
+    "follow": "ライブ追従中",
+    "resumeFollow": "追従を再開",
+    "expandAll": "すべて展開",
+    "collapseAll": "すべて折りたたむ",
+    "copyStep": "ステップをコピー",
+    "copied": "ステップをクリップボードにコピーしました",
+    "stepDetail": "ステップの詳細",
+    "stepDetailTemplate": "テンプレート",
+    "stepDetailCommand": "コマンド",
+    "copyCommand": "コピー",
+    "interrupted": "中断",
+    "waiting": "次のステップを待機中...",
+    "stepMapAria": "ループのステップマップ"
   },
   "logViewer": {
     "loading": "ログを読み込み中...",

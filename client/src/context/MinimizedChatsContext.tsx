@@ -53,7 +53,7 @@ export interface ExploreSpecParams {
     /** Current ticket status. `'draft'` makes the shell PUBLISH on commit
      *  (flip draft → real spec) instead of PATCHing in place. Optional for
      *  backward-compat; absent ⇒ treated as a real-spec edit. */
-    status?: 'draft' | 'todo' | 'in_progress' | 'done' | 'cancelled'
+    status?: 'draft' | 'todo' | 'in_progress' | 'on_review' | 'done' | 'cancelled'
   }
 }
 

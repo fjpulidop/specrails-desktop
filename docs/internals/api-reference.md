@@ -191,15 +191,15 @@ Example — queue a command on a specific provider:
 | `GET` | `/jobs` | Job list (`?limit=&offset=&status=`) |
 | `GET` | `/jobs/export` | CSV/JSON export |
 | `GET` | `/jobs/compare` | Compare metrics between two jobs |
-| `GET` | `/jobs/:id` | One job. Returns `{ job, events, phaseDefinitions }`; `job` is annotated with `hasTelemetry` and `tickets[]` (resolved from the command, powers the ticket header) |
+| `GET` | `/jobs/:id` | One job. Returns `{ job, events, phaseDefinitions }`; `job` is annotated with `hasTelemetry`, `tickets[]` (resolved from the command, powers the ticket header), `interactiveSettleMode` (`'finalize'` \| `'auto'` \| `null`) and `interactiveAcceptingTurns` (whether a resident session accepts turns right now — a between-steps loop run reports `'auto'`/`false` so the composer can phrase the waiting state) |
 | `DELETE` | `/jobs/:id` | Cancel a running or queued job |
 | `DELETE` | `/jobs` | Purge completed jobs (optional `{ from, to }` window) |
 | `PATCH` | `/jobs/:id/priority` | Re-rank a queued job |
-| `POST` | `/jobs/:id/messages` | Send one more user turn to a running **interactive** ultracode job. Body `{ text }`. `202` accepted, `400` missing text, `403` interactive jobs disabled, `409` the job is not an active interactive session |
-| `POST` | `/jobs/:id/finalize` | Finalize a running interactive job (SIGTERM the resident child; final totals + `completed` status are stamped when it closes). `202` scheduled, `403` interactive jobs disabled, `409` not an active interactive session |
+| `POST` | `/jobs/:id/messages` | Send one more user turn to a running **interactive** job (queued behind the active turn). Body `{ text }`. Manager-agnostic: QueueManager is tried first, then the loop engine's active ai-step session. `202` accepted, `400` missing text, `403` interactive jobs disabled, `409` no active interactive session (unknown / non-interactive / finalized / a loop run between steps) |
+| `POST` | `/jobs/:id/finalize` | Finalize a running interactive job (SIGTERM the resident child; final totals + terminal status are stamped when it closes). For a loop run this settles the **current step** and the loop advances. `202` scheduled, `403` interactive jobs disabled, `409` not an active interactive session |
 | `GET` | `/jobs/:jobId/diagnostic` | Stream a diagnostic ZIP (telemetry + profile + plugins snapshots) |
 
-The two interactive endpoints back the in-job chat for **Interactive Ultracode** rails (Claude-only). They both 403 when the server has `SPECRAILS_INTERACTIVE_JOBS=false`.
+The two interactive endpoints back the in-job chat that is **on by default for every Claude job** — QueueManager jobs (implement / batch / Freestyle / custom commands) and the loop engine's claude ai-steps alike. Two settle modes: Freestyle/ultracode jobs idle until an explicit finalize (`'finalize'`); everything else settles itself on quiescence (`'auto'` — a turn result with nothing queued), where finalize acts as "wrap up now" / "settle this step". Providers without persistent stdin (Codex, Gemini) run one-shot as before and 409 here. Both endpoints 403 when the server has `SPECRAILS_INTERACTIVE_JOBS=false`. As-built detail: [interactive-jobs.md](interactive-jobs.md).
 
 Example — fetch one job:
 
@@ -435,7 +435,7 @@ A non-developer-friendly file tree + Monaco viewer with plain-language AI summar
 | `PUT` | `/:railIndex/profile` | Set the rail's default profile |
 | `PUT` | `/:railIndex/engine` | Set the rail's AI engine override. Body `{ aiEngine }` (string — one of the project's providers — or `null` to clear) |
 | `PUT` | `/:railIndex/name` | Set the rail's display name. Body `{ name }` (string or `null` to clear back to the default label); 400 if longer than 60 characters |
-| `POST` | `/:railIndex/launch` | Launch the rail. Body `{ mode?, profileName?, aiEngine?, model?, interactive? }`. `mode` is `implement` / `batch-implement` / `ultracode`; `model` (haiku/sonnet/opus) applies to ultracode only; `interactive: true` opens an in-job chat and is **ultracode-only** (400 for any other mode, 403 when interactive jobs are disabled). Returns `202 { jobId, railIndex, mode }`; **`503`** when the Claude or Codex CLI binary is not found (a missing Gemini/other binary surfaces as `500`) |
+| `POST` | `/:railIndex/launch` | Launch the rail. Body `{ mode?, loopId?, profileName?, aiEngine?, model?, reasoning_effort?, originConversationId?, originSurface?, interactive? }`. `mode` is `implement` / `batch-implement` / `ultracode` / `loop`; a factory `loopId` (`factory:implement` etc.) maps to its legacy mode, and a **bare legacy mode with no `loopId`** (MCP / mobile / direct REST) derives the matching factory loop when Loops are enabled, so every launch door gets the same isolation + ask-first PR flow as the dashboard. `model` (haiku/sonnet/opus/fable) applies to ultracode only. The in-job chat is **on by default for every Claude job** — the legacy `interactive` param is accepted and **ignored** (wire compat; the spawn-time gate decides). Returns `202 { jobId, railIndex, mode }`; **`503`** when the Claude or Codex CLI binary is not found (a missing Gemini/other binary surfaces as `500`) |
 | `POST` | `/:railIndex/stop` | Stop the rail's running job (cancels every job the rail registered) |
 
 ---
@@ -582,6 +582,7 @@ Every project-scoped message includes a `projectId` field. App-level messages ha
 | `job.turn_user` | project | Interactive job: a user prompt was accepted (echoed so the in-job chat can render the bubble immediately; `queued` is true when a turn is already streaming) |
 | `job.turn_done` | project | Interactive job: a turn finished streaming, carrying the running sum of real token/cost totals |
 | `job.finalized` | project | Interactive job finalized (or crashed): final authoritative totals + terminal status |
+| `job.interactive` | project | Loop runs: the accepting-turns signal (`acceptingTurns: true` when an ai-step's resident session goes live, `false` when it settles) — flips the composer between live and the between-steps waiting state without polling |
 
 ### Budget & cost
 

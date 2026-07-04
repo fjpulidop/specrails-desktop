@@ -44,16 +44,17 @@ Within the job, each wave's specs are implemented before the next wave starts. Y
 
 When several specs are implemented in one run, the pipeline keeps each unit of work isolated so concurrent or sequential changes don't trample each other's files. Each spec's implementation runs in its own clean **git worktree** — a separate checkout that shares your repository's history but never touches your working tree while the AI works.
 
-When the run finishes, the isolated branches are assembled and delivered as **one draft pull request** off your project's designated integration branch (set it in **Settings → Integration branch**; it defaults to your repository's default branch). specrails **never merges, and never commits to your integration branch directly** — you get a draft PR to review, and a human owns the merge. It's the safe hand-off: specrails produces the pull request, your engineers review and merge it in GitHub the way they already do.
+When the run finishes, **nothing is pushed and no pull request is opened yet**. The work stays safely committed on its isolated branches, the specs move to a new **On Review** status, and specrails **asks you first**: a persistent decision bar appears on the rail with **Create PR** — one draft pull request off your project's designated integration branch (set it in **Settings → Integration branch**; it defaults to your repository's default branch), combined across every spec on the rail — and **Discard**. specrails **never merges, and never commits to your integration branch directly** — you decide whether a PR exists at all, and a human owns the merge. It's the safe hand-off: specrails produces the pull request only when you say so, and your engineers review and merge it in GitHub the way they already do.
 
 In practice this means:
 
 - Each spec gets a clean slate to implement against, rather than inheriting the in-flight edits of the previous spec mid-stream.
 - Your working tree is never modified while the run is in flight — nothing lands until you say so.
-- When the run is done you get a notification with the draft PR: **Open PR** to view it, or **Approve** to promote it to ready-for-review and hand it to your team's normal GitHub review.
-- If the isolated branches can't be combined cleanly, specrails stops safely and leaves the branches for a human — it never forces a broken merge onto your base.
+- When the run is done the specs show an **On Review** badge and the rail asks the question: **Create PR** to open the combined draft pull request, or **Discard** to clean up the branches and return the specs to the backlog. If you launched the rail from the agent chat, the same question appears as a card in that conversation — answer in either place, both stay in sync.
+- After creating it, **Open PR** views the draft, **Publish** opens it for review and hands it to your team's normal GitHub review, and **Check merge** flips the specs to Done once your team has merged it.
+- If the isolated branches can't be combined cleanly when you create the PR, specrails stops safely and leaves the branches for a human — it never forces a broken merge onto your base. You can retry or discard from the same bar.
 
-> Delivering the PR needs the GitHub CLI (`gh`) authenticated and a remote configured. Without them, specrails still commits the work to a branch you can open a pull request from yourself — nothing is lost. To fall back to the older behaviour (integrate locally instead of opening a PR), set `SPECRAILS_RAIL_DELIVER_PR=0`.
+> Creating the PR needs the GitHub CLI (`gh`) authenticated and a remote configured. Without them, specrails still keeps the work committed on a branch you can open a pull request from yourself — nothing is lost, and the decision bar lets you retry. To fall back to the older behaviour (integrate locally instead of asking), set `SPECRAILS_RAIL_DELIVER_PR=0`.
 
 The app records, per job, exactly which files were touched and which ticket touched them (you'll see this surface as provenance chips in the **Code** section and as a "Files touched by this ticket" list on each spec's detail modal). That attribution is what lets you trust a multi-spec run: you can always trace a file change back to the spec that caused it.
 

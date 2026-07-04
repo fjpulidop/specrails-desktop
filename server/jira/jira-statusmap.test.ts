@@ -51,6 +51,11 @@ describe('setStatusMap (db)', () => {
     expect(getConnection(db, PROJECT_ID)?.statusMap).toBeNull()
   })
 
+  it('persists an on_review mapping and reads it back', () => {
+    setStatusMap(db, PROJECT_ID, { on_review: 'In Review', done: 'Released' })
+    expect(getConnection(db, PROJECT_ID)?.statusMap).toEqual({ on_review: 'In Review', done: 'Released' })
+  })
+
   it('treats an empty object as cleared (null)', () => {
     setStatusMap(db, PROJECT_ID, { todo: 'Backlog' })
     setStatusMap(db, PROJECT_ID, {})

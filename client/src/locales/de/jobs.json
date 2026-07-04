@@ -62,7 +62,19 @@
       "working": "Agent arbeitet…",
       "placeholder": "Sende eine Nachricht an den laufenden Job…",
       "send": "Senden",
-      "liveTotals": "{{turns}} Turns · ${{cost}}"
+      "liveTotals": "{{turns}} Turns · ${{cost}}",
+      "autoHint": "Dieser Job folgt seinem Plan und endet von selbst — Nachrichten sind optionale Steuerung.",
+      "wrapUp": "Jetzt abschließen",
+      "wrapUpTooltip": "Beendet die Session jetzt — der Job wird mit der bisher erzeugten Arbeit abgeschlossen, Tokens und Kosten jedes Turns fließen in die Summe ein.",
+      "wrapUpStep": "Diesen Schritt abschließen",
+      "wrapUpStepTooltip": "Beendet den aktuellen Schritt jetzt — der Loop geht mit dem weiter, was der Schritt bisher erzeugt hat.",
+      "wrappingUp": "Wird abgeschlossen…",
+      "queued_one": "{{count}} Nachricht in der Warteschlange",
+      "queued_other": "{{count}} Nachrichten in der Warteschlange",
+      "waitingForStep": "Zwischen den Schritten — der Loop entscheidet gerade, was als Nächstes läuft. Du kannst eine Nachricht senden, sobald der nächste KI-Schritt startet.",
+      "waitingForStepShort": "Warten auf den nächsten Schritt…",
+      "sendDisabledEmpty": "Schreibe zuerst eine Nachricht",
+      "sendDisabledWaiting": "Gerade ist keine Schritt-Session aktiv"
     },
     "toast": {
       "jobDeleted": "Job gelöscht",
@@ -76,7 +88,9 @@
       "spawnFailed": "Job konnte nicht gestartet werden",
       "finalizeScheduled": "Interaktiver Job wird abgeschlossen…",
       "finalizeFailed": "Job konnte nicht abgeschlossen werden",
-      "sendFailed": "Nachricht konnte nicht gesendet werden"
+      "sendFailed": "Nachricht konnte nicht gesendet werden",
+      "wrapUpScheduled": "Job wird abgeschlossen…",
+      "wrapUpStepScheduled": "Schritt wird abgeschlossen — der Loop geht mit dem Erzeugten weiter"
     }
   },
   "statusPanel": {
@@ -126,15 +140,19 @@
     "deletedTooltip": "Ticket existiert nicht mehr"
   },
   "modal": {
-    "openInNewTab": "In neuem Tab öffnen",
     "notFound": "Job nicht gefunden",
     "cancelConfirmTitle": "Job abbrechen?",
     "cancelConfirmDescription": "Der Job stoppt am nächsten sicheren Punkt. Diese Aktion kann nicht rückgängig gemacht werden.",
     "keepRunning": "Weiterlaufen lassen",
     "cancelJob": "Job abbrechen",
+    "stopRun": "Lauf stoppen",
+    "stopRunConfirmTitle": "Diesen Lauf stoppen?",
+    "stopRunConfirmDescription": "Der Loop-Lauf stoppt an der nächsten Schrittgrenze. Diese Aktion kann nicht rückgängig gemacht werden.",
     "toast": {
       "cancelSignalSent": "Abbruchsignal gesendet",
       "cancelSignalSentDescription": "Der Job stoppt am nächsten sicheren Punkt",
+      "stopSignalSent": "Stoppsignal gesendet",
+      "stopSignalSentDescription": "Der Lauf stoppt an der nächsten Schrittgrenze",
       "cancelFailed": "Abbrechen fehlgeschlagen",
       "networkError": "Netzwerkfehler"
     }
@@ -220,6 +238,24 @@
       "cancelFailed": "Job konnte nicht abgebrochen werden",
       "networkError": "Netzwerkfehler beim Abbrechen des Jobs"
     }
+  },
+  "loopExplorer": {
+    "setup": "Vorbereitung",
+    "iteration": "Iteration {{current}}/{{limit}}",
+    "iterationBadge": "Iter. {{count}}",
+    "follow": "Folgt live",
+    "resumeFollow": "Verfolgung fortsetzen",
+    "expandAll": "Alle ausklappen",
+    "collapseAll": "Alle einklappen",
+    "copyStep": "Schritt kopieren",
+    "copied": "Schritt in die Zwischenablage kopiert",
+    "stepDetail": "Schrittdetails",
+    "stepDetailTemplate": "Vorlage",
+    "stepDetailCommand": "Befehl",
+    "copyCommand": "Kopieren",
+    "interrupted": "Unterbrochen",
+    "waiting": "Warte auf den nächsten Schritt…",
+    "stepMapAria": "Loop-Schrittübersicht"
   },
   "logViewer": {
     "loading": "Logs werden geladen…",

@@ -69,6 +69,40 @@
       "tooLarge": "文件过大"
     }
   },
+  "story": {
+    "title_one": "构建故事 · {{count}} 个章节",
+    "title_other": "构建故事 · {{count}} 个章节",
+    "viewMode": "故事视图模式",
+    "modeStory": "故事",
+    "modeLog": "日志",
+    "loading": "正在加载故事…",
+    "loadFailed": "无法加载故事。",
+    "empty": "此文件尚未记录任何 AI 介入。",
+    "spec": "Spec #{{ticketId}}",
+    "unknownSpec": "无 spec 的 AI 更改",
+    "openSpec": "打开 spec #{{ticketId}}",
+    "kindLabel": {
+      "created": "创建",
+      "modified": "修改",
+      "deleted": "删除"
+    },
+    "fallback": {
+      "created": "此文件是在实现该 spec 时创建的。",
+      "modified": "此文件是在实现该 spec 时修改的。",
+      "deleted": "此文件是在实现该 spec 时删除的。",
+      "createdNoSpec": "此文件由一个 AI 任务创建。",
+      "modifiedNoSpec": "此文件由一个 AI 任务修改。",
+      "deletedNoSpec": "此文件由一个 AI 任务删除。"
+    },
+    "explain": "解释此更改",
+    "explaining": "正在解释…",
+    "explainFailed": "无法生成解释",
+    "budgetReached": "已达到每月 AI 预算。",
+    "generateAnyway": "仍然生成",
+    "explainedBy": "由 {{model}} 解释",
+    "linesAdded": "新增行",
+    "linesRemoved": "删除行"
+  },
   "history": {
     "resize": "调整 AI 改动历史大小",
     "title_one": "AI 改动历史 · {{count}} 处更改",

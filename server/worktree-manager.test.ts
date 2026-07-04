@@ -5,6 +5,7 @@ import {
   createWorktree,
   removeWorktree,
   listWorktrees,
+  listLocalBranches,
   commitWorktree,
   isGitRepo,
   repoIsolationStatus,
@@ -12,7 +13,7 @@ import {
   type GitResult,
 } from './worktree-manager'
 
-function fakeGit(opts: { worktrees?: string[]; branchExists?: boolean; addFails?: boolean; insideWorktree?: boolean; hasCommits?: boolean } = {}) {
+function fakeGit(opts: { worktrees?: string[]; branchExists?: boolean; addFails?: boolean; insideWorktree?: boolean; hasCommits?: boolean; mountedBranch?: string; headFails?: boolean } = {}) {
   const calls: string[][] = []
   const git: GitRunner = {
     async run(args): Promise<GitResult> {
@@ -20,6 +21,11 @@ function fakeGit(opts: { worktrees?: string[]; branchExists?: boolean; addFails?
       if (args[0] === 'worktree' && args[1] === 'list') {
         const lines = ['worktree /repo', ...(opts.worktrees ?? []).map((p) => `worktree ${p}`)]
         return { code: 0, stdout: lines.join('\n') + '\n', stderr: '' }
+      }
+      if (args[0] === 'rev-parse' && args[1] === '--abbrev-ref') {
+        return opts.headFails
+          ? { code: 128, stdout: '', stderr: 'fatal: not a git repository' }
+          : { code: 0, stdout: `${opts.mountedBranch ?? ''}\n`, stderr: '' }
       }
       if (args[0] === 'rev-parse' && args.includes('--is-inside-work-tree')) {
         return opts.insideWorktree === false ? { code: 128, stdout: '', stderr: 'not a git repo' } : { code: 0, stdout: 'true\n', stderr: '' }
@@ -43,7 +49,7 @@ function fakeGit(opts: { worktrees?: string[]; branchExists?: boolean; addFails?
 const base = { repoDir: '/repo', worktreesRoot: '/wt', slug: 'p', ticketId: 3 }
 
 describe('worktree path/branch helpers', () => {
-  it('builds the stable branch + path', () => {
+  it('builds the legacy fallback branch + the stable path', () => {
     expect(worktreeBranch('myproject', 7)).toBe('sr/myproject/ticket-7')
     expect(worktreePath('/home/u/.specrails/projects/myproject/worktrees', 7)).toBe('/home/u/.specrails/projects/myproject/worktrees/ticket-7')
   })
@@ -64,10 +70,33 @@ describe('createWorktree (resume-aware)', () => {
   })
 
   it('REUSES an existing worktree (resume) without re-adding', async () => {
-    const { git, addCalls } = fakeGit({ worktrees: ['/wt/ticket-3'] })
+    const { git, addCalls } = fakeGit({ worktrees: ['/wt/ticket-3'], mountedBranch: 'sr/p/ticket-3' })
     const h = await createWorktree(git, base)
-    expect(h.worktreePath).toBe('/wt/ticket-3')
+    expect(h).toEqual({ branch: 'sr/p/ticket-3', worktreePath: '/wt/ticket-3' })
     expect(addCalls()).toHaveLength(0) // reused, not recreated
+  })
+
+  it('REPRO (live #37 wedge): a mounted worktree on a DIFFERENT branch — the handle reports the branch that actually carries the commits, never the preferred name', async () => {
+    // A prior auto-discarded run left /wt/ticket-3 mounted on the legacy
+    // sr/ branch; a new launch asks for the conventional name. Reporting the
+    // preferred name here recorded a branch that never existed → `git push`
+    // had no ref → the PR delivery wedged at local-only forever.
+    const { git, addCalls } = fakeGit({ worktrees: ['/wt/ticket-3'], mountedBranch: 'sr/p/ticket-3' })
+    const h = await createWorktree(git, { ...base, branch: 'feat/3-add-guess-the-number-mini-game' })
+    expect(h).toEqual({ branch: 'sr/p/ticket-3', worktreePath: '/wt/ticket-3' })
+    expect(addCalls()).toHaveLength(0)
+  })
+
+  it('a detached-HEAD mounted worktree falls back to the caller branch', async () => {
+    const { git } = fakeGit({ worktrees: ['/wt/ticket-3'], mountedBranch: 'HEAD' })
+    const h = await createWorktree(git, { ...base, branch: 'feat/3-x' })
+    expect(h.branch).toBe('feat/3-x')
+  })
+
+  it('a failing HEAD probe on the mounted worktree falls back to the caller branch', async () => {
+    const { git } = fakeGit({ worktrees: ['/wt/ticket-3'], headFails: true })
+    const h = await createWorktree(git, { ...base, branch: 'feat/3-x' })
+    expect(h.branch).toBe('feat/3-x')
   })
 
   it('RESUMES an existing branch (worktree cleaned, commits kept) — re-checkout, no -b/base', async () => {
@@ -79,6 +108,32 @@ describe('createWorktree (resume-aware)', () => {
   it('throws on git failure', async () => {
     const { git } = fakeGit({ addFails: true })
     await expect(createWorktree(git, base)).rejects.toThrow(/boom/)
+  })
+
+  it('uses the preferred conventional branch name when provided', async () => {
+    const { git, addCalls } = fakeGit()
+    const h = await createWorktree(git, { ...base, branch: 'feat/PROJ-3-add-dark-mode' })
+    expect(h).toEqual({ branch: 'feat/PROJ-3-add-dark-mode', worktreePath: '/wt/ticket-3' })
+    expect(addCalls()[0]).toEqual(['worktree', 'add', '-b', 'feat/PROJ-3-add-dark-mode', '/wt/ticket-3', 'HEAD'])
+  })
+
+  it('resumes an existing PREFERRED branch (same resume semantics as legacy)', async () => {
+    const { git, addCalls } = fakeGit({ branchExists: true })
+    await createWorktree(git, { ...base, branch: 'feat/3-x' })
+    expect(addCalls()[0]).toEqual(['worktree', 'add', '/wt/ticket-3', 'feat/3-x'])
+  })
+})
+
+describe('listLocalBranches', () => {
+  it('parses for-each-ref output into a set', async () => {
+    const git: GitRunner = {
+      run: async () => ({ code: 0, stdout: 'main\nfeat/1-a\n\n  feat/2-b \n', stderr: '' }),
+    }
+    expect(await listLocalBranches(git, '/repo')).toEqual(new Set(['main', 'feat/1-a', 'feat/2-b']))
+  })
+  it('returns an empty set on git failure', async () => {
+    const git: GitRunner = { run: async () => ({ code: 128, stdout: '', stderr: 'boom' }) }
+    expect(await listLocalBranches(git, '/repo')).toEqual(new Set())
   })
 })
 
@@ -92,6 +147,21 @@ describe('commitWorktree', () => {
   it('never throws even if git fails', async () => {
     const git: GitRunner = { run: async () => { throw new Error('git gone') } }
     await expect(commitWorktree(git, '/wt/1', 'x')).resolves.toBeUndefined()
+  })
+  it('excludes overlay-owned paths from the add via :(exclude) pathspecs', async () => {
+    const { git, calls } = fakeGit()
+    await commitWorktree(git, '/wt/ticket-1', 'wip', ['.claude/commands/specrails', '.sr-rail-overlay.json'])
+    expect(calls).toContainEqual([
+      'add', '-A', '--', '.',
+      ':(exclude).claude/commands/specrails',
+      ':(exclude).sr-rail-overlay.json',
+    ])
+    expect(calls).toContainEqual(['commit', '-m', 'wip'])
+  })
+  it('an empty exclude list keeps the byte-identical legacy add -A', async () => {
+    const { git, calls } = fakeGit()
+    await commitWorktree(git, '/wt/ticket-1', 'wip', [])
+    expect(calls).toContainEqual(['add', '-A'])
   })
 })
 

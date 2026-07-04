@@ -19,9 +19,12 @@ import {
   deleteAgentConversation,
   sendAgentMessage,
   abortAgentTurn,
+  editQueuedAgentMessage,
   getMcpStatus,
   enableMcp,
   getAvailableProviders,
+  coercePrDecisionEnvelope,
+  parsePrDecisionEnvelope,
   type AgentConversation,
   type AgentMessage,
   type AgentTierLevel,
@@ -73,6 +76,9 @@ export interface AgentChatContextValue {
   queuedMessages: AgentQueuedItem[]
   /** Every conversation with a live turn — feeds the sidebar title shimmer. */
   streamingConversationIds: ReadonlySet<string>
+  /** Per-conversation live slices (stream/tools/queue) — feeds the mission
+   *  selector's queued-count badges without flattening to the active thread. */
+  liveByConversation: ReadonlyMap<string, AgentConvLive>
 
   mcpEnabled: boolean
   enablingMcp: boolean
@@ -83,6 +89,12 @@ export interface AgentChatContextValue {
 
   send: (text: string, opts?: { attachmentIds?: string[] }) => Promise<void>
   abort: () => Promise<void>
+  /** Edit a still-queued message in place (composer ↑/↓ queue navigation).
+   *  `'conflict'` = already dispatched — the caller keeps the text as a draft. */
+  editQueuedMessage: (queueId: string, text: string) => Promise<'saved' | 'conflict'>
+  /** True when a queued message already left the queue as a real turn
+   *  (`agent_dequeued` seen) — distinguishes "dispatched" from "cleared". */
+  wasQueueConsumed: (queueId: string) => boolean
   cycleTier: () => Promise<void>
   setTier: (level: AgentTierLevel) => Promise<void>
   setProvider: (provider: string) => Promise<void>
@@ -298,6 +310,41 @@ export function AgentChatProvider({ children }: { children: ReactNode }) {
         }
       } else if (msg.type === 'agent_queue_cleared') {
         patchLive(convId, (p) => ({ ...p, queued: [] }))
+      } else if (msg.type === 'agent_queue_edited') {
+        // A queued chip was edited in place (this window or another) — update
+        // its text; the editing window's optimistic update makes this a no-op.
+        patchLive(convId, (p) => ({
+          ...p,
+          queued: p.queued.map((q) => (msg.queueId && q.queueId === msg.queueId ? { ...q, text: msg.text ?? q.text } : q)),
+        }))
+      } else if (msg.type === 'agent_pr_decision') {
+        // PR-decision card (safe-pr-review-flow): the WS message carries the
+        // persisted envelope's fields top-level. Only the ACTIVE thread's
+        // `messages` slice is held in state — upsert its card in place (match
+        // by prDeliveryId) or append it for a live arrival without reload.
+        // Background conversations need nothing: the server updates the SAME
+        // persisted system row, so rehydrate-on-select shows the current state.
+        if (isActive) {
+          const envelope = coercePrDecisionEnvelope(raw)
+          if (envelope) {
+            const content = JSON.stringify(envelope)
+            setMessages((m) => {
+              const idx = m.findIndex(
+                (x) => x.role === 'system' && parsePrDecisionEnvelope(x.content)?.prDeliveryId === envelope.prDeliveryId,
+              )
+              if (idx >= 0) {
+                if (m[idx].content === content) return m
+                const copy = [...m]
+                copy[idx] = { ...copy[idx], content }
+                return copy
+              }
+              return [
+                ...m,
+                { id: `prd-${envelope.prDeliveryId}`, conversation_id: convId, role: 'system', content, created_at: new Date().toISOString() },
+              ]
+            })
+          }
+        }
       }
     }
     registerHandler('agent-chat', handler)
@@ -425,6 +472,22 @@ export function AgentChatProvider({ children }: { children: ReactNode }) {
     await abortAgentTurn(active.id)
   }, [active, patchLive])
 
+  const editQueuedMessage = useCallback(async (queueId: string, text: string): Promise<'saved' | 'conflict'> => {
+    const conv = active
+    if (!conv) return 'conflict'
+    const r = await editQueuedAgentMessage(conv.id, queueId, text)
+    if (r === 'saved') {
+      // Optimistic chip update — the agent_queue_edited broadcast is a no-op here.
+      patchLive(conv.id, (p) => ({
+        ...p,
+        queued: p.queued.map((q) => (q.queueId === queueId ? { ...q, text } : q)),
+      }))
+    }
+    return r
+  }, [active, patchLive])
+
+  const wasQueueConsumed = useCallback((queueId: string): boolean => consumedQueueIdsRef.current.has(queueId), [])
+
   const patchActive = useCallback(async (patch: Parameters<typeof patchAgentConversation>[1]) => {
     if (!active) return
     const updated = await patchAgentConversation(active.id, patch)
@@ -510,18 +573,20 @@ export function AgentChatProvider({ children }: { children: ReactNode }) {
   const value = useMemo<AgentChatContextValue>(() => ({
     visibility, open, close, minimize, toggle,
     conversations, active, messages, streamingText, isStreaming, liveTools,
-    queuedMessages, streamingConversationIds,
+    queuedMessages, streamingConversationIds, liveByConversation: liveByConv,
     mcpEnabled, enablingMcp, enableMcpServer, providersReady,
-    send, abort, cycleTier, setTier, setProvider, setModel, setPinnedProject,
+    send, abort, editQueuedMessage, wasQueueConsumed,
+    cycleTier, setTier, setProvider, setModel, setPinnedProject,
     newConversation, startNewConversation, draftPinnedProjectId,
     draftProvider, draftModel, draftTierLevel, draftEffort, setEffort,
     selectConversation, deleteConversation, refreshConversations,
   }), [
     visibility, open, close, minimize, toggle,
     conversations, active, messages, streamingText, isStreaming, liveTools,
-    queuedMessages, streamingConversationIds,
+    queuedMessages, streamingConversationIds, liveByConv,
     mcpEnabled, enablingMcp, enableMcpServer, providersReady,
-    send, abort, cycleTier, setTier, setProvider, setModel, setPinnedProject,
+    send, abort, editQueuedMessage, wasQueueConsumed,
+    cycleTier, setTier, setProvider, setModel, setPinnedProject,
     newConversation, startNewConversation, draftPinnedProjectId,
     draftProvider, draftModel, draftTierLevel, draftEffort, setEffort,
     selectConversation, deleteConversation, refreshConversations,
@@ -548,8 +613,11 @@ const NOOP_AGENT_CHAT: AgentChatContextValue = {
   open: () => {}, close: () => {}, minimize: () => {}, toggle: () => {},
   conversations: [], active: null, messages: [], streamingText: '', isStreaming: false, liveTools: [],
   queuedMessages: [], streamingConversationIds: new Set<string>(),
+  liveByConversation: new Map<string, AgentConvLive>(),
   mcpEnabled: true, enablingMcp: false, enableMcpServer: async () => {}, providersReady: true,
-  send: async () => {}, abort: async () => {}, cycleTier: async () => {}, setTier: async () => {},
+  send: async () => {}, abort: async () => {},
+  editQueuedMessage: async () => 'conflict', wasQueueConsumed: () => false,
+  cycleTier: async () => {}, setTier: async () => {},
   setProvider: async () => {}, setModel: async () => {}, setPinnedProject: async () => {},
   newConversation: async () => {}, startNewConversation: () => {}, draftPinnedProjectId: null,
   draftProvider: 'claude', draftModel: null, draftTierLevel: 0,

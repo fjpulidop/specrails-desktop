@@ -198,6 +198,17 @@ export interface BrowserPageHandle {
   insertText?(text: string): Promise<void>
   /** Delete the current selection (for cut). */
   deleteSelection?(): Promise<void>
+  // ─── Popup support (optional) ─────────────────────────────────────────────
+  /** Fires when this page opens a popup (window.open / target=_blank / OAuth
+   *  login windows). The popup shares the browser context natively — cookies +
+   *  the opener/postMessage relationship survive, which is what completes an
+   *  OAuth flow. Optional — handles without it simply never surface popups. */
+  onPopup?(cb: (popup: BrowserPageHandle) => void): void
+  /** Fires when the page is closed by the page itself (window.close — the
+   *  typical OAuth popup self-close) or externally. */
+  onClose?(cb: () => void): void
+  /** Fires when the page's main frame navigates (link clicks, redirects). */
+  onNavigated?(cb: (url: string) => void): void
   close(): Promise<void>
 }
 

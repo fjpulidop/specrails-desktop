@@ -37,6 +37,12 @@ A couple of guardrails keep costs sane: summary generation runs within a **month
 
 You can also choose the **summary language** (English or Spanish) in the global settings under the *Code section* area.
 
+## The construction story
+
+Beneath the code viewer lives the **construction story** — a chronological timeline of every spec and job that built the file you're looking at. Each chapter is a card: which spec intervened (with its live status), when, whether the file was created, modified or deleted, and how big the change was (lines added and removed). Click a spec card to open that ticket's detail. Loop-based rails record their file touches too, so work done in isolated worktrees shows up in the story just like regular pipeline jobs.
+
+For any chapter you can ask for a plain-language explanation: press **Explain this change** and the app writes one to three sentences describing what that specific change contributed to the file — no code, no jargon. Explanations share the same monthly budget as file summaries, and until one is generated the card falls back to the honest facts it knows: the kind of change, the spec, and the date. Prefer the raw data? A **Story / Log** toggle switches to the classic touch-history list with on-demand diffs. The same story panel appears in Agent Mode's **Files** pane.
+
 ## Connecting code back to specs
 
 The provenance link runs both ways. Inside the Code explorer, clicking a ticket chip on a file opens that ticket's detail. And from the other direction, the **ticket detail** view has a *Files touched by this ticket* section — click a file there and you jump straight into the Code explorer with it open. It closes the loop between "here's the spec we wrote" and "here's the code that came out of it."

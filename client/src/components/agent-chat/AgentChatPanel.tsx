@@ -8,6 +8,7 @@ import { useMovableResizableModal } from '../../hooks/useMovableResizableModal'
 import { ResizeGrips } from '../ui/ResizeGrips'
 import { AgentConversationView } from './AgentConversationView'
 import { AgentProjectSelector } from './AgentProjectSelector'
+import { AgentMissionSelector } from './AgentMissionSelector'
 
 /** The floating, movable+resizable, non-modal agent chat panel (Kanban Mode
  *  quick-access). Window chrome only — the conversation body is the shared
@@ -59,14 +60,18 @@ export function AgentChatPanel() {
           onDoubleClick={() => setMaximized((m) => !m)}
           className={`flex shrink-0 items-center gap-2 border-b border-border/50 bg-surface/40 px-3 py-2 ${maximized ? '' : 'cursor-grab'}`}
         >
-          <Bot className="h-4 w-4 text-accent-primary" />
-          <span className="text-sm font-medium text-foreground/80">{t('title')}</span>
+          <Bot className="h-4 w-4 shrink-0 text-accent-primary" />
+          <span className="shrink-0 text-sm font-medium text-foreground/80">{t('title')}</span>
           {/* Project pin lives in the header (Kanban panel): re-pins the ACTIVE
               conversation, or sets the draft pin on the empty compose screen. */}
           <AgentProjectSelector
             pinnedProjectId={active ? active.pinned_project_id : draftPinnedProjectId}
             onSelect={(id) => void setPinnedProject(id)}
           />
+          <div className="h-4 w-px shrink-0 bg-border/60" aria-hidden />
+          {/* Mission switcher — the project selector's visual twin. Agent Mode
+              keeps its ArcSidebar conversation tree instead (no duplication). */}
+          <AgentMissionSelector />
           <div className="ml-auto flex items-center gap-1.5">
             <button type="button" onClick={() => startNewConversation(null)} title={t('newConversation')} data-agent-interactive className="rounded-md p-1 text-foreground/60 hover:bg-surface hover:text-foreground">
               <Plus className="h-4 w-4" />

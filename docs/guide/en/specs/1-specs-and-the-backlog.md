@@ -13,7 +13,7 @@ The board has two view modes, switched from a toolbar toggle and remembered per 
 - **Post-it view** (the default) — card-style tiles with short summaries.
 - **List view** — compact one-line rows.
 
-You can also filter by **status** (All / ToDo / Done) and by **label**, and sort by **Default**, **Ticket #**, or **Priority** (each with an ascending/descending toggle).
+The toolbar's **status selector** shows every status as its own chip with a live count — plus two smart buckets: **Active** (the default — everything still moving: drafts, todos, in-progress and on-review specs) and **All** (everything, with Done pinned at the bottom). Your pick is remembered per project and mirrored to the URL, so a refresh or a shared link restores the exact view. On Jira-connected projects an extra **Jira status** dropdown appears, listing the board's *real* workflow statuses (their raw names, e.g. "Code Review", each with a live count) grouped under the state they map to — it combines with the status chips. You can also filter by **label**, and sort by **Default**, **Ticket #**, or **Priority** (each with an ascending/descending toggle).
 
 ## Statuses
 
@@ -24,7 +24,8 @@ A spec moves through a small set of statuses. The board gives each one a consist
 | **Draft** | An in-progress idea saved from an Explore conversation. Not ready to implement yet — you can come back and keep shaping it. Shows a `Draft` pill. |
 | **Todo** | Ready to be picked up. This is where a finished spec lands when you create it. |
 | **In progress** | The pipeline is currently working on it (a pulsing blue dot). |
-| **Done** | Completed by the pipeline (a green checkmark). |
+| **On review** | Implemented — every finished run parks its specs here for your approval: merge the draft PR or move them on yourself (an amber pill). |
+| **Done** | Approved — its PR was merged, or you moved it here yourself (a green checkmark). |
 | **Cancelled** | Abandoned (a red X). |
 
 Drafts live in the same active bucket as Todo specs — there's no separate column for them — but they carry a subtly tinted border and a `Draft` pill so they're easy to spot. See [Drafts & the Contract Layer](drafts-and-contract-layer.md) for the full story on drafts.

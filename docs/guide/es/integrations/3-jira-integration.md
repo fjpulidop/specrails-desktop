@@ -7,7 +7,7 @@
 Specrails actúa como **capa de sincronización** entre Jira y tu proyecto. La idea central: tu almacén local de specs sigue siendo lo canónico que lee el pipeline, y Specrails se encarga de mantenerlo de acuerdo con Jira.
 
 - Cuando lanzas un rail, Specrails mueve el issue de Jira vinculado a **En progreso**.
-- Cuando un trabajo termina, Specrails transiciona el issue (a **Hecho**, o de vuelta a **Por hacer** si falló) y publica un comentario de finalización con el id del trabajo, el coste y la duración.
+- Cuando un trabajo termina, Specrails transiciona el issue: si tuvo éxito, lo mueve a tu estado de **revisión** mapeado y solo llega a **Hecho** cuando apruebas el trabajo (fusionar la PR en borrador publica un comentario "PR merged"); si falló, vuelve a **Por hacer** con un comentario de finalización (id del trabajo, coste y duración).
 - Periódicamente, Specrails **sondea** Jira en busca de cambios que cualquiera haya hecho en el tablero y los refleja de vuelta en tus specs.
 
 Todas las escrituras pasan por un outbox duradero y a prueba de fallos, así que un tropiezo puntual de Jira nunca rompe un trabajo: la actualización simplemente se reintenta.

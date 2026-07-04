@@ -105,8 +105,8 @@ describe('SpecsBoard label filter dropdown', () => {
     expect(screen.getByText('Auth one')).toBeInTheDocument()
     expect(screen.getByText('Api one')).toBeInTheDocument()
     expect(screen.queryByText('Ui one')).toBeNull()
-    // The same filter applies to the Done bucket — switch to the Done tab.
-    fireEvent.click(screen.getByTestId('specs-tab-done'))
+    // The same filter applies to the Done bucket — switch to the Done chip.
+    fireEvent.click(screen.getByTestId('specs-status-chip-done'))
     expect(screen.getByText('Done auth')).toBeInTheDocument()
     expect(screen.getByText('Done api')).toBeInTheDocument()
     expect(screen.queryByText('Done ui')).toBeNull()

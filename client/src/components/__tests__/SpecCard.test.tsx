@@ -5,19 +5,25 @@ import { SpecCard } from '../SpecCard'
 import type { LocalTicket } from '../../types'
 
 // SpecCard uses useSortable from @dnd-kit/sortable — must be inside DndContext
-// We mock the sortable hook to simplify rendering outside DndContext
+// We mock the sortable hook to simplify rendering outside DndContext.
+// `lastSortableOpts` records the options of the LAST useSortable call so tests
+// can assert the drag-disabled gating (jiggle / on_review).
+let lastSortableOpts: { id: number; disabled?: boolean } | null = null
 vi.mock('@dnd-kit/sortable', async (importOriginal) => {
   const mod = await importOriginal<typeof import('@dnd-kit/sortable')>()
   return {
     ...mod,
-    useSortable: () => ({
-      attributes: {},
-      listeners: {},
-      setNodeRef: vi.fn(),
-      transform: null,
-      transition: undefined,
-      isDragging: false,
-    }),
+    useSortable: (opts: { id: number; disabled?: boolean }) => {
+      lastSortableOpts = opts
+      return {
+        attributes: {},
+        listeners: {},
+        setNodeRef: vi.fn(),
+        transform: null,
+        transition: undefined,
+        isDragging: false,
+      }
+    },
   }
 })
 
@@ -184,6 +190,50 @@ describe('SpecCard', () => {
       )
       expect(screen.queryByText('Draft')).not.toBeInTheDocument()
       expect(screen.queryByText('medium')).not.toBeInTheDocument()
+    })
+  })
+
+  describe('on_review variant', () => {
+    it('renders an On Review pill in place of the priority pill', () => {
+      render(
+        <SpecCard
+          ticket={makeTicket({ status: 'on_review', priority: 'high' })}
+          onClick={onClickMock}
+        />,
+      )
+      expect(screen.getByTestId('on-review-badge-42')).toBeInTheDocument()
+      expect(screen.getByText('On Review')).toBeInTheDocument()
+      expect(screen.queryByText('high')).not.toBeInTheDocument()
+    })
+
+    it('marks the card with data-on-review and uses the accent-warning token', () => {
+      render(
+        <SpecCard
+          ticket={makeTicket({ status: 'on_review' })}
+          onClick={onClickMock}
+        />,
+      )
+      const card = screen.getByText('Build the feature').closest('[role="button"]')!
+      expect(card).toHaveAttribute('data-on-review', 'true')
+      expect(card.outerHTML).toMatch(/accent-warning/)
+      expect(card.outerHTML).not.toMatch(/dracula-/)
+    })
+
+    it('disables drag (frozen awaiting the PR decision) and drops the grab cursor', () => {
+      render(
+        <SpecCard
+          ticket={makeTicket({ status: 'on_review' })}
+          onClick={onClickMock}
+        />,
+      )
+      expect(lastSortableOpts?.disabled).toBe(true)
+      const card = screen.getByText('Build the feature').closest('[role="button"]')!
+      expect(card.className).not.toContain('cursor-grab')
+    })
+
+    it('keeps drag enabled for a plain todo spec (regression pin)', () => {
+      render(<SpecCard ticket={makeTicket({ status: 'todo' })} onClick={onClickMock} />)
+      expect(lastSortableOpts?.disabled).toBe(false)
     })
   })
 

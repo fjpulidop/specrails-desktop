@@ -1,15 +1,27 @@
-// Interactive ultracode job sessions (resident persistent-stdin transport).
+// Interactive job sessions (resident persistent-stdin transport).
 //
-// A standard ultracode job spawns `claude -p <prompt>` once and settles when the
-// child closes. An INTERACTIVE ultracode job instead keeps ONE `claude -p
-// --input-format stream-json` child resident across many user turns (the same
-// transport ExploreStdinSessions uses for Explore chat): each user prompt is a
+// A standard job spawns `claude -p <prompt>` once and settles when the child
+// closes. An INTERACTIVE job instead keeps ONE `claude -p --input-format
+// stream-json` child resident across many user turns (the same transport
+// ExploreStdinSessions uses for Explore chat): each user prompt is a
 // newline-delimited stream-json message written to stdin, the agent works, and
-// the turn ends on a `result` event WITHOUT killing the child. The session stays
-// alive until the user finalizes (SIGTERM) — at which point QueueManager flips
-// the job to a terminal status. Every turn's REAL token usage is summed into the
-// job row as it completes, so the live Job Detail totals are honest (never an
-// estimate) and the finalized job carries the full conversation's spend.
+// the turn ends on a `result` event WITHOUT killing the child. Two settle modes:
+//
+//   'finalize' (ultracode) — the session idles between turns until the user
+//     explicitly finalizes (SIGTERM), at which point QueueManager flips the job
+//     to a terminal status. Byte-identical to the original interactive-ultracode
+//     behaviour.
+//   'auto' (every other command — the default-interactive flip) — the session
+//     settles ITSELF the moment it goes QUIESCENT: a turn `result` arrived and
+//     nothing is queued behind it. A user message that lands mid-stream still
+//     queues and extends the session ("ask questions / steer, but the job tends
+//     to finish its plan"); an explicit finalize() still settles immediately;
+//     a child that produces NO output for `zombieTimeoutMs` is treated as
+//     wedged and settles 'crashed' (mirrors the one-shot zombie timeout).
+//
+// Every turn's REAL token usage is summed into the job row as it completes, so
+// the live Job Detail totals are honest (never an estimate) and the settled job
+// carries the full conversation's spend.
 //
 // This module owns the transport + per-turn streaming/persistence/accounting.
 // QueueManager owns spawn-arg construction and the terminal settle (slot release,
@@ -35,6 +47,76 @@ export interface AccumulatedUsage {
   num_turns: number
 }
 
+// ─── Zero-work settle detection ──────────────────────────────────────────────
+// Live evidence (run 01f41203): a mistyped `/specrails:implement` made the
+// claude CLI emit a SYNTHETIC terminal result frame — `{subtype:'success',
+// is_error:false, num_turns:0, total_cost_usd:0, duration_api_ms:0,
+// result:'Unknown command: /specrails:implement'}` — and exit cleanly. No model
+// ever ran, yet the settle looked like a success and the factory loop
+// "succeeded" without implementing anything. Strictness rule: a session/step
+// that consumed NO model work across its WHOLE life is a FAILED settle — the
+// command never actually ran. The predicate below is the ONE shared definition
+// consumed by QueueManager (interactive jobs) and LoopRunManager (ai-steps).
+
+/** Whole-life accumulated signals a settle is judged on. */
+export interface ZeroWorkSignals {
+  /** Accumulated `num_turns` across every counted turn (deltas of the
+   *  cumulative reading — see HIGH-2 in this module). */
+  numTurns: number
+  /** Accumulated token counts, all four directions. */
+  tokensIn: number
+  tokensOut: number
+  tokensCacheRead: number
+  tokensCacheCreate: number
+  /** True when ANY assistant-derived event (model text, tool use, or a frame
+   *  carrying a usage snapshot) was observed at any point in the life. */
+  sawAssistantEvent: boolean
+  /** The final `result` payload text, or null when no turn completed. */
+  resultText: string | null
+}
+
+/** The claude CLI's synthetic no-op marker: the result text of a frame emitted
+ *  for a command the CLI could not resolve (nothing was sent to the model). */
+export const UNKNOWN_COMMAND_RE = /^Unknown command:/
+
+/** True when an adapter event indicates the model actually did work. `result`
+ *  frames do NOT count (the synthetic no-op frame is itself a result), nor do
+ *  session-started/error frames — only assistant-derived events do. */
+export function isModelWorkEvent(ev: AdapterEvent): boolean {
+  if (ev.kind === 'text-delta' || ev.kind === 'tool-use') return true
+  // A claude `assistant` frame with no text/tool block still surfaces as
+  // {kind:'other', type:'assistant'} (and usually carries a usage snapshot).
+  if (ev.kind === 'other' && ev.type === 'assistant') return true
+  if (ev.kind === 'result' || ev.kind === 'session-started' || ev.kind === 'error') return false
+  // Any other event carrying a per-assistant-event usage snapshot counts.
+  const usage = (ev as { usage?: unknown }).usage
+  return usage != null && typeof usage === 'object'
+}
+
+/**
+ * A settle is ZERO-WORK when the session/step consumed no model work across
+ * its WHOLE life: accumulated `num_turns === 0` AND no assistant events AND
+ * zero usage tokens — all signals, exactly what the synthetic frame carries.
+ * Belt-and-braces: a final result text matching `Unknown command:` marks
+ * zero-work even when the numeric accounting drifted, PROVIDED no assistant
+ * event was ever seen — a multi-turn session that did real work earlier and
+ * merely ended on a synthetic frame (e.g. the user sent `/help` late) is NOT
+ * zero-work, because real turns always emit assistant events.
+ */
+export function isZeroWorkSettle(signals: ZeroWorkSignals): boolean {
+  if (signals.sawAssistantEvent) return false
+  if (signals.resultText !== null && UNKNOWN_COMMAND_RE.test(signals.resultText.trim())) {
+    return true
+  }
+  return (
+    signals.numTurns === 0 &&
+    signals.tokensIn === 0 &&
+    signals.tokensOut === 0 &&
+    signals.tokensCacheRead === 0 &&
+    signals.tokensCacheCreate === 0
+  )
+}
+
 /** Reason + final accumulated state handed back to QueueManager when the session
  *  ends (user finalize, or an unexpected child crash). */
 export interface SettleInfo {
@@ -51,6 +133,16 @@ export interface SettleInfo {
    *  "active duration" analytics don't inflate a long-open session
    *  (COST-ACCOUNTING-AUDIT LOW-15). */
   activeDurationMs: number
+  /** The last turn's `result` payload string (or null when no turn completed) —
+   *  the same field the one-shot path captures for output chaining between
+   *  dependent pipeline steps. */
+  resultText: string | null
+  /** True when the WHOLE session consumed no model work (isZeroWorkSettle over
+   *  the accumulated totals + assistant-event flag + final result text). A
+   *  'finalized' settle that is zero-work must be treated as FAILED by the
+   *  owner — the job/step's command never actually ran (the claude CLI's
+   *  synthetic `Unknown command:` result frame). */
+  zeroWork: boolean
 }
 
 export interface InteractiveSpawnSpec {
@@ -70,6 +162,26 @@ export interface InteractiveJobSessionDeps {
    *  slot, stamps the terminal job status, records ai_invocations, fires the
    *  rail/ticket completion callback, and drains the queue. */
   onSettle: (info: SettleInfo) => void
+  /** 'finalize' (default): the session idles between turns until an explicit
+   *  human finalize — today's ultracode behaviour, byte-identical. 'auto': the
+   *  session settles ITSELF (reason 'finalized') as soon as it is QUIESCENT —
+   *  a turn `result` arrived, no queued prompts remain, and no user write is
+   *  in flight. A user message that arrives mid-stream still queues and
+   *  extends the session; explicit finalize() still settles immediately. */
+  settleMode?: 'finalize' | 'auto'
+  /** Wedge detector for 'auto' sessions only: when the child produces NO
+   *  stdout/stderr output for this long, the in-flight turn is folded and the
+   *  session settles 'crashed' (reuses the queue's zombie-timeout budget).
+   *  Never armed in 'finalize' mode — idling awaiting the human is by design.
+   *  Unset / <= 0 disables the timer. */
+  zombieTimeoutMs?: number
+  /** Shared event-seq allocator. A session that shares its job row with OTHER
+   *  writers (the loop engine persists its own step-boundary/log events on the
+   *  same job id) must draw seq numbers from the owner's monotonic counter, or
+   *  the interleaved rows collide/replay out of order (getJobEvents ORDER BY
+   *  seq). Unset ⇒ the session's private counter starting at 0 — byte-identical
+   *  QueueManager behaviour, where the session owns the whole job's events. */
+  nextEventSeq?: () => number
   /** Injectable spawn (tests). Defaults to spawnAiCli. */
   spawn?: typeof spawnAiCli
 }
@@ -95,6 +207,9 @@ export class InteractiveJobSession {
   private readonly _adapter: ProviderAdapter
   private readonly _broadcast: (msg: WsMessage) => void
   private readonly _onSettle: (info: SettleInfo) => void
+  private readonly _settleMode: 'finalize' | 'auto'
+  private readonly _zombieTimeoutMs: number
+  private readonly _nextEventSeq: (() => number) | null
   private readonly _spawn: typeof spawnAiCli
 
   private _child: ChildProcess | null = null
@@ -121,6 +236,13 @@ export class InteractiveJobSession {
   private readonly _accum: AccumulatedUsage = zeroUsage()
   private _model: string | null = null
   private _sessionId: string | null = null
+  /** Last completed turn's `result` payload (output chaining — see SettleInfo). */
+  private _resultText: string | null = null
+  /** True once ANY assistant-derived event was observed across the whole
+   *  session life (isModelWorkEvent). Feeds the zero-work settle predicate:
+   *  real turns always emit assistant events; the synthetic `Unknown command:`
+   *  frame never does. */
+  private _sawModelWork = false
 
   /** Previous turn's CUMULATIVE `total_cost_usd` / `num_turns` reading. The
    *  persistent stream-json transport reports both cumulatively per turn, so we
@@ -142,6 +264,8 @@ export class InteractiveJobSession {
   private _settled = false
   private _disposed = false
   private _killTimer: ReturnType<typeof setTimeout> | null = null
+  /** Auto-mode wedge detector (see InteractiveJobSessionDeps.zombieTimeoutMs). */
+  private _zombieTimer: ReturnType<typeof setTimeout> | null = null
 
   constructor(deps: InteractiveJobSessionDeps) {
     this._jobId = deps.jobId
@@ -150,6 +274,9 @@ export class InteractiveJobSession {
     this._adapter = deps.adapter
     this._broadcast = deps.broadcast
     this._onSettle = deps.onSettle
+    this._settleMode = deps.settleMode ?? 'finalize'
+    this._zombieTimeoutMs = deps.zombieTimeoutMs ?? 0
+    this._nextEventSeq = deps.nextEventSeq ?? null
     this._spawn = deps.spawn ?? spawnAiCli
   }
 
@@ -178,6 +305,16 @@ export class InteractiveJobSession {
       this._stderrReader.on('line', (line) => this._handleStderrLine(line))
     }
     child.on('close', (code) => this._handleClose(code))
+
+    // Auto-mode wedge detector: reset on ANY raw output ('data' — synchronous
+    // under fake timers, mirroring the one-shot path's zombie timer) and fire
+    // when the child stays silent for the whole budget. Finalize mode never
+    // arms a timer (idling awaiting the human is by design).
+    if (this._settleMode === 'auto' && this._zombieTimeoutMs > 0) {
+      child.stdout?.on('data', () => this._resetZombieTimer())
+      child.stderr?.on('data', () => this._resetZombieTimer())
+      this._resetZombieTimer()
+    }
 
     // Fresh child ⇒ fresh cumulative baselines (HIGH-2). Field initializers
     // already zero these, but reset explicitly so a future respawn is safe.
@@ -232,6 +369,13 @@ export class InteractiveJobSession {
     return this._streaming
   }
 
+  /** The session's settle mode ('finalize' = idles awaiting an explicit human
+   *  finalize; 'auto' = settles itself on quiescence). Surfaced on GET /jobs/:id
+   *  so the client can phrase the composer truthfully (Finalize vs wrap-up). */
+  getSettleMode(): 'finalize' | 'auto' {
+    return this._settleMode
+  }
+
   getTotals(): AccumulatedUsage {
     return { ...this._accum }
   }
@@ -241,6 +385,7 @@ export class InteractiveJobSession {
   finalize(): void {
     if (this._finalizing || this._settled) return
     this._finalizing = true
+    this._clearZombieTimer()
     const child = this._child
     if (!child || child.killed || !child.pid) {
       this._settle('finalized')
@@ -257,11 +402,37 @@ export class InteractiveJobSession {
     }, FINALIZE_KILL_GRACE_MS)
   }
 
+  /** Programmatic teardown that SETTLES 'crashed' after folding any in-flight
+   *  turn (loop step timeout / run cancel). Unlike dispose(), the onSettle
+   *  callback fires — an owner AWAITING the settle (the loop engine) is
+   *  released with the partial work accounted. Unlike finalize(), the session
+   *  is not counted as a clean completion. No-op when already settled/disposed
+   *  or when a finalize is in flight (its own settle wins — this avoids a
+   *  double-kill race between the two teardown paths). */
+  abort(note?: string): void {
+    if (this._settled || this._disposed || this._finalizing) return
+    if (note) {
+      this._persistLog('stderr', note)
+      this._emitLog('stderr', note)
+    }
+    const child = this._child
+    try { if (child && !child.killed) child.kill('SIGTERM') } catch { /* gone */ }
+    // Escalate to SIGKILL after the grace window if the child survives SIGTERM.
+    // NOT stored in _killTimer — _settle below clears that slot, and this
+    // escalation must outlive the settle. unref'd so it never holds the process.
+    const escalate = setTimeout(() => {
+      try { if (this._child && !this._child.killed) this._child.kill('SIGKILL') } catch { /* gone */ }
+    }, FINALIZE_KILL_GRACE_MS)
+    if (typeof escalate.unref === 'function') escalate.unref()
+    this._settle('crashed')
+  }
+
   /** Teardown without settling (project removal / shutdown). */
   dispose(): void {
     if (this._disposed) return
     this._disposed = true
     this._clearKillTimer()
+    this._clearZombieTimer()
     this._closeReaders()
     try { if (this._child && !this._child.killed) this._child.kill('SIGTERM') } catch { /* gone */ }
     this._child = null
@@ -299,11 +470,14 @@ export class InteractiveJobSession {
     try { parsed = JSON.parse(line) } catch { /* plain text */ }
 
     const adapterEv = this._adapter.parseStreamLine(line)
-    if (adapterEv) this._turnEvents.push(adapterEv)
+    if (adapterEv) {
+      this._turnEvents.push(adapterEv)
+      if (!this._sawModelWork && isModelWorkEvent(adapterEv)) this._sawModelWork = true
+    }
 
     if (parsed) {
       const eventType = (parsed.type as string) ?? 'unknown'
-      this._persistEvent(eventType, line)
+      const seq = this._persistEvent(eventType, line)
       this._broadcast({
         type: 'event',
         jobId: this._jobId,
@@ -311,7 +485,7 @@ export class InteractiveJobSession {
         source: 'stdout',
         payload: line,
         timestamp: new Date().toISOString(),
-        seq: this._eventSeq - 1,
+        seq,
       })
       if (eventType === 'result') {
         this._onTurnResult(parsed)
@@ -336,7 +510,7 @@ export class InteractiveJobSession {
     this._emitLog('stderr', line)
   }
 
-  private _onTurnResult(_parsed: Record<string, unknown>): void {
+  private _onTurnResult(parsed: Record<string, unknown>): void {
     // Count a result only for the in-flight turn, exactly once (BUG-INTJOB-03).
     // `_awaitingResult` alone is insufficient: after a turn settles, the next
     // queued prompt re-arms `_awaitingResult`, so a stray/duplicate result for the
@@ -353,6 +527,11 @@ export class InteractiveJobSession {
     if (this._turnStartMs !== null) {
       this._activeDurationMs += Math.max(0, Date.now() - this._turnStartMs)
       this._turnStartMs = null
+    }
+    // Capture the turn's result text for output chaining (mirrors the one-shot
+    // path's lastResultEvent.result). The LAST completed turn wins.
+    if (typeof parsed.result === 'string') {
+      this._resultText = parsed.result
     }
     const { result: normalised } = finaliseInvocationResult(this._adapter, this._turnEvents, {})
 
@@ -425,13 +604,34 @@ export class InteractiveJobSession {
           this._settle('crashed')
         }
       })
+    } else if (this._settleMode === 'auto' && !this._finalizing) {
+      // AUTO settle-mode: the turn finished with nothing queued behind it —
+      // the session is QUIESCENT, so it settles itself (reason 'finalized' →
+      // QueueManager stamps 'completed'). Deferred to a microtask so anything
+      // in the same synchronous stdout batch is observed first; the re-check
+      // keeps the session alive when a user prompt slipped in meanwhile (a
+      // queued or freshly-written turn extends the session instead).
+      queueMicrotask(() => {
+        if (this._disposed || this._settled || this._finalizing) return
+        if (this._streaming || this._pending.length > 0) return
+        this.finalize()
+      })
     }
   }
 
-  private _persistEvent(eventType: string, payload: string): void {
-    if (!this._db) return
+  /** Draw the next event seq — from the shared allocator when the job row has
+   *  other event writers (loop engine), else the private per-session counter. */
+  private _takeSeq(): number {
+    return this._nextEventSeq ? this._nextEventSeq() : this._eventSeq++
+  }
+
+  /** Persist one raw provider event. Returns the seq it was written under so
+   *  the caller's WS broadcast carries the same ordinal. */
+  private _persistEvent(eventType: string, payload: string): number {
+    const seq = this._takeSeq()
+    if (!this._db) return seq
     try {
-      appendEvent(this._db, this._jobId, this._eventSeq++, {
+      appendEvent(this._db, this._jobId, seq, {
         event_type: eventType,
         source: 'stdout',
         payload,
@@ -439,12 +639,14 @@ export class InteractiveJobSession {
     } catch (err) {
       console.error('[interactive-job] persist event failed:', err)
     }
+    return seq
   }
 
   private _persistLog(source: 'stdout' | 'stderr', line: string): void {
+    const seq = this._takeSeq()
     if (!this._db) return
     try {
-      appendEvent(this._db, this._jobId, this._eventSeq++, {
+      appendEvent(this._db, this._jobId, seq, {
         event_type: 'log',
         source,
         payload: JSON.stringify({ line }),
@@ -537,6 +739,37 @@ export class InteractiveJobSession {
     this._settle(this._finalizing ? 'finalized' : 'crashed')
   }
 
+  // ─── Auto-mode wedge detector ────────────────────────────────────────────────
+
+  private _resetZombieTimer(): void {
+    if (this._zombieTimeoutMs <= 0) return
+    if (this._settled || this._disposed || this._finalizing) return
+    if (this._zombieTimer !== null) clearTimeout(this._zombieTimer)
+    this._zombieTimer = setTimeout(() => {
+      this._zombieTimer = null
+      this._onZombieTimeout()
+    }, this._zombieTimeoutMs)
+  }
+
+  private _clearZombieTimer(): void {
+    if (this._zombieTimer !== null) {
+      clearTimeout(this._zombieTimer)
+      this._zombieTimer = null
+    }
+  }
+
+  /** The child produced NO output for the whole zombie budget — treat it as
+   *  wedged: surface a note, SIGTERM the child (best-effort SIGKILL escalation),
+   *  fold the in-flight turn and settle 'crashed' (via abort). The later 'close'
+   *  is a no-op (settle is idempotent). */
+  private _onZombieTimeout(): void {
+    if (this._settled || this._disposed || this._finalizing) return
+    const timeoutSec = Math.round(this._zombieTimeoutMs / 1000)
+    const note = `[zombie-detection] Interactive job ${this._jobId} produced no output for ${timeoutSec}s — auto-terminating`
+    console.error(note)
+    this.abort(note)
+  }
+
   private _settle(reason: 'finalized' | 'crashed'): void {
     if (this._settled) return
     this._settled = true
@@ -546,6 +779,7 @@ export class InteractiveJobSession {
     this._streaming = false
     this._awaitingResult = false
     this._clearKillTimer()
+    this._clearZombieTimer()
     this._closeReaders()
     // The child is gone — any prompts still queued (turn died without a `result`,
     // or the user finalized mid-turn) can never run. Surface them in the
@@ -556,6 +790,26 @@ export class InteractiveJobSession {
       this._emitLog('stderr', note)
       this._pending = []
     }
+    // Zero-work strictness: judge the WHOLE session's accumulated signals (a
+    // multi-turn session where only the LAST turn was synthetic did real work
+    // and is NOT zero-work). Owners flip a zero-work 'finalized' settle to a
+    // FAILED terminal status; surface WHY here as a visible stderr-style line
+    // (the synthetic frame's result text never reaches the log otherwise —
+    // extractDisplayText drops `result` frames).
+    const zeroWork = isZeroWorkSettle({
+      numTurns: this._accum.num_turns,
+      tokensIn: this._accum.tokens_in,
+      tokensOut: this._accum.tokens_out,
+      tokensCacheRead: this._accum.tokens_cache_read,
+      tokensCacheCreate: this._accum.tokens_cache_create,
+      sawAssistantEvent: this._sawModelWork,
+      resultText: this._resultText,
+    })
+    if (zeroWork && reason === 'finalized') {
+      const note = `✖ Zero work performed — the command never ran${this._resultText ? `: ${this._resultText}` : ''}`
+      this._persistLog('stderr', note)
+      this._emitLog('stderr', note)
+    }
     this._onSettle({
       reason,
       totals: { ...this._accum },
@@ -563,6 +817,8 @@ export class InteractiveJobSession {
       sessionId: this._sessionId,
       estimated: this._inflightEstimated,
       activeDurationMs: this._activeDurationMs,
+      resultText: this._resultText,
+      zeroWork,
     })
   }
 

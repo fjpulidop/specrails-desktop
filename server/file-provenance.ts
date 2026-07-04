@@ -240,6 +240,35 @@ export interface StoredPatch {
   truncated: boolean
 }
 
+/** Upper bound on the patch excerpt stored per intervention in
+ *  file_story_contributions (the full patch stays in file_provenance_diffs). */
+export const STORY_EXCERPT_MAX_BYTES = 4096
+
+/** Count added/removed lines in a unified diff. Skips the `+++`/`---` file
+ *  headers and the `\ No newline` marker so stats reflect content lines only. */
+export function computeDiffStats(patch: string): { added: number; removed: number } {
+  let added = 0
+  let removed = 0
+  for (const line of patch.split('\n')) {
+    if (line.startsWith('+++') || line.startsWith('---')) continue
+    if (line.startsWith('+')) added += 1
+    else if (line.startsWith('-')) removed += 1
+  }
+  return { added, removed }
+}
+
+/** Cap a patch to STORY_EXCERPT_MAX_BYTES on a line boundary. */
+export function excerptPatch(patch: string, capBytes: number = STORY_EXCERPT_MAX_BYTES): string {
+  if (Buffer.byteLength(patch, 'utf8') <= capBytes) return patch
+  let out = ''
+  for (const line of patch.split('\n')) {
+    const candidate = out.length > 0 ? `${out}\n${line}` : line
+    if (Buffer.byteLength(candidate, 'utf8') > capBytes) break
+    out = candidate
+  }
+  return `${out}\n[specrails-desktop] excerpt truncated\n`
+}
+
 function truncatePatch(patch: string): StoredPatch {
   const bytes = Buffer.byteLength(patch, 'utf8')
   if (bytes <= MAX_PATCH_BYTES) return { patch, truncated: false }
@@ -361,6 +390,21 @@ export function recordProvenanceForJob(
   } catch {
     insertPatch = null
   }
+  // Construction-story stats (migration 37): one row per provenance row that had
+  // a collectable patch — added/removed line counts + a ~4KB excerpt. Written in
+  // the SAME transaction so every provenance producer (queue-manager jobs and
+  // the loop-run seam in file-story.ts) records stats with no extra call. The
+  // prepare is guarded like insertPatch so a pre-migration DB degrades cleanly.
+  let insertContribution: any = null
+  try {
+    insertContribution = db.prepare(`
+      INSERT OR REPLACE INTO file_story_contributions
+        (provenance_id, job_id, file_path, added_lines, removed_lines, patch_excerpt)
+      VALUES (?, ?, ?, ?, ?, ?)
+    `)
+  } catch {
+    insertContribution = null
+  }
 
   const inserted: ProvenanceRow[] = []
   const tx = db.transaction((rows: Pending[]) => {
@@ -377,6 +421,17 @@ export function recordProvenanceForJob(
       const storedPatch = patches?.get(r.file_path)
       if (insertPatch && storedPatch) {
         insertPatch.run(Number(result.lastInsertRowid), storedPatch.patch, storedPatch.truncated ? 1 : 0)
+      }
+      if (insertContribution && storedPatch) {
+        const stats = computeDiffStats(storedPatch.patch)
+        insertContribution.run(
+          Number(result.lastInsertRowid),
+          jobId,
+          r.file_path,
+          stats.added,
+          stats.removed,
+          excerptPatch(storedPatch.patch),
+        )
       }
     }
   })

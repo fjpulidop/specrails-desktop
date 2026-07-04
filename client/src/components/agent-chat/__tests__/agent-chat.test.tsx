@@ -33,6 +33,7 @@ vi.mock('../../../lib/agent-api', async (orig) => {
     deleteAgentConversation: vi.fn(async () => {}),
     sendAgentMessage: vi.fn(async () => ({ queued: false })),
     abortAgentTurn: vi.fn(async () => {}),
+    editQueuedAgentMessage: vi.fn(async () => 'saved' as const),
     getMcpStatus: vi.fn(async () => ({ enabled: true, running: true })),
     enableMcp: vi.fn(async () => {}),
     getAgentModels: vi.fn(async (p: string) => ({
@@ -50,6 +51,12 @@ vi.mock('../../../context/WebViewModalContext', () => ({
   useWebViewModal: () => ({ openWebView: mockOpenWebView, canOpenWebView: true }),
 }))
 
+// Queue-edit surfaces its dispatched-race notice via sonner — mock to assert.
+vi.mock('sonner', () => ({
+  toast: Object.assign(vi.fn(), { error: vi.fn(), info: vi.fn(), success: vi.fn() }),
+}))
+
+import { toast } from 'sonner'
 import * as agentApi from '../../../lib/agent-api'
 import { AgentChatProvider, useAgentChat } from '../../../context/AgentChatContext'
 import { __clearComposerDrafts } from '../AgentComposer'
@@ -68,6 +75,7 @@ beforeEach(() => {
   vi.mocked(agentApi.createAgentConversation).mockResolvedValue(api.conv)
   vi.mocked(agentApi.getAgentConversation).mockResolvedValue({ conversation: api.conv, messages: [] })
   vi.mocked(agentApi.getMcpStatus).mockResolvedValue({ enabled: true, running: true })
+  vi.mocked(agentApi.editQueuedAgentMessage).mockResolvedValue('saved')
 })
 
 // ── AgentTierChip ─────────────────────────────────────────────────────────────
@@ -285,6 +293,7 @@ function Harness() {
       <span data-testid="stream">{a.streamingText}</span>
       <span data-testid="tools">{a.liveTools.length}</span>
       <span data-testid="queued">{a.queuedMessages.length}</span>
+      <span data-testid="queued-texts">{a.queuedMessages.map((q) => q.text).join('|')}</span>
       <span data-testid="live-ids">{[...a.streamingConversationIds].sort().join(',')}</span>
       <span data-testid="mcp">{String(a.mcpEnabled)}</span>
       <span data-testid="tier">{a.active?.tier_level ?? -1}</span>
@@ -563,5 +572,162 @@ describe('AgentChatProvider', () => {
       (c) => (c[1] as { tierLevel?: number }).tierLevel !== undefined,
     )
     expect(cycleCalls).toEqual([['c1', { tierLevel: 1 }]])
+  })
+})
+
+// ── Queue-edit mode (↑/↓ navigate + edit queued messages in place) ────────────
+describe('AgentComposer queue-edit mode', () => {
+  /** Open the panel, run one direct turn (streaming), then park `texts` on the
+   *  queue through the composer — the exact user flow that builds a queue. */
+  async function openWithQueuedMessages(texts: string[]): Promise<HTMLTextAreaElement> {
+    vi.mocked(agentApi.sendAgentMessage)
+      .mockResolvedValueOnce({ queued: false }) // first turn runs directly
+      .mockResolvedValue({ queued: true })      // mid-stream sends park
+    render(<AgentChatProvider><Harness /></AgentChatProvider>)
+    await act(async () => { fireEvent.click(screen.getByText('open')) })
+    await act(async () => { fireEvent.click(screen.getByText('send')) })
+    await act(async () => { wsHandler!({ type: 'agent_stream', conversationId: 'c1', delta: 'Working…' }) })
+    const box = screen.getByPlaceholderText('Add more while the agent works — it will queue…') as HTMLTextAreaElement
+    for (const t of texts) {
+      fireEvent.change(box, { target: { value: t } })
+      await act(async () => { fireEvent.keyDown(box, { key: 'Enter' }) })
+    }
+    expect(screen.getByTestId('queued').textContent).toBe(String(texts.length))
+    return box
+  }
+  /** The queueId the composer generated for the Nth parked send (1-based). */
+  function queueIdOf(n: number): string {
+    return (vi.mocked(agentApi.sendAgentMessage).mock.calls[n][2] as { queueId: string }).queueId
+  }
+
+  it('↑ enters queue-edit at the LAST queued item; ↑/↓ move through slots; ↓ past the newest exits', async () => {
+    const box = await openWithQueuedMessages(['first queued', 'second queued'])
+    // ↑ from the empty box → the QUEUE takes precedence over prompt history.
+    fireEvent.keyDown(box, { key: 'ArrowUp' })
+    expect(box.value).toBe('second queued')
+    expect(screen.getByTestId('queue-edit-chip').textContent).toContain('Editing queued message 2 of 2')
+    // ↑ at caret start (pristine) → older slot.
+    box.setSelectionRange(0, 0)
+    fireEvent.keyDown(box, { key: 'ArrowUp' })
+    expect(box.value).toBe('first queued')
+    expect(screen.getByTestId('queue-edit-chip').textContent).toContain('1 of 2')
+    // ↑ at the oldest → stays (no wrap, no history bleed-through).
+    box.setSelectionRange(0, 0)
+    fireEvent.keyDown(box, { key: 'ArrowUp' })
+    expect(box.value).toBe('first queued')
+    // ↓ at caret end → newer slot; ↓ past the newest → exit, empty draft back.
+    box.setSelectionRange(box.value.length, box.value.length)
+    fireEvent.keyDown(box, { key: 'ArrowDown' })
+    expect(box.value).toBe('second queued')
+    box.setSelectionRange(box.value.length, box.value.length)
+    fireEvent.keyDown(box, { key: 'ArrowDown' })
+    expect(box.value).toBe('')
+    expect(screen.queryByTestId('queue-edit-chip')).not.toBeInTheDocument()
+  })
+
+  it('entering queue-edit stashes the un-sent draft; Esc cancels and restores it untouched', async () => {
+    const box = await openWithQueuedMessages(['queued msg'])
+    fireEvent.change(box, { target: { value: 'wip draft' } })
+    box.setSelectionRange(0, 0)
+    fireEvent.keyDown(box, { key: 'ArrowUp' })
+    expect(box.value).toBe('queued msg')
+    fireEvent.change(box, { target: { value: 'queued msg but edited' } })
+    fireEvent.keyDown(box, { key: 'Escape' })
+    expect(box.value).toBe('wip draft') // draft survived the whole round-trip
+    expect(screen.queryByTestId('queue-edit-chip')).not.toBeInTheDocument()
+    // The abandoned edit did NOT touch the parked chip.
+    expect(screen.getByTestId('queued-texts').textContent).toBe('queued msg')
+  })
+
+  it('Enter SAVES the edited slot in place (no new send) and updates the parked chip', async () => {
+    const box = await openWithQueuedMessages(['polish me'])
+    const sendCalls = vi.mocked(agentApi.sendAgentMessage).mock.calls.length
+    fireEvent.keyDown(box, { key: 'ArrowUp' })
+    fireEvent.change(box, { target: { value: 'polished text' } })
+    await act(async () => { fireEvent.keyDown(box, { key: 'Enter' }) })
+    expect(agentApi.editQueuedAgentMessage).toHaveBeenCalledWith('c1', queueIdOf(1), 'polished text')
+    expect(vi.mocked(agentApi.sendAgentMessage).mock.calls.length).toBe(sendCalls) // Enter saved, never sent
+    expect(box.value).toBe('') // empty draft restored
+    expect(screen.queryByTestId('queue-edit-chip')).not.toBeInTheDocument()
+    expect(screen.getByTestId('queued-texts').textContent).toBe('polished text')
+  })
+
+  it('a dirty slot never navigates away on ↑ (keystrokes cannot be lost by an arrow)', async () => {
+    const box = await openWithQueuedMessages(['one', 'two'])
+    fireEvent.keyDown(box, { key: 'ArrowUp' }) // editing 'two'
+    fireEvent.change(box, { target: { value: 'two edited' } })
+    box.setSelectionRange(0, 0)
+    fireEvent.keyDown(box, { key: 'ArrowUp' })
+    expect(box.value).toBe('two edited') // stayed put
+    expect(screen.getByTestId('queue-edit-chip').textContent).toContain('2 of 2')
+  })
+
+  it('409 conflict (already dispatched) exits keeping the text as a draft + informs via toast', async () => {
+    vi.mocked(agentApi.editQueuedAgentMessage).mockResolvedValue('conflict')
+    const box = await openWithQueuedMessages(['racing'])
+    fireEvent.keyDown(box, { key: 'ArrowUp' })
+    fireEvent.change(box, { target: { value: 'edited too late' } })
+    await act(async () => { fireEvent.keyDown(box, { key: 'Enter' }) })
+    expect(toast.info).toHaveBeenCalledWith('That queued message was already sent — your text is kept as a draft')
+    expect(box.value).toBe('edited too late') // NOTHING lost
+    expect(screen.queryByTestId('queue-edit-chip')).not.toBeInTheDocument()
+  })
+
+  it('a save failure keeps the edit mode alive with the text intact (retryable)', async () => {
+    vi.mocked(agentApi.editQueuedAgentMessage).mockRejectedValue(new Error('network down'))
+    const box = await openWithQueuedMessages(['fragile'])
+    fireEvent.keyDown(box, { key: 'ArrowUp' })
+    fireEvent.change(box, { target: { value: 'fragile edited' } })
+    await act(async () => { fireEvent.keyDown(box, { key: 'Enter' }) })
+    expect(toast.error).toHaveBeenCalledWith("Couldn't save the queued message")
+    expect(box.value).toBe('fragile edited')
+    expect(screen.getByTestId('queue-edit-chip')).toBeInTheDocument() // still editing — Enter retries
+  })
+
+  it('drain race: the slot being edited is dispatched mid-edit → toast + dirty text kept as draft', async () => {
+    const box = await openWithQueuedMessages(['about to go'])
+    fireEvent.keyDown(box, { key: 'ArrowUp' })
+    fireEvent.change(box, { target: { value: 'dirty edit in progress' } })
+    await act(async () => {
+      wsHandler!({ type: 'agent_dequeued', conversationId: 'c1', queueId: queueIdOf(1), text: 'about to go' })
+    })
+    expect(toast.info).toHaveBeenCalledWith('That queued message was already sent — your text is kept as a draft')
+    expect(box.value).toBe('dirty edit in progress') // nothing lost
+    expect(screen.queryByTestId('queue-edit-chip')).not.toBeInTheDocument()
+  })
+
+  it('queue cleared (Stop) while editing pristine exits silently and restores the stashed draft', async () => {
+    const box = await openWithQueuedMessages(['parked'])
+    fireEvent.change(box, { target: { value: 'my draft' } })
+    box.setSelectionRange(0, 0)
+    fireEvent.keyDown(box, { key: 'ArrowUp' })
+    await act(async () => { wsHandler!({ type: 'agent_queue_cleared', conversationId: 'c1' }) })
+    expect(toast.info).not.toHaveBeenCalled() // self-initiated Stop — no notice
+    expect(box.value).toBe('my draft')
+    expect(screen.queryByTestId('queue-edit-chip')).not.toBeInTheDocument()
+  })
+
+  it('agent_queue_edited from another window updates the parked chip text', async () => {
+    await openWithQueuedMessages(['original'])
+    await act(async () => {
+      wsHandler!({ type: 'agent_queue_edited', conversationId: 'c1', queueId: queueIdOf(1), text: 'rewritten elsewhere' })
+    })
+    expect(screen.getByTestId('queued-texts').textContent).toBe('rewritten elsewhere')
+  })
+
+  it('regression pin: with NO queue the arrows still drive prompt history exactly as before', async () => {
+    vi.mocked(agentApi.listAgentConversations).mockResolvedValue([api.conv])
+    vi.mocked(agentApi.getAgentConversation).mockResolvedValue({
+      conversation: api.conv,
+      messages: [{ id: 'u1', conversation_id: 'c1', role: 'user', content: 'past prompt', created_at: '' }],
+    })
+    render(<AgentChatProvider><Harness /></AgentChatProvider>)
+    await act(async () => { fireEvent.click(screen.getByText('open')) })
+    const box = (await screen.findByPlaceholderText('Ask the agent to do anything…')) as HTMLTextAreaElement
+    fireEvent.keyDown(box, { key: 'ArrowUp' })
+    expect(box.value).toBe('past prompt') // history, not queue-edit
+    expect(screen.queryByTestId('queue-edit-chip')).not.toBeInTheDocument()
+    fireEvent.keyDown(box, { key: 'ArrowDown' })
+    expect(box.value).toBe('')
   })
 })

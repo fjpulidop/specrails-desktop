@@ -69,6 +69,40 @@
       "tooLarge": "file too large"
     }
   },
+  "story": {
+    "title_one": "Construction story · {{count}} chapter",
+    "title_other": "Construction story · {{count}} chapters",
+    "viewMode": "Story view mode",
+    "modeStory": "Story",
+    "modeLog": "Log",
+    "loading": "Loading the story…",
+    "loadFailed": "Could not load the story.",
+    "empty": "No AI interventions recorded for this file yet.",
+    "spec": "Spec #{{ticketId}}",
+    "unknownSpec": "AI change without a spec",
+    "openSpec": "Open spec #{{ticketId}}",
+    "kindLabel": {
+      "created": "Created",
+      "modified": "Modified",
+      "deleted": "Deleted"
+    },
+    "fallback": {
+      "created": "This file was created while implementing this spec.",
+      "modified": "This file was modified while implementing this spec.",
+      "deleted": "This file was deleted while implementing this spec.",
+      "createdNoSpec": "This file was created by an AI job.",
+      "modifiedNoSpec": "This file was modified by an AI job.",
+      "deletedNoSpec": "This file was deleted by an AI job."
+    },
+    "explain": "Explain this change",
+    "explaining": "Explaining…",
+    "explainFailed": "Could not generate the explanation",
+    "budgetReached": "Monthly AI budget reached.",
+    "generateAnyway": "Generate anyway",
+    "explainedBy": "Explained by {{model}}",
+    "linesAdded": "Lines added",
+    "linesRemoved": "Lines removed"
+  },
   "history": {
     "resize": "Resize AI touch history",
     "title_one": "AI touch history · {{count}} change",

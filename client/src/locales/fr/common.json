@@ -47,7 +47,8 @@
     "completed": "Terminé",
     "failed": "Échec",
     "canceled": "Annulé",
-    "draft": "Brouillon"
+    "draft": "Brouillon",
+    "onReview": "En révision"
   },
   "modal": {
     "resize": {

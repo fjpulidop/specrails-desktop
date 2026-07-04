@@ -136,4 +136,36 @@ describe('tool catalog smoke (all domains)', () => {
     const res = (await rails.handler(ctx, { action: 'launch', projectId: 'p1', railIndex: 0, mode: 'implement', ticketIds: [1] })) as { hint?: string }
     expect(res.hint).toMatch(/specrails_watch/)
   })
+
+  // Origin link (safe-pr-review-flow): a launch driven by the in-app agent tags
+  // itself with the launching conversation so the PR-decision card fires there.
+  describe('rails launch origin link', () => {
+    const launchBody = (): Record<string, unknown> => {
+      const call = fetchMock.mock.calls.find(([url]) => String(url).includes('/rails/0/launch'))
+      expect(call).toBeTruthy()
+      return JSON.parse((call![1] as { body: string }).body)
+    }
+
+    it('includes originConversationId + originSurface=agent-chat when the ctx carries the id', async () => {
+      const rails = buildToolSpecs().find((s) => s.name === 'specrails_rails')!
+      await rails.handler({ ...ctx, originConversationId: 'conv-42' }, { action: 'launch', projectId: 'p1', railIndex: 0 })
+      expect(launchBody()).toMatchObject({ originConversationId: 'conv-42', originSurface: 'agent-chat' })
+    })
+
+    it('omits both fields when the ctx has no id (external client / dashboard)', async () => {
+      const rails = buildToolSpecs().find((s) => s.name === 'specrails_rails')!
+      await rails.handler(ctx, { action: 'launch', projectId: 'p1', railIndex: 0 })
+      const body = launchBody()
+      expect(body).not.toHaveProperty('originConversationId')
+      expect(body).not.toHaveProperty('originSurface')
+    })
+
+    it('omits both fields when the ctx id sanitized to null (malformed header)', async () => {
+      const rails = buildToolSpecs().find((s) => s.name === 'specrails_rails')!
+      await rails.handler({ ...ctx, originConversationId: null }, { action: 'launch', projectId: 'p1', railIndex: 0 })
+      const body = launchBody()
+      expect(body).not.toHaveProperty('originConversationId')
+      expect(body).not.toHaveProperty('originSurface')
+    })
+  })
 })

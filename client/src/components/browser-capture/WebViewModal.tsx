@@ -1,10 +1,16 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { useTranslation } from 'react-i18next'
-import { ArrowLeft, ArrowRight, RotateCw, Globe, X, AlertTriangle } from 'lucide-react'
+import { ArrowLeft, ArrowRight, RotateCw, Globe, X, AlertTriangle, ExternalLink } from 'lucide-react'
 import { Button } from '../ui/button'
 import { useBrowserCaptureSession } from './useBrowserCaptureSession'
-import { mapPointToViewport, type BrowserInputEvent } from '../../lib/browser-capture'
+import {
+  mapPointToViewport,
+  createPointerInputCoalescer,
+  popupOriginLabel,
+  type BrowserInputEvent,
+  type PointerInputCoalescer,
+} from '../../lib/browser-capture'
 
 interface WebViewModalProps {
   open: boolean
@@ -27,8 +33,21 @@ interface WebViewModalProps {
 export function WebViewModal({ open, url, projectId, onClose }: WebViewModalProps) {
   const { t } = useTranslation('browser')
   const session = useBrowserCaptureSession({ projectId, open, initialUrl: url })
-  const { canvasRef, viewport, status, errorMsg, url: pageUrl, title } = session
+  const { canvasRef, viewport, status, errorMsg, url: pageUrl, title, popup } = session
   const [addressValue, setAddressValue] = useState(url)
+
+  // Browse input coalescer (same rationale as BrowserCaptureModal): pointermove
+  // newest-wins + wheel deltas summed, ≤1 of each per animation frame.
+  const forwardInputRef = useRef(session.forwardInput)
+  forwardInputRef.current = session.forwardInput
+  const coalescerRef = useRef<PointerInputCoalescer | null>(null)
+  const getCoalescer = useCallback((): PointerInputCoalescer => {
+    if (coalescerRef.current == null) {
+      coalescerRef.current = createPointerInputCoalescer((e: BrowserInputEvent) => forwardInputRef.current(e))
+    }
+    return coalescerRef.current
+  }, [])
+  useEffect(() => () => { coalescerRef.current?.dispose(); coalescerRef.current = null }, [])
 
   // Reflect the page's real URL (after redirects / in-page navigation).
   useEffect(() => { if (pageUrl) setAddressValue(pageUrl) }, [pageUrl])
@@ -51,20 +70,26 @@ export function WebViewModal({ open, url, projectId, onClose }: WebViewModalProp
 
   const onPointerMove = useCallback((e: React.PointerEvent) => {
     const p = toViewport(e.clientX, e.clientY)
-    session.forwardInput({ type: 'mouse', action: 'move', x: p.x, y: p.y })
-  }, [toViewport, session])
+    getCoalescer().move(p.x, p.y)
+  }, [toViewport, getCoalescer])
   const onPointerDown = useCallback((e: React.PointerEvent) => {
     const p = toViewport(e.clientX, e.clientY)
+    const c = getCoalescer()
+    c.move(p.x, p.y)
+    c.flush()
     session.forwardInput({ type: 'mouse', action: 'down', x: p.x, y: p.y, button: buttonOf(e.button), clickCount: e.detail || 1 })
-  }, [toViewport, session])
+  }, [toViewport, session, getCoalescer])
   const onPointerUp = useCallback((e: React.PointerEvent) => {
     const p = toViewport(e.clientX, e.clientY)
+    const c = getCoalescer()
+    c.move(p.x, p.y)
+    c.flush()
     session.forwardInput({ type: 'mouse', action: 'up', x: p.x, y: p.y, button: buttonOf(e.button), clickCount: e.detail || 1 })
-  }, [toViewport, session])
+  }, [toViewport, session, getCoalescer])
   const onWheel = useCallback((e: React.WheelEvent) => {
     const p = toViewport(e.clientX, e.clientY)
-    session.forwardInput({ type: 'wheel', x: p.x, y: p.y, deltaX: e.deltaX, deltaY: e.deltaY })
-  }, [toViewport, session])
+    getCoalescer().wheel(p.x, p.y, e.deltaX, e.deltaY)
+  }, [toViewport, getCoalescer])
 
   const onKeyDown = useCallback((e: React.KeyboardEvent) => {
     if (e.key === 'Escape') return
@@ -145,6 +170,39 @@ export function WebViewModal({ open, url, projectId, onClose }: WebViewModalProp
             {status === 'connecting' ? t('modal.status.connecting') : status === 'error' ? (errorMsg ?? t('modal.status.unavailable')) : (title || '')}
           </span>
         </div>
+
+        {/* Popup (OAuth login window) bar — mirrors BrowserCaptureModal. */}
+        {popup && (
+          <div
+            data-testid="webview-popup-bar"
+            className={`flex items-center gap-2 px-3 py-1.5 text-xs border-b shrink-0 ${popup.active ? 'bg-accent-info/10 border-accent-info/30 text-accent-info' : 'bg-surface/70 border-border/40 text-muted-foreground'}`}
+          >
+            <ExternalLink className="w-3.5 h-3.5 shrink-0" />
+            {popup.active ? (
+              <>
+                <span className="truncate font-medium">{t('popup.loginWindow', { origin: popupOriginLabel(popup.url) })}</span>
+                {popup.count > 1 && <span className="shrink-0 opacity-70">{t('popup.stacked', { count: popup.count - 1 })}</span>}
+                <button
+                  type="button"
+                  onClick={() => session.setPopupView('root')}
+                  className="ml-auto shrink-0 inline-flex items-center gap-1 h-6 px-2 rounded-md border border-current/30 hover:bg-card/60 transition-colors"
+                >
+                  <ArrowLeft className="w-3 h-3" />
+                  {t('popup.backToPage')}
+                </button>
+              </>
+            ) : (
+              <button
+                type="button"
+                onClick={() => session.setPopupView('popup')}
+                className="inline-flex items-center gap-1 h-6 px-2 rounded-md border border-border/50 hover:bg-card/60 hover:text-foreground transition-colors"
+              >
+                {t('popup.show')}
+                {popup.count > 1 && <span className="opacity-70">{t('popup.stacked', { count: popup.count - 1 })}</span>}
+              </button>
+            )}
+          </div>
+        )}
 
         {/* Viewport (browse-only) */}
         {/* eslint-disable-next-line jsx-a11y/no-noninteractive-tabindex */}

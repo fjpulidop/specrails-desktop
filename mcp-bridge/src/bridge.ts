@@ -22,6 +22,28 @@ export function appUrl(): URL {
   return new URL(`http://127.0.0.1:${port}/api/mcp`)
 }
 
+/**
+ * The in-app agent chat spawns this bridge with per-conversation context in env;
+ * forward each var as a loopback-only header so the app's tool guard can read it
+ * per request. External MCP clients (Claude Desktop, Cursor, …) spawn the bridge
+ * without any SPECRAILS_AGENT_* env → no headers → unchanged behaviour.
+ * NOTE: the bridge is a separate package and cannot import server/agent-tier.ts —
+ * the env/header names are deliberately duplicated string literals (keep in sync).
+ *   SPECRAILS_AGENT_TIER          → x-specrails-agent-tier          (Shift+Tab ladder)
+ *   SPECRAILS_ACTIVE_PROJECT      → x-specrails-active-project      (pinned project)
+ *   SPECRAILS_AGENT_CONVERSATION  → x-specrails-agent-conversation  (PR-decision origin link)
+ */
+export function agentForwardHeaders(env: NodeJS.ProcessEnv = process.env): Record<string, string> {
+  const headers: Record<string, string> = {}
+  const agentTier = env.SPECRAILS_AGENT_TIER
+  if (agentTier && agentTier.trim()) headers['x-specrails-agent-tier'] = agentTier.trim()
+  const activeProject = env.SPECRAILS_ACTIVE_PROJECT
+  if (activeProject && activeProject.trim()) headers['x-specrails-active-project'] = activeProject.trim()
+  const agentConversation = env.SPECRAILS_AGENT_CONVERSATION
+  if (agentConversation && agentConversation.trim()) headers['x-specrails-agent-conversation'] = agentConversation.trim()
+  return headers
+}
+
 function isUnreachable(err: unknown): boolean {
   const msg = err instanceof Error ? err.message : String(err)
   return /ECONNREFUSED|fetch failed|ENOTFOUND|ECONNRESET|socket hang up/i.test(msg)

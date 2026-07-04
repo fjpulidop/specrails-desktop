@@ -208,6 +208,44 @@ describe('TicketGridView', () => {
 
       expect(onStatusChange).not.toHaveBeenCalled()
     })
+
+    it('dropping a todo ticket onto an on_review neighbour is a same-column no-op (on_review resolves to todo)', () => {
+      const onStatusChange = vi.fn()
+      const tickets = [
+        makeTicket({ id: 1, status: 'todo' }),
+        makeTicket({ id: 2, status: 'on_review' }),
+      ]
+      render(<TicketGridView {...makeDefaultProps({ tickets, onStatusChange })} />)
+
+      capturedDragCallbacks.onDragEnd?.({
+        active: { id: 'ticket-1' },
+        over: { id: 'ticket-2' },
+      })
+
+      // Both live in the Todo column, so no status PATCH may fire — otherwise a
+      // drop next to an on_review spec would move the dragged ticket into a
+      // pipeline-owned status.
+      expect(onStatusChange).not.toHaveBeenCalled()
+    })
+  })
+
+  describe('on_review tickets', () => {
+    it('buckets an on_review ticket into the Todo column (no crash, no extra column)', () => {
+      const tickets = [makeTicket({ id: 5, title: 'PR pending', status: 'on_review' })]
+      render(<TicketGridView {...makeDefaultProps({ tickets })} />)
+      // Renders inside the existing three-column grid — the Todo column hosts it.
+      expect(screen.getByText('PR pending')).toBeDefined()
+      expect(screen.getByText('Nothing in progress')).toBeDefined()
+      expect(screen.getByText('No completed tickets')).toBeDefined()
+    })
+
+    it('renders the On Review pill with accent-warning tokens on the card', () => {
+      const tickets = [makeTicket({ id: 5, title: 'PR pending', status: 'on_review', priority: 'high' })]
+      render(<TicketGridView {...makeDefaultProps({ tickets })} />)
+      const pill = screen.getByTestId('on-review-pill-grid-5')
+      expect(pill.textContent).toBe('On Review')
+      expect(pill.className).toContain('text-accent-warning')
+    })
   })
 
   describe('cancelled tickets row', () => {

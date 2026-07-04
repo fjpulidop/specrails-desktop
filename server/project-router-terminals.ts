@@ -401,6 +401,23 @@ export function registerTerminalsRoutes(deps: ProjectRoutesDeps): void {
     }
   })
 
+  // Switch the viewed page between the root page and the top popup (OAuth login
+  // window). Low-rate UI action → REST, not the WS control channel.
+  router.post('/:projectId/browser/sessions/:id/popup-view', requireBrowserCaptureEnabled, (req: Request, res: Response) => {
+    const mgr = ctx(req).browserCaptureManager
+    const target = req.body?.target
+    if (target !== 'root' && target !== 'popup') {
+      res.status(400).json({ error: 'target must be root | popup' })
+      return
+    }
+    const ok = mgr.setPopupView(req.params.id as string, target)
+    if (!ok) {
+      res.status(404).json({ error: 'browser_session_not_found' })
+      return
+    }
+    res.json({ ok: true })
+  })
+
   router.delete('/:projectId/browser/sessions/:id', requireBrowserCaptureEnabled, async (req: Request, res: Response) => {
     const mgr = ctx(req).browserCaptureManager
     const ok = await mgr.kill(req.params.id as string)

@@ -1,16 +1,21 @@
 import { useEffect, useState, useCallback, useRef } from 'react'
+import { createPortal } from 'react-dom'
 import { formatDistanceToNow } from 'date-fns'
 import { useTranslation } from 'react-i18next'
 import { getApiBase } from '../lib/api'
+import { API_ORIGIN } from '../lib/origin'
 import { getDateFnsLocale } from '../lib/i18n'
 import { toast } from 'sonner'
-import { X, ExternalLink } from 'lucide-react'
+import { X, Loader2 } from 'lucide-react'
+import { cancelJob, cancelKindForJob } from '../lib/cancel-job'
 import { Badge } from './ui/badge'
 import { Button } from './ui/button'
 import { Tooltip, TooltipContent, TooltipTrigger, TooltipProvider } from './ui/tooltip'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from './ui/dialog'
 import { PipelineProgress } from './PipelineProgress'
 import { LogViewer } from './LogViewer'
+import { LoopStepExplorer } from './loop-log/LoopStepExplorer'
+import { InteractiveJobComposer } from './InteractiveJobComposer'
 import { useMovableResizableModal } from '../hooks/useMovableResizableModal'
 import { ResizeGrips } from './ui/ResizeGrips'
 import { useWebSocket } from '../hooks/useWebSocket'
@@ -45,10 +50,20 @@ const STATUS_BADGE: Record<string, { variant: BadgeVariant; labelKey: string; to
 interface JobDetailModalProps {
   jobId: string
   onClose: () => void
+  /** Explicit project scope (agent-chat ref chips — the conversation's pinned
+   *  project, which may differ from the active one). Defaults to the active
+   *  project via `getApiBase()` — board-mode callers are unchanged. */
+  projectId?: string
 }
 
-export function JobDetailModal({ jobId, onClose }: JobDetailModalProps) {
+export function JobDetailModal({ jobId, onClose, projectId }: JobDetailModalProps) {
   const { t } = useTranslation('jobs')
+  // Lazy so the no-explicit-projectId path keeps getApiBase()'s call-time
+  // resolution (it throws when no project is active — never during render).
+  const apiBase = useCallback(
+    () => (projectId ? `${API_ORIGIN}/api/projects/${projectId}` : getApiBase()),
+    [projectId],
+  )
   const [job, setJob] = useState<JobSummary | null>(null)
   const [events, setEvents] = useState<EventRow[]>([])
   const [phaseDefinitions, setPhaseDefinitions] = useState<PhaseDefinition[]>([])
@@ -56,12 +71,13 @@ export function JobDetailModal({ jobId, onClose }: JobDetailModalProps) {
   const [isLoading, setIsLoading] = useState(true)
   const [notFound, setNotFound] = useState(false)
   const [showCancelConfirm, setShowCancelConfirm] = useState(false)
+  const [isCanceling, setIsCanceling] = useState(false)
 
   // Fetch initial job data + historical events
   useEffect(() => {
     async function loadJob() {
       try {
-        const res = await fetch(`${getApiBase()}/jobs/${jobId}`)
+        const res = await fetch(`${apiBase()}/jobs/${jobId}`)
         if (res.status === 404) {
           setNotFound(true)
           return
@@ -85,7 +101,18 @@ export function JobDetailModal({ jobId, onClose }: JobDetailModalProps) {
       }
     }
     loadJob()
-  }, [jobId])
+  }, [jobId, apiBase])
+
+  // Tolerant job-row refetch (interactive settle / status flips): only replaces
+  // the job — a transient failure never blanks the already-rendered modal.
+  const refetchJob = useCallback(() => {
+    fetch(`${apiBase()}/jobs/${jobId}`)
+      .then((r) => (r.ok ? r.json() : null))
+      .then((data: { job: JobSummary } | null) => {
+        if (data?.job) setJob(data.job)
+      })
+      .catch(() => {})
+  }, [jobId, apiBase])
 
   // ── Batched event accumulation (flush via rAF → max ~60 updates/sec) ────
   const pendingEventsRef = useRef<EventRow[]>([])
@@ -121,18 +148,25 @@ export function JobDetailModal({ jobId, onClose }: JobDetailModalProps) {
       }
       pendingEventsRef.current.push(eventRow)
       if (!rafIdRef.current) rafIdRef.current = requestAnimationFrame(flushEvents)
-    } else if (msg.type === 'log' && msg.processId === jobId && msg.source === 'stderr') {
+    } else if (msg.type === 'log' && msg.processId === jobId) {
+      // Append BOTH stdout and stderr live log frames — matching JobDetailPage's
+      // handler. The old stderr-only filter froze live stdout in mission mode
+      // (loop-run lines, which stream as `log` frames, never grew the modal).
       const syntheticEvent: EventRow = {
         id: Date.now(),
         job_id: jobId,
         seq: 0,
         event_type: 'log',
-        source: 'stderr',
+        source: msg.source as string,
         payload: JSON.stringify({ line: msg.line }),
         timestamp: msg.timestamp as string,
       }
       pendingEventsRef.current.push(syntheticEvent)
       if (!rafIdRef.current) rafIdRef.current = requestAnimationFrame(flushEvents)
+    } else if (msg.type === 'job.finalized' && msg.jobId === jobId) {
+      // The interactive session settled — refetch the authoritative row so the
+      // header flips to the terminal status and the composer unmounts.
+      refetchJob()
     } else if (msg.type === 'phase') {
       const phaseName = msg.phase as string
       const phaseState = msg.state as PhaseState
@@ -144,7 +178,7 @@ export function JobDetailModal({ jobId, onClose }: JobDetailModalProps) {
         setJob((prev) => prev ? { ...prev, status: matchingJob.status as JobSummary['status'] } : prev)
       }
     }
-  }, [jobId, job, flushEvents])
+  }, [jobId, job, flushEvents, refetchJob])
 
   useWebSocket(WS_URL, handleMessage)
 
@@ -157,17 +191,32 @@ export function JobDetailModal({ jobId, onClose }: JobDetailModalProps) {
     return () => window.removeEventListener('keydown', handleKey)
   }, [onClose])
 
+  // Cancel idiom: loop runs → "Stop", interactive sessions → "Discard" (the
+  // same relabel JobDetailPage uses), everything else → "Cancel". ALL kinds
+  // go through the shared manager-aware helper (DELETE /jobs/:id — the server
+  // dispatches to LoopRunManager or QueueManager by owner).
+  const cancelKind = job ? cancelKindForJob(job) : 'job'
+  const isLoopRun = cancelKind === 'loop-run'
+
   async function handleCancel() {
+    setIsCanceling(true)
     try {
-      const res = await fetch(`${getApiBase()}/jobs/${jobId}`, { method: 'DELETE' })
-      if (res.ok) {
-        toast.success(t('modal.toast.cancelSignalSent'), { description: t('modal.toast.cancelSignalSentDescription') })
+      const outcome = await cancelJob({ projectId: projectId ?? null, jobId, kind: cancelKind })
+      if (outcome.ok) {
+        toast.success(
+          isLoopRun ? t('modal.toast.stopSignalSent') : t('modal.toast.cancelSignalSent'),
+          { description: isLoopRun ? t('modal.toast.stopSignalSentDescription') : t('modal.toast.cancelSignalSentDescription') },
+        )
+        // Reconcile immediately — the WS `job.finalized` refetch still applies
+        // when the run settles later, but don't depend on it exclusively.
+        refetchJob()
       } else {
-        const data = await res.json() as { error?: string }
-        toast.error(t('modal.toast.cancelFailed'), { description: data.error })
+        // Surface EVERY failure with detail (the quota incident hid a failing
+        // request behind a generic toast — never mask what the server said).
+        toast.error(t('modal.toast.cancelFailed'), { description: outcome.error })
       }
-    } catch {
-      toast.error(t('modal.toast.networkError'))
+    } finally {
+      setIsCanceling(false)
     }
   }
 
@@ -176,12 +225,19 @@ export function JobDetailModal({ jobId, onClose }: JobDetailModalProps) {
 
   const { panelRef, panelStyle, headerHandleProps, resizeHandles, isFloating, guardBackdrop } = useMovableResizableModal()
 
-  return (
+  return createPortal(
+    // PORTAL to document.body: agent-chat job-ref chips mount this from INSIDE
+    // the floating AgentChatPanel, whose backdrop-filter/transform makes it the
+    // containing block for fixed descendants — without the portal the modal is
+    // positioned against the panel and clipped by its overflow-hidden (looks
+    // like "nothing opened"). z-[65]: above the panel (z-[60]/z-[61]), below
+    // the MinimizedChatsDock (z-[70]) and browser-capture portals (z-[80]).
+    //
     // Own TooltipProvider: this modal mounts from trees WITHOUT one (the
     // Agent-Mode surface bypasses ProjectLayout) — without it Radix throws and
     // blanks the whole app on open.
     <TooltipProvider delayDuration={400}>
-    <div className="fixed inset-0 z-50 flex items-stretch justify-center">
+    <div className="fixed inset-0 z-[65] flex items-stretch justify-center">
       {/* Backdrop */}
       <div
         className="absolute inset-0 bg-black/50 backdrop-blur-sm"
@@ -238,25 +294,17 @@ export function JobDetailModal({ jobId, onClose }: JobDetailModalProps) {
                 variant="ghost"
                 size="sm"
                 onClick={() => setShowCancelConfirm(true)}
+                disabled={isCanceling}
                 className="h-7 text-destructive hover:text-destructive hover:bg-destructive/10"
               >
-                {t('common:actions.cancel')}
+                {isCanceling && <Loader2 className="w-3.5 h-3.5 mr-1.5 animate-spin" aria-hidden />}
+                {isLoopRun
+                  ? t('dashboard:railControls.stop')
+                  : cancelKind === 'interactive'
+                    ? t('common:actions.discard')
+                    : t('common:actions.cancel')}
               </Button>
             )}
-
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <a
-                  href={`/jobs/${jobId}`}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="h-7 w-7 flex items-center justify-center rounded-md text-muted-foreground hover:text-foreground hover:bg-surface/50 transition-colors"
-                >
-                  <ExternalLink className="w-3.5 h-3.5" />
-                </a>
-              </TooltipTrigger>
-              <TooltipContent>{t('modal.openInNewTab')}</TooltipContent>
-            </Tooltip>
 
             <button
               onClick={onClose}
@@ -273,10 +321,33 @@ export function JobDetailModal({ jobId, onClose }: JobDetailModalProps) {
             <div className="flex items-center justify-center h-full">
               <p className="text-sm text-muted-foreground">{t('modal.notFound')}</p>
             </div>
+          ) : job?.command.startsWith('loop:') ? (
+            <LoopStepExplorer
+              events={events}
+              jobStatus={job.status}
+              isLoading={isLoading}
+              variant="glass"
+              projectId={projectId}
+            />
           ) : (
-            <LogViewer events={events} isLoading={isLoading} />
+            <LogViewer events={events} isLoading={isLoading} projectId={projectId} />
           )}
         </div>
+
+        {/* Interactive in-job agent composer — the SAME control the board's Job
+            Detail page mounts, so a mission-mode user steers the running job
+            without leaving the workspace. */}
+        {job?.interactive && job.status === 'running' && (
+          <InteractiveJobComposer
+            jobId={jobId}
+            projectId={projectId}
+            settleMode={job.interactiveSettleMode}
+            initialAcceptingTurns={job.interactiveAcceptingTurns}
+            kind={job.command.startsWith('loop:') ? 'loop-step' : 'job'}
+            variant="glass"
+            onFinalized={refetchJob}
+          />
+        )}
       </div>
 
       <ResizeGrips handles={resizeHandles} />
@@ -285,9 +356,9 @@ export function JobDetailModal({ jobId, onClose }: JobDetailModalProps) {
       <Dialog open={showCancelConfirm} onOpenChange={setShowCancelConfirm}>
         <DialogContent className="max-w-sm">
           <DialogHeader>
-            <DialogTitle>{t('modal.cancelConfirmTitle')}</DialogTitle>
+            <DialogTitle>{isLoopRun ? t('modal.stopRunConfirmTitle') : t('modal.cancelConfirmTitle')}</DialogTitle>
             <DialogDescription>
-              {t('modal.cancelConfirmDescription')}
+              {isLoopRun ? t('modal.stopRunConfirmDescription') : t('modal.cancelConfirmDescription')}
             </DialogDescription>
           </DialogHeader>
           <DialogFooter>
@@ -299,12 +370,17 @@ export function JobDetailModal({ jobId, onClose }: JobDetailModalProps) {
               size="sm"
               onClick={() => { setShowCancelConfirm(false); handleCancel() }}
             >
-              {t('modal.cancelJob')}
+              {isLoopRun
+                ? t('modal.stopRun')
+                : cancelKind === 'interactive'
+                  ? t('common:actions.discard')
+                  : t('modal.cancelJob')}
             </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
     </div>
-    </TooltipProvider>
+    </TooltipProvider>,
+    document.body,
   )
 }

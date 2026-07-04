@@ -37,6 +37,12 @@ Un par de salvaguardas mantienen los costes a raya: la generación de resúmenes
 
 También puedes elegir el **idioma del resumen** (inglés o español) en los ajustes globales, dentro del área *Code section*.
 
+## La historia de construcción
+
+Bajo el visor de código vive la **historia de construcción**: una línea de tiempo cronológica con cada spec y cada trabajo que construyó el archivo que estás viendo. Cada capítulo es una tarjeta: qué spec intervino (con su estado actual), cuándo, si el archivo se creó, se modificó o se eliminó, y el tamaño del cambio (líneas añadidas y eliminadas). Haz clic en una tarjeta para abrir el detalle de esa spec. Los raíles basados en loops también registran los archivos que tocan, así que el trabajo hecho en worktrees aislados aparece en la historia igual que los trabajos normales del pipeline.
+
+Para cualquier capítulo puedes pedir una explicación en lenguaje llano: pulsa **Explicar este cambio** y la app escribe de una a tres frases describiendo qué aportó ese cambio concreto al archivo, sin código ni jerga. Las explicaciones comparten el mismo presupuesto mensual que los resúmenes de archivos, y mientras no se genere una, la tarjeta recurre a los hechos que conoce: el tipo de cambio, la spec y la fecha. ¿Prefieres los datos en crudo? Un selector **Historia / Registro** cambia a la lista clásica de cambios con diffs bajo demanda. El mismo panel aparece en la vista **Files** del modo Agente.
+
 ## Conectar el código con las specs
 
 El vínculo de procedencia funciona en ambos sentidos. Dentro del Code explorer, hacer clic en el chip de un ticket sobre un archivo abre el detalle de ese ticket. Y en sentido inverso, la vista de **detalle del ticket** tiene una sección *Archivos tocados por este ticket*: haz clic en un archivo ahí y saltas directo al Code explorer con él abierto. Cierra el círculo entre "esta es la spec que escribimos" y "este es el código que salió de ella".

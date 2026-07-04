@@ -47,7 +47,8 @@
     "completed": "Abgeschlossen",
     "failed": "Fehlgeschlagen",
     "canceled": "Abgebrochen",
-    "draft": "Entwurf"
+    "draft": "Entwurf",
+    "onReview": "In Prüfung"
   },
   "modal": {
     "resize": {

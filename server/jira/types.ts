@@ -12,8 +12,8 @@ export type JiraDeployment = 'cloud' | 'dc'
 /** Atlassian status categories — the only globally-stable status anchors. */
 export type JiraStatusCategory = 'new' | 'indeterminate' | 'done'
 
-/** The four logical Specrails states that map onto a customer workflow. */
-export type SpecLogicalState = 'todo' | 'in_progress' | 'done' | 'cancelled'
+/** The five logical Specrails states that map onto a customer workflow. */
+export type SpecLogicalState = 'todo' | 'in_progress' | 'on_review' | 'done' | 'cancelled'
 
 /** Outbox operation kinds. */
 export type OutboxOpType = 'transition' | 'comment' | 'create' | 'update'

@@ -55,7 +55,7 @@ Beyond the built-ins, the **Loops** section (left sidebar, above the project lis
 
 Each run is bounded by **max iterations**, a wall-clock **timeout**, and an optional **cost cap** (USD, checked between steps). The builder also has live validation, a dry-run preview (resolve every step's exact text without spawning), import/export to JSON, and copy/paste of steps across loops. **Fork** a built-in to start from a working graph, then **Publish** to make a loop selectable on any rail.
 
-> Loop runs stream live in the Jobs view exactly like a normal rail job. Provider/model/effort are governed by the **rail**, not the loop's steps.
+> Loop runs stream live in the Jobs view like any rail job — and the Job Detail view groups a loop's log **by step**: a live chip map of the graph on top, one collapsible section per step below, with follow mode tracking the running step. Provider/model/effort are governed by the **rail**, not the loop's steps.
 
 ### Pipeline phases
 
@@ -76,7 +76,7 @@ Each phase is a specialised agent invoked by the rail's engine (Claude, Codex, o
 
 In plain terms: the project's **agent profile** decides which AI agent handles each phase. The baseline trio (`sr-architect`, `sr-developer`, `sr-reviewer`) is always present; a profile's routing rules can add extra agents or swap which one runs a phase. The phase progress bar only renders when the command defines phases. For the full format, see [internals/profiles.md](internals/profiles.md).
 
-**How the Ship phase delivers.** By default (`SPECRAILS_RAIL_DELIVER_PR` on — set `0`/`false`/`off` to disable) a rail runs in an isolated git worktree off your project's designated integration branch (*Settings → Integration branch*, defaults to the repo default branch), and on finish assembles its branches into **one draft pull request** — combined across every spec on the rail, with per-ticket commit history preserved. specrails never merges and never modifies your working tree; the dashboard surfaces the draft PR with **Open PR** and **Approve** (promote to ready-for-review), and a human owns the merge in GitHub. Opening the PR needs `gh` authenticated + a remote; otherwise the work is committed to a branch you can PR from yourself. When the flow is disabled, the rail integrates its branches locally instead (the legacy behaviour). This is desktop-owned: specrails-core's `implement` is told to skip its own shipping (`SPECRAILS_GIT_AUTO=false`) so it never opens a second, uncoordinated PR.
+**How the work is delivered (ask-first).** By default (`SPECRAILS_RAIL_DELIVER_PR` on — set `0`/`false`/`off` to disable) a rail runs in isolated git worktree(s) off your project's designated integration branch (*Settings → Integration branch*, defaults to the repo default branch). When the run finishes, **nothing is pushed and no PR is opened yet**: the work stays committed on its isolated branches, the specs move to a new **On Review** status, and the app asks you what to do — a persistent decision bar appears on the rail with **Create PR** and **Discard**. **Create PR** assembles the branches into **one draft pull request** — combined across every spec on the rail, with per-ticket commit history preserved; you can then **Approve** it (promote to ready-for-review) and later **Check merge** — once a human merges it in GitHub, the specs flip to Done. **Discard** cleans up the worktrees and branches and returns the specs to the backlog. specrails never merges and never modifies your working tree; a human owns the merge. Creating the PR needs `gh` authenticated + a remote; otherwise the work is still committed to a branch you can PR from yourself (the bar offers a retry). When the flow is disabled, the rail integrates its branches locally instead (the legacy behaviour) and no decision is asked. This is desktop-owned: specrails-core's `implement` is told to skip its own shipping (`SPECRAILS_GIT_AUTO=false`) so it never opens a second, uncoordinated PR.
 
 ### Freestyle
 
@@ -86,7 +86,7 @@ In plain terms: the project's **agent profile** decides which AI agent handles e
 - **Variable cost.** Because the run is open-ended, pressing Play opens a confirmation dialog before anything spawns.
 - **Model picker.** A per-rail control lets you pick **Haiku / Sonnet / Opus** (default Sonnet) for the Freestyle run.
 - **Claude only.** The Freestyle loop and its model picker are offered only when the rail's engine is Claude. Codex and Gemini rails can't run Freestyle, and agent profiles don't apply to Freestyle rails.
-- **Interactive (optional).** An `Interactive` toggle next to the Freestyle launch turns the run into a back-and-forth session: you can chat with the running job, send follow-up prompts, and click **Finalize** when you're done. Without it, the job runs to completion on its own. (Available when the rail is idle; can be disabled server-side via `SPECRAILS_INTERACTIVE_JOBS=false`.)
+- **Interactive by default.** Like every Claude job, a Freestyle run is a live session: chat with the running job and send follow-up prompts from the Job Detail composer. What's special about Freestyle is the ending — the session stays open until **you** click **Finalize** (other jobs wrap up on their own once a turn finishes with nothing queued). Can be disabled server-side via `SPECRAILS_INTERACTIVE_JOBS=false`.
 
 You can customise the Freestyle pre-prompt per project on the [Settings page](customizing.md#freestyle-pre-prompt).
 
@@ -122,6 +122,8 @@ Two panels sit above the streaming log:
 - **Ticket header** — chips for every spec the job touched (matched from the launched command). Click a chip to open that spec's detail over the job page without leaving it. With four or more tickets, the chips collapse into a `+N more` mode you can expand.
 
 Below: the full streaming log with auto-scroll, search, and copy.
+
+**Talk to the running job.** Every Claude job (and every Claude AI step in a loop run) is an interactive session by default: a chat composer sits at the bottom of the Job Detail page — and of the job modal in mission mode — so you can ask the running agent a question or steer it mid-run. Messages sent while the model is streaming queue up and run next; the job keeps following its plan. The composer shows a live `N turns · $X` line summed from each completed turn's real usage (still no estimates). Most jobs finish on their own the moment a turn completes with nothing queued — a subtle **Wrap up now** ends them early; Freestyle jobs instead wait for your explicit **Finalize**. During a loop run your messages reach the currently running AI step (between steps the composer shows a short waiting state, and **Settle this step** advances the loop). Codex and Gemini jobs run one-shot as before. Server kill switch: `SPECRAILS_INTERACTIVE_JOBS=false`.
 
 ### Cancelling a job
 

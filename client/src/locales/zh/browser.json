@@ -101,5 +101,11 @@
     "tooManySessions": "打开的浏览器会话过多。请关闭一个后重试。",
     "launchFailed": "浏览器在服务器上启动失败。",
     "openFailed": "无法打开浏览器。"
+  },
+  "popup": {
+    "loginWindow": "登录窗口 — {{origin}}",
+    "stacked": "还有 {{count}} 个",
+    "backToPage": "返回页面",
+    "show": "显示登录窗口"
   }
 }

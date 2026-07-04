@@ -1,4 +1,4 @@
-import { createContext, useCallback, useContext, useEffect, useMemo, useReducer, type ReactNode } from 'react'
+import { createContext, useCallback, useContext, useEffect, useMemo, useReducer, useRef, type ReactNode } from 'react'
 import { useTickets } from '../hooks/useTickets'
 import { useDesktop } from '../hooks/useDesktop'
 import { SplitViewShell } from '../components/SplitViewShell'
@@ -90,6 +90,12 @@ export function reduceSplit(state: SplitState, action: Action): SplitState {
 
 interface TicketDetailModalContextValue {
   openTicketDetail: (ticketId: number) => void
+  /** Open a ticket that may live in a NON-active project (agent-chat ref chips):
+   *  when `projectId` differs from the active project, the provider switches the
+   *  active project first (MinimizedChats-restore precedent) and completes the
+   *  open once the switch lands — this provider and every board surface are
+   *  active-project bound, so a true cross-project modal is not possible. */
+  openTicketDetailInProject: (projectId: string, ticketId: number) => void
   closeTicketDetail: () => void
   enterSplit: (side: CompareSide, ticketId?: number) => void
   setComparedTicket: (ticketId: number | null, side: CompareSide) => void
@@ -105,18 +111,44 @@ const COMPARE_VIEWPORT_MIN = MODAL_FLOAT_VIEWPORT_MIN
 export function TicketDetailModalProvider({ children }: { children: ReactNode }) {
   const [state, dispatch] = useReducer(reduceSplit, INITIAL_STATE)
   const { tickets, updateTicket, deleteTicket } = useTickets()
-  const { activeProjectId } = useDesktop()
+  const { activeProjectId, setActiveProjectId } = useDesktop()
+
+  // Cross-project open in flight (agent-chat ref chips): the ticket to open
+  // once the active project lands on `projectId`. Completed (or dropped) by
+  // the switch effect below.
+  const pendingCrossProjectRef = useRef<{ projectId: string; ticketId: number } | null>(null)
 
   // M22: this provider sits ABOVE the project-keyed route boundary, so an open
   // modal / split-view survives a project switch. Ticket ids are per-project
   // sequential integers (they collide across projects), so `tickets.find(id ===
   // leftId)` would silently re-bind to a DIFFERENT project's ticket with the same
-  // id — and Save would PATCH the wrong project. Close everything on switch.
+  // id — and Save would PATCH the wrong project. Close everything on switch,
+  // THEN complete a pending cross-project open (both dispatches land in the
+  // same effect run, so the reducer settles on the opened ticket).
   useEffect(() => {
     dispatch({ type: 'closeAll' })
+    const pending = pendingCrossProjectRef.current
+    if (pending) {
+      pendingCrossProjectRef.current = null
+      if (pending.projectId === activeProjectId) {
+        dispatch({ type: 'openCentered', id: pending.ticketId })
+      }
+    }
   }, [activeProjectId])
 
   const openTicketDetail = useCallback((id: number) => dispatch({ type: 'openCentered', id }), [])
+
+  const openTicketDetailInProject = useCallback(
+    (projectId: string, ticketId: number) => {
+      if (projectId === activeProjectId) {
+        dispatch({ type: 'openCentered', id: ticketId })
+        return
+      }
+      pendingCrossProjectRef.current = { projectId, ticketId }
+      setActiveProjectId(projectId)
+    },
+    [activeProjectId, setActiveProjectId],
+  )
   const closeTicketDetail = useCallback(() => dispatch({ type: 'closeAll' }), [])
   const enterSplit = useCallback(
     (side: CompareSide, ticketId?: number) => dispatch({ type: 'enterSplit', side, ticketId }),
@@ -152,6 +184,7 @@ export function TicketDetailModalProvider({ children }: { children: ReactNode })
   const value = useMemo<TicketDetailModalContextValue>(
     () => ({
       openTicketDetail,
+      openTicketDetailInProject,
       closeTicketDetail,
       enterSplit,
       setComparedTicket,
@@ -159,7 +192,7 @@ export function TicketDetailModalProvider({ children }: { children: ReactNode })
       setSplitRatio,
       state,
     }),
-    [openTicketDetail, closeTicketDetail, enterSplit, setComparedTicket, exitSplit, setSplitRatio, state],
+    [openTicketDetail, openTicketDetailInProject, closeTicketDetail, enterSplit, setComparedTicket, exitSplit, setSplitRatio, state],
   )
 
   const inSplit = state.originSide !== null
@@ -212,6 +245,11 @@ export function useTicketDetailModal(): TicketDetailModalContextValue {
       openTicketDetail: () => {
         if (typeof console !== 'undefined') {
           console.warn('[TicketDetailModalContext] openTicketDetail called without provider')
+        }
+      },
+      openTicketDetailInProject: () => {
+        if (typeof console !== 'undefined') {
+          console.warn('[TicketDetailModalContext] openTicketDetailInProject called without provider')
         }
       },
       closeTicketDetail: () => {},

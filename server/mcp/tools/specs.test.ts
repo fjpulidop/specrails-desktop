@@ -148,6 +148,44 @@ describe('specrails_specs facade', () => {
     expect(r.hint).not.toContain('contract_refine')
   })
 
+  // ── Contract Layer defaults (super specs by default) ─────────────────────
+
+  it('create defaults contractRefine to TRUE when unset', async () => {
+    await spec.handler(ctx, { action: 'create', projectId: 'p1', title: 'T' })
+    expect(lastBody().contractRefine).toBe(true)
+  })
+
+  it('generate honours an explicit contractRefine:false opt-out', async () => {
+    await spec.handler(ctx, { action: 'generate', projectId: 'p1', idea: 'x', contractRefine: false })
+    expect(lastBody().contractRefine).toBe(false)
+  })
+
+  it('agent-authored commit_draft (no conversationId/draftTicketId) defaults contractRefine to TRUE', async () => {
+    await spec.handler(ctx, { action: 'commit_draft', projectId: 'p1', title: 'Refined spec' })
+    expect(lastBody().contractRefine).toBe(true)
+  })
+
+  it('agent-authored commit_draft honours contractRefine:false (user declined the enrichment)', async () => {
+    await spec.handler(ctx, {
+      action: 'commit_draft', projectId: 'p1', title: 'No layer please', contractRefine: false,
+    })
+    expect(lastBody().contractRefine).toBe(false)
+  })
+
+  it('Explore-origin commit_draft (conversationId) does NOT default contractRefine — scope governs', async () => {
+    await spec.handler(ctx, {
+      action: 'commit_draft', projectId: 'p1', title: 'From Explore', conversationId: 'conv-1',
+    })
+    expect('contractRefine' in lastBody()).toBe(false)
+  })
+
+  it('draft-flip commit_draft (draftTicketId) does NOT default contractRefine either', async () => {
+    await spec.handler(ctx, {
+      action: 'commit_draft', projectId: 'p1', title: 'Flip', draftTicketId: 7,
+    })
+    expect('contractRefine' in lastBody()).toBe(false)
+  })
+
   it('priority schema is a nullable enum (null clears — drafts only)', () => {
     const priority = spec.inputSchema.priority as z.ZodTypeAny
     expect(priority.safeParse(null).success).toBe(true)

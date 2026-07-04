@@ -62,7 +62,19 @@
       "working": "L'agente sta lavorando…",
       "placeholder": "Invia un messaggio al job in esecuzione…",
       "send": "Invia",
-      "liveTotals": "{{turns}} turni · ${{cost}}"
+      "liveTotals": "{{turns}} turni · ${{cost}}",
+      "autoHint": "Questo job segue il suo piano e termina da solo — i messaggi sono indicazioni opzionali.",
+      "wrapUp": "Concludi ora",
+      "wrapUpTooltip": "Termina la sessione ora — il job si completa con il lavoro prodotto finora, con i token e il costo di ogni turno sommati al totale.",
+      "wrapUpStep": "Chiudi questo passo",
+      "wrapUpStepTooltip": "Termina il passo corrente ora — il loop avanza con quanto il passo ha prodotto finora.",
+      "wrappingUp": "Conclusione in corso…",
+      "queued_one": "{{count}} messaggio in coda",
+      "queued_other": "{{count}} messaggi in coda",
+      "waitingForStep": "Tra un passo e l'altro — il loop sta decidendo cosa eseguire dopo. Potrai inviare un messaggio quando partirà il prossimo passo IA.",
+      "waitingForStepShort": "In attesa del prossimo passo…",
+      "sendDisabledEmpty": "Scrivi prima un messaggio",
+      "sendDisabledWaiting": "Al momento non c'è nessuna sessione di passo attiva"
     },
     "toast": {
       "jobDeleted": "Job eliminato",
@@ -76,7 +88,9 @@
       "spawnFailed": "Impossibile avviare il job",
       "finalizeScheduled": "Finalizzazione del job interattivo…",
       "finalizeFailed": "Impossibile finalizzare il job",
-      "sendFailed": "Impossibile inviare il messaggio"
+      "sendFailed": "Impossibile inviare il messaggio",
+      "wrapUpScheduled": "Conclusione del job…",
+      "wrapUpStepScheduled": "Chiusura del passo — il loop avanza con quanto prodotto"
     }
   },
   "statusPanel": {
@@ -126,15 +140,19 @@
     "deletedTooltip": "Il ticket non esiste più"
   },
   "modal": {
-    "openInNewTab": "Apri in una nuova scheda",
     "notFound": "Job non trovato",
     "cancelConfirmTitle": "Annullare il job?",
     "cancelConfirmDescription": "Il job si fermerà al prossimo punto sicuro. Questa azione è irreversibile.",
     "keepRunning": "Continua l'esecuzione",
     "cancelJob": "Annulla job",
+    "stopRun": "Ferma esecuzione",
+    "stopRunConfirmTitle": "Fermare questa esecuzione?",
+    "stopRunConfirmDescription": "L'esecuzione del loop si fermerà al prossimo confine di step. Questa azione non può essere annullata.",
     "toast": {
       "cancelSignalSent": "Segnale di annullamento inviato",
       "cancelSignalSentDescription": "Il job si fermerà al prossimo punto sicuro",
+      "stopSignalSent": "Segnale di arresto inviato",
+      "stopSignalSentDescription": "L'esecuzione si fermerà al prossimo confine di step",
       "cancelFailed": "Annullamento non riuscito",
       "networkError": "Errore di rete"
     }
@@ -220,6 +238,24 @@
       "cancelFailed": "Impossibile annullare il job",
       "networkError": "Errore di rete durante l'annullamento del job"
     }
+  },
+  "loopExplorer": {
+    "setup": "Preparazione",
+    "iteration": "Iterazione {{current}}/{{limit}}",
+    "iterationBadge": "iter {{count}}",
+    "follow": "Seguendo in diretta",
+    "resumeFollow": "Riprendi a seguire",
+    "expandAll": "Espandi tutto",
+    "collapseAll": "Comprimi tutto",
+    "copyStep": "Copia passo",
+    "copied": "Passo copiato negli appunti",
+    "stepDetail": "Dettagli del passo",
+    "stepDetailTemplate": "Modello",
+    "stepDetailCommand": "Comando",
+    "copyCommand": "Copia",
+    "interrupted": "Interrotto",
+    "waiting": "In attesa del prossimo passo...",
+    "stepMapAria": "Mappa dei passi del loop"
   },
   "logViewer": {
     "loading": "Caricamento dei log...",

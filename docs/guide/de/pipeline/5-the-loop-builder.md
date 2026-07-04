@@ -80,7 +80,7 @@ Um einen eigenen Loop auszuführen:
 2. Öffne im rail-Header den **Loop-Picker** und wähl deinen veröffentlichten Loop.
 3. Drück **▶ Play**.
 
-Der Lauf streamt live in der **Jobs**-Ansicht, genau wie ein eingebauter rail-Job — gleiche Logs, gleiche Metriken, gleiche Kostenverfolgung. Ein Loop, der stoppt, weil er seine Iterations- oder Kostenobergrenze erreicht hat, wird mit diesem Ergebnis gemeldet statt mit einem schlichten Erfolg.
+Der Lauf streamt live in der **Jobs**-Ansicht, mit denselben Metriken und derselben Kostenverfolgung wie jeder rail-Job — und sein Log bekommt einen eigenen **Schritt-Explorer**: eine Live-Karte deines Graphen mit einer aufklappbaren Box pro Schritt, die dem laufenden Schritt folgt, während der Loop voranschreitet (siehe [Die Job-Detail-Ansicht](the-job-detail-view)). Auf Claude ist jeder **KI-Schritt** zudem eine Live-Session: Schick ihm Nachrichten über den Composer der Job-Detail-Ansicht, um ihn mitten im Schritt zu lenken (zwischen den Schritten wartet der Composer kurz, und **Diesen Schritt abschließen** lässt den Loop mit dem Erreichten weiterziehen). Ein Loop, der stoppt, weil er seine Iterations- oder Kostenobergrenze erreicht hat, wird mit diesem Ergebnis gemeldet statt mit einem schlichten Erfolg.
 
 > **Achtung, solange ein Loop läuft.** Du kannst einen Loop nicht bearbeiten oder löschen, während einer seiner Läufe gerade ausgeführt wird — stopp den Lauf zuerst.
 

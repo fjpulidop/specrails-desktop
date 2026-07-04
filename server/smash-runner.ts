@@ -415,7 +415,9 @@ export function applySmashUndo(
     // Restore the pre-SMASH status from metadata if available.
     // B61: 'done' was missing from this whitelist, so undoing a SMASH on a ticket
     // that was 'done' before silently demoted it to 'todo'. Include every valid
-    // non-epic status.
+    // non-epic status. 'on_review' is DELIBERATELY excluded: it is a transient
+    // rail-settle state owned by the PR-decision flow — an undo cannot resurrect
+    // the delivery it belonged to, so it falls back to 'todo' (pinned by test).
     const md = (target.metadata ?? {}) as { pre_smash_status?: string }
     if (md.pre_smash_status === 'todo' || md.pre_smash_status === 'in_progress'
         || md.pre_smash_status === 'cancelled' || md.pre_smash_status === 'draft'

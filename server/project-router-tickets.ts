@@ -26,7 +26,7 @@ import { getAdapter } from './providers'
 import { createHooksRouter, getPhaseStates } from './hooks'
 import { getConfig, fetchIssues } from './config'
 import { runContractRefine, runContractRefineForQuick } from './contract-refine-runner'
-import { isExploreContractRefineKillSwitchActive } from './explore-contract-refine'
+import { isExploreContractRefineKillSwitchActive, splitDescriptionAtContractLayer } from './explore-contract-refine'
 import { runSmash, runSmashUndo, applyDeleteEpicChildren, checkSmashEligibility } from './smash-runner'
 import { isSpecsSmashKillSwitchActive } from './explore-smash'
 import { recordInvocation, updateTicketIdForConversation, getTicketSpendingSummary } from './ai-invocations'
@@ -1117,6 +1117,47 @@ export function registerTicketsRoutes(deps: ProjectRoutesDeps): void {
         console.log(
           `[project-router] from-draft contract refine skipped for ${convoProvider} conversation (ticket #${created.id})`,
         )
+      } else if (!conversationId && draftTicketId === null && created && body.contractRefine === true) {
+        // Conversation-less commits (the in-app operator agent's commit_draft
+        // path — a spec authored in the agent conversation, no Explore origin):
+        // `contractRefine: true` on the body opts the fresh spec into the SAME
+        // post-persist Contract Layer enrichment the Quick path runs (no
+        // --resume; seeded with the just-inserted spec body). Default OFF at
+        // this layer so Explore-client payloads stay byte-identical — the MCP
+        // specs facade defaults it ON for agent-authored commit_drafts. The
+        // kill switch is checked inside the runner; Claude-only because the
+        // refine spawn hardcodes the `claude` binary.
+        const projectProviders: string[] = Array.isArray(project.providers) && project.providers.length > 0
+          ? project.providers
+          : [project.provider].filter((p): p is string => typeof p === 'string')
+        if (projectProviders.includes('claude')) {
+          const refineTicketId = created.id
+          const refineTitle = created.title
+          const refineDescription = created.description
+          console.log(`[project-router] from-draft hook: scheduling quick-style refine for agent-authored ticket=${refineTicketId}`)
+          process.nextTick(() => {
+            void runContractRefineForQuick(
+              {
+                db: ctx(req).db,
+                projectId: project.id,
+                projectSlug: project.slug,
+                projectPath: project.path,
+                projectName: project.name,
+                broadcast: broadcast as (m: unknown) => void,
+              },
+              refineTicketId,
+              refineTitle,
+              refineDescription,
+              null,
+            ).catch((err: unknown) => {
+              console.error('[project-router] from-draft runContractRefineForQuick error:', err)
+            })
+          })
+        } else {
+          console.log(
+            `[project-router] from-draft contract refine skipped (ticket #${created.id}): claude not installed on project`,
+          )
+        }
       }
     } catch (err) {
       console.error('[project-router] from-draft create error:', err)
@@ -1249,7 +1290,33 @@ export function registerTicketsRoutes(deps: ProjectRoutesDeps): void {
       const ticket = withLock(filePath, (s) => s.tickets[String(ticketId)])
       if (!ticket) { res.status(404).json({ error: 'ticket not found' }); return }
       if (!ticket.origin_conversation_id) {
-        res.status(409).json({ error: 'ticket has no origin conversation' }); return
+        // No Explore origin (agent-authored commit_draft / Quick spec that
+        // skipped the refine): fall back to the Quick-style refine, seeded
+        // with the ticket's user-authored body (existing Contract Layer
+        // stripped so a re-run is seeded clean — the writer replaces any
+        // prior layer idempotently anyway).
+        const seedBody = splitDescriptionAtContractLayer(ticket.description ?? '').user
+        const seedTitle = ticket.title
+        res.status(202).json({ scheduled: true, mode: 'quick' })
+        process.nextTick(() => {
+          void runContractRefineForQuick(
+            {
+              db,
+              projectId: project.id,
+              projectSlug: project.slug,
+              projectPath: project.path,
+              projectName: project.name,
+              broadcast: broadcast as (m: unknown) => void,
+            },
+            ticketId,
+            seedTitle,
+            seedBody,
+            null,
+          ).catch((err) => {
+            console.error('[project-router] retry runContractRefineForQuick error:', err)
+          })
+        })
+        return
       }
       const convoId = ticket.origin_conversation_id
       res.status(202).json({ scheduled: true })
@@ -1406,7 +1473,7 @@ export function registerTicketsRoutes(deps: ProjectRoutesDeps): void {
       res.status(400).json({ error: 'title is required' }); return
     }
     if (status !== undefined && !isValidStatus(status)) {
-      res.status(400).json({ error: 'status must be one of: draft, todo, in_progress, done, cancelled' }); return
+      res.status(400).json({ error: 'status must be one of: draft, todo, in_progress, on_review, done, cancelled' }); return
     }
     const finalStatus = (status ?? 'todo') as import('./ticket-store').TicketStatus
     const finalPriority = priority === undefined ? (finalStatus === 'draft' ? null : 'medium') : (priority === null ? null : priority)
@@ -1463,7 +1530,7 @@ export function registerTicketsRoutes(deps: ProjectRoutesDeps): void {
     }
     const { title, description, status, priority, labels, assignee, prerequisites, metadata, acceptanceCriteria, short_summary } = req.body ?? {}
     if (status !== undefined && !isValidStatus(status)) {
-      res.status(400).json({ error: 'status must be one of: draft, todo, in_progress, done, cancelled' }); return
+      res.status(400).json({ error: 'status must be one of: draft, todo, in_progress, on_review, done, cancelled' }); return
     }
     if (priority !== undefined && priority !== null && !isValidPriority(priority)) {
       res.status(400).json({ error: 'priority must be one of: critical, high, medium, low' }); return

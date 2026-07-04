@@ -1,7 +1,7 @@
 // Status / transition resolution — the hard part of the integration.
 //
 // Jira issues have no settable `status`; you must apply workflow-gated
-// transitions, and the customer's workflow is arbitrary. The 4 logical Specrails
+// transitions, and the customer's workflow is arbitrary. The 5 logical Specrails
 // states map onto N customer statuses across only 3 stable categories
 // (new / indeterminate / done). Strategy:
 //   1. Explicit per-project status map (user picks the target status) wins.
@@ -29,6 +29,7 @@ export function targetCategoryFor(state: SpecLogicalState): JiraStatusCategory {
     case 'todo':
       return 'new'
     case 'in_progress':
+    case 'on_review':
       return 'indeterminate'
     case 'done':
     case 'cancelled':
@@ -210,18 +211,35 @@ export type WalkOutcome =
 /**
  * Walk the transition graph from the current category to the target category for
  * `state`, applying edges per hop (you can only see the current status's
- * outgoing edges). Idempotency-first: if already in the target category, no-op.
+ * outgoing edges). Idempotency-first: if already in the target category, no-op —
+ * UNLESS an explicit target status is configured and the issue is not already
+ * sitting on it (see `currentStatusName`).
  */
 export async function walkToCategory(args: {
   state: SpecLogicalState
   currentCategory: JiraStatusCategory
   explicitTarget?: string
+  /**
+   * The issue's CURRENT status name (from the caller's idempotency re-GET).
+   * With an `explicitTarget` configured, a same-category walk must still run
+   * when the current status differs from the target — e.g. statusMap.on_review
+   * = "In Review" while the issue sits at "In Progress" (both `indeterminate`);
+   * the old category-only noop would strand the issue forever. When the name
+   * already matches the explicit target (case-insensitive) the noop stands.
+   */
+  currentStatusName?: string
   maxHops?: number
   getTransitions: () => Promise<JiraTransition[]>
   applyTransition: (transition: JiraTransition, plan: TransitionFieldPlan) => Promise<void>
 }): Promise<WalkOutcome> {
   const target = targetCategoryFor(args.state)
-  if (args.currentCategory === target) return { status: 'noop' }
+  if (args.currentCategory === target) {
+    const alreadyAtExplicit =
+      !args.explicitTarget ||
+      (args.currentStatusName !== undefined &&
+        args.currentStatusName.toLowerCase() === args.explicitTarget.toLowerCase())
+    if (alreadyAtExplicit) return { status: 'noop' }
+  }
 
   const maxHops = args.maxHops ?? 5
   const visited = new Set<string>()

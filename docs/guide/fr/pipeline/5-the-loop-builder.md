@@ -80,7 +80,7 @@ Pour exécuter un loop personnalisé :
 2. Dans l'en-tête du rail, ouvrez le **sélecteur de Loop** et choisissez votre loop publié.
 3. Appuyez sur **▶ Play**.
 
-L'exécution se diffuse en direct dans la vue **Jobs** exactement comme un job de rail intégré — mêmes logs, mêmes métriques, même suivi des coûts. Un loop qui s'arrête parce qu'il a atteint son plafond d'itérations ou de coût est rapporté avec ce résultat plutôt qu'un simple succès.
+L'exécution se diffuse en direct dans la vue **Jobs** avec les mêmes métriques et le même suivi des coûts que n'importe quel job de rail — et son log gagne un **explorateur d'étapes** dédié : une carte en direct de votre graphe avec une boîte repliable par étape, qui suit l'étape en cours à mesure que le loop avance (voir [La vue détaillée du job](the-job-detail-view)). Sur Claude, chaque **Étape IA** est aussi une session en direct : envoyez-lui des messages depuis le composeur de la vue détaillée du job pour la piloter en cours d'étape (entre les étapes, le composeur patiente brièvement, et **Régler cette étape** fait avancer le loop avec ce que l'étape a produit). Un loop qui s'arrête parce qu'il a atteint son plafond d'itérations ou de coût est rapporté avec ce résultat plutôt qu'un simple succès.
 
 > **À savoir pendant qu'un loop s'exécute.** Vous ne pouvez pas éditer ni supprimer un loop pendant qu'une de ses exécutions est en cours — arrêtez d'abord l'exécution.
 

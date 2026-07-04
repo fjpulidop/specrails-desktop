@@ -10,11 +10,18 @@ import { Button } from './ui/button'
 import { cn } from '../lib/utils'
 import i18n from '../lib/i18n'
 import type { EventRow } from '../types'
+import type { ReactNode } from 'react'
 import { hasMarkdownSyntax } from '../lib/markdown-detect'
+import { parseAgentRefHref } from '../lib/agent-refs'
+import { LogTicketRef, remarkLogTicketRefs, renderLogLineWithTicketRefs } from './log-ticket-refs'
+import { useLogTicketActions } from '../hooks/useLogTicketActions'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
+// FormattedLine / parseEvent / mergeAssistantLines / applyDiffDetection / LogLine
+// are exported so the loop-step explorer (components/loop-log/) reuses the EXACT
+// same parse pipeline + line renderer. Non-loop behavior is unchanged.
 
-type FormattedLineType =
+export type FormattedLineType =
   | 'phase'
   | 'tool-use'
   | 'tool-result'
@@ -28,7 +35,7 @@ type FormattedLineType =
   | 'diff-meta'
   | 'diff-hunk'
 
-interface FormattedLine {
+export interface FormattedLine {
   id: string
   content: string
   type: FormattedLineType
@@ -43,7 +50,7 @@ interface PhaseGroup {
 
 // ─── Event parsing ────────────────────────────────────────────────────────────
 
-function parseEvent(event: EventRow, idx: number): FormattedLine | null {
+export function parseEvent(event: EventRow, idx: number): FormattedLine | null {
   const id = `${event.id ?? idx}`
   const timestamp = event.timestamp
 
@@ -109,7 +116,7 @@ function parseEvent(event: EventRow, idx: number): FormattedLine | null {
 // Detects unified-diff lines (--- a/… +++ b/… @@ … +line -line)
 // Only marks lines as diff types after seeing a proper diff header sequence.
 
-function applyDiffDetection(lines: FormattedLine[]): FormattedLine[] {
+export function applyDiffDetection(lines: FormattedLine[]): FormattedLine[] {
   type DiffState = 'none' | 'saw_minus' | 'active'
   let diffState: DiffState = 'none'
   const out: FormattedLine[] = []
@@ -146,6 +153,24 @@ function applyDiffDetection(lines: FormattedLine[]): FormattedLine[] {
   return out
 }
 
+// ─── Assistant-line merge ─────────────────────────────────────────────────────
+// Consecutive assistant (markdown) lines merge into one block so a streamed
+// paragraph renders as a single markdown unit. Extracted (behavior-identical)
+// so the loop-step explorer can run it per step segment.
+
+export function mergeAssistantLines(rawLines: FormattedLine[]): FormattedLine[] {
+  const merged: FormattedLine[] = []
+  for (const line of rawLines) {
+    const prev = merged.length > 0 ? merged[merged.length - 1] : null
+    if (line.type === 'assistant' && prev?.type === 'assistant') {
+      prev.content += '\n' + line.content
+    } else {
+      merged.push({ ...line })
+    }
+  }
+  return merged
+}
+
 // ─── Phase grouping ───────────────────────────────────────────────────────────
 
 function groupByPhase(lines: FormattedLine[]): PhaseGroup[] {
@@ -166,15 +191,19 @@ function groupByPhase(lines: FormattedLine[]): PhaseGroup[] {
 interface LogViewerProps {
   events: EventRow[]
   isLoading?: boolean
+  /** Project scope for `#N` ticket refs in log lines — defaults to the active
+   *  project (board JobDetailPage); mission JobDetailModal passes its own. */
+  projectId?: string
 }
 
-export function LogViewer({ events, isLoading }: LogViewerProps) {
+export function LogViewer({ events, isLoading, projectId }: LogViewerProps) {
   const { t, i18n: i18nInstance } = useTranslation('jobs')
   const [filter, setFilter] = useState('')
   const [autoScroll, setAutoScroll] = useState(true)
   const [collapsedPhases, setCollapsedPhases] = useState<Set<string>>(new Set())
   const bottomRef = useRef<HTMLDivElement>(null)
   const containerRef = useRef<HTMLDivElement>(null)
+  const onOpenTicket = useLogTicketActions(projectId)
 
   // Parse → merge markdown → detect diffs (memoized — only recomputes when events change)
   const { processedLines, groups, totalLines } = useMemo(() => {
@@ -182,17 +211,7 @@ export function LogViewer({ events, isLoading }: LogViewerProps) {
       .map((ev, idx) => parseEvent(ev, idx))
       .filter((l): l is FormattedLine => l !== null)
 
-    const merged: FormattedLine[] = []
-    for (const line of rawLines) {
-      const prev = merged.length > 0 ? merged[merged.length - 1] : null
-      if (line.type === 'assistant' && prev?.type === 'assistant') {
-        prev.content += '\n' + line.content
-      } else {
-        merged.push({ ...line })
-      }
-    }
-
-    const processed = applyDiffDetection(merged)
+    const processed = applyDiffDetection(mergeAssistantLines(rawLines))
     return { processedLines: processed, groups: groupByPhase(processed), totalLines: processed.length }
     // i18nInstance.language: parseEvent localises the result summary line, so
     // recompute when the UI language changes.
@@ -293,6 +312,7 @@ export function LogViewer({ events, isLoading }: LogViewerProps) {
             filter={filter}
             collapsed={collapsedPhases.has(group.key)}
             onToggle={() => togglePhase(group.key)}
+            onOpenTicket={onOpenTicket}
           />
         ))}
         <div ref={bottomRef} />
@@ -321,6 +341,7 @@ interface PhaseGroupSectionProps {
   filter: string
   collapsed: boolean
   onToggle: () => void
+  onOpenTicket?: (ticketId: number) => void
 }
 
 const PhaseGroupSection = memo(function PhaseGroupSection({
@@ -328,6 +349,7 @@ const PhaseGroupSection = memo(function PhaseGroupSection({
   filter,
   collapsed,
   onToggle,
+  onOpenTicket,
 }: PhaseGroupSectionProps) {
   const { t } = useTranslation('jobs')
   const visibleLines = filter
@@ -340,7 +362,7 @@ const PhaseGroupSection = memo(function PhaseGroupSection({
     return (
       <div>
         {visibleLines.map((line, idx) => (
-          <LogLine key={line.id} line={line} even={idx % 2 === 0} />
+          <LogLine key={line.id} line={line} even={idx % 2 === 0} onOpenTicket={onOpenTicket} />
         ))}
       </div>
     )
@@ -393,7 +415,7 @@ const PhaseGroupSection = memo(function PhaseGroupSection({
             </p>
           ) : (
             visibleLines.map((line, idx) => (
-              <LogLine key={line.id} line={line} even={idx % 2 === 0} />
+              <LogLine key={line.id} line={line} even={idx % 2 === 0} onOpenTicket={onOpenTicket} />
             ))
           )}
         </div>
@@ -405,14 +427,62 @@ const PhaseGroupSection = memo(function PhaseGroupSection({
 // ─── LogLine ──────────────────────────────────────────────────────────────────
 
 const REHYPE_PLUGINS = [rehypeHighlight]
+const REMARK_PLUGINS = [remarkGfm]
+const REMARK_PLUGINS_WITH_TICKET_REFS = [remarkGfm, remarkLogTicketRefs]
 
-const LogLine = memo(function LogLine({ line, even }: { line: FormattedLine; even: boolean }) {
+export const LogLine = memo(function LogLine({
+  line,
+  even,
+  onOpenTicket,
+}: {
+  line: FormattedLine
+  even: boolean
+  /** When set, `#N` ticket refs in prose lines linkify (log-ticket-refs). */
+  onOpenTicket?: (ticketId: number) => void
+}) {
   const isMarkdown = line.type === 'assistant'
   const isDiffAdd = line.type === 'diff-add'
   const isDiffRemove = line.type === 'diff-remove'
   const isDiffMeta = line.type === 'diff-meta'
   const isDiffHunk = line.type === 'diff-hunk'
   const isDiff = isDiffAdd || isDiffRemove || isDiffMeta || isDiffHunk
+
+  // Ticket-ref linkify — PROSE lines only. Diff-styled lines mirror agent-refs'
+  // code exclusion; stderr is excluded too (stack frames read `#1 0x…`); the
+  // 🧑 user-echo lines are prose (`plain`) and keep their refs.
+  const canLinkifyPlain =
+    onOpenTicket != null && (line.type === 'plain' || line.type === 'log')
+  const plainContent = useMemo<ReactNode>(
+    () =>
+      canLinkifyPlain && onOpenTicket
+        ? renderLogLineWithTicketRefs(line.content, onOpenTicket)
+        : line.content,
+    [canLinkifyPlain, onOpenTicket, line.content],
+  )
+
+  // Markdown lines get the ticket-only remark plugin (code blocks / inline code
+  // are excluded by the mdast walk) + an `a` mapping for the emitted
+  // `#agentref:ticket:` fragments. Both memoized so react-markdown's memo holds.
+  const remarkPlugins = isMarkdown && onOpenTicket ? REMARK_PLUGINS_WITH_TICKET_REFS : REMARK_PLUGINS
+  const markdownComponents = useMemo(
+    () =>
+      onOpenTicket
+        ? {
+            a: ({ href, children }: { href?: string; children?: ReactNode }) => {
+              const refTarget = parseAgentRefHref(href)
+              if (refTarget?.kind === 'ticket') {
+                return (
+                  <LogTicketRef ticketId={refTarget.ticketId} onOpen={onOpenTicket}>
+                    {children}
+                  </LogTicketRef>
+                )
+              }
+              return <a href={href}>{children}</a>
+            },
+          }
+        : undefined,
+    [onOpenTicket],
+  )
 
   return (
     <div
@@ -454,7 +524,11 @@ const LogLine = memo(function LogLine({ line, even }: { line: FormattedLine; eve
             prose-tr:border-border
             text-foreground/80"
         >
-          <ReactMarkdown remarkPlugins={[remarkGfm]} rehypePlugins={REHYPE_PLUGINS}>
+          <ReactMarkdown
+            remarkPlugins={remarkPlugins}
+            rehypePlugins={REHYPE_PLUGINS}
+            components={markdownComponents}
+          >
             {line.content}
           </ReactMarkdown>
         </div>
@@ -474,7 +548,7 @@ const LogLine = memo(function LogLine({ line, even }: { line: FormattedLine; eve
             isDiffHunk   && 'text-accent-info/80',
           )}
         >
-          {line.content}
+          {plainContent}
         </span>
       )}
     </div>

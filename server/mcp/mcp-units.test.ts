@@ -302,7 +302,7 @@ describe('specrails_watch', () => {
 
 // ── registerTieredTool per-request active project (B1) ───────────────────────
 import { registerTieredTool, getActiveProject, setActiveProject, type ToolHandlerExtra } from './tools/types'
-import { AGENT_PROJECT_HEADER, AGENT_TIER_HEADER } from '../agent-tier'
+import { AGENT_PROJECT_HEADER, AGENT_TIER_HEADER, AGENT_CONVERSATION_HEADER } from '../agent-tier'
 import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js'
 
 describe('registerTieredTool per-request active project', () => {
@@ -381,6 +381,72 @@ describe('registerTieredTool per-request active project', () => {
     expect(r.isError).toBeFalsy()
     const activity = seen.find((m) => m.type === 'mcp.activity')
     expect(activity?.affectedProjectId).toBe('proj-77')
+  })
+})
+
+// ── registerTieredTool per-request origin conversation (safe-pr-review-flow) ──
+describe('registerTieredTool per-request origin conversation', () => {
+  type ToolCb = (args: Record<string, unknown>, extra?: ToolHandlerExtra) => Promise<{ content: Array<{ text: string }>; isError?: boolean }>
+  let db: DbInstance
+  let captured: ToolCb | undefined
+  const fakeServer = {
+    registerTool: (_name: string, _cfg: unknown, cb: ToolCb) => {
+      captured = cb
+    },
+  } as unknown as McpServer
+
+  beforeEach(() => {
+    db = initDesktopDb(':memory:')
+    captured = undefined
+    setActiveProject(null)
+    registerTieredTool(fakeServer, makeCtx(db), {
+      name: 'echo-origin',
+      title: 'EchoOrigin',
+      description: 'echo per-call origin conversation + project pin',
+      tier: 'read',
+      inputSchema: {},
+      handler: (c) => ({ origin: c.originConversationId, project: getActiveProject(c) }),
+    })
+  })
+
+  const extraWith = (headers: Record<string, string | string[]>): ToolHandlerExtra => ({
+    requestInfo: { headers: { [AGENT_TIER_HEADER]: 'observe', ...headers } },
+  })
+
+  it('a valid conversation header lands on ctx.originConversationId for THAT call only', async () => {
+    const r1 = await captured!({}, extraWith({ [AGENT_CONVERSATION_HEADER]: 'conv-abc-1' }))
+    expect(JSON.parse(r1.content[0].text).origin).toBe('conv-abc-1')
+    // A subsequent call WITHOUT the header must not see it (per-call ctx copy).
+    const r2 = await captured!({})
+    expect(JSON.parse(r2.content[0].text).origin).toBeUndefined()
+  })
+
+  it('a malformed header sanitizes to null — never a throw, never the raw value', async () => {
+    for (const bad of ['under_score', 'x'.repeat(65), '   ', 'nope!']) {
+      const r = await captured!({}, extraWith({ [AGENT_CONVERSATION_HEADER]: bad }))
+      expect(r.isError).toBeFalsy()
+      expect(JSON.parse(r.content[0].text).origin).toBeNull()
+    }
+  })
+
+  it('an absent header leaves ctx.originConversationId undefined', async () => {
+    const r = await captured!({}, extraWith({}))
+    expect(JSON.parse(r.content[0].text).origin).toBeUndefined()
+  })
+
+  it('array header form uses the first value; trims whitespace', async () => {
+    const r = await captured!({}, extraWith({ [AGENT_CONVERSATION_HEADER]: [' conv-first ', 'conv-second'] }))
+    expect(JSON.parse(r.content[0].text).origin).toBe('conv-first')
+  })
+
+  it('composes with the project header — both land on the same per-call ctx (the normal agent case)', async () => {
+    const r = await captured!({}, extraWith({
+      [AGENT_PROJECT_HEADER]: 'proj-42',
+      [AGENT_CONVERSATION_HEADER]: 'conv-42',
+    }))
+    const parsed = JSON.parse(r.content[0].text)
+    expect(parsed.origin).toBe('conv-42')
+    expect(parsed.project).toBe('proj-42') // the conversation copy must not drop the project pin
   })
 })
 

@@ -590,7 +590,7 @@ export interface LocalTicket {
   id: number
   title: string
   description: string
-  status: 'todo' | 'in_progress' | 'done' | 'cancelled'
+  status: 'draft' | 'todo' | 'in_progress' | 'on_review' | 'done' | 'cancelled'
   priority: 'critical' | 'high' | 'medium' | 'low'
   labels: string[]
   assignee: string | null
@@ -735,11 +735,21 @@ export interface RailJobCompletedMessage {
 }
 
 /**
- * A rail's configuration changed (ticket assignments, name, mode, profile or
- * engine) via a non-launch mutation. Broadcast so every connected client
- * (desktop dashboard + mobile companion) reflects the change live. Carries the
- * full post-mutation rail snapshot so receivers need no follow-up fetch.
+ * The per-run worktree OVERLAY (worktree-overlay.ts) degraded while
+ * materializing the framework surface into an isolated rail worktree — the run
+ * proceeds, but native `/specrails:*` commands / sr-* agents may be missing.
+ * Stderr-style: surfaced so the user can see WHY commands were unavailable.
  */
+export interface RailOverlayDegradedMessage {
+  type: 'rail.overlay_degraded'
+  projectId: string
+  railIndex: number
+  ticketId: number
+  /** Human-readable entry-level failures from the overlay pass. */
+  warnings: string[]
+}
+
+/** Per-ticket progress of an isolated rail's worktree fan-out / merge-back. */
 export interface RailWorktreeProgressMessage {
   type: 'rail.worktree_progress'
   projectId: string
@@ -750,19 +760,52 @@ export interface RailWorktreeProgressMessage {
 }
 
 /**
- * A parallel rail's isolated ticket branches were delivered as a draft PR
- * (safe-pr-workflow, behind `SPECRAILS_RAIL_DELIVER_PR`). `delivery` is the
- * outcome; when `delivered`, `prState`/`prUrl` carry the degradation-ladder
- * result and (if opened) the PR URL.
+ * Durable snapshot of an isolated rail launch's ask-first PR decision
+ * (safe-pr-review-flow, backed by the `rail_pr_deliveries` row). Broadcast on
+ * every mutation of the row — INSERT at launch (`building`), build-settle
+ * (`on_review` / auto-`discarded`) and each decision-endpoint transition —
+ * carrying the whole snapshot so receivers need no follow-up fetch (the
+ * RailUpdatedMessage convention). Replaces the retired one-shot
+ * `rail.pr_delivered` event.
  */
-export interface RailPrDeliveredMessage {
-  type: 'rail.pr_delivered'
+export interface RailPrStateMessage {
+  type: 'rail.pr_state'
   projectId: string
   railIndex: number
-  delivery: 'delivered' | 'assembly-failed' | 'no-op'
-  prState?: 'pr-created' | 'pushed' | 'local-only'
-  prUrl?: string
-  branch?: string
+  prDeliveryId: string
+  railKey: string
+  ticketIds: number[]
+  baseBranch: string
+  /** The assembled/delivered head branch (null until a Create-PR ran). */
+  branch: string | null
+  prUrl: string | null
+  prNumber: number | null
+  /** How far a Create-PR attempt got (the pr-publisher degradation ladder). */
+  prState: 'none' | 'local-only' | 'pushed' | 'pr-created'
+  decision: 'building' | 'on_review' | 'pr_draft' | 'pr_ready' | 'merged' | 'discarded' | 'pr_failed'
+  /** The launch's loop-run ids, in ticket order ([] until allocation lands) —
+   *  each links a per-run log (JobDetailModal) + live vitals on the decision
+   *  surfaces. */
+  runIds: string[]
+  /** The launching agent-chat conversation, null for dashboard launches. */
+  originConversationId: string | null
+}
+
+/**
+ * A rail's configuration changed (ticket assignments, name, mode, profile or
+ * engine) via a non-launch mutation. Broadcast so every connected client
+ * (desktop dashboard + mobile companion) reflects the change live. Carries the
+ * full post-mutation rail snapshot so receivers need no follow-up fetch.
+ */
+/**
+ * A dynamic rail was deleted (DELETE /rails/:railIndex). Broadcast so every
+ * connected client drops the slot from its board. Only ever emitted for a rail
+ * that passed the delete guards (empty, idle, no pending PR decision).
+ */
+export interface RailRemovedMessage {
+  type: 'rail.removed'
+  projectId: string
+  railIndex: number
 }
 
 export interface RailUpdatedMessage {
@@ -1087,7 +1130,7 @@ export type WsMessage =
   | TicketCreatedMessage | TicketUpdatedMessage | TicketDeletedMessage
   | TicketAiEditStreamMessage | TicketAiEditDoneMessage | TicketAiEditErrorMessage
   | SpecGenStreamMessage | SpecGenDoneMessage | SpecGenErrorMessage
-  | RailJobStartedMessage | RailJobStoppedMessage | RailJobCompletedMessage | RailUpdatedMessage | RailWorktreeProgressMessage | RailPrDeliveredMessage
+  | RailJobStartedMessage | RailJobStoppedMessage | RailJobCompletedMessage | RailUpdatedMessage | RailRemovedMessage | RailWorktreeProgressMessage | RailOverlayDegradedMessage | RailPrStateMessage
   | LoopRunStartedMessage | LoopRunProgressMessage | LoopRunStoppedMessage | LoopRunCompletedMessage
   | AgentRefineStreamMessage | AgentRefinePhaseMessage | AgentRefineReadyMessage
   | AgentRefineTestMessage | AgentRefineErrorMessage | AgentRefineCancelledMessage
@@ -1098,10 +1141,12 @@ export type WsMessage =
   | PluginPrereqInstallProgressMessage | PluginPrereqInstalledMessage
   | SpendingInvalidatedMessage
   | JobTurnUserMessage | JobTurnDoneMessage | JobFinalizedMessage
+  | JobInteractiveMessage
   | SmashStartedMessage | SmashProgressMessage | SmashCompletedMessage
   | SmashFailedMessage | SmashUndoneMessage
   | FileProvenanceUpdatedMessage
   | FileSummaryUpdatedMessage | FileSummaryFailedMessage | FileSummarySkippedMessage
+  | FileStoryUpdatedMessage
   | MobilePairRequestedMessage | MobileDevicePairedMessage
   | MobileDeviceRevokedMessage | MobileGatewayStateMessage
   | JiraSyncedMessage | JiraSyncErrorMessage | JiraAuthExpiredMessage
@@ -1109,6 +1154,8 @@ export type WsMessage =
   | AgentStreamMessage | AgentDoneMessage | AgentErrorMessage | AgentToolMessage
   | AgentTitleMessage
   | AgentQueuedMessage | AgentDequeuedMessage | AgentQueueClearedMessage
+  | AgentQueueEditedMessage
+  | AgentPrDecisionMessage
 
 // ─── App-global agent chat (no projectId — fans to all subscribers) ───────────
 
@@ -1179,6 +1226,49 @@ export interface AgentQueueClearedMessage {
   timestamp: string
 }
 
+/** A queued (not yet dispatched) message was edited in place. */
+export interface AgentQueueEditedMessage {
+  type: 'agent_queue_edited'
+  conversationId: string
+  queueId: string
+  text: string
+  timestamp: string
+}
+
+/**
+ * The persisted content of an agent-chat PR-decision card (safe-pr-review-flow):
+ * a `system`-role `agent_messages` row whose content is this JSON envelope, so
+ * the inline card survives refresh and cold-load renders the current state.
+ * `prDeliveryId` links the card to its authoritative `rail_pr_deliveries` row —
+ * decision mutations update the SAME card in place.
+ */
+export interface PrDecisionCardEnvelope {
+  kind: 'pr_decision'
+  prDeliveryId: string
+  railIndex: number
+  projectId: string
+  baseBranch: string
+  ticketIds: number[]
+  decision: 'building' | 'on_review' | 'pr_draft' | 'pr_ready' | 'merged' | 'discarded' | 'pr_failed'
+  prUrl: string | null
+  prState: 'none' | 'local-only' | 'pushed' | 'pr-created'
+  branch: string | null
+  /** The launch's loop-run ids, in ticket order ([] until allocation lands) —
+   *  the card renders one "View log" chip (JobDetailModal + live vitals) per run. */
+  runIds: string[]
+}
+
+/**
+ * A PR-decision card was posted or updated in an agent-chat conversation.
+ * App-global like every `agent_*` event (no projectId filtering — the envelope's
+ * `projectId` identifies the rail's project, it is card data, not WS routing).
+ */
+export interface AgentPrDecisionMessage extends PrDecisionCardEnvelope {
+  type: 'agent_pr_decision'
+  conversationId: string
+  timestamp: string
+}
+
 /** Inbound poll completed: N issues materialized into the local cache. */
 export interface JiraSyncedMessage {
   type: 'jira.synced'
@@ -1243,6 +1333,17 @@ export interface FileSummaryFailedMessage {
   reason: string
 }
 
+/** Construction story: an intervention's AI contribution paragraph was
+ *  generated (or failed). Clients viewing that file refetch the story. */
+export interface FileStoryUpdatedMessage {
+  type: 'file.story_updated'
+  projectId: string
+  path: string
+  provenanceId: number
+  ok: boolean
+  reason?: string
+}
+
 export interface FileSummarySkippedMessage {
   type: 'file.summary_skipped'
   projectId: string
@@ -1285,6 +1386,23 @@ export interface JobTurnDoneMessage {
     total_cost_usd: number
     num_turns: number
   }
+  timestamp: string
+}
+
+/** Interactive availability flip for a job whose resident session comes and
+ *  goes MID-RUN — a loop run's ai-step sessions (between steps / decider /
+ *  shell nodes there is no session, so POST /messages would 409). QueueManager
+ *  jobs never emit this: their session lives for the whole run, so the client
+ *  derives availability from status + `interactive`. Desktop-only, like every
+ *  job.turn_* message above (mobile topicFor() drops uncased types). */
+export interface JobInteractiveMessage {
+  type: 'job.interactive'
+  projectId: string
+  jobId: string
+  /** True when a resident step session is accepting turns right now. */
+  acceptingTurns: boolean
+  /** Settle mode of the session that just started/settled (loops are 'auto'). */
+  settleMode: 'finalize' | 'auto'
   timestamp: string
 }
 

@@ -7,7 +7,7 @@ Du möchtest, dass deine Specs auf einem echten **Jira-Board** leben statt in Sp
 Specrails agiert als **Sync-Schicht** zwischen Jira und deinem Projekt. Die Grundidee: Dein lokaler Spec-Speicher bleibt das Maßgebliche, das die Pipeline liest, und Specrails ist dafür verantwortlich, ihn und Jira in Übereinstimmung zu halten.
 
 - Wenn du eine Rail startest, verschiebt Specrails den verknüpften Jira-Vorgang nach **In Arbeit**.
-- Wenn ein Job abschließt, überführt Specrails den Vorgang (nach **Fertig** oder zurück nach **To Do**, falls er fehlgeschlagen ist) und postet einen Abschlusskommentar mit Job-ID, Kosten und Dauer.
+- Wenn ein Job abschließt, überführt Specrails den Vorgang: bei Erfolg in deinen gemappten **Prüf**-Status — **Fertig** wird er erst, wenn du die Arbeit freigibst (das Mergen der Entwurfs-PR postet einen „PR merged"-Kommentar); bei Fehlschlag zurück nach **To Do** mit einem Abschlusskommentar (Job-ID, Kosten, Dauer).
 - In regelmäßigen Abständen **pollt** Specrails Jira nach Änderungen, die jemand auf dem Board vorgenommen hat, und spiegelt sie zurück in deine Specs.
 
 Alle Rückschreibungen laufen über eine dauerhafte, absturzsichere Outbox, sodass ein kurzzeitiger Jira-Aussetzer niemals einen Job kaputtmacht — das Update wird einfach erneut versucht.

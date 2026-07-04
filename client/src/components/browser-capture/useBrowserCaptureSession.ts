@@ -9,6 +9,7 @@ import {
   browserClipboard,
   navigateBrowserElement,
   killBrowserSession,
+  setBrowserPopupView,
   BrowserSessionLimitError,
   BrowserLaunchFailedError,
   type BrowserInputEvent,
@@ -17,8 +18,22 @@ import {
   type CaptureResult,
   type ElementProbe,
 } from '../../lib/browser-capture'
+import {
+  createFramePipeline,
+  isBrowserPerfDebugEnabled,
+  startFrameStatsReporter,
+} from '../../lib/browser-frame-pipeline'
 
 export type SessionStatus = 'connecting' | 'ready' | 'error'
+
+/** State of the session's popup stack (OAuth login windows). Null = no popups. */
+export interface PopupState {
+  count: number
+  /** True while the screencast + input show the TOP popup (vs the root page). */
+  active: boolean
+  /** Current URL of the top popup (for the "Login window — <origin>" label). */
+  url: string | null
+}
 
 export interface BrowserSessionState {
   status: SessionStatus
@@ -33,6 +48,8 @@ export interface BrowserSessionState {
   hoverSelector: string | null
   /** Ancestor breadcrumb (root→element) of the hovered element. */
   hoverPath: BreadcrumbSegment[] | null
+  /** Live popup stack, null when none are open. */
+  popup: PopupState | null
 }
 
 export interface UseBrowserCaptureSession extends BrowserSessionState {
@@ -51,14 +68,18 @@ export interface UseBrowserCaptureSession extends BrowserSessionState {
   probe: (point: { x: number; y: number }) => void
   /** Clear the current hover highlight. */
   clearHover: () => void
+  /** Switch the viewed page between the root page and the top popup. */
+  setPopupView: (target: 'root' | 'popup') => void
 }
 
 /**
  * Owns one embedded-browser session: creates it over REST, streams its screencast
- * over the dedicated WS onto a canvas, forwards input, and tears the session down
- * (DELETE) on unmount/close. Excluded from coverage — WebSocket binary frames +
- * createImageBitmap + canvas drawing are not exercisable under jsdom; the pure
- * coordinate logic it relies on lives in `lib/browser-capture.ts` and is tested.
+ * over the dedicated WS onto a canvas (via the latest-frame-wins pipeline in
+ * `lib/browser-frame-pipeline.ts`), forwards input, tracks the popup stack, and
+ * tears the session down (DELETE) on unmount/close. Excluded from coverage —
+ * WebSocket binary frames + createImageBitmap + canvas drawing are not
+ * exercisable under jsdom; the pure logic it relies on (coordinates, input
+ * coalescing, frame pipeline) lives in `lib/` and is unit-tested there.
  */
 export function useBrowserCaptureSession(opts: {
   projectId: string
@@ -69,7 +90,6 @@ export function useBrowserCaptureSession(opts: {
   const canvasRef = useRef<HTMLCanvasElement | null>(null)
   const wsRef = useRef<WebSocket | null>(null)
   const sessionIdRef = useRef<string | null>(null)
-  const drawingRef = useRef(false)
   // True while a capture POST is awaiting. The effect cleanup must NOT kill the
   // session out from under an in-flight capture (a transient effect re-run /
   // StrictMode double-invoke would otherwise 404 the capture).
@@ -84,33 +104,33 @@ export function useBrowserCaptureSession(opts: {
     hoverRect: null,
     hoverSelector: null,
     hoverPath: null,
+    popup: null,
   })
-
-  const drawFrame = useCallback(async (buf: ArrayBuffer) => {
-    if (drawingRef.current) return
-    const canvas = canvasRef.current
-    if (!canvas) return
-    drawingRef.current = true
-    try {
-      const blob = new Blob([buf], { type: 'image/jpeg' })
-      const bitmap = await createImageBitmap(blob)
-      if (canvas.width !== bitmap.width) canvas.width = bitmap.width
-      if (canvas.height !== bitmap.height) canvas.height = bitmap.height
-      const ctx = canvas.getContext('2d')
-      if (ctx) ctx.drawImage(bitmap, 0, 0)
-      bitmap.close()
-    } catch {
-      /* drop bad frame */
-    } finally {
-      drawingRef.current = false
-    }
-  }, [])
 
   useEffect(() => {
     if (!open || !projectId) return
     let cancelled = false
 
-    setState((s) => ({ ...s, status: 'connecting', errorMsg: null }))
+    setState((s) => ({ ...s, status: 'connecting', errorMsg: null, popup: null }))
+
+    // Latest-frame-wins decode + rAF-coalesced draw (see browser-frame-pipeline):
+    // createImageBitmap decodes off the main thread; only the newest frame is
+    // painted, so a decode backlog raises the drop count instead of the latency.
+    const pipeline = createFramePipeline<ImageBitmap>({
+      decode: (buf) => createImageBitmap(new Blob([buf], { type: 'image/jpeg' })),
+      draw: (bitmap) => {
+        const canvas = canvasRef.current
+        if (!canvas) return
+        if (canvas.width !== bitmap.width) canvas.width = bitmap.width
+        if (canvas.height !== bitmap.height) canvas.height = bitmap.height
+        canvas.getContext('2d')?.drawImage(bitmap, 0, 0)
+      },
+      release: (bitmap) => bitmap.close(),
+    })
+    // Dev-only perf probe: localStorage['specrails-desktop:browser-capture-debug']='1'
+    const stopStats = isBrowserPerfDebugEnabled()
+      ? startFrameStatsReporter(() => pipeline.stats())
+      : null
 
     ;(async () => {
       try {
@@ -132,13 +152,16 @@ export function useBrowserCaptureSession(opts: {
         ws.onmessage = (ev: MessageEvent) => {
           if (typeof ev.data === 'string') {
             try {
-              const msg = JSON.parse(ev.data) as { type: string; url?: string; title?: string; viewport?: { width: number; height: number }; rect?: CaptureRect | null; selector?: string | null; path?: BreadcrumbSegment[] | null }
+              const msg = JSON.parse(ev.data) as { type: string; url?: string; title?: string; viewport?: { width: number; height: number }; rect?: CaptureRect | null; selector?: string | null; path?: BreadcrumbSegment[] | null; count?: number; active?: boolean }
               if (msg.type === 'ready') {
                 setState((s) => ({ ...s, status: 'ready', url: msg.url ?? s.url, title: msg.title ?? s.title, viewport: msg.viewport ?? s.viewport }))
               } else if (msg.type === 'nav') {
                 setState((s) => ({ ...s, url: msg.url ?? s.url, title: msg.title ?? s.title }))
               } else if (msg.type === 'hover') {
                 setState((s) => ({ ...s, hoverRect: msg.rect ?? null, hoverSelector: msg.selector ?? null, hoverPath: msg.path ?? null }))
+              } else if (msg.type === 'popup') {
+                const count = typeof msg.count === 'number' ? msg.count : 0
+                setState((s) => ({ ...s, popup: count > 0 ? { count, active: msg.active === true, url: msg.url ?? null } : null }))
               }
             } catch {
               /* ignore */
@@ -146,7 +169,7 @@ export function useBrowserCaptureSession(opts: {
             return
           }
           // binary screencast frame
-          void drawFrame(ev.data as ArrayBuffer)
+          pipeline.push(ev.data as ArrayBuffer)
         }
         ws.onopen = () => { if (!cancelled) setState((s) => ({ ...s, status: 'ready' })) }
         ws.onerror = () => { if (!cancelled) setState((s) => ({ ...s, status: 'error', errorMsg: i18n.t('browser:session.connectionError') })) }
@@ -167,6 +190,8 @@ export function useBrowserCaptureSession(opts: {
 
     return () => {
       cancelled = true
+      stopStats?.()
+      pipeline.dispose()
       const ws = wsRef.current
       if (ws) {
         // Detach handlers before closing so no late frame/message/close touches
@@ -186,7 +211,7 @@ export function useBrowserCaptureSession(opts: {
       // sweeps idle sessions, so deferring this kill is safe.
       if (sid && !capturingRef.current) void killBrowserSession(sid)
     }
-  }, [open, projectId, initialUrl, drawFrame])
+  }, [open, projectId, initialUrl])
 
   const forwardInput = useCallback((event: BrowserInputEvent) => {
     const ws = wsRef.current
@@ -258,6 +283,15 @@ export function useBrowserCaptureSession(opts: {
     return navigateBrowserElement(sid, selector, direction)
   }, [])
 
+  const setPopupView = useCallback((target: 'root' | 'popup') => {
+    const sid = sessionIdRef.current
+    if (!sid) return
+    // Optimistic flip so the bar reacts instantly; the server's `popup` broadcast
+    // is authoritative and reconciles the state right after.
+    setState((s) => (s.popup ? { ...s, popup: { ...s.popup, active: target === 'popup' } } : s))
+    void setBrowserPopupView(sid, target)
+  }, [])
+
   return {
     ...state,
     canvasRef,
@@ -270,5 +304,6 @@ export function useBrowserCaptureSession(opts: {
     setViewport,
     probe,
     clearHover,
+    setPopupView,
   }
 }

@@ -360,7 +360,10 @@ export default function DesktopAnalyticsPage() {
               <span className="text-xs text-muted-foreground">{data.period.label}</span>
             )}
           </div>
-          <div className="flex items-center gap-3">
+          {/* mr-8 clears the Dialog's absolute close X (right-4 top-4) — the
+              page only mounts inside the App-level analytics Dialog, where the
+              refresh button otherwise sits underneath it. */}
+          <div className="flex items-center gap-3 mr-8">
             <PeriodSelector
               period={period}
               from={from}

@@ -1,5 +1,11 @@
 import type { DbInstance } from './db'
 
+/** The three rails every project starts with (indices 0-2, never auto-removed). */
+export const BASE_RAIL_COUNT = 3
+/** Hard cap on rails per project — keeps railIndex-keyed maps (metrics,
+ *  pr-deliveries, worktree progress) bounded and the board renderable. */
+export const MAX_RAILS = 12
+
 export interface RailState {
   railIndex: number
   ticketIds: number[]
@@ -21,6 +27,38 @@ function railNames(db: DbInstance): Map<number, string | null> {
   const map = new Map<number, string | null>()
   for (const r of rows) map.set(r.rail_index, r.name)
   return map
+}
+
+/** Materialize a rail's identity row (idempotent). rail_meta is the existence
+ *  authority for rails: a rail exists iff it has a rail_meta row (the base
+ *  three are seeded by db migration 39; created rails insert theirs) or any
+ *  leftover ticket rows. Called by every mutation that "touches" a rail so a
+ *  rail the client only knew locally (legacy localStorage rail-4+) becomes
+ *  server-backed the first time it is named / assigned tickets. */
+export function ensureRailMeta(db: DbInstance, railIndex: number): void {
+  db.prepare('INSERT OR IGNORE INTO rail_meta (rail_index, name) VALUES (?, NULL)').run(railIndex)
+}
+
+/** Every existing rail index, ascending: the union of rail_meta identity rows
+ *  and any index that still holds ticket rows (defensive — covers rows written
+ *  before rail_meta materialization existed). */
+export function listRailIndices(db: DbInstance): number[] {
+  const rows = db
+    .prepare(
+      'SELECT rail_index FROM rail_meta UNION SELECT rail_index FROM rails ORDER BY rail_index'
+    )
+    .all() as { rail_index: number }[]
+  return rows.map((r) => r.rail_index)
+}
+
+/** How many rails currently exist (>= BASE_RAIL_COUNT unless deleted below it). */
+export function railCount(db: DbInstance): number {
+  return listRailIndices(db).length
+}
+
+/** Whether a rail exists (base rails always do; dynamic rails via rail_meta/rows). */
+export function railExists(db: DbInstance, railIndex: number): boolean {
+  return listRailIndices(db).includes(railIndex)
 }
 
 // ─── Queries ─────────────────────────────────────────────────────────────────
@@ -56,7 +94,10 @@ export function getRails(db: DbInstance): RailState[] {
   }
 
   const names = railNames(db)
-  return [0, 1, 2].map((railIndex) => {
+  // DYNAMIC rail count: every rail with an identity row (rail_meta) or ticket
+  // rows is listed — the base three are seeded, created rails append, deleted
+  // dynamic rails disappear (indices may be sparse after a middle deletion).
+  return listRailIndices(db).map((railIndex) => {
     const rail = map.get(railIndex)
     return {
       railIndex,
@@ -117,6 +158,10 @@ export function setRailTickets(
     aiEngine === undefined ? (getRail(db, railIndex).aiEngine ?? null) : aiEngine
 
   db.transaction(() => {
+    // Materialize the rail's identity so a rail first touched by a ticket sync
+    // (e.g. a legacy client-local rail-4+ at launch time) persists server-side
+    // even after its tickets are released.
+    ensureRailMeta(db, railIndex)
     deleteStmt.run(railIndex)
     for (let i = 0; i < ticketIds.length; i++) {
       insertStmt.run(railIndex, ticketIds[i], i, resolvedMode, resolvedProfile, resolvedEngine)
@@ -162,6 +207,39 @@ export function setRailEngine(
   }
   db.prepare('UPDATE rails SET ai_engine = ? WHERE rail_index = ?').run(aiEngine, railIndex)
   return { ...current, aiEngine }
+}
+
+/**
+ * Create the next rail (index = highest existing + 1) with an optional display
+ * name. The caller (rails-router / MCP create_rail) enforces the MAX_RAILS cap
+ * — the store itself stays mechanism-only. Returns the new rail's state.
+ */
+export function createRail(db: DbInstance, name?: string | null): RailState {
+  // Lowest free index (not max+1): re-filling a deleted middle rail's slot keeps
+  // indices bounded below MAX_RAILS whenever the COUNT is below the cap. Reuse
+  // is safe — the delete guards ensure a deleted index left no active run or
+  // undecided PR delivery behind.
+  const taken = new Set(listRailIndices(db))
+  let railIndex = 0
+  while (taken.has(railIndex)) railIndex++
+  const trimmed = typeof name === 'string' ? name.trim() : null
+  const value = trimmed && trimmed.length > 0 ? trimmed : null
+  db.prepare('INSERT OR IGNORE INTO rail_meta (rail_index, name) VALUES (?, ?)').run(railIndex, value)
+  return { railIndex, ticketIds: [], mode: 'implement', profileName: null, aiEngine: null, name: value }
+}
+
+/**
+ * Delete a rail's identity + ticket rows. Pure mechanism — the router enforces
+ * the guards (rail exists, empty, idle, no pending PR decision, not the last
+ * rail). Deleting a middle rail leaves a sparse index gap on purpose: indices
+ * are IDENTITY (metrics / pr-deliveries / worktree maps key by railIndex), so
+ * they are never compacted/re-numbered.
+ */
+export function deleteRail(db: DbInstance, railIndex: number): void {
+  db.transaction(() => {
+    db.prepare('DELETE FROM rail_meta WHERE rail_index = ?').run(railIndex)
+    db.prepare('DELETE FROM rails WHERE rail_index = ?').run(railIndex)
+  })()
 }
 
 /**

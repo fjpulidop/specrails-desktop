@@ -480,6 +480,75 @@ describe('JobDetailPage', () => {
     })
   })
 
+  describe('Loop-step explorer (loop jobs only)', () => {
+    const loopJob: JobSummary = {
+      ...mockJob,
+      command: 'loop: Nightly refactor',
+      status: 'running',
+      finished_at: null,
+      total_cost_usd: null,
+      duration_ms: null,
+    }
+    const loopEvents: EventRow[] = [
+      {
+        id: 1,
+        job_id: 'job-abc123',
+        seq: 0,
+        event_type: 'log',
+        source: 'stdout',
+        payload: JSON.stringify({ line: '▶ Loop "Nightly refactor" started' }),
+        timestamp: '2024-01-15T10:00:01Z',
+      },
+      {
+        id: 2,
+        job_id: 'job-abc123',
+        seq: 1,
+        event_type: 'loop_step',
+        source: 'stdout',
+        payload: JSON.stringify({ index: 1, kind: 'ai-step', title: '🤖 Implement', nodeId: 'ai1', iteration: 0 }),
+        timestamp: '2024-01-15T10:00:02Z',
+      },
+      {
+        id: 3,
+        job_id: 'job-abc123',
+        seq: 2,
+        event_type: 'log',
+        source: 'stdout',
+        payload: JSON.stringify({ line: 'step output line' }),
+        timestamp: '2024-01-15T10:00:03Z',
+      },
+    ]
+
+    it('replaces the phase-grouped LogViewer with the explorer for loop jobs', async () => {
+      global.fetch = vi.fn().mockResolvedValue({
+        ok: true,
+        json: async () => ({ job: loopJob, events: loopEvents }),
+      })
+      render(<JobDetailPage />)
+      await waitFor(() => {
+        expect(screen.getByTestId('loop-step-explorer')).toBeInTheDocument()
+      })
+      // The step box renders with the cleaned title (also echoed on the strip
+      // chip) and the live step line
+      expect(screen.getAllByTestId('loop-step-section')).toHaveLength(1)
+      expect(screen.getAllByText('Implement').length).toBeGreaterThanOrEqual(1)
+      expect(screen.getByText('step output line')).toBeInTheDocument()
+    })
+
+    it('regression pin: non-loop jobs keep the legacy LogViewer (no explorer)', async () => {
+      global.fetch = vi.fn().mockResolvedValue({
+        ok: true,
+        json: async () => ({ job: mockJob, events: mockEvents }),
+      })
+      render(<JobDetailPage />)
+      await waitFor(() => {
+        expect(screen.getByText('Starting implementation...')).toBeInTheDocument()
+      })
+      expect(screen.queryByTestId('loop-step-explorer')).not.toBeInTheDocument()
+      expect(screen.queryByTestId('loop-overview-strip')).not.toBeInTheDocument()
+    })
+  })
+
   describe('Interactive ultracode session', () => {
     const interactiveJob: JobSummary = {
       ...mockJob,

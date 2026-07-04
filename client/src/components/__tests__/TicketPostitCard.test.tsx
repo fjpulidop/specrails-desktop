@@ -118,6 +118,54 @@ describe('TicketPostitCard', () => {
     expect(screen.getByText(/draft/i)).toBeInTheDocument()
   })
 
+  describe('on_review variant', () => {
+    it('renders an On Review badge and hides the priority badge', () => {
+      render(
+        wrap(
+          <TicketPostitCard
+            ticket={makeTicket({ status: 'on_review' })}
+            rails={makeRails()}
+            onClick={() => {}}
+            onMoveToRail={() => {}}
+          />,
+        ),
+      )
+      expect(screen.getByTestId('on-review-badge-postit-42')).toBeInTheDocument()
+      expect(screen.getByText('On Review')).toBeInTheDocument()
+      expect(screen.queryByText(/high/i)).not.toBeInTheDocument()
+    })
+
+    it('hides the Move-to-Rail button (not launchable while the PR decision is pending)', () => {
+      render(
+        wrap(
+          <TicketPostitCard
+            ticket={makeTicket({ status: 'on_review' })}
+            rails={makeRails()}
+            onClick={() => {}}
+            onMoveToRail={() => {}}
+          />,
+        ),
+      )
+      expect(screen.queryByTestId('move-to-rail-button')).not.toBeInTheDocument()
+    })
+
+    it('uses semantic accent-warning tokens (no brand-named colours)', () => {
+      render(
+        wrap(
+          <TicketPostitCard
+            ticket={makeTicket({ status: 'on_review' })}
+            rails={makeRails()}
+            onClick={() => {}}
+            onMoveToRail={() => {}}
+          />,
+        ),
+      )
+      const badge = screen.getByTestId('on-review-badge-postit-42')
+      expect(badge.className).toContain('text-accent-warning')
+      expect(badge.className).not.toMatch(/dracula-/)
+    })
+  })
+
   it('opens the Move-to-Rail popover and calls onMoveToRail when a rail is picked', () => {
     const onMove = vi.fn()
     render(

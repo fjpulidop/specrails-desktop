@@ -13,9 +13,11 @@ import { RailModelSelector, type UltracodeModel } from './agents/RailModelSelect
 import { RailLoopSelector } from './agents/RailLoopSelector'
 import { RailExecutionInfo } from './RailExecutionInfo'
 import { RailEffortSelector, type ReasoningEffort } from './agents/RailEffortSelector'
+import { RailPrDecisionStrip } from './RailPrDecisionStrip'
 import { providerSupportsReasoningEffort } from '../lib/provider-capabilities'
 import { modelsForProvider, defaultModelForProvider } from '../lib/loop-run-models'
-import type { LocalTicket } from '../types'
+import type { LocalTicket, RailPrDecision, RailPrDecisionAction, RailPrStateSnapshot } from '../types'
+import type { RailPrActResult } from '../context/RailPrDecisionContext'
 
 const LONG_PRESS_MS = 800
 const SWIPE_THRESHOLD = 60
@@ -45,6 +47,10 @@ interface RailRowProps {
   reasoningEffort?: ReasoningEffort | null
   /** Merge-back progress for a parallel/isolated launch (null when none). */
   worktreeSummary?: { merged: number; needsReview: number; failed: number; reported: number } | null
+  /** Active ask-first PR decision for this rail (null when none). */
+  prDecision?: RailPrStateSnapshot | null
+  /** POSTs /rails/pr-decision for this rail (already bound to its railIndex). */
+  onPrDecision?: (action: RailPrDecisionAction, expectedDecision: RailPrDecision) => Promise<RailPrActResult>
   /** Live execution metrics (elapsed/steps/lines) while running — same WS source
    *  as the Jobs view. Null when not running / no data. */
   executionMetric?: import('../context/RailMetricsContext').RailExecMetric | null
@@ -80,7 +86,7 @@ interface RailRowProps {
 
 export function RailRow({
   id, label, tickets, mode, status, activeJobId, profileName, aiEngine, ultracodeModel, loopModel, providers,
-  loopAvailable, selectedLoopId, reasoningEffort, worktreeSummary, executionMetric, jiggleMode,
+  loopAvailable, selectedLoopId, reasoningEffort, worktreeSummary, prDecision, onPrDecision, executionMetric, jiggleMode,
   dragHandleListeners, dragHandleAttributes, density = 'normal',
   onModeChange, onProfileChange, onEngineChange, onUltracodeModelChange, onLoopModelChange, onLoopChange, onEffortChange, onToggle, onTicketClick, onDelete, onLongPress, onRename,
   onTicketMoveToSpecs,
@@ -472,6 +478,13 @@ export function RailRow({
           </div>
         )}
 
+        {/* Ask-first PR decision strip (safe-pr-review-flow) */}
+        {prDecision && onPrDecision && (
+          <div className="mt-1">
+            <RailPrDecisionStrip decision={prDecision} density="compact" act={onPrDecision} />
+          </div>
+        )}
+
         {/* Jiggle-mode delete button */}
         {jiggleMode && canDelete && (
           <button
@@ -628,6 +641,13 @@ export function RailRow({
               {worktreeSummary.needsReview > 0 && (
                 <span className="text-accent-warning">{t('railControls.worktreesNeedsReview', { count: worktreeSummary.needsReview })}</span>
               )}
+            </div>
+          )}
+
+          {/* Ask-first PR decision strip (safe-pr-review-flow) */}
+          {prDecision && onPrDecision && (
+            <div className="px-3 pb-1.5">
+              <RailPrDecisionStrip decision={prDecision} density="normal" act={onPrDecision} />
             </div>
           )}
 

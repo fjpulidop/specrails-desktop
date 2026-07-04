@@ -1,5 +1,5 @@
 import { describe, it, expect, afterEach, vi } from 'vitest'
-import { isNavigableUrl, normalizeUrl, chromiumLaunchArgs } from './browser-playwright'
+import { isNavigableUrl, normalizeUrl, chromiumLaunchArgs, screencastParams } from './browser-playwright'
 
 // Pure-helper tests for the navigation SSRF/scheme guard (BUG-BROWSER-01) and the
 // platform-gated sandbox args (BUG-BROWSER-04). The Playwright/CDP wiring itself
@@ -128,5 +128,28 @@ describe('chromiumLaunchArgs (BUG-BROWSER-04)', () => {
   it('falls back to --no-sandbox on Linux only', () => {
     setPlatform('linux')
     expect(chromiumLaunchArgs()).toContain('--no-sandbox')
+  })
+})
+
+describe('screencastParams', () => {
+  it('defaults to JPEG q70, every frame, with guard caps', () => {
+    const p = screencastParams({})
+    expect(p).toEqual({ format: 'jpeg', quality: 70, everyNthFrame: 1, maxWidth: 3840, maxHeight: 2400 })
+  })
+
+  it('honours SPECRAILS_BROWSER_SCREENCAST_QUALITY', () => {
+    expect(screencastParams({ SPECRAILS_BROWSER_SCREENCAST_QUALITY: '55' }).quality).toBe(55)
+  })
+
+  it('clamps quality into [1, 100] and rounds', () => {
+    expect(screencastParams({ SPECRAILS_BROWSER_SCREENCAST_QUALITY: '0' }).quality).toBe(1)
+    expect(screencastParams({ SPECRAILS_BROWSER_SCREENCAST_QUALITY: '-10' }).quality).toBe(1)
+    expect(screencastParams({ SPECRAILS_BROWSER_SCREENCAST_QUALITY: '250' }).quality).toBe(100)
+    expect(screencastParams({ SPECRAILS_BROWSER_SCREENCAST_QUALITY: '64.6' }).quality).toBe(65)
+  })
+
+  it('falls back to the default on a non-numeric or empty value', () => {
+    expect(screencastParams({ SPECRAILS_BROWSER_SCREENCAST_QUALITY: 'high' }).quality).toBe(70)
+    expect(screencastParams({ SPECRAILS_BROWSER_SCREENCAST_QUALITY: '' }).quality).toBe(70)
   })
 })

@@ -44,6 +44,7 @@
     "auto": "自動（カテゴリ別）",
     "todo": "バックログ / To Do",
     "inProgress": "進行中",
+    "onReview": "レビュー中",
     "done": "完了",
     "cancelled": "キャンセル",
     "loading": "ステータスを読み込み中…"

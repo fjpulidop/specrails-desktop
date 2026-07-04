@@ -56,6 +56,7 @@ import { AgentWorkspaceProvider } from './context/AgentWorkspaceContext'
 import { AgentWorkspaceSidebar } from './components/agent-chat/AgentWorkspaceSidebar'
 import { AgentModeSurface } from './components/agent-chat/AgentModeSurface'
 import { RailMetricsProvider } from './context/RailMetricsContext'
+import { RailPrDecisionProvider } from './context/RailPrDecisionContext'
 import { MinimizedChatsProvider, } from './context/MinimizedChatsContext'
 import { AgentChatProvider, useAgentChat } from './context/AgentChatContext'
 import { TicketDetailModalProvider } from './context/TicketDetailModalContext'
@@ -417,6 +418,14 @@ function RailMetricsProviderWithDesktop({ children }: { children: React.ReactNod
   return <RailMetricsProvider activeProjectId={activeProjectId}>{children}</RailMetricsProvider>
 }
 
+// Ask-first PR decisions provider (safe-pr-review-flow) — app-level for the same
+// reason as RailMetrics: the durable rail.pr_state snapshots must survive page
+// navigation (a decision can arrive while the dashboard is unmounted).
+function RailPrDecisionProviderWithDesktop({ children }: { children: React.ReactNode }) {
+  const { activeProjectId } = useDesktop()
+  return <RailPrDecisionProvider activeProjectId={activeProjectId}>{children}</RailPrDecisionProvider>
+}
+
 // ─── Themed Toaster — single global instance, glass-card chrome ──────────────
 // Unified across the app so every toast looks the same and stacks together.
 // `unstyled: true` strips sonner's defaults; classNames apply our glass-card
@@ -520,6 +529,7 @@ export default function App() {
                 <SidebarPinProvider>
                   <TerminalsProviderWithDesktop>
                     <RailMetricsProviderWithDesktop>
+                    <RailPrDecisionProviderWithDesktop>
                     <MinimizedChatsProvider>
                       <AgentChatProvider>
                         <AgentWorkspaceProvider>
@@ -532,6 +542,7 @@ export default function App() {
                         </AgentWorkspaceProvider>
                       </AgentChatProvider>
                     </MinimizedChatsProvider>
+                    </RailPrDecisionProviderWithDesktop>
                     </RailMetricsProviderWithDesktop>
                   </TerminalsProviderWithDesktop>
                 </SidebarPinProvider>

@@ -37,6 +37,12 @@ Ein paar Leitplanken halten die Kosten im Rahmen: Die Generierung von Zusammenfa
 
 Du kannst außerdem die **Sprache der Zusammenfassungen** (Englisch oder Spanisch) in den globalen Einstellungen im Bereich *Code* wählen.
 
+## Die Baugeschichte
+
+Unter dem Code-Viewer lebt die **Baugeschichte** — eine chronologische Zeitleiste jeder Spec und jedes Jobs, die die gerade betrachtete Datei aufgebaut haben. Jedes Kapitel ist eine Karte: welche Spec eingegriffen hat (mit ihrem aktuellen Status), wann, ob die Datei erstellt, geändert oder gelöscht wurde, und wie groß die Änderung war (hinzugefügte und entfernte Zeilen). Ein Klick auf eine Karte öffnet die Detailansicht dieser Spec. Auch Loop-basierte Rails zeichnen ihre Dateiberührungen auf — Arbeit in isolierten Worktrees erscheint in der Geschichte genau wie reguläre Pipeline-Jobs.
+
+Für jedes Kapitel kannst du eine Erklärung in einfacher Sprache anfordern: Drücke **Diese Änderung erklären**, und die App schreibt ein bis drei Sätze darüber, was diese konkrete Änderung zur Datei beigetragen hat — ohne Code, ohne Fachjargon. Erklärungen teilen sich dasselbe Monatsbudget wie die Dateizusammenfassungen; solange noch keine erzeugt wurde, zeigt die Karte die ehrlichen Fakten, die sie kennt: die Art der Änderung, die Spec und das Datum. Lieber Rohdaten? Ein **Geschichte / Protokoll**-Umschalter wechselt zur klassischen Änderungsliste mit Diffs auf Abruf. Dasselbe Panel erscheint im **Files**-Bereich des Agentenmodus.
+
 ## Code zurück mit Specs verbinden
 
 Die Herkunftsverknüpfung funktioniert in beide Richtungen. Innerhalb des Code-Explorers öffnet ein Klick auf den Ticket-Chip einer Datei die Detailansicht dieses Tickets. Und aus der anderen Richtung hat die **Ticket-Detailansicht** einen Abschnitt *Von diesem Ticket bearbeitete Dateien* – klicke dort auf eine Datei und du springst direkt in den Code-Explorer, mit der Datei geöffnet. Das schließt den Kreis zwischen „hier ist die Spec, die wir geschrieben haben“ und „hier ist der Code, der dabei herausgekommen ist“.

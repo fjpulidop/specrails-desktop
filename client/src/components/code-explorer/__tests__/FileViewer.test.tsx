@@ -72,25 +72,39 @@ describe('FileViewer', () => {
     await waitFor(() => expect(summaryAction.get()?.disabledReason).toBe('file too large'))
   })
 
-  it('renders content via Monaco stub and shows summary', async () => {
-    global.fetch = vi.fn().mockResolvedValue({
-      ok: true,
-      json: async () => ({
-        content: 'export const x = 1',
-        language: 'typescript',
-        summary: { summary: 'Defines x.' },
-        summaryStale: false,
-        provenance: [{ path: 'src/x.ts', ticketId: 42, jobId: 'job-abcdef123456', kind: 'modified', at: 1000 }],
-      }),
+  it('renders content via Monaco stub, shows summary, and defaults the bottom panel to the Story view', async () => {
+    global.fetch = vi.fn((url: RequestInfo | URL) => {
+      if (String(url).includes('/code/file/story')) {
+        return Promise.resolve({ ok: true, json: async () => ({ story: [] }) })
+      }
+      return Promise.resolve({
+        ok: true,
+        json: async () => ({
+          content: 'export const x = 1',
+          language: 'typescript',
+          summary: { summary: 'Defines x.' },
+          summaryStale: false,
+          provenance: [{ path: 'src/x.ts', ticketId: 42, jobId: 'job-abcdef123456', kind: 'modified', at: 1000 }],
+        }),
+      })
     }) as never
     render(wrap(<FileViewer relPath="src/x.ts" />))
     await waitFor(() => {
       expect(screen.getByTestId('monaco-stub')).toBeInTheDocument()
     })
     expect(screen.getByText('Defines x.')).toBeInTheDocument()
+    // Story is the DEFAULT bottom-panel mode (narrative-first).
+    await waitFor(() => expect(screen.getByTestId('construction-story')).toBeInTheDocument())
+    expect(screen.queryByTestId('file-provenance-timeline')).not.toBeInTheDocument()
+    // Switch to the raw Log view → the classic provenance timeline.
+    fireEvent.click(screen.getByText('Log'))
     expect(screen.getByTestId('file-provenance-timeline')).toBeInTheDocument()
     expect(screen.getByText('spec #42')).toBeInTheDocument()
     expect(screen.getByText('job-abcdef12')).toBeInTheDocument()
+    expect(screen.queryByTestId('construction-story')).not.toBeInTheDocument()
+    // Back to Story.
+    fireEvent.click(screen.getByText('Story'))
+    await waitFor(() => expect(screen.getByTestId('construction-story')).toBeInTheDocument())
   })
 
   it('edits a text file and saves it via PUT /code/file', async () => {

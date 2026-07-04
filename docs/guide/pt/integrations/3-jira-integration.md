@@ -7,7 +7,7 @@ Quer que as suas specs vivam num **quadro Jira** real em vez de dentro do Specra
 O Specrails atua como uma **camada de sincronização** entre o Jira e o seu projeto. A ideia central: o seu repositório local de specs continua a ser a fonte canónica que o pipeline lê, e o Specrails é responsável por mantê-lo de acordo com o Jira.
 
 - Quando lança um rail, o Specrails move a issue Jira associada para **Em curso**.
-- Quando um trabalho termina, o Specrails transita a issue (para **Concluído**, ou de volta para **A fazer** se falhar) e publica um comentário de conclusão com o id do trabalho, o custo e a duração.
+- Quando um trabalho termina, o Specrails transita a issue: em caso de sucesso, move-a para o seu estado de **revisão** mapeado e só chega a **Concluído** quando aprova o trabalho (o merge da PR em rascunho publica um comentário "PR merged"); em caso de falha, volta a **A fazer** com um comentário de conclusão (id do trabalho, custo e duração).
 - Periodicamente, o Specrails faz **polling** ao Jira em busca de alterações que alguém tenha feito no quadro e reflete-as de volta nas suas specs.
 
 Todas as escritas de retorno passam por uma fila de saída (outbox) durável e resistente a falhas, por isso um soluço momentâneo do Jira nunca quebra um trabalho — a atualização simplesmente volta a tentar.

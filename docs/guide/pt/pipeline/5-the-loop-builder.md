@@ -80,7 +80,7 @@ Para rodar um loop personalizado:
 2. No cabeçalho do rail, abra o **seletor de Loop** e escolha o seu loop publicado.
 3. Aperte **▶ Play**.
 
-A execução transmite ao vivo na vista **Jobs**, exatamente como um job de rail embutido — mesmos logs, mesmas métricas, mesmo rastreamento de custo. Um loop que para porque atingiu seu teto de iterações ou de custo é reportado com esse resultado, em vez de um simples sucesso.
+A execução transmite ao vivo na vista **Jobs** com as mesmas métricas e o mesmo rastreamento de custo de qualquer job de rail — e o seu log ganha um **explorador de passos** dedicado: um mapa ao vivo do seu grafo com uma caixa recolhível por passo, seguindo o passo em execução à medida que o loop avança (ver [A vista de detalhe do job](the-job-detail-view)). No Claude, cada **Passo de IA** é também uma sessão ao vivo: envie mensagens a ele pelo compositor do detalhe do job para orientá-lo no meio do passo (entre passos o compositor espera brevemente, e **Assentar este passo** faz o loop avançar com o que o passo produziu). Um loop que para porque atingiu seu teto de iterações ou de custo é reportado com esse resultado, em vez de um simples sucesso.
 
 > **Atenção enquanto um loop roda.** Você não pode editar nem apagar um loop enquanto uma de suas execuções está rodando — pare a execução primeiro.
 

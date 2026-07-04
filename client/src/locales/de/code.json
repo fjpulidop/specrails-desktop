@@ -69,6 +69,40 @@
       "tooLarge": "Datei zu groß"
     }
   },
+  "story": {
+    "title_one": "Baugeschichte · {{count}} Kapitel",
+    "title_other": "Baugeschichte · {{count}} Kapitel",
+    "viewMode": "Ansichtsmodus der Geschichte",
+    "modeStory": "Geschichte",
+    "modeLog": "Protokoll",
+    "loading": "Geschichte wird geladen…",
+    "loadFailed": "Die Geschichte konnte nicht geladen werden.",
+    "empty": "Für diese Datei sind noch keine KI-Eingriffe aufgezeichnet.",
+    "spec": "Spec #{{ticketId}}",
+    "unknownSpec": "KI-Änderung ohne Spec",
+    "openSpec": "Spec #{{ticketId}} öffnen",
+    "kindLabel": {
+      "created": "Erstellt",
+      "modified": "Geändert",
+      "deleted": "Gelöscht"
+    },
+    "fallback": {
+      "created": "Diese Datei wurde bei der Umsetzung dieser Spec erstellt.",
+      "modified": "Diese Datei wurde bei der Umsetzung dieser Spec geändert.",
+      "deleted": "Diese Datei wurde bei der Umsetzung dieser Spec gelöscht.",
+      "createdNoSpec": "Diese Datei wurde von einem KI-Job erstellt.",
+      "modifiedNoSpec": "Diese Datei wurde von einem KI-Job geändert.",
+      "deletedNoSpec": "Diese Datei wurde von einem KI-Job gelöscht."
+    },
+    "explain": "Diese Änderung erklären",
+    "explaining": "Wird erklärt…",
+    "explainFailed": "Die Erklärung konnte nicht erzeugt werden",
+    "budgetReached": "Monatliches KI-Budget erreicht.",
+    "generateAnyway": "Trotzdem erzeugen",
+    "explainedBy": "Erklärt von {{model}}",
+    "linesAdded": "Hinzugefügte Zeilen",
+    "linesRemoved": "Entfernte Zeilen"
+  },
   "history": {
     "resize": "Größe des KI-Bearbeitungsverlaufs ändern",
     "title_one": "KI-Bearbeitungsverlauf · {{count}} Änderung",

@@ -80,7 +80,7 @@ To run a custom loop:
 2. In the rail header, open the **Loop picker** and choose your published loop.
 3. Press **▶ Play**.
 
-The run streams live in the **Jobs** view exactly like a built-in rail job — same logs, same metrics, same cost tracking. A loop that stops because it hit its iteration or cost cap is reported with that outcome rather than a plain success.
+The run streams live in the **Jobs** view with the same metrics and cost tracking as any rail job — and its log gets a dedicated **step explorer**: a live map of your graph with one collapsible box per step, following the running step as the loop advances (see [The Job Detail view](the-job-detail-view)). On Claude, each **AI Step** is a live session too: message it from the Job Detail composer to steer it mid-step (between steps the composer briefly waits, and **Settle this step** advances the loop with what the step produced). A loop that stops because it hit its iteration or cost cap is reported with that outcome rather than a plain success.
 
 > **Heads-up while a loop runs.** You can't edit or delete a loop while one of its runs is executing — stop the run first.
 

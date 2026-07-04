@@ -101,5 +101,11 @@
     "tooManySessions": "Zu viele offene Browser-Sessions. Schließe eine und versuche es erneut.",
     "launchFailed": "Der Browser konnte auf dem Server nicht gestartet werden.",
     "openFailed": "Browser konnte nicht geöffnet werden."
+  },
+  "popup": {
+    "loginWindow": "Anmeldefenster — {{origin}}",
+    "stacked": "+{{count}} weitere",
+    "backToPage": "Zurück zur Seite",
+    "show": "Anmeldefenster anzeigen"
   }
 }

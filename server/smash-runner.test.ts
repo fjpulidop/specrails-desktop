@@ -282,6 +282,27 @@ describe('applySmashUndo', () => {
     expect(undone.epic?.status).toBe('done') // not demoted to 'todo'
   })
 
+  it('pins the on_review fallback: a pre-SMASH "on_review" status restores to todo, never on_review', () => {
+    // 'on_review' is DELIBERATELY excluded from the restore whitelist: it is a
+    // transient rail-settle state owned by the PR-decision flow — an undo cannot
+    // resurrect the delivery it belonged to, so the epic falls back to 'todo'.
+    seedTicket(projectPath, { id: 1, status: 'on_review' })
+    const filePath = resolveTicketStoragePath(projectPath)
+    applySmashToStore(
+      filePath,
+      1,
+      [{ title: 'A', description: 'da', priority: 'high', executionOrder: 1, rationale: 'r' }],
+      '2026-05-16T12:00:00Z',
+      'sr-specs-smash',
+    )
+    const undone = applySmashUndo(filePath, 1, '2026-05-16T12:00:00Z', '2026-05-16T12:00:30Z')
+    expect(undone.epic?.is_epic).toBe(false)
+    expect(undone.epic?.status).toBe('todo') // NOT 'on_review'
+    // the stale marker is consumed either way
+    const store = readStore(filePath)
+    expect((store.tickets['1'].metadata as { pre_smash_status?: string }).pre_smash_status).toBeUndefined()
+  })
+
   it('is a no-op when ticket is not an épica', () => {
     seedTicket(projectPath, { id: 1 })
     const filePath = resolveTicketStoragePath(projectPath)

@@ -33,6 +33,14 @@
     "sendHint": "Der Agent arbeitet noch — diese Nachricht wird eingereiht und danach ausgeführt",
     "placeholder": "Mehr hinzufügen, während der Agent arbeitet — wird eingereiht…"
   },
+  "queueEdit": {
+    "editing": "Bearbeite eingereihte Nachricht {{n}} von {{m}}",
+    "hint": "↑↓ zum Navigieren · Enter speichert · Esc bricht ab",
+    "save": "Eingereihte Nachricht speichern",
+    "cancel": "Bearbeitung abbrechen",
+    "dispatched": "Diese eingereihte Nachricht wurde bereits gesendet — dein Text bleibt als Entwurf erhalten",
+    "saveFailed": "Eingereihte Nachricht konnte nicht gespeichert werden"
+  },
   "git": {
     "branch": "Branch",
     "detached": "(detached)",
@@ -92,6 +100,21 @@
     "addProject": "Projekt hinzufügen…",
     "homeHint": "Kein Projekt ausgewählt — über alle Projekte hinweg.",
     "askCreateOrSearch": "Es ist kein Projekt ausgewählt. Möchtest du ein neues Projekt erstellen oder über alle Projekte hinweg suchen?"
+  },
+  "mission": {
+    "label": "Mission wechseln",
+    "untitled": "Neue Mission",
+    "new": "Neue Mission",
+    "searchPlaceholder": "Missionen durchsuchen…",
+    "noMatches": "Keine Mission gefunden",
+    "working": "Agent arbeitet",
+    "queuedBadge": "{{n}} in Warteschlange",
+    "delete": "Mission \"{{title}}\" löschen",
+    "deleteConfirm": "Löschen?",
+    "deleteLiveConfirm": "Der Agent arbeitet — trotzdem löschen?",
+    "confirmDelete": "Löschen bestätigen",
+    "cancelDelete": "Mission behalten",
+    "deleteFailed": "Mission konnte nicht gelöscht werden"
   },
   "noProvider": {
     "title": "Kein KI-Anbieter installiert",
@@ -155,5 +178,75 @@
     "high": "Hoch",
     "xhigh": "Sehr hoch"
   },
-  "emptyTitleMatrix": "Wie lautet die Mission, Neo?"
+  "emptyTitleMatrix": "Wie lautet die Mission, Neo?",
+  "prCard": {
+    "rail": "Rail {{index}}",
+    "specCount_one": "{{count}} Spec",
+    "specCount_other": "{{count}} Specs",
+    "base": "Basis-Branch",
+    "openPr": "PR öffnen",
+    "title": {
+      "building": "Implementierung in einem isolierten Worktree…",
+      "on_review": "Implementierung bereit zur Prüfung",
+      "pr_draft": "Entwurfs-PR erstellt",
+      "pr_draft_degraded": "PR-Auslieferung unvollständig",
+      "pr_ready": "PR bereit zum Merge",
+      "pr_failed": "PR-Erstellung fehlgeschlagen",
+      "merged": "PR gemergt",
+      "discarded": "Verworfen"
+    },
+    "buildingHint": "Nach Abschluss wirst du gefragt, ob der PR erstellt werden soll.",
+    "createPr": "PR erstellen",
+    "publish": "Veröffentlichen",
+    "retry": "Erneut versuchen",
+    "retryPr": "PR erneut versuchen",
+    "checkMerge": "Merge prüfen",
+    "discard": "Verwerfen",
+    "confirmDiscard": "Verwerfen bestätigen?",
+    "mergedNote": "Gemergt — Specs nach Fertig verschoben",
+    "discardedNote": "Verworfen — Specs zurück ins Backlog",
+    "degraded": {
+      "pushed": "Der Branch wurde gepusht, aber die PR konnte nicht erstellt werden — erneut versuchen, um abzuschließen.",
+      "localOnly": "Die Änderungen wurden lokal zusammengeführt, aber nicht gepusht — erneut versuchen, um die PR zu veröffentlichen."
+    },
+    "alreadyResolved": "Bereits anderweitig erledigt",
+    "actionFailed": "Aktion fehlgeschlagen",
+    "notMergedYet": "Noch nicht gemergt",
+    "viewLog": "Ausführungsprotokoll für {{ref}} anzeigen",
+    "runElapsedAria": "{{elapsed}} vergangen",
+    "runCostAria": "{{cost}} ausgegeben",
+    "pinned": {
+      "label": "Angeheftet",
+      "marker": "Implementierungskarte — oben angeheftet",
+      "collapse": "Angeheftete Karte minimieren",
+      "expand": "Angeheftete Karte ausklappen",
+      "showCard": "Diese Karte anzeigen",
+      "collapsed_one": "Implementierungskarte",
+      "collapsed_other": "{{count}} Implementierungskarten",
+      "state": {
+        "building": "Läuft",
+        "on_review": "Review",
+        "pr_draft": "Entwurfs-PR",
+        "pr_ready": "Veröffentlicht",
+        "pr_failed": "Fehlgeschlagen",
+        "merged": "Gemerged",
+        "discarded": "Verworfen"
+      }
+    }
+  },
+  "specDraft": {
+    "heading": "Spec-Entwurf",
+    "drafting": "Entwurf wird aktualisiert…",
+    "acceptanceCriteria": "Akzeptanzkriterien",
+    "untitled": "Spec ohne Titel",
+    "expand": "Vollständige Beschreibung anzeigen",
+    "collapse": "Beschreibung einklappen"
+  },
+  "refs": {
+    "openTicket": "Spec #{{id}} öffnen",
+    "openJob": "Job {{id}} öffnen",
+    "ticketNotFound": "Spec #{{id}} nicht gefunden — möglicherweise gelöscht",
+    "jobNotFound": "Job nicht gefunden — möglicherweise gelöscht",
+    "lookupFailed": "Referenz konnte nicht geprüft werden — bitte erneut versuchen"
+  }
 }

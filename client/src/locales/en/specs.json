@@ -9,11 +9,14 @@
     "dropToMarkDone": "Drop to mark as done",
     "emptyNoDoneLabelMatch": "No done specs match the active labels",
     "emptyNoCompleted": "No completed specs yet",
+    "emptyNoStatusMatch": "No specs match the selected status",
     "untitledSpec": "Untitled spec"
   },
   "status": {
     "todo": "Todo",
     "inProgress": "In Progress",
+    "onReview": "On Review",
+    "onReviewHint": "Implemented — a draft PR is awaiting your review decision",
     "done": "Done",
     "cancelled": "Cancelled"
   },
@@ -56,6 +59,7 @@
       "draft": "draft",
       "todo": "todo",
       "inProgress": "in progress",
+      "onReview": "on review",
       "done": "done",
       "cancelled": "cancelled"
     },
@@ -83,8 +87,13 @@
   "statusFilter": {
     "ariaLabel": "Filter by status",
     "all": "All",
-    "todo": "ToDo",
-    "done": "Done"
+    "active": "Active"
+  },
+  "jiraStatusFilter": {
+    "ariaLabel": "Filter by Jira status",
+    "triggerLabel": "Jira status",
+    "all": "All Jira statuses",
+    "other": "Other"
   },
   "sortControl": {
     "modeAriaLabel": "Sort mode",

@@ -730,15 +730,28 @@ describe('ensureWindowsBaseEnv', () => {
 
   it('strips the \\\\?\\ verbatim prefix from bundled-path env vars on win32', () => {
     setPlatform('win32')
-    const keys = ['SPECRAILS_BUNDLED_RUNTIMES_PATH', 'SPECRAILS_BUNDLED_CORE_PATH', 'SPECRAILS_BUNDLED_OPENSPEC_PATH'] as const
+    const keys = [
+      'SPECRAILS_BUNDLED_RUNTIMES_PATH',
+      'SPECRAILS_BUNDLED_CORE_PATH',
+      'SPECRAILS_BUNDLED_OPENSPEC_PATH',
+      'SPECRAILS_BUNDLED_MCP_BRIDGE_PATH',
+      'SPECRAILS_BUNDLED_DOCS_PATH',
+    ] as const
     const prev = keys.map((k) => process.env[k])
     process.env.SPECRAILS_BUNDLED_RUNTIMES_PATH = '\\\\?\\C:\\Users\\javi\\AppData\\Local\\Specrails\\runtimes'
     process.env.SPECRAILS_BUNDLED_CORE_PATH = '\\\\?\\C:\\Users\\javi\\AppData\\Local\\Specrails\\core'
     delete process.env.SPECRAILS_BUNDLED_OPENSPEC_PATH
+    // The regression that motivated widening the list: the MCP bridge script
+    // reached node.exe as \\?\C:\… and crashed the child at spawn (agent chat
+    // MCP server stuck "connecting" on packaged Windows).
+    process.env.SPECRAILS_BUNDLED_MCP_BRIDGE_PATH = '\\\\?\\C:\\Program Files\\Specrails\\resources\\binaries\\specrails-mcp.js'
+    process.env.SPECRAILS_BUNDLED_DOCS_PATH = '\\\\?\\C:\\Program Files\\Specrails\\resources\\docs'
     try {
       ensureWindowsBaseEnv()
       expect(process.env.SPECRAILS_BUNDLED_RUNTIMES_PATH).toBe('C:\\Users\\javi\\AppData\\Local\\Specrails\\runtimes')
       expect(process.env.SPECRAILS_BUNDLED_CORE_PATH).toBe('C:\\Users\\javi\\AppData\\Local\\Specrails\\core')
+      expect(process.env.SPECRAILS_BUNDLED_MCP_BRIDGE_PATH).toBe('C:\\Program Files\\Specrails\\resources\\binaries\\specrails-mcp.js')
+      expect(process.env.SPECRAILS_BUNDLED_DOCS_PATH).toBe('C:\\Program Files\\Specrails\\resources\\docs')
     } finally {
       keys.forEach((k, i) => {
         if (prev[i] === undefined) delete process.env[k]

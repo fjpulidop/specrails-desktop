@@ -45,9 +45,12 @@ export function SpecCard({
   onDelete,
 }: SpecCardProps) {
   const { t } = useTranslation('specs')
+  // On-review specs are frozen awaiting the human PR decision — they cannot be
+  // dragged (to a rail, to Done, or reordered) until merged or discarded.
+  const dragFrozen = dragDisabled || jiggleMode || ticket.status === 'on_review'
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
     id: ticket.id,
-    disabled: dragDisabled || jiggleMode, // disable DnD while in jiggle mode
+    disabled: dragFrozen, // disable DnD while in jiggle mode / on review
   })
 
   const longPressTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
@@ -114,13 +117,17 @@ export function SpecCard({
   }
 
   const isDraft = ticket.status === 'draft'
+  const isOnReview = ticket.status === 'on_review'
   const baseClass = 'relative flex items-center gap-2 px-3 py-2.5 rounded-lg border transition-colors group touch-none'
-  const cursorClass = jiggleMode ? '' : 'cursor-grab active:cursor-grabbing'
+  // No grab cursor when the card cannot actually be dragged (jiggle / on review).
+  const cursorClass = jiggleMode || isOnReview ? '' : 'cursor-grab active:cursor-grabbing'
   const variantClass = isDraft
     ? 'border-dashed border-accent-secondary/50 bg-accent-secondary/10 hover:bg-accent-secondary/15 hover:border-accent-secondary/70'
-    : contractRefining
-      ? 'border-accent-highlight/70 bg-card/70 shadow-lg shadow-accent-highlight/20 animate-pulse'
-      : 'border-border/40 bg-card/60 hover:bg-card/80 hover:border-border/60'
+    : isOnReview
+      ? 'border-accent-warning/40 bg-accent-warning/5 hover:bg-accent-warning/10 hover:border-accent-warning/60'
+      : contractRefining
+        ? 'border-accent-highlight/70 bg-card/70 shadow-lg shadow-accent-highlight/20 animate-pulse'
+        : 'border-border/40 bg-card/60 hover:bg-card/80 hover:border-border/60'
   const jiggleClass = jiggleMode ? 'animate-jiggle' : ''
   const cardClass = `${baseClass} ${cursorClass} ${variantClass} ${jiggleClass}`
 
@@ -129,10 +136,11 @@ export function SpecCard({
       ref={setNodeRef}
       data-ticket-id={ticket.id}
       data-draft={isDraft || undefined}
+      data-on-review={isOnReview || undefined}
       data-contract-refining={contractRefining || undefined}
       data-jiggle={jiggleMode || undefined}
       style={style}
-      {...(!dragDisabled && !jiggleMode ? { ...attributes, ...listeners } : {})}
+      {...(!dragFrozen ? { ...attributes, ...listeners } : {})}
       className={cardClass}
       onClick={handleClick}
       // Capture phase so dnd-kit's bubble-phase onPointerDown (spread above
@@ -212,6 +220,15 @@ export function SpecCard({
       {isDraft ? (
         <Badge variant="outline" className="text-[9px] shrink-0 border-accent-secondary/60 text-accent-secondary">
           {t('common:status.draft')}
+        </Badge>
+      ) : isOnReview ? (
+        <Badge
+          variant="outline"
+          className="text-[9px] shrink-0 border-accent-warning/60 text-accent-warning bg-accent-warning/10"
+          title={t('status.onReviewHint')}
+          data-testid={`on-review-badge-${ticket.id}`}
+        >
+          {t('common:status.onReview')}
         </Badge>
       ) : contractRefining ? (
         <Badge

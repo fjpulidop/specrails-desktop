@@ -111,6 +111,41 @@ describe('loop-executors runAiStep — relocated-repo sandbox grant', () => {
     ).toBe('chat-resume')
   })
 
+  describe('spawn env — per-run repoDir pin + lazy base-env provider (isolated rails)', () => {
+    const step = { prompt: 'x', provider: 'claude', model: 'm', effort: undefined }
+
+    it('SPECRAILS_REPO_DIR follows the run repoDir (the WORKTREE for isolated runs), overriding any base-env value', async () => {
+      getAdapter.mockReturnValue(fakeAdapter('claude'))
+      // A relocated project's base env must never leak the LIVE repo into an
+      // isolated spawn — the worktree always wins; the workspace artifact
+      // indirection rides through untouched.
+      const ex = createLoopExecutors({
+        env: {
+          SPECRAILS_REPO_DIR: '/real/repo',
+          SPECRAILS_TICKETS_PATH: '/home/ws/.specrails/local-tickets.json',
+          SPECRAILS_BACKLOG_CONFIG_PATH: '/home/ws/.specrails/backlog-config.json',
+        },
+      })
+      await ex.runAiStep({ ...step, cwd: '/wt/ticket-1', repoDir: '/wt/ticket-1' })
+      const inv = runAiCliInvocation.mock.calls[0][0] as { env: Record<string, string | undefined> }
+      expect(inv.env.SPECRAILS_REPO_DIR).toBe('/wt/ticket-1')
+      expect(inv.env.SPECRAILS_TICKETS_PATH).toBe('/home/ws/.specrails/local-tickets.json')
+      expect(inv.env.SPECRAILS_BACKLOG_CONFIG_PATH).toBe('/home/ws/.specrails/backlog-config.json')
+    })
+
+    it('accepts a LAZY env provider, re-resolved on every step (relocation picked up without restart)', async () => {
+      getAdapter.mockReturnValue(fakeAdapter('claude'))
+      let ticketsPath = '/a/local-tickets.json'
+      const ex = createLoopExecutors({ env: () => ({ SPECRAILS_TICKETS_PATH: ticketsPath }) })
+      await ex.runAiStep({ ...step, cwd: '/wt' })
+      ticketsPath = '/b/local-tickets.json'
+      await ex.runAiStep({ ...step, cwd: '/wt' })
+      const envs = runAiCliInvocation.mock.calls.map((c) => (c[0] as { env: Record<string, string | undefined> }).env)
+      expect(envs[0].SPECRAILS_TICKETS_PATH).toBe('/a/local-tickets.json')
+      expect(envs[1].SPECRAILS_TICKETS_PATH).toBe('/b/local-tickets.json')
+    })
+  })
+
   describe('git-agnostic signal (SPECRAILS_GIT_AUTO)', () => {
     const ORIG = process.env.SPECRAILS_RAIL_DELIVER_PR
     afterEach(() => {

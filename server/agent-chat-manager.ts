@@ -17,7 +17,10 @@ import {
   addAgentMessage,
   updateAgentConversation,
   listAgentMessages,
+  findAgentSystemMessage,
+  updateAgentMessageContent,
 } from './agent-store'
+import type { PrDecisionCardEnvelope } from './types'
 import { generateAutoTitle } from './explore-draft-title'
 import { setActiveProject } from './mcp/tools/types'
 
@@ -479,6 +482,86 @@ export class AgentChatManager {
     } catch (err) {
       console.error(`[agent-chat] auto-title failed (${conversationId}):`, err)
     }
+  }
+
+  /**
+   * Post the inline PR-decision card into the conversation that launched the
+   * rail (safe-pr-review-flow): persist a `system`-role row whose content is
+   * the JSON envelope (so the card survives refresh/cold-load), then broadcast
+   * `agent_pr_decision` so open panels render it live. No-ops when the
+   * conversation was deleted (the ledger's origin link is a soft reference).
+   * NEVER throws — it runs inside rail settle paths.
+   */
+  postPrDecisionCard(conversationId: string, envelope: PrDecisionCardEnvelope): void {
+    try {
+      if (!getAgentConversation(this._db, conversationId)) {
+        console.log(`[agent-chat] pr-decision card skipped — conversation gone (${conversationId})`)
+        return
+      }
+      addAgentMessage(this._db, { conversationId, role: 'system', content: JSON.stringify(envelope) })
+      this._broadcastPrDecision(conversationId, envelope)
+    } catch (err) {
+      console.error(`[agent-chat] postPrDecisionCard failed (${conversationId}):`, err)
+    }
+  }
+
+  /**
+   * Update the SAME persisted card in place on a later decision transition
+   * (matched by `prDeliveryId`), so a cold-load renders the current/terminal
+   * state instead of a stale ask — then re-broadcast. Falls back to posting a
+   * fresh card when none exists (resilience: e.g. the original post raced a
+   * conversation delete/restore). NEVER throws — it runs inside decision paths.
+   */
+  updatePrDecisionCard(conversationId: string, envelope: PrDecisionCardEnvelope): void {
+    try {
+      const existing = findAgentSystemMessage(this._db, conversationId, (content) => {
+        try {
+          const parsed = JSON.parse(content) as { kind?: string; prDeliveryId?: string }
+          return parsed.kind === 'pr_decision' && parsed.prDeliveryId === envelope.prDeliveryId
+        } catch {
+          return false
+        }
+      })
+      if (!existing) {
+        this.postPrDecisionCard(conversationId, envelope)
+        return
+      }
+      updateAgentMessageContent(this._db, existing.id, JSON.stringify(envelope))
+      this._broadcastPrDecision(conversationId, envelope)
+    } catch (err) {
+      console.error(`[agent-chat] updatePrDecisionCard failed (${conversationId}):`, err)
+    }
+  }
+
+  private _broadcastPrDecision(conversationId: string, envelope: PrDecisionCardEnvelope): void {
+    this._broadcast({
+      type: 'agent_pr_decision',
+      conversationId,
+      ...envelope,
+      timestamp: new Date().toISOString(),
+    })
+  }
+
+  /**
+   * Edits a still-queued message in place (composer ↑/↓ queue navigation).
+   * Returns false when the message is no longer in the queue — the drain loop
+   * `shift()`s an item synchronously before spawning its turn, so a false here
+   * means "already dispatched (or cleared)" and the router maps it to 409.
+   * Success broadcasts `agent_queue_edited` so every open window updates its chip.
+   */
+  editQueued(conversationId: string, queueId: string, text: string): boolean {
+    const pending = this._queue.get(conversationId)
+    const item = pending?.find((q) => q.queueId === queueId)
+    if (!item) return false
+    item.text = text
+    this._broadcast({
+      type: 'agent_queue_edited',
+      conversationId,
+      queueId,
+      text,
+      timestamp: new Date().toISOString(),
+    })
+    return true
   }
 
   /** Aborts the active turn for a conversation, if any. Stop means stop: any

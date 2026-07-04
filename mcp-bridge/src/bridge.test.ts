@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeEach } from 'vitest'
 import type { Transport } from '@modelcontextprotocol/sdk/shared/transport.js'
 import type { JSONRPCMessage } from '@modelcontextprotocol/sdk/types.js'
-import { connectBridge, readMcpToken, appUrl, APP_NOT_RUNNING } from './bridge'
+import { connectBridge, readMcpToken, appUrl, agentForwardHeaders, APP_NOT_RUNNING } from './bridge'
 
 class FakeTransport implements Transport {
   onmessage?: (m: JSONRPCMessage) => void
@@ -77,5 +77,30 @@ describe('bridge config', () => {
     const u = appUrl()
     expect(u.hostname).toBe('127.0.0.1')
     expect(u.pathname).toBe('/api/mcp')
+  })
+})
+
+describe('agentForwardHeaders (env → loopback header forwards)', () => {
+  it('forwards tier, project and conversation when set (trimmed)', () => {
+    const headers = agentForwardHeaders({
+      SPECRAILS_AGENT_TIER: ' operate ',
+      SPECRAILS_ACTIVE_PROJECT: 'proj-1',
+      SPECRAILS_AGENT_CONVERSATION: ' conv-42 ',
+    })
+    expect(headers).toEqual({
+      'x-specrails-agent-tier': 'operate',
+      'x-specrails-active-project': 'proj-1',
+      'x-specrails-agent-conversation': 'conv-42',
+    })
+  })
+
+  it('omits every header when the env is absent or blank (external client spawn)', () => {
+    expect(agentForwardHeaders({})).toEqual({})
+    expect(agentForwardHeaders({ SPECRAILS_AGENT_TIER: '  ', SPECRAILS_AGENT_CONVERSATION: '' })).toEqual({})
+  })
+
+  it('forwards the conversation independently of the other two', () => {
+    const headers = agentForwardHeaders({ SPECRAILS_AGENT_CONVERSATION: 'conv-solo' })
+    expect(headers).toEqual({ 'x-specrails-agent-conversation': 'conv-solo' })
   })
 })

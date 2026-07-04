@@ -13,7 +13,7 @@ La board ha due modalità di visualizzazione, che si alternano con un toggle nel
 - **Vista post-it** (quella predefinita) — riquadri in stile card con brevi riepiloghi.
 - **Vista elenco** — righe compatte su una sola riga.
 
-Puoi anche filtrare per **stato** (Tutti / Da fare / Completati) e per **etichetta**, oltre a ordinare per **Predefinito**, **Ticket #** o **Priorità** (ciascuno con un toggle crescente/decrescente).
+Il **selettore di stati** della toolbar mostra ogni stato come chip dedicato con un conteggio in tempo reale — più due gruppi intelligenti: **Attive** (il predefinito — tutto ciò che è ancora in movimento: bozze, da fare, in corso e in revisione) e **Tutti** (tutto, con Completato fissato in fondo). La scelta viene ricordata per progetto e riflessa nell'URL, così un refresh o un link condiviso ripristina esattamente la stessa vista. Nei progetti collegati a Jira compare in più un menu a tendina **stato Jira**, che elenca gli stati *reali* del workflow della board (i nomi grezzi, es. "Code Review", ciascuno con il proprio conteggio in tempo reale) raggruppati sotto lo stato a cui mappano — si combina con i chip di stato. Puoi anche filtrare per **etichetta**, oltre a ordinare per **Predefinito**, **Ticket #** o **Priorità** (ciascuno con un toggle crescente/decrescente).
 
 ## Stati
 
@@ -24,7 +24,8 @@ Una spec attraversa un piccolo insieme di stati. La board associa a ciascuno un 
 | **Bozza** | Un'idea in corso salvata da una conversazione in modalità Explore. Non ancora pronta da realizzare — puoi tornarci e continuare a darle forma. Mostra un badge `Draft`. |
 | **Da fare** | Pronta per essere presa in carico. È qui che atterra una spec finita quando la crei. |
 | **In corso** | La pipeline ci sta lavorando in questo momento (un punto blu pulsante). |
-| **Completato** | Portata a termine dalla pipeline (un segno di spunta verde). |
+| **In revisione** | Implementata — ogni esecuzione conclusa parcheggia qui le sue spec per la tua approvazione: fai il merge della PR in bozza o spostale tu stesso (un badge ambra). |
+| **Completato** | Approvata — la sua PR è stata unita, o l'hai spostata qui tu stesso (un segno di spunta verde). |
 | **Annullato** | Abbandonata (una X rossa). |
 
 Le bozze vivono nello stesso gruppo attivo delle spec Da fare — non c'è una colonna separata per loro — ma hanno un bordo dalla tinta sottile e un badge `Draft` che le rende facili da individuare. Consulta [Le bozze e il Contract Layer](drafts-and-contract-layer.md) per tutta la storia sulle bozze.

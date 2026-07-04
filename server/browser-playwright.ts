@@ -86,6 +86,36 @@ function isBlockedHost(host: string): boolean {
 }
 
 /**
+ * CDP `Page.startScreencast` parameters, centralised and env-tunable.
+ *
+ * - `quality` (JPEG, default 70) can be tuned via
+ *   `SPECRAILS_BROWSER_SCREENCAST_QUALITY` (clamped to [1, 100]; non-numeric
+ *   values fall back to the default). Lower = smaller frames = higher fps on
+ *   slow links; higher = crisper at more bandwidth/decode cost.
+ * - `everyNthFrame: 1` — never skip source frames; the client-side pipeline
+ *   drops stale frames instead (newest-wins), which keeps latency minimal.
+ * - `maxWidth`/`maxHeight` are a GUARD, not a scaler: the session viewport is
+ *   sized to the displayed canvas (fit mode) or a device preset, so frames are
+ *   already ≤ display size. The caps only prevent a pathological viewport from
+ *   producing multi-megabyte frames. Chromium preserves aspect when clamping.
+ */
+export function screencastParams(env: NodeJS.ProcessEnv = process.env): {
+  format: 'jpeg'
+  quality: number
+  everyNthFrame: number
+  maxWidth: number
+  maxHeight: number
+} {
+  let quality = 70
+  const raw = env.SPECRAILS_BROWSER_SCREENCAST_QUALITY
+  if (raw !== undefined && raw !== '') {
+    const n = Number(raw)
+    if (Number.isFinite(n)) quality = Math.min(100, Math.max(1, Math.round(n)))
+  }
+  return { format: 'jpeg', quality, everyNthFrame: 1, maxWidth: 3840, maxHeight: 2400 }
+}
+
+/**
  * Normalize a user-supplied address into a safe, navigable URL. A bare host
  * (`example.com`) is upgraded to `https://`. The result is then validated by
  * `isNavigableUrl`; anything that fails the SSRF/scheme guard collapses to
@@ -114,6 +144,10 @@ class PlaywrightPageHandle implements BrowserPageHandle {
   private netCdp: any = null
   private netEnabled = false
   private readonly netBuffer = new NetworkRingBuffer()
+  // Last position the page's virtual mouse was moved to. Lets the wheel path skip
+  // the redundant `mouse.move` a scroll gesture would otherwise re-issue for
+  // every tick at the same cursor position (halves the CDP commands per wheel).
+  private lastMouse: { x: number; y: number } | null = null
 
   constructor(private readonly page: any) {}
 
@@ -163,12 +197,27 @@ class PlaywrightPageHandle implements BrowserPageHandle {
   async dispatchInput(event: BrowserInputEvent): Promise<void> {
     try {
       if (event.type === 'mouse') {
-        if (event.action === 'move') await this.page.mouse.move(event.x, event.y)
-        else if (event.action === 'down') await this.page.mouse.down({ button: event.button ?? 'left', clickCount: event.clickCount ?? 1 })
-        else await this.page.mouse.up({ button: event.button ?? 'left', clickCount: event.clickCount ?? 1 })
+        if (event.action === 'move') {
+          this.lastMouse = { x: event.x, y: event.y }
+          await this.page.mouse.move(event.x, event.y)
+        } else if (event.action === 'down') {
+          await this.page.mouse.down({ button: event.button ?? 'left', clickCount: event.clickCount ?? 1 })
+        } else {
+          await this.page.mouse.up({ button: event.button ?? 'left', clickCount: event.clickCount ?? 1 })
+        }
       } else if (event.type === 'wheel') {
-        await this.page.mouse.move(event.x, event.y)
-        await this.page.mouse.wheel(event.deltaX, event.deltaY)
+        // Scroll fast-path: skip the redundant reposition when the cursor hasn't
+        // moved since the last event (the common case mid-gesture), and dispatch
+        // move+wheel back-to-back without a sequential await gap — the Playwright
+        // driver sends commands in call order, so Chromium still sees move→wheel,
+        // but a concurrent wheel can no longer interleave between the two.
+        const ops: Promise<unknown>[] = []
+        if (!this.lastMouse || this.lastMouse.x !== event.x || this.lastMouse.y !== event.y) {
+          this.lastMouse = { x: event.x, y: event.y }
+          ops.push(this.page.mouse.move(event.x, event.y))
+        }
+        ops.push(this.page.mouse.wheel(event.deltaX, event.deltaY))
+        await Promise.all(ops)
       } else if (event.type === 'key') {
         if (event.action === 'down') {
           if (event.text && event.text.length >= 1 && [...event.text].length === 1) {
@@ -193,18 +242,22 @@ class PlaywrightPageHandle implements BrowserPageHandle {
     this.screencastHandler = onFrame
     const ctx = this.page.context()
     this.cdp = await ctx.newCDPSession(this.page)
-    this.cdp.on('Page.screencastFrame', async (evt: { data: string; sessionId: number; metadata?: { deviceWidth?: number; deviceHeight?: number } }) => {
+    this.cdp.on('Page.screencastFrame', (evt: { data: string; sessionId: number; metadata?: { deviceWidth?: number; deviceHeight?: number } }) => {
+      // Ack FIRST, fire-and-forget: Chromium throttles the screencast on unacked
+      // frames, so acking before the fan-out lets it capture+compress the next
+      // frame while this one is being delivered (pipeline overlap → higher fps,
+      // lower frame age). The frames are independent JPEGs, so there is no
+      // ordering hazard in acking early.
+      try { this.cdp?.send('Page.screencastFrameAck', { sessionId: evt.sessionId })?.catch?.(() => { /* ignore */ }) } catch { /* ignore */ }
       try {
         this.screencastHandler?.({
           data: Buffer.from(evt.data, 'base64'),
           width: evt.metadata?.deviceWidth ?? 0,
           height: evt.metadata?.deviceHeight ?? 0,
         })
-      } finally {
-        try { await this.cdp.send('Page.screencastFrameAck', { sessionId: evt.sessionId }) } catch { /* ignore */ }
-      }
+      } catch { /* never let a handler error kill the CDP session */ }
     })
-    await this.cdp.send('Page.startScreencast', { format: 'jpeg', quality: 70, everyNthFrame: 1 })
+    await this.cdp.send('Page.startScreencast', screencastParams())
   }
 
   async stopScreencast(): Promise<void> {
@@ -379,6 +432,36 @@ class PlaywrightPageHandle implements BrowserPageHandle {
     } catch { /* ignore */ }
     // A small extra settle for late reflow / lazy-loaded images / web fonts.
     try { await this.page.waitForTimeout?.(120) } catch { /* ignore */ }
+  }
+
+  onPopup(cb: (popup: BrowserPageHandle) => void): void {
+    // Playwright fires 'popup' for pages this page opens (window.open,
+    // target=_blank, OAuth login windows). The popup lives in the SAME browser
+    // context — cookies and the window.opener/postMessage relationship are
+    // intact, which is exactly what an OAuth redirect/popup flow needs.
+    try {
+      this.page.on('popup', (p: any) => {
+        try { cb(new PlaywrightPageHandle(p)) } catch { /* never break the event loop */ }
+      })
+    } catch { /* ignore */ }
+  }
+
+  onClose(cb: () => void): void {
+    try {
+      this.page.on('close', () => {
+        try { cb() } catch { /* ignore */ }
+      })
+    } catch { /* ignore */ }
+  }
+
+  onNavigated(cb: (url: string) => void): void {
+    try {
+      this.page.on('framenavigated', (frame: any) => {
+        try {
+          if (frame === this.page.mainFrame()) cb(frame.url())
+        } catch { /* ignore */ }
+      })
+    } catch { /* ignore */ }
   }
 
   async getSelectionText(): Promise<string> {

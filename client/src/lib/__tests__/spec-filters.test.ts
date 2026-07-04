@@ -10,7 +10,7 @@ import {
 const KEY = (p: string) => `specrails-desktop:spec-filters:${p}`
 
 function mk(partial: Partial<SpecFilters> = {}): SpecFilters {
-  return { labels: new Set(), epic: null, sprint: null, ...partial }
+  return { labels: new Set(), epic: null, sprint: null, jiraStatus: null, ...partial }
 }
 
 describe('spec-filters', () => {
@@ -130,5 +130,21 @@ describe('spec-filters', () => {
     expect(isEmptySpecFilters(mk({ labels: new Set(['a']) }))).toBe(false)
     expect(isEmptySpecFilters(mk({ epic: 'E' }))).toBe(false)
     expect(isEmptySpecFilters(mk({ sprint: 'S' }))).toBe(false)
+    expect(isEmptySpecFilters(mk({ jiraStatus: 'Code Review' }))).toBe(false)
+  })
+
+  it('round-trips jiraStatus (raw Jira workflow status name)', () => {
+    saveSpecFilters('p1', mk({ jiraStatus: 'Code Review' }))
+    const f = loadSpecFilters('p1')
+    expect(f.jiraStatus).toBe('Code Review')
+    expect(f.labels.size).toBe(0)
+  })
+
+  it('reads a pre-jiraStatus blob as jiraStatus null (additive field)', () => {
+    localStorage.setItem(KEY('p1'), JSON.stringify({ labels: ['a'], epic: 'E-1', sprint: null }))
+    const f = loadSpecFilters('p1')
+    expect(f.jiraStatus).toBeNull()
+    expect([...f.labels]).toEqual(['a'])
+    expect(f.epic).toBe('E-1')
   })
 })

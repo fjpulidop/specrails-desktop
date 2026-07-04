@@ -24,7 +24,8 @@ export interface AgentConversation {
 export interface AgentMessage {
   id: string
   conversation_id: string
-  role: 'user' | 'assistant'
+  /** `system` rows are app-authored inline cards (e.g. the PR-decision card). */
+  role: 'user' | 'assistant' | 'system'
   content: string
   attachment_ids?: string[]
   created_at: string
@@ -142,6 +143,147 @@ export async function deleteAgentAttachment(conversationId: string, attachmentId
 
 export async function abortAgentTurn(id: string): Promise<void> {
   await fetch(`${base}/conversations/${id}/abort`, { method: 'POST' })
+}
+
+/**
+ * Edit a still-queued message in place (composer ↑/↓ queue navigation).
+ * `'conflict'` = the queue already dispatched it (server 409) — the caller
+ * keeps the user's text as a draft. Other failures throw.
+ */
+export async function editQueuedAgentMessage(
+  conversationId: string,
+  queueId: string,
+  text: string,
+): Promise<'saved' | 'conflict'> {
+  const res = await fetch(`${base}/conversations/${conversationId}/queue/${encodeURIComponent(queueId)}`, {
+    method: 'PATCH',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({ text }),
+  })
+  if (res.status === 409) return 'conflict'
+  await json<{ ok: boolean }>(res)
+  return 'saved'
+}
+
+// ── PR-decision card (safe-pr-review-flow) ────────────────────────────────────
+// A rail launched from an agent conversation posts a `system`-role row whose
+// content is this JSON envelope; the server updates the SAME row in place on
+// every decision transition and mirrors it over the app-global
+// `agent_pr_decision` WS event.
+
+export type AgentPrDecisionValue =
+  | 'building' | 'on_review' | 'pr_draft' | 'pr_ready' | 'merged' | 'discarded' | 'pr_failed'
+
+export type AgentPrDeliveryState = 'none' | 'local-only' | 'pushed' | 'pr-created'
+
+const PR_DECISION_VALUES: readonly string[] =
+  ['building', 'on_review', 'pr_draft', 'pr_ready', 'merged', 'discarded', 'pr_failed']
+const PR_DELIVERY_STATES: readonly string[] = ['none', 'local-only', 'pushed', 'pr-created']
+
+/** Parsed content of a `system` pr_decision row (mirrors the server envelope). */
+export interface AgentPrDecisionEnvelope {
+  kind: 'pr_decision'
+  prDeliveryId: string
+  railIndex: number
+  projectId: string
+  baseBranch: string
+  ticketIds: number[]
+  decision: AgentPrDecisionValue
+  prUrl: string | null
+  prState: AgentPrDeliveryState
+  branch: string | null
+  /** The launch's loop-run ids, in ticket order ([] until allocation lands, and
+   *  for rows persisted before the column existed) — one "View log" chip each. */
+  runIds: string[]
+}
+
+/**
+ * Defensive coercion of an untyped object (a parsed system row OR the WS
+ * `agent_pr_decision` message, which carries the envelope's fields top-level).
+ * Returns null for foreign/malformed payloads — callers render nothing.
+ */
+export function coercePrDecisionEnvelope(v: unknown): AgentPrDecisionEnvelope | null {
+  if (!v || typeof v !== 'object') return null
+  const o = v as Record<string, unknown>
+  if (o.kind !== 'pr_decision') return null
+  if (typeof o.prDeliveryId !== 'string' || !o.prDeliveryId) return null
+  if (typeof o.railIndex !== 'number' || !Number.isFinite(o.railIndex)) return null
+  if (typeof o.projectId !== 'string' || !o.projectId) return null
+  if (typeof o.baseBranch !== 'string') return null
+  if (typeof o.decision !== 'string' || !PR_DECISION_VALUES.includes(o.decision)) return null
+  return {
+    kind: 'pr_decision',
+    prDeliveryId: o.prDeliveryId,
+    railIndex: o.railIndex,
+    projectId: o.projectId,
+    baseBranch: o.baseBranch,
+    ticketIds: Array.isArray(o.ticketIds)
+      ? o.ticketIds.filter((n): n is number => typeof n === 'number')
+      : [],
+    decision: o.decision as AgentPrDecisionValue,
+    prUrl: typeof o.prUrl === 'string' && o.prUrl ? o.prUrl : null,
+    prState: typeof o.prState === 'string' && PR_DELIVERY_STATES.includes(o.prState)
+      ? (o.prState as AgentPrDeliveryState)
+      : 'none',
+    branch: typeof o.branch === 'string' && o.branch ? o.branch : null,
+    // Pre-runIds persisted cards (and mid-build inserts) default to [] — the
+    // card simply renders no run chips.
+    runIds: Array.isArray(o.runIds)
+      ? o.runIds.filter((s): s is string => typeof s === 'string' && s.length > 0)
+      : [],
+  }
+}
+
+/** Parse a persisted system row's content string; null when not a pr_decision card. */
+export function parsePrDecisionEnvelope(content: string): AgentPrDecisionEnvelope | null {
+  try {
+    return coercePrDecisionEnvelope(JSON.parse(content))
+  } catch {
+    return null
+  }
+}
+
+export type AgentPrDecisionAction = 'create-pr' | 'publish' | 'discard' | 'poll-merge'
+
+export type AgentPrDecisionOutcome =
+  | { kind: 'ok'; decision: string; prUrl: string | null; merged: boolean }
+  /** ANY 409 — the other surface answered first; the next broadcast reconciles. */
+  | { kind: 'stale'; current: string }
+  | { kind: 'failed'; detail: string }
+
+/**
+ * POST the user's decision to the CARD's project. The agent chat is app-global,
+ * so this deliberately builds the project base from the envelope's `projectId`
+ * (the raw `${API_ORIGIN}/api/projects/…` precedent — TerminalsContext) and
+ * NEVER via getApiBase(), which is bound to the ACTIVE project. Never throws on
+ * HTTP errors — outcomes are discriminated for the card's UX branches.
+ */
+export async function postRailPrDecision(
+  projectId: string,
+  body: { prDeliveryId: string; action: AgentPrDecisionAction; expectedDecision: AgentPrDecisionValue },
+): Promise<AgentPrDecisionOutcome> {
+  const res = await fetch(`${API_ORIGIN}/api/projects/${projectId}/rails/pr-decision`, {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify(body),
+  })
+  let data: Record<string, unknown> | null = null
+  try {
+    const text = await res.text()
+    data = text ? (JSON.parse(text) as Record<string, unknown>) : null
+  } catch {
+    data = null
+  }
+  if (res.ok) {
+    return {
+      kind: 'ok',
+      decision: typeof data?.decision === 'string' ? data.decision : body.expectedDecision,
+      prUrl: typeof data?.prUrl === 'string' ? data.prUrl : null,
+      merged: data?.merged === true,
+    }
+  }
+  if (res.status === 409) return { kind: 'stale', current: String(data?.current ?? '') }
+  return { kind: 'failed', detail: String(data?.detail ?? data?.error ?? `HTTP ${res.status}`) }
 }
 
 // ── Provider availability (no AI CLI installed → degraded banner) ─────────────

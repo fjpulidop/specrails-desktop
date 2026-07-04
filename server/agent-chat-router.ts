@@ -332,6 +332,29 @@ export function createAgentChatRouter(deps: AgentRouterDeps): Router {
     res.status(202).json({ accepted: true, queued })
   })
 
+  // Edit a still-queued (not yet dispatched) message in place. 409 when the
+  // queue already consumed it — the client keeps the user's text as a draft so
+  // nothing is lost (never-lose-input semantics).
+  router.patch('/conversations/:id/queue/:queueId', (req: Request, res: Response) => {
+    const conversation = getAgentConversation(desktopDb, String(req.params.id))
+    if (!conversation) {
+      res.status(404).json({ error: 'Unknown conversation' })
+      return
+    }
+    const body = (req.body ?? {}) as Record<string, unknown>
+    const text = typeof body.text === 'string' ? body.text.trim() : ''
+    if (!text) {
+      res.status(400).json({ error: 'text is required' })
+      return
+    }
+    const edited = manager.editQueued(conversation.id, String(req.params.queueId), text)
+    if (!edited) {
+      res.status(409).json({ error: 'Message already dispatched' })
+      return
+    }
+    res.json({ ok: true })
+  })
+
   router.post('/conversations/:id/abort', (req: Request, res: Response) => {
     const aborted = manager.abort(String(req.params.id))
     res.json({ aborted })

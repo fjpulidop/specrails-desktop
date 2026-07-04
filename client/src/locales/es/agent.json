@@ -33,6 +33,14 @@
     "sendHint": "El agente sigue trabajando — este mensaje se pondrá en cola y se ejecutará después",
     "placeholder": "Añade más mientras el agente trabaja — se pondrá en cola…"
   },
+  "queueEdit": {
+    "editing": "Editando mensaje en cola {{n}} de {{m}}",
+    "hint": "↑↓ para navegar · Enter guarda · Esc cancela",
+    "save": "Guardar mensaje en cola",
+    "cancel": "Cancelar edición",
+    "dispatched": "Ese mensaje en cola ya se envió — tu texto se conserva como borrador",
+    "saveFailed": "No se pudo guardar el mensaje en cola"
+  },
   "git": {
     "branch": "Rama",
     "detached": "(detached)",
@@ -92,6 +100,21 @@
     "addProject": "Añadir proyecto…",
     "homeHint": "Ningún proyecto seleccionado — operando en todos los proyectos.",
     "askCreateOrSearch": "No hay ningún proyecto seleccionado. ¿Quieres crear un proyecto nuevo o buscar en todos los proyectos?"
+  },
+  "mission": {
+    "label": "Cambiar de misión",
+    "untitled": "Nueva misión",
+    "new": "Nueva misión",
+    "searchPlaceholder": "Buscar misiones…",
+    "noMatches": "Ninguna misión coincide",
+    "working": "El agente está trabajando",
+    "queuedBadge": "{{n}} en cola",
+    "delete": "Eliminar misión \"{{title}}\"",
+    "deleteConfirm": "¿Eliminar?",
+    "deleteLiveConfirm": "El agente está trabajando — ¿eliminar igualmente?",
+    "confirmDelete": "Confirmar eliminación",
+    "cancelDelete": "Conservar misión",
+    "deleteFailed": "No se pudo eliminar la misión"
   },
   "noProvider": {
     "title": "No hay ningún proveedor de IA instalado",
@@ -155,5 +178,75 @@
     "high": "Alto",
     "xhigh": "Extra alto"
   },
-  "emptyTitleMatrix": "¿Cuál es la misión, Neo?"
+  "emptyTitleMatrix": "¿Cuál es la misión, Neo?",
+  "prCard": {
+    "rail": "Rail {{index}}",
+    "specCount_one": "{{count}} spec",
+    "specCount_other": "{{count}} specs",
+    "base": "Rama base",
+    "openPr": "Abrir PR",
+    "title": {
+      "building": "Implementando en un worktree aislado…",
+      "on_review": "Implementación lista para revisar",
+      "pr_draft": "PR en borrador creada",
+      "pr_draft_degraded": "Entrega de la PR incompleta",
+      "pr_ready": "PR lista para el merge",
+      "pr_failed": "No se pudo crear la PR",
+      "merged": "Merge de la PR completado",
+      "discarded": "Descartada"
+    },
+    "buildingHint": "Cuando termine, se te preguntará si crear la PR.",
+    "createPr": "Crear PR",
+    "publish": "Publicar",
+    "retry": "Reintentar",
+    "retryPr": "Reintentar PR",
+    "checkMerge": "Comprobar merge",
+    "discard": "Descartar",
+    "confirmDiscard": "¿Confirmar descarte?",
+    "mergedNote": "Merge completado — las specs han pasado a Hecho",
+    "discardedNote": "Descartada — las specs han vuelto al backlog",
+    "degraded": {
+      "pushed": "La rama se subió pero no se pudo crear la PR — reintenta para terminar.",
+      "localOnly": "Los cambios se ensamblaron en local pero no se subieron — reintenta para publicar la PR."
+    },
+    "alreadyResolved": "Ya resuelta en otro sitio",
+    "actionFailed": "La acción falló",
+    "notMergedYet": "Aún sin merge",
+    "viewLog": "Ver el registro de ejecución de {{ref}}",
+    "runElapsedAria": "{{elapsed}} transcurridos",
+    "runCostAria": "{{cost}} gastados",
+    "pinned": {
+      "label": "Fijada",
+      "marker": "Tarjeta de implementación — fijada arriba",
+      "collapse": "Minimizar tarjeta fijada",
+      "expand": "Expandir tarjeta fijada",
+      "showCard": "Mostrar esta tarjeta",
+      "collapsed_one": "Tarjeta de implementación",
+      "collapsed_other": "{{count}} tarjetas de implementación",
+      "state": {
+        "building": "En curso",
+        "on_review": "Revisión",
+        "pr_draft": "PR borrador",
+        "pr_ready": "Publicada",
+        "pr_failed": "Fallida",
+        "merged": "Fusionada",
+        "discarded": "Descartada"
+      }
+    }
+  },
+  "specDraft": {
+    "heading": "Borrador de spec",
+    "drafting": "Actualizando borrador…",
+    "acceptanceCriteria": "Criterios de aceptación",
+    "untitled": "Spec sin título",
+    "expand": "Ver descripción completa",
+    "collapse": "Contraer descripción"
+  },
+  "refs": {
+    "openTicket": "Abrir spec #{{id}}",
+    "openJob": "Abrir job {{id}}",
+    "ticketNotFound": "Spec #{{id}} no encontrada — puede haber sido eliminada",
+    "jobNotFound": "Job no encontrado — puede haber sido eliminado",
+    "lookupFailed": "No se pudo verificar la referencia — inténtalo de nuevo"
+  }
 }

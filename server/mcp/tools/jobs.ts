@@ -1,6 +1,6 @@
 import { z } from 'zod'
 import type { McpToolSpec } from './types'
-import { apiCall, projectPath } from './types'
+import { apiCall, projectPath, originConversationDefaults } from './types'
 
 /**
  * Jobs domain facade. Maps every in-scope jobs/queue action to its REST
@@ -19,7 +19,7 @@ export function jobsTools(): McpToolSpec[] {
       title: 'Jobs & Queue',
       description:
         'Manage a project\'s AI-pipeline job queue and individual jobs. ' +
-        'Actions: list, get, queue, spawn (ai-spawn — enqueues an arbitrary slash-command job, returns {jobId,position}, async), ' +
+        'Actions: list, get, queue, spawn (ai-spawn — enqueues an arbitrary slash-command job, returns {jobId,position}, async; from the in-app agent chat the engine defaults to your conversation\'s provider — pass aiEngine to override), ' +
         'cancel (destructive — cancels a running/queued job or deletes a terminal one), ' +
         'purge (destructive — bulk-delete persisted job rows in a date range), ' +
         'pause / resume (queue), reorder (queued-job order), priority (change a queued job\'s priority), ' +
@@ -27,8 +27,8 @@ export function jobsTools(): McpToolSpec[] {
         'diagnostic (binary ZIP — returns a note, not the bytes), run_state (project run state), ' +
         'pipeline (read a pipeline\'s jobs + statuses — use after composing dependent spawns), ' +
         'activity (recent activity feed), stats, metrics, default_spec_model, ' +
-        'interactive_turn (ai-spawn — send one more prompt to a running interactive Freestyle/ultracode job), ' +
-        'finalize (finalize a running interactive job).',
+        'interactive_turn (ai-spawn — send a steering prompt to any running interactive job; claude jobs are interactive by default), ' +
+        'finalize (settle a running interactive job now — Freestyle jobs otherwise wait for it, others auto-settle).',
       hintTier: 'read',
       tier: (a) => {
         const action = a.action as string
@@ -88,7 +88,7 @@ export function jobsTools(): McpToolSpec[] {
           .string()
           .optional()
           .describe('Agent profile for spawn (omit = default resolution; pass empty/null upstream forces legacy)'),
-        aiEngine: z.string().optional().describe('Per-job provider override for spawn (must be installed on the project)'),
+        aiEngine: z.string().optional().describe('Per-job provider override for spawn (must be installed on the project). From the in-app agent chat, omitting it defaults to the launching conversation\'s provider.'),
         // ── reorder ──
         jobIds: z
           .array(z.string())
@@ -129,13 +129,22 @@ export function jobsTools(): McpToolSpec[] {
           case 'spawn': {
             const command = args.command as string | undefined
             if (!command || !command.trim()) throw new Error('spawn requires a "command".')
+            // Engine default (STRUCTURAL, never prompt-dependent): a spawn
+            // driven by the in-app agent without an explicit aiEngine runs on
+            // the LAUNCHING CONVERSATION's provider — not silently on the
+            // project primary. Explicit aiEngine always wins; the router still
+            // validates installed-ness (its clear 400 surfaces as the tool
+            // error). No origin conversation (dashboard / external MCP client)
+            // or an unknown id → no default, byte-identical to before.
+            // (/spawn has no reasoning_effort field, so only the engine defaults.)
+            const aiEngine = (args.aiEngine as string | undefined) ?? originConversationDefaults(ctx).provider
             const r = await apiCall(ctx, 'POST', `${base}/spawn`, {
               command,
               priority: args.priority as string | undefined,
               dependsOnJobId: args.dependsOnJobId as string | undefined,
               pipelineId: args.pipelineId as string | undefined,
               profileName: args.profileName as string | undefined,
-              aiEngine: args.aiEngine as string | undefined,
+              aiEngine,
             })
             return {
               ...(r as Record<string, unknown>),

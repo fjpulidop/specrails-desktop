@@ -4,7 +4,7 @@
 import { getApiBase } from './api'
 
 export type JiraDeployment = 'cloud' | 'dc'
-export type SpecLogicalState = 'todo' | 'in_progress' | 'done' | 'cancelled'
+export type SpecLogicalState = 'todo' | 'in_progress' | 'on_review' | 'done' | 'cancelled'
 export type OutboxState = 'pending' | 'inflight' | 'done' | 'dead'
 
 export interface JiraConnectionPublic {

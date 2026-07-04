@@ -1,10 +1,10 @@
 # La vista Dettaglio job
 
-Clicca su una qualsiasi scheda job nella pagina **Job** e arrivi qui: la cabina di pilotaggio di una singola esecuzione di rail. È costruita attorno a una promessa — **i numeri live che vedi sono reali, mai ipotesi.** Questa pagina ti accompagna tra le fasi, le metriche live e le schede ticket.
+Clicca su una qualsiasi scheda job nella pagina **Job** e arrivi qui: la cabina di pilotaggio di una singola esecuzione di rail. È costruita attorno a una promessa — **i numeri live che vedi sono reali, mai ipotesi.** Questa pagina ti accompagna tra le fasi, le metriche live, le schede ticket — e il composer che ti permette di **parlare con il job in esecuzione**.
 
 ## Il layout
 
-Due pannelli stanno sopra il log completo in streaming:
+Due pannelli stanno sopra il log completo in streaming; su un job Claude in esecuzione, un composer di chat sta sotto:
 
 ```
 ┌─────────────────────────────────────────────┐
@@ -15,6 +15,8 @@ Due pannelli stanno sopra il log completo in streaming:
 │                                             │
 │  Log in streaming (auto-scroll · ricerca · …) │
 │                                             │
+├─────────────────────────────────────────────┤
+│  Composer (invia un messaggio al job · …)   │
 └─────────────────────────────────────────────┘
 ```
 
@@ -70,6 +72,29 @@ Sotto i pannelli c'è il log completo dell'esecuzione, trasmesso in tempo reale 
 - **Copia** per prendere l'intero log.
 
 Questa è la verità grezza di ciò che l'AI sta facendo — ogni chiamata a uno strumento, ogni modifica a un file, ogni test eseguito.
+
+## Esecuzioni di loop: l'esploratore di passi
+
+Quando il job è un'**esecuzione di loop** (vedi [Il Loop Builder](the-loop-builder)), il log piatto lascia il posto a un **esploratore di passi** che rispecchia la forma reale del loop:
+
+- **La striscia di panoramica** in alto è la mappa live del loop — un chip per nodo (Passo AI, Shell, Decisore del loop…), nell'ordine in cui scorre il grafo. I chip si accendono man mano che l'esecuzione avanza: attenuati in attesa, pulsanti durante l'esecuzione, poi una spunta o una croce. Il chip di un Decisore mostra anche il verdetto con cui ha instradato — tornare indietro o proseguire — e un contatore di iterazioni (`Iterazione 3/10`) tiene il conto a destra. Clicca un chip qualsiasi per saltare dritto all'ultimo passo di quel nodo.
+- **Una scatola richiudibile per passo.** Ogni passaggio su un nodo diventa una sezione a sé, con il numero del passo, il nome, un badge di iterazione, la durata una volta concluso — e il proprio pulsante di copia, per portarti via esattamente l'output di un passo. (La copia nella barra degli strumenti prende sempre il log intero.) Tutto ciò che viene stampato prima del primo passo — il banner di avvio, l'avviso del worktree — finisce in una sezione **Preparazione**.
+- **La modalità segui** è attiva per default: il passo in esecuzione resta aperto e scorre da solo mentre i precedenti si ripiegano. Nel momento in cui scorri verso l'alto o apri un passo più vecchio, il seguito si mette in pausa per lasciarti leggere — una pillola flottante **Riprendi a seguire** ti riporta al live. **Espandi tutto / Comprimi tutto** vivono nella barra degli strumenti, e la ricerca cerca in tutti i passi contemporaneamente.
+- **Anche i passi interrotti sono onesti.** Un passo che non è mai riuscito a riportare il suo esito — l'esecuzione è stata annullata o l'app si è chiusa a metà passo — viene marcato **Interrotto** con un bordo tratteggiato, invece di fingere di aver finito.
+
+Tutto il resto di questa pagina funziona esattamente allo stesso modo per le esecuzioni di loop — le metriche live, le schede ticket, il composer. I job che non sono loop mantengono il classico log in streaming qui sopra.
+
+## Parla con il job in esecuzione
+
+Ogni job Claude gira di default come una **sessione live**, quindi un composer di chat sta in fondo a questa pagina — e alla modale del job in modalità missione. Usalo per fare una domanda all'agente in esecuzione («perché quel test è fallito?») o per orientarlo a metà esecuzione («salta il refactoring, concentrati sul fix»).
+
+Alcune cose che vale la pena sapere:
+
+- **I messaggi si accodano, non interrompono.** Invia mentre l'agente sta trasmettendo e il tuo messaggio aspetta il suo turno — viene eseguito come prompt successivo, e il job continua a seguire il suo piano. Un piccolo contatore mostra quanti messaggi sono in coda.
+- **La riga dei totali è reale.** Il composer mostra un riepilogo live `N turni · $X`, sommato dall'uso reale di ogni turno completato — coerente con la promessa di questa pagina di non tirare mai a indovinare.
+- **Due modi in cui una sessione finisce.** La maggior parte dei job **si conclude da sola**: nel momento in cui un turno termina senza messaggi in coda, la sessione si assesta e il job si completa — i tuoi messaggi sono guida opzionale, mai un obbligo. Un'azione discreta **Concludi ora** la chiude prima, con tutto ciò che è stato prodotto fin lì. I job **Freestyle** sono l'eccezione: restano in attesa tra un turno e l'altro finché non clicchi **Finalize** — è il loro design, una sessione botta e risposta che chiudi quando hai finito.
+- **Nelle esecuzioni di loop i messaggi vanno al passo attivo.** Su un loop integrato o personalizzato, il tuo messaggio raggiunge il **passo AI in esecuzione in quel momento**. Tra un passo e l'altro (mentre il Loop Decider riflette, o gira un comando shell) il composer mostra un breve stato *«In attesa del prossimo passo…»* — il testo in bozza viene conservato, e l'invio si riattiva quando parte il prossimo passo AI. **Assesta questo passo** termina il passo corrente in anticipo e lascia che il loop avanzi con ciò che ha prodotto.
+- **Solo Claude, per ora.** I job Codex e Gemini girano one-shot esattamente come prima — non compare alcun composer. (Gli operatori del server possono spegnere l'intera funzionalità con `SPECRAILS_INTERACTIVE_JOBS=false`.)
 
 ## Esportazione diagnostica
 

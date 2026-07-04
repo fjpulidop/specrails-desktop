@@ -7,9 +7,14 @@ import type { WsMessage } from '../../types'
 import type { MobileEventBus } from '../../mobile/mobile-event-bus'
 import { isTierEnabled, tierRefusalMessage, type McpTier } from '../mcp-tiers'
 import { loadOrGenerateToken } from '../../auth'
-import { AGENT_TIER_HEADER, AGENT_PROJECT_HEADER, levelFromHeader, levelAllowsTier } from '../../agent-tier'
+import { AGENT_TIER_HEADER, AGENT_PROJECT_HEADER, AGENT_CONVERSATION_HEADER, levelFromHeader, levelAllowsTier } from '../../agent-tier'
+import { getAgentConversation } from '../../agent-store'
 
 export type { McpTier } from '../mcp-tiers'
+
+/** Launch-route contract for an origin conversation id — must match the
+ *  rails-router validation so a sanitized id is never 400'd downstream. */
+const ORIGIN_CONVERSATION_ID_RE = /^[A-Za-z0-9-]{1,64}$/
 
 /**
  * The subset of the MCP SDK's per-call `RequestHandlerExtra` we read: the
@@ -36,6 +41,15 @@ export interface McpToolContext {
    * process-wide selection made via `specrails_select_project`.
    */
   requestProjectId?: string
+  /**
+   * Per-REQUEST launching agent-chat conversation id (safe-pr-review-flow origin
+   * link), set by `registerTieredTool` from the in-app agent's loopback
+   * conversation header. Sanitized against the rails-launch contract
+   * (`/^[A-Za-z0-9-]{1,64}$/`) — a malformed header yields `null` (never throws),
+   * an absent header leaves it `undefined`. Tool handlers thread it into launch
+   * bodies so the PR decision can be posted back into the conversation.
+   */
+  originConversationId?: string | null
 }
 
 /**
@@ -77,6 +91,33 @@ export async function apiCall(
 /** Convenience: build the `/projects/<id>` path prefix for a resolved project. */
 export function projectPath(ctx: McpToolContext, projectId: string | undefined): string {
   return `/projects/${requireProject(ctx, projectId).project.id}`
+}
+
+/**
+ * Launch defaults derived from the LAUNCHING agent-chat conversation (the
+ * origin header carried on `ctx.originConversationId`). When the in-app agent
+ * drives a rail launch / job spawn WITHOUT an explicit engine, the job must
+ * run on the CONVERSATION's provider — a codex conversation asking to
+ * implement must not silently launch claude via the router's fall-through to
+ * the project primary. This is STRUCTURAL (looked up from the agent store),
+ * never prompt-dependent; explicit args always win at the callsite, and
+ * provider validation stays with the router (an uninstalled provider surfaces
+ * its existing clear 400 as the tool error). No origin conversation
+ * (dashboard / external MCP client), an unknown/malformed id, or a store
+ * failure all yield `{}` — those calls proceed byte-identically to before.
+ */
+export function originConversationDefaults(ctx: McpToolContext): { provider?: string; reasoningEffort?: string } {
+  if (!ctx.originConversationId) return {}
+  try {
+    const conv = getAgentConversation(ctx.desktopDb, ctx.originConversationId)
+    if (!conv) return {}
+    return {
+      ...(conv.provider ? { provider: conv.provider } : {}),
+      ...(conv.reasoning_effort ? { reasoningEffort: conv.reasoning_effort } : {}),
+    }
+  } catch {
+    return {}
+  }
 }
 
 /**
@@ -200,6 +241,21 @@ export function registerTieredTool(server: McpServer, ctx: McpToolContext, spec:
       if (projectHeader != null) {
         const pid = Array.isArray(projectHeader) ? projectHeader[0] : projectHeader
         if (typeof pid === 'string' && pid.trim()) callCtx = { ...ctx, requestProjectId: pid.trim() }
+      }
+      // Origin link (safe-pr-review-flow): the in-app agent's bridge forwards its
+      // conversation id so a rail launched by THIS CALL can be tagged with its
+      // origin. Same per-call copy discipline as the project header — and it must
+      // spread callCtx (not ctx) so a coexisting project pin is never dropped.
+      // Malformed ids sanitize to null (never throw — the launch degrades to
+      // untagged rather than failing the tool call).
+      const convHeader = extra?.requestInfo?.headers?.[AGENT_CONVERSATION_HEADER]
+      if (convHeader != null) {
+        const cid = Array.isArray(convHeader) ? convHeader[0] : convHeader
+        const trimmed = typeof cid === 'string' ? cid.trim() : ''
+        callCtx = {
+          ...callCtx,
+          originConversationId: trimmed && ORIGIN_CONVERSATION_ID_RE.test(trimmed) ? trimmed : null,
+        }
       }
       const tier: McpTier = typeof spec.tier === 'function' ? spec.tier(args ?? {}) : spec.tier
       // In-app agent: when the request carries the loopback-only agent-tier header,

@@ -4,6 +4,7 @@ import { toast } from 'sonner'
 import { BrowserCaptureModal } from '../browser-capture/BrowserCaptureModal'
 import { useAgentWorkspace } from '../../context/AgentWorkspaceContext'
 import { uploadAgentAttachment } from '../../lib/agent-api'
+import { dataUrlToFile } from '../../lib/data-url'
 import type { CaptureResult } from '../../lib/browser-capture'
 
 /**
@@ -21,18 +22,23 @@ export function AgentBrowserCapture({ projectId, conversationId }: { projectId: 
   const pendingSpecId = useMemo(() => `agent-${conversationId ?? 'home'}-${Math.round(performance.now())}`, [conversationId])
 
   const onCaptured = async (result: CaptureResult) => {
+    if (!conversationId) {
+      toast.error(t('workspace.requiresConversation'))
+      return
+    }
     try {
-      if (!conversationId) throw new Error(t('workspace.requiresConversation'))
       // Re-home the screenshot into the conversation's agent-attachment storage —
-      // the send path resolves attachment ids exclusively from there.
-      const blob = await (await fetch(result.screenshotDataUrl)).blob()
-      const file = new File([blob], `capture-${Date.now()}.png`, { type: 'image/png' })
+      // the send path resolves attachment ids exclusively from there. Decoded
+      // without fetch(): the packaged CSP connect-src rejects data: URLs.
+      const file = dataUrlToFile(result.screenshotDataUrl, `capture-${Date.now()}.png`)
       const att = await uploadAgentAttachment(conversationId, file)
       queueCapture(att)
       toast.success(t('workspace.browserCaptured'))
       closeBrowser()
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : t('workspace.uploadFailed'))
+      toast.error(t('workspace.uploadFailed'), {
+        description: err instanceof Error ? err.message : undefined,
+      })
     }
   }
 

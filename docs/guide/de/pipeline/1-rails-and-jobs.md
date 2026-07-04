@@ -18,7 +18,7 @@ SpecsBoard (links)          Rails (rechts)
 
 Eine Rail ist eine **Ausführungsspur**. Du ziehst eine Spec-Karte vom SpecsBoard auf eine Rail und drückst dann **▶ Play**. Die Rail startet die Pipeline und arbeitet die Spec von vorne bis hinten ab — direkt im Arbeitsverzeichnis deines Projekts: Dateien werden bearbeitet, Tests laufen, alles inklusive.
 
-Du kannst mehrere rails anlegen, um deine Arbeit in benannten Spuren zu organisieren (eine für das Feature, an dem du gerade dran bist, eine weitere, die dahinter wartet). Mehr zu mehreren rails und zum Stapelbetrieb findest du unter [Batch implement & Multi-Feature](batch-implement-and-multi-feature).
+Du kannst mehrere rails anlegen, um deine Arbeit in benannten Spuren zu organisieren (eine für das Feature, an dem du gerade dran bist, eine weitere, die dahinter wartet). Rails sind **dynamisch**: Der **+ Hinzufügen**-Button im Rails-Header erstellt eine neue Spur (bis zu 12 pro Projekt), und leere, inaktive Spuren lassen sich löschen. Jede rail ist server-gestützt — dein Spuren-Set übersteht Reloads und ist für den mobilen Companion und den eingebauten Agenten sichtbar; der Agent kann sogar selbst eine rail anlegen, wenn alle Spuren belegt sind. Mehr zu mehreren rails und zum Stapelbetrieb findest du unter [Batch implement & Multi-Feature](batch-implement-and-multi-feature).
 
 ## Eine Rail auf einer Spec starten
 
@@ -49,7 +49,7 @@ Eine rail führt einen **Loop** aus — das Rezept für die Arbeit. Drei Loops s
 | **Batch** | `/specrails:batch-implement` | Ein Job, der die Specs der rail nacheinander abarbeitet — in abhängigkeitsbewussten Wellen. Ideal für mehrere zusammenhängende Specs. |
 | **Freestyle** | Freestyle | Claude implementiert jede Spec eigenständig und **umgeht** dabei die Pipeline. Ein unabhängiger Job pro Spec. Nur Claude. |
 
-Freestyle ist der Sonderfall: Es überspringt die Agent-Kette und übergibt Claude die rohe Spec, an der es mit seinen nativen Tools arbeitet. Das ist offen angelegt, deshalb öffnet Play zuerst eine Bestätigung, und eine Modell-Auswahl pro rail lässt dich zwischen Haiku / Sonnet / Opus wählen. Es erscheint nur, wenn die Engine der rail Claude ist.
+Freestyle ist der Sonderfall: Es überspringt die Agent-Kette und übergibt Claude die rohe Spec, an der es mit seinen nativen Tools arbeitet. Das ist offen angelegt, deshalb öffnet Play zuerst eine Bestätigung, und eine Modell-Auswahl pro rail lässt dich zwischen Haiku / Sonnet / Opus wählen. Es erscheint nur, wenn die Engine der rail Claude ist. Ein Freestyle-Lauf ist außerdem der einzige Job, der **für dich offen bleibt**: Chatte mit ihm über den Composer der Job-Detail-Ansicht und klicke auf **Finalize**, wenn du zufrieden bist (alle anderen Jobs schließen sich selbst ab).
 
 Über die eingebauten Loops hinaus kannst du **deine eigenen Loops bauen** — einen verify → fix → verify-Zyklus wiederholen, bis ein Ziel erreicht ist, Shell-Befehle zwischen KI-Schritten verketten und mehr. Diese eigenen Loops erscheinen in derselben Loop-Auswahl. Das ist die nächste große Idee: [Der Loop Builder](the-loop-builder).
 
@@ -57,11 +57,11 @@ Freestyle ist der Sonderfall: Es überspringt die Agent-Kette und übergibt Clau
 
 Jedes Mal, wenn du Play drückst, wird der rail-Lauf zu einem **Job**. Die wichtigste Regel, die du verinnerlichen solltest:
 
-> **Ein Job pro Projekt — immer nur einer.** Jedes Projekt hat eine einzige Queue. Innerhalb eines Projekts läuft jeweils nur ein rail-Job; der Rest stellt sich dahinter an und startet automatisch, sobald ein Platz frei wird.
+> **Rails laufen parallel.** Jeder Start isoliert seine Arbeit in einem Git-Worktree pro Spec — mehrere rails können also gleichzeitig im selben Projekt laufen, ohne sich in die Quere zu kommen. Die Änderungen jedes Laufs kommen als Merge oder als Draft-PR zurück, sobald er abgeschlossen ist.
 
-Das überrascht Leute, die drei rails anlegen und erwarten, dass sie parallel laufen. Tun sie nicht — jedenfalls nicht innerhalb desselben Projekts. rails hinzuzufügen *organisiert* deine Arbeit in Spuren; es lässt diese Spuren nicht gleichzeitig laufen.
+Du willst alles auf einmal starten? Der Button **Alle starten** im Rails-Header startet jede startbereite Spur in einem Rutsch — nach einer einzigen Bestätigung, die die Gesamtkosten einordnet (N rails × KI-Ausgaben). Leere, bereits laufende oder auf eine PR-Entscheidung wartende rails werden übersprungen und in einem kompakten Zusammenfassungs-Toast gemeldet. Der eingebaute Agent hat dieselbe Fähigkeit über `specrails_rails(launch_all)` — und legt eine frische rail an, wenn keine freie Spur existiert.
 
-**Echte Parallelität gibt es zwischen Projekten.** Jedes Projekt hat seine eigene, unabhängige Queue — eine rail in Projekt A und eine rail in Projekt B laufen also gleichzeitig, ohne sich in die Quere zu kommen. Du willst mehr Durchsatz? Öffne mehr Projekte.
+Nur der Legacy-Pfad (Loops-Feature deaktiviert) fällt auf die alte Ein-Job-pro-Projekt-Queue zurück, in der sich zusätzliche rails hinter der laufenden anstellen. Die Parallelität zwischen Projekten bleibt unverändert: Jedes Projekt ist weiterhin völlig unabhängig.
 
 Es gibt keinen globalen Regler für die Parallelität. Die einzige automatische Bremse ist budgetbasiert: Wenn du ein Tagesbudget gesetzt hast (pro Projekt oder app-weit), pausiert die Queue von selbst, sobald die Ausgaben des Tages das Limit erreichen.
 
@@ -73,7 +73,7 @@ Jeden Job findest du unter **Jobs** in der rechten Seitenleiste des Projekts —
 - **Datumsbereich-Filter** — engt auf ein Zeitfenster ein.
 - **Compare** — wähle zwei Jobs und betrachte sie nebeneinander.
 
-Klick auf eine beliebige Karte, um die **Job-Detail-Ansicht** zu öffnen, in der das Live-Streaming-Log und die Live-Metriken stecken. Das ist die nächste Seite: [Die Job-Detail-Ansicht](the-job-detail-view).
+Klick auf eine beliebige Karte, um die **Job-Detail-Ansicht** zu öffnen, in der das Live-Streaming-Log und die Live-Metriken stecken — und in der dir bei Claude-Jobs ein Chat-Composer erlaubt, **dem laufenden Agenten Fragen zu stellen oder ihn mitten im Lauf zu lenken**, ohne irgendetwas anzuhalten. Das ist die nächste Seite: [Die Job-Detail-Ansicht](the-job-detail-view).
 
 ## Einen Job abbrechen
 

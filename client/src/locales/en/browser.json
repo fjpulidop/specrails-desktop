@@ -101,5 +101,11 @@
     "tooManySessions": "Too many open browser sessions. Close one and retry.",
     "launchFailed": "The browser failed to launch on the server.",
     "openFailed": "Could not open the browser."
+  },
+  "popup": {
+    "loginWindow": "Login window — {{origin}}",
+    "stacked": "+{{count}} more",
+    "backToPage": "Back to page",
+    "show": "Show login window"
   }
 }

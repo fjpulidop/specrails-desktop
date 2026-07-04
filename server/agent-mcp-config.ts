@@ -2,7 +2,8 @@ import fs from 'fs'
 import path from 'path'
 import os from 'os'
 import { resolveBundledNodeExe } from './path-resolver'
-import { AGENT_TIER_ENV, AGENT_PROJECT_ENV, tierNameForLevel, type AgentTierLevel } from './agent-tier'
+import { stripWindowsVerbatimPrefix } from './util/win-spawn'
+import { AGENT_TIER_ENV, AGENT_PROJECT_ENV, AGENT_CONVERSATION_ENV, tierNameForLevel, type AgentTierLevel } from './agent-tier'
 
 // ─── Agent MCP wiring (design D8 / D1) ────────────────────────────────────────
 //
@@ -34,8 +35,15 @@ function fileExists(p: string): boolean {
  * Climbs from this module so it works whether running from server/ or server/dist/.
  */
 export function resolveBridgeScript(): string | null {
+  // Tauri's resource_dir() delivers `\\?\C:\…` verbatim paths on Windows; a
+  // `\\?\`-prefixed script argument crashes node's module loader (EISDIR
+  // lstat 'C:'), leaving the MCP server perpetually "connecting". Strip here
+  // as defence-in-depth even though ensureWindowsBaseEnv() normalizes the var.
   const fromEnv = process.env.SPECRAILS_BUNDLED_MCP_BRIDGE_PATH
-  if (fromEnv && fileExists(fromEnv)) return fromEnv
+  if (fromEnv) {
+    const cleaned = stripWindowsVerbatimPrefix(fromEnv)
+    if (fileExists(cleaned)) return cleaned
+  }
 
   const roots = [
     path.resolve(__dirname, '..'),
@@ -66,11 +74,20 @@ export interface AgentMcpEntry {
   env: Record<string, string>
 }
 
+/** The launch-route contract for an origin conversation id (safe-pr-review-flow):
+ *  must match rails-router's validation so a tagged launch is never 400'd. */
+const ORIGIN_CONVERSATION_ID_RE = /^[A-Za-z0-9-]{1,64}$/
+
 /** Build the `mcpServers.specrails` entry the agent (or a project workspace) uses. */
 export function buildSpecrailsMcpEntry(opts: {
   port: number
   tierLevel?: AgentTierLevel
   activeProjectId?: string | null
+  /** The launching agent-chat conversation id (safe-pr-review-flow origin link).
+   *  Forwarded env → bridge header → tool ctx → rails launch body, so an
+   *  MCP-launched rail's PR decision can be posted back into the conversation.
+   *  Malformed values are silently omitted (never throw — degrade to untagged). */
+  conversationId?: string | null
 }): AgentMcpEntry | null {
   const bridge = resolveBridgeScript()
   if (!bridge) return null
@@ -81,6 +98,9 @@ export function buildSpecrailsMcpEntry(opts: {
   if (process.env.SPECRAILS_REGISTRY_HOME) env.SPECRAILS_REGISTRY_HOME = process.env.SPECRAILS_REGISTRY_HOME
   if (opts.tierLevel != null) env[AGENT_TIER_ENV] = tierNameForLevel(opts.tierLevel)
   if (opts.activeProjectId) env[AGENT_PROJECT_ENV] = opts.activeProjectId
+  if (opts.conversationId && ORIGIN_CONVERSATION_ID_RE.test(opts.conversationId)) {
+    env[AGENT_CONVERSATION_ENV] = opts.conversationId
+  }
   return { command: resolveNodeCommand(), args: [bridge], env }
 }
 
@@ -127,7 +147,12 @@ export function buildAgentMcpArgs(opts: {
   tierLevel: AgentTierLevel
   activeProjectId?: string | null
 }): string[] {
-  const entry = buildSpecrailsMcpEntry({ port: opts.port, tierLevel: opts.tierLevel, activeProjectId: opts.activeProjectId })
+  const entry = buildSpecrailsMcpEntry({
+    port: opts.port,
+    tierLevel: opts.tierLevel,
+    activeProjectId: opts.activeProjectId,
+    conversationId: opts.conversationId,
+  })
   if (!entry) return []
   if (!/^[A-Za-z0-9][A-Za-z0-9_-]*$/.test(opts.conversationId)) {
     throw new Error(`unsafe agent conversation id: ${opts.conversationId}`)
@@ -205,6 +230,7 @@ export function prepareAgentMcp(opts: {
     port: opts.port,
     tierLevel: opts.tierLevel,
     activeProjectId: opts.activeProjectId,
+    conversationId: opts.conversationId,
   })
   if (!entry) return { extraArgs: [], env: {} }
 
@@ -219,6 +245,31 @@ export function prepareAgentMcp(opts: {
 
   // gemini + any other project-json provider: write .mcp.json in the spawn cwd.
   const file = path.join(opts.cwd, '.mcp.json')
+  mergeServerIntoJsonFile(file, entry)
+
+  if (opts.adapterId === 'gemini') {
+    // gemini-cli has NEVER read .mcp.json (a Claude convention) — its only MCP
+    // surface is `mcpServers` in settings.json (user or <cwd>/.gemini project
+    // scope), and an UNTRUSTED cwd suppresses MCP entirely (headless run exits
+    // 55 with FatalUntrustedWorkspaceError on 0.49). So: register in the
+    // project-scope settings file AND trust the app-owned agent cwd per-spawn
+    // via env — the same pattern every other gemini spawn path already uses
+    // (chat-manager / queue-manager / cli-prompt). Verified empirically against
+    // gemini-cli 0.49.0 (see docs/internals note on FQN tool prefixing).
+    const geminiDir = path.join(opts.cwd, '.gemini')
+    fs.mkdirSync(geminiDir, { recursive: true })
+    mergeServerIntoJsonFile(path.join(geminiDir, 'settings.json'), entry)
+    return { extraArgs: [], env: { GEMINI_CLI_TRUST_WORKSPACE: 'true' } }
+  }
+
+  return { extraArgs: [], env: {} }
+}
+
+/** Merge `mcpServers.specrails` into a JSON config file (read-if-exists,
+ *  preserve every other key, corrupt file → start fresh, chmod 600). Shape is
+ *  shared by claude-style `.mcp.json` and gemini `.gemini/settings.json` —
+ *  both carry a top-level `mcpServers` object. */
+function mergeServerIntoJsonFile(file: string, entry: AgentMcpEntry): void {
   let current: { mcpServers?: Record<string, unknown>; [k: string]: unknown } = {}
   try {
     if (fs.existsSync(file)) {
@@ -230,5 +281,4 @@ export function prepareAgentMcp(opts: {
   }
   const next = { ...current, mcpServers: { ...(current.mcpServers ?? {}), specrails: entry } }
   fs.writeFileSync(file, JSON.stringify(next, null, 2), { mode: 0o600 })
-  return { extraArgs: [], env: {} }
 }

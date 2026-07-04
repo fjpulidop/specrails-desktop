@@ -18,7 +18,7 @@ vi.mock('../../../lib/jira-api', () => ({
 }))
 
 import { JiraConnectedCard } from '../JiraConnectedCard'
-import { jiraApi, type ConnectionState } from '../../../lib/jira-api'
+import { jiraApi, type ConnectionState, type SpecLogicalState } from '../../../lib/jira-api'
 
 const api = jiraApi as unknown as Record<string, ReturnType<typeof vi.fn>>
 
@@ -26,9 +26,13 @@ const STATUSES = [
   { id: '10', name: 'To Do', category: 'new' },
   { id: '11', name: 'In Progress', category: 'indeterminate' },
   { id: '12', name: 'Cancelled', category: 'done' },
+  { id: '13', name: 'In Review', category: 'indeterminate' },
 ]
 
-function makeState(discardStatus: string | null): ConnectionState {
+function makeState(
+  discardStatus: string | null,
+  statusMap: Partial<Record<SpecLogicalState, string>> | null = null
+): ConnectionState {
   return {
     connected: true,
     connection: {
@@ -41,7 +45,7 @@ function makeState(discardStatus: string | null): ConnectionState {
       jiraProjectKey: 'PROJ',
       jiraProjectId: '1',
       enabled: true,
-      statusMap: null,
+      statusMap,
       highWaterMs: null,
       discardStatus,
       hasToken: true,
@@ -117,6 +121,33 @@ describe('JiraConnectedCard — discard status picker', () => {
     fireEvent.change(todo, { target: { value: 'To Do' } })
 
     await waitFor(() => expect(api.patchConnection).toHaveBeenCalledWith({ statusMap: { todo: 'To Do' } }))
+    await waitFor(() => expect(onChanged).toHaveBeenCalled())
+  })
+
+  it('renders the On Review mapping row and patches on_review when a status is selected', async () => {
+    const onChanged = vi.fn()
+    render(<JiraConnectedCard state={makeState(null)} onChanged={onChanged} />)
+
+    const onReview = (await screen.findByTestId('jira-statusmap-on_review')) as HTMLSelectElement
+    expect(onReview.value).toBe('')
+    await waitFor(() => expect(within(onReview).getByRole('option', { name: 'In Review' })).toBeInTheDocument())
+
+    fireEvent.change(onReview, { target: { value: 'In Review' } })
+
+    await waitFor(() => expect(api.patchConnection).toHaveBeenCalledWith({ statusMap: { on_review: 'In Review' } }))
+    await waitFor(() => expect(onChanged).toHaveBeenCalled())
+  })
+
+  it('patches statusMap null when the only mapping (on_review) is cleared', async () => {
+    const onChanged = vi.fn()
+    render(<JiraConnectedCard state={makeState(null, { on_review: 'In Review' })} onChanged={onChanged} />)
+
+    const onReview = (await screen.findByTestId('jira-statusmap-on_review')) as HTMLSelectElement
+    expect(onReview.value).toBe('In Review')
+
+    fireEvent.change(onReview, { target: { value: '' } })
+
+    await waitFor(() => expect(api.patchConnection).toHaveBeenCalledWith({ statusMap: null }))
     await waitFor(() => expect(onChanged).toHaveBeenCalled())
   })
 })
