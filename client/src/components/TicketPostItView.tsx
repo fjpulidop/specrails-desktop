@@ -47,6 +47,15 @@ const STATUS_PALETTE: Record<TicketStatus, PostItPalette> = {
     metaText: 'text-blue-300/70 aurora-light:text-accent-info',
     cornerBg: 'bg-blue-500/20 aurora-light:bg-accent-info/20',
   },
+  on_review: {
+    bg: 'bg-accent-warning/10',
+    border: 'border-accent-warning/40',
+    shadow: 'shadow-[0_2px_8px_rgba(0,0,0,0.08)]',
+    hoverShadow: 'hover:shadow-[0_4px_20px_rgba(0,0,0,0.15)]',
+    titleText: 'text-foreground',
+    metaText: 'text-accent-warning',
+    cornerBg: 'bg-accent-warning/20',
+  },
   done: {
     bg: 'bg-emerald-900/30 aurora-light:bg-accent-success/10',
     border: 'border-emerald-500/30 aurora-light:border-accent-success/30',
@@ -108,7 +117,7 @@ export function TicketPostItView({
 }: TicketPostItViewProps) {
   const { t } = useTranslation('specs')
   const sorted = useMemo(() => {
-    const order: Record<TicketStatus, number> = { in_progress: 0, draft: 1, todo: 2, done: 3, cancelled: 4 }
+    const order: Record<TicketStatus, number> = { in_progress: 0, on_review: 1, draft: 2, todo: 3, done: 4, cancelled: 5 }
     return [...tickets].sort((a, b) => order[a.status] - order[b.status])
   }, [tickets])
 
@@ -223,10 +232,18 @@ function PostItCard({ ticket, onClick }: PostItCardProps) {
         aria-hidden
       />
 
-      {/* Priority indicator (or Draft pill) */}
+      {/* Priority indicator (or Draft / On-review pill) */}
       {ticket.status === 'draft' ? (
         <div className="absolute top-1.5 left-2 inline-flex items-center rounded px-1 py-0.5 text-[8px] font-semibold border border-accent-secondary/60 text-accent-secondary bg-accent-secondary/10">
           {t('common:status.draft')}
+        </div>
+      ) : ticket.status === 'on_review' ? (
+        <div
+          className="absolute top-1.5 left-2 inline-flex items-center rounded px-1 py-0.5 text-[8px] font-semibold border border-accent-warning/60 text-accent-warning bg-accent-warning/10"
+          title={t('status.onReviewHint')}
+          data-testid={`on-review-pill-postit-${ticket.id}`}
+        >
+          {t('common:status.onReview')}
         </div>
       ) : priority?.icon ? (
         <div className="absolute top-1.5 left-2">

@@ -23,6 +23,10 @@ describe('canRefineTicket', () => {
       expect(canRefineTicket(t({ status: 'done' }))).toBe(false)
       expect(canRefineTicket(t({ status: 'cancelled' }))).toBe(false)
     })
+
+    it('blocks on_review (the spec is frozen under the PR-review decision)', () => {
+      expect(canRefineTicket(t({ status: 'on_review' }))).toBe(false)
+    })
   })
 
   describe('Jira-backed tickets', () => {
@@ -33,6 +37,7 @@ describe('canRefineTicket', () => {
       expect(canRefineTicket(jira('draft'))).toBe(true)
       expect(canRefineTicket(jira('todo'))).toBe(true)
       expect(canRefineTicket(jira('in_progress'))).toBe(true)
+      expect(canRefineTicket(jira('on_review'))).toBe(true)
       expect(canRefineTicket(jira('done'))).toBe(true)
     })
 

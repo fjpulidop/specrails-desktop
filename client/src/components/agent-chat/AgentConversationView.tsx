@@ -1,13 +1,34 @@
-import { useEffect, useRef } from 'react'
+import { Suspense, lazy, useEffect, useMemo, useRef } from 'react'
 import { useTranslation } from 'react-i18next'
-import { motion } from 'motion/react'
-import { Bot, ShieldAlert, PackageOpen, Clock } from 'lucide-react'
+import { motion, AnimatePresence } from 'motion/react'
+import { Bot, ShieldAlert, PackageOpen, Clock, Pin } from 'lucide-react'
 import { useAgentChat } from '../../context/AgentChatContext'
 import { useActiveTheme } from '../../context/ThemeContext'
 import { useSmoothStream } from '../explore-spec/useSmoothStream'
+import { useAgentRefActions } from '../../hooks/useAgentRefActions'
+import type { AgentRefTarget } from '../../lib/agent-refs'
 import { AgentActivityChip } from './AgentActivityChip'
 import { AgentMessage } from './AgentMessage'
 import { AgentComposer } from './AgentComposer'
+import { AgentPrDecisionCard } from './AgentPrDecisionCard'
+import { AgentPrPinnedDock, PrDecisionPill } from './AgentPrPinnedDock'
+import { derivePrCards, isPrDecisionPinned } from './agent-pr-pinning'
+
+// Only loads when a job-ref chip is actually clicked — keeps the conversation
+// chunk free of the log-explorer stack.
+const JobDetailModal = lazy(() =>
+  import('../JobDetailModal').then((m) => ({ default: m.JobDetailModal })),
+)
+
+// Only loads when a loop-ref chip resolves — keeps the loops stack out of the
+// conversation chunk.
+const LoopPreviewModal = lazy(() =>
+  import('../loops/LoopPreviewModal').then((m) => ({ default: m.LoopPreviewModal })),
+)
+
+// Foreign/unparseable system rows are skipped (never render raw JSON); warn
+// once per row id so a corrupt row doesn't spam on every re-render.
+const warnedSystemRows = new Set<string>()
 
 /**
  * Shared inner conversation UI — banners + sticky-scroll message list + streaming
@@ -18,13 +39,33 @@ import { AgentComposer } from './AgentComposer'
 export function AgentConversationView({ variant }: { variant: 'floating' | 'inline' }) {
   const { t } = useTranslation('agent')
   const {
-    messages, streamingText, isStreaming, liveTools, queuedMessages,
+    active, messages, streamingText, isStreaming, liveTools, queuedMessages,
     mcpEnabled, enablingMcp, enableMcpServer, providersReady, cycleTier, send,
   } = useAgentChat()
   const scrollRef = useRef<HTMLDivElement>(null)
   const smoothed = useSmoothStream(streamingText, isStreaming)
+
+  // Ticket/job reference chips resolve against the CONVERSATION's pinned
+  // project (it may differ from the active one). Home/app-global missions have
+  // no pin, so refs stay plain text there (v1 choice — a bare `#N` / uuid is
+  // only resolvable against a concrete project).
+  const { openRef, jobRef, closeJobRef, loopRef, closeLoopRef } = useAgentRefActions()
+  const refsProjectId = active?.pinned_project_id ?? null
+  const onOpenRef = useMemo(
+    () =>
+      refsProjectId
+        ? (ref: AgentRefTarget) => { void openRef(refsProjectId, ref) }
+        : undefined,
+    [refsProjectId, openRef],
+  )
   // Easter egg: on the Matrix theme, the agent becomes agent Smith.
   const emptyTitle = useActiveTheme().id === 'matrix' ? t('emptyTitleMatrix') : t('emptyTitle')
+
+  // PR-decision envelopes parsed ONCE per message-state change (`messages`
+  // identity is stable across streaming frames — no per-frame reparse). Pinned
+  // cards (attention-demanding decisions) surface in the dock above the
+  // composer; their history slot renders a slim reference marker instead.
+  const prCards = useMemo(() => derivePrCards(messages), [messages])
 
   // Stick-to-bottom: only auto-scroll while the user is already near the bottom.
   const pinnedRef = useRef(true)
@@ -93,17 +134,51 @@ export function AgentConversationView({ variant }: { variant: 'floating' | 'inli
               <p className="mt-1 max-w-[280px] text-xs">{t('emptyHint')}</p>
             </div>
           )}
-          {messages.map((m, i) => (
-            <AgentMessage
-              key={m.id}
-              role={m.role}
-              content={m.content}
-              // Option chips are clickable only on the newest settled message —
-              // a streaming turn suppresses them everywhere.
-              isLast={!isStreaming && i === messages.length - 1}
-              onPickOption={(option) => void send(option)}
-            />
-          ))}
+          {messages.map((m, i) => {
+            // `system` rows are app-authored inline cards, not chat bubbles.
+            // Today's only kind is the PR-decision card (safe-pr-review-flow);
+            // anything else is defensively skipped instead of leaking raw JSON.
+            if (m.role === 'system') {
+              const envelope = prCards.byMessageId.get(m.id)
+              if (!envelope) {
+                if (!warnedSystemRows.has(m.id)) {
+                  warnedSystemRows.add(m.id)
+                  console.warn(`[agent-chat] skipping unrenderable system message ${m.id}`)
+                }
+                return null
+              }
+              // While the card demands attention it lives PINNED above the
+              // composer — its chronological slot keeps a slim reference marker
+              // (no double render). Unpinning returns the full card here.
+              if (isPrDecisionPinned(envelope.decision)) {
+                return (
+                  <div
+                    key={m.id}
+                    data-testid="agent-pr-pinned-marker"
+                    className="flex items-center gap-2 rounded-lg border border-border/40 bg-surface/30 px-3 py-1.5 text-[11px] text-foreground/45 backdrop-blur-sm"
+                  >
+                    <Pin className="h-3 w-3 shrink-0 text-accent-primary/50" />
+                    <span className="min-w-0 flex-1 truncate">{t('prCard.pinned.marker')}</span>
+                    <PrDecisionPill decision={envelope.decision} />
+                  </div>
+                )
+              }
+              return <AgentPrDecisionCard key={m.id} envelope={envelope} />
+            }
+            return (
+              <AgentMessage
+                key={m.id}
+                role={m.role}
+                content={m.content}
+                // Option chips are clickable only on the newest settled message —
+                // a streaming turn suppresses them everywhere.
+                isLast={!isStreaming && i === messages.length - 1}
+                onPickOption={(option) => void send(option)}
+                refsProjectId={refsProjectId}
+                onOpenRef={onOpenRef}
+              />
+            )
+          })}
           {isStreaming && (
             <div className="space-y-2">
               {smoothed && <AgentMessage role="assistant" content={smoothed} streaming />}
@@ -129,6 +204,19 @@ export function AgentConversationView({ variant }: { variant: 'floating' | 'inli
           )}
         </motion.div>
 
+        {/* Pinned implementation-card slot — always visible above the composer
+            while any delivery demands attention; animates away on unpin. */}
+        <AnimatePresence initial={false}>
+          {active && prCards.pinned.length > 0 && (
+            <AgentPrPinnedDock
+              key="agent-pr-pinned-dock"
+              pinned={prCards.pinned}
+              conversationId={active.id}
+              inline={inline}
+            />
+          )}
+        </AnimatePresence>
+
         {inline ? (
           // Docked composer card — same visual language as the EMPTY hero card
           // (rounded glass card, not an edge-to-edge bar) and the morph target
@@ -150,6 +238,22 @@ export function AgentConversationView({ variant }: { variant: 'floating' | 'inli
           </div>
         )}
       </div>
+
+      {/* Job/loop-run ref chip clicked: the mission-mode job detail modal,
+          scoped to the mission's PINNED project (never the active one). */}
+      {jobRef && (
+        <Suspense fallback={null}>
+          <JobDetailModal jobId={jobRef.jobId} projectId={jobRef.projectId} onClose={closeJobRef} />
+        </Suspense>
+      )}
+
+      {/* Loop ref chip resolved (factory id, or a uuid that turned out to be a
+          loop definition): the read-only loop preview — loops are app-global. */}
+      {loopRef && (
+        <Suspense fallback={null}>
+          <LoopPreviewModal loop={loopRef} onClose={closeLoopRef} />
+        </Suspense>
+      )}
     </div>
   )
 }

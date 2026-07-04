@@ -134,4 +134,51 @@ describe('TicketContextMenu', () => {
     fireEvent.keyDown(document, { key: 'Escape' })
     expect(screen.queryByRole('menu', { name: 'Ticket actions' })).toBeNull()
   })
+
+  describe('on_review ticket', () => {
+    const onReviewTicket = { ...defaultTicket, status: 'on_review' as const }
+
+    function openStatusSubmenu() {
+      fireEvent.contextMenu(screen.getByText('Target'))
+      fireEvent.click(screen.getByText('Change status'))
+      return screen.getByRole('menu', { name: 'Status options' })
+    }
+
+    it('offers exactly "Move to To Do" / "Move to Done" (never an On Review entry)', () => {
+      render(
+        <TicketContextMenu {...makeDefaultProps({ ticket: onReviewTicket })}>
+          <span>Target</span>
+        </TicketContextMenu>
+      )
+      const submenu = openStatusSubmenu()
+      const items = Array.from(submenu.querySelectorAll('[role="menuitem"]')).map((b) => b.textContent)
+      // on_review is a pipeline-owned status — a user can move OUT of it
+      // (todo / done) but never INTO it manually.
+      expect(items).toEqual(['Todo', 'Done'])
+    })
+
+    it('moving an on_review ticket to To Do fires the status PATCH callback', () => {
+      const onStatusChange = vi.fn()
+      render(
+        <TicketContextMenu {...makeDefaultProps({ ticket: onReviewTicket, onStatusChange })}>
+          <span>Target</span>
+        </TicketContextMenu>
+      )
+      const submenu = openStatusSubmenu()
+      fireEvent.click(Array.from(submenu.querySelectorAll('[role="menuitem"]')).find((b) => b.textContent === 'Todo')!)
+      expect(onStatusChange).toHaveBeenCalledWith(1, 'todo')
+    })
+
+    it('moving an on_review ticket to Done fires the status PATCH callback', () => {
+      const onStatusChange = vi.fn()
+      render(
+        <TicketContextMenu {...makeDefaultProps({ ticket: onReviewTicket, onStatusChange })}>
+          <span>Target</span>
+        </TicketContextMenu>
+      )
+      const submenu = openStatusSubmenu()
+      fireEvent.click(Array.from(submenu.querySelectorAll('[role="menuitem"]')).find((b) => b.textContent === 'Done')!)
+      expect(onStatusChange).toHaveBeenCalledWith(1, 'done')
+    })
+  })
 })

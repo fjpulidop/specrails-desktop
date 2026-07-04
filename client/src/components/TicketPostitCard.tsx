@@ -62,9 +62,12 @@ export function TicketPostitCard({
   onDelete,
 }: TicketPostitCardProps) {
   const { t } = useTranslation('specs')
+  // On-review specs are frozen awaiting the human PR decision — not draggable
+  // (to a rail or elsewhere) until merged or discarded.
+  const dragFrozen = jiggleMode || ticket.status === 'on_review'
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
     id: ticket.id,
-    disabled: jiggleMode,
+    disabled: dragFrozen,
   })
 
   const [popoverAnchor, setPopoverAnchor] = useState<DOMRect | null>(null)
@@ -119,6 +122,7 @@ export function TicketPostitCard({
   }, [])
 
   const isDraft = ticket.status === 'draft'
+  const isOnReview = ticket.status === 'on_review'
   const isEpic = ticket.is_epic === true
   const isChildOfEpic = ticket.parent_epic_id != null
   const hasDependencies = (ticket.prerequisites?.length ?? 0) > 0
@@ -176,11 +180,13 @@ export function TicketPostitCard({
 
   const tone = isDraft
     ? 'bg-accent-secondary/10 border-accent-secondary/40'
-    : contractRefining
-      ? 'bg-card/70 border-accent-highlight/70 shadow-lg shadow-accent-highlight/20 animate-pulse'
-      : isEpic
-        ? 'bg-card/80 border-accent-highlight/40'
-        : 'bg-card/80 border-border/40'
+    : isOnReview
+      ? 'bg-accent-warning/5 border-accent-warning/40'
+      : contractRefining
+        ? 'bg-card/70 border-accent-highlight/70 shadow-lg shadow-accent-highlight/20 animate-pulse'
+        : isEpic
+          ? 'bg-card/80 border-accent-highlight/40'
+          : 'bg-card/80 border-border/40'
 
   return (
     <>
@@ -277,7 +283,7 @@ export function TicketPostitCard({
                 {ticket.jira_key}
               </Badge>
             )}
-            {ticket.priority && !isDraft && (
+            {ticket.priority && !isDraft && !isOnReview && (
               <Badge variant={PRIORITY_VARIANT[ticket.priority]} className="h-4 px-1.5 text-[9px] uppercase">
                 {t(`priority.${ticket.priority}`)}
               </Badge>
@@ -285,6 +291,16 @@ export function TicketPostitCard({
             {isDraft && (
               <Badge variant="outline" className="h-4 px-1.5 text-[9px] uppercase border-accent-secondary/50 text-accent-secondary">
                 {t('common:status.draft')}
+              </Badge>
+            )}
+            {isOnReview && (
+              <Badge
+                variant="outline"
+                className="h-4 px-1.5 text-[9px] uppercase border-accent-warning/60 text-accent-warning bg-accent-warning/10"
+                title={t('status.onReviewHint')}
+                data-testid={`on-review-badge-postit-${ticket.id}`}
+              >
+                {t('common:status.onReview')}
               </Badge>
             )}
           </div>
@@ -334,16 +350,20 @@ export function TicketPostitCard({
                 {t('card.continueEditing')}
               </button>
             )}
-            <button
-              ref={moveButtonRef}
-              type="button"
-              onClick={handleMoveClick}
-              data-testid="move-to-rail-button"
-              className="inline-flex items-center gap-1 px-2 py-1 rounded-md text-[10px] font-medium text-accent-info/90 hover:bg-accent-info/10 hover:text-accent-info transition-colors"
-            >
-              {t('card.moveToRail')}
-              <ArrowRight className="w-2.5 h-2.5" aria-hidden />
-            </button>
+            {/* On-review specs are awaiting the human PR decision — they cannot
+                be sent to a rail (not launchable) until merged or discarded. */}
+            {!isOnReview && (
+              <button
+                ref={moveButtonRef}
+                type="button"
+                onClick={handleMoveClick}
+                data-testid="move-to-rail-button"
+                className="inline-flex items-center gap-1 px-2 py-1 rounded-md text-[10px] font-medium text-accent-info/90 hover:bg-accent-info/10 hover:text-accent-info transition-colors"
+              >
+                {t('card.moveToRail')}
+                <ArrowRight className="w-2.5 h-2.5" aria-hidden />
+              </button>
+            )}
           </div>
           {jiggleMode && onDelete && (
             <button

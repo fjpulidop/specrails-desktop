@@ -1,14 +1,34 @@
-import { describe, it, expect, vi } from 'vitest'
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
+import * as path from 'path'
+import { resolveHome } from './artifact-registry'
 import { launchIsolatedRail, reconcileRailWorktrees, type IsolatedLaunchIO } from './rail-isolated-launch'
 import { initDb } from './db'
 import { initDesktopDb } from './desktop-db'
 import { listRailWorktrees, createRailWorktree, updateRailWorktreeState, getRailWorktree } from './rail-worktrees-store'
+import { getActivePrDeliveryByRail, listActivePrDeliveries } from './rail-pr-store'
+import { insertLinkWithId } from './jira/jira-db'
+import { setAgentChatManager } from './agent-chat-registry'
+import type { AgentChatManager } from './agent-chat-manager'
+import type { RailPrStateMessage } from './types'
 import type { ProjectContext } from './project-registry'
 
-function fakeCtx() {
+// The legacy merge-back must never spawn real executors from a test settle —
+// stub it (PR-mode tests assert it is NOT called; the kill-switch-off pin
+// asserts it IS).
+const { mockRunMergeBack } = vi.hoisted(() => ({ mockRunMergeBack: vi.fn() }))
+vi.mock('./rail-merge-orchestrator', () => ({ runMergeBack: mockRunMergeBack }))
+
+const ORIG_PR = process.env.SPECRAILS_RAIL_DELIVER_PR
+beforeEach(() => { mockRunMergeBack.mockReset().mockResolvedValue([]) })
+afterEach(() => {
+  if (ORIG_PR === undefined) delete process.env.SPECRAILS_RAIL_DELIVER_PR
+  else process.env.SPECRAILS_RAIL_DELIVER_PR = ORIG_PR
+})
+
+function fakeCtx(runImpl?: (req: { runId: string }) => Promise<unknown>) {
   const db = initDb(':memory:')
   const desktopDb = initDesktopDb(':memory:')
-  const run = vi.fn(() => new Promise<never>(() => { /* never settles → merge-back never scheduled */ }))
+  const run = vi.fn(runImpl ?? (() => new Promise<never>(() => { /* never settles → merge-back never scheduled */ })))
   const onLoopRunFinished = vi.fn()
   const onRailLaunch = vi.fn()
   const broadcast = vi.fn()
@@ -24,7 +44,7 @@ function fakeCtx() {
     jiraSyncManager: { onRailLaunch },
     broadcast,
   } as unknown as ProjectContext
-  return { ctx, db, run, onLoopRunFinished, railLoopRuns }
+  return { ctx, db, run, onLoopRunFinished, railLoopRuns, broadcast }
 }
 
 const graph = { nodes: [], edges: [], config: {} } as never
@@ -66,6 +86,20 @@ describe('launchIsolatedRail', () => {
     expect(create).toHaveBeenCalledWith(git, expect.objectContaining({ ticketId: 1, baseRef: 'develop' }))
   })
 
+  it('scope=all → ONE worktree + one run covering every ticket', async () => {
+    const { ctx, run } = fakeCtx()
+    const create = vi.fn(async (_g, { ticketId }: { ticketId: number }) => ({ branch: `sr/p/ticket-${ticketId}`, worktreePath: `/wt/ticket-${ticketId}` }))
+    const io: IsolatedLaunchIO = { git: { run: async () => ({ code: 0, stdout: '', stderr: '' }) }, create, remove: vi.fn(async () => {}) }
+
+    const ids = await launchIsolatedRail({ ...input([1, 2], ctx), scope: 'all' }, io)
+
+    expect(ids).toHaveLength(1) // a single run, not one per ticket
+    expect(create).toHaveBeenCalledTimes(1) // one worktree for the whole rail
+    expect(create).toHaveBeenCalledWith(io.git, expect.objectContaining({ ticketId: 1 }))
+    const runArg = (run as ReturnType<typeof vi.fn>).mock.calls[0][0] as { spec: { ticketIds: number[] } }
+    expect(runArg.spec.ticketIds).toEqual([1, 2]) // the one run covers all tickets
+  })
+
   it('tears down partial allocation and throws when a worktree fails (all-or-nothing)', async () => {
     const { ctx, run } = fakeCtx()
     let n = 0
@@ -80,6 +114,539 @@ describe('launchIsolatedRail', () => {
     // the one successfully-allocated worktree (#1) is torn down; no runs spawned
     expect(remove).toHaveBeenCalledTimes(1)
     expect(run).not.toHaveBeenCalled()
+  })
+})
+
+// A run stub that settles immediately with the given outcome, echoing runId.
+const settlingRun = (outcome = 'success') => (req: { runId: string }) =>
+  Promise.resolve({ runId: req.runId, outcome, iterations: 1, totalCostUsd: 0 })
+
+const prStates = (broadcast: ReturnType<typeof vi.fn>): RailPrStateMessage[] =>
+  broadcast.mock.calls
+    .map((c) => c[0] as RailPrStateMessage)
+    .filter((m) => m?.type === 'rail.pr_state')
+
+describe('launchIsolatedRail — ask-first PR delivery (rail_pr_deliveries lifecycle)', () => {
+  const okIo = (
+    create = vi.fn(async (_g: unknown, { ticketId }: { ticketId: number }) => ({ branch: `sr/p/ticket-${ticketId}`, worktreePath: `/wt/ticket-${ticketId}` })),
+  ): IsolatedLaunchIO =>
+    ({ git: { run: async () => ({ code: 0, stdout: '', stderr: '' }) }, create, remove: vi.fn(async () => {}) }) as IsolatedLaunchIO
+
+  beforeEach(() => { delete process.env.SPECRAILS_RAIL_DELIVER_PR }) // default-on
+
+  it('inserts a building row at launch (origin persisted) and broadcasts rail.pr_state at insert + run allocation', async () => {
+    const { ctx, db, broadcast } = fakeCtx() // never-settling runs → row stays 'building'
+
+    const ids = await launchIsolatedRail({ ...input([1, 2], ctx), scope: 'all', originSurface: 'agent-chat', originConversationId: 'conv-1' }, okIo())
+
+    const row = getActivePrDeliveryByRail(db, 0)!
+    expect(row).toMatchObject({
+      rail_index: 0, loop_id: 'factory:implement', rail_key: '0-factory:implement',
+      ticket_ids: '[1,2]', base_branch: 'HEAD', loop_name: 'Implement',
+      decision: 'building', pr_state: 'none',
+      origin_surface: 'agent-chat', origin_conversation_id: 'conv-1',
+    })
+    // run_ids round-trip: patched onto the row right after allocation.
+    expect(JSON.parse(row.run_ids)).toEqual(ids)
+    // Both durable broadcasts carry the EXACT snapshot payload shape: the
+    // insert (runIds still []) then the allocation patch (runIds populated —
+    // the building card/strip gains its per-run "View log" chips live).
+    const base = {
+      type: 'rail.pr_state', projectId: 'proj', railIndex: 0,
+      prDeliveryId: row.id, railKey: '0-factory:implement', ticketIds: [1, 2],
+      baseBranch: 'HEAD', branch: null, prUrl: null, prNumber: null,
+      prState: 'none', decision: 'building', originConversationId: 'conv-1',
+    }
+    expect(prStates(broadcast)).toEqual([
+      { ...base, runIds: [] },
+      { ...base, runIds: ids },
+    ])
+  })
+
+  it('origin defaults to dashboard / null when the launch input omits it', async () => {
+    const { ctx, db } = fakeCtx()
+    await launchIsolatedRail(input([1], ctx), okIo())
+    const row = getActivePrDeliveryByRail(db, 0)!
+    expect(row.origin_surface).toBe('dashboard')
+    expect(row.origin_conversation_id).toBeNull()
+  })
+
+  it('settle (≥1 succeeded) → on_review with branches + worktreeIds persisted; tickets park on_review; no merge-back', async () => {
+    const { ctx, db, broadcast, onLoopRunFinished } = fakeCtx(settlingRun('success'))
+
+    const ids = await launchIsolatedRail(input([1, 2], ctx), okIo())
+
+    await vi.waitFor(() => expect(getActivePrDeliveryByRail(db, 0)!.decision).toBe('on_review'))
+    const row = getActivePrDeliveryByRail(db, 0)!
+    expect(JSON.parse(row.branches)).toEqual([
+      { ticketId: 1, branch: 'sr/p/ticket-1', succeeded: true },
+      { ticketId: 2, branch: 'sr/p/ticket-2', succeeded: true },
+    ])
+    // this launch's rail_worktrees ledger ids, verbatim (discard cleanup input)
+    const ledgerIds = listRailWorktrees(db, 0).map((r) => r.id)
+    expect([...(JSON.parse(row.worktree_ids) as string[])].sort()).toEqual([...ledgerIds].sort())
+    // tickets parked at on_review at run settle (never done in PR mode)
+    for (const id of ids) {
+      expect(onLoopRunFinished).toHaveBeenCalledWith(id, 'success', { ticketCompletionStatus: 'on_review' })
+    }
+    // insert → allocation (run_ids patch, still building) → settle
+    expect(prStates(broadcast).map((m) => m.decision)).toEqual(['building', 'building', 'on_review'])
+    // the settle patch left the allocation's run_ids untouched (per-ticket order)
+    expect(JSON.parse(row.run_ids)).toEqual(ids)
+    expect(prStates(broadcast).at(-1)?.runIds).toEqual(ids)
+    // legacy merge-back stays skipped in PR mode
+    expect(mockRunMergeBack).not.toHaveBeenCalled()
+  })
+
+  it('settle (0 succeeded) → auto-discarded (terminal), branches persisted with succeeded:false', async () => {
+    const { ctx, db, broadcast } = fakeCtx(settlingRun('failure'))
+
+    await launchIsolatedRail(input([1], ctx), okIo())
+
+    await vi.waitFor(() => expect(listActivePrDeliveries(db)).toHaveLength(0))
+    // terminal row kept for audit, never deleted
+    const all = db.prepare('SELECT decision, branches FROM rail_pr_deliveries').all() as { decision: string; branches: string }[]
+    expect(all).toHaveLength(1)
+    expect(all[0].decision).toBe('discarded')
+    expect(JSON.parse(all[0].branches)).toEqual([{ ticketId: 1, branch: 'sr/p/ticket-1', succeeded: false }])
+    expect(prStates(broadcast).map((m) => m.decision)).toEqual(['building', 'building', 'discarded'])
+    expect(mockRunMergeBack).not.toHaveBeenCalled()
+  })
+
+  it('worktree-allocation failure closes the building row (→ discarded) so it cannot block relaunch', async () => {
+    const { ctx, db, broadcast } = fakeCtx()
+    let n = 0
+    const create = vi.fn(async (_g: unknown, { ticketId }: { ticketId: number }) => {
+      if (++n === 2) throw new Error('git worktree add failed')
+      return { branch: `sr/p/ticket-${ticketId}`, worktreePath: `/wt/ticket-${ticketId}` }
+    })
+
+    await expect(launchIsolatedRail(input([1, 2], ctx), okIo(create))).rejects.toThrow(/worktree add failed/)
+
+    expect(getActivePrDeliveryByRail(db, 0)).toBeUndefined() // no orphan 'building' row
+    expect(prStates(broadcast).map((m) => m.decision)).toEqual(['building', 'discarded'])
+  })
+
+  describe('agent-chat completion driver (card posted at launch, updated at settle)', () => {
+    afterEach(() => setAgentChatManager(null))
+
+    const fakeAgentChat = () => {
+      const postPrDecisionCard = vi.fn()
+      const updatePrDecisionCard = vi.fn()
+      setAgentChatManager({ postPrDecisionCard, updatePrDecisionCard } as unknown as AgentChatManager)
+      return { postPrDecisionCard, updatePrDecisionCard }
+    }
+
+    it('origin conversation set → building card at launch, runIds chip update at allocation, settled envelope at settle', async () => {
+      const { postPrDecisionCard, updatePrDecisionCard } = fakeAgentChat()
+      const { ctx, db } = fakeCtx(settlingRun('success'))
+
+      const ids = await launchIsolatedRail(
+        { ...input([1, 2], ctx), scope: 'all', originSurface: 'agent-chat', originConversationId: 'conv-9' },
+        okIo(),
+      )
+
+      // The card lands immediately at launch, in 'building' state (no runs yet).
+      expect(postPrDecisionCard).toHaveBeenCalledTimes(1)
+      expect(postPrDecisionCard.mock.calls[0][0]).toBe('conv-9')
+      expect(postPrDecisionCard.mock.calls[0][1]).toMatchObject({ kind: 'pr_decision', decision: 'building', runIds: [] })
+
+      // Two in-place updates: run allocation (the building card gains its
+      // per-run "View log" chips live) then the settled envelope.
+      await vi.waitFor(() => expect(updatePrDecisionCard).toHaveBeenCalledTimes(2))
+      expect(updatePrDecisionCard.mock.calls[0][0]).toBe('conv-9')
+      expect(updatePrDecisionCard.mock.calls[0][1]).toMatchObject({ kind: 'pr_decision', decision: 'building', runIds: ids })
+      const row = getActivePrDeliveryByRail(db, 0)!
+      expect(updatePrDecisionCard).toHaveBeenLastCalledWith('conv-9', {
+        kind: 'pr_decision',
+        prDeliveryId: row.id,
+        railIndex: 0,
+        projectId: 'proj',
+        baseBranch: 'HEAD',
+        ticketIds: [1, 2],
+        decision: 'on_review',
+        prUrl: null,
+        prState: 'none',
+        branch: null,
+        runIds: ids,
+      })
+    })
+
+    it('auto-discarded settle (0 succeeded) also updates the card so the origin learns the terminal outcome', async () => {
+      const { updatePrDecisionCard } = fakeAgentChat()
+      const { ctx } = fakeCtx(settlingRun('failure'))
+
+      await launchIsolatedRail(
+        { ...input([1], ctx), originSurface: 'agent-chat', originConversationId: 'conv-9' },
+        okIo(),
+      )
+
+      // calls[0] is the allocation runIds update; the LAST call carries the
+      // terminal outcome.
+      await vi.waitFor(() => expect(updatePrDecisionCard).toHaveBeenCalledTimes(2))
+      expect(updatePrDecisionCard.mock.calls[1][0]).toBe('conv-9')
+      expect(updatePrDecisionCard.mock.calls[1][1]).toMatchObject({ kind: 'pr_decision', decision: 'discarded' })
+    })
+
+    it('dashboard launch (origin null) → the card is never posted nor updated', async () => {
+      const { postPrDecisionCard, updatePrDecisionCard } = fakeAgentChat()
+      const { ctx, db } = fakeCtx(settlingRun('success'))
+
+      await launchIsolatedRail(input([1], ctx), okIo())
+
+      await vi.waitFor(() => expect(getActivePrDeliveryByRail(db, 0)!.decision).toBe('on_review'))
+      expect(postPrDecisionCard).not.toHaveBeenCalled()
+      expect(updatePrDecisionCard).not.toHaveBeenCalled()
+    })
+
+    it('empty registry (tests / agent chat disabled) → settle completes without a crash', async () => {
+      // No setAgentChatManager call — getAgentChatManager() returns null.
+      const { ctx, db } = fakeCtx(settlingRun('success'))
+
+      await launchIsolatedRail(
+        { ...input([1], ctx), originSurface: 'agent-chat', originConversationId: 'conv-9' },
+        okIo(),
+      )
+
+      await vi.waitFor(() => expect(getActivePrDeliveryByRail(db, 0)!.decision).toBe('on_review'))
+    })
+  })
+
+  it('kill-switch off: NO delivery row, tickets go done, legacy merge-back runs (byte-identical pin)', async () => {
+    process.env.SPECRAILS_RAIL_DELIVER_PR = 'off'
+    const { ctx, db, broadcast, onLoopRunFinished } = fakeCtx(settlingRun('success'))
+
+    const ids = await launchIsolatedRail(input([1], ctx), okIo())
+
+    await vi.waitFor(() => expect(mockRunMergeBack).toHaveBeenCalledTimes(1))
+    expect((db.prepare('SELECT COUNT(*) AS n FROM rail_pr_deliveries').get() as { n: number }).n).toBe(0)
+    expect(prStates(broadcast)).toHaveLength(0)
+    expect(onLoopRunFinished).toHaveBeenCalledWith(ids[0], 'success', { ticketCompletionStatus: 'done' })
+  })
+})
+
+describe('launchIsolatedRail — conventional branch naming (pr-naming threading)', () => {
+  const gitWithBranches = (branches: string[]) => ({
+    run: async (args: string[]) =>
+      args[0] === 'for-each-ref'
+        ? { code: 0, stdout: branches.join('\n'), stderr: '' }
+        : { code: 0, stdout: '', stderr: '' },
+  })
+  const mockCreate = () =>
+    vi.fn(async (_g: unknown, input: { ticketId: number; branch?: string; slug: string }) => ({
+      branch: input.branch ?? `sr/${input.slug}/ticket-${input.ticketId}`,
+      worktreePath: `/wt/ticket-${input.ticketId}`,
+    }))
+
+  it('threads the conventional <type>/<id>-<kebab> name into worktree allocation', async () => {
+    const { ctx } = fakeCtx()
+    const create = mockCreate()
+    await launchIsolatedRail(input([1, 2], ctx), { git: gitWithBranches([]), create, remove: vi.fn(async () => {}) })
+
+    expect(create).toHaveBeenCalledWith(expect.anything(), expect.objectContaining({ ticketId: 1, branch: 'feat/1-t1' }))
+    expect(create).toHaveBeenCalledWith(expect.anything(), expect.objectContaining({ ticketId: 2, branch: 'feat/2-t2' }))
+  })
+
+  it('JIRA ALWAYS PREVAILS: a jira_links row keys the branch ref', async () => {
+    const { ctx, db } = fakeCtx()
+    insertLinkWithId(db, { localId: 1, jiraIssueId: 'j-1', jiraKey: 'SKILLS-9', jiraProjectId: 'jp', deployment: 'cloud' })
+    const create = mockCreate()
+    await launchIsolatedRail(input([1], ctx), { git: gitWithBranches([]), create, remove: vi.fn(async () => {}) })
+
+    expect(create).toHaveBeenCalledWith(expect.anything(), expect.objectContaining({ branch: 'feat/SKILLS-9-t1' }))
+  })
+
+  it('a foreign existing branch collides → bounded -2 suffix', async () => {
+    const { ctx } = fakeCtx()
+    const create = mockCreate()
+    await launchIsolatedRail(input([1], ctx), {
+      git: gitWithBranches(['feat/1-t1']), create, remove: vi.fn(async () => {}),
+    })
+
+    expect(create).toHaveBeenCalledWith(expect.anything(), expect.objectContaining({ branch: 'feat/1-t1-2' }))
+  })
+
+  it('a branch a PRIOR rail run allocated for the SAME ticket is resumed, not suffixed', async () => {
+    const { ctx, db } = fakeCtx()
+    createRailWorktree(db, { id: 'old', railIndex: 0, ticketId: 1, branch: 'feat/1-t1', worktreePath: '/wt/old', mergeState: 'failed' })
+    const create = mockCreate()
+    await launchIsolatedRail(input([1], ctx), {
+      git: gitWithBranches(['feat/1-t1']), create, remove: vi.fn(async () => {}),
+    })
+
+    expect(create).toHaveBeenCalledWith(expect.anything(), expect.objectContaining({ branch: 'feat/1-t1' }))
+  })
+
+  it('NEVER allocates the integration branch, even when the preferred name matches it', async () => {
+    const { ctx } = fakeCtx()
+    const git = {
+      run: async (args: string[]) => {
+        if (args[0] === 'symbolic-ref') return { code: 0, stdout: 'refs/remotes/origin/feat/1-t1\n', stderr: '' }
+        if (args[0] === 'for-each-ref') return { code: 0, stdout: '', stderr: '' }
+        return { code: 0, stdout: '', stderr: '' }
+      },
+    }
+    const create = mockCreate()
+    await launchIsolatedRail(input([1], ctx), { git, create, remove: vi.fn(async () => {}) })
+
+    const allocated = (create.mock.calls[0][1] as { branch?: string }).branch
+    expect(allocated).toBe('feat/1-t1-2') // suffixed away from the integration branch
+  })
+
+  it('bounded exhaustion falls back to the legacy sr/<slug>/ticket-<id> name', async () => {
+    const { ctx } = fakeCtx()
+    const taken = ['feat/1-t1', ...Array.from({ length: 25 }, (_, i) => `feat/1-t1-${i + 2}`)]
+    const create = mockCreate()
+    await launchIsolatedRail(input([1], ctx), {
+      git: gitWithBranches(taken), create, remove: vi.fn(async () => {}),
+    })
+
+    expect(create).toHaveBeenCalledWith(expect.anything(), expect.objectContaining({ branch: 'sr/p/ticket-1' }))
+  })
+
+  it('two units in one launch never collide with each other', async () => {
+    // Same title for both tickets — the id inside the ref keeps them distinct.
+    const { ctx } = fakeCtx()
+    ;(ctx as unknown as { getTicketSpec: (id: number) => unknown }).getTicketSpec = () => ({ title: 'Same title' })
+    const create = mockCreate()
+    await launchIsolatedRail(input([1, 2], ctx), { git: gitWithBranches([]), create, remove: vi.fn(async () => {}) })
+
+    const branches = create.mock.calls.map((c) => (c[1] as { branch?: string }).branch)
+    expect(new Set(branches).size).toBe(2)
+    expect(branches).toEqual(['feat/1-same-title', 'feat/2-same-title'])
+  })
+})
+
+describe('launchIsolatedRail — stale mounted worktree from a prior run (live #37 repro)', () => {
+  beforeEach(() => { delete process.env.SPECRAILS_RAIL_DELIVER_PR })
+
+  it('REPRO: the settled delivery + ledger record the branch that ACTUALLY carries the commits, not the preferred name', async () => {
+    // A prior auto-discarded run of the SAME ticket left its worktree MOUNTED
+    // on the legacy sr/ branch. The worktree path is keyed by ticketId only, so
+    // the new launch's real createWorktree reuses that checkout — the run's
+    // commits land on sr/p/ticket-1 while the old code recorded the preferred
+    // feat/1-t1 name that never existed → `git push` had no ref → local-only
+    // wedge that no retry could heal.
+    const { ctx, db } = fakeCtx(settlingRun('success'))
+    const wt = path.join(resolveHome(), '.specrails', 'projects', 'p', 'worktrees', 'ticket-1')
+    createRailWorktree(db, { id: 'stale', railIndex: 0, ticketId: 1, branch: 'sr/p/ticket-1', worktreePath: wt, mergeState: 'failed' })
+    const git = {
+      run: async (args: string[]) => {
+        if (args[0] === 'worktree' && args[1] === 'list') {
+          return { code: 0, stdout: `worktree /repo\nworktree ${wt}\n`, stderr: '' }
+        }
+        if (args[0] === 'rev-parse' && args[1] === '--abbrev-ref') {
+          return { code: 0, stdout: 'sr/p/ticket-1\n', stderr: '' } // the mounted checkout's REAL branch
+        }
+        if (args[0] === 'for-each-ref') return { code: 0, stdout: 'sr/p/ticket-1\n', stderr: '' }
+        return { code: 0, stdout: '', stderr: '' }
+      },
+    }
+
+    // REAL createWorktree (no io.create injection) — the record/mount drift lived there.
+    await launchIsolatedRail(input([1], ctx), { git, remove: vi.fn(async () => {}) })
+
+    await vi.waitFor(() => expect(getActivePrDeliveryByRail(db, 0)!.decision).toBe('on_review'))
+    const row = getActivePrDeliveryByRail(db, 0)!
+    expect(JSON.parse(row.branches)).toEqual([{ ticketId: 1, branch: 'sr/p/ticket-1', succeeded: true }])
+    const fresh = listRailWorktrees(db, 0).filter((r) => r.id !== 'stale')
+    expect(fresh).toHaveLength(1)
+    expect(fresh[0].branch).toBe('sr/p/ticket-1')
+    expect(fresh[0].merge_state).toBe('built')
+  })
+})
+
+describe('launchIsolatedRail — auto-discard cleanup (0 succeeded)', () => {
+  beforeEach(() => { delete process.env.SPECRAILS_RAIL_DELIVER_PR }) // PR mode default-on
+
+  const gitOk = () => ({ run: async () => ({ code: 0, stdout: '', stderr: '' }) })
+  const okCreate = () =>
+    vi.fn(async (_g: unknown, { ticketId }: { ticketId: number }) => ({ branch: `sr/p/ticket-${ticketId}`, worktreePath: `/wt/ticket-${ticketId}` }))
+
+  it('unmounts every worktree at the auto-discard settle (branches KEPT for resume; ledger terminal)', async () => {
+    const { ctx, db } = fakeCtx(settlingRun('failure'))
+    const remove = vi.fn(async () => {})
+
+    await launchIsolatedRail(input([1, 2], ctx), { git: gitOk(), create: okCreate(), remove })
+
+    await vi.waitFor(() => expect(listActivePrDeliveries(db)).toHaveLength(0))
+    await vi.waitFor(() => expect(remove).toHaveBeenCalledTimes(2))
+    // Worktrees unmounted NOW (not left to poison the next run of the same
+    // ticket) — but the branches survive: partial work stays resumable and
+    // user-discard remains the only branch-deleting action.
+    expect(remove).toHaveBeenCalledWith(expect.anything(), {
+      repoDir: '/repo', worktreePath: '/wt/ticket-1', branch: 'sr/p/ticket-1', deleteBranch: false,
+    })
+    expect(remove).toHaveBeenCalledWith(expect.anything(), {
+      repoDir: '/repo', worktreePath: '/wt/ticket-2', branch: 'sr/p/ticket-2', deleteBranch: false,
+    })
+    expect(listRailWorktrees(db, 0).every((r) => r.merge_state === 'failed')).toBe(true)
+  })
+
+  it('a settle with ≥1 success keeps every worktree mounted (unchanged pre-decision behaviour)', async () => {
+    const { ctx, db } = fakeCtx(settlingRun('success'))
+    const remove = vi.fn(async () => {})
+
+    await launchIsolatedRail(input([1], ctx), { git: gitOk(), create: okCreate(), remove })
+
+    await vi.waitFor(() => expect(getActivePrDeliveryByRail(db, 0)!.decision).toBe('on_review'))
+    expect(remove).not.toHaveBeenCalled()
+  })
+})
+
+describe('launchIsolatedRail — per-run worktree overlay', () => {
+  const gitOk = () => ({ run: async () => ({ code: 0, stdout: '', stderr: '' }) })
+  const okCreate = () =>
+    vi.fn(async (_g: unknown, { ticketId }: { ticketId: number }) => ({ branch: `sr/p/ticket-${ticketId}`, worktreePath: `/wt/ticket-${ticketId}` }))
+  const noopOverlay = () => vi.fn(() => ({ createdPaths: [], warnings: [] }))
+
+  it('applies the overlay to EVERY allocated worktree; legacy project → repo as source root, claude surface', async () => {
+    const { ctx } = fakeCtx()
+    const overlay = noopOverlay()
+    await launchIsolatedRail(input([1, 2], ctx), { git: gitOk(), create: okCreate(), remove: vi.fn(async () => {}), overlay })
+
+    expect(overlay).toHaveBeenCalledTimes(2)
+    expect(overlay).toHaveBeenCalledWith({
+      worktreePath: '/wt/ticket-1',
+      sourceRoot: '/repo', // legacy: the repo's own on-disk untracked entries
+      providerDir: '.claude',
+      instructionsFilename: 'CLAUDE.md',
+    })
+  })
+
+  it('RELOCATED project → the WORKSPACE is the overlay source root', async () => {
+    const { ctx } = fakeCtx()
+    const overlay = noopOverlay()
+    const resolveExecution = vi.fn(() => ({ relocated: true, workspaceDir: '/home/.specrails/projects/p/workspace' })) as never
+    await launchIsolatedRail(input([1], ctx), { git: gitOk(), create: okCreate(), remove: vi.fn(async () => {}), overlay, resolveExecution })
+
+    expect(overlay).toHaveBeenCalledWith(expect.objectContaining({
+      worktreePath: '/wt/ticket-1',
+      sourceRoot: '/home/.specrails/projects/p/workspace',
+    }))
+  })
+
+  it('overlay warnings degrade: rail.overlay_degraded broadcast, spawn still proceeds', async () => {
+    const { ctx, run, broadcast } = fakeCtx()
+    const overlay = vi.fn(() => ({ createdPaths: [], warnings: ['failed to link .claude/commands/specrails: EACCES'] }))
+    const ids = await launchIsolatedRail(input([1], ctx), { git: gitOk(), create: okCreate(), remove: vi.fn(async () => {}), overlay })
+
+    expect(ids).toHaveLength(1)
+    expect(run).toHaveBeenCalledTimes(1) // degraded ≠ aborted
+    expect(broadcast).toHaveBeenCalledWith({
+      type: 'rail.overlay_degraded',
+      projectId: 'proj',
+      railIndex: 0,
+      ticketId: 1,
+      warnings: ['failed to link .claude/commands/specrails: EACCES'],
+    })
+  })
+
+  it('a THROWING overlay (defensive) degrades the same way instead of failing the launch', async () => {
+    const { ctx, run, broadcast } = fakeCtx()
+    const overlay = vi.fn(() => { throw new Error('boom') })
+    const ids = await launchIsolatedRail(input([1], ctx), { git: gitOk(), create: okCreate(), remove: vi.fn(async () => {}), overlay: overlay as never })
+
+    expect(ids).toHaveLength(1)
+    expect(run).toHaveBeenCalledTimes(1)
+    expect(broadcast).toHaveBeenCalledWith(expect.objectContaining({ type: 'rail.overlay_degraded', warnings: ['boom'] }))
+  })
+
+  it('commit at settle EXCLUDES overlay-owned paths (never land on the ticket branch/PR)', async () => {
+    const { ctx } = fakeCtx(settlingRun('success'))
+    const calls: { args: string[]; cwd: string }[] = []
+    const git = { run: async (args: string[], cwd: string) => { calls.push({ args, cwd }); return { code: 0, stdout: '', stderr: '' } } }
+    const overlay = vi.fn(() => ({
+      createdPaths: ['.claude/commands/specrails', '.claude/agents', '.sr-rail-overlay.json'],
+      warnings: [],
+    }))
+    await launchIsolatedRail(input([1], ctx), { git, create: okCreate(), remove: vi.fn(async () => {}), overlay })
+
+    await vi.waitFor(() => expect(calls.some((c) => c.args[0] === 'add')).toBe(true))
+    const add = calls.find((c) => c.args[0] === 'add')!
+    expect(add.cwd).toBe('/wt/ticket-1')
+    expect(add.args).toEqual([
+      'add', '-A', '--', '.',
+      ':(exclude).claude/commands/specrails',
+      ':(exclude).claude/agents',
+      ':(exclude).sr-rail-overlay.json',
+    ])
+  })
+
+  it('REGRESSION PIN: a no-op overlay (fully-tracked legacy repo) keeps the byte-identical `git add -A`', async () => {
+    const { ctx } = fakeCtx(settlingRun('success'))
+    const calls: { args: string[]; cwd: string }[] = []
+    const git = { run: async (args: string[], cwd: string) => { calls.push({ args, cwd }); return { code: 0, stdout: '', stderr: '' } } }
+    await launchIsolatedRail(input([1], ctx), { git, create: okCreate(), remove: vi.fn(async () => {}), overlay: noopOverlay() })
+
+    await vi.waitFor(() => expect(calls.some((c) => c.args[0] === 'add')).toBe(true))
+    expect(calls.find((c) => c.args[0] === 'add')!.args).toEqual(['add', '-A'])
+  })
+})
+
+describe('launchIsolatedRail — Code-Explorer provenance (construction story seam)', () => {
+  const gitOk = () => ({ run: async () => ({ code: 0, stdout: '', stderr: '' }) })
+  const okCreate = () =>
+    vi.fn(async (_g: unknown, { ticketId }: { ticketId: number }) => ({ branch: `sr/p/ticket-${ticketId}`, worktreePath: `/wt/ticket-${ticketId}` }))
+  const fakeSnapshot = { ref: '', untracked: ['.claude/agents'], headSha: 'base-sha' }
+
+  it('snapshots each worktree at allocation and records provenance ONCE at settle', async () => {
+    const { ctx } = fakeCtx(settlingRun('success'))
+    const snapshot = vi.fn(() => fakeSnapshot)
+    const recordProvenance = vi.fn(() => 1)
+    const ids = await launchIsolatedRail(input([1, 2], ctx), {
+      git: gitOk(), create: okCreate(), remove: vi.fn(async () => {}),
+      snapshot, recordProvenance,
+    })
+
+    expect(snapshot).toHaveBeenCalledTimes(2)
+    expect(snapshot).toHaveBeenCalledWith('/wt/ticket-1')
+    await vi.waitFor(() => expect(recordProvenance).toHaveBeenCalledTimes(2))
+    expect(recordProvenance).toHaveBeenCalledWith(expect.objectContaining({
+      db: ctx.db,
+      projectId: 'proj',
+      runId: ids[0],
+      ticketId: 1,
+      repoDir: '/wt/ticket-1',
+      snapshot: fakeSnapshot,
+    }))
+  })
+
+  it('records provenance on the FAILURE settle path too (partial work is provenance)', async () => {
+    const { ctx } = fakeCtx(() => Promise.reject(new Error('run crashed')))
+    const recordProvenance = vi.fn(() => 0)
+    await launchIsolatedRail(input([1], ctx), {
+      git: gitOk(), create: okCreate(), remove: vi.fn(async () => {}),
+      snapshot: vi.fn(() => fakeSnapshot), recordProvenance,
+    })
+    await vi.waitFor(() => expect(recordProvenance).toHaveBeenCalledTimes(1))
+    expect(recordProvenance).toHaveBeenCalledWith(expect.objectContaining({ snapshot: fakeSnapshot, ticketId: 1 }))
+  })
+
+  it('a throwing snapshot degrades to null (run proceeds; recorder still called with null)', async () => {
+    const { ctx, run } = fakeCtx(settlingRun('success'))
+    const recordProvenance = vi.fn(() => 0)
+    await launchIsolatedRail(input([1], ctx), {
+      git: gitOk(), create: okCreate(), remove: vi.fn(async () => {}),
+      snapshot: vi.fn(() => { throw new Error('no git') }), recordProvenance,
+    })
+    expect(run).toHaveBeenCalledTimes(1)
+    await vi.waitFor(() => expect(recordProvenance).toHaveBeenCalledTimes(1))
+    expect(recordProvenance).toHaveBeenCalledWith(expect.objectContaining({ snapshot: null }))
+  })
+
+  it('skips the snapshot entirely when the code explorer is disabled', async () => {
+    process.env.SPECRAILS_CODE_EXPLORER = 'false'
+    try {
+      const { ctx } = fakeCtx(settlingRun('success'))
+      const snapshot = vi.fn(() => fakeSnapshot)
+      await launchIsolatedRail(input([1], ctx), {
+        git: gitOk(), create: okCreate(), remove: vi.fn(async () => {}), snapshot,
+      })
+      expect(snapshot).not.toHaveBeenCalled()
+    } finally {
+      delete process.env.SPECRAILS_CODE_EXPLORER
+    }
   })
 })
 
@@ -111,5 +678,78 @@ describe('reconcileRailWorktrees (startup sweep)', () => {
     const n = await reconcileRailWorktrees(db, '/repo', { git: { run: async () => ({ code: 0, stdout: '', stderr: '' }) }, remove })
     expect(n).toBe(0)
     expect(remove).not.toHaveBeenCalled()
+  })
+})
+
+// ── Concurrent launches (Launch all / agent fan-out) ─────────────────────────
+// Parallel rails are safe BECAUSE allocation is serialized per repo: the
+// integration-branch resolution, the listLocalBranches snapshot, and the
+// `git worktree add` fan-in all run under withRepoLock(baseRepo). Without it,
+// two simultaneous launches interleave git worktree/branch creation on the
+// same repository (ref-lock races, duplicate collision-suffixed branch names).
+// The AI runs themselves stay fully parallel — only allocation is locked.
+
+describe('launchIsolatedRail — concurrent-launch allocation serialization', () => {
+  beforeEach(async () => {
+    const { __resetRepoLocks } = await import('./repo-lock')
+    __resetRepoLocks()
+  })
+
+  it('serializes worktree ALLOCATION across two concurrent launches on the same repo', async () => {
+    // Two independent rails launched at the same instant (Launch all). The
+    // injected `create` records concurrent occupancy — with the lock it must
+    // never observe two allocations in flight at once.
+    let active = 0
+    let maxActive = 0
+    const slowCreate = vi.fn(async (_g: unknown, { ticketId }: { ticketId: number }) => {
+      active++
+      maxActive = Math.max(maxActive, active)
+      await new Promise((r) => setTimeout(r, 15))
+      active--
+      return { branch: `sr/p/ticket-${ticketId}`, worktreePath: `/wt/ticket-${ticketId}` }
+    })
+    const a = fakeCtx()
+    const b = fakeCtx() // same project path '/repo' → same repo lock key
+    const io: IsolatedLaunchIO = {
+      git: { run: async () => ({ code: 0, stdout: '', stderr: '' }) },
+      create: slowCreate,
+      remove: vi.fn(async () => {}),
+    }
+
+    const [idsA, idsB] = await Promise.all([
+      launchIsolatedRail(input([1, 2], a.ctx), io),
+      launchIsolatedRail({ ...input([3], b.ctx), railIndex: 1 }, io),
+    ])
+
+    expect(idsA).toHaveLength(2)
+    expect(idsB).toHaveLength(1)
+    expect(slowCreate).toHaveBeenCalledTimes(3)
+    expect(maxActive).toBe(1) // allocations never overlapped
+    a.db.close(); b.db.close()
+  })
+
+  it('a failed allocation releases the lock — the concurrent launch still proceeds', async () => {
+    let calls = 0
+    const create = vi.fn(async (_g: unknown, { ticketId }: { ticketId: number }) => {
+      if (++calls === 1) throw new Error('git worktree add failed')
+      return { branch: `sr/p/ticket-${ticketId}`, worktreePath: `/wt/ticket-${ticketId}` }
+    })
+    const a = fakeCtx()
+    const b = fakeCtx()
+    const io: IsolatedLaunchIO = {
+      git: { run: async () => ({ code: 0, stdout: '', stderr: '' }) },
+      create,
+      remove: vi.fn(async () => {}),
+    }
+
+    const [ra, rb] = await Promise.allSettled([
+      launchIsolatedRail(input([1], a.ctx), io),
+      launchIsolatedRail({ ...input([2], b.ctx), railIndex: 1 }, io),
+    ])
+
+    expect(ra.status).toBe('rejected') // first alloc failed → caller falls back
+    expect(rb.status).toBe('fulfilled')
+    expect((rb as PromiseFulfilledResult<string[]>).value).toHaveLength(1)
+    a.db.close(); b.db.close()
   })
 })

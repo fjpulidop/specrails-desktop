@@ -102,7 +102,9 @@
     "reinstallHint": "请重新安装 Specrails 应用以恢复内置工具。",
     "installMissingHint": "请安装缺失的工具以继续。",
     "moreInfo": "更多信息",
-    "bundledBadge": "内置"
+    "bundledBadge": "内置",
+    "optional": "可选",
+    "ghNoAuth": "未登录 — 请运行 `gh auth login`"
   },
   "instructions": {
     "title": "安装开发工具",
@@ -258,8 +260,8 @@
     "providers": {
       "nav": "你的 Agent",
       "title": "自带 Agent",
-      "subtitle": "Claude Code 和 Codex，均为一等公民引擎",
-      "intro": "应用将 <b>Claude Code</b> 和 <b>Codex CLI</b> 视为同一契约下可互换的引擎。项目可以安装其中之一或两者——在安装时选择。",
+      "subtitle": "Claude Code、Codex 与 Gemini 皆为一等引擎",
+      "intro": "应用将 <b>Claude Code</b>、<b>Codex CLI</b> 与 <b>Gemini CLI</b> 视为同一契约下可互换的引擎。项目可安装一个或多个——在安装时选择。",
       "table": {
         "capability": "能力",
         "streamingResume": "流式输出与会话恢复",
@@ -271,7 +273,7 @@
         "synthesized": "合成",
         "agentProfiles": "Agent Profile"
       },
-      "calloutLabel": "两者都安装时",
+      "calloutLabel": "安装多个引擎时",
       "calloutBody": "可<b>按 spec、按 rail 或按终端启动</b>选择引擎。应用会记住每个项目的上次选择。Codex 成本基于本地费率表估算，并始终以 <mono>~</mono> 标注。"
     },
     "cost": {

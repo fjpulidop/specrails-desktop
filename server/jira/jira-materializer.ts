@@ -41,13 +41,23 @@ export function issueStatusCategory(issue: JiraIssue): JiraStatusCategory {
   return k === 'new' || k === 'done' ? k : 'indeterminate'
 }
 
-/** Map a Jira issue's status to a Specrails ticket status. */
-export function mapStatus(issue: JiraIssue): TicketStatus {
+/**
+ * Map a Jira issue's status to a Specrails ticket status. When the connection
+ * has an explicit `statusMap.on_review` and the issue's status NAME equals it
+ * (case-insensitive), the inbound status is preserved as `on_review` — the
+ * category fallback alone would flatten it to `in_progress` and silently revert
+ * a ticket parked at on_review once its outbox transition drains (the frozen
+ * guard only protects the pending window). Unconfigured ⇒ byte-identical
+ * category mapping.
+ */
+export function mapStatus(issue: JiraIssue, statusMap?: JiraConnection['statusMap']): TicketStatus {
+  const name = (issue.fields.status?.name ?? '').toLowerCase()
+  const onReviewTarget = statusMap?.on_review
+  if (onReviewTarget && name && name === onReviewTarget.toLowerCase()) return 'on_review'
   const cat = issueStatusCategory(issue)
   if (cat === 'new') return 'todo'
   if (cat === 'indeterminate') return 'in_progress'
   // done category: distinguish a cancelled/rejected resolution from a real ship.
-  const name = (issue.fields.status?.name ?? '').toLowerCase()
   return nameIsCancel(name) ? 'cancelled' : 'done'
 }
 
@@ -126,7 +136,7 @@ export function mapIssueToTicket(
     id: localId,
     title: issue.fields.summary || `(${issue.key})`,
     description: adfToText(issue.fields.description),
-    status: mapStatus(issue),
+    status: mapStatus(issue, conn.statusMap),
     priority: mapPriority(issue.fields.priority?.name),
     labels: issue.fields.labels ?? [],
     assignee: issue.fields.assignee?.displayName ?? issue.fields.assignee?.emailAddress ?? null,
@@ -150,6 +160,9 @@ export function mapIssueToTicket(
     jira_sprint_id: sprint.id,
     jira_sprint_name: sprint.name,
     jira_sprint_state: sprint.state,
+    // RAW workflow status name (Jira-owned, flows through even for frozen ids —
+    // it reflects Jira's reality, unlike the locally-authoritative `status`).
+    jira_status: issue.fields.status?.name ?? null,
   }
 }
 
@@ -180,6 +193,10 @@ function sameJiraContent(a: Ticket, b: Ticket): boolean {
     (a.jira_sprint_id ?? null) === (b.jira_sprint_id ?? null) &&
     (a.jira_sprint_name ?? null) === (b.jira_sprint_name ?? null) &&
     (a.jira_sprint_state ?? null) === (b.jira_sprint_state ?? null) &&
+    // A raw-status-only move (two Jira statuses mapping to the SAME logical
+    // state, e.g. "In Progress" → "Code Review") must still write + broadcast
+    // so the board's Jira-status filter counts stay live.
+    (a.jira_status ?? null) === (b.jira_status ?? null) &&
     a.labels.length === b.labels.length &&
     a.labels.every((l, i) => l === b.labels[i])
   )
@@ -196,6 +213,11 @@ function sameJiraContent(a: Ticket, b: Ticket): boolean {
 function applyFrozen(mapped: Ticket, existing: Ticket | undefined, frozen: boolean): Ticket {
   if (existing && frozen) {
     mapped.status = existing.status
+    // The RAW Jira status name is frozen WITH the logical status so the pair
+    // never disagrees on the board mid-window; the high-water mark does not
+    // advance past frozen issues, so the suppressed raw change is re-fetched
+    // (and applied) on the first poll after the outbox op drains.
+    mapped.jira_status = existing.jira_status ?? null
     mapped.priority = existing.priority ?? mapped.priority
     mapped.title = existing.title
     mapped.description = existing.description

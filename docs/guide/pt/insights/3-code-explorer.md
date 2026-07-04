@@ -37,6 +37,12 @@ Algumas salvaguardas mantêm os custos sob controlo: a geração de resumos corr
 
 Pode também escolher o **idioma do resumo** (inglês ou espanhol) nas definições globais, na área da *secção Code*.
 
+## A história de construção
+
+Por baixo do visualizador de código vive a **história de construção** — uma linha do tempo cronológica de cada spec e cada job que construíram o ficheiro que estás a ver. Cada capítulo é um cartão: que spec interveio (com o seu estado atual), quando, se o ficheiro foi criado, modificado ou eliminado, e o tamanho da mudança (linhas adicionadas e removidas). Clica num cartão para abrir o detalhe dessa spec. Os rails baseados em loops também registam os ficheiros que tocam, por isso o trabalho feito em worktrees isolados aparece na história tal como os jobs normais do pipeline.
+
+Para qualquer capítulo podes pedir uma explicação em linguagem simples: carrega em **Explicar esta alteração** e a app escreve uma a três frases a descrever o que essa mudança concreta contribuiu para o ficheiro — sem código, sem jargão. As explicações partilham o mesmo orçamento mensal dos resumos de ficheiros e, enquanto nenhuma for gerada, o cartão recorre aos factos que conhece: o tipo de mudança, a spec e a data. Preferes os dados em bruto? Um seletor **História / Registro** muda para a lista clássica de alterações com diffs a pedido. O mesmo painel aparece na vista **Files** do modo Agente.
+
 ## Ligar o código de volta às specs
 
 A ligação de proveniência funciona nos dois sentidos. Dentro do Code explorer, clicar na etiqueta de um ticket num ficheiro abre o detalhe desse ticket. E no sentido inverso, a vista de **detalhe do ticket** tem uma secção *Ficheiros alterados por este ticket* — clique aí num ficheiro e salta diretamente para o Code explorer com ele aberto. Fecha o ciclo entre "aqui está a spec que escrevemos" e "aqui está o código que daí saiu".

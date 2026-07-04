@@ -26,7 +26,7 @@
 
 - 💬 Shape a spec in conversation with an AI, or generate one in a single shot.
 - 🛤️ Drag specs onto **execution rails**, pick a **Loop** to run (built-in or your own), and ship — one job at a time per project, in parallel across projects.
-- 🤖 Watch the **Architect → Developer → Reviewer → Ship** pipeline stream live.
+- 🤖 Watch the **Architect → Developer → Reviewer → Ship** pipeline stream live — and **talk to the running job**: ask questions or steer it mid-run from the built-in composer.
 - 💰 See exactly **what each agent cost you** this week, per provider, per ticket.
 
 > 🔒 **100% local. Single user. No accounts. No telemetry leaves your machine.**
@@ -54,8 +54,8 @@
 | 🛤️ **Execution rails** | Each rail is an independent lane. Drag specs in, **pick a Loop**, and press Play. Within a project, jobs run **one at a time** (rails let you queue and organise the work); true parallelism is **across projects**. Each rail carries its own **agent profile** and provider. |
 | 🔁 **Loops** | A global, visual **Loop Builder** (n8n-style). The built-in loops — **Implement**, **Batch**, **Freestyle** — are what a rail runs by default, or build your own: chain AI steps, shell commands and a **Loop Decider** that repeats until a goal is met (e.g. *verify → fix → verify until green*). Publish a loop and pick it on any rail. See [Running pipelines](docs/running-pipelines.md). |
 | 🧩 **Agent profiles** | A per-project, declarative catalog that tells the implement pipeline which agents to run and at what model — snapshotted per job so concurrent rails stay isolated. |
-| 🔀 **Safe PR delivery** | Each rail runs in an isolated **git worktree** off your designated integration branch (set it in *Settings → Integration branch*) and, when it finishes, hands you **one draft pull request** — combined across all the specs on the rail. specrails **never merges and never touches your working tree**: you review and **Approve**, and your engineers merge it in GitHub the way they already do. Set `SPECRAILS_RAIL_DELIVER_PR=0` to fall back to local integration. |
-| 📡 **Live job detail** | A premium ticket-identity header, live duration ticker, incremental turns/tokens, and authoritative cost on exit. |
+| 🔀 **Safe PR delivery (ask-first)** | Each rail runs in an isolated **git worktree** off your designated integration branch (set it in *Settings → Integration branch*). When it finishes, nothing is pushed and no PR exists yet — the specs move to **On Review** and the app **asks you first**: **Create PR** (one combined draft PR across all the specs on the rail) or **Discard** (clean up, specs back to the backlog). After creating it you can **Publish** (open the draft for your team's review) and **Check merge** — once your team merges it in GitHub, the specs flip to Done. specrails **never merges and never touches your working tree**. Set `SPECRAILS_RAIL_DELIVER_PR=0` to fall back to local integration. |
+| 📡 **Live job detail** | A premium ticket-identity header, live duration ticker, incremental turns/tokens, and authoritative cost on exit. Every Claude job is a **live session**: a chat composer on the job view lets you ask the running agent questions or steer it mid-run — messages queue while it streams, and the job still finishes its plan (Freestyle waits for your explicit **Finalize**; everything else wraps up on its own). |
 | 🔌 **Plugins** | A per-project marketplace of MCP-based integrations (**Serena** semantic code-nav bundled today). Additive by design — installing plugin N+1 never disturbs plugin N. |
 
 ### 💸 Track every cent

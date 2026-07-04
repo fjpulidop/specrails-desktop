@@ -44,6 +44,7 @@
     "auto": "自动（按类别）",
     "todo": "待办 / To Do",
     "inProgress": "进行中",
+    "onReview": "评审中",
     "done": "完成",
     "cancelled": "已取消",
     "loading": "正在加载状态…"

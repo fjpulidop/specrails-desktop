@@ -32,6 +32,13 @@ function isTargetClosedError(err: unknown): boolean {
 const MAX_SESSIONS_PER_PROJECT = 4
 const DOM_HTML_BYTE_CAP = 100_000
 const LAST_URL_KEY = 'config.browser_last_url'
+/** Conflation threshold for the screencast fan-out: skip sending a frame to a
+ *  client whose WS send-buffer already holds this many bytes. A slow consumer
+ *  otherwise accumulates seconds of stale frames (ever-growing latency), which is
+ *  what "sluggish" feels like. Every frame is an independent, complete JPEG, so
+ *  dropping intermediates is lossless — the client simply paints the next fresh
+ *  frame (newest-wins). `lastFrame` is still always updated. */
+const MAX_CLIENT_BUFFERED_BYTES = 1_000_000
 /** How far back from capture time to include buffered network requests. */
 const NETWORK_WINDOW_MS = 30_000
 
@@ -39,6 +46,9 @@ const NETWORK_WINDOW_MS = 30_000
  *  from the `ws` package so tests can pass plain fakes. */
 export interface BrowserWsClient {
   readyState: number
+  /** Bytes queued in the socket's send buffer (ws exposes this). Used to conflate
+   *  screencast frames for slow consumers; treated as 0 when absent (test fakes). */
+  bufferedAmount?: number
   send(data: string | Buffer): void
   close(code?: number, reason?: string): void
 }
@@ -46,14 +56,25 @@ export interface BrowserWsClient {
 interface BrowserSession {
   id: string
   projectId: string
+  /** The root/opener page — capture, probe and URL-bar navigation ALWAYS target
+   *  this page, regardless of any popup being viewed. */
   page: BrowserPageHandle
+  /** Live popups opened by the page (window.open / target=_blank / OAuth login
+   *  windows), in open order — the last one is the top of the stack. They share
+   *  the browser context, so cookies + window.opener survive (OAuth completes). */
+  popups: BrowserPageHandle[]
+  /** True while the client views (and inputs into) the TOP popup; false = root.
+   *  Auto-set true when a popup opens, auto-reset when the stack empties. */
+  popupView: boolean
   clients: Set<BrowserWsClient>
   lastFrame: Buffer | null
   url: string | null
   title: string | null
   viewport: { width: number; height: number }
   createdAt: number
-  screencasting: boolean
+  /** The page the screencast is currently running on (null = not running).
+   *  Reconciled against `screencastDesired` + the active page by applyScreencast. */
+  screencastPage: BrowserPageHandle | null
   /** Desired screencast state; transitions are serialised via `screencastOp`. */
   screencastDesired: boolean
   screencastOp: Promise<void> | null
@@ -251,13 +272,15 @@ export class BrowserCaptureManager {
       id,
       projectId: this.projectId,
       page,
+      popups: [],
+      popupView: false,
       clients: new Set(),
       lastFrame: null,
       url: null,
       title: null,
       viewport: { ...DEFAULT_VIEWPORT },
       createdAt: opts?.createdAtMs ?? this.now(),
-      screencasting: false,
+      screencastPage: null,
       screencastDesired: false,
       screencastOp: null,
       closed: false,
@@ -266,17 +289,123 @@ export class BrowserCaptureManager {
     // The reservation is now realised as a committed session — release it.
     this._reserved--
 
+    // Adopt popups the page opens (OAuth login windows etc.) as secondary pages
+    // of this session, and keep the client's URL bar live on in-page navigation
+    // (link clicks / redirects the REST navigate path never sees).
+    this.watchPopups(session, page)
+    page.onNavigated?.((url) => {
+      if (session.closed || this.disposed) return
+      session.url = url
+      if (url && url !== 'about:blank') this.setLastUrl(url)
+      this.broadcastControl(session, { type: 'nav', url, title: session.title })
+    })
+
     // Start capturing the page's network requests before the first navigation so
     // XHR/fetch made during page load are available at capture time. Best-effort:
     // a handle that doesn't support it (or a failure) just yields no network data.
     try { await page.enableNetwork?.() } catch { /* network capture is best-effort */ }
 
+    // Kick the initial navigation WITHOUT blocking session creation. The old
+    // `await page.goto(...)` here held the create POST — and therefore the whole
+    // modal spinner — hostage to `domcontentloaded` (up to 30s on a slow site).
+    // Returning immediately lets the client attach and start the screencast right
+    // away, so the user watches the page paint progressively instead of staring
+    // at "opening…". The URL is set optimistically to the target; the resolved
+    // URL/title land via the `nav` control broadcast every client already handles.
     const target = opts?.initialUrl?.trim() || this.getLastUrl() || 'about:blank'
-    const result = await page.goto(target)
-    session.url = result.url
-    session.title = result.title
-    if (result.url && result.url !== 'about:blank') this.setLastUrl(result.url)
+    session.url = target
+    void this.runInitialNavigation(session, target)
     return this.toMeta(session)
+  }
+
+  /** Complete the initial `goto` in the background (see create()). Never throws;
+   *  a session killed mid-navigation is simply left alone. */
+  private async runInitialNavigation(s: BrowserSession, target: string): Promise<void> {
+    let result: { url: string; title: string }
+    try {
+      result = await s.page.goto(target)
+    } catch {
+      return // the page keeps whatever it settled on; nav failures are non-fatal
+    }
+    if (s.closed || this.disposed) return
+    s.url = result.url
+    s.title = result.title
+    if (result.url && result.url !== 'about:blank') this.setLastUrl(result.url)
+    this.broadcastControl(s, { type: 'nav', url: result.url, title: result.title })
+  }
+
+  // ─── Popup support (OAuth login windows etc.) ───────────────────────────────
+
+  private topPopup(s: BrowserSession): BrowserPageHandle | null {
+    return s.popups.length > 0 ? s.popups[s.popups.length - 1] : null
+  }
+
+  /** The page the screencast + interactive input should target: the top popup
+   *  while one is open and being viewed, else the root page. */
+  private activePage(s: BrowserSession): BrowserPageHandle {
+    return (s.popupView && this.topPopup(s)) || s.page
+  }
+
+  private watchPopups(s: BrowserSession, opener: BrowserPageHandle): void {
+    opener.onPopup?.((popup) => this.adoptPopup(s, popup))
+  }
+
+  /** Register a popup as a secondary page of the session: inherit the viewport,
+   *  reroute the screencast + input to it (latest-wins), and auto-return to the
+   *  opener when it closes (the typical OAuth self-close). */
+  private adoptPopup(s: BrowserSession, popup: BrowserPageHandle): void {
+    if (s.closed || this.disposed) {
+      void popup.close().catch(() => { /* ignore */ })
+      return
+    }
+    s.popups.push(popup)
+    s.popupView = true
+    // Popups inherit the session viewport so coordinate mapping + screencast
+    // dimensions stay identical to the root page.
+    void popup.setViewport(s.viewport.width, s.viewport.height).catch(() => { /* ignore */ })
+    popup.onClose?.(() => this.dropPopup(s, popup))
+    popup.onNavigated?.(() => {
+      // Keep the "Login window — <origin>" label fresh while the top popup
+      // walks its redirect chain.
+      if (!s.closed && this.topPopup(s) === popup) this.broadcastPopupState(s)
+    })
+    // Popups can themselves open popups (rare, but some IdPs chain windows).
+    this.watchPopups(s, popup)
+    this.broadcastPopupState(s)
+    void this.applyScreencast(s)
+  }
+
+  private dropPopup(s: BrowserSession, popup: BrowserPageHandle): void {
+    const i = s.popups.indexOf(popup)
+    if (i === -1) return
+    s.popups.splice(i, 1)
+    if (s.popups.length === 0) s.popupView = false
+    if (s.closed) return
+    this.broadcastPopupState(s)
+    // Re-routes the screencast to the next popup down or back to the opener;
+    // startScreencast emits a frame immediately, so the switch paints at once.
+    void this.applyScreencast(s)
+  }
+
+  private broadcastPopupState(s: BrowserSession): void {
+    const top = this.topPopup(s)
+    this.broadcastControl(s, {
+      type: 'popup',
+      count: s.popups.length,
+      active: s.popupView && top != null,
+      url: top ? top.currentUrl() : null,
+    })
+  }
+
+  /** Switch the viewed page between the root page and the top popup ("back to
+   *  page" / "show login window"). Returns false for an unknown session. */
+  setPopupView(sessionId: string, target: 'root' | 'popup'): boolean {
+    const s = this.getSession(sessionId)
+    if (!s) return false
+    s.popupView = target === 'popup' && s.popups.length > 0
+    this.broadcastPopupState(s)
+    void this.applyScreencast(s)
+    return true
   }
 
   // ─── WS attach / detach + screencast fan-out ────────────────────────────────
@@ -288,6 +417,12 @@ export class BrowserCaptureManager {
     s.clients.add(ws)
     this.safeSend(ws, JSON.stringify({ type: 'ready', id: s.id, url: s.url, title: s.title, viewport: s.viewport }))
     if (s.lastFrame) this.safeSend(ws, s.lastFrame)
+    // A (re)joining client must learn about a live popup immediately, or it
+    // would render popup frames with the root-page chrome.
+    if (s.popups.length > 0) {
+      const top = this.topPopup(s)
+      this.safeSend(ws, JSON.stringify({ type: 'popup', count: s.popups.length, active: s.popupView && top != null, url: top ? top.currentUrl() : null }))
+    }
     s.screencastDesired = true
     await this.applyScreencast(s)
     return this.toMeta(s)
@@ -306,33 +441,37 @@ export class BrowserCaptureManager {
   /**
    * Serialise screencast start/stop transitions on a per-session promise chain so
    * a rapid detach→attach (stop fired async, then start) can't double-initialise
-   * the CDP screencast. The chain always reconciles `screencasting` to
-   * `screencastDesired`.
+   * the CDP screencast. The chain reconciles the page the screencast runs on
+   * (`screencastPage`) to the DESIRED page — the active page (top popup while one
+   * is viewed, else the root page) when `screencastDesired`, or none. A popup
+   * open/close/focus switch therefore stops the cast on the old page and starts
+   * it on the new one; the same frame callback fans out to the same clients.
    */
   private applyScreencast(s: BrowserSession): Promise<void> {
     const prev = s.screencastOp ?? Promise.resolve()
     s.screencastOp = prev.then(async () => {
-      if (s.closed) {
-        if (s.screencasting) {
-          s.screencasting = false
-          try { await s.page.stopScreencast() } catch { /* ignore */ }
-        }
-        return
+      const desired = !s.closed && s.screencastDesired ? this.activePage(s) : null
+      if (s.screencastPage === desired) return
+      if (s.screencastPage) {
+        const old = s.screencastPage
+        s.screencastPage = null
+        try { await old.stopScreencast() } catch { /* ignore */ }
       }
-      if (s.screencastDesired && !s.screencasting) {
-        s.screencasting = true
-        await s.page.startScreencast((frame) => {
+      if (desired) {
+        s.screencastPage = desired
+        await desired.startScreencast((frame) => {
           if (s.closed) return
           s.lastFrame = frame.data
           for (const client of s.clients) {
-            if (client.readyState === WS_OPEN) {
-              try { client.send(frame.data) } catch { /* drop */ }
-            }
+            if (client.readyState !== WS_OPEN) continue
+            // Conflate for slow consumers: when the socket's send-buffer is
+            // already backed up, skip this frame for that client instead of
+            // queueing ever-staler frames behind the backlog (latency, not
+            // fps, is what makes a screencast feel sluggish).
+            if ((client.bufferedAmount ?? 0) > MAX_CLIENT_BUFFERED_BYTES) continue
+            try { client.send(frame.data) } catch { /* drop */ }
           }
         })
-      } else if (!s.screencastDesired && s.screencasting) {
-        s.screencasting = false
-        try { await s.page.stopScreencast() } catch { /* ignore */ }
       }
     }).catch(() => { /* never let a screencast transition reject the chain */ })
     return s.screencastOp
@@ -374,8 +513,17 @@ export class BrowserCaptureManager {
         width: Math.max(1, Math.round(event.width)),
         height: Math.max(1, Math.round(event.height)),
       }
+      // Keep every page of the session (root + popups) at the same viewport so
+      // switching between them never re-maps coordinates or resizes the canvas.
+      await s.page.dispatchInput(event)
+      for (const popup of s.popups) {
+        try { await popup.dispatchInput(event) } catch { /* ignore */ }
+      }
+      return
     }
-    await s.page.dispatchInput(event)
+    // Interactive input (mouse/wheel/keys) goes to the page being VIEWED — the
+    // top popup during an OAuth login, else the root page.
+    await this.activePage(s).dispatchInput(event)
   }
 
   async navigate(sessionId: string, action: 'goto' | 'back' | 'forward' | 'reload', url?: string): Promise<{ url: string; title: string } | null> {
@@ -472,12 +620,15 @@ export class BrowserCaptureManager {
     if (this.disposed) return null
     const s = this.getSession(sessionId)
     if (!s) return null
+    // Clipboard follows the viewed page: pasting credentials into an OAuth
+    // popup must land in the popup, not the opener behind it.
+    const page = this.activePage(s)
     if (action === 'paste') {
-      if (text) await s.page.insertText?.(text)
+      if (text) await page.insertText?.(text)
       return { text: '' }
     }
-    const sel = (await s.page.getSelectionText?.()) ?? ''
-    if (action === 'cut' && sel) await s.page.deleteSelection?.()
+    const sel = (await page.getSelectionText?.()) ?? ''
+    if (action === 'cut' && sel) await page.deleteSelection?.()
     return { text: sel }
   }
 
@@ -599,6 +750,9 @@ export class BrowserCaptureManager {
       try { client.close(1000, 'session_closed') } catch { /* ignore */ }
     }
     s.clients.clear()
+    for (const popup of s.popups.splice(0)) {
+      try { await popup.close() } catch { /* ignore */ }
+    }
     try { await s.page.close() } catch { /* ignore */ }
     // NOTE: the persistent Chromium context is deliberately kept alive here even
     // when no sessions remain. Closing it on last-session-kill raced with React
@@ -619,6 +773,9 @@ export class BrowserCaptureManager {
         try { client.close(1000, 'shutdown') } catch { /* ignore */ }
       }
       s.clients.clear()
+      for (const popup of s.popups.splice(0)) {
+        try { await popup.close() } catch { /* ignore */ }
+      }
       try { await s.page.close() } catch { /* ignore */ }
     }
     this.sessions.clear()

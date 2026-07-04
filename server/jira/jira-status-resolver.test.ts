@@ -62,6 +62,9 @@ describe('targetCategoryFor', () => {
   it('maps in_progress → indeterminate', () => {
     expect(targetCategoryFor('in_progress')).toBe('indeterminate')
   })
+  it('maps on_review → indeterminate', () => {
+    expect(targetCategoryFor('on_review')).toBe('indeterminate')
+  })
   it('maps done → done', () => {
     expect(targetCategoryFor('done')).toBe('done')
   })
@@ -648,6 +651,72 @@ describe('walkToCategory', () => {
     })
     expect(out).toEqual({ status: 'noop' })
     expect(getTransitions).not.toHaveBeenCalled()
+    expect(applyTransition).not.toHaveBeenCalled()
+  })
+
+  it('same-category walk STILL runs when an explicit target is configured and the current status differs', async () => {
+    // statusMap.on_review = "In Review": both "In Progress" and "In Review" are
+    // `indeterminate`, so the category-only noop would strand the issue forever.
+    const review = tx({ id: 'tRev', toId: 's-rev', toName: 'In Review', category: 'indeterminate' })
+    const getTransitions = vi.fn(async () => [review])
+    const applyTransition = vi.fn(async () => {})
+    const out = await walkToCategory({
+      state: 'on_review',
+      currentCategory: 'indeterminate',
+      currentStatusName: 'In Progress',
+      explicitTarget: 'In Review',
+      getTransitions,
+      applyTransition,
+    })
+    expect(out).toEqual({ status: 'applied', finalCategory: 'indeterminate', transitions: ['tRev'] })
+    expect(applyTransition).toHaveBeenCalledWith(review, {})
+  })
+
+  it('noop when the issue is already AT the explicit target (case-insensitive name match)', async () => {
+    const getTransitions = vi.fn(async () => [] as JiraTransition[])
+    const applyTransition = vi.fn(async () => {})
+    const out = await walkToCategory({
+      state: 'on_review',
+      currentCategory: 'indeterminate',
+      currentStatusName: 'IN REVIEW',
+      explicitTarget: 'in review',
+      getTransitions,
+      applyTransition,
+    })
+    expect(out).toEqual({ status: 'noop' })
+    expect(getTransitions).not.toHaveBeenCalled()
+    expect(applyTransition).not.toHaveBeenCalled()
+  })
+
+  it('noop for a same-category state WITHOUT an explicit target (unconfigured statusMap.on_review)', async () => {
+    // No statusMap.on_review ⇒ the issue legitimately stays In Progress.
+    const getTransitions = vi.fn(async () => [] as JiraTransition[])
+    const applyTransition = vi.fn(async () => {})
+    const out = await walkToCategory({
+      state: 'on_review',
+      currentCategory: 'indeterminate',
+      currentStatusName: 'In Progress',
+      getTransitions,
+      applyTransition,
+    })
+    expect(out).toEqual({ status: 'noop' })
+    expect(getTransitions).not.toHaveBeenCalled()
+  })
+
+  it('same-category walk with no edge to the explicit target dead-ends as no_path', async () => {
+    // Already in the target category (dir = 0) so no progress step exists either.
+    const lateral = tx({ id: 'tOther', toId: 's-block', toName: 'Blocked', category: 'indeterminate' })
+    const getTransitions = vi.fn(async () => [lateral])
+    const applyTransition = vi.fn(async () => {})
+    const out = await walkToCategory({
+      state: 'on_review',
+      currentCategory: 'indeterminate',
+      currentStatusName: 'In Progress',
+      explicitTarget: 'In Review',
+      getTransitions,
+      applyTransition,
+    })
+    expect(out).toMatchObject({ status: 'no_path' })
     expect(applyTransition).not.toHaveBeenCalled()
   })
 

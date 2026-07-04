@@ -63,15 +63,24 @@ function makeProjectDirWithTickets(tickets: Record<string, Record<string, unknow
 describe('QueueManager', () => {
   let qm: QueueManager
   let broadcast: ReturnType<typeof vi.fn>
+  const savedInteractiveFlag = process.env.SPECRAILS_INTERACTIVE_JOBS
 
   beforeEach(() => {
     vi.resetAllMocks()
     __resetBinaryProbeCacheForTest()
+    // Pin the legacy one-shot spawn path for this whole suite. Claude jobs are
+    // interactive BY DEFAULT since the S1 flip; the kill-switch-off behaviour
+    // pinned here must stay byte-identical (it is also what codex/gemini and
+    // `interactive: false` overrides run). The default-interactive gate has its
+    // own dedicated describe at the bottom of this file.
+    process.env.SPECRAILS_INTERACTIVE_JOBS = 'false'
     broadcast = vi.fn()
     qm = new QueueManager(broadcast)
   })
 
   afterEach(() => {
+    if (savedInteractiveFlag === undefined) delete process.env.SPECRAILS_INTERACTIVE_JOBS
+    else process.env.SPECRAILS_INTERACTIVE_JOBS = savedInteractiveFlag
     vi.restoreAllMocks()
   })
 
@@ -1060,7 +1069,18 @@ describe('QueueManager', () => {
   // ─── onJobFinished callback ───────────────────────────────────────────────
 
   describe('onJobFinished callback', () => {
-    it('calls onJobFinished when job completes', async () => {
+    // The PR-delivery flag is captured ONCE at spawn and threaded into
+    // onJobFinished as `ticketCompletionStatus` on COMPLETED exits (the
+    // universal ask-first methodology). Default-on unless the kill-switch is
+    // set — pin the default explicitly so an ambient env can't skew the suite.
+    const savedPrFlag = process.env.SPECRAILS_RAIL_DELIVER_PR
+    beforeEach(() => { delete process.env.SPECRAILS_RAIL_DELIVER_PR }) // PR delivery default-on
+    afterEach(() => {
+      if (savedPrFlag === undefined) delete process.env.SPECRAILS_RAIL_DELIVER_PR
+      else process.env.SPECRAILS_RAIL_DELIVER_PR = savedPrFlag
+    })
+
+    it('calls onJobFinished when job completes — PR delivery on (default) parks tickets at on_review', async () => {
       vi.mocked(mockExecSync).mockReturnValue(Buffer.from('/usr/bin/claude'))
       const child = createMockChildProcess()
       vi.mocked(mockSpawn).mockReturnValue(child as any)
@@ -1073,7 +1093,49 @@ describe('QueueManager', () => {
       child.emit('close', 0)
       await new Promise((r) => setTimeout(r, 50))
 
-      expect(onJobFinished).toHaveBeenCalledWith('callback-job', 'completed', undefined)
+      expect(onJobFinished).toHaveBeenCalledWith('callback-job', 'completed', undefined, {
+        ticketCompletionStatus: 'on_review',
+      })
+    })
+
+    it("kill-switch off (SPECRAILS_RAIL_DELIVER_PR=0): completed threads the legacy 'done' (byte-identical promotion)", async () => {
+      process.env.SPECRAILS_RAIL_DELIVER_PR = '0'
+      vi.mocked(mockExecSync).mockReturnValue(Buffer.from('/usr/bin/claude'))
+      const child = createMockChildProcess()
+      vi.mocked(mockSpawn).mockReturnValue(child as any)
+      vi.mocked(mockUuidV4).mockReturnValue('legacy-cb-job' as any)
+
+      const onJobFinished = vi.fn()
+      const qmWithCallback = new QueueManager(broadcast, undefined, [], undefined, { onJobFinished })
+      qmWithCallback.enqueue('/implement')
+
+      child.emit('close', 0)
+      await new Promise((r) => setTimeout(r, 50))
+
+      expect(onJobFinished).toHaveBeenCalledWith('legacy-cb-job', 'completed', undefined, {
+        ticketCompletionStatus: 'done',
+      })
+    })
+
+    it('the PR-delivery mode is captured at SPAWN — a mid-flight env flip cannot change the settle', async () => {
+      vi.mocked(mockExecSync).mockReturnValue(Buffer.from('/usr/bin/claude'))
+      const child = createMockChildProcess()
+      vi.mocked(mockSpawn).mockReturnValue(child as any)
+      vi.mocked(mockUuidV4).mockReturnValue('flip-cb-job' as any)
+
+      const onJobFinished = vi.fn()
+      const qmWithCallback = new QueueManager(broadcast, undefined, [], undefined, { onJobFinished })
+      qmWithCallback.enqueue('/implement') // spawns with the flag ON (default)
+
+      // Flip the kill-switch off while the job is in flight — the spawn-time
+      // capture must win at settle.
+      process.env.SPECRAILS_RAIL_DELIVER_PR = '0'
+      child.emit('close', 0)
+      await new Promise((r) => setTimeout(r, 50))
+
+      expect(onJobFinished).toHaveBeenCalledWith('flip-cb-job', 'completed', undefined, {
+        ticketCompletionStatus: 'on_review',
+      })
     })
 
     it('calls onJobFinished when job fails', async () => {
@@ -1089,6 +1151,8 @@ describe('QueueManager', () => {
       child.emit('close', 1)
       await new Promise((r) => setTimeout(r, 50))
 
+      // Failure statuses keep the legacy 3-arg call shape — ticketCompletionStatus
+      // is completion-only (applyJobOutcomeToTickets ignores it on failure).
       expect(onJobFinished).toHaveBeenCalledWith('fail-cb-job', 'failed', undefined)
     })
 
@@ -1126,7 +1190,9 @@ describe('QueueManager', () => {
       child.emit('close', 0)
       await new Promise((r) => setTimeout(r, 50))
 
-      expect(onJobFinished).toHaveBeenCalledWith('cost-cb-job', 'completed', expect.any(Number))
+      expect(onJobFinished).toHaveBeenCalledWith('cost-cb-job', 'completed', expect.any(Number), {
+        ticketCompletionStatus: 'on_review',
+      })
     })
   })
 
@@ -2747,5 +2813,498 @@ describe('QueueManager', () => {
       expect(inv?.provider).toBe('codex')
       expect(inv?.status).toBe('failed')
     })
+  })
+})
+
+// ─── Interactive-by-default spawn gate (S1 flip) ──────────────────────────────
+// Every claude job spawns as a persistent-stdin interactive session by default:
+// ultracode keeps 'finalize' settle-mode (idles until the human Finalizes),
+// everything else runs 'auto' (settles itself at quiescence). Kill-switch
+// SPECRAILS_INTERACTIVE_JOBS=false and the per-job `interactive: false`
+// override force the legacy one-shot spawn; codex/gemini never qualify
+// (no persistent-stdin capability).
+
+function createInteractiveMockChild() {
+  const child = new EventEmitter() as any
+  child.stdout = new Readable({ read() {} })
+  child.stderr = new Readable({ read() {} })
+  const writes: string[] = []
+  child.stdin = { write: (s: string) => { writes.push(s); return true }, destroyed: false }
+  child.stdinWrites = writes
+  child.pid = 777
+  child.killed = false
+  child.kill = (_sig?: string) => {
+    child.killed = true
+    queueMicrotask(() => child.emit('close', 0))
+    return true
+  }
+  return child
+}
+
+function interactiveResultFrame(over: Record<string, unknown> = {}): string {
+  return JSON.stringify({
+    type: 'result',
+    total_cost_usd: 0.05,
+    num_turns: 3,
+    model: 'claude-opus-4-8',
+    session_id: 'sess-1',
+    result: 'done',
+    usage: { input_tokens: 100, output_tokens: 200, cache_read_input_tokens: 10, cache_creation_input_tokens: 5 },
+    ...over,
+  }) + '\n'
+}
+
+describe('interactive-by-default spawn gate (S1 flip)', () => {
+  let broadcast: ReturnType<typeof vi.fn>
+  const savedFlag = process.env.SPECRAILS_INTERACTIVE_JOBS
+  const savedPrFlag = process.env.SPECRAILS_RAIL_DELIVER_PR
+  const tick = () => new Promise((r) => setImmediate(r))
+
+  beforeEach(() => {
+    vi.resetAllMocks()
+    __resetBinaryProbeCacheForTest()
+    delete process.env.SPECRAILS_INTERACTIVE_JOBS // default ON
+    delete process.env.SPECRAILS_RAIL_DELIVER_PR // PR delivery default-on
+    broadcast = vi.fn()
+    vi.mocked(mockExecSync).mockReturnValue(Buffer.from('/usr/bin/claude'))
+  })
+
+  afterEach(() => {
+    if (savedFlag === undefined) delete process.env.SPECRAILS_INTERACTIVE_JOBS
+    else process.env.SPECRAILS_INTERACTIVE_JOBS = savedFlag
+    if (savedPrFlag === undefined) delete process.env.SPECRAILS_RAIL_DELIVER_PR
+    else process.env.SPECRAILS_RAIL_DELIVER_PR = savedPrFlag
+    vi.restoreAllMocks()
+  })
+
+  it('spawns a claude slash-command job as an interactive session by default (first frame = the command)', () => {
+    const db = initDb(':memory:')
+    const child = createInteractiveMockChild()
+    vi.mocked(mockSpawn).mockReturnValue(child)
+    vi.mocked(mockUuidV4).mockReturnValue('ijob-1' as any)
+    const qm = new QueueManager(broadcast, db, [], undefined, { projectId: 'p1' })
+
+    qm.enqueue('/specrails:implement #7 --yes')
+
+    // Persistent-stdin transport: piped stdin + stream-json input, valueless -p.
+    const [, args, opts] = vi.mocked(mockSpawn).mock.calls[0] as unknown as [string, string[], { stdio: string[] }]
+    expect(args).toContain('--input-format')
+    expect(args).toContain('stream-json')
+    expect(args[args.indexOf('-p') + 1]).toBe('--input-format')
+    expect(opts.stdio[0]).toBe('pipe')
+    // Slash command rides the FIRST stdin frame (spike-verified expansion).
+    expect(child.stdinWrites[0]).toContain('/specrails:implement #7 --yes')
+    // Supplementary context APPENDS to the CLI default system prompt (the
+    // expanded command brings its own) with the interactive --yes wording.
+    expect(args).toContain('--append-system-prompt')
+    expect(String(args[args.indexOf('--append-system-prompt') + 1])).toContain('LIVE GUIDANCE')
+    expect(args).not.toContain('--system-prompt')
+    // The job row is marked interactive (client composer gates on this).
+    const row = db.prepare('SELECT interactive, status FROM jobs WHERE id = ?').get('ijob-1') as { interactive: number; status: string }
+    expect(row.interactive).toBe(1)
+    expect(row.status).toBe('running')
+    // Non-ultracode ⇒ the live session self-settles ('auto'); GET /jobs/:id
+    // surfaces this so the composer shows the wrap-up affordance, not Finalize.
+    expect(qm.getInteractiveSettleMode('ijob-1')).toBe('auto')
+    expect(qm.getInteractiveSettleMode('ghost')).toBeNull()
+
+    qm.shutdown()
+    db.close()
+  })
+
+  it('AUTO settle: quiesces after the turn result — job completed, slot released, queue drains', async () => {
+    const db = initDb(':memory:')
+    const child1 = createInteractiveMockChild()
+    const child2 = createInteractiveMockChild()
+    vi.mocked(mockSpawn).mockReturnValueOnce(child1).mockReturnValueOnce(child2)
+    vi.mocked(mockUuidV4).mockReturnValueOnce('ijob-1' as any).mockReturnValueOnce('ijob-2' as any)
+    const qm = new QueueManager(broadcast, db, [], undefined, { projectId: 'p1' })
+
+    qm.enqueue('/specrails:implement #1 --yes')
+    qm.enqueue('/specrails:implement #2 --yes')
+    expect(qm.getActiveJobId()).toBe('ijob-1')
+    expect(vi.mocked(mockSpawn)).toHaveBeenCalledTimes(1)
+
+    child1.stdout.push(interactiveResultFrame())
+    await vi.waitFor(() => {
+      expect(qm.getJobs().find((j) => j.id === 'ijob-1')?.status).toBe('completed')
+    })
+    expect(child1.killed).toBe(true)
+
+    // The slot was released at natural end and the queue drained into job 2.
+    expect(qm.getActiveJobId()).toBe('ijob-2')
+    expect(vi.mocked(mockSpawn)).toHaveBeenCalledTimes(2)
+
+    // Terminal DB row: completed with the accumulated per-turn usage, and the
+    // result text captured for output chaining.
+    const row = db.prepare('SELECT status, total_cost_usd, interactive FROM jobs WHERE id = ?').get('ijob-1') as { status: string; total_cost_usd: number; interactive: number }
+    expect(row.status).toBe('completed')
+    expect(row.total_cost_usd).toBeCloseTo(0.05)
+    expect(row.interactive).toBe(1)
+    expect(qm.getJobs().find((j) => j.id === 'ijob-1')?.resultText).toBe('done')
+
+    // job.finalized broadcast with completed status.
+    const finalized = (broadcast.mock.calls as Array<[WsMessage]>)
+      .map((c) => c[0])
+      .find((m) => m.type === 'job.finalized' && (m as any).jobId === 'ijob-1') as any
+    expect(finalized?.status).toBe('completed')
+
+    qm.shutdown()
+    db.close()
+  })
+
+  it('AUTO settle: a queued user turn extends the session before it settles', async () => {
+    const db = initDb(':memory:')
+    const child = createInteractiveMockChild()
+    vi.mocked(mockSpawn).mockReturnValue(child)
+    vi.mocked(mockUuidV4).mockReturnValue('ijob-1' as any)
+    const qm = new QueueManager(broadcast, db, [], undefined, { projectId: 'p1' })
+
+    qm.enqueue('/specrails:implement #1')
+    // Steer mid-stream: queues behind the active turn.
+    expect(qm.sendInteractiveTurn('ijob-1', 'also check the edge cases')).toBe(true)
+
+    child.stdout.push(interactiveResultFrame())
+    await tick(); await tick(); await tick()
+    // Not settled — the queued prompt was fed as turn 2.
+    expect(qm.getJobs()[0].status).toBe('running')
+    expect(child.killed).toBe(false)
+    expect(child.stdinWrites.length).toBe(2)
+    expect(child.stdinWrites[1]).toContain('also check the edge cases')
+
+    // Turn 2 finishes with nothing queued → now it settles.
+    child.stdout.push(interactiveResultFrame({ total_cost_usd: 0.1, num_turns: 6 }))
+    await vi.waitFor(() => expect(qm.getJobs()[0].status).toBe('completed'))
+
+    qm.shutdown()
+    db.close()
+  })
+
+  it("ultracode keeps 'finalize' settle-mode: idles after the result until an explicit finalize", async () => {
+    const db = initDb(':memory:')
+    const child = createInteractiveMockChild()
+    vi.mocked(mockSpawn).mockReturnValue(child)
+    vi.mocked(mockUuidV4).mockReturnValue('ijob-u' as any)
+    const qm = new QueueManager(broadcast, db, [], undefined, { projectId: 'p1' })
+
+    qm.enqueue('/specrails:ultracode #3 --yes')
+    // Ultracode's first frame is the PROSE prompt, not the slash command, and
+    // its supplementary context keeps the byte-identical --system-prompt path.
+    const [, args] = vi.mocked(mockSpawn).mock.calls[0] as unknown as [string, string[]]
+    expect(child.stdinWrites[0]).not.toContain('/specrails:ultracode')
+    expect(args).toContain('--system-prompt')
+    expect(args).not.toContain('--append-system-prompt')
+
+    // The live session reports 'finalize' (GET /jobs/:id → the composer keeps
+    // today's Finalize button semantics for ultracode).
+    expect(qm.getInteractiveSettleMode('ijob-u')).toBe('finalize')
+
+    child.stdout.push(interactiveResultFrame())
+    await tick(); await tick(); await tick()
+    // Still running — the session idles awaiting the human.
+    expect(qm.getJobs()[0].status).toBe('running')
+    expect(child.killed).toBe(false)
+
+    expect(qm.finalizeInteractive('ijob-u')).toBe(true)
+    await vi.waitFor(() => expect(qm.getJobs()[0].status).toBe('completed'))
+    // Settled ⇒ no live session ⇒ null.
+    expect(qm.getInteractiveSettleMode('ijob-u')).toBeNull()
+
+    qm.shutdown()
+    db.close()
+  })
+
+  it('AUTO settle threads the spawn-captured PR-delivery mode into onJobFinished (on_review under the default-on flag)', async () => {
+    const db = initDb(':memory:')
+    const child = createInteractiveMockChild()
+    vi.mocked(mockSpawn).mockReturnValue(child)
+    vi.mocked(mockUuidV4).mockReturnValue('ijob-pr' as any)
+    const onJobFinished = vi.fn()
+    const qm = new QueueManager(broadcast, db, [], undefined, { projectId: 'p1', onJobFinished })
+
+    qm.enqueue('/specrails:implement #1 --yes')
+    child.stdout.push(interactiveResultFrame())
+    await vi.waitFor(() => expect(qm.getJobs()[0].status).toBe('completed'))
+
+    expect(onJobFinished).toHaveBeenCalledWith('ijob-pr', 'completed', expect.any(Number), {
+      ticketCompletionStatus: 'on_review',
+    })
+
+    qm.shutdown()
+    db.close()
+  })
+
+  it("FINALIZE settle (ultracode Finalize) threads on_review too; kill-switch off restores the legacy 'done'", async () => {
+    // finalize mode, flag on (default) → on_review
+    const db = initDb(':memory:')
+    const child = createInteractiveMockChild()
+    vi.mocked(mockSpawn).mockReturnValue(child)
+    vi.mocked(mockUuidV4).mockReturnValue('ijob-fin-pr' as any)
+    const onJobFinished = vi.fn()
+    const qm = new QueueManager(broadcast, db, [], undefined, { projectId: 'p1', onJobFinished })
+
+    qm.enqueue('/specrails:ultracode #3 --yes')
+    child.stdout.push(interactiveResultFrame())
+    await tick(); await tick(); await tick()
+    expect(qm.finalizeInteractive('ijob-fin-pr')).toBe(true)
+    await vi.waitFor(() => expect(qm.getJobs()[0].status).toBe('completed'))
+    expect(onJobFinished).toHaveBeenCalledWith('ijob-fin-pr', 'completed', expect.any(Number), {
+      ticketCompletionStatus: 'on_review',
+    })
+    qm.shutdown()
+    db.close()
+
+    // kill-switch off → legacy 'done' (byte-identical promotion downstream)
+    process.env.SPECRAILS_RAIL_DELIVER_PR = 'off'
+    const db2 = initDb(':memory:')
+    const child2 = createInteractiveMockChild()
+    vi.mocked(mockSpawn).mockReturnValue(child2)
+    vi.mocked(mockUuidV4).mockReturnValue('ijob-fin-legacy' as any)
+    const onJobFinished2 = vi.fn()
+    const qm2 = new QueueManager(broadcast, db2, [], undefined, { projectId: 'p1', onJobFinished: onJobFinished2 })
+
+    qm2.enqueue('/specrails:ultracode #4 --yes')
+    child2.stdout.push(interactiveResultFrame())
+    await tick(); await tick(); await tick()
+    expect(qm2.finalizeInteractive('ijob-fin-legacy')).toBe(true)
+    await vi.waitFor(() => expect(qm2.getJobs()[0].status).toBe('completed'))
+    expect(onJobFinished2).toHaveBeenCalledWith('ijob-fin-legacy', 'completed', expect.any(Number), {
+      ticketCompletionStatus: 'done',
+    })
+    qm2.shutdown()
+    db2.close()
+  })
+
+  it('kill-switch off ⇒ legacy one-shot spawn (even with an explicit interactive: true)', () => {
+    process.env.SPECRAILS_INTERACTIVE_JOBS = 'false'
+    const child = createMockChildProcess()
+    vi.mocked(mockSpawn).mockReturnValue(child)
+    vi.mocked(mockUuidV4).mockReturnValue('leg-1' as any)
+    const qm = new QueueManager(broadcast)
+
+    qm.enqueue('/specrails:implement #1', { interactive: true })
+
+    const [, args, opts] = vi.mocked(mockSpawn).mock.calls[0] as unknown as [string, string[], { stdio: string[] }]
+    expect(args).not.toContain('--input-format')
+    expect(args[args.indexOf('-p') + 1]).toBe('/specrails:implement #1')
+    expect(opts.stdio[0]).toBe('ignore')
+  })
+
+  it('EnqueueOptions.interactive=false forces the legacy spawn under the default-on gate', () => {
+    const child = createMockChildProcess()
+    vi.mocked(mockSpawn).mockReturnValue(child)
+    vi.mocked(mockUuidV4).mockReturnValue('leg-2' as any)
+    const qm = new QueueManager(broadcast)
+
+    qm.enqueue('/specrails:implement #1 --yes', { interactive: false })
+
+    const [, args, opts] = vi.mocked(mockSpawn).mock.calls[0] as unknown as [string, string[], { stdio: string[] }]
+    expect(args).not.toContain('--input-format')
+    expect(opts.stdio[0]).toBe('ignore')
+    // Legacy spawn keeps the FULLY AUTONOMOUS --yes wording (stdin disconnected).
+    expect(String(args[args.indexOf('--append-system-prompt') + 1])).toContain('FULLY AUTONOMOUS')
+  })
+
+  it('codex jobs never spawn interactive (no persistent-stdin capability)', () => {
+    vi.mocked(mockExecSync).mockReturnValue(Buffer.from('/usr/bin/codex'))
+    const child = createMockChildProcess()
+    vi.mocked(mockSpawn).mockReturnValue(child)
+    vi.mocked(mockUuidV4).mockReturnValue('cdx-1' as any)
+    const qm = new QueueManager(broadcast, undefined, [], undefined, { provider: 'codex' })
+
+    qm.enqueue('/specrails:implement #1', { interactive: true })
+
+    const [, args, opts] = vi.mocked(mockSpawn).mock.calls[0] as unknown as [string, string[], { stdio: string[] }]
+    expect(args).not.toContain('--input-format')
+    expect(opts.stdio[0]).toBe('ignore')
+  })
+
+  it('restart durability: a restored queued job (selection map lost) still spawns interactive', () => {
+    const db = initDb(':memory:')
+    db.prepare(
+      `INSERT INTO jobs (id, command, status, started_at, queue_position, priority) VALUES ('restored-1', '/specrails:implement #9', 'queued', ?, 0, 'normal')`
+    ).run(new Date().toISOString())
+    const child = createInteractiveMockChild()
+    vi.mocked(mockSpawn).mockReturnValue(child)
+    // Fresh manager = fresh (empty) _jobInteractiveSelection — the default gate
+    // decides at spawn time, so the restored job still goes interactive.
+    const qm = new QueueManager(broadcast, db, [], undefined, { projectId: 'p1' })
+
+    expect(vi.mocked(mockSpawn)).toHaveBeenCalledTimes(1)
+    const [, args, opts] = vi.mocked(mockSpawn).mock.calls[0] as unknown as [string, string[], { stdio: string[] }]
+    expect(args).toContain('--input-format')
+    expect(opts.stdio[0]).toBe('pipe')
+    expect(child.stdinWrites[0]).toContain('/specrails:implement #9')
+    const row = db.prepare('SELECT interactive FROM jobs WHERE id = ?').get('restored-1') as { interactive: number }
+    expect(row.interactive).toBe(1)
+
+    qm.shutdown()
+    db.close()
+  })
+
+  it("AUTO wedge protection: a silent child settles the job 'failed' after the zombie budget", async () => {
+    const db = initDb(':memory:')
+    const child = createInteractiveMockChild()
+    vi.mocked(mockSpawn).mockReturnValue(child)
+    vi.mocked(mockUuidV4).mockReturnValue('wedge-1' as any)
+    const qm = new QueueManager(broadcast, db, [], undefined, { projectId: 'p1', zombieTimeoutMs: 60 })
+
+    qm.enqueue('/specrails:implement #1')
+    // No output ever arrives — the session's own wedge detector fires on the
+    // shared zombie budget and settles 'crashed' → job failed.
+    await vi.waitFor(() => expect(qm.getJobs()[0].status).toBe('failed'), { timeout: 2000 })
+    const row = db.prepare('SELECT status FROM jobs WHERE id = ?').get('wedge-1') as { status: string }
+    expect(row.status).toBe('failed')
+
+    qm.shutdown()
+    db.close()
+  })
+
+  it('interactive settle skips dependent jobs when the session crashes (mirrors _onJobExit)', async () => {
+    const db = initDb(':memory:')
+    const child = createInteractiveMockChild()
+    vi.mocked(mockSpawn).mockReturnValue(child)
+    vi.mocked(mockUuidV4).mockReturnValueOnce('par-1' as any).mockReturnValueOnce('dep-1' as any)
+    const qm = new QueueManager(broadcast, db, [], undefined, { projectId: 'p1' })
+
+    qm.enqueue('/specrails:implement #1')
+    qm.enqueue('/specrails:implement #2', { dependsOnJobId: 'par-1' })
+
+    // The resident child dies without a result → settle 'crashed' → failed.
+    child.emit('close', 1)
+    await vi.waitFor(() => expect(qm.getJobs().find((j) => j.id === 'par-1')?.status).toBe('failed'))
+    expect(qm.getJobs().find((j) => j.id === 'dep-1')?.status).toBe('skipped')
+
+    qm.shutdown()
+    db.close()
+  })
+
+  it("finalize-mode (ultracode) has NO wedge timer — it idles on the human's time", async () => {
+    const db = initDb(':memory:')
+    const child = createInteractiveMockChild()
+    vi.mocked(mockSpawn).mockReturnValue(child)
+    vi.mocked(mockUuidV4).mockReturnValue('idle-1' as any)
+    const qm = new QueueManager(broadcast, db, [], undefined, { projectId: 'p1', zombieTimeoutMs: 40 })
+
+    qm.enqueue('/specrails:ultracode #1')
+    await new Promise((r) => setTimeout(r, 150))
+    expect(qm.getJobs()[0].status).toBe('running')
+
+    qm.shutdown()
+    db.close()
+  })
+
+  // ─── Zero-work sessions (run 01f41203: synthetic "Unknown command" frame) ──
+  // The claude CLI answers an unresolvable command with a synthetic SUCCESS
+  // result frame (num_turns 0, cost 0, no assistant events) — no model ever
+  // ran. A whole-session zero-work settle is a FAILED job, never 'completed'.
+
+  /** The EXACT synthetic frame shape captured from the live run. */
+  function syntheticUnknownCommandFrame(command = '/specrails:implement'): string {
+    return JSON.stringify({
+      type: 'result',
+      subtype: 'success',
+      is_error: false,
+      num_turns: 0,
+      total_cost_usd: 0,
+      duration_api_ms: 0,
+      result: `Unknown command: ${command}`,
+    }) + '\n'
+  }
+
+  it("zero-work whole-session settles the job 'failed' (auto mode) with a failed ai_invocations row", async () => {
+    const db = initDb(':memory:')
+    const child = createInteractiveMockChild()
+    vi.mocked(mockSpawn).mockReturnValue(child)
+    vi.mocked(mockUuidV4).mockReturnValue('zw-job-1' as any)
+    const onJobFinished = vi.fn()
+    const qm = new QueueManager(broadcast, db, [], undefined, { projectId: 'p1', onJobFinished })
+
+    qm.enqueue('/specrails:implement #7 --yes')
+    child.stdout.push(syntheticUnknownCommandFrame('/specrails:implement'))
+    await vi.waitFor(() => expect(qm.getJobs()[0].status).toBe('failed'))
+
+    // Terminal DB row + in-memory exit code reflect the failure (not a clean
+    // $0 success). exit_code is in-memory only for interactive jobs —
+    // finalizeInteractiveJob persists status/finished_at, not exit codes.
+    const row = db.prepare('SELECT status FROM jobs WHERE id = ?').get('zw-job-1') as { status: string }
+    expect(row.status).toBe('failed')
+    expect(qm.getJobs()[0].exitCode).toBe(1)
+
+    // ai_invocations row status is 'failed' too — the command never ran.
+    const inv = db.prepare(`SELECT status, num_turns FROM ai_invocations WHERE surface_ref_id = ?`).get('zw-job-1') as { status: string; num_turns: number }
+    expect(inv.status).toBe('failed')
+    expect(inv.num_turns).toBe(0)
+
+    // job.finalized broadcast carries the failed status…
+    const finalized = (broadcast.mock.calls as Array<[WsMessage]>)
+      .map((c) => c[0])
+      .find((m) => m.type === 'job.finalized' && (m as any).jobId === 'zw-job-1') as any
+    expect(finalized?.status).toBe('failed')
+    // …and the reason landed visibly as a stderr transcript line.
+    const note = (broadcast.mock.calls as Array<[WsMessage]>)
+      .map((c) => c[0])
+      .find((m) => m.type === 'log' && (m as any).source === 'stderr' && (m as any).line?.includes('Unknown command: /specrails:implement'))
+    expect(note).toBeTruthy()
+
+    // Zero-work failure is UNAFFECTED by the ask-first flag: the callback keeps
+    // the legacy 3-arg failure shape (no ticketCompletionStatus on failures).
+    expect(onJobFinished).toHaveBeenCalledWith('zw-job-1', 'failed', expect.anything())
+
+    qm.shutdown()
+    db.close()
+  })
+
+  it("zero-work settles 'failed' EVEN in finalize mode (ultracode Finalize after the synthetic frame)", async () => {
+    const db = initDb(':memory:')
+    const child = createInteractiveMockChild()
+    vi.mocked(mockSpawn).mockReturnValue(child)
+    vi.mocked(mockUuidV4).mockReturnValue('zw-job-fin' as any)
+    const qm = new QueueManager(broadcast, db, [], undefined, { projectId: 'p1' })
+
+    qm.enqueue('/specrails:ultracode #3 --yes')
+    child.stdout.push(syntheticUnknownCommandFrame('/specrails:ultracode'))
+    await tick(); await tick(); await tick()
+    expect(qm.getJobs()[0].status).toBe('running') // idles awaiting the human
+
+    expect(qm.finalizeInteractive('zw-job-fin')).toBe(true)
+    await vi.waitFor(() => expect(qm.getJobs()[0].status).toBe('failed'))
+    const row = db.prepare('SELECT status FROM jobs WHERE id = ?').get('zw-job-fin') as { status: string }
+    expect(row.status).toBe('failed')
+
+    qm.shutdown()
+    db.close()
+  })
+
+  it("multi-turn session where only the LAST turn is synthetic still settles 'completed' (whole-session predicate)", async () => {
+    const db = initDb(':memory:')
+    const child = createInteractiveMockChild()
+    vi.mocked(mockSpawn).mockReturnValue(child)
+    vi.mocked(mockUuidV4).mockReturnValue('zw-job-multi' as any)
+    const qm = new QueueManager(broadcast, db, [], undefined, { projectId: 'p1' })
+
+    qm.enqueue('/specrails:implement #1 --yes')
+    // The user steers mid-stream — a second (late) turn queues: '/help'.
+    expect(qm.sendInteractiveTurn('zw-job-multi', '/help')).toBe(true)
+    // Turn 1 did REAL work (assistant events + a real result with usage).
+    child.stdout.push(JSON.stringify({ type: 'assistant', message: { content: [{ type: 'text', text: 'implementing' }] } }) + '\n')
+    child.stdout.push(interactiveResultFrame())
+    await tick(); await tick(); await tick()
+    expect(qm.getJobs()[0].status).toBe('running') // extended by the queued turn
+
+    // Turn 2 is the synthetic frame — the session then quiesces and settles.
+    child.stdout.push(syntheticUnknownCommandFrame('/help'))
+    await vi.waitFor(() => expect(qm.getJobs()[0].status).toBe('completed'))
+
+    // Accumulated real work is kept and the invocation row is a success.
+    const row = db.prepare('SELECT status, total_cost_usd, num_turns FROM jobs WHERE id = ?').get('zw-job-multi') as { status: string; total_cost_usd: number; num_turns: number }
+    expect(row.status).toBe('completed')
+    expect(row.total_cost_usd).toBeCloseTo(0.05)
+    expect(row.num_turns).toBe(3)
+    const inv = db.prepare(`SELECT status FROM ai_invocations WHERE surface_ref_id = ?`).get('zw-job-multi') as { status: string }
+    expect(inv.status).toBe('success')
+
+    qm.shutdown()
+    db.close()
   })
 })

@@ -6,6 +6,13 @@ import {
   setRailTickets,
   setRailProfile,
   setRailName,
+  createRail,
+  deleteRail,
+  railCount,
+  railExists,
+  listRailIndices,
+  MAX_RAILS,
+  BASE_RAIL_COUNT,
 } from './rails-store'
 
 let db: DbInstance
@@ -140,6 +147,87 @@ describe('setRailProfile', () => {
     setRailProfile(db, 0, 'data-heavy')
     expect(getRail(db, 0).profileName).toBe('data-heavy')
     expect(getRail(db, 1).profileName).toBe('default')
+  })
+})
+
+describe('dynamic rails (create / delete / materialize)', () => {
+  it('exports a sane cap above the base count', () => {
+    expect(BASE_RAIL_COUNT).toBe(3)
+    expect(MAX_RAILS).toBeGreaterThan(BASE_RAIL_COUNT)
+    expect(MAX_RAILS).toBe(12)
+  })
+
+  it('createRail allocates the next free index and lists it in getRails', () => {
+    const rail = createRail(db)
+    expect(rail.railIndex).toBe(3)
+    expect(rail.ticketIds).toEqual([])
+    expect(rail.mode).toBe('implement')
+    const rails = getRails(db)
+    expect(rails).toHaveLength(4)
+    expect(rails.map((r) => r.railIndex)).toEqual([0, 1, 2, 3])
+  })
+
+  it('createRail persists an optional trimmed name (empty → null)', () => {
+    expect(createRail(db, '  Backend  ').name).toBe('Backend')
+    expect(getRail(db, 3).name).toBe('Backend')
+    expect(createRail(db, '   ').name).toBeNull()
+  })
+
+  it('sequential creates allocate 3, 4, 5…', () => {
+    expect(createRail(db).railIndex).toBe(3)
+    expect(createRail(db).railIndex).toBe(4)
+    expect(createRail(db).railIndex).toBe(5)
+    expect(railCount(db)).toBe(6)
+  })
+
+  it('deleteRail removes the rail; indices stay sparse (never re-numbered)', () => {
+    createRail(db) // 3
+    createRail(db) // 4
+    deleteRail(db, 3)
+    expect(railExists(db, 3)).toBe(false)
+    expect(getRails(db).map((r) => r.railIndex)).toEqual([0, 1, 2, 4])
+  })
+
+  it('createRail refills the lowest free index after a middle deletion', () => {
+    createRail(db) // 3
+    createRail(db) // 4
+    deleteRail(db, 3)
+    expect(createRail(db).railIndex).toBe(3) // reuse, not 5
+  })
+
+  it('deleteRail also clears any leftover ticket rows for the index', () => {
+    createRail(db) // 3
+    setRailTickets(db, 3, [7, 8])
+    deleteRail(db, 3)
+    expect(railExists(db, 3)).toBe(false)
+    expect(getRail(db, 3).ticketIds).toEqual([])
+  })
+
+  it('deleting a BASE rail is mechanism-allowed (guards live in the router)', () => {
+    deleteRail(db, 1)
+    expect(getRails(db).map((r) => r.railIndex)).toEqual([0, 2])
+  })
+
+  it('setRailTickets on an unknown index MATERIALIZES the rail (survives clearing)', () => {
+    // A legacy client-local rail-6 syncs tickets at launch → the rail gains
+    // durable server identity, even after its tickets are released.
+    setRailTickets(db, 5, [1])
+    expect(getRails(db).map((r) => r.railIndex)).toEqual([0, 1, 2, 5])
+    setRailTickets(db, 5, [])
+    expect(getRails(db).map((r) => r.railIndex)).toEqual([0, 1, 2, 5])
+  })
+
+  it('setRailName on an unknown index also materializes it (rail_meta upsert)', () => {
+    setRailName(db, 4, 'Named')
+    expect(railExists(db, 4)).toBe(true)
+    expect(getRails(db).find((r) => r.railIndex === 4)?.name).toBe('Named')
+  })
+
+  it('listRailIndices always seeds the base rails', () => {
+    expect(listRailIndices(db)).toEqual([0, 1, 2])
+    expect(railCount(db)).toBe(3)
+    expect(railExists(db, 2)).toBe(true)
+    expect(railExists(db, 3)).toBe(false)
   })
 })
 

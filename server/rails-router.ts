@@ -1,26 +1,30 @@
 import { Router, Request, Response } from 'express'
 import type { ProjectContext } from './project-registry'
-import { getRails, getRail, setRailTickets, setRailProfile, setRailEngine, setRailName, type RailState } from './rails-store'
+import { getRails, getRail, setRailTickets, setRailProfile, setRailEngine, setRailName, createRail, deleteRail, railCount, railExists, MAX_RAILS, type RailState } from './rails-store'
 import { ClaudeNotFoundError, CodexNotFoundError } from './queue-manager'
 import { validateRequestedProvider } from './provider-selection'
-import { isInteractiveJobsEnabled, isLoopsEnabled } from './feature-flags'
+import { isLoopsEnabled, isCodeExplorerEnabled } from './feature-flags'
+import { snapshotWorkingTree, type WorkingTreeSnapshot } from './file-provenance'
+import { recordLoopRunProvenance } from './file-story'
 import { getLoop } from './loops-store'
 import { getLoopRun, getRunEventCounts, listRunningLoopRuns } from './loop-runs-store'
 import { getAdapter } from './providers'
 import { isValidModelForProvider, getModelsForProvider, type SpecProvider } from './spec-models'
 import { resolveProjectExecution } from './workspace-resolution'
-import { isFactoryLoopId, factoryLoopMode, getFactoryLoop } from './loop-factory'
+import { isFactoryLoopId, factoryLoopMode, getFactoryLoop, factoryLoopForMode } from './loop-factory'
 import { loadConstantMap } from './loop-constants'
 import { dominantTicketScope, referencesClaudeOnlyCommand } from './loop-command-catalog'
 import { loopNeedsTicket, type LoopGraph } from './loop-graph'
-import { isolationApplies } from './rail-isolation'
+import { isolationApplies, isRailPrDeliveryEnabled } from './rail-isolation'
+import { getActivePrDeliveryByRail, listActivePrDeliveries, toPrDeliverySnapshot, type PrDeliverySnapshot } from './rail-pr-store'
 import { classifyLoopEffect } from './loop-effect'
+import { executePrDecision, isPrDecisionAction } from './rail-pr-decision'
 import { launchIsolatedRail } from './rail-isolated-launch'
 import { repoIsolationStatus, defaultGitRunner } from './worktree-manager'
 import { defaultExec } from './pr-publisher'
 import { newId } from './ids'
 import type { ReasoningEffort } from './providers/types'
-import type { RailJobStartedMessage, RailJobStoppedMessage, RailUpdatedMessage, LoopRunStoppedMessage } from './types'
+import type { RailJobStartedMessage, RailJobStoppedMessage, RailUpdatedMessage, RailRemovedMessage, LoopRunStoppedMessage } from './types'
 
 // Extend Express Request to carry resolved ProjectContext (declared in project-router)
 declare module 'express-serve-static-core' {
@@ -105,17 +109,93 @@ export function createRailsRouter(): Router {
         const counts = getRunEventCounts(c.db, run.id)
         activeLoopRuns[run.rail_index] = { loopRunId: run.id, loopId: run.loop_id, loopName: run.loop_name, provider: run.provider, model: run.model, iteration: run.iteration_count, startedAt: run.started_at, steps: counts.steps, lines: counts.lines }
       }
-      res.json({ rails, activeJobs, activeLoopRuns })
+      // Pending ask-first PR decisions (safe-pr-review-flow): the newest ACTIVE
+      // (non-terminal) delivery per rail slot, so a refreshed client re-renders
+      // the decision surface without waiting for a broadcast. The store lists
+      // newest-first within each rail — keep the first per index.
+      const prDeliveries: Record<number, PrDeliverySnapshot> = {}
+      for (const row of listActivePrDeliveries(c.db)) {
+        if (!(row.rail_index in prDeliveries)) prDeliveries[row.rail_index] = toPrDeliverySnapshot(row)
+      }
+      res.json({ rails, activeJobs, activeLoopRuns, prDeliveries })
     } catch (err) {
       console.error('[rails-router] get rails error:', err)
       res.status(500).json({ error: 'Failed to fetch rails' })
     }
   })
 
+  // POST /rails — create a new rail slot (dynamic rails). Body: { name? }.
+  // Allocates the lowest free index; capped at MAX_RAILS per project so the
+  // railIndex-keyed maps (metrics, PR deliveries, worktree progress) stay
+  // bounded. Broadcast rides the existing rail.updated shape (changed:'name')
+  // so every client — including the mobile companion — adopts the new slot
+  // without a new wire message.
+  router.post('/', (req: Request, res: Response) => {
+    const c = ctx(req)
+    const body = req.body ?? {}
+    const name = body.name
+    if (name !== undefined && name !== null && typeof name !== 'string') {
+      res.status(400).json({ error: 'name must be a string or null' }); return
+    }
+    if (typeof name === 'string' && name.length > 60) {
+      res.status(400).json({ error: 'name must be 60 characters or fewer' }); return
+    }
+    try {
+      if (railCount(c.db) >= MAX_RAILS) {
+        res.status(400).json({ error: 'rail_limit_reached', maxRails: MAX_RAILS }); return
+      }
+      const rail = createRail(c.db, typeof name === 'string' ? name : null)
+      broadcastRailUpdated(c, rail.railIndex, 'name')
+      res.status(201).json({ rail })
+    } catch (err) {
+      console.error('[rails-router] create rail error:', err)
+      res.status(500).json({ error: 'Failed to create rail' })
+    }
+  })
+
+  // DELETE /rails/:railIndex — remove a rail slot. Guarded: the rail must
+  // exist, hold no tickets, have no active job/loop run, no undecided PR
+  // delivery, and must not be the last remaining rail. Indices are identity —
+  // deleting a middle rail leaves a gap (never re-numbered).
+  router.delete('/:railIndex', (req: Request, res: Response) => {
+    const railIndex = parseInt(req.params.railIndex as string, 10)
+    if (isNaN(railIndex) || railIndex < 0 || railIndex >= MAX_RAILS) {
+      res.status(400).json({ error: 'Invalid rail index' }); return
+    }
+    const c = ctx(req)
+    try {
+      if (!railExists(c.db, railIndex)) {
+        res.status(404).json({ error: 'Rail not found' }); return
+      }
+      if (railCount(c.db) <= 1) {
+        res.status(400).json({ error: 'cannot_delete_last_rail' }); return
+      }
+      const hasActiveJob = Array.from(c.railJobs.values()).some((m) => m.railIndex === railIndex)
+      const hasActiveRun = Array.from(c.railLoopRuns.values()).some((m) => m.railIndex === railIndex)
+      if (hasActiveJob || hasActiveRun) {
+        res.status(409).json({ error: 'rail_active' }); return
+      }
+      if (getRail(c.db, railIndex).ticketIds.length > 0) {
+        res.status(409).json({ error: 'rail_not_empty' }); return
+      }
+      const pending = getActivePrDeliveryByRail(c.db, railIndex)
+      if (pending) {
+        res.status(409).json({ error: 'pr_decision_pending', prDeliveryId: pending.id }); return
+      }
+      deleteRail(c.db, railIndex)
+      const msg: RailRemovedMessage = { type: 'rail.removed', projectId: c.project.id, railIndex }
+      c.broadcast(msg)
+      res.json({ ok: true, railIndex })
+    } catch (err) {
+      console.error('[rails-router] delete rail error:', err)
+      res.status(500).json({ error: 'Failed to delete rail' })
+    }
+  })
+
   // PUT /rails/:railIndex/tickets — set ticket assignments for a rail
   router.put('/:railIndex/tickets', (req: Request, res: Response) => {
     const railIndex = parseInt(req.params.railIndex as string, 10)
-    if (isNaN(railIndex) || railIndex < 0) {
+    if (isNaN(railIndex) || railIndex < 0 || railIndex >= MAX_RAILS) {
       res.status(400).json({ error: 'Invalid rail index' }); return
     }
 
@@ -150,7 +230,7 @@ export function createRailsRouter(): Router {
   // Body: { profileName: string | null } (null = force legacy mode for this rail)
   router.put('/:railIndex/profile', (req: Request, res: Response) => {
     const railIndex = parseInt(req.params.railIndex as string, 10)
-    if (isNaN(railIndex) || railIndex < 0) {
+    if (isNaN(railIndex) || railIndex < 0 || railIndex >= MAX_RAILS) {
       res.status(400).json({ error: 'Invalid rail index' }); return
     }
     const body = req.body ?? {}
@@ -176,7 +256,7 @@ export function createRailsRouter(): Router {
   // Body: { aiEngine: string | null } (null = use the project's primary provider)
   router.put('/:railIndex/engine', (req: Request, res: Response) => {
     const railIndex = parseInt(req.params.railIndex as string, 10)
-    if (isNaN(railIndex) || railIndex < 0) {
+    if (isNaN(railIndex) || railIndex < 0 || railIndex >= MAX_RAILS) {
       res.status(400).json({ error: 'Invalid rail index' }); return
     }
     const body = req.body ?? {}
@@ -204,7 +284,7 @@ export function createRailsRouter(): Router {
   // Body: { name: string | null } (empty/null clears it back to the default label)
   router.put('/:railIndex/name', (req: Request, res: Response) => {
     const railIndex = parseInt(req.params.railIndex as string, 10)
-    if (isNaN(railIndex) || railIndex < 0) {
+    if (isNaN(railIndex) || railIndex < 0 || railIndex >= MAX_RAILS) {
       res.status(400).json({ error: 'Invalid rail index' }); return
     }
     const body = req.body ?? {}
@@ -233,16 +313,27 @@ export function createRailsRouter(): Router {
   // POST /rails/:railIndex/launch — launch job(s) for a rail
   router.post('/:railIndex/launch', async (req: Request, res: Response) => {
     const railIndex = parseInt(req.params.railIndex as string, 10)
-    if (isNaN(railIndex) || railIndex < 0) {
+    if (isNaN(railIndex) || railIndex < 0 || railIndex >= MAX_RAILS) {
       res.status(400).json({ error: 'Invalid rail index' }); return
     }
 
     let { mode = 'implement' } = req.body ?? {}
-    const { profileName, aiEngine, model, loopId, reasoning_effort } = req.body ?? {}
+    const { profileName, aiEngine, model, loopId: rawLoopId, reasoning_effort, originConversationId, originSurface } = req.body ?? {}
+    let loopId: unknown = rawLoopId
+    // Origin link (safe-pr-review-flow): an agent-chat/MCP launch tags itself so
+    // the PR decision can later be posted back into the launching conversation.
+    // Both fields are optional; malformed values are rejected outright.
+    if (originConversationId !== undefined && originConversationId !== null) {
+      if (typeof originConversationId !== 'string' || !/^[A-Za-z0-9-]{1,64}$/.test(originConversationId)) {
+        res.status(400).json({ error: 'originConversationId must be 1-64 chars of [A-Za-z0-9-]' }); return
+      }
+    }
+    if (originSurface !== undefined && originSurface !== 'dashboard' && originSurface !== 'agent-chat') {
+      res.status(400).json({ error: "originSurface must be 'dashboard' or 'agent-chat'" }); return
+    }
     // rails-as-loops: a FACTORY loop id (`factory:implement` etc.) maps to its
-    // legacy mode and runs through the EXISTING engine (QueueManager) — the rail
-    // "picks a Loop", the plumbing is unchanged. A CUSTOM loop id keeps mode='loop'
-    // (LoopRunManager). Legacy callers that still send a bare `mode` are unchanged.
+    // legacy mode for validation/back-compat; the loop branch below still runs
+    // it through the LoopRunManager. A CUSTOM loop id keeps mode='loop'.
     if (typeof loopId === 'string' && isFactoryLoopId(loopId)) {
       const fmode = factoryLoopMode(loopId)
       if (!fmode) { res.status(404).json({ error: 'Factory loop not found' }); return }
@@ -250,6 +341,15 @@ export function createRailsRouter(): Router {
     }
     if (!VALID_MODES.has(mode as string)) {
       res.status(400).json({ error: 'mode must be "implement", "batch-implement", "ultracode" or "loop"' }); return
+    }
+    // A bare legacy mode (MCP tools, mobile, direct REST — no loopId) must run
+    // through the SAME factory loop the dashboard sends, so worktree isolation
+    // and the ask-first PR flow apply identically regardless of the launch door.
+    // Without this, an agent-launched implement lands in the bare QueueManager
+    // branch: shared cwd, SPECRAILS_GIT_AUTO=false, no delivery row — stranded
+    // uncommitted work. Loops off ⇒ legacy QueueManager path, unchanged.
+    if (isLoopsEnabled() && (typeof loopId !== 'string' || !loopId) && mode !== 'loop') {
+      loopId = factoryLoopForMode(mode as string)?.id
     }
     if (mode === 'loop' && !isLoopsEnabled()) {
       res.status(403).json({ error: 'Loops are disabled on this server' }); return
@@ -261,8 +361,9 @@ export function createRailsRouter(): Router {
         res.status(400).json({ error: 'model must be one of: haiku, sonnet, opus, fable' }); return
       }
     }
-    // Interactive in-job chat is ON by default for every Freestyle (ultracode)
-    // job whenever the feature is enabled — the per-rail toggle is gone. A
+    // Interactive in-job chat is ON by default for EVERY claude job — the
+    // spawn-time gate in QueueManager (kill-switch + persistent-stdin
+    // capability) decides, so the launch no longer passes an explicit flag. A
     // legacy `interactive` body param is accepted and ignored (wire compat).
 
     const c = ctx(req)
@@ -270,6 +371,20 @@ export function createRailsRouter(): Router {
 
     if (rail.ticketIds.length === 0) {
       res.status(400).json({ error: 'Rail has no tickets assigned' }); return
+    }
+
+    // Concurrent-launch safety (parallel rails): a ticket already worked by an
+    // ACTIVE run — this rail relaunched mid-run, or the same ticket sitting on
+    // two rails — must not spawn a second concurrent writer. The per-ticket
+    // worktree path is keyed by ticketId, so a duplicate launch would silently
+    // reuse (and corrupt) the in-flight run's checkout. 409 so Launch-all and
+    // agent-driven fan-outs surface a clean per-rail skip instead of a clash.
+    const inFlightTickets = new Set<number>()
+    for (const meta of c.railJobs.values()) for (const id of meta.ticketIds) inFlightTickets.add(id)
+    for (const meta of c.railLoopRuns.values()) for (const id of meta.ticketIds) inFlightTickets.add(id)
+    const inFlightOverlap = rail.ticketIds.filter((id) => inFlightTickets.has(id))
+    if (inFlightOverlap.length > 0) {
+      res.status(409).json({ error: 'tickets_in_flight', ticketIds: inFlightOverlap }); return
     }
 
     // AI engine precedence: explicit body param > stored rail engine > primary.
@@ -375,6 +490,16 @@ export function createRailsRouter(): Router {
         // so it is not isolated; anything that can write is.
         const loopReadOnly = classifyLoopEffect(loopGraph) === 'read-only'
         if (isolationApplies({ loopsEnabled: isLoopsEnabled(), scope, ticketCount: rail.ticketIds.length, readOnly: loopReadOnly })) {
+          // Relaunch collision (ask-first PR delivery): a still-undecided
+          // delivery on this slot references the slot's ticket branches, and a
+          // relaunch would append new commits to them (createWorktree resumes
+          // existing branches). Block until the user resolves or discards it.
+          if (isRailPrDeliveryEnabled()) {
+            const pending = getActivePrDeliveryByRail(c.db, railIndex)
+            if (pending) {
+              res.status(409).json({ error: 'pr_decision_pending', prDeliveryId: pending.id }); return
+            }
+          }
           // Worktree isolation needs a git repo WITH at least one commit (an
           // unborn HEAD can't be branched). Fall back (with a message) otherwise.
           const status = await repoIsolationStatus(defaultGitRunner, c.project.path)
@@ -385,7 +510,9 @@ export function createRailsRouter(): Router {
             try {
               const ids = await launchIsolatedRail({
                 ctx: c, railIndex, ticketIds: [...rail.ticketIds], loopId, loopName, loopGraph,
-                provider: loopProvider, model: loopModel, effort,
+                provider: loopProvider, model: loopModel, effort, scope,
+                originSurface: originSurface ?? 'dashboard',
+                originConversationId: originConversationId ?? null,
               })
               res.status(202).json({ loopRunIds: ids, railIndex, mode, isolated: true })
               return
@@ -403,6 +530,32 @@ export function createRailsRouter(): Router {
         const loopRunIds: string[] = []
         const launchLoopRun = (runId: string, ticketIds: number[], spec: ReturnType<typeof c.getTicketSpec>) => {
           c.railLoopRuns.set(runId, { railIndex, ticketIds })
+          // Code-Explorer provenance for shared-cwd loop runs (isolated runs
+          // record inside rail-isolated-launch): snapshot the REPO before the
+          // run, diff + record at settle. Loop runs settle outside QueueManager,
+          // so without this they leave no file_provenance at all. Best-effort;
+          // diffs the repo (never the workspace) exactly like QueueManager.
+          const provenanceRepoDir = loopExec.relocated && loopExec.repoDir ? loopExec.repoDir : loopExec.cwd
+          let provenanceSnapshot: WorkingTreeSnapshot | null = null
+          if (isCodeExplorerEnabled()) {
+            try { provenanceSnapshot = snapshotWorkingTree(provenanceRepoDir) } catch (err) {
+              console.warn(`[rails-router] provenance snapshot failed: ${(err as Error).message}`)
+            }
+          }
+          let provenanceRecorded = false
+          const recordRunProvenance = (): void => {
+            if (provenanceRecorded) return
+            provenanceRecorded = true
+            recordLoopRunProvenance({
+              db: c.db,
+              projectId: c.project.id,
+              runId,
+              ticketId: ticketIds[0] ?? null,
+              repoDir: provenanceRepoDir,
+              snapshot: provenanceSnapshot,
+              broadcast: (msg) => c.broadcast(msg),
+            })
+          }
           c.loopRunManager
             .run({
               runId,
@@ -420,9 +573,13 @@ export function createRailsRouter(): Router {
               model: loopModel,
               effort,
             })
-            .then((r) => c.onLoopRunFinished(r.runId, r.outcome))
+            .then((r) => {
+              recordRunProvenance()
+              c.onLoopRunFinished(r.runId, r.outcome)
+            })
             .catch((err) => {
               console.error('[rails-router] loop run failed:', err)
+              recordRunProvenance()
               c.onLoopRunFinished(runId, 'failed')
             })
           loopRunIds.push(runId)
@@ -468,7 +625,9 @@ export function createRailsRouter(): Router {
             profileName: null,
             provider: 'claude',
             ...(ultracodeModel ? { model: ultracodeModel } : {}),
-            ...(isInteractiveJobsEnabled() ? { interactive: true } : {}),
+            // No explicit `interactive` — QueueManager's spawn-time default
+            // (kill-switch + persistent-stdin capability) covers it, and the
+            // decision survives a restart that way.
           })
           jobIds.push(job.id)
           c.railJobs.set(job.id, { railIndex, mode, ticketIds: [ticketId] })
@@ -528,7 +687,7 @@ export function createRailsRouter(): Router {
   // POST /rails/:railIndex/stop — kill the running job for a rail
   router.post('/:railIndex/stop', (req: Request, res: Response) => {
     const railIndex = parseInt(req.params.railIndex as string, 10)
-    if (isNaN(railIndex) || railIndex < 0) {
+    if (isNaN(railIndex) || railIndex < 0 || railIndex >= MAX_RAILS) {
       res.status(400).json({ error: 'Invalid rail index' }); return
     }
 
@@ -595,32 +754,41 @@ export function createRailsRouter(): Router {
     res.json({ ok: true, jobIds: targetJobIds, loopRunIds: targetLoopRunIds, canceled: canceledCount })
   })
 
-  // POST /rails/pr-review — the product builder's Approve / Discard action on a
-  // draft PR a rail delivered (safe-pr-workflow). Approve promotes the draft to
-  // ready-for-review (hands off to the engineer's GitHub review); Discard closes
-  // it and drops the branch. specrails never merges — the engineer owns the merge.
-  router.post('/pr-review', async (req: Request, res: Response) => {
+  // POST /rails/pr-decision — the ONE decision action (safe-pr-review-flow) both
+  // surfaces (dashboard rail row + agent-chat card) call on a rail_pr_deliveries
+  // row: create-pr | publish | discard | poll-merge, compare-and-set-guarded by
+  // expectedDecision (a raced concurrent answer loses with 409 stale_decision).
+  // Replaces the stateless v1 POST /rails/pr-review passthrough. The route only
+  // validates and delegates — the action logic lives in rail-pr-decision.ts.
+  // specrails never merges — the engineer owns the merge.
+  router.post('/pr-decision', async (req: Request, res: Response) => {
     const c = ctx(req)
-    const prUrl = (req.body ?? {}).prUrl
-    const action = (req.body ?? {}).action
-    if (typeof prUrl !== 'string' || !/^https?:\/\/[^\s]+\/pull\/\d+$/.test(prUrl)) {
-      res.status(400).json({ error: 'prUrl must be a valid pull-request URL' }); return
+    const { prDeliveryId, action, expectedDecision } = req.body ?? {}
+    if (typeof prDeliveryId !== 'string' || !prDeliveryId) {
+      res.status(400).json({ error: 'prDeliveryId is required' }); return
     }
-    if (action !== 'ready' && action !== 'discard') {
-      res.status(400).json({ error: "action must be 'ready' or 'discard'" }); return
+    if (!isPrDecisionAction(action)) {
+      res.status(400).json({ error: "action must be 'create-pr', 'publish', 'discard' or 'poll-merge'" }); return
     }
-    const args = action === 'ready'
-      ? ['pr', 'ready', prUrl]
-      : ['pr', 'close', prUrl, '--delete-branch']
+    if (typeof expectedDecision !== 'string' || !expectedDecision) {
+      res.status(400).json({ error: 'expectedDecision is required' }); return
+    }
     try {
-      const r = await defaultExec.run('gh', args, c.project.path)
-      if (r.code !== 0) {
-        res.status(502).json({ error: `gh pr ${action} failed`, detail: (r.stderr.trim() || r.stdout.trim()).split('\n')[0] || `exit ${r.code}` })
-        return
-      }
-      res.json({ ok: true, action })
+      const result = await executePrDecision(
+        {
+          db: c.db,
+          project: { id: c.project.id, slug: c.project.slug, path: c.project.path },
+          git: defaultGitRunner,
+          exec: defaultExec,
+          broadcast: c.broadcast,
+          jiraSyncManager: c.jiraSyncManager,
+        },
+        { prDeliveryId, action, expectedDecision },
+      )
+      res.status(result.status).json(result.body)
     } catch (err) {
-      res.status(500).json({ error: 'pr-review failed', detail: (err as Error).message })
+      console.error('[rails-router] pr-decision error:', err)
+      res.status(500).json({ error: 'pr-decision failed', detail: (err as Error).message })
     }
   })
 

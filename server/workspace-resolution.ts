@@ -165,6 +165,32 @@ export function resolveProjectExecution(
   }
 }
 
+/**
+ * Base spawn env for a project's LOOP executors (rails / custom loops).
+ *
+ * Relocated projects need core's env-first artifact indirection
+ * (`SPECRAILS_TICKETS_PATH` / `SPECRAILS_BACKLOG_CONFIG_PATH` /
+ * `SPECRAILS_PROFILES_DIR` / `SPECRAILS_STATE_DIR` / `SPECRAILS_WORKSPACE_DIR`
+ * → the workspace) even when the spawn cwd is NOT the workspace: an ISOLATED
+ * rail spawns from its git WORKTREE, where the cwd-relative `${ENV:-legacy}`
+ * defaults would resolve to nothing (`git worktree add` materializes only
+ * tracked files). In particular `SPECRAILS_BACKLOG_CONFIG_PATH` MUST reach core
+ * so it never falls through to its default `write_access:true` branch.
+ *
+ * `SPECRAILS_REPO_DIR` is intentionally OMITTED: it is PER-RUN (the worktree
+ * for isolated runs — writes/git must land there — vs the repo for shared
+ * runs) and is injected by the executors from each run's `repoDir`. Leaving it
+ * here would leak the LIVE repo path into isolated shell steps.
+ *
+ * Legacy projects return `process.env` untouched — byte-identical behaviour.
+ */
+export function resolveLoopBaseEnv(project: ResolvableProject, home?: string): NodeJS.ProcessEnv {
+  const exec = resolveProjectExecution(project, home)
+  if (!exec.relocated) return process.env
+  const { SPECRAILS_REPO_DIR: _perRun, ...projectEnv } = exec.env
+  return { ...process.env, ...projectEnv }
+}
+
 /** Build the legacy (in-repo, byte-identical-to-today) execution. */
 function legacyExecution(repoDir: string): ProjectExecution {
   const specrailsDir = path.join(repoDir, '.specrails')

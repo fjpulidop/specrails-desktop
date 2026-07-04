@@ -13,10 +13,11 @@ import {
 type WizardStep = 1 | 2 | 3 | 4
 type TestState = 'idle' | 'testing' | 'ok' | 'error'
 
-const STATE_KEYS: SpecLogicalState[] = ['todo', 'in_progress', 'done', 'cancelled']
+const STATE_KEYS: SpecLogicalState[] = ['todo', 'in_progress', 'on_review', 'done', 'cancelled']
 const STATE_LABEL: Record<SpecLogicalState, string> = {
   todo: 'todo',
   in_progress: 'inProgress',
+  on_review: 'onReview',
   done: 'done',
   cancelled: 'cancelled',
 }

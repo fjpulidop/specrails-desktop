@@ -38,7 +38,7 @@ reading one description. The tools are:
 |---|---|
 | `specrails_projects` | List / resolve projects; unregister (destructive) |
 | `specrails_specs` | The spec/ticket backlog: list, get, create, update, delete, drafts, AI generate, AI-edit, Contract Refine, SMASH, per-ticket spend |
-| `specrails_rails` | Assign tickets to a rail, configure it, and launch the pipeline |
+| `specrails_rails` | Assign tickets to a rail, configure it, and launch the pipeline — rails are dynamic (`create_rail`, up to 12) and `launch_all` starts every ready rail in parallel (worktree-isolated) |
 | `specrails_jobs` | Inspect, stream, and stop pipeline jobs |
 | `specrails_chat` | Explore / sidebar chat conversations and turns |
 | `specrails_agents` | Agent profiles and the agents catalog (Claude-only features) |

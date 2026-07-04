@@ -101,5 +101,11 @@
     "tooManySessions": "Troppe sessioni browser aperte. Chiudine una e riprova.",
     "launchFailed": "Avvio del browser sul server non riuscito.",
     "openFailed": "Impossibile aprire il browser."
+  },
+  "popup": {
+    "loginWindow": "Finestra di accesso — {{origin}}",
+    "stacked": "+{{count}} altre",
+    "backToPage": "Torna alla pagina",
+    "show": "Mostra finestra di accesso"
   }
 }

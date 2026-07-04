@@ -92,7 +92,7 @@ export function jiraTools(): McpToolSpec[] {
         statusMap: z
           .record(z.string(), z.string())
           .optional()
-          .describe('Optional map of logical states (todo / in_progress / done / cancelled) → Jira status name (connect / update_connection)'),
+          .describe('Optional map of logical states (todo / in_progress / on_review / done / cancelled) → Jira status name (connect / update_connection). on_review = implemented, awaiting PR review.'),
         discardStatus: z
           .string()
           .optional()

@@ -53,9 +53,14 @@ Replies stream in smoothly and land formatted (headings, tables, lists), each wi
 
 ## Handy touches
 
+- **Super specs from a conversation.** Ask the agent to *shape* a spec with you instead of one-shotting it: it reads the real code first, interviews you briefly, and shows the evolving draft as a live card right in the conversation. On your yes it creates the spec and — by default — enriches it in the background with a **Contract Layer** (exact file paths, data shapes, invariants) so the implementing agents don’t improvise. Say "no contract layer" to skip the enrichment.
+- **Click what it mentions.** In a project-pinned mission, spec numbers (`#12`) and job/run ids in the agent's replies are clickable chips — a spec opens the board's detail modal, a job id opens the live job view. If the reference no longer exists you get a quiet "not found" note.
+- **The implementation card stays in sight.** When the agent implements specs, a live card tracks the work — and while it needs something from you (create the PR, publish it, retry, discard) it stays **pinned just above the message box**, however far the conversation scrolls; its place in the history shows a slim "pinned above" marker instead. Several active cards stack as small chips (click one to bring it forward), and a chevron minimizes the card to a slim bar. Once the PR is published — or the work is merged or discarded — the card settles back into the conversation history.
 - **Prompt history.** With the box empty, press **↑**/**↓** to browse what you asked before (shown dimmed while you scroll); start typing to edit it, or hit Enter to send.
+- **Edit the queue.** Sent more while the agent was busy? While messages are queued, **↑**/**↓** moves through *them* instead — the box shows the selected one, you edit it in place, and **Enter saves it back to the queue** (Esc cancels; your unsent draft comes right back).
 - **Minimize, don't lose.** Click the ✕ to drop the panel back to the bubble — the conversation keeps running. Reopen and you land at the latest message; nothing is re-typed.
 - **New conversation.** The **+** button starts a clean thread; the history lives app-wide, above any single project.
+- **Switch missions.** The mission selector next to the project picker lists your conversations newest-first — a pulsing dot marks the ones where the agent is still working, and a small badge counts queued messages. Search appears when the list grows past eight, and the trash icon on each row deletes a mission after a quick inline confirm — even a running one (it warns first, then stops the agent).
 
 ## A few things to know
 

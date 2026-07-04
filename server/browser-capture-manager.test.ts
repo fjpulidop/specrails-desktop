@@ -79,6 +79,18 @@ class FakePage implements BrowserPageHandle {
   async getSelectionText() { return this.selection }
   async insertText(t: string) { this.pasted.push(t) }
   async deleteSelection() { this.deleted++ }
+  popupCb: ((p: BrowserPageHandle) => void) | null = null
+  closeCb: (() => void) | null = null
+  navCb: ((url: string) => void) | null = null
+  onPopup(cb: (p: BrowserPageHandle) => void) { this.popupCb = cb }
+  onClose(cb: () => void) { this.closeCb = cb }
+  onNavigated(cb: (url: string) => void) { this.navCb = cb }
+  /** Simulate this page opening a popup (window.open / OAuth login window). */
+  emitPopup(): FakePage {
+    const p = new FakePage()
+    this.popupCb?.(p)
+    return p
+  }
   async close() { this.closed = true }
   emitFrame(data: Buffer) { this.frameCb?.({ data, width: 1280, height: 800 }) }
 }
@@ -156,11 +168,58 @@ describe('BrowserCaptureManager', () => {
 
   it('navigates to initialUrl and persists it as the last URL', async () => {
     const { mgr } = makeManager({ db })
-    const ctxPage = () => undefined
-    void ctxPage
     const meta = await mgr.create({ initialUrl: 'https://example.com' })
     expect(meta.url).toBe('https://example.com')
+    // The initial navigation completes in the background (create() no longer
+    // blocks on goto) — flush it before asserting the persisted URL.
+    await new Promise((r) => setTimeout(r, 0))
     expect(mgr.getLastUrl()).toBe('https://example.com')
+  })
+
+  it('create() does not block on the initial navigation; url/title land via a nav broadcast', async () => {
+    let release: () => void = () => {}
+    const gate = new Promise<void>((r) => { release = r })
+    const page = new FakePage()
+    const origGoto = page.goto.bind(page)
+    page.goto = async (url: string) => { await gate; return origGoto(url) }
+    const slowCtx: BrowserContextHandle = { newPage: async () => page, close: async () => {} }
+    const { mgr } = makeManager({ db, launcher: vi.fn(async () => slowCtx) })
+
+    const meta = await mgr.create({ initialUrl: 'https://slow.dev' })
+    // create resolved while goto is still pending: optimistic URL, no lastUrl yet.
+    expect(meta.url).toBe('https://slow.dev')
+    expect(mgr.getLastUrl()).toBeNull()
+
+    const ws = makeWs()
+    await mgr.attach(meta.id, ws)
+    release()
+    await new Promise((r) => setTimeout(r, 0))
+
+    const navs = ws.sent
+      .filter((s): s is string => typeof s === 'string')
+      .map((s) => JSON.parse(s) as { type: string; url?: string })
+      .filter((m) => m.type === 'nav')
+    expect(navs).toHaveLength(1)
+    expect(navs[0].url).toBe('https://slow.dev')
+    expect(mgr.getLastUrl()).toBe('https://slow.dev')
+    expect(mgr.getSession(meta.id)?.url).toBe('https://slow.dev')
+  })
+
+  it('ignores initial-navigation completion after the session was killed', async () => {
+    let release: () => void = () => {}
+    const gate = new Promise<void>((r) => { release = r })
+    const page = new FakePage()
+    const origGoto = page.goto.bind(page)
+    page.goto = async (url: string) => { await gate; return origGoto(url) }
+    const slowCtx: BrowserContextHandle = { newPage: async () => page, close: async () => {} }
+    const { mgr } = makeManager({ db, launcher: vi.fn(async () => slowCtx) })
+
+    const meta = await mgr.create({ initialUrl: 'https://slow.dev' })
+    await mgr.kill(meta.id)
+    release()
+    await new Promise((r) => setTimeout(r, 0))
+    // No state mutation / persistence for a dead session.
+    expect(mgr.getLastUrl()).toBeNull()
   })
 
   it('reuses the persisted last URL on a fresh session', async () => {
@@ -271,6 +330,27 @@ describe('BrowserCaptureManager', () => {
   it('attach returns null for an unknown session', async () => {
     const { mgr } = makeManager({ db })
     expect(await mgr.attach('nope', makeWs())).toBeNull()
+  })
+
+  it('skips screencast frames for a client with a backed-up send buffer (conflation)', async () => {
+    const { mgr, ctx } = makeManager({ db })
+    const meta = await mgr.create()
+    const fast = makeWs()
+    const slow = makeWs()
+    slow.bufferedAmount = 5_000_000 // way past the conflation threshold
+    await mgr.attach(meta.id, fast)
+    await mgr.attach(meta.id, slow)
+    const slowSentBefore = slow.sent.length
+
+    ctx.pages[0].emitFrame(Buffer.from('JPEG-NEW'))
+    // The healthy client gets the frame; the backed-up one is skipped (newest-wins).
+    expect(fast.sent.some((s) => Buffer.isBuffer(s) && s.toString() === 'JPEG-NEW')).toBe(true)
+    expect(slow.sent.length).toBe(slowSentBefore)
+
+    // lastFrame is still updated, so a recovering/late client replays the newest frame.
+    const late = makeWs()
+    await mgr.attach(meta.id, late)
+    expect(late.sent.some((s) => Buffer.isBuffer(s) && s.toString() === 'JPEG-NEW')).toBe(true)
   })
 
   it('stops the screencast when the last client detaches', async () => {
@@ -572,6 +652,174 @@ describe('BrowserCaptureManager', () => {
     closed.close()
     const { mgr } = makeManager({ db: closed })
     expect(mgr.getLastUrl()).toBeNull()
+  })
+})
+
+// ─── Popup support (OAuth login windows) ───────────────────────────────────────
+
+describe('BrowserCaptureManager popup support', () => {
+  const flush = () => new Promise((r) => setTimeout(r, 0))
+  const popupMsgs = (ws: ReturnType<typeof makeWs>) =>
+    ws.sent
+      .filter((s): s is string => typeof s === 'string')
+      .map((s) => JSON.parse(s) as { type: string; count?: number; active?: boolean; url?: string | null })
+      .filter((m) => m.type === 'popup')
+
+  async function setup() {
+    const made = makeManager({ db: initDb(':memory:') })
+    const meta = await made.mgr.create()
+    const ws = makeWs()
+    await made.mgr.attach(meta.id, ws)
+    await flush()
+    return { ...made, meta, ws, root: made.ctx.pages[0] }
+  }
+
+  it('adopts a popup: inherits the viewport, reroutes the screencast, broadcasts state', async () => {
+    const { mgr, meta, ws, root } = await setup()
+    expect(root.screencasting).toBe(true)
+
+    const popup = root.emitPopup()
+    await flush()
+
+    // Viewport inherited so coordinate mapping stays identical.
+    expect(popup.calls).toContain('viewport:1280x800')
+    // Screencast moved off the opener onto the popup (latest wins).
+    expect(root.screencasting).toBe(false)
+    expect(popup.screencasting).toBe(true)
+    // Clients were told about the login window.
+    const msgs = popupMsgs(ws)
+    expect(msgs.length).toBeGreaterThan(0)
+    expect(msgs[msgs.length - 1]).toMatchObject({ count: 1, active: true })
+    void mgr
+    void meta
+  })
+
+  it('routes interactive input + clipboard to the popup; capture stays on the root page', async () => {
+    const { mgr, meta, root } = await setup()
+    const popup = root.emitPopup()
+    await flush()
+
+    await mgr.handleInput(meta.id, { type: 'mouse', action: 'down', x: 5, y: 5 })
+    await mgr.handleInput(meta.id, { type: 'key', action: 'down', key: 'a', text: 'a' })
+    expect(popup.inputs).toHaveLength(2)
+    // Only the initial-resize-free root inputs: none were routed there.
+    expect(root.inputs).toHaveLength(0)
+
+    // Pasting credentials lands in the popup.
+    await mgr.clipboard(meta.id, 'paste', 'hunter2')
+    expect(popup.pasted).toEqual(['hunter2'])
+    expect(root.pasted).toEqual([])
+
+    // Region capture still shoots the ROOT page (the spec flow's page).
+    await mgr.capture(meta.id, { x: 0, y: 0, width: 10, height: 10 }, 'pend')
+    expect(root.clips).toHaveLength(1)
+    expect(popup.clips).toHaveLength(0)
+  })
+
+  it('resize keeps root and popups at the same viewport', async () => {
+    const { mgr, meta, root } = await setup()
+    const popup = root.emitPopup()
+    await flush()
+    await mgr.handleInput(meta.id, { type: 'resize', width: 900, height: 600 })
+    expect(root.inputs).toContainEqual({ type: 'resize', width: 900, height: 600 })
+    expect(popup.inputs).toContainEqual({ type: 'resize', width: 900, height: 600 })
+  })
+
+  it('setPopupView toggles the viewed page between root and popup', async () => {
+    const { mgr, meta, ws, root } = await setup()
+    const popup = root.emitPopup()
+    await flush()
+    expect(popup.screencasting).toBe(true)
+
+    // Back to the opener page while the popup stays alive.
+    expect(mgr.setPopupView(meta.id, 'root')).toBe(true)
+    await flush()
+    expect(root.screencasting).toBe(true)
+    expect(popup.screencasting).toBe(false)
+    expect(popupMsgs(ws).pop()).toMatchObject({ count: 1, active: false })
+    // Input follows the view.
+    await mgr.handleInput(meta.id, { type: 'mouse', action: 'down', x: 1, y: 1 })
+    expect(root.inputs).toHaveLength(1)
+
+    // And back to the login window.
+    expect(mgr.setPopupView(meta.id, 'popup')).toBe(true)
+    await flush()
+    expect(popup.screencasting).toBe(true)
+    expect(popupMsgs(ws).pop()).toMatchObject({ count: 1, active: true })
+
+    expect(mgr.setPopupView('nope', 'root')).toBe(false)
+  })
+
+  it('auto-returns to the opener when the popup closes (OAuth self-close)', async () => {
+    const { meta, ws, root, mgr } = await setup()
+    const popup = root.emitPopup()
+    await flush()
+    expect(popup.screencasting).toBe(true)
+
+    popup.closeCb?.() // window.close()
+    await flush()
+    expect(root.screencasting).toBe(true)
+    expect(popupMsgs(ws).pop()).toMatchObject({ count: 0, active: false })
+    // Input is back on the root page.
+    await mgr.handleInput(meta.id, { type: 'mouse', action: 'down', x: 1, y: 1 })
+    expect(root.inputs).toHaveLength(1)
+  })
+
+  it('stacks popups latest-wins and falls back to the previous one on close', async () => {
+    const { ws, root } = await setup()
+    const p1 = root.emitPopup()
+    await flush()
+    const p2 = p1.emitPopup() // popups can open popups (chained IdP windows)
+    await flush()
+
+    expect(p2.screencasting).toBe(true)
+    expect(p1.screencasting).toBe(false)
+    expect(popupMsgs(ws).pop()).toMatchObject({ count: 2, active: true })
+
+    p2.closeCb?.()
+    await flush()
+    expect(p1.screencasting).toBe(true)
+    expect(popupMsgs(ws).pop()).toMatchObject({ count: 1, active: true })
+  })
+
+  it('rebroadcasts the popup URL as it walks its redirect chain', async () => {
+    const { ws, root } = await setup()
+    const popup = root.emitPopup()
+    await flush()
+    popup.url = 'https://okta.example/login'
+    popup.navCb?.('https://okta.example/login')
+    expect(popupMsgs(ws).pop()).toMatchObject({ count: 1, active: true, url: 'https://okta.example/login' })
+  })
+
+  it('tells a late-attaching client about the live popup', async () => {
+    const { mgr, meta, root } = await setup()
+    root.emitPopup()
+    await flush()
+    const ws2 = makeWs()
+    await mgr.attach(meta.id, ws2)
+    expect(popupMsgs(ws2).pop()).toMatchObject({ count: 1, active: true })
+  })
+
+  it('kill closes popups along with the session', async () => {
+    const { mgr, meta, root } = await setup()
+    const popup = root.emitPopup()
+    await flush()
+    await mgr.kill(meta.id)
+    expect(popup.closed).toBe(true)
+    expect(root.closed).toBe(true)
+  })
+
+  it('updates the URL bar on in-page navigation of the root page', async () => {
+    const { mgr, meta, ws, root } = await setup()
+    root.url = 'https://linked.dev/page'
+    root.navCb?.('https://linked.dev/page')
+    const navs = ws.sent
+      .filter((s): s is string => typeof s === 'string')
+      .map((s) => JSON.parse(s) as { type: string; url?: string })
+      .filter((m) => m.type === 'nav')
+    expect(navs.pop()).toMatchObject({ url: 'https://linked.dev/page' })
+    expect(mgr.getSession(meta.id)?.url).toBe('https://linked.dev/page')
+    expect(mgr.getLastUrl()).toBe('https://linked.dev/page')
   })
 })
 

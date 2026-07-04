@@ -1,7 +1,14 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest'
 import { EventEmitter } from 'events'
 import { Readable } from 'stream'
-import { InteractiveJobSession, type SettleInfo } from './interactive-job-session'
+import {
+  InteractiveJobSession,
+  isModelWorkEvent,
+  isZeroWorkSettle,
+  type SettleInfo,
+  type InteractiveJobSessionDeps,
+  type ZeroWorkSignals,
+} from './interactive-job-session'
 import { initDb, createJob, getJob, type DbInstance } from './db'
 import { getAdapter } from './providers'
 import type { WsMessage } from './types'
@@ -51,7 +58,7 @@ interface Harness {
   session: InteractiveJobSession
 }
 
-function setup(jobId = 'job-1'): Harness {
+function setup(jobId = 'job-1', extra: Partial<InteractiveJobSessionDeps> = {}): Harness {
   const db = initDb(':memory:')
   createJob(db, { id: jobId, command: '/specrails:ultracode #1 --yes', started_at: new Date().toISOString(), interactive: true })
   const broadcasts: WsMessage[] = []
@@ -65,6 +72,7 @@ function setup(jobId = 'job-1'): Harness {
     broadcast: (m) => broadcasts.push(m),
     onSettle: (info) => settled.push(info),
     spawn: (() => child) as any,
+    ...extra,
   })
   return { db, child, broadcasts, settled, session }
 }
@@ -428,5 +436,280 @@ describe('InteractiveJobSession', () => {
     // Fold is idempotent: a following dispose neither settles nor re-folds.
     h.session.dispose()
     expect(h.settled.length).toBe(0)
+  })
+})
+
+// ─── settleMode: 'auto' (interactive-by-default flip, S1) ─────────────────────
+
+describe("InteractiveJobSession settleMode 'auto'", () => {
+  it('settles itself (finalized) when a turn result lands with nothing queued', async () => {
+    const h = setup('job-auto', { settleMode: 'auto' })
+    h.session.start({ binary: 'claude', args: [] }, '/specrails:implement #1')
+    h.child.stdout.push(resultFrame({ result: 'all done' }))
+    await tick()
+
+    expect(h.child.killed).toBe(true)
+    expect(h.settled.length).toBe(1)
+    expect(h.settled[0].reason).toBe('finalized')
+    expect(h.settled[0].totals.total_cost_usd).toBeCloseTo(0.05)
+    // Clean quiescent settle — nothing estimated, all turn usage counted.
+    expect(h.settled[0].estimated).toBe(false)
+    // The turn's result payload rides SettleInfo for output chaining.
+    expect(h.settled[0].resultText).toBe('all done')
+  })
+
+  it('a queued user turn EXTENDS the session instead of settling', async () => {
+    const h = setup('job-auto-2', { settleMode: 'auto' })
+    h.session.start({ binary: 'claude', args: [] }, 'go') // turn 1 streaming
+    // The user steers mid-stream — the prompt queues behind the active turn.
+    expect(h.session.send('also update the docs')).toBe(true)
+
+    h.child.stdout.push(resultFrame()) // turn 1 result: pending exists → feed, no settle
+    await tick()
+    expect(h.settled.length).toBe(0)
+    expect(h.child.killed).toBe(false)
+    expect(h.child.stdinWrites.length).toBe(2)
+    expect(h.child.stdinWrites[1]).toContain('also update the docs')
+
+    // Turn 2 finishes with nothing queued → NOW the session settles.
+    h.child.stdout.push(resultFrame({ total_cost_usd: 0.1, num_turns: 6, result: 'docs updated' }))
+    await tick()
+    expect(h.settled.length).toBe(1)
+    expect(h.settled[0].reason).toBe('finalized')
+    expect(h.settled[0].totals.total_cost_usd).toBeCloseTo(0.1)
+    expect(h.settled[0].resultText).toBe('docs updated')
+  })
+
+  it('honours an explicit finalize() mid-stream (settle-now, in-flight fold)', async () => {
+    const h = setup('job-auto-3', { settleMode: 'auto' })
+    h.session.start({ binary: 'claude', args: [] }, 'go') // streaming, no result yet
+    h.session.finalize()
+    await tick()
+    expect(h.settled.length).toBe(1)
+    expect(h.settled[0].reason).toBe('finalized')
+  })
+
+  it("explicit settleMode 'finalize' still idles after a quiescent result (byte-identical legacy)", async () => {
+    const h = setup('job-fin', { settleMode: 'finalize' })
+    h.session.start({ binary: 'claude', args: [] }, 'go')
+    h.child.stdout.push(resultFrame())
+    await tick()
+    // No self-settle — the session waits for the human.
+    expect(h.settled.length).toBe(0)
+    expect(h.child.killed).toBe(false)
+    h.session.finalize()
+    await tick()
+    expect(h.settled.length).toBe(1)
+    expect(h.settled[0].reason).toBe('finalized')
+  })
+
+  // ─── Zombie / wedge protection (auto only) ──────────────────────────────────
+
+  it("settles 'crashed' when the child produces no output for the zombie budget", () => {
+    vi.useFakeTimers()
+    try {
+      const h = setup('job-wedged', { settleMode: 'auto', zombieTimeoutMs: 1000 })
+      h.session.start({ binary: 'claude', args: [] }, 'go')
+      vi.advanceTimersByTime(999)
+      expect(h.settled.length).toBe(0)
+      vi.advanceTimersByTime(2)
+      expect(h.settled.length).toBe(1)
+      expect(h.settled[0].reason).toBe('crashed')
+      expect(h.child.killed).toBe(true)
+      // The wedge note is surfaced on stderr.
+      const note = h.broadcasts.find(
+        (m) => m.type === 'log' && (m as any).source === 'stderr' && (m as any).line?.includes('zombie-detection'),
+      )
+      expect(note).toBeTruthy()
+    } finally {
+      vi.useRealTimers()
+    }
+  })
+
+  it('any child output resets the wedge timer', () => {
+    vi.useFakeTimers()
+    try {
+      const h = setup('job-active', { settleMode: 'auto', zombieTimeoutMs: 1000 })
+      h.session.start({ binary: 'claude', args: [] }, 'go')
+      vi.advanceTimersByTime(800)
+      // Raw output (a partial line — no newline needed) resets the budget.
+      h.child.stdout.emit('data', Buffer.from('{"type":"assistant"'))
+      vi.advanceTimersByTime(800) // 1600 total, only 800 since last output
+      expect(h.settled.length).toBe(0)
+      vi.advanceTimersByTime(300) // 1100 since last output → wedged
+      expect(h.settled.length).toBe(1)
+      expect(h.settled[0].reason).toBe('crashed')
+    } finally {
+      vi.useRealTimers()
+    }
+  })
+
+  it("settleMode 'finalize' NEVER arms the wedge timer (idling awaiting the human is by design)", () => {
+    vi.useFakeTimers()
+    try {
+      const h = setup('job-fin-idle', { settleMode: 'finalize', zombieTimeoutMs: 1000 })
+      h.session.start({ binary: 'claude', args: [] }, 'go')
+      vi.advanceTimersByTime(60_000)
+      expect(h.settled.length).toBe(0)
+    } finally {
+      vi.useRealTimers()
+    }
+  })
+})
+
+// ─── Zero-work settle detection (run 01f41203: synthetic "Unknown command") ──
+
+/** The EXACT synthetic result frame the claude CLI emitted for a command it
+ *  could not resolve (run 01f41203 live evidence): subtype 'success',
+ *  is_error false, all accounting zeroed, result = the Unknown-command text.
+ *  No model was ever invoked. */
+function syntheticUnknownCommandFrame(command = '/specrails:implement'): string {
+  return JSON.stringify({
+    type: 'result',
+    subtype: 'success',
+    is_error: false,
+    num_turns: 0,
+    total_cost_usd: 0,
+    duration_api_ms: 0,
+    result: `Unknown command: ${command}`,
+  }) + '\n'
+}
+
+describe('isZeroWorkSettle (shared zero-work predicate)', () => {
+  const signals = (over: Partial<ZeroWorkSignals> = {}): ZeroWorkSignals => ({
+    numTurns: 0,
+    tokensIn: 0,
+    tokensOut: 0,
+    tokensCacheRead: 0,
+    tokensCacheCreate: 0,
+    sawAssistantEvent: false,
+    resultText: null,
+    ...over,
+  })
+
+  it('all signals zero → zero-work (the exact synthetic-frame shape)', () => {
+    expect(isZeroWorkSettle(signals())).toBe(true)
+    // Result text is not by itself a work signal — an all-zero settle with an
+    // arbitrary result string is still zero-work.
+    expect(isZeroWorkSettle(signals({ resultText: 'all done' }))).toBe(true)
+  })
+
+  it('any single work signal defeats the numeric branch (zeros matrix)', () => {
+    expect(isZeroWorkSettle(signals({ numTurns: 1 }))).toBe(false)
+    expect(isZeroWorkSettle(signals({ tokensIn: 5 }))).toBe(false)
+    expect(isZeroWorkSettle(signals({ tokensOut: 5 }))).toBe(false)
+    expect(isZeroWorkSettle(signals({ tokensCacheRead: 5 }))).toBe(false)
+    expect(isZeroWorkSettle(signals({ tokensCacheCreate: 5 }))).toBe(false)
+    expect(isZeroWorkSettle(signals({ sawAssistantEvent: true }))).toBe(false)
+  })
+
+  it('belt-and-braces: Unknown-command result text marks zero-work even when accounting drifted', () => {
+    expect(
+      isZeroWorkSettle(signals({ numTurns: 1, tokensOut: 42, resultText: 'Unknown command: /specrails:implement' })),
+    ).toBe(true)
+    // Leading whitespace is tolerated (the text is trimmed before matching).
+    expect(isZeroWorkSettle(signals({ numTurns: 1, resultText: '  Unknown command: /x' }))).toBe(true)
+  })
+
+  it('a session that saw assistant events is NEVER zero-work — even with an Unknown-command final text', () => {
+    // The multi-turn protection: real turns always emit assistant events, so a
+    // session that worked earlier and merely ENDED on a synthetic frame (user
+    // sent /help late) must not be flipped to failed by the text match.
+    expect(
+      isZeroWorkSettle(signals({ numTurns: 3, tokensIn: 100, sawAssistantEvent: true, resultText: 'Unknown command: /help' })),
+    ).toBe(false)
+  })
+})
+
+describe('isModelWorkEvent', () => {
+  it('assistant-derived events count as model work', () => {
+    expect(isModelWorkEvent({ kind: 'text-delta', text: 'hi' })).toBe(true)
+    expect(isModelWorkEvent({ kind: 'tool-use', name: 'Read', inputPreview: '{}' })).toBe(true)
+    expect(isModelWorkEvent({ kind: 'other', type: 'assistant', raw: {} })).toBe(true)
+    // Any event carrying a per-assistant-event usage snapshot counts too.
+    expect(
+      isModelWorkEvent({ kind: 'other', type: 'weird', raw: {}, usage: { input_tokens: 1 } } as never),
+    ).toBe(true)
+  })
+
+  it('result/session-started/error/plain-other frames do NOT count', () => {
+    expect(isModelWorkEvent({ kind: 'result', payload: { result: 'Unknown command: /x' } })).toBe(false)
+    expect(isModelWorkEvent({ kind: 'session-started', sessionId: 's1' })).toBe(false)
+    expect(isModelWorkEvent({ kind: 'error', message: 'boom' })).toBe(false)
+    expect(isModelWorkEvent({ kind: 'other', type: 'system', raw: {} })).toBe(false)
+  })
+})
+
+describe('InteractiveJobSession zero-work settles', () => {
+  it("auto mode: the synthetic frame settles 'finalized' with zeroWork=true and a visible stderr note", async () => {
+    const h = setup('job-zw-auto', { settleMode: 'auto' })
+    h.session.start({ binary: 'claude', args: [] }, '/specrails:implement #7 --yes')
+    h.child.stdout.push(syntheticUnknownCommandFrame('/specrails:implement'))
+    await tick(); await tick()
+
+    expect(h.settled.length).toBe(1)
+    expect(h.settled[0].reason).toBe('finalized')
+    expect(h.settled[0].zeroWork).toBe(true)
+    expect(h.settled[0].totals.num_turns).toBe(0)
+    expect(h.settled[0].totals.total_cost_usd).toBe(0)
+    expect(h.settled[0].resultText).toBe('Unknown command: /specrails:implement')
+    // The reason lands VISIBLY as a stderr-style transcript line (the result
+    // frame's text never reaches the log otherwise).
+    const note = h.broadcasts.find(
+      (m) => m.type === 'log' && (m as any).source === 'stderr' && (m as any).line?.includes('Unknown command: /specrails:implement'),
+    )
+    expect(note).toBeTruthy()
+  })
+
+  it('finalize mode: an explicit finalize after only the synthetic frame is still zeroWork=true', async () => {
+    const h = setup('job-zw-fin', { settleMode: 'finalize' })
+    h.session.start({ binary: 'claude', args: [] }, 'go')
+    h.child.stdout.push(syntheticUnknownCommandFrame())
+    await tick()
+    expect(h.settled.length).toBe(0) // idles awaiting the human
+    h.session.finalize()
+    await tick()
+    expect(h.settled.length).toBe(1)
+    expect(h.settled[0].reason).toBe('finalized')
+    expect(h.settled[0].zeroWork).toBe(true)
+  })
+
+  it('multi-turn: real work first, synthetic LAST turn → NOT zero-work (whole-session accumulation)', async () => {
+    const h = setup('job-zw-multi', { settleMode: 'auto' })
+    h.session.start({ binary: 'claude', args: [] }, 'go') // turn 1 streaming
+    h.session.send('/help') // queues behind the active turn
+    // Turn 1: real assistant work + a real result.
+    h.child.stdout.push(JSON.stringify({ type: 'assistant', message: { content: [{ type: 'text', text: 'working' }] } }) + '\n')
+    h.child.stdout.push(resultFrame({ result: 'real work done' }))
+    await tick(); await tick()
+    expect(h.settled.length).toBe(0) // extended by the queued turn
+    // Turn 2 is the synthetic frame — the session ends on it.
+    h.child.stdout.push(syntheticUnknownCommandFrame('/help'))
+    await tick(); await tick()
+
+    expect(h.settled.length).toBe(1)
+    expect(h.settled[0].reason).toBe('finalized')
+    expect(h.settled[0].zeroWork).toBe(false) // turn 1's work counts
+    expect(h.settled[0].totals.num_turns).toBe(3)
+    expect(h.settled[0].totals.tokens_in).toBe(100)
+  })
+
+  it('a normal productive settle reports zeroWork=false', async () => {
+    const h = setup('job-zw-ok', { settleMode: 'auto' })
+    h.session.start({ binary: 'claude', args: [] }, 'go')
+    h.child.stdout.push(resultFrame({ result: 'all done' }))
+    await tick(); await tick()
+    expect(h.settled.length).toBe(1)
+    expect(h.settled[0].zeroWork).toBe(false)
+  })
+
+  it('a crash with no output ever is also zeroWork=true (consumers already fail crashed settles)', async () => {
+    const h = setup('job-zw-crash')
+    h.session.start({ binary: 'claude', args: [] }, 'go')
+    h.child.emit('close', 1)
+    await tick()
+    expect(h.settled.length).toBe(1)
+    expect(h.settled[0].reason).toBe('crashed')
+    expect(h.settled[0].zeroWork).toBe(true)
   })
 })

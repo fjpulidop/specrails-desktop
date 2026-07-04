@@ -137,6 +137,7 @@ function KanbanCard({
   const { t } = useTranslation('specs')
   const priorityInfo = ticket.priority ? PRIORITY_STYLES[ticket.priority] : null
   const isDraft = ticket.status === 'draft'
+  const isOnReview = ticket.status === 'on_review'
 
   return (
     <button
@@ -189,6 +190,14 @@ function KanbanCard({
             {isDraft ? (
               <span className="inline-flex items-center rounded px-1 py-0.5 text-[9px] font-medium border border-accent-secondary/60 text-accent-secondary bg-accent-secondary/10">
                 {t('common:status.draft')}
+              </span>
+            ) : isOnReview ? (
+              <span
+                className="inline-flex items-center rounded px-1 py-0.5 text-[9px] font-medium border border-accent-warning/60 text-accent-warning bg-accent-warning/10"
+                title={t('status.onReviewHint')}
+                data-testid={`on-review-pill-grid-${ticket.id}`}
+              >
+                {t('common:status.onReview')}
               </span>
             ) : priorityInfo && ticket.priority && ticket.priority !== 'medium' && (
               <span
@@ -353,6 +362,7 @@ export function TicketGridView({
       draft: [],
       todo: [],
       in_progress: [],
+      on_review: [],
       done: [],
       cancelled: [],
     }
@@ -368,9 +378,12 @@ export function TicketGridView({
         return ap - bp
       })
     }
-    // Drafts visually live in the Backlog (Todo) column per spec
-    grouped.todo = [...grouped.draft, ...grouped.todo]
+    // Drafts visually live in the Backlog (Todo) column per spec. On-review
+    // specs live there too (work done, awaiting human PR review) — no extra
+    // column; the On Review pill differentiates them.
+    grouped.todo = [...grouped.draft, ...grouped.on_review, ...grouped.todo]
     grouped.draft = []
+    grouped.on_review = []
     return grouped
   }, [tickets])
 
@@ -380,12 +393,17 @@ export function TicketGridView({
     return tickets.find((t) => t.id === ticketId) ?? null
   }, [activeId, tickets])
 
-  // Find which column a sortable ID belongs to
+  // Find which column a sortable ID belongs to. Drafts and on-review specs
+  // render inside the Todo column, so they resolve to 'todo' — otherwise a
+  // drop next to one of them would PATCH the dragged ticket into a
+  // pipeline-owned status.
   const findColumnForId = useCallback(
     (id: string): TicketStatus | null => {
       const ticketId = Number(String(id).replace('ticket-', ''))
       const ticket = tickets.find((t) => t.id === ticketId)
-      return ticket?.status ?? null
+      if (!ticket) return null
+      if (ticket.status === 'draft' || ticket.status === 'on_review') return 'todo'
+      return ticket.status
     },
     [tickets],
   )

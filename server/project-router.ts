@@ -8,6 +8,10 @@ import { createCodeExplorerRouter } from './code-explorer-router'
 import { createJiraRouter } from './jira-router'
 import { resolveTicketStoragePath } from './ticket-store'
 import { resolveProjectExecution } from './workspace-resolution'
+import { FileStoryManager, buildStorySystemPrompt } from './file-story-manager'
+import { createFileSummaryGenerator } from './file-summary-generator'
+import { getAdapter } from './providers'
+import { getDesktopSetting } from './desktop-db'
 import { registerJobsRoutes } from './project-router-jobs'
 import { registerSpendingRoutes } from './project-router-spending'
 import { registerChatRoutes } from './project-router-chat'
@@ -105,19 +109,56 @@ export function createProjectRouter(registry: ProjectRegistry): Router {
   const codeRouterByCtx = new WeakMap<object, Router>()
   router.use('/:projectId/code', (req: Request, res: Response, next: NextFunction) => {
     const projectCtx = ctx(req)
-    const codeRouter = memoizedSubRouter(codeRouterByCtx, projectCtx, () => createCodeExplorerRouter({
-      db: projectCtx.db,
-      projectPath: projectCtx.project.path,
-      projectId: projectCtx.project.id,
-      broadcast: projectCtx.broadcast,
-      fileSummaryManager: projectCtx.fileSummaryManager,
-      // Relocate-artifacts: summary JSON OUTPUTS live in the workspace when
-      // relocated (source tree still read from project.path). Resolved per-call.
-      resolveSummaryRoot: () => {
-        const exec = resolveProjectExecution({ slug: projectCtx.project.slug, path: projectCtx.project.path })
-        return exec.relocated && exec.workspaceDir ? exec.workspaceDir : projectCtx.project.path
-      },
-    }))
+    const codeRouter = memoizedSubRouter(codeRouterByCtx, projectCtx, () => {
+      // Construction-story contribution generator — per-ctx (memoized with the
+      // router). Reuses the file-summary spawn skeleton with the story prompt,
+      // and the SAME monthly budget setting + ai_invocations surface, so the
+      // whole Code-section AI spend rides one budget (see file-story-manager).
+      const storyAdapter = getAdapter(projectCtx.project.provider ?? 'claude')
+      const fileStoryManager = new FileStoryManager({
+        db: projectCtx.db,
+        broadcast: projectCtx.broadcast,
+        generate: createFileSummaryGenerator({
+          adapter: storyAdapter,
+          cwd: projectCtx.project.path,
+          systemPrompt: buildStorySystemPrompt,
+        }),
+        monthToDateSpend: (projectId: string) => {
+          const row = projectCtx.db.prepare(
+            `SELECT COALESCE(SUM(total_cost_usd), 0) AS total FROM ai_invocations
+             WHERE project_id = ? AND surface = 'file-summary'
+               AND started_at >= strftime('%Y-%m-01', 'now')`,
+          ).get(projectId) as { total: number } | undefined
+          return row?.total ?? 0
+        },
+        monthlyBudgetUsd: () => {
+          const raw = getDesktopSetting(projectCtx.desktopDb, 'summary_monthly_budget_usd')
+          const n = parseFloat(raw ?? '5.00')
+          return isNaN(n) ? 5.0 : n
+        },
+        language: () => {
+          const raw = getDesktopSetting(projectCtx.desktopDb, 'summary_language')
+          return raw === 'es' ? 'es' : 'en'
+        },
+        providerId: () => storyAdapter.id,
+        getTicketSpec: projectCtx.getTicketSpec,
+      })
+      return createCodeExplorerRouter({
+        db: projectCtx.db,
+        projectPath: projectCtx.project.path,
+        projectId: projectCtx.project.id,
+        broadcast: projectCtx.broadcast,
+        fileSummaryManager: projectCtx.fileSummaryManager,
+        getTicketSpec: projectCtx.getTicketSpec,
+        fileStoryManager,
+        // Relocate-artifacts: summary JSON OUTPUTS live in the workspace when
+        // relocated (source tree still read from project.path). Resolved per-call.
+        resolveSummaryRoot: () => {
+          const exec = resolveProjectExecution({ slug: projectCtx.project.slug, path: projectCtx.project.path })
+          return exec.relocated && exec.workspaceDir ? exec.workspaceDir : projectCtx.project.path
+        },
+      })
+    })
     codeRouter(req, res, next)
   })
 

@@ -3,8 +3,9 @@
 //   - the inbound poll loop (JQL high-water + overlap → materializer),
 //   - the durable outbox drainer (FIFO-per-issue, idempotency-first, error
 //     classification → retry / dead-letter / auth-pause),
-//   - the two write-back hooks: onRailLaunch (todo→In Progress) and onJobOutcome
-//     (Done / revert + completion comment),
+//   - the write-back hooks: onRailLaunch (todo→In Progress), onJobOutcome
+//     (Done / revert + completion comment), onRailReview (ask-first PR delivery
+//     settle → on_review) and onRailMerged / onRailDiscard (PR-decision outcomes),
 // and stays completely inert until the project configures a Jira connection.
 
 import { randomUUID } from 'node:crypto'
@@ -13,7 +14,7 @@ import { mutateStore, readStore, resolveTicketStoragePath, type Ticket, type Tic
 import type { WsMessage } from '../types'
 import { JiraClient, detectDeployment, type FetchImpl } from './jira-client'
 import { writeJiraBacklogConfig, writeLocalBacklogConfig } from './jira-backlog-config'
-import { commentMarker, discardCommentMarker, commentHasMarker, bodyForDeployment } from './jira-adf'
+import { commentMarker, discardCommentMarker, prMergedCommentMarker, commentHasMarker, bodyForDeployment } from './jira-adf'
 import { issueUrl, upsertIssuesIntoStore } from './jira-materializer'
 import {
   formatIssueFields,
@@ -625,6 +626,38 @@ export class JiraSyncManager {
   }
 
   /**
+   * Called at build-settle of an ask-first PR delivery (the on_review divert in
+   * project-registry's onLoopRunFinished). Enqueues an on_review transition per
+   * Jira-linked ticket. Unlike onRailLaunch there is NO local-cache write — the
+   * ticket store already parked the tickets at on_review before this hook fires.
+   * Never throws (wrapped so a Jira/db failure can never break run settle).
+   */
+  onRailReview(ticketIds: number[], refId: string): void {
+    try {
+      if (!this.isActive()) return
+      const ops: EnqueueOutboxInput[] = []
+      for (const localId of ticketIds) {
+        const link = getLinkByLocalId(this.db, localId)
+        if (!link || link.tombstoned) continue
+        ops.push({
+          jiraIssueId: link.jiraIssueId,
+          opType: 'transition',
+          idempotencyKey: `${refId}:${localId}:transition:on_review`,
+          payload: { localId, jiraIssueId: link.jiraIssueId, logicalState: 'on_review' as SpecLogicalState },
+        })
+      }
+      if (ops.length === 0) return
+      enqueueMany(this.db, ops)
+      this.broadcastOutboxState()
+      // Drain promptly (best-effort) so the review status is visible in Jira
+      // without waiting a tick — mirrors onJobOutcome.
+      void this.drainOnce().catch(() => undefined)
+    } catch (err) {
+      console.error('[jira-sync] onRailReview failed:', err)
+    }
+  }
+
+  /**
    * Called after a Jira-backed spec is edited + saved locally. Pushes the changed
    * editable fields (summary/description/labels/priority) to the Jira issue via a
    * durable 'update' op. No-op for non-Jira / unlinked specs. While the op is
@@ -759,6 +792,82 @@ export class JiraSyncManager {
     return { ok: true }
   }
 
+  /**
+   * Called when a delivered draft PR is observed MERGED (the PR-decision flow).
+   * Enqueues a Done transition + a "PR merged" comment (with the PR URL when
+   * known) per Jira-linked ticket. Outbox-only: the local on_review→done cache
+   * write is the caller's job (the decision endpoint mutates the ticket store
+   * itself). NOT onJobOutcome — its completion comment assumes job cost/duration
+   * that a merge poll does not have. Never throws.
+   */
+  onRailMerged(ticketIds: number[], refId: string, prUrl: string | null): void {
+    try {
+      if (!this.isActive()) return
+      const text = buildPrMergedComment(prUrl)
+      const ops: EnqueueOutboxInput[] = []
+      for (const localId of ticketIds) {
+        const link = getLinkByLocalId(this.db, localId)
+        if (!link || link.tombstoned) continue
+        // "PR merged" comment (always safe/additive). Marker makes it idempotent.
+        ops.push({
+          jiraIssueId: link.jiraIssueId,
+          opType: 'comment',
+          idempotencyKey: `${refId}:${localId}:comment:pr-merged`,
+          payload: { jiraIssueId: link.jiraIssueId, text, marker: prMergedCommentMarker(refId, localId) },
+        })
+        ops.push({
+          jiraIssueId: link.jiraIssueId,
+          opType: 'transition',
+          idempotencyKey: `${refId}:${localId}:transition:done`,
+          payload: { localId, jiraIssueId: link.jiraIssueId, logicalState: 'done' as SpecLogicalState },
+        })
+      }
+      if (ops.length === 0) return
+      enqueueMany(this.db, ops)
+      this.broadcastOutboxState()
+      void this.drainOnce().catch(() => undefined)
+    } catch (err) {
+      console.error('[jira-sync] onRailMerged failed:', err)
+    }
+  }
+
+  /**
+   * Called when a PR delivery is DISCARDED (the PR-decision flow). Moves each
+   * linked issue to the connection's configured discard status when set
+   * (mirroring discardSpec's transition payload), else reverts it to the backlog
+   * via a plain `todo` transition — a missing configuration is never an error.
+   * Outbox-only like onRailMerged: local cache writes belong to the caller.
+   * Never throws.
+   */
+  onRailDiscard(ticketIds: number[], refId: string): void {
+    try {
+      if (!this.isActive()) return
+      const conn = getConnection(this.db, this.projectId)
+      const target = conn?.discardStatus ?? null
+      const ops: EnqueueOutboxInput[] = []
+      for (const localId of ticketIds) {
+        const link = getLinkByLocalId(this.db, localId)
+        if (!link || link.tombstoned) continue
+        ops.push({
+          jiraIssueId: link.jiraIssueId,
+          opType: 'transition',
+          // Suffix `discard` (not the logical state) so the key is stable per
+          // (delivery, ticket) whether or not a discard status is configured.
+          idempotencyKey: `${refId}:${localId}:transition:discard`,
+          payload: target
+            ? { localId, jiraIssueId: link.jiraIssueId, logicalState: 'cancelled' as SpecLogicalState, targetStatus: target }
+            : { localId, jiraIssueId: link.jiraIssueId, logicalState: 'todo' as SpecLogicalState },
+        })
+      }
+      if (ops.length === 0) return
+      enqueueMany(this.db, ops)
+      this.broadcastOutboxState()
+      void this.drainOnce().catch(() => undefined)
+    } catch (err) {
+      console.error('[jira-sync] onRailDiscard failed:', err)
+    }
+  }
+
   // ─── Outbox drain ──────────────────────────────────────────────────────────
 
   async drainOnce(): Promise<void> {
@@ -866,6 +975,10 @@ export class JiraSyncManager {
     const outcome: WalkOutcome = await walkToCategory({
       state: payload.logicalState,
       currentCategory,
+      // The current status NAME lets the walk apply an explicit target within
+      // the SAME category (e.g. In Progress → In Review, both indeterminate)
+      // while still noop-ing when the issue already sits on the target.
+      currentStatusName: issue.data.fields.status?.name,
       explicitTarget,
       getTransitions: async () => {
         const res = await client.getTransitions(payload.jiraIssueId)
@@ -1146,6 +1259,12 @@ export function buildCompletionComment(
   if (args.durationMs != null) meta.push(`duration ${formatDuration(args.durationMs)}`)
   parts.push(`(${meta.join(' · ')})`)
   return parts.join('\n')
+}
+
+/** Comment posted on a linked issue when its delivery PR is merged. */
+export function buildPrMergedComment(prUrl: string | null): string {
+  const base = '✅ Specrails: the delivery PR was merged — the spec shipped to the integration branch.'
+  return prUrl ? `${base}\n${prUrl}` : base
 }
 
 function formatDuration(ms: number): string {

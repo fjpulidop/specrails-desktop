@@ -5,7 +5,7 @@ import { Button } from '../ui/button'
 import { loopNeedsTicket } from '../../lib/loop-ticket-need'
 import type { LoopTemplateSummary, LoopNode, LoopNodeType } from '../../lib/loops-api'
 
-const NODE_ICON: Record<LoopNodeType, typeof Play> = {
+export const NODE_ICON: Record<LoopNodeType, typeof Play> = {
   start: Play,
   'ai-step': Brain,
   shell: Terminal,
@@ -15,7 +15,7 @@ const NODE_ICON: Record<LoopNodeType, typeof Play> = {
 }
 
 /** The human-readable detail for a node (prompt / command / goal), if any. */
-function nodeDetail(node: LoopNode): string | null {
+export function nodeDetail(node: LoopNode): string | null {
   if (node.type === 'ai-step') return typeof node.data?.prompt === 'string' ? node.data.prompt : null
   if (node.type === 'shell') return typeof node.data?.command === 'string' ? node.data.command : null
   if (node.type === 'decider') return typeof node.data?.goal === 'string' ? node.data.goal : null

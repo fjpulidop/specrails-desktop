@@ -14,13 +14,14 @@ const PRIORITY_STYLES: Record<TicketPriority, { className: string }> = {
   low: { className: 'bg-muted text-muted-foreground border-border' },
 }
 
-const ALL_STATUSES: TicketStatus[] = ['draft', 'todo', 'in_progress', 'done', 'cancelled']
+const ALL_STATUSES: TicketStatus[] = ['draft', 'todo', 'in_progress', 'on_review', 'done', 'cancelled']
 
 /** i18n keys (specs namespace) for the lowercase status labels of this view. */
 const STATUS_LABEL_KEY: Record<TicketStatus, string> = {
   draft: 'listView.status.draft',
   todo: 'listView.status.todo',
   in_progress: 'listView.status.inProgress',
+  on_review: 'listView.status.onReview',
   done: 'listView.status.done',
   cancelled: 'listView.status.cancelled',
 }
@@ -28,7 +29,7 @@ const STATUS_LABEL_KEY: Record<TicketStatus, string> = {
 type SortField = 'status' | 'priority' | 'updated_at'
 type SortDir = 'asc' | 'desc'
 
-const STATUS_ORDER: Record<TicketStatus, number> = { draft: -1, todo: 0, in_progress: 1, done: 2, cancelled: 3 }
+const STATUS_ORDER: Record<TicketStatus, number> = { draft: -1, todo: 0, in_progress: 1, on_review: 2, done: 3, cancelled: 4 }
 const PRIORITY_ORDER: Record<TicketPriority, number> = { critical: 0, high: 1, medium: 2, low: 3 }
 
 function formatRelTime(dateStr: string): string {
@@ -309,6 +310,7 @@ export function TicketListView({
               const isDone = ticket.status === 'done'
               const isCancelled = ticket.status === 'cancelled'
               const isDraft = ticket.status === 'draft'
+              const isOnReview = ticket.status === 'on_review'
 
               return (
                 <TicketContextMenu
@@ -373,11 +375,19 @@ export function TicketListView({
                       )}
                     </div>
 
-                    {/* Priority / Draft pill */}
+                    {/* Priority / Draft / On-review pill */}
                     <div className="w-14 text-right shrink-0">
                       {isDraft ? (
                         <span className="inline-flex items-center rounded px-1.5 py-0.5 text-[9px] font-medium border border-accent-secondary/60 text-accent-secondary bg-accent-secondary/10">
                           {t('common:status.draft')}
+                        </span>
+                      ) : isOnReview ? (
+                        <span
+                          className="inline-flex items-center rounded px-1.5 py-0.5 text-[9px] font-medium border border-accent-warning/60 text-accent-warning bg-accent-warning/10"
+                          title={t('status.onReviewHint')}
+                          data-testid={`on-review-pill-list-${ticket.id}`}
+                        >
+                          {t('common:status.onReview')}
                         </span>
                       ) : priorityInfo && ticket.priority && ticket.priority !== 'medium' && (
                         <span className={`inline-flex items-center rounded px-1.5 py-0.5 text-[9px] font-medium border ${priorityInfo.className}`}>

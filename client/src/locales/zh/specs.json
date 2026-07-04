@@ -9,11 +9,14 @@
     "dropToMarkDone": "拖放至此标记为完成",
     "emptyNoDoneLabelMatch": "没有符合所选标签的已完成 spec",
     "emptyNoCompleted": "暂无已完成的 spec",
+    "emptyNoStatusMatch": "没有符合所选状态的 spec",
     "untitledSpec": "未命名 spec"
   },
   "status": {
     "todo": "待办",
     "inProgress": "进行中",
+    "onReview": "评审中",
+    "onReviewHint": "已实现 — 草稿 PR 正在等待你的评审决定",
     "done": "完成",
     "cancelled": "已取消"
   },
@@ -56,6 +59,7 @@
       "draft": "草稿",
       "todo": "待办",
       "inProgress": "进行中",
+      "onReview": "评审中",
       "done": "完成",
       "cancelled": "已取消"
     },
@@ -83,8 +87,13 @@
   "statusFilter": {
     "ariaLabel": "按状态筛选",
     "all": "全部",
-    "todo": "待办",
-    "done": "完成"
+    "active": "活跃"
+  },
+  "jiraStatusFilter": {
+    "ariaLabel": "按 Jira 状态筛选",
+    "triggerLabel": "Jira 状态",
+    "all": "所有 Jira 状态",
+    "other": "其他"
   },
   "sortControl": {
     "modeAriaLabel": "排序方式",

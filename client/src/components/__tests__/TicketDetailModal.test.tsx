@@ -70,6 +70,18 @@ describe('TicketDetailModal', () => {
     vi.clearAllMocks()
   })
 
+  describe('board-mode stacking (agent-chat refs)', () => {
+    it('stacks the overlay at z-[65], above the floating agent panel (z-[60])', () => {
+      // Regression: agent-chat ticket-ref chips open this app-root modal while
+      // the floating AgentChatPanel (z-[60]) is on screen — at the old z-50 it
+      // opened BEHIND the panel and looked like nothing happened.
+      render(<TicketDetailModal {...makeDefaultProps()} />)
+      const overlay = document.querySelector('div.fixed.inset-0')
+      expect(overlay).not.toBeNull()
+      expect(overlay!.classList.contains('z-[65]')).toBe(true)
+    })
+  })
+
   describe('Jira "Go to Ticket" button', () => {
     it('shows the button for a Jira-backed spec and opens it in the default browser', () => {
       const ticket = makeTicket({ source: 'jira', jira_key: 'SKILLS-17', jira_url: 'https://acme.atlassian.net/browse/SKILLS-17' })
@@ -126,6 +138,18 @@ describe('TicketDetailModal', () => {
     it('renders ticket ID in header', () => {
       render(<TicketDetailModal {...makeDefaultProps({ ticket: makeTicket({ id: 42 }) })} />)
       expect(screen.getByText(/#42/)).toBeDefined()
+    })
+
+    it('renders the On Review badge in the header for an on_review spec', () => {
+      render(<TicketDetailModal {...makeDefaultProps({ ticket: makeTicket({ status: 'on_review' }) })} />)
+      const badge = screen.getByTestId('ticket-modal-on-review-badge')
+      expect(badge).toBeDefined()
+      expect(badge.textContent).toContain('On Review')
+    })
+
+    it('does not render the On Review badge for a todo spec', () => {
+      render(<TicketDetailModal {...makeDefaultProps()} />)
+      expect(screen.queryByTestId('ticket-modal-on-review-badge')).toBeNull()
     })
   })
 

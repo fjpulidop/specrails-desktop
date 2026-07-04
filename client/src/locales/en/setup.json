@@ -102,7 +102,9 @@
     "reinstallHint": "Reinstall the Specrails app to restore bundled tools.",
     "installMissingHint": "Install the missing tools to continue.",
     "moreInfo": "More info",
-    "bundledBadge": "bundled"
+    "bundledBadge": "bundled",
+    "optional": "optional",
+    "ghNoAuth": "Not signed in — run `gh auth login`"
   },
   "instructions": {
     "title": "Install developer tools",
@@ -258,8 +260,8 @@
     "providers": {
       "nav": "Your agent",
       "title": "Bring your own agent",
-      "subtitle": "Claude Code and Codex, as first-class engines",
-      "intro": "The app treats <b>Claude Code</b> and <b>Codex CLI</b> as interchangeable engines behind one contract. A project can install one or both — the choice is made at install time.",
+      "subtitle": "Claude Code, Codex and Gemini, as first-class engines",
+      "intro": "The app treats <b>Claude Code</b>, <b>Codex CLI</b> and <b>Gemini CLI</b> as interchangeable engines behind one contract. A project can install one or more — the choice is made at install time.",
       "table": {
         "capability": "Capability",
         "streamingResume": "Streaming & session resume",
@@ -271,7 +273,7 @@
         "synthesized": "Synthesized",
         "agentProfiles": "Agent profiles"
       },
-      "calloutLabel": "When both are installed",
+      "calloutLabel": "When several are installed",
       "calloutBody": "Pick the engine <b>per spec, per rail, or per terminal launch</b>. The app remembers your last choice per project. Codex cost is estimated from a local rate-card and always flagged with a <mono>~</mono>."
     },
     "cost": {

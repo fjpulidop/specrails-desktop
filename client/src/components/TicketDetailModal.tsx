@@ -12,6 +12,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogD
 import { AttachmentsSection } from './AttachmentsSection'
 import { TicketFilesTouched } from './code-explorer/TicketFilesTouched'
 import { TicketSpendingLine } from './TicketSpendingLine'
+import { TicketStatusBadge } from './TicketStatusIndicator'
 import { useMinimizedChats } from '../context/MinimizedChatsContext'
 import { useTicketDetailModal } from '../context/TicketDetailModalContext'
 import { useJiraConnection } from '../hooks/useJiraConnection'
@@ -386,6 +387,12 @@ export function TicketDetailModal({
             )}
             <div className="flex items-center gap-2 mt-1.5">
               <span className="text-[10px] text-foreground font-mono">#{ticket.id}</span>
+              {/* Work delivered as a draft PR — awaiting the human review decision. */}
+              {ticket.status === 'on_review' && (
+                <span title={t('specs:status.onReviewHint')} data-testid="ticket-modal-on-review-badge">
+                  <TicketStatusBadge status="on_review" />
+                </span>
+              )}
             </div>
             <TicketSpendingLine ticketId={ticket.id} />
           </div>
@@ -794,7 +801,10 @@ export function TicketDetailModal({
 
   if (embedded) return panel
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center">
+    // z-[65]: above the floating AgentChatPanel (z-[60]/z-[61]) so agent-chat
+    // ticket-ref chips open a VISIBLE modal in board mode, below the
+    // MinimizedChatsDock (z-[70]) and browser-capture portals (z-[80]).
+    <div className="fixed inset-0 z-[65] flex items-center justify-center">
       <div className="absolute inset-0 bg-black/70" onClick={guardBackdrop(onClose)} />
       {panel}
       <ResizeGrips handles={resizeHandles} />

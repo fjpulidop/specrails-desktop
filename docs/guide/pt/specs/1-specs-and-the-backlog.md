@@ -13,7 +13,7 @@ O quadro tem dois modos de visualização, alternados a partir de um botão na b
 - **Vista de post-its** (a predefinida) — mosaicos em forma de cartão com resumos curtos.
 - **Vista de lista** — linhas compactas de uma só linha.
 
-Também pode filtrar por **estado** (Todos / Por fazer / Concluído) e por **etiqueta**, e ordenar por **Predefinida**, **Ticket #** ou **Prioridade** (cada uma com um seletor ascendente/descendente).
+O **seletor de estados** da barra de ferramentas mostra cada estado como um chip próprio com contagem em direto — mais dois grupos inteligentes: **Ativas** (a predefinição — tudo o que ainda está em movimento: rascunhos, por fazer, em curso e em revisão) e **Todos** (tudo, com Concluído fixado no fundo). A sua escolha é lembrada por projeto e espelhada no URL, pelo que um refresh ou um link partilhado restaura a vista exata. Em projetos ligados ao Jira aparece ainda um menu de **estado Jira**, que lista os estados *reais* do fluxo de trabalho do quadro (os nomes tal e qual, p. ex. "Code Review", cada um com contagem em direto) agrupados sob o estado a que mapeiam — combina-se com os chips de estado. Também pode filtrar por **etiqueta**, e ordenar por **Predefinida**, **Ticket #** ou **Prioridade** (cada uma com um seletor ascendente/descendente).
 
 ## Estados
 
@@ -24,7 +24,8 @@ Uma spec percorre um pequeno conjunto de estados. O quadro dá a cada um uma pis
 | **Rascunho** | Uma ideia em curso guardada a partir de uma conversa do modo Explore. Ainda não está pronta para implementar — pode voltar e continuar a dar-lhe forma. Mostra uma etiqueta `Draft`. |
 | **Por fazer** | Pronta para ser executada. É aqui que uma spec terminada aterra quando a cria. |
 | **Em curso** | O pipeline está a trabalhar nela neste momento (um ponto azul pulsante). |
-| **Concluído** | Concluída pelo pipeline (um visto verde). |
+| **Em revisão** | Implementada — cada execução terminada estaciona aqui as suas specs para a sua aprovação: faça merge da PR em rascunho ou mova-as você mesmo (uma etiqueta âmbar). |
+| **Concluído** | Aprovada — a PR foi integrada, ou moveu-a você mesmo para aqui (um visto verde). |
 | **Cancelado** | Abandonada (um X vermelho). |
 
 Os rascunhos vivem no mesmo grupo ativo que as specs Por fazer — não há uma coluna separada para eles — mas têm um contorno subtilmente colorido e uma etiqueta `Draft` para serem fáceis de identificar. Veja [Rascunhos e o Contract Layer](drafts-and-contract-layer.md) para a história completa sobre rascunhos.

@@ -175,6 +175,25 @@ describe('mapStatus', () => {
     delete (issue.fields.status as { name?: string }).name
     expect(mapStatus(issue)).toBe('done')
   })
+
+  it('preserves on_review when the status NAME matches statusMap.on_review (case-insensitive)', () => {
+    const statusMap = { on_review: 'In Review' }
+    expect(mapStatus(makeIssue({ statusCategoryKey: 'indeterminate', statusName: 'In Review' }), statusMap)).toBe('on_review')
+    expect(mapStatus(makeIssue({ statusCategoryKey: 'indeterminate', statusName: 'IN REVIEW' }), statusMap)).toBe('on_review')
+  })
+
+  it('without a configured statusMap.on_review the category fallback is byte-identical', () => {
+    expect(mapStatus(makeIssue({ statusCategoryKey: 'indeterminate', statusName: 'In Review' }))).toBe('in_progress')
+    expect(mapStatus(makeIssue({ statusCategoryKey: 'indeterminate', statusName: 'In Review' }), null)).toBe('in_progress')
+    expect(mapStatus(makeIssue({ statusCategoryKey: 'indeterminate', statusName: 'In Review' }), { done: 'Released' })).toBe('in_progress')
+  })
+
+  it('a non-matching name keeps the normal mapping even when on_review is configured', () => {
+    const statusMap = { on_review: 'In Review' }
+    expect(mapStatus(makeIssue({ statusCategoryKey: 'indeterminate', statusName: 'In Progress' }), statusMap)).toBe('in_progress')
+    expect(mapStatus(makeIssue({ statusCategoryKey: 'new', statusName: 'Backlog' }), statusMap)).toBe('todo')
+    expect(mapStatus(makeIssue({ statusCategoryKey: 'done', statusName: 'Done' }), statusMap)).toBe('done')
+  })
 })
 
 // ─── mapPriority ─────────────────────────────────────────────────────────────
@@ -581,6 +600,72 @@ describe('upsertIssuesIntoStore', () => {
     expect(store.tickets[String(localId)].status).toBe('done')
   })
 
+  it('materializes an issue sitting on the mapped on_review status as on_review', () => {
+    const c = makeConn({ statusMap: { on_review: 'In Review' } })
+    upsertIssuesIntoStore(db, projectPath, c, [
+      makeIssue({ id: '620', key: 'PROJ-620', statusCategoryKey: 'indeterminate', statusName: 'In Review' }),
+    ])
+    const localId = getLinkByIssueId(db, '620')!.localId
+    expect(readStore(storePath()).tickets[String(localId)].status).toBe('on_review')
+  })
+
+  it('does NOT revert a local on_review after the outbox op drains (no longer frozen)', () => {
+    // The frozen guard only protects the pending window. Once the on_review
+    // transition drains, the next poll re-maps the issue — with the conn-aware
+    // mapStatus, an issue parked on the mapped "In Review" status stays
+    // on_review instead of flattening to category-indeterminate in_progress.
+    const c = makeConn({ statusMap: { on_review: 'In Review' } })
+    // First poll: issue already moved to In Review by the drained transition.
+    upsertIssuesIntoStore(db, projectPath, c, [
+      makeIssue({ id: '621', key: 'PROJ-621', statusCategoryKey: 'indeterminate', statusName: 'In Review' }),
+    ])
+    const localId = getLinkByIssueId(db, '621')!.localId
+
+    // Second poll, UNFROZEN (empty set): identical inbound content must neither
+    // change the status nor write the store at all.
+    const result = upsertIssuesIntoStore(
+      db,
+      projectPath,
+      c,
+      [makeIssue({ id: '621', key: 'PROJ-621', statusCategoryKey: 'indeterminate', statusName: 'In Review' })],
+      new Set()
+    )
+    expect(readStore(storePath()).tickets[String(localId)].status).toBe('on_review')
+    expect(result.changedLocalIds).toEqual([])
+    expect(result.wrote).toBe(false)
+  })
+
+  it('frozen guard still preserves a local on_review while the transition is pending in Jira', () => {
+    // Jira has not applied the transition yet (issue still "In Progress"), but the
+    // outbox op is pending → the id is frozen and the local on_review survives.
+    const c = makeConn({ statusMap: { on_review: 'In Review' } })
+    upsertIssuesIntoStore(db, projectPath, c, [
+      makeIssue({ id: '622', key: 'PROJ-622', statusCategoryKey: 'indeterminate', statusName: 'In Review' }),
+    ])
+    const localId = getLinkByIssueId(db, '622')!.localId
+    expect(readStore(storePath()).tickets[String(localId)].status).toBe('on_review')
+
+    const result = upsertIssuesIntoStore(
+      db,
+      projectPath,
+      c,
+      [makeIssue({ id: '622', key: 'PROJ-622', statusCategoryKey: 'indeterminate', statusName: 'In Progress' })],
+      new Set([localId])
+    )
+    expect(readStore(storePath()).tickets[String(localId)].status).toBe('on_review')
+    expect(result.changedLocalIds).toEqual([])
+    expect(result.wrote).toBe(false)
+  })
+
+  it('unconfigured statusMap.on_review keeps inbound indeterminate → in_progress (legacy)', () => {
+    const c = conn() // statusMap: null
+    upsertIssuesIntoStore(db, projectPath, c, [
+      makeIssue({ id: '623', key: 'PROJ-623', statusCategoryKey: 'indeterminate', statusName: 'In Review' }),
+    ])
+    const localId = getLinkByIssueId(db, '623')!.localId
+    expect(readStore(storePath()).tickets[String(localId)].status).toBe('in_progress')
+  })
+
   it('refreshes the display key when the issue key changes (link keyed on immutable id)', () => {
     const c = conn()
     upsertIssuesIntoStore(db, projectPath, c, [makeIssue({ id: '777', key: 'OLD-1' })])
@@ -765,5 +850,84 @@ describe('upsertIssuesIntoStore — change detection (B)', () => {
     expect(result.changedLocalIds).toEqual([])
     // … but the high-water mark still advances to the newer Jira timestamp.
     expect(result.maxUpdatedMs).toBe(Date.parse(newer))
+  })
+})
+
+// ─── Raw Jira workflow status (jira_status) ──────────────────────────────────
+// The board's Jira-status filter dimension needs the RAW status name (e.g.
+// "Code Review") persisted per ticket, not just the mapped logical state.
+
+describe('raw jira_status persistence', () => {
+  const conn = () => makeConn()
+  const storePath = () => resolveTicketStoragePath(projectPath)
+
+  it('mapIssueToTicket captures the raw status name verbatim', () => {
+    const issue = makeIssue({ statusName: 'Code Review', statusCategoryKey: 'indeterminate' })
+    const t = mapIssueToTicket(issue, 1, conn())
+    expect(t.jira_status).toBe('Code Review')
+    expect(t.status).toBe('in_progress') // mapped logical state is separate
+  })
+
+  it('mapIssueToTicket sets jira_status null when the issue carries no status', () => {
+    const issue = makeIssue({}) // no statusName / no category → fields.status undefined
+    expect(issue.fields.status).toBeUndefined()
+    expect(mapIssueToTicket(issue, 1, conn()).jira_status).toBeNull()
+  })
+
+  it('a raw-status-only move (same logical category) still writes + reports the id', () => {
+    const c = conn()
+    upsertIssuesIntoStore(db, projectPath, c, [
+      makeIssue({ id: '830', key: 'PROJ-1', summary: 'S', statusName: 'In Progress', statusCategoryKey: 'indeterminate' }),
+    ])
+    const localId = getLinkByIssueId(db, '830')!.localId
+
+    // "In Progress" → "Code Review": both indeterminate ⇒ logical status is
+    // unchanged (in_progress), but the RAW name changed → must write so the
+    // Jira-status filter counts stay live.
+    const result = upsertIssuesIntoStore(db, projectPath, c, [
+      makeIssue({ id: '830', key: 'PROJ-1', summary: 'S', statusName: 'Code Review', statusCategoryKey: 'indeterminate' }),
+    ])
+    expect(result.wrote).toBe(true)
+    expect(result.changedLocalIds).toEqual([localId])
+
+    const t = readStore(storePath()).tickets[String(localId)]
+    expect(t.jira_status).toBe('Code Review')
+    expect(t.status).toBe('in_progress')
+  })
+
+  it('jira_status is frozen WITH the logical status for pending-outbox ids (no write)', () => {
+    const c = conn()
+    upsertIssuesIntoStore(db, projectPath, c, [
+      makeIssue({ id: '831', key: 'PROJ-2', summary: 'F', statusName: 'To Do', statusCategoryKey: 'new' }),
+    ])
+    const localId = getLinkByIssueId(db, '831')!.localId
+
+    // Inbound says the issue moved to "Done" but the id is frozen (pending
+    // outbox op): BOTH the logical status and the raw name are preserved so
+    // the pair never disagrees mid-window — and no write/flicker happens. The
+    // high-water does not advance past frozen issues, so the raw change is
+    // re-applied on the first poll after the op drains.
+    const result = upsertIssuesIntoStore(
+      db,
+      projectPath,
+      c,
+      [makeIssue({ id: '831', key: 'PROJ-2', summary: 'F', statusName: 'Done', statusCategoryKey: 'done' })],
+      new Set([localId])
+    )
+    expect(result.wrote).toBe(false)
+    expect(result.changedLocalIds).toEqual([])
+
+    const t = readStore(storePath()).tickets[String(localId)]
+    expect(t.status).toBe('todo') // frozen guard held
+    expect(t.jira_status).toBe('To Do') // raw name frozen alongside
+
+    // Unfrozen next poll → both refresh.
+    const after = upsertIssuesIntoStore(db, projectPath, c, [
+      makeIssue({ id: '831', key: 'PROJ-2', summary: 'F', statusName: 'Done', statusCategoryKey: 'done' }),
+    ])
+    expect(after.wrote).toBe(true)
+    const t2 = readStore(storePath()).tickets[String(localId)]
+    expect(t2.status).toBe('done')
+    expect(t2.jira_status).toBe('Done')
   })
 })

@@ -62,7 +62,19 @@
       "working": "Agent working…",
       "placeholder": "Send a message to the running job…",
       "send": "Send",
-      "liveTotals": "{{turns}} turns · ${{cost}}"
+      "liveTotals": "{{turns}} turns · ${{cost}}",
+      "autoHint": "This job follows its plan and finishes on its own — messages are optional steering.",
+      "wrapUp": "Wrap up now",
+      "wrapUpTooltip": "End the session now — the job completes with the work produced so far, every turn's tokens and cost rolled into the total.",
+      "wrapUpStep": "Settle this step",
+      "wrapUpStepTooltip": "End the current step now — the loop advances with what the step has produced so far.",
+      "wrappingUp": "Wrapping up…",
+      "queued_one": "{{count}} queued message",
+      "queued_other": "{{count}} queued messages",
+      "waitingForStep": "Between steps — the loop is deciding what runs next. You can send a message when the next AI step starts.",
+      "waitingForStepShort": "Waiting for the next step…",
+      "sendDisabledEmpty": "Type a message first",
+      "sendDisabledWaiting": "No active step session right now"
     },
     "toast": {
       "jobDeleted": "Job deleted",
@@ -76,7 +88,9 @@
       "spawnFailed": "Failed to spawn job",
       "finalizeScheduled": "Finalizing interactive job…",
       "finalizeFailed": "Failed to finalize job",
-      "sendFailed": "Failed to send message"
+      "sendFailed": "Failed to send message",
+      "wrapUpScheduled": "Wrapping up the job…",
+      "wrapUpStepScheduled": "Settling the step — the loop advances with what it produced"
     }
   },
   "statusPanel": {
@@ -126,15 +140,19 @@
     "deletedTooltip": "Ticket no longer exists"
   },
   "modal": {
-    "openInNewTab": "Open in new tab",
     "notFound": "Job not found",
     "cancelConfirmTitle": "Cancel job?",
     "cancelConfirmDescription": "The job will stop at the next safe point. This action cannot be undone.",
     "keepRunning": "Keep running",
     "cancelJob": "Cancel job",
+    "stopRun": "Stop run",
+    "stopRunConfirmTitle": "Stop this run?",
+    "stopRunConfirmDescription": "The loop run will stop at the next step boundary. This action cannot be undone.",
     "toast": {
       "cancelSignalSent": "Cancel signal sent",
       "cancelSignalSentDescription": "Job will stop at the next safe point",
+      "stopSignalSent": "Stop signal sent",
+      "stopSignalSentDescription": "The run will stop at the next step boundary",
       "cancelFailed": "Failed to cancel",
       "networkError": "Network error"
     }
@@ -220,6 +238,24 @@
       "cancelFailed": "Failed to cancel job",
       "networkError": "Network error canceling job"
     }
+  },
+  "loopExplorer": {
+    "setup": "Setup",
+    "iteration": "Iteration {{current}}/{{limit}}",
+    "iterationBadge": "iter {{count}}",
+    "follow": "Following live",
+    "resumeFollow": "Resume follow",
+    "expandAll": "Expand all",
+    "collapseAll": "Collapse all",
+    "copyStep": "Copy step",
+    "copied": "Step copied to clipboard",
+    "stepDetail": "Step details",
+    "stepDetailTemplate": "Template",
+    "stepDetailCommand": "Command",
+    "copyCommand": "Copy",
+    "interrupted": "Interrupted",
+    "waiting": "Waiting for the next step…",
+    "stepMapAria": "Loop step map"
   },
   "logViewer": {
     "loading": "Loading logs...",

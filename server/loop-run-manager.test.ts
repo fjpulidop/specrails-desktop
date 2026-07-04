@@ -1,8 +1,11 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest'
-import { initDb, getJob, type DbInstance } from './db'
-import { LoopRunManager, truncate, type LoopExecutors } from './loop-run-manager'
+import { EventEmitter } from 'events'
+import { Readable } from 'stream'
+import { initDb, getJob, getJobEvents, type DbInstance } from './db'
+import { LoopRunManager, truncate, type LoopExecutors, type InteractiveAiStepPlan, type InteractivePlanInput } from './loop-run-manager'
 import { getLoopRun } from './loop-runs-store'
 import { fixLoopGraph } from './loop-templates'
+import { getAdapter } from './providers'
 import type { LoopGraph } from './loop-graph'
 import type { WsMessage } from './types'
 
@@ -565,6 +568,37 @@ describe('LoopRunManager', () => {
     expect(res.outcome).toBe('failed')
   })
 
+  it('legacy pin: a planner returning null falls through to the one-shot runAiStep (kill-switch shape)', async () => {
+    // SPECRAILS_INTERACTIVE_JOBS=false (or a non-capable provider) makes the
+    // production planner return null — the engine must then behave byte-identically
+    // to the pre-interactive path: one-shot runAiStep with the legacy input shape,
+    // no session registered, job row NOT flagged interactive.
+    const planNull = vi.fn(() => null)
+    const ex = makeExecutors({ planInteractiveAiStep: planNull })
+    const mgr = manager(ex)
+    const res = await mgr.run({ ...baseReq(), runId: 'run-legacy-pin' })
+    expect(res.outcome).toBe('success')
+    expect(planNull).toHaveBeenCalled()
+    // One-shot path used, with the exact legacy argument shape.
+    const call = (ex.runAiStep as ReturnType<typeof vi.fn>).mock.calls[0][0] as Record<string, unknown>
+    expect(call.prompt).toContain('Implement Feature X')
+    expect(call.provider).toBe('claude')
+    expect(call.cwd).toBe('/repo')
+    expect(typeof call.onRawLine).toBe('function')
+    // No interactive residue.
+    expect(mgr.isInteractiveJob('run-legacy-pin')).toBe(false)
+    expect(mgr.sendInteractiveTurn('run-legacy-pin', 'hi')).toBe(false)
+    const job = getJob(db, 'run-legacy-pin') as unknown as { interactive: number | null }
+    expect(job.interactive ?? 0).toBe(0)
+  })
+
+  it('executors WITHOUT planInteractiveAiStep run the one-shot path (older fakes untouched)', async () => {
+    const ex = makeExecutors() // no planInteractiveAiStep at all
+    const res = await manager(ex).run(baseReq())
+    expect(res.outcome).toBe('success')
+    expect(ex.runAiStep).toHaveBeenCalled()
+  })
+
   it('backs the run with a job, streams parsed events + log lines, and finalizes the job', async () => {
     const g: LoopGraph = {
       nodes: [
@@ -610,5 +644,771 @@ describe('LoopRunManager', () => {
     const fin = broadcasts.find((m) => m.type === 'job.finalized') as { jobId: string; status: string } | undefined
     expect(fin?.jobId).toBe(res.runId)
     expect(fin?.status).toBe('completed')
+  })
+})
+
+// ─── Interactive ai-steps (S2: all jobs interactive by default, loop path) ────
+//
+// The fake planner returns a REAL InteractiveAiStepPlan whose `spawn` yields a
+// scripted fake child — so these tests exercise the genuine InteractiveJobSession
+// (auto settle-mode, queue/extend, fold, abort) driven by the genuine engine,
+// with only the process boundary faked (mirrors interactive-job-session.test.ts).
+
+const tick = () => new Promise((r) => setImmediate(r))
+
+async function waitFor(cond: () => boolean, label = 'condition'): Promise<void> {
+  for (let i = 0; i < 500 && !cond(); i++) await tick()
+  if (!cond()) throw new Error(`timed out waiting for ${label}`)
+}
+
+interface FakeChild extends EventEmitter {
+  stdout: Readable
+  stderr: Readable
+  stdin: { write: (s: string) => boolean; destroyed: boolean }
+  stdinWrites: string[]
+  pid: number
+  killed: boolean
+  kill: (sig?: string) => boolean
+}
+
+function makeFakeChild(): FakeChild {
+  const child = new EventEmitter() as FakeChild
+  child.stdout = new Readable({ read() {} })
+  child.stderr = new Readable({ read() {} })
+  const writes: string[] = []
+  child.stdin = { write: (s: string) => { writes.push(s); return true }, destroyed: false }
+  child.stdinWrites = writes
+  child.pid = 4242
+  child.killed = false
+  child.kill = () => {
+    child.killed = true
+    queueMicrotask(() => child.emit('close', 0))
+    return true
+  }
+  return child
+}
+
+function resultFrame(over: Record<string, unknown> = {}): string {
+  return JSON.stringify({
+    type: 'result',
+    total_cost_usd: 0.05,
+    num_turns: 3,
+    model: 'claude-opus-4-8',
+    session_id: 'sess-1',
+    usage: {
+      input_tokens: 100,
+      output_tokens: 200,
+      cache_read_input_tokens: 10,
+      cache_creation_input_tokens: 5,
+    },
+    ...over,
+  }) + '\n'
+}
+
+function assistantFrame(text = 'hello world'): string {
+  return JSON.stringify({ type: 'assistant', message: { content: [{ type: 'text', text }] } }) + '\n'
+}
+
+/** Executors whose planner upgrades every ai-step to a real interactive session
+ *  over a fresh scripted fake child. Deciders/shell stay one-shot fakes. */
+function interactiveExecutors(opts: { stepTimeoutMs?: number; over?: Partial<LoopExecutors> } = {}) {
+  const children: FakeChild[] = []
+  const planInputs: InteractivePlanInput[] = []
+  const planInteractiveAiStep = vi.fn((input: InteractivePlanInput): InteractiveAiStepPlan => {
+    planInputs.push(input)
+    const child = makeFakeChild()
+    children.push(child)
+    return {
+      adapter: getAdapter('claude'),
+      spec: { binary: 'claude', args: ['-p', '--input-format', 'stream-json'], cwd: input.cwd },
+      stepTimeoutMs: opts.stepTimeoutMs ?? 15 * 60_000,
+      spawn: (() => child) as InteractiveAiStepPlan['spawn'],
+    }
+  })
+  return {
+    executors: makeExecutors({ planInteractiveAiStep, ...(opts.over ?? {}) }),
+    children,
+    planInputs,
+    planInteractiveAiStep,
+  }
+}
+
+function singleInteractiveGraph(aiStepTimeoutMinutes?: number): LoopGraph {
+  return {
+    nodes: [
+      { id: 's', type: 'start', position: { x: 0, y: 0 } },
+      { id: 'ai', type: 'ai-step', position: { x: 0, y: 1 }, data: { prompt: 'Implement {{spec.title}}' } },
+      { id: 'e', type: 'end', position: { x: 0, y: 2 } },
+    ],
+    edges: [
+      { id: 'e1', source: 's', target: 'ai' },
+      { id: 'e2', source: 'ai', target: 'e' },
+    ],
+    config: { maxIterations: 5, timeoutMinutes: 30, ...(aiStepTimeoutMinutes != null ? { aiStepTimeoutMinutes } : {}) },
+  }
+}
+
+describe('LoopRunManager interactive ai-steps', () => {
+  it('happy path: session spawned, first frame = rendered prompt, interactive row, quiescence advances', async () => {
+    const { executors, children, planInputs } = interactiveExecutors()
+    const mgr = manager(executors)
+    const p = mgr.run({ ...baseReq(), runId: 'run-int-1', graph: singleInteractiveGraph() })
+    await waitFor(() => children.length === 1, 'session spawn')
+
+    // First stdin frame IS the step's rendered prompt ({{spec.*}} resolved).
+    expect(children[0].stdinWrites.length).toBe(1)
+    expect(children[0].stdinWrites[0]).toContain('Implement Feature X')
+    expect(children[0].stdinWrites[0]).toContain('"role":"user"')
+    // The planner received the engine's spawn context.
+    expect(planInputs[0]).toMatchObject({ provider: 'claude', model: 'sonnet', cwd: '/repo' })
+    expect(planInputs[0].sessionId).toBeUndefined()
+    // The run's backing job row is flagged interactive while the step runs.
+    const job = getJob(db, 'run-int-1') as unknown as { interactive: number | null }
+    expect(job.interactive).toBe(1)
+    expect(mgr.isInteractiveJob('run-int-1')).toBe(true)
+
+    // Step-session availability flip (S3): a `job.interactive` broadcast marks
+    // the resident session as accepting turns the moment it spawns.
+    const stepOn = broadcasts.find((m) => m.type === 'job.interactive') as
+      { jobId: string; acceptingTurns: boolean; settleMode: string; projectId: string } | undefined
+    expect(stepOn).toBeDefined()
+    expect(stepOn!.jobId).toBe('run-int-1')
+    expect(stepOn!.acceptingTurns).toBe(true)
+    expect(stepOn!.settleMode).toBe('auto')
+    expect(stepOn!.projectId).toBe('p1')
+
+    // Session-streamed provider events reach the SAME job stream the one-shot
+    // path feeds: `event` with jobId + `log` with processId (part D).
+    children[0].stdout.push(assistantFrame())
+    await waitFor(() => broadcasts.some((m) => m.type === 'event' && (m as { event_type: string }).event_type === 'assistant'), 'assistant event')
+    const evt = broadcasts.find((m) => m.type === 'event' && (m as { event_type: string }).event_type === 'assistant') as { jobId: string }
+    expect(evt.jobId).toBe('run-int-1')
+    expect(broadcasts.some((m) => m.type === 'log' && (m as { line: string; processId?: string }).line === 'hello world' && (m as { processId?: string }).processId === 'run-int-1')).toBe(true)
+
+    // Turn result with nothing queued → quiescent → session settles → loop advances.
+    children[0].stdout.push(resultFrame({ result: 'step complete' }))
+    const res = await p
+    expect(res.outcome).toBe('success')
+    expect(mgr.isInteractiveJob('run-int-1')).toBe(false)
+
+    // Exactly ONE ai_invocations row for the step, carrying the session's
+    // accumulated REAL totals (no engine/session double-record).
+    const rows = db.prepare(`SELECT * FROM ai_invocations WHERE surface='loop' AND loop_run_id=?`).all(res.runId) as Array<Record<string, unknown>>
+    expect(rows.length).toBe(1)
+    expect(rows[0].status).toBe('success')
+    expect(rows[0].tokens_in).toBe(100)
+    expect(rows[0].tokens_out).toBe(200)
+    expect(rows[0].tokens_cache_read).toBe(10)
+    expect(rows[0].tokens_cache_create).toBe(5)
+    expect(rows[0].total_cost_usd).toBeCloseTo(0.05)
+    expect(rows[0].num_turns).toBe(3)
+    expect(rows[0].session_id).toBe('sess-1')
+    expect(rows[0].model).toBe('claude-opus-4-8')
+
+    // Persisted events share ONE monotonic seq space across engine + session
+    // writers (no collisions → GET /jobs/:id replays in order — part D).
+    const events = getJobEvents(db, res.runId)
+    const seqs = events.map((e) => e.seq)
+    expect(new Set(seqs).size).toBe(seqs.length)
+    expect(events.some((e) => e.event_type === 'loop_step')).toBe(true) // engine-written
+    expect(events.some((e) => e.event_type === 'assistant')).toBe(true) // session-written
+    expect(events.some((e) => e.event_type === 'result')).toBe(true)
+
+    // Run-level job.finalized still fires once, at run settle.
+    const fin = broadcasts.filter((m) => m.type === 'job.finalized')
+    expect(fin.length).toBe(1)
+    expect((fin[0] as { status: string }).status).toBe('completed')
+
+    // …and the settle side of the availability flip: the last `job.interactive`
+    // marks the session gone (between steps / run over → composer waits).
+    const flips = broadcasts.filter((m) => m.type === 'job.interactive') as Array<{ acceptingTurns: boolean }>
+    expect(flips.length).toBe(2)
+    expect(flips[flips.length - 1].acceptingTurns).toBe(false)
+  })
+
+  it('a mid-step user turn queues, extends the session, and accumulates onto the SINGLE step row', async () => {
+    const { executors, children } = interactiveExecutors()
+    const mgr = manager(executors)
+    const p = mgr.run({ ...baseReq(), runId: 'run-int-2', graph: singleInteractiveGraph() })
+    await waitFor(() => children.length === 1, 'session spawn')
+
+    // Steer while turn 1 streams — accepted + queued.
+    expect(mgr.sendInteractiveTurn('run-int-2', 'also update the docs')).toBe(true)
+    const userMsg = broadcasts.filter((m) => m.type === 'job.turn_user').pop() as { queued: boolean; jobId: string }
+    expect(userMsg.queued).toBe(true)
+    expect(userMsg.jobId).toBe('run-int-2')
+
+    // Turn 1 result → pending exists → the queued turn feeds; session does NOT settle.
+    children[0].stdout.push(resultFrame())
+    await waitFor(() => children[0].stdinWrites.length === 2, 'queued turn fed')
+    expect(children[0].stdinWrites[1]).toContain('also update the docs')
+    expect(children[0].killed).toBe(false)
+    expect(mgr.isInteractiveJob('run-int-2')).toBe(true)
+
+    // Turn 2 result, quiescent → settles → loop advances to End.
+    children[0].stdout.push(resultFrame({ total_cost_usd: 0.1, num_turns: 6, result: 'docs updated' }))
+    const res = await p
+    expect(res.outcome).toBe('success')
+
+    // ONE row for the step with BOTH turns' accumulated usage (tokens sum,
+    // cost/turns as cumulative deltas — the session's HIGH-2 semantics).
+    const rows = db.prepare(`SELECT * FROM ai_invocations WHERE surface='loop' AND loop_run_id=?`).all(res.runId) as Array<Record<string, unknown>>
+    expect(rows.length).toBe(1)
+    expect(rows[0].tokens_in).toBe(200)
+    expect(rows[0].total_cost_usd).toBeCloseTo(0.1)
+    expect(rows[0].num_turns).toBe(6)
+  })
+
+  it('finalizeInteractive settles the ACTIVE step now and the loop advances with what it produced', async () => {
+    const { executors, children } = interactiveExecutors()
+    const mgr = manager(executors)
+    const p = mgr.run({ ...baseReq(), runId: 'run-int-3', graph: singleInteractiveGraph() })
+    await waitFor(() => children.length === 1, 'session spawn')
+
+    // Turn 1 completes, a second turn starts (so the finalize lands mid-stream).
+    children[0].stdout.push(resultFrame({ result: 'first turn done' }))
+    // Auto-settle races the next send — queue the next turn BEFORE the result is
+    // processed so the session extends instead of settling.
+    expect(mgr.sendInteractiveTurn('run-int-3', 'keep going')).toBe(true)
+    await waitFor(() => children[0].stdinWrites.length === 2, 'turn 2 fed')
+
+    // Human clicks Finalize mid-turn-2 → settle-now ('finalized', not crashed).
+    expect(mgr.finalizeInteractive('run-int-3')).toBe(true)
+    const res = await p
+    expect(res.outcome).toBe('success') // step not failed → advances to End
+    expect(mgr.finalizeInteractive('run-int-3')).toBe(false) // session gone
+    expect(mgr.finalizeInteractive('run-unknown')).toBe(false)
+    const row = db.prepare(`SELECT status FROM ai_invocations WHERE surface='loop' AND loop_run_id=?`).get(res.runId) as { status: string }
+    expect(row.status).toBe('success')
+  })
+
+  it('iteration loops: one session per step, mid-pass resume, fresh at the iterate loop-back', async () => {
+    // continue → a1 (the FIRST body step) = iterate-per-item loop: the engine
+    // drops the resumed session at the loop-back, so pass 2's a1 plans FRESH.
+    const { executors, children, planInputs } = interactiveExecutors({
+      over: {
+        runDecider: (() => {
+          let d = 0
+          return vi.fn(async () => (++d >= 2
+            ? { continue: false, reasoning: 'done', parsed: true }
+            : { continue: true, reasoning: 'more', parsed: true }))
+        })(),
+      },
+    })
+    const mgr = manager(executors)
+    const p = mgr.run({ ...baseReq(), runId: 'run-int-4', graph: twoStepGraph('a1') })
+
+    // pass 1: a1 fresh → a2 resumes → decider(continue) → pass 2: a1 FRESH → a2 resumes → decider(stop)
+    for (let i = 0; i < 4; i++) {
+      await waitFor(() => children.length === i + 1, `step ${i + 1} session`)
+      children[i].stdout.push(resultFrame({ result: `step ${i + 1} ok` }))
+    }
+    const res = await p
+    expect(res.outcome).toBe('success')
+    expect(planInputs.length).toBe(4)
+    expect(planInputs[0].sessionId).toBeUndefined()   // a1 pass 1 — fresh
+    expect(planInputs[1].sessionId).toBe('sess-1')    // a2 pass 1 — resumes within the pass
+    expect(planInputs[2].sessionId).toBeUndefined()   // a1 pass 2 — RESET at loop-back
+    expect(planInputs[3].sessionId).toBe('sess-1')    // a2 pass 2 — resumes again
+    // One ai_invocations row PER step (4 steps + 2 deciders).
+    const n = (db.prepare(`SELECT COUNT(*) AS n FROM ai_invocations WHERE surface='loop' AND loop_run_id=?`).get(res.runId) as { n: number }).n
+    expect(n).toBe(6)
+  })
+
+  it('step timeout aborts the session (fold → crashed), records the step failed, never leaks the child', async () => {
+    const { executors, children } = interactiveExecutors({ stepTimeoutMs: 40 })
+    const mgr = manager(executors)
+    const p = mgr.run({ ...baseReq(), runId: 'run-int-5', graph: singleInteractiveGraph() })
+    await waitFor(() => children.length === 1, 'session spawn')
+    // The child streams work but never yields a `result` — the step timeout is
+    // the sole watchdog and must bound the WHOLE step.
+    children[0].stdout.push(assistantFrame('grinding'))
+
+    const res = await p // resolves via the 40ms abort
+    expect(res.outcome).toBe('success') // single-step graph still reaches End (step failed, run not)
+    expect(children[0].killed).toBe(true)
+    expect(mgr.isInteractiveJob('run-int-5')).toBe(false)
+    // The timeout note reached the transcript.
+    expect(broadcasts.some((m) => m.type === 'log' && /AI step timed out/.test((m as { line: string }).line))).toBe(true)
+    // The step row is failed — and the folded in-flight turn's usage is kept.
+    const row = db.prepare(`SELECT status, tokens_in FROM ai_invocations WHERE surface='loop' AND loop_run_id=?`).get(res.runId) as { status: string; tokens_in: number | null }
+    expect(row.status).toBe('failed')
+  })
+
+  it('cancel mid-step aborts the session and settles the run stopped', async () => {
+    const { executors, children } = interactiveExecutors()
+    const mgr = manager(executors)
+    const p = mgr.run({ ...baseReq(), runId: 'run-int-6', graph: singleInteractiveGraph() })
+    await waitFor(() => children.length === 1, 'session spawn')
+    mgr.cancel('run-int-6')
+    const res = await p
+    expect(res.outcome).toBe('stopped')
+    expect(children[0].killed).toBe(true)
+    expect(mgr.isInteractiveJob('run-int-6')).toBe(false)
+    expect(getLoopRun(db, res.runId)!.final_outcome).toBe('stopped')
+  })
+
+  it('shutdown() disposes resident sessions without settling (project removal / process exit)', async () => {
+    const { executors, children } = interactiveExecutors()
+    const mgr = manager(executors)
+    // Deliberately NOT awaited — dispose never settles, mirroring QueueManager;
+    // the startup orphan sweeps reconcile the rows on next boot.
+    void mgr.run({ ...baseReq(), runId: 'run-int-7', graph: singleInteractiveGraph() })
+    await waitFor(() => children.length === 1, 'session spawn')
+    mgr.shutdown()
+    expect(children[0].killed).toBe(true)
+    expect(mgr.isInteractiveJob('run-int-7')).toBe(false)
+    await tick() // the disposed session's close must NOT settle/record anything
+    const n = (db.prepare(`SELECT COUNT(*) AS n FROM ai_invocations WHERE surface='loop'`).get() as { n: number }).n
+    expect(n).toBe(0)
+  })
+
+  it('sendInteractiveTurn routes only to the ACTIVE step session (false between/after steps)', async () => {
+    const { executors, children } = interactiveExecutors()
+    const mgr = manager(executors)
+    expect(mgr.sendInteractiveTurn('run-int-8', 'too early')).toBe(false)
+    const p = mgr.run({ ...baseReq(), runId: 'run-int-8', graph: singleInteractiveGraph() })
+    await waitFor(() => children.length === 1, 'session spawn')
+    expect(mgr.sendInteractiveTurn('run-int-8', 'mid-step')).toBe(true)
+    children[0].stdout.push(resultFrame())
+    await waitFor(() => children[0].stdinWrites.length === 2, 'queued turn fed')
+    children[0].stdout.push(resultFrame({ total_cost_usd: 0.1, num_turns: 6 }))
+    await p
+    expect(mgr.sendInteractiveTurn('run-int-8', 'too late')).toBe(false)
+  })
+
+  it('structured events: loop_step_end lands AFTER the session\'s final persisted frames (seq pin)', async () => {
+    const { executors, children } = interactiveExecutors()
+    const mgr = manager(executors)
+    const p = mgr.run({ ...baseReq(), runId: 'run-int-ev', graph: singleInteractiveGraph() })
+    await waitFor(() => children.length === 1, 'session spawn')
+    children[0].stdout.push(assistantFrame('working on it'))
+    await waitFor(() => broadcasts.some((m) => m.type === 'event' && (m as { event_type: string }).event_type === 'assistant'), 'assistant event')
+    children[0].stdout.push(resultFrame({ result: 'step complete' }))
+    const res = await p
+    expect(res.outcome).toBe('success')
+
+    const events = getJobEvents(db, res.runId)
+    const ends = events.filter((e) => e.event_type === 'loop_step_end')
+    expect(ends.length).toBe(1)
+    // The end event's seq is GREATER than every session-persisted frame's —
+    // the shared allocator keeps replay order: step output first, then its end.
+    const sessionFrames = events.filter((e) => e.event_type === 'assistant' || e.event_type === 'result')
+    expect(sessionFrames.length).toBeGreaterThan(0)
+    for (const frame of sessionFrames) expect(ends[0].seq).toBeGreaterThan(frame.seq)
+    expect(JSON.parse(ends[0].payload)).toMatchObject({ index: 1, nodeId: 'ai', status: 'ok', exitCode: null })
+  })
+
+  it('structured events: a timed-out interactive step ends status=failed', async () => {
+    const { executors, children } = interactiveExecutors({ stepTimeoutMs: 40 })
+    const mgr = manager(executors)
+    const p = mgr.run({ ...baseReq(), runId: 'run-int-ev-to', graph: singleInteractiveGraph() })
+    await waitFor(() => children.length === 1, 'session spawn')
+    children[0].stdout.push(assistantFrame('grinding')) // never yields a result → 40ms abort
+    const res = await p
+    const ends = getJobEvents(db, res.runId).filter((e) => e.event_type === 'loop_step_end').map((e) => JSON.parse(e.payload) as { nodeId: string; status: string })
+    expect(ends.length).toBe(1)
+    expect(ends[0]).toMatchObject({ nodeId: 'ai', status: 'failed' })
+  })
+
+  it('structured events: cancel mid-step still closes the aborted step with a failed end', async () => {
+    const { executors, children } = interactiveExecutors()
+    const mgr = manager(executors)
+    const p = mgr.run({ ...baseReq(), runId: 'run-int-ev-cancel', graph: singleInteractiveGraph() })
+    await waitFor(() => children.length === 1, 'session spawn')
+    mgr.cancel('run-int-ev-cancel')
+    const res = await p
+    expect(res.outcome).toBe('stopped')
+    const ends = getJobEvents(db, res.runId).filter((e) => e.event_type === 'loop_step_end').map((e) => JSON.parse(e.payload) as { nodeId: string; status: string })
+    expect(ends.length).toBe(1)
+    expect(ends[0]).toMatchObject({ nodeId: 'ai', status: 'failed' })
+  })
+
+  it('structured events: shutdown mid-step leaves the step WITHOUT an end event (missing-end = interrupted)', async () => {
+    const { executors, children } = interactiveExecutors()
+    const mgr = manager(executors)
+    // Deliberately NOT awaited — dispose never settles the step's promise.
+    void mgr.run({ ...baseReq(), runId: 'run-int-ev-shut', graph: singleInteractiveGraph() })
+    await waitFor(() => children.length === 1, 'session spawn')
+    mgr.shutdown()
+    await tick()
+    const events = getJobEvents(db, 'run-int-ev-shut')
+    expect(events.some((e) => e.event_type === 'loop_step')).toBe(true) // the step opened…
+    expect(events.some((e) => e.event_type === 'loop_step_end')).toBe(false) // …and was never closed
+  })
+
+  it('isolated-rail pin: the worktree cwd/repoDir reach the planner + the step timeout is threaded', async () => {
+    const { executors, children, planInputs } = interactiveExecutors()
+    const mgr = manager(executors)
+    const p = mgr.run({
+      ...baseReq(),
+      runId: 'run-int-9',
+      cwd: '/wt/ticket-42',
+      repoDir: '/wt/ticket-42', // rail-isolated-launch passes worktree for BOTH
+      graph: singleInteractiveGraph(2), // aiStepTimeoutMinutes: 2
+      isolation: { branch: 'sr/t-42', worktreePath: '/wt/ticket-42' },
+    })
+    await waitFor(() => children.length === 1, 'session spawn')
+    expect(planInputs[0]).toMatchObject({
+      cwd: '/wt/ticket-42',
+      repoDir: '/wt/ticket-42',
+      aiStepTimeoutMs: 2 * 60_000,
+    })
+    children[0].stdout.push(resultFrame({ result: 'done' }))
+    const res = await p
+    expect(res.outcome).toBe('success')
+  })
+})
+
+// ─── Zero-work ai-steps (run 01f41203: synthetic "Unknown command" frame) ─────
+// The claude CLI answers an unresolvable command with a SYNTHETIC success
+// result frame (num_turns 0, cost 0, no assistant events, result = 'Unknown
+// command: …') — no model ever ran. A step whose settle is zero-work is FAILED
+// and routes exactly like a crashed step (fail-fast counting included), so the
+// factory loop can never "succeed" without implementing.
+
+/** The EXACT synthetic frame shape captured from the live run. */
+function syntheticUnknownCommandFrame(command = '/specrails:implement'): string {
+  return JSON.stringify({
+    type: 'result',
+    subtype: 'success',
+    is_error: false,
+    num_turns: 0,
+    total_cost_usd: 0,
+    duration_api_ms: 0,
+    result: `Unknown command: ${command}`,
+  }) + '\n'
+}
+
+// Start → a1 → a2 → End: two consecutive ai-steps, no decider — the minimal
+// graph where a first-step failure (crashed OR zero-work) trips the fail-fast
+// threshold on the second and settles the RUN failed.
+function twoAiStepGraph(): LoopGraph {
+  return {
+    nodes: [
+      { id: 's', type: 'start', position: { x: 0, y: 0 } },
+      { id: 'a1', type: 'ai-step', position: { x: 0, y: 1 }, data: { prompt: '{{cmd:implement}}' } },
+      { id: 'a2', type: 'ai-step', position: { x: 0, y: 2 }, data: { prompt: 'verify' } },
+      { id: 'e', type: 'end', position: { x: 0, y: 3 } },
+    ],
+    edges: [
+      { id: 'e1', source: 's', target: 'a1' },
+      { id: 'e2', source: 'a1', target: 'a2' },
+      { id: 'e3', source: 'a2', target: 'e' },
+    ],
+    config: { maxIterations: 5, timeoutMinutes: 30 },
+  }
+}
+
+describe('LoopRunManager zero-work ai-steps', () => {
+  function endPayloads(runId: string): Array<{ nodeId: string; status: string }> {
+    return getJobEvents(db, runId)
+      .filter((e) => e.event_type === 'loop_step_end')
+      .map((e) => JSON.parse(e.payload) as { nodeId: string; status: string })
+  }
+
+  it("interactive step: the synthetic frame fails the step — loop_step_end status='failed', row failed, text visible", async () => {
+    const { executors, children } = interactiveExecutors()
+    const mgr = manager(executors)
+    const p = mgr.run({ ...baseReq(), runId: 'run-zw-1', graph: singleInteractiveGraph() })
+    await waitFor(() => children.length === 1, 'session spawn')
+    children[0].stdout.push(syntheticUnknownCommandFrame('/specrails:implement'))
+    const res = await p
+
+    // The step ended FAILED (was 'ok' before the fix — the factory loop then
+    // "succeeded" via verify/fix without implementing).
+    const ends = endPayloads(res.runId)
+    expect(ends.length).toBe(1)
+    expect(ends[0]).toMatchObject({ nodeId: 'ai', status: 'failed' })
+    // One zero-work step alone does not abort the run — the graph routes on,
+    // exactly like a crashed step today (single-step graph reaches End).
+    expect(res.outcome).toBe('success')
+
+    // The step's ai_invocations row is failed.
+    const row = db.prepare(`SELECT status, total_cost_usd, num_turns FROM ai_invocations WHERE surface='loop' AND loop_run_id=?`).get(res.runId) as { status: string; total_cost_usd: number; num_turns: number }
+    expect(row.status).toBe('failed')
+    expect(row.num_turns).toBe(0)
+
+    // The 'Unknown command' text lands VISIBLY as a stderr-style line INSIDE
+    // the step's segment (before its loop_step_end — Template/Command flat-log
+    // lines are gone, so this is the only visible trace of the reason).
+    const events = getJobEvents(db, res.runId)
+    const note = events.find(
+      (e) => e.event_type === 'log' && ((JSON.parse(e.payload) as { line?: string }).line ?? '').includes('Unknown command: /specrails:implement'),
+    )
+    expect(note).toBeTruthy()
+    const end = events.find((e) => e.event_type === 'loop_step_end')!
+    expect(note!.seq).toBeLessThan(end.seq)
+    // …and it reached the live stream as a stderr log broadcast.
+    expect(broadcasts.some((m) => m.type === 'log' && (m as { source?: string }).source === 'stderr' && ((m as { line?: string }).line ?? '').includes('Unknown command'))).toBe(true)
+  })
+
+  it('routing pin: a zero-work FIRST step fails the run the SAME way a crashed first step does', async () => {
+    // Run A — crashed steps (child dies without a result): today's policy is
+    // continue + fail-fast, aborting the run on the 2nd consecutive failure.
+    const crashed = interactiveExecutors()
+    const pA = manager(crashed.executors).run({ ...baseReq(), runId: 'run-zw-crash', graph: twoAiStepGraph() })
+    await waitFor(() => crashed.children.length === 1, 'crashed a1 spawn')
+    crashed.children[0].emit('close', 1)
+    await waitFor(() => crashed.children.length === 2, 'crashed a2 spawn')
+    crashed.children[1].emit('close', 1)
+    const resA = await pA
+
+    // Run B — zero-work steps (the synthetic frame): must take the SAME path.
+    const zw = interactiveExecutors()
+    const pB = manager(zw.executors).run({ ...baseReq(), runId: 'run-zw-pin', graph: twoAiStepGraph() })
+    await waitFor(() => zw.children.length === 1, 'zw a1 spawn')
+    zw.children[0].stdout.push(syntheticUnknownCommandFrame())
+    await waitFor(() => zw.children.length === 2, 'zw a2 spawn')
+    zw.children[1].stdout.push(syntheticUnknownCommandFrame())
+    const resB = await pB
+
+    // Identical routing: both runs abort 'failed' via the fail-fast threshold
+    // after exactly two ai-steps, with identical per-step end statuses.
+    // durationMs is wall-clock noise (0 vs 1 ms flake) — normalize it out.
+    const stripDuration = (ends: Array<{ nodeId: string; status: string }>) =>
+      ends.map(({ durationMs: _d, ...rest }: { nodeId: string; status: string; durationMs?: number }) => rest)
+    expect(resA.outcome).toBe('failed')
+    expect(resB.outcome).toBe(resA.outcome)
+    expect(zw.children.length).toBe(crashed.children.length)
+    expect(stripDuration(endPayloads(resB.runId))).toEqual(stripDuration(endPayloads(resA.runId)))
+    expect(getLoopRun(db, resB.runId)!.final_outcome).toBe(getLoopRun(db, resA.runId)!.final_outcome)
+  })
+
+  it('one-shot path: an all-zero result (no turns, no tokens, no text) is detected by the engine and fails the step', async () => {
+    // The one-shot claude spawn of the same bug: the synthetic frame yields
+    // num_turns 0 / zero usage / native cost 0 and NO assistant text-deltas.
+    const g: LoopGraph = {
+      nodes: [
+        { id: 's', type: 'start', position: { x: 0, y: 0 } },
+        { id: 'ai', type: 'ai-step', position: { x: 0, y: 1 }, data: { prompt: '{{cmd:implement}}' } },
+        { id: 'e', type: 'end', position: { x: 0, y: 2 } },
+      ],
+      edges: [
+        { id: 'e1', source: 's', target: 'ai' },
+        { id: 'e2', source: 'ai', target: 'e' },
+      ],
+      config: { maxIterations: 5, timeoutMinutes: 30 },
+    }
+    const runAiStep = vi.fn(async () => ({
+      text: '',
+      cost: 0,
+      tokens: 0,
+      tokensIn: 0,
+      tokensOut: 0,
+      tokensCacheRead: 0,
+      tokensCacheCreate: 0,
+      numTurns: 0,
+      provider: 'claude',
+      model: 'sonnet',
+    }))
+    const res = await manager(makeExecutors({ runAiStep })).run({ ...baseReq(), graph: g })
+
+    const ends = endPayloads(res.runId)
+    expect(ends[0]).toMatchObject({ nodeId: 'ai', status: 'failed' })
+    const row = db.prepare(`SELECT status FROM ai_invocations WHERE surface='loop' AND loop_run_id=?`).get(res.runId) as { status: string }
+    expect(row.status).toBe('failed')
+    // The engine surfaces its own zero-work note (no session exists to do it).
+    const note = getJobEvents(db, res.runId).find(
+      (e) => e.event_type === 'log' && ((JSON.parse(e.payload) as { line?: string }).line ?? '').includes('Zero work performed'),
+    )
+    expect(note).toBeTruthy()
+  })
+
+  it('one-shot path: a productive step (assistant text streamed) is NOT flagged zero-work', async () => {
+    // The default fixture reports text but no numeric fields at all — the
+    // engine must treat streamed assistant text as work, never failing it.
+    const res = await manager(makeExecutors()).run(baseReq())
+    expect(res.outcome).toBe('success')
+    const aiEnd = endPayloads(res.runId).find((e) => e.nodeId === 'ai')!
+    expect(aiEnd.status).toBe('ok')
+    const row = db.prepare(`SELECT status FROM ai_invocations WHERE surface='loop' AND loop_run_id=? AND surface_ref_id NOT LIKE '%decider'`).get(res.runId) as { status: string }
+    expect(row.status).toBe('success')
+  })
+})
+
+// ─── Structured run events: loop_graph / loop_step / loop_step_end ───────────
+// The premium loop-step log explorer's server contract: a per-run graph
+// snapshot first, an enriched loop_step before each step, a loop_step_end at
+// each step's tail — all persisted on the run's job row + broadcast.
+
+describe('LoopRunManager structured run events', () => {
+  /** Payloads of one persisted event type, in seq order. */
+  function payloads(runId: string, eventType: string): Array<Record<string, unknown>> {
+    return getJobEvents(db, runId)
+      .filter((e) => e.event_type === eventType)
+      .map((e) => JSON.parse(e.payload) as Record<string, unknown>)
+  }
+
+  it('emits loop_graph ONCE at run start — before the first loop_step, with the verbatim graph snapshot', async () => {
+    const req = baseReq()
+    const res = await manager(makeExecutors()).run(req)
+
+    const events = getJobEvents(db, res.runId)
+    const graphEvents = events.filter((e) => e.event_type === 'loop_graph')
+    expect(graphEvents.length).toBe(1)
+    // Exact payload: the run's graph VERBATIM (snapshot survives later loop
+    // edits/deletes) + the run identity/config the client renders from.
+    expect(JSON.parse(graphEvents[0].payload)).toEqual({
+      graph: req.graph,
+      loopId: 'loop-1',
+      loopName: 'Ship & Verify',
+      provider: 'claude',
+      model: 'sonnet',
+      iterationLimit: 10,
+    })
+    // Ordering: snapshot precedes the first step in the persisted seq order.
+    const firstStep = events.find((e) => e.event_type === 'loop_step')!
+    expect(graphEvents[0].seq).toBeLessThan(firstStep.seq)
+    // The broadcast mirror also fired exactly once.
+    const bc = broadcasts.filter((m) => m.type === 'event' && (m as { event_type: string }).event_type === 'loop_graph')
+    expect(bc.length).toBe(1)
+  })
+
+  it('loop_step carries nodeId + 1-based iteration, incrementing across iterations (decider included)', async () => {
+    let d = 0
+    const ex = makeExecutors({
+      runDecider: vi.fn(async () => (++d >= 2
+        ? { continue: false, reasoning: 'done', parsed: true }
+        : { continue: true, reasoning: 'more', parsed: true })),
+    })
+    const res = await manager(ex).run(baseReq())
+    expect(res.iterations).toBe(2)
+
+    const steps = payloads(res.runId, 'loop_step')
+    // pass 1: ai → shell → decider (continue) / pass 2: ai → shell → decider (stop)
+    expect(steps.map((s) => [s.kind, s.nodeId, s.iteration])).toEqual([
+      ['ai-step', 'ai', 1],
+      ['shell', 'sh', 1],
+      ['decider', 'd', 1],
+      ['ai-step', 'ai', 2],
+      ['shell', 'sh', 2],
+      ['decider', 'd', 2],
+    ])
+    // index is a run-wide monotonic ordinal; title is always present.
+    expect(steps.map((s) => s.index)).toEqual([1, 2, 3, 4, 5, 6])
+    expect(steps.every((s) => typeof s.title === 'string' && (s.title as string).length > 0)).toBe(true)
+    // The decider end events carry the routed verdicts: continue then stop.
+    const deciderEnds = payloads(res.runId, 'loop_step_end').filter((e) => e.nodeId === 'd')
+    expect(deciderEnds.map((e) => e.decision)).toEqual(['continue', 'stop'])
+  })
+
+  it('emits loop_step_end per kind: ai-step (null exitCode), shell (real exitCode), decider (decision)', async () => {
+    const ex = makeExecutors({
+      // Non-zero shell exit → the step end must carry the REAL code and flag failed.
+      runShell: vi.fn(async () => ({ stdout: 'boom', stderr: '', exitCode: 2, durationMs: 7 })),
+    })
+    const res = await manager(ex).run(baseReq())
+
+    const events = getJobEvents(db, res.runId)
+    const ends = payloads(res.runId, 'loop_step_end')
+    expect(ends.length).toBe(3) // ai + shell + decider, one end each
+    // ai-step: ok, no exit code exposed, no decision.
+    expect(ends[0]).toMatchObject({ index: 1, nodeId: 'ai', status: 'ok', exitCode: null })
+    expect(ends[0].decision).toBeUndefined()
+    // shell: executor-reported duration + real exit code; non-zero ⇒ failed.
+    expect(ends[1]).toMatchObject({ index: 2, nodeId: 'sh', status: 'failed', exitCode: 2, durationMs: 7 })
+    // decider: verdict included; parseable ⇒ ok.
+    expect(ends[2]).toMatchObject({ index: 3, nodeId: 'd', status: 'ok', exitCode: null, decision: 'stop' })
+    // Tail ordering: the shell end sits after the step's last output line (`(exit 2)`).
+    const exitLog = events.find((e) => e.event_type === 'log' && ((JSON.parse(e.payload) as { line?: string }).line ?? '').startsWith('(exit'))!
+    const shellEnd = events.filter((e) => e.event_type === 'loop_step_end')[1]
+    expect(shellEnd.seq).toBeGreaterThan(exitLog.seq)
+    // durationMs is always a number (wall-clock fallback when the executor omits it).
+    expect(ends.every((e) => typeof e.durationMs === 'number')).toBe(true)
+  })
+
+  it('a hard-failed AI step ends status=failed', async () => {
+    const ex = makeExecutors({
+      runAiStep: vi.fn(async () => ({ text: 'partial', failed: true, errorText: 'exited 1', provider: 'claude', model: 'sonnet' })),
+    })
+    const res = await manager(ex).run(baseReq())
+    const ends = payloads(res.runId, 'loop_step_end')
+    expect(ends[0]).toMatchObject({ index: 1, nodeId: 'ai', status: 'failed', exitCode: null })
+  })
+
+  it('an unparseable Decider verdict ends status=failed but still carries the routed decision', async () => {
+    const ex = makeExecutors({
+      runDecider: vi.fn(async () => ({ continue: true, reasoning: '(could not parse)', parsed: false, provider: 'claude', model: 'sonnet' })),
+    })
+    const res = await manager(ex).run({ ...baseReq(), graph: loopGraph(1) })
+    const deciderEnds = payloads(res.runId, 'loop_step_end').filter((e) => e.nodeId === 'd')
+    expect(deciderEnds.length).toBe(1)
+    expect(deciderEnds[0]).toMatchObject({ status: 'failed', decision: 'continue' })
+  })
+
+  it('a shell step refused for a missing run-variable ends failed with null exitCode (never spawned)', async () => {
+    const graph: LoopGraph = {
+      nodes: [
+        { id: 's', type: 'start', position: { x: 0, y: 0 } },
+        { id: 'arch', type: 'shell', position: { x: 0, y: 1 }, data: { command: 'openspec archive {{run.changeId}} -y', requireRunVars: ['changeId'] } },
+        { id: 'e', type: 'end', position: { x: 0, y: 2 } },
+      ],
+      edges: [
+        { id: 'e1', source: 's', target: 'arch' },
+        { id: 'e2', source: 'arch', target: 'e' },
+      ],
+      config: { maxIterations: 5, timeoutMinutes: 30 },
+    }
+    const res = await manager(makeExecutors()).run({ ...baseReq(), graph })
+    expect(res.outcome).toBe('failed')
+    const ends = payloads(res.runId, 'loop_step_end')
+    expect(ends.length).toBe(1)
+    expect(ends[0]).toMatchObject({ nodeId: 'arch', status: 'failed', exitCode: null })
+  })
+
+  // ── loop_step detail fields (template/command) + log-hygiene ───────────────
+  // The old `Template: …` / `Command: …` flat-log lines were noise once the
+  // step explorer landed — the info now rides the loop_step payload instead,
+  // so the step body opens directly on real output.
+
+  it('ai-step loop_step carries template (authored) + command (rendered); no Template:/Command: log lines', async () => {
+    const res = await manager(makeExecutors()).run(baseReq())
+
+    const steps = payloads(res.runId, 'loop_step')
+    const ai = steps.find((s) => s.kind === 'ai-step')!
+    // Authored template verbatim; command = the rendered prompt ({{spec.title}} resolved).
+    expect(ai.template).toBe('Implement {{spec.title}}')
+    expect(ai.command).toBe('Implement Feature X')
+    // shell/decider steps carry NO detail fields (their real signal — `$ cmd`,
+    // `Goal: …` — stays in the flat log).
+    const sh = steps.find((s) => s.kind === 'shell')!
+    const dec = steps.find((s) => s.kind === 'decider')!
+    expect(sh.template).toBeUndefined()
+    expect(sh.command).toBeUndefined()
+    expect(dec.template).toBeUndefined()
+    expect(dec.command).toBeUndefined()
+
+    // The noise lines are GONE from the persisted log stream for ALL steps…
+    const logLines = getJobEvents(db, res.runId)
+      .filter((e) => e.event_type === 'log')
+      .map((e) => (JSON.parse(e.payload) as { line?: string }).line ?? '')
+    expect(logLines.some((l) => l.startsWith('Template:'))).toBe(false)
+    expect(logLines.some((l) => l.startsWith('Command:'))).toBe(false)
+    // …while the REAL per-kind signal lines survive.
+    expect(logLines.some((l) => l.startsWith('$ npm test'))).toBe(true)
+    expect(logLines.some((l) => l.startsWith('Goal: tests pass'))).toBe(true)
+  })
+
+  it('a plain free-text prompt (rendering changed nothing) emits command only — template omitted', async () => {
+    const graph = loopGraph(1)
+    graph.nodes[1].data = { prompt: 'just do the work' }
+    const res = await manager(makeExecutors()).run({ ...baseReq(), graph })
+
+    const ai = payloads(res.runId, 'loop_step').find((s) => s.kind === 'ai-step')!
+    expect(ai.command).toBe('just do the work')
+    expect(ai.template).toBeUndefined() // would just duplicate command
+  })
+
+  it('caps the detail fields with an ellipsis (template ~1000, command ~2000) — payloads persist per event', async () => {
+    const graph = loopGraph(1)
+    graph.nodes[1].data = { prompt: 'X'.repeat(3000) + ' {{spec.title}}' }
+    const res = await manager(makeExecutors()).run({ ...baseReq(), graph })
+
+    const ai = payloads(res.runId, 'loop_step').find((s) => s.kind === 'ai-step')!
+    expect((ai.template as string).length).toBe(1001)
+    expect((ai.template as string).endsWith('…')).toBe(true)
+    expect((ai.command as string).length).toBe(2001)
+    expect((ai.command as string).endsWith('…')).toBe(true)
   })
 })

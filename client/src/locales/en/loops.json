@@ -164,7 +164,9 @@
   },
   "preview": {
     "steps": "Steps",
-    "limits": "{{iterations}} iterations max · {{timeout}} min timeout"
+    "limits": "{{iterations}} iterations max · {{timeout}} min timeout",
+    "openInBuilder": "Open in builder",
+    "builtin": "Built-in"
   },
   "builtInBadge": "Built-in",
   "run": {

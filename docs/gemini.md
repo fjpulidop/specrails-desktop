@@ -112,7 +112,7 @@ single-provider project — no engine pickers, no provider persisted on spawns.
 | **Freestyle rails** | ✅ | ❌ Claude-only | ❌ Claude-only |
 | **Agent profiles on rails** | ✅ | ❌ forced legacy | ❌ forced legacy |
 | **SMASH / Contract Refine** | ✅ | ❌ Claude-only | ❌ Claude-only |
-| **Plugins (Serena)** | ✅ | ❌ | ✅ |
+| **Plugins (Serena)** | ✅ | ❌ | ⚠️ offered, doesn't load (known gap) |
 
 A few of these deserve a fuller explanation:
 
@@ -132,9 +132,20 @@ A few of these deserve a fuller explanation:
   forces the profile to `null` (legacy mode) for any non-Claude engine. (UI
   limitation: the rail header may still render a profile picker for a Gemini
   rail, but the server ignores the selection.)
-- **Plugins do work.** Unlike Codex, Gemini uses `project-json` MCP
-  registration (like Claude), so `project-json` plugins such as **Serena**
-  load for Gemini rails.
+- **Plugins are offered but don't actually load (known gap).** Gemini is
+  declared a `project-json` MCP provider, so the Integrations page offers
+  plugins such as **Serena** and installing one writes
+  `<project>/.mcp.json` — but gemini-cli has **never read `.mcp.json`**
+  (a Claude convention). Its only MCP surface is `mcpServers` in
+  `settings.json` (`~/.gemini/` or `<cwd>/.gemini/`), so the plugin's MCP
+  server silently never loads in Gemini rail spawns. Fixing this means
+  writing into the repo's `.gemini/settings.json`, which conflicts with
+  the keep-the-repo-pristine policy — it's a deliberate deferred change.
+  (The desktop **Agent Chat** registers its own Specrails MCP for Gemini
+  correctly, via `.gemini/settings.json` in the app-owned agent cwd plus
+  `GEMINI_CLI_TRUST_WORKSPACE=true`; there Gemini sees the tools with an
+  FQN prefix, `mcp_specrails_<name>`.) Details:
+  [internals/gemini-mcp-registration.md](internals/gemini-mcp-registration.md).
 
 ## How rails work headlessly (`prepareHeadlessSpawn`)
 

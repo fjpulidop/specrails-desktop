@@ -155,7 +155,7 @@ Most settings live in the UI. A few app-level switches are env-only because they
 | `SPECRAILS_JIRA_SECTION=false` | Hide the Jira integration and 404 its routes |
 | `SPECRAILS_TERMINAL_PANEL=false` | Disable the bottom terminal panel everywhere |
 | `SPECRAILS_CODE_EXPLORER=false` | Disable the Code section server-side |
-| `SPECRAILS_INTERACTIVE_JOBS=false` | Reject the interactive Freestyle toggle and the per-job message/finalize routes |
+| `SPECRAILS_INTERACTIVE_JOBS=false` | Disable interactive jobs everywhere (every Claude job — and every Claude loop step — is interactive by default): jobs fall back to the legacy one-shot spawn and the per-job message/finalize routes return 403 |
 | `SPECRAILS_BROWSER_CAPTURE=false` | Disable Add-Spec-from-browser capture |
 | `SPECRAILS_CODEX_BETA=0` | Emergency rollback — disable the Codex provider (only the exact string `0`; the legacy `SPECRAILS_HUB_CODEX_BETA` is read as a fallback **only when `SPECRAILS_CODEX_BETA` is unset**) |
 | `SPECRAILS_GEMINI_BETA=0` | Emergency rollback — disable the Gemini provider (default unset = enabled; only the exact string `0` disables; **no legacy fallback name**) |
@@ -175,7 +175,7 @@ These feature flags are **default ON**. Set the flag to `false` to hide the feat
 | `VITE_FEATURE_AGENTS_SECTION=false` | Hide the Agents section |
 | `VITE_FEATURE_CODE_EXPLORER=false` | Hide the Code section |
 | `VITE_FEATURE_JIRA=false` | Hide the Jira integration UI (settings section + spec badges) |
-| `VITE_FEATURE_INTERACTIVE_JOBS=false` | Hide the interactive Freestyle UI (rail "Interactive" toggle + in-job chat + Finalize) |
+| `VITE_FEATURE_INTERACTIVE_JOBS=false` | Hide the in-job chat UI (the composer on Job Detail / the job modal, plus its Finalize / Wrap-up actions) |
 | `VITE_FEATURE_EXPLORE_REVIEW=false` | Disable the Review step in the Explore shell |
 | `VITE_FEATURE_EXPLORE_PREMIUM_UX=false` | Disable the "Conectando…/Pensando…/Consultando código…" pills above the Explore streaming bubble |
 

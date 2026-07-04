@@ -2,14 +2,16 @@ import { useState, useEffect, useCallback, useRef } from 'react'
 import { useTranslation } from 'react-i18next'
 import { SortableContext, verticalListSortingStrategy, useSortable } from '@dnd-kit/sortable'
 import { CSS } from '@dnd-kit/utilities'
-import { Layers, Plus } from 'lucide-react'
+import { Layers, Plus, Rocket } from 'lucide-react'
 import { RailRow } from './RailRow'
+import { railIdFromIndex, railIndexFromId } from '../lib/rail-id'
 import type { RailMode, RailStatus } from './RailControls'
 import type { UltracodeModel } from './agents/RailModelSelector'
 import type { ReasoningEffort } from './agents/RailEffortSelector'
-import type { LocalTicket } from '../types'
+import type { LocalTicket, RailPrDecision, RailPrDecisionAction, RailPrStateSnapshot } from '../types'
 import { worktreeSummary, type RailWorktreeMap } from '../lib/worktree-progress'
 import type { RailExecMetric } from '../context/RailMetricsContext'
+import type { RailPrActResult } from '../context/RailPrDecisionContext'
 
 export const RAIL_SORT_PREFIX = '__rail:'
 export function railSortId(railId: string) { return `${RAIL_SORT_PREFIX}${railId}` }
@@ -58,8 +60,14 @@ export function applyRailJobOutcome(
   jobTicketIds: number[],
 ): RailState[] {
   const strip = new Set(jobTicketIds)
+  // IDENTITY mapping: the server railIndex targets the rail whose id encodes it
+  // (`rail-N` ↔ N-1) — array POSITION would hit the wrong rail after a board
+  // reorder or a middle-rail deletion. Positional fallback only when no rail
+  // carries the canonical id (exotic/test fixtures).
+  const targetId = railIdFromIndex(targetIndex)
+  const hasIdMatch = rails.some((r) => r.id === targetId)
   return rails.map((r, idx) =>
-    idx === targetIndex
+    (hasIdMatch ? r.id === targetId : idx === targetIndex)
       ? {
           ...r,
           status: 'idle' as const,
@@ -77,6 +85,10 @@ interface RailsBoardProps {
   railWorktrees?: RailWorktreeMap
   /** Per-rail live execution metrics (elapsed/steps/lines), keyed by railIndex. */
   railMetrics?: Record<number, RailExecMetric>
+  /** Active ask-first PR decisions keyed by railIndex (safe-pr-review-flow). */
+  railPrDecisions?: Map<number, RailPrStateSnapshot>
+  /** POSTs /rails/pr-decision for a rail's active delivery. */
+  onPrDecision?: (railIndex: number, action: RailPrDecisionAction, expectedDecision: RailPrDecision) => Promise<RailPrActResult>
   /** Installed providers — when >1 the rail header shows an AI engine selector. */
   providers?: readonly string[]
   onModeChange: (railId: string, mode: RailMode) => void
@@ -95,6 +107,11 @@ interface RailsBoardProps {
   onRenameRail: (railId: string, newLabel: string) => void
   /** Right-click → "Move to Specs" handler for compact-tier rail pills. */
   onTicketMoveToSpecs?: (ticketId: number) => void
+  /** Opens the Launch-all confirm (parallel launch of every ready rail).
+   *  Button hidden when the handler is not provided. */
+  onLaunchAll?: () => void
+  /** How many rails a Launch-all would start right now (0 disables the button). */
+  launchAllCount?: number
 }
 
 function SortableRailWrapper({ railId, children }: { railId: string; children: (props: { listeners: Record<string, Function>; attributes: Record<string, any>; isDragging: boolean }) => React.ReactNode }) {
@@ -116,7 +133,7 @@ function SortableRailWrapper({ railId, children }: { railId: string; children: (
 /** Width threshold below which rail rows switch to the compact mini-card layout. */
 export const RAILS_COMPACT_THRESHOLD_PX = 320
 
-export function RailsBoard({ rails, ticketMap, railWorktrees, railMetrics, providers, onModeChange, onProfileChange, onEngineChange, onUltracodeModelChange, onLoopModelChange, loopAvailable, onLoopChange, onEffortChange, onToggle, onTicketClick, onAddRail, onDeleteRail, onRenameRail, onTicketMoveToSpecs }: RailsBoardProps) {
+export function RailsBoard({ rails, ticketMap, railWorktrees, railMetrics, railPrDecisions, onPrDecision, providers, onModeChange, onProfileChange, onEngineChange, onUltracodeModelChange, onLoopModelChange, loopAvailable, onLoopChange, onEffortChange, onToggle, onTicketClick, onAddRail, onDeleteRail, onRenameRail, onTicketMoveToSpecs, onLaunchAll, launchAllCount }: RailsBoardProps) {
   const { t } = useTranslation('dashboard')
   const activeRails = rails.filter((r) => r.status === 'running').length
   const [jiggleMode, setJiggleMode] = useState(false)
@@ -167,20 +184,45 @@ export function RailsBoard({ rails, ticketMap, railWorktrees, railMetrics, provi
             </span>
           )}
         </div>
-        <button
-          type="button"
-          onClick={(e) => { e.stopPropagation(); onAddRail() }}
-          className="flex items-center gap-1 h-7 px-2.5 text-xs font-medium rounded-md border border-accent-primary/50 text-accent-primary hover:bg-accent-primary/10 transition-colors"
-        >
-          <Plus className="w-3.5 h-3.5" />
-          {t('common:actions.add')}
-        </button>
+        <div className="flex items-center gap-2">
+          {onLaunchAll && (
+            <button
+              type="button"
+              disabled={(launchAllCount ?? 0) === 0}
+              onClick={(e) => { e.stopPropagation(); onLaunchAll() }}
+              title={t('railsBoard.launchAllTitle')}
+              className="flex items-center gap-1.5 h-7 px-2.5 text-xs font-semibold rounded-md border border-emerald-400/50 text-emerald-400 aurora-light:text-accent-success aurora-light:border-accent-success/50 bg-gradient-to-r from-emerald-400/10 to-accent-primary/10 hover:from-emerald-400/20 hover:to-accent-primary/20 transition-colors disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:from-emerald-400/10 disabled:hover:to-accent-primary/10"
+            >
+              <Rocket className="w-3.5 h-3.5" />
+              {t('railsBoard.launchAll')}
+              {(launchAllCount ?? 0) > 0 && (
+                <span className="text-[10px] font-mono rounded-full bg-emerald-400/15 px-1.5 py-0.5 leading-none">
+                  {launchAllCount}
+                </span>
+              )}
+            </button>
+          )}
+          <button
+            type="button"
+            onClick={(e) => { e.stopPropagation(); onAddRail() }}
+            className="flex items-center gap-1 h-7 px-2.5 text-xs font-medium rounded-md border border-accent-primary/50 text-accent-primary hover:bg-accent-primary/10 transition-colors"
+          >
+            <Plus className="w-3.5 h-3.5" />
+            {t('common:actions.add')}
+          </button>
+        </div>
       </div>
 
       {/* Rail rows */}
       <div className="flex-1 overflow-y-auto px-4 py-3 flex flex-col gap-2.5">
         <SortableContext items={sortableIds} strategy={verticalListSortingStrategy}>
-          {rails.map((rail, idx) => (
+          {rails.map((rail, idx) => {
+            // IDENTITY, not position: worktree progress, metrics and PR
+            // decisions are keyed by the SERVER railIndex (`rail-N` ↔ N-1) —
+            // array position breaks after a board reorder or a middle-rail
+            // deletion. Positional fallback for exotic (test-fixture) ids.
+            const railIndex = railIndexFromId(rail.id) ?? idx
+            return (
             <SortableRailWrapper key={rail.id} railId={rail.id}>
               {({ listeners, attributes }) => (
                 <div data-tour={idx === 0 ? 'rail-1' : undefined}>
@@ -195,8 +237,10 @@ export function RailsBoard({ rails, ticketMap, railWorktrees, railMetrics, provi
                     aiEngine={rail.aiEngine ?? null}
                     ultracodeModel={rail.ultracodeModel ?? null}
                     loopModel={rail.loopModel ?? null}
-                    worktreeSummary={worktreeSummary(railWorktrees?.[idx])}
-                    executionMetric={railMetrics?.[idx] ?? null}
+                    worktreeSummary={worktreeSummary(railWorktrees?.[railIndex])}
+                    prDecision={railPrDecisions?.get(railIndex) ?? null}
+                    onPrDecision={onPrDecision ? (action, expected) => onPrDecision(railIndex, action, expected) : undefined}
+                    executionMetric={railMetrics?.[railIndex] ?? null}
                     providers={providers}
                     loopAvailable={loopAvailable}
                     selectedLoopId={rail.selectedLoopId ?? null}
@@ -222,7 +266,8 @@ export function RailsBoard({ rails, ticketMap, railWorktrees, railMetrics, provi
                 </div>
               )}
             </SortableRailWrapper>
-          ))}
+            )
+          })}
         </SortableContext>
       </div>
     </div>

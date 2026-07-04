@@ -72,7 +72,12 @@ describe('isolationApplies', () => {
   it('false when the rail has no tickets', () => {
     expect(isolationApplies({ ...base, ticketCount: 0 })).toBe(false)
   })
-  it('false for scope=all (single run)', () => {
+  it('scope=all isolates when PR delivery is on (default) — to ship one combined PR', () => {
+    delete process.env.SPECRAILS_RAIL_DELIVER_PR // default-on
+    expect(isolationApplies({ ...base, scope: 'all' })).toBe(true)
+  })
+  it('scope=all stays on the shared cwd when PR delivery is off (legacy)', () => {
+    process.env.SPECRAILS_RAIL_DELIVER_PR = 'off'
     expect(isolationApplies({ ...base, scope: 'all' })).toBe(false)
   })
   it('false for a read-only loop', () => {

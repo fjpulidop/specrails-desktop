@@ -24,10 +24,14 @@ export interface AgentConversation {
   updated_at: string
 }
 
+/** `system` rows are app-authored inline cards (e.g. the PR-decision card),
+ *  never AI turns — the DB column is unconstrained TEXT, so this is TS-only. */
+export type AgentMessageRole = 'user' | 'assistant' | 'system'
+
 export interface AgentMessage {
   id: string
   conversation_id: string
-  role: 'user' | 'assistant'
+  role: AgentMessageRole
   content: string
   /** Attachment ids carried by this (user) turn; [] for text-only turns. */
   attachment_ids: string[]
@@ -37,7 +41,7 @@ export interface AgentMessage {
 interface AgentMessageRaw {
   id: string
   conversation_id: string
-  role: 'user' | 'assistant'
+  role: AgentMessageRole
   content: string
   attachment_ids: string | null
   created_at: string
@@ -147,7 +151,7 @@ export function deleteAgentConversation(db: DbInstance, id: string): void {
 
 export function addAgentMessage(
   db: DbInstance,
-  input: { conversationId: string; role: 'user' | 'assistant'; content: string; attachmentIds?: string[] },
+  input: { conversationId: string; role: AgentMessageRole; content: string; attachmentIds?: string[] },
 ): AgentMessage {
   const id = randomUUID()
   const attachmentIds = input.attachmentIds && input.attachmentIds.length ? JSON.stringify(input.attachmentIds) : null
@@ -165,4 +169,35 @@ export function listAgentMessages(db: DbInstance, conversationId: string): Agent
       .prepare('SELECT * FROM agent_messages WHERE conversation_id = ? ORDER BY created_at ASC, rowid ASC')
       .all(conversationId) as AgentMessageRaw[]
   ).map(mapMessage)
+}
+
+/**
+ * First `system`-role message in a conversation whose content satisfies
+ * `predicate` (oldest first). The store stays payload-agnostic — callers own
+ * the content parsing (e.g. matching a PR-decision card by prDeliveryId).
+ */
+export function findAgentSystemMessage(
+  db: DbInstance,
+  conversationId: string,
+  predicate: (content: string) => boolean = () => true,
+): AgentMessage | undefined {
+  const rows = db
+    .prepare(
+      "SELECT * FROM agent_messages WHERE conversation_id = ? AND role = 'system' ORDER BY created_at ASC, rowid ASC",
+    )
+    .all(conversationId) as AgentMessageRaw[]
+  const hit = rows.find((r) => predicate(r.content))
+  return hit ? mapMessage(hit) : undefined
+}
+
+/**
+ * Replace a message's content in place (inline-card state updates). Does NOT
+ * bump the conversation's `updated_at` — a card mutation is not new activity
+ * and must not reorder the sidebar list. Returns the updated message, or
+ * undefined when the row no longer exists.
+ */
+export function updateAgentMessageContent(db: DbInstance, messageId: string, content: string): AgentMessage | undefined {
+  db.prepare('UPDATE agent_messages SET content = ? WHERE id = ?').run(content, messageId)
+  const row = db.prepare('SELECT * FROM agent_messages WHERE id = ?').get(messageId) as AgentMessageRaw | undefined
+  return row ? mapMessage(row) : undefined
 }

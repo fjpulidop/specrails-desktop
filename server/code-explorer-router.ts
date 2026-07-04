@@ -20,6 +20,8 @@ import {
   type FileSummaryManager,
   type SummaryPayload,
 } from './file-summary-manager'
+import { getFileStory, type TicketSpecLookup } from './file-story'
+import type { FileStoryManager } from './file-story-manager'
 
 declare module 'express-serve-static-core' {
   interface Request {
@@ -391,6 +393,12 @@ export interface CodeExplorerDeps {
    *  else === projectPath). Resolved per-call so a workspace that becomes
    *  populated mid-session is picked up. Defaults to `projectPath`. */
   resolveSummaryRoot?: () => string
+  /** Construction story: live ticket title/status lookup (ProjectContext.
+   *  getTicketSpec). Optional — story cards degrade to `#id` without it. */
+  getTicketSpec?: TicketSpecLookup
+  /** Construction story: the budget-gated per-intervention AI contribution
+   *  generator. Optional — POST /file/story/explain 404s without it. */
+  fileStoryManager?: Pick<FileStoryManager, 'explain'>
 }
 
 export function createCodeExplorerRouter(deps: CodeExplorerDeps): Router {
@@ -713,6 +721,98 @@ export function createCodeExplorerRouter(deps: CodeExplorerDeps): Router {
       summaryStale = true
     }
     res.json({ summary, summaryStale })
+  })
+
+  // Construction story: the chronological list of interventions (specs/jobs)
+  // that built this file — provenance rows enriched with diff stats, the AI
+  // contribution paragraph when generated, and the spec's live title/status.
+  // Same guards as every sibling content endpoint. Works for deleted files too
+  // (their story is still worth telling), so no stat/existence requirement.
+  router.get('/file/story', (req: Request, res: Response) => {
+    const relRaw = req.query.path as string | undefined
+    if (!relRaw || typeof relRaw !== 'string') {
+      res.status(400).json({ error: 'path query parameter is required' })
+      return
+    }
+    const guard = resolveSafePath(deps.projectPath, relRaw)
+    if (!guard) {
+      res.status(400).json({ error: 'path traversal not allowed' })
+      return
+    }
+    if (isDeniedRelPath(relRaw)) {
+      res.status(403).json({ error: 'path is excluded by the code-explorer deny-list' })
+      return
+    }
+    const rel = normalizeRel(relRaw)
+    if (isGitIgnored(deps.projectPath, rel)) {
+      res.status(403).json({ error: 'path is gitignored' })
+      return
+    }
+    res.json({ path: rel, story: getFileStory(deps.db, rel, deps.getTicketSpec) })
+  })
+
+  // Construction story: generate (budget-gated) the plain-language "what this
+  // spec contributed" paragraph for ONE intervention. Awaits the single model
+  // turn; the file.story_updated WS event fires too so other open viewers of
+  // the same file refresh.
+  router.post('/file/story/explain', async (req: Request, res: Response) => {
+    const relRaw = req.query.path as string | undefined
+    if (!relRaw || typeof relRaw !== 'string') {
+      res.status(400).json({ error: 'path query parameter is required' })
+      return
+    }
+    const guard = resolveSafePath(deps.projectPath, relRaw)
+    if (!guard) {
+      res.status(400).json({ error: 'path traversal not allowed' })
+      return
+    }
+    if (isDeniedRelPath(relRaw)) {
+      res.status(403).json({ error: 'path is excluded by the code-explorer deny-list' })
+      return
+    }
+    const rel = normalizeRel(relRaw)
+    if (isGitIgnored(deps.projectPath, rel)) {
+      res.status(403).json({ error: 'path is gitignored' })
+      return
+    }
+    if (!deps.fileStoryManager) {
+      res.status(404).json({ error: 'story generation not available' })
+      return
+    }
+    const body = (req.body ?? {}) as { provenanceId?: unknown; overrideBudget?: unknown }
+    const provenanceId = typeof body.provenanceId === 'number' && Number.isInteger(body.provenanceId) && body.provenanceId > 0
+      ? body.provenanceId
+      : null
+    if (provenanceId == null) {
+      res.status(400).json({ error: 'provenanceId (positive integer) is required' })
+      return
+    }
+    try {
+      const result = await deps.fileStoryManager.explain({
+        projectId: deps.projectId,
+        relPath: rel,
+        provenanceId,
+        overrideBudget: body.overrideBudget === true,
+      })
+      if (result === 'generated') {
+        res.json({ ok: true })
+        return
+      }
+      if (result === 'skipped:budget') {
+        // 200 (not 4xx) so the client's budget-override prompt is reachable
+        // (mirrors /file/regenerate-summary).
+        res.status(200).json({ skipped: 'budget' })
+        return
+      }
+      if (result === 'skipped:not-found') {
+        res.status(404).json({ error: 'intervention not found for this file' })
+        return
+      }
+      res.status(500).json({ error: 'story generation failed' })
+    } catch (err) {
+      console.error('[code-explorer-router] story explain failed:', err)
+      res.status(500).json({ error: 'story generation failed', message: (err as Error).message })
+    }
   })
 
   router.post('/file/regenerate-summary', async (req: Request, res: Response) => {

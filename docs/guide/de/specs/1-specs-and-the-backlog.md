@@ -13,7 +13,7 @@ Das Board hat zwei Ansichtsmodi, die du über einen Umschalter in der Toolbar we
 - **Post-it-Ansicht** (Standard) – kartenartige Kacheln mit kurzen Zusammenfassungen.
 - **Listenansicht** – kompakte, einzeilige Zeilen.
 
-Du kannst außerdem nach **Status** (Alle / To-do / Fertig) und nach **Label** filtern sowie nach **Standard**, **Ticket #** oder **Priorität** sortieren (jeweils mit Umschalter für auf- und absteigend).
+Der **Status-Selektor** in der Werkzeugleiste zeigt jeden Status als eigenen Chip mit Live-Zähler — plus zwei smarte Gruppen: **Aktiv** (der Standard — alles, was noch in Bewegung ist: Entwürfe, To-dos, in Arbeit und in Prüfung) und **Alle** (alles, mit Fertig unten angeheftet). Deine Auswahl wird pro Projekt gemerkt und in die URL gespiegelt, sodass ein Neuladen oder ein geteilter Link exakt dieselbe Ansicht wiederherstellt. Bei Jira-verbundenen Projekten erscheint zusätzlich ein **Jira-Status**-Dropdown mit den *echten* Workflow-Status des Boards (ihre Rohnamen, z. B. „Code Review", jeweils mit Live-Zähler), gruppiert unter dem Zustand, auf den sie abbilden — es kombiniert sich mit den Status-Chips. Du kannst außerdem nach **Label** filtern sowie nach **Standard**, **Ticket #** oder **Priorität** sortieren (jeweils mit Umschalter für auf- und absteigend).
 
 ## Status
 
@@ -24,7 +24,8 @@ Eine Spec durchläuft eine überschaubare Reihe von Status. Das Board gibt jedem
 | **Entwurf** | Eine noch in Arbeit befindliche Idee, die aus einer Explore-Unterhaltung gespeichert wurde. Noch nicht bereit zur Umsetzung – du kannst zurückkommen und sie weiter ausarbeiten. Zeigt ein `Draft`-Pill. |
 | **To-do** | Bereit, in Angriff genommen zu werden. Hier landet eine fertige Spec, wenn du sie erstellst. |
 | **In Arbeit** | Die Pipeline arbeitet gerade daran (ein pulsierender blauer Punkt). |
-| **Fertig** | Von der Pipeline abgeschlossen (ein grünes Häkchen). |
+| **In Prüfung** | Implementiert — jeder abgeschlossene Lauf parkt seine Specs hier zur Freigabe: merge die Entwurfs-PR oder verschiebe sie selbst weiter (ein bernsteinfarbenes Pill). |
+| **Fertig** | Freigegeben — die PR wurde gemergt, oder du hast sie selbst hierher verschoben (ein grünes Häkchen). |
 | **Abgebrochen** | Verworfen (ein rotes X). |
 
 Entwürfe liegen im selben aktiven Bereich wie To-do-Specs – es gibt keine eigene Spalte für sie –, tragen aber einen dezent eingefärbten Rand und ein `Draft`-Pill, sodass sie leicht zu erkennen sind. Die ganze Geschichte rund um Entwürfe findest du unter [Entwürfe & der Contract Layer](drafts-and-contract-layer.md).

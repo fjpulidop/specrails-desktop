@@ -36,6 +36,13 @@ const STATUS_CONFIG: Record<TicketStatus, StatusConfig> = {
     labelKey: 'status.inProgress',
     pulsing: true,
   },
+  on_review: {
+    dotClass: 'bg-accent-warning/80',
+    textClass: 'text-accent-warning',
+    borderClass: 'border-l-[3px] border-solid border-accent-warning/60 pl-3',
+    labelKey: 'status.onReview',
+    pulsing: false,
+  },
   done: {
     dotClass: 'text-emerald-400 aurora-light:text-accent-success',
     textClass: 'text-emerald-400/80 aurora-light:text-accent-success',
@@ -110,7 +117,7 @@ export function TicketStatusDot({ status, className }: TicketStatusDotProps) {
   return (
     <span
       className={cn('inline-flex rounded-full h-2.5 w-2.5 shrink-0', cfg.dotClass, className)}
-      aria-label={t('status.todo')}
+      aria-label={t(cfg.labelKey)}
     />
   )
 }
@@ -136,6 +143,7 @@ export function TicketStatusBadge({ status, className }: TicketStatusBadgeProps)
         'inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[11px] font-medium border',
         status === 'todo' && 'bg-slate-500/10 border-slate-500/30 text-slate-400 aurora-light:bg-muted aurora-light:border-border aurora-light:text-muted-foreground',
         status === 'in_progress' && 'bg-blue-500/10 border-blue-500/30 text-blue-400 aurora-light:bg-accent-info/10 aurora-light:border-accent-info/30 aurora-light:text-accent-info',
+        status === 'on_review' && 'bg-accent-warning/10 border-accent-warning/30 text-accent-warning',
         status === 'done' && 'bg-emerald-500/10 border-emerald-500/30 text-emerald-400 aurora-light:bg-accent-success/10 aurora-light:border-accent-success/30 aurora-light:text-accent-success',
         status === 'cancelled' && 'bg-red-500/10 border-red-500/30 text-red-400/60 aurora-light:bg-destructive/10 aurora-light:border-destructive/30 aurora-light:text-destructive/70',
         className

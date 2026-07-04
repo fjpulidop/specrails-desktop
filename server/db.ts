@@ -780,6 +780,91 @@ const MIGRATIONS: Migration[] = [
       CREATE INDEX IF NOT EXISTS idx_rail_worktrees_rail ON rail_worktrees(rail_index);
     `)
   },
+
+  // Migration 36: rail_pr_deliveries — one row per isolated rail LAUNCH tracking
+  // the ask-first PR decision lifecycle (building → on_review → pr_draft →
+  // pr_ready → merged | discarded | pr_failed). The durable single source of
+  // truth both decision surfaces (rail row + agent chat) read and write, so a
+  // refresh/restart never loses a pending PR decision. `branches` captures the
+  // per-unit DeliverBranch records at build-settle (deferred deliverRailAsPr
+  // cannot be reconstructed without them); `worktree_ids` links the
+  // rail_worktrees ledger rows for discard cleanup. Additive + idempotent.
+  (db) => {
+    db.exec(`
+      CREATE TABLE IF NOT EXISTS rail_pr_deliveries (
+        id                     TEXT PRIMARY KEY,
+        rail_index             INTEGER NOT NULL,
+        loop_id                TEXT,
+        rail_key               TEXT NOT NULL,
+        ticket_ids             TEXT NOT NULL,
+        base_branch            TEXT NOT NULL,
+        branch                 TEXT,
+        pr_url                 TEXT,
+        pr_number              INTEGER,
+        pr_state               TEXT NOT NULL DEFAULT 'none',
+        decision               TEXT NOT NULL DEFAULT 'building',
+        branches               TEXT NOT NULL DEFAULT '[]',
+        loop_name              TEXT NOT NULL DEFAULT '',
+        worktree_ids           TEXT NOT NULL DEFAULT '[]',
+        origin_surface         TEXT NOT NULL DEFAULT 'dashboard',
+        origin_conversation_id TEXT,
+        created_at             TEXT NOT NULL DEFAULT (datetime('now')),
+        updated_at             TEXT NOT NULL DEFAULT (datetime('now'))
+      );
+      CREATE INDEX IF NOT EXISTS idx_rail_pr_deliveries_rail ON rail_pr_deliveries(rail_index);
+      CREATE INDEX IF NOT EXISTS idx_rail_pr_deliveries_active ON rail_pr_deliveries(decision);
+    `)
+  },
+
+  // Migration 37: file_story_contributions — per-intervention "construction
+  // story" data for the Code/Files explorer. One row per file_provenance row
+  // that had a collectable patch: line stats (added/removed), a ~4KB patch
+  // excerpt (the full patch stays in file_provenance_diffs), and a nullable
+  // plain-language AI `summary` of what that spec contributed to the file
+  // (generated on demand, budget-gated — see file-story-manager.ts). Written
+  // inside recordProvenanceForJob's transaction so EVERY provenance producer
+  // (queue-manager jobs AND the loop-run seam) gets stats for free. Additive.
+  (db) => {
+    db.exec(`
+      CREATE TABLE IF NOT EXISTS file_story_contributions (
+        provenance_id        INTEGER PRIMARY KEY,
+        job_id               TEXT,
+        file_path            TEXT NOT NULL,
+        added_lines          INTEGER NOT NULL DEFAULT 0,
+        removed_lines        INTEGER NOT NULL DEFAULT 0,
+        patch_excerpt        TEXT,
+        summary              TEXT,
+        summary_model        TEXT,
+        summary_generated_at TEXT
+      );
+      CREATE INDEX IF NOT EXISTS idx_file_story_contributions_path ON file_story_contributions(file_path);
+    `)
+  },
+
+  // Migration 38: rail_pr_deliveries.run_ids — JSON string[] of the loop-run
+  // ids an isolated rail launch fanned out (order matches ticket order; a
+  // scope='all' launch has exactly one). Persisted right after allocation so
+  // the PR decision surfaces (agent-chat card + dashboard strip) can render a
+  // per-run "View log" chip with live vitals that survives refresh/restart.
+  // Additive + idempotent (guarded by PRAGMA table_info, mirroring 18–36).
+  (db) => {
+    const cols = (db.prepare(`PRAGMA table_info(rail_pr_deliveries)`).all() as { name: string }[]).map((r) => r.name)
+    if (!cols.includes('run_ids')) {
+      db.exec(`ALTER TABLE rail_pr_deliveries ADD COLUMN run_ids TEXT NOT NULL DEFAULT '[]'`)
+    }
+  },
+
+  // Migration 39: seed the three BASE rails (indices 0-2) into rail_meta.
+  // Dynamic rails make rail_meta the EXISTENCE authority (a rail exists iff it
+  // has a rail_meta identity row or leftover ticket rows) — seeding once here,
+  // instead of re-seeding on every read, lets a user genuinely delete a base
+  // rail (the router still guards: never the last one, never a non-empty or
+  // active one). INSERT OR IGNORE keeps any existing renamed-rail rows intact.
+  (db) => {
+    db.exec(`
+      INSERT OR IGNORE INTO rail_meta (rail_index, name) VALUES (0, NULL), (1, NULL), (2, NULL);
+    `)
+  },
 ]
 
 function applyMigrations(db: DbInstance): void {
@@ -865,6 +950,17 @@ export function createJob(db: DbInstance, job: NewJob): void {
   db.prepare(
     'UPDATE jobs SET status = ?, started_at = ?, interactive = ? WHERE id = ?'
   ).run('running', job.started_at, job.interactive ? 1 : 0, job.id)
+}
+
+/**
+ * Flip a job row's `interactive` flag AFTER creation. Used by the loop engine
+ * when an ai-step upgrades the run's backing job to a resident interactive
+ * session — the row was created at run start (before the step's provider
+ * capability/kill-switch gate is consulted), so the flag lands lazily at the
+ * first interactive step spawn. Idempotent.
+ */
+export function markJobInteractive(db: DbInstance, jobId: string): void {
+  db.prepare('UPDATE jobs SET interactive = 1 WHERE id = ?').run(jobId)
 }
 
 /**

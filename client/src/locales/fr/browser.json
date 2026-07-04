@@ -101,5 +101,11 @@
     "tooManySessions": "Trop de sessions de navigateur ouvertes. Fermez-en une et réessayez.",
     "launchFailed": "Le navigateur n'a pas pu démarrer sur le serveur.",
     "openFailed": "Impossible d'ouvrir le navigateur."
+  },
+  "popup": {
+    "loginWindow": "Fenêtre de connexion — {{origin}}",
+    "stacked": "+{{count}} de plus",
+    "backToPage": "Retour à la page",
+    "show": "Afficher la fenêtre de connexion"
   }
 }

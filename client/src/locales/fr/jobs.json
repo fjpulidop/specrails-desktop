@@ -62,7 +62,19 @@
       "working": "L'agent travaille…",
       "placeholder": "Envoyez un message au job en cours…",
       "send": "Envoyer",
-      "liveTotals": "{{turns}} tours · ${{cost}}"
+      "liveTotals": "{{turns}} tours · ${{cost}}",
+      "autoHint": "Ce job suit son plan et se termine tout seul — les messages ne sont qu'un pilotage optionnel.",
+      "wrapUp": "Terminer maintenant",
+      "wrapUpTooltip": "Met fin à la session maintenant — le job se termine avec le travail produit jusqu'ici, les tokens et le coût de chaque tour étant intégrés au total.",
+      "wrapUpStep": "Clore cette étape",
+      "wrapUpStepTooltip": "Met fin à l'étape en cours maintenant — la boucle avance avec ce que l'étape a produit jusqu'ici.",
+      "wrappingUp": "Finalisation…",
+      "queued_one": "{{count}} message en attente",
+      "queued_other": "{{count}} messages en attente",
+      "waitingForStep": "Entre deux étapes — la boucle décide de la suite. Vous pourrez envoyer un message au démarrage de la prochaine étape IA.",
+      "waitingForStepShort": "En attente de la prochaine étape…",
+      "sendDisabledEmpty": "Écrivez d'abord un message",
+      "sendDisabledWaiting": "Aucune session d'étape active pour le moment"
     },
     "toast": {
       "jobDeleted": "Job supprimé",
@@ -76,7 +88,9 @@
       "spawnFailed": "Échec du lancement du job",
       "finalizeScheduled": "Finalisation du job interactif…",
       "finalizeFailed": "Échec de la finalisation du job",
-      "sendFailed": "Échec de l'envoi du message"
+      "sendFailed": "Échec de l'envoi du message",
+      "wrapUpScheduled": "Finalisation du job…",
+      "wrapUpStepScheduled": "Clôture de l'étape — la boucle avance avec ce qu'elle a produit"
     }
   },
   "statusPanel": {
@@ -126,15 +140,19 @@
     "deletedTooltip": "Le ticket n'existe plus"
   },
   "modal": {
-    "openInNewTab": "Ouvrir dans un nouvel onglet",
     "notFound": "Job introuvable",
     "cancelConfirmTitle": "Annuler le job ?",
     "cancelConfirmDescription": "Le job s'arrêtera au prochain point sûr. Cette action est irréversible.",
     "keepRunning": "Laisser tourner",
     "cancelJob": "Annuler le job",
+    "stopRun": "Arrêter l'exécution",
+    "stopRunConfirmTitle": "Arrêter cette exécution ?",
+    "stopRunConfirmDescription": "L'exécution de la boucle s'arrêtera à la prochaine limite d'étape. Cette action est irréversible.",
     "toast": {
       "cancelSignalSent": "Signal d'annulation envoyé",
       "cancelSignalSentDescription": "Le job s'arrêtera au prochain point sûr",
+      "stopSignalSent": "Signal d'arrêt envoyé",
+      "stopSignalSentDescription": "L'exécution s'arrêtera à la prochaine limite d'étape",
       "cancelFailed": "Échec de l'annulation",
       "networkError": "Erreur réseau"
     }
@@ -220,6 +238,24 @@
       "cancelFailed": "Échec de l'annulation du job",
       "networkError": "Erreur réseau lors de l'annulation du job"
     }
+  },
+  "loopExplorer": {
+    "setup": "Préparation",
+    "iteration": "Itération {{current}}/{{limit}}",
+    "iterationBadge": "itér. {{count}}",
+    "follow": "Suivi en direct",
+    "resumeFollow": "Reprendre le suivi",
+    "expandAll": "Tout développer",
+    "collapseAll": "Tout réduire",
+    "copyStep": "Copier l'étape",
+    "copied": "Étape copiée dans le presse-papiers",
+    "stepDetail": "Détails de l'étape",
+    "stepDetailTemplate": "Modèle",
+    "stepDetailCommand": "Commande",
+    "copyCommand": "Copier",
+    "interrupted": "Interrompue",
+    "waiting": "En attente de la prochaine étape…",
+    "stepMapAria": "Carte des étapes de la boucle"
   },
   "logViewer": {
     "loading": "Chargement des logs…",

@@ -268,6 +268,31 @@ export async function navigateBrowserElement(
   return data.probe
 }
 
+/** Switch the viewed page between the root page and the top popup (OAuth login
+ *  window). Best-effort — the server broadcasts the resulting state over WS. */
+export async function setBrowserPopupView(sessionId: string, target: 'root' | 'popup'): Promise<void> {
+  try {
+    await fetch(`${getApiBase()}/browser/sessions/${sessionId}/popup-view`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ target }),
+    })
+  } catch {
+    /* best effort */
+  }
+}
+
+/** Human label for a popup's origin ("Login window — okta.example"). Falls back
+ *  to an ellipsis while the popup is still on about:blank / unparseable. */
+export function popupOriginLabel(url: string | null | undefined): string {
+  if (!url || url === 'about:blank') return '…'
+  try {
+    return new URL(url).hostname || '…'
+  } catch {
+    return '…'
+  }
+}
+
 export async function killBrowserSession(sessionId: string): Promise<void> {
   try {
     await fetch(`${getApiBase()}/browser/sessions/${sessionId}`, { method: 'DELETE' })
@@ -293,6 +318,100 @@ export function openBrowserWs(sessionId: string, projectId: string): WebSocket {
   const ws = protocol ? new WebSocket(url, ['specrails-desktop', protocol]) : new WebSocket(url)
   ws.binaryType = 'arraybuffer'
   return ws
+}
+
+// ─── Input coalescing (browse mode) ───────────────────────────────────────────
+
+export interface PointerInputCoalescer {
+  /** Queue the latest pointer position — only the newest is sent per frame. */
+  move(x: number, y: number): void
+  /** Accumulate wheel deltas at the latest position — one wheel msg per frame. */
+  wheel(x: number, y: number, deltaX: number, deltaY: number): void
+  /** Synchronously send anything pending. Call before a click (down/up) so the
+   *  page's virtual cursor is guaranteed to be at the click point. */
+  flush(): void
+  dispose(): void
+}
+
+/**
+ * Coalesce high-rate pointer input onto animation frames before it crosses the
+ * WS → CDP boundary. A macOS trackpad emits wheel events at 60–120 Hz and
+ * pointermove up to the display rate; forwarding each one becomes 1–2 CDP
+ * commands per event and floods the page's input queue — the single biggest
+ * cause of laggy scrolling in the embedded browser. Batching to ≤1 move + ≤1
+ * wheel per frame preserves total scroll distance (deltas are summed) and final
+ * cursor position (newest-wins) with no perceptible loss.
+ *
+ * Injectable scheduler so the batching logic is unit-testable under jsdom.
+ */
+export function createPointerInputCoalescer(
+  send: (e: BrowserInputEvent) => void,
+  schedule: (cb: () => void) => number = (cb) => requestAnimationFrame(cb),
+  cancel: (id: number) => void = (id) => cancelAnimationFrame(id),
+): PointerInputCoalescer {
+  let pendingMove: Point | null = null
+  let pendingWheel: { x: number; y: number; deltaX: number; deltaY: number } | null = null
+  let scheduled: number | null = null
+  let disposed = false
+
+  const flushNow = () => {
+    if (scheduled != null) {
+      cancel(scheduled)
+      scheduled = null
+    }
+    const mv = pendingMove
+    const wh = pendingWheel
+    pendingMove = null
+    pendingWheel = null
+    // A wheel already repositions the cursor to its own coordinates server-side,
+    // so a standalone move to the same point would be redundant.
+    if (mv && (!wh || mv.x !== wh.x || mv.y !== wh.y)) {
+      send({ type: 'mouse', action: 'move', x: mv.x, y: mv.y })
+    }
+    if (wh) send({ type: 'wheel', x: wh.x, y: wh.y, deltaX: wh.deltaX, deltaY: wh.deltaY })
+  }
+
+  const ensureScheduled = () => {
+    if (scheduled == null && !disposed) {
+      scheduled = schedule(() => {
+        scheduled = null
+        flushNow()
+      })
+    }
+  }
+
+  return {
+    move(x: number, y: number) {
+      if (disposed) return
+      pendingMove = { x, y }
+      ensureScheduled()
+    },
+    wheel(x: number, y: number, deltaX: number, deltaY: number) {
+      if (disposed) return
+      if (pendingWheel) {
+        pendingWheel.x = x
+        pendingWheel.y = y
+        pendingWheel.deltaX += deltaX
+        pendingWheel.deltaY += deltaY
+      } else {
+        pendingWheel = { x, y, deltaX, deltaY }
+      }
+      ensureScheduled()
+    },
+    flush() {
+      if (!disposed) flushNow()
+    },
+    dispose() {
+      if (disposed) return
+      disposed = true
+      if (scheduled != null) {
+        cancel(scheduled)
+        scheduled = null
+      }
+      pendingMove = null
+      pendingWheel = null
+    },
+  }
 }
 
 // ─── Pure geometry helpers (unit-tested; keep coordinate logic out of the canvas

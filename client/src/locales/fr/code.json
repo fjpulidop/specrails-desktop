@@ -69,6 +69,40 @@
       "tooLarge": "fichier trop volumineux"
     }
   },
+  "story": {
+    "title_one": "Histoire de construction · {{count}} chapitre",
+    "title_other": "Histoire de construction · {{count}} chapitres",
+    "viewMode": "Mode d'affichage de l'histoire",
+    "modeStory": "Histoire",
+    "modeLog": "Journal",
+    "loading": "Chargement de l'histoire…",
+    "loadFailed": "Impossible de charger l'histoire.",
+    "empty": "Aucune intervention d'IA enregistrée pour ce fichier pour l'instant.",
+    "spec": "Spec #{{ticketId}}",
+    "unknownSpec": "Modification d'IA sans spec",
+    "openSpec": "Ouvrir la spec #{{ticketId}}",
+    "kindLabel": {
+      "created": "Créé",
+      "modified": "Modifié",
+      "deleted": "Supprimé"
+    },
+    "fallback": {
+      "created": "Ce fichier a été créé lors de l'implémentation de cette spec.",
+      "modified": "Ce fichier a été modifié lors de l'implémentation de cette spec.",
+      "deleted": "Ce fichier a été supprimé lors de l'implémentation de cette spec.",
+      "createdNoSpec": "Ce fichier a été créé par un job d'IA.",
+      "modifiedNoSpec": "Ce fichier a été modifié par un job d'IA.",
+      "deletedNoSpec": "Ce fichier a été supprimé par un job d'IA."
+    },
+    "explain": "Expliquer ce changement",
+    "explaining": "Explication en cours…",
+    "explainFailed": "Impossible de générer l'explication",
+    "budgetReached": "Budget IA mensuel atteint.",
+    "generateAnyway": "Générer quand même",
+    "explainedBy": "Expliqué par {{model}}",
+    "linesAdded": "Lignes ajoutées",
+    "linesRemoved": "Lignes supprimées"
+  },
   "history": {
     "resize": "Redimensionner l'historique des modifications IA",
     "title_one": "Historique des modifications IA · {{count}} changement",

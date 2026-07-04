@@ -53,9 +53,14 @@ Le risposte arrivano fluide e già formattate (titoli, tabelle, elenchi), ciascu
 
 ## Dettagli pratici
 
+- **Super spec da una conversazione.** Chiedi all’agente di *dare forma* a una spec insieme a te invece di generarla in un colpo solo: prima legge il codice reale, ti fa qualche domanda e mostra la bozza che evolve come una card dal vivo nella conversazione. Al tuo sì crea la spec e — per impostazione predefinita — la arricchisce in background con un **Contract Layer** (percorsi file esatti, forme dei dati, invarianti) perché gli agenti che implementano non improvvisino. Di’ "senza contract layer" per saltare l’arricchimento.
+- **Clicca ciò che menziona.** In una missione fissata a un progetto, i numeri di spec (`#12`) e gli id di job/run nelle risposte dell'agente sono chip cliccabili: una spec apre il modale di dettaglio della board, un id di job apre la vista del job dal vivo. Se il riferimento non esiste più, compare una discreta nota "non trovato".
+- **La scheda di implementazione resta in vista.** Quando l'agente implementa delle spec, una scheda dal vivo segue il lavoro — e finché ha bisogno di qualcosa da te (creare la PR, pubblicarla, riprovare, scartare) resta **fissata appena sopra la casella dei messaggi**, per quanto scorra la conversazione; al suo posto nella cronologia compare un discreto segnaposto «fissata sopra». Più schede attive si impilano come piccoli chip (cliccane uno per portarla in primo piano), e un chevron riduce la scheda a una barra sottile. Una volta pubblicata la PR — o quando il lavoro viene unito o scartato — la scheda torna al suo posto nella cronologia della conversazione.
 - **Cronologia dei prompt.** Con la casella vuota, premi **↑**/**↓** per scorrere ciò che hai chiesto prima (mostrato attenuato mentre scorri); inizia a scrivere per modificarlo, oppure premi Invio per inviarlo.
+- **Modifica la coda.** Hai inviato altro mentre l'agente era occupato? Finché ci sono messaggi in coda, **↑**/**↓** scorre *quelli*: la casella mostra il selezionato, lo modifichi sul posto e **Invio lo salva di nuovo in coda** (Esc annulla; la tua bozza non inviata torna com'era).
 - **Riduci a icona, senza perdere nulla.** Clicca la ✕ per rimettere il pannello nella bolla — la conversazione continua a girare. Riaprilo e atterri sull'ultimo messaggio; nulla viene riscritto.
 - **Nuova conversazione.** Il pulsante **+** avvia un thread pulito; la cronologia vive a livello di app, sopra qualunque singolo progetto.
+- **Cambia missione.** Il selettore di missioni accanto al selettore di progetto elenca le conversazioni dalla più recente alla più vecchia — un punto pulsante segnala quelle in cui l'agente sta ancora lavorando, e un piccolo badge conta i messaggi in coda. La ricerca compare quando la lista supera le otto voci, e l'icona del cestino su ogni riga elimina una missione dopo una rapida conferma in linea — anche una in corso (prima avvisa, poi ferma l'agente).
 
 ## Alcune cose da sapere
 

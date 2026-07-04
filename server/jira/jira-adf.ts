@@ -53,6 +53,15 @@ export function discardCommentMarker(ticketId: number, nonce: string): string {
   return `[specrails:discard=${nonce}:ticket=${ticketId}]`
 }
 
+/**
+ * Idempotency marker for the "PR merged" comment posted when a delivery PR is
+ * observed merged. Deterministic per (delivery, ticket) so a retry/re-poll
+ * never double-posts.
+ */
+export function prMergedCommentMarker(refId: string, ticketId: number): string {
+  return `[specrails:pr-merged=${refId}:ticket=${ticketId}]`
+}
+
 /** True when an ADF doc or wiki string already contains the given marker. */
 export function bodyContainsMarker(body: unknown, marker: string): boolean {
   if (typeof body === 'string') return body.includes(marker)

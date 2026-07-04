@@ -283,7 +283,7 @@ function isNonEmptyString(v: unknown): v is string {
 
 function sanitizeStatusMap(raw: unknown): Partial<Record<SpecLogicalState, string>> | null {
   if (!raw || typeof raw !== 'object') return null
-  const states: SpecLogicalState[] = ['todo', 'in_progress', 'done', 'cancelled']
+  const states: SpecLogicalState[] = ['todo', 'in_progress', 'on_review', 'done', 'cancelled']
   const out: Partial<Record<SpecLogicalState, string>> = {}
   for (const s of states) {
     const v = (raw as Record<string, unknown>)[s]

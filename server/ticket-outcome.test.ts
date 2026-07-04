@@ -108,6 +108,65 @@ describe('applyJobOutcomeToTickets', () => {
       expect(store.tickets['2'].status).toBe('done')
       expect(store.tickets['3'].status).toBe('done')
     })
+
+    it('does NOT promote an on_review spec to done (only the PR-decision endpoint moves it)', () => {
+      const store = makeStore([makeTicket(1, 'on_review')])
+      const changed = applyJobOutcomeToTickets(store, [1], 'completed', NOW)
+      expect(changed).toEqual([])
+      expect(store.tickets['1'].status).toBe('on_review')
+    })
+
+    it('regression pin: default (no opts) and empty opts both promote to done', () => {
+      const store = makeStore([makeTicket(1, 'todo'), makeTicket(2, 'in_progress')])
+      applyJobOutcomeToTickets(store, [1], 'completed', NOW)
+      applyJobOutcomeToTickets(store, [2], 'completed', NOW, {})
+      expect(store.tickets['1'].status).toBe('done')
+      expect(store.tickets['2'].status).toBe('done')
+    })
+  })
+
+  describe("completed with completedStatus: 'on_review' (ask-first PR delivery)", () => {
+    const OPTS = { completedStatus: 'on_review' as const }
+
+    it('promotes a todo spec to on_review', () => {
+      const store = makeStore([makeTicket(1, 'todo')])
+      const changed = applyJobOutcomeToTickets(store, [1], 'completed', NOW, OPTS)
+      expect(changed).toEqual([1])
+      expect(store.tickets['1'].status).toBe('on_review')
+      expect(store.tickets['1'].updated_at).toBe(NOW)
+    })
+
+    it('promotes an in_progress spec to on_review', () => {
+      const store = makeStore([makeTicket(1, 'in_progress')])
+      const changed = applyJobOutcomeToTickets(store, [1], 'completed', NOW, OPTS)
+      expect(changed).toEqual([1])
+      expect(store.tickets['1'].status).toBe('on_review')
+    })
+
+    it('leaves draft, done and cancelled specs untouched (same guard set as done)', () => {
+      const store = makeStore([makeTicket(1, 'draft'), makeTicket(2, 'done'), makeTicket(3, 'cancelled')])
+      const changed = applyJobOutcomeToTickets(store, [1, 2, 3], 'completed', NOW, OPTS)
+      expect(changed).toEqual([])
+      expect(store.tickets['1'].status).toBe('draft')
+      expect(store.tickets['2'].status).toBe('done')
+      expect(store.tickets['3'].status).toBe('cancelled')
+    })
+
+    it('still clears a needs_review flag on an already-done spec (kept done, not demoted)', () => {
+      const store = makeStore([makeTicket(1, 'done', { needs_review: true })])
+      const changed = applyJobOutcomeToTickets(store, [1], 'completed', NOW, OPTS)
+      expect(changed).toEqual([1])
+      expect(store.tickets['1'].status).toBe('done')
+      expect(store.tickets['1'].needs_review).toBeUndefined()
+    })
+
+    it('promotes a whole batch to on_review', () => {
+      const store = makeStore([makeTicket(1, 'todo'), makeTicket(2, 'in_progress')])
+      const changed = applyJobOutcomeToTickets(store, [1, 2], 'completed', NOW, OPTS)
+      expect(changed.sort()).toEqual([1, 2])
+      expect(store.tickets['1'].status).toBe('on_review')
+      expect(store.tickets['2'].status).toBe('on_review')
+    })
   })
 
   describe.each(['failed', 'canceled', 'zombie_terminated'] as const)('%s', (outcome) => {
@@ -146,6 +205,20 @@ describe('applyJobOutcomeToTickets', () => {
       expect(changed).toEqual([])
       expect(store.tickets['1'].status).toBe('draft')
       expect(store.tickets['2'].status).toBe('cancelled')
+    })
+
+    it("still reverts in_progress to todo when completedStatus opts are passed (opts only affect 'completed')", () => {
+      const store = makeStore([makeTicket(1, 'in_progress')])
+      const changed = applyJobOutcomeToTickets(store, [1], outcome, NOW, { completedStatus: 'on_review' })
+      expect(changed).toEqual([1])
+      expect(store.tickets['1'].status).toBe('todo')
+    })
+
+    it('does not touch an on_review spec (only the PR-decision endpoint moves it)', () => {
+      const store = makeStore([makeTicket(1, 'on_review')])
+      const changed = applyJobOutcomeToTickets(store, [1], outcome, NOW)
+      expect(changed).toEqual([])
+      expect(store.tickets['1'].status).toBe('on_review')
     })
   })
 

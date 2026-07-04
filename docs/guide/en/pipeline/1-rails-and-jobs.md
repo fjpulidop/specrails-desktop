@@ -18,7 +18,7 @@ SpecsBoard (left)            Rails (right)
 
 A rail is an **execution lane**. You drag a spec card from the SpecsBoard onto a rail, then press **▶ Play**. The rail launches the pipeline and works the spec end to end, right in your project's working directory — editing files, running tests, the works.
 
-You can have several rails to organise work into named lanes (one for the feature you're focused on, another queued behind it). More on multi-rail and batching in [Batch implement & multi-feature](batch-implement-and-multi-feature).
+You can have several rails to organise work into named lanes (one for the feature you're focused on, another queued behind it). Rails are **dynamic**: the **+ Add** button in the Rails header creates a new lane (up to 12 per project) and idle empty lanes can be deleted. Every rail is server-backed, so your set of lanes survives reloads and is visible to the mobile companion and the in-app agent — the agent can even create a rail itself when all lanes are busy. More on multi-rail and batching in [Batch implement & multi-feature](batch-implement-and-multi-feature).
 
 ## Launching a rail on a spec
 
@@ -49,7 +49,7 @@ A rail runs a **Loop** — the recipe for the work. Three loops are **built in**
 | **Batch** | `/specrails:batch-implement` | One job that works through the rail's specs sequentially, in dependency-aware waves. Best for several related specs. |
 | **Freestyle** | Freestyle | Claude implements each spec autonomously, **bypassing** the pipeline. One independent job per spec. Claude only. |
 
-Freestyle is the odd one out: it skips the agent chain and hands Claude the raw spec to work on with its native tools. It's open-ended, so pressing Play opens a confirmation first, and a per-rail model picker lets you choose Haiku / Sonnet / Opus. It only appears when the rail's engine is Claude.
+Freestyle is the odd one out: it skips the agent chain and hands Claude the raw spec to work on with its native tools. It's open-ended, so pressing Play opens a confirmation first, and a per-rail model picker lets you choose Haiku / Sonnet / Opus. It only appears when the rail's engine is Claude. A Freestyle run is also the one job that **stays open for you**: chat with it from the Job Detail composer and click **Finalize** when you're satisfied (every other job wraps up on its own).
 
 Beyond the built-ins, you can **build your own loops** — repeat a verify → fix → verify cycle until a goal is met, chain shell commands between AI steps, and more. Those custom loops appear in the same Loop picker. That's the next big idea: [The Loop Builder](the-loop-builder).
 
@@ -57,11 +57,11 @@ Beyond the built-ins, you can **build your own loops** — repeat a verify → f
 
 Every time you press Play, the rail run becomes a **job**. The most important rule to internalise:
 
-> **One job at a time, per project.** Each project has a single queue. Within one project only one rail job runs at a time — the rest queue behind it and start automatically as slots free up.
+> **Rails run in parallel.** Every launch isolates its work in a per-spec git worktree, so several rails can run at the same time inside the same project without stepping on each other — each run's changes come back as a merge or a draft PR when it settles.
 
-This surprises people who add three rails expecting them to run in parallel. They won't — not inside the same project. Adding rails *organises* your work into lanes; it doesn't make those lanes run concurrently.
+Want everything moving at once? The **Launch all** button in the Rails header starts every ready lane in one go, after a single confirmation that frames the total cost (N rails × AI spend). Rails that are empty, already running, or awaiting a PR decision are skipped and reported in a compact summary toast. The in-app agent has the same power through `specrails_rails(launch_all)` — and it will create a fresh rail when no free lane exists.
 
-**Real parallelism is across projects.** Each project has its own independent queue, so a rail in Project A and a rail in Project B run at the same time without contending. Want more throughput? Open more projects.
+Only the legacy path (the Loops feature disabled) falls back to the old one-job-at-a-time project queue, where extra rails queue behind the running one. Cross-project parallelism is unchanged: each project remains fully independent.
 
 There's no global concurrency knob to tune. The only automatic throttle is budget-based: if you've set a daily budget (project or app-wide), the queue auto-pauses once that day's spend hits the cap.
 
@@ -73,7 +73,7 @@ Find every job under **Jobs** in the project's right sidebar — a card list, ne
 - **Date-range filter** — narrow to a time window.
 - **Compare** — pick two jobs and view them side by side.
 
-Click any card to open the **Job Detail view**, where the live streaming log and the live metrics live. That's the next page: [The Job Detail view](the-job-detail-view).
+Click any card to open the **Job Detail view**, where the live streaming log and the live metrics live — and where, on Claude jobs, a chat composer lets you **ask the running agent questions or steer it mid-run** without stopping anything. That's the next page: [The Job Detail view](the-job-detail-view).
 
 ## Cancelling a job
 

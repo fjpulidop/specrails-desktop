@@ -33,6 +33,14 @@
     "sendHint": "The agent is still working — this message will queue and run next",
     "placeholder": "Add more while the agent works — it will queue…"
   },
+  "queueEdit": {
+    "editing": "Editing queued message {{n}} of {{m}}",
+    "hint": "↑↓ to navigate · Enter saves · Esc cancels",
+    "save": "Save queued message",
+    "cancel": "Cancel editing",
+    "dispatched": "That queued message was already sent — your text is kept as a draft",
+    "saveFailed": "Couldn't save the queued message"
+  },
   "git": {
     "branch": "Branch",
     "detached": "(detached)",
@@ -92,6 +100,21 @@
     "addProject": "Add project…",
     "homeHint": "No project selected — operating across all projects.",
     "askCreateOrSearch": "No project is selected. Do you want to create a new project, or search across all projects?"
+  },
+  "mission": {
+    "label": "Switch mission",
+    "untitled": "New mission",
+    "new": "New mission",
+    "searchPlaceholder": "Search missions…",
+    "noMatches": "No missions match",
+    "working": "Agent working",
+    "queuedBadge": "{{n}} queued",
+    "delete": "Delete mission \"{{title}}\"",
+    "deleteConfirm": "Delete?",
+    "deleteLiveConfirm": "Agent is working — delete anyway?",
+    "confirmDelete": "Confirm delete",
+    "cancelDelete": "Keep mission",
+    "deleteFailed": "Couldn't delete the mission"
   },
   "noProvider": {
     "title": "No AI provider installed",
@@ -155,5 +178,78 @@
     "high": "High",
     "xhigh": "Extra high"
   },
-  "emptyTitleMatrix": "What's the mission, Neo?"
+  "emptyTitleMatrix": "What's the mission, Neo?",
+  "prCard": {
+    "rail": "Rail {{index}}",
+    "specCount_one": "{{count}} spec",
+    "specCount_other": "{{count}} specs",
+    "base": "Base branch",
+    "openPr": "Open PR",
+    "title": {
+      "building": "Implementing in an isolated worktree…",
+      "on_review": "Implementation ready for review",
+      "pr_draft": "Draft PR created",
+      "pr_draft_degraded": "PR delivery incomplete",
+      "pr_ready": "PR ready for merge",
+      "pr_failed": "PR creation failed",
+      "merged": "PR merged",
+      "discarded": "Discarded"
+    },
+    "buildingHint": "You'll be asked to create the PR when it settles.",
+    "createPr": "Create PR",
+    "publish": "Publish",
+    "retry": "Retry",
+    "retryPr": "Retry PR",
+    "checkMerge": "Check merge",
+    "discard": "Discard",
+    "confirmDiscard": "Confirm discard?",
+    "mergedNote": "Merged — specs moved to Done",
+    "discardedNote": "Discarded — specs returned to the backlog",
+    "degraded": {
+      "pushed": "The branch was pushed but the PR could not be created — retry to finish.",
+      "localOnly": "The changes were assembled locally but not pushed — retry to publish the PR."
+    },
+    "alreadyResolved": "Already resolved elsewhere",
+    "actionFailed": "Action failed",
+    "notMergedYet": "Not merged yet",
+    "viewLog": "View run log for {{ref}}",
+    "runElapsedAria": "{{elapsed}} elapsed",
+    "runCostAria": "{{cost}} spent",
+    "pinned": {
+      "label": "Pinned",
+      "marker": "Implementation card — pinned above",
+      "collapse": "Minimize pinned card",
+      "expand": "Expand pinned card",
+      "expandCard": "Expand this card",
+      "collapseCard": "Minimize this card",
+      "collapsed_one": "Implementation card",
+      "collapsed_other": "{{count}} implementation cards",
+      "state": {
+        "building": "Building",
+        "on_review": "Review",
+        "pr_draft": "Draft PR",
+        "pr_ready": "Published",
+        "pr_failed": "Failed",
+        "merged": "Merged",
+        "discarded": "Discarded"
+      }
+    }
+  },
+  "specDraft": {
+    "heading": "Spec draft",
+    "drafting": "Updating draft…",
+    "acceptanceCriteria": "Acceptance criteria",
+    "untitled": "Untitled spec",
+    "expand": "Show full description",
+    "collapse": "Collapse description"
+  },
+  "refs": {
+    "openTicket": "Open spec #{{id}}",
+    "openJob": "Open job {{id}}",
+    "openLoop": "Open loop {{id}}",
+    "ticketNotFound": "Spec #{{id}} not found — it may have been deleted",
+    "jobNotFound": "Job not found — it may have been deleted",
+    "loopNotFound": "Loop not found — it may have been deleted",
+    "lookupFailed": "Couldn't verify the reference — try again"
+  }
 }

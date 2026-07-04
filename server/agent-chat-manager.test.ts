@@ -26,9 +26,14 @@ vi.mock('./attachment-manager', () => ({
 }))
 
 import { spawn as mockSpawn } from 'child_process'
-import { AgentChatManager } from './agent-chat-manager'
+import { AgentChatManager, sanitizeAgentTitle } from './agent-chat-manager'
 import { initDesktopDb } from './desktop-db'
-import { createAgentConversation } from './agent-store'
+import {
+  createAgentConversation,
+  getAgentConversation,
+  updateAgentConversation,
+  addAgentMessage,
+} from './agent-store'
 import type { DbInstance } from './db'
 
 function createMockChildProcess(): any {
@@ -177,5 +182,112 @@ describe('AgentChatManager cost accounting (HIGH-3)', () => {
     await mgr.sendMessage(conv.id, 'second')
 
     expect(rows()).toHaveLength(2)
+  })
+})
+
+async function waitFor(cond: () => boolean, timeout = 1000): Promise<void> {
+  const start = Date.now()
+  while (!cond()) {
+    if (Date.now() - start > timeout) throw new Error('waitFor timeout')
+    await new Promise((r) => setImmediate(r))
+  }
+}
+
+describe('AgentChatManager AI title', () => {
+  let db: DbInstance
+  let broadcast: ReturnType<typeof vi.fn>
+  let mgr: AgentChatManager
+
+  beforeEach(() => {
+    vi.clearAllMocks()
+    db = initDesktopDb(':memory:')
+    broadcast = vi.fn()
+    mgr = new AgentChatManager(broadcast, db, 4200)
+  })
+
+  function rows() {
+    return db.prepare('SELECT * FROM agent_invocations ORDER BY started_at ASC').all() as Array<Record<string, unknown>>
+  }
+
+  it('upgrades the title with an AI-generated one after the first turn', async () => {
+    const conv = createAgentConversation(db, { provider: 'claude', pinnedProjectId: null })
+    // Main turn (spawn #1).
+    primeTurn([
+      assistantLine('Sure — here is the game.', { input_tokens: 50, output_tokens: 20 }),
+      resultLine({ session_id: 's', total_cost_usd: 0.05, num_turns: 1, model: 'claude-sonnet-4', usage: { input_tokens: 50, output_tokens: 20 } }),
+    ])
+    // Fire-and-forget AI title spawn (spawn #2).
+    primeTurn([
+      assistantLine('Connect Four Mini-Game', { input_tokens: 20, output_tokens: 5 }),
+      resultLine({ total_cost_usd: 0.001, num_turns: 1, model: 'claude-sonnet-4', usage: { input_tokens: 20, output_tokens: 5 } }),
+    ])
+
+    await mgr.sendMessage(conv.id, 'add a connect four game')
+    await waitFor(() => getAgentConversation(db, conv.id)?.title === 'Connect Four Mini-Game')
+
+    expect(getAgentConversation(db, conv.id)?.title).toBe('Connect Four Mini-Game')
+    // Two billable rows: the main turn + the title spawn (LOW-1 accounting parity).
+    await waitFor(() => rows().length === 2)
+    expect(rows()).toHaveLength(2)
+    // The AI title reached the client over the same agent_title event.
+    expect(broadcastsOfType(broadcast, 'agent_title').some((m) => m.title === 'Connect Four Mini-Game')).toBe(true)
+  })
+
+  it('never clobbers a manually-renamed conversation (no title spawn fires)', async () => {
+    const conv = createAgentConversation(db, { provider: 'claude', pinnedProjectId: null })
+    updateAgentConversation(db, conv.id, { title: 'My Custom Name' })
+    primeTurn([
+      assistantLine('ok', { input_tokens: 5, output_tokens: 5 }),
+      resultLine({ session_id: 's', total_cost_usd: 0.01, num_turns: 1, model: 'claude-sonnet-4', usage: { input_tokens: 5, output_tokens: 5 } }),
+    ])
+
+    await mgr.sendMessage(conv.id, 'hello')
+    await new Promise((r) => setImmediate(r))
+
+    expect(getAgentConversation(db, conv.id)?.title).toBe('My Custom Name')
+    // Only the main turn spawned — the AI title gate skipped the second spawn.
+    expect(mockSpawn).toHaveBeenCalledTimes(1)
+    expect(rows()).toHaveLength(1)
+  })
+
+  it('does NOT fire on turns after the first', async () => {
+    const conv = createAgentConversation(db, { provider: 'claude', pinnedProjectId: null })
+    // Seed a prior completed exchange so this send is NOT the first turn.
+    addAgentMessage(db, { conversationId: conv.id, role: 'user', content: 'old' })
+    addAgentMessage(db, { conversationId: conv.id, role: 'assistant', content: 'old reply' })
+    primeTurn([
+      assistantLine('second reply', { input_tokens: 5, output_tokens: 5 }),
+      resultLine({ session_id: 's', total_cost_usd: 0.01, num_turns: 1, model: 'claude-sonnet-4', usage: { input_tokens: 5, output_tokens: 5 } }),
+    ])
+
+    await mgr.sendMessage(conv.id, 'new')
+    await new Promise((r) => setImmediate(r))
+
+    // assistantCount === 2 → gate skips the AI title, only the main turn spawned.
+    expect(mockSpawn).toHaveBeenCalledTimes(1)
+    expect(rows()).toHaveLength(1)
+  })
+})
+
+describe('sanitizeAgentTitle', () => {
+  it('strips surrounding quotes', () => {
+    expect(sanitizeAgentTitle('"Great Title"')).toBe('Great Title')
+  })
+  it('takes the first non-empty line', () => {
+    expect(sanitizeAgentTitle('\n\nTitle Here\nextra prose the model leaked')).toBe('Title Here')
+  })
+  it('strips markdown emphasis and leading list markers', () => {
+    expect(sanitizeAgentTitle('- **Bold Title**')).toBe('Bold Title')
+  })
+  it('collapses internal whitespace', () => {
+    expect(sanitizeAgentTitle('A   B\tC')).toBe('A B C')
+  })
+  it('returns empty string for blank input', () => {
+    expect(sanitizeAgentTitle('   \n  ')).toBe('')
+  })
+  it('caps length word-aware with an ellipsis', () => {
+    const out = sanitizeAgentTitle('word '.repeat(30).trim())
+    expect(out.length).toBeLessThanOrEqual(81)
+    expect(out.endsWith('…')).toBe(true)
   })
 })

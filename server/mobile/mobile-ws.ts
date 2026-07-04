@@ -55,6 +55,10 @@ function topicFor(type: string): TopicName | 'jobtail' | 'hub' | null {
     case 'rail.job_stopped':
     case 'rail.job_completed':
     case 'rail.updated':
+    // Dynamic rails: a deleted rail slot. Same frozen-safe reasoning as the
+    // loop.run_* family below — an old v1 client ignores the unknown type,
+    // a new client drops the slot from its mirror.
+    case 'rail.removed':
     // rails-as-loops: loop runs (no queue job) report their lifecycle via the
     // loop.run_* family. Map them onto the EXISTING 'rails' topic (frozen-safe —
     // the companion's subscribe set is unchanged; an old v1 client ignores the

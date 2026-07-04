@@ -98,3 +98,23 @@ export function listNonTerminalRailWorktrees(db: DbInstance): RailWorktreeRow[] 
 export function deleteRailWorktree(db: DbInstance, id: string): boolean {
   return db.prepare('DELETE FROM rail_worktrees WHERE id = ?').run(id).changes > 0
 }
+
+/** Every rail allocation ever made for a ticket, newest first — the recovery
+ *  input for create-pr's pre-flight: when a delivery row records a branch that
+ *  no longer exists, any OTHER branch a rail allocated for the same ticket that
+ *  still exists with commits ahead of base is the real carrier of the work. */
+export function listRailWorktreesForTicket(db: DbInstance, ticketId: number): RailWorktreeRow[] {
+  return db
+    .prepare('SELECT * FROM rail_worktrees WHERE ticket_id = ? ORDER BY created_at DESC, rowid DESC')
+    .all(ticketId) as RailWorktreeRow[]
+}
+
+/** True when a prior rail allocation for this ticket used exactly this branch —
+ *  i.e. an existing branch of that name is OURS to resume (partial work from a
+ *  stopped run), not a foreign collision to suffix away from. */
+export function railWorktreeBranchExistsForTicket(db: DbInstance, ticketId: number, branch: string): boolean {
+  return (
+    db.prepare('SELECT 1 FROM rail_worktrees WHERE ticket_id = ? AND branch = ? LIMIT 1').get(ticketId, branch) !==
+    undefined
+  )
+}

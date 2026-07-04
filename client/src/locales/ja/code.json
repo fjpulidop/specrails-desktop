@@ -69,6 +69,40 @@
       "tooLarge": "ファイルが大きすぎます"
     }
   },
+  "story": {
+    "title_one": "構築ストーリー · {{count}} 章",
+    "title_other": "構築ストーリー · {{count}} 章",
+    "viewMode": "ストーリー表示モード",
+    "modeStory": "ストーリー",
+    "modeLog": "ログ",
+    "loading": "ストーリーを読み込み中…",
+    "loadFailed": "ストーリーを読み込めませんでした。",
+    "empty": "このファイルにはまだ AI の介入が記録されていません。",
+    "spec": "Spec #{{ticketId}}",
+    "unknownSpec": "spec のない AI 変更",
+    "openSpec": "spec #{{ticketId}} を開く",
+    "kindLabel": {
+      "created": "作成",
+      "modified": "変更",
+      "deleted": "削除"
+    },
+    "fallback": {
+      "created": "このファイルはこの spec の実装中に作成されました。",
+      "modified": "このファイルはこの spec の実装中に変更されました。",
+      "deleted": "このファイルはこの spec の実装中に削除されました。",
+      "createdNoSpec": "このファイルは AI ジョブによって作成されました。",
+      "modifiedNoSpec": "このファイルは AI ジョブによって変更されました。",
+      "deletedNoSpec": "このファイルは AI ジョブによって削除されました。"
+    },
+    "explain": "この変更を説明",
+    "explaining": "説明を生成中…",
+    "explainFailed": "説明を生成できませんでした",
+    "budgetReached": "月間 AI 予算に達しました。",
+    "generateAnyway": "それでも生成する",
+    "explainedBy": "{{model}} による説明",
+    "linesAdded": "追加された行",
+    "linesRemoved": "削除された行"
+  },
   "history": {
     "resize": "AI 変更履歴のサイズを変更",
     "title_one": "AI 変更履歴 · {{count}} 件の変更",

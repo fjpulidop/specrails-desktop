@@ -440,6 +440,34 @@ describe('agent-chat-router', () => {
     expect((captured[0] as { queueId?: string }).queueId).toBe('q-front-1')
   })
 
+  it('PATCH /queue/:queueId edits a parked message (404 unknown conv, 400 empty text, 409 once dispatched)', async () => {
+    const edits: Array<[string, string, string]> = []
+    let inQueue = true
+    const mgr: Partial<AgentChatManager> = {
+      sendMessage: async () => {},
+      abort: () => true,
+      isBusy: () => true,
+      editQueued: (id: string, queueId: string, text: string) => {
+        if (!inQueue) return false
+        edits.push([id, queueId, text])
+        return true
+      },
+    }
+    const qApp = makeApp(db, mgr)
+    const c = await req(qApp, 'POST', '/api/agent/conversations', {})
+    const id = c.body.conversation.id
+    expect((await req(qApp, 'PATCH', '/api/agent/conversations/missing/queue/q-1', { text: 'x' })).status).toBe(404)
+    expect((await req(qApp, 'PATCH', `/api/agent/conversations/${id}/queue/q-1`, { text: '   ' })).status).toBe(400)
+    const ok = await req(qApp, 'PATCH', `/api/agent/conversations/${id}/queue/q-1`, { text: '  edited  ' })
+    expect(ok.status).toBe(200)
+    expect(ok.body.ok).toBe(true)
+    expect(edits).toEqual([[id, 'q-1', 'edited']]) // trimmed before it reaches the manager
+    // Once the drain loop consumed the slot the edit refuses with 409 — the
+    // client keeps the user's text as a draft (never-lose-input).
+    inQueue = false
+    expect((await req(qApp, 'PATCH', `/api/agent/conversations/${id}/queue/q-1`, { text: 'late' })).status).toBe(409)
+  })
+
   it('404s the whole surface when SPECRAILS_AGENT_CHAT=false', async () => {
     const prev = process.env.SPECRAILS_AGENT_CHAT
     process.env.SPECRAILS_AGENT_CHAT = 'false'
@@ -638,5 +666,50 @@ describe('AgentChatManager', () => {
     expect(calls).toBe(2) // resume failed → retried fresh
     expect(events.some((e) => e.type === 'agent_done')).toBe(true)
     expect(listAgentMessages(db, c.id).some((m) => m.content === 'fresh reply')).toBe(true)
+  })
+
+  it('editQueued rewrites a still-parked message in place and the drained turn runs the EDITED text', async () => {
+    const c = createAgentConversation(db, { provider: 'claude' })
+    let release: () => void = () => {}
+    let calls = 0
+    vi.mocked(runAiCliInvocation).mockImplementation((hooks) => {
+      calls++
+      hooks.onSpawn?.({ kill: () => true } as never)
+      if (calls === 1) {
+        hooks.onEvent?.({ kind: 'text-delta', text: 'first reply' })
+        return new Promise<InvocationResult>((resolve) => {
+          release = () =>
+            resolve({ code: 0, timedOut: false, spawnFailed: false, events: [], lastResultEvent: null, sessionId: null, stderrTail: '', child: null } as InvocationResult)
+        })
+      }
+      hooks.onEvent?.({ kind: 'text-delta', text: 'second reply' })
+      return Promise.resolve({ code: 0, timedOut: false, spawnFailed: false, events: [], lastResultEvent: null, sessionId: null, stderrTail: '', child: null } as InvocationResult)
+    })
+    const first = manager.sendMessage(c.id, 'one')
+    await manager.sendMessage(c.id, 'original wording', { queueId: 'q-9' })
+
+    // Unknown queueId / unknown conversation → false, no broadcast.
+    expect(manager.editQueued(c.id, 'q-nope', 'x')).toBe(false)
+    expect(manager.editQueued('missing-conv', 'q-9', 'x')).toBe(false)
+    expect(events.some((e) => e.type === 'agent_queue_edited')).toBe(false)
+
+    // Edit in place → true + agent_queue_edited so every window updates its chip.
+    expect(manager.editQueued(c.id, 'q-9', 'edited wording')).toBe(true)
+    const editedEv = events.find((e) => e.type === 'agent_queue_edited') as
+      | { queueId?: string; text?: string }
+      | undefined
+    expect(editedEv?.queueId).toBe('q-9')
+    expect(editedEv?.text).toBe('edited wording')
+
+    release()
+    await first
+    // The dequeued event and the drained turn both carry the EDITED text.
+    const dequeuedEv = events.find((e) => e.type === 'agent_dequeued') as { text?: string } | undefined
+    expect(dequeuedEv?.text).toBe('edited wording')
+    const msgs = listAgentMessages(db, c.id).map((m) => `${m.role}:${m.content}`)
+    expect(msgs).toContain('user:edited wording')
+    expect(msgs.some((m) => m.includes('original wording'))).toBe(false)
+    // Consumed → the router's 409 branch: further edits refuse.
+    expect(manager.editQueued(c.id, 'q-9', 'too late')).toBe(false)
   })
 })

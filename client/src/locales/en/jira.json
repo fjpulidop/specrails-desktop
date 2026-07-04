@@ -44,6 +44,7 @@
     "auto": "Automatic (by category)",
     "todo": "Backlog / To Do",
     "inProgress": "In Progress",
+    "onReview": "On Review",
     "done": "Done",
     "cancelled": "Cancelled",
     "loading": "Loading statuses…"

@@ -41,6 +41,13 @@ export const AGENT_PROJECT_HEADER = 'x-specrails-active-project'
 /** Env var the manager sets on the bridge spawn; the bridge forwards it as the project header. */
 export const AGENT_PROJECT_ENV = 'SPECRAILS_ACTIVE_PROJECT'
 
+/** Header carrying the launching agent-chat conversation id (safe-pr-review-flow
+ *  origin link) so an MCP-launched rail can be tagged with its origin. */
+export const AGENT_CONVERSATION_HEADER = 'x-specrails-agent-conversation'
+
+/** Env var set on the bridge spawn; the bridge forwards it as the conversation header. */
+export const AGENT_CONVERSATION_ENV = 'SPECRAILS_AGENT_CONVERSATION'
+
 /** Which MCP tiers a given ladder level unlocks (cumulative). */
 const TIERS_BY_LEVEL: Record<AgentTierLevel, ReadonlySet<McpTier>> = {
   0: new Set<McpTier>(['read']),

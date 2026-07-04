@@ -17,6 +17,7 @@ function makeBrowserManager(overrides: Record<string, unknown> = {}) {
     captureBreakpoints: vi.fn(async () => ({ screenshot: { id: 'b1' }, domAttachment: { id: 'b2' }, dom: { html: '<i>', nodes: [] }, screenshotDataUrl: 'data:image/png;base64,x', breakpoints: { desktop: { attachment: { id: 'b1' }, dataUrl: 'data:image/png;base64,x', viewport: { width: 1280, height: 800 } } } })),
     clipboard: vi.fn(async () => ({ text: 'sel' })),
     navigateElement: vi.fn(async () => ({ rect: { x: 0, y: 0, width: 10, height: 10 }, tag: 'section', selector: 'body > section', path: [{ label: 'body', selector: 'body' }, { label: 'section', selector: 'body > section' }] })),
+    setPopupView: vi.fn(() => true),
     kill: vi.fn(async () => true),
     ...overrides,
   }
@@ -108,6 +109,20 @@ describe('project-router browser endpoints', () => {
     const app = createApp(makeContext(db, browser))
     const res = await request(app).post('/api/projects/proj-1/browser/sessions/s1/navigate').send({ action: 'goto' })
     expect(res.status).toBe(400)
+  })
+
+  it('POST popup-view switches the viewed page; validates target; 404s unknown session', async () => {
+    const app = createApp(makeContext(db, browser))
+    const ok = await request(app).post('/api/projects/proj-1/browser/sessions/s1/popup-view').send({ target: 'root' })
+    expect(ok.status).toBe(200)
+    expect(browser.setPopupView).toHaveBeenCalledWith('s1', 'root')
+
+    const bad = await request(app).post('/api/projects/proj-1/browser/sessions/s1/popup-view').send({ target: 'sideways' })
+    expect(bad.status).toBe(400)
+
+    browser = makeBrowserManager({ setPopupView: vi.fn(() => false) })
+    const gone = await request(createApp(makeContext(db, browser))).post('/api/projects/proj-1/browser/sessions/s1/popup-view').send({ target: 'popup' })
+    expect(gone.status).toBe(404)
   })
 
   it('POST navigate returns the nav result and accepts back without url', async () => {

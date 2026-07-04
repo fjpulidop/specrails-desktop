@@ -17,8 +17,12 @@ import {
   navigateBrowserElement,
   uploadCaptureImage,
   killBrowserSession,
+  setBrowserPopupView,
+  popupOriginLabel,
+  createPointerInputCoalescer,
   BrowserSessionLimitError,
   BrowserLaunchFailedError,
+  type BrowserInputEvent,
   type CapturedDom,
 } from './browser-capture'
 
@@ -239,6 +243,116 @@ describe('browser-capture lib', () => {
     it('killBrowserSession swallows errors', async () => {
       global.fetch = vi.fn(async () => { throw new Error('network') }) as unknown as typeof fetch
       await expect(killBrowserSession('s1')).resolves.toBeUndefined()
+    })
+
+    it('setBrowserPopupView posts the target and swallows errors', async () => {
+      const fetchMock = mockFetch((url, init) => {
+        expect(url).toBe('/api/projects/proj-1/browser/sessions/s1/popup-view')
+        expect(JSON.parse(init?.body as string)).toEqual({ target: 'root' })
+        return { body: { ok: true } }
+      })
+      global.fetch = fetchMock as unknown as typeof fetch
+      await setBrowserPopupView('s1', 'root')
+      expect(fetchMock).toHaveBeenCalledTimes(1)
+
+      global.fetch = vi.fn(async () => { throw new Error('network') }) as unknown as typeof fetch
+      await expect(setBrowserPopupView('s1', 'popup')).resolves.toBeUndefined()
+    })
+  })
+
+  describe('popupOriginLabel', () => {
+    it('extracts the hostname', () => {
+      expect(popupOriginLabel('https://okta.example/login?x=1')).toBe('okta.example')
+    })
+    it('falls back to an ellipsis for blank/unparseable URLs', () => {
+      expect(popupOriginLabel(null)).toBe('…')
+      expect(popupOriginLabel(undefined)).toBe('…')
+      expect(popupOriginLabel('about:blank')).toBe('…')
+      expect(popupOriginLabel('not a url')).toBe('…')
+    })
+  })
+
+  describe('createPointerInputCoalescer', () => {
+    function harness() {
+      const sent: BrowserInputEvent[] = []
+      const ticks: Array<() => void> = []
+      let cancelled: number[] = []
+      const c = createPointerInputCoalescer(
+        (e) => sent.push(e),
+        (cb) => ticks.push(cb) && ticks.length, // id = 1-based index
+        (id) => { cancelled.push(id) },
+      )
+      const tick = () => {
+        const cbs = ticks.splice(0)
+        for (const cb of cbs) cb()
+      }
+      return { c, sent, tick, cancelledIds: () => cancelled, resetCancelled: () => { cancelled = [] } }
+    }
+
+    it('sends only the newest move per frame', () => {
+      const { c, sent, tick } = harness()
+      c.move(1, 1)
+      c.move(2, 2)
+      c.move(3, 3)
+      expect(sent).toHaveLength(0) // nothing until the frame tick
+      tick()
+      expect(sent).toEqual([{ type: 'mouse', action: 'move', x: 3, y: 3 }])
+    })
+
+    it('sums wheel deltas and keeps the latest position', () => {
+      const { c, sent, tick } = harness()
+      c.wheel(10, 10, 0, 40)
+      c.wheel(12, 12, 5, 40)
+      c.wheel(14, 14, 0, 40)
+      tick()
+      expect(sent).toEqual([{ type: 'wheel', x: 14, y: 14, deltaX: 5, deltaY: 120 }])
+    })
+
+    it('suppresses a standalone move to the same point as a pending wheel', () => {
+      const { c, sent, tick } = harness()
+      c.move(10, 10)
+      c.wheel(10, 10, 0, 40)
+      tick()
+      expect(sent).toEqual([{ type: 'wheel', x: 10, y: 10, deltaX: 0, deltaY: 40 }])
+    })
+
+    it('sends move THEN wheel when their positions differ', () => {
+      const { c, sent, tick } = harness()
+      c.wheel(10, 10, 0, 40)
+      c.move(20, 20)
+      tick()
+      expect(sent).toEqual([
+        { type: 'mouse', action: 'move', x: 20, y: 20 },
+        { type: 'wheel', x: 10, y: 10, deltaX: 0, deltaY: 40 },
+      ])
+    })
+
+    it('flush() sends pending input synchronously and cancels the scheduled tick', () => {
+      const { c, sent, tick, cancelledIds } = harness()
+      c.move(5, 5)
+      c.flush()
+      expect(sent).toEqual([{ type: 'mouse', action: 'move', x: 5, y: 5 }])
+      expect(cancelledIds()).toHaveLength(1)
+      tick() // the cancelled tick must not double-send
+      expect(sent).toHaveLength(1)
+    })
+
+    it('flush() with nothing pending sends nothing', () => {
+      const { c, sent } = harness()
+      c.flush()
+      expect(sent).toHaveLength(0)
+    })
+
+    it('dispose() drops pending input and ignores later calls', () => {
+      const { c, sent, tick } = harness()
+      c.move(5, 5)
+      c.dispose()
+      tick()
+      c.move(6, 6)
+      c.wheel(1, 1, 0, 10)
+      c.flush()
+      tick()
+      expect(sent).toHaveLength(0)
     })
   })
 })

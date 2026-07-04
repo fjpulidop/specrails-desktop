@@ -6,6 +6,10 @@ import { useTranslation } from 'react-i18next'
 import { cn } from '../../lib/utils'
 import { useWebViewModal } from '../../context/WebViewModalContext'
 import { extractAgentOptions } from './agent-options'
+import { extractAgentSpecDraft } from './agent-spec-draft'
+import { AgentSpecDraftCard, AgentSpecDraftPending } from './AgentSpecDraftCard'
+import { parseAgentRefHref, remarkAgentRefs, type AgentRefTarget } from '../../lib/agent-refs'
+import { AgentRefChip } from './AgentRefChip'
 
 // Token-based markdown styling — works across ALL themes (no prose-invert, which
 // would break light themes). Tables, bold, code, lists, blockquotes, links.
@@ -58,7 +62,9 @@ function CopyButton({ text }: { text: string }) {
 }
 
 interface Props {
-  role: 'user' | 'assistant'
+  /** `system` rows are app-authored inline cards (PR-decision card, P7);
+   *  until the card branch lands they render through the assistant path. */
+  role: 'user' | 'assistant' | 'system'
   content: string
   /** Streaming assistant bubble: render markdown live, hide the copy button. */
   streaming?: boolean
@@ -66,35 +72,60 @@ interface Props {
   isLast?: boolean
   /** Sends the clicked option label as the user's reply. */
   onPickOption?: (option: string) => void
+  /** Project scope for ticket/job ref chips — the mission's pinned project.
+   *  null/undefined (Home / app-global conversations) ⇒ refs stay plain text. */
+  refsProjectId?: string | null
+  /** Opens a clicked ref chip (ticket → TicketDetailModal, job → JobDetailModal). */
+  onOpenRef?: (ref: AgentRefTarget) => void
 }
 
 /** A single agent chat message: markdown-rendered, with a subtle per-bubble copy. */
-export function AgentMessage({ role, content, streaming, isLast, onPickOption }: Props) {
+export function AgentMessage({ role, content, streaming, isLast, onPickOption, refsProjectId, onOpenRef }: Props) {
   const isUser = role === 'user'
   const { openWebView, canOpenWebView } = useWebViewModal()
+
+  // Ref chips linkify ONLY settled assistant content: the live streaming buffer
+  // re-parses per frame (useSmoothStream), so it must stay untouched.
+  const refsEnabled = !isUser && !streaming && !!refsProjectId && !!onOpenRef
+  const remarkPlugins = useMemo(
+    () => (refsEnabled ? [remarkGfm, remarkAgentRefs] : [remarkGfm]),
+    [refsEnabled],
+  )
 
   // http(s) links open in the app's embedded browser (same pattern as spec
   // descriptions) instead of navigating the whole webview away. When the
   // embedded browser can't open (no project / feature off), keep target=_blank.
   const markdownComponents = useMemo(() => ({
-    a: ({ href, children }: { href?: string; children?: React.ReactNode }) => (
-      <a
-        href={href}
-        target="_blank"
-        rel="noreferrer"
-        data-agent-interactive
-        onClick={(e) => {
-          if (canOpenWebView && typeof href === 'string' && /^https?:\/\//i.test(href)) {
-            e.preventDefault()
-            e.stopPropagation()
-            openWebView(href)
-          }
-        }}
-      >
-        {children}
-      </a>
-    ),
-  }), [openWebView, canOpenWebView])
+    a: ({ href, children }: { href?: string; children?: React.ReactNode }) => {
+      // `#agentref:` fragments are emitted by remarkAgentRefs (settled renders
+      // only) — render them as clickable ticket/job chips instead of anchors.
+      const refTarget = parseAgentRefHref(href)
+      if (refTarget && onOpenRef) {
+        return (
+          <AgentRefChip refTarget={refTarget} onOpen={onOpenRef}>
+            {children}
+          </AgentRefChip>
+        )
+      }
+      return (
+        <a
+          href={href}
+          target="_blank"
+          rel="noreferrer"
+          data-agent-interactive
+          onClick={(e) => {
+            if (canOpenWebView && typeof href === 'string' && /^https?:\/\//i.test(href)) {
+              e.preventDefault()
+              e.stopPropagation()
+              openWebView(href)
+            }
+          }}
+        >
+          {children}
+        </a>
+      )
+    },
+  }), [openWebView, canOpenWebView, onOpenRef])
 
   if (isUser) {
     return (
@@ -115,13 +146,21 @@ export function AgentMessage({ role, content, streaming, isLast, onPickOption }:
   // A valid trailing ```options block (the agent asking the user to choose) is
   // ALWAYS stripped from the rendered markdown; the chips themselves render only
   // on the last settled message — older questions keep just their prose.
-  const { body, options } = extractAgentOptions(content)
+  //
+  // A fenced ```spec-draft block (the spec-refinement live draft protocol) is
+  // likewise stripped and rendered as a premium draft card below the prose;
+  // while it is still streaming in, the raw JSON tail is cut and a small
+  // "updating draft" chip shows instead.
+  const { body: bodyWithDraft, options } = extractAgentOptions(content)
+  const { body, draft, pending } = extractAgentSpecDraft(bodyWithDraft, streaming)
   const showChips = !!options && !!isLast && !streaming && !!onPickOption
   return (
     <div className="group flex flex-col gap-1">
       <div className={cn('max-w-full', MD)}>
-        <ReactMarkdown remarkPlugins={[remarkGfm]} components={markdownComponents}>{body}</ReactMarkdown>
+        <ReactMarkdown remarkPlugins={remarkPlugins} components={markdownComponents}>{body}</ReactMarkdown>
       </div>
+      {draft && <AgentSpecDraftCard draft={draft} />}
+      {pending && <AgentSpecDraftPending />}
       {showChips && (
         <div className="flex flex-wrap gap-1.5 pt-1">
           {options.map((option, i) => (

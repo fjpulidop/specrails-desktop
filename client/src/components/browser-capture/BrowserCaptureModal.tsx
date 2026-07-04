@@ -1,7 +1,7 @@
 import { Fragment, useCallback, useEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { Trans, useTranslation } from 'react-i18next'
-import { ArrowLeft, ArrowRight, RotateCw, X, Crop, Loader2, Globe, AlertTriangle, Monitor, Tablet, Smartphone, Maximize2, Network, Ratio, ChevronRight, Lock } from 'lucide-react'
+import { ArrowLeft, ArrowRight, RotateCw, X, Crop, Loader2, Globe, AlertTriangle, Monitor, Tablet, Smartphone, Maximize2, Network, Ratio, ChevronRight, Lock, ExternalLink } from 'lucide-react'
 import { toast } from 'sonner'
 import { Button } from '../ui/button'
 import { useBrowserCaptureSession } from './useBrowserCaptureSession'
@@ -12,12 +12,15 @@ import {
   rectFromPoints,
   isUsableSelection,
   clampRectToViewport,
+  createPointerInputCoalescer,
+  popupOriginLabel,
   BREAKPOINT_DIMS,
   type CaptureRect,
   type CaptureResult,
   type BrowserInputEvent,
   type BreadcrumbSegment,
   type ElementProbe,
+  type PointerInputCoalescer,
 } from '../../lib/browser-capture'
 
 /**
@@ -66,7 +69,7 @@ const PRESET_DIMS: Record<Exclude<ViewportPreset, 'fit'>, { w: number; h: number
 export function BrowserCaptureModal({ open, onClose, projectId, pendingSpecId, onCaptured, confirmLabel }: BrowserCaptureModalProps) {
   const { t } = useTranslation('browser')
   const session = useBrowserCaptureSession({ projectId, open })
-  const { canvasRef, viewport, status, errorMsg, url, title, hoverRect, hoverSelector, hoverPath } = session
+  const { canvasRef, viewport, status, errorMsg, url, title, hoverRect, hoverSelector, hoverPath, popup } = session
 
   const [addressValue, setAddressValue] = useState('')
   const [selecting, setSelecting] = useState(false)
@@ -91,6 +94,20 @@ export function BrowserCaptureModal({ open, onClose, projectId, pendingSpecId, o
   const containerRef = useRef<HTMLDivElement | null>(null)
   const pendingMoveRef = useRef<{ x: number; y: number } | null>(null)
   const rafRef = useRef<number | null>(null)
+  // Browse-mode input coalescer: batches pointermove (newest-wins) and wheel
+  // (deltas summed) onto animation frames before they cross the WS → CDP
+  // boundary. Lazily (re)created so a StrictMode unmount/remount can't leave a
+  // disposed instance behind; sends via a ref so it never sees a stale closure.
+  const forwardInputRef = useRef(session.forwardInput)
+  forwardInputRef.current = session.forwardInput
+  const coalescerRef = useRef<PointerInputCoalescer | null>(null)
+  const getCoalescer = useCallback((): PointerInputCoalescer => {
+    if (coalescerRef.current == null) {
+      coalescerRef.current = createPointerInputCoalescer((e: BrowserInputEvent) => forwardInputRef.current(e))
+    }
+    return coalescerRef.current
+  }, [])
+  useEffect(() => () => { coalescerRef.current?.dispose(); coalescerRef.current = null }, [])
   const presetRef = useRef<ViewportPreset>('fit')
   const canvasRectRef = useRef<{ left: number; top: number; width: number; height: number } | null>(null)
   const lastProbeAtRef = useRef(0)
@@ -173,6 +190,18 @@ export function BrowserCaptureModal({ open, onClose, projectId, pendingSpecId, o
     return () => window.removeEventListener('keydown', onKey)
   }, [open, selecting])
 
+  // A popup taking over the view (OAuth login window) is not capturable — exit
+  // select mode; the Select button is also disabled while the popup is viewed.
+  useEffect(() => {
+    if (popup?.active && selecting) {
+      setSelecting(false)
+      setBox(null)
+      setLocked(null)
+      session.clearHover()
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [popup?.active, selecting])
+
   const canvasRect = useCallback((): DOMRect | null => {
     const r = canvasRef.current?.getBoundingClientRect() ?? null
     // Cache for the hover-highlight so we never measure layout during render.
@@ -186,42 +215,44 @@ export function BrowserCaptureModal({ open, onClose, projectId, pendingSpecId, o
     return mapPointToViewport({ x: clientX, y: clientY }, { left: rect.left, top: rect.top, width: rect.width, height: rect.height }, viewport)
   }, [canvasRect, viewport])
 
-  // ─── Browse-mode interaction (forward to page) ──────────────────────────────
-
-  const flushMove = useCallback(() => {
-    rafRef.current = null
-    const p = pendingMoveRef.current
-    if (!p) return
-    pendingMoveRef.current = null
-    session.forwardInput({ type: 'mouse', action: 'move', x: p.x, y: p.y })
-  }, [session])
+  // ─── Browse-mode interaction (forward to page, rAF-coalesced) ────────────────
 
   const onPointerMove = useCallback((e: React.PointerEvent) => {
     if (selecting) return
     const p = toViewport(e.clientX, e.clientY)
-    pendingMoveRef.current = p
-    if (rafRef.current == null) rafRef.current = requestAnimationFrame(flushMove)
-  }, [selecting, toViewport, flushMove])
+    getCoalescer().move(p.x, p.y)
+  }, [selecting, toViewport, getCoalescer])
 
   const buttonOf = (b: number): 'left' | 'middle' | 'right' => (b === 2 ? 'right' : b === 1 ? 'middle' : 'left')
 
   const onPointerDown = useCallback((e: React.PointerEvent) => {
     if (selecting) return
     const p = toViewport(e.clientX, e.clientY)
+    // Position the cursor exactly at the click point and flush any coalesced
+    // input BEFORE the click, so ordering + click precision are guaranteed.
+    const c = getCoalescer()
+    c.move(p.x, p.y)
+    c.flush()
     session.forwardInput({ type: 'mouse', action: 'down', x: p.x, y: p.y, button: buttonOf(e.button), clickCount: e.detail || 1 })
-  }, [selecting, toViewport, session])
+  }, [selecting, toViewport, session, getCoalescer])
 
   const onPointerUp = useCallback((e: React.PointerEvent) => {
     if (selecting) return
     const p = toViewport(e.clientX, e.clientY)
+    const c = getCoalescer()
+    c.move(p.x, p.y)
+    c.flush()
     session.forwardInput({ type: 'mouse', action: 'up', x: p.x, y: p.y, button: buttonOf(e.button), clickCount: e.detail || 1 })
-  }, [selecting, toViewport, session])
+  }, [selecting, toViewport, session, getCoalescer])
 
   const onWheel = useCallback((e: React.WheelEvent) => {
     if (selecting) return
     const p = toViewport(e.clientX, e.clientY)
-    session.forwardInput({ type: 'wheel', x: p.x, y: p.y, deltaX: e.deltaX, deltaY: e.deltaY })
-  }, [selecting, toViewport, session])
+    // Coalesced: a macOS trackpad emits wheel at 60–120 Hz; summing deltas into
+    // ≤1 wheel message per frame keeps total scroll distance while cutting the
+    // WS + CDP command volume ~2–5× (the single biggest scroll-lag lever).
+    getCoalescer().wheel(p.x, p.y, e.deltaX, e.deltaY)
+  }, [selecting, toViewport, getCoalescer])
 
   const onKeyDown = useCallback((e: React.KeyboardEvent) => {
     if (selecting || e.key === 'Escape') return
@@ -482,7 +513,7 @@ export function BrowserCaptureModal({ open, onClose, projectId, pendingSpecId, o
           variant={selecting ? 'default' : 'secondary'}
           className="gap-1.5"
           onClick={() => { setSelecting((v) => !v); setBox(null); setLocked(null); session.clearHover() }}
-          disabled={status !== 'ready' || capturing}
+          disabled={status !== 'ready' || capturing || popup?.active === true}
           data-testid="browser-select-toggle"
         >
           <Crop className="w-3.5 h-3.5" />
@@ -500,6 +531,42 @@ export function BrowserCaptureModal({ open, onClose, projectId, pendingSpecId, o
           {status === 'connecting' ? t('modal.status.connecting') : status === 'error' ? (errorMsg ?? t('modal.status.unavailable')) : (title || '')}
         </span>
       </div>
+
+      {/* Popup (OAuth login window) bar: while a popup is viewed, the screencast +
+          input target the popup; "Back to page" returns to the opener without
+          closing the popup. When the popup self-closes (typical OAuth), the
+          server auto-returns and this bar disappears. */}
+      {popup && (
+        <div
+          data-testid="browser-popup-bar"
+          className={`flex items-center gap-2 px-3 py-1.5 text-xs border-b shrink-0 ${popup.active ? 'bg-accent-info/10 border-accent-info/30 text-accent-info' : 'bg-surface/70 border-border/40 text-muted-foreground'}`}
+        >
+          <ExternalLink className="w-3.5 h-3.5 shrink-0" />
+          {popup.active ? (
+            <>
+              <span className="truncate font-medium">{t('popup.loginWindow', { origin: popupOriginLabel(popup.url) })}</span>
+              {popup.count > 1 && <span className="shrink-0 opacity-70">{t('popup.stacked', { count: popup.count - 1 })}</span>}
+              <button
+                type="button"
+                onClick={() => session.setPopupView('root')}
+                className="ml-auto shrink-0 inline-flex items-center gap-1 h-6 px-2 rounded-md border border-current/30 hover:bg-card/60 transition-colors"
+              >
+                <ArrowLeft className="w-3 h-3" />
+                {t('popup.backToPage')}
+              </button>
+            </>
+          ) : (
+            <button
+              type="button"
+              onClick={() => session.setPopupView('popup')}
+              className="inline-flex items-center gap-1 h-6 px-2 rounded-md border border-border/50 hover:bg-card/60 hover:text-foreground transition-colors"
+            >
+              {t('popup.show')}
+              {popup.count > 1 && <span className="opacity-70">{t('popup.stacked', { count: popup.count - 1 })}</span>}
+            </button>
+          )}
+        </div>
+      )}
 
       {/* Viewport. tabIndex + key handlers live here so the canvas can be a direct
           flex child — that keeps the max-h-full chain intact so the frame scales

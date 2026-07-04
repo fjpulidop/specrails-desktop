@@ -23,7 +23,8 @@ import { isBrowserCaptureEnabled } from './feature-flags'
 import { MobileGateway, createMobileAdminRouter, getMobileEventBus } from './mobile'
 import { McpServerManager, requireMcpAuth, createMcpAdminRouter } from './mcp'
 import { AgentChatManager } from './agent-chat-manager'
-import { createAgentChatRouter } from './agent-chat-router'
+import { createAgentChatRouter, isAgentChatEnabled } from './agent-chat-router'
+import { setAgentChatManager } from './agent-chat-registry'
 import type { BrowserWsClient } from './browser-capture-manager'
 import type { BrowserInputEvent } from './browser-capture-types'
 import { isNavigableUrl } from './browser-playwright'
@@ -581,6 +582,10 @@ function applyPtyWsRateLimiting(ws: WebSocket): void {
   // ─── App-global agent chat (drives the app via its own MCP) ────────────────
   const agentChatManager = new AgentChatManager(broadcast, registry.desktopDb, port)
   _agentChatManager = agentChatManager
+  // Publish the instance to the process-wide registry so the rails layer can
+  // post PR-decision cards (safe-pr-review-flow). Left null when agent chat is
+  // disabled — the rails callers are null-safe and simply skip the card.
+  setAgentChatManager(isAgentChatEnabled() ? agentChatManager : null)
   app.use('/api/agent', createAgentChatRouter({ manager: agentChatManager, desktopDb: registry.desktopDb }))
 
   // App-level routes. CRITICAL mount order: the desktop router is mounted at

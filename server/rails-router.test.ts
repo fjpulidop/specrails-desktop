@@ -7,13 +7,36 @@ import { createRailsRouter } from './rails-router'
 import { getRail, setRailTickets } from './rails-store'
 import { createLoop, publishLoop } from './loops-store'
 import { createLoopRun } from './loop-runs-store'
+import { createPrDelivery, getPrDelivery, transitionDecision, type CreatePrDeliveryInput } from './rail-pr-store'
 import type { LoopGraph } from './loop-graph'
 
-const { mockExecRun } = vi.hoisted(() => ({ mockExecRun: vi.fn() }))
+const { mockExecRun, mockRepoStatus, mockLaunchIsolated } = vi.hoisted(() => ({
+  mockExecRun: vi.fn(),
+  mockRepoStatus: vi.fn(),
+  mockLaunchIsolated: vi.fn(),
+}))
 vi.mock('./pr-publisher', async (importActual) => ({
   ...(await (importActual as () => Promise<Record<string, unknown>>)()),
   defaultExec: { run: mockExecRun },
 }))
+// Replace ONLY the git-repo probe + the isolated-launch entry point so the
+// isolation branch is drivable without a real repository. The default probe
+// result ('no-git', set in the top-level beforeEach) mirrors what the real
+// probe returns for the fixture '/repo' path, so every pre-existing suite
+// keeps exercising the shared-cwd fallback unchanged.
+vi.mock('./worktree-manager', async (importActual) => ({
+  ...(await (importActual as () => Promise<Record<string, unknown>>)()),
+  repoIsolationStatus: mockRepoStatus,
+}))
+vi.mock('./rail-isolated-launch', async (importActual) => ({
+  ...(await (importActual as () => Promise<Record<string, unknown>>)()),
+  launchIsolatedRail: mockLaunchIsolated,
+}))
+
+beforeEach(() => {
+  mockRepoStatus.mockReset().mockResolvedValue('no-git')
+  mockLaunchIsolated.mockReset()
+})
 
 function appWith(
   db: DbInstance,
@@ -244,10 +267,22 @@ describe('rails-router PUT /:railIndex/engine', () => {
   })
 })
 
-describe('rails-router POST /:railIndex/launch with aiEngine', () => {
+// Loops are pinned OFF here: with Loops enabled (the default) a bare-mode launch
+// now derives its factory loop and routes through the loop engine (see the
+// "bare mode derives its factory loop" suite) — these tests keep guarding the
+// loops-off legacy QueueManager path, where the engine plumbing must survive.
+describe('rails-router POST /:railIndex/launch with aiEngine (loops off — legacy QueueManager path)', () => {
   let db: DbInstance
-  beforeEach(() => { db = initDb(':memory:') })
-  afterEach(() => { db.close() })
+  const savedLoops = process.env.SPECRAILS_LOOPS_SECTION
+  beforeEach(() => {
+    db = initDb(':memory:')
+    process.env.SPECRAILS_LOOPS_SECTION = 'false'
+  })
+  afterEach(() => {
+    db.close()
+    if (savedLoops === undefined) delete process.env.SPECRAILS_LOOPS_SECTION
+    else process.env.SPECRAILS_LOOPS_SECTION = savedLoops
+  })
 
   it('passes the explicit aiEngine through to enqueue as provider', async () => {
     setRailTickets(db, 0, [1, 2])
@@ -290,10 +325,20 @@ describe('rails-router POST /:railIndex/launch with aiEngine', () => {
   })
 })
 
-describe('rails-router POST /:railIndex/launch ultracode mode', () => {
+// Loops pinned OFF (same reason as the aiEngine suite above): bare ultracode with
+// loops on derives factory:ultracode and runs through the loop engine instead.
+describe('rails-router POST /:railIndex/launch ultracode mode (loops off — legacy QueueManager path)', () => {
   let db: DbInstance
-  beforeEach(() => { db = initDb(':memory:') })
-  afterEach(() => { db.close() })
+  const savedLoops = process.env.SPECRAILS_LOOPS_SECTION
+  beforeEach(() => {
+    db = initDb(':memory:')
+    process.env.SPECRAILS_LOOPS_SECTION = 'false'
+  })
+  afterEach(() => {
+    db.close()
+    if (savedLoops === undefined) delete process.env.SPECRAILS_LOOPS_SECTION
+    else process.env.SPECRAILS_LOOPS_SECTION = savedLoops
+  })
 
   it('enqueues one claude job per ticket with an ultracode command and no profile', async () => {
     setRailTickets(db, 0, [5, 7])
@@ -432,17 +477,23 @@ describe('rails-router POST /:railIndex/stop (M19)', () => {
   })
 })
 
-describe('rails-router POST /:railIndex/launch interactive (ultracode)', () => {
+// Loops pinned OFF: these pin what the LEGACY QueueManager enqueue receives —
+// with loops on a bare-mode launch never reaches enqueue (factory-loop derivation).
+describe('rails-router POST /:railIndex/launch interactive (ultracode, loops off — legacy QueueManager path)', () => {
   let db: DbInstance
   const saved = process.env.SPECRAILS_INTERACTIVE_JOBS
+  const savedLoops = process.env.SPECRAILS_LOOPS_SECTION
   beforeEach(() => {
     db = initDb(':memory:')
     setRailTickets(db, 0, [1], 'ultracode')
     delete process.env.SPECRAILS_INTERACTIVE_JOBS
+    process.env.SPECRAILS_LOOPS_SECTION = 'false'
   })
   afterEach(() => {
     if (saved === undefined) delete process.env.SPECRAILS_INTERACTIVE_JOBS
     else process.env.SPECRAILS_INTERACTIVE_JOBS = saved
+    if (savedLoops === undefined) delete process.env.SPECRAILS_LOOPS_SECTION
+    else process.env.SPECRAILS_LOOPS_SECTION = savedLoops
   })
 
   function launch(body: Record<string, unknown>, enqueue = vi.fn(() => ({ id: 'j1', queuePosition: 0 }))) {
@@ -450,12 +501,15 @@ describe('rails-router POST /:railIndex/launch interactive (ultracode)', () => {
     return { app, enqueue }
   }
 
-  it('enables interactive by default on every ultracode launch (feature on)', async () => {
+  it('passes no explicit interactive flag — QueueManager’s spawn-time default covers it', async () => {
     const { app, enqueue } = launch({})
     const res = await request(app).post('/rails/0/launch').send({ mode: 'ultracode' })
     expect(res.status).toBe(202)
     const opts = enqueue.mock.calls[0]?.[2] as Record<string, unknown>
-    expect(opts.interactive).toBe(true)
+    // The interactive-by-default flip moved the decision to QueueManager's
+    // spawn-time gate (kill-switch + persistent-stdin capability) — the launch
+    // no longer forwards a flag, so the default also survives a restart.
+    expect(opts.interactive).toBeUndefined()
     expect(opts.provider).toBe('claude')
   })
 
@@ -708,42 +762,500 @@ describe('rails-router GET / — activeLoopRuns enrichment (mirror labelling)', 
   })
 })
 
-describe('rails-router POST /pr-review', () => {
+describe('rails-router POST /:railIndex/launch — ask-first PR delivery (safe-pr-review-flow)', () => {
+  let db: DbInstance
+  let desktopDb: DbInstance
+  const ORIG_PR = process.env.SPECRAILS_RAIL_DELIVER_PR
+
+  beforeEach(() => {
+    db = initDb(':memory:')
+    desktopDb = initDesktopDb(':memory:')
+    setRailTickets(db, 0, [1, 2], 'loop')
+    delete process.env.SPECRAILS_RAIL_DELIVER_PR // default-on
+  })
+  afterEach(() => {
+    db.close(); desktopDb.close()
+    if (ORIG_PR === undefined) delete process.env.SPECRAILS_RAIL_DELIVER_PR
+    else process.env.SPECRAILS_RAIL_DELIVER_PR = ORIG_PR
+  })
+
+  const mkDelivery = (extra: Partial<CreatePrDeliveryInput> = {}) =>
+    createPrDelivery(db, {
+      railIndex: 0, loopId: 'factory:implement', railKey: '0-factory:implement',
+      ticketIds: [1, 2], baseBranch: 'main', loopName: 'Implement',
+      originSurface: 'dashboard', ...extra,
+    })
+
+  const launchApp = (opts: Parameters<typeof appWith>[1] = {}) =>
+    appWith(db, {
+      desktopDb,
+      loopRunManager: { run: vi.fn().mockResolvedValue({ runId: 'r', outcome: 'success', iterations: 1, totalCostUsd: 0 }), cancel: vi.fn() },
+      getTicketSpec: () => ({ title: 'T', description: 'D' }),
+      ...opts,
+    })
+
+  it('409 pr_decision_pending when the slot has an unresolved delivery (before any git probe)', async () => {
+    const row = mkDelivery()
+    const res = await request(launchApp()).post('/rails/0/launch').send({ loopId: 'factory:implement' })
+    expect(res.status).toBe(409)
+    expect(res.body).toEqual({ error: 'pr_decision_pending', prDeliveryId: row.id })
+    expect(mockLaunchIsolated).not.toHaveBeenCalled()
+    expect(mockRepoStatus).not.toHaveBeenCalled() // the guard sits before the probe
+  })
+
+  it('a TERMINAL delivery on the slot does not block relaunch', async () => {
+    const row = mkDelivery()
+    transitionDecision(db, row.id, 'building', 'discarded')
+    mockRepoStatus.mockResolvedValue('ok')
+    mockLaunchIsolated.mockResolvedValue(['run-1'])
+    const res = await request(launchApp()).post('/rails/0/launch').send({ loopId: 'factory:implement' })
+    expect(res.status).toBe(202)
+    expect(res.body).toMatchObject({ loopRunIds: ['run-1'], isolated: true })
+  })
+
+  it('threads originSurface/originConversationId into launchIsolatedRail', async () => {
+    mockRepoStatus.mockResolvedValue('ok')
+    mockLaunchIsolated.mockResolvedValue(['run-1'])
+    const res = await request(launchApp()).post('/rails/0/launch')
+      .send({ loopId: 'factory:implement', originSurface: 'agent-chat', originConversationId: 'conv-42' })
+    expect(res.status).toBe(202)
+    expect(mockLaunchIsolated).toHaveBeenCalledWith(expect.objectContaining({
+      railIndex: 0, scope: 'all',
+      originSurface: 'agent-chat', originConversationId: 'conv-42',
+    }))
+  })
+
+  it('defaults origin to dashboard / null when the body omits the fields', async () => {
+    mockRepoStatus.mockResolvedValue('ok')
+    mockLaunchIsolated.mockResolvedValue(['run-1'])
+    await request(launchApp()).post('/rails/0/launch').send({ loopId: 'factory:implement' })
+    expect(mockLaunchIsolated).toHaveBeenCalledWith(expect.objectContaining({
+      originSurface: 'dashboard', originConversationId: null,
+    }))
+  })
+
+  it('400 on a malformed originConversationId (charset / length / type / empty)', async () => {
+    for (const bad of ['not valid!', 'x'.repeat(65), 42, '']) {
+      const res = await request(launchApp()).post('/rails/0/launch')
+        .send({ loopId: 'factory:implement', originConversationId: bad })
+      expect(res.status).toBe(400)
+    }
+    expect(mockLaunchIsolated).not.toHaveBeenCalled()
+  })
+
+  it('400 on an unknown originSurface', async () => {
+    const res = await request(launchApp()).post('/rails/0/launch')
+      .send({ loopId: 'factory:implement', originSurface: 'mobile' })
+    expect(res.status).toBe(400)
+    expect(mockLaunchIsolated).not.toHaveBeenCalled()
+  })
+
+  it('origin fields are accepted (and ignored) on the loops-off legacy QueueManager path', async () => {
+    // Loops pinned off for this one test: with loops on, a bare mode derives its
+    // factory loop and never reaches the QueueManager branch under test here.
+    const savedLoops = process.env.SPECRAILS_LOOPS_SECTION
+    process.env.SPECRAILS_LOOPS_SECTION = 'false'
+    try {
+      const enqueue = vi.fn().mockReturnValue({ id: 'job-1', queuePosition: 0 })
+      const res = await request(appWith(db, { queueManager: { enqueue } }))
+        .post('/rails/0/launch')
+        .send({ mode: 'implement', originSurface: 'agent-chat', originConversationId: 'conv-1' })
+      expect(res.status).toBe(202)
+      expect(enqueue).toHaveBeenCalledTimes(1)
+    } finally {
+      if (savedLoops === undefined) delete process.env.SPECRAILS_LOOPS_SECTION
+      else process.env.SPECRAILS_LOOPS_SECTION = savedLoops
+    }
+  })
+
+  it('kill-switch off: a pending delivery does NOT block (legacy shared-cwd launch, no isolation)', async () => {
+    process.env.SPECRAILS_RAIL_DELIVER_PR = 'off'
+    mkDelivery()
+    const run = vi.fn().mockResolvedValue({ runId: 'r', outcome: 'success', iterations: 1, totalCostUsd: 0 })
+    const res = await request(launchApp({ loopRunManager: { run, cancel: vi.fn() } }))
+      .post('/rails/0/launch').send({ loopId: 'factory:implement' })
+    expect(res.status).toBe(202)
+    expect(run).toHaveBeenCalledTimes(1) // scope=all isolation is off with the flag → shared cwd
+    expect(mockLaunchIsolated).not.toHaveBeenCalled()
+  })
+})
+
+// The behavioral fix under test: with Loops enabled (the DEFAULT), a bare legacy
+// mode from ANY launch door (MCP tools, mobile, direct REST — no loopId) derives
+// its factory loop and routes through the loop engine, so worktree isolation and
+// the ask-first PR flow apply identically to the dashboard (which always sends
+// factory:<mode>). Pre-fix, an agent-launched bare implement fell into the bare
+// QueueManager branch: shared cwd, SPECRAILS_GIT_AUTO=false injected, no
+// rail_pr_deliveries row — stranded uncommitted work in the user's repo.
+describe('rails-router POST /:railIndex/launch — bare mode derives its factory loop (loops on, default)', () => {
+  let db: DbInstance
+  let desktopDb: DbInstance
+  const savedLoops = process.env.SPECRAILS_LOOPS_SECTION
+  const savedPr = process.env.SPECRAILS_RAIL_DELIVER_PR
+
+  beforeEach(() => {
+    db = initDb(':memory:')
+    desktopDb = initDesktopDb(':memory:')
+    delete process.env.SPECRAILS_LOOPS_SECTION   // loops ON (default)
+    delete process.env.SPECRAILS_RAIL_DELIVER_PR // PR delivery ON (default)
+  })
+  afterEach(() => {
+    db.close(); desktopDb.close()
+    if (savedLoops === undefined) delete process.env.SPECRAILS_LOOPS_SECTION
+    else process.env.SPECRAILS_LOOPS_SECTION = savedLoops
+    if (savedPr === undefined) delete process.env.SPECRAILS_RAIL_DELIVER_PR
+    else process.env.SPECRAILS_RAIL_DELIVER_PR = savedPr
+  })
+
+  const loopApp = (enqueue = vi.fn()) =>
+    appWith(db, {
+      desktopDb,
+      queueManager: { enqueue },
+      loopRunManager: { run: vi.fn().mockResolvedValue({ runId: 'r', outcome: 'success', iterations: 1, totalCostUsd: 0 }), cancel: vi.fn() },
+      getTicketSpec: () => ({ title: 'T', description: 'D' }),
+    })
+
+  it('bare implement derives factory:implement and launches ISOLATED through the loop branch', async () => {
+    setRailTickets(db, 0, [1, 2])
+    mockRepoStatus.mockResolvedValue('ok')
+    mockLaunchIsolated.mockResolvedValue(['run-1'])
+    const enqueue = vi.fn()
+    const res = await request(loopApp(enqueue)).post('/rails/0/launch').send({ mode: 'implement' })
+    expect(res.status).toBe(202)
+    expect(res.body).toMatchObject({ loopRunIds: ['run-1'], mode: 'implement', isolated: true })
+    expect(mockLaunchIsolated).toHaveBeenCalledWith(expect.objectContaining({
+      loopId: 'factory:implement', scope: 'all', ticketIds: [1, 2],
+    }))
+    expect(enqueue).not.toHaveBeenCalled() // NOT the bare QueueManager branch
+  })
+
+  it('bare ultracode derives factory:ultracode (per-ticket isolation)', async () => {
+    setRailTickets(db, 0, [5])
+    mockRepoStatus.mockResolvedValue('ok')
+    mockLaunchIsolated.mockResolvedValue(['run-u'])
+    const enqueue = vi.fn()
+    const res = await request(loopApp(enqueue)).post('/rails/0/launch').send({ mode: 'ultracode' })
+    expect(res.status).toBe(202)
+    expect(res.body).toMatchObject({ loopRunIds: ['run-u'], mode: 'ultracode', isolated: true })
+    expect(mockLaunchIsolated).toHaveBeenCalledWith(expect.objectContaining({
+      loopId: 'factory:ultracode', scope: 'per-ticket',
+    }))
+    expect(enqueue).not.toHaveBeenCalled()
+  })
+
+  it('an explicit custom loopId is honored — never overridden by the derivation', async () => {
+    setRailTickets(db, 0, [7], 'loop')
+    const loop = createLoop(desktopDb, {
+      id: 'custom-1', name: 'Mine',
+      graph: {
+        nodes: [
+          { id: 's', type: 'start', position: { x: 0, y: 0 } },
+          { id: 'ai', type: 'ai-step', position: { x: 0, y: 1 }, data: { prompt: 'Implement {{spec.title}}' } },
+          { id: 'e', type: 'end', position: { x: 0, y: 2 } },
+        ],
+        edges: [
+          { id: 'e1', source: 's', target: 'ai' },
+          { id: 'e2', source: 'ai', target: 'e' },
+        ],
+        config: { maxIterations: 5, timeoutMinutes: 20 },
+      },
+    })
+    publishLoop(desktopDb, loop.id)
+    mockRepoStatus.mockResolvedValue('ok')
+    mockLaunchIsolated.mockResolvedValue(['run-c'])
+    const res = await request(loopApp()).post('/rails/0/launch').send({ mode: 'loop', loopId: 'custom-1' })
+    expect(res.status).toBe(202)
+    expect(mockLaunchIsolated).toHaveBeenCalledWith(expect.objectContaining({ loopId: 'custom-1' }))
+  })
+
+  it('mode=loop without a loopId is still 400 (no factory loop to fall back to)', async () => {
+    setRailTickets(db, 0, [1], 'loop')
+    const res = await request(loopApp()).post('/rails/0/launch').send({ mode: 'loop' })
+    expect(res.status).toBe(400)
+    expect(mockLaunchIsolated).not.toHaveBeenCalled()
+  })
+})
+
+describe('rails-router GET / — prDeliveries enrichment (ask-first PR decisions)', () => {
+  let db: DbInstance
+  beforeEach(() => { db = initDb(':memory:') })
+  afterEach(() => { db.close() })
+
+  const mk = (id: string, railIndex: number, extra: Partial<CreatePrDeliveryInput> = {}) =>
+    createPrDelivery(db, {
+      id, railIndex, loopId: 'l', railKey: `${railIndex}-l`, ticketIds: [1],
+      baseBranch: 'main', loopName: 'L', originSurface: 'dashboard', ...extra,
+    })
+
+  it('returns ACTIVE deliveries keyed by railIndex as camelCase snapshots; terminal rows excluded', async () => {
+    mk('d0', 0)
+    mk('d1', 1, { ticketIds: [2, 3], baseBranch: 'develop', originSurface: 'agent-chat', originConversationId: 'conv-9' })
+    transitionDecision(db, 'd1', 'building', 'on_review', {
+      branches: [{ ticketId: 2, branch: 'b2', succeeded: true }], worktreeIds: ['w1'],
+    })
+    mk('d2', 2)
+    transitionDecision(db, 'd2', 'building', 'discarded')
+
+    const res = await request(appWith(db)).get('/rails')
+    expect(res.status).toBe(200)
+    expect(res.body.prDeliveries['0']).toMatchObject({ id: 'd0', decision: 'building', ticketIds: [1], baseBranch: 'main' })
+    expect(res.body.prDeliveries['1']).toMatchObject({
+      id: 'd1', decision: 'on_review', ticketIds: [2, 3], baseBranch: 'develop',
+      branches: [{ ticketId: 2, branch: 'b2', succeeded: true }], worktreeIds: ['w1'],
+      originSurface: 'agent-chat', originConversationId: 'conv-9',
+    })
+    expect(res.body.prDeliveries['2']).toBeUndefined() // terminal → not surfaced
+  })
+
+  it('keeps the NEWEST active delivery when a slot has several rows', async () => {
+    mk('older', 0)
+    mk('newer', 0)
+    const res = await request(appWith(db)).get('/rails')
+    expect(res.body.prDeliveries['0'].id).toBe('newer')
+  })
+
+  it('is an empty object when no deliveries exist', async () => {
+    const res = await request(appWith(db)).get('/rails')
+    expect(res.body.prDeliveries).toEqual({})
+  })
+})
+
+describe('rails-router POST /pr-decision', () => {
   let db: DbInstance
   beforeEach(() => { db = initDb(':memory:'); mockExecRun.mockReset() })
   afterEach(() => { db.close() })
 
   const url = 'https://github.com/o/r/pull/7'
 
-  it('400 on a non-PR URL', async () => {
-    const res = await request(appWith(db)).post('/rails/pr-review').send({ prUrl: 'not-a-url', action: 'ready' })
-    expect(res.status).toBe(400)
-  })
+  /** A delivery row parked at pr_draft with a live PR URL (approve-ready). */
+  function mkDraft(): string {
+    const row = createPrDelivery(db, {
+      railIndex: 0, loopId: 'l', railKey: '0-l', ticketIds: [1],
+      baseBranch: 'main', loopName: 'L', originSurface: 'dashboard',
+    })
+    transitionDecision(db, row.id, 'building', 'on_review', {
+      branches: [{ ticketId: 1, branch: 'sr/s1/ticket-1', succeeded: true }], worktreeIds: [],
+    })
+    transitionDecision(db, row.id, 'on_review', 'pr_draft', {
+      branch: 'sr/s1/ticket-1', prUrl: url, prNumber: 7, prState: 'pr-created',
+    })
+    return row.id
+  }
 
-  it('400 on an invalid action', async () => {
-    const res = await request(appWith(db)).post('/rails/pr-review').send({ prUrl: url, action: 'merge' })
-    expect(res.status).toBe(400)
-  })
-
-  it('ready → runs gh pr ready and returns ok', async () => {
-    mockExecRun.mockResolvedValue({ code: 0, stdout: '', stderr: '' })
+  it('the legacy /pr-review route is GONE (404)', async () => {
     const res = await request(appWith(db)).post('/rails/pr-review').send({ prUrl: url, action: 'ready' })
+    expect(res.status).toBe(404)
+  })
+
+  it('400 when prDeliveryId is missing or not a string', async () => {
+    for (const bad of [{}, { prDeliveryId: 42 }, { prDeliveryId: '' }]) {
+      const res = await request(appWith(db)).post('/rails/pr-decision')
+        .send({ ...bad, action: 'publish', expectedDecision: 'pr_draft' })
+      expect(res.status).toBe(400)
+    }
+  })
+
+  it('400 on an invalid action (incl. the retired ready/approve values)', async () => {
+    for (const action of ['ready', 'merge', 'approve', 42, null, undefined]) {
+      const res = await request(appWith(db)).post('/rails/pr-decision')
+        .send({ prDeliveryId: 'd1', action, expectedDecision: 'pr_draft' })
+      expect(res.status).toBe(400)
+    }
+  })
+
+  it('400 when expectedDecision is missing', async () => {
+    const res = await request(appWith(db)).post('/rails/pr-decision')
+      .send({ prDeliveryId: 'd1', action: 'publish' })
+    expect(res.status).toBe(400)
+  })
+
+  it('404 on an unknown prDeliveryId', async () => {
+    const res = await request(appWith(db)).post('/rails/pr-decision')
+      .send({ prDeliveryId: 'ghost', action: 'publish', expectedDecision: 'pr_draft' })
+    expect(res.status).toBe(404)
+  })
+
+  it('409 stale_decision with the current decision when expectedDecision mismatches', async () => {
+    const id = mkDraft()
+    const res = await request(appWith(db)).post('/rails/pr-decision')
+      .send({ prDeliveryId: id, action: 'create-pr', expectedDecision: 'on_review' })
+    expect(res.status).toBe(409)
+    expect(res.body).toEqual({ error: 'stale_decision', current: 'pr_draft' })
+    expect(mockExecRun).not.toHaveBeenCalled()
+  })
+
+  it('409 stale_decision + illegal_action for an action the state machine forbids', async () => {
+    const id = mkDraft() // pr_draft WITH a prUrl → create-pr is not legal
+    const res = await request(appWith(db)).post('/rails/pr-decision')
+      .send({ prDeliveryId: id, action: 'create-pr', expectedDecision: 'pr_draft' })
+    expect(res.status).toBe(409)
+    expect(res.body).toEqual({ error: 'stale_decision', current: 'pr_draft', reason: 'illegal_action' })
+  })
+
+  it('publish → runs gh pr ready, transitions to pr_ready and broadcasts rail.pr_state', async () => {
+    const id = mkDraft()
+    mockExecRun.mockResolvedValue({ code: 0, stdout: '', stderr: '' })
+    const broadcast = vi.fn()
+    const res = await request(appWith(db, { broadcast })).post('/rails/pr-decision')
+      .send({ prDeliveryId: id, action: 'publish', expectedDecision: 'pr_draft' })
     expect(res.status).toBe(200)
-    expect(res.body).toEqual({ ok: true, action: 'ready' })
+    expect(res.body).toEqual({ ok: true, decision: 'pr_ready', prUrl: url })
     expect(mockExecRun).toHaveBeenCalledWith('gh', ['pr', 'ready', url], '/repo')
+    expect(getPrDelivery(db, id)?.decision).toBe('pr_ready')
+    const msg = broadcast.mock.calls.map((c) => c[0] as { type: string; decision?: string })
+      .find((m) => m.type === 'rail.pr_state')
+    expect(msg).toMatchObject({ decision: 'pr_ready', prDeliveryId: id, projectId: 'p1' })
   })
 
-  it('discard → runs gh pr close --delete-branch', async () => {
-    mockExecRun.mockResolvedValue({ code: 0, stdout: '', stderr: '' })
-    const res = await request(appWith(db)).post('/rails/pr-review').send({ prUrl: url, action: 'discard' })
-    expect(res.status).toBe(200)
-    expect(mockExecRun).toHaveBeenCalledWith('gh', ['pr', 'close', url, '--delete-branch'], '/repo')
-  })
-
-  it('502 when gh fails', async () => {
+  it('502 gh_failed (no transition) when gh fails', async () => {
+    const id = mkDraft()
     mockExecRun.mockResolvedValue({ code: 1, stdout: '', stderr: 'gh: not authenticated' })
-    const res = await request(appWith(db)).post('/rails/pr-review').send({ prUrl: url, action: 'ready' })
+    const res = await request(appWith(db)).post('/rails/pr-decision')
+      .send({ prDeliveryId: id, action: 'publish', expectedDecision: 'pr_draft' })
     expect(res.status).toBe(502)
+    expect(res.body.error).toBe('gh_failed')
     expect(res.body.detail).toContain('not authenticated')
+    expect(getPrDelivery(db, id)?.decision).toBe('pr_draft')
+  })
+})
+
+// ── Dynamic rails: POST / (create) + DELETE /:railIndex ───────────────────────
+
+describe('rails-router POST / (create rail)', () => {
+  let db: DbInstance
+  beforeEach(() => { db = initDb(':memory:') })
+  afterEach(() => { db.close() })
+
+  it('creates the next rail and broadcasts rail.updated for it', async () => {
+    const broadcast = vi.fn()
+    const res = await request(appWith(db, { broadcast })).post('/rails').send({})
+    expect(res.status).toBe(201)
+    expect(res.body.rail).toMatchObject({ railIndex: 3, ticketIds: [], mode: 'implement' })
+    const msg = broadcast.mock.calls.map((c) => c[0] as { type: string; railIndex?: number })
+      .find((m) => m.type === 'rail.updated')
+    expect(msg).toMatchObject({ railIndex: 3, projectId: 'p1' })
+    // Listed by GET /rails from now on.
+    const list = await request(appWith(db)).get('/rails')
+    expect(list.body.rails.map((r: { railIndex: number }) => r.railIndex)).toEqual([0, 1, 2, 3])
+  })
+
+  it('accepts an optional initial name', async () => {
+    const res = await request(appWith(db)).post('/rails').send({ name: 'Backend' })
+    expect(res.status).toBe(201)
+    expect(res.body.rail.name).toBe('Backend')
+  })
+
+  it('rejects a non-string name and an over-long name', async () => {
+    expect((await request(appWith(db)).post('/rails').send({ name: 42 })).status).toBe(400)
+    expect((await request(appWith(db)).post('/rails').send({ name: 'x'.repeat(61) })).status).toBe(400)
+  })
+
+  it('enforces the MAX_RAILS cap with rail_limit_reached', async () => {
+    const app = appWith(db)
+    // 3 base rails exist; create up to the cap of 12 → 9 more succeed.
+    for (let i = 0; i < 9; i++) {
+      expect((await request(app).post('/rails').send({})).status).toBe(201)
+    }
+    const res = await request(app).post('/rails').send({})
+    expect(res.status).toBe(400)
+    expect(res.body).toEqual({ error: 'rail_limit_reached', maxRails: 12 })
+  })
+})
+
+describe('rails-router DELETE /:railIndex', () => {
+  let db: DbInstance
+  beforeEach(() => { db = initDb(':memory:') })
+  afterEach(() => { db.close() })
+
+  it('deletes an empty idle rail and broadcasts rail.removed', async () => {
+    await request(appWith(db)).post('/rails').send({}) // rail 3
+    const broadcast = vi.fn()
+    const res = await request(appWith(db, { broadcast })).delete('/rails/3')
+    expect(res.status).toBe(200)
+    expect(res.body).toEqual({ ok: true, railIndex: 3 })
+    expect(broadcast.mock.calls.map((c) => c[0] as { type: string; railIndex?: number }))
+      .toContainEqual({ type: 'rail.removed', projectId: 'p1', railIndex: 3 })
+    const list = await request(appWith(db)).get('/rails')
+    expect(list.body.rails.map((r: { railIndex: number }) => r.railIndex)).toEqual([0, 1, 2])
+  })
+
+  it('base rails are deletable too (empty + idle), but never the last one', async () => {
+    expect((await request(appWith(db)).delete('/rails/0')).status).toBe(200)
+    expect((await request(appWith(db)).delete('/rails/1')).status).toBe(200)
+    const res = await request(appWith(db)).delete('/rails/2')
+    expect(res.status).toBe(400)
+    expect(res.body.error).toBe('cannot_delete_last_rail')
+  })
+
+  it('404 on an unknown rail, 400 out of range', async () => {
+    expect((await request(appWith(db)).delete('/rails/7')).status).toBe(404)
+    expect((await request(appWith(db)).delete('/rails/12')).status).toBe(400)
+    expect((await request(appWith(db)).delete('/rails/-1')).status).toBe(400)
+  })
+
+  it('409 rail_not_empty when the rail still holds tickets', async () => {
+    setRailTickets(db, 1, [5])
+    const res = await request(appWith(db)).delete('/rails/1')
+    expect(res.status).toBe(409)
+    expect(res.body.error).toBe('rail_not_empty')
+  })
+
+  it('409 rail_active when the rail has an active loop run', async () => {
+    const railLoopRuns = new Map([['run-1', { railIndex: 1, ticketIds: [5] }]])
+    const res = await request(appWith(db, { railLoopRuns })).delete('/rails/1')
+    expect(res.status).toBe(409)
+    expect(res.body.error).toBe('rail_active')
+  })
+
+  it('409 pr_decision_pending when the slot has an undecided delivery', async () => {
+    const row = createPrDelivery(db, {
+      railIndex: 1, loopId: 'factory:implement', railKey: '1-factory:implement',
+      ticketIds: [5], baseBranch: 'main', loopName: 'Implement',
+      originSurface: 'dashboard', originConversationId: null,
+    } as CreatePrDeliveryInput)
+    const res = await request(appWith(db)).delete('/rails/1')
+    expect(res.status).toBe(409)
+    expect(res.body).toEqual({ error: 'pr_decision_pending', prDeliveryId: row.id })
+  })
+})
+
+describe('rails-router launch — concurrent-launch ticket guard', () => {
+  let db: DbInstance
+  const savedLoops = process.env.SPECRAILS_LOOPS_SECTION
+  beforeEach(() => {
+    db = initDb(':memory:')
+    process.env.SPECRAILS_LOOPS_SECTION = 'false'
+  })
+  afterEach(() => {
+    db.close()
+    if (savedLoops === undefined) delete process.env.SPECRAILS_LOOPS_SECTION
+    else process.env.SPECRAILS_LOOPS_SECTION = savedLoops
+  })
+
+  it('409 tickets_in_flight when a rail ticket is already worked by an active loop run', async () => {
+    setRailTickets(db, 0, [1, 2])
+    const enqueue = vi.fn()
+    // Ticket 2 is in-flight on ANOTHER rail — launching rail 0 would spawn a
+    // second concurrent writer on the same per-ticket worktree.
+    const railLoopRuns = new Map([['run-9', { railIndex: 1, ticketIds: [2] }]])
+    const res = await request(appWith(db, { queueManager: { enqueue }, railLoopRuns }))
+      .post('/rails/0/launch').send({ mode: 'implement' })
+    expect(res.status).toBe(409)
+    expect(res.body).toEqual({ error: 'tickets_in_flight', ticketIds: [2] })
+    expect(enqueue).not.toHaveBeenCalled()
+  })
+
+  it('launches normally when no ticket overlaps an active run', async () => {
+    setRailTickets(db, 0, [1])
+    const enqueue = vi.fn().mockReturnValue({ id: 'job-1', queuePosition: 0 })
+    const railLoopRuns = new Map([['run-9', { railIndex: 1, ticketIds: [2] }]])
+    const res = await request(appWith(db, { queueManager: { enqueue }, railLoopRuns }))
+      .post('/rails/0/launch').send({ mode: 'implement' })
+    expect(res.status).toBe(202)
+  })
+
+  it('rejects an out-of-range rail index on launch (MAX_RAILS cap)', async () => {
+    const res = await request(appWith(db)).post('/rails/12/launch').send({ mode: 'implement' })
+    expect(res.status).toBe(400)
   })
 })

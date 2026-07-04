@@ -33,6 +33,14 @@
     "sendHint": "エージェントは作業中です — このメッセージはキューに入り、次に実行されます",
     "placeholder": "エージェントの作業中に追加できます — キューに入ります…"
   },
+  "queueEdit": {
+    "editing": "キュー内メッセージを編集中（{{m}} 件中 {{n}} 件目）",
+    "hint": "↑↓ で移動 · Enter で保存 · Esc でキャンセル",
+    "save": "キュー内メッセージを保存",
+    "cancel": "編集をキャンセル",
+    "dispatched": "そのキュー内メッセージは既に送信されました — 入力したテキストは下書きとして保持されます",
+    "saveFailed": "キュー内メッセージを保存できませんでした"
+  },
   "git": {
     "branch": "ブランチ",
     "detached": "（detached）",
@@ -92,6 +100,21 @@
     "addProject": "プロジェクトを追加…",
     "homeHint": "プロジェクトが未選択 — すべてのプロジェクトを横断して操作中。",
     "askCreateOrSearch": "プロジェクトが選択されていません。新しいプロジェクトを作成しますか、それともすべてのプロジェクトを検索しますか？"
+  },
+  "mission": {
+    "label": "ミッションを切り替え",
+    "untitled": "新しいミッション",
+    "new": "新しいミッション",
+    "searchPlaceholder": "ミッションを検索…",
+    "noMatches": "一致するミッションがありません",
+    "working": "エージェントが作業中",
+    "queuedBadge": "{{n}} 件キュー中",
+    "delete": "ミッション \"{{title}}\" を削除",
+    "deleteConfirm": "削除しますか？",
+    "deleteLiveConfirm": "エージェントが作業中です — それでも削除しますか？",
+    "confirmDelete": "削除を確定",
+    "cancelDelete": "ミッションを残す",
+    "deleteFailed": "ミッションを削除できませんでした"
   },
   "noProvider": {
     "title": "AIプロバイダーが未インストール",
@@ -155,5 +178,78 @@
     "high": "高",
     "xhigh": "最高"
   },
-  "emptyTitleMatrix": "ミッションは何ですか、ネオ？"
+  "emptyTitleMatrix": "ミッションは何ですか、ネオ？",
+  "prCard": {
+    "rail": "レール {{index}}",
+    "specCount_one": "スペック {{count}} 件",
+    "specCount_other": "スペック {{count}} 件",
+    "base": "ベースブランチ",
+    "openPr": "PR を開く",
+    "title": {
+      "building": "分離されたワークツリーで実装中…",
+      "on_review": "実装のレビュー準備完了",
+      "pr_draft": "ドラフト PR を作成しました",
+      "pr_draft_degraded": "PR の公開が未完了",
+      "pr_ready": "PR のマージ準備完了",
+      "pr_failed": "PR の作成に失敗しました",
+      "merged": "PR がマージされました",
+      "discarded": "破棄済み"
+    },
+    "buildingHint": "完了すると PR を作成するか確認します。",
+    "createPr": "PR を作成",
+    "publish": "公開",
+    "retry": "再試行",
+    "retryPr": "PR を再試行",
+    "checkMerge": "マージを確認",
+    "discard": "破棄",
+    "confirmDiscard": "破棄しますか？",
+    "mergedNote": "マージ済み — スペックは完了に移動しました",
+    "discardedNote": "破棄済み — スペックはバックログに戻されました",
+    "degraded": {
+      "pushed": "ブランチはプッシュされましたが、PR を作成できませんでした — 再試行して完了してください。",
+      "localOnly": "変更はローカルで組み立てられましたが、プッシュされていません — 再試行して PR を公開してください。"
+    },
+    "alreadyResolved": "すでに他の場所で解決済み",
+    "actionFailed": "操作に失敗しました",
+    "notMergedYet": "まだマージされていません",
+    "viewLog": "{{ref}} の実行ログを表示",
+    "runElapsedAria": "経過時間 {{elapsed}}",
+    "runCostAria": "消費コスト {{cost}}",
+    "pinned": {
+      "label": "ピン留め",
+      "marker": "実装カード — 上部にピン留め中",
+      "collapse": "ピン留めカードを最小化",
+      "expand": "ピン留めカードを展開",
+      "expandCard": "このカードを展開",
+      "collapseCard": "このカードを最小化",
+      "collapsed_one": "実装カード",
+      "collapsed_other": "{{count}} 件の実装カード",
+      "state": {
+        "building": "実装中",
+        "on_review": "レビュー",
+        "pr_draft": "ドラフト PR",
+        "pr_ready": "公開済み",
+        "pr_failed": "失敗",
+        "merged": "マージ済み",
+        "discarded": "破棄済み"
+      }
+    }
+  },
+  "specDraft": {
+    "heading": "スペック下書き",
+    "drafting": "下書きを更新中…",
+    "acceptanceCriteria": "受け入れ基準",
+    "untitled": "無題のスペック",
+    "expand": "説明をすべて表示",
+    "collapse": "説明を折りたたむ"
+  },
+  "refs": {
+    "openTicket": "スペック #{{id}} を開く",
+    "openJob": "ジョブ {{id}} を開く",
+    "openLoop": "ループ {{id}} を開く",
+    "ticketNotFound": "スペック #{{id}} が見つかりません — 削除された可能性があります",
+    "jobNotFound": "ジョブが見つかりません — 削除された可能性があります",
+    "loopNotFound": "ループが見つかりません — 削除された可能性があります",
+    "lookupFailed": "参照を確認できませんでした — もう一度お試しください"
+  }
 }

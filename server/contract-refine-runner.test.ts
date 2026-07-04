@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach } from 'vitest'
+import { describe, it, expect, beforeEach, vi } from 'vitest'
 import { EventEmitter } from 'node:events'
 import { Readable } from 'node:stream'
 import { ChildProcess } from 'node:child_process'
@@ -527,6 +527,29 @@ describe('runContractRefine', () => {
       const out = await runContractRefine(makeDeps(), 'conv-1', 1)
       expect(out.ok).toBe(false)
       expect(out.reason).toBe('disabled')
+    } finally {
+      if (prev === undefined) delete process.env.SPECRAILS_EXPLORE_CONTRACT_REFINE
+      else process.env.SPECRAILS_EXPLORE_CONTRACT_REFINE = prev
+    }
+  })
+
+  it('quick path (agent-authored/Quick specs) respects the kill switch: no spawn, no started broadcast', async () => {
+    seedTicket(projectPath, 1)
+    const prev = process.env.SPECRAILS_EXPLORE_CONTRACT_REFINE
+    process.env.SPECRAILS_EXPLORE_CONTRACT_REFINE = 'off'
+    const spawn = vi.fn()
+    try {
+      const out = await runContractRefineForQuick(
+        makeDeps({ spawn: spawn as never }),
+        1,
+        'Quick title',
+        'Quick description',
+      )
+      expect(out.ok).toBe(false)
+      expect(out.reason).toBe('disabled')
+      expect(spawn).not.toHaveBeenCalled()
+      expect(broadcastEvents.some((e) => e.type === 'explore.contract_refine_started')).toBe(false)
+      expect(db.prepare('SELECT COUNT(*) AS n FROM ai_invocations').get()).toEqual({ n: 0 })
     } finally {
       if (prev === undefined) delete process.env.SPECRAILS_EXPLORE_CONTRACT_REFINE
       else process.env.SPECRAILS_EXPLORE_CONTRACT_REFINE = prev

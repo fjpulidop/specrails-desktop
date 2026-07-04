@@ -14,6 +14,8 @@ import { runAiCliInvocation } from './spawn-lifecycle'
 import { finaliseInvocationResult } from './result-event'
 import { parseDeciderDecision } from './loop-decider'
 import { isRailPrDeliveryEnabled } from './rail-isolation'
+import { isInteractiveJobsEnabled } from './feature-flags'
+import type { ProviderAdapter } from './providers/types'
 import type { LoopExecutors, ShellResult } from './loop-run-manager'
 
 // Per-step wall-clock caps so a single hung step can't block the engine's
@@ -76,8 +78,58 @@ function runShellCommand(
   })
 }
 
-export function createLoopExecutors(opts: { env?: NodeJS.ProcessEnv } = {}): LoopExecutors {
-  const env = opts.env ?? process.env
+/**
+ * Env for a loop AI spawn (one-shot AND interactive — must stay byte-identical
+ * between the two, the interactive session is a transport swap, not a policy
+ * change). Relocated projects surface the repo via SPECRAILS_REPO_DIR — for an
+ * ISOLATED rail the caller passes the WORKTREE as `repoDir`, so writes/git land
+ * in the worktree, never the live repo (the workspace artifact indirection —
+ * tickets/backlog/profiles/state — rides the executor's base env, see
+ * `resolveLoopBaseEnv`). When the safe-PR flow is active
+ * (SPECRAILS_RAIL_DELIVER_PR on), desktop owns version control — tell
+ * specrails-core's implement to be git-agnostic (skip its Ship phase) via
+ * SPECRAILS_GIT_AUTO=false so it never opens an uncoordinated PR alongside the
+ * app's own draft-PR delivery. Default ON (flag=0/false/off disables). See
+ * rail-isolation + the specrails-core SPECRAILS_GIT_AUTO contract.
+ */
+function aiStepEnv(env: NodeJS.ProcessEnv, repoDir: string | undefined): NodeJS.ProcessEnv {
+  const base = repoDir ? { ...env, SPECRAILS_REPO_DIR: repoDir } : env
+  return isRailPrDeliveryEnabled() ? { ...base, SPECRAILS_GIT_AUTO: 'false' } : base
+}
+
+/**
+ * Relocated cwd is the workspace; the source repo is reached via the
+ * `./project` symlink + SPECRAILS_REPO_DIR. Each provider must be told the
+ * repo is an allowed working dir or it can READ but not WRITE source files:
+ *  • claude: `--add-dir <repoDir>` extends its tool/edit roots.
+ *  • codex: iteration 1 is rail-job (`danger-full-access`, writes anywhere),
+ *    but every RESUME runs under `workspace-write`, whose only writable root
+ *    is the spawn cwd (the workspace) — so repo edits fail with `Operation
+ *    not permitted` and the loop spins forever on verify→fix. Add the repo
+ *    (and cwd, defensively) to codex's sandbox writable_roots. Harmless
+ *    no-op under danger-full-access on iteration 1.
+ */
+function aiStepExtraArgs(adapter: ProviderAdapter, cwd: string, repoDir: string | undefined): string[] | undefined {
+  return !repoDir
+    ? undefined
+    : adapter.id === 'claude'
+      ? ['--add-dir', repoDir]
+      : adapter.id === 'codex'
+        ? ['-c', `sandbox_workspace_write.writable_roots=[${JSON.stringify(repoDir)}, ${JSON.stringify(cwd)}]`]
+        : undefined
+}
+
+export function createLoopExecutors(
+  opts: {
+    /** Base spawn env, or a LAZY provider re-resolved per step. Project-bound
+     *  executors pass `() => resolveLoopBaseEnv(project)` so relocated projects
+     *  inject core's workspace artifact indirection (and a project relocated
+     *  AFTER server start is picked up without a restart). Default process.env. */
+    env?: NodeJS.ProcessEnv | (() => NodeJS.ProcessEnv)
+  } = {},
+): LoopExecutors {
+  const resolveEnv = (): NodeJS.ProcessEnv =>
+    typeof opts.env === 'function' ? opts.env() : opts.env ?? process.env
   return {
     async runAiStep({ prompt, sessionId, provider, model, effort, cwd, repoDir, onLine, onRawLine, onSpawn, aiStepTimeoutMs }) {
       const adapter = getAdapter(provider)
@@ -87,31 +139,10 @@ export function createLoopExecutors(opts: { env?: NodeJS.ProcessEnv } = {}): Loo
       // Relocated project: spawn cwd is the workspace (where `.claude/commands`
       // live, so native `/specrails:*` slash commands resolve). Surface the repo
       // for the pipeline's I/O exactly like QueueManager: SPECRAILS_REPO_DIR +
-      // claude `--add-dir <repoDir>`. Best-effort agent self-heal on Windows.
-      // When the safe-PR flow is active (SPECRAILS_RAIL_DELIVER_PR on), desktop
-      // owns version control — tell specrails-core's implement to be git-agnostic
-      // (skip its Ship phase) so it never opens an uncoordinated PR alongside the
-      // app's own draft-PR delivery. Default ON (set the flag to 0/false/off to
-      // disable). See rail-isolation + the specrails-core `SPECRAILS_GIT_AUTO` contract.
-      const base = repoDir ? { ...env, SPECRAILS_REPO_DIR: repoDir } : env
-      const stepEnv = isRailPrDeliveryEnabled() ? { ...base, SPECRAILS_GIT_AUTO: 'false' } : base
-      // Relocated cwd is the workspace; the source repo is reached via the
-      // `./project` symlink + SPECRAILS_REPO_DIR. Each provider must be told the
-      // repo is an allowed working dir or it can READ but not WRITE source files:
-      //  • claude: `--add-dir <repoDir>` extends its tool/edit roots.
-      //  • codex: iteration 1 is rail-job (`danger-full-access`, writes anywhere),
-      //    but every RESUME runs under `workspace-write`, whose only writable root
-      //    is the spawn cwd (the workspace) — so repo edits fail with `Operation
-      //    not permitted` and the loop spins forever on verify→fix. Add the repo
-      //    (and cwd, defensively) to codex's sandbox writable_roots. Harmless
-      //    no-op under danger-full-access on iteration 1.
-      const extraArgs = !repoDir
-        ? undefined
-        : adapter.id === 'claude'
-          ? ['--add-dir', repoDir]
-          : adapter.id === 'codex'
-            ? ['-c', `sandbox_workspace_write.writable_roots=[${JSON.stringify(repoDir)}, ${JSON.stringify(cwd)}]`]
-            : undefined
+      // claude `--add-dir <repoDir>` (see the shared helpers above). Best-effort
+      // agent self-heal on Windows.
+      const stepEnv = aiStepEnv(resolveEnv(), repoDir)
+      const extraArgs = aiStepExtraArgs(adapter, cwd, repoDir)
       if (repoDir) { try { ensureFrameworkAgents(cwd, adapter.projectDirName) } catch { /* best-effort */ } }
       let text = ''
       // The adapter parses provider failures (codex `turn.failed`, etc.) into a
@@ -193,14 +224,52 @@ export function createLoopExecutors(opts: { env?: NodeJS.ProcessEnv } = {}): Loo
       }
     },
 
+    /**
+     * Interactive upgrade for an ai-step (all-jobs-interactive default): when
+     * the kill-switch is on (SPECRAILS_INTERACTIVE_JOBS !== 'false') AND the
+     * provider supports persistent stdin (claude), return a resident-session
+     * spawn plan — same binary, same cwd, same env, same repo extraArgs as the
+     * one-shot spawn above, but with the `chat-stream` argv (prompt rides stdin
+     * as the first stream-json frame; slash commands expand there too,
+     * spike-verified on claude 2.1.198). Null ⇒ the engine one-shots the step
+     * (non-claude providers, or the kill-switch) — byte-identical legacy.
+     */
+    planInteractiveAiStep({ provider, model, effort, cwd, repoDir, sessionId, aiStepTimeoutMs }) {
+      if (!isInteractiveJobsEnabled()) return null
+      const adapter = getAdapter(provider)
+      if (!adapter.capabilities.persistentStdin) return null
+      const stepEnv = aiStepEnv(resolveEnv(), repoDir)
+      const extraArgs = aiStepExtraArgs(adapter, cwd, repoDir)
+      if (repoDir) { try { ensureFrameworkAgents(cwd, adapter.projectDirName) } catch { /* best-effort */ } }
+      const args = adapter.buildArgs('chat-stream', {
+        // chat-stream feeds the prompt over stdin per-turn, so the argv `prompt`
+        // is unused — pass empty to satisfy the shared SpawnOptions shape.
+        prompt: '',
+        model,
+        // Mid-pass continuity: resume the previous step's session, exactly like
+        // the one-shot path's chat-resume. Absent on a fresh pass (the engine
+        // drops the session id at an iterate-loop's loop-back).
+        sessionId: sessionId ?? undefined,
+        reasoning_effort: effort,
+        extraArgs,
+      })
+      return {
+        adapter,
+        spec: { binary: adapter.binary, args, cwd, env: stepEnv },
+        // The loop's ai-step timeout bounds the WHOLE step, interactive included.
+        stepTimeoutMs: aiStepTimeoutMs ?? AI_STEP_TIMEOUT_MS,
+      }
+    },
+
     async runShell({ command, cwd, onLine, onSpawn }) {
-      return runShellCommand(command, cwd, env, SHELL_TIMEOUT_MS, onLine, onSpawn)
+      return runShellCommand(command, cwd, resolveEnv(), SHELL_TIMEOUT_MS, onLine, onSpawn)
     },
 
     async runDecider({ systemPrompt, userPrompt, provider, model, effort, cwd, repoDir, onRawLine, onSpawn }) {
       const adapter = getAdapter(provider)
       let text = ''
-      const decEnv = repoDir ? { ...env, SPECRAILS_REPO_DIR: repoDir } : env
+      const baseEnv = resolveEnv()
+      const decEnv = repoDir ? { ...baseEnv, SPECRAILS_REPO_DIR: repoDir } : baseEnv
       // spec-gen is a one-shot, system-prompted invocation (workspace-write on
       // codex, not full-access) — appropriate for a read-only judgment.
       const res = await runAiCliInvocation({

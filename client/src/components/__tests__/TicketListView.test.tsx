@@ -160,6 +160,32 @@ describe('TicketListView', () => {
       expect(screen.queryByText('Todo ticket')).toBeNull()
       expect(screen.getByText('Done ticket')).toBeDefined()
     })
+
+    it('shows an on review filter chip and filters by it', () => {
+      const tickets = [
+        makeTicket({ id: 1, title: 'Todo ticket', status: 'todo' }),
+        makeTicket({ id: 2, title: 'Reviewing ticket', status: 'on_review' }),
+      ]
+      render(<TicketListView {...makeDefaultProps({ tickets })} />)
+
+      fireEvent.click(screen.getByText(/on review \(1\)/i))
+
+      expect(screen.queryByText('Todo ticket')).toBeNull()
+      expect(screen.getByText('Reviewing ticket')).toBeDefined()
+    })
+  })
+
+  describe('on_review row', () => {
+    it('renders the On Review pill in the priority slot with accent-warning tokens', () => {
+      const tickets = [makeTicket({ id: 7, title: 'PR pending', status: 'on_review', priority: 'high' })]
+      render(<TicketListView {...makeDefaultProps({ tickets })} />)
+      const pill = screen.getByTestId('on-review-pill-list-7')
+      expect(pill).toBeDefined()
+      expect(pill.textContent).toBe('On Review')
+      expect(pill.className).toContain('text-accent-warning')
+      // The priority pill yields its DOM slot to the On Review pill.
+      expect(screen.queryByText('high')).toBeNull()
+    })
   })
 
   describe('search', () => {

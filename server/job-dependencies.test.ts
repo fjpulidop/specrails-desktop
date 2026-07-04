@@ -38,14 +38,21 @@ function createMockChildProcess() {
 describe('Job Dependencies', () => {
   let qm: QueueManager
   let broadcast: ReturnType<typeof vi.fn>
+  const savedInteractiveFlag = process.env.SPECRAILS_INTERACTIVE_JOBS
 
   beforeEach(() => {
     vi.resetAllMocks()
     vi.mocked(mockExecSync).mockReturnValue(Buffer.from('/usr/bin/claude'))
+    // Pin the legacy one-shot spawn path (claude jobs are interactive by
+    // default since the S1 flip; the interactive dependency/pipeline flow is
+    // covered in queue-manager.test.ts's dedicated describe).
+    process.env.SPECRAILS_INTERACTIVE_JOBS = 'false'
     broadcast = vi.fn()
   })
 
   afterEach(() => {
+    if (savedInteractiveFlag === undefined) delete process.env.SPECRAILS_INTERACTIVE_JOBS
+    else process.env.SPECRAILS_INTERACTIVE_JOBS = savedInteractiveFlag
     vi.restoreAllMocks()
   })
 

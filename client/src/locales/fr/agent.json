@@ -33,6 +33,14 @@
     "sendHint": "L'agent travaille encore — ce message sera mis en file puis traité",
     "placeholder": "Ajoutez-en pendant que l'agent travaille — mis en file…"
   },
+  "queueEdit": {
+    "editing": "Modification du message en file {{n}} sur {{m}}",
+    "hint": "↑↓ pour naviguer · Entrée enregistre · Échap annule",
+    "save": "Enregistrer le message en file",
+    "cancel": "Annuler la modification",
+    "dispatched": "Ce message en file a déjà été envoyé — votre texte est conservé comme brouillon",
+    "saveFailed": "Impossible d'enregistrer le message en file"
+  },
   "git": {
     "branch": "Branche",
     "detached": "(détaché)",
@@ -92,6 +100,21 @@
     "addProject": "Ajouter un projet…",
     "homeHint": "Aucun projet sélectionné — opération sur tous les projets.",
     "askCreateOrSearch": "Aucun projet n'est sélectionné. Voulez-vous créer un nouveau projet ou rechercher dans tous les projets ?"
+  },
+  "mission": {
+    "label": "Changer de mission",
+    "untitled": "Nouvelle mission",
+    "new": "Nouvelle mission",
+    "searchPlaceholder": "Rechercher des missions…",
+    "noMatches": "Aucune mission ne correspond",
+    "working": "L'agent travaille",
+    "queuedBadge": "{{n}} en file",
+    "delete": "Supprimer la mission \"{{title}}\"",
+    "deleteConfirm": "Supprimer ?",
+    "deleteLiveConfirm": "L'agent travaille — supprimer quand même ?",
+    "confirmDelete": "Confirmer la suppression",
+    "cancelDelete": "Garder la mission",
+    "deleteFailed": "Impossible de supprimer la mission"
   },
   "noProvider": {
     "title": "Aucun fournisseur d'IA installé",
@@ -155,5 +178,78 @@
     "high": "Élevé",
     "xhigh": "Très élevé"
   },
-  "emptyTitleMatrix": "Quelle est la mission, Neo ?"
+  "emptyTitleMatrix": "Quelle est la mission, Neo ?",
+  "prCard": {
+    "rail": "Rail {{index}}",
+    "specCount_one": "{{count}} spec",
+    "specCount_other": "{{count}} specs",
+    "base": "Branche de base",
+    "openPr": "Ouvrir la PR",
+    "title": {
+      "building": "Implémentation dans un worktree isolé…",
+      "on_review": "Implémentation prête pour la revue",
+      "pr_draft": "PR en brouillon créée",
+      "pr_draft_degraded": "Livraison de la PR incomplète",
+      "pr_ready": "PR prête à être fusionnée",
+      "pr_failed": "Échec de la création de la PR",
+      "merged": "PR fusionnée",
+      "discarded": "Abandonnée"
+    },
+    "buildingHint": "À la fin, il vous sera proposé de créer la PR.",
+    "createPr": "Créer la PR",
+    "publish": "Publier",
+    "retry": "Réessayer",
+    "retryPr": "Réessayer la PR",
+    "checkMerge": "Vérifier le merge",
+    "discard": "Abandonner",
+    "confirmDiscard": "Confirmer l'abandon ?",
+    "mergedNote": "Fusionnée — specs passées en Terminé",
+    "discardedNote": "Abandonnée — specs renvoyées vers le backlog",
+    "degraded": {
+      "pushed": "La branche a été poussée mais la PR n'a pas pu être créée — réessayez pour terminer.",
+      "localOnly": "Les modifications ont été assemblées en local mais pas poussées — réessayez pour publier la PR."
+    },
+    "alreadyResolved": "Déjà résolue ailleurs",
+    "actionFailed": "L'action a échoué",
+    "notMergedYet": "Pas encore fusionnée",
+    "viewLog": "Voir le journal d'exécution de {{ref}}",
+    "runElapsedAria": "{{elapsed}} écoulées",
+    "runCostAria": "{{cost}} dépensés",
+    "pinned": {
+      "label": "Épinglée",
+      "marker": "Carte d’implémentation — épinglée ci-dessus",
+      "collapse": "Réduire la carte épinglée",
+      "expand": "Déployer la carte épinglée",
+      "expandCard": "Développer cette carte",
+      "collapseCard": "Réduire cette carte",
+      "collapsed_one": "Carte d’implémentation",
+      "collapsed_other": "{{count}} cartes d’implémentation",
+      "state": {
+        "building": "En cours",
+        "on_review": "Revue",
+        "pr_draft": "PR brouillon",
+        "pr_ready": "Publiée",
+        "pr_failed": "Échec",
+        "merged": "Fusionnée",
+        "discarded": "Abandonnée"
+      }
+    }
+  },
+  "specDraft": {
+    "heading": "Brouillon de spec",
+    "drafting": "Mise à jour du brouillon…",
+    "acceptanceCriteria": "Critères d'acceptation",
+    "untitled": "Spec sans titre",
+    "expand": "Afficher la description complète",
+    "collapse": "Réduire la description"
+  },
+  "refs": {
+    "openTicket": "Ouvrir la spec #{{id}}",
+    "openJob": "Ouvrir le job {{id}}",
+    "openLoop": "Ouvrir la boucle {{id}}",
+    "ticketNotFound": "Spec #{{id}} introuvable — elle a peut-être été supprimée",
+    "jobNotFound": "Job introuvable — il a peut-être été supprimé",
+    "loopNotFound": "Boucle introuvable — elle a peut-être été supprimée",
+    "lookupFailed": "Impossible de vérifier la référence — réessayez"
+  }
 }

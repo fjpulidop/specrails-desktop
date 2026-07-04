@@ -1,10 +1,10 @@
 # La vue détaillée du job
 
-Cliquez sur n'importe quelle carte de job de la page **Jobs** et vous arrivez ici : le poste de pilotage d'une exécution de rail unique. Tout repose sur une promesse — **les chiffres en direct que vous voyez sont réels, jamais des estimations.** Cette page parcourt les phases, les métriques en direct et les cartes de ticket.
+Cliquez sur n'importe quelle carte de job de la page **Jobs** et vous arrivez ici : le poste de pilotage d'une exécution de rail unique. Tout repose sur une promesse — **les chiffres en direct que vous voyez sont réels, jamais des estimations.** Cette page parcourt les phases, les métriques en direct, les cartes de ticket — et le composeur qui vous permet de **parler au job en cours**.
 
 ## La disposition
 
-Deux panneaux se trouvent au-dessus du log en streaming complet :
+Deux panneaux se trouvent au-dessus du log en streaming complet ; sur un job Claude en cours, un composeur de chat se trouve en dessous :
 
 ```
 ┌─────────────────────────────────────────────┐
@@ -15,6 +15,8 @@ Deux panneaux se trouvent au-dessus du log en streaming complet :
 │                                             │
 │  Log en streaming (auto-défilement · recherche · …)  │
 │                                             │
+├─────────────────────────────────────────────┤
+│  Composeur (envoyer un message au job · …)  │
 └─────────────────────────────────────────────┘
 ```
 
@@ -70,6 +72,29 @@ Sous les panneaux se trouve le log complet de l'exécution, streamé en temps r�
 - **Copier** pour récupérer tout le log.
 
 C'est la vérité brute de ce que fait l'IA — chaque appel d'outil, chaque modification de fichier, chaque exécution de test.
+
+## Exécutions de loop : l'explorateur d'étapes
+
+Quand le job est une **exécution de loop** (voir [Le Loop Builder](the-loop-builder)), le log à plat cède la place à un **explorateur d'étapes** qui épouse la forme réelle du loop :
+
+- **Le bandeau de synthèse** en haut est la carte en direct du loop — une pastille par nœud (Étape IA, Shell, Décideur de boucle…), dans l'ordre où circule le graphe. Les pastilles s'allument au fil de l'exécution : estompées en attente, pulsantes pendant l'exécution, puis une coche ou une croix. La pastille d'un Décideur affiche aussi le verdict qu'il a suivi — reboucler ou passer à la suite — et un compteur d'itérations (`Itération 3/10`) tient le score à droite. Cliquez sur n'importe quelle pastille pour sauter directement à la dernière étape de ce nœud.
+- **Une boîte repliable par étape.** Chaque passage sur un nœud devient sa propre section, avec le numéro de l'étape, son nom, un badge d'itération, sa durée une fois terminée — et son propre bouton de copie, pour récupérer exactement la sortie d'une étape. (La copie de la barre d'outils emporte toujours le log entier.) Tout ce qui s'affiche avant la première étape — la bannière de lancement, l'avis de worktree — est rangé dans une section **Préparation**.
+- **Le mode suivi** est actif par défaut : l'étape en cours reste ouverte et défile automatiquement pendant que les précédentes se replient. Dès que vous remontez ou ouvrez une étape plus ancienne, le suivi se met en pause pour vous laisser lire — une pastille flottante **Reprendre le suivi** vous ramène au direct. **Tout développer / Tout réduire** vivent dans la barre d'outils, et la recherche parcourt toutes les étapes à la fois.
+- **Les étapes interrompues aussi sont honnêtes.** Une étape qui n'a jamais pu rapporter son issue — l'exécution a été annulée ou l'app s'est arrêtée en pleine étape — est marquée **Interrompue** avec une bordure en pointillés, plutôt que de faire semblant d'avoir fini.
+
+Tout le reste de cette page fonctionne à l'identique pour les exécutions de loop — les métriques en direct, les cartes de ticket, le composeur. Les jobs hors loop conservent le log en streaming classique ci-dessus.
+
+## Parlez au job en cours
+
+Chaque job Claude s'exécute par défaut comme une **session en direct** : un composeur de chat se trouve donc en bas de cette page — et de la modale de job en mode mission. Utilisez-le pour poser une question à l'agent en cours (« pourquoi ce test a-t-il échoué ? ») ou pour le réorienter en pleine exécution (« saute le refactoring, concentre-toi sur le correctif »).
+
+Quelques points à connaître :
+
+- **Les messages sont mis en file, ils n'interrompent rien.** Envoyez pendant que l'agent streame et votre message attend son tour — il s'exécute comme le prompt suivant, et le job continue de suivre son plan. Un petit compteur indique combien de messages sont en attente.
+- **La ligne de totaux est réelle.** Le composeur affiche un résumé en direct `N tours · $X`, sommé à partir de l'usage réel de chaque tour terminé — cohérent avec la promesse de cette page de ne rien deviner.
+- **Deux façons de terminer une session.** La plupart des jobs **se terminent tout seuls** : dès qu'un tour se conclut sans message en attente, la session se règle et le job se termine — vos messages sont un pilotage optionnel, jamais une obligation. Une action discrète **Conclure maintenant** l'arrête plus tôt avec tout ce qui a été produit. Les jobs **Freestyle** sont l'exception : ils patientent entre les tours jusqu'à ce que vous cliquiez sur **Finalize** — c'est leur conception, une session d'aller-retour que vous fermez quand vous avez fini.
+- **Dans un loop, les messages vont à l'étape active.** Sur un loop intégré ou personnalisé, votre message atteint **l'étape IA en cours d'exécution**. Entre les étapes (pendant que le Loop Decider réfléchit ou qu'une commande shell tourne), le composeur affiche un bref état *« En attente de la prochaine étape… »* — votre brouillon est conservé, et l'envoi se réactive au démarrage de la prochaine étape IA. **Régler cette étape** termine l'étape en cours plus tôt et laisse le loop avancer avec ce qu'elle a produit.
+- **Claude uniquement, pour l'instant.** Les jobs Codex et Gemini s'exécutent en un seul passage exactement comme avant — aucun composeur n'apparaît. (Les opérateurs du serveur peuvent désactiver toute la fonctionnalité avec `SPECRAILS_INTERACTIVE_JOBS=false`.)
 
 ## Export de diagnostic
 

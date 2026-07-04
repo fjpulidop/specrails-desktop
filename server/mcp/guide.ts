@@ -24,7 +24,8 @@ Codex, Gemini) to implement specs.
   so later calls can omit it; an explicit \`projectId\` overrides.
   \`specrails_projects(get)\` includes the repo's absolute path.
 - **Spec / ticket**: a unit of work in a project's backlog. Statuses \`draft\`,
-  \`todo\`, \`in_progress\`, \`done\`, \`cancelled\`, plus a \`needs_review\` boolean FLAG
+  \`todo\`, \`in_progress\`, \`on_review\` (implemented, awaiting human PR review),
+  \`done\`, \`cancelled\`, plus a \`needs_review\` boolean FLAG
   set on \`done\` specs when the pipeline ships with partial confidence (it is
   not a status). Priorities \`critical|high|medium|low\`. INVARIANT: priority may
   be null ONLY when status is \`draft\`. Specs can be epics with children (see
@@ -35,7 +36,9 @@ Codex, Gemini) to implement specs.
   code, run tests and commit — it costs money and runs for minutes.
 - **Job**: one spawned pipeline run. Jobs stream events over the app's bus and
   settle (completed/failed/canceled). Job outcome mutates spec status
-  AUTOMATICALLY: launch → \`in_progress\`; success → \`done\`; revert → \`todo\`;
+  AUTOMATICALLY: launch → \`in_progress\`; success → \`done\` (or \`on_review\` when
+  the rail delivers a draft PR — the spec waits there for the human PR
+  decision: merge → \`done\`, discard → \`todo\`); revert → \`todo\`;
   partial confidence → \`done\` + \`needs_review\`. Do not patch statuses the
   pipeline manages.
 - **Loop**: an APP-LEVEL saved workflow graph (not project-scoped). Author with
@@ -95,6 +98,14 @@ heading inside the description); \`labels\`; \`priority\`. Spec content is Engli
 
 ## Running the pipeline (rails)
 
+- Rails are DYNAMIC: \`create_rail\` (write) adds a new slot — up to 12 per
+  project — and returns its \`railIndex\`. When every rail is busy or holds
+  other work, create one and proceed; never wait for a slot.
+- Parallel launches are safe and normal: each launch isolates its work in
+  per-ticket git worktrees, so several rails can run at once. \`launch_all\`
+  (ai-spawn) launches EVERY rail that has tickets and no active run / pending
+  PR decision in one call, each with its stored mode/engine/profile, returning
+  per-rail outcomes (launched / skipped with reason / failed).
 - Configure: \`set_tickets\` (replaces the assigned set), \`set_profile\` (null =
   legacy), \`set_engine\` (null = project primary), \`set_name\`.
 - Launch modes:
@@ -145,9 +156,9 @@ Never assume success from the 202 acceptance alone.
 
 Tools cannot raise their own permissions in either regime. Common tiers:
 list/get/spending/watch = read; commit_draft, from_prompt, update, set_tickets,
-plugin install, Jira connect = write; spec create/generate, rail launch, chat
-send, job spawn = ai-spawn; spec delete, rail stop, job purge, plugin
-uninstall, Jira disconnect, project unregister = destructive. Note the
+create_rail, plugin install, Jira connect = write; spec create/generate, rail
+launch/launch_all, chat send, job spawn = ai-spawn; spec delete, rail stop, job
+purge, plugin uninstall, Jira disconnect, project unregister = destructive. Note the
 embedded spec-refinement happy path (investigate + commit_draft) needs only
 read + write — ai-spawn is required only to launch work or spawn a nested AI.
 
@@ -199,8 +210,8 @@ read + write — ai-spawn is required only to launch work or spawn a nested AI.
 
 ## Operating discipline
 
-- Do not mutate statuses the pipeline manages (\`in_progress\`/\`done\` transitions
-  ride job outcomes).
+- Do not mutate statuses the pipeline manages (\`in_progress\`/\`on_review\`/\`done\`
+  transitions ride job outcomes and the PR-review decision).
 - Confirm cost-incurring (ai-spawn) and destructive actions with the user
   first, with cost/risk framing.
 - Report ids and results verbatim; never fabricate outcomes.

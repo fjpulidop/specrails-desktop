@@ -23,6 +23,11 @@ describe('TicketStatusDot', () => {
     render(<TicketStatusDot status="cancelled" />)
     expect(screen.getByLabelText('Cancelled')).toBeDefined()
   })
+
+  it('renders with aria-label "On Review" for on_review status', () => {
+    render(<TicketStatusDot status="on_review" />)
+    expect(screen.getByLabelText('On Review')).toBeDefined()
+  })
 })
 
 describe('TicketStatusBadge', () => {
@@ -45,6 +50,13 @@ describe('TicketStatusBadge', () => {
     render(<TicketStatusBadge status="cancelled" />)
     expect(screen.getByText('Cancelled')).toBeDefined()
   })
+
+  it('renders "On Review" label with the accent-warning variant for on_review status', () => {
+    render(<TicketStatusBadge status="on_review" />)
+    const badge = screen.getByText('On Review')
+    expect(badge).toBeDefined()
+    expect(badge.className).toContain('text-accent-warning')
+  })
 })
 
 describe('TicketStatusRow', () => {
@@ -63,5 +75,12 @@ describe('TicketStatusRow', () => {
     const onClick = () => {}
     render(<TicketStatusRow status="done" role="button" tabIndex={0} onClick={onClick}><span>x</span></TicketStatusRow>)
     expect(screen.getByRole('button')).toBeDefined()
+  })
+
+  it('renders an on_review row with the accent-warning border variant', () => {
+    const { container } = render(<TicketStatusRow status="on_review"><span>x</span></TicketStatusRow>)
+    const div = container.querySelector('[data-ticket-status="on_review"]')
+    expect(div).not.toBeNull()
+    expect((div as HTMLElement).className).toContain('border-accent-warning')
   })
 })

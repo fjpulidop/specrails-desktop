@@ -37,6 +37,12 @@ Quelques garde-fous gardent les coûts raisonnables : la génération des résum
 
 Vous pouvez aussi choisir la **langue des résumés** (anglais ou espagnol) dans les paramètres globaux, sous la rubrique *Code section*.
 
+## L'histoire de construction
+
+Sous l'afficheur de code vit l'**histoire de construction** : une chronologie de chaque spec et de chaque job qui ont bâti le fichier que vous regardez. Chaque chapitre est une carte : quelle spec est intervenue (avec son statut actuel), quand, si le fichier a été créé, modifié ou supprimé, et l'ampleur du changement (lignes ajoutées et supprimées). Cliquez sur une carte pour ouvrir le détail de cette spec. Les rails basés sur des loops enregistrent aussi les fichiers qu'ils touchent : le travail effectué dans des worktrees isolés apparaît dans l'histoire comme les jobs classiques du pipeline.
+
+Pour n'importe quel chapitre, vous pouvez demander une explication en langage simple : appuyez sur **Expliquer ce changement** et l'app rédige une à trois phrases décrivant ce que ce changement précis a apporté au fichier — sans code, sans jargon. Les explications partagent le même budget mensuel que les résumés de fichiers, et tant qu'aucune n'a été générée, la carte s'en tient aux faits qu'elle connaît : le type de changement, la spec et la date. Vous préférez les données brutes ? Un sélecteur **Histoire / Journal** bascule vers la liste classique des modifications avec des diffs à la demande. Le même panneau apparaît dans le volet **Files** du mode Agent.
+
 ## Relier le code aux specs
 
 Le lien de provenance fonctionne dans les deux sens. Dans le Code explorer, cliquer sur la pastille d'un ticket attachée à un fichier ouvre le détail de ce ticket. Et dans l'autre sens, la vue **détail du ticket** comporte une section *Fichiers touchés par ce ticket* — cliquez-y sur un fichier et vous atterrissez directement dans le Code explorer avec ce fichier ouvert. La boucle est ainsi bouclée entre « voici la spec que nous avons écrite » et « voici le code qui en est sorti ».

@@ -33,9 +33,18 @@ export interface JobSummary {
   hasTelemetry?: boolean
   /** Profile the job ran under (null/undefined = legacy mode) */
   profile_name?: string | null
-  /** 1 when this is an interactive persistent ultracode session (the user can
-   *  send more prompts and must Finalize); 0/absent for standard jobs. */
+  /** 1 when this is an interactive persistent session (the user can send more
+   *  prompts while it runs); 0/absent for standard jobs. */
   interactive?: number | null
+  /** Settle mode of the resident interactive session (GET /jobs/:id only):
+   *  'finalize' = idles until the human Finalizes (ultracode); 'auto' = the job
+   *  settles itself on quiescence (implement / loops — steering is optional).
+   *  null/absent = no live session (finished, kill-switch off, legacy payload). */
+  interactiveSettleMode?: 'finalize' | 'auto' | null
+  /** True when a resident session is accepting turns RIGHT NOW. Loop runs flip
+   *  this between ai-steps (no session ⇒ POST /messages would 409); live flips
+   *  ride the `job.interactive` WS event. GET /jobs/:id only. */
+  interactiveAcceptingTurns?: boolean
   /**
    * Tickets referenced by the job's command, resolved against the project's
    * local ticket store at request time. Only populated by GET /jobs/:id;
@@ -244,9 +253,59 @@ export interface JobTemplate {
   updated_at: string
 }
 
+// ─── Rail PR decisions (safe-pr-review-flow) ─────────────────────────────────
+
+/** Decision state of a rail's isolated-launch PR delivery (mirrors the server's
+ *  rail_pr_deliveries.decision column). `merged`/`discarded` are terminal. */
+export type RailPrDecision =
+  | 'building'
+  | 'on_review'
+  | 'pr_draft'
+  | 'pr_ready'
+  | 'merged'
+  | 'discarded'
+  | 'pr_failed'
+
+/** How far a Create-PR attempt got (the pr-publisher degradation ladder). */
+export type RailPrDeliveryState = 'none' | 'local-only' | 'pushed' | 'pr-created'
+
+/** The four actions POST /rails/pr-decision accepts. */
+export type RailPrDecisionAction = 'create-pr' | 'publish' | 'discard' | 'poll-merge'
+
+/**
+ * Durable snapshot of a rail launch's ask-first PR decision. The client keeps
+ * one per railIndex (RailPrDecisionContext), hydrated from GET /rails
+ * `prDeliveries` and updated by every `rail.pr_state` broadcast.
+ */
+export interface RailPrStateSnapshot {
+  prDeliveryId: string
+  railIndex: number
+  railKey: string
+  ticketIds: number[]
+  baseBranch: string
+  /** The assembled/delivered head branch (null until a Create-PR ran). */
+  branch: string | null
+  prUrl: string | null
+  prNumber: number | null
+  prState: RailPrDeliveryState
+  decision: RailPrDecision
+  /** The launch's loop-run ids, in ticket order ([] until allocation lands) —
+   *  each links a per-run log + live vitals on the decision surfaces. */
+  runIds: string[]
+  /** The launching agent-chat conversation, null for dashboard launches. */
+  originConversationId: string | null
+}
+
+/** Wire shape of the project-scoped `rail.pr_state` WS broadcast (mirrors
+ *  server/types.ts RailPrStateMessage — replaces the retired rail.pr_delivered). */
+export interface RailPrStateMessage extends RailPrStateSnapshot {
+  type: 'rail.pr_state'
+  projectId: string
+}
+
 // ─── Local Tickets ───────────────────────────────────────────────────────────
 
-export type TicketStatus = 'draft' | 'todo' | 'in_progress' | 'done' | 'cancelled'
+export type TicketStatus = 'draft' | 'todo' | 'in_progress' | 'on_review' | 'done' | 'cancelled'
 export type TicketPriority = 'critical' | 'high' | 'medium' | 'low'
 
 export interface Attachment {
@@ -298,6 +357,10 @@ export interface LocalTicket {
   jira_sprint_name?: string | null
   /** State of that sprint: 'active' (current) | 'future' | 'closed'. */
   jira_sprint_state?: string | null
+  /** RAW Jira workflow status name exactly as the board shows it (e.g. "Code
+   *  Review"), refreshed on every inbound poll. Powers the board's Jira-status
+   *  filter dimension. Distinct from `status` (the mapped logical state). */
+  jira_status?: string | null
   /** Desktop-managed: set when a job that had already marked this spec `done` then
    *  failed/was canceled/zombie-killed. The board shows a "review" badge on the
    *  Done card. Cleared on the next clean completion. */

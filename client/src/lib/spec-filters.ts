@@ -13,42 +13,55 @@ export interface SpecFilters {
   epic: string | null
   /** Active Jira sprint id, or null for "all sprints". */
   sprint: string | null
+  /** Active RAW Jira workflow status name, or null for "all Jira statuses". */
+  jiraStatus: string | null
 }
 
 export const EMPTY_SPEC_FILTERS: SpecFilters = {
   labels: new Set<string>(),
   epic: null,
   sprint: null,
+  jiraStatus: null,
 }
 
 const KEY = (projectId: string) => `specrails-desktop:spec-filters:${projectId}`
 
 /** True when no filter is active (board shows every spec). */
 export function isEmptySpecFilters(f: SpecFilters): boolean {
-  return f.labels.size === 0 && f.epic === null && f.sprint === null
+  return f.labels.size === 0 && f.epic === null && f.sprint === null && f.jiraStatus === null
 }
 
 function asStringOrNull(v: unknown): string | null {
   return typeof v === 'string' && v.length > 0 ? v : null
 }
 
+function emptyFilters(): SpecFilters {
+  return { labels: new Set<string>(), epic: null, sprint: null, jiraStatus: null }
+}
+
 export function loadSpecFilters(projectId: string | null): SpecFilters {
-  if (!projectId) return { ...EMPTY_SPEC_FILTERS, labels: new Set() }
+  if (!projectId) return emptyFilters()
   try {
     const raw = localStorage.getItem(KEY(projectId))
-    if (!raw) return { labels: new Set(), epic: null, sprint: null }
+    if (!raw) return emptyFilters()
     const parsed = JSON.parse(raw) as unknown
     if (!parsed || typeof parsed !== 'object') {
-      return { labels: new Set(), epic: null, sprint: null }
+      return emptyFilters()
     }
     const obj = parsed as Record<string, unknown>
     const labels = Array.isArray(obj.labels)
       ? new Set(obj.labels.filter((l): l is string => typeof l === 'string'))
       : new Set<string>()
-    return { labels, epic: asStringOrNull(obj.epic), sprint: asStringOrNull(obj.sprint) }
+    return {
+      labels,
+      epic: asStringOrNull(obj.epic),
+      sprint: asStringOrNull(obj.sprint),
+      // Additive field — absent in pre-existing blobs ⇒ null (no filter).
+      jiraStatus: asStringOrNull(obj.jiraStatus),
+    }
   } catch {
     // Malformed JSON / private mode / quota — fail to "no filter".
-    return { labels: new Set(), epic: null, sprint: null }
+    return emptyFilters()
   }
 }
 
@@ -67,6 +80,7 @@ export function saveSpecFilters(projectId: string | null, filters: SpecFilters):
         labels: [...filters.labels],
         epic: filters.epic,
         sprint: filters.sprint,
+        jiraStatus: filters.jiraStatus,
       }),
     )
   } catch {

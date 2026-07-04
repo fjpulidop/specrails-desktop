@@ -53,9 +53,14 @@ As respostas chegam de forma fluida e já formatadas (títulos, tabelas, listas)
 
 ## Detalhes práticos
 
+- **Super specs a partir de uma conversa.** Peça ao agente para *moldar* uma spec com você em vez de gerá-la de uma vez: ele lê primeiro o código real, faz algumas perguntas e mostra o rascunho em evolução como um cartão ao vivo dentro da conversa. Quando você diz sim, ele cria a spec e — por padrão — a enriquece em segundo plano com uma **Contract Layer** (caminhos de arquivo exatos, formas de dados, invariantes) para que os agentes que implementam não improvisem. Diga "sem contract layer" para pular o enriquecimento.
+- **Clique no que ele menciona.** Em uma missão fixada a um projeto, os números de spec (`#12`) e os ids de job/execução nas respostas do agente são chips clicáveis: uma spec abre o modal de detalhe do quadro e um id de job abre a visão do job ao vivo. Se a referência não existir mais, você verá um aviso discreto de "não encontrado".
+- **O cartão de implementação, sempre à vista.** Quando o agente implementa specs, um cartão ao vivo acompanha o trabalho — e enquanto ele precisar de algo de você (criar a PR, publicá-la, tentar de novo, descartar) fica **fixado logo acima da caixa de mensagem**, por mais que a conversa role; no lugar dele no histórico aparece um marcador discreto de "fixado acima". Vários cartões ativos se empilham como pequenos chips (clique em um para trazê-lo à frente), e um chevron minimiza o cartão para uma barra fina. Quando a PR é publicada — ou o trabalho é mesclado ou descartado — o cartão volta ao seu lugar no histórico da conversa.
 - **Histórico de prompts.** Com a caixa vazia, pressione **↑**/**↓** para percorrer o que você perguntou antes (mostrado esmaecido enquanto rola); comece a digitar para editar, ou pressione Enter para enviar.
+- **Edite a fila.** Enviou mais enquanto o agente estava ocupado? Enquanto houver mensagens na fila, **↑**/**↓** percorre *essas* mensagens: a caixa mostra a selecionada, você a edita ali mesmo e **Enter a salva de volta na fila** (Esc cancela; seu rascunho não enviado volta intacto).
 - **Minimize sem perder nada.** Clique no ✕ para devolver o painel à bolha — a conversa continua rodando. Reabra e você chega na mensagem mais recente; nada é redigitado.
 - **Nova conversa.** O botão **+** inicia um fio limpo; o histórico vive no nível da aplicação, acima de qualquer projeto individual.
+- **Troque de missão.** O seletor de missões ao lado do seletor de projeto lista suas conversas da mais recente para a mais antiga — um ponto pulsante marca aquelas em que o agente ainda está trabalhando, e um pequeno selo conta as mensagens na fila. A busca aparece quando a lista passa de oito, e o ícone de lixeira de cada linha exclui uma missão após uma confirmação rápida em linha — mesmo uma em andamento (ele avisa primeiro e depois para o agente).
 
 ## Algumas coisas para saber
 

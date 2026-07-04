@@ -15,6 +15,13 @@ env:
   # of this version. Bump deliberately via PR.
   NODE_BUNDLE_VERSION: "v22.22.3"
   GIT_BUNDLE_VERSION: "2.49.0"
+  # Bundled GitHub CLI (MIT, prebuilt static Go binaries from cli/cli releases).
+  # SYSTEM-FIRST fallback: the app prefers a user-installed gh (it carries their
+  # auth/hosts config) and only falls back to this copy when none is on PATH —
+  # see server/path-resolver.ts appendBundledGhDir + setup-prerequisites.ts
+  # probeGhPrerequisite. Each job verifies the download against the release's
+  # gh_<v>_checksums.txt. Bump deliberately via PR.
+  GH_BUNDLE_VERSION: "2.63.2"
   # Bundle a published specrails-core into the app so the framework can be
   # materialized + assembled OFFLINE (no per-project `npx specrails-core init`).
   # EXACT pin (was floating `latest`, which let the three platform jobs each
@@ -202,6 +209,33 @@ jobs:
           fi
           echo "Built relocatable Git ${GIT_VERSION} → ${DEST}"
 
+      - name: Download and verify GitHub CLI ${{ env.GH_BUNDLE_VERSION }} (macOS arm64)
+        run: |
+          set -euo pipefail
+          GH_VERSION="${GH_BUNDLE_VERSION}"
+          ZIPFILE="gh_${GH_VERSION}_macOS_arm64.zip"
+          BASE="https://github.com/cli/cli/releases/download/v${GH_VERSION}"
+          echo "Downloading GitHub CLI ${GH_VERSION} (macOS arm64)..."
+          curl -fsSL -L "${BASE}/${ZIPFILE}" -o "${ZIPFILE}"
+          EXPECTED_SHA=$(curl -fsSL -L "${BASE}/gh_${GH_VERSION}_checksums.txt" \
+            | grep "${ZIPFILE}" | awk '{print $1}')
+          test -n "${EXPECTED_SHA}"
+          ACTUAL_SHA=$(shasum -a 256 "${ZIPFILE}" | awk '{print $1}')
+          if [[ "${EXPECTED_SHA}" != "${ACTUAL_SHA}" ]]; then
+            echo "CHECKSUM MISMATCH for ${ZIPFILE}: expected=${EXPECTED_SHA} actual=${ACTUAL_SHA}"
+            exit 1
+          fi
+          echo "Checksum OK: ${ACTUAL_SHA}"
+          unzip -q "${ZIPFILE}" -d tmp_gh
+          GH_BIN=$(find tmp_gh -type f -name gh | head -1)
+          test -n "${GH_BIN}"
+          mkdir -p src-tauri/runtimes/gh/bin
+          mv "${GH_BIN}" src-tauri/runtimes/gh/bin/gh
+          chmod +x src-tauri/runtimes/gh/bin/gh
+          rm -rf tmp_gh "${ZIPFILE}"
+          src-tauri/runtimes/gh/bin/gh --version
+          echo "Extracted GitHub CLI ${GH_VERSION} to src-tauri/runtimes/gh/bin/gh"
+
       - name: Assemble bundled Chromium (macOS arm64)
         if: ${{ env.BUNDLE_CHROMIUM == 'true' }}
         run: |
@@ -278,6 +312,7 @@ jobs:
           echo "Signed ${count} Mach-O binaries under src-tauri/runtimes/ (excluding chromium)"
           codesign --verify --strict --verbose=2 src-tauri/runtimes/node/bin/node
           codesign --verify --strict --verbose=2 src-tauri/runtimes/git/bin/git
+          codesign --verify --strict --verbose=2 src-tauri/runtimes/gh/bin/gh
 
       # Chromium is shipped as an opaque chromium.tar.gz archive (see "Assemble bundled
       # Chromium" above), so it needs NO codesigning — notarization treats archive bytes
@@ -443,6 +478,32 @@ jobs:
           test -f src-tauri/runtimes/git/cmd/git.exe
           echo "Extracted Git for Windows to src-tauri/runtimes/git/"
 
+      - name: Download and verify GitHub CLI ${{ env.GH_BUNDLE_VERSION }} (Windows x64)
+        shell: bash
+        run: |
+          set -euo pipefail
+          GH_VERSION="${GH_BUNDLE_VERSION}"
+          ZIPFILE="gh_${GH_VERSION}_windows_amd64.zip"
+          BASE="https://github.com/cli/cli/releases/download/v${GH_VERSION}"
+          echo "Downloading GitHub CLI ${GH_VERSION} (Windows x64)..."
+          curl -fsSL -L "${BASE}/${ZIPFILE}" -o "${ZIPFILE}"
+          EXPECTED_SHA=$(curl -fsSL -L "${BASE}/gh_${GH_VERSION}_checksums.txt" \
+            | grep "${ZIPFILE}" | awk '{print $1}')
+          test -n "${EXPECTED_SHA}"
+          ACTUAL_SHA=$(sha256sum "${ZIPFILE}" | awk '{print $1}')
+          if [[ "${EXPECTED_SHA}" != "${ACTUAL_SHA}" ]]; then
+            echo "CHECKSUM MISMATCH for ${ZIPFILE}: expected=${EXPECTED_SHA} actual=${ACTUAL_SHA}"
+            exit 1
+          fi
+          echo "Checksum OK: ${ACTUAL_SHA}"
+          unzip -q "${ZIPFILE}" -d tmp_gh
+          GH_BIN=$(find tmp_gh -type f -name gh.exe | head -1)
+          test -n "${GH_BIN}"
+          mkdir -p src-tauri/runtimes/gh/bin
+          mv "${GH_BIN}" src-tauri/runtimes/gh/bin/gh.exe
+          rm -rf tmp_gh "${ZIPFILE}"
+          echo "Extracted GitHub CLI ${GH_VERSION} to src-tauri/runtimes/gh/bin/gh.exe"
+
       - name: Assemble bundled Chromium (Windows x64)
         if: ${{ env.BUNDLE_CHROMIUM == 'true' }}
         shell: bash
@@ -519,6 +580,14 @@ jobs:
             Write-Host "Testing ${tool}..."
             & $tool --version
             if ($LASTEXITCODE -ne 0) { Write-Error "${tool} --version failed"; exit 1 }
+          }
+
+          # Optional bundled GitHub CLI (system-first fallback) — validate when present.
+          $gh = "src-tauri\runtimes\gh\bin\gh.exe"
+          if (Test-Path $gh) {
+            Write-Host "Testing ${gh}..."
+            & $gh --version
+            if ($LASTEXITCODE -ne 0) { Write-Error "${gh} --version failed"; exit 1 }
           }
 
           # Validate the EXACT npm/npx probe the shipped app uses: the bundled
@@ -664,6 +733,32 @@ jobs:
           test -f src-tauri/runtimes/git/cmd/git.exe
           echo "Extracted Git for Windows (arm64) to src-tauri/runtimes/git/"
 
+      - name: Download and verify GitHub CLI ${{ env.GH_BUNDLE_VERSION }} (Windows arm64)
+        shell: bash
+        run: |
+          set -euo pipefail
+          GH_VERSION="${GH_BUNDLE_VERSION}"
+          ZIPFILE="gh_${GH_VERSION}_windows_arm64.zip"
+          BASE="https://github.com/cli/cli/releases/download/v${GH_VERSION}"
+          echo "Downloading GitHub CLI ${GH_VERSION} (Windows arm64)..."
+          curl -fsSL -L "${BASE}/${ZIPFILE}" -o "${ZIPFILE}"
+          EXPECTED_SHA=$(curl -fsSL -L "${BASE}/gh_${GH_VERSION}_checksums.txt" \
+            | grep "${ZIPFILE}" | awk '{print $1}')
+          test -n "${EXPECTED_SHA}"
+          ACTUAL_SHA=$(sha256sum "${ZIPFILE}" | awk '{print $1}')
+          if [[ "${EXPECTED_SHA}" != "${ACTUAL_SHA}" ]]; then
+            echo "CHECKSUM MISMATCH for ${ZIPFILE}: expected=${EXPECTED_SHA} actual=${ACTUAL_SHA}"
+            exit 1
+          fi
+          echo "Checksum OK: ${ACTUAL_SHA}"
+          unzip -q "${ZIPFILE}" -d tmp_gh
+          GH_BIN=$(find tmp_gh -type f -name gh.exe | head -1)
+          test -n "${GH_BIN}"
+          mkdir -p src-tauri/runtimes/gh/bin
+          mv "${GH_BIN}" src-tauri/runtimes/gh/bin/gh.exe
+          rm -rf tmp_gh "${ZIPFILE}"
+          echo "Extracted GitHub CLI ${GH_VERSION} (arm64) to src-tauri/runtimes/gh/bin/gh.exe"
+
       - name: Assemble bundled Chromium (Windows arm64)
         if: ${{ env.BUNDLE_CHROMIUM == 'true' }}
         shell: bash
@@ -730,6 +825,14 @@ jobs:
             Write-Host "Testing ${tool}..."
             & $tool --version
             if ($LASTEXITCODE -ne 0) { Write-Error "${tool} --version failed"; exit 1 }
+          }
+
+          # Optional bundled GitHub CLI (system-first fallback) — validate when present.
+          $gh = "src-tauri\runtimes\gh\bin\gh.exe"
+          if (Test-Path $gh) {
+            Write-Host "Testing ${gh}..."
+            & $gh --version
+            if ($LASTEXITCODE -ne 0) { Write-Error "${gh} --version failed"; exit 1 }
           }
           $tmp = Join-Path $env:TEMP ("smokegit-" + [guid]::NewGuid())
           New-Item -ItemType Directory -Path $tmp | Out-Null

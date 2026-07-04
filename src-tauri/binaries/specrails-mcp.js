@@ -6989,6 +6989,16 @@ function appUrl() {
   const port = Number(process.env.SPECRAILS_MCP_PORT || process.env.SPECRAILS_PORT || DEFAULT_PORT);
   return new URL(`http://127.0.0.1:${port}/api/mcp`);
 }
+function agentForwardHeaders(env = process.env) {
+  const headers = {};
+  const agentTier = env.SPECRAILS_AGENT_TIER;
+  if (agentTier && agentTier.trim()) headers["x-specrails-agent-tier"] = agentTier.trim();
+  const activeProject = env.SPECRAILS_ACTIVE_PROJECT;
+  if (activeProject && activeProject.trim()) headers["x-specrails-active-project"] = activeProject.trim();
+  const agentConversation = env.SPECRAILS_AGENT_CONVERSATION;
+  if (agentConversation && agentConversation.trim()) headers["x-specrails-agent-conversation"] = agentConversation.trim();
+  return headers;
+}
 function isUnreachable(err) {
   const msg = err instanceof Error ? err.message : String(err);
   return /ECONNREFUSED|fetch failed|ENOTFOUND|ECONNRESET|socket hang up/i.test(msg);
@@ -7034,10 +7044,7 @@ function connectBridge(clientFacing, appFacing) {
 async function main() {
   const token = readMcpToken();
   const headers = token ? { Authorization: `Bearer ${token}` } : {};
-  const agentTier = process.env.SPECRAILS_AGENT_TIER;
-  if (agentTier && agentTier.trim()) headers["x-specrails-agent-tier"] = agentTier.trim();
-  const activeProject = process.env.SPECRAILS_ACTIVE_PROJECT;
-  if (activeProject && activeProject.trim()) headers["x-specrails-active-project"] = activeProject.trim();
+  Object.assign(headers, agentForwardHeaders());
   const appFacing = new StreamableHTTPClientTransport(appUrl(), { requestInit: { headers } });
   const clientFacing = new StdioServerTransport();
   connectBridge(clientFacing, appFacing);

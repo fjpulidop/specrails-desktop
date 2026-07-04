@@ -124,8 +124,13 @@ describe('DashboardPage — server rail reconcile (adopt agent/MCP launches)', (
     // Agent Mode, mobile companion, another window): localStorage knows nothing,
     // but GET /rails reports the active job + the rail's ticket assignment.
     mockActiveProjectId = 'proj-1'
+    // The server always lists at least the three base rails (dynamic rails).
     global.fetch = railsResponse({
-      rails: [{ railIndex: 0, ticketIds: [7], mode: 'implement' }],
+      rails: [
+        { railIndex: 0, ticketIds: [7], mode: 'implement' },
+        { railIndex: 1, ticketIds: [] },
+        { railIndex: 2, ticketIds: [] },
+      ],
       activeJobs: { '0': { jobId: 'job-9', mode: 'implement' } },
       activeLoopRuns: {},
     })
@@ -161,7 +166,11 @@ describe('DashboardPage — server rail reconcile (adopt agent/MCP launches)', (
   it('adopts an active LOOP run with mode loop and no ticket clobber', async () => {
     mockActiveProjectId = 'proj-1'
     global.fetch = railsResponse({
-      rails: [{ railIndex: 1, ticketIds: [] }],
+      rails: [
+        { railIndex: 0, ticketIds: [] },
+        { railIndex: 1, ticketIds: [] },
+        { railIndex: 2, ticketIds: [] },
+      ],
       activeJobs: {},
       activeLoopRuns: { '1': { loopRunId: 'run-4', loopId: 'custom:my-loop' } },
     })
@@ -178,7 +187,11 @@ describe('DashboardPage — server rail reconcile (adopt agent/MCP launches)', (
   it('derives the REAL mode from a factory loopId (desktop launches register as loop runs)', async () => {
     mockActiveProjectId = 'proj-1'
     global.fetch = railsResponse({
-      rails: [{ railIndex: 0, ticketIds: [4] }],
+      rails: [
+        { railIndex: 0, ticketIds: [4] },
+        { railIndex: 1, ticketIds: [] },
+        { railIndex: 2, ticketIds: [] },
+      ],
       activeJobs: {},
       activeLoopRuns: { '0': { loopRunId: 'run-7', loopId: 'factory:implement' } },
     })
@@ -200,7 +213,11 @@ describe('DashboardPage — server rail reconcile (adopt agent/MCP launches)', (
       { id: 'rail-3', label: 'Rail 3', ticketIds: [], mode: 'implement', status: 'idle' },
     ]))
     global.fetch = railsResponse({
-      rails: [{ railIndex: 0, ticketIds: [7] }],
+      rails: [
+        { railIndex: 0, ticketIds: [7] },
+        { railIndex: 1, ticketIds: [] },
+        { railIndex: 2, ticketIds: [] },
+      ],
       activeJobs: { '0': { jobId: 'job-1', mode: 'implement' } },
       activeLoopRuns: {},
     })

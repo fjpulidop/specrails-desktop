@@ -18,8 +18,13 @@ vi.mock('../../lib/ws-url', () => ({
   WS_URL: 'ws://localhost:4200/hooks',
 }))
 
+// Capture the modal's WS handler so tests can feed live frames through it.
+let wsHandler: ((data: unknown) => void) | null = null
 vi.mock('../../hooks/useWebSocket', () => ({
-  useWebSocket: vi.fn().mockReturnValue({ connectionStatus: 'connected' }),
+  useWebSocket: vi.fn((_url: string, handler: (d: unknown) => void) => {
+    wsHandler = handler
+    return { connectionStatus: 'connected' }
+  }),
 }))
 
 vi.mock('../../components/PipelineProgress', () => ({
@@ -35,6 +40,12 @@ vi.mock('../LogViewer', () => ({
     <div data-testid="log-viewer">
       {isLoading ? 'loading...' : `${events.length} events`}
     </div>
+  ),
+}))
+
+vi.mock('../loop-log/LoopStepExplorer', () => ({
+  LoopStepExplorer: ({ events }: { events: unknown[] }) => (
+    <div data-testid="loop-step-explorer">{events.length} loop events</div>
   ),
 }))
 
@@ -68,6 +79,7 @@ describe('JobDetailModal', () => {
 
   beforeEach(() => {
     vi.clearAllMocks()
+    wsHandler = null
     global.fetch = vi.fn().mockResolvedValue({
       ok: true,
       json: async () => ({
@@ -89,6 +101,40 @@ describe('JobDetailModal', () => {
     await waitFor(() => {
       expect(screen.getByText('/specrails:implement --spec SPEA-001')).toBeInTheDocument()
     })
+    // Default path: active-project base from getApiBase() (mocked to '/api').
+    expect(global.fetch).toHaveBeenCalledWith('/api/jobs/job-abc123')
+  })
+
+  it('an explicit projectId scopes every fetch to THAT project (agent-chat refs)', async () => {
+    // Agent-chat ref chips open jobs from the mission's PINNED project, which
+    // may differ from the active one — the modal must not call getApiBase().
+    render(<JobDetailModal jobId="job-abc123" projectId="proj-x" onClose={onClose} />)
+    await waitFor(() => {
+      expect(screen.getByText('/specrails:implement --spec SPEA-001')).toBeInTheDocument()
+    })
+    expect(global.fetch).toHaveBeenCalledWith('/api/projects/proj-x/jobs/job-abc123')
+  })
+
+  it('PORTALS to document.body above the floating agent panel (board-mode job refs)', async () => {
+    // Regression: agent-chat job-ref chips mount this modal from INSIDE the
+    // floating AgentChatPanel (z-[60], backdrop-filter + transform + overflow-
+    // hidden). Without a portal, the panel becomes the containing block for
+    // the fixed overlay and clips it — the modal "never appears". The overlay
+    // must escape to document.body and stack ABOVE the panel (z-[65] > z-[60]).
+    const { render: bareRender, waitFor: bareWaitFor, screen: bareScreen } = await import('@testing-library/react')
+    const { container } = bareRender(
+      <div data-testid="floating-agent-panel" style={{ transform: 'translateY(0px)', overflow: 'hidden' }}>
+        <JobDetailModal jobId="job-abc123" projectId="proj-x" onClose={onClose} />
+      </div>,
+    )
+    await bareWaitFor(() => {
+      expect(bareScreen.getByText('/specrails:implement --spec SPEA-001')).toBeInTheDocument()
+    })
+    const overlay = document.body.querySelector('div.fixed.inset-0')
+    expect(overlay).not.toBeNull()
+    expect(overlay!.classList.contains('z-[65]')).toBe(true)
+    // Escaped the panel subtree: the overlay is NOT inside the render container.
+    expect(container.contains(overlay)).toBe(false)
   })
 
   it('mounts WITHOUT an ancestor TooltipProvider (Agent-Mode jobs pane)', async () => {
@@ -242,9 +288,10 @@ describe('JobDetailModal', () => {
     })
   })
 
-  it('"Cancel job" button in dialog calls DELETE endpoint', async () => {
+  it('"Cancel job" button in dialog calls DELETE endpoint and refetches on success', async () => {
     const { toast } = await import('sonner')
-    // First fetch = load job, second fetch = DELETE cancel
+    // First fetch = load job, second fetch = DELETE cancel, then the
+    // success-path refetch (reconciliation without waiting for WS).
     global.fetch = vi.fn()
       .mockResolvedValueOnce({
         ok: true,
@@ -254,7 +301,8 @@ describe('JobDetailModal', () => {
           phaseDefinitions: [],
         }),
       })
-      .mockResolvedValueOnce({ ok: true, json: async () => ({}) })
+      .mockResolvedValueOnce({ ok: true, json: async () => ({ ok: true, status: 'canceling' }) })
+      .mockResolvedValue({ ok: true, json: async () => ({ job: mockRunningJob }) })
 
     render(<JobDetailModal jobId="job-running" onClose={onClose} />)
     await waitFor(() => expect(screen.getByRole('button', { name: /cancel/i })).toBeInTheDocument())
@@ -274,6 +322,13 @@ describe('JobDetailModal', () => {
         expect.objectContaining({ description: expect.stringContaining('next safe point') })
       )
     })
+    // Own-success reconciliation: a plain GET refetch follows the DELETE.
+    const calls = (global.fetch as ReturnType<typeof vi.fn>).mock.calls
+    await waitFor(() => {
+      expect(calls.length).toBeGreaterThanOrEqual(3)
+    })
+    expect(calls[2][0]).toBe('/api/jobs/job-running')
+    expect(calls[2][1]).toBeUndefined()
   })
 
   it('shows error toast when cancel DELETE fails', async () => {
@@ -307,7 +362,10 @@ describe('JobDetailModal', () => {
     })
   })
 
-  it('shows error toast on network error during cancel', async () => {
+  it('shows error toast WITH DETAIL on network error during cancel', async () => {
+    // Regression (quota incident): a transport-level failure used to surface a
+    // bare "Network error" toast with zero detail — the underlying message must
+    // now ride along so the user knows WHY the cancel didn't land.
     const { toast } = await import('sonner')
     global.fetch = vi.fn()
       .mockResolvedValueOnce({
@@ -318,7 +376,7 @@ describe('JobDetailModal', () => {
           phaseDefinitions: [],
         }),
       })
-      .mockRejectedValueOnce(new Error('Network error'))
+      .mockRejectedValueOnce(new Error('socket hang up'))
 
     render(<JobDetailModal jobId="job-running" onClose={onClose} />)
     await waitFor(() => expect(screen.getByRole('button', { name: /cancel/i })).toBeInTheDocument())
@@ -328,7 +386,10 @@ describe('JobDetailModal', () => {
     fireEvent.click(screen.getByRole('button', { name: /cancel job/i }))
 
     await waitFor(() => {
-      expect(toast.error).toHaveBeenCalledWith('Network error')
+      expect(toast.error).toHaveBeenCalledWith(
+        'Failed to cancel',
+        expect.objectContaining({ description: 'socket hang up' })
+      )
     })
   })
 
@@ -362,13 +423,12 @@ describe('JobDetailModal', () => {
     })
   })
 
-  it('renders external link anchor', async () => {
+  it('does NOT render the open-in-new-tab anchor (removed — it never worked in the desktop webview)', async () => {
     render(<JobDetailModal jobId="job-abc123" onClose={onClose} />)
     await waitFor(() => {
-      const link = document.querySelector('a[href="/jobs/job-abc123"]') as HTMLAnchorElement
-      expect(link).toBeTruthy()
-      expect(link.getAttribute('target')).toBe('_blank')
+      expect(screen.getByText('/specrails:implement --spec SPEA-001')).toBeInTheDocument()
     })
+    expect(document.querySelector('a[href="/jobs/job-abc123"]')).toBeNull()
   })
 
   it('renders phaseDefinitions in PipelineProgress when provided', async () => {
@@ -419,5 +479,308 @@ describe('JobDetailModal', () => {
       expect(screen.getByText('completed')).toBeInTheDocument()
     })
     expect(screen.queryByText(/\ds$/)).not.toBeInTheDocument()
+  })
+
+  // ── Live log frames (mission mode) ──────────────────────────────────────────
+  // Regression pin: the WS handler used to append ONLY stderr `log` frames, so
+  // live stdout never grew the modal. It now appends both, matching
+  // JobDetailPage's handler semantics.
+  describe('live log frames', () => {
+    it('appends live STDOUT log frames (stdout-fix pin)', async () => {
+      const { act } = await import('@testing-library/react')
+      render(<JobDetailModal jobId="job-abc123" onClose={onClose} />)
+      await waitFor(() => expect(screen.getByTestId('log-viewer')).toHaveTextContent('0 events'))
+
+      act(() => {
+        wsHandler?.({
+          type: 'log',
+          processId: 'job-abc123',
+          source: 'stdout',
+          line: 'hello from stdout',
+          timestamp: new Date().toISOString(),
+        })
+      })
+      await waitFor(() => expect(screen.getByTestId('log-viewer')).toHaveTextContent('1 events'))
+    })
+
+    it('still appends stderr frames', async () => {
+      const { act } = await import('@testing-library/react')
+      render(<JobDetailModal jobId="job-abc123" onClose={onClose} />)
+      await waitFor(() => expect(screen.getByTestId('log-viewer')).toHaveTextContent('0 events'))
+
+      act(() => {
+        wsHandler?.({
+          type: 'log',
+          processId: 'job-abc123',
+          source: 'stderr',
+          line: 'warning line',
+          timestamp: new Date().toISOString(),
+        })
+      })
+      await waitFor(() => expect(screen.getByTestId('log-viewer')).toHaveTextContent('1 events'))
+    })
+
+    it('ignores log frames addressed to OTHER processes', async () => {
+      const { act } = await import('@testing-library/react')
+      render(<JobDetailModal jobId="job-abc123" onClose={onClose} />)
+      await waitFor(() => expect(screen.getByTestId('log-viewer')).toHaveTextContent('0 events'))
+
+      act(() => {
+        wsHandler?.({
+          type: 'log',
+          processId: 'someone-else',
+          source: 'stdout',
+          line: 'not for us',
+          timestamp: new Date().toISOString(),
+        })
+      })
+      // Give a rAF tick a chance, then assert nothing changed.
+      await new Promise((r) => setTimeout(r, 50))
+      expect(screen.getByTestId('log-viewer')).toHaveTextContent('0 events')
+    })
+  })
+
+  // ── Loop jobs (mission mode) ────────────────────────────────────────────────
+  describe('loop jobs', () => {
+    it('mounts the LoopStepExplorer instead of LogViewer for loop: jobs', async () => {
+      global.fetch = vi.fn().mockResolvedValue({
+        ok: true,
+        json: async () => ({
+          job: { ...mockRunningJob, command: 'loop: Nightly refactor' },
+          events: [],
+          phaseDefinitions: [],
+        }),
+      })
+      render(<JobDetailModal jobId="job-running" onClose={onClose} />)
+      await waitFor(() => {
+        expect(screen.getByTestId('loop-step-explorer')).toBeInTheDocument()
+      })
+      expect(screen.queryByTestId('log-viewer')).not.toBeInTheDocument()
+    })
+
+    it('keeps the legacy LogViewer for non-loop jobs (regression pin)', async () => {
+      render(<JobDetailModal jobId="job-abc123" onClose={onClose} />)
+      await waitFor(() => {
+        expect(screen.getByTestId('log-viewer')).toBeInTheDocument()
+      })
+      expect(screen.queryByTestId('loop-step-explorer')).not.toBeInTheDocument()
+    })
+  })
+
+  // ── Mission-mode interactive composer ──────────────────────────────────────
+  // The Agent-Mode jobs pane opens this modal — the SAME InteractiveJobComposer
+  // the board's Job Detail page uses mounts below the log for running
+  // interactive jobs, so a mission user steers without leaving the workspace.
+  describe('interactive composer (mission mode)', () => {
+    it("mounts the composer for a running interactive job ('auto' → wrap-up, no Finalize)", async () => {
+      global.fetch = vi.fn().mockResolvedValue({
+        ok: true,
+        json: async () => ({
+          job: { ...mockRunningJob, interactive: 1, interactiveSettleMode: 'auto', interactiveAcceptingTurns: true },
+          events: [],
+          phaseDefinitions: [],
+        }),
+      })
+      render(<JobDetailModal jobId="job-running" onClose={onClose} />)
+      await waitFor(() => {
+        expect(screen.getByTestId('interactive-job-composer')).toBeInTheDocument()
+      })
+      expect(screen.getByPlaceholderText(/Send a message to the running job/i)).toBeInTheDocument()
+      expect(screen.getByText('Wrap up now')).toBeInTheDocument()
+      expect(screen.queryByText('Finalize Job')).not.toBeInTheDocument()
+    })
+
+    it("keeps Finalize semantics for a 'finalize' (ultracode) session", async () => {
+      global.fetch = vi.fn().mockResolvedValue({
+        ok: true,
+        json: async () => ({
+          job: { ...mockRunningJob, interactive: 1, interactiveSettleMode: 'finalize', interactiveAcceptingTurns: true },
+          events: [],
+          phaseDefinitions: [],
+        }),
+      })
+      render(<JobDetailModal jobId="job-running" onClose={onClose} />)
+      await waitFor(() => {
+        expect(screen.getByText('Finalize Job')).toBeInTheDocument()
+      })
+    })
+
+    it('does NOT mount the composer for a non-interactive running job', async () => {
+      global.fetch = vi.fn().mockResolvedValue({
+        ok: true,
+        json: async () => ({
+          job: { ...mockRunningJob, interactive: 0 },
+          events: [],
+          phaseDefinitions: [],
+        }),
+      })
+      render(<JobDetailModal jobId="job-running" onClose={onClose} />)
+      await waitFor(() => {
+        expect(screen.getByText('running')).toBeInTheDocument()
+      })
+      expect(screen.queryByTestId('interactive-job-composer')).not.toBeInTheDocument()
+      // Regression: `job.interactive` is a SQLite 0/1 number, so the composer
+      // guard must coerce to boolean. `{0 && …}` would leak a stray "0" text
+      // node below the log panel — assert it never renders.
+      expect(screen.queryByText('0')).not.toBeInTheDocument()
+    })
+
+    it('does NOT mount the composer for a finished interactive job', async () => {
+      global.fetch = vi.fn().mockResolvedValue({
+        ok: true,
+        json: async () => ({
+          job: { ...mockJob, interactive: 1 },
+          events: [],
+          phaseDefinitions: [],
+        }),
+      })
+      render(<JobDetailModal jobId="job-abc123" onClose={onClose} />)
+      await waitFor(() => {
+        expect(screen.getByText('completed')).toBeInTheDocument()
+      })
+      expect(screen.queryByTestId('interactive-job-composer')).not.toBeInTheDocument()
+    })
+  })
+
+  // ── Manager-aware cancel / stop (mission-mode bug: "el botón cancelar debe
+  //    cancelar 100%") ─────────────────────────────────────────────────────────
+  describe('cancel / stop (manager-aware)', () => {
+    const mockLoopJob = {
+      ...mockRunningJob,
+      command: 'loop: Nightly refactor',
+    }
+
+    it('loop run: Stop button + confirm sends DELETE and toasts stop copy', async () => {
+      const { toast } = await import('sonner')
+      global.fetch = vi.fn()
+        .mockResolvedValueOnce({
+          ok: true,
+          json: async () => ({ job: mockLoopJob, events: [], phaseDefinitions: [] }),
+        })
+        .mockResolvedValueOnce({ ok: true, json: async () => ({ ok: true, status: 'canceling' }) })
+        .mockResolvedValue({ ok: true, json: async () => ({ job: mockLoopJob }) })
+
+      render(<JobDetailModal jobId="job-running" onClose={onClose} />)
+      await waitFor(() => expect(screen.getByRole('button', { name: /^stop$/i })).toBeInTheDocument())
+      fireEvent.click(screen.getByRole('button', { name: /^stop$/i }))
+
+      await waitFor(() => expect(screen.getByText('Stop this run?')).toBeInTheDocument())
+      fireEvent.click(screen.getByRole('button', { name: /^stop run$/i }))
+
+      await waitFor(() => {
+        // Same manager-aware DELETE endpoint — the server routes a loop run
+        // (railLoopRuns) to LoopRunManager.cancel.
+        expect(global.fetch).toHaveBeenCalledWith(
+          '/api/jobs/job-running',
+          expect.objectContaining({ method: 'DELETE' })
+        )
+        expect(toast.success).toHaveBeenCalledWith(
+          'Stop signal sent',
+          expect.objectContaining({ description: expect.stringContaining('step boundary') })
+        )
+      })
+    })
+
+    it('cancels against the EXPLICIT projectId (mission mode, cross-project pin)', async () => {
+      global.fetch = vi.fn()
+        .mockResolvedValueOnce({
+          ok: true,
+          json: async () => ({ job: mockRunningJob, events: [], phaseDefinitions: [] }),
+        })
+        .mockResolvedValueOnce({ ok: true, json: async () => ({ ok: true, status: 'canceling' }) })
+        .mockResolvedValue({ ok: true, json: async () => ({ job: mockRunningJob }) })
+
+      render(<JobDetailModal jobId="job-running" projectId="proj-x" onClose={onClose} />)
+      await waitFor(() => expect(screen.getByRole('button', { name: /cancel/i })).toBeInTheDocument())
+      fireEvent.click(screen.getByRole('button', { name: /cancel/i }))
+
+      await waitFor(() => expect(screen.getByText('Cancel job?')).toBeInTheDocument())
+      fireEvent.click(screen.getByRole('button', { name: /cancel job/i }))
+
+      await waitFor(() => {
+        // NEVER the active-project base — the pinned project's explicit path.
+        expect(global.fetch).toHaveBeenCalledWith(
+          '/api/projects/proj-x/jobs/job-running',
+          expect.objectContaining({ method: 'DELETE' })
+        )
+      })
+    })
+
+    it('interactive job: button and confirm use Discard semantics', async () => {
+      global.fetch = vi.fn().mockResolvedValue({
+        ok: true,
+        json: async () => ({
+          job: { ...mockRunningJob, interactive: 1, interactiveSettleMode: 'auto', interactiveAcceptingTurns: true },
+          events: [],
+          phaseDefinitions: [],
+        }),
+      })
+      render(<JobDetailModal jobId="job-running" onClose={onClose} />)
+      await waitFor(() => expect(screen.getByRole('button', { name: /^discard$/i })).toBeInTheDocument())
+
+      fireEvent.click(screen.getByRole('button', { name: /^discard$/i }))
+      await waitFor(() => expect(screen.getByText('Cancel job?')).toBeInTheDocument())
+      // The dialog's destructive action also reads "Discard" (the header button
+      // is aria-hidden behind the Radix focus trap while the dialog is open),
+      // and confirming it fires the same manager-aware DELETE.
+      fireEvent.click(screen.getByRole('button', { name: /^discard$/i }))
+      await waitFor(() => {
+        expect(global.fetch).toHaveBeenCalledWith(
+          '/api/jobs/job-running',
+          expect.objectContaining({ method: 'DELETE' })
+        )
+      })
+    })
+
+    it('surfaces server detail + HTTP status on cancel failure (quota-incident pin)', async () => {
+      const { toast } = await import('sonner')
+      global.fetch = vi.fn()
+        .mockResolvedValueOnce({
+          ok: true,
+          json: async () => ({ job: mockRunningJob, events: [], phaseDefinitions: [] }),
+        })
+        .mockResolvedValueOnce({
+          ok: false,
+          status: 429,
+          json: async () => ({ error: 'AI quota exceeded' }),
+        })
+
+      render(<JobDetailModal jobId="job-running" onClose={onClose} />)
+      await waitFor(() => expect(screen.getByRole('button', { name: /cancel/i })).toBeInTheDocument())
+      fireEvent.click(screen.getByRole('button', { name: /cancel/i }))
+
+      await waitFor(() => expect(screen.getByText('Cancel job?')).toBeInTheDocument())
+      fireEvent.click(screen.getByRole('button', { name: /cancel job/i }))
+
+      await waitFor(() => {
+        expect(toast.error).toHaveBeenCalledWith(
+          'Failed to cancel',
+          expect.objectContaining({ description: 'AI quota exceeded (HTTP 429)' })
+        )
+      })
+    })
+
+    it('disables the button with a spinner while the cancel request is in flight', async () => {
+      global.fetch = vi.fn()
+        .mockResolvedValueOnce({
+          ok: true,
+          json: async () => ({ job: mockRunningJob, events: [], phaseDefinitions: [] }),
+        })
+        // DELETE hangs (the quota incident's failure mode) — the button must
+        // visibly acknowledge the click instead of appearing dead.
+        .mockReturnValueOnce(new Promise(() => {}))
+
+      render(<JobDetailModal jobId="job-running" onClose={onClose} />)
+      await waitFor(() => expect(screen.getByRole('button', { name: /cancel/i })).toBeInTheDocument())
+      fireEvent.click(screen.getByRole('button', { name: /cancel/i }))
+
+      await waitFor(() => expect(screen.getByText('Cancel job?')).toBeInTheDocument())
+      fireEvent.click(screen.getByRole('button', { name: /cancel job/i }))
+
+      await waitFor(() => {
+        expect(screen.getByRole('button', { name: /cancel/i })).toBeDisabled()
+      })
+      expect(document.querySelector('svg.animate-spin')).not.toBeNull()
+    })
   })
 })

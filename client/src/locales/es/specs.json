@@ -9,11 +9,14 @@
     "dropToMarkDone": "Suelta para marcar como hecha",
     "emptyNoDoneLabelMatch": "Ninguna spec hecha coincide con las etiquetas activas",
     "emptyNoCompleted": "Aún no hay specs completadas",
+    "emptyNoStatusMatch": "Ninguna spec coincide con el estado seleccionado",
     "untitledSpec": "Spec sin título"
   },
   "status": {
     "todo": "Por hacer",
     "inProgress": "En curso",
+    "onReview": "En revisión",
+    "onReviewHint": "Implementada — una PR en borrador espera tu decisión de revisión",
     "done": "Hecho",
     "cancelled": "Cancelado"
   },
@@ -56,6 +59,7 @@
       "draft": "borrador",
       "todo": "por hacer",
       "inProgress": "en curso",
+      "onReview": "en revisión",
       "done": "hecho",
       "cancelled": "cancelado"
     },
@@ -83,8 +87,13 @@
   "statusFilter": {
     "ariaLabel": "Filtrar por estado",
     "all": "Todos",
-    "todo": "Por hacer",
-    "done": "Hechos"
+    "active": "Activas"
+  },
+  "jiraStatusFilter": {
+    "ariaLabel": "Filtrar por estado de Jira",
+    "triggerLabel": "Estado Jira",
+    "all": "Todos los estados de Jira",
+    "other": "Otros"
   },
   "sortControl": {
     "modeAriaLabel": "Modo de ordenación",

@@ -22,11 +22,15 @@ export function buildSystemPrompt(language: 'en' | 'es'): string {
 /** Compose the single user-message body that goes to the model. The provider
  *  adapter decides whether the system prompt rides along via a flag or gets
  *  folded into this string (see `adapter.capabilities.systemPromptArg`). */
-function buildUserPrompt(input: GenerateInput, adapter: ProviderAdapter): string {
+function buildUserPrompt(
+  input: GenerateInput,
+  adapter: ProviderAdapter,
+  systemPromptFor: (language: 'en' | 'es') => string,
+): string {
   const body = `${input.relPath}\n${input.contents}`
   if (adapter.capabilities.systemPromptArg) return body
   // Provider does not accept a system-prompt flag; fold the instruction inline.
-  return `${buildSystemPrompt(input.language)}\n\n${body}`
+  return `${systemPromptFor(input.language)}\n\n${body}`
 }
 
 export interface GeneratorOpts {
@@ -37,6 +41,11 @@ export interface GeneratorOpts {
   model?: string
   spawn?: typeof spawnAiCli
   timeoutMs?: number
+  /** Override the per-language system prompt. Used by the construction-story
+   *  contribution generator (file-story-manager.ts) to reuse this whole
+   *  spawn/parse/settle skeleton with a different instruction. Defaults to the
+   *  file-summary prompt (buildSystemPrompt). */
+  systemPrompt?: (language: 'en' | 'es') => string
 }
 
 /** Cheapest model per provider for summary generation. Codex MUST run
@@ -62,13 +71,14 @@ export function createFileSummaryGenerator(opts: GeneratorOpts): (input: Generat
   const model = opts.model ?? defaultModelFor(adapter)
   const timeoutMs = opts.timeoutMs ?? GENERATE_TIMEOUT_MS
   const spawn = opts.spawn ?? spawnAiCli
+  const systemPromptFor = opts.systemPrompt ?? buildSystemPrompt
 
   return async function generate(input: GenerateInput, signal?: AbortSignal): Promise<GenerateOutput> {
     const startedAt = Date.now()
     if (signal?.aborted) throw new Error('file-summary generator aborted before start')
     const args = adapter.buildArgs('spec-gen', {
-      prompt: buildUserPrompt(input, adapter),
-      systemPrompt: adapter.capabilities.systemPromptArg ? buildSystemPrompt(input.language) : undefined,
+      prompt: buildUserPrompt(input, adapter, systemPromptFor),
+      systemPrompt: adapter.capabilities.systemPromptArg ? systemPromptFor(input.language) : undefined,
       model,
       maxTurns: 1,
     })

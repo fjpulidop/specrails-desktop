@@ -23,14 +23,17 @@ import { JiraDiscardProvider } from '../context/JiraDiscardContext'
 import { RailsBoard, type RailState, applyRailJobOutcome, isRailSortId, extractRailId } from '../components/RailsBoard'
 import { applyWorktreeProgress, type RailWorktreeMap, type WorktreeState } from '../lib/worktree-progress'
 import { useRailMetrics } from '../context/RailMetricsContext'
+import { useRailPrDecisions } from '../context/RailPrDecisionContext'
 import { DashboardSplitter } from '../components/DashboardSplitter'
 import { useDashboardSplit } from '../hooks/useDashboardSplit'
 import { TicketDetailModal } from '../components/TicketDetailModal'
 import { CreateTicketModal } from '../components/CreateTicketModal'
 import { UltracodeLaunchDialog } from '../components/UltracodeLaunchDialog'
+import { LaunchAllDialog } from '../components/LaunchAllDialog'
 import { getApiBase } from '../lib/api'
 import { FEATURE_LOOPS_SECTION } from '../lib/feature-flags'
 import { effectiveLoopId, deriveRailMode } from '../lib/rail-loops'
+import { railIdFromIndex, railIndexFromId, MAX_RAILS } from '../lib/rail-id'
 import { useDesktop, projectProviders } from '../hooks/useDesktop'
 import { useSharedWebSocket } from '../hooks/useSharedWebSocket'
 import { useSpecGenTracker } from '../hooks/useSpecGenTracker'
@@ -50,6 +53,14 @@ const INITIAL_RAILS: RailState[] = [
   { id: 'rail-2', label: 'Rail 2', ticketIds: [], mode: 'implement', status: 'idle' },
   { id: 'rail-3', label: 'Rail 3', ticketIds: [], mode: 'implement', status: 'idle' },
 ]
+
+const isRailMode = (m: string | undefined): m is RailMode =>
+  m === 'implement' || m === 'batch-implement' || m === 'ultracode' || m === 'loop'
+
+/** Why a rail is excluded from a Launch-all batch. */
+type LaunchAllSkipReason = 'running' | 'empty' | 'pendingDecision' | 'onReview'
+/** Per-rail terminal outcome of a (batched) launch attempt. */
+type LaunchOutcome = 'launched' | 'failed' | 'pendingDecision' | 'skipped'
 
 function loadSpecOrder(projectId: string | null): number[] | null {
   if (!projectId) return null
@@ -118,6 +129,8 @@ export default function DashboardPage() {
   const [createTicketOpen, setCreateTicketOpen] = useState(false)
   // Rail pending an ultracode-launch confirmation (variable-cost warning modal).
   const [ultracodeConfirm, setUltracodeConfirm] = useState<{ railId: string } | null>(null)
+  // Launch-all pending its batch confirmation (N parallel AI launches).
+  const [launchAllConfirm, setLaunchAllConfirm] = useState(false)
 
   // Open a spec when the tracker signals "View" was clicked for this project
   useEffect(() => {
@@ -137,6 +150,9 @@ export default function DashboardPage() {
   // Live per-rail execution metrics (elapsed/steps/lines) — app-level provider so
   // they survive Dashboard ⇄ Jobs navigation.
   const railMetrics = useRailMetrics()
+  // Ask-first PR decisions per rail (safe-pr-review-flow) — app-level provider,
+  // WS-hydrated snapshots + the single POST /rails/pr-decision caller.
+  const { decisions: railPrDecisions, act: actRailPrDecision } = useRailPrDecisions()
   const initialSort = loadSpecSort(activeProjectId)
   const [sortMode, setSortMode] = useState<SpecSortMode>(initialSort.mode)
   const [sortDir, setSortDir] = useState<SpecSortDir>(initialSort.dir)
@@ -182,10 +198,11 @@ export default function DashboardPage() {
     // was launched locally while the request was in flight — the (stale)
     // response must not clear that optimistic state back to idle.
     const preRails = loadRails(activeProjectId) ?? INITIAL_RAILS
+    const preById = new Map(preRails.map((p) => [p.id, p]))
     fetch(`${getApiBase()}/rails`)
       .then((res) => res.ok ? res.json() : null)
       .then((data: {
-        rails?: { railIndex: number; ticketIds?: number[]; mode?: string }[]
+        rails?: { railIndex: number; ticketIds?: number[]; mode?: string; name?: string | null }[]
         activeJobs?: Record<string, { jobId: string; mode?: string }>
         activeLoopRuns?: Record<string, { loopRunId: string; loopId?: string }>
       } | null) => {
@@ -199,16 +216,20 @@ export default function DashboardPage() {
           ...Object.keys(activeJobs).map(Number),
           ...Object.keys(activeLoopRuns).map(Number),
         ])
+        const serverRails = data.rails ?? []
         const serverTicketsByIndex = new Map<number, number[]>()
-        for (const r of data.rails ?? []) {
+        for (const r of serverRails) {
           serverTicketsByIndex.set(r.railIndex, Array.isArray(r.ticketIds) ? r.ticketIds : [])
         }
-        const isRailMode = (m: string | undefined): m is RailMode =>
-          m === 'implement' || m === 'batch-implement' || m === 'ultracode' || m === 'loop'
+        const serverIndices = new Set(serverRails.map((r) => r.railIndex))
         setRails((prev) => {
           let changed = false
-          const adoptedTickets = new Map<number, number[]>()
-          const next = prev.map((r, idx) => {
+          const adoptedTickets = new Map<string, number[]>()
+          const next = prev.map((r, pos) => {
+            // IDENTITY, not position: rail id `rail-N` ↔ server railIndex N-1
+            // (a reordered board or a deleted middle rail breaks the positional
+            // assumption). Exotic ids (test fixtures) fall back to position.
+            const idx = railIndexFromId(r.id) ?? pos
             const loopRun = activeLoopRuns[String(idx)]
             const serverJobId = activeJobs[String(idx)]?.jobId ?? loopRun?.loopRunId
             if (activeIndices.has(idx)) {
@@ -223,7 +244,7 @@ export default function DashboardPage() {
               // Was running when the fetch STARTED but idle now: a completion WS
               // event landed during the round-trip — the response is stale, do
               // not resurrect the finished run.
-              if (preRails[idx]?.status === 'running') return r
+              if (preById.get(r.id)?.status === 'running') return r
               // Idle locally but EXECUTING server-side: launched while this board
               // was unmounted (agent via MCP, mobile, another window). Adopt the
               // run + the server's ticket assignment. Desktop launches always
@@ -233,7 +254,7 @@ export default function DashboardPage() {
               const jobMode = activeJobs[String(idx)]?.mode
               const serverMode = isRailMode(jobMode) ? jobMode : loopRun ? deriveRailMode(loopRun.loopId) : undefined
               const ticketIds = serverTickets.length ? serverTickets : r.ticketIds
-              adoptedTickets.set(idx, ticketIds)
+              adoptedTickets.set(r.id, ticketIds)
               changed = true
               return {
                 ...r,
@@ -251,25 +272,75 @@ export default function DashboardPage() {
             if (r.status !== 'running') return r
             // Launched locally AFTER the fetch started (optimistic 202 state):
             // the response predates the launch — leave it alone.
-            if (preRails[idx]?.status !== 'running') return r
+            if (preById.get(r.id)?.status !== 'running') return r
             // Rail was running but server has no active job → job finished while
             // we were away. Clear tickets so they reappear in Specs/Done based
             // on their current server-side status (useTickets re-fetches on mount).
             changed = true
             return { ...r, status: 'idle' as const, activeJobId: undefined, ticketIds: [] }
           })
+          // ADOPT server rails this board doesn't know yet (created via the
+          // agent/MCP create_rail, mobile, another window) so every rail has a
+          // board row — including its assignment and any in-flight run.
+          const knownIds = new Set(next.map((r) => r.id))
+          const appended: RailState[] = []
+          for (const sr of serverRails) {
+            const id = railIdFromIndex(sr.railIndex)
+            if (knownIds.has(id)) continue
+            const loopRun = activeLoopRuns[String(sr.railIndex)]
+            const jobMode = activeJobs[String(sr.railIndex)]?.mode
+            const mode = isRailMode(jobMode)
+              ? jobMode
+              : loopRun
+                ? deriveRailMode(loopRun.loopId)
+                : isRailMode(sr.mode) ? sr.mode : 'implement'
+            const running = activeIndices.has(sr.railIndex)
+            const ticketIds = serverTicketsByIndex.get(sr.railIndex) ?? []
+            appended.push({
+              id,
+              label: sr.name ? `Rail ${sr.name}` : `Rail ${sr.railIndex + 1}`,
+              ticketIds,
+              mode,
+              status: running ? ('running' as const) : ('idle' as const),
+              activeJobId: activeJobs[String(sr.railIndex)]?.jobId ?? loopRun?.loopRunId,
+              ...(loopRun?.loopId && loopRun.loopId.startsWith('custom:')
+                ? { selectedLoopId: loopRun.loopId }
+                : {}),
+            })
+            if (ticketIds.length > 0) adoptedTickets.set(id, ticketIds)
+            changed = true
+          }
+          // DROP local rails the server deleted elsewhere — only when they are
+          // safe to drop (idle + empty), so an optimistic local state is never
+          // destroyed. Guarded on a non-empty server list (a failed/odd payload
+          // must not wipe the board), and a rail that did NOT exist when the
+          // fetch STARTED was added while the request was in flight (Add rail's
+          // optimistic append) — the stale response must not remove it.
+          let merged = appended.length > 0 ? [...next, ...appended] : next
+          if (serverRails.length > 0) {
+            const kept = merged.filter((r) => {
+              const idx = railIndexFromId(r.id)
+              if (idx === null || serverIndices.has(idx)) return true
+              if (!preById.has(r.id)) return true
+              return r.status === 'running' || r.ticketIds.length > 0
+            })
+            if (kept.length !== merged.length) {
+              merged = kept
+              changed = true
+            }
+          }
           if (!changed) return prev
           // An adopted ticket may still sit on ANOTHER rail from a local drag —
           // strip it there (mirrors handleMoveTicketToRail) so no ticket renders
           // on two rails at once (duplicate dnd ids / double-launch risk).
           const adoptedIdSet = new Set([...adoptedTickets.values()].flat())
           const deduped = adoptedIdSet.size
-            ? next.map((r, idx) => {
-                if (adoptedTickets.has(idx)) return r
+            ? merged.map((r) => {
+                if (adoptedTickets.has(r.id)) return r
                 const filtered = r.ticketIds.filter((id) => !adoptedIdSet.has(id))
                 return filtered.length === r.ticketIds.length ? r : { ...r, ticketIds: filtered }
               })
-            : next
+            : merged
           saveRails(activeProjectId, deduped)
           return deduped
         })
@@ -294,10 +365,9 @@ export default function DashboardPage() {
         for (const r of data.rails) nameByIndex.set(r.railIndex, r.name ?? null)
         setRails((prev) => {
           let changed = false
-          const next = prev.map((r) => {
-            const n = parseInt(r.id.replace('rail-', ''), 10)
-            if (n < 1 || n > 3) return r
-            const name = nameByIndex.get(n - 1) ?? null
+          const next = prev.map((r, pos) => {
+            const idx = railIndexFromId(r.id) ?? pos
+            const name = nameByIndex.get(idx) ?? null
             if (!name) return r
             const label = `Rail ${name}`
             if (label === r.label) return r
@@ -313,11 +383,16 @@ export default function DashboardPage() {
     return () => { cancelled = true }
   }, [activeProjectId])
 
-  // ── Auto-remove done tickets from rails ──────────────────────────────────────
+  // ── Auto-remove done / on-review tickets from rails ─────────────────────────
   // When ticket status changes to 'done' (via WS ticket_updated, re-fetch, etc.),
   // strip those tickets from rails so they appear in Done Specs instead.
+  // 'on_review' (rail settled, draft-PR decision pending) is stripped too: the
+  // spec returns to the board with its On Review pill and must never sit on a
+  // rail (not draggable / not launchable until the PR decision resolves).
   useEffect(() => {
-    const doneIds = new Set(tickets.filter((t) => t.status === 'done').map((t) => t.id))
+    const doneIds = new Set(
+      tickets.filter((t) => t.status === 'done' || t.status === 'on_review').map((t) => t.id),
+    )
     if (doneIds.size === 0) return
     setRails((prev) => {
       const next = prev.map((r) => {
@@ -360,10 +435,39 @@ export default function DashboardPage() {
   }, [rails])
 
   // ── Add / Delete rails ──────────────────────────────────────────────────────
-  const handleAddRail = useCallback(() => {
-    // Find next available rail number
-    const existingNums = rails.map((r) => parseInt(r.id.replace('rail-', ''), 10))
-    const nextNum = existingNums.length > 0 ? Math.max(...existingNums) + 1 : 1
+  const handleAddRail = useCallback(async () => {
+    // SERVER-BACKED creation: the new rail gets durable identity (survives a
+    // reload, visible to the agent/MCP, mobile and other windows). Falls back
+    // to a local-only slot when the request fails (offline) — a local rail
+    // becomes server-backed on its first name/ticket sync anyway.
+    try {
+      const res = await fetch(`${getApiBase()}/rails`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({}),
+      })
+      if (res.ok) {
+        const data = await res.json() as { rail?: { railIndex?: number } }
+        const idx = data.rail?.railIndex
+        if (typeof idx === 'number') {
+          const id = railIdFromIndex(idx)
+          updateRails((prev) => prev.some((r) => r.id === id)
+            ? prev
+            : [...prev, { id, label: `Rail ${idx + 1}`, ticketIds: [], mode: 'implement', status: 'idle' }])
+          toast.success(t('toasts.railAdded', { n: idx + 1 }))
+          return
+        }
+      } else {
+        const data = await res.json().catch(() => ({ error: '' })) as { error?: string; maxRails?: number }
+        if (data.error === 'rail_limit_reached') {
+          toast.error(t('toasts.railLimitReached', { max: data.maxRails ?? MAX_RAILS }))
+          return
+        }
+      }
+    } catch { /* offline — fall through to the local-only slot */ }
+    // Local fallback (legacy behavior): find the next available rail number.
+    const existingNums = rails.map((r) => railIndexFromId(r.id)).filter((n): n is number => n !== null)
+    const nextNum = existingNums.length > 0 ? Math.max(...existingNums) + 2 : 1
     const newRail: RailState = {
       id: `rail-${nextNum}`,
       label: `Rail ${nextNum}`,
@@ -375,28 +479,52 @@ export default function DashboardPage() {
     toast.success(t('toasts.railAdded', { n: nextNum }))
   }, [rails, updateRails, t])
 
-  const handleDeleteRail = useCallback((railId: string) => {
+  const handleDeleteRail = useCallback(async (railId: string) => {
     const rail = rails.find((r) => r.id === railId)
     if (!rail || rail.status === 'running') return
-    // Return tickets to specs
-    if (rail.ticketIds.length > 0) {
-      updateSpecOrder((prev) => {
-        const current = prev ?? []
-        return [...current, ...rail.ticketIds]
-      })
+    const removeLocally = () => {
+      // Return tickets to specs
+      if (rail.ticketIds.length > 0) {
+        updateSpecOrder((prev) => {
+          const current = prev ?? []
+          return [...current, ...rail.ticketIds]
+        })
+      }
+      updateRails((prev) => prev.filter((r) => r.id !== railId))
+      toast.info(t('toasts.railRemoved', { rail: rail.label }))
     }
-    updateRails((prev) => prev.filter((r) => r.id !== railId))
-    toast.info(t('toasts.railRemoved', { rail: rail.label }))
+    const railIndex = railIndexFromId(railId)
+    if (railIndex === null) { removeLocally(); return }
+    try {
+      // Release any server-side assignment first (the server refuses to delete
+      // a rail that still holds tickets), then delete the identity row.
+      if (rail.ticketIds.length > 0) {
+        await fetch(`${getApiBase()}/rails/${railIndex}/tickets`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ ticketIds: [] }),
+        }).catch(() => { /* best-effort */ })
+      }
+      const res = await fetch(`${getApiBase()}/rails/${railIndex}`, { method: 'DELETE' })
+      // 404 = the server never knew this rail (legacy local-only) — still drop it.
+      if (res.ok || res.status === 404) { removeLocally(); return }
+      // 409 rail_active / rail_not_empty / pr_decision_pending, 400 last-rail:
+      // the server knows something this board doesn't — keep the rail visible.
+      toast.error(t('toasts.railDeleteFailed'))
+    } catch {
+      removeLocally() // offline — best-effort local removal (legacy behavior)
+    }
   }, [rails, updateRails, updateSpecOrder, t])
 
   const handleRenameRail = useCallback((railId: string, newLabel: string) => {
     updateRails((prev) => prev.map((r) => (r.id === railId ? { ...r, label: `Rail ${newLabel}` } : r)))
     // Sync the name to the server so the mobile companion (and any other
-    // desktop client) reflects it live via rail.updated. Only the canonical
-    // rails 0..2 exist server-side; locally-added rails (rail-4+) are skipped.
-    const n = parseInt(railId.replace('rail-', ''), 10)
-    if (n >= 1 && n <= 3) {
-      fetch(`${getApiBase()}/rails/${n - 1}/name`, {
+    // desktop client) reflects it live via rail.updated. EVERY rail has server
+    // identity now — the PUT also materializes a legacy local-only rail's
+    // rail_meta row, making it server-backed from then on.
+    const idx = railIndexFromId(railId)
+    if (idx !== null) {
+      fetch(`${getApiBase()}/rails/${idx}/name`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ name: newLabel }),
@@ -404,26 +532,6 @@ export default function DashboardPage() {
     }
   }, [updateRails])
 
-
-  // The product builder's Approve: promote a rail's delivered DRAFT PR to
-  // ready-for-review (hands off to the engineer's GitHub review). specrails never
-  // merges — the engineer owns the merge (safe-pr-workflow).
-  async function approveRailPr(prUrl: string) {
-    try {
-      const res = await fetch(`${getApiBase()}/rails/pr-review`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ prUrl, action: 'ready' }),
-      })
-      if (!res.ok) {
-        const body = await res.json().catch(() => ({} as { error?: string }))
-        throw new Error(body.error || 'failed')
-      }
-      toast.success(t('toasts.railPrApproved'))
-    } catch {
-      toast.error(t('toasts.railPrApproveFailed'))
-    }
-  }
 
   // ── WebSocket: listen for rail.job_completed to reset rail status ────────────
   const activeProjectIdRef = useRef(activeProjectId)
@@ -433,7 +541,7 @@ export default function DashboardPage() {
     const m = msg as {
       type?: string; projectId?: string; railIndex?: number | null; status?: string
       ticketIds?: number[]; changed?: 'tickets' | 'name' | 'profile' | 'engine'; name?: string | null
-      jobId?: string; loopRunId?: string
+      mode?: string; jobId?: string; loopRunId?: string
     }
     if (m.projectId !== activeProjectIdRef.current) return
 
@@ -447,7 +555,7 @@ export default function DashboardPage() {
     // paths; a loop run with railIndex==null is a Loops-page run, not a rail.
     if (m.type === 'rail.job_started' || m.type === 'loop.run_started') {
       if (m.railIndex == null) return
-      const railId = `rail-${m.railIndex + 1}`
+      const railId = railIdFromIndex(m.railIndex)
       const startedJobId = m.jobId ?? m.loopRunId
       updateRails((prev) => prev.map((r) =>
         r.id === railId ? { ...r, status: 'running' as const, activeJobId: startedJobId ?? r.activeJobId } : r
@@ -458,17 +566,39 @@ export default function DashboardPage() {
     // A rail's config changed elsewhere (mobile companion / another desktop).
     // Adopt the name on every variant; adopt ticketIds ONLY on a tickets-change
     // so a remote rename never wipes this client's locally-dragged assignments.
+    // A railIndex this board doesn't know yet is a rail CREATED elsewhere (the
+    // agent's create_rail, another window) — append its row live.
     if (m.type === 'rail.updated') {
       const idx = m.railIndex ?? 0
-      const railId = `rail-${idx + 1}`
+      const railId = railIdFromIndex(idx)
       const serverTicketIds = m.ticketIds ?? []
       const label = m.name ? `Rail ${m.name}` : `Rail ${idx + 1}`
-      updateRails((prev) => prev.map((r) => {
-        if (r.id !== railId) return r
-        // A running rail keeps its launched ticket set; still adopt the name.
-        if (m.changed !== 'tickets' || r.status === 'running') return { ...r, label }
-        return { ...r, label, ticketIds: serverTicketIds }
-      }))
+      updateRails((prev) => {
+        if (!prev.some((r) => r.id === railId)) {
+          return [...prev, {
+            id: railId,
+            label,
+            ticketIds: serverTicketIds,
+            mode: isRailMode(m.mode) ? m.mode : 'implement',
+            status: 'idle' as const,
+          }]
+        }
+        return prev.map((r) => {
+          if (r.id !== railId) return r
+          // A running rail keeps its launched ticket set; still adopt the name.
+          if (m.changed !== 'tickets' || r.status === 'running') return { ...r, label }
+          return { ...r, label, ticketIds: serverTicketIds }
+        })
+      })
+      return
+    }
+
+    // A rail was deleted elsewhere — drop the row (never a running one; the
+    // server refuses to delete an active rail, so this is belt-and-braces).
+    if (m.type === 'rail.removed') {
+      if (m.railIndex == null) return
+      const railId = railIdFromIndex(m.railIndex)
+      updateRails((prev) => prev.filter((r) => r.id !== railId || r.status === 'running'))
       return
     }
 
@@ -481,29 +611,6 @@ export default function DashboardPage() {
         if (state === 'needs-review') {
           toast.error(t('toasts.railWorktreeNeedsReview', { n: idx + 1, ticket: ticketId }))
         }
-      }
-      return
-    }
-
-    if (m.type === 'rail.pr_delivered') {
-      const n = (m.railIndex ?? 0) + 1
-      const d = m as { delivery?: string; prState?: string; prUrl?: string }
-      if (d.delivery === 'delivered') {
-        if (d.prState === 'pr-created' && d.prUrl) {
-          const url = d.prUrl
-          toast.success(t('toasts.railPrDelivered', { n }), {
-            duration: Infinity,
-            description: url,
-            action: { label: t('toasts.railPrApprove'), onClick: () => approveRailPr(url) },
-            cancel: { label: t('toasts.railPrOpen'), onClick: () => window.open(url, '_blank') },
-          })
-        } else if (d.prState === 'pushed') {
-          toast.info(t('toasts.railPrPushed', { n }))
-        } else {
-          toast.info(t('toasts.railPrLocal', { n }))
-        }
-      } else if (d.delivery === 'assembly-failed') {
-        toast.error(t('toasts.railPrAssemblyFailed', { n }))
       }
       return
     }
@@ -575,6 +682,29 @@ export default function DashboardPage() {
 
   // ── Derived maps ─────────────────────────────────────────────────────────────
   const ticketMap = useMemo(() => new Map(tickets.map((t) => [t.id, t])), [tickets])
+
+  // ── Launch all (parallel) ────────────────────────────────────────────────────
+  // Which rails a "Launch all" would start right now, and why the rest are
+  // skipped. Eligible = idle + has specs + no undecided PR delivery + no spec
+  // frozen on review. Worktree isolation makes the parallel fan-out safe.
+  const launchAllPlan = useMemo(() => {
+    const eligible: RailState[] = []
+    const skipped: { rail: RailState; reason: LaunchAllSkipReason }[] = []
+    rails.forEach((r, pos) => {
+      const idx = railIndexFromId(r.id) ?? pos
+      if (r.status === 'running') { skipped.push({ rail: r, reason: 'running' }); return }
+      if (r.ticketIds.length === 0) { skipped.push({ rail: r, reason: 'empty' }); return }
+      const decision = railPrDecisions.get(idx)
+      if (decision && decision.decision !== 'merged' && decision.decision !== 'discarded') {
+        skipped.push({ rail: r, reason: 'pendingDecision' }); return
+      }
+      if (r.ticketIds.some((id) => ticketMap.get(id)?.status === 'on_review')) {
+        skipped.push({ rail: r, reason: 'onReview' }); return
+      }
+      eligible.push(r)
+    })
+    return { eligible, skipped }
+  }, [rails, railPrDecisions, ticketMap])
 
   const allTicketLabels = useMemo(() => {
     const set = new Set<string>()
@@ -652,6 +782,12 @@ export default function DashboardPage() {
   const handleMoveTicketToRail = useCallback((ticketId: number, railId: string) => {
     const targetRail = rails.find((r) => r.id === railId)
     if (!targetRail) return
+    // On-review specs are frozen awaiting the human PR decision — they cannot
+    // be assigned to a rail until the PR is merged or discarded.
+    if (tickets.find((tk) => tk.id === ticketId)?.status === 'on_review') {
+      toast.info(t('toasts.onReviewCannotMoveToRail'))
+      return
+    }
     if (targetRail.ticketIds.includes(ticketId)) {
       toast.info(t('toasts.alreadyOnRail', { rail: targetRail.label }))
       return
@@ -667,7 +803,7 @@ export default function DashboardPage() {
       return r
     }))
     toast.success(t('toasts.movedToRail', { rail: targetRail.label }))
-  }, [rails, specTickets, updateRails, updateSpecOrder, t])
+  }, [rails, tickets, specTickets, updateRails, updateSpecOrder, t])
 
   // Reverse of `handleMoveTicketToRail`: remove a ticket from whatever rail
   // currently owns it and push it back to the spec list (appended to the
@@ -793,6 +929,12 @@ export default function DashboardPage() {
       }
       // Specs → Rail
       else if (sourceContainer === 'specs') {
+        // Belt-and-braces: the card's drag is already disabled for on_review
+        // specs, but never let one land on a rail (PR decision pending).
+        if (tickets.find((tk) => tk.id === draggedId)?.status === 'on_review') {
+          toast.info(t('toasts.onReviewCannotMoveToRail'))
+          return
+        }
         const targetRail = rails.find((r) => r.id === destContainer)
         updateSpecOrder((prev) => (prev ?? specTickets.map((t) => t.id)).filter((id) => id !== draggedId))
         updateRails((prev) =>
@@ -870,9 +1012,17 @@ export default function DashboardPage() {
     updateRails((prev) => prev.map((r) => (r.id === railId ? { ...r, mode } : r)))
   }
 
+  /** Server railIndex for a rail id — identity mapping (`rail-N` → N-1), with a
+   *  positional fallback for exotic ids. -1 when the rail doesn't exist. */
+  function serverRailIndex(railId: string): number {
+    const idx = railIndexFromId(railId)
+    if (idx !== null) return idx
+    return rails.findIndex((r) => r.id === railId)
+  }
+
   async function handleProfileChange(railId: string, profileName: string | null) {
     updateRails((prev) => prev.map((r) => (r.id === railId ? { ...r, profileName } : r)))
-    const railIndex = rails.findIndex((r) => r.id === railId)
+    const railIndex = serverRailIndex(railId)
     if (railIndex === -1) return
     try {
       await fetch(`${getApiBase()}/rails/${railIndex}/profile`, {
@@ -922,7 +1072,7 @@ export default function DashboardPage() {
         selectedLoopId: fallback ? 'factory:implement' : r.selectedLoopId,
       }
     }))
-    const railIndex = rails.findIndex((r) => r.id === railId)
+    const railIndex = serverRailIndex(railId)
     if (railIndex === -1) return
     try {
       await fetch(`${getApiBase()}/rails/${railIndex}/engine`, {
@@ -937,9 +1087,9 @@ export default function DashboardPage() {
   }
 
   async function handleToggle(railId: string) {
-    const railIndex = rails.findIndex((r) => r.id === railId)
-    if (railIndex === -1) return
-    const rail = rails[railIndex]
+    const rail = rails.find((r) => r.id === railId)
+    const railIndex = serverRailIndex(railId)
+    if (!rail || railIndex === -1) return
 
     if (rail.status === 'running') {
       // Stop via rails API
@@ -964,18 +1114,27 @@ export default function DashboardPage() {
     await doLaunchRail(railId)
   }
 
-  async function doLaunchRail(railId: string) {
-    const railIndex = rails.findIndex((r) => r.id === railId)
-    if (railIndex === -1) return
-    const rail = rails[railIndex]
-    if (rail.ticketIds.length === 0) return
+  async function doLaunchRail(railId: string, opts?: { silent?: boolean }): Promise<LaunchOutcome> {
+    const silent = opts?.silent ?? false
+    const rail = rails.find((r) => r.id === railId)
+    const railIndex = serverRailIndex(railId)
+    if (!rail || railIndex === -1) return 'failed'
+    if (rail.ticketIds.length === 0) return 'skipped'
+
+    // On-review specs are frozen awaiting the human PR decision — a rail
+    // holding one must not launch (normally unreachable: the auto-strip effect
+    // pulls on_review tickets off rails, and drag/move guards keep them off).
+    if (rail.ticketIds.some((id) => tickets.find((tk) => tk.id === id)?.status === 'on_review')) {
+      if (!silent) toast.info(t('toasts.onReviewNotLaunchable'))
+      return 'skipped'
+    }
 
     // rails-as-loops: every rail launches a Loop. Factory modes resolve to their
     // built-in loop; a custom (loop) rail needs an explicit pick.
     const launchLoopId = effectiveLoopId(rail.selectedLoopId, rail.mode)
     if (!launchLoopId) {
-      toast.error(t('railControls.pickLoop'))
-      return
+      if (!silent) toast.error(t('railControls.pickLoop'))
+      return 'failed'
     }
 
     // M24: capture the API base ONCE up front. getApiBase() is a module-level
@@ -994,8 +1153,8 @@ export default function DashboardPage() {
         body: JSON.stringify({ ticketIds: rail.ticketIds }),
       })
     } catch {
-      toast.error(t('toasts.syncTicketsFailed'))
-      return
+      if (!silent) toast.error(t('toasts.syncTicketsFailed'))
+      return 'failed'
     }
 
     // Launch via rails API — server handles job tracking + rail.job_completed events
@@ -1024,25 +1183,100 @@ export default function DashboardPage() {
       })
       if (!res.ok) {
         const data = await res.json().catch(() => ({ error: '' }))
-        toast.error(data.error || t('toasts.launchFailed'))
-        return
+        // Launch collision: this rail still has an unresolved PR decision — the
+        // user must Create PR / Approve / Discard it before relaunching.
+        if (res.status === 409 && data.error === 'pr_decision_pending') {
+          if (!silent) toast.info(t('railPr.decisionPending'))
+          return 'pendingDecision'
+        }
+        // A ticket of this rail is already being worked by an active run
+        // (concurrent-launch guard) — treat as skipped, not failed.
+        if (res.status === 409 && data.error === 'tickets_in_flight') {
+          if (!silent) toast.info(t('toasts.launchTicketsInFlight'))
+          return 'skipped'
+        }
+        if (!silent) toast.error(data.error || t('toasts.launchFailed'))
+        return 'failed'
       }
       // Implement/ultracode return { jobId }; loop mode returns { loopRunIds }.
       // A loop run IS backed by a job (id === loopRunId), so set activeJobId to
       // the first run id → "View Log" → /jobs/:id streams the live session.
       const data = await res.json() as { jobId?: string; loopRunIds?: string[]; isolationUnavailable?: string }
-      if (data.isolationUnavailable === 'no-git') {
+      // Suppressed in silent (batch) mode — a non-git repo would fire one toast
+      // per rail; the launch itself still proceeds on the shared cwd.
+      if (!silent && data.isolationUnavailable === 'no-git') {
         toast.info(t('toasts.railWorktreesNoGit'))
-      } else if (data.isolationUnavailable === 'no-commits') {
+      } else if (!silent && data.isolationUnavailable === 'no-commits') {
         toast.info(t('toasts.railWorktreesNoCommits'))
       }
       const activeJobId = data.jobId ?? data.loopRunIds?.[0]
       updateRails((prev) => prev.map((r) => (r.id === railId ? { ...r, status: 'running', activeJobId } : r)))
-      toast.success(t('toasts.railLaunched', { rail: rail.label }), {
-        description: t('toasts.launchDescription', { mode: rail.mode, count: rail.ticketIds.length }),
-      })
+      if (!silent) {
+        toast.success(t('toasts.railLaunched', { rail: rail.label }), {
+          description: t('toasts.launchDescription', { mode: rail.mode, count: rail.ticketIds.length }),
+        })
+      }
+      return 'launched'
     } catch {
-      toast.error(t('toasts.launchNetworkError'))
+      if (!silent) toast.error(t('toasts.launchNetworkError'))
+      return 'failed'
+    }
+  }
+
+  // ── Launch all: confirm → parallel fan-out → one summary toast ─────────────
+  function handleLaunchAll() {
+    if (launchAllPlan.eligible.length === 0) {
+      toast.info(t('toasts.launchAllNoneEligible'))
+      return
+    }
+    setLaunchAllConfirm(true)
+  }
+
+  async function runLaunchAll() {
+    setLaunchAllConfirm(false)
+    const { eligible, skipped } = launchAllPlan
+    if (eligible.length === 0) {
+      toast.info(t('toasts.launchAllNoneEligible'))
+      return
+    }
+    // Parallel fan-out of the SAME per-rail launch path the Play button uses
+    // (ticket sync → POST launch). Safe to run concurrently: each launch
+    // isolates its work in per-ticket git worktrees server-side.
+    const settled = await Promise.allSettled(
+      eligible.map((r) => doLaunchRail(r.id, { silent: true })),
+    )
+    let launched = 0
+    let failed = 0
+    let pendingDecision = 0
+    let skippedLate = 0
+    for (const s of settled) {
+      const v: LaunchOutcome = s.status === 'fulfilled' ? s.value : 'failed'
+      if (v === 'launched') launched++
+      else if (v === 'pendingDecision') pendingDecision++
+      else if (v === 'skipped') skippedLate++
+      else failed++
+    }
+    // One compact summary toast: launched count + per-reason skip breakdown.
+    const counts = new Map<LaunchAllSkipReason, number>()
+    for (const s of skipped) counts.set(s.reason, (counts.get(s.reason) ?? 0) + 1)
+    if (pendingDecision > 0) counts.set('pendingDecision', (counts.get('pendingDecision') ?? 0) + pendingDecision)
+    const reasonKey: Record<LaunchAllSkipReason, string> = {
+      running: 'launchAll.skipRunning',
+      empty: 'launchAll.skipEmpty',
+      pendingDecision: 'launchAll.skipPendingDecision',
+      onReview: 'launchAll.skipOnReview',
+    }
+    const parts: string[] = []
+    for (const [reason, count] of counts) {
+      if (count > 0) parts.push(t(reasonKey[reason], { count }))
+    }
+    if (skippedLate > 0) parts.push(t('launchAll.skipInFlight', { count: skippedLate }))
+    if (failed > 0) parts.push(t('launchAll.failedCount', { count: failed }))
+    const description = parts.length > 0 ? parts.join(' · ') : undefined
+    if (launched > 0) {
+      toast.success(t('toasts.launchAllSummary', { count: launched }), description ? { description } : undefined)
+    } else {
+      toast.error(t('toasts.launchAllFailed'), description ? { description } : undefined)
     }
   }
 
@@ -1103,6 +1337,8 @@ export default function DashboardPage() {
             ticketMap={ticketMap}
             railWorktrees={railWorktrees}
             railMetrics={railMetrics}
+            railPrDecisions={railPrDecisions}
+            onPrDecision={actRailPrDecision}
             providers={railProviders}
             onModeChange={handleModeChange}
             onProfileChange={handleProfileChange}
@@ -1114,10 +1350,12 @@ export default function DashboardPage() {
             onEffortChange={handleEffortChange}
             onToggle={handleToggle}
             onTicketClick={setDetailTicket}
-            onAddRail={handleAddRail}
-            onDeleteRail={handleDeleteRail}
+            onAddRail={() => { void handleAddRail() }}
+            onDeleteRail={(railId) => { void handleDeleteRail(railId) }}
             onRenameRail={handleRenameRail}
             onTicketMoveToSpecs={handleRemoveTicketFromRail}
+            onLaunchAll={handleLaunchAll}
+            launchAllCount={launchAllPlan.eligible.length}
           />
         </div>
       </div>
@@ -1195,6 +1433,14 @@ export default function DashboardPage() {
         allLabels={allTicketLabels}
         onClose={() => setCreateTicketOpen(false)}
         onCreate={createTicket}
+      />
+
+      <LaunchAllDialog
+        open={launchAllConfirm}
+        railCount={launchAllPlan.eligible.length}
+        specCount={launchAllPlan.eligible.reduce((sum, r) => sum + r.ticketIds.length, 0)}
+        onCancel={() => setLaunchAllConfirm(false)}
+        onConfirm={() => { void runLaunchAll() }}
       />
 
       {(() => {

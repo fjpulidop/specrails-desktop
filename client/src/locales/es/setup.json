@@ -102,7 +102,9 @@
     "reinstallHint": "Reinstala la app Specrails para restaurar las herramientas incluidas.",
     "installMissingHint": "Instala las herramientas que faltan para continuar.",
     "moreInfo": "Más información",
-    "bundledBadge": "incluida"
+    "bundledBadge": "incluida",
+    "optional": "opcional",
+    "ghNoAuth": "Sin sesión — ejecuta `gh auth login`"
   },
   "instructions": {
     "title": "Instalar herramientas de desarrollo",
@@ -258,8 +260,8 @@
     "providers": {
       "nav": "Tu agente",
       "title": "Trae tu propio agente",
-      "subtitle": "Claude Code y Codex, como motores de primera clase",
-      "intro": "La aplicación trata <b>Claude Code</b> y <b>Codex CLI</b> como motores intercambiables tras un mismo contrato. Un proyecto puede instalar uno o ambos — la elección se hace en el momento de la instalación.",
+      "subtitle": "Claude Code, Codex y Gemini como motores de primera clase",
+      "intro": "La app trata <b>Claude Code</b>, <b>Codex CLI</b> y <b>Gemini CLI</b> como motores intercambiables tras un mismo contrato. Un proyecto puede instalar uno o varios — la elección se hace al instalar.",
       "table": {
         "capability": "Capacidad",
         "streamingResume": "Streaming y reanudación de sesión",
@@ -271,7 +273,7 @@
         "synthesized": "Sintetizada",
         "agentProfiles": "Perfiles de agentes"
       },
-      "calloutLabel": "Cuando ambos están instalados",
+      "calloutLabel": "Cuando hay varios instalados",
       "calloutBody": "Elige el motor <b>por spec, por rail o por lanzamiento de terminal</b>. La aplicación recuerda tu última elección por proyecto. El coste de Codex se estima con una tarifa local y siempre se marca con <mono>~</mono>."
     },
     "cost": {

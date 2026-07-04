@@ -12,8 +12,10 @@ const DESTRUCTIVE_ACTIONS = new Set(['delete', 'smash_undo', 'delete_epic_childr
 // match the app's "Add Spec → Quick" flow — hence ai-spawn, not write.
 const AI_SPAWN_ACTIONS = new Set(['create', 'generate', 'ai_edit', 'contract_refine', 'smash'])
 // `commit_draft` (POST /tickets/from-draft) may fire-and-forget a Contract
-// Refine spawn as a side-effect, but the call itself is a synchronous store
-// mutation (a write), so it is classified as `write`.
+// Refine spawn as a side-effect (Explore-origin flips per the conversation's
+// scope; agent-authored inserts by the facade's default-ON `contractRefine` —
+// opt out per call with `contractRefine: false`), but the call itself is a
+// synchronous store mutation (a write), so it is classified as `write`.
 const WRITE_ACTIONS = new Set([
   'update', 'from_prompt', 'save_draft', 'commit_draft', 'cancel_ai_edit',
 ])
@@ -50,14 +52,17 @@ export function specsTools(): McpToolSpec[] {
         'from_prompt (verbatim insert, no AI — use ONLY when you already have a complete finished spec to store as-is; ' +
         'cannot set acceptanceCriteria or shortSummary — prefer commit_draft for structured specs), ' +
         'save_draft (persist an Explore conversation as a draft), ' +
-        'commit_draft (write, no AI — TWO uses: (a) flip an Explore draft to a real spec, passing conversationId from ' +
+        'commit_draft (write — TWO uses: (a) flip an Explore draft to a real spec, passing conversationId from ' +
         'specrails_chat and/or draftTicketId; (b) with NO conversationId/draftTicketId, insert a COMPLETE spec you ' +
         'authored in ONE call: title (required), description, acceptanceCriteria, priority, labels, shortSummary, ' +
         'assignee, prerequisites, metadata. THE canonical way to persist a spec refined in conversation — do NOT route ' +
-        'a finished spec through create/generate, which re-generate the content with AI and lossily rewrite it), ' +
+        'a finished spec through create/generate, which re-generate the content with AI and lossily rewrite it. ' +
+        'Agent-authored inserts (use b) are enriched with a Contract Layer BY DEFAULT via one short background AI pass ' +
+        '— pass contractRefine: false to skip it, e.g. when the user declined it), ' +
         'generate (same as create but takes a pre-formed idea string; both accept contextScope/attachments/createLocal), ' +
         'ai_edit (ai-spawn, AI-edit a ticket title+description), ' +
-        'cancel_ai_edit (abort an in-flight ai-edit), contract_refine (ai-spawn, append a Contract Layer — Claude-only), ' +
+        'cancel_ai_edit (abort an in-flight ai-edit), contract_refine (ai-spawn, append/re-fire a Contract Layer — Claude-only; ' +
+        'works on Explore-origin AND agent-authored/Quick specs), ' +
         'smash (ai-spawn, decompose a spec into N child sub-specs under an epic — Claude-only), ' +
         'smash_undo (destructive, reverse a prior SMASH), delete_epic_children (destructive, delete all children of an epic), ' +
         'spending_summary (per-ticket AI spend), files_touched (provenance of files an AI job touched for this ticket), ' +
@@ -102,7 +107,7 @@ export function specsTools(): McpToolSpec[] {
         status: z
           .string()
           .optional()
-          .describe('list: CSV status filter (draft|todo|in_progress|done|cancelled). update: set ticket status — note job outcomes set in_progress/done automatically; do not fight the pipeline.'),
+          .describe('list: CSV status filter (draft|todo|in_progress|on_review|done|cancelled). update: set ticket status — note job outcomes set in_progress/on_review/done automatically (on_review = implemented, awaiting PR review); do not fight the pipeline.'),
         label: z.string().optional().describe('list: filter by label (CSV)'),
         q: z.string().optional().describe('list: free-text search over title + description'),
 
@@ -153,7 +158,10 @@ export function specsTools(): McpToolSpec[] {
           .record(z.unknown())
           .optional()
           .describe('create/generate: context-awareness flags {specrails,openspec,full,mcp,userMcp,contractRefine}'),
-        contractRefine: z.boolean().optional().describe('create/generate: enrich the spec with a Contract Layer (Claude-only)'),
+        contractRefine: z
+          .boolean()
+          .optional()
+          .describe('create/generate/commit_draft: enrich the spec with a Contract Layer post-persist (Claude-only). DEFAULTS TO TRUE — pass false to opt out (e.g. the user asked for no contract layer)'),
         attachmentIds: z.array(z.string()).optional().describe('create/generate/ai_edit: attachment ids (create/generate require pendingSpecId)'),
 
         // ── ai_edit ──────────────────────────────────────────────────────
@@ -189,12 +197,15 @@ export function specsTools(): McpToolSpec[] {
         // (POST /tickets/generate-spec): `create` derives the idea from
         // title/description, `generate` takes it pre-formed. Both forward the
         // full option set (undefined fields are dropped by JSON.stringify).
+        // Contract Layer enrichment defaults ON ("super specs by default" —
+        // matching the Explore Desktop preset); an explicit `contractRefine:
+        // false` opts out. The server force-skips it on non-claude engines.
         const buildGenerateSpecBody = (idea: string): Record<string, unknown> => ({
           idea,
           model: args.model,
           aiEngine: args.aiEngine,
           contextScope: args.contextScope,
-          contractRefine: args.contractRefine,
+          contractRefine: typeof args.contractRefine === 'boolean' ? args.contractRefine : true,
           attachmentIds: args.attachmentIds,
           pendingSpecId: args.pendingSpecId,
           createLocal: args.createLocal,
@@ -293,7 +304,20 @@ export function specsTools(): McpToolSpec[] {
               editTicketId: args.editTicketId,
             })
           }
-          case 'commit_draft':
+          case 'commit_draft': {
+            // Agent-authored inserts (no Explore origin) default the Contract
+            // Layer enrichment ON — the same post-persist pass the app's Add
+            // Spec runs — so conversationally-refined specs land as "super
+            // specs" without extra plumbing. Explicit `contractRefine` always
+            // wins (false = the user declined it). Explore-origin flips
+            // (conversationId/draftTicketId present) are NOT defaulted: the
+            // origin conversation's stored contextScope governs there.
+            const agentAuthored = !args.conversationId && args.draftTicketId === undefined
+            const contractRefine = typeof args.contractRefine === 'boolean'
+              ? args.contractRefine
+              : agentAuthored
+                ? true
+                : undefined
             return apiCall(ctx, 'POST', `${base}/tickets/from-draft`, {
               title: args.title,
               description: args.description,
@@ -308,7 +332,9 @@ export function specsTools(): McpToolSpec[] {
               prerequisites: args.prerequisites,
               metadata: args.metadata,
               createLocal: args.createLocal,
+              contractRefine,
             })
+          }
           case 'cancel_ai_edit': {
             if (!args.requestId) throw new Error('cancel_ai_edit requires a "requestId".')
             return apiCall(

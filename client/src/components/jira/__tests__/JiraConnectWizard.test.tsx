@@ -18,6 +18,26 @@ import { jiraApi } from '../../../lib/jira-api'
 
 const api = jiraApi as unknown as Record<string, ReturnType<typeof vi.fn>>
 
+const STATUSES = [
+  { id: '10', name: 'To Do', category: 'new' },
+  { id: '11', name: 'In Review', category: 'indeterminate' },
+  { id: '12', name: 'Done', category: 'done' },
+]
+
+/** Walk the wizard through steps 1–2 into the status-map step (step 3). */
+async function goToMappingStep() {
+  fireEvent.change(screen.getByPlaceholderText(/your-company\.atlassian\.net/i), { target: { value: 'https://acme.atlassian.net' } })
+  const tokenInput = document.querySelector('input[type="password"]') as HTMLInputElement
+  fireEvent.change(tokenInput, { target: { value: 'tok' } })
+  fireEvent.click(screen.getByRole('button', { name: /test connection/i }))
+  await waitFor(() => expect(screen.getByTestId('jira-test-ok')).toBeInTheDocument())
+  fireEvent.click(screen.getByRole('button', { name: /^next$/i }))
+  await waitFor(() => expect(screen.getByTestId('jira-project-list')).toBeInTheDocument())
+  fireEvent.click(screen.getByRole('button', { name: /OPS/ }))
+  fireEvent.click(screen.getByRole('button', { name: /^next$/i }))
+  await waitFor(() => expect(api.discoverStatuses).toHaveBeenCalled())
+}
+
 describe('JiraConnectWizard', () => {
   beforeEach(() => {
     vi.clearAllMocks()
@@ -72,6 +92,51 @@ describe('JiraConnectWizard', () => {
     fireEvent.click(screen.getByRole('button', { name: /^connect$/i }))
     await waitFor(() => expect(api.connect).toHaveBeenCalledWith(expect.objectContaining({ jiraProjectKey: 'OPS' }), apiBase))
     await waitFor(() => expect(onConnected).toHaveBeenCalledTimes(1))
+  })
+
+  it('renders the On Review mapping row and includes on_review in the connect statusMap when mapped', async () => {
+    api.test.mockResolvedValue({ ok: true, deployment: 'cloud', displayName: 'Jane' })
+    api.discoverProjects.mockResolvedValue({ projects: [{ id: '1', key: 'OPS', name: 'Ops' }] })
+    api.discoverStatuses.mockResolvedValue({ statuses: STATUSES })
+    api.connect.mockResolvedValue({ connection: {} })
+
+    render(<JiraConnectWizard onConnected={vi.fn()} />)
+    await goToMappingStep()
+
+    // The On Review row renders between In Progress and Done, same pattern as the others.
+    const onReview = screen.getByLabelText('On Review') as HTMLSelectElement
+    expect(onReview.value).toBe('')
+    fireEvent.change(onReview, { target: { value: 'In Review' } })
+
+    fireEvent.click(screen.getByRole('button', { name: /^next$/i }))
+    fireEvent.click(screen.getByRole('button', { name: /^connect$/i }))
+    await waitFor(() =>
+      expect(api.connect).toHaveBeenCalledWith(
+        expect.objectContaining({ statusMap: { on_review: 'In Review' } }),
+        undefined
+      )
+    )
+  })
+
+  it('omits on_review from the connect statusMap when left unmapped', async () => {
+    api.test.mockResolvedValue({ ok: true, deployment: 'cloud', displayName: 'Jane' })
+    api.discoverProjects.mockResolvedValue({ projects: [{ id: '1', key: 'OPS', name: 'Ops' }] })
+    api.discoverStatuses.mockResolvedValue({ statuses: STATUSES })
+    api.connect.mockResolvedValue({ connection: {} })
+
+    render(<JiraConnectWizard onConnected={vi.fn()} />)
+    await goToMappingStep()
+
+    // Map another state but leave On Review on the automatic option.
+    fireEvent.change(screen.getByLabelText('Backlog / To Do'), { target: { value: 'To Do' } })
+
+    fireEvent.click(screen.getByRole('button', { name: /^next$/i }))
+    fireEvent.click(screen.getByRole('button', { name: /^connect$/i }))
+    await waitFor(() =>
+      expect(api.connect).toHaveBeenCalledWith(expect.objectContaining({ statusMap: { todo: 'To Do' } }), undefined)
+    )
+    const sent = api.connect.mock.calls[0][0] as { statusMap: Record<string, string> }
+    expect(sent.statusMap).not.toHaveProperty('on_review')
   })
 
   it('surfaces a toast and keeps Next disabled when the connection test fails', async () => {

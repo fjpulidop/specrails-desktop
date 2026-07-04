@@ -37,6 +37,12 @@ Un paio di garanzie tengono i costi ragionevoli: la generazione dei riepiloghi a
 
 Puoi anche scegliere la **lingua dei riepiloghi** (inglese o spagnolo) nelle impostazioni globali, nell'area *Code section*.
 
+## La storia di costruzione
+
+Sotto il visualizzatore di codice vive la **storia di costruzione**: una linea temporale cronologica di ogni spec e di ogni job che hanno costruito il file che stai guardando. Ogni capitolo è una scheda: quale spec è intervenuta (con il suo stato attuale), quando, se il file è stato creato, modificato o eliminato, e quanto è stato grande il cambiamento (righe aggiunte e rimosse). Fai clic su una scheda per aprire il dettaglio di quella spec. Anche i rail basati sui loop registrano i file che toccano, quindi il lavoro svolto in worktree isolati compare nella storia come i normali job della pipeline.
+
+Per qualsiasi capitolo puoi chiedere una spiegazione in linguaggio semplice: premi **Spiega questa modifica** e l'app scrive da una a tre frasi che descrivono cosa quel cambiamento specifico ha apportato al file — senza codice, senza gergo. Le spiegazioni condividono lo stesso budget mensile dei riepiloghi dei file e, finché non ne viene generata una, la scheda si affida ai fatti che conosce: il tipo di modifica, la spec e la data. Preferisci i dati grezzi? Un selettore **Storia / Registro** passa alla classica lista delle modifiche con diff su richiesta. Lo stesso pannello compare nella vista **Files** della modalità Agente.
+
 ## Collegare il codice alle spec
 
 Il legame di provenienza funziona in entrambe le direzioni. All'interno del Code explorer, cliccare il chip di un ticket su un file apre il dettaglio di quel ticket. E dall'altro lato, la vista di **dettaglio del ticket** ha una sezione *File toccati da questo ticket* — clicca un file lì e salti dritto nel Code explorer con quel file aperto. Chiude il cerchio tra "ecco la spec che abbiamo scritto" ed "ecco il codice che ne è uscito".

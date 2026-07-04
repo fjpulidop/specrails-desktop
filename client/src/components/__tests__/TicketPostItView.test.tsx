@@ -92,4 +92,34 @@ describe('TicketPostItView', () => {
     expect(screen.getByText('Failed to load tickets')).toBeDefined()
     expect(screen.getByText('Network error')).toBeDefined()
   })
+
+  describe('on_review tickets', () => {
+    it('renders an on_review card with the accent-warning palette (no crash)', () => {
+      const ticket = makeTicket({ id: 9, title: 'Reviewing postit', status: 'on_review' })
+      render(<TicketPostItView {...makeDefaultProps({ tickets: [ticket] })} />)
+      const card = screen.getByText('Reviewing postit').closest('button')!
+      expect(card.className).toContain('bg-accent-warning/10')
+    })
+
+    it('renders the On Review pill in the priority indicator slot', () => {
+      const ticket = makeTicket({ id: 9, title: 'Reviewing postit', status: 'on_review', priority: 'high' })
+      render(<TicketPostItView {...makeDefaultProps({ tickets: [ticket] })} />)
+      const pill = screen.getByTestId('on-review-pill-postit-9')
+      expect(pill.textContent).toBe('On Review')
+      expect(pill.className).toContain('text-accent-warning')
+    })
+
+    it('sorts on_review between in_progress and draft/todo', () => {
+      const tickets = [
+        makeTicket({ id: 1, title: 'Todo one', status: 'todo' }),
+        makeTicket({ id: 2, title: 'Reviewing one', status: 'on_review' }),
+        makeTicket({ id: 3, title: 'Active one', status: 'in_progress' }),
+      ]
+      render(<TicketPostItView {...makeDefaultProps({ tickets })} />)
+      const titles = screen.getAllByRole('button').map((b) => b.textContent)
+      const idx = (needle: string) => titles.findIndex((t) => t?.includes(needle))
+      expect(idx('Active one')).toBeLessThan(idx('Reviewing one'))
+      expect(idx('Reviewing one')).toBeLessThan(idx('Todo one'))
+    })
+  })
 })

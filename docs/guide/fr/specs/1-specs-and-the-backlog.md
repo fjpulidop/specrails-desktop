@@ -13,7 +13,7 @@ Le tableau propose deux modes d'affichage, basculables depuis un bouton de la ba
 - **Vue post-it** (par défaut) — des tuiles façon cartes avec de courts résumés.
 - **Vue liste** — des lignes compactes sur une seule ligne.
 
-Vous pouvez aussi filtrer par **statut** (Tous / À faire / Terminé) et par **label**, et trier par **Par défaut**, **Ticket #** ou **Priorité** (chacun avec un sens croissant/décroissant).
+Le **sélecteur de statuts** de la barre d'outils affiche chaque statut sous forme de puce avec un compteur en direct — plus deux groupes intelligents : **Actives** (le défaut — tout ce qui bouge encore : brouillons, à faire, en cours et en révision) et **Tous** (tout, avec Terminé épinglé en bas). Votre choix est mémorisé par projet et reflété dans l'URL : un rafraîchissement ou un lien partagé restaure la vue exacte. Sur les projets connectés à Jira, un menu déroulant **statut Jira** supplémentaire apparaît, listant les *vrais* statuts du workflow du board (leurs noms bruts, p. ex. « Code Review », chacun avec son compteur en direct) regroupés sous l'état auquel ils correspondent — il se combine avec les puces de statut. Vous pouvez aussi filtrer par **label**, et trier par **Par défaut**, **Ticket #** ou **Priorité** (chacun avec un sens croissant/décroissant).
 
 ## Les statuts
 
@@ -24,7 +24,8 @@ Une spec traverse un petit ensemble de statuts. Le tableau donne à chacun un re
 | **Brouillon** | Une idée en cours, enregistrée depuis une conversation Explore. Pas encore prête à être mise en œuvre — vous pouvez y revenir et continuer à la façonner. Affiche une pastille `Draft`. |
 | **À faire** | Prête à être prise en charge. C'est là qu'atterrit une spec finalisée lors de sa création. |
 | **En cours** | Le pipeline travaille actuellement dessus (un point bleu qui pulse). |
-| **Terminé** | Achevée par le pipeline (une coche verte). |
+| **En révision** | Implémentée — chaque exécution terminée gare ici ses specs pour votre approbation : fusionnez la PR en brouillon ou déplacez-les vous-même (une pastille ambre). |
+| **Terminé** | Approuvée — sa PR a été fusionnée, ou vous l'avez déplacée ici vous-même (une coche verte). |
 | **Annulé** | Abandonnée (une croix rouge). |
 
 Les brouillons vivent dans le même groupe actif que les specs À faire — il n'y a pas de colonne séparée pour eux — mais ils arborent une bordure subtilement teintée et une pastille `Draft` pour être facilement repérables. Voir [Les brouillons et le Contract Layer](drafts-and-contract-layer.md) pour tout savoir sur les brouillons.

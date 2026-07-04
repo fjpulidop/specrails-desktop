@@ -50,8 +50,8 @@ describe('SpecsBoard epic filter', () => {
     expect(screen.getByText('Auth spec')).toBeInTheDocument()
     expect(screen.getByText('Another auth spec')).toBeInTheDocument()
     expect(screen.queryByText('Billing spec')).toBeNull()
-    // The ToDo tab count reflects the filter (2 of 3).
-    expect(screen.getByTestId('specs-tab-todo')).toHaveTextContent('2')
+    // The Active chip count reflects the filter (2 of 3).
+    expect(screen.getByTestId('specs-status-count-active')).toHaveTextContent('2')
   })
 
   it('clears the filter with "All epics"', () => {

@@ -25,6 +25,7 @@ type JiraSyncManagerStub = {
   discoverStatuses: ReturnType<typeof vi.fn>
   connect: ReturnType<typeof vi.fn>
   setEnabled: ReturnType<typeof vi.fn>
+  setStatusMap: ReturnType<typeof vi.fn>
   disconnect: ReturnType<typeof vi.fn>
   resumeAfterReauth: ReturnType<typeof vi.fn>
   pollOnce: ReturnType<typeof vi.fn>
@@ -46,6 +47,7 @@ function makeStub(): JiraSyncManagerStub {
     discoverStatuses: vi.fn(),
     connect: vi.fn(),
     setEnabled: vi.fn(),
+    setStatusMap: vi.fn(),
     disconnect: vi.fn(),
     resumeAfterReauth: vi.fn(),
     pollOnce: vi.fn(),
@@ -312,6 +314,21 @@ describe('POST /connect', () => {
     expect(syncStub.connect).toHaveBeenCalledWith(expect.objectContaining({ statusMap: null }))
   })
 
+  it('keeps statusMap.on_review through sanitize (round-trips to connect)', async () => {
+    syncStub.connect.mockResolvedValue({ ok: true, connection: {} })
+    await request(app)
+      .post('/jira/connect')
+      .send({
+        baseUrl: 'https://acme.atlassian.net',
+        token: 'tok',
+        jiraProjectKey: 'PROJ',
+        statusMap: { todo: 'To Do', on_review: ' In Review ' },
+      })
+    expect(syncStub.connect).toHaveBeenCalledWith(
+      expect.objectContaining({ statusMap: { todo: 'To Do', on_review: 'In Review' } })
+    )
+  })
+
   it('401s when connect fails with auth', async () => {
     syncStub.connect.mockResolvedValue({ ok: false, error: 'Invalid Jira credentials', status: 401 })
     const res = await request(app)
@@ -354,6 +371,22 @@ describe('PATCH /connection', () => {
     const res = await request(app).patch('/jira/connection').send({ enabled: 'yes' })
     expect(res.status).toBe(200)
     expect(syncStub.setEnabled).not.toHaveBeenCalled()
+  })
+
+  it('sanitizes and forwards a statusMap that includes on_review', async () => {
+    seedConnection()
+    const res = await request(app)
+      .patch('/jira/connection')
+      .send({ statusMap: { on_review: ' In Review ', bogus: 'x', done: '' } })
+    expect(res.status).toBe(200)
+    expect(syncStub.setStatusMap).toHaveBeenCalledWith({ on_review: 'In Review' })
+  })
+
+  it('does not touch the statusMap when the field is absent', async () => {
+    seedConnection()
+    const res = await request(app).patch('/jira/connection').send({ enabled: true })
+    expect(res.status).toBe(200)
+    expect(syncStub.setStatusMap).not.toHaveBeenCalled()
   })
 })
 

@@ -1,20 +1,23 @@
 import { useEffect, useState, useCallback, useRef } from 'react'
 import { useParams, Link, useNavigate } from 'react-router-dom'
 import { getApiBase } from '../lib/api'
+import { cancelJob } from '../lib/cancel-job'
 import { formatDistanceToNow } from 'date-fns'
 import { toast } from 'sonner'
 import { useTranslation } from 'react-i18next'
 import { getDateFnsLocale } from '../lib/i18n'
-import { ChevronRight, Home, RotateCcw, Download, CheckCircle2, Send, Loader2 } from 'lucide-react'
+import { ChevronRight, Home, RotateCcw, Download } from 'lucide-react'
 import { Badge } from '../components/ui/badge'
 import { Button } from '../components/ui/button'
 import { Tooltip, TooltipContent, TooltipTrigger } from '../components/ui/tooltip'
 import { PipelineProgress } from '../components/PipelineProgress'
 import { JobStatusPanel } from '../components/JobStatusPanel'
 import { JobTicketHeader } from '../components/JobTicketHeader'
+import { InteractiveJobComposer } from '../components/InteractiveJobComposer'
 import { useTicketDetailModal } from '../context/TicketDetailModalContext'
 import { cn } from '../lib/utils'
 import { LogViewer } from '../components/LogViewer'
+import { LoopStepExplorer } from '../components/loop-log/LoopStepExplorer'
 import { useSharedWebSocket } from '../hooks/useSharedWebSocket'
 import type { JobSummary, EventRow, PhaseDefinition } from '../types'
 import type { PhaseMap, PhaseState } from '../hooks/usePipeline'
@@ -45,17 +48,6 @@ export default function JobDetailPage() {
   const [pipelineJobs, setPipelineJobs] = useState<JobSummary[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [notFound, setNotFound] = useState(false)
-  // ── Interactive ultracode session state ──────────────────────────────────
-  // Running SUM of completed turns' REAL usage (from job.turn_done; never an
-  // estimate). Null until the first turn settles.
-  const [interactiveTotals, setInteractiveTotals] = useState<{
-    tokens_in: number; tokens_out: number; tokens_cache_read: number
-    tokens_cache_create: number; total_cost_usd: number; num_turns: number
-  } | null>(null)
-  const [interactiveStreaming, setInteractiveStreaming] = useState(false)
-  const [composerText, setComposerText] = useState('')
-  const [finalizing, setFinalizing] = useState(false)
-  const [sending, setSending] = useState(false)
 
   // Reset and re-fetch when project or job id changes
   useEffect(() => {
@@ -107,6 +99,11 @@ export default function JobDetailPage() {
   // Subscribe to live WebSocket updates for this job
   const activeProjectRef = useRef(activeProjectId)
   activeProjectRef.current = activeProjectId
+
+  // Last KNOWN job status (ref, not state — the WS handler must read it without
+  // re-subscribing). Gates the queued→running refetch below to the actual flip.
+  const jobStatusRef = useRef<JobSummary['status'] | null>(null)
+  jobStatusRef.current = job?.status ?? null
 
   // ── Batched event accumulation (flush via rAF → max ~60 updates/sec) ────
   const pendingEventsRef = useRef<EventRow[]>([])
@@ -176,18 +173,9 @@ export default function JobDetailPage() {
         timestamp: msg.timestamp as string,
       }
       enqueuePending(syntheticEvent)
-    } else if (msg.type === 'job.turn_user' && msg.jobId === id) {
-      // A user prompt was accepted — a turn is (or will be) streaming. The
-      // prompt text itself rides the `log` channel above, so nothing to inject.
-      setInteractiveStreaming(true)
-    } else if (msg.type === 'job.turn_done' && msg.jobId === id) {
-      setInteractiveTotals(msg.totals as typeof interactiveTotals)
-      setInteractiveStreaming(false)
     } else if (msg.type === 'job.finalized' && msg.jobId === id) {
-      setInteractiveStreaming(false)
-      setFinalizing(false)
-      const totals = msg.totals as typeof interactiveTotals
-      if (totals) setInteractiveTotals(totals)
+      // The interactive session settled (turn totals live in the composer,
+      // which owns the job.turn_* stream) — refetch the authoritative row.
       fetch(`${getApiBase()}/jobs/${id}`)
         .then((r) => r.json())
         .then((data: { job: JobSummary }) => setJob(data.job))
@@ -201,8 +189,17 @@ export default function JobDetailPage() {
       const matchingJob = jobs?.find((j) => j.id === id)
       if (matchingJob) {
         const newStatus = matchingJob.status as JobSummary['status']
+        const prevStatus = jobStatusRef.current
         setJob((prev) => prev ? { ...prev, status: newStatus } : prev)
         if (newStatus === 'completed' || newStatus === 'failed' || newStatus === 'canceled') {
+          fetch(`${getApiBase()}/jobs/${id}`)
+            .then((r) => r.json())
+            .then((data: { job: JobSummary }) => setJob(data.job))
+            .catch(() => {})
+        } else if (newStatus === 'running' && prevStatus !== 'running') {
+          // Queued→running flip: refetch so the interactive surface fields
+          // (interactive / interactiveSettleMode / interactiveAcceptingTurns)
+          // arrive and the composer can mount without a manual refresh.
           fetch(`${getApiBase()}/jobs/${id}`)
             .then((r) => r.json())
             .then((data: { job: JobSummary }) => setJob(data.job))
@@ -240,64 +237,22 @@ export default function JobDetailPage() {
 
   async function handleCancel() {
     if (!id) return
-    try {
-      const res = await fetch(`${getApiBase()}/jobs/${id}`, { method: 'DELETE' })
-      if (res.ok) {
-        const data = await res.json() as { status?: string }
-        if (data.status === 'deleted') {
-          toast.success(t('detail.toast.jobDeleted'))
-          navigate('/jobs')
-        } else {
-          toast.success(t('detail.toast.cancelSignalSent'), { description: t('detail.toast.cancelSignalSentDescription') })
-        }
+    // Shared manager-aware helper (same one JobDetailModal uses): DELETE
+    // /jobs/:id — the server dispatches to LoopRunManager or QueueManager by
+    // owner. projectId=null → active project via getApiBase() (board mode).
+    const outcome = await cancelJob({ projectId: null, jobId: id })
+    if (outcome.ok) {
+      if (outcome.status === 'deleted') {
+        toast.success(t('detail.toast.jobDeleted'))
+        navigate('/jobs')
       } else {
-        const data = await res.json() as { error?: string }
-        toast.error(t('detail.toast.failed'), { description: data.error })
+        toast.success(t('detail.toast.cancelSignalSent'), { description: t('detail.toast.cancelSignalSentDescription') })
       }
-    } catch {
+    } else if (outcome.httpStatus === null) {
+      // Transport-level failure — same toast the old try/catch produced.
       toast.error(t('detail.toast.networkError'))
-    }
-  }
-
-  async function handleFinalizeInteractive() {
-    if (!id || finalizing) return
-    setFinalizing(true)
-    try {
-      const res = await fetch(`${getApiBase()}/jobs/${id}/finalize`, { method: 'POST' })
-      if (res.ok) {
-        toast.success(t('detail.toast.finalizeScheduled'))
-      } else {
-        const data = await res.json().catch(() => ({})) as { error?: string }
-        toast.error(t('detail.toast.finalizeFailed'), { description: data.error })
-        setFinalizing(false)
-      }
-      // The authoritative completed state arrives via the job.finalized WS event.
-    } catch {
-      toast.error(t('detail.toast.networkError'))
-      setFinalizing(false)
-    }
-  }
-
-  async function handleSendInteractive() {
-    const text = composerText.trim()
-    if (!id || !text || sending) return
-    setSending(true)
-    try {
-      const res = await fetch(`${getApiBase()}/jobs/${id}/messages`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ text }),
-      })
-      if (res.ok) {
-        setComposerText('')
-      } else {
-        const data = await res.json().catch(() => ({})) as { error?: string }
-        toast.error(t('detail.toast.sendFailed'), { description: data.error })
-      }
-    } catch {
-      toast.error(t('detail.toast.networkError'))
-    } finally {
-      setSending(false)
+    } else {
+      toast.error(t('detail.toast.failed'), { description: outcome.error })
     }
   }
 
@@ -379,6 +334,9 @@ export default function JobDetailPage() {
   const isInteractive = !!job.interactive
   const isInteractiveRunning = isInteractive && isRunning
   const hasTicketHeader = (job.tickets?.length ?? 0) > 0
+  // Loop runs get the step-grouped explorer; every other job keeps the legacy
+  // LogViewer byte-identical. Same discriminator as the composer `kind` below.
+  const isLoopJob = job.command.startsWith('loop:')
 
   const pipelineTotals = pipelineJobs.length > 1 ? {
     totalCostUsd: pipelineJobs.reduce((s, j) => s + (j.total_cost_usd ?? 0), 0),
@@ -489,25 +447,6 @@ export default function JobDetailPage() {
                 </TooltipContent>
               </Tooltip>
             )}
-            {isInteractiveRunning && (
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={handleFinalizeInteractive}
-                    disabled={finalizing}
-                    className="h-7 border-accent-success/40 text-accent-success hover:bg-accent-success/10"
-                  >
-                    <CheckCircle2 className="w-3.5 h-3.5 mr-1.5" />
-                    {finalizing ? t('detail.finalizing') : t('detail.finalizeJob')}
-                  </Button>
-                </TooltipTrigger>
-                <TooltipContent>
-                  {t('detail.finalizeJobTooltip')}
-                </TooltipContent>
-              </Tooltip>
-            )}
             {isRunning && (
               <Tooltip>
                 <TooltipTrigger asChild>
@@ -546,55 +485,27 @@ export default function JobDetailPage() {
         />
       )}
 
-      {/* Log viewer */}
+      {/* Log viewer — loop jobs get the step-grouped explorer */}
       <div className="flex-1 overflow-hidden relative">
-        <LogViewer events={events} />
+        {isLoopJob ? (
+          <LoopStepExplorer events={events} jobStatus={job.status} variant="page" />
+        ) : (
+          <LogViewer events={events} />
+        )}
       </div>
 
-      {/* Interactive chat composer — send more prompts to the resident agent
-          without waiting for the current turn to finish (queued server-side). */}
+      {/* Interactive in-job agent composer — send more prompts to the resident
+          agent (queued server-side), see live turn totals, and settle per the
+          session's mode (Finalize for ultracode, quiet wrap-up for auto). */}
       {isInteractiveRunning && (
-        <div className="shrink-0 border-t border-border/40 bg-surface/40 px-3 py-2 space-y-2">
-          <div className="flex items-center justify-between text-[11px] text-muted-foreground">
-            <span className="inline-flex items-center gap-1.5">
-              {interactiveStreaming && <Loader2 className="w-3 h-3 animate-spin" />}
-              {interactiveStreaming ? t('detail.interactive.working') : t('detail.interactive.ready')}
-            </span>
-            {interactiveTotals && (
-              <span className="tabular-nums">
-                {t('detail.interactive.liveTotals', {
-                  turns: interactiveTotals.num_turns,
-                  cost: interactiveTotals.total_cost_usd.toFixed(4),
-                })}
-              </span>
-            )}
-          </div>
-          <div className="flex items-end gap-2">
-            <textarea
-              value={composerText}
-              onChange={(e) => setComposerText(e.target.value)}
-              onKeyDown={(e) => {
-                if (e.key === 'Enter' && !e.shiftKey) {
-                  e.preventDefault()
-                  void handleSendInteractive()
-                }
-              }}
-              rows={2}
-              placeholder={t('detail.interactive.placeholder')}
-              aria-label={t('detail.interactive.placeholder')}
-              className="flex-1 resize-none rounded-md border border-border/50 bg-background px-2.5 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
-            />
-            <Button
-              size="sm"
-              onClick={() => void handleSendInteractive()}
-              disabled={sending || !composerText.trim()}
-              className="h-9 shrink-0"
-            >
-              <Send className="w-3.5 h-3.5 mr-1.5" />
-              {t('detail.interactive.send')}
-            </Button>
-          </div>
-        </div>
+        <InteractiveJobComposer
+          jobId={job.id}
+          settleMode={job.interactiveSettleMode}
+          initialAcceptingTurns={job.interactiveAcceptingTurns}
+          kind={job.command.startsWith('loop:') ? 'loop-step' : 'job'}
+          variant="page"
+          /* No onFinalized: the page's own job.finalized WS branch refetches. */
+        />
       )}
     </div>
   )

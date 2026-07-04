@@ -47,7 +47,8 @@
     "completed": "Completed",
     "failed": "Failed",
     "canceled": "Canceled",
-    "draft": "Draft"
+    "draft": "Draft",
+    "onReview": "On Review"
   },
   "modal": {
     "resize": {

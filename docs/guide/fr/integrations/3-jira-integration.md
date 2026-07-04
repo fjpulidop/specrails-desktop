@@ -7,7 +7,7 @@ Vous voulez que vos specs vivent sur un véritable **tableau Jira** plutôt qu'�
 Specrails agit comme une **couche de synchronisation** entre Jira et votre projet. L'idée maîtresse : votre magasin de specs local reste la référence que lit le pipeline, et Specrails se charge de le maintenir en accord avec Jira.
 
 - Lorsque vous lancez un rail, Specrails fait passer le ticket Jira lié à **En cours**.
-- Lorsqu'un job se termine, Specrails fait transitionner le ticket (vers **Terminé**, ou de nouveau vers **À faire** en cas d'échec) et publie un commentaire de clôture avec l'identifiant du job, le coût et la durée.
+- Lorsqu'un job se termine, Specrails fait transitionner le ticket : en cas de succès, il passe à votre statut de **révision** mappé et n'atteint **Terminé** qu'une fois le travail approuvé (la fusion de la PR en brouillon publie un commentaire « PR merged ») ; en cas d'échec, il revient à **À faire** avec un commentaire de clôture (identifiant du job, coût, durée).
 - Périodiquement, Specrails **interroge** Jira pour récupérer les changements effectués par quiconque sur le tableau et les répercute dans vos specs.
 
 Toutes les écritures vers Jira passent par une file d'attente durable et résistante aux pannes : un incident Jira passager ne casse donc jamais un job — la mise à jour est simplement retentée.

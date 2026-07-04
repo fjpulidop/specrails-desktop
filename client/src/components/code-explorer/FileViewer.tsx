@@ -11,6 +11,7 @@ import { ResizeGrips } from '../ui/ResizeGrips'
 import { CodeViewerMonaco } from './CodeViewerMonaco'
 import { SummaryHeader, type SummaryPayload } from './SummaryHeader'
 import { MarkdownPreview } from './MarkdownPreview'
+import { ConstructionStory } from './ConstructionStory'
 
 function isMarkdown(relPath: string, language?: string): boolean {
   if (language === 'markdown' || language === 'md') return true
@@ -74,6 +75,24 @@ function historyCollapsedKey(projectId: string | null): string | null {
   return projectId ? `specrails-desktop:code-history-collapsed:${projectId}` : null
 }
 
+type HistoryMode = 'story' | 'log'
+
+function historyModeKey(projectId: string | null): string | null {
+  return projectId ? `specrails-desktop:code-history-mode:${projectId}` : null
+}
+
+function loadHistoryMode(projectId: string | null): HistoryMode {
+  const key = historyModeKey(projectId)
+  if (!key) return 'story'
+  try { return localStorage.getItem(key) === 'log' ? 'log' : 'story' } catch { return 'story' }
+}
+
+function saveHistoryMode(projectId: string | null, mode: HistoryMode): void {
+  const key = historyModeKey(projectId)
+  if (!key) return
+  try { localStorage.setItem(key, mode) } catch { /* ignore */ }
+}
+
 function loadHistoryHeight(projectId: string | null): number {
   const key = historyHeightKey(projectId)
   if (!key) return DEFAULT_HISTORY_HEIGHT
@@ -135,6 +154,7 @@ export function FileViewer({ relPath, onFilterJob, onSummaryActionChange, onCopy
   const [summaryCollapsed, setSummaryCollapsed] = useState(() => loadSummaryCollapsed(activeProjectId))
   const [historyHeight, setHistoryHeight] = useState(() => loadHistoryHeight(activeProjectId))
   const [historyCollapsed, setHistoryCollapsed] = useState(() => loadHistoryCollapsed(activeProjectId))
+  const [historyMode, setHistoryMode] = useState<HistoryMode>(() => loadHistoryMode(activeProjectId))
 
   const activeProjectIdRef = useRef(activeProjectId)
   useEffect(() => { activeProjectIdRef.current = activeProjectId }, [activeProjectId])
@@ -146,6 +166,7 @@ export function FileViewer({ relPath, onFilterJob, onSummaryActionChange, onCopy
     setSummaryCollapsed(loadSummaryCollapsed(activeProjectId))
     setHistoryHeight(clampHistoryHeight(loadHistoryHeight(activeProjectId), height))
     setHistoryCollapsed(loadHistoryCollapsed(activeProjectId))
+    setHistoryMode(loadHistoryMode(activeProjectId))
   }, [activeProjectId])
 
   const beginHistoryResize = useCallback((e: React.PointerEvent<HTMLDivElement>) => {
@@ -193,6 +214,11 @@ export function FileViewer({ relPath, onFilterJob, onSummaryActionChange, onCopy
       saveHistoryCollapsed(activeProjectId, next)
       return next
     })
+  }, [activeProjectId])
+
+  const changeHistoryMode = useCallback((mode: HistoryMode) => {
+    setHistoryMode(mode)
+    saveHistoryMode(activeProjectId, mode)
   }, [activeProjectId])
 
   useEffect(() => {
@@ -526,25 +552,67 @@ export function FileViewer({ relPath, onFilterJob, onSummaryActionChange, onCopy
             data-testid="code-history-resizer"
           >
             <span className="text-[11px] font-medium uppercase tracking-wider text-muted-foreground">
-              {t('history.title', { count: provenance.length })}
+              {historyMode === 'story'
+                ? t('story.title', { count: provenance.length })
+                : t('history.title', { count: provenance.length })}
             </span>
-            <button
-              type="button"
-              onPointerDown={(e) => e.stopPropagation()}
-              onClick={toggleHistoryCollapsed}
-              className="inline-flex items-center gap-1 rounded-md px-2 py-1 text-[11px] text-muted-foreground hover:bg-muted/50 hover:text-foreground"
-            >
-              {historyCollapsed ? <ChevronUp className="h-3.5 w-3.5" /> : <ChevronDown className="h-3.5 w-3.5" />}
-              {historyCollapsed ? t('history.show') : t('history.hide')}
-            </button>
+            <span className="flex items-center gap-1">
+              {!historyCollapsed && (
+                <span
+                  className="flex items-center gap-0.5 rounded-md bg-muted/40 p-0.5"
+                  role="group"
+                  aria-label={t('story.viewMode')}
+                  onPointerDown={(e) => e.stopPropagation()}
+                >
+                  <button
+                    type="button"
+                    onClick={() => changeHistoryMode('story')}
+                    aria-pressed={historyMode === 'story'}
+                    className={historyMode === 'story'
+                      ? 'rounded px-2 py-0.5 text-[10px] bg-accent-primary/20 text-accent-primary'
+                      : 'rounded px-2 py-0.5 text-[10px] text-muted-foreground hover:text-foreground'}
+                  >
+                    {t('story.modeStory')}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => changeHistoryMode('log')}
+                    aria-pressed={historyMode === 'log'}
+                    className={historyMode === 'log'
+                      ? 'rounded px-2 py-0.5 text-[10px] bg-accent-primary/20 text-accent-primary'
+                      : 'rounded px-2 py-0.5 text-[10px] text-muted-foreground hover:text-foreground'}
+                  >
+                    {t('story.modeLog')}
+                  </button>
+                </span>
+              )}
+              <button
+                type="button"
+                onPointerDown={(e) => e.stopPropagation()}
+                onClick={toggleHistoryCollapsed}
+                className="inline-flex items-center gap-1 rounded-md px-2 py-1 text-[11px] text-muted-foreground hover:bg-muted/50 hover:text-foreground"
+              >
+                {historyCollapsed ? <ChevronUp className="h-3.5 w-3.5" /> : <ChevronDown className="h-3.5 w-3.5" />}
+                {historyCollapsed ? t('history.show') : t('history.hide')}
+              </button>
+            </span>
           </div>
           {!historyCollapsed && (
-            <ProvenanceTimeline
-              rows={provenance}
-              onOpenTicket={openTicketDetail}
-              onFilterJob={onFilterJob}
-              height={historyHeight}
-            />
+            historyMode === 'story' ? (
+              <ConstructionStory
+                relPath={relPath}
+                height={historyHeight}
+                onOpenTicket={openTicketDetail}
+                onFilterJob={onFilterJob}
+              />
+            ) : (
+              <ProvenanceTimeline
+                rows={provenance}
+                onOpenTicket={openTicketDetail}
+                onFilterJob={onFilterJob}
+                height={historyHeight}
+              />
+            )
           )}
         </>
       )}

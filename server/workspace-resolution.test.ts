@@ -5,6 +5,7 @@ import path from 'path'
 import { mirrorProjectEntry, workspaceLayout, resolveHome } from './artifact-registry'
 import {
   resolveProjectExecution,
+  resolveLoopBaseEnv,
   isWorkspacePopulated,
 } from './workspace-resolution'
 
@@ -142,5 +143,28 @@ describe('resolveProjectExecution — RELOCATED (entry + populated workspace)', 
     expect(exec.relocated).toBe(true)
     expect(exec.cwd).toBe(ws)
     expect(exec.workspaceDir).toBe(ws)
+  })
+})
+
+describe('resolveLoopBaseEnv (loop-executor base env)', () => {
+  it('legacy ⇒ EXACTLY process.env (byte-identical, same object)', () => {
+    expect(resolveLoopBaseEnv({ slug: 'acme', path: repo }, home)).toBe(process.env)
+  })
+
+  it('relocated ⇒ workspace artifact indirection injected, SPECRAILS_REPO_DIR OMITTED (per-run)', () => {
+    delete process.env.SPECRAILS_REPO_DIR // ambient leak would shadow the assertion
+    const ws = seedRelocated('acme')
+    const env = resolveLoopBaseEnv({ slug: 'acme', path: repo }, home)
+    expect(env.SPECRAILS_TICKETS_PATH).toBe(path.join(ws, '.specrails', 'local-tickets.json'))
+    expect(env.SPECRAILS_BACKLOG_CONFIG_PATH).toBe(path.join(ws, '.specrails', 'backlog-config.json'))
+    expect(env.SPECRAILS_PROFILES_DIR).toBe(path.join(ws, '.specrails', 'profiles'))
+    expect(env.SPECRAILS_WORKSPACE_DIR).toBe(ws)
+    expect(env.SPECRAILS_STATE_DIR).toBeDefined()
+    // The repo dir is PER-RUN (the worktree for isolated rails; injected by the
+    // executors from each run's repoDir) — the base env must never carry the
+    // live repo path or an isolated shell step could escape its worktree.
+    expect('SPECRAILS_REPO_DIR' in env).toBe(false)
+    // process.env still rides underneath.
+    expect(env.PATH).toBe(process.env.PATH)
   })
 })
