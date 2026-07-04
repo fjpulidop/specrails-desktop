@@ -1,5 +1,12 @@
 # Changelog
 
+## [2.23.1](https://github.com/fjpulidop/specrails-desktop/compare/v2.23.0...v2.23.1) (2026-07-04)
+
+
+### Bug Fixes
+
+* **windows:** heal /specrails:* commands + honest agent when isolation is unavailable ([#505](https://github.com/fjpulidop/specrails-desktop/issues/505)) ([39ca61d](https://github.com/fjpulidop/specrails-desktop/commit/39ca61dcb79016b0df000eeb4aaff5fc965dd478))
+
 ## [2.23.0](https://github.com/fjpulidop/specrails-desktop/compare/v2.22.0...v2.23.0) (2026-07-04)
 
 
