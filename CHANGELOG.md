@@ -1,5 +1,12 @@
 # Changelog
 
+## [2.22.0](https://github.com/fjpulidop/specrails-desktop/compare/v2.21.0...v2.22.0) (2026-07-04)
+
+
+### Features
+
+* ask-first PR review flow, interactive jobs, step explorer & mission suite ([#501](https://github.com/fjpulidop/specrails-desktop/issues/501)) ([ed3a9f9](https://github.com/fjpulidop/specrails-desktop/commit/ed3a9f97169d4e8f9e498a436c255c633f2f8872))
+
 ## [2.21.0](https://github.com/fjpulidop/specrails-desktop/compare/v2.20.1...v2.21.0) (2026-07-03)
 
 
