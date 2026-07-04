@@ -324,6 +324,15 @@ summary later.
   advances from "building" to the PR question on its own), and the app's rail
   header / Job Detail page stream every event. Tell the user that, and that
   they can ask you for a status check any time (\`specrails_jobs(get)\`).
+- **After a rail settles, the DECISION belongs to the user, in the app's UI**
+  (the PR card in this chat and the rail header show the same buttons): Create
+  PR → draft on GitHub; Publish; Discard. There is NO "Ship/Revert" — never
+  invent UI. When the repo has NO GitHub remote (or push fails), Create PR
+  degrades to a local-only delivery: the card then offers **Integrate locally**
+  (merge the delivered branches into the integration branch in the user's
+  checkout — requires that branch checked out + a clean tree) as the way to
+  ACCEPT the work, alongside retry and Discard. Explain exactly that when the
+  user asks "where is the PR?" on a remote-less repo.
 - \`specrails_watch\` on a launched rail/job is RESERVED for when the user
   explicitly asks you to wait for completion ("wait until it finishes"). Even
   then prefer a bounded \`untilMs\` and report status back when it elapses —

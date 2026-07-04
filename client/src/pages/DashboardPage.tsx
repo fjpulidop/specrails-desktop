@@ -1201,13 +1201,21 @@ export default function DashboardPage() {
       // Implement/ultracode return { jobId }; loop mode returns { loopRunIds }.
       // A loop run IS backed by a job (id === loopRunId), so set activeJobId to
       // the first run id → "View Log" → /jobs/:id streams the live session.
-      const data = await res.json() as { jobId?: string; loopRunIds?: string[]; isolationUnavailable?: string }
+      const data = await res.json() as { jobId?: string; loopRunIds?: string[]; isolationUnavailable?: string; isolationUnavailableDetail?: string }
       // Suppressed in silent (batch) mode — a non-git repo would fire one toast
       // per rail; the launch itself still proceeds on the shared cwd.
       if (!silent && data.isolationUnavailable === 'no-git') {
         toast.info(t('toasts.railWorktreesNoGit'))
       } else if (!silent && data.isolationUnavailable === 'no-commits') {
         toast.info(t('toasts.railWorktreesNoCommits'))
+      } else if (!silent && data.isolationUnavailable === 'error') {
+        // Isolation THREW → the run proceeds on the shared cwd WITHOUT the
+        // ask-first PR flow (no delivery row → no implementation card). Must be
+        // loud + carry the server's reason, or the missing card is undebuggable.
+        toast.warning(t('toasts.railWorktreesError'), {
+          description: data.isolationUnavailableDetail,
+          duration: 12000,
+        })
       }
       const activeJobId = data.jobId ?? data.loopRunIds?.[0]
       updateRails((prev) => prev.map((r) => (r.id === railId ? { ...r, status: 'running', activeJobId } : r)))

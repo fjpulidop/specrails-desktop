@@ -909,3 +909,116 @@ describe('resilience', () => {
     expect(getPrDelivery(db, row.id)?.decision).toBe('merged')
   })
 })
+
+// ─── merge-local (remote-less acceptance) ─────────────────────────────────────
+
+function gitScript(responses: { head?: string; dirty?: boolean; failMergeOf?: string } = {}) {
+  const calls: string[][] = []
+  const git: GitRunner = {
+    async run(args, _cwd) {
+      calls.push(args)
+      if (args[0] === 'rev-parse' && args[1] === '--abbrev-ref') {
+        return { code: 0, stdout: `${responses.head ?? 'main'}\n`, stderr: '' }
+      }
+      if (args[0] === 'status') return { code: 0, stdout: responses.dirty ? ' M x.ts\n' : '', stderr: '' }
+      if (args[0] === 'merge' && responses.failMergeOf && args.includes(responses.failMergeOf)) {
+        return { code: 1, stdout: '', stderr: 'CONFLICT (content): merge conflict in x.ts' }
+      }
+      return ok
+    },
+  }
+  return { git, calls }
+}
+
+describe('merge-local', () => {
+  it('is ILLEGAL once a real PR exists (GitHub is the merge authority) and on terminal states', async () => {
+    const { deps } = mkDeps({ git: gitScript().git })
+    const withPr = mkRow({ decision: 'pr_draft', prUrl: PR_URL })
+    let res = await executePrDecision(deps, { prDeliveryId: withPr.id, action: 'merge-local', expectedDecision: 'pr_draft' })
+    expect(res.status).toBe(409)
+    expect(res.body.reason).toBe('illegal_action')
+
+    const building = mkRow({ decision: 'building' })
+    res = await executePrDecision(deps, { prDeliveryId: building.id, action: 'merge-local', expectedDecision: 'building' })
+    expect(res.status).toBe(409)
+  })
+
+  it('409 merge_local_blocked (wrong_branch) when the checkout is not on the integration branch — no transition', async () => {
+    const { deps } = mkDeps({ git: gitScript({ head: 'develop' }).git })
+    const row = mkRow({ decision: 'on_review' })
+    const res = await executePrDecision(deps, { prDeliveryId: row.id, action: 'merge-local', expectedDecision: 'on_review' })
+    expect(res.status).toBe(409)
+    expect(res.body).toMatchObject({ error: 'merge_local_blocked', reason: 'wrong_branch', current: 'develop', base: 'main' })
+    expect(getPrDelivery(db, row.id)!.decision).toBe('on_review')
+  })
+
+  it('409 merge_local_blocked (dirty) when the working tree has changes — no transition', async () => {
+    const { deps } = mkDeps({ git: gitScript({ dirty: true }).git })
+    const row = mkRow({ decision: 'on_review' })
+    const res = await executePrDecision(deps, { prDeliveryId: row.id, action: 'merge-local', expectedDecision: 'on_review' })
+    expect(res.status).toBe(409)
+    expect(res.body).toMatchObject({ error: 'merge_local_blocked', reason: 'dirty' })
+    expect(getPrDelivery(db, row.id)!.decision).toBe('on_review')
+  })
+
+  it('happy path from a degraded local-only draft: merges the assembled head, sweeps, tickets → done, jira gets NULL url', async () => {
+    const script = gitScript()
+    const { deps, broadcast, jira } = mkDeps({ git: script.git })
+    const row = mkRow({ decision: 'pr_draft', prUrl: null, prState: 'local-only' }) // branch feat/1-t1
+    const res = await executePrDecision(deps, { prDeliveryId: row.id, action: 'merge-local', expectedDecision: 'pr_draft' })
+    expect(res.status).toBe(200)
+    expect(res.body).toMatchObject({ ok: true, decision: 'merged', merged: true, local: true })
+
+    // ONE merge of the assembled head, --no-ff --no-edit.
+    const merges = script.calls.filter((a) => a[0] === 'merge' && a[1] === '--no-ff')
+    expect(merges).toEqual([['merge', '--no-ff', '--no-edit', 'feat/1-t1']])
+    // Spent branches swept; the integration branch never deleted.
+    const deleted = script.calls.filter((a) => a[0] === 'branch' && a[1] === '-D').map((a) => a[2])
+    expect(deleted).toContain('feat/1-t1')
+    expect(deleted).not.toContain('main')
+
+    expect(getPrDelivery(db, row.id)!.decision).toBe('merged')
+    expect(prStateBroadcasts(broadcast).at(-1)?.decision).toBe('merged')
+    expect(readTicketStatuses(ticketFile)).toMatchObject({ '1': 'done', '2': 'done' })
+    expect(jira.onRailMerged).toHaveBeenCalledWith([1, 2], row.id, null)
+  })
+
+  it('straight from on_review (no assembled head): merges every succeeded unit branch sequentially', async () => {
+    const script = gitScript()
+    const { deps } = mkDeps({ git: script.git })
+    const row = mkRow({ decision: 'on_review' }) // units feat/1-t1 + feat/2-t2
+    const res = await executePrDecision(deps, { prDeliveryId: row.id, action: 'merge-local', expectedDecision: 'on_review' })
+    expect(res.status).toBe(200)
+    const merges = script.calls.filter((a) => a[0] === 'merge' && a[1] === '--no-ff').map((a) => a[3])
+    expect(merges).toEqual(['feat/1-t1', 'feat/2-t2'])
+    expect(getPrDelivery(db, row.id)!.decision).toBe('merged')
+  })
+
+  it('a merge conflict ABORTS and returns 502 merge_failed — no transition, tickets untouched', async () => {
+    const script = gitScript({ failMergeOf: 'feat/2-t2' })
+    const { deps, jira } = mkDeps({ git: script.git })
+    const row = mkRow({ decision: 'on_review' })
+    const res = await executePrDecision(deps, { prDeliveryId: row.id, action: 'merge-local', expectedDecision: 'on_review' })
+    expect(res.status).toBe(502)
+    expect(res.body.error).toBe('merge_failed')
+    expect(String(res.body.detail)).toContain('CONFLICT')
+    expect(script.calls.some((a) => a[0] === 'merge' && a[1] === '--abort')).toBe(true)
+    expect(getPrDelivery(db, row.id)!.decision).toBe('on_review')
+    expect(readTicketStatuses(ticketFile)).toMatchObject({ '1': 'on_review', '2': 'on_review' })
+    expect(jira.onRailMerged).not.toHaveBeenCalled()
+  })
+
+  it('sweeps the launch worktrees and marks their ledger rows merged', async () => {
+    const script = gitScript()
+    const { deps } = mkDeps({ git: script.git })
+    createRailWorktree(db, {
+      id: 'wt-1', railIndex: 0, ticketId: 1, runId: 'run-1',
+      branch: 'feat/1-t1', worktreePath: '/wts/ticket-1', baseSha: 'abc',
+    })
+    const row = mkRow({ decision: 'on_review', worktreeIds: ['wt-1'] })
+    const res = await executePrDecision(deps, { prDeliveryId: row.id, action: 'merge-local', expectedDecision: 'on_review' })
+    expect(res.status).toBe(200)
+    expect(script.calls.some((a) => a[0] === 'worktree' && a[1] === 'remove')).toBe(true)
+    expect(getRailWorktree(db, 'wt-1')!.merge_state).toBe('merged')
+  })
+})

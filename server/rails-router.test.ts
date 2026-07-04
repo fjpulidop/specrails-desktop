@@ -834,6 +834,19 @@ describe('rails-router POST /:railIndex/launch — ask-first PR delivery (safe-p
     }))
   })
 
+  it("an isolated-launch failure falls back to shared cwd and SURFACES isolationUnavailable:'error' + detail", async () => {
+    // The silent-missing-cards trap: launchIsolatedRail throwing means NO
+    // rail_pr_deliveries row (no implementation card anywhere). The 202 must
+    // carry the reason so the client can toast it instead of failing mute.
+    mockRepoStatus.mockResolvedValue('ok')
+    mockLaunchIsolated.mockRejectedValue(new Error('git worktree add failed for feat/x: boom'))
+    const res = await request(launchApp()).post('/rails/0/launch').send({ loopId: 'factory:implement' })
+    expect(res.status).toBe(202)
+    expect(res.body.isolationUnavailable).toBe('error')
+    expect(res.body.isolationUnavailableDetail).toContain('git worktree add failed')
+    expect(res.body.isolated).toBeUndefined()
+  })
+
   it('400 on a malformed originConversationId (charset / length / type / empty)', async () => {
     for (const bad of ['not valid!', 'x'.repeat(65), 42, '']) {
       const res = await request(launchApp()).post('/rails/0/launch')

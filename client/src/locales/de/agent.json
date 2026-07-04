@@ -233,7 +233,12 @@
         "merged": "Gemerged",
         "discarded": "Verworfen"
       }
-    }
+    },
+    "mergeLocal": "Lokal integrieren",
+    "mergeLocalTooltip": "Führt die gelieferten Branches lokal in {{base}} zusammen (ohne GitHub)",
+    "mergeLocalBlockedDirty": "Integration nicht möglich: dein Arbeitsverzeichnis auf {{base}} hat uncommittete Änderungen. Committe oder stashe sie und versuche es erneut.",
+    "mergeLocalBlockedBranch": "Integration nicht möglich: dein Checkout steht auf {{current}}, nicht auf {{base}}. Wechsle zu {{base}} und versuche es erneut.",
+    "mergedLocally": "Lokal in {{base}} integriert"
   },
   "specDraft": {
     "heading": "Spec-Entwurf",

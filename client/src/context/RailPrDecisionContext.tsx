@@ -31,6 +31,9 @@ export interface RailPrActResult {
   error?: string
   detail?: string
   current?: string
+  /** merge_local_blocked precondition (`wrong_branch` | `dirty`). */
+  reason?: string
+  base?: string
 }
 
 interface RailPrDecisionContextValue {

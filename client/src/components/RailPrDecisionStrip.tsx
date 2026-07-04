@@ -32,6 +32,7 @@ export function RailPrDecisionStrip({ decision, density, act }: RailPrDecisionSt
   const { t } = useTranslation('dashboard')
   const [inFlight, setInFlight] = useState<RailPrDecisionAction | null>(null)
   const [confirmDiscard, setConfirmDiscard] = useState(false)
+  const [confirmMergeLocal, setConfirmMergeLocal] = useState(false)
 
   const d = decision.decision
   if (d === 'building' || d === 'merged' || d === 'discarded') return null
@@ -44,12 +45,24 @@ export function RailPrDecisionStrip({ decision, density, act }: RailPrDecisionSt
     try {
       const res = await act(action, expected)
       if (res.status === 409) {
+        // merge-local preconditions are USER-fixable, not a lost race — say
+        // exactly what to fix (checkout the base / clean the tree) and stop.
+        if (res.error === 'merge_local_blocked') {
+          toast.warning(res.reason === 'dirty'
+            ? t('railPr.mergeLocalBlockedDirty', { base: res.base ?? decision.baseBranch })
+            : t('railPr.mergeLocalBlockedBranch', { base: res.base ?? decision.baseBranch, current: res.current ?? '?' }))
+          return
+        }
         // A concurrent answer (other surface / other client) won — the
         // broadcast reconciles the strip; just say so, neutrally.
         toast.info(t('railPr.alreadyResolved'))
         return
       }
       if (res.status === 502) {
+        if (res.error === 'merge_failed') {
+          toast.error(t('railPr.mergeLocalFailed', { detail: res.detail ?? '' }))
+          return
+        }
         toast.error(t('railPr.ghFailed', { detail: res.detail ?? res.error ?? '' }))
         return
       }
@@ -59,6 +72,9 @@ export function RailPrDecisionStrip({ decision, density, act }: RailPrDecisionSt
       }
       if (action === 'poll-merge' && res.merged === false) {
         toast.info(t('railPr.notMergedYet'))
+      }
+      if (action === 'merge-local' && res.decision === 'merged') {
+        toast.success(t('railPr.mergedLocally', { base: decision.baseBranch }))
       }
       // create-pr can succeed as an HTTP call yet land on pr_failed (retryable
       // delivery failure) — say so, carrying the underlying git/gh detail when
@@ -123,6 +139,25 @@ export function RailPrDecisionStrip({ decision, density, act }: RailPrDecisionSt
     </button>
   )
 
+  // Remote-less acceptance: integrate the delivered branches into the base
+  // branch locally. Offered wherever no real PR exists yet (on_review,
+  // degraded draft, pr_failed) — the GitHub-less journey's way to say "yes".
+  const mergeLocalBtn = (
+    <button
+      type="button"
+      data-testid="rail-pr-merge-local"
+      disabled={inFlight !== null}
+      title={t('railPr.mergeLocalTooltip', { base: decision.baseBranch })}
+      onClick={(e) => { e.stopPropagation(); setConfirmMergeLocal(true) }}
+      className={`inline-flex items-center gap-1 rounded-md font-medium border border-accent-success/40 bg-accent-success/10 text-accent-success hover:bg-accent-success/20 disabled:opacity-50 disabled:pointer-events-none transition-colors ${
+        compact ? 'px-1.5 py-0.5 text-[9px]' : 'px-2 py-0.5 text-[10px]'
+      }`}
+    >
+      {inFlight === 'merge-local' ? spinner : <GitMerge className={iconCls} aria-hidden />}
+      {t('railPr.mergeLocal')}
+    </button>
+  )
+
   const actionButton = (
     action: RailPrDecisionAction,
     expected: RailPrDecision,
@@ -158,6 +193,7 @@ export function RailPrDecisionStrip({ decision, density, act }: RailPrDecisionSt
     actions = (
       <>
         {actionButton('create-pr', 'on_review', t('railPr.createPr'), 'rail-pr-create', t('railPr.createPrTooltip', { base: decision.baseBranch }), <GitPullRequest className={iconCls} aria-hidden />)}
+        {mergeLocalBtn}
         {discardBtn}
       </>
     )
@@ -187,6 +223,7 @@ export function RailPrDecisionStrip({ decision, density, act }: RailPrDecisionSt
     actions = (
       <>
         {actionButton('create-pr', 'pr_draft', t('railPr.retryPr'), 'rail-pr-create', t('railPr.createPrTooltip', { base: decision.baseBranch }))}
+        {mergeLocalBtn}
         {discardBtn}
       </>
     )
@@ -214,6 +251,7 @@ export function RailPrDecisionStrip({ decision, density, act }: RailPrDecisionSt
     actions = (
       <>
         {actionButton('create-pr', 'pr_failed', t('railPr.retry'), 'rail-pr-create', t('railPr.createPrTooltip', { base: decision.baseBranch }))}
+        {mergeLocalBtn}
         {discardBtn}
       </>
     )
@@ -228,6 +266,29 @@ export function RailPrDecisionStrip({ decision, density, act }: RailPrDecisionSt
     >
       {pill}
       {actions}
+
+      {/* Merge-local confirmation — it writes merge commits into the user's
+          checkout of the base branch. Constructive but repo-touching. */}
+      <Dialog open={confirmMergeLocal} onOpenChange={setConfirmMergeLocal}>
+        <DialogContent className="max-w-sm" data-testid="rail-pr-merge-local-confirm">
+          <DialogHeader>
+            <DialogTitle>{t('railPr.mergeLocalConfirmTitle')}</DialogTitle>
+            <DialogDescription>{t('railPr.mergeLocalConfirmBody', { base: decision.baseBranch })}</DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button variant="outline" size="sm" onClick={() => setConfirmMergeLocal(false)}>
+              {t('common:actions.cancel')}
+            </Button>
+            <Button
+              size="sm"
+              data-testid="rail-pr-merge-local-confirm-btn"
+              onClick={() => { setConfirmMergeLocal(false); void run('merge-local', d) }}
+            >
+              {t('railPr.mergeLocal')}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       {/* Discard confirmation — destructive: branches + worktrees are dropped. */}
       <Dialog open={confirmDiscard} onOpenChange={setConfirmDiscard}>
