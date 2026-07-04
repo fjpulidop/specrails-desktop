@@ -164,7 +164,9 @@
   },
   "preview": {
     "steps": "ステップ",
-    "limits": "最大 {{iterations}} 回 · {{timeout}} 分タイムアウト"
+    "limits": "最大 {{iterations}} 回 · {{timeout}} 分タイムアウト",
+    "openInBuilder": "ビルダーで開く",
+    "builtin": "ビルトイン"
   },
   "builtInBadge": "組み込み",
   "run": {

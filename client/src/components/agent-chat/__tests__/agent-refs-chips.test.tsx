@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest'
-import { render, screen, fireEvent, waitFor } from '@testing-library/react'
+import { render, screen, fireEvent, waitFor, renderHook, act } from '@testing-library/react'
 
 // ── Mocks ─────────────────────────────────────────────────────────────────────
 
@@ -35,11 +35,14 @@ vi.mock('../../../context/TicketDetailModalContext', () => ({
 }))
 
 import { useState } from 'react'
+import { MemoryRouter } from 'react-router-dom'
 import { toast } from 'sonner'
 import { AgentMessage } from '../AgentMessage'
 import { AgentPrDecisionCard } from '../AgentPrDecisionCard'
 import type { AgentPrDecisionEnvelope } from '../../../lib/agent-api'
 import type { AgentRefTarget } from '../../../lib/agent-refs'
+import { useAgentRefActions } from '../../../hooks/useAgentRefActions'
+import { LoopPreviewModal } from '../../loops/LoopPreviewModal'
 
 const UUID = '85d6ab14-1111-4222-8333-444455556666'
 
@@ -191,5 +194,137 @@ describe('job chip → JobDetailModal handoff carries the pinned project', () =>
     render(<Harness content={`loop run ${UUID} settled`} />)
     fireEvent.click(screen.getByTestId('agent-ref-chip'))
     expect(screen.getByTestId('job-modal-mounted').textContent).toBe(`p9:${UUID}`)
+  })
+})
+
+// ── Loop refs (factory ids + uuid fallback) ───────────────────────────────────
+
+describe('loop ref chips + resolution', () => {
+  const onOpenRef = vi.fn()
+
+  it('renders factory:implement as a loop chip and reports the loop target', () => {
+    render(
+      <AgentMessage
+        role="assistant"
+        content="Lo lanzo con el loop factory:implement en el rail 2"
+        refsProjectId="p1"
+        onOpenRef={onOpenRef}
+      />,
+    )
+    const chip = screen.getByTestId('agent-ref-chip')
+    expect(chip).toHaveAttribute('data-ref-kind', 'loop')
+    expect(chip.textContent).toContain('factory:implement')
+    fireEvent.click(chip)
+    expect(onOpenRef).toHaveBeenCalledWith({ kind: 'loop', loopId: 'factory:implement' })
+  })
+
+  const graph = { nodes: [], edges: [], config: { maxIterations: 3, timeoutMinutes: 30 } }
+
+  it('openRef(loop factory id) resolves via /api/loops/factory and exposes loopRef', async () => {
+    const fetchMock = vi.fn(async (url: string) => {
+      if (url === '/api/loops/factory') {
+        return { ok: true, status: 200, json: async () => ({ loops: [{ id: 'factory:implement', name: 'Implement', description: 'd', graph }] }) }
+      }
+      return notFoundRes
+    })
+    vi.stubGlobal('fetch', fetchMock)
+    const { result } = renderHook(() => useAgentRefActions())
+    await act(async () => { await result.current.openRef('p1', { kind: 'loop', loopId: 'factory:implement' }) })
+    expect(result.current.loopRef).toMatchObject({ id: 'factory:implement', name: 'Implement', locked: true, status: null })
+    act(() => result.current.closeLoopRef())
+    expect(result.current.loopRef).toBeNull()
+    vi.unstubAllGlobals()
+  })
+
+  it('a job-detected uuid that is a LOOP DEFINITION falls back to the loops API', async () => {
+    const fetchMock = vi.fn(async (url: string) => {
+      if (url.includes('/jobs/')) return notFoundRes
+      if (url === `/api/loops/${UUID}`) {
+        return { ok: true, status: 200, json: async () => ({ loop: { id: UUID, name: 'My loop', description: null, status: 'published', graph } }) }
+      }
+      return notFoundRes
+    })
+    vi.stubGlobal('fetch', fetchMock)
+    const { result } = renderHook(() => useAgentRefActions())
+    await act(async () => { await result.current.openRef('p1', { kind: 'job', jobId: UUID }) })
+    expect(result.current.jobRef).toBeNull()
+    expect(result.current.loopRef).toMatchObject({ id: UUID, name: 'My loop', status: 'published', locked: false })
+    vi.unstubAllGlobals()
+  })
+
+  it('a uuid that is neither job nor loop keeps the not-found toast (no modal)', async () => {
+    vi.stubGlobal('fetch', vi.fn(async () => notFoundRes))
+    const { result } = renderHook(() => useAgentRefActions())
+    await act(async () => { await result.current.openRef('p1', { kind: 'job', jobId: UUID }) })
+    expect(result.current.jobRef).toBeNull()
+    expect(result.current.loopRef).toBeNull()
+    expect(toast.info).toHaveBeenCalled()
+    vi.unstubAllGlobals()
+  })
+
+  it('a real job still opens the job modal (fallback never fires)', async () => {
+    const fetchMock = vi.fn(async () => okRes)
+    vi.stubGlobal('fetch', fetchMock)
+    const { result } = renderHook(() => useAgentRefActions())
+    await act(async () => { await result.current.openRef('p1', { kind: 'job', jobId: UUID }) })
+    expect(result.current.jobRef).toEqual({ projectId: 'p1', jobId: UUID })
+    expect(fetchMock).toHaveBeenCalledTimes(1)
+    vi.unstubAllGlobals()
+  })
+})
+
+// ── LoopPreviewModal ──────────────────────────────────────────────────────────
+
+describe('LoopPreviewModal', () => {
+  const loop = {
+    id: 'l1',
+    name: 'Nightly refactor',
+    description: 'Runs every night',
+    status: 'published',
+    graph: {
+      nodes: [
+        { id: 's', type: 'start' as const, position: { x: 0, y: 0 } },
+        { id: 'a', type: 'ai-step' as const, position: { x: 0, y: 1 }, data: { prompt: 'do work' } },
+        { id: 'e', type: 'end' as const, position: { x: 0, y: 2 } },
+      ],
+      edges: [],
+      config: { maxIterations: 5, timeoutMinutes: 60 },
+    },
+    locked: false,
+  }
+
+  it('renders name, steps and Open-in-builder; builder navigates and closes', () => {
+    const onClose = vi.fn()
+    render(
+      <MemoryRouter>
+        <LoopPreviewModal loop={loop} onClose={onClose} />
+      </MemoryRouter>,
+    )
+    expect(screen.getByTestId('loop-preview-modal')).toBeInTheDocument()
+    expect(screen.getByText('Nightly refactor')).toBeInTheDocument()
+    expect(screen.getByText('do work')).toBeInTheDocument()
+    fireEvent.click(screen.getByTestId('loop-preview-open-builder'))
+    expect(onClose).toHaveBeenCalled()
+  })
+
+  it('a locked factory loop hides the builder action and shows the built-in pill', () => {
+    render(
+      <MemoryRouter>
+        <LoopPreviewModal loop={{ ...loop, locked: true, status: null }} onClose={vi.fn()} />
+      </MemoryRouter>,
+    )
+    expect(screen.queryByTestId('loop-preview-open-builder')).toBeNull()
+    expect(screen.getByText('Built-in')).toBeInTheDocument()
+  })
+
+  it('Escape closes', () => {
+    const onClose = vi.fn()
+    render(
+      <MemoryRouter>
+        <LoopPreviewModal loop={loop} onClose={onClose} />
+      </MemoryRouter>,
+    )
+    fireEvent.keyDown(window, { key: 'Escape' })
+    expect(onClose).toHaveBeenCalled()
   })
 })

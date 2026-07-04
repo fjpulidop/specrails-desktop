@@ -236,3 +236,46 @@ describe('inline-code uuid refs (backticked ids)', () => {
     expect(ctx.size).toBe(0)
   })
 })
+
+describe('loop refs (factory ids + href codec)', () => {
+  it('round-trips a factory loop ref and a uuid loop ref', () => {
+    const href = agentRefHref({ kind: 'loop', loopId: 'factory:implement' })
+    expect(href).toBe('#agentref:loop:factory:implement')
+    expect(parseAgentRefHref(href)).toEqual({ kind: 'loop', loopId: 'factory:implement' })
+    const uuidHref = agentRefHref({ kind: 'loop', loopId: UUID })
+    expect(parseAgentRefHref(uuidHref)).toEqual({ kind: 'loop', loopId: UUID })
+    expect(parseAgentRefHref('#agentref:loop:not-a-loop')).toBeNull()
+    expect(parseAgentRefHref('#agentref:loop:factory:otherthing')).toBeNull()
+  })
+
+  it('linkifies factory:implement|batch|ultracode literals without a context gate', () => {
+    for (const id of ['factory:implement', 'factory:batch', 'factory:ultracode']) {
+      expect(refs(splitAgentRefs(`lanzo con ${id} ahora`, noCtx))).toEqual([
+        { kind: 'loop', loopId: id, label: id },
+      ])
+    }
+  })
+
+  it('is token-bounded: no match mid-word or with trailing word chars', () => {
+    expect(refs(splitAgentRefs('myfactory:implement', noCtx))).toEqual([])
+    expect(refs(splitAgentRefs('factory:implementation', noCtx))).toEqual([])
+    expect(refs(splitAgentRefs('factory:other', noCtx))).toEqual([])
+  })
+
+  it('backticked factory ids become loop refs; other inline code stays code', () => {
+    const tree = root(
+      para({ type: 'inlineCode', value: 'factory:implement' }, text(' vs ')),
+      para({ type: 'inlineCode', value: 'npm test' }),
+    )
+    remarkAgentRefs()(tree as never, vfile('`factory:implement` vs\n\n`npm test`'))
+    const first = tree.children![0].children!
+    expect(first[0].type).toBe('link')
+    expect(first[0].url).toBe('#agentref:loop:factory:implement')
+    expect(tree.children![1].children![0]).toEqual({ type: 'inlineCode', value: 'npm test' })
+  })
+
+  it('mixed line: ticket + factory loop + gated uuid all linkify', () => {
+    const segs = refs(splitAgentRefs(`#7 via factory:batch job ${UUID}`, ctx(UUID)))
+    expect(segs.map((s) => s.kind)).toEqual(['ticket', 'loop', 'job'])
+  })
+})

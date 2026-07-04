@@ -20,6 +20,12 @@ const JobDetailModal = lazy(() =>
   import('../JobDetailModal').then((m) => ({ default: m.JobDetailModal })),
 )
 
+// Only loads when a loop-ref chip resolves — keeps the loops stack out of the
+// conversation chunk.
+const LoopPreviewModal = lazy(() =>
+  import('../loops/LoopPreviewModal').then((m) => ({ default: m.LoopPreviewModal })),
+)
+
 // Foreign/unparseable system rows are skipped (never render raw JSON); warn
 // once per row id so a corrupt row doesn't spam on every re-render.
 const warnedSystemRows = new Set<string>()
@@ -43,7 +49,7 @@ export function AgentConversationView({ variant }: { variant: 'floating' | 'inli
   // project (it may differ from the active one). Home/app-global missions have
   // no pin, so refs stay plain text there (v1 choice — a bare `#N` / uuid is
   // only resolvable against a concrete project).
-  const { openRef, jobRef, closeJobRef } = useAgentRefActions()
+  const { openRef, jobRef, closeJobRef, loopRef, closeLoopRef } = useAgentRefActions()
   const refsProjectId = active?.pinned_project_id ?? null
   const onOpenRef = useMemo(
     () =>
@@ -238,6 +244,14 @@ export function AgentConversationView({ variant }: { variant: 'floating' | 'inli
       {jobRef && (
         <Suspense fallback={null}>
           <JobDetailModal jobId={jobRef.jobId} projectId={jobRef.projectId} onClose={closeJobRef} />
+        </Suspense>
+      )}
+
+      {/* Loop ref chip resolved (factory id, or a uuid that turned out to be a
+          loop definition): the read-only loop preview — loops are app-global. */}
+      {loopRef && (
+        <Suspense fallback={null}>
+          <LoopPreviewModal loop={loopRef} onClose={closeLoopRef} />
         </Suspense>
       )}
     </div>

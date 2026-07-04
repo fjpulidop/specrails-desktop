@@ -164,7 +164,9 @@
   },
   "preview": {
     "steps": "Passi",
-    "limits": "max {{iterations}} iterazioni · {{timeout}} min di timeout"
+    "limits": "max {{iterations}} iterazioni · {{timeout}} min di timeout",
+    "openInBuilder": "Apri nel builder",
+    "builtin": "Integrato"
   },
   "builtInBadge": "Integrato",
   "run": {

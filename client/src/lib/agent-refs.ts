@@ -7,7 +7,12 @@
  *      title tail (`#3 — Add dark mode`), → the board's TicketDetailModal.
  *   2. Job/loop-run ids — v4-ish UUIDs, but ONLY when the same source line
  *      carries a job/run/loop context word (EN + ES) so conversation ids in
- *      debug output never linkify, → the mission-mode JobDetailModal.
+ *      debug output never linkify, → the mission-mode JobDetailModal. A uuid
+ *      that turns out to be a LOOP DEFINITION id (not a job row) is resolved
+ *      at click time (the click layer falls back to the loops API) and opens
+ *      the read-only LoopPreviewModal instead — detection stays pattern-only.
+ *   3. Factory loop ids — the literal `factory:implement|batch|ultracode`
+ *      tokens, → the same LoopPreviewModal (built-in, locked).
  *
  * Implemented as a remark plugin (`remarkAgentRefs`) so code blocks and inline
  * code are excluded for free (their content is a `code`/`inlineCode` literal,
@@ -20,20 +25,22 @@
 export type AgentRefTarget =
   | { kind: 'ticket'; ticketId: number }
   | { kind: 'job'; jobId: string }
+  | { kind: 'loop'; loopId: string }
 
 export type AgentRefSegment =
   | { kind: 'text'; text: string }
   | { kind: 'ticket'; ticketId: number; label: string }
   | { kind: 'job'; jobId: string; label: string }
+  | { kind: 'loop'; loopId: string; label: string }
 
 // ── href codec (fragment form survives defaultUrlTransform) ─────────────────
 
 const HREF_PREFIX = '#agentref:'
 
 export function agentRefHref(ref: AgentRefTarget): string {
-  return ref.kind === 'ticket'
-    ? `${HREF_PREFIX}ticket:${ref.ticketId}`
-    : `${HREF_PREFIX}job:${ref.jobId}`
+  if (ref.kind === 'ticket') return `${HREF_PREFIX}ticket:${ref.ticketId}`
+  if (ref.kind === 'loop') return `${HREF_PREFIX}loop:${ref.loopId}`
+  return `${HREF_PREFIX}job:${ref.jobId}`
 }
 
 export function parseAgentRefHref(href: string | null | undefined): AgentRefTarget | null {
@@ -47,6 +54,12 @@ export function parseAgentRefHref(href: string | null | undefined): AgentRefTarg
     const jobId = rest.slice('job:'.length)
     return UUID_EXACT_RE.test(jobId) ? { kind: 'job', jobId } : null
   }
+  if (rest.startsWith('loop:')) {
+    const loopId = rest.slice('loop:'.length)
+    return FACTORY_LOOP_EXACT_RE.test(loopId) || UUID_EXACT_RE.test(loopId)
+      ? { kind: 'loop', loopId }
+      : null
+  }
   return null
 }
 
@@ -54,6 +67,10 @@ export function parseAgentRefHref(href: string | null | undefined): AgentRefTarg
 
 const UUID_SOURCE = '[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}'
 const UUID_EXACT_RE = new RegExp(`^${UUID_SOURCE}$`)
+/** Built-in factory loop ids (`server/loop-factory.ts`) — unambiguous literal
+ *  tokens, so they linkify without a context-word gate. */
+const FACTORY_LOOP_SOURCE = 'factory:(?:implement|batch|ultracode)'
+const FACTORY_LOOP_EXACT_RE = new RegExp(`^${FACTORY_LOOP_SOURCE}$`)
 /** Context words that mark a line as job/run/loop-talk (EN + ES), including
  *  camelCase id compounds (`loopRunId`, `jobId`, `runId`) that `\b` alone
  *  would miss. */
@@ -134,6 +151,22 @@ function scanJobs(text: string, jobContextUuids: ReadonlySet<string>, out: RawMa
   }
 }
 
+function scanFactoryLoops(text: string, out: RawMatch[]): void {
+  const re = new RegExp(FACTORY_LOOP_SOURCE, 'g')
+  let m: RegExpExecArray | null
+  while ((m = re.exec(text)) !== null) {
+    const before = text[m.index - 1]
+    const after = text[m.index + m[0].length]
+    if (before !== undefined && BAD_BEFORE_RE.test(before)) continue
+    if (after !== undefined && BAD_AFTER_RE.test(after)) continue
+    out.push({
+      start: m.index,
+      end: m.index + m[0].length,
+      segment: { kind: 'loop', loopId: m[0], label: m[0] },
+    })
+  }
+}
+
 /**
  * Pure segmentation of one plain-text run into text + ref segments.
  * `jobContextUuids` comes from `computeJobContextUuids(rawSource)`.
@@ -145,6 +178,7 @@ export function splitAgentRefs(
   const matches: RawMatch[] = []
   scanTickets(text, matches)
   scanJobs(text, jobContextUuids, matches)
+  scanFactoryLoops(text, matches)
   if (matches.length === 0) return [{ kind: 'text', text }]
   matches.sort((a, b) => a.start - b.start)
 
@@ -191,7 +225,9 @@ function segmentToNode(segment: AgentRefSegment): MdNode {
   const ref: AgentRefTarget =
     segment.kind === 'ticket'
       ? { kind: 'ticket', ticketId: segment.ticketId }
-      : { kind: 'job', jobId: segment.jobId }
+      : segment.kind === 'loop'
+        ? { kind: 'loop', loopId: segment.loopId }
+        : { kind: 'job', jobId: segment.jobId }
   return {
     type: 'link',
     url: agentRefHref(ref),
@@ -212,6 +248,9 @@ function walk(node: MdNode, jobContextUuids: ReadonlySet<string>): void {
       if (UUID_EXACT_RE.test(value) && jobContextUuids.has(value.toLowerCase())) {
         const jobId = value.toLowerCase()
         children.splice(i, 1, segmentToNode({ kind: 'job', jobId, label: `${jobId.slice(0, 8)}…` }))
+      } else if (FACTORY_LOOP_EXACT_RE.test(value)) {
+        // Backticked factory ids (`factory:implement`) are loop refs, not code.
+        children.splice(i, 1, segmentToNode({ kind: 'loop', loopId: value, label: value }))
       }
       continue
     }
