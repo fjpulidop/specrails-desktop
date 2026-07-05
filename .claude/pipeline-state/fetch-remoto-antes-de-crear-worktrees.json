@@ -1,0 +1,36 @@
+{
+  "schema_version": "1",
+  "feature": "fetch-remoto-antes-de-crear-worktrees",
+  "started_at": "2026-07-05T19:38:15Z",
+  "updated_at": "2026-07-05T20:18:45Z",
+  "phases": {
+    "architect": "done",
+    "developer": "done",
+    "test-writer": "skipped",
+    "doc-sync": "skipped",
+    "reviewer": "done",
+    "ship": "skipped",
+    "ci": "skipped"
+  },
+  "last_successful_phase": "reviewer",
+  "failed_phase": null,
+  "error_context": null,
+  "openspec_artifacts": "openspec/changes/fetch-remoto-antes-de-crear-worktrees/",
+  "implemented_files": [
+    "server/integration-branch.ts",
+    "server/integration-branch.test.ts",
+    "server/rail-isolated-launch.ts",
+    "server/rail-isolated-launch.test.ts",
+    "server/types.ts"
+  ],
+  "input": {
+    "issues": [
+      2
+    ],
+    "flags": {
+      "dry_run": false,
+      "apply_mode": false,
+      "single_mode": true
+    }
+  }
+}

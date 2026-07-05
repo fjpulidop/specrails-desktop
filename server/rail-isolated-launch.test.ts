@@ -9,8 +9,9 @@ import { getActivePrDeliveryByRail, listActivePrDeliveries } from './rail-pr-sto
 import { insertLinkWithId } from './jira/jira-db'
 import { setAgentChatManager } from './agent-chat-registry'
 import type { AgentChatManager } from './agent-chat-manager'
-import type { RailPrStateMessage } from './types'
+import type { RailPrStateMessage, RailFetchDegradedMessage } from './types'
 import type { ProjectContext } from './project-registry'
+import { __resetFetchOriginCache } from './integration-branch'
 
 // The legacy merge-back must never spawn real executors from a test settle —
 // stub it (PR-mode tests assert it is NOT called; the kill-switch-off pin
@@ -19,6 +20,13 @@ const { mockRunMergeBack } = vi.hoisted(() => ({ mockRunMergeBack: vi.fn() }))
 vi.mock('./rail-merge-orchestrator', () => ({ runMergeBack: mockRunMergeBack }))
 
 const ORIG_PR = process.env.SPECRAILS_RAIL_DELIVER_PR
+// fetchOrigin's TTL cache is module-level and keyed by repoDir — nearly every
+// test below shares the same fake repo path ('/repo'), so without a reset the
+// FIRST test's fetch/rev-parse outcome would leak into every subsequent test
+// launched within the same 15s TTL window (test suites run far faster than
+// that). Reset before every test so each case's own fake `git` is the one
+// that actually answers `fetchOrigin`/`resolveWorktreeBaseRef`.
+beforeEach(() => { __resetFetchOriginCache() })
 beforeEach(() => { mockRunMergeBack.mockReset().mockResolvedValue([]) })
 afterEach(() => {
   if (ORIG_PR === undefined) delete process.env.SPECRAILS_RAIL_DELIVER_PR
@@ -70,9 +78,12 @@ describe('launchIsolatedRail', () => {
     expect(ledger.every((r) => r.merge_state === 'building')).toBe(true)
   })
 
-  it('branches worktrees off the resolved integration branch (repo default)', async () => {
+  it('branches worktrees off the resolved integration branch (repo default), remote-tracking ref once fetch succeeds', async () => {
     const { ctx } = fakeCtx()
     const create = vi.fn(async (_g, { ticketId }: { ticketId: number }) => ({ branch: `sr/p/ticket-${ticketId}`, worktreePath: `/wt/ticket-${ticketId}` }))
+    // This fake's catch-all `{ code: 0, ... }` branch means BOTH the new
+    // `fetch origin` call and the `rev-parse --verify` existence check succeed
+    // too — so baseRef resolves to the remote-tracking ref, not the bare name.
     const git = {
       run: async (args: string[]) =>
         args[0] === 'symbolic-ref'
@@ -83,7 +94,67 @@ describe('launchIsolatedRail', () => {
 
     await launchIsolatedRail(input([1], ctx), io)
 
+    expect(create).toHaveBeenCalledWith(git, expect.objectContaining({ ticketId: 1, baseRef: 'origin/develop' }))
+  })
+
+  it('fetch fails → falls back to the bare local branch name (legacy-identical); launch still completes', async () => {
+    const { ctx } = fakeCtx()
+    const create = vi.fn(async (_g, { ticketId }: { ticketId: number }) => ({ branch: `sr/p/ticket-${ticketId}`, worktreePath: `/wt/ticket-${ticketId}` }))
+    const git = {
+      run: async (args: string[]) => {
+        if (args[0] === 'fetch') return { code: 1, stdout: '', stderr: "fatal: unable to access 'origin': Could not resolve host" }
+        if (args[0] === 'symbolic-ref') return { code: 0, stdout: 'refs/remotes/origin/develop\n', stderr: '' }
+        return { code: 0, stdout: '', stderr: '' }
+      },
+    }
+    const io: IsolatedLaunchIO = { git, create, remove: vi.fn(async () => {}) }
+
+    const ids = await launchIsolatedRail(input([1], ctx), io)
+
+    expect(ids).toHaveLength(1) // no throw — the launch completes normally
     expect(create).toHaveBeenCalledWith(git, expect.objectContaining({ ticketId: 1, baseRef: 'develop' }))
+  })
+
+  it('fetch fails → broadcasts rail.fetch_degraded (non-blocking, visible degradation)', async () => {
+    const { ctx, broadcast } = fakeCtx()
+    const create = vi.fn(async (_g, { ticketId }: { ticketId: number }) => ({ branch: `sr/p/ticket-${ticketId}`, worktreePath: `/wt/ticket-${ticketId}` }))
+    const git = {
+      run: async (args: string[]) => (args[0] === 'fetch' ? { code: 1, stdout: '', stderr: 'fatal: no route to host' } : { code: 0, stdout: '', stderr: '' }),
+    }
+    const io: IsolatedLaunchIO = { git, create, remove: vi.fn(async () => {}) }
+
+    await launchIsolatedRail(input([1], ctx), io)
+
+    const degraded = broadcast.mock.calls.map((c) => c[0] as RailFetchDegradedMessage).find((m) => m?.type === 'rail.fetch_degraded')
+    expect(degraded).toMatchObject({
+      type: 'rail.fetch_degraded', projectId: 'proj', railIndex: 0,
+      warning: 'git fetch origin failed; using local ref',
+    })
+  })
+
+  // NOTE (task 3.5c): `IsolatedLaunchInput` has no `explicit` branch-override
+  // field, and `launchIsolatedRail`'s own `resolveIntegrationBranch(...)` call
+  // never passes one (only `projectSetting`) — so `source: 'explicit'` is
+  // unreachable through this function's input surface today. Per the task's
+  // own escape valve, that policy (no origin/ prefix, no existence-check
+  // call) is exhaustively covered instead by `resolveWorktreeBaseRef`'s own
+  // unit tests in integration-branch.test.ts (task 2.2c).
+
+  it('a batch of 2+ units in ONE launchIsolatedRail call fetches origin exactly once (not once per unit)', async () => {
+    const { ctx } = fakeCtx()
+    const create = vi.fn(async (_g, { ticketId }: { ticketId: number }) => ({ branch: `sr/p/ticket-${ticketId}`, worktreePath: `/wt/ticket-${ticketId}` }))
+    let fetchCalls = 0
+    const git = {
+      run: async (args: string[]) => {
+        if (args[0] === 'fetch') fetchCalls++
+        return { code: 0, stdout: '', stderr: '' }
+      },
+    }
+    const io: IsolatedLaunchIO = { git, create, remove: vi.fn(async () => {}) }
+
+    await launchIsolatedRail(input([1, 2, 3], ctx), io)
+
+    expect(fetchCalls).toBe(1)
   })
 
   it('scope=all → ONE worktree + one run covering every ticket', async () => {
@@ -114,6 +185,38 @@ describe('launchIsolatedRail', () => {
     // the one successfully-allocated worktree (#1) is torn down; no runs spawned
     expect(remove).toHaveBeenCalledTimes(1)
     expect(run).not.toHaveBeenCalled()
+  })
+})
+
+// ── Cross-request batch dedup ("Launch all") ─────────────────────────────────
+// Neither "batch" launch surface (the dashboard's client-side Promise.allSettled
+// fan-out, the MCP launch_all server-side loop) is a real server-side batch
+// transaction — each rail's launch is an independent HTTP request that ends up
+// calling launchIsolatedRail once. The "one fetch per batch" acceptance
+// criterion is therefore proven at the level this codebase can actually
+// exercise it: TWO separate launchIsolatedRail calls for the SAME repo path,
+// back-to-back, sharing the module-level fetchOrigin TTL cache.
+describe('launchIsolatedRail — cross-request fetch dedup (Launch all simulation)', () => {
+  it('two independent launchIsolatedRail calls for the SAME project.path within the TTL window share ONE real git fetch', async () => {
+    const a = fakeCtx()
+    const b = fakeCtx() // same project.path ('/repo') → same fetchOrigin cache key
+    const create = vi.fn(async (_g: unknown, { ticketId }: { ticketId: number }) => ({ branch: `sr/p/ticket-${ticketId}`, worktreePath: `/wt/ticket-${ticketId}` }))
+    let fetchCalls = 0
+    const git = {
+      run: async (args: string[]) => {
+        if (args[0] === 'fetch') fetchCalls++
+        return { code: 0, stdout: '', stderr: '' }
+      },
+    }
+    const io: IsolatedLaunchIO = { git, create, remove: vi.fn(async () => {}) }
+
+    // Simulates two rails' independent POST /:railIndex/launch requests
+    // landing back-to-back for the same repo, as "Launch all" produces.
+    await launchIsolatedRail(input([1], a.ctx), io)
+    await launchIsolatedRail({ ...input([2], b.ctx), railIndex: 1 }, io)
+
+    expect(fetchCalls).toBe(1)
+    a.db.close(); b.db.close()
   })
 })
 

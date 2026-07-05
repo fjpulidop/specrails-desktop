@@ -31,7 +31,7 @@ import { ticketBranchName, resolveCollisionFreeName, type TicketNamingInput } fr
 import { getLinkByLocalId } from './jira/jira-db'
 import type { DbInstance } from './db'
 import { getProjectSettings } from './db'
-import { resolveIntegrationBranch, type ResolvedIntegrationBranch } from './integration-branch'
+import { resolveIntegrationBranch, fetchOrigin, resolveWorktreeBaseRef, type ResolvedIntegrationBranch } from './integration-branch'
 import { withRepoLock } from './repo-lock'
 import { isRailPrDeliveryEnabled } from './rail-isolation'
 import {
@@ -230,6 +230,18 @@ export async function launchIsolatedRail(input: IsolatedLaunchInput, io: Isolate
   let integration!: ResolvedIntegrationBranch
   const allocated: AllocatedRun[] = []
   await withRepoLock(baseRepo, async () => {
+  // Bring the repo's remote-tracking refs up to date BEFORE resolving the
+  // integration branch or allocating any worktree — otherwise `git worktree
+  // add -b <branch> <path> <bare-name>` resolves against whatever (possibly
+  // stale) commit the user's LOCAL branch happens to be at. `fetchOrigin` only
+  // ever touches `refs/remotes/origin/*`; it never mutates the checked-out
+  // branch/working tree. De-duped per repo for a short TTL so a "Launch all"
+  // batch (N independent launch requests for the same repo, serialized by
+  // this same withRepoLock) performs one real fetch, not one per rail. A
+  // failed fetch (no network / no remote / auth error) never blocks the
+  // launch — resolveWorktreeBaseRef below degrades to the local ref.
+  const fetchResult = await fetchOrigin(git, baseRepo)
+
   // Resolve the project's designated integration branch ONCE, and branch every
   // ticket's worktree off it (not the ambient HEAD). Empty setting → auto-resolve
   // (repo default → HEAD fallback). See server/integration-branch.ts.
@@ -237,6 +249,20 @@ export async function launchIsolatedRail(input: IsolatedLaunchInput, io: Isolate
     repoDir: baseRepo,
     projectSetting: getProjectSettings(ctx.db).integrationBranch,
   })
+
+  // Prefer the freshly-fetched remote-tracking ref (origin/<branch>) over the
+  // bare local name for repo-default/project-setting sources — see
+  // resolveWorktreeBaseRef for the exact fallback policy. `explicit` is left
+  // completely untouched (rare, launch-time-chosen override).
+  const worktreeBaseRef = await resolveWorktreeBaseRef(git, {
+    repoDir: baseRepo, integration, fetchOk: fetchResult.ok,
+  })
+  if (worktreeBaseRef.warning) {
+    console.warn(`[rail-isolated] ${worktreeBaseRef.warning} (repo ${baseRepo})`)
+    try {
+      ctx.broadcast({ type: 'rail.fetch_degraded', projectId: ctx.project.id, railIndex, warning: worktreeBaseRef.warning })
+    } catch { /* non-fatal, mirrors notifyOverlayDegraded's broadcast guard below */ }
+  }
 
   if (prMode) {
     prDeliveryId = createPrDelivery(ctx.db, {
@@ -273,7 +299,7 @@ export async function launchIsolatedRail(input: IsolatedLaunchInput, io: Isolate
 
   try {
     for (const unit of units) {
-      const handle = await create(git, { repoDir: baseRepo, worktreesRoot, slug, ticketId: unit.ticketId, baseRef: integration.branch, branch: unitBranchName(unit.ticketId) })
+      const handle = await create(git, { repoDir: baseRepo, worktreesRoot, slug, ticketId: unit.ticketId, baseRef: worktreeBaseRef.baseRef, branch: unitBranchName(unit.ticketId) })
       // Per-run overlay: merge-link the framework surface the checkout didn't
       // bring into the worktree (idempotent; resume-safe via its manifest).
       let overlayExcludes: string[] = []

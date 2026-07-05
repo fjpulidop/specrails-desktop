@@ -23,6 +23,61 @@ export interface ResolvedIntegrationBranch {
   source: IntegrationBranchSource
 }
 
+export interface FetchResult {
+  ok: boolean
+  error?: string
+}
+
+/** How long a fetch outcome (success OR failure) is reused for the same repo
+ *  before a fresh `git fetch origin` is attempted again. Exists so a burst of
+ *  near-simultaneous launches against the SAME repo — e.g. a "Launch all"
+ *  batch, which is N independent HTTP requests with no shared server-side
+ *  transaction (see design.md Decision 2) — performs one real fetch instead of
+ *  one per rail. */
+export const FETCH_ORIGIN_TTL_MS = 15_000
+
+const fetchCache = new Map<string, { at: number; result: Promise<FetchResult> }>()
+
+/** Test-only: clear the fetch dedup cache so tests never leak state across
+ *  cases (mirrors `__resetRepoLocks` in repo-lock.ts). */
+export function __resetFetchOriginCache(): void {
+  fetchCache.clear()
+}
+
+/**
+ * `git fetch origin` against `repoDir` — updates ONLY `refs/remotes/origin/*`,
+ * never the checked-out local branch or working tree (Git itself refuses to
+ * touch either via a plain fetch). Never throws: any non-zero exit or runner
+ * rejection resolves to `{ ok: false, error }` so callers can degrade
+ * gracefully instead of failing the launch.
+ *
+ * De-duped per `repoDir` for `FETCH_ORIGIN_TTL_MS`: a call within the window
+ * of the last attempt (success OR failure) for the same repo reuses that
+ * outcome instead of spawning a new `git fetch` process. `now` is injectable
+ * so tests can control TTL expiry without real timers.
+ */
+export async function fetchOrigin(
+  git: GitRunner,
+  repoDir: string,
+  now: () => number = Date.now,
+): Promise<FetchResult> {
+  const cached = fetchCache.get(repoDir)
+  const nowMs = now()
+  if (cached && nowMs - cached.at < FETCH_ORIGIN_TTL_MS) return cached.result
+
+  const result = (async (): Promise<FetchResult> => {
+    try {
+      const r = await git.run(['fetch', 'origin'], repoDir)
+      if (r.code === 0) return { ok: true }
+      return { ok: false, error: r.stderr.trim() || r.stdout.trim() || `exit ${r.code}` }
+    } catch (err) {
+      return { ok: false, error: err instanceof Error ? err.message : String(err) }
+    }
+  })()
+  fetchCache.set(repoDir, { at: nowMs, result })
+  return result
+}
+
 export interface ResolveIntegrationBranchInput {
   repoDir: string
   /** Explicit branch chosen at launch time (rare). */
@@ -87,4 +142,49 @@ export async function resolveIntegrationBranch(
 
   // Detached / no remote / unresolvable → the literal HEAD (legacy-identical).
   return { branch: 'HEAD', source: 'head-fallback' }
+}
+
+export interface WorktreeBaseRefResolution {
+  baseRef: string
+  usedRemote: boolean
+  warning?: string
+}
+
+/**
+ * Decide the actual `baseRef` a worktree should branch from, given the
+ * already-resolved integration branch and whether `fetchOrigin` succeeded.
+ *
+ * `explicit` is a launch-time override the caller chose on purpose — it is
+ * NEVER remote-prefixed and NEVER existence-checked (see proposal.md Out of
+ * Scope). Every other source (`repo-default`, `project-setting`,
+ * `head-fallback`) uses the fetched remote-tracking ref `origin/<branch>`
+ * ONLY when the fetch succeeded AND that remote branch actually exists —
+ * guards a `project-setting` branch that was never pushed, which would
+ * otherwise turn a working local-only setup into a broken `git worktree add`.
+ * Any failure of either check falls back to today's bare local branch name,
+ * with a human-readable `warning` the caller can log/broadcast.
+ */
+export async function resolveWorktreeBaseRef(
+  git: GitRunner,
+  input: { repoDir: string; integration: ResolvedIntegrationBranch; fetchOk: boolean },
+): Promise<WorktreeBaseRefResolution> {
+  const { repoDir, integration, fetchOk } = input
+  if (integration.source === 'explicit') {
+    return { baseRef: integration.branch, usedRemote: false }
+  }
+  if (!fetchOk) {
+    return { baseRef: integration.branch, usedRemote: false, warning: 'git fetch origin failed; using local ref' }
+  }
+  const exists = await git.run(
+    ['rev-parse', '--verify', '--quiet', `refs/remotes/origin/${integration.branch}`],
+    repoDir,
+  )
+  if (exists.code === 0) {
+    return { baseRef: `origin/${integration.branch}`, usedRemote: true }
+  }
+  return {
+    baseRef: integration.branch,
+    usedRemote: false,
+    warning: `origin/${integration.branch} not found; using local ref`,
+  }
 }
