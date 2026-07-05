@@ -10,7 +10,7 @@ import { spawn, execFileSync } from 'node:child_process'
 import { createHash } from 'node:crypto'
 import treeKill from 'tree-kill'
 import { getAdapter } from './providers'
-import { ensureFrameworkAgents } from './workspace-manager'
+import { ensureFrameworkAgents, ensureFrameworkCommandSubtrees } from './workspace-manager'
 import { ensureClaudeTrusted } from './claude-trust'
 import { runAiCliInvocation } from './spawn-lifecycle'
 import { finaliseInvocationResult } from './result-event'
@@ -162,7 +162,7 @@ export function createLoopExecutors(
       // agent self-heal on Windows.
       const stepEnv = aiStepEnv(resolveEnv(), repoDir)
       const extraArgs = aiStepExtraArgs(adapter, cwd, repoDir)
-      if (repoDir) { try { ensureFrameworkAgents(cwd, adapter.projectDirName) } catch { /* best-effort */ } }
+      if (repoDir) { try { ensureFrameworkAgents(cwd, adapter.projectDirName); ensureFrameworkCommandSubtrees(cwd, adapter.projectDirName) } catch { /* best-effort */ } }
       // Pre-trust the spawn dir so headless claude honours the overlaid
       // `.claude/settings.json` permissions.allow (else "workspace not trusted").
       try { ensureClaudeTrusted(adapter.id, [cwd, repoDir]) } catch { /* best-effort */ }
@@ -262,7 +262,7 @@ export function createLoopExecutors(
       if (!adapter.capabilities.persistentStdin) return null
       const stepEnv = aiStepEnv(resolveEnv(), repoDir)
       const extraArgs = aiStepExtraArgs(adapter, cwd, repoDir)
-      if (repoDir) { try { ensureFrameworkAgents(cwd, adapter.projectDirName) } catch { /* best-effort */ } }
+      if (repoDir) { try { ensureFrameworkAgents(cwd, adapter.projectDirName); ensureFrameworkCommandSubtrees(cwd, adapter.projectDirName) } catch { /* best-effort */ } }
       // Pre-trust the spawn dir so headless claude honours the overlaid
       // `.claude/settings.json` permissions.allow (else "workspace not trusted").
       try { ensureClaudeTrusted(adapter.id, [cwd, repoDir]) } catch { /* best-effort */ }
