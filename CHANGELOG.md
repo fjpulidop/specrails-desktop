@@ -1,5 +1,12 @@
 # Changelog
 
+## [2.24.0](https://github.com/fjpulidop/specrails-desktop/compare/v2.23.1...v2.24.0) (2026-07-05)
+
+
+### Features
+
+* **mcp:** specrails_git — read-only git/GitHub diagnostics tool for the operator agent ([#508](https://github.com/fjpulidop/specrails-desktop/issues/508)) ([d324f32](https://github.com/fjpulidop/specrails-desktop/commit/d324f321c65f93b37b113d38f539451d6bdfdf9a))
+
 ## [2.23.1](https://github.com/fjpulidop/specrails-desktop/compare/v2.23.0...v2.23.1) (2026-07-04)
 
 
