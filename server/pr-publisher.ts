@@ -18,6 +18,7 @@
  */
 import { execFile } from 'child_process'
 import { assertGitAllowed } from './git-guardrails'
+import { windowsSpawnEnv } from './util/win-spawn'
 
 export interface ExecResult {
   code: number
@@ -33,7 +34,14 @@ export interface Exec {
 export const defaultExec: Exec = {
   run(cmd, args, cwd) {
     return new Promise<ExecResult>((resolve) => {
-      execFile(cmd, args, { cwd, maxBuffer: 16 * 1024 * 1024 }, (err, stdout, stderr) => {
+      // `windowsSpawnEnv()` backfills SystemRoot / ComSpec / USERPROFILE, which a
+      // GUI-launched / pkg-stripped Windows sidecar can lack — without them the
+      // `git`/`gh` child (and the `sh -c` the `!gh …` credential helper runs) can
+      // fail to start. NOT `GIT_EXEC_ENV`: that hardened env disables credentials
+      // (GIT_ASKPASS=echo / GIT_TERMINAL_PROMPT=0), which the push must keep. No-op
+      // on POSIX (returns process.env), so mac/Linux behaviour is byte-identical.
+      const env = windowsSpawnEnv()
+      execFile(cmd, args, { cwd, env, maxBuffer: 16 * 1024 * 1024, windowsHide: true }, (err, stdout, stderr) => {
         const code = err && typeof (err as { code?: unknown }).code === 'number' ? (err as { code: number }).code : err ? 1 : 0
         resolve({ code, stdout: stdout?.toString() ?? '', stderr: stderr?.toString() ?? '' })
       })

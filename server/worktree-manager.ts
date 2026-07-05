@@ -14,6 +14,7 @@
  */
 import { execFile } from 'child_process'
 import * as path from 'path'
+import { windowsSpawnEnv } from './util/win-spawn'
 
 export interface GitResult {
   code: number
@@ -29,7 +30,10 @@ export interface GitRunner {
 export const defaultGitRunner: GitRunner = {
   run(args, cwd) {
     return new Promise<GitResult>((resolve) => {
-      execFile('git', args, { cwd, maxBuffer: 16 * 1024 * 1024 }, (err, stdout, stderr) => {
+      // SystemRoot/ComSpec backfill so worktree + PR-decision git ops don't fail
+      // to start under a pkg-stripped Windows sidecar env. No-op on POSIX.
+      const env = windowsSpawnEnv()
+      execFile('git', args, { cwd, env, maxBuffer: 16 * 1024 * 1024, windowsHide: true }, (err, stdout, stderr) => {
         const code = err && typeof (err as { code?: unknown }).code === 'number' ? (err as { code: number }).code : err ? 1 : 0
         resolve({ code, stdout: stdout?.toString() ?? '', stderr: stderr?.toString() ?? '' })
       })
