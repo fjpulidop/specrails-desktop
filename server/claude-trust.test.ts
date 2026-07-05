@@ -2,7 +2,7 @@ import { describe, it, expect, beforeEach, afterEach } from 'vitest'
 import * as fs from 'fs'
 import * as os from 'os'
 import * as path from 'path'
-import { markProjectsTrusted, ensureClaudeTrusted, __resetClaudeTrustMemoForTest, claudeConfigPath } from './claude-trust'
+import { markProjectsTrusted, ensureClaudeTrusted, claudeConfigPath } from './claude-trust'
 
 describe('markProjectsTrusted', () => {
   let dir: string
@@ -59,7 +59,6 @@ describe('ensureClaudeTrusted', () => {
   let home: string
   let prevRegHome: string | undefined
   beforeEach(() => {
-    __resetClaudeTrustMemoForTest()
     home = fs.mkdtempSync(path.join(os.tmpdir(), 'claude-home-'))
     prevRegHome = process.env.SPECRAILS_REGISTRY_HOME
     process.env.SPECRAILS_REGISTRY_HOME = home // claudeConfigPath resolves under here
@@ -76,15 +75,40 @@ describe('ensureClaudeTrusted', () => {
     expect(fs.existsSync(claudeConfigPath())).toBe(false)
   })
 
-  it('trusts claude spawn dirs and memoizes (writes once per path)', () => {
+  it('trusts claude spawn dirs (writes the flag)', () => {
     const wt = fs.mkdtempSync(path.join(home, 'wt-'))
     ensureClaudeTrusted('claude', [wt, undefined])
     const cfg = claudeConfigPath()
     expect(fs.existsSync(cfg)).toBe(true)
     expect(JSON.parse(fs.readFileSync(cfg, 'utf-8')).projects[fs.realpathSync(wt)].hasTrustDialogAccepted).toBe(true)
-    // Memoized: delete the file, call again — it must NOT rewrite (path cached).
+  })
+
+  it('re-asserts on every call — recreates the flag after the config is deleted', () => {
+    const wt = fs.mkdtempSync(path.join(home, 'wt-'))
+    const cfg = claudeConfigPath()
+    ensureClaudeTrusted('claude', [wt])
+    expect(fs.existsSync(cfg)).toBe(true)
+    // Simulate a concurrent whole-file clobber that dropped our entry: delete
+    // the config, call again — with no memo it MUST re-write the flag.
     fs.rmSync(cfg)
     ensureClaudeTrusted('claude', [wt])
-    expect(fs.existsSync(cfg)).toBe(false)
+    expect(fs.existsSync(cfg)).toBe(true)
+    expect(JSON.parse(fs.readFileSync(cfg, 'utf-8')).projects[fs.realpathSync(wt)].hasTrustDialogAccepted).toBe(true)
+  })
+
+  it('re-asserts on every call — re-flips a clobbered false back to true', () => {
+    const wt = fs.mkdtempSync(path.join(home, 'wt-'))
+    const cfg = claudeConfigPath()
+    ensureClaudeTrusted('claude', [wt])
+    const real = fs.realpathSync(wt)
+    // Simulate another claude process rewriting the whole file with a stale
+    // `false` for our dir (the lost-update this fix defends against).
+    const clobbered = { projects: { [real]: { hasTrustDialogAccepted: false, lastCost: 1.23 } } }
+    fs.writeFileSync(cfg, JSON.stringify(clobbered))
+    ensureClaudeTrusted('claude', [wt])
+    const parsed = JSON.parse(fs.readFileSync(cfg, 'utf-8'))
+    expect(parsed.projects[real].hasTrustDialogAccepted).toBe(true)
+    // Sibling fields written by claude are preserved.
+    expect(parsed.projects[real].lastCost).toBe(1.23)
   })
 })
