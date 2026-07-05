@@ -171,7 +171,7 @@ export function SplitViewShell({
     <div
       ref={containerRef}
       data-testid="split-view-shell"
-      className="fixed inset-0 z-[65] flex"
+      className="fixed inset-0 z-[68] flex"
       onClick={handleBackdropClick}
     >
       <div className="absolute inset-0 bg-black/70 pointer-events-none" aria-hidden />

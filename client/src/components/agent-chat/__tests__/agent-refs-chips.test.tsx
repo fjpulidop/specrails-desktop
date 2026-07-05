@@ -328,3 +328,35 @@ describe('LoopPreviewModal', () => {
     expect(onClose).toHaveBeenCalled()
   })
 })
+
+// ── Per-bubble timestamp (elegant, always-recorded, subtle) ───────────────────
+
+describe('AgentMessage per-bubble timestamp', () => {
+  const ISO = '2026-07-05T09:08:07Z'
+
+  it('renders a subtle yyyy-MM-dd HH:mm:ss <time> with the ISO datetime + a full-datetime tooltip', () => {
+    render(<AgentMessage role="assistant" content="hi" createdAt={ISO} />)
+    const time = document.querySelector('time')
+    expect(time).not.toBeNull()
+    expect(Date.parse(time!.getAttribute('datetime')!)).toBe(Date.parse(ISO))
+    expect(time!.textContent).toMatch(/^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}$/) // date + HH:mm:ss
+    expect(time!.getAttribute('title')).toBeTruthy() // consultable full date+time
+    // Subtle by default (muted), not attention-grabbing.
+    expect(time!.className).toContain('text-foreground/25')
+  })
+
+  it('renders the timestamp on a user bubble too', () => {
+    render(<AgentMessage role="user" content="hola" createdAt={ISO} />)
+    expect(Date.parse(document.querySelector('time')!.getAttribute('datetime')!)).toBe(Date.parse(ISO))
+  })
+
+  it('renders NO timestamp while streaming (no createdAt on the live buffer)', () => {
+    render(<AgentMessage role="assistant" content="typing…" streaming />)
+    expect(document.querySelector('time')).toBeNull()
+  })
+
+  it('renders NO timestamp for an invalid date (never a flickering NaN)', () => {
+    render(<AgentMessage role="assistant" content="x" createdAt="not-a-date" />)
+    expect(document.querySelector('time')).toBeNull()
+  })
+})

@@ -2,9 +2,8 @@ import { useState, useRef, useEffect, useMemo, useCallback } from 'react'
 import { useTranslation } from 'react-i18next'
 import { motion, AnimatePresence } from 'motion/react'
 import { MessagesSquare, ChevronDown, Check, Search, Plus, Trash2, X } from 'lucide-react'
-import { formatDistanceToNow } from 'date-fns'
 import { toast } from 'sonner'
-import { getDateFnsLocale } from '../../lib/i18n'
+import { compactRelativeTime, absoluteTime } from '../../lib/relative-time'
 import { useAgentChat } from '../../context/AgentChatContext'
 import type { AgentConversation } from '../../lib/agent-api'
 
@@ -12,12 +11,6 @@ import type { AgentConversation } from '../../lib/agent-api'
 const SEARCH_THRESHOLD = 8
 /** An armed inline delete-confirm reverts on its own after this long. */
 const CONFIRM_REVERT_MS = 3000
-
-function relativeTime(iso: string): string {
-  const d = new Date(iso)
-  if (Number.isNaN(d.getTime())) return ''
-  return formatDistanceToNow(d, { addSuffix: true, locale: getDateFnsLocale() })
-}
 
 /**
  * Cursor-grade mission (conversation) dropdown for the floating panel header —
@@ -349,8 +342,11 @@ function MissionRow({
       className={`group flex w-full cursor-pointer items-center gap-2 px-3 py-1.5 text-left text-sm text-foreground ${highlighted ? 'bg-surface/70' : 'hover:bg-surface/70'}`}
     >
       <span className="min-w-0 flex-1 truncate">{label}</span>
-      <span className="shrink-0 text-[10px] tabular-nums text-foreground/40">
-        {relativeTime(conversation.updated_at)}
+      <span
+        className="shrink-0 tabular-nums text-xs text-foreground/40"
+        title={absoluteTime(conversation.updated_at)}
+      >
+        {compactRelativeTime(conversation.updated_at)}
       </span>
       {streaming && (
         <span

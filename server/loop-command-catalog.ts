@@ -103,17 +103,23 @@ export const LOOP_COMMANDS: LoopCommand[] = [
   {
     name: 'fix',
     label: 'fix',
-    description: 'Refinement step: the verification reported failures — fix ONLY what is needed to make them pass (smallest change, no re-implementing, no unrelated edits). Verification re-runs after.',
+    description: 'Refinement/advance step: the Loop Decider judged the goal not yet met. Read the verification output — if it FAILED, fix the smallest thing; if it PASSED but the feature is incomplete, implement the missing pieces; if genuinely blocked on a human decision, emit LOOP_BLOCKED and stop.',
     ticketScope: 'per-ticket',
+    // NOT a "fix the failures" step: the Decider routes here on ANY not-done
+    // verdict — which includes "verification PASSED but the feature isn't
+    // implemented yet". Assuming a FAIL boxed the agent in (nothing to fix +
+    // "don't re-implement") and spun the loop. This branches on the REAL verify
+    // verdict and gives a first-class BLOCKED escape so a human-decision blocker
+    // halts the loop instead of cycling. See docs/internals + loop-decider.ts.
     template: [
-      'The verification step above reported failures (see VERIFICATION: FAIL and the output before it).',
+      'The Loop Decider judged the goal NOT yet met. First READ the verification output above and act on what it actually says — do not assume it failed:',
       '',
-      'Fix ONLY what is needed to make the failing tests / type-check / lint / build pass:',
-      '- Make the smallest change that resolves the reported failures.',
-      '- Do NOT re-implement the feature from scratch and do NOT touch unrelated code.',
-      '- If a test is wrong, fix the test; if the code is wrong, fix the code.',
+      '- If it reported `VERIFICATION: FAIL`: fix ONLY what is needed to make the failing tests / type-check / lint / build pass — smallest change, no unrelated edits, no re-implementing from scratch.',
+      '- If it reported `VERIFICATION: PASS` but the spec/feature is NOT fully implemented yet: implement the missing pieces now. This is expected — the loop runs the main step once, then keeps advancing the feature here until it is complete. Build the smallest coherent next increment.',
       '',
-      'The verification will run again after this step.',
+      'Do NOT invent scope or silently take a big architectural decision to make the loop stop. If real progress is BLOCKED on a decision only a human can make — ambiguous requirements, a missing/undone prerequisite, or introducing a new external dependency (a new database, service, or SDK) — do NOT guess and do NOT keep re-running: end your reply with a single line `LOOP_BLOCKED: <the one specific question the human must answer>` and stop. The loop will halt and surface it instead of cycling.',
+      '',
+      'Verification will run again after this step (unless you reported LOOP_BLOCKED).',
     ].join('\n'),
   },
   {

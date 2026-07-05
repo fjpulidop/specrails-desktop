@@ -256,5 +256,21 @@
     "jobNotFound": "Job introuvable — il a peut-être été supprimé",
     "loopNotFound": "Boucle introuvable — elle a peut-être été supprimée",
     "lookupFailed": "Impossible de vérifier la référence — réessayez"
+  },
+  "header": {
+    "untitled": "Mission sans titre",
+    "menu": "Menu de la mission",
+    "rename": "Renommer",
+    "renamePlaceholder": "Nom de la mission",
+    "renameHint": "Double-clic pour renommer",
+    "renameFailed": "Renommage impossible",
+    "copyName": "Copier le nom de la mission",
+    "copyId": "Copier l'ID de la mission",
+    "copyProject": "Copier le nom du projet",
+    "copyProjectPath": "Copier le chemin du projet",
+    "copyFailed": "Copie impossible",
+    "delete": "Supprimer la mission",
+    "deleteConfirm": "Supprimer cette mission ? Action irréversible.",
+    "deleteFailed": "Impossible de supprimer la mission"
   }
 }

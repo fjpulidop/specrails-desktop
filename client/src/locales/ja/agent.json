@@ -256,5 +256,21 @@
     "jobNotFound": "ジョブが見つかりません — 削除された可能性があります",
     "loopNotFound": "ループが見つかりません — 削除された可能性があります",
     "lookupFailed": "参照を確認できませんでした — もう一度お試しください"
+  },
+  "header": {
+    "untitled": "無題のミッション",
+    "menu": "ミッションメニュー",
+    "rename": "名前を変更",
+    "renamePlaceholder": "ミッション名",
+    "renameHint": "ダブルクリックで名前を変更",
+    "renameFailed": "名前を変更できませんでした",
+    "copyName": "ミッション名をコピー",
+    "copyId": "ミッション ID をコピー",
+    "copyProject": "プロジェクト名をコピー",
+    "copyProjectPath": "プロジェクトパスをコピー",
+    "copyFailed": "コピーできませんでした",
+    "delete": "ミッションを削除",
+    "deleteConfirm": "このミッションを削除しますか？元に戻せません。",
+    "deleteFailed": "ミッションを削除できませんでした"
   }
 }

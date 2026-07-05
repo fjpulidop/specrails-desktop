@@ -179,6 +179,13 @@ export interface LoopExecutors {
     onRawLine?: (line: string) => void
     onSpawn?: LoopSpawnSink
   }): Promise<DeciderRunResult>
+  /** OPTIONAL: a cheap, deterministic fingerprint of the repo's working-tree
+   *  state (HEAD + dirty set) used by the non-convergence guard — when this is
+   *  UNCHANGED across consecutive Decider 'continue' verdicts the loop is making
+   *  no progress and the engine aborts (outcome `stalled`) instead of cycling.
+   *  Returns null when it can't read the tree (guard then disabled). Omit the
+   *  method to disable the guard entirely (byte-identical legacy behaviour). */
+  repoStateHash?(dir: string): string | null
 }
 
 export interface LoopRunRequest {
@@ -566,6 +573,15 @@ export class LoopRunManager {
     // Consecutive AI steps that hard-failed with no output (provider down /
     // out of quota / crashing). Reset on any step that runs or produces output.
     let consecutiveAiFailures = 0
+    // Non-convergence guard: the working-tree fingerprint at the last Decider
+    // verdict, and how many consecutive 'continue' verdicts have left it
+    // UNCHANGED. Two zero-change iterations in a row ⇒ the loop is spinning
+    // without progress (verify→fix→verify producing an identical tree) → abort
+    // `stalled` instead of burning iterations/cost. Disabled when the executor
+    // provides no `repoStateHash` or it can't read the tree.
+    let lastRepoHash: string | null = null
+    let consecutiveNoProgress = 0
+    const NO_PROGRESS_LIMIT = 2
     // True for the step that runs immediately after a Decider 'continue' — that
     // step must see the cross-iteration history (the verdict it acts on). Mid-body
     // RESUMED steps already carry prior context in their session, so re-appending
@@ -930,10 +946,11 @@ export class LoopRunManager {
             // ai-step blips but the provider is demonstrably up. (When the provider
             // is truly down the Decider also fails → parsed=false → no reset.)
             if (dec.parsed) consecutiveAiFailures = 0
+            const verdictWord = dec.blocked ? 'blocked' : dec.continue ? 'continue' : 'stop'
             // BUG-03: a Decider that couldn't parse a verdict (dec.parsed === false)
             // is a failed AI invocation — record it as such, not as success.
             record(`loop:${runId}:decider`, { ...dec, failed: !dec.parsed }, deciderStart)
-            logLine(`Decision: ${dec.continue ? 'continue' : 'stop'} — ${dec.reasoning}`)
+            logLine(`Decision: ${verdictWord} — ${dec.reasoning}`)
             // The verdict line above is the decider step's last output. `decision`
             // is the route actually taken (an unparseable verdict defaults to
             // continue AND flags the step failed — mirrors record()'s status).
@@ -942,7 +959,7 @@ export class LoopRunManager {
               durationMs: dec.durationMs,
               decision: dec.continue ? 'continue' : 'stop',
             })
-            history.push(`Decider: ${dec.continue ? 'continue' : 'stop'} — ${dec.reasoning}`)
+            history.push(`Decider: ${verdictWord} — ${dec.reasoning}`)
             updateLoopRunCounters(this.db, runId, {
               iterationCount: iteration,
               totalCostUsd: totalCost,
@@ -967,6 +984,39 @@ export class LoopRunManager {
               out.find((e) => e.branch === b)?.target
             const ends = succs.filter((n) => n.type === 'end')
             const conts = succs.filter((n) => n.type !== 'end')
+            // BLOCKED: the loop is stuck on a human decision — halt now with a
+            // dedicated outcome (NOT success) and surface the question. This is
+            // the fix for the verify→fix cycle spinning on an unanswered scope
+            // question the loop can't resolve on its own.
+            if (dec.blocked) {
+              logLine(`\n■ Loop blocked — needs a human decision: ${dec.reasoning}`, 'stderr')
+              outcome = 'blocked'
+              settled = true
+              break
+            }
+            // Non-convergence guard: if two consecutive 'continue' iterations
+            // leave the working tree byte-identical, the loop isn't progressing
+            // (e.g. verify keeps passing a baseline while the feature is never
+            // written) — abort `stalled` rather than cycle to the cap.
+            if (dec.continue && this.executors.repoStateHash) {
+              const dir = req.repoDir ?? req.cwd
+              const hash = this.executors.repoStateHash(dir)
+              // null = couldn't read the tree → skip (never let null match null).
+              if (hash !== null) {
+                if (hash === lastRepoHash) {
+                  consecutiveNoProgress += 1
+                  if (consecutiveNoProgress >= NO_PROGRESS_LIMIT) {
+                    logLine(`\n■ Loop stalled — ${consecutiveNoProgress + 1} iterations changed nothing in the working tree; stopping instead of cycling.`, 'stderr')
+                    outcome = 'stalled'
+                    settled = true
+                    break
+                  }
+                } else {
+                  consecutiveNoProgress = 0
+                }
+                lastRepoHash = hash
+              }
+            }
             if (dec.continue) {
               const target = branchTarget('continue') ?? conts[0]?.id
               if (target) {
@@ -1025,7 +1075,13 @@ export class LoopRunManager {
     // Settle the backing job so the Jobs list + JobDetail reflect the final
     // status, and emit job.finalized so an open JobDetail re-fetches + stops the
     // live stream (mirrors QueueManager).
-    const jobStatus: JobStatus = outcome === 'success' ? 'completed' : outcome === 'stopped' ? 'canceled' : 'failed'
+    // `blocked`/`stalled` are controlled halts (not done, not a hard crash) →
+    // surface as `canceled`, like a user stop, so tickets revert to todo rather
+    // than being marked done/on_review AND the run is never counted as success.
+    const jobStatus: JobStatus =
+      outcome === 'success' ? 'completed'
+        : outcome === 'stopped' || outcome === 'blocked' || outcome === 'stalled' ? 'canceled'
+          : 'failed'
     // `≥` when any cost-bearing step ended unpriced (timeout/crash) — the figure
     // is a lower bound, not exact.
     logLine(`\n■ Loop finished: ${outcome} — ${iteration} iteration${iteration === 1 ? '' : 's'}, ${costUncertain ? '≥ ' : ''}$${totalCost.toFixed(4)}`)

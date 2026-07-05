@@ -3,6 +3,9 @@ import { useNavigate, useLocation } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { PanelLeft, FolderOpen, Plus, BarChart2, BookOpen, Settings, X, Workflow, ChevronRight, ChevronDown, MessageSquare, Bot, LayoutGrid, Search, Home } from 'lucide-react'
 import { cn } from '../lib/utils'
+import { useResizableSidebar } from '../hooks/useResizableSidebar'
+import { SidebarResizeGrip } from './SidebarResizeGrip'
+import { compactRelativeTime, absoluteTime } from '../lib/relative-time'
 import { useDesktop } from '../hooks/useDesktop'
 import type { DesktopProject } from '../hooks/useDesktop'
 import { useSidebarPin } from '../context/SidebarPinContext'
@@ -146,15 +149,25 @@ function ConversationRow({
               </span>
             )}
           </span>
+          {/* Compact "time since last interaction" (Cursor style) — swaps out
+              for the delete action on hover so the row never shows both. */}
+          <span
+            className={cn(
+              'flex-shrink-0 text-[10px] tabular-nums text-muted-foreground/45',
+              confirming ? 'hidden' : 'group-hover:hidden',
+            )}
+            title={absoluteTime(conversation.updated_at)}
+          >
+            {compactRelativeTime(conversation.updated_at)}
+          </span>
           <button
             type="button"
             onClick={handleDeleteClick}
             className={cn(
-              'flex-shrink-0 flex items-center justify-center rounded-sm transition-all',
-              'opacity-0 group-hover:opacity-50 hover:!opacity-100 hover:bg-muted',
+              'flex-shrink-0 items-center justify-center rounded-sm transition-colors hover:bg-muted',
               confirming
-                ? 'opacity-100 px-1 h-4 text-[10px] text-destructive bg-destructive/10 hover:bg-destructive/20'
-                : 'w-3.5 h-3.5'
+                ? 'flex px-1 h-4 text-[10px] text-destructive bg-destructive/10 hover:bg-destructive/20'
+                : 'hidden group-hover:flex w-3.5 h-3.5 text-muted-foreground/60 hover:text-foreground'
             )}
             aria-label={confirming ? t('confirmDeleteConversation', { title: label }) : t('deleteConversation', { title: label })}
           >
@@ -443,6 +456,13 @@ export function ArcSidebar({
   }
   const [hovered, setHovered] = useState(false)
   const expanded = leftMode === 'pinned-open' || (leftMode === 'unpinned' && hovered)
+  // Drag-resizable width (persisted), applied imperatively through the panel ref
+  // — 240px (w-60) expanded, 44px (w-11) collapsed rail. The mouseleave guard
+  // below keeps `hovered` true during a drag so an unpinned rail can't collapse
+  // out from under the resize.
+  const resize = useResizableSidebar('left-arc', {
+    side: 'left', defaultWidth: 240, min: 200, max: 460, collapsedWidth: 44, expanded,
+  })
   const lit = leftMode !== 'unpinned'
   const pinLabel = t(LEFT_PIN_LABEL_KEY[leftMode])
 
@@ -462,16 +482,28 @@ export function ArcSidebar({
 
   return (
     <div
+      ref={resize.panelRef}
       className={cn(
-        'relative flex flex-col h-full border-r border-border bg-background flex-shrink-0',
-        'transition-all duration-200 ease-in-out overflow-hidden',
-        // w-60: wide enough for the localized mode-toggle labels ("Cambiar a
-        // Control de misiones") without clipping.
-        expanded ? 'w-60' : 'w-11'
+        'relative flex flex-col h-full border-r border-border bg-background flex-shrink-0 overflow-hidden',
+        // Width is set imperatively by useResizableSidebar (px). The transition
+        // animates collapse/expand + keyboard nudges; a drag turns it off itself.
+        'transition-[width] duration-200 ease-in-out',
       )}
       onMouseEnter={() => { if (leftMode === 'unpinned') setHovered(true) }}
-      onMouseLeave={() => { if (leftMode === 'unpinned') setHovered(false) }}
+      onMouseLeave={() => { if (leftMode === 'unpinned' && !resize.dragging) setHovered(false) }}
     >
+      {expanded && (
+        <SidebarResizeGrip
+          side="left"
+          dragging={resize.dragging}
+          width={resize.width}
+          min={200}
+          max={460}
+          label={t('arcSidebar.resize', { defaultValue: 'Resize sidebar' })}
+          onPointerDown={resize.onGripPointerDown}
+          onKeyDown={resize.onGripKeyDown}
+        />
+      )}
       {/* Header */}
       <div
         className={cn(

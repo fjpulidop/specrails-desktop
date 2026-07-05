@@ -115,6 +115,8 @@ export interface AgentChatContextValue {
   setEffort: (effort: string | null) => Promise<void>
   selectConversation: (id: string) => Promise<void>
   deleteConversation: (id: string) => Promise<void>
+  /** Rename a conversation (optimistic; blank clears to auto-title). */
+  renameConversation: (id: string, title: string) => Promise<void>
   /** Refresh the conversation list WITHOUT opening the floating panel. Used on
    *  entering Agent Mode (open() would mount the now-suppressed panel). */
   refreshConversations: () => Promise<void>
@@ -414,13 +416,23 @@ export function AgentChatProvider({ children }: { children: ReactNode }) {
       setMessages([])
     }
     const queueId = `q-${Date.now()}-${_queueSeq++}`
+    const nowIso = new Date().toISOString()
+    // "Last interaction" is NOW — bump the conversation's updated_at (so the
+    // mission-list time-since counter resets immediately to "now") and float it
+    // to the top (newest-first, matching the server's ORDER BY updated_at DESC).
+    setConversations((cs) => {
+      const found = cs.find((c) => c.id === conv!.id)
+      const bumped = { ...(found ?? conv!), updated_at: nowIso }
+      return [bumped, ...cs.filter((c) => c.id !== conv!.id)]
+    })
+    setActive((a) => (a && a.id === conv!.id ? { ...a, updated_at: nowIso } : a))
     const userBubble = {
       id: `local-u-${Date.now()}`,
       conversation_id: conv.id,
       role: 'user' as const,
       content: trimmed,
       attachment_ids: opts?.attachmentIds ?? [],
-      created_at: new Date().toISOString(),
+      created_at: nowIso,
     }
     // Busy conversation → the message QUEUES (server-side FIFO) and shows as a
     // parked chip below the streaming bubble instead of a normal bubble.
@@ -560,6 +572,26 @@ export function AgentChatProvider({ children }: { children: ReactNode }) {
     }
   }, [patchLive])
 
+  /** Rename a conversation. Optimistic: the title updates locally immediately and
+   *  reverts on failure. A blank/whitespace title clears back to auto-title. */
+  const renameConversation = useCallback(async (id: string, rawTitle: string): Promise<void> => {
+    const title = rawTitle.trim() || null
+    let prev: string | null | undefined
+    setConversations((cs) => cs.map((c) => {
+      if (c.id === id) { prev = c.title; return { ...c, title } }
+      return c
+    }))
+    setActive((a) => (a && a.id === id ? { ...a, title } : a))
+    try {
+      await patchAgentConversation(id, { title })
+    } catch (err) {
+      // Revert the optimistic write.
+      setConversations((cs) => cs.map((c) => (c.id === id ? { ...c, title: prev ?? null } : c)))
+      setActive((a) => (a && a.id === id ? { ...a, title: prev ?? null } : a))
+      throw err
+    }
+  }, [])
+
   const enableMcpServer = useCallback(async () => {
     setEnablingMcp(true)
     try {
@@ -579,7 +611,7 @@ export function AgentChatProvider({ children }: { children: ReactNode }) {
     cycleTier, setTier, setProvider, setModel, setPinnedProject,
     newConversation, startNewConversation, draftPinnedProjectId,
     draftProvider, draftModel, draftTierLevel, draftEffort, setEffort,
-    selectConversation, deleteConversation, refreshConversations,
+    selectConversation, deleteConversation, renameConversation, refreshConversations,
   }), [
     visibility, open, close, minimize, toggle,
     conversations, active, messages, streamingText, isStreaming, liveTools,
@@ -589,7 +621,7 @@ export function AgentChatProvider({ children }: { children: ReactNode }) {
     cycleTier, setTier, setProvider, setModel, setPinnedProject,
     newConversation, startNewConversation, draftPinnedProjectId,
     draftProvider, draftModel, draftTierLevel, draftEffort, setEffort,
-    selectConversation, deleteConversation, refreshConversations,
+    selectConversation, deleteConversation, renameConversation, refreshConversations,
   ])
 
   // In Agent Mode the conversation UI is the full-screen surface, so the
@@ -622,7 +654,7 @@ const NOOP_AGENT_CHAT: AgentChatContextValue = {
   newConversation: async () => {}, startNewConversation: () => {}, draftPinnedProjectId: null,
   draftProvider: 'claude', draftModel: null, draftTierLevel: 0,
   draftEffort: null, setEffort: async () => {},
-  selectConversation: async () => {}, deleteConversation: async () => {},
+  selectConversation: async () => {}, deleteConversation: async () => {}, renameConversation: async () => {},
   refreshConversations: async () => {},
 }
 

@@ -3,6 +3,9 @@ import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
 import { Copy, Check } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
+import { format } from 'date-fns'
+import { getDateFnsLocale } from '../../lib/i18n'
+import { toDate } from '../../lib/relative-time'
 import { cn } from '../../lib/utils'
 import { useWebViewModal } from '../../context/WebViewModalContext'
 import { extractAgentOptions } from './agent-options'
@@ -35,12 +38,19 @@ const MD = cn(
   '[&_tr:nth-child(even)]:bg-surface/40',
 )
 
-function CopyButton({ text }: { text: string }) {
+function CopyButton({ text, timestampIso }: { text: string; timestampIso?: string }) {
   const { t } = useTranslation('agent')
   const [copied, setCopied] = useState(false)
   const onCopy = async () => {
     try {
-      await navigator.clipboard.writeText(text)
+      // Include the same `yyyy-MM-dd HH:mm:ss` shown under the bubble as a header
+      // line, so a copied message carries its timestamp.
+      let payload = text
+      if (timestampIso) {
+        const d = toDate(timestampIso)
+        if (d) payload = `[${format(d, 'yyyy-MM-dd HH:mm:ss')}]\n${text}`
+      }
+      await navigator.clipboard.writeText(payload)
       setCopied(true)
       setTimeout(() => setCopied(false), 1500)
     } catch {
@@ -61,11 +71,39 @@ function CopyButton({ text }: { text: string }) {
   )
 }
 
+/**
+ * Whisper-subtle per-bubble timestamp (messaging-app convention). Always present
+ * so the time is visually recorded + consultable, but at 10px / 25% opacity it
+ * never competes with the message; it brightens slightly on hover of the bubble
+ * group and carries the full locale date+time as a tooltip. Shows the absolute
+ * `yyyy-MM-dd HH:mm:ss` (24h, ISO-ish, sortable at a glance). Renders nothing
+ * without a valid timestamp (streaming buffer / optimistic rows) so it can't
+ * flicker.
+ */
+function MessageTime({ iso }: { iso?: string }) {
+  if (!iso) return null
+  const d = toDate(iso)
+  if (!d) return null
+  const locale = getDateFnsLocale()
+  return (
+    <time
+      dateTime={d.toISOString()}
+      title={format(d, 'PPpp', { locale })}
+      className="shrink-0 select-none font-mono text-[10px] leading-none tabular-nums tracking-tight text-foreground/25 transition-colors duration-200 group-hover:text-foreground/50"
+    >
+      {format(d, 'yyyy-MM-dd HH:mm:ss')}
+    </time>
+  )
+}
+
 interface Props {
   /** `system` rows are app-authored inline cards (PR-decision card, P7);
    *  until the card branch lands they render through the assistant path. */
   role: 'user' | 'assistant' | 'system'
   content: string
+  /** ISO creation time — rendered as a subtle per-bubble timestamp. Absent on
+   *  the live streaming buffer (the time appears once the turn settles). */
+  createdAt?: string
   /** Streaming assistant bubble: render markdown live, hide the copy button. */
   streaming?: boolean
   /** True only for the newest message while no turn is streaming — gates chips. */
@@ -80,7 +118,7 @@ interface Props {
 }
 
 /** A single agent chat message: markdown-rendered, with a subtle per-bubble copy. */
-export function AgentMessage({ role, content, streaming, isLast, onPickOption, refsProjectId, onOpenRef }: Props) {
+export function AgentMessage({ role, content, createdAt, streaming, isLast, onPickOption, refsProjectId, onOpenRef }: Props) {
   const isUser = role === 'user'
   const { openWebView, canOpenWebView } = useWebViewModal()
 
@@ -129,11 +167,18 @@ export function AgentMessage({ role, content, streaming, isLast, onPickOption, r
 
   if (isUser) {
     return (
-      <div className="group flex items-start justify-end gap-1">
-        <CopyButton text={content} />
-        <div className="max-w-[85%] whitespace-pre-wrap rounded-2xl rounded-br-sm border border-border/50 bg-foreground/[0.06] px-3.5 py-2 text-sm text-foreground">
-          {content}
+      <div className="group flex flex-col items-end gap-0.5">
+        <div className="flex items-start justify-end gap-1">
+          <CopyButton text={content} timestampIso={createdAt} />
+          <div className="max-w-[85%] whitespace-pre-wrap rounded-2xl rounded-br-sm border border-border/50 bg-foreground/[0.06] px-3.5 py-2 text-sm text-foreground">
+            {content}
+          </div>
         </div>
+        {createdAt && (
+          <div className="pr-1.5">
+            <MessageTime iso={createdAt} />
+          </div>
+        )}
       </div>
     )
   }
@@ -176,9 +221,10 @@ export function AgentMessage({ role, content, streaming, isLast, onPickOption, r
           ))}
         </div>
       )}
-      {!streaming && body.trim() && (
-        <div className="flex justify-start">
-          <CopyButton text={body} />
+      {!streaming && (body.trim() || createdAt) && (
+        <div className="flex items-center gap-2">
+          {body.trim() && <CopyButton text={body} timestampIso={createdAt} />}
+          {createdAt && <MessageTime iso={createdAt} />}
         </div>
       )}
     </div>

@@ -6,10 +6,12 @@
  * from coverage; the engine's traversal/decision logic is unit-tested against
  * fake executors in `loop-run-manager.test.ts`.
  */
-import { spawn } from 'node:child_process'
+import { spawn, execFileSync } from 'node:child_process'
+import { createHash } from 'node:crypto'
 import treeKill from 'tree-kill'
 import { getAdapter } from './providers'
 import { ensureFrameworkAgents, ensureFrameworkCommandSubtrees } from './workspace-manager'
+import { ensureClaudeTrusted } from './claude-trust'
 import { runAiCliInvocation } from './spawn-lifecycle'
 import { finaliseInvocationResult } from './result-event'
 import { parseDeciderDecision } from './loop-decider'
@@ -131,6 +133,23 @@ export function createLoopExecutors(
   const resolveEnv = (): NodeJS.ProcessEnv =>
     typeof opts.env === 'function' ? opts.env() : opts.env ?? process.env
   return {
+    // Cheap working-tree fingerprint for the engine's non-convergence guard:
+    // HEAD sha + the porcelain dirty set, hashed. Two identical fingerprints
+    // across consecutive Decider 'continue' verdicts ⇒ the loop changed nothing
+    // ⇒ abort `stalled`. Synchronous + best-effort: any git failure (no repo,
+    // detached, etc.) returns null so the guard simply stays off. Never throws.
+    repoStateHash(dir: string): string | null {
+      try {
+        const opt = { cwd: dir, encoding: 'utf-8' as const, timeout: 5_000, stdio: ['ignore', 'pipe', 'ignore'] as ('ignore' | 'pipe')[] }
+        const head = execFileSync('git', ['rev-parse', 'HEAD'], opt).trim()
+        // `-z` NUL-delimited + include untracked so a brand-new file counts as
+        // a change; stable ordering makes the hash deterministic per tree state.
+        const porcelain = execFileSync('git', ['status', '--porcelain', '-z', '--untracked-files=all'], opt)
+        return createHash('sha256').update(head).update('\0').update(porcelain).digest('hex')
+      } catch {
+        return null
+      }
+    },
     async runAiStep({ prompt, sessionId, provider, model, effort, cwd, repoDir, onLine, onRawLine, onSpawn, aiStepTimeoutMs }) {
       const adapter = getAdapter(provider)
       // First iteration spawns headless (rail-job); subsequent iterations resume
@@ -144,6 +163,9 @@ export function createLoopExecutors(
       const stepEnv = aiStepEnv(resolveEnv(), repoDir)
       const extraArgs = aiStepExtraArgs(adapter, cwd, repoDir)
       if (repoDir) { try { ensureFrameworkAgents(cwd, adapter.projectDirName); ensureFrameworkCommandSubtrees(cwd, adapter.projectDirName) } catch { /* best-effort */ } }
+      // Pre-trust the spawn dir so headless claude honours the overlaid
+      // `.claude/settings.json` permissions.allow (else "workspace not trusted").
+      try { ensureClaudeTrusted(adapter.id, [cwd, repoDir]) } catch { /* best-effort */ }
       let text = ''
       // The adapter parses provider failures (codex `turn.failed`, etc.) into a
       // structured `error` event on the stdout stream — capture its message so we
@@ -241,6 +263,9 @@ export function createLoopExecutors(
       const stepEnv = aiStepEnv(resolveEnv(), repoDir)
       const extraArgs = aiStepExtraArgs(adapter, cwd, repoDir)
       if (repoDir) { try { ensureFrameworkAgents(cwd, adapter.projectDirName); ensureFrameworkCommandSubtrees(cwd, adapter.projectDirName) } catch { /* best-effort */ } }
+      // Pre-trust the spawn dir so headless claude honours the overlaid
+      // `.claude/settings.json` permissions.allow (else "workspace not trusted").
+      try { ensureClaudeTrusted(adapter.id, [cwd, repoDir]) } catch { /* best-effort */ }
       const args = adapter.buildArgs('chat-stream', {
         // chat-stream feeds the prompt over stdin per-turn, so the argv `prompt`
         // is unused — pass empty to satisfy the shared SpawnOptions shape.

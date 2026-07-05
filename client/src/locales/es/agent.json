@@ -256,5 +256,21 @@
     "jobNotFound": "Job no encontrado — puede haber sido eliminado",
     "loopNotFound": "Loop no encontrado — puede haber sido eliminado",
     "lookupFailed": "No se pudo verificar la referencia — inténtalo de nuevo"
+  },
+  "header": {
+    "untitled": "Misión sin título",
+    "menu": "Menú de la misión",
+    "rename": "Renombrar",
+    "renamePlaceholder": "Nombre de la misión",
+    "renameHint": "Doble clic para renombrar",
+    "renameFailed": "No se pudo renombrar",
+    "copyName": "Copiar nombre de la misión",
+    "copyId": "Copiar ID de la misión",
+    "copyProject": "Copiar nombre del proyecto",
+    "copyProjectPath": "Copiar ruta del proyecto",
+    "copyFailed": "No se pudo copiar",
+    "delete": "Borrar misión",
+    "deleteConfirm": "¿Borrar esta misión? No se puede deshacer.",
+    "deleteFailed": "No se pudo borrar la misión"
   }
 }

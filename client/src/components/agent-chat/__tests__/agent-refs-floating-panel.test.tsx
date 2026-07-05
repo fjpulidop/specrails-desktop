@@ -135,7 +135,8 @@ describe('floating panel (board mode) ref clicks', () => {
 
   it('the floating panel stays BELOW the modal layer: z-[60] panel vs z-[65] modals', async () => {
     // The stacking contract this fix relies on: the panel must not outrank the
-    // ticket/job modals (both z-[65] — pinned in their own component tests).
+    // modal layer (JobDetailModal z-[65], TicketDetailModal/SplitView z-[68] —
+    // pinned in their own component tests).
     await openPanelWithReply('hola')
     const dialog = screen.getByRole('dialog')
     expect(dialog.classList.contains('z-[60]')).toBe(true)
