@@ -1118,12 +1118,33 @@ jobs:
             echo "Updater ${platform}: ${canonical}"
           }
 
+          # Windows updater artifact MUST match the installer users download from
+          # the website (manifest.json → the NSIS `-setup.exe`). Historically the
+          # updater used the `.msi`, so an in-app update ran msiexec over an NSIS
+          # install → MSI and NSIS keep SEPARATE uninstall databases → the old
+          # NSIS copy was never removed and the new MSI copy installed ALONGSIDE
+          # it (two entries, two versions). Prefer the NSIS `-setup.exe` (+ its
+          # updater `.sig`, produced by createUpdaterArtifacts) so install and
+          # update are both NSIS → clean in-place upgrade, no duplicates. Fall
+          # back to the `.msi` ONLY if the NSIS signature is absent, so a config
+          # hiccup never blocks the release nor ships a WORSE updater than today.
+          add_windows_platform() {
+            local platform="$1"
+            local dir="$2"
+            if find "${dir}" -type f -name '*-setup.exe.sig' 2>/dev/null | head -n1 | grep -q .; then
+              add_platform "${platform}" "${dir}" "*-setup.exe" \
+                "specrails-desktop-${VERSION}-${platform}-setup.exe"
+            else
+              echo "::warning::No NSIS -setup.exe.sig found for ${platform} — falling back to the MSI updater artifact. The NSIS/MSI double-install bug is NOT fixed for this release; check bundle.createUpdaterArtifacts + bundle.targets include nsis."
+              add_platform "${platform}" "${dir}" "*.msi" \
+                "specrails-desktop-${VERSION}-${platform}.msi"
+            fi
+          }
+
           add_platform "darwin-aarch64" "artifacts/dmg-aarch64" "*.app.tar.gz" \
             "specrails-desktop-${VERSION}-darwin-aarch64.app.tar.gz"
-          add_platform "windows-x86_64" "artifacts/windows-x64" "*.msi" \
-            "specrails-desktop-${VERSION}-windows-x86_64.msi"
-          add_platform "windows-aarch64" "artifacts/windows-arm64" "*.msi" \
-            "specrails-desktop-${VERSION}-windows-aarch64.msi"
+          add_windows_platform "windows-x86_64" "artifacts/windows-x64"
+          add_windows_platform "windows-aarch64" "artifacts/windows-arm64"
 
           jq -n \
             --arg version "${VERSION}" \
