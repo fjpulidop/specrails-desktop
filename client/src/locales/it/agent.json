@@ -256,5 +256,18 @@
     "jobNotFound": "Job non trovato — potrebbe essere stato eliminato",
     "loopNotFound": "Loop non trovato — potrebbe essere stato eliminato",
     "lookupFailed": "Impossibile verificare il riferimento — riprova"
+  },
+  "header": {
+    "untitled": "Missione senza titolo",
+    "menu": "Menu della conversazione",
+    "rename": "Rinomina",
+    "renamePlaceholder": "Nome della conversazione",
+    "renameHint": "Doppio clic per rinominare",
+    "renameFailed": "Impossibile rinominare",
+    "copyName": "Copia nome conversazione",
+    "copyId": "Copia ID conversazione",
+    "copyProject": "Copia nome progetto",
+    "copyProjectPath": "Copia percorso progetto",
+    "copyFailed": "Impossibile copiare"
   }
 }

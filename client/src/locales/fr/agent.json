@@ -256,5 +256,18 @@
     "jobNotFound": "Job introuvable — il a peut-être été supprimé",
     "loopNotFound": "Boucle introuvable — elle a peut-être été supprimée",
     "lookupFailed": "Impossible de vérifier la référence — réessayez"
+  },
+  "header": {
+    "untitled": "Mission sans titre",
+    "menu": "Menu de la conversation",
+    "rename": "Renommer",
+    "renamePlaceholder": "Nom de la conversation",
+    "renameHint": "Double-clic pour renommer",
+    "renameFailed": "Renommage impossible",
+    "copyName": "Copier le nom de la conversation",
+    "copyId": "Copier l'ID de la conversation",
+    "copyProject": "Copier le nom du projet",
+    "copyProjectPath": "Copier le chemin du projet",
+    "copyFailed": "Copie impossible"
   }
 }

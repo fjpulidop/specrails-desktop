@@ -256,5 +256,18 @@
     "jobNotFound": "ジョブが見つかりません — 削除された可能性があります",
     "loopNotFound": "ループが見つかりません — 削除された可能性があります",
     "lookupFailed": "参照を確認できませんでした — もう一度お試しください"
+  },
+  "header": {
+    "untitled": "無題のミッション",
+    "menu": "会話メニュー",
+    "rename": "名前を変更",
+    "renamePlaceholder": "会話名",
+    "renameHint": "ダブルクリックで名前を変更",
+    "renameFailed": "名前を変更できませんでした",
+    "copyName": "会話名をコピー",
+    "copyId": "会話 ID をコピー",
+    "copyProject": "プロジェクト名をコピー",
+    "copyProjectPath": "プロジェクトパスをコピー",
+    "copyFailed": "コピーできませんでした"
   }
 }

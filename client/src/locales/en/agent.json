@@ -256,5 +256,18 @@
     "jobNotFound": "Job not found — it may have been deleted",
     "loopNotFound": "Loop not found — it may have been deleted",
     "lookupFailed": "Couldn't verify the reference — try again"
+  },
+  "header": {
+    "untitled": "Untitled mission",
+    "menu": "Conversation menu",
+    "rename": "Rename",
+    "renamePlaceholder": "Conversation name",
+    "renameHint": "Double-click to rename",
+    "renameFailed": "Could not rename",
+    "copyName": "Copy conversation name",
+    "copyId": "Copy conversation ID",
+    "copyProject": "Copy project name",
+    "copyProjectPath": "Copy project path",
+    "copyFailed": "Couldn't copy"
   }
 }

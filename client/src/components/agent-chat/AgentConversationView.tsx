@@ -12,6 +12,7 @@ import { AgentMessage } from './AgentMessage'
 import { AgentComposer } from './AgentComposer'
 import { AgentPrDecisionCard } from './AgentPrDecisionCard'
 import { AgentPrPinnedDock, PrDecisionPill } from './AgentPrPinnedDock'
+import { AgentConversationHeader } from './AgentConversationHeader'
 import { derivePrCards, isPrDecisionPinned } from './agent-pr-pinning'
 
 // Only loads when a job-ref chip is actually clicked — keeps the conversation
@@ -115,6 +116,11 @@ export function AgentConversationView({ variant }: { variant: 'floating' | 'inli
           </button>
         </div>
       )}
+
+      {/* Agent-Mode conversation title bar: breadcrumb (project path / title) +
+          ⋮ overflow menu (Rename, Copy …). Inline surface only — the floating
+          panel carries its own header chrome. Self-hides when no active thread. */}
+      {inline && active && <AgentConversationHeader />}
 
       <div className={threadClass}>
         {/* Inline: the thread eases in once while the composer card morphs into

@@ -256,5 +256,18 @@
     "jobNotFound": "Job nicht gefunden — möglicherweise gelöscht",
     "loopNotFound": "Loop nicht gefunden — er wurde möglicherweise gelöscht",
     "lookupFailed": "Referenz konnte nicht geprüft werden — bitte erneut versuchen"
+  },
+  "header": {
+    "untitled": "Unbenannte Mission",
+    "menu": "Konversationsmenü",
+    "rename": "Umbenennen",
+    "renamePlaceholder": "Name der Konversation",
+    "renameHint": "Zum Umbenennen doppelklicken",
+    "renameFailed": "Umbenennen fehlgeschlagen",
+    "copyName": "Konversationsname kopieren",
+    "copyId": "Konversations-ID kopieren",
+    "copyProject": "Projektname kopieren",
+    "copyProjectPath": "Projektpfad kopieren",
+    "copyFailed": "Kopieren fehlgeschlagen"
   }
 }

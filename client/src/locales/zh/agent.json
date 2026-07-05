@@ -256,5 +256,18 @@
     "jobNotFound": "未找到任务 — 可能已被删除",
     "loopNotFound": "未找到循环 — 可能已被删除",
     "lookupFailed": "无法验证该引用 — 请重试"
+  },
+  "header": {
+    "untitled": "未命名任务",
+    "menu": "对话菜单",
+    "rename": "重命名",
+    "renamePlaceholder": "对话名称",
+    "renameHint": "双击重命名",
+    "renameFailed": "无法重命名",
+    "copyName": "复制对话名称",
+    "copyId": "复制对话 ID",
+    "copyProject": "复制项目名称",
+    "copyProjectPath": "复制项目路径",
+    "copyFailed": "无法复制"
   }
 }
