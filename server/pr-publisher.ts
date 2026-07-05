@@ -18,6 +18,7 @@
  */
 import { execFile } from 'child_process'
 import { assertGitAllowed } from './git-guardrails'
+import { windowsSpawnEnv } from './util/win-spawn'
 
 export interface ExecResult {
   code: number
@@ -33,7 +34,14 @@ export interface Exec {
 export const defaultExec: Exec = {
   run(cmd, args, cwd) {
     return new Promise<ExecResult>((resolve) => {
-      execFile(cmd, args, { cwd, maxBuffer: 16 * 1024 * 1024 }, (err, stdout, stderr) => {
+      // `windowsSpawnEnv()` backfills SystemRoot / ComSpec / USERPROFILE, which a
+      // GUI-launched / pkg-stripped Windows sidecar can lack — without them the
+      // `git`/`gh` child (and the `sh -c` the `!gh …` credential helper runs) can
+      // fail to start. NOT `GIT_EXEC_ENV`: that hardened env disables credentials
+      // (GIT_ASKPASS=echo / GIT_TERMINAL_PROMPT=0), which the push must keep. No-op
+      // on POSIX (returns process.env), so mac/Linux behaviour is byte-identical.
+      const env = windowsSpawnEnv()
+      execFile(cmd, args, { cwd, env, maxBuffer: 16 * 1024 * 1024, windowsHide: true }, (err, stdout, stderr) => {
         const code = err && typeof (err as { code?: unknown }).code === 'number' ? (err as { code: number }).code : err ? 1 : 0
         resolve({ code, stdout: stdout?.toString() ?? '', stderr: stderr?.toString() ?? '' })
       })
@@ -79,7 +87,25 @@ export async function publishDraftPr(exec: Exec, input: PublishDraftPrInput): Pr
   //    Guardrail: never force-push, never push the integration branch itself.
   const pushArgs = ['push', '-u', remote, branch]
   assertGitAllowed('git', pushArgs, { protectedBranch: baseBranch })
-  const push = await exec.run('git', pushArgs, repoDir)
+  let push = await exec.run('git', pushArgs, repoDir)
+  if (push.code !== 0 && isCredentialFailure(push)) {
+    // The push failed authenticating over HTTPS — typically the machine's
+    // configured credential helper (e.g. git-credential-osxkeychain) is not on
+    // the app's PATH (GUI-launch PATH divergence: the sidecar inherits launchd's
+    // PATH, not the user's login shell). Retry borrowing gh's credentials — the
+    // SAME auth we use for `gh pr create` below, so if the PR can be created the
+    // push can succeed — instead of depending on a machine credential helper.
+    // `-c credential.helper=` first RESETS the (broken) inherited helper list,
+    // then adds gh's. Harmless for SSH remotes (git ignores credential.helper).
+    // The semantic push (refspec/remote) is unchanged, so the guardrail asserted
+    // above still holds; no-op when gh is absent (retry fails the same way).
+    const retry = await exec.run(
+      'git',
+      ['-c', 'credential.helper=', '-c', 'credential.helper=!gh auth git-credential', ...pushArgs],
+      repoDir,
+    )
+    if (retry.code === 0) push = retry
+  }
   if (push.code !== 0) {
     return { state: 'local-only', branch, reason: reasonFrom(push) }
   }
@@ -106,4 +132,22 @@ export async function publishDraftPr(exec: Exec, input: PublishDraftPrInput): Pr
 function reasonFrom(r: ExecResult): string {
   const msg = (r.stderr.trim() || r.stdout.trim()).split('\n')[0]
   return msg || `exit ${r.code}`
+}
+
+/**
+ * True when a failed `git push` looks like an HTTPS credential/authentication
+ * problem (as opposed to a rejected ref, missing remote, network, etc.) — the
+ * only class worth retrying through gh's credential helper. Matches the
+ * canonical git strings, including the "'credential-<helper>' is not a git
+ * command" case that happens when the configured helper binary isn't on PATH.
+ */
+function isCredentialFailure(r: ExecResult): boolean {
+  const s = `${r.stderr}\n${r.stdout}`.toLowerCase()
+  return (
+    s.includes('could not read username') ||
+    s.includes('could not read password') ||
+    s.includes('authentication failed') ||
+    s.includes('credential-') ||
+    s.includes('terminal prompts disabled')
+  )
 }

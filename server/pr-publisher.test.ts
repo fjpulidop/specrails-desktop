@@ -69,3 +69,74 @@ describe('publishDraftPr degradation ladder', () => {
     expect(calls[0].args).toEqual(['push', '-u', 'upstream', 'sr/p/ticket-1'])
   })
 })
+
+describe('publishDraftPr — HTTPS credential fallback via gh', () => {
+  // The exact failure observed in the wild: the machine's credential helper
+  // (osxkeychain) is not on the app's PATH, so the HTTPS push can't authenticate.
+  const credFail: ExecResult = {
+    code: 128,
+    stdout: '',
+    stderr:
+      "git: 'credential-osxkeychain' is not a git command.\n" +
+      "fatal: could not read Username for 'https://github.com': Device not configured\n",
+  }
+  const GH_HELPER_RETRY = [
+    '-c',
+    'credential.helper=',
+    '-c',
+    'credential.helper=!gh auth git-credential',
+    'push',
+    '-u',
+    'origin',
+    'sr/p/ticket-1',
+  ]
+  function isRetry(cmd: string, args: string[]): boolean {
+    return cmd === 'git' && args.includes('credential.helper=!gh auth git-credential')
+  }
+
+  it('retries the push borrowing gh credentials when HTTPS auth fails, then opens the PR', async () => {
+    const calls: Array<{ cmd: string; args: string[] }> = []
+    const exec: Exec = {
+      async run(cmd, args) {
+        calls.push({ cmd, args })
+        if (isRetry(cmd, args)) return { code: 0, stdout: '', stderr: '' }
+        if (cmd === 'git' && args[0] === 'push') return credFail
+        if (cmd === 'gh' && args[0] === 'pr') return { code: 0, stdout: 'https://github.com/o/r/pull/5\n', stderr: '' }
+        return { code: 0, stdout: '', stderr: '' }
+      },
+    }
+    const r = await publishDraftPr(exec, input)
+    expect(r).toEqual({ state: 'pr-created', branch: 'sr/p/ticket-1', prUrl: 'https://github.com/o/r/pull/5' })
+    // The retry reset the inherited (broken) helper, then used gh — same refspec.
+    const retry = calls.find((c) => isRetry(c.cmd, c.args))
+    expect(retry?.args).toEqual(GH_HELPER_RETRY)
+  })
+
+  it('stays local-only when the gh-credential retry also fails (gh never asked to open a PR)', async () => {
+    const calls: Array<{ cmd: string; args: string[] }> = []
+    const exec: Exec = {
+      async run(cmd, args) {
+        calls.push({ cmd, args })
+        if (cmd === 'git') return credFail // both the initial push and the -c retry fail
+        return { code: 0, stdout: '', stderr: '' }
+      },
+    }
+    const r = await publishDraftPr(exec, input)
+    expect(r.state).toBe('local-only')
+    expect(calls.some((c) => c.cmd === 'gh')).toBe(false)
+  })
+
+  it('does NOT retry on a non-credential push failure', async () => {
+    const calls: Array<{ cmd: string; args: string[] }> = []
+    const exec: Exec = {
+      async run(cmd, args) {
+        calls.push({ cmd, args })
+        if (cmd === 'git' && args[0] === 'push') return { code: 128, stdout: '', stderr: 'fatal: No configured push destination\n' }
+        return { code: 0, stdout: '', stderr: '' }
+      },
+    }
+    const r = await publishDraftPr(exec, input)
+    expect(r.state).toBe('local-only')
+    expect(calls.filter((c) => c.cmd === 'git').length).toBe(1) // no gh-helper retry
+  })
+})

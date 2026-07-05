@@ -1,22 +1,32 @@
 /**
  * Pre-trust specrails-managed spawn directories in the user's `~/.claude.json`
- * so a HEADLESS claude rail/job spawn honours the `.claude/settings.json`
- * `permissions.allow` list the framework overlay places in the worktree.
- *
- * Why: claude ignores a workspace's `permissions.allow` entries until that
- * project directory has been "trusted" (the interactive trust dialog, or
- * `projects[<dir>].hasTrustDialogAccepted: true` in `~/.claude.json`). specrails
- * spawns claude headlessly in FRESH per-run worktrees / workspaces that were
- * never opened interactively, so every isolated rail run logged
+ * so a HEADLESS claude rail/job spawn does NOT log the noisy
  * "Ignoring N permissions.allow entries … this workspace has not been trusted"
- * and ran with its pre-approved permissions silently dropped. We manage those
- * directories, so pre-marking them trusted is correct and safe.
+ * warning.
+ *
+ * IMPORTANT — this is cosmetic, not load-bearing. Every claude spawn already
+ * carries `--dangerously-skip-permissions` (see `claude-adapter.ts` COMMON_FLAGS),
+ * which bypasses the permission engine entirely — so a workspace's
+ * `.claude/settings.json` `permissions.allow` list is moot on these spawns
+ * whether the dir is trusted or not. Marking the dir trusted only silences the
+ * warning. (It WOULD become functionally load-bearing if we ever dropped
+ * `--dangerously-skip-permissions` and relied on the allow-list.)
+ *
+ * Why re-assert on EVERY spawn (no persistent memo): `~/.claude.json` is a
+ * single ~200KB file holding ALL projects that many concurrent claude processes
+ * rewrite wholesale (each carries its own in-memory snapshot). Our surgical
+ * `true` for one dir is routinely clobbered by another process writing the whole
+ * file back with a stale `false` — a lost update. A one-shot per-process memo
+ * (the old design) therefore left the flag stuck `false` for the rest of the
+ * process lifetime after the first clobber. Re-asserting immediately before each
+ * spawn re-flips a clobbered `false → true` so this spawn reads `true` at
+ * startup. It cannot fully win the race against concurrent whole-file writers,
+ * but the failure mode is only a cosmetic warning, so best-effort is enough.
  *
  * Surgical + best-effort: read → set only `hasTrustDialogAccepted` on the
  * relevant `projects[<realpath>]` keys → atomic temp+rename. Never throws, never
  * touches any other field, and only writes when something actually changed.
- * claude-only (the trust/allow model is a claude concept). Memoized per path so
- * a multi-step run does the I/O once, before the first spawn in that dir.
+ * claude-only (the trust/allow model is a claude concept).
  */
 import * as fs from 'fs'
 import * as path from 'path'
@@ -82,27 +92,24 @@ export function markProjectsTrusted(configPath: string, dirs: string[]): number 
   return changed
 }
 
-// Per-path memo so a multi-step run writes at most once per unique dir.
-const _trusted = new Set<string>()
-
 /**
- * Ensure the claude spawn directories are trusted, once per process per dir.
- * No-op for non-claude providers and best-effort otherwise (a failure only
- * means the pre-approved permissions stay dropped — never blocks a spawn).
+ * Ensure the claude spawn directories are trusted, RE-ASSERTED on every call
+ * (no persistent memo — see the module header for why: concurrent whole-file
+ * writers clobber our flag back to `false`, and a one-shot memo would leave it
+ * stuck). No-op for non-claude providers and best-effort otherwise (a failure
+ * only leaves the cosmetic trust warning — never blocks a spawn).
+ *
+ * `markProjectsTrusted` reads the current on-disk value and writes ONLY when a
+ * dir is missing / `false`, so a call where the flag is already `true` is a
+ * cheap read with no write.
  */
 export function ensureClaudeTrusted(provider: string, dirs: Array<string | undefined>, home?: string): void {
   if (provider !== 'claude') return
-  const todo = dirs.filter((d): d is string => !!d && !_trusted.has(canonical(d)))
+  const todo = dirs.filter((d): d is string => !!d)
   if (todo.length === 0) return
   try {
     markProjectsTrusted(claudeConfigPath(home), todo)
   } catch {
     /* best-effort */
   }
-  for (const d of todo) _trusted.add(canonical(d))
-}
-
-/** Test-only: clear the per-path memo. */
-export function __resetClaudeTrustMemoForTest(): void {
-  _trusted.clear()
 }
