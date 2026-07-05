@@ -3,6 +3,8 @@ import { useNavigate, useLocation } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { PanelLeft, FolderOpen, Plus, BarChart2, BookOpen, Settings, X, Workflow, ChevronRight, ChevronDown, MessageSquare, Bot, LayoutGrid, Search, Home } from 'lucide-react'
 import { cn } from '../lib/utils'
+import { useResizableSidebar } from '../hooks/useResizableSidebar'
+import { SidebarResizeGrip } from './SidebarResizeGrip'
 import { useDesktop } from '../hooks/useDesktop'
 import type { DesktopProject } from '../hooks/useDesktop'
 import { useSidebarPin } from '../context/SidebarPinContext'
@@ -443,6 +445,9 @@ export function ArcSidebar({
   }
   const [hovered, setHovered] = useState(false)
   const expanded = leftMode === 'pinned-open' || (leftMode === 'unpinned' && hovered)
+  // Drag-resizable width (persisted). Applied only when expanded; the collapsed
+  // rail keeps its fixed w-11. w-60 (240px) is the default.
+  const resize = useResizableSidebar('left-arc', { side: 'left', defaultWidth: 240, min: 200, max: 460 })
   const lit = leftMode !== 'unpinned'
   const pinLabel = t(LEFT_PIN_LABEL_KEY[leftMode])
 
@@ -463,15 +468,30 @@ export function ArcSidebar({
   return (
     <div
       className={cn(
-        'relative flex flex-col h-full border-r border-border bg-background flex-shrink-0',
-        'transition-all duration-200 ease-in-out overflow-hidden',
-        // w-60: wide enough for the localized mode-toggle labels ("Cambiar a
-        // Control de misiones") without clipping.
-        expanded ? 'w-60' : 'w-11'
+        'relative flex flex-col h-full border-r border-border bg-background flex-shrink-0 overflow-hidden',
+        // No width transition while dragging (it would lag the pointer); the
+        // collapse/expand toggle keeps its smooth animation otherwise.
+        resize.dragging ? '' : 'transition-all duration-200 ease-in-out',
+        // Collapsed → fixed narrow rail; expanded → the persisted drag width
+        // via inline style (min 200 wide enough for the localized labels).
+        !expanded && 'w-11'
       )}
+      style={expanded ? { width: resize.width } : undefined}
       onMouseEnter={() => { if (leftMode === 'unpinned') setHovered(true) }}
       onMouseLeave={() => { if (leftMode === 'unpinned') setHovered(false) }}
     >
+      {expanded && (
+        <SidebarResizeGrip
+          side="left"
+          dragging={resize.dragging}
+          width={resize.width}
+          min={200}
+          max={460}
+          label={t('arcSidebar.resize', { defaultValue: 'Resize sidebar' })}
+          onPointerDown={resize.onGripPointerDown}
+          onKeyDown={resize.onGripKeyDown}
+        />
+      )}
       {/* Header */}
       <div
         className={cn(

@@ -2,6 +2,8 @@ import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Globe, TerminalSquare, FileCode2, PanelRight, Briefcase } from 'lucide-react'
 import { cn } from '../../lib/utils'
+import { useResizableSidebar } from '../../hooks/useResizableSidebar'
+import { SidebarResizeGrip } from '../SidebarResizeGrip'
 import { useSidebarPin } from '../../context/SidebarPinContext'
 import { useDesktop } from '../../hooks/useDesktop'
 import { useTerminals } from '../../context/TerminalsContext'
@@ -30,8 +32,9 @@ export function AgentWorkspaceSidebar() {
   const terminals = useTerminals()
   const workspace = useAgentWorkspace()
   const { active } = useAgentChat()
+  const resize = useResizableSidebar('right-workspace', { side: 'right', defaultWidth: 208, min: 180, max: 460 })
   const [hovered, setHovered] = useState(false)
-  const expanded = rightMode === 'pinned-open' || (rightMode === 'unpinned' && hovered)
+  const expanded = rightMode === 'pinned-open' || (rightMode === 'unpinned' &&hovered)
   const lit = rightMode !== 'unpinned'
   const pinLabel = tNav(RIGHT_PIN_LABEL_KEY[rightMode])
   const noProject = !activeProjectId
@@ -73,13 +76,26 @@ export function AgentWorkspaceSidebar() {
   return (
     <div
       className={cn(
-        'relative flex flex-col h-full border-l border-border bg-background flex-shrink-0',
-        'transition-all duration-200 ease-in-out overflow-hidden',
-        expanded ? 'w-52' : 'w-11',
+        'relative flex flex-col h-full border-l border-border bg-background flex-shrink-0 overflow-hidden',
+        resize.dragging ? '' : 'transition-all duration-200 ease-in-out',
+        !expanded && 'w-11',
       )}
+      style={expanded ? { width: resize.width } : undefined}
       onMouseEnter={() => { if (rightMode === 'unpinned') setHovered(true) }}
       onMouseLeave={() => { if (rightMode === 'unpinned') setHovered(false) }}
     >
+      {expanded && (
+        <SidebarResizeGrip
+          side="right"
+          dragging={resize.dragging}
+          width={resize.width}
+          min={180}
+          max={460}
+          label={tNav('sidebarPin.resize', { defaultValue: 'Resize sidebar' })}
+          onPointerDown={resize.onGripPointerDown}
+          onKeyDown={resize.onGripKeyDown}
+        />
+      )}
       <div className={cn(
         'flex items-center h-12 border-b border-border flex-shrink-0',
         expanded ? 'px-3 justify-between' : 'justify-center',
