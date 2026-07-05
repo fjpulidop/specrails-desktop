@@ -170,6 +170,7 @@ export function AgentConversationView({ variant }: { variant: 'floating' | 'inli
                 key={m.id}
                 role={m.role}
                 content={m.content}
+                createdAt={m.created_at}
                 // Option chips are clickable only on the newest settled message —
                 // a streaming turn suppresses them everywhere.
                 isLast={!isStreaming && i === messages.length - 1}
