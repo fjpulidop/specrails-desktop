@@ -33,6 +33,7 @@ import { attachmentManager, USER_ATTACHMENT_SYSTEM_NOTE } from './attachment-man
 import { extractTicketIdsFromCommand, readStore, resolveTicketStoragePath } from './ticket-store'
 import { binaryOnPath } from './binary-probe'
 import { ensureFrameworkAgents } from './workspace-manager'
+import { ensureClaudeTrusted } from './claude-trust'
 import { resolveProjectExecution, type ProjectExecution } from './workspace-resolution'
 import { readCurrentFrameworkVersion } from './framework-manager'
 import { ensureOpenspecShim, prependShimToPath, removeOpenspecShim, openspecShimDir } from './openspec-shim'
@@ -1584,6 +1585,14 @@ export class QueueManager {
       } catch {
         /* best-effort — never block a rail spawn on the repair */
       }
+    }
+    // Pre-trust the spawn dir(s) so headless claude honours the overlaid
+    // `.claude/settings.json` permissions.allow (else it silently drops them:
+    // "this workspace has not been trusted"). Once per unique dir, claude-only.
+    try {
+      ensureClaudeTrusted(adapter.id, [execution.cwd, execution.repoDir])
+    } catch {
+      /* best-effort */
     }
 
     job.status = 'running'

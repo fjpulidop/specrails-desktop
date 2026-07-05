@@ -7,7 +7,11 @@
 import type { DbInstance } from './db'
 
 export type LoopRunStatus = 'running' | 'completed'
-export type LoopRunOutcome = 'success' | 'max-iterations' | 'max-cost' | 'stopped' | 'failed'
+// `blocked` — halted on a human decision the Decider flagged (not a failure,
+// not done). `stalled` — aborted after consecutive iterations made zero change
+// to the working tree (non-convergence guard). Both are terminal + distinct
+// from `success` so metrics never count a stuck run as a win.
+export type LoopRunOutcome = 'success' | 'max-iterations' | 'max-cost' | 'stopped' | 'failed' | 'blocked' | 'stalled'
 
 export interface LoopRunRow {
   id: string

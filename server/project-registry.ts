@@ -734,8 +734,13 @@ export class ProjectRegistry {
       railLoopRuns.delete(runId)
       const ticketIds = meta.ticketIds
       if (ticketIds.length === 0) return
+      // `blocked`/`stalled` (Decider-flagged human blocker / non-convergence
+      // abort) are controlled halts: treat like a user stop → `canceled`, so
+      // tickets revert to todo (never done/on_review) and no PR delivery fires.
       const status: JobOutcome =
-        outcome === 'success' ? 'completed' : outcome === 'stopped' ? 'canceled' : 'failed'
+        outcome === 'success' ? 'completed'
+          : outcome === 'stopped' || outcome === 'blocked' || outcome === 'stalled' ? 'canceled'
+            : 'failed'
       // Ask-first PR delivery parks a completed run's tickets at on_review (the
       // user decides done vs discard via the PR decision flow / a manual move).
       // Explicit opts (the isolated-rail launch passes its launch-captured

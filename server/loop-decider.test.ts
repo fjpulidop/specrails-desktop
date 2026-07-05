@@ -50,14 +50,19 @@ describe('decider prompts', () => {
   })
 
   it('exposes a prompt version', () => {
-    expect(DECIDER_PROMPT_VERSION).toBe(2)
+    expect(DECIDER_PROMPT_VERSION).toBe(3)
   })
 })
 
 describe('parseDeciderDecision', () => {
   it('parses a clean stop decision', () => {
     const d = parseDeciderDecision('{"action":"stop","reasoning":"all green"}')
-    expect(d).toEqual({ continue: false, reasoning: 'all green', parsed: true })
+    expect(d).toEqual({ continue: false, blocked: false, reasoning: 'all green', parsed: true })
+  })
+
+  it('parses a blocked decision (halts on a human decision, not success)', () => {
+    const d = parseDeciderDecision('{"action":"blocked","reasoning":"needs a scope call on Supabase"}')
+    expect(d).toEqual({ continue: false, blocked: true, reasoning: 'needs a scope call on Supabase', parsed: true })
   })
 
   it('parses a continue decision', () => {

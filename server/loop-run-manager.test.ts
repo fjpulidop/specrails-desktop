@@ -1412,3 +1412,58 @@ describe('LoopRunManager structured run events', () => {
     expect((ai.command as string).endsWith('…')).toBe(true)
   })
 })
+
+describe('LoopRunManager blocked + non-convergence guards', () => {
+  it('Decider "blocked" halts with outcome=blocked (NOT success) and surfaces the reason', async () => {
+    const runDecider = vi.fn(async () => ({
+      continue: false, blocked: true, reasoning: 'needs a human scope call on Supabase', parsed: true,
+      cost: 0.001, tokens: 20, provider: 'claude', model: 'sonnet',
+    }))
+    const ex = makeExecutors({ runDecider })
+    const res = await manager(ex).run({ ...baseReq(), graph: loopGraph(20) })
+    expect(res.outcome).toBe('blocked')
+    expect(getLoopRun(db, res.runId)!.final_outcome).toBe('blocked')
+    // The blocking reason reached the run log.
+    expect(broadcasts.some((m) => m.type === 'log' && ((m as { line?: string }).line ?? '').includes('needs a human scope call'))).toBe(true)
+    // Only ONE decider call — it halted immediately, no cycling.
+    expect(runDecider).toHaveBeenCalledTimes(1)
+  })
+
+  it('aborts "stalled" when repoStateHash is unchanged across consecutive continue verdicts', async () => {
+    // Decider always says continue (never done); the tree never changes.
+    const runDecider = vi.fn(async () => ({
+      continue: true, blocked: false, reasoning: 'not done', parsed: true,
+      cost: 0.001, tokens: 20, provider: 'claude', model: 'sonnet',
+    }))
+    const repoStateHash = vi.fn(() => 'IDENTICAL')
+    const ex = makeExecutors({ runDecider, repoStateHash })
+    const res = await manager(ex).run({ ...baseReq(), graph: loopGraph(20) })
+    expect(res.outcome).toBe('stalled')
+    expect(getLoopRun(db, res.runId)!.final_outcome).toBe('stalled')
+    // Stopped WELL before the 20-iteration cap (baseline hash + 2 no-change = 3 deciders).
+    expect(runDecider.mock.calls.length).toBeLessThanOrEqual(3)
+  })
+
+  it('does NOT stall when the tree keeps changing (hash differs each iteration)', async () => {
+    let n = 0
+    // Continue a few times then stop, with a DIFFERENT hash each pass → progress.
+    const runDecider = vi.fn(async () => (++n >= 3
+      ? { continue: false, blocked: false, reasoning: 'done', parsed: true, cost: 0.001, tokens: 20, provider: 'claude', model: 'sonnet' }
+      : { continue: true, blocked: false, reasoning: 'more', parsed: true, cost: 0.001, tokens: 20, provider: 'claude', model: 'sonnet' }))
+    const repoStateHash = vi.fn(() => `hash-${n}`)
+    const ex = makeExecutors({ runDecider, repoStateHash })
+    const res = await manager(ex).run({ ...baseReq(), graph: loopGraph(20) })
+    expect(res.outcome).toBe('success')
+  })
+
+  it('never stalls when repoStateHash returns null (guard disabled, not a false match)', async () => {
+    let n = 0
+    const runDecider = vi.fn(async () => (++n >= 4
+      ? { continue: false, blocked: false, reasoning: 'done', parsed: true, cost: 0.001, tokens: 20, provider: 'claude', model: 'sonnet' }
+      : { continue: true, blocked: false, reasoning: 'more', parsed: true, cost: 0.001, tokens: 20, provider: 'claude', model: 'sonnet' }))
+    const repoStateHash = vi.fn(() => null)
+    const ex = makeExecutors({ runDecider, repoStateHash })
+    const res = await manager(ex).run({ ...baseReq(), graph: loopGraph(20) })
+    expect(res.outcome).toBe('success') // null never matches null → no false stall
+  })
+})

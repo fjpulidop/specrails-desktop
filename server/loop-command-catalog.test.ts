@@ -110,4 +110,17 @@ describe('loop command catalog', () => {
     expect(out).toBe('/specrails:implement #1 #2 --yes')
     expect(out).not.toContain('{{')
   })
+  it('the fix step no longer falsely claims "reported failures" and offers a BLOCKED escape', () => {
+    const fix = LOOP_COMMANDS.find((c) => c.name === 'fix')!
+    const t = fix.template
+    // It must NOT open by asserting a failure (the Decider routes here on ANY
+    // not-done verdict, including a PASSED verification with the feature unbuilt).
+    expect(t.startsWith('The verification step above reported failures')).toBe(false)
+    // It branches on the REAL verdict and permits implementing missing work…
+    expect(t).toContain('VERIFICATION: PASS')
+    expect(t).toContain('VERIFICATION: FAIL')
+    expect(t.toLowerCase()).toContain('implement the missing pieces')
+    // …and gives a first-class blocked signal so a human-decision blocker halts.
+    expect(t).toContain('LOOP_BLOCKED:')
+  })
 })

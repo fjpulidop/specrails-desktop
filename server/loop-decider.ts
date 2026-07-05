@@ -7,11 +7,15 @@
  * maxIterations + timeout, so an unparseable verdict safely defaults to CONTINUE.
  */
 
-export const DECIDER_PROMPT_VERSION = 2
+export const DECIDER_PROMPT_VERSION = 3
 
 export interface DeciderDecision {
-  /** true → run another iteration; false → stop the loop. */
+  /** true → run another iteration; false → stop the loop. When `blocked` is
+   *  true this is false (a blocked loop does not continue). */
   continue: boolean
+  /** true → the loop is stuck on a decision only a human can make; the engine
+   *  halts with a `blocked` outcome (NOT `success`) and surfaces the question. */
+  blocked: boolean
   reasoning: string
   /** false when the model output could not be parsed (engine treats as continue). */
   parsed: boolean
@@ -25,8 +29,9 @@ export function buildDeciderSystemPrompt(): string {
     'Decide whether the goal is now met (STOP) or another iteration is needed (CONTINUE).',
     'Be strict: only STOP when the goal is genuinely satisfied by the evidence in the history.',
     'A step CLAIMING success (e.g. printing "VERIFICATION: PASS") is NOT proof on its own — weigh it against the SPEC. If the spec describes work the history does not yet evidence as done, CONTINUE even if a step reported success.',
+    'BLOCKED is a THIRD option, distinct from continue/stop. Choose "blocked" when the loop is stuck on a decision only a HUMAN can make and further iterations cannot make progress — e.g. the latest step printed a line starting `LOOP_BLOCKED:`, OR a step repeatedly asks the human the same question / reports it will not proceed without a decision, OR the history shows several iterations with no new progress toward the goal. Do NOT pick "continue" in those cases — it just burns iterations. Put the blocking question in `reasoning`.',
     'Respond with ONLY a single-line JSON object — no prose, no markdown, no code fences:',
-    '{"action":"continue"|"stop","reasoning":"<one short sentence>"}',
+    '{"action":"continue"|"stop"|"blocked","reasoning":"<one short sentence>"}',
   ].join('\n')
 }
 
@@ -69,9 +74,10 @@ export function parseDeciderDecision(raw: string): DeciderDecision {
       try {
         const obj = JSON.parse(matches[i]) as { action?: unknown; reasoning?: unknown }
         const action = typeof obj.action === 'string' ? obj.action.toLowerCase().trim() : ''
-        if (action === 'stop' || action === 'continue') {
+        if (action === 'stop' || action === 'continue' || action === 'blocked') {
           return {
             continue: action === 'continue',
+            blocked: action === 'blocked',
             reasoning: typeof obj.reasoning === 'string' ? obj.reasoning : '',
             parsed: true,
           }
@@ -81,5 +87,5 @@ export function parseDeciderDecision(raw: string): DeciderDecision {
       }
     }
   }
-  return { continue: true, reasoning: '(could not parse decision; continuing)', parsed: false }
+  return { continue: true, blocked: false, reasoning: '(could not parse decision; continuing)', parsed: false }
 }
