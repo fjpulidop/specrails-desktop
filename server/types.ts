@@ -749,6 +749,23 @@ export interface RailOverlayDegradedMessage {
   warnings: string[]
 }
 
+/**
+ * The pre-worktree `git fetch origin` degraded (fetch failed, no remote, or
+ * the resolved integration branch has no remote-tracking counterpart) — the
+ * launch proceeds using today's bare local branch name as `baseRef` instead
+ * of the freshly-fetched `origin/<branch>`. Non-fatal, stderr-style: surfaced
+ * so the user can see the worktree may be rooted at a stale local commit.
+ * Fired ONCE per launch (the shared integration-branch resolution), not per
+ * ticket/unit.
+ */
+export interface RailFetchDegradedMessage {
+  type: 'rail.fetch_degraded'
+  projectId: string
+  railIndex: number
+  /** Human-readable reason the remote-tracking ref wasn't used. */
+  warning: string
+}
+
 /** Per-ticket progress of an isolated rail's worktree fan-out / merge-back. */
 export interface RailWorktreeProgressMessage {
   type: 'rail.worktree_progress'
@@ -1130,7 +1147,7 @@ export type WsMessage =
   | TicketCreatedMessage | TicketUpdatedMessage | TicketDeletedMessage
   | TicketAiEditStreamMessage | TicketAiEditDoneMessage | TicketAiEditErrorMessage
   | SpecGenStreamMessage | SpecGenDoneMessage | SpecGenErrorMessage
-  | RailJobStartedMessage | RailJobStoppedMessage | RailJobCompletedMessage | RailUpdatedMessage | RailRemovedMessage | RailWorktreeProgressMessage | RailOverlayDegradedMessage | RailPrStateMessage
+  | RailJobStartedMessage | RailJobStoppedMessage | RailJobCompletedMessage | RailUpdatedMessage | RailRemovedMessage | RailWorktreeProgressMessage | RailOverlayDegradedMessage | RailFetchDegradedMessage | RailPrStateMessage
   | LoopRunStartedMessage | LoopRunProgressMessage | LoopRunStoppedMessage | LoopRunCompletedMessage
   | AgentRefineStreamMessage | AgentRefinePhaseMessage | AgentRefineReadyMessage
   | AgentRefineTestMessage | AgentRefineErrorMessage | AgentRefineCancelledMessage

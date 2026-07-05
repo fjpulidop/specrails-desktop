@@ -1,0 +1,22 @@
+{
+  "schema_version": "1",
+  "change": "fetch-remoto-antes-de-crear-worktrees",
+  "agent": "reviewer",
+  "scored_at": "2026-07-05T20:16:37Z",
+  "overall": 95,
+  "aspects": {
+    "type_correctness": 96,
+    "pattern_adherence": 96,
+    "test_coverage": 93,
+    "security": 95,
+    "architectural_alignment": 96
+  },
+  "notes": {
+    "type_correctness": "New exports (FetchResult, WorktreeBaseRefResolution, fetchOrigin, resolveWorktreeBaseRef) reuse the existing GitRunner/ResolvedIntegrationBranch types exactly as designed; RailFetchDegradedMessage is correctly added to the WsMessage union in server/types.ts. typecheck (server+cli+mcp-bridge+client) passes clean with zero errors.",
+    "pattern_adherence": "Mirrors established conventions verbatim: __resetFetchOriginCache mirrors __resetRepoLocks in repo-lock.ts, the WS degradation broadcast mirrors notifyOverlayDegraded's try/catch shape, and fetchOrigin/resolveWorktreeBaseRef are kept as separate functions per design.md Decision 1 to avoid perturbing resolveIntegrationBranch's existing test matrix.",
+    "test_coverage": "18 new tests in integration-branch.test.ts (success/failure/non-Error-rejection/TTL-dedup/cross-repo/cached-failure/explicit-bypass/head-fallback parity) plus new rail-isolated-launch.test.ts tests (fetch-fail fallback, WS broadcast, per-launch batch dedup, cross-request TTL dedup). Actual v8 coverage: integration-branch.ts 98.36%/98.14%/100%/100% (stmts/branch/funcs/lines), rail-isolated-launch.ts 90.05%/81.98%/68.96%/93.71% — the lower function% there is pre-existing uncovered legacy merge-back code (lines 489-509, kill-switch gated), not the new fetch/baseRef code, which is fully exercised. The 'explicit' source is provably unreachable through launchIsolatedRail's current input surface (no explicit field on IsolatedLaunchInput) and is instead exhaustively covered via resolveWorktreeBaseRef's own unit tests — an honest, documented deferral rather than a gap.",
+    "security": "git fetch origin is read-only against refs/remotes/origin/* only, never mutates the checked-out branch or working tree; repoDir/baseRepo flows through the same trusted call path as pre-existing git calls in this function (no new untrusted input surface). No new API/toggle introduced. Failure paths degrade gracefully and never block or throw.",
+    "architectural_alignment": "Implementation matches design.md's four decisions point-for-point: fetch runs once per launch inside the existing withRepoLock critical section immediately before resolveIntegrationBranch (Decision 4), TTL-cache dedup lives in integration-branch.ts keyed by repoDir (Decision 2), degradation surfaces via console.warn + a new project-scoped WS event without touching launchIsolatedRail's Promise<string[]> return shape (Decision 3), and the explicit source is completely bypassed with no git calls (Decision 1). Zero changes to worktree-manager.ts or the explicit path, as scoped."
+  },
+  "flags": []
+}

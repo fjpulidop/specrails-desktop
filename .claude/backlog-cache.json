@@ -1,23 +1,23 @@
 {
   "schema_version": "1",
   "provider": "local",
-  "last_updated": "2026-06-04T21:50:03.196714Z",
+  "last_updated": "2026-07-05T19:38:08Z",
   "written_by": "implement",
   "issues": {
-    "4": {
-      "number": 4,
-      "title": "Hide SMASH-capable option in Explore mode for Codex projects",
+    "2": {
+      "number": 2,
+      "title": "Fetch remoto antes de crear worktrees de rail/loop para evitar partir de un commit obsoleto",
       "state": "open",
       "assignees": [],
       "labels": [
-        "add-spec",
-        "bug",
-        "codex",
-        "explore-spec"
+        "rails",
+        "loops",
+        "worktree",
+        "git"
       ],
-      "body_sha": "3d2766819cfaf1c54fe42ba19b79bd5fd9f5810860cb9a57f453b41d34301857",
-      "updated_at": "2026-06-03T19:09:32.187Z",
-      "captured_at": "2026-06-04T21:50:03.196714Z"
+      "body_sha": "5b45894f40ec0d6a9e164b9503d33f7f06ccbe579eb42352ecf8f450d5a70b09",
+      "updated_at": "2026-07-05T19:24:42.795Z",
+      "captured_at": "2026-07-05T19:38:08Z"
     }
   }
 }
