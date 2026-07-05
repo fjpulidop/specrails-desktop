@@ -169,3 +169,45 @@ describe('tool catalog smoke (all domains)', () => {
     })
   })
 })
+
+describe('specrails_git tool', () => {
+  let db: DbInstance
+  let ctx: McpToolContext
+  beforeEach(() => { db = initDesktopDb(':memory:'); ctx = makeCtx(db); setActiveProject('p1') })
+  afterEach(() => { vi.unstubAllGlobals(); setActiveProject(null) })
+
+  const gitSpec = () => buildToolSpecs().find((s) => s.name === 'specrails_git')!
+
+  it('is registered as a READ-tier tool with a read-only action enum', () => {
+    const spec = gitSpec()
+    expect(spec).toBeTruthy()
+    expect(spec.hintTier).toBe('read')
+    expect(spec.tier).toBe('read') // constant, never ai-spawn/destructive
+    const actions = actionOptions(spec)
+    expect(actions).toEqual(expect.arrayContaining(['remote', 'gh_repo', 'gh_auth']))
+    // No mutating action is exposed.
+    for (const a of actions) expect(a).not.toMatch(/push|create|merge|commit|checkout|delete/)
+  })
+
+  it('handler GETs the diagnostic endpoint for the chosen action', async () => {
+    const fetchMock = vi.fn(async () => ({
+      ok: true, status: 200,
+      text: async () => JSON.stringify({ action: 'remote', command: 'git remote -v', ok: true, exitCode: 0, stdout: 'origin ...', stderr: '' }),
+    }))
+    vi.stubGlobal('fetch', fetchMock)
+    const r = await gitSpec().handler(ctx, { action: 'remote' }) as Record<string, unknown>
+    expect(fetchMock).toHaveBeenCalledTimes(1)
+    expect(String(fetchMock.mock.calls[0][0])).toContain('/api/projects/p1/git/diagnostic?action=remote')
+    expect(r).toMatchObject({ action: 'remote', ok: true })
+  })
+
+  it('adds a report-the-real-state hint when the command exited non-zero', async () => {
+    const fetchMock = vi.fn(async () => ({
+      ok: true, status: 200,
+      text: async () => JSON.stringify({ action: 'gh_repo', ok: false, exitCode: 1, stdout: '', stderr: 'no git remotes found' }),
+    }))
+    vi.stubGlobal('fetch', fetchMock)
+    const r = await gitSpec().handler(ctx, { action: 'gh_repo' }) as Record<string, unknown>
+    expect(String(r.hint)).toContain('report the real state')
+  })
+})

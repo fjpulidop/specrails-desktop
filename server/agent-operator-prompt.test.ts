@@ -18,14 +18,16 @@ describe('OPERATOR_INSTRUCTIONS — super-spec refinement mode', () => {
     expect(OPERATOR_INSTRUCTIONS).toContain('read code through the `specrails_code` tools')
   })
 
-  it('permits the bundled gh/git for GitHub & repo work (diagnostics free, mutations gated)', () => {
+  it('routes GitHub/git questions to the first-class specrails_git MCP tool (not raw shell / not a refusal)', () => {
     expect(OPERATOR_INSTRUCTIONS).toContain('## GitHub & git')
-    expect(OPERATOR_INSTRUCTIONS).toContain('bundled `gh`')
-    // Read-only diagnostics are allowed at any level (answers "is it connected?").
-    expect(OPERATOR_INSTRUCTIONS).toContain('gh auth status')
-    expect(OPERATOR_INSTRUCTIONS).toContain('git -C <path> remote -v')
-    // Mutations (push / pr create) are operate/autonomous + confirmation-gated.
-    expect(OPERATOR_INSTRUCTIONS).toContain('operate/autonomous-level actions')
+    expect(OPERATOR_INSTRUCTIONS).toContain('specrails_git')
+    // Names the read-only actions it should reach for.
+    expect(OPERATOR_INSTRUCTIONS).toContain('gh_auth')
+    expect(OPERATOR_INSTRUCTIONS).toContain('gh_repo')
+    // Explicitly forbids the "I only work through MCP tools, can't check git" refusal.
+    expect(OPERATOR_INSTRUCTIONS).toContain('never refuse')
+    // Mutations still go through the ask-first PR flow, not this tool.
+    expect(OPERATOR_INSTRUCTIONS).toContain('ask-first PR flow')
   })
 
   it('carries a per-spec-type grounding checklist', () => {

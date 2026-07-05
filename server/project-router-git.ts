@@ -1,6 +1,7 @@
 import type { Request, Response } from 'express'
 import type { ProjectRoutesDeps } from './project-router-helpers'
 import { getProjectGitInfo, checkoutProjectBranch } from './project-git'
+import { runGitDiagnostic, isGitDiagnosticAction, GIT_DIAGNOSTIC_ACTIONS } from './git-diagnostics'
 
 // ─── Git domain routes (/api/projects/:projectId/git) ─────────────────────────
 //
@@ -17,6 +18,24 @@ export function registerGitRoutes(deps: ProjectRoutesDeps): void {
     } catch (err) {
       console.error('[project-git] info failed:', err)
       res.status(500).json({ error: 'Failed to read git info' })
+    }
+  })
+
+  // READ-ONLY git/gh diagnostics (backs the specrails_git MCP tool). A fixed
+  // allowlist of read-only commands — the query only names an action, never
+  // arguments. Git runs against project.path (the real repo; the workspace never
+  // holds code under relocation).
+  router.get('/:projectId/git/diagnostic', async (req: Request, res: Response) => {
+    const action = String(req.query.action ?? '')
+    if (!isGitDiagnosticAction(action)) {
+      res.status(400).json({ error: 'invalid_action', allowed: GIT_DIAGNOSTIC_ACTIONS })
+      return
+    }
+    try {
+      res.json(await runGitDiagnostic(action, ctx(req).project.path))
+    } catch (err) {
+      console.error('[project-git] diagnostic failed:', err)
+      res.status(500).json({ error: 'diagnostic_failed', detail: err instanceof Error ? err.message : String(err) })
     }
   })
 

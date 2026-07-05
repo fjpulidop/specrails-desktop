@@ -3572,4 +3572,40 @@ describe('project-router multi-provider', () => {
       expect(res.body.conversation.provider).toBeNull()
     })
   })
+  // ─── Git diagnostics (specrails_git backing) ───────────────────────────────
+  describe('GET /:projectId/git/diagnostic', () => {
+    function appWithProject() {
+      const contexts = new Map<string, ProjectContext>()
+      contexts.set('proj-1', makeContext(db))
+      return createApp(contexts)
+    }
+
+    it('400 with the allowlist for an invalid/mutating action (no spawn)', async () => {
+      const { app } = appWithProject()
+      for (const bad of ['push', 'nope', '', 'git remote -v; rm -rf /']) {
+        const res = await request(app).get('/api/projects/proj-1/git/diagnostic').query({ action: bad })
+        expect(res.status).toBe(400)
+        expect(res.body.error).toBe('invalid_action')
+        expect(Array.isArray(res.body.allowed)).toBe(true)
+        expect(res.body.allowed).toContain('remote')
+      }
+    })
+
+    it('runs an allow-listed read-only action and returns the structured result', async () => {
+      // cwd is /tmp (not a git repo) — `git remote -v` exits non-zero, which is a
+      // NORMAL ok:false result, proving the route delegates without throwing.
+      const { app } = appWithProject()
+      const res = await request(app).get('/api/projects/proj-1/git/diagnostic').query({ action: 'remote' })
+      expect(res.status).toBe(200)
+      expect(res.body).toMatchObject({ action: 'remote', command: 'git remote -v' })
+      expect(typeof res.body.ok).toBe('boolean')
+      expect(typeof res.body.exitCode).toBe('number')
+    })
+
+    it('404 for an unknown project (middleware)', async () => {
+      const { app } = createApp()
+      const res = await request(app).get('/api/projects/nope/git/diagnostic').query({ action: 'remote' })
+      expect(res.status).toBe(404)
+    })
+  })
 })
