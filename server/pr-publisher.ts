@@ -79,7 +79,25 @@ export async function publishDraftPr(exec: Exec, input: PublishDraftPrInput): Pr
   //    Guardrail: never force-push, never push the integration branch itself.
   const pushArgs = ['push', '-u', remote, branch]
   assertGitAllowed('git', pushArgs, { protectedBranch: baseBranch })
-  const push = await exec.run('git', pushArgs, repoDir)
+  let push = await exec.run('git', pushArgs, repoDir)
+  if (push.code !== 0 && isCredentialFailure(push)) {
+    // The push failed authenticating over HTTPS — typically the machine's
+    // configured credential helper (e.g. git-credential-osxkeychain) is not on
+    // the app's PATH (GUI-launch PATH divergence: the sidecar inherits launchd's
+    // PATH, not the user's login shell). Retry borrowing gh's credentials — the
+    // SAME auth we use for `gh pr create` below, so if the PR can be created the
+    // push can succeed — instead of depending on a machine credential helper.
+    // `-c credential.helper=` first RESETS the (broken) inherited helper list,
+    // then adds gh's. Harmless for SSH remotes (git ignores credential.helper).
+    // The semantic push (refspec/remote) is unchanged, so the guardrail asserted
+    // above still holds; no-op when gh is absent (retry fails the same way).
+    const retry = await exec.run(
+      'git',
+      ['-c', 'credential.helper=', '-c', 'credential.helper=!gh auth git-credential', ...pushArgs],
+      repoDir,
+    )
+    if (retry.code === 0) push = retry
+  }
   if (push.code !== 0) {
     return { state: 'local-only', branch, reason: reasonFrom(push) }
   }
@@ -106,4 +124,22 @@ export async function publishDraftPr(exec: Exec, input: PublishDraftPrInput): Pr
 function reasonFrom(r: ExecResult): string {
   const msg = (r.stderr.trim() || r.stdout.trim()).split('\n')[0]
   return msg || `exit ${r.code}`
+}
+
+/**
+ * True when a failed `git push` looks like an HTTPS credential/authentication
+ * problem (as opposed to a rejected ref, missing remote, network, etc.) — the
+ * only class worth retrying through gh's credential helper. Matches the
+ * canonical git strings, including the "'credential-<helper>' is not a git
+ * command" case that happens when the configured helper binary isn't on PATH.
+ */
+function isCredentialFailure(r: ExecResult): boolean {
+  const s = `${r.stderr}\n${r.stdout}`.toLowerCase()
+  return (
+    s.includes('could not read username') ||
+    s.includes('could not read password') ||
+    s.includes('authentication failed') ||
+    s.includes('credential-') ||
+    s.includes('terminal prompts disabled')
+  )
 }
