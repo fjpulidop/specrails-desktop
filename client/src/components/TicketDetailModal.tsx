@@ -801,10 +801,12 @@ export function TicketDetailModal({
 
   if (embedded) return panel
   return (
-    // z-[65]: above the floating AgentChatPanel (z-[60]/z-[61]) so agent-chat
-    // ticket-ref chips open a VISIBLE modal in board mode, below the
-    // MinimizedChatsDock (z-[70]) and browser-capture portals (z-[80]).
-    <div className="fixed inset-0 z-[65] flex items-center justify-center">
+    // z-[68]: above the floating AgentChatPanel (z-[60]/z-[61]) AND above the
+    // JobDetailModal (z-[65]) — a spec chip clicked INSIDE a mission-mode job
+    // modal must open the ticket IN FRONT of it, not behind. The ticket surface
+    // never opens a job modal, so ticket-always-above-job is a consistent rule.
+    // Still below the MinimizedChatsDock (z-[70]) and browser-capture (z-[80]).
+    <div className="fixed inset-0 z-[68] flex items-center justify-center">
       <div className="absolute inset-0 bg-black/70" onClick={guardBackdrop(onClose)} />
       {panel}
       <ResizeGrips handles={resizeHandles} />

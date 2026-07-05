@@ -71,14 +71,16 @@ describe('TicketDetailModal', () => {
   })
 
   describe('board-mode stacking (agent-chat refs)', () => {
-    it('stacks the overlay at z-[65], above the floating agent panel (z-[60])', () => {
+    it('stacks the overlay at z-[68], above the floating agent panel (z-[60]) AND the JobDetailModal (z-[65])', () => {
       // Regression: agent-chat ticket-ref chips open this app-root modal while
       // the floating AgentChatPanel (z-[60]) is on screen — at the old z-50 it
-      // opened BEHIND the panel and looked like nothing happened.
+      // opened BEHIND the panel and looked like nothing happened. Raised further
+      // to z-[68] so a spec chip clicked INSIDE a mission-mode JobDetailModal
+      // (z-[65]) opens the ticket IN FRONT of it, not behind.
       render(<TicketDetailModal {...makeDefaultProps()} />)
       const overlay = document.querySelector('div.fixed.inset-0')
       expect(overlay).not.toBeNull()
-      expect(overlay!.classList.contains('z-[65]')).toBe(true)
+      expect(overlay!.classList.contains('z-[68]')).toBe(true)
     })
   })
 

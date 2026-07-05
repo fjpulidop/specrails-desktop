@@ -1,6 +1,6 @@
 import React from 'react'
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { render, screen, waitFor, fireEvent } from '../../test-utils'
+import { render, screen, waitFor, fireEvent, within } from '../../test-utils'
 
 vi.mock('sonner', () => ({
   toast: {
@@ -286,6 +286,28 @@ describe('JobDetailModal', () => {
     await waitFor(() => {
       expect(screen.queryByText('Cancel job?')).not.toBeInTheDocument()
     })
+  })
+
+  it('renders the cancel-confirm IN-PORTAL inside the z-[65] modal (never a body-portalled Radix dialog behind it)', async () => {
+    global.fetch = vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({ job: mockRunningJob, events: [], phaseDefinitions: [] }),
+    })
+    render(<JobDetailModal jobId="job-running" onClose={onClose} />)
+    await waitFor(() => expect(screen.getByRole('button', { name: /cancel/i })).toBeInTheDocument())
+    fireEvent.click(screen.getByRole('button', { name: /cancel/i }))
+
+    const confirm = await screen.findByTestId('job-cancel-confirm')
+    // The confirm lives WITHIN the modal's own z-[65] portal container — so it
+    // shares that stacking context and sits above the panel, instead of a
+    // Radix Dialog portalled to <body> at z-50 (which rendered BEHIND the modal).
+    const modalRoot = document.querySelector('.fixed.inset-0.z-\\[65\\]')
+    expect(modalRoot).not.toBeNull()
+    expect(modalRoot!.contains(confirm)).toBe(true)
+    // Escape dismisses the confirm first, NOT the whole modal.
+    fireEvent.keyDown(window, { key: 'Escape' })
+    await waitFor(() => expect(screen.queryByTestId('job-cancel-confirm')).not.toBeInTheDocument())
+    expect(onClose).not.toHaveBeenCalled()
   })
 
   it('"Cancel job" button in dialog calls DELETE endpoint and refetches on success', async () => {
@@ -720,10 +742,12 @@ describe('JobDetailModal', () => {
 
       fireEvent.click(screen.getByRole('button', { name: /^discard$/i }))
       await waitFor(() => expect(screen.getByText('Cancel job?')).toBeInTheDocument())
-      // The dialog's destructive action also reads "Discard" (the header button
-      // is aria-hidden behind the Radix focus trap while the dialog is open),
-      // and confirming it fires the same manager-aware DELETE.
-      fireEvent.click(screen.getByRole('button', { name: /^discard$/i }))
+      // The in-portal confirm's destructive action ALSO reads "Discard" (same as
+      // the header button, which is still in the DOM behind the confirm backdrop);
+      // scope the click to the confirm container to disambiguate. Confirming
+      // fires the same manager-aware DELETE.
+      const confirm = screen.getByTestId('job-cancel-confirm')
+      fireEvent.click(within(confirm).getByRole('button', { name: /^discard$/i }))
       await waitFor(() => {
         expect(global.fetch).toHaveBeenCalledWith(
           '/api/jobs/job-running',

@@ -11,7 +11,6 @@ import { cancelJob, cancelKindForJob } from '../lib/cancel-job'
 import { Badge } from './ui/badge'
 import { Button } from './ui/button'
 import { Tooltip, TooltipContent, TooltipTrigger, TooltipProvider } from './ui/tooltip'
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from './ui/dialog'
 import { PipelineProgress } from './PipelineProgress'
 import { LogViewer } from './LogViewer'
 import { LoopStepExplorer } from './loop-log/LoopStepExplorer'
@@ -182,14 +181,17 @@ export function JobDetailModal({ jobId, onClose, projectId }: JobDetailModalProp
 
   useWebSocket(WS_URL, handleMessage)
 
-  // Close on Escape
+  // Close on Escape — but while the cancel-confirm is open, Escape dismisses
+  // the CONFIRM first (it renders in-portal above the modal), not the modal.
   useEffect(() => {
     function handleKey(e: KeyboardEvent) {
-      if (e.key === 'Escape') onClose()
+      if (e.key !== 'Escape') return
+      if (showCancelConfirm) { setShowCancelConfirm(false); return }
+      onClose()
     }
     window.addEventListener('keydown', handleKey)
     return () => window.removeEventListener('keydown', handleKey)
-  }, [onClose])
+  }, [onClose, showCancelConfirm])
 
   // Cancel idiom: loop runs → "Stop", interactive sessions → "Discard" (the
   // same relabel JobDetailPage uses), everything else → "Cancel". ALL kinds
@@ -352,33 +354,45 @@ export function JobDetailModal({ jobId, onClose, projectId }: JobDetailModalProp
 
       <ResizeGrips handles={resizeHandles} />
 
-      {/* Cancel confirmation dialog */}
-      <Dialog open={showCancelConfirm} onOpenChange={setShowCancelConfirm}>
-        <DialogContent className="max-w-sm">
-          <DialogHeader>
-            <DialogTitle>{isLoopRun ? t('modal.stopRunConfirmTitle') : t('modal.cancelConfirmTitle')}</DialogTitle>
-            <DialogDescription>
+      {/* Cancel confirmation — rendered IN-PORTAL (not a Radix Dialog, which
+          portals to body at z-50 and would sit BEHIND this z-[65] modal). As an
+          absolute overlay inside the modal's stacking context it always sits
+          above the panel. */}
+      {showCancelConfirm && (
+        <div
+          data-testid="job-cancel-confirm"
+          className="absolute inset-0 z-10 flex items-center justify-center p-4"
+        >
+          <div
+            className="absolute inset-0 bg-black/60 backdrop-blur-sm"
+            onClick={() => setShowCancelConfirm(false)}
+          />
+          <div className="relative w-full max-w-sm rounded-xl glass-card border border-border/30 p-5 shadow-xl animate-in fade-in zoom-in-95 duration-150">
+            <h3 className="text-base font-semibold text-foreground">
+              {isLoopRun ? t('modal.stopRunConfirmTitle') : t('modal.cancelConfirmTitle')}
+            </h3>
+            <p className="mt-1.5 text-sm text-muted-foreground">
               {isLoopRun ? t('modal.stopRunConfirmDescription') : t('modal.cancelConfirmDescription')}
-            </DialogDescription>
-          </DialogHeader>
-          <DialogFooter>
-            <Button variant="ghost" size="sm" onClick={() => setShowCancelConfirm(false)}>
-              {t('modal.keepRunning')}
-            </Button>
-            <Button
-              variant="destructive"
-              size="sm"
-              onClick={() => { setShowCancelConfirm(false); handleCancel() }}
-            >
-              {isLoopRun
-                ? t('modal.stopRun')
-                : cancelKind === 'interactive'
-                  ? t('common:actions.discard')
-                  : t('modal.cancelJob')}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+            </p>
+            <div className="mt-4 flex justify-end gap-2">
+              <Button variant="ghost" size="sm" onClick={() => setShowCancelConfirm(false)}>
+                {t('modal.keepRunning')}
+              </Button>
+              <Button
+                variant="destructive"
+                size="sm"
+                onClick={() => { setShowCancelConfirm(false); handleCancel() }}
+              >
+                {isLoopRun
+                  ? t('modal.stopRun')
+                  : cancelKind === 'interactive'
+                    ? t('common:actions.discard')
+                    : t('modal.cancelJob')}
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
     </TooltipProvider>,
     document.body,
