@@ -259,13 +259,13 @@
   },
   "header": {
     "untitled": "Unbenannte Mission",
-    "menu": "Konversationsmenü",
+    "menu": "Missionsmenü",
     "rename": "Umbenennen",
-    "renamePlaceholder": "Name der Konversation",
+    "renamePlaceholder": "Name der Mission",
     "renameHint": "Zum Umbenennen doppelklicken",
     "renameFailed": "Umbenennen fehlgeschlagen",
-    "copyName": "Konversationsname kopieren",
-    "copyId": "Konversations-ID kopieren",
+    "copyName": "Missionsname kopieren",
+    "copyId": "Missions-ID kopieren",
     "copyProject": "Projektname kopieren",
     "copyProjectPath": "Projektpfad kopieren",
     "copyFailed": "Kopieren fehlgeschlagen"

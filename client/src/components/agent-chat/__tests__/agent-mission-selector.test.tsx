@@ -59,7 +59,7 @@ vi.mock('sonner', () => ({
 import { toast } from 'sonner'
 import * as agentApi from '../../../lib/agent-api'
 import { AgentChatProvider, useAgentChat } from '../../../context/AgentChatContext'
-import { compactRelativeTime } from '../AgentMissionSelector'
+import { compactRelativeTime } from '../../../lib/relative-time'
 
 describe('compactRelativeTime (Cursor-style time-since)', () => {
   const NOW = Date.parse('2026-07-05T12:00:00.000Z')

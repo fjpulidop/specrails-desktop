@@ -51,7 +51,7 @@ describe('AgentConversationHeader', () => {
     render(<AgentConversationHeader />)
     fireEvent.click(screen.getByTestId('agent-conv-menu-trigger'))
     fireEvent.click(screen.getByTestId('agent-conv-rename'))
-    const input = screen.getByPlaceholderText(/conversation name/i) as HTMLInputElement
+    const input = screen.getByPlaceholderText(/mission name/i) as HTMLInputElement
     fireEvent.change(input, { target: { value: 'Deploy checklist' } })
     fireEvent.keyDown(input, { key: 'Enter' })
     await waitFor(() => expect(renameConversation).toHaveBeenCalledWith('conv-1', 'Deploy checklist'))
@@ -61,7 +61,7 @@ describe('AgentConversationHeader', () => {
     render(<AgentConversationHeader />)
     fireEvent.click(screen.getByTestId('agent-conv-menu-trigger'))
     fireEvent.click(screen.getByTestId('agent-conv-rename'))
-    const input = screen.getByPlaceholderText(/conversation name/i)
+    const input = screen.getByPlaceholderText(/mission name/i)
     fireEvent.change(input, { target: { value: 'nope' } })
     fireEvent.keyDown(input, { key: 'Escape' })
     expect(renameConversation).not.toHaveBeenCalled()

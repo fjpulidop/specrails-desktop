@@ -259,13 +259,13 @@
   },
   "header": {
     "untitled": "未命名任务",
-    "menu": "对话菜单",
+    "menu": "任务菜单",
     "rename": "重命名",
-    "renamePlaceholder": "对话名称",
+    "renamePlaceholder": "任务名称",
     "renameHint": "双击重命名",
     "renameFailed": "无法重命名",
-    "copyName": "复制对话名称",
-    "copyId": "复制对话 ID",
+    "copyName": "复制任务名称",
+    "copyId": "复制任务 ID",
     "copyProject": "复制项目名称",
     "copyProjectPath": "复制项目路径",
     "copyFailed": "无法复制"

@@ -2,9 +2,8 @@ import { useState, useRef, useEffect, useMemo, useCallback } from 'react'
 import { useTranslation } from 'react-i18next'
 import { motion, AnimatePresence } from 'motion/react'
 import { MessagesSquare, ChevronDown, Check, Search, Plus, Trash2, X } from 'lucide-react'
-import { format } from 'date-fns'
 import { toast } from 'sonner'
-import { getDateFnsLocale } from '../../lib/i18n'
+import { compactRelativeTime, absoluteTime } from '../../lib/relative-time'
 import { useAgentChat } from '../../context/AgentChatContext'
 import type { AgentConversation } from '../../lib/agent-api'
 
@@ -12,37 +11,6 @@ import type { AgentConversation } from '../../lib/agent-api'
 const SEARCH_THRESHOLD = 8
 /** An armed inline delete-confirm reverts on its own after this long. */
 const CONFIRM_REVERT_MS = 3000
-
-/**
- * Compact "time since last interaction" — the Cursor / Antigravity mission-list
- * style: a single tight unit (`now`, `5m`, `3h`, `1d`, `2w`, `3mo`, `1y`).
- * Months use `mo` (not `m`) so they never read as minutes. Pure function of the
- * current time; recomputed each render (the dropdown opens on demand).
- */
-export function compactRelativeTime(iso: string, now: number = Date.now()): string {
-  const t = Date.parse(iso)
-  if (Number.isNaN(t)) return ''
-  const secs = Math.max(0, Math.floor((now - t) / 1000))
-  if (secs < 45) return 'now'
-  const mins = Math.floor(secs / 60)
-  if (mins < 60) return `${Math.max(1, mins)}m`
-  const hrs = Math.floor(mins / 60)
-  if (hrs < 24) return `${hrs}h`
-  const days = Math.floor(hrs / 24)
-  if (days < 7) return `${days}d`
-  const weeks = Math.floor(days / 7)
-  if (days < 30) return `${weeks}w`
-  const months = Math.floor(days / 30)
-  if (months < 12) return `${months}mo`
-  return `${Math.floor(days / 365)}y`
-}
-
-/** Absolute date+time for the hover tooltip (consultable). */
-function absoluteTime(iso: string): string {
-  const d = new Date(iso)
-  if (Number.isNaN(d.getTime())) return ''
-  return format(d, 'PPpp', { locale: getDateFnsLocale() })
-}
 
 /**
  * Cursor-grade mission (conversation) dropdown for the floating panel header —

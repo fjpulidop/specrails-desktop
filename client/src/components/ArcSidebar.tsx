@@ -5,6 +5,7 @@ import { PanelLeft, FolderOpen, Plus, BarChart2, BookOpen, Settings, X, Workflow
 import { cn } from '../lib/utils'
 import { useResizableSidebar } from '../hooks/useResizableSidebar'
 import { SidebarResizeGrip } from './SidebarResizeGrip'
+import { compactRelativeTime, absoluteTime } from '../lib/relative-time'
 import { useDesktop } from '../hooks/useDesktop'
 import type { DesktopProject } from '../hooks/useDesktop'
 import { useSidebarPin } from '../context/SidebarPinContext'
@@ -148,15 +149,25 @@ function ConversationRow({
               </span>
             )}
           </span>
+          {/* Compact "time since last interaction" (Cursor style) — swaps out
+              for the delete action on hover so the row never shows both. */}
+          <span
+            className={cn(
+              'flex-shrink-0 text-[10px] tabular-nums text-muted-foreground/45',
+              confirming ? 'hidden' : 'group-hover:hidden',
+            )}
+            title={absoluteTime(conversation.updated_at)}
+          >
+            {compactRelativeTime(conversation.updated_at)}
+          </span>
           <button
             type="button"
             onClick={handleDeleteClick}
             className={cn(
-              'flex-shrink-0 flex items-center justify-center rounded-sm transition-all',
-              'opacity-0 group-hover:opacity-50 hover:!opacity-100 hover:bg-muted',
+              'flex-shrink-0 items-center justify-center rounded-sm transition-colors hover:bg-muted',
               confirming
-                ? 'opacity-100 px-1 h-4 text-[10px] text-destructive bg-destructive/10 hover:bg-destructive/20'
-                : 'w-3.5 h-3.5'
+                ? 'flex px-1 h-4 text-[10px] text-destructive bg-destructive/10 hover:bg-destructive/20'
+                : 'hidden group-hover:flex w-3.5 h-3.5 text-muted-foreground/60 hover:text-foreground'
             )}
             aria-label={confirming ? t('confirmDeleteConversation', { title: label }) : t('deleteConversation', { title: label })}
           >
@@ -444,10 +455,13 @@ export function ArcSidebar({
     setActiveProjectId(projectId)
   }
   const [hovered, setHovered] = useState(false)
-  const expanded = leftMode === 'pinned-open' || (leftMode === 'unpinned' && hovered)
   // Drag-resizable width (persisted). Applied only when expanded; the collapsed
   // rail keeps its fixed w-11. w-60 (240px) is the default.
   const resize = useResizableSidebar('left-arc', { side: 'left', defaultWidth: 240, min: 200, max: 460 })
+  // While dragging the grip the pointer routinely leaves the sidebar (you drag
+  // OUTWARD to widen) — keep it expanded so an unpinned rail can't collapse
+  // mid-resize; it reverts to hover-collapse once the drag ends.
+  const expanded = leftMode === 'pinned-open' || (leftMode === 'unpinned' && (hovered || resize.dragging))
   const lit = leftMode !== 'unpinned'
   const pinLabel = t(LEFT_PIN_LABEL_KEY[leftMode])
 
@@ -478,7 +492,7 @@ export function ArcSidebar({
       )}
       style={expanded ? { width: resize.width } : undefined}
       onMouseEnter={() => { if (leftMode === 'unpinned') setHovered(true) }}
-      onMouseLeave={() => { if (leftMode === 'unpinned') setHovered(false) }}
+      onMouseLeave={() => { if (leftMode === 'unpinned' && !resize.dragging) setHovered(false) }}
     >
       {expanded && (
         <SidebarResizeGrip

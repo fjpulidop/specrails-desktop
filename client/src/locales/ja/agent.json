@@ -259,13 +259,13 @@
   },
   "header": {
     "untitled": "無題のミッション",
-    "menu": "会話メニュー",
+    "menu": "ミッションメニュー",
     "rename": "名前を変更",
-    "renamePlaceholder": "会話名",
+    "renamePlaceholder": "ミッション名",
     "renameHint": "ダブルクリックで名前を変更",
     "renameFailed": "名前を変更できませんでした",
-    "copyName": "会話名をコピー",
-    "copyId": "会話 ID をコピー",
+    "copyName": "ミッション名をコピー",
+    "copyId": "ミッション ID をコピー",
     "copyProject": "プロジェクト名をコピー",
     "copyProjectPath": "プロジェクトパスをコピー",
     "copyFailed": "コピーできませんでした"

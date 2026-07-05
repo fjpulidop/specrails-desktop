@@ -95,7 +95,9 @@ export function AgentConversationHeader() {
     <div
       ref={rootRef}
       data-agent-interactive
-      className="relative flex h-10 shrink-0 items-center gap-2 border-b border-border/40 px-4"
+      // h-12 matches the sidebar headers so this bar's bottom border aligns with
+      // the sidebars' header divider across the whole app width.
+      className="relative flex h-12 shrink-0 items-center gap-2 border-b border-border px-4"
     >
       {/* Breadcrumb — muted project path, then the conversation title (or its
           inline editor). Truncates gracefully on narrow widths. */}
@@ -159,7 +161,7 @@ export function AgentConversationHeader() {
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: -4, scale: 0.98 }}
             transition={{ duration: 0.14, ease: 'easeOut' }}
-            className="absolute right-3 top-9 z-50 min-w-[220px] overflow-hidden rounded-xl border border-border/50 bg-card/95 p-1 shadow-2xl backdrop-blur-xl"
+            className="absolute right-3 top-11 z-50 min-w-[220px] overflow-hidden rounded-xl border border-border/50 bg-card/95 p-1 shadow-2xl backdrop-blur-xl"
           >
             <button
               type="button"

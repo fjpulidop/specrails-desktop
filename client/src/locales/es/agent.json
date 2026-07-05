@@ -259,13 +259,13 @@
   },
   "header": {
     "untitled": "Misión sin título",
-    "menu": "Menú de la conversación",
+    "menu": "Menú de la misión",
     "rename": "Renombrar",
-    "renamePlaceholder": "Nombre de la conversación",
+    "renamePlaceholder": "Nombre de la misión",
     "renameHint": "Doble clic para renombrar",
     "renameFailed": "No se pudo renombrar",
-    "copyName": "Copiar nombre de la conversación",
-    "copyId": "Copiar ID de la conversación",
+    "copyName": "Copiar nombre de la misión",
+    "copyId": "Copiar ID de la misión",
     "copyProject": "Copiar nombre del proyecto",
     "copyProjectPath": "Copiar ruta del proyecto",
     "copyFailed": "No se pudo copiar"

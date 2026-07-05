@@ -34,7 +34,9 @@ export function AgentWorkspaceSidebar() {
   const { active } = useAgentChat()
   const resize = useResizableSidebar('right-workspace', { side: 'right', defaultWidth: 208, min: 180, max: 460 })
   const [hovered, setHovered] = useState(false)
-  const expanded = rightMode === 'pinned-open' || (rightMode === 'unpinned' &&hovered)
+  // Keep expanded while dragging the grip — the pointer leaves the sidebar as
+  // you widen it, and an unpinned rail would otherwise collapse mid-resize.
+  const expanded = rightMode === 'pinned-open' || (rightMode === 'unpinned' && (hovered || resize.dragging))
   const lit = rightMode !== 'unpinned'
   const pinLabel = tNav(RIGHT_PIN_LABEL_KEY[rightMode])
   const noProject = !activeProjectId
@@ -82,7 +84,7 @@ export function AgentWorkspaceSidebar() {
       )}
       style={expanded ? { width: resize.width } : undefined}
       onMouseEnter={() => { if (rightMode === 'unpinned') setHovered(true) }}
-      onMouseLeave={() => { if (rightMode === 'unpinned') setHovered(false) }}
+      onMouseLeave={() => { if (rightMode === 'unpinned' && !resize.dragging) setHovered(false) }}
     >
       {expanded && (
         <SidebarResizeGrip
