@@ -1,5 +1,12 @@
 # Changelog
 
+## [2.24.1](https://github.com/fjpulidop/specrails-desktop/compare/v2.24.0...v2.24.1) (2026-07-05)
+
+
+### Bug Fixes
+
+* rail-spawn hygiene — trust re-assert, hermetic test env, gh push credentials ([#510](https://github.com/fjpulidop/specrails-desktop/issues/510)) ([c06e16a](https://github.com/fjpulidop/specrails-desktop/commit/c06e16a76275e2592322ff8bfd2771b926b16373))
+
 ## [2.24.0](https://github.com/fjpulidop/specrails-desktop/compare/v2.23.1...v2.24.0) (2026-07-05)
 
 
