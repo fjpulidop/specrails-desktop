@@ -170,6 +170,7 @@ function DesktopApp() {
   const [addDialogOpen, setAddDialogOpen] = useState(false)
   const [settingsOpen, setSettingsOpen] = useState(false)
   const [analyticsOpen, setAnalyticsOpen] = useState(false)
+  const [loopsOpen, setLoopsOpen] = useState(false)
   const [docsOpen, setDocsOpen] = useState(false)
   // Stable onClose so memoised DocsDialog doesn't re-render every DesktopApp render.
   const closeDocs = useCallback(() => setDocsOpen(false), [])
@@ -285,7 +286,7 @@ function DesktopApp() {
       {/* Arc-style collapsible sidebar */}
       <ArcSidebar
         onAddProject={() => setAddDialogOpen(true)}
-        onOpenLoops={() => navigate('/loops')}
+        onOpenLoops={() => { if (uiMode === 'agent') setLoopsOpen(true); else navigate('/loops') }}
         onOpenAnalytics={() => setAnalyticsOpen(true)}
         onOpenDocs={() => setDocsOpen(true)}
         onOpenSettings={() => setSettingsOpen(true)}
@@ -383,6 +384,19 @@ function DesktopApp() {
           <div className="flex-1 overflow-auto">
             <Suspense fallback={<div className="flex items-center justify-center h-40"><p className="text-sm text-muted-foreground">{t('states.loading')}</p></div>}>
               <DesktopAnalyticsPage />
+            </Suspense>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Mission-mode Loops: a near-full-screen modal over the agent surface, so
+          opening Loops doesn't yank the user out of their mission (kanban mode
+          keeps the /loops route). Renders the SAME LoopsPage. */}
+      <Dialog open={loopsOpen} onOpenChange={setLoopsOpen}>
+        <DialogContent className="max-w-[96vw] w-[96vw] h-[92vh] max-h-[92vh] overflow-hidden p-0 flex flex-col">
+          <div className="flex-1 overflow-auto">
+            <Suspense fallback={<div className="flex items-center justify-center h-40"><p className="text-sm text-muted-foreground">{t('states.loading')}</p></div>}>
+              <LoopsPage />
             </Suspense>
           </div>
         </DialogContent>

@@ -2,11 +2,13 @@ import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { render, screen, fireEvent, waitFor } from '@testing-library/react'
 
 const renameConversation = vi.fn(async () => {})
+const deleteConversation = vi.fn(async () => {})
+const startNewConversation = vi.fn()
 let active: { id: string; title: string | null; pinned_project_id: string | null } | null = {
   id: 'conv-1', title: 'Greeting And Friendly Introduction', pinned_project_id: 'p1',
 }
 vi.mock('../../../context/AgentChatContext', () => ({
-  useAgentChat: () => ({ active, renameConversation }),
+  useAgentChat: () => ({ active, renameConversation, deleteConversation, startNewConversation }),
 }))
 vi.mock('../../../hooks/useDesktop', () => ({
   useDesktop: () => ({ projects: [{ id: 'p1', slug: 'outrun', name: 'outrun', path: '/Users/javi/repos/outrun' }] }),
@@ -79,5 +81,32 @@ describe('AgentConversationHeader', () => {
     fireEvent.click(screen.getByTestId('agent-conv-menu-trigger'))
     fireEvent.click(screen.getByTestId('agent-conv-copy-path'))
     await waitFor(() => expect(writeText).toHaveBeenCalledWith('/Users/javi/repos/outrun'))
+  })
+})
+
+describe('AgentConversationHeader — delete mission', () => {
+  it('shows Delete mission below Rename, confirms inline, deletes + returns to New Mission', async () => {
+    render(<AgentConversationHeader />)
+    fireEvent.click(screen.getByTestId('agent-conv-menu-trigger'))
+    const del = screen.getByTestId('agent-conv-delete')
+    expect(del).toBeInTheDocument()
+    // Clicking Delete does NOT delete immediately — it asks for confirmation.
+    fireEvent.click(del)
+    expect(deleteConversation).not.toHaveBeenCalled()
+    expect(screen.getByTestId('agent-conv-delete-confirm')).toBeInTheDocument()
+    // Confirm → delete + jump back to the "+ New Mission" screen (pinned project).
+    fireEvent.click(screen.getByTestId('agent-conv-delete-confirm-btn'))
+    await waitFor(() => expect(deleteConversation).toHaveBeenCalledWith('conv-1'))
+    expect(startNewConversation).toHaveBeenCalledWith('p1')
+  })
+
+  it('Cancel drops back to the menu without deleting', () => {
+    render(<AgentConversationHeader />)
+    fireEvent.click(screen.getByTestId('agent-conv-menu-trigger'))
+    fireEvent.click(screen.getByTestId('agent-conv-delete'))
+    fireEvent.click(screen.getByRole('button', { name: /cancel|cancelar/i }))
+    expect(screen.queryByTestId('agent-conv-delete-confirm')).toBeNull()
+    expect(screen.getByTestId('agent-conv-rename')).toBeInTheDocument() // back to the menu
+    expect(deleteConversation).not.toHaveBeenCalled()
   })
 })

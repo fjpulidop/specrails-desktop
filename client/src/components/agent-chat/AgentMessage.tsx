@@ -37,12 +37,19 @@ const MD = cn(
   '[&_tr:nth-child(even)]:bg-surface/40',
 )
 
-function CopyButton({ text }: { text: string }) {
+function CopyButton({ text, timestampIso }: { text: string; timestampIso?: string }) {
   const { t } = useTranslation('agent')
   const [copied, setCopied] = useState(false)
   const onCopy = async () => {
     try {
-      await navigator.clipboard.writeText(text)
+      // Include the same `yyyy-MM-dd HH:mm:ss` shown under the bubble as a header
+      // line, so a copied message carries its timestamp.
+      let payload = text
+      if (timestampIso) {
+        const d = new Date(timestampIso)
+        if (!Number.isNaN(d.getTime())) payload = `[${format(d, 'yyyy-MM-dd HH:mm:ss')}]\n${text}`
+      }
+      await navigator.clipboard.writeText(payload)
       setCopied(true)
       setTimeout(() => setCopied(false), 1500)
     } catch {
@@ -161,7 +168,7 @@ export function AgentMessage({ role, content, createdAt, streaming, isLast, onPi
     return (
       <div className="group flex flex-col items-end gap-0.5">
         <div className="flex items-start justify-end gap-1">
-          <CopyButton text={content} />
+          <CopyButton text={content} timestampIso={createdAt} />
           <div className="max-w-[85%] whitespace-pre-wrap rounded-2xl rounded-br-sm border border-border/50 bg-foreground/[0.06] px-3.5 py-2 text-sm text-foreground">
             {content}
           </div>
@@ -215,7 +222,7 @@ export function AgentMessage({ role, content, createdAt, streaming, isLast, onPi
       )}
       {!streaming && (body.trim() || createdAt) && (
         <div className="flex items-center gap-2">
-          {body.trim() && <CopyButton text={body} />}
+          {body.trim() && <CopyButton text={body} timestampIso={createdAt} />}
           {createdAt && <MessageTime iso={createdAt} />}
         </div>
       )}

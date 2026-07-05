@@ -268,6 +268,9 @@
     "copyId": "Copiar ID de la misión",
     "copyProject": "Copiar nombre del proyecto",
     "copyProjectPath": "Copiar ruta del proyecto",
-    "copyFailed": "No se pudo copiar"
+    "copyFailed": "No se pudo copiar",
+    "delete": "Borrar misión",
+    "deleteConfirm": "¿Borrar esta misión? No se puede deshacer.",
+    "deleteFailed": "No se pudo borrar la misión"
   }
 }

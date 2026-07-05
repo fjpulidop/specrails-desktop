@@ -268,6 +268,9 @@
     "copyId": "Copia ID missione",
     "copyProject": "Copia nome progetto",
     "copyProjectPath": "Copia percorso progetto",
-    "copyFailed": "Impossibile copiare"
+    "copyFailed": "Impossibile copiare",
+    "delete": "Elimina missione",
+    "deleteConfirm": "Eliminare questa missione? Non è reversibile.",
+    "deleteFailed": "Impossibile eliminare la missione"
   }
 }

@@ -416,13 +416,23 @@ export function AgentChatProvider({ children }: { children: ReactNode }) {
       setMessages([])
     }
     const queueId = `q-${Date.now()}-${_queueSeq++}`
+    const nowIso = new Date().toISOString()
+    // "Last interaction" is NOW — bump the conversation's updated_at (so the
+    // mission-list time-since counter resets immediately to "now") and float it
+    // to the top (newest-first, matching the server's ORDER BY updated_at DESC).
+    setConversations((cs) => {
+      const found = cs.find((c) => c.id === conv!.id)
+      const bumped = { ...(found ?? conv!), updated_at: nowIso }
+      return [bumped, ...cs.filter((c) => c.id !== conv!.id)]
+    })
+    setActive((a) => (a && a.id === conv!.id ? { ...a, updated_at: nowIso } : a))
     const userBubble = {
       id: `local-u-${Date.now()}`,
       conversation_id: conv.id,
       role: 'user' as const,
       content: trimmed,
       attachment_ids: opts?.attachmentIds ?? [],
-      created_at: new Date().toISOString(),
+      created_at: nowIso,
     }
     // Busy conversation → the message QUEUES (server-side FIFO) and shows as a
     // parked chip below the streaming bubble instead of a normal bubble.

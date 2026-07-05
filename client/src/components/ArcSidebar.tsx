@@ -455,13 +455,14 @@ export function ArcSidebar({
     setActiveProjectId(projectId)
   }
   const [hovered, setHovered] = useState(false)
-  // Drag-resizable width (persisted). Applied only when expanded; the collapsed
-  // rail keeps its fixed w-11. w-60 (240px) is the default.
-  const resize = useResizableSidebar('left-arc', { side: 'left', defaultWidth: 240, min: 200, max: 460 })
-  // While dragging the grip the pointer routinely leaves the sidebar (you drag
-  // OUTWARD to widen) — keep it expanded so an unpinned rail can't collapse
-  // mid-resize; it reverts to hover-collapse once the drag ends.
-  const expanded = leftMode === 'pinned-open' || (leftMode === 'unpinned' && (hovered || resize.dragging))
+  const expanded = leftMode === 'pinned-open' || (leftMode === 'unpinned' && hovered)
+  // Drag-resizable width (persisted), applied imperatively through the panel ref
+  // — 240px (w-60) expanded, 44px (w-11) collapsed rail. The mouseleave guard
+  // below keeps `hovered` true during a drag so an unpinned rail can't collapse
+  // out from under the resize.
+  const resize = useResizableSidebar('left-arc', {
+    side: 'left', defaultWidth: 240, min: 200, max: 460, collapsedWidth: 44, expanded,
+  })
   const lit = leftMode !== 'unpinned'
   const pinLabel = t(LEFT_PIN_LABEL_KEY[leftMode])
 
@@ -481,16 +482,13 @@ export function ArcSidebar({
 
   return (
     <div
+      ref={resize.panelRef}
       className={cn(
         'relative flex flex-col h-full border-r border-border bg-background flex-shrink-0 overflow-hidden',
-        // No width transition while dragging (it would lag the pointer); the
-        // collapse/expand toggle keeps its smooth animation otherwise.
-        resize.dragging ? '' : 'transition-all duration-200 ease-in-out',
-        // Collapsed → fixed narrow rail; expanded → the persisted drag width
-        // via inline style (min 200 wide enough for the localized labels).
-        !expanded && 'w-11'
+        // Width is set imperatively by useResizableSidebar (px). The transition
+        // animates collapse/expand + keyboard nudges; a drag turns it off itself.
+        'transition-[width] duration-200 ease-in-out',
       )}
-      style={expanded ? { width: resize.width } : undefined}
       onMouseEnter={() => { if (leftMode === 'unpinned') setHovered(true) }}
       onMouseLeave={() => { if (leftMode === 'unpinned' && !resize.dragging) setHovered(false) }}
     >

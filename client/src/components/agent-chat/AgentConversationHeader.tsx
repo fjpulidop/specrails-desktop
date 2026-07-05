@@ -1,7 +1,7 @@
 import { useState, useRef, useEffect, useCallback } from 'react'
 import { useTranslation } from 'react-i18next'
 import { motion, AnimatePresence } from 'motion/react'
-import { MoreVertical, Pencil, Copy, Check, ChevronRight } from 'lucide-react'
+import { MoreVertical, Pencil, Copy, Check, ChevronRight, Trash2 } from 'lucide-react'
 import { toast } from 'sonner'
 import { useAgentChat } from '../../context/AgentChatContext'
 import { useDesktop } from '../../hooks/useDesktop'
@@ -17,12 +17,13 @@ import { cn } from '../../lib/utils'
  */
 export function AgentConversationHeader() {
   const { t } = useTranslation('agent')
-  const { active, renameConversation } = useAgentChat()
+  const { active, renameConversation, deleteConversation, startNewConversation } = useAgentChat()
   const { projects } = useDesktop()
   const [menuOpen, setMenuOpen] = useState(false)
   const [editing, setEditing] = useState(false)
   const [draft, setDraft] = useState('')
   const [copied, setCopied] = useState<string | null>(null)
+  const [confirmingDelete, setConfirmingDelete] = useState(false)
   const rootRef = useRef<HTMLDivElement>(null)
   const inputRef = useRef<HTMLInputElement>(null)
 
@@ -45,6 +46,9 @@ export function AgentConversationHeader() {
       document.removeEventListener('keydown', onKey)
     }
   }, [menuOpen])
+
+  // A closed menu discards a pending delete confirmation.
+  useEffect(() => { if (!menuOpen) setConfirmingDelete(false) }, [menuOpen])
 
   useEffect(() => {
     if (editing) { inputRef.current?.focus(); inputRef.current?.select() }
@@ -77,6 +81,20 @@ export function AgentConversationHeader() {
       toast.error(t('header.copyFailed'))
     }
   }, [t])
+
+  const doDelete = useCallback(async () => {
+    if (!active) return
+    setMenuOpen(false)
+    setConfirmingDelete(false)
+    try {
+      // deleteConversation clears the active thread when it's the one deleted,
+      // so the Agent-Mode surface falls back to the "+ New Mission" screen.
+      await deleteConversation(active.id)
+      startNewConversation(active.pinned_project_id)
+    } catch {
+      toast.error(t('header.deleteFailed'))
+    }
+  }, [active, deleteConversation, startNewConversation, t])
 
   if (!active) return null
 
@@ -163,6 +181,33 @@ export function AgentConversationHeader() {
             transition={{ duration: 0.14, ease: 'easeOut' }}
             className="absolute right-3 top-11 z-50 min-w-[220px] overflow-hidden rounded-xl border border-border/50 bg-card/95 p-1 shadow-2xl backdrop-blur-xl"
           >
+            {confirmingDelete ? (
+              // Inline confirm — stays in the menu; confirm deletes + returns to
+              // the "+ New Mission" screen, cancel drops back to the menu.
+              <div className="p-2" data-testid="agent-conv-delete-confirm">
+                <p className="px-1 pb-2.5 text-xs leading-relaxed text-foreground/70">
+                  {t('header.deleteConfirm')}
+                </p>
+                <div className="flex gap-1.5">
+                  <button
+                    type="button"
+                    data-testid="agent-conv-delete-confirm-btn"
+                    onClick={() => void doDelete()}
+                    className="flex-1 rounded-lg bg-destructive/90 px-2.5 py-1.5 text-xs font-medium text-white transition-colors hover:bg-destructive"
+                  >
+                    {t('header.delete')}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setConfirmingDelete(false)}
+                    className="flex-1 rounded-lg border border-border/60 px-2.5 py-1.5 text-xs text-foreground/80 transition-colors hover:bg-surface/80"
+                  >
+                    {t('common:actions.cancel')}
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <>
             <button
               type="button"
               role="menuitem"
@@ -172,6 +217,16 @@ export function AgentConversationHeader() {
             >
               <Pencil className="h-3.5 w-3.5 shrink-0 text-foreground/50" />
               {t('header.rename')}
+            </button>
+            <button
+              type="button"
+              role="menuitem"
+              data-testid="agent-conv-delete"
+              onClick={() => setConfirmingDelete(true)}
+              className="group/del flex w-full items-center gap-2.5 rounded-lg px-2.5 py-1.5 text-sm text-foreground/85 transition-colors hover:bg-destructive/10 hover:text-destructive"
+            >
+              <Trash2 className="h-3.5 w-3.5 shrink-0 text-foreground/50 group-hover/del:text-destructive" />
+              {t('header.delete')}
             </button>
 
             <div className="my-1 h-px bg-border/50" />
@@ -194,6 +249,8 @@ export function AgentConversationHeader() {
                   <span className="min-w-0 flex-1 truncate text-left">{item.label}</span>
                 </button>
               ),
+            )}
+              </>
             )}
           </motion.div>
         )}

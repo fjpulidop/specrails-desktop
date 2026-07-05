@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { useCallback, useLayoutEffect, useRef, useState } from 'react'
 
 interface Options {
   /** Which app edge the sidebar hugs — the drag grip sits on its INNER edge
@@ -8,18 +8,28 @@ interface Options {
   defaultWidth: number
   min: number
   max: number
+  /** The fixed narrow rail width when the sidebar is collapsed (e.g. 44 = w-11). */
+  collapsedWidth: number
+  /** Expanded ⇒ the resizable width applies; collapsed ⇒ the rail width. */
+  expanded: boolean
 }
 
 const clamp = (n: number, min: number, max: number) => Math.min(max, Math.max(min, n))
 const keyFor = (id: string) => `specrails-desktop:sidebar-width:${id}`
 
 /**
- * Drag-to-resize width for a docked sidebar, persisted per key to localStorage.
- * Returns the current width + handlers for a `role="separator"` grip (pointer
- * drag + arrow-key resize). The width is committed to storage on drag/keys end
- * so a reload restores the last size. The consumer applies `width` as an inline
- * style ONLY when the sidebar is expanded (collapsed sidebars keep their fixed
- * narrow rail); the grip is rendered only when resizing is meaningful.
+ * Buttery, jank-free drag-to-resize for a docked sidebar, persisted per key.
+ *
+ * The width is driven ENTIRELY through the returned `panelRef` (imperative DOM
+ * writes), NEVER through React's `style` prop — so:
+ *  - a mousemove during the drag mutates `element.style.width` directly with
+ *    `transition:none`, producing zero React re-renders (the heavy sidebar tree
+ *    is never reconciled mid-drag → no stutter), and
+ *  - an UNRELATED re-render (streaming, hover, a new conversation) can't reset
+ *    the width and cause a jump, because React doesn't own that style key.
+ * A `useLayoutEffect` applies the committed width (and animates collapse/expand
+ * via the element's own CSS transition) whenever the drag is NOT in progress.
+ * Only the final width is committed to state + localStorage, on pointer-up.
  */
 export function useResizableSidebar(id: string, opts: Options) {
   const storageKey = keyFor(id)
@@ -32,57 +42,85 @@ export function useResizableSidebar(id: string, opts: Options) {
     return opts.defaultWidth
   })
   const [dragging, setDragging] = useState(false)
-  const startX = useRef(0)
-  const startW = useRef(0)
 
-  // Live pointer drag: map horizontal movement to width by side. A left
-  // sidebar's grip is on its right edge (drag right → wider); a right sidebar's
-  // grip is on its left edge (drag left → wider).
-  useEffect(() => {
-    if (!dragging) return
-    const onMove = (e: MouseEvent) => {
-      const dx = e.clientX - startX.current
-      const delta = opts.side === 'left' ? dx : -dx
-      setWidth(clamp(startW.current + delta, opts.min, opts.max))
-    }
-    const onUp = () => setDragging(false)
-    document.addEventListener('mousemove', onMove)
-    document.addEventListener('mouseup', onUp)
+  const panelRef = useRef<HTMLDivElement | null>(null)
+  const widthRef = useRef(width)
+  widthRef.current = width
+  const draggingRef = useRef(false)
+  // Latest options in a ref so the pointer handlers (attached once per drag)
+  // always read current values without re-binding.
+  const optsRef = useRef(opts)
+  optsRef.current = opts
+
+  // Apply the COMMITTED width to the DOM (px) whenever it changes or the
+  // expanded/collapsed state flips — but never while a drag owns the element.
+  // The element keeps its CSS `transition` (className) so collapse/expand + a
+  // keyboard nudge animate smoothly; a drag sets `transition:none` for itself.
+  useLayoutEffect(() => {
+    const el = panelRef.current
+    if (!el || draggingRef.current) return
+    el.style.width = `${opts.expanded ? width : opts.collapsedWidth}px`
+  }, [width, opts.expanded, opts.collapsedWidth])
+
+  const onGripPointerDown = useCallback((e: React.PointerEvent) => {
+    if (e.button !== 0 || !optsRef.current.expanded) return
+    e.preventDefault()
+    const el = panelRef.current
+    if (!el) return
+    const startX = e.clientX
+    const startW = widthRef.current
+    let live = startW
+
+    draggingRef.current = true
+    setDragging(true)
+    // Kill the CSS transition so the panel tracks the pointer 1:1 (no easing
+    // lag), and lock the cursor + selection globally for the whole gesture.
+    el.style.transition = 'none'
     const prevCursor = document.body.style.cursor
     const prevSelect = document.body.style.userSelect
     document.body.style.cursor = 'col-resize'
     document.body.style.userSelect = 'none'
-    return () => {
-      document.removeEventListener('mousemove', onMove)
-      document.removeEventListener('mouseup', onUp)
+    try { (e.target as Element).setPointerCapture?.(e.pointerId) } catch { /* older webview */ }
+
+    const onMove = (ev: PointerEvent) => {
+      const o = optsRef.current
+      const dx = ev.clientX - startX
+      const delta = o.side === 'left' ? dx : -dx
+      live = clamp(startW + delta, o.min, o.max)
+      // Imperative, per-frame-cheap: one style write, no React work.
+      el.style.width = `${live}px`
+    }
+    const onUp = () => {
+      window.removeEventListener('pointermove', onMove)
+      window.removeEventListener('pointerup', onUp)
+      window.removeEventListener('pointercancel', onUp)
+      el.style.transition = ''
       document.body.style.cursor = prevCursor
       document.body.style.userSelect = prevSelect
+      draggingRef.current = false
+      setDragging(false)
+      setWidth(live) // single commit → one re-render, layoutEffect keeps the px
+      try { localStorage.setItem(storageKey, String(Math.round(live))) } catch { /* ignore */ }
     }
-  }, [dragging, opts.side, opts.min, opts.max])
-
-  // Persist once a gesture settles (never mid-drag — cheap + avoids churn).
-  useEffect(() => {
-    if (dragging) return
-    try { localStorage.setItem(storageKey, String(Math.round(width))) } catch { /* ignore */ }
-  }, [dragging, width, storageKey])
-
-  const onGripPointerDown = useCallback((e: React.PointerEvent) => {
-    if (e.button !== 0) return
-    e.preventDefault()
-    startX.current = e.clientX
-    startW.current = width
-    setDragging(true)
-  }, [width])
+    window.addEventListener('pointermove', onMove)
+    window.addEventListener('pointerup', onUp)
+    window.addEventListener('pointercancel', onUp)
+  }, [storageKey])
 
   const onGripKeyDown = useCallback((e: React.KeyboardEvent) => {
+    const o = optsRef.current
     const step = e.shiftKey ? 24 : 8
-    // Arrow toward the app edge shrinks; away widens (side-aware).
-    const grow = opts.side === 'left' ? 'ArrowRight' : 'ArrowLeft'
-    const shrink = opts.side === 'left' ? 'ArrowLeft' : 'ArrowRight'
-    if (e.key === grow) { e.preventDefault(); setWidth((w) => clamp(w + step, opts.min, opts.max)) }
-    else if (e.key === shrink) { e.preventDefault(); setWidth((w) => clamp(w - step, opts.min, opts.max)) }
-    else if (e.key === 'Home') { e.preventDefault(); setWidth(opts.defaultWidth) }
-  }, [opts.side, opts.min, opts.max, opts.defaultWidth])
+    const grow = o.side === 'left' ? 'ArrowRight' : 'ArrowLeft'
+    const shrink = o.side === 'left' ? 'ArrowLeft' : 'ArrowRight'
+    let next: number | null = null
+    if (e.key === grow) next = clamp(widthRef.current + step, o.min, o.max)
+    else if (e.key === shrink) next = clamp(widthRef.current - step, o.min, o.max)
+    else if (e.key === 'Home') next = o.defaultWidth
+    if (next === null) return
+    e.preventDefault()
+    setWidth(next)
+    try { localStorage.setItem(storageKey, String(Math.round(next))) } catch { /* ignore */ }
+  }, [storageKey])
 
-  return { width, dragging, onGripPointerDown, onGripKeyDown }
+  return { width, dragging, panelRef, onGripPointerDown, onGripKeyDown }
 }
