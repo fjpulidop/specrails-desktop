@@ -338,7 +338,7 @@ describe('AgentMessage per-bubble timestamp', () => {
     render(<AgentMessage role="assistant" content="hi" createdAt={ISO} />)
     const time = document.querySelector('time')
     expect(time).not.toBeNull()
-    expect(time!.getAttribute('datetime')).toBe(ISO)
+    expect(Date.parse(time!.getAttribute('datetime')!)).toBe(Date.parse(ISO))
     expect(time!.textContent).toMatch(/^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}$/) // date + HH:mm:ss
     expect(time!.getAttribute('title')).toBeTruthy() // consultable full date+time
     // Subtle by default (muted), not attention-grabbing.
@@ -347,7 +347,7 @@ describe('AgentMessage per-bubble timestamp', () => {
 
   it('renders the timestamp on a user bubble too', () => {
     render(<AgentMessage role="user" content="hola" createdAt={ISO} />)
-    expect(document.querySelector('time')?.getAttribute('datetime')).toBe(ISO)
+    expect(Date.parse(document.querySelector('time')!.getAttribute('datetime')!)).toBe(Date.parse(ISO))
   })
 
   it('renders NO timestamp while streaming (no createdAt on the live buffer)', () => {

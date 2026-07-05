@@ -5,6 +5,7 @@ import { Copy, Check } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { format } from 'date-fns'
 import { getDateFnsLocale } from '../../lib/i18n'
+import { toDate } from '../../lib/relative-time'
 import { cn } from '../../lib/utils'
 import { useWebViewModal } from '../../context/WebViewModalContext'
 import { extractAgentOptions } from './agent-options'
@@ -46,8 +47,8 @@ function CopyButton({ text, timestampIso }: { text: string; timestampIso?: strin
       // line, so a copied message carries its timestamp.
       let payload = text
       if (timestampIso) {
-        const d = new Date(timestampIso)
-        if (!Number.isNaN(d.getTime())) payload = `[${format(d, 'yyyy-MM-dd HH:mm:ss')}]\n${text}`
+        const d = toDate(timestampIso)
+        if (d) payload = `[${format(d, 'yyyy-MM-dd HH:mm:ss')}]\n${text}`
       }
       await navigator.clipboard.writeText(payload)
       setCopied(true)
@@ -81,12 +82,12 @@ function CopyButton({ text, timestampIso }: { text: string; timestampIso?: strin
  */
 function MessageTime({ iso }: { iso?: string }) {
   if (!iso) return null
-  const d = new Date(iso)
-  if (Number.isNaN(d.getTime())) return null
+  const d = toDate(iso)
+  if (!d) return null
   const locale = getDateFnsLocale()
   return (
     <time
-      dateTime={iso}
+      dateTime={d.toISOString()}
       title={format(d, 'PPpp', { locale })}
       className="shrink-0 select-none font-mono text-[10px] leading-none tabular-nums tracking-tight text-foreground/25 transition-colors duration-200 group-hover:text-foreground/50"
     >
