@@ -59,6 +59,25 @@ vi.mock('sonner', () => ({
 import { toast } from 'sonner'
 import * as agentApi from '../../../lib/agent-api'
 import { AgentChatProvider, useAgentChat } from '../../../context/AgentChatContext'
+import { compactRelativeTime } from '../AgentMissionSelector'
+
+describe('compactRelativeTime (Cursor-style time-since)', () => {
+  const NOW = Date.parse('2026-07-05T12:00:00.000Z')
+  const ago = (ms: number) => new Date(NOW - ms).toISOString()
+  const S = 1000, M = 60 * S, H = 60 * M, D = 24 * H
+  it('renders a single tight unit per magnitude', () => {
+    expect(compactRelativeTime(ago(5 * S), NOW)).toBe('now')      // <45s
+    expect(compactRelativeTime(ago(5 * M), NOW)).toBe('5m')
+    expect(compactRelativeTime(ago(3 * H), NOW)).toBe('3h')
+    expect(compactRelativeTime(ago(1 * D), NOW)).toBe('1d')
+    expect(compactRelativeTime(ago(10 * D), NOW)).toBe('1w')
+    expect(compactRelativeTime(ago(60 * D), NOW)).toBe('2mo')     // months use `mo`, never `m`
+    expect(compactRelativeTime(ago(400 * D), NOW)).toBe('1y')
+  })
+  it('is empty for an invalid date', () => {
+    expect(compactRelativeTime('not-a-date', NOW)).toBe('')
+  })
+})
 
 function Harness() {
   const a = useAgentChat()
@@ -115,8 +134,8 @@ describe('AgentMissionSelector', () => {
     expect([...options].map((o) => o.getAttribute('data-testid'))).toEqual([
       'mission-row-c1', 'mission-row-c2', 'mission-row-c3',
     ])
-    // Relative time rendered (any "ago" suffix — locale en in tests).
-    expect(screen.getByTestId('mission-row-c2').textContent).toMatch(/ago/)
+    // Compact "time since" rendered (Cursor style: now / 5m / 3h / 1d / 2w / 3mo / 1y).
+    expect(screen.getByTestId('mission-row-c2').textContent).toMatch(/(now|\d+(s|m|h|d|w|mo|y))$/)
     await act(async () => { fireEvent.click(screen.getByTestId('mission-row-c2')) })
     expect(agentApi.getAgentConversation).toHaveBeenCalledWith('c2')
     await waitFor(() => expect(screen.getByTestId('active-id').textContent).toBe('c2'))

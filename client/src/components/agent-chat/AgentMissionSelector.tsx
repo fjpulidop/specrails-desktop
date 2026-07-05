@@ -2,7 +2,7 @@ import { useState, useRef, useEffect, useMemo, useCallback } from 'react'
 import { useTranslation } from 'react-i18next'
 import { motion, AnimatePresence } from 'motion/react'
 import { MessagesSquare, ChevronDown, Check, Search, Plus, Trash2, X } from 'lucide-react'
-import { formatDistanceToNow } from 'date-fns'
+import { format } from 'date-fns'
 import { toast } from 'sonner'
 import { getDateFnsLocale } from '../../lib/i18n'
 import { useAgentChat } from '../../context/AgentChatContext'
@@ -13,10 +13,35 @@ const SEARCH_THRESHOLD = 8
 /** An armed inline delete-confirm reverts on its own after this long. */
 const CONFIRM_REVERT_MS = 3000
 
-function relativeTime(iso: string): string {
+/**
+ * Compact "time since last interaction" — the Cursor / Antigravity mission-list
+ * style: a single tight unit (`now`, `5m`, `3h`, `1d`, `2w`, `3mo`, `1y`).
+ * Months use `mo` (not `m`) so they never read as minutes. Pure function of the
+ * current time; recomputed each render (the dropdown opens on demand).
+ */
+export function compactRelativeTime(iso: string, now: number = Date.now()): string {
+  const t = Date.parse(iso)
+  if (Number.isNaN(t)) return ''
+  const secs = Math.max(0, Math.floor((now - t) / 1000))
+  if (secs < 45) return 'now'
+  const mins = Math.floor(secs / 60)
+  if (mins < 60) return `${Math.max(1, mins)}m`
+  const hrs = Math.floor(mins / 60)
+  if (hrs < 24) return `${hrs}h`
+  const days = Math.floor(hrs / 24)
+  if (days < 7) return `${days}d`
+  const weeks = Math.floor(days / 7)
+  if (days < 30) return `${weeks}w`
+  const months = Math.floor(days / 30)
+  if (months < 12) return `${months}mo`
+  return `${Math.floor(days / 365)}y`
+}
+
+/** Absolute date+time for the hover tooltip (consultable). */
+function absoluteTime(iso: string): string {
   const d = new Date(iso)
   if (Number.isNaN(d.getTime())) return ''
-  return formatDistanceToNow(d, { addSuffix: true, locale: getDateFnsLocale() })
+  return format(d, 'PPpp', { locale: getDateFnsLocale() })
 }
 
 /**
@@ -349,8 +374,11 @@ function MissionRow({
       className={`group flex w-full cursor-pointer items-center gap-2 px-3 py-1.5 text-left text-sm text-foreground ${highlighted ? 'bg-surface/70' : 'hover:bg-surface/70'}`}
     >
       <span className="min-w-0 flex-1 truncate">{label}</span>
-      <span className="shrink-0 text-[10px] tabular-nums text-foreground/40">
-        {relativeTime(conversation.updated_at)}
+      <span
+        className="shrink-0 tabular-nums text-xs text-foreground/40"
+        title={absoluteTime(conversation.updated_at)}
+      >
+        {compactRelativeTime(conversation.updated_at)}
       </span>
       {streaming && (
         <span

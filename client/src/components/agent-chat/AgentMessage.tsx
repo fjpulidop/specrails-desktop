@@ -67,9 +67,10 @@ function CopyButton({ text }: { text: string }) {
  * Whisper-subtle per-bubble timestamp (messaging-app convention). Always present
  * so the time is visually recorded + consultable, but at 10px / 25% opacity it
  * never competes with the message; it brightens slightly on hover of the bubble
- * group and carries the FULL locale date+time as a tooltip. `HH:mm:ss` (24h,
- * compact, matches the requested hour:minute:second). Renders nothing without a
- * valid timestamp (streaming buffer / optimistic rows) so it can't flicker.
+ * group and carries the full locale date+time as a tooltip. Shows the absolute
+ * `yyyy-MM-dd HH:mm:ss` (24h, ISO-ish, sortable at a glance). Renders nothing
+ * without a valid timestamp (streaming buffer / optimistic rows) so it can't
+ * flicker.
  */
 function MessageTime({ iso }: { iso?: string }) {
   if (!iso) return null
@@ -82,7 +83,7 @@ function MessageTime({ iso }: { iso?: string }) {
       title={format(d, 'PPpp', { locale })}
       className="shrink-0 select-none font-mono text-[10px] leading-none tabular-nums tracking-tight text-foreground/25 transition-colors duration-200 group-hover:text-foreground/50"
     >
-      {format(d, 'HH:mm:ss')}
+      {format(d, 'yyyy-MM-dd HH:mm:ss')}
     </time>
   )
 }
