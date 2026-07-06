@@ -96,14 +96,79 @@ function langDir(guideRoot: string, lang: string): string {
 
 // ─── Category configuration ─────────────────────────────────────────────────
 
-const CATEGORY_LABELS: Record<string, string> = {
-  'getting-started': 'Getting started',
-  specs: 'Specs',
-  pipeline: 'Pipeline',
-  agents: 'Agents',
-  insights: 'Insights',
-  integrations: 'Integrations',
-  settings: 'Settings',
+const CATEGORY_LABELS: Record<string, Record<string, string>> = {
+  en: {
+    'getting-started': 'Getting started',
+    specs: 'Specs',
+    pipeline: 'Pipeline',
+    agents: 'Agents',
+    insights: 'Insights',
+    integrations: 'Integrations',
+    settings: 'Settings',
+  },
+  es: {
+    'getting-started': 'Primeros pasos',
+    specs: 'Specs',
+    pipeline: 'Pipeline',
+    agents: 'Agentes',
+    insights: 'Insights',
+    integrations: 'Integraciones',
+    settings: 'Ajustes',
+  },
+  fr: {
+    'getting-started': 'Bien démarrer',
+    specs: 'Specs',
+    pipeline: 'Pipeline',
+    agents: 'Agents',
+    insights: 'Insights',
+    integrations: 'Intégrations',
+    settings: 'Réglages',
+  },
+  de: {
+    'getting-started': 'Erste Schritte',
+    specs: 'Specs',
+    pipeline: 'Pipeline',
+    agents: 'Agenten',
+    insights: 'Insights',
+    integrations: 'Integrationen',
+    settings: 'Einstellungen',
+  },
+  pt: {
+    'getting-started': 'Primeiros passos',
+    specs: 'Specs',
+    pipeline: 'Pipeline',
+    agents: 'Agentes',
+    insights: 'Insights',
+    integrations: 'Integrações',
+    settings: 'Definições',
+  },
+  it: {
+    'getting-started': 'Primi passi',
+    specs: 'Spec',
+    pipeline: 'Pipeline',
+    agents: 'Agenti',
+    insights: 'Insights',
+    integrations: 'Integrazioni',
+    settings: 'Impostazioni',
+  },
+  zh: {
+    'getting-started': '入门',
+    specs: '规格',
+    pipeline: '流水线',
+    agents: '代理',
+    insights: '洞察',
+    integrations: '集成',
+    settings: '设置',
+  },
+  ja: {
+    'getting-started': 'はじめに',
+    specs: 'スペック',
+    pipeline: 'パイプライン',
+    agents: 'エージェント',
+    insights: 'インサイト',
+    integrations: '連携',
+    settings: '設定',
+  },
 }
 
 /**
@@ -125,8 +190,8 @@ function slugToTitle(slug: string): string {
   return slug.replace(/-/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase())
 }
 
-function categoryLabel(slug: string): string {
-  return CATEGORY_LABELS[slug] ?? slugToTitle(slug)
+function categoryLabel(slug: string, lang: string): string {
+  return CATEGORY_LABELS[lang]?.[slug] ?? CATEGORY_LABELS[DEFAULT_LANG]?.[slug] ?? slugToTitle(slug)
 }
 
 function extractTitle(content: string, slug: string): string {
@@ -212,7 +277,7 @@ function buildCategories(guideRoot: string, lang: string): DocCategory[] {
     })
 
     if (docs.length > 0) {
-      categories.push({ name: categoryLabel(cat), slug: cat, docs })
+      categories.push({ name: categoryLabel(cat, lang), slug: cat, docs })
     }
   }
 

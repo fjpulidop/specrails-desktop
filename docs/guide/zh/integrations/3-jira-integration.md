@@ -7,7 +7,8 @@
 Specrails 充当 Jira 和你项目之间的**同步层**。核心思路是：你本地的规格存储仍然是流水线读取的那个权威来源，而 Specrails 负责让它和 Jira 保持一致。
 
 - 当你启动一条 rail 时，Specrails 会把关联的 Jira 事务移动到 **In Progress**。
-- 当一个任务结束时，Specrails 会转移该事务的状态：成功时移到你映射的**评审**状态，只有当你确认这份工作后才会到达 **Done**（合并草稿 PR 会发布一条 "PR merged" 评论）；失败时退回 **To Do**，并附上包含任务 id、成本和时长的完成评论。
+- 当一个任务结束时，Specrails 会转移该事务的状态：成功时移到你映射的**评审**状态，只有当交付 PR 被合并或你接受本地结果后才会到达 **Done**；失败时退回 **To Do**，并附上包含结果、运行 id、成本、时长以及 Jira 状态变化的完成评论。
+- 如果你在 Jira 事务已经处于评审状态时请求后续修改，Specrails 会尝试继续该 ticket 已有的打开 PR 分支，而不是创建新分支。如果你的 Jira 评审状态没有显式映射、在本地仍显示为 **In Progress**，只要 Jira key 与打开的 pull request 匹配，Specrails 仍然可以继续那条 PR。
 - Specrails 会定期**轮询** Jira，把任何人在看板上做的改动取回来，反映到你的规格里。
 
 所有的回写都会经过一个持久化、防崩溃的发件箱（outbox），所以 Jira 一时的小故障绝不会让任务出错——那次更新只是会重试而已。
@@ -32,7 +33,7 @@ Specrails 充当 Jira 和你项目之间的**同步层**。核心思路是：你
 
 ## 状态映射
 
-任何 Jira 同步里最棘手的部分，就是把*你的*工作流对应到 Specrails 那套简单的状态上（To Do / In Progress / Done，外加取消 / 上线的变体）。Specrails 分两层来解决：
+任何 Jira 同步里最棘手的部分，就是把*你的*工作流对应到 Specrails 那套简单的状态上（To Do / In Progress / On Review / Done，外加取消变体）。Specrails 分两层来解决：
 
 1. **你显式设置的状态映射**——如果你在向导里设了一个，它永远优先。
 2. **自动检测**——依据每个状态的类别（new / in-progress / done），再加上针对取消和上线类状态的智能匹配。

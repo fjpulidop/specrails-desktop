@@ -26,6 +26,7 @@ import {
   backoffMs,
   formatJqlDate,
   buildCompletionComment,
+  buildRailReviewComment,
   buildPrMergedComment,
   type JiraSyncManagerOpts,
 } from './jira-sync-manager'
@@ -240,24 +241,30 @@ describe('buildCompletionComment', () => {
   const base = { jobId: 'job-9', costUsd: 1.234, durationMs: 65_000 }
   it('needsReview short-circuits with a review message', () => {
     const text = buildCompletionComment({ status: 'completed', ...base }, 'ACME-1', true)
-    expect(text).toMatch(/needs review/i)
-    expect(text).not.toMatch(/cost/)
+    expect(text).toContain('Specrails rail finished for ACME-1.')
+    expect(text).toContain('Result: needs human review.')
+    expect(text).toContain('Run: job-9')
+    expect(text).toContain('Jira status: left unchanged for review.')
+    expect(text).not.toMatch(/Cost:/)
   })
-  it('completed → ✅ with cost + duration meta', () => {
+  it('completed -> explains Jira movement with run, cost, and duration', () => {
     const text = buildCompletionComment({ status: 'completed', ...base }, 'ACME-1', false)
-    expect(text).toContain('✅')
-    expect(text).toContain('job job-9')
-    expect(text).toContain('cost $1.23')
-    expect(text).toContain('duration 1m 5s')
+    expect(text).toContain('Specrails rail finished for ACME-1.')
+    expect(text).toContain('Result: completed successfully.')
+    expect(text).toContain('Jira status: moving to Done.')
+    expect(text).toContain('Run: job-9')
+    expect(text).toContain('Cost: $1.23')
+    expect(text).toContain('Duration: 1m 5s')
   })
-  it('canceled → ⏹️ returned to backlog', () => {
+  it('canceled -> explains backlog return', () => {
     const text = buildCompletionComment({ status: 'canceled', ...base }, 'ACME-1', false)
-    expect(text).toContain('⏹️')
-    expect(text).toMatch(/cancelled/i)
+    expect(text).toContain('Result: cancelled before completion.')
+    expect(text).toContain('Jira status: returning to the backlog.')
   })
-  it('failed → ❌ returned to backlog', () => {
+  it('failed -> explains backlog return', () => {
     const text = buildCompletionComment({ status: 'failed', ...base }, 'ACME-1', false)
-    expect(text).toContain('❌')
+    expect(text).toContain('Result: failed before completion.')
+    expect(text).toContain('Jira status: returning to the backlog.')
   })
   it('omits cost/duration when null and formats sub-minute as seconds', () => {
     const text = buildCompletionComment(
@@ -265,8 +272,9 @@ describe('buildCompletionComment', () => {
       null,
       false,
     )
-    expect(text).not.toContain('cost')
-    expect(text).toContain('duration 45s')
+    expect(text).toContain('Specrails rail finished for the linked Jira issue.')
+    expect(text).not.toContain('Cost:')
+    expect(text).toContain('Duration: 45s')
   })
   it('omits duration entirely when null', () => {
     const text = buildCompletionComment(
@@ -274,21 +282,33 @@ describe('buildCompletionComment', () => {
       null,
       false,
     )
-    expect(text).toMatch(/\(job j\)/)
-    expect(text).not.toContain('duration')
+    expect(text).toContain('Run: j')
+    expect(text).not.toContain('Duration:')
+  })
+})
+
+describe('buildRailReviewComment', () => {
+  it('explains that the PR is ready for review and leaves a next action', () => {
+    const text = buildRailReviewComment('ACME-21')
+    expect(text).toContain('Specrails rail finished for ACME-21.')
+    expect(text).toContain('Result: implementation ready for PR review.')
+    expect(text).toContain('Jira status: moving to review')
+    expect(text).toContain('Next step: review the Specrails PR card')
   })
 })
 
 describe('buildPrMergedComment', () => {
   it('appends the PR URL on its own line when present', () => {
     const text = buildPrMergedComment('https://github.com/acme/repo/pull/7')
-    expect(text).toContain('merged')
-    expect(text.endsWith('\nhttps://github.com/acme/repo/pull/7')).toBe(true)
+    expect(text).toContain('Specrails delivery accepted.')
+    expect(text).toContain('Result: PR merged into the integration branch.')
+    expect(text).toContain('Jira status: moving to Done.')
+    expect(text.endsWith('\nPR: https://github.com/acme/repo/pull/7')).toBe(true)
   })
   it('omits the URL line when prUrl is null', () => {
     const text = buildPrMergedComment(null)
-    expect(text).toContain('merged')
-    expect(text).not.toContain('\n')
+    expect(text).toContain('Result: PR merged into the integration branch.')
+    expect(text).not.toContain('PR:')
     expect(text).not.toContain('http')
   })
 })
@@ -1027,6 +1047,14 @@ describe('onJobOutcome()', () => {
     const ops = listOutbox(db, {})
     const types = ops.map((o) => o.opType).sort()
     expect(types).toEqual(['comment', 'transition'])
+    const commentOp = ops.find((o) => o.opType === 'comment')!
+    const cPayload = JSON.parse(commentOp.payload)
+    expect(cPayload.text).toContain('Specrails rail finished for ACME-11.')
+    expect(cPayload.text).toContain('Result: completed successfully.')
+    expect(cPayload.text).toContain('Jira status: moving to Done.')
+    expect(cPayload.text).toContain('Run: job-c')
+    expect(cPayload.text).toContain('Duration: 1s')
+    expect(cPayload.text).toContain('Cost: $1.00')
     const transitionOp = ops.find((o) => o.opType === 'transition')!
     expect(JSON.parse(transitionOp.payload).logicalState).toBe('done')
     // drain ran (best-effort); give microtasks a chance.
@@ -1044,6 +1072,10 @@ describe('onJobOutcome()', () => {
     fake.on('GET', '/issue/I-12?', { status: 200, body: { id: 'I-12', key: 'ACME-12', fields: { status: { name: 'To Do', statusCategory: { key: 'new' } } } } })
     const mgr = makeManager(fake.fetchImpl)
     mgr.onJobOutcome({ ticketIds: [12], status: 'failed', jobId: 'job-f', costUsd: null, durationMs: null })
+    const commentOp = listOutbox(db, {}).find((o) => o.opType === 'comment')!
+    const cPayload = JSON.parse(commentOp.payload)
+    expect(cPayload.text).toContain('Result: failed before completion.')
+    expect(cPayload.text).toContain('Jira status: returning to the backlog.')
     const transitionOp = listOutbox(db, {}).find((o) => o.opType === 'transition')!
     expect(JSON.parse(transitionOp.payload).logicalState).toBe('todo')
   })
@@ -1065,6 +1097,9 @@ describe('onJobOutcome()', () => {
     })
     const ops = listOutbox(db, {})
     expect(ops.map((o) => o.opType)).toEqual(['comment'])
+    const cPayload = JSON.parse(ops[0].payload)
+    expect(cPayload.text).toContain('Result: needs human review.')
+    expect(cPayload.text).toContain('Jira status: left unchanged for review.')
   })
 
   it('skips unlinked + tombstoned tickets, no enqueue', () => {
@@ -1109,10 +1144,17 @@ describe('onRailReview()', () => {
     mgr.onRailReview([21, 999], 'pd-21')
 
     const ops = listOutbox(db, {})
-    expect(ops).toHaveLength(1)
-    expect(ops[0].opType).toBe('transition')
-    expect(ops[0].idempotencyKey).toBe('pd-21:21:transition:on_review')
-    expect(JSON.parse(ops[0].payload)).toMatchObject({ localId: 21, jiraIssueId: 'I-21', logicalState: 'on_review' })
+    expect(ops.map((o) => o.opType).sort()).toEqual(['comment', 'transition'])
+    const comment = ops.find((o) => o.opType === 'comment')!
+    expect(comment.idempotencyKey).toBe('pd-21:21:comment:on-review')
+    const cPayload = JSON.parse(comment.payload)
+    expect(cPayload.text).toContain('Specrails rail finished for ACME-21.')
+    expect(cPayload.text).toContain('Result: implementation ready for PR review.')
+    expect(cPayload.text).toContain('Jira status: moving to review')
+    expect(cPayload.marker).toBe('[specrails:rail-review=pd-21:ticket=21]')
+    const transition = ops.find((o) => o.opType === 'transition')!
+    expect(transition.idempotencyKey).toBe('pd-21:21:transition:on_review')
+    expect(JSON.parse(transition.payload)).toMatchObject({ localId: 21, jiraIssueId: 'I-21', logicalState: 'on_review' })
 
     // NO local-cache write: the ticket store already parked the ticket before
     // this hook fires (unlike onRailLaunch) — status untouched, no ticket_updated.
@@ -1160,7 +1202,9 @@ describe('onRailMerged()', () => {
     expect(comment.idempotencyKey).toBe('pd-31:31:comment:pr-merged')
     const cPayload = JSON.parse(comment.payload)
     expect(cPayload.jiraIssueId).toBe('I-31')
-    expect(cPayload.text).toContain('merged')
+    expect(cPayload.text).toContain('Specrails delivery accepted.')
+    expect(cPayload.text).toContain('Result: PR merged into the integration branch.')
+    expect(cPayload.text).toContain('Jira status: moving to Done.')
     expect(cPayload.text).toContain('https://github.com/acme/repo/pull/7')
     expect(cPayload.marker).toBe('[specrails:pr-merged=pd-31:ticket=31]')
     const transition = ops.find((o) => o.opType === 'transition')!
@@ -1180,7 +1224,7 @@ describe('onRailMerged()', () => {
     mgr.onRailMerged([32], 'pd-32', null)
     const comment = listOutbox(db, {}).find((o) => o.opType === 'comment')!
     const cPayload = JSON.parse(comment.payload)
-    expect(cPayload.text).toContain('merged')
+    expect(cPayload.text).toContain('Result: PR merged into the integration branch.')
     expect(cPayload.text).not.toContain('http')
   })
 

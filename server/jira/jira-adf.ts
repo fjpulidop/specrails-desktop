@@ -62,6 +62,14 @@ export function prMergedCommentMarker(refId: string, ticketId: number): string {
   return `[specrails:pr-merged=${refId}:ticket=${ticketId}]`
 }
 
+/**
+ * Idempotency marker for the "ready for review" comment posted when an isolated
+ * rail parks a Jira-linked ticket on_review awaiting the PR decision.
+ */
+export function railReviewCommentMarker(refId: string, ticketId: number): string {
+  return `[specrails:rail-review=${refId}:ticket=${ticketId}]`
+}
+
 /** True when an ADF doc or wiki string already contains the given marker. */
 export function bodyContainsMarker(body: unknown, marker: string): boolean {
   if (typeof body === 'string') return body.includes(marker)

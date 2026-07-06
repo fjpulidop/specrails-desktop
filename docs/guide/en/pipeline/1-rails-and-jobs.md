@@ -1,6 +1,6 @@
 # Rails & jobs
 
-You've got specs on the board. This is where they turn into code. A **rail** is the lane that drives a spec through the full pipeline — Architect → Developer → Reviewer → Ship — running real AI agents inside your project directory. This page covers launching a rail, the job queue, and watching the work happen live.
+You've got specs on the board. This is where they turn into code. A **rail** is the lane that drives a spec through the full pipeline — Architect → Developer → Reviewer → Ship — running real AI agents for your project. This page covers launching a rail, parallel execution, and watching the work happen live.
 
 ## What a rail is
 
@@ -16,7 +16,7 @@ SpecsBoard (left)            Rails (right)
                     └────────────►   Rail 2   ▶ Play
 ```
 
-A rail is an **execution lane**. You drag a spec card from the SpecsBoard onto a rail, then press **▶ Play**. The rail launches the pipeline and works the spec end to end, right in your project's working directory — editing files, running tests, the works.
+A rail is an **execution lane**. You drag a spec card from the SpecsBoard onto a rail, then press **▶ Play**. For git repositories, the rail launches the pipeline in an isolated git worktree so the AI can edit files and run tests without touching your active working tree. If the project is not a git repo yet, Specrails clearly degrades to shared-folder execution and tells you that no branch or PR card will appear.
 
 You can have several rails to organise work into named lanes (one for the feature you're focused on, another queued behind it). Rails are **dynamic**: the **+ Add** button in the Rails header creates a new lane (up to 12 per project) and idle empty lanes can be deleted. Every rail is server-backed, so your set of lanes survives reloads and is visible to the mobile companion and the in-app agent — the agent can even create a rail itself when all lanes are busy. More on multi-rail and batching in [Batch implement & multi-feature](batch-implement-and-multi-feature).
 
@@ -26,7 +26,7 @@ You can have several rails to organise work into named lanes (one for the featur
 2. **Pick a Loop** in the rail header. A rail runs a **Loop** — that's the work it performs. The default is the built-in `Implement` loop; you can also pick `Batch`, `Freestyle`, or a custom loop you built yourself. See [The Loop Builder](the-loop-builder).
 3. **Press ▶ Play.**
 
-That's it. The rail spins up an AI CLI process in your project and starts the pipeline.
+That's it. The rail spins up an AI CLI process in the right execution context and starts the pipeline.
 
 ### What's in a rail header
 
@@ -57,11 +57,11 @@ Beyond the built-ins, you can **build your own loops** — repeat a verify → f
 
 Every time you press Play, the rail run becomes a **job**. The most important rule to internalise:
 
-> **Rails run in parallel.** Every launch isolates its work in a per-spec git worktree, so several rails can run at the same time inside the same project without stepping on each other — each run's changes come back as a merge or a draft PR when it settles.
+> **Rails run in parallel.** Every git-backed launch isolates its work in a per-spec git worktree, so several rails can run at the same time inside the same project without stepping on each other. Fresh work settles into an **On Review** decision card where you can create a draft PR or discard it; follow-up work for a spec that already has an open PR continues that PR branch instead of starting over from the integration branch.
 
 Want everything moving at once? The **Launch all** button in the Rails header starts every ready lane in one go, after a single confirmation that frames the total cost (N rails × AI spend). Rails that are empty, already running, or awaiting a PR decision are skipped and reported in a compact summary toast. The in-app agent has the same power through `specrails_rails(launch_all)` — and it will create a fresh rail when no free lane exists.
 
-Only the legacy path (the Loops feature disabled) falls back to the old one-job-at-a-time project queue, where extra rails queue behind the running one. Cross-project parallelism is unchanged: each project remains fully independent.
+Projects without git do not get worktree isolation or PR continuation. They still run, but the rail writes directly into the shared project folder and the result is accepted or reverted manually from the spec board.
 
 There's no global concurrency knob to tune. The only automatic throttle is budget-based: if you've set a daily budget (project or app-wide), the queue auto-pauses once that day's spend hits the cap.
 

@@ -30,6 +30,7 @@ export function railsTools(): McpToolSpec[] {
         'launch (ai-spawn — spawns claude/codex/gemini CLI job(s) that WRITE CODE, RUN TESTS, COMMIT, and INCUR TOKEN COST; returns 202 with jobId/jobIds/loopRunIds), ' +
         'launch_all (ai-spawn — launches EVERY rail that has tickets and no active run/pending PR decision, in parallel, using each rail\'s stored mode/engine/profile; returns per-rail outcomes with skip reasons), ' +
         'stop (destructive — kills all active jobs and loop runs for the rail). ' +
+        'For on_review tickets with an already-open GitHub PR, launch automatically tries to continue that PR head branch; Jira-linked in_progress tickets can do the same when the PR match is explicit; fresh tickets still start from the project integration branch. ' +
         'When launched from the in-app agent chat without an explicit aiEngine, the engine defaults to your conversation\'s provider (pass aiEngine to override; launch_all always uses each rail\'s stored engine). ' +
         'NAMING: railIndex is the 0-BASED internal identity; the dashboard shows rails 1-based ("Rail N" = railIndex N-1). When talking to the user, ALWAYS say "Rail <railIndex + 1>" (or the rail\'s custom name) — results include railLabel with the correct user-facing label.',
       hintTier: 'read',
@@ -230,7 +231,7 @@ export function railsTools(): McpToolSpec[] {
             return {
               ...r,
               railLabel,
-              hint: `Launch accepted (202) on ${railLabel} (isolated worktree, PR flow active) — tell the user it runs on "${railLabel}" (UI labels are 1-based) and that the PR-decision card will appear here and on the rail header when it settles. Use specrails_watch with the returned loopRunIds to await completion only if asked. Rails run for minutes; pass untilMs up to 600000 and re-watch on timeout.`,
+              hint: `Launch accepted (202) on ${railLabel} (isolated worktree, PR flow active) — tell the user it runs on "${railLabel}" (UI labels are 1-based). If the assigned spec is on_review with a matching open PR, or is Jira-linked in_progress with an explicit PR match, Specrails continues that PR branch automatically; otherwise it starts a fresh branch from the integration branch. The PR-decision card will appear here and on the rail header when it settles. Use specrails_watch with the returned loopRunIds to await completion only if asked. Rails run for minutes; pass untilMs up to 600000 and re-watch on timeout.`,
             }
           }
 

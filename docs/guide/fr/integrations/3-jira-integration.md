@@ -7,7 +7,8 @@ Vous voulez que vos specs vivent sur un véritable **tableau Jira** plutôt qu'�
 Specrails agit comme une **couche de synchronisation** entre Jira et votre projet. L'idée maîtresse : votre magasin de specs local reste la référence que lit le pipeline, et Specrails se charge de le maintenir en accord avec Jira.
 
 - Lorsque vous lancez un rail, Specrails fait passer le ticket Jira lié à **En cours**.
-- Lorsqu'un job se termine, Specrails fait transitionner le ticket : en cas de succès, il passe à votre statut de **révision** mappé et n'atteint **Terminé** qu'une fois le travail approuvé (la fusion de la PR en brouillon publie un commentaire « PR merged ») ; en cas d'échec, il revient à **À faire** avec un commentaire de clôture (identifiant du job, coût, durée).
+- Lorsqu'un job se termine, Specrails fait transitionner le ticket : en cas de succès, il passe à votre statut de **révision** mappé et n'atteint **Terminé** qu'une fois la PR de livraison fusionnée ou le résultat local accepté ; en cas d'échec, il revient à **À faire** avec un commentaire de clôture qui indique le résultat, l'id d'exécution, le coût, la durée et le changement de statut Jira.
+- Si vous demandez des changements de suivi alors que le ticket Jira est déjà en révision, Specrails essaie de continuer la branche de la PR ouverte existante pour ce ticket au lieu de créer une nouvelle branche. Si votre statut de révision Jira n'est pas explicitement mappé et apparaît encore localement comme **En cours**, Specrails peut tout de même continuer la PR lorsque la clé Jira correspond à la pull request ouverte.
 - Périodiquement, Specrails **interroge** Jira pour récupérer les changements effectués par quiconque sur le tableau et les répercute dans vos specs.
 
 Toutes les écritures vers Jira passent par une file d'attente durable et résistante aux pannes : un incident Jira passager ne casse donc jamais un job — la mise à jour est simplement retentée.
@@ -32,7 +33,7 @@ Votre jeton est stocké **chiffré sur votre propre machine** et n'en sort jamai
 
 ## Association des statuts
 
-La partie la plus délicate de toute synchronisation Jira, c'est de faire correspondre *votre* workflow aux états simples de Specrails (À faire / En cours / Terminé, plus les variantes annulé/livré). Specrails résout cela en deux niveaux :
+La partie la plus délicate de toute synchronisation Jira, c'est de faire correspondre *votre* workflow aux états simples de Specrails (À faire / En cours / En relecture / Terminé, plus les variantes d'annulation). Specrails résout cela en deux niveaux :
 
 1. **Votre association de statuts explicite**, si vous en définissez une dans l'assistant — toujours prioritaire.
 2. **La détection automatique** à partir de la catégorie de chaque statut (new / in-progress / done) plus une correspondance intelligente pour les statuts de type annulation et livraison.

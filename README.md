@@ -25,7 +25,7 @@
 **Specrails Desktop** (`specrails-desktop`) turns *"I'll just let the AI do it"* into a workflow you can **see, steer, and trust**. It's the desktop app for specrails — a local-first dashboard and CLI that sits on top of [**specrails-core**](https://github.com/fjpulidop/specrails-core) and gives you **one window for all your projects**:
 
 - 💬 Shape a spec in conversation with an AI, or generate one in a single shot.
-- 🛤️ Drag specs onto **execution rails**, pick a **Loop** to run (built-in or your own), and ship — one job at a time per project, in parallel across projects.
+- 🛤️ Drag specs onto **execution rails**, pick a **Loop** to run (built-in or your own), and ship — rails run in parallel inside a git-backed project, each isolated in its own worktree.
 - 🤖 Watch the **Architect → Developer → Reviewer → Ship** pipeline stream live — and **talk to the running job**: ask questions or steer it mid-run from the built-in composer.
 - 💰 See exactly **what each agent cost you** this week, per provider, per ticket.
 
@@ -51,10 +51,10 @@
 
 | | |
 |---|---|
-| 🛤️ **Execution rails** | Each rail is an independent lane. Drag specs in, **pick a Loop**, and press Play. Within a project, jobs run **one at a time** (rails let you queue and organise the work); true parallelism is **across projects**. Each rail carries its own **agent profile** and provider. |
+| 🛤️ **Execution rails** | Each rail is an independent lane. Drag specs in, **pick a Loop**, and press Play. In git-backed projects, rails run in parallel inside isolated per-spec worktrees, so several lanes can build at once without touching your active working tree. Each rail carries its own **agent profile** and provider. |
 | 🔁 **Loops** | A global, visual **Loop Builder** (n8n-style). The built-in loops — **Implement**, **Batch**, **Freestyle** — are what a rail runs by default, or build your own: chain AI steps, shell commands and a **Loop Decider** that repeats until a goal is met (e.g. *verify → fix → verify until green*). Publish a loop and pick it on any rail. See [Running pipelines](docs/running-pipelines.md). |
 | 🧩 **Agent profiles** | A per-project, declarative catalog that tells the implement pipeline which agents to run and at what model — snapshotted per job so concurrent rails stay isolated. |
-| 🔀 **Safe PR delivery (ask-first)** | Each rail runs in an isolated **git worktree** off your designated integration branch (set it in *Settings → Integration branch*). When it finishes, nothing is pushed and no PR exists yet — the specs move to **On Review** and the app **asks you first**: **Create PR** (one combined draft PR across all the specs on the rail) or **Discard** (clean up, specs back to the backlog). After creating it you can **Publish** (open the draft for your team's review) and **Check merge** — once your team merges it in GitHub, the specs flip to Done. specrails **never merges and never touches your working tree**. Set `SPECRAILS_RAIL_DELIVER_PR=0` to fall back to local integration. |
+| 🔀 **Safe PR delivery (ask-first)** | Fresh work runs in an isolated **git worktree** off your designated integration branch (set it in *Settings → Integration branch*). When it finishes, nothing is pushed and no PR exists yet — the specs move to **On Review** and the app **asks you first**: **Create PR** (one combined draft PR across all the specs on the rail) or **Discard** (clean up, specs back to the backlog). If you relaunch a spec that is already in review with an open PR, specrails detects that active PR and continues its head branch instead of starting from the integration branch again. After a PR exists you can **Publish** (open the draft for your team's review) and **Check merge** — once your team merges it in GitHub, the specs flip to Done. specrails **never merges and never touches your working tree**. Projects without git degrade to shared-folder execution with no branch or PR card. Set `SPECRAILS_RAIL_DELIVER_PR=0` to fall back to local integration. |
 | 📡 **Live job detail** | A premium ticket-identity header, live duration ticker, incremental turns/tokens, and authoritative cost on exit. Every Claude job is a **live session**: a chat composer on the job view lets you ask the running agent questions or steer it mid-run — messages queue while it streams, and the job still finishes its plan (Freestyle waits for your explicit **Finalize**; everything else wraps up on its own). |
 | 🔌 **Plugins** | A per-project marketplace of MCP-based integrations (**Serena** semantic code-nav bundled today). Additive by design — installing plugin N+1 never disturbs plugin N. |
 
@@ -159,7 +159,8 @@ When the app is running, the CLI talks to it over HTTP + WebSocket; when it isn'
   - **[Claude Code](https://claude.com/claude-code)** — the `claude` binary, signed in (via Claude subscription login or an `ANTHROPIC_API_KEY`). No minimum version pinned.
   - **[Codex CLI](https://developers.openai.com/codex)** ≥ 0.128.0 — the `codex` binary. Run `codex login` or set `OPENAI_API_KEY`.
   - **[Gemini CLI](https://github.com/google-gemini/gemini-cli)** ≥ 0.11.0 — the `gemini` binary, authenticated (set `GEMINI_API_KEY`).
-- 🌿 **git**
+- 🌿 **git** — required for isolated worktrees, branch-based resume, and PR delivery. Non-git projects still run in shared-folder mode, but no branch or PR card is created.
+- 🔀 *(optional but recommended)* **GitHub CLI (`gh`)** authenticated — required when you want Specrails to create, publish, check, or continue GitHub pull requests for rail deliveries.
 - 🧪 *(optional)* **`uv`** — only if you want the Serena plugin
 - 📦 **specrails-core** ≥ 4.8.0 in the project *(the wizard installs it)* — a single shared floor for all providers; 4.8.0 is the release that ships the Gemini target. Agent profiles need core ≥ 4.1.0 in the project.
 

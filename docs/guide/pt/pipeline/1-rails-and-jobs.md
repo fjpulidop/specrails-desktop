@@ -1,6 +1,6 @@
 # Rails e jobs
 
-Você já tem specs no quadro. É aqui que elas viram código. Um **rail** é a pista que conduz uma spec por todo o pipeline — Architect → Developer → Reviewer → Ship — executando agentes de IA reais dentro do diretório do seu projeto. Esta página cobre como lançar um rail, a fila de jobs e como acompanhar o trabalho acontecendo ao vivo.
+Você já tem specs no quadro. É aqui que elas viram código. Um **rail** é a pista que conduz uma spec por todo o pipeline — Architect → Developer → Reviewer → Ship — executando agentes de IA reais para o seu projeto. Esta página cobre como lançar um rail, a execução em paralelo e como acompanhar o trabalho acontecendo ao vivo.
 
 ## O que é um rail
 
@@ -16,7 +16,7 @@ SpecsBoard (esquerda)       Rails (direita)
                     └────────────►   Rail 2   ▶ Play
 ```
 
-Um rail é uma **pista de execução**. Você arrasta um cartão de spec do SpecsBoard para um rail e depois aperta **▶ Play**. O rail dispara o pipeline e trabalha a spec de ponta a ponta, bem no diretório de trabalho do seu projeto — editando arquivos, rodando testes, tudo.
+Um rail é uma **pista de execução**. Você arrasta um cartão de spec do SpecsBoard para um rail e depois aperta **▶ Play**. Em repositórios git, o rail dispara o pipeline num git worktree isolado para que a IA possa editar arquivos e rodar testes sem tocar na sua árvore de trabalho ativa. Se o projeto ainda não é um repo git, o Specrails degrada claramente para execução na pasta compartilhada e avisa que não haverá branch nem cartão de PR.
 
 Você pode ter vários rails para organizar o trabalho em pistas nomeadas (uma para a feature em que está focado, outra na fila atrás dela). Os rails são **dinâmicos**: o botão **+ Adicionar** no cabeçalho de Rails cria uma nova pista (até 12 por projeto) e pistas vazias e ociosas podem ser removidas. Cada rail é respaldado pelo servidor, então seu conjunto de pistas sobrevive a recargas e fica visível para o companion móvel e para o agente integrado — o agente pode até criar um rail sozinho quando todas as pistas estão ocupadas. Mais sobre multi-rail e batching em [Batch implement e multi-feature](batch-implement-and-multi-feature).
 
@@ -26,7 +26,7 @@ Você pode ter vários rails para organizar o trabalho em pistas nomeadas (uma p
 2. **Escolha um Loop** no cabeçalho do rail. Um rail roda um **Loop** — é o trabalho que ele realiza. O padrão é o Loop `Implement` embutido; você também pode escolher `Batch`, `Freestyle` ou um loop personalizado que você mesmo construiu. Veja [O Loop Builder](the-loop-builder).
 3. **Aperte ▶ Play.**
 
-É isso. O rail sobe um processo de CLI de IA no seu projeto e começa o pipeline.
+É isso. O rail sobe um processo de CLI de IA no contexto de execução certo e começa o pipeline.
 
 ### O que tem no cabeçalho de um rail
 
@@ -57,11 +57,11 @@ Além dos embutidos, você pode **construir seus próprios loops** — repetir u
 
 Toda vez que você aperta Play, a execução do rail vira um **job**. A regra mais importante para internalizar:
 
-> **Os rails rodam em paralelo.** Cada lançamento isola seu trabalho em um worktree do git por spec, então vários rails podem rodar ao mesmo tempo dentro do mesmo projeto sem se atropelar — as mudanças de cada execução voltam como merge ou como draft PR quando ela termina.
+> **Os rails rodam em paralelo.** Cada lançamento apoiado por git isola seu trabalho em um worktree do git por spec, então vários rails podem rodar ao mesmo tempo dentro do mesmo projeto sem se atropelar. Trabalho novo termina num cartão de decisão **Em revisão**, onde você pode criar uma draft PR ou descartar; trabalho de seguimento para uma spec que já tem PR aberta continua a branch dessa PR em vez de recomeçar a partir da branch de integração.
 
 Quer tudo andando de uma vez? O botão **Lançar todos** no cabeçalho de Rails inicia todas as pistas prontas de uma só vez, após uma única confirmação que enquadra o custo total (N rails × gasto de IA). Rails vazios, já em execução ou aguardando uma decisão de PR são pulados e reportados em um toast de resumo compacto. O agente integrado tem o mesmo poder via `specrails_rails(launch_all)` — e cria um rail novo quando não existe pista livre.
 
-Só o caminho legado (feature de Loops desativada) volta à antiga fila de um-job-por-vez por projeto, em que rails extras esperam atrás do que está rodando. O paralelismo entre projetos não muda: cada projeto continua totalmente independente.
+Projetos sem git não têm isolamento por worktree nem continuação de PR. Eles ainda podem rodar, mas o rail escreve diretamente na pasta compartilhada do projeto e o resultado é aceito ou revertido manualmente a partir do quadro de specs.
 
 Não há um botão global de concorrência para ajustar. O único limite automático é baseado em orçamento: se você definiu um orçamento diário (do projeto ou da app), a fila se autopausa assim que o gasto do dia atinge o teto.
 
