@@ -216,10 +216,14 @@ export interface LoopRunRequest {
 }
 
 const IMPLEMENT_CMD_TOKEN_RE = /\{\{\s*cmd:(?:implement|batch)\s*\}\}/
+const IMPLEMENT_CMD_TEXT_RE = /(?:^|\s)(?:\/(?:specrails:|sr:)?(?:implement|batch-implement)|\$(?:implement|batch-implement))\b/
+const LOOP_BLOCKED_LINE_RE = /(?:^|\n)\s*LOOP_BLOCKED:\s*(.+?)(?:\n|$)/i
+const HUMAN_PROCEED_QUESTION_RE = /(?:^|\n)\s*(?:\*\*)?How would you like to proceed\??/i
+const HUMAN_PROCEED_NO_WORK_RE = /\b(?:no code has changed|I haven't launched any agents|I have not launched any agents|not a fresh feature to build|would duplicate work|sync first|treat this as)\b/i
 
 function withReviewContinuationContext(base: string, rawTemplate: string, spec?: LoopSpec): string {
   if (spec?.status !== 'on_review') return base
-  if (!IMPLEMENT_CMD_TOKEN_RE.test(rawTemplate)) return base
+  if (!IMPLEMENT_CMD_TOKEN_RE.test(rawTemplate) && !IMPLEMENT_CMD_TEXT_RE.test(rawTemplate) && !IMPLEMENT_CMD_TEXT_RE.test(base)) return base
   return [
     base,
     '',
@@ -231,6 +235,15 @@ function withReviewContinuationContext(base: string, rawTemplate: string, spec?:
     '- If the local branch is ahead/behind its remote, do not stop for confirmation. Continue safely on the current worktree; only pull/rebase when it is clearly safe and necessary.',
     '- If truly no code change is needed, state that clearly and leave the tree unchanged; otherwise make the smallest correct change and let the following verify step prove it.',
   ].join('\n')
+}
+
+function aiStepBlockedReason(text: string): string | null {
+  const explicit = LOOP_BLOCKED_LINE_RE.exec(text)
+  if (explicit?.[1]?.trim()) return explicit[1].trim()
+  if (HUMAN_PROCEED_QUESTION_RE.test(text) && HUMAN_PROCEED_NO_WORK_RE.test(text)) {
+    return 'The AI step asked how to proceed instead of performing unattended work.'
+  }
+  return null
 }
 
 export interface LoopRunResult {
@@ -848,9 +861,12 @@ export class LoopRunManager {
               resultText: res.text.trim() ? res.text : null,
             })
             const zeroWork = res.zeroWork === true || oneShotZeroWork
-            const stepFailed = res.failed === true || zeroWork
+            const blockedReason = aiStepBlockedReason(res.text)
+            const stepFailed = res.failed === true || zeroWork || blockedReason !== null
             const stepErrorText = res.errorText ?? (zeroWork
               ? `zero work performed — the command never ran${res.text.trim() ? `: ${res.text.trim()}` : ''}`
+              : blockedReason
+                ? `blocked — ${blockedReason}`
               : undefined)
             // Make the failure reason land visibly INSIDE the step's log
             // segment (the interactive session already surfaced its own note at
@@ -873,6 +889,12 @@ export class LoopRunManager {
             if (res.sessionId && !stepFailed) aiSessionId = res.sessionId
             history.push(`AI Step: ${truncate(res.text)}`)
             record(`loop:${runId}`, { ...res, failed: stepFailed }, aiStepStart)
+            if (blockedReason) {
+              logLine(`\n■ Loop blocked — needs a human decision: ${blockedReason}`, 'stderr')
+              outcome = 'blocked'
+              settled = true
+              break
+            }
             // Capture the OpenSpec change id from a step's output the FIRST time it
             // appears (first-match-wins, kept stable across loop-back iterations so
             // the re-pass amends the same change). Used by `{{run.changeId}}` in the

@@ -529,6 +529,93 @@ describe('LoopRunManager', () => {
     expect(prompt).not.toContain('Specrails rail continuation context')
   })
 
+  it('adds unattended continuation context for literal on_review implement commands', async () => {
+    const graph: LoopGraph = {
+      nodes: [
+        { id: 's', type: 'start', position: { x: 0, y: 0 } },
+        { id: 'ai', type: 'ai-step', position: { x: 0, y: 1 }, data: { prompt: '/specrails:implement #98 --yes' } },
+        { id: 'e', type: 'end', position: { x: 0, y: 2 } },
+      ],
+      edges: [
+        { id: 'e1', source: 's', target: 'ai' },
+        { id: 'e2', source: 'ai', target: 'e' },
+      ],
+      config: { maxIterations: 5, timeoutMinutes: 30 },
+    }
+
+    const ex = makeExecutors()
+    await manager(ex).run({
+      ...baseReq(),
+      graph,
+      spec: { ...baseReq().spec, status: 'on_review' },
+    })
+
+    const prompt = (ex.runAiStep as ReturnType<typeof vi.fn>).mock.calls[0][0].prompt
+    expect(prompt).toContain('/specrails:implement #98 --yes')
+    expect(prompt).toContain('Specrails rail continuation context')
+  })
+
+  it('halts immediately when an unattended AI step asks the human how to proceed', async () => {
+    const graph: LoopGraph = {
+      nodes: [
+        { id: 's', type: 'start', position: { x: 0, y: 0 } },
+        { id: 'implement', type: 'ai-step', position: { x: 0, y: 1 }, data: { prompt: '{{cmd:implement}}' } },
+        { id: 'verify', type: 'ai-step', position: { x: 0, y: 2 }, data: { prompt: '{{cmd:verify}}' } },
+        { id: 'e', type: 'end', position: { x: 0, y: 3 } },
+      ],
+      edges: [
+        { id: 'e1', source: 's', target: 'implement' },
+        { id: 'e2', source: 'implement', target: 'verify' },
+        { id: 'e3', source: 'verify', target: 'e' },
+      ],
+      config: { maxIterations: 5, timeoutMinutes: 30 },
+    }
+    const runAiStep = vi.fn(async () => ({
+      text: [
+        'Before running the full pipeline, this is not a fresh feature to build.',
+        '**How would you like to proceed?**',
+        '1. Treat this as review follow-ups.',
+        '2. Sync first.',
+        "I haven't launched any agents yet, so no code has changed.",
+        'openspec/changes/key-terms-matching-review-followups/',
+      ].join('\n'),
+      provider: 'claude',
+      model: 'sonnet',
+    }))
+
+    const res = await manager(makeExecutors({ runAiStep })).run({ ...baseReq(), graph })
+
+    expect(res.outcome).toBe('blocked')
+    expect(runAiStep).toHaveBeenCalledTimes(1)
+    expect(getLoopRun(db, res.runId)!.final_outcome).toBe('blocked')
+    expect(broadcasts.some((m) => m.type === 'log' && ((m as { line?: string }).line ?? '').includes('Loop blocked'))).toBe(true)
+    expect(broadcasts.some((m) => m.type === 'log' && ((m as { line?: string }).line ?? '').includes('Captured OpenSpec change id'))).toBe(false)
+  })
+
+  it('halts immediately when an AI step emits LOOP_BLOCKED', async () => {
+    const graph: LoopGraph = {
+      nodes: [
+        { id: 's', type: 'start', position: { x: 0, y: 0 } },
+        { id: 'ai', type: 'ai-step', position: { x: 0, y: 1 }, data: { prompt: '{{cmd:fix}}' } },
+        { id: 'verify', type: 'ai-step', position: { x: 0, y: 2 }, data: { prompt: '{{cmd:verify}}' } },
+        { id: 'e', type: 'end', position: { x: 0, y: 3 } },
+      ],
+      edges: [
+        { id: 'e1', source: 's', target: 'ai' },
+        { id: 'e2', source: 'ai', target: 'verify' },
+        { id: 'e3', source: 'verify', target: 'e' },
+      ],
+      config: { maxIterations: 5, timeoutMinutes: 30 },
+    }
+    const runAiStep = vi.fn(async () => ({ text: 'LOOP_BLOCKED: Which review feedback should be applied?', provider: 'claude', model: 'sonnet' }))
+
+    const res = await manager(makeExecutors({ runAiStep })).run({ ...baseReq(), graph })
+
+    expect(res.outcome).toBe('blocked')
+    expect(runAiStep).toHaveBeenCalledTimes(1)
+    expect(broadcasts.some((m) => m.type === 'log' && ((m as { line?: string }).line ?? '').includes('Which review feedback should be applied?'))).toBe(true)
+  })
+
   it('stops at maxIterations when the Decider never stops', async () => {
     const ex = makeExecutors({
       runDecider: vi.fn(async () => ({ continue: true, reasoning: 'keep going', parsed: true })),
