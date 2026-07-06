@@ -7,7 +7,8 @@ Want your specs to live on a real **Jira board** instead of inside Specrails? Th
 Specrails acts as a **sync layer** between Jira and your project. The big idea: your local spec store stays the canonical thing the pipeline reads, and Specrails is responsible for keeping it and Jira in agreement.
 
 - When you launch a rail, Specrails moves the linked Jira issue to **In Progress**.
-- When a job finishes, Specrails transitions the issue: on success it moves to your mapped **review** status and only reaches **Done** once you approve the work (merging the draft PR posts a "PR merged" comment); on failure it goes back to **To Do** with a completion comment (job id, cost, duration).
+- When a job finishes, Specrails transitions the issue: on success it moves to your mapped **review** status and only reaches **Done** once the delivery PR is merged or you accept the local result; on failure it goes back to **To Do** with a completion comment that includes the result, run id, cost, duration, and the Jira status change.
+- If you ask for follow-up changes while the Jira issue is already in review, Specrails tries to continue the existing open PR branch for that ticket instead of creating a fresh branch. If your Jira review status is not explicitly mapped and still appears locally as **In Progress**, Specrails can still continue the PR when the Jira key matches the open pull request.
 - Periodically Specrails **polls** Jira for changes anyone made on the board and reflects them back into your specs.
 
 All write-backs go through a durable, crash-safe outbox, so a momentary Jira hiccup never breaks a job — the update just retries.
@@ -32,7 +33,7 @@ Your token is stored **encrypted on your own machine** and never leaves it. The 
 
 ## Status mapping
 
-The trickiest part of any Jira sync is matching *your* workflow to Specrails' simple states (To Do / In Progress / Done, plus cancel/ship variants). Specrails resolves this in two tiers:
+The trickiest part of any Jira sync is matching *your* workflow to Specrails' simple states (To Do / In Progress / On Review / Done, plus cancel variants). Specrails resolves this in two tiers:
 
 1. **Your explicit status map**, if you set one in the wizard — always wins.
 2. **Automatic detection** from each status's category (new / in-progress / done) plus smart matching for cancel and ship-style statuses.

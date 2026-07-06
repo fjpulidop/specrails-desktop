@@ -7,7 +7,8 @@
 Specrails actúa como **capa de sincronización** entre Jira y tu proyecto. La idea central: tu almacén local de specs sigue siendo lo canónico que lee el pipeline, y Specrails se encarga de mantenerlo de acuerdo con Jira.
 
 - Cuando lanzas un rail, Specrails mueve el issue de Jira vinculado a **En progreso**.
-- Cuando un trabajo termina, Specrails transiciona el issue: si tuvo éxito, lo mueve a tu estado de **revisión** mapeado y solo llega a **Hecho** cuando apruebas el trabajo (fusionar la PR en borrador publica un comentario "PR merged"); si falló, vuelve a **Por hacer** con un comentario de finalización (id del trabajo, coste y duración).
+- Cuando un trabajo termina, Specrails transiciona el issue: si tuvo éxito, lo mueve a tu estado de **revisión** mapeado y solo llega a **Hecho** cuando se mergea la PR de entrega o aceptas el resultado local; si falló, vuelve a **Por hacer** con un comentario de finalización que incluye resultado, id de ejecución, coste, duración y el cambio de estado en Jira.
+- Si pides cambios de seguimiento cuando el issue de Jira ya está en revisión, Specrails intenta continuar la rama de la PR abierta existente para ese ticket en lugar de crear una rama nueva. Si tu estado de revisión de Jira no está mapeado explícitamente y todavía aparece localmente como **En progreso**, Specrails puede continuar igualmente la PR cuando la clave de Jira coincide con la pull request abierta.
 - Periódicamente, Specrails **sondea** Jira en busca de cambios que cualquiera haya hecho en el tablero y los refleja de vuelta en tus specs.
 
 Todas las escrituras pasan por un outbox duradero y a prueba de fallos, así que un tropiezo puntual de Jira nunca rompe un trabajo: la actualización simplemente se reintenta.
@@ -32,7 +33,7 @@ Tu token se guarda **cifrado en tu propia máquina** y nunca sale de ella. La ap
 
 ## Mapeo de estados
 
-La parte más delicada de cualquier sincronización con Jira es hacer coincidir *tu* flujo de trabajo con los estados sencillos de Specrails (Por hacer / En progreso / Hecho, más las variantes de cancelar/entregar). Specrails lo resuelve en dos niveles:
+La parte más delicada de cualquier sincronización con Jira es hacer coincidir *tu* flujo de trabajo con los estados sencillos de Specrails (Por hacer / En progreso / En revisión / Hecho, más las variantes de cancelar). Specrails lo resuelve en dos niveles:
 
 1. **Tu mapa de estados explícito**, si configuras uno en el asistente: siempre gana.
 2. **Detección automática** a partir de la categoría de cada estado (nuevo / en progreso / hecho) más una coincidencia inteligente para los estados de tipo cancelar y entregar.

@@ -7,7 +7,8 @@ Du möchtest, dass deine Specs auf einem echten **Jira-Board** leben statt in Sp
 Specrails agiert als **Sync-Schicht** zwischen Jira und deinem Projekt. Die Grundidee: Dein lokaler Spec-Speicher bleibt das Maßgebliche, das die Pipeline liest, und Specrails ist dafür verantwortlich, ihn und Jira in Übereinstimmung zu halten.
 
 - Wenn du eine Rail startest, verschiebt Specrails den verknüpften Jira-Vorgang nach **In Arbeit**.
-- Wenn ein Job abschließt, überführt Specrails den Vorgang: bei Erfolg in deinen gemappten **Prüf**-Status — **Fertig** wird er erst, wenn du die Arbeit freigibst (das Mergen der Entwurfs-PR postet einen „PR merged"-Kommentar); bei Fehlschlag zurück nach **To Do** mit einem Abschlusskommentar (Job-ID, Kosten, Dauer).
+- Wenn ein Job abschließt, überführt Specrails den Vorgang: bei Erfolg in deinen gemappten **Prüf**-Status — **Fertig** wird er erst, wenn die Liefer-PR gemerged oder das lokale Ergebnis akzeptiert wurde; bei Fehlschlag zurück nach **To Do** mit einem Abschlusskommentar, der Ergebnis, Run-ID, Kosten, Dauer und die Jira-Statusänderung enthält.
+- Wenn du Follow-up-Änderungen anfragst, während der Jira-Vorgang bereits in Prüfung ist, versucht Specrails, die bestehende offene PR-Branch für dieses Ticket fortzusetzen, statt eine neue Branch zu erstellen. Falls dein Jira-Prüfstatus nicht explizit gemappt ist und lokal noch als **In Arbeit** erscheint, kann Specrails die PR trotzdem fortsetzen, wenn der Jira-Schlüssel zum offenen Pull-Request passt.
 - In regelmäßigen Abständen **pollt** Specrails Jira nach Änderungen, die jemand auf dem Board vorgenommen hat, und spiegelt sie zurück in deine Specs.
 
 Alle Rückschreibungen laufen über eine dauerhafte, absturzsichere Outbox, sodass ein kurzzeitiger Jira-Aussetzer niemals einen Job kaputtmacht — das Update wird einfach erneut versucht.
@@ -32,7 +33,7 @@ Dein Token wird **verschlüsselt auf deinem eigenen Rechner** gespeichert und ve
 
 ## Statuszuordnung
 
-Der kniffligste Teil jeder Jira-Synchronisierung ist es, *deinen* Workflow auf die einfachen Zustände von Specrails abzubilden (To Do / In Arbeit / Fertig, plus Abbruch-/Ship-Varianten). Specrails löst das in zwei Stufen:
+Der kniffligste Teil jeder Jira-Synchronisierung ist es, *deinen* Workflow auf die einfachen Zustände von Specrails abzubilden (To Do / In Arbeit / In Prüfung / Fertig, plus Abbruch-Varianten). Specrails löst das in zwei Stufen:
 
 1. **Deine explizite Statuszuordnung**, falls du im Assistenten eine festgelegt hast — sie gewinnt immer.
 2. **Automatische Erkennung** anhand der Kategorie jedes Status (new / in-progress / done) plus intelligentem Abgleich für Abbruch- und Ship-artige Status.

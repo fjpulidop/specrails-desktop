@@ -12,7 +12,7 @@ La forma más sencilla de ejecutar un montón de specs desde un mismo rail es el
 
 El rail lanza **un** job `/specrails:batch-implement` que recorre todas las specs asignadas. Monitorízalo como cualquier otro job en la página Jobs — es un único job que cubre el conjunto entero, no un job por spec.
 
-Esto importa por la **cola de un job por proyecto**. Como un proyecto solo ejecuta un job de rail a la vez, el modo Batch es también la forma más limpia de *encadenar* una lista de specs sin tener que hacer malabares con varios rails y esperar a que cada uno se vacíe.
+El modo Batch sigue siendo la forma más limpia de *secuenciar* specs relacionadas porque mantiene su orden de dependencias dentro de un solo rail. Si las specs son independientes, también puedes repartirlas entre varios rails: los rails respaldados por git se ejecutan en paralelo y cada uno recibe su propio worktree aislado.
 
 ### Implement vs Batch — ¿qué modo?
 
@@ -46,6 +46,8 @@ Cuando se implementan varias specs en una misma ejecución, el pipeline mantiene
 
 Cuando la ejecución termina, **no se sube nada y todavía no se abre ninguna pull request**. El trabajo queda commiteado a salvo en sus ramas aisladas, las specs pasan a un nuevo estado **En revisión**, y specrails **te pregunta primero**: en el rail aparece una barra de decisión persistente con **Crear PR** — una única pull request en borrador partiendo de la rama de integración que hayas designado para tu proyecto (configúrala en **Ajustes → Rama de integración**; por defecto es la rama por defecto de tu repositorio), combinada a través de todas las specs del rail — y **Descartar**. specrails **nunca hace merge ni commitea directamente sobre tu rama de integración** — tú decides si siquiera existe una PR, y el merge lo decide una persona. Es el traspaso seguro: specrails produce la pull request solo cuando tú lo dices, y tus ingenieros la revisan y la mergean en GitHub como ya lo hacen.
 
+Si relanzas una spec que ya está en revisión y tiene una pull request abierta, Specrails lo trata como trabajo de seguimiento. Detecta la PR activa desde su propio registro de entrega o desde referencias de GitHub/Jira, hace checkout de la rama head de esa PR, commitea ahí los nuevos cambios y vuelve a mostrar la misma tarjeta de PR. El trabajo nuevo sigue empezando desde la rama de integración.
+
 En la práctica esto significa:
 
 - Cada spec recibe un lienzo en blanco contra el que implementar, en vez de heredar a mitad de camino las ediciones en vuelo de la spec anterior.
@@ -54,11 +56,11 @@ En la práctica esto significa:
 - Una vez creada, **Abrir PR** la muestra, **Publicar** la abre a revisión y la entrega a la revisión habitual de GitHub de tu equipo, y **Comprobar merge** pasa las specs a Hecho en cuanto tu equipo la haya mergeado.
 - Si las ramas aisladas no se pueden combinar limpiamente al crear la PR, specrails se detiene de forma segura y deja las ramas para una persona — nunca fuerza un merge roto sobre tu base. Puedes reintentar o descartar desde la misma barra.
 
-> Crear la PR requiere que la CLI de GitHub (`gh`) esté autenticada y un remoto configurado. Sin ellos, specrails igualmente mantiene el trabajo commiteado en una rama desde la que puedes abrir tú mismo una pull request — no se pierde nada, y la barra de decisión te permite reintentar. Para volver al comportamiento anterior (integrar en local en vez de preguntar), define `SPECRAILS_RAIL_DELIVER_PR=0`.
+> Crear o continuar una PR requiere un repositorio git, la CLI de GitHub (`gh`) autenticada y un remoto configurado. Sin `gh` o sin remoto, specrails igualmente mantiene el trabajo commiteado en una rama desde la que puedes abrir tú mismo una pull request — no se pierde nada, y la barra de decisión te permite reintentar. Sin git en absoluto, no hay grafo de ramas que continuar: el rail se ejecuta en la carpeta compartida y no aparece ninguna tarjeta de PR. Para volver al comportamiento anterior (integrar en local en vez de preguntar), define `SPECRAILS_RAIL_DELIVER_PR=0`.
 
 ## Multifuncionalidad entre proyectos
 
-Si quieres paralelismo de verdad — dos funcionalidades grandes construyéndose al mismo tiempo — repártelas **entre proyectos**, no entre rails de un mismo proyecto. Cada proyecto tiene su propia cola independiente, así que:
+Si quieres paralelismo de verdad, usa varios rails para specs independientes dentro del mismo proyecto respaldado por git, o reparte el trabajo entre proyectos. Cada rail activo recibe su propio worktree aislado, así que:
 
 ```
 Proyecto A   ▶ Rail ejecutando la funcionalidad X   ┐
@@ -66,7 +68,7 @@ Proyecto A   ▶ Rail ejecutando la funcionalidad X   ┐
 Proyecto B   ▶ Rail ejecutando la funcionalidad Y   ┘
 ```
 
-No hay límite global de concurrencia ni contención entre proyectos. Abre los dos, lanza un rail en cada uno y avanzarán juntos. El único freno compartido es tu tope de presupuesto, que pausa las colas por proyecto o de toda la app en cuanto el gasto del día llega al límite.
+No hay límite global de concurrencia que ajustar. Abre los proyectos o rails que necesites, lánzalos y avanzarán juntos. El único freno compartido es tu tope de presupuesto, que pausa las colas por proyecto o de toda la app en cuanto el gasto del día llega al límite.
 
 ## Consejos para batches grandes
 

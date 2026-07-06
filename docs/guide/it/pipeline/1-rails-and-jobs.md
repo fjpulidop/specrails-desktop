@@ -1,6 +1,6 @@
 # Rail e job
 
-Hai le tue spec sulla board. È qui che si trasformano in codice. Un **rail** è la corsia che porta una spec attraverso l'intera pipeline — Architect → Developer → Reviewer → Ship — eseguendo veri agenti AI dentro la cartella del tuo progetto. Questa pagina spiega come avviare un rail, come funziona la coda dei job e come seguire il lavoro dal vivo mentre accade.
+Hai le tue spec sulla board. È qui che si trasformano in codice. Un **rail** è la corsia che porta una spec attraverso l'intera pipeline — Architect → Developer → Reviewer → Ship — eseguendo veri agenti AI per il tuo progetto. Questa pagina spiega come avviare un rail, l'esecuzione in parallelo e come seguire il lavoro dal vivo mentre accade.
 
 ## Cos'è un rail
 
@@ -16,7 +16,7 @@ SpecsBoard (sinistra)       Rail (destra)
                     └────────────►   Rail 2   ▶ Play
 ```
 
-Un rail è una **corsia di esecuzione**. Trascini una scheda spec dalla SpecsBoard su un rail e poi premi **▶ Play**. Il rail avvia la pipeline e lavora la spec dall'inizio alla fine, direttamente nella cartella di lavoro del tuo progetto — modificando file, eseguendo test, tutto quanto.
+Un rail è una **corsia di esecuzione**. Trascini una scheda spec dalla SpecsBoard su un rail e poi premi **▶ Play**. Nei repository git, il rail avvia la pipeline in un git worktree isolato, così l'IA può modificare file ed eseguire test senza toccare il tuo working tree attivo. Se il progetto non è ancora un repo git, Specrails degrada chiaramente all'esecuzione nella cartella condivisa e ti avvisa che non compariranno né branch né card PR.
 
 Puoi avere diversi rail per organizzare il lavoro in corsie con un nome (una per la feature su cui sei concentrato, un'altra in attesa dietro). I rail sono **dinamici**: il pulsante **+ Aggiungi** nell'header dei Rails crea una nuova corsia (fino a 12 per progetto) e le corsie vuote e inattive si possono eliminare. Ogni rail è ancorato al server, quindi il tuo set di corsie sopravvive ai ricaricamenti ed è visibile al companion mobile e all'agente integrato — l'agente può persino creare un rail da solo quando tutte le corsie sono occupate. Trovi più dettagli su multi-rail e batching in [Batch implement e multi-feature](batch-implement-and-multi-feature).
 
@@ -26,7 +26,7 @@ Puoi avere diversi rail per organizzare il lavoro in corsie con un nome (una per
 2. **Scegli un Loop** nell'intestazione del rail. Un rail esegue un **Loop** — è il lavoro che svolge. Quello predefinito è il Loop `Implement` integrato; puoi anche scegliere `Batch`, `Freestyle` o un loop personalizzato che hai costruito tu. Vedi [Il Loop Builder](the-loop-builder).
 3. **Premi ▶ Play.**
 
-Tutto qui. Il rail avvia un processo CLI AI nel tuo progetto e dà il via alla pipeline.
+Tutto qui. Il rail avvia un processo CLI AI nel contesto di esecuzione corretto e dà il via alla pipeline.
 
 ### Cosa c'è nell'intestazione di un rail
 
@@ -57,11 +57,11 @@ Oltre agli integrati, puoi **costruire i tuoi loop** — ripetere un ciclo verif
 
 Ogni volta che premi Play, l'esecuzione del rail diventa un **job**. La regola più importante da fare propria:
 
-> **I rail girano in parallelo.** Ogni lancio isola il proprio lavoro in un worktree git per spec, quindi più rail possono girare contemporaneamente nello stesso progetto senza pestarsi i piedi — le modifiche di ogni esecuzione tornano come merge o come draft PR quando si conclude.
+> **I rail girano in parallelo.** Ogni lancio supportato da git isola il proprio lavoro in un worktree git per spec, quindi più rail possono girare contemporaneamente nello stesso progetto senza pestarsi i piedi. Il lavoro nuovo termina in una card di decisione **In revisione**, dove puoi creare una draft PR o scartarlo; il lavoro di follow-up per una spec che ha già una PR aperta continua il branch di quella PR invece di ripartire dal ramo di integrazione.
 
 Vuoi far partire tutto insieme? Il pulsante **Lancia tutti** nell'header dei Rails avvia in un colpo solo tutte le corsie pronte, dopo un'unica conferma che inquadra il costo totale (N rail × spesa IA). I rail vuoti, già in esecuzione o in attesa di una decisione PR vengono saltati e riportati in un toast di riepilogo compatto. L'agente integrato ha lo stesso potere tramite `specrails_rails(launch_all)` — e crea un rail nuovo quando non esiste una corsia libera.
 
-Solo il percorso legacy (feature Loops disattivata) ricade sulla vecchia coda un-job-alla-volta per progetto, dove i rail extra aspettano dietro quello in esecuzione. Il parallelismo tra progetti non cambia: ogni progetto resta del tutto indipendente.
+I progetti senza git non hanno isolamento worktree né continuazione di PR. Possono comunque essere eseguiti, ma il rail scrive direttamente nella cartella condivisa del progetto e il risultato si accetta o si ripristina manualmente dalla board delle spec.
 
 Non c'è una manopola globale di concorrenza da regolare. L'unico freno automatico è basato sul budget: se hai impostato un budget giornaliero (di progetto o per tutta l'app), la coda si mette automaticamente in pausa quando la spesa della giornata raggiunge il limite.
 

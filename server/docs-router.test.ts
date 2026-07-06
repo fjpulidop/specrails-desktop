@@ -84,6 +84,13 @@ describe('docs-router', () => {
       expect(cat.name).toBe('Getting started')
     })
 
+    it('localizes category labels for the requested guide language', async () => {
+      writeDoc(guideRoot, 'en', 'getting-started', '1-what.md', '# What')
+      const res = await request(buildApp()).get('/docs?lang=es')
+      const cat = res.body.categories.find((c: { slug: string }) => c.slug === 'getting-started')
+      expect(cat.name).toBe('Primeros pasos')
+    })
+
     it('orders docs within a category by the numeric filename prefix', async () => {
       writeDoc(guideRoot, 'en', 'specs', '3-explore.md', '# Explore')
       writeDoc(guideRoot, 'en', 'specs', '1-backlog.md', '# Backlog')

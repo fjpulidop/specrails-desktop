@@ -12,7 +12,7 @@ The simplest way to run a pile of specs from one rail is **Batch** mode:
 
 The rail launches **one** `/specrails:batch-implement` job that works through every assigned spec. Monitor it like any other job on the Jobs page — it's a single job covering the whole set, not one job per spec.
 
-This matters because of the **one-job-per-project queue**. Since a project runs only one rail job at a time, Batch mode is also the cleanest way to *chain* a list of specs without juggling multiple rails and waiting for each to drain.
+Batch mode is still the cleanest way to *sequence* related specs because it keeps their dependency order inside one rail. If the specs are independent, you can also spread them across several rails: git-backed rails run in parallel and each one gets its own isolated worktree.
 
 ### Implement vs Batch — which mode?
 
@@ -46,6 +46,8 @@ When several specs are implemented in one run, the pipeline keeps each unit of w
 
 When the run finishes, **nothing is pushed and no pull request is opened yet**. The work stays safely committed on its isolated branches, the specs move to a new **On Review** status, and specrails **asks you first**: a persistent decision bar appears on the rail with **Create PR** — one draft pull request off your project's designated integration branch (set it in **Settings → Integration branch**; it defaults to your repository's default branch), combined across every spec on the rail — and **Discard**. specrails **never merges, and never commits to your integration branch directly** — you decide whether a PR exists at all, and a human owns the merge. It's the safe hand-off: specrails produces the pull request only when you say so, and your engineers review and merge it in GitHub the way they already do.
 
+If you relaunch a spec that is already in review and has an open pull request, Specrails treats that as follow-up work. It detects the active PR from its own delivery record or from GitHub/Jira references, checks out the PR's head branch, commits the new changes there, and brings the same PR card back. New work still starts from the integration branch.
+
 In practice this means:
 
 - Each spec gets a clean slate to implement against, rather than inheriting the in-flight edits of the previous spec mid-stream.
@@ -54,13 +56,13 @@ In practice this means:
 - After creating it, **Open PR** views the draft, **Publish** opens it for review and hands it to your team's normal GitHub review, and **Check merge** flips the specs to Done once your team has merged it.
 - If the isolated branches can't be combined cleanly when you create the PR, specrails stops safely and leaves the branches for a human — it never forces a broken merge onto your base. You can retry or discard from the same bar.
 
-> Creating the PR needs the GitHub CLI (`gh`) authenticated and a remote configured. Without them, specrails still keeps the work committed on a branch you can open a pull request from yourself — nothing is lost, and the decision bar lets you retry. To fall back to the older behaviour (integrate locally instead of asking), set `SPECRAILS_RAIL_DELIVER_PR=0`.
+> Creating or continuing a PR needs a git repository, the GitHub CLI (`gh`) authenticated, and a remote configured. Without `gh` or a remote, specrails still keeps the work committed on a branch you can open a pull request from yourself — nothing is lost, and the decision bar lets you retry. Without git at all, there is no branch graph to continue: the rail runs in the shared folder and no PR card appears. To fall back to the older behaviour (integrate locally instead of asking), set `SPECRAILS_RAIL_DELIVER_PR=0`.
 
 The app records, per job, exactly which files were touched and which ticket touched them (you'll see this surface as provenance chips in the **Code** section and as a "Files touched by this ticket" list on each spec's detail modal). That attribution is what lets you trust a multi-spec run: you can always trace a file change back to the spec that caused it.
 
 ## Multi-feature across projects
 
-If you want genuine parallelism — two big features building at the same time — split them **across projects**, not across rails in one project. Each project has its own independent queue, so:
+If you want genuine parallelism, use multiple rails for independent specs in the same git-backed project, or split work across projects. Each active rail gets its own isolated worktree, so:
 
 ```
 Project A   ▶ Rail running feature X   ┐
@@ -68,7 +70,7 @@ Project A   ▶ Rail running feature X   ┐
 Project B   ▶ Rail running feature Y   ┘
 ```
 
-There's no global concurrency limit and no contention between projects. Open both, launch a rail in each, and they progress together. The only shared throttle is your budget cap, which pauses queues per-project or app-wide once the day's spend hits the limit.
+There's no global concurrency limit to tune. Open the projects or rails you need, launch them, and they progress together. The only shared throttle is your budget cap, which pauses queues per-project or app-wide once the day's spend hits the limit.
 
 ## Tips for big batches
 

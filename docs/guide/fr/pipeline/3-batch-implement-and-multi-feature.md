@@ -12,7 +12,7 @@ La façon la plus simple de lancer une pile de specs depuis un seul rail, c'est 
 
 Le rail lance **un** job `/specrails:batch-implement` qui traite chaque spec assignée. Suivez-le comme n'importe quel autre job sur la page Jobs — c'est un seul job couvrant tout l'ensemble, pas un job par spec.
 
-C'est important à cause de la **file d'attente d'un job par projet**. Puisqu'un projet n'exécute qu'un job de rail à la fois, le mode Batch est aussi le moyen le plus propre d'*enchaîner* une liste de specs sans jongler avec plusieurs rails ni attendre que chacun se vide.
+Le mode Batch reste le moyen le plus propre de *séquencer* des specs liées, car il garde leur ordre de dépendances dans un seul rail. Si les specs sont indépendantes, vous pouvez aussi les répartir sur plusieurs rails : les rails adossés à git s'exécutent en parallèle et chacun reçoit son propre worktree isolé.
 
 ### Implement vs Batch — quel mode ?
 
@@ -46,6 +46,8 @@ Lorsque plusieurs specs sont implémentées en une seule exécution, le pipeline
 
 Lorsque l'exécution se termine, **rien n'est poussé et aucune pull request n'est encore ouverte**. Le travail reste commité en sécurité sur ses branches isolées, les specs passent à un nouveau statut **En relecture**, et specrails **vous demande d'abord** : une barre de décision persistante apparaît sur le rail avec **Créer la PR** — une seule pull request en brouillon à partir de la branche d'intégration désignée de votre projet (définissez-la dans **Réglages → Branche d'intégration** ; par défaut, c'est la branche par défaut de votre dépôt), combinée à travers toutes les specs du rail — et **Abandonner**. specrails **ne fusionne jamais, et ne commite jamais directement sur votre branche d'intégration** — c'est vous qui décidez si une PR existe tout court, et c'est un humain qui décide de la fusion. C'est le passage de relais sûr : specrails produit la pull request seulement quand vous le décidez, et vos ingénieurs la relisent et la fusionnent dans GitHub comme ils le font déjà.
 
+Si vous relancez une spec déjà en relecture avec une pull request ouverte, Specrails traite cela comme un travail de suivi. Il détecte la PR active depuis son propre registre de livraison ou depuis les références GitHub/Jira, checkout la branche head de cette PR, y commite les nouveaux changements et réaffiche la même carte de PR. Le nouveau travail continue de partir de la branche d'intégration.
+
 En pratique, cela signifie :
 
 - Chaque spec part d'une page blanche pour son implémentation, plutôt que d'hériter des modifications en cours de la spec précédente.
@@ -54,11 +56,11 @@ En pratique, cela signifie :
 - Une fois créée, **Ouvrir la PR** permet de la consulter, **Publier** l'ouvre à la relecture et la confie au processus de relecture GitHub habituel de votre équipe, et **Vérifier le merge** fait passer les specs à Terminé dès que votre équipe l'a fusionnée.
 - Si les branches isolées ne peuvent pas être combinées proprement au moment de créer la PR, specrails s'arrête en toute sécurité et laisse les branches à un humain — il ne force jamais une fusion cassée sur votre branche de base. Vous pouvez réessayer ou abandonner depuis la même barre.
 
-> Créer la PR nécessite le CLI GitHub (`gh`) authentifié et un dépôt distant configuré. Sans eux, specrails garde quand même le travail commité sur une branche à partir de laquelle vous pouvez ouvrir une pull request vous-même — rien n'est perdu, et la barre de décision vous permet de réessayer. Pour revenir à l'ancien comportement (intégrer en local au lieu de demander), définissez `SPECRAILS_RAIL_DELIVER_PR=0`.
+> Créer ou continuer une PR nécessite un dépôt git, le CLI GitHub (`gh`) authentifié et un dépôt distant configuré. Sans `gh` ou sans remote, specrails garde quand même le travail commité sur une branche à partir de laquelle vous pouvez ouvrir une pull request vous-même — rien n'est perdu, et la barre de décision vous permet de réessayer. Sans git du tout, il n'existe pas de graphe de branches à continuer : le rail s'exécute dans le dossier partagé et aucune carte de PR n'apparaît. Pour revenir à l'ancien comportement (intégrer en local au lieu de demander), définissez `SPECRAILS_RAIL_DELIVER_PR=0`.
 
 ## Multi-fonctionnalité entre projets
 
-Si vous voulez un vrai parallélisme — deux grosses fonctionnalités qui se construisent en même temps — répartissez-les **entre projets**, pas entre rails d'un même projet. Chaque projet possède sa propre file d'attente indépendante, donc :
+Si vous voulez un vrai parallélisme, utilisez plusieurs rails pour des specs indépendantes dans le même projet adossé à git, ou répartissez le travail entre projets. Chaque rail actif reçoit son propre worktree isolé, donc :
 
 ```
 Projet A   ▶ Rail exécutant la fonctionnalité X   ┐
@@ -66,7 +68,7 @@ Projet A   ▶ Rail exécutant la fonctionnalité X   ┐
 Projet B   ▶ Rail exécutant la fonctionnalité Y   ┘
 ```
 
-Il n'y a aucune limite globale de concurrence et aucune contention entre projets. Ouvrez les deux, lancez un rail dans chacun, et ils progressent ensemble. Le seul régulateur partagé est votre plafond de budget, qui met les files en pause par projet ou pour toute l'application dès que la dépense du jour atteint la limite.
+Il n'y a aucune limite globale de concurrence à régler. Ouvrez les projets ou rails dont vous avez besoin, lancez-les, et ils progressent ensemble. Le seul régulateur partagé est votre plafond de budget, qui met les files en pause par projet ou pour toute l'application dès que la dépense du jour atteint la limite.
 
 ## Conseils pour les gros batchs
 

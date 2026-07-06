@@ -1,6 +1,6 @@
 # Rails & Jobs
 
-Du hast Specs auf dem Board. Hier werden sie zu Code. Eine **Rail** ist die Spur, die eine Spec durch die komplette Pipeline schiebt — Architect → Developer → Reviewer → Ship — und dabei echte KI-Agents direkt in deinem Projektverzeichnis laufen lässt. Diese Seite zeigt dir, wie du eine Rail startest, wie die Job-Queue funktioniert und wie du der Arbeit live zusiehst.
+Du hast Specs auf dem Board. Hier werden sie zu Code. Eine **Rail** ist die Spur, die eine Spec durch die komplette Pipeline schiebt — Architect → Developer → Reviewer → Ship — und dabei echte KI-Agents für dein Projekt laufen lässt. Diese Seite zeigt dir, wie du eine Rail startest, wie parallele Ausführung funktioniert und wie du der Arbeit live zusiehst.
 
 ## Was eine Rail ist
 
@@ -16,7 +16,7 @@ SpecsBoard (links)          Rails (rechts)
                     └────────────►   Rail 2   ▶ Play
 ```
 
-Eine Rail ist eine **Ausführungsspur**. Du ziehst eine Spec-Karte vom SpecsBoard auf eine Rail und drückst dann **▶ Play**. Die Rail startet die Pipeline und arbeitet die Spec von vorne bis hinten ab — direkt im Arbeitsverzeichnis deines Projekts: Dateien werden bearbeitet, Tests laufen, alles inklusive.
+Eine Rail ist eine **Ausführungsspur**. Du ziehst eine Spec-Karte vom SpecsBoard auf eine Rail und drückst dann **▶ Play**. In Git-Repositories startet die Rail die Pipeline in einem isolierten Git-Worktree, damit die KI Dateien bearbeiten und Tests ausführen kann, ohne deinen aktiven Arbeitsbaum zu berühren. Ist das Projekt noch kein Git-Repo, degradiert Specrails klar sichtbar zur Ausführung im gemeinsamen Ordner und sagt dir, dass keine Branch- oder PR-Karte erscheinen wird.
 
 Du kannst mehrere rails anlegen, um deine Arbeit in benannten Spuren zu organisieren (eine für das Feature, an dem du gerade dran bist, eine weitere, die dahinter wartet). Rails sind **dynamisch**: Der **+ Hinzufügen**-Button im Rails-Header erstellt eine neue Spur (bis zu 12 pro Projekt), und leere, inaktive Spuren lassen sich löschen. Jede rail ist server-gestützt — dein Spuren-Set übersteht Reloads und ist für den mobilen Companion und den eingebauten Agenten sichtbar; der Agent kann sogar selbst eine rail anlegen, wenn alle Spuren belegt sind. Mehr zu mehreren rails und zum Stapelbetrieb findest du unter [Batch implement & Multi-Feature](batch-implement-and-multi-feature).
 
@@ -26,7 +26,7 @@ Du kannst mehrere rails anlegen, um deine Arbeit in benannten Spuren zu organisi
 2. **Wähle einen Loop** im rail-Header. Eine rail führt einen **Loop** aus — das ist die Arbeit, die sie erledigt. Standard ist der eingebaute `Implement`-Loop; du kannst auch `Batch`, `Freestyle` oder einen selbst gebauten Loop wählen. Siehe [Der Loop Builder](the-loop-builder).
 3. **Drück ▶ Play.**
 
-Das war's. Die rail startet einen KI-CLI-Prozess in deinem Projekt und legt mit der Pipeline los.
+Das war's. Die rail startet einen KI-CLI-Prozess im richtigen Ausführungskontext und legt mit der Pipeline los.
 
 ### Was im rail-Header steckt
 
@@ -57,11 +57,11 @@ Freestyle ist der Sonderfall: Es überspringt die Agent-Kette und übergibt Clau
 
 Jedes Mal, wenn du Play drückst, wird der rail-Lauf zu einem **Job**. Die wichtigste Regel, die du verinnerlichen solltest:
 
-> **Rails laufen parallel.** Jeder Start isoliert seine Arbeit in einem Git-Worktree pro Spec — mehrere rails können also gleichzeitig im selben Projekt laufen, ohne sich in die Quere zu kommen. Die Änderungen jedes Laufs kommen als Merge oder als Draft-PR zurück, sobald er abgeschlossen ist.
+> **Rails laufen parallel.** Jeder Git-gestützte Start isoliert seine Arbeit in einem Git-Worktree pro Spec — mehrere rails können also gleichzeitig im selben Projekt laufen, ohne sich in die Quere zu kommen. Neue Arbeit endet in einer **In Prüfung**-Entscheidungskarte, über die du eine Draft-PR erstellen oder verwerfen kannst; Follow-up-Arbeit für eine Spec mit bereits offener PR setzt diese PR-Branch fort, statt erneut vom Integrations-Branch zu starten.
 
 Du willst alles auf einmal starten? Der Button **Alle starten** im Rails-Header startet jede startbereite Spur in einem Rutsch — nach einer einzigen Bestätigung, die die Gesamtkosten einordnet (N rails × KI-Ausgaben). Leere, bereits laufende oder auf eine PR-Entscheidung wartende rails werden übersprungen und in einem kompakten Zusammenfassungs-Toast gemeldet. Der eingebaute Agent hat dieselbe Fähigkeit über `specrails_rails(launch_all)` — und legt eine frische rail an, wenn keine freie Spur existiert.
 
-Nur der Legacy-Pfad (Loops-Feature deaktiviert) fällt auf die alte Ein-Job-pro-Projekt-Queue zurück, in der sich zusätzliche rails hinter der laufenden anstellen. Die Parallelität zwischen Projekten bleibt unverändert: Jedes Projekt ist weiterhin völlig unabhängig.
+Projekte ohne Git haben keine Worktree-Isolation und keine PR-Fortsetzung. Sie können trotzdem laufen, aber die Rail schreibt direkt in den gemeinsamen Projektordner und das Ergebnis wird manuell über das Spec-Board akzeptiert oder zurückgenommen.
 
 Es gibt keinen globalen Regler für die Parallelität. Die einzige automatische Bremse ist budgetbasiert: Wenn du ein Tagesbudget gesetzt hast (pro Projekt oder app-weit), pausiert die Queue von selbst, sobald die Ausgaben des Tages das Limit erreichen.
 
