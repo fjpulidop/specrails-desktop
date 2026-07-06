@@ -147,6 +147,7 @@
   "switchToKanban": "Switch to Board",
   "search": "Search",
   "home": "Home",
+  "favoriteMissions": "Favorite missions",
   "untitled": "Untitled",
   "workspace": {
     "title": "On workspace",
@@ -168,6 +169,8 @@
   "attachFile": "Attach file",
   "deleteConversation": "Delete \"{{title}}\"",
   "confirmDeleteConversation": "Confirm delete \"{{title}}\"",
+  "addFavoriteConversation": "Add \"{{title}}\" to favorites",
+  "removeFavoriteConversation": "Remove \"{{title}}\" from favorites",
   "confirmShort": "confirm?",
   "imagesUnsupported": "This provider can't read images yet — attach text files instead",
   "effort": {
@@ -270,6 +273,8 @@
     "renamePlaceholder": "Mission name",
     "renameHint": "Double-click to rename",
     "renameFailed": "Could not rename",
+    "addFavorite": "Add to favorites",
+    "removeFavorite": "Remove from favorites",
     "copyName": "Copy mission name",
     "copyId": "Copy mission ID",
     "copyProject": "Copy project name",

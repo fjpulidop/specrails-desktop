@@ -1,7 +1,7 @@
 import { useState, useEffect, useMemo, useRef, lazy, Suspense } from 'react'
 import { useNavigate, useLocation } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
-import { PanelLeft, FolderOpen, Plus, BarChart2, BookOpen, Settings, X, Workflow, ChevronRight, ChevronDown, MessageSquare, Bot, LayoutGrid, Search, Home } from 'lucide-react'
+import { PanelLeft, FolderOpen, Plus, BarChart2, BookOpen, Settings, X, Workflow, ChevronRight, ChevronDown, MessageSquare, Bot, LayoutGrid, Search, Home, Heart } from 'lucide-react'
 import { cn } from '../lib/utils'
 import { useResizableSidebar } from '../hooks/useResizableSidebar'
 import { SidebarResizeGrip } from './SidebarResizeGrip'
@@ -49,7 +49,9 @@ function ConversationRow({
   active,
   expanded,
   streaming = false,
+  favorite = false,
   onSelect,
+  onToggleFavorite,
   onDelete,
 }: {
   conversation: AgentConversation
@@ -58,7 +60,9 @@ function ConversationRow({
   /** A live agent turn (prompt sent / reply streaming) — sweeps a highlight
    *  over the title; on stop the sweep fades out slowly. */
   streaming?: boolean
+  favorite?: boolean
   onSelect: () => void
+  onToggleFavorite?: () => void
   onDelete: () => void
 }) {
   const { t } = useTranslation('agent')
@@ -99,6 +103,11 @@ function ConversationRow({
         confirmTimerRef.current = null
       }, 3000)
     }
+  }
+
+  function handleFavoriteClick(e: React.MouseEvent) {
+    e.stopPropagation()
+    onToggleFavorite?.()
   }
 
   function handleSelectKeyDown(e: React.KeyboardEvent) {
@@ -162,6 +171,20 @@ function ConversationRow({
           </span>
           <button
             type="button"
+            onClick={handleFavoriteClick}
+            className={cn(
+              'flex-shrink-0 items-center justify-center rounded-sm transition-colors hover:bg-muted',
+              favorite
+                ? 'flex w-3.5 h-3.5 text-accent-primary hover:text-accent-primary'
+                : 'hidden group-hover:flex w-3.5 h-3.5 text-muted-foreground/60 hover:text-accent-primary',
+            )}
+            aria-label={favorite ? t('removeFavoriteConversation', { title: label }) : t('addFavoriteConversation', { title: label })}
+            title={favorite ? t('removeFavoriteConversation', { title: label }) : t('addFavoriteConversation', { title: label })}
+          >
+            <Heart className="w-2.5 h-2.5" fill={favorite ? 'currentColor' : 'none'} />
+          </button>
+          <button
+            type="button"
             onClick={handleDeleteClick}
             className={cn(
               'flex-shrink-0 items-center justify-center rounded-sm transition-colors hover:bg-muted',
@@ -201,6 +224,7 @@ function ProjectItem({
   activeConversationId = null,
   streamingConversationIds,
   onSelectConversation,
+  onToggleConversationFavorite,
   onDeleteConversation,
   onOpenProjectSettings,
 }: {
@@ -219,6 +243,7 @@ function ProjectItem({
    *  their title shimmer, not just the focused one. */
   streamingConversationIds?: ReadonlySet<string>
   onSelectConversation?: (id: string) => void
+  onToggleConversationFavorite?: (id: string) => void
   onDeleteConversation?: (id: string) => void
   /** Hover gear (Agent Mode): open this project's settings modal. */
   onOpenProjectSettings?: () => void
@@ -337,6 +362,7 @@ function ProjectItem({
               streaming={streamingConversationIds?.has(c.id) ?? false}
               expanded={expanded}
               onSelect={() => onSelectConversation?.(c.id)}
+              onToggleFavorite={() => onToggleConversationFavorite?.(c.id)}
               onDelete={() => onDeleteConversation?.(c.id)}
             />
           ))}
@@ -379,13 +405,18 @@ export function ArcSidebar({
     const map = new Map<string, AgentConversation[]>()
     const liveProjectIds = new Set(projects.map((p) => p.id))
     for (const c of agentChat.conversations) {
+      if (agentChat.favoriteConversationIds.has(c.id)) continue
       const key = c.pinned_project_id && liveProjectIds.has(c.pinned_project_id) ? c.pinned_project_id : HOME_KEY
       const arr = map.get(key)
       if (arr) arr.push(c)
       else map.set(key, [c])
     }
     return map
-  }, [agentChat.conversations, projects])
+  }, [agentChat.conversations, agentChat.favoriteConversationIds, projects])
+  const favoriteConversations = useMemo(
+    () => agentChat.conversations.filter((c) => agentChat.favoriteConversationIds.has(c.id)),
+    [agentChat.conversations, agentChat.favoriteConversationIds],
+  )
   const homeConversations = grouped.get(HOME_KEY) ?? []
 
   const [expandedTree, setExpandedTree] = useState<Set<string>>(loadExpanded)
@@ -425,6 +456,10 @@ export function ArcSidebar({
     agentChat.deleteConversation(id).catch(() => {
       /* network failure — the list refresh on next open reconciles */
     })
+  }
+
+  const handleToggleFavoriteConversation = (id: string) => {
+    agentChat.toggleFavoriteConversation(id)
   }
 
   // Selecting a project from the sidebar. When the user is on a GLOBAL route
@@ -622,6 +657,29 @@ export function ArcSidebar({
 
       {/* Projects list */}
       <div className="flex-1 overflow-y-auto py-2 px-1.5 space-y-0.5">
+        {agentMode && favoriteConversations.length > 0 && (
+          <div className={cn('space-y-0.5', expanded && 'mb-2 border-b border-border/70 pb-2')}>
+            {expanded && (
+              <div className="flex items-center gap-1.5 px-2 pb-1 text-[10px] font-medium uppercase tracking-wide text-muted-foreground/60">
+                <Heart className="h-3 w-3 fill-current text-accent-primary/80" aria-hidden />
+                <span className="truncate">{tAgent('favoriteMissions')}</span>
+              </div>
+            )}
+            {favoriteConversations.map((c) => (
+              <ConversationRow
+                key={c.id}
+                conversation={c}
+                active={c.id === agentChat.active?.id}
+                streaming={agentChat.streamingConversationIds.has(c.id)}
+                favorite
+                expanded={expanded}
+                onSelect={() => handleSelectConversation(c.id)}
+                onToggleFavorite={() => handleToggleFavoriteConversation(c.id)}
+                onDelete={() => handleDeleteConversation(c.id)}
+              />
+            ))}
+          </div>
+        )}
         {/* Home group (agent mode) — conversations with no pinned project */}
         {agentMode && homeConversations.length > 0 && (
           <div>
@@ -652,6 +710,7 @@ export function ArcSidebar({
                     streaming={agentChat.streamingConversationIds.has(c.id)}
                     expanded={expanded}
                     onSelect={() => handleSelectConversation(c.id)}
+                    onToggleFavorite={() => handleToggleFavoriteConversation(c.id)}
                     onDelete={() => handleDeleteConversation(c.id)}
                   />
                 ))}
@@ -677,6 +736,7 @@ export function ArcSidebar({
               activeConversationId={agentChat.active?.id ?? null}
               streamingConversationIds={agentChat.streamingConversationIds}
               onSelectConversation={handleSelectConversation}
+              onToggleConversationFavorite={handleToggleFavoriteConversation}
               onDeleteConversation={handleDeleteConversation}
               onOpenProjectSettings={agentMode ? () => {
                 // The settings sections talk to the ACTIVE project's API base —

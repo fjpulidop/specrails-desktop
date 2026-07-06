@@ -58,6 +58,27 @@ export interface AgentConvLive {
 }
 
 const EMPTY_LIVE: AgentConvLive = { streamingText: '', isStreaming: false, liveTools: [], queued: [] }
+const FAVORITE_CONVERSATIONS_KEY = 'specrails-desktop:favorite-agent-conversations'
+
+function loadFavoriteConversationIds(): Set<string> {
+  try {
+    const raw = localStorage.getItem(FAVORITE_CONVERSATIONS_KEY)
+    if (!raw) return new Set()
+    const parsed = JSON.parse(raw) as unknown
+    return Array.isArray(parsed) ? new Set(parsed.filter((x): x is string => typeof x === 'string')) : new Set()
+  } catch {
+    return new Set()
+  }
+}
+
+function saveFavoriteConversationIds(ids: ReadonlySet<string>): void {
+  try { localStorage.setItem(FAVORITE_CONVERSATIONS_KEY, JSON.stringify([...ids])) } catch { /* ignore */ }
+}
+
+function pruneFavoriteConversationIds(prev: ReadonlySet<string>, conversations: AgentConversation[]): Set<string> {
+  const valid = new Set(conversations.map((c) => c.id))
+  return new Set([...prev].filter((id) => valid.has(id)))
+}
 
 export interface AgentChatContextValue {
   visibility: AgentVisibility
@@ -79,6 +100,8 @@ export interface AgentChatContextValue {
   /** Per-conversation live slices (stream/tools/queue) — feeds the mission
    *  selector's queued-count badges without flattening to the active thread. */
   liveByConversation: ReadonlyMap<string, AgentConvLive>
+  /** Mission IDs surfaced in the left sidebar's Favorite missions section. */
+  favoriteConversationIds: ReadonlySet<string>
 
   mcpEnabled: boolean
   enablingMcp: boolean
@@ -117,6 +140,8 @@ export interface AgentChatContextValue {
   deleteConversation: (id: string) => Promise<void>
   /** Rename a conversation (optimistic; blank clears to auto-title). */
   renameConversation: (id: string, title: string) => Promise<void>
+  /** Toggle the sidebar Favorite missions membership without changing project pinning. */
+  toggleFavoriteConversation: (id: string) => void
   /** Refresh the conversation list WITHOUT opening the floating panel. Used on
    *  entering Agent Mode (open() would mount the now-suppressed panel). */
   refreshConversations: () => Promise<void>
@@ -147,6 +172,7 @@ export function AgentChatProvider({ children }: { children: ReactNode }) {
   const [conversations, setConversations] = useState<AgentConversation[]>([])
   const [active, setActive] = useState<AgentConversation | null>(null)
   const [messages, setMessages] = useState<AgentMessage[]>([])
+  const [favoriteConversationIds, setFavoriteConversationIds] = useState<ReadonlySet<string>>(loadFavoriteConversationIds)
   // Live turn state is PER CONVERSATION: agents keep working in the background,
   // so switching threads never drops streamed text, tool chips or queued
   // messages. The view derives the active conversation's slice below.
@@ -212,7 +238,14 @@ export function AgentChatProvider({ children }: { children: ReactNode }) {
   // Refresh the conversation list + MCP status lazily on first open.
   const refreshConversations = useCallback(async () => {
     try {
-      setConversations(await listAgentConversations())
+      const list = await listAgentConversations()
+      setConversations(list)
+      setFavoriteConversationIds((prev) => {
+        const next = pruneFavoriteConversationIds(prev, list)
+        if (next.size === prev.size) return prev
+        saveFavoriteConversationIds(next)
+        return next
+      })
     } catch {
       /* surfaced elsewhere */
     }
@@ -366,6 +399,12 @@ export function AgentChatProvider({ children }: { children: ReactNode }) {
     if (active) return active
     const list = await listAgentConversations()
     setConversations(list)
+    setFavoriteConversationIds((prev) => {
+      const next = pruneFavoriteConversationIds(prev, list)
+      if (next.size === prev.size) return prev
+      saveFavoriteConversationIds(next)
+      return next
+    })
     if (list.length > 0) {
       await loadConversation(list[0].id)
       return list[0]
@@ -565,6 +604,13 @@ export function AgentChatProvider({ children }: { children: ReactNode }) {
   const deleteConversation = useCallback(async (id: string) => {
     await deleteAgentConversation(id)
     setConversations((c) => c.filter((x) => x.id !== id))
+    setFavoriteConversationIds((prev) => {
+      if (!prev.has(id)) return prev
+      const next = new Set(prev)
+      next.delete(id)
+      saveFavoriteConversationIds(next)
+      return next
+    })
     patchLive(id, () => null)
     if (activeIdRef.current === id) {
       setActive(null)
@@ -592,6 +638,16 @@ export function AgentChatProvider({ children }: { children: ReactNode }) {
     }
   }, [])
 
+  const toggleFavoriteConversation = useCallback((id: string): void => {
+    setFavoriteConversationIds((prev) => {
+      const next = new Set(prev)
+      if (next.has(id)) next.delete(id)
+      else next.add(id)
+      saveFavoriteConversationIds(next)
+      return next
+    })
+  }, [])
+
   const enableMcpServer = useCallback(async () => {
     setEnablingMcp(true)
     try {
@@ -606,22 +662,23 @@ export function AgentChatProvider({ children }: { children: ReactNode }) {
     visibility, open, close, minimize, toggle,
     conversations, active, messages, streamingText, isStreaming, liveTools,
     queuedMessages, streamingConversationIds, liveByConversation: liveByConv,
+    favoriteConversationIds,
     mcpEnabled, enablingMcp, enableMcpServer, providersReady,
     send, abort, editQueuedMessage, wasQueueConsumed,
     cycleTier, setTier, setProvider, setModel, setPinnedProject,
     newConversation, startNewConversation, draftPinnedProjectId,
     draftProvider, draftModel, draftTierLevel, draftEffort, setEffort,
-    selectConversation, deleteConversation, renameConversation, refreshConversations,
+    selectConversation, deleteConversation, renameConversation, toggleFavoriteConversation, refreshConversations,
   }), [
     visibility, open, close, minimize, toggle,
     conversations, active, messages, streamingText, isStreaming, liveTools,
-    queuedMessages, streamingConversationIds, liveByConv,
+    queuedMessages, streamingConversationIds, liveByConv, favoriteConversationIds,
     mcpEnabled, enablingMcp, enableMcpServer, providersReady,
     send, abort, editQueuedMessage, wasQueueConsumed,
     cycleTier, setTier, setProvider, setModel, setPinnedProject,
     newConversation, startNewConversation, draftPinnedProjectId,
     draftProvider, draftModel, draftTierLevel, draftEffort, setEffort,
-    selectConversation, deleteConversation, renameConversation, refreshConversations,
+    selectConversation, deleteConversation, renameConversation, toggleFavoriteConversation, refreshConversations,
   ])
 
   // In Agent Mode the conversation UI is the full-screen surface, so the
@@ -646,6 +703,7 @@ const NOOP_AGENT_CHAT: AgentChatContextValue = {
   conversations: [], active: null, messages: [], streamingText: '', isStreaming: false, liveTools: [],
   queuedMessages: [], streamingConversationIds: new Set<string>(),
   liveByConversation: new Map<string, AgentConvLive>(),
+  favoriteConversationIds: new Set<string>(),
   mcpEnabled: true, enablingMcp: false, enableMcpServer: async () => {}, providersReady: true,
   send: async () => {}, abort: async () => {},
   editQueuedMessage: async () => 'conflict', wasQueueConsumed: () => false,
@@ -655,6 +713,7 @@ const NOOP_AGENT_CHAT: AgentChatContextValue = {
   draftProvider: 'claude', draftModel: null, draftTierLevel: 0,
   draftEffort: null, setEffort: async () => {},
   selectConversation: async () => {}, deleteConversation: async () => {}, renameConversation: async () => {},
+  toggleFavoriteConversation: () => {},
   refreshConversations: async () => {},
 }
 
