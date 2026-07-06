@@ -215,6 +215,37 @@ export interface LoopRunRequest {
   isolation?: { branch: string; worktreePath: string }
 }
 
+const IMPLEMENT_CMD_TOKEN_RE = /\{\{\s*cmd:(?:implement|batch)\s*\}\}/
+const IMPLEMENT_CMD_TEXT_RE = /(?:^|\s)(?:\/(?:specrails:|sr:)?(?:implement|batch-implement)|\$(?:implement|batch-implement))\b/
+const LOOP_BLOCKED_LINE_RE = /(?:^|\n)\s*LOOP_BLOCKED:\s*(.+?)(?:\n|$)/i
+const HUMAN_PROCEED_QUESTION_RE = /(?:^|\n)\s*(?:\*\*)?How would you like to proceed\??/i
+const HUMAN_PROCEED_NO_WORK_RE = /\b(?:no code has changed|I haven't launched any agents|I have not launched any agents|not a fresh feature to build|would duplicate work|sync first|treat this as)\b/i
+
+function withReviewContinuationContext(base: string, rawTemplate: string, spec?: LoopSpec): string {
+  if (spec?.status !== 'on_review') return base
+  if (!IMPLEMENT_CMD_TOKEN_RE.test(rawTemplate) && !IMPLEMENT_CMD_TEXT_RE.test(rawTemplate) && !IMPLEMENT_CMD_TEXT_RE.test(base)) return base
+  return [
+    base,
+    '',
+    '---',
+    'Specrails rail continuation context:',
+    '- This ticket is already on_review and this run is fully unattended; the user has already chosen to continue implementation work.',
+    '- If the current branch has an existing open PR, or the feature appears already implemented, do NOT pause to ask whether to proceed and do NOT restart from scratch.',
+    '- Treat the run as review follow-ups on the current PR/worktree: inspect the ticket description, PR context, current branch, and working diff; implement only the missing requested deltas.',
+    '- If the local branch is ahead/behind its remote, do not stop for confirmation. Continue safely on the current worktree; only pull/rebase when it is clearly safe and necessary.',
+    '- If truly no code change is needed, state that clearly and leave the tree unchanged; otherwise make the smallest correct change and let the following verify step prove it.',
+  ].join('\n')
+}
+
+function aiStepBlockedReason(text: string): string | null {
+  const explicit = LOOP_BLOCKED_LINE_RE.exec(text)
+  if (explicit?.[1]?.trim()) return explicit[1].trim()
+  if (HUMAN_PROCEED_QUESTION_RE.test(text) && HUMAN_PROCEED_NO_WORK_RE.test(text)) {
+    return 'The AI step asked how to proceed instead of performing unattended work.'
+  }
+  return null
+}
+
 export interface LoopRunResult {
   runId: string
   outcome: LoopRunOutcome
@@ -316,9 +347,10 @@ export function truncate(s: string, max = 600): string {
 // — `changeId`, the OpenSpec change id — written so the family can generalize.
 
 const RUN_TOKEN_RE = /\{\{\s*run\.(\w+)\s*\}\}/g
-/** First `openspec/changes/<id>` path mentioned in a step's output (the same
- *  detection SpecLauncherManager uses). The id stops at the first `/`. */
-const CHANGE_ID_RE = /openspec\/changes\/([A-Za-z0-9._-]+)/
+/** First ACTIVE `openspec/changes/<id>` path mentioned in a step's output.
+ *  Archive paths (`openspec/changes/archive/...`) are historical destinations,
+ *  not runnable change ids for later `{{run.changeId}}` commands. */
+const CHANGE_ID_RE = /openspec\/changes\/(?!archive(?:\/|$))([A-Za-z0-9._-]+)(?=\/|\s|$)/g
 
 /** Replace `{{run.<name>}}` with the captured value; uncaptured → '' (never a
  *  leaked literal token). Applied AFTER `{{cmd:*}}` and `{{spec.*}}`. */
@@ -329,6 +361,7 @@ export function resolveRunVars(text: string, vars: Record<string, string>): stri
 /** Extract the OpenSpec change id from a step's output (first match wins), or
  *  undefined when none is present. */
 export function extractChangeId(text: string): string | undefined {
+  CHANGE_ID_RE.lastIndex = 0
   const m = CHANGE_ID_RE.exec(text)
   return m ? m[1] : undefined
 }
@@ -756,7 +789,7 @@ export class LoopRunManager {
             // --yes`, codex `$implement #<id> --yes`) — then resolve `{{spec.*}}`
             // data tokens and finally `{{const:*}}` library constants.
             const rawTemplate = String(node.data?.prompt ?? '')
-            const base = resolveConstants(
+            const expanded = resolveConstants(
               resolveRunVars(
                 interpolateSpec(
                   expandCommands(rawTemplate, { provider: nodeProvider, ticketIds: req.spec?.ticketIds, specId: req.spec?.id }),
@@ -766,6 +799,7 @@ export class LoopRunManager {
               ),
               constMap
             )
+            const base = withReviewContinuationContext(expanded, rawTemplate, req.spec)
             // Inject the cross-iteration history only when there's no live session
             // to carry it (a fresh pass) OR right after a Decider 'continue' (so the
             // step sees the verdict). A mid-body resumed step already has it.
@@ -829,9 +863,12 @@ export class LoopRunManager {
               resultText: res.text.trim() ? res.text : null,
             })
             const zeroWork = res.zeroWork === true || oneShotZeroWork
-            const stepFailed = res.failed === true || zeroWork
+            const blockedReason = aiStepBlockedReason(res.text)
+            const stepFailed = res.failed === true || zeroWork || blockedReason !== null
             const stepErrorText = res.errorText ?? (zeroWork
               ? `zero work performed — the command never ran${res.text.trim() ? `: ${res.text.trim()}` : ''}`
+              : blockedReason
+                ? `blocked — ${blockedReason}`
               : undefined)
             // Make the failure reason land visibly INSIDE the step's log
             // segment (the interactive session already surfaced its own note at
@@ -854,6 +891,12 @@ export class LoopRunManager {
             if (res.sessionId && !stepFailed) aiSessionId = res.sessionId
             history.push(`AI Step: ${truncate(res.text)}`)
             record(`loop:${runId}`, { ...res, failed: stepFailed }, aiStepStart)
+            if (blockedReason) {
+              logLine(`\n■ Loop blocked — needs a human decision: ${blockedReason}`, 'stderr')
+              outcome = 'blocked'
+              settled = true
+              break
+            }
             // Capture the OpenSpec change id from a step's output the FIRST time it
             // appears (first-match-wins, kept stable across loop-back iterations so
             // the re-pass amends the same change). Used by `{{run.changeId}}` in the

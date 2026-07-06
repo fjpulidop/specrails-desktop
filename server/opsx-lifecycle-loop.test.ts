@@ -61,6 +61,14 @@ describe('extractChangeId', () => {
   it('captures the FIRST id when several are mentioned', () => {
     expect(extractChangeId('openspec/changes/aaa and openspec/changes/bbb')).toBe('aaa')
   })
+  it('ignores archived change paths because archive is not a runnable change id', () => {
+    expect(extractChangeId('Archived to apps/web/openspec/changes/archive/2026-07-06-my-change/')).toBeUndefined()
+  })
+  it('skips archived paths and captures the first active change path', () => {
+    expect(extractChangeId(
+      'Archived apps/web/openspec/changes/archive/2026-07-06-old/ then continued openspec/changes/my-change/',
+    )).toBe('my-change')
+  })
   it('returns undefined when no change path is present', () => {
     expect(extractChangeId('nothing to see here')).toBeUndefined()
   })

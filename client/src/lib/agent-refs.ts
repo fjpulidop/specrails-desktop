@@ -5,13 +5,15 @@
  * clickable chips that open the same detail modals the board uses:
  *   1. Ticket refs  — `#N` (word-bounded, 1-6 digits), optionally carrying a
  *      title tail (`#3 — Add dark mode`), → the board's TicketDetailModal.
- *   2. Job/loop-run ids — v4-ish UUIDs, but ONLY when the same source line
+ *   2. Pull request refs — `PR #N`, `pull request #N`, or GitHub `/pull/N`
+ *      URLs, → an external PR link when a URL is present.
+ *   3. Job/loop-run ids — v4-ish UUIDs, but ONLY when the same source line
  *      carries a job/run/loop context word (EN + ES) so conversation ids in
  *      debug output never linkify, → the mission-mode JobDetailModal. A uuid
  *      that turns out to be a LOOP DEFINITION id (not a job row) is resolved
  *      at click time (the click layer falls back to the loops API) and opens
  *      the read-only LoopPreviewModal instead — detection stays pattern-only.
- *   3. Factory loop ids — the literal `factory:implement|batch|ultracode`
+ *   4. Factory loop ids — the literal `factory:implement|batch|ultracode`
  *      tokens, → the same LoopPreviewModal (built-in, locked).
  *
  * Implemented as a remark plugin (`remarkAgentRefs`) so code blocks and inline
@@ -24,12 +26,14 @@
 
 export type AgentRefTarget =
   | { kind: 'ticket'; ticketId: number }
+  | { kind: 'pull-request'; prNumber: number; prUrl?: string }
   | { kind: 'job'; jobId: string }
   | { kind: 'loop'; loopId: string }
 
 export type AgentRefSegment =
   | { kind: 'text'; text: string }
   | { kind: 'ticket'; ticketId: number; label: string }
+  | { kind: 'pull-request'; prNumber: number; prUrl?: string; label: string }
   | { kind: 'job'; jobId: string; label: string }
   | { kind: 'loop'; loopId: string; label: string }
 
@@ -39,6 +43,9 @@ const HREF_PREFIX = '#agentref:'
 
 export function agentRefHref(ref: AgentRefTarget): string {
   if (ref.kind === 'ticket') return `${HREF_PREFIX}ticket:${ref.ticketId}`
+  if (ref.kind === 'pull-request') {
+    return `${HREF_PREFIX}pr:${ref.prNumber}${ref.prUrl ? `:${encodeURIComponent(ref.prUrl)}` : ''}`
+  }
   if (ref.kind === 'loop') return `${HREF_PREFIX}loop:${ref.loopId}`
   return `${HREF_PREFIX}job:${ref.jobId}`
 }
@@ -49,6 +56,13 @@ export function parseAgentRefHref(href: string | null | undefined): AgentRefTarg
   if (rest.startsWith('ticket:')) {
     const id = Number.parseInt(rest.slice('ticket:'.length), 10)
     return Number.isInteger(id) && id > 0 ? { kind: 'ticket', ticketId: id } : null
+  }
+  if (rest.startsWith('pr:')) {
+    const [, rawNumber, rawUrl] = /^pr:(\d+)(?::(.+))?$/.exec(rest) ?? []
+    const prNumber = Number.parseInt(rawNumber ?? '', 10)
+    if (!Number.isInteger(prNumber) || prNumber <= 0) return null
+    const prUrl = rawUrl ? decodeURIComponent(rawUrl) : undefined
+    return prUrl ? { kind: 'pull-request', prNumber, prUrl } : { kind: 'pull-request', prNumber }
   }
   if (rest.startsWith('job:')) {
     const jobId = rest.slice('job:'.length)
@@ -103,6 +117,46 @@ interface RawMatch {
 const BAD_BEFORE_RE = /[\w#&$-]/
 /** Chars that must NOT immediately follow a ref (mid-token). */
 const BAD_AFTER_RE = /[\w-]/
+
+function scanPullRequests(text: string, out: RawMatch[]): void {
+  const phraseRe = /\b(?:PR|pull request)\s*#?(\d{1,10})\b/gi
+  let phrase: RegExpExecArray | null
+  while ((phrase = phraseRe.exec(text)) !== null) {
+    const before = text[phrase.index - 1]
+    const after = text[phrase.index + phrase[0].length]
+    if (before !== undefined && BAD_BEFORE_RE.test(before)) continue
+    if (after !== undefined && BAD_AFTER_RE.test(after)) continue
+    const prNumber = Number.parseInt(phrase[1], 10)
+    if (!Number.isInteger(prNumber) || prNumber <= 0) continue
+    out.push({
+      start: phrase.index,
+      end: phrase.index + phrase[0].length,
+      segment: { kind: 'pull-request', prNumber, label: `PR #${prNumber}` },
+    })
+  }
+
+  const urlRe = /https?:\/\/[^\s<>)]+\/pull\/(\d{1,10})(?:[/?#][^\s<>)]*)?/gi
+  let url: RegExpExecArray | null
+  while ((url = urlRe.exec(text)) !== null) {
+    const prNumber = Number.parseInt(url[1], 10)
+    if (!Number.isInteger(prNumber) || prNumber <= 0) continue
+    const prUrl = url[0].replace(/[.,;:!?…]+$/u, '')
+    out.push({
+      start: url.index,
+      end: url.index + prUrl.length,
+      segment: { kind: 'pull-request', prNumber, prUrl, label: `PR #${prNumber}` },
+    })
+  }
+}
+
+function parsePullRequestUrl(url: string | null | undefined): { prNumber: number; prUrl: string } | null {
+  if (!url) return null
+  const match = /^https?:\/\/[^\s<>)]+\/pull\/(\d{1,10})(?:[/?#][^\s<>)]*)?$/i.exec(url)
+  if (!match) return null
+  const prNumber = Number.parseInt(match[1], 10)
+  if (!Number.isInteger(prNumber) || prNumber <= 0) return null
+  return { prNumber, prUrl: url }
+}
 
 function scanTickets(text: string, out: RawMatch[]): void {
   const re = /#(\d{1,6})/g
@@ -176,6 +230,7 @@ export function splitAgentRefs(
   jobContextUuids: ReadonlySet<string>,
 ): AgentRefSegment[] {
   const matches: RawMatch[] = []
+  scanPullRequests(text, matches)
   scanTickets(text, matches)
   scanJobs(text, jobContextUuids, matches)
   scanFactoryLoops(text, matches)
@@ -225,6 +280,8 @@ function segmentToNode(segment: AgentRefSegment): MdNode {
   const ref: AgentRefTarget =
     segment.kind === 'ticket'
       ? { kind: 'ticket', ticketId: segment.ticketId }
+      : segment.kind === 'pull-request'
+        ? { kind: 'pull-request', prNumber: segment.prNumber, prUrl: segment.prUrl }
       : segment.kind === 'loop'
         ? { kind: 'loop', loopId: segment.loopId }
         : { kind: 'job', jobId: segment.jobId }
@@ -251,6 +308,22 @@ function walk(node: MdNode, jobContextUuids: ReadonlySet<string>): void {
       } else if (FACTORY_LOOP_EXACT_RE.test(value)) {
         // Backticked factory ids (`factory:implement`) are loop refs, not code.
         children.splice(i, 1, segmentToNode({ kind: 'loop', loopId: value, label: value }))
+      }
+      continue
+    }
+    if (child.type === 'link' && typeof child.url === 'string') {
+      const pullRequest = parsePullRequestUrl(child.url)
+      if (pullRequest) {
+        children.splice(
+          i,
+          1,
+          segmentToNode({
+            kind: 'pull-request',
+            prNumber: pullRequest.prNumber,
+            prUrl: pullRequest.prUrl,
+            label: `PR #${pullRequest.prNumber}`,
+          }),
+        )
       }
       continue
     }

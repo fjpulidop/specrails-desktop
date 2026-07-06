@@ -185,8 +185,10 @@
     "specCount_other": "{{count}} specs",
     "base": "Ramo base",
     "openPr": "Abrir PR",
+    "existingPr": "PR existente",
     "title": {
       "building": "A implementar num worktree isolado…",
+      "buildingExistingPr": "A aplicar alterações numa PR existente…",
       "on_review": "Implementação pronta para revisão",
       "pr_draft": "PR em rascunho criada",
       "pr_draft_degraded": "Entrega da PR incompleta",
@@ -196,6 +198,7 @@
       "discarded": "Descartada"
     },
     "buildingHint": "Quando terminar, ser-lhe-á perguntado se quer criar a PR.",
+    "buildingExistingPrHint": "O Specrails está a trabalhar no ramo da PR existente e irá enviar as alterações de revisão para essa mesma PR.",
     "createPr": "Criar PR",
     "publish": "Publicar",
     "retry": "Tentar novamente",
@@ -250,9 +253,12 @@
   },
   "refs": {
     "openTicket": "Abrir spec #{{id}}",
+    "openPullRequest": "Abrir PR #{{id}}",
     "openJob": "Abrir job {{id}}",
     "openLoop": "Abrir loop {{id}}",
     "ticketNotFound": "Spec #{{id}} não encontrada — pode ter sido excluída",
+    "pullRequestUrlMissing": "A PR #{{id}} foi mencionada sem URL",
+    "pullRequestNotFound": "A PR #{{id}} não foi encontrada neste projeto",
     "jobNotFound": "Job não encontrado — pode ter sido excluído",
     "loopNotFound": "Loop não encontrado — pode ter sido excluído",
     "lookupFailed": "Não foi possível verificar a referência — tente novamente"

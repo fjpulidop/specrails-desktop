@@ -1,5 +1,5 @@
 import type { ReactNode } from 'react'
-import { Ticket, Briefcase, Repeat } from 'lucide-react'
+import { Ticket, Briefcase, Repeat, GitPullRequest } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { cn } from '../../lib/utils'
 import type { AgentRefTarget } from '../../lib/agent-refs'
@@ -24,11 +24,19 @@ export function AgentRefChip({ refTarget, onOpen, children }: Props) {
   const label =
     refTarget.kind === 'ticket'
       ? t('refs.openTicket', { id: refTarget.ticketId })
+      : refTarget.kind === 'pull-request'
+        ? t('refs.openPullRequest', { id: refTarget.prNumber })
       : refTarget.kind === 'loop'
         ? t('refs.openLoop', { id: refTarget.loopId })
         : t('refs.openJob', { id: refTarget.jobId.slice(0, 8) })
   const Icon =
-    refTarget.kind === 'ticket' ? Ticket : refTarget.kind === 'loop' ? Repeat : Briefcase
+    refTarget.kind === 'ticket'
+      ? Ticket
+      : refTarget.kind === 'pull-request'
+        ? GitPullRequest
+        : refTarget.kind === 'loop'
+          ? Repeat
+          : Briefcase
   return (
     <button
       type="button"
@@ -46,6 +54,8 @@ export function AgentRefChip({ refTarget, onOpen, children }: Props) {
         'hover:-translate-y-px hover:shadow-sm',
         refTarget.kind === 'ticket'
           ? 'border-accent-primary/35 bg-accent-primary/10 text-accent-primary hover:border-accent-primary/60 hover:bg-accent-primary/15'
+          : refTarget.kind === 'pull-request'
+            ? 'border-accent-success/35 bg-accent-success/10 text-accent-success hover:border-accent-success/60 hover:bg-accent-success/15'
           : refTarget.kind === 'loop'
             ? 'border-accent-highlight/35 bg-accent-highlight/10 text-accent-highlight hover:border-accent-highlight/60 hover:bg-accent-highlight/15'
             : 'border-accent-info/35 bg-accent-info/10 text-accent-info hover:border-accent-info/60 hover:bg-accent-info/15',

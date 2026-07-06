@@ -84,11 +84,36 @@ export interface CreateWorktreeInput {
    *  pr-naming). Absent → legacy `sr/<slug>/ticket-<id>` fallback, so other
    *  callers keep their byte-identical behaviour. */
   branch?: string
+  /** For active-PR continuation only: safely fast-forward an existing local
+   *  branch/worktree from `baseRef` before the run starts. Never rewrites
+   *  diverged or locally-ahead branches. */
+  refreshFromBaseRef?: boolean
 }
 
 export interface WorktreeHandle {
   branch: string
   worktreePath: string
+}
+
+async function fastForwardExistingBranch(
+  git: GitRunner,
+  repoDir: string,
+  branch: string,
+  baseRef: string | undefined,
+  mountedWorktreePath?: string,
+): Promise<void> {
+  if (!baseRef) return
+  if (mountedWorktreePath) {
+    const ancestor = await git.run(['merge-base', '--is-ancestor', 'HEAD', baseRef], mountedWorktreePath)
+    if (ancestor.code !== 0) return
+    await git.run(['merge', '--ff-only', baseRef], mountedWorktreePath).catch(() => {})
+    return
+  }
+
+  const localRef = `refs/heads/${branch}`
+  const ancestor = await git.run(['merge-base', '--is-ancestor', localRef, baseRef], repoDir)
+  if (ancestor.code !== 0) return
+  await git.run(['update-ref', localRef, baseRef], repoDir).catch(() => {})
 }
 
 /**
@@ -118,9 +143,16 @@ export async function createWorktree(git: GitRunner, input: CreateWorktreeInput)
     // at local-only. Detached HEAD / a git failure falls back to the input.
     const head = await git.run(['rev-parse', '--abbrev-ref', 'HEAD'], wt)
     const actual = head.code === 0 ? head.stdout.trim() : ''
-    return { branch: actual && actual !== 'HEAD' ? actual : branch, worktreePath: wt }
+    const actualBranch = actual && actual !== 'HEAD' ? actual : branch
+    if (input.refreshFromBaseRef && actualBranch === branch) {
+      await fastForwardExistingBranch(git, input.repoDir, branch, input.baseRef, wt)
+    }
+    return { branch: actualBranch, worktreePath: wt }
   }
   const hasBranch = (await git.run(['rev-parse', '--verify', '--quiet', `refs/heads/${branch}`], input.repoDir)).code === 0
+  if (hasBranch && input.refreshFromBaseRef) {
+    await fastForwardExistingBranch(git, input.repoDir, branch, input.baseRef)
+  }
   const args = hasBranch
     ? ['worktree', 'add', wt, branch]
     : ['worktree', 'add', '-b', branch, wt, base]

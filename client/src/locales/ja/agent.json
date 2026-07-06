@@ -185,8 +185,10 @@
     "specCount_other": "スペック {{count}} 件",
     "base": "ベースブランチ",
     "openPr": "PR を開く",
+    "existingPr": "既存の PR",
     "title": {
       "building": "分離されたワークツリーで実装中…",
+      "buildingExistingPr": "既存の PR に変更を適用中…",
       "on_review": "実装のレビュー準備完了",
       "pr_draft": "ドラフト PR を作成しました",
       "pr_draft_degraded": "PR の公開が未完了",
@@ -196,6 +198,7 @@
       "discarded": "破棄済み"
     },
     "buildingHint": "完了すると PR を作成するか確認します。",
+    "buildingExistingPrHint": "Specrails は既存 PR のブランチで作業しており、レビュー変更を同じ PR に push します。",
     "createPr": "PR を作成",
     "publish": "公開",
     "retry": "再試行",
@@ -250,9 +253,12 @@
   },
   "refs": {
     "openTicket": "スペック #{{id}} を開く",
+    "openPullRequest": "PR #{{id}} を開く",
     "openJob": "ジョブ {{id}} を開く",
     "openLoop": "ループ {{id}} を開く",
     "ticketNotFound": "スペック #{{id}} が見つかりません — 削除された可能性があります",
+    "pullRequestUrlMissing": "PR #{{id}} は URL なしで参照されました",
+    "pullRequestNotFound": "このプロジェクトで PR #{{id}} が見つかりません",
     "jobNotFound": "ジョブが見つかりません — 削除された可能性があります",
     "loopNotFound": "ループが見つかりません — 削除された可能性があります",
     "lookupFailed": "参照を確認できませんでした — もう一度お試しください"

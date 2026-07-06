@@ -74,6 +74,7 @@ const env = (over: Partial<AgentPrDecisionEnvelope> = {}): AgentPrDecisionEnvelo
   ticketIds: [4, 7],
   decision: 'on_review',
   prUrl: null,
+  prNumber: null,
   prState: 'none',
   branch: null,
   runIds: [],

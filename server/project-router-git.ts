@@ -2,6 +2,7 @@ import type { Request, Response } from 'express'
 import type { ProjectRoutesDeps } from './project-router-helpers'
 import { getProjectGitInfo, checkoutProjectBranch } from './project-git'
 import { runGitDiagnostic, isGitDiagnosticAction, GIT_DIAGNOSTIC_ACTIONS } from './git-diagnostics'
+import { defaultExec } from './pr-publisher'
 
 // ─── Git domain routes (/api/projects/:projectId/git) ─────────────────────────
 //
@@ -11,6 +12,7 @@ import { runGitDiagnostic, isGitDiagnosticAction, GIT_DIAGNOSTIC_ACTIONS } from 
 
 export function registerGitRoutes(deps: ProjectRoutesDeps): void {
   const { router, ctx } = deps
+  const exec = deps.exec ?? defaultExec
 
   router.get('/:projectId/git', async (req: Request, res: Response) => {
     try {
@@ -18,6 +20,31 @@ export function registerGitRoutes(deps: ProjectRoutesDeps): void {
     } catch (err) {
       console.error('[project-git] info failed:', err)
       res.status(500).json({ error: 'Failed to read git info' })
+    }
+  })
+
+  router.get('/:projectId/git/pull-requests/:number', async (req: Request, res: Response) => {
+    const prNumber = Number.parseInt(String(req.params.number ?? ''), 10)
+    if (!Number.isInteger(prNumber) || prNumber <= 0) {
+      res.status(400).json({ error: 'invalid_pull_request_number' })
+      return
+    }
+
+    try {
+      const r = await exec.run('gh', ['pr', 'view', String(prNumber), '--json', 'url'], ctx(req).project.path)
+      if (r.code !== 0) {
+        res.status(404).json({ error: 'pull_request_not_found' })
+        return
+      }
+      const parsed = JSON.parse(r.stdout) as { url?: unknown }
+      if (typeof parsed.url !== 'string' || !parsed.url) {
+        res.status(404).json({ error: 'pull_request_not_found' })
+        return
+      }
+      res.json({ prNumber, url: parsed.url })
+    } catch (err) {
+      console.error('[project-git] pull request lookup failed:', err)
+      res.status(500).json({ error: 'pull_request_lookup_failed' })
     }
   })
 

@@ -69,6 +69,7 @@ const env = (over: Partial<AgentPrDecisionEnvelope> = {}): AgentPrDecisionEnvelo
   ticketIds: [4, 7],
   decision: 'on_review',
   prUrl: null,
+  prNumber: null,
   prState: 'none',
   branch: null,
   runIds: [],
@@ -111,7 +112,7 @@ describe('AgentPrDecisionCard states', () => {
   })
 
   it('pr_draft with a PR: Publish + Discard + #number link, no Create PR', () => {
-    render(<AgentPrDecisionCard envelope={env({ decision: 'pr_draft', prUrl: 'https://github.com/o/r/pull/7', prState: 'pr-created', branch: 'sr/acme/batch-x' })} />)
+    render(<AgentPrDecisionCard envelope={env({ decision: 'pr_draft', prUrl: 'https://github.com/o/r/pull/7', prNumber: 7, prState: 'pr-created', branch: 'sr/acme/batch-x' })} />)
     expect(screen.getByText('Draft PR created')).toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'Publish' })).toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'Discard' })).toBeInTheDocument()
@@ -170,6 +171,21 @@ describe('AgentPrDecisionCard states', () => {
     render(<AgentPrDecisionCard envelope={env({ decision: 'building' })} />)
     expect(screen.getByText('Implementing in an isolated worktree…')).toBeInTheDocument()
     expect(screen.getByText("You'll be asked to create the PR when it settles.")).toBeInTheDocument()
+    expect(nonChipButtons()).toHaveLength(0)
+  })
+
+  it('building on an existing PR: calls out the PR and head branch immediately', () => {
+    render(<AgentPrDecisionCard envelope={env({
+      decision: 'building',
+      prUrl: 'https://github.com/o/r/pull/2147',
+      prNumber: 2147,
+      prState: 'pr-created',
+      branch: 'feat/SKILLS-19-key-terms-activity',
+    })} />)
+    expect(screen.getByText('Applying changes to an existing PR…')).toBeInTheDocument()
+    expect(screen.getByRole('link')).toHaveTextContent('#2147')
+    expect(screen.getByText('feat/SKILLS-19-key-terms-activity')).toBeInTheDocument()
+    expect(screen.getByText(/push the review changes back to that PR/)).toBeInTheDocument()
     expect(nonChipButtons()).toHaveLength(0)
   })
 })

@@ -13,7 +13,7 @@ import {
   type GitResult,
 } from './worktree-manager'
 
-function fakeGit(opts: { worktrees?: string[]; branchExists?: boolean; addFails?: boolean; insideWorktree?: boolean; hasCommits?: boolean; mountedBranch?: string; headFails?: boolean } = {}) {
+function fakeGit(opts: { worktrees?: string[]; branchExists?: boolean; addFails?: boolean; insideWorktree?: boolean; hasCommits?: boolean; mountedBranch?: string; headFails?: boolean; ancestor?: boolean } = {}) {
   const calls: string[][] = []
   const git: GitRunner = {
     async run(args): Promise<GitResult> {
@@ -35,6 +35,12 @@ function fakeGit(opts: { worktrees?: string[]; branchExists?: boolean; addFails?
       }
       if (args[0] === 'rev-parse' && args.includes('--verify')) {
         return opts.branchExists ? { code: 0, stdout: 'sha\n', stderr: '' } : { code: 1, stdout: '', stderr: '' }
+      }
+      if (args[0] === 'merge-base' && args[1] === '--is-ancestor') {
+        return opts.ancestor === false ? { code: 1, stdout: '', stderr: '' } : { code: 0, stdout: '', stderr: '' }
+      }
+      if (args[0] === 'update-ref' || args[0] === 'merge') {
+        return { code: 0, stdout: '', stderr: '' }
       }
       if (args[0] === 'worktree' && args[1] === 'add') {
         return opts.addFails ? { code: 1, stdout: '', stderr: 'fatal: boom' } : { code: 0, stdout: '', stderr: '' }
@@ -121,6 +127,31 @@ describe('createWorktree (resume-aware)', () => {
     const { git, addCalls } = fakeGit({ branchExists: true })
     await createWorktree(git, { ...base, branch: 'feat/3-x' })
     expect(addCalls()[0]).toEqual(['worktree', 'add', '/wt/ticket-3', 'feat/3-x'])
+  })
+
+  it('active-PR continuation fast-forwards an existing local branch from the remote PR head when safe', async () => {
+    const { git, calls, addCalls } = fakeGit({ branchExists: true })
+    await createWorktree(git, {
+      ...base,
+      branch: 'feat/3-x',
+      baseRef: 'origin/feat/3-x',
+      refreshFromBaseRef: true,
+    })
+    expect(calls).toContainEqual(['merge-base', '--is-ancestor', 'refs/heads/feat/3-x', 'origin/feat/3-x'])
+    expect(calls).toContainEqual(['update-ref', 'refs/heads/feat/3-x', 'origin/feat/3-x'])
+    expect(addCalls()[0]).toEqual(['worktree', 'add', '/wt/ticket-3', 'feat/3-x'])
+  })
+
+  it('active-PR continuation never rewrites a diverged or locally-ahead branch', async () => {
+    const { git, calls } = fakeGit({ branchExists: true, ancestor: false })
+    await createWorktree(git, {
+      ...base,
+      branch: 'feat/3-x',
+      baseRef: 'origin/feat/3-x',
+      refreshFromBaseRef: true,
+    })
+    expect(calls).toContainEqual(['merge-base', '--is-ancestor', 'refs/heads/feat/3-x', 'origin/feat/3-x'])
+    expect(calls.some((c) => c[0] === 'update-ref')).toBe(false)
   })
 })
 

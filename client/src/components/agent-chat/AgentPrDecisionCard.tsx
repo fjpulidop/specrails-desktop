@@ -141,6 +141,8 @@ export function AgentPrDecisionCard({ envelope }: { envelope: AgentPrDecisionEnv
   const { decision, prUrl, prState } = envelope
   const projectName = projects.find((p) => p.id === envelope.projectId)?.name ?? envelope.projectId
   const degradedDraft = decision === 'pr_draft' && !prUrl
+  const existingPrContinuation = decision === 'building' && prState === 'pr-created' && Boolean(envelope.branch)
+  const displayedPrNumber = envelope.prNumber ? `#${envelope.prNumber}` : prUrl ? prNumberFromUrl(prUrl) : null
   const terminal = decision === 'merged' || decision === 'discarded'
 
   // A broadcast moved the envelope on (this surface or the other one answered):
@@ -264,14 +266,51 @@ export function AgentPrDecisionCard({ envelope }: { envelope: AgentPrDecisionEnv
         className="rounded-xl border border-border/60 bg-card/80 px-3.5 py-2.5 text-xs text-foreground/60 shadow-lg backdrop-blur-xl"
       >
         <div className="flex items-center gap-2">
-          <Loader2 className="h-3.5 w-3.5 animate-spin text-accent-primary/70" />
-          <span className="animate-pulse">{t('prCard.title.building')}</span>
+          {existingPrContinuation
+            ? <GitPullRequest className="h-3.5 w-3.5 text-accent-info" />
+            : <Loader2 className="h-3.5 w-3.5 animate-spin text-accent-primary/70" />}
+          <span className={cn(!existingPrContinuation && 'animate-pulse')}>
+            {existingPrContinuation ? t('prCard.title.buildingExistingPr') : t('prCard.title.building')}
+          </span>
         </div>
         {ticketChips && (
           <div className="mt-1.5 flex flex-wrap items-center gap-1.5 pl-[22px]">{ticketChips}</div>
         )}
+        {existingPrContinuation && (
+          <div className="mt-1.5 flex flex-wrap items-center gap-1.5 pl-[22px]">
+            {prUrl ? (
+              <a
+                href={prUrl}
+                target="_blank"
+                rel="noreferrer"
+                onClick={(e) => openPr(e, prUrl)}
+                title={prUrl}
+                data-agent-interactive
+                className="inline-flex items-center gap-1 rounded-full border border-accent-info/40 bg-accent-info/10 px-2 py-0.5 font-mono text-[11px] text-accent-info transition-colors hover:border-accent-info/60 hover:bg-accent-info/15"
+              >
+                <GitPullRequest className="h-3 w-3" />
+                {displayedPrNumber ?? t('prCard.openPr')}
+                <ExternalLink className="h-2.5 w-2.5 opacity-60" />
+              </a>
+            ) : (
+              <span className="inline-flex items-center gap-1 rounded-full border border-accent-info/40 bg-accent-info/10 px-2 py-0.5 font-mono text-[11px] text-accent-info">
+                <GitPullRequest className="h-3 w-3" />
+                {displayedPrNumber ?? t('prCard.existingPr')}
+              </span>
+            )}
+            <span
+              title={t('git.branch')}
+              className="inline-flex min-w-0 max-w-full items-center gap-1 rounded-full border border-border/60 bg-surface/60 px-2 py-0.5 font-mono text-[11px] text-foreground/70"
+            >
+              <GitBranch className="h-3 w-3 shrink-0 text-accent-primary/70" />
+              <span className="truncate">{envelope.branch}</span>
+            </span>
+          </div>
+        )}
         {runChips && <div className="pl-[22px]">{runChips}</div>}
-        <p className="mt-1 pl-[22px] text-[11px] leading-4 text-foreground/40">{t('prCard.buildingHint')}</p>
+        <p className="mt-1 pl-[22px] text-[11px] leading-4 text-foreground/40">
+          {existingPrContinuation ? t('prCard.buildingExistingPrHint') : t('prCard.buildingHint')}
+        </p>
         {logModal}
       </div>
     )
@@ -333,7 +372,7 @@ export function AgentPrDecisionCard({ envelope }: { envelope: AgentPrDecisionEnv
       className="inline-flex items-center gap-1 rounded-full border border-border/60 bg-surface/60 px-2 py-0.5 font-mono text-[11px] text-accent-info transition-colors hover:border-accent-info/50 hover:bg-accent-info/10"
     >
       <GitPullRequest className="h-3 w-3" />
-      {prNumberFromUrl(prUrl) ?? t('prCard.openPr')}
+      {displayedPrNumber ?? t('prCard.openPr')}
       <ExternalLink className="h-2.5 w-2.5 opacity-60" />
     </a>
   )

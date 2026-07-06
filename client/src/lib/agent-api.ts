@@ -190,6 +190,7 @@ export interface AgentPrDecisionEnvelope {
   ticketIds: number[]
   decision: AgentPrDecisionValue
   prUrl: string | null
+  prNumber: number | null
   prState: AgentPrDeliveryState
   branch: string | null
   /** The launch's loop-run ids, in ticket order ([] until allocation lands, and
@@ -222,6 +223,9 @@ export function coercePrDecisionEnvelope(v: unknown): AgentPrDecisionEnvelope | 
       : [],
     decision: o.decision as AgentPrDecisionValue,
     prUrl: typeof o.prUrl === 'string' && o.prUrl ? o.prUrl : null,
+    prNumber: typeof o.prNumber === 'number' && Number.isInteger(o.prNumber) && o.prNumber > 0
+      ? o.prNumber
+      : null,
     prState: typeof o.prState === 'string' && PR_DELIVERY_STATES.includes(o.prState)
       ? (o.prState as AgentPrDeliveryState)
       : 'none',
