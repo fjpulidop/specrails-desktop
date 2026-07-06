@@ -120,6 +120,30 @@ describe('BottomPanel', () => {
     }
   })
 
+  it('uses a stronger curtain offset without the footer bar', () => {
+    vi.useFakeTimers()
+    try {
+      const { getByTestId, rerender } = wrap(
+        <BottomPanel projectId="p" state={makeState({ visibility: 'restored', userHeight: 400 })} viewportHeight={800} statusBarHeight={0} />,
+      )
+
+      rerender(
+        <MemoryRouter>
+          <TerminalsProvider activeProjectId="p">
+            <BottomPanel projectId="p" state={makeState({ visibility: 'hidden', userHeight: 400 })} viewportHeight={800} statusBarHeight={0} />
+          </TerminalsProvider>
+        </MemoryRouter>,
+      )
+
+      const closingPanel = getByTestId('terminal-bottom-panel') as HTMLElement
+      expect(closingPanel.style.transform).toBe('translateY(14px) scaleY(0.96)')
+
+      act(() => { vi.advanceTimersByTime(310) })
+    } finally {
+      vi.useRealTimers()
+    }
+  })
+
   it('renders at viewport-statusbar in maximized mode', () => {
     const { getByTestId } = wrap(
       <BottomPanel projectId="p" state={makeState({ visibility: 'maximized', userHeight: 400 })} viewportHeight={800} statusBarHeight={28} />,

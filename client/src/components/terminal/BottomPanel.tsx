@@ -86,6 +86,7 @@ export function BottomPanel({ projectId, provider = 'claude', providers, state, 
     livePreviewHeight ?? userHeight
   const curtainOpen = curtainPhase === 'open'
   const visualHeight = curtainOpen ? height : 0
+  const footerless = statusBarHeight === 0
 
   const canCreate = state.sessions.length < TERMINAL_MAX_PER_PROJECT
   const hasActive = state.activeId !== null
@@ -221,7 +222,9 @@ export function BottomPanel({ projectId, provider = 'claude', providers, state, 
       style={{
         height: visualHeight,
         opacity: curtainOpen ? 1 : 0,
-        transform: curtainOpen ? 'translateY(0) scaleY(1)' : 'translateY(8px) scaleY(0.985)',
+        transform: curtainOpen
+          ? 'translateY(0) scaleY(1)'
+          : `translateY(${footerless ? 14 : 8}px) scaleY(${footerless ? 0.96 : 0.985})`,
         clipPath: curtainOpen ? 'inset(0 0 0 0)' : 'inset(100% 0 0 0)',
       }}
       data-testid="terminal-bottom-panel"
