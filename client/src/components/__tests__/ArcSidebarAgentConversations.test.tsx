@@ -139,14 +139,35 @@ describe('ArcSidebar agent-mode conversation rows', () => {
   it('renders favorite missions above projects and removes them from the project tree', () => {
     agentChatState.favoriteIds = new Set(['c-1'])
     renderExpanded()
+    fireEvent.click(screen.getByRole('button', { name: 'Favorite missions' }))
     expect(screen.getByText('Favorite missions')).toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'Remove "Fix the build" from favorites' })).toBeInTheDocument()
     expect(screen.getAllByText('Fix the build')).toHaveLength(1)
   })
 
+  it('collapses favorite missions behind a single favorites icon when the sidebar is collapsed', () => {
+    agentChatState.favoriteIds = new Set(['c-1'])
+    render(<ArcSidebar {...defaultProps} />)
+    expect(screen.getByRole('button', { name: 'Favorite missions' })).toBeInTheDocument()
+    expect(screen.queryByText('Favorite missions')).not.toBeInTheDocument()
+    expect(screen.queryByText('Fix the build')).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Remove "Fix the build" from favorites' })).not.toBeInTheDocument()
+  })
+
+  it('favorite missions section expands and collapses like a project tree', () => {
+    agentChatState.favoriteIds = new Set(['c-1'])
+    renderExpanded()
+    expect(screen.queryByRole('button', { name: 'Remove "Fix the build" from favorites' })).not.toBeInTheDocument()
+    fireEvent.click(screen.getByRole('button', { name: 'Favorite missions' }))
+    expect(screen.getByRole('button', { name: 'Remove "Fix the build" from favorites' })).toBeInTheDocument()
+    fireEvent.click(screen.getByRole('button', { name: 'Favorite missions' }))
+    expect(screen.queryByRole('button', { name: 'Remove "Fix the build" from favorites' })).not.toBeInTheDocument()
+  })
+
   it('removing a favorite from the favorite section calls the same toggle', () => {
     agentChatState.favoriteIds = new Set(['c-1'])
     renderExpanded()
+    fireEvent.click(screen.getByRole('button', { name: 'Favorite missions' }))
     fireEvent.click(screen.getByRole('button', { name: 'Remove "Fix the build" from favorites' }))
     expect(mockToggleFavoriteConversation).toHaveBeenCalledWith('c-1')
   })

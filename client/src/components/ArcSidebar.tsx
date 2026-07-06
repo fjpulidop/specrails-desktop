@@ -43,6 +43,8 @@ function openCommandPalette(): void {
 
 /** Sentinel key for the Home (null-pinned) conversation group. */
 const HOME_KEY = '__home__'
+/** Sentinel key for the virtual Favorite missions group. */
+const FAVORITES_KEY = '__favorites__'
 
 function ConversationRow({
   conversation,
@@ -420,6 +422,7 @@ export function ArcSidebar({
   const homeConversations = grouped.get(HOME_KEY) ?? []
 
   const [expandedTree, setExpandedTree] = useState<Set<string>>(loadExpanded)
+  const favoriteTreeOpen = expandedTree.has(FAVORITES_KEY)
   // Per-project settings modal (Agent Mode hover gear on a project folder).
   const [projectSettingsOpen, setProjectSettingsOpen] = useState(false)
   // Default-expand the active project the first time we enter Agent Mode.
@@ -659,25 +662,40 @@ export function ArcSidebar({
       <div className="flex-1 overflow-y-auto py-2 px-1.5 space-y-0.5">
         {agentMode && favoriteConversations.length > 0 && (
           <div className={cn('space-y-0.5', expanded && 'mb-2 border-b border-border/70 pb-2')}>
-            {expanded && (
-              <div className="flex items-center gap-1.5 px-2 pb-1 text-[10px] font-medium uppercase tracking-wide text-muted-foreground/60">
-                <Heart className="h-3 w-3 fill-current text-accent-primary/80" aria-hidden />
-                <span className="truncate">{tAgent('favoriteMissions')}</span>
+            <button
+              type="button"
+              onClick={() => toggleTree(FAVORITES_KEY)}
+              className={cn(
+                'flex items-center gap-2 w-full h-8 rounded-md transition-colors',
+                'text-muted-foreground hover:text-foreground hover:bg-muted/50',
+                expanded ? 'px-2' : 'px-0 justify-center',
+              )}
+              aria-label={tAgent('favoriteMissions')}
+              aria-expanded={favoriteTreeOpen}
+              title={!expanded ? tAgent('favoriteMissions') : undefined}
+            >
+              {expanded
+                ? (favoriteTreeOpen ? <ChevronDown className="w-3.5 h-3.5 flex-shrink-0" /> : <ChevronRight className="w-3.5 h-3.5 flex-shrink-0" />)
+                : <Heart className="w-4 h-4 flex-shrink-0 fill-current text-accent-primary" />}
+              {expanded && <span className="text-xs truncate flex-1 text-left">{tAgent('favoriteMissions')}</span>}
+            </button>
+            {favoriteTreeOpen && expanded && (
+              <div className="mt-0.5 space-y-0.5">
+                {favoriteConversations.map((c) => (
+                  <ConversationRow
+                    key={c.id}
+                    conversation={c}
+                    active={c.id === agentChat.active?.id}
+                    streaming={agentChat.streamingConversationIds.has(c.id)}
+                    favorite
+                    expanded={expanded}
+                    onSelect={() => handleSelectConversation(c.id)}
+                    onToggleFavorite={() => handleToggleFavoriteConversation(c.id)}
+                    onDelete={() => handleDeleteConversation(c.id)}
+                  />
+                ))}
               </div>
             )}
-            {favoriteConversations.map((c) => (
-              <ConversationRow
-                key={c.id}
-                conversation={c}
-                active={c.id === agentChat.active?.id}
-                streaming={agentChat.streamingConversationIds.has(c.id)}
-                favorite
-                expanded={expanded}
-                onSelect={() => handleSelectConversation(c.id)}
-                onToggleFavorite={() => handleToggleFavoriteConversation(c.id)}
-                onDelete={() => handleDeleteConversation(c.id)}
-              />
-            ))}
           </div>
         )}
         {/* Home group (agent mode) — conversations with no pinned project */}
