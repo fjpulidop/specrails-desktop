@@ -25,7 +25,7 @@ import { finaliseInvocationResult } from './result-event'
 import { randomUUID } from 'crypto'
 import { getAdapter, type ProviderAdapter, type AdapterEvent, type ProviderId } from './providers'
 import { createCodexOtelBridge, type CodexOtelBridge } from './codex-otel-bridge'
-import { createJob, finishJob, appendEvent, skipJob, getProjectSettings, getUltracodePrePrompt, DEFAULT_ULTRACODE_PRE_PROMPT, finalizeInteractiveJob } from './db'
+import { createJob, finishJob, appendEvent, skipJob, getProjectSettings, getFreestylePrePrompt, DEFAULT_FREESTYLE_PRE_PROMPT, finalizeInteractiveJob } from './db'
 import type { JobResult } from './db'
 import { InteractiveJobSession, type SettleInfo, type InteractiveSpawnSpec } from './interactive-job-session'
 import type { CommandInfo } from './config'
@@ -187,8 +187,8 @@ export class JobAlreadyTerminalError extends Error {
 
 const TERMINAL_STATUSES = new Set(['completed', 'failed', 'canceled', 'zombie_terminated', 'skipped'])
 
-/** Match an Ultracode rail command: `/specrails:ultracode #5 …` (or `/sr:…`). */
-export const ULTRACODE_COMMAND_RE = /^\/(specrails|sr):ultracode\b/
+/** Match an Freestyle rail command: `/specrails:freestyle #5 …` (or `/sr:…`). */
+export const FREESTYLE_COMMAND_RE = /^\/(specrails|sr):freestyle\b/
 
 export interface EnqueueOptions {
   dependsOnJobId?: string
@@ -201,14 +201,14 @@ export interface EnqueueOptions {
    *  job runs with the project's primary provider (this._adapter). Validated by
    *  the route layer against the project's installed providers. */
   provider?: ProviderId
-  /** Per-job model override (e.g. ultracode rails let the user pick
+  /** Per-job model override (e.g. freestyle rails let the user pick
    *  haiku/sonnet/opus per launch). For claude this becomes the `--model`
    *  value, taking precedence over the project orchestrator model. In-memory
    *  only — a queued job that survives a restart falls back to the default. */
   model?: string
   /** Per-job OVERRIDE of the interactive-by-default spawn (tri-state):
    *  `undefined` = default ON — every job whose resolved adapter supports
-   *  persistent stdin (claude) spawns as an interactive session (ultracode
+   *  persistent stdin (claude) spawns as an interactive session (freestyle
    *  idles until an explicit Finalize; every other command auto-settles when
    *  quiescent). `true` = force interactive where capable (same as default).
    *  `false` = force the legacy one-shot static spawn. Ignored (legacy spawn)
@@ -637,7 +637,7 @@ export class QueueManager {
       this._jobProviderSelection.set(id, resolvedOpts.provider)
     }
 
-    // Record per-job model override (e.g. ultracode model picker).
+    // Record per-job model override (e.g. freestyle model picker).
     if (resolvedOpts?.model) {
       this._jobModelSelection.set(id, resolvedOpts.model)
     }
@@ -819,7 +819,7 @@ export class QueueManager {
   }
 
   /** Settle mode of the LIVE interactive session for this job ('finalize' for
-   *  ultracode, 'auto' for everything else), or null when no session is
+   *  freestyle, 'auto' for everything else), or null when no session is
    *  resident (unknown / not interactive / already settled). Feeds the
    *  `interactiveSettleMode` field on GET /jobs/:id. */
   getInteractiveSettleMode(jobId: string): 'finalize' | 'auto' | null {
@@ -1084,14 +1084,14 @@ export class QueueManager {
   }
 
   /**
-   * Build the Claude prompt for an Ultracode job. Ultracode does NOT invoke
+   * Build the Claude prompt for an Freestyle job. Freestyle does NOT invoke
    * a slash command: it sends the resolved pre-prompt followed by the full spec
    * text of every ticket referenced in the command. Fully reconstructible from
-   * the command (`/specrails:ultracode #<id> …`) + the local ticket store, so a
+   * the command (`/specrails:freestyle #<id> …`) + the local ticket store, so a
    * queued job survives a server restart without losing the prompt.
    */
-  private _buildUltracodePrompt(command: string): string {
-    const pre = this._db ? getUltracodePrePrompt(this._db) : DEFAULT_ULTRACODE_PRE_PROMPT
+  private _buildFreestylePrompt(command: string): string {
+    const pre = this._db ? getFreestylePrePrompt(this._db) : DEFAULT_FREESTYLE_PRE_PROMPT
     const ticketIds = this._extractTicketIds(command)
     const specs: string[] = []
     if (this._cwd) {
@@ -1104,7 +1104,7 @@ export class QueueManager {
           specs.push(`# Spec #${ticketId}: ${ticket.title}\n\n${body || '_(no description)_'}`)
         }
       } catch (err) {
-        console.warn(`[queue-manager] failed to read specs for ultracode: ${(err as Error).message}`)
+        console.warn(`[queue-manager] failed to read specs for freestyle: ${(err as Error).message}`)
       }
     }
     const specBlock = specs.length > 0
@@ -1131,7 +1131,7 @@ export class QueueManager {
     // A3: reserve the active slot SYNCHRONOUSLY, before _startJob's awaits
     // (plugin verify, profile snapshot). Otherwise a second _drainQueue triggered
     // during those awaits (a concurrent /spawn, or the synchronous N-job loop of
-    // an Ultracode rail launch) still sees _activeJobId === null and starts a
+    // an Freestyle rail launch) still sees _activeJobId === null and starts a
     // second job in the same working tree, with _activeProcess/_activeJobId then
     // clobbered so cancel/zombie-kill hits the wrong child.
     this._activeJobId = nextJobId
@@ -1334,7 +1334,7 @@ export class QueueManager {
 
   /**
    * Spawn an interactive session. The job row is created with the `interactive`
-   * flag set; the resident child runs the first turn (the ultracode prompt, or
+   * flag set; the resident child runs the first turn (the freestyle prompt, or
    * the slash command itself — spike-verified to expand over stream-json stdin)
    * and stays alive for follow-up turns until settle. `_activeProcess` is left
    * null — the session owns the child; the active SLOT (`_activeJobId`,
@@ -1620,7 +1620,7 @@ export class QueueManager {
     // Spike-verified (2026-07-03, claude 2.1.198): the claude CLI expands slash
     // commands arriving as stream-json stdin user frames exactly like the argv
     // `-p "/cmd"` path, so EVERY claude job (implement/batch/custom commands,
-    // not just ultracode prose) is prompt-compatible with the persistent-stdin
+    // not just freestyle prose) is prompt-compatible with the persistent-stdin
     // transport. The default is therefore interactive whenever the kill-switch
     // is on and the resolved adapter supports persistent stdin (claude only
     // today); codex/gemini always take the legacy one-shot spawn below.
@@ -1628,17 +1628,17 @@ export class QueueManager {
     // true forces interactive where capable, undefined = default ON. Derived
     // HERE (spawn time), not at enqueue, so a queued job that survives a server
     // restart (selection map lost) still spawns interactive.
-    const isUltracode = adapter.id === 'claude' && ULTRACODE_COMMAND_RE.test(commandToRun)
+    const isFreestyle = adapter.id === 'claude' && FREESTYLE_COMMAND_RE.test(commandToRun)
     const interactiveOverride = this._jobInteractiveSelection.get(jobId)
     this._jobInteractiveSelection.delete(jobId)
     const spawnInteractive =
       isInteractiveJobsEnabled() &&
       adapter.capabilities.persistentStdin &&
       (interactiveOverride ?? true)
-    // Ultracode sessions idle awaiting the human (settle only on explicit
+    // Freestyle sessions idle awaiting the human (settle only on explicit
     // Finalize — the pre-flip behaviour); every other command auto-settles the
     // moment a turn result lands with nothing queued behind it.
-    const interactiveSettleMode: 'finalize' | 'auto' = isUltracode ? 'finalize' : 'auto'
+    const interactiveSettleMode: 'finalize' | 'auto' = isFreestyle ? 'finalize' : 'auto'
 
     // Build supplementary context (output chaining + headless mode) that goes
     // into --append-system-prompt, keeping the user prompt clean.
@@ -1742,18 +1742,18 @@ export class QueueManager {
     //    claude slash command — propose-spec, implement, batch-implement,
     //    explore-spec, retry, …). This is the rail equivalent of the
     //    user typing `$implement #1 --yes` themselves in `codex`.
-    // Ultracode (Claude only): skip the slash command entirely and send the
+    // Freestyle (Claude only): skip the slash command entirely and send the
     // pre-prompt + spec text directly as the prompt. The server route guards
-    // that ultracode never reaches a non-claude adapter; defensively, a codex
+    // that freestyle never reaches a non-claude adapter; defensively, a codex
     // adapter still falls through to its skill-translation path below.
-    // (`isUltracode` itself is resolved above, before the systemAppend build.)
-    const railPrompt = isUltracode
-      ? this._buildUltracodePrompt(commandToRun)
+    // (`isFreestyle` itself is resolved above, before the systemAppend build.)
+    const railPrompt = isFreestyle
+      ? this._buildFreestylePrompt(commandToRun)
       : adapter.id === 'codex'
         ? commandToRun.replace(/^\/(specrails|sr):([\w-]+)/, '$$$2')
         : commandToRun
     // Per-job model override (consumed once) takes precedence — used by the
-    // ultracode model picker so the user can choose haiku/sonnet/opus per launch.
+    // freestyle model picker so the user can choose haiku/sonnet/opus per launch.
     const modelOverride = this._jobModelSelection.get(jobId)
     this._jobModelSelection.delete(jobId)
     const railModel = modelOverride
@@ -1977,7 +1977,7 @@ export class QueueManager {
 
     // ─── Interactive branch (default for persistent-stdin providers) ───────
     // Hand off to a resident persistent-stdin session instead of the one-shot
-    // spawn below. Ultracode keeps 'finalize' settle-mode (idles until the
+    // spawn below. Freestyle keeps 'finalize' settle-mode (idles until the
     // human Finalizes); every other command runs 'auto' (the session settles
     // itself the moment a turn result lands with nothing queued). Code-Explorer
     // provenance is captured around the SESSION lifecycle exactly like the
@@ -1995,14 +1995,14 @@ export class QueueManager {
         // chat-stream feeds the prompt over stdin per-turn, so the argv `prompt`
         // is unused — pass empty to satisfy the shared SpawnOptions shape.
         prompt: '',
-        // Ultracode's prose prompt brings no system prompt of its own, so the
+        // Freestyle's prose prompt brings no system prompt of its own, so the
         // supplementary context rides `--system-prompt` (byte-identical to the
-        // pre-flip interactive-ultracode spawn). A slash-command job's EXPANDED
+        // pre-flip interactive-freestyle spawn). A slash-command job's EXPANDED
         // command brings its own system prompt — mirror the legacy rail-job
         // spawn and APPEND on top of the CLI default instead of replacing it.
-        systemPrompt: isUltracode ? (systemAppend || undefined) : undefined,
+        systemPrompt: isFreestyle ? (systemAppend || undefined) : undefined,
         model: railModel,
-        extraArgs: !isUltracode && systemAppend
+        extraArgs: !isFreestyle && systemAppend
           ? ['--append-system-prompt', systemAppend, ...(railExtraArgs ?? [])]
           : railExtraArgs,
       })

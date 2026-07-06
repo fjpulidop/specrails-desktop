@@ -153,7 +153,7 @@ describe('mobile-router', () => {
     const res = await request(app)
       .post('/v1/projects/p1/rails/0/launch')
       .set('Authorization', 'Bearer tok')
-      .send({ loopId: 'factory:implement', reasoning_effort: 'high', interactive: true, evil: 'x', reasoning_effort_bad: 'ultra' })
+      .send({ loopId: 'factory:implement', reasoning_effort: 'high', interactive: true, evil: 'x', reasoning_effort_bad: 'freestyle' })
     expect(res.status).toBe(200)
     expect(res.body.body).toEqual({ loopId: 'factory:implement', reasoning_effort: 'high', interactive: true })
   })

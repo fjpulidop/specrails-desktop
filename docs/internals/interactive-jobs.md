@@ -29,7 +29,7 @@ duplicate `result` frame can never be folded into the next turn's totals (BUG-IN
 
 ### The spike that unlocked the flip
 
-The original interactive path was ultracode-only because ultracode sends prose, not a slash
+The original interactive path was freestyle-only because freestyle sends prose, not a slash
 command. Spike-verified 2026-07-03 against **claude 2.1.198**: the claude CLI expands slash
 commands arriving as stream-json stdin user frames **exactly like the argv `-p "/cmd"` path**
 (evidence pointer: the dated comment block above the interactive gate in
@@ -60,7 +60,7 @@ spawnInteractive = isInteractiveJobsEnabled()            // SPECRAILS_INTERACTIV
 
 | | `'finalize'` | `'auto'` |
 |---|---|---|
-| Who gets it | ultracode/Freestyle QueueManager jobs (claude) | every other interactive job + ALL loop ai-steps |
+| Who gets it | freestyle/Freestyle QueueManager jobs (claude) | every other interactive job + ALL loop ai-steps |
 | End of session | explicit human **Finalize** only (SIGTERM → 2s → SIGKILL) | **quiescence**: a turn `result` arrived, nothing queued, no write in flight |
 | Idle between turns | by design (awaiting the human) | only transiently (microtask window) |
 | Wedge detector | never armed | the queue's zombie-timeout budget, reset on any raw child output; silence for the whole budget → fold in-flight turn, settle `crashed` |
@@ -148,7 +148,7 @@ command didn't actually run, the settle is FAILED.**
   so the synthetic text would otherwise never appear in the log.
 - **QueueManager** (`_settleInteractiveJob`): a zero-work `'finalized'` settle stamps the job
   `'failed'` (exit code 1, failed `ai_invocations` row, dependents skipped) — **in both settle
-  modes**, so an ultracode Finalize after only the synthetic frame is also a failure. A canceled
+  modes**, so an freestyle Finalize after only the synthetic frame is also a failure. A canceled
   job stays `'canceled'`.
 - **LoopRunManager** (ai-steps): a zero-work settle makes the step's `AiStepResult` `failed` and
   its `loop_step_end` `status:'failed'`, and it **routes exactly like a crashed step** — the run

@@ -137,6 +137,15 @@ describe('tool catalog smoke (all domains)', () => {
     expect(res.hint).toMatch(/specrails_watch/)
   })
 
+  it('describes Freestyle as the user-facing name for the canonical freestyle mode', () => {
+    const rails = buildToolSpecs().find((s) => s.name === 'specrails_rails')!
+    expect(rails.description).toContain('call the free-form autonomous mode "Freestyle"')
+    expect(rails.description).toContain('canonical API enum value')
+    const mode = rails.inputSchema.mode as z.ZodTypeAny
+    expect(mode.description).toContain('Use "freestyle" as the canonical API enum value for Freestyle')
+    expect(mode.description).toContain('In prose, call it "Freestyle"')
+  })
+
   // Origin link (safe-pr-review-flow): a launch driven by the in-app agent tags
   // itself with the launching conversation so the PR-decision card fires there.
   describe('rails launch origin link', () => {

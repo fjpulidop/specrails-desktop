@@ -247,7 +247,7 @@ EVERY completed job/run promotes its tickets `todo|in_progress → on_review`, n
   "Per-run settle" above) — covering shared-cwd rail launches, standalone loop runs, and the
   isolation-unavailable fallback.
 - **QueueManager jobs** (`project-registry.ts` `onJobFinished`): bare-mode launches, MCP
-  `/spawn` jobs, ultracode Finalize, interactive auto-settles. `QueueManager._startJob` reads
+  `/spawn` jobs, freestyle Finalize, interactive auto-settles. `QueueManager._startJob` reads
   `isRailPrDeliveryEnabled()` ONCE per job at spawn — the SAME read that injects
   `SPECRAILS_GIT_AUTO=false` — records it in the in-memory `_jobPrDelivery` map (restart-durable
   by construction, like the interactive gate: a queued job surviving a restart recomputes at its

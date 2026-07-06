@@ -302,8 +302,8 @@ describe('loop refs (factory ids + href codec)', () => {
     expect(parseAgentRefHref('#agentref:loop:factory:otherthing')).toBeNull()
   })
 
-  it('linkifies factory:implement|batch|ultracode literals without a context gate', () => {
-    for (const id of ['factory:implement', 'factory:batch', 'factory:ultracode']) {
+  it('linkifies factory:implement|batch|freestyle literals without a context gate', () => {
+    for (const id of ['factory:implement', 'factory:batch', 'factory:freestyle']) {
       expect(refs(splitAgentRefs(`lanzo con ${id} ahora`, noCtx))).toEqual([
         { kind: 'loop', loopId: id, label: id },
       ])

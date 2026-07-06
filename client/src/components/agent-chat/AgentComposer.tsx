@@ -4,13 +4,43 @@ import { toast } from 'sonner'
 import { SendHorizontal, History, Square, Paperclip, X, Clock, Check, Pencil } from 'lucide-react'
 import { useAgentChat } from '../../context/AgentChatContext'
 import { useAgentWorkspace } from '../../context/AgentWorkspaceContext'
+import { useDesktop } from '../../hooks/useDesktop'
+import { API_ORIGIN } from '../../lib/origin'
 import { uploadAgentAttachment, deleteAgentAttachment, getAgentModels, type AgentAttachment } from '../../lib/agent-api'
+import {
+  buildPaletteItems,
+  buildNoResultPaletteItems,
+  chipKey,
+  detectAgentPaletteTrigger,
+  filterPaletteItems,
+  insertPaletteSelection,
+  toContextReference,
+  type AgentContextChip,
+  type AgentPaletteItem,
+  type AgentPaletteMode,
+  type AgentPaletteTrigger,
+} from '../../lib/agent-context-palette'
+import type { JobSummary, LocalTicket } from '../../types'
 import { AgentProjectSelector } from './AgentProjectSelector'
 import { AgentTierChip } from './AgentTierChip'
 import { AgentModelSelector } from './AgentModelSelector'
 import { AgentGitBar } from './AgentGitBar'
+import { AgentComposerContextChips, AgentContextPalette, AgentPlusMenu } from './AgentContextPalette'
 
 const PROVIDERS = ['claude', 'codex', 'gemini'] as const
+
+function removePaletteTriggerText(
+  text: string,
+  trigger: Pick<AgentPaletteTrigger, 'start' | 'end'> | null,
+): { text: string; caret: number } {
+  if (!trigger) return { text, caret: text.length }
+  let before = text.slice(0, trigger.start)
+  let after = text.slice(trigger.end)
+  if (/\s$/.test(before) && /^\s/.test(after)) after = after.replace(/^\s+/, '')
+  const bridge = before && after && !/\s$/.test(before) && !/^\s/.test(after) ? ' ' : ''
+  const next = `${before}${bridge}${after}`
+  return { text: next, caret: before.length + bridge.length }
+}
 
 // Session-scoped composer drafts (design D15 — context/session state, never the
 // URL): the Mission⇄Board mode switch UNMOUNTS the composer, so a typed-but-
@@ -43,12 +73,13 @@ export function AgentComposer({
 }) {
   const { t } = useTranslation('agent')
   const {
-    active, messages, isStreaming, providersReady, draftPinnedProjectId,
+    active, messages, conversations, isStreaming, providersReady, draftPinnedProjectId,
     draftProvider, draftModel, draftTierLevel, draftEffort, setEffort,
     send, abort, cycleTier, setProvider, setModel, setPinnedProject,
     queuedMessages, editQueuedMessage, wasQueueConsumed,
   } = useAgentChat()
   const { pendingCaptures, consumePendingCaptures } = useAgentWorkspace()
+  const { projects, activeProjectId } = useDesktop()
   const draftKey = active?.id ?? NEW_MISSION_DRAFT_KEY
   const [input, setInputState] = useState(() => composerDrafts.get(draftKey) ?? '')
   // Every keystroke mirrors into the session draft store so an unmount
@@ -62,6 +93,13 @@ export function AgentComposer({
   const [attached, setAttached] = useState<AgentAttachment[]>([])
   const [uploading, setUploading] = useState(false)
   const fileInputRef = useRef<HTMLInputElement | null>(null)
+  const textareaRef = useRef<HTMLTextAreaElement | null>(null)
+  const [contextChips, setContextChips] = useState<AgentContextChip[]>([])
+  const [paletteTrigger, setPaletteTrigger] = useState<AgentPaletteTrigger | null>(null)
+  const [activePaletteIndex, setActivePaletteIndex] = useState(0)
+  const [plusOpen, setPlusOpen] = useState(false)
+  const [scopedTickets, setScopedTickets] = useState<LocalTicket[]>([])
+  const [scopedJobs, setScopedJobs] = useState<JobSummary[]>([])
   const inHistory = histIndex !== null
   const history = useMemo(
     () => messages.filter((m) => m.role === 'user').map((m) => m.content),
@@ -91,6 +129,33 @@ export function AgentComposer({
   // The git strip follows the MISSION's pinned project (or the draft pin on the
   // EMPTY compose screen) — never the app's active project.
   const gitProjectId = active ? active.pinned_project_id : draftPinnedProjectId
+  const pinnedProjectId = gitProjectId
+
+  const paletteSource = useMemo(() => ({
+    projects,
+    conversations,
+    activeConversation: active,
+    pinnedProjectId,
+    activeProjectId,
+    tickets: scopedTickets,
+    jobs: scopedJobs,
+    chips: contextChips,
+  }), [projects, conversations, active, pinnedProjectId, activeProjectId, scopedTickets, scopedJobs, contextChips])
+  const paletteItems = useMemo(
+    () => (paletteTrigger ? buildPaletteItems(paletteTrigger.mode, paletteSource) : []),
+    [paletteTrigger, paletteSource],
+  )
+  const visiblePaletteItems = useMemo(
+    () => {
+      if (!paletteTrigger) return []
+      const filtered = filterPaletteItems(paletteItems, paletteTrigger.query)
+      if (filtered.length > 0) return filtered
+      return buildNoResultPaletteItems(paletteTrigger.mode, paletteTrigger.query)
+    },
+    [paletteItems, paletteTrigger],
+  )
+  const paletteOpen = paletteTrigger !== null && !inQueueEdit
+  const hasDraft = input.trim().length > 0 || contextChips.length > 0
 
   const activeId = active?.id ?? null
   // The composer survives conversation switches (no key/remount): pending chips
@@ -99,6 +164,9 @@ export function AgentComposer({
   useEffect(() => {
     setAttached([])
     setHistIndex(null)
+    setPaletteTrigger(null)
+    setPlusOpen(false)
+    setContextChips([])
     // A queue-edit in progress belongs to the previous conversation — drop it
     // (the queued message is untouched server-side; the draft store below still
     // holds the stashed draft, which is exactly what gets restored).
@@ -106,6 +174,44 @@ export function AgentComposer({
     // Restore the target conversation's own unsent draft (or the new-mission one).
     setInputState(composerDrafts.get(activeId ?? NEW_MISSION_DRAFT_KEY) ?? '')
   }, [activeId])
+
+  useEffect(() => {
+    if (!pinnedProjectId) {
+      setScopedTickets([])
+      setScopedJobs([])
+      return
+    }
+    let alive = true
+    const loadScopedContext = async (): Promise<void> => {
+      try {
+        const [ticketsRes, jobsRes] = await Promise.all([
+          fetch(`${API_ORIGIN}/api/projects/${encodeURIComponent(pinnedProjectId)}/tickets`),
+          fetch(`${API_ORIGIN}/api/projects/${encodeURIComponent(pinnedProjectId)}/jobs?limit=25`),
+        ])
+        const ticketsJson = await ticketsRes.json() as { tickets?: LocalTicket[] }
+        const jobsJson = await jobsRes.json() as { jobs?: JobSummary[] }
+        if (!alive) return
+        setScopedTickets(Array.isArray(ticketsJson.tickets) ? ticketsJson.tickets : [])
+        setScopedJobs(Array.isArray(jobsJson.jobs) ? jobsJson.jobs : [])
+      } catch {
+        if (!alive) return
+        setScopedTickets([])
+        setScopedJobs([])
+      }
+    }
+    void loadScopedContext()
+    return () => { alive = false }
+  }, [pinnedProjectId])
+
+  useEffect(() => {
+    setActivePaletteIndex(0)
+  }, [paletteTrigger?.mode, paletteTrigger?.query])
+
+  useEffect(() => {
+    if (activePaletteIndex >= visiblePaletteItems.length) {
+      setActivePaletteIndex(Math.max(0, visiblePaletteItems.length - 1))
+    }
+  }, [activePaletteIndex, visiblePaletteItems.length])
 
   // Browser captures land as already-uploaded agent attachments — adopt them as
   // chips so they ride the next manual send.
@@ -154,6 +260,53 @@ export function AgentComposer({
   const removeAttachment = (id: string) => {
     setAttached((prev) => prev.filter((a) => a.id !== id))
     if (active) void deleteAgentAttachment(active.id, id)
+  }
+
+  const syncPalette = (text: string, caret: number): void => {
+    const trigger = detectAgentPaletteTrigger(text, caret)
+    setPaletteTrigger(trigger)
+    if (trigger) setPlusOpen(false)
+  }
+  const triggerForMode = (mode: AgentPaletteMode): AgentPaletteTrigger['trigger'] => (
+    mode === 'reference' ? '@' : mode === 'trace' ? '#' : '/'
+  )
+  const focusTextareaAt = (caret: number): void => {
+    requestAnimationFrame(() => {
+      textareaRef.current?.focus()
+      textareaRef.current?.setSelectionRange(caret, caret)
+    })
+  }
+  const openPaletteMode = (mode: AgentPaletteMode): void => {
+    if (inQueueEdit) return
+    const trigger = triggerForMode(mode)
+    const el = textareaRef.current
+    const start = el?.selectionStart ?? input.length
+    const end = el?.selectionEnd ?? start
+    const next = `${input.slice(0, start)}${trigger}${input.slice(end)}`
+    setInput(next)
+    setHistIndex(null)
+    setPlusOpen(false)
+    setPaletteTrigger({ mode, trigger, query: '', start, end: start + 1 })
+    focusTextareaAt(start + 1)
+  }
+  const selectPaletteItem = (item: AgentPaletteItem): void => {
+    const next = item.chip
+      ? removePaletteTriggerText(input, paletteTrigger)
+      : insertPaletteSelection(input, paletteTrigger, item)
+    setInput(next.text)
+    setHistIndex(null)
+    setPaletteTrigger(null)
+    setPlusOpen(false)
+    if (item.chip) {
+      setContextChips((prev) => (
+        prev.some((chip) => chipKey(chip) === chipKey(item.chip!)) ? prev : [...prev, item.chip!]
+      ))
+    }
+    focusTextareaAt(next.caret)
+  }
+  const removeContextChip = (chip: AgentContextChip): void => {
+    const key = chipKey(chip)
+    setContextChips((prev) => prev.filter((item) => chipKey(item) !== key))
   }
 
   // ── Queue-edit helpers ──────────────────────────────────────────────────────
@@ -210,10 +363,18 @@ export function AgentComposer({
   const submit = () => {
     // Text is required (server contract: 400 on empty text) — an attachment-only
     // submit must NOT clear the chips into a silently-dropped turn.
-    if (blocked || !input.trim()) return
-    void send(input, attached.length ? { attachmentIds: attached.map((a) => a.id) } : undefined)
+    if (blocked || !hasDraft) return
+    const textForTurn = input.trim() || contextChips.map((chip) => chip.token).join(' ')
+    const opts = {
+      ...(attached.length ? { attachmentIds: attached.map((a) => a.id) } : {}),
+      ...(contextChips.length ? { contextRefs: contextChips.map(toContextReference) } : {}),
+    }
+    void send(textForTurn, attached.length || contextChips.length ? opts : undefined)
     setInput('')
     setAttached([])
+    setContextChips([])
+    setPaletteTrigger(null)
+    setPlusOpen(false)
     setHistIndex(null)
   }
   const recall = (i: number) => {
@@ -233,6 +394,38 @@ export function AgentComposer({
       e.preventDefault()
       e.stopPropagation() // the view wrapper also listens — don't cycle twice
       void cycleTier()
+      return
+    }
+    if (paletteOpen) {
+      if (e.key === 'ArrowDown') {
+        e.preventDefault()
+        if (visiblePaletteItems.length > 0) {
+          setActivePaletteIndex((idx) => Math.min(visiblePaletteItems.length - 1, idx + 1))
+        }
+        return
+      }
+      if (e.key === 'ArrowUp') {
+        e.preventDefault()
+        if (visiblePaletteItems.length > 0) {
+          setActivePaletteIndex((idx) => Math.max(0, idx - 1))
+        }
+        return
+      }
+      if (e.key === 'Enter' || e.key === 'Tab') {
+        e.preventDefault()
+        const item = visiblePaletteItems[activePaletteIndex] ?? visiblePaletteItems[0]
+        if (item) selectPaletteItem(item)
+        return
+      }
+      if (e.key === 'Escape') {
+        e.preventDefault()
+        setPaletteTrigger(null)
+        return
+      }
+    }
+    if (e.key === 'Backspace' && input.length === 0 && contextChips.length > 0 && !inQueueEdit) {
+      e.preventDefault()
+      setContextChips((prev) => prev.slice(0, -1))
       return
     }
     if (e.key === 'Enter' && !e.shiftKey) {
@@ -396,7 +589,7 @@ export function AgentComposer({
         </div>
       )}
       <div
-        className={`flex items-end gap-2 rounded-xl border bg-background/60 px-3 py-2 ${
+        className={`relative flex items-end gap-2 rounded-xl border bg-background/60 px-3 py-2 ${
           inQueueEdit ? 'border-accent-highlight/50' : inHistory ? 'border-accent-info/40' : 'border-border/60'
         }`}
         onDragOver={(e) => { if (canAttach) { e.preventDefault() } }}
@@ -407,6 +600,16 @@ export function AgentComposer({
           if (files.length) void uploadFiles(files)
         }}
       >
+        {paletteOpen && (
+          <AgentContextPalette
+            items={visiblePaletteItems}
+            mode={paletteTrigger.mode}
+            query={paletteTrigger.query}
+            activeIndex={activePaletteIndex}
+            onActiveIndexChange={setActivePaletteIndex}
+            onSelect={selectPaletteItem}
+          />
+        )}
         {canAttach && (
           <>
             <input
@@ -420,48 +623,63 @@ export function AgentComposer({
                 e.target.value = ''
               }}
             />
-            <button
-              type="button"
-              onClick={() => fileInputRef.current?.click()}
-              disabled={uploading}
-              aria-label={t('attachFile')}
-              title={t('attachFile')}
-              data-agent-interactive
-              className="mb-1 rounded-md p-1 text-foreground/50 hover:bg-surface hover:text-foreground disabled:opacity-50"
-            >
-              <Paperclip className="h-4 w-4" />
-            </button>
           </>
         )}
-        <textarea
-          value={input}
-          autoFocus={autoFocus}
-          onChange={(e) => {
-            // Editing a queued slot: keep the keystrokes OUT of the draft store
-            // (it still holds the stashed draft) and stay in the mode — Enter
-            // saves, Esc cancels.
-            if (inQueueEdit) {
-              setInputState(e.target.value)
-              return
-            }
-            if (inHistory) setHistIndex(null)
-            setInput(e.target.value)
+        <AgentPlusMenu
+          open={plusOpen}
+          canAttach={canAttach}
+          uploading={uploading}
+          onToggle={() => {
+            setPlusOpen((open) => !open)
+            setPaletteTrigger(null)
           }}
-          onKeyDown={onKeyDown}
-          onPaste={(e) => {
-            if (!canAttach) return
-            const files = Array.from(e.clipboardData.files)
-            if (files.length) { e.preventDefault(); void uploadFiles(files) }
+          onClose={() => setPlusOpen(false)}
+          onOpenMode={openPaletteMode}
+          onAttachFile={() => {
+            setPlusOpen(false)
+            fileInputRef.current?.click()
           }}
-          rows={2}
-          disabled={blocked}
-          placeholder={blocked ? t('noProvider.placeholder') : isStreaming ? t('queue.placeholder') : t('composerPlaceholder')}
-          data-agent-interactive
-          title={inQueueEdit ? t('queueEdit.hint') : inHistory ? t('history.hint') : undefined}
-          className={`min-h-[3.25rem] max-h-64 flex-1 resize-y bg-transparent text-sm outline-none placeholder:text-foreground/40 disabled:opacity-60 ${
-            inHistory ? 'italic text-foreground/50' : 'text-foreground'
-          }`}
         />
+        <div className="flex min-h-[3.25rem] flex-1 flex-wrap items-start gap-1.5">
+          {!inQueueEdit && (
+            <AgentComposerContextChips
+              chips={contextChips}
+              onRemove={removeContextChip}
+            />
+          )}
+          <textarea
+            ref={textareaRef}
+            value={input}
+            autoFocus={autoFocus}
+            onChange={(e) => {
+              // Editing a queued slot: keep the keystrokes OUT of the draft store
+              // (it still holds the stashed draft) and stay in the mode — Enter
+              // saves, Esc cancels.
+              if (inQueueEdit) {
+                setInputState(e.target.value)
+                return
+              }
+              if (inHistory) setHistIndex(null)
+              setInput(e.target.value)
+              syncPalette(e.target.value, e.target.selectionStart ?? e.target.value.length)
+            }}
+            onClick={(e) => syncPalette(e.currentTarget.value, e.currentTarget.selectionStart ?? e.currentTarget.value.length)}
+            onKeyDown={onKeyDown}
+            onPaste={(e) => {
+              if (!canAttach) return
+              const files = Array.from(e.clipboardData.files)
+              if (files.length) { e.preventDefault(); void uploadFiles(files) }
+            }}
+            rows={2}
+            disabled={blocked}
+            placeholder={contextChips.length > 0 ? '' : blocked ? t('noProvider.placeholder') : isStreaming ? t('queue.placeholder') : t('composerPlaceholder')}
+            data-agent-interactive
+            title={inQueueEdit ? t('queueEdit.hint') : inHistory ? t('history.hint') : undefined}
+            className={`min-h-[3.25rem] max-h-64 min-w-[12rem] flex-1 resize-y bg-transparent text-sm outline-none placeholder:text-foreground/40 disabled:opacity-60 ${
+              inHistory ? 'italic text-foreground/50' : 'text-foreground'
+            }`}
+          />
+        </div>
         {/* Tri-state action: idle → send; streaming + empty box → red stop;
             streaming + text → "send to queue" (the agent keeps working, the
             message parks behind the in-flight turn). Queue-edit mode overrides
@@ -477,7 +695,7 @@ export function AgentComposer({
           >
             <Check className="h-4 w-4" />
           </button>
-        ) : isStreaming && !input.trim() ? (
+        ) : isStreaming && !hasDraft ? (
           <button
             type="button"
             onClick={() => void abort()}
@@ -505,7 +723,7 @@ export function AgentComposer({
           <button
             type="button"
             onClick={submit}
-            disabled={blocked || !input.trim()}
+            disabled={blocked || !hasDraft}
             aria-label={t('send')}
             className="rounded-lg bg-accent-primary p-1.5 text-white transition-opacity disabled:opacity-40"
           >

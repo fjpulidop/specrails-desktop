@@ -9,7 +9,7 @@ import { effectiveLoopId } from '../lib/rail-loops'
 import { SpecCard } from './SpecCard'
 import { RailProfileSelector } from './agents/RailProfileSelector'
 import { RailEngineSelector } from './agents/RailEngineSelector'
-import { RailModelSelector, type UltracodeModel } from './agents/RailModelSelector'
+import { RailModelSelector, type FreestyleModel } from './agents/RailModelSelector'
 import { RailLoopSelector } from './agents/RailLoopSelector'
 import { RailExecutionInfo } from './RailExecutionInfo'
 import { RailEffortSelector, type ReasoningEffort } from './agents/RailEffortSelector'
@@ -32,11 +32,11 @@ interface RailRowProps {
   profileName?: string | null
   /** Selected AI engine for this rail (multi-provider). null/undefined = primary. */
   aiEngine?: string | null
-  /** Selected model for ultracode rails. null/undefined = default (sonnet). */
-  ultracodeModel?: UltracodeModel | null
+  /** Selected model for freestyle rails. null/undefined = default (sonnet). */
+  freestyleModel?: FreestyleModel | null
   /** Selected model for custom loop rails. null/undefined = provider default. */
   loopModel?: string | null
-  /** Per-rail "Interactive" toggle (ultracode only). */
+  /** Per-rail "Interactive" toggle (freestyle only). */
   /** Installed providers — when >1 the rail header shows an AI engine selector. */
   providers?: readonly string[]
   /** When true, the rail offers "Loop" mode (run a published loop). */
@@ -69,7 +69,7 @@ interface RailRowProps {
   onModeChange: (mode: RailMode) => void
   onProfileChange?: (profileName: string | null) => void
   onEngineChange?: (aiEngine: string) => void
-  onUltracodeModelChange?: (model: UltracodeModel) => void
+  onFreestyleModelChange?: (model: FreestyleModel) => void
   onLoopModelChange?: (model: string) => void
   onLoopChange?: (loopId: string) => void
   onEffortChange?: (effort: ReasoningEffort) => void
@@ -85,17 +85,17 @@ interface RailRowProps {
 }
 
 export function RailRow({
-  id, label, tickets, mode, status, activeJobId, profileName, aiEngine, ultracodeModel, loopModel, providers,
+  id, label, tickets, mode, status, activeJobId, profileName, aiEngine, freestyleModel, loopModel, providers,
   loopAvailable, selectedLoopId, reasoningEffort, worktreeSummary, prDecision, onPrDecision, executionMetric, jiggleMode,
   dragHandleListeners, dragHandleAttributes, density = 'normal',
-  onModeChange, onProfileChange, onEngineChange, onUltracodeModelChange, onLoopModelChange, onLoopChange, onEffortChange, onToggle, onTicketClick, onDelete, onLongPress, onRename,
+  onModeChange, onProfileChange, onEngineChange, onFreestyleModelChange, onLoopModelChange, onLoopChange, onEffortChange, onToggle, onTicketClick, onDelete, onLongPress, onRename,
   onTicketMoveToSpecs,
 }: RailRowProps) {
   const { t } = useTranslation('dashboard')
   // Codex has no agent profiles — hide the profile selector when this rail's
   // engine is codex (the engine selector is shown only on multi-provider projects).
   const profileApplies = (aiEngine ?? providers?.[0]) !== 'codex'
-  // Ultracode is Claude-only. Effective engine = explicit rail override, else
+  // Freestyle is Claude-only. Effective engine = explicit rail override, else
   // the project's primary provider (providers[0]); default to claude when
   // unknown (single-provider claude projects pass no providers list).
   const engineIsClaude = (aiEngine ?? providers?.[0] ?? 'claude') === 'claude'
@@ -107,7 +107,7 @@ export function RailRow({
   // engine + model + mode segments + play into a single line.
   const showEngineSel = !!onEngineChange && status !== 'running' && (providers?.length ?? 0) > 1
   const showProfileSel = !!onProfileChange && status !== 'running' && profileApplies && mode !== 'loop'
-  const showModelSel = !!onUltracodeModelChange && status !== 'running' && mode === 'ultracode' && engineIsClaude
+  const showModelSel = !!onFreestyleModelChange && status !== 'running' && mode === 'freestyle' && engineIsClaude
   // Model picker for custom loop rails (non-factory loops) — provider-aware.
   const showLoopModelSel = !!onLoopModelChange && status !== 'running' && mode === 'loop'
   const loopModelProvider = aiEngine ?? providers?.[0] ?? 'claude'
@@ -436,15 +436,15 @@ export function RailRow({
           {onProfileChange && !isRunning && profileApplies && mode !== 'loop' && (
             <RailProfileSelector value={profileName ?? null} onChange={onProfileChange} />
           )}
-          {onUltracodeModelChange && !isRunning && mode === 'ultracode' && engineIsClaude && (
-            <RailModelSelector value={ultracodeModel ?? null} onChange={onUltracodeModelChange} />
+          {onFreestyleModelChange && !isRunning && mode === 'freestyle' && engineIsClaude && (
+            <RailModelSelector value={freestyleModel ?? null} onChange={onFreestyleModelChange} />
           )}
           {loopModelPickerEl}
           {onLoopChange && !isRunning && (
             <RailLoopSelector
               value={effectiveLoopId(selectedLoopId, mode)}
               onChange={onLoopChange}
-              ultracodeAvailable={engineIsClaude}
+              freestyleAvailable={engineIsClaude}
               loopsEnabled={loopAvailable}
             />
           )}
@@ -456,7 +456,7 @@ export function RailRow({
             status={status}
             activeJobId={activeJobId}
             ticketCount={tickets.length}
-            ultracodeAvailable={engineIsClaude}
+            freestyleAvailable={engineIsClaude}
             loopAvailable={loopAvailable}
             onModeChange={onModeChange}
                 onToggle={onToggle}
@@ -614,7 +614,7 @@ export function RailRow({
             {!hasSelectorRow && showProfileSel && onProfileChange && (
               <RailProfileSelector value={profileName ?? null} onChange={onProfileChange} />
             )}
-            <RailControls mode={mode} status={status} activeJobId={activeJobId} ticketCount={tickets.length} ultracodeAvailable={engineIsClaude} loopAvailable={loopAvailable} onModeChange={onModeChange} onToggle={onToggle} />
+            <RailControls mode={mode} status={status} activeJobId={activeJobId} ticketCount={tickets.length} freestyleAvailable={engineIsClaude} loopAvailable={loopAvailable} onModeChange={onModeChange} onToggle={onToggle} />
             {/* Jiggle-mode delete button */}
             {jiggleMode && canDelete && (
               <button
@@ -651,7 +651,7 @@ export function RailRow({
             </div>
           )}
 
-          {/* Secondary selector strip (engine / profile / ultracode model).
+          {/* Secondary selector strip (engine / profile / freestyle model).
               A recessed bar with its own divider + faint inset background so it
               reads as the rail's config row instead of floating controls. */}
           {hasSelectorRow && (
@@ -662,15 +662,15 @@ export function RailRow({
               {hasSelectorRow && showProfileSel && onProfileChange && (
                 <RailProfileSelector value={profileName ?? null} onChange={onProfileChange} />
               )}
-              {showModelSel && onUltracodeModelChange && (
-                <RailModelSelector value={ultracodeModel ?? null} onChange={onUltracodeModelChange} />
+              {showModelSel && onFreestyleModelChange && (
+                <RailModelSelector value={freestyleModel ?? null} onChange={onFreestyleModelChange} />
               )}
               {loopModelPickerEl}
               {showLoopSel && onLoopChange && (
                 <RailLoopSelector
                   value={effectiveLoopId(selectedLoopId, mode)}
                   onChange={onLoopChange}
-                  ultracodeAvailable={engineIsClaude}
+                  freestyleAvailable={engineIsClaude}
                   loopsEnabled={loopAvailable}
                 />
               )}

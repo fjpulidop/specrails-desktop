@@ -97,8 +97,8 @@ export function RailMetricsProvider({ activeProjectId, children }: { activeProje
       setRuns((prev) => { if (!m.loopRunId || !prev.has(m.loopRunId)) return prev; const n = new Map(prev); n.delete(m.loopRunId); return n })
       return
     }
-    // A LEGACY rail job (implement/batch/ultracode via the QueueManager — e.g. an
-    // MCP launch with a bare `mode`, or an ultracode rail) emits rail.job_started,
+    // A QueueManager-backed rail job (implement/batch/freestyle fallback — e.g. an
+    // MCP launch with a bare `mode`, or a Freestyle rail) emits rail.job_started,
     // NOT loop.run_started. Track it the same way (keyed by jobId) so its live
     // elapsed/steps/lines render on the rail card exactly like a loop launch — the
     // event/log handlers below already key off jobId/processId.

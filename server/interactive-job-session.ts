@@ -7,9 +7,9 @@
 // newline-delimited stream-json message written to stdin, the agent works, and
 // the turn ends on a `result` event WITHOUT killing the child. Two settle modes:
 //
-//   'finalize' (ultracode) — the session idles between turns until the user
+//   'finalize' (freestyle) — the session idles between turns until the user
 //     explicitly finalizes (SIGTERM), at which point QueueManager flips the job
-//     to a terminal status. Byte-identical to the original interactive-ultracode
+//     to a terminal status. Byte-identical to the original interactive-freestyle
 //     behaviour.
 //   'auto' (every other command — the default-interactive flip) — the session
 //     settles ITSELF the moment it goes QUIESCENT: a turn `result` arrived and
@@ -163,7 +163,7 @@ export interface InteractiveJobSessionDeps {
    *  rail/ticket completion callback, and drains the queue. */
   onSettle: (info: SettleInfo) => void
   /** 'finalize' (default): the session idles between turns until an explicit
-   *  human finalize — today's ultracode behaviour, byte-identical. 'auto': the
+   *  human finalize — today's freestyle behaviour, byte-identical. 'auto': the
    *  session settles ITSELF (reason 'finalized') as soon as it is QUIESCENT —
    *  a turn `result` arrived, no queued prompts remain, and no user write is
    *  in flight. A user message that arrives mid-stream still queues and
@@ -280,7 +280,7 @@ export class InteractiveJobSession {
     this._spawn = deps.spawn ?? spawnAiCli
   }
 
-  /** Spawn the resident child and run the first turn (the ultracode prompt). */
+  /** Spawn the resident child and run the first turn (the freestyle prompt). */
   start(spec: InteractiveSpawnSpec, firstPrompt: string): void {
     const child = this._spawn(spec.binary, spec.args, {
       env: spec.env ?? process.env,

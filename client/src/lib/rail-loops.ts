@@ -9,19 +9,19 @@ import type { RailMode } from '../components/RailControls'
 export const FACTORY_LOOP_ID: Record<Exclude<RailMode, 'loop'>, string> = {
   implement: 'factory:implement',
   'batch-implement': 'factory:batch',
-  ultracode: 'factory:ultracode',
+  freestyle: 'factory:freestyle',
 }
 
 /**
  * The built-in loops offered in the rail picker. Defined CLIENT-SIDE (not fetched)
  * because they ARE the always-available rail modes — they must work even when the
  * Loops section feature is off. `labelKey` reuses the existing `railControls.*`
- * i18n; `claudeOnly` hides Ultracode on non-Claude rails.
+ * i18n; `claudeOnly` hides Freestyle on non-Claude rails.
  */
 export const FACTORY_RAIL_LOOPS: { id: string; labelKey: string; claudeOnly?: boolean; requiresLoops?: boolean }[] = [
   { id: 'factory:implement', labelKey: 'railControls.implement' },
   { id: 'factory:batch', labelKey: 'railControls.batch' },
-  { id: 'factory:ultracode', labelKey: 'railControls.ultra', claudeOnly: true },
+  { id: 'factory:freestyle', labelKey: 'railControls.freestyle', claudeOnly: true },
   // Graph-native built-in: runs only through the LoopRunManager, so it is
   // offered only while the Loops feature is enabled.
   { id: 'factory:openspec', labelKey: 'railControls.openspec', requiresLoops: true },
@@ -37,7 +37,7 @@ export function factoryIdForMode(mode: RailMode): string {
 export function deriveRailMode(loopId: string | null | undefined): RailMode {
   if (loopId === 'factory:implement') return 'implement'
   if (loopId === 'factory:batch') return 'batch-implement'
-  if (loopId === 'factory:ultracode') return 'ultracode'
+  if (loopId === 'factory:freestyle') return 'freestyle'
   return 'loop'
 }
 

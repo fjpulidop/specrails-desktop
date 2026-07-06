@@ -2,13 +2,13 @@ import type { LoopGraph } from './loops-api'
 
 /**
  * Whether a loop "needs a ticket" — it references a `{{spec.*}}` token or one of
- * the ticket-consuming commands (`{{cmd:implement|batch|ultracode}}`). Ticket-
+ * the ticket-consuming commands (`{{cmd:implement|batch|freestyle}}`). Ticket-
  * needing loops run from a rail (the rail provides the spec); ticket-LESS loops
  * (CI watch, repo-wide lint — no spec/ticket reference) run standalone from the
  * Loops page "Run" action.
  */
 const SPEC_TOKEN = /\{\{\s*spec\./
-const TICKET_CMD = /\{\{\s*cmd:(implement|batch|ultracode)\b/
+const TICKET_CMD = /\{\{\s*cmd:(implement|batch|freestyle)\b/
 
 export function loopNeedsTicket(graph: LoopGraph | undefined): boolean {
   if (!graph) return false

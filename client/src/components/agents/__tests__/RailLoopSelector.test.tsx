@@ -21,14 +21,14 @@ describe('RailLoopSelector (unified rail Loop picker)', () => {
     expect(within(sel).getByRole('option', { name: 'Batch' })).toBeInTheDocument()
   })
 
-  it('hides the Claude-only Ultracode built-in when ultracode is unavailable', () => {
-    render(<RailLoopSelector value={null} onChange={() => {}} ultracodeAvailable={false} loopsEnabled={false} />)
+  it('hides the Claude-only Freestyle built-in when freestyle is unavailable', () => {
+    render(<RailLoopSelector value={null} onChange={() => {}} freestyleAvailable={false} loopsEnabled={false} />)
     const sel = screen.getByTestId('rail-loop-selector')
     expect(within(sel).queryByRole('option', { name: 'Freestyle' })).not.toBeInTheDocument()
   })
 
-  it('shows the Ultracode built-in when available', () => {
-    render(<RailLoopSelector value={null} onChange={() => {}} ultracodeAvailable loopsEnabled={false} />)
+  it('shows the Freestyle built-in when available', () => {
+    render(<RailLoopSelector value={null} onChange={() => {}} freestyleAvailable loopsEnabled={false} />)
     expect(within(screen.getByTestId('rail-loop-selector')).getByRole('option', { name: 'Freestyle' })).toBeInTheDocument()
   })
 

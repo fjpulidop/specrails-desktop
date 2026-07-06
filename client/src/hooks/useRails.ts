@@ -172,7 +172,7 @@ export function useRails() {
   )
 
   const launchRail = useCallback(
-    async (railIndex: number, mode: 'implement' | 'batch-implement' | 'ultracode'): Promise<string | null> => {
+    async (railIndex: number, mode: 'implement' | 'batch-implement' | 'freestyle'): Promise<string | null> => {
       const res = await fetch(`${getApiBase()}/rails/${railIndex}/launch`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },

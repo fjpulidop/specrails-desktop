@@ -101,6 +101,40 @@
     "homeHint": "Kein Projekt ausgewählt — über alle Projekte hinweg.",
     "askCreateOrSearch": "Es ist kein Projekt ausgewählt. Möchtest du ein neues Projekt erstellen oder über alle Projekte hinweg suchen?"
   },
+  "palette": {
+    "remove": "{{label}} entfernen",
+    "addContextAction": "Kontext oder Aktion hinzufügen",
+    "filtering": "Filtere \"{{query}}\"",
+    "keyboard": "↑↓ Enter Esc",
+    "noMatches": "Keine Treffer",
+    "noMatchesFor": "Keine Treffer für \"{{query}}\"",
+    "mode": {
+      "reference": {
+        "title": "Referenz",
+        "hint": "@ Projekte, Specs, Missionen"
+      },
+      "trace": {
+        "title": "Trace",
+        "hint": "# Jobs, Läufe, IDs"
+      },
+      "action": {
+        "title": "Aktion",
+        "hint": "/ Befehle für diesen Kontext"
+      }
+    },
+    "plus": {
+      "reference": "Referenz",
+      "referenceHint": "Projekte, Specs, Missionen",
+      "trace": "Trace",
+      "traceHint": "Jobs, Läufe, IDs",
+      "action": "Aktion",
+      "actionHint": "Erstellen, starten, prüfen",
+      "fileAttachment": "Dateianhang",
+      "fileAttachmentHint": "Docs, Bilder, Logs hinzufügen",
+      "browserCapture": "Browser-Aufnahme",
+      "browserCaptureHint": "Im Workspace-Browser verfügbar"
+    }
+  },
   "mission": {
     "label": "Mission wechseln",
     "untitled": "Neue Mission",

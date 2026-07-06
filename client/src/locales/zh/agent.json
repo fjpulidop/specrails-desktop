@@ -101,6 +101,40 @@
     "homeHint": "未选择项目 — 正在跨所有项目操作。",
     "askCreateOrSearch": "未选择任何项目。你想创建一个新项目，还是在所有项目中搜索？"
   },
+  "palette": {
+    "remove": "移除 {{label}}",
+    "addContextAction": "添加上下文或操作",
+    "filtering": "筛选 \"{{query}}\"",
+    "keyboard": "↑↓ Enter Esc",
+    "noMatches": "无匹配结果",
+    "noMatchesFor": "没有 \"{{query}}\" 的匹配结果",
+    "mode": {
+      "reference": {
+        "title": "引用",
+        "hint": "@ 项目、规格、任务"
+      },
+      "trace": {
+        "title": "追踪",
+        "hint": "# 作业、运行、ID"
+      },
+      "action": {
+        "title": "操作",
+        "hint": "/ 此上下文的命令"
+      }
+    },
+    "plus": {
+      "reference": "引用",
+      "referenceHint": "项目、规格、任务",
+      "trace": "追踪",
+      "traceHint": "作业、运行、ID",
+      "action": "操作",
+      "actionHint": "创建、启动、检查",
+      "fileAttachment": "文件附件",
+      "fileAttachmentHint": "添加文档、图片、日志",
+      "browserCapture": "浏览器捕获",
+      "browserCaptureHint": "可从工作区浏览器使用"
+    }
+  },
   "mission": {
     "label": "切换任务",
     "untitled": "新任务",

@@ -130,6 +130,9 @@ describe('tool handlers', () => {
     const ctx = makeCtx(db)
     const text = await tool('specrails_guide').handler(ctx, {})
     expect(String(text)).toContain('Permissions — two regimes')
+    expect(String(text)).toContain('pass the canonical mode value `freestyle`')
+    expect(String(text)).toContain('call\n    the feature "Freestyle"')
+    expect(String(text)).toContain('API mode\n  `freestyle`; say "Freestyle" to users')
   })
 
   it('specrails_search ranks tools by query terms', async () => {

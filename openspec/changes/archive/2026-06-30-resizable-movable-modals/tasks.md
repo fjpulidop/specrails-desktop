@@ -13,7 +13,7 @@
 ## 2. DialogContent integration — capability `dialog-movable-resizable`
 
 - [x] 2.1 Add optional `movableResizable?: boolean` (default `false`) to `DialogContent` in `client/src/components/ui/dialog.tsx`; when on, apply the hook to the Radix `Content` element + render grips + header move surface; keep Radix focus trap / `role` / `aria-modal` / Esc untouched.
-- [x] 2.2 Opt the 16 Tier A modals into `movableResizable` (AddProjectDialog, CreateTicketModal, ProposeSpecModal, CreateTemplateDialog, FeatureProposalModal, UltracodeLaunchDialog, DiscardSpecDialog, PromptDialog, RoutingRuleDialog, PairWebCompanionModal, LoopRunModal, TemplatePreviewModal, KeyboardShortcutsCheatsheet, DocsDialog, GlobalSettingsPage SettingsDialog, InstallInstructionsModal).
+- [x] 2.2 Opt the 16 Tier A modals into `movableResizable` (AddProjectDialog, CreateTicketModal, ProposeSpecModal, CreateTemplateDialog, FeatureProposalModal, FreestyleLaunchDialog, DiscardSpecDialog, PromptDialog, RoutingRuleDialog, PairWebCompanionModal, LoopRunModal, TemplatePreviewModal, KeyboardShortcutsCheatsheet, DocsDialog, GlobalSettingsPage SettingsDialog, InstallInstructionsModal).
 - [x] 2.3 Confirm nested confirmation dialogs (inside TicketDetailModal etc.) stay `movableResizable` off.
 
 ## 3. Tier B bespoke modals — capability `bespoke-modal-movable-resizable`

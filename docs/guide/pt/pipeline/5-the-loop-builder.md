@@ -57,7 +57,7 @@ Um loop que nunca para queimaria dinheiro para sempre, então toda execução te
 |-------|--------------|
 | **Max iterations** | Teto rígido de quantas vezes o Decider pode voltar atrás, independentemente do seu veredito. |
 | **Timeout (min)** | Limite de tempo de relógio para toda a execução. |
-| **Max cost ($)** | *Opcional.* Para o loop quando o custo acumulado cruza o seu orçamento. Verificado **entre passos** (o custo de um passo só é conhecido quando ele termina), então pode ultrapassar em um passo. No Claude o custo é exato; no Codex e no Gemini é uma estimativa. Deixe vazio para não ter teto. |
+| **Max cost ($)** | *Opcional.* Para o loop quando o custo acumulado cruza o seu orçamento. Verificado **entre passos** (o custo de um passo só é conhecido quando ele termina), então pode freestylepassar em um passo. No Claude o custo é exato; no Codex e no Gemini é uma estimativa. Deixe vazio para não ter teto. |
 
 ## Construindo com confiança
 

@@ -35,7 +35,22 @@ export interface AgentMessage {
   content: string
   /** Attachment ids carried by this (user) turn; [] for text-only turns. */
   attachment_ids: string[]
+  /** Structured refs selected in the composer; [] when the turn has none. */
+  context_refs: AgentMessageContextRef[]
   created_at: string
+}
+
+export interface AgentMessageContextRef {
+  kind: string
+  id: string
+  label: string
+  token: string
+  scope?: {
+    projectId?: string | null
+    projectName?: string | null
+  }
+  status?: string | null
+  metadata?: Record<string, unknown>
 }
 
 interface AgentMessageRaw {
@@ -44,25 +59,40 @@ interface AgentMessageRaw {
   role: AgentMessageRole
   content: string
   attachment_ids: string | null
+  context_refs: string | null
   created_at: string
 }
 
-function mapMessage(row: AgentMessageRaw): AgentMessage {
-  let ids: string[] = []
-  if (row.attachment_ids) {
-    try {
-      const parsed = JSON.parse(row.attachment_ids) as unknown
-      if (Array.isArray(parsed)) ids = parsed.filter((x): x is string => typeof x === 'string')
-    } catch {
-      /* ignore malformed */
-    }
+function parseJsonArray<T>(raw: string | null | undefined, predicate: (value: unknown) => value is T): T[] {
+  if (!raw) return []
+  try {
+    const parsed = JSON.parse(raw) as unknown
+    return Array.isArray(parsed) ? parsed.filter(predicate) : []
+  } catch {
+    return []
   }
+}
+
+function isContextRef(value: unknown): value is AgentMessageContextRef {
+  if (!value || typeof value !== 'object') return false
+  const row = value as Record<string, unknown>
+  return (
+    typeof row.kind === 'string' &&
+    typeof row.id === 'string' &&
+    typeof row.label === 'string' &&
+    typeof row.token === 'string'
+  )
+}
+
+function mapMessage(row: AgentMessageRaw): AgentMessage {
+  const ids = parseJsonArray(row.attachment_ids, (x): x is string => typeof x === 'string')
   return {
     id: row.id,
     conversation_id: row.conversation_id,
     role: row.role,
     content: row.content,
     attachment_ids: ids,
+    context_refs: parseJsonArray(row.context_refs, isContextRef),
     created_at: row.created_at,
   }
 }
@@ -151,13 +181,20 @@ export function deleteAgentConversation(db: DbInstance, id: string): void {
 
 export function addAgentMessage(
   db: DbInstance,
-  input: { conversationId: string; role: AgentMessageRole; content: string; attachmentIds?: string[] },
+  input: {
+    conversationId: string
+    role: AgentMessageRole
+    content: string
+    attachmentIds?: string[]
+    contextRefs?: AgentMessageContextRef[]
+  },
 ): AgentMessage {
   const id = randomUUID()
   const attachmentIds = input.attachmentIds && input.attachmentIds.length ? JSON.stringify(input.attachmentIds) : null
+  const contextRefs = input.contextRefs && input.contextRefs.length ? JSON.stringify(input.contextRefs) : null
   db.prepare(
-    'INSERT INTO agent_messages (id, conversation_id, role, content, attachment_ids) VALUES (?, ?, ?, ?, ?)',
-  ).run(id, input.conversationId, input.role, input.content, attachmentIds)
+    'INSERT INTO agent_messages (id, conversation_id, role, content, attachment_ids, context_refs) VALUES (?, ?, ?, ?, ?, ?)',
+  ).run(id, input.conversationId, input.role, input.content, attachmentIds, contextRefs)
   // Touch the parent so the list stays ordered by latest activity.
   db.prepare("UPDATE agent_conversations SET updated_at = datetime('now') WHERE id = ?").run(input.conversationId)
   return mapMessage(db.prepare('SELECT * FROM agent_messages WHERE id = ?').get(id) as AgentMessageRaw)

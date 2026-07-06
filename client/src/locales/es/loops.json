@@ -221,7 +221,7 @@
       "name": "Implementar en lote",
       "description": "Implementa de golpe todos los tickets del raíl y luego verifica y refina cuando falla hasta que esté en verde."
     },
-    "factory_ultracode": {
+    "factory_freestyle": {
       "name": "Freestyle",
       "description": "Entrega la spec directamente al modelo con total libertad — sin pipeline, trabaja como un agente de código normal, y después verifica + refina hasta quedar en verde. Solo Claude."
     },

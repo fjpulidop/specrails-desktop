@@ -13,7 +13,7 @@
  *      that turns out to be a LOOP DEFINITION id (not a job row) is resolved
  *      at click time (the click layer falls back to the loops API) and opens
  *      the read-only LoopPreviewModal instead — detection stays pattern-only.
- *   4. Factory loop ids — the literal `factory:implement|batch|ultracode`
+ *   4. Factory loop ids — the literal `factory:implement|batch|freestyle`
  *      tokens, → the same LoopPreviewModal (built-in, locked).
  *
  * Implemented as a remark plugin (`remarkAgentRefs`) so code blocks and inline
@@ -83,7 +83,7 @@ const UUID_SOURCE = '[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}
 const UUID_EXACT_RE = new RegExp(`^${UUID_SOURCE}$`)
 /** Built-in factory loop ids (`server/loop-factory.ts`) — unambiguous literal
  *  tokens, so they linkify without a context-word gate. */
-const FACTORY_LOOP_SOURCE = 'factory:(?:implement|batch|ultracode)'
+const FACTORY_LOOP_SOURCE = 'factory:(?:implement|batch|freestyle)'
 const FACTORY_LOOP_EXACT_RE = new RegExp(`^${FACTORY_LOOP_SOURCE}$`)
 /** Context words that mark a line as job/run/loop-talk (EN + ES), including
  *  camelCase id compounds (`loopRunId`, `jobId`, `runId`) that `\b` alone

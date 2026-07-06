@@ -621,7 +621,7 @@ function TokenChip({ token, label, description, onInsert }: { token: string; lab
 
 function TokenPalette({ t, onInsert }: { t: (key: string) => string; onInsert: (token: string) => void }) {
   // Magic commands come from the server catalog so the palette never drifts from
-  // what the engine actually expands ({{cmd:implement|batch|ultracode|verify}}, …).
+  // what the engine actually expands ({{cmd:implement|batch|freestyle|verify}}, …).
   const [commands, setCommands] = useState<{ name: string; label: string; description: string }[]>([])
   useEffect(() => {
     let cancelled = false

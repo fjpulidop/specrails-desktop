@@ -60,7 +60,7 @@ interface Harness {
 
 function setup(jobId = 'job-1', extra: Partial<InteractiveJobSessionDeps> = {}): Harness {
   const db = initDb(':memory:')
-  createJob(db, { id: jobId, command: '/specrails:ultracode #1 --yes', started_at: new Date().toISOString(), interactive: true })
+  createJob(db, { id: jobId, command: '/specrails:freestyle #1 --yes', started_at: new Date().toISOString(), interactive: true })
   const broadcasts: WsMessage[] = []
   const settled: SettleInfo[] = []
   const child = makeFakeChild()

@@ -31,7 +31,7 @@
     "saved": "Pre-Prompt gespeichert",
     "saveFailed": "Pre-Prompt konnte nicht gespeichert werden"
   },
-  "ultraPrePrompt": {
+  "freestylePrePrompt": {
     "title": "Freestyle-Pre-Prompt",
     "description": "Anweisung, die in Freestyle an Claude gesendet wird (nur Claude-Rails). Freestyle überspringt die OpenSpec-Pipeline – Claude erhält diesen Pre-Prompt plus den Spec-Text und implementiert autonom. Leer lassen, um den eingebauten Standard zu verwenden.",
     "label": "Freestyle-Pre-Prompt",

@@ -16,6 +16,11 @@ import { prepareAgentMcp } from './agent-mcp-config'
 import { normalizeLevel, type AgentTierLevel } from './agent-tier'
 import { attachmentManager, USER_ATTACHMENT_SYSTEM_NOTE } from './attachment-manager'
 import {
+  buildResolvedAgentContextBlock,
+  type AgentContextReference,
+  type AgentContextRegistry,
+} from './agent-context-resolver'
+import {
   getAgentConversation,
   addAgentMessage,
   updateAgentConversation,
@@ -26,6 +31,8 @@ import {
 import type { PrDecisionCardEnvelope } from './types'
 import { generateAutoTitle } from './explore-draft-title'
 import { setActiveProject } from './mcp/tools/types'
+
+export type { AgentContextReference } from './agent-context-resolver'
 
 // ─── AgentChatManager (design D1) ─────────────────────────────────────────────
 //
@@ -39,6 +46,7 @@ export interface AgentTurnOptions {
   tierLevel?: AgentTierLevel
   model?: string
   attachmentIds?: string[]
+  contextRefs?: AgentContextReference[]
   /** Client-generated correlation id echoed on agent_queued / agent_dequeued. */
   queueId?: string | null
 }
@@ -53,6 +61,7 @@ export class AgentChatManager {
   private readonly _broadcast: (msg: WsMessage) => void
   private readonly _db: DbInstance
   private readonly _port: number
+  private readonly _registry: AgentContextRegistry | null
   private readonly _active = new Map<string, ChildProcess>()
   /** Conversations with a turn in-flight but not yet spawned. Closes the TOCTOU
    *  window the attachment-extraction await opens between the busy guard and
@@ -69,10 +78,11 @@ export class AgentChatManager {
    *  'close'/'error'. */
   private readonly _auxProcesses = new Set<ChildProcess>()
 
-  constructor(broadcast: (msg: WsMessage) => void, db: DbInstance, port: number) {
+  constructor(broadcast: (msg: WsMessage) => void, db: DbInstance, port: number, registry?: AgentContextRegistry | null) {
     this._broadcast = broadcast
     this._db = db
     this._port = port
+    this._registry = registry ?? null
   }
 
   /** True while a turn is streaming for this conversation. */
@@ -111,6 +121,7 @@ export class AgentChatManager {
         conversationId,
         queueId,
         text: userText,
+        contextRefs: options.contextRefs ?? [],
         position: pending.length,
         timestamp: new Date().toISOString(),
       })
@@ -133,6 +144,7 @@ export class AgentChatManager {
           conversationId,
           queueId: next.queueId,
           text: next.text,
+          contextRefs: next.options.contextRefs ?? [],
           timestamp: new Date().toISOString(),
         })
         await this._runTurnSafely(conv, next.text, next.options)
@@ -205,11 +217,19 @@ export class AgentChatManager {
         console.error(`[agent-chat] attachment extraction failed (${conversationId}):`, err)
       }
     }
+    const contextBlock = buildResolvedAgentContextBlock(options.contextRefs ?? [], {
+      desktopDb: this._db,
+      registry: this._registry,
+      fallbackProjectId: conversation.pinned_project_id ?? null,
+    })
+    if (contextBlock) {
+      userWithAttachments = `${userWithAttachments}\n\n${contextBlock}`
+    }
 
     // The conversation may have been deleted while attachments were extracting
     // (DELETE aborts the child and drops the row) — inserting would violate the FK.
     if (!getAgentConversation(this._db, conversationId)) return
-    addAgentMessage(this._db, { conversationId, role: 'user', content: userText, attachmentIds })
+    addAgentMessage(this._db, { conversationId, role: 'user', content: userText, attachmentIds, contextRefs: options.contextRefs })
     this._autoTitle(conversationId, conversation.title)
 
     // Providers WITHOUT a --system-prompt flag (codex, gemini) drop opts.systemPrompt
@@ -659,6 +679,7 @@ export class AgentChatManager {
       conversationId,
       queueId,
       text,
+      contextRefs: item.options.contextRefs ?? [],
       timestamp: new Date().toISOString(),
     })
     return true

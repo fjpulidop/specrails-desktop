@@ -1,6 +1,6 @@
 ## Why
 
-The Loop Builder shipped with **8** Specrails-owned starter templates and a small `{{cmd:*}}` catalog (`implement`, `batch`, `ultracode`, `fix`, `verify`). That is enough to prove the pattern but too thin to be a real library: a user opening the gallery sees a handful of CI/test loops, has no way to search or filter them, and authoring a new loop means re-typing the same verify/commit/PR/anti-gaming prose into every step.
+The Loop Builder shipped with **8** Specrails-owned starter templates and a small `{{cmd:*}}` catalog (`implement`, `batch`, `freestyle`, `fix`, `verify`). That is enough to prove the pattern but too thin to be a real library: a user opening the gallery sees a handful of CI/test loops, has no way to search or filter them, and authoring a new loop means re-typing the same verify/commit/PR/anti-gaming prose into every step.
 
 Public closed-loop directories (e.g. loops.elorm.xyz) demonstrate the breadth users expect — ~40 loops spanning testing, CI, security, docs, migrations, performance, review and more, each tagged and categorised, each carrying a hardened set of **anti-gaming guardrails** so the agent cannot cheat its own exit condition. We want that breadth, expressed entirely in **Specrails-owned text** and native authoring primitives (`{{spec.*}}`, `{{cmd:*}}`, `{{const:*}}`, the Loop Decider), plus the discovery UX (search + category chips) that makes a large library usable.
 

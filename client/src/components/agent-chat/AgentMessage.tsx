@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react'
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
-import { Copy, Check } from 'lucide-react'
+import { AtSign, Bot, BriefcaseBusiness, Check, Copy, FileText, GitPullRequest, Hash, Paperclip, Sparkles, type LucideIcon } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { format } from 'date-fns'
 import { getDateFnsLocale } from '../../lib/i18n'
@@ -12,6 +12,7 @@ import { extractAgentOptions } from './agent-options'
 import { extractAgentSpecDraft } from './agent-spec-draft'
 import { AgentSpecDraftCard, AgentSpecDraftPending } from './AgentSpecDraftCard'
 import { parseAgentRefHref, remarkAgentRefs, type AgentRefTarget } from '../../lib/agent-refs'
+import type { AgentContextReference } from '../../lib/agent-api'
 import { AgentRefChip } from './AgentRefChip'
 
 // Token-based markdown styling — works across ALL themes (no prose-invert, which
@@ -96,6 +97,83 @@ function MessageTime({ iso }: { iso?: string }) {
   )
 }
 
+function contextIcon(kind: string): LucideIcon {
+  if (kind === 'project' || kind === 'alias') return BriefcaseBusiness
+  if (kind === 'spec') return FileText
+  if (kind === 'job') return Bot
+  if (kind === 'trace') return Hash
+  if (kind === 'conversation') return Bot
+  if (kind === 'file') return Paperclip
+  if (kind === 'pr') return GitPullRequest
+  if (kind === 'action') return Sparkles
+  return AtSign
+}
+
+function contextTone(kind: string): string {
+  if (kind === 'action') return 'border-accent-highlight/30 bg-accent-highlight/10 text-accent-highlight'
+  if (kind === 'job' || kind === 'trace') return 'border-accent-info/30 bg-accent-info/10 text-accent-info'
+  if (kind === 'spec') return 'border-accent-highlight/30 bg-accent-highlight/10 text-accent-highlight'
+  if (kind === 'project' || kind === 'alias') return 'border-accent-primary/30 bg-accent-primary/10 text-accent-primary'
+  return 'border-border/60 bg-surface/70 text-foreground/80'
+}
+
+function AgentContextInlineChip({ refItem }: { refItem: AgentContextReference }) {
+  const Icon = contextIcon(refItem.kind)
+  const title = [refItem.label, refItem.scope?.projectName, refItem.status].filter(Boolean).join(' · ')
+  return (
+    <span
+      title={title || refItem.token}
+      className={cn(
+        'mx-0.5 inline-flex max-w-[16rem] translate-y-[2px] items-center gap-1 rounded-full border px-2 py-0.5 text-[11px] font-medium leading-4 shadow-sm shadow-black/5',
+        contextTone(refItem.kind),
+      )}
+      data-agent-context-token={refItem.kind}
+    >
+      <Icon className="h-3 w-3 shrink-0" />
+      <span className="truncate">{refItem.label || refItem.token}</span>
+    </span>
+  )
+}
+
+export function AgentContextInlineTokens({
+  content,
+  contextRefs,
+}: {
+  content: string
+  contextRefs?: AgentContextReference[]
+}) {
+  if (!contextRefs || contextRefs.length === 0) return <>{content}</>
+  const nodes: React.ReactNode[] = []
+  let cursor = 0
+  let matched = 0
+  const matchedIndexes = new Set<number>()
+  const ordered = contextRefs
+    .map((ref, originalIndex) => ({ ref, originalIndex, index: ref.token ? content.indexOf(ref.token) : -1 }))
+    .filter((entry) => entry.index >= 0)
+    .sort((a, b) => a.index - b.index || a.originalIndex - b.originalIndex)
+  for (const entry of ordered) {
+    const index = content.indexOf(entry.ref.token, cursor)
+    if (index < cursor || index === -1) continue
+    if (index > cursor) nodes.push(content.slice(cursor, index))
+    nodes.push(<AgentContextInlineChip key={`${entry.ref.kind}:${entry.ref.id}:${index}:${entry.originalIndex}`} refItem={entry.ref} />)
+    cursor = index + entry.ref.token.length
+    matchedIndexes.add(entry.originalIndex)
+    matched++
+  }
+  if (cursor < content.length) nodes.push(content.slice(cursor))
+  const unmatched = contextRefs.filter((_, index) => !matchedIndexes.has(index))
+  if (unmatched.length === 0) return <>{matched ? nodes : content}</>
+  return (
+    <>
+      {unmatched.map((ref, index) => (
+        <AgentContextInlineChip key={`unmatched:${ref.kind}:${ref.id}:${index}`} refItem={ref} />
+      ))}
+      {content.trim() && <span className="mx-0.5" />}
+      {matched ? nodes : content}
+    </>
+  )
+}
+
 interface Props {
   /** `system` rows are app-authored inline cards (PR-decision card, P7);
    *  until the card branch lands they render through the assistant path. */
@@ -115,10 +193,12 @@ interface Props {
   refsProjectId?: string | null
   /** Opens a clicked ref chip (ticket → TicketDetailModal, job → JobDetailModal). */
   onOpenRef?: (ref: AgentRefTarget) => void
+  /** Structured refs selected in the composer. User messages render them as chips. */
+  contextRefs?: AgentContextReference[]
 }
 
 /** A single agent chat message: markdown-rendered, with a subtle per-bubble copy. */
-export function AgentMessage({ role, content, createdAt, streaming, isLast, onPickOption, refsProjectId, onOpenRef }: Props) {
+export function AgentMessage({ role, content, createdAt, streaming, isLast, onPickOption, refsProjectId, onOpenRef, contextRefs }: Props) {
   const isUser = role === 'user'
   const { openWebView, canOpenWebView } = useWebViewModal()
 
@@ -171,7 +251,7 @@ export function AgentMessage({ role, content, createdAt, streaming, isLast, onPi
         <div className="flex items-start justify-end gap-1">
           <CopyButton text={content} timestampIso={createdAt} />
           <div className="max-w-[85%] whitespace-pre-wrap rounded-2xl rounded-br-sm border border-border/50 bg-foreground/[0.06] px-3.5 py-2 text-sm text-foreground">
-            {content}
+            <AgentContextInlineTokens content={content} contextRefs={contextRefs} />
           </div>
         </div>
         {createdAt && (

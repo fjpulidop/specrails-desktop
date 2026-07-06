@@ -141,6 +141,25 @@ describe('AgentMessage', () => {
     expect(screen.getByLabelText('Copy')).toBeInTheDocument()
   })
 
+  it('renders selected @, #, and / refs as inline chips in user bubbles', () => {
+    const { container } = render(
+      <AgentMessage
+        role="user"
+        content="inspect this"
+        contextRefs={[
+          { kind: 'project', id: 'p2', label: 'deckdex', token: '@deckdex' },
+          { kind: 'trace', id: 'job1234', label: 'job1234', token: '#job1234' },
+          { kind: 'action', id: 'action:status', label: 'Show status', token: '/status' },
+        ]}
+      />,
+    )
+    expect(container.querySelectorAll('[data-agent-context-token]').length).toBe(3)
+    expect(screen.getByText('deckdex')).toBeInTheDocument()
+    expect(screen.getByText('job1234')).toBeInTheDocument()
+    expect(screen.getByText('Show status')).toBeInTheDocument()
+    expect(screen.getByText('inspect this')).toBeInTheDocument()
+  })
+
   it('renders assistant markdown: bold + a table', () => {
     const md = '**strong text**\n\n| A | B |\n| - | - |\n| 1 | 2 |'
     const { container } = render(<AgentMessage role="assistant" content={md} />)
@@ -551,6 +570,85 @@ describe('AgentChatProvider', () => {
     // Sending clears the stored draft — a fresh mount starts empty again.
     await act(async () => { fireEvent.keyDown(box2, { key: 'Enter' }) })
     expect(box2.value).toBe('')
+  })
+
+  it('lets @ select a project and sends the resolved context reference', async () => {
+    render(<AgentChatProvider><Harness /></AgentChatProvider>)
+    await act(async () => { fireEvent.click(screen.getByText('open')) })
+    const box = await screen.findByPlaceholderText('Ask the agent to do anything…') as HTMLTextAreaElement
+
+    fireEvent.change(box, { target: { value: '@deck', selectionStart: 5, selectionEnd: 5 } })
+    expect(await screen.findByTestId('agent-context-palette')).toBeInTheDocument()
+    await act(async () => { fireEvent.click(screen.getByText('deckdex')) })
+    await waitFor(() => expect(box.value).toBe(''))
+    expect(screen.getByText('deckdex')).toBeInTheDocument()
+
+    await act(async () => { fireEvent.keyDown(box, { key: 'Enter' }) })
+    const call = vi.mocked(agentApi.sendAgentMessage).mock.calls.at(-1)!
+    expect(call[1]).toBe('@deckdex')
+    expect(call[2]).toMatchObject({
+      contextRefs: [{ kind: 'project', id: 'p2', label: 'deckdex', token: '@deckdex' }],
+    })
+  })
+
+  it('opens the same command palette from + and inserts a selected action', async () => {
+    render(<AgentChatProvider><Harness /></AgentChatProvider>)
+    await act(async () => { fireEvent.click(screen.getByText('open')) })
+    const box = await screen.findByPlaceholderText('Ask the agent to do anything…') as HTMLTextAreaElement
+
+    fireEvent.click(screen.getByLabelText('Add context or action'))
+    fireEvent.click(screen.getByText('Action'))
+    expect(box.value).toBe('/')
+    expect(await screen.findByText('Create spec')).toBeInTheDocument()
+    await act(async () => { fireEvent.click(screen.getByText('Create spec')) })
+    await waitFor(() => expect(box.value).toBe(''))
+    expect(screen.getByText('Create spec')).toBeInTheDocument()
+    await act(async () => { fireEvent.keyDown(box, { key: 'Enter' }) })
+    const call = vi.mocked(agentApi.sendAgentMessage).mock.calls.at(-1)!
+    expect(call[1]).toBe('/create spec')
+    expect(call[2]).toMatchObject({
+      contextRefs: [{ kind: 'action', id: 'action:create-spec', label: 'Create spec', token: '/create spec' }],
+    })
+  })
+
+  it('closes the + menu on outside click and Escape', async () => {
+    render(<AgentChatProvider><Harness /></AgentChatProvider>)
+    await act(async () => { fireEvent.click(screen.getByText('open')) })
+    await screen.findByPlaceholderText('Ask the agent to do anything…')
+
+    fireEvent.click(screen.getByLabelText('Add context or action'))
+    expect(screen.getByText('Reference')).toBeInTheDocument()
+    fireEvent.pointerDown(document.body)
+    expect(screen.queryByText('Reference')).not.toBeInTheDocument()
+
+    fireEvent.click(screen.getByLabelText('Add context or action'))
+    expect(screen.getByText('Reference')).toBeInTheDocument()
+    fireEvent.keyDown(document, { key: 'Escape' })
+    expect(screen.queryByText('Reference')).not.toBeInTheDocument()
+  })
+
+  it('filters / actions while typing and accepts the highlighted result with Enter', async () => {
+    render(<AgentChatProvider><Harness /></AgentChatProvider>)
+    await act(async () => { fireEvent.click(screen.getByText('open')) })
+    const box = await screen.findByPlaceholderText('Ask the agent to do anything…') as HTMLTextAreaElement
+
+    fireEvent.change(box, { target: { value: '/sta', selectionStart: 4, selectionEnd: 4 } })
+    expect(await screen.findByText('Show status')).toBeInTheDocument()
+    await act(async () => { fireEvent.keyDown(box, { key: 'Enter' }) })
+    await waitFor(() => expect(box.value).toBe(''))
+    expect(screen.getByText('Show status')).toBeInTheDocument()
+  })
+
+  it('turns no-result @ queries into recovery actions', async () => {
+    render(<AgentChatProvider><Harness /></AgentChatProvider>)
+    await act(async () => { fireEvent.click(screen.getByText('open')) })
+    const box = await screen.findByPlaceholderText('Ask the agent to do anything…') as HTMLTextAreaElement
+
+    fireEvent.change(box, { target: { value: '@missing-x', selectionStart: 10, selectionEnd: 10 } })
+    expect(await screen.findByText('Search all Specrails')).toBeInTheDocument()
+    expect(screen.getByText('Create "missing-x"')).toBeInTheDocument()
+    await act(async () => { fireEvent.keyDown(box, { key: 'Enter' }) })
+    await waitFor(() => expect(box.value).toBe('/search all projects missing-x'))
   })
 
   it('Shift+Tab inside the panel cycles the tier', async () => {

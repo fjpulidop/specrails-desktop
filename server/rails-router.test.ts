@@ -325,9 +325,9 @@ describe('rails-router POST /:railIndex/launch with aiEngine (loops off — lega
   })
 })
 
-// Loops pinned OFF (same reason as the aiEngine suite above): bare ultracode with
-// loops on derives factory:ultracode and runs through the loop engine instead.
-describe('rails-router POST /:railIndex/launch ultracode mode (loops off — legacy QueueManager path)', () => {
+// Loops pinned OFF (same reason as the aiEngine suite above): bare freestyle with
+// loops on derives factory:freestyle and runs through the loop engine instead.
+describe('rails-router POST /:railIndex/launch freestyle mode (loops off — QueueManager fallback path)', () => {
   let db: DbInstance
   const savedLoops = process.env.SPECRAILS_LOOPS_SECTION
   beforeEach(() => {
@@ -340,7 +340,7 @@ describe('rails-router POST /:railIndex/launch ultracode mode (loops off — leg
     else process.env.SPECRAILS_LOOPS_SECTION = savedLoops
   })
 
-  it('enqueues one claude job per ticket with an ultracode command and no profile', async () => {
+  it('enqueues one claude job per ticket with an freestyle command and no profile', async () => {
     setRailTickets(db, 0, [5, 7])
     let n = 0
     const enqueue = vi.fn().mockImplementation(() => ({ id: `job-${++n}`, queuePosition: 0 }))
@@ -358,13 +358,13 @@ describe('rails-router POST /:railIndex/launch ultracode mode (loops off — leg
     })
     app.use('/rails', createRailsRouter())
 
-    const res = await request(app).post('/rails/0/launch').send({ mode: 'ultracode' })
+    const res = await request(app).post('/rails/0/launch').send({ mode: 'freestyle' })
     expect(res.status).toBe(202)
     expect(res.body.jobIds).toEqual(['job-1', 'job-2'])
     expect(res.body.jobId).toBe('job-1')
     expect(enqueue).toHaveBeenCalledTimes(2)
-    expect(enqueue.mock.calls[0][0]).toBe('/specrails:ultracode #5 --yes')
-    expect(enqueue.mock.calls[1][0]).toBe('/specrails:ultracode #7 --yes')
+    expect(enqueue.mock.calls[0][0]).toBe('/specrails:freestyle #5 --yes')
+    expect(enqueue.mock.calls[1][0]).toBe('/specrails:freestyle #7 --yes')
     const opts = enqueue.mock.calls[0][2] as { provider?: string; profileName?: unknown }
     expect(opts.provider).toBe('claude')
     expect(opts.profileName).toBeNull()
@@ -372,11 +372,11 @@ describe('rails-router POST /:railIndex/launch ultracode mode (loops off — leg
     expect(railJobs.size).toBe(2)
   })
 
-  it('rejects ultracode when the effective engine is not claude', async () => {
+  it('rejects freestyle when the effective engine is not claude', async () => {
     setRailTickets(db, 0, [1], 'implement', null, 'codex')
     const enqueue = vi.fn()
     const res = await request(appWith(db, { providers: ['claude', 'codex'], queueManager: { enqueue } }))
-      .post('/rails/0/launch').send({ mode: 'ultracode', aiEngine: 'codex' })
+      .post('/rails/0/launch').send({ mode: 'freestyle', aiEngine: 'codex' })
     expect(res.status).toBe(400)
     expect(enqueue).not.toHaveBeenCalled()
   })
@@ -388,20 +388,20 @@ describe('rails-router POST /:railIndex/launch ultracode mode (loops off — leg
     expect(res.status).toBe(400)
   })
 
-  it('passes a valid ultracode model through to enqueue', async () => {
+  it('passes a valid freestyle model through to enqueue', async () => {
     setRailTickets(db, 0, [1])
     const enqueue = vi.fn().mockReturnValue({ id: 'job-1', queuePosition: 0 })
     const res = await request(appWith(db, { providers: ['claude'], queueManager: { enqueue } }))
-      .post('/rails/0/launch').send({ mode: 'ultracode', model: 'opus' })
+      .post('/rails/0/launch').send({ mode: 'freestyle', model: 'opus' })
     expect(res.status).toBe(202)
     expect((enqueue.mock.calls[0][2] as { model?: string }).model).toBe('opus')
   })
 
-  it('rejects an invalid ultracode model', async () => {
+  it('rejects an invalid freestyle model', async () => {
     setRailTickets(db, 0, [1])
     const enqueue = vi.fn()
     const res = await request(appWith(db, { providers: ['claude'], queueManager: { enqueue } }))
-      .post('/rails/0/launch').send({ mode: 'ultracode', model: 'gpt-5' })
+      .post('/rails/0/launch').send({ mode: 'freestyle', model: 'gpt-5' })
     expect(res.status).toBe(400)
     expect(enqueue).not.toHaveBeenCalled()
   })
@@ -410,7 +410,7 @@ describe('rails-router POST /:railIndex/launch ultracode mode (loops off — leg
     setRailTickets(db, 0, [1])
     const enqueue = vi.fn().mockReturnValue({ id: 'job-1', queuePosition: 0 })
     const res = await request(appWith(db, { providers: ['claude'], queueManager: { enqueue } }))
-      .post('/rails/0/launch').send({ mode: 'ultracode' })
+      .post('/rails/0/launch').send({ mode: 'freestyle' })
     expect(res.status).toBe(202)
     expect((enqueue.mock.calls[0][2] as { model?: string }).model).toBeUndefined()
   })
@@ -438,12 +438,12 @@ describe('rails-router POST /:railIndex/stop (M19)', () => {
   }
 
   it('cancels ALL jobs of the rail, not just the first', async () => {
-    // Ultracode rail registered 3 jobs under railIndex 0 (+ one for another rail).
+    // Freestyle rail registered 3 jobs under railIndex 0 (+ one for another rail).
     const railJobs = new Map<string, unknown>([
-      ['job-a', { railIndex: 0, mode: 'ultracode', ticketIds: [1] }],
-      ['job-b', { railIndex: 0, mode: 'ultracode', ticketIds: [2] }],
-      ['job-c', { railIndex: 0, mode: 'ultracode', ticketIds: [3] }],
-      ['other', { railIndex: 1, mode: 'ultracode', ticketIds: [9] }],
+      ['job-a', { railIndex: 0, mode: 'freestyle', ticketIds: [1] }],
+      ['job-b', { railIndex: 0, mode: 'freestyle', ticketIds: [2] }],
+      ['job-c', { railIndex: 0, mode: 'freestyle', ticketIds: [3] }],
+      ['other', { railIndex: 1, mode: 'freestyle', ticketIds: [9] }],
     ])
     const cancel = vi.fn().mockReturnValue('canceled')
 
@@ -461,7 +461,7 @@ describe('rails-router POST /:railIndex/stop (M19)', () => {
 
   it('still clears stale entries when cancel throws (unrecoverable-rail fix)', async () => {
     const railJobs = new Map<string, unknown>([
-      ['stale', { railIndex: 0, mode: 'ultracode', ticketIds: [1] }],
+      ['stale', { railIndex: 0, mode: 'freestyle', ticketIds: [1] }],
     ])
     const cancel = vi.fn().mockImplementation(() => { throw new Error('already terminal') })
 
@@ -479,13 +479,13 @@ describe('rails-router POST /:railIndex/stop (M19)', () => {
 
 // Loops pinned OFF: these pin what the LEGACY QueueManager enqueue receives —
 // with loops on a bare-mode launch never reaches enqueue (factory-loop derivation).
-describe('rails-router POST /:railIndex/launch interactive (ultracode, loops off — legacy QueueManager path)', () => {
+describe('rails-router POST /:railIndex/launch interactive (freestyle, loops off — QueueManager fallback path)', () => {
   let db: DbInstance
   const saved = process.env.SPECRAILS_INTERACTIVE_JOBS
   const savedLoops = process.env.SPECRAILS_LOOPS_SECTION
   beforeEach(() => {
     db = initDb(':memory:')
-    setRailTickets(db, 0, [1], 'ultracode')
+    setRailTickets(db, 0, [1], 'freestyle')
     delete process.env.SPECRAILS_INTERACTIVE_JOBS
     process.env.SPECRAILS_LOOPS_SECTION = 'false'
   })
@@ -503,7 +503,7 @@ describe('rails-router POST /:railIndex/launch interactive (ultracode, loops off
 
   it('passes no explicit interactive flag — QueueManager’s spawn-time default covers it', async () => {
     const { app, enqueue } = launch({})
-    const res = await request(app).post('/rails/0/launch').send({ mode: 'ultracode' })
+    const res = await request(app).post('/rails/0/launch').send({ mode: 'freestyle' })
     expect(res.status).toBe(202)
     const opts = enqueue.mock.calls[0]?.[2] as Record<string, unknown>
     // The interactive-by-default flip moved the decision to QueueManager's
@@ -513,7 +513,7 @@ describe('rails-router POST /:railIndex/launch interactive (ultracode, loops off
     expect(opts.provider).toBe('claude')
   })
 
-  it('ignores the legacy interactive body param on non-ultracode modes (wire compat)', async () => {
+  it('ignores the interactive body param on non-freestyle modes (wire compat)', async () => {
     const { app, enqueue } = launch({})
     const res = await request(app).post('/rails/0/launch').send({ mode: 'implement', interactive: true })
     // No 400 anymore: the param is accepted-and-ignored; the launch proceeds.
@@ -525,7 +525,7 @@ describe('rails-router POST /:railIndex/launch interactive (ultracode, loops off
   it('omits interactive when the feature flag is off', async () => {
     process.env.SPECRAILS_INTERACTIVE_JOBS = 'false'
     const { app, enqueue } = launch({})
-    const res = await request(app).post('/rails/0/launch').send({ mode: 'ultracode', interactive: true })
+    const res = await request(app).post('/rails/0/launch').send({ mode: 'freestyle', interactive: true })
     expect(res.status).toBe(202)
     const opts = enqueue.mock.calls[0]?.[2] as Record<string, unknown>
     expect(opts.interactive).toBeUndefined()
@@ -684,7 +684,7 @@ describe('rails-router loop mode', () => {
 
   it('rejects a claude-only loop on a non-claude rail (400)', async () => {
     setRailTickets(db, 0, [5], 'loop')
-    const loop = createLoop(desktopDb, { id: 'ultra-loop', name: 'U', graph: graphWithPrompt('{{cmd:ultracode}}') })
+    const loop = createLoop(desktopDb, { id: 'freestyle-loop', name: 'U', graph: graphWithPrompt('{{cmd:freestyle}}') })
     publishLoop(desktopDb, loop.id)
     const run = vi.fn()
     const app = appWith(db, {
@@ -693,7 +693,7 @@ describe('rails-router loop mode', () => {
       loopRunManager: { run, cancel: vi.fn() },
       getTicketSpec: () => ({ title: 'T', description: 'D' }),
     })
-    const res = await request(app).post('/rails/0/launch').send({ mode: 'loop', loopId: 'ultra-loop', aiEngine: 'codex' })
+    const res = await request(app).post('/rails/0/launch').send({ mode: 'loop', loopId: 'freestyle-loop', aiEngine: 'codex' })
     expect(res.status).toBe(400)
     expect(run).not.toHaveBeenCalled()
   })
@@ -942,16 +942,16 @@ describe('rails-router POST /:railIndex/launch — bare mode derives its factory
     expect(enqueue).not.toHaveBeenCalled() // NOT the bare QueueManager branch
   })
 
-  it('bare ultracode derives factory:ultracode (per-ticket isolation)', async () => {
+  it('bare freestyle derives factory:freestyle (per-ticket isolation)', async () => {
     setRailTickets(db, 0, [5])
     mockRepoStatus.mockResolvedValue('ok')
     mockLaunchIsolated.mockResolvedValue(['run-u'])
     const enqueue = vi.fn()
-    const res = await request(loopApp(enqueue)).post('/rails/0/launch').send({ mode: 'ultracode' })
+    const res = await request(loopApp(enqueue)).post('/rails/0/launch').send({ mode: 'freestyle' })
     expect(res.status).toBe(202)
-    expect(res.body).toMatchObject({ loopRunIds: ['run-u'], mode: 'ultracode', isolated: true })
+    expect(res.body).toMatchObject({ loopRunIds: ['run-u'], mode: 'freestyle', isolated: true })
     expect(mockLaunchIsolated).toHaveBeenCalledWith(expect.objectContaining({
-      loopId: 'factory:ultracode', scope: 'per-ticket',
+      loopId: 'factory:freestyle', scope: 'per-ticket',
     }))
     expect(enqueue).not.toHaveBeenCalled()
   })

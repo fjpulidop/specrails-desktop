@@ -73,8 +73,8 @@ describe('RailControls', () => {
   })
 
   describe('Interactive toggle (removed — jobs are interactive by default)', () => {
-    it('never renders a switch, even for ultracode rails', () => {
-      render(<RailControls {...defaultProps} mode="ultracode" ultracodeAvailable />)
+    it('never renders a switch, even for freestyle rails', () => {
+      render(<RailControls {...defaultProps} mode="freestyle" freestyleAvailable />)
       expect(screen.queryByRole('switch')).toBeNull()
     })
   })

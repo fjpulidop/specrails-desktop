@@ -7,7 +7,7 @@ import { FACTORY_RAIL_LOOPS } from '../../lib/rail-loops'
 
 /**
  * Unified Loop picker for the rail header (rails-as-loops). Lists the built-in
- * FACTORY loops (Implement / Batch / Ultracode — what used to be the rail modes;
+ * FACTORY loops (Implement / Batch / Freestyle — what used to be the rail modes;
  * defined client-side so they work even when the Loops section is off) plus, when
  * the Loops section is enabled, the user's PUBLISHED custom loops. Selecting a
  * loop drives the rail; the parent derives the legacy `mode` from the chosen id.
@@ -15,13 +15,13 @@ import { FACTORY_RAIL_LOOPS } from '../../lib/rail-loops'
 export function RailLoopSelector({
   value,
   onChange,
-  ultracodeAvailable = true,
+  freestyleAvailable = true,
   loopsEnabled = true,
 }: {
   value: string | null | undefined
   onChange: (loopId: string) => void
-  /** Offer the Claude-only Ultracode built-in (hidden on non-Claude rails). */
-  ultracodeAvailable?: boolean
+  /** Offer the Claude-only Freestyle built-in (hidden on non-Claude rails). */
+  freestyleAvailable?: boolean
   /** Fetch + offer the user's custom published loops (Loops section feature). */
   loopsEnabled?: boolean
 }) {
@@ -41,7 +41,7 @@ export function RailLoopSelector({
   }, [loopsEnabled])
 
   const builtIn = FACTORY_RAIL_LOOPS.filter(
-    (f) => (ultracodeAvailable || !f.claudeOnly) && (loopsEnabled || !f.requiresLoops),
+    (f) => (freestyleAvailable || !f.claudeOnly) && (loopsEnabled || !f.requiresLoops),
   )
 
   return (

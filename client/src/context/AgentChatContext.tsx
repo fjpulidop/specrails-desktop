@@ -26,6 +26,7 @@ import {
   coercePrDecisionEnvelope,
   parsePrDecisionEnvelope,
   type AgentConversation,
+  type AgentContextReference,
   type AgentMessage,
   type AgentTierLevel,
 } from '../lib/agent-api'
@@ -46,6 +47,7 @@ export interface AgentLiveTool {
 export interface AgentQueuedItem {
   queueId: string
   text: string
+  contextRefs?: AgentContextReference[]
 }
 
 /** Live turn state for ONE conversation. Kept per-conversation so background
@@ -110,7 +112,7 @@ export interface AgentChatContextValue {
   /** null = not yet checked; false = no AI provider CLI is installed. */
   providersReady: boolean | null
 
-  send: (text: string, opts?: { attachmentIds?: string[] }) => Promise<void>
+  send: (text: string, opts?: { attachmentIds?: string[]; contextRefs?: AgentContextReference[] }) => Promise<void>
   abort: () => Promise<void>
   /** Edit a still-queued message in place (composer ↑/↓ queue navigation).
    *  `'conflict'` = already dispatched — the caller keeps the text as a draft. */
@@ -158,6 +160,7 @@ interface WsAgentMsg {
   tool?: string
   queueId?: string | null
   text?: string
+  contextRefs?: AgentContextReference[]
 }
 
 let _toolSeq = 0
@@ -327,7 +330,10 @@ export function AgentChatProvider({ children }: { children: ReactNode }) {
         // Dedupe by queueId: the sending window already parked its own chip.
         patchLive(convId, (p) => {
           if (msg.queueId && p.queued.some((q) => q.queueId === msg.queueId)) return p
-          return { ...p, queued: [...p.queued, { queueId: msg.queueId ?? `srv-${_queueSeq++}`, text: msg.text ?? '' }] }
+          return {
+            ...p,
+            queued: [...p.queued, { queueId: msg.queueId ?? `srv-${_queueSeq++}`, text: msg.text ?? '', contextRefs: msg.contextRefs }],
+          }
         })
       } else if (msg.type === 'agent_dequeued') {
         // The queued message's turn starts now: chip → real user bubble.
@@ -340,7 +346,14 @@ export function AgentChatProvider({ children }: { children: ReactNode }) {
         if (isActive && msg.text) {
           setMessages((m) => [
             ...m,
-            { id: `local-u-${Date.now()}`, conversation_id: convId, role: 'user', content: msg.text!, created_at: new Date().toISOString() },
+            {
+              id: `local-u-${Date.now()}`,
+              conversation_id: convId,
+              role: 'user',
+              content: msg.text!,
+              context_refs: msg.contextRefs ?? [],
+              created_at: new Date().toISOString(),
+            },
           ])
         }
       } else if (msg.type === 'agent_queue_cleared') {
@@ -350,7 +363,11 @@ export function AgentChatProvider({ children }: { children: ReactNode }) {
         // its text; the editing window's optimistic update makes this a no-op.
         patchLive(convId, (p) => ({
           ...p,
-          queued: p.queued.map((q) => (msg.queueId && q.queueId === msg.queueId ? { ...q, text: msg.text ?? q.text } : q)),
+          queued: p.queued.map((q) => (
+            msg.queueId && q.queueId === msg.queueId
+              ? { ...q, text: msg.text ?? q.text, contextRefs: msg.contextRefs ?? q.contextRefs }
+              : q
+          )),
         }))
       } else if (msg.type === 'agent_pr_decision') {
         // PR-decision card (safe-pr-review-flow): the WS message carries the
@@ -436,7 +453,7 @@ export function AgentChatProvider({ children }: { children: ReactNode }) {
     }
   }, [visibility, refreshConversations, refreshMcp, refreshProviders, ensureActive])
 
-  const send = useCallback(async (text: string, opts?: { attachmentIds?: string[] }) => {
+  const send = useCallback(async (text: string, opts?: { attachmentIds?: string[]; contextRefs?: AgentContextReference[] }) => {
     const trimmed = text.trim()
     if (!trimmed) return
     // EMPTY compose screen (no active conversation) ALWAYS starts a fresh
@@ -471,20 +488,22 @@ export function AgentChatProvider({ children }: { children: ReactNode }) {
       role: 'user' as const,
       content: trimmed,
       attachment_ids: opts?.attachmentIds ?? [],
+      context_refs: opts?.contextRefs ?? [],
       created_at: nowIso,
     }
     // Busy conversation → the message QUEUES (server-side FIFO) and shows as a
     // parked chip below the streaming bubble instead of a normal bubble.
     const wasBusy = liveRef.current.get(conv.id)?.isStreaming === true
     if (wasBusy) {
-      patchLive(conv.id, (p) => ({ ...p, queued: [...p.queued, { queueId, text: trimmed }] }))
+      patchLive(conv.id, (p) => ({ ...p, queued: [...p.queued, { queueId, text: trimmed, contextRefs: opts?.contextRefs }] }))
     } else {
       setMessages((m) => [...m, userBubble])
       patchLive(conv.id, (p) => ({ ...p, isStreaming: true, streamingText: '', liveTools: [] }))
     }
     const attachments = opts?.attachmentIds && opts.attachmentIds.length ? { ids: opts.attachmentIds } : undefined
     try {
-      const res = await sendAgentMessage(conv.id, trimmed, { tierLevel: conv.tier_level, attachments, queueId })
+      const contextRefs = opts?.contextRefs && opts.contextRefs.length ? opts.contextRefs : undefined
+      const res = await sendAgentMessage(conv.id, trimmed, { tierLevel: conv.tier_level, attachments, queueId, contextRefs })
       const queued = res?.queued === true
       if (queued && !wasBusy) {
         // Rare race: the server was actually mid-turn — re-home the optimistic
@@ -494,7 +513,9 @@ export function AgentChatProvider({ children }: { children: ReactNode }) {
         setMessages((m) => m.filter((x) => x.id !== userBubble.id))
         if (!consumedQueueIdsRef.current.has(queueId)) {
           patchLive(conv.id, (p) =>
-            p.queued.some((q) => q.queueId === queueId) ? p : { ...p, queued: [...p.queued, { queueId, text: trimmed }] },
+            p.queued.some((q) => q.queueId === queueId)
+              ? p
+              : { ...p, queued: [...p.queued, { queueId, text: trimmed, contextRefs: opts?.contextRefs }] },
           )
         }
       } else if (!queued && wasBusy) {
@@ -531,7 +552,11 @@ export function AgentChatProvider({ children }: { children: ReactNode }) {
       // Optimistic chip update — the agent_queue_edited broadcast is a no-op here.
       patchLive(conv.id, (p) => ({
         ...p,
-        queued: p.queued.map((q) => (q.queueId === queueId ? { ...q, text } : q)),
+        queued: p.queued.map((q) => (
+          q.queueId === queueId
+            ? { ...q, text }
+            : q
+        )),
       }))
     }
     return r

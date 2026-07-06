@@ -114,8 +114,8 @@
     "log": "Log",
     "implement": "Implement",
     "batch": "Batch",
-    "ultra": "Freestyle",
-    "ultraTitle": "Freestyle — Claude implementa la spec de forma autónoma, sin pipeline",
+    "freestyle": "Freestyle",
+    "freestyleTitle": "Freestyle — Claude implementa la spec de forma autónoma, sin pipeline",
     "loop": "Loop",
     "loopTitle": "Loop — ejecuta un bucle de automatización publicado sobre las specs del rail",
     "pickLoop": "Elige un bucle…",
@@ -139,7 +139,7 @@
     "dropOnThisRail": "Suelta en este rail",
     "dragSpecsHere": "Arrastra specs aquí"
   },
-  "ultracodeDialog": {
+  "freestyleDialog": {
     "title": "Lanzar en modo Freestyle",
     "context_one": "{{rail}} · {{count}} spec",
     "context_other": "{{rail}} · {{count}} specs",

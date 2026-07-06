@@ -221,7 +221,7 @@
       "name": "Implémentation par lots",
       "description": "Implémente d'un coup tous les tickets du rail, puis vérifie et corrige en cas d'échec jusqu'au vert."
     },
-    "factory_ultracode": {
+    "factory_freestyle": {
       "name": "Freestyle",
       "description": "Confie la spec directement au modèle en toute liberté — sans pipeline, il travaille comme un agent de code classique, puis vérifie + affine jusqu'au vert. Claude uniquement."
     },

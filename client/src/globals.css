@@ -426,6 +426,11 @@ select {
 /* Colors are set via inline style on <Toaster> — Sonner injects its CSS     */
 /* after globals.css so stylesheet overrides for CSS vars never win.          */
 
+.specrails-toaster,
+[data-sonner-toaster] {
+  z-index: 2147483647 !important;
+}
+
 [data-sonner-toast][data-styled='true'] {
   box-shadow:
     0 0 0 1px color-mix(in srgb, var(--color-accent-primary) 8%, transparent),

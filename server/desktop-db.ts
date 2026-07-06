@@ -454,6 +454,12 @@ function applyDesktopMigrations(db: DbInstance): void {
         CREATE INDEX IF NOT EXISTS idx_agent_inv_conv ON agent_invocations(conversation_id);
       `)
     },
+    // 21: structured context refs selected in the Agent Composer (`@`, `#`, `/`,
+    // and the `+` palette). Persisted with the user row so conversation bubbles
+    // can re-render exact chips after refresh without guessing from text.
+    () => {
+      db.exec(`ALTER TABLE agent_messages ADD COLUMN context_refs TEXT;`)
+    },
   ]
 
   for (let i = 0; i < migrations.length; i++) {

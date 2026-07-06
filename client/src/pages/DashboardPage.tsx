@@ -28,7 +28,7 @@ import { DashboardSplitter } from '../components/DashboardSplitter'
 import { useDashboardSplit } from '../hooks/useDashboardSplit'
 import { TicketDetailModal } from '../components/TicketDetailModal'
 import { CreateTicketModal } from '../components/CreateTicketModal'
-import { UltracodeLaunchDialog } from '../components/UltracodeLaunchDialog'
+import { FreestyleLaunchDialog } from '../components/FreestyleLaunchDialog'
 import { LaunchAllDialog } from '../components/LaunchAllDialog'
 import { getApiBase } from '../lib/api'
 import { FEATURE_LOOPS_SECTION } from '../lib/feature-flags'
@@ -55,7 +55,7 @@ const INITIAL_RAILS: RailState[] = [
 ]
 
 const isRailMode = (m: string | undefined): m is RailMode =>
-  m === 'implement' || m === 'batch-implement' || m === 'ultracode' || m === 'loop'
+  m === 'implement' || m === 'batch-implement' || m === 'freestyle' || m === 'loop'
 
 /** Why a rail is excluded from a Launch-all batch. */
 type LaunchAllSkipReason = 'running' | 'empty' | 'pendingDecision' | 'onReview'
@@ -93,7 +93,7 @@ interface PersistedRail {
   mode: RailMode
   status: RailStatus
   profileName?: string | null
-  ultracodeModel?: import('../components/agents/RailModelSelector').UltracodeModel | null
+  freestyleModel?: import('../components/agents/RailModelSelector').FreestyleModel | null
 }
 
 function loadRails(projectId: string | null): RailState[] | null {
@@ -127,8 +127,8 @@ export default function DashboardPage() {
   const { specToOpen, clearSpecToOpen } = useSpecGenTracker()
   const [detailTicket, setDetailTicket] = useState<LocalTicket | null>(null)
   const [createTicketOpen, setCreateTicketOpen] = useState(false)
-  // Rail pending an ultracode-launch confirmation (variable-cost warning modal).
-  const [ultracodeConfirm, setUltracodeConfirm] = useState<{ railId: string } | null>(null)
+  // Rail pending an freestyle-launch confirmation (variable-cost warning modal).
+  const [freestyleConfirm, setFreestyleConfirm] = useState<{ railId: string } | null>(null)
   // Launch-all pending its batch confirmation (N parallel AI launches).
   const [launchAllConfirm, setLaunchAllConfirm] = useState(false)
 
@@ -1036,10 +1036,10 @@ export default function DashboardPage() {
     }
   }
 
-  function handleUltracodeModelChange(railId: string, model: import('../components/agents/RailModelSelector').UltracodeModel) {
+  function handleFreestyleModelChange(railId: string, model: import('../components/agents/RailModelSelector').FreestyleModel) {
     // Model lives in localStorage (like mode) and is sent inline at launch —
     // no dedicated server endpoint needed.
-    updateRails((prev) => prev.map((r) => (r.id === railId ? { ...r, ultracodeModel: model } : r)))
+    updateRails((prev) => prev.map((r) => (r.id === railId ? { ...r, freestyleModel: model } : r)))
   }
 
   function handleLoopChange(railId: string, loopId: string) {
@@ -1059,12 +1059,12 @@ export default function DashboardPage() {
   }
 
   async function handleEngineChange(railId: string, aiEngine: string) {
-    // Ultracode is Claude-only — if the rail leaves Claude while on the Ultracode
+    // Freestyle is Claude-only — if the rail leaves Claude while on the Freestyle
     // loop, fall back to the Implement loop so the launch can't 400.
     updateRails((prev) => prev.map((r) => {
       if (r.id !== railId) return r
-      const onUltra = r.mode === 'ultracode' || r.selectedLoopId === 'factory:ultracode'
-      const fallback = aiEngine !== 'claude' && onUltra
+      const onFreestyle = r.mode === 'freestyle' || r.selectedLoopId === 'factory:freestyle'
+      const fallback = aiEngine !== 'claude' && onFreestyle
       return {
         ...r,
         aiEngine,
@@ -1105,9 +1105,9 @@ export default function DashboardPage() {
 
     if (rail.ticketIds.length === 0) return
 
-    // Ultracode bypasses OpenSpec and has variable cost — confirm before launch.
-    if (rail.mode === 'ultracode') {
-      setUltracodeConfirm({ railId })
+    // Freestyle bypasses OpenSpec and has variable cost — confirm before launch.
+    if (rail.mode === 'freestyle') {
+      setFreestyleConfirm({ railId })
       return
     }
 
@@ -1170,11 +1170,11 @@ export default function DashboardPage() {
           // rail.aiEngine: explicit per-rail engine override; undefined → server
           // falls back to the stored rail engine or the project primary.
           ...(rail.aiEngine != null ? { aiEngine: rail.aiEngine } : {}),
-          // Ultracode model picker — only meaningful for ultracode launches.
-          ...(rail.mode === 'ultracode' && rail.ultracodeModel ? { model: rail.ultracodeModel } : {}),
+          // Freestyle model picker — only meaningful for freestyle launches.
+          ...(rail.mode === 'freestyle' && rail.freestyleModel ? { model: rail.freestyleModel } : {}),
           // Loop model picker — only meaningful for custom loop launches.
           ...(rail.mode === 'loop' && rail.loopModel ? { model: rail.loopModel } : {}),
-          // Interactive toggle — only meaningful for ultracode launches.
+          // Interactive toggle — only meaningful for freestyle launches.
           // rails-as-loops: always send the chosen Loop. The server maps a
           // factory loop → its legacy mode; a custom loop runs the loop engine.
           loopId: launchLoopId,
@@ -1198,7 +1198,7 @@ export default function DashboardPage() {
         if (!silent) toast.error(data.error || t('toasts.launchFailed'))
         return 'failed'
       }
-      // Implement/ultracode return { jobId }; loop mode returns { loopRunIds }.
+      // Implement/freestyle return { jobId }; loop mode returns { loopRunIds }.
       // A loop run IS backed by a job (id === loopRunId), so set activeJobId to
       // the first run id → "View Log" → /jobs/:id streams the live session.
       const data = await res.json() as { jobId?: string; loopRunIds?: string[]; isolationUnavailable?: string; isolationUnavailableDetail?: string }
@@ -1351,7 +1351,7 @@ export default function DashboardPage() {
             onModeChange={handleModeChange}
             onProfileChange={handleProfileChange}
             onEngineChange={handleEngineChange}
-            onUltracodeModelChange={handleUltracodeModelChange}
+            onFreestyleModelChange={handleFreestyleModelChange}
             onLoopModelChange={handleLoopModelChange}
               loopAvailable={FEATURE_LOOPS_SECTION}
             onLoopChange={handleLoopChange}
@@ -1452,17 +1452,17 @@ export default function DashboardPage() {
       />
 
       {(() => {
-        const r = ultracodeConfirm ? rails.find((x) => x.id === ultracodeConfirm.railId) : undefined
+        const r = freestyleConfirm ? rails.find((x) => x.id === freestyleConfirm.railId) : undefined
         return (
-          <UltracodeLaunchDialog
-            open={!!ultracodeConfirm && !!r}
+          <FreestyleLaunchDialog
+            open={!!freestyleConfirm && !!r}
             railLabel={r?.label ?? ''}
             specCount={r?.ticketIds.length ?? 0}
-            model={r?.ultracodeModel ?? 'sonnet'}
-            onCancel={() => setUltracodeConfirm(null)}
+            model={r?.freestyleModel ?? 'sonnet'}
+            onCancel={() => setFreestyleConfirm(null)}
             onConfirm={() => {
-              const id = ultracodeConfirm?.railId
-              setUltracodeConfirm(null)
+              const id = freestyleConfirm?.railId
+              setFreestyleConfirm(null)
               if (id) void doLaunchRail(id)
             }}
           />

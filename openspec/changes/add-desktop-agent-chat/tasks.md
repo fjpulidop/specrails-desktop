@@ -33,6 +33,19 @@
 - [ ] 5.3 "Search across all projects" fan-out affordance (v1: agent iterates).
 - [x] 5.4 `AgentTierChip` — `Shift+Tab` cycling, level-fill animation, lock message on refusal.
 
+## 5A. Conversational context palette (captured exploration)
+- [x] 5A.1 Composer tokenization for immediate `@`, `#`, and `/` triggers, with shared floating palette positioning and close behavior.
+- [x] 5A.2 `@` reference source: conversation-created objects, current/pinned project scope, specs, projects, jobs, recents, and global search fallback.
+- [x] 5A.3 `#` trace source: direct IDs, jobs/runs/errors/checks/changes, state filters such as failed/running/recent, scoped before global.
+- [x] 5A.4 `/` action source: create/update/launch/compare/summarize/save/open/generate actions that consume existing chips and respect tiers/approvals.
+- [x] 5A.5 Context-aware action ranking by chip/current scope (empty, project, spec, job/run, PR delivery, file) with domain-language labels.
+- [x] 5A.6 Composer `+` button that opens the same palette visually (Reference / Trace / Action / Attachment / Browser capture).
+- [x] 5A.7 Structured chip model (`type`, `id`, `label`, `scope`, metadata freshness) and agent-turn payload wiring.
+- [x] 5A.8 Inline composer chips plus inline conversation chips, with removable/pinnable chips and hover/click previews.
+- [x] 5A.9 Keyboard and pointer polish: Up/Down, Enter, Tab, Esc, Backspace chip deletion, mouse selection, and visual `+` flow.
+- [x] 5A.10 Ambiguous/no-result states: inline disambiguation, search-all, create-new, ask-agent, and archived-results affordances.
+- [x] 5A.11 Tests for contextual ranking, chip serialization, keyboard selection, scoped `Home` vs project behavior, `+` menu routing, and no-result actions.
+
 ## 6. Motion + visual
 - [x] 6.1 Add `motion` dependency (client); confirm React-19 compatibility + bundle impact.
 - [x] 6.2 Implement signature animations (summon, minimize-morph, tool-card stagger, tier-fill, dropdown spring); transform/opacity only, `will-change` lifecycle.

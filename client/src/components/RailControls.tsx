@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { Button } from './ui/button'
 
-export type RailMode = 'implement' | 'batch-implement' | 'ultracode' | 'loop'
+export type RailMode = 'implement' | 'batch-implement' | 'freestyle' | 'loop'
 export type RailStatus = 'idle' | 'running' | 'failed'
 
 interface RailControlsProps {
@@ -11,9 +11,9 @@ interface RailControlsProps {
   status: RailStatus
   activeJobId?: string
   ticketCount: number
-  /** When true, show the Claude-only Ultracode segment. Ultracode bypasses
+  /** When true, show the Claude-only Freestyle segment. Freestyle bypasses
    *  the OpenSpec pipeline and lets Claude implement the spec autonomously. */
-  ultracodeAvailable?: boolean
+  freestyleAvailable?: boolean
   /** When true, show the "Loop" segment (runs a published global loop against
    *  the rail's specs). Gated by FEATURE_LOOPS_SECTION at the call site. */
   loopAvailable?: boolean

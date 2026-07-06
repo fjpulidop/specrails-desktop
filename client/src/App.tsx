@@ -465,6 +465,7 @@ function ThemedToaster() {
   return (
     <Toaster
       position="bottom-right"
+      className="specrails-toaster"
       theme={theme.scheme}
       gap={8}
       closeButton

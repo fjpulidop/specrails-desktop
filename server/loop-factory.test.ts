@@ -10,18 +10,18 @@ import { validateLoopGraph } from './loop-graph'
 import { assertDeciderBranches } from './loop-templates.test'
 
 describe('factory loops', () => {
-  it('ships implement / batch / ultracode mapped to legacy modes + the graph-native openspec loop', () => {
-    expect(FACTORY_LOOPS.map((f) => f.id)).toEqual(['factory:implement', 'factory:batch', 'factory:ultracode', 'factory:openspec'])
+  it('ships implement / batch / freestyle mapped to canonical rail modes + the graph-native openspec loop', () => {
+    expect(FACTORY_LOOPS.map((f) => f.id)).toEqual(['factory:implement', 'factory:batch', 'factory:freestyle', 'factory:openspec'])
     expect(getFactoryLoop('factory:implement')?.mode).toBe('implement')
     expect(getFactoryLoop('factory:batch')?.mode).toBe('batch-implement')
-    expect(getFactoryLoop('factory:ultracode')?.mode).toBe('ultracode')
-    // Graph-native: no legacy engine fallback — runs only via the LoopRunManager.
+    expect(getFactoryLoop('factory:freestyle')?.mode).toBe('freestyle')
+    // Graph-native: no rail-mode fallback — runs only via the LoopRunManager.
     expect(getFactoryLoop('factory:openspec')?.mode).toBe('loop')
-    expect(getFactoryLoop('factory:ultracode')?.name).toBe('Freestyle')
+    expect(getFactoryLoop('factory:freestyle')?.name).toBe('Freestyle')
   })
 
-  it('ultracode is claude-only; the others are not', () => {
-    expect(getFactoryLoop('factory:ultracode')?.claudeOnly).toBe(true)
+  it('freestyle is claude-only; the others are not', () => {
+    expect(getFactoryLoop('factory:freestyle')?.claudeOnly).toBe(true)
     expect(getFactoryLoop('factory:implement')?.claudeOnly).toBeUndefined()
   })
 
@@ -42,7 +42,7 @@ describe('factory loops', () => {
     }
   })
 
-  it('legacy factory goals describe an exit condition, not a claimed verification result', () => {
+  it('factory goals describe an exit condition, not a claimed verification result', () => {
     for (const f of FACTORY_LOOPS.filter((loop) => loop.mode !== 'loop')) {
       const decider = f.graph.nodes.find((n) => n.type === 'decider')!
       const goal = String(decider.data?.goal ?? '')
@@ -60,7 +60,7 @@ describe('factory loops', () => {
     expect(prompts.some((p) => p.includes('{{cmd:fix}}'))).toBe(true) // refinement on failure
   })
 
-  it('every legacy-mode factory loop gets generous timeouts (pipeline-in-one-step needs headroom)', () => {
+  it('every rail-mode factory loop gets generous timeouts (pipeline-in-one-step needs headroom)', () => {
     for (const f of FACTORY_LOOPS) {
       if (f.mode === 'loop') continue // graph-native loops carry their own authored bounds
       expect(f.graph.config.timeoutMinutes, f.id).toBe(360)
@@ -75,7 +75,7 @@ describe('factory loops', () => {
     expect(isFactoryLoopId('abc123')).toBe(false)
     expect(isFactoryLoopId(null)).toBe(false)
     expect(factoryLoopMode('factory:batch')).toBe('batch-implement')
-    expect(factoryLoopForMode('ultracode')?.id).toBe('factory:ultracode')
+    expect(factoryLoopForMode('freestyle')?.id).toBe('factory:freestyle')
     expect(factoryLoopForMode('loop')).toBeUndefined()
   })
 })

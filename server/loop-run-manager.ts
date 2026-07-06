@@ -488,7 +488,7 @@ export class LoopRunManager {
     })
 
     // Surface the run as a JOB so the full session streams live in the Jobs list
-    // + JobDetail, exactly like implement/ultracode. The job id IS the run id;
+    // + JobDetail, exactly like implement/freestyle. The job id IS the run id;
     // createJob is idempotent. Synchronous (before the first await) so the row
     // exists by the time the launch responds → "View Log" never 404s.
     const jobCommand = `loop: ${req.loopName ?? req.loopId}${req.ticketId != null ? ` #${req.ticketId}` : ''}`

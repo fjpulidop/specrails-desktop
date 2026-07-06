@@ -174,7 +174,7 @@ export function registerSettingsRoutes(deps: ProjectRoutesDeps): void {
   })
 
   router.patch('/:projectId/settings', (req: Request, res: Response) => {
-    const { pipelineTelemetryEnabled, orchestratorModel, prePrompt, ultraPrePrompt } = req.body ?? {}
+    const { pipelineTelemetryEnabled, orchestratorModel, prePrompt, freestylePrePrompt } = req.body ?? {}
     const patch: Parameters<typeof updateProjectSettings>[1] = {}
     if (pipelineTelemetryEnabled !== undefined) {
       patch.pipelineTelemetryEnabled = Boolean(pipelineTelemetryEnabled)
@@ -194,12 +194,12 @@ export function registerSettingsRoutes(deps: ProjectRoutesDeps): void {
       }
       patch.prePrompt = prePrompt
     }
-    if (ultraPrePrompt !== undefined) {
-      if (typeof ultraPrePrompt !== 'string') {
-        res.status(400).json({ error: 'ultraPrePrompt must be a string' })
+    if (freestylePrePrompt !== undefined) {
+      if (typeof freestylePrePrompt !== 'string') {
+        res.status(400).json({ error: 'freestylePrePrompt must be a string' })
         return
       }
-      patch.ultraPrePrompt = ultraPrePrompt
+      patch.freestylePrePrompt = freestylePrePrompt
     }
     if (req.body?.integrationBranch !== undefined) {
       const ib = req.body.integrationBranch

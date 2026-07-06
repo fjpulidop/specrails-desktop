@@ -45,7 +45,7 @@ export interface LoopGraphConfig {
   /** Wall-clock timeout for the whole run, in minutes. */
   timeoutMinutes: number
   /** Per-AI-step wall-clock timeout, in minutes. Undefined ⇒ the engine default
-   *  (15 min). Factory pipeline loops (implement/batch/ultracode) raise this
+   *  (15 min). Factory pipeline loops (implement/batch/freestyle) raise this
    *  because a single step runs the whole architect→developer→reviewer pipeline. */
   aiStepTimeoutMinutes?: number
   /** Optional cost cap (USD) for the whole run. Enforced BETWEEN steps (per-step
@@ -233,13 +233,13 @@ export interface LoopSpec {
 }
 
 /** Whether a loop "needs a ticket/spec" — it references a `{{spec.*}}` token or a
- *  ticket-consuming command (`{{cmd:implement|batch|ultracode}}`). Ticket-needing
+ *  ticket-consuming command (`{{cmd:implement|batch|freestyle}}`). Ticket-needing
  *  loops belong on a rail (the rail provides the spec). Ticket-LESS loops are
  *  standalone (repo-wide CI watch, lint, audit…) and run from the Loops page's
  *  "Run" action, NOT a rail — launching one on a rail would just re-run the same
  *  spec-less loop once per ticket. Mirrors the client's `loop-ticket-need.ts`. */
 const SPEC_TOKEN_RE = /\{\{\s*spec\./
-const TICKET_CMD_RE = /\{\{\s*cmd:(implement|batch|ultracode)\b/
+const TICKET_CMD_RE = /\{\{\s*cmd:(implement|batch|freestyle)\b/
 export function loopNeedsTicket(graph: LoopGraph | undefined): boolean {
   if (!graph) return false
   for (const node of graph.nodes) {

@@ -101,6 +101,40 @@
     "homeHint": "Nessun progetto selezionato — operando su tutti i progetti.",
     "askCreateOrSearch": "Nessun progetto è selezionato. Vuoi creare un nuovo progetto o cercare in tutti i progetti?"
   },
+  "palette": {
+    "remove": "Rimuovi {{label}}",
+    "addContextAction": "Aggiungi contesto o azione",
+    "filtering": "Filtro \"{{query}}\"",
+    "keyboard": "↑↓ Enter Esc",
+    "noMatches": "Nessun risultato",
+    "noMatchesFor": "Nessun risultato per \"{{query}}\"",
+    "mode": {
+      "reference": {
+        "title": "Riferimento",
+        "hint": "@ progetti, spec, missioni"
+      },
+      "trace": {
+        "title": "Traccia",
+        "hint": "# job, esecuzioni, ID"
+      },
+      "action": {
+        "title": "Azione",
+        "hint": "/ comandi per questo contesto"
+      }
+    },
+    "plus": {
+      "reference": "Riferimento",
+      "referenceHint": "Progetti, spec, missioni",
+      "trace": "Traccia",
+      "traceHint": "Job, esecuzioni, ID",
+      "action": "Azione",
+      "actionHint": "Crea, avvia, ispeziona",
+      "fileAttachment": "File allegato",
+      "fileAttachmentHint": "Aggiungi doc, immagini, log",
+      "browserCapture": "Cattura browser",
+      "browserCaptureHint": "Disponibile dal browser del workspace"
+    }
+  },
   "mission": {
     "label": "Cambia missione",
     "untitled": "Nuova missione",

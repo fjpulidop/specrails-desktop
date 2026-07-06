@@ -14,7 +14,7 @@ describe('cancelKindForJob', () => {
   })
 
   it('classifies interactive sessions', () => {
-    expect(cancelKindForJob({ command: '/specrails:ultracode #1', interactive: 1 })).toBe('interactive')
+    expect(cancelKindForJob({ command: '/specrails:freestyle #1', interactive: 1 })).toBe('interactive')
     expect(cancelKindForJob({ command: '/x', interactive: true })).toBe('interactive')
   })
 

@@ -16,7 +16,7 @@ The rail header SHALL present a Loop picker (factory + custom loops) in place of
 
 ### Requirement: Execution routing by loop kind
 
-The launch path SHALL route a factory loop (`implement`/`batch`/`ultracode`) to the existing execution engine (QueueManager — slash command or raw autonomous prompt) and a custom loop to the `LoopRunManager` engine. The unified Loop picker SHALL hide this split from the user.
+The launch path SHALL route a factory loop (`implement`/`batch`/`freestyle`) to the existing execution engine (QueueManager — slash command or raw autonomous prompt) and a custom loop to the `LoopRunManager` engine. The unified Loop picker SHALL hide this split from the user.
 
 #### Scenario: Factory loop uses the existing engine
 
@@ -30,7 +30,7 @@ The launch path SHALL route a factory loop (`implement`/`batch`/`ultracode`) to 
 
 ### Requirement: Backward-compatible rail mode
 
-The `rails.mode` column, the rails REST `mode` field, and the frozen mobile wire contract SHALL be preserved. The `mode` SHALL be DERIVED from the chosen loop (`implement`→`implement`, `batch`→`batch-implement`, `ultracode`→`ultracode`, any custom loop→`loop`). An existing rail that has a `mode` but no selected loop SHALL resolve to the matching factory loop on read.
+The `rails.mode` column, the rails REST `mode` field, and the frozen mobile wire contract SHALL be preserved. The `mode` SHALL be DERIVED from the chosen loop (`implement`→`implement`, `batch`→`batch-implement`, `freestyle`→`freestyle`, any custom loop→`loop`). An existing rail that has a `mode` but no selected loop SHALL resolve to the matching factory loop on read.
 
 #### Scenario: Mode is derived from the chosen factory loop
 
@@ -48,11 +48,11 @@ The `rails.mode` column, the rails REST `mode` field, and the frozen mobile wire
 - **THEN** the server SHALL accept it and map the mode to the matching factory loop
 - **AND** no mobile-facing message type or field name SHALL change
 
-### Requirement: Ultracode loop is claude-only
+### Requirement: Freestyle loop is claude-only
 
-A loop that contains a native claude-only command (e.g. `{{cmd:ultracode}}`) SHALL only be launchable on a rail whose provider is claude, and the run SHALL force `provider: claude` with no agent profile (mirroring the existing ultracode guard).
+A loop that contains a native claude-only command (e.g. `{{cmd:freestyle}}`) SHALL only be launchable on a rail whose provider is claude, and the run SHALL force `provider: claude` with no agent profile (mirroring the existing freestyle guard).
 
-#### Scenario: Ultracode loop blocked on a non-claude rail
+#### Scenario: Freestyle loop blocked on a non-claude rail
 
-- **WHEN** the user tries to launch an ultracode loop on a rail whose provider is codex or gemini
+- **WHEN** the user tries to launch an freestyle loop on a rail whose provider is codex or gemini
 - **THEN** the launch SHALL be rejected with a clear claude-only message

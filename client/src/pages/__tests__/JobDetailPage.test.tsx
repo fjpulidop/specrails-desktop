@@ -549,10 +549,10 @@ describe('JobDetailPage', () => {
     })
   })
 
-  describe('Interactive ultracode session', () => {
+  describe('Interactive freestyle session', () => {
     const interactiveJob: JobSummary = {
       ...mockJob,
-      command: '/specrails:ultracode #1 --yes',
+      command: '/specrails:freestyle #1 --yes',
       status: 'running',
       finished_at: null,
       interactive: 1,
@@ -588,7 +588,7 @@ describe('JobDetailPage', () => {
         json: async () => ({ job: { ...interactiveJob, interactive: 0 }, events: [] }),
       }) as unknown as typeof fetch
       render(<JobDetailPage />)
-      await waitFor(() => expect(screen.getByText('/specrails:ultracode #1 --yes')).toBeInTheDocument())
+      await waitFor(() => expect(screen.getByText('/specrails:freestyle #1 --yes')).toBeInTheDocument())
       expect(screen.queryByText('Finalize Job')).not.toBeInTheDocument()
       expect(screen.queryByPlaceholderText(/Send a message to the running job/i)).not.toBeInTheDocument()
     })

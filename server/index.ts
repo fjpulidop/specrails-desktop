@@ -580,7 +580,7 @@ function applyPtyWsRateLimiting(ws: WebSocket): void {
   }
 
   // ─── App-global agent chat (drives the app via its own MCP) ────────────────
-  const agentChatManager = new AgentChatManager(broadcast, registry.desktopDb, port)
+  const agentChatManager = new AgentChatManager(broadcast, registry.desktopDb, port, registry)
   _agentChatManager = agentChatManager
   // Publish the instance to the process-wide registry so the rails layer can
   // post PR-decision cards (safe-pr-review-flow). Left null when agent chat is

@@ -245,7 +245,7 @@ export function registerJobsRoutes(deps: ProjectRoutesDeps): void {
   // ─── Interactive jobs (manager-agnostic) ───────────────────────────────────
   // Send one more user prompt to a running interactive job (queued behind the
   // active turn — see InteractiveJobSession). The job row may be owned by
-  // EITHER manager: QueueManager (rail/ultracode/spawned jobs) or
+  // EITHER manager: QueueManager (rail/freestyle/spawned jobs) or
   // LoopRunManager (a loop run's job row, addressed by its ACTIVE step
   // session). Try the queue first, then the loop engine. 202 = accepted;
   // 409 = neither manager has an active interactive session for the id

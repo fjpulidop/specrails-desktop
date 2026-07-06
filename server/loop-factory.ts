@@ -1,12 +1,12 @@
 /**
  * Built-in "factory" loops — the app-owned loops that replace the old rail modes
- * (`implement` / `batch-implement` / `ultracode`). They appear in the Loops
+ * (`implement` / `batch-implement` / Freestyle's `freestyle` mode). They appear in the Loops
  * gallery as read-only (locked) entries the user can run on a rail or "Fork to
  * edit" into an editable custom loop.
  *
- * Each carries the legacy `mode` it maps to. In phase A the rail launch routes a
- * factory loop to the EXISTING engine via that mode (QueueManager slash command /
- * ultracode prompt) — the graph here is the faithful representation used for the
+ * Each carries the canonical rail `mode` it maps to. The rail launch routes a
+ * factory loop to the matching engine via that mode (QueueManager slash command /
+ * Freestyle prompt) — the graph here is the faithful representation used for the
  * gallery preview and as the seed when forked into a custom loop.
  *
  * IDs are namespaced `factory:<mode-ish>` so they never collide with user loop ids
@@ -20,11 +20,11 @@ export interface FactoryLoop {
   id: string
   name: string
   description: string
-  /** Rail mode this loop maps to: a legacy engine mode for back-compat routing,
+  /** Rail mode this loop maps to: a canonical engine mode,
    *  or `'loop'` for graph-native factory loops that ONLY run through the
-   *  LoopRunManager (no legacy fallback — launch 403s when Loops are disabled). */
-  mode: 'implement' | 'batch-implement' | 'ultracode' | 'loop'
-  /** claude-only (ultracode). */
+   *  LoopRunManager (no QueueManager fallback — launch 403s when Loops are disabled). */
+  mode: 'implement' | 'batch-implement' | 'freestyle' | 'loop'
+  /** Claude-only (Freestyle). */
   claudeOnly?: boolean
   /** Faithful graph for preview + fork seed. */
   graph: LoopGraph
@@ -56,15 +56,15 @@ export const FACTORY_LOOPS: FactoryLoop[] = [
     graph: fixLoopGraph(['{{cmd:batch}}'], GREEN_GOAL, FACTORY_MAX_ITERATIONS, FACTORY_LOOP_TIMEOUT_MIN, FACTORY_AI_STEP_TIMEOUT_MIN),
   },
   {
-    id: 'factory:ultracode',
-    // Renamed from "Ultracode": the mode hands the spec straight to the model
+    id: 'factory:freestyle',
+    // User-facing name for the canonical freestyle mode: it hands the spec straight to the model
     // with full freedom — no pipeline, it works like a regular coding agent.
-    // The id/mode strings stay 'ultracode' (wire + rail back-compat).
+    // The id/mode strings are the canonical rail contract.
     name: 'Freestyle',
     description: 'Hands the spec straight to the model with full freedom — no pipeline, it works like a regular coding agent, then verify + refine until green. Claude only.',
-    mode: 'ultracode',
+    mode: 'freestyle',
     claudeOnly: true,
-    graph: fixLoopGraph(['{{cmd:ultracode}}'], GREEN_GOAL, FACTORY_MAX_ITERATIONS, FACTORY_LOOP_TIMEOUT_MIN, FACTORY_AI_STEP_TIMEOUT_MIN),
+    graph: fixLoopGraph(['{{cmd:freestyle}}'], GREEN_GOAL, FACTORY_MAX_ITERATIONS, FACTORY_LOOP_TIMEOUT_MIN, FACTORY_AI_STEP_TIMEOUT_MIN),
   },
   {
     id: 'factory:openspec',
@@ -96,6 +96,6 @@ export function factoryLoopMode(id: string): FactoryLoop['mode'] | undefined {
 export function factoryLoopForMode(mode: string): FactoryLoop | undefined {
   if (mode === 'implement') return FACTORY_BY_ID.get('factory:implement')
   if (mode === 'batch-implement') return FACTORY_BY_ID.get('factory:batch')
-  if (mode === 'ultracode') return FACTORY_BY_ID.get('factory:ultracode')
+  if (mode === 'freestyle') return FACTORY_BY_ID.get('factory:freestyle')
   return undefined
 }

@@ -22,10 +22,10 @@ describe('loopNeedsTicket', () => {
     expect(loopNeedsTicket(graphWith({ goal: 'covers {{spec.ids}}' }))).toBe(true)
   })
 
-  it('true when a node references a ticket command (implement/batch/ultracode)', () => {
+  it('true when a node references a ticket command (implement/batch/freestyle)', () => {
     expect(loopNeedsTicket(graphWith({ prompt: '{{cmd:implement}}' }))).toBe(true)
     expect(loopNeedsTicket(graphWith({ prompt: '{{cmd:batch}}' }))).toBe(true)
-    expect(loopNeedsTicket(graphWith({ prompt: '{{cmd:ultracode}}' }))).toBe(true)
+    expect(loopNeedsTicket(graphWith({ prompt: '{{cmd:freestyle}}' }))).toBe(true)
   })
 
   it('false for standalone loops (no spec token, no ticket command)', () => {

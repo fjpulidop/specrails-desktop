@@ -32,6 +32,7 @@ export function railsTools(): McpToolSpec[] {
         'stop (destructive — kills all active jobs and loop runs for the rail). ' +
         'For on_review tickets with an already-open GitHub PR, launch automatically tries to continue that PR head branch; Jira-linked in_progress tickets can do the same when the PR match is explicit; fresh tickets still start from the project integration branch. ' +
         'When launched from the in-app agent chat without an explicit aiEngine, the engine defaults to your conversation\'s provider (pass aiEngine to override; launch_all always uses each rail\'s stored engine). ' +
+        'User-facing naming: call the free-form autonomous mode "Freestyle"; use "freestyle" as the canonical API enum value for that same capability. ' +
         'NAMING: railIndex is the 0-BASED internal identity; the dashboard shows rails 1-based ("Rail N" = railIndex N-1). When talking to the user, ALWAYS say "Rail <railIndex + 1>" (or the rail\'s custom name) — results include railLabel with the correct user-facing label.',
       hintTier: 'read',
       tier: (a) => {
@@ -77,13 +78,13 @@ export function railsTools(): McpToolSpec[] {
           .describe('Rail display label (<=60 chars); null/empty clears to default (set_name). Also the optional initial name for create_rail.'),
         // launch
         mode: z
-          .enum(['implement', 'batch-implement', 'ultracode', 'loop'])
+          .enum(['implement', 'batch-implement', 'freestyle', 'loop'])
           .optional()
-          .describe('Launch mode (launch; default "implement"). "ultracode" is the wire value for Freestyle mode — hands the spec straight to the model, Claude-only, one job per ticket; loop runs an app-driven loop per ticket.'),
+          .describe('Launch mode (launch; default "implement"). Use "freestyle" as the canonical API enum value for Freestyle: a free-form autonomous prompt sent straight to Claude, one job per ticket. In prose, call it "Freestyle". Loop runs an app-driven loop per ticket.'),
         model: z
           .string()
           .optional()
-          .describe('Model for launch. Freestyle mode (wire value \'ultracode\') is Claude-only and takes a Claude alias (haiku | sonnet | opus | fable). For loop mode, any model string valid for the rail\'s provider (claude/codex/gemini).'),
+          .describe('Model for launch. Freestyle is Claude-only and takes a Claude alias (haiku | sonnet | opus | fable); its API mode value is "freestyle". For loop mode, any model string valid for the rail\'s provider (claude/codex/gemini).'),
         interactive: z
           .boolean()
           .optional()

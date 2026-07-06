@@ -81,7 +81,7 @@ describe('project-router standalone loop runs', () => {
   })
 
   it('rejects a claude-only loop on a non-claude project', async () => {
-    const id = publish('ultra', '{{cmd:ultracode}}')
+    const id = publish('freestyle', '{{cmd:freestyle}}')
     const res = await request(buildApp({ provider: 'codex', providers: ['codex'] }))
       .post('/api/projects/p1/loop-runs').send({ loopId: id })
     expect(res.status).toBe(400)

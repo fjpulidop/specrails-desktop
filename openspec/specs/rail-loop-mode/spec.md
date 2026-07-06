@@ -5,17 +5,17 @@ TBD - created by archiving change loop-builder. Update Purpose after archive.
 ## Requirements
 ### Requirement: Loop Rail Mode
 
-A rail SHALL support a fourth launch mode named `loop`, selectable alongside the existing `implement`, `batch-implement`, and `ultracode` modes. When a rail's mode is set to `loop`, the rail header SHALL render the loop-mode controls (loop picker, AI engine selector, model selector, reasoning-effort selector) and SHALL NOT render the controls exclusive to the other three modes. Selecting `loop` mode MUST NOT alter the rail's currently assigned spec.
+A rail SHALL support a fourth launch mode named `loop`, selectable alongside the existing `implement`, `batch-implement`, and `freestyle` modes. When a rail's mode is set to `loop`, the rail header SHALL render the loop-mode controls (loop picker, AI engine selector, model selector, reasoning-effort selector) and SHALL NOT render the controls exclusive to the other three modes. Selecting `loop` mode MUST NOT alter the rail's currently assigned spec.
 
 #### Scenario: Loop appears as a fourth selectable rail mode
 - **WHEN** the user opens a rail's mode selector
-- **THEN** the available modes SHALL include `implement`, `batch-implement`, `ultracode`, and `loop`
+- **THEN** the available modes SHALL include `implement`, `batch-implement`, `freestyle`, and `loop`
 - **AND** selecting `loop` SHALL set the rail's mode to `loop`
 
 #### Scenario: Loop mode reveals loop-specific controls
 - **WHEN** the user sets a rail's mode to `loop`
 - **THEN** the rail header SHALL display a published-loop picker, an AI engine selector, a model selector, and a reasoning-effort selector
-- **AND** the controls exclusive to `implement`, `batch-implement`, and `ultracode` SHALL NOT be displayed for that rail
+- **AND** the controls exclusive to `implement`, `batch-implement`, and `freestyle` SHALL NOT be displayed for that rail
 
 ### Requirement: Published-Loop Picker
 

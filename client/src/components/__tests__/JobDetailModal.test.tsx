@@ -612,7 +612,7 @@ describe('JobDetailModal', () => {
       expect(screen.queryByText('Finalize Job')).not.toBeInTheDocument()
     })
 
-    it("keeps Finalize semantics for a 'finalize' (ultracode) session", async () => {
+    it("keeps Finalize semantics for a 'finalize' (freestyle) session", async () => {
       global.fetch = vi.fn().mockResolvedValue({
         ok: true,
         json: async () => ({
