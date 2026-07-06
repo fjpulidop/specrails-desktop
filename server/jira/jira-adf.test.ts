@@ -33,16 +33,18 @@ describe('textToAdf', () => {
     ])
   })
 
-  it('produces one paragraph per newline-delimited line for multi-line text', () => {
+  it('preserves single newlines inside a paragraph as hardBreaks', () => {
     const doc = textToAdf('line1\nline2\nline3') as any
-    expect(doc.content).toHaveLength(3)
+    expect(doc.content).toHaveLength(1)
     expect(doc.content[0]).toEqual({
       type: 'paragraph',
-      content: [{ type: 'text', text: 'line1' }],
-    })
-    expect(doc.content[2]).toEqual({
-      type: 'paragraph',
-      content: [{ type: 'text', text: 'line3' }],
+      content: [
+        { type: 'text', text: 'line1' },
+        { type: 'hardBreak' },
+        { type: 'text', text: 'line2' },
+        { type: 'hardBreak' },
+        { type: 'text', text: 'line3' },
+      ],
     })
   })
 
@@ -52,6 +54,28 @@ describe('textToAdf', () => {
       { type: 'paragraph', content: [{ type: 'text', text: 'x' }] },
       { type: 'paragraph' },
     ])
+  })
+
+  it('renders common Specrails markdown as structured ADF', () => {
+    const doc = textToAdf([
+      '## Acceptance Criteria',
+      '',
+      '- Render **bold** labels',
+      '- Link to [Jira](https://jira.example/browse/PROJ-1)',
+      '',
+      '1. First',
+      '2. Second',
+      '',
+      '```ts',
+      'const ok = true',
+      '```',
+    ].join('\n')) as any
+    expect(doc.content[0]).toMatchObject({ type: 'heading', attrs: { level: 2 } })
+    expect(doc.content[2]).toMatchObject({ type: 'bulletList' })
+    expect(doc.content[2].content[0].content[0].content).toContainEqual({ type: 'text', text: 'bold', marks: [{ type: 'strong' }] })
+    expect(doc.content[2].content[1].content[0].content).toContainEqual({ type: 'text', text: 'Jira', marks: [{ type: 'link', attrs: { href: 'https://jira.example/browse/PROJ-1' } }] })
+    expect(doc.content[4]).toMatchObject({ type: 'orderedList', attrs: { order: 1 } })
+    expect(doc.content[6]).toMatchObject({ type: 'codeBlock', attrs: { language: 'ts' } })
   })
 })
 
@@ -192,11 +216,11 @@ describe('adfToText', () => {
     const adf = {
       type: 'doc',
       content: [
-        { type: 'heading', content: [{ type: 'text', text: 'Title' }] },
+        { type: 'heading', attrs: { level: 2 }, content: [{ type: 'text', text: 'Title' }] },
         { type: 'paragraph', content: [{ type: 'text', text: 'Body' }] },
       ],
     }
-    expect(adfToText(adf)).toBe('Title\nBody')
+    expect(adfToText(adf)).toBe('## Title\n\nBody')
   })
 
   it('collapses runs of 3+ newlines to a double newline', () => {
@@ -220,11 +244,9 @@ describe('adfToText', () => {
     expect(adfToText(adf)).toBe('a\n\nb')
   })
 
-  it('emits only one newline per empty paragraph (no content array → no separator)', () => {
-    // Documents the actual behavior: textToAdf empty paragraphs push nothing,
-    // so non-empty lines are joined by a single newline.
+  it('keeps an empty paragraph as a markdown blank line', () => {
     const adf = textToAdf('a\n\n\nb')
-    expect(adfToText(adf)).toBe('a\nb')
+    expect(adfToText(adf)).toBe('a\n\nb')
   })
 
   it('ignores non-text leaf nodes and unknown node types', () => {
@@ -266,7 +288,23 @@ describe('adfToText', () => {
         },
       ],
     }
-    expect(adfToText(adf)).toBe('item one')
+    expect(adfToText(adf)).toBe('- item one')
+  })
+
+  it('round-trips common Specrails markdown through ADF', () => {
+    const markdown = [
+      '## Scope',
+      '',
+      'Build **matching** with `motion` and [docs](https://example.com).',
+      '',
+      '- One',
+      '- Two',
+      '',
+      '```tsx',
+      '<KeyTerms />',
+      '```',
+    ].join('\n')
+    expect(adfToText(textToAdf(markdown))).toBe(markdown)
   })
 
   it('returns empty string for a doc with no extractable text', () => {
@@ -293,8 +331,7 @@ describe('adfToText', () => {
         { type: 'paragraph', content: [{ type: 'text', text: 'after' }] },
       ],
     }
-    // Without the fix the codeBlock text ran onto 'after': 'beforeconst x = 1after'.
-    expect(adfToText(adf)).toBe('before\nconst x = 1\nafter')
+    expect(adfToText(adf)).toBe('before\n\n```\nconst x = 1\n```\n\nafter')
   })
 
   it('does not run a codeBlock onto a following heading', () => {
@@ -302,10 +339,10 @@ describe('adfToText', () => {
       type: 'doc',
       content: [
         { type: 'codeBlock', content: [{ type: 'text', text: 'npm test' }] },
-        { type: 'heading', content: [{ type: 'text', text: 'Next' }] },
+        { type: 'heading', attrs: { level: 2 }, content: [{ type: 'text', text: 'Next' }] },
       ],
     }
-    expect(adfToText(adf)).toBe('npm test\nNext')
+    expect(adfToText(adf)).toBe('```\nnpm test\n```\n\n## Next')
   })
 
   it('emits a newline after a blockquote container', () => {
@@ -319,9 +356,7 @@ describe('adfToText', () => {
         { type: 'paragraph', content: [{ type: 'text', text: 'plain' }] },
       ],
     }
-    // The inner paragraph already breaks once; the blockquote boundary adds a
-    // second, so the quote is separated from the next block (was run-on before).
-    expect(adfToText(adf)).toBe('quoted\n\nplain')
+    expect(adfToText(adf)).toBe('> quoted\n\nplain')
   })
 
   it('emits a newline after a panel container', () => {

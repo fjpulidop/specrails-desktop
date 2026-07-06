@@ -7,17 +7,209 @@
 
 import type { JiraDeployment } from './types'
 
-/** Build a minimal ADF document from plain text (newlines → paragraphs). */
+type AdfMark = { type: string; attrs?: Record<string, unknown> }
+
+type AdfInline = {
+  type: 'text'
+  text: string
+  marks?: AdfMark[]
+} | { type: 'hardBreak' }
+
+type AdfBlock = Record<string, unknown>
+
+function textNode(text: string, marks?: AdfMark[]): AdfInline[] {
+  if (!text) return []
+  return marks && Array.isArray(marks) && marks.length > 0
+    ? [{ type: 'text', text, marks }]
+    : [{ type: 'text', text }]
+}
+
+function parseInline(input: string): AdfInline[] {
+  const out: AdfInline[] = []
+  let i = 0
+  const pushPlainUntil = (next: number) => {
+    if (next > i) out.push(...textNode(input.slice(i, next)))
+    i = next
+  }
+  while (i < input.length) {
+    const starts = [
+      input.indexOf('`', i),
+      input.indexOf('**', i),
+      input.indexOf('*', i),
+      input.indexOf('[', i),
+    ].filter((n) => n >= 0)
+    const next = starts.length > 0 ? Math.min(...starts) : -1
+    if (next < 0) {
+      out.push(...textNode(input.slice(i)))
+      break
+    }
+    pushPlainUntil(next)
+    if (input.startsWith('`', i)) {
+      const end = input.indexOf('`', i + 1)
+      if (end > i + 1) {
+        out.push(...textNode(input.slice(i + 1, end), [{ type: 'code' }]))
+        i = end + 1
+        continue
+      }
+    }
+    if (input.startsWith('**', i)) {
+      const end = input.indexOf('**', i + 2)
+      if (end > i + 2) {
+        out.push(...textNode(input.slice(i + 2, end), [{ type: 'strong' }]))
+        i = end + 2
+        continue
+      }
+    }
+    if (input.startsWith('[', i)) {
+      const close = input.indexOf('](', i + 1)
+      const end = close >= 0 ? input.indexOf(')', close + 2) : -1
+      if (close > i + 1 && end > close + 2) {
+        const label = input.slice(i + 1, close)
+        const href = input.slice(close + 2, end)
+        out.push(...textNode(label, [{ type: 'link', attrs: { href } }]))
+        i = end + 1
+        continue
+      }
+    }
+    if (input.startsWith('*', i) && !input.startsWith('**', i)) {
+      const end = input.indexOf('*', i + 1)
+      if (end > i + 1) {
+        out.push(...textNode(input.slice(i + 1, end), [{ type: 'em' }]))
+        i = end + 1
+        continue
+      }
+    }
+    out.push(...textNode(input[i]))
+    i += 1
+  }
+  return out
+}
+
+function paragraphFromLines(lines: string[]): AdfBlock {
+  if (lines.length === 0 || lines.every((line) => line.length === 0)) return { type: 'paragraph' }
+  const content: AdfInline[] = []
+  lines.forEach((line, index) => {
+    if (index > 0) content.push({ type: 'hardBreak' })
+    content.push(...parseInline(line))
+  })
+  return content.length > 0 ? { type: 'paragraph', content } : { type: 'paragraph' }
+}
+
+function isSpecialMarkdownLine(line: string): boolean {
+  return /^```/.test(line) ||
+    /^(#{1,6})\s+\S/.test(line) ||
+    /^\s*[-*+]\s+\S/.test(line) ||
+    /^\s*\d+[.)]\s+\S/.test(line) ||
+    /^>\s?/.test(line) ||
+    /^\s*---+\s*$/.test(line)
+}
+
+function listItem(text: string): AdfBlock {
+  return { type: 'listItem', content: [paragraphFromLines([text])] }
+}
+
+/** Build an ADF document from Specrails Markdown. */
 export function textToAdf(text: string): unknown {
-  const paragraphs = text.split('\n')
+  const lines = text.split('\n')
+  const content: AdfBlock[] = []
+  let i = 0
+  const pushParagraph = (paragraphLines: string[]) => {
+    content.push(paragraphFromLines(paragraphLines))
+  }
+  while (i < lines.length) {
+    const line = lines[i]
+    if (line.length === 0) {
+      content.push({ type: 'paragraph' })
+      i += 1
+      continue
+    }
+
+    const fence = /^```([A-Za-z0-9_-]+)?\s*$/.exec(line)
+    if (fence) {
+      const codeLines: string[] = []
+      i += 1
+      while (i < lines.length && !/^```\s*$/.test(lines[i])) {
+        codeLines.push(lines[i])
+        i += 1
+      }
+      if (i < lines.length) i += 1
+      content.push({
+        type: 'codeBlock',
+        ...(fence[1] ? { attrs: { language: fence[1] } } : {}),
+        content: codeLines.length > 0 ? [{ type: 'text', text: codeLines.join('\n') }] : [],
+      })
+      continue
+    }
+
+    const heading = /^(#{1,6})\s+(.+?)\s*$/.exec(line)
+    if (heading) {
+      content.push({
+        type: 'heading',
+        attrs: { level: heading[1].length },
+        content: parseInline(heading[2]),
+      })
+      i += 1
+      continue
+    }
+
+    const bullet = /^\s*[-*+]\s+(.+)$/.exec(line)
+    if (bullet) {
+      const items: AdfBlock[] = []
+      while (i < lines.length) {
+        const m = /^\s*[-*+]\s+(.+)$/.exec(lines[i])
+        if (!m) break
+        items.push(listItem(m[1]))
+        i += 1
+      }
+      content.push({ type: 'bulletList', content: items })
+      continue
+    }
+
+    const ordered = /^\s*(\d+)[.)]\s+(.+)$/.exec(line)
+    if (ordered) {
+      const items: AdfBlock[] = []
+      const order = parseInt(ordered[1], 10)
+      while (i < lines.length) {
+        const m = /^\s*\d+[.)]\s+(.+)$/.exec(lines[i])
+        if (!m) break
+        items.push(listItem(m[1]))
+        i += 1
+      }
+      content.push({ type: 'orderedList', attrs: { order }, content: items })
+      continue
+    }
+
+    const quote = /^>\s?(.*)$/.exec(line)
+    if (quote) {
+      const quoteLines: string[] = []
+      while (i < lines.length) {
+        const m = /^>\s?(.*)$/.exec(lines[i])
+        if (!m) break
+        quoteLines.push(m[1])
+        i += 1
+      }
+      content.push({ type: 'blockquote', content: [paragraphFromLines(quoteLines)] })
+      continue
+    }
+
+    if (/^\s*---+\s*$/.test(line)) {
+      content.push({ type: 'rule' })
+      i += 1
+      continue
+    }
+
+    const paragraphLines = [line]
+    i += 1
+    while (i < lines.length && lines[i].length > 0 && !isSpecialMarkdownLine(lines[i])) {
+      paragraphLines.push(lines[i])
+      i += 1
+    }
+    pushParagraph(paragraphLines)
+  }
   return {
     type: 'doc',
     version: 1,
-    content: paragraphs.map((line) =>
-      line.length === 0
-        ? { type: 'paragraph' }
-        : { type: 'paragraph', content: [{ type: 'text', text: line }] }
-    ),
+    content: content.length > 0 ? content : [{ type: 'paragraph' }],
   }
 }
 
@@ -73,6 +265,7 @@ export function railReviewCommentMarker(refId: string, ticketId: number): string
 /** True when an ADF doc or wiki string already contains the given marker. */
 export function bodyContainsMarker(body: unknown, marker: string): boolean {
   if (typeof body === 'string') return body.includes(marker)
+  if (adfToText(body).includes(marker)) return true
   try {
     return JSON.stringify(body).includes(marker)
   } catch {
@@ -101,36 +294,83 @@ export function commentHasMarker(
   return bodyContainsMarker(comment.body, marker)
 }
 
-/**
- * Flatten an ADF document (or plain string) back to text — used to read inbound
- * Jira descriptions/comments into the local cache.
- */
-const BLOCK_SEPARATOR_TYPES = new Set<string>([
-  'paragraph',
-  'heading',
-  'codeBlock',
-  'blockquote',
-  'panel',
-  'tableRow',
-])
-
 export function adfToText(body: unknown): string {
   if (body == null) return ''
   if (typeof body === 'string') return body
-  const out: string[] = []
-  const walk = (node: any): void => {
-    if (!node || typeof node !== 'object') return
-    if (node.type === 'text' && typeof node.text === 'string') out.push(node.text)
-    if (node.type === 'hardBreak') out.push('\n')
-    if (Array.isArray(node.content)) {
-      for (const child of node.content) walk(child)
-      // Block separators. `paragraph`/`heading` carry inline children directly;
-      // `codeBlock` holds direct text children (no inner paragraph), and
-      // `blockquote`/`panel`/`tableRow` are containers whose trailing newline
-      // would otherwise be dropped, running their text onto the next block.
-      if (BLOCK_SEPARATOR_TYPES.has(node.type)) out.push('\n')
-    }
+
+  const inlineText = (nodes: unknown): string => {
+    if (!Array.isArray(nodes)) return ''
+    return nodes.map((node) => {
+      if (!node || typeof node !== 'object') return ''
+      const n = node as { type?: unknown; text?: unknown; marks?: unknown; attrs?: Record<string, unknown> }
+      if (n.type === 'hardBreak') return '\n'
+      if (n.type === 'mention' && typeof n.attrs?.text === 'string') return n.attrs.text
+      if (n.type !== 'text' || typeof n.text !== 'string') return ''
+      let text = n.text
+      const marks = Array.isArray(n.marks) ? n.marks as Array<{ type?: unknown; attrs?: Record<string, unknown> }> : []
+      for (const mark of marks) {
+        if (mark.type === 'code') text = `\`${text}\``
+        else if (mark.type === 'strong') text = `**${text}**`
+        else if (mark.type === 'em') text = `*${text}*`
+        else if (mark.type === 'strike') text = `~~${text}~~`
+      }
+      const link = marks.find((mark) => mark.type === 'link' && typeof mark.attrs?.href === 'string')
+      if (link?.attrs?.href) text = `[${text}](${link.attrs.href})`
+      return text
+    }).join('')
   }
-  walk(body)
-  return out.join('').replace(/\n{3,}/g, '\n\n').trim()
+
+  const renderBlocks = (nodes: unknown): string[] => {
+    if (!Array.isArray(nodes)) return []
+    const blocks: string[] = []
+    const renderListItem = (node: any, prefix: string): string => {
+      const rendered = renderBlocks(node?.content)
+      const body = rendered.length > 0 ? rendered.join('\n\n') : ''
+      const lines = body.split('\n')
+      return lines.map((line, index) => index === 0 ? `${prefix}${line}` : `  ${line}`).join('\n')
+    }
+    for (const raw of nodes) {
+      if (!raw || typeof raw !== 'object') continue
+      const node = raw as { type?: string; content?: unknown; attrs?: Record<string, unknown> }
+      if (node.type === 'paragraph') {
+        blocks.push(inlineText(node.content))
+      } else if (node.type === 'heading') {
+        const level = Math.min(6, Math.max(1, Number(node.attrs?.level) || 2))
+        blocks.push(`${'#'.repeat(level)} ${inlineText(node.content)}`.trim())
+      } else if (node.type === 'bulletList') {
+        const items = Array.isArray(node.content) ? node.content.map((item) => renderListItem(item, '- ')) : []
+        blocks.push(items.join('\n'))
+      } else if (node.type === 'orderedList') {
+        const start = Number(node.attrs?.order) || 1
+        const items = Array.isArray(node.content)
+          ? node.content.map((item, index) => renderListItem(item, `${start + index}. `))
+          : []
+        blocks.push(items.join('\n'))
+      } else if (node.type === 'listItem') {
+        blocks.push(...renderBlocks(node.content))
+      } else if (node.type === 'codeBlock') {
+        const lang = typeof node.attrs?.language === 'string' ? node.attrs.language : ''
+        blocks.push(`\`\`\`${lang}\n${inlineText(node.content)}\n\`\`\``)
+      } else if (node.type === 'blockquote') {
+        const quote = renderBlocks(node.content).join('\n\n')
+        blocks.push(quote.split('\n').map((line) => line ? `> ${line}` : '>').join('\n'))
+      } else if (node.type === 'rule') {
+        blocks.push('---')
+      } else if (node.type === 'panel') {
+        blocks.push(renderBlocks(node.content).join('\n\n'))
+      } else if (node.type === 'table') {
+        blocks.push(renderBlocks(node.content).join('\n\n'))
+      } else if (node.type === 'tableRow') {
+        blocks.push(renderBlocks(node.content).join('\n'))
+      } else if (node.type === 'tableCell' || node.type === 'tableHeader') {
+        blocks.push(renderBlocks(node.content).join(' '))
+      } else {
+        blocks.push(...renderBlocks(node.content))
+      }
+    }
+    return blocks
+  }
+
+  const root = body as { content?: unknown }
+  return renderBlocks(root.content).join('\n\n').replace(/[ \t]+\n/g, '\n').replace(/\n{3,}/g, '\n\n').trim()
 }

@@ -887,9 +887,33 @@ describe('createIssue', () => {
       type: 'doc',
       version: 1,
       content: [
-        { type: 'paragraph', content: [{ type: 'text', text: 'line one' }] },
-        { type: 'paragraph', content: [{ type: 'text', text: 'line two' }] },
+        {
+          type: 'paragraph',
+          content: [
+            { type: 'text', text: 'line one' },
+            { type: 'hardBreak' },
+            { type: 'text', text: 'line two' },
+          ],
+        },
       ],
+    })
+  })
+
+  it('renders markdown descriptions as rich ADF on cloud', async () => {
+    const { fetchImpl, requests } = makeFetch({ body: { id: '1', key: 'P-1' } })
+    await new JiraClient(cloudCfg()).createIssue({
+      projectKey: 'P',
+      issueType: 'Task',
+      summary: 's',
+      description: '## Scope\n\n- First\n- **Second**',
+    })
+    const desc = requests[0].body.fields.description
+    expect(desc.content[0]).toMatchObject({ type: 'heading', attrs: { level: 2 } })
+    expect(desc.content[2]).toMatchObject({ type: 'bulletList' })
+    expect(desc.content[2].content[1].content[0].content).toContainEqual({
+      type: 'text',
+      text: 'Second',
+      marks: [{ type: 'strong' }],
     })
   })
 
@@ -989,8 +1013,14 @@ describe('addComment', () => {
       type: 'doc',
       version: 1,
       content: [
-        { type: 'paragraph', content: [{ type: 'text', text: 'hello' }] },
-        { type: 'paragraph', content: [{ type: 'text', text: 'world' }] },
+        {
+          type: 'paragraph',
+          content: [
+            { type: 'text', text: 'hello' },
+            { type: 'hardBreak' },
+            { type: 'text', text: 'world' },
+          ],
+        },
       ],
     })
     if (res.ok) expect(res.data).toEqual({ id: 'c1' })
