@@ -347,9 +347,10 @@ export function truncate(s: string, max = 600): string {
 // — `changeId`, the OpenSpec change id — written so the family can generalize.
 
 const RUN_TOKEN_RE = /\{\{\s*run\.(\w+)\s*\}\}/g
-/** First `openspec/changes/<id>` path mentioned in a step's output (the same
- *  detection SpecLauncherManager uses). The id stops at the first `/`. */
-const CHANGE_ID_RE = /openspec\/changes\/([A-Za-z0-9._-]+)/
+/** First ACTIVE `openspec/changes/<id>` path mentioned in a step's output.
+ *  Archive paths (`openspec/changes/archive/...`) are historical destinations,
+ *  not runnable change ids for later `{{run.changeId}}` commands. */
+const CHANGE_ID_RE = /openspec\/changes\/(?!archive(?:\/|$))([A-Za-z0-9._-]+)(?=\/|\s|$)/g
 
 /** Replace `{{run.<name>}}` with the captured value; uncaptured → '' (never a
  *  leaked literal token). Applied AFTER `{{cmd:*}}` and `{{spec.*}}`. */
@@ -360,6 +361,7 @@ export function resolveRunVars(text: string, vars: Record<string, string>): stri
 /** Extract the OpenSpec change id from a step's output (first match wins), or
  *  undefined when none is present. */
 export function extractChangeId(text: string): string | undefined {
+  CHANGE_ID_RE.lastIndex = 0
   const m = CHANGE_ID_RE.exec(text)
   return m ? m[1] : undefined
 }

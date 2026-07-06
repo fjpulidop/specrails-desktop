@@ -30,7 +30,7 @@ export interface FactoryLoop {
   graph: LoopGraph
 }
 
-const GREEN_GOAL = 'The verification step reported {{const:VERIFICATION_PASS}} — the spec is implemented and all tests pass.'
+const GREEN_GOAL = 'Stop only when the latest verification step reports {{const:VERIFICATION_PASS}} and the history proves the spec is implemented with all required tests/build checks passing.'
 
 // Factory loops run the WHOLE architect→developer→reviewer pipeline inside a
 // single AI step (`/specrails:implement` etc.), so they need far more headroom

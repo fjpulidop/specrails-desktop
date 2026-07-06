@@ -42,6 +42,15 @@ describe('factory loops', () => {
     }
   })
 
+  it('legacy factory goals describe an exit condition, not a claimed verification result', () => {
+    for (const f of FACTORY_LOOPS.filter((loop) => loop.mode !== 'loop')) {
+      const decider = f.graph.nodes.find((n) => n.type === 'decider')!
+      const goal = String(decider.data?.goal ?? '')
+      expect(goal, f.id).toContain('Stop only when')
+      expect(goal, f.id).not.toMatch(/^The verification step reported/)
+    }
+  })
+
   it('the implement factory loop is an autonomous implement → verify → fix loop', () => {
     const prompts = getFactoryLoop('factory:implement')!.graph.nodes
       .filter((n) => n.type === 'ai-step')
