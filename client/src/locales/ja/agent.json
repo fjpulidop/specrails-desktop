@@ -258,6 +258,7 @@
     "openLoop": "ループ {{id}} を開く",
     "ticketNotFound": "スペック #{{id}} が見つかりません — 削除された可能性があります",
     "pullRequestUrlMissing": "PR #{{id}} は URL なしで参照されました",
+    "pullRequestNotFound": "このプロジェクトで PR #{{id}} が見つかりません",
     "jobNotFound": "ジョブが見つかりません — 削除された可能性があります",
     "loopNotFound": "ループが見つかりません — 削除された可能性があります",
     "lookupFailed": "参照を確認できませんでした — もう一度お試しください"

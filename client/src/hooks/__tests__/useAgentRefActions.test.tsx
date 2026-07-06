@@ -39,7 +39,12 @@ function Harness({ projectId, target }: { projectId: string; target: AgentRefTar
   )
 }
 
-const res = (status: number) => ({ ok: status < 300, status, json: async () => ({}), text: async () => '{}' })
+const res = (status: number, body: Record<string, unknown> = {}) => ({
+  ok: status < 300,
+  status,
+  json: async () => body,
+  text: async () => JSON.stringify(body),
+})
 
 beforeEach(() => vi.clearAllMocks())
 afterEach(() => vi.unstubAllGlobals())
@@ -72,13 +77,23 @@ describe('useAgentRefActions', () => {
     expect(openTicketDetailInProject).not.toHaveBeenCalled()
   })
 
-  it('bare pull request ref shows a missing-url toast and does not open a spec', async () => {
-    const fetchMock = vi.fn(async () => res(200))
+  it('bare pull request ref resolves the PR URL from the owning project before opening', async () => {
+    const fetchMock = vi.fn(async () => res(200, { url: 'https://github.com/org/repo/pull/2147' }))
+    vi.stubGlobal('fetch', fetchMock)
+    render(<Harness projectId="p2" target={{ kind: 'pull-request', prNumber: 2147 }} />)
+    fireEvent.click(screen.getByText('go'))
+    await waitFor(() => expect(openExternalUrl).toHaveBeenCalledWith('https://github.com/org/repo/pull/2147'))
+    expect(fetchMock).toHaveBeenCalledWith('/api/projects/p2/git/pull-requests/2147')
+    expect(openTicketDetailInProject).not.toHaveBeenCalled()
+  })
+
+  it('bare pull request ref not found shows a PR not-found toast and does not open a spec', async () => {
+    const fetchMock = vi.fn(async () => res(404))
     vi.stubGlobal('fetch', fetchMock)
     render(<Harness projectId="p2" target={{ kind: 'pull-request', prNumber: 2147 }} />)
     fireEvent.click(screen.getByText('go'))
     await waitFor(() => expect(toast.info).toHaveBeenCalled())
-    expect(fetchMock).not.toHaveBeenCalled()
+    expect(openExternalUrl).not.toHaveBeenCalled()
     expect(openTicketDetailInProject).not.toHaveBeenCalled()
   })
 

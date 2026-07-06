@@ -15,12 +15,15 @@ import {
 import { clampShortSummary } from './ticket-store'
 import { installConfigPath } from './install-config-path'
 import { resolveProjectExecution } from './workspace-resolution'
+import type { Exec } from './pr-publisher'
 
 /** Shared dependencies handed to every domain register function. */
 export interface ProjectRoutesDeps {
   router: Router
   registry: ProjectRegistry
   ctx: (req: Request) => ProjectContext
+  /** Injectable command runner for git/gh route helpers; production uses defaults. */
+  exec?: Exec
   /** Resolve the per-project ticket-store path for a request (cross-domain). */
   ticketPath: (req: Request) => string
 }

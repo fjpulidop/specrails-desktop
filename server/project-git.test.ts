@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeAll, afterAll } from 'vitest'
+import { describe, it, expect, beforeAll, afterAll, vi } from 'vitest'
 import express, { Router, type Request } from 'express'
 import { execFileSync } from 'child_process'
 import fs from 'fs'
@@ -172,13 +172,14 @@ describe('project-git', () => {
 })
 
 describe('git routes', () => {
-  function makeApp(repoDir: string) {
+  function makeApp(repoDir: string, exec?: ProjectRoutesDeps['exec']) {
     const app = express()
     app.use(express.json())
     const router = Router()
     registerGitRoutes({
       router,
       ctx: () => ({ project: { path: repoDir } }),
+      exec,
       registry: {},
       ticketPath: () => '',
     } as unknown as ProjectRoutesDeps)
@@ -221,5 +222,26 @@ describe('git routes', () => {
     expect(ok.status).toBe(200)
     expect(ok.body.branch).toBe('feature')
     await req(app, 'POST', '/api/projects/p1/git/checkout', { branch: 'main' })
+  })
+
+  it('GET /git/pull-requests/:number resolves a bare PR number through gh', async () => {
+    const exec = {
+      run: vi.fn(async () => ({
+        code: 0,
+        stdout: JSON.stringify({ url: 'https://github.com/o/r/pull/515' }),
+        stderr: '',
+      })),
+    }
+    const r = await req(makeApp(repo, exec), 'GET', '/api/projects/p1/git/pull-requests/515')
+    expect(r.status).toBe(200)
+    expect(r.body).toEqual({ prNumber: 515, url: 'https://github.com/o/r/pull/515' })
+    expect(exec.run).toHaveBeenCalledWith('gh', ['pr', 'view', '515', '--json', 'url'], repo)
+  })
+
+  it('GET /git/pull-requests/:number returns 404 when gh cannot resolve it', async () => {
+    const exec = { run: vi.fn(async () => ({ code: 1, stdout: '', stderr: 'not found' })) }
+    const r = await req(makeApp(repo, exec), 'GET', '/api/projects/p1/git/pull-requests/999')
+    expect(r.status).toBe(404)
+    expect(r.body.error).toBe('pull_request_not_found')
   })
 })

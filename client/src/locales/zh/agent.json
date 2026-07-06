@@ -258,6 +258,7 @@
     "openLoop": "打开循环 {{id}}",
     "ticketNotFound": "未找到 Spec #{{id}} — 可能已被删除",
     "pullRequestUrlMissing": "PR #{{id}} 被引用但没有 URL",
+    "pullRequestNotFound": "在此项目中找不到 PR #{{id}}",
     "jobNotFound": "未找到任务 — 可能已被删除",
     "loopNotFound": "未找到循环 — 可能已被删除",
     "lookupFailed": "无法验证该引用 — 请重试"

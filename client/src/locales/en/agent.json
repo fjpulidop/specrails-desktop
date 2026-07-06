@@ -258,6 +258,7 @@
     "openLoop": "Open loop {{id}}",
     "ticketNotFound": "Spec #{{id}} not found — it may have been deleted",
     "pullRequestUrlMissing": "PR #{{id}} was referenced without a URL",
+    "pullRequestNotFound": "PR #{{id}} could not be found in this project",
     "jobNotFound": "Job not found — it may have been deleted",
     "loopNotFound": "Loop not found — it may have been deleted",
     "lookupFailed": "Couldn't verify the reference — try again"

@@ -258,6 +258,7 @@
     "openLoop": "Abrir loop {{id}}",
     "ticketNotFound": "Spec #{{id}} no encontrada — puede haber sido eliminada",
     "pullRequestUrlMissing": "La PR #{{id}} se mencionó sin URL",
+    "pullRequestNotFound": "No se pudo encontrar la PR #{{id}} en este proyecto",
     "jobNotFound": "Job no encontrado — puede haber sido eliminado",
     "loopNotFound": "Loop no encontrado — puede haber sido eliminado",
     "lookupFailed": "No se pudo verificar la referencia — inténtalo de nuevo"
