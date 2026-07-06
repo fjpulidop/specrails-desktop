@@ -44,6 +44,14 @@ interface OpenPr {
   baseRefName?: string
   url?: string
   isDraft?: boolean
+  state?: string
+}
+
+type PrMatchKind = 'pr-number' | 'ticket-ref' | 'title-similarity'
+const PR_MATCH_RANK: Record<PrMatchKind, number> = {
+  'title-similarity': 1,
+  'ticket-ref': 2,
+  'pr-number': 3,
 }
 
 function parsePrNumber(prUrl: string | null | undefined): number | null {
@@ -76,6 +84,18 @@ function ticketRefs(db: DbInstance, ticketId: number, spec: ContinuationTicketSp
   return [...refs]
 }
 
+function mentionedPrNumbers(spec: ContinuationTicketSpec | undefined): Set<number> {
+  const text = `${spec?.title ?? ''}\n${spec?.description ?? ''}`
+  const out = new Set<number>()
+  for (const match of text.matchAll(/\b(?:pr|pull request)\s*#?\s*(\d{1,10})\b/gi)) {
+    out.add(parseInt(match[1], 10))
+  }
+  for (const match of text.matchAll(/\/pull\/(\d{1,10})(?:\b|[/?#])/gi)) {
+    out.add(parseInt(match[1], 10))
+  }
+  return out
+}
+
 function hasJiraRef(db: DbInstance, ticketId: number, spec: ContinuationTicketSpec | undefined): boolean {
   if (spec?.jira_key?.trim()) return true
   try {
@@ -91,14 +111,18 @@ function prMatchKind(
   ticketId: number,
   spec: ContinuationTicketSpec | undefined,
   pr: OpenPr,
-): 'explicit-ref' | 'title-similarity' | null {
+): PrMatchKind | null {
+  const mentionedPrs = mentionedPrNumbers(spec)
+  const prNumber = typeof pr.number === 'number' ? pr.number : parsePrNumber(pr.url)
+  if (prNumber !== null && mentionedPrs.has(prNumber)) return 'pr-number'
+
   const haystack = `${pr.title ?? ''}\n${pr.body ?? ''}\n${pr.headRefName ?? ''}`.toLowerCase()
   for (const ref of ticketRefs(db, ticketId, spec)) {
     const needle = ref.toLowerCase()
     if (needle.startsWith('#') || needle.startsWith('[')) {
-      if (haystack.includes(needle)) return 'explicit-ref'
+      if (haystack.includes(needle)) return 'ticket-ref'
     } else if (new RegExp(`(^|[^a-z0-9])${needle.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}([^a-z0-9]|$)`, 'i').test(haystack)) {
-      return 'explicit-ref'
+      return 'ticket-ref'
     }
   }
 
@@ -123,10 +147,10 @@ function canProbeGithubForContinuation(
 
 function matchAllowedForTicket(
   spec: ContinuationTicketSpec | undefined,
-  kind: 'explicit-ref' | 'title-similarity',
+  kind: PrMatchKind,
 ): boolean {
   if (spec?.status === 'on_review') return true
-  return kind === 'explicit-ref'
+  return kind !== 'title-similarity'
 }
 
 async function localBranchExists(git: GitRunner, repoDir: string, branch: string): Promise<boolean> {
@@ -187,8 +211,10 @@ function internalDeliveryTargets(db: DbInstance, ticketIds: number[]): Map<numbe
   return out
 }
 
+const PR_JSON_FIELDS = 'number,title,body,headRefName,baseRefName,url,isDraft,state'
+
 async function listOpenPrs(exec: Exec, repoDir: string): Promise<OpenPr[]> {
-  const r = await exec.run('gh', ['pr', 'list', '--state', 'open', '--json', 'number,title,body,headRefName,baseRefName,url,isDraft'], repoDir)
+  const r = await exec.run('gh', ['pr', 'list', '--state', 'open', '--limit', '200', '--json', PR_JSON_FIELDS], repoDir)
   if (r.code !== 0) return []
   try {
     const parsed = JSON.parse(r.stdout) as unknown
@@ -196,6 +222,40 @@ async function listOpenPrs(exec: Exec, repoDir: string): Promise<OpenPr[]> {
   } catch {
     return []
   }
+}
+
+async function viewOpenPr(exec: Exec, repoDir: string, prNumber: number): Promise<OpenPr | null> {
+  const r = await exec.run('gh', ['pr', 'view', String(prNumber), '--json', PR_JSON_FIELDS], repoDir)
+  if (r.code !== 0) return null
+  try {
+    const parsed = JSON.parse(r.stdout) as OpenPr
+    if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) return null
+    if (typeof parsed.state === 'string' && parsed.state.toUpperCase() !== 'OPEN') return null
+    return parsed
+  } catch {
+    return null
+  }
+}
+
+async function mentionedOpenPrs(exec: Exec, repoDir: string, prNumbers: Set<number>): Promise<OpenPr[]> {
+  const out: OpenPr[] = []
+  for (const prNumber of prNumbers) {
+    const pr = await viewOpenPr(exec, repoDir, prNumber)
+    if (pr) out.push(pr)
+  }
+  return out
+}
+
+function mergeOpenPrs(prs: OpenPr[]): OpenPr[] {
+  const out: OpenPr[] = []
+  const seen = new Set<string>()
+  for (const pr of prs) {
+    const key = typeof pr.number === 'number' ? `n:${pr.number}` : pr.url ? `u:${pr.url}` : null
+    if (key && seen.has(key)) continue
+    if (key) seen.add(key)
+    out.push(pr)
+  }
+  return out
 }
 
 /**
@@ -229,15 +289,25 @@ export async function resolveActivePrContinuationTargets(
   const candidateIds = remaining.filter((id) => canProbeGithubForContinuation(input.db, id, input.getTicketSpec(id)))
   if (candidateIds.length === 0) return out
 
-  const openPrs = await listOpenPrs(input.exec, input.repoDir)
+  const mentionedPrs = new Set<number>()
+  for (const ticketId of candidateIds) {
+    for (const prNumber of mentionedPrNumbers(input.getTicketSpec(ticketId))) mentionedPrs.add(prNumber)
+  }
+  const openPrs = mergeOpenPrs([
+    ...await listOpenPrs(input.exec, input.repoDir),
+    ...await mentionedOpenPrs(input.exec, input.repoDir, mentionedPrs),
+  ])
   for (const ticketId of candidateIds) {
     const spec = input.getTicketSpec(ticketId)
-    const matches = openPrs.filter((pr) => {
+    const matches = openPrs.flatMap((pr) => {
       const kind = prMatchKind(input.db, ticketId, spec, pr)
-      return kind ? matchAllowedForTicket(spec, kind) : false
+      return kind && matchAllowedForTicket(spec, kind) ? [{ pr, kind }] : []
     })
-    if (matches.length !== 1) continue
-    const pr = matches[0]
+    if (matches.length === 0) continue
+    const bestRank = Math.max(...matches.map((m) => PR_MATCH_RANK[m.kind]))
+    const best = matches.filter((m) => PR_MATCH_RANK[m.kind] === bestRank)
+    if (best.length !== 1) continue
+    const pr = best[0].pr
     const materialized = await materializeTarget(
       input.git,
       input.repoDir,

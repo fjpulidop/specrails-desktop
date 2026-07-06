@@ -595,7 +595,7 @@ describe('launchIsolatedRail — active PR continuation', () => {
               body: 'Implements ticket #98.',
               headRefName: 'feat/SKILLS-19-key-terms-activity',
               baseRefName: 'main',
-              url: 'https://github.com/Busuu/busuu-web/pull/2147',
+              url: 'https://github.com/org/repo/pull/2147',
               isDraft: false,
             }]),
             stderr: '',
@@ -620,9 +620,80 @@ describe('launchIsolatedRail — active PR continuation', () => {
     expect(getActivePrDeliveryByRail(db, 0)).toMatchObject({
       base_branch: 'main',
       branch: 'feat/SKILLS-19-key-terms-activity',
-      pr_url: 'https://github.com/Busuu/busuu-web/pull/2147',
+      pr_url: 'https://github.com/org/repo/pull/2147',
       pr_number: 2147,
       pr_state: 'pr-created',
+    })
+  })
+
+  it('continues the explicitly mentioned PR number even when the PR branch uses an older Jira key', async () => {
+    const { ctx, db } = continuationCtx()
+    ;(ctx as unknown as { getTicketSpec: (id: number) => unknown }).getTicketSpec = (id: number) => ({
+      id,
+      title: 'Add key-terms activity to Skills v2 lesson player',
+      description: 'Review follow-ups (Adversarial Review - PR #2147, HEAD 5964efb8). Scope: F-001 and F-002 only.',
+      status: 'on_review',
+      labels: ['feature'],
+      jira_key: 'SKILLS-70',
+      ticketIds: [id],
+    })
+    const create = vi.fn(async (_g: unknown, input: { branch?: string; ticketId: number }) => ({
+      branch: input.branch ?? `sr/p/ticket-${input.ticketId}`,
+      worktreePath: `/wt/ticket-${input.ticketId}`,
+    }))
+    const git = {
+      run: async (args: string[]) => {
+        if (args[0] === 'rev-parse' && args.at(-1) === 'refs/heads/feat/SKILLS-19-key-terms-activity') {
+          return { code: 0, stdout: '', stderr: '' }
+        }
+        return { code: 0, stdout: '', stderr: '' }
+      },
+    }
+    const exec = {
+      run: vi.fn(async (_cmd: string, args: string[]) => {
+        if (args[0] === 'pr' && args[1] === 'list') return {
+          code: 0,
+          stdout: JSON.stringify([{
+            number: 3000,
+            title: 'SKILLS-70 unrelated Jira follow-up',
+            body: 'This also mentions SKILLS-70 but is not the PR named by the review.',
+            headRefName: 'feat/SKILLS-70-unrelated-followup',
+            baseRefName: 'main',
+            url: 'https://github.com/org/repo/pull/3000',
+            isDraft: false,
+          }]),
+          stderr: '',
+        }
+        if (args[0] === 'pr' && args[1] === 'view' && args[2] === '2147') return {
+          code: 0,
+          stdout: JSON.stringify({
+            number: 2147,
+            title: '[SKILLS-19] Key terms activity',
+            body: 'Original implementation for the key-terms activity.',
+            headRefName: 'feat/SKILLS-19-key-terms-activity',
+            baseRefName: 'main',
+            url: 'https://github.com/org/repo/pull/2147',
+            isDraft: false,
+            state: 'OPEN',
+          }),
+          stderr: '',
+        }
+        return { code: 1, stdout: '', stderr: 'unexpected gh call' }
+      }),
+    }
+
+    await launchIsolatedRail(input([98], ctx), { git, exec, create, remove: vi.fn(async () => {}) })
+
+    expect(create).toHaveBeenCalledWith(git, expect.objectContaining({
+      ticketId: 98,
+      branch: 'feat/SKILLS-19-key-terms-activity',
+    }))
+    await vi.waitFor(() => expect(getActivePrDeliveryByRail(db, 0)!.decision).toBe('pr_ready'))
+    expect(getActivePrDeliveryByRail(db, 0)).toMatchObject({
+      base_branch: 'main',
+      branch: 'feat/SKILLS-19-key-terms-activity',
+      pr_url: 'https://github.com/org/repo/pull/2147',
+      pr_number: 2147,
     })
   })
 
