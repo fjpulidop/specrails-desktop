@@ -661,7 +661,7 @@ export function ArcSidebar({
       {/* Projects list */}
       <div className="flex-1 overflow-y-auto py-2 px-1.5 space-y-0.5">
         {agentMode && favoriteConversations.length > 0 && (
-          <div className={cn('space-y-0.5', expanded && 'mb-2 border-b border-border/70 pb-2')}>
+          <div className="mb-2 space-y-0.5 border-b border-border/70 pb-2">
             <button
               type="button"
               onClick={() => toggleTree(FAVORITES_KEY)}

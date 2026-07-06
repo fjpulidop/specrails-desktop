@@ -148,7 +148,9 @@ describe('ArcSidebar agent-mode conversation rows', () => {
   it('collapses favorite missions behind a single favorites icon when the sidebar is collapsed', () => {
     agentChatState.favoriteIds = new Set(['c-1'])
     render(<ArcSidebar {...defaultProps} />)
-    expect(screen.getByRole('button', { name: 'Favorite missions' })).toBeInTheDocument()
+    const favoritesButton = screen.getByRole('button', { name: 'Favorite missions' })
+    expect(favoritesButton).toBeInTheDocument()
+    expect(favoritesButton.parentElement?.className).toContain('border-b')
     expect(screen.queryByText('Favorite missions')).not.toBeInTheDocument()
     expect(screen.queryByText('Fix the build')).not.toBeInTheDocument()
     expect(screen.queryByRole('button', { name: 'Remove "Fix the build" from favorites' })).not.toBeInTheDocument()
