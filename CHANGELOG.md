@@ -1,5 +1,12 @@
 # Changelog
 
+## [2.26.0](https://github.com/fjpulidop/specrails-desktop/compare/v2.25.0...v2.26.0) (2026-07-06)
+
+
+### Features
+
+* **agent:** add contextual composer chips ([#519](https://github.com/fjpulidop/specrails-desktop/issues/519)) ([245b3a2](https://github.com/fjpulidop/specrails-desktop/commit/245b3a2f48b0a8c9d3fab1c5ef02102fb16c60ee))
+
 ## [2.25.0](https://github.com/fjpulidop/specrails-desktop/compare/v2.24.3...v2.25.0) (2026-07-06)
 
 
