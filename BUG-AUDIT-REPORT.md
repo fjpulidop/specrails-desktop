@@ -25,7 +25,7 @@ Total findings adjudicated: **78**. Confirmed real: **39**. Refuted / disputed (
 
 2. **`/diff` serves secret-file contents to the non-developer Code Explorer (`BUG-CODE-01`, Medium→split-High).** Every sibling content endpoint enforces the deny-list + `.gitignore`; `/diff` enforces neither, so the full contents of any AI-touched `.env`/`*.pem`/`id_rsa`/gitignored credential file are served verbatim.
 
-3. **Windows persistent-stdin / interactive-ultracode argv corruption (`BUG-SPAWN-01`, High).** The Windows arg-rewrite consumes the valueless `-p` as if it carried a value, silently breaking two whole features on Windows.
+3. **Windows persistent-stdin / interactive-freestyle argv corruption (`BUG-SPAWN-01`, High).** The Windows arg-rewrite consumes the valueless `-p` as if it carried a value, silently breaking two whole features on Windows.
 
 4. **Cross-cutting child-process lifecycle gaps.** Multiple managers (`ExploreStdinSessions`, contract-refine/SMASH, proposal/spec-launcher/agent-refine) kill children with bare `child.kill`/single-SIGTERM and no tree-kill / SIGKILL escalation — orphaning full-permission, spend-burning CLI trees (worst on Windows).
 
@@ -45,8 +45,8 @@ Ordered by corrected severity (High → Medium → Low), then subsystem.
 - **Severity:** High · **Subsystem:** Spawn + PATH + bundled runtimes · **Platform:** Windows
 - **File:** `server/util/cli-prompt.ts:40-58` (with `server/providers/claude-adapter.ts:126`)
 - **What's wrong:** `transformClaudeArgsForWindows` treats `-p` as value-bearing and unconditionally consumes the next token. The `chat-stream` action emits a **valueless** `-p` followed by `--input-format stream-json` (prompt arrives over stdin), so the transform collects `--input-format` as a fake prompt, drops it from argv, re-appends a bare `-p`, and routes the literal string `--input-format` to stdin. Additionally `spawnClaude` then `stdin.end()`s the bogus payload — incompatible with the persistent-stdin transport.
-- **Impact:** On Windows, Explore persistent-stdin (`SPECRAILS_EXPLORE_PERSISTENT_STDIN=1`) and interactive-ultracode rails spawn claude with a corrupted command line and garbage stdin — the feature silently does nothing or errors. POSIX unaffected.
-- **Trigger:** Windows + persistent-stdin Explore turn, or an interactive ultracode rail.
+- **Impact:** On Windows, Explore persistent-stdin (`SPECRAILS_EXPLORE_PERSISTENT_STDIN=1`) and interactive-freestyle rails spawn claude with a corrupted command line and garbage stdin — the feature silently does nothing or errors. POSIX unaffected.
+- **Trigger:** Windows + persistent-stdin Explore turn, or an interactive freestyle rail.
 - **Fix:** Only treat `-p`/`--print` as value-bearing when the next token does not start with `-`; leave the valueless chat-stream `-p` untouched (stdin is already piped). Mirror the codex transform's existing `a.startsWith('-')` flag guard.
 
 #### BUG-FW-01 — Core-update swap of `framework/current` runs without the registry lock
@@ -625,7 +625,7 @@ Findings the verifiers refuted or split on. Adjudicate before acting.
 | FW-DISP-05 | `preserveAgentMemory` guards existence not emptiness | Medium | **Refuted (info)** | `agent-memory` is invariantly a real dir at the providerDir root, never nested under a backed-up subtree, so the buggy branch is unreachable in every real layout. |
 | FW-DISP-06 | Custom-agent preservation loop partly dead / unconditional `.bak` delete | Low | **Refuted (info)** | Intentional defensive uniformity, tested; the `.bak` deletion only removes byte-identical backups behind a verified guard. |
 | QUEUE-DISP-04 | `_jobProviderSelection` leaks on vanished job | Low | **Refuted (info)** | `_resolveJobAdapter` (which deletes the entry) is the first real step of `_startJob` before any throw; jobs are never removed from `_jobs`; the queued-cancel path already deletes the entry. |
-| QUEUE-DISP-05 | Ultracode rail loop enqueues with no rollback on mid-loop CLI-not-found | Low | **Refuted (info)** | `binaryOnPath` memoizes per-binary (30s TTL); the whole sub-ms loop shares one cached probe result, so a mid-loop found→not-found transition is unreachable. |
+| QUEUE-DISP-05 | Freestyle rail loop enqueues with no rollback on mid-loop CLI-not-found | Low | **Refuted (info)** | `binaryOnPath` memoizes per-binary (30s TTL); the whole sub-ms loop shares one cached probe result, so a mid-loop found→not-found transition is unreachable. |
 | INTJOB-DISP-01 | `_writeTurn` marks streaming even when stdin is gone → permanent hang | High | **Refuted (low)** | stdin only becomes destroyed when the child is dying, which always fires `'close'` → `_settle` resets flags + drains pending with a visible warning + removes the session. Transient ordering quirk, not a permanent wedge. |
 | CTX-DISP-01 | High-tier `--disallowedTools` bypassable by skip-permissions | High | **Refuted (info)** | The high tier is documented as NOT a sandbox; Bash is intentionally enabled (can already write files), so callable Write/Edit adds no real attack surface — UX shaping, not a security guarantee. |
 | CTX-DISP-03 | Duplicate `--tools` relies on undocumented last-wins | Medium | **Refuted (info)** | Last-wins verified against the targeted claude 2.1.177; no real CLI version fails open; the privilege-escalation impact is entirely hypothetical. |

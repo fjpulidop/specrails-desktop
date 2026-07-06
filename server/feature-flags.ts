@@ -25,8 +25,8 @@ export function isJiraEnabled(): boolean {
 }
 
 /**
- * Interactive ultracode jobs: when launched with the rail's "Interactive"
- * toggle, an ultracode (Claude-only) job becomes a persistent chat session —
+ * Interactive freestyle jobs: when launched with the rail's "Interactive"
+ * toggle, an freestyle (Claude-only) job becomes a persistent chat session —
  * the user sends multiple prompts across turns, the job stays resident until an
  * explicit "Finalize Job" action, and every turn's real token spend is summed
  * into the single job row. Server-side default ON; set

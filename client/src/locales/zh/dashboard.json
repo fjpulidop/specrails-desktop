@@ -114,8 +114,8 @@
     "log": "日志",
     "implement": "实现",
     "batch": "批量",
-    "ultra": "Freestyle",
-    "ultraTitle": "Freestyle — Claude 自主实现该 Spec，不走流水线",
+    "freestyle": "Freestyle",
+    "freestyleTitle": "Freestyle — Claude 自主实现该 Spec，不走流水线",
     "loop": "Loop",
     "loopTitle": "Loop — 针对该轨道的 Spec 运行已发布的自动化循环",
     "pickLoop": "选择一个循环…",
@@ -139,7 +139,7 @@
     "dropOnThisRail": "拖放到此 Rail",
     "dragSpecsHere": "将 Spec 拖到此处"
   },
-  "ultracodeDialog": {
+  "freestyleDialog": {
     "title": "以 Freestyle 模式启动",
     "context_one": "{{rail}} · {{count}} 个 Spec",
     "context_other": "{{rail}} · {{count}} 个 Spec",

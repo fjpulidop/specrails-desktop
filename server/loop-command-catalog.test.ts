@@ -9,10 +9,10 @@ import {
 import { interpolateSpec } from './loop-graph'
 
 describe('loop command catalog', () => {
-  it('ships implement (all), batch (all), ultracode (per-ticket, claude-only)', () => {
+  it('ships implement (all), batch (all), freestyle (per-ticket, claude-only)', () => {
     expect(getLoopCommand('implement')).toMatchObject({ coreCommand: 'implement', ticketScope: 'all' })
     expect(getLoopCommand('batch')).toMatchObject({ coreCommand: 'batch-implement', ticketScope: 'all' })
-    expect(getLoopCommand('ultracode')).toMatchObject({ native: true, claudeOnly: true, ticketScope: 'per-ticket' })
+    expect(getLoopCommand('freestyle')).toMatchObject({ native: true, claudeOnly: true, ticketScope: 'per-ticket' })
     expect(LOOP_COMMANDS.some((c) => c.name === 'verify')).toBe(true)
   })
 
@@ -30,8 +30,8 @@ describe('loop command catalog', () => {
     expect(expandCommands('{{cmd:implement}}', { provider: 'claude' })).toBe('/specrails:implement --yes')
   })
 
-  it('ultracode expands to a raw autonomous prompt, NOT a slash command', () => {
-    const out = expandCommands('{{cmd:ultracode}}', { provider: 'claude', ticketIds: [5] })
+  it('freestyle expands to a raw autonomous prompt, NOT a slash command', () => {
+    const out = expandCommands('{{cmd:freestyle}}', { provider: 'claude', ticketIds: [5] })
     expect(out).toContain('autonomously')
     expect(out).toContain('{{spec.title}}') // spec tokens survive for the data pass
     expect(out).not.toContain('/specrails:')
@@ -54,12 +54,12 @@ describe('loop command catalog', () => {
   it('dominantTicketScope reads the command scope', () => {
     expect(dominantTicketScope('{{cmd:implement}}')).toBe('all')
     expect(dominantTicketScope('{{cmd:batch}}')).toBe('all')
-    expect(dominantTicketScope('{{cmd:ultracode}}')).toBe('per-ticket')
+    expect(dominantTicketScope('{{cmd:freestyle}}')).toBe('per-ticket')
     expect(dominantTicketScope('plain prompt, no command')).toBe('per-ticket')
   })
 
-  it('referencesClaudeOnlyCommand flags ultracode only', () => {
-    expect(referencesClaudeOnlyCommand('{{cmd:ultracode}}')).toBe(true)
+  it('referencesClaudeOnlyCommand flags freestyle only', () => {
+    expect(referencesClaudeOnlyCommand('{{cmd:freestyle}}')).toBe(true)
     expect(referencesClaudeOnlyCommand('{{cmd:implement}}')).toBe(false)
   })
 

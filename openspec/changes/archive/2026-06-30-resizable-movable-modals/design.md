@@ -7,7 +7,7 @@ Survey (multi-agent sweep of `client/src`, 2026-06-28) found **36** overlay comp
 ```
 Tier A — funnel through ui/dialog.tsx (DialogContent)            ~16 modals
   AddProjectDialog, CreateTicketModal, ProposeSpecModal,
-  CreateTemplateDialog, FeatureProposalModal, UltracodeLaunchDialog,
+  CreateTemplateDialog, FeatureProposalModal, FreestyleLaunchDialog,
   DiscardSpecDialog, PromptDialog, RoutingRuleDialog,
   PairWebCompanionModal, LoopRunModal, TemplatePreviewModal,
   KeyboardShortcutsCheatsheet, DocsDialog, GlobalSettingsPage(SettingsDialog),

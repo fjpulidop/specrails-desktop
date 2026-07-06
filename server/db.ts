@@ -28,7 +28,7 @@ export interface NewJob {
   priority?: JobPriority
   depends_on_job_id?: string | null
   pipeline_id?: string | null
-  /** 1 when this is an interactive persistent session (ultracode + the rail's
+  /** 1 when this is an interactive persistent session (freestyle + the rail's
    *  Interactive toggle); 0/undefined for standard autonomous jobs. */
   interactive?: boolean
 }
@@ -698,7 +698,7 @@ const MIGRATIONS: Migration[] = [
   },
 
   // Migration 32: jobs.interactive — 1 when the job is an interactive persistent
-  // ultracode session (the user sends multiple prompts across turns; the job
+  // freestyle session (the user sends multiple prompts across turns; the job
   // stays 'running' until an explicit finalize, at which point every turn's real
   // tokens/cost/num_turns are already summed into the row and status flips to
   // 'completed'); 0 (default) for standard autonomous jobs. Additive + idempotent
@@ -1473,13 +1473,13 @@ export function getStats(db: DbInstance): StatsRow {
 // ─── Project settings ─────────────────────────────────────────────────────────
 
 /**
- * Default pre-prompt used by Ultracode (Claude-only rails) when the project
- * has no per-project override. Ultracode skips the OpenSpec pipeline entirely:
+ * Default pre-prompt used by Freestyle (Claude-only rails) when the project
+ * has no per-project override. Freestyle skips the OpenSpec pipeline entirely:
  * it hands Claude the spec text plus this instruction and lets it work
  * autonomously end-to-end.
  */
-export const DEFAULT_ULTRACODE_PRE_PROMPT = [
-  'You are operating in ULTRACODE: fully autonomous, end-to-end implementation.',
+export const DEFAULT_FREESTYLE_PRE_PROMPT = [
+  'You are operating in FREESTYLE: fully autonomous, end-to-end implementation.',
   'Implement the following spec COMPLETELY in this repository. You have full access to the codebase and tools.',
   'Work independently until the feature is done: write the code, the tests, update docs as needed, and make sure everything builds and the test suite passes.',
   'Do NOT follow any structured architect/developer/reviewer pipeline — use your own judgement and the repo conventions.',
@@ -1490,9 +1490,9 @@ export interface ProjectSettings {
   pipelineTelemetryEnabled: boolean
   orchestratorModel: string
   prePrompt: string
-  /** Per-project Ultracode pre-prompt override. Empty string = use
-   *  DEFAULT_ULTRACODE_PRE_PROMPT at spawn time. */
-  ultraPrePrompt: string
+  /** Per-project Freestyle pre-prompt override. Empty string = use
+   *  DEFAULT_FREESTYLE_PRE_PROMPT at spawn time. */
+  freestylePrePrompt: string
   /** Designated integration branch that mutating loops branch worktrees from and
    *  target draft PRs at. Empty string = auto-resolve (repo default → HEAD) via
    *  `resolveIntegrationBranch`. */
@@ -1509,8 +1509,8 @@ export function getProjectSettings(db: DbInstance): ProjectSettings {
   const prePromptRow = db.prepare(
     `SELECT value FROM queue_state WHERE key = 'config.pre_prompt'`
   ).get() as { value: string } | undefined
-  const ultraPrePromptRow = db.prepare(
-    `SELECT value FROM queue_state WHERE key = 'config.ultracode_pre_prompt'`
+  const freestylePrePromptRow = db.prepare(
+    `SELECT value FROM queue_state WHERE key = 'config.freestyle_pre_prompt'`
   ).get() as { value: string } | undefined
   const integrationBranchRow = db.prepare(
     `SELECT value FROM queue_state WHERE key = 'config.integration_branch'`
@@ -1519,16 +1519,16 @@ export function getProjectSettings(db: DbInstance): ProjectSettings {
     pipelineTelemetryEnabled: telemetryRow?.value === 'true',
     orchestratorModel: modelRow?.value ?? 'sonnet',
     prePrompt: prePromptRow?.value ?? '',
-    ultraPrePrompt: ultraPrePromptRow?.value ?? '',
+    freestylePrePrompt: freestylePrePromptRow?.value ?? '',
     integrationBranch: integrationBranchRow?.value ?? '',
   }
 }
 
-/** Resolve the effective Ultracode pre-prompt: the per-project override when
+/** Resolve the effective Freestyle pre-prompt: the per-project override when
  *  set, otherwise the built-in default. */
-export function getUltracodePrePrompt(db: DbInstance): string {
-  const override = getProjectSettings(db).ultraPrePrompt.trim()
-  return override || DEFAULT_ULTRACODE_PRE_PROMPT
+export function getFreestylePrePrompt(db: DbInstance): string {
+  const override = getProjectSettings(db).freestylePrePrompt.trim()
+  return override || DEFAULT_FREESTYLE_PRE_PROMPT
 }
 
 export function updateProjectSettings(db: DbInstance, patch: Partial<ProjectSettings>): void {
@@ -1551,13 +1551,13 @@ export function updateProjectSettings(db: DbInstance, patch: Partial<ProjectSett
       ).run(patch.prePrompt)
     }
   }
-  if (patch.ultraPrePrompt !== undefined) {
-    if (patch.ultraPrePrompt.trim() === '') {
-      db.prepare(`DELETE FROM queue_state WHERE key = 'config.ultracode_pre_prompt'`).run()
+  if (patch.freestylePrePrompt !== undefined) {
+    if (patch.freestylePrePrompt.trim() === '') {
+      db.prepare(`DELETE FROM queue_state WHERE key = 'config.freestyle_pre_prompt'`).run()
     } else {
       db.prepare(
-        `INSERT OR REPLACE INTO queue_state (key, value) VALUES ('config.ultracode_pre_prompt', ?)`
-      ).run(patch.ultraPrePrompt)
+        `INSERT OR REPLACE INTO queue_state (key, value) VALUES ('config.freestyle_pre_prompt', ?)`
+      ).run(patch.freestylePrePrompt)
     }
   }
   if (patch.integrationBranch !== undefined) {

@@ -28,6 +28,7 @@ export interface AgentMessage {
   role: 'user' | 'assistant' | 'system'
   content: string
   attachment_ids?: string[]
+  context_refs?: AgentContextReference[]
   created_at: string
 }
 
@@ -38,6 +39,19 @@ export interface AgentAttachment {
   mimeType: string
   size: number
   addedAt: string
+}
+
+export interface AgentContextReference {
+  kind: string
+  id: string
+  label: string
+  token: string
+  scope?: {
+    projectId?: string | null
+    projectName?: string | null
+  }
+  status?: string | null
+  metadata?: Record<string, unknown>
 }
 
 const base = `${API_ORIGIN}/api/agent`
@@ -118,7 +132,13 @@ export async function deleteAgentConversation(id: string): Promise<void> {
 export async function sendAgentMessage(
   id: string,
   text: string,
-  opts: { tierLevel?: AgentTierLevel; model?: string; attachments?: { ids: string[] }; queueId?: string } = {},
+  opts: {
+    tierLevel?: AgentTierLevel
+    model?: string
+    attachments?: { ids: string[] }
+    queueId?: string
+    contextRefs?: AgentContextReference[]
+  } = {},
 ): Promise<{ queued: boolean }> {
   // Through json() so a non-OK response (400/404) throws — the caller resets its
   // streaming state instead of waiting for WS events that will never arrive.

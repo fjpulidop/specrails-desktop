@@ -203,7 +203,7 @@ export function createMobileRouter(deps: MobileRouterDeps): Router {
     if (typeof b.mode === 'string') narrowed.mode = b.mode
     if (typeof b.profileName === 'string') narrowed.profileName = b.profileName
     if (typeof b.aiEngine === 'string') narrowed.aiEngine = b.aiEngine
-    if (typeof b.model === 'string') narrowed.model = b.model // ultracode model
+    if (typeof b.model === 'string') narrowed.model = b.model // freestyle model
     // rails-as-loops: let a mobile client launch a chosen Loop (factory or custom).
     // Additive — the frozen bare-`mode` path is untouched (a v1 client sends no loopId).
     if (typeof b.loopId === 'string') narrowed.loopId = b.loopId

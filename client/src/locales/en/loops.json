@@ -221,7 +221,7 @@
       "name": "Batch Implement",
       "description": "Batch-implement all the rail's tickets at once, then verify + refine on failure until green."
     },
-    "factory_ultracode": {
+    "factory_freestyle": {
       "name": "Freestyle",
       "description": "Hands the spec straight to the model with full freedom — no pipeline, it works like a regular coding agent, then verify + refine until green. Claude only."
     },

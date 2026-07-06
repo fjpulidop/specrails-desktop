@@ -2359,24 +2359,24 @@ describe('project-router', () => {
       expect(res.body.ok).toBe(true)
     })
 
-    it('updates ultraPrePrompt', async () => {
+    it('updates freestylePrePrompt', async () => {
       const ctx = makeContext(db)
       const { app } = createApp(new Map([['proj-1', ctx]]))
       const res = await request(app)
         .patch('/api/projects/proj-1/settings')
-        .send({ ultraPrePrompt: 'Ship it autonomously.' })
+        .send({ freestylePrePrompt: 'Ship it autonomously.' })
       expect(res.status).toBe(200)
-      expect(res.body.settings.ultraPrePrompt).toBe('Ship it autonomously.')
+      expect(res.body.settings.freestylePrePrompt).toBe('Ship it autonomously.')
     })
 
-    it('rejects non-string ultraPrePrompt', async () => {
+    it('rejects non-string freestylePrePrompt', async () => {
       const ctx = makeContext(db)
       const { app } = createApp(new Map([['proj-1', ctx]]))
       const res = await request(app)
         .patch('/api/projects/proj-1/settings')
-        .send({ ultraPrePrompt: 7 })
+        .send({ freestylePrePrompt: 7 })
       expect(res.status).toBe(400)
-      expect(res.body.error).toContain('ultraPrePrompt')
+      expect(res.body.error).toContain('freestylePrePrompt')
     })
   })
 

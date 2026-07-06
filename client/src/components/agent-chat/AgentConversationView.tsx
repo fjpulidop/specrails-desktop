@@ -8,7 +8,7 @@ import { useSmoothStream } from '../explore-spec/useSmoothStream'
 import { useAgentRefActions } from '../../hooks/useAgentRefActions'
 import type { AgentRefTarget } from '../../lib/agent-refs'
 import { AgentActivityChip } from './AgentActivityChip'
-import { AgentMessage } from './AgentMessage'
+import { AgentContextInlineTokens, AgentMessage } from './AgentMessage'
 import { AgentComposer } from './AgentComposer'
 import { AgentPrDecisionCard } from './AgentPrDecisionCard'
 import { AgentPrPinnedDock, PrDecisionPill } from './AgentPrPinnedDock'
@@ -183,6 +183,7 @@ export function AgentConversationView({ variant }: { variant: 'floating' | 'inli
                 onPickOption={(option) => void send(option)}
                 refsProjectId={refsProjectId}
                 onOpenRef={onOpenRef}
+                contextRefs={m.context_refs}
               />
             )
           })}
@@ -203,7 +204,7 @@ export function AgentConversationView({ variant }: { variant: 'floating' | 'inli
                       <Clock className="h-3 w-3" />
                       {t('queue.queued')}
                     </span>
-                    {q.text}
+                    <AgentContextInlineTokens content={q.text} contextRefs={q.contextRefs} />
                   </div>
                 </div>
               ))}

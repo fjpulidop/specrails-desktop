@@ -37,7 +37,7 @@ export interface JobSummary {
    *  prompts while it runs); 0/absent for standard jobs. */
   interactive?: number | null
   /** Settle mode of the resident interactive session (GET /jobs/:id only):
-   *  'finalize' = idles until the human Finalizes (ultracode); 'auto' = the job
+   *  'finalize' = idles until the human Finalizes (freestyle); 'auto' = the job
    *  settles itself on quiescence (implement / loops — steering is optional).
    *  null/absent = no live session (finished, kill-switch off, legacy payload). */
   interactiveSettleMode?: 'finalize' | 'auto' | null

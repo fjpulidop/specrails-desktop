@@ -221,7 +221,7 @@
       "name": "Batch-Implementierung",
       "description": "Alle Tickets des Rails auf einmal als Batch implementieren, dann verifizieren + bei Fehlern nachbessern, bis grün."
     },
-    "factory_ultracode": {
+    "factory_freestyle": {
       "name": "Freestyle",
       "description": "Übergibt die Spec direkt an das Modell mit voller Freiheit — ohne Pipeline, es arbeitet wie ein normaler Coding-Agent, dann verifizieren + verfeinern bis alles grün ist. Nur Claude."
     },

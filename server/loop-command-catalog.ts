@@ -7,12 +7,12 @@
  *    claude `/specrails:<name>`, codex `$<name>` (skill), gemini `/specrails:<name>`.
  *    Mirrors QueueManager's rail invocation (`/specrails:implement #1 #2 --yes`).
  *  - `template`: a provider-invariant curated prompt (no core coupling).
- *  - `native`: a raw autonomous command (ultracode) — claude-only, NOT a slash
+ *  - `native`: a raw autonomous Freestyle command — claude-only, NOT a slash
  *    command; it expands to a self-contained autonomous prompt.
  *
  * Each command declares its TICKET SCOPE:
  *  - `all`        → one run over ALL the rail's tickets (`#1 #2 #3`). implement, batch.
- *  - `per-ticket` → one run per ticket. ultracode (and the default).
+ *  - `per-ticket` → one run per ticket. Freestyle (and the default).
  *
  * Expansion order in the engine: `expandCommands()` FIRST (injects the ticket ids),
  * then `interpolateSpec()` resolves any remaining `{{spec.*}}` data tokens.
@@ -33,7 +33,7 @@ export interface LoopCommand {
   coreCommand?: string
   /** Provider-invariant curated prompt (used when no coreCommand/native). */
   template?: string
-  /** Raw autonomous command (ultracode): expands to a self-contained prompt. */
+  /** Raw autonomous Freestyle command: expands to a self-contained prompt. */
   native?: boolean
   /** Per-provider native invocation prefix, keyed by ProviderId. When present it
    *  wins over `template` for the providers it lists (e.g. `{{cmd:loop}}` →
@@ -41,14 +41,14 @@ export interface LoopCommand {
    *  Used for agent-native loop entry points that aren't specrails-core slash
    *  commands. */
   providerNative?: Record<string, string>
-  /** Restrict to the claude provider (e.g. ultracode). */
+  /** Restrict to the claude provider (e.g. Freestyle). */
   claudeOnly?: boolean
 }
 
-/** The autonomous prompt a `native` command (ultracode) expands to for the
- *  LoopRunManager path. Factory ultracode loops route to QueueManager's real
- *  `_buildUltracodePrompt` instead (phase A); this is the custom-loop fallback. */
-const ULTRACODE_PROMPT = [
+/** The autonomous prompt a `native` command (Freestyle) expands to for the
+ *  LoopRunManager path. Factory Freestyle loops route to QueueManager's real
+ *  `_buildFreestylePrompt` instead (phase A); this is the custom-loop fallback. */
+const FREESTYLE_PROMPT = [
   'Implement the following spec completely and autonomously. Explore the codebase first, then write the code and tests and make the full test suite pass. Work end-to-end without stopping for confirmation; do not open a pipeline — just do it.',
   '',
   'Title: {{spec.title}}',
@@ -93,9 +93,9 @@ export const LOOP_COMMANDS: LoopCommand[] = [
     ticketScope: 'all',
   },
   {
-    name: 'ultracode',
-    label: 'ultracode',
-    description: 'Autonomous per-ticket implementation — Claude works the spec end-to-end with no pipeline. Claude only.',
+    name: 'freestyle',
+    label: 'Freestyle',
+    description: 'Free-form autonomous per-ticket implementation — Claude receives the spec as a prompt and works it end-to-end with no pipeline. Claude only. Internal token: {{cmd:freestyle}}.',
     native: true,
     claudeOnly: true,
     ticketScope: 'per-ticket',
@@ -282,7 +282,7 @@ export function expandCommands(text: string, opts: ExpandCommandOpts): string {
     const cmd = COMMANDS_BY_NAME.get(name)
     if (!cmd) return ''
     if (cmd.coreCommand) return nativeInvocation(cmd.coreCommand, opts.provider, ids)
-    if (cmd.native) return ULTRACODE_PROMPT
+    if (cmd.native) return FREESTYLE_PROMPT
     // Provider-native prefix (e.g. {{cmd:loop}} → /loop | $goal) wins for the
     // providers it lists; everyone else falls back to the generic template.
     if (cmd.providerNative) {
@@ -307,7 +307,7 @@ export function dominantTicketScope(text: string): TicketScope {
   return sawPerTicket ? 'per-ticket' : 'per-ticket'
 }
 
-/** True if a prompt references any claude-only command (e.g. ultracode). */
+/** True if a prompt references any claude-only command (e.g. Freestyle's canonical token). */
 export function referencesClaudeOnlyCommand(text: string): boolean {
   for (const m of text.matchAll(CMD_TOKEN_RE)) {
     if (COMMANDS_BY_NAME.get(m[1])?.claudeOnly) return true

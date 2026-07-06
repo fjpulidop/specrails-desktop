@@ -54,13 +54,13 @@ export interface LoopTemplateSummary {
   graph: LoopGraph
 }
 
-/** A built-in factory loop (locked) — implement / batch / ultracode. */
+/** A built-in factory loop (locked) — implement / batch / freestyle. */
 export interface FactoryLoopSummary {
   id: string
   name: string
   description: string
   /** Legacy rail mode this loop maps to. */
-  mode: 'implement' | 'batch-implement' | 'ultracode'
+  mode: 'implement' | 'batch-implement' | 'freestyle'
   claudeOnly: boolean
   graph: LoopGraph
 }

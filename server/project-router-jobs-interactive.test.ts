@@ -1,6 +1,6 @@
 // Manager-agnostic interactive-turn routing (S2): POST /jobs/:id/messages and
 // POST /jobs/:id/finalize must address the job row's OWNER — QueueManager for
-// rail/ultracode/spawned jobs, LoopRunManager for a loop run's job (its ACTIVE
+// rail/freestyle/spawned jobs, LoopRunManager for a loop run's job (its ACTIVE
 // step session) — and 409 only when NEITHER manager owns an active session.
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
 import express, { Router, type Express } from 'express'
@@ -99,7 +99,7 @@ describe('POST /jobs/:id/messages (manager-agnostic)', () => {
 describe('POST /jobs/:id/finalize (manager-agnostic)', () => {
   it('202 when QueueManager owns the session — the loop manager is not consulted', async () => {
     const { app, managers } = buildApp({ queueOwns: true, loopOwns: false })
-    createJob(db, { id: 'j1', command: '/specrails:ultracode #1 --yes', started_at: new Date().toISOString(), interactive: true })
+    createJob(db, { id: 'j1', command: '/specrails:freestyle #1 --yes', started_at: new Date().toISOString(), interactive: true })
     const res = await request(app).post('/api/projects/p1/jobs/j1/finalize').send({})
     expect(res.status).toBe(202)
     expect(res.body.job?.id).toBe('j1')
@@ -131,7 +131,7 @@ describe('POST /jobs/:id/finalize (manager-agnostic)', () => {
 
 // ─── GET /jobs/:id interactive surface fields (S3) ────────────────────────────
 // The client composer phrases its UX from `interactiveSettleMode` ('finalize' =
-// ultracode Finalize semantics; 'auto' = self-settling, wrap-up optional) and
+// freestyle Finalize semantics; 'auto' = self-settling, wrap-up optional) and
 // `interactiveAcceptingTurns` (loop ai-step sessions come and go mid-run).
 describe('GET /jobs/:id interactive surface fields', () => {
   function buildGetApp(opts: {
@@ -166,8 +166,8 @@ describe('GET /jobs/:id interactive surface fields', () => {
     expect(res.body.job.interactiveAcceptingTurns).toBe(true)
   })
 
-  it("ultracode session reports 'finalize'", async () => {
-    createJob(db, { id: 'j-ult', command: '/specrails:ultracode #1 --yes', started_at: new Date().toISOString(), interactive: true })
+  it("freestyle session reports 'finalize'", async () => {
+    createJob(db, { id: 'j-ult', command: '/specrails:freestyle #1 --yes', started_at: new Date().toISOString(), interactive: true })
     const app = buildGetApp({ qmMode: 'finalize' })
     const res = await request(app).get('/api/projects/p1/jobs/j-ult')
     expect(res.body.job.interactiveSettleMode).toBe('finalize')
@@ -200,7 +200,7 @@ describe('GET /jobs/:id interactive surface fields', () => {
   })
 
   it('finished interactive job: null + not accepting', async () => {
-    createJob(db, { id: 'j-done', command: '/specrails:ultracode #1', started_at: new Date().toISOString(), interactive: true })
+    createJob(db, { id: 'j-done', command: '/specrails:freestyle #1', started_at: new Date().toISOString(), interactive: true })
     finishJob(db, 'j-done', { exit_code: 0, status: 'completed' })
     const app = buildGetApp({ qmMode: null })
     const res = await request(app).get('/api/projects/p1/jobs/j-done')

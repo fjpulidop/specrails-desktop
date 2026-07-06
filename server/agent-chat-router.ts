@@ -2,7 +2,7 @@ import fs from 'fs'
 import multer from 'multer'
 import { Router, type Request, type Response, type NextFunction } from 'express'
 import type { DbInstance } from './db'
-import type { AgentChatManager } from './agent-chat-manager'
+import type { AgentChatManager, AgentContextReference } from './agent-chat-manager'
 import { getAdapter } from './providers'
 import { normalizeLevel } from './agent-tier'
 import { attachmentManager, isSupportedUploadedFile } from './attachment-manager'
@@ -38,6 +38,67 @@ function validProvider(provider: unknown): string | null {
   } catch {
     return null
   }
+}
+
+const CONTEXT_KINDS = new Set(['project', 'spec', 'job', 'trace', 'conversation', 'file', 'alias', 'pr', 'action'])
+
+function cleanContextString(value: unknown, max: number): string | null {
+  if (typeof value !== 'string') return null
+  const clean = value.replace(/[\r\n"]/g, ' ').trim().slice(0, max)
+  return clean || null
+}
+
+function cleanContextMetadata(value: unknown): Record<string, unknown> | undefined {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return undefined
+  const clean: Record<string, unknown> = {}
+  for (const [key, raw] of Object.entries(value as Record<string, unknown>).slice(0, 16)) {
+    const safeKey = cleanContextString(key, 80)
+    if (!safeKey) continue
+    if (raw === null || typeof raw === 'number' || typeof raw === 'boolean') {
+      clean[safeKey] = raw
+    } else if (typeof raw === 'string') {
+      const safeValue = cleanContextString(raw, 500)
+      if (safeValue !== null) clean[safeKey] = safeValue
+    } else if (Array.isArray(raw)) {
+      clean[safeKey] = raw
+        .slice(0, 16)
+        .map((item) => (
+          typeof item === 'string' ? cleanContextString(item, 240) :
+          typeof item === 'number' || typeof item === 'boolean' || item === null ? item :
+          undefined
+        ))
+        .filter((item) => item !== undefined)
+    }
+  }
+  return Object.keys(clean).length ? clean : undefined
+}
+
+function sanitizeContextRefs(value: unknown): AgentContextReference[] {
+  if (!Array.isArray(value)) return []
+  const refs: AgentContextReference[] = []
+  for (const raw of value.slice(0, 16)) {
+    if (!raw || typeof raw !== 'object') continue
+    const row = raw as Record<string, unknown>
+    const kind = cleanContextString(row.kind, 40)
+    const id = cleanContextString(row.id, 160)
+    const label = cleanContextString(row.label, 220)
+    const token = cleanContextString(row.token, 120)
+    if (!kind || !CONTEXT_KINDS.has(kind) || !id || !label || !token) continue
+    const scopeRaw = row.scope && typeof row.scope === 'object' ? row.scope as Record<string, unknown> : null
+    const projectId = cleanContextString(scopeRaw?.projectId, 160)
+    const projectName = cleanContextString(scopeRaw?.projectName, 180)
+    const status = cleanContextString(row.status, 80)
+    refs.push({
+      kind,
+      id,
+      label,
+      token,
+      scope: projectId || projectName ? { projectId, projectName } : undefined,
+      status,
+      metadata: cleanContextMetadata(row.metadata),
+    })
+  }
+  return refs
 }
 
 const attachmentUpload = multer({
@@ -319,6 +380,7 @@ export function createAgentChatRouter(deps: AgentRouterDeps): Router {
       attachmentIds = ((rawAtt as { ids: unknown[] }).ids).filter((x): x is string => typeof x === 'string')
     }
     const queueId = typeof body.queueId === 'string' ? body.queueId : null
+    const contextRefs = sanitizeContextRefs(body.contextRefs)
     // Fire-and-forget: the turn streams over WS. Persist the chosen tier first so
     // a refresh mid-turn restores the right level.
     if (tierLevel !== undefined) updateAgentConversation(desktopDb, conversation.id, { tier_level: tierLevel })
@@ -326,7 +388,7 @@ export function createAgentChatRouter(deps: AgentRouterDeps): Router {
     // synchronous frame (the enqueue happens before sendMessage's first await),
     // so the flag the client gets always matches what actually happened.
     const queued = manager.isBusy(conversation.id)
-    void manager.sendMessage(conversation.id, text, { tierLevel, model, attachmentIds, queueId }).catch((e) =>
+    void manager.sendMessage(conversation.id, text, { tierLevel, model, attachmentIds, queueId, contextRefs }).catch((e) =>
       console.error('[agent-chat] send failed:', e),
     )
     res.status(202).json({ accepted: true, queued })

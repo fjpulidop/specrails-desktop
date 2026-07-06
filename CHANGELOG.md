@@ -324,7 +324,7 @@
 
 ### Features
 
-* interactive ultracode jobs, Jira-ticket spec sort, Explore MCP/gh access ([#390](https://github.com/fjpulidop/specrails-desktop/issues/390)) ([cb26ccb](https://github.com/fjpulidop/specrails-desktop/commit/cb26ccbb30c9e2cf3bc26796e6f3b46ce7996a2b))
+* interactive freestyle jobs, Jira-ticket spec sort, Explore MCP/gh access ([#390](https://github.com/fjpulidop/specrails-desktop/issues/390)) ([cb26ccb](https://github.com/fjpulidop/specrails-desktop/commit/cb26ccbb30c9e2cf3bc26796e6f3b46ce7996a2b))
 
 ## [2.4.0](https://github.com/fjpulidop/specrails-desktop/compare/v2.3.0...v2.4.0) (2026-06-14)
 
@@ -446,7 +446,7 @@
 
 ### Features
 
-* **rails:** add Ultracode rail mode (Claude-only, autonomous, no OpenSpec) ([#354](https://github.com/fjpulidop/specrails-hub/issues/354)) ([6464f85](https://github.com/fjpulidop/specrails-hub/commit/6464f85aba20946f9a548cab54d8aa5d5188b60c))
+* **rails:** add Freestyle rail mode (Claude-only, autonomous, no OpenSpec) ([#354](https://github.com/fjpulidop/specrails-hub/issues/354)) ([6464f85](https://github.com/fjpulidop/specrails-hub/commit/6464f85aba20946f9a548cab54d8aa5d5188b60c))
 
 ## [1.62.0](https://github.com/fjpulidop/specrails-hub/compare/v1.61.4...v1.62.0) (2026-06-09)
 

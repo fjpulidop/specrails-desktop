@@ -120,7 +120,7 @@ the [Gemini guide](gemini.md).)
 | **Agent format** | `.claude/agents/<id>.md` with `model:` frontmatter | `.codex/skills/<id>/SKILL.md` Skill format | `.gemini/` command + agent target |
 | **Agent profiles** | Full support (rail `RailProfileSelector`) | **None** — rails force the profile to `null` | **None** — rails force the profile to `null` |
 | **Pipeline rails** | ✅ all rail types | ✅ (except Freestyle) | ✅ (except Freestyle) |
-| **Freestyle rails** (mode `ultracode`) | ✅ Claude-only | ❌ rejected (`Freestyle requires the Claude provider`) | ❌ rejected |
+| **Freestyle rails** (mode `freestyle`) | ✅ Claude-only | ❌ rejected (`Freestyle requires the Claude provider`) | ❌ rejected |
 | **Contract Refine** | Claude-only (it `--resume`s the Explore session and runs `/specrails:contract-refine`) | **Skipped** — toggling "Enrich with Contract Layer" is a no-op | **Skipped** |
 | **MCP registration** | Surgical merge of `<project>/.mcp.json` | `codex mcp add` against per-project `CODEX_HOME=~/.specrails/projects/<slug>/codex-home/` (isolated) | Project `.mcp.json` (so Serena-style plugins **do** resolve) |
 | **Session resume** | `--resume <session_id>` | `exec resume <thread_id>` | `--resume` |
@@ -135,7 +135,7 @@ A few Codex-specific behaviours worth calling out:
   rails need to apply edits across the repo — but it's worth knowing if
   you're surprised by a rail touching files outside the working tree.
 - **Freestyle rails are Claude-only.** Launching a Freestyle rail (mode
-  `ultracode`) on a Codex (or Gemini) engine is rejected with a 400
+  `freestyle`) on a Codex (or Gemini) engine is rejected with a 400
   (`Freestyle requires the Claude provider`). Pick Claude for that rail.
 
 ## Estimated cost

@@ -30,8 +30,8 @@ import {
   deleteTemplate,
   getProjectSettings,
   updateProjectSettings,
-  getUltracodePrePrompt,
-  DEFAULT_ULTRACODE_PRE_PROMPT,
+  getFreestylePrePrompt,
+  DEFAULT_FREESTYLE_PRE_PROMPT,
 } from './db'
 import type { DbInstance } from './db'
 import { recordInvocation } from './ai-invocations'
@@ -210,7 +210,7 @@ describe('db', () => {
       const db = makeDb()
       const now = new Date().toISOString()
       createJob(db, { id: 'std', command: '/implement #1', started_at: now })
-      createJob(db, { id: 'int', command: '/specrails:ultracode #1', started_at: now, interactive: true })
+      createJob(db, { id: 'int', command: '/specrails:freestyle #1', started_at: now, interactive: true })
       expect(getJob(db, 'std')!.interactive).toBe(0)
       expect(getJob(db, 'int')!.interactive).toBe(1)
     })
@@ -225,7 +225,7 @@ describe('db', () => {
     it('accumulateInteractiveTurn sums across turns and stamps model/session once', () => {
       const db = makeDb()
       const now = new Date().toISOString()
-      createJob(db, { id: 'j', command: '/specrails:ultracode #1', started_at: now, interactive: true })
+      createJob(db, { id: 'j', command: '/specrails:freestyle #1', started_at: now, interactive: true })
       accumulateInteractiveTurn(db, 'j', turn)
       accumulateInteractiveTurn(db, 'j', { ...turn, model: 'other', session_id: 'sess-y' })
       const row = getJob(db, 'j')!
@@ -242,7 +242,7 @@ describe('db', () => {
     it('accumulateInteractiveTurn stickily flags the jobs row when a folded turn is estimated (CRIT-4)', () => {
       const db = makeDb()
       const now = new Date().toISOString()
-      createJob(db, { id: 'j', command: '/specrails:ultracode #1', started_at: now, interactive: true })
+      createJob(db, { id: 'j', command: '/specrails:freestyle #1', started_at: now, interactive: true })
       // Two authoritative turns keep the row un-flagged.
       accumulateInteractiveTurn(db, 'j', turn)
       accumulateInteractiveTurn(db, 'j', turn)
@@ -258,7 +258,7 @@ describe('db', () => {
     it('finalizeInteractiveJob flips status + finished_at without clobbering totals', () => {
       const db = makeDb()
       const now = new Date().toISOString()
-      createJob(db, { id: 'j', command: '/specrails:ultracode #1', started_at: now, interactive: true })
+      createJob(db, { id: 'j', command: '/specrails:freestyle #1', started_at: now, interactive: true })
       accumulateInteractiveTurn(db, 'j', turn)
       finalizeInteractiveJob(db, 'j', 'completed')
       const row = getJob(db, 'j')!
@@ -703,19 +703,19 @@ describe('job templates', () => {
   // decisions now live exclusively per-spec in chat_conversations.context_scope.
 })
 
-describe('project settings — ultracode pre-prompt', () => {
+describe('project settings — freestyle pre-prompt', () => {
   let db: ReturnType<typeof makeDb>
   beforeEach(() => { db = makeDb() })
 
-  it('defaults ultraPrePrompt to empty string', () => {
-    expect(getProjectSettings(db).ultraPrePrompt).toBe('')
+  it('defaults freestylePrePrompt to empty string', () => {
+    expect(getProjectSettings(db).freestylePrePrompt).toBe('')
   })
 
-  it('persists and clears the ultraPrePrompt override', () => {
-    updateProjectSettings(db, { ultraPrePrompt: 'Be bold.' })
-    expect(getProjectSettings(db).ultraPrePrompt).toBe('Be bold.')
-    updateProjectSettings(db, { ultraPrePrompt: '   ' })
-    expect(getProjectSettings(db).ultraPrePrompt).toBe('')
+  it('persists and clears the freestylePrePrompt override', () => {
+    updateProjectSettings(db, { freestylePrePrompt: 'Be bold.' })
+    expect(getProjectSettings(db).freestylePrePrompt).toBe('Be bold.')
+    updateProjectSettings(db, { freestylePrePrompt: '   ' })
+    expect(getProjectSettings(db).freestylePrePrompt).toBe('')
   })
 
   it('defaults integrationBranch to empty string (auto-resolve)', () => {
@@ -729,13 +729,13 @@ describe('project settings — ultracode pre-prompt', () => {
     expect(getProjectSettings(db).integrationBranch).toBe('')
   })
 
-  it('getUltracodePrePrompt falls back to the default when unset', () => {
-    expect(getUltracodePrePrompt(db)).toBe(DEFAULT_ULTRACODE_PRE_PROMPT)
+  it('getFreestylePrePrompt falls back to the default when unset', () => {
+    expect(getFreestylePrePrompt(db)).toBe(DEFAULT_FREESTYLE_PRE_PROMPT)
   })
 
-  it('getUltracodePrePrompt returns the trimmed override when set', () => {
-    updateProjectSettings(db, { ultraPrePrompt: '  Custom instruction.  ' })
-    expect(getUltracodePrePrompt(db)).toBe('Custom instruction.')
+  it('getFreestylePrePrompt returns the trimmed override when set', () => {
+    updateProjectSettings(db, { freestylePrePrompt: '  Custom instruction.  ' })
+    expect(getFreestylePrePrompt(db)).toBe('Custom instruction.')
   })
 
   // ─── Fase 0 / audit: data integrity (M6/M7/M8) ───────────────────────────────

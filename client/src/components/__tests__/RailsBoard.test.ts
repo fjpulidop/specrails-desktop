@@ -45,7 +45,7 @@ describe('RailsBoard utilities', () => {
       expect(next[0].activeJobId).toBeUndefined()
     })
 
-    it('strips only this job’s ticket on a partial ultracode rail (others stay)', () => {
+    it('strips only this job’s ticket on a partial freestyle rail (others stay)', () => {
       const rails = [rail({ ticketIds: [5, 7, 9], status: 'running' })]
       const next = applyRailJobOutcome(rails, 0, [7])
       expect(next[0].ticketIds).toEqual([5, 9])

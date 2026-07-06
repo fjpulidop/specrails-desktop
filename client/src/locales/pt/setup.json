@@ -288,7 +288,7 @@
       "honestLabel": "Números honestos",
       "honestBody": "O custo do Claude é o valor faturado pelo fornecedor; o do Codex é estimado e sinalizado com <mono>~</mono>. Os totais de tokens incluem os níveis de cache, por isso os valores batem mesmo certo.",
       "budgetsLabel": "Orçamentos e alertas",
-      "budgetsBody": "Defina um orçamento diário e um alerta de custo por job; a aplicação pausa automaticamente a fila quando ultrapassa o limite. Exporte tudo para CSV ou JSON."
+      "budgetsBody": "Defina um orçamento diário e um alerta de custo por job; a aplicação pausa automaticamente a fila quando freestylepassa o limite. Exporte tudo para CSV ou JSON."
     },
     "workspace": {
       "nav": "Espaço de trabalho",

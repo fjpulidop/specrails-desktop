@@ -101,6 +101,40 @@
     "homeHint": "No project selected — operating across all projects.",
     "askCreateOrSearch": "No project is selected. Do you want to create a new project, or search across all projects?"
   },
+  "palette": {
+    "remove": "Remove {{label}}",
+    "addContextAction": "Add context or action",
+    "filtering": "Filtering \"{{query}}\"",
+    "keyboard": "↑↓ Enter Esc",
+    "noMatches": "No matches",
+    "noMatchesFor": "No matches for \"{{query}}\"",
+    "mode": {
+      "reference": {
+        "title": "Reference",
+        "hint": "@ projects, specs, missions"
+      },
+      "trace": {
+        "title": "Trace",
+        "hint": "# jobs, runs, IDs"
+      },
+      "action": {
+        "title": "Action",
+        "hint": "/ commands for this context"
+      }
+    },
+    "plus": {
+      "reference": "Reference",
+      "referenceHint": "Projects, specs, missions",
+      "trace": "Trace",
+      "traceHint": "Jobs, runs, IDs",
+      "action": "Action",
+      "actionHint": "Create, launch, inspect",
+      "fileAttachment": "File attachment",
+      "fileAttachmentHint": "Add docs, images, logs",
+      "browserCapture": "Browser capture",
+      "browserCaptureHint": "Available from workspace browser"
+    }
+  },
   "mission": {
     "label": "Switch mission",
     "untitled": "New mission",

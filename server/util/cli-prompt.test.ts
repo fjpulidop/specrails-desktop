@@ -103,7 +103,7 @@ describe('transformClaudeArgsForWindows', () => {
   })
 
   it('does NOT consume the next flag as a value for a valueless -p (chat-stream)', () => {
-    // BUG-SPAWN-01: persistent-stdin / interactive-ultracode emit a bare `-p`
+    // BUG-SPAWN-01: persistent-stdin / interactive-freestyle emit a bare `-p`
     // immediately followed by `--input-format stream-json` (the prompt arrives
     // over stdin). The transform must NOT collect `--input-format` as a prompt,
     // must leave the valueless `-p` in place, and must produce no stdin payload.

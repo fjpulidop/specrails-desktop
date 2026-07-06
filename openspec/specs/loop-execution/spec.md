@@ -151,7 +151,7 @@ A loop run SHALL be stoppable by the user at any time while running. On stop, th
 
 ### Requirement: Zero Specrails-Core Coupling
 
-The loop execution engine SHALL have zero coupling to specrails-core. It MUST drive raw prompts directly to the provider CLI (no slash command, no core-version gate), mirroring the existing ultracode path. The engine MUST NOT invoke any specrails-core command to run a loop.
+The loop execution engine SHALL have zero coupling to specrails-core. It MUST drive raw prompts directly to the provider CLI (no slash command, no core-version gate), mirroring the existing freestyle path. The engine MUST NOT invoke any specrails-core command to run a loop.
 
 #### Scenario: AI nodes use raw prompts
 
@@ -177,7 +177,7 @@ The engine SHALL handle hung and crashed iterations safely. A hung iteration SHA
 
 ### Requirement: Loop Run Surfaced As An Inspectable Job With A Live Log
 
-A loop run SHALL be backed by a job row (`jobs` table, job id === run id) so it appears in the project's Jobs list and its full session is inspectable in real time in Job Detail — exactly like an `implement`/`ultracode` rail job. The job row MUST be created synchronously at run start (before the first await) so a "View Log" navigation to `/jobs/<id>` never 404s. The engine SHALL stream every node's activity (AI Step text + tool use, Shell stdout/stderr, Loop Decider reasoning, and per-node headers) to that job both as persisted `log` events and as live `log` WebSocket messages keyed to the job id, and SHALL settle the job via `finishJob` with a `job.finalized` broadcast when the run ends.
+A loop run SHALL be backed by a job row (`jobs` table, job id === run id) so it appears in the project's Jobs list and its full session is inspectable in real time in Job Detail — exactly like an `implement`/`freestyle` rail job. The job row MUST be created synchronously at run start (before the first await) so a "View Log" navigation to `/jobs/<id>` never 404s. The engine SHALL stream every node's activity (AI Step text + tool use, Shell stdout/stderr, Loop Decider reasoning, and per-node headers) to that job both as persisted `log` events and as live `log` WebSocket messages keyed to the job id, and SHALL settle the job via `finishJob` with a `job.finalized` broadcast when the run ends.
 
 #### Scenario: A loop run appears in Jobs and streams live
 

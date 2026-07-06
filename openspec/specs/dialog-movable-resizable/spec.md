@@ -28,7 +28,7 @@ The shared `DialogContent` primitive (`client/src/components/ui/dialog.tsx`) SHA
 
 ### Requirement: Tier A Dialog Modals Are Resizable
 
-The Dialog-based modals that funnel through `DialogContent` SHALL opt into `movableResizable`: AddProjectDialog, CreateTicketModal, ProposeSpecModal, CreateTemplateDialog, FeatureProposalModal, UltracodeLaunchDialog, DiscardSpecDialog, PromptDialog, RoutingRuleDialog, PairWebCompanionModal, LoopRunModal, TemplatePreviewModal, KeyboardShortcutsCheatsheet, DocsDialog, the GlobalSettingsPage SettingsDialog, and InstallInstructionsModal.
+The Dialog-based modals that funnel through `DialogContent` SHALL opt into `movableResizable`: AddProjectDialog, CreateTicketModal, ProposeSpecModal, CreateTemplateDialog, FeatureProposalModal, FreestyleLaunchDialog, DiscardSpecDialog, PromptDialog, RoutingRuleDialog, PairWebCompanionModal, LoopRunModal, TemplatePreviewModal, KeyboardShortcutsCheatsheet, DocsDialog, the GlobalSettingsPage SettingsDialog, and InstallInstructionsModal.
 
 #### Scenario: A Tier A modal can be resized but not moved
 

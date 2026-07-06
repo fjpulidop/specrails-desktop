@@ -1,6 +1,7 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest'
 import express from 'express'
 import { initDesktopDb, setDesktopSetting, type DbInstance } from './desktop-db'
+import { appendEvent, createJob, initDb } from './db'
 import {
   normalizeLevel,
   nextLevel,
@@ -527,6 +528,65 @@ describe('AgentChatManager', () => {
     expect(getAgentConversation(db, c.id)?.session_id).toBe('sess-9')
   })
 
+  it('expands selected context chips into rich job snapshots before invoking the provider', async () => {
+    const projectDb = initDb(':memory:')
+    const project = {
+      id: 'p1',
+      slug: 'my-project',
+      name: 'MyProject',
+      path: fs.mkdtempSync(`${os.tmpdir()}/agent-context-project-`),
+      db_path: ':memory:',
+      provider: 'claude',
+      providers: ['claude'],
+      added_at: '2026-07-06T10:00:00.000Z',
+      last_seen_at: '2026-07-06T10:00:00.000Z',
+    } as const
+    const jobId = 'dc2a741e-1234-4d18-9b7a-111111111111'
+    createJob(projectDb, {
+      id: jobId,
+      command: '/specrails:implement #42',
+      started_at: '2026-07-06T10:01:00.000Z',
+    })
+    appendEvent(projectDb, jobId, 1, {
+      event_type: 'log',
+      source: 'stderr',
+      payload: 'settings.json validation failed at line 12',
+    })
+    const registry = {
+      getContext: (id: string) => id === project.id ? { project, db: projectDb } : undefined,
+      getProjectRow: (id: string) => id === project.id ? project : undefined,
+      listContexts: () => [{ project, db: projectDb }],
+    } as unknown as ProjectRegistry
+    manager = new RealManager((m) => events.push(m as { type: string; conversationId: string }), db, 4200, registry)
+    let prompt = ''
+    vi.mocked(runAiCliInvocation).mockImplementation(async (hooks) => {
+      prompt = hooks.buildOpts.prompt
+      hooks.onSpawn?.({ kill: () => true } as never)
+      hooks.onEvent?.({ kind: 'text-delta', text: 'reviewed' })
+      return { code: 0, timedOut: false, spawnFailed: false, events: [], lastResultEvent: null, sessionId: null, stderrTail: '', child: null } as InvocationResult
+    })
+
+    const c = createAgentConversation(db, { provider: 'claude', pinnedProjectId: project.id })
+    await manager.sendMessage(c.id, 'analizalo y dime', {
+      contextRefs: [{
+        kind: 'trace',
+        id: jobId,
+        label: 'dc2a741e',
+        token: '#dc2a741e',
+        scope: { projectId: project.id, projectName: project.name },
+        status: 'failed',
+      }],
+    })
+
+    expect(prompt).toContain('## Resolved Specrails Context')
+    expect(prompt).toContain('job.command: /specrails:implement #42')
+    expect(prompt).toContain('job.status: running')
+    expect(prompt).toContain('settings.json validation failed at line 12')
+    const userMessage = listAgentMessages(db, c.id).find((m) => m.role === 'user')
+    expect(userMessage?.content).toBe('analizalo y dime')
+    expect(userMessage?.context_refs[0]?.id).toBe(jobId)
+  })
+
   it('emits agent_error when the spawn fails', async () => {
     const c = createAgentConversation(db, { provider: 'claude' })
     vi.mocked(runAiCliInvocation).mockResolvedValue({
@@ -686,7 +746,10 @@ describe('AgentChatManager', () => {
       return Promise.resolve({ code: 0, timedOut: false, spawnFailed: false, events: [], lastResultEvent: null, sessionId: null, stderrTail: '', child: null } as InvocationResult)
     })
     const first = manager.sendMessage(c.id, 'one')
-    await manager.sendMessage(c.id, 'original wording', { queueId: 'q-9' })
+    await manager.sendMessage(c.id, 'original wording', {
+      queueId: 'q-9',
+      contextRefs: [{ kind: 'job', id: 'job-1', label: 'Job 1', token: '#job-1' }],
+    })
 
     // Unknown queueId / unknown conversation → false, no broadcast.
     expect(manager.editQueued(c.id, 'q-nope', 'x')).toBe(false)
@@ -696,16 +759,20 @@ describe('AgentChatManager', () => {
     // Edit in place → true + agent_queue_edited so every window updates its chip.
     expect(manager.editQueued(c.id, 'q-9', 'edited wording')).toBe(true)
     const editedEv = events.find((e) => e.type === 'agent_queue_edited') as
-      | { queueId?: string; text?: string }
+      | { queueId?: string; text?: string; contextRefs?: Array<{ id: string }> }
       | undefined
     expect(editedEv?.queueId).toBe('q-9')
     expect(editedEv?.text).toBe('edited wording')
+    expect(editedEv?.contextRefs?.[0]?.id).toBe('job-1')
 
     release()
     await first
     // The dequeued event and the drained turn both carry the EDITED text.
-    const dequeuedEv = events.find((e) => e.type === 'agent_dequeued') as { text?: string } | undefined
+    const dequeuedEv = events.find((e) => e.type === 'agent_dequeued') as
+      | { text?: string; contextRefs?: Array<{ id: string }> }
+      | undefined
     expect(dequeuedEv?.text).toBe('edited wording')
+    expect(dequeuedEv?.contextRefs?.[0]?.id).toBe('job-1')
     const msgs = listAgentMessages(db, c.id).map((m) => `${m.role}:${m.content}`)
     expect(msgs).toContain('user:edited wording')
     expect(msgs.some((m) => m.includes('original wording'))).toBe(false)

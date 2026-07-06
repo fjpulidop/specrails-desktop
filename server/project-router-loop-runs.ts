@@ -63,7 +63,7 @@ export function registerLoopRunRoutes(deps: ProjectRoutesDeps): void {
     if (!check.ok) { res.status(400).json({ error: check.error }); return }
     const provider = check.provider
 
-    // claude-only guard (e.g. a loop that uses {{cmd:ultracode}}).
+    // claude-only guard (e.g. a loop that uses {{cmd:freestyle}}).
     const promptsText = loop.graph.nodes
       .filter((n) => n.type === 'ai-step')
       .map((n) => String(n.data?.prompt ?? ''))

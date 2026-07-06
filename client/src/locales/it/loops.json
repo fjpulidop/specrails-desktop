@@ -221,7 +221,7 @@
       "name": "Implementa in batch",
       "description": "Implementa in batch tutti i ticket del rail in una sola volta, poi verifica + affina in caso di fallimento finché non è verde."
     },
-    "factory_ultracode": {
+    "factory_freestyle": {
       "name": "Freestyle",
       "description": "Consegna la spec direttamente al modello con piena libertà — senza pipeline, lavora come un normale coding agent, poi verifica + rifinisce fino al verde. Solo Claude."
     },

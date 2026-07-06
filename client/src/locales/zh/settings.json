@@ -31,7 +31,7 @@
     "saved": "前置提示词已保存",
     "saveFailed": "保存前置提示词失败"
   },
-  "ultraPrePrompt": {
+  "freestylePrePrompt": {
     "title": "Freestyle 前置提示词",
     "description": "在 Freestyle（仅限 Claude 的 rail）模式下发送给 Claude 的指令。Freestyle 跳过 OpenSpec 流水线——直接把该前置提示词加上 spec 文本交给 Claude，让其自主实现。留空则使用内置默认值。",
     "label": "Freestyle 前置提示词",

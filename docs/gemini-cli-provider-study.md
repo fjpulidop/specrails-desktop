@@ -14,7 +14,7 @@ Gemini supera a Codex en dos capacidades clave verificadas:
 
 **Entra en v1 (PR-B beta-gated):** jobs/rails básicos, Explore Spec multi-turno (spawn-per-turn con `--resume`), Quick spec, Analytics/coste vía rate-card, OTEL nativo, terminal CLI launch, detección + prerequisitos, selección de modelo, multi-provider per project.
 
-**NO entra en v1 (paridad Codex, se ocultan por intersección de capacidades):** Agent Profiles, SMASH, Contract Refine, Ultracode (+interactivo), plugins/Serena, persistent-stdin de Explore. Gemini se comporta byte-idéntico a Codex en estas superficies **siempre que declare las capacidades correctas y se ensanchen los tipos** — cero código nuevo en esas superficies.
+**NO entra en v1 (paridad Codex, se ocultan por intersección de capacidades):** Agent Profiles, SMASH, Contract Refine, Freestyle (+interactivo), plugins/Serena, persistent-stdin de Explore. Gemini se comporta byte-idéntico a Codex en estas superficies **siempre que declare las capacidades correctas y se ensanchen los tipos** — cero código nuevo en esas superficies.
 
 **Diferido a follow-up explícito (decisiones tomadas, no implementadas en v1):** generalizar `provider-capabilities.ts` para *otorgar* a Gemini features hoy claude-only; bridge Windows multi-line argv; traducción slash-command para rails funcionales en Gemini (esto último es **bloqueante para rails reales**, ver §6).
 
@@ -238,7 +238,7 @@ Mergeable independiente, no cambia comportamiento observable.
 | **Integrations/plugins (MCP/Serena)** | **Bloqueado (paridad codex)** | Manifest Serena omite `providerSupport` → claude-only. Paridad: añadir `'gemini'` a `providerSupport` + entry MCP bajo `.gemini/settings.json`. |
 | **SMASH** | **Bloqueado (paridad codex)** | `isSmashCapable→'claude'`. `smash-runner.ts` spawnea `claude` directo sin adapter. Paridad: reescribir runner sobre `getAdapter()` + prompt/parser Gemini + flip del gate. |
 | **Contract Refine** | **Bloqueado (inherentemente anthropic en su forma actual)** | `--resume` a sesión Claude + slash `/specrails:contract-refine`. Paridad parcial vía el path no-resume (re-seed por system prompt, como `runContractRefineForQuick`) + de-hardcodear `getAdapter('claude')`. |
-| **Ultracode interactivo** | **Bloqueado (paridad codex)** | `mode==='ultracode' && provider!=='claude'→400`; `isUltracode=adapter.id==='claude'`. Paridad: quitar el 400 para gemini, generalizar el branch ultracode-prompt, `persistentStdin:true` para el interactivo. Mecanismo no-anthropic; factible. |
+| **Freestyle interactivo** | **Bloqueado (paridad codex)** | `mode==='freestyle' && provider!=='claude'→400`; `isFreestyle=adapter.id==='claude'`. Paridad: quitar el 400 para gemini, generalizar el branch freestyle-prompt, `persistentStdin:true` para el interactivo. Mecanismo no-anthropic; factible. |
 | **Analytics/coste** | **Nativo (estimado)** | `nativeCostUsd:false` + filas pricing → coste estimado, `estimated=true`. Filtros engine ya data-driven. |
 | **OTEL/telemetry** | **Nativo (MEJOR que codex)** | `nativeOtelEnv:true` → env-injection (no bridge). Solo parametrizar el enable-var en `buildTelemetryEnv`. Caveat correlación (§4). |
 | **Terminal CLI launch** | **Nativo** | `CliLaunchMenu` itera providers; aparece tras ensanchar union + wiring binario. |

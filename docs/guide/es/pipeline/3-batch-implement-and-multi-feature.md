@@ -81,4 +81,4 @@ No hay límite global de concurrencia que ajustar. Abre los proyectos o rails qu
 
 - [Rails y jobs](rails-and-jobs) — el modelo de cola en profundidad.
 - [La vista de detalle del job](the-job-detail-view) — mira un batch ejecutarse en vivo.
-- [Elegir un motor por rail](picking-an-engine-per-rail) — ten en cuenta que Batch corre en cualquier proveedor; Ultra es solo de Claude.
+- [Elegir un motor por rail](picking-an-engine-per-rail) — ten en cuenta que Batch corre en cualquier proveedor; Freestyle es solo de Claude.

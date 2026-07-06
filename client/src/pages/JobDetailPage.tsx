@@ -328,7 +328,7 @@ export default function JobDetailPage() {
   const statusInfo = STATUS_BADGE[job.status] ?? STATUS_BADGE.queued
   const isRunning = job.status === 'running'
   const isFinished = job.status === 'completed' || job.status === 'failed'
-  // An interactive ultracode session that is still resident: the user converses
+  // An interactive freestyle session that is still resident: the user converses
   // and must Finalize (no auto-terminate). FEATURE-gated via the server flag —
   // job.interactive is only ever set when the feature is on.
   const isInteractive = !!job.interactive
@@ -496,7 +496,7 @@ export default function JobDetailPage() {
 
       {/* Interactive in-job agent composer — send more prompts to the resident
           agent (queued server-side), see live turn totals, and settle per the
-          session's mode (Finalize for ultracode, quiet wrap-up for auto). */}
+          session's mode (Finalize for freestyle, quiet wrap-up for auto). */}
       {isInteractiveRunning && (
         <InteractiveJobComposer
           jobId={job.id}

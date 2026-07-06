@@ -2,12 +2,12 @@
 
 ### Requirement: Built-in factory loops
 
-The app SHALL ship built-in "factory" loops for `implement`, `batch`, and `ultracode`. They SHALL appear in the Loops gallery alongside user loops, marked read-only (locked), and SHALL NOT be editable in place. A "Fork to edit" action SHALL clone a factory loop into a new editable user draft, leaving the original unchanged.
+The app SHALL ship built-in "factory" loops for `implement`, `batch`, and `freestyle`. They SHALL appear in the Loops gallery alongside user loops, marked read-only (locked), and SHALL NOT be editable in place. A "Fork to edit" action SHALL clone a factory loop into a new editable user draft, leaving the original unchanged.
 
 #### Scenario: Factory loops are listed and locked
 
 - **WHEN** the Loops gallery is opened
-- **THEN** the `implement`, `batch`, and `ultracode` factory loops SHALL be listed as read-only (locked)
+- **THEN** the `implement`, `batch`, and `freestyle` factory loops SHALL be listed as read-only (locked)
 - **AND** they SHALL NOT expose Edit / Delete / Publish actions
 
 #### Scenario: Forking a factory loop
@@ -16,9 +16,9 @@ The app SHALL ship built-in "factory" loops for `implement`, `batch`, and `ultra
 - **THEN** a new editable user loop SHALL be created as a clone of the factory loop's graph in `Draft` state
 - **AND** the original factory loop SHALL remain unchanged
 
-### Requirement: Catalog commands for batch and ultracode
+### Requirement: Catalog commands for batch and freestyle
 
-The loop command catalog SHALL expose `{{cmd:batch}}` (the native specrails-core `batch-implement` slash command, resolved per provider like `{{cmd:implement}}`) and `{{cmd:ultracode}}` (a native/raw autonomous command — NOT a slash command).
+The loop command catalog SHALL expose `{{cmd:batch}}` (the native specrails-core `batch-implement` slash command, resolved per provider like `{{cmd:implement}}`) and `{{cmd:freestyle}}` (a native/raw autonomous command — NOT a slash command).
 
 #### Scenario: batch expands to the native batch-implement command
 
@@ -26,14 +26,14 @@ The loop command catalog SHALL expose `{{cmd:batch}}` (the native specrails-core
 - **THEN** the result SHALL be the native `batch-implement` invocation over those tickets (`/specrails:batch-implement #1 #2 --yes`)
 - **AND** for codex it SHALL use the `$batch-implement` skill form
 
-#### Scenario: ultracode expands to the raw autonomous prompt
+#### Scenario: freestyle expands to the raw autonomous prompt
 
-- **WHEN** `{{cmd:ultracode}}` is expanded
-- **THEN** it SHALL produce the raw autonomous prompt (the same shape the existing ultracode path builds), NOT a `/specrails:` slash command
+- **WHEN** `{{cmd:freestyle}}` is expanded
+- **THEN** it SHALL produce the raw autonomous prompt (the same shape the existing freestyle path builds), NOT a `/specrails:` slash command
 
 ### Requirement: Command-declared ticket scope
 
-Each catalog command SHALL declare a ticket scope of `all` (all the rail's tickets handled in ONE run) or `per-ticket` (one run per ticket). `implement` and `batch` SHALL be `all`; `ultracode` SHALL be `per-ticket`. The launch path SHALL read the command's scope to decide how many runs to spawn and which ticket token to inject.
+Each catalog command SHALL declare a ticket scope of `all` (all the rail's tickets handled in ONE run) or `per-ticket` (one run per ticket). `implement` and `batch` SHALL be `all`; `freestyle` SHALL be `per-ticket`. The launch path SHALL read the command's scope to decide how many runs to spawn and which ticket token to inject.
 
 #### Scenario: An all-scope command runs once over every ticket
 

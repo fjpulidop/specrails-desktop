@@ -33,10 +33,10 @@ declare module 'express-serve-static-core' {
   }
 }
 
-const VALID_MODES = new Set(['implement', 'batch-implement', 'ultracode', 'loop'])
-// Models the ultracode picker exposes (Claude aliases). Mirrors the client
+const VALID_MODES = new Set(['implement', 'batch-implement', 'freestyle', 'loop'])
+// Models the freestyle picker exposes (Claude aliases). Mirrors the client
 // RailModelSelector options and the project-router orchestrator-model allow-list.
-const VALID_ULTRACODE_MODELS = new Set(['haiku', 'sonnet', 'opus', 'fable'])
+const VALID_FREESTYLE_MODELS = new Set(['haiku', 'sonnet', 'opus', 'fable'])
 // Reasoning-effort tiers a loop launch may request (mirrors the client selector
 // + the provider adapters' supported values).
 const VALID_REASONING_EFFORTS = new Set(['low', 'medium', 'high'])
@@ -340,7 +340,7 @@ export function createRailsRouter(): Router {
       mode = fmode
     }
     if (!VALID_MODES.has(mode as string)) {
-      res.status(400).json({ error: 'mode must be "implement", "batch-implement", "ultracode" or "loop"' }); return
+      res.status(400).json({ error: 'mode must be "implement", "batch-implement", "freestyle" or "loop"' }); return
     }
     // A bare legacy mode (MCP tools, mobile, direct REST — no loopId) must run
     // through the SAME factory loop the dashboard sends, so worktree isolation
@@ -354,10 +354,10 @@ export function createRailsRouter(): Router {
     if (mode === 'loop' && !isLoopsEnabled()) {
       res.status(403).json({ error: 'Loops are disabled on this server' }); return
     }
-    // Ultracode model picker: optional, validated against the allow-list.
-    // Ignored for non-ultracode modes (they use the orchestrator model).
-    if (mode === 'ultracode' && model !== undefined && model !== null) {
-      if (typeof model !== 'string' || !VALID_ULTRACODE_MODELS.has(model)) {
+    // Freestyle model picker: optional, validated against the allow-list.
+    // Ignored for non-freestyle modes (they use the orchestrator model).
+    if (mode === 'freestyle' && model !== undefined && model !== null) {
+      if (typeof model !== 'string' || !VALID_FREESTYLE_MODELS.has(model)) {
         res.status(400).json({ error: 'model must be one of: haiku, sonnet, opus, fable' }); return
       }
     }
@@ -399,9 +399,9 @@ export function createRailsRouter(): Router {
     // single-provider rails on the legacy code path).
     const railProvider = requestedEngine ? engineCheck.provider : undefined
 
-    // Ultracode bypasses the OpenSpec pipeline and hands the raw spec to
+    // Freestyle bypasses the OpenSpec pipeline and hands the raw spec to
     // Claude. It is Claude-only — reject when the effective engine is not claude.
-    if (mode === 'ultracode' && engineCheck.provider !== 'claude') {
+    if (mode === 'freestyle' && engineCheck.provider !== 'claude') {
       res.status(400).json({ error: 'Freestyle requires the Claude provider' }); return
     }
 
@@ -409,8 +409,8 @@ export function createRailsRouter(): Router {
     // `null` in the body explicitly forces legacy mode. Codex has no agent
     // profiles, so force legacy mode whenever the chosen engine is not claude.
     let resolvedProfile: string | null | undefined
-    if (mode === 'ultracode') {
-      // Ultracode runs no agent pipeline, so profiles do not apply.
+    if (mode === 'freestyle') {
+      // Freestyle runs no agent pipeline, so profiles do not apply.
       resolvedProfile = null
     } else if (railProvider && railProvider !== 'claude') {
       resolvedProfile = null
@@ -426,7 +426,7 @@ export function createRailsRouter(): Router {
 
     try {
       // Loop mode: run a published loop (the Loops feature) against each spec,
-      // one app-driven LoopRun per ticket (mirrors ultracode's per-ticket model).
+      // one app-driven LoopRun per ticket (mirrors freestyle's per-ticket model).
       // Drives raw prompts via the LoopRunManager — NO queue job, NO slash command.
       // rails-as-loops: a chosen loop (factory OR custom) runs through the
       // LoopRunManager when Loops are enabled — so factory loops get their
@@ -609,31 +609,31 @@ export function createRailsRouter(): Router {
       }
 
       // A custom-loop launch (mode='loop') with no loopId is invalid — there is
-      // no factory loop to fall back to (only implement/batch/ultracode do).
+      // no factory loop to fall back to (only implement/batch/freestyle do).
       if (mode === 'loop') {
         res.status(400).json({ error: 'loopId is required for loop mode' }); return
       }
 
       let jobId: string
 
-      if (mode === 'ultracode') {
-        // Ultracode launches ONE independent Claude job per ticket — each gets
+      if (mode === 'freestyle') {
+        // Freestyle launches ONE independent Claude job per ticket — each gets
         // its own log and runs the spec autonomously (no pipeline). The rail UI
         // tracks the first job as its representative active job; every job is
         // registered so its ticket is marked done on completion.
         // `provider: 'claude'` is explicit so the spawn resolves the claude
         // adapter regardless of the project's primary.
-        const ultracodeModel =
-          mode === 'ultracode' && typeof model === 'string' && VALID_ULTRACODE_MODELS.has(model)
+        const freestyleModel =
+          mode === 'freestyle' && typeof model === 'string' && VALID_FREESTYLE_MODELS.has(model)
             ? model
             : undefined
         const jobIds: string[] = []
         for (const ticketId of rail.ticketIds) {
-          const command = `/specrails:ultracode #${ticketId} --yes`
+          const command = `/specrails:freestyle #${ticketId} --yes`
           const job = c.queueManager.enqueue(command, 'normal', {
             profileName: null,
             provider: 'claude',
-            ...(ultracodeModel ? { model: ultracodeModel } : {}),
+            ...(freestyleModel ? { model: freestyleModel } : {}),
             // No explicit `interactive` — QueueManager's spawn-time default
             // (kill-switch + persistent-stdin capability) covers it, and the
             // decision survives a restart that way.
@@ -702,7 +702,7 @@ export function createRailsRouter(): Router {
 
     const c = ctx(req)
 
-    // M19: an Ultracode rail registers ONE queue job per ticket. The old code
+    // M19: an Freestyle rail registers ONE queue job per ticket. The old code
     // stopped only the FIRST matching job, so the remaining N-1 jobs kept running
     // and billing while the UI showed the rail stopped. Collect ALL jobs for this
     // rail index and cancel each (running → kill, queued → cancel).

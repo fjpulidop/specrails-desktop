@@ -121,9 +121,11 @@ heading inside the description); \`labels\`; \`priority\`. Spec content is Engli
   - \`implement\`: one pipeline job (Architect → Developer → Reviewer → Ship)
     over the rail's tickets.
   - \`batch-implement\`: dependency-aware waves across many tickets.
-  - Freestyle (wire value \`ultracode\`): hands the spec straight to the model —
-    one job per ticket; Claude-only; \`model\` picker; optional
-    \`interactive\` in-job chat (settle with \`specrails_jobs(finalize)\`).
+  - Freestyle: sends a free-form autonomous prompt straight to Claude — one job
+    per ticket; Claude-only; \`model\` picker; optional \`interactive\` in-job
+    chat (settle with \`specrails_jobs(finalize)\`). To launch it through the API,
+    pass the canonical mode value \`freestyle\`. In user-facing language, call
+    the feature "Freestyle".
   - \`loop\`: runs a published loop graph per ticket (\`loopId\`,
     \`reasoning_effort\`).
 - Profiles are Claude-only: a profile set on a rail that is then pointed at
@@ -175,9 +177,9 @@ read + write — ai-spawn is required only to launch work or spawn a nested AI.
 
 - Installed providers are per-project; AI-spawning calls may pick any installed
   one (\`aiEngine\`); rails carry a per-rail engine.
-- CLAUDE-ONLY: agent profiles, Contract Refine, SMASH, Freestyle mode
-  (\`ultracode\`), interactive jobs. They are rejected or inert when the
-  effective engine is codex or gemini.
+- CLAUDE-ONLY: agent profiles, Contract Refine, SMASH, Freestyle mode (API mode
+  \`freestyle\`; say "Freestyle" to users), interactive jobs. They are
+  rejected or inert when the effective engine is codex or gemini.
 - Cost figures are authoritative for claude and estimated for codex/gemini
   (flagged as estimated in analytics).
 

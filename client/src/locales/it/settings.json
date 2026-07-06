@@ -31,7 +31,7 @@
     "saved": "Pre-prompt salvato",
     "saveFailed": "Salvataggio del pre-prompt non riuscito"
   },
-  "ultraPrePrompt": {
+  "freestylePrePrompt": {
     "title": "Pre-prompt Freestyle",
     "description": "Istruzione inviata a Claude in Freestyle (rail solo Claude). Freestyle salta la pipeline OpenSpec — consegna a Claude questo pre-prompt più il testo della spec e lo lascia implementare in autonomia. Lascia vuoto per usare il default integrato.",
     "label": "Pre-prompt Freestyle",

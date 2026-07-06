@@ -19,7 +19,7 @@ describe('loopNeedsTicket', () => {
   it('needs a ticket when it uses a ticket-consuming command', () => {
     expect(loopNeedsTicket(graph([{ prompt: '{{cmd:implement}}' }]))).toBe(true)
     expect(loopNeedsTicket(graph([{ prompt: '{{cmd:batch}}' }]))).toBe(true)
-    expect(loopNeedsTicket(graph([{ prompt: '{{cmd:ultracode}}' }]))).toBe(true)
+    expect(loopNeedsTicket(graph([{ prompt: '{{cmd:freestyle}}' }]))).toBe(true)
   })
 
   it('is ticket-LESS for repo-level loops (no spec token / ticket command)', () => {

@@ -22,12 +22,12 @@ interface Props {
 }
 
 /**
- * Confirmation modal shown before launching a rail in Ultracode mode. Ultracode
+ * Confirmation modal shown before launching a rail in Freestyle mode. Freestyle
  * bypasses the OpenSpec pipeline and lets Claude run with native agents +
  * dynamic workflows, so cost is variable — the user explicitly opts in here.
  * Continue is the affirmative (green) action; ⌘/Ctrl+Enter triggers it.
  */
-export function UltracodeLaunchDialog({ open, railLabel, specCount, model, onConfirm, onCancel }: Props) {
+export function FreestyleLaunchDialog({ open, railLabel, specCount, model, onConfirm, onCancel }: Props) {
   const { t } = useTranslation('dashboard')
   const confirmRef = useRef<HTMLButtonElement>(null)
 
@@ -58,9 +58,9 @@ export function UltracodeLaunchDialog({ open, railLabel, specCount, model, onCon
               <Sparkles className="h-4.5 w-4.5" />
             </span>
             <div className="text-left">
-              <DialogTitle className="text-base">{t('ultracodeDialog.title')}</DialogTitle>
+              <DialogTitle className="text-base">{t('freestyleDialog.title')}</DialogTitle>
               <DialogDescription>
-                {t('ultracodeDialog.context', { rail: railLabel, count: specCount })}
+                {t('freestyleDialog.context', { rail: railLabel, count: specCount })}
                 {model ? ` · ${model}` : ''}
               </DialogDescription>
             </div>
@@ -70,15 +70,15 @@ export function UltracodeLaunchDialog({ open, railLabel, specCount, model, onCon
         <ul className="space-y-2.5 text-xs text-muted-foreground">
           <li className="flex items-start gap-2.5">
             <GitBranch className="mt-0.5 h-3.5 w-3.5 shrink-0 text-accent-warning" />
-            <span><span className="font-medium text-foreground">{t('ultracodeDialog.noPipelineTitle')}</span>{' '}{t('ultracodeDialog.noPipelineBody')}</span>
+            <span><span className="font-medium text-foreground">{t('freestyleDialog.noPipelineTitle')}</span>{' '}{t('freestyleDialog.noPipelineBody')}</span>
           </li>
           <li className="flex items-start gap-2.5">
             <Bot className="mt-0.5 h-3.5 w-3.5 shrink-0 text-accent-info" />
-            <span><span className="font-medium text-foreground">{t('ultracodeDialog.autonomyTitle')}</span>{' '}{t('ultracodeDialog.autonomyBody')}</span>
+            <span><span className="font-medium text-foreground">{t('freestyleDialog.autonomyTitle')}</span>{' '}{t('freestyleDialog.autonomyBody')}</span>
           </li>
           <li className="flex items-start gap-2.5">
             <DollarSign className="mt-0.5 h-3.5 w-3.5 shrink-0 text-accent-success" />
-            <span><span className="font-medium text-foreground">{t('ultracodeDialog.costTitle')}</span>{' '}{t('ultracodeDialog.costBody')}</span>
+            <span><span className="font-medium text-foreground">{t('freestyleDialog.costTitle')}</span>{' '}{t('freestyleDialog.costBody')}</span>
           </li>
         </ul>
 
@@ -91,7 +91,7 @@ export function UltracodeLaunchDialog({ open, railLabel, specCount, model, onCon
             className="h-9 gap-2 bg-emerald-500 text-white hover:bg-emerald-400 focus-visible:ring-emerald-400"
             onClick={onConfirm}
           >
-            {t('ultracodeDialog.continue')}
+            {t('freestyleDialog.continue')}
             <kbd className="hidden sm:inline-flex items-center rounded border border-white/30 bg-white/10 px-1 text-[9px] font-medium leading-4">⌘↵</kbd>
           </Button>
         </DialogFooter>

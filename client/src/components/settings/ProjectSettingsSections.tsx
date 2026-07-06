@@ -15,7 +15,7 @@ import { Input } from '../ui/input'
 interface ProjectSettingsPayload {
   pipelineTelemetryEnabled?: boolean
   prePrompt?: string
-  ultraPrePrompt?: string
+  freestylePrePrompt?: string
   integrationBranch?: string
 }
 
@@ -208,7 +208,7 @@ function PrePromptCard({
   onSave: () => void
   isSaving: boolean
   fieldId: string
-  i18nRoot: 'prePrompt' | 'ultraPrePrompt'
+  i18nRoot: 'prePrompt' | 'freestylePrePrompt'
 }) {
   const { t } = useTranslation('settings')
   return (
@@ -247,23 +247,23 @@ export function ProjectPrePromptsSection() {
   const { activeProjectId } = useDesktop()
   const [prePrompt, setPrePrompt] = useState('')
   const [isSavingPrePrompt, setIsSavingPrePrompt] = useState(false)
-  const [ultraPrePrompt, setUltraPrePrompt] = useState('')
-  const [isSavingUltraPrePrompt, setIsSavingUltraPrePrompt] = useState(false)
+  const [freestylePrePrompt, setFreestylePrePrompt] = useState('')
+  const [isSavingFreestylePrePrompt, setIsSavingFreestylePrePrompt] = useState(false)
   const [loaded, setLoaded] = useState(false)
   // A late-landing GET must never clobber a field the user already edited.
-  const touchedRef = useRef({ pre: false, ultra: false })
+  const touchedRef = useRef({ pre: false, freestyle: false })
 
   useEffect(() => {
     if (!activeProjectId) return
     let cancelled = false
     setLoaded(false)
-    touchedRef.current = { pre: false, ultra: false }
+    touchedRef.current = { pre: false, freestyle: false }
     fetch(`${getApiBase()}/settings`)
       .then((res) => (res.ok ? res.json() : null))
       .then((data: ProjectSettingsPayload | null) => {
         if (cancelled || !data) return
         if (!touchedRef.current.pre) setPrePrompt(data.prePrompt ?? '')
-        if (!touchedRef.current.ultra) setUltraPrePrompt(data.ultraPrePrompt ?? '')
+        if (!touchedRef.current.freestyle) setFreestylePrePrompt(data.freestylePrePrompt ?? '')
       })
       .catch(() => {})
       .finally(() => { if (!cancelled) setLoaded(true) })
@@ -290,23 +290,23 @@ export function ProjectPrePromptsSection() {
     }
   }
 
-  async function saveUltraPrePrompt() {
-    setIsSavingUltraPrePrompt(true)
+  async function saveFreestylePrePrompt() {
+    setIsSavingFreestylePrePrompt(true)
     try {
       const res = await fetch(`${getApiBase()}/settings`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ ultraPrePrompt }),
+        body: JSON.stringify({ freestylePrePrompt }),
       })
       if (!res.ok) throw new Error('Failed to save')
       const data = await res.json() as { settings?: ProjectSettingsPayload }
-      const savedValue = data.settings?.ultraPrePrompt ?? ''
-      setUltraPrePrompt(savedValue)
-      toast.success(savedValue.trim() === '' ? t('ultraPrePrompt.resetToDefault') : t('ultraPrePrompt.saved'))
+      const savedValue = data.settings?.freestylePrePrompt ?? ''
+      setFreestylePrePrompt(savedValue)
+      toast.success(savedValue.trim() === '' ? t('freestylePrePrompt.resetToDefault') : t('freestylePrePrompt.saved'))
     } catch (err) {
-      toast.error(t('ultraPrePrompt.saveFailed'), { description: (err as Error).message })
+      toast.error(t('freestylePrePrompt.saveFailed'), { description: (err as Error).message })
     } finally {
-      setIsSavingUltraPrePrompt(false)
+      setIsSavingFreestylePrePrompt(false)
     }
   }
 
@@ -323,12 +323,12 @@ export function ProjectPrePromptsSection() {
         i18nRoot="prePrompt"
       />
       <PrePromptCard
-        value={ultraPrePrompt}
-        onChange={(v) => { touchedRef.current.ultra = true; setUltraPrePrompt(v) }}
-        onSave={saveUltraPrePrompt}
-        isSaving={isSavingUltraPrePrompt}
-        fieldId="project-ultra-pre-prompt"
-        i18nRoot="ultraPrePrompt"
+        value={freestylePrePrompt}
+        onChange={(v) => { touchedRef.current.freestyle = true; setFreestylePrePrompt(v) }}
+        onSave={saveFreestylePrePrompt}
+        isSaving={isSavingFreestylePrePrompt}
+        fieldId="project-freestyle-pre-prompt"
+        i18nRoot="freestylePrePrompt"
       />
     </>
   )

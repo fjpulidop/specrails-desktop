@@ -92,6 +92,12 @@ describe('OPERATOR_INSTRUCTIONS — launch, then release the turn', () => {
   it('still requires verified completion, never 202-acceptance claims', () => {
     expect(OPERATOR_INSTRUCTIONS).toContain('Never claim completion\n  you have not verified from a terminal event or a job read')
   })
+
+  it('keeps Freestyle as the user-facing name for the canonical freestyle API values', () => {
+    expect(OPERATOR_INSTRUCTIONS).toContain('always call the free-form autonomous rail mode\n  `Freestyle`')
+    expect(OPERATOR_INSTRUCTIONS).toContain('The canonical API / id / token values are `freestyle`,\n  `factory:freestyle`, and `{{cmd:freestyle}}`')
+    expect(OPERATOR_INSTRUCTIONS).toContain('Do not invent or use another name for\n  this capability')
+  })
 })
 
 describe('OPERATOR_SYSTEM_PROMPT — compact distillation stays in sync', () => {
@@ -105,6 +111,11 @@ describe('OPERATOR_SYSTEM_PROMPT — compact distillation stays in sync', () => 
     expect(OPERATOR_SYSTEM_PROMPT).toContain('spec-draft JSON block')
     expect(OPERATOR_SYSTEM_PROMPT).toContain('Contract Layer by default')
     expect(OPERATOR_SYSTEM_PROMPT).toContain('contractRefine false')
+  })
+
+  it('carries the Freestyle naming rule', () => {
+    expect(OPERATOR_SYSTEM_PROMPT).toContain('call the free-form autonomous rail mode Freestyle in prose')
+    expect(OPERATOR_SYSTEM_PROMPT).toContain('freestyle/factory:freestyle/{{cmd:freestyle}} are canonical API/id/token values')
   })
 })
 

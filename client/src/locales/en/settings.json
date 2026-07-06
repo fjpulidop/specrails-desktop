@@ -31,7 +31,7 @@
     "saved": "Pre-prompt saved",
     "saveFailed": "Failed to save pre-prompt"
   },
-  "ultraPrePrompt": {
+  "freestylePrePrompt": {
     "title": "Freestyle pre-prompt",
     "description": "Instruction sent to Claude in Freestyle (Claude-only rails). Freestyle skips the OpenSpec pipeline — it hands Claude this pre-prompt plus the spec text and lets it implement autonomously. Leave blank to use the built-in default.",
     "label": "Freestyle pre-prompt",

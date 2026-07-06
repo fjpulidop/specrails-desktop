@@ -74,7 +74,7 @@ export interface JobRow {
   /** Profile name the job was launched with (null = legacy mode, or job
    *  predates the profiles feature). Populated via LEFT JOIN job_profiles. */
   profile_name?: string | null
-  /** 1 when this is an interactive persistent ultracode session (added in
+  /** 1 when this is an interactive persistent freestyle session (added in
    *  migration 32); 0/absent for standard autonomous jobs. */
   interactive?: number | null
 }
@@ -1216,6 +1216,19 @@ export interface AgentToolMessage {
   timestamp: string
 }
 
+export interface AgentContextRefMessage {
+  kind: string
+  id: string
+  label: string
+  token: string
+  scope?: {
+    projectId?: string | null
+    projectName?: string | null
+  }
+  status?: string | null
+  metadata?: Record<string, unknown>
+}
+
 /** A message sent mid-turn was queued; it runs after the current turn settles. */
 export interface AgentQueuedMessage {
   type: 'agent_queued'
@@ -1223,6 +1236,7 @@ export interface AgentQueuedMessage {
   /** Client-generated correlation id (null when the sender didn't provide one). */
   queueId: string | null
   text: string
+  contextRefs?: AgentContextRefMessage[]
   position: number
   timestamp: string
 }
@@ -1233,6 +1247,7 @@ export interface AgentDequeuedMessage {
   conversationId: string
   queueId: string | null
   text: string
+  contextRefs?: AgentContextRefMessage[]
   timestamp: string
 }
 
@@ -1249,6 +1264,7 @@ export interface AgentQueueEditedMessage {
   conversationId: string
   queueId: string
   text: string
+  contextRefs?: AgentContextRefMessage[]
   timestamp: string
 }
 
@@ -1374,7 +1390,7 @@ export interface SpendingInvalidatedMessage {
   projectId: string
 }
 
-// ─── Interactive ultracode jobs ───────────────────────────────────────────────
+// ─── Interactive freestyle jobs ───────────────────────────────────────────────
 // Desktop-only; the mobile gateway's topicFor() returns null for any uncased
 // type, so these never reach a phone (frozen v1 wire contract preserved).
 

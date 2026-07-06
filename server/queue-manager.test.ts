@@ -1743,7 +1743,7 @@ describe('QueueManager', () => {
       expect(fs.existsSync(shimDir)).toBe(false)
     })
 
-    it('RELOCATED ultracode: reads spec text from the WORKSPACE ticket store', () => {
+    it('RELOCATED freestyle: reads spec text from the WORKSPACE ticket store', () => {
       const ws = seedRelocated('acme')
       // Ticket lives ONLY in the workspace store — not in the repo.
       fs.mkdirSync(path.join(ws, '.specrails'), { recursive: true })
@@ -1757,16 +1757,16 @@ describe('QueueManager', () => {
       )
       vi.mocked(mockExecSync).mockReturnValue(Buffer.from('/usr/bin/claude'))
       vi.mocked(mockSpawn).mockReturnValue(createMockChildProcess() as any)
-      vi.mocked(mockUuidV4).mockReturnValue('reloc-ultra' as any)
+      vi.mocked(mockUuidV4).mockReturnValue('reloc-freestyle' as any)
 
       const db = initDb(':memory:')
       const qmReloc = new QueueManager(broadcast, db, [], repo, {
         provider: 'claude', projectId: 'p1', projectSlug: 'acme',
       })
-      qmReloc.enqueue('/specrails:ultracode #7')
+      qmReloc.enqueue('/specrails:freestyle #7')
 
       const args = vi.mocked(mockSpawn).mock.calls[0][1] as string[]
-      // The ultracode prompt is the `-p` argv value; it must contain the spec body
+      // The freestyle prompt is the `-p` argv value; it must contain the spec body
       // read from the WORKSPACE store.
       const joined = args.join('\n')
       expect(joined).toContain('FROM-WORKSPACE-BODY')
@@ -1915,11 +1915,11 @@ describe('QueueManager', () => {
       expect(spawnArgs[pIdx + 1]).not.toContain('$implement')
     })
 
-    it('ultracode: sends default pre-prompt + spec text as the claude -p prompt (no slash command)', () => {
+    it('freestyle: sends default pre-prompt + spec text as the claude -p prompt (no slash command)', () => {
       vi.mocked(mockExecSync).mockReturnValue(Buffer.from('/usr/bin/claude'))
       const child = createMockChildProcess()
       vi.mocked(mockSpawn).mockReturnValue(child as any)
-      vi.mocked(mockUuidV4).mockReturnValue('ultracode-default' as any)
+      vi.mocked(mockUuidV4).mockReturnValue('freestyle-default' as any)
 
       const projectDir = makeProjectDirWithTickets({
         '7': {
@@ -1932,26 +1932,26 @@ describe('QueueManager', () => {
       })
       try {
         const qm = new QueueManager(broadcast, undefined, [], projectDir, { provider: 'claude' })
-        qm.enqueue('/specrails:ultracode #7 --yes')
+        qm.enqueue('/specrails:freestyle #7 --yes')
 
         const spawnArgs = vi.mocked(mockSpawn).mock.calls[0][1] as string[]
         const pIdx = spawnArgs.indexOf('-p')
         const prompt = spawnArgs[pIdx + 1]
-        expect(prompt).toContain('ULTRACODE')
+        expect(prompt).toContain('FREESTYLE')
         expect(prompt).toContain('# Spec #7: Add dark mode')
         expect(prompt).toContain('Toggle theme in settings')
         // The slash command itself must NOT be sent as the prompt.
-        expect(prompt).not.toContain('/specrails:ultracode')
+        expect(prompt).not.toContain('/specrails:freestyle')
       } finally {
         fs.rmSync(projectDir, { recursive: true, force: true })
       }
     })
 
-    it('ultracode: uses the per-project pre-prompt override when set', () => {
+    it('freestyle: uses the per-project pre-prompt override when set', () => {
       vi.mocked(mockExecSync).mockReturnValue(Buffer.from('/usr/bin/claude'))
       const child = createMockChildProcess()
       vi.mocked(mockSpawn).mockReturnValue(child as any)
-      vi.mocked(mockUuidV4).mockReturnValue('ultracode-override' as any)
+      vi.mocked(mockUuidV4).mockReturnValue('freestyle-override' as any)
 
       const projectDir = makeProjectDirWithTickets({
         '3': {
@@ -1963,14 +1963,14 @@ describe('QueueManager', () => {
         },
       })
       const db = initDb(':memory:')
-      updateProjectSettings(db, { ultraPrePrompt: 'CUSTOM ULTRA INSTRUCTION' })
+      updateProjectSettings(db, { freestylePrePrompt: 'CUSTOM FREESTYLE INSTRUCTION' })
       try {
         const qm = new QueueManager(broadcast, db, [], projectDir, { provider: 'claude' })
-        qm.enqueue('/specrails:ultracode #3 --yes')
+        qm.enqueue('/specrails:freestyle #3 --yes')
 
         const spawnArgs = vi.mocked(mockSpawn).mock.calls[0][1] as string[]
         const prompt = spawnArgs[spawnArgs.indexOf('-p') + 1]
-        expect(prompt).toContain('CUSTOM ULTRA INSTRUCTION')
+        expect(prompt).toContain('CUSTOM FREESTYLE INSTRUCTION')
         expect(prompt).toContain('# Spec #3: Spec three')
       } finally {
         db.close()
@@ -1978,11 +1978,11 @@ describe('QueueManager', () => {
       }
     })
 
-    it('ultracode: model override is passed as --model, overriding orchestrator', () => {
+    it('freestyle: model override is passed as --model, overriding orchestrator', () => {
       vi.mocked(mockExecSync).mockReturnValue(Buffer.from('/usr/bin/claude'))
       const child = createMockChildProcess()
       vi.mocked(mockSpawn).mockReturnValue(child as any)
-      vi.mocked(mockUuidV4).mockReturnValue('ultracode-model' as any)
+      vi.mocked(mockUuidV4).mockReturnValue('freestyle-model' as any)
 
       const projectDir = makeProjectDirWithTickets({
         '9': {
@@ -1997,7 +1997,7 @@ describe('QueueManager', () => {
       updateProjectSettings(db, { orchestratorModel: 'sonnet' })
       try {
         const qm = new QueueManager(broadcast, db, [], projectDir, { provider: 'claude' })
-        qm.enqueue('/specrails:ultracode #9 --yes', 'normal', { profileName: null, model: 'opus' })
+        qm.enqueue('/specrails:freestyle #9 --yes', 'normal', { profileName: null, model: 'opus' })
 
         const spawnArgs = vi.mocked(mockSpawn).mock.calls[0][1] as string[]
         const mIdx = spawnArgs.indexOf('--model')
@@ -2818,7 +2818,7 @@ describe('QueueManager', () => {
 
 // ─── Interactive-by-default spawn gate (S1 flip) ──────────────────────────────
 // Every claude job spawns as a persistent-stdin interactive session by default:
-// ultracode keeps 'finalize' settle-mode (idles until the human Finalizes),
+// freestyle keeps 'finalize' settle-mode (idles until the human Finalizes),
 // everything else runs 'auto' (settles itself at quiescence). Kill-switch
 // SPECRAILS_INTERACTIVE_JOBS=false and the per-job `interactive: false`
 // override force the legacy one-shot spawn; codex/gemini never qualify
@@ -2903,7 +2903,7 @@ describe('interactive-by-default spawn gate (S1 flip)', () => {
     const row = db.prepare('SELECT interactive, status FROM jobs WHERE id = ?').get('ijob-1') as { interactive: number; status: string }
     expect(row.interactive).toBe(1)
     expect(row.status).toBe('running')
-    // Non-ultracode ⇒ the live session self-settles ('auto'); GET /jobs/:id
+    // Non-freestyle ⇒ the live session self-settles ('auto'); GET /jobs/:id
     // surfaces this so the composer shows the wrap-up affordance, not Finalize.
     expect(qm.getInteractiveSettleMode('ijob-1')).toBe('auto')
     expect(qm.getInteractiveSettleMode('ghost')).toBeNull()
@@ -2980,23 +2980,23 @@ describe('interactive-by-default spawn gate (S1 flip)', () => {
     db.close()
   })
 
-  it("ultracode keeps 'finalize' settle-mode: idles after the result until an explicit finalize", async () => {
+  it("freestyle keeps 'finalize' settle-mode: idles after the result until an explicit finalize", async () => {
     const db = initDb(':memory:')
     const child = createInteractiveMockChild()
     vi.mocked(mockSpawn).mockReturnValue(child)
     vi.mocked(mockUuidV4).mockReturnValue('ijob-u' as any)
     const qm = new QueueManager(broadcast, db, [], undefined, { projectId: 'p1' })
 
-    qm.enqueue('/specrails:ultracode #3 --yes')
-    // Ultracode's first frame is the PROSE prompt, not the slash command, and
+    qm.enqueue('/specrails:freestyle #3 --yes')
+    // Freestyle's first frame is the PROSE prompt, not the slash command, and
     // its supplementary context keeps the byte-identical --system-prompt path.
     const [, args] = vi.mocked(mockSpawn).mock.calls[0] as unknown as [string, string[]]
-    expect(child.stdinWrites[0]).not.toContain('/specrails:ultracode')
+    expect(child.stdinWrites[0]).not.toContain('/specrails:freestyle')
     expect(args).toContain('--system-prompt')
     expect(args).not.toContain('--append-system-prompt')
 
     // The live session reports 'finalize' (GET /jobs/:id → the composer keeps
-    // today's Finalize button semantics for ultracode).
+    // today's Finalize button semantics for freestyle).
     expect(qm.getInteractiveSettleMode('ijob-u')).toBe('finalize')
 
     child.stdout.push(interactiveResultFrame())
@@ -3034,7 +3034,7 @@ describe('interactive-by-default spawn gate (S1 flip)', () => {
     db.close()
   })
 
-  it("FINALIZE settle (ultracode Finalize) threads on_review too; kill-switch off restores the legacy 'done'", async () => {
+  it("FINALIZE settle (freestyle Finalize) threads on_review too; kill-switch off restores the previous 'done' behavior", async () => {
     // finalize mode, flag on (default) → on_review
     const db = initDb(':memory:')
     const child = createInteractiveMockChild()
@@ -3043,7 +3043,7 @@ describe('interactive-by-default spawn gate (S1 flip)', () => {
     const onJobFinished = vi.fn()
     const qm = new QueueManager(broadcast, db, [], undefined, { projectId: 'p1', onJobFinished })
 
-    qm.enqueue('/specrails:ultracode #3 --yes')
+    qm.enqueue('/specrails:freestyle #3 --yes')
     child.stdout.push(interactiveResultFrame())
     await tick(); await tick(); await tick()
     expect(qm.finalizeInteractive('ijob-fin-pr')).toBe(true)
@@ -3063,7 +3063,7 @@ describe('interactive-by-default spawn gate (S1 flip)', () => {
     const onJobFinished2 = vi.fn()
     const qm2 = new QueueManager(broadcast, db2, [], undefined, { projectId: 'p1', onJobFinished: onJobFinished2 })
 
-    qm2.enqueue('/specrails:ultracode #4 --yes')
+    qm2.enqueue('/specrails:freestyle #4 --yes')
     child2.stdout.push(interactiveResultFrame())
     await tick(); await tick(); await tick()
     expect(qm2.finalizeInteractive('ijob-fin-legacy')).toBe(true)
@@ -3179,14 +3179,14 @@ describe('interactive-by-default spawn gate (S1 flip)', () => {
     db.close()
   })
 
-  it("finalize-mode (ultracode) has NO wedge timer — it idles on the human's time", async () => {
+  it("finalize-mode (freestyle) has NO wedge timer — it idles on the human's time", async () => {
     const db = initDb(':memory:')
     const child = createInteractiveMockChild()
     vi.mocked(mockSpawn).mockReturnValue(child)
     vi.mocked(mockUuidV4).mockReturnValue('idle-1' as any)
     const qm = new QueueManager(broadcast, db, [], undefined, { projectId: 'p1', zombieTimeoutMs: 40 })
 
-    qm.enqueue('/specrails:ultracode #1')
+    qm.enqueue('/specrails:freestyle #1')
     await new Promise((r) => setTimeout(r, 150))
     expect(qm.getJobs()[0].status).toBe('running')
 
@@ -3255,15 +3255,15 @@ describe('interactive-by-default spawn gate (S1 flip)', () => {
     db.close()
   })
 
-  it("zero-work settles 'failed' EVEN in finalize mode (ultracode Finalize after the synthetic frame)", async () => {
+  it("zero-work settles 'failed' EVEN in finalize mode (freestyle Finalize after the synthetic frame)", async () => {
     const db = initDb(':memory:')
     const child = createInteractiveMockChild()
     vi.mocked(mockSpawn).mockReturnValue(child)
     vi.mocked(mockUuidV4).mockReturnValue('zw-job-fin' as any)
     const qm = new QueueManager(broadcast, db, [], undefined, { projectId: 'p1' })
 
-    qm.enqueue('/specrails:ultracode #3 --yes')
-    child.stdout.push(syntheticUnknownCommandFrame('/specrails:ultracode'))
+    qm.enqueue('/specrails:freestyle #3 --yes')
+    child.stdout.push(syntheticUnknownCommandFrame('/specrails:freestyle'))
     await tick(); await tick(); await tick()
     expect(qm.getJobs()[0].status).toBe('running') // idles awaiting the human
 

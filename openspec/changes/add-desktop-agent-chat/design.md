@@ -86,6 +86,129 @@ Default ≈520px × 78vh (spacious), min 400px × 420px, max ≈880px × 94vh. D
 ### D11 — Degraded when MCP disabled
 If `mcp_enabled` is `false`, the agent has no tools. The panel still opens but shows a one-click "Enable Specrails MCP" banner (calls the existing `/api/mcp-admin`), and the agent runs read-only-chat until enabled. Feature-flagged off entirely via `SPECRAILS_AGENT_CHAT=false` / `VITE_FEATURE_AGENT_CHAT=false`.
 
+### D12 — Conversational context palette: one system, typed shortcuts plus visual discovery
+The agent input should feel like a context workspace, not a plain textarea with autocomplete. We use a single palette engine with specialized triggers:
+
+```
+ @  = reference a Specrails object
+ #  = reference an operational trace / id / history item
+ /  = invoke an action
+ +  = visual entry point for the same palette
+```
+
+The typed triggers open immediately when typed, before the user enters a query. The `+` button opens the same palette for users who do not know or remember the typed shortcuts. Typing filters in real time; arrow keys move selection; Enter accepts; Tab completes; Esc closes. Selection inserts a structured inline chip instead of text:
+
+```
+ "Compare " [@ Checkout Spec] " with " [# deploy-preview failed]
+
+ chip payload:
+ {
+   type: "spec",
+   id: "spec_...",
+   label: "Checkout Spec",
+   scope: { projectId: "home" }
+ }
+```
+
+The agent receives the original message text plus resolved references. This avoids name ambiguity and lets the model act as if the user had passed the real objects, not just their labels.
+
+#### `@` references
+`@` is the universal reference gesture. It can resolve projects, specs, jobs, missions, files/artifacts if exposed, current selection, and objects created during the current conversation. Power-user aliases are allowed but not required:
+
+- `@current` / `@this` - the currently viewed or pinned context.
+- `@last` - the most recent object created or touched in the conversation.
+- `@selection` - the selected text/block/item in the UI, when available.
+
+The default ranking is intentionally contextual:
+
+1. Objects created or touched in this conversation.
+2. Objects in the pinned project / current mission scope.
+3. Recent objects.
+4. Active or attention-worthy objects (failed jobs, running operations, draft specs).
+5. Global Specrails search.
+
+For Mission Home, the empty `@` palette starts with projects, global recents, active jobs, and conversation-created objects. Inside a project, project-local specs/jobs/artifacts move above global results. Inside a spec or job view, sibling and child items move up. The user should not have to choose a namespace before searching; the result row carries type, state, and breadcrumb.
+
+The premium bar for `@`: it should feel like memory, not search. The first rows should usually be things the user is likely thinking about already: the current mission, the pinned project, objects just created by the agent, failed/running work, and visible UI selection. Only after those does it become a broad search box.
+
+#### `#` traces
+`#` is not a second generic entity picker. It is an accelerator for operational traces: job IDs, runs, errors, deploys, checks, PRs, changes, failed/running/completed states, and other numbered/history objects. It should support direct IDs (`#142`) and semantic filters (`#failed`, `#deploy`, `#run-42`), scoped first to the active/pinned project and then to global history.
+
+#### `/` actions
+`/` opens the action palette: create spec, update project, launch job, compare, summarize, save decision, open item, generate plan, and similar chat-native commands. Actions consume existing chips inside the composer. For example, with `@Home Project` already present as an inline chip, `/create spec` should be pre-scoped to Home. Actions still obey the tier ladder and Option-C approvals.
+
+The action catalog is grouped by user intention, not by MCP tool name:
+
+| Group | Representative actions |
+| --- | --- |
+| Create | create spec, create project, create rail, create loop, create custom agent |
+| Refine | explore spec, update spec, improve spec with AI, refine contract, split epic |
+| Execute | assign to rail, launch rail, launch all eligible rails, run loop, spawn job |
+| Review | show status, diagnose, compare, summarize, inspect files touched, show cost |
+| Navigate | open item, search current project, search all projects, show related objects |
+| Queue | pause queue, resume queue, reorder queue, change priority |
+| Integrate | connect Jira, sync Jira, install plugin, check plugin health |
+| Decide | create PR, publish/local-integrate delivery, discard implementation, check merge |
+| Configure | change rail engine/profile/mode, set budget, change app language/theme |
+| Clean up | cancel job, stop rail, delete spec, purge jobs, unregister project |
+
+The palette should not dump this whole catalog at once. It should rank actions by what is selected:
+
+- With no chips: create spec, search, status, diagnose project, launch all, show spend.
+- With a project chip: status, search specs, launch all, show rails, show spend, sync Jira, show plugins.
+- With a spec chip: update spec, assign to rail, launch in rail, refine contract, split epic, show files touched, show spend, delete spec.
+- With a job/run trace: open job, wait for result, compare, show diff, export diagnostic, cancel job.
+- With a PR/delivery card: create PR, publish/local-integrate, discard, poll merge.
+- With a file chip: read file, summarize file, regenerate summary, show provenance, show diff.
+
+The user-facing action names must be domain language (`Launch rail`, `Refine contract`, `Show files touched`), while the implementation may map to `specrails_*` MCP tools internally.
+
+#### `+` visual entry point
+The composer `+` button is the discovery path for the whole system. It opens a compact add menu with the same underlying sources:
+
+```
+Add
+  Reference...
+  Trace / job / run...
+  Action...
+  File attachment...
+  Browser capture...
+```
+
+`Reference...` opens the `@` palette, `Trace...` opens the `#` palette, and `Action...` opens the `/` palette. Existing attachment and browser-capture affordances should live behind or next to this button so the left side of the composer reads as one coherent "add context" area rather than separate unrelated icons.
+
+#### First-use quality bar
+The interaction should be understandable on first use without a tutorial. The system earns that through:
+
+- Empty-trigger suggestions that are already useful.
+- Clear row anatomy: icon/type, title, state, breadcrumb, recency.
+- Contextual action ranking instead of a flat command list.
+- Visible inline composer chips that show what the agent will use.
+- Chips that can be opened, removed, pinned, or previewed.
+- No dead ends: no-result states offer search-all, create-new, ask-agent, and archived-results recovery.
+- No surprise: cost/destructive actions show tier/approval state before they run.
+
+The product goal is to make the user feel that Specrails understands the workbench they are in. Power users can type `@`, `#`, and `/`; new users can press `+` and reach the same capability.
+
+#### Inline composer and conversation chips
+The composer itself shows what the agent will carry into the next turn. Selected `@`, `#`, and `/` results become removable chips inside the chat input rather than being duplicated as plain text or repeated in a separate strip:
+
+```
+ [@ Home Project] [@ Checkout Spec] [# deploy-preview failed] compare release risk
+```
+
+The user can remove chips, pin them for the mission, or open a preview. Chips are live, not decorative: hover/click shows title, type, state, parent project, last activity, and quick actions such as open, compare, pin/unpin, or remove. The same chip representation is used in the composer and in the sent conversation bubble: selected `@`, `#`, and `/` results persist their structured payload with the user message so refreshes render exact chips rather than regex-guessed text.
+
+#### Ambiguity and empty states
+If the typed query matches multiple objects, the palette handles disambiguation inline with rows that show type, state, and breadcrumb. If there are no results, the palette offers useful exits instead of a dead state:
+
+- Search all Specrails.
+- Create a new spec/project with the typed name, when appropriate.
+- Ask the agent about the literal text.
+- Include archived results.
+
+This keeps the interaction conversational while still making the resolved context explicit.
+
 ## Risks / Open Questions
 
 - **Recursion & cost.** Agent→AI→AI. Mitigated by tiers (ai-spawn opt-in) + Option-C approval + an optional per-conversation spend cap. Worth a hard ceiling.
@@ -93,3 +216,7 @@ If `mcp_enabled` is `false`, the agent has no tools. The panel still opens but s
 - **WebKit blur performance** on large panels with a live board behind. Keep blur single-layer ≤20px; measure on the Tauri build.
 - **Cross-project fan-out latency** (D7) — listing+querying every project can be slow on large registries; cap + stream partial results; native capability is the real fix.
 - **Token exposure.** The bridge reads `~/.specrails/mcp.token`; ensure the workspace `.mcp.json` (D8) never inlines it and stays under `$HOME`, not the repo.
+- **Palette result latency.** Empty-trigger suggestions must feel instant. Cache recents/current-scope entities locally and stream slower global results below them.
+- **Reference freshness.** Chips carry stable IDs but labels/states can change. Resolve/freshen chip metadata before dispatching a turn, and degrade clearly if an object was deleted.
+- **Action overload.** Specrails has a large command surface. The palette must default to contextual ranking and progressive disclosure; otherwise `/` becomes a technical command dump.
+- **Discoverability vs clutter.** The `+` button should make the system discoverable without adding a noisy toolbar. It should consolidate add-context affordances, not multiply them.

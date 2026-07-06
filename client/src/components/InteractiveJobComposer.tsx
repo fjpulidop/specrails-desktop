@@ -27,7 +27,7 @@ export interface InteractiveJobComposerProps {
    *  active project via `getApiBase()`. */
   projectId?: string
   /** Settle mode of the resident session, from GET /jobs/:id:
-   *  - 'finalize' (ultracode): the session idles until the human clicks
+   *  - 'finalize' (freestyle): the session idles until the human clicks
    *    Finalize — the button keeps its pre-extraction semantics untouched.
    *  - 'auto' (implement / loops / everything else): the job settles itself on
    *    quiescence — steering is optional, "wrap up now" is a quiet secondary.

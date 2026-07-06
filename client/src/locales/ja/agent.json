@@ -101,6 +101,40 @@
     "homeHint": "プロジェクトが未選択 — すべてのプロジェクトを横断して操作中。",
     "askCreateOrSearch": "プロジェクトが選択されていません。新しいプロジェクトを作成しますか、それともすべてのプロジェクトを検索しますか？"
   },
+  "palette": {
+    "remove": "{{label}} を削除",
+    "addContextAction": "コンテキストまたはアクションを追加",
+    "filtering": "\"{{query}}\" で絞り込み",
+    "keyboard": "↑↓ Enter Esc",
+    "noMatches": "一致なし",
+    "noMatchesFor": "\"{{query}}\" の一致なし",
+    "mode": {
+      "reference": {
+        "title": "参照",
+        "hint": "@ プロジェクト、仕様、ミッション"
+      },
+      "trace": {
+        "title": "トレース",
+        "hint": "# ジョブ、実行、ID"
+      },
+      "action": {
+        "title": "アクション",
+        "hint": "/ このコンテキストのコマンド"
+      }
+    },
+    "plus": {
+      "reference": "参照",
+      "referenceHint": "プロジェクト、仕様、ミッション",
+      "trace": "トレース",
+      "traceHint": "ジョブ、実行、ID",
+      "action": "アクション",
+      "actionHint": "作成、起動、確認",
+      "fileAttachment": "ファイル添付",
+      "fileAttachmentHint": "ドキュメント、画像、ログを追加",
+      "browserCapture": "ブラウザーキャプチャ",
+      "browserCaptureHint": "ワークスペースブラウザーから利用可能"
+    }
+  },
   "mission": {
     "label": "ミッションを切り替え",
     "untitled": "新しいミッション",

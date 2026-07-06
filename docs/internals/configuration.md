@@ -66,7 +66,7 @@ Project settings apply to a single project. Open them from the project's **Setti
 |---------|------------------|
 | **Pipeline Telemetry** | Opt-in toggle that injects OpenTelemetry env vars into pipeline job spawns so they emit OTLP signals back to the app. Off by default. |
 | **Rail Pre-prompt** | Text prepended to every rail launch for this project. |
-| **Ultracode pre-prompt** | Text prepended to Ultracode-mode launches (the Claude-only autonomous rail mode). |
+| **Freestyle pre-prompt** | Text prepended to Freestyle-mode launches (the Claude-only autonomous rail mode). |
 | **Budget** | Per-project daily spend cap (with queue auto-pause) and a per-job cost alert threshold. |
 | **Terminal Settings** | Per-project overrides for the terminal panel defaults (project override → app default → built-in). |
 

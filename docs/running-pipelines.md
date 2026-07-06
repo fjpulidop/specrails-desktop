@@ -80,7 +80,7 @@ In plain terms: the project's **agent profile** decides which AI agent handles e
 
 ### Freestyle
 
-`Freestyle` (mode value `ultracode` on the API — its original name) is a Claude-only loop that skips the Architect → Developer → Reviewer → Ship pipeline entirely. Instead of orchestrating the agent chain, it hands Claude a configurable pre-prompt plus the full spec text and lets it work autonomously with its native tools.
+`Freestyle` (mode value `freestyle` on the API — its original name) is a Claude-only loop that skips the Architect → Developer → Reviewer → Ship pipeline entirely. Instead of orchestrating the agent chain, it hands Claude a configurable pre-prompt plus the full spec text and lets it work autonomously with its native tools.
 
 - **One job per spec.** If the rail has three specs, `Freestyle` launches three independent jobs.
 - **Variable cost.** Because the run is open-ended, pressing Play opens a confirmation dialog before anything spawns.

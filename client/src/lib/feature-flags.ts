@@ -63,7 +63,7 @@ export const FEATURE_AGENT_MODE = (() => {
   return FEATURE_AGENT_CHAT && own
 })()
 
-/** Gates interactive ultracode jobs UI (rail "Interactive" toggle + in-job chat
+/** Gates interactive freestyle jobs UI (rail "Interactive" toggle + in-job chat
  *  + Finalize button). Default ON; mirrors server SPECRAILS_INTERACTIVE_JOBS. */
 export const FEATURE_INTERACTIVE_JOBS = (() => {
   const env = (import.meta as unknown as { env?: Record<string, string | undefined> }).env
