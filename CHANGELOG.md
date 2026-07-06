@@ -1,5 +1,12 @@
 # Changelog
 
+## [2.25.0](https://github.com/fjpulidop/specrails-desktop/compare/v2.24.3...v2.25.0) (2026-07-06)
+
+
+### Features
+
+* **agent:** add favorite missions sidebar section ([#517](https://github.com/fjpulidop/specrails-desktop/issues/517)) ([99eb89a](https://github.com/fjpulidop/specrails-desktop/commit/99eb89a8e87f5cbd646d511ceb09063b17c09ae0))
+
 ## [2.24.3](https://github.com/fjpulidop/specrails-desktop/compare/v2.24.2...v2.24.3) (2026-07-06)
 
 
