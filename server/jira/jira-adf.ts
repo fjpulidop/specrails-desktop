@@ -298,6 +298,31 @@ export function adfToText(body: unknown): string {
   if (body == null) return ''
   if (typeof body === 'string') return body
 
+  const plainParagraphLines = (nodes: unknown): string[] | null => {
+    if (!Array.isArray(nodes)) return null
+    const lines: string[] = []
+    for (const raw of nodes) {
+      if (!raw || typeof raw !== 'object') return null
+      const node = raw as { type?: unknown; content?: unknown }
+      if (node.type !== 'paragraph') return null
+      if (node.content === undefined) {
+        lines.push('')
+        continue
+      }
+      if (!Array.isArray(node.content)) return null
+      let line = ''
+      for (const child of node.content) {
+        if (!child || typeof child !== 'object') return null
+        const inline = child as { type?: unknown; text?: unknown; marks?: unknown }
+        if (inline.type !== 'text' || typeof inline.text !== 'string') return null
+        if (Array.isArray(inline.marks) && inline.marks.length > 0) return null
+        line += inline.text
+      }
+      lines.push(line)
+    }
+    return lines
+  }
+
   const inlineText = (nodes: unknown): string => {
     if (!Array.isArray(nodes)) return ''
     return nodes.map((node) => {
@@ -372,5 +397,9 @@ export function adfToText(body: unknown): string {
   }
 
   const root = body as { content?: unknown }
+  const legacyLines = plainParagraphLines(root.content)
+  if (legacyLines) {
+    return legacyLines.join('\n').replace(/[ \t]+\n/g, '\n').replace(/\n{3,}/g, '\n\n').trim()
+  }
   return renderBlocks(root.content).join('\n\n').replace(/[ \t]+\n/g, '\n').replace(/\n{3,}/g, '\n\n').trim()
 }

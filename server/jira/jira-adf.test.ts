@@ -307,6 +307,51 @@ describe('adfToText', () => {
     expect(adfToText(textToAdf(markdown))).toBe(markdown)
   })
 
+  it('preserves legacy Specrails raw markdown stored as plain ADF paragraphs', () => {
+    const legacyAdf = {
+      type: 'doc',
+      version: 1,
+      content: [
+        { type: 'paragraph', content: [{ type: 'text', text: '## Scope' }] },
+        { type: 'paragraph' },
+        { type: 'paragraph', content: [{ type: 'text', text: '- One' }] },
+        { type: 'paragraph', content: [{ type: 'text', text: '- Two' }] },
+      ],
+    }
+
+    expect(adfToText(legacyAdf)).toBe('## Scope\n\n- One\n- Two')
+  })
+
+  it('upgrades legacy raw markdown to rich ADF without duplicating markdown syntax', () => {
+    const legacyAdf = {
+      type: 'doc',
+      version: 1,
+      content: [
+        { type: 'paragraph', content: [{ type: 'text', text: '## Scope' }] },
+        { type: 'paragraph' },
+        { type: 'paragraph', content: [{ type: 'text', text: '- One' }] },
+      ],
+    }
+
+    const upgraded = textToAdf(adfToText(legacyAdf)) as any
+
+    expect(upgraded.content[0]).toMatchObject({
+      type: 'heading',
+      attrs: { level: 2 },
+      content: [{ type: 'text', text: 'Scope' }],
+    })
+    expect(upgraded.content[2]).toMatchObject({
+      type: 'bulletList',
+      content: [
+        {
+          type: 'listItem',
+          content: [{ type: 'paragraph', content: [{ type: 'text', text: 'One' }] }],
+        },
+      ],
+    })
+    expect(adfToText(upgraded)).toBe('## Scope\n\n- One')
+  })
+
   it('returns empty string for a doc with no extractable text', () => {
     const adf = { type: 'doc', content: [{ type: 'paragraph' }] }
     expect(adfToText(adf)).toBe('')
