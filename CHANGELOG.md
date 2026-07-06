@@ -1,5 +1,12 @@
 # Changelog
 
+## [2.24.2](https://github.com/fjpulidop/specrails-desktop/compare/v2.24.1...v2.24.2) (2026-07-06)
+
+
+### Bug Fixes
+
+* **rails:** release active PR continuation ([4a191f8](https://github.com/fjpulidop/specrails-desktop/commit/4a191f84d0c8562d64c3db6dc86e0cb27fceb7d9))
+
 ## [2.24.1](https://github.com/fjpulidop/specrails-desktop/compare/v2.24.0...v2.24.1) (2026-07-05)
 
 
