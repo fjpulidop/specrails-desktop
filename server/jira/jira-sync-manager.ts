@@ -14,7 +14,7 @@ import { mutateStore, readStore, resolveTicketStoragePath, type Ticket, type Tic
 import type { WsMessage } from '../types'
 import { JiraClient, detectDeployment, type FetchImpl } from './jira-client'
 import { writeJiraBacklogConfig, writeLocalBacklogConfig } from './jira-backlog-config'
-import { commentMarker, discardCommentMarker, prMergedCommentMarker, commentHasMarker, bodyForDeployment } from './jira-adf'
+import { commentMarker, discardCommentMarker, prMergedCommentMarker, railReviewCommentMarker, commentHasMarker, bodyForDeployment } from './jira-adf'
 import { issueUrl, upsertIssuesIntoStore } from './jira-materializer'
 import {
   formatIssueFields,
@@ -641,6 +641,16 @@ export class JiraSyncManager {
         if (!link || link.tombstoned) continue
         ops.push({
           jiraIssueId: link.jiraIssueId,
+          opType: 'comment',
+          idempotencyKey: `${refId}:${localId}:comment:on-review`,
+          payload: {
+            jiraIssueId: link.jiraIssueId,
+            text: buildRailReviewComment(link.jiraKey),
+            marker: railReviewCommentMarker(refId, localId),
+          },
+        })
+        ops.push({
+          jiraIssueId: link.jiraIssueId,
           opType: 'transition',
           idempotencyKey: `${refId}:${localId}:transition:on_review`,
           payload: { localId, jiraIssueId: link.jiraIssueId, logicalState: 'on_review' as SpecLogicalState },
@@ -1243,28 +1253,56 @@ export function buildCompletionComment(
   jiraKey: string | null,
   needsReview: boolean
 ): string {
+  const issue = jiraKey?.trim() ? jiraKey.trim() : 'the linked Jira issue'
   if (needsReview) {
-    return 'Specrails: the implementation rail terminated abnormally after its Ship phase — the result needs review.'
+    return [
+      `Specrails rail finished for ${issue}.`,
+      'Result: needs human review.',
+      'The implementation reached its Ship phase, but the rail terminated abnormally before Specrails could fully close the run.',
+      `Run: ${args.jobId}`,
+      'Jira status: left unchanged for review.',
+    ].join('\n')
   }
   const parts: string[] = []
   if (args.status === 'completed') {
-    parts.push('✅ Implementation completed by a Specrails rail.')
+    parts.push(`Specrails rail finished for ${issue}.`)
+    parts.push('Result: completed successfully.')
+    parts.push('Jira status: moving to Done.')
   } else if (args.status === 'canceled') {
-    parts.push('⏹️ The Specrails implementation rail was cancelled — the spec was returned to the backlog.')
+    parts.push(`Specrails rail finished for ${issue}.`)
+    parts.push('Result: cancelled before completion.')
+    parts.push('Jira status: returning to the backlog.')
   } else {
-    parts.push('❌ The Specrails implementation rail failed — the spec was returned to the backlog.')
+    parts.push(`Specrails rail finished for ${issue}.`)
+    parts.push('Result: failed before completion.')
+    parts.push('Jira status: returning to the backlog.')
   }
-  const meta: string[] = [`job ${args.jobId}`]
-  if (args.costUsd != null) meta.push(`cost $${args.costUsd.toFixed(2)}`)
-  if (args.durationMs != null) meta.push(`duration ${formatDuration(args.durationMs)}`)
-  parts.push(`(${meta.join(' · ')})`)
+  parts.push(`Run: ${args.jobId}`)
+  if (args.durationMs != null) parts.push(`Duration: ${formatDuration(args.durationMs)}`)
+  if (args.costUsd != null) parts.push(`Cost: $${args.costUsd.toFixed(2)}`)
   return parts.join('\n')
+}
+
+/** Comment posted when an isolated rail has produced reviewable work. */
+export function buildRailReviewComment(jiraKey: string | null): string {
+  const issue = jiraKey?.trim() ? jiraKey.trim() : 'the linked Jira issue'
+  return [
+    `Specrails rail finished for ${issue}.`,
+    'Result: implementation ready for PR review.',
+    'Jira status: moving to review while the PR decision remains open in Specrails.',
+    'Next step: review the Specrails PR card, then publish/merge or discard the delivery.',
+  ].join('\n')
 }
 
 /** Comment posted on a linked issue when its delivery PR is merged. */
 export function buildPrMergedComment(prUrl: string | null): string {
-  const base = '✅ Specrails: the delivery PR was merged — the spec shipped to the integration branch.'
-  return prUrl ? `${base}\n${prUrl}` : base
+  const parts = [
+    'Specrails delivery accepted.',
+    'Result: PR merged into the integration branch.',
+    'Jira status: moving to Done.',
+  ]
+  if (prUrl) parts.push(`PR: ${prUrl}`)
+  return parts.join('\n')
 }
 
 function formatDuration(ms: number): string {

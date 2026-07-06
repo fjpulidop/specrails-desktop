@@ -518,6 +518,213 @@ describe('launchIsolatedRail — conventional branch naming (pr-naming threading
     expect(new Set(branches).size).toBe(2)
     expect(branches).toEqual(['feat/1-same-title', 'feat/2-same-title'])
   })
+
+  it('commit messages include the Jira key when available so GitHub-Jira links commits to the ticket', async () => {
+    const { ctx } = fakeCtx(settlingRun('success'))
+    ;(ctx as unknown as { getTicketSpec: (id: number) => unknown }).getTicketSpec = (id: number) => ({
+      title: 'Add key terms',
+      description: 'd',
+      jira_key: 'SKILLS-70',
+      ticketIds: [id],
+    })
+    const calls: { args: string[]; cwd: string }[] = []
+    const git = {
+      run: async (args: string[], cwd: string) => {
+        calls.push({ args, cwd })
+        return { code: 0, stdout: '', stderr: '' }
+      },
+    }
+    const create = mockCreate()
+
+    await launchIsolatedRail(input([98], ctx), {
+      git,
+      create,
+      remove: vi.fn(async () => {}),
+    })
+
+    await vi.waitFor(() => expect(calls.some((c) => c.args[0] === 'commit')).toBe(true))
+    expect(calls.find((c) => c.args[0] === 'commit')!.args).toEqual([
+      'commit',
+      '-m',
+      expect.stringMatching(/^specrails: SKILLS-70 ticket-98 \(run /),
+    ])
+  })
+})
+
+describe('launchIsolatedRail — active PR continuation', () => {
+  beforeEach(() => { delete process.env.SPECRAILS_RAIL_DELIVER_PR }) // PR mode default-on
+
+  const continuationCtx = (status = 'on_review') => {
+    const ctxs = fakeCtx(settlingRun('success'))
+    ;(ctxs.ctx as unknown as { getTicketSpec: (id: number) => unknown }).getTicketSpec = (id: number) => ({
+      id,
+      title: 'Add key-terms activity to Skills v2 lesson player',
+      description: 'Review follow-ups for the existing implementation.',
+      status,
+      labels: ['feature'],
+      jira_key: 'SKILLS-70',
+      ticketIds: [id],
+    })
+    return ctxs
+  }
+
+  it('continues a matched open GitHub PR on its head branch instead of creating a fresh ticket branch', async () => {
+    const { ctx, db } = continuationCtx()
+    const create = vi.fn(async (_g: unknown, input: { branch?: string; ticketId: number }) => ({
+      branch: input.branch ?? `sr/p/ticket-${input.ticketId}`,
+      worktreePath: `/wt/ticket-${input.ticketId}`,
+    }))
+    const git = {
+      run: async (args: string[]) => {
+        if (args[0] === 'symbolic-ref') return { code: 0, stdout: 'refs/remotes/origin/main\n', stderr: '' }
+        if (args[0] === 'for-each-ref') return { code: 0, stdout: 'feat/SKILLS-19-key-terms-activity\n', stderr: '' }
+        if (args[0] === 'rev-parse' && args.at(-1) === 'refs/heads/feat/SKILLS-19-key-terms-activity') {
+          return { code: 0, stdout: '', stderr: '' }
+        }
+        return { code: 0, stdout: '', stderr: '' }
+      },
+    }
+    const exec = {
+      run: vi.fn(async (cmd: string, args: string[]) => {
+        if (cmd === 'gh' && args[0] === 'pr') {
+          return {
+            code: 0,
+            stdout: JSON.stringify([{
+              number: 2147,
+              title: '[SKILLS-70] Skills V2: flashcard key-term matching + unified footer Continue',
+              body: 'Implements ticket #98.',
+              headRefName: 'feat/SKILLS-19-key-terms-activity',
+              baseRefName: 'main',
+              url: 'https://github.com/Busuu/busuu-web/pull/2147',
+              isDraft: false,
+            }]),
+            stderr: '',
+          }
+        }
+        return { code: 1, stdout: '', stderr: 'unexpected' }
+      }),
+    }
+
+    await launchIsolatedRail(input([98], ctx), {
+      git,
+      exec,
+      create,
+      remove: vi.fn(async () => {}),
+    })
+
+    expect(create).toHaveBeenCalledWith(git, expect.objectContaining({
+      ticketId: 98,
+      branch: 'feat/SKILLS-19-key-terms-activity',
+    }))
+    await vi.waitFor(() => expect(getActivePrDeliveryByRail(db, 0)!.decision).toBe('pr_ready'))
+    expect(getActivePrDeliveryByRail(db, 0)).toMatchObject({
+      base_branch: 'main',
+      branch: 'feat/SKILLS-19-key-terms-activity',
+      pr_url: 'https://github.com/Busuu/busuu-web/pull/2147',
+      pr_number: 2147,
+      pr_state: 'pr-created',
+    })
+  })
+
+  it('continues an explicit Jira-matched PR when Jira review still materializes locally as in_progress', async () => {
+    const { ctx, db } = continuationCtx('in_progress')
+    insertLinkWithId(db, { localId: 98, jiraIssueId: 'jira-98', jiraKey: 'SKILLS-70', jiraProjectId: 'jp', deployment: 'cloud' })
+    const create = vi.fn(async (_g: unknown, input: { branch?: string; ticketId: number }) => ({
+      branch: input.branch ?? `sr/p/ticket-${input.ticketId}`,
+      worktreePath: `/wt/ticket-${input.ticketId}`,
+    }))
+    const git = {
+      run: async (args: string[]) => {
+        if (args[0] === 'rev-parse' && args.at(-1) === 'refs/heads/feat/SKILLS-70-review-followups') {
+          return { code: 0, stdout: '', stderr: '' }
+        }
+        return { code: 0, stdout: '', stderr: '' }
+      },
+    }
+    const exec = {
+      run: vi.fn(async () => ({
+        code: 0,
+        stdout: JSON.stringify([{
+          number: 2148,
+          title: 'SKILLS-70 review follow-ups',
+          body: 'Follow-up work for the linked Jira issue.',
+          headRefName: 'feat/SKILLS-70-review-followups',
+          baseRefName: 'main',
+          url: 'https://github.com/o/r/pull/2148',
+          isDraft: false,
+        }]),
+        stderr: '',
+      })),
+    }
+
+    await launchIsolatedRail(input([98], ctx), { git, exec, create, remove: vi.fn(async () => {}) })
+
+    expect(create).toHaveBeenCalledWith(git, expect.objectContaining({
+      ticketId: 98,
+      branch: 'feat/SKILLS-70-review-followups',
+    }))
+    await vi.waitFor(() => expect(getActivePrDeliveryByRail(db, 0)!.decision).toBe('pr_ready'))
+  })
+
+  it('branches from origin/<open-pr-head> when only the remote PR branch exists locally', async () => {
+    const { ctx } = continuationCtx()
+    const create = vi.fn(async (_g: unknown, input: { branch?: string; ticketId: number }) => ({
+      branch: input.branch ?? `sr/p/ticket-${input.ticketId}`,
+      worktreePath: `/wt/ticket-${input.ticketId}`,
+    }))
+    const git = {
+      run: async (args: string[]) => {
+        if (args[0] === 'rev-parse' && args.at(-1) === 'refs/heads/feat/SKILLS-19-key-terms-activity') {
+          return { code: 1, stdout: '', stderr: '' }
+        }
+        if (args[0] === 'rev-parse' && args.at(-1) === 'refs/remotes/origin/feat/SKILLS-19-key-terms-activity') {
+          return { code: 0, stdout: '', stderr: '' }
+        }
+        return { code: 0, stdout: '', stderr: '' }
+      },
+    }
+    const exec = {
+      run: vi.fn(async () => ({
+        code: 0,
+        stdout: JSON.stringify([{
+          number: 2147,
+          title: '[SKILLS-70] Existing implementation',
+          headRefName: 'feat/SKILLS-19-key-terms-activity',
+          baseRefName: 'main',
+          url: 'https://github.com/o/r/pull/2147',
+          isDraft: true,
+        }]),
+        stderr: '',
+      })),
+    }
+
+    await launchIsolatedRail(input([98], ctx), { git, exec, create, remove: vi.fn(async () => {}) })
+
+    expect(create).toHaveBeenCalledWith(git, expect.objectContaining({
+      ticketId: 98,
+      branch: 'feat/SKILLS-19-key-terms-activity',
+      baseRef: 'origin/feat/SKILLS-19-key-terms-activity',
+    }))
+  })
+
+  it('keeps the normal fresh-branch flow when the ticket is not on_review', async () => {
+    const { ctx } = fakeCtx()
+    const create = vi.fn(async (_g: unknown, input: { branch?: string; ticketId: number }) => ({
+      branch: input.branch ?? `sr/p/ticket-${input.ticketId}`,
+      worktreePath: `/wt/ticket-${input.ticketId}`,
+    }))
+    const exec = { run: vi.fn(async () => ({ code: 0, stdout: '[]', stderr: '' })) }
+
+    await launchIsolatedRail(input([1], ctx), {
+      git: { run: async () => ({ code: 0, stdout: '', stderr: '' }) },
+      exec,
+      create,
+      remove: vi.fn(async () => {}),
+    })
+
+    expect(exec.run).not.toHaveBeenCalled()
+    expect(create).toHaveBeenCalledWith(expect.anything(), expect.objectContaining({ branch: 'feat/1-t1' }))
+  })
 })
 
 describe('launchIsolatedRail — stale mounted worktree from a prior run (live #37 repro)', () => {

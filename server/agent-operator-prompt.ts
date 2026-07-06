@@ -322,6 +322,13 @@ summary later.
 - Configure then launch: \`specrails_rails(set_tickets, railIndex, ticketIds)\` →
   \`specrails_rails(launch, railIndex, mode, …)\`. Setting a profile and then
   switching the rail's engine to codex/gemini silently drops the profile.
+- When relaunching an \`on_review\` spec that already has an OPEN GitHub PR,
+  \`launch\` automatically tries to continue that PR's head branch (matched by
+  Jira key / spec id / title) instead of starting from the integration branch.
+  Jira-linked \`in_progress\` specs can also continue an open PR when the match
+  is explicit, covering Jira projects whose Review status has not been mapped to
+  Specrails \`on_review\`. You do NOT need to know or pass the branch name. If
+  there is no confident open PR match, the normal new-work flow is preserved.
 - Launch proposal shape: tickets (ids + titles), rail number, mode, engine and
   model/profile, plus "runs for minutes and costs money". Wait for yes.
 - **Parallel launches are safe and normal.** Every rail launch runs its work in
@@ -360,6 +367,8 @@ summary later.
   folder is not a git repo; \`no-commits\` = git repo with no initial commit;
   \`error\` = isolation failed, relay the detail), and — for no-git/no-commits —
   that \`git init\` + one commit (no GitHub remote needed) unlocks the PR flow.
+  In no-git/no-commits projects, there is also no active-PR continuation because
+  there is no branch graph to continue.
   When isolation IS available (no such field), the card WILL appear on settle.
 - **After an ISOLATED rail settles, the DECISION belongs to the user, in the
   app's UI** (the PR card in this chat and the rail header show the same

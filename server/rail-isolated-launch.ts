@@ -27,7 +27,7 @@ import { newId } from './ids'
 import { loadConstantMap } from './loop-constants'
 import { defaultGitRunner, createWorktree, removeWorktree, commitWorktree, listLocalBranches, worktreeBranch, type GitRunner, type WorktreeHandle } from './worktree-manager'
 import { createRailWorktree, updateRailWorktreeState, listNonTerminalRailWorktrees, railWorktreeBranchExistsForTicket, getRailWorktree, isTerminalMergeState } from './rail-worktrees-store'
-import { ticketBranchName, resolveCollisionFreeName, type TicketNamingInput } from './pr-naming'
+import { ticketBranchName, ticketRef, resolveCollisionFreeName, type TicketNamingInput } from './pr-naming'
 import { getLinkByLocalId } from './jira/jira-db'
 import type { DbInstance } from './db'
 import { getProjectSettings } from './db'
@@ -47,6 +47,8 @@ import { isCodeExplorerEnabled } from './feature-flags'
 import { snapshotWorkingTree, type WorkingTreeSnapshot } from './file-provenance'
 import { recordLoopRunProvenance } from './file-story'
 import { getAdapter } from './providers'
+import { defaultExec, type Exec } from './pr-publisher'
+import { resolveActivePrContinuationTargets, type ActivePrContinuationTarget } from './active-pr-continuation'
 import type { BranchToMerge } from './merge-manager'
 import type { LoopGraph } from './loop-graph'
 import type { ProjectContext } from './project-registry'
@@ -89,6 +91,8 @@ export interface IsolatedLaunchIO {
    *  (injectable so unit tests need no real git repo). */
   snapshot?: typeof snapshotWorkingTree
   recordProvenance?: typeof recordLoopRunProvenance
+  /** gh-backed PR discovery for continuing already-open PR branches. */
+  exec?: Exec
 }
 
 interface AllocatedRun {
@@ -106,6 +110,8 @@ interface AllocatedRun {
    *  explorer is disabled or the snapshot failed) — diffed at settle so
    *  isolated loop runs record file_provenance like QueueManager jobs do. */
   provenanceSnapshot: WorkingTreeSnapshot | null
+  /** Existing open PR branch this run is intentionally continuing, if any. */
+  continuationTarget: ActivePrContinuationTarget | null
 }
 
 /**
@@ -133,6 +139,19 @@ function unitNamingInput(ctx: ProjectContext, ticketId: number): TicketNamingInp
 }
 
 /**
+ * Commit messages are consumed by GitHub↔Jira development panels. Branch names
+ * already carry the Jira key for new work; commits must too, especially when
+ * continuing an existing PR whose branch name may predate the current ticket
+ * key. Keep the local id as a fallback/cross-reference for Specrails.
+ */
+function worktreeCommitMessage(ctx: ProjectContext, ticketId: number, runId: string, partial = false): string {
+  const input = unitNamingInput(ctx, ticketId)
+  const ref = ticketRef(input)
+  const subjectRef = ref === String(ticketId) ? `ticket-${ticketId}` : `${ref} ticket-${ticketId}`
+  return `specrails: ${subjectRef}${partial ? ' partial' : ''} (run ${runId})`
+}
+
+/**
  * Launch the rail's tickets in isolated worktrees + schedule the merge-back.
  * Returns the loop run ids. Throws if worktree allocation fails (the caller then
  * falls back to the shared-cwd path) — but only after tearing down any partial
@@ -141,6 +160,7 @@ function unitNamingInput(ctx: ProjectContext, ticketId: number): TicketNamingInp
 export async function launchIsolatedRail(input: IsolatedLaunchInput, io: IsolatedLaunchIO = {}): Promise<string[]> {
   const { ctx, railIndex, ticketIds, loopId, loopName, loopGraph, provider, model, effort } = input
   const git = io.git ?? defaultGitRunner
+  const exec = io.exec ?? defaultExec
   const create = io.create ?? createWorktree
   const remove = io.remove ?? removeWorktree
   const overlay = io.overlay ?? applyWorktreeOverlay
@@ -228,6 +248,7 @@ export async function launchIsolatedRail(input: IsolatedLaunchInput, io: Isolate
   //    Only allocation is locked — the fan-out (the actual AI runs) below
   //    stays fully parallel.
   let integration!: ResolvedIntegrationBranch
+  let launchContinuation: ActivePrContinuationTarget | null = null
   const allocated: AllocatedRun[] = []
   await withRepoLock(baseRepo, async () => {
   // Bring the repo's remote-tracking refs up to date BEFORE resolving the
@@ -264,13 +285,43 @@ export async function launchIsolatedRail(input: IsolatedLaunchInput, io: Isolate
     } catch { /* non-fatal, mirrors notifyOverlayDegraded's broadcast guard below */ }
   }
 
+  // Active-PR continuation: if a ticket is already parked on_review with a
+  // matching OPEN GitHub PR (or a Jira-linked in_progress ticket explicitly
+  // matches an open PR, covering unmapped Jira "Review" statuses), run the next
+  // pass directly on that PR's head branch. Fresh tickets stay on the normal
+  // integration-base path. Keep this deliberately single-target for now: one
+  // rail delivery row can represent one PR URL, so multi-PR batches continue to
+  // use the existing new-work flow instead of silently mixing PRs.
+  const continuationTargets = await resolveActivePrContinuationTargets({
+    db: ctx.db,
+    git,
+    exec,
+    repoDir: baseRepo,
+    ticketIds: units.map((u) => u.ticketId),
+    integrationBranch: integration.branch,
+    fetchOk: fetchResult.ok,
+    getTicketSpec: (ticketId) => {
+      try { return ctx.getTicketSpec(ticketId) as ReturnType<typeof unitNamingInput> & { status?: string; description?: string } }
+      catch { return undefined }
+    },
+  })
+  const uniqueContinuationKeys = new Set(
+    units
+      .map((u) => continuationTargets.get(u.ticketId))
+      .filter((t): t is ActivePrContinuationTarget => !!t)
+      .map((t) => `${t.prUrl ?? ''}\n${t.branch}`),
+  )
+  if (uniqueContinuationKeys.size === 1 && units.every((u) => continuationTargets.has(u.ticketId))) {
+    launchContinuation = continuationTargets.get(units[0].ticketId) ?? null
+  }
+
   if (prMode) {
     prDeliveryId = createPrDelivery(ctx.db, {
       railIndex,
       loopId,
       railKey: `${railIndex}-${loopId}`,
       ticketIds: [...ticketIds],
-      baseBranch: integration.branch,
+      baseBranch: launchContinuation?.baseBranch ?? integration.branch,
       loopName,
       originSurface: input.originSurface ?? 'dashboard',
       originConversationId: input.originConversationId ?? null,
@@ -288,6 +339,11 @@ export async function launchIsolatedRail(input: IsolatedLaunchInput, io: Isolate
   // launches see each other's just-created branches.
   const takenBranches = await listLocalBranches(git, baseRepo)
   const unitBranchName = (ticketId: number): string => {
+    const continuation = launchContinuation && continuationTargets.get(ticketId)
+    if (continuation) {
+      takenBranches.add(continuation.branch)
+      return continuation.branch
+    }
     const preferred = ticketBranchName(unitNamingInput(ctx, ticketId))
     const branch = resolveCollisionFreeName(preferred, {
       taken: (name) => takenBranches.has(name) && !railWorktreeBranchExistsForTicket(ctx.db, ticketId, name),
@@ -299,7 +355,15 @@ export async function launchIsolatedRail(input: IsolatedLaunchInput, io: Isolate
 
   try {
     for (const unit of units) {
-      const handle = await create(git, { repoDir: baseRepo, worktreesRoot, slug, ticketId: unit.ticketId, baseRef: worktreeBaseRef.baseRef, branch: unitBranchName(unit.ticketId) })
+      const continuationTarget = launchContinuation ? continuationTargets.get(unit.ticketId) ?? null : null
+      const handle = await create(git, {
+        repoDir: baseRepo,
+        worktreesRoot,
+        slug,
+        ticketId: unit.ticketId,
+        baseRef: continuationTarget?.baseRef ?? worktreeBaseRef.baseRef,
+        branch: unitBranchName(unit.ticketId),
+      })
       // Per-run overlay: merge-link the framework surface the checkout didn't
       // bring into the worktree (idempotent; resume-safe via its manifest).
       let overlayExcludes: string[] = []
@@ -335,7 +399,7 @@ export async function launchIsolatedRail(input: IsolatedLaunchInput, io: Isolate
         id: ledgerId, railIndex, ticketId: unit.ticketId, runId,
         branch: handle.branch, worktreePath: handle.worktreePath,
       })
-      allocated.push({ ticketId: unit.ticketId, ticketIds: unit.ticketIds, runId, ledgerId, handle, overlayExcludes, provenanceSnapshot })
+      allocated.push({ ticketId: unit.ticketId, ticketIds: unit.ticketIds, runId, ledgerId, handle, overlayExcludes, provenanceSnapshot, continuationTarget })
     }
   } catch (err) {
     for (const a of allocated) {
@@ -398,7 +462,7 @@ export async function launchIsolatedRail(input: IsolatedLaunchInput, io: Isolate
         // Commit the run's work to its branch so the merge-back can integrate it
         // (loops like autoloop-tdd don't commit) and a re-launch can resume it.
         // Overlay scaffolding is excluded — it must never reach the branch/PR.
-        await commitWorktree(git, a.handle.worktreePath, `specrails: ticket-${a.ticketId} (run ${a.runId})`, a.overlayExcludes)
+        await commitWorktree(git, a.handle.worktreePath, worktreeCommitMessage(ctx, a.ticketId, a.runId), a.overlayExcludes)
         updateRailWorktreeState(ctx.db, a.ledgerId, succeeded ? 'built' : 'failed')
         return { run: a, succeeded }
       })
@@ -407,7 +471,7 @@ export async function launchIsolatedRail(input: IsolatedLaunchInput, io: Isolate
         ctx.onLoopRunFinished(a.runId, 'failed', runFinishedOpts)
         recordRunProvenance(a)
         // Commit partial work too → durable in git → resumable on re-launch.
-        await commitWorktree(git, a.handle.worktreePath, `specrails: ticket-${a.ticketId} partial (run ${a.runId})`, a.overlayExcludes)
+        await commitWorktree(git, a.handle.worktreePath, worktreeCommitMessage(ctx, a.ticketId, a.runId, true), a.overlayExcludes)
         updateRailWorktreeState(ctx.db, a.ledgerId, 'failed')
         return { run: a, succeeded: false }
       })
@@ -446,8 +510,23 @@ export async function launchIsolatedRail(input: IsolatedLaunchInput, io: Isolate
       // → auto-close (per-run settle already reverted the tickets).
       const worktreeIds = allocated.map((a) => a.ledgerId)
       const anySucceeded = results.some((r) => r.succeeded)
-      const next = anySucceeded ? ('on_review' as const) : ('discarded' as const)
-      if (prDeliveryId && transitionDecision(ctx.db, prDeliveryId, 'building', next, { branches, worktreeIds })) {
+      const settledContinuation = anySucceeded ? launchContinuation : null
+      const next = anySucceeded
+        ? (settledContinuation
+            ? (settledContinuation.isDraft === false ? 'pr_ready' as const : 'pr_draft' as const)
+            : 'on_review' as const)
+        : 'discarded' as const
+      const patch = settledContinuation
+        ? {
+            branches,
+            worktreeIds,
+            branch: settledContinuation.branch,
+            prUrl: settledContinuation.prUrl,
+            prNumber: settledContinuation.prNumber,
+            prState: 'pr-created' as const,
+          }
+        : { branches, worktreeIds }
+      if (prDeliveryId && transitionDecision(ctx.db, prDeliveryId, 'building', next, patch)) {
         broadcastPrState()
         // Completion driver: refresh the origin conversation's card in place —
         // on_review asks the question, discarded informs the outcome.

@@ -106,6 +106,15 @@ heading inside the description); \`labels\`; \`priority\`. Spec content is Engli
   (ai-spawn) launches EVERY rail that has tickets and no active run / pending
   PR decision in one call, each with its stored mode/engine/profile, returning
   per-rail outcomes (launched / skipped with reason / failed).
+- Relaunching an \`on_review\` ticket with a matching OPEN GitHub PR continues
+  that PR's head branch automatically. Jira-linked \`in_progress\` tickets can
+  also continue an open PR when the match is explicit, covering Jira projects
+  whose Review status has not been mapped to Specrails \`on_review\`. New
+  tickets, or tickets without a confident open-PR match, keep the normal
+  branch-from-integration flow.
+- Projects without Git cannot use isolated worktrees or PR continuation. A
+  launch degrades to shared-cwd execution and returns \`isolationUnavailable\`;
+  explain that it writes directly to files and no PR card/branch will appear.
 - Configure: \`set_tickets\` (replaces the assigned set), \`set_profile\` (null =
   legacy), \`set_engine\` (null = project primary), \`set_name\`.
 - Launch modes:

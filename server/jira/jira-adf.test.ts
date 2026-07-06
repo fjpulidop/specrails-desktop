@@ -3,6 +3,7 @@ import {
   textToAdf,
   bodyForDeployment,
   commentMarker,
+  railReviewCommentMarker,
   bodyContainsMarker,
   adfToText,
 } from './jira-adf'
@@ -92,6 +93,12 @@ describe('commentMarker', () => {
 
   it('handles empty job ids', () => {
     expect(commentMarker('', 7)).toBe('[specrails:job=:ticket=7]')
+  })
+})
+
+describe('railReviewCommentMarker', () => {
+  it('formats the marker with delivery ref id and ticket id', () => {
+    expect(railReviewCommentMarker('pd-21', 21)).toBe('[specrails:rail-review=pd-21:ticket=21]')
   })
 })
 
