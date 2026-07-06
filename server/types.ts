@@ -1268,6 +1268,7 @@ export interface PrDecisionCardEnvelope {
   ticketIds: number[]
   decision: 'building' | 'on_review' | 'pr_draft' | 'pr_ready' | 'merged' | 'discarded' | 'pr_failed'
   prUrl: string | null
+  prNumber: number | null
   prState: 'none' | 'local-only' | 'pushed' | 'pr-created'
   branch: string | null
   /** The launch's loop-run ids, in ticket order ([] until allocation lands) —
@@ -1519,4 +1520,3 @@ export interface SmashUndoneMessage {
   childrenIds: number[]
   timestamp: string
 }
-

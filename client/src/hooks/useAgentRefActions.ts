@@ -5,6 +5,7 @@ import { API_ORIGIN } from '../lib/origin'
 import { useTicketDetailModal } from '../context/TicketDetailModalContext'
 import type { AgentRefTarget } from '../lib/agent-refs'
 import type { LoopGraph } from '../lib/loops-api'
+import { openExternalUrl } from '../lib/tauri-shell'
 
 export interface AgentJobRef {
   projectId: string
@@ -49,6 +50,9 @@ async function fetchLoopRef(loopId: string): Promise<AgentLoopRef | null> {
  *
  * - Tickets → `openTicketDetailInProject` (board TicketDetailModal; switches
  *   the active project first when the pin differs — see the provider).
+ * - Pull requests → open their captured URL externally. A bare `PR #N` chip
+ *   without a URL is intentionally still a PR chip, but reports that no URL is
+ *   available instead of falling through to a spec lookup.
  * - Jobs/loop-runs (loop-run ids ARE job row ids) → `jobRef` state; the caller
  *   mounts the mission-mode `JobDetailModal` with the explicit `projectId`.
  *   A uuid that is NOT a job row falls back to the app-global loops API — a
@@ -76,6 +80,12 @@ export function useAgentRefActions() {
             return
           }
           openTicketDetailInProject(projectId, ref.ticketId)
+        } else if (ref.kind === 'pull-request') {
+          if (!ref.prUrl) {
+            toast.info(t('refs.pullRequestUrlMissing', { id: ref.prNumber }))
+            return
+          }
+          await openExternalUrl(ref.prUrl)
         } else if (ref.kind === 'loop') {
           const loop = await fetchLoopRef(ref.loopId)
           if (!loop) {

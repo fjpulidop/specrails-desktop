@@ -326,6 +326,14 @@ export async function launchIsolatedRail(input: IsolatedLaunchInput, io: Isolate
       originSurface: input.originSurface ?? 'dashboard',
       originConversationId: input.originConversationId ?? null,
     }).id
+    if (launchContinuation) {
+      transitionDecision(ctx.db, prDeliveryId, 'building', 'building', {
+        branch: launchContinuation.branch,
+        prUrl: launchContinuation.prUrl,
+        prNumber: launchContinuation.prNumber,
+        prState: 'pr-created',
+      })
+    }
     broadcastPrState()
     syncOriginCard('post')
   }
@@ -363,6 +371,7 @@ export async function launchIsolatedRail(input: IsolatedLaunchInput, io: Isolate
         ticketId: unit.ticketId,
         baseRef: continuationTarget?.baseRef ?? worktreeBaseRef.baseRef,
         branch: unitBranchName(unit.ticketId),
+        refreshFromBaseRef: Boolean(continuationTarget?.baseRef),
       })
       // Per-run overlay: merge-link the framework surface the checkout didn't
       // bring into the worktree (idempotent; resume-safe via its manifest).

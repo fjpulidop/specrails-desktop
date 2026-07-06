@@ -19,7 +19,7 @@ import { Fragment, type ReactNode } from 'react'
 import { useTranslation } from 'react-i18next'
 import { agentRefHref, splitAgentRefs, type AgentRefSegment } from '../lib/agent-refs'
 
-/** Empty job-context set ⇒ `splitAgentRefs` can only ever yield ticket refs. */
+/** Empty job-context set ⇒ job/loop-run UUIDs never linkify in log lines. */
 export const NO_JOB_UUIDS: ReadonlySet<string> = new Set()
 
 // ── Quiet inline affordance ───────────────────────────────────────────────────
@@ -83,7 +83,7 @@ export function renderLogLineWithTicketRefs(
         {segment.label}
       </LogTicketRef>
     ) : (
-      <Fragment key={i}>{segment.kind === 'text' ? segment.text : null}</Fragment>
+      <Fragment key={i}>{segment.kind === 'text' ? segment.text : segment.label}</Fragment>
     ),
   )
 }
@@ -119,7 +119,7 @@ function ticketSegmentToNode(segment: AgentRefSegment): MdNode {
       children: [{ type: 'text', value: segment.label }],
     }
   }
-  return { type: 'text', value: segment.kind === 'text' ? segment.text : '' }
+  return { type: 'text', value: segment.kind === 'text' ? segment.text : segment.label }
 }
 
 function walkTicketRefs(node: MdNode): void {

@@ -52,6 +52,7 @@ const env = (over: Partial<AgentPrDecisionEnvelope> = {}): AgentPrDecisionEnvelo
   ticketIds: [4, 7],
   decision: 'building',
   prUrl: null,
+  prNumber: null,
   prState: 'none',
   branch: null,
   runIds: ['run-a', 'run-b'],

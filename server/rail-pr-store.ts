@@ -311,6 +311,7 @@ export function toPrDecisionCardEnvelope(projectId: string, snap: PrDeliverySnap
     ticketIds: snap.ticketIds,
     decision: snap.decision,
     prUrl: snap.prUrl,
+    prNumber: snap.prNumber,
     prState: snap.prState,
     branch: snap.branch,
     runIds: snap.runIds,

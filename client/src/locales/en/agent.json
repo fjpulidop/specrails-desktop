@@ -185,8 +185,10 @@
     "specCount_other": "{{count}} specs",
     "base": "Base branch",
     "openPr": "Open PR",
+    "existingPr": "Existing PR",
     "title": {
       "building": "Implementing in an isolated worktree…",
+      "buildingExistingPr": "Applying changes to an existing PR…",
       "on_review": "Implementation ready for review",
       "pr_draft": "Draft PR created",
       "pr_draft_degraded": "PR delivery incomplete",
@@ -196,6 +198,7 @@
       "discarded": "Discarded"
     },
     "buildingHint": "You'll be asked to create the PR when it settles.",
+    "buildingExistingPrHint": "Specrails is working on the existing PR branch and will push the review changes back to that PR.",
     "createPr": "Create PR",
     "publish": "Publish",
     "retry": "Retry",
@@ -250,9 +253,11 @@
   },
   "refs": {
     "openTicket": "Open spec #{{id}}",
+    "openPullRequest": "Open PR #{{id}}",
     "openJob": "Open job {{id}}",
     "openLoop": "Open loop {{id}}",
     "ticketNotFound": "Spec #{{id}} not found — it may have been deleted",
+    "pullRequestUrlMissing": "PR #{{id}} was referenced without a URL",
     "jobNotFound": "Job not found — it may have been deleted",
     "loopNotFound": "Loop not found — it may have been deleted",
     "lookupFailed": "Couldn't verify the reference — try again"
