@@ -11,8 +11,8 @@ import {
 
 describe('themes', () => {
   describe('THEME_IDS allow-list', () => {
-    it('contains the five documented built-in themes', () => {
-      expect([...THEME_IDS]).toEqual(['dracula', 'aurora-light', 'obsidian-dark', 'matrix', 'specrails'])
+    it('contains the six documented built-in themes', () => {
+      expect([...THEME_IDS]).toEqual(['dracula', 'aurora-light', 'obsidian-dark', 'matrix', 'specrails', 'star-wars'])
     })
 
     it('THEMES has an entry for every ThemeId', () => {
@@ -89,10 +89,11 @@ describe('themes', () => {
       expect(THEMES['dracula'].scheme).toBe('dark')
       expect(THEMES['obsidian-dark'].scheme).toBe('dark')
       expect(THEMES['matrix'].scheme).toBe('dark')
+      expect(THEMES['star-wars'].scheme).toBe('dark')
     })
 
     it('each dark theme background is distinct from the others', () => {
-      const darks = ['dracula', 'obsidian-dark', 'matrix'] as const
+      const darks = ['dracula', 'obsidian-dark', 'matrix', 'star-wars'] as const
       const bgs = darks.map((id) => THEMES[id].previewSwatches.background)
       expect(new Set(bgs).size).toBe(darks.length)
     })
@@ -198,6 +199,83 @@ describe('themes', () => {
       expect(t.chart).toHaveLength(5)
       expect(new Set(t.chart).size).toBe(5)
       // Status: all five job states mapped.
+      expect(t.status.completed).toBeDefined()
+      expect(t.status.failed).toBeDefined()
+      expect(t.status.canceled).toBeDefined()
+      expect(t.status.running).toBeDefined()
+      expect(t.status.queued).toBeDefined()
+    })
+  })
+
+  describe('star-wars theme', () => {
+    function hslToLuminance(s: string): number {
+      const m = s.match(/hsl\(\s*([\d.]+)\s+([\d.]+)%\s+([\d.]+)%/)
+      if (!m) throw new Error(`unparseable hsl: ${s}`)
+      const h = Number.parseFloat(m[1]) / 360
+      const sat = Number.parseFloat(m[2]) / 100
+      const l = Number.parseFloat(m[3]) / 100
+      const a = sat * Math.min(l, 1 - l)
+      const f = (n: number) => {
+        const k = (n + h * 12) % 12
+        const c = l - a * Math.max(-1, Math.min(k - 3, 9 - k, 1))
+        return c <= 0.03928 ? c / 12.92 : Math.pow((c + 0.055) / 1.055, 2.4)
+      }
+      const r = f(0)
+      const g = f(8)
+      const b = f(4)
+      return 0.2126 * r + 0.7152 * g + 0.0722 * b
+    }
+    function contrastRatio(a: string, b: string): number {
+      const la = hslToLuminance(a)
+      const lb = hslToLuminance(b)
+      const lighter = Math.max(la, lb)
+      const darker = Math.min(la, lb)
+      return (lighter + 0.05) / (darker + 0.05)
+    }
+    function hueOf(s: string): number {
+      const m = s.match(/hsl\(\s*([\d.]+)/)
+      if (!m) throw new Error(`unparseable hsl: ${s}`)
+      return Number.parseFloat(m[1])
+    }
+
+    it('foreground vs background meets WCAG AA (≥ 4.5:1) for body copy', () => {
+      const t = THEMES['star-wars']
+      const ratio = contrastRatio(t.previewSwatches.foreground, t.previewSwatches.background)
+      expect(ratio).toBeGreaterThanOrEqual(4.5)
+    })
+
+    it('primary, ring-equivalent, and info share the Jedi-blue hue', () => {
+      const t = THEMES['star-wars']
+      // previewSwatches.accents[0] = primary; status.running = info; xterm's
+      // cursor and blue/cyan ANSI slots also mirror primary (ring-equivalent).
+      const primaryHue = hueOf(t.previewSwatches.accents[0])
+      const infoHue = hueOf(t.status.running)
+      const cursorHue = hueOf(t.xterm.cursor)
+      expect(Math.abs(primaryHue - infoHue)).toBeLessThanOrEqual(5)
+      expect(Math.abs(primaryHue - cursorHue)).toBeLessThanOrEqual(5)
+    })
+
+    it('destructive sits in the red hue band (340°-10°) and is distinct from the gold highlight', () => {
+      const t = THEMES['star-wars']
+      const destructiveHue = hueOf(t.status.failed)
+      const inRedBand = destructiveHue >= 340 || destructiveHue <= 10
+      expect(inRedBand).toBe(true)
+      // previewSwatches.accents = [primary, destructive, highlight, success]
+      const highlightHue = hueOf(t.previewSwatches.accents[2])
+      expect(Math.abs(destructiveHue - highlightHue)).toBeGreaterThan(15)
+    })
+
+    it('chart palette spans at least three distinct hue families', () => {
+      const hues = THEMES['star-wars'].chart.map((c) => hueOf(c))
+      const bins = new Set(hues.map((h) => Math.floor(h / 60)))
+      expect(bins.size).toBeGreaterThanOrEqual(3)
+    })
+
+    it('non-CSS surfaces (xterm, chart, status) are populated', () => {
+      const t = THEMES['star-wars']
+      expect(Object.keys(t.xterm).length).toBeGreaterThanOrEqual(20)
+      expect(t.chart).toHaveLength(5)
+      expect(new Set(t.chart).size).toBe(5)
       expect(t.status.completed).toBeDefined()
       expect(t.status.failed).toBeDefined()
       expect(t.status.canceled).toBeDefined()

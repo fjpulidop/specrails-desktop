@@ -260,6 +260,76 @@
   --glass-card-opacity:          34%;
 }
 
+/* ─── Star Wars (deep-space dark — Jedi-blue/Sith-red/gold/Force-green) ────
+ * Palette mirrors `STAR_WARS_PALETTE` in `client/src/lib/themes.ts` — the two
+ * MUST stay in sync (same HSL literals) so xterm/chart/status stay aligned
+ * with the CSS surface. */
+[data-theme="star-wars"] {
+  --color-background:             hsl(224 45% 5%);    /* deep-space near-black, blue-tinted */
+  --color-foreground:             hsl(210 30% 94%);   /* cool near-white */
+  --color-card:                   hsl(224 38% 10%);
+  --color-card-foreground:        hsl(210 30% 94%);
+  --color-popover:                hsl(224 45% 5%);
+  --color-popover-foreground:     hsl(210 30% 94%);
+  --color-primary:                hsl(212 100% 62%);  /* Jedi blue */
+  --color-primary-foreground:     hsl(224 45% 5%);
+  --color-secondary:              hsl(224 30% 14%);
+  --color-secondary-foreground:   hsl(210 30% 94%);
+  --color-muted:                  hsl(224 26% 11%);
+  --color-muted-foreground:       hsl(215 15% 60%);
+  --color-accent:                 hsl(224 30% 14%);
+  --color-accent-foreground:      hsl(210 30% 94%);
+  --color-destructive:            hsl(355 92% 56%);   /* Sith red */
+  --color-destructive-foreground: hsl(210 30% 97%);
+  --color-border:                 hsl(215 30% 55% / 0.16);
+  --color-input:                  hsl(224 28% 13%);
+  --color-ring:                   hsl(212 100% 62%);
+
+  --color-accent-primary:    hsl(212 100% 62%);  /* Jedi blue */
+  --color-accent-info:       hsl(212 100% 62%);  /* same hue as primary — ticket-directed */
+  --color-accent-success:    hsl(140 65% 50%);   /* Force green */
+  --color-accent-secondary:  hsl(280 65% 64%);   /* violet — Mace Windu homage */
+  --color-accent-warning:    hsl(28 95% 56%);    /* blaster orange */
+  --color-accent-highlight:  hsl(45 90% 55%);    /* droid gold */
+  --color-surface:           hsl(224 34% 12%);
+  --color-background-deep:   hsl(224 55% 3%);
+
+  --color-scrollbar-thumb:       hsl(215 25% 45% / 0.4);
+  --color-scrollbar-thumb-hover: hsl(212 60% 55% / 0.6);
+  --color-prose-table-stripe:    hsl(224 34% 12% / 0.5);
+  --color-prose-table-header:    hsl(224 34% 12% / 0.85);
+  --color-toast-shadow:          hsl(224 55% 2% / 0.65);
+  --glass-card-opacity:          32%;
+
+  /* Signature glow — Jedi-blue blade halo. Resolved by the `filter:` rule
+   * below so component code stays theme-agnostic. */
+  --starwars-glow: drop-shadow(0 0 10px hsl(212 100% 62% / 0.45));
+}
+
+/* Apply the Star Wars glow only when the user has not requested reduced
+ * motion. Scoped to `:focus-visible` on interactive elements, mirroring the
+ * matrix glow rule above — kept as its own rule block so both themes stay
+ * independently scoped. */
+@media (prefers-reduced-motion: no-preference) {
+  [data-theme="star-wars"] button:focus-visible,
+  [data-theme="star-wars"] a:focus-visible,
+  [data-theme="star-wars"] [role="button"]:focus-visible,
+  [data-theme="star-wars"] [role="radio"]:focus-visible {
+    filter: var(--starwars-glow);
+  }
+
+  /* Blade-glow border treatment — zero new markup. Rides on hooks the app
+   * already emits: react-router's `aria-current="page"` on the active nav
+   * link, and the existing `border-accent-primary` "active/selected" utility
+   * applied conditionally by ~19 components (see design.md Decision D3). */
+  [data-theme="star-wars"] a[aria-current="page"],
+  [data-theme="star-wars"] .border-accent-primary {
+    box-shadow:
+      0 0 0 1px color-mix(in srgb, var(--color-accent-primary) 55%, transparent),
+      0 0 12px color-mix(in srgb, var(--color-accent-primary) 30%, transparent);
+  }
+}
+
 /* Global bevel for native <select> "selection bars" across the whole app.
    Deliberately UNLAYERED so it wins over Tailwind's `rounded-*` utilities (which
    live in @layer utilities) without needing !important. The Radix dropdown

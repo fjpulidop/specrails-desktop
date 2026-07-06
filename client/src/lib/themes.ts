@@ -12,7 +12,7 @@
  * No component code changes required (OCP).
  */
 
-export const THEME_IDS = ['dracula', 'aurora-light', 'obsidian-dark', 'matrix', 'specrails'] as const
+export const THEME_IDS = ['dracula', 'aurora-light', 'obsidian-dark', 'matrix', 'specrails', 'star-wars'] as const
 export type ThemeId = (typeof THEME_IDS)[number]
 
 /**
@@ -387,6 +387,66 @@ const SPECRAILS: ThemeDescriptor = {
   },
 }
 
+// ─── Star Wars ─────────────────────────────────────────────────────────────
+
+const STAR_WARS_PALETTE = {
+  bg:          'hsl(224 45% 5%)',     // deep-space near-black, blue-tinted
+  card:        'hsl(224 38% 10%)',
+  bgDeep:      'hsl(224 55% 3%)',
+  fg:          'hsl(210 30% 94%)',    // cool near-white
+  muted:       'hsl(215 15% 60%)',
+  primary:     'hsl(212 100% 62%)',   // Jedi blue — shared by primary/ring/info
+  info:        'hsl(212 100% 62%)',   // same hue as primary (ticket-directed)
+  secondary:   'hsl(280 65% 64%)',    // violet — Mace Windu homage
+  success:     'hsl(140 65% 50%)',    // Force green
+  warning:     'hsl(28 95% 56%)',     // blaster orange
+  highlight:   'hsl(45 90% 55%)',     // droid gold
+  destructive: 'hsl(355 92% 56%)',    // Sith red
+} as const
+
+const STAR_WARS: ThemeDescriptor = {
+  id: 'star-wars',
+  displayName: 'Star Wars',
+  tagline: 'A galaxy far away — deep-space blue with a glowing lightsaber trail',
+  scheme: 'dark',
+  previewSwatches: {
+    background: STAR_WARS_PALETTE.bg,
+    foreground: STAR_WARS_PALETTE.fg,
+    accents: [STAR_WARS_PALETTE.primary, STAR_WARS_PALETTE.destructive, STAR_WARS_PALETTE.highlight, STAR_WARS_PALETTE.success],
+  },
+  xterm: {
+    background:          STAR_WARS_PALETTE.bg,
+    foreground:          STAR_WARS_PALETTE.fg,
+    cursor:              STAR_WARS_PALETTE.primary,
+    cursorAccent:        STAR_WARS_PALETTE.bg,
+    selectionBackground: 'hsl(224 38% 22%)',
+    black:               'hsl(224 40% 8%)',
+    red:                 STAR_WARS_PALETTE.destructive,
+    green:               STAR_WARS_PALETTE.success,
+    yellow:              STAR_WARS_PALETTE.warning,
+    blue:                STAR_WARS_PALETTE.primary,
+    magenta:             STAR_WARS_PALETTE.secondary,
+    cyan:                STAR_WARS_PALETTE.primary,
+    white:               STAR_WARS_PALETTE.fg,
+    brightBlack:         STAR_WARS_PALETTE.muted,
+    brightRed:           'hsl(355 92% 68%)',
+    brightGreen:         'hsl(140 65% 62%)',
+    brightYellow:        'hsl(28 95% 68%)',
+    brightBlue:          'hsl(212 100% 74%)',
+    brightMagenta:       'hsl(280 65% 76%)',
+    brightCyan:          'hsl(212 100% 74%)',
+    brightWhite:         'hsl(210 30% 100%)',
+  },
+  chart: [STAR_WARS_PALETTE.primary, STAR_WARS_PALETTE.success, STAR_WARS_PALETTE.warning, STAR_WARS_PALETTE.secondary, STAR_WARS_PALETTE.destructive],
+  status: {
+    completed: STAR_WARS_PALETTE.primary,
+    failed:    STAR_WARS_PALETTE.destructive,
+    canceled:  STAR_WARS_PALETTE.warning,
+    running:   STAR_WARS_PALETTE.info,
+    queued:    STAR_WARS_PALETTE.muted,
+  },
+}
+
 // ─── Public registry ───────────────────────────────────────────────────────
 
 export const THEMES: Record<ThemeId, ThemeDescriptor> = {
@@ -395,6 +455,7 @@ export const THEMES: Record<ThemeId, ThemeDescriptor> = {
   'obsidian-dark': OBSIDIAN_DARK,
   'matrix':        MATRIX,
   'specrails':     SPECRAILS,
+  'star-wars':     STAR_WARS,
 }
 
 export function getTheme(id: ThemeId): ThemeDescriptor {
