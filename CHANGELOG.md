@@ -1,5 +1,12 @@
 # Changelog
 
+## [2.24.3](https://github.com/fjpulidop/specrails-desktop/compare/v2.24.2...v2.24.3) (2026-07-06)
+
+
+### Bug Fixes
+
+* **rails:** continue explicitly referenced PRs ([#515](https://github.com/fjpulidop/specrails-desktop/issues/515)) ([a5ded7b](https://github.com/fjpulidop/specrails-desktop/commit/a5ded7b2d6ef17d73c90599063f1332dbfb1a725))
+
 ## [2.24.2](https://github.com/fjpulidop/specrails-desktop/compare/v2.24.1...v2.24.2) (2026-07-06)
 
 
