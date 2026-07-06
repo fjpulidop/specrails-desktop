@@ -1,6 +1,6 @@
 /** @vitest-environment jsdom */
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { render, fireEvent, waitFor } from '@testing-library/react'
+import { act, render, fireEvent, waitFor } from '@testing-library/react'
 import { MemoryRouter } from 'react-router-dom'
 import { BottomPanel } from '../BottomPanel'
 import { TerminalsProvider } from '../../../context/TerminalsContext'
@@ -92,6 +92,94 @@ describe('BottomPanel', () => {
     )
     const panel = getByTestId('terminal-bottom-panel') as HTMLElement
     expect(panel.style.height).toBe('400px')
+  })
+
+  it('opens through a painted curtain frame in mission mode', () => {
+    const rafCallbacks: FrameRequestCallback[] = []
+    const requestFrame = vi.spyOn(globalThis, 'requestAnimationFrame').mockImplementation((cb) => {
+      rafCallbacks.push(cb)
+      return rafCallbacks.length
+    })
+    const cancelFrame = vi.spyOn(globalThis, 'cancelAnimationFrame').mockImplementation(() => {})
+
+    try {
+      const { getByTestId, queryByTestId, rerender } = wrap(
+        <BottomPanel projectId="p" state={makeState({ visibility: 'hidden', userHeight: 400 })} viewportHeight={800} statusBarHeight={0} />,
+      )
+      expect(queryByTestId('terminal-bottom-panel')).toBeNull()
+
+      rerender(
+        <MemoryRouter>
+          <TerminalsProvider activeProjectId="p">
+            <BottomPanel projectId="p" state={makeState({ visibility: 'restored', userHeight: 400 })} viewportHeight={800} statusBarHeight={0} />
+          </TerminalsProvider>
+        </MemoryRouter>,
+      )
+
+      const openingPanel = getByTestId('terminal-bottom-panel') as HTMLElement
+      expect(openingPanel.style.height).toBe('0px')
+      expect(openingPanel.style.transform).toBe('translateY(14px) scaleY(0.96)')
+
+      act(() => { rafCallbacks.shift()?.(0) })
+      expect(openingPanel.style.height).toBe('0px')
+
+      act(() => { rafCallbacks.shift()?.(16) })
+      expect(openingPanel.style.height).toBe('400px')
+      expect(openingPanel.style.transform).toBe('translateY(0) scaleY(1)')
+    } finally {
+      requestFrame.mockRestore()
+      cancelFrame.mockRestore()
+    }
+  })
+
+  it('plays a curtain close before unmounting when hidden after being open', () => {
+    vi.useFakeTimers()
+    try {
+      const { getByTestId, queryByTestId, rerender } = wrap(
+        <BottomPanel projectId="p" state={makeState({ visibility: 'restored', userHeight: 400 })} viewportHeight={800} statusBarHeight={28} />,
+      )
+      expect((getByTestId('terminal-bottom-panel') as HTMLElement).style.height).toBe('400px')
+
+      rerender(
+        <MemoryRouter>
+          <TerminalsProvider activeProjectId="p">
+            <BottomPanel projectId="p" state={makeState({ visibility: 'hidden', userHeight: 400 })} viewportHeight={800} statusBarHeight={28} />
+          </TerminalsProvider>
+        </MemoryRouter>,
+      )
+      const closingPanel = getByTestId('terminal-bottom-panel') as HTMLElement
+      expect(closingPanel.style.height).toBe('0px')
+      expect(closingPanel.style.opacity).toBe('0')
+
+      act(() => { vi.advanceTimersByTime(310) })
+      expect(queryByTestId('terminal-bottom-panel')).toBeNull()
+    } finally {
+      vi.useRealTimers()
+    }
+  })
+
+  it('uses a stronger curtain offset without the footer bar', () => {
+    vi.useFakeTimers()
+    try {
+      const { getByTestId, rerender } = wrap(
+        <BottomPanel projectId="p" state={makeState({ visibility: 'restored', userHeight: 400 })} viewportHeight={800} statusBarHeight={0} />,
+      )
+
+      rerender(
+        <MemoryRouter>
+          <TerminalsProvider activeProjectId="p">
+            <BottomPanel projectId="p" state={makeState({ visibility: 'hidden', userHeight: 400 })} viewportHeight={800} statusBarHeight={0} />
+          </TerminalsProvider>
+        </MemoryRouter>,
+      )
+
+      const closingPanel = getByTestId('terminal-bottom-panel') as HTMLElement
+      expect(closingPanel.style.transform).toBe('translateY(14px) scaleY(0.96)')
+
+      act(() => { vi.advanceTimersByTime(310) })
+    } finally {
+      vi.useRealTimers()
+    }
   })
 
   it('renders at viewport-statusbar in maximized mode', () => {

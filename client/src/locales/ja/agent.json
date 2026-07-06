@@ -147,6 +147,7 @@
   "switchToKanban": "ボードに切り替え",
   "search": "検索",
   "home": "ホーム",
+  "favoriteMissions": "お気に入りミッション",
   "untitled": "無題",
   "workspace": {
     "title": "ワークスペース",
@@ -168,6 +169,8 @@
   "attachFile": "ファイルを添付",
   "deleteConversation": "「{{title}}」を削除",
   "confirmDeleteConversation": "「{{title}}」の削除を確認",
+  "addFavoriteConversation": "「{{title}}」をお気に入りに追加",
+  "removeFavoriteConversation": "「{{title}}」をお気に入りから削除",
   "confirmShort": "削除しますか？",
   "imagesUnsupported": "このプロバイダーはまだ画像を読み取れません — テキストファイルを添付してください",
   "effort": {
@@ -270,6 +273,8 @@
     "renamePlaceholder": "ミッション名",
     "renameHint": "ダブルクリックで名前を変更",
     "renameFailed": "名前を変更できませんでした",
+    "addFavorite": "お気に入りに追加",
+    "removeFavorite": "お気に入りから削除",
     "copyName": "ミッション名をコピー",
     "copyId": "ミッション ID をコピー",
     "copyProject": "プロジェクト名をコピー",

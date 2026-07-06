@@ -147,6 +147,7 @@
   "switchToKanban": "切换到看板",
   "search": "搜索",
   "home": "主页",
+  "favoriteMissions": "收藏任务",
   "untitled": "未命名",
   "workspace": {
     "title": "工作区",
@@ -168,6 +169,8 @@
   "attachFile": "附加文件",
   "deleteConversation": "删除「{{title}}」",
   "confirmDeleteConversation": "确认删除「{{title}}」",
+  "addFavoriteConversation": "将「{{title}}」添加到收藏",
+  "removeFavoriteConversation": "从收藏中移除「{{title}}」",
   "confirmShort": "确认？",
   "imagesUnsupported": "该提供商暂不支持读取图片 — 请附加文本文件",
   "effort": {
@@ -270,6 +273,8 @@
     "renamePlaceholder": "任务名称",
     "renameHint": "双击重命名",
     "renameFailed": "无法重命名",
+    "addFavorite": "添加到收藏",
+    "removeFavorite": "从收藏中移除",
     "copyName": "复制任务名称",
     "copyId": "复制任务 ID",
     "copyProject": "复制项目名称",

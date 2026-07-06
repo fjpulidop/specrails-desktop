@@ -20,6 +20,9 @@ import { TerminalViewport } from './TerminalViewport'
 import { TerminalDragHandle } from './TerminalDragHandle'
 import { EmptyTerminalPlaceholder } from './EmptyTerminalPlaceholder'
 
+const PANEL_CURTAIN_MS = 300
+type PanelCurtainPhase = 'hidden' | 'opening' | 'open' | 'closing'
+
 interface BottomPanelProps {
   projectId: string
   /** Project's primary CLI provider — drives the Sparkles shortcut label when a
@@ -42,6 +45,11 @@ export function BottomPanel({ projectId, provider = 'claude', providers, state, 
   const [settings, setSettings] = useState<TerminalSettings>(DEFAULT_TERMINAL_SETTINGS)
   const [shortcutMenu, setShortcutMenu] = useState<{ x: number; y: number; kind: 'browser' | 'script' } | null>(null)
   const [cliMenu, setCliMenu] = useState<{ x: number; y: number } | null>(null)
+  const animateInitialOpenRef = useRef(statusBarHeight === 0 && state.visibility !== 'hidden')
+  const [curtainPhase, setCurtainPhase] = useState<PanelCurtainPhase>(() =>
+    state.visibility === 'hidden' ? 'hidden' : animateInitialOpenRef.current ? 'opening' : 'open',
+  )
+  const didMountRef = useRef(false)
   const installedProviders = providers && providers.length > 0 ? providers : [provider]
   const multiProvider = installedProviders.length > 1
 
@@ -77,9 +85,46 @@ export function BottomPanel({ projectId, provider = 'claude', providers, state, 
   const height =
     state.visibility === 'maximized' ? Math.max(PANEL_MIN_HEIGHT, viewportHeight - statusBarHeight) :
     livePreviewHeight ?? userHeight
+  const curtainOpen = curtainPhase === 'open'
+  const visualHeight = curtainOpen ? height : 0
+  const footerless = statusBarHeight === 0
 
   const canCreate = state.sessions.length < TERMINAL_MAX_PER_PROJECT
   const hasActive = state.activeId !== null
+
+  useEffect(() => {
+    let timeout: ReturnType<typeof setTimeout> | null = null
+    let frame: number | null = null
+    let nextFrame: number | null = null
+
+    const scheduleOpenAfterPaint = () => {
+      setCurtainPhase('opening')
+      frame = requestAnimationFrame(() => {
+        nextFrame = requestAnimationFrame(() => setCurtainPhase('open'))
+      })
+    }
+
+    if (!didMountRef.current) {
+      didMountRef.current = true
+      if (animateInitialOpenRef.current) scheduleOpenAfterPaint()
+      return () => {
+        if (frame !== null) cancelAnimationFrame(frame)
+        if (nextFrame !== null) cancelAnimationFrame(nextFrame)
+      }
+    }
+
+    if (state.visibility === 'hidden') {
+      setCurtainPhase('closing')
+      timeout = setTimeout(() => setCurtainPhase('hidden'), PANEL_CURTAIN_MS)
+    } else {
+      scheduleOpenAfterPaint()
+    }
+    return () => {
+      if (timeout) clearTimeout(timeout)
+      if (frame !== null) cancelAnimationFrame(frame)
+      if (nextFrame !== null) cancelAnimationFrame(nextFrame)
+    }
+  }, [state.visibility])
 
   useEffect(() => {
     let disposed = false
@@ -178,16 +223,24 @@ export function BottomPanel({ projectId, provider = 'claude', providers, state, 
   // Reset live preview when visibility changes (e.g. maximize)
   useEffect(() => { setLivePreviewHeight(null) }, [state.visibility])
 
-  if (state.visibility === 'hidden') return null
+  if (curtainPhase === 'hidden') return null
 
   return (
     <div
       ref={panelRef}
       className={cn(
-        'relative flex flex-col shrink-0 bg-background/95',
+        'relative flex flex-col shrink-0 overflow-hidden origin-bottom transform-gpu bg-background/95',
         'border-t border-border/40',
+        'transition-[height,opacity,transform,clip-path] duration-300 ease-[cubic-bezier(0.22,1,0.36,1)] motion-reduce:transition-none',
       )}
-      style={{ height }}
+      style={{
+        height: visualHeight,
+        opacity: curtainOpen ? 1 : 0,
+        transform: curtainOpen
+          ? 'translateY(0) scaleY(1)'
+          : `translateY(${footerless ? 14 : 8}px) scaleY(${footerless ? 0.96 : 0.985})`,
+        clipPath: curtainOpen ? 'inset(0 0 0 0)' : 'inset(100% 0 0 0)',
+      }}
       data-testid="terminal-bottom-panel"
     >
       <TerminalDragHandle

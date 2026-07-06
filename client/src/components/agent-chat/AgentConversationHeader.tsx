@@ -1,7 +1,7 @@
 import { useState, useRef, useEffect, useCallback } from 'react'
 import { useTranslation } from 'react-i18next'
 import { motion, AnimatePresence } from 'motion/react'
-import { MoreVertical, Pencil, Copy, Check, ChevronRight, Trash2 } from 'lucide-react'
+import { MoreVertical, Pencil, Copy, Check, ChevronRight, Trash2, Heart } from 'lucide-react'
 import { toast } from 'sonner'
 import { useAgentChat } from '../../context/AgentChatContext'
 import { useDesktop } from '../../hooks/useDesktop'
@@ -17,7 +17,7 @@ import { cn } from '../../lib/utils'
  */
 export function AgentConversationHeader() {
   const { t } = useTranslation('agent')
-  const { active, renameConversation, deleteConversation, startNewConversation } = useAgentChat()
+  const { active, renameConversation, deleteConversation, startNewConversation, favoriteConversationIds, toggleFavoriteConversation } = useAgentChat()
   const { projects } = useDesktop()
   const [menuOpen, setMenuOpen] = useState(false)
   const [editing, setEditing] = useState(false)
@@ -31,6 +31,7 @@ export function AgentConversationHeader() {
     ? projects.find((p) => p.id === active.pinned_project_id) ?? null
     : null
   const title = active?.title?.trim() || t('header.untitled')
+  const isFavorite = active ? favoriteConversationIds.has(active.id) : false
 
   // Close the menu on outside-click / Esc.
   useEffect(() => {
@@ -95,6 +96,12 @@ export function AgentConversationHeader() {
       toast.error(t('header.deleteFailed'))
     }
   }, [active, deleteConversation, startNewConversation, t])
+
+  const toggleFavorite = useCallback(() => {
+    if (!active) return
+    toggleFavoriteConversation(active.id)
+    setMenuOpen(false)
+  }, [active, toggleFavoriteConversation])
 
   if (!active) return null
 
@@ -217,6 +224,22 @@ export function AgentConversationHeader() {
             >
               <Pencil className="h-3.5 w-3.5 shrink-0 text-foreground/50" />
               {t('header.rename')}
+            </button>
+            <button
+              type="button"
+              role="menuitem"
+              data-testid="agent-conv-favorite"
+              onClick={toggleFavorite}
+              className="flex w-full items-center gap-2.5 rounded-lg px-2.5 py-1.5 text-sm text-foreground/85 transition-colors hover:bg-surface/80"
+            >
+              <Heart
+                className={cn(
+                  'h-3.5 w-3.5 shrink-0',
+                  isFavorite ? 'text-accent-primary' : 'text-foreground/50',
+                )}
+                fill={isFavorite ? 'currentColor' : 'none'}
+              />
+              {isFavorite ? t('header.removeFavorite') : t('header.addFavorite')}
             </button>
             <button
               type="button"

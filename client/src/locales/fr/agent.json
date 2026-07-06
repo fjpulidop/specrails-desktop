@@ -147,6 +147,7 @@
   "switchToKanban": "Passer au tableau",
   "search": "Rechercher",
   "home": "Accueil",
+  "favoriteMissions": "Missions favorites",
   "untitled": "Sans titre",
   "workspace": {
     "title": "Espace de travail",
@@ -168,6 +169,8 @@
   "attachFile": "Joindre un fichier",
   "deleteConversation": "Supprimer « {{title}} »",
   "confirmDeleteConversation": "Confirmer la suppression de « {{title}} »",
+  "addFavoriteConversation": "Ajouter « {{title}} » aux favorites",
+  "removeFavoriteConversation": "Retirer « {{title}} » des favorites",
   "confirmShort": "confirmer ?",
   "imagesUnsupported": "Ce fournisseur ne lit pas encore les images — joignez plutôt des fichiers texte",
   "effort": {
@@ -270,6 +273,8 @@
     "renamePlaceholder": "Nom de la mission",
     "renameHint": "Double-clic pour renommer",
     "renameFailed": "Renommage impossible",
+    "addFavorite": "Ajouter aux favorites",
+    "removeFavorite": "Retirer des favorites",
     "copyName": "Copier le nom de la mission",
     "copyId": "Copier l'ID de la mission",
     "copyProject": "Copier le nom du projet",

@@ -42,11 +42,13 @@ function conv(id: string, title: string | null, pinned: string | null): AgentCon
 
 const mockDeleteConversation = vi.fn(() => Promise.resolve())
 const mockSelectConversation = vi.fn(() => Promise.resolve())
+const mockToggleFavoriteConversation = vi.fn()
 
 // Mutable so individual tests can activate a conversation / streaming state.
-const agentChatState: { active: AgentConversation | null; streamingIds: Set<string> } = {
+const agentChatState: { active: AgentConversation | null; streamingIds: Set<string>; favoriteIds: Set<string> } = {
   active: null,
   streamingIds: new Set(),
+  favoriteIds: new Set(),
 }
 
 vi.mock('../../context/AgentChatContext', () => ({
@@ -55,8 +57,10 @@ vi.mock('../../context/AgentChatContext', () => ({
     active: agentChatState.active,
     isStreaming: agentChatState.active ? agentChatState.streamingIds.has(agentChatState.active.id) : false,
     streamingConversationIds: agentChatState.streamingIds,
+    favoriteConversationIds: agentChatState.favoriteIds,
     selectConversation: mockSelectConversation,
     deleteConversation: mockDeleteConversation,
+    toggleFavoriteConversation: mockToggleFavoriteConversation,
     startNewConversation: vi.fn(),
   }),
 }))
@@ -80,6 +84,7 @@ beforeEach(() => {
   vi.clearAllMocks()
   agentChatState.active = null
   agentChatState.streamingIds = new Set()
+  agentChatState.favoriteIds = new Set()
 })
 
 describe('ArcSidebar agent-mode conversation rows', () => {
@@ -122,6 +127,51 @@ describe('ArcSidebar agent-mode conversation rows', () => {
     renderExpanded()
     fireEvent.click(screen.getByRole('button', { name: 'Delete "Fix the build"' }))
     expect(mockSelectConversation).not.toHaveBeenCalled()
+  })
+
+  it('favorite heart toggles a project mission without selecting it', () => {
+    renderExpanded()
+    fireEvent.click(screen.getByRole('button', { name: 'Add "Fix the build" to favorites' }))
+    expect(mockToggleFavoriteConversation).toHaveBeenCalledWith('c-1')
+    expect(mockSelectConversation).not.toHaveBeenCalled()
+  })
+
+  it('renders favorite missions above projects and removes them from the project tree', () => {
+    agentChatState.favoriteIds = new Set(['c-1'])
+    renderExpanded()
+    fireEvent.click(screen.getByRole('button', { name: 'Favorite missions' }))
+    expect(screen.getByText('Favorite missions')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Remove "Fix the build" from favorites' })).toBeInTheDocument()
+    expect(screen.getAllByText('Fix the build')).toHaveLength(1)
+  })
+
+  it('collapses favorite missions behind a single favorites icon when the sidebar is collapsed', () => {
+    agentChatState.favoriteIds = new Set(['c-1'])
+    render(<ArcSidebar {...defaultProps} />)
+    const favoritesButton = screen.getByRole('button', { name: 'Favorite missions' })
+    expect(favoritesButton).toBeInTheDocument()
+    expect(favoritesButton.parentElement?.className).toContain('border-b')
+    expect(screen.queryByText('Favorite missions')).not.toBeInTheDocument()
+    expect(screen.queryByText('Fix the build')).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Remove "Fix the build" from favorites' })).not.toBeInTheDocument()
+  })
+
+  it('favorite missions section expands and collapses like a project tree', () => {
+    agentChatState.favoriteIds = new Set(['c-1'])
+    renderExpanded()
+    expect(screen.queryByRole('button', { name: 'Remove "Fix the build" from favorites' })).not.toBeInTheDocument()
+    fireEvent.click(screen.getByRole('button', { name: 'Favorite missions' }))
+    expect(screen.getByRole('button', { name: 'Remove "Fix the build" from favorites' })).toBeInTheDocument()
+    fireEvent.click(screen.getByRole('button', { name: 'Favorite missions' }))
+    expect(screen.queryByRole('button', { name: 'Remove "Fix the build" from favorites' })).not.toBeInTheDocument()
+  })
+
+  it('removing a favorite from the favorite section calls the same toggle', () => {
+    agentChatState.favoriteIds = new Set(['c-1'])
+    renderExpanded()
+    fireEvent.click(screen.getByRole('button', { name: 'Favorite missions' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Remove "Fix the build" from favorites' }))
+    expect(mockToggleFavoriteConversation).toHaveBeenCalledWith('c-1')
   })
 
   it('untitled Home conversation gets a delete button labelled with the fallback title', () => {

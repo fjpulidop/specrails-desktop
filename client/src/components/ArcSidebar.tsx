@@ -1,7 +1,7 @@
 import { useState, useEffect, useMemo, useRef, lazy, Suspense } from 'react'
 import { useNavigate, useLocation } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
-import { PanelLeft, FolderOpen, Plus, BarChart2, BookOpen, Settings, X, Workflow, ChevronRight, ChevronDown, MessageSquare, Bot, LayoutGrid, Search, Home } from 'lucide-react'
+import { PanelLeft, FolderOpen, Plus, BarChart2, BookOpen, Settings, X, Workflow, ChevronRight, ChevronDown, MessageSquare, Bot, LayoutGrid, Search, Home, Heart } from 'lucide-react'
 import { cn } from '../lib/utils'
 import { useResizableSidebar } from '../hooks/useResizableSidebar'
 import { SidebarResizeGrip } from './SidebarResizeGrip'
@@ -43,13 +43,17 @@ function openCommandPalette(): void {
 
 /** Sentinel key for the Home (null-pinned) conversation group. */
 const HOME_KEY = '__home__'
+/** Sentinel key for the virtual Favorite missions group. */
+const FAVORITES_KEY = '__favorites__'
 
 function ConversationRow({
   conversation,
   active,
   expanded,
   streaming = false,
+  favorite = false,
   onSelect,
+  onToggleFavorite,
   onDelete,
 }: {
   conversation: AgentConversation
@@ -58,7 +62,9 @@ function ConversationRow({
   /** A live agent turn (prompt sent / reply streaming) — sweeps a highlight
    *  over the title; on stop the sweep fades out slowly. */
   streaming?: boolean
+  favorite?: boolean
   onSelect: () => void
+  onToggleFavorite?: () => void
   onDelete: () => void
 }) {
   const { t } = useTranslation('agent')
@@ -99,6 +105,11 @@ function ConversationRow({
         confirmTimerRef.current = null
       }, 3000)
     }
+  }
+
+  function handleFavoriteClick(e: React.MouseEvent) {
+    e.stopPropagation()
+    onToggleFavorite?.()
   }
 
   function handleSelectKeyDown(e: React.KeyboardEvent) {
@@ -162,6 +173,20 @@ function ConversationRow({
           </span>
           <button
             type="button"
+            onClick={handleFavoriteClick}
+            className={cn(
+              'flex-shrink-0 items-center justify-center rounded-sm transition-colors hover:bg-muted',
+              favorite
+                ? 'flex w-3.5 h-3.5 text-accent-primary hover:text-accent-primary'
+                : 'hidden group-hover:flex w-3.5 h-3.5 text-muted-foreground/60 hover:text-accent-primary',
+            )}
+            aria-label={favorite ? t('removeFavoriteConversation', { title: label }) : t('addFavoriteConversation', { title: label })}
+            title={favorite ? t('removeFavoriteConversation', { title: label }) : t('addFavoriteConversation', { title: label })}
+          >
+            <Heart className="w-2.5 h-2.5" fill={favorite ? 'currentColor' : 'none'} />
+          </button>
+          <button
+            type="button"
             onClick={handleDeleteClick}
             className={cn(
               'flex-shrink-0 items-center justify-center rounded-sm transition-colors hover:bg-muted',
@@ -201,6 +226,7 @@ function ProjectItem({
   activeConversationId = null,
   streamingConversationIds,
   onSelectConversation,
+  onToggleConversationFavorite,
   onDeleteConversation,
   onOpenProjectSettings,
 }: {
@@ -219,6 +245,7 @@ function ProjectItem({
    *  their title shimmer, not just the focused one. */
   streamingConversationIds?: ReadonlySet<string>
   onSelectConversation?: (id: string) => void
+  onToggleConversationFavorite?: (id: string) => void
   onDeleteConversation?: (id: string) => void
   /** Hover gear (Agent Mode): open this project's settings modal. */
   onOpenProjectSettings?: () => void
@@ -257,6 +284,14 @@ function ProjectItem({
   }
 
   const showChevron = agentMode && hasTree && expanded
+  const projectIcon = (
+    <FolderOpen
+      className={cn(
+        'flex-shrink-0 w-4 h-4',
+        isActive && 'text-accent-primary'
+      )}
+    />
+  )
 
   return (
     <div>
@@ -276,22 +311,22 @@ function ProjectItem({
         aria-current={isActive ? 'page' : undefined}
       >
         {showChevron ? (
-          <button
-            type="button"
-            onClick={(e) => { e.stopPropagation(); onToggleTree?.() }}
-            className="flex-shrink-0 flex items-center justify-center w-4 h-4 rounded-sm hover:bg-muted"
-            aria-label={treeOpen ? t('projects.collapse', { name: project.name }) : t('projects.expand', { name: project.name })}
-            aria-expanded={treeOpen}
-          >
-            {treeOpen ? <ChevronDown className="w-3.5 h-3.5" /> : <ChevronRight className="w-3.5 h-3.5" />}
-          </button>
+          <span className="relative flex h-4 w-4 flex-shrink-0 items-center justify-center">
+            <span className="flex transition-opacity group-hover:opacity-0 group-focus-within:opacity-0">
+              {projectIcon}
+            </span>
+            <button
+              type="button"
+              onClick={(e) => { e.stopPropagation(); onToggleTree?.() }}
+              className="absolute inset-0 hidden items-center justify-center rounded-sm hover:bg-muted group-hover:flex group-focus-within:flex"
+              aria-label={treeOpen ? t('projects.collapse', { name: project.name }) : t('projects.expand', { name: project.name })}
+              aria-expanded={treeOpen}
+            >
+              {treeOpen ? <ChevronDown className="w-3.5 h-3.5" /> : <ChevronRight className="w-3.5 h-3.5" />}
+            </button>
+          </span>
         ) : (
-          <FolderOpen
-            className={cn(
-              'flex-shrink-0 w-4 h-4',
-              isActive && 'text-accent-primary'
-            )}
-          />
+          projectIcon
         )}
         {expanded && (
           <>
@@ -337,6 +372,7 @@ function ProjectItem({
               streaming={streamingConversationIds?.has(c.id) ?? false}
               expanded={expanded}
               onSelect={() => onSelectConversation?.(c.id)}
+              onToggleFavorite={() => onToggleConversationFavorite?.(c.id)}
               onDelete={() => onDeleteConversation?.(c.id)}
             />
           ))}
@@ -379,16 +415,22 @@ export function ArcSidebar({
     const map = new Map<string, AgentConversation[]>()
     const liveProjectIds = new Set(projects.map((p) => p.id))
     for (const c of agentChat.conversations) {
+      if (agentChat.favoriteConversationIds.has(c.id)) continue
       const key = c.pinned_project_id && liveProjectIds.has(c.pinned_project_id) ? c.pinned_project_id : HOME_KEY
       const arr = map.get(key)
       if (arr) arr.push(c)
       else map.set(key, [c])
     }
     return map
-  }, [agentChat.conversations, projects])
+  }, [agentChat.conversations, agentChat.favoriteConversationIds, projects])
+  const favoriteConversations = useMemo(
+    () => agentChat.conversations.filter((c) => agentChat.favoriteConversationIds.has(c.id)),
+    [agentChat.conversations, agentChat.favoriteConversationIds],
+  )
   const homeConversations = grouped.get(HOME_KEY) ?? []
 
   const [expandedTree, setExpandedTree] = useState<Set<string>>(loadExpanded)
+  const favoriteTreeOpen = expandedTree.has(FAVORITES_KEY)
   // Per-project settings modal (Agent Mode hover gear on a project folder).
   const [projectSettingsOpen, setProjectSettingsOpen] = useState(false)
   // Default-expand the active project the first time we enter Agent Mode.
@@ -425,6 +467,10 @@ export function ArcSidebar({
     agentChat.deleteConversation(id).catch(() => {
       /* network failure — the list refresh on next open reconciles */
     })
+  }
+
+  const handleToggleFavoriteConversation = (id: string) => {
+    agentChat.toggleFavoriteConversation(id)
   }
 
   // Selecting a project from the sidebar. When the user is on a GLOBAL route
@@ -622,6 +668,51 @@ export function ArcSidebar({
 
       {/* Projects list */}
       <div className="flex-1 overflow-y-auto py-2 px-1.5 space-y-0.5">
+        {agentMode && favoriteConversations.length > 0 && (
+          <div className="mb-2 space-y-0.5 border-b border-border/70 pb-2">
+            <button
+              type="button"
+              onClick={() => toggleTree(FAVORITES_KEY)}
+              className={cn(
+                'group flex items-center gap-2 w-full h-8 rounded-md transition-colors',
+                'text-muted-foreground hover:text-foreground hover:bg-muted/50',
+                expanded ? 'px-2' : 'px-0 justify-center',
+              )}
+              aria-label={tAgent('favoriteMissions')}
+              aria-expanded={favoriteTreeOpen}
+              title={!expanded ? tAgent('favoriteMissions') : undefined}
+            >
+              {expanded
+                ? (
+                    <span className="relative flex h-4 w-4 flex-shrink-0 items-center justify-center">
+                      <Heart className="h-4 w-4 fill-current text-accent-primary transition-opacity group-hover:opacity-0 group-focus-visible:opacity-0" />
+                      <span className="absolute inset-0 hidden items-center justify-center group-hover:flex group-focus-visible:flex">
+                        {favoriteTreeOpen ? <ChevronDown className="w-3.5 h-3.5" /> : <ChevronRight className="w-3.5 h-3.5" />}
+                      </span>
+                    </span>
+                  )
+                : <Heart className="w-4 h-4 flex-shrink-0 fill-current text-accent-primary" />}
+              {expanded && <span className="text-xs truncate flex-1 text-left">{tAgent('favoriteMissions')}</span>}
+            </button>
+            {favoriteTreeOpen && expanded && (
+              <div className="mt-0.5 space-y-0.5">
+                {favoriteConversations.map((c) => (
+                  <ConversationRow
+                    key={c.id}
+                    conversation={c}
+                    active={c.id === agentChat.active?.id}
+                    streaming={agentChat.streamingConversationIds.has(c.id)}
+                    favorite
+                    expanded={expanded}
+                    onSelect={() => handleSelectConversation(c.id)}
+                    onToggleFavorite={() => handleToggleFavoriteConversation(c.id)}
+                    onDelete={() => handleDeleteConversation(c.id)}
+                  />
+                ))}
+              </div>
+            )}
+          </div>
+        )}
         {/* Home group (agent mode) — conversations with no pinned project */}
         {agentMode && homeConversations.length > 0 && (
           <div>
@@ -629,7 +720,7 @@ export function ArcSidebar({
               type="button"
               onClick={() => toggleTree(HOME_KEY)}
               className={cn(
-                'flex items-center gap-2 w-full h-8 rounded-md transition-colors',
+                'group flex items-center gap-2 w-full h-8 rounded-md transition-colors',
                 'text-muted-foreground hover:text-foreground hover:bg-muted/50',
                 expanded ? 'px-2' : 'px-0 justify-center',
               )}
@@ -638,7 +729,14 @@ export function ArcSidebar({
               title={!expanded ? tAgent('home') : undefined}
             >
               {expanded
-                ? (expandedTree.has(HOME_KEY) ? <ChevronDown className="w-3.5 h-3.5 flex-shrink-0" /> : <ChevronRight className="w-3.5 h-3.5 flex-shrink-0" />)
+                ? (
+                    <span className="relative flex h-4 w-4 flex-shrink-0 items-center justify-center">
+                      <Home className="h-4 w-4 transition-opacity group-hover:opacity-0 group-focus-visible:opacity-0" />
+                      <span className="absolute inset-0 hidden items-center justify-center group-hover:flex group-focus-visible:flex">
+                        {expandedTree.has(HOME_KEY) ? <ChevronDown className="w-3.5 h-3.5" /> : <ChevronRight className="w-3.5 h-3.5" />}
+                      </span>
+                    </span>
+                  )
                 : <Home className="w-4 h-4 flex-shrink-0" />}
               {expanded && <span className="text-xs truncate flex-1 text-left">{tAgent('home')}</span>}
             </button>
@@ -652,6 +750,7 @@ export function ArcSidebar({
                     streaming={agentChat.streamingConversationIds.has(c.id)}
                     expanded={expanded}
                     onSelect={() => handleSelectConversation(c.id)}
+                    onToggleFavorite={() => handleToggleFavoriteConversation(c.id)}
                     onDelete={() => handleDeleteConversation(c.id)}
                   />
                 ))}
@@ -677,6 +776,7 @@ export function ArcSidebar({
               activeConversationId={agentChat.active?.id ?? null}
               streamingConversationIds={agentChat.streamingConversationIds}
               onSelectConversation={handleSelectConversation}
+              onToggleConversationFavorite={handleToggleFavoriteConversation}
               onDeleteConversation={handleDeleteConversation}
               onOpenProjectSettings={agentMode ? () => {
                 // The settings sections talk to the ACTIVE project's API base —

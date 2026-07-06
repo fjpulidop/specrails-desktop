@@ -4,11 +4,20 @@ import { render, screen, fireEvent, waitFor } from '@testing-library/react'
 const renameConversation = vi.fn(async () => {})
 const deleteConversation = vi.fn(async () => {})
 const startNewConversation = vi.fn()
+const toggleFavoriteConversation = vi.fn()
 let active: { id: string; title: string | null; pinned_project_id: string | null } | null = {
   id: 'conv-1', title: 'Greeting And Friendly Introduction', pinned_project_id: 'p1',
 }
+let favoriteConversationIds = new Set<string>()
 vi.mock('../../../context/AgentChatContext', () => ({
-  useAgentChat: () => ({ active, renameConversation, deleteConversation, startNewConversation }),
+  useAgentChat: () => ({
+    active,
+    renameConversation,
+    deleteConversation,
+    startNewConversation,
+    favoriteConversationIds,
+    toggleFavoriteConversation,
+  }),
 }))
 vi.mock('../../../hooks/useDesktop', () => ({
   useDesktop: () => ({ projects: [{ id: 'p1', slug: 'outrun', name: 'outrun', path: '/Users/javi/repos/outrun' }] }),
@@ -21,6 +30,7 @@ const writeText = vi.fn(async () => {})
 beforeEach(() => {
   vi.clearAllMocks()
   active = { id: 'conv-1', title: 'Greeting And Friendly Introduction', pinned_project_id: 'p1' }
+  favoriteConversationIds = new Set()
   Object.assign(navigator, { clipboard: { writeText } })
 })
 
@@ -43,6 +53,7 @@ describe('AgentConversationHeader', () => {
     fireEvent.click(screen.getByTestId('agent-conv-menu-trigger'))
     expect(screen.getByTestId('agent-conv-menu')).toBeInTheDocument()
     expect(screen.getByTestId('agent-conv-rename')).toBeInTheDocument()
+    expect(screen.getByTestId('agent-conv-favorite')).toHaveTextContent('Add to favorites')
     expect(screen.getByTestId('agent-conv-copy-name')).toBeInTheDocument()
     expect(screen.getByTestId('agent-conv-copy-id')).toBeInTheDocument()
     expect(screen.getByTestId('agent-conv-copy-project')).toBeInTheDocument()
@@ -81,6 +92,22 @@ describe('AgentConversationHeader', () => {
     fireEvent.click(screen.getByTestId('agent-conv-menu-trigger'))
     fireEvent.click(screen.getByTestId('agent-conv-copy-path'))
     await waitFor(() => expect(writeText).toHaveBeenCalledWith('/Users/javi/repos/outrun'))
+  })
+
+  it('Add to favorites toggles the active mission favorite state', () => {
+    render(<AgentConversationHeader />)
+    fireEvent.click(screen.getByTestId('agent-conv-menu-trigger'))
+    fireEvent.click(screen.getByTestId('agent-conv-favorite'))
+    expect(toggleFavoriteConversation).toHaveBeenCalledWith('conv-1')
+  })
+
+  it('shows Remove from favorites when the active mission is already favorited', () => {
+    favoriteConversationIds = new Set(['conv-1'])
+    render(<AgentConversationHeader />)
+    fireEvent.click(screen.getByTestId('agent-conv-menu-trigger'))
+    expect(screen.getByTestId('agent-conv-favorite')).toHaveTextContent('Remove from favorites')
+    fireEvent.click(screen.getByTestId('agent-conv-favorite'))
+    expect(toggleFavoriteConversation).toHaveBeenCalledWith('conv-1')
   })
 })
 
