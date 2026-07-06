@@ -463,6 +463,72 @@ describe('LoopRunManager', () => {
     expect(firstCall.prompt).toContain('Implement Feature X')
   })
 
+  it('adds unattended continuation context for on_review implement commands', async () => {
+    const graph: LoopGraph = {
+      nodes: [
+        { id: 's', type: 'start', position: { x: 0, y: 0 } },
+        { id: 'ai', type: 'ai-step', position: { x: 0, y: 1 }, data: { prompt: '{{cmd:implement}}' } },
+        { id: 'e', type: 'end', position: { x: 0, y: 2 } },
+      ],
+      edges: [
+        { id: 'e1', source: 's', target: 'ai' },
+        { id: 'e2', source: 'ai', target: 'e' },
+      ],
+      config: { maxIterations: 5, timeoutMinutes: 30 },
+    }
+
+    const ex = makeExecutors()
+    await manager(ex).run({
+      ...baseReq(),
+      graph,
+      spec: { ...baseReq().spec, id: 98, status: 'on_review' },
+    })
+
+    const prompt = (ex.runAiStep as ReturnType<typeof vi.fn>).mock.calls[0][0].prompt
+    expect(prompt).toContain('/specrails:implement #98 --yes')
+    expect(prompt).toContain('Specrails rail continuation context')
+    expect(prompt).toContain('do NOT pause')
+    expect(prompt).toContain('review follow-ups on the current PR/worktree')
+  })
+
+  it('does not add review continuation context to new implement work', async () => {
+    const graph: LoopGraph = {
+      nodes: [
+        { id: 's', type: 'start', position: { x: 0, y: 0 } },
+        { id: 'ai', type: 'ai-step', position: { x: 0, y: 1 }, data: { prompt: '{{cmd:implement}}' } },
+        { id: 'e', type: 'end', position: { x: 0, y: 2 } },
+      ],
+      edges: [
+        { id: 'e1', source: 's', target: 'ai' },
+        { id: 'e2', source: 'ai', target: 'e' },
+      ],
+      config: { maxIterations: 5, timeoutMinutes: 30 },
+    }
+
+    const ex = makeExecutors()
+    await manager(ex).run({
+      ...baseReq(),
+      graph,
+      spec: { ...baseReq().spec, id: 98, status: 'todo' },
+    })
+
+    const prompt = (ex.runAiStep as ReturnType<typeof vi.fn>).mock.calls[0][0].prompt
+    expect(prompt).toContain('/specrails:implement #98 --yes')
+    expect(prompt).not.toContain('Specrails rail continuation context')
+  })
+
+  it('does not add review continuation context to ordinary on_review prompts', async () => {
+    const ex = makeExecutors()
+    await manager(ex).run({
+      ...baseReq(),
+      spec: { ...baseReq().spec, id: 98, status: 'on_review' },
+    })
+
+    const prompt = (ex.runAiStep as ReturnType<typeof vi.fn>).mock.calls[0][0].prompt
+    expect(prompt).toContain('Implement Feature X')
+    expect(prompt).not.toContain('Specrails rail continuation context')
+  })
+
   it('stops at maxIterations when the Decider never stops', async () => {
     const ex = makeExecutors({
       runDecider: vi.fn(async () => ({ continue: true, reasoning: 'keep going', parsed: true })),

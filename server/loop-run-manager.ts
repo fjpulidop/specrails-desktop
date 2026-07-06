@@ -215,6 +215,24 @@ export interface LoopRunRequest {
   isolation?: { branch: string; worktreePath: string }
 }
 
+const IMPLEMENT_CMD_TOKEN_RE = /\{\{\s*cmd:(?:implement|batch)\s*\}\}/
+
+function withReviewContinuationContext(base: string, rawTemplate: string, spec?: LoopSpec): string {
+  if (spec?.status !== 'on_review') return base
+  if (!IMPLEMENT_CMD_TOKEN_RE.test(rawTemplate)) return base
+  return [
+    base,
+    '',
+    '---',
+    'Specrails rail continuation context:',
+    '- This ticket is already on_review and this run is fully unattended; the user has already chosen to continue implementation work.',
+    '- If the current branch has an existing open PR, or the feature appears already implemented, do NOT pause to ask whether to proceed and do NOT restart from scratch.',
+    '- Treat the run as review follow-ups on the current PR/worktree: inspect the ticket description, PR context, current branch, and working diff; implement only the missing requested deltas.',
+    '- If the local branch is ahead/behind its remote, do not stop for confirmation. Continue safely on the current worktree; only pull/rebase when it is clearly safe and necessary.',
+    '- If truly no code change is needed, state that clearly and leave the tree unchanged; otherwise make the smallest correct change and let the following verify step prove it.',
+  ].join('\n')
+}
+
 export interface LoopRunResult {
   runId: string
   outcome: LoopRunOutcome
@@ -756,7 +774,7 @@ export class LoopRunManager {
             // --yes`, codex `$implement #<id> --yes`) — then resolve `{{spec.*}}`
             // data tokens and finally `{{const:*}}` library constants.
             const rawTemplate = String(node.data?.prompt ?? '')
-            const base = resolveConstants(
+            const expanded = resolveConstants(
               resolveRunVars(
                 interpolateSpec(
                   expandCommands(rawTemplate, { provider: nodeProvider, ticketIds: req.spec?.ticketIds, specId: req.spec?.id }),
@@ -766,6 +784,7 @@ export class LoopRunManager {
               ),
               constMap
             )
+            const base = withReviewContinuationContext(expanded, rawTemplate, req.spec)
             // Inject the cross-iteration history only when there's no live session
             // to carry it (a fresh pass) OR right after a Decider 'continue' (so the
             // step sees the verdict). A mid-body resumed step already has it.
