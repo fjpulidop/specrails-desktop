@@ -94,6 +94,44 @@ describe('BottomPanel', () => {
     expect(panel.style.height).toBe('400px')
   })
 
+  it('opens through a painted curtain frame in mission mode', () => {
+    const rafCallbacks: FrameRequestCallback[] = []
+    const requestFrame = vi.spyOn(globalThis, 'requestAnimationFrame').mockImplementation((cb) => {
+      rafCallbacks.push(cb)
+      return rafCallbacks.length
+    })
+    const cancelFrame = vi.spyOn(globalThis, 'cancelAnimationFrame').mockImplementation(() => {})
+
+    try {
+      const { getByTestId, queryByTestId, rerender } = wrap(
+        <BottomPanel projectId="p" state={makeState({ visibility: 'hidden', userHeight: 400 })} viewportHeight={800} statusBarHeight={0} />,
+      )
+      expect(queryByTestId('terminal-bottom-panel')).toBeNull()
+
+      rerender(
+        <MemoryRouter>
+          <TerminalsProvider activeProjectId="p">
+            <BottomPanel projectId="p" state={makeState({ visibility: 'restored', userHeight: 400 })} viewportHeight={800} statusBarHeight={0} />
+          </TerminalsProvider>
+        </MemoryRouter>,
+      )
+
+      const openingPanel = getByTestId('terminal-bottom-panel') as HTMLElement
+      expect(openingPanel.style.height).toBe('0px')
+      expect(openingPanel.style.transform).toBe('translateY(14px) scaleY(0.96)')
+
+      act(() => { rafCallbacks.shift()?.(0) })
+      expect(openingPanel.style.height).toBe('0px')
+
+      act(() => { rafCallbacks.shift()?.(16) })
+      expect(openingPanel.style.height).toBe('400px')
+      expect(openingPanel.style.transform).toBe('translateY(0) scaleY(1)')
+    } finally {
+      requestFrame.mockRestore()
+      cancelFrame.mockRestore()
+    }
+  })
+
   it('plays a curtain close before unmounting when hidden after being open', () => {
     vi.useFakeTimers()
     try {

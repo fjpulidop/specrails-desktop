@@ -45,8 +45,9 @@ export function BottomPanel({ projectId, provider = 'claude', providers, state, 
   const [settings, setSettings] = useState<TerminalSettings>(DEFAULT_TERMINAL_SETTINGS)
   const [shortcutMenu, setShortcutMenu] = useState<{ x: number; y: number; kind: 'browser' | 'script' } | null>(null)
   const [cliMenu, setCliMenu] = useState<{ x: number; y: number } | null>(null)
+  const animateInitialOpenRef = useRef(statusBarHeight === 0 && state.visibility !== 'hidden')
   const [curtainPhase, setCurtainPhase] = useState<PanelCurtainPhase>(() =>
-    state.visibility === 'hidden' ? 'hidden' : 'open',
+    state.visibility === 'hidden' ? 'hidden' : animateInitialOpenRef.current ? 'opening' : 'open',
   )
   const didMountRef = useRef(false)
   const installedProviders = providers && providers.length > 0 ? providers : [provider]
@@ -92,23 +93,36 @@ export function BottomPanel({ projectId, provider = 'claude', providers, state, 
   const hasActive = state.activeId !== null
 
   useEffect(() => {
-    if (!didMountRef.current) {
-      didMountRef.current = true
-      return
-    }
-
     let timeout: ReturnType<typeof setTimeout> | null = null
     let frame: number | null = null
+    let nextFrame: number | null = null
+
+    const scheduleOpenAfterPaint = () => {
+      setCurtainPhase('opening')
+      frame = requestAnimationFrame(() => {
+        nextFrame = requestAnimationFrame(() => setCurtainPhase('open'))
+      })
+    }
+
+    if (!didMountRef.current) {
+      didMountRef.current = true
+      if (animateInitialOpenRef.current) scheduleOpenAfterPaint()
+      return () => {
+        if (frame !== null) cancelAnimationFrame(frame)
+        if (nextFrame !== null) cancelAnimationFrame(nextFrame)
+      }
+    }
+
     if (state.visibility === 'hidden') {
       setCurtainPhase('closing')
       timeout = setTimeout(() => setCurtainPhase('hidden'), PANEL_CURTAIN_MS)
     } else {
-      setCurtainPhase('opening')
-      frame = requestAnimationFrame(() => setCurtainPhase('open'))
+      scheduleOpenAfterPaint()
     }
     return () => {
       if (timeout) clearTimeout(timeout)
       if (frame !== null) cancelAnimationFrame(frame)
+      if (nextFrame !== null) cancelAnimationFrame(nextFrame)
     }
   }, [state.visibility])
 
