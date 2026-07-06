@@ -313,6 +313,7 @@ describe('JSON round-trips + snapshot mapper', () => {
       ticketIds: [9],
       decision: 'building',
       prUrl: null,
+      prNumber: null,
       prState: 'none',
       branch: null,
       runIds: ['run-9'],

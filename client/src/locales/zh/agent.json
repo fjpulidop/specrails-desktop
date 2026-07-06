@@ -185,8 +185,10 @@
     "specCount_other": "{{count}} 个 Spec",
     "base": "基础分支",
     "openPr": "打开 PR",
+    "existingPr": "现有 PR",
     "title": {
       "building": "正在隔离的 worktree 中实现…",
+      "buildingExistingPr": "正在向现有 PR 应用更改…",
       "on_review": "实现已完成，待评审",
       "pr_draft": "已创建草稿 PR",
       "pr_draft_degraded": "PR 交付未完成",
@@ -196,6 +198,7 @@
       "discarded": "已丢弃"
     },
     "buildingHint": "完成后会询问你是否创建 PR。",
+    "buildingExistingPrHint": "Specrails 正在现有 PR 的分支上工作，并会把 review 更改推送回同一个 PR。",
     "createPr": "创建 PR",
     "publish": "发布",
     "retry": "重试",
@@ -250,9 +253,11 @@
   },
   "refs": {
     "openTicket": "打开 Spec #{{id}}",
+    "openPullRequest": "打开 PR #{{id}}",
     "openJob": "打开任务 {{id}}",
     "openLoop": "打开循环 {{id}}",
     "ticketNotFound": "未找到 Spec #{{id}} — 可能已被删除",
+    "pullRequestUrlMissing": "PR #{{id}} 被引用但没有 URL",
     "jobNotFound": "未找到任务 — 可能已被删除",
     "loopNotFound": "未找到循环 — 可能已被删除",
     "lookupFailed": "无法验证该引用 — 请重试"

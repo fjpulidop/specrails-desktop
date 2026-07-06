@@ -369,6 +369,7 @@ describe('launchIsolatedRail — ask-first PR delivery (rail_pr_deliveries lifec
         ticketIds: [1, 2],
         decision: 'on_review',
         prUrl: null,
+        prNumber: null,
         prState: 'none',
         branch: null,
         runIds: ids,
@@ -553,6 +554,7 @@ describe('launchIsolatedRail — conventional branch naming (pr-naming threading
 
 describe('launchIsolatedRail — active PR continuation', () => {
   beforeEach(() => { delete process.env.SPECRAILS_RAIL_DELIVER_PR }) // PR mode default-on
+  afterEach(() => setAgentChatManager(null))
 
   const continuationCtx = (status = 'on_review') => {
     const ctxs = fakeCtx(settlingRun('success'))
@@ -681,12 +683,28 @@ describe('launchIsolatedRail — active PR continuation', () => {
         return { code: 1, stdout: '', stderr: 'unexpected gh call' }
       }),
     }
+    const postPrDecisionCard = vi.fn()
+    const updatePrDecisionCard = vi.fn()
+    setAgentChatManager({ postPrDecisionCard, updatePrDecisionCard } as unknown as AgentChatManager)
 
-    await launchIsolatedRail(input([98], ctx), { git, exec, create, remove: vi.fn(async () => {}) })
+    await launchIsolatedRail(
+      { ...input([98], ctx), originSurface: 'agent-chat', originConversationId: 'conv-pr-2147' },
+      { git, exec, create, remove: vi.fn(async () => {}) },
+    )
 
     expect(create).toHaveBeenCalledWith(git, expect.objectContaining({
       ticketId: 98,
       branch: 'feat/SKILLS-19-key-terms-activity',
+      baseRef: 'origin/feat/SKILLS-19-key-terms-activity',
+      refreshFromBaseRef: true,
+    }))
+    expect(postPrDecisionCard).toHaveBeenCalledWith('conv-pr-2147', expect.objectContaining({
+      kind: 'pr_decision',
+      decision: 'building',
+      branch: 'feat/SKILLS-19-key-terms-activity',
+      prUrl: 'https://github.com/org/repo/pull/2147',
+      prNumber: 2147,
+      prState: 'pr-created',
     }))
     await vi.waitFor(() => expect(getActivePrDeliveryByRail(db, 0)!.decision).toBe('pr_ready'))
     expect(getActivePrDeliveryByRail(db, 0)).toMatchObject({

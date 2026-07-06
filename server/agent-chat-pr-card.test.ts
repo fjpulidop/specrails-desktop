@@ -35,6 +35,7 @@ function envelope(overrides: Partial<PrDecisionCardEnvelope> = {}): PrDecisionCa
     ticketIds: [1, 2],
     decision: 'on_review',
     prUrl: null,
+    prNumber: null,
     prState: 'none',
     branch: null,
     ...overrides,

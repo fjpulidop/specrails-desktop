@@ -19,7 +19,10 @@ vi.mock('../../context/TicketDetailModalContext', () => ({
   }),
 }))
 
+vi.mock('../../lib/tauri-shell', () => ({ openExternalUrl: vi.fn() }))
+
 import { toast } from 'sonner'
+import { openExternalUrl } from '../../lib/tauri-shell'
 import { useAgentRefActions } from '../useAgentRefActions'
 import type { AgentRefTarget } from '../../lib/agent-refs'
 
@@ -56,6 +59,26 @@ describe('useAgentRefActions', () => {
     render(<Harness projectId="p2" target={{ kind: 'ticket', ticketId: 5 }} />)
     fireEvent.click(screen.getByText('go'))
     await waitFor(() => expect(toast.info).toHaveBeenCalled())
+    expect(openTicketDetailInProject).not.toHaveBeenCalled()
+  })
+
+  it('pull request ref with URL opens externally and does not query specs', async () => {
+    const fetchMock = vi.fn(async () => res(200))
+    vi.stubGlobal('fetch', fetchMock)
+    render(<Harness projectId="p2" target={{ kind: 'pull-request', prNumber: 2147, prUrl: 'https://github.com/org/repo/pull/2147' }} />)
+    fireEvent.click(screen.getByText('go'))
+    await waitFor(() => expect(openExternalUrl).toHaveBeenCalledWith('https://github.com/org/repo/pull/2147'))
+    expect(fetchMock).not.toHaveBeenCalled()
+    expect(openTicketDetailInProject).not.toHaveBeenCalled()
+  })
+
+  it('bare pull request ref shows a missing-url toast and does not open a spec', async () => {
+    const fetchMock = vi.fn(async () => res(200))
+    vi.stubGlobal('fetch', fetchMock)
+    render(<Harness projectId="p2" target={{ kind: 'pull-request', prNumber: 2147 }} />)
+    fireEvent.click(screen.getByText('go'))
+    await waitFor(() => expect(toast.info).toHaveBeenCalled())
+    expect(fetchMock).not.toHaveBeenCalled()
     expect(openTicketDetailInProject).not.toHaveBeenCalled()
   })
 

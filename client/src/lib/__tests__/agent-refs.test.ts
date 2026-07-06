@@ -25,6 +25,18 @@ describe('agentRefHref / parseAgentRefHref codec', () => {
     expect(parseAgentRefHref(href)).toEqual({ kind: 'ticket', ticketId: 42 })
   })
 
+  it('round-trips a pull request ref with and without URL', () => {
+    expect(parseAgentRefHref(agentRefHref({ kind: 'pull-request', prNumber: 2147 }))).toEqual({
+      kind: 'pull-request',
+      prNumber: 2147,
+    })
+    expect(parseAgentRefHref(agentRefHref({ kind: 'pull-request', prNumber: 2147, prUrl: 'https://github.com/org/repo/pull/2147' }))).toEqual({
+      kind: 'pull-request',
+      prNumber: 2147,
+      prUrl: 'https://github.com/org/repo/pull/2147',
+    })
+  })
+
   it('round-trips a job ref', () => {
     const href = agentRefHref({ kind: 'job', jobId: UUID })
     expect(parseAgentRefHref(href)).toEqual({ kind: 'job', jobId: UUID })
@@ -37,6 +49,8 @@ describe('agentRefHref / parseAgentRefHref codec', () => {
     expect(parseAgentRefHref(null)).toBeNull()
     expect(parseAgentRefHref('#agentref:ticket:abc')).toBeNull()
     expect(parseAgentRefHref('#agentref:ticket:0')).toBeNull()
+    expect(parseAgentRefHref('#agentref:pr:abc')).toBeNull()
+    expect(parseAgentRefHref('#agentref:pr:0')).toBeNull()
     expect(parseAgentRefHref('#agentref:job:not-a-uuid')).toBeNull()
     expect(parseAgentRefHref('#agentref:other:1')).toBeNull()
   })
@@ -127,6 +141,38 @@ describe('splitAgentRefs — ticket pattern matrix', () => {
   })
 })
 
+describe('splitAgentRefs — pull request refs', () => {
+  it('treats PR #N as a pull-request chip, not a ticket chip', () => {
+    expect(refs(splitAgentRefs('review follow-ups from PR #2147', noCtx))).toEqual([
+      { kind: 'pull-request', prNumber: 2147, label: 'PR #2147' },
+    ])
+  })
+
+  it('treats pull request #N as a pull-request chip', () => {
+    expect(refs(splitAgentRefs('see pull request #2147 before changing code', noCtx))).toEqual([
+      { kind: 'pull-request', prNumber: 2147, label: 'PR #2147' },
+    ])
+  })
+
+  it('keeps a ticket ref and PR ref distinct in the same sentence', () => {
+    expect(refs(splitAgentRefs('ticket #98 follows up PR #2147', noCtx))).toEqual([
+      { kind: 'ticket', ticketId: 98, label: '#98' },
+      { kind: 'pull-request', prNumber: 2147, label: 'PR #2147' },
+    ])
+  })
+
+  it('captures GitHub pull request URLs as pull-request refs with URL metadata', () => {
+    expect(refs(splitAgentRefs('opened https://github.com/org/repo/pull/2147.', noCtx))).toEqual([
+      {
+        kind: 'pull-request',
+        prNumber: 2147,
+        prUrl: 'https://github.com/org/repo/pull/2147',
+        label: 'PR #2147',
+      },
+    ])
+  })
+})
+
 describe('splitAgentRefs — job uuid gating', () => {
   it('linkifies a uuid only when it is in the context set', () => {
     expect(splitAgentRefs(`Job lanzado: ${UUID}`, ctx(UUID))).toEqual([
@@ -183,6 +229,14 @@ describe('remarkAgentRefs plugin', () => {
     expect(children.map((c) => c.type)).toEqual(['text', 'link', 'text'])
     expect(children[1].url).toBe('#agentref:ticket:3')
     expect(children[1].children![0].value).toBe('#3')
+  })
+
+  it('renders PR #N as a pull-request #agentref link instead of a ticket link', () => {
+    const tree = root(para(text('Review follow-ups from PR #2147')))
+    remarkAgentRefs()(tree as never, vfile('Review follow-ups from PR #2147'))
+    const link = tree.children![0].children!.find((c) => c.type === 'link')
+    expect(link?.url).toBe('#agentref:pr:2147')
+    expect(link?.children![0].value).toBe('PR #2147')
   })
 
   it('uses the raw source for job context even when split across siblings', () => {

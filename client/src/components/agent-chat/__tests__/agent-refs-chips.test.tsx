@@ -77,6 +77,27 @@ describe('AgentMessage ref chips (settled, pinned project)', () => {
     expect(onOpenRef).toHaveBeenCalledWith({ kind: 'ticket', ticketId: 3 })
   })
 
+  it('renders PR #N as a pull-request chip, not a ticket chip', () => {
+    renderMsg('Review follow-ups from PR #2147')
+    const chip = screen.getByTestId('agent-ref-chip')
+    expect(chip).toHaveAttribute('data-ref-kind', 'pull-request')
+    expect(chip.textContent).toContain('PR #2147')
+    fireEvent.click(chip)
+    expect(onOpenRef).toHaveBeenCalledWith({ kind: 'pull-request', prNumber: 2147 })
+  })
+
+  it('renders GitHub pull URLs as pull-request chips carrying the URL', () => {
+    renderMsg('Opened https://github.com/org/repo/pull/2147')
+    const chip = screen.getByTestId('agent-ref-chip')
+    expect(chip).toHaveAttribute('data-ref-kind', 'pull-request')
+    fireEvent.click(chip)
+    expect(onOpenRef).toHaveBeenCalledWith({
+      kind: 'pull-request',
+      prNumber: 2147,
+      prUrl: 'https://github.com/org/repo/pull/2147',
+    })
+  })
+
   it('renders a context-gated job uuid as a job chip', () => {
     renderMsg(`Job lanzado: ${UUID}`)
     const chip = screen.getByTestId('agent-ref-chip')
@@ -133,6 +154,7 @@ const envelope = (over: Partial<AgentPrDecisionEnvelope> = {}): AgentPrDecisionE
   ticketIds: [4, 7],
   decision: 'on_review',
   prUrl: null,
+  prNumber: null,
   prState: 'none',
   branch: null,
   runIds: [],

@@ -185,8 +185,10 @@
     "specCount_other": "{{count}} specs",
     "base": "Branche de base",
     "openPr": "Ouvrir la PR",
+    "existingPr": "PR existante",
     "title": {
       "building": "Implémentation dans un worktree isolé…",
+      "buildingExistingPr": "Application des changements sur une PR existante…",
       "on_review": "Implémentation prête pour la revue",
       "pr_draft": "PR en brouillon créée",
       "pr_draft_degraded": "Livraison de la PR incomplète",
@@ -196,6 +198,7 @@
       "discarded": "Abandonnée"
     },
     "buildingHint": "À la fin, il vous sera proposé de créer la PR.",
+    "buildingExistingPrHint": "Specrails travaille sur la branche de la PR existante et poussera les changements de revue vers cette même PR.",
     "createPr": "Créer la PR",
     "publish": "Publier",
     "retry": "Réessayer",
@@ -250,9 +253,11 @@
   },
   "refs": {
     "openTicket": "Ouvrir la spec #{{id}}",
+    "openPullRequest": "Ouvrir la PR #{{id}}",
     "openJob": "Ouvrir le job {{id}}",
     "openLoop": "Ouvrir la boucle {{id}}",
     "ticketNotFound": "Spec #{{id}} introuvable — elle a peut-être été supprimée",
+    "pullRequestUrlMissing": "La PR #{{id}} est mentionnée sans URL",
     "jobNotFound": "Job introuvable — il a peut-être été supprimé",
     "loopNotFound": "Boucle introuvable — elle a peut-être été supprimée",
     "lookupFailed": "Impossible de vérifier la référence — réessayez"

@@ -17,7 +17,7 @@ export interface ActivePrContinuationTarget {
   ticketId: number
   branch: string
   baseBranch: string
-  /** Present when the local branch does not exist but origin/<branch> does. */
+  /** Present when origin/<branch> exists; used to create or safely refresh the PR branch. */
   baseRef?: string
   prUrl: string | null
   prNumber: number | null
@@ -180,12 +180,11 @@ async function materializeTarget(
   if (!head || !base || head === base) return null
   if (!isValidBranchName(head) || !isValidBranchName(base)) return null
 
+  const remoteRef = fetchOk && await remoteBranchExists(git, repoDir, head) ? `origin/${head}` : undefined
   if (await localBranchExists(git, repoDir, head)) {
-    return { ticketId, branch: head, baseBranch: base, prUrl, prNumber, isDraft, source }
+    return { ticketId, branch: head, baseBranch: base, baseRef: remoteRef, prUrl, prNumber, isDraft, source }
   }
-  if (fetchOk && await remoteBranchExists(git, repoDir, head)) {
-    return { ticketId, branch: head, baseBranch: base, baseRef: `origin/${head}`, prUrl, prNumber, isDraft, source }
-  }
+  if (remoteRef) return { ticketId, branch: head, baseBranch: base, baseRef: remoteRef, prUrl, prNumber, isDraft, source }
   return null
 }
 
