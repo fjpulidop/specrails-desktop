@@ -236,12 +236,13 @@ function DesktopApp() {
     location.pathname.startsWith('/loops') || location.pathname.startsWith('/docs')
 
   // ─── Hoisted terminal panel (single instance, both modes) ───────────────────
-  // BottomPanel + StatusBar live here (not in ProjectLayout) so the terminal
+  // BottomPanel lives here (not in ProjectLayout) so the terminal
   // survives when the center is the agent surface rather than a project route.
   // Exactly one BottomPanel/TerminalViewport is ever mounted → the terminal
   // single-adopter invariant holds.
   const { connectionStatus } = usePipeline()
   const panelState = useProjectTerminals(activeProjectId)
+  const statusBarHeight = uiMode === 'agent' ? 0 : STATUSBAR_HEIGHT_PX
   const mainColRef = useRef<HTMLDivElement | null>(null)
   const [viewportHeight, setViewportHeight] = useState<number>(
     typeof window !== 'undefined' ? window.innerHeight : 820,
@@ -353,9 +354,9 @@ function DesktopApp() {
           )}
         </div>
 
-        {/* Hoisted terminal panel + status bar — single instance shared by both
-            modes. Footer chevron entry point is gated to Kanban (in Agent Mode
-            the entry point is the workspace sidebar's Terminal tool). */}
+        {/* Hoisted terminal panel — single instance shared by both modes.
+            Footer status/chevron chrome is Kanban-only; in Agent Mode the
+            entry point is the workspace sidebar's Terminal tool. */}
         {FEATURE_TERMINAL_PANEL && activeProjectId && activeProject && (
           <BottomPanel
             projectId={activeProjectId}
@@ -363,10 +364,10 @@ function DesktopApp() {
             providers={projectProviders(activeProject)}
             state={panelState}
             viewportHeight={viewportHeight}
-            statusBarHeight={STATUSBAR_HEIGHT_PX}
+            statusBarHeight={statusBarHeight}
           />
         )}
-        <StatusBar connectionStatus={connectionStatus} rightSlot={chevronSlot} minimal={uiMode === 'agent'} />
+        {uiMode !== 'agent' && <StatusBar connectionStatus={connectionStatus} rightSlot={chevronSlot} />}
       </div>
 
       {/* Right sidebar — full height. In Agent Mode this is the "On workspace"

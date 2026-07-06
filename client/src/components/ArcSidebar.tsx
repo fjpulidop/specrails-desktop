@@ -284,6 +284,14 @@ function ProjectItem({
   }
 
   const showChevron = agentMode && hasTree && expanded
+  const projectIcon = (
+    <FolderOpen
+      className={cn(
+        'flex-shrink-0 w-4 h-4',
+        isActive && 'text-accent-primary'
+      )}
+    />
+  )
 
   return (
     <div>
@@ -303,22 +311,22 @@ function ProjectItem({
         aria-current={isActive ? 'page' : undefined}
       >
         {showChevron ? (
-          <button
-            type="button"
-            onClick={(e) => { e.stopPropagation(); onToggleTree?.() }}
-            className="flex-shrink-0 flex items-center justify-center w-4 h-4 rounded-sm hover:bg-muted"
-            aria-label={treeOpen ? t('projects.collapse', { name: project.name }) : t('projects.expand', { name: project.name })}
-            aria-expanded={treeOpen}
-          >
-            {treeOpen ? <ChevronDown className="w-3.5 h-3.5" /> : <ChevronRight className="w-3.5 h-3.5" />}
-          </button>
+          <span className="relative flex h-4 w-4 flex-shrink-0 items-center justify-center">
+            <span className="flex transition-opacity group-hover:opacity-0 group-focus-within:opacity-0">
+              {projectIcon}
+            </span>
+            <button
+              type="button"
+              onClick={(e) => { e.stopPropagation(); onToggleTree?.() }}
+              className="absolute inset-0 hidden items-center justify-center rounded-sm hover:bg-muted group-hover:flex group-focus-within:flex"
+              aria-label={treeOpen ? t('projects.collapse', { name: project.name }) : t('projects.expand', { name: project.name })}
+              aria-expanded={treeOpen}
+            >
+              {treeOpen ? <ChevronDown className="w-3.5 h-3.5" /> : <ChevronRight className="w-3.5 h-3.5" />}
+            </button>
+          </span>
         ) : (
-          <FolderOpen
-            className={cn(
-              'flex-shrink-0 w-4 h-4',
-              isActive && 'text-accent-primary'
-            )}
-          />
+          projectIcon
         )}
         {expanded && (
           <>
@@ -666,7 +674,7 @@ export function ArcSidebar({
               type="button"
               onClick={() => toggleTree(FAVORITES_KEY)}
               className={cn(
-                'flex items-center gap-2 w-full h-8 rounded-md transition-colors',
+                'group flex items-center gap-2 w-full h-8 rounded-md transition-colors',
                 'text-muted-foreground hover:text-foreground hover:bg-muted/50',
                 expanded ? 'px-2' : 'px-0 justify-center',
               )}
@@ -675,7 +683,14 @@ export function ArcSidebar({
               title={!expanded ? tAgent('favoriteMissions') : undefined}
             >
               {expanded
-                ? (favoriteTreeOpen ? <ChevronDown className="w-3.5 h-3.5 flex-shrink-0" /> : <ChevronRight className="w-3.5 h-3.5 flex-shrink-0" />)
+                ? (
+                    <span className="relative flex h-4 w-4 flex-shrink-0 items-center justify-center">
+                      <Heart className="h-4 w-4 fill-current text-accent-primary transition-opacity group-hover:opacity-0 group-focus-visible:opacity-0" />
+                      <span className="absolute inset-0 hidden items-center justify-center group-hover:flex group-focus-visible:flex">
+                        {favoriteTreeOpen ? <ChevronDown className="w-3.5 h-3.5" /> : <ChevronRight className="w-3.5 h-3.5" />}
+                      </span>
+                    </span>
+                  )
                 : <Heart className="w-4 h-4 flex-shrink-0 fill-current text-accent-primary" />}
               {expanded && <span className="text-xs truncate flex-1 text-left">{tAgent('favoriteMissions')}</span>}
             </button>
@@ -705,7 +720,7 @@ export function ArcSidebar({
               type="button"
               onClick={() => toggleTree(HOME_KEY)}
               className={cn(
-                'flex items-center gap-2 w-full h-8 rounded-md transition-colors',
+                'group flex items-center gap-2 w-full h-8 rounded-md transition-colors',
                 'text-muted-foreground hover:text-foreground hover:bg-muted/50',
                 expanded ? 'px-2' : 'px-0 justify-center',
               )}
@@ -714,7 +729,14 @@ export function ArcSidebar({
               title={!expanded ? tAgent('home') : undefined}
             >
               {expanded
-                ? (expandedTree.has(HOME_KEY) ? <ChevronDown className="w-3.5 h-3.5 flex-shrink-0" /> : <ChevronRight className="w-3.5 h-3.5 flex-shrink-0" />)
+                ? (
+                    <span className="relative flex h-4 w-4 flex-shrink-0 items-center justify-center">
+                      <Home className="h-4 w-4 transition-opacity group-hover:opacity-0 group-focus-visible:opacity-0" />
+                      <span className="absolute inset-0 hidden items-center justify-center group-hover:flex group-focus-visible:flex">
+                        {expandedTree.has(HOME_KEY) ? <ChevronDown className="w-3.5 h-3.5" /> : <ChevronRight className="w-3.5 h-3.5" />}
+                      </span>
+                    </span>
+                  )
                 : <Home className="w-4 h-4 flex-shrink-0" />}
               {expanded && <span className="text-xs truncate flex-1 text-left">{tAgent('home')}</span>}
             </button>

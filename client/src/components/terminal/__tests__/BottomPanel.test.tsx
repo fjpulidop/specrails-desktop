@@ -1,6 +1,6 @@
 /** @vitest-environment jsdom */
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { render, fireEvent, waitFor } from '@testing-library/react'
+import { act, render, fireEvent, waitFor } from '@testing-library/react'
 import { MemoryRouter } from 'react-router-dom'
 import { BottomPanel } from '../BottomPanel'
 import { TerminalsProvider } from '../../../context/TerminalsContext'
@@ -92,6 +92,32 @@ describe('BottomPanel', () => {
     )
     const panel = getByTestId('terminal-bottom-panel') as HTMLElement
     expect(panel.style.height).toBe('400px')
+  })
+
+  it('plays a curtain close before unmounting when hidden after being open', () => {
+    vi.useFakeTimers()
+    try {
+      const { getByTestId, queryByTestId, rerender } = wrap(
+        <BottomPanel projectId="p" state={makeState({ visibility: 'restored', userHeight: 400 })} viewportHeight={800} statusBarHeight={28} />,
+      )
+      expect((getByTestId('terminal-bottom-panel') as HTMLElement).style.height).toBe('400px')
+
+      rerender(
+        <MemoryRouter>
+          <TerminalsProvider activeProjectId="p">
+            <BottomPanel projectId="p" state={makeState({ visibility: 'hidden', userHeight: 400 })} viewportHeight={800} statusBarHeight={28} />
+          </TerminalsProvider>
+        </MemoryRouter>,
+      )
+      const closingPanel = getByTestId('terminal-bottom-panel') as HTMLElement
+      expect(closingPanel.style.height).toBe('0px')
+      expect(closingPanel.style.opacity).toBe('0')
+
+      act(() => { vi.advanceTimersByTime(310) })
+      expect(queryByTestId('terminal-bottom-panel')).toBeNull()
+    } finally {
+      vi.useRealTimers()
+    }
   })
 
   it('renders at viewport-statusbar in maximized mode', () => {
