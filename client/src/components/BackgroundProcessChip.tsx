@@ -28,6 +28,7 @@ export function BackgroundProcessChip({
   }, [])
 
   const elapsed = formatElapsed(now - process.startedAt)
+  const terminal = process.status === 'exited' || process.status === 'failed' || process.status === 'killed'
   return (
     <TooltipProvider delayDuration={150}>
       <Tooltip>
@@ -36,24 +37,31 @@ export function BackgroundProcessChip({
             data-testid="background-process-chip"
             className={`group inline-flex max-w-[220px] items-center gap-1.5 rounded-full border px-2 py-0.5 text-[11px] transition-colors ${accentClass[accentVariant]}`}
           >
-            <Terminal className="h-3 w-3 shrink-0 animate-pulse" />
+            <Terminal className={`h-3 w-3 shrink-0 ${terminal ? '' : 'animate-pulse'}`} />
             <span className="truncate font-medium">{process.command}</span>
-            <button
-              type="button"
-              aria-label={`Kill ${process.command}`}
-              title={`Kill ${process.command}`}
-              onClick={(e) => {
-                e.preventDefault()
-                e.stopPropagation()
-                onKill(process.pid)
-              }}
-              className="rounded-sm p-0.5 opacity-70 transition-opacity hover:bg-background/60 hover:opacity-100 group-hover:opacity-100"
-            >
-              <X className="h-3 w-3" />
-            </button>
+            {terminal && (
+              <span className={process.status === 'failed' ? 'font-medium text-destructive' : 'text-foreground/60'}>
+                {process.status}
+              </span>
+            )}
+            {!terminal && (
+              <button
+                type="button"
+                aria-label={`Kill ${process.command}`}
+                title={`Kill ${process.command}`}
+                onClick={(e) => {
+                  e.preventDefault()
+                  e.stopPropagation()
+                  onKill(process.pid)
+                }}
+                className="rounded-sm p-0.5 opacity-70 transition-opacity hover:bg-background/60 hover:opacity-100 group-hover:opacity-100"
+              >
+                <X className="h-3 w-3" />
+              </button>
+            )}
           </span>
         </TooltipTrigger>
-        <TooltipContent>{elapsed}</TooltipContent>
+        <TooltipContent>{terminal ? `${process.status} after ${elapsed}` : elapsed}</TooltipContent>
       </Tooltip>
     </TooltipProvider>
   )

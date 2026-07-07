@@ -54,7 +54,7 @@ export function jobsTools(): McpToolSpec[] {
       description:
         'Manage a project\'s AI-pipeline job queue and individual jobs. ' +
         'Actions: list, get, queue, spawn (ai-spawn — enqueues an arbitrary slash-command job, returns {jobId,position}, async; from the in-app agent chat the engine defaults to your conversation\'s provider — pass aiEngine to override), ' +
-        'background_start (operate-level shell command; requires explicit user confirmation before use), background_kill, ' +
+        'background_start (operate-level shell command tied to the current agent chat; requires explicit user confirmation before use), background_kill, ' +
         'cancel (destructive — cancels a running/queued job or deletes a terminal one), ' +
         'purge (destructive — bulk-delete persisted job rows in a date range), ' +
         'pause / resume (queue), reorder (queued-job order), priority (change a queued job\'s priority), ' +
@@ -133,7 +133,7 @@ export function jobsTools(): McpToolSpec[] {
           .describe('reorder: exact set of currently-queued job ids in the desired order; compare: exactly 2 job ids'),
         // ── interactive_turn ──
         text: z.string().optional().describe('Prompt text for interactive_turn'),
-        chatId: z.string().optional().describe('Agent chat conversation id for background_start/background_kill ownership'),
+        chatId: z.string().optional().describe('Agent chat conversation id for background_start/background_kill ownership; defaults to the in-app agent conversation that called the tool'),
         cwd: z.string().optional().describe('Optional cwd for background_start; resolved inside the selected project root'),
         pid: z.number().optional().describe('Background process pid for background_kill'),
         // ── export ──
@@ -311,7 +311,7 @@ export function jobsTools(): McpToolSpec[] {
           case 'background_start': {
             const command = args.command as string | undefined
             if (!command || !command.trim()) throw new Error('background_start requires a "command".')
-            const chatId = args.chatId as string | undefined
+            const chatId = (args.chatId as string | undefined) ?? ctx.originConversationId ?? undefined
             if (!chatId || !chatId.trim()) throw new Error('background_start requires a "chatId".')
             const projectCtx = requireProject(ctx, args.projectId as string | undefined)
             const cwd = resolveBackgroundCwd(projectCtx.project.path, args.cwd as string | undefined)
@@ -328,7 +328,7 @@ export function jobsTools(): McpToolSpec[] {
           case 'background_kill': {
             const pid = args.pid as number | undefined
             if (typeof pid !== 'number' || !Number.isFinite(pid)) throw new Error('background_kill requires a numeric "pid".')
-            const chatId = args.chatId as string | undefined
+            const chatId = (args.chatId as string | undefined) ?? ctx.originConversationId ?? undefined
             if (!chatId || !chatId.trim()) throw new Error('background_kill requires a "chatId".')
             const projectCtx = requireProject(ctx, args.projectId as string | undefined)
             const killed = killOwnedBackgroundProcess(pid, { projectId: projectCtx.project.id, chatId: chatId.trim() })

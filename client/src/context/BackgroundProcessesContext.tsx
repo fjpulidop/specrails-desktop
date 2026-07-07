@@ -1,4 +1,4 @@
-import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from 'react'
+import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { useSharedWebSocket } from '../hooks/useSharedWebSocket'
 import { API_ORIGIN } from '../lib/origin'
 import type { BackgroundProcess } from '../types'
@@ -18,6 +18,8 @@ type BackgroundWsMessage =
   | { type: 'background_process.output'; projectId: string; chatId: string; pid: number; source: 'stdout' | 'stderr'; line: string }
 
 const terminal = new Set(['exited', 'killed', 'failed'])
+const TERMINAL_RETENTION_MS = 8000
+type BackgroundProcessRecord = BackgroundProcess & { completedAt?: number }
 
 export function BackgroundProcessesProvider({
   children,
@@ -29,31 +31,60 @@ export function BackgroundProcessesProvider({
   const { activeProjectId } = useDesktop()
   const projectId = active?.pinned_project_id ?? draftPinnedProjectId ?? activeProjectId
   const chatId = active?.id ?? null
-  const [records, setRecords] = useState<BackgroundProcess[]>([])
+  const [records, setRecords] = useState<BackgroundProcessRecord[]>([])
+  const removalTimers = useRef(new Map<number, number>())
+
+  const clearRemovalTimer = useCallback((pid: number) => {
+    const timer = removalTimers.current.get(pid)
+    if (timer) window.clearTimeout(timer)
+    removalTimers.current.delete(pid)
+  }, [])
 
   const handleMessage = useCallback((data: unknown) => {
     const msg = data as Partial<BackgroundWsMessage>
     if (msg.type === 'background_process.started' && msg.process) {
+      clearRemovalTimer(msg.process.pid)
       setRecords((prev) => (
         prev.some((p) => p.pid === msg.process!.pid) ? prev : [...prev, msg.process!]
       ))
       return
     }
     if (msg.type === 'background_process.exited' && msg.process) {
-      setRecords((prev) => prev.map((p) => (p.pid === msg.process!.pid ? msg.process! : p)))
+      const process = msg.process
+      clearRemovalTimer(process.pid)
+      if (process.status === 'killed') {
+        setRecords((prev) => prev.filter((p) => p.pid !== process.pid))
+        return
+      }
+      const completed = { ...process, completedAt: Date.now() }
+      setRecords((prev) => (
+        prev.some((p) => p.pid === process.pid)
+          ? prev.map((p) => (p.pid === process.pid ? completed : p))
+          : [...prev, completed]
+      ))
+      const timer = window.setTimeout(() => {
+        setRecords((prev) => prev.filter((p) => p.pid !== process.pid))
+        removalTimers.current.delete(process.pid)
+      }, TERMINAL_RETENTION_MS)
+      removalTimers.current.set(process.pid, timer)
     }
-  }, [])
+  }, [clearRemovalTimer])
 
   useEffect(() => {
     registerHandler('background-processes', handleMessage)
     return () => unregisterHandler('background-processes')
   }, [handleMessage, registerHandler, unregisterHandler])
 
+  useEffect(() => () => {
+    for (const timer of removalTimers.current.values()) window.clearTimeout(timer)
+    removalTimers.current.clear()
+  }, [])
+
   const processes = useMemo(
     () => records.filter((p) => (
       p.projectId === projectId &&
       p.chatId === chatId &&
-      !terminal.has(p.status)
+      (!terminal.has(p.status) || (p.status !== 'killed' && p.completedAt !== undefined))
     )),
     [records, projectId, chatId],
   )

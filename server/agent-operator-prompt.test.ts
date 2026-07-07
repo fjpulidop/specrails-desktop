@@ -139,6 +139,8 @@ describe('OPERATOR_SYSTEM_PROMPT — compact distillation stays in sync', () => 
     expect(OPERATOR_INSTRUCTIONS).toContain('jobs background_start')
     expect(OPERATOR_INSTRUCTIONS).toContain('without first proposing it')
     expect(OPERATOR_INSTRUCTIONS).toContain('receiving an explicit yes')
+    expect(OPERATOR_INSTRUCTIONS).toContain('Long-running shell commands get chips')
+    expect(OPERATOR_SYSTEM_PROMPT).toContain('not a raw shell runner')
   })
 
   it('carries the grounding + spec-draft + contract-layer-default essentials', () => {

@@ -3,13 +3,13 @@ import { render, screen, fireEvent } from '@testing-library/react'
 import { BackgroundProcessChip } from '../../BackgroundProcessChip'
 import type { BackgroundProcess } from '../../../types'
 
-function proc(pid: number, command: string): BackgroundProcess {
+function proc(pid: number, command: string, status: BackgroundProcess['status'] = 'running'): BackgroundProcess {
   return {
     pid,
     command,
     cwd: '/repo',
     startedAt: Date.now() - 65_000,
-    status: 'running',
+    status,
     chatId: 'chat-1',
     projectId: 'proj-1',
   }
@@ -39,5 +39,13 @@ describe('BackgroundProcessChip', () => {
     expect(chips[1].className).toContain('text-accent-info')
     fireEvent.click(screen.getByLabelText('Kill npm run dev'))
     expect(kill).toHaveBeenCalledWith(1)
+  })
+
+  it('renders terminal status without a kill action', () => {
+    const kill = vi.fn()
+    render(<BackgroundProcessChip process={proc(3, 'npm run dev', 'failed')} accentVariant="accent-primary" onKill={kill} />)
+
+    expect(screen.getByTestId('background-process-chip')).toHaveTextContent('failed')
+    expect(screen.queryByLabelText('Kill npm run dev')).toBeNull()
   })
 })

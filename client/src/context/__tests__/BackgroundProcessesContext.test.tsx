@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { act, render } from '@testing-library/react'
 import { BackgroundProcessesProvider, useBackgroundProcesses } from '../BackgroundProcessesContext'
 
@@ -25,7 +25,7 @@ let latest = { labels: '', kill: async (_pid: number) => undefined as void }
 function Probe() {
   const ctx = useBackgroundProcesses()
   latest = {
-    labels: ctx.processes.map((p) => `${p.pid}:${p.command}`).join('|'),
+    labels: ctx.processes.map((p) => `${p.pid}:${p.command}:${p.status}`).join('|'),
     kill: ctx.kill,
   }
   return <div data-testid="processes">{latest.labels}</div>
@@ -41,6 +41,10 @@ beforeEach(() => {
   global.fetch = vi.fn().mockResolvedValue({ ok: true }) as unknown as typeof fetch
 })
 
+afterEach(() => {
+  vi.useRealTimers()
+})
+
 describe('BackgroundProcessesProvider', () => {
   it('filters process events by active project/chat and preserves append order', () => {
     render(<BackgroundProcessesProvider><Probe /></BackgroundProcessesProvider>)
@@ -49,10 +53,28 @@ describe('BackgroundProcessesProvider', () => {
     send({ type: 'background_process.started', projectId: 'proj-1', process: { pid: 3, command: 'npm test', cwd: '/repo', startedAt: 12, status: 'running', chatId: 'chat-2', projectId: 'proj-1' } })
     send({ type: 'background_process.started', projectId: 'proj-1', process: { pid: 4, command: 'npm run watch', cwd: '/repo', startedAt: 13, status: 'running', chatId: 'chat-1', projectId: 'proj-1' } })
 
-    expect(latest.labels).toBe('1:npm run dev|4:npm run watch')
+    expect(latest.labels).toBe('1:npm run dev:running|4:npm run watch:running')
 
     send({ type: 'background_process.exited', projectId: 'proj-1', process: { pid: 1, command: 'npm run dev', cwd: '/repo', startedAt: 10, status: 'exited', chatId: 'chat-1', projectId: 'proj-1', exitCode: 0 } })
-    expect(latest.labels).toBe('4:npm run watch')
+    expect(latest.labels).toBe('1:npm run dev:exited|4:npm run watch:running')
+  })
+
+  it('keeps failed/exited processes visible briefly but removes killed processes immediately', () => {
+    vi.useFakeTimers()
+    render(<BackgroundProcessesProvider><Probe /></BackgroundProcessesProvider>)
+
+    send({ type: 'background_process.started', projectId: 'proj-1', process: { pid: 77, command: 'npm run dev', cwd: '/repo', startedAt: 10, status: 'running', chatId: 'chat-1', projectId: 'proj-1' } })
+    send({ type: 'background_process.exited', projectId: 'proj-1', process: { pid: 77, command: 'npm run dev', cwd: '/repo', startedAt: 10, status: 'failed', chatId: 'chat-1', projectId: 'proj-1', exitCode: 1 } })
+    expect(latest.labels).toBe('77:npm run dev:failed')
+
+    act(() => { vi.advanceTimersByTime(7999) })
+    expect(latest.labels).toBe('77:npm run dev:failed')
+    act(() => { vi.advanceTimersByTime(1) })
+    expect(latest.labels).toBe('')
+
+    send({ type: 'background_process.started', projectId: 'proj-1', process: { pid: 88, command: 'vite', cwd: '/repo', startedAt: 10, status: 'running', chatId: 'chat-1', projectId: 'proj-1' } })
+    send({ type: 'background_process.exited', projectId: 'proj-1', process: { pid: 88, command: 'vite', cwd: '/repo', startedAt: 10, status: 'killed', chatId: 'chat-1', projectId: 'proj-1', signal: 'SIGTERM' } })
+    expect(latest.labels).toBe('')
   })
 
   it('kills through the project-scoped API without confirmation state', async () => {

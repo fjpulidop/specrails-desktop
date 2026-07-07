@@ -264,6 +264,15 @@ describe('tool handlers', () => {
       cwd: '../outside',
     })).rejects.toThrow(/cwd/)
 
+    const originCtx = { ...ctx, originConversationId: 'c-origin' }
+    const startedFromOrigin = await t.handler(originCtx, {
+      action: 'background_start',
+      projectId: 'p1',
+      command: 'npm run dev',
+      cwd: '.',
+    }) as { process: { chatId: string } }
+    expect(startedFromOrigin.process.chatId).toBe('c-origin')
+
     const started = await t.handler(ctx, {
       action: 'background_start',
       projectId: 'p1',
@@ -280,9 +289,9 @@ describe('tool handlers', () => {
     }))
 
     await expect(async () => t.handler(ctx, { action: 'background_kill', projectId: 'p1', chatId: 'c1' })).rejects.toThrow(/pid/)
-    const killed = await t.handler(ctx, { action: 'background_kill', projectId: 'p1', chatId: 'c1', pid: 123 }) as { ok: boolean }
+    const killed = await t.handler(originCtx, { action: 'background_kill', projectId: 'p1', pid: 123 }) as { ok: boolean }
     expect(killed.ok).toBe(true)
-    expect(killOwnedBackgroundProcess).toHaveBeenCalledWith(123, { projectId: 'p1', chatId: 'c1' })
+    expect(killOwnedBackgroundProcess).toHaveBeenCalledWith(123, { projectId: 'p1', chatId: 'c-origin' })
   })
 })
 
