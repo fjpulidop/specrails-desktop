@@ -1,5 +1,12 @@
 # Changelog
 
+## [2.26.2](https://github.com/fjpulidop/specrails-desktop/compare/v2.26.1...v2.26.2) (2026-07-07)
+
+
+### Bug Fixes
+
+* **rails:** continue PR iterations cleanly ([#525](https://github.com/fjpulidop/specrails-desktop/issues/525)) ([915b4e2](https://github.com/fjpulidop/specrails-desktop/commit/915b4e20601f1921c67136fa718c7cf670ad3ad7))
+
 ## [2.26.1](https://github.com/fjpulidop/specrails-desktop/compare/v2.26.0...v2.26.1) (2026-07-07)
 
 
