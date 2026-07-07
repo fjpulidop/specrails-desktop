@@ -17,7 +17,7 @@ import { RailPrDecisionStrip } from './RailPrDecisionStrip'
 import { providerSupportsReasoningEffort } from '../lib/provider-capabilities'
 import { modelsForProvider, defaultModelForProvider } from '../lib/loop-run-models'
 import type { LocalTicket, RailPrDecision, RailPrDecisionAction, RailPrStateSnapshot } from '../types'
-import type { RailPrActResult } from '../context/RailPrDecisionContext'
+import type { RailPrActResult, RailPrCheckoutResult } from '../context/RailPrDecisionContext'
 
 const LONG_PRESS_MS = 800
 const SWIPE_THRESHOLD = 60
@@ -51,6 +51,8 @@ interface RailRowProps {
   prDecision?: RailPrStateSnapshot | null
   /** POSTs /rails/pr-decision for this rail (already bound to its railIndex). */
   onPrDecision?: (action: RailPrDecisionAction, expectedDecision: RailPrDecision) => Promise<RailPrActResult>
+  /** Checks out this rail's delivered PR branch in the user's main repo. */
+  onPrCheckout?: () => Promise<RailPrCheckoutResult>
   /** Live execution metrics (elapsed/steps/lines) while running — same WS source
    *  as the Jobs view. Null when not running / no data. */
   executionMetric?: import('../context/RailMetricsContext').RailExecMetric | null
@@ -86,7 +88,7 @@ interface RailRowProps {
 
 export function RailRow({
   id, label, tickets, mode, status, activeJobId, profileName, aiEngine, freestyleModel, loopModel, providers,
-  loopAvailable, selectedLoopId, reasoningEffort, worktreeSummary, prDecision, onPrDecision, executionMetric, jiggleMode,
+  loopAvailable, selectedLoopId, reasoningEffort, worktreeSummary, prDecision, onPrDecision, onPrCheckout, executionMetric, jiggleMode,
   dragHandleListeners, dragHandleAttributes, density = 'normal',
   onModeChange, onProfileChange, onEngineChange, onFreestyleModelChange, onLoopModelChange, onLoopChange, onEffortChange, onToggle, onTicketClick, onDelete, onLongPress, onRename,
   onTicketMoveToSpecs,
@@ -481,7 +483,7 @@ export function RailRow({
         {/* Ask-first PR decision strip (safe-pr-review-flow) */}
         {prDecision && onPrDecision && (
           <div className="mt-1">
-            <RailPrDecisionStrip decision={prDecision} density="compact" act={onPrDecision} />
+            <RailPrDecisionStrip decision={prDecision} density="compact" act={onPrDecision} checkout={onPrCheckout} />
           </div>
         )}
 
@@ -647,7 +649,7 @@ export function RailRow({
           {/* Ask-first PR decision strip (safe-pr-review-flow) */}
           {prDecision && onPrDecision && (
             <div className="px-3 pb-1.5">
-              <RailPrDecisionStrip decision={prDecision} density="normal" act={onPrDecision} />
+              <RailPrDecisionStrip decision={prDecision} density="normal" act={onPrDecision} checkout={onPrCheckout} />
             </div>
           )}
 

@@ -13,6 +13,7 @@ import { useAgentRefActions } from '../../hooks/useAgentRefActions'
 import { useRunVitals, formatRunElapsed } from '../../hooks/useRunVitals'
 import {
   postRailPrDecision,
+  postRailPrCheckout,
   type AgentPrDecisionAction,
   type AgentPrDecisionEnvelope,
 } from '../../lib/agent-api'
@@ -133,6 +134,7 @@ export function AgentPrDecisionCard({ envelope }: { envelope: AgentPrDecisionEnv
   // same scoping rule as the card's decision POSTs.
   const { openRef } = useAgentRefActions()
   const [busy, setBusy] = useState<AgentPrDecisionAction | null>(null)
+  const [checkingOut, setCheckingOut] = useState(false)
   const [confirmingDiscard, setConfirmingDiscard] = useState(false)
   const confirmTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
   // A clicked run-log chip → the run's JobDetailModal (portals to body).
@@ -157,6 +159,7 @@ export function AgentPrDecisionCard({ envelope }: { envelope: AgentPrDecisionEnv
   }, [])
 
   const act = async (action: AgentPrDecisionAction) => {
+    if (checkingOut) return
     setBusy(action)
     try {
       const r = await postRailPrDecision(envelope.projectId, {
@@ -184,6 +187,23 @@ export function AgentPrDecisionCard({ envelope }: { envelope: AgentPrDecisionEnv
       toast.error(t('prCard.actionFailed'), { description: e instanceof Error ? e.message : undefined })
     } finally {
       setBusy(null)
+    }
+  }
+
+  const checkoutPrBranch = async () => {
+    if (busy || checkingOut) return
+    setCheckingOut(true)
+    try {
+      const r = await postRailPrCheckout(envelope.projectId, envelope.prDeliveryId)
+      if (r.kind === 'ok') {
+        toast.success(t('prCard.checkoutSuccess', { branch: envelope.branch ?? '' }))
+      } else {
+        toast.warning(t('prCard.checkoutFailed'), { description: r.detail })
+      }
+    } catch (e) {
+      toast.error(t('prCard.checkoutFailed'), { description: e instanceof Error ? e.message : undefined })
+    } finally {
+      setCheckingOut(false)
     }
   }
 
@@ -328,13 +348,28 @@ export function AgentPrDecisionCard({ envelope }: { envelope: AgentPrDecisionEnv
       : 'border-border/60 text-foreground/70 hover:border-destructive/40 hover:bg-destructive/10 hover:text-destructive',
   )
 
-  const anyBusy = busy !== null
+  const anyBusy = busy !== null || checkingOut
   const spinner = <Loader2 className="h-3 w-3 animate-spin" />
 
   const primaryAction = (action: AgentPrDecisionAction, label: string) => (
     <button type="button" onClick={() => void act(action)} disabled={anyBusy} data-agent-interactive className={primaryBtn}>
       {busy === action && spinner}
       {label}
+    </button>
+  )
+
+  const checkoutAction = prUrl && envelope.branch && (
+    <button
+      type="button"
+      onClick={() => void checkoutPrBranch()}
+      disabled={anyBusy}
+      data-testid="agent-pr-checkout"
+      data-agent-interactive
+      title={t('prCard.checkoutTooltip', { branch: envelope.branch })}
+      className="inline-flex items-center gap-1 rounded-md border border-border/60 px-2 py-1 text-[11px] font-medium text-foreground/70 transition-colors hover:border-accent-primary/40 hover:bg-accent-primary/10 disabled:pointer-events-none disabled:opacity-50"
+    >
+      {checkingOut ? spinner : <GitBranch className="h-3 w-3" />}
+      {t('prCard.checkout')}
     </button>
   )
 
@@ -446,6 +481,7 @@ export function AgentPrDecisionCard({ envelope }: { envelope: AgentPrDecisionEnv
           )}
           {decision === 'pr_draft' && !degradedDraft && (
             <div className="flex items-center gap-1.5">
+              {checkoutAction}
               {primaryAction('publish', t('prCard.publish'))}
               {discardAction}
             </div>
@@ -459,14 +495,16 @@ export function AgentPrDecisionCard({ envelope }: { envelope: AgentPrDecisionEnv
           )}
           {decision === 'pr_ready' && (
             <div className="flex items-center gap-1.5">
+              {checkoutAction}
               {primaryAction('poll-merge', t('prCard.checkMerge'))}
               {discardAction}
             </div>
           )}
           {decision === 'pr_failed' && (
             <div className="flex items-center gap-1.5">
+              {checkoutAction}
               {primaryAction('create-pr', t('prCard.retry'))}
-              {mergeLocalAction}
+              {!prUrl && mergeLocalAction}
               {discardAction}
             </div>
           )}

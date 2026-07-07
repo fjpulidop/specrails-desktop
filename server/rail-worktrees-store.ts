@@ -7,11 +7,11 @@
  */
 import type { DbInstance } from './db'
 
-/** building → built → merging → {merged | needs-review | failed}. */
-export type MergeState = 'building' | 'built' | 'merging' | 'merged' | 'needs-review' | 'failed'
+/** building → built → merging → {merged | needs-review | failed | released}. */
+export type MergeState = 'building' | 'built' | 'merging' | 'merged' | 'needs-review' | 'failed' | 'released'
 
 /** States after which the worktree is done (eligible for cleanup/reconciliation). */
-export const TERMINAL_MERGE_STATES: ReadonlySet<MergeState> = new Set(['merged', 'needs-review', 'failed'])
+export const TERMINAL_MERGE_STATES: ReadonlySet<MergeState> = new Set(['merged', 'needs-review', 'failed', 'released'])
 
 export function isTerminalMergeState(s: string): boolean {
   return TERMINAL_MERGE_STATES.has(s as MergeState)
@@ -91,7 +91,7 @@ export function listRailWorktrees(db: DbInstance, railIndex?: number): RailWorkt
  *  process (mark failed + sweep). */
 export function listNonTerminalRailWorktrees(db: DbInstance): RailWorktreeRow[] {
   return db
-    .prepare(`SELECT * FROM rail_worktrees WHERE merge_state NOT IN ('merged','needs-review','failed') ORDER BY rail_index, ticket_id`)
+    .prepare(`SELECT * FROM rail_worktrees WHERE merge_state NOT IN ('merged','needs-review','failed','released') ORDER BY rail_index, ticket_id`)
     .all() as RailWorktreeRow[]
 }
 

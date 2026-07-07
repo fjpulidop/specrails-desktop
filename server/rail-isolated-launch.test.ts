@@ -607,6 +607,7 @@ describe('launchIsolatedRail — active PR continuation', () => {
     }
     const exec = {
       run: vi.fn(async (cmd: string, args: string[]) => {
+        if (cmd === 'git' && args[0] === 'push') return { code: 0, stdout: '', stderr: '' }
         if (cmd === 'gh' && args[0] === 'pr') {
           return {
             code: 0,
@@ -647,6 +648,52 @@ describe('launchIsolatedRail — active PR continuation', () => {
     })
   })
 
+  it('marks an existing-PR continuation as pr_failed when follow-up push fails', async () => {
+    const { ctx, db } = continuationCtx()
+    const create = vi.fn(async (_g: unknown, input: { branch?: string; ticketId: number }) => ({
+      branch: input.branch ?? `sr/p/ticket-${input.ticketId}`,
+      worktreePath: `/wt/ticket-${input.ticketId}`,
+    }))
+    const git = {
+      run: async (args: string[]) => {
+        if (args[0] === 'rev-parse' && args.at(-1) === 'refs/heads/feat/SKILLS-19-key-terms-activity') {
+          return { code: 0, stdout: '', stderr: '' }
+        }
+        return { code: 0, stdout: '', stderr: '' }
+      },
+    }
+    const exec = {
+      run: vi.fn(async (cmd: string, args: string[]) => {
+        if (cmd === 'git' && args[0] === 'push') return { code: 1, stdout: '', stderr: 'no remote' }
+        if (cmd === 'gh' && args[0] === 'pr') {
+          return {
+            code: 0,
+            stdout: JSON.stringify([{
+              number: 2147,
+              title: '[SKILLS-70] Existing implementation',
+              body: 'Implements ticket #98.',
+              headRefName: 'feat/SKILLS-19-key-terms-activity',
+              baseRefName: 'main',
+              url: 'https://github.com/org/repo/pull/2147',
+              isDraft: false,
+            }]),
+            stderr: '',
+          }
+        }
+        return { code: 1, stdout: '', stderr: 'unexpected' }
+      }),
+    }
+
+    await launchIsolatedRail(input([98], ctx), { git, exec, create, remove: vi.fn(async () => {}) })
+
+    await vi.waitFor(() => expect(getActivePrDeliveryByRail(db, 0)!.decision).toBe('pr_failed'))
+    expect(getActivePrDeliveryByRail(db, 0)).toMatchObject({
+      branch: 'feat/SKILLS-19-key-terms-activity',
+      pr_url: 'https://github.com/org/repo/pull/2147',
+      pr_state: 'local-only',
+    })
+  })
+
   it('continues the explicitly mentioned PR number even when the PR branch uses an older Jira key', async () => {
     const { ctx, db } = continuationCtx()
     ;(ctx as unknown as { getTicketSpec: (id: number) => unknown }).getTicketSpec = (id: number) => ({
@@ -671,7 +718,8 @@ describe('launchIsolatedRail — active PR continuation', () => {
       },
     }
     const exec = {
-      run: vi.fn(async (_cmd: string, args: string[]) => {
+      run: vi.fn(async (cmd: string, args: string[]) => {
+        if (cmd === 'git' && args[0] === 'push') return { code: 0, stdout: '', stderr: '' }
         if (args[0] === 'pr' && args[1] === 'list') return {
           code: 0,
           stdout: JSON.stringify([{

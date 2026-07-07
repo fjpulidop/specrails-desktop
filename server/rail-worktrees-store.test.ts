@@ -44,14 +44,16 @@ describe('rail_worktrees ledger', () => {
     mk('a', 0, 1); mk('b', 0, 2); mk('c', 0, 3)
     updateRailWorktreeState(db, 'a', 'merged')
     updateRailWorktreeState(db, 'b', 'merging')
-    // c stays 'building'
-    expect(listNonTerminalRailWorktrees(db).map((r) => r.id).sort()).toEqual(['b', 'c'])
+    updateRailWorktreeState(db, 'c', 'released')
+    // c is released and therefore terminal.
+    expect(listNonTerminalRailWorktrees(db).map((r) => r.id).sort()).toEqual(['b'])
   })
 
   it('classifies terminal states', () => {
     expect(isTerminalMergeState('merged')).toBe(true)
     expect(isTerminalMergeState('needs-review')).toBe(true)
     expect(isTerminalMergeState('failed')).toBe(true)
+    expect(isTerminalMergeState('released')).toBe(true)
     expect(isTerminalMergeState('building')).toBe(false)
     expect(isTerminalMergeState('merging')).toBe(false)
   })

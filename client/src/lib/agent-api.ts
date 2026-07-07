@@ -322,6 +322,27 @@ export async function postRailPrDecision(
   return { kind: 'failed', detail: String(data?.detail ?? data?.error ?? `HTTP ${res.status}`) }
 }
 
+export type AgentPrCheckoutOutcome =
+  | { kind: 'ok' }
+  | { kind: 'failed'; detail: string }
+
+export async function postRailPrCheckout(projectId: string, prDeliveryId: string): Promise<AgentPrCheckoutOutcome> {
+  const res = await fetch(`${API_ORIGIN}/api/projects/${projectId}/rails/pr-checkout`, {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({ prDeliveryId }),
+  })
+  let data: Record<string, unknown> | null = null
+  try {
+    const text = await res.text()
+    data = text ? (JSON.parse(text) as Record<string, unknown>) : null
+  } catch {
+    data = null
+  }
+  if (res.ok) return { kind: 'ok' }
+  return { kind: 'failed', detail: String(data?.detail ?? data?.error ?? `HTTP ${res.status}`) }
+}
+
 // ── Provider availability (no AI CLI installed → degraded banner) ─────────────
 export async function getAvailableProviders(): Promise<{ any: boolean; installed: string[] }> {
   const data = await json<Record<string, unknown>>(await fetch(`${API_ORIGIN}/api/available-providers`))

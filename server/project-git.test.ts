@@ -4,7 +4,7 @@ import { execFileSync } from 'child_process'
 import fs from 'fs'
 import os from 'os'
 import path from 'path'
-import { getProjectGitInfo, checkoutProjectBranch, parseWorktreePorcelain, compactCheckoutError } from './project-git'
+import { getProjectGitInfo, checkoutProjectBranch, checkoutProjectReviewBranch, parseWorktreePorcelain, compactCheckoutError } from './project-git'
 import { registerGitRoutes } from './project-router-git'
 import type { ProjectRoutesDeps } from './project-router-helpers'
 
@@ -94,6 +94,19 @@ describe('project-git', () => {
     expect(info.branch).toBe('main')
     expect(fs.readFileSync(path.join(repo, 'file.txt'), 'utf-8')).toContain('precious')
     run(repo, 'checkout', '--', 'file.txt')
+  })
+
+  it('checkoutProjectReviewBranch checks out a local PR branch and refuses dirty work', async () => {
+    fs.writeFileSync(path.join(repo, 'file.txt'), 'dirty\n')
+    const dirty = await checkoutProjectReviewBranch(repo, 'feature')
+    expect(dirty.ok).toBe(false)
+    if (!dirty.ok) expect(dirty.error).toContain('uncommitted changes')
+    run(repo, 'checkout', '--', 'file.txt')
+
+    const ok = await checkoutProjectReviewBranch(repo, 'feature')
+    expect(ok).toEqual({ ok: true })
+    expect((await getProjectGitInfo(repo)).branch).toBe('feature')
+    run(repo, 'checkout', 'main')
   })
 
   it('reports an unborn fresh repo as git:true with no commits', async () => {

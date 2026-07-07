@@ -187,6 +187,31 @@ describe('RailPrDecisionStrip interactions', () => {
     await waitFor(() => expect(mockToast.info).toHaveBeenCalledWith('Not merged yet'))
   })
 
+  it('Checkout calls the checkout callback and shows a success toast', async () => {
+    const act = vi.fn().mockResolvedValue(okResult)
+    const checkout = vi.fn().mockResolvedValue({ ok: true, status: 200 })
+    render(
+      <RailPrDecisionStrip
+        decision={snapshot({
+          decision: 'pr_ready',
+          branch: 'feat/review-followup',
+          prUrl: 'https://github.com/o/r/pull/5',
+          prNumber: 5,
+          prState: 'pr-created',
+        })}
+        density="normal"
+        act={act}
+        checkout={checkout}
+      />,
+    )
+
+    fireEvent.click(screen.getByTestId('rail-pr-checkout'))
+
+    await waitFor(() => expect(checkout).toHaveBeenCalledTimes(1))
+    expect(act).not.toHaveBeenCalled()
+    await waitFor(() => expect(mockToast.success).toHaveBeenCalledWith('Checked out feat/review-followup'))
+  })
+
   it('Discard requires the destructive confirm; confirming calls act(discard, <current>)', async () => {
     const act = vi.fn().mockResolvedValue({ ok: true, status: 200, decision: 'discarded' })
     renderStrip(snapshot({ decision: 'pr_failed' }), act)

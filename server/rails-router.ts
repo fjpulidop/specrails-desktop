@@ -29,8 +29,10 @@ import {
 import { classifyLoopEffect } from './loop-effect'
 import { executePrDecision, isPrDecisionAction } from './rail-pr-decision'
 import { launchIsolatedRail } from './rail-isolated-launch'
-import { repoIsolationStatus, defaultGitRunner } from './worktree-manager'
-import { defaultExec } from './pr-publisher'
+import { repoIsolationStatus, defaultGitRunner, commitWorktree } from './worktree-manager'
+import { releaseRailWorktrees } from './rail-worktree-release'
+import { checkoutProjectReviewBranch, getProjectGitInfo } from './project-git'
+import { defaultExec, pushBranch } from './pr-publisher'
 import { newId } from './ids'
 import { getAgentChatManager } from './agent-chat-registry'
 import type { ReasoningEffort } from './providers/types'
@@ -53,7 +55,7 @@ const VALID_REASONING_EFFORTS = new Set(['low', 'medium', 'high'])
 
 function prDeliveryContinuesTickets(delivery: PrDeliverySnapshot, ticketIds: number[]): boolean {
   if (delivery.decision !== 'pr_draft' && delivery.decision !== 'pr_ready') return false
-  if (!delivery.prUrl || !delivery.branch) return false
+  if (!delivery.prUrl || !delivery.branch || delivery.prState !== 'pr-created') return false
   const covered = new Set(delivery.ticketIds)
   return ticketIds.length > 0 && ticketIds.every((id) => covered.has(id))
 }
@@ -648,14 +650,42 @@ export function createRailsRouter(): Router {
             if (transitionDecision(c.db, fallbackPrDeliveryId, 'building', 'building', { runIds: loopRunIds })) {
               emitPrDeliveryUpdate(c, fallbackPrDeliveryId)
             }
-            void Promise.allSettled(sharedRunSettles).then(() => {
-              const current = getPrDelivery(c.db, fallbackPrDeliveryId!)
-              if (current?.decision !== 'building') return
-              if (current.pr_state === 'pr-created' && current.pr_url && current.branch) {
-                if (transitionDecision(c.db, fallbackPrDeliveryId!, 'building', 'pr_ready')) {
-                  emitPrDeliveryUpdate(c, fallbackPrDeliveryId!)
+            void Promise.allSettled(sharedRunSettles).then((settled) => {
+              void (async () => {
+                const current = getPrDelivery(c.db, fallbackPrDeliveryId!)
+                if (current?.decision !== 'building') return
+                if (current.pr_state === 'pr-created' && current.pr_url && current.branch) {
+                  const succeeded = settled.every((s) => s.status === 'fulfilled' && s.value === true)
+                  if (!succeeded) {
+                    if (transitionDecision(c.db, fallbackPrDeliveryId!, 'building', 'pr_failed', { prState: 'local-only' })) {
+                      emitPrDeliveryUpdate(c, fallbackPrDeliveryId!)
+                    }
+                    return
+                  }
+                  await commitWorktree(defaultGitRunner, c.project.path, `specrails: PR follow-up (${loopRunIds.join(', ')})`)
+                  const pushed = await pushBranch(defaultExec, {
+                    repoDir: c.project.path,
+                    branch: current.branch,
+                    baseBranch: current.base_branch,
+                  })
+                  if (pushed.state === 'local-only') {
+                    if (transitionDecision(c.db, fallbackPrDeliveryId!, 'building', 'pr_failed', { prState: 'local-only' })) {
+                      emitPrDeliveryUpdate(c, fallbackPrDeliveryId!)
+                    }
+                    return
+                  }
+                  if (transitionDecision(c.db, fallbackPrDeliveryId!, 'building', 'pr_ready', { prState: 'pr-created' })) {
+                    emitPrDeliveryUpdate(c, fallbackPrDeliveryId!)
+                  }
                 }
-              }
+              })().catch((err) => {
+                console.error('[rails-router] existing PR fallback push failed:', err)
+                if (fallbackPrDeliveryId) {
+                  if (transitionDecision(c.db, fallbackPrDeliveryId, 'building', 'pr_failed', { prState: 'local-only' })) {
+                    emitPrDeliveryUpdate(c, fallbackPrDeliveryId)
+                  }
+                }
+              })
             })
           }
         }
@@ -857,6 +887,50 @@ export function createRailsRouter(): Router {
     } catch (err) {
       console.error('[rails-router] pr-decision error:', err)
       res.status(500).json({ error: 'pr-decision failed', detail: (err as Error).message })
+    }
+  })
+
+  // POST /rails/pr-checkout — move the user's main checkout to the delivered PR
+  // branch. This is intentionally separate from PR decisions: it does not accept,
+  // publish, discard, or merge anything. It only releases Specrails-managed
+  // worktrees for this delivery (keeping branches) and then checks out the PR
+  // branch in the real project repo so the user can test/edit locally.
+  router.post('/pr-checkout', async (req: Request, res: Response) => {
+    const c = ctx(req)
+    const { prDeliveryId } = req.body ?? {}
+    if (typeof prDeliveryId !== 'string' || !prDeliveryId) {
+      res.status(400).json({ error: 'prDeliveryId is required' }); return
+    }
+    const row = getPrDelivery(c.db, prDeliveryId)
+    if (!row) {
+      res.status(404).json({ error: 'Unknown prDeliveryId' }); return
+    }
+    const snap = toPrDeliverySnapshot(row)
+    if (!snap.branch || !snap.prUrl) {
+      res.status(409).json({ error: 'checkout_unavailable', detail: 'delivery has no PR branch' }); return
+    }
+    try {
+      const info = await getProjectGitInfo(c.project.path)
+      if (!info.git) {
+        res.status(409).json({ error: 'checkout_unavailable', detail: 'project is not a git repository' }); return
+      }
+      if (info.dirty) {
+        res.status(409).json({ error: 'checkout_dirty', detail: 'Working tree has uncommitted changes. Commit or stash them before checkout.' }); return
+      }
+      await releaseRailWorktrees({
+        db: c.db,
+        git: defaultGitRunner,
+        repoDir: c.project.path,
+        worktreeIds: snap.worktreeIds,
+      })
+      const result = await checkoutProjectReviewBranch(c.project.path, snap.branch)
+      if (!result.ok) {
+        res.status(409).json({ error: 'checkout_failed', detail: result.error }); return
+      }
+      res.json({ ok: true, git: await getProjectGitInfo(c.project.path) })
+    } catch (err) {
+      console.error('[rails-router] pr-checkout error:', err)
+      res.status(500).json({ error: 'pr-checkout failed', detail: (err as Error).message })
     }
   })
 

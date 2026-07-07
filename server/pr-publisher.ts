@@ -73,10 +73,48 @@ export interface PublishDraftPrInput {
   remote?: string
 }
 
+export interface PushBranchInput {
+  /** A git dir that shares the repo's object-store (the worktree or the base repo). */
+  repoDir: string
+  /** The already-committed branch carrying the work. */
+  branch: string
+  /** Protected base branch: never push this branch as a delivery head. */
+  baseBranch: string
+  /** Remote to push to (default `origin`). */
+  remote?: string
+}
+
+export type PushBranchResult =
+  | { state: 'pushed'; branch: string }
+  | { state: 'local-only'; branch: string; reason: string }
+
 /** Extract the first PR URL gh prints (e.g. https://github.com/o/r/pull/12). */
 export function parsePrUrl(stdout: string): string | undefined {
   const m = stdout.match(/https?:\/\/\S+\/pull\/\d+/)
   return m ? m[0] : undefined
+}
+
+/** Push a committed delivery branch, including the gh-credential retry used by
+ *  draft PR creation. This is also used for follow-up commits on an existing PR:
+ *  that path must update the same remote PR branch without trying to create a
+ *  second PR. */
+export async function pushBranch(exec: Exec, input: PushBranchInput): Promise<PushBranchResult> {
+  const remote = input.remote ?? 'origin'
+  const { repoDir, branch, baseBranch } = input
+
+  const pushArgs = ['push', '-u', remote, branch]
+  assertGitAllowed('git', pushArgs, { protectedBranch: baseBranch })
+  let push = await exec.run('git', pushArgs, repoDir)
+  if (push.code !== 0 && isCredentialFailure(push)) {
+    const retry = await exec.run(
+      'git',
+      ['-c', 'credential.helper=', '-c', 'credential.helper=!gh auth git-credential', ...pushArgs],
+      repoDir,
+    )
+    if (retry.code === 0) push = retry
+  }
+  if (push.code !== 0) return { state: 'local-only', branch, reason: reasonFrom(push) }
+  return { state: 'pushed', branch }
 }
 
 export async function publishDraftPr(exec: Exec, input: PublishDraftPrInput): Promise<PrPublishResult> {
@@ -85,30 +123,8 @@ export async function publishDraftPr(exec: Exec, input: PublishDraftPrInput): Pr
 
   // 1. Push the branch (set upstream). Failure → local-only, never throw.
   //    Guardrail: never force-push, never push the integration branch itself.
-  const pushArgs = ['push', '-u', remote, branch]
-  assertGitAllowed('git', pushArgs, { protectedBranch: baseBranch })
-  let push = await exec.run('git', pushArgs, repoDir)
-  if (push.code !== 0 && isCredentialFailure(push)) {
-    // The push failed authenticating over HTTPS — typically the machine's
-    // configured credential helper (e.g. git-credential-osxkeychain) is not on
-    // the app's PATH (GUI-launch PATH divergence: the sidecar inherits launchd's
-    // PATH, not the user's login shell). Retry borrowing gh's credentials — the
-    // SAME auth we use for `gh pr create` below, so if the PR can be created the
-    // push can succeed — instead of depending on a machine credential helper.
-    // `-c credential.helper=` first RESETS the (broken) inherited helper list,
-    // then adds gh's. Harmless for SSH remotes (git ignores credential.helper).
-    // The semantic push (refspec/remote) is unchanged, so the guardrail asserted
-    // above still holds; no-op when gh is absent (retry fails the same way).
-    const retry = await exec.run(
-      'git',
-      ['-c', 'credential.helper=', '-c', 'credential.helper=!gh auth git-credential', ...pushArgs],
-      repoDir,
-    )
-    if (retry.code === 0) push = retry
-  }
-  if (push.code !== 0) {
-    return { state: 'local-only', branch, reason: reasonFrom(push) }
-  }
+  const pushed = await pushBranch(exec, { repoDir, branch, baseBranch, remote })
+  if (pushed.state === 'local-only') return pushed
 
   // 2. Open a DRAFT PR. Failure (no gh / not authed / perms) → pushed, never throw.
   const pr = await exec.run(

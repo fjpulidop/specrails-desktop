@@ -238,9 +238,18 @@ describe('executePrDecision guards', () => {
 
 describe('create-pr', () => {
   it('delivered pr-created → pr_draft with branch/prUrl/prNumber/prState patched', async () => {
-    const row = mkRow({ decision: 'on_review', branches: [{ ticketId: 1, branch: 'feat/1-t1', succeeded: true }] })
+    createRailWorktree(db, {
+      id: 'w1', railIndex: 0, ticketId: 1, branch: 'feat/1-t1',
+      worktreePath: '/wt/ticket-1', mergeState: 'built',
+    })
+    const row = mkRow({
+      decision: 'on_review',
+      branches: [{ ticketId: 1, branch: 'feat/1-t1', succeeded: true }],
+      worktreeIds: ['w1'],
+    })
     const { exec, calls: execCalls } = fakeExec({ create: { code: 0, stdout: `${PR_URL}\n`, stderr: '' } })
-    const { deps, broadcast } = mkDeps({ exec })
+    const { git, calls: gitCalls } = fakeGit()
+    const { deps, broadcast } = mkDeps({ exec, git })
 
     const r = await executePrDecision(deps, { prDeliveryId: row.id, action: 'create-pr', expectedDecision: 'on_review' })
 
@@ -259,6 +268,8 @@ describe('create-pr', () => {
     expect(create.args).toContain('--draft')
     expect(create.args).toContain('main')
     expect(create.cwd).toBe('/repo')
+    expect(gitCalls).toContainEqual({ args: ['worktree', 'remove', '--force', '/wt/ticket-1'], cwd: '/repo' })
+    expect(getRailWorktree(db, 'w1')?.merge_state).toBe('released')
   })
 
   it('single unit covering N tickets: title counts and body lists ALL covered tickets', async () => {
@@ -371,6 +382,51 @@ describe('create-pr', () => {
     expect(calls[delIdx].cwd).toBe('/repo')
     // the integration branch is never deleted
     expect(calls.some((c) => c.args[0] === 'branch' && c.args[1] === '-D' && c.args[2] === 'main')).toBe(false)
+  })
+
+  it('retry from pr_failed with an existing PR pushes follow-up commits to the same PR branch', async () => {
+    createRailWorktree(db, {
+      id: 'w1', railIndex: 0, ticketId: 1, branch: 'feat/1-t1',
+      worktreePath: '/wt/ticket-1', mergeState: 'built',
+    })
+    const draft = mkRow({ decision: 'pr_draft', prUrl: PR_URL, worktreeIds: ['w1'] })
+    transitionDecision(db, draft.id, 'pr_draft', 'pr_failed', { prState: 'local-only' })
+    const row = getPrDelivery(db, draft.id)!
+    const { exec, calls: execCalls } = fakeExec()
+    const { git, calls: gitCalls } = fakeGit()
+    const { deps, broadcast } = mkDeps({ exec, git })
+
+    const r = await executePrDecision(deps, { prDeliveryId: row.id, action: 'create-pr', expectedDecision: 'pr_failed' })
+
+    expect(r.status).toBe(200)
+    expect(r.body).toMatchObject({ ok: true, decision: 'pr_ready', prUrl: PR_URL, prState: 'pr-created' })
+    expect(execCalls).toContainEqual({ cmd: 'git', args: ['push', '-u', 'origin', 'feat/1-t1'], cwd: '/repo' })
+    expect(execCalls.some((c) => c.cmd === 'gh' && c.args[1] === 'create')).toBe(false)
+    expect(gitCalls).toContainEqual({ args: ['worktree', 'remove', '--force', '/wt/ticket-1'], cwd: '/repo' })
+    expect(getRailWorktree(db, 'w1')?.merge_state).toBe('released')
+    expect(prStateBroadcasts(broadcast)[0]).toMatchObject({ decision: 'pr_ready', prState: 'pr-created' })
+  })
+
+  it('retry from pr_failed with an existing PR stays retryable when the follow-up push fails', async () => {
+    createRailWorktree(db, {
+      id: 'w1', railIndex: 0, ticketId: 1, branch: 'feat/1-t1',
+      worktreePath: '/wt/ticket-1', mergeState: 'built',
+    })
+    const draft = mkRow({ decision: 'pr_draft', prUrl: PR_URL, worktreeIds: ['w1'] })
+    transitionDecision(db, draft.id, 'pr_draft', 'pr_failed', { prState: 'local-only' })
+    const row = getPrDelivery(db, draft.id)!
+    const { exec } = fakeExec({ push: { code: 1, stdout: '', stderr: 'no remote' } })
+    const { git, calls: gitCalls } = fakeGit()
+    const { deps, broadcast } = mkDeps({ exec, git })
+
+    const r = await executePrDecision(deps, { prDeliveryId: row.id, action: 'create-pr', expectedDecision: 'pr_failed' })
+
+    expect(r.status).toBe(200)
+    expect(r.body).toMatchObject({ ok: true, decision: 'pr_failed', prUrl: PR_URL, detail: 'no remote' })
+    expect(getPrDelivery(db, row.id)).toMatchObject({ decision: 'pr_failed', pr_state: 'local-only' })
+    expect(gitCalls.some((c) => c.args[0] === 'worktree' && c.args[1] === 'remove')).toBe(false)
+    expect(getRailWorktree(db, 'w1')?.merge_state).toBe('built')
+    expect(prStateBroadcasts(broadcast)[0]).toMatchObject({ decision: 'pr_failed', prState: 'local-only' })
   })
 
   it('retry from a degraded pr_draft (prUrl null) is allowed and can succeed', async () => {
@@ -619,9 +675,14 @@ describe('create-pr — wedged-row branch recovery', () => {
 
 describe('publish', () => {
   it('gh pr ready → pr_ready + broadcast', async () => {
-    const row = mkRow({ decision: 'pr_draft', prUrl: PR_URL })
+    createRailWorktree(db, {
+      id: 'w1', railIndex: 0, ticketId: 1, branch: 'feat/1-t1',
+      worktreePath: '/wt/ticket-1', mergeState: 'built',
+    })
+    const row = mkRow({ decision: 'pr_draft', prUrl: PR_URL, worktreeIds: ['w1'] })
     const { exec, calls } = fakeExec()
-    const { deps, broadcast } = mkDeps({ exec })
+    const { git, calls: gitCalls } = fakeGit()
+    const { deps, broadcast } = mkDeps({ exec, git })
 
     const r = await executePrDecision(deps, { prDeliveryId: row.id, action: 'publish', expectedDecision: 'pr_draft' })
 
@@ -630,6 +691,8 @@ describe('publish', () => {
     expect(calls).toContainEqual({ cmd: 'gh', args: ['pr', 'ready', PR_URL], cwd: '/repo' })
     expect(getPrDelivery(db, row.id)?.decision).toBe('pr_ready')
     expect(prStateBroadcasts(broadcast)[0]).toMatchObject({ decision: 'pr_ready' })
+    expect(gitCalls).toContainEqual({ args: ['worktree', 'remove', '--force', '/wt/ticket-1'], cwd: '/repo' })
+    expect(getRailWorktree(db, 'w1')?.merge_state).toBe('released')
   })
 
   it('gh failure → 502 gh_failed with NO transition and NO broadcast', async () => {
@@ -777,9 +840,14 @@ describe('discard', () => {
 
 describe('poll-merge', () => {
   it('MERGED → merged, tickets on_review→done, jira notified with the PR url', async () => {
-    const row = mkRow({ decision: 'pr_ready', prUrl: PR_URL, ticketIds: [1, 2, 3] })
+    createRailWorktree(db, {
+      id: 'w1', railIndex: 0, ticketId: 1, branch: 'feat/1-t1',
+      worktreePath: '/wt/ticket-1', mergeState: 'built',
+    })
+    const row = mkRow({ decision: 'pr_ready', prUrl: PR_URL, ticketIds: [1, 2, 3], worktreeIds: ['w1'] })
     const { exec, calls } = fakeExec({ view: { code: 0, stdout: '{"state":"MERGED","mergedAt":"2026-07-03T00:00:00Z"}', stderr: '' } })
-    const { deps, broadcast, jira } = mkDeps({ exec })
+    const { git, calls: gitCalls } = fakeGit()
+    const { deps, broadcast, jira } = mkDeps({ exec, git })
 
     const r = await executePrDecision(deps, { prDeliveryId: row.id, action: 'poll-merge', expectedDecision: 'pr_ready' })
 
@@ -794,6 +862,8 @@ describe('poll-merge', () => {
     expect(ticketBroadcasts(broadcast).map((m) => m.ticket!.id).sort()).toEqual([1, 2])
     expect(jira.onRailMerged).toHaveBeenCalledWith([1, 2], row.id, PR_URL)
     expect(prStateBroadcasts(broadcast)[0]).toMatchObject({ decision: 'merged' })
+    expect(gitCalls).toContainEqual({ args: ['worktree', 'remove', '--force', '/wt/ticket-1'], cwd: '/repo' })
+    expect(gitCalls).toContainEqual({ args: ['branch', '-D', 'feat/1-t1'], cwd: '/repo' })
   })
 
   it('not merged → 200 merged:false, decision unchanged, nothing broadcast', async () => {
