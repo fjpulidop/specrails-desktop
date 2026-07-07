@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
-import { GitPullRequest, GitMerge, ExternalLink, Loader2, AlertTriangle, Eye } from 'lucide-react'
+import { GitPullRequest, GitMerge, ExternalLink, Loader2, AlertTriangle, Eye, GitBranch } from 'lucide-react'
 import {
   Dialog,
   DialogContent,
@@ -12,13 +12,15 @@ import {
 } from './ui/dialog'
 import { Button } from './ui/button'
 import type { RailPrDecision, RailPrDecisionAction, RailPrStateSnapshot } from '../types'
-import type { RailPrActResult } from '../context/RailPrDecisionContext'
+import type { RailPrActResult, RailPrCheckoutResult } from '../context/RailPrDecisionContext'
 
 interface RailPrDecisionStripProps {
   decision: RailPrStateSnapshot
   density: 'normal' | 'compact'
   /** POSTs /rails/pr-decision for this rail (bound to railIndex upstream). */
   act: (action: RailPrDecisionAction, expectedDecision: RailPrDecision) => Promise<RailPrActResult>
+  /** Checks out this delivery's PR branch in the user's main repo. */
+  checkout?: () => Promise<RailPrCheckoutResult>
 }
 
 /**
@@ -28,9 +30,10 @@ interface RailPrDecisionStripProps {
  * flight and the strip reconciles to the next `rail.pr_state` broadcast (no
  * optimistic writes). Discard is destructive → confirm dialog first.
  */
-export function RailPrDecisionStrip({ decision, density, act }: RailPrDecisionStripProps) {
+export function RailPrDecisionStrip({ decision, density, act, checkout }: RailPrDecisionStripProps) {
   const { t } = useTranslation('dashboard')
   const [inFlight, setInFlight] = useState<RailPrDecisionAction | null>(null)
+  const [checkingOut, setCheckingOut] = useState(false)
   const [confirmDiscard, setConfirmDiscard] = useState(false)
   const [confirmMergeLocal, setConfirmMergeLocal] = useState(false)
 
@@ -41,7 +44,7 @@ export function RailPrDecisionStrip({ decision, density, act }: RailPrDecisionSt
   const compact = density === 'compact'
 
   async function run(action: RailPrDecisionAction, expected: RailPrDecision) {
-    if (inFlight) return
+    if (inFlight || checkingOut) return
     setInFlight(action)
     try {
       const res = await act(action, expected)
@@ -96,6 +99,21 @@ export function RailPrDecisionStrip({ decision, density, act }: RailPrDecisionSt
     }
   }
 
+  async function runCheckout() {
+    if (!checkout || inFlight || checkingOut) return
+    setCheckingOut(true)
+    try {
+      const res = await checkout()
+      if (!res.ok) {
+        toast.warning(t('railPr.checkoutFailed'), { description: res.detail ?? res.error })
+        return
+      }
+      toast.success(t('railPr.checkoutSuccess', { branch: decision.branch ?? '' }))
+    } finally {
+      setCheckingOut(false)
+    }
+  }
+
   // ── shared bits ─────────────────────────────────────────────────────────────
   const pillBase = `inline-flex items-center gap-1 rounded-full font-medium border ${
     compact ? 'px-1.5 py-0.5 text-[9px]' : 'px-2 py-0.5 text-[10px]'
@@ -108,6 +126,7 @@ export function RailPrDecisionStrip({ decision, density, act }: RailPrDecisionSt
   }`
   const iconCls = compact ? 'w-2.5 h-2.5' : 'w-3 h-3'
   const spinner = <Loader2 className={`${iconCls} animate-spin`} aria-hidden />
+  const busy = inFlight !== null || checkingOut
 
   const linkChip = decision.prUrl ? (
     <a
@@ -140,7 +159,7 @@ export function RailPrDecisionStrip({ decision, density, act }: RailPrDecisionSt
     <button
       type="button"
       data-testid="rail-pr-discard"
-      disabled={inFlight !== null}
+      disabled={busy}
       title={t('railPr.discardTooltip')}
       onClick={(e) => { e.stopPropagation(); setConfirmDiscard(true) }}
       className={ghostBtn}
@@ -157,7 +176,7 @@ export function RailPrDecisionStrip({ decision, density, act }: RailPrDecisionSt
     <button
       type="button"
       data-testid="rail-pr-merge-local"
-      disabled={inFlight !== null}
+      disabled={busy}
       title={t('railPr.mergeLocalTooltip', { base: decision.baseBranch })}
       onClick={(e) => { e.stopPropagation(); setConfirmMergeLocal(true) }}
       className={`inline-flex items-center gap-1 rounded-md font-medium border border-accent-success/40 bg-accent-success/10 text-accent-success hover:bg-accent-success/20 disabled:opacity-50 disabled:pointer-events-none transition-colors ${
@@ -180,7 +199,7 @@ export function RailPrDecisionStrip({ decision, density, act }: RailPrDecisionSt
     <button
       type="button"
       data-testid={testId}
-      disabled={inFlight !== null}
+      disabled={busy}
       title={title}
       onClick={(e) => { e.stopPropagation(); void run(action, expected) }}
       className={primaryBtn}
@@ -189,6 +208,22 @@ export function RailPrDecisionStrip({ decision, density, act }: RailPrDecisionSt
       {label}
     </button>
   )
+
+  const checkoutBtn = checkout && decision.prUrl && decision.branch ? (
+    <button
+      type="button"
+      data-testid="rail-pr-checkout"
+      disabled={busy}
+      title={t('railPr.checkoutTooltip', { branch: decision.branch })}
+      onClick={(e) => { e.stopPropagation(); void runCheckout() }}
+      className={`inline-flex items-center gap-1 rounded-md font-medium border border-border/60 text-foreground/70 hover:border-accent-primary/40 hover:bg-accent-primary/10 disabled:opacity-50 disabled:pointer-events-none transition-colors ${
+        compact ? 'px-1.5 py-0.5 text-[9px]' : 'px-2 py-0.5 text-[10px]'
+      }`}
+    >
+      {checkingOut ? spinner : <GitBranch className={iconCls} aria-hidden />}
+      {t('railPr.checkout')}
+    </button>
+  ) : null
 
   // ── per-state pill + actions ────────────────────────────────────────────────
   let pill: React.ReactNode = null
@@ -231,6 +266,7 @@ export function RailPrDecisionStrip({ decision, density, act }: RailPrDecisionSt
     actions = (
       <>
         {linkChip}
+        {checkoutBtn}
         {actionButton('publish', 'pr_draft', t('railPr.publish'), 'rail-pr-publish', t('railPr.publishTooltip'))}
         {discardBtn}
       </>
@@ -261,6 +297,7 @@ export function RailPrDecisionStrip({ decision, density, act }: RailPrDecisionSt
     actions = (
       <>
         {linkChip}
+        {checkoutBtn}
         {actionButton('poll-merge', 'pr_ready', t('railPr.checkMerge'), 'rail-pr-poll', t('railPr.checkMergeTooltip'))}
         {discardBtn}
       </>
@@ -274,8 +311,10 @@ export function RailPrDecisionStrip({ decision, density, act }: RailPrDecisionSt
     )
     actions = (
       <>
+        {linkChip}
+        {checkoutBtn}
         {actionButton('create-pr', 'pr_failed', t('railPr.retry'), 'rail-pr-create', t('railPr.createPrTooltip', { base: decision.baseBranch }))}
-        {mergeLocalBtn}
+        {!decision.prUrl && mergeLocalBtn}
         {discardBtn}
       </>
     )

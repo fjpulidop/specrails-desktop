@@ -930,6 +930,7 @@ describe('rails-router POST /:railIndex/launch — ask-first PR delivery (safe-p
       throw new Error('git worktree add failed for feat/open-pr: already checked out')
     })
     const broadcast = vi.fn()
+    mockExecRun.mockResolvedValue({ code: 0, stdout: '', stderr: '' })
 
     const res = await request(launchApp({ broadcast })).post('/rails/0/launch').send({ loopId: 'factory:implement' })
 
@@ -947,6 +948,7 @@ describe('rails-router POST /:railIndex/launch — ask-first PR delivery (safe-p
       expect.objectContaining({ prDeliveryId: iterationDeliveryId, decision: 'building', prUrl: 'https://github.com/o/r/pull/521' }),
       expect.objectContaining({ prDeliveryId: iterationDeliveryId, decision: 'pr_ready', prUrl: 'https://github.com/o/r/pull/521' }),
     ]))
+    expect(mockExecRun).toHaveBeenCalledWith('git', ['push', '-u', 'origin', 'feat/open-pr'], '/repo')
     expect(getPrDelivery(db, iterationDeliveryId)?.decision).not.toBe('discarded')
   })
 

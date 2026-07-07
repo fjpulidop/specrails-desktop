@@ -36,6 +36,13 @@ export interface RailPrActResult {
   base?: string
 }
 
+export interface RailPrCheckoutResult {
+  status: number
+  ok: boolean
+  error?: string
+  detail?: string
+}
+
 interface RailPrDecisionContextValue {
   /** Active (non-terminal) PR deliveries keyed by railIndex. */
   decisions: Map<number, RailPrStateSnapshot>
@@ -43,11 +50,14 @@ interface RailPrDecisionContextValue {
   hydrated: boolean
   /** POST the decision action for the rail's active delivery. Never throws. */
   act: (railIndex: number, action: RailPrDecisionAction, expectedDecision: RailPrDecision) => Promise<RailPrActResult>
+  /** Checkout the rail's delivered PR branch into the user's main repo. */
+  checkout: (railIndex: number) => Promise<RailPrCheckoutResult>
 }
 
 const noopAct = async (): Promise<RailPrActResult> => ({ status: 0, ok: false, error: 'no_provider' })
+const noopCheckout = async (): Promise<RailPrCheckoutResult> => ({ status: 0, ok: false, error: 'no_provider' })
 
-const RailPrDecisionContext = createContext<RailPrDecisionContextValue>({ decisions: new Map(), hydrated: true, act: noopAct })
+const RailPrDecisionContext = createContext<RailPrDecisionContextValue>({ decisions: new Map(), hydrated: true, act: noopAct, checkout: noopCheckout })
 
 /** Per-rail active PR decisions + the shared decision-action caller. */
 export function useRailPrDecisions(): RailPrDecisionContextValue {
@@ -216,7 +226,24 @@ export function RailPrDecisionProvider({ activeProjectId, children }: { activePr
     }
   }, [])
 
-  const value = useMemo(() => ({ decisions, hydrated, act }), [decisions, hydrated, act])
+  const checkout = useCallback(async (railIndex: number): Promise<RailPrCheckoutResult> => {
+    const snap = decisionsRef.current.get(railIndex)
+    const projectId = projRef.current
+    if (!snap || !projectId) return { status: 0, ok: false, error: 'no_delivery' }
+    try {
+      const res = await fetch(`/api/projects/${projectId}/rails/pr-checkout`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ prDeliveryId: snap.prDeliveryId }),
+      })
+      const body = (await res.json().catch(() => ({}))) as Omit<RailPrCheckoutResult, 'status'>
+      return { ...body, status: res.status, ok: res.ok && body.ok === true }
+    } catch (err) {
+      return { status: 0, ok: false, error: 'network', detail: (err as Error).message }
+    }
+  }, [])
+
+  const value = useMemo(() => ({ decisions, hydrated, act, checkout }), [decisions, hydrated, act, checkout])
 
   return <RailPrDecisionContext.Provider value={value}>{children}</RailPrDecisionContext.Provider>
 }

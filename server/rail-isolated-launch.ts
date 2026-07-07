@@ -47,8 +47,9 @@ import { isCodeExplorerEnabled } from './feature-flags'
 import { snapshotWorkingTree, type WorkingTreeSnapshot } from './file-provenance'
 import { recordLoopRunProvenance } from './file-story'
 import { getAdapter } from './providers'
-import { defaultExec, type Exec } from './pr-publisher'
+import { defaultExec, pushBranch, type Exec } from './pr-publisher'
 import { resolveActivePrContinuationTargets, type ActivePrContinuationTarget } from './active-pr-continuation'
+import { releaseRailWorktrees } from './rail-worktree-release'
 import type { BranchToMerge } from './merge-manager'
 import type { LoopGraph } from './loop-graph'
 import type { ProjectContext } from './project-registry'
@@ -532,9 +533,25 @@ export async function launchIsolatedRail(input: IsolatedLaunchInput, io: Isolate
       const worktreeIds = allocated.map((a) => a.ledgerId)
       const anySucceeded = results.some((r) => r.succeeded)
       const settledContinuation = anySucceeded ? launchContinuation : null
+      let continuationPushFailed = false
+      let continuationPushFailureReason: string | null = null
+      if (settledContinuation) {
+        const pushed = await pushBranch(exec, {
+          repoDir: baseRepo,
+          branch: settledContinuation.branch,
+          baseBranch: settledContinuation.baseBranch,
+        })
+        if (pushed.state === 'local-only') {
+          continuationPushFailed = true
+          continuationPushFailureReason = pushed.reason
+          console.warn(`[rail-isolated] existing PR follow-up push failed for ${settledContinuation.branch}: ${continuationPushFailureReason}`)
+        }
+      }
       const next = anySucceeded
         ? (settledContinuation
-            ? (settledContinuation.isDraft === false ? 'pr_ready' as const : 'pr_draft' as const)
+            ? (continuationPushFailed
+                ? 'pr_failed' as const
+                : (settledContinuation.isDraft === false ? 'pr_ready' as const : 'pr_draft' as const))
             : 'on_review' as const)
         : 'discarded' as const
       const patch = settledContinuation
@@ -544,10 +561,13 @@ export async function launchIsolatedRail(input: IsolatedLaunchInput, io: Isolate
             branch: settledContinuation.branch,
             prUrl: settledContinuation.prUrl,
             prNumber: settledContinuation.prNumber,
-            prState: 'pr-created' as const,
+            prState: continuationPushFailed ? 'local-only' as const : 'pr-created' as const,
           }
         : { branches, worktreeIds }
       if (prDeliveryId && transitionDecision(ctx.db, prDeliveryId, 'building', next, patch)) {
+        if (settledContinuation && !continuationPushFailed) {
+          await releaseRailWorktrees({ db: ctx.db, git, repoDir: baseRepo, worktreeIds })
+        }
         broadcastPrState()
         // Completion driver: refresh the origin conversation's card in place —
         // on_review asks the question, discarded informs the outcome.

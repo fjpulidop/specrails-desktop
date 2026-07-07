@@ -17,6 +17,7 @@ function prDeliveryContinuesTickets(raw: unknown, ticketIds: number[]): boolean 
   if (decision !== 'pr_draft' && decision !== 'pr_ready') return false
   if (typeof raw.prUrl !== 'string' || !raw.prUrl) return false
   if (typeof raw.branch !== 'string' || !raw.branch) return false
+  if (raw.prState !== 'pr-created') return false
   if (!Array.isArray(raw.ticketIds)) return false
   const covered = new Set(raw.ticketIds.filter((id): id is number => typeof id === 'number'))
   return ticketIds.length > 0 && ticketIds.every((id) => covered.has(id))

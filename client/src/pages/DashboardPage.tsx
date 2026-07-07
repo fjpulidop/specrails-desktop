@@ -170,7 +170,7 @@ export default function DashboardPage() {
   const railMetrics = useRailMetrics()
   // Ask-first PR decisions per rail (safe-pr-review-flow) — app-level provider,
   // WS-hydrated snapshots + the single POST /rails/pr-decision caller.
-  const { decisions: railPrDecisions, hydrated: railPrDecisionsHydrated, act: actRailPrDecision } = useRailPrDecisions()
+  const { decisions: railPrDecisions, hydrated: railPrDecisionsHydrated, act: actRailPrDecision, checkout: checkoutRailPrBranch } = useRailPrDecisions()
   const initialSort = loadSpecSort(activeProjectId)
   const [sortMode, setSortMode] = useState<SpecSortMode>(initialSort.mode)
   const [sortDir, setSortDir] = useState<SpecSortDir>(initialSort.dir)
@@ -1387,6 +1387,7 @@ export default function DashboardPage() {
             railMetrics={railMetrics}
             railPrDecisions={railPrDecisions}
             onPrDecision={actRailPrDecision}
+            onPrCheckout={checkoutRailPrBranch}
             providers={railProviders}
             onModeChange={handleModeChange}
             onProfileChange={handleProfileChange}

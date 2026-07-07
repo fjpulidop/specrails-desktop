@@ -30,8 +30,9 @@ import * as path from 'path'
 import { resolveHome } from './artifact-registry'
 import type { DbInstance } from './db'
 import { removeWorktree, type GitRunner } from './worktree-manager'
-import type { Exec, ExecResult } from './pr-publisher'
+import { pushBranch, type Exec, type ExecResult } from './pr-publisher'
 import { deliverRailAsPr } from './rail-pr-delivery'
+import { releaseRailWorktrees } from './rail-worktree-release'
 import { batchBranchNameFor, buildPrTitle, type TicketNamingInput } from './pr-naming'
 import { buildCanonicalPrBody, collectBranchChanges, type BranchChanges } from './pr-body'
 import { getLinkByLocalId } from './jira/jira-db'
@@ -178,6 +179,42 @@ function batchWorktreeRoot(slug: string): string {
   return path.join(resolveHome(), '.specrails', 'projects', slug, 'worktrees')
 }
 
+async function resolveExistingPrDecisionAfterPush(deps: PrDecisionDeps, row: RailPrDeliveryRow): Promise<'pr_draft' | 'pr_ready'> {
+  if (!row.pr_url) return 'pr_ready'
+  const r = await deps.exec.run('gh', ['pr', 'view', row.pr_url, '--json', 'isDraft,state'], deps.project.path)
+  if (r.code !== 0) return 'pr_ready'
+  try {
+    const parsed = JSON.parse(r.stdout) as { isDraft?: unknown; state?: unknown }
+    if (parsed.isDraft === true) return 'pr_draft'
+  } catch {
+    /* fall through to the conservative published/open state */
+  }
+  return 'pr_ready'
+}
+
+async function retryExistingPrFollowupPush(deps: PrDecisionDeps, row: RailPrDeliveryRow): Promise<PrDecisionResult> {
+  if (!row.branch || !row.pr_url) return { status: 502, body: { error: 'push_failed', detail: 'missing PR branch/url' } }
+  const pushed = await pushBranch(deps.exec, {
+    repoDir: deps.project.path,
+    branch: row.branch,
+    baseBranch: row.base_branch,
+  })
+  if (pushed.state === 'local-only') {
+    const conflict = casTransition(deps, row, 'pr_failed', { prState: 'local-only' })
+    if (conflict) return conflict
+    finalizeTransition(deps, row.id)
+    return { status: 200, body: { ok: true, decision: 'pr_failed', prUrl: row.pr_url, detail: pushed.reason } }
+  }
+
+  const next = await resolveExistingPrDecisionAfterPush(deps, row)
+  const snap = toPrDeliverySnapshot(row)
+  const conflict = casTransition(deps, row, next, { prState: 'pr-created' })
+  if (conflict) return conflict
+  await releaseRailWorktrees({ db: deps.db, git: deps.git, repoDir: deps.project.path, worktreeIds: snap.worktreeIds })
+  const after = finalizeTransition(deps, row.id)
+  return { status: 200, body: { ok: true, decision: next, prUrl: after?.prUrl ?? row.pr_url, prState: 'pr-created' } }
+}
+
 /** Naming + body data for a PR's ticket, resolved at create-pr time. */
 interface PrTicketData extends TicketNamingInput {
   description?: string | null
@@ -252,6 +289,10 @@ async function findRecoverableBranch(
 }
 
 async function runCreatePr(deps: PrDecisionDeps, row: RailPrDeliveryRow): Promise<PrDecisionResult> {
+  if (row.decision === 'pr_failed' && row.pr_url && row.branch) {
+    return retryExistingPrFollowupPush(deps, row)
+  }
+
   const snap = toPrDeliverySnapshot(row)
 
   // Pre-flight: every succeeded unit branch must actually exist before we push
@@ -375,6 +416,9 @@ async function runCreatePr(deps: PrDecisionDeps, row: RailPrDeliveryRow): Promis
 
   const conflict = casTransition(deps, row, next, patch)
   if (conflict) return conflict
+  if (next === 'pr_draft' && patch.prUrl) {
+    await releaseRailWorktrees({ db: deps.db, git: deps.git, repoDir: deps.project.path, worktreeIds: snap.worktreeIds })
+  }
   const after = finalizeTransition(deps, row.id)
   // Tickets stay on_review — a draft PR is still awaiting the engineer's merge.
   return {
@@ -392,8 +436,10 @@ async function runCreatePr(deps: PrDecisionDeps, row: RailPrDeliveryRow): Promis
 async function runPublish(deps: PrDecisionDeps, row: RailPrDeliveryRow): Promise<PrDecisionResult> {
   const r = await deps.exec.run('gh', ['pr', 'ready', row.pr_url!], deps.project.path)
   if (r.code !== 0) return ghFailed(r) // no transition — the draft is still a draft
+  const snap = toPrDeliverySnapshot(row)
   const conflict = casTransition(deps, row, 'pr_ready')
   if (conflict) return conflict
+  await releaseRailWorktrees({ db: deps.db, git: deps.git, repoDir: deps.project.path, worktreeIds: snap.worktreeIds })
   finalizeTransition(deps, row.id)
   return { status: 200, body: { ok: true, decision: 'pr_ready', prUrl: row.pr_url } }
 }
@@ -476,11 +522,27 @@ async function runPollMerge(deps: PrDecisionDeps, row: RailPrDeliveryRow): Promi
     return { status: 200, body: { ok: true, decision: row.decision, merged: false } }
   }
 
+  const snap = toPrDeliverySnapshot(row)
+  const branchSet = new Set<string>(snap.branches.map((b) => b.branch))
+  if (row.branch) branchSet.add(row.branch)
+  const succeededUnits = snap.branches.filter((b) => b.succeeded)
+  if (succeededUnits.length > 1) {
+    try {
+      branchSet.add(batchBranchNameFor(loadPrTicketData(deps, succeededUnits.map((b) => b.ticketId))))
+    } catch {
+      /* best-effort cleanup only */
+    }
+  }
+  await releaseRailWorktrees({ db: deps.db, git: deps.git, repoDir: deps.project.path, worktreeIds: snap.worktreeIds, state: 'merged' })
+  for (const branch of branchSet) {
+    if (!branch || branch === row.base_branch) continue
+    await deps.git.run(['branch', '-D', branch], deps.project.path).catch(() => {})
+  }
+
   const conflict = casTransition(deps, row, 'merged')
   if (conflict) return conflict
   finalizeTransition(deps, row.id)
 
-  const snap = toPrDeliverySnapshot(row)
   const changed = applyTicketTransition(deps, snap.ticketIds, 'done')
   try {
     deps.jiraSyncManager?.onRailMerged(changed, row.id, row.pr_url)

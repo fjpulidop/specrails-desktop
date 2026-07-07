@@ -11,7 +11,7 @@ import type { ReasoningEffort } from './agents/RailEffortSelector'
 import type { LocalTicket, RailPrDecision, RailPrDecisionAction, RailPrStateSnapshot } from '../types'
 import { worktreeSummary, type RailWorktreeMap } from '../lib/worktree-progress'
 import type { RailExecMetric } from '../context/RailMetricsContext'
-import type { RailPrActResult } from '../context/RailPrDecisionContext'
+import type { RailPrActResult, RailPrCheckoutResult } from '../context/RailPrDecisionContext'
 
 export const RAIL_SORT_PREFIX = '__rail:'
 export function railSortId(railId: string) { return `${RAIL_SORT_PREFIX}${railId}` }
@@ -89,6 +89,8 @@ interface RailsBoardProps {
   railPrDecisions?: Map<number, RailPrStateSnapshot>
   /** POSTs /rails/pr-decision for a rail's active delivery. */
   onPrDecision?: (railIndex: number, action: RailPrDecisionAction, expectedDecision: RailPrDecision) => Promise<RailPrActResult>
+  /** POSTs /rails/pr-checkout for a rail's active delivery. */
+  onPrCheckout?: (railIndex: number) => Promise<RailPrCheckoutResult>
   /** Installed providers — when >1 the rail header shows an AI engine selector. */
   providers?: readonly string[]
   onModeChange: (railId: string, mode: RailMode) => void
@@ -133,7 +135,7 @@ function SortableRailWrapper({ railId, children }: { railId: string; children: (
 /** Width threshold below which rail rows switch to the compact mini-card layout. */
 export const RAILS_COMPACT_THRESHOLD_PX = 320
 
-export function RailsBoard({ rails, ticketMap, railWorktrees, railMetrics, railPrDecisions, onPrDecision, providers, onModeChange, onProfileChange, onEngineChange, onFreestyleModelChange, onLoopModelChange, loopAvailable, onLoopChange, onEffortChange, onToggle, onTicketClick, onAddRail, onDeleteRail, onRenameRail, onTicketMoveToSpecs, onLaunchAll, launchAllCount }: RailsBoardProps) {
+export function RailsBoard({ rails, ticketMap, railWorktrees, railMetrics, railPrDecisions, onPrDecision, onPrCheckout, providers, onModeChange, onProfileChange, onEngineChange, onFreestyleModelChange, onLoopModelChange, loopAvailable, onLoopChange, onEffortChange, onToggle, onTicketClick, onAddRail, onDeleteRail, onRenameRail, onTicketMoveToSpecs, onLaunchAll, launchAllCount }: RailsBoardProps) {
   const { t } = useTranslation('dashboard')
   const activeRails = rails.filter((r) => r.status === 'running').length
   const [jiggleMode, setJiggleMode] = useState(false)
@@ -240,6 +242,7 @@ export function RailsBoard({ rails, ticketMap, railWorktrees, railMetrics, railP
                     worktreeSummary={worktreeSummary(railWorktrees?.[railIndex])}
                     prDecision={railPrDecisions?.get(railIndex) ?? null}
                     onPrDecision={onPrDecision ? (action, expected) => onPrDecision(railIndex, action, expected) : undefined}
+                    onPrCheckout={onPrCheckout ? () => onPrCheckout(railIndex) : undefined}
                     executionMetric={railMetrics?.[railIndex] ?? null}
                     providers={providers}
                     loopAvailable={loopAvailable}

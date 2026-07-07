@@ -1,5 +1,6 @@
 import { execFile } from 'child_process'
 import { GIT_EXEC_ENV } from './file-provenance'
+import { isValidBranchName } from './integration-branch'
 
 // ─── Project git info + branch switch (Agent-Mode git bar) ────────────────────
 //
@@ -165,4 +166,58 @@ export async function checkoutProjectBranch(repoDir: string, branch: string): Pr
     // reason (compacted: the raw refusal lists every dirty file).
     return { ok: false, error: compactCheckoutError(err instanceof Error ? err.message : 'git checkout failed') }
   }
+}
+
+async function remoteBranchExists(repoDir: string, branch: string): Promise<boolean> {
+  try {
+    await git(repoDir, ['rev-parse', '--verify', '--quiet', `refs/remotes/origin/${branch}`])
+    return true
+  } catch {
+    return false
+  }
+}
+
+/** Checkout a PR/review branch into the user's main repo. Unlike the small
+ *  AgentGitBar switcher, this path may materialize a local tracking branch from
+ *  `origin/<branch>` because a PR delivery can be remote-only after worktree
+ *  cleanup or a fresh clone. It never overwrites dirty local work. */
+export async function checkoutProjectReviewBranch(repoDir: string, branch: string): Promise<CheckoutResult> {
+  const target = branch.trim()
+  if (!isValidBranchName(target)) return { ok: false, error: `Invalid branch name: ${branch}` }
+
+  let dirty = false
+  try {
+    dirty = (await git(repoDir, ['status', '--porcelain'])) !== ''
+  } catch (err) {
+    return { ok: false, error: err instanceof Error ? err.message : 'git status failed' }
+  }
+  if (dirty) return { ok: false, error: 'Working tree has uncommitted changes. Commit or stash them before checkout.' }
+
+  // Best effort: refresh remote-tracking refs before deciding whether a branch
+  // can be materialized. Failure degrades to local-only checkout.
+  await git(repoDir, ['fetch', 'origin']).catch(() => {})
+
+  let branches: string[]
+  try {
+    branches = await listLocalBranches(repoDir)
+  } catch (err) {
+    return { ok: false, error: err instanceof Error ? err.message : 'git failed' }
+  }
+
+  try {
+    if (branches.includes(target)) {
+      await git(repoDir, ['checkout', target])
+    } else if (await remoteBranchExists(repoDir, target)) {
+      await git(repoDir, ['checkout', '-b', target, '--track', `origin/${target}`])
+    } else {
+      return { ok: false, error: `Unknown branch: ${target}` }
+    }
+  } catch (err) {
+    return { ok: false, error: compactCheckoutError(err instanceof Error ? err.message : 'git checkout failed') }
+  }
+
+  // A failed ff-only pull should not undo a successful checkout; the branch is
+  // already where the user can inspect/fix it. Surface only hard checkout errors.
+  await git(repoDir, ['pull', '--ff-only']).catch(() => {})
+  return { ok: true }
 }
