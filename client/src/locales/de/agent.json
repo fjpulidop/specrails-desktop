@@ -320,6 +320,12 @@
     "copyProject": "Projektname kopieren",
     "copyProjectPath": "Projektpfad kopieren",
     "copyFailed": "Kopieren fehlgeschlagen",
+    "copyTranscript": "Transkript kopieren",
+    "copyTranscriptSuccess": "Transkript kopiert",
+    "copyTranscriptFailed": "Transkript konnte nicht kopiert werden",
+    "exportTranscript": "Transkript exportieren (.txt)",
+    "exportTranscriptSuccess": "Transkriptexport gestartet",
+    "exportTranscriptFailed": "Transkript konnte nicht exportiert werden",
     "delete": "Mission löschen",
     "deleteConfirm": "Diese Mission löschen? Kann nicht rückgängig gemacht werden.",
     "deleteFailed": "Mission konnte nicht gelöscht werden"

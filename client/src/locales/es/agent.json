@@ -320,6 +320,12 @@
     "copyProject": "Copiar nombre del proyecto",
     "copyProjectPath": "Copiar ruta del proyecto",
     "copyFailed": "No se pudo copiar",
+    "copyTranscript": "Copiar transcripción",
+    "copyTranscriptSuccess": "Transcripción copiada",
+    "copyTranscriptFailed": "No se pudo copiar la transcripción",
+    "exportTranscript": "Exportar transcripción (.txt)",
+    "exportTranscriptSuccess": "Exportación de transcripción iniciada",
+    "exportTranscriptFailed": "No se pudo exportar la transcripción",
     "delete": "Borrar misión",
     "deleteConfirm": "¿Borrar esta misión? No se puede deshacer.",
     "deleteFailed": "No se pudo borrar la misión"

@@ -320,6 +320,12 @@
     "copyProject": "Copia nome progetto",
     "copyProjectPath": "Copia percorso progetto",
     "copyFailed": "Impossibile copiare",
+    "copyTranscript": "Copia trascrizione",
+    "copyTranscriptSuccess": "Trascrizione copiata",
+    "copyTranscriptFailed": "Impossibile copiare la trascrizione",
+    "exportTranscript": "Esporta trascrizione (.txt)",
+    "exportTranscriptSuccess": "Esportazione della trascrizione avviata",
+    "exportTranscriptFailed": "Impossibile esportare la trascrizione",
     "delete": "Elimina missione",
     "deleteConfirm": "Eliminare questa missione? Non è reversibile.",
     "deleteFailed": "Impossibile eliminare la missione"

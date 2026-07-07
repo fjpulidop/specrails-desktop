@@ -1,11 +1,69 @@
 import { useState, useRef, useEffect, useCallback } from 'react'
 import { useTranslation } from 'react-i18next'
 import { motion, AnimatePresence } from 'motion/react'
-import { MoreVertical, Pencil, Copy, Check, ChevronRight, Trash2, Heart } from 'lucide-react'
+import { MoreVertical, Pencil, Copy, Check, ChevronRight, Trash2, Heart, Download } from 'lucide-react'
 import { toast } from 'sonner'
 import { useAgentChat } from '../../context/AgentChatContext'
 import { useDesktop } from '../../hooks/useDesktop'
 import { cn } from '../../lib/utils'
+import type { AgentConversation, AgentMessage } from '../../lib/agent-api'
+
+type TranscriptProject = {
+  name?: string | null
+  path?: string | null
+}
+
+type TranscriptOptions = {
+  exportedAt?: string
+}
+
+type TranscriptConversation = Pick<AgentConversation, 'id' | 'title'>
+
+function roleLabel(role: string): string {
+  if (!role) return 'Unknown'
+  return role.charAt(0).toUpperCase() + role.slice(1)
+}
+
+export function formatMissionTranscript(
+  active: TranscriptConversation,
+  messages: AgentMessage[],
+  project?: TranscriptProject | null,
+  options?: TranscriptOptions,
+): string {
+  const title = active.title?.trim() || 'Untitled mission'
+  const exportedAt = options?.exportedAt ?? new Date().toISOString()
+  const lines = [
+    `Mission: ${title}`,
+    `Mission ID: ${active.id}`,
+  ]
+
+  if (project?.name) lines.push(`Project: ${project.name}`)
+  if (project?.path) lines.push(`Project path: ${project.path}`)
+  lines.push(`Exported at: ${exportedAt}`, '', 'Messages:')
+
+  if (messages.length === 0) {
+    lines.push('No messages loaded.')
+    return lines.join('\n')
+  }
+
+  messages.forEach((message, index) => {
+    if (index > 0) lines.push('')
+    lines.push(`[${message.created_at}] ${roleLabel(message.role)}`, message.content)
+  })
+
+  return lines.join('\n')
+}
+
+export function safeTranscriptFilename(title: string | null | undefined, id: string): string {
+  const slug = (title ?? '')
+    .normalize('NFKD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '')
+  const fallback = id.trim() || 'mission'
+  return `${slug || fallback}.txt`
+}
 
 /**
  * The conversation title bar for the Agent-Mode surface — a quiet breadcrumb
@@ -17,7 +75,7 @@ import { cn } from '../../lib/utils'
  */
 export function AgentConversationHeader() {
   const { t } = useTranslation('agent')
-  const { active, renameConversation, deleteConversation, startNewConversation, favoriteConversationIds, toggleFavoriteConversation } = useAgentChat()
+  const { active, messages, renameConversation, deleteConversation, startNewConversation, favoriteConversationIds, toggleFavoriteConversation } = useAgentChat()
   const { projects } = useDesktop()
   const [menuOpen, setMenuOpen] = useState(false)
   const [editing, setEditing] = useState(false)
@@ -82,6 +140,39 @@ export function AgentConversationHeader() {
       toast.error(t('header.copyFailed'))
     }
   }, [t])
+
+  const handleCopyTranscript = useCallback(async () => {
+    if (!active) return
+    setMenuOpen(false)
+    try {
+      await navigator.clipboard.writeText(formatMissionTranscript(active, messages, project))
+      setCopied('transcript')
+      toast.success(t('header.copyTranscriptSuccess', { defaultValue: 'Transcript copied' }))
+      setTimeout(() => setCopied((c) => (c === 'transcript' ? null : c)), 1400)
+    } catch {
+      toast.error(t('header.copyTranscriptFailed', { defaultValue: 'Could not copy transcript' }))
+    }
+  }, [active, messages, project, t])
+
+  const handleExportTranscript = useCallback(() => {
+    if (!active) return
+    setMenuOpen(false)
+    try {
+      const transcript = formatMissionTranscript(active, messages, project)
+      const blob = new Blob([transcript], { type: 'text/plain;charset=utf-8' })
+      const objectUrl = URL.createObjectURL(blob)
+      const anchor = document.createElement('a')
+      anchor.href = objectUrl
+      anchor.download = safeTranscriptFilename(active.title, active.id)
+      document.body.appendChild(anchor)
+      anchor.click()
+      anchor.remove()
+      URL.revokeObjectURL(objectUrl)
+      toast.success(t('header.exportTranscriptSuccess', { defaultValue: 'Transcript export started' }))
+    } catch {
+      toast.error(t('header.exportTranscriptFailed', { defaultValue: 'Could not export transcript' }))
+    }
+  }, [active, messages, project, t])
 
   const doDelete = useCallback(async () => {
     if (!active) return
@@ -253,6 +344,31 @@ export function AgentConversationHeader() {
             </button>
 
             <div className="my-1 h-px bg-border/50" />
+
+            <button
+              type="button"
+              role="menuitem"
+              data-testid="agent-conv-copy-transcript"
+              onClick={() => void handleCopyTranscript()}
+              className="flex w-full items-center gap-2.5 rounded-lg px-2.5 py-1.5 text-sm text-foreground/85 transition-colors hover:bg-surface/80"
+            >
+              {copied === 'transcript' ? (
+                <Check className="h-3.5 w-3.5 shrink-0 text-accent-success" />
+              ) : (
+                <Copy className="h-3.5 w-3.5 shrink-0 text-foreground/50" />
+              )}
+              <span className="min-w-0 flex-1 truncate text-left">{t('header.copyTranscript', { defaultValue: 'Copy transcript' })}</span>
+            </button>
+            <button
+              type="button"
+              role="menuitem"
+              data-testid="agent-conv-export-transcript"
+              onClick={handleExportTranscript}
+              className="flex w-full items-center gap-2.5 rounded-lg px-2.5 py-1.5 text-sm text-foreground/85 transition-colors hover:bg-surface/80"
+            >
+              <Download className="h-3.5 w-3.5 shrink-0 text-foreground/50" />
+              <span className="min-w-0 flex-1 truncate text-left">{t('header.exportTranscript', { defaultValue: 'Export transcript (.txt)' })}</span>
+            </button>
 
             {menuItems.map((item) =>
               item === 'divider' ? null : (
