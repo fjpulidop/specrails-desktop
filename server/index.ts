@@ -33,6 +33,7 @@ import { runCompactionForAll } from './telemetry-compactor'
 import { FrameworkManager } from './framework-manager'
 import { withFileLock } from './artifact-registry'
 import { resolveStartupPath, augmentPathFromLoginShell, augmentAuthEnvFromLoginShell, getPathDiagnostic, ensureWindowsBaseEnv } from './path-resolver'
+import { resolveServerPort } from './dev-ports'
 // Side-effect import: registers every bundled ProviderAdapter (claude, codex,
 // future providers) so `getAdapter`/`hasAdapter`/`listAdapters` are populated
 // before any manager constructs a project context. See
@@ -90,13 +91,7 @@ if (parentPidArg) {
 
 // ─── Parse CLI args ───────────────────────────────────────────────────────────
 
-let port = 4200
-
-for (let i = 2; i < process.argv.length; i++) {
-  if (process.argv[i] === '--port' && process.argv[i + 1]) {
-    port = parseInt(process.argv[++i], 10)
-  }
-}
+const port = resolveServerPort(process.argv)
 
 // ─── PID file management ──────────────────────────────────────────────────────
 
