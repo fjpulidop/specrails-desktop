@@ -2286,6 +2286,7 @@ describe('project-router', () => {
       expect(res.body.pipelineTelemetryEnabled).toBe(false)
       expect(res.body.orchestratorModel).toBe('sonnet')
       expect(res.body.prePrompt).toBe('')
+      expect(res.body.worktreeEnvPassthrough).toEqual([])
     })
   })
 
@@ -2377,6 +2378,30 @@ describe('project-router', () => {
         .send({ freestylePrePrompt: 7 })
       expect(res.status).toBe(400)
       expect(res.body.error).toContain('freestylePrePrompt')
+    })
+
+    it('updates worktree env passthrough names without storing values', async () => {
+      const ctx = makeContext(db)
+      const { app } = createApp(new Map([['proj-1', ctx]]))
+      const res = await request(app)
+        .patch('/api/projects/proj-1/settings')
+        .send({ worktreeEnvPassthrough: [' NODE_AUTH_TOKEN ', 'AWS_PROFILE', 'NODE_AUTH_TOKEN', ''] })
+      expect(res.status).toBe(200)
+      expect(res.body.settings.worktreeEnvPassthrough).toEqual(['NODE_AUTH_TOKEN', 'AWS_PROFILE'])
+      expect(JSON.stringify(res.body)).not.toContain('secret-token')
+
+      const get = await request(app).get('/api/projects/proj-1/settings')
+      expect(get.body.worktreeEnvPassthrough).toEqual(['NODE_AUTH_TOKEN', 'AWS_PROFILE'])
+    })
+
+    it('rejects invalid worktree env passthrough names', async () => {
+      const ctx = makeContext(db)
+      const { app } = createApp(new Map([['proj-1', ctx]]))
+      const res = await request(app)
+        .patch('/api/projects/proj-1/settings')
+        .send({ worktreeEnvPassthrough: ['NODE_AUTH_TOKEN=secret'] })
+      expect(res.status).toBe(400)
+      expect(res.body.error).toContain('invalid environment variable name')
     })
   })
 

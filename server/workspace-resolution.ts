@@ -184,11 +184,15 @@ export function resolveProjectExecution(
  *
  * Legacy projects return `process.env` untouched — byte-identical behaviour.
  */
-export function resolveLoopBaseEnv(project: ResolvableProject, home?: string): NodeJS.ProcessEnv {
+export function resolveLoopBaseEnv(
+  project: ResolvableProject,
+  home?: string,
+  baseEnv: NodeJS.ProcessEnv = process.env,
+): NodeJS.ProcessEnv {
   const exec = resolveProjectExecution(project, home)
-  if (!exec.relocated) return process.env
+  if (!exec.relocated) return baseEnv
   const { SPECRAILS_REPO_DIR: _perRun, ...projectEnv } = exec.env
-  return { ...process.env, ...projectEnv }
+  return { ...baseEnv, ...projectEnv }
 }
 
 /** Build the legacy (in-repo, byte-identical-to-today) execution. */

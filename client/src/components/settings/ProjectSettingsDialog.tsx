@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { Settings, SlidersHorizontal, Wallet, Activity, TerminalSquare } from 'lucide-react'
+import { Settings, SlidersHorizontal, Wallet, Activity, TerminalSquare, KeyRound } from 'lucide-react'
 import { cn } from '../../lib/utils'
 import { useDesktop } from '../../hooks/useDesktop'
 import {
@@ -15,10 +15,12 @@ import {
   ProjectTelemetrySection,
   ProjectPrePromptsSection,
   ProjectBudgetSection,
+  ProjectWorktreeEnvSection,
 } from './ProjectSettingsSections'
 
 const PROJECT_SETTINGS_SECTIONS = [
   { id: 'general', icon: SlidersHorizontal, labelKey: 'projectDialog.nav.general' },
+  { id: 'environment', icon: KeyRound, labelKey: 'projectDialog.nav.environment' },
   { id: 'budget', icon: Wallet, labelKey: 'projectDialog.nav.budget' },
   { id: 'telemetry', icon: Activity, labelKey: 'projectDialog.nav.telemetry' },
   { id: 'terminal', icon: TerminalSquare, labelKey: 'projectDialog.nav.terminal' },
@@ -80,6 +82,9 @@ export function ProjectSettingsDialog({ open, onClose }: { open: boolean; onClos
           <div className="min-w-0 flex-1 overflow-y-auto pr-1">
             <div className={paneCls('general')}>
               <ProjectPrePromptsSection />
+            </div>
+            <div className={paneCls('environment')}>
+              <ProjectWorktreeEnvSection />
             </div>
             <div className={paneCls('budget')}>
               <ProjectBudgetSection />

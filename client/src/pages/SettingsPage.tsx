@@ -10,6 +10,7 @@ import {
   ProjectPrePromptsSection,
   ProjectBudgetSection,
   ProjectIntegrationBranchSection,
+  ProjectWorktreeEnvSection,
 } from '../components/settings/ProjectSettingsSections'
 
 export default function SettingsPage() {
@@ -107,6 +108,8 @@ export default function SettingsPage() {
       <ProjectPrePromptsSection />
 
       <ProjectIntegrationBranchSection />
+
+      <ProjectWorktreeEnvSection />
 
       <ProjectBudgetSection />
 

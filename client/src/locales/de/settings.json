@@ -246,9 +246,10 @@
   },
   "projectDialog": {
     "title": "{{name}} — Einstellungen",
-    "description": "Projektkonfiguration: Prompts, Budget, Telemetrie und Terminal.",
+    "description": "Projektkonfiguration: Prompts, Umgebung, Budget, Telemetrie und Terminal.",
     "nav": {
       "general": "Allgemein",
+      "environment": "Umgebung",
       "budget": "Budget",
       "telemetry": "Telemetrie",
       "terminal": "Terminal"
@@ -262,5 +263,20 @@
     "save": "Branch speichern",
     "saved": "Integrationszweig gespeichert",
     "saveFailed": "Integrationszweig konnte nicht gespeichert werden"
+  },
+  "worktreeEnv": {
+    "title": "Worktree-Umgebung",
+    "description": "Wählen Sie die Namen der Umgebungsvariablen, die dieses Projekt an Rail-Jobs und isolierte Loop-Worktrees weitergibt. Gespeichert werden nur Namen; Werte werden beim Start gelesen und bei Bedarf aus der Login-Shell nachgeladen.",
+    "label": "Umgebungsvariable",
+    "placeholder": "NODE_AUTH_TOKEN",
+    "helper": "Drücken Sie Enter oder Hinzufügen. Mehrere Namen können durch Kommas oder Leerzeichen getrennt eingefügt werden.",
+    "add": "Hinzufügen",
+    "empty": "Für dieses Projekt sind noch keine eigenen Variablen konfiguriert.",
+    "remove": "{{name}} entfernen",
+    "save": "Umgebung speichern",
+    "saved": "Worktree-Umgebung gespeichert",
+    "saveFailed": "Worktree-Umgebung konnte nicht gespeichert werden",
+    "invalidName": "{{name}} ist kein gültiger Name für eine Umgebungsvariable",
+    "noValues": "Fügen Sie hier nur Variablennamen hinzu, keine KEY=value-Geheimnisse."
   }
 }

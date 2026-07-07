@@ -35,6 +35,7 @@ import { binaryOnPath } from './binary-probe'
 import { ensureFrameworkAgents, ensureFrameworkCommandSubtrees } from './workspace-manager'
 import { ensureClaudeTrusted } from './claude-trust'
 import { resolveProjectExecution, type ProjectExecution } from './workspace-resolution'
+import { applyWorktreeEnvPassthrough } from './project-env'
 import { readCurrentFrameworkVersion } from './framework-manager'
 import { ensureOpenspecShim, prependShimToPath, removeOpenspecShim, openspecShimDir } from './openspec-shim'
 import { resolveHome } from './artifact-registry'
@@ -1821,6 +1822,13 @@ export class QueueManager {
     // claude honours OTEL_* env vars natively; codex does not and instead
     // gets signals synthesised by the codex-otel-bridge attached below.
     let spawnEnv: NodeJS.ProcessEnv = process.env
+    // Per-project worktree/job env passthrough. The setting stores names only;
+    // values are read from the server env (with login-shell recovery for missing
+    // names) at spawn time. Apply this before Specrails' own env overlays so
+    // internal SPECRAILS_* control-plane values always win.
+    if (this._db) {
+      spawnEnv = applyWorktreeEnvPassthrough(this._db, spawnEnv)
+    }
     const telemetryEnabled = !!(this._projectId && this._db && getProjectSettings(this._db).pipelineTelemetryEnabled)
     // Resolve the framework version ONCE at spawn time — `framework/current`
     // is read from `~/.specrails/framework/current`. A concurrent atomic swap
@@ -1836,7 +1844,7 @@ export class QueueManager {
       if (profileName) extra['specrails.profile_schema_version'] = '1'
       if (frameworkVersion) extra['specrails.framework_version'] = frameworkVersion
       spawnEnv = {
-        ...process.env,
+        ...spawnEnv,
         ...buildTelemetryEnv(jobId, this._projectId, this._desktopPort, extra, adapter.id),
       }
     }

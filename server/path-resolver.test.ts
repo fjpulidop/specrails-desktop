@@ -7,6 +7,8 @@ import {
   resolveStartupPath,
   augmentPathFromLoginShell,
   augmentAuthEnvFromLoginShell,
+  augmentEnvFromLoginShell,
+  augmentEnvFromLoginShellSync,
   parseLoginShellOutput,
   parseLoginShellEnv,
   getPathDiagnostic,
@@ -566,11 +568,13 @@ describe('parseLoginShellEnv', () => {
 
 describe('augmentAuthEnvFromLoginShell', () => {
   const PREV: Record<string, string | undefined> = {}
+  const EXTRA_PREV: Record<string, string | undefined> = {}
   beforeEach(() => {
     __resetPathResolverForTest()
     delete process.env.VITEST
     process.env.NODE_ENV = 'production'
     for (const k of AUTH_ENV_VARS) { PREV[k] = process.env[k]; delete process.env[k] }
+    for (const k of ['NODE_AUTH_TOKEN', 'NPM_TOKEN']) { EXTRA_PREV[k] = process.env[k]; delete process.env[k] }
   })
   afterEach(() => {
     process.env.VITEST = 'true'
@@ -579,6 +583,10 @@ describe('augmentAuthEnvFromLoginShell', () => {
     for (const k of AUTH_ENV_VARS) {
       if (PREV[k] === undefined) delete process.env[k]
       else process.env[k] = PREV[k]
+    }
+    for (const k of ['NODE_AUTH_TOKEN', 'NPM_TOKEN']) {
+      if (EXTRA_PREV[k] === undefined) delete process.env[k]
+      else process.env[k] = EXTRA_PREV[k]
     }
   })
 
@@ -626,6 +634,35 @@ describe('augmentAuthEnvFromLoginShell', () => {
       augmentAuthEnvFromLoginShell({ spawnFn: hangingSpawn as any, timeoutMs: 30 }),
     ).resolves.toBeUndefined()
     expect(process.env.GEMINI_API_KEY).toBeUndefined()
+  })
+
+  it('backfills project-configured env names from the login shell', async () => {
+    setPlatform('darwin')
+    const fakeSpawn = makeFakeSpawn({
+      stdout: '__SRH_ENV_BEGIN__NODE_AUTH_TOKEN=npm-secret\nNPM_TOKEN=\n__SRH_ENV_END__',
+      exitCode: 0,
+    })
+    await augmentEnvFromLoginShell(['NODE_AUTH_TOKEN', 'NPM_TOKEN'], { spawnFn: fakeSpawn as any })
+    expect(process.env.NODE_AUTH_TOKEN).toBe('npm-secret')
+    expect(process.env.NPM_TOKEN).toBeUndefined()
+  })
+
+  it('sync backfill probes each missing configured name only once', () => {
+    setPlatform('darwin')
+    const spawnSyncFn = vi.fn(() => ({
+      stdout: '__SRH_ENV_BEGIN__NODE_AUTH_TOKEN=sync-secret\n__SRH_ENV_END__',
+      stderr: '',
+      status: 0,
+      signal: null,
+      pid: 123,
+      output: [],
+    }))
+
+    augmentEnvFromLoginShellSync(['NODE_AUTH_TOKEN'], { spawnSyncFn: spawnSyncFn as any })
+    augmentEnvFromLoginShellSync(['NODE_AUTH_TOKEN'], { spawnSyncFn: spawnSyncFn as any })
+
+    expect(process.env.NODE_AUTH_TOKEN).toBe('sync-secret')
+    expect(spawnSyncFn).toHaveBeenCalledTimes(1)
   })
 })
 

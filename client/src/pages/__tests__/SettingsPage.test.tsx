@@ -97,6 +97,17 @@ describe('SettingsPage', () => {
     })
   })
 
+  it('shows Worktree environment section after load', async () => {
+    global.fetch = vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => mockConfig,
+    })
+    render(<SettingsPage />)
+    await waitFor(() => {
+      expect(screen.getByText('Worktree environment')).toBeInTheDocument()
+    })
+  })
+
   it('shows Rail Pre-prompt section after load', async () => {
     global.fetch = vi.fn().mockResolvedValue({
       ok: true,

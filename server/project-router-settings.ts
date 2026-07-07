@@ -12,7 +12,7 @@ import {
   getStats, getPipelineJobs,
   createProposal, getProposal, listProposals, deleteProposal,
   createTemplate, listTemplates, getTemplate, updateTemplate, deleteTemplate,
-  getProjectSettings, updateProjectSettings,
+  getProjectSettings, updateProjectSettings, normalizeWorktreeEnvPassthrough,
   getQuickContractRefineLast, setQuickContractRefineLast, hasQuickContractRefineLast,
   getTelemetryBlob, getTelemetrySummaries, getJobsWithTelemetry, hasJobTelemetry,
 } from './db'
@@ -174,7 +174,7 @@ export function registerSettingsRoutes(deps: ProjectRoutesDeps): void {
   })
 
   router.patch('/:projectId/settings', (req: Request, res: Response) => {
-    const { pipelineTelemetryEnabled, orchestratorModel, prePrompt, freestylePrePrompt } = req.body ?? {}
+    const { pipelineTelemetryEnabled, orchestratorModel, prePrompt, freestylePrePrompt, worktreeEnvPassthrough } = req.body ?? {}
     const patch: Parameters<typeof updateProjectSettings>[1] = {}
     if (pipelineTelemetryEnabled !== undefined) {
       patch.pipelineTelemetryEnabled = Boolean(pipelineTelemetryEnabled)
@@ -200,6 +200,14 @@ export function registerSettingsRoutes(deps: ProjectRoutesDeps): void {
         return
       }
       patch.freestylePrePrompt = freestylePrePrompt
+    }
+    if (worktreeEnvPassthrough !== undefined) {
+      try {
+        patch.worktreeEnvPassthrough = normalizeWorktreeEnvPassthrough(worktreeEnvPassthrough)
+      } catch (err) {
+        res.status(400).json({ error: err instanceof Error ? err.message : 'invalid worktreeEnvPassthrough' })
+        return
+      }
     }
     if (req.body?.integrationBranch !== undefined) {
       const ib = req.body.integrationBranch

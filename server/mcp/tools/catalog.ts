@@ -16,6 +16,7 @@ import { setupTools } from './setup'
 import { analyticsTools } from './analytics'
 import { gitTools } from './git'
 import { supportTools } from './support'
+import { envTools } from './env'
 
 /**
  * The full MCP tool catalog. Domain-facade tools each expose an `action` enum
@@ -41,6 +42,7 @@ export function buildToolSpecs(): McpToolSpec[] {
   specs.push(...setupTools())
   specs.push(...analyticsTools())
   specs.push(...gitTools())
+  specs.push(...envTools())
   specs.push(...supportTools())
   // Meta last (needs the full list for search/describe)
   specs.push(...metaTools(() => specs))

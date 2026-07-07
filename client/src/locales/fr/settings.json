@@ -246,9 +246,10 @@
   },
   "projectDialog": {
     "title": "{{name}} — Paramètres",
-    "description": "Configuration du projet : prompts, budget, télémétrie et terminal.",
+    "description": "Configuration du projet : prompts, environnement, budget, télémétrie et terminal.",
     "nav": {
       "general": "Général",
+      "environment": "Environnement",
       "budget": "Budget",
       "telemetry": "Télémétrie",
       "terminal": "Terminal"
@@ -262,5 +263,20 @@
     "save": "Enregistrer la branche",
     "saved": "Branche d'intégration enregistrée",
     "saveFailed": "Impossible d'enregistrer la branche d'intégration"
+  },
+  "worktreeEnv": {
+    "title": "Environnement des worktrees",
+    "description": "Choisissez les noms de variables d'environnement que ce projet transmet aux jobs de rail et aux worktrees isolés des loops. Seuls les noms sont enregistrés ; les valeurs sont lues au démarrage, avec récupération depuis le login shell si le processus Desktop ne les a pas.",
+    "label": "Variable d'environnement",
+    "placeholder": "NODE_AUTH_TOKEN",
+    "helper": "Appuyez sur Entrée ou Ajouter. Vous pouvez coller plusieurs noms séparés par des virgules ou des espaces.",
+    "add": "Ajouter",
+    "empty": "Aucune variable propre à ce projet n'est encore configurée.",
+    "remove": "Supprimer {{name}}",
+    "save": "Enregistrer l'environnement",
+    "saved": "Environnement des worktrees enregistré",
+    "saveFailed": "Impossible d'enregistrer l'environnement des worktrees",
+    "invalidName": "{{name}} n'est pas un nom de variable d'environnement valide",
+    "noValues": "Ajoutez uniquement des noms de variables, pas de secrets KEY=value."
   }
 }
