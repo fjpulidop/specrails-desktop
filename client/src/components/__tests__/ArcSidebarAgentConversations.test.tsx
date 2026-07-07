@@ -45,9 +45,15 @@ const mockSelectConversation = vi.fn(() => Promise.resolve())
 const mockToggleFavoriteConversation = vi.fn()
 
 // Mutable so individual tests can activate a conversation / streaming state.
-const agentChatState: { active: AgentConversation | null; streamingIds: Set<string>; favoriteIds: Set<string> } = {
+const agentChatState: {
+  active: AgentConversation | null
+  streamingIds: Set<string>
+  unreadIds: Set<string>
+  favoriteIds: Set<string>
+} = {
   active: null,
   streamingIds: new Set(),
+  unreadIds: new Set(),
   favoriteIds: new Set(),
 }
 
@@ -57,6 +63,7 @@ vi.mock('../../context/AgentChatContext', () => ({
     active: agentChatState.active,
     isStreaming: agentChatState.active ? agentChatState.streamingIds.has(agentChatState.active.id) : false,
     streamingConversationIds: agentChatState.streamingIds,
+    unreadConversationIds: agentChatState.unreadIds,
     favoriteConversationIds: agentChatState.favoriteIds,
     selectConversation: mockSelectConversation,
     deleteConversation: mockDeleteConversation,
@@ -84,8 +91,16 @@ beforeEach(() => {
   vi.clearAllMocks()
   agentChatState.active = null
   agentChatState.streamingIds = new Set()
+  agentChatState.unreadIds = new Set()
   agentChatState.favoriteIds = new Set()
 })
+
+function conversationIcon(title: string): SVGElement {
+  const row = screen.getAllByText(title)[0].closest('[role="button"]')
+  const icon = row?.querySelector('svg')
+  expect(icon).toBeInTheDocument()
+  return icon as SVGElement
+}
 
 describe('ArcSidebar agent-mode conversation rows', () => {
   it('renders project-pinned conversations under the auto-expanded active project', () => {
@@ -206,6 +221,30 @@ describe('ArcSidebar agent-mode conversation rows', () => {
     agentChatState.streamingIds = new Set(['c-1'])
     renderExpanded()
     const overlay = document.querySelector('.title-shimmer')
+    expect(overlay).toBeInTheDocument()
+    expect(overlay?.textContent).toBe('Fix the build')
+    expect(overlay?.className).toContain('opacity-100')
+  })
+
+  it('renders unread background conversation icons with the alert glow', () => {
+    agentChatState.active = conv('c-2', null, null)
+    agentChatState.unreadIds = new Set(['c-1'])
+    renderExpanded()
+    const icon = conversationIcon('Fix the build')
+    expect(icon.className.baseVal).toContain('text-destructive')
+    expect(icon.className.baseVal).toContain('conversation-unread-glow')
+  })
+
+  it('keeps the streaming title shimmer when a row is also unread', () => {
+    agentChatState.active = conv('c-2', null, null)
+    agentChatState.streamingIds = new Set(['c-1'])
+    agentChatState.unreadIds = new Set(['c-1'])
+    renderExpanded()
+    const icon = conversationIcon('Fix the build')
+    const overlay = document.querySelector('.title-shimmer')
+    expect(icon.className.baseVal).toContain('text-destructive')
+    expect(icon.className.baseVal).toContain('conversation-unread-glow')
+    expect(icon.className.baseVal).not.toContain('animate-pulse')
     expect(overlay).toBeInTheDocument()
     expect(overlay?.textContent).toBe('Fix the build')
     expect(overlay?.className).toContain('opacity-100')

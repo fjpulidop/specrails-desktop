@@ -439,6 +439,32 @@ select {
   .title-shimmer { animation: none; }
 }
 
+@keyframes conversation-unread-breathe {
+  0%, 100% {
+    filter: drop-shadow(0 0 0 color-mix(in srgb, var(--color-destructive) 0%, transparent));
+  }
+  50% {
+    filter: drop-shadow(0 0 6px color-mix(in srgb, var(--color-destructive) 72%, transparent));
+  }
+}
+
+.conversation-unread-glow {
+  color: var(--color-destructive);
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .conversation-unread-glow {
+    animation: conversation-unread-breathe 0.9s ease-in-out infinite;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .conversation-unread-glow {
+    animation: none;
+    filter: none;
+  }
+}
+
 /* Glow effects — theme-aware via CSS-var-driven box-shadow */
 @utility glow-primary    { box-shadow: 0 0 20px color-mix(in srgb, var(--color-accent-primary) 22%, transparent); }
 @utility glow-secondary  { box-shadow: 0 0 20px color-mix(in srgb, var(--color-accent-secondary) 22%, transparent); }
