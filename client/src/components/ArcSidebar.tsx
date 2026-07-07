@@ -51,6 +51,7 @@ function ConversationRow({
   active,
   expanded,
   streaming = false,
+  unread = false,
   favorite = false,
   onSelect,
   onToggleFavorite,
@@ -62,6 +63,7 @@ function ConversationRow({
   /** A live agent turn (prompt sent / reply streaming) — sweeps a highlight
    *  over the title; on stop the sweep fades out slowly. */
   streaming?: boolean
+  unread?: boolean
   favorite?: boolean
   onSelect: () => void
   onToggleFavorite?: () => void
@@ -141,7 +143,8 @@ function ConversationRow({
           'w-3.5 h-3.5 flex-shrink-0',
           active && 'text-accent-primary',
           // Secondary live cue alongside the title shimmer.
-          streaming && 'text-accent-primary animate-pulse',
+          streaming && !unread && 'text-accent-primary animate-pulse',
+          unread && 'text-destructive conversation-unread-glow',
         )}
       />
       {expanded && (
@@ -225,6 +228,7 @@ function ProjectItem({
   conversations = [],
   activeConversationId = null,
   streamingConversationIds,
+  unreadConversationIds,
   onSelectConversation,
   onToggleConversationFavorite,
   onDeleteConversation,
@@ -244,6 +248,7 @@ function ProjectItem({
   /** Ids of EVERY conversation with a live agent turn — background threads keep
    *  their title shimmer, not just the focused one. */
   streamingConversationIds?: ReadonlySet<string>
+  unreadConversationIds?: ReadonlySet<string>
   onSelectConversation?: (id: string) => void
   onToggleConversationFavorite?: (id: string) => void
   onDeleteConversation?: (id: string) => void
@@ -370,6 +375,7 @@ function ProjectItem({
               conversation={c}
               active={c.id === activeConversationId}
               streaming={streamingConversationIds?.has(c.id) ?? false}
+              unread={unreadConversationIds?.has(c.id) ?? false}
               expanded={expanded}
               onSelect={() => onSelectConversation?.(c.id)}
               onToggleFavorite={() => onToggleConversationFavorite?.(c.id)}
@@ -702,6 +708,7 @@ export function ArcSidebar({
                     conversation={c}
                     active={c.id === agentChat.active?.id}
                     streaming={agentChat.streamingConversationIds.has(c.id)}
+                    unread={agentChat.unreadConversationIds.has(c.id)}
                     favorite
                     expanded={expanded}
                     onSelect={() => handleSelectConversation(c.id)}
@@ -748,6 +755,7 @@ export function ArcSidebar({
                     conversation={c}
                     active={c.id === agentChat.active?.id}
                     streaming={agentChat.streamingConversationIds.has(c.id)}
+                    unread={agentChat.unreadConversationIds.has(c.id)}
                     expanded={expanded}
                     onSelect={() => handleSelectConversation(c.id)}
                     onToggleFavorite={() => handleToggleFavoriteConversation(c.id)}
@@ -775,6 +783,7 @@ export function ArcSidebar({
               conversations={convs}
               activeConversationId={agentChat.active?.id ?? null}
               streamingConversationIds={agentChat.streamingConversationIds}
+              unreadConversationIds={agentChat.unreadConversationIds}
               onSelectConversation={handleSelectConversation}
               onToggleConversationFavorite={handleToggleFavoriteConversation}
               onDeleteConversation={handleDeleteConversation}

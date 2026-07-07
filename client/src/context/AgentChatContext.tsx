@@ -99,6 +99,8 @@ export interface AgentChatContextValue {
   queuedMessages: AgentQueuedItem[]
   /** Every conversation with a live turn — feeds the sidebar title shimmer. */
   streamingConversationIds: ReadonlySet<string>
+  /** Conversations with assistant/system output that arrived out of view. */
+  unreadConversationIds: ReadonlySet<string>
   /** Per-conversation live slices (stream/tools/queue) — feeds the mission
    *  selector's queued-count badges without flattening to the active thread. */
   liveByConversation: ReadonlyMap<string, AgentConvLive>
@@ -176,6 +178,7 @@ export function AgentChatProvider({ children }: { children: ReactNode }) {
   const [active, setActive] = useState<AgentConversation | null>(null)
   const [messages, setMessages] = useState<AgentMessage[]>([])
   const [favoriteConversationIds, setFavoriteConversationIds] = useState<ReadonlySet<string>>(loadFavoriteConversationIds)
+  const [unreadConversationIds, setUnreadConversationIds] = useState<ReadonlySet<string>>(new Set())
   // Live turn state is PER CONVERSATION: agents keep working in the background,
   // so switching threads never drops streamed text, tool chips or queued
   // messages. The view derives the active conversation's slice below.
@@ -224,6 +227,37 @@ export function AgentChatProvider({ children }: { children: ReactNode }) {
       return copy
     })
   }, [])
+
+  const markUnread = useCallback((conversationId: string): void => {
+    const documentHidden = typeof document !== 'undefined' && document.visibilityState === 'hidden'
+    if (conversationId === activeIdRef.current && !documentHidden) return
+    setUnreadConversationIds((prev) => {
+      if (prev.has(conversationId)) return prev
+      const next = new Set(prev)
+      next.add(conversationId)
+      return next
+    })
+  }, [])
+
+  const clearUnread = useCallback((conversationId: string): void => {
+    setUnreadConversationIds((prev) => {
+      if (!prev.has(conversationId)) return prev
+      const next = new Set(prev)
+      next.delete(conversationId)
+      return next
+    })
+  }, [])
+
+  useEffect(() => {
+    if (!FEATURE_AGENT_CHAT || typeof document === 'undefined') return
+    const handleVisibilityChange = (): void => {
+      if (document.visibilityState !== 'visible') return
+      const activeId = activeIdRef.current
+      if (activeId) clearUnread(activeId)
+    }
+    document.addEventListener('visibilitychange', handleVisibilityChange)
+    return () => document.removeEventListener('visibilitychange', handleVisibilityChange)
+  }, [clearUnread])
 
   // The view's slice — everything downstream (panel, composer, Agent Mode
   // surface) keeps consuming the same flat fields as before.
@@ -293,10 +327,12 @@ export function AgentChatProvider({ children }: { children: ReactNode }) {
       // Only the `messages` list (the active thread) is gated on isActive.
       const isActive = convId === activeIdRef.current
       if (msg.type === 'agent_stream') {
+        markUnread(convId)
         patchLive(convId, (p) => ({ ...p, isStreaming: true, streamingText: p.streamingText + (msg.delta ?? '') }))
       } else if (msg.type === 'agent_tool') {
         patchLive(convId, (p) => ({ ...p, isStreaming: true, liveTools: [...p.liveTools, { id: `t${_toolSeq++}`, tool: msg.tool ?? 'tool' }] }))
       } else if (msg.type === 'agent_done') {
+        markUnread(convId)
         const full = msg.fullText ?? ''
         if (isActive) {
           setMessages((m) => {
@@ -316,6 +352,7 @@ export function AgentChatProvider({ children }: { children: ReactNode }) {
         // about to start (agent_dequeued follows).
         patchLive(convId, (p) => ({ ...EMPTY_LIVE, queued: p.queued }))
       } else if (msg.type === 'agent_error') {
+        markUnread(convId)
         patchLive(convId, (p) => ({ ...EMPTY_LIVE, queued: p.queued }))
         const err = msg.error || 'The agent turn failed.'
         toast.error(err)
@@ -370,6 +407,7 @@ export function AgentChatProvider({ children }: { children: ReactNode }) {
           )),
         }))
       } else if (msg.type === 'agent_pr_decision') {
+        markUnread(convId)
         // PR-decision card (safe-pr-review-flow): the WS message carries the
         // persisted envelope's fields top-level. Only the ACTIVE thread's
         // `messages` slice is held in state — upsert its card in place (match
@@ -401,16 +439,17 @@ export function AgentChatProvider({ children }: { children: ReactNode }) {
     }
     registerHandler('agent-chat', handler)
     return () => unregisterHandler('agent-chat')
-  }, [registerHandler, unregisterHandler, patchLive])
+  }, [registerHandler, unregisterHandler, patchLive, markUnread])
 
   const loadConversation = useCallback(async (id: string) => {
     const { conversation, messages: msgs } = await getAgentConversation(id)
     setActive(conversation)
     setMessages(msgs)
+    clearUnread(id)
     // Live state (stream text / tools / queue) is per-conversation and is
     // deliberately NOT reset here — a background turn keeps its full context
     // and re-appears mid-stream when the user switches back.
-  }, [])
+  }, [clearUnread])
 
   const ensureActive = useCallback(async (): Promise<AgentConversation> => {
     if (active) return active
@@ -687,7 +726,7 @@ export function AgentChatProvider({ children }: { children: ReactNode }) {
     visibility, open, close, minimize, toggle,
     conversations, active, messages, streamingText, isStreaming, liveTools,
     queuedMessages, streamingConversationIds, liveByConversation: liveByConv,
-    favoriteConversationIds,
+    unreadConversationIds, favoriteConversationIds,
     mcpEnabled, enablingMcp, enableMcpServer, providersReady,
     send, abort, editQueuedMessage, wasQueueConsumed,
     cycleTier, setTier, setProvider, setModel, setPinnedProject,
@@ -697,7 +736,7 @@ export function AgentChatProvider({ children }: { children: ReactNode }) {
   }), [
     visibility, open, close, minimize, toggle,
     conversations, active, messages, streamingText, isStreaming, liveTools,
-    queuedMessages, streamingConversationIds, liveByConv, favoriteConversationIds,
+    queuedMessages, streamingConversationIds, liveByConv, unreadConversationIds, favoriteConversationIds,
     mcpEnabled, enablingMcp, enableMcpServer, providersReady,
     send, abort, editQueuedMessage, wasQueueConsumed,
     cycleTier, setTier, setProvider, setModel, setPinnedProject,
@@ -727,6 +766,7 @@ const NOOP_AGENT_CHAT: AgentChatContextValue = {
   open: () => {}, close: () => {}, minimize: () => {}, toggle: () => {},
   conversations: [], active: null, messages: [], streamingText: '', isStreaming: false, liveTools: [],
   queuedMessages: [], streamingConversationIds: new Set<string>(),
+  unreadConversationIds: new Set<string>(),
   liveByConversation: new Map<string, AgentConvLive>(),
   favoriteConversationIds: new Set<string>(),
   mcpEnabled: true, enablingMcp: false, enableMcpServer: async () => {}, providersReady: true,
