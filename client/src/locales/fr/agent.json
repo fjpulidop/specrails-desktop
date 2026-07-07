@@ -229,6 +229,7 @@
       "pr_draft": "PR en brouillon créée",
       "pr_draft_degraded": "Livraison de la PR incomplète",
       "pr_ready": "PR prête à être fusionnée",
+      "implementation_failed": "Échec de l’implémentation",
       "pr_failed": "Échec de la création de la PR",
       "merged": "PR fusionnée",
       "discarded": "Abandonnée"
@@ -248,6 +249,7 @@
     "confirmDiscard": "Confirmer l'abandon ?",
     "mergedNote": "Fusionnée — specs passées en Terminé",
     "discardedNote": "Abandonnée — specs renvoyées vers le backlog",
+    "implementationFailedNote": "Le run d’implémentation a échoué avant de produire quelque chose de livrable. Ouvrez le journal du run pour inspecter l’échec, puis abandonnez cette carte avant de relancer.",
     "degraded": {
       "pushed": "La branche a été poussée mais la PR n'a pas pu être créée — réessayez pour terminer.",
       "localOnly": "Les modifications ont été assemblées en local mais pas poussées — réessayez pour publier la PR."
@@ -272,6 +274,7 @@
         "on_review": "Revue",
         "pr_draft": "PR brouillon",
         "pr_ready": "Publiée",
+        "implementation_failed": "Échec",
         "pr_failed": "Échec",
         "merged": "Fusionnée",
         "discarded": "Abandonnée"

@@ -40,6 +40,8 @@
     "branchPushedHint": "Der Branch wurde gepusht, aber die PR konnte nicht erstellt werden (GitHub CLI nicht verfügbar). Erneut versuchen, um sie zu erstellen.",
     "iteratingPr": "PR wird aktualisiert",
     "prReady": "PR bereit",
+    "implementationFailed": "Implementierung fehlgeschlagen",
+    "implementationFailedHint": "Der Implementierungslauf ist fehlgeschlagen. Öffne das Run-Protokoll und verwirf diese Karte vor einem erneuten Start.",
     "prFailed": "PR fehlgeschlagen",
     "prFailedDetail": "PR fehlgeschlagen: {{detail}}",
     "createDegraded": "PR konnte nicht veröffentlicht werden — {{detail}}. Nach Behebung erneut versuchen.",

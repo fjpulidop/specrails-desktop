@@ -40,6 +40,8 @@
     "branchPushedHint": "La branche a été poussée mais la PR n'a pas pu être créée (GitHub CLI indisponible). Réessayez pour la créer.",
     "iteratingPr": "Mise à jour de la PR",
     "prReady": "PR prête",
+    "implementationFailed": "Échec de l’implémentation",
+    "implementationFailedHint": "Le run d’implémentation a échoué. Ouvrez le journal du run, puis abandonnez cette carte avant de relancer.",
     "prFailed": "PR en échec",
     "prFailedDetail": "PR en échec : {{detail}}",
     "createDegraded": "Impossible de publier la PR — {{detail}}. Réessayez une fois le problème résolu.",

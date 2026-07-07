@@ -229,6 +229,7 @@
       "pr_draft": "Entwurfs-PR erstellt",
       "pr_draft_degraded": "PR-Auslieferung unvollständig",
       "pr_ready": "PR bereit zum Merge",
+      "implementation_failed": "Implementierung fehlgeschlagen",
       "pr_failed": "PR-Erstellung fehlgeschlagen",
       "merged": "PR gemergt",
       "discarded": "Verworfen"
@@ -248,6 +249,7 @@
     "confirmDiscard": "Verwerfen bestätigen?",
     "mergedNote": "Gemergt — Specs nach Fertig verschoben",
     "discardedNote": "Verworfen — Specs zurück ins Backlog",
+    "implementationFailedNote": "Der Implementierungslauf ist fehlgeschlagen, bevor etwas Auslieferbares entstanden ist. Öffne das Run-Protokoll, um den Fehler zu prüfen, und verwirf diese Karte vor einem erneuten Start.",
     "degraded": {
       "pushed": "Der Branch wurde gepusht, aber die PR konnte nicht erstellt werden — erneut versuchen, um abzuschließen.",
       "localOnly": "Die Änderungen wurden lokal zusammengeführt, aber nicht gepusht — erneut versuchen, um die PR zu veröffentlichen."
@@ -272,6 +274,7 @@
         "on_review": "Review",
         "pr_draft": "Entwurfs-PR",
         "pr_ready": "Veröffentlicht",
+        "implementation_failed": "Fehlgeschlagen",
         "pr_failed": "Fehlgeschlagen",
         "merged": "Gemerged",
         "discarded": "Verworfen"
