@@ -799,7 +799,7 @@ export interface RailPrStateMessage {
   prNumber: number | null
   /** How far a Create-PR attempt got (the pr-publisher degradation ladder). */
   prState: 'none' | 'local-only' | 'pushed' | 'pr-created'
-  decision: 'building' | 'on_review' | 'pr_draft' | 'pr_ready' | 'merged' | 'discarded' | 'pr_failed'
+  decision: 'building' | 'on_review' | 'pr_draft' | 'pr_ready' | 'merged' | 'discarded' | 'implementation_failed' | 'pr_failed'
   /** The launch's loop-run ids, in ticket order ([] until allocation lands) —
    *  each links a per-run log (JobDetailModal) + live vitals on the decision
    *  surfaces. */
@@ -1282,7 +1282,7 @@ export interface PrDecisionCardEnvelope {
   projectId: string
   baseBranch: string
   ticketIds: number[]
-  decision: 'building' | 'on_review' | 'pr_draft' | 'pr_ready' | 'merged' | 'discarded' | 'pr_failed'
+  decision: 'building' | 'on_review' | 'pr_draft' | 'pr_ready' | 'merged' | 'discarded' | 'implementation_failed' | 'pr_failed'
   prUrl: string | null
   prNumber: number | null
   prState: 'none' | 'local-only' | 'pushed' | 'pr-created'

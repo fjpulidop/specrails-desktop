@@ -150,6 +150,15 @@ describe('AgentPrDecisionCard states', () => {
     expect(screen.getByRole('button', { name: 'Discard' })).toBeInTheDocument()
   })
 
+  it('implementation_failed: failed implementation note + Discard only', () => {
+    render(<AgentPrDecisionCard envelope={env({ decision: 'implementation_failed', runIds: ['run-1'] })} />)
+    expect(screen.getByText('Implementation failed')).toBeInTheDocument()
+    expect(screen.getByText(/implementation run failed/)).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Discard' })).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Retry' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Integrate locally' })).not.toBeInTheDocument()
+  })
+
   // Terminal/building cards carry NO decision actions — the only buttons left
   // are the always-present clickable ticket ref chips (#N → TicketDetailModal).
   const nonChipButtons = () =>

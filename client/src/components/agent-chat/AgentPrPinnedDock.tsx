@@ -12,6 +12,7 @@ const PILL_TONE: Record<AgentPrDecisionValue, string> = {
   on_review: 'border-accent-primary/40 bg-accent-primary/10 text-accent-primary',
   pr_draft: 'border-accent-info/40 bg-accent-info/10 text-accent-info',
   pr_ready: 'border-accent-info/40 bg-accent-info/10 text-accent-info',
+  implementation_failed: 'border-destructive/40 bg-destructive/10 text-destructive',
   pr_failed: 'border-destructive/40 bg-destructive/10 text-destructive',
   merged: 'border-accent-success/40 bg-accent-success/10 text-accent-success',
   discarded: 'border-border/60 bg-surface/60 text-foreground/50',

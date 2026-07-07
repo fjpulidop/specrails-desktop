@@ -318,6 +318,18 @@ export function RailPrDecisionStrip({ decision, density, act, checkout }: RailPr
         {discardBtn}
       </>
     )
+  } else if (d === 'implementation_failed') {
+    pill = (
+      <span className={`${pillBase} border-destructive/30 bg-destructive/10 text-destructive`} title={t('railPr.implementationFailedHint')}>
+        <AlertTriangle className={iconCls} aria-hidden />
+        {t('railPr.implementationFailed')}
+      </span>
+    )
+    actions = (
+      <>
+        {discardBtn}
+      </>
+    )
   }
 
   return (

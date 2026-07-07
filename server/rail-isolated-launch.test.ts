@@ -301,18 +301,18 @@ describe('launchIsolatedRail — ask-first PR delivery (rail_pr_deliveries lifec
     expect(mockRunMergeBack).not.toHaveBeenCalled()
   })
 
-  it('settle (0 succeeded) → auto-discarded (terminal), branches persisted with succeeded:false', async () => {
+  it('settle (0 succeeded) → implementation_failed with run logs, branches persisted with succeeded:false', async () => {
     const { ctx, db, broadcast } = fakeCtx(settlingRun('failure'))
 
-    await launchIsolatedRail(input([1], ctx), okIo())
+    const ids = await launchIsolatedRail(input([1], ctx), okIo())
 
-    await vi.waitFor(() => expect(listActivePrDeliveries(db)).toHaveLength(0))
-    // terminal row kept for audit, never deleted
+    await vi.waitFor(() => expect(getActivePrDeliveryByRail(db, 0)?.decision).toBe('implementation_failed'))
     const all = db.prepare('SELECT decision, branches FROM rail_pr_deliveries').all() as { decision: string; branches: string }[]
     expect(all).toHaveLength(1)
-    expect(all[0].decision).toBe('discarded')
+    expect(all[0].decision).toBe('implementation_failed')
     expect(JSON.parse(all[0].branches)).toEqual([{ ticketId: 1, branch: 'sr/p/ticket-1', succeeded: false }])
-    expect(prStates(broadcast).map((m) => m.decision)).toEqual(['building', 'building', 'discarded'])
+    expect(prStates(broadcast).map((m) => m.decision)).toEqual(['building', 'building', 'implementation_failed'])
+    expect(prStates(broadcast).at(-1)?.runIds).toEqual(ids)
     expect(mockRunMergeBack).not.toHaveBeenCalled()
   })
 
@@ -395,7 +395,7 @@ describe('launchIsolatedRail — ask-first PR delivery (rail_pr_deliveries lifec
       })
     })
 
-    it('auto-discarded settle (0 succeeded) also updates the card so the origin learns the terminal outcome', async () => {
+    it('failed settle (0 succeeded) also updates the card so the origin learns the failed job outcome', async () => {
       const { updatePrDecisionCard } = fakeAgentChat()
       const { ctx } = fakeCtx(settlingRun('failure'))
 
@@ -405,10 +405,10 @@ describe('launchIsolatedRail — ask-first PR delivery (rail_pr_deliveries lifec
       )
 
       // calls[0] is the allocation runIds update; the LAST call carries the
-      // terminal outcome.
+      // failed implementation outcome.
       await vi.waitFor(() => expect(updatePrDecisionCard).toHaveBeenCalledTimes(2))
       expect(updatePrDecisionCard.mock.calls[1][0]).toBe('conv-9')
-      expect(updatePrDecisionCard.mock.calls[1][1]).toMatchObject({ kind: 'pr_decision', decision: 'discarded' })
+      expect(updatePrDecisionCard.mock.calls[1][1]).toMatchObject({ kind: 'pr_decision', decision: 'implementation_failed' })
     })
 
     it('dashboard launch (origin null) → the card is never posted nor updated', async () => {
@@ -922,20 +922,20 @@ describe('launchIsolatedRail — stale mounted worktree from a prior run (live #
   })
 })
 
-describe('launchIsolatedRail — auto-discard cleanup (0 succeeded)', () => {
+describe('launchIsolatedRail — failed-implementation cleanup (0 succeeded)', () => {
   beforeEach(() => { delete process.env.SPECRAILS_RAIL_DELIVER_PR }) // PR mode default-on
 
   const gitOk = () => ({ run: async () => ({ code: 0, stdout: '', stderr: '' }) })
   const okCreate = () =>
     vi.fn(async (_g: unknown, { ticketId }: { ticketId: number }) => ({ branch: `sr/p/ticket-${ticketId}`, worktreePath: `/wt/ticket-${ticketId}` }))
 
-  it('unmounts every worktree at the auto-discard settle (branches KEPT for resume; ledger terminal)', async () => {
+  it('unmounts every worktree at the failed-implementation settle (branches KEPT for resume; ledger terminal)', async () => {
     const { ctx, db } = fakeCtx(settlingRun('failure'))
     const remove = vi.fn(async () => {})
 
     await launchIsolatedRail(input([1, 2], ctx), { git: gitOk(), create: okCreate(), remove })
 
-    await vi.waitFor(() => expect(listActivePrDeliveries(db)).toHaveLength(0))
+    await vi.waitFor(() => expect(getActivePrDeliveryByRail(db, 0)?.decision).toBe('implementation_failed'))
     await vi.waitFor(() => expect(remove).toHaveBeenCalledTimes(2))
     // Worktrees unmounted NOW (not left to poison the next run of the same
     // ticket) — but the branches survive: partial work stays resumable and

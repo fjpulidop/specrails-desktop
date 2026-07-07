@@ -110,7 +110,8 @@ function actionAllowed(action: PrDecisionAction, row: RailPrDeliveryRow): boolea
       return row.decision === 'pr_draft' && row.pr_url !== null
     case 'discard':
       return row.decision === 'on_review' || row.decision === 'pr_draft' ||
-        row.decision === 'pr_ready' || row.decision === 'pr_failed'
+        row.decision === 'pr_ready' || row.decision === 'implementation_failed' ||
+        row.decision === 'pr_failed'
     case 'poll-merge':
       return (row.decision === 'pr_draft' || row.decision === 'pr_ready') && row.pr_url !== null
     case 'merge-local':

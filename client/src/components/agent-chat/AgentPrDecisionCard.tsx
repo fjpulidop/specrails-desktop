@@ -40,6 +40,7 @@ const HEADER_ICON: Record<AgentPrDecisionEnvelope['decision'], typeof GitBranch>
   on_review: GitBranch,
   pr_draft: GitPullRequest,
   pr_ready: GitPullRequest,
+  implementation_failed: AlertTriangle,
   pr_failed: AlertTriangle,
   merged: GitMerge,
   discarded: XCircle,
@@ -50,6 +51,7 @@ const HEADER_ICON_TONE: Record<AgentPrDecisionEnvelope['decision'], string> = {
   on_review: 'text-accent-primary',
   pr_draft: 'text-accent-info',
   pr_ready: 'text-accent-info',
+  implementation_failed: 'text-destructive',
   pr_failed: 'text-destructive',
   merged: 'text-accent-success',
   discarded: 'text-foreground/40',
@@ -506,6 +508,17 @@ export function AgentPrDecisionCard({ envelope }: { envelope: AgentPrDecisionEnv
               {primaryAction('create-pr', t('prCard.retry'))}
               {!prUrl && mergeLocalAction}
               {discardAction}
+            </div>
+          )}
+          {decision === 'implementation_failed' && (
+            <div className="space-y-2">
+              <p className="flex items-start gap-1.5 text-[11px] leading-4 text-destructive">
+                <AlertTriangle className="mt-px h-3 w-3 shrink-0" />
+                {t('prCard.implementationFailedNote')}
+              </p>
+              <div className="flex items-center gap-1.5">
+                {discardAction}
+              </div>
             </div>
           )}
           {decision === 'merged' && (

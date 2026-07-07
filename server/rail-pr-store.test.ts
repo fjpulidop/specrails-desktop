@@ -6,6 +6,7 @@ import {
   getActivePrDeliveryByRail,
   listActivePrDeliveries,
   transitionDecision,
+  reconcileFailedBuildingPrDeliveries,
   toPrDeliverySnapshot,
   toRailPrStateMessage,
   toPrDecisionCardEnvelope,
@@ -14,6 +15,7 @@ import {
   ACTIVE_PR_DECISIONS,
   type CreatePrDeliveryInput,
 } from './rail-pr-store'
+import { createLoopRun, finishLoopRun } from './loop-runs-store'
 
 let db: DbInstance
 beforeEach(() => { db = initDb(':memory:') })
@@ -189,6 +191,12 @@ describe('active queries', () => {
     expect(getActivePrDeliveryByRail(db, 0)?.id).toBe('a')
   })
 
+  it('implementation_failed counts as active (needs discard)', () => {
+    mk('a', 0)
+    transitionDecision(db, 'a', 'building', 'implementation_failed')
+    expect(getActivePrDeliveryByRail(db, 0)?.id).toBe('a')
+  })
+
   it('listActivePrDeliveries returns every non-terminal row ordered by rail', () => {
     mk('r1', 1)
     mk('r0-done', 0)
@@ -215,12 +223,67 @@ describe('decision sets', () => {
     expect(isTerminalPrDecision('on_review')).toBe(false)
     expect(isTerminalPrDecision('pr_draft')).toBe(false)
     expect(isTerminalPrDecision('pr_ready')).toBe(false)
+    expect(isTerminalPrDecision('implementation_failed')).toBe(false)
     expect(isTerminalPrDecision('pr_failed')).toBe(false)
   })
 
   it('ACTIVE and TERMINAL sets partition the decision space', () => {
     for (const d of ACTIVE_PR_DECISIONS) expect(TERMINAL_PR_DECISIONS.has(d)).toBe(false)
-    expect(ACTIVE_PR_DECISIONS.size + TERMINAL_PR_DECISIONS.size).toBe(7)
+    expect(ACTIVE_PR_DECISIONS.size + TERMINAL_PR_DECISIONS.size).toBe(8)
+  })
+})
+
+describe('reconcileFailedBuildingPrDeliveries', () => {
+  it('turns a stranded building row with only failed settled runs into implementation_failed', () => {
+    mk('a', 0)
+    transitionDecision(db, 'a', 'building', 'building', { runIds: ['run-1'] })
+    createLoopRun(db, {
+      id: 'run-1',
+      projectId: 'proj',
+      loopId: 'factory:implement',
+      loopName: 'Implement',
+      railIndex: 0,
+      ticketId: 1,
+      iterationLimit: 1,
+      startedAt: '2026-07-07T00:00:00.000Z',
+    })
+    finishLoopRun(db, 'run-1', { outcome: 'failed', finishedAt: '2026-07-07T00:01:00.000Z' })
+
+    const reconciled = reconcileFailedBuildingPrDeliveries(db)
+
+    expect(reconciled.map((row) => row.id)).toEqual(['a'])
+    expect(getPrDelivery(db, 'a')?.decision).toBe('implementation_failed')
+  })
+
+  it('leaves building rows alone while a run is still running or any run succeeded', () => {
+    mk('running', 0)
+    transitionDecision(db, 'running', 'building', 'building', { runIds: ['run-running'] })
+    createLoopRun(db, {
+      id: 'run-running',
+      projectId: 'proj',
+      loopId: 'factory:implement',
+      railIndex: 0,
+      ticketId: 1,
+      iterationLimit: 1,
+      startedAt: '2026-07-07T00:00:00.000Z',
+    })
+
+    mk('success', 1)
+    transitionDecision(db, 'success', 'building', 'building', { runIds: ['run-success'] })
+    createLoopRun(db, {
+      id: 'run-success',
+      projectId: 'proj',
+      loopId: 'factory:implement',
+      railIndex: 1,
+      ticketId: 2,
+      iterationLimit: 1,
+      startedAt: '2026-07-07T00:00:00.000Z',
+    })
+    finishLoopRun(db, 'run-success', { outcome: 'success', finishedAt: '2026-07-07T00:01:00.000Z' })
+
+    expect(reconcileFailedBuildingPrDeliveries(db)).toEqual([])
+    expect(getPrDelivery(db, 'running')?.decision).toBe('building')
+    expect(getPrDelivery(db, 'success')?.decision).toBe('building')
   })
 })
 

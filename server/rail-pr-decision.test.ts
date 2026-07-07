@@ -169,8 +169,8 @@ const PR_URL = 'https://github.com/o/r/pull/7'
 // ─── Guards (404 / CAS / legality) ────────────────────────────────────────────
 
 describe('executePrDecision guards', () => {
-  it('isPrDecisionAction accepts the four actions and rejects everything else', () => {
-    for (const a of ['create-pr', 'publish', 'discard', 'poll-merge']) expect(isPrDecisionAction(a)).toBe(true)
+  it('isPrDecisionAction accepts the decision actions and rejects everything else', () => {
+    for (const a of ['create-pr', 'publish', 'discard', 'poll-merge', 'merge-local']) expect(isPrDecisionAction(a)).toBe(true)
     for (const a of ['ready', 'merge', 'approve', '', 42, null, undefined]) expect(isPrDecisionAction(a)).toBe(false)
   })
 
@@ -195,9 +195,13 @@ describe('executePrDecision guards', () => {
     ['create-pr', 'pr_ready'],
     ['publish', 'on_review'],
     ['publish', 'pr_failed'],
+    ['publish', 'implementation_failed'],
     ['discard', 'building'],
     ['poll-merge', 'on_review'],
     ['poll-merge', 'pr_failed'],
+    ['poll-merge', 'implementation_failed'],
+    ['create-pr', 'implementation_failed'],
+    ['merge-local', 'implementation_failed'],
     ['create-pr', 'merged'],
     ['discard', 'discarded'],
   ] as const)('409 illegal_action: %s from %s', async (action, decision) => {
@@ -831,6 +835,18 @@ describe('discard', () => {
     const r = await executePrDecision(deps, { prDeliveryId: row.id, action: 'discard', expectedDecision: 'pr_failed' })
 
     expect(r.status).toBe(200)
+    expect(readTicketStatuses(ticketFile)['1']).toBe('todo')
+    expect(jira.onRailDiscard).toHaveBeenCalledWith([1, 2], row.id)
+  })
+
+  it('discard from implementation_failed clears the failed implementation card', async () => {
+    const row = mkRow({ decision: 'implementation_failed', branches: branchRecords([1]) })
+    const { deps, jira } = mkDeps()
+
+    const r = await executePrDecision(deps, { prDeliveryId: row.id, action: 'discard', expectedDecision: 'implementation_failed' })
+
+    expect(r.status).toBe(200)
+    expect(getPrDelivery(db, row.id)?.decision).toBe('discarded')
     expect(readTicketStatuses(ticketFile)['1']).toBe('todo')
     expect(jira.onRailDiscard).toHaveBeenCalledWith([1, 2], row.id)
   })

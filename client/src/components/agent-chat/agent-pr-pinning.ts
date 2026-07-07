@@ -9,12 +9,14 @@ import {
 // While a delivery still DEMANDS ATTENTION its card is pinned above the chat
 // composer; once published or terminal it unpins back into chat history.
 // Locked semantics: PINNED while decision ∈ {building, on_review, pr_draft,
-// pr_failed}; UNPINNED at pr_ready (published), merged, discarded.
+// implementation_failed, pr_failed}; UNPINNED at pr_ready (published), merged,
+// discarded.
 
 export const PINNED_PR_DECISIONS: ReadonlySet<AgentPrDecisionValue> = new Set([
   'building',
   'on_review',
   'pr_draft',
+  'implementation_failed',
   'pr_failed',
 ])
 
