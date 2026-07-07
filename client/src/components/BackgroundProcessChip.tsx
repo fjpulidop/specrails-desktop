@@ -38,12 +38,10 @@ export function BackgroundProcessChip({
             className={`group inline-flex max-w-[220px] items-center gap-1.5 rounded-full border px-2 py-0.5 text-[11px] transition-colors ${accentClass[accentVariant]}`}
           >
             <Terminal className={`h-3 w-3 shrink-0 ${terminal ? '' : 'animate-pulse'}`} />
-            <span className="truncate font-medium">{process.command}</span>
-            {terminal && (
-              <span className={process.status === 'failed' ? 'font-medium text-destructive' : 'text-foreground/60'}>
-                {process.status}
-              </span>
-            )}
+            <span className={process.status === 'failed' ? 'shrink-0 font-medium text-destructive' : 'shrink-0 text-foreground/60'}>
+              {process.status}
+            </span>
+            <span className="min-w-0 truncate font-medium">{process.command}</span>
             {!terminal && (
               <button
                 type="button"

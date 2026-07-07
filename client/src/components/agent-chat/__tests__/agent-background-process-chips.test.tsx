@@ -37,6 +37,7 @@ describe('BackgroundProcessChip', () => {
     const chips = screen.getAllByTestId('background-process-chip')
     expect(chips[0].className).toContain('text-accent-primary')
     expect(chips[1].className).toContain('text-accent-info')
+    expect(chips[0]).toHaveTextContent('running')
     fireEvent.click(screen.getByLabelText('Kill npm run dev'))
     expect(kill).toHaveBeenCalledWith(1)
   })
