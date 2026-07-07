@@ -1,5 +1,10 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest'
 import type { Request, Response } from 'express'
+vi.mock('../transient-children', () => ({
+  startBackgroundProcess: vi.fn(),
+  killBackgroundProcess: vi.fn(),
+  killOwnedBackgroundProcess: vi.fn(),
+}))
 import { initDesktopDb, getDesktopSetting, setDesktopSetting, type DbInstance } from '../desktop-db'
 import type { ProjectRegistry, ProjectContext } from '../project-registry'
 import { MobileEventBus } from '../mobile/mobile-event-bus'
@@ -13,6 +18,7 @@ import {
 import { isMcpEnabled, isTierEnabled, tierLabel, tierRefusalMessage, TIER_SETTING_KEY } from './mcp-tiers'
 import { buildToolSpecs } from './tools/catalog'
 import type { McpToolContext, McpToolSpec } from './tools/types'
+import { startBackgroundProcess, killOwnedBackgroundProcess } from '../transient-children'
 
 function makeRegistry(db: DbInstance, contexts: Partial<ProjectContext>[] = []): ProjectRegistry {
   const ctxs = contexts as ProjectContext[]
@@ -80,6 +86,8 @@ describe('mcp-tiers', () => {
   let db: DbInstance
   beforeEach(() => {
     db = initDesktopDb(':memory:')
+    vi.mocked(startBackgroundProcess).mockReset()
+    vi.mocked(killOwnedBackgroundProcess).mockReset()
   })
 
   it('mcp disabled by default, enabled when set', () => {
@@ -220,6 +228,61 @@ describe('tool handlers', () => {
     expect((await t.handler(ctx, { projectId: 'p1' })) as { active: string }).toMatchObject({ active: 'p1' })
     expect((await t.handler(ctx, { projectId: null })) as { active: null }).toMatchObject({ active: null })
     await expect(async () => t.handler(ctx, { path: '/nope' })).rejects.toThrow(/No project registered/)
+  })
+
+  it('specrails_jobs background actions validate ownership, cwd, tier, and broadcasts', async () => {
+    const t = tool('specrails_jobs')
+    const tierFn = t.tier as (a: Record<string, unknown>) => string
+    expect(tierFn({ action: 'background_start' })).toBe('ai-spawn')
+
+    const broadcast = vi.fn()
+    const ctx = {
+      ...makeCtx(db, [{ project: { id: 'p1', name: 'One', path: '/tmp/one' } as ProjectContext['project'] }]),
+      broadcast,
+    }
+    vi.mocked(startBackgroundProcess).mockImplementation((command: string, cwd: string, chatId: string, projectId: string, hooks: any) => {
+      const proc = {
+        pid: 123,
+        command,
+        cwd,
+        startedAt: 10,
+        status: 'running',
+        chatId,
+        projectId,
+      }
+      hooks.onStarted(proc)
+      return proc
+    })
+    vi.mocked(killOwnedBackgroundProcess).mockReturnValue(true)
+
+    await expect(async () => t.handler(ctx, { action: 'background_start', projectId: 'p1', command: 'npm run dev' })).rejects.toThrow(/chatId/)
+    await expect(async () => t.handler(ctx, {
+      action: 'background_start',
+      projectId: 'p1',
+      command: 'npm run dev',
+      chatId: 'c1',
+      cwd: '../outside',
+    })).rejects.toThrow(/cwd/)
+
+    const started = await t.handler(ctx, {
+      action: 'background_start',
+      projectId: 'p1',
+      command: 'npm run dev',
+      chatId: 'c1',
+      cwd: '.',
+    }) as { process: { pid: number; cwd: string } }
+
+    expect(started.process).toMatchObject({ pid: 123, cwd: '/tmp/one' })
+    expect(broadcast).toHaveBeenCalledWith(expect.objectContaining({
+      type: 'background_process.started',
+      projectId: 'p1',
+      process: expect.objectContaining({ pid: 123, chatId: 'c1' }),
+    }))
+
+    await expect(async () => t.handler(ctx, { action: 'background_kill', projectId: 'p1', chatId: 'c1' })).rejects.toThrow(/pid/)
+    const killed = await t.handler(ctx, { action: 'background_kill', projectId: 'p1', chatId: 'c1', pid: 123 }) as { ok: boolean }
+    expect(killed.ok).toBe(true)
+    expect(killOwnedBackgroundProcess).toHaveBeenCalledWith(123, { projectId: 'p1', chatId: 'c1' })
   })
 })
 

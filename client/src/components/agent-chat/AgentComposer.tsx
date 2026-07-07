@@ -4,6 +4,7 @@ import { toast } from 'sonner'
 import { SendHorizontal, History, Square, Paperclip, X, Clock, Check, Pencil } from 'lucide-react'
 import { useAgentChat } from '../../context/AgentChatContext'
 import { useAgentWorkspace } from '../../context/AgentWorkspaceContext'
+import { useBackgroundProcesses } from '../../context/BackgroundProcessesContext'
 import { useDesktop } from '../../hooks/useDesktop'
 import { API_ORIGIN } from '../../lib/origin'
 import { uploadAgentAttachment, deleteAgentAttachment, getAgentModels, type AgentAttachment } from '../../lib/agent-api'
@@ -26,6 +27,7 @@ import { AgentTierChip } from './AgentTierChip'
 import { AgentModelSelector } from './AgentModelSelector'
 import { AgentGitBar } from './AgentGitBar'
 import { AgentComposerContextChips, AgentContextPalette, AgentPlusMenu } from './AgentContextPalette'
+import { BackgroundProcessChip, type BackgroundProcessAccent } from '../BackgroundProcessChip'
 
 const PROVIDERS = ['claude', 'codex', 'gemini'] as const
 
@@ -79,6 +81,7 @@ export function AgentComposer({
     queuedMessages, editQueuedMessage, wasQueueConsumed,
   } = useAgentChat()
   const { pendingCaptures, consumePendingCaptures } = useAgentWorkspace()
+  const { processes: backgroundProcesses, kill: killBackgroundProcess } = useBackgroundProcesses()
   const { projects, activeProjectId } = useDesktop()
   const draftKey = active?.id ?? NEW_MISSION_DRAFT_KEY
   const [input, setInputState] = useState(() => composerDrafts.get(draftKey) ?? '')
@@ -156,6 +159,7 @@ export function AgentComposer({
   )
   const paletteOpen = paletteTrigger !== null && !inQueueEdit
   const hasDraft = input.trim().length > 0 || contextChips.length > 0
+  const backgroundAccentVariants: BackgroundProcessAccent[] = ['accent-primary', 'accent-info', 'accent-highlight']
 
   const activeId = active?.id ?? null
   // The composer survives conversation switches (no key/remount): pending chips
@@ -585,6 +589,18 @@ export function AgentComposer({
                 <X className="h-3 w-3" />
               </button>
             </span>
+          ))}
+        </div>
+      )}
+      {backgroundProcesses.length > 0 && (
+        <div className="mb-1.5 flex flex-wrap gap-1.5">
+          {backgroundProcesses.map((process, index) => (
+            <BackgroundProcessChip
+              key={process.pid}
+              process={process}
+              accentVariant={backgroundAccentVariants[index % backgroundAccentVariants.length]}
+              onKill={(pid) => void killBackgroundProcess(pid)}
+            />
           ))}
         </div>
       )}

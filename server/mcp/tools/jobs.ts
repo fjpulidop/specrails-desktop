@@ -1,6 +1,40 @@
 import { z } from 'zod'
 import type { McpToolSpec } from './types'
-import { apiCall, projectPath, originConversationDefaults } from './types'
+import { apiCall, projectPath, originConversationDefaults, requireProject } from './types'
+import path from 'path'
+import { startBackgroundProcess, killOwnedBackgroundProcess } from '../../transient-children'
+import type { WsMessage } from '../../types'
+
+function resolveBackgroundCwd(projectRoot: string, cwd: string | undefined): string {
+  const resolved = path.resolve(projectRoot, cwd && cwd.trim() ? cwd : '.')
+  const root = path.resolve(projectRoot)
+  if (resolved !== root && !resolved.startsWith(root + path.sep)) {
+    throw new Error('background_start cwd must stay within the selected project.')
+  }
+  return resolved
+}
+
+function backgroundHooks(broadcast: (msg: WsMessage) => void) {
+  return {
+    onStarted: (process: import('../../transient-children').BackgroundProcess) => broadcast({
+      type: 'background_process.started',
+      process,
+      projectId: process.projectId,
+      timestamp: new Date().toISOString(),
+    }),
+    onOutput: (event: import('../../transient-children').BackgroundProcessOutputEvent) => broadcast({
+      type: 'background_process.output',
+      ...event,
+      timestamp: new Date().toISOString(),
+    }),
+    onExited: (process: import('../../transient-children').BackgroundProcess) => broadcast({
+      type: 'background_process.exited',
+      process,
+      projectId: process.projectId,
+      timestamp: new Date().toISOString(),
+    }),
+  }
+}
 
 /**
  * Jobs domain facade. Maps every in-scope jobs/queue action to its REST
@@ -20,6 +54,7 @@ export function jobsTools(): McpToolSpec[] {
       description:
         'Manage a project\'s AI-pipeline job queue and individual jobs. ' +
         'Actions: list, get, queue, spawn (ai-spawn — enqueues an arbitrary slash-command job, returns {jobId,position}, async; from the in-app agent chat the engine defaults to your conversation\'s provider — pass aiEngine to override), ' +
+        'background_start (operate-level shell command; requires explicit user confirmation before use), background_kill, ' +
         'cancel (destructive — cancels a running/queued job or deletes a terminal one), ' +
         'purge (destructive — bulk-delete persisted job rows in a date range), ' +
         'pause / resume (queue), reorder (queued-job order), priority (change a queued job\'s priority), ' +
@@ -33,7 +68,7 @@ export function jobsTools(): McpToolSpec[] {
       tier: (a) => {
         const action = a.action as string
         if (['cancel', 'purge'].includes(action)) return 'destructive'
-        if (['spawn', 'interactive_turn'].includes(action)) return 'ai-spawn'
+        if (['spawn', 'interactive_turn', 'background_start', 'background_kill'].includes(action)) return 'ai-spawn'
         if (['pause', 'resume', 'reorder', 'priority', 'finalize'].includes(action)) return 'write'
         return 'read'
       },
@@ -61,6 +96,8 @@ export function jobsTools(): McpToolSpec[] {
             'default_spec_model',
             'interactive_turn',
             'finalize',
+            'background_start',
+            'background_kill',
           ])
           .describe('Operation to perform'),
         projectId: z.string().optional().describe('Project id (defaults to the active project)'),
@@ -96,6 +133,9 @@ export function jobsTools(): McpToolSpec[] {
           .describe('reorder: exact set of currently-queued job ids in the desired order; compare: exactly 2 job ids'),
         // ── interactive_turn ──
         text: z.string().optional().describe('Prompt text for interactive_turn'),
+        chatId: z.string().optional().describe('Agent chat conversation id for background_start/background_kill ownership'),
+        cwd: z.string().optional().describe('Optional cwd for background_start; resolved inside the selected project root'),
+        pid: z.number().optional().describe('Background process pid for background_kill'),
         // ── export ──
         format: z.enum(['json', 'csv']).optional().describe('Export format (default json)'),
         // ── default_spec_model ──
@@ -266,6 +306,34 @@ export function jobsTools(): McpToolSpec[] {
             const id = args.jobId as string | undefined
             if (!id) throw new Error('finalize requires a "jobId".')
             return apiCall(ctx, 'POST', `${base}/jobs/${encodeURIComponent(id)}/finalize`)
+          }
+
+          case 'background_start': {
+            const command = args.command as string | undefined
+            if (!command || !command.trim()) throw new Error('background_start requires a "command".')
+            const chatId = args.chatId as string | undefined
+            if (!chatId || !chatId.trim()) throw new Error('background_start requires a "chatId".')
+            const projectCtx = requireProject(ctx, args.projectId as string | undefined)
+            const cwd = resolveBackgroundCwd(projectCtx.project.path, args.cwd as string | undefined)
+            const process = startBackgroundProcess(
+              command.trim(),
+              cwd,
+              chatId.trim(),
+              projectCtx.project.id,
+              backgroundHooks(ctx.broadcast),
+            )
+            return { ok: true, process }
+          }
+
+          case 'background_kill': {
+            const pid = args.pid as number | undefined
+            if (typeof pid !== 'number' || !Number.isFinite(pid)) throw new Error('background_kill requires a numeric "pid".')
+            const chatId = args.chatId as string | undefined
+            if (!chatId || !chatId.trim()) throw new Error('background_kill requires a "chatId".')
+            const projectCtx = requireProject(ctx, args.projectId as string | undefined)
+            const killed = killOwnedBackgroundProcess(pid, { projectId: projectCtx.project.id, chatId: chatId.trim() })
+            if (!killed) throw new Error('background_kill requires a registered pid in the same project/chat.')
+            return { ok: true, pid, status: 'killing' }
           }
 
           default:

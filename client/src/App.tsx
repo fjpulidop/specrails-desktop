@@ -59,6 +59,7 @@ import { RailMetricsProvider } from './context/RailMetricsContext'
 import { RailPrDecisionProvider } from './context/RailPrDecisionContext'
 import { MinimizedChatsProvider, } from './context/MinimizedChatsContext'
 import { AgentChatProvider, useAgentChat } from './context/AgentChatContext'
+import { BackgroundProcessesProvider } from './context/BackgroundProcessesContext'
 import { TicketDetailModalProvider } from './context/TicketDetailModalContext'
 import { WebViewModalProvider } from './context/WebViewModalContext'
 import { useCompareUrlSync } from './hooks/useCompareUrlSync'
@@ -548,6 +549,7 @@ export default function App() {
                     <RailPrDecisionProviderWithDesktop>
                     <MinimizedChatsProvider>
                       <AgentChatProvider>
+                        <BackgroundProcessesProvider>
                         <AgentWorkspaceProvider>
                         <TicketDetailModalProvider>
                           <WebViewModalProvider>
@@ -556,6 +558,7 @@ export default function App() {
                           </WebViewModalProvider>
                         </TicketDetailModalProvider>
                         </AgentWorkspaceProvider>
+                        </BackgroundProcessesProvider>
                       </AgentChatProvider>
                     </MinimizedChatsProvider>
                     </RailPrDecisionProviderWithDesktop>

@@ -66,6 +66,7 @@ import type { TicketCreatedMessage, TicketUpdatedMessage, TicketDeletedMessage, 
 import { spawnAiCli } from './util/cli-prompt'
 import { createInterface } from 'readline'
 import treeKill from 'tree-kill'
+import { startBackgroundProcess, killOwnedBackgroundProcess } from './transient-children'
 import multer from 'multer'
 import { createRailsRouter } from './rails-router'
 import { createProfilesRouter } from './profiles-router'
@@ -182,6 +183,74 @@ export function registerJobsRoutes(deps: ProjectRoutesDeps): void {
         smash: !isSpecsSmashKillSwitchActive(),
       },
     })
+  })
+
+  router.post('/:projectId/background-processes', (req: Request, res: Response) => {
+    const { command, cwd, chatId } = req.body ?? {}
+    const c = ctx(req)
+    if (!command || typeof command !== 'string' || !command.trim()) {
+      res.status(400).json({ error: 'command is required' })
+      return
+    }
+    if (!chatId || typeof chatId !== 'string' || !chatId.trim()) {
+      res.status(400).json({ error: 'chatId is required' })
+      return
+    }
+    const resolvedCwd = path.resolve(c.project.path, typeof cwd === 'string' && cwd.trim() ? cwd : '.')
+    const root = path.resolve(c.project.path)
+    if (resolvedCwd !== root && !resolvedCwd.startsWith(root + path.sep)) {
+      res.status(400).json({ error: 'cwd must stay within the project' })
+      return
+    }
+    try {
+      const process = startBackgroundProcess(
+        command.trim(),
+        resolvedCwd,
+        chatId.trim(),
+        c.project.id,
+        {
+          onStarted: (process) => c.broadcast({
+            type: 'background_process.started',
+            process,
+            projectId: process.projectId,
+            timestamp: new Date().toISOString(),
+          }),
+          onOutput: (event) => c.broadcast({
+            type: 'background_process.output',
+            ...event,
+            timestamp: new Date().toISOString(),
+          }),
+          onExited: (process) => c.broadcast({
+            type: 'background_process.exited',
+            process,
+            projectId: process.projectId,
+            timestamp: new Date().toISOString(),
+          }),
+        },
+      )
+      res.status(202).json({ ok: true, process })
+    } catch (err) {
+      res.status(500).json({ error: err instanceof Error ? err.message : 'background process failed to start' })
+    }
+  })
+
+  router.delete('/:projectId/background-processes/:pid', (req: Request, res: Response) => {
+    const c = ctx(req)
+    const pid = Number(req.params.pid)
+    const chatId = typeof req.query.chatId === 'string' ? req.query.chatId : ''
+    if (!Number.isFinite(pid)) {
+      res.status(400).json({ error: 'pid must be numeric' })
+      return
+    }
+    if (!chatId.trim()) {
+      res.status(400).json({ error: 'chatId is required' })
+      return
+    }
+    if (!killOwnedBackgroundProcess(pid, { projectId: c.project.id, chatId: chatId.trim() })) {
+      res.status(404).json({ error: 'background process not found for project/chat' })
+      return
+    }
+    res.json({ ok: true, pid, status: 'killing' })
   })
 
   // Returns the resolved default model for Add Spec + the full provider

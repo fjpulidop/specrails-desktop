@@ -1130,6 +1130,44 @@ export interface PluginPrereqInstalledMessage {
   timestamp: string
 }
 
+export type BackgroundProcessStatus = 'starting' | 'running' | 'exited' | 'killed' | 'failed'
+
+export interface BackgroundProcess {
+  pid: number
+  command: string
+  cwd: string
+  startedAt: number
+  status: BackgroundProcessStatus
+  chatId: string
+  projectId: string
+  exitCode?: number | null
+  signal?: string | null
+}
+
+export interface BackgroundProcessStartedMessage {
+  type: 'background_process.started'
+  process: BackgroundProcess
+  timestamp: string
+  projectId: string
+}
+
+export interface BackgroundProcessOutputMessage {
+  type: 'background_process.output'
+  pid: number
+  chatId: string
+  projectId: string
+  source: 'stdout' | 'stderr'
+  line: string
+  timestamp: string
+}
+
+export interface BackgroundProcessExitedMessage {
+  type: 'background_process.exited'
+  process: BackgroundProcess
+  timestamp: string
+  projectId: string
+}
+
 export type WsMessage =
   | LogMessage | PhaseMessage | InitMessage | QueueMessage | EventMessage
   | ChatStreamMessage | ChatDoneMessage | ChatErrorMessage
@@ -1156,6 +1194,7 @@ export type WsMessage =
   | PluginHealthChangedMessage | PluginDegradedMessage
   | PluginInstallProgressMessage
   | PluginPrereqInstallProgressMessage | PluginPrereqInstalledMessage
+  | BackgroundProcessStartedMessage | BackgroundProcessOutputMessage | BackgroundProcessExitedMessage
   | SpendingInvalidatedMessage
   | JobTurnUserMessage | JobTurnDoneMessage | JobFinalizedMessage
   | JobInteractiveMessage

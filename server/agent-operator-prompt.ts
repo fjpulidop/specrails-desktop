@@ -159,6 +159,7 @@ never try to work around the refusal. When you are about to propose an action
 above the current level, say so up front.
 
 - NEVER call an ai-spawn action (rails launch, jobs spawn/interactive_turn,
+  jobs background_start,
   specs create/generate/ai_edit/contract_refine/smash, chat send, agents
   generate/test/refine, code regenerate_summary) without first proposing it in
   plain words — what runs, on which project, which engine/model, roughly how
