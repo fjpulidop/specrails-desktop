@@ -48,24 +48,34 @@ export function Starfield() {
     const ctx: CanvasRenderingContext2D = ctx2d
 
     let stars: Star[] = []
-    let width = 1
-    let height = 1
+    let width = 0
+    let height = 0
+    let currentDpr = 0
     let rafId = 0
     let lastTime = 0
     let visible = !document.hidden
 
     function resize() {
       const size = getCanvasSize(canvas)
+      const dpr = window.devicePixelRatio || 1
+      // Nothing changed → skip (avoids resetting stars on every observer tick).
+      if (size.width === width && size.height === height && dpr === currentDpr) return
+      const dimsChanged = size.width !== width || size.height !== height
       width = size.width
       height = size.height
-      const dpr = window.devicePixelRatio || 1
-      canvas.width = Math.max(1, Math.floor(width * dpr))
-      canvas.height = Math.max(1, Math.floor(height * dpr))
+      currentDpr = dpr
+      // Backing store must match the DISPLAYED CSS size 1:1, or the browser
+      // upscales the canvas and stars render as fat, blurry dots. Round (not
+      // floor) keeps it closest to the real container size.
+      canvas.width = Math.max(1, Math.round(width * dpr))
+      canvas.height = Math.max(1, Math.round(height * dpr))
       canvas.style.width = '100%'
       canvas.style.height = '100%'
       ctx.setTransform(dpr, 0, 0, dpr, 0, 0)
-      const count = Math.min(MAX_STARS, Math.max(MIN_STARS, Math.floor(width * height * STAR_DENSITY)))
-      stars = Array.from({ length: count }, () => makeStar(width, height))
+      if (dimsChanged || stars.length === 0) {
+        const count = Math.min(MAX_STARS, Math.max(MIN_STARS, Math.floor(width * height * STAR_DENSITY)))
+        stars = Array.from({ length: count }, () => makeStar(width, height))
+      }
     }
 
     function draw(deltaSeconds: number) {
@@ -103,13 +113,41 @@ export function Starfield() {
       }
     }
 
+    // Re-arm a DPR listener each time it changes (matchMedia fires once per
+    // threshold), so moving the window between monitors or zooming rebuilds the
+    // backing store at the new pixel density instead of stretching.
+    let dprMql: MediaQueryList | null = null
+    function onDprChange() {
+      if (dprMql) dprMql.removeEventListener('change', onDprChange)
+      resize()
+      watchDpr()
+    }
+    function watchDpr() {
+      const dpr = window.devicePixelRatio || 1
+      dprMql = window.matchMedia(`(resolution: ${dpr}dppx)`)
+      dprMql.addEventListener('change', onDprChange)
+    }
+
     resize()
+    // The canvas lives in a bounded, position:relative container whose size
+    // changes without a window resize (layout settling after mount, sidebar
+    // toggles, panels). Observe the parent so the backing store always tracks
+    // the real displayed size — the fix for "fat dots" in production.
+    let ro: ResizeObserver | null = null
+    const observed = canvas.parentElement
+    if (typeof ResizeObserver !== 'undefined' && observed) {
+      ro = new ResizeObserver(() => resize())
+      ro.observe(observed)
+    }
     window.addEventListener('resize', resize)
+    watchDpr()
     document.addEventListener('visibilitychange', onVisibility)
     if (visible) rafId = requestAnimationFrame(tick)
 
     return () => {
       cancelAnimationFrame(rafId)
+      if (ro) ro.disconnect()
+      if (dprMql) dprMql.removeEventListener('change', onDprChange)
       window.removeEventListener('resize', resize)
       document.removeEventListener('visibilitychange', onVisibility)
     }
