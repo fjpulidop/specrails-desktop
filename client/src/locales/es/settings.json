@@ -246,9 +246,10 @@
   },
   "projectDialog": {
     "title": "{{name}} — Ajustes",
-    "description": "Configuración del proyecto: prompts, presupuesto, telemetría y terminal.",
+    "description": "Configuración del proyecto: prompts, entorno, presupuesto, telemetría y terminal.",
     "nav": {
       "general": "General",
+      "environment": "Entorno",
       "budget": "Presupuesto",
       "telemetry": "Telemetría",
       "terminal": "Terminal"
@@ -262,5 +263,20 @@
     "save": "Guardar rama",
     "saved": "Rama de integración guardada",
     "saveFailed": "No se pudo guardar la rama de integración"
+  },
+  "worktreeEnv": {
+    "title": "Entorno de worktrees",
+    "description": "Elige los nombres de variables de entorno que este proyecto pasa a jobs de rail y worktrees aislados de loops. Solo se guardan nombres; los valores se leen al iniciar la ejecución, recuperándolos del login shell si faltan en el proceso de escritorio.",
+    "label": "Variable de entorno",
+    "placeholder": "NODE_AUTH_TOKEN",
+    "helper": "Pulsa Enter o Añadir. Puedes pegar varios nombres separados por comas o espacios.",
+    "add": "Añadir",
+    "empty": "Aún no hay variables específicas para este proyecto.",
+    "remove": "Quitar {{name}}",
+    "save": "Guardar entorno",
+    "saved": "Entorno de worktrees guardado",
+    "saveFailed": "No se pudo guardar el entorno de worktrees",
+    "invalidName": "{{name}} no es un nombre válido de variable de entorno",
+    "noValues": "Añade solo nombres de variables, no secretos KEY=value."
   }
 }

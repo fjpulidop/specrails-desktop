@@ -246,9 +246,10 @@
   },
   "projectDialog": {
     "title": "{{name}} — 設定",
-    "description": "プロジェクト設定：プロンプト、予算、テレメトリ、ターミナル。",
+    "description": "プロジェクト設定：プロンプト、環境、予算、テレメトリ、ターミナル。",
     "nav": {
       "general": "一般",
+      "environment": "環境",
       "budget": "予算",
       "telemetry": "テレメトリ",
       "terminal": "ターミナル"
@@ -262,5 +263,20 @@
     "save": "ブランチを保存",
     "saved": "統合ブランチを保存しました",
     "saveFailed": "統合ブランチを保存できませんでした"
+  },
+  "worktreeEnv": {
+    "title": "Worktree 環境",
+    "description": "このプロジェクトが rail ジョブと分離された loop worktree に渡す環境変数名を選びます。保存されるのは名前だけで、値は実行開始時に読み取られ、Desktop プロセスにない場合は login shell から復元を試みます。",
+    "label": "環境変数",
+    "placeholder": "NODE_AUTH_TOKEN",
+    "helper": "Enter または追加を押します。カンマやスペース区切りで複数の名前を貼り付けられます。",
+    "add": "追加",
+    "empty": "このプロジェクト固有の変数はまだ設定されていません。",
+    "remove": "{{name}} を削除",
+    "save": "環境を保存",
+    "saved": "Worktree 環境を保存しました",
+    "saveFailed": "Worktree 環境を保存できませんでした",
+    "invalidName": "{{name}} は有効な環境変数名ではありません",
+    "noValues": "ここには変数名だけを追加してください。KEY=value のシークレットは入力しないでください。"
   }
 }

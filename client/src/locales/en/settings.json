@@ -246,9 +246,10 @@
   },
   "projectDialog": {
     "title": "{{name}} — Settings",
-    "description": "Project-level configuration: prompts, budget, telemetry and terminal.",
+    "description": "Project-level configuration: prompts, environment, budget, telemetry and terminal.",
     "nav": {
       "general": "General",
+      "environment": "Environment",
       "budget": "Budget",
       "telemetry": "Telemetry",
       "terminal": "Terminal"
@@ -262,5 +263,20 @@
     "save": "Save branch",
     "saved": "Integration branch saved",
     "saveFailed": "Could not save the integration branch"
+  },
+  "worktreeEnv": {
+    "title": "Worktree environment",
+    "description": "Choose environment variable names this project passes to rail jobs and isolated loop worktrees. Only names are saved; values are read when a run starts, with login-shell recovery when the desktop process is missing them.",
+    "label": "Environment variable",
+    "placeholder": "NODE_AUTH_TOKEN",
+    "helper": "Press Enter or Add. You can paste several names separated by commas or spaces.",
+    "add": "Add",
+    "empty": "No project-specific variables configured yet.",
+    "remove": "Remove {{name}}",
+    "save": "Save environment",
+    "saved": "Worktree environment saved",
+    "saveFailed": "Could not save the worktree environment",
+    "invalidName": "{{name}} is not a valid environment variable name",
+    "noValues": "Add only variable names here, not KEY=value secrets."
   }
 }

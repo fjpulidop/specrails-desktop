@@ -1,8 +1,8 @@
-import { spawn } from 'child_process'
+import { spawn, spawnSync } from 'child_process'
 import fs from 'fs'
 import os from 'os'
 import path from 'path'
-import type { ChildProcess } from 'child_process'
+import type { ChildProcess, SpawnSyncReturns } from 'child_process'
 import { windowsSpawnEnv, stripWindowsVerbatimPrefix } from './util/win-spawn'
 
 /** Bundled-path env vars set by the Tauri host — normalized at startup. */
@@ -483,6 +483,26 @@ export const AUTH_ENV_VARS = [
   'GOOGLE_APPLICATION_CREDENTIALS',
 ] as const
 
+const LOGIN_SHELL_ENV_NAME_RE = /^[A-Za-z_][A-Za-z0-9_]*$/
+const loginShellEnvProbeCache = new Set<string>()
+
+function normalizeLoginShellEnvNames(names: readonly string[]): string[] {
+  const out: string[] = []
+  for (const raw of names) {
+    const name = String(raw).trim()
+    if (!LOGIN_SHELL_ENV_NAME_RE.test(name) || out.includes(name)) continue
+    out.push(name)
+  }
+  return out
+}
+
+function buildLoginShellEnvCommand(names: readonly string[]): string {
+  // `printf` reuses POSIX positional `$VAR` expansion (works in sh/bash/zsh).
+  const fmt = ENV_BEGIN + names.map((v) => `${v}=%s\n`).join('') + ENV_END
+  const refs = names.map((v) => `"$${v}"`).join(' ')
+  return `printf '${fmt}' ${refs}`
+}
+
 /** Parse the `KEY=value` block emitted between the env sentinels. */
 export function parseLoginShellEnv(stdout: string): Record<string, string> {
   const begin = stdout.indexOf(ENV_BEGIN)
@@ -502,26 +522,25 @@ export function parseLoginShellEnv(stdout: string): Record<string, string> {
   return out
 }
 
-/**
- * Spawn the user's login shell once and backfill any provider auth env vars it
- * exposes into `process.env` (only when not already set — never override an
- * explicit value). POSIX-only and runs REGARDLESS of bundle state (unlike the
- * PATH augmentation, which is skipped when the bundle is active): macOS desktop
- * builds bundle node/git, so the PATH login-shell probe is skipped, yet we still
- * need to recover the gemini key. Async, fire-and-forget — must not block
- * startup. No-op on Windows (GUI inherits user env) and in tests.
- */
-export async function augmentAuthEnvFromLoginShell(opts: AugmentOptions = {}): Promise<void> {
+/** Backfill arbitrary, pre-validated environment variable names from the user's
+ * login shell into `process.env` (only when not already set — never override an
+ * explicit value). POSIX-only and runs regardless of bundle state, so macOS GUI
+ * launches can recover tokens exported in `.zshrc`/`.bashrc` without hardcoding
+ * every possible package-manager/provider variable. No-op on Windows and tests. */
+export async function augmentEnvFromLoginShell(
+  names: readonly string[],
+  opts: AugmentOptions = {},
+): Promise<void> {
   if (process.platform === 'win32') return
   if (process.env.NODE_ENV === 'test' || process.env.VITEST === 'true') return
+
+  const wanted = normalizeLoginShellEnvNames(names).filter((name) => !process.env[name])
+  if (wanted.length === 0) return
 
   const spawnFn = opts.spawnFn ?? spawn
   const timeoutMs = opts.timeoutMs ?? LOGIN_SHELL_TIMEOUT_MS
   const shell = process.env.SHELL || '/bin/sh'
-  // `printf` reuses POSIX positional `$VAR` expansion (works in sh/bash/zsh).
-  const fmt = ENV_BEGIN + AUTH_ENV_VARS.map((v) => `${v}=%s\n`).join('') + ENV_END
-  const refs = AUTH_ENV_VARS.map((v) => `"$${v}"`).join(' ')
-  const command = `printf '${fmt}' ${refs}`
+  const command = buildLoginShellEnvCommand(wanted)
 
   await new Promise<void>((resolve) => {
     let child: ChildProcess
@@ -549,7 +568,7 @@ export async function augmentAuthEnvFromLoginShell(opts: AugmentOptions = {}): P
     child.on('error', finish)
     child.on('close', () => {
       const recovered = parseLoginShellEnv(stdout)
-      for (const key of AUTH_ENV_VARS) {
+      for (const key of wanted) {
         const val = recovered[key]
         // Backfill only when unset/empty — never clobber an explicit value.
         if (val && !process.env[key]) process.env[key] = val
@@ -557,6 +576,48 @@ export async function augmentAuthEnvFromLoginShell(opts: AugmentOptions = {}): P
       finish()
     })
   })
+}
+
+/** Synchronous, cached variant for spawn-time env assembly. It probes each
+ * missing name at most once per process to keep loops from paying the login
+ * shell timeout on every step. */
+export function augmentEnvFromLoginShellSync(
+  names: readonly string[],
+  opts: { timeoutMs?: number; spawnSyncFn?: typeof spawnSync } = {},
+): void {
+  if (process.platform === 'win32') return
+  if (process.env.NODE_ENV === 'test' || process.env.VITEST === 'true') return
+
+  const wanted = normalizeLoginShellEnvNames(names).filter((name) => !process.env[name] && !loginShellEnvProbeCache.has(name))
+  if (wanted.length === 0) return
+  for (const name of wanted) loginShellEnvProbeCache.add(name)
+
+  const spawnSyncFn = opts.spawnSyncFn ?? spawnSync
+  const timeoutMs = opts.timeoutMs ?? LOGIN_SHELL_TIMEOUT_MS
+  const shell = process.env.SHELL || '/bin/sh'
+  const command = buildLoginShellEnvCommand(wanted)
+  let res: SpawnSyncReturns<string | Buffer>
+  try {
+    res = spawnSyncFn(shell, ['-l', '-i', '-c', command], {
+      encoding: 'utf8',
+      stdio: ['ignore', 'pipe', 'pipe'],
+      timeout: timeoutMs,
+    })
+  } catch {
+    return
+  }
+  if (res.error) return
+  const stdout = typeof res.stdout === 'string' ? res.stdout : res.stdout?.toString('utf8') ?? ''
+  const recovered = parseLoginShellEnv(stdout)
+  for (const key of wanted) {
+    const val = recovered[key]
+    if (val && !process.env[key]) process.env[key] = val
+  }
+}
+
+/** Startup backfill for the built-in provider auth variables. */
+export async function augmentAuthEnvFromLoginShell(opts: AugmentOptions = {}): Promise<void> {
+  await augmentEnvFromLoginShell(AUTH_ENV_VARS, opts)
 }
 
 function mergeLoginShellPath(rawPath: string): void {
@@ -599,4 +660,5 @@ export function __resetPathResolverForTest(): void {
   diagnostic = { pathSegments: [], pathSources: [], loginShellStatus: 'skipped' }
   warnedLoginShell = false
   bundledRuntimesActive = false
+  loginShellEnvProbeCache.clear()
 }

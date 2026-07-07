@@ -1,3 +1,6 @@
+import fs from 'fs'
+import os from 'os'
+import path from 'path'
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
 import { z } from 'zod'
 import { initDesktopDb, type DbInstance } from '../../desktop-db'
@@ -10,14 +13,14 @@ import { setActiveProject } from './types'
 // A registry stub exposing one project so requireProject() resolves; apiCall is
 // exercised against a mocked fetch so we cover every domain handler's switch
 // branches without a live server.
-function makeCtx(db: DbInstance): McpToolContext {
-  const project = { id: 'p1', slug: 'p1', name: 'P1', path: '/tmp/p1', provider: 'claude', providers: ['claude'] } as unknown as ProjectContext['project']
+function makeCtx(db: DbInstance, repoPath = '/tmp/p1'): McpToolContext {
+  const project = { id: 'p1', slug: 'p1', name: 'P1', path: repoPath, provider: 'claude', providers: ['claude'] } as unknown as ProjectContext['project']
   const pc = { project } as ProjectContext
   const registry = {
     desktopDb: db,
     listContexts: () => [pc],
     getContext: (id: string) => (id === 'p1' ? pc : undefined),
-    getContextByPath: (p: string) => (p === '/tmp/p1' ? pc : undefined),
+    getContextByPath: (p: string) => (p === repoPath ? pc : undefined),
     removeProject: () => undefined,
   } as unknown as ProjectRegistry
   return { registry, desktopDb: db, broadcast: () => {}, eventBus: new MobileEventBus(), desktopPort: 4299 }
@@ -175,6 +178,104 @@ describe('tool catalog smoke (all domains)', () => {
       const body = launchBody()
       expect(body).not.toHaveProperty('originConversationId')
       expect(body).not.toHaveProperty('originSurface')
+    })
+  })
+})
+
+describe('specrails_env tool', () => {
+  let db: DbInstance
+  let ctx: McpToolContext
+  let tmpDir: string | null = null
+
+  beforeEach(() => {
+    db = initDesktopDb(':memory:')
+    ctx = makeCtx(db)
+    setActiveProject('p1')
+  })
+
+  afterEach(() => {
+    vi.unstubAllGlobals()
+    setActiveProject(null)
+    if (tmpDir) fs.rmSync(tmpDir, { recursive: true, force: true })
+    tmpDir = null
+  })
+
+  const envSpec = () => buildToolSpecs().find((s) => s.name === 'specrails_env')!
+
+  function mockSettingsFetch(initial: string[] = []) {
+    const fetchMock = vi.fn(async (url: string, init?: RequestInit) => {
+      const method = init?.method ?? 'GET'
+      if (String(url).endsWith('/settings') && method === 'GET') {
+        return {
+          ok: true,
+          status: 200,
+          text: async () => JSON.stringify({ worktreeEnvPassthrough: initial }),
+        }
+      }
+      if (String(url).endsWith('/settings') && method === 'PATCH') {
+        const body = JSON.parse(String(init?.body ?? '{}')) as { worktreeEnvPassthrough?: string[] }
+        return {
+          ok: true,
+          status: 200,
+          text: async () => JSON.stringify({ ok: true, settings: { worktreeEnvPassthrough: body.worktreeEnvPassthrough ?? [] } }),
+        }
+      }
+      return { ok: false, status: 404, text: async () => JSON.stringify({ error: 'not found' }) }
+    })
+    vi.stubGlobal('fetch', fetchMock)
+    return fetchMock
+  }
+
+  it('is registered with read actions and write actions at the correct tiers', () => {
+    const spec = envSpec()
+    expect(spec).toBeTruthy()
+    expect(actionOptions(spec)).toEqual(['get', 'scan', 'set', 'auto_configure'])
+    const tier = spec.tier as (a: Record<string, unknown>) => string
+    expect(tier({ action: 'get' })).toBe('read')
+    expect(tier({ action: 'scan' })).toBe('read')
+    expect(tier({ action: 'set' })).toBe('write')
+    expect(tier({ action: 'auto_configure' })).toBe('write')
+  })
+
+  it('set merges requested names with existing settings and writes names only', async () => {
+    const fetchMock = mockSettingsFetch(['AWS_PROFILE'])
+
+    const res = await envSpec().handler(ctx, {
+      action: 'set',
+      projectId: 'p1',
+      names: ['NODE_AUTH_TOKEN', 'AWS_PROFILE', 'NODE_AUTH_TOKEN'],
+    }) as { names: string[]; changed: string[] }
+
+    expect(res.names).toEqual(['AWS_PROFILE', 'NODE_AUTH_TOKEN'])
+    expect(res.changed).toEqual(['NODE_AUTH_TOKEN'])
+    const patch = fetchMock.mock.calls.find(([url, init]) => String(url).endsWith('/settings') && (init as RequestInit | undefined)?.method === 'PATCH')
+    expect(patch).toBeTruthy()
+    expect(JSON.parse(String((patch![1] as RequestInit).body))).toEqual({
+      worktreeEnvPassthrough: ['AWS_PROFILE', 'NODE_AUTH_TOKEN'],
+    })
+    expect(JSON.stringify(patch)).not.toContain('secret')
+  })
+
+  it('auto_configure scans the repo and merges discovered package-token candidates', async () => {
+    tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'specrails-mcp-env-'))
+    fs.writeFileSync(path.join(tmpDir, 'package.json'), JSON.stringify({
+      dependencies: { '@busuu/design-system': '1.0.0' },
+    }))
+    ctx = makeCtx(db, tmpDir)
+    const fetchMock = mockSettingsFetch(['AWS_PROFILE'])
+
+    const res = await envSpec().handler(ctx, { action: 'auto_configure', projectId: 'p1' }) as {
+      names: string[]
+      changed: string[]
+      scan: { candidates: Array<{ name: string }> }
+    }
+
+    expect(res.scan.candidates.map((c) => c.name)).toEqual(['NODE_AUTH_TOKEN', 'NPM_TOKEN'])
+    expect(res.names).toEqual(['AWS_PROFILE', 'NODE_AUTH_TOKEN', 'NPM_TOKEN'])
+    expect(res.changed).toEqual(['NODE_AUTH_TOKEN', 'NPM_TOKEN'])
+    const patch = fetchMock.mock.calls.find(([url, init]) => String(url).endsWith('/settings') && (init as RequestInit | undefined)?.method === 'PATCH')
+    expect(JSON.parse(String((patch![1] as RequestInit).body))).toEqual({
+      worktreeEnvPassthrough: ['AWS_PROFILE', 'NODE_AUTH_TOKEN', 'NPM_TOKEN'],
     })
   })
 })

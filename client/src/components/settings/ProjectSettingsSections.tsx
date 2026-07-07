@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { toast } from 'sonner'
 import { useTranslation, Trans } from 'react-i18next'
+import { Plus, X } from 'lucide-react'
 import { getApiBase } from '../../lib/api'
 import { useDesktop } from '../../hooks/useDesktop'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '../ui/card'
@@ -17,6 +18,7 @@ interface ProjectSettingsPayload {
   prePrompt?: string
   freestylePrePrompt?: string
   integrationBranch?: string
+  worktreeEnvPassthrough?: string[]
 }
 
 /** Skeleton shown until a section's GET settles — fields never flash empty and
@@ -189,6 +191,180 @@ export function ProjectIntegrationBranchSection() {
         <Button size="sm" onClick={save} disabled={isSaving} data-testid="integration-branch-save">
           {t('integrationBranch.save')}
         </Button>
+      </CardContent>
+    </Card>
+  )
+}
+
+const ENV_NAME_RE = /^[A-Za-z_][A-Za-z0-9_]*$/
+const ENV_EXAMPLES = ['NODE_AUTH_TOKEN', 'NPM_TOKEN', 'AWS_PROFILE']
+
+function splitEnvDraft(value: string): string[] {
+  return value
+    .split(/[,\s]+/)
+    .map((v) => v.trim())
+    .filter(Boolean)
+}
+
+/** Project-level env passthrough names for rail jobs and isolated loop worktrees.
+ *  Stores NAMES ONLY. Values are read from the server process env at spawn time. */
+export function ProjectWorktreeEnvSection() {
+  const { t } = useTranslation('settings')
+  const { activeProjectId } = useDesktop()
+  const [names, setNames] = useState<string[]>([])
+  const [draft, setDraft] = useState('')
+  const [error, setError] = useState('')
+  const [isSaving, setIsSaving] = useState(false)
+  const [loaded, setLoaded] = useState(false)
+
+  useEffect(() => {
+    if (!activeProjectId) return
+    let cancelled = false
+    setLoaded(false)
+    setError('')
+    fetch(`${getApiBase()}/settings`)
+      .then((res) => (res.ok ? res.json() : null))
+      .then((data: ProjectSettingsPayload | null) => {
+        if (!cancelled && data) setNames(Array.isArray(data.worktreeEnvPassthrough) ? data.worktreeEnvPassthrough : [])
+      })
+      .catch(() => {})
+      .finally(() => { if (!cancelled) setLoaded(true) })
+    return () => { cancelled = true }
+  }, [activeProjectId])
+
+  if (!loaded) return <SectionSkeleton />
+
+  function addNames(raw: string) {
+    const entries = splitEnvDraft(raw)
+    if (entries.length === 0) return
+    const next = [...names]
+    for (const entry of entries) {
+      if (entry.includes('=')) {
+        setError(t('worktreeEnv.noValues'))
+        return
+      }
+      if (!ENV_NAME_RE.test(entry)) {
+        setError(t('worktreeEnv.invalidName', { name: entry }))
+        return
+      }
+      if (!next.includes(entry)) next.push(entry)
+    }
+    setNames(next)
+    setDraft('')
+    setError('')
+  }
+
+  async function save() {
+    setIsSaving(true)
+    try {
+      const res = await fetch(`${getApiBase()}/settings`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ worktreeEnvPassthrough: names }),
+      })
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({} as { error?: string }))
+        throw new Error(body.error || 'Failed to save')
+      }
+      const data = await res.json() as { settings?: ProjectSettingsPayload }
+      setNames(data.settings?.worktreeEnvPassthrough ?? names)
+      toast.success(t('worktreeEnv.saved'))
+    } catch (err) {
+      toast.error(t('worktreeEnv.saveFailed'), { description: (err as Error).message })
+    } finally {
+      setIsSaving(false)
+    }
+  }
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle>{t('worktreeEnv.title')}</CardTitle>
+        <CardDescription>{t('worktreeEnv.description')}</CardDescription>
+      </CardHeader>
+      <CardContent className="space-y-4">
+        <div className="space-y-2">
+          <label htmlFor="worktree-env-name" className="text-xs font-medium">
+            {t('worktreeEnv.label')}
+          </label>
+          <div className="flex gap-2">
+            <Input
+              id="worktree-env-name"
+              value={draft}
+              onChange={(e) => { setDraft(e.target.value); setError('') }}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') {
+                  e.preventDefault()
+                  addNames(draft)
+                }
+              }}
+              placeholder={t('worktreeEnv.placeholder')}
+              aria-invalid={Boolean(error)}
+              data-testid="worktree-env-input"
+            />
+            <Button
+              type="button"
+              size="sm"
+              variant="secondary"
+              className="h-9 shrink-0"
+              onClick={() => addNames(draft)}
+              disabled={!draft.trim()}
+              data-testid="worktree-env-add"
+            >
+              <Plus className="w-3.5 h-3.5" />
+              {t('worktreeEnv.add')}
+            </Button>
+          </div>
+          {error ? (
+            <p className="text-[10px] text-destructive" data-testid="worktree-env-error">{error}</p>
+          ) : (
+            <p className="text-[10px] text-muted-foreground">{t('worktreeEnv.helper')}</p>
+          )}
+        </div>
+
+        <div className="flex flex-wrap gap-1.5">
+          {ENV_EXAMPLES.map((name) => (
+            <button
+              key={name}
+              type="button"
+              onClick={() => addNames(name)}
+              className="rounded-md border border-border bg-muted/30 px-2 py-1 font-mono text-[10px] text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+            >
+              {name}
+            </button>
+          ))}
+        </div>
+
+        {names.length > 0 ? (
+          <div className="flex flex-wrap gap-2" data-testid="worktree-env-list">
+            {names.map((name) => (
+              <span
+                key={name}
+                className="inline-flex items-center gap-1 rounded-md border border-border bg-background px-2 py-1 font-mono text-[11px]"
+              >
+                {name}
+                <button
+                  type="button"
+                  onClick={() => setNames(names.filter((n) => n !== name))}
+                  className="rounded p-0.5 text-muted-foreground hover:bg-muted hover:text-foreground"
+                  aria-label={t('worktreeEnv.remove', { name })}
+                >
+                  <X className="w-3 h-3" />
+                </button>
+              </span>
+            ))}
+          </div>
+        ) : (
+          <p className="rounded-md border border-dashed border-border bg-muted/20 px-3 py-2 text-xs text-muted-foreground">
+            {t('worktreeEnv.empty')}
+          </p>
+        )}
+
+        <div className="flex justify-end">
+          <Button size="sm" onClick={save} disabled={isSaving} data-testid="worktree-env-save">
+            {isSaving ? t('common:states.saving') : t('worktreeEnv.save')}
+          </Button>
+        </div>
       </CardContent>
     </Card>
   )

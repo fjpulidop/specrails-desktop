@@ -24,6 +24,7 @@ import { killTransientChildren } from './transient-children'
 import { dropBlobStatesForProject } from './telemetry-receiver'
 import { mirrorProjectEntry, removeRegistryEntry, reconcileFromProjects, resolveArtifacts, resolveHome } from './artifact-registry'
 import { resolveProjectExecution, resolveLoopBaseEnv } from './workspace-resolution'
+import { applyWorktreeEnvPassthrough } from './project-env'
 import { removeWorkspace } from './workspace-manager'
 import { resolveTicketStoragePath, mutateStore, applyJobOutcomeToTickets, readStore, type JobOutcome } from './ticket-store'
 import { JiraSyncManager } from './jira/jira-sync-manager'
@@ -694,9 +695,14 @@ export class ProjectRegistry {
     // `${ENV:-legacy}` defaults resolve inside the worktree, where only tracked
     // files exist — still reads the real project state. SPECRAILS_REPO_DIR stays
     // per-run (the worktree for isolated runs). Legacy projects keep process.env
-    // byte-identical. See resolveLoopBaseEnv.
+    // byte-identical except for the explicit per-project passthrough overlay.
+    // See resolveLoopBaseEnv.
     const loopRunManager = new LoopRunManager(db, boundBroadcast, createLoopExecutors({
-      env: () => resolveLoopBaseEnv({ slug: project.slug, path: project.path }),
+      env: () => resolveLoopBaseEnv(
+        { slug: project.slug, path: project.path },
+        undefined,
+        applyWorktreeEnvPassthrough(db, process.env),
+      ),
     }))
 
     const getTicketSpec = (ticketId: number): LoopSpec | undefined => {

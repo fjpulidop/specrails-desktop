@@ -167,4 +167,17 @@ describe('resolveLoopBaseEnv (loop-executor base env)', () => {
     // process.env still rides underneath.
     expect(env.PATH).toBe(process.env.PATH)
   })
+
+  it('relocated ⇒ overlays workspace internals on top of a caller-provided base env', () => {
+    const ws = seedRelocated('acme')
+    const env = resolveLoopBaseEnv(
+      { slug: 'acme', path: repo },
+      home,
+      { PATH: '/bin', NODE_AUTH_TOKEN: 'npm-secret', SPECRAILS_WORKSPACE_DIR: '/wrong' },
+    )
+
+    expect(env.NODE_AUTH_TOKEN).toBe('npm-secret')
+    expect(env.PATH).toBe('/bin')
+    expect(env.SPECRAILS_WORKSPACE_DIR).toBe(ws)
+  })
 })

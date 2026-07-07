@@ -246,9 +246,10 @@
   },
   "projectDialog": {
     "title": "{{name}} — Impostazioni",
-    "description": "Configurazione del progetto: prompt, budget, telemetria e terminale.",
+    "description": "Configurazione del progetto: prompt, ambiente, budget, telemetria e terminale.",
     "nav": {
       "general": "Generale",
+      "environment": "Ambiente",
       "budget": "Budget",
       "telemetry": "Telemetria",
       "terminal": "Terminale"
@@ -262,5 +263,20 @@
     "save": "Salva ramo",
     "saved": "Ramo di integrazione salvato",
     "saveFailed": "Impossibile salvare il ramo di integrazione"
+  },
+  "worktreeEnv": {
+    "title": "Ambiente dei worktree",
+    "description": "Scegli i nomi delle variabili d'ambiente che questo progetto passa ai job dei rail e ai worktree isolati dei loop. Vengono salvati solo i nomi; i valori vengono letti all'avvio dell'esecuzione, recuperandoli dalla login shell se mancano nel processo Desktop.",
+    "label": "Variabile d'ambiente",
+    "placeholder": "NODE_AUTH_TOKEN",
+    "helper": "Premi Invio o Aggiungi. Puoi incollare più nomi separati da virgole o spazi.",
+    "add": "Aggiungi",
+    "empty": "Non ci sono ancora variabili specifiche per questo progetto.",
+    "remove": "Rimuovi {{name}}",
+    "save": "Salva ambiente",
+    "saved": "Ambiente dei worktree salvato",
+    "saveFailed": "Impossibile salvare l'ambiente dei worktree",
+    "invalidName": "{{name}} non è un nome valido per una variabile d'ambiente",
+    "noValues": "Aggiungi solo nomi di variabili, non segreti KEY=value."
   }
 }

@@ -246,9 +246,10 @@
   },
   "projectDialog": {
     "title": "{{name}} — 设置",
-    "description": "项目级配置：提示词、预算、遥测和终端。",
+    "description": "项目级配置：提示词、环境、预算、遥测和终端。",
     "nav": {
       "general": "常规",
+      "environment": "环境",
       "budget": "预算",
       "telemetry": "遥测",
       "terminal": "终端"
@@ -262,5 +263,20 @@
     "save": "保存分支",
     "saved": "集成分支已保存",
     "saveFailed": "无法保存集成分支"
+  },
+  "worktreeEnv": {
+    "title": "Worktree 环境",
+    "description": "选择此项目传递给 rail job 和隔离 loop worktree 的环境变量名称。只保存名称；值会在运行开始时读取，如果 Desktop 进程中缺失，会尝试从 login shell 恢复。",
+    "label": "环境变量",
+    "placeholder": "NODE_AUTH_TOKEN",
+    "helper": "按 Enter 或添加。可以粘贴多个用逗号或空格分隔的名称。",
+    "add": "添加",
+    "empty": "尚未为此项目配置专用变量。",
+    "remove": "移除 {{name}}",
+    "save": "保存环境",
+    "saved": "Worktree 环境已保存",
+    "saveFailed": "无法保存 Worktree 环境",
+    "invalidName": "{{name}} 不是有效的环境变量名",
+    "noValues": "这里只添加变量名，不要添加 KEY=value 形式的密钥。"
   }
 }

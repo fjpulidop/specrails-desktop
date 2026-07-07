@@ -1497,6 +1497,41 @@ export interface ProjectSettings {
    *  target draft PRs at. Empty string = auto-resolve (repo default → HEAD) via
    *  `resolveIntegrationBranch`. */
   integrationBranch: string
+  /** Environment variable names to explicitly pass through to project jobs and
+   *  isolated loop worktrees. Values are read from the server process env at
+   *  spawn time and are never stored in SQLite. */
+  worktreeEnvPassthrough: string[]
+}
+
+export const WORKTREE_ENV_NAME_RE = /^[A-Za-z_][A-Za-z0-9_]*$/
+const WORKTREE_ENV_MAX_NAMES = 64
+const WORKTREE_ENV_MAX_NAME_LENGTH = 128
+
+export function normalizeWorktreeEnvPassthrough(value: unknown): string[] {
+  if (!Array.isArray(value)) throw new Error('worktreeEnvPassthrough must be an array of environment variable names')
+  const out: string[] = []
+  const seen = new Set<string>()
+  for (const raw of value) {
+    if (typeof raw !== 'string') throw new Error('worktreeEnvPassthrough entries must be strings')
+    const name = raw.trim()
+    if (!name) continue
+    if (name.length > WORKTREE_ENV_MAX_NAME_LENGTH) throw new Error(`environment variable name is too long: ${name.slice(0, 24)}...`)
+    if (!WORKTREE_ENV_NAME_RE.test(name)) throw new Error(`invalid environment variable name: ${name}`)
+    if (seen.has(name)) continue
+    seen.add(name)
+    out.push(name)
+    if (out.length > WORKTREE_ENV_MAX_NAMES) throw new Error(`worktreeEnvPassthrough can contain at most ${WORKTREE_ENV_MAX_NAMES} names`)
+  }
+  return out
+}
+
+function parseWorktreeEnvPassthrough(raw: string | undefined): string[] {
+  if (!raw) return []
+  try {
+    return normalizeWorktreeEnvPassthrough(JSON.parse(raw))
+  } catch {
+    return []
+  }
 }
 
 export function getProjectSettings(db: DbInstance): ProjectSettings {
@@ -1515,12 +1550,16 @@ export function getProjectSettings(db: DbInstance): ProjectSettings {
   const integrationBranchRow = db.prepare(
     `SELECT value FROM queue_state WHERE key = 'config.integration_branch'`
   ).get() as { value: string } | undefined
+  const worktreeEnvPassthroughRow = db.prepare(
+    `SELECT value FROM queue_state WHERE key = 'config.worktree_env_passthrough'`
+  ).get() as { value: string } | undefined
   return {
     pipelineTelemetryEnabled: telemetryRow?.value === 'true',
     orchestratorModel: modelRow?.value ?? 'sonnet',
     prePrompt: prePromptRow?.value ?? '',
     freestylePrePrompt: freestylePrePromptRow?.value ?? '',
     integrationBranch: integrationBranchRow?.value ?? '',
+    worktreeEnvPassthrough: parseWorktreeEnvPassthrough(worktreeEnvPassthroughRow?.value),
   }
 }
 
@@ -1567,6 +1606,16 @@ export function updateProjectSettings(db: DbInstance, patch: Partial<ProjectSett
       db.prepare(
         `INSERT OR REPLACE INTO queue_state (key, value) VALUES ('config.integration_branch', ?)`
       ).run(patch.integrationBranch.trim())
+    }
+  }
+  if (patch.worktreeEnvPassthrough !== undefined) {
+    const names = normalizeWorktreeEnvPassthrough(patch.worktreeEnvPassthrough)
+    if (names.length === 0) {
+      db.prepare(`DELETE FROM queue_state WHERE key = 'config.worktree_env_passthrough'`).run()
+    } else {
+      db.prepare(
+        `INSERT OR REPLACE INTO queue_state (key, value) VALUES ('config.worktree_env_passthrough', ?)`
+      ).run(JSON.stringify(names))
     }
   }
 }

@@ -23,13 +23,21 @@ beforeEach(() => {
   global.fetch = vi.fn().mockResolvedValue({ ok: true, json: async () => ({}) })
 })
 
+async function waitForSelfFetchingSections() {
+  await waitFor(() => expect(document.getElementById('project-pre-prompt')).toBeTruthy())
+  await screen.findByTestId('worktree-env-input')
+  await waitFor(() => expect(screen.getByLabelText('Enable pipeline telemetry')).toBeInTheDocument())
+  await waitFor(() => expect(screen.getByPlaceholderText('e.g. 5.00')).toBeInTheDocument())
+}
+
 describe('ProjectSettingsDialog', () => {
-  it('shows the project name in the title and the four section entries', () => {
+  it('shows the project name in the title and the section entries', async () => {
     render(<ProjectSettingsDialog open onClose={vi.fn()} />)
     expect(screen.getByText('acme-api — Settings')).toBeInTheDocument()
-    for (const label of ['General', 'Budget', 'Telemetry', 'Terminal']) {
+    for (const label of ['General', 'Environment', 'Budget', 'Telemetry', 'Terminal']) {
       expect(screen.getByRole('button', { name: label })).toBeInTheDocument()
     }
+    await waitForSelfFetchingSections()
   })
 
   it('starts on General (pre-prompts visible) and switches panes on nav click', async () => {
@@ -47,9 +55,10 @@ describe('ProjectSettingsDialog', () => {
     expect(generalField.closest('.hidden')).not.toBeNull()
   })
 
-  it('closes through onOpenChange', () => {
+  it('closes through onOpenChange', async () => {
     const onClose = vi.fn()
     render(<ProjectSettingsDialog open onClose={onClose} />)
+    await waitForSelfFetchingSections()
     fireEvent.keyDown(document.body, { key: 'Escape' })
     expect(onClose).toHaveBeenCalled()
   })
