@@ -40,6 +40,8 @@
     "branchPushedHint": "O ramo foi enviado mas não foi possível criar a PR (GitHub CLI indisponível). Tente novamente para a criar.",
     "iteratingPr": "A atualizar PR",
     "prReady": "PR pronta",
+    "implementationFailed": "Implementação falhou",
+    "implementationFailedHint": "A execução de implementação falhou. Abra o log da execução e descarte este cartão antes de relançar.",
     "prFailed": "PR falhou",
     "prFailedDetail": "PR falhou: {{detail}}",
     "createDegraded": "Não foi possível publicar a PR — {{detail}}. Tente novamente quando estiver resolvido.",

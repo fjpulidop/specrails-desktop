@@ -141,6 +141,16 @@ describe('RailPrDecisionStrip states (via RailRow, both densities)', () => {
         expect(within(strip).getByTestId('rail-pr-create')).toHaveTextContent('Retry')
         expect(within(strip).getByTestId('rail-pr-discard')).toBeInTheDocument()
       })
+
+      it('implementation_failed → destructive pill + Discard only', () => {
+        renderRail(snapshot({ decision: 'implementation_failed' }), density)
+        const strip = screen.getByTestId('rail-pr-strip')
+        expect(strip).toHaveAttribute('data-decision', 'implementation_failed')
+        expect(within(strip).getByText('Implementation failed')).toBeInTheDocument()
+        expect(within(strip).getByTestId('rail-pr-discard')).toHaveAttribute('title', expect.stringContaining('implementation run failed'))
+        expect(within(strip).queryByTestId('rail-pr-create')).toBeNull()
+        expect(within(strip).queryByTestId('rail-pr-merge-local')).toBeNull()
+      })
     })
   }
 })
@@ -295,6 +305,7 @@ describe('merge-local action', () => {
     for (const snap of [
       snapshot({ decision: 'pr_draft', prUrl: 'https://github.com/o/r/pull/7', prNumber: 7, prState: 'pr-created' }),
       snapshot({ decision: 'pr_ready', prUrl: 'https://github.com/o/r/pull/7', prNumber: 7, prState: 'pr-created' }),
+      snapshot({ decision: 'implementation_failed' }),
     ]) {
       const { unmount } = render(<RailPrDecisionStrip decision={snap} density="normal" act={vi.fn()} />)
       expect(screen.queryByTestId('rail-pr-merge-local')).toBeNull()

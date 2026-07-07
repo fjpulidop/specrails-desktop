@@ -229,6 +229,7 @@
       "pr_draft": "PR em rascunho criada",
       "pr_draft_degraded": "Entrega da PR incompleta",
       "pr_ready": "PR pronta para merge",
+      "implementation_failed": "Implementação falhou",
       "pr_failed": "Falha ao criar a PR",
       "merged": "Merge da PR concluído",
       "discarded": "Descartada"
@@ -248,6 +249,7 @@
     "confirmDiscard": "Confirmar descarte?",
     "mergedNote": "Merge concluído — specs movidas para Concluído",
     "discardedNote": "Descartada — specs devolvidas ao backlog",
+    "implementationFailedNote": "A execução de implementação falhou antes de produzir algo entregável. Abra o log da execução para inspecionar a falha e descarte este cartão antes de relançar.",
     "degraded": {
       "pushed": "O ramo foi enviado mas não foi possível criar a PR — tente novamente para concluir.",
       "localOnly": "As alterações foram montadas localmente mas não enviadas — tente novamente para publicar a PR."
@@ -272,6 +274,7 @@
         "on_review": "Revisão",
         "pr_draft": "PR rascunho",
         "pr_ready": "Publicada",
+        "implementation_failed": "Falhou",
         "pr_failed": "Falhou",
         "merged": "Integrada",
         "discarded": "Descartada"

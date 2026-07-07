@@ -192,12 +192,12 @@ export async function editQueuedAgentMessage(
 // `agent_pr_decision` WS event.
 
 export type AgentPrDecisionValue =
-  | 'building' | 'on_review' | 'pr_draft' | 'pr_ready' | 'merged' | 'discarded' | 'pr_failed'
+  | 'building' | 'on_review' | 'pr_draft' | 'pr_ready' | 'merged' | 'discarded' | 'implementation_failed' | 'pr_failed'
 
 export type AgentPrDeliveryState = 'none' | 'local-only' | 'pushed' | 'pr-created'
 
 const PR_DECISION_VALUES: readonly string[] =
-  ['building', 'on_review', 'pr_draft', 'pr_ready', 'merged', 'discarded', 'pr_failed']
+  ['building', 'on_review', 'pr_draft', 'pr_ready', 'merged', 'discarded', 'implementation_failed', 'pr_failed']
 const PR_DELIVERY_STATES: readonly string[] = ['none', 'local-only', 'pushed', 'pr-created']
 
 /** Parsed content of a `system` pr_decision row (mirrors the server envelope). */

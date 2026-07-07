@@ -229,6 +229,7 @@
       "pr_draft": "PR in bozza creata",
       "pr_draft_degraded": "Consegna della PR incompleta",
       "pr_ready": "PR pronta per il merge",
+      "implementation_failed": "Implementazione non riuscita",
       "pr_failed": "Creazione della PR non riuscita",
       "merged": "Merge della PR effettuato",
       "discarded": "Scartata"
@@ -248,6 +249,7 @@
     "confirmDiscard": "Confermare lo scarto?",
     "mergedNote": "Merge effettuato — le spec sono passate a Completato",
     "discardedNote": "Scartata — le spec sono tornate nel backlog",
+    "implementationFailedNote": "Il run di implementazione non è riuscito prima di produrre qualcosa di consegnabile. Apri il log del run per controllare l'errore, poi scarta questa scheda prima di rilanciare.",
     "degraded": {
       "pushed": "Il ramo è stato inviato ma non è stato possibile creare la PR — riprova per completare.",
       "localOnly": "Le modifiche sono state assemblate in locale ma non inviate — riprova per pubblicare la PR."
@@ -272,6 +274,7 @@
         "on_review": "Revisione",
         "pr_draft": "PR bozza",
         "pr_ready": "Pubblicata",
+        "implementation_failed": "Fallita",
         "pr_failed": "Fallita",
         "merged": "Unita",
         "discarded": "Scartata"

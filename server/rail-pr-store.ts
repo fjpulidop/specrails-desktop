@@ -13,7 +13,8 @@ import { newId } from './ids'
 
 /**
  * building → on_review → pr_draft → pr_ready → merged, with discarded reachable
- * from every non-terminal state and pr_failed the retryable create-PR failure.
+ * from every non-terminal state. `pr_failed` is the retryable create-PR failure;
+ * `implementation_failed` is the pre-delivery job/loop failure state.
  */
 export type PrDecision =
   | 'building'
@@ -22,6 +23,7 @@ export type PrDecision =
   | 'pr_ready'
   | 'merged'
   | 'discarded'
+  | 'implementation_failed'
   | 'pr_failed'
 
 /** How far a Create-PR attempt got (the pr-publisher degradation ladder), independent of `decision`. */
@@ -46,6 +48,7 @@ export const ACTIVE_PR_DECISIONS: ReadonlySet<PrDecision> = new Set([
   'on_review',
   'pr_draft',
   'pr_ready',
+  'implementation_failed',
   'pr_failed',
 ])
 
@@ -149,6 +152,39 @@ export function listActivePrDeliveries(db: DbInstance): RailPrDeliveryRow[] {
        ORDER BY rail_index, created_at DESC, rowid DESC`
     )
     .all() as RailPrDeliveryRow[]
+}
+
+/**
+ * Recover implementation cards stranded at `building` after the loop process
+ * already settled all associated run ids without a success. This covers server
+ * restarts and the settle gap where loop_runs/worktrees mark failure but the
+ * PR-delivery row never receives its final card state.
+ */
+export function reconcileFailedBuildingPrDeliveries(db: DbInstance): RailPrDeliveryRow[] {
+  const rows = db
+    .prepare(`SELECT * FROM rail_pr_deliveries WHERE decision = 'building' ORDER BY created_at ASC, rowid ASC`)
+    .all() as RailPrDeliveryRow[]
+  const reconciled: RailPrDeliveryRow[] = []
+
+  for (const row of rows) {
+    const runIds = parseJsonArray<string>(row.run_ids ?? '[]')
+    if (runIds.length === 0) continue
+    const uniqueRunIds = [...new Set(runIds)]
+    const placeholders = uniqueRunIds.map(() => '?').join(',')
+    const runs = db
+      .prepare(`SELECT id, status, final_outcome FROM loop_runs WHERE id IN (${placeholders})`)
+      .all(...uniqueRunIds) as Array<{ id: string; status: string; final_outcome: string | null }>
+    if (runs.length !== uniqueRunIds.length) continue
+    if (runs.some((run) => run.status !== 'completed')) continue
+    if (runs.some((run) => run.final_outcome === 'success')) continue
+
+    if (transitionDecision(db, row.id, 'building', 'implementation_failed')) {
+      const updated = getPrDelivery(db, row.id)
+      if (updated) reconciled.push(updated)
+    }
+  }
+
+  return reconciled
 }
 
 /** Optional column updates riding a decision transition. */

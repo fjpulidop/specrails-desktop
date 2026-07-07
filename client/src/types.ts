@@ -264,6 +264,7 @@ export type RailPrDecision =
   | 'pr_ready'
   | 'merged'
   | 'discarded'
+  | 'implementation_failed'
   | 'pr_failed'
 
 /** How far a Create-PR attempt got (the pr-publisher degradation ladder). */
@@ -366,4 +367,3 @@ export interface LocalTicket {
    *  Done card. Cleared on the next clean completion. */
   needs_review?: boolean
 }
-

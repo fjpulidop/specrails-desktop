@@ -229,6 +229,7 @@
       "pr_draft": "已创建草稿 PR",
       "pr_draft_degraded": "PR 交付未完成",
       "pr_ready": "PR 已就绪，可合并",
+      "implementation_failed": "实现失败",
       "pr_failed": "PR 创建失败",
       "merged": "PR 已合并",
       "discarded": "已丢弃"
@@ -248,6 +249,7 @@
     "confirmDiscard": "确认丢弃？",
     "mergedNote": "已合并 — Spec 已移至完成",
     "discardedNote": "已丢弃 — Spec 已退回待办",
+    "implementationFailedNote": "实现运行在生成可交付内容前失败。请打开运行日志查看失败原因，然后在重新启动前丢弃此卡片。",
     "degraded": {
       "pushed": "分支已推送，但无法创建 PR — 请重试以完成。",
       "localOnly": "更改已在本地组装但未推送 — 请重试以发布 PR。"
@@ -272,6 +274,7 @@
         "on_review": "待审阅",
         "pr_draft": "草稿 PR",
         "pr_ready": "已发布",
+        "implementation_failed": "失败",
         "pr_failed": "失败",
         "merged": "已合并",
         "discarded": "已丢弃"

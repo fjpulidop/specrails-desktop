@@ -135,6 +135,7 @@ describe('derivePrCards / pin-state matrix', () => {
     ['building', true],
     ['on_review', true],
     ['pr_draft', true],
+    ['implementation_failed', true],
     ['pr_failed', true],
     ['pr_ready', false],
     ['merged', false],
@@ -162,7 +163,7 @@ describe('derivePrCards / pin-state matrix', () => {
 
 // ── Pinned slot in the floating panel ─────────────────────────────────────────
 describe('pinned dock (floating panel)', () => {
-  it.each(['building', 'on_review', 'pr_draft', 'pr_failed'] as const)(
+  it.each(['building', 'on_review', 'pr_draft', 'implementation_failed', 'pr_failed'] as const)(
     'a %s card is PINNED above the composer with a history marker in its slot',
     async (decision) => {
       await renderPanelWithMessages([sysRow('s1', { decision })])

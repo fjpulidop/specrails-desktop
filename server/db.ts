@@ -783,7 +783,7 @@ const MIGRATIONS: Migration[] = [
 
   // Migration 36: rail_pr_deliveries — one row per isolated rail LAUNCH tracking
   // the ask-first PR decision lifecycle (building → on_review → pr_draft →
-  // pr_ready → merged | discarded | pr_failed). The durable single source of
+  // pr_ready → merged | discarded | implementation_failed | pr_failed). The durable single source of
   // truth both decision surfaces (rail row + agent chat) read and write, so a
   // refresh/restart never loses a pending PR decision. `branches` captures the
   // per-unit DeliverBranch records at build-settle (deferred deliverRailAsPr

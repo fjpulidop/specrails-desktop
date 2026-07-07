@@ -20,6 +20,7 @@ import {
   getActivePrDeliveryByRail,
   getPrDelivery,
   listActivePrDeliveries,
+  reconcileFailedBuildingPrDeliveries,
   toPrDecisionCardEnvelope,
   toPrDeliverySnapshot,
   toRailPrStateMessage,
@@ -70,6 +71,12 @@ function emitPrDeliveryUpdate(c: ProjectContext, prDeliveryId: string): void {
       row.origin_conversation_id,
       toPrDecisionCardEnvelope(c.project.id, snap),
     )
+  }
+}
+
+function reconcileAndEmitFailedPrDeliveries(c: ProjectContext): void {
+  for (const row of reconcileFailedBuildingPrDeliveries(c.db)) {
+    emitPrDeliveryUpdate(c, row.id)
   }
 }
 
@@ -145,6 +152,7 @@ export function createRailsRouter(): Router {
       // (non-terminal) delivery per rail slot, so a refreshed client re-renders
       // the decision surface without waiting for a broadcast. The store lists
       // newest-first within each rail — keep the first per index.
+      reconcileAndEmitFailedPrDeliveries(c)
       const prDeliveries: Record<number, PrDeliverySnapshot> = {}
       for (const row of listActivePrDeliveries(c.db)) {
         if (!(row.rail_index in prDeliveries)) prDeliveries[row.rail_index] = toPrDeliverySnapshot(row)
@@ -657,7 +665,7 @@ export function createRailsRouter(): Router {
                 if (current.pr_state === 'pr-created' && current.pr_url && current.branch) {
                   const succeeded = settled.every((s) => s.status === 'fulfilled' && s.value === true)
                   if (!succeeded) {
-                    if (transitionDecision(c.db, fallbackPrDeliveryId!, 'building', 'pr_failed', { prState: 'local-only' })) {
+                    if (transitionDecision(c.db, fallbackPrDeliveryId!, 'building', 'implementation_failed')) {
                       emitPrDeliveryUpdate(c, fallbackPrDeliveryId!)
                     }
                     return

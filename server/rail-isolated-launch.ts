@@ -528,8 +528,9 @@ export async function launchIsolatedRail(input: IsolatedLaunchInput, io: Isolate
       // Build-settle: persist the per-unit branch outcomes + this launch's
       // worktree ledger ids on the row (the deferred create-pr / discard actions
       // reconstruct their inputs from these — nothing survives in memory), then
-      // hand the decision to the user. 0 succeeded units → nothing deliverable
-      // → auto-close (per-run settle already reverted the tickets).
+      // hand the decision to the user. 0 succeeded units → nothing deliverable;
+      // keep the implementation card visible as a failed job state with run-log
+      // chips instead of silently auto-discarding or leaving it at "building".
       const worktreeIds = allocated.map((a) => a.ledgerId)
       const anySucceeded = results.some((r) => r.succeeded)
       const settledContinuation = anySucceeded ? launchContinuation : null
@@ -553,7 +554,7 @@ export async function launchIsolatedRail(input: IsolatedLaunchInput, io: Isolate
                 ? 'pr_failed' as const
                 : (settledContinuation.isDraft === false ? 'pr_ready' as const : 'pr_draft' as const))
             : 'on_review' as const)
-        : 'discarded' as const
+        : 'implementation_failed' as const
       const patch = settledContinuation
         ? {
             branches,
@@ -574,7 +575,7 @@ export async function launchIsolatedRail(input: IsolatedLaunchInput, io: Isolate
         syncOriginCard('update')
       }
       if (!anySucceeded) {
-        // AUTO-DISCARD CLEANUP (0 succeeded): unmount every worktree NOW rather
+        // FAILED-IMPLEMENTATION CLEANUP (0 succeeded): unmount every worktree NOW rather
         // than leaving it for a restart's reconcile sweep — a still-mounted
         // worktree POISONS the next run of the same ticket: the worktree path is
         // keyed by ticketId, so the next allocation silently reuses this

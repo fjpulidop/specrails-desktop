@@ -40,6 +40,8 @@
     "branchPushedHint": "La rama se subió pero no se pudo crear la PR (GitHub CLI no disponible). Reintenta para crearla.",
     "iteratingPr": "Actualizando PR",
     "prReady": "PR lista",
+    "implementationFailed": "Implementación fallida",
+    "implementationFailedHint": "El run de implementación ha fallado. Abre el log del run y descarta esta card antes de relanzar.",
     "prFailed": "PR fallida",
     "prFailedDetail": "PR fallida: {{detail}}",
     "createDegraded": "No se pudo publicar la PR — {{detail}}. Reintenta cuando esté resuelto.",

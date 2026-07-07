@@ -229,6 +229,7 @@
       "pr_draft": "ドラフト PR を作成しました",
       "pr_draft_degraded": "PR の公開が未完了",
       "pr_ready": "PR のマージ準備完了",
+      "implementation_failed": "実装に失敗しました",
       "pr_failed": "PR の作成に失敗しました",
       "merged": "PR がマージされました",
       "discarded": "破棄済み"
@@ -248,6 +249,7 @@
     "confirmDiscard": "破棄しますか？",
     "mergedNote": "マージ済み — スペックは完了に移動しました",
     "discardedNote": "破棄済み — スペックはバックログに戻されました",
+    "implementationFailedNote": "実装の実行は、配信可能な成果物が生成される前に失敗しました。実行ログで失敗内容を確認し、再実行する前にこのカードを破棄してください。",
     "degraded": {
       "pushed": "ブランチはプッシュされましたが、PR を作成できませんでした — 再試行して完了してください。",
       "localOnly": "変更はローカルで組み立てられましたが、プッシュされていません — 再試行して PR を公開してください。"
@@ -272,6 +274,7 @@
         "on_review": "レビュー",
         "pr_draft": "ドラフト PR",
         "pr_ready": "公開済み",
+        "implementation_failed": "失敗",
         "pr_failed": "失敗",
         "merged": "マージ済み",
         "discarded": "破棄済み"

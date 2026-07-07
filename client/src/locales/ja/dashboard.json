@@ -40,6 +40,8 @@
     "branchPushedHint": "ブランチはプッシュされましたが、PR を作成できませんでした（GitHub CLI が利用できません）。再試行して作成してください。",
     "iteratingPr": "PR 更新中",
     "prReady": "PR 準備完了",
+    "implementationFailed": "実装に失敗しました",
+    "implementationFailedHint": "実装の実行に失敗しました。実行ログを開き、再実行する前にこのカードを破棄してください。",
     "prFailed": "PR 失敗",
     "prFailedDetail": "PR 失敗: {{detail}}",
     "createDegraded": "PR を公開できませんでした — {{detail}}。解決後に再試行してください。",

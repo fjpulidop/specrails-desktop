@@ -229,6 +229,7 @@
       "pr_draft": "Draft PR created",
       "pr_draft_degraded": "PR delivery incomplete",
       "pr_ready": "PR ready for merge",
+      "implementation_failed": "Implementation failed",
       "pr_failed": "PR creation failed",
       "merged": "PR merged",
       "discarded": "Discarded"
@@ -248,6 +249,7 @@
     "confirmDiscard": "Confirm discard?",
     "mergedNote": "Merged — specs moved to Done",
     "discardedNote": "Discarded — specs returned to the backlog",
+    "implementationFailedNote": "The implementation run failed before there was anything deliverable. Open the run log to inspect the failure, then discard this card before relaunching.",
     "degraded": {
       "pushed": "The branch was pushed but the PR could not be created — retry to finish.",
       "localOnly": "The changes were assembled locally but not pushed — retry to publish the PR."
@@ -272,6 +274,7 @@
         "on_review": "Review",
         "pr_draft": "Draft PR",
         "pr_ready": "Published",
+        "implementation_failed": "Failed",
         "pr_failed": "Failed",
         "merged": "Merged",
         "discarded": "Discarded"

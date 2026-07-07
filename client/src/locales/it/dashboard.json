@@ -40,6 +40,8 @@
     "branchPushedHint": "Il ramo è stato inviato ma non è stato possibile creare la PR (GitHub CLI non disponibile). Riprova per crearla.",
     "iteratingPr": "Aggiornamento PR",
     "prReady": "PR pronta",
+    "implementationFailed": "Implementazione non riuscita",
+    "implementationFailedHint": "Il run di implementazione non è riuscito. Apri il log del run, poi scarta questa scheda prima di rilanciare.",
     "prFailed": "PR non riuscita",
     "prFailedDetail": "PR non riuscita: {{detail}}",
     "createDegraded": "Impossibile pubblicare la PR — {{detail}}. Riprova una volta risolto.",
