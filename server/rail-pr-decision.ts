@@ -447,10 +447,16 @@ async function runPublish(deps: PrDecisionDeps, row: RailPrDeliveryRow): Promise
 
 async function runDiscard(deps: PrDecisionDeps, row: RailPrDeliveryRow): Promise<PrDecisionResult> {
   const snap = toPrDeliverySnapshot(row)
+  const implementationFailed = row.decision === 'implementation_failed'
 
   // 1. Close the PR (drops its head branch) when one exists. Best-effort — a
   //    gh failure must never leave the discard half-done.
-  if (row.pr_url) {
+  //
+  // Implementation-failed rows are different: the implement run produced no
+  // deliverable update. If the row belongs to an existing-PR continuation it may
+  // still carry that PR's url/branch from launch time; clearing the failed card
+  // must not close or delete the user's existing review branch.
+  if (row.pr_url && !implementationFailed) {
     try {
       const r = await deps.exec.run('gh', ['pr', 'close', row.pr_url, '--delete-branch'], deps.project.path)
       if (r.code !== 0) {
@@ -464,11 +470,11 @@ async function runDiscard(deps: PrDecisionDeps, row: RailPrDeliveryRow): Promise
   // 2. Remove the launch's worktrees (still on disk unless a restart already
   //    swept them) and close their ledger rows — the reconcile-style removal,
   //    branch deletion deferred to step 3 (a checked-out branch can't be -D'd).
-  const branchSet = new Set<string>(snap.branches.map((b) => b.branch))
+  const branchSet = new Set<string>(implementationFailed ? [] : snap.branches.map((b) => b.branch))
   for (const wtId of snap.worktreeIds) {
     const wt = getRailWorktree(deps.db, wtId)
     if (!wt) continue
-    branchSet.add(wt.branch)
+    if (!implementationFailed) branchSet.add(wt.branch)
     await removeWorktree(deps.git, {
       repoDir: deps.project.path, worktreePath: wt.worktree_path, branch: wt.branch, deleteBranch: false,
     }).catch(() => {})
@@ -480,18 +486,20 @@ async function runDiscard(deps: PrDecisionDeps, row: RailPrDeliveryRow): Promise
   //    best-effort from the same ticket data the create-pr path names it from
   //    (the delivered head is already covered by row.branch). Missing branches
   //    are tolerated; the integration branch is NEVER deleted.
-  if (row.branch) branchSet.add(row.branch)
-  const succeededUnits = snap.branches.filter((b) => b.succeeded)
-  if (succeededUnits.length > 1) {
-    try {
-      branchSet.add(batchBranchNameFor(loadPrTicketData(deps, succeededUnits.map((b) => b.ticketId))))
-    } catch {
-      /* best-effort defense-in-depth only */
+  if (!implementationFailed) {
+    if (row.branch) branchSet.add(row.branch)
+    const succeededUnits = snap.branches.filter((b) => b.succeeded)
+    if (succeededUnits.length > 1) {
+      try {
+        branchSet.add(batchBranchNameFor(loadPrTicketData(deps, succeededUnits.map((b) => b.ticketId))))
+      } catch {
+        /* best-effort defense-in-depth only */
+      }
     }
-  }
-  for (const branch of branchSet) {
-    if (!branch || branch === row.base_branch) continue
-    await deps.git.run(['branch', '-D', branch], deps.project.path).catch(() => {})
+    for (const branch of branchSet) {
+      if (!branch || branch === row.base_branch) continue
+      await deps.git.run(['branch', '-D', branch], deps.project.path).catch(() => {})
+    }
   }
 
   const conflict = casTransition(deps, row, 'discarded')

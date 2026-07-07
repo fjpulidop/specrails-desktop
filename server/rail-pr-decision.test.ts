@@ -850,6 +850,25 @@ describe('discard', () => {
     expect(readTicketStatuses(ticketFile)['1']).toBe('todo')
     expect(jira.onRailDiscard).toHaveBeenCalledWith([1, 2], row.id)
   })
+
+  it('discard from implementation_failed does not close an existing PR or delete its branch', async () => {
+    const { git, calls: gitCalls } = fakeGit()
+    const { exec, calls: execCalls } = fakeExec()
+    const row = mkRow({
+      decision: 'implementation_failed',
+      prUrl: PR_URL,
+      prState: 'pr-created',
+      branches: [{ ticketId: 1, branch: 'feat/existing-pr', succeeded: false }],
+    })
+    const { deps } = mkDeps({ git, exec })
+
+    const r = await executePrDecision(deps, { prDeliveryId: row.id, action: 'discard', expectedDecision: 'implementation_failed' })
+
+    expect(r.status).toBe(200)
+    expect(getPrDelivery(db, row.id)?.decision).toBe('discarded')
+    expect(execCalls.some((c) => c.cmd === 'gh' && c.args[0] === 'pr' && c.args[1] === 'close')).toBe(false)
+    expect(gitCalls.some((c) => c.args[0] === 'branch' && c.args[1] === '-D')).toBe(false)
+  })
 })
 
 // ─── poll-merge ───────────────────────────────────────────────────────────────

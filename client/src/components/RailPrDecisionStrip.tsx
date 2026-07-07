@@ -127,6 +127,7 @@ export function RailPrDecisionStrip({ decision, density, act, checkout }: RailPr
   const iconCls = compact ? 'w-2.5 h-2.5' : 'w-3 h-3'
   const spinner = <Loader2 className={`${iconCls} animate-spin`} aria-hidden />
   const busy = inFlight !== null || checkingOut
+  const discardTitle = d === 'implementation_failed' ? t('railPr.implementationFailedHint') : t('railPr.discardTooltip')
 
   const linkChip = decision.prUrl ? (
     <a
@@ -160,7 +161,7 @@ export function RailPrDecisionStrip({ decision, density, act, checkout }: RailPr
       type="button"
       data-testid="rail-pr-discard"
       disabled={busy}
-      title={t('railPr.discardTooltip')}
+      title={discardTitle}
       onClick={(e) => { e.stopPropagation(); setConfirmDiscard(true) }}
       className={ghostBtn}
     >

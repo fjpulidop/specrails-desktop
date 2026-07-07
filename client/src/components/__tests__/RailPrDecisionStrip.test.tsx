@@ -147,7 +147,7 @@ describe('RailPrDecisionStrip states (via RailRow, both densities)', () => {
         const strip = screen.getByTestId('rail-pr-strip')
         expect(strip).toHaveAttribute('data-decision', 'implementation_failed')
         expect(within(strip).getByText('Implementation failed')).toBeInTheDocument()
-        expect(within(strip).getByTestId('rail-pr-discard')).toBeInTheDocument()
+        expect(within(strip).getByTestId('rail-pr-discard')).toHaveAttribute('title', expect.stringContaining('implementation run failed'))
         expect(within(strip).queryByTestId('rail-pr-create')).toBeNull()
         expect(within(strip).queryByTestId('rail-pr-merge-local')).toBeNull()
       })
