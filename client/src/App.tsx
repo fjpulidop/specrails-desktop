@@ -531,7 +531,7 @@ export default function App() {
         <SharedWebSocketProvider url={WS_URL}>
           <ThemeProvider>
             <LanguageProvider>
-            {/* Theme-scoped decorative effects (e.g. matrix rain). Dispatcher
+            {/* Theme-scoped decorative effects (for example, falling-character rain). Dispatcher
                 renders the matching effect or nothing. See
                 `components/theme-effects/ThemeEffectLayer.tsx`. */}
             <ThemeEffectLayer />

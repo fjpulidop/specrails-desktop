@@ -35,7 +35,8 @@ export function RailPrDecisionStrip({ decision, density, act }: RailPrDecisionSt
   const [confirmMergeLocal, setConfirmMergeLocal] = useState(false)
 
   const d = decision.decision
-  if (d === 'building' || d === 'merged' || d === 'discarded') return null
+  const existingPrIteration = d === 'building' && decision.prState === 'pr-created' && Boolean(decision.branch)
+  if ((d === 'building' && !existingPrIteration) || d === 'merged' || d === 'discarded') return null
 
   const compact = density === 'compact'
 
@@ -124,6 +125,16 @@ export function RailPrDecisionStrip({ decision, density, act }: RailPrDecisionSt
       <ExternalLink className={compact ? 'w-2 h-2' : 'w-2.5 h-2.5'} aria-hidden />
     </a>
   ) : null
+  const branchChip = decision.branch ? (
+    <span
+      data-testid="rail-pr-branch"
+      className={`inline-flex min-w-0 max-w-full items-center gap-1 rounded-md font-mono border border-border/60 bg-surface/60 text-foreground/70 ${
+        compact ? 'px-1 py-0.5 text-[9px]' : 'px-1.5 py-0.5 text-[10px]'
+      }`}
+    >
+      <span className="truncate">{decision.branch}</span>
+    </span>
+  ) : null
 
   const discardBtn = (
     <button
@@ -183,7 +194,20 @@ export function RailPrDecisionStrip({ decision, density, act }: RailPrDecisionSt
   let pill: React.ReactNode = null
   let actions: React.ReactNode = null
 
-  if (d === 'on_review') {
+  if (existingPrIteration) {
+    pill = (
+      <span className={`${pillBase} border-accent-info/30 bg-accent-info/10 text-accent-info`}>
+        <Loader2 className={`${iconCls} animate-spin`} aria-hidden />
+        {t('railPr.iteratingPr')}
+      </span>
+    )
+    actions = (
+      <>
+        {linkChip}
+        {branchChip}
+      </>
+    )
+  } else if (d === 'on_review') {
     pill = (
       <span className={`${pillBase} border-accent-warning/30 bg-accent-warning/10 text-accent-warning`}>
         <Eye className={iconCls} aria-hidden />

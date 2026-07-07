@@ -32,18 +32,18 @@ describe('AppearanceSection', () => {
     }
   })
 
-  it('matrix card is selectable and updates the active theme', async () => {
+  it('code-rain card is selectable and updates the active theme', async () => {
     const user = userEvent.setup()
     vi.spyOn(global, 'fetch').mockImplementation(async (_input, init) => {
-      if (init?.method === 'PATCH') return ok({ theme: 'matrix' })
+      if (init?.method === 'PATCH') return ok({ theme: 'code-rain' })
       return ok({ theme: 'dracula' })
     })
     render(<ThemeProvider><AppearanceSection /></ThemeProvider>)
-    await user.click(screen.getByTestId('theme-card-matrix'))
+    await user.click(screen.getByTestId('theme-card-code-rain'))
     await waitFor(() => {
-      expect(screen.getByTestId('theme-card-matrix')).toHaveAttribute('data-selected', 'true')
+      expect(screen.getByTestId('theme-card-code-rain')).toHaveAttribute('data-selected', 'true')
     })
-    expect(document.documentElement.dataset.theme).toBe('matrix')
+    expect(document.documentElement.dataset.theme).toBe('code-rain')
   })
 
   it('marks the active theme', () => {

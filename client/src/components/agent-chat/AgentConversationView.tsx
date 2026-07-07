@@ -59,8 +59,8 @@ export function AgentConversationView({ variant }: { variant: 'floating' | 'inli
         : undefined,
     [refsProjectId, openRef],
   )
-  // Easter egg: on the Matrix theme, the agent becomes agent Smith.
-  const emptyTitle = useActiveTheme().id === 'matrix' ? t('emptyTitleMatrix') : t('emptyTitle')
+  // Code Rain gets a themed empty-state title.
+  const emptyTitle = useActiveTheme().id === 'code-rain' ? t('emptyTitleCodeRain') : t('emptyTitle')
 
   // PR-decision envelopes parsed ONCE per message-state change (`messages`
   // identity is stable across streaming frames — no per-frame reparse). Pinned

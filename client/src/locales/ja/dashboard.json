@@ -38,6 +38,7 @@
     "draftPr": "ドラフト PR",
     "branchPushed": "ブランチはプッシュ済み — PR は未作成",
     "branchPushedHint": "ブランチはプッシュされましたが、PR を作成できませんでした（GitHub CLI が利用できません）。再試行して作成してください。",
+    "iteratingPr": "PR 更新中",
     "prReady": "PR 準備完了",
     "prFailed": "PR 失敗",
     "prFailedDetail": "PR 失敗: {{detail}}",

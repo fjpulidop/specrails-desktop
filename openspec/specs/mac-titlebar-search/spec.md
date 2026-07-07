@@ -1,4 +1,9 @@
-## ADDED Requirements
+# mac-titlebar-search Specification
+
+## Purpose
+Define the macOS overlay titlebar search pill behavior and layout.
+
+## Requirements
 
 ### Requirement: Search pill displays active project name in title bar
 On macOS with native traffic lights active, the title bar SHALL render a centered search pill showing the name of the currently active project. When no project is active, the pill SHALL display the placeholder text "Search…".

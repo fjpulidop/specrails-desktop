@@ -18,7 +18,7 @@ vi.mock('sonner', () => ({ toast: mockToast }))
 
 import { RailPrDecisionProvider, useRailPrDecisions, type RailPrActResult } from '../RailPrDecisionContext'
 
-let latest: { decisions: Map<number, RailPrStateSnapshot>; act: (railIndex: number, action: RailPrDecisionAction, expected: RailPrDecision) => Promise<RailPrActResult> } | null = null
+let latest: { decisions: Map<number, RailPrStateSnapshot>; hydrated: boolean; act: (railIndex: number, action: RailPrDecisionAction, expected: RailPrDecision) => Promise<RailPrActResult> } | null = null
 function Probe() { latest = useRailPrDecisions(); return null }
 function renderProvider(projectId: string | null = 'proj') {
   return render(<RailPrDecisionProvider activeProjectId={projectId}><Probe /></RailPrDecisionProvider>)

@@ -12,8 +12,13 @@
  * No component code changes required (OCP).
  */
 
-export const THEME_IDS = ['dracula', 'aurora-light', 'obsidian-dark', 'matrix', 'specrails', 'star-wars'] as const
+export const THEME_IDS = ['dracula', 'aurora-light', 'obsidian-dark', 'code-rain', 'specrails', 'galaxy'] as const
 export type ThemeId = (typeof THEME_IDS)[number]
+
+export const LEGACY_THEME_ID_MAP: Record<string, ThemeId> = {
+  'star-wars': 'galaxy',
+  matrix: 'code-rain',
+}
 
 /**
  * Type guard usable client + server side. Server validates incoming PATCH
@@ -264,9 +269,9 @@ const OBSIDIAN_DARK: ThemeDescriptor = {
   },
 }
 
-// ─── Matrix ────────────────────────────────────────────────────────────────
+// ─── Code Rain ────────────────────────────────────────────────────────────────
 
-const MATRIX_PALETTE = {
+const CODE_RAIN_PALETTE = {
   bg:        'hsl(154 30% 5%)',     // near-black, green-tinted (deep terminal)
   fg:        'hsl(150 100% 86%)',   // mint phosphor — soft, AAA contrast on bg
   surface:   'hsl(154 28% 9%)',     // raised panels
@@ -284,46 +289,46 @@ const MATRIX_PALETTE = {
   destructive: 'hsl(351 100% 65%)', // rose (#FF4D6D — the red pill)
 } as const
 
-const MATRIX: ThemeDescriptor = {
-  id: 'matrix',
-  displayName: 'Matrix',
+const CODE_RAIN: ThemeDescriptor = {
+  id: 'code-rain',
+  displayName: 'Code Rain',
   tagline: 'Phosphor terminal — soft mint on green-tinted near-black',
   scheme: 'dark',
   previewSwatches: {
-    background: MATRIX_PALETTE.bg,
-    foreground: MATRIX_PALETTE.fg,
-    accents: [MATRIX_PALETTE.primary, MATRIX_PALETTE.info, MATRIX_PALETTE.highlight, MATRIX_PALETTE.destructive],
+    background: CODE_RAIN_PALETTE.bg,
+    foreground: CODE_RAIN_PALETTE.fg,
+    accents: [CODE_RAIN_PALETTE.primary, CODE_RAIN_PALETTE.info, CODE_RAIN_PALETTE.highlight, CODE_RAIN_PALETTE.destructive],
   },
   xterm: {
-    background: MATRIX_PALETTE.bg,
-    foreground: MATRIX_PALETTE.fg,
-    cursor: MATRIX_PALETTE.primary,
-    cursorAccent: MATRIX_PALETTE.bg,
+    background: CODE_RAIN_PALETTE.bg,
+    foreground: CODE_RAIN_PALETTE.fg,
+    cursor: CODE_RAIN_PALETTE.primary,
+    cursorAccent: CODE_RAIN_PALETTE.bg,
     selectionBackground: 'hsl(154 40% 22%)',
     black: 'hsl(154 30% 10%)',
-    red: MATRIX_PALETTE.destructive,
-    green: MATRIX_PALETTE.primary,
-    yellow: MATRIX_PALETTE.warning,
-    blue: MATRIX_PALETTE.info,
-    magenta: MATRIX_PALETTE.highlight,
-    cyan: MATRIX_PALETTE.info,
-    white: MATRIX_PALETTE.fg,
-    brightBlack: MATRIX_PALETTE.muted,
+    red: CODE_RAIN_PALETTE.destructive,
+    green: CODE_RAIN_PALETTE.primary,
+    yellow: CODE_RAIN_PALETTE.warning,
+    blue: CODE_RAIN_PALETTE.info,
+    magenta: CODE_RAIN_PALETTE.highlight,
+    cyan: CODE_RAIN_PALETTE.info,
+    white: CODE_RAIN_PALETTE.fg,
+    brightBlack: CODE_RAIN_PALETTE.muted,
     brightRed: 'hsl(351 100% 78%)',
-    brightGreen: MATRIX_PALETTE.success,
+    brightGreen: CODE_RAIN_PALETTE.success,
     brightYellow: 'hsl(35 100% 78%)',
     brightBlue: 'hsl(174 56% 72%)',
     brightMagenta: 'hsl(51 100% 70%)',
     brightCyan: 'hsl(174 56% 78%)',
     brightWhite: 'hsl(150 100% 96%)',
   },
-  chart: [MATRIX_PALETTE.primary, MATRIX_PALETTE.info, MATRIX_PALETTE.warning, MATRIX_PALETTE.highlight, MATRIX_PALETTE.destructive],
+  chart: [CODE_RAIN_PALETTE.primary, CODE_RAIN_PALETTE.info, CODE_RAIN_PALETTE.warning, CODE_RAIN_PALETTE.highlight, CODE_RAIN_PALETTE.destructive],
   status: {
-    completed: MATRIX_PALETTE.primary,
-    failed:    MATRIX_PALETTE.destructive,
-    canceled:  MATRIX_PALETTE.warning,
-    running:   MATRIX_PALETTE.info,
-    queued:    MATRIX_PALETTE.muted,
+    completed: CODE_RAIN_PALETTE.primary,
+    failed:    CODE_RAIN_PALETTE.destructive,
+    canceled:  CODE_RAIN_PALETTE.warning,
+    running:   CODE_RAIN_PALETTE.info,
+    queued:    CODE_RAIN_PALETTE.muted,
   },
 }
 
@@ -387,63 +392,63 @@ const SPECRAILS: ThemeDescriptor = {
   },
 }
 
-// ─── Star Wars ─────────────────────────────────────────────────────────────
+// ─── Galaxy ─────────────────────────────────────────────────────────────
 
-const STAR_WARS_PALETTE = {
-  bg:          'hsl(224 45% 5%)',     // deep-space near-black, blue-tinted
-  card:        'hsl(224 38% 10%)',
-  bgDeep:      'hsl(224 55% 3%)',
+const GALAXY_PALETTE = {
+  bg:          'hsl(220 20% 4%)',     // neutral deep-space near-black
+  card:        'hsl(220 18% 8%)',
+  bgDeep:      'hsl(220 24% 2%)',
   fg:          'hsl(210 30% 94%)',    // cool near-white
   muted:       'hsl(215 15% 60%)',
-  primary:     'hsl(212 100% 62%)',   // Jedi blue — shared by primary/ring/info
+  primary:     'hsl(212 100% 62%)',   // light-side blue — shared by primary/ring/info
   info:        'hsl(212 100% 62%)',   // same hue as primary (ticket-directed)
-  secondary:   'hsl(280 65% 64%)',    // violet — Mace Windu homage
-  success:     'hsl(140 65% 50%)',    // Force green
-  warning:     'hsl(28 95% 56%)',     // blaster orange
-  highlight:   'hsl(45 90% 55%)',     // droid gold
-  destructive: 'hsl(355 92% 56%)',    // Sith red
+  secondary:   'hsl(210 12% 65%)',    // steel steel-gray/silver
+  success:     'hsl(140 65% 50%)',    // core green
+  warning:     'hsl(28 95% 56%)',     // pulse orange
+  highlight:   'hsl(55 90% 56%)',     // signal gold
+  destructive: 'hsl(355 92% 56%)',    // dark-side red
 } as const
 
-const STAR_WARS: ThemeDescriptor = {
-  id: 'star-wars',
-  displayName: 'Star Wars',
-  tagline: 'A galaxy far away — deep-space blue with a glowing lightsaber trail',
+const GALAXY: ThemeDescriptor = {
+  id: 'galaxy',
+  displayName: 'Galaxy',
+  tagline: 'Deep-space blue with a glowing blade trail',
   scheme: 'dark',
   previewSwatches: {
-    background: STAR_WARS_PALETTE.bg,
-    foreground: STAR_WARS_PALETTE.fg,
-    accents: [STAR_WARS_PALETTE.primary, STAR_WARS_PALETTE.destructive, STAR_WARS_PALETTE.highlight, STAR_WARS_PALETTE.success],
+    background: GALAXY_PALETTE.bg,
+    foreground: GALAXY_PALETTE.fg,
+    accents: [GALAXY_PALETTE.primary, GALAXY_PALETTE.destructive, GALAXY_PALETTE.highlight, GALAXY_PALETTE.success],
   },
   xterm: {
-    background:          STAR_WARS_PALETTE.bg,
-    foreground:          STAR_WARS_PALETTE.fg,
-    cursor:              STAR_WARS_PALETTE.primary,
-    cursorAccent:        STAR_WARS_PALETTE.bg,
-    selectionBackground: 'hsl(224 38% 22%)',
-    black:               'hsl(224 40% 8%)',
-    red:                 STAR_WARS_PALETTE.destructive,
-    green:               STAR_WARS_PALETTE.success,
-    yellow:              STAR_WARS_PALETTE.warning,
-    blue:                STAR_WARS_PALETTE.primary,
-    magenta:             STAR_WARS_PALETTE.secondary,
-    cyan:                STAR_WARS_PALETTE.primary,
-    white:               STAR_WARS_PALETTE.fg,
-    brightBlack:         STAR_WARS_PALETTE.muted,
+    background:          GALAXY_PALETTE.bg,
+    foreground:          GALAXY_PALETTE.fg,
+    cursor:              GALAXY_PALETTE.primary,
+    cursorAccent:        GALAXY_PALETTE.bg,
+    selectionBackground: 'hsl(220 18% 18%)',
+    black:               'hsl(220 18% 7%)',
+    red:                 GALAXY_PALETTE.destructive,
+    green:               GALAXY_PALETTE.success,
+    yellow:              GALAXY_PALETTE.warning,
+    blue:                GALAXY_PALETTE.primary,
+    magenta:             GALAXY_PALETTE.secondary,
+    cyan:                GALAXY_PALETTE.primary,
+    white:               GALAXY_PALETTE.fg,
+    brightBlack:         GALAXY_PALETTE.muted,
     brightRed:           'hsl(355 92% 68%)',
     brightGreen:         'hsl(140 65% 62%)',
     brightYellow:        'hsl(28 95% 68%)',
     brightBlue:          'hsl(212 100% 74%)',
-    brightMagenta:       'hsl(280 65% 76%)',
+    brightMagenta:       'hsl(210 12% 78%)',
     brightCyan:          'hsl(212 100% 74%)',
     brightWhite:         'hsl(210 30% 100%)',
   },
-  chart: [STAR_WARS_PALETTE.primary, STAR_WARS_PALETTE.success, STAR_WARS_PALETTE.warning, STAR_WARS_PALETTE.secondary, STAR_WARS_PALETTE.destructive],
+  chart: [GALAXY_PALETTE.primary, GALAXY_PALETTE.success, GALAXY_PALETTE.warning, GALAXY_PALETTE.secondary, GALAXY_PALETTE.destructive],
   status: {
-    completed: STAR_WARS_PALETTE.primary,
-    failed:    STAR_WARS_PALETTE.destructive,
-    canceled:  STAR_WARS_PALETTE.warning,
-    running:   STAR_WARS_PALETTE.info,
-    queued:    STAR_WARS_PALETTE.muted,
+    completed: GALAXY_PALETTE.primary,
+    failed:    GALAXY_PALETTE.destructive,
+    canceled:  GALAXY_PALETTE.warning,
+    running:   GALAXY_PALETTE.info,
+    queued:    GALAXY_PALETTE.muted,
   },
 }
 
@@ -453,9 +458,9 @@ export const THEMES: Record<ThemeId, ThemeDescriptor> = {
   'dracula':       DRACULA,
   'aurora-light':  AURORA_LIGHT,
   'obsidian-dark': OBSIDIAN_DARK,
-  'matrix':        MATRIX,
+  'code-rain':        CODE_RAIN,
   'specrails':     SPECRAILS,
-  'star-wars':     STAR_WARS,
+  'galaxy':     GALAXY,
 }
 
 export function getTheme(id: ThemeId): ThemeDescriptor {

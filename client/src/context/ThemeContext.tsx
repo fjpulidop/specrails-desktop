@@ -2,6 +2,7 @@ import { createContext, useContext, useEffect, useState, useCallback, useMemo, u
 import {
   THEMES,
   DEFAULT_THEME,
+  LEGACY_THEME_ID_MAP,
   THEME_LOCAL_STORAGE_KEY,
   isThemeId,
   type ThemeId,
@@ -37,14 +38,34 @@ interface ThemeContextValue {
 
 const ThemeContext = createContext<ThemeContextValue | null>(null)
 
+function normalizeThemeId(value: unknown): ThemeId | null {
+  if (isThemeId(value)) return value
+  if (typeof value === 'string') return LEGACY_THEME_ID_MAP[value] ?? null
+  return null
+}
+
 function readBootTheme(): ThemeId {
   if (typeof document === 'undefined') return DEFAULT_THEME
   const attr = document.documentElement.dataset.theme
-  if (isThemeId(attr)) return attr
+  const attrTheme = normalizeThemeId(attr)
+  if (attrTheme) {
+    if (attrTheme !== attr) {
+      applyThemeToDocument(attrTheme)
+      persistThemeToLocalStorage(attrTheme)
+    }
+    return attrTheme
+  }
   if (typeof localStorage !== 'undefined') {
     try {
       const v = localStorage.getItem(THEME_LOCAL_STORAGE_KEY)
-      if (isThemeId(v)) return v
+      const storedTheme = normalizeThemeId(v)
+      if (storedTheme) {
+        if (storedTheme !== v) {
+          applyThemeToDocument(storedTheme)
+          persistThemeToLocalStorage(storedTheme)
+        }
+        return storedTheme
+      }
     } catch { /* ignore */ }
   }
   return DEFAULT_THEME
@@ -85,10 +106,11 @@ export function ThemeProvider({ children, endpoint = '/api/theme' }: ThemeProvid
         if (!res.ok) return
         const data = (await res.json()) as { theme?: unknown }
         if (cancelled) return
-        if (isThemeId(data.theme) && data.theme !== themeId) {
-          applyThemeToDocument(data.theme)
-          persistThemeToLocalStorage(data.theme)
-          setThemeIdState(data.theme)
+        const serverTheme = normalizeThemeId(data.theme)
+        if (serverTheme && serverTheme !== themeId) {
+          applyThemeToDocument(serverTheme)
+          persistThemeToLocalStorage(serverTheme)
+          setThemeIdState(serverTheme)
         }
       } catch {
         // Server unreachable — keep boot value. No throw, no toast: this is

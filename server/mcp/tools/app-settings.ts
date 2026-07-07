@@ -7,8 +7,12 @@ import { isMcpEnabled, isTierEnabled } from '../mcp-tiers'
 // permission-tier toggles are intentionally NOT writable here — an external LLM
 // must never be able to escalate its own permissions. Those are user-only,
 // changed in the Settings ▸ MCP panel.
-const WRITABLE_THEMES = ['specrails', 'dracula', 'aurora-light', 'obsidian-dark', 'matrix']
+const WRITABLE_THEMES = ['specrails', 'dracula', 'aurora-light', 'obsidian-dark', 'code-rain', 'galaxy']
 const WRITABLE_LANGS = ['en', 'es', 'fr', 'de', 'pt', 'it', 'zh', 'ja']
+const LEGACY_THEME_ID_MAP: Record<string, string> = {
+  'star-wars': 'galaxy',
+  matrix: 'code-rain',
+}
 
 export function appTools(): McpToolSpec[] {
   return [
@@ -45,8 +49,9 @@ export function appTools(): McpToolSpec[] {
       handler: (ctx, args) => {
         const db = ctx.desktopDb
         if (args.action === 'get') {
+          const theme = normalizeStoredTheme(db)
           return {
-            theme: getDesktopSetting(db, 'ui_theme') ?? 'specrails',
+            theme,
             language: getDesktopSetting(db, 'ui_language') ?? null,
             dailyBudgetUsd: num(getDesktopSetting(db, 'desktop_daily_budget_usd')),
             costAlertThresholdUsd: num(getDesktopSetting(db, 'cost_alert_threshold_usd')),
@@ -104,6 +109,17 @@ export function appTools(): McpToolSpec[] {
       },
     },
   ]
+}
+
+function normalizeStoredTheme(db: Parameters<typeof getDesktopSetting>[0]): string {
+  const stored = getDesktopSetting(db, 'ui_theme')
+  if (!stored) return 'specrails'
+  const migrated = LEGACY_THEME_ID_MAP[stored]
+  if (migrated) {
+    setDesktopSetting(db, 'ui_theme', migrated)
+    return migrated
+  }
+  return WRITABLE_THEMES.includes(stored) ? stored : 'specrails'
 }
 
 function num(v: string | undefined): number | null {

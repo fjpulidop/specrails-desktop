@@ -73,23 +73,15 @@ Theme switches SHALL be applied by mutating `data-theme` on the document root el
 
 ### Requirement: No flash of wrong theme on app boot
 
-On every app page load, the document root SHALL have its `data-theme` attribute set to the user's chosen theme before the React application hydrates. The chosen theme value SHALL be cached in `localStorage` under a documented key whenever the server-side value changes.
+On every app page load, the document root SHALL have its `data-theme` attribute set to the user's chosen theme before the React application hydrates. The chosen theme value SHALL be cached in `localStorage` under a documented key whenever the server-side value changes. The anti-FOUC boot allow-list SHALL recognize every built-in theme id that can be selected by the app, including `star-wars`, and the inline splash screen SHALL define matching pre-React splash variables for every built-in theme that may be applied by the boot script.
 
-#### Scenario: Returning user sees their theme on first paint
-- **WHEN** a user with `ui_theme = 'aurora-light'` loads the app UI
-- **THEN** the very first painted frame shows Aurora Light styling, with no Dracula flash
+#### Scenario: Returning Star Wars user sees the Star Wars theme on first paint
+- **WHEN** `localStorage.getItem('specrails-desktop:ui-theme')` returns `star-wars` before React hydrates
+- **THEN** the anti-FOUC boot script applies `document.documentElement.dataset.theme = 'star-wars'` instead of falling back to another theme
 
-#### Scenario: localStorage cache mirrors server value
-- **WHEN** the user changes theme via Settings
-- **THEN** `localStorage.getItem('specrails-desktop:ui-theme')` returns the new theme identifier before the next page reload
-
-#### Scenario: Corrupt localStorage value falls back to default
-- **WHEN** `localStorage` contains a value not in the theme allow-list (or throws on access)
-- **THEN** the boot script applies `dracula` and the application proceeds without error
-
-#### Scenario: Server value wins over stale cache
-- **WHEN** the cached localStorage value differs from the server-persisted value (e.g. user changed theme on another machine)
-- **THEN** after the React app fetches the server value it updates `data-theme` and overwrites the localStorage cache
+#### Scenario: Star Wars splash variables are available before React hydrates
+- **WHEN** the boot script applies `html[data-theme="star-wars"]` and the inline splash screen renders
+- **THEN** the splash screen resolves Star Wars-specific background, foreground, primary, secondary, and muted variables from `client/index.html`
 
 ### Requirement: Theme propagates to non-CSS rendering surfaces
 
@@ -197,19 +189,27 @@ The `matrix` theme MAY apply a subtle drop-shadow glow effect to interactive sur
 
 ### Requirement: Star Wars palette definition
 
-The `star-wars` theme SHALL define a deep-space near-black background, a Jedi-blue accent shared by `accent-primary`, `ring`, and `accent-info`, a Sith-red `destructive` accent, a gold `accent-highlight`, and a Force-green `accent-success`, plus a full xterm terminal palette, a 5-color Recharts chart palette, and job-status colors, following the exact `ThemeDescriptor` shape used by every other built-in theme.
+The `star-wars` theme SHALL define a neutral deep-space near-black background, a Jedi-blue accent shared by `accent-primary`, `ring`, and `accent-info`, an Imperial steel-gray/silver `accent-secondary`, a Sith-red `destructive` accent, a gold `accent-highlight`, and a Force-green `accent-success`, plus a full xterm terminal palette, a 5-color Recharts chart palette, and job-status colors, following the exact `ThemeDescriptor` shape used by every other built-in theme. The Star Wars palette MUST be visually distinct from the `specrails` theme: its background MUST be substantially less saturated than SpecRails's navy-indigo near-black, its secondary accent MUST NOT use the SpecRails violet hue family, and its primary blue MUST be hue-separated from SpecRails's cyan primary.
 
 #### Scenario: Star Wars descriptor defines all required fields
 - **WHEN** `THEMES['star-wars']` is inspected
 - **THEN** it has `displayName`, `tagline`, `scheme: 'dark'`, `previewSwatches`, a full 20-key `xterm` palette, a 5-entry `chart` palette with unique colors, and a `status` map covering `completed`, `failed`, `canceled`, `running`, and `queued`
 
-#### Scenario: Primary, ring, and info share the Jedi-blue hue
+#### Scenario: Primary, ring, and info share a distinct Jedi-blue hue
 - **WHEN** the active theme is `star-wars`
-- **THEN** `accent-primary`, `ring`, and `accent-info` all resolve to the same blue hue (within a few degrees), distinct from the resolved `destructive` (red), `accent-highlight` (gold), and `accent-success` (green) hues
+- **THEN** `accent-primary`, `ring`, and `accent-info` all resolve to the same blue hue in the 212-215 degree range, distinct from the resolved `destructive` red, `accent-highlight` gold, `accent-success` green, and SpecRails cyan primary hues
+
+#### Scenario: Background is neutral deep-space black, not SpecRails navy
+- **WHEN** the active theme is `star-wars`
+- **THEN** the resolved background is a desaturated near-black with saturation around 20% and lightness around 4%, preserving a dark elevation ladder while reading as neutral black rather than SpecRails's saturated navy-indigo
+
+#### Scenario: Secondary is Imperial steel-gray, not violet
+- **WHEN** the active theme is `star-wars`
+- **THEN** `accent-secondary` resolves to a low-saturation cool steel-gray/silver hue around 210 degrees and does not overlap with SpecRails's violet secondary hue family
 
 #### Scenario: Destructive is an unmistakable Sith red
 - **WHEN** the active theme is `star-wars`
-- **THEN** the resolved `destructive` / `accent-destructive`-equivalent hue sits in the red band (hue 340°–10°), distinct from the gold highlight and the blue primary
+- **THEN** the resolved `destructive` / `accent-destructive`-equivalent hue sits in the red band (hue 340-10 degrees), distinct from the gold highlight and the blue primary
 
 ### Requirement: Star Wars theme propagates to non-CSS surfaces
 
@@ -278,4 +278,46 @@ Under the `star-wars` theme, focus-visible interactive elements (`button`, `a`, 
 #### Scenario: No other theme is affected
 - **WHEN** the active theme is any theme other than `star-wars`
 - **THEN** none of the Star Wars glow rules apply, and existing focus/border styling for that theme is byte-identical to before this change
+
+### Requirement: Star Wars background effects are visible only in primary work views
+
+The `star-wars` theme SHALL show its global `LightsaberTrail` cursor effect behind app content in Mission Control and the Specs Board, not only on one board surface. The theme SHALL also show a view-local Starfield background behind Mission Control and the Specs Board. Both effects MUST be scoped to `star-wars`; other themes MUST retain their existing backgrounds and effects.
+
+#### Scenario: Mission Control reveals the Star Wars effects
+- **WHEN** the active theme is `star-wars` and Mission Control is rendered
+- **THEN** the outer Mission Control page background is transparent enough for the global `LightsaberTrail` and local Starfield to be visible behind its content
+- **AND** readable cards, panes, and controls remain painted above the effects
+
+#### Scenario: Specs Board renders a local Starfield under Star Wars
+- **WHEN** the active theme is `star-wars` and the Specs Board dashboard route is rendered
+- **THEN** a local Starfield canvas is mounted behind the board content
+- **AND** the global `LightsaberTrail` remains available at the root layer
+
+#### Scenario: Starfield does not render outside the requested views
+- **WHEN** the active theme is `star-wars` and any route other than Mission Control or the Specs Board is rendered
+- **THEN** no view-local Starfield canvas is mounted for that route
+
+#### Scenario: Other themes do not receive Star Wars background effects
+- **WHEN** the active theme is any theme other than `star-wars`
+- **THEN** neither Mission Control nor the Specs Board mounts the Starfield effect
+- **AND** Star Wars transparency rules do not apply
+
+### Requirement: Starfield is motion-aware and non-interactive
+
+The Starfield effect SHALL render a low-opacity canvas of small stars that drift slowly and continuously. It MUST render nothing or remain non-animated when `prefers-reduced-motion: reduce` is active; in this implementation it should follow the existing effect convention and render no animation output. It MUST pause its animation loop while the document is hidden, resume when visible, and never intercept pointer input.
+
+#### Scenario: Reduced motion suppresses Starfield animation
+- **WHEN** the user agent reports `prefers-reduced-motion: reduce`
+- **THEN** Starfield does not start a requestAnimationFrame loop
+- **AND** no animated star drift is produced
+
+#### Scenario: Starfield pauses while the tab is hidden
+- **WHEN** Starfield is mounted and `document.hidden` becomes `true`
+- **THEN** its animation frame loop is cancelled
+- **AND** the loop resumes only after the document becomes visible again
+
+#### Scenario: Starfield never intercepts input
+- **WHEN** Starfield is mounted
+- **THEN** its canvas layer has `pointer-events: none`
+- **AND** clicking or dragging anywhere in Mission Control or the Specs Board reaches the underlying UI
 

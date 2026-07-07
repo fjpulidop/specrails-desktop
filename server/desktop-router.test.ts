@@ -1358,6 +1358,18 @@ describe('desktop-router', () => {
       expect(res.body.theme).toBe('aurora-light')
     })
 
+    it.each([
+      ['star-wars', 'galaxy'],
+      ['matrix', 'code-rain'],
+    ])('migrates legacy persisted theme %s to %s with write-back', async (legacy, current) => {
+      setDesktopSetting(desktopDb, 'ui_theme', legacy)
+      const { app } = createApp()
+      const res = await request(app).get('/api/theme')
+      expect(res.status).toBe(200)
+      expect(res.body.theme).toBe(current)
+      expect(getDesktopSetting(desktopDb, 'ui_theme')).toBe(current)
+    })
+
     it('falls back to specrails when persisted value is outside the allow-list', async () => {
       setDesktopSetting(desktopDb, 'ui_theme', 'totally-bogus-theme')
       const { app } = createApp()
@@ -1378,27 +1390,27 @@ describe('desktop-router', () => {
       expect(getDesktopSetting(desktopDb, 'ui_theme')).toBe('obsidian-dark')
     })
 
-    it('persists the matrix theme', async () => {
+    it('persists the code-rain theme', async () => {
       const { app } = createApp()
       const res = await request(app)
         .patch('/api/theme')
-        .send({ theme: 'matrix' })
+        .send({ theme: 'code-rain' })
       expect(res.status).toBe(200)
-      expect(res.body.theme).toBe('matrix')
-      expect(getDesktopSetting(desktopDb, 'ui_theme')).toBe('matrix')
+      expect(res.body.theme).toBe('code-rain')
+      expect(getDesktopSetting(desktopDb, 'ui_theme')).toBe('code-rain')
     })
 
-    it('persists the star-wars theme', async () => {
+    it('persists the galaxy theme', async () => {
       const { app } = createApp()
       const res = await request(app)
         .patch('/api/theme')
-        .send({ theme: 'star-wars' })
+        .send({ theme: 'galaxy' })
       expect(res.status).toBe(200)
-      expect(res.body.theme).toBe('star-wars')
-      expect(getDesktopSetting(desktopDb, 'ui_theme')).toBe('star-wars')
+      expect(res.body.theme).toBe('galaxy')
+      expect(getDesktopSetting(desktopDb, 'ui_theme')).toBe('galaxy')
     })
 
-    it('rejects a near-miss matrix typo with 400', async () => {
+    it('rejects a near-miss code-rain typo with 400', async () => {
       const { app } = createApp()
       const res = await request(app)
         .patch('/api/theme')
@@ -1406,6 +1418,17 @@ describe('desktop-router', () => {
       expect(res.status).toBe(400)
       expect(res.body.error).toBe('invalid_theme')
       expect(getDesktopSetting(desktopDb, 'ui_theme')).toBe('specrails')
+    })
+
+    it.each(['matrix', 'star-wars'])('rejects legacy theme id %s with 400', async (theme) => {
+      setDesktopSetting(desktopDb, 'ui_theme', 'dracula')
+      const { app } = createApp()
+      const res = await request(app)
+        .patch('/api/theme')
+        .send({ theme })
+      expect(res.status).toBe(400)
+      expect(res.body.error).toBe('invalid_theme')
+      expect(getDesktopSetting(desktopDb, 'ui_theme')).toBe('dracula')
     })
 
     it('rejects unknown theme with 400', async () => {
@@ -1441,7 +1464,7 @@ describe('desktop-router', () => {
       expect(res.body.theme).toBe('aurora-light')
     })
 
-    it.each(['dracula', 'aurora-light', 'obsidian-dark', 'star-wars'])('accepts %s', async (theme) => {
+    it.each(['dracula', 'aurora-light', 'obsidian-dark', 'code-rain', 'galaxy'])('accepts %s', async (theme) => {
       const { app } = createApp()
       const res = await request(app).patch('/api/theme').send({ theme })
       expect(res.status).toBe(200)

@@ -74,6 +74,14 @@ export interface IsolatedLaunchInput {
   /** The launching agent-chat conversation id (agent-chat/MCP launches only);
    *  null/omitted for dashboard launches. */
   originConversationId?: string | null
+  /** Called immediately after the PR-delivery row is inserted. */
+  onPrDeliveryCreated?: (id: string) => void
+  /**
+   * When true, an allocation failure leaves the just-created delivery in
+   * `building` so the caller can attach a shared-cwd fallback run to the same
+   * implementation card. Default false keeps direct callers from wedging a rail.
+   */
+  preservePrDeliveryOnAllocationFailure?: boolean
 }
 
 /** Injectable git/worktree IO (defaults to the real implementations) — lets the
@@ -326,6 +334,7 @@ export async function launchIsolatedRail(input: IsolatedLaunchInput, io: Isolate
       originSurface: input.originSurface ?? 'dashboard',
       originConversationId: input.originConversationId ?? null,
     }).id
+    input.onPrDeliveryCreated?.(prDeliveryId)
     if (launchContinuation) {
       transitionDecision(ctx.db, prDeliveryId, 'building', 'building', {
         branch: launchContinuation.branch,
@@ -416,7 +425,10 @@ export async function launchIsolatedRail(input: IsolatedLaunchInput, io: Isolate
     }
     // Close the just-inserted decision row (kept as 'discarded' for audit, never
     // deleted) so a wedged 'building' row can never block relaunching the slot.
-    if (prDeliveryId && transitionDecision(ctx.db, prDeliveryId, 'building', 'discarded')) {
+    // Router-driven PR continuations may intentionally fall back to shared-cwd
+    // on the same PR branch; in that case the router preserves and updates the
+    // row as the live iteration card instead of showing a false discard.
+    if (!input.preservePrDeliveryOnAllocationFailure && prDeliveryId && transitionDecision(ctx.db, prDeliveryId, 'building', 'discarded')) {
       broadcastPrState()
       syncOriginCard('update')
     }

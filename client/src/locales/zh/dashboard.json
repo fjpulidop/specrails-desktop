@@ -38,6 +38,7 @@
     "draftPr": "草稿 PR",
     "branchPushed": "分支已推送 — PR 待创建",
     "branchPushedHint": "分支已推送，但无法创建 PR（GitHub CLI 不可用）。请重试以创建。",
+    "iteratingPr": "正在更新 PR",
     "prReady": "PR 已就绪",
     "prFailed": "PR 失败",
     "prFailedDetail": "PR 失败：{{detail}}",

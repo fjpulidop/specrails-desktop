@@ -301,7 +301,7 @@
       "integrationsLabel": "Integraciones",
       "integrationsBody": "Un marketplace por proyecto de integraciones MCP — la navegación semántica de código de Serena viene incluida. Las instalaciones son aditivas: añadir una nunca altera otra.",
       "themesLabel": "Temas",
-      "themesBody": "Cinco temas integrados — specrails (por defecto), dracula, aurora-light, obsidian-dark y matrix — aplicados antes de que la UI pinte, así no hay parpadeo. Cámbialos en Ajustes → Apariencia.",
+      "themesBody": "Seis temas integrados — specrails (por defecto), dracula, aurora-light, obsidian-dark, code-rain y galaxy — aplicados antes de que la UI pinte, así no hay parpadeo. Cámbialos en Ajustes → Apariencia.",
       "chatsLabel": "Chats minimizables",
       "chatsBody": "Aparca una sesión de Explore o AI Edit en un chip del dock y retómala más tarde — nunca se pierde entre recargas o cambios de proyecto.",
       "desktopLabel": "Escritorio o navegador",

@@ -1,7 +1,7 @@
 import { useEffect, useRef } from 'react'
 
 /**
- * Lightsaber cursor-trail decoration. Renders a viewport-sized `<canvas>`
+ * Blade cursor-trail decoration. Renders a viewport-sized `<canvas>`
  * that strokes a tapered, glowing polyline through recent pointer positions
  * — a thin blade-line trail, not a field of falling glyphs.
  *
@@ -32,7 +32,7 @@ interface Sample {
   t: number
 }
 
-export function LightsaberTrail() {
+export function BladeTrail() {
   const canvasRef = useRef<HTMLCanvasElement | null>(null)
 
   useEffect(() => {

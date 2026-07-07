@@ -168,9 +168,9 @@
       "dracula": "The original — dark purple-tinted with vivid neon accents",
       "aurora-light": "Premium light — Linear-inspired indigo on warm off-white",
       "obsidian-dark": "Premium dark — near-black blue-tinted with electric accents",
-      "matrix": "Phosphor terminal — soft mint on green-tinted near-black",
       "specrails": "Brand theme — deep navy-indigo with saturated cyan accents",
-      "star-wars": "A galaxy far away — deep-space blue with a glowing lightsaber trail"
+      "code-rain": "Phosphor terminal — soft mint on green-tinted near-black",
+      "galaxy": "Deep-space blue with a glowing blade trail"
     },
     "heading": "Appearance",
     "themeGroupLabel": "Theme",

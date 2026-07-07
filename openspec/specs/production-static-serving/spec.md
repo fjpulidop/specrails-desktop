@@ -1,4 +1,9 @@
-## ADDED Requirements
+# production-static-serving Specification
+
+## Purpose
+Define production static serving, SPA fallback routing, and published package runtime artifacts.
+
+## Requirements
 
 ### Requirement: Server serves built React client in production
 The system SHALL serve the compiled React client assets from `client/dist/` via Express static middleware when the directory exists, enabling the dashboard to be accessed from the same port as the API server.

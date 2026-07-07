@@ -39,13 +39,15 @@ export interface RailPrActResult {
 interface RailPrDecisionContextValue {
   /** Active (non-terminal) PR deliveries keyed by railIndex. */
   decisions: Map<number, RailPrStateSnapshot>
+  /** True after the initial GET /rails seed for the active project has settled. */
+  hydrated: boolean
   /** POST the decision action for the rail's active delivery. Never throws. */
   act: (railIndex: number, action: RailPrDecisionAction, expectedDecision: RailPrDecision) => Promise<RailPrActResult>
 }
 
 const noopAct = async (): Promise<RailPrActResult> => ({ status: 0, ok: false, error: 'no_provider' })
 
-const RailPrDecisionContext = createContext<RailPrDecisionContextValue>({ decisions: new Map(), act: noopAct })
+const RailPrDecisionContext = createContext<RailPrDecisionContextValue>({ decisions: new Map(), hydrated: true, act: noopAct })
 
 /** Per-rail active PR decisions + the shared decision-action caller. */
 export function useRailPrDecisions(): RailPrDecisionContextValue {
@@ -92,6 +94,7 @@ const TERMINAL_DECISIONS: ReadonlySet<RailPrDecision> = new Set(['merged', 'disc
 export function RailPrDecisionProvider({ activeProjectId, children }: { activeProjectId: string | null; children: React.ReactNode }) {
   const { t } = useTranslation('dashboard')
   const [decisions, setDecisions] = useState<Map<number, RailPrStateSnapshot>>(new Map())
+  const [hydrated, setHydrated] = useState(false)
   const { registerHandler, unregisterHandler } = useSharedWebSocket()
   const projRef = useRef(activeProjectId)
   useEffect(() => { projRef.current = activeProjectId }, [activeProjectId])
@@ -109,28 +112,38 @@ export function RailPrDecisionProvider({ activeProjectId, children }: { activePr
   // RailMetricsContext deviation).
   useEffect(() => {
     setDecisions(new Map())
+    setHydrated(false)
     liveSinceResetRef.current = new Set()
-    if (!activeProjectId) return
+    if (!activeProjectId) {
+      setHydrated(true)
+      return
+    }
     let cancelled = false
     fetch(`/api/projects/${activeProjectId}/rails`)
       .then((r) => (r.ok ? r.json() : null))
       .then((data: { prDeliveries?: Record<string, ServerPrDeliverySnapshot> } | null) => {
-        if (cancelled || !data?.prDeliveries) return
+        if (cancelled) return
+        if (!data?.prDeliveries) {
+          setHydrated(true)
+          return
+        }
         const seeded = new Map<number, RailPrStateSnapshot>()
         for (const [idxStr, raw] of Object.entries(data.prDeliveries)) {
           const snap = fromServerSnapshot(raw, Number(idxStr))
           if (snap && !TERMINAL_DECISIONS.has(snap.decision)) seeded.set(Number(idxStr), snap)
         }
-        if (seeded.size === 0) return
-        setDecisions((prev) => {
-          const next = new Map(prev)
-          for (const [idx, snap] of seeded) {
-            if (!liveSinceResetRef.current.has(idx)) next.set(idx, snap) // never clobber a live WS entry
-          }
-          return next
-        })
+        if (seeded.size > 0) {
+          setDecisions((prev) => {
+            const next = new Map(prev)
+            for (const [idx, snap] of seeded) {
+              if (!liveSinceResetRef.current.has(idx)) next.set(idx, snap) // never clobber a live WS entry
+            }
+            return next
+          })
+        }
+        setHydrated(true)
       })
-      .catch(() => { /* best-effort seed */ })
+      .catch(() => { if (!cancelled) setHydrated(true) })
     return () => { cancelled = true }
   }, [activeProjectId])
 
@@ -203,7 +216,7 @@ export function RailPrDecisionProvider({ activeProjectId, children }: { activePr
     }
   }, [])
 
-  const value = useMemo(() => ({ decisions, act }), [decisions, act])
+  const value = useMemo(() => ({ decisions, hydrated, act }), [decisions, hydrated, act])
 
   return <RailPrDecisionContext.Provider value={value}>{children}</RailPrDecisionContext.Provider>
 }

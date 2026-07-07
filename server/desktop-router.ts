@@ -68,7 +68,11 @@ function isGeminiBetaDisabled(): boolean {
 
 // Theme allow-list. Mirror of THEME_IDS in `client/src/lib/themes.ts` —
 // kept duplicated to avoid pulling client code into the server bundle.
-const THEME_ID_ALLOWLIST = new Set<string>(['dracula', 'aurora-light', 'obsidian-dark', 'matrix', 'specrails', 'star-wars'])
+const THEME_ID_ALLOWLIST = new Set<string>(['dracula', 'aurora-light', 'obsidian-dark', 'code-rain', 'specrails', 'galaxy'])
+const LEGACY_THEME_ID_MAP: Record<string, string> = {
+  'star-wars': 'galaxy',
+  matrix: 'code-rain',
+}
 
 // Language allow-list. Mirror of LANGUAGE_IDS in `client/src/lib/i18n.ts` —
 // kept duplicated to avoid pulling client code into the server bundle.
@@ -882,7 +886,9 @@ export function createDesktopRouter(
   // Persisted under desktop_settings key `ui_theme`. Default seeded by migration 8.
   router.get('/theme', (_req, res) => {
     const stored = getDesktopSetting(registry.desktopDb, 'ui_theme')
-    const theme = stored && THEME_ID_ALLOWLIST.has(stored) ? stored : 'specrails'
+    const migrated = stored ? LEGACY_THEME_ID_MAP[stored] : undefined
+    const theme = migrated ?? (stored && THEME_ID_ALLOWLIST.has(stored) ? stored : 'specrails')
+    if (migrated) setDesktopSetting(registry.desktopDb, 'ui_theme', migrated)
     res.json({ theme })
   })
 

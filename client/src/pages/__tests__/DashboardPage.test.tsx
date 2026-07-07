@@ -8,6 +8,16 @@ vi.mock('../../lib/api', () => ({
   getApiBase: () => '/api',
 }))
 
+let activeThemeId = 'dracula'
+
+vi.mock('../../context/ThemeContext', () => ({
+  useActiveTheme: () => ({ id: activeThemeId }),
+}))
+
+vi.mock('../../components/theme-effects/Starfield', () => ({
+  Starfield: () => <div data-testid="dashboard-starfield" />,
+}))
+
 vi.mock('../../hooks/useSharedWebSocket', () => ({
   useSharedWebSocket: () => ({
     registerHandler: vi.fn(),
@@ -87,6 +97,7 @@ vi.mock('../../components/CreateTicketModal', () => ({
 describe('DashboardPage', () => {
   beforeEach(() => {
     vi.clearAllMocks()
+    activeThemeId = 'dracula'
   })
 
   it('renders SpecsBoard and Rails panels', () => {
@@ -99,6 +110,18 @@ describe('DashboardPage', () => {
     render(<DashboardPage />)
     expect(screen.getByTestId('specs-board-ticket-count')).toHaveTextContent('1')
     expect(screen.getByTestId('specs-board-loading')).toHaveTextContent('false')
+  })
+
+  it('mounts Starfield only for the Galaxy theme', () => {
+    activeThemeId = 'galaxy'
+    const { rerender } = render(<DashboardPage />)
+
+    expect(screen.getByTestId('dashboard-starfield')).toBeInTheDocument()
+
+    activeThemeId = 'dracula'
+    rerender(<DashboardPage />)
+
+    expect(screen.queryByTestId('dashboard-starfield')).toBeNull()
   })
 
   it('includes free-prompt (Raw) tickets on the spec board', () => {

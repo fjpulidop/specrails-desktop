@@ -32,6 +32,8 @@ interface TicketPostitCardProps {
   /** Click handler for the parent-epic chip (opens the parent spec modal). */
   onOpenParentEpic?: (parentEpicId: number) => void
   contractRefining?: boolean
+  /** Allows an on_review ticket to be sent to a rail to continue its open PR. */
+  allowOnReviewRailMove?: boolean
   jiggleMode?: boolean
   /** Fires after a sustained press on the card body — used to enter jiggle / delete mode. */
   onLongPress?: () => void
@@ -57,14 +59,15 @@ export function TicketPostitCard({
   parentEpicTitle,
   onOpenParentEpic,
   contractRefining = false,
+  allowOnReviewRailMove = false,
   jiggleMode = false,
   onLongPress,
   onDelete,
 }: TicketPostitCardProps) {
   const { t } = useTranslation('specs')
-  // On-review specs are frozen awaiting the human PR decision — not draggable
-  // (to a rail or elsewhere) until merged or discarded.
-  const dragFrozen = jiggleMode || ticket.status === 'on_review'
+  // On-review specs are frozen unless there is an open PR branch the rail can
+  // continue by adding another commit.
+  const dragFrozen = jiggleMode || (ticket.status === 'on_review' && !allowOnReviewRailMove)
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
     id: ticket.id,
     disabled: dragFrozen,
@@ -350,9 +353,9 @@ export function TicketPostitCard({
                 {t('card.continueEditing')}
               </button>
             )}
-            {/* On-review specs are awaiting the human PR decision — they cannot
-                be sent to a rail (not launchable) until merged or discarded. */}
-            {!isOnReview && (
+            {/* On-review specs can return to a rail only when an open PR branch
+                is available for continuation. */}
+            {(!isOnReview || allowOnReviewRailMove) && (
               <button
                 ref={moveButtonRef}
                 type="button"

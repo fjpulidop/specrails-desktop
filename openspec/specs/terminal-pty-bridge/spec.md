@@ -1,4 +1,9 @@
-## ADDED Requirements
+# terminal-pty-bridge Specification
+
+## Purpose
+Define server-side PTY session management, WebSocket attach protocol, resize, input, and lifecycle behavior.
+
+## Requirements
 
 ### Requirement: Server-side PTY session registry
 The server SHALL maintain a global `TerminalManager` that holds all active PTY sessions keyed by UUID, with a secondary index by `projectId`. Sessions MUST be isolated by project: routes and WS endpoints MUST reject access to a session whose `projectId` does not match the URL-scoped project.

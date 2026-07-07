@@ -301,7 +301,7 @@
       "integrationsLabel": "集成",
       "integrationsBody": "每个项目独立的 MCP 集成市场——内置 Serena 语义代码导航。安装是增量式的：装一个绝不影响另一个。",
       "themesLabel": "主题",
-      "themesBody": "五个内置主题——specrails（默认）、dracula、aurora-light、obsidian-dark 和 matrix——在 UI 绘制前应用，不会闪屏。可在设置 → 外观中切换。",
+      "themesBody": "六个内置主题——specrails（默认）、dracula、aurora-light、obsidian-dark、code-rain 和 galaxy——在 UI 绘制前应用，不会闪屏。可在设置 → 外观中切换。",
       "chatsLabel": "可最小化的聊天",
       "chatsBody": "把 Explore 或 AI 编辑会话停靠为底部芯片，稍后继续——刷新或切换项目都不会丢失。",
       "desktopLabel": "桌面或浏览器",

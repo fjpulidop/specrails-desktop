@@ -215,7 +215,6 @@
     "high": "Alto",
     "xhigh": "Extra alto"
   },
-  "emptyTitleMatrix": "Qual è la missione, Neo?",
   "prCard": {
     "rail": "Rail {{index}}",
     "specCount_one": "{{count}} spec",
@@ -317,5 +316,6 @@
     "delete": "Elimina missione",
     "deleteConfirm": "Eliminare questa missione? Non è reversibile.",
     "deleteFailed": "Impossibile eliminare la missione"
-  }
+  },
+  "emptyTitleCodeRain": "Cosa costruiamo adesso?"
 }

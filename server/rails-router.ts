@@ -16,13 +16,23 @@ import { loadConstantMap } from './loop-constants'
 import { dominantTicketScope, referencesClaudeOnlyCommand } from './loop-command-catalog'
 import { loopNeedsTicket, type LoopGraph } from './loop-graph'
 import { isolationApplies, isRailPrDeliveryEnabled } from './rail-isolation'
-import { getActivePrDeliveryByRail, listActivePrDeliveries, toPrDeliverySnapshot, type PrDeliverySnapshot } from './rail-pr-store'
+import {
+  getActivePrDeliveryByRail,
+  getPrDelivery,
+  listActivePrDeliveries,
+  toPrDecisionCardEnvelope,
+  toPrDeliverySnapshot,
+  toRailPrStateMessage,
+  transitionDecision,
+  type PrDeliverySnapshot,
+} from './rail-pr-store'
 import { classifyLoopEffect } from './loop-effect'
 import { executePrDecision, isPrDecisionAction } from './rail-pr-decision'
 import { launchIsolatedRail } from './rail-isolated-launch'
 import { repoIsolationStatus, defaultGitRunner } from './worktree-manager'
 import { defaultExec } from './pr-publisher'
 import { newId } from './ids'
+import { getAgentChatManager } from './agent-chat-registry'
 import type { ReasoningEffort } from './providers/types'
 import type { RailJobStartedMessage, RailJobStoppedMessage, RailUpdatedMessage, RailRemovedMessage, LoopRunStoppedMessage } from './types'
 
@@ -40,6 +50,26 @@ const VALID_FREESTYLE_MODELS = new Set(['haiku', 'sonnet', 'opus', 'fable'])
 // Reasoning-effort tiers a loop launch may request (mirrors the client selector
 // + the provider adapters' supported values).
 const VALID_REASONING_EFFORTS = new Set(['low', 'medium', 'high'])
+
+function prDeliveryContinuesTickets(delivery: PrDeliverySnapshot, ticketIds: number[]): boolean {
+  if (delivery.decision !== 'pr_draft' && delivery.decision !== 'pr_ready') return false
+  if (!delivery.prUrl || !delivery.branch) return false
+  const covered = new Set(delivery.ticketIds)
+  return ticketIds.length > 0 && ticketIds.every((id) => covered.has(id))
+}
+
+function emitPrDeliveryUpdate(c: ProjectContext, prDeliveryId: string): void {
+  const row = getPrDelivery(c.db, prDeliveryId)
+  if (!row) return
+  const snap = toPrDeliverySnapshot(row)
+  c.broadcast(toRailPrStateMessage(c.project.id, snap))
+  if (row.origin_conversation_id) {
+    getAgentChatManager()?.updatePrDecisionCard(
+      row.origin_conversation_id,
+      toPrDecisionCardEnvelope(c.project.id, snap),
+    )
+  }
+}
 
 export function createRailsRouter(): Router {
   const router = Router({ mergeParams: true })
@@ -489,20 +519,25 @@ export function createRailsRouter(): Router {
         // client so a silent fallback (no delivery row → no implementation
         // cards) is diagnosable from the UI, not just the server log.
         let isolationUnavailableDetail: string | undefined
+        let continuablePrDeliveryForFallback: PrDeliverySnapshot | null = null
+        let fallbackPrDeliveryId: string | null = null
         // Read-only vs mutating is DERIVED from the loop's nodes (see loop-effect),
         // not a user flag — a content-read-only loop (no ai-step/shell) never writes,
         // so it is not isolated; anything that can write is.
         const loopReadOnly = classifyLoopEffect(loopGraph) === 'read-only'
         if (isolationApplies({ loopsEnabled: isLoopsEnabled(), scope, ticketCount: rail.ticketIds.length, readOnly: loopReadOnly })) {
-          // Relaunch collision (ask-first PR delivery): a still-undecided
-          // delivery on this slot references the slot's ticket branches, and a
-          // relaunch would append new commits to them (createWorktree resumes
-          // existing branches). Block until the user resolves or discards it.
+          // Relaunch collision (ask-first PR delivery): a delivery that has not
+          // produced a real PR yet still needs a user decision before more work
+          // can safely append to its branches. Once a draft/published PR exists
+          // and covers this rail's tickets, relaunch is intentional continuation
+          // of that PR head branch (resolved inside launchIsolatedRail).
           if (isRailPrDeliveryEnabled()) {
             const pending = getActivePrDeliveryByRail(c.db, railIndex)
-            if (pending) {
-              res.status(409).json({ error: 'pr_decision_pending', prDeliveryId: pending.id }); return
+            const pendingSnapshot = pending ? toPrDeliverySnapshot(pending) : null
+            if (pendingSnapshot && !prDeliveryContinuesTickets(pendingSnapshot, rail.ticketIds)) {
+              res.status(409).json({ error: 'pr_decision_pending', prDeliveryId: pendingSnapshot.id }); return
             }
+            continuablePrDeliveryForFallback = pendingSnapshot
           }
           // Worktree isolation needs a git repo WITH at least one commit (an
           // unborn HEAD can't be branched). Fall back (with a message) otherwise.
@@ -517,6 +552,8 @@ export function createRailsRouter(): Router {
                 provider: loopProvider, model: loopModel, effort, scope,
                 originSurface: originSurface ?? 'dashboard',
                 originConversationId: originConversationId ?? null,
+                preservePrDeliveryOnAllocationFailure: Boolean(continuablePrDeliveryForFallback),
+                onPrDeliveryCreated: (id) => { fallbackPrDeliveryId = id },
               })
               res.status(202).json({ loopRunIds: ids, railIndex, mode, isolated: true })
               return
@@ -533,6 +570,7 @@ export function createRailsRouter(): Router {
         // via SPECRAILS_REPO_DIR + `--add-dir` exactly like QueueManager.
         const loopExec = resolveProjectExecution({ slug: c.project.slug, path: c.project.path })
         const loopRunIds: string[] = []
+        const sharedRunSettles: Promise<boolean>[] = []
         const launchLoopRun = (runId: string, ticketIds: number[], spec: ReturnType<typeof c.getTicketSpec>) => {
           c.railLoopRuns.set(runId, { railIndex, ticketIds })
           // Code-Explorer provenance for shared-cwd loop runs (isolated runs
@@ -561,7 +599,7 @@ export function createRailsRouter(): Router {
               broadcast: (msg) => c.broadcast(msg),
             })
           }
-          c.loopRunManager
+          const runPromise = c.loopRunManager
             .run({
               runId,
               loopId,
@@ -581,12 +619,15 @@ export function createRailsRouter(): Router {
             .then((r) => {
               recordRunProvenance()
               c.onLoopRunFinished(r.runId, r.outcome)
+              return r.outcome === 'success'
             })
             .catch((err) => {
               console.error('[rails-router] loop run failed:', err)
               recordRunProvenance()
               c.onLoopRunFinished(runId, 'failed')
+              return false
             })
+          sharedRunSettles.push(runPromise)
           loopRunIds.push(runId)
           try { c.jiraSyncManager.onRailLaunch(ticketIds, runId) } catch { /* non-fatal */ }
         }
@@ -598,6 +639,24 @@ export function createRailsRouter(): Router {
           // One run per ticket.
           for (const ticketId of rail.ticketIds) {
             launchLoopRun(newId(), [ticketId], c.getTicketSpec(ticketId))
+          }
+        }
+        if (fallbackPrDeliveryId) {
+          const row = getPrDelivery(c.db, fallbackPrDeliveryId)
+          const isExistingPrIteration = row?.decision === 'building' && row.pr_state === 'pr-created' && Boolean(row.pr_url && row.branch)
+          if (isExistingPrIteration) {
+            if (transitionDecision(c.db, fallbackPrDeliveryId, 'building', 'building', { runIds: loopRunIds })) {
+              emitPrDeliveryUpdate(c, fallbackPrDeliveryId)
+            }
+            void Promise.allSettled(sharedRunSettles).then(() => {
+              const current = getPrDelivery(c.db, fallbackPrDeliveryId!)
+              if (current?.decision !== 'building') return
+              if (current.pr_state === 'pr-created' && current.pr_url && current.branch) {
+                if (transitionDecision(c.db, fallbackPrDeliveryId!, 'building', 'pr_ready')) {
+                  emitPrDeliveryUpdate(c, fallbackPrDeliveryId!)
+                }
+              }
+            })
           }
         }
         res.status(202).json({

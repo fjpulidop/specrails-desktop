@@ -37,7 +37,9 @@ import { railIdFromIndex, railIndexFromId, MAX_RAILS } from '../lib/rail-id'
 import { useDesktop, projectProviders } from '../hooks/useDesktop'
 import { useSharedWebSocket } from '../hooks/useSharedWebSocket'
 import { useSpecGenTracker } from '../hooks/useSpecGenTracker'
-import type { LocalTicket } from '../types'
+import { useActiveTheme } from '../context/ThemeContext'
+import { Starfield } from '../components/theme-effects/Starfield'
+import type { LocalTicket, RailPrStateSnapshot } from '../types'
 import type { RailMode, RailStatus } from '../components/RailControls'
 import type { SpecSortMode, SpecSortDir } from '../types/spec-sort'
 import { applySpecSort, loadSpecSort, saveSpecSort } from '../lib/spec-sort'
@@ -56,6 +58,21 @@ const INITIAL_RAILS: RailState[] = [
 
 const isRailMode = (m: string | undefined): m is RailMode =>
   m === 'implement' || m === 'batch-implement' || m === 'freestyle' || m === 'loop'
+
+function prDecisionContinuesTickets(decision: RailPrStateSnapshot | undefined, ticketIds: number[]): boolean {
+  if (!decision) return false
+  if (decision.decision !== 'pr_draft' && decision.decision !== 'pr_ready') return false
+  if (!decision.prUrl || !decision.branch) return false
+  const covered = new Set(decision.ticketIds)
+  return ticketIds.length > 0 && ticketIds.every((id) => covered.has(id))
+}
+
+function ticketHasContinuablePr(ticketId: number, decisions: ReadonlyMap<number, RailPrStateSnapshot>): boolean {
+  for (const decision of decisions.values()) {
+    if (prDecisionContinuesTickets(decision, [ticketId])) return true
+  }
+  return false
+}
 
 /** Why a rail is excluded from a Launch-all batch. */
 type LaunchAllSkipReason = 'running' | 'empty' | 'pendingDecision' | 'onReview'
@@ -118,6 +135,7 @@ function saveRails(projectId: string | null, rails: RailState[]) {
 export default function DashboardPage() {
   const { t } = useTranslation('dashboard')
   const { activeProjectId, projects } = useDesktop()
+  const isGalaxy = useActiveTheme().id === 'galaxy'
   const railProviders = (() => {
     const p = projects.find((pr) => pr.id === activeProjectId)
     return p ? projectProviders(p) : ['claude']
@@ -152,7 +170,7 @@ export default function DashboardPage() {
   const railMetrics = useRailMetrics()
   // Ask-first PR decisions per rail (safe-pr-review-flow) — app-level provider,
   // WS-hydrated snapshots + the single POST /rails/pr-decision caller.
-  const { decisions: railPrDecisions, act: actRailPrDecision } = useRailPrDecisions()
+  const { decisions: railPrDecisions, hydrated: railPrDecisionsHydrated, act: actRailPrDecision } = useRailPrDecisions()
   const initialSort = loadSpecSort(activeProjectId)
   const [sortMode, setSortMode] = useState<SpecSortMode>(initialSort.mode)
   const [sortDir, setSortDir] = useState<SpecSortDir>(initialSort.dir)
@@ -383,15 +401,20 @@ export default function DashboardPage() {
     return () => { cancelled = true }
   }, [activeProjectId])
 
-  // ── Auto-remove done / on-review tickets from rails ─────────────────────────
+  // ── Auto-remove done / blocked on-review tickets from rails ─────────────────
   // When ticket status changes to 'done' (via WS ticket_updated, re-fetch, etc.),
   // strip those tickets from rails so they appear in Done Specs instead.
-  // 'on_review' (rail settled, draft-PR decision pending) is stripped too: the
-  // spec returns to the board with its On Review pill and must never sit on a
-  // rail (not draggable / not launchable until the PR decision resolves).
+  // 'on_review' is stripped only while there is no real PR head to continue.
+  // Once a draft/published PR exists, keeping the ticket on a rail is the
+  // intentional "add another commit to this PR" flow.
   useEffect(() => {
     const doneIds = new Set(
-      tickets.filter((t) => t.status === 'done' || t.status === 'on_review').map((t) => t.id),
+      tickets
+        .filter((t) => (
+          t.status === 'done' ||
+          (railPrDecisionsHydrated && t.status === 'on_review' && !ticketHasContinuablePr(t.id, railPrDecisions))
+        ))
+        .map((t) => t.id),
     )
     if (doneIds.size === 0) return
     setRails((prev) => {
@@ -407,7 +430,7 @@ export default function DashboardPage() {
     // `rails` is a dep so a reconcile ADOPTION that re-introduces a done ticket
     // is stripped too (the updater returns `prev` identity when nothing changes,
     // so this cannot loop).
-  }, [tickets, activeProjectId, rails])
+  }, [tickets, activeProjectId, rails, railPrDecisions, railPrDecisionsHydrated])
 
   // Persist-aware spec order updater
   const updateSpecOrder = useCallback((updater: (prev: number[] | null) => number[] | null) => {
@@ -685,8 +708,9 @@ export default function DashboardPage() {
 
   // ── Launch all (parallel) ────────────────────────────────────────────────────
   // Which rails a "Launch all" would start right now, and why the rest are
-  // skipped. Eligible = idle + has specs + no undecided PR delivery + no spec
-  // frozen on review. Worktree isolation makes the parallel fan-out safe.
+  // skipped. Eligible = idle + has specs + no uncontinuable PR delivery + no
+  // spec frozen on review without an open PR head. Worktree isolation makes the
+  // parallel fan-out safe.
   const launchAllPlan = useMemo(() => {
     const eligible: RailState[] = []
     const skipped: { rail: RailState; reason: LaunchAllSkipReason }[] = []
@@ -695,16 +719,16 @@ export default function DashboardPage() {
       if (r.status === 'running') { skipped.push({ rail: r, reason: 'running' }); return }
       if (r.ticketIds.length === 0) { skipped.push({ rail: r, reason: 'empty' }); return }
       const decision = railPrDecisions.get(idx)
-      if (decision && decision.decision !== 'merged' && decision.decision !== 'discarded') {
+      if (decision && !prDecisionContinuesTickets(decision, r.ticketIds)) {
         skipped.push({ rail: r, reason: 'pendingDecision' }); return
       }
-      if (r.ticketIds.some((id) => ticketMap.get(id)?.status === 'on_review')) {
+      if (r.ticketIds.some((id) => ticketMap.get(id)?.status === 'on_review' && (!railPrDecisionsHydrated || !ticketHasContinuablePr(id, railPrDecisions)))) {
         skipped.push({ rail: r, reason: 'onReview' }); return
       }
       eligible.push(r)
     })
     return { eligible, skipped }
-  }, [rails, railPrDecisions, ticketMap])
+  }, [rails, railPrDecisions, railPrDecisionsHydrated, ticketMap])
 
   const allTicketLabels = useMemo(() => {
     const set = new Set<string>()
@@ -775,6 +799,17 @@ export default function DashboardPage() {
     return allSpecTickets.filter((t) => t.status === 'done')
   }, [allSpecTickets])
 
+  const continuableReviewTicketIds = useMemo(() => {
+    const ids = new Set<number>()
+    if (!railPrDecisionsHydrated) return ids
+    for (const ticket of tickets) {
+      if (ticket.status === 'on_review' && ticketHasContinuablePr(ticket.id, railPrDecisions)) {
+        ids.add(ticket.id)
+      }
+    }
+    return ids
+  }, [tickets, railPrDecisions, railPrDecisionsHydrated])
+
   // Shared assignment helper. Used both by the drag-and-drop ticket→rail
   // path (`handleDragEnd`) and by the `Move to Rail` popover on the
   // dashboard postit tier. Idempotent: re-assigning to the same rail is a
@@ -782,9 +817,9 @@ export default function DashboardPage() {
   const handleMoveTicketToRail = useCallback((ticketId: number, railId: string) => {
     const targetRail = rails.find((r) => r.id === railId)
     if (!targetRail) return
-    // On-review specs are frozen awaiting the human PR decision — they cannot
-    // be assigned to a rail until the PR is merged or discarded.
-    if (tickets.find((tk) => tk.id === ticketId)?.status === 'on_review') {
+    // On-review specs are frozen unless they already have a draft/published PR
+    // head that a relaunch can continue.
+    if (tickets.find((tk) => tk.id === ticketId)?.status === 'on_review' && (!railPrDecisionsHydrated || !ticketHasContinuablePr(ticketId, railPrDecisions))) {
       toast.info(t('toasts.onReviewCannotMoveToRail'))
       return
     }
@@ -803,7 +838,7 @@ export default function DashboardPage() {
       return r
     }))
     toast.success(t('toasts.movedToRail', { rail: targetRail.label }))
-  }, [rails, tickets, specTickets, updateRails, updateSpecOrder, t])
+  }, [rails, tickets, specTickets, updateRails, updateSpecOrder, t, railPrDecisions, railPrDecisionsHydrated])
 
   // Reverse of `handleMoveTicketToRail`: remove a ticket from whatever rail
   // currently owns it and push it back to the spec list (appended to the
@@ -916,6 +951,10 @@ export default function DashboardPage() {
 
       // Specs → Done (mark ticket as done)
       if (sourceContainer === 'specs' && destContainer === 'done-specs') {
+        if (tickets.find((tk) => tk.id === draggedId)?.status === 'on_review') {
+          toast.info(t('toasts.onReviewCannotMoveToRail'))
+          return
+        }
         updateSpecOrder((prev) => (prev ?? specTickets.map((t) => t.id)).filter((id) => id !== draggedId))
         updateTicket(draggedId, { status: 'done' })
       }
@@ -929,9 +968,9 @@ export default function DashboardPage() {
       }
       // Specs → Rail
       else if (sourceContainer === 'specs') {
-        // Belt-and-braces: the card's drag is already disabled for on_review
-        // specs, but never let one land on a rail (PR decision pending).
-        if (tickets.find((tk) => tk.id === draggedId)?.status === 'on_review') {
+        // Belt-and-braces: keep blocked on-review specs off rails, but allow the
+        // documented "continue an open PR" path.
+        if (tickets.find((tk) => tk.id === draggedId)?.status === 'on_review' && (!railPrDecisionsHydrated || !ticketHasContinuablePr(draggedId, railPrDecisions))) {
           toast.info(t('toasts.onReviewCannotMoveToRail'))
           return
         }
@@ -1121,10 +1160,9 @@ export default function DashboardPage() {
     if (!rail || railIndex === -1) return 'failed'
     if (rail.ticketIds.length === 0) return 'skipped'
 
-    // On-review specs are frozen awaiting the human PR decision — a rail
-    // holding one must not launch (normally unreachable: the auto-strip effect
-    // pulls on_review tickets off rails, and drag/move guards keep them off).
-    if (rail.ticketIds.some((id) => tickets.find((tk) => tk.id === id)?.status === 'on_review')) {
+    // On-review specs are frozen unless they already have a draft/published PR
+    // head that this launch can continue.
+    if (rail.ticketIds.some((id) => tickets.find((tk) => tk.id === id)?.status === 'on_review' && (!railPrDecisionsHydrated || !ticketHasContinuablePr(id, railPrDecisions)))) {
       if (!silent) toast.info(t('toasts.onReviewNotLaunchable'))
       return 'skipped'
     }
@@ -1297,10 +1335,11 @@ export default function DashboardPage() {
   return (
     <JiraDiscardProvider>
     <DndContext sensors={sensors} collisionDetection={collisionDetection} onDragStart={handleDragStart} onDragEnd={handleDragEnd}>
-      <div ref={dashboardContainerRef} className="flex h-full overflow-hidden">
+      <div ref={dashboardContainerRef} className="relative z-0 flex h-full overflow-hidden">
+        {isGalaxy && <Starfield />}
         {/* Left panel: Specs board */}
         <div
-          className="min-w-0 flex flex-col overflow-hidden"
+          className="relative z-10 min-w-0 flex flex-col overflow-hidden"
           style={splitterEnabled && leftWidth !== null
             ? { width: `${leftWidth}px`, flex: '0 0 auto' }
             : { flex: '1 1 0%' }}
@@ -1323,6 +1362,7 @@ export default function DashboardPage() {
             onViewTierChange={handleViewTierChange}
             rails={rails}
             onMoveToRail={handleMoveTicketToRail}
+            continuableReviewTicketIds={continuableReviewTicketIds}
           />
         </div>
 
@@ -1339,7 +1379,7 @@ export default function DashboardPage() {
         {/* Right panel: Rails board. The visual separator is rendered by
             `DashboardSplitter` (a centered 1px rule inside its 6px hit area);
             adding a `border-l` here would duplicate the line. */}
-        <div className="flex-1 min-w-0 flex flex-col overflow-hidden">
+        <div className="relative z-10 flex-1 min-w-0 flex flex-col overflow-hidden">
           <RailsBoard
             rails={rails}
             ticketMap={ticketMap}
@@ -1353,7 +1393,7 @@ export default function DashboardPage() {
             onEngineChange={handleEngineChange}
             onFreestyleModelChange={handleFreestyleModelChange}
             onLoopModelChange={handleLoopModelChange}
-              loopAvailable={FEATURE_LOOPS_SECTION}
+            loopAvailable={FEATURE_LOOPS_SECTION}
             onLoopChange={handleLoopChange}
             onEffortChange={handleEffortChange}
             onToggle={handleToggle}

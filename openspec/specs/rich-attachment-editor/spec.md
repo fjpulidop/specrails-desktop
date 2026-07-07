@@ -1,4 +1,9 @@
-## ADDED Requirements
+# rich-attachment-editor Specification
+
+## Purpose
+Define rich attachment editor content, paste, undo, drag-and-drop, file browser, and image paste behavior.
+
+## Requirements
 
 ### Requirement: RichAttachmentEditor renders as contenteditable with inline pills
 The system SHALL render a `contenteditable` div that accepts plain text input and displays attached files as inline non-editable `@filename` pill spans. The component SHALL expose a `getPlainText(): string` method that serializes content as plain text with `@[<filename>](<attachmentId>)` tokens in place of pills. The component SHALL also expose `getAttachmentIds(): string[]` returning the ordered list of attachment ids currently referenced by pills, which the parent form submits alongside the plain text.

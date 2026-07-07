@@ -4,6 +4,11 @@ import { render, screen, fireEvent, waitFor } from '../../test-utils'
 import { toast } from 'sonner'
 import DashboardPage from '../DashboardPage'
 import type { LocalTicket } from '../../types'
+import { RailPrDecisionProvider } from '../../context/RailPrDecisionContext'
+
+const { mockSpecsBoard } = vi.hoisted(() => ({
+  mockSpecsBoard: vi.fn(),
+}))
 
 vi.mock('../../lib/api', () => ({
   getApiBase: () => '/api',
@@ -47,7 +52,10 @@ vi.mock('../../hooks/useTickets', () => ({
 }))
 
 vi.mock('../../components/SpecsBoard', () => ({
-  SpecsBoard: () => <div data-testid="specs-board" />,
+  SpecsBoard: (props: Record<string, unknown>) => {
+    mockSpecsBoard(props)
+    return <div data-testid="specs-board" />
+  },
 }))
 vi.mock('../../components/TicketDetailModal', () => ({ TicketDetailModal: () => null }))
 vi.mock('../../components/CreateTicketModal', () => ({ CreateTicketModal: () => null }))
@@ -159,6 +167,58 @@ describe('DashboardPage — Launch all control', () => {
     render(<DashboardPage />)
     const btn = screen.getByText('Launch all').closest('button')!
     expect(btn.textContent).toContain('1')
+  })
+
+  it('counts an on-review rail with a published PR delivery as eligible for continuation', async () => {
+    mockTickets = [ticket(2, 'on_review')]
+    seedRails([
+      { id: 'rail-1', label: 'Rail 1', ticketIds: [], mode: 'implement', status: 'idle' },
+      { id: 'rail-2', label: 'Rail 2', ticketIds: [2], mode: 'implement', status: 'idle' },
+      { id: 'rail-3', label: 'Rail 3', ticketIds: [], mode: 'implement', status: 'idle' },
+    ])
+    global.fetch = mockFetch({
+      railsPayload: {
+        rails: [
+          { railIndex: 0, ticketIds: [] },
+          { railIndex: 1, ticketIds: [2] },
+          { railIndex: 2, ticketIds: [] },
+        ],
+        activeJobs: {},
+        activeLoopRuns: {},
+        prDeliveries: {
+          '1': {
+            id: 'del-521',
+            railIndex: 1,
+            railKey: '1-factory:implement',
+            ticketIds: [2],
+            baseBranch: 'main',
+            branch: 'feat/3-add-galaxy-theme-with-blade-trail',
+            prUrl: 'https://github.com/o/r/pull/521',
+            prNumber: 521,
+            prState: 'pr-created',
+            decision: 'pr_ready',
+            runIds: [],
+            originConversationId: null,
+          },
+        },
+      },
+    })
+
+    render(
+      <RailPrDecisionProvider activeProjectId="proj-1">
+        <DashboardPage />
+      </RailPrDecisionProvider>,
+    )
+
+    await waitFor(() => {
+      const btn = screen.getByText('Launch all').closest('button')!
+      expect(btn).not.toBeDisabled()
+      expect(btn.textContent).toContain('1')
+    })
+    await waitFor(() => {
+      const props = mockSpecsBoard.mock.calls.at(-1)?.[0] as { continuableReviewTicketIds?: ReadonlySet<number> } | undefined
+      expect(props?.continuableReviewTicketIds?.has(2)).toBe(true)
+    })
   })
 
   it('confirm → fans out one launch per eligible rail in parallel + one summary toast', async () => {

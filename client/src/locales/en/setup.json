@@ -301,7 +301,7 @@
       "integrationsLabel": "Integrations",
       "integrationsBody": "A per-project marketplace of MCP integrations — Serena semantic code-navigation is bundled. Installs are additive: adding one never disturbs another.",
       "themesLabel": "Themes",
-      "themesBody": "Five built-in themes — specrails (default), dracula, aurora-light, obsidian-dark and matrix — applied before the UI paints, so there's no flash. Change them in Settings → Appearance.",
+      "themesBody": "Six built-in themes — specrails (default), dracula, aurora-light, obsidian-dark, code-rain and galaxy — applied before the UI paints, so there's no flash. Change them in Settings → Appearance.",
       "chatsLabel": "Minimizable chats",
       "chatsBody": "Park an Explore or AI-Edit session into a dock chip and pick it back up later — never lost across refreshes or project switches.",
       "desktopLabel": "Desktop or browser",

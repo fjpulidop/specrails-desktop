@@ -149,6 +149,25 @@ describe('TicketPostitCard', () => {
       expect(screen.queryByTestId('move-to-rail-button')).not.toBeInTheDocument()
     })
 
+    it('shows the Move-to-Rail button when an open PR can be continued', () => {
+      const onMove = vi.fn()
+      render(
+        wrap(
+          <TicketPostitCard
+            ticket={makeTicket({ status: 'on_review' })}
+            rails={makeRails()}
+            onClick={() => {}}
+            onMoveToRail={onMove}
+            allowOnReviewRailMove
+          />,
+        ),
+      )
+      fireEvent.click(screen.getByTestId('move-to-rail-button'))
+      expect(screen.getByTestId('move-to-rail-popover')).toBeInTheDocument()
+      fireEvent.click(screen.getByText('Rail Alpha'))
+      expect(onMove).toHaveBeenCalledWith(42, 'rail-1')
+    })
+
     it('uses semantic accent-warning tokens (no brand-named colours)', () => {
       render(
         wrap(

@@ -1,14 +1,14 @@
 import type { ComponentType } from 'react'
 import { useActiveTheme } from '../../context/ThemeContext'
 import type { ThemeId } from '../../lib/themes'
-import { MatrixRain } from './MatrixRain'
-import { LightsaberTrail } from './LightsaberTrail'
+import { CodeRainEffect } from './CodeRainEffect'
+import { BladeTrail } from './BladeTrail'
 
 /**
  * Theme-effects registry + dispatcher.
  *
  * Each theme MAY ship a purely decorative effect component (e.g. the
- * matrix-rain canvas). The registry below is the single source of truth for
+ * code-rain canvas). The registry below is the single source of truth for
  * which themes have an effect; theme-specific code is contained inside the
  * effect component itself, never in app-wide components.
  *
@@ -22,8 +22,8 @@ import { LightsaberTrail } from './LightsaberTrail'
  *      `client/src/globals.css`. The rest of the app stays untouched.
  */
 const THEME_EFFECTS: Partial<Record<ThemeId, ComponentType>> = {
-  matrix: MatrixRain,
-  'star-wars': LightsaberTrail,
+  'code-rain': CodeRainEffect,
+  galaxy: BladeTrail,
 }
 
 export function ThemeEffectLayer() {

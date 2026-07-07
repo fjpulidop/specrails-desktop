@@ -6,6 +6,7 @@ import { useAgentChat } from '../../context/AgentChatContext'
 import { useAgentWorkspace } from '../../context/AgentWorkspaceContext'
 import { useDesktop } from '../../hooks/useDesktop'
 import { useActiveTheme } from '../../context/ThemeContext'
+import { Starfield } from '../theme-effects/Starfield'
 import { AgentConversationView } from './AgentConversationView'
 import { AgentComposer } from './AgentComposer'
 
@@ -30,8 +31,10 @@ export function AgentModeSurface() {
   const { active, refreshConversations } = useAgentChat()
   const { codePaneOpen, jobsPaneOpen, browserOpen } = useAgentWorkspace()
   const { activeProjectId } = useDesktop()
-  // Easter egg: on the Matrix theme, the agent becomes agent Smith.
-  const emptyTitle = useActiveTheme().id === 'matrix' ? t('emptyTitleMatrix') : t('emptyTitle')
+  const activeTheme = useActiveTheme()
+  const isGalaxy = activeTheme.id === 'galaxy'
+  // Code Rain gets a themed empty-state title.
+  const emptyTitle = activeTheme.id === 'code-rain' ? t('emptyTitleCodeRain') : t('emptyTitle')
 
   // Populate the sidebar conversation tree without opening the floating panel.
   useEffect(() => {
@@ -46,7 +49,8 @@ export function AgentModeSurface() {
 
   return (
     <MotionConfig reducedMotion="user">
-    <div className="relative flex h-full w-full overflow-hidden bg-background">
+    <div data-agent-mode-surface className="relative z-0 flex h-full w-full overflow-hidden bg-background">
+      {isGalaxy && <Starfield />}
       <div className="relative flex h-full min-w-0 flex-1 flex-col overflow-hidden">
         {/* Radial glow — always mounted so EMPTY⇄ACTIVE crossfades instead of popping. */}
         <motion.div

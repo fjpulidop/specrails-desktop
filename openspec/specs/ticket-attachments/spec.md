@@ -1,5 +1,10 @@
 # Ticket Attachments
 
+## Purpose
+Define ticket attachment upload, serving, deletion, and assistant prompt injection behavior.
+
+## Requirements
+
 ### Requirement: Attachment upload endpoint
 The system SHALL expose `POST /api/projects/:projectId/tickets/:ticketId/attachments` accepting multipart form data with a single `file` field. Supported MIME types: `image/jpeg`, `image/png`, `image/gif`, `image/webp`, `application/pdf`, `text/csv`, `text/plain`, `application/json`, `application/vnd.openxmlformats-officedocument.spreadsheetml.sheet`, `application/vnd.ms-excel`, and SQL files (including `.sql` uploads sent as `application/sql`, `application/x-sql`, `text/sql`, `text/x-sql`, or with no reliable browser MIME type). The server SHALL save the file to `~/.specrails/projects/<slug>/attachments/<ticketId>/<uuid>-<originalName>` and append an `Attachment` record to `ticket.attachments[]` in `local-tickets.json`.
 

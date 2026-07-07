@@ -1,4 +1,9 @@
-## ADDED Requirements
+# rail-view-log-button Specification
+
+## Purpose
+Define the running-rail View Log button visibility, navigation, and styling behavior.
+
+## Requirements
 
 ### Requirement: View Log button appears when rail is running
 The RailControls component SHALL display a "View Log" icon button when the rail's active job status is `running`. The button SHALL be positioned to the left of the Implement/Batch toggle. The button SHALL not be rendered when no job is active or when job status is not `running`.
