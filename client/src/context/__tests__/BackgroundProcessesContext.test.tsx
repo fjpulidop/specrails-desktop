@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
-import { act, render } from '@testing-library/react'
+import { act, render, waitFor } from '@testing-library/react'
 import { BackgroundProcessesProvider, useBackgroundProcesses } from '../BackgroundProcessesContext'
 
 let capturedHandler: ((data: unknown) => void) | null = null
@@ -38,7 +38,7 @@ function send(msg: unknown) {
 beforeEach(() => {
   capturedHandler = null
   latest = { labels: '', kill: async (_pid: number) => undefined }
-  global.fetch = vi.fn().mockResolvedValue({ ok: true }) as unknown as typeof fetch
+  global.fetch = vi.fn().mockResolvedValue({ ok: true, json: async () => ({ processes: [] }) }) as unknown as typeof fetch
 })
 
 afterEach(() => {
@@ -46,6 +46,24 @@ afterEach(() => {
 })
 
 describe('BackgroundProcessesProvider', () => {
+  it('hydrates active processes after a browser refresh', async () => {
+    vi.mocked(global.fetch).mockResolvedValueOnce({
+      ok: true,
+      json: async () => ({
+        processes: [
+          { pid: 99, command: 'npm run dev', cwd: '/repo', startedAt: 10, status: 'running', chatId: 'chat-1', projectId: 'proj-1' },
+        ],
+      }),
+    } as Response)
+
+    render(<BackgroundProcessesProvider><Probe /></BackgroundProcessesProvider>)
+
+    await waitFor(() => {
+      expect(latest.labels).toBe('99:npm run dev:running')
+    })
+    expect(fetch).toHaveBeenCalledWith(expect.stringContaining('/api/projects/proj-1/background-processes?chatId=chat-1'))
+  })
+
   it('filters process events by active project/chat and preserves append order', () => {
     render(<BackgroundProcessesProvider><Probe /></BackgroundProcessesProvider>)
     send({ type: 'background_process.started', projectId: 'proj-1', process: { pid: 1, command: 'npm run dev', cwd: '/repo', startedAt: 10, status: 'running', chatId: 'chat-1', projectId: 'proj-1' } })

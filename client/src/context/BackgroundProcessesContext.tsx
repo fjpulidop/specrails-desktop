@@ -75,6 +75,32 @@ export function BackgroundProcessesProvider({
     return () => unregisterHandler('background-processes')
   }, [handleMessage, registerHandler, unregisterHandler])
 
+  useEffect(() => {
+    if (!projectId || !chatId) return
+    let alive = true
+    const hydrate = async (): Promise<void> => {
+      try {
+        const qs = new URLSearchParams({ chatId })
+        const res = await fetch(`${API_ORIGIN}/api/projects/${encodeURIComponent(projectId)}/background-processes?${qs.toString()}`)
+        if (!res.ok) return
+        const data = await res.json() as { processes?: BackgroundProcess[] }
+        if (!alive || !Array.isArray(data.processes)) return
+        if (data.processes.length === 0) return
+        setRecords((prev) => {
+          const byPid = new Map(prev.map((process) => [process.pid, process]))
+          for (const process of data.processes ?? []) {
+            byPid.set(process.pid, process)
+          }
+          return Array.from(byPid.values())
+        })
+      } catch {
+        // Best-effort hydration: websocket events keep the live path working.
+      }
+    }
+    void hydrate()
+    return () => { alive = false }
+  }, [chatId, projectId])
+
   useEffect(() => () => {
     for (const timer of removalTimers.current.values()) window.clearTimeout(timer)
     removalTimers.current.clear()

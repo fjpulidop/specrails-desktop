@@ -51,6 +51,7 @@ export interface BackgroundProcessHooks {
 }
 
 const backgroundByPid = new Map<number, BackgroundRecord>()
+const backgroundTerminal = new Set<BackgroundProcessStatus>(['exited', 'killed', 'failed'])
 
 function treeKillSafe(pid: number, signal: 'SIGTERM' | 'SIGKILL'): void {
   try { treeKill(pid, signal, () => undefined) } catch { /* best-effort */ }
@@ -178,6 +179,18 @@ function markTerminal(
 export function getBackgroundProcess(pid: number): BackgroundProcess | null {
   const record = backgroundByPid.get(pid)
   return record ? cloneProcess(record.process) : null
+}
+
+export function listBackgroundProcesses(filter: { projectId?: string; chatId?: string } = {}): BackgroundProcess[] {
+  const processes: BackgroundProcess[] = []
+  for (const record of backgroundByPid.values()) {
+    const process = record.process
+    if (filter.projectId && process.projectId !== filter.projectId) continue
+    if (filter.chatId && process.chatId !== filter.chatId) continue
+    if (backgroundTerminal.has(process.status)) continue
+    processes.push(cloneProcess(process))
+  }
+  return processes
 }
 
 export function killBackgroundProcess(

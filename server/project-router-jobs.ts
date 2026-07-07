@@ -66,7 +66,7 @@ import type { TicketCreatedMessage, TicketUpdatedMessage, TicketDeletedMessage, 
 import { spawnAiCli } from './util/cli-prompt'
 import { createInterface } from 'readline'
 import treeKill from 'tree-kill'
-import { startBackgroundProcess, killOwnedBackgroundProcess } from './transient-children'
+import { startBackgroundProcess, killOwnedBackgroundProcess, listBackgroundProcesses } from './transient-children'
 import multer from 'multer'
 import { createRailsRouter } from './rails-router'
 import { createProfilesRouter } from './profiles-router'
@@ -182,6 +182,17 @@ export function registerJobsRoutes(deps: ProjectRoutesDeps): void {
       featureFlags: {
         smash: !isSpecsSmashKillSwitchActive(),
       },
+    })
+  })
+
+  router.get('/:projectId/background-processes', (req: Request, res: Response) => {
+    const c = ctx(req)
+    const chatId = typeof req.query.chatId === 'string' && req.query.chatId.trim() ? req.query.chatId.trim() : undefined
+    res.json({
+      processes: listBackgroundProcesses({
+        projectId: c.project.id,
+        ...(chatId ? { chatId } : {}),
+      }),
     })
   })
 

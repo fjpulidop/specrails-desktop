@@ -8,6 +8,7 @@ import {
   killBackgroundProcess,
   killOwnedBackgroundProcess,
   getBackgroundProcess,
+  listBackgroundProcesses,
 } from './transient-children'
 
 vi.mock('tree-kill', () => ({ default: vi.fn() }))
@@ -138,6 +139,8 @@ describe('transient-children', () => {
 
     vi.advanceTimersByTime(2500)
     expect(treeKill).toHaveBeenCalledWith(555, 'SIGKILL', expect.any(Function))
+    child.emit('close', null, 'SIGTERM')
+    expect(getBackgroundProcess(555)).toBeNull()
 
     const other = fakeChild(666)
     vi.mocked(spawn).mockReturnValue(other)
@@ -146,5 +149,24 @@ describe('transient-children', () => {
     killTransientChildren('proj-2')
     expect(treeKill).toHaveBeenCalledWith(666, 'SIGTERM', expect.any(Function))
     expect(getBackgroundProcess(666)).toBeNull()
+  })
+
+  it('lists active background processes for browser refresh hydration', () => {
+    const first = fakeChild(777)
+    vi.mocked(spawn).mockReturnValue(first)
+    startBackgroundProcess('npm run dev', '/repo', 'chat-1', 'proj-1')
+
+    const second = fakeChild(778)
+    vi.mocked(spawn).mockReturnValue(second)
+    startBackgroundProcess('npm run watch', '/repo', 'chat-2', 'proj-1')
+
+    expect(listBackgroundProcesses({ projectId: 'proj-1', chatId: 'chat-1' })).toEqual([
+      expect.objectContaining({ pid: 777, command: 'npm run dev', status: 'running' }),
+    ])
+
+    killBackgroundProcess(777)
+    expect(listBackgroundProcesses({ projectId: 'proj-1', chatId: 'chat-1' })).toEqual([])
+    first.emit('close', null, 'SIGTERM')
+    second.emit('close', 0, null)
   })
 })
