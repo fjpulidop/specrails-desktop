@@ -1,0 +1,24 @@
+{
+  "schema_version": "1",
+  "change": "add-star-wars-theme",
+  "agent": "reviewer",
+  "scored_at": "2026-07-07T00:45:00Z",
+  "overall": 96,
+  "aspects": {
+    "type_correctness": 98,
+    "pattern_adherence": 97,
+    "test_coverage": 95,
+    "security": 96,
+    "architectural_alignment": 96
+  },
+  "notes": {
+    "type_correctness": "`tsc --noEmit` clean across root, client, cli, and mcp-bridge configs. STAR_WARS_PALETTE and STAR_WARS descriptor satisfy the ThemeDescriptor interface exactly (20-key xterm palette, 5-unique-entry chart, full status map) — verified by reading themes.ts directly, not just trusting the type-checker.",
+    "pattern_adherence": "LightsaberTrail.tsx mirrors MatrixRain.tsx's lifecycle contract line-for-line (resize/pointermove/mouseleave/visibilitychange listeners, RAF loop, reduced-motion bail-out, identical canvas className/style). ThemeEffectLayer registration, THEMES registry entry, and globals.css block placement all follow the exact existing convention with zero deviation.",
+    "test_coverage": "New/updated test files (themes.test.ts star-wars describe block, ThemeEffectLayer.test.tsx, LightsaberTrail.test.tsx, desktop-router.test.ts, AppearanceSection.test.tsx) assert real behavior: hue-sharing invariants via WCAG contrast math, RAF start/cancel on reduced-motion and visibility toggles, canvas positioning, polyline drawing, trail-clear on mouseleave, and server allow-list acceptance. LightsaberTrail.tsx line coverage is 99% (only one uncovered line: the resume branch inside onVisibility). Full-suite coverage remains well above policy thresholds (server 86.17%/77.71%/88.43%/88.35%; client 87.63%/82.23%/73.55%/87.63%).",
+    "security": "Server allow-list change is a single literal addition to an existing Set — no relaxation of validation logic; invalid values still 400. LightsaberTrail only reads pointer coordinates and performance.now(), writes nothing, has pointer-events:none and no privileged API usage — no new attack surface.",
+    "architectural_alignment": "OCP invariant confirmed by grep: 'star-wars' appears only in themes.ts, ThemeEffectLayer.tsx, and their own test files — no other component branches on the theme id. All five pre-existing [data-theme] CSS blocks are byte-identical (pure insertion diff). Locale parity maintained across all 8 languages."
+  },
+  "flags": [
+    "pre-existing-spec-drift: openspec/specs/desktop-theme-system/spec.md's 'Default theme is Dracula on a fresh install' scenario (carried into this change's delta as unmodified MODIFIED-requirement text) does not match themes.ts's actual DEFAULT_THEME='specrails' constant — this discrepancy predates this change and is out of scope for add-star-wars-theme, but worth a follow-up spec correction."
+  ]
+}

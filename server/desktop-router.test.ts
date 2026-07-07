@@ -1388,6 +1388,16 @@ describe('desktop-router', () => {
       expect(getDesktopSetting(desktopDb, 'ui_theme')).toBe('matrix')
     })
 
+    it('persists the star-wars theme', async () => {
+      const { app } = createApp()
+      const res = await request(app)
+        .patch('/api/theme')
+        .send({ theme: 'star-wars' })
+      expect(res.status).toBe(200)
+      expect(res.body.theme).toBe('star-wars')
+      expect(getDesktopSetting(desktopDb, 'ui_theme')).toBe('star-wars')
+    })
+
     it('rejects a near-miss matrix typo with 400', async () => {
       const { app } = createApp()
       const res = await request(app)
@@ -1431,7 +1441,7 @@ describe('desktop-router', () => {
       expect(res.body.theme).toBe('aurora-light')
     })
 
-    it.each(['dracula', 'aurora-light', 'obsidian-dark'])('accepts %s', async (theme) => {
+    it.each(['dracula', 'aurora-light', 'obsidian-dark', 'star-wars'])('accepts %s', async (theme) => {
       const { app } = createApp()
       const res = await request(app).patch('/api/theme').send({ theme })
       expect(res.status).toBe(200)

@@ -68,7 +68,7 @@ function isGeminiBetaDisabled(): boolean {
 
 // Theme allow-list. Mirror of THEME_IDS in `client/src/lib/themes.ts` —
 // kept duplicated to avoid pulling client code into the server bundle.
-const THEME_ID_ALLOWLIST = new Set<string>(['dracula', 'aurora-light', 'obsidian-dark', 'matrix', 'specrails'])
+const THEME_ID_ALLOWLIST = new Set<string>(['dracula', 'aurora-light', 'obsidian-dark', 'matrix', 'specrails', 'star-wars'])
 
 // Language allow-list. Mirror of LANGUAGE_IDS in `client/src/lib/i18n.ts` —
 // kept duplicated to avoid pulling client code into the server bundle.

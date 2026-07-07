@@ -3,6 +3,7 @@ import { render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { ThemeProvider } from '../../../context/ThemeContext'
 import { AppearanceSection } from '../AppearanceSection'
+import { THEME_IDS } from '../../../lib/themes'
 
 vi.mock('sonner', () => ({
   toast: { error: vi.fn(), success: vi.fn() },
@@ -23,14 +24,12 @@ describe('AppearanceSection', () => {
     vi.restoreAllMocks()
   })
 
-  it('renders all five theme cards', () => {
+  it('renders all theme cards', () => {
     vi.spyOn(global, 'fetch').mockResolvedValue(ok({ theme: 'dracula' }))
     render(<ThemeProvider><AppearanceSection /></ThemeProvider>)
-    expect(screen.getByTestId('theme-card-dracula')).toBeInTheDocument()
-    expect(screen.getByTestId('theme-card-aurora-light')).toBeInTheDocument()
-    expect(screen.getByTestId('theme-card-obsidian-dark')).toBeInTheDocument()
-    expect(screen.getByTestId('theme-card-matrix')).toBeInTheDocument()
-    expect(screen.getByTestId('theme-card-specrails')).toBeInTheDocument()
+    for (const id of THEME_IDS) {
+      expect(screen.getByTestId(`theme-card-${id}`)).toBeInTheDocument()
+    }
   })
 
   it('matrix card is selectable and updates the active theme', async () => {
@@ -101,6 +100,6 @@ describe('AppearanceSection', () => {
     render(<ThemeProvider><AppearanceSection /></ThemeProvider>)
     const group = screen.getByRole('radiogroup', { name: /theme/i })
     expect(group).toBeInTheDocument()
-    expect(screen.getAllByRole('radio')).toHaveLength(5)
+    expect(screen.getAllByRole('radio')).toHaveLength(THEME_IDS.length)
   })
 })

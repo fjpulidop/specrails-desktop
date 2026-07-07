@@ -2,6 +2,7 @@ import type { ComponentType } from 'react'
 import { useActiveTheme } from '../../context/ThemeContext'
 import type { ThemeId } from '../../lib/themes'
 import { MatrixRain } from './MatrixRain'
+import { LightsaberTrail } from './LightsaberTrail'
 
 /**
  * Theme-effects registry + dispatcher.
@@ -22,6 +23,7 @@ import { MatrixRain } from './MatrixRain'
  */
 const THEME_EFFECTS: Partial<Record<ThemeId, ComponentType>> = {
   matrix: MatrixRain,
+  'star-wars': LightsaberTrail,
 }
 
 export function ThemeEffectLayer() {
