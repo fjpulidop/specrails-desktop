@@ -19,6 +19,8 @@ interface SpecCardProps {
   ticket: LocalTicket
   onClick: (ticket: LocalTicket) => void
   dragDisabled?: boolean
+  /** Allows an on_review ticket to be dragged back onto a rail to continue its open PR. */
+  allowOnReviewDrag?: boolean
   contractRefining?: boolean
   /** Number of children when this ticket is an épica (drives the badge). */
   epicChildrenCount?: number
@@ -36,6 +38,7 @@ export function SpecCard({
   ticket,
   onClick,
   dragDisabled,
+  allowOnReviewDrag = false,
   contractRefining = false,
   epicChildrenCount,
   parentEpicTitle,
@@ -45,9 +48,9 @@ export function SpecCard({
   onDelete,
 }: SpecCardProps) {
   const { t } = useTranslation('specs')
-  // On-review specs are frozen awaiting the human PR decision — they cannot be
-  // dragged (to a rail, to Done, or reordered) until merged or discarded.
-  const dragFrozen = dragDisabled || jiggleMode || ticket.status === 'on_review'
+  // On-review specs are frozen unless there is an open PR branch the rail can
+  // continue by adding another commit.
+  const dragFrozen = dragDisabled || jiggleMode || (ticket.status === 'on_review' && !allowOnReviewDrag)
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
     id: ticket.id,
     disabled: dragFrozen, // disable DnD while in jiggle mode / on review
@@ -119,8 +122,8 @@ export function SpecCard({
   const isDraft = ticket.status === 'draft'
   const isOnReview = ticket.status === 'on_review'
   const baseClass = 'relative flex items-center gap-2 px-3 py-2.5 rounded-lg border transition-colors group touch-none'
-  // No grab cursor when the card cannot actually be dragged (jiggle / on review).
-  const cursorClass = jiggleMode || isOnReview ? '' : 'cursor-grab active:cursor-grabbing'
+  // No grab cursor when the card cannot actually be dragged.
+  const cursorClass = jiggleMode || (isOnReview && !allowOnReviewDrag) ? '' : 'cursor-grab active:cursor-grabbing'
   const variantClass = isDraft
     ? 'border-dashed border-accent-secondary/50 bg-accent-secondary/10 hover:bg-accent-secondary/15 hover:border-accent-secondary/70'
     : isOnReview

@@ -185,11 +185,11 @@ describe('OnboardingWizard interactive steps (with providers)', () => {
       </ThemeProvider>
     )
     fireEvent.click(screen.getByTestId('onboarding-next')) // → theme step
-    fireEvent.click(screen.getByTestId('theme-card-matrix'))
+    fireEvent.click(screen.getByTestId('theme-card-code-rain'))
     await waitFor(() =>
-      expect(screen.getByTestId('theme-card-matrix')).toHaveAttribute('data-selected', 'true')
+      expect(screen.getByTestId('theme-card-code-rain')).toHaveAttribute('data-selected', 'true')
     )
-    expect(document.documentElement.dataset.theme).toBe('matrix')
+    expect(document.documentElement.dataset.theme).toBe('code-rain')
   })
 })
 

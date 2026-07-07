@@ -38,6 +38,7 @@
     "draftPr": "PR en brouillon",
     "branchPushed": "Branche poussée — PR en attente",
     "branchPushedHint": "La branche a été poussée mais la PR n'a pas pu être créée (GitHub CLI indisponible). Réessayez pour la créer.",
+    "iteratingPr": "Mise à jour de la PR",
     "prReady": "PR prête",
     "prFailed": "PR en échec",
     "prFailedDetail": "PR en échec : {{detail}}",

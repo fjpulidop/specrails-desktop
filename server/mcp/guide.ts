@@ -51,6 +51,13 @@ Codex, Gemini) to implement specs.
 
 ## Creating specs — three paths, one decision rule
 
+Before creating a spec, classify the user's intent. If they are asking for
+help using Specrails, installation/setup, a failed job, missing agents/skills,
+MCP connection, provider auth, GitHub/PR delivery, costs, or "how do I...?"
+support, DO NOT create a spec. Call \`specrails_support(action:'triage')\`
+and solve it conversationally first. Only move to spec creation when the user
+explicitly asks for product/backlog work.
+
 1. **Quick (AI-generated)** — \`specrails_specs(action:'generate', idea, …)\`, or
    the simpler \`create\` with title/description: routes through the app's Quick
    Add Spec — an AI pass structures the request into a complete spec, so
@@ -103,15 +110,20 @@ heading inside the description); \`labels\`; \`priority\`. Spec content is Engli
   other work, create one and proceed; never wait for a slot.
 - Parallel launches are safe and normal: each launch isolates its work in
   per-ticket git worktrees, so several rails can run at once. \`launch_all\`
-  (ai-spawn) launches EVERY rail that has tickets and no active run / pending
-  PR decision in one call, each with its stored mode/engine/profile, returning
-  per-rail outcomes (launched / skipped with reason / failed).
+  (ai-spawn) launches EVERY rail that has tickets and no active run /
+  uncontinuable pending PR decision in one call, each with its stored
+  mode/engine/profile, returning per-rail outcomes (launched / skipped with
+  reason / failed).
 - Relaunching an \`on_review\` ticket with a matching OPEN GitHub PR continues
   that PR's head branch automatically. Jira-linked \`in_progress\` tickets can
   also continue an open PR when the match is explicit, covering Jira projects
   whose Review status has not been mapped to Specrails \`on_review\`. New
   tickets, or tickets without a confident open-PR match, keep the normal
   branch-from-integration flow.
+- A published PR delivery (\`decision:'pr_ready'\`) is still an open PR
+  continuation target when it has a PR URL/head branch covering the rail's
+  tickets. Do not tell the user to Publish/Discard/Merge first when they ask for
+  more changes on that same PR; assign the spec(s) to a rail and launch again.
 - Projects without Git cannot use isolated worktrees or PR continuation. A
   launch degrades to shared-cwd execution and returns \`isolationUnavailable\`;
   explain that it writes directly to files and no PR card/branch will appear.
@@ -169,7 +181,10 @@ Tools cannot raise their own permissions in either regime. Common tiers:
 list/get/spending/watch = read; commit_draft, from_prompt, update, set_tickets,
 create_rail, plugin install, Jira connect = write; spec create/generate, rail
 launch/launch_all, chat send, job spawn = ai-spawn; spec delete, rail stop, job
-purge, plugin uninstall, Jira disconnect, project unregister = destructive. Note the
+purge, plugin uninstall, Jira disconnect, project unregister = destructive.
+\`specrails_support(triage/core_update_status/core_update_check)\` is read;
+\`specrails_support(core_update_apply)\` is ai-spawn because it runs longer
+global update work. Note the
 embedded spec-refinement happy path (investigate + commit_draft) needs only
 read + write — ai-spawn is required only to launch work or spawn a nested AI.
 
@@ -214,6 +229,20 @@ read + write — ai-spawn is required only to launch work or spawn a nested AI.
   \`install_config\` per provider → ONE \`install\` (provisions all chosen
   providers; quick-only, offline) → poll \`checkpoints\` until
   \`isInstalling === false\`.
+- **Support** (\`specrails_support\`): use FIRST for installation/usage help,
+  provider CLI/auth, MCP/Agent Chat issues, missing agents/skills/commands,
+  failed jobs, PR delivery confusion, costs, and plugin questions. It returns a
+  support playbook plus local diagnostics and never creates specs. When a job
+  says agents, skills, or slash commands are missing, explain that upstream
+  definitions live in the APP-GLOBAL specrails-core framework, not inside the
+  project. For specrails-core installation questions, project setup checkpoints
+  are NOT a health signal: pending checkpoints or 0 agents/commands do not prove
+  a core problem and must not trigger \`specrails_setup(install)\`. If global
+  core is stale, offer \`core_update_check\` + \`core_update_apply\`. If global
+  core is current but a real job still reports missing core definitions, ask for
+  the job error/diagnostic and give the manual fallback for standalone/legacy
+  core installs: from the project root, run \`npx specrails-core@latest update\`,
+  then retry the job.
 - **Loops lifecycle** (\`specrails_loops\`): Draft → \`publish\` (graph-validated)
   → runnable; \`update\` reverts to Draft and returns 409 while running;
   \`preview\` dry-runs token resolution without spawning; constants are shared

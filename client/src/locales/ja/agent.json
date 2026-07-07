@@ -215,7 +215,6 @@
     "high": "高",
     "xhigh": "最高"
   },
-  "emptyTitleMatrix": "ミッションは何ですか、ネオ？",
   "prCard": {
     "rail": "レール {{index}}",
     "specCount_one": "スペック {{count}} 件",
@@ -317,5 +316,6 @@
     "delete": "ミッションを削除",
     "deleteConfirm": "このミッションを削除しますか？元に戻せません。",
     "deleteFailed": "ミッションを削除できませんでした"
-  }
+  },
+  "emptyTitleCodeRain": "次に何を作りますか？"
 }

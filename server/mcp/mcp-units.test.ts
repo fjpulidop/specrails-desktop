@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest'
 import type { Request, Response } from 'express'
-import { initDesktopDb, setDesktopSetting, type DbInstance } from '../desktop-db'
+import { initDesktopDb, getDesktopSetting, setDesktopSetting, type DbInstance } from '../desktop-db'
 import type { ProjectRegistry, ProjectContext } from '../project-registry'
 import { MobileEventBus } from '../mobile/mobile-event-bus'
 import type { WsMessage } from '../types'
@@ -133,6 +133,12 @@ describe('tool handlers', () => {
     expect(String(text)).toContain('pass the canonical mode value `freestyle`')
     expect(String(text)).toContain('call\n    the feature "Freestyle"')
     expect(String(text)).toContain('API mode\n  `freestyle`; say "Freestyle" to users')
+    expect(String(text)).toContain('specrails_support')
+    expect(String(text)).toContain('APP-GLOBAL specrails-core framework')
+    expect(String(text)).toContain('pending checkpoints or 0 agents/commands do not prove')
+    expect(String(text)).toContain('npx specrails-core@latest update')
+    expect(String(text)).toContain("`decision:'pr_ready'`")
+    expect(String(text)).toContain('Do not tell the user to Publish/Discard/Merge first')
   })
 
   it('specrails_search ranks tools by query terms', async () => {
@@ -169,10 +175,28 @@ describe('tool handlers', () => {
     const got = (await t.handler(ctx, { action: 'get' })) as { theme: string; mcp: { enabled: boolean } }
     expect(got.theme).toBe('specrails')
     expect(got.mcp.enabled).toBe(false)
-    await t.handler(ctx, { action: 'set', theme: 'dracula' })
+    const themeOptions = ((t.inputSchema.theme as any)._def.innerType.options as string[])
+    expect(themeOptions).toEqual(['specrails', 'dracula', 'aurora-light', 'obsidian-dark', 'code-rain', 'galaxy'])
+    expect(themeOptions).not.toContain('matrix')
+    expect(themeOptions).not.toContain('star-wars')
+    await t.handler(ctx, { action: 'set', theme: 'galaxy' })
     const got2 = (await t.handler(ctx, { action: 'get' })) as { theme: string }
-    expect(got2.theme).toBe('dracula')
+    expect(got2.theme).toBe('galaxy')
     await expect(async () => t.handler(ctx, { action: 'set' })).rejects.toThrow(/at least one field/)
+  })
+
+  it.each([
+    ['star-wars', 'galaxy'],
+    ['matrix', 'code-rain'],
+  ])('specrails_settings get migrates legacy theme %s to %s', async (legacy, current) => {
+    const ctx = makeCtx(db)
+    const t = tool('specrails_settings')
+    setDesktopSetting(db, 'ui_theme', legacy)
+
+    const got = (await t.handler(ctx, { action: 'get' })) as { theme: string }
+
+    expect(got.theme).toBe(current)
+    expect(getDesktopSetting(db, 'ui_theme')).toBe(current)
   })
 
   it('specrails_settings surfaces the code-explorer settings (get defaults, set validates + persists)', async () => {

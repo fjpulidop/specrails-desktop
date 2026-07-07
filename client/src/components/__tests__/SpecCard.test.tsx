@@ -59,6 +59,7 @@ describe('SpecCard', () => {
 
   beforeEach(() => {
     vi.clearAllMocks()
+    lastSortableOpts = null
   })
 
   it('renders the ticket title', () => {
@@ -229,6 +230,19 @@ describe('SpecCard', () => {
       expect(lastSortableOpts?.disabled).toBe(true)
       const card = screen.getByText('Build the feature').closest('[role="button"]')!
       expect(card.className).not.toContain('cursor-grab')
+    })
+
+    it('allows drag for an on_review spec with an open PR continuation', () => {
+      render(
+        <SpecCard
+          ticket={makeTicket({ status: 'on_review' })}
+          onClick={onClickMock}
+          allowOnReviewDrag
+        />,
+      )
+      expect(lastSortableOpts?.disabled).toBe(false)
+      const card = screen.getByText('Build the feature').closest('[role="button"]')!
+      expect(card).toHaveClass('cursor-grab')
     })
 
     it('keeps drag enabled for a plain todo spec (regression pin)', () => {

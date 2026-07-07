@@ -38,6 +38,7 @@
     "draftPr": "PR en borrador",
     "branchPushed": "Rama subida — PR pendiente",
     "branchPushedHint": "La rama se subió pero no se pudo crear la PR (GitHub CLI no disponible). Reintenta para crearla.",
+    "iteratingPr": "Actualizando PR",
     "prReady": "PR lista",
     "prFailed": "PR fallida",
     "prFailedDetail": "PR fallida: {{detail}}",

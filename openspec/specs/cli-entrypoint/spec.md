@@ -1,4 +1,9 @@
-## ADDED Requirements
+# cli-entrypoint Specification
+
+## Purpose
+Define the npm CLI entrypoint, command naming, server resolution, and build output behavior.
+
+## Requirements
 
 ### Requirement: CLI binary is named specrails-desktop
 The npm package SHALL expose a binary named `specrails-desktop` (not `srm`). All user-facing documentation, UI text, and error messages SHALL use `specrails-desktop` as the command name.

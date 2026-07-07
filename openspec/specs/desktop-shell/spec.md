@@ -1,4 +1,9 @@
-## ADDED Requirements
+# desktop-shell Specification
+
+## Purpose
+Define the Tauri shell startup, shutdown, sidecar lifecycle, and development-mode behavior.
+
+## Requirements
 
 ### Requirement: App launches and displays the dashboard
 The Tauri shell SHALL start the server sidecar, wait for readiness, then load the WebView at `http://localhost:4200`. The window SHALL be frameless, sized 1280×820 (min 900×600), centered on first launch.

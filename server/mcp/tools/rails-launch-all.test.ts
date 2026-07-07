@@ -6,7 +6,7 @@ import { initDb, type DbInstance } from '../../db'
 import { initDesktopDb } from '../../desktop-db'
 import { createRailsRouter } from '../../rails-router'
 import { setRailTickets, createRail } from '../../rails-store'
-import { createPrDelivery, type CreatePrDeliveryInput } from '../../rail-pr-store'
+import { createPrDelivery, transitionDecision, type CreatePrDeliveryInput } from '../../rail-pr-store'
 import { registerTieredTool, setActiveProject, type McpToolContext, type ToolHandlerExtra } from './types'
 import { railsTools } from './rails'
 import { AGENT_TIER_HEADER } from '../../agent-tier'
@@ -163,6 +163,35 @@ describe('specrails_rails — create_rail + launch_all', () => {
     expect(byIndex.get(4)).toMatchObject({ outcome: 'skipped', reason: 'pr-decision-pending' })
     expect(enqueue).toHaveBeenCalledTimes(2) // one launch per eligible rail
     expect(data.hint).toContain('PARALLEL')
+  })
+
+  it('launch_all treats a published PR delivery covering the rail tickets as continuable', async () => {
+    setRailTickets(db, 0, [5])
+    const row = createPrDelivery(db, {
+      railIndex: 0, loopId: 'factory:implement', railKey: '0-factory:implement',
+      ticketIds: [5], baseBranch: 'main', loopName: 'Implement',
+      originSurface: 'dashboard', originConversationId: null,
+    } as CreatePrDeliveryInput)
+    transitionDecision(db, row.id, 'building', 'on_review', {
+      branches: [{ ticketId: 5, branch: 'feat/open-pr', succeeded: true }],
+      worktreeIds: [],
+    })
+    transitionDecision(db, row.id, 'on_review', 'pr_draft', {
+      branch: 'feat/open-pr',
+      prUrl: 'https://github.com/o/r/pull/521',
+      prNumber: 521,
+      prState: 'pr-created',
+    })
+    transitionDecision(db, row.id, 'pr_draft', 'pr_ready')
+
+    const { res, data } = await call({ action: 'launch_all' })
+
+    expect(res.isError).toBeUndefined()
+    expect(data.launched).toBe(1)
+    expect(data.skipped).toBe(2)
+    const byIndex = new Map((data.results as { railIndex: number }[]).map((r) => [r.railIndex, r]))
+    expect(byIndex.get(0)).toMatchObject({ outcome: 'launched', ticketIds: [5] })
+    expect(enqueue).toHaveBeenCalledTimes(1)
   })
 
   it('launch_all uses each rail\'s STORED mode', async () => {

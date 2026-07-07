@@ -38,6 +38,7 @@
     "draftPr": "PR in bozza",
     "branchPushed": "Ramo inviato — PR in sospeso",
     "branchPushedHint": "Il ramo è stato inviato ma non è stato possibile creare la PR (GitHub CLI non disponibile). Riprova per crearla.",
+    "iteratingPr": "Aggiornamento PR",
     "prReady": "PR pronta",
     "prFailed": "PR non riuscita",
     "prFailedDetail": "PR non riuscita: {{detail}}",

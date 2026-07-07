@@ -98,6 +98,35 @@ describe('OPERATOR_INSTRUCTIONS — launch, then release the turn', () => {
     expect(OPERATOR_INSTRUCTIONS).toContain('The canonical API / id / token values are `freestyle`,\n  `factory:freestyle`, and `{{cmd:freestyle}}`')
     expect(OPERATOR_INSTRUCTIONS).toContain('Do not invent or use another name for\n  this capability')
   })
+
+  it('treats published PR cards as continuable, not relaunch blockers', () => {
+    expect(OPERATOR_INSTRUCTIONS).toContain("`decision:'pr_ready'`")
+    expect(OPERATOR_INSTRUCTIONS).toContain('STILL an open PR continuation\n  target')
+    expect(OPERATOR_INSTRUCTIONS).toContain('do NOT tell them they must publish,\n  discard, or merge first')
+    expect(OPERATOR_SYSTEM_PROMPT).toContain('published pr_ready card')
+    expect(OPERATOR_SYSTEM_PROMPT).toContain('do not require publish/discard/merge first')
+  })
+})
+
+describe('OPERATOR_INSTRUCTIONS — support and framework repair', () => {
+  it('routes install/usage/job-failure help through specrails_support instead of specs', () => {
+    expect(OPERATOR_INSTRUCTIONS).toContain('## Support & troubleshooting')
+    expect(OPERATOR_INSTRUCTIONS).toContain("specrails_support(action:'triage'")
+    expect(OPERATOR_INSTRUCTIONS).toContain('this is SUPPORT — not backlog work')
+    expect(OPERATOR_INSTRUCTIONS).toContain('Do NOT create or propose a spec')
+  })
+
+  it('teaches missing agents/skills/commands as specrails-core framework repair', () => {
+    expect(OPERATOR_INSTRUCTIONS).toContain('missing agents')
+    expect(OPERATOR_INSTRUCTIONS).toContain('missing skills')
+    expect(OPERATOR_INSTRUCTIONS).toContain('app-global specrails-core framework')
+    expect(OPERATOR_INSTRUCTIONS).toContain('NOT\ninside the selected project')
+    expect(OPERATOR_INSTRUCTIONS).toContain("specrails_support(action:'core_update_check')")
+    expect(OPERATOR_INSTRUCTIONS).toContain('Do NOT infer a MyProject problem from\n  `setup/checkpoints`')
+    expect(OPERATOR_INSTRUCTIONS).toContain('is NOT a\n  reason to run `specrails_setup(install)`')
+    expect(OPERATOR_INSTRUCTIONS).toContain('do not claim MyProject')
+    expect(OPERATOR_INSTRUCTIONS).toContain('npx specrails-core@latest update')
+  })
 })
 
 describe('OPERATOR_SYSTEM_PROMPT — compact distillation stays in sync', () => {
@@ -116,6 +145,17 @@ describe('OPERATOR_SYSTEM_PROMPT — compact distillation stays in sync', () => 
   it('carries the Freestyle naming rule', () => {
     expect(OPERATOR_SYSTEM_PROMPT).toContain('call the free-form autonomous rail mode Freestyle in prose')
     expect(OPERATOR_SYSTEM_PROMPT).toContain('freestyle/factory:freestyle/{{cmd:freestyle}} are canonical API/id/token values')
+  })
+
+  it('carries the support-not-spec and framework-repair rule', () => {
+    expect(OPERATOR_SYSTEM_PROMPT).toContain('specrails_support first')
+    expect(OPERATOR_SYSTEM_PROMPT).toContain('never become specs')
+    expect(OPERATOR_SYSTEM_PROMPT).toContain('missing agents/skills/slash commands')
+    expect(OPERATOR_SYSTEM_PROMPT).toContain('app-global specrails-core framework')
+    expect(OPERATOR_SYSTEM_PROMPT).toContain('project setup checkpoints are not a core health signal')
+    expect(OPERATOR_SYSTEM_PROMPT).toContain('must not trigger specrails_setup(install)')
+    expect(OPERATOR_SYSTEM_PROMPT).not.toContain('reassemble_project_workspace')
+    expect(OPERATOR_SYSTEM_PROMPT).toContain('core_update_check/core_update_apply')
   })
 })
 

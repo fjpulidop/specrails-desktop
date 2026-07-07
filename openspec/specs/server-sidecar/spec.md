@@ -1,4 +1,9 @@
-## ADDED Requirements
+# server-sidecar Specification
+
+## Purpose
+Define desktop server sidecar build, bundling, and packaging behavior.
+
+## Requirements
 
 ### Requirement: Server compiles to a platform-native binary via Node.js SEA
 The build system SHALL produce a self-contained native executable from the Express server using Node.js 20 Single Executable Application (SEA). The binary SHALL include all JS dependencies bundled via esbuild. Native addons (`.node` files, e.g. `better-sqlite3`) SHALL be copied alongside the binary and resolved at runtime.

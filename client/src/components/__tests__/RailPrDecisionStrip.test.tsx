@@ -73,6 +73,23 @@ describe('RailPrDecisionStrip states (via RailRow, both densities)', () => {
         expect(view.container.querySelector('[data-testid="rail-pr-strip"]')).toBeNull()
       })
 
+      it('building on an existing PR → Updating-PR pill + link + branch, no decision actions', () => {
+        renderRail(snapshot({
+          decision: 'building',
+          prUrl: 'https://github.com/o/r/pull/521',
+          prNumber: 521,
+          prState: 'pr-created',
+          branch: 'feat/3-add-galaxy-theme-with-blade-trail',
+        }), density)
+        const strip = screen.getByTestId('rail-pr-strip')
+        expect(strip).toHaveAttribute('data-decision', 'building')
+        expect(within(strip).getByText('Updating PR')).toBeInTheDocument()
+        expect(within(strip).getByTestId('rail-pr-link')).toHaveTextContent('#521')
+        expect(within(strip).getByTestId('rail-pr-branch')).toHaveTextContent('feat/3-add-galaxy-theme-with-blade-trail')
+        expect(within(strip).queryByTestId('rail-pr-discard')).toBeNull()
+        expect(within(strip).queryByTestId('rail-pr-poll')).toBeNull()
+      })
+
       it('on_review → Ready-for-review pill + Create PR (tooltip → base) + Discard', () => {
         renderRail(snapshot(), density)
         const strip = screen.getByTestId('rail-pr-strip')

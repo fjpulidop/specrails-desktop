@@ -301,7 +301,7 @@
       "integrationsLabel": "インテグレーション",
       "integrationsBody": "プロジェクトごとの MCP インテグレーションのマーケットプレイス — Serena のセマンティックコードナビゲーションを同梱。インストールは加算式で、追加しても他に影響しません。",
       "themesLabel": "テーマ",
-      "themesBody": "5つの組み込みテーマ — specrails（デフォルト）、dracula、aurora-light、obsidian-dark、matrix — を UI の描画前に適用するため、フラッシュがありません。設定 → 外観で変更できます。",
+      "themesBody": "6つの組み込みテーマ — specrails（デフォルト）、dracula、aurora-light、obsidian-dark、code-rain、galaxy — を UI の描画前に適用するため、フラッシュがありません。設定 → 外観で変更できます。",
       "chatsLabel": "最小化できるチャット",
       "chatsBody": "Explore や AI 編集のセッションをドックのチップに格納して後で再開 — リフレッシュやプロジェクト切り替えで失われることはありません。",
       "desktopLabel": "デスクトップまたはブラウザ",

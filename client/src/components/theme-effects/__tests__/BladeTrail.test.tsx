@@ -1,12 +1,12 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { render, cleanup } from '@testing-library/react'
-import { LightsaberTrail } from '../LightsaberTrail'
+import { BladeTrail } from '../BladeTrail'
 
 // `vi.restoreAllMocks()` (fired after every test by the shared test-setup)
 // resets the module-level `window.matchMedia` mock to a no-op returning
 // `undefined`, since it's a plain `vi.fn()` rather than a spy on a real
 // implementation. Re-establish a sane default before each test in this file
-// so `LightsaberTrail`'s `matchMedia(...).matches` read never crashes.
+// so `BladeTrail`'s `matchMedia(...).matches` read never crashes.
 function stubMatchMedia(matches: boolean) {
   vi.spyOn(window, 'matchMedia').mockImplementation(
     (query: string) =>
@@ -45,7 +45,7 @@ function mockCanvasContext() {
   return ctx
 }
 
-describe('LightsaberTrail', () => {
+describe('BladeTrail', () => {
   beforeEach(() => {
     stubMatchMedia(false)
   })
@@ -61,7 +61,7 @@ describe('LightsaberTrail', () => {
     vi.spyOn(window, 'cancelAnimationFrame').mockImplementation(() => {})
 
     expect(() => {
-      const { unmount } = render(<LightsaberTrail />)
+      const { unmount } = render(<BladeTrail />)
       unmount()
     }).not.toThrow()
 
@@ -73,7 +73,7 @@ describe('LightsaberTrail', () => {
     stubMatchMedia(true)
     const rafSpy = vi.spyOn(window, 'requestAnimationFrame')
 
-    render(<LightsaberTrail />)
+    render(<BladeTrail />)
 
     expect(rafSpy).not.toHaveBeenCalled()
   })
@@ -83,7 +83,7 @@ describe('LightsaberTrail', () => {
     vi.spyOn(window, 'requestAnimationFrame').mockReturnValue(1)
     vi.spyOn(window, 'cancelAnimationFrame').mockImplementation(() => {})
 
-    const { container } = render(<LightsaberTrail />)
+    const { container } = render(<BladeTrail />)
     const canvas = container.querySelector('canvas')
 
     expect(canvas).not.toBeNull()
@@ -99,7 +99,7 @@ describe('LightsaberTrail', () => {
     vi.spyOn(window, 'requestAnimationFrame').mockReturnValue(42)
     const cancelSpy = vi.spyOn(window, 'cancelAnimationFrame').mockImplementation(() => {})
 
-    render(<LightsaberTrail />)
+    render(<BladeTrail />)
 
     Object.defineProperty(document, 'hidden', { configurable: true, get: () => true })
     document.dispatchEvent(new Event('visibilitychange'))
@@ -118,7 +118,7 @@ describe('LightsaberTrail', () => {
     })
     vi.spyOn(window, 'cancelAnimationFrame').mockImplementation(() => {})
 
-    render(<LightsaberTrail />)
+    render(<BladeTrail />)
 
     window.dispatchEvent(new PointerEvent('pointermove', { clientX: 10, clientY: 10 }))
     window.dispatchEvent(new PointerEvent('pointermove', { clientX: 20, clientY: 30 }))
@@ -140,7 +140,7 @@ describe('LightsaberTrail', () => {
     })
     vi.spyOn(window, 'cancelAnimationFrame').mockImplementation(() => {})
 
-    render(<LightsaberTrail />)
+    render(<BladeTrail />)
 
     window.dispatchEvent(new PointerEvent('pointermove', { clientX: 10, clientY: 10 }))
     window.dispatchEvent(new PointerEvent('pointermove', { clientX: 20, clientY: 30 }))

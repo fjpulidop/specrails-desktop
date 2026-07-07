@@ -220,3 +220,59 @@ describe('specrails_git tool', () => {
     expect(String(r.hint)).toContain('report the real state')
   })
 })
+
+describe('specrails_support tool', () => {
+  let db: DbInstance
+  let ctx: McpToolContext
+  beforeEach(() => { db = initDesktopDb(':memory:'); ctx = makeCtx(db); setActiveProject('p1') })
+  afterEach(() => { vi.unstubAllGlobals(); setActiveProject(null) })
+
+  const supportSpec = () => buildToolSpecs().find((s) => s.name === 'specrails_support')!
+
+  it('routes support triage away from spec creation and recognizes missing framework files', async () => {
+    const fetchMock = vi.fn(async (url: string) => ({
+      ok: true,
+      status: 200,
+      text: async () => {
+        if (String(url).includes('/core-update/status')) {
+          return JSON.stringify({ available: true, currentVersion: '4.8.0', latestVersion: null, updateAvailable: false })
+        }
+        if (String(url).includes('/setup/checkpoints')) {
+          return JSON.stringify({ isInstalling: false, logLines: ['missing baseline agents'] })
+        }
+        return JSON.stringify({ ok: true })
+      },
+    }))
+    vi.stubGlobal('fetch', fetchMock)
+
+    const res = await supportSpec().handler(ctx, {
+      action: 'triage',
+      projectId: 'p1',
+      question: 'The job failed because no agents or skills were found',
+    }) as Record<string, unknown>
+
+    expect(res).toMatchObject({
+      mode: 'support-triage',
+      doNotCreateSpec: true,
+      topic: 'framework_install',
+    })
+    const diagnostics = res.localDiagnostics as { setupCheckpoints?: { skipped?: boolean; reason?: string } }
+    expect(diagnostics.setupCheckpoints?.skipped).toBe(true)
+    expect(diagnostics.setupCheckpoints?.reason).toContain('not a specrails-core health check')
+    expect(String(res.recommendedNextSteps)).toContain('specrails-core')
+    expect(String(res.recommendedNextSteps)).toContain('npx specrails-core@latest update')
+    expect(String(res.availableRepairActions)).toContain('core_update_apply')
+    expect(String(res.availableRepairActions)).not.toContain('reassemble_project_workspace')
+    expect(String(res.recommendedNextSteps)).toContain('Never recommend specrails_setup(install)')
+    expect(String(res.supportPrompt)).toContain('Do not create or propose a spec')
+  })
+
+  it('exposes only global core update as ai-spawn for core support', () => {
+    const spec = supportSpec()
+    const tier = spec.tier as (a: Record<string, unknown>) => string
+    expect(tier({ action: 'triage' })).toBe('read')
+    expect(tier({ action: 'core_update_status' })).toBe('read')
+    expect(tier({ action: 'core_update_apply' })).toBe('ai-spawn')
+    expect(actionOptions(spec)).not.toContain('reassemble_project_workspace')
+  })
+})

@@ -215,7 +215,6 @@
     "high": "高",
     "xhigh": "极高"
   },
-  "emptyTitleMatrix": "这次的任务是什么，Neo？",
   "prCard": {
     "rail": "Rail {{index}}",
     "specCount_one": "{{count}} 个 Spec",
@@ -317,5 +316,6 @@
     "delete": "删除任务",
     "deleteConfirm": "删除此任务？此操作无法撤销。",
     "deleteFailed": "无法删除任务"
-  }
+  },
+  "emptyTitleCodeRain": "接下来要构建什么？"
 }

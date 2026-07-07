@@ -1,4 +1,9 @@
-## ADDED Requirements
+# ci-cd Specification
+
+## Purpose
+Define the continuous integration, release PR, and package publishing behavior for the desktop package.
+
+## Requirements
 
 ### Requirement: CI runs on every push and pull request
 The system SHALL run automated checks (typecheck and tests) on every push to any branch and on every pull request targeting `main`. Checks SHALL cover both root and client packages.

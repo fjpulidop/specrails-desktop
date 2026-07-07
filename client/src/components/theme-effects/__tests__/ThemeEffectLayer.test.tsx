@@ -9,12 +9,12 @@ vi.mock('../../../context/ThemeContext', () => ({
   useActiveTheme: () => mockUseActiveTheme(),
 }))
 
-vi.mock('../MatrixRain', () => ({
-  MatrixRain: () => <div data-testid="matrix-rain" />,
+vi.mock('../CodeRainEffect', () => ({
+  CodeRainEffect: () => <div data-testid="code-rain-effect" />,
 }))
 
-vi.mock('../LightsaberTrail', () => ({
-  LightsaberTrail: () => <div data-testid="lightsaber-trail" />,
+vi.mock('../BladeTrail', () => ({
+  BladeTrail: () => <div data-testid="blade-trail" />,
 }))
 
 describe('ThemeEffectLayer', () => {
@@ -22,12 +22,12 @@ describe('ThemeEffectLayer', () => {
     mockUseActiveTheme.mockReturnValue(THEMES[id])
     const { container, queryByTestId } = render(<ThemeEffectLayer />)
 
-    if (id === 'matrix') {
-      expect(queryByTestId('matrix-rain')).not.toBeNull()
-      expect(queryByTestId('lightsaber-trail')).toBeNull()
-    } else if (id === 'star-wars') {
-      expect(queryByTestId('lightsaber-trail')).not.toBeNull()
-      expect(queryByTestId('matrix-rain')).toBeNull()
+    if (id === 'code-rain') {
+      expect(queryByTestId('code-rain-effect')).not.toBeNull()
+      expect(queryByTestId('blade-trail')).toBeNull()
+    } else if (id === 'galaxy') {
+      expect(queryByTestId('blade-trail')).not.toBeNull()
+      expect(queryByTestId('code-rain-effect')).toBeNull()
     } else {
       expect(container.firstChild).toBeNull()
     }

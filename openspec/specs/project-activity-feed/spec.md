@@ -1,4 +1,9 @@
-## ADDED Requirements
+# project-activity-feed Specification
+
+## Purpose
+Define project activity feed API, UI, notification, and realtime update behavior.
+
+## Requirements
 
 ### Requirement: Activity feed endpoint
 The system SHALL expose `GET /api/projects/:projectId/activity` returning a JSON array of `ActivityItem` objects representing recent project events sorted by `timestamp` descending.

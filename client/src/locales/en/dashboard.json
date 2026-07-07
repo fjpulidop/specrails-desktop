@@ -38,6 +38,7 @@
     "draftPr": "Draft PR",
     "branchPushed": "Branch pushed — PR pending",
     "branchPushedHint": "The branch was pushed but the PR couldn't be created (GitHub CLI unavailable). Retry to create it.",
+    "iteratingPr": "Updating PR",
     "prReady": "PR ready",
     "prFailed": "PR failed",
     "prFailedDetail": "PR failed: {{detail}}",

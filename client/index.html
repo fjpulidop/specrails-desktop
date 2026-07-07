@@ -47,8 +47,14 @@
         } catch (_) { /* storage unavailable — nothing to migrate */ }
         try {
           var k = 'specrails-desktop:ui-theme'
-          var allowed = ['dracula', 'aurora-light', 'obsidian-dark', 'matrix', 'specrails']
+          var legacyThemeIds = { 'star-wars': 'galaxy', matrix: 'code-rain' }
+          var allowed = ['dracula', 'aurora-light', 'obsidian-dark', 'code-rain', 'specrails', 'galaxy']
           var v = localStorage.getItem(k)
+          var migrated = legacyThemeIds[v]
+          if (migrated) {
+            v = migrated
+            localStorage.setItem(k, migrated)
+          }
           document.documentElement.dataset.theme =
             v && allowed.indexOf(v) !== -1 ? v : 'specrails'
         } catch (_) {
@@ -85,7 +91,7 @@
         --splash-secondary: #f48fc7;
         --splash-muted: #8b8fa3;
       }
-      html[data-theme="matrix"] {
+      html[data-theme="code-rain"] {
         --splash-bg: #08120e;
         --splash-fg: #b8ffd9;
         --splash-primary: #00ff66;
@@ -98,6 +104,13 @@
         --splash-primary: #00c3d2;
         --splash-secondary: #9a6fce;
         --splash-muted: #6b6f8c;
+      }
+      html[data-theme="galaxy"] {
+        --splash-bg: hsl(220 20% 4%);
+        --splash-fg: hsl(210 30% 94%);
+        --splash-primary: hsl(212 100% 62%);
+        --splash-secondary: hsl(210 12% 65%);
+        --splash-muted: hsl(215 15% 60%);
       }
       html, body {
         margin: 0;

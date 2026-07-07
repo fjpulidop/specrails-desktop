@@ -1,4 +1,9 @@
-## MODIFIED Requirements
+# desktop-titlebar Specification
+
+## Purpose
+Define titlebar rendering and drag behavior for desktop and browser contexts.
+
+## Requirements
 
 ### Requirement: Custom titlebar renders only inside the Tauri shell
 The `TitleBar` component SHALL render only when `window.__TAURI_INTERNALS__` is defined. In browser or non-desktop contexts it SHALL render nothing, leaving the existing layout unaffected.

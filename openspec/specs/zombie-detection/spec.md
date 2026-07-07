@@ -1,4 +1,9 @@
-## ADDED Requirements
+# zombie-detection Specification
+
+## Purpose
+Define queue zombie detection configuration, timers, logging, auto-termination, and queue draining behavior.
+
+## Requirements
 
 ### Requirement: Inactivity timeout configuration
 `QueueManager` SHALL accept a configurable inactivity threshold for zombie detection via the `WM_ZOMBIE_TIMEOUT_MS` environment variable (integer, milliseconds) or via constructor option `zombieTimeoutMs`. The default SHALL be `300000` (5 minutes). Setting the value to `0` or less SHALL disable zombie detection entirely.
@@ -67,3 +72,9 @@ Upon zombie detection, `QueueManager` SHALL initiate the same kill sequence used
 
 ### Requirement: Queue drains after zombie cleanup
 After a zombie job is auto-terminated, `QueueManager` SHALL invoke `_drainQueue()` to start the next queued job (if any), identical to normal job exit behavior.
+
+#### Scenario: Next queued job starts after zombie cleanup
+- **GIVEN** a zombie job is auto-terminated while another job is queued
+- **WHEN** zombie cleanup completes
+- **THEN** `_drainQueue()` is invoked
+- **AND** the next queued job is eligible to start

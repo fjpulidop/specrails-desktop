@@ -17,7 +17,7 @@
  *   - dracula        (default — legacy palette, byte-equivalent visuals)
  *   - aurora-light   (premium light, Linear-ish frío profesional)
  *   - obsidian-dark  (premium dark, Tokyo-Night-ish negro-azulado)
- *   - matrix         (phosphor terminal — green-tinted near-black)
+ *   - code-rain         (phosphor terminal — green-tinted near-black)
  *
  * Components use SEMANTIC tokens only (e.g. `text-accent-primary`,
  * `bg-surface`, `border-border`). Brand-named tokens (`dracula-*`) MUST NOT
@@ -121,8 +121,8 @@
   --glass-card-opacity:          92%;
 }
 
-/* ─── Matrix (phosphor terminal — green-tinted near-black) ─── */
-[data-theme="matrix"] {
+/* ─── Code Rain (phosphor terminal — green-tinted near-black) ─── */
+[data-theme="code-rain"] {
   --color-background:             hsl(154 30% 5%);    /* near-black, green-tinted */
   --color-foreground:             hsl(150 100% 86%);  /* mint phosphor — high contrast on bg */
   --color-card:                   hsl(154 26% 12%);
@@ -161,19 +161,19 @@
 
   /* Signature glow — phosphor halo on the primary accent. Resolved by the
    * `filter:` rule below so component code stays theme-agnostic. */
-  --matrix-glow: drop-shadow(0 0 10px hsl(144 100% 50% / 0.4));
+  --code-rain-glow: drop-shadow(0 0 10px hsl(144 100% 50% / 0.4));
 }
 
-/* Apply the matrix glow only when the user has not requested reduced motion.
+/* Apply the code-rain glow only when the user has not requested reduced motion.
  * Scoped to `:focus-visible` (keyboard-driven affordances) on interactive
  * elements — keeps the phosphor halo where it matters without taxing every
  * surface or fighting Tailwind's `ring-*` utilities. */
 @media (prefers-reduced-motion: no-preference) {
-  [data-theme="matrix"] button:focus-visible,
-  [data-theme="matrix"] a:focus-visible,
-  [data-theme="matrix"] [role="button"]:focus-visible,
-  [data-theme="matrix"] [role="radio"]:focus-visible {
-    filter: var(--matrix-glow);
+  [data-theme="code-rain"] button:focus-visible,
+  [data-theme="code-rain"] a:focus-visible,
+  [data-theme="code-rain"] [role="button"]:focus-visible,
+  [data-theme="code-rain"] [role="radio"]:focus-visible {
+    filter: var(--code-rain-glow);
   }
 }
 
@@ -260,70 +260,70 @@
   --glass-card-opacity:          34%;
 }
 
-/* ─── Star Wars (deep-space dark — Jedi-blue/Sith-red/gold/Force-green) ────
- * Palette mirrors `STAR_WARS_PALETTE` in `client/src/lib/themes.ts` — the two
+/* ─── Galaxy (deep-space dark — saturated blue/dark-side-red/gold/core-green) ────
+ * Palette mirrors `GALAXY_PALETTE` in `client/src/lib/themes.ts` — the two
  * MUST stay in sync (same HSL literals) so xterm/chart/status stay aligned
  * with the CSS surface. */
-[data-theme="star-wars"] {
-  --color-background:             hsl(224 45% 5%);    /* deep-space near-black, blue-tinted */
+[data-theme="galaxy"] {
+  --color-background:             hsl(220 20% 4%);    /* neutral deep-space near-black */
   --color-foreground:             hsl(210 30% 94%);   /* cool near-white */
-  --color-card:                   hsl(224 38% 10%);
+  --color-card:                   hsl(220 18% 8%);
   --color-card-foreground:        hsl(210 30% 94%);
-  --color-popover:                hsl(224 45% 5%);
+  --color-popover:                hsl(220 20% 4%);
   --color-popover-foreground:     hsl(210 30% 94%);
-  --color-primary:                hsl(212 100% 62%);  /* Jedi blue */
-  --color-primary-foreground:     hsl(224 45% 5%);
-  --color-secondary:              hsl(224 30% 14%);
+  --color-primary:                hsl(212 100% 62%);  /* light-side blue */
+  --color-primary-foreground:     hsl(220 20% 4%);
+  --color-secondary:              hsl(220 16% 12%);
   --color-secondary-foreground:   hsl(210 30% 94%);
-  --color-muted:                  hsl(224 26% 11%);
+  --color-muted:                  hsl(220 16% 11%);
   --color-muted-foreground:       hsl(215 15% 60%);
-  --color-accent:                 hsl(224 30% 14%);
+  --color-accent:                 hsl(220 16% 12%);
   --color-accent-foreground:      hsl(210 30% 94%);
-  --color-destructive:            hsl(355 92% 56%);   /* Sith red */
+  --color-destructive:            hsl(355 92% 56%);   /* dark-side red */
   --color-destructive-foreground: hsl(210 30% 97%);
-  --color-border:                 hsl(215 30% 55% / 0.16);
-  --color-input:                  hsl(224 28% 13%);
+  --color-border:                 hsl(210 12% 65% / 0.16);
+  --color-input:                  hsl(220 16% 12%);
   --color-ring:                   hsl(212 100% 62%);
 
-  --color-accent-primary:    hsl(212 100% 62%);  /* Jedi blue */
+  --color-accent-primary:    hsl(212 100% 62%);  /* light-side blue */
   --color-accent-info:       hsl(212 100% 62%);  /* same hue as primary — ticket-directed */
-  --color-accent-success:    hsl(140 65% 50%);   /* Force green */
-  --color-accent-secondary:  hsl(280 65% 64%);   /* violet — Mace Windu homage */
-  --color-accent-warning:    hsl(28 95% 56%);    /* blaster orange */
-  --color-accent-highlight:  hsl(45 90% 55%);    /* droid gold */
-  --color-surface:           hsl(224 34% 12%);
-  --color-background-deep:   hsl(224 55% 3%);
+  --color-accent-success:    hsl(140 65% 50%);   /* core green */
+  --color-accent-secondary:  hsl(210 12% 65%);   /* steel steel-gray/silver */
+  --color-accent-warning:    hsl(28 95% 56%);    /* pulse orange */
+  --color-accent-highlight:  hsl(55 90% 56%);    /* signal gold */
+  --color-surface:           hsl(220 18% 10%);
+  --color-background-deep:   hsl(220 24% 2%);
 
-  --color-scrollbar-thumb:       hsl(215 25% 45% / 0.4);
+  --color-scrollbar-thumb:       hsl(210 12% 65% / 0.36);
   --color-scrollbar-thumb-hover: hsl(212 60% 55% / 0.6);
-  --color-prose-table-stripe:    hsl(224 34% 12% / 0.5);
-  --color-prose-table-header:    hsl(224 34% 12% / 0.85);
-  --color-toast-shadow:          hsl(224 55% 2% / 0.65);
+  --color-prose-table-stripe:    hsl(220 18% 10% / 0.5);
+  --color-prose-table-header:    hsl(220 18% 10% / 0.85);
+  --color-toast-shadow:          hsl(220 24% 1% / 0.65);
   --glass-card-opacity:          32%;
 
-  /* Signature glow — Jedi-blue blade halo. Resolved by the `filter:` rule
+  /* Signature glow — saturated blue blade halo. Resolved by the `filter:` rule
    * below so component code stays theme-agnostic. */
-  --starwars-glow: drop-shadow(0 0 10px hsl(212 100% 62% / 0.45));
+  --galaxy-glow: drop-shadow(0 0 10px hsl(212 100% 62% / 0.45));
 }
 
-/* Apply the Star Wars glow only when the user has not requested reduced
+/* Apply the Galaxy glow only when the user has not requested reduced
  * motion. Scoped to `:focus-visible` on interactive elements, mirroring the
- * matrix glow rule above — kept as its own rule block so both themes stay
+ * code-rain glow rule above — kept as its own rule block so both themes stay
  * independently scoped. */
 @media (prefers-reduced-motion: no-preference) {
-  [data-theme="star-wars"] button:focus-visible,
-  [data-theme="star-wars"] a:focus-visible,
-  [data-theme="star-wars"] [role="button"]:focus-visible,
-  [data-theme="star-wars"] [role="radio"]:focus-visible {
-    filter: var(--starwars-glow);
+  [data-theme="galaxy"] button:focus-visible,
+  [data-theme="galaxy"] a:focus-visible,
+  [data-theme="galaxy"] [role="button"]:focus-visible,
+  [data-theme="galaxy"] [role="radio"]:focus-visible {
+    filter: var(--galaxy-glow);
   }
 
   /* Blade-glow border treatment — zero new markup. Rides on hooks the app
    * already emits: react-router's `aria-current="page"` on the active nav
    * link, and the existing `border-accent-primary` "active/selected" utility
    * applied conditionally by ~19 components (see design.md Decision D3). */
-  [data-theme="star-wars"] a[aria-current="page"],
-  [data-theme="star-wars"] .border-accent-primary {
+  [data-theme="galaxy"] a[aria-current="page"],
+  [data-theme="galaxy"] .border-accent-primary {
     box-shadow:
       0 0 0 1px color-mix(in srgb, var(--color-accent-primary) 55%, transparent),
       0 0 12px color-mix(in srgb, var(--color-accent-primary) 30%, transparent);
@@ -648,7 +648,7 @@ select {
   .portfolio-page section + section { break-before: page; page-break-before: always; }
   /* Constrain width to a nice print column */
   .portfolio-page { max-width: 100% !important; padding: 1cm 1.5cm !important; }
-  /* Force black text on white for print legibility regardless of theme */
+  /* core black text on white for print legibility regardless of theme */
   .portfolio-page * {
     color: black !important;
     background: transparent !important;
@@ -661,7 +661,7 @@ select {
  * Theme-effects plumbing (unlayered — must beat Tailwind v4's `@layer base`
  * priority semantics).
  *
- * The matrix-rain canvas (see `client/src/components/theme-effects/`) sits
+ * The code-rain-rain canvas (see `client/src/components/theme-effects/`) sits
  * at `z-index: -1` inside `#root`. For the negative z-index to render above
  * the body's painted background, `#root` must establish a stacking context.
  * The App.tsx root wrappers intentionally do NOT paint `bg-background`
@@ -674,18 +674,18 @@ select {
   z-index: 0;
 }
 
-/* Matrix theme only: collapse translucent `bg-card/N` panel utilities to a
+/* Code Rain theme only: collapse translucent `bg-card/N` panel utilities to a
  * fully opaque card paint so cross-cutting pages (Analytics, Jobs, Agents,
  * Integrations) read cleanly above the rain canvas. Without this the canvas
  * bleeds through every glass-style panel and the data becomes hard to scan.
  * Other themes keep their glass feel — these overrides are tightly scoped
- * to the `matrix` data-theme attribute. */
-[data-theme="matrix"] .bg-card\/30,
-[data-theme="matrix"] .bg-card\/40,
-[data-theme="matrix"] .bg-card\/50,
-[data-theme="matrix"] .bg-card\/60,
-[data-theme="matrix"] .bg-card\/70,
-[data-theme="matrix"] .bg-card\/80 {
+ * to the `code-rain` data-theme attribute. */
+[data-theme="code-rain"] .bg-card\/30,
+[data-theme="code-rain"] .bg-card\/40,
+[data-theme="code-rain"] .bg-card\/50,
+[data-theme="code-rain"] .bg-card\/60,
+[data-theme="code-rain"] .bg-card\/70,
+[data-theme="code-rain"] .bg-card\/80 {
   background-color: var(--color-card);
 }
 
@@ -693,8 +693,8 @@ select {
  * use translucent gradient color stops (e.g. SpendingHero's
  * `bg-gradient-to-br from-card/80 to-card/40`). Substring match on the
  * class attribute catches every `from-card/*` and `to-card/*` variant. */
-[data-theme="matrix"] [class*="from-card/"],
-[data-theme="matrix"] [class*="to-card/"] {
+[data-theme="code-rain"] [class*="from-card/"],
+[data-theme="code-rain"] [class*="to-card/"] {
   background-image: none;
   background-color: var(--color-card);
 }
@@ -704,21 +704,54 @@ select {
  * the muted track used by LogViewer. Without this the rain canvas bleeds
  * through and the log/status content is unreadable. Rain still shows
  * through unpainted areas (page padding, gaps between cards). */
-[data-theme="matrix"] .bg-emerald-500\/5,
-[data-theme="matrix"] .bg-accent-info\/5,
-[data-theme="matrix"] .bg-red-500\/5,
-[data-theme="matrix"] .bg-muted\/5,
-[data-theme="matrix"] .bg-muted\/10,
-[data-theme="matrix"] .bg-muted\/20,
-[data-theme="matrix"] .bg-muted\/30 {
+[data-theme="code-rain"] .bg-emerald-500\/5,
+[data-theme="code-rain"] .bg-accent-info\/5,
+[data-theme="code-rain"] .bg-red-500\/5,
+[data-theme="code-rain"] .bg-muted\/5,
+[data-theme="code-rain"] .bg-muted\/10,
+[data-theme="code-rain"] .bg-muted\/20,
+[data-theme="code-rain"] .bg-muted\/30 {
   background-color: var(--color-card);
 }
 
 /* LogViewer scroll area + Job Detail container: paint an opaque card so the
  * stream of text reads cleanly above the rain canvas. The route container
  * itself stays transparent so the rain remains visible in page padding. */
-[data-theme="matrix"] [data-job-detail-surface] {
+[data-theme="code-rain"] [data-job-detail-surface] {
   background-color: var(--color-background);
+}
+
+/* Galaxy view-local ambience uses the same bounded readability guard as
+ * Code Rain: translucent data panels collapse to opaque card paint so the
+ * blade trail and local starfields show through only page gaps and outer
+ * canvases, not dense control surfaces. */
+[data-theme="galaxy"] .bg-card\/30,
+[data-theme="galaxy"] .bg-card\/40,
+[data-theme="galaxy"] .bg-card\/50,
+[data-theme="galaxy"] .bg-card\/60,
+[data-theme="galaxy"] .bg-card\/70,
+[data-theme="galaxy"] .bg-card\/80 {
+  background-color: var(--color-card);
+}
+
+[data-theme="galaxy"] [class*="from-card/"],
+[data-theme="galaxy"] [class*="to-card/"] {
+  background-image: none;
+  background-color: var(--color-card);
+}
+
+[data-theme="galaxy"] .bg-emerald-500\/5,
+[data-theme="galaxy"] .bg-accent-info\/5,
+[data-theme="galaxy"] .bg-red-500\/5,
+[data-theme="galaxy"] .bg-muted\/5,
+[data-theme="galaxy"] .bg-muted\/10,
+[data-theme="galaxy"] .bg-muted\/20,
+[data-theme="galaxy"] .bg-muted\/30 {
+  background-color: var(--color-card);
+}
+
+[data-theme="galaxy"] [data-agent-mode-surface] {
+  background-color: transparent;
 }
 
 /* ─────────────────────────────────────────────────────────────────────────────

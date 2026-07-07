@@ -7,6 +7,21 @@ import { apiCall, projectPath, originConversationDefaults } from './types'
  *  a default must not 400 a launch that would succeed without it. */
 const RAIL_REASONING_EFFORTS = new Set(['low', 'medium', 'high'])
 
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null && !Array.isArray(value)
+}
+
+function prDeliveryContinuesTickets(raw: unknown, ticketIds: number[]): boolean {
+  if (!isRecord(raw)) return false
+  const decision = raw.decision
+  if (decision !== 'pr_draft' && decision !== 'pr_ready') return false
+  if (typeof raw.prUrl !== 'string' || !raw.prUrl) return false
+  if (typeof raw.branch !== 'string' || !raw.branch) return false
+  if (!Array.isArray(raw.ticketIds)) return false
+  const covered = new Set(raw.ticketIds.filter((id): id is number => typeof id === 'number'))
+  return ticketIds.length > 0 && ticketIds.every((id) => covered.has(id))
+}
+
 /**
  * Rails domain facade. A "rail" is a numbered launch slot per project: it holds
  * a set of assigned ticket IDs plus a mode/profile/engine/name, and launching it
@@ -28,9 +43,9 @@ export function railsTools(): McpToolSpec[] {
         'Actions: list (rails + active jobs/loop runs), create_rail (add a new rail slot; returns its railIndex), set_tickets (assign ticket IDs), set_profile (default agent profile, null=legacy), ' +
         'set_engine (provider override, null=primary), set_name (display label, null clears), ' +
         'launch (ai-spawn — spawns claude/codex/gemini CLI job(s) that WRITE CODE, RUN TESTS, COMMIT, and INCUR TOKEN COST; returns 202 with jobId/jobIds/loopRunIds), ' +
-        'launch_all (ai-spawn — launches EVERY rail that has tickets and no active run/pending PR decision, in parallel, using each rail\'s stored mode/engine/profile; returns per-rail outcomes with skip reasons), ' +
+        'launch_all (ai-spawn — launches EVERY rail that has tickets and no active run/uncontinuable pending PR decision, in parallel, using each rail\'s stored mode/engine/profile; returns per-rail outcomes with skip reasons), ' +
         'stop (destructive — kills all active jobs and loop runs for the rail). ' +
-        'For on_review tickets with an already-open GitHub PR, launch automatically tries to continue that PR head branch; Jira-linked in_progress tickets can do the same when the PR match is explicit; fresh tickets still start from the project integration branch. ' +
+        'For on_review tickets with an already-open GitHub PR (including a published pr_ready delivery), launch automatically tries to continue that PR head branch; Jira-linked in_progress tickets can do the same when the PR match is explicit; fresh tickets still start from the project integration branch. ' +
         'When launched from the in-app agent chat without an explicit aiEngine, the engine defaults to your conversation\'s provider (pass aiEngine to override; launch_all always uses each rail\'s stored engine). ' +
         'User-facing naming: call the free-form autonomous mode "Freestyle"; use "freestyle" as the canonical API enum value for that same capability. ' +
         'NAMING: railIndex is the 0-BASED internal identity; the dashboard shows rails 1-based ("Rail N" = railIndex N-1). When talking to the user, ALWAYS say "Rail <railIndex + 1>" (or the rail\'s custom name) — results include railLabel with the correct user-facing label.',
@@ -232,7 +247,7 @@ export function railsTools(): McpToolSpec[] {
             return {
               ...r,
               railLabel,
-              hint: `Launch accepted (202) on ${railLabel} (isolated worktree, PR flow active) — tell the user it runs on "${railLabel}" (UI labels are 1-based). If the assigned spec is on_review with a matching open PR, or is Jira-linked in_progress with an explicit PR match, Specrails continues that PR branch automatically; otherwise it starts a fresh branch from the integration branch. The PR-decision card will appear here and on the rail header when it settles. Use specrails_watch with the returned loopRunIds to await completion only if asked. Rails run for minutes; pass untilMs up to 600000 and re-watch on timeout.`,
+              hint: `Launch accepted (202) on ${railLabel} (isolated worktree, PR flow active) — tell the user it runs on "${railLabel}" (UI labels are 1-based). If the assigned spec is on_review with a matching open PR, including an already-published pr_ready PR, or is Jira-linked in_progress with an explicit PR match, Specrails continues that PR branch automatically; otherwise it starts a fresh branch from the integration branch. The PR-decision card will appear here and on the rail header when it settles. Use specrails_watch with the returned loopRunIds to await completion only if asked. Rails run for minutes; pass untilMs up to 600000 and re-watch on timeout.`,
             }
           }
 
@@ -241,8 +256,9 @@ export function railsTools(): McpToolSpec[] {
             // because each launch isolates its work in per-ticket git worktrees
             // (allocation is serialized per repo by the launch path itself).
             // Eligibility mirrors the dashboard's Launch-all control: the rail
-            // must hold tickets, have no active job/loop run, and no undecided
-            // PR delivery. Each rail launches with its OWN stored config
+            // must hold tickets, have no active job/loop run, and no uncontinuable
+            // PR delivery. A draft/published PR covering the rail's tickets is
+            // intentionally continuable. Each rail launches with its OWN stored config
             // (mode/engine/profile) — conversation-provider defaults do NOT
             // apply here (they would clobber per-rail engines).
             const snapshot = (await apiCall(ctx, 'GET', base)) as {
@@ -283,7 +299,7 @@ export function railsTools(): McpToolSpec[] {
                 results.push({ railIndex: idx, outcome: 'skipped', reason: 'already-running', ticketIds })
                 continue
               }
-              if (key in prDeliveries) {
+              if (key in prDeliveries && !prDeliveryContinuesTickets(prDeliveries[key], ticketIds)) {
                 results.push({ railIndex: idx, outcome: 'skipped', reason: 'pr-decision-pending', ticketIds })
                 continue
               }

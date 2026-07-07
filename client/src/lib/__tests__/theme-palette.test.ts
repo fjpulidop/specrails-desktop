@@ -1,4 +1,5 @@
 import { describe, it, expect, beforeEach, afterEach } from 'vitest'
+import { readFileSync } from 'node:fs'
 import { getActiveThemeId, getActiveTheme, getStatusColors, getChartPalette } from '../theme-palette'
 import { DEFAULT_THEME, THEMES } from '../themes'
 
@@ -39,5 +40,15 @@ describe('theme-palette', () => {
   it('getChartPalette returns the active theme chart palette', () => {
     document.documentElement.dataset.theme = 'aurora-light'
     expect(getChartPalette()).toEqual(THEMES['aurora-light'].chart)
+  })
+
+  it('scopes Galaxy transparency CSS without a broad background override', () => {
+    const css = readFileSync('src/globals.css', 'utf8')
+
+    expect(css).toContain('[data-theme="galaxy"] [data-agent-mode-surface]')
+    expect(css).toContain('[data-theme="galaxy"] .bg-card\\/30')
+    expect(css).toContain('[data-theme="galaxy"] [class*="from-card/"]')
+    expect(css).toContain('[data-theme="galaxy"] .bg-muted\\/30')
+    expect(css).not.toMatch(/\[data-theme="galaxy"\]\s+\.bg-background\s*\{/)
   })
 })

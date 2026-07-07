@@ -52,6 +52,30 @@ describe('ThemeContext', () => {
     expect(screen.getByTestId('current').textContent).toBe('obsidian-dark')
   })
 
+  it.each([
+    ['star-wars', 'galaxy'],
+    ['matrix', 'code-rain'],
+  ])('migrates localStorage legacy theme %s to %s during boot read', (legacy, current) => {
+    localStorage.setItem(THEME_LOCAL_STORAGE_KEY, legacy)
+    vi.spyOn(global, 'fetch').mockResolvedValue(okJson({ theme: current }))
+    render(<ThemeProvider><Probe /></ThemeProvider>)
+
+    expect(screen.getByTestId('current').textContent).toBe(current)
+    expect(document.documentElement.dataset.theme).toBe(current)
+    expect(localStorage.getItem(THEME_LOCAL_STORAGE_KEY)).toBe(current)
+  })
+
+  it('migrates a legacy data-theme attribute before localStorage fallback', () => {
+    document.documentElement.dataset.theme = 'star-wars'
+    localStorage.setItem(THEME_LOCAL_STORAGE_KEY, 'dracula')
+    vi.spyOn(global, 'fetch').mockResolvedValue(okJson({ theme: 'galaxy' }))
+    render(<ThemeProvider><Probe /></ThemeProvider>)
+
+    expect(screen.getByTestId('current').textContent).toBe('galaxy')
+    expect(document.documentElement.dataset.theme).toBe('galaxy')
+    expect(localStorage.getItem(THEME_LOCAL_STORAGE_KEY)).toBe('galaxy')
+  })
+
   it('falls back to specrails (DEFAULT_THEME) when both attribute and storage are absent', () => {
     vi.spyOn(global, 'fetch').mockResolvedValue(okJson({ theme: 'specrails' }))
     render(<ThemeProvider><Probe /></ThemeProvider>)
@@ -67,6 +91,18 @@ describe('ThemeContext', () => {
     })
     expect(document.documentElement.dataset.theme).toBe('aurora-light')
     expect(localStorage.getItem(THEME_LOCAL_STORAGE_KEY)).toBe('aurora-light')
+  })
+
+  it('normalizes a legacy server value during reconcile', async () => {
+    document.documentElement.dataset.theme = 'dracula'
+    vi.spyOn(global, 'fetch').mockResolvedValue(okJson({ theme: 'matrix' }))
+    render(<ThemeProvider><Probe /></ThemeProvider>)
+
+    await waitFor(() => {
+      expect(screen.getByTestId('current').textContent).toBe('code-rain')
+    })
+    expect(document.documentElement.dataset.theme).toBe('code-rain')
+    expect(localStorage.getItem(THEME_LOCAL_STORAGE_KEY)).toBe('code-rain')
   })
 
   it('ignores server reconcile when value matches boot', async () => {

@@ -330,6 +330,25 @@ describe('launchIsolatedRail — ask-first PR delivery (rail_pr_deliveries lifec
     expect(prStates(broadcast).map((m) => m.decision)).toEqual(['building', 'discarded'])
   })
 
+  it('can preserve the building row on allocation failure for router-managed shared-cwd continuation fallback', async () => {
+    const { ctx, db, broadcast } = fakeCtx()
+    let prDeliveryId = ''
+    const create = vi.fn(async () => {
+      throw new Error('git worktree add failed')
+    })
+
+    await expect(launchIsolatedRail({
+      ...input([1], ctx),
+      preservePrDeliveryOnAllocationFailure: true,
+      onPrDeliveryCreated: (id) => { prDeliveryId = id },
+    }, okIo(create))).rejects.toThrow(/worktree add failed/)
+
+    const row = getActivePrDeliveryByRail(db, 0)
+    expect(row?.id).toBe(prDeliveryId)
+    expect(row?.decision).toBe('building')
+    expect(prStates(broadcast).map((m) => m.decision)).toEqual(['building'])
+  })
+
   describe('agent-chat completion driver (card posted at launch, updated at settle)', () => {
     afterEach(() => setAgentChatManager(null))
 

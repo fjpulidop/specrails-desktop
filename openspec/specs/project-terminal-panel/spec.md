@@ -1,4 +1,9 @@
-## ADDED Requirements
+# project-terminal-panel Specification
+
+## Purpose
+Define per-project terminal panel state, persistence, shortcuts, resizing, and lifecycle controls.
+
+## Requirements
 
 ### Requirement: Per-project bottom panel visibility states
 Each project SHALL have an independent bottom terminal panel with three mutually exclusive visibility states: **hidden**, **restored**, and **maximized**. The state MUST be tracked per `projectId` so switching projects does not affect another project's panel state.

@@ -71,6 +71,8 @@ interface SpecsBoardProps {
   rails?: RailState[]
   /** Handler invoked when the user picks a rail from the Move-to-Rail popover. */
   onMoveToRail?: (ticketId: number, railId: string) => void
+  /** on_review specs that have an open PR branch and can be re-launched on a rail. */
+  continuableReviewTicketIds?: ReadonlySet<number>
   /** Right-click context menu — status change. */
   onTicketStatusChange?: (ticketId: number, status: TicketStatus) => void
   /** Right-click context menu — priority change. */
@@ -169,6 +171,7 @@ export function SpecsBoard({
   onViewTierChange,
   rails = [],
   onMoveToRail,
+  continuableReviewTicketIds,
   onTicketStatusChange,
   onTicketPriorityChange,
 }: SpecsBoardProps) {
@@ -695,6 +698,7 @@ export function SpecsBoard({
                         jiggleMode={jiggleMode}
                         onLongPress={onTicketDelete ? enterJiggle : undefined}
                         onDelete={onTicketDelete ? handleCardDelete : undefined}
+                        allowOnReviewRailMove={continuableReviewTicketIds?.has(ticket.id) ?? false}
                       />
                     </MaybeContextMenu>
                   ))}
@@ -725,6 +729,7 @@ export function SpecsBoard({
                         jiggleMode={jiggleMode}
                         onLongPress={onTicketDelete ? enterJiggle : undefined}
                         onDelete={onTicketDelete ? handleCardDelete : undefined}
+                        allowOnReviewDrag={continuableReviewTicketIds?.has(ticket.id) ?? false}
                       />
                     </MaybeContextMenu>
                   ))}

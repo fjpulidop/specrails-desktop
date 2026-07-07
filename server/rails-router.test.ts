@@ -7,7 +7,7 @@ import { createRailsRouter } from './rails-router'
 import { getRail, setRailTickets } from './rails-store'
 import { createLoop, publishLoop } from './loops-store'
 import { createLoopRun } from './loop-runs-store'
-import { createPrDelivery, getPrDelivery, transitionDecision, type CreatePrDeliveryInput } from './rail-pr-store'
+import { createPrDelivery, getActivePrDeliveryByRail, getPrDelivery, transitionDecision, type CreatePrDeliveryInput } from './rail-pr-store'
 import type { LoopGraph } from './loop-graph'
 
 const { mockExecRun, mockRepoStatus, mockLaunchIsolated } = vi.hoisted(() => ({
@@ -803,6 +803,54 @@ describe('rails-router POST /:railIndex/launch — ask-first PR delivery (safe-p
     expect(mockRepoStatus).not.toHaveBeenCalled() // the guard sits before the probe
   })
 
+  it('allows relaunch when the active delivery is a published PR covering the rail tickets', async () => {
+    const row = mkDelivery()
+    transitionDecision(db, row.id, 'building', 'on_review', {
+      branches: [
+        { ticketId: 1, branch: 'feat/open-pr', succeeded: true },
+        { ticketId: 2, branch: 'feat/open-pr', succeeded: true },
+      ],
+      worktreeIds: [],
+    })
+    transitionDecision(db, row.id, 'on_review', 'pr_draft', {
+      branch: 'feat/open-pr',
+      prUrl: 'https://github.com/o/r/pull/521',
+      prNumber: 521,
+      prState: 'pr-created',
+    })
+    transitionDecision(db, row.id, 'pr_draft', 'pr_ready')
+    mockRepoStatus.mockResolvedValue('ok')
+    mockLaunchIsolated.mockResolvedValue(['run-cont'])
+
+    const res = await request(launchApp()).post('/rails/0/launch').send({ loopId: 'factory:implement' })
+
+    expect(res.status).toBe(202)
+    expect(res.body).toMatchObject({ loopRunIds: ['run-cont'], isolated: true })
+    expect(mockLaunchIsolated).toHaveBeenCalledTimes(1)
+  })
+
+  it('still blocks an active PR delivery that does not cover every ticket on the rail', async () => {
+    const row = mkDelivery({ ticketIds: [1] })
+    transitionDecision(db, row.id, 'building', 'on_review', {
+      branches: [{ ticketId: 1, branch: 'feat/partial-pr', succeeded: true }],
+      worktreeIds: [],
+    })
+    transitionDecision(db, row.id, 'on_review', 'pr_draft', {
+      branch: 'feat/partial-pr',
+      prUrl: 'https://github.com/o/r/pull/522',
+      prNumber: 522,
+      prState: 'pr-created',
+    })
+    transitionDecision(db, row.id, 'pr_draft', 'pr_ready')
+
+    const res = await request(launchApp()).post('/rails/0/launch').send({ loopId: 'factory:implement' })
+
+    expect(res.status).toBe(409)
+    expect(res.body).toEqual({ error: 'pr_decision_pending', prDeliveryId: row.id })
+    expect(mockLaunchIsolated).not.toHaveBeenCalled()
+    expect(mockRepoStatus).not.toHaveBeenCalled()
+  })
+
   it('a TERMINAL delivery on the slot does not block relaunch', async () => {
     const row = mkDelivery()
     transitionDecision(db, row.id, 'building', 'discarded')
@@ -845,6 +893,61 @@ describe('rails-router POST /:railIndex/launch — ask-first PR delivery (safe-p
     expect(res.body.isolationUnavailable).toBe('error')
     expect(res.body.isolationUnavailableDetail).toContain('git worktree add failed')
     expect(res.body.isolated).toBeUndefined()
+  })
+
+  it('keeps an existing-PR iteration card when isolation fails and shared-cwd fallback runs', async () => {
+    const existing = mkDelivery()
+    transitionDecision(db, existing.id, 'building', 'on_review', {
+      branches: [
+        { ticketId: 1, branch: 'feat/open-pr', succeeded: true },
+        { ticketId: 2, branch: 'feat/open-pr', succeeded: true },
+      ],
+      worktreeIds: [],
+    })
+    transitionDecision(db, existing.id, 'on_review', 'pr_draft', {
+      branch: 'feat/open-pr',
+      prUrl: 'https://github.com/o/r/pull/521',
+      prNumber: 521,
+      prState: 'pr-created',
+    })
+    transitionDecision(db, existing.id, 'pr_draft', 'pr_ready')
+    mockRepoStatus.mockResolvedValue('ok')
+    let iterationDeliveryId = ''
+    mockLaunchIsolated.mockImplementation(async (input: {
+      preservePrDeliveryOnAllocationFailure?: boolean
+      onPrDeliveryCreated?: (id: string) => void
+    }) => {
+      expect(input.preservePrDeliveryOnAllocationFailure).toBe(true)
+      const iteration = mkDelivery()
+      iterationDeliveryId = iteration.id
+      transitionDecision(db, iteration.id, 'building', 'building', {
+        branch: 'feat/open-pr',
+        prUrl: 'https://github.com/o/r/pull/521',
+        prNumber: 521,
+        prState: 'pr-created',
+      })
+      input.onPrDeliveryCreated?.(iteration.id)
+      throw new Error('git worktree add failed for feat/open-pr: already checked out')
+    })
+    const broadcast = vi.fn()
+
+    const res = await request(launchApp({ broadcast })).post('/rails/0/launch').send({ loopId: 'factory:implement' })
+
+    expect(res.status).toBe(202)
+    expect(res.body).toMatchObject({ isolationUnavailable: 'error' })
+    await vi.waitFor(() => {
+      const active = getActivePrDeliveryByRail(db, 0)
+      expect(active?.id).toBe(iterationDeliveryId)
+      expect(active?.decision).toBe('pr_ready')
+      expect(active?.pr_url).toBe('https://github.com/o/r/pull/521')
+      expect(JSON.parse(active?.run_ids ?? '[]')).toHaveLength(1)
+    })
+    const prMessages = broadcast.mock.calls.map((c) => c[0]).filter((m: { type?: string }) => m.type === 'rail.pr_state')
+    expect(prMessages).toEqual(expect.arrayContaining([
+      expect.objectContaining({ prDeliveryId: iterationDeliveryId, decision: 'building', prUrl: 'https://github.com/o/r/pull/521' }),
+      expect.objectContaining({ prDeliveryId: iterationDeliveryId, decision: 'pr_ready', prUrl: 'https://github.com/o/r/pull/521' }),
+    ]))
+    expect(getPrDelivery(db, iterationDeliveryId)?.decision).not.toBe('discarded')
   })
 
   it('400 on a malformed originConversationId (charset / length / type / empty)', async () => {

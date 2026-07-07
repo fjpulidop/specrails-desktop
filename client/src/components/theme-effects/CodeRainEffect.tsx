@@ -1,7 +1,7 @@
 import { useEffect, useRef } from 'react'
 
 /**
- * Matrix-rain decoration. Renders a viewport-sized `<canvas>` that paints
+ * Code Rain decoration. Renders a viewport-sized `<canvas>` that paints
  * falling katakana glyphs whose alpha falls off with distance from recent
  * cursor positions, so the rain is only revealed in the cursor's wake.
  *
@@ -64,7 +64,7 @@ function makeColumn(rowCount: number): Column {
   }
 }
 
-export function MatrixRain() {
+export function CodeRainEffect() {
   const canvasRef = useRef<HTMLCanvasElement | null>(null)
 
   useEffect(() => {
@@ -246,7 +246,7 @@ export function MatrixRain() {
   }, [])
 
   // z-index: -1 inside #root's stacking context (see globals.css) lays the
-  // canvas behind all app content but above the body background. The matrix
+  // canvas behind all app content but above the body background. The code-rain
   // theme also turns `.bg-background` transparent so opaque app wrappers
   // don't mask the canvas — only true panels (cards, rails) with their own
   // `bg-card` paint sit above the rain. pointer-events: none lets clicks
