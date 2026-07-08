@@ -55,7 +55,7 @@ describe('HeadroomManager', () => {
       activeProviders: { codex: true, claude: true },
       detectedRoutes: { codex: true, claude: true },
     }))
-    vi.spyOn(globalThis, 'fetch').mockResolvedValue(new Response(JSON.stringify({
+    vi.spyOn(globalThis, 'fetch').mockImplementation(async () => new Response(JSON.stringify({
       agent_usage: { agents: [] },
     }), { status: 200 }))
 
@@ -65,5 +65,39 @@ describe('HeadroomManager', () => {
     expect(state.proxyRunning).toBe(true)
     expect(state.proxyPid).toBeNull()
     expect(state.metrics.proxyStatsAvailable).toBe(true)
+  })
+
+  it('adopts a healthy proxy on boot instead of starting a duplicate process on the same port', async () => {
+    db = initDesktopDb(':memory:')
+    const fake = makeHeadroomExe()
+    tempDir = fake.dir
+    setDesktopSetting(db, STATE_KEY, JSON.stringify({
+      installed: true,
+      version: '0.30.0',
+      executablePath: fake.exe,
+      installSource: 'managed',
+      port: 8787,
+      activeProviders: { codex: true, claude: true },
+      detectedRoutes: { codex: true, claude: true },
+      lastIssue: {
+        code: 'proxy_port_busy',
+        title: 'Headroom proxy port is already in use',
+        guidance: 'Choose another port or stop the process using the current port, then retry activation.',
+      },
+    }))
+    vi.spyOn(globalThis, 'fetch').mockImplementation(async () => new Response(JSON.stringify({
+      agent_usage: { agents: [] },
+    }), { status: 200 }))
+
+    const manager = new HeadroomManager(db, () => undefined, () => ['codex', 'claude'])
+    await manager.startActiveProxyOnBoot()
+    const diagnostics = manager.diagnostics()
+
+    expect(diagnostics.state).toMatchObject({
+      proxyRunning: true,
+      proxyPid: null,
+      lastIssue: null,
+    })
+    expect(diagnostics.proxyTail).toBe('')
   })
 })

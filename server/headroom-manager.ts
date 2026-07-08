@@ -658,6 +658,9 @@ export class HeadroomManager {
       return { ok: false, state, issue: failure }
     }
     if (this.isProxyRunning()) return { ok: true, state }
+    if (await this.adoptHealthyProxy(state.port)) {
+      return { ok: true, state: this.getState() }
+    }
 
     const args = ['proxy', '--host', '127.0.0.1', '--port', String(state.port)]
     const command = `${state.executablePath} ${args.join(' ')}`
@@ -690,6 +693,7 @@ export class HeadroomManager {
       return { ok: false, state: this.getState(), issue: failure }
     }
     this.updatePersisted({ lastIssue: null })
+    await this.refreshMetrics()
     return { ok: true, state: this.getState() }
   }
 
@@ -1058,6 +1062,13 @@ export class HeadroomManager {
 
   private isProxyRunning(): boolean {
     return !!this.proxy && !this.proxy.killed && this.proxy.exitCode == null
+  }
+
+  private async adoptHealthyProxy(port: number): Promise<boolean> {
+    if (!await this.waitForProxyHealthy(port, 750)) return false
+    await this.refreshMetrics()
+    this.updatePersisted({ lastIssue: null })
+    return true
   }
 
   private isProxyAvailable(): boolean {
