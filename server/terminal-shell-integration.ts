@@ -65,8 +65,12 @@ function warnShimMissingOnce(name: string): void {
   console.warn(`[terminal-shell-integration] bundled shim not found: ${name} — shell integration disabled for this shell`)
 }
 
+function specrailsHome(): string {
+  return process.env.SPECRAILS_REGISTRY_HOME || os.homedir()
+}
+
 function projectsRoot(): string {
-  return path.join(os.homedir(), '.specrails', 'projects')
+  return path.join(specrailsHome(), '.specrails', 'projects')
 }
 
 export function shimDirFor(projectSlug: string, sessionId: string): string {

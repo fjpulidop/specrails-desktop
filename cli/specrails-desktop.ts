@@ -31,6 +31,7 @@ import fs from 'fs'
 
 const DEFAULT_PORT = 4200
 const DETECTION_TIMEOUT_MS = 500
+const HTTP_REQUEST_TIMEOUT_MS = 15_000
 
 export const KNOWN_VERBS = new Set([
   'implement',
@@ -282,7 +283,11 @@ function loadDesktopToken(): string | null {
   return null
 }
 
-function httpGet(url: string): Promise<{ status: number; body: string }> {
+function requestTimeoutError(url: string, timeoutMs: number): Error {
+  return new Error(`Request to ${url} timed out after ${timeoutMs}ms`)
+}
+
+function httpGet(url: string, timeoutMs = HTTP_REQUEST_TIMEOUT_MS): Promise<{ status: number; body: string }> {
   return new Promise((resolve, reject) => {
     const token = loadDesktopToken()
     const parsed = new URL(url)
@@ -299,11 +304,14 @@ function httpGet(url: string): Promise<{ status: number; body: string }> {
       res.on('data', (chunk) => { body += chunk })
       res.on('end', () => resolve({ status: res.statusCode ?? 0, body }))
     })
+    req.setTimeout(timeoutMs, () => {
+      req.destroy(requestTimeoutError(url, timeoutMs))
+    })
     req.on('error', reject)
   })
 }
 
-function httpPost(url: string, payload: unknown): Promise<{ status: number; body: string }> {
+function httpPost(url: string, payload: unknown, timeoutMs = HTTP_REQUEST_TIMEOUT_MS): Promise<{ status: number; body: string }> {
   return new Promise((resolve, reject) => {
     const data = JSON.stringify(payload)
     const urlObj = new URL(url)
@@ -324,6 +332,9 @@ function httpPost(url: string, payload: unknown): Promise<{ status: number; body
       let body = ''
       res.on('data', (chunk) => { body += chunk })
       res.on('end', () => resolve({ status: res.statusCode ?? 0, body }))
+    })
+    req.setTimeout(timeoutMs, () => {
+      req.destroy(requestTimeoutError(url, timeoutMs))
     })
     req.on('error', reject)
     req.write(data)
@@ -1332,5 +1343,5 @@ export const _internal = {
   httpGet, httpPost, formatJobDuration, formatJobStarted, printVersion, printHelp,
   handleStatus, handleJobs, handleDesktop, desktopStart, desktopStop, desktopStatus, desktopAdd, desktopRemove, desktopList, desktopServerPath,
   resolveProjectFromCwd, runViaWebManager, runDirect, isPortInUse, readPid, isProcessRunning, main,
-  isTTY, DESKTOP_PID_FILE, DESKTOP_LOG_FILE, EXIT_PATTERN, DEFAULT_PORT, DETECTION_TIMEOUT_MS,
+  isTTY, DESKTOP_PID_FILE, DESKTOP_LOG_FILE, EXIT_PATTERN, DEFAULT_PORT, DETECTION_TIMEOUT_MS, HTTP_REQUEST_TIMEOUT_MS,
 }

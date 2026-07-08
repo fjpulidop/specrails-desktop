@@ -1,4 +1,4 @@
-import { describe, it, expect, afterEach, vi } from 'vitest'
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
 import fs from 'fs'
 import os from 'os'
 import path from 'path'
@@ -49,6 +49,11 @@ exit 0
 describe('HeadroomManager', () => {
   let db: DbInstance | null = null
   let tempDir: string | null = null
+  let previousRegistryHome: string | undefined
+
+  beforeEach(() => {
+    previousRegistryHome = process.env.SPECRAILS_REGISTRY_HOME
+  })
 
   afterEach(() => {
     vi.restoreAllMocks()
@@ -56,10 +61,13 @@ describe('HeadroomManager', () => {
     db = null
     if (tempDir) fs.rmSync(tempDir, { recursive: true, force: true })
     tempDir = null
+    if (previousRegistryHome === undefined) delete process.env.SPECRAILS_REGISTRY_HOME
+    else process.env.SPECRAILS_REGISTRY_HOME = previousRegistryHome
   })
 
   it('installs Headroom with an isolated uv-managed Python runtime', () => {
     tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'headroom-tools-'))
+    process.env.SPECRAILS_REGISTRY_HOME = tempDir
     vi.spyOn(os, 'homedir').mockReturnValue(tempDir)
 
     const plan = getHeadroomManagedInstallPlan()
@@ -100,6 +108,7 @@ describe('HeadroomManager', () => {
   it('prepares managed Python before installing the Headroom tool', async () => {
     db = initDesktopDb(':memory:')
     tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'headroom-install-'))
+    process.env.SPECRAILS_REGISTRY_HOME = tempDir
     vi.spyOn(os, 'homedir').mockReturnValue(tempDir)
 
     const previousRuntimePath = process.env.SPECRAILS_BUNDLED_RUNTIMES_PATH
@@ -155,6 +164,7 @@ describe('HeadroomManager', () => {
     db = initDesktopDb(':memory:')
     const fake = makeHeadroomExe()
     tempDir = fake.dir
+    process.env.SPECRAILS_REGISTRY_HOME = tempDir
     setDesktopSetting(db, STATE_KEY, JSON.stringify({
       installed: true,
       version: '0.30.0',
@@ -194,6 +204,7 @@ describe('HeadroomManager', () => {
     db = initDesktopDb(':memory:')
     const fake = makeHeadroomExe()
     tempDir = fake.dir
+    process.env.SPECRAILS_REGISTRY_HOME = tempDir
     setDesktopSetting(db, STATE_KEY, JSON.stringify({
       installed: true,
       version: '0.30.0',

@@ -133,8 +133,12 @@ function nowIso(): string {
   return new Date().toISOString()
 }
 
+function specrailsHome(): string {
+  return process.env.SPECRAILS_REGISTRY_HOME || os.homedir()
+}
+
 function toolRoot(): string {
-  return path.join(os.homedir(), '.specrails', 'tools')
+  return path.join(specrailsHome(), '.specrails', 'tools')
 }
 
 function uvToolDir(): string {

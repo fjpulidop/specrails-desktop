@@ -232,16 +232,26 @@ export function readRefineChildOutput(
       resolve({ fullText, resultEvent, code: -1, timedOut: false })
       return
     }
+    const stdout = child.stdout
     let stderrBuf = ''
-    if (child.stderr) {
-      child.stderr.on('data', (chunk: Buffer | string) => {
-        const s = typeof chunk === 'string' ? chunk : chunk.toString('utf-8')
-        stderrBuf += s
-        if (stderrBuf.length > 8192) stderrBuf = stderrBuf.slice(-8192)
-      })
+    const onStderrData = (chunk: Buffer | string) => {
+      const s = typeof chunk === 'string' ? chunk : chunk.toString('utf-8')
+      stderrBuf += s
+      if (stderrBuf.length > 8192) stderrBuf = stderrBuf.slice(-8192)
     }
+    if (child.stderr) child.stderr.on('data', onStderrData)
     let killEscalation: NodeJS.Timeout | null = null
-    const reader = createInterface({ input: child.stdout, crlfDelay: Infinity })
+    const reader = createInterface({ input: stdout, crlfDelay: Infinity })
+    let outputClosed = false
+    const closeOutputReaders = () => {
+      if (outputClosed) return
+      outputClosed = true
+      reader.removeAllListeners('line')
+      try { reader.close() } catch { /* already closed */ }
+      if (child.stderr) child.stderr.off('data', onStderrData)
+      if (!stdout.destroyed) stdout.destroy()
+      if (child.stderr && !child.stderr.destroyed) child.stderr.destroy()
+    }
     reader.on('line', (line: string) => {
       let parsed: Record<string, unknown> | null = null
       try { parsed = JSON.parse(line) } catch { return }
@@ -262,6 +272,7 @@ export function readRefineChildOutput(
       // BUG-PARSER-01: treeKill the whole subtree (SIGTERM) and SIGKILL-escalate
       // after a grace window so a signal-swallowing CLI tree is force-killed.
       killEscalation = escalateKill(child.pid, kill)
+      closeOutputReaders()
       if (!settled) {
         settled = true
         resolve({ fullText, resultEvent, code: null, timedOut: true })
@@ -272,6 +283,7 @@ export function readRefineChildOutput(
       // The child exited (possibly because SIGTERM was honoured) — cancel the
       // pending SIGKILL escalation.
       if (killEscalation) { clearTimeout(killEscalation); killEscalation = null }
+      closeOutputReaders()
       if (settled) return
       settled = true
       if (code !== 0 && stderrBuf) {
@@ -282,6 +294,7 @@ export function readRefineChildOutput(
     child.on('error', (err) => {
       clearTimeout(timer)
       if (killEscalation) { clearTimeout(killEscalation); killEscalation = null }
+      closeOutputReaders()
       console.log(`[contract-refine-runner] child error: ${(err as Error).message}; stderr=${JSON.stringify(stderrBuf.slice(-2000))}`)
       if (settled) return
       settled = true

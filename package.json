@@ -37,7 +37,7 @@
     "check-core-compat": "tsx scripts/check-core-compat.ts",
     "test": "vitest run && tsx scripts/check-core-compat.ts",
     "test:watch": "vitest",
-    "test:coverage": "vitest run --coverage",
+    "test:coverage": "vitest run --coverage --maxWorkers=1 --reporter=dot --bail=1",
     "test:client": "cd client && npx vitest run",
     "test:all": "vitest run && cd client && npx vitest run",
     "ci": "npm run typecheck && npm run check-core-compat && npm run test:coverage && cd client && npm run test:coverage"

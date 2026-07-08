@@ -14,14 +14,19 @@ const ENABLED = { shellIntegrationEnabled: true }
 const DISABLED = { shellIntegrationEnabled: false }
 
 let tmpHome: string
+let originalRegistryHome: string | undefined
 
 beforeEach(() => {
+  originalRegistryHome = process.env.SPECRAILS_REGISTRY_HOME
+  delete process.env.SPECRAILS_REGISTRY_HOME
   tmpHome = fs.mkdtempSync(path.join(os.tmpdir(), 'sr-shim-test-'))
   vi.spyOn(os, 'homedir').mockReturnValue(tmpHome)
 })
 
 afterEach(() => {
   vi.restoreAllMocks()
+  if (originalRegistryHome !== undefined) process.env.SPECRAILS_REGISTRY_HOME = originalRegistryHome
+  else delete process.env.SPECRAILS_REGISTRY_HOME
   try { fs.rmSync(tmpHome, { recursive: true, force: true }) } catch { /* ignore */ }
 })
 
@@ -29,6 +34,16 @@ describe('composeShellIntegrationSpawn', () => {
   it('returns NO_SHELL_INTEGRATION when disabled', () => {
     const got = composeShellIntegrationSpawn('/bin/zsh', 's1', 'proj', DISABLED)
     expect(got).toEqual(NO_SHELL_INTEGRATION)
+  })
+
+  it('uses SPECRAILS_REGISTRY_HOME for per-session shim directories', () => {
+    const registryHome = fs.mkdtempSync(path.join(os.tmpdir(), 'sr-shim-registry-'))
+    process.env.SPECRAILS_REGISTRY_HOME = registryHome
+    try {
+      expect(shimDirFor('proj', 's1')).toBe(path.join(registryHome, '.specrails', 'projects', 'proj', 'terminals', 's1'))
+    } finally {
+      fs.rmSync(registryHome, { recursive: true, force: true })
+    }
   })
 
   it('zsh: writes ZDOTDIR/.zshrc and returns ZDOTDIR + real-ZDOTDIR env', () => {

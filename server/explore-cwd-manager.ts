@@ -12,7 +12,7 @@ import type { ProviderAdapter, ProviderId } from './providers/types'
  * provider behaviour (instructions file is adapter-driven: CLAUDE.md for
  * claude, AGENTS.md for codex).
  *
- * Layout under `~/.specrails/projects/<slug>/explore-cwd/`:
+ * Layout under `<specrails-home>/.specrails/projects/<slug>/explore-cwd/`:
  *   ├── <adapter.instructionsFilename>  — embedded mini-prompt, app-owned
  *   ├── project                          — symlink/junction → <project.path>
  *   └── project-path.txt                 — fallback when symlink creation fails
@@ -95,12 +95,16 @@ export interface ExploreCwdInput {
   provider?: ProviderId
 }
 
+function homeDir(): string {
+  return process.env.SPECRAILS_REGISTRY_HOME || os.homedir()
+}
+
 /**
  * Compute the explore-cwd path for a project without touching the filesystem.
  * Used by the legacy-cwd env-var short-circuit and by tests.
  */
 export function exploreCwdPathFor(slug: string, baseDir?: string): string {
-  const base = baseDir ?? path.join(os.homedir(), '.specrails', 'projects')
+  const base = baseDir ?? path.join(homeDir(), '.specrails', 'projects')
   return path.join(base, slug, 'explore-cwd')
 }
 
@@ -111,7 +115,7 @@ export function exploreCwdPathFor(slug: string, baseDir?: string): string {
  * When SPECRAILS_EXPLORE_LEGACY_CWD=1 is set, returns `projectPath` directly
  * and performs no filesystem IO — used as the rollback escape hatch.
  *
- * Pass `baseDir` for tests to redirect away from the user's home directory.
+ * Pass `baseDir` for tests that need a specific projects directory.
  */
 export function ensureExploreCwd(input: ExploreCwdInput, baseDir?: string): string {
   if (process.env.SPECRAILS_EXPLORE_LEGACY_CWD === '1') {

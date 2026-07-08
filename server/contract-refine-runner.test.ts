@@ -581,6 +581,7 @@ describe('BUG-PARSER-01: readRefineChildOutput timeout teardown', () => {
     const result = await readRefineChildOutput(child as unknown as ChildProcess, 20, kill)
     expect(result.timedOut).toBe(true)
     expect(result.code).toBeNull()
+    expect(child.stdout.destroyed).toBe(true)
     // SIGTERM fired immediately against the whole subtree (not a bare child.kill).
     expect(kills.some((k) => k.pid === 4242 && k.signal === 'SIGTERM')).toBe(true)
     // SIGKILL escalation fires after the 2s grace window.
