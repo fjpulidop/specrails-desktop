@@ -20,7 +20,7 @@ export function envTools(): McpToolSpec[] {
       title: 'Project worktree environment',
       description:
         'Read, scan, and configure the per-project environment variable NAME allowlist used for rail jobs and isolated loop worktrees. ' +
-        'Values are never read or stored by this tool; runs read them from the server environment and can recover configured names from the login shell when the desktop process is missing them. scan inspects safe repo config files such as package.json, .npmrc, .yarnrc.yml and pnpm-workspace.yaml for ${VAR} / process.env.VAR references and private @busuu/* package hints. ' +
+        'Values are never read or stored by this tool; runs read them from the server environment and can recover configured names from the login shell when the desktop process is missing them. scan inspects safe repo config files such as package.json, .npmrc, .yarnrc.yml and pnpm-workspace.yaml for ${VAR} / process.env.VAR references and private scoped package auth hints. ' +
         'Actions: get (read current names), scan (discover candidates), set (write names), auto_configure (scan then merge discovered names into settings).',
       hintTier: 'read',
       tier: (args) => (args.action === 'set' || args.action === 'auto_configure' ? 'write' : 'read'),

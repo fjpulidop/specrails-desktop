@@ -9,13 +9,13 @@ describe('project-env worktree passthrough', () => {
 
     const env = resolveWorktreeEnvPassthrough(db, {
       NODE_AUTH_TOKEN: 'npm-secret',
-      AWS_PROFILE: 'busuu-dev',
+      AWS_PROFILE: 'dev-profile',
       OTHER_SECRET: 'must-not-pass',
     })
 
     expect(env).toEqual({
       NODE_AUTH_TOKEN: 'npm-secret',
-      AWS_PROFILE: 'busuu-dev',
+      AWS_PROFILE: 'dev-profile',
     })
   })
 
