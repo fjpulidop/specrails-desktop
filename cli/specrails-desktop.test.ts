@@ -180,6 +180,15 @@ describe('httpGet', () => {
     expect(res.status).toBe(200); expect(JSON.parse(res.body)).toEqual({ ok: true })
   })
   it('rejects on connection error', async () => { await expect(_internal.httpGet('http://127.0.0.1:19999/nope')).rejects.toThrow() })
+  it('rejects when the response stalls past the request timeout', async () => {
+    server = http.createServer((_req, res) => {
+      res.writeHead(200, { 'Content-Type': 'application/json' })
+      res.write('{"partial":')
+    })
+    await new Promise<void>((resolve) => server.listen(0, '127.0.0.1', () => resolve()))
+    port = (server.address() as net.AddressInfo).port
+    await expect(_internal.httpGet(`http://127.0.0.1:${port}/stall`, 25)).rejects.toThrow(/timed out/)
+  })
 })
 
 describe('httpPost', () => {
@@ -189,6 +198,16 @@ describe('httpPost', () => {
     ;({ server, port } = await createMockServer([{ method: 'POST', path: '/submit', status: 201, body: { created: true } }]))
     const res = await _internal.httpPost(`http://127.0.0.1:${port}/submit`, { data: 'hello' })
     expect(res.status).toBe(201); expect(JSON.parse(res.body)).toEqual({ created: true })
+  })
+  it('rejects when the response stalls past the request timeout', async () => {
+    server = http.createServer((req, res) => {
+      req.resume()
+      res.writeHead(200, { 'Content-Type': 'application/json' })
+      res.write('{"partial":')
+    })
+    await new Promise<void>((resolve) => server.listen(0, '127.0.0.1', () => resolve()))
+    port = (server.address() as net.AddressInfo).port
+    await expect(_internal.httpPost(`http://127.0.0.1:${port}/stall`, { ok: true }, 25)).rejects.toThrow(/timed out/)
   })
 })
 

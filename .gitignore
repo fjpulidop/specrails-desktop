@@ -41,6 +41,7 @@ build/
 # specrails
 .claude/agent-memory/
 .specrails/
+.tokensave/
 
 # macOS
 .DS_Store

@@ -36,6 +36,17 @@ describe('explore-cwd-manager', () => {
     expect(p).toBe('/tmp/foo/myslug/explore-cwd')
   })
 
+  it('exploreCwdPathFor uses SPECRAILS_REGISTRY_HOME when no baseDir is passed', () => {
+    const previous = process.env.SPECRAILS_REGISTRY_HOME
+    process.env.SPECRAILS_REGISTRY_HOME = baseDir
+    try {
+      expect(exploreCwdPathFor('myslug')).toBe(path.join(baseDir, '.specrails', 'projects', 'myslug', 'explore-cwd'))
+    } finally {
+      if (previous !== undefined) process.env.SPECRAILS_REGISTRY_HOME = previous
+      else delete process.env.SPECRAILS_REGISTRY_HOME
+    }
+  })
+
   it('renderExploreClaudeMd interpolates the project name', () => {
     const out = renderExploreClaudeMd('Acme')
     expect(out).toContain('"Acme"')
