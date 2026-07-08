@@ -422,7 +422,7 @@ export class HeadroomManager {
       activeProviders,
       availableProviders,
       detectedRoutes,
-      proxyRunning: this.isProxyRunning(),
+      proxyRunning: (activeProviders.codex || activeProviders.claude) && this.isProxyAvailable(),
       proxyPid: this.proxy?.pid ?? null,
       learning,
       metrics,
@@ -1058,6 +1058,10 @@ export class HeadroomManager {
 
   private isProxyRunning(): boolean {
     return !!this.proxy && !this.proxy.killed && this.proxy.exitCode == null
+  }
+
+  private isProxyAvailable(): boolean {
+    return this.isProxyRunning() || this.metricsCache.proxyStatsAvailable
   }
 
   private stopProxy(): void {
