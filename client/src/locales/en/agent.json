@@ -320,6 +320,12 @@
     "copyProject": "Copy project name",
     "copyProjectPath": "Copy project path",
     "copyFailed": "Couldn't copy",
+    "copyTranscript": "Copy transcript",
+    "copyTranscriptSuccess": "Transcript copied",
+    "copyTranscriptFailed": "Could not copy transcript",
+    "exportTranscript": "Export transcript (.txt)",
+    "exportTranscriptSuccess": "Transcript export started",
+    "exportTranscriptFailed": "Could not export transcript",
     "delete": "Delete mission",
     "deleteConfirm": "Delete this mission? This cannot be undone.",
     "deleteFailed": "Could not delete the mission"

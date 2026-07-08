@@ -320,6 +320,12 @@
     "copyProject": "プロジェクト名をコピー",
     "copyProjectPath": "プロジェクトパスをコピー",
     "copyFailed": "コピーできませんでした",
+    "copyTranscript": "トランスクリプトをコピー",
+    "copyTranscriptSuccess": "トランスクリプトをコピーしました",
+    "copyTranscriptFailed": "トランスクリプトをコピーできませんでした",
+    "exportTranscript": "トランスクリプトをエクスポート (.txt)",
+    "exportTranscriptSuccess": "トランスクリプトのエクスポートを開始しました",
+    "exportTranscriptFailed": "トランスクリプトをエクスポートできませんでした",
     "delete": "ミッションを削除",
     "deleteConfirm": "このミッションを削除しますか？元に戻せません。",
     "deleteFailed": "ミッションを削除できませんでした"

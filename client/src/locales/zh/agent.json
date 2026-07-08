@@ -320,6 +320,12 @@
     "copyProject": "复制项目名称",
     "copyProjectPath": "复制项目路径",
     "copyFailed": "无法复制",
+    "copyTranscript": "复制转录",
+    "copyTranscriptSuccess": "转录已复制",
+    "copyTranscriptFailed": "无法复制转录",
+    "exportTranscript": "导出转录 (.txt)",
+    "exportTranscriptSuccess": "转录导出已开始",
+    "exportTranscriptFailed": "无法导出转录",
     "delete": "删除任务",
     "deleteConfirm": "删除此任务？此操作无法撤销。",
     "deleteFailed": "无法删除任务"
