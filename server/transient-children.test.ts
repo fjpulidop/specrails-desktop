@@ -7,8 +7,11 @@ import {
   startBackgroundProcess,
   killBackgroundProcess,
   killOwnedBackgroundProcess,
+  killBackgroundProcessesForChat,
   getBackgroundProcess,
+  getBackgroundProcessLogs,
   listBackgroundProcesses,
+  BACKGROUND_LOG_RETENTION_MS,
 } from './transient-children'
 
 vi.mock('tree-kill', () => ({ default: vi.fn() }))
@@ -72,7 +75,7 @@ describe('transient-children', () => {
     expect(treeKill).not.toHaveBeenCalled()
   })
 
-  it('starts a background child, emits lifecycle hooks, and removes it on close', async () => {
+  it('starts a background child, emits lifecycle hooks, and retains terminal logs briefly', async () => {
     const child = fakeChild(444)
     vi.mocked(spawn).mockReturnValue(child)
     const started = vi.fn()
@@ -122,7 +125,42 @@ describe('transient-children', () => {
 
     child.emit('close', 0, null)
     expect(exited).toHaveBeenCalledWith(expect.objectContaining({ pid: 444, status: 'exited', exitCode: 0 }))
+    expect(getBackgroundProcess(444)).toMatchObject({ pid: 444, status: 'exited', exitCode: 0 })
+    expect(getBackgroundProcessLogs(444)).toMatchObject({
+      process: expect.objectContaining({ pid: 444, status: 'exited' }),
+      lines: [
+        expect.objectContaining({ source: 'stdout', line: 'ready' }),
+        expect.objectContaining({ source: 'stderr', line: 'warn' }),
+      ],
+      truncated: false,
+    })
+    vi.advanceTimersByTime(BACKGROUND_LOG_RETENTION_MS)
     expect(getBackgroundProcess(444)).toBeNull()
+  })
+
+  it('captures a bounded stdout/stderr tail even without an output hook', async () => {
+    const child = fakeChild(445)
+    vi.mocked(spawn).mockReturnValue(child)
+    startBackgroundProcess('npm run dev', '/repo', 'chat-1', 'proj-1')
+
+    for (let i = 0; i < 505; i += 1) {
+      child.stdout.write(`line-${i}\n`)
+    }
+    child.stderr.write(`${'x'.repeat(1100)}\n`)
+    await Promise.resolve()
+    child.emit('close', 1, null)
+
+    const logs = getBackgroundProcessLogs(445, { projectId: 'proj-1', chatId: 'chat-1', limit: 3 })
+    expect(logs?.process).toMatchObject({ pid: 445, status: 'failed', exitCode: 1 })
+    expect(logs?.truncated).toBe(true)
+    expect(logs?.droppedLines).toBeGreaterThan(0)
+    expect(logs?.lines).toEqual([
+      expect.objectContaining({ source: 'stdout', line: 'line-503' }),
+      expect.objectContaining({ source: 'stdout', line: 'line-504' }),
+      expect.objectContaining({ source: 'stderr', line: `${'x'.repeat(1000)}...` }),
+    ])
+    expect(getBackgroundProcessLogs(445, { projectId: 'wrong', chatId: 'chat-1' })).toBeNull()
+    expect(getBackgroundProcessLogs(445, { projectId: 'proj-1', chatId: 'wrong' })).toBeNull()
   })
 
   it('kills only owned registered background processes and project cleanup kills the same registry', () => {
@@ -140,7 +178,7 @@ describe('transient-children', () => {
     vi.advanceTimersByTime(2500)
     expect(treeKill).toHaveBeenCalledWith(555, 'SIGKILL', expect.any(Function))
     child.emit('close', null, 'SIGTERM')
-    expect(getBackgroundProcess(555)).toBeNull()
+    expect(getBackgroundProcess(555)).toMatchObject({ status: 'killed' })
 
     const other = fakeChild(666)
     vi.mocked(spawn).mockReturnValue(other)
@@ -148,7 +186,11 @@ describe('transient-children', () => {
     vi.mocked(treeKill).mockClear()
     killTransientChildren('proj-2')
     expect(treeKill).toHaveBeenCalledWith(666, 'SIGTERM', expect.any(Function))
-    expect(getBackgroundProcess(666)).toBeNull()
+    expect(getBackgroundProcess(666)).toMatchObject({ status: 'killed' })
+    vi.advanceTimersByTime(2500)
+    expect(treeKill).toHaveBeenCalledWith(666, 'SIGKILL', expect.any(Function))
+    other.emit('close', null, 'SIGTERM')
+    expect(getBackgroundProcess(666)).toMatchObject({ status: 'killed' })
   })
 
   it('lists active background processes for browser refresh hydration', () => {
@@ -166,6 +208,41 @@ describe('transient-children', () => {
 
     killBackgroundProcess(777)
     expect(listBackgroundProcesses({ projectId: 'proj-1', chatId: 'chat-1' })).toEqual([])
+    first.emit('close', null, 'SIGTERM')
+    second.emit('close', 0, null)
+  })
+
+  it('preserves killed status if a child emits error after kill is requested', () => {
+    const child = fakeChild(779)
+    vi.mocked(spawn).mockReturnValue(child)
+    const exited = vi.fn()
+    startBackgroundProcess('npm run dev', '/repo', 'chat-1', 'proj-1', { onExited: exited })
+
+    killBackgroundProcess(779)
+    child.emit('error', new Error('process already exited'))
+
+    expect(exited).toHaveBeenCalledWith(expect.objectContaining({ pid: 779, status: 'killed' }))
+    expect(getBackgroundProcess(779)).toMatchObject({ status: 'killed' })
+  })
+
+  it('kills every background process owned by a deleted chat', () => {
+    const first = fakeChild(880)
+    vi.mocked(spawn).mockReturnValue(first)
+    const firstExited = vi.fn()
+    startBackgroundProcess('npm run dev', '/repo', 'chat-z', 'proj-1', { onExited: firstExited })
+
+    const second = fakeChild(881)
+    vi.mocked(spawn).mockReturnValue(second)
+    startBackgroundProcess('npm run watch', '/repo', 'other-chat', 'proj-1')
+
+    expect(killBackgroundProcessesForChat('chat-z')).toBe(1)
+    expect(firstExited).toHaveBeenCalledWith(expect.objectContaining({ pid: 880, status: 'killed' }))
+    expect(treeKill).toHaveBeenCalledWith(880, 'SIGTERM', expect.any(Function))
+    expect(getBackgroundProcess(880)).toMatchObject({ status: 'killed' })
+    expect(getBackgroundProcess(881)).toMatchObject({ status: 'running' })
+
+    vi.advanceTimersByTime(2500)
+    expect(treeKill).toHaveBeenCalledWith(880, 'SIGKILL', expect.any(Function))
     first.emit('close', null, 'SIGTERM')
     second.emit('close', 0, null)
   })

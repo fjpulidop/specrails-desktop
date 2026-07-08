@@ -157,6 +157,21 @@ export async function uploadAgentAttachment(conversationId: string, file: File):
   return (await json<{ attachment: AgentAttachment }>(res)).attachment
 }
 
+export async function listAgentAttachments(conversationId: string): Promise<AgentAttachment[]> {
+  const res = await fetch(`${base}/conversations/${conversationId}/attachments`)
+  return (await json<{ attachments: AgentAttachment[] }>(res)).attachments
+}
+
+export function agentAttachmentFileUrl(conversationId: string, attachmentId: string): string {
+  return `${base}/conversations/${conversationId}/attachments/${attachmentId}`
+}
+
+export async function fetchAgentAttachmentBlob(conversationId: string, attachmentId: string): Promise<Blob> {
+  const res = await fetch(agentAttachmentFileUrl(conversationId, attachmentId))
+  if (!res.ok) throw new Error(`HTTP ${res.status}`)
+  return res.blob()
+}
+
 export async function deleteAgentAttachment(conversationId: string, attachmentId: string): Promise<void> {
   await fetch(`${base}/conversations/${conversationId}/attachments/${attachmentId}`, { method: 'DELETE' })
 }

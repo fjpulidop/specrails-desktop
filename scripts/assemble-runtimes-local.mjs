@@ -24,6 +24,7 @@ import { fileURLToPath } from 'node:url';
 const NODE_BUNDLE_VERSION = '22.x';
 const GIT_BUNDLE_VERSION = '2.49.0';
 const GIT_SHA256 = '618190cf590b7e9f6c11f91f23b1d267cd98c3ab33b850416d8758f8b5a85628';
+const UV_BUNDLE_VERSION = '0.11.28';
 
 const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const runtimes = path.join(repoRoot, 'src-tauri', 'runtimes');
@@ -43,7 +44,7 @@ function bash(label, script) {
     cwd: repoRoot,
     stdio: 'inherit',
     shell: '/bin/bash',
-    env: { ...process.env, NODE_BUNDLE_VERSION, GIT_BUNDLE_VERSION, GIT_SHA256 },
+    env: { ...process.env, NODE_BUNDLE_VERSION, GIT_BUNDLE_VERSION, GIT_SHA256, UV_BUNDLE_VERSION },
   });
 }
 
@@ -134,6 +135,32 @@ bash('Build relocatable Git from source (macOS arm64)', `
   echo "Built relocatable Git \${GIT_VERSION} → \${DEST}"
 `);
 
+// --- uv (macOS arm64): download official standalone binary, SHA-verify ---
+bash('Download and verify uv (macOS arm64)', `
+  UV_VERSION="\${UV_BUNDLE_VERSION}"
+  TARBALL="uv-aarch64-apple-darwin.tar.gz"
+  BASE="https://releases.astral.sh/github/uv/releases/download/\${UV_VERSION}"
+  echo "Downloading uv \${UV_VERSION} (macOS arm64)..."
+  curl -fsSL "\${BASE}/\${TARBALL}" -o "\${TARBALL}"
+  curl -fsSL "\${BASE}/\${TARBALL}.sha256" -o "\${TARBALL}.sha256"
+  EXPECTED_SHA=$(awk '{print $1}' "\${TARBALL}.sha256")
+  ACTUAL_SHA=$(shasum -a 256 "\${TARBALL}" | awk '{print $1}')
+  if [[ "\${EXPECTED_SHA}" != "\${ACTUAL_SHA}" ]]; then
+    echo "CHECKSUM MISMATCH for \${TARBALL}: expected=\${EXPECTED_SHA} actual=\${ACTUAL_SHA}"; exit 1
+  fi
+  echo "Checksum OK: \${ACTUAL_SHA}"
+  rm -rf src-tauri/runtimes/uv tmp_uv
+  mkdir -p src-tauri/runtimes/uv/bin tmp_uv
+  tar -xzf "\${TARBALL}" -C tmp_uv
+  UV_BIN=$(find tmp_uv -type f -name uv | head -1)
+  test -n "\${UV_BIN}"
+  mv "\${UV_BIN}" src-tauri/runtimes/uv/bin/uv
+  chmod 755 src-tauri/runtimes/uv/bin/uv
+  rm -rf tmp_uv "\${TARBALL}" "\${TARBALL}.sha256"
+  src-tauri/runtimes/uv/bin/uv --version
+  echo "Extracted uv \${UV_VERSION} → src-tauri/runtimes/uv/bin/uv"
+`);
+
 // --- Chromium (macOS arm64): bundle for the browser-capture feature, opt-in ---
 // Default skipped (keeps the local build lean + avoids the download). Set
 // BUNDLE_CHROMIUM=true to include it; the desktop app then launches the bundled
@@ -156,8 +183,9 @@ if (process.env.BUNDLE_CHROMIUM === 'true') {
 // Sanity: assert the Rust has_runtimes gate (src-tauri/src/lib.rs:134) will pass.
 const nodeBin = path.join(runtimes, 'node', 'bin', 'node');
 const gitBin = path.join(runtimes, 'git', 'bin', 'git');
-if (!existsSync(nodeBin) || !existsSync(gitBin)) {
-  console.error('\nAssembly incomplete — node or git binary missing.');
+const uvBin = path.join(runtimes, 'uv', 'bin', 'uv');
+if (!existsSync(nodeBin) || !existsSync(gitBin) || !existsSync(uvBin)) {
+  console.error('\nAssembly incomplete — node, git, or uv binary missing.');
   process.exit(1);
 }
 console.log('\nRuntimes assembled. has_runtimes gate will pass → desktop mode active.');

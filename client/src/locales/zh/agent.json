@@ -6,6 +6,18 @@
   "send": "发送",
   "stop": "停止",
   "copy": "复制",
+  "attachment": {
+    "openPreview": "预览 {{name}}",
+    "openDownload": "下载 {{name}}",
+    "previewTitle": "{{name}} 预览",
+    "downloadTitle": "下载文件？",
+    "downloadPrompt": "此文件无法在此处预览。要下载它吗？",
+    "download": "下载",
+    "cancelDownload": "暂不",
+    "loading": "正在准备文件…",
+    "loadFailed": "无法加载附件",
+    "loadError": "无法加载附件：{{error}}"
+  },
   "maximize": "最大化",
   "restore": "还原",
   "minimize": "最小化",

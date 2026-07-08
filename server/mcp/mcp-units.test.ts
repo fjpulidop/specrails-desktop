@@ -4,6 +4,7 @@ vi.mock('../transient-children', () => ({
   startBackgroundProcess: vi.fn(),
   killBackgroundProcess: vi.fn(),
   killOwnedBackgroundProcess: vi.fn(),
+  getBackgroundProcessLogs: vi.fn(),
 }))
 import { initDesktopDb, getDesktopSetting, setDesktopSetting, type DbInstance } from '../desktop-db'
 import type { ProjectRegistry, ProjectContext } from '../project-registry'
@@ -18,7 +19,7 @@ import {
 import { isMcpEnabled, isTierEnabled, tierLabel, tierRefusalMessage, TIER_SETTING_KEY } from './mcp-tiers'
 import { buildToolSpecs } from './tools/catalog'
 import type { McpToolContext, McpToolSpec } from './tools/types'
-import { startBackgroundProcess, killOwnedBackgroundProcess } from '../transient-children'
+import { startBackgroundProcess, killOwnedBackgroundProcess, getBackgroundProcessLogs } from '../transient-children'
 
 function makeRegistry(db: DbInstance, contexts: Partial<ProjectContext>[] = []): ProjectRegistry {
   const ctxs = contexts as ProjectContext[]
@@ -254,15 +255,64 @@ describe('tool handlers', () => {
       return proc
     })
     vi.mocked(killOwnedBackgroundProcess).mockReturnValue(true)
+    vi.mocked(getBackgroundProcessLogs).mockReturnValue({
+      process: {
+        pid: 123,
+        command: 'npm run dev',
+        cwd: '/tmp/one',
+        startedAt: 10,
+        status: 'failed',
+        chatId: 'c-origin',
+        projectId: 'p1',
+        exitCode: 1,
+      },
+      lines: [
+        { at: 11, source: 'stdout', line: 'starting' },
+        { at: 12, source: 'stderr', line: 'error: missing script dev' },
+      ],
+      truncated: false,
+      droppedLines: 0,
+      maxLines: 500,
+      maxLineChars: 1000,
+      retentionMs: 600000,
+    })
 
-    await expect(async () => t.handler(ctx, { action: 'background_start', projectId: 'p1', command: 'npm run dev' })).rejects.toThrow(/chatId/)
+    await expect(async () => t.handler(ctx, { action: 'background_start', projectId: 'p1', command: 'npm run dev', chatId: 'c1' })).rejects.toThrow(/confirmed/)
+    await expect(async () => t.handler(ctx, { action: 'background_start', projectId: 'p1', command: 'npm run dev', confirmed: true })).rejects.toThrow(/chatId/)
     await expect(async () => t.handler(ctx, {
       action: 'background_start',
       projectId: 'p1',
       command: 'npm run dev',
       chatId: 'c1',
       cwd: '../outside',
+      confirmed: true,
     })).rejects.toThrow(/cwd/)
+
+    const busyCtx = {
+      ...makeCtx(db, [{
+        project: { id: 'p1', name: 'One', path: '/tmp/one' } as ProjectContext['project'],
+        queueManager: { getActiveJobId: () => 'job-1' } as unknown as ProjectContext['queueManager'],
+      }]),
+      broadcast,
+    }
+    await expect(async () => t.handler(busyCtx, {
+      action: 'background_start',
+      projectId: 'p1',
+      command: 'npm run dev',
+      chatId: 'c1',
+      cwd: '.',
+      confirmed: true,
+    })).rejects.toThrow(/job job-1/)
+    const forcedWhileBusy = await t.handler(busyCtx, {
+      action: 'background_start',
+      projectId: 'p1',
+      command: 'npm run dev',
+      chatId: 'c1',
+      cwd: '.',
+      confirmed: true,
+      allowWhileBusy: true,
+    }) as { process: { pid: number } }
+    expect(forcedWhileBusy.process.pid).toBe(123)
 
     const originCtx = { ...ctx, originConversationId: 'c-origin' }
     const startedFromOrigin = await t.handler(originCtx, {
@@ -270,6 +320,7 @@ describe('tool handlers', () => {
       projectId: 'p1',
       command: 'npm run dev',
       cwd: '.',
+      confirmed: true,
     }) as { process: { chatId: string } }
     expect(startedFromOrigin.process.chatId).toBe('c-origin')
 
@@ -279,6 +330,7 @@ describe('tool handlers', () => {
       command: 'npm run dev',
       chatId: 'c1',
       cwd: '.',
+      confirmed: true,
     }) as { process: { pid: number; cwd: string } }
 
     expect(started.process).toMatchObject({ pid: 123, cwd: '/tmp/one' })
@@ -292,6 +344,24 @@ describe('tool handlers', () => {
     const killed = await t.handler(originCtx, { action: 'background_kill', projectId: 'p1', pid: 123 }) as { ok: boolean }
     expect(killed.ok).toBe(true)
     expect(killOwnedBackgroundProcess).toHaveBeenCalledWith(123, { projectId: 'p1', chatId: 'c-origin' })
+
+    expect(tierFn({ action: 'background_logs' })).toBe('read')
+    const logs = await t.handler(originCtx, { action: 'background_logs', projectId: 'p1', pid: 123, limit: 20 }) as {
+      ok: boolean
+      lines: Array<{ source: string; line: string }>
+    }
+    expect(logs.ok).toBe(true)
+    expect(logs.lines).toEqual([
+      expect.objectContaining({ source: 'stdout', line: 'starting' }),
+      expect.objectContaining({ source: 'stderr', line: 'error: missing script dev' }),
+    ])
+    expect(getBackgroundProcessLogs).toHaveBeenCalledWith(123, {
+      projectId: 'p1',
+      chatId: 'c-origin',
+      limit: 20,
+    })
+    vi.mocked(getBackgroundProcessLogs).mockReturnValueOnce(null)
+    await expect(async () => t.handler(originCtx, { action: 'background_logs', projectId: 'p1', pid: 404 })).rejects.toThrow(/expired/)
   })
 })
 

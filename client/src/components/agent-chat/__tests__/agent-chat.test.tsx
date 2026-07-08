@@ -1,5 +1,6 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest'
 import { render, screen, fireEvent, waitFor, act } from '@testing-library/react'
+import { StrictMode } from 'react'
 
 // ── Mocks ─────────────────────────────────────────────────────────────────────
 let wsHandler: ((msg: unknown) => void) | null = null
@@ -32,6 +33,16 @@ vi.mock('../../../lib/agent-api', async (orig) => {
     patchAgentConversation: vi.fn(async (_id: string, patch: Record<string, unknown>) => ({ ...api.conv, ...patch, tier_level: patch.tierLevel ?? api.conv.tier_level })),
     deleteAgentConversation: vi.fn(async () => {}),
     sendAgentMessage: vi.fn(async () => ({ queued: false })),
+    uploadAgentAttachment: vi.fn(async (_conversationId: string, file: File) => ({
+      id: 'att-1',
+      filename: file.name,
+      storedName: `stored-${file.name}`,
+      mimeType: file.type || 'application/octet-stream',
+      size: file.size,
+      addedAt: '',
+    })),
+    listAgentAttachments: vi.fn(async () => []),
+    fetchAgentAttachmentBlob: vi.fn(async () => new Blob(['x'], { type: 'application/octet-stream' })),
     abortAgentTurn: vi.fn(async () => {}),
     editQueuedAgentMessage: vi.fn(async () => 'saved' as const),
     getMcpStatus: vi.fn(async () => ({ enabled: true, running: true })),
@@ -59,7 +70,7 @@ vi.mock('sonner', () => ({
 import { toast } from 'sonner'
 import * as agentApi from '../../../lib/agent-api'
 import { AgentChatProvider, useAgentChat } from '../../../context/AgentChatContext'
-import { __clearComposerDrafts } from '../AgentComposer'
+import { AgentComposer, __clearComposerDrafts } from '../AgentComposer'
 import { AgentTierChip } from '../AgentTierChip'
 import { AgentProjectSelector } from '../AgentProjectSelector'
 import { AgentActivityChip, toolChipLabel } from '../AgentActivityChip'
@@ -76,6 +87,24 @@ beforeEach(() => {
   vi.mocked(agentApi.getAgentConversation).mockResolvedValue({ conversation: api.conv, messages: [] })
   vi.mocked(agentApi.getMcpStatus).mockResolvedValue({ enabled: true, running: true })
   vi.mocked(agentApi.editQueuedAgentMessage).mockResolvedValue('saved')
+  vi.mocked(agentApi.uploadAgentAttachment).mockImplementation(async (_conversationId: string, file: File) => ({
+    id: 'att-1',
+    filename: file.name,
+    storedName: `stored-${file.name}`,
+    mimeType: file.type || 'application/octet-stream',
+    size: file.size,
+    addedAt: '',
+  }))
+  vi.mocked(agentApi.listAgentAttachments).mockResolvedValue([])
+  vi.mocked(agentApi.fetchAgentAttachmentBlob).mockResolvedValue(new Blob(['x'], { type: 'application/octet-stream' }))
+  Object.defineProperty(URL, 'createObjectURL', {
+    configurable: true,
+    value: vi.fn(() => 'blob:agent-attachment'),
+  })
+  Object.defineProperty(URL, 'revokeObjectURL', {
+    configurable: true,
+    value: vi.fn(),
+  })
 })
 
 // ── AgentTierChip ─────────────────────────────────────────────────────────────
@@ -158,6 +187,57 @@ describe('AgentMessage', () => {
     expect(screen.getByText('job1234')).toBeInTheDocument()
     expect(screen.getByText('Show status')).toBeInTheDocument()
     expect(screen.getByText('inspect this')).toBeInTheDocument()
+  })
+
+  it('opens an in-app preview for image attachments in user bubbles', async () => {
+    vi.mocked(agentApi.fetchAgentAttachmentBlob).mockResolvedValue(new Blob(['png'], { type: 'image/png' }))
+    const { container } = render(
+      <AgentMessage
+        role="user"
+        content="mira esta imagen"
+        conversationId="c1"
+        attachments={[{
+          id: 'img-1',
+          filename: 'screen.png',
+          storedName: 'stored-screen.png',
+          mimeType: 'image/png',
+          size: 2048,
+          addedAt: '',
+        }]}
+      />,
+    )
+
+    fireEvent.click(screen.getByRole('button', { name: 'Preview screen.png' }))
+
+    expect(await screen.findByRole('dialog')).toBeInTheDocument()
+    expect(container.querySelector('[role="dialog"]')).toBeNull()
+    expect(await screen.findByRole('img', { name: 'screen.png' })).toBeInTheDocument()
+    expect(agentApi.fetchAgentAttachmentBlob).toHaveBeenCalledWith('c1', 'img-1')
+  })
+
+  it('opens a download confirmation modal for non-image attachments', async () => {
+    vi.mocked(agentApi.fetchAgentAttachmentBlob).mockResolvedValue(new Blob(['pdf'], { type: 'application/pdf' }))
+    render(
+      <AgentMessage
+        role="user"
+        content="revisa este archivo"
+        conversationId="c1"
+        attachments={[{
+          id: 'file-1',
+          filename: 'brief.pdf',
+          storedName: 'stored-brief.pdf',
+          mimeType: 'application/pdf',
+          size: 4096,
+          addedAt: '',
+        }]}
+      />,
+    )
+
+    fireEvent.click(screen.getByRole('button', { name: 'Download brief.pdf' }))
+
+    expect(await screen.findByRole('dialog', { name: 'Download file?' })).toBeInTheDocument()
+    expect(screen.getByText('This file cannot be previewed here. Do you want to download it?')).toBeInTheDocument()
+    expect(await screen.findByRole('link', { name: 'Download' })).toHaveAttribute('download', 'brief.pdf')
   })
 
   it('renders assistant markdown: bold + a table', () => {
@@ -589,6 +669,25 @@ describe('AgentChatProvider', () => {
     expect(call[2]).toMatchObject({
       contextRefs: [{ kind: 'project', id: 'p2', label: 'deckdex', token: '@deckdex' }],
     })
+  })
+
+  it('materializes a new mission before uploading an attachment from the empty composer', async () => {
+    render(<StrictMode><AgentChatProvider><AgentComposer /></AgentChatProvider></StrictMode>)
+    const box = await screen.findByPlaceholderText('Ask the agent to do anything…') as HTMLTextAreaElement
+    fireEvent.change(box, { target: { value: 'usa este archivo' } })
+
+    const fileInput = document.querySelector('input[type="file"]') as HTMLInputElement | null
+    expect(fileInput).not.toBeNull()
+    const file = new File(['hello'], 'brief.txt', { type: 'text/plain' })
+
+    await act(async () => {
+      fireEvent.change(fileInput!, { target: { files: [file] } })
+    })
+
+    await waitFor(() => expect(agentApi.createAgentConversation).toHaveBeenCalledTimes(1))
+    expect(agentApi.uploadAgentAttachment).toHaveBeenCalledWith('c1', file)
+    expect(box.value).toBe('usa este archivo')
+    expect(await screen.findByText('brief.txt')).toBeInTheDocument()
   })
 
   it('opens the same command palette from + and inserts a selected action', async () => {

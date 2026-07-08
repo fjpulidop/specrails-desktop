@@ -2,8 +2,10 @@ import { z } from 'zod'
 import type { McpToolSpec } from './types'
 import { apiCall, projectPath, originConversationDefaults, requireProject } from './types'
 import path from 'path'
-import { startBackgroundProcess, killOwnedBackgroundProcess } from '../../transient-children'
+import { startBackgroundProcess, killOwnedBackgroundProcess, getBackgroundProcessLogs } from '../../transient-children'
 import type { WsMessage } from '../../types'
+import type { ProjectContext } from '../../project-registry'
+import { listRunningLoopRuns } from '../../loop-runs-store'
 
 function resolveBackgroundCwd(projectRoot: string, cwd: string | undefined): string {
   const resolved = path.resolve(projectRoot, cwd && cwd.trim() ? cwd : '.')
@@ -22,11 +24,6 @@ function backgroundHooks(broadcast: (msg: WsMessage) => void) {
       projectId: process.projectId,
       timestamp: new Date().toISOString(),
     }),
-    onOutput: (event: import('../../transient-children').BackgroundProcessOutputEvent) => broadcast({
-      type: 'background_process.output',
-      ...event,
-      timestamp: new Date().toISOString(),
-    }),
     onExited: (process: import('../../transient-children').BackgroundProcess) => broadcast({
       type: 'background_process.exited',
       process,
@@ -34,6 +31,18 @@ function backgroundHooks(broadcast: (msg: WsMessage) => void) {
       timestamp: new Date().toISOString(),
     }),
   }
+}
+
+function backgroundStartBusyReason(projectCtx: ProjectContext): string | null {
+  const activeJobId = typeof projectCtx.queueManager?.getActiveJobId === 'function' ? projectCtx.queueManager.getActiveJobId() : null
+  if (activeJobId) return `job ${activeJobId} is still running`
+  try {
+    const runningLoops = listRunningLoopRuns(projectCtx.db, projectCtx.project.id)
+    if (runningLoops.length > 0) return `loop run ${runningLoops[0].id} is still running`
+  } catch {
+    // Some unit harnesses stub the DB narrowly; absence of loop metadata is not a blocker.
+  }
+  return null
 }
 
 /**
@@ -54,7 +63,7 @@ export function jobsTools(): McpToolSpec[] {
       description:
         'Manage a project\'s AI-pipeline job queue and individual jobs. ' +
         'Actions: list, get, queue, spawn (ai-spawn — enqueues an arbitrary slash-command job, returns {jobId,position}, async; from the in-app agent chat the engine defaults to your conversation\'s provider — pass aiEngine to override), ' +
-        'background_start (operate-level shell command tied to the current agent chat; requires explicit user confirmation before use), background_kill, ' +
+        'background_start (operate-level shell command tied to the current agent chat; requires confirmed:true after explicit user confirmation before use), background_logs, background_kill, ' +
         'cancel (destructive — cancels a running/queued job or deletes a terminal one), ' +
         'purge (destructive — bulk-delete persisted job rows in a date range), ' +
         'pause / resume (queue), reorder (queued-job order), priority (change a queued job\'s priority), ' +
@@ -97,6 +106,7 @@ export function jobsTools(): McpToolSpec[] {
             'interactive_turn',
             'finalize',
             'background_start',
+            'background_logs',
             'background_kill',
           ])
           .describe('Operation to perform'),
@@ -107,7 +117,7 @@ export function jobsTools(): McpToolSpec[] {
           .optional()
           .describe('Job id (for get / cancel / priority / diagnostic / interactive_turn / finalize)'),
         // ── list / export pagination + filters ──
-        limit: z.number().optional().describe('Page size for list (1-200, default 50) / activity (1-100, default 50)'),
+        limit: z.number().optional().describe('Page size for list (1-200, default 50) / activity (1-100, default 50); background_logs returns the last N buffered log lines'),
         offset: z.number().optional().describe('Page offset for list'),
         status: z.string().optional().describe('Filter by job status (list)'),
         from: z.string().optional().describe('ISO date lower bound (list / export / purge)'),
@@ -133,9 +143,11 @@ export function jobsTools(): McpToolSpec[] {
           .describe('reorder: exact set of currently-queued job ids in the desired order; compare: exactly 2 job ids'),
         // ── interactive_turn ──
         text: z.string().optional().describe('Prompt text for interactive_turn'),
-        chatId: z.string().optional().describe('Agent chat conversation id for background_start/background_kill ownership; defaults to the in-app agent conversation that called the tool'),
+        chatId: z.string().optional().describe('Agent chat conversation id for background_start/background_logs/background_kill ownership; defaults to the in-app agent conversation that called the tool'),
         cwd: z.string().optional().describe('Optional cwd for background_start; resolved inside the selected project root'),
-        pid: z.number().optional().describe('Background process pid for background_kill'),
+        pid: z.number().optional().describe('Background process pid for background_logs/background_kill'),
+        confirmed: z.boolean().optional().describe('background_start only: must be true after explicit user confirmation for this exact command'),
+        allowWhileBusy: z.boolean().optional().describe('background_start only: override active job/loop guard after explicit user confirmation'),
         // ── export ──
         format: z.enum(['json', 'csv']).optional().describe('Export format (default json)'),
         // ── default_spec_model ──
@@ -311,9 +323,14 @@ export function jobsTools(): McpToolSpec[] {
           case 'background_start': {
             const command = args.command as string | undefined
             if (!command || !command.trim()) throw new Error('background_start requires a "command".')
+            if (args.confirmed !== true) throw new Error('background_start requires confirmed:true after explicit user confirmation for this exact command.')
             const chatId = (args.chatId as string | undefined) ?? ctx.originConversationId ?? undefined
             if (!chatId || !chatId.trim()) throw new Error('background_start requires a "chatId".')
             const projectCtx = requireProject(ctx, args.projectId as string | undefined)
+            const busyReason = backgroundStartBusyReason(projectCtx)
+            if (busyReason && args.allowWhileBusy !== true) {
+              throw new Error(`background_start refused because ${busyReason}. Wait for it to finish, or pass allowWhileBusy:true only after explicit user confirmation.`)
+            }
             const cwd = resolveBackgroundCwd(projectCtx.project.path, args.cwd as string | undefined)
             const process = startBackgroundProcess(
               command.trim(),
@@ -334,6 +351,28 @@ export function jobsTools(): McpToolSpec[] {
             const killed = killOwnedBackgroundProcess(pid, { projectId: projectCtx.project.id, chatId: chatId.trim() })
             if (!killed) throw new Error('background_kill requires a registered pid in the same project/chat.')
             return { ok: true, pid, status: 'killing' }
+          }
+
+          case 'background_logs': {
+            const pid = args.pid as number | undefined
+            if (typeof pid !== 'number' || !Number.isFinite(pid)) throw new Error('background_logs requires a numeric "pid".')
+            const chatId = (args.chatId as string | undefined) ?? ctx.originConversationId ?? undefined
+            if (!chatId || !chatId.trim()) throw new Error('background_logs requires a "chatId".')
+            const projectCtx = requireProject(ctx, args.projectId as string | undefined)
+            const limit = typeof args.limit === 'number' && Number.isFinite(args.limit) ? args.limit : undefined
+            const logs = getBackgroundProcessLogs(pid, {
+              projectId: projectCtx.project.id,
+              chatId: chatId.trim(),
+              ...(limit !== undefined ? { limit } : {}),
+            })
+            if (!logs) throw new Error('background_logs requires a registered pid in the same project/chat; logs may have expired.')
+            return {
+              ok: true,
+              ...logs,
+              hint: logs.lines.length > 0
+                ? 'Inspect stdout/stderr to explain why the background process exited or failed.'
+                : 'No stdout/stderr lines have been captured yet; the process may not have emitted newline-terminated output.',
+            }
           }
 
           default:

@@ -78,5 +78,240 @@
     "bullet2": "rail 完了時にコメントを投稿。",
     "bullet3": "Jira のバックログがボードにスペックとして表示されます。",
     "requires": "Jira Cloud または Data Center のアカウントが必要です。"
+  },
+  "plugins": {
+    "page": {
+      "title": "プラグイン",
+      "subtitle": "グローバルツールとプロジェクト連携を 1 か所で管理します。",
+      "readyCount_one": "{{count}} 件準備完了",
+      "readyCount_other": "{{count}} 件準備完了"
+    },
+    "search": {
+      "placeholder": "プラグインを検索"
+    },
+    "filters": {
+      "all": "すべて",
+      "global": "グローバル",
+      "project": "プロジェクト"
+    },
+    "sections": {
+      "installed": "インストール済み",
+      "available": "利用可能"
+    },
+    "scope": {
+      "global": "グローバル",
+      "project": "プロジェクト"
+    },
+    "groups": {
+      "global": {
+        "title": "グローバル",
+        "detail": "Specrails 全体に適用"
+      },
+      "project": {
+        "title": "プロジェクトローカル",
+        "detail": "リポジトリごとに設定"
+      }
+    },
+    "empty": {
+      "installedSearch": "この検索に一致するインストール済みプラグインはありません。",
+      "installed": "インストール済みプラグインはまだありません。",
+      "availableSearch": "この検索に一致する利用可能なプラグインはありません。",
+      "allInstalled": "すべてのプラグインがインストール済みです。"
+    },
+    "actions": {
+      "install": "インストール",
+      "installing": "インストール中",
+      "manage": "管理",
+      "review": "確認",
+      "cancel": "キャンセル"
+    },
+    "status": {
+      "attention": "要確認",
+      "active": "有効",
+      "externalActive": "外部で有効",
+      "external": "外部",
+      "installed": "インストール済み",
+      "available": "利用可能",
+      "configuredCount_one": "{{count}} 件設定済み",
+      "configuredCount_other": "{{count}} 件設定済み",
+      "installedCount_one": "{{count}} 件インストール済み",
+      "installedCount_other": "{{count}} 件インストール済み"
+    },
+    "catalog": {
+      "headroom": {
+        "description": "Headroom AI で Codex と Claude の起動を最適化します。"
+      },
+      "jira": {
+        "description": "プロジェクト specs を Jira ボード、ステータスマッピング、完了コメントと同期します。"
+      },
+      "serena": {
+        "description": "Serena MCP によるプロジェクトローカルのセマンティックコードナビゲーション。"
+      }
+    },
+    "headroom": {
+      "title": "Headroom AI",
+      "dialogDescription": "Headroom のグローバルインストールとプロバイダー別ルーティングを管理します。",
+      "panelDescription": "グローバルにインストールされ、Codex と Claude で個別に有効化できます。",
+      "issueCode": "コード: {{code}}",
+      "confirmDetach": "Specrails ルーティングを無効化し、プロキシを停止します。既存のシステム Headroom インストールは変更されません。",
+      "confirmUninstall": "Codex と Claude のルートを無効化し、プロキシを停止して、Specrails 管理の Headroom ツールを削除します。",
+      "metrics": {
+        "install": "インストール",
+        "checking": "確認中",
+        "ready": "準備完了",
+        "missing": "未検出",
+        "source": "ソース",
+        "system": "システム",
+        "specrails": "Specrails",
+        "none": "なし",
+        "proxy": "プロキシ",
+        "starting": "起動中",
+        "off": "オフ"
+      },
+      "actions": {
+        "installWithUv": "同梱 uv でインストール",
+        "disableAllRoutes": "すべてのルートを無効化",
+        "viewDiagnostics": "診断を表示",
+        "detachHeadroom": "Headroom を切り離す",
+        "uninstallHeadroom": "Headroom をアンインストール",
+        "detach": "切り離す",
+        "uninstall": "アンインストール"
+      },
+      "port": {
+        "label": "プロキシポート",
+        "apply": "適用"
+      },
+      "provider": {
+        "noProjectUsesProvider": "このプロバイダーを使う Specrails プロジェクトはありません",
+        "routedThroughHeadroom": "Headroom 経由でルーティング中",
+        "detectedExternalRoute": "外部ルートを検出",
+        "notRouted": "未ルーティング"
+      },
+      "savings": {
+        "title": "Headroom トークン節約",
+        "learningOn": "出力を測定済み",
+        "waitingForOutputSamples": "出力は未測定",
+        "baseline": "{{method}}ベースライン",
+        "updatedLive": "ライブ更新",
+        "baselineSamples_one": "{{count}} 件のベースラインサンプル",
+        "baselineSamples_other": "{{count}} 件のベースラインサンプル",
+        "tokens": "tokens",
+        "learning": "データなし",
+        "off": "オフ",
+        "requestDetail": "{{method}} · {{count}} 件のリクエスト",
+        "requestCount": "{{count}} 件のリクエスト",
+        "detected": "検出済み",
+        "totals": "合計",
+        "input": "入力",
+        "output": "出力",
+        "processed": "処理済み",
+        "saved": "節約",
+        "noData": "データなし",
+        "inputSaved": "入力の節約",
+        "outputSaved": "出力の節約",
+        "inputSavingsActive": "Headroom 経由でルーティング中",
+        "statusInputOutput": "入力 + 出力",
+        "statusInputOnly": "入力有効",
+        "statusRouting": "ルーティング中",
+        "statusInactive": "非アクティブ",
+        "methods": {
+          "estimated": "推定",
+          "measured": "測定",
+          "none": "なし"
+        },
+        "waitingForShapedResponses": "出力レスポンスは未測定",
+        "outputObserved": "{{value}} の出力を確認済み",
+        "routeDisabled": "ルート無効"
+      },
+      "issues": {
+        "uv_missing_or_corrupt": {
+          "title": "同梱 uv が利用できません",
+          "guidance": "Specrails は同梱 uv ランタイムを起動できませんでした。Specrails を再インストールするか、ランタイムが利用可能になったら修復を使ってください。"
+        },
+        "network_unavailable": {
+          "title": "Headroom をダウンロードできませんでした",
+          "guidance": "ネットワーク接続を確認して再試行してください。Specrails はインストールを専用ツールディレクトリに隔離します。"
+        },
+        "package_resolution_failed": {
+          "title": "Headroom の依存関係を解決できませんでした",
+          "guidance": "インストールを再試行してください。失敗が続く場合は診断を開き、uv の出力を共有してください。"
+        },
+        "install_permission_failed": {
+          "title": "Specrails がツールディレクトリに書き込めません",
+          "guidance": "~/.specrails/tools の権限を確認し、インストールを再試行してください。"
+        },
+        "headroom_not_found_after_install": {
+          "title": "インストール完了後に Headroom が見つかりませんでした",
+          "guidance": "インストール修復を実行してください。Specrails が Headroom を再インストールし、実行ファイルを検証します。"
+        },
+        "learning_setup_failed": {
+          "title": "Headroom 学習を有効化できませんでした",
+          "guidance": "Headroom はインストール済みですが、出力節約のキャリブレーションが完了していません。メトリクスがサンプルを収集するまでプロキシルーティングを使い続けてください。"
+        },
+        "metrics_unavailable": {
+          "title": "Headroom メトリクスはまだ利用できません",
+          "guidance": "Headroom 経由でトラフィックをルーティングしてください。プロキシがサンプルを報告すると、Specrails が token 節約メトリクスを更新します。"
+        },
+        "proxy_port_busy": {
+          "title": "Headroom プロキシポートは既に使用中です",
+          "guidance": "別のポートを選ぶか、現在のポートを使用しているプロセスを停止してから有効化を再試行してください。"
+        },
+        "proxy_unhealthy": {
+          "title": "Headroom プロキシが正常状態になりませんでした",
+          "guidance": "有効化を再試行してください。繰り返す場合は診断を開いてプロキシ出力を確認してください。"
+        },
+        "provider_route_failed": {
+          "title": "プロバイダールートの検証に失敗しました",
+          "guidance": "Specrails はプロバイダールートを検証できませんでした。プロバイダーは非アクティブのままです。診断確認後に再試行してください。"
+        },
+        "provider_config_conflict": {
+          "title": "既存のプロバイダー設定が Headroom と競合しています",
+          "guidance": "システム全体の有効化前に診断を確認してください。Specrails 管理のルーティングは元に戻せます。"
+        },
+        "activation_partially_applied": {
+          "title": "有効化は一部のみ適用されました",
+          "guidance": "Specrails はロールバックを試みました。診断を確認し、対象プロバイダーを再試行してください。"
+        },
+        "not_installed": {
+          "title": "Headroom はインストールされていません",
+          "guidance": "まず Headroom をインストールし、その後 Codex または Claude を有効化してください。"
+        },
+        "uninstall_failed": {
+          "title": "Headroom をアンインストールできませんでした",
+          "guidance": "Specrails は Headroom ルーティングを無効化しましたが、管理ツールを削除できませんでした。診断を開いて再試行してください。"
+        },
+        "unknown": {
+          "title": "Headroom 操作に失敗しました",
+          "guidance": "操作を再試行してください。繰り返す場合は診断を開き、詳細を共有してください。"
+        }
+      }
+    },
+    "projectWizard": {
+      "configureJira": "Jira を設定",
+      "installSerena": "Serena をインストール",
+      "description": "このプロジェクトスコープのプラグインを設定するプロジェクトを選択してください。",
+      "chooseProject": "プロジェクトを選択",
+      "requiresClaudeProvider": "Claude プロバイダーが必要",
+      "selectProjectToContinue": "続行するプロジェクトを選択してください。"
+    },
+    "serena": {
+      "loading": "Serena を読み込み中…",
+      "titleForProject": "{{name}} の Serena",
+      "description": "プロジェクトローカルの MCP 設定とプラグイン状態をインストールします。他のプロジェクトは変更されません。",
+      "status": "ステータス: {{status}}",
+      "files": "ファイル",
+      "prerequisites": "前提条件"
+    },
+    "projectStatus": {
+      "installed": "インストール済み",
+      "deactivated": "無効",
+      "not-installed": "未インストール",
+      "orphan": "孤立",
+      "degraded": "劣化"
+    },
+    "diagnostics": {
+      "title": "Headroom 診断",
+      "description": "Specrails 管理の Headroom インストールとプロキシの技術ステータス。"
+    }
   }
 }

@@ -6,6 +6,18 @@
   "send": "Senden",
   "stop": "Stopp",
   "copy": "Kopieren",
+  "attachment": {
+    "openPreview": "{{name}} anzeigen",
+    "openDownload": "{{name}} herunterladen",
+    "previewTitle": "Vorschau von {{name}}",
+    "downloadTitle": "Datei herunterladen?",
+    "downloadPrompt": "Diese Datei kann hier nicht in der Vorschau angezeigt werden. Möchtest du sie herunterladen?",
+    "download": "Herunterladen",
+    "cancelDownload": "Jetzt nicht",
+    "loading": "Datei wird vorbereitet…",
+    "loadFailed": "Anhang konnte nicht geladen werden",
+    "loadError": "Anhang konnte nicht geladen werden: {{error}}"
+  },
   "maximize": "Maximieren",
   "restore": "Wiederherstellen",
   "minimize": "Minimieren",

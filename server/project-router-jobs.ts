@@ -52,7 +52,7 @@ import {
 import { resolveProvider, validateRequestedProvider, isMultiProvider } from './provider-selection'
 import type { ChatConversationRow, JobTemplate, JobRow } from './types'
 import { readChanges } from './changes-reader'
-import { getLoopRun } from './loop-runs-store'
+import { getLoopRun, listRunningLoopRuns } from './loop-runs-store'
 import { getProjectMetrics } from './metrics'
 import {
   resolveTicketStoragePath, readStore, mutateStore, filterTickets,
@@ -66,7 +66,7 @@ import type { TicketCreatedMessage, TicketUpdatedMessage, TicketDeletedMessage, 
 import { spawnAiCli } from './util/cli-prompt'
 import { createInterface } from 'readline'
 import treeKill from 'tree-kill'
-import { startBackgroundProcess, killOwnedBackgroundProcess, listBackgroundProcesses } from './transient-children'
+import { startBackgroundProcess, killOwnedBackgroundProcess, listBackgroundProcesses, getBackgroundProcessLogs } from './transient-children'
 import multer from 'multer'
 import { createRailsRouter } from './rails-router'
 import { createProfilesRouter } from './profiles-router'
@@ -107,6 +107,18 @@ import {
   formatDescriptionWithCriteria,
   resolveDefaultSpecModel,
 } from './project-router-helpers'
+
+function backgroundStartBusyReason(c: ProjectContext): string | null {
+  const activeJobId = typeof c.queueManager?.getActiveJobId === 'function' ? c.queueManager.getActiveJobId() : null
+  if (activeJobId) return `job ${activeJobId} is still running`
+  try {
+    const runningLoops = listRunningLoopRuns(c.db, c.project.id)
+    if (runningLoops.length > 0) return `loop run ${runningLoops[0].id} is still running`
+  } catch {
+    // If the loop table is unavailable in a test harness, do not block startup.
+  }
+  return null
+}
 
 export function registerJobsRoutes(deps: ProjectRoutesDeps): void {
   const { router, registry, ctx, ticketPath } = deps
@@ -196,8 +208,37 @@ export function registerJobsRoutes(deps: ProjectRoutesDeps): void {
     })
   })
 
+  router.get('/:projectId/background-processes/:pid/logs', (req: Request, res: Response) => {
+    const c = ctx(req)
+    const pid = Number(req.params.pid)
+    const chatId = typeof req.query.chatId === 'string' ? req.query.chatId : ''
+    const limit = typeof req.query.limit === 'string' ? Number(req.query.limit) : undefined
+    if (!Number.isFinite(pid)) {
+      res.status(400).json({ error: 'pid must be numeric' })
+      return
+    }
+    if (!chatId.trim()) {
+      res.status(400).json({ error: 'chatId is required' })
+      return
+    }
+    if (limit !== undefined && (!Number.isFinite(limit) || limit <= 0)) {
+      res.status(400).json({ error: 'limit must be a positive number' })
+      return
+    }
+    const logs = getBackgroundProcessLogs(pid, {
+      projectId: c.project.id,
+      chatId: chatId.trim(),
+      ...(limit !== undefined ? { limit } : {}),
+    })
+    if (!logs) {
+      res.status(404).json({ error: 'background process logs not found for project/chat' })
+      return
+    }
+    res.json(logs)
+  })
+
   router.post('/:projectId/background-processes', (req: Request, res: Response) => {
-    const { command, cwd, chatId } = req.body ?? {}
+    const { command, cwd, chatId, confirmed, allowWhileBusy } = req.body ?? {}
     const c = ctx(req)
     if (!command || typeof command !== 'string' || !command.trim()) {
       res.status(400).json({ error: 'command is required' })
@@ -205,6 +246,19 @@ export function registerJobsRoutes(deps: ProjectRoutesDeps): void {
     }
     if (!chatId || typeof chatId !== 'string' || !chatId.trim()) {
       res.status(400).json({ error: 'chatId is required' })
+      return
+    }
+    if (confirmed !== true) {
+      res.status(400).json({ error: 'confirmed must be true after explicit user confirmation' })
+      return
+    }
+    const busyReason = backgroundStartBusyReason(c)
+    if (busyReason && allowWhileBusy !== true) {
+      res.status(409).json({
+        error: 'project is busy',
+        reason: busyReason,
+        hint: 'Wait for the running job/loop to finish, or pass allowWhileBusy:true only after explicit user confirmation.',
+      })
       return
     }
     const resolvedCwd = path.resolve(c.project.path, typeof cwd === 'string' && cwd.trim() ? cwd : '.')
@@ -224,11 +278,6 @@ export function registerJobsRoutes(deps: ProjectRoutesDeps): void {
             type: 'background_process.started',
             process,
             projectId: process.projectId,
-            timestamp: new Date().toISOString(),
-          }),
-          onOutput: (event) => c.broadcast({
-            type: 'background_process.output',
-            ...event,
             timestamp: new Date().toISOString(),
           }),
           onExited: (process) => c.broadcast({

@@ -78,5 +78,240 @@
     "bullet2": "rail 结束时发布完成评论。",
     "bullet3": "你的 Jira 待办会作为规格出现在看板上。",
     "requires": "需要 Jira Cloud 或 Data Center 账户。"
+  },
+  "plugins": {
+    "page": {
+      "title": "插件",
+      "subtitle": "在一个位置管理全局工具和项目集成。",
+      "readyCount_one": "{{count}} 个就绪",
+      "readyCount_other": "{{count}} 个就绪"
+    },
+    "search": {
+      "placeholder": "搜索插件"
+    },
+    "filters": {
+      "all": "全部",
+      "global": "全局",
+      "project": "项目"
+    },
+    "sections": {
+      "installed": "已安装",
+      "available": "可用"
+    },
+    "scope": {
+      "global": "全局",
+      "project": "项目"
+    },
+    "groups": {
+      "global": {
+        "title": "全局",
+        "detail": "适用于整个 Specrails"
+      },
+      "project": {
+        "title": "项目本地",
+        "detail": "按仓库配置"
+      }
+    },
+    "empty": {
+      "installedSearch": "没有匹配此搜索的已安装插件。",
+      "installed": "尚未安装插件。",
+      "availableSearch": "没有匹配此搜索的可用插件。",
+      "allInstalled": "所有插件都已安装。"
+    },
+    "actions": {
+      "install": "安装",
+      "installing": "安装中",
+      "manage": "管理",
+      "review": "检查",
+      "cancel": "取消"
+    },
+    "status": {
+      "attention": "需要注意",
+      "active": "已启用",
+      "externalActive": "外部已启用",
+      "external": "外部",
+      "installed": "已安装",
+      "available": "可用",
+      "configuredCount_one": "已配置 {{count}} 个",
+      "configuredCount_other": "已配置 {{count}} 个",
+      "installedCount_one": "已安装 {{count}} 个",
+      "installedCount_other": "已安装 {{count}} 个"
+    },
+    "catalog": {
+      "headroom": {
+        "description": "通过 Headroom AI 优化 Codex 和 Claude 启动。"
+      },
+      "jira": {
+        "description": "将项目 specs 与 Jira 看板、状态映射和完成评论同步。"
+      },
+      "serena": {
+        "description": "通过 Serena MCP 提供项目本地语义代码导航。"
+      }
+    },
+    "headroom": {
+      "title": "Headroom AI",
+      "dialogDescription": "管理全局 Headroom 安装和按提供商路由。",
+      "panelDescription": "全局安装，并可分别为 Codex 和 Claude 启用。",
+      "issueCode": "代码：{{code}}",
+      "confirmDetach": "这会禁用 Specrails 路由并停止代理。现有系统 Headroom 安装不会被修改。",
+      "confirmUninstall": "这会禁用 Codex 和 Claude 路由，停止代理，并移除由 Specrails 管理的 Headroom 工具。",
+      "metrics": {
+        "install": "安装",
+        "checking": "检查中",
+        "ready": "就绪",
+        "missing": "缺失",
+        "source": "来源",
+        "system": "系统",
+        "specrails": "Specrails",
+        "none": "无",
+        "proxy": "代理",
+        "starting": "启动中",
+        "off": "关闭"
+      },
+      "actions": {
+        "installWithUv": "使用内置 uv 安装",
+        "disableAllRoutes": "禁用所有路由",
+        "viewDiagnostics": "查看诊断",
+        "detachHeadroom": "解除 Headroom 绑定",
+        "uninstallHeadroom": "卸载 Headroom",
+        "detach": "解除绑定",
+        "uninstall": "卸载"
+      },
+      "port": {
+        "label": "代理端口",
+        "apply": "应用"
+      },
+      "provider": {
+        "noProjectUsesProvider": "没有 Specrails 项目使用此提供商",
+        "routedThroughHeadroom": "通过 Headroom 路由",
+        "detectedExternalRoute": "检测到外部路由",
+        "notRouted": "未路由"
+      },
+      "savings": {
+        "title": "Headroom Token 节省",
+        "learningOn": "输出已测量",
+        "waitingForOutputSamples": "输出未测量",
+        "baseline": "{{method}}基线",
+        "updatedLive": "实时更新",
+        "baselineSamples_one": "{{count}} 个基线样本",
+        "baselineSamples_other": "{{count}} 个基线样本",
+        "tokens": "tokens",
+        "learning": "无数据",
+        "off": "关闭",
+        "requestDetail": "{{method}} · {{count}} 次请求",
+        "requestCount": "{{count}} 次请求",
+        "detected": "已检测",
+        "totals": "总计",
+        "input": "输入",
+        "output": "输出",
+        "processed": "已处理",
+        "saved": "已节省",
+        "noData": "无数据",
+        "inputSaved": "输入节省",
+        "outputSaved": "输出节省",
+        "inputSavingsActive": "正在通过 Headroom 路由",
+        "statusInputOutput": "输入 + 输出",
+        "statusInputOnly": "输入已启用",
+        "statusRouting": "路由中",
+        "statusInactive": "未启用",
+        "methods": {
+          "estimated": "估算",
+          "measured": "实测",
+          "none": "无"
+        },
+        "waitingForShapedResponses": "尚未测量输出响应",
+        "outputObserved": "已观察到 {{value}} 输出",
+        "routeDisabled": "路由已禁用"
+      },
+      "issues": {
+        "uv_missing_or_corrupt": {
+          "title": "内置 uv 不可用",
+          "guidance": "Specrails 无法启动内置 uv 运行时。请重新安装 Specrails，或在运行时可用后使用修复。"
+        },
+        "network_unavailable": {
+          "title": "无法下载 Headroom",
+          "guidance": "请检查网络连接并重试。Specrails 会将安装隔离在自己的工具目录中。"
+        },
+        "package_resolution_failed": {
+          "title": "无法解析 Headroom 依赖",
+          "guidance": "请重试安装。如果仍然失败，请打开诊断并分享 uv 输出。"
+        },
+        "install_permission_failed": {
+          "title": "Specrails 无法写入工具目录",
+          "guidance": "请检查 ~/.specrails/tools 下的权限，然后重试安装。"
+        },
+        "headroom_not_found_after_install": {
+          "title": "安装完成但未找到 Headroom",
+          "guidance": "运行修复安装。Specrails 将重新安装 Headroom 并验证可执行文件。"
+        },
+        "learning_setup_failed": {
+          "title": "无法启用 Headroom 学习",
+          "guidance": "Headroom 已安装，但输出节省校准尚未完成。请继续使用代理路由，等待指标收集样本。"
+        },
+        "metrics_unavailable": {
+          "title": "Headroom 指标尚不可用",
+          "guidance": "开始通过 Headroom 路由流量。代理报告样本后，Specrails 会刷新 token 节省指标。"
+        },
+        "proxy_port_busy": {
+          "title": "Headroom 代理端口已被占用",
+          "guidance": "请选择其他端口，或停止占用当前端口的进程，然后重试激活。"
+        },
+        "proxy_unhealthy": {
+          "title": "Headroom 代理未变为健康状态",
+          "guidance": "请重试激活。如果再次发生，请打开诊断检查代理输出。"
+        },
+        "provider_route_failed": {
+          "title": "提供商路由验证失败",
+          "guidance": "Specrails 无法验证提供商路由。提供商保持未激活；请查看诊断后重试。"
+        },
+        "provider_config_conflict": {
+          "title": "现有提供商配置与 Headroom 冲突",
+          "guidance": "启用系统级激活前请查看诊断。Specrails 管理的路由仍可回滚。"
+        },
+        "activation_partially_applied": {
+          "title": "激活仅部分应用",
+          "guidance": "Specrails 已尝试回滚。请查看诊断并重试受影响的提供商。"
+        },
+        "not_installed": {
+          "title": "Headroom 未安装",
+          "guidance": "请先安装 Headroom，然后再激活 Codex 或 Claude。"
+        },
+        "uninstall_failed": {
+          "title": "无法卸载 Headroom",
+          "guidance": "Specrails 已禁用 Headroom 路由，但无法移除托管工具。请打开诊断后重试卸载。"
+        },
+        "unknown": {
+          "title": "Headroom 操作失败",
+          "guidance": "请重试该操作。如果再次发生，请打开诊断并分享详情。"
+        }
+      }
+    },
+    "projectWizard": {
+      "configureJira": "配置 Jira",
+      "installSerena": "安装 Serena",
+      "description": "选择要配置此项目级插件的项目。",
+      "chooseProject": "选择项目",
+      "requiresClaudeProvider": "需要 Claude 提供商",
+      "selectProjectToContinue": "选择一个项目以继续。"
+    },
+    "serena": {
+      "loading": "正在加载 Serena…",
+      "titleForProject": "{{name}} 的 Serena",
+      "description": "安装项目本地 MCP 配置和插件状态。其他项目不会被修改。",
+      "status": "状态：{{status}}",
+      "files": "文件",
+      "prerequisites": "先决条件"
+    },
+    "projectStatus": {
+      "installed": "已安装",
+      "deactivated": "已停用",
+      "not-installed": "未安装",
+      "orphan": "孤立",
+      "degraded": "降级"
+    },
+    "diagnostics": {
+      "title": "Headroom 诊断",
+      "description": "Specrails 管理的 Headroom 安装和代理的技术状态。"
+    }
   }
 }

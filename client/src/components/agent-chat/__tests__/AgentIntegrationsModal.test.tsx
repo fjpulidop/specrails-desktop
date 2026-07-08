@@ -4,8 +4,8 @@ import { AgentIntegrationsModal } from '../AgentIntegrationsModal'
 
 const guardBackdrop = vi.fn((cb: () => void) => cb)
 
-vi.mock('../../../pages/IntegrationsPage', () => ({
-  default: () => <div data-testid="integrations-page">Integrations page content</div>,
+vi.mock('../../../pages/PluginsPage', () => ({
+  default: () => <div data-testid="plugins-page">Plugins page content</div>,
 }))
 
 vi.mock('../../../hooks/useMovableResizableModal', () => ({
@@ -20,7 +20,7 @@ vi.mock('../../../hooks/useMovableResizableModal', () => ({
 }))
 
 describe('AgentIntegrationsModal', () => {
-  it('portals a fixed overlay with existing IntegrationsPage content and close controls', async () => {
+  it('portals a fixed overlay with PluginsPage content and close controls', async () => {
     const onClose = vi.fn()
     const { container } = render(
       <div data-testid="agent-panel">
@@ -33,7 +33,7 @@ describe('AgentIntegrationsModal', () => {
     expect(overlay!.classList.contains('z-[65]')).toBe(true)
     expect(container.contains(overlay)).toBe(false)
     expect(overlay!.querySelector('.glass-card')).not.toBeNull()
-    expect(screen.getByTestId('integrations-page')).toHaveTextContent('Integrations page content')
+    expect(screen.getByTestId('plugins-page')).toHaveTextContent('Plugins page content')
 
     fireEvent.click(screen.getByRole('button', { name: /close/i }))
 

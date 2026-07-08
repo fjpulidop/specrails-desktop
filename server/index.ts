@@ -29,6 +29,8 @@ import type { BrowserWsClient } from './browser-capture-manager'
 import type { BrowserInputEvent } from './browser-capture-types'
 import { isNavigableUrl } from './browser-playwright'
 import { createTelemetryRouter } from './telemetry-receiver'
+import { HeadroomManager } from './headroom-manager'
+import { createGlobalPluginsRouter } from './global-plugins-router'
 import { runCompactionForAll } from './telemetry-compactor'
 import { FrameworkManager } from './framework-manager'
 import { withFileLock } from './artifact-registry'
@@ -575,6 +577,16 @@ function applyPtyWsRateLimiting(ws: WebSocket): void {
   }
 
   // ─── App-global agent chat (drives the app via its own MCP) ────────────────
+  const headroomManager = new HeadroomManager(registry.desktopDb, broadcast, () =>
+    registry.installedProvidersUnion().filter((provider): provider is 'codex' | 'claude' =>
+      provider === 'codex' || provider === 'claude',
+    ),
+  )
+  app.use('/api/global-plugins', createGlobalPluginsRouter(headroomManager))
+  headroomManager.startActiveProxyOnBoot().catch((err) => {
+    console.error('[headroom] boot start failed:', err)
+  })
+
   const agentChatManager = new AgentChatManager(broadcast, registry.desktopDb, port, registry)
   _agentChatManager = agentChatManager
   // Publish the instance to the process-wide registry so the rails layer can

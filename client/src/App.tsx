@@ -2,11 +2,12 @@ import { useState, useEffect, useLayoutEffect, useRef, useMemo, useCallback, laz
 import { Routes, Route, Navigate, useLocation, useNavigate } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { Toaster } from 'sonner'
+import { Puzzle, Workflow, X } from 'lucide-react'
 import { _registerRouteForcer } from './lib/route-memory'
 import DashboardPage from './pages/DashboardPage'
 import SettingsPage from './pages/SettingsPage'
 import SettingsDialog from './pages/GlobalSettingsPage'
-import { Dialog, DialogContent } from './components/ui/dialog'
+import { Dialog, DialogContent, DialogDescription, DialogTitle } from './components/ui/dialog'
 import { useKeyboardShortcuts, useCheatsheetState } from './hooks/useKeyboardShortcuts'
 import { KeyboardShortcutsCheatsheet } from './components/KeyboardShortcutsCheatsheet'
 import { TitleBar } from './components/TitleBar'
@@ -20,6 +21,7 @@ const ActivityFeedPage = lazy(() => import('./pages/ActivityFeedPage'))
 const AgentsPage = lazy(() => import('./pages/AgentsPage'))
 const CodePage = lazy(() => import('./pages/CodePage'))
 const IntegrationsPage = lazy(() => import('./pages/IntegrationsPage'))
+const PluginsPage = lazy(() => import('./pages/PluginsPage'))
 const DesktopAnalyticsPage = lazy(() => import('./pages/DesktopAnalyticsPage'))
 const DocsPage = lazy(() => import('./pages/DocsPage'))
 const DocsDialog = lazy(() => import('./components/DocsDialog'))
@@ -66,14 +68,48 @@ import { useCompareUrlSync } from './hooks/useCompareUrlSync'
 import { ThemeProvider, useTheme } from './context/ThemeContext'
 import { LanguageProvider } from './context/LanguageContext'
 import { FEATURE_AGENTS_SECTION, FEATURE_CODE_EXPLORER, FEATURE_TERMINAL_PANEL, FEATURE_LOOPS_SECTION, FEATURE_AGENT_CHAT } from './lib/feature-flags'
+import { getGlobalRouteModeTransition, type GlobalModalSurface } from './lib/global-route-mode-transition'
 
 const STATUSBAR_HEIGHT_PX = 28
+
+function GlobalSurfaceDialogChrome({
+  surface,
+  onClose,
+}: {
+  surface: GlobalModalSurface
+  onClose: () => void
+}) {
+  const { t } = useTranslation('nav')
+  const title = surface === 'loops' ? t('arcSidebar.loops') : t('arcSidebar.plugins')
+  const Icon = surface === 'loops' ? Workflow : Puzzle
+
+  return (
+    <div className="flex h-11 shrink-0 items-center justify-between gap-3 border-b border-border bg-popover/95 px-3">
+      <div className="flex min-w-0 items-center gap-2">
+        <span className="grid h-7 w-7 shrink-0 place-items-center rounded-md border border-accent-primary/20 bg-accent-primary/10 text-accent-primary">
+          <Icon className="h-3.5 w-3.5" />
+        </span>
+        <span className="truncate text-xs font-medium text-foreground">{title}</span>
+      </div>
+      <div className="flex shrink-0 items-center">
+        <button
+          type="button"
+          onClick={onClose}
+          className="grid h-7 w-7 place-items-center rounded-md text-muted-foreground transition-colors hover:bg-muted hover:text-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 focus:ring-offset-popover"
+          aria-label={t('common:actions.close')}
+        >
+          <X className="h-4 w-4" />
+        </button>
+      </div>
+    </div>
+  )
+}
 
 // ─── Per-project route memory (in-memory only — resets on app restart) ───────
 
 // Paths that should never be remembered as a project's "last visited" —
 // re-entering a project should never land on a config/admin surface.
-const ROUTE_MEMORY_EXCLUDE = new Set<string>(['/settings', '/loops'])
+const ROUTE_MEMORY_EXCLUDE = new Set<string>(['/settings', '/loops', '/plugins'])
 
 // Global (cross-project) routes must never be saved or restored as a project's
 // "last visited" surface — they aren't project-scoped, so persisting one would
@@ -81,7 +117,7 @@ const ROUTE_MEMORY_EXCLUDE = new Set<string>(['/settings', '/loops'])
 // of that project's dashboard. Covers exact excludes + the /loops and /docs
 // route trees (e.g. the loop builder at /loops/:id/edit).
 function isNonProjectRoute(path: string): boolean {
-  return ROUTE_MEMORY_EXCLUDE.has(path) || path.startsWith('/loops') || path.startsWith('/docs')
+  return ROUTE_MEMORY_EXCLUDE.has(path) || path.startsWith('/loops') || path.startsWith('/plugins') || path.startsWith('/docs')
 }
 
 // One-time cleanup of legacy persisted route memory so users upgrading from a
@@ -164,6 +200,7 @@ function DesktopApp() {
   const location = useLocation()
   const terminals = useTerminals()
   const agentChat = useAgentChat()
+  const { startNewConversation } = agentChat
   const { uiMode } = useUiMode()
 
   // Two-way sync between split-view comparison state and ?compare=… URL params.
@@ -172,6 +209,7 @@ function DesktopApp() {
   const [settingsOpen, setSettingsOpen] = useState(false)
   const [analyticsOpen, setAnalyticsOpen] = useState(false)
   const [loopsOpen, setLoopsOpen] = useState(false)
+  const [pluginsOpen, setPluginsOpen] = useState(false)
   const [docsOpen, setDocsOpen] = useState(false)
   // Stable onClose so memoised DocsDialog doesn't re-render every DesktopApp render.
   const closeDocs = useCallback(() => setDocsOpen(false), [])
@@ -232,9 +270,52 @@ function DesktopApp() {
 
   const activeProject = projects.find((p) => p.id === activeProjectId)
   const isInSetup = activeProjectId !== null && setupProjectIds.has(activeProjectId)
-  // Global routes render in the center in BOTH modes (Loops/Docs stay-in-mode).
-  const onGlobalRoute =
-    location.pathname.startsWith('/loops') || location.pathname.startsWith('/docs')
+  const onLoopsRoute = location.pathname.startsWith('/loops')
+  const onPluginsRoute = location.pathname.startsWith('/plugins')
+  const onDocsRoute = location.pathname.startsWith('/docs')
+  // Docs remains an in-place global route in both modes. Loops and Plugins are
+  // board pages in Kanban mode, but Mission mode owns them as modal surfaces over
+  // the empty New Mission composer.
+  const onGlobalRoute = onDocsRoute || (uiMode !== 'agent' && (onLoopsRoute || onPluginsRoute))
+
+  useLayoutEffect(() => {
+    const transition = getGlobalRouteModeTransition({
+      uiMode,
+      pathname: location.pathname,
+      loopsOpen,
+      pluginsOpen,
+    })
+    if (!transition) return
+
+    if (transition.kind === 'modalize') {
+      if (transition.surface === 'loops') {
+        setPluginsOpen(false)
+        setLoopsOpen(true)
+      } else {
+        setLoopsOpen(false)
+        setPluginsOpen(true)
+      }
+      startNewConversation(activeProjectId)
+      if (location.pathname !== transition.backgroundPath) {
+        navigate(transition.backgroundPath, { replace: true })
+      }
+      return
+    }
+
+    setLoopsOpen(false)
+    setPluginsOpen(false)
+    if (location.pathname !== transition.path) {
+      navigate(transition.path, { replace: true })
+    }
+  }, [
+    activeProjectId,
+    location.pathname,
+    loopsOpen,
+    navigate,
+    pluginsOpen,
+    startNewConversation,
+    uiMode,
+  ])
 
   // ─── Hoisted terminal panel (single instance, both modes) ───────────────────
   // BottomPanel lives here (not in ProjectLayout) so the terminal
@@ -289,6 +370,7 @@ function DesktopApp() {
       <ArcSidebar
         onAddProject={() => setAddDialogOpen(true)}
         onOpenLoops={() => { if (uiMode === 'agent') setLoopsOpen(true); else navigate('/loops') }}
+        onOpenPlugins={() => { if (uiMode === 'agent') setPluginsOpen(true); else navigate('/plugins') }}
         onOpenAnalytics={() => setAnalyticsOpen(true)}
         onOpenDocs={() => setDocsOpen(true)}
         onOpenSettings={() => setSettingsOpen(true)}
@@ -314,8 +396,8 @@ function DesktopApp() {
               onSkip={() => completeSetupWizard(activeProject.id)}
             />
           ) : uiMode === 'agent' && !onGlobalRoute ? (
-            // Agent Mode replaces the routed dashboard; global routes (/loops,
-            // /docs) still fall through to <Routes> below and render in-place.
+            // Agent Mode replaces the routed dashboard; Docs still falls through
+            // to <Routes>, while Loops/Plugins are modalized over New Mission.
             <AgentModeSurface />
           ) : (
             <Suspense fallback={<div className="flex-1 flex items-center justify-center"><p className="text-sm text-muted-foreground">{t('states.loading')}</p></div>}>
@@ -327,6 +409,7 @@ function DesktopApp() {
                     until then it falls back to the library so Edit never dead-ends. */}
                 {FEATURE_LOOPS_SECTION && <Route path="/loops" element={<LoopsPage />} />}
                 {FEATURE_LOOPS_SECTION && <Route path="/loops/:id/edit" element={<LoopBuilderPage />} />}
+                <Route path="/plugins" element={<PluginsPage />} />
                 {/* Project routes */}
                 {projects.length === 0 ? (
                   <Route path="*" element={<WelcomeScreen onAddProject={() => setAddDialogOpen(true)} />} />
@@ -395,10 +478,36 @@ function DesktopApp() {
           opening Loops doesn't yank the user out of their mission (kanban mode
           keeps the /loops route). Renders the SAME LoopsPage. */}
       <Dialog open={loopsOpen} onOpenChange={setLoopsOpen}>
-        <DialogContent className="max-w-[96vw] w-[96vw] h-[92vh] max-h-[92vh] overflow-hidden p-0 flex flex-col">
+        <DialogContent showCloseButton={false} className="max-w-[96vw] w-[96vw] h-[92vh] max-h-[92vh] overflow-hidden p-0 flex flex-col">
+          <DialogTitle className="sr-only">{t('nav:arcSidebar.loops')}</DialogTitle>
+          <DialogDescription className="sr-only">
+            {t('nav:globalSurfaceModal.loopsDescription')}
+          </DialogDescription>
+          <GlobalSurfaceDialogChrome
+            surface="loops"
+            onClose={() => setLoopsOpen(false)}
+          />
           <div className="flex-1 overflow-auto">
             <Suspense fallback={<div className="flex items-center justify-center h-40"><p className="text-sm text-muted-foreground">{t('states.loading')}</p></div>}>
               <LoopsPage />
+            </Suspense>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={pluginsOpen} onOpenChange={setPluginsOpen}>
+        <DialogContent showCloseButton={false} className="max-w-[96vw] w-[96vw] h-[92vh] max-h-[92vh] overflow-hidden p-0 flex flex-col">
+          <DialogTitle className="sr-only">{t('nav:arcSidebar.plugins')}</DialogTitle>
+          <DialogDescription className="sr-only">
+            {t('nav:globalSurfaceModal.pluginsDescription')}
+          </DialogDescription>
+          <GlobalSurfaceDialogChrome
+            surface="plugins"
+            onClose={() => setPluginsOpen(false)}
+          />
+          <div className="flex-1 overflow-auto">
+            <Suspense fallback={<div className="flex items-center justify-center h-40"><p className="text-sm text-muted-foreground">{t('states.loading')}</p></div>}>
+              <PluginsPage />
             </Suspense>
           </div>
         </DialogContent>

@@ -78,5 +78,240 @@
     "bullet2": "Posts a completion comment when a rail finishes.",
     "bullet3": "Your Jira backlog appears as specs on the board.",
     "requires": "Requires a Jira Cloud or Data Center account."
+  },
+  "plugins": {
+    "page": {
+      "title": "Plugins",
+      "subtitle": "Global tools and project integrations, managed from one place.",
+      "readyCount_one": "{{count}} ready",
+      "readyCount_other": "{{count}} ready"
+    },
+    "search": {
+      "placeholder": "Search plugins"
+    },
+    "filters": {
+      "all": "all",
+      "global": "global",
+      "project": "project"
+    },
+    "sections": {
+      "installed": "Installed",
+      "available": "Available"
+    },
+    "scope": {
+      "global": "global",
+      "project": "project"
+    },
+    "groups": {
+      "global": {
+        "title": "Global",
+        "detail": "Applies across Specrails"
+      },
+      "project": {
+        "title": "Project-local",
+        "detail": "Configured per repository"
+      }
+    },
+    "empty": {
+      "installedSearch": "No installed plugins match this search.",
+      "installed": "No installed plugins yet.",
+      "availableSearch": "No available plugins match this search.",
+      "allInstalled": "All plugins are installed."
+    },
+    "actions": {
+      "install": "Install",
+      "installing": "Installing",
+      "manage": "Manage",
+      "review": "Review",
+      "cancel": "Cancel"
+    },
+    "status": {
+      "attention": "attention",
+      "active": "active",
+      "externalActive": "external active",
+      "external": "external",
+      "installed": "installed",
+      "available": "available",
+      "configuredCount_one": "{{count}} configured",
+      "configuredCount_other": "{{count}} configured",
+      "installedCount_one": "{{count}} installed",
+      "installedCount_other": "{{count}} installed"
+    },
+    "catalog": {
+      "headroom": {
+        "description": "Optimize Codex and Claude launches through Headroom AI."
+      },
+      "jira": {
+        "description": "Sync project specs with a Jira board, status mapping, and completion comments."
+      },
+      "serena": {
+        "description": "Project-local semantic code navigation through Serena MCP."
+      }
+    },
+    "headroom": {
+      "title": "Headroom AI",
+      "dialogDescription": "Manage the global Headroom installation and provider routing.",
+      "panelDescription": "Installed globally, activated independently for Codex and Claude.",
+      "issueCode": "Code: {{code}}",
+      "confirmDetach": "This disables Specrails routing and stops the proxy. The existing system Headroom install is left untouched.",
+      "confirmUninstall": "This disables Codex and Claude routes, stops the proxy, and removes the Specrails-managed Headroom tool.",
+      "metrics": {
+        "install": "Install",
+        "checking": "Checking",
+        "ready": "Ready",
+        "missing": "Missing",
+        "source": "Source",
+        "system": "System",
+        "specrails": "Specrails",
+        "none": "None",
+        "proxy": "Proxy",
+        "starting": "Starting",
+        "off": "Off"
+      },
+      "actions": {
+        "installWithUv": "Install with bundled uv",
+        "disableAllRoutes": "Disable all routes",
+        "viewDiagnostics": "View diagnostics",
+        "detachHeadroom": "Detach Headroom",
+        "uninstallHeadroom": "Uninstall Headroom",
+        "detach": "Detach",
+        "uninstall": "Uninstall"
+      },
+      "port": {
+        "label": "Proxy port",
+        "apply": "Apply"
+      },
+      "provider": {
+        "noProjectUsesProvider": "No Specrails project uses this provider",
+        "routedThroughHeadroom": "Routed through Headroom",
+        "detectedExternalRoute": "Detected external route",
+        "notRouted": "Not routed"
+      },
+      "savings": {
+        "title": "Headroom Token Savings",
+        "learningOn": "output measured",
+        "waitingForOutputSamples": "output not measured",
+        "baseline": "{{method}} baseline",
+        "updatedLive": "updated live",
+        "baselineSamples_one": "{{count}} baseline sample",
+        "baselineSamples_other": "{{count}} baseline samples",
+        "tokens": "tokens",
+        "learning": "No data",
+        "off": "Off",
+        "requestDetail": "{{method}} · {{count}} requests",
+        "requestCount": "{{count}} requests",
+        "detected": "detected",
+        "totals": "Totals",
+        "input": "Input",
+        "output": "Output",
+        "processed": "Processed",
+        "saved": "Saved",
+        "noData": "No data",
+        "inputSaved": "Input saved",
+        "outputSaved": "Output saved",
+        "inputSavingsActive": "Routing through Headroom",
+        "statusInputOutput": "Input + output",
+        "statusInputOnly": "Input active",
+        "statusRouting": "Routing active",
+        "statusInactive": "Inactive",
+        "methods": {
+          "estimated": "estimated",
+          "measured": "measured",
+          "none": "none"
+        },
+        "waitingForShapedResponses": "No output responses measured yet",
+        "outputObserved": "{{value}} output observed",
+        "routeDisabled": "Route disabled"
+      },
+      "issues": {
+        "uv_missing_or_corrupt": {
+          "title": "Bundled uv is not available",
+          "guidance": "Specrails could not start its bundled uv runtime. Reinstall Specrails or use Repair once the runtime is available."
+        },
+        "network_unavailable": {
+          "title": "Headroom could not be downloaded",
+          "guidance": "Check your network connection and retry. Specrails will keep the install isolated in its own tool directory."
+        },
+        "package_resolution_failed": {
+          "title": "Headroom dependencies could not be resolved",
+          "guidance": "Retry the install. If it keeps failing, open diagnostics and share the uv output."
+        },
+        "install_permission_failed": {
+          "title": "Specrails cannot write its tool directory",
+          "guidance": "Check permissions under ~/.specrails/tools, then retry the install."
+        },
+        "headroom_not_found_after_install": {
+          "title": "Install finished but Headroom was not found",
+          "guidance": "Run Repair install. Specrails will reinstall Headroom and verify the executable."
+        },
+        "learning_setup_failed": {
+          "title": "Headroom learning could not be enabled",
+          "guidance": "Headroom is installed, but output-savings calibration did not finish. Keep using proxy routing while metrics collect output samples."
+        },
+        "metrics_unavailable": {
+          "title": "Headroom metrics are not available yet",
+          "guidance": "Start routing traffic through Headroom. Specrails will refresh token-savings metrics as soon as the proxy reports samples."
+        },
+        "proxy_port_busy": {
+          "title": "Headroom proxy port is already in use",
+          "guidance": "Choose another port or stop the process using the current port, then retry activation."
+        },
+        "proxy_unhealthy": {
+          "title": "Headroom proxy did not become healthy",
+          "guidance": "Retry activation. If it repeats, open diagnostics to inspect the proxy output."
+        },
+        "provider_route_failed": {
+          "title": "Provider route verification failed",
+          "guidance": "Specrails could not verify the provider route. The provider remains inactive; retry after checking diagnostics."
+        },
+        "provider_config_conflict": {
+          "title": "Existing provider configuration conflicts with Headroom",
+          "guidance": "Review diagnostics before enabling system-wide activation. Specrails-managed routing remains reversible."
+        },
+        "activation_partially_applied": {
+          "title": "Activation was only partially applied",
+          "guidance": "Specrails attempted rollback. Review diagnostics and retry the affected provider."
+        },
+        "not_installed": {
+          "title": "Headroom is not installed",
+          "guidance": "Install Headroom first, then activate Codex or Claude."
+        },
+        "uninstall_failed": {
+          "title": "Headroom could not be uninstalled",
+          "guidance": "Specrails disabled Headroom routing but could not remove the managed tool. Open diagnostics, then retry uninstall."
+        },
+        "unknown": {
+          "title": "Headroom operation failed",
+          "guidance": "Retry the operation. If it repeats, open diagnostics and share the details."
+        }
+      }
+    },
+    "projectWizard": {
+      "configureJira": "Configure Jira",
+      "installSerena": "Install Serena",
+      "description": "Select the project where this project-scoped plugin should be configured.",
+      "chooseProject": "Choose project",
+      "requiresClaudeProvider": "Requires Claude provider",
+      "selectProjectToContinue": "Select a project to continue."
+    },
+    "serena": {
+      "loading": "Loading Serena…",
+      "titleForProject": "Serena for {{name}}",
+      "description": "Installs project-local MCP configuration and plugin state. Other projects are untouched.",
+      "status": "Status: {{status}}",
+      "files": "Files",
+      "prerequisites": "Prerequisites"
+    },
+    "projectStatus": {
+      "installed": "installed",
+      "deactivated": "deactivated",
+      "not-installed": "not installed",
+      "orphan": "orphan",
+      "degraded": "degraded"
+    },
+    "diagnostics": {
+      "title": "Headroom diagnostics",
+      "description": "Technical status for the Specrails-managed Headroom installation and proxy."
+    }
   }
 }

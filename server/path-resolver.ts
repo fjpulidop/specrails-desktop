@@ -86,7 +86,7 @@ function fileExists(p: string): boolean {
  * this file-level and symmetric with setup-prerequisites means "bundle active"
  * means the same thing in both modules.
  */
-function resolveBundledBinDirs(runtimesPath: string): { nodeBinDir: string | null; gitBinDir: string | null } {
+function resolveBundledBinDirs(runtimesPath: string): { nodeBinDir: string | null; gitBinDir: string | null; uvBinDir: string | null } {
   const isWin = process.platform === 'win32'
   const nodeBinDir = isWin
     ? (fileExists(path.join(runtimesPath, 'node', 'node.exe')) ? path.join(runtimesPath, 'node') : null)
@@ -99,7 +99,14 @@ function resolveBundledBinDirs(runtimesPath: string): { nodeBinDir: string | nul
   } else if (fileExists(path.join(runtimesPath, 'git', 'bin', 'git'))) {
     gitBinDir = path.join(runtimesPath, 'git', 'bin')
   }
-  return { nodeBinDir, gitBinDir }
+  const uvBinDir = isWin
+    ? (fileExists(path.join(runtimesPath, 'uv', 'uv.exe')) ? path.join(runtimesPath, 'uv')
+      : fileExists(path.join(runtimesPath, 'uv', 'bin', 'uv.exe')) ? path.join(runtimesPath, 'uv', 'bin')
+        : null)
+    : (fileExists(path.join(runtimesPath, 'uv', 'bin', 'uv')) ? path.join(runtimesPath, 'uv', 'bin')
+      : fileExists(path.join(runtimesPath, 'uv', 'uv')) ? path.join(runtimesPath, 'uv')
+        : null)
+  return { nodeBinDir, gitBinDir, uvBinDir }
 }
 
 /**
@@ -264,7 +271,7 @@ function resolveStartupPathBase(): void {
   if (process.env.SPECRAILS_IS_DESKTOP === '1') {
     const runtimesPath = process.env.SPECRAILS_BUNDLED_RUNTIMES_PATH
     if (runtimesPath) {
-      const { nodeBinDir, gitBinDir } = resolveBundledBinDirs(runtimesPath)
+      const { nodeBinDir, gitBinDir, uvBinDir } = resolveBundledBinDirs(runtimesPath)
       // Activate the bundle only when BOTH node and git are present. A partial
       // bundle (one tool present, the other missing — a botched extraction) is
       // treated as NOT active so the full system fallback (fast-path + login-shell)
@@ -273,7 +280,7 @@ function resolveStartupPathBase(): void {
       if (nodeBinDir && gitBinDir) {
         const inherited = splitPath(process.env.PATH)
         const inheritedSet = new Set(inherited)
-        const bundledDirs = [nodeBinDir, gitBinDir].filter((d) => !inheritedSet.has(d))
+        const bundledDirs = [nodeBinDir, gitBinDir, uvBinDir].filter((d): d is string => !!d && !inheritedSet.has(d))
         bundledDirs.forEach((d) => inheritedSet.add(d))
         // Provider CLIs (claude/codex/gemini) are NEVER bundled — they always
         // come from the system. On Windows their `.cmd` shims live in

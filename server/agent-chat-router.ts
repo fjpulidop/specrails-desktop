@@ -14,6 +14,7 @@ import {
   deleteAgentConversation,
   listAgentMessages,
 } from './agent-store'
+import { killBackgroundProcessesForChat } from './transient-children'
 
 // ─── Agent chat REST surface (/api/agent) ─────────────────────────────────────
 //
@@ -248,6 +249,7 @@ export function createAgentChatRouter(deps: AgentRouterDeps): Router {
   router.delete('/conversations/:id', (req: Request, res: Response) => {
     const id = String(req.params.id)
     manager.abort(id)
+    killBackgroundProcessesForChat(id)
     deleteAgentConversation(desktopDb, id)
     // Cascade-remove the conversation's attachment directory (best-effort).
     void attachmentManager.deleteAllAgent(id).catch((e) =>

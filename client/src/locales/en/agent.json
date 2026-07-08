@@ -6,6 +6,18 @@
   "send": "Send",
   "stop": "Stop",
   "copy": "Copy",
+  "attachment": {
+    "openPreview": "Preview {{name}}",
+    "openDownload": "Download {{name}}",
+    "previewTitle": "Preview {{name}}",
+    "downloadTitle": "Download file?",
+    "downloadPrompt": "This file cannot be previewed here. Do you want to download it?",
+    "download": "Download",
+    "cancelDownload": "Not now",
+    "loading": "Preparing file…",
+    "loadFailed": "Could not load attachment",
+    "loadError": "Could not load attachment: {{error}}"
+  },
   "maximize": "Maximize",
   "restore": "Restore",
   "minimize": "Minimize",
