@@ -3,7 +3,7 @@ import { createPortal } from 'react-dom'
 import { useTranslation } from 'react-i18next'
 import { Puzzle, X } from 'lucide-react'
 import type { ReactElement } from 'react'
-import IntegrationsPage from '../../pages/IntegrationsPage'
+import PluginsPage from '../../pages/PluginsPage'
 import { useMovableResizableModal } from '../../hooks/useMovableResizableModal'
 import { ResizeGrips } from '../ui/ResizeGrips'
 import { TooltipProvider } from '../ui/tooltip'
@@ -70,7 +70,7 @@ export function AgentIntegrationsModal({ onClose }: AgentIntegrationsModalProps)
           </div>
 
           <div className="min-h-0 flex-1 overflow-auto">
-            <IntegrationsPage />
+            <PluginsPage />
           </div>
         </div>
 
