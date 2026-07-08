@@ -25,7 +25,7 @@ describe('scanWorktreeEnvRequirements', () => {
     fs.writeFileSync(path.join(repo, 'package.json'), JSON.stringify({
       scripts: { build: 'node -e "console.log(process.env.AWS_PROFILE)"' },
       dependencies: {
-        '@busuu/design-system': '1.0.0',
+        '@acme/design-system': '1.0.0',
         react: '^18.0.0',
       },
     }, null, 2))

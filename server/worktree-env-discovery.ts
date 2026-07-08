@@ -49,6 +49,25 @@ const SKIP_DIRS = new Set([
 const ENV_REF_RE =
   /\$\{([A-Za-z_][A-Za-z0-9_]*)\}|process\.env\.([A-Za-z_][A-Za-z0-9_]*)|process\.env\[['"]([A-Za-z_][A-Za-z0-9_]*)['"]\]/g
 
+const COMMON_PUBLIC_NPM_SCOPES = new Set([
+  '@babel',
+  '@codemirror',
+  '@eslint',
+  '@modelcontextprotocol',
+  '@monaco-editor',
+  '@radix-ui',
+  '@rolldown',
+  '@rollup',
+  '@tailwindcss',
+  '@tauri-apps',
+  '@testing-library',
+  '@types',
+  '@typescript-eslint',
+  '@vitejs',
+  '@vitest',
+  '@xterm',
+])
+
 function addCandidate(
   map: Map<string, EnvDiscoveryCandidate>,
   name: string,
@@ -125,6 +144,10 @@ function packageScopes(pkg: Record<string, unknown>): Set<string> {
   return scopes
 }
 
+function likelyPrivatePackageScopes(scopes: Set<string>): string[] {
+  return Array.from(scopes).filter((scope) => !COMMON_PUBLIC_NPM_SCOPES.has(scope)).sort()
+}
+
 function scanPackageJson(raw: string, rel: string, candidates: Map<string, EnvDiscoveryCandidate>): void {
   let pkg: Record<string, unknown>
   try {
@@ -132,10 +155,10 @@ function scanPackageJson(raw: string, rel: string, candidates: Map<string, EnvDi
   } catch {
     return
   }
-  const scopes = packageScopes(pkg)
-  if (scopes.has('@busuu')) {
-    addCandidate(candidates, 'NODE_AUTH_TOKEN', 'medium', 'Package dependencies include @busuu/* scoped packages', rel)
-    addCandidate(candidates, 'NPM_TOKEN', 'medium', 'Package dependencies include @busuu/* scoped packages', rel)
+  const privateScopes = likelyPrivatePackageScopes(packageScopes(pkg))
+  if (privateScopes.length > 0) {
+    addCandidate(candidates, 'NODE_AUTH_TOKEN', 'medium', 'Package dependencies include scoped packages that may require npm auth', rel)
+    addCandidate(candidates, 'NPM_TOKEN', 'medium', 'Package dependencies include scoped packages that may require npm auth', rel)
   }
 }
 

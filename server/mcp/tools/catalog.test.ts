@@ -259,7 +259,7 @@ describe('specrails_env tool', () => {
   it('auto_configure scans the repo and merges discovered package-token candidates', async () => {
     tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'specrails-mcp-env-'))
     fs.writeFileSync(path.join(tmpDir, 'package.json'), JSON.stringify({
-      dependencies: { '@busuu/design-system': '1.0.0' },
+      dependencies: { '@acme/design-system': '1.0.0' },
     }))
     ctx = makeCtx(db, tmpDir)
     const fetchMock = mockSettingsFetch(['AWS_PROFILE'])
