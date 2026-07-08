@@ -140,7 +140,7 @@ describe('AgentMissionSelector', () => {
     expect(agentApi.getAgentConversation).toHaveBeenCalledWith('c2')
     await waitFor(() => expect(screen.getByTestId('active-id').textContent).toBe('c2'))
     // Dropdown closed after selection.
-    expect(screen.queryByRole('listbox')).not.toBeInTheDocument()
+    await waitFor(() => expect(screen.queryByRole('listbox')).not.toBeInTheDocument())
   })
 
   it('marks the active mission with aria-selected', async () => {
