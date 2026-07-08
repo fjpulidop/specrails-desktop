@@ -1,5 +1,18 @@
 # Changelog
 
+## [2.27.0](https://github.com/fjpulidop/specrails-desktop/compare/v2.26.2...v2.27.0) (2026-07-08)
+
+
+### Features
+
+* **dev:** support configurable web dev ports ([#527](https://github.com/fjpulidop/specrails-desktop/issues/527)) ([c690c85](https://github.com/fjpulidop/specrails-desktop/commit/c690c85f500eac71c6001cc818c8d829557b8deb))
+* **projects:** configure worktree env passthrough ([#531](https://github.com/fjpulidop/specrails-desktop/issues/531)) ([d3ae007](https://github.com/fjpulidop/specrails-desktop/commit/d3ae0074c89bab6962eb22f5139f2708d3bf8e8c))
+
+
+### Bug Fixes
+
+* **env:** remove vendor-specific package hints ([#534](https://github.com/fjpulidop/specrails-desktop/issues/534)) ([8d712ea](https://github.com/fjpulidop/specrails-desktop/commit/8d712eaf7e5f2e774652ab87e8e9f5e3189738c6))
+
 ## [2.26.2](https://github.com/fjpulidop/specrails-desktop/compare/v2.26.1...v2.26.2) (2026-07-07)
 
 
