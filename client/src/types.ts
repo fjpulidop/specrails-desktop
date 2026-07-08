@@ -1,5 +1,19 @@
 export type JobStatus = 'queued' | 'running' | 'completed' | 'failed' | 'canceled' | 'zombie_terminated' | 'skipped'
 
+export type BackgroundProcessStatus = 'starting' | 'running' | 'exited' | 'killed' | 'failed'
+
+export interface BackgroundProcess {
+  pid: number
+  command: string
+  cwd: string
+  startedAt: number
+  status: BackgroundProcessStatus
+  chatId: string
+  projectId: string
+  exitCode?: number | null
+  signal?: string | null
+}
+
 export type JobPriority = 'low' | 'normal' | 'high' | 'critical'
 
 export interface PhaseDefinition {
