@@ -1,5 +1,12 @@
 # Changelog
 
+## [2.28.1](https://github.com/fjpulidop/specrails-desktop/compare/v2.28.0...v2.28.1) (2026-07-08)
+
+
+### Bug Fixes
+
+* **headroom:** install with managed Python runtime ([#538](https://github.com/fjpulidop/specrails-desktop/issues/538)) ([3f27824](https://github.com/fjpulidop/specrails-desktop/commit/3f278241ff0520fb94eadb62e6b847ac9142dcf4))
+
 ## [2.28.0](https://github.com/fjpulidop/specrails-desktop/compare/v2.27.0...v2.28.0) (2026-07-08)
 
 
