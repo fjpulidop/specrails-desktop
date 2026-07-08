@@ -111,6 +111,7 @@ type Broadcast = (msg: WsMessage) => void
 
 const STATE_KEY = 'plugins.headroom.state'
 const DEFAULT_PORT = 8787
+export const HEADROOM_MANAGED_PYTHON_VERSION = '3.12'
 
 interface PersistedHeadroomState {
   installed?: boolean
@@ -142,6 +143,18 @@ function uvToolDir(): string {
 
 function uvCacheDir(): string {
   return path.join(toolRoot(), 'uv', 'cache')
+}
+
+function uvPythonInstallDir(): string {
+  return path.join(toolRoot(), 'uv', 'python')
+}
+
+function uvPythonCacheDir(): string {
+  return path.join(toolRoot(), 'uv', 'python-cache')
+}
+
+function uvPythonBinDir(): string {
+  return path.join(toolRoot(), 'uv', 'python-bin')
 }
 
 function uvBinDir(): string {
@@ -272,6 +285,47 @@ function classifyInstallFailure(output: string, command: string): HeadroomIssue 
     return issue('package_resolution_failed', output, command)
   }
   return issue('unknown', output, command)
+}
+
+export function getHeadroomManagedInstallPlan(): {
+  pythonVersion: string
+  pythonInstallArgs: string[]
+  toolInstallArgs: string[]
+  env: Record<string, string>
+} {
+  return {
+    pythonVersion: HEADROOM_MANAGED_PYTHON_VERSION,
+    pythonInstallArgs: [
+      'python',
+      'install',
+      HEADROOM_MANAGED_PYTHON_VERSION,
+      '--managed-python',
+    ],
+    toolInstallArgs: [
+      'tool',
+      'install',
+      '--python',
+      HEADROOM_MANAGED_PYTHON_VERSION,
+      '--managed-python',
+      '--force',
+      'headroom-ai[all]',
+    ],
+    env: {
+      UV_TOOL_DIR: uvToolDir(),
+      UV_TOOL_BIN_DIR: uvBinDir(),
+      UV_CACHE_DIR: uvCacheDir(),
+      UV_PYTHON: HEADROOM_MANAGED_PYTHON_VERSION,
+      UV_MANAGED_PYTHON: 'true',
+      UV_PYTHON_DOWNLOADS: 'automatic',
+      UV_PYTHON_PREFERENCE: 'only-managed',
+      UV_PYTHON_INSTALL_DIR: uvPythonInstallDir(),
+      UV_PYTHON_CACHE_DIR: uvPythonCacheDir(),
+      UV_PYTHON_BIN_DIR: uvPythonBinDir(),
+      UV_PYTHON_NO_REGISTRY: 'true',
+      UV_PYTHON_INSTALL_REGISTRY: 'false',
+      UV_NO_PROGRESS: '1',
+    },
+  }
 }
 
 function classifyProxyFailure(output: string, command: string): HeadroomIssue {
@@ -479,21 +533,37 @@ export class HeadroomManager {
     fs.mkdirSync(uvToolDir(), { recursive: true })
     fs.mkdirSync(uvCacheDir(), { recursive: true })
     fs.mkdirSync(uvBinDir(), { recursive: true })
+    fs.mkdirSync(uvPythonInstallDir(), { recursive: true })
+    fs.mkdirSync(uvPythonCacheDir(), { recursive: true })
+    fs.mkdirSync(uvPythonBinDir(), { recursive: true })
 
-    const args = ['tool', 'install', 'headroom-ai[all]', '--force']
-    const command = `${uv} ${args.join(' ')}`
-    const logs: string[] = [`Running ${command}`]
+    const plan = getHeadroomManagedInstallPlan()
+    const pythonCommand = `${uv} ${plan.pythonInstallArgs.join(' ')}`
+    const installCommand = `${uv} ${plan.toolInstallArgs.join(' ')}`
+    const logs: string[] = [
+      `Ensuring Headroom Python runtime (CPython ${plan.pythonVersion})`,
+      `Running ${pythonCommand}`,
+    ]
     this.emit('installing', logs[0])
+    this.emit('installing', logs[1])
 
-    const result = await this.runCommand(uv, args, {
-      UV_TOOL_DIR: uvToolDir(),
-      UV_TOOL_BIN_DIR: uvBinDir(),
-      UV_CACHE_DIR: uvCacheDir(),
-      UV_NO_PROGRESS: '1',
-    }, logs)
+    const pythonResult = await this.runCommand(uv, plan.pythonInstallArgs, plan.env, logs)
+    if (pythonResult.code !== 0) {
+      const failure = classifyInstallFailure(logs.join('\n'), pythonCommand)
+      this.updatePersisted({ lastIssue: failure })
+      this.emit('failed', failure.title)
+      return { ok: false, state: this.getState(), issue: failure, logs }
+    }
+
+    logs.push(`Installing Headroom with managed CPython ${plan.pythonVersion}`)
+    logs.push(`Running ${installCommand}`)
+    this.emit('installing', logs[logs.length - 2])
+    this.emit('installing', logs[logs.length - 1])
+
+    const result = await this.runCommand(uv, plan.toolInstallArgs, plan.env, logs)
 
     if (result.code !== 0) {
-      const failure = classifyInstallFailure(logs.join('\n'), command)
+      const failure = classifyInstallFailure(logs.join('\n'), installCommand)
       this.updatePersisted({ lastIssue: failure })
       this.emit('failed', failure.title)
       return { ok: false, state: this.getState(), issue: failure, logs }
@@ -502,7 +572,7 @@ export class HeadroomManager {
     const exe = this.resolveHeadroomInstall(null, false)?.path ?? null
     const version = exe ? this.readHeadroomVersion(exe) : null
     if (!exe || !version) {
-      const failure = issue('headroom_not_found_after_install', logs.join('\n'), command)
+      const failure = issue('headroom_not_found_after_install', logs.join('\n'), installCommand)
       this.updatePersisted({ lastIssue: failure })
       this.emit('failed', failure.title)
       return { ok: false, state: this.getState(), issue: failure, logs }
@@ -659,6 +729,9 @@ export class HeadroomManager {
       toolDir: uvToolDir(),
       binDir: uvBinDir(),
       cacheDir: uvCacheDir(),
+      pythonInstallDir: uvPythonInstallDir(),
+      pythonBinDir: uvPythonBinDir(),
+      pythonCacheDir: uvPythonCacheDir(),
       proxyTail: this.proxyTail.slice(-4000),
       installSource: state.installSource,
       detectedRoutes: state.detectedRoutes,
