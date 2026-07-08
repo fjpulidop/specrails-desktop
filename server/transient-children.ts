@@ -42,6 +42,7 @@ interface BackgroundRecord {
   process: BackgroundProcess
   hooks: BackgroundProcessHooks
   killTimer?: ReturnType<typeof setTimeout>
+  terminalNotified?: boolean
 }
 
 export interface BackgroundProcessHooks {
@@ -52,9 +53,21 @@ export interface BackgroundProcessHooks {
 
 const backgroundByPid = new Map<number, BackgroundRecord>()
 const backgroundTerminal = new Set<BackgroundProcessStatus>(['exited', 'killed', 'failed'])
+const BACKGROUND_KILL_GRACE_MS = 2500
+const BACKGROUND_OUTPUT_MAX_LINE_CHARS = 1000
+const BACKGROUND_OUTPUT_MAX_LINES_PER_SECOND = 20
 
 function treeKillSafe(pid: number, signal: 'SIGTERM' | 'SIGKILL'): void {
   try { treeKill(pid, signal, () => undefined) } catch { /* best-effort */ }
+}
+
+function treeKillWithEscalation(pid: number, isStillAlive: () => boolean = () => backgroundByPid.has(pid)): ReturnType<typeof setTimeout> {
+  treeKillSafe(pid, 'SIGTERM')
+  const timer = setTimeout(() => {
+    if (isStillAlive()) treeKillSafe(pid, 'SIGKILL')
+  }, BACKGROUND_KILL_GRACE_MS)
+  timer.unref?.()
+  return timer
 }
 
 function cloneProcess(process: BackgroundProcess): BackgroundProcess {
@@ -80,12 +93,17 @@ export function trackTransientChild(projectId: string, child: ChildProcess): voi
   child.once('error', drop)
 }
 
-/** SIGTERM the whole subtree of every tracked child for a project, then forget. */
+/** SIGTERM the whole subtree of every tracked child for a project, then escalate. */
 export function killTransientChildren(projectId: string): void {
   const set = byProject.get(projectId)
   if (set) for (const child of set) {
     if (child.pid) {
-      treeKillSafe(child.pid, 'SIGTERM')
+      if (backgroundByPid.has(child.pid)) continue
+      let alive = true
+      const timer = treeKillWithEscalation(child.pid, () => alive)
+      const clear = (): void => { alive = false; clearTimeout(timer) }
+      child.once('close', clear)
+      child.once('error', clear)
     }
   }
   byProject.delete(projectId)
@@ -93,8 +111,7 @@ export function killTransientChildren(projectId: string): void {
   for (const [pid, record] of [...backgroundByPid]) {
     if (record.process.projectId !== projectId) continue
     markTerminal(record, 'killed', null, 'SIGTERM')
-    treeKillSafe(pid, 'SIGTERM')
-    backgroundByPid.delete(pid)
+    terminateBackgroundRecord(record)
   }
 }
 
@@ -132,7 +149,7 @@ export function startBackgroundProcess(
   attachOutput(child, 'stderr', record)
 
   child.once('error', () => {
-    markTerminal(record, 'failed', null, null)
+    markTerminal(record, process.status === 'killed' ? 'killed' : 'failed', null, null)
     backgroundByPid.delete(process.pid)
   })
   child.once('close', (code: number | null, signal: NodeJS.Signals | null) => {
@@ -151,14 +168,27 @@ function attachOutput(
   record: BackgroundRecord,
 ): void {
   const stream = source === 'stdout' ? child.stdout : child.stderr
+  if (!record.hooks.onOutput) {
+    stream.resume()
+    return
+  }
   const rl = readline.createInterface({ input: stream })
+  let windowStart = Date.now()
+  let emittedInWindow = 0
   rl.on('line', (line) => {
+    const now = Date.now()
+    if (now - windowStart >= 1000) {
+      windowStart = now
+      emittedInWindow = 0
+    }
+    if (emittedInWindow >= BACKGROUND_OUTPUT_MAX_LINES_PER_SECOND) return
+    emittedInWindow += 1
     record.hooks.onOutput?.({
       pid: record.process.pid,
       chatId: record.process.chatId,
       projectId: record.process.projectId,
       source,
-      line,
+      line: line.length > BACKGROUND_OUTPUT_MAX_LINE_CHARS ? `${line.slice(0, BACKGROUND_OUTPUT_MAX_LINE_CHARS)}...` : line,
     })
   })
 }
@@ -173,6 +203,8 @@ function markTerminal(
   record.process.status = status
   record.process.exitCode = exitCode
   record.process.signal = signal
+  if (record.terminalNotified) return
+  record.terminalNotified = true
   record.hooks.onExited?.(cloneProcess(record.process))
 }
 
@@ -199,10 +231,7 @@ export function killBackgroundProcess(
   const record = backgroundByPid.get(pid)
   if (!record) return
   record.process.status = 'killed'
-  treeKillSafe(pid, 'SIGTERM')
-  record.killTimer = setTimeout(() => {
-    if (backgroundByPid.has(pid)) treeKillSafe(pid, 'SIGKILL')
-  }, 2500)
+  terminateBackgroundRecord(record)
 }
 
 export function killOwnedBackgroundProcess(
@@ -215,4 +244,22 @@ export function killOwnedBackgroundProcess(
   if (record.process.chatId !== owner.chatId) return false
   killBackgroundProcess(pid)
   return true
+}
+
+function terminateBackgroundRecord(record: BackgroundRecord): void {
+  if (record.killTimer) clearTimeout(record.killTimer)
+  record.killTimer = treeKillWithEscalation(record.process.pid)
+}
+
+export function killBackgroundProcessesForChat(chatId: string, projectId?: string): number {
+  let killed = 0
+  for (const record of backgroundByPid.values()) {
+    if (record.process.chatId !== chatId) continue
+    if (projectId && record.process.projectId !== projectId) continue
+    record.process.status = 'killed'
+    markTerminal(record, 'killed', null, 'SIGTERM')
+    terminateBackgroundRecord(record)
+    killed += 1
+  }
+  return killed
 }

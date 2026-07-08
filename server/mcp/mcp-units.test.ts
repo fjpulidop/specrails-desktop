@@ -255,14 +255,42 @@ describe('tool handlers', () => {
     })
     vi.mocked(killOwnedBackgroundProcess).mockReturnValue(true)
 
-    await expect(async () => t.handler(ctx, { action: 'background_start', projectId: 'p1', command: 'npm run dev' })).rejects.toThrow(/chatId/)
+    await expect(async () => t.handler(ctx, { action: 'background_start', projectId: 'p1', command: 'npm run dev', chatId: 'c1' })).rejects.toThrow(/confirmed/)
+    await expect(async () => t.handler(ctx, { action: 'background_start', projectId: 'p1', command: 'npm run dev', confirmed: true })).rejects.toThrow(/chatId/)
     await expect(async () => t.handler(ctx, {
       action: 'background_start',
       projectId: 'p1',
       command: 'npm run dev',
       chatId: 'c1',
       cwd: '../outside',
+      confirmed: true,
     })).rejects.toThrow(/cwd/)
+
+    const busyCtx = {
+      ...makeCtx(db, [{
+        project: { id: 'p1', name: 'One', path: '/tmp/one' } as ProjectContext['project'],
+        queueManager: { getActiveJobId: () => 'job-1' } as unknown as ProjectContext['queueManager'],
+      }]),
+      broadcast,
+    }
+    await expect(async () => t.handler(busyCtx, {
+      action: 'background_start',
+      projectId: 'p1',
+      command: 'npm run dev',
+      chatId: 'c1',
+      cwd: '.',
+      confirmed: true,
+    })).rejects.toThrow(/job job-1/)
+    const forcedWhileBusy = await t.handler(busyCtx, {
+      action: 'background_start',
+      projectId: 'p1',
+      command: 'npm run dev',
+      chatId: 'c1',
+      cwd: '.',
+      confirmed: true,
+      allowWhileBusy: true,
+    }) as { process: { pid: number } }
+    expect(forcedWhileBusy.process.pid).toBe(123)
 
     const originCtx = { ...ctx, originConversationId: 'c-origin' }
     const startedFromOrigin = await t.handler(originCtx, {
@@ -270,6 +298,7 @@ describe('tool handlers', () => {
       projectId: 'p1',
       command: 'npm run dev',
       cwd: '.',
+      confirmed: true,
     }) as { process: { chatId: string } }
     expect(startedFromOrigin.process.chatId).toBe('c-origin')
 
@@ -279,6 +308,7 @@ describe('tool handlers', () => {
       command: 'npm run dev',
       chatId: 'c1',
       cwd: '.',
+      confirmed: true,
     }) as { process: { pid: number; cwd: string } }
 
     expect(started.process).toMatchObject({ pid: 123, cwd: '/tmp/one' })

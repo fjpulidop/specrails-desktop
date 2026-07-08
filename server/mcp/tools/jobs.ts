@@ -4,6 +4,8 @@ import { apiCall, projectPath, originConversationDefaults, requireProject } from
 import path from 'path'
 import { startBackgroundProcess, killOwnedBackgroundProcess } from '../../transient-children'
 import type { WsMessage } from '../../types'
+import type { ProjectContext } from '../../project-registry'
+import { listRunningLoopRuns } from '../../loop-runs-store'
 
 function resolveBackgroundCwd(projectRoot: string, cwd: string | undefined): string {
   const resolved = path.resolve(projectRoot, cwd && cwd.trim() ? cwd : '.')
@@ -22,11 +24,6 @@ function backgroundHooks(broadcast: (msg: WsMessage) => void) {
       projectId: process.projectId,
       timestamp: new Date().toISOString(),
     }),
-    onOutput: (event: import('../../transient-children').BackgroundProcessOutputEvent) => broadcast({
-      type: 'background_process.output',
-      ...event,
-      timestamp: new Date().toISOString(),
-    }),
     onExited: (process: import('../../transient-children').BackgroundProcess) => broadcast({
       type: 'background_process.exited',
       process,
@@ -34,6 +31,18 @@ function backgroundHooks(broadcast: (msg: WsMessage) => void) {
       timestamp: new Date().toISOString(),
     }),
   }
+}
+
+function backgroundStartBusyReason(projectCtx: ProjectContext): string | null {
+  const activeJobId = typeof projectCtx.queueManager?.getActiveJobId === 'function' ? projectCtx.queueManager.getActiveJobId() : null
+  if (activeJobId) return `job ${activeJobId} is still running`
+  try {
+    const runningLoops = listRunningLoopRuns(projectCtx.db, projectCtx.project.id)
+    if (runningLoops.length > 0) return `loop run ${runningLoops[0].id} is still running`
+  } catch {
+    // Some unit harnesses stub the DB narrowly; absence of loop metadata is not a blocker.
+  }
+  return null
 }
 
 /**
@@ -54,7 +63,7 @@ export function jobsTools(): McpToolSpec[] {
       description:
         'Manage a project\'s AI-pipeline job queue and individual jobs. ' +
         'Actions: list, get, queue, spawn (ai-spawn — enqueues an arbitrary slash-command job, returns {jobId,position}, async; from the in-app agent chat the engine defaults to your conversation\'s provider — pass aiEngine to override), ' +
-        'background_start (operate-level shell command tied to the current agent chat; requires explicit user confirmation before use), background_kill, ' +
+        'background_start (operate-level shell command tied to the current agent chat; requires confirmed:true after explicit user confirmation before use), background_kill, ' +
         'cancel (destructive — cancels a running/queued job or deletes a terminal one), ' +
         'purge (destructive — bulk-delete persisted job rows in a date range), ' +
         'pause / resume (queue), reorder (queued-job order), priority (change a queued job\'s priority), ' +
@@ -136,6 +145,8 @@ export function jobsTools(): McpToolSpec[] {
         chatId: z.string().optional().describe('Agent chat conversation id for background_start/background_kill ownership; defaults to the in-app agent conversation that called the tool'),
         cwd: z.string().optional().describe('Optional cwd for background_start; resolved inside the selected project root'),
         pid: z.number().optional().describe('Background process pid for background_kill'),
+        confirmed: z.boolean().optional().describe('background_start only: must be true after explicit user confirmation for this exact command'),
+        allowWhileBusy: z.boolean().optional().describe('background_start only: override active job/loop guard after explicit user confirmation'),
         // ── export ──
         format: z.enum(['json', 'csv']).optional().describe('Export format (default json)'),
         // ── default_spec_model ──
@@ -311,9 +322,14 @@ export function jobsTools(): McpToolSpec[] {
           case 'background_start': {
             const command = args.command as string | undefined
             if (!command || !command.trim()) throw new Error('background_start requires a "command".')
+            if (args.confirmed !== true) throw new Error('background_start requires confirmed:true after explicit user confirmation for this exact command.')
             const chatId = (args.chatId as string | undefined) ?? ctx.originConversationId ?? undefined
             if (!chatId || !chatId.trim()) throw new Error('background_start requires a "chatId".')
             const projectCtx = requireProject(ctx, args.projectId as string | undefined)
+            const busyReason = backgroundStartBusyReason(projectCtx)
+            if (busyReason && args.allowWhileBusy !== true) {
+              throw new Error(`background_start refused because ${busyReason}. Wait for it to finish, or pass allowWhileBusy:true only after explicit user confirmation.`)
+            }
             const cwd = resolveBackgroundCwd(projectCtx.project.path, args.cwd as string | undefined)
             const process = startBackgroundProcess(
               command.trim(),

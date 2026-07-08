@@ -7,6 +7,7 @@ import {
   startBackgroundProcess,
   killBackgroundProcess,
   killOwnedBackgroundProcess,
+  killBackgroundProcessesForChat,
   getBackgroundProcess,
   listBackgroundProcesses,
 } from './transient-children'
@@ -148,6 +149,10 @@ describe('transient-children', () => {
     vi.mocked(treeKill).mockClear()
     killTransientChildren('proj-2')
     expect(treeKill).toHaveBeenCalledWith(666, 'SIGTERM', expect.any(Function))
+    expect(getBackgroundProcess(666)).toMatchObject({ status: 'killed' })
+    vi.advanceTimersByTime(2500)
+    expect(treeKill).toHaveBeenCalledWith(666, 'SIGKILL', expect.any(Function))
+    other.emit('close', null, 'SIGTERM')
     expect(getBackgroundProcess(666)).toBeNull()
   })
 
@@ -166,6 +171,41 @@ describe('transient-children', () => {
 
     killBackgroundProcess(777)
     expect(listBackgroundProcesses({ projectId: 'proj-1', chatId: 'chat-1' })).toEqual([])
+    first.emit('close', null, 'SIGTERM')
+    second.emit('close', 0, null)
+  })
+
+  it('preserves killed status if a child emits error after kill is requested', () => {
+    const child = fakeChild(779)
+    vi.mocked(spawn).mockReturnValue(child)
+    const exited = vi.fn()
+    startBackgroundProcess('npm run dev', '/repo', 'chat-1', 'proj-1', { onExited: exited })
+
+    killBackgroundProcess(779)
+    child.emit('error', new Error('process already exited'))
+
+    expect(exited).toHaveBeenCalledWith(expect.objectContaining({ pid: 779, status: 'killed' }))
+    expect(getBackgroundProcess(779)).toBeNull()
+  })
+
+  it('kills every background process owned by a deleted chat', () => {
+    const first = fakeChild(880)
+    vi.mocked(spawn).mockReturnValue(first)
+    const firstExited = vi.fn()
+    startBackgroundProcess('npm run dev', '/repo', 'chat-z', 'proj-1', { onExited: firstExited })
+
+    const second = fakeChild(881)
+    vi.mocked(spawn).mockReturnValue(second)
+    startBackgroundProcess('npm run watch', '/repo', 'other-chat', 'proj-1')
+
+    expect(killBackgroundProcessesForChat('chat-z')).toBe(1)
+    expect(firstExited).toHaveBeenCalledWith(expect.objectContaining({ pid: 880, status: 'killed' }))
+    expect(treeKill).toHaveBeenCalledWith(880, 'SIGTERM', expect.any(Function))
+    expect(getBackgroundProcess(880)).toMatchObject({ status: 'killed' })
+    expect(getBackgroundProcess(881)).toMatchObject({ status: 'running' })
+
+    vi.advanceTimersByTime(2500)
+    expect(treeKill).toHaveBeenCalledWith(880, 'SIGKILL', expect.any(Function))
     first.emit('close', null, 'SIGTERM')
     second.emit('close', 0, null)
   })
