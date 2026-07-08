@@ -201,6 +201,12 @@
         "requestDetail": "{{method}} · {{count}} requêtes",
         "requestCount": "{{count}} requêtes",
         "detected": "détecté",
+        "totals": "Totaux",
+        "input": "Entrée",
+        "output": "Sortie",
+        "processed": "Traités",
+        "saved": "Économisés",
+        "noData": "Aucune donnée",
         "inputSaved": "Entrée économisée",
         "outputSaved": "Sortie économisée",
         "inputSavingsActive": "Routage via Headroom",
@@ -215,8 +221,7 @@
         },
         "waitingForShapedResponses": "Aucune réponse de sortie mesurée",
         "outputObserved": "{{value}} de sortie observés",
-        "routeDisabled": "Route désactivée",
-        "input": "entrée {{value}}"
+        "routeDisabled": "Route désactivée"
       },
       "issues": {
         "uv_missing_or_corrupt": {

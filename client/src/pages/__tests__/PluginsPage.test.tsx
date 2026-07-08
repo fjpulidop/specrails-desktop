@@ -264,7 +264,9 @@ describe('PluginsPage', () => {
       active: true,
       detectedRoute: true,
       requests: 12,
+      inputTokens: 250000,
       inputTokensSaved: 125000,
+      outputTokens: 45000,
       outputTokensSaved: 8400,
       outputSavingsMethod: 'estimated',
       outputSavingsPercent: 18.5,
@@ -278,10 +280,15 @@ describe('PluginsPage', () => {
     expect(await screen.findByText('Headroom Token Savings')).toBeInTheDocument()
     expect(screen.getByText('Input + output')).toBeInTheDocument()
     expect(screen.getByText('Codex')).toBeInTheDocument()
-    expect(screen.getAllByText('Input saved').length).toBeGreaterThan(0)
-    expect(screen.getAllByText('Output saved').length).toBeGreaterThan(0)
-    expect(screen.getByText(/125K tokens/i)).toBeInTheDocument()
-    expect(screen.getByText(/8\.4K tokens/i)).toBeInTheDocument()
+    expect(screen.getAllByText('Totals').length).toBeGreaterThan(0)
+    expect(screen.getAllByText('Input').length).toBeGreaterThan(0)
+    expect(screen.getAllByText('Output').length).toBeGreaterThan(0)
+    expect(screen.getAllByText('Processed').length).toBeGreaterThan(0)
+    expect(screen.getAllByText('Saved').length).toBeGreaterThan(0)
+    expect(screen.getAllByText(/250K tokens/i).length).toBeGreaterThan(0)
+    expect(screen.getAllByText(/125K tokens/i).length).toBeGreaterThan(0)
+    expect(screen.getAllByText(/45K tokens/i).length).toBeGreaterThan(0)
+    expect(screen.getAllByText(/8\.4K tokens/i).length).toBeGreaterThan(0)
     expect(screen.getByText('detected')).toBeInTheDocument()
     expect(screen.getByText('System')).toBeInTheDocument()
   })
@@ -314,11 +321,14 @@ describe('PluginsPage', () => {
 
     expect(await screen.findByText('Headroom Token Savings')).toBeInTheDocument()
     expect(screen.getByText('Input active')).toBeInTheDocument()
-    expect(screen.getAllByText('Input saved').length).toBeGreaterThan(0)
-    expect(screen.getAllByText('Output saved').length).toBeGreaterThan(0)
-    expect(screen.getByText(/1\.5M tokens/i)).toBeInTheDocument()
-    expect(screen.getByText('No data')).toBeInTheDocument()
-    expect(screen.getByText(/470\.9K tokens output observed/i)).toBeInTheDocument()
+    expect(screen.getAllByText('Totals').length).toBeGreaterThan(0)
+    expect(screen.getAllByText('Input').length).toBeGreaterThan(0)
+    expect(screen.getAllByText('Output').length).toBeGreaterThan(0)
+    expect(screen.getAllByText('Processed').length).toBeGreaterThan(0)
+    expect(screen.getAllByText('Saved').length).toBeGreaterThan(0)
+    expect(screen.getAllByText(/1\.5M tokens/i).length).toBeGreaterThan(0)
+    expect(screen.getAllByText(/470\.9K tokens/i).length).toBeGreaterThan(0)
+    expect(screen.getAllByText('No data').length).toBeGreaterThan(0)
     expect(screen.queryByText('Output Tokens Saved')).not.toBeInTheDocument()
     expect(screen.queryByText('Output savings unavailable')).not.toBeInTheDocument()
     expect(screen.queryByText(/no savings reported/i)).not.toBeInTheDocument()

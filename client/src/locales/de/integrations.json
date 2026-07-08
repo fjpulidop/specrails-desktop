@@ -201,6 +201,12 @@
         "requestDetail": "{{method}} · {{count}} Anfragen",
         "requestCount": "{{count}} Anfragen",
         "detected": "erkannt",
+        "totals": "Gesamt",
+        "input": "Eingabe",
+        "output": "Ausgabe",
+        "processed": "Verarbeitet",
+        "saved": "Gespart",
+        "noData": "Keine Daten",
         "inputSaved": "Eingabe gespart",
         "outputSaved": "Ausgabe gespart",
         "inputSavingsActive": "Routing über Headroom",
@@ -215,8 +221,7 @@
         },
         "waitingForShapedResponses": "Noch keine Ausgabeantworten gemessen",
         "outputObserved": "{{value}} Ausgabe beobachtet",
-        "routeDisabled": "Route deaktiviert",
-        "input": "Eingabe {{value}}"
+        "routeDisabled": "Route deaktiviert"
       },
       "issues": {
         "uv_missing_or_corrupt": {

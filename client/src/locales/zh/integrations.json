@@ -201,6 +201,12 @@
         "requestDetail": "{{method}} · {{count}} 次请求",
         "requestCount": "{{count}} 次请求",
         "detected": "已检测",
+        "totals": "总计",
+        "input": "输入",
+        "output": "输出",
+        "processed": "已处理",
+        "saved": "已节省",
+        "noData": "无数据",
         "inputSaved": "输入节省",
         "outputSaved": "输出节省",
         "inputSavingsActive": "正在通过 Headroom 路由",
@@ -215,8 +221,7 @@
         },
         "waitingForShapedResponses": "尚未测量输出响应",
         "outputObserved": "已观察到 {{value}} 输出",
-        "routeDisabled": "路由已禁用",
-        "input": "输入 {{value}}"
+        "routeDisabled": "路由已禁用"
       },
       "issues": {
         "uv_missing_or_corrupt": {

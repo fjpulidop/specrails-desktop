@@ -201,6 +201,12 @@
         "requestDetail": "{{method}} · {{count}} requests",
         "requestCount": "{{count}} requests",
         "detected": "detected",
+        "totals": "Totals",
+        "input": "Input",
+        "output": "Output",
+        "processed": "Processed",
+        "saved": "Saved",
+        "noData": "No data",
         "inputSaved": "Input saved",
         "outputSaved": "Output saved",
         "inputSavingsActive": "Routing through Headroom",
@@ -215,8 +221,7 @@
         },
         "waitingForShapedResponses": "No output responses measured yet",
         "outputObserved": "{{value}} output observed",
-        "routeDisabled": "Route disabled",
-        "input": "input {{value}}"
+        "routeDisabled": "Route disabled"
       },
       "issues": {
         "uv_missing_or_corrupt": {

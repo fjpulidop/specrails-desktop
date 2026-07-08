@@ -56,7 +56,15 @@ describe('HeadroomManager', () => {
       detectedRoutes: { codex: true, claude: true },
     }))
     vi.spyOn(globalThis, 'fetch').mockImplementation(async () => new Response(JSON.stringify({
-      agent_usage: { agents: [] },
+      agent_usage: {
+        agents: [{
+          agent: 'codex',
+          requests: 9001,
+          tokens_saved: 2222222,
+          input_tokens: 333333333,
+          output_tokens: 4444444,
+        }],
+      },
     }), { status: 200 }))
 
     const manager = new HeadroomManager(db, () => undefined, () => ['codex', 'claude'])
@@ -65,6 +73,12 @@ describe('HeadroomManager', () => {
     expect(state.proxyRunning).toBe(true)
     expect(state.proxyPid).toBeNull()
     expect(state.metrics.proxyStatsAvailable).toBe(true)
+    expect(state.metrics.providers.codex).toMatchObject({
+      requests: 9001,
+      inputTokens: 333333333,
+      inputTokensSaved: 2222222,
+      outputTokens: 4444444,
+    })
   })
 
   it('adopts a healthy proxy on boot instead of starting a duplicate process on the same port', async () => {

@@ -46,6 +46,7 @@ interface HeadroomProviderMetric {
   available: boolean
   detectedRoute: boolean
   requests: number
+  inputTokens: number
   inputTokensSaved: number
   outputTokens: number
   outputTokensSaved: number
@@ -140,6 +141,7 @@ function emptyProviderMetric(provider: Provider): HeadroomProviderMetric {
     available: false,
     detectedRoute: false,
     requests: 0,
+    inputTokens: 0,
     inputTokensSaved: 0,
     outputTokens: 0,
     outputTokensSaved: 0,
@@ -920,13 +922,25 @@ function IssueBox({ issue }: { issue: HeadroomIssue }) {
 }
 
 function HeadroomMetricsPanel({ state }: { state: HeadroomState }) {
-  const { t } = useTranslation('integrations')
+  const { t, i18n } = useTranslation('integrations')
   const metrics = state.metrics
   const outputMeasured = metrics.outputSavingsAvailable
   const providerMetrics = (['codex', 'claude'] as Provider[]).map((provider) => ({
     provider,
     metric: metrics.providers[provider],
   }))
+  const tokenLabel = t('plugins.headroom.savings.tokens')
+  const totals = providerMetrics.reduce((sum, { metric }) => ({
+    inputTokens: sum.inputTokens + metric.inputTokens,
+    inputTokensSaved: sum.inputTokensSaved + metric.inputTokensSaved,
+    outputTokens: sum.outputTokens + metric.outputTokens,
+    outputTokensSaved: sum.outputTokensSaved + metric.outputTokensSaved,
+  }), {
+    inputTokens: 0,
+    inputTokensSaved: 0,
+    outputTokens: 0,
+    outputTokensSaved: 0,
+  })
   const hasInputSavings = providerMetrics.some(({ metric }) => metric.inputTokensSaved > 0)
   const hasActiveProvider = providerMetrics.some(({ metric }) => metric.active)
   const statusLabel = outputMeasured
@@ -956,6 +970,23 @@ function HeadroomMetricsPanel({ state }: { state: HeadroomState }) {
         </span>
       </div>
 
+      <div className="mb-2 rounded-md bg-muted/35 px-2.5 py-2">
+        <div className="mb-1.5 text-[10px] font-medium uppercase text-muted-foreground">{t('plugins.headroom.savings.totals')}</div>
+        <div className="grid grid-cols-2 gap-3">
+          <TokenStatsColumn
+            label={t('plugins.headroom.savings.input')}
+            processed={totals.inputTokens > 0 ? formatTokenCount(totals.inputTokens, i18n.language, tokenLabel) : t('plugins.headroom.savings.noData')}
+            saved={formatTokenCount(totals.inputTokensSaved, i18n.language, tokenLabel)}
+          />
+          <TokenStatsColumn
+            align="right"
+            label={t('plugins.headroom.savings.output')}
+            processed={totals.outputTokens > 0 ? formatTokenCount(totals.outputTokens, i18n.language, tokenLabel) : t('plugins.headroom.savings.noData')}
+            saved={outputMeasured ? formatTokenCount(totals.outputTokensSaved, i18n.language, tokenLabel) : t('plugins.headroom.savings.noData')}
+          />
+        </div>
+      </div>
+
       <div className="grid gap-2">
         {providerMetrics.map(({ provider, metric }) => (
           <ProviderMetricRow
@@ -975,6 +1006,38 @@ function HeadroomMetricsPanel({ state }: { state: HeadroomState }) {
   )
 }
 
+function TokenStatsColumn({
+  label,
+  processed,
+  saved,
+  detail,
+  align = 'left',
+}: {
+  label: string
+  processed: string
+  saved: string
+  detail?: string
+  align?: 'left' | 'right'
+}) {
+  const { t } = useTranslation('integrations')
+  return (
+    <div className={cn('min-w-0', align === 'right' && 'text-right')}>
+      <div className="text-[10px] font-medium uppercase text-muted-foreground">{label}</div>
+      <div className="mt-1 space-y-0.5 text-[11px]">
+        <div className="flex min-w-0 items-baseline justify-between gap-2">
+          <span className="shrink-0 text-muted-foreground">{t('plugins.headroom.savings.processed')}</span>
+          <span className="truncate font-semibold tabular-nums text-foreground">{processed}</span>
+        </div>
+        <div className="flex min-w-0 items-baseline justify-between gap-2">
+          <span className="shrink-0 text-muted-foreground">{t('plugins.headroom.savings.saved')}</span>
+          <span className="truncate font-semibold tabular-nums text-foreground">{saved}</span>
+        </div>
+      </div>
+      {detail && <div className="mt-1 truncate text-[10px] text-muted-foreground">{detail}</div>}
+    </div>
+  )
+}
+
 function ProviderMetricRow({
   metric,
   outputAvailable,
@@ -986,30 +1049,22 @@ function ProviderMetricRow({
   const unavailable = !metric.available
   const muted = unavailable || !metric.active
   const tokenLabel = t('plugins.headroom.savings.tokens')
-  const inputValue = formatTokenCount(metric.inputTokensSaved, i18n.language, tokenLabel)
-  const inputDetail = metric.requests > 0
+  const inputProcessed = metric.inputTokens > 0
+    ? formatTokenCount(metric.inputTokens, i18n.language, tokenLabel)
+    : t('plugins.headroom.savings.noData')
+  const inputSaved = formatTokenCount(metric.inputTokensSaved, i18n.language, tokenLabel)
+  const outputProcessed = metric.outputTokens > 0
+    ? formatTokenCount(metric.outputTokens, i18n.language, tokenLabel)
+    : t('plugins.headroom.savings.noData')
+  const outputSaved = outputAvailable
+    ? formatTokenCount(metric.outputTokensSaved, i18n.language, tokenLabel)
+    : (metric.active ? t('plugins.headroom.savings.noData') : t('plugins.headroom.savings.off'))
+  const detail = metric.requests > 0
     ? t('plugins.headroom.savings.requestCount', { count: formatCompactNumber(metric.requests, i18n.language) })
     : unavailable
       ? t('plugins.headroom.provider.noProjectUsesProvider')
       : metric.active
         ? t('plugins.headroom.savings.inputSavingsActive')
-        : t('plugins.headroom.savings.routeDisabled')
-  const outputValue = outputAvailable
-    ? formatTokenCount(metric.outputTokensSaved, i18n.language, t('plugins.headroom.savings.tokens'))
-    : (metric.active ? t('plugins.headroom.savings.learning') : t('plugins.headroom.savings.off'))
-  const outputDetail = outputAvailable
-    ? t('plugins.headroom.savings.requestDetail', {
-        method: t(`plugins.headroom.savings.methods.${metric.outputSavingsMethod}`),
-        count: formatCompactNumber(metric.requests, i18n.language),
-      })
-    : unavailable
-      ? t('plugins.headroom.provider.noProjectUsesProvider')
-      : metric.active
-        ? metric.outputTokens > 0
-          ? t('plugins.headroom.savings.outputObserved', {
-              value: formatTokenCount(metric.outputTokens, i18n.language, t('plugins.headroom.savings.tokens')),
-            })
-          : t('plugins.headroom.savings.waitingForShapedResponses')
         : t('plugins.headroom.savings.routeDisabled')
 
   return (
@@ -1025,21 +1080,20 @@ function ProviderMetricRow({
             </span>
           )}
       </div>
+      <div className="mt-0.5 truncate text-[10px] text-muted-foreground">{detail}</div>
 
       <div className="mt-2 grid grid-cols-2 gap-3">
-        <div className="min-w-0">
-          <div className="text-[10px] font-medium uppercase text-muted-foreground">{t('plugins.headroom.savings.inputSaved')}</div>
-          <div className="mt-0.5 truncate text-xs font-semibold tabular-nums text-foreground">{inputValue}</div>
-          <div className="mt-0.5 truncate text-[10px] text-muted-foreground">{inputDetail}</div>
-        </div>
-
-        <div className="min-w-0 text-right">
-          <div className="text-[10px] font-medium uppercase text-muted-foreground">{t('plugins.headroom.savings.outputSaved')}</div>
-          <div className={cn('mt-0.5 truncate text-xs font-semibold tabular-nums', outputAvailable ? 'text-foreground' : 'text-muted-foreground')}>
-            {outputValue}
-          </div>
-          <div className="mt-0.5 truncate text-[10px] text-muted-foreground">{outputDetail}</div>
-        </div>
+        <TokenStatsColumn
+          label={t('plugins.headroom.savings.input')}
+          processed={inputProcessed}
+          saved={inputSaved}
+        />
+        <TokenStatsColumn
+          align="right"
+          label={t('plugins.headroom.savings.output')}
+          processed={outputProcessed}
+          saved={outputSaved}
+        />
       </div>
     </div>
   )

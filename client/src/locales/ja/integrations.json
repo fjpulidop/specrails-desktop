@@ -201,6 +201,12 @@
         "requestDetail": "{{method}} · {{count}} 件のリクエスト",
         "requestCount": "{{count}} 件のリクエスト",
         "detected": "検出済み",
+        "totals": "合計",
+        "input": "入力",
+        "output": "出力",
+        "processed": "処理済み",
+        "saved": "節約",
+        "noData": "データなし",
         "inputSaved": "入力の節約",
         "outputSaved": "出力の節約",
         "inputSavingsActive": "Headroom 経由でルーティング中",
@@ -215,8 +221,7 @@
         },
         "waitingForShapedResponses": "出力レスポンスは未測定",
         "outputObserved": "{{value}} の出力を確認済み",
-        "routeDisabled": "ルート無効",
-        "input": "入力 {{value}}"
+        "routeDisabled": "ルート無効"
       },
       "issues": {
         "uv_missing_or_corrupt": {

@@ -201,6 +201,12 @@
         "requestDetail": "{{method}} · {{count}} pedidos",
         "requestCount": "{{count}} pedidos",
         "detected": "detetado",
+        "totals": "Totais",
+        "input": "Entrada",
+        "output": "Saída",
+        "processed": "Processados",
+        "saved": "Poupados",
+        "noData": "Sem dados",
         "inputSaved": "Entrada poupada",
         "outputSaved": "Saída poupada",
         "inputSavingsActive": "A encaminhar pelo Headroom",
@@ -215,8 +221,7 @@
         },
         "waitingForShapedResponses": "Sem respostas de saída medidas",
         "outputObserved": "{{value}} de saída observados",
-        "routeDisabled": "Rota desativada",
-        "input": "entrada {{value}}"
+        "routeDisabled": "Rota desativada"
       },
       "issues": {
         "uv_missing_or_corrupt": {

@@ -50,6 +50,7 @@ export interface HeadroomProviderMetric {
   available: boolean
   detectedRoute: boolean
   requests: number
+  inputTokens: number
   inputTokensSaved: number
   outputTokens: number
   outputTokensSaved: number
@@ -304,6 +305,7 @@ function emptyProviderMetric(provider: HeadroomProvider): HeadroomProviderMetric
     available: false,
     detectedRoute: false,
     requests: 0,
+    inputTokens: 0,
     inputTokensSaved: 0,
     outputTokens: 0,
     outputTokensSaved: 0,
@@ -341,6 +343,36 @@ function num(value: unknown): number {
   const parsed = Number(value)
   return Number.isFinite(parsed) ? parsed : 0
 }
+
+function maxNumericField(row: Record<string, unknown>, fields: string[]): number {
+  return Math.max(0, ...fields.map((field) => Math.trunc(num(row[field]))))
+}
+
+const INPUT_TOKEN_FIELDS = [
+  'input_tokens',
+  'input_tokens_total',
+  'input_tokens_processed',
+  'total_input_tokens',
+  'prompt_tokens',
+  'prompt_tokens_total',
+  'prompt_tokens_processed',
+  'tokens_in',
+  'tokens_input',
+  'original_tokens',
+  'tokens_original',
+  'tokens_before',
+]
+
+const OUTPUT_TOKEN_FIELDS = [
+  'output_tokens',
+  'output_tokens_total',
+  'output_tokens_processed',
+  'total_output_tokens',
+  'completion_tokens',
+  'completion_tokens_total',
+  'tokens_out',
+  'tokens_output',
+]
 
 export class HeadroomManager {
   private proxy: ChildProcess | null = null
@@ -861,6 +893,10 @@ export class HeadroomManager {
             byProvider[provider].inputTokensSaved,
             Math.trunc(num(row.tokens_saved)),
           )
+          byProvider[provider].inputTokens = Math.max(
+            byProvider[provider].inputTokens,
+            maxNumericField(row, INPUT_TOKEN_FIELDS),
+          )
         }
       }
     } catch (err) {
@@ -885,7 +921,14 @@ export class HeadroomManager {
           byProvider[provider].inputTokensSaved,
           Math.trunc(num(agent.tokens_saved)),
         )
-        byProvider[provider].outputTokens = Math.max(byProvider[provider].outputTokens, Math.trunc(num(agent.output_tokens)))
+        byProvider[provider].inputTokens = Math.max(
+          byProvider[provider].inputTokens,
+          maxNumericField(agent, INPUT_TOKEN_FIELDS),
+        )
+        byProvider[provider].outputTokens = Math.max(
+          byProvider[provider].outputTokens,
+          maxNumericField(agent, OUTPUT_TOKEN_FIELDS),
+        )
       }
 
       const outputReduction = stats.tokens?.output_reduction
