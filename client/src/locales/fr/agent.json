@@ -6,6 +6,18 @@
   "send": "Envoyer",
   "stop": "Arrêter",
   "copy": "Copier",
+  "attachment": {
+    "openPreview": "Prévisualiser {{name}}",
+    "openDownload": "Télécharger {{name}}",
+    "previewTitle": "Aperçu de {{name}}",
+    "downloadTitle": "Télécharger le fichier ?",
+    "downloadPrompt": "Ce fichier ne peut pas être prévisualisé ici. Voulez-vous le télécharger ?",
+    "download": "Télécharger",
+    "cancelDownload": "Pas maintenant",
+    "loading": "Préparation du fichier…",
+    "loadFailed": "Impossible de charger la pièce jointe",
+    "loadError": "Impossible de charger la pièce jointe : {{error}}"
+  },
   "maximize": "Agrandir",
   "restore": "Restaurer",
   "minimize": "Réduire",

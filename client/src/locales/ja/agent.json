@@ -6,6 +6,18 @@
   "send": "送信",
   "stop": "停止",
   "copy": "コピー",
+  "attachment": {
+    "openPreview": "{{name}}をプレビュー",
+    "openDownload": "{{name}}をダウンロード",
+    "previewTitle": "{{name}}のプレビュー",
+    "downloadTitle": "ファイルをダウンロードしますか？",
+    "downloadPrompt": "このファイルはここではプレビューできません。ダウンロードしますか？",
+    "download": "ダウンロード",
+    "cancelDownload": "今はしない",
+    "loading": "ファイルを準備中…",
+    "loadFailed": "添付ファイルを読み込めませんでした",
+    "loadError": "添付ファイルを読み込めませんでした: {{error}}"
+  },
   "maximize": "最大化",
   "restore": "元に戻す",
   "minimize": "最小化",

@@ -49,11 +49,13 @@ function removePaletteTriggerText(
 // unsent prompt must survive outside component state. Keyed per conversation;
 // the EMPTY "new mission" compose screen shares one draft slot.
 const composerDrafts = new Map<string, string>()
+const composerAttachmentDrafts = new Map<string, AgentAttachment[]>()
 const NEW_MISSION_DRAFT_KEY = '__new-mission__'
 
 /** Test-only: reset the session draft store between cases. */
 export function __clearComposerDrafts(): void {
   composerDrafts.clear()
+  composerAttachmentDrafts.clear()
 }
 
 /**
@@ -77,7 +79,7 @@ export function AgentComposer({
   const {
     active, messages, conversations, isStreaming, providersReady, draftPinnedProjectId,
     draftProvider, draftModel, draftTierLevel, draftEffort, setEffort,
-    send, abort, cycleTier, setProvider, setModel, setPinnedProject,
+    send, abort, cycleTier, setProvider, setModel, setPinnedProject, materializeDraftConversation,
     queuedMessages, editQueuedMessage, wasQueueConsumed,
   } = useAgentChat()
   const { pendingCaptures, consumePendingCaptures } = useAgentWorkspace()
@@ -93,7 +95,22 @@ export function AgentComposer({
     else composerDrafts.delete(draftKey)
   }
   const [histIndex, setHistIndex] = useState<number | null>(null)
-  const [attached, setAttached] = useState<AgentAttachment[]>([])
+  const [attached, setAttached] = useState<AgentAttachment[]>(() => composerAttachmentDrafts.get(draftKey) ?? [])
+  const attachmentDraftKeyRef = useRef(draftKey)
+  attachmentDraftKeyRef.current = draftKey
+  const setAttachmentDraft = (
+    key: string,
+    updater: AgentAttachment[] | ((prev: AgentAttachment[]) => AgentAttachment[]),
+  ): void => {
+    const prev = composerAttachmentDrafts.get(key) ?? []
+    const next = typeof updater === 'function' ? updater(prev) : updater
+    if (next.length > 0) composerAttachmentDrafts.set(key, next)
+    else composerAttachmentDrafts.delete(key)
+    const currentKey = attachmentDraftKeyRef.current
+    if (currentKey === key || (currentKey === NEW_MISSION_DRAFT_KEY && key !== NEW_MISSION_DRAFT_KEY)) {
+      setAttached(next)
+    }
+  }
   const [uploading, setUploading] = useState(false)
   const fileInputRef = useRef<HTMLInputElement | null>(null)
   const textareaRef = useRef<HTMLTextAreaElement | null>(null)
@@ -125,9 +142,9 @@ export function AgentComposer({
   const editingItem = editIdx >= 0 ? queuedMessages[editIdx] : null
   const inQueueEdit = editingQueueId !== null
   const blocked = providersReady === false
-  // Attachments upload to a conversation-keyed endpoint, so they're only offered
-  // once a conversation exists (EMPTY state has none — send once to create it).
-  const canAttach = !!active && !blocked
+  // Attachments upload to a conversation-keyed endpoint. On the EMPTY compose
+  // screen we materialise the draft conversation just before the upload.
+  const canAttach = !blocked
   const provider = active?.provider ?? draftProvider
   // The git strip follows the MISSION's pinned project (or the draft pin on the
   // EMPTY compose screen) — never the app's active project.
@@ -166,7 +183,7 @@ export function AgentComposer({
   // are keyed to the conversation they were uploaded to (foreign ids silently
   // no-op server-side) and a stale histIndex could index past the new history.
   useEffect(() => {
-    setAttached([])
+    setAttached(composerAttachmentDrafts.get(activeId ?? NEW_MISSION_DRAFT_KEY) ?? [])
     setHistIndex(null)
     setPaletteTrigger(null)
     setPlusOpen(false)
@@ -222,8 +239,8 @@ export function AgentComposer({
   useEffect(() => {
     if (pendingCaptures.length === 0) return
     const captured = consumePendingCaptures()
-    if (captured.length) setAttached((prev) => [...prev, ...captured])
-  }, [pendingCaptures, consumePendingCaptures])
+    if (captured.length) setAttachmentDraft(draftKey, (prev) => [...prev, ...captured])
+  }, [pendingCaptures, consumePendingCaptures, draftKey])
 
   // Image affordance gates on the provider's capability (design D22: capability,
   // never provider id — text-extractable attachments stay enabled regardless).
@@ -244,17 +261,43 @@ export function AgentComposer({
   }, [provider])
   const effort = (active ? active.reasoning_effort : draftEffort) ?? 'medium'
 
+  const adoptNewMissionDrafts = (conversationId: string): void => {
+    const prompt = composerDrafts.get(NEW_MISSION_DRAFT_KEY)
+    if (prompt) {
+      if (!composerDrafts.has(conversationId)) composerDrafts.set(conversationId, prompt)
+      composerDrafts.delete(NEW_MISSION_DRAFT_KEY)
+      setInputState(composerDrafts.get(conversationId) ?? prompt)
+    }
+    const draftAttachments = composerAttachmentDrafts.get(NEW_MISSION_DRAFT_KEY)
+    if (draftAttachments?.length) {
+      const existing = composerAttachmentDrafts.get(conversationId) ?? []
+      setAttachmentDraft(conversationId, [...existing, ...draftAttachments])
+      composerAttachmentDrafts.delete(NEW_MISSION_DRAFT_KEY)
+    }
+  }
+
   const uploadFiles = async (files: File[]) => {
-    if (!active || files.length === 0) return
+    if (files.length === 0) return
     setUploading(true)
+    let conversation = active
+    if (!conversation) {
+      try {
+        conversation = await materializeDraftConversation()
+        adoptNewMissionDrafts(conversation.id)
+      } catch (err) {
+        toast.error(err instanceof Error ? err.message : t('workspace.uploadFailed'))
+        setUploading(false)
+        return
+      }
+    }
     for (const f of files) {
       if (!supportsImage && f.type.startsWith('image/')) {
         toast.error(t('imagesUnsupported'))
         continue
       }
       try {
-        const att = await uploadAgentAttachment(active.id, f)
-        setAttached((prev) => [...prev, att])
+        const att = await uploadAgentAttachment(conversation.id, f)
+        setAttachmentDraft(conversation.id, (prev) => [...prev, att])
       } catch (err) {
         toast.error(err instanceof Error ? err.message : t('workspace.uploadFailed'))
       }
@@ -262,7 +305,7 @@ export function AgentComposer({
     setUploading(false)
   }
   const removeAttachment = (id: string) => {
-    setAttached((prev) => prev.filter((a) => a.id !== id))
+    setAttachmentDraft(draftKey, (prev) => prev.filter((a) => a.id !== id))
     if (active) void deleteAgentAttachment(active.id, id)
   }
 
@@ -375,7 +418,7 @@ export function AgentComposer({
     }
     void send(textForTurn, attached.length || contextChips.length ? opts : undefined)
     setInput('')
-    setAttached([])
+    setAttachmentDraft(draftKey, [])
     setContextChips([])
     setPaletteTrigger(null)
     setPlusOpen(false)

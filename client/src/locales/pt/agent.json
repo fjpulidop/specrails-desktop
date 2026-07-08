@@ -6,6 +6,18 @@
   "send": "Enviar",
   "stop": "Parar",
   "copy": "Copiar",
+  "attachment": {
+    "openPreview": "Pré-visualizar {{name}}",
+    "openDownload": "Transferir {{name}}",
+    "previewTitle": "Pré-visualização de {{name}}",
+    "downloadTitle": "Transferir ficheiro?",
+    "downloadPrompt": "Este ficheiro não pode ser pré-visualizado aqui. Queres transferi-lo?",
+    "download": "Transferir",
+    "cancelDownload": "Agora não",
+    "loading": "A preparar ficheiro…",
+    "loadFailed": "Não foi possível carregar o anexo",
+    "loadError": "Não foi possível carregar o anexo: {{error}}"
+  },
   "maximize": "Maximizar",
   "restore": "Restaurar",
   "minimize": "Minimizar",

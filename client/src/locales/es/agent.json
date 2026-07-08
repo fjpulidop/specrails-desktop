@@ -6,6 +6,18 @@
   "send": "Enviar",
   "stop": "Detener",
   "copy": "Copiar",
+  "attachment": {
+    "openPreview": "Previsualizar {{name}}",
+    "openDownload": "Descargar {{name}}",
+    "previewTitle": "Vista previa de {{name}}",
+    "downloadTitle": "¿Descargar archivo?",
+    "downloadPrompt": "Este archivo no se puede previsualizar aquí. ¿Quieres descargarlo?",
+    "download": "Descargar",
+    "cancelDownload": "Ahora no",
+    "loading": "Preparando archivo…",
+    "loadFailed": "No se pudo cargar el adjunto",
+    "loadError": "No se pudo cargar el adjunto: {{error}}"
+  },
   "maximize": "Maximizar",
   "restore": "Restaurar",
   "minimize": "Minimizar",

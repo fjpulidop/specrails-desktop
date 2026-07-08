@@ -131,6 +131,9 @@ export interface AgentChatContextValue {
   /** Reset to the EMPTY compose screen (active=null) with a draft pin — the next
    *  send creates a fresh conversation. This is the "+ New Agent" action. */
   startNewConversation: (projectId?: string | null) => void
+  /** Materialise the EMPTY compose draft without sending a message. Used by
+   *  uploads, which are stored against a real conversation id. */
+  materializeDraftConversation: () => Promise<AgentConversation>
   /** Pinned project for the EMPTY compose screen (before a conversation exists). */
   draftPinnedProjectId: string | null
   /** Provider/model/tier/effort for the EMPTY compose screen — the first send
@@ -210,6 +213,7 @@ export function AgentChatProvider({ children }: { children: ReactNode }) {
   // queueIds whose agent_dequeued already ran — send()'s race reconciliation
   // must never re-add a chip that was consumed while the POST was in flight.
   const consumedQueueIdsRef = useRef(new Set<string>())
+  const draftMaterializeRef = useRef<Promise<AgentConversation> | null>(null)
 
   /** Update one conversation's live slice; a fully-idle slice drops its entry. */
   const patchLive = useCallback((id: string, fn: (prev: AgentConvLive) => AgentConvLive | null) => {
@@ -492,24 +496,37 @@ export function AgentChatProvider({ children }: { children: ReactNode }) {
     }
   }, [visibility, refreshConversations, refreshMcp, refreshProviders, ensureActive])
 
+  const materializeDraftConversation = useCallback(async (): Promise<AgentConversation> => {
+    if (active) return active
+    if (draftMaterializeRef.current) return draftMaterializeRef.current
+
+    const promise = createAgentConversation({
+      pinnedProjectId: draftPinRef.current,
+      provider: draftConvRef.current.provider,
+      model: draftConvRef.current.model,
+      tierLevel: draftConvRef.current.tierLevel,
+      reasoningEffort: draftConvRef.current.effort,
+    })
+      .then((created) => {
+        setConversations((c) => [created, ...c])
+        setActive(created)
+        setMessages([])
+        return created
+      })
+      .finally(() => {
+        draftMaterializeRef.current = null
+      })
+
+    draftMaterializeRef.current = promise
+    return promise
+  }, [active])
+
   const send = useCallback(async (text: string, opts?: { attachmentIds?: string[]; contextRefs?: AgentContextReference[] }) => {
     const trimmed = text.trim()
     if (!trimmed) return
     // EMPTY compose screen (no active conversation) ALWAYS starts a fresh
     // conversation with the draft pin — it never resurrects the latest chat.
-    let conv = active
-    if (!conv) {
-      conv = await createAgentConversation({
-        pinnedProjectId: draftPinRef.current,
-        provider: draftConvRef.current.provider,
-        model: draftConvRef.current.model,
-        tierLevel: draftConvRef.current.tierLevel,
-        reasoningEffort: draftConvRef.current.effort,
-      })
-      setConversations((c) => [conv!, ...c])
-      setActive(conv)
-      setMessages([])
-    }
+    const conv = active ?? await materializeDraftConversation()
     const queueId = `q-${Date.now()}-${_queueSeq++}`
     const nowIso = new Date().toISOString()
     // "Last interaction" is NOW — bump the conversation's updated_at (so the
@@ -573,7 +590,7 @@ export function AgentChatProvider({ children }: { children: ReactNode }) {
       }
       toast.error(e instanceof Error ? e.message : 'Failed to send message.')
     }
-  }, [active, patchLive])
+  }, [active, materializeDraftConversation, patchLive])
 
   const abort = useCallback(async () => {
     if (!active) return
@@ -730,7 +747,7 @@ export function AgentChatProvider({ children }: { children: ReactNode }) {
     mcpEnabled, enablingMcp, enableMcpServer, providersReady,
     send, abort, editQueuedMessage, wasQueueConsumed,
     cycleTier, setTier, setProvider, setModel, setPinnedProject,
-    newConversation, startNewConversation, draftPinnedProjectId,
+    newConversation, startNewConversation, materializeDraftConversation, draftPinnedProjectId,
     draftProvider, draftModel, draftTierLevel, draftEffort, setEffort,
     selectConversation, deleteConversation, renameConversation, toggleFavoriteConversation, refreshConversations,
   }), [
@@ -740,7 +757,7 @@ export function AgentChatProvider({ children }: { children: ReactNode }) {
     mcpEnabled, enablingMcp, enableMcpServer, providersReady,
     send, abort, editQueuedMessage, wasQueueConsumed,
     cycleTier, setTier, setProvider, setModel, setPinnedProject,
-    newConversation, startNewConversation, draftPinnedProjectId,
+    newConversation, startNewConversation, materializeDraftConversation, draftPinnedProjectId,
     draftProvider, draftModel, draftTierLevel, draftEffort, setEffort,
     selectConversation, deleteConversation, renameConversation, toggleFavoriteConversation, refreshConversations,
   ])
@@ -774,7 +791,9 @@ const NOOP_AGENT_CHAT: AgentChatContextValue = {
   editQueuedMessage: async () => 'conflict', wasQueueConsumed: () => false,
   cycleTier: async () => {}, setTier: async () => {},
   setProvider: async () => {}, setModel: async () => {}, setPinnedProject: async () => {},
-  newConversation: async () => {}, startNewConversation: () => {}, draftPinnedProjectId: null,
+  newConversation: async () => {}, startNewConversation: () => {}, materializeDraftConversation: async () => {
+    throw new Error('AgentChatProvider is not mounted')
+  }, draftPinnedProjectId: null,
   draftProvider: 'claude', draftModel: null, draftTierLevel: 0,
   draftEffort: null, setEffort: async () => {},
   selectConversation: async () => {}, deleteConversation: async () => {}, renameConversation: async () => {},

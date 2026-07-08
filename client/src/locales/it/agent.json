@@ -6,6 +6,18 @@
   "send": "Invia",
   "stop": "Ferma",
   "copy": "Copia",
+  "attachment": {
+    "openPreview": "Anteprima di {{name}}",
+    "openDownload": "Scarica {{name}}",
+    "previewTitle": "Anteprima di {{name}}",
+    "downloadTitle": "Scaricare il file?",
+    "downloadPrompt": "Questo file non può essere visualizzato qui. Vuoi scaricarlo?",
+    "download": "Scarica",
+    "cancelDownload": "Non ora",
+    "loading": "Preparazione del file…",
+    "loadFailed": "Impossibile caricare l'allegato",
+    "loadError": "Impossibile caricare l'allegato: {{error}}"
+  },
   "maximize": "Massimizza",
   "restore": "Ripristina",
   "minimize": "Riduci a icona",

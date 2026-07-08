@@ -1,4 +1,4 @@
-import { Suspense, lazy, useEffect, useMemo, useRef } from 'react'
+import { Suspense, lazy, useEffect, useMemo, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { motion, AnimatePresence } from 'motion/react'
 import { Bot, ShieldAlert, PackageOpen, Clock, Pin } from 'lucide-react'
@@ -6,6 +6,7 @@ import { useAgentChat } from '../../context/AgentChatContext'
 import { useActiveTheme } from '../../context/ThemeContext'
 import { useSmoothStream } from '../explore-spec/useSmoothStream'
 import { useAgentRefActions } from '../../hooks/useAgentRefActions'
+import { listAgentAttachments, type AgentAttachment } from '../../lib/agent-api'
 import type { AgentRefTarget } from '../../lib/agent-refs'
 import { AgentActivityChip } from './AgentActivityChip'
 import { AgentContextInlineTokens, AgentMessage } from './AgentMessage'
@@ -52,6 +53,35 @@ export function AgentConversationView({ variant }: { variant: 'floating' | 'inli
   // only resolvable against a concrete project).
   const { openRef, jobRef, closeJobRef, loopRef, closeLoopRef } = useAgentRefActions()
   const refsProjectId = active?.pinned_project_id ?? null
+  const [attachmentById, setAttachmentById] = useState<Map<string, AgentAttachment>>(new Map())
+  const messageAttachmentIds = useMemo(() => {
+    const ids = new Set<string>()
+    for (const message of messages) {
+      for (const id of message.attachment_ids ?? []) ids.add(id)
+    }
+    return [...ids].sort()
+  }, [messages])
+  const messageAttachmentKey = messageAttachmentIds.join('\0')
+  useEffect(() => {
+    const ids = messageAttachmentKey ? messageAttachmentKey.split('\0') : []
+    if (!active?.id || ids.length === 0) {
+      setAttachmentById(new Map())
+      return
+    }
+    let cancelled = false
+    const wanted = new Set(ids)
+    listAgentAttachments(active.id)
+      .then((attachments) => {
+        if (cancelled) return
+        setAttachmentById(new Map(attachments.filter((att) => wanted.has(att.id)).map((att) => [att.id, att])))
+      })
+      .catch(() => {
+        if (!cancelled) setAttachmentById(new Map())
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [active?.id, messageAttachmentKey])
   const onOpenRef = useMemo(
     () =>
       refsProjectId
@@ -184,6 +214,8 @@ export function AgentConversationView({ variant }: { variant: 'floating' | 'inli
                 refsProjectId={refsProjectId}
                 onOpenRef={onOpenRef}
                 contextRefs={m.context_refs}
+                conversationId={m.conversation_id}
+                attachments={(m.attachment_ids ?? []).map((id) => attachmentById.get(id)).filter((att): att is AgentAttachment => !!att)}
               />
             )
           })}
