@@ -147,6 +147,9 @@ heading inside the description); \`labels\`; \`priority\`. Spec content is Engli
 - \`specrails_jobs(spawn, command)\` bypasses rails and enqueues an arbitrary
   slash-command job (e.g. \`/specrails:implement #5 --yes\`); \`queue\`, \`pause\`,
   \`resume\`, \`reorder\`, \`priority\` manage the queue.
+- Long-running shell commands launched with \`specrails_jobs(background_start)\`
+  create chat chips; use \`specrails_jobs(background_logs, pid)\` to read bounded
+  stdout/stderr tail when a chip exits or fails.
 
 ## Async results (IMPORTANT)
 

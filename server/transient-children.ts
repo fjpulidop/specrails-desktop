@@ -37,12 +37,38 @@ export interface BackgroundProcessOutputEvent {
   line: string
 }
 
+export interface BackgroundProcessLogLine {
+  at: number
+  source: 'stdout' | 'stderr'
+  line: string
+}
+
+export interface BackgroundProcessLogSnapshot {
+  process: BackgroundProcess
+  lines: BackgroundProcessLogLine[]
+  truncated: boolean
+  droppedLines: number
+  maxLines: number
+  maxLineChars: number
+  retentionMs: number
+}
+
 interface BackgroundRecord {
   child: ChildProcess
   process: BackgroundProcess
   hooks: BackgroundProcessHooks
   killTimer?: ReturnType<typeof setTimeout>
   terminalNotified?: boolean
+  retained?: boolean
+  outputLines: BackgroundProcessLogLine[]
+  droppedOutputLines: number
+}
+
+interface FinishedBackgroundRecord {
+  process: BackgroundProcess
+  outputLines: BackgroundProcessLogLine[]
+  droppedOutputLines: number
+  cleanupTimer: ReturnType<typeof setTimeout>
 }
 
 export interface BackgroundProcessHooks {
@@ -52,10 +78,13 @@ export interface BackgroundProcessHooks {
 }
 
 const backgroundByPid = new Map<number, BackgroundRecord>()
+const finishedBackgroundByPid = new Map<number, FinishedBackgroundRecord>()
 const backgroundTerminal = new Set<BackgroundProcessStatus>(['exited', 'killed', 'failed'])
 const BACKGROUND_KILL_GRACE_MS = 2500
 const BACKGROUND_OUTPUT_MAX_LINE_CHARS = 1000
 const BACKGROUND_OUTPUT_MAX_LINES_PER_SECOND = 20
+const BACKGROUND_LOG_MAX_LINES = 500
+export const BACKGROUND_LOG_RETENTION_MS = 10 * 60 * 1000
 
 function treeKillSafe(pid: number, signal: 'SIGTERM' | 'SIGKILL'): void {
   try { treeKill(pid, signal, () => undefined) } catch { /* best-effort */ }
@@ -72,6 +101,10 @@ function treeKillWithEscalation(pid: number, isStillAlive: () => boolean = () =>
 
 function cloneProcess(process: BackgroundProcess): BackgroundProcess {
   return { ...process }
+}
+
+function cloneLogLine(line: BackgroundProcessLogLine): BackgroundProcessLogLine {
+  return { ...line }
 }
 
 /** Track a child under a projectId; auto-removes itself on close. */
@@ -141,7 +174,19 @@ export function startBackgroundProcess(
     chatId,
     projectId,
   }
-  const record: BackgroundRecord = { child, process, hooks: hooks ?? {} }
+  const staleFinished = finishedBackgroundByPid.get(child.pid)
+  if (staleFinished) {
+    clearTimeout(staleFinished.cleanupTimer)
+    finishedBackgroundByPid.delete(child.pid)
+  }
+
+  const record: BackgroundRecord = {
+    child,
+    process,
+    hooks: hooks ?? {},
+    outputLines: [],
+    droppedOutputLines: 0,
+  }
   backgroundByPid.set(child.pid, record)
   trackTransientChild(projectId, child)
 
@@ -151,11 +196,13 @@ export function startBackgroundProcess(
   child.once('error', () => {
     markTerminal(record, process.status === 'killed' ? 'killed' : 'failed', null, null)
     backgroundByPid.delete(process.pid)
+    retainFinishedRecord(record)
   })
   child.once('close', (code: number | null, signal: NodeJS.Signals | null) => {
     const status: BackgroundProcessStatus = process.status === 'killed' ? 'killed' : code === 0 ? 'exited' : 'failed'
     markTerminal(record, status, code, signal)
     backgroundByPid.delete(process.pid)
+    retainFinishedRecord(record)
   })
 
   record.hooks.onStarted?.(cloneProcess(process))
@@ -168,14 +215,13 @@ function attachOutput(
   record: BackgroundRecord,
 ): void {
   const stream = source === 'stdout' ? child.stdout : child.stderr
-  if (!record.hooks.onOutput) {
-    stream.resume()
-    return
-  }
   const rl = readline.createInterface({ input: stream })
   let windowStart = Date.now()
   let emittedInWindow = 0
   rl.on('line', (line) => {
+    const clipped = line.length > BACKGROUND_OUTPUT_MAX_LINE_CHARS ? `${line.slice(0, BACKGROUND_OUTPUT_MAX_LINE_CHARS)}...` : line
+    appendOutputLine(record, source, clipped)
+    if (!record.hooks.onOutput) return
     const now = Date.now()
     if (now - windowStart >= 1000) {
       windowStart = now
@@ -188,8 +234,42 @@ function attachOutput(
       chatId: record.process.chatId,
       projectId: record.process.projectId,
       source,
-      line: line.length > BACKGROUND_OUTPUT_MAX_LINE_CHARS ? `${line.slice(0, BACKGROUND_OUTPUT_MAX_LINE_CHARS)}...` : line,
+      line: clipped,
     })
+  })
+}
+
+function appendOutputLine(record: BackgroundRecord, source: 'stdout' | 'stderr', line: string): void {
+  record.outputLines.push({ at: Date.now(), source, line })
+  if (record.outputLines.length > BACKGROUND_LOG_MAX_LINES) {
+    const overflow = record.outputLines.length - BACKGROUND_LOG_MAX_LINES
+    record.outputLines.splice(0, overflow)
+    record.droppedOutputLines += overflow
+  }
+}
+
+function retainFinishedRecord(record: BackgroundRecord): void {
+  if (record.retained) {
+    const existing = finishedBackgroundByPid.get(record.process.pid)
+    if (existing) {
+      existing.process = cloneProcess(record.process)
+      existing.outputLines = record.outputLines.map(cloneLogLine)
+      existing.droppedOutputLines = record.droppedOutputLines
+    }
+    return
+  }
+  record.retained = true
+  const previous = finishedBackgroundByPid.get(record.process.pid)
+  if (previous) clearTimeout(previous.cleanupTimer)
+  const cleanupTimer = setTimeout(() => {
+    finishedBackgroundByPid.delete(record.process.pid)
+  }, BACKGROUND_LOG_RETENTION_MS)
+  cleanupTimer.unref?.()
+  finishedBackgroundByPid.set(record.process.pid, {
+    process: cloneProcess(record.process),
+    outputLines: record.outputLines.map(cloneLogLine),
+    droppedOutputLines: record.droppedOutputLines,
+    cleanupTimer,
   })
 }
 
@@ -210,7 +290,43 @@ function markTerminal(
 
 export function getBackgroundProcess(pid: number): BackgroundProcess | null {
   const record = backgroundByPid.get(pid)
-  return record ? cloneProcess(record.process) : null
+  if (record) return cloneProcess(record.process)
+  const finished = finishedBackgroundByPid.get(pid)
+  return finished ? cloneProcess(finished.process) : null
+}
+
+export function getBackgroundProcessLogs(
+  pid: number,
+  filter: { projectId?: string; chatId?: string; limit?: number } = {},
+): BackgroundProcessLogSnapshot | null {
+  const live = backgroundByPid.get(pid)
+  const record = live
+    ? {
+        process: live.process,
+        outputLines: live.outputLines,
+        droppedOutputLines: live.droppedOutputLines,
+      }
+    : finishedBackgroundByPid.get(pid)
+  if (!record) return null
+  if (filter.projectId && record.process.projectId !== filter.projectId) return null
+  if (filter.chatId && record.process.chatId !== filter.chatId) return null
+
+  const limit = typeof filter.limit === 'number' && Number.isFinite(filter.limit)
+    ? Math.max(1, Math.min(BACKGROUND_LOG_MAX_LINES, Math.floor(filter.limit)))
+    : BACKGROUND_LOG_MAX_LINES
+  const start = Math.max(0, record.outputLines.length - limit)
+  const lines = record.outputLines.slice(start).map(cloneLogLine)
+  const droppedByLimit = record.outputLines.length - lines.length
+  const droppedLines = record.droppedOutputLines + droppedByLimit
+  return {
+    process: cloneProcess(record.process),
+    lines,
+    truncated: droppedLines > 0,
+    droppedLines,
+    maxLines: BACKGROUND_LOG_MAX_LINES,
+    maxLineChars: BACKGROUND_OUTPUT_MAX_LINE_CHARS,
+    retentionMs: BACKGROUND_LOG_RETENTION_MS,
+  }
 }
 
 export function listBackgroundProcesses(filter: { projectId?: string; chatId?: string } = {}): BackgroundProcess[] {

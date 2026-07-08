@@ -66,7 +66,7 @@ import type { TicketCreatedMessage, TicketUpdatedMessage, TicketDeletedMessage, 
 import { spawnAiCli } from './util/cli-prompt'
 import { createInterface } from 'readline'
 import treeKill from 'tree-kill'
-import { startBackgroundProcess, killOwnedBackgroundProcess, listBackgroundProcesses } from './transient-children'
+import { startBackgroundProcess, killOwnedBackgroundProcess, listBackgroundProcesses, getBackgroundProcessLogs } from './transient-children'
 import multer from 'multer'
 import { createRailsRouter } from './rails-router'
 import { createProfilesRouter } from './profiles-router'
@@ -206,6 +206,35 @@ export function registerJobsRoutes(deps: ProjectRoutesDeps): void {
         ...(chatId ? { chatId } : {}),
       }),
     })
+  })
+
+  router.get('/:projectId/background-processes/:pid/logs', (req: Request, res: Response) => {
+    const c = ctx(req)
+    const pid = Number(req.params.pid)
+    const chatId = typeof req.query.chatId === 'string' ? req.query.chatId : ''
+    const limit = typeof req.query.limit === 'string' ? Number(req.query.limit) : undefined
+    if (!Number.isFinite(pid)) {
+      res.status(400).json({ error: 'pid must be numeric' })
+      return
+    }
+    if (!chatId.trim()) {
+      res.status(400).json({ error: 'chatId is required' })
+      return
+    }
+    if (limit !== undefined && (!Number.isFinite(limit) || limit <= 0)) {
+      res.status(400).json({ error: 'limit must be a positive number' })
+      return
+    }
+    const logs = getBackgroundProcessLogs(pid, {
+      projectId: c.project.id,
+      chatId: chatId.trim(),
+      ...(limit !== undefined ? { limit } : {}),
+    })
+    if (!logs) {
+      res.status(404).json({ error: 'background process logs not found for project/chat' })
+      return
+    }
+    res.json(logs)
   })
 
   router.post('/:projectId/background-processes', (req: Request, res: Response) => {
