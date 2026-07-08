@@ -922,7 +922,7 @@ function IssueBox({ issue }: { issue: HeadroomIssue }) {
 function HeadroomMetricsPanel({ state }: { state: HeadroomState }) {
   const { t } = useTranslation('integrations')
   const metrics = state.metrics
-  const learningReady = state.learning.baselineReady
+  const outputMeasured = metrics.outputSavingsAvailable
   return (
     <div className="mb-4 rounded-lg border border-border bg-background/45 p-3">
       <div className="mb-2 flex items-center justify-between gap-2">
@@ -932,11 +932,11 @@ function HeadroomMetricsPanel({ state }: { state: HeadroomState }) {
         </div>
         <span className={cn(
           'shrink-0 rounded border px-1.5 py-0.5 text-[10px]',
-          learningReady
+          outputMeasured
             ? 'border-accent-success/25 bg-accent-success/10 text-accent-success'
             : 'border-border bg-muted text-muted-foreground',
         )}>
-          {learningReady ? t('plugins.headroom.savings.learningOn') : t('plugins.headroom.savings.waitingForOutputSamples')}
+          {outputMeasured ? t('plugins.headroom.savings.learningOn') : t('plugins.headroom.savings.waitingForOutputSamples')}
         </span>
       </div>
 
@@ -987,7 +987,11 @@ function ProviderMetricRow({
     : unavailable
       ? t('plugins.headroom.provider.noProjectUsesProvider')
       : metric.active
-        ? t('plugins.headroom.savings.waitingForShapedResponses')
+        ? metric.outputTokens > 0
+          ? t('plugins.headroom.savings.outputObservedNoSavings', {
+              value: formatTokenCount(metric.outputTokens, i18n.language, t('plugins.headroom.savings.tokens')),
+            })
+          : t('plugins.headroom.savings.waitingForShapedResponses')
         : t('plugins.headroom.savings.routeDisabled')
 
   return (

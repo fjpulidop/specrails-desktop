@@ -189,14 +189,14 @@
       },
       "savings": {
         "title": "Tokens de salida ahorrados",
-        "learningOn": "aprendizaje activo",
-        "waitingForOutputSamples": "Esperando muestras de salida",
+        "learningOn": "ahorro de salida medido",
+        "waitingForOutputSamples": "Ahorro de salida no disponible",
         "baseline": "base {{method}}",
         "updatedLive": "actualizado en vivo",
         "baselineSamples_one": "{{count}} muestra base",
         "baselineSamples_other": "{{count}} muestras base",
         "tokens": "tokens",
-        "learning": "Aprendiendo",
+        "learning": "Sin medir",
         "off": "Apagado",
         "requestDetail": "{{method}} · {{count}} solicitudes",
         "detected": "detectado",
@@ -205,7 +205,8 @@
           "measured": "medida",
           "none": "sin medir"
         },
-        "waitingForShapedResponses": "Esperando respuestas optimizadas",
+        "waitingForShapedResponses": "Ahorro de salida no reportado",
+        "outputObservedNoSavings": "{{value}} de salida observados; sin ahorro reportado",
         "routeDisabled": "Ruta desactivada",
         "input": "entrada {{value}}"
       },

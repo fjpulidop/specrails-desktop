@@ -189,14 +189,14 @@
       },
       "savings": {
         "title": "节省的输出 Token",
-        "learningOn": "学习已启用",
-        "waitingForOutputSamples": "等待输出样本",
+        "learningOn": "已测量输出节省",
+        "waitingForOutputSamples": "输出节省不可用",
         "baseline": "{{method}}基线",
         "updatedLive": "实时更新",
         "baselineSamples_one": "{{count}} 个基线样本",
         "baselineSamples_other": "{{count}} 个基线样本",
         "tokens": "tokens",
-        "learning": "学习中",
+        "learning": "未测量",
         "off": "关闭",
         "requestDetail": "{{method}} · {{count}} 次请求",
         "detected": "已检测",
@@ -205,7 +205,8 @@
           "measured": "实测",
           "none": "无"
         },
-        "waitingForShapedResponses": "等待优化响应",
+        "waitingForShapedResponses": "未报告输出节省",
+        "outputObservedNoSavings": "已观察到 {{value}} 输出；未报告节省",
         "routeDisabled": "路由已禁用",
         "input": "输入 {{value}}"
       },

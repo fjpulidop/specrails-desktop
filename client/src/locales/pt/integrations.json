@@ -189,14 +189,14 @@
       },
       "savings": {
         "title": "Tokens de saída poupados",
-        "learningOn": "aprendizagem ativa",
-        "waitingForOutputSamples": "À espera de amostras de saída",
+        "learningOn": "poupança de saída medida",
+        "waitingForOutputSamples": "Poupança de saída indisponível",
         "baseline": "base {{method}}",
         "updatedLive": "atualizado em direto",
         "baselineSamples_one": "{{count}} amostra base",
         "baselineSamples_other": "{{count}} amostras base",
         "tokens": "tokens",
-        "learning": "A aprender",
+        "learning": "Sem medição",
         "off": "Desligado",
         "requestDetail": "{{method}} · {{count}} pedidos",
         "detected": "detetado",
@@ -205,7 +205,8 @@
           "measured": "medida",
           "none": "nenhuma"
         },
-        "waitingForShapedResponses": "À espera de respostas otimizadas",
+        "waitingForShapedResponses": "Poupança de saída não comunicada",
+        "outputObservedNoSavings": "{{value}} de saída observados; sem poupança comunicada",
         "routeDisabled": "Rota desativada",
         "input": "entrada {{value}}"
       },

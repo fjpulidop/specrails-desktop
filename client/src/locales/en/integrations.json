@@ -189,14 +189,14 @@
       },
       "savings": {
         "title": "Output Tokens Saved",
-        "learningOn": "learning on",
-        "waitingForOutputSamples": "Waiting for output samples",
+        "learningOn": "output savings measured",
+        "waitingForOutputSamples": "Output savings unavailable",
         "baseline": "{{method}} baseline",
         "updatedLive": "updated live",
         "baselineSamples_one": "{{count}} baseline sample",
         "baselineSamples_other": "{{count}} baseline samples",
         "tokens": "tokens",
-        "learning": "Learning",
+        "learning": "Not measured",
         "off": "Off",
         "requestDetail": "{{method}} · {{count}} requests",
         "detected": "detected",
@@ -205,7 +205,8 @@
           "measured": "measured",
           "none": "none"
         },
-        "waitingForShapedResponses": "Waiting for shaped responses",
+        "waitingForShapedResponses": "Output savings not reported",
+        "outputObservedNoSavings": "{{value}} output observed; no savings reported",
         "routeDisabled": "Route disabled",
         "input": "input {{value}}"
       },

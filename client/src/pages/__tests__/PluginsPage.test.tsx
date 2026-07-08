@@ -282,6 +282,42 @@ describe('PluginsPage', () => {
     expect(screen.getByText('System')).toBeInTheDocument()
   })
 
+  it('labels Headroom output savings as unmeasured when only input savings are available', async () => {
+    const state = headroomState({
+      installed: true,
+      installSource: 'managed',
+      version: '0.30.0',
+      executablePath: '/Users/test/.specrails/tools/bin/headroom',
+      activeProviders: { codex: true, claude: false },
+      detectedRoutes: { codex: true, claude: false },
+    }) as ReturnType<typeof headroomState>
+    state.metrics.updatedAt = '2026-07-08T10:00:00.000Z'
+    state.metrics.providers.codex = {
+      ...state.metrics.providers.codex,
+      active: true,
+      detectedRoute: true,
+      requests: 1013,
+      inputTokensSaved: 1490172,
+      outputTokens: 470898,
+      outputTokensSaved: 0,
+      outputSavingsMethod: 'none',
+    }
+    installFetchMock(state)
+
+    render(<PluginsPage />)
+
+    fireEvent.click(await screen.findByRole('button', { name: /Manage/i }))
+
+    expect(await screen.findByText('Output Tokens Saved')).toBeInTheDocument()
+    expect(screen.getByText('Output savings unavailable')).toBeInTheDocument()
+    expect(screen.getByText('Not measured')).toBeInTheDocument()
+    expect(screen.getByText(/470\.9K tokens output observed; no savings reported/i)).toBeInTheDocument()
+    expect(screen.getByText(/input 1\.5M/i)).toBeInTheDocument()
+    expect(screen.queryByText('Learning')).not.toBeInTheDocument()
+    expect(screen.queryByText('Waiting for output samples')).not.toBeInTheDocument()
+    expect(screen.queryByText('Waiting for shaped responses')).not.toBeInTheDocument()
+  })
+
   it('exposes Headroom uninstall behind confirmation', async () => {
     const fetchMock = installFetchMock(headroomState({
       installed: true,

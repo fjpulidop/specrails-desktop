@@ -189,14 +189,14 @@
       },
       "savings": {
         "title": "節約された出力トークン",
-        "learningOn": "学習有効",
-        "waitingForOutputSamples": "出力サンプル待ち",
+        "learningOn": "出力削減を測定済み",
+        "waitingForOutputSamples": "出力削減は利用不可",
         "baseline": "{{method}}ベースライン",
         "updatedLive": "ライブ更新",
         "baselineSamples_one": "{{count}} 件のベースラインサンプル",
         "baselineSamples_other": "{{count}} 件のベースラインサンプル",
         "tokens": "tokens",
-        "learning": "学習中",
+        "learning": "未測定",
         "off": "オフ",
         "requestDetail": "{{method}} · {{count}} 件のリクエスト",
         "detected": "検出済み",
@@ -205,7 +205,8 @@
           "measured": "測定",
           "none": "なし"
         },
-        "waitingForShapedResponses": "最適化レスポンス待ち",
+        "waitingForShapedResponses": "出力削減は未報告",
+        "outputObservedNoSavings": "{{value}} の出力を確認済み、削減は未報告",
         "routeDisabled": "ルート無効",
         "input": "入力 {{value}}"
       },
