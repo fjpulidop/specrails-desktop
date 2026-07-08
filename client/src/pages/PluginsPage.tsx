@@ -923,6 +923,20 @@ function HeadroomMetricsPanel({ state }: { state: HeadroomState }) {
   const { t } = useTranslation('integrations')
   const metrics = state.metrics
   const outputMeasured = metrics.outputSavingsAvailable
+  const providerMetrics = (['codex', 'claude'] as Provider[]).map((provider) => ({
+    provider,
+    metric: metrics.providers[provider],
+  }))
+  const hasInputSavings = providerMetrics.some(({ metric }) => metric.inputTokensSaved > 0)
+  const hasActiveProvider = providerMetrics.some(({ metric }) => metric.active)
+  const statusLabel = outputMeasured
+    ? t('plugins.headroom.savings.statusInputOutput')
+    : hasInputSavings
+      ? t('plugins.headroom.savings.statusInputOnly')
+      : hasActiveProvider
+        ? t('plugins.headroom.savings.statusRouting')
+        : t('plugins.headroom.savings.statusInactive')
+  const statusEmphasis = outputMeasured || hasInputSavings
   return (
     <div className="mb-4 rounded-lg border border-border bg-background/45 p-3">
       <div className="mb-2 flex items-center justify-between gap-2">
@@ -932,35 +946,30 @@ function HeadroomMetricsPanel({ state }: { state: HeadroomState }) {
         </div>
         <span className={cn(
           'shrink-0 rounded border px-1.5 py-0.5 text-[10px]',
-          outputMeasured
+          statusEmphasis
             ? 'border-accent-success/25 bg-accent-success/10 text-accent-success'
+            : hasActiveProvider
+              ? 'border-accent-primary/25 bg-accent-primary/10 text-accent-primary'
             : 'border-border bg-muted text-muted-foreground',
         )}>
-          {outputMeasured ? t('plugins.headroom.savings.learningOn') : t('plugins.headroom.savings.waitingForOutputSamples')}
+          {statusLabel}
         </span>
       </div>
 
       <div className="grid gap-2">
-        {(['codex', 'claude'] as Provider[]).map((provider) => (
+        {providerMetrics.map(({ provider, metric }) => (
           <ProviderMetricRow
             key={provider}
-            metric={metrics.providers[provider]}
+            metric={metric}
             outputAvailable={metrics.outputSavingsAvailable}
           />
         ))}
       </div>
 
-      <div className="mt-2 flex items-center justify-between gap-2 text-[10px] text-muted-foreground">
-        <span>
-          {t('plugins.headroom.savings.baseline', {
-            method: t(`plugins.headroom.savings.methods.${metrics.outputSavingsMethod ?? 'estimated'}`),
-          })}
-        </span>
-        <span>
-          {metrics.updatedAt
-            ? t('plugins.headroom.savings.updatedLive')
-            : t('plugins.headroom.savings.baselineSamples', { count: state.learning.baselineSamples })}
-        </span>
+      <div className="mt-2 flex items-center justify-end gap-2 text-[10px] text-muted-foreground">
+        {metrics.updatedAt
+          ? t('plugins.headroom.savings.updatedLive')
+          : t('plugins.headroom.savings.baselineSamples', { count: state.learning.baselineSamples })}
       </div>
     </div>
   )
@@ -976,10 +985,19 @@ function ProviderMetricRow({
   const { t, i18n } = useTranslation('integrations')
   const unavailable = !metric.available
   const muted = unavailable || !metric.active
-  const value = outputAvailable
+  const tokenLabel = t('plugins.headroom.savings.tokens')
+  const inputValue = formatTokenCount(metric.inputTokensSaved, i18n.language, tokenLabel)
+  const inputDetail = metric.requests > 0
+    ? t('plugins.headroom.savings.requestCount', { count: formatCompactNumber(metric.requests, i18n.language) })
+    : unavailable
+      ? t('plugins.headroom.provider.noProjectUsesProvider')
+      : metric.active
+        ? t('plugins.headroom.savings.inputSavingsActive')
+        : t('plugins.headroom.savings.routeDisabled')
+  const outputValue = outputAvailable
     ? formatTokenCount(metric.outputTokensSaved, i18n.language, t('plugins.headroom.savings.tokens'))
     : (metric.active ? t('plugins.headroom.savings.learning') : t('plugins.headroom.savings.off'))
-  const detail = outputAvailable
+  const outputDetail = outputAvailable
     ? t('plugins.headroom.savings.requestDetail', {
         method: t(`plugins.headroom.savings.methods.${metric.outputSavingsMethod}`),
         count: formatCompactNumber(metric.requests, i18n.language),
@@ -988,7 +1006,7 @@ function ProviderMetricRow({
       ? t('plugins.headroom.provider.noProjectUsesProvider')
       : metric.active
         ? metric.outputTokens > 0
-          ? t('plugins.headroom.savings.outputObservedNoSavings', {
+          ? t('plugins.headroom.savings.outputObserved', {
               value: formatTokenCount(metric.outputTokens, i18n.language, t('plugins.headroom.savings.tokens')),
             })
           : t('plugins.headroom.savings.waitingForShapedResponses')
@@ -996,26 +1014,31 @@ function ProviderMetricRow({
 
   return (
     <div className={cn(
-      'grid grid-cols-[minmax(0,1fr)_auto] items-center gap-3 rounded-md border border-border bg-card/45 px-2.5 py-2',
+      'rounded-md border border-border bg-card/45 px-2.5 py-2',
       muted && 'opacity-70',
     )}>
-      <div className="min-w-0">
-        <div className="flex items-center gap-1.5">
+      <div className="flex min-w-0 items-center gap-1.5">
           <span className="text-xs font-medium">{metric.label}</span>
           {metric.detectedRoute && (
             <span className="rounded bg-accent-primary/10 px-1.5 py-0.5 text-[9px] uppercase text-accent-primary">
               {t('plugins.headroom.savings.detected')}
             </span>
           )}
-        </div>
-        <div className="mt-0.5 truncate text-[10px] text-muted-foreground">{detail}</div>
       </div>
-      <div className="text-right">
-        <div className={cn('text-xs font-semibold tabular-nums', outputAvailable ? 'text-foreground' : 'text-muted-foreground')}>
-          {value}
+
+      <div className="mt-2 grid grid-cols-2 gap-3">
+        <div className="min-w-0">
+          <div className="text-[10px] font-medium uppercase text-muted-foreground">{t('plugins.headroom.savings.inputSaved')}</div>
+          <div className="mt-0.5 truncate text-xs font-semibold tabular-nums text-foreground">{inputValue}</div>
+          <div className="mt-0.5 truncate text-[10px] text-muted-foreground">{inputDetail}</div>
         </div>
-        <div className="mt-0.5 text-[10px] text-muted-foreground">
-          {t('plugins.headroom.savings.input', { value: formatCompactNumber(metric.inputTokensSaved, i18n.language) })}
+
+        <div className="min-w-0 text-right">
+          <div className="text-[10px] font-medium uppercase text-muted-foreground">{t('plugins.headroom.savings.outputSaved')}</div>
+          <div className={cn('mt-0.5 truncate text-xs font-semibold tabular-nums', outputAvailable ? 'text-foreground' : 'text-muted-foreground')}>
+            {outputValue}
+          </div>
+          <div className="mt-0.5 truncate text-[10px] text-muted-foreground">{outputDetail}</div>
         </div>
       </div>
     </div>
