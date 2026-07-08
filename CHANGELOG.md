@@ -1,5 +1,12 @@
 # Changelog
 
+## [2.28.0](https://github.com/fjpulidop/specrails-desktop/compare/v2.27.0...v2.28.0) (2026-07-08)
+
+
+### Features
+
+* **plugins:** add global plugin center and Headroom integration ([#535](https://github.com/fjpulidop/specrails-desktop/issues/535)) ([62f5f54](https://github.com/fjpulidop/specrails-desktop/commit/62f5f543ac33481698a81e1ecd1e2795049c16fe))
+
 ## [2.27.0](https://github.com/fjpulidop/specrails-desktop/compare/v2.26.2...v2.27.0) (2026-07-08)
 
 
