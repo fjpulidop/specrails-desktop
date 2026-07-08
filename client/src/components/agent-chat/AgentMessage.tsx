@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
+import { createPortal } from 'react-dom'
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
 import { AlertCircle, ArrowLeft, AtSign, Bot, BriefcaseBusiness, Check, Copy, Download, File, FileText, GitPullRequest, Hash, Image as ImageIcon, Loader2, Paperclip, Sparkles, type LucideIcon } from 'lucide-react'
@@ -190,7 +191,7 @@ function AgentAttachmentDialog({
     </button>
   )
 
-  return (
+  const dialog = (
     <div
       role="dialog"
       aria-modal="true"
@@ -273,6 +274,8 @@ function AgentAttachmentDialog({
       )}
     </div>
   )
+
+  return createPortal(dialog, document.body)
 }
 
 function AgentAttachmentChips({

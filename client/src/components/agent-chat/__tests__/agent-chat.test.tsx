@@ -191,7 +191,7 @@ describe('AgentMessage', () => {
 
   it('opens an in-app preview for image attachments in user bubbles', async () => {
     vi.mocked(agentApi.fetchAgentAttachmentBlob).mockResolvedValue(new Blob(['png'], { type: 'image/png' }))
-    render(
+    const { container } = render(
       <AgentMessage
         role="user"
         content="mira esta imagen"
@@ -210,6 +210,7 @@ describe('AgentMessage', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Preview screen.png' }))
 
     expect(await screen.findByRole('dialog')).toBeInTheDocument()
+    expect(container.querySelector('[role="dialog"]')).toBeNull()
     expect(await screen.findByRole('img', { name: 'screen.png' })).toBeInTheDocument()
     expect(agentApi.fetchAgentAttachmentBlob).toHaveBeenCalledWith('c1', 'img-1')
   })
