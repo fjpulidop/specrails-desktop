@@ -181,8 +181,8 @@ function brokenSymlinkHint(label: string, command: string, resolvedPath: string 
 // branch below must never claim it. gh is SYSTEM-FIRST (the user's own gh
 // carries their auth/hosts config); the bundled copy is pure fallback, probed
 // only when no system gh resolves. See probeGhPrerequisite.
-type BundledToolKey = 'node' | 'npm' | 'npx' | 'git' | 'gh'
-const BUNDLED_TOOL_KEYS: ReadonlySet<string> = new Set(['node', 'npm', 'npx', 'git'])
+type BundledToolKey = 'node' | 'npm' | 'npx' | 'git' | 'gh' | 'uv'
+const BUNDLED_TOOL_KEYS: ReadonlySet<string> = new Set(['node', 'npm', 'npx', 'git', 'uv'])
 
 function isBundledTool(key: string): key is BundledToolKey {
   return BUNDLED_TOOL_KEYS.has(key)
@@ -200,6 +200,7 @@ function getBundledToolCandidates(runtimesBase: string, tool: BundledToolKey): s
       npx:  [path.join(runtimesBase, 'node', 'npx.cmd')],
       git:  [path.join(runtimesBase, 'git', 'cmd', 'git.exe'), path.join(runtimesBase, 'git', 'bin', 'git.exe')],
       gh:   [path.join(runtimesBase, 'gh', 'bin', 'gh.exe')],
+      uv:   [path.join(runtimesBase, 'uv', 'uv.exe'), path.join(runtimesBase, 'uv', 'bin', 'uv.exe')],
     }
     return map[tool]
   }
@@ -209,6 +210,7 @@ function getBundledToolCandidates(runtimesBase: string, tool: BundledToolKey): s
     npx:  [path.join(runtimesBase, 'node', 'bin', 'npx')],
     git:  [path.join(runtimesBase, 'git', 'bin', 'git')],
     gh:   [path.join(runtimesBase, 'gh', 'bin', 'gh')],
+    uv:   [path.join(runtimesBase, 'uv', 'bin', 'uv'), path.join(runtimesBase, 'uv', 'uv')],
   }
   return map[tool]
 }

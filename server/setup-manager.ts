@@ -302,12 +302,12 @@ export interface CheckpointDefinition {
 // Full install: 7-phase enrichment flow (claude /specrails:enrich)
 export const CHECKPOINTS: CheckpointDefinition[] = [
   { key: 'base_install', name: 'Base installation' },
-  { key: 'repo_analysis', name: 'Repository analysis' },
-  { key: 'stack_conventions', name: 'Stack & conventions' },
-  { key: 'product_discovery', name: 'Product discovery' },
+  { key: 'agent_selection', name: 'Agent selection' },
+  { key: 'codebase_analysis', name: 'Codebase analysis' },
+  { key: 'vpc_discovery', name: 'VPC discovery' },
   { key: 'agent_generation', name: 'Agent generation' },
-  { key: 'command_config', name: 'Command configuration' },
-  { key: 'final_verification', name: 'Final verification' },
+  { key: 'persona_synthesis', name: 'Persona synthesis' },
+  { key: 'command_generation', name: 'Command generation' },
 ]
 
 // Quick install: 3-phase non-interactive flow (npx init --from-config)
@@ -346,20 +346,21 @@ function checkFilesystem(projectPath: string): Partial<Record<string, boolean>> 
     (existsSync(join(projectPath, dir, 'commands', 'specrails')) && hasFiles(join(projectPath, dir, 'commands', 'specrails'), /\.md$/))
   )
   const hasCLAUDE = existsSync(join(projectPath, 'CLAUDE.md'))
+  const hasInstallConfig = existsSync(join(projectPath, '.specrails', 'install-config.yaml')) ||
+    existsSync(join(projectPath, dir, 'install-config.yaml'))
+  const hasAgentConfig = existsSync(join(projectPath, dir, 'agents.yaml'))
+  const hasBacklogConfig = existsSync(join(projectPath, dir, 'backlog-config.json'))
 
   return {
     base_install: hasBaseInstall,
-    // repo_analysis: detected when setup templates exist and CLAUDE.md is written
-    // (Claude writes CLAUDE.md after analyzing the repo)
-    repo_analysis: hasBaseInstall && (hasCLAUDE || hasSetupTemplates),
-    // stack_conventions: detected when rules files are generated
-    stack_conventions: hasRules,
-    product_discovery: hasPersonas,
+    // Back-compat filesystem signals from older cores are translated to the
+    // current integration-contract checkpoint keys.
+    agent_selection: hasInstallConfig || hasAgentConfig || hasBacklogConfig || hasAgents || hasCommands,
+    codebase_analysis: hasBaseInstall && (hasCLAUDE || hasSetupTemplates),
+    vpc_discovery: hasPersonas,
+    persona_synthesis: hasPersonas,
     agent_generation: hasAgents,
-    command_config: hasCommands,
-    // Final verification: agents + commands must exist (manifest from install.sh is unreliable —
-    // it's created during scaffolding before /setup generates the actual artifacts)
-    final_verification: hasAgents && hasCommands,
+    command_generation: hasCommands || (hasAgents && hasRules),
   }
 }
 
@@ -407,21 +408,23 @@ export function detectCheckpointFromText(
 ): { key: string; detail?: string }[] {
   const hits: { key: string; detail?: string }[] = []
 
-  // Match phase headers from Claude's /specrails:enrich output (and legacy /setup)
+  // Match phase headers from Claude's /specrails:enrich output (and legacy /setup).
+  // Older specrails-core prompts used different checkpoint names; keep accepting
+  // those phrases but emit only the current integration-contract keys.
   if (/phase\s*1|codebase\s*analysis|repository\s*analysis/i.test(text)) {
-    hits.push({ key: 'repo_analysis', detail: 'Analyzing codebase...' })
+    hits.push({ key: 'codebase_analysis', detail: 'Analyzing codebase...' })
   }
-  if (/phase\s*2|user\s*personas|product\s*discovery/i.test(text)) {
-    hits.push({ key: 'product_discovery', detail: 'Generating personas...' })
+  if (/phase\s*2|user\s*personas|product\s*discovery|vpc\s*discovery/i.test(text)) {
+    hits.push({ key: 'vpc_discovery', detail: 'Discovering personas...' })
   }
   if (/phase\s*3|configuration|agent\s*selection|backlog\s*provider/i.test(text)) {
-    hits.push({ key: 'stack_conventions', detail: 'Configuring stack...' })
+    hits.push({ key: 'agent_selection', detail: 'Configuring agents...' })
   }
   if (/generating\s*all\s*files|writing.*agent|sr-architect|sr-developer|sr-reviewer/i.test(text)) {
     hits.push({ key: 'agent_generation', detail: 'Generating agents...' })
   }
   if (/command\s*selection|installing.*commands|\.claude\/commands\/(sr|specrails)/i.test(text)) {
-    hits.push({ key: 'command_config', detail: 'Configuring commands...' })
+    hits.push({ key: 'command_generation', detail: 'Configuring commands...' })
   }
 
   // TUI output patterns from specrails-core init --from-config.
@@ -436,7 +439,7 @@ export function detectCheckpointFromText(
     hits.push({ key: 'agent_generation', detail: 'Installing specrails artefacts...' })
   }
   if (/writing\s*manifest|wrote\s+.*specrails-manifest/i.test(text)) {
-    hits.push({ key: 'final_verification' })
+    hits.push({ key: 'command_generation' })
   }
   if (/✓\s*installed|installation\s*complete|init\s*complete|update\s*complete/i.test(text)) {
     hits.push({ key: 'quick_complete' })
@@ -445,7 +448,7 @@ export function detectCheckpointFromText(
   // File path detection in tool_use events
   if (text.includes('.specrails-version') || text.includes('specrails/specrails-version')) hits.push({ key: 'base_install' })
   if (text.includes('/agents/personas/') && text.includes('.md')) {
-    hits.push({ key: 'product_discovery', detail: 'Writing personas...' })
+    hits.push({ key: 'persona_synthesis', detail: 'Writing personas...' })
   }
   // Claude path: .claude/agents/sr-<name>.md
   if (/\/agents\/sr-[^/]+\.md/.test(text)) {
@@ -458,24 +461,24 @@ export function detectCheckpointFromText(
     hits.push({ key: 'agent_generation', detail: 'Writing agent skills...' })
   }
   if ((text.includes('/commands/sr/') || text.includes('/commands/specrails/')) && text.includes('.md')) {
-    hits.push({ key: 'command_config', detail: 'Writing commands...' })
+    hits.push({ key: 'command_generation', detail: 'Writing commands...' })
   }
   // Codex enrich/doctor skills (the non-rail commands) also indicate
-  // command_config progress.
+  // command_generation progress.
   if (/\.codex\/skills\/(enrich|doctor)\/SKILL\.md/.test(text)) {
-    hits.push({ key: 'command_config', detail: 'Writing codex command skills...' })
+    hits.push({ key: 'command_generation', detail: 'Writing codex command skills...' })
   }
   if (text.includes('/rules/') && text.includes('.md')) {
-    hits.push({ key: 'stack_conventions', detail: 'Writing conventions...' })
+    hits.push({ key: 'command_generation', detail: 'Writing conventions...' })
   }
   // Codex sandbox / approval policy lives inside .codex/config.toml
   // (top-level `sandbox_mode` + `approval_policy` keys, per codex
   // 0.128.0+). There is no separate Starlark rules file.
   if (/\.codex\/config\.toml/.test(text)) {
-    hits.push({ key: 'stack_conventions', detail: 'Writing codex sandbox config...' })
+    hits.push({ key: 'agent_selection', detail: 'Writing codex sandbox config...' })
   }
   if (text.includes('.specrails-manifest.json') || text.includes('specrails/specrails-manifest.json')) {
-    hits.push({ key: 'final_verification' })
+    hits.push({ key: 'command_generation' })
   }
 
   return hits

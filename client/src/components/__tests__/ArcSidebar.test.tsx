@@ -1,5 +1,6 @@
 import React from 'react'
 import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { useLocation } from 'react-router-dom'
 import { render, screen, fireEvent } from '../../test-utils'
 import { ArcSidebar } from '../ArcSidebar'
 import type { DesktopProject } from '../../hooks/useDesktop'
@@ -28,9 +29,16 @@ vi.mock('../../hooks/useDesktop', () => ({
 
 const defaultProps = {
   onAddProject: vi.fn(),
+  onOpenLoops: vi.fn(),
+  onOpenPlugins: vi.fn(),
   onOpenAnalytics: vi.fn(),
   onOpenDocs: vi.fn(),
   onOpenSettings: vi.fn(),
+}
+
+function LocationProbe() {
+  const location = useLocation()
+  return <div data-testid="location">{location.pathname}</div>
 }
 
 beforeEach(() => {
@@ -125,6 +133,22 @@ describe('ArcSidebar', () => {
     fireEvent.click(screen.getByRole('button', { name: /Pin left sidebar open/i }))
     fireEvent.click(screen.getByText('Project Beta'))
     expect(mockSetActiveProjectId).toHaveBeenCalledWith('proj-2')
+  })
+
+  it('leaves Plugins route when active project is clicked in board mode', () => {
+    render(
+      <>
+        <ArcSidebar {...defaultProps} />
+        <LocationProbe />
+      </>,
+      { route: '/plugins' },
+    )
+
+    fireEvent.click(screen.getByRole('button', { name: /Pin left sidebar open/i }))
+    fireEvent.click(screen.getByText('Project Alpha'))
+
+    expect(screen.getByTestId('location')).toHaveTextContent('/')
+    expect(mockSetActiveProjectId).not.toHaveBeenCalled()
   })
 
   it('renders desktop nav items when expanded', () => {

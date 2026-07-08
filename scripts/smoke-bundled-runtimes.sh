@@ -32,12 +32,23 @@ elif [[ -e "${RT}/git/cmd/git.exe" ]]; then
 else
   GIT="${RT}/git/bin/git.exe"
 fi
+if [[ -e "${RT}/uv/bin/uv" ]]; then
+  UV="${RT}/uv/bin/uv"
+elif [[ -e "${RT}/uv/uv.exe" ]]; then
+  UV="${RT}/uv/uv.exe"
+elif [[ -e "${RT}/uv/bin/uv.exe" ]]; then
+  UV="${RT}/uv/bin/uv.exe"
+else
+  echo "ERROR: bundled uv not found under ${RT}/uv"
+  exit 1
+fi
 
 echo "=== bundled runtimes smoke test: ${RT} ==="
 echo "node: $("${NODE}" --version)"
 echo "npm:  $("${NPM}" --version)"
 echo "npx:  $("${NPX}" --version)"
 echo "git:  $("${GIT}" --version)"
+echo "uv:   $("${UV}" --version)"
 
 # Optional: bundled GitHub CLI (system-first fallback — see path-resolver.ts).
 # Only validated when present; a runtimes tree without gh is still valid.

@@ -123,8 +123,8 @@ describe('SetupManager', () => {
     it('contains expected checkpoint keys', () => {
       const keys = CHECKPOINTS.map((c) => c.key)
       expect(keys).toContain('base_install')
-      expect(keys).toContain('repo_analysis')
-      expect(keys).toContain('final_verification')
+      expect(keys).toContain('codebase_analysis')
+      expect(keys).toContain('command_generation')
     })
   })
 
@@ -897,7 +897,7 @@ describe('SetupManager', () => {
       expect(baseInstall?.status).toBe('done')
     })
 
-    it('detects repo_analysis from .specrails/setup-templates (new path)', () => {
+    it('detects codebase_analysis from .specrails/setup-templates (new path)', () => {
       const child = createMockChildProcess()
       vi.mocked(mockSpawn).mockReturnValue(child as any)
 
@@ -908,15 +908,15 @@ describe('SetupManager', () => {
 
       sm.startEnrich('p1', '/path/to/project')
       const statuses = sm.getCheckpointStatus('p1', '/path/to/project')
-      const repoAnalysis = statuses.find((s) => s.key === 'repo_analysis')
-      expect(repoAnalysis?.status).toBe('done')
+      const codebaseAnalysis = statuses.find((s) => s.key === 'codebase_analysis')
+      expect(codebaseAnalysis?.status).toBe('done')
     })
   })
 
   // ─── Checkpoint detection from stream ──────────────────────────────────────
 
   describe('checkpoint detection from stream events', () => {
-    it('detects repo_analysis from assistant text', async () => {
+    it('detects codebase_analysis from assistant text', async () => {
       const child = createMockChildProcess()
       vi.mocked(mockSpawn).mockReturnValue(child as any)
 
@@ -931,9 +931,9 @@ describe('SetupManager', () => {
       await new Promise((r) => setImmediate(r))
 
       const checkpointMsgs = getBroadcastedByType(broadcast, 'setup_checkpoint')
-      const repoAnalysis = checkpointMsgs.find((m) => m.checkpoint === 'repo_analysis')
-      expect(repoAnalysis).toBeDefined()
-      expect(repoAnalysis?.status).toBe('running')
+      const codebaseAnalysis = checkpointMsgs.find((m) => m.checkpoint === 'codebase_analysis')
+      expect(codebaseAnalysis).toBeDefined()
+      expect(codebaseAnalysis?.status).toBe('running')
     })
 
     it('detects agent_generation from tool_use event', async () => {
@@ -974,7 +974,7 @@ describe('SetupManager', () => {
       expect(baseInstall).toBeDefined()
     })
 
-    it('detects final_verification from new specrails/specrails-manifest.json path in tool_use', async () => {
+    it('detects command_generation from new specrails/specrails-manifest.json path in tool_use', async () => {
       const child = createMockChildProcess()
       vi.mocked(mockSpawn).mockReturnValue(child as any)
 
@@ -989,8 +989,8 @@ describe('SetupManager', () => {
       await new Promise((r) => setImmediate(r))
 
       const checkpointMsgs = getBroadcastedByType(broadcast, 'setup_checkpoint')
-      const finalVerification = checkpointMsgs.find((m) => m.checkpoint === 'final_verification')
-      expect(finalVerification).toBeDefined()
+      const commandGeneration = checkpointMsgs.find((m) => m.checkpoint === 'command_generation')
+      expect(commandGeneration).toBeDefined()
     })
   })
 
@@ -1632,13 +1632,13 @@ describe('detectCheckpointFromText', () => {
       .toContain('agent_generation')
   })
 
-  it('matches the "Writing manifest" Node step → final_verification', () => {
-    expect(keys('Phase 3b: Writing manifest')).toContain('final_verification')
+  it('matches the "Writing manifest" Node step → command_generation', () => {
+    expect(keys('Phase 3b: Writing manifest')).toContain('command_generation')
   })
 
-  it('matches "Wrote ...specrails-manifest.json" path log → final_verification', () => {
+  it('matches "Wrote ...specrails-manifest.json" path log → command_generation', () => {
     expect(keys('  ✓ Wrote .specrails/specrails-manifest.json'))
-      .toContain('final_verification')
+      .toContain('command_generation')
   })
 
   it('matches the Node installer terminal "init complete" sentinel → quick_complete', () => {
@@ -1653,8 +1653,8 @@ describe('detectCheckpointFromText', () => {
     expect(keys('Installation complete')).toContain('quick_complete')
   })
 
-  it('matches enrich phase 1 / codebase analysis → repo_analysis', () => {
-    expect(keys('Phase 1: codebase analysis')).toContain('repo_analysis')
+  it('matches enrich phase 1 / codebase analysis → codebase_analysis', () => {
+    expect(keys('Phase 1: codebase analysis')).toContain('codebase_analysis')
   })
 
   it('matches the .specrails/specrails-version path log → base_install', () => {

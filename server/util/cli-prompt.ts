@@ -22,6 +22,7 @@
 
 import type { ChildProcess, SpawnOptions, StdioOptions } from 'child_process'
 import { spawnCli } from './win-spawn'
+import { withHeadroomSpawnEnv } from '../headroom-routing'
 
 // Per-call (not a frozen module const) so a test can flip the platform with a
 // `process.platform` spy without re-importing this module — which removes a
@@ -149,6 +150,7 @@ export function ensureStdinPipe(stdio: StdioOptions | undefined): StdioOptions {
  * survive. POSIX call is identical to `spawnCli('claude', args, options)`.
  */
 export function spawnClaude(args: string[], options: SpawnOptions = {}): ChildProcess {
+  options = withHeadroomSpawnEnv('claude', options)
   if (!isWin()) {
     return spawnCli('claude', args, options)
   }
@@ -171,6 +173,7 @@ export function spawnClaude(args: string[], options: SpawnOptions = {}): ChildPr
  * survive. POSIX call is identical to `spawnCli('codex', args, options)`.
  */
 export function spawnCodex(args: string[], options: SpawnOptions = {}): ChildProcess {
+  options = withHeadroomSpawnEnv('codex', options)
   if (!isWin()) {
     return spawnCli('codex', args, options)
   }

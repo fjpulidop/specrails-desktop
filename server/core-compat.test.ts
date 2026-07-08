@@ -17,12 +17,12 @@ const COMPATIBLE_CONTRACT = {
   cli: { initArgs: [], updateArgs: [] },
   checkpoints: [
     'base_install',
-    'repo_analysis',
-    'stack_conventions',
-    'product_discovery',
+    'agent_selection',
+    'codebase_analysis',
+    'vpc_discovery',
     'agent_generation',
-    'command_config',
-    'final_verification',
+    'persona_synthesis',
+    'command_generation',
   ],
   commands: [
     'implement',
@@ -107,14 +107,14 @@ describe('checkCoreCompat', () => {
   it('detects drift when the app has a checkpoint that core dropped', async () => {
     const driftedContract = {
       ...COMPATIBLE_CONTRACT,
-      checkpoints: COMPATIBLE_CONTRACT.checkpoints.filter((c) => c !== 'final_verification'),
+      checkpoints: COMPATIBLE_CONTRACT.checkpoints.filter((c) => c !== 'command_generation'),
     }
     setupContractInTmpDir(driftedContract, tmpDir)
 
     const result = await checkCoreCompat()
 
     expect(result.compatible).toBe(false)
-    expect(result.extraCheckpoints).toContain('final_verification')
+    expect(result.extraCheckpoints).toContain('command_generation')
     expect(result.missingCheckpoints).toEqual([])
   })
 

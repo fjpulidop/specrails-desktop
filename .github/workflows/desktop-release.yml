@@ -22,6 +22,10 @@ env:
   # probeGhPrerequisite. Each job verifies the download against the release's
   # gh_<v>_checksums.txt. Bump deliberately via PR.
   GH_BUNDLE_VERSION: "2.63.2"
+  # Bundled uv (Astral standalone binary) powers transparent app-managed Python
+  # tools such as Headroom AI. Each job verifies the adjacent .sha256 file from
+  # the immutable uv release.
+  UV_BUNDLE_VERSION: "0.11.28"
   # Bundle a published specrails-core into the app so the framework can be
   # materialized + assembled OFFLINE (no per-project `npx specrails-core init`).
   # EXACT pin (was floating `latest`, which let the three platform jobs each
@@ -236,6 +240,30 @@ jobs:
           src-tauri/runtimes/gh/bin/gh --version
           echo "Extracted GitHub CLI ${GH_VERSION} to src-tauri/runtimes/gh/bin/gh"
 
+      - name: Download and verify uv ${{ env.UV_BUNDLE_VERSION }} (macOS arm64)
+        run: |
+          set -euo pipefail
+          UV_VERSION="${UV_BUNDLE_VERSION}"
+          TARBALL="uv-aarch64-apple-darwin.tar.gz"
+          BASE="https://releases.astral.sh/github/uv/releases/download/${UV_VERSION}"
+          echo "Downloading uv ${UV_VERSION} (macOS arm64)..."
+          curl -fsSL "${BASE}/${TARBALL}" -o "${TARBALL}"
+          curl -fsSL "${BASE}/${TARBALL}.sha256" -o "${TARBALL}.sha256"
+          EXPECTED_SHA=$(awk '{print $1}' "${TARBALL}.sha256")
+          ACTUAL_SHA=$(shasum -a 256 "${TARBALL}" | awk '{print $1}')
+          if [[ "${EXPECTED_SHA}" != "${ACTUAL_SHA}" ]]; then
+            echo "CHECKSUM MISMATCH ${TARBALL}: expected=${EXPECTED_SHA} actual=${ACTUAL_SHA}"; exit 1
+          fi
+          rm -rf src-tauri/runtimes/uv tmp_uv
+          mkdir -p src-tauri/runtimes/uv/bin tmp_uv
+          tar -xzf "${TARBALL}" -C tmp_uv
+          UV_BIN=$(find tmp_uv -type f -name uv | head -1)
+          test -n "${UV_BIN}"
+          mv "${UV_BIN}" src-tauri/runtimes/uv/bin/uv
+          chmod 755 src-tauri/runtimes/uv/bin/uv
+          rm -rf tmp_uv "${TARBALL}" "${TARBALL}.sha256"
+          src-tauri/runtimes/uv/bin/uv --version
+
       - name: Assemble bundled Chromium (macOS arm64)
         if: ${{ env.BUNDLE_CHROMIUM == 'true' }}
         run: |
@@ -313,6 +341,7 @@ jobs:
           codesign --verify --strict --verbose=2 src-tauri/runtimes/node/bin/node
           codesign --verify --strict --verbose=2 src-tauri/runtimes/git/bin/git
           codesign --verify --strict --verbose=2 src-tauri/runtimes/gh/bin/gh
+          codesign --verify --strict --verbose=2 src-tauri/runtimes/uv/bin/uv
 
       # Chromium is shipped as an opaque chromium.tar.gz archive (see "Assemble bundled
       # Chromium" above), so it needs NO codesigning — notarization treats archive bytes
@@ -366,6 +395,7 @@ jobs:
           # Confirm the shipped node is validly signed with hardened runtime.
           codesign --verify --strict "${RT}/node/bin/node" || { echo "node sig invalid"; exit 1; }
           codesign --verify --strict "${RT}/git/bin/git" || { echo "git sig invalid"; exit 1; }
+          codesign --verify --strict "${RT}/uv/bin/uv" || { echo "uv sig invalid"; exit 1; }
           # MCP bridge: it must ship inside the .app and start under the BUNDLED node.
           # With no app running it answers initialize with a clean "app is not running"
           # JSON-RPC error (it relays over stdio, so it stays resident — we drive it
@@ -504,6 +534,30 @@ jobs:
           rm -rf tmp_gh "${ZIPFILE}"
           echo "Extracted GitHub CLI ${GH_VERSION} to src-tauri/runtimes/gh/bin/gh.exe"
 
+      - name: Download and verify uv ${{ env.UV_BUNDLE_VERSION }} (Windows x64)
+        shell: bash
+        run: |
+          set -euo pipefail
+          UV_VERSION="${UV_BUNDLE_VERSION}"
+          ZIPFILE="uv-x86_64-pc-windows-msvc.zip"
+          BASE="https://releases.astral.sh/github/uv/releases/download/${UV_VERSION}"
+          echo "Downloading uv ${UV_VERSION} (Windows x64)..."
+          curl -fsSL "${BASE}/${ZIPFILE}" -o "${ZIPFILE}"
+          curl -fsSL "${BASE}/${ZIPFILE}.sha256" -o "${ZIPFILE}.sha256"
+          EXPECTED_SHA=$(awk '{print $1}' "${ZIPFILE}.sha256")
+          ACTUAL_SHA=$(sha256sum "${ZIPFILE}" | awk '{print $1}')
+          if [[ "${EXPECTED_SHA}" != "${ACTUAL_SHA}" ]]; then
+            echo "CHECKSUM MISMATCH ${ZIPFILE}: expected=${EXPECTED_SHA} actual=${ACTUAL_SHA}"; exit 1
+          fi
+          rm -rf src-tauri/runtimes/uv tmp_uv
+          mkdir -p src-tauri/runtimes/uv tmp_uv
+          unzip -q "${ZIPFILE}" -d tmp_uv
+          UV_BIN=$(find tmp_uv -type f -name uv.exe | head -1)
+          test -n "${UV_BIN}"
+          mv "${UV_BIN}" src-tauri/runtimes/uv/uv.exe
+          rm -rf tmp_uv "${ZIPFILE}" "${ZIPFILE}.sha256"
+          src-tauri/runtimes/uv/uv.exe --version
+
       - name: Assemble bundled Chromium (Windows x64)
         if: ${{ env.BUNDLE_CHROMIUM == 'true' }}
         shell: bash
@@ -575,8 +629,9 @@ jobs:
           $npm  = "src-tauri\runtimes\node\npm.cmd"
           $npx  = "src-tauri\runtimes\node\npx.cmd"
           $git  = "src-tauri\runtimes\git\cmd\git.exe"
+          $uv   = "src-tauri\runtimes\uv\uv.exe"
 
-          foreach ($tool in @($node, $npm, $npx, $git)) {
+          foreach ($tool in @($node, $npm, $npx, $git, $uv)) {
             Write-Host "Testing ${tool}..."
             & $tool --version
             if ($LASTEXITCODE -ne 0) { Write-Error "${tool} --version failed"; exit 1 }
@@ -759,6 +814,30 @@ jobs:
           rm -rf tmp_gh "${ZIPFILE}"
           echo "Extracted GitHub CLI ${GH_VERSION} (arm64) to src-tauri/runtimes/gh/bin/gh.exe"
 
+      - name: Download and verify uv ${{ env.UV_BUNDLE_VERSION }} (Windows arm64)
+        shell: bash
+        run: |
+          set -euo pipefail
+          UV_VERSION="${UV_BUNDLE_VERSION}"
+          ZIPFILE="uv-aarch64-pc-windows-msvc.zip"
+          BASE="https://releases.astral.sh/github/uv/releases/download/${UV_VERSION}"
+          echo "Downloading uv ${UV_VERSION} (Windows arm64)..."
+          curl -fsSL "${BASE}/${ZIPFILE}" -o "${ZIPFILE}"
+          curl -fsSL "${BASE}/${ZIPFILE}.sha256" -o "${ZIPFILE}.sha256"
+          EXPECTED_SHA=$(awk '{print $1}' "${ZIPFILE}.sha256")
+          ACTUAL_SHA=$(sha256sum "${ZIPFILE}" | awk '{print $1}')
+          if [[ "${EXPECTED_SHA}" != "${ACTUAL_SHA}" ]]; then
+            echo "CHECKSUM MISMATCH ${ZIPFILE}: expected=${EXPECTED_SHA} actual=${ACTUAL_SHA}"; exit 1
+          fi
+          rm -rf src-tauri/runtimes/uv tmp_uv
+          mkdir -p src-tauri/runtimes/uv tmp_uv
+          unzip -q "${ZIPFILE}" -d tmp_uv
+          UV_BIN=$(find tmp_uv -type f -name uv.exe | head -1)
+          test -n "${UV_BIN}"
+          mv "${UV_BIN}" src-tauri/runtimes/uv/uv.exe
+          rm -rf tmp_uv "${ZIPFILE}" "${ZIPFILE}.sha256"
+          src-tauri/runtimes/uv/uv.exe --version
+
       - name: Assemble bundled Chromium (Windows arm64)
         if: ${{ env.BUNDLE_CHROMIUM == 'true' }}
         shell: bash
@@ -821,7 +900,8 @@ jobs:
           $npm  = "src-tauri\runtimes\node\npm.cmd"
           $npx  = "src-tauri\runtimes\node\npx.cmd"
           $git  = "src-tauri\runtimes\git\cmd\git.exe"
-          foreach ($tool in @($node, $npm, $npx, $git)) {
+          $uv   = "src-tauri\runtimes\uv\uv.exe"
+          foreach ($tool in @($node, $npm, $npx, $git, $uv)) {
             Write-Host "Testing ${tool}..."
             & $tool --version
             if ($LASTEXITCODE -ne 0) { Write-Error "${tool} --version failed"; exit 1 }

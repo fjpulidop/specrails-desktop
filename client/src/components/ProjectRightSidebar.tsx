@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { NavLink } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
-import { LayoutDashboard, Briefcase, BarChart3, Bot, Code2, Puzzle, Settings, PanelRight } from 'lucide-react'
+import { LayoutDashboard, Briefcase, BarChart3, Bot, Code2, Settings, PanelRight } from 'lucide-react'
 import { cn } from '../lib/utils'
 import { useSidebarPin } from '../context/SidebarPinContext'
 import { useDesktop, projectProviders } from '../hooks/useDesktop'
@@ -33,7 +33,6 @@ export function ProjectRightSidebar() {
   const activeProject = projects.find((p) => p.id === activeProjectId)
   const providers = activeProject ? projectProviders(activeProject) : ['claude']
   const showAgentsTab = FEATURE_AGENTS_SECTION && sectionVisibleForProviders('agents', providers)
-  const showIntegrationsTab = sectionVisibleForProviders('integrations', providers)
 
   const navItems = [
     { to: '/', end: true, icon: LayoutDashboard, label: t('rightSidebar.dashboard') },
@@ -44,9 +43,6 @@ export function ProjectRightSidebar() {
       : []),
     ...(FEATURE_CODE_EXPLORER
       ? [{ to: '/code', end: false, icon: Code2, label: t('rightSidebar.code') }]
-      : []),
-    ...(showIntegrationsTab
-      ? [{ to: '/integrations', end: false, icon: Puzzle, label: t('rightSidebar.integrations') }]
       : []),
     { to: '/settings', end: false, icon: Settings, label: t('rightSidebar.settings') },
   ]

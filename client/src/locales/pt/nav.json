@@ -28,7 +28,12 @@
     "loops": "Loops",
     "docs": "Docs",
     "analytics": "Análises",
-    "settings": "Definições"
+    "settings": "Definições",
+    "plugins": "Plugins"
+  },
+  "globalSurfaceModal": {
+    "loopsDescription": "Loops está aberto como modal de Mission.",
+    "pluginsDescription": "Plugins está aberto como modal de Mission."
   },
   "rightSidebar": {
     "projectTitle": "Projeto",

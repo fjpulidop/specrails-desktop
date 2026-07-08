@@ -1,7 +1,7 @@
 import { useState, useEffect, useMemo, useRef, lazy, Suspense } from 'react'
 import { useNavigate, useLocation } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
-import { PanelLeft, FolderOpen, Plus, BarChart2, BookOpen, Settings, X, Workflow, ChevronRight, ChevronDown, MessageSquare, Bot, LayoutGrid, Search, Home, Heart } from 'lucide-react'
+import { PanelLeft, FolderOpen, Plus, BarChart2, BookOpen, Settings, X, Workflow, ChevronRight, ChevronDown, MessageSquare, Bot, LayoutGrid, Search, Home, Heart, Puzzle } from 'lucide-react'
 import { cn } from '../lib/utils'
 import { useResizableSidebar } from '../hooks/useResizableSidebar'
 import { SidebarResizeGrip } from './SidebarResizeGrip'
@@ -210,6 +210,7 @@ function ConversationRow({
 interface ArcSidebarProps {
   onAddProject: () => void
   onOpenLoops: () => void
+  onOpenPlugins: () => void
   onOpenAnalytics: () => void
   onOpenDocs: () => void
   onOpenSettings: () => void
@@ -397,6 +398,7 @@ const LEFT_PIN_LABEL_KEY: Record<'pinned-open' | 'pinned-collapsed' | 'unpinned'
 export function ArcSidebar({
   onAddProject,
   onOpenLoops,
+  onOpenPlugins,
   onOpenAnalytics,
   onOpenDocs,
   onOpenSettings,
@@ -407,7 +409,8 @@ export function ArcSidebar({
   const navigate = useNavigate()
   const location = useLocation()
   const onLoopsRoute = location.pathname.startsWith('/loops')
-  const onGlobalRoute = onLoopsRoute || location.pathname.startsWith('/docs')
+  const onPluginsRoute = location.pathname.startsWith('/plugins')
+  const onGlobalRoute = onLoopsRoute || onPluginsRoute || location.pathname.startsWith('/docs')
   const { leftMode, cycleLeftMode } = useSidebarPin()
   const { uiMode, toggleUiMode } = useUiMode()
   const agentChat = useAgentChat()
@@ -497,7 +500,7 @@ export function ArcSidebar({
     if (projectId === activeProjectId) {
       // Already active: only meaningful when viewing a global page — return to
       // the project's dashboard (no state change would fire the route effect).
-      if (location.pathname.startsWith('/loops') || location.pathname.startsWith('/docs')) {
+      if (onGlobalRoute) {
         navigate('/')
       }
       return
@@ -664,10 +667,27 @@ export function ArcSidebar({
               aria-current={onLoopsRoute ? 'page' : undefined}
               title={!expanded ? t('arcSidebar.loops') : undefined}
             >
-              <Workflow className={cn('w-4 h-4 flex-shrink-0', onLoopsRoute && 'text-accent-primary')} />
-              {expanded && <span className="text-xs whitespace-nowrap">{t('arcSidebar.loops')}</span>}
-            </button>
-          </div>
+          <Workflow className={cn('w-4 h-4 flex-shrink-0', onLoopsRoute && 'text-accent-primary')} />
+          {expanded && <span className="text-xs whitespace-nowrap">{t('arcSidebar.loops')}</span>}
+        </button>
+        <button
+          type="button"
+          onClick={onOpenPlugins}
+          className={cn(
+            'mt-0.5 flex items-center gap-2 w-full h-8 rounded-md transition-colors',
+            expanded ? 'px-2' : 'px-0 justify-center',
+            onPluginsRoute
+              ? 'bg-muted text-foreground'
+              : 'text-muted-foreground hover:text-foreground hover:bg-muted/50'
+          )}
+          aria-label={t('arcSidebar.plugins')}
+          aria-current={onPluginsRoute ? 'page' : undefined}
+          title={!expanded ? t('arcSidebar.plugins') : undefined}
+        >
+          <Puzzle className={cn('w-4 h-4 flex-shrink-0', onPluginsRoute && 'text-accent-primary')} />
+          {expanded && <span className="text-xs whitespace-nowrap">{t('arcSidebar.plugins')}</span>}
+        </button>
+      </div>
           <div className="border-t border-border" aria-hidden />
         </>
       )}
@@ -772,7 +792,7 @@ export function ArcSidebar({
             <ProjectItem
               key={project.id}
               project={project}
-              isActive={project.id === activeProjectId && !onLoopsRoute}
+              isActive={project.id === activeProjectId && !onGlobalRoute}
               expanded={expanded}
               onSelect={() => handleSelectProject(project.id)}
               onRemove={() => handleRemove(project)}

@@ -1,0 +1,307 @@
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
+import { fireEvent, render, screen, waitFor, within } from '../../test-utils'
+import PluginsPage from '../PluginsPage'
+
+const registerHandler = vi.fn()
+const unregisterHandler = vi.fn()
+
+vi.mock('../../hooks/useSharedWebSocket', () => ({
+  useSharedWebSocket: () => ({
+    registerHandler,
+    unregisterHandler,
+  }),
+}))
+
+vi.mock('../../hooks/useDesktop', () => ({
+  projectProviders: (project: { provider: string; providers?: string[] }) =>
+    project.providers && project.providers.length > 0 ? project.providers : [project.provider],
+  useDesktop: () => ({
+    projects: [
+      project('proj-1', 'Specrails Desktop', 'claude', ['claude', 'codex']),
+      project('proj-2', 'Codex Only', 'codex', ['codex']),
+    ],
+  }),
+}))
+
+vi.mock('../../components/jira/JiraConnectWizard', () => ({
+  JiraConnectWizard: ({ apiBase }: { apiBase?: string }) => (
+    <div data-testid="jira-wizard">Jira wizard for {apiBase}</div>
+  ),
+}))
+
+function project(id: string, name: string, provider: string, providers: string[]) {
+  return {
+    id,
+    slug: id,
+    name,
+    path: `/repo/${id}`,
+    db_path: `/repo/${id}/jobs.sqlite`,
+    provider,
+    providers,
+    added_at: '2026-01-01T00:00:00.000Z',
+    last_seen_at: '2026-01-01T00:00:00.000Z',
+  }
+}
+
+function headroomState(overrides: Record<string, unknown> = {}) {
+  return {
+    installed: false,
+    installSource: null,
+    version: null,
+    executablePath: null,
+    uvPath: null,
+    port: 8787,
+    phase: 'idle',
+    activeProviders: { codex: false, claude: false },
+    availableProviders: { codex: true, claude: true },
+    detectedRoutes: { codex: false, claude: false },
+    proxyRunning: false,
+    proxyPid: null,
+    learning: {
+      enabled: false,
+      baselineReady: false,
+      baselineSamples: 0,
+      updatedAt: null,
+      lastIssue: null,
+    },
+    metrics: {
+      updatedAt: null,
+      proxyStatsAvailable: false,
+      durableSavingsAvailable: false,
+      outputSavingsAvailable: false,
+      outputSavingsMethod: null,
+      outputConfidence: null,
+      providers: {
+        codex: {
+          provider: 'codex',
+          label: 'Codex',
+          active: false,
+          available: true,
+          detectedRoute: false,
+          requests: 0,
+          inputTokensSaved: 0,
+          outputTokens: 0,
+          outputTokensSaved: 0,
+          outputSavingsPercent: 0,
+          outputSavingsMethod: 'none',
+          outputSavingsAllocated: false,
+        },
+        claude: {
+          provider: 'claude',
+          label: 'Claude',
+          active: false,
+          available: true,
+          detectedRoute: false,
+          requests: 0,
+          inputTokensSaved: 0,
+          outputTokens: 0,
+          outputTokensSaved: 0,
+          outputSavingsPercent: 0,
+          outputSavingsMethod: 'none',
+          outputSavingsAllocated: false,
+        },
+      },
+      lastIssue: null,
+    },
+    lastIssue: null,
+    updatedAt: null,
+    ...overrides,
+  }
+}
+
+function json(data: unknown, init: ResponseInit = {}) {
+  return new Response(JSON.stringify(data), {
+    status: 200,
+    headers: { 'Content-Type': 'application/json' },
+    ...init,
+  })
+}
+
+function installFetchMock(state = headroomState()) {
+  const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
+    const url = String(input)
+
+    if (url.endsWith('/api/global-plugins/headroom')) {
+      return json({ state })
+    }
+    if (url.includes('/jira/connection')) {
+      return json({ connected: false })
+    }
+    if (url.endsWith('/plugins')) {
+      return json({
+        plugins: [
+          {
+            name: 'serena',
+            version: '0.1.0',
+            description: 'Project-local semantic code navigation.',
+            whatItDoes: [],
+            requirements: [],
+            status: 'not-installed',
+          },
+        ],
+      })
+    }
+    if (url.endsWith('/plugins/serena/preview-install')) {
+      return json({
+        files: [{ path: '.mcp/serena.json', op: 'create', summary: 'Serena MCP config' }],
+        requirements: [{ name: 'uvx', installed: true, executable: true, meetsMinimum: true }],
+      })
+    }
+
+    return json({})
+  })
+  vi.stubGlobal('fetch', fetchMock)
+  return fetchMock
+}
+
+function cardActionButton(title: string): HTMLElement {
+  const titleEl = screen.getAllByText(title).find((candidate) => candidate.closest('article'))
+  const card = titleEl?.closest('article')
+  if (!card) throw new Error(`Plugin card not found: ${title}`)
+  return within(card as HTMLElement).getByRole('button')
+}
+
+describe('PluginsPage', () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+  })
+
+  afterEach(() => {
+    vi.unstubAllGlobals()
+  })
+
+  it('renders project catalog and filters the single Headroom global panel', async () => {
+    installFetchMock()
+
+    render(<PluginsPage />)
+
+    await waitFor(() => expect(screen.getAllByText('Headroom AI').length).toBeGreaterThan(0))
+    expect(screen.getByText('Available')).toBeInTheDocument()
+    expect(screen.getByText('Global')).toBeInTheDocument()
+    expect(screen.getByText('Project-local')).toBeInTheDocument()
+    expect(screen.getAllByText('Jira').length).toBeGreaterThan(0)
+    expect(screen.getAllByText('Serena').length).toBeGreaterThan(0)
+
+    fireEvent.click(screen.getByRole('button', { name: /^global$/i }))
+    expect(screen.getByText('Global')).toBeInTheDocument()
+    expect(screen.queryByText('Project-local')).not.toBeInTheDocument()
+    expect(screen.getByText('Optimize Codex and Claude launches through Headroom AI.')).toBeInTheDocument()
+    expect(screen.queryByText('Sync project specs with a Jira board, status mapping, and completion comments.')).not.toBeInTheDocument()
+
+    fireEvent.click(screen.getByRole('button', { name: /^project$/i }))
+    expect(screen.getByText('Project-local')).toBeInTheDocument()
+    expect(screen.queryByText('Global')).not.toBeInTheDocument()
+    expect(screen.getAllByText('Jira').length).toBeGreaterThan(0)
+    expect(screen.getAllByText('Serena').length).toBeGreaterThan(0)
+    expect(screen.queryByText('Optimize Codex and Claude launches through Headroom AI.')).not.toBeInTheDocument()
+  })
+
+  it('shows Headroom issue guidance with a repair code', async () => {
+    installFetchMock(headroomState({
+      lastIssue: {
+        code: 'UV_MISSING',
+        title: 'Bundled uv was not found',
+        guidance: 'Reinstall Specrails Desktop or run diagnostics to confirm the bundled runtime path.',
+      },
+    }))
+
+    render(<PluginsPage />)
+
+    fireEvent.click(await waitFor(() => cardActionButton('Headroom AI')))
+    expect(await screen.findByText('Bundled uv was not found')).toBeInTheDocument()
+    expect(screen.getByText('Reinstall Specrails Desktop or run diagnostics to confirm the bundled runtime path.')).toBeInTheDocument()
+    expect(screen.getByText('Code: UV_MISSING')).toBeInTheDocument()
+  })
+
+  it('opens the Jira project wizard for the selected project api base', async () => {
+    installFetchMock()
+
+    render(<PluginsPage />)
+
+    await waitFor(() => expect(cardActionButton('Jira')).toBeInTheDocument())
+    fireEvent.click(cardActionButton('Jira'))
+    fireEvent.click(await screen.findByRole('button', { name: /Specrails Desktop/ }))
+
+    expect(screen.getByTestId('jira-wizard')).toHaveTextContent('/api/projects/proj-1')
+  })
+
+  it('keeps Serena project-local and disables projects without Claude', async () => {
+    installFetchMock()
+
+    render(<PluginsPage />)
+
+    await waitFor(() => expect(cardActionButton('Serena')).toBeInTheDocument())
+    fireEvent.click(cardActionButton('Serena'))
+
+    expect(await screen.findByRole('button', { name: /Codex Only/ })).toBeDisabled()
+    fireEvent.click(screen.getByRole('button', { name: /Specrails Desktop/ }))
+
+    expect(await screen.findByText('Serena for Specrails Desktop')).toBeInTheDocument()
+    expect(await screen.findByText(/\.mcp\/serena\.json/)).toBeInTheDocument()
+  })
+
+  it('shows Headroom output token savings by provider', async () => {
+    const state = headroomState({
+      installed: true,
+      installSource: 'system',
+      version: '0.30.0',
+      executablePath: '/Users/test/.local/bin/headroom',
+      activeProviders: { codex: true, claude: false },
+      detectedRoutes: { codex: true, claude: false },
+      learning: {
+        enabled: true,
+        baselineReady: true,
+        baselineSamples: 42,
+        updatedAt: '2026-07-08T10:00:00.000Z',
+        lastIssue: null,
+      },
+    }) as ReturnType<typeof headroomState>
+    state.metrics.outputSavingsAvailable = true
+    state.metrics.outputSavingsMethod = 'estimated'
+    state.metrics.updatedAt = '2026-07-08T10:00:00.000Z'
+    state.metrics.providers.codex = {
+      ...state.metrics.providers.codex,
+      active: true,
+      detectedRoute: true,
+      requests: 12,
+      inputTokensSaved: 125000,
+      outputTokensSaved: 8400,
+      outputSavingsMethod: 'estimated',
+      outputSavingsPercent: 18.5,
+    }
+    installFetchMock(state)
+
+    render(<PluginsPage />)
+
+    fireEvent.click(await screen.findByRole('button', { name: /Manage/i }))
+
+    expect(await screen.findByText('Output Tokens Saved')).toBeInTheDocument()
+    expect(screen.getByText('Codex')).toBeInTheDocument()
+    expect(screen.getByText(/8\.4K tokens/i)).toBeInTheDocument()
+    expect(screen.getByText('detected')).toBeInTheDocument()
+    expect(screen.getByText('System')).toBeInTheDocument()
+  })
+
+  it('exposes Headroom uninstall behind confirmation', async () => {
+    const fetchMock = installFetchMock(headroomState({
+      installed: true,
+      installSource: 'managed',
+      version: '0.30.0',
+      executablePath: '/Users/test/.specrails/tools/bin/headroom',
+      activeProviders: { codex: true, claude: false },
+    }))
+
+    render(<PluginsPage />)
+
+    fireEvent.click(await screen.findByRole('button', { name: /Manage/i }))
+    fireEvent.click(await screen.findByRole('button', { name: /Uninstall Headroom/i }))
+    fireEvent.click(screen.getByRole('button', { name: /^Uninstall$/i }))
+
+    await waitFor(() => {
+      expect(fetchMock).toHaveBeenCalledWith(
+        expect.stringContaining('/api/global-plugins/headroom/uninstall'),
+        expect.objectContaining({ method: 'POST' }),
+      )
+    })
+  })
+})
