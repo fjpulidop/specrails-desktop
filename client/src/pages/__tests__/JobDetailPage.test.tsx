@@ -186,7 +186,7 @@ describe('JobDetailPage', () => {
     })
   })
 
-  it('Cancel button sends DELETE request', async () => {
+  it('Cancel button sends an explicit POST cancel request', async () => {
     const user = userEvent.setup()
     const runningJob = { ...mockJob, status: 'running' as const }
     global.fetch = vi.fn()
@@ -201,8 +201,8 @@ describe('JobDetailPage', () => {
     await user.click(screen.getByRole('button', { name: /Cancel Job/i }))
     await waitFor(() => {
       expect(global.fetch).toHaveBeenCalledWith(
-        '/api/jobs/job-abc123',
-        expect.objectContaining({ method: 'DELETE' })
+        '/api/jobs/job-abc123/cancel',
+        expect.objectContaining({ method: 'POST' })
       )
     })
   })

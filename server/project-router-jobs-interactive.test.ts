@@ -230,7 +230,7 @@ describe('GET /jobs/:id interactive surface fields', () => {
 // Standalone loop runs (railIndex=null) never register in railLoopRuns — the
 // cancel route must fall back to the loop engine instead of 404ing while the
 // loop keeps executing (the mission-modal "cancel did nothing" incident).
-describe('DELETE /jobs/:id — standalone loop-run fallback', () => {
+describe('POST /jobs/:id/cancel — standalone loop-run fallback', () => {
   function buildCancelApp() {
     const loopCancel = vi.fn()
     const app = express()
@@ -264,7 +264,7 @@ describe('DELETE /jobs/:id — standalone loop-run fallback', () => {
       startedAt: new Date().toISOString(),
     })
 
-    const res = await request(app).delete('/api/projects/p1/jobs/' + runId)
+    const res = await request(app).post('/api/projects/p1/jobs/' + runId + '/cancel')
 
     expect(res.status).toBe(200)
     expect(res.body).toEqual({ ok: true, status: 'canceling' })
@@ -273,7 +273,7 @@ describe('DELETE /jobs/:id — standalone loop-run fallback', () => {
 
   it('still 404s for a genuinely unknown job id', async () => {
     const { app, loopCancel } = buildCancelApp()
-    const res = await request(app).delete('/api/projects/p1/jobs/nope')
+    const res = await request(app).post('/api/projects/p1/jobs/nope/cancel')
     expect(res.status).toBe(404)
     expect(loopCancel).not.toHaveBeenCalled()
   })

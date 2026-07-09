@@ -169,11 +169,14 @@ describe('mobile-router', () => {
     expect(run.body.method).toBe('GET')
   })
 
-  it('rail stop, queue pause/resume, job delete, put rail tickets are reachable', async () => {
+  it('rail stop, queue pause/resume, job cancel, put rail tickets are reachable', async () => {
     expect((await request(app).post('/v1/projects/p1/rails/0/stop').set('Authorization', 'Bearer tok')).status).toBe(200)
     expect((await request(app).post('/v1/projects/p1/queue/pause').set('Authorization', 'Bearer tok')).status).toBe(200)
     expect((await request(app).post('/v1/projects/p1/queue/resume').set('Authorization', 'Bearer tok')).status).toBe(200)
-    expect((await request(app).delete('/v1/projects/p1/jobs/job-1').set('Authorization', 'Bearer tok')).status).toBe(200)
+    const canceled = await request(app).delete('/v1/projects/p1/jobs/job-1').set('Authorization', 'Bearer tok')
+    expect(canceled.status).toBe(200)
+    expect(canceled.body.method).toBe('POST')
+    expect(canceled.body.route).toBe('[path]')
     const put = await request(app).put('/v1/projects/p1/rails/0/tickets').set('Authorization', 'Bearer tok').send({ ticketIds: [1, 2, 'x'] })
     expect(put.status).toBe(200)
     expect(put.body.body).toEqual({ ticketIds: [1, 2] })

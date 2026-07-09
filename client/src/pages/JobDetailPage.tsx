@@ -241,17 +241,12 @@ export default function JobDetailPage() {
 
   async function handleCancel() {
     if (!id) return
-    // Shared manager-aware helper (same one JobDetailModal uses): DELETE
-    // /jobs/:id — the server dispatches to LoopRunManager or QueueManager by
+    // Shared manager-aware helper (same one JobDetailModal uses): POST
+    // /jobs/:id/cancel — the server dispatches to LoopRunManager or QueueManager by
     // owner. projectId=null → active project via getApiBase() (board mode).
     const outcome = await cancelJob({ projectId: null, jobId: id })
     if (outcome.ok) {
-      if (outcome.status === 'deleted') {
-        toast.success(t('detail.toast.jobDeleted'))
-        navigate('/jobs')
-      } else {
-        toast.success(t('detail.toast.cancelSignalSent'), { description: t('detail.toast.cancelSignalSentDescription') })
-      }
+      toast.success(t('detail.toast.cancelSignalSent'), { description: t('detail.toast.cancelSignalSentDescription') })
     } else if (outcome.httpStatus === null) {
       // Transport-level failure — same toast the old try/catch produced.
       toast.error(t('detail.toast.networkError'))

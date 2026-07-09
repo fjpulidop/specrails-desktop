@@ -310,7 +310,7 @@ describe('JobDetailModal', () => {
     expect(onClose).not.toHaveBeenCalled()
   })
 
-  it('"Cancel job" button in dialog calls DELETE endpoint and refetches on success', async () => {
+  it('"Cancel job" button calls the cancel action and refetches on success', async () => {
     const { toast } = await import('sonner')
     // First fetch = load job, second fetch = DELETE cancel, then the
     // success-path refetch (reconciliation without waiting for WS).
@@ -336,15 +336,15 @@ describe('JobDetailModal', () => {
 
     await waitFor(() => {
       expect(global.fetch).toHaveBeenCalledWith(
-        '/api/jobs/job-running',
-        expect.objectContaining({ method: 'DELETE' })
+        '/api/jobs/job-running/cancel',
+        expect.objectContaining({ method: 'POST' })
       )
       expect(toast.success).toHaveBeenCalledWith(
         'Cancel signal sent',
         expect.objectContaining({ description: expect.stringContaining('next safe point') })
       )
     })
-    // Own-success reconciliation: a plain GET refetch follows the DELETE.
+    // Own-success reconciliation: a plain GET refetch follows the cancel.
     const calls = (global.fetch as ReturnType<typeof vi.fn>).mock.calls
     await waitFor(() => {
       expect(calls.length).toBeGreaterThanOrEqual(3)
@@ -353,7 +353,7 @@ describe('JobDetailModal', () => {
     expect(calls[2][1]).toBeUndefined()
   })
 
-  it('shows error toast when cancel DELETE fails', async () => {
+  it('shows error toast when cancel POST fails', async () => {
     const { toast } = await import('sonner')
     global.fetch = vi.fn()
       .mockResolvedValueOnce({
@@ -690,11 +690,11 @@ describe('JobDetailModal', () => {
       fireEvent.click(screen.getByRole('button', { name: /^stop run$/i }))
 
       await waitFor(() => {
-        // Same manager-aware DELETE endpoint — the server routes a loop run
+        // Same manager-aware cancel endpoint — the server routes a loop run
         // (railLoopRuns) to LoopRunManager.cancel.
         expect(global.fetch).toHaveBeenCalledWith(
-          '/api/jobs/job-running',
-          expect.objectContaining({ method: 'DELETE' })
+          '/api/jobs/job-running/cancel',
+          expect.objectContaining({ method: 'POST' })
         )
         expect(toast.success).toHaveBeenCalledWith(
           'Stop signal sent',
@@ -722,8 +722,8 @@ describe('JobDetailModal', () => {
       await waitFor(() => {
         // NEVER the active-project base — the pinned project's explicit path.
         expect(global.fetch).toHaveBeenCalledWith(
-          '/api/projects/proj-x/jobs/job-running',
-          expect.objectContaining({ method: 'DELETE' })
+          '/api/projects/proj-x/jobs/job-running/cancel',
+          expect.objectContaining({ method: 'POST' })
         )
       })
     })
@@ -745,13 +745,13 @@ describe('JobDetailModal', () => {
       // The in-portal confirm's destructive action ALSO reads "Discard" (same as
       // the header button, which is still in the DOM behind the confirm backdrop);
       // scope the click to the confirm container to disambiguate. Confirming
-      // fires the same manager-aware DELETE.
+      // fires the same manager-aware cancel action.
       const confirm = screen.getByTestId('job-cancel-confirm')
       fireEvent.click(within(confirm).getByRole('button', { name: /^discard$/i }))
       await waitFor(() => {
         expect(global.fetch).toHaveBeenCalledWith(
-          '/api/jobs/job-running',
-          expect.objectContaining({ method: 'DELETE' })
+          '/api/jobs/job-running/cancel',
+          expect.objectContaining({ method: 'POST' })
         )
       })
     })

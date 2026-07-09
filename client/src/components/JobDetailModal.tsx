@@ -199,7 +199,7 @@ export function JobDetailModal({ jobId, onClose, projectId }: JobDetailModalProp
 
   // Cancel idiom: loop runs → "Stop", interactive sessions → "Discard" (the
   // same relabel JobDetailPage uses), everything else → "Cancel". ALL kinds
-  // go through the shared manager-aware helper (DELETE /jobs/:id — the server
+  // go through the shared manager-aware helper (POST /jobs/:id/cancel — the server
   // dispatches to LoopRunManager or QueueManager by owner).
   const cancelKind = job ? cancelKindForJob(job) : 'job'
   const isLoopRun = cancelKind === 'loop-run'

@@ -329,7 +329,10 @@ export function registerJobsRoutes(deps: ProjectRoutesDeps): void {
     res.json({ model, provider, allowed, providers: project.providers })
   })
 
-  router.delete('/:projectId/jobs/:id', (req: Request, res: Response) => {
+  // Cancellation is idempotent and intentionally separate from history
+  // deletion. A stale UI request that races with natural completion must never
+  // erase the just-finished job and its telemetry.
+  router.post('/:projectId/jobs/:id/cancel', (req: Request, res: Response) => {
     const id = req.params.id as string
     const c = ctx(req)
     // A loop run is backed by a job row but is NOT a QueueManager job — it is
@@ -357,9 +360,7 @@ if (loopRun && (loopRun.status === 'running' || loopRun.status === 'paused') && 
         }
         res.status(404).json({ error: 'Job not found' })
       } else if (err instanceof JobAlreadyTerminalError) {
-        // Job already finished — delete it from the DB
-        deleteJob(ctx(req).db, req.params.id as string)
-        res.json({ ok: true, status: 'deleted' })
+        res.json({ ok: true, status: 'already_terminal' })
       } else {
         // Surface the real error (name/message/stack) so an unexpected cancel
         // failure — e.g. a Windows kill throw — is identifiable instead of being
@@ -368,6 +369,29 @@ if (loopRun && (loopRun.status === 'running' || loopRun.status === 'paused') && 
         console.error(`[jobs] cancel ${req.params.id} failed: ${e?.name}: ${e?.message}\n${e?.stack ?? ''}`)
         res.status(500).json({ error: 'Internal server error' })
       }
+    }
+  })
+
+  // Explicit history deletion. Active work must be canceled through the
+  // idempotent endpoint above and can only be deleted after it is terminal.
+  router.delete('/:projectId/jobs/:id', (req: Request, res: Response) => {
+    const id = req.params.id as string
+    const c = ctx(req)
+    const job = getJob(c.db, id)
+    if (!job) {
+      res.status(404).json({ error: 'Job not found' })
+      return
+    }
+    if (job.status === 'running' || job.status === 'queued') {
+      res.status(409).json({ error: 'Active jobs must be canceled before deletion' })
+      return
+    }
+    try {
+      deleteJob(c.db, id)
+      res.json({ ok: true, status: 'deleted' })
+    } catch (err) {
+      console.error(`[jobs] delete ${id} failed:`, err)
+      res.status(500).json({ error: 'Failed to delete job' })
     }
   })
 

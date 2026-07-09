@@ -30,12 +30,12 @@ describe('cancelJob', () => {
     vi.restoreAllMocks()
   })
 
-  it('DELETEs against the EXPLICIT project path when projectId is given', async () => {
+  it('POSTs to the cancel action on the EXPLICIT project path when projectId is given', async () => {
     global.fetch = vi.fn().mockResolvedValue({ ok: true, json: async () => ({ ok: true, status: 'canceling' }) })
     const outcome = await cancelJob({ projectId: 'proj-x', jobId: 'j1' })
     expect(global.fetch).toHaveBeenCalledWith(
-      '/api/projects/proj-x/jobs/j1',
-      expect.objectContaining({ method: 'DELETE' }),
+      '/api/projects/proj-x/jobs/j1/cancel',
+      expect.objectContaining({ method: 'POST' }),
     )
     expect(outcome).toEqual({ ok: true, status: 'canceling' })
   })
@@ -44,15 +44,15 @@ describe('cancelJob', () => {
     global.fetch = vi.fn().mockResolvedValue({ ok: true, json: async () => ({ ok: true, status: 'canceled' }) })
     const outcome = await cancelJob({ projectId: null, jobId: 'j2' })
     expect(global.fetch).toHaveBeenCalledWith(
-      '/api/projects/active-project/jobs/j2',
-      expect.objectContaining({ method: 'DELETE' }),
+      '/api/projects/active-project/jobs/j2/cancel',
+      expect.objectContaining({ method: 'POST' }),
     )
     expect(outcome).toEqual({ ok: true, status: 'canceled' })
   })
 
-  it('passes the server status through (deleted)', async () => {
-    global.fetch = vi.fn().mockResolvedValue({ ok: true, json: async () => ({ ok: true, status: 'deleted' }) })
-    expect(await cancelJob({ jobId: 'j3' , projectId: 'p' })).toEqual({ ok: true, status: 'deleted' })
+  it('passes the idempotent already-terminal status through', async () => {
+    global.fetch = vi.fn().mockResolvedValue({ ok: true, json: async () => ({ ok: true, status: 'already_terminal' }) })
+    expect(await cancelJob({ jobId: 'j3' , projectId: 'p' })).toEqual({ ok: true, status: 'already_terminal' })
   })
 
   it('a malformed success body never turns success into failure', async () => {
@@ -124,7 +124,7 @@ describe('cancelJob', () => {
     global.fetch = vi.fn().mockResolvedValue({ ok: true, json: async () => ({}) })
     await cancelJob({ projectId: 'p', jobId: 'j' })
     const init = (global.fetch as ReturnType<typeof vi.fn>).mock.calls[0][1] as RequestInit
-    expect(init.method).toBe('DELETE')
+    expect(init.method).toBe('POST')
     // Node ≥17.3 / jsdom provide AbortSignal.timeout — the signal must ride.
     if (typeof AbortSignal !== 'undefined' && typeof AbortSignal.timeout === 'function') {
       expect(init.signal).toBeInstanceOf(AbortSignal)

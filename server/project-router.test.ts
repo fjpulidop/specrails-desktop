@@ -282,23 +282,52 @@ describe('project-router', () => {
 
   // ─── DELETE /jobs/:id ──────────────────────────────────────────────────────
 
-  describe('DELETE /jobs/:id', () => {
+  describe('POST /jobs/:id/cancel', () => {
     it('returns 404 when job does not exist', async () => {
       const qm = makeQueueManager({ cancel: vi.fn(() => { throw new JobNotFoundError() }) })
       const ctx = makeContext(db, { queueManager: qm as any })
       const { app } = createApp(new Map([['proj-1', ctx]]))
-      const res = await request(app).delete('/api/projects/proj-1/jobs/no-such-job')
+      const res = await request(app).post('/api/projects/proj-1/jobs/no-such-job/cancel')
       expect(res.status).toBe(404)
       expect(res.body.error).toContain('Job not found')
     })
 
-    it('deletes terminal job from DB instead of returning 409', async () => {
+    it('is idempotent and preserves a terminal job that finished before cancel landed', async () => {
+      db.prepare(
+        `INSERT INTO jobs (id, command, started_at, status) VALUES ('some-job', 'sr:test', '2025-01-01T10:00:00.000Z', 'completed')`
+      ).run()
       const qm = makeQueueManager({ cancel: vi.fn(() => { throw new JobAlreadyTerminalError() }) })
       const ctx = makeContext(db, { queueManager: qm as any })
       const { app } = createApp(new Map([['proj-1', ctx]]))
-      const res = await request(app).delete('/api/projects/proj-1/jobs/some-job')
+      const res = await request(app).post('/api/projects/proj-1/jobs/some-job/cancel')
+      expect(res.status).toBe(200)
+      expect(res.body.status).toBe('already_terminal')
+      expect(db.prepare('SELECT status FROM jobs WHERE id = ?').get('some-job')).toEqual({ status: 'completed' })
+    })
+  })
+
+  describe('DELETE /jobs/:id', () => {
+    it('deletes terminal history explicitly', async () => {
+      db.prepare(
+        `INSERT INTO jobs (id, command, started_at, status) VALUES ('done-job', 'sr:test', '2025-01-01T10:00:00.000Z', 'completed')`
+      ).run()
+      const ctx = makeContext(db)
+      const { app } = createApp(new Map([['proj-1', ctx]]))
+      const res = await request(app).delete('/api/projects/proj-1/jobs/done-job')
       expect(res.status).toBe(200)
       expect(res.body.status).toBe('deleted')
+      expect(db.prepare('SELECT id FROM jobs WHERE id = ?').get('done-job')).toBeUndefined()
+    })
+
+    it('refuses to erase active history', async () => {
+      db.prepare(
+        `INSERT INTO jobs (id, command, started_at, status) VALUES ('live-job', 'sr:test', '2025-01-01T10:00:00.000Z', 'running')`
+      ).run()
+      const ctx = makeContext(db)
+      const { app } = createApp(new Map([['proj-1', ctx]]))
+      const res = await request(app).delete('/api/projects/proj-1/jobs/live-job')
+      expect(res.status).toBe(409)
+      expect(db.prepare('SELECT status FROM jobs WHERE id = ?').get('live-job')).toEqual({ status: 'running' })
     })
   })
 
@@ -1579,12 +1608,12 @@ describe('project-router', () => {
 
   // ─── DELETE /jobs/:id 500 error path ────────────────────────────────────
 
-  describe('DELETE /jobs/:id 500 error', () => {
+  describe('POST /jobs/:id/cancel 500 error', () => {
     it('returns 500 on unexpected error during cancel', async () => {
       const qm = makeQueueManager({ cancel: vi.fn(() => { throw new Error('boom') }) })
       const ctx = makeContext(db, { queueManager: qm as any })
       const { app } = createApp(new Map([['proj-1', ctx]]))
-      const res = await request(app).delete('/api/projects/proj-1/jobs/some-job')
+      const res = await request(app).post('/api/projects/proj-1/jobs/some-job/cancel')
       expect(res.status).toBe(500)
     })
 
@@ -1592,7 +1621,7 @@ describe('project-router', () => {
       const qm = makeQueueManager({ cancel: vi.fn(() => 'canceled') })
       const ctx = makeContext(db, { queueManager: qm as any })
       const { app } = createApp(new Map([['proj-1', ctx]]))
-      const res = await request(app).delete('/api/projects/proj-1/jobs/some-job')
+      const res = await request(app).post('/api/projects/proj-1/jobs/some-job/cancel')
       expect(res.status).toBe(200)
       expect(res.body.ok).toBe(true)
       expect(res.body.status).toBe('canceled')

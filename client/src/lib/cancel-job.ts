@@ -1,14 +1,14 @@
 /**
  * Shared, manager-aware job/run cancel helper.
  *
- * ONE endpoint stops everything: `DELETE /api/projects/:projectId/jobs/:id`.
+ * ONE endpoint stops everything: `POST /api/projects/:projectId/jobs/:id/cancel`.
  * The server route dispatches by owner — a rail loop run (`railLoopRuns`)
  * goes to `LoopRunManager.cancel` (settles 'stopped' at the next node
  * boundary → `{ status: 'canceling' }`); a queue job goes to
  * `QueueManager.cancel` (`'canceled'` when still queued, `'canceling'` when
- * the running process was signalled); an already-terminal row is deleted
- * (`'deleted'`). Interactive jobs ride the same route — "Discard" is a label,
- * not a different endpoint.
+ * the running process was signalled); an already-terminal row is an idempotent
+ * no-op (`'already_terminal'`). Interactive jobs ride the same route —
+ * "Discard" is a label, not a different endpoint.
  *
  * Cross-project capable: when `projectId` is provided the URL is built
  * EXPLICITLY as `${API_ORIGIN}/api/projects/${projectId}/...` (mission-mode
@@ -41,7 +41,7 @@ export function cancelKindForJob(job: { command: string; interactive?: number | 
 
 export type CancelJobOutcome =
   /** The server accepted the cancel. `status` is the server's word:
-   *  'canceling' | 'canceled' | 'deleted' (unknown strings pass through). */
+   *  'canceling' | 'canceled' | 'already_terminal' (unknown strings pass through). */
   | { ok: true; status: string }
   /** The cancel did NOT land. `error` always carries human-readable detail;
    *  `httpStatus` is null for transport-level failures (network/timeout). */
@@ -75,7 +75,7 @@ export async function cancelJob(options: CancelJobOptions): Promise<CancelJobOut
 
   let res: Response
   try {
-    res = await fetch(`${base}/jobs/${jobId}`, { method: 'DELETE', signal: timeoutSignal(timeoutMs) })
+    res = await fetch(`${base}/jobs/${jobId}/cancel`, { method: 'POST', signal: timeoutSignal(timeoutMs) })
   } catch (err) {
     const e = err as Error & { name?: string }
     const error = e?.name === 'TimeoutError' || e?.name === 'AbortError'
