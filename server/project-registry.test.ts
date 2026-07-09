@@ -162,6 +162,19 @@ describe('ProjectRegistry', () => {
   // ─── addProject ────────────────────────────────────────────────────────────
 
   describe('addProject', () => {
+    it('rolls back the desktop row when context hydration fails', () => {
+      vi.spyOn(registry as unknown as { _loadProjectContext: () => never }, '_loadProjectContext')
+        .mockImplementation(() => { throw new Error('corrupt jobs db') })
+
+      expect(() => registry.addProject({
+        id: 'broken', slug: 'broken', name: 'Broken', path: '/path/broken',
+      })).toThrow('corrupt jobs db')
+
+      expect(getProject(desktopDb, 'broken')).toBeUndefined()
+      expect(listProjects(desktopDb)).toEqual([])
+      expect(registry.listFailedProjects()).toEqual([])
+    })
+
     it('adds a project and returns context', () => {
       const ctx = registry.addProject({
         id: 'p1',

@@ -207,14 +207,27 @@ export class ProjectRegistry {
     } catch (err) {
       console.error('[project-registry] registry mirror failed (non-fatal):', err)
     }
-    return this._loadProjectContext(row)
+    try {
+      const context = this._loadProjectContext(row)
+      this._failedProjects.delete(row.id)
+      return context
+    } catch (err) {
+      // Registration is one logical operation. A row that cannot be hydrated is
+      // unusable through the API and would make every retry hit UNIQUE forever.
+      this._contexts.delete(row.id)
+      this._failedProjects.delete(row.id)
+      try { removeRegistryEntry(row.path) } catch { /* best effort */ }
+      try { removeProjectFromDesktopDb(this._desktopDb, row.id) } catch { /* best effort */ }
+      throw err
+    }
   }
 
   removeProject(id: string): void {
     // Resolve the repo path BEFORE the DB row is deleted below so we can drop the
     // shared artifact-registry entry. Prefer the live context, fall back to the
     // desktop DB row (project may be registered-but-not-loaded, e.g. M9 failure).
-    const repoPath = this._contexts.get(id)?.project.path ?? getProject(this._desktopDb, id)?.path
+    const persistedProject = getProject(this._desktopDb, id)
+    const repoPath = this._contexts.get(id)?.project.path ?? persistedProject?.path
     const ctx = this._contexts.get(id)
     if (ctx) {
       // Tear down spawners BEFORE closing the DB. QueueManager.shutdown() drops
@@ -261,23 +274,18 @@ export class ProjectRegistry {
       try { dropBlobStatesForProject(id) } catch { /* ignore */ }
       // Close the DB connection BEFORE removing the project's data dir below.
       try { ctx.db.close() } catch { /* ignore */ }
-      // B54: remove the ENTIRE app-managed data dir for this project, not just
-      // the telemetry subdir. It also holds user-mcp.json (a copy of the user's
-      // MCP config that can contain API keys), profile snapshots, codex-home, and
-      // terminal shim dirs — all secret-bearing residue that previously survived
-      // project removal. Guard on a non-empty slug so we never rm the projects/
-      // root itself.
-      try {
-        const slug = ctx.project.slug
-        if (slug && slug.trim() && !slug.includes('/') && !slug.includes('..')) {
-          const projectDir = path.join(os.homedir(), '.specrails', 'projects', slug)
-          if (fs.existsSync(projectDir)) {
-            fs.rmSync(projectDir, { recursive: true, force: true })
-          }
-        }
-      } catch { /* ignore — non-fatal */ }
       this._contexts.delete(id)
     }
+    // B54: remove the ENTIRE app-managed data dir even when context hydration
+    // failed. The persisted row is authoritative for registered-but-not-loaded
+    // projects and contains the slug needed for safe cleanup.
+    try {
+      const slug = ctx?.project.slug ?? persistedProject?.slug
+      if (slug && slug.trim() && !slug.includes('/') && !slug.includes('..')) {
+        const projectDir = path.join(os.homedir(), '.specrails', 'projects', slug)
+        if (fs.existsSync(projectDir)) fs.rmSync(projectDir, { recursive: true, force: true })
+      }
+    } catch { /* ignore — non-fatal */ }
     // Drop the relocated WORKSPACE for an adopted project whose REGISTRY slug
     // differs from the desktop slug. The per-project data-dir rm above only
     // removes `projects/<desktop-slug>`; an adopted repo's workspace lives under
@@ -306,6 +314,7 @@ export class ProjectRegistry {
         console.error('[project-registry] registry remove failed (non-fatal):', err)
       }
     }
+    this._failedProjects.delete(id)
     removeProjectFromDesktopDb(this._desktopDb, id)
   }
 
