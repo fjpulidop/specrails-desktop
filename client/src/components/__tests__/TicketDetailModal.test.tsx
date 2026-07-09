@@ -68,6 +68,7 @@ function makeDefaultProps(overrides: Partial<{
 describe('TicketDetailModal', () => {
   beforeEach(() => {
     vi.clearAllMocks()
+    Object.defineProperty(window, 'innerWidth', { configurable: true, writable: true, value: 1024 })
   })
 
   describe('board-mode stacking (agent-chat refs)', () => {
@@ -152,6 +153,16 @@ describe('TicketDetailModal', () => {
     it('does not render the On Review badge for a todo spec', () => {
       render(<TicketDetailModal {...makeDefaultProps()} />)
       expect(screen.queryByTestId('ticket-modal-on-review-badge')).toBeNull()
+    })
+
+    it('removes the compare affordance when the viewport shrinks below the split threshold', async () => {
+      render(<TicketDetailModal {...makeDefaultProps()} />)
+      expect(screen.getByTestId('ticket-modal-compare')).toBeInTheDocument()
+
+      window.innerWidth = 800
+      fireEvent(window, new Event('resize'))
+
+      await waitFor(() => expect(screen.queryByTestId('ticket-modal-compare')).not.toBeInTheDocument())
     })
   })
 

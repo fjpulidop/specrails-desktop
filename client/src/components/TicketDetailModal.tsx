@@ -258,7 +258,17 @@ export function TicketDetailModal({
   // ─── Drag-to-snap (entry to split-view) ────────────────────────────────────
   const [dragOffset, setDragOffset] = useState(0)
   const dragRef = useRef<{ startX: number; pointerId: number } | null>(null)
-  const canDrag = !embedded && !inSplit && typeof window !== 'undefined' && window.innerWidth >= COMPARE_VIEWPORT_MIN
+  const [compareViewportEligible, setCompareViewportEligible] = useState(
+    () => typeof window !== 'undefined' && window.innerWidth >= COMPARE_VIEWPORT_MIN,
+  )
+  useEffect(() => {
+    if (typeof window === 'undefined') return
+    const updateEligibility = () => setCompareViewportEligible(window.innerWidth >= COMPARE_VIEWPORT_MIN)
+    updateEligibility()
+    window.addEventListener('resize', updateEligibility)
+    return () => window.removeEventListener('resize', updateEligibility)
+  }, [])
+  const canDrag = !embedded && !inSplit && compareViewportEligible
 
   const handleDragMove = useCallback((e: PointerEvent) => {
     if (!dragRef.current) return
@@ -274,7 +284,7 @@ export function TicketDetailModal({
     window.removeEventListener('pointercancel', handleDragUp)
     dragRef.current = null
     setDragOffset(0)
-    if (Math.abs(delta) >= threshold) {
+    if (Math.abs(delta) >= threshold && window.innerWidth >= COMPARE_VIEWPORT_MIN) {
       // If this modal instance is rendered by a third-party site (e.g.
       // DashboardPage's local state) the provider's leftId is not ours;
       // pass ticket.id so the reducer can bootstrap, then call onClose to
@@ -316,7 +326,7 @@ export function TicketDetailModal({
   }, [handleDragMove, handleDragUp])
 
   const handleCompareClick = useCallback(() => {
-    if (!canDrag) return
+    if (!canDrag || window.innerWidth < COMPARE_VIEWPORT_MIN) return
     const isProviderModal = splitState.leftId === ticket.id
     enterSplit('right', ticket.id)
     if (!isProviderModal) onClose()
@@ -1072,4 +1082,3 @@ function DescriptionRender({ description, onEdit }: DescriptionRenderProps) {
     </div>
   )
 }
-

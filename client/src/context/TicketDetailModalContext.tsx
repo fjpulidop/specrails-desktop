@@ -151,7 +151,13 @@ export function TicketDetailModalProvider({ children }: { children: ReactNode })
   )
   const closeTicketDetail = useCallback(() => dispatch({ type: 'closeAll' }), [])
   const enterSplit = useCallback(
-    (side: CompareSide, ticketId?: number) => dispatch({ type: 'enterSplit', side, ticketId }),
+    (side: CompareSide, ticketId?: number) => {
+      // Authoritative boundary for every split entry point (button, drag, URL
+      // sync, agent refs). Visibility alone cannot enforce this when a resize
+      // and an action land in the same frame.
+      if (typeof window !== 'undefined' && window.innerWidth < COMPARE_VIEWPORT_MIN) return
+      dispatch({ type: 'enterSplit', side, ticketId })
+    },
     [],
   )
   const setComparedTicket = useCallback(
