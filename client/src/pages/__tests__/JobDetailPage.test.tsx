@@ -342,6 +342,26 @@ describe('JobDetailPage', () => {
     await waitFor(() => expect(mockNavigate).toHaveBeenCalledWith('/jobs/new-job-id'))
   })
 
+  it('uses a fresh idempotency key for a deliberate rerun after the first succeeds', async () => {
+    const user = userEvent.setup()
+    global.fetch = vi.fn()
+      .mockResolvedValueOnce({ ok: true, json: async () => ({ job: mockJob, events: mockEvents }) })
+      .mockResolvedValueOnce({ ok: true, json: async () => ({ jobId: 'new-job-1' }) })
+      .mockResolvedValueOnce({ ok: true, json: async () => ({ jobId: 'new-job-2' }) })
+
+    render(<JobDetailPage />)
+    const button = await screen.findByRole('button', { name: /Re-execute/i })
+    await user.click(button)
+    await waitFor(() => expect(mockNavigate).toHaveBeenCalledWith('/jobs/new-job-1'))
+    await user.click(button)
+    await waitFor(() => expect(mockNavigate).toHaveBeenCalledWith('/jobs/new-job-2'))
+
+    const spawnCalls = (global.fetch as ReturnType<typeof vi.fn>).mock.calls.slice(1)
+    const firstKey = (spawnCalls[0][1] as RequestInit).headers as Record<string, string>
+    const secondKey = (spawnCalls[1][1] as RequestInit).headers as Record<string, string>
+    expect(firstKey['Idempotency-Key']).not.toBe(secondKey['Idempotency-Key'])
+  })
+
   describe('Export diagnostic', () => {
     it('shows Export diagnostic button when hasTelemetry is true', async () => {
       const telemetryJob = { ...mockJob, hasTelemetry: true }

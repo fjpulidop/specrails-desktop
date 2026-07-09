@@ -303,6 +303,11 @@ export default function JobDetailPage() {
       })
       const data = await res.json() as { jobId?: string; error?: string }
       if (!res.ok) throw new Error(data.error ?? t('detail.toast.spawnFailed'))
+      // A completed request owns exactly one idempotency window. React Router
+      // reuses this component when navigating job detail → job detail; keeping
+      // the old key would make a deliberate rerun of the new job replay the
+      // previous spawn (or conflict when its command differs).
+      rerunIdempotencyKeyRef.current = null
       toast.success(t('detail.toast.jobRequeued'))
       navigate(`/jobs/${data.jobId}`)
     } catch (err) {
