@@ -108,6 +108,8 @@ export class JiraSyncManager {
   private notifyLocalWriteCb?: (revision: number) => void
   private pollTimer: NodeJS.Timeout | null = null
   private drainTimer: NodeJS.Timeout | null = null
+  /** Exactly one outbox drain loop may claim work for this project at a time. */
+  private drainPromise: Promise<void> | null = null
   /** When set, the outbox is paused pending re-auth (401). */
   private authPaused = false
 
@@ -880,18 +882,31 @@ export class JiraSyncManager {
 
   // ─── Outbox drain ──────────────────────────────────────────────────────────
 
-  async drainOnce(): Promise<void> {
+  drainOnce(): Promise<void> {
+    if (this.drainPromise) return this.drainPromise
+    const running = this.drainUntilBlocked()
+    this.drainPromise = running
+    void running.finally(() => {
+      if (this.drainPromise === running) this.drainPromise = null
+    }).catch(() => undefined)
+    return running
+  }
+
+  private async drainUntilBlocked(): Promise<void> {
     if (this.authPaused) return
     const conn = getConnection(this.db, this.projectId)
     if (!conn || !conn.enabled) return
     const client = this.buildClient()
     if (!client) return
 
-    const batch = claimDrainable(this.db, MAX_DRAIN_BATCH)
-    if (batch.length === 0) return
-
-    await Promise.all(batch.map((op) => this.executeOp(client, conn, op)))
-    this.broadcastOutboxState()
+    let changed = false
+    while (!this.authPaused) {
+      const batch = claimDrainable(this.db, MAX_DRAIN_BATCH)
+      if (batch.length === 0) break
+      changed = true
+      await Promise.all(batch.map((op) => this.executeOp(client, conn, op)))
+    }
+    if (changed) this.broadcastOutboxState()
   }
 
   private async executeOp(client: JiraClient, conn: JiraConnection, op: OutboxRow): Promise<void> {

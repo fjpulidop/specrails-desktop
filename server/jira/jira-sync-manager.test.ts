@@ -1312,6 +1312,24 @@ function enqueueComment(jiraIssueId: string, text: string, marker: string, key: 
 }
 
 describe('drainOnce()', () => {
+  it('coalesces overlapping drain requests into one in-flight loop', async () => {
+    seedConnection()
+    enqueueTransition('SERIAL-1', 'done', 'serial-drain')
+    const fake = makeFakeFetch()
+    fake.on('GET', '/issue/SERIAL-1?', {
+      status: 200,
+      body: { id: 'SERIAL-1', fields: { status: { statusCategory: { key: 'done' } } } },
+    })
+    const mgr = makeManager(fake.fetchImpl)
+
+    const first = mgr.drainOnce()
+    const overlapping = mgr.drainOnce()
+
+    expect(overlapping).toBe(first)
+    await first
+    expect(fake.calls.filter((call) => call.url.includes('/issue/SERIAL-1?'))).toHaveLength(1)
+  })
+
   it('no-op while auth-paused', async () => {
     seedConnection()
     enqueueTransition('A-1', 'done', 'k1')

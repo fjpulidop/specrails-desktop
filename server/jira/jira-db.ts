@@ -425,9 +425,21 @@ export function claimDrainable(db: DbInstance, limit: number, nowIso: string = n
   const tx = db.transaction((max: number): OutboxRow[] => {
     const rows = db
       .prepare(
-        `SELECT * FROM jira_outbox
-          WHERE state = 'pending' AND (next_attempt_at IS NULL OR next_attempt_at <= ?)
-          ORDER BY id ASC`
+        `SELECT candidate.* FROM jira_outbox AS candidate
+          WHERE candidate.state = 'pending'
+            AND (candidate.next_attempt_at IS NULL OR candidate.next_attempt_at <= ?)
+            AND NOT EXISTS (
+              SELECT 1 FROM jira_outbox AS prior
+               WHERE prior.jira_issue_id = candidate.jira_issue_id
+                 AND prior.id < candidate.id
+                 AND prior.state IN ('pending', 'inflight')
+            )
+            AND NOT EXISTS (
+              SELECT 1 FROM jira_outbox AS active
+               WHERE active.jira_issue_id = candidate.jira_issue_id
+                 AND active.state = 'inflight'
+            )
+          ORDER BY candidate.id ASC`
       )
       .all(nowIso) as OutboxRowRaw[]
     const claimed: OutboxRow[] = []

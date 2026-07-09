@@ -500,6 +500,23 @@ describe('jira_outbox', () => {
     expect(countOutboxByState(db).pending).toBe(1)
   })
 
+  it('does not claim a later op while the same issue already has one inflight', () => {
+    enqueueOutbox(db, op({ idempotencyKey: 'serial-1', jiraIssueId: 'SERIAL' }))
+    enqueueOutbox(db, op({ idempotencyKey: 'serial-2', jiraIssueId: 'SERIAL' }))
+
+    expect(claimDrainable(db, 10).map((r) => r.idempotencyKey)).toEqual(['serial-1'])
+    expect(claimDrainable(db, 10)).toEqual([])
+    expect(listOutbox(db, { state: 'pending' }).map((r) => r.idempotencyKey)).toEqual(['serial-2'])
+  })
+
+  it('does not skip a backed-off earlier op to apply a newer op for the same issue', () => {
+    const first = enqueueOutbox(db, op({ idempotencyKey: 'retry-first', jiraIssueId: 'ORDERED' }))
+    enqueueOutbox(db, op({ idempotencyKey: 'newer-second', jiraIssueId: 'ORDERED' }))
+    markOutboxRetry(db, first, '2999-01-01T00:00:00.000Z', 'later')
+
+    expect(claimDrainable(db, 10, '2026-01-01T00:00:00.000Z')).toEqual([])
+  })
+
   it('claimDrainable respects the limit (distinct issues)', () => {
     enqueueOutbox(db, op({ idempotencyKey: 'l1', jiraIssueId: 'A' }))
     enqueueOutbox(db, op({ idempotencyKey: 'l2', jiraIssueId: 'B' }))
