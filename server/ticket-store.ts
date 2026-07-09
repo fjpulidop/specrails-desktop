@@ -29,6 +29,7 @@ export interface Ticket {
     effort_level?: string
     user_story?: string
     area?: string
+    openspecChangeName?: string
   }
   comments?: Array<{
     id: number

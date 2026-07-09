@@ -181,7 +181,11 @@ const OPSX_FF_PROMPT = [
   '',
   '{{spec.description}}',
   '',
-  'If a change id appears here — "{{run.changeId}}" — an OpenSpec change for this ticket already exists: CONTINUE that change (do NOT create a new one) and address only what the verification reported as still missing (see the context below). If it is blank, create the change and generate all required artifacts.',
+  'Structured OpenSpec target from the local ticket metadata: "{{spec.openspecChangeName}}". If this value is non-blank, CONTINUE that exact OpenSpec change and do NOT create a duplicate change for the same follow-up. If it is blank and no run change id exists, create a new OpenSpec change from this ticket and generate all required artifacts.',
+  '',
+  'If a run change id appears here — "{{run.changeId}}" — an OpenSpec change for this ticket already exists: CONTINUE that change (do NOT create a new one) and address only what the verification reported as still missing (see the context below).',
+  '',
+  'OpenSpec artifacts are authoritative. If the requested implementation changes requirements, acceptance criteria, design decisions, APIs, states, data models, or invariants, amend the relevant OpenSpec artifacts before any code changes.',
   '',
   'Run fully unattended: make reasonable decisions to keep momentum and NEVER stop to ask — there is no human to answer. When something is unclear, pick the most sensible option, proceed, and note the assumption.',
 ].join('\n')
@@ -191,6 +195,8 @@ const OPSX_APPLY_PROMPT = [
   '',
   'Implement every pending task of the active OpenSpec change for ticket "{{spec.title}}", editing code as needed and marking tasks complete as you finish them.',
   '',
+  'Before editing code, confirm the active OpenSpec artifacts already describe the contract being implemented. If implementation requires changing requirements, acceptance criteria, design decisions, APIs, states, data models, or invariants, stop code work and amend the OpenSpec artifacts first.',
+  '',
   'Run fully unattended: decide and keep momentum, never pause to ask. If you hit an ambiguity or blocker, make the most reasonable choice, implement it, and continue.',
 ].join('\n')
 
@@ -199,11 +205,13 @@ const OPSX_VERIFY_PROMPT = [
   '',
   'Verify the active OpenSpec change against its specs, design, and tasks for ticket "{{spec.title}}". Be strict and honest — inspect the REAL code and tests, not any step\'s self-report.',
   '',
+  'Report FAIL if the implementation diverges from the active OpenSpec artifacts, or if code changed requirements, acceptance criteria, design decisions, APIs, states, data models, or invariants without corresponding artifact amendments.',
+  '',
   'Finish with a clear final line: exactly `{{const:VERIFICATION_PASS}}` when the change fully matches the ticket with nothing required missing, or `{{const:VERIFICATION_FAIL}} — <what is still missing>` otherwise.',
 ].join('\n')
 
 const OPSX_DECIDER_GOAL =
-  'The verify step reported {{const:VERIFICATION_PASS}} — the implementation fully matches ticket "{{spec.title}}" and nothing required is missing.'
+  'The verify step reported {{const:VERIFICATION_PASS}} — the implementation fully matches the active OpenSpec artifacts for ticket "{{spec.title}}" and nothing required is missing.'
 
 /** The OpenSpec-lifecycle graph (see comment above). Exported for unit testing. */
 export function opsxLifecycleGraph(): LoopGraph {

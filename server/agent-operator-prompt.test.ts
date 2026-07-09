@@ -99,12 +99,33 @@ describe('OPERATOR_INSTRUCTIONS — launch, then release the turn', () => {
     expect(OPERATOR_INSTRUCTIONS).toContain('Do not invent or use another name for\n  this capability')
   })
 
+  it('classifies small work with the SDD Quick OpenSpec guardrail', () => {
+    expect(OPERATOR_INSTRUCTIONS).toContain('Freestyle, SDD Quick (OpenSpec), Implement, or Batch')
+    expect(OPERATOR_INSTRUCTIONS).toContain('ticket-local implementation-only work when OpenSpec artifacts are relevant')
+    expect(OPERATOR_INSTRUCTIONS).toContain("loopId:'factory:sdd-quick-openspec'")
+    expect(OPERATOR_INSTRUCTIONS).toContain('openspecChangeName')
+    expect(OPERATOR_INSTRUCTIONS).toContain('ticket, OpenSpec target')
+    expect(OPERATOR_INSTRUCTIONS).toContain('before any ai-spawn action')
+    expect(OPERATOR_INSTRUCTIONS).toContain('Never offer direct code edits as the implementation path')
+    expect(OPERATOR_INSTRUCTIONS).toContain('Even if the\n  change is "just one or two lines"')
+    expect(OPERATOR_INSTRUCTIONS).toContain('update or\n  create a local ticket')
+    expect(OPERATOR_INSTRUCTIONS).toContain('through rails/worktrees for auditability')
+  })
+
   it('treats published PR cards as continuable, not relaunch blockers', () => {
     expect(OPERATOR_INSTRUCTIONS).toContain("`decision:'pr_ready'`")
     expect(OPERATOR_INSTRUCTIONS).toContain('STILL an open PR continuation\n  target')
     expect(OPERATOR_INSTRUCTIONS).toContain('do NOT tell them they must publish,\n  discard, or merge first')
     expect(OPERATOR_SYSTEM_PROMPT).toContain('published pr_ready card')
     expect(OPERATOR_SYSTEM_PROMPT).toContain('do not require publish/discard/merge first')
+  })
+
+  it('requires inspecting active PR contents before relaunch strategy classification', () => {
+    expect(OPERATOR_INSTRUCTIONS).toContain('PR-aware relaunch classification')
+    expect(OPERATOR_INSTRUCTIONS).toContain("inspect that PR's head\n  branch/diff/files, not only `main`")
+    expect(OPERATOR_INSTRUCTIONS).toContain('`openspec/specs/**`, `openspec/changes/**`')
+    expect(OPERATOR_INSTRUCTIONS).toContain('SDD Quick (OpenSpec) may be the right\n  relaunch strategy')
+    expect(OPERATOR_INSTRUCTIONS).toContain('verify against active PR contents before\n  answering')
   })
 })
 
@@ -166,6 +187,19 @@ describe('OPERATOR_SYSTEM_PROMPT — compact distillation stays in sync', () => 
     expect(OPERATOR_SYSTEM_PROMPT).toContain('must not trigger specrails_setup(install)')
     expect(OPERATOR_SYSTEM_PROMPT).not.toContain('reassemble_project_workspace')
     expect(OPERATOR_SYSTEM_PROMPT).toContain('core_update_check/core_update_apply')
+  })
+})
+
+describe('OPERATOR_SYSTEM_PROMPT — SDD Quick policy', () => {
+  it('carries SDD Quick OpenSpec strategy in the compact prompt', () => {
+    expect(OPERATOR_SYSTEM_PROMPT).toContain('Freestyle, SDD Quick (OpenSpec), Implement, or Batch')
+    expect(OPERATOR_SYSTEM_PROMPT).toContain('Freestyle is only ticket-local implementation-only')
+    expect(OPERATOR_SYSTEM_PROMPT).toContain('factory:sdd-quick-openspec')
+    expect(OPERATOR_SYSTEM_PROMPT).toContain('openspecChangeName')
+    expect(OPERATOR_SYSTEM_PROMPT).toContain('never offer direct code edits')
+    expect(OPERATOR_SYSTEM_PROMPT).toContain('create or update a local ticket')
+    expect(OPERATOR_SYSTEM_PROMPT).toContain('inspect the PR head branch/diff/files')
+    expect(OPERATOR_SYSTEM_PROMPT).toContain('OpenSpec artifacts added in that PR')
   })
 })
 

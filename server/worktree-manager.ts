@@ -13,6 +13,7 @@
  * the caller (workspace-manager) — this module owns only the git worktree.
  */
 import { execFile } from 'child_process'
+import * as fs from 'fs'
 import * as path from 'path'
 import { windowsSpawnEnv } from './util/win-spawn'
 
@@ -95,6 +96,51 @@ export interface WorktreeHandle {
   worktreePath: string
 }
 
+export const PR_NEVER_STAGE_PATHS = [
+  '.claude/agent-memory',
+  '.claude/agent-memory/**',
+  '.claude/agent-memory/explanations',
+  '.claude/agent-memory/explanations/**',
+  '.codex/agent-memory',
+  '.codex/agent-memory/**',
+  '.codex/agent-memory/explanations',
+  '.codex/agent-memory/explanations/**',
+  '.gemini/agent-memory',
+  '.gemini/agent-memory/**',
+  '.gemini/agent-memory/explanations',
+  '.gemini/agent-memory/explanations/**',
+] as const
+
+const PR_NEVER_STAGE_EXCLUDE_MARKER_BEGIN = '# specrails: never stage private agent artifacts'
+const PR_NEVER_STAGE_EXCLUDE_MARKER_END = '# /specrails: never stage private agent artifacts'
+const PR_NEVER_STAGE_EXCLUDE_BLOCK = [
+  PR_NEVER_STAGE_EXCLUDE_MARKER_BEGIN,
+  ...PR_NEVER_STAGE_PATHS,
+  PR_NEVER_STAGE_EXCLUDE_MARKER_END,
+].join('\n')
+
+export async function ensurePrNeverStageExcludes(git: GitRunner, worktreePath: string): Promise<void> {
+  const resolved = await git.run(['rev-parse', '--git-path', 'info/exclude'], worktreePath).catch(() => null)
+  if (!resolved || resolved.code !== 0) return
+  const rawPath = resolved.stdout.trim()
+  if (!rawPath) return
+  const excludePath = path.isAbsolute(rawPath) ? rawPath : path.join(worktreePath, rawPath)
+  try {
+    await fs.promises.mkdir(path.dirname(excludePath), { recursive: true })
+    const current = await fs.promises.readFile(excludePath, 'utf8').catch(() => '')
+    const blockRe = new RegExp(`\\n?${escapeRegExp(PR_NEVER_STAGE_EXCLUDE_MARKER_BEGIN)}[\\s\\S]*?${escapeRegExp(PR_NEVER_STAGE_EXCLUDE_MARKER_END)}\\n?`, 'g')
+    const cleaned = current.replace(blockRe, '').replace(/\s+$/, '')
+    const next = `${cleaned}${cleaned ? '\n\n' : ''}${PR_NEVER_STAGE_EXCLUDE_BLOCK}\n`
+    if (next !== current) await fs.promises.writeFile(excludePath, next)
+  } catch {
+    // Best-effort only: commitWorktree still applies explicit pathspec excludes.
+  }
+}
+
+function escapeRegExp(value: string): string {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+}
+
 async function fastForwardExistingBranch(
   git: GitRunner,
   repoDir: string,
@@ -147,6 +193,7 @@ export async function createWorktree(git: GitRunner, input: CreateWorktreeInput)
     if (input.refreshFromBaseRef && actualBranch === branch) {
       await fastForwardExistingBranch(git, input.repoDir, branch, input.baseRef, wt)
     }
+    await ensurePrNeverStageExcludes(git, wt)
     return { branch: actualBranch, worktreePath: wt }
   }
   const hasBranch = (await git.run(['rev-parse', '--verify', '--quiet', `refs/heads/${branch}`], input.repoDir)).code === 0
@@ -160,6 +207,7 @@ export async function createWorktree(git: GitRunner, input: CreateWorktreeInput)
   if (res.code !== 0) {
     throw new Error(`git worktree add failed for ${branch}: ${res.stderr.trim() || res.stdout.trim() || `exit ${res.code}`}`)
   }
+  await ensurePrNeverStageExcludes(git, wt)
   return { branch, worktreePath: wt }
 }
 
@@ -177,9 +225,8 @@ export async function createWorktree(git: GitRunner, input: CreateWorktreeInput)
  * excluding them can never drop real work.
  */
 export async function commitWorktree(git: GitRunner, worktreePath: string, message: string, excludePaths: string[] = []): Promise<void> {
-  const addArgs = excludePaths.length > 0
-    ? ['add', '-A', '--', '.', ...excludePaths.map((p) => `:(exclude)${p}`)]
-    : ['add', '-A']
+  const allExcludePaths = [...PR_NEVER_STAGE_PATHS, ...excludePaths]
+  const addArgs = ['add', '-A', '--', '.', ...allExcludePaths.map((p) => `:(exclude)${p}`)]
   await git.run(addArgs, worktreePath).catch(() => {})
   await git.run(['commit', '-m', message], worktreePath).catch(() => {})
 }

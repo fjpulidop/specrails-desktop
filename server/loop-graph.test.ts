@@ -218,9 +218,19 @@ describe('interpolateSpec', () => {
     expect(interpolateSpec('t={{spec.title}}', undefined)).toBe('t=')
   })
 
-  it('resolves spec.id (number → string) and arbitrary fields generically', () => {
+  it('resolves whitelisted spec fields', () => {
     expect(interpolateSpec('#{{spec.id}}', { id: 42 })).toBe('#42')
     expect(interpolateSpec('s={{spec.status}} p={{spec.priority}}', { status: 'todo', priority: 'high' })).toBe('s=todo p=high')
+  })
+
+  it('resolves whitelisted OpenSpec change names from direct field or metadata', () => {
+    expect(interpolateSpec('{{spec.openspecChangeName}}', { openspecChangeName: ' add-sdd-quick-openspec ' })).toBe('add-sdd-quick-openspec')
+    expect(interpolateSpec('{{spec.openspecChangeName}}', { metadata: { openspecChangeName: 'continue-this-change' } })).toBe('continue-this-change')
+  })
+
+  it('does not expose arbitrary metadata fields', () => {
+    const spec = { metadata: { openspecChangeName: 'ok', secret: 'nope' }, secret: 'hidden' } as unknown as Parameters<typeof interpolateSpec>[1]
+    expect(interpolateSpec('{{spec.metadata}}/{{spec.secret}}', spec)).toBe('/')
   })
 
   it('joins array fields (labels) with ", "', () => {

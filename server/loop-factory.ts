@@ -40,6 +40,14 @@ const FACTORY_MAX_ITERATIONS = 12
 const FACTORY_LOOP_TIMEOUT_MIN = 360
 const FACTORY_AI_STEP_TIMEOUT_MIN = 60
 
+const SDD_QUICK_OPENSPEC_FACTORY: FactoryLoop = {
+  id: 'factory:sdd-quick-openspec',
+  name: 'SDD Quick (OpenSpec)',
+  description: 'Quick spec-driven OpenSpec lifecycle for small contract-governed changes: amend artifacts, apply, verify, and archive only after PASS.',
+  mode: 'loop',
+  graph: opsxLifecycleGraph(),
+}
+
 export const FACTORY_LOOPS: FactoryLoop[] = [
   {
     id: 'factory:implement',
@@ -66,16 +74,17 @@ export const FACTORY_LOOPS: FactoryLoop[] = [
     claudeOnly: true,
     graph: fixLoopGraph(['{{cmd:freestyle}}'], GREEN_GOAL, FACTORY_MAX_ITERATIONS, FACTORY_LOOP_TIMEOUT_MIN, FACTORY_AI_STEP_TIMEOUT_MIN),
   },
-  {
-    id: 'factory:openspec',
-    name: 'OpenSpec Lifecycle',
-    description: 'Ticket-to-archive OpenSpec lifecycle: generate artifacts (opsx:ff) → implement (opsx:apply) → verify (opsx:verify); on FAIL loop back and amend the same change, on PASS archive it unattended.',
-    mode: 'loop',
-    graph: opsxLifecycleGraph(),
-  },
+  SDD_QUICK_OPENSPEC_FACTORY,
 ]
 
-const FACTORY_BY_ID = new Map(FACTORY_LOOPS.map((f) => [f.id, f]))
+const FACTORY_ALIASES = new Map<string, FactoryLoop>([
+  ['factory:openspec', SDD_QUICK_OPENSPEC_FACTORY],
+])
+
+const FACTORY_BY_ID = new Map<string, FactoryLoop>([
+  ...FACTORY_LOOPS.map((f) => [f.id, f] as const),
+  ...FACTORY_ALIASES,
+])
 
 export function getFactoryLoop(id: string): FactoryLoop | undefined {
   return FACTORY_BY_ID.get(id)
