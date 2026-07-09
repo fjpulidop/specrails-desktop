@@ -2,11 +2,12 @@
  * Loop runs store — per-project record (jobs.sqlite `loop_runs`) of each
  * executed loop. The manager creates a row at launch, updates counters as it
  * iterates, and finalises it at the end. Powers loop analytics + the
- * "Running" derived state (a loop is Running iff a row here has status='running').
+ * active derived state (a loop is active iff a row here has status='running'
+ * or status='paused').
  */
 import type { DbInstance } from './db'
 
-export type LoopRunStatus = 'running' | 'completed'
+export type LoopRunStatus = 'running' | 'paused' | 'completed'
 // `blocked` — halted on a human decision the Decider flagged (not a failure,
 // not done). `stalled` — aborted after consecutive iterations made zero change
 // to the working tree (non-convergence guard). Both are terminal + distinct
@@ -107,6 +108,17 @@ export function finishLoopRun(
   return getLoopRun(db, id)
 }
 
+export function pauseLoopRun(db: DbInstance, id: string, counters?: Partial<LoopRunCounters>): LoopRunRow | undefined {
+  if (counters) updateLoopRunCounters(db, id, counters)
+  db.prepare(`UPDATE loop_runs SET status = 'paused' WHERE id = ? AND status = 'running'`).run(id)
+  return getLoopRun(db, id)
+}
+
+export function resumeLoopRun(db: DbInstance, id: string): LoopRunRow | undefined {
+  db.prepare(`UPDATE loop_runs SET status = 'running' WHERE id = ? AND status = 'paused'`).run(id)
+  return getLoopRun(db, id)
+}
+
 export function getLoopRun(db: DbInstance, id: string): LoopRunRow | undefined {
   return db.prepare('SELECT * FROM loop_runs WHERE id = ?').get(id) as LoopRunRow | undefined
 }
@@ -158,6 +170,12 @@ export function listRunningLoopRuns(db: DbInstance, projectId: string): LoopRunR
     .all(projectId) as LoopRunRow[]
 }
 
+export function listActiveLoopRuns(db: DbInstance, projectId: string): LoopRunRow[] {
+  return db
+    .prepare("SELECT * FROM loop_runs WHERE project_id = ? AND status IN ('running','paused') ORDER BY started_at ASC")
+    .all(projectId) as LoopRunRow[]
+}
+
 export function listLoopRuns(db: DbInstance, projectId: string, limit = 100): LoopRunRow[] {
   return db
     .prepare('SELECT * FROM loop_runs WHERE project_id = ? ORDER BY started_at DESC LIMIT ?')
@@ -169,21 +187,22 @@ export function listLoopRuns(db: DbInstance, projectId: string, limit = 100): Lo
  *  Running?" guard that blocks edit/delete of a loop while it executes. */
 export function countRunningForLoop(db: DbInstance, loopId: string): number {
   const row = db
-    .prepare(`SELECT COUNT(*) AS n FROM loop_runs WHERE loop_id = ? AND status = 'running'`)
+    .prepare(`SELECT COUNT(*) AS n FROM loop_runs WHERE loop_id = ? AND status IN ('running','paused')`)
     .get(loopId) as { n: number }
   return row.n
 }
 
-/** Reconcile orphan runs at startup: any row still `status='running'` belongs to
- *  a process that is now dead (server restart, or a run killed before it could
- *  settle), so mark it terminal (`completed` + outcome `failed`). Without this an
- *  orphan keeps `countRunningForLoop > 0` forever, which wedges the loop as
- *  un-editable / un-publishable ("Failed to save loop" via the isRunning 409).
- *  Returns the number of rows reconciled. */
+/** Reconcile orphan runs at startup: any row still active belongs to a process
+ *  that is now dead (server restart, or a run killed before it could settle), so
+ *  mark it terminal (`completed` + outcome `failed`). A paused row is active too:
+ *  its resumable context lived in the old process. Without this an orphan keeps
+ *  `countRunningForLoop > 0` forever, which wedges the loop as un-editable /
+ *  un-publishable ("Failed to save loop" via the isRunning 409). Returns the
+ *  number of rows reconciled. */
 export function reconcileOrphanLoopRuns(db: DbInstance, finishedAt: string): number {
   const res = db
     .prepare(
-      `UPDATE loop_runs SET status = 'completed', final_outcome = COALESCE(final_outcome, 'failed'), finished_at = COALESCE(finished_at, ?) WHERE status = 'running'`
+      `UPDATE loop_runs SET status = 'completed', final_outcome = COALESCE(final_outcome, 'failed'), finished_at = COALESCE(finished_at, ?) WHERE status IN ('running','paused')`
     )
     .run(finishedAt)
   return res.changes ?? 0

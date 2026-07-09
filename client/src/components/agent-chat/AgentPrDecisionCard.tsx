@@ -1,10 +1,10 @@
-import { Suspense, lazy, useEffect, useRef, useState } from 'react'
+import { Suspense, lazy, useCallback, useEffect, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
 import { motion, AnimatePresence } from 'motion/react'
 import {
   GitBranch, GitMerge, GitPullRequest, AlertTriangle, XCircle,
-  ExternalLink, Loader2, CheckCircle2, Ticket, ScrollText,
+  ExternalLink, Loader2, CheckCircle2, Ticket, ScrollText, Play, Square,
 } from 'lucide-react'
 import { cn } from '../../lib/utils'
 import { useDesktop } from '../../hooks/useDesktop'
@@ -17,6 +17,7 @@ import {
   type AgentPrDecisionAction,
   type AgentPrDecisionEnvelope,
 } from '../../lib/agent-api'
+import { cancelJob } from '../../lib/cancel-job'
 import { AgentRefChip } from './AgentRefChip'
 
 // Only loads when a run-log chip is actually clicked — keeps the card chunk
@@ -70,7 +71,7 @@ function prNumberFromUrl(prUrl: string): string | null {
  * opens the run's JobDetailModal scoped to the CARD's project.
  */
 function RunLogChip({
-  projectId, runId, ticketLabel, live, onOpen,
+  projectId, runId, ticketLabel, live, onOpen, onVitals,
 }: {
   projectId: string
   runId: string
@@ -78,6 +79,7 @@ function RunLogChip({
   ticketLabel: string | null
   live: boolean
   onOpen: (runId: string) => void
+  onVitals?: (runId: string, vitals: { paused: boolean; pausedReason: string | null }) => void
 }) {
   const { t } = useTranslation('agent')
   const vitals = useRunVitals(projectId, runId, { live })
@@ -85,6 +87,9 @@ function RunLogChip({
   const elapsed = vitals.elapsedMs != null ? formatRunElapsed(vitals.elapsedMs) : null
   const showCost = vitals.costUsd != null && vitals.costUsd > 0
   const dot = <span aria-hidden className="opacity-40">·</span>
+  useEffect(() => {
+    onVitals?.(runId, { paused: vitals.paused, pausedReason: vitals.pausedReason })
+  }, [onVitals, runId, vitals.paused, vitals.pausedReason])
   return (
     <button
       type="button"
@@ -98,11 +103,16 @@ function RunLogChip({
       aria-label={t('prCard.viewLog', { ref: label })}
       className={cn(
         'inline-flex max-w-full cursor-pointer items-center gap-1 rounded-full border px-1.5 py-px align-baseline font-mono text-[0.82em] leading-[1.45] transition-all',
-        'border-accent-info/35 bg-accent-info/10 text-accent-info hover:-translate-y-px hover:border-accent-info/60 hover:bg-accent-info/15 hover:shadow-sm',
+        vitals.paused
+          ? 'border-accent-warning/45 bg-accent-warning/10 text-accent-warning hover:-translate-y-px hover:border-accent-warning/65 hover:bg-accent-warning/15 hover:shadow-sm'
+          : 'border-accent-info/35 bg-accent-info/10 text-accent-info hover:-translate-y-px hover:border-accent-info/60 hover:bg-accent-info/15 hover:shadow-sm',
       )}
     >
-      {vitals.running && live && (
-        <span aria-hidden className="h-1.5 w-1.5 shrink-0 animate-pulse rounded-full bg-accent-info" />
+      {(vitals.paused || (vitals.running && live)) && (
+        <span
+          aria-hidden
+          className={cn('h-1.5 w-1.5 shrink-0 animate-pulse rounded-full', vitals.paused ? 'bg-accent-warning' : 'bg-accent-info')}
+        />
       )}
       <span className="max-w-[160px] truncate">{label}</span>
       {dot}
@@ -141,6 +151,8 @@ export function AgentPrDecisionCard({ envelope }: { envelope: AgentPrDecisionEnv
   const confirmTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
   // A clicked run-log chip → the run's JobDetailModal (portals to body).
   const [logRunId, setLogRunId] = useState<string | null>(null)
+  const [pausedRuns, setPausedRuns] = useState<Record<string, { paused: boolean; pausedReason: string | null }>>({})
+  const [stoppingRunId, setStoppingRunId] = useState<string | null>(null)
 
   const { decision, prUrl, prState } = envelope
   const projectName = projects.find((p) => p.id === envelope.projectId)?.name ?? envelope.projectId
@@ -159,6 +171,29 @@ export function AgentPrDecisionCard({ envelope }: { envelope: AgentPrDecisionEnv
   useEffect(() => () => {
     if (confirmTimer.current) clearTimeout(confirmTimer.current)
   }, [])
+
+  const onRunVitals = useCallback((runId: string, vitals: { paused: boolean; pausedReason: string | null }) => {
+    setPausedRuns((prev) => {
+      const current = prev[runId]
+      if (current?.paused === vitals.paused && current?.pausedReason === vitals.pausedReason) return prev
+      return { ...prev, [runId]: vitals }
+    })
+  }, [])
+
+  const stopPausedRun = async (runId: string) => {
+    if (stoppingRunId) return
+    setStoppingRunId(runId)
+    try {
+      const outcome = await cancelJob({ projectId: envelope.projectId, jobId: runId, kind: 'loop-run' })
+      if (outcome.ok) {
+        toast.info(t('prCard.stopExecutionSent'))
+      } else {
+        toast.error(t('prCard.stopExecutionFailed'), { description: outcome.error })
+      }
+    } finally {
+      setStoppingRunId(null)
+    }
+  }
 
   const act = async (action: AgentPrDecisionAction) => {
     if (checkingOut) return
@@ -257,6 +292,8 @@ export function AgentPrDecisionCard({ envelope }: { envelope: AgentPrDecisionEnv
     }
     return envelope.ticketIds[i] != null ? `#${envelope.ticketIds[i]}` : null
   }
+  const pausedRunId = runIds.find((rid) => pausedRuns[rid]?.paused) ?? null
+  const pausedReason = pausedRunId ? pausedRuns[pausedRunId]?.pausedReason ?? null : null
   const runChips = runIds.length > 0 && (
     <div className="mt-1.5 flex flex-wrap items-center gap-1.5" data-testid="pr-run-log-chips">
       {runIds.map((rid, i) => (
@@ -267,10 +304,13 @@ export function AgentPrDecisionCard({ envelope }: { envelope: AgentPrDecisionEnv
           ticketLabel={runTicketLabel(i)}
           live={decision === 'building'}
           onOpen={setLogRunId}
+          onVitals={onRunVitals}
         />
       ))}
     </div>
   )
+  const buildingPaused = decision === 'building' && pausedRunId !== null
+  const pausedRunLabel = pausedRunId ? runTicketLabel(runIds.indexOf(pausedRunId)) ?? pausedRunId.slice(0, 8) : null
 
   // Mounted by BOTH render branches (building early-return + settled card).
   const logModal = logRunId && (
@@ -288,11 +328,17 @@ export function AgentPrDecisionCard({ envelope }: { envelope: AgentPrDecisionEnv
         className="rounded-xl border border-border/60 bg-card/80 px-3.5 py-2.5 text-xs text-foreground/60 shadow-lg backdrop-blur-xl"
       >
         <div className="flex items-center gap-2">
-          {existingPrContinuation
-            ? <GitPullRequest className="h-3.5 w-3.5 text-accent-info" />
-            : <Loader2 className="h-3.5 w-3.5 animate-spin text-accent-primary/70" />}
-          <span className={cn(!existingPrContinuation && 'animate-pulse')}>
-            {existingPrContinuation ? t('prCard.title.buildingExistingPr') : t('prCard.title.building')}
+          {buildingPaused
+            ? <AlertTriangle className="h-3.5 w-3.5 text-accent-warning" />
+            : existingPrContinuation
+              ? <GitPullRequest className="h-3.5 w-3.5 text-accent-info" />
+              : <Loader2 className="h-3.5 w-3.5 animate-spin text-accent-primary/70" />}
+          <span className={cn(!existingPrContinuation && !buildingPaused && 'animate-pulse', buildingPaused && 'text-accent-warning')}>
+            {buildingPaused
+              ? t('prCard.title.paused')
+              : existingPrContinuation
+                ? t('prCard.title.buildingExistingPr')
+                : t('prCard.title.building')}
           </span>
         </div>
         {ticketChips && (
@@ -327,6 +373,40 @@ export function AgentPrDecisionCard({ envelope }: { envelope: AgentPrDecisionEnv
               <GitBranch className="h-3 w-3 shrink-0 text-accent-primary/70" />
               <span className="truncate">{envelope.branch}</span>
             </span>
+          </div>
+        )}
+        {buildingPaused && pausedRunId && (
+          <div className="mt-2 flex min-w-0 flex-wrap items-center gap-1.5 rounded-md border border-accent-warning/35 bg-accent-warning/10 px-2 py-1.5 text-[11px] text-accent-warning" data-testid="pr-run-paused-actions">
+            <AlertTriangle className="h-3.5 w-3.5 shrink-0" />
+            <span className="min-w-0 flex-1 truncate" title={pausedReason ?? undefined}>
+              {pausedRunLabel ? t('prCard.pausedForRun', { ref: pausedRunLabel }) : t('prCard.paused')}
+              {pausedReason ? `: ${pausedReason}` : ''}
+            </span>
+            <button
+              type="button"
+              data-agent-interactive
+              onClick={(e) => {
+                e.stopPropagation()
+                setLogRunId(pausedRunId)
+              }}
+              className="inline-flex items-center gap-1 rounded-md border border-accent-warning/40 bg-surface/70 px-2 py-0.5 font-medium text-accent-warning transition-colors hover:bg-accent-warning/15"
+            >
+              <Play className="h-3 w-3" />
+              {t('prCard.resume')}
+            </button>
+            <button
+              type="button"
+              data-agent-interactive
+              disabled={stoppingRunId === pausedRunId}
+              onClick={(e) => {
+                e.stopPropagation()
+                void stopPausedRun(pausedRunId)
+              }}
+              className="inline-flex items-center gap-1 rounded-md border border-destructive/40 bg-destructive/10 px-2 py-0.5 font-medium text-destructive transition-colors hover:bg-destructive/15 disabled:cursor-default disabled:opacity-60"
+            >
+              {stoppingRunId === pausedRunId ? <Loader2 className="h-3 w-3 animate-spin" /> : <Square className="h-3 w-3" />}
+              {t('prCard.stopExecution')}
+            </button>
           </div>
         )}
         {runChips && <div className="pl-[22px]">{runChips}</div>}

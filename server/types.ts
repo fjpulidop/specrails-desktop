@@ -863,6 +863,23 @@ export interface LoopRunProgressMessage {
   reasoning?: string
 }
 
+export interface LoopRunPausedMessage {
+  type: 'loop.run_paused'
+  projectId: string
+  loopRunId: string
+  railIndex: number | null
+  reason: string
+  ticketIds: number[]
+}
+
+export interface LoopRunResumedMessage {
+  type: 'loop.run_resumed'
+  projectId: string
+  loopRunId: string
+  railIndex: number | null
+  ticketIds: number[]
+}
+
 export interface LoopRunStoppedMessage {
   type: 'loop.run_stopped'
   projectId: string
@@ -1186,7 +1203,7 @@ export type WsMessage =
   | TicketAiEditStreamMessage | TicketAiEditDoneMessage | TicketAiEditErrorMessage
   | SpecGenStreamMessage | SpecGenDoneMessage | SpecGenErrorMessage
   | RailJobStartedMessage | RailJobStoppedMessage | RailJobCompletedMessage | RailUpdatedMessage | RailRemovedMessage | RailWorktreeProgressMessage | RailOverlayDegradedMessage | RailFetchDegradedMessage | RailPrStateMessage
-  | LoopRunStartedMessage | LoopRunProgressMessage | LoopRunStoppedMessage | LoopRunCompletedMessage
+ | LoopRunStartedMessage | LoopRunProgressMessage | LoopRunPausedMessage | LoopRunResumedMessage | LoopRunStoppedMessage | LoopRunCompletedMessage
   | AgentRefineStreamMessage | AgentRefinePhaseMessage | AgentRefineReadyMessage
   | AgentRefineTestMessage | AgentRefineErrorMessage | AgentRefineCancelledMessage
   | AgentRefineAppliedMessage

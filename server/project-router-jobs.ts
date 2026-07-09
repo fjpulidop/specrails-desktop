@@ -52,7 +52,7 @@ import {
 import { resolveProvider, validateRequestedProvider, isMultiProvider } from './provider-selection'
 import type { ChatConversationRow, JobTemplate, JobRow } from './types'
 import { readChanges } from './changes-reader'
-import { getLoopRun, listRunningLoopRuns } from './loop-runs-store'
+import { getLoopRun, listActiveLoopRuns } from './loop-runs-store'
 import { getProjectMetrics } from './metrics'
 import {
   resolveTicketStoragePath, readStore, mutateStore, filterTickets,
@@ -112,8 +112,8 @@ function backgroundStartBusyReason(c: ProjectContext): string | null {
   const activeJobId = typeof c.queueManager?.getActiveJobId === 'function' ? c.queueManager.getActiveJobId() : null
   if (activeJobId) return `job ${activeJobId} is still running`
   try {
-    const runningLoops = listRunningLoopRuns(c.db, c.project.id)
-    if (runningLoops.length > 0) return `loop run ${runningLoops[0].id} is still running`
+const activeLoops = listActiveLoopRuns(c.db, c.project.id)
+if (activeLoops.length > 0) return `loop run ${activeLoops[0].id} is still running`
   } catch {
     // If the loop table is unavailable in a test harness, do not block startup.
   }
@@ -350,7 +350,7 @@ export function registerJobsRoutes(deps: ProjectRoutesDeps): void {
         // the loop is still executing — cancel through the engine instead of
         // 404ing with a live child (the mission-modal "cancel did nothing" bug).
         const loopRun = getLoopRun(c.db, id)
-        if (loopRun && loopRun.status === 'running' && c.loopRunManager) {
+if (loopRun && (loopRun.status === 'running' || loopRun.status === 'paused') && c.loopRunManager) {
           c.loopRunManager.cancel(id)
           res.json({ ok: true, status: 'canceling' })
           return
@@ -379,20 +379,21 @@ export function registerJobsRoutes(deps: ProjectRoutesDeps): void {
   // session). Try the queue first, then the loop engine. 202 = accepted;
   // 409 = neither manager has an active interactive session for the id
   // (unknown / non-interactive / finalized / between loop steps).
-  router.post('/:projectId/jobs/:id/messages', (req: Request, res: Response) => {
-    if (!isInteractiveJobsEnabled()) {
-      res.status(403).json({ error: 'Interactive jobs are disabled on this server' })
-      return
-    }
+router.post('/:projectId/jobs/:id/messages', (req: Request, res: Response) => {
+const c = ctx(req)
+const jobId = req.params.id as string
+const loopPaused = c.loopRunManager?.isPaused?.(jobId) ?? false
+if (!isInteractiveJobsEnabled() && !loopPaused) {
+res.status(403).json({ error: 'Interactive jobs are disabled on this server' })
+return
+}
     const { text } = req.body ?? {}
     if (!text || typeof text !== 'string' || !text.trim()) {
       res.status(400).json({ error: 'text is required' })
       return
     }
-    const c = ctx(req)
-    const jobId = req.params.id as string
-    const accepted = c.queueManager.sendInteractiveTurn(jobId, text)
-      || (c.loopRunManager?.sendInteractiveTurn(jobId, text) ?? false)
+const accepted = c.queueManager.sendInteractiveTurn(jobId, text)
+|| (c.loopRunManager?.sendInteractiveTurn(jobId, text) ?? false)
     if (!accepted) {
       res.status(409).json({ error: 'Job is not an active interactive session' })
       return
@@ -676,15 +677,18 @@ export function registerJobsRoutes(deps: ProjectRoutesDeps): void {
     // between steps / decider / shell nodes — POST /messages would 409 there).
     // A between-steps loop GET still reports 'auto' via its loop_runs row so the
     // composer can phrase the waiting state truthfully instead of guessing.
-    let interactiveSettleMode: 'finalize' | 'auto' | null = null
-    let interactiveAcceptingTurns = false
-    if (isInteractiveJobsEnabled() && job.interactive && job.status === 'running') {
-      const qmMode = queueManager.getInteractiveSettleMode?.(jobId) ?? null
-      const loopStepActive = c.loopRunManager?.isInteractiveJob?.(jobId) ?? false
-      interactiveAcceptingTurns = qmMode !== null || loopStepActive
-      interactiveSettleMode = qmMode ?? ((loopStepActive || getLoopRun(db, jobId)) ? 'auto' : null)
-    }
-    const annotated = { ...job, hasTelemetry: hasJobTelemetry(db, jobId), tickets, interactiveSettleMode, interactiveAcceptingTurns }
+let interactiveSettleMode: 'finalize' | 'auto' | null = null
+let interactiveAcceptingTurns = false
+const loopRun = getLoopRun(db, jobId)
+const loopPaused = loopRun?.status === 'paused' || (c.loopRunManager?.isPaused?.(jobId) ?? false)
+const loopPauseReason = c.loopRunManager?.pausedReason?.(jobId) ?? null
+if (job.status === 'running' && ((isInteractiveJobsEnabled() && job.interactive) || loopPaused)) {
+const qmMode = queueManager.getInteractiveSettleMode?.(jobId) ?? null
+const loopStepActive = c.loopRunManager?.isInteractiveJob?.(jobId) ?? false
+interactiveAcceptingTurns = qmMode !== null || loopStepActive || loopPaused
+interactiveSettleMode = qmMode ?? ((loopStepActive || loopPaused || loopRun) ? 'auto' : null)
+}
+const annotated = { ...job, hasTelemetry: hasJobTelemetry(db, jobId), tickets, interactiveSettleMode, interactiveAcceptingTurns, loopPaused, loopPauseReason }
     res.json({ job: annotated, events, phaseDefinitions })
   })
 

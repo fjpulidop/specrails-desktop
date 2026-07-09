@@ -4,7 +4,10 @@ import {
   createLoopRun,
   updateLoopRunCounters,
   finishLoopRun,
+  pauseLoopRun,
+  resumeLoopRun,
   getLoopRun,
+  listActiveLoopRuns,
   listLoopRuns,
   countRunningForLoop,
   reconcileOrphanLoopRuns,
@@ -74,6 +77,20 @@ describe('loop-runs-store', () => {
     expect(finished.iteration_count).toBe(4)
   })
 
+  it('pauses and resumes a run without making it terminal', () => {
+    create('r1')
+    const paused = pauseLoopRun(db, 'r1', { iterationCount: 2, totalCostUsd: 0.25 })!
+    expect(paused.status).toBe('paused')
+    expect(paused.final_outcome).toBeNull()
+    expect(paused.finished_at).toBeNull()
+    expect(paused.iteration_count).toBe(2)
+    expect(listActiveLoopRuns(db, 'p1').map((r) => r.id)).toEqual(['r1'])
+
+    const resumed = resumeLoopRun(db, 'r1')!
+    expect(resumed.status).toBe('running')
+    expect(resumed.final_outcome).toBeNull()
+  })
+
   it('lists runs most-recent first', () => {
     create('r1', { startedAt: '2026-06-24T10:00:00.000Z' })
     create('r2', { startedAt: '2026-06-24T11:00:00.000Z' })
@@ -93,17 +110,23 @@ describe('loop-runs-store', () => {
 
   it('reconciles orphan running runs to terminal (unwedges edit/publish after a restart)', () => {
     create('r1', { loopId: 'loop-A' }) // orphan running
-    create('r2', { loopId: 'loop-A' }) // orphan running
-    finishLoopRun(db, 'r2', { outcome: 'success', finishedAt: '2026-06-24T10:05:00.000Z' }) // already terminal
-    expect(countRunningForLoop(db, 'loop-A')).toBe(1) // only r1 still running
+    create('r2', { loopId: 'loop-A' }) // orphan paused
+    pauseLoopRun(db, 'r2')
+    create('r3', { loopId: 'loop-A' })
+    finishLoopRun(db, 'r3', { outcome: 'success', finishedAt: '2026-06-24T10:05:00.000Z' }) // already terminal
+    expect(countRunningForLoop(db, 'loop-A')).toBe(2) // r1 running + r2 paused
 
     const n = reconcileOrphanLoopRuns(db, '2026-06-24T12:00:00.000Z')
-    expect(n).toBe(1) // only the still-running r1 reconciled
+    expect(n).toBe(2) // active r1/r2 reconciled
     expect(countRunningForLoop(db, 'loop-A')).toBe(0)
     const r1 = getLoopRun(db, 'r1')!
     expect(r1.status).toBe('completed')
     expect(r1.final_outcome).toBe('failed')
     expect(r1.finished_at).toBe('2026-06-24T12:00:00.000Z')
+    const r2 = getLoopRun(db, 'r2')!
+    expect(r2.status).toBe('completed')
+    expect(r2.final_outcome).toBe('failed')
+    expect(r2.finished_at).toBe('2026-06-24T12:00:00.000Z')
     // A second pass is a no-op (nothing left running).
     expect(reconcileOrphanLoopRuns(db, '2026-06-24T13:00:00.000Z')).toBe(0)
   })

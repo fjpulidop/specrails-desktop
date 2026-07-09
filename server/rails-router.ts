@@ -7,7 +7,7 @@ import { isLoopsEnabled, isCodeExplorerEnabled } from './feature-flags'
 import { snapshotWorkingTree, type WorkingTreeSnapshot } from './file-provenance'
 import { recordLoopRunProvenance } from './file-story'
 import { getLoop } from './loops-store'
-import { getLoopRun, getRunEventCounts, listRunningLoopRuns } from './loop-runs-store'
+import { getLoopRun, getRunEventCounts, listActiveLoopRuns } from './loop-runs-store'
 import { getAdapter } from './providers'
 import { isValidModelForProvider, getModelsForProvider, type SpecProvider } from './spec-models'
 import { resolveProjectExecution } from './workspace-resolution'
@@ -143,7 +143,7 @@ export function createRailsRouter(): Router {
       // Also surface DB 'running' runs not tracked in-memory (the rail map is
       // cleared on every server restart) — DB is the authoritative source, so the
       // dashboard metrics survive both a page refresh AND a server restart.
-      for (const run of listRunningLoopRuns(c.db, c.project.id)) {
+      for (const run of listActiveLoopRuns(c.db, c.project.id)) {
         if (run.rail_index == null || activeLoopRuns[run.rail_index]) continue
         const counts = getRunEventCounts(c.db, run.id)
         activeLoopRuns[run.rail_index] = { loopRunId: run.id, loopId: run.loop_id, loopName: run.loop_name, provider: run.provider, model: run.model, iteration: run.iteration_count, startedAt: run.started_at, steps: counts.steps, lines: counts.lines }

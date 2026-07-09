@@ -162,7 +162,11 @@ export function JobDetailModal({ jobId, onClose, projectId }: JobDetailModalProp
       }
       pendingEventsRef.current.push(syntheticEvent)
       if (!rafIdRef.current) rafIdRef.current = requestAnimationFrame(flushEvents)
-    } else if (msg.type === 'job.finalized' && msg.jobId === jobId) {
+    } else if (
+      (msg.type === 'job.finalized' && msg.jobId === jobId)
+      || (msg.type === 'job.interactive' && msg.jobId === jobId)
+      || ((msg.type === 'loop.run_paused' || msg.type === 'loop.run_resumed') && msg.loopRunId === jobId)
+    ) {
       // The interactive session settled — refetch the authoritative row so the
       // header flips to the terminal status and the composer unmounts.
       refetchJob()
