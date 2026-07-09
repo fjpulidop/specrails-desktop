@@ -1,5 +1,12 @@
 # Changelog
 
+## [2.29.1](https://github.com/fjpulidop/specrails-desktop/compare/v2.29.0...v2.29.1) (2026-07-09)
+
+
+### Bug Fixes
+
+* harden loop worktree delivery and jira plugin management ([#544](https://github.com/fjpulidop/specrails-desktop/issues/544)) ([6b85a70](https://github.com/fjpulidop/specrails-desktop/commit/6b85a70078c8c5cb94464f94ee0dfa791a4ad333))
+
 ## [2.29.0](https://github.com/fjpulidop/specrails-desktop/compare/v2.28.1...v2.29.0) (2026-07-09)
 
 
