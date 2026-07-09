@@ -11,7 +11,10 @@ vi.mock('child_process', () => ({
 }))
 vi.mock('tree-kill', () => ({ default: vi.fn() }))
 vi.mock('./agent-cwd-manager', () => ({ ensureAgentCwd: () => '/tmp/agent-cwd-test' }))
-vi.mock('./agent-mcp-config', () => ({ prepareAgentMcp: () => ({ extraArgs: [], env: {} }) }))
+vi.mock('./agent-mcp-config', () => ({
+  prepareAgentMcp: () => ({ extraArgs: [], env: {} }),
+  removeAgentCapabilityFile: vi.fn(),
+}))
 vi.mock('./mcp/tools/types', () => ({ setActiveProject: vi.fn() }))
 vi.mock('./attachment-manager', () => ({
   attachmentManager: { getClaudeArgsAgent: vi.fn(async () => ({ textBlocks: [], imagePaths: [] })) },

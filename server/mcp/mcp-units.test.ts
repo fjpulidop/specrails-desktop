@@ -234,13 +234,15 @@ describe('tool handlers', () => {
   it('specrails_jobs background actions validate ownership, cwd, tier, and broadcasts', async () => {
     const t = tool('specrails_jobs')
     const tierFn = t.tier as (a: Record<string, unknown>) => string
-    expect(tierFn({ action: 'background_start' })).toBe('ai-spawn')
+    expect(tierFn({ action: 'background_start' })).toBe('destructive')
+    expect(tierFn({ action: 'background_kill' })).toBe('destructive')
 
     const broadcast = vi.fn()
     const ctx = {
       ...makeCtx(db, [{ project: { id: 'p1', name: 'One', path: '/tmp/one' } as ProjectContext['project'] }]),
       broadcast,
     }
+    const originCtx = { ...ctx, originConversationId: 'c-origin', firstPartyAgent: true }
     vi.mocked(startBackgroundProcess).mockImplementation((command: string, cwd: string, chatId: string, projectId: string, hooks: any) => {
       const proc = {
         pid: 123,
@@ -278,12 +280,19 @@ describe('tool handlers', () => {
     })
 
     await expect(async () => t.handler(ctx, { action: 'background_start', projectId: 'p1', command: 'npm run dev', chatId: 'c1' })).rejects.toThrow(/confirmed/)
-    await expect(async () => t.handler(ctx, { action: 'background_start', projectId: 'p1', command: 'npm run dev', confirmed: true })).rejects.toThrow(/chatId/)
+    await expect(async () => t.handler(ctx, { action: 'background_start', projectId: 'p1', command: 'npm run dev', chatId: 'spoofed', confirmed: true })).rejects.toThrow(/authenticated/)
     await expect(async () => t.handler(ctx, {
       action: 'background_start',
       projectId: 'p1',
       command: 'npm run dev',
       chatId: 'c1',
+      cwd: '../outside',
+      confirmed: true,
+    })).rejects.toThrow(/authenticated/)
+    await expect(async () => t.handler(originCtx, {
+      action: 'background_start',
+      projectId: 'p1',
+      command: 'npm run dev',
       cwd: '../outside',
       confirmed: true,
     })).rejects.toThrow(/cwd/)
@@ -294,6 +303,8 @@ describe('tool handlers', () => {
         queueManager: { getActiveJobId: () => 'job-1' } as unknown as ProjectContext['queueManager'],
       }]),
       broadcast,
+      originConversationId: 'c-origin',
+      firstPartyAgent: true,
     }
     await expect(async () => t.handler(busyCtx, {
       action: 'background_start',
@@ -314,7 +325,6 @@ describe('tool handlers', () => {
     }) as { process: { pid: number } }
     expect(forcedWhileBusy.process.pid).toBe(123)
 
-    const originCtx = { ...ctx, originConversationId: 'c-origin' }
     const startedFromOrigin = await t.handler(originCtx, {
       action: 'background_start',
       projectId: 'p1',
@@ -324,11 +334,11 @@ describe('tool handlers', () => {
     }) as { process: { chatId: string } }
     expect(startedFromOrigin.process.chatId).toBe('c-origin')
 
-    const started = await t.handler(ctx, {
+    const started = await t.handler(originCtx, {
       action: 'background_start',
       projectId: 'p1',
       command: 'npm run dev',
-      chatId: 'c1',
+      chatId: 'caller-cannot-override',
       cwd: '.',
       confirmed: true,
     }) as { process: { pid: number; cwd: string } }
@@ -337,16 +347,19 @@ describe('tool handlers', () => {
     expect(broadcast).toHaveBeenCalledWith(expect.objectContaining({
       type: 'background_process.started',
       projectId: 'p1',
-      process: expect.objectContaining({ pid: 123, chatId: 'c1' }),
+      process: expect.objectContaining({ pid: 123, chatId: 'c-origin' }),
     }))
 
-    await expect(async () => t.handler(ctx, { action: 'background_kill', projectId: 'p1', chatId: 'c1' })).rejects.toThrow(/pid/)
+    await expect(async () => t.handler(ctx, { action: 'background_kill', projectId: 'p1', pid: 123, chatId: 'spoofed' })).rejects.toThrow(/authenticated/)
+    await expect(async () => t.handler(originCtx, { action: 'background_kill', projectId: 'p1' })).rejects.toThrow(/pid/)
     const killed = await t.handler(originCtx, { action: 'background_kill', projectId: 'p1', pid: 123 }) as { ok: boolean }
     expect(killed.ok).toBe(true)
     expect(killOwnedBackgroundProcess).toHaveBeenCalledWith(123, { projectId: 'p1', chatId: 'c-origin' })
 
     expect(tierFn({ action: 'background_logs' })).toBe('read')
-    const logs = await t.handler(originCtx, { action: 'background_logs', projectId: 'p1', pid: 123, limit: 20 }) as {
+    const logs = await t.handler(originCtx, {
+      action: 'background_logs', projectId: 'p1', pid: 123, chatId: 'caller-cannot-override', limit: 20,
+    }) as {
       ok: boolean
       lines: Array<{ source: string; line: string }>
     }
@@ -362,6 +375,30 @@ describe('tool handlers', () => {
     })
     vi.mocked(getBackgroundProcessLogs).mockReturnValueOnce(null)
     await expect(async () => t.handler(originCtx, { action: 'background_logs', projectId: 'p1', pid: 404 })).rejects.toThrow(/expired/)
+  })
+
+  it('specrails_jobs cancel uses the dedicated POST cancel endpoint', async () => {
+    const fetchMock = vi.fn(async () => ({
+      ok: true,
+      status: 200,
+      text: async () => JSON.stringify({ ok: true }),
+    }))
+    vi.stubGlobal('fetch', fetchMock)
+    try {
+      const ctx = makeCtx(db, [{
+        project: { id: 'p1', name: 'One', path: '/tmp/one' } as ProjectContext['project'],
+      }])
+      await tool('specrails_jobs').handler(ctx, {
+        action: 'cancel',
+        projectId: 'p1',
+        jobId: 'job/1',
+      })
+
+      expect(String(fetchMock.mock.calls[0]?.[0])).toContain('/api/projects/p1/jobs/job%2F1/cancel')
+      expect(fetchMock.mock.calls[0]?.[1]).toMatchObject({ method: 'POST' })
+    } finally {
+      vi.unstubAllGlobals()
+    }
   })
 })
 
@@ -471,7 +508,8 @@ describe('specrails_watch', () => {
 
 // ── registerTieredTool per-request active project (B1) ───────────────────────
 import { registerTieredTool, getActiveProject, setActiveProject, type ToolHandlerExtra } from './tools/types'
-import { AGENT_PROJECT_HEADER, AGENT_TIER_HEADER, AGENT_CONVERSATION_HEADER } from '../agent-tier'
+import { AGENT_CAPABILITY_HEADER, AGENT_PROJECT_HEADER, AGENT_TIER_HEADER, AGENT_CONVERSATION_HEADER } from '../agent-tier'
+import { _resetAgentCapabilitiesForTest, mintAgentCapability, revokeAgentCapability } from './agent-capability'
 import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js'
 
 describe('registerTieredTool per-request active project', () => {
@@ -485,12 +523,18 @@ describe('registerTieredTool per-request active project', () => {
   } as unknown as McpServer
 
   beforeEach(() => {
+    _resetAgentCapabilitiesForTest()
     db = initDesktopDb(':memory:')
     captured = undefined
     setActiveProject(null)
   })
 
-  it('the project header pins the project for THAT call only — the process-wide global is untouched', async () => {
+  const capabilityExtra = (tierLevel: 0 | 1 | 2 | 3, projectId: string | null, conversationId = 'conv-test'): ToolHandlerExtra => {
+    const token = mintAgentCapability({ conversationId, projectId, tierLevel })
+    return { requestInfo: { headers: { [AGENT_CAPABILITY_HEADER]: token } } }
+  }
+
+  it('the capability pins the project for that call only', async () => {
     const ctx = makeCtx(db)
     registerTieredTool(fakeServer, ctx, {
       name: 'echo',
@@ -500,16 +544,16 @@ describe('registerTieredTool per-request active project', () => {
       inputSchema: {},
       handler: (c) => ({ active: getActiveProject(c) }),
     })
-    const extra: ToolHandlerExtra = { requestInfo: { headers: { [AGENT_PROJECT_HEADER]: 'proj-42', [AGENT_TIER_HEADER]: 'observe' } } }
+    const extra = capabilityExtra(0, 'proj-42')
     const r1 = await captured!({}, extra)
     expect(JSON.parse(r1.content[0].text).active).toBe('proj-42')
-    // A concurrent/subsequent call WITHOUT the header must not see the pin.
+    // A subsequent external call must not inherit the capability context.
     const r2 = await captured!({})
     expect(JSON.parse(r2.content[0].text).active).toBeNull()
     expect(getActiveProject(ctx)).toBeNull()
   })
 
-  it('explicit sticky selection still applies and a header overrides it per call', async () => {
+  it('a capability Home binding overrides sticky selection with explicit null', async () => {
     const ctx = makeCtx(db)
     registerTieredTool(fakeServer, ctx, {
       name: 'echo2',
@@ -523,9 +567,9 @@ describe('registerTieredTool per-request active project', () => {
     try {
       const r1 = await captured!({})
       expect(JSON.parse(r1.content[0].text).active).toBe('sticky-1')
-      const extra: ToolHandlerExtra = { requestInfo: { headers: { [AGENT_PROJECT_HEADER]: 'proj-9', [AGENT_TIER_HEADER]: 'observe' } } }
+      const extra = capabilityExtra(0, null)
       const r2 = await captured!({}, extra)
-      expect(JSON.parse(r2.content[0].text).active).toBe('proj-9')
+      expect(JSON.parse(r2.content[0].text).active).toBeNull()
       // The override was per-request: sticky selection survives.
       const r3 = await captured!({})
       expect(JSON.parse(r3.content[0].text).active).toBe('sticky-1')
@@ -545,11 +589,24 @@ describe('registerTieredTool per-request active project', () => {
       inputSchema: {},
       handler: () => ({ ok: true }),
     })
-    const extra: ToolHandlerExtra = { requestInfo: { headers: { [AGENT_PROJECT_HEADER]: 'proj-77', [AGENT_TIER_HEADER]: 'edit' } } }
+    const extra = capabilityExtra(1, 'proj-77')
     const r = await captured!({}, extra)
     expect(r.isError).toBeFalsy()
     const activity = seen.find((m) => m.type === 'mcp.activity')
     expect(activity?.affectedProjectId).toBe('proj-77')
+  })
+
+  it('ignores spoofed project/tier headers without a capability', async () => {
+    const ctx = makeCtx(db)
+    registerTieredTool(fakeServer, ctx, {
+      name: 'echo-spoof', title: 'EchoSpoof', description: '', tier: 'read', inputSchema: {},
+      handler: (c) => ({ active: getActiveProject(c), firstParty: c.firstPartyAgent }),
+    })
+    const r = await captured!({}, { requestInfo: { headers: {
+      [AGENT_PROJECT_HEADER]: 'proj-spoofed',
+      [AGENT_TIER_HEADER]: 'autonomous',
+    } } })
+    expect(JSON.parse(r.content[0].text)).toEqual({ active: null })
   })
 })
 
@@ -565,6 +622,7 @@ describe('registerTieredTool per-request origin conversation', () => {
   } as unknown as McpServer
 
   beforeEach(() => {
+    _resetAgentCapabilitiesForTest()
     db = initDesktopDb(':memory:')
     captured = undefined
     setActiveProject(null)
@@ -578,44 +636,42 @@ describe('registerTieredTool per-request origin conversation', () => {
     })
   })
 
-  const extraWith = (headers: Record<string, string | string[]>): ToolHandlerExtra => ({
-    requestInfo: { headers: { [AGENT_TIER_HEADER]: 'observe', ...headers } },
-  })
+  const extraWithCapability = (conversationId: string, projectId: string | null = null): { extra: ToolHandlerExtra; token: string } => {
+    const token = mintAgentCapability({ conversationId, projectId, tierLevel: 0 })
+    return { extra: { requestInfo: { headers: { [AGENT_CAPABILITY_HEADER]: token } } }, token }
+  }
 
-  it('a valid conversation header lands on ctx.originConversationId for THAT call only', async () => {
-    const r1 = await captured!({}, extraWith({ [AGENT_CONVERSATION_HEADER]: 'conv-abc-1' }))
+  it('a capability lands its origin on the per-call context only', async () => {
+    const { extra } = extraWithCapability('conv-abc-1')
+    const r1 = await captured!({}, extra)
     expect(JSON.parse(r1.content[0].text).origin).toBe('conv-abc-1')
-    // A subsequent call WITHOUT the header must not see it (per-call ctx copy).
+    // A subsequent external call must not inherit it.
     const r2 = await captured!({})
     expect(JSON.parse(r2.content[0].text).origin).toBeUndefined()
   })
 
-  it('a malformed header sanitizes to null — never a throw, never the raw value', async () => {
-    for (const bad of ['under_score', 'x'.repeat(65), '   ', 'nope!']) {
-      const r = await captured!({}, extraWith({ [AGENT_CONVERSATION_HEADER]: bad }))
-      expect(r.isError).toBeFalsy()
-      expect(JSON.parse(r.content[0].text).origin).toBeNull()
-    }
+  it('ignores legacy conversation/project/tier headers without capability proof', async () => {
+    const r = await captured!({}, { requestInfo: { headers: {
+      [AGENT_CONVERSATION_HEADER]: 'conv-spoofed',
+      [AGENT_PROJECT_HEADER]: 'proj-spoofed',
+      [AGENT_TIER_HEADER]: 'autonomous',
+    } } })
+    expect(JSON.parse(r.content[0].text)).toEqual({ project: null })
   })
 
-  it('an absent header leaves ctx.originConversationId undefined', async () => {
-    const r = await captured!({}, extraWith({}))
-    expect(JSON.parse(r.content[0].text).origin).toBeUndefined()
-  })
-
-  it('array header form uses the first value; trims whitespace', async () => {
-    const r = await captured!({}, extraWith({ [AGENT_CONVERSATION_HEADER]: [' conv-first ', 'conv-second'] }))
-    expect(JSON.parse(r.content[0].text).origin).toBe('conv-first')
-  })
-
-  it('composes with the project header — both land on the same per-call ctx (the normal agent case)', async () => {
-    const r = await captured!({}, extraWith({
-      [AGENT_PROJECT_HEADER]: 'proj-42',
-      [AGENT_CONVERSATION_HEADER]: 'conv-42',
-    }))
+  it('derives conversation and project from the same capability binding', async () => {
+    const { extra } = extraWithCapability('conv-42', 'proj-42')
+    const r = await captured!({}, extra)
     const parsed = JSON.parse(r.content[0].text)
     expect(parsed.origin).toBe('conv-42')
-    expect(parsed.project).toBe('proj-42') // the conversation copy must not drop the project pin
+    expect(parsed.project).toBe('proj-42')
+  })
+
+  it('a revoked capability immediately loses first-party context', async () => {
+    const { extra, token } = extraWithCapability('conv-revoked', 'proj-revoked')
+    revokeAgentCapability(token)
+    const r = await captured!({}, extra)
+    expect(JSON.parse(r.content[0].text)).toEqual({ project: null })
   })
 })
 

@@ -1,9 +1,12 @@
 import fs from 'fs'
 import path from 'path'
 import os from 'os'
+import { randomBytes } from 'crypto'
 import { resolveBundledNodeExe } from './path-resolver'
 import { stripWindowsVerbatimPrefix } from './util/win-spawn'
-import { AGENT_TIER_ENV, AGENT_PROJECT_ENV, AGENT_CONVERSATION_ENV, tierNameForLevel, type AgentTierLevel } from './agent-tier'
+import { AGENT_CAPABILITY_FILE_ENV } from './agent-tier'
+
+const AGENT_CONVERSATION_ID_RE = /^[A-Za-z0-9][A-Za-z0-9_-]{0,63}$/
 
 // ─── Agent MCP wiring (design D8 / D1) ────────────────────────────────────────
 //
@@ -11,9 +14,10 @@ import { AGENT_TIER_ENV, AGENT_PROJECT_ENV, AGENT_CONVERSATION_ENV, tierNameForL
 // spawn the AI CLI with `--mcp-config` pointing at a generated config whose sole
 // server is the bundled `specrails-mcp` stdio bridge, which relays to
 // `127.0.0.1:<port>/api/mcp` and reads the scoped token from disk (no token is
-// ever written into the config file). The current Shift+Tab ladder level is
-// forwarded via env → the bridge sets it as a loopback-only header so the tool
-// guard enforces the agent ladder independently of the external Settings tiers.
+// ever written into the config file). A per-turn, server-minted capability is
+// written to a 0600 file and the config carries only that file path. The bridge
+// reads the secret and presents it to the server; tier/project/conversation are
+// derived from the server-side capability binding, never client headers.
 
 function homeDir(): string {
   return process.env.SPECRAILS_REGISTRY_HOME || os.homedir()
@@ -74,20 +78,12 @@ export interface AgentMcpEntry {
   env: Record<string, string>
 }
 
-/** The launch-route contract for an origin conversation id (safe-pr-review-flow):
- *  must match rails-router's validation so a tagged launch is never 400'd. */
-const ORIGIN_CONVERSATION_ID_RE = /^[A-Za-z0-9-]{1,64}$/
-
 /** Build the `mcpServers.specrails` entry the agent (or a project workspace) uses. */
 export function buildSpecrailsMcpEntry(opts: {
   port: number
-  tierLevel?: AgentTierLevel
-  activeProjectId?: string | null
-  /** The launching agent-chat conversation id (safe-pr-review-flow origin link).
-   *  Forwarded env → bridge header → tool ctx → rails launch body, so an
-   *  MCP-launched rail's PR decision can be posted back into the conversation.
-   *  Malformed values are silently omitted (never throw — degrade to untagged). */
-  conversationId?: string | null
+  /** Path to the 0600 per-turn capability file. External/workspace MCP entries
+   *  omit it and therefore remain governed by the Settings tiers. */
+  capabilityFile?: string
 }): AgentMcpEntry | null {
   const bridge = resolveBridgeScript()
   if (!bridge) return null
@@ -96,11 +92,7 @@ export function buildSpecrailsMcpEntry(opts: {
   }
   // Preserve the test-home override so the bridge reads the right token file.
   if (process.env.SPECRAILS_REGISTRY_HOME) env.SPECRAILS_REGISTRY_HOME = process.env.SPECRAILS_REGISTRY_HOME
-  if (opts.tierLevel != null) env[AGENT_TIER_ENV] = tierNameForLevel(opts.tierLevel)
-  if (opts.activeProjectId) env[AGENT_PROJECT_ENV] = opts.activeProjectId
-  if (opts.conversationId && ORIGIN_CONVERSATION_ID_RE.test(opts.conversationId)) {
-    env[AGENT_CONVERSATION_ENV] = opts.conversationId
-  }
+  if (opts.capabilityFile) env[AGENT_CAPABILITY_FILE_ENV] = opts.capabilityFile
   return { command: resolveNodeCommand(), args: [bridge], env }
 }
 
@@ -144,21 +136,11 @@ export function mergeSpecrailsIntoWorkspaceMcp(workspaceDir: string, port: numbe
 export function buildAgentMcpArgs(opts: {
   conversationId: string
   port: number
-  tierLevel: AgentTierLevel
-  activeProjectId?: string | null
+  capability: string
 }): string[] {
-  const entry = buildSpecrailsMcpEntry({
-    port: opts.port,
-    tierLevel: opts.tierLevel,
-    activeProjectId: opts.activeProjectId,
-    conversationId: opts.conversationId,
-  })
+  const entry = buildAgentTurnEntry(opts)
   if (!entry) return []
-  if (!/^[A-Za-z0-9][A-Za-z0-9_-]*$/.test(opts.conversationId)) {
-    throw new Error(`unsafe agent conversation id: ${opts.conversationId}`)
-  }
-  const dir = path.join(homeDir(), '.specrails', 'agent', opts.conversationId)
-  fs.mkdirSync(dir, { recursive: true })
+  const dir = agentDir(opts.conversationId)
   const file = path.join(dir, 'mcp.json')
   fs.writeFileSync(file, JSON.stringify({ mcpServers: { specrails: entry } }, null, 2), { mode: 0o600 })
   try {
@@ -172,8 +154,8 @@ export function buildAgentMcpArgs(opts: {
 // ─── Provider-aware agent MCP wiring ──────────────────────────────────────────
 //
 // Each provider registers MCP servers differently, so the agent's specrails MCP
-// is wired per adapter. All three run the SAME bundled bridge (with tier/project
-// env → loopback headers); only the REGISTRATION mechanism differs:
+// is wired per adapter. All three run the SAME bundled bridge (with a capability
+// file path in env); only the REGISTRATION mechanism differs:
 //   claude  → `--mcp-config <file>`         (extraArgs)
 //   codex   → per-conversation CODEX_HOME with config.toml [mcp_servers.specrails]
 //             (+ copied auth.json so login still works)  (env: CODEX_HOME)
@@ -185,12 +167,49 @@ export interface AgentMcpWiring {
 }
 
 function agentDir(conversationId: string): string {
-  if (!/^[A-Za-z0-9][A-Za-z0-9_-]*$/.test(conversationId)) {
+  if (!AGENT_CONVERSATION_ID_RE.test(conversationId)) {
     throw new Error(`unsafe agent conversation id: ${conversationId}`)
   }
   const dir = path.join(homeDir(), '.specrails', 'agent', conversationId)
-  fs.mkdirSync(dir, { recursive: true })
+  fs.mkdirSync(dir, { recursive: true, mode: 0o700 })
+  try { fs.chmodSync(dir, 0o700) } catch { /* best-effort on platforms without chmod */ }
   return dir
+}
+
+function capabilityFilePath(conversationId: string): string {
+  return path.join(agentDir(conversationId), 'mcp.capability')
+}
+
+function buildAgentTurnEntry(opts: {
+  conversationId: string
+  port: number
+  capability: string
+}): AgentMcpEntry | null {
+  const capabilityFile = capabilityFilePath(opts.conversationId)
+  const entry = buildSpecrailsMcpEntry({ port: opts.port, capabilityFile })
+  if (!entry) return null
+  const tmp = `${capabilityFile}.tmp-${process.pid}-${randomBytes(8).toString('hex')}`
+  try {
+    // `wx` prevents a pre-planted symlink from redirecting the bearer write.
+    fs.writeFileSync(tmp, opts.capability, { encoding: 'utf8', mode: 0o600, flag: 'wx' })
+    try { fs.chmodSync(tmp, 0o600) } catch { /* best-effort on platforms without chmod */ }
+    // Windows rename does not replace an existing destination. A stale file can
+    // remain after a hard crash, but its server-side capability is already gone.
+    try { fs.unlinkSync(capabilityFile) } catch { /* first turn / already absent */ }
+    fs.renameSync(tmp, capabilityFile)
+    try { fs.chmodSync(capabilityFile, 0o600) } catch { /* best-effort on platforms without chmod */ }
+  } catch (err) {
+    try { fs.unlinkSync(tmp) } catch { /* never leave a bearer-bearing temp file */ }
+    throw err
+  }
+  return entry
+}
+
+/** Delete the on-disk bearer as soon as its owning agent turn settles. */
+export function removeAgentCapabilityFile(conversationId: string): void {
+  if (!AGENT_CONVERSATION_ID_RE.test(conversationId)) return
+  const file = path.join(homeDir(), '.specrails', 'agent', conversationId, 'mcp.capability')
+  try { fs.unlinkSync(file) } catch { /* absent/already removed */ }
 }
 
 /**
@@ -223,24 +242,18 @@ export function prepareAgentMcp(opts: {
   conversationId: string
   cwd: string
   port: number
-  tierLevel: AgentTierLevel
-  activeProjectId?: string | null
+  capability: string
 }): AgentMcpWiring {
-  const entry = buildSpecrailsMcpEntry({
-    port: opts.port,
-    tierLevel: opts.tierLevel,
-    activeProjectId: opts.activeProjectId,
-    conversationId: opts.conversationId,
-  })
+  if (opts.adapterId === 'claude') {
+    return { extraArgs: buildAgentMcpArgs(opts), env: {} }
+  }
+
+  const entry = buildAgentTurnEntry(opts)
   if (!entry) return { extraArgs: [], env: {} }
 
   if (opts.adapterId === 'codex') {
-    // Inline -c overrides — no CODEX_HOME override, no file mutation; auth intact.
+    // Inline -c overrides contain only the capability FILE PATH, never its secret.
     return { extraArgs: codexMcpOverrides(entry), env: {} }
-  }
-
-  if (opts.adapterId === 'claude') {
-    return { extraArgs: buildAgentMcpArgs(opts), env: {} }
   }
 
   // gemini + any other project-json provider: write .mcp.json in the spawn cwd.

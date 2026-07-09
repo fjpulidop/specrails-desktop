@@ -13,10 +13,11 @@ import type { McpTier } from './mcp/mcp-tiers'
 //   3  autonomous  → read + write + ai-spawn + destructive   (irreversible)
 //
 // The ladder is enforced PER REQUEST and INDEPENDENTLY of the external Settings
-// checkboxes: the agent's MCP bridge connection forwards the current level as a
-// loopback-only header (AGENT_TIER_HEADER); the central tool guard
-// (registerTieredTool) honours it in place of the desktop_settings flags when
-// present, leaving external clients untouched.
+// checkboxes. The server mints an ephemeral capability for each in-app turn,
+// binding the level + conversation + pinned project. The bridge presents only
+// that unguessable capability; registerTieredTool derives all authority from the
+// server-side binding. The legacy context headers below remain exported only so
+// regression tests can prove that spoofing them grants no authority.
 
 export type AgentTierLevel = 0 | 1 | 2 | 3
 
@@ -29,24 +30,29 @@ export const AGENT_TIER_NAMES: readonly AgentTierName[] = [
   'autonomous',
 ] as const
 
-/** The HTTP header the agent's MCP bridge sets so the tool guard can read the level. */
+/** @deprecated Untrusted legacy header retained for compatibility/negative tests. */
 export const AGENT_TIER_HEADER = 'x-specrails-agent-tier'
 
-/** Env var the AgentChatManager sets on the bridge spawn; the bridge forwards it as the header. */
+/** @deprecated Untrusted legacy env var; the bridge deliberately ignores it. */
 export const AGENT_TIER_ENV = 'SPECRAILS_AGENT_TIER'
 
-/** Header carrying the pinned project id so tools resolve it per-request. */
+/** @deprecated Untrusted legacy header retained for compatibility/negative tests. */
 export const AGENT_PROJECT_HEADER = 'x-specrails-active-project'
 
-/** Env var the manager sets on the bridge spawn; the bridge forwards it as the project header. */
+/** @deprecated Untrusted legacy env var; the bridge deliberately ignores it. */
 export const AGENT_PROJECT_ENV = 'SPECRAILS_ACTIVE_PROJECT'
 
-/** Header carrying the launching agent-chat conversation id (safe-pr-review-flow
- *  origin link) so an MCP-launched rail can be tagged with its origin. */
+/** @deprecated Untrusted legacy header retained for compatibility/negative tests. */
 export const AGENT_CONVERSATION_HEADER = 'x-specrails-agent-conversation'
 
-/** Env var set on the bridge spawn; the bridge forwards it as the conversation header. */
+/** @deprecated Untrusted legacy env var; the bridge deliberately ignores it. */
 export const AGENT_CONVERSATION_ENV = 'SPECRAILS_AGENT_CONVERSATION'
+
+/** Bearer-like proof that an MCP request belongs to a live in-app agent turn. */
+export const AGENT_CAPABILITY_HEADER = 'x-specrails-agent-capability'
+
+/** 0600 file path read by the bridge; the secret itself never appears in argv. */
+export const AGENT_CAPABILITY_FILE_ENV = 'SPECRAILS_AGENT_CAPABILITY_FILE'
 
 /** Which MCP tiers a given ladder level unlocks (cumulative). */
 const TIERS_BY_LEVEL: Record<AgentTierLevel, ReadonlySet<McpTier>> = {
@@ -90,9 +96,8 @@ export function levelAllowsTier(level: AgentTierLevel, tier: McpTier): boolean {
 }
 
 /**
- * Parse the agent-tier header value into a level, or null when absent/invalid.
- * The header carries the tier NAME (observe/edit/operate/autonomous) or the
- * numeric level; anything else yields null (→ fall back to Settings tiers).
+ * Parse a legacy tier value. Retained for UI/storage compatibility only: MCP
+ * request authorization MUST use a verified server-minted capability instead.
  */
 export function levelFromHeader(headerValue: string | string[] | undefined): AgentTierLevel | null {
   if (headerValue == null) return null

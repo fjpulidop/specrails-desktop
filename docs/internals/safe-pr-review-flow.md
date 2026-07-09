@@ -297,30 +297,27 @@ the launch INSERT. As-built:
 - `POST /rails/:i/launch` accepts `originConversationId` (validated `/^[A-Za-z0-9-]{1,64}$/`) and
   `originSurface` (`'dashboard' | 'agent-chat'`), threaded into `launchIsolatedRail`.
   Dashboard launches default to `origin_surface='dashboard'`, `origin_conversation_id=NULL`.
-- **The MCP auto-attach chain (shipped)** — four hops, so an agent-launched rail tags itself
-  end-to-end with no manager change (`AgentChatManager` already passes `conversationId` into
-  `prepareAgentMcp`):
-  1. `agent-mcp-config.ts` `buildSpecrailsMcpEntry` gained `conversationId` in its opts
-     (validated against the same launch regex; malformed ⇒ silently omitted) and sets
-     `SPECRAILS_AGENT_CONVERSATION` in `entry.env` — threaded at both internal call sites
-     (`prepareAgentMcp` and `buildAgentMcpArgs`), so the claude `--mcp-config` file, the codex
-     inline `-c mcp_servers.specrails.env.*` overrides and the gemini cwd `.mcp.json` all carry
-     it automatically. `mergeSpecrailsIntoWorkspaceMcp` (Part A workspace wiring) deliberately
-     stays conversation-less.
-  2. `mcp-bridge` forwards the env as the `x-specrails-agent-conversation` header
-     (`agentForwardHeaders` in `bridge.ts`, alongside the tier/project forwards). The staged
-     bundle `src-tauri/binaries/specrails-mcp.js` must be regenerated via
-     `npm run build:mcp-bridge` whenever the bridge source changes — a stale bundle silently
-     drops the header (origin degrades to NULL with no error).
-  3. `registerTieredTool` (`server/mcp/tools/types.ts`) reads the header into the per-call
-     `ctx.originConversationId` next to the project pin (same per-call ctx-copy discipline;
-     malformed ⇒ `null`, never throws — the launch degrades to untagged).
-  4. `specrails_rails(launch)` (`server/mcp/tools/rails.ts`) adds
+- **The authenticated MCP auto-attach chain (shipped)** — an agent-launched rail tags itself
+  end-to-end without trusting caller-controlled context headers:
+  1. `AgentChatManager` mints an unguessable, turn-scoped capability. The server stores only
+     its hash and binds it to the actual conversation, pinned project and permission level.
+  2. `prepareAgentMcp` writes the bearer to an app-owned `0600` capability file. Claude,
+     Codex and Gemini MCP configs carry only `SPECRAILS_AGENT_CAPABILITY_FILE`, so the raw
+     bearer never appears in command-line arguments. Workspace MCP wiring deliberately carries
+     no capability.
+  3. `mcp-bridge` reads that file and forwards the bearer as
+     `x-specrails-agent-capability`. Legacy tier/project/conversation env vars and headers are
+     ignored. The staged bundle `src-tauri/binaries/specrails-mcp.js` must be regenerated via
+     `npm run build:mcp-bridge` whenever the bridge source changes.
+  4. `registerTieredTool` (`server/mcp/tools/types.ts`) verifies the bearer and derives the
+     per-call tier, project and `ctx.originConversationId` from its server-side binding. The
+     manager revokes the capability and removes its file when the turn settles.
+  5. `specrails_rails(launch)` (`server/mcp/tools/rails.ts`) adds
      `originConversationId` + `originSurface:'agent-chat'` to the POST body when the ctx
      carries an id (`apiCall` forwards no custom headers, so the id rides the JSON body).
-  External MCP clients (Claude Desktop, Cursor, …) spawn the bridge without any
-  `SPECRAILS_AGENT_*` env → no header → untagged launches, by design. Covered end-to-end by
-  `server/mcp/tools/rails-origin.test.ts` (header → ctx → body → route → persisted row →
+  External MCP clients (Claude Desktop, Cursor, …) have no capability, so launches remain
+  untagged and Settings tiers govern them. Covered end-to-end by
+  `server/mcp/tools/rails-origin.test.ts` (capability → ctx → body → route → persisted row →
   settle fires `postPrDecisionCard` for that conversation).
 
 ## Decisions (D1–D11, condensed)

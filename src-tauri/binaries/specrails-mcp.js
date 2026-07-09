@@ -6990,14 +6990,15 @@ function appUrl() {
   return new URL(`http://127.0.0.1:${port}/api/mcp`);
 }
 function agentForwardHeaders(env = process.env) {
-  const headers = {};
-  const agentTier = env.SPECRAILS_AGENT_TIER;
-  if (agentTier && agentTier.trim()) headers["x-specrails-agent-tier"] = agentTier.trim();
-  const activeProject = env.SPECRAILS_ACTIVE_PROJECT;
-  if (activeProject && activeProject.trim()) headers["x-specrails-active-project"] = activeProject.trim();
-  const agentConversation = env.SPECRAILS_AGENT_CONVERSATION;
-  if (agentConversation && agentConversation.trim()) headers["x-specrails-agent-conversation"] = agentConversation.trim();
-  return headers;
+  const capabilityFile = env.SPECRAILS_AGENT_CAPABILITY_FILE?.trim();
+  if (!capabilityFile) return {};
+  try {
+    const capability = import_fs.default.readFileSync(capabilityFile, "utf8").trim();
+    if (capability.length < 32 || capability.length > 256) return {};
+    return { "x-specrails-agent-capability": capability };
+  } catch {
+    return {};
+  }
 }
 function isUnreachable(err) {
   const msg = err instanceof Error ? err.message : String(err);

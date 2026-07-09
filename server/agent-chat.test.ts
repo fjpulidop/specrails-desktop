@@ -12,6 +12,8 @@ import {
   tierNeedsApproval,
   AGENT_TIER_HEADER,
   AGENT_TIER_ENV,
+  AGENT_CAPABILITY_HEADER,
+  AGENT_CAPABILITY_FILE_ENV,
 } from './agent-tier'
 import {
   createAgentConversation,
@@ -28,6 +30,7 @@ import { registerTieredTool, setActiveProject, getActiveProject, type McpToolCon
 import { AGENT_PROJECT_HEADER } from './agent-tier'
 import { MobileEventBus } from './mobile/mobile-event-bus'
 import type { ProjectRegistry } from './project-registry'
+import { _resetAgentCapabilitiesForTest, mintAgentCapability } from './mcp/agent-capability'
 import fs from 'fs'
 import os from 'os'
 
@@ -82,6 +85,8 @@ describe('agent-tier', () => {
   it('header/env constant names are stable', () => {
     expect(AGENT_TIER_HEADER).toBe('x-specrails-agent-tier')
     expect(AGENT_TIER_ENV).toBe('SPECRAILS_AGENT_TIER')
+    expect(AGENT_CAPABILITY_HEADER).toBe('x-specrails-agent-capability')
+    expect(AGENT_CAPABILITY_FILE_ENV).toBe('SPECRAILS_AGENT_CAPABILITY_FILE')
   })
 })
 
@@ -134,37 +139,40 @@ describe('agent-mcp-config', () => {
     expect(typeof resolveNodeCommand()).toBe('string')
   })
 
-  it('builds a specrails entry carrying port + tier, never a token', () => {
-    const entry = buildSpecrailsMcpEntry({ port: 4321, tierLevel: 2 })
+  const capability = 'c'.repeat(43)
+
+  it('builds an external specrails entry carrying only the port', () => {
+    const entry = buildSpecrailsMcpEntry({ port: 4321 })
     expect(entry).not.toBeNull()
     expect(entry!.args[0]).toContain('specrails-mcp.js')
     expect(entry!.env.SPECRAILS_MCP_PORT).toBe('4321')
-    expect(entry!.env.SPECRAILS_AGENT_TIER).toBe('operate')
-    expect(JSON.stringify(entry)).not.toMatch(/token/i)
+    expect(entry!.env).not.toHaveProperty(AGENT_CAPABILITY_FILE_ENV)
   })
 
-  it('writes a --mcp-config file using the bundled bridge (tier in env, no token)', () => {
-    const args = buildAgentMcpArgs({ conversationId: 'conv-1', port: 4200, tierLevel: 1 })
+  it('writes a --mcp-config file using a capability file, not context headers', () => {
+    const args = buildAgentMcpArgs({ conversationId: 'conv-1', port: 4200, capability })
     expect(args[0]).toBe('--mcp-config')
     const file = args[1]
     const json = JSON.parse(fs.readFileSync(file, 'utf-8'))
     expect(json.mcpServers.specrails.args[0]).toContain('specrails-mcp.js')
-    expect(json.mcpServers.specrails.env.SPECRAILS_AGENT_TIER).toBe('edit')
-    expect(JSON.stringify(json)).not.toMatch(/mcp\.token|Bearer/i)
+    expect(json.mcpServers.specrails.env.SPECRAILS_AGENT_CAPABILITY_FILE).toContain('mcp.capability')
+    expect(json.mcpServers.specrails.env).not.toHaveProperty('SPECRAILS_AGENT_TIER')
+    expect(JSON.stringify(json)).not.toContain(capability)
   })
 
   it('rejects an unsafe conversation id', () => {
-    expect(() => buildAgentMcpArgs({ conversationId: '../evil', port: 4200, tierLevel: 0 })).toThrow(/unsafe/)
+    expect(() => buildAgentMcpArgs({ conversationId: '../evil', port: 4200, capability })).toThrow(/unsafe/)
+    expect(() => buildAgentMcpArgs({ conversationId: 'x'.repeat(65), port: 4200, capability })).toThrow(/unsafe/)
   })
 
   it('prepareAgentMcp is provider-aware: claude → --mcp-config', () => {
-    const w = prepareAgentMcp({ adapterId: 'claude', conversationId: 'c-claude', cwd: os.tmpdir(), port: 4200, tierLevel: 0 })
+    const w = prepareAgentMcp({ adapterId: 'claude', conversationId: 'c-claude', cwd: os.tmpdir(), port: 4200, capability })
     expect(w.extraArgs[0]).toBe('--mcp-config')
     expect(w.env).toEqual({})
   })
 
   it('prepareAgentMcp: codex → inline -c overrides (no CODEX_HOME, auth intact)', () => {
-    const w = prepareAgentMcp({ adapterId: 'codex', conversationId: 'c-codex', cwd: os.tmpdir(), port: 4242, tierLevel: 2, activeProjectId: 'p9' })
+    const w = prepareAgentMcp({ adapterId: 'codex', conversationId: 'c-codex', cwd: os.tmpdir(), port: 4242, capability })
     expect(w.env).toEqual({}) // no CODEX_HOME override
     const joined = w.extraArgs.join(' ')
     expect(w.extraArgs.filter((a) => a === '-c').length).toBeGreaterThanOrEqual(3)
@@ -172,13 +180,13 @@ describe('agent-mcp-config', () => {
     expect(joined).toContain('mcp_servers.specrails.args=')
     expect(joined).toContain('specrails-mcp.js')
     expect(joined).toContain('mcp_servers.specrails.env.SPECRAILS_MCP_PORT="4242"')
-    expect(joined).toContain('operate') // tier name in env override
-    expect(joined).toContain('p9')      // active project in env override
+    expect(joined).toContain('SPECRAILS_AGENT_CAPABILITY_FILE')
+    expect(joined).not.toContain(capability)
   })
 
   it('prepareAgentMcp: gemini/other → writes .mcp.json in the cwd', () => {
     const cwd = fs.mkdtempSync(`${os.tmpdir()}/agent-gem-`)
-    const w = prepareAgentMcp({ adapterId: 'gemini', conversationId: 'c-gem', cwd, port: 4200, tierLevel: 1 })
+    const w = prepareAgentMcp({ adapterId: 'gemini', conversationId: 'c-gem', cwd, port: 4200, capability })
     expect(w.extraArgs).toEqual([])
     const json = JSON.parse(fs.readFileSync(`${cwd}/.mcp.json`, 'utf-8'))
     expect(json.mcpServers.specrails.args[0]).toContain('specrails-mcp.js')
@@ -214,8 +222,8 @@ describe('agent-cwd-manager', () => {
   })
 })
 
-// ── tier guard override at the central chokepoint ─────────────────────────────
-describe('registerTieredTool agent-tier override', () => {
+// ── authenticated capability at the central chokepoint ───────────────────────
+describe('registerTieredTool agent capability', () => {
   let db: DbInstance
   let captured: ((args: Record<string, unknown>, extra?: ToolHandlerExtra) => Promise<{ isError?: boolean; content: { text: string }[] }>) | null
   let ctx: McpToolContext
@@ -239,6 +247,7 @@ describe('registerTieredTool agent-tier override', () => {
   }
 
   beforeEach(() => {
+    _resetAgentCapabilitiesForTest()
     db = initDesktopDb(':memory:')
     captured = null
     ctx = { registry: {} as ProjectRegistry, desktopDb: db, broadcast: () => {}, eventBus: new MobileEventBus(), desktopPort: 4200 }
@@ -246,43 +255,60 @@ describe('registerTieredTool agent-tier override', () => {
     registerTieredTool(fakeServer as any, ctx, writeSpec())
   })
 
-  function withTier(level: string): ToolHandlerExtra {
-    return { requestInfo: { headers: { [AGENT_TIER_HEADER]: level } } }
+  function withCapability(tierLevel: 0 | 1 | 2 | 3, projectId: string | null = null): ToolHandlerExtra {
+    const token = mintAgentCapability({ conversationId: 'conv-cap', projectId, tierLevel })
+    return { requestInfo: { headers: { [AGENT_CAPABILITY_HEADER]: token } } }
   }
 
-  it('uses the ladder header in place of Settings tiers', async () => {
+  it('uses the server-side capability ladder in place of Settings tiers', async () => {
     // observe: a write action is refused even though Settings could allow it
-    const r1 = await captured!({ action: 'create' }, withTier('observe'))
+    const r1 = await captured!({ action: 'create' }, withCapability(0))
     expect(r1.isError).toBe(true)
     // edit: write allowed, ai-spawn still refused
-    expect((await captured!({ action: 'create' }, withTier('edit'))).isError).toBeFalsy()
-    expect((await captured!({ action: 'run' }, withTier('edit'))).isError).toBe(true)
+    expect((await captured!({ action: 'create' }, withCapability(1))).isError).toBeFalsy()
+    expect((await captured!({ action: 'run' }, withCapability(1))).isError).toBe(true)
     // operate: ai-spawn allowed, destructive refused
-    expect((await captured!({ action: 'run' }, withTier('operate'))).isError).toBeFalsy()
-    expect((await captured!({ action: 'delete' }, withTier('operate'))).isError).toBe(true)
+    expect((await captured!({ action: 'run' }, withCapability(2))).isError).toBeFalsy()
+    expect((await captured!({ action: 'delete' }, withCapability(2))).isError).toBe(true)
     // autonomous: destructive allowed
-    expect((await captured!({ action: 'delete' }, withTier('autonomous'))).isError).toBeFalsy()
+    expect((await captured!({ action: 'delete' }, withCapability(3))).isError).toBeFalsy()
   })
 
-  it('falls back to Settings tiers when no agent header is present', async () => {
+  it('falls back to Settings tiers when no agent capability is present', async () => {
     // write disabled by default → refused
     expect((await captured!({ action: 'create' })).isError).toBe(true)
     setDesktopSetting(db, 'mcp_tier_write', 'true')
     expect((await captured!({ action: 'create' })).isError).toBeFalsy()
   })
 
-  it('pins the active project from the project header (per request)', async () => {
+  it('derives project + conversation from the capability and ignores spoofed headers', async () => {
     setActiveProject(null)
-    // A spec whose handler echoes the resolved active project.
     const echo: McpToolSpec = {
       name: 'echo', title: 'Echo', description: '', tier: 'read', inputSchema: {},
-      handler: (c) => ({ active: getActiveProject(c) }),
+      handler: (c) => ({ active: getActiveProject(c), conversation: c.originConversationId, firstParty: c.firstPartyAgent }),
     }
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     registerTieredTool(fakeServer as any, ctx, echo)
-    const extra: ToolHandlerExtra = { requestInfo: { headers: { [AGENT_PROJECT_HEADER]: 'proj-42', [AGENT_TIER_HEADER]: 'observe' } } }
-    const r = await captured!({}, extra)
-    expect(JSON.parse(r.content[0].text).active).toBe('proj-42')
+    const trusted = withCapability(0, 'proj-bound')
+    trusted.requestInfo!.headers![AGENT_PROJECT_HEADER] = 'proj-spoofed'
+    const r = await captured!({}, trusted)
+    expect(JSON.parse(r.content[0].text)).toMatchObject({
+      active: 'proj-bound',
+      conversation: 'conv-cap',
+      firstParty: true,
+    })
+
+    const spoofOnly: ToolHandlerExtra = { requestInfo: { headers: {
+      [AGENT_TIER_HEADER]: 'autonomous',
+      [AGENT_PROJECT_HEADER]: 'proj-spoofed',
+    } } }
+    const untrusted = await captured!({}, spoofOnly)
+    expect(JSON.parse(untrusted.content[0].text)).toMatchObject({ active: null })
+  })
+
+  it('legacy autonomous header cannot bypass disabled Settings tiers', async () => {
+    const spoof: ToolHandlerExtra = { requestInfo: { headers: { [AGENT_TIER_HEADER]: 'autonomous' } } }
+    expect((await captured!({ action: 'delete' }, spoof)).isError).toBe(true)
   })
 })
 

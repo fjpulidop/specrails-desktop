@@ -14,12 +14,17 @@ vi.mock('child_process', () => ({
 
 vi.mock('tree-kill', () => ({ default: vi.fn() }))
 
-// The agent turn's peripheral wiring (cwd materialisation, MCP config, active
-// project) is out of scope for cost accounting — stub it so the test touches no
-// real filesystem / ~/.specrails.
+// The agent turn's peripheral wiring (cwd materialisation and MCP config) is
+// stubbed so cost-accounting tests touch no real filesystem / ~/.specrails.
 vi.mock('./agent-cwd-manager', () => ({ ensureAgentCwd: () => '/tmp/agent-cwd-test' }))
-vi.mock('./agent-mcp-config', () => ({ prepareAgentMcp: () => ({ extraArgs: [], env: {} }) }))
-vi.mock('./mcp/tools/types', () => ({ setActiveProject: vi.fn() }))
+const agentMcpMocks = vi.hoisted(() => ({
+  prepare: vi.fn((_opts: unknown) => ({ extraArgs: [], env: {} })),
+  removeCapabilityFile: vi.fn(),
+}))
+vi.mock('./agent-mcp-config', () => ({
+  prepareAgentMcp: agentMcpMocks.prepare,
+  removeAgentCapabilityFile: agentMcpMocks.removeCapabilityFile,
+}))
 vi.mock('./attachment-manager', () => ({
   attachmentManager: { getClaudeArgsAgent: vi.fn(async () => ({ textBlocks: [], imagePaths: [] })) },
   USER_ATTACHMENT_SYSTEM_NOTE: 'note',
@@ -35,6 +40,7 @@ import {
   addAgentMessage,
 } from './agent-store'
 import type { DbInstance } from './db'
+import { _resetAgentCapabilitiesForTest, verifyAgentCapability } from './mcp/agent-capability'
 
 function createMockChildProcess(): any {
   const child = new EventEmitter() as any
@@ -82,6 +88,7 @@ describe('AgentChatManager cost accounting (HIGH-3)', () => {
 
   beforeEach(() => {
     vi.clearAllMocks()
+    _resetAgentCapabilitiesForTest()
     db = initDesktopDb(':memory:')
     broadcast = vi.fn()
     mgr = new AgentChatManager(broadcast, db, 4200)
@@ -182,6 +189,28 @@ describe('AgentChatManager cost accounting (HIGH-3)', () => {
     await mgr.sendMessage(conv.id, 'second')
 
     expect(rows()).toHaveLength(2)
+  })
+
+  it('revokes the server capability and removes its file when a turn settles', async () => {
+    const conv = createAgentConversation(db, { provider: 'claude', pinnedProjectId: 'proj-cap' })
+    let capability = ''
+    agentMcpMocks.prepare.mockImplementationOnce((raw: unknown) => {
+      const opts = raw as { capability: string }
+      capability = opts.capability
+      expect(verifyAgentCapability(capability)).toMatchObject({
+        conversationId: conv.id,
+        projectId: 'proj-cap',
+        tierLevel: 0,
+      })
+      return { extraArgs: [], env: {} }
+    })
+    primeTurn([assistantLine('done')])
+
+    await mgr.sendMessage(conv.id, 'secure turn')
+
+    expect(capability).not.toBe('')
+    expect(verifyAgentCapability(capability)).toBeNull()
+    expect(agentMcpMocks.removeCapabilityFile).toHaveBeenCalledWith(conv.id)
   })
 })
 

@@ -7,6 +7,8 @@ import { StreamableHTTPClientTransport } from '@modelcontextprotocol/sdk/client/
 import { initDesktopDb, setDesktopSetting, type DbInstance } from '../desktop-db'
 import type { ProjectRegistry } from '../project-registry'
 import { McpServerManager } from './mcp-server'
+import { AGENT_CAPABILITY_HEADER, AGENT_TIER_HEADER } from '../agent-tier'
+import { _resetAgentCapabilitiesForTest, mintAgentCapability } from './agent-capability'
 
 // A minimal ProjectRegistry stub: the MCP core only needs desktopDb + the
 // project lookup methods. No real projects are required for these tests.
@@ -44,6 +46,7 @@ describe('McpServerManager (embedded MCP server)', () => {
   let url: URL
 
   beforeEach(async () => {
+    _resetAgentCapabilitiesForTest()
     db = initDesktopDb(':memory:')
     manager = new McpServerManager({ registry: makeRegistry(db), broadcast: () => {}, desktopPort: 4200 })
     const started = await startMcp(manager)
@@ -66,18 +69,31 @@ describe('McpServerManager (embedded MCP server)', () => {
     expect(res.status).toBe(404)
   })
 
-  it('serves the first-party in-app agent (agent-tier header) even when the toggle is disabled', async () => {
+  it('does not treat a spoofed agent-tier header as first-party', async () => {
     expect(manager.isEnabledSetting()).toBe(false)
     const res = await fetch(url, {
       method: 'POST',
       headers: {
         'content-type': 'application/json',
         accept: 'application/json, text/event-stream',
-        'x-specrails-agent-tier': 'observe',
+        [AGENT_TIER_HEADER]: 'autonomous',
       },
       body: JSON.stringify({ jsonrpc: '2.0', method: 'initialize', id: 1, params: { protocolVersion: '2025-06-18', capabilities: {}, clientInfo: { name: 't', version: '1' } } }),
     })
-    // Not the 404 the toggle would otherwise produce — the initialize is handled.
+    expect(res.status).toBe(404)
+  })
+
+  it('serves a server-minted first-party capability when the toggle is disabled', async () => {
+    const capability = mintAgentCapability({ conversationId: 'conv-server', projectId: null, tierLevel: 0 })
+    const res = await fetch(url, {
+      method: 'POST',
+      headers: {
+        'content-type': 'application/json',
+        accept: 'application/json, text/event-stream',
+        [AGENT_CAPABILITY_HEADER]: capability,
+      },
+      body: JSON.stringify({ jsonrpc: '2.0', method: 'initialize', id: 1, params: { protocolVersion: '2025-06-18', capabilities: {}, clientInfo: { name: 't', version: '1' } } }),
+    })
     expect(res.status).not.toBe(404)
     expect(res.headers.get('mcp-session-id')).toBeTruthy()
   })

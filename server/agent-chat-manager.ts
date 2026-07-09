@@ -12,8 +12,9 @@ import { finaliseInvocationResult } from './result-event'
 import { recordAgentInvocation, type AgentInvocationStatus } from './desktop-db'
 import { ensureAgentCwd } from './agent-cwd-manager'
 import { OPERATOR_SYSTEM_PROMPT } from './agent-operator-prompt'
-import { prepareAgentMcp } from './agent-mcp-config'
+import { prepareAgentMcp, removeAgentCapabilityFile } from './agent-mcp-config'
 import { normalizeLevel, type AgentTierLevel } from './agent-tier'
+import { mintAgentCapability, revokeAgentCapability } from './mcp/agent-capability'
 import { attachmentManager, USER_ATTACHMENT_SYSTEM_NOTE } from './attachment-manager'
 import {
   buildResolvedAgentContextBlock,
@@ -30,7 +31,6 @@ import {
 } from './agent-store'
 import type { PrDecisionCardEnvelope } from './types'
 import { generateAutoTitle } from './explore-draft-title'
-import { setActiveProject } from './mcp/tools/types'
 
 export type { AgentContextReference } from './agent-context-resolver'
 
@@ -194,11 +194,6 @@ export class AgentChatManager {
       ? ((storedEffort && efforts.includes(storedEffort) ? storedEffort : 'medium') as ReasoningEffort)
       : undefined
 
-    // Make the pinned project (Cursor-style selector) the MCP active project for
-    // this turn, so project-scoped tools resolve without the agent having to call
-    // specrails_select_project. Home (null) clears it → app-global mode.
-    setActiveProject(conversation.pinned_project_id ?? null)
-
     // Resolve attachments (conversation-keyed) into extracted text blocks +
     // absolute image paths. Extraction failure degrades to a text-only turn.
     const attachmentIds = options.attachmentIds ?? []
@@ -253,166 +248,154 @@ export class AgentChatManager {
     // `--image`); claude/gemini already have the `@path` ref folded into prompt.
     const spawnImagePaths = adapter.capabilities.supportsImageInput ? imagePaths : undefined
 
-    const cwd = ensureAgentCwd()
-    let mcpArgs: string[] = []
-    let mcpEnv: Record<string, string> = {}
+    const agentCapability = mintAgentCapability({
+      conversationId,
+      projectId: conversation.pinned_project_id,
+      tierLevel,
+    })
     try {
-      const wiring = prepareAgentMcp({
-        adapterId: adapter.id,
-        conversationId,
-        cwd,
-        port: this._port,
-        tierLevel,
-        activeProjectId: conversation.pinned_project_id,
-      })
-      mcpArgs = wiring.extraArgs
-      mcpEnv = wiring.env
-    } catch (err) {
-      // A bad conversation id or fs failure shouldn't poison the chat — run tool-less.
-      console.error('[agent-chat] failed to prepare mcp:', err)
-    }
+      const cwd = ensureAgentCwd()
+      let mcpArgs: string[] = []
+      let mcpEnv: Record<string, string> = {}
+      try {
+        const wiring = prepareAgentMcp({
+          adapterId: adapter.id,
+          conversationId,
+          cwd,
+          port: this._port,
+          capability: agentCapability,
+        })
+        mcpArgs = wiring.extraArgs
+        mcpEnv = wiring.env
+      } catch (err) {
+        // A bad conversation id or fs failure shouldn't poison the chat — run tool-less.
+        console.error('[agent-chat] failed to prepare mcp:', err)
+      }
 
-    const timestamp = (): string => new Date().toISOString()
+      const timestamp = (): string => new Date().toISOString()
 
-    interface TurnOutcome {
-      text: string
-      sessionId: string | null
-      error: string | null
-      code: number | null
-      spawnFailed: boolean
-      stderrTail: string
-      /** Parsed adapter events for cost finalisation (HIGH-3). */
-      events: AdapterEvent[]
-      /** ISO instant this spawn started, for the ai-invocation row. */
-      startedAt: string
-    }
+      interface TurnOutcome {
+        text: string
+        sessionId: string | null
+        error: string | null
+        code: number | null
+        spawnFailed: boolean
+        stderrTail: string
+        /** Parsed adapter events for cost finalisation (HIGH-3). */
+        events: AdapterEvent[]
+        /** ISO instant this spawn started, for the ai-invocation row. */
+        startedAt: string
+      }
 
-    const invoke = async (useResume: boolean): Promise<TurnOutcome> => {
-      const action = useResume ? 'chat-resume' : 'chat-turn'
-      const startedAt = new Date().toISOString()
-      let streamed = ''
-      let capturedSessionId: string | null = useResume ? conversation.session_id ?? null : null
-      let capturedError: string | null = null
+      const invoke = async (useResume: boolean): Promise<TurnOutcome> => {
+        const action = useResume ? 'chat-resume' : 'chat-turn'
+        const startedAt = new Date().toISOString()
+        let streamed = ''
+        let capturedSessionId: string | null = useResume ? conversation.session_id ?? null : null
+        let capturedError: string | null = null
 
-      console.log(
-        `[agent-chat] turn start conv=${conversationId} provider=${adapter.id} binary=${adapter.binary} ` +
-          `action=${action} model=${model} cwd=${cwd} mcp=${mcpArgs.length ? 'mcp-config' : Object.keys(mcpEnv).join(',') || 'none'}`,
-      )
+        console.log(
+          `[agent-chat] turn start conv=${conversationId} provider=${adapter.id} binary=${adapter.binary} ` +
+            `action=${action} model=${model} cwd=${cwd} mcp=${mcpArgs.length ? 'mcp-config' : Object.keys(mcpEnv).join(',') || 'none'}`,
+        )
 
-      const result = await runAiCliInvocation({
-        adapter,
-        action,
-        cwd,
-        env: { ...process.env, ...mcpEnv },
-        buildOpts: {
-          prompt,
-          systemPrompt: adapter.capabilities.systemPromptArg ? systemPrompt : undefined,
-          model,
-          sessionId: useResume ? conversation.session_id ?? undefined : undefined,
-          extraArgs: mcpArgs,
-          imagePaths: spawnImagePaths,
-          reasoning_effort: reasoningEffort,
-        },
-        onSpawn: (child) => {
-          this._active.set(conversationId, child)
-        },
-        onEvent: (ev) => {
-          switch (ev.kind) {
-            case 'text-delta':
-              streamed += ev.text
-              // A killed child (abort / conversation DELETE) keeps flushing its
-              // buffered stdout — suppress the broadcasts once it left _active
-              // so stragglers can't resurrect client-side streaming state.
-              if (this._active.has(conversationId)) {
-                this._broadcast({ type: 'agent_stream', conversationId, delta: ev.text, timestamp: timestamp() })
+        const result = await runAiCliInvocation({
+          adapter,
+          action,
+          cwd,
+          env: { ...process.env, ...mcpEnv },
+          buildOpts: {
+            prompt,
+            systemPrompt: adapter.capabilities.systemPromptArg ? systemPrompt : undefined,
+            model,
+            sessionId: useResume ? conversation.session_id ?? undefined : undefined,
+            extraArgs: mcpArgs,
+            imagePaths: spawnImagePaths,
+            reasoning_effort: reasoningEffort,
+          },
+          onSpawn: (child) => {
+            this._active.set(conversationId, child)
+          },
+          onEvent: (ev) => {
+            switch (ev.kind) {
+              case 'text-delta':
+                streamed += ev.text
+                // A killed child (abort / conversation DELETE) keeps flushing its
+                // buffered stdout — suppress the broadcasts once it left _active
+                // so stragglers can't resurrect client-side streaming state.
+                if (this._active.has(conversationId)) {
+                  this._broadcast({ type: 'agent_stream', conversationId, delta: ev.text, timestamp: timestamp() })
+                }
+                break
+              case 'tool-use':
+                if (this._active.has(conversationId)) {
+                  this._broadcast({ type: 'agent_tool', conversationId, tool: ev.name, timestamp: timestamp() })
+                }
+                break
+              case 'session-started':
+                if (ev.sessionId) capturedSessionId = ev.sessionId
+                break
+              case 'result': {
+                const sid = (ev.payload as { session_id?: string }).session_id
+                if (sid) capturedSessionId = sid
+                break
               }
-              break
-            case 'tool-use':
-              if (this._active.has(conversationId)) {
-                this._broadcast({ type: 'agent_tool', conversationId, tool: ev.name, timestamp: timestamp() })
-              }
-              break
-            case 'session-started':
-              if (ev.sessionId) capturedSessionId = ev.sessionId
-              break
-            case 'result': {
-              const sid = (ev.payload as { session_id?: string }).session_id
-              if (sid) capturedSessionId = sid
-              break
+              case 'error':
+                capturedError = ev.message
+                break
+              case 'other':
+                break
             }
-            case 'error':
-              capturedError = ev.message
-              break
-            case 'other':
-              break
-          }
-        },
-      })
+          },
+        })
 
-      this._active.delete(conversationId)
-      const text = streamed.trim()
-      console.log(
-        `[agent-chat] turn end conv=${conversationId} provider=${adapter.id} code=${result.code} ` +
-          `spawnFailed=${result.spawnFailed} chars=${text.length} err=${capturedError ?? ''}`,
-      )
-      if (result.stderrTail && (result.spawnFailed || (result.code ?? 0) !== 0 || !text)) {
-        console.error(`[agent-chat] ${adapter.id} stderr:\n${result.stderrTail}`)
+        this._active.delete(conversationId)
+        const text = streamed.trim()
+        console.log(
+          `[agent-chat] turn end conv=${conversationId} provider=${adapter.id} code=${result.code} ` +
+            `spawnFailed=${result.spawnFailed} chars=${text.length} err=${capturedError ?? ''}`,
+        )
+        if (result.stderrTail && (result.spawnFailed || (result.code ?? 0) !== 0 || !text)) {
+          console.error(`[agent-chat] ${adapter.id} stderr:\n${result.stderrTail}`)
+        }
+        return { text, sessionId: capturedSessionId, error: capturedError, code: result.code, spawnFailed: result.spawnFailed, stderrTail: result.stderrTail, events: result.events, startedAt }
       }
-      return { text, sessionId: capturedSessionId, error: capturedError, code: result.code, spawnFailed: result.spawnFailed, stderrTail: result.stderrTail, events: result.events, startedAt }
-    }
 
-    // Conversation CONFIG (provider/model/tier) is owned by the PATCH route —
-    // never write turn-START snapshots back at settle, or a mid-turn provider
-    // switch would be silently reverted and a queued turn drained onto the old
-    // provider. Only the session id persists, and only while the row's provider
-    // is still the one this turn actually ran on (a foreign session id must not
-    // pollute the new provider's freshly-reset state).
-    const persistSession = (sessionId: string | null): void => {
-      const fresh = getAgentConversation(this._db, conversationId)
-      if (fresh && fresh.provider === conversation.provider) {
-        updateAgentConversation(this._db, conversationId, { session_id: sessionId })
+      // Conversation CONFIG (provider/model/tier) is owned by the PATCH route —
+      // never write turn-START snapshots back at settle, or a mid-turn provider
+      // switch would be silently reverted and a queued turn drained onto the old
+      // provider. Only the session id persists, and only while the row's provider
+      // is still the one this turn actually ran on (a foreign session id must not
+      // pollute the new provider's freshly-reset state).
+      const persistSession = (sessionId: string | null): void => {
+        const fresh = getAgentConversation(this._db, conversationId)
+        if (fresh && fresh.provider === conversation.provider) {
+          updateAgentConversation(this._db, conversationId, { session_id: sessionId })
+        }
       }
-    }
-    const settleAborted = (r: { text: string; sessionId: string | null }): void => {
-      // Deliberate user Stop: keep any partial text (it was already streamed to
-      // the client), never auto-heal, never surface an error.
-      if (r.text && getAgentConversation(this._db, conversationId)) {
-        addAgentMessage(this._db, { conversationId, role: 'assistant', content: r.text })
-        persistSession(r.sessionId)
-        this._broadcast({ type: 'agent_done', conversationId, fullText: r.text, timestamp: timestamp() })
+      const settleAborted = (r: { text: string; sessionId: string | null }): void => {
+        // Deliberate user Stop: keep any partial text (it was already streamed to
+        // the client), never auto-heal, never surface an error.
+        if (r.text && getAgentConversation(this._db, conversationId)) {
+          addAgentMessage(this._db, { conversationId, role: 'assistant', content: r.text })
+          persistSession(r.sessionId)
+          this._broadcast({ type: 'agent_done', conversationId, fullText: r.text, timestamp: timestamp() })
+        }
       }
-    }
 
-    // Cost accounting (HIGH-3): exactly one row per settled turn, whichever
-    // terminal branch we exit through. `pinned_project_id` is captured at turn
-    // start (NULL = Home / app-global).
-    const record = (outcome: TurnOutcome, status: AgentInvocationStatus): void => {
-      this._recordTurn(conversation, adapter, model, outcome, status)
-    }
+      // Cost accounting (HIGH-3): exactly one row per settled turn, whichever
+      // terminal branch we exit through. `pinned_project_id` is captured at turn
+      // start (NULL = Home / app-global).
+      const record = (outcome: TurnOutcome, status: AgentInvocationStatus): void => {
+        this._recordTurn(conversation, adapter, model, outcome, status)
+      }
 
-    const canResume = !!conversation.session_id && adapter.capabilities.nativeResume
-    let r = await invoke(canResume)
+      const canResume = !!conversation.session_id && adapter.capabilities.nativeResume
+      let r = await invoke(canResume)
 
-    // Deleted mid-turn (DELETE aborts the child and drops the row): stop here —
-    // no auto-heal respawn, no FK-violating assistant INSERT. The spawn still
-    // billed, so record it (aborted) before returning.
-    if (!getAgentConversation(this._db, conversationId)) {
-      record(r, 'aborted')
-      return
-    }
-    if (this._abortedTurns.delete(conversationId)) {
-      settleAborted(r)
-      record(r, 'aborted')
-      return
-    }
-
-    // Auto-heal a stale/foreign session: a resume that produced no text (e.g. a
-    // provider switch leaving another provider's session id, or codex
-    // "no rollout found for thread id") retries once as a fresh turn.
-    if (canResume && !r.spawnFailed && !r.text) {
-      console.log(`[agent-chat] resume produced no text — retrying fresh conv=${conversationId}`)
-      updateAgentConversation(this._db, conversationId, { session_id: null })
-      r = await invoke(false)
+      // Deleted mid-turn (DELETE aborts the child and drops the row): stop here —
+      // no auto-heal respawn, no FK-violating assistant INSERT. The spawn still
+      // billed, so record it (aborted) before returning.
       if (!getAgentConversation(this._db, conversationId)) {
         record(r, 'aborted')
         return
@@ -422,35 +405,56 @@ export class AgentChatManager {
         record(r, 'aborted')
         return
       }
-    }
 
-    if (r.spawnFailed) {
-      this._emitError(conversationId, `Failed to launch ${adapter.binary}. Is it installed and on PATH?`)
+      // Auto-heal a stale/foreign session: a resume that produced no text (e.g. a
+      // provider switch leaving another provider's session id, or codex
+      // "no rollout found for thread id") retries once as a fresh turn.
+      if (canResume && !r.spawnFailed && !r.text) {
+        console.log(`[agent-chat] resume produced no text — retrying fresh conv=${conversationId}`)
+        updateAgentConversation(this._db, conversationId, { session_id: null })
+        r = await invoke(false)
+        if (!getAgentConversation(this._db, conversationId)) {
+          record(r, 'aborted')
+          return
+        }
+        if (this._abortedTurns.delete(conversationId)) {
+          settleAborted(r)
+          record(r, 'aborted')
+          return
+        }
+      }
+
+      if (r.spawnFailed) {
+        this._emitError(conversationId, `Failed to launch ${adapter.binary}. Is it installed and on PATH?`)
+        record(r, 'failed')
+        return
+      }
+
+      if (r.text) {
+        addAgentMessage(this._db, { conversationId, role: 'assistant', content: r.text })
+        persistSession(r.sessionId)
+        this._broadcast({ type: 'agent_done', conversationId, fullText: r.text, timestamp: timestamp() })
+        record(r, 'success')
+        // AI title after the FIRST completed turn (industry standard — ChatGPT /
+        // Claude.ai), on the conversation's own provider. The deterministic title
+        // set at send stays the instant fallback; this upgrades it a moment later.
+        this._maybeAiTitle(conversation, userText, r.text)
+        return
+      }
+
+      // Failure: reset the session so the NEXT turn starts fresh, and surface the
+      // real reason instead of silently doing nothing.
+      persistSession(null)
+      const reason =
+        r.error ||
+        (r.stderrTail ? r.stderrTail.split('\n').filter(Boolean).slice(-3).join(' ').slice(0, 300) : '') ||
+        (r.code !== 0 ? `${adapter.binary} exited with code ${r.code}` : 'The agent returned no output.')
+      this._emitError(conversationId, reason)
       record(r, 'failed')
-      return
+    } finally {
+      revokeAgentCapability(agentCapability)
+      removeAgentCapabilityFile(conversationId)
     }
-
-    if (r.text) {
-      addAgentMessage(this._db, { conversationId, role: 'assistant', content: r.text })
-      persistSession(r.sessionId)
-      this._broadcast({ type: 'agent_done', conversationId, fullText: r.text, timestamp: timestamp() })
-      record(r, 'success')
-      // AI title after the FIRST completed turn (industry standard — ChatGPT /
-      // Claude.ai), on the conversation's own provider. The deterministic title
-      // set at send stays the instant fallback; this upgrades it a moment later.
-      this._maybeAiTitle(conversation, userText, r.text)
-      return
-    }
-
-    // Failure: reset the session so the NEXT turn starts fresh, and surface the
-    // real reason instead of silently doing nothing.
-    persistSession(null)
-    const reason =
-      r.error ||
-      (r.stderrTail ? r.stderrTail.split('\n').filter(Boolean).slice(-3).join(' ').slice(0, 300) : '') ||
-      (r.code !== 0 ? `${adapter.binary} exited with code ${r.code}` : 'The agent returned no output.')
-    this._emitError(conversationId, reason)
-    record(r, 'failed')
   }
 
   /**

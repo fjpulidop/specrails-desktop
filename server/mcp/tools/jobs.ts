@@ -16,6 +16,13 @@ function resolveBackgroundCwd(projectRoot: string, cwd: string | undefined): str
   return resolved
 }
 
+function requireFirstPartyConversation(ctx: Parameters<McpToolSpec['handler']>[0], action: string): string {
+  if (!ctx.firstPartyAgent || !ctx.originConversationId) {
+    throw new Error(`${action} is available only to an authenticated in-app agent turn.`)
+  }
+  return ctx.originConversationId
+}
+
 function backgroundHooks(broadcast: (msg: WsMessage) => void) {
   return {
     onStarted: (process: import('../../transient-children').BackgroundProcess) => broadcast({
@@ -63,8 +70,8 @@ export function jobsTools(): McpToolSpec[] {
       description:
         'Manage a project\'s AI-pipeline job queue and individual jobs. ' +
         'Actions: list, get, queue, spawn (ai-spawn — enqueues an arbitrary slash-command job, returns {jobId,position}, async; from the in-app agent chat the engine defaults to your conversation\'s provider — pass aiEngine to override), ' +
-        'background_start (operate-level shell command tied to the current agent chat; requires confirmed:true after explicit user confirmation before use), background_logs, background_kill, ' +
-        'cancel (destructive — cancels a running/queued job or deletes a terminal one), ' +
+        'background_start (in-app-agent-only destructive shell command tied to the authenticated chat; requires confirmed:true after explicit user confirmation), background_logs, background_kill (in-app-agent-only destructive), ' +
+        'cancel (destructive — requests cancellation of a running/queued job; it does not delete terminal history), ' +
         'purge (destructive — bulk-delete persisted job rows in a date range), ' +
         'pause / resume (queue), reorder (queued-job order), priority (change a queued job\'s priority), ' +
         'compare (two jobs side-by-side), export (up to 10k rows as JSON/CSV — inlines everything; prefer list/stats for token economy), ' +
@@ -76,8 +83,8 @@ export function jobsTools(): McpToolSpec[] {
       hintTier: 'read',
       tier: (a) => {
         const action = a.action as string
-        if (['cancel', 'purge'].includes(action)) return 'destructive'
-        if (['spawn', 'interactive_turn', 'background_start', 'background_kill'].includes(action)) return 'ai-spawn'
+        if (['cancel', 'purge', 'background_start', 'background_kill'].includes(action)) return 'destructive'
+        if (['spawn', 'interactive_turn'].includes(action)) return 'ai-spawn'
         if (['pause', 'resume', 'reorder', 'priority', 'finalize'].includes(action)) return 'write'
         return 'read'
       },
@@ -143,7 +150,7 @@ export function jobsTools(): McpToolSpec[] {
           .describe('reorder: exact set of currently-queued job ids in the desired order; compare: exactly 2 job ids'),
         // ── interactive_turn ──
         text: z.string().optional().describe('Prompt text for interactive_turn'),
-        chatId: z.string().optional().describe('Agent chat conversation id for background_start/background_logs/background_kill ownership; defaults to the in-app agent conversation that called the tool'),
+        chatId: z.string().optional().describe('Conversation id for background_logs ownership. background_start/background_kill ignore this field and use the authenticated in-app capability.'),
         cwd: z.string().optional().describe('Optional cwd for background_start; resolved inside the selected project root'),
         pid: z.number().optional().describe('Background process pid for background_logs/background_kill'),
         confirmed: z.boolean().optional().describe('background_start only: must be true after explicit user confirmation for this exact command'),
@@ -207,7 +214,7 @@ export function jobsTools(): McpToolSpec[] {
           case 'cancel': {
             const id = args.jobId as string | undefined
             if (!id) throw new Error('cancel requires a "jobId".')
-            return apiCall(ctx, 'DELETE', `${base}/jobs/${encodeURIComponent(id)}`)
+            return apiCall(ctx, 'POST', `${base}/jobs/${encodeURIComponent(id)}/cancel`)
           }
 
           case 'purge':
@@ -324,8 +331,7 @@ export function jobsTools(): McpToolSpec[] {
             const command = args.command as string | undefined
             if (!command || !command.trim()) throw new Error('background_start requires a "command".')
             if (args.confirmed !== true) throw new Error('background_start requires confirmed:true after explicit user confirmation for this exact command.')
-            const chatId = (args.chatId as string | undefined) ?? ctx.originConversationId ?? undefined
-            if (!chatId || !chatId.trim()) throw new Error('background_start requires a "chatId".')
+            const chatId = requireFirstPartyConversation(ctx, 'background_start')
             const projectCtx = requireProject(ctx, args.projectId as string | undefined)
             const busyReason = backgroundStartBusyReason(projectCtx)
             if (busyReason && args.allowWhileBusy !== true) {
@@ -345,8 +351,7 @@ export function jobsTools(): McpToolSpec[] {
           case 'background_kill': {
             const pid = args.pid as number | undefined
             if (typeof pid !== 'number' || !Number.isFinite(pid)) throw new Error('background_kill requires a numeric "pid".')
-            const chatId = (args.chatId as string | undefined) ?? ctx.originConversationId ?? undefined
-            if (!chatId || !chatId.trim()) throw new Error('background_kill requires a "chatId".')
+            const chatId = requireFirstPartyConversation(ctx, 'background_kill')
             const projectCtx = requireProject(ctx, args.projectId as string | undefined)
             const killed = killOwnedBackgroundProcess(pid, { projectId: projectCtx.project.id, chatId: chatId.trim() })
             if (!killed) throw new Error('background_kill requires a registered pid in the same project/chat.')
@@ -356,7 +361,12 @@ export function jobsTools(): McpToolSpec[] {
           case 'background_logs': {
             const pid = args.pid as number | undefined
             if (typeof pid !== 'number' || !Number.isFinite(pid)) throw new Error('background_logs requires a numeric "pid".')
-            const chatId = (args.chatId as string | undefined) ?? ctx.originConversationId ?? undefined
+            // A first-party turn is confined to its authenticated conversation
+            // for reads as well as start/kill. External read-tier clients still
+            // supply chatId explicitly because they have no agent capability.
+            const chatId = ctx.firstPartyAgent
+              ? requireFirstPartyConversation(ctx, 'background_logs')
+              : (args.chatId as string | undefined)
             if (!chatId || !chatId.trim()) throw new Error('background_logs requires a "chatId".')
             const projectCtx = requireProject(ctx, args.projectId as string | undefined)
             const limit = typeof args.limit === 'number' && Number.isFinite(args.limit) ? args.limit : undefined

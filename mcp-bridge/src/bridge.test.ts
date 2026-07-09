@@ -1,4 +1,7 @@
 import { describe, it, expect, beforeEach } from 'vitest'
+import fs from 'fs'
+import os from 'os'
+import path from 'path'
 import type { Transport } from '@modelcontextprotocol/sdk/shared/transport.js'
 import type { JSONRPCMessage } from '@modelcontextprotocol/sdk/types.js'
 import { connectBridge, readMcpToken, appUrl, agentForwardHeaders, APP_NOT_RUNNING } from './bridge'
@@ -80,27 +83,31 @@ describe('bridge config', () => {
   })
 })
 
-describe('agentForwardHeaders (env → loopback header forwards)', () => {
-  it('forwards tier, project and conversation when set (trimmed)', () => {
-    const headers = agentForwardHeaders({
-      SPECRAILS_AGENT_TIER: ' operate ',
-      SPECRAILS_ACTIVE_PROJECT: 'proj-1',
-      SPECRAILS_AGENT_CONVERSATION: ' conv-42 ',
-    })
-    expect(headers).toEqual({
-      'x-specrails-agent-tier': 'operate',
-      'x-specrails-active-project': 'proj-1',
-      'x-specrails-agent-conversation': 'conv-42',
-    })
+describe('agentForwardHeaders (capability file → authenticated header)', () => {
+  it('reads and forwards the per-turn capability', () => {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'specrails-cap-'))
+    const file = path.join(dir, 'capability')
+    const capability = 'c'.repeat(43)
+    fs.writeFileSync(file, ` ${capability}\n`, { mode: 0o600 })
+    try {
+      expect(agentForwardHeaders({ SPECRAILS_AGENT_CAPABILITY_FILE: file })).toEqual({
+        'x-specrails-agent-capability': capability,
+      })
+    } finally {
+      fs.rmSync(dir, { recursive: true, force: true })
+    }
   })
 
-  it('omits every header when the env is absent or blank (external client spawn)', () => {
+  it('omits the header when the capability file is absent or unreadable', () => {
     expect(agentForwardHeaders({})).toEqual({})
-    expect(agentForwardHeaders({ SPECRAILS_AGENT_TIER: '  ', SPECRAILS_AGENT_CONVERSATION: '' })).toEqual({})
+    expect(agentForwardHeaders({ SPECRAILS_AGENT_CAPABILITY_FILE: '/does/not/exist' })).toEqual({})
   })
 
-  it('forwards the conversation independently of the other two', () => {
-    const headers = agentForwardHeaders({ SPECRAILS_AGENT_CONVERSATION: 'conv-solo' })
-    expect(headers).toEqual({ 'x-specrails-agent-conversation': 'conv-solo' })
+  it('never forwards caller-authored legacy context env vars', () => {
+    expect(agentForwardHeaders({
+      SPECRAILS_AGENT_TIER: 'autonomous',
+      SPECRAILS_ACTIVE_PROJECT: 'spoofed-project',
+      SPECRAILS_AGENT_CONVERSATION: 'spoofed-conversation',
+    })).toEqual({})
   })
 })

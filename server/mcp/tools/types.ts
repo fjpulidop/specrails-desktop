@@ -7,14 +7,11 @@ import type { WsMessage } from '../../types'
 import type { MobileEventBus } from '../../mobile/mobile-event-bus'
 import { isTierEnabled, tierRefusalMessage, type McpTier } from '../mcp-tiers'
 import { loadOrGenerateToken } from '../../auth'
-import { AGENT_TIER_HEADER, AGENT_PROJECT_HEADER, AGENT_CONVERSATION_HEADER, levelFromHeader, levelAllowsTier } from '../../agent-tier'
+import { AGENT_CAPABILITY_HEADER, levelAllowsTier } from '../../agent-tier'
 import { getAgentConversation } from '../../agent-store'
+import { verifyAgentCapability } from '../agent-capability'
 
 export type { McpTier } from '../mcp-tiers'
-
-/** Launch-route contract for an origin conversation id — must match the
- *  rails-router validation so a sanitized id is never 400'd downstream. */
-const ORIGIN_CONVERSATION_ID_RE = /^[A-Za-z0-9-]{1,64}$/
 
 /**
  * The subset of the MCP SDK's per-call `RequestHandlerExtra` we read: the
@@ -34,22 +31,22 @@ export interface McpToolContext {
   /** Port the loopback REST API listens on (for apiCall). */
   desktopPort: number
   /**
-   * Per-REQUEST active project, set by `registerTieredTool` from the in-app
-   * agent's loopback project header. Scoped to a single tool call (a fresh ctx
+   * Per-REQUEST active project, set by `registerTieredTool` from the verified
+   * in-app agent capability. Scoped to a single tool call (a fresh ctx
    * copy per dispatch) so a concurrent external client and the in-app agent can
    * never clobber each other's active project. Takes precedence over the sticky
    * process-wide selection made via `specrails_select_project`.
    */
-  requestProjectId?: string
+  requestProjectId?: string | null
   /**
    * Per-REQUEST launching agent-chat conversation id (safe-pr-review-flow origin
-   * link), set by `registerTieredTool` from the in-app agent's loopback
-   * conversation header. Sanitized against the rails-launch contract
-   * (`/^[A-Za-z0-9-]{1,64}$/`) — a malformed header yields `null` (never throws),
-   * an absent header leaves it `undefined`. Tool handlers thread it into launch
-   * bodies so the PR decision can be posted back into the conversation.
+   * link), set by `registerTieredTool` from the verified in-app capability.
+   * Tool handlers thread it into launch bodies so the PR decision can be posted
+   * back into the authenticated conversation.
    */
   originConversationId?: string | null
+  /** True only when the request presented a live server-minted capability. */
+  firstPartyAgent?: boolean
 }
 
 /**
@@ -95,7 +92,7 @@ export function projectPath(ctx: McpToolContext, projectId: string | undefined):
 
 /**
  * Launch defaults derived from the LAUNCHING agent-chat conversation (the
- * origin header carried on `ctx.originConversationId`). When the in-app agent
+ * authenticated origin carried on `ctx.originConversationId`). When the in-app agent
  * drives a rail launch / job spawn WITHOUT an explicit engine, the job must
  * run on the CONVERSATION's provider — a codex conversation asking to
  * implement must not silently launch claude via the router's fall-through to
@@ -153,16 +150,15 @@ export function requireProject(ctx: McpToolContext, projectId: string | undefine
 
 // ── Active-project stickiness (per server process) ────────────────────────────
 // The active project is a soft default; an explicit projectId always wins, and
-// a per-request pin (ctx.requestProjectId, from the in-app agent's loopback
-// header) wins over the process-wide selection. `setActiveProject` remains for
-// `specrails_select_project` (and, fallback-only, the agent-chat manager's
-// per-turn pin) — request headers must never mutate this global.
+// a per-request pin (ctx.requestProjectId, from the verified in-app capability)
+// wins over the process-wide selection. `setActiveProject` remains for
+// `specrails_select_project`; request context must never mutate this global.
 let _activeProjectId: string | null = null
 export function setActiveProject(id: string | null): void {
   _activeProjectId = id
 }
 export function getActiveProject(ctx: McpToolContext): string | null {
-  return ctx.requestProjectId ?? _activeProjectId
+  return ctx.requestProjectId !== undefined ? ctx.requestProjectId : _activeProjectId
 }
 
 function tierAnnotations(tier: McpTier): { readOnlyHint?: boolean; destructiveHint?: boolean; openWorldHint?: boolean } {
@@ -231,39 +227,23 @@ export function registerTieredTool(server: McpServer, ctx: McpToolContext, spec:
       annotations: tierAnnotations(hintTier),
     },
     async (args: Record<string, unknown>, extra?: ToolHandlerExtra): Promise<CallToolResult> => {
-      // In-app agent: a per-request active-project header (loopback-only, set by
-      // the agent's bridge from the Cursor-style selector) pins the project for
-      // THIS CALL ONLY via a per-call ctx copy — it must never mutate the
-      // process-wide active project, or a concurrent external MCP client and the
-      // in-app agent would clobber each other (wrong-project delete/launch).
-      const projectHeader = extra?.requestInfo?.headers?.[AGENT_PROJECT_HEADER]
-      let callCtx = ctx
-      if (projectHeader != null) {
-        const pid = Array.isArray(projectHeader) ? projectHeader[0] : projectHeader
-        if (typeof pid === 'string' && pid.trim()) callCtx = { ...ctx, requestProjectId: pid.trim() }
-      }
-      // Origin link (safe-pr-review-flow): the in-app agent's bridge forwards its
-      // conversation id so a rail launched by THIS CALL can be tagged with its
-      // origin. Same per-call copy discipline as the project header — and it must
-      // spread callCtx (not ctx) so a coexisting project pin is never dropped.
-      // Malformed ids sanitize to null (never throw — the launch degrades to
-      // untagged rather than failing the tool call).
-      const convHeader = extra?.requestInfo?.headers?.[AGENT_CONVERSATION_HEADER]
-      if (convHeader != null) {
-        const cid = Array.isArray(convHeader) ? convHeader[0] : convHeader
-        const trimmed = typeof cid === 'string' ? cid.trim() : ''
-        callCtx = {
-          ...callCtx,
-          originConversationId: trimmed && ORIGIN_CONVERSATION_ID_RE.test(trimmed) ? trimmed : null,
-        }
-      }
+      // Loopback identifies a machine, not a trusted caller. All first-party
+      // authority and context come from this unguessable, server-minted bearer;
+      // legacy tier/project/conversation headers are deliberately ignored.
+      const capability = verifyAgentCapability(
+        extra?.requestInfo?.headers?.[AGENT_CAPABILITY_HEADER],
+      )
+      const callCtx: McpToolContext = capability
+        ? {
+            ...ctx,
+            requestProjectId: capability.projectId,
+            originConversationId: capability.conversationId,
+            firstPartyAgent: true,
+          }
+        : ctx
       const tier: McpTier = typeof spec.tier === 'function' ? spec.tier(args ?? {}) : spec.tier
-      // In-app agent: when the request carries the loopback-only agent-tier header,
-      // enforce the cumulative ladder instead of the external Settings checkboxes
-      // (design D4). Absent header → external client → unchanged Settings gate.
-      const agentLevel = levelFromHeader(extra?.requestInfo?.headers?.[AGENT_TIER_HEADER])
-      if (agentLevel !== null) {
-        if (!levelAllowsTier(agentLevel, tier)) {
+      if (capability) {
+        if (!levelAllowsTier(capability.tierLevel, tier)) {
           return errorResult(tierRefusalMessage(tier))
         }
       } else if (!isTierEnabled(ctx.desktopDb, tier)) {
