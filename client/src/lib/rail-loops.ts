@@ -24,7 +24,7 @@ export const FACTORY_RAIL_LOOPS: { id: string; labelKey: string; claudeOnly?: bo
   { id: 'factory:freestyle', labelKey: 'railControls.freestyle', claudeOnly: true },
   // Graph-native built-in: runs only through the LoopRunManager, so it is
   // offered only while the Loops feature is enabled.
-  { id: 'factory:openspec', labelKey: 'railControls.openspec', requiresLoops: true },
+  { id: 'factory:sdd-quick-openspec', labelKey: 'railControls.openspec', requiresLoops: true },
 ]
 
 /** The factory loop id a legacy `mode` maps to ('' for the custom `loop` mode). */

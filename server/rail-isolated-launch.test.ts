@@ -12,6 +12,7 @@ import type { AgentChatManager } from './agent-chat-manager'
 import type { RailPrStateMessage, RailFetchDegradedMessage } from './types'
 import type { ProjectContext } from './project-registry'
 import { __resetFetchOriginCache } from './integration-branch'
+import { PR_NEVER_STAGE_PATHS } from './worktree-manager'
 
 // The legacy merge-back must never spawn real executors from a test settle —
 // stub it (PR-mode tests assert it is NOT called; the kill-switch-off pin
@@ -1033,20 +1034,24 @@ describe('launchIsolatedRail — per-run worktree overlay', () => {
     expect(add.cwd).toBe('/wt/ticket-1')
     expect(add.args).toEqual([
       'add', '-A', '--', '.',
+      ...PR_NEVER_STAGE_PATHS.map((p) => `:(exclude)${p}`),
       ':(exclude).claude/commands/specrails',
       ':(exclude).claude/agents',
       ':(exclude).sr-rail-overlay.json',
     ])
   })
 
-  it('REGRESSION PIN: a no-op overlay (fully-tracked legacy repo) keeps the byte-identical `git add -A`', async () => {
+  it('REGRESSION PIN: a no-op overlay (fully-tracked legacy repo) adds only permanent PR excludes', async () => {
     const { ctx } = fakeCtx(settlingRun('success'))
     const calls: { args: string[]; cwd: string }[] = []
     const git = { run: async (args: string[], cwd: string) => { calls.push({ args, cwd }); return { code: 0, stdout: '', stderr: '' } } }
     await launchIsolatedRail(input([1], ctx), { git, create: okCreate(), remove: vi.fn(async () => {}), overlay: noopOverlay() })
 
     await vi.waitFor(() => expect(calls.some((c) => c.args[0] === 'add')).toBe(true))
-    expect(calls.find((c) => c.args[0] === 'add')!.args).toEqual(['add', '-A'])
+    expect(calls.find((c) => c.args[0] === 'add')!.args).toEqual([
+      'add', '-A', '--', '.',
+      ...PR_NEVER_STAGE_PATHS.map((p) => `:(exclude)${p}`),
+    ])
   })
 })
 
