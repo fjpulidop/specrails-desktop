@@ -178,6 +178,45 @@ describe('agent MCP capability transport', () => {
     }
   })
 
+  it('gemini path: concurrent conversations retain their own config and bearer path', async () => {
+    const firstCwd = fs.mkdtempSync(path.join(os.tmpdir(), 'srh-origin-gem-a-'))
+    const secondCwd = fs.mkdtempSync(path.join(os.tmpdir(), 'srh-origin-gem-b-'))
+    const firstCapability = 'a'.repeat(43)
+    const secondCapability = 'b'.repeat(43)
+    try {
+      await Promise.all([
+        Promise.resolve().then(() => prepareAgentMcp({
+          adapterId: 'gemini',
+          conversationId: 'conv-a',
+          cwd: firstCwd,
+          port: 4200,
+          capability: firstCapability,
+        })),
+        Promise.resolve().then(() => prepareAgentMcp({
+          adapterId: 'gemini',
+          conversationId: 'conv-b',
+          cwd: secondCwd,
+          port: 4200,
+          capability: secondCapability,
+        })),
+      ])
+
+      const firstSettings = JSON.parse(fs.readFileSync(path.join(firstCwd, '.gemini', 'settings.json'), 'utf-8'))
+      const secondSettings = JSON.parse(fs.readFileSync(path.join(secondCwd, '.gemini', 'settings.json'), 'utf-8'))
+      const firstFile = firstSettings.mcpServers.specrails.env.SPECRAILS_AGENT_CAPABILITY_FILE as string
+      const secondFile = secondSettings.mcpServers.specrails.env.SPECRAILS_AGENT_CAPABILITY_FILE as string
+
+      expect(firstFile).not.toBe(secondFile)
+      expect(fs.readFileSync(firstFile, 'utf-8')).toBe(firstCapability)
+      expect(fs.readFileSync(secondFile, 'utf-8')).toBe(secondCapability)
+      expect(JSON.stringify(firstSettings)).not.toContain(secondFile)
+      expect(JSON.stringify(secondSettings)).not.toContain(firstFile)
+    } finally {
+      fs.rmSync(firstCwd, { recursive: true, force: true })
+      fs.rmSync(secondCwd, { recursive: true, force: true })
+    }
+  })
+
   it('claude and codex paths do not inject the gemini trust env', () => {
     const cwd = fs.mkdtempSync(path.join(os.tmpdir(), 'srh-origin-gem-'))
     try {

@@ -16,7 +16,14 @@ vi.mock('tree-kill', () => ({ default: vi.fn() }))
 
 // The agent turn's peripheral wiring (cwd materialisation and MCP config) is
 // stubbed so cost-accounting tests touch no real filesystem / ~/.specrails.
-vi.mock('./agent-cwd-manager', () => ({ ensureAgentCwd: () => '/tmp/agent-cwd-test' }))
+const agentCwdMocks = vi.hoisted(() => ({
+  ensureGlobal: vi.fn(() => '/tmp/agent-cwd-test'),
+  ensureConversation: vi.fn((conversationId: string) => `/tmp/agent-cwd-test/conversations/${conversationId}`),
+}))
+vi.mock('./agent-cwd-manager', () => ({
+  ensureAgentCwd: agentCwdMocks.ensureGlobal,
+  ensureAgentConversationCwd: agentCwdMocks.ensureConversation,
+}))
 const agentMcpMocks = vi.hoisted(() => ({
   prepare: vi.fn((_opts: unknown) => ({ extraArgs: [], env: {} })),
   removeCapabilityFile: vi.fn(),
@@ -211,6 +218,75 @@ describe('AgentChatManager cost accounting (HIGH-3)', () => {
     expect(capability).not.toBe('')
     expect(verifyAgentCapability(capability)).toBeNull()
     expect(agentMcpMocks.removeCapabilityFile).toHaveBeenCalledWith(conv.id)
+  })
+})
+
+describe('AgentChatManager Gemini MCP isolation', () => {
+  let db: DbInstance
+  let mgr: AgentChatManager
+
+  beforeEach(() => {
+    vi.clearAllMocks()
+    _resetAgentCapabilitiesForTest()
+    db = initDesktopDb(':memory:')
+    mgr = new AgentChatManager(vi.fn(), db, 4200)
+  })
+
+  it('keeps concurrent conversations on distinct cwd/config/capability scopes', async () => {
+    const first = createAgentConversation(db, {
+      provider: 'gemini',
+      pinnedProjectId: 'project-alpha',
+      tierLevel: 1,
+    })
+    const second = createAgentConversation(db, {
+      provider: 'gemini',
+      pinnedProjectId: 'project-beta',
+      tierLevel: 3,
+    })
+    const children: ReturnType<typeof createMockChildProcess>[] = []
+    ;(mockSpawn as unknown as ReturnType<typeof vi.fn>).mockImplementation(() => {
+      const child = createMockChildProcess()
+      children.push(child)
+      return child
+    })
+
+    // Neither turn settles before both processes have spawned. This reproduces
+    // the vulnerable overlap where the second prepare used to overwrite the
+    // first turn's cwd-discovered Gemini settings.
+    const firstTurn = mgr.sendMessage(first.id, 'alpha')
+    const secondTurn = mgr.sendMessage(second.id, 'beta')
+    await waitFor(() => children.length === 2 && agentMcpMocks.prepare.mock.calls.length === 2)
+
+    const prepared = agentMcpMocks.prepare.mock.calls.map(([raw]) => raw as {
+      conversationId: string
+      cwd: string
+      capability: string
+    })
+    const firstPrepared = prepared.find((opts) => opts.conversationId === first.id)!
+    const secondPrepared = prepared.find((opts) => opts.conversationId === second.id)!
+
+    expect(firstPrepared.cwd).toContain(`/conversations/${first.id}`)
+    expect(secondPrepared.cwd).toContain(`/conversations/${second.id}`)
+    expect(firstPrepared.cwd).not.toBe(secondPrepared.cwd)
+    expect(verifyAgentCapability(firstPrepared.capability)).toMatchObject({
+      conversationId: first.id,
+      projectId: 'project-alpha',
+      tierLevel: 1,
+    })
+    expect(verifyAgentCapability(secondPrepared.capability)).toMatchObject({
+      conversationId: second.id,
+      projectId: 'project-beta',
+      tierLevel: 3,
+    })
+    expect(agentCwdMocks.ensureGlobal).not.toHaveBeenCalled()
+
+    // Let both held invocations settle without producing an assistant response.
+    for (const child of children) {
+      child.stdout.push(null)
+      child.stderr.push(null)
+      child.emit('close', 1)
+    }
+    await Promise.all([firstTurn, secondTurn])
   })
 })
 

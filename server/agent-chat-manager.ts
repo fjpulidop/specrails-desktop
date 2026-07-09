@@ -10,7 +10,7 @@ import { runAiCliInvocation } from './spawn-lifecycle'
 import { spawnAiCli } from './util/cli-prompt'
 import { finaliseInvocationResult } from './result-event'
 import { recordAgentInvocation, type AgentInvocationStatus } from './desktop-db'
-import { ensureAgentCwd } from './agent-cwd-manager'
+import { ensureAgentConversationCwd, ensureAgentCwd } from './agent-cwd-manager'
 import { OPERATOR_SYSTEM_PROMPT } from './agent-operator-prompt'
 import { prepareAgentMcp, removeAgentCapabilityFile } from './agent-mcp-config'
 import { normalizeLevel, type AgentTierLevel } from './agent-tier'
@@ -254,7 +254,14 @@ export class AgentChatManager {
       tierLevel,
     })
     try {
-      const cwd = ensureAgentCwd()
+      // Gemini discovers MCP registration from project files under cwd. A
+      // shared cwd would let two concurrent conversations race on `.mcp.json`
+      // / `.gemini/settings.json` and launch with the other's capability.
+      // Claude and Codex keep their historical global cwd and explicit MCP
+      // registration mechanisms unchanged.
+      const cwd = adapter.id === 'gemini'
+        ? ensureAgentConversationCwd(conversationId)
+        : ensureAgentCwd()
       let mcpArgs: string[] = []
       let mcpEnv: Record<string, string> = {}
       try {

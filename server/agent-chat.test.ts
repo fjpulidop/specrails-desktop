@@ -25,7 +25,13 @@ import {
   listAgentMessages,
 } from './agent-store'
 import { buildSpecrailsMcpEntry, buildAgentMcpArgs, resolveBridgeScript, resolveNodeCommand, mergeSpecrailsIntoWorkspaceMcp, prepareAgentMcp } from './agent-mcp-config'
-import { ensureAgentCwd, agentCwdPath, removeAgentCwd } from './agent-cwd-manager'
+import {
+  ensureAgentCwd,
+  ensureAgentConversationCwd,
+  agentCwdPath,
+  agentConversationCwdPath,
+  removeAgentCwd,
+} from './agent-cwd-manager'
 import { registerTieredTool, setActiveProject, getActiveProject, type McpToolContext, type McpToolSpec, type ToolHandlerExtra } from './mcp/tools/types'
 import { AGENT_PROJECT_HEADER } from './agent-tier'
 import { MobileEventBus } from './mobile/mobile-event-bus'
@@ -217,8 +223,31 @@ describe('agent-cwd-manager', () => {
       expect(fs.existsSync(`${dir}/${f}`)).toBe(true)
     }
     expect(fs.readFileSync(`${dir}/CLAUDE.md`, 'utf-8')).toMatch(/operator/i)
+
+    // A pre-fix Gemini turn may have left cwd-discovered MCP config in the
+    // shared directory. Re-materialising the global Claude/Codex cwd removes
+    // those app-generated files so they cannot load a live foreign capability.
+    fs.writeFileSync(`${dir}/.mcp.json`, '{}')
+    fs.mkdirSync(`${dir}/.gemini`, { recursive: true })
+    fs.writeFileSync(`${dir}/.gemini/settings.json`, '{}')
+    ensureAgentCwd()
+    expect(fs.existsSync(`${dir}/.mcp.json`)).toBe(false)
+    expect(fs.existsSync(`${dir}/.gemini/settings.json`)).toBe(false)
+
     removeAgentCwd()
     expect(fs.existsSync(dir)).toBe(false)
+  })
+
+  it('materializes distinct provider-state cwd trees per conversation', () => {
+    const first = ensureAgentConversationCwd('conversation-a')
+    const second = ensureAgentConversationCwd('conversation-b')
+    expect(first).toBe(agentConversationCwdPath('conversation-a'))
+    expect(second).toBe(agentConversationCwdPath('conversation-b'))
+    expect(first).not.toBe(second)
+    expect(fs.readFileSync(`${first}/GEMINI.md`, 'utf-8')).toMatch(/operator/i)
+    expect(fs.readFileSync(`${second}/GEMINI.md`, 'utf-8')).toMatch(/operator/i)
+    expect(() => ensureAgentConversationCwd('../escape')).toThrow(/unsafe/)
+    removeAgentCwd()
   })
 })
 
