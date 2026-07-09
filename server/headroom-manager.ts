@@ -754,6 +754,13 @@ export class HeadroomManager {
     if (active.codex || active.claude) {
       const result = await this.ensureProxy()
       if (!result.ok) {
+        // Never keep provider credentials/prompts routed to a process we did not
+        // spawn and therefore cannot authenticate. The user can retry activation
+        // after resolving the port conflict.
+        this.updatePersisted({
+          activeProviders: { codex: false, claude: false },
+          lastIssue: result.issue ?? issue('proxy_unhealthy'),
+        })
         console.warn('[headroom] boot proxy start failed:', result.issue)
       }
     }
@@ -766,8 +773,15 @@ export class HeadroomManager {
       return { ok: false, state, issue: failure }
     }
     if (this.isProxyRunning()) return { ok: true, state }
-    if (await this.adoptHealthyProxy(state.port)) {
-      return { ok: true, state: this.getState() }
+    // A healthy endpoint is still not proof that the process belongs to this
+    // Specrails instance. Adopting it would route provider auth and prompts to an
+    // unauthenticated port occupant. Treat every pre-existing listener as a hard
+    // conflict and only trust the child created below.
+    if (await this.probeProxyHealthy(state.port)) {
+      const failure = issue('proxy_port_busy')
+      this.updatePersisted({ lastIssue: failure })
+      this.emit('failed', failure.title)
+      return { ok: false, state: this.getState(), issue: failure }
     }
 
     const args = ['proxy', '--host', '127.0.0.1', '--port', String(state.port)]
@@ -1172,6 +1186,15 @@ export class HeadroomManager {
     return false
   }
 
+  private async probeProxyHealthy(port: number): Promise<boolean> {
+    try {
+      const res = await fetch(`http://127.0.0.1:${port}/livez`)
+      return res.ok
+    } catch {
+      return false
+    }
+  }
+
   private verifyProviderRoute(provider: HeadroomProvider): boolean {
     const state = this.getState()
     return provider === 'codex'
@@ -1183,15 +1206,8 @@ export class HeadroomManager {
     return !!this.proxy && !this.proxy.killed && this.proxy.exitCode == null
   }
 
-  private async adoptHealthyProxy(port: number): Promise<boolean> {
-    if (!await this.waitForProxyHealthy(port, 750)) return false
-    await this.refreshMetrics()
-    this.updatePersisted({ lastIssue: null })
-    return true
-  }
-
   private isProxyAvailable(): boolean {
-    return this.isProxyRunning() || this.metricsCache.proxyStatsAvailable
+    return this.isProxyRunning()
   }
 
   private stopProxy(): void {

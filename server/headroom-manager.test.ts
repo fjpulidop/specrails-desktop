@@ -8,6 +8,7 @@ import {
   HeadroomManager,
   getHeadroomManagedInstallPlan,
 } from './headroom-manager'
+import { getHeadroomRoutingState } from './headroom-routing'
 import type { DbInstance } from './db'
 
 const STATE_KEY = 'plugins.headroom.state'
@@ -161,7 +162,7 @@ describe('HeadroomManager', () => {
     }
   })
 
-  it('reports the proxy as running when an active route has a healthy external proxy on the configured port', async () => {
+  it('does not report an unauthenticated external endpoint as the managed proxy', async () => {
     db = initDesktopDb(':memory:')
     const fake = makeHeadroomExe()
     tempDir = fake.dir
@@ -190,7 +191,7 @@ describe('HeadroomManager', () => {
     const manager = new HeadroomManager(db, () => undefined, () => ['codex', 'claude'])
     const state = await manager.getFreshState()
 
-    expect(state.proxyRunning).toBe(true)
+    expect(state.proxyRunning).toBe(false)
     expect(state.proxyPid).toBeNull()
     expect(state.metrics.proxyStatsAvailable).toBe(true)
     expect(state.metrics.providers.codex).toMatchObject({
@@ -201,7 +202,7 @@ describe('HeadroomManager', () => {
     })
   })
 
-  it('adopts a healthy proxy on boot instead of starting a duplicate process on the same port', async () => {
+  it('fails closed instead of adopting a healthy process already on the port', async () => {
     db = initDesktopDb(':memory:')
     const fake = makeHeadroomExe()
     tempDir = fake.dir
@@ -229,10 +230,12 @@ describe('HeadroomManager', () => {
     const diagnostics = manager.diagnostics()
 
     expect(diagnostics.state).toMatchObject({
-      proxyRunning: true,
+      proxyRunning: false,
       proxyPid: null,
-      lastIssue: null,
+      activeProviders: { codex: false, claude: false },
+      lastIssue: { code: 'proxy_port_busy' },
     })
     expect(diagnostics.proxyTail).toBe('')
+    expect(getHeadroomRoutingState().activeProviders).toEqual({ codex: false, claude: false })
   })
 })
