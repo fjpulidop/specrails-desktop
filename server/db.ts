@@ -928,11 +928,6 @@ export function initDb(dbPath: string): DbInstance {
   // WAL/SHM files exist, so this covers them too.
   secureDbFile(dbPath)
 
-  // Orphan sweep: mark any running jobs as failed on startup
-  db.prepare(
-    "UPDATE jobs SET status = 'failed', finished_at = ? WHERE status = 'running'"
-  ).run(new Date().toISOString())
-
   // Orphan sweep: cancel any in-flight proposals from a previous server session
   db.prepare(
     "UPDATE proposals SET status = 'cancelled', updated_at = ? WHERE status IN ('exploring', 'refining')"

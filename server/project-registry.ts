@@ -32,7 +32,7 @@ import { LoopRunManager } from './loop-run-manager'
 import { createLoopExecutors } from './loop-executors'
 import { reconcileRailWorktrees } from './rail-isolated-launch'
 import { isRailPrDeliveryEnabled } from './rail-isolation'
-import { reconcileOrphanLoopRuns } from './loop-runs-store'
+import { listActiveLoopRuns, reconcileOrphanLoopRuns, type LoopRunRow } from './loop-runs-store'
 import type { LoopSpec } from './loop-graph'
 import type { WsMessage, TicketUpdatedMessage, RailUpdatedMessage } from './types'
 import { getRails, setRailTickets } from './rails-store'
@@ -690,12 +690,11 @@ export class ProjectRegistry {
 
     // ── Loops engine (the Loops feature) ──────────────────────────────────────
     const railLoopRuns = new Map<string, { railIndex: number; ticketIds: number[] }>()
-    // A restart kills any in-flight loop process, so reconcile orphan 'running'
-    // rows to terminal — otherwise they keep the loop un-editable (isRunning 409).
-    try {
-      const orphans = reconcileOrphanLoopRuns(db, new Date().toISOString())
-      if (orphans > 0) console.log(`[loops] reconciled ${orphans} orphan loop run(s) for ${project.slug}`)
-    } catch { /* non-fatal */ }
+    // Capture before runtime construction. The status transition is deliberately
+    // delayed until onLoopRunFinished exists so crash recovery replays ticket,
+    // rail and Jira invariants instead of bypassing them with raw SQL.
+    let orphanLoopRuns: LoopRunRow[] = []
+    try { orphanLoopRuns = listActiveLoopRuns(db, project.id) } catch { /* non-fatal */ }
     // Sweep worktrees left behind by a crashed parallel-rail fan-out (no-op +
     // no git calls when isolation was never used). Best-effort, non-blocking.
     void reconcileRailWorktrees(db, project.path)
@@ -830,7 +829,41 @@ export class ProjectRegistry {
 
     const ctx: ProjectContext = { project, db, queueManager, chatManager, setupManager, proposalManager, agentRefineManager, fileSummaryManager, specLauncherManager, ticketWatcher, browserCaptureManager, jiraSyncManager, broadcast: boundBroadcast, railJobs, loopRunManager, railLoopRuns, onLoopRunFinished, getTicketSpec, desktopDb: this._desktopDb }
     this._contexts.set(project.id, ctx)
+    this._recoverOrphanLoopRuns(project, db, railLoopRuns, onLoopRunFinished, orphanLoopRuns)
     return ctx
+  }
+
+  private _recoverOrphanLoopRuns(
+    project: ProjectRow,
+    db: DbInstance,
+    railLoopRuns: Map<string, { railIndex: number; ticketIds: number[] }>,
+    onLoopRunFinished: (runId: string, outcome: string) => void,
+    orphans: LoopRunRow[],
+  ): void {
+    if (orphans.length === 0) return
+    try {
+      const countByRail = new Map<number, number>()
+      for (const run of orphans) {
+        if (run.rail_index != null) countByRail.set(run.rail_index, (countByRail.get(run.rail_index) ?? 0) + 1)
+      }
+      const rails = getRails(db)
+      for (const run of orphans) {
+        if (run.rail_index == null) continue
+        let ticketIds = run.ticket_id == null ? [] : [run.ticket_id]
+        // One active row on a rail is scope=all and owns every assignment;
+        // multiple rows are per-ticket and use their persisted primary id.
+        if ((countByRail.get(run.rail_index) ?? 0) === 1) {
+          const rail = rails.find((candidate) => candidate.railIndex === run.rail_index)
+          if (rail && rail.ticketIds.length > 0) ticketIds = [...rail.ticketIds]
+        }
+        railLoopRuns.set(run.id, { railIndex: run.rail_index, ticketIds })
+      }
+      reconcileOrphanLoopRuns(db, new Date().toISOString())
+      for (const run of orphans) onLoopRunFinished(run.id, 'failed')
+      console.log(`[loops] reconciled ${orphans.length} orphan loop run(s) for ${project.slug}`)
+    } catch (err) {
+      console.error(`[loops] orphan reconciliation failed for ${project.slug}:`, err)
+    }
   }
 
   /** Enforce the app-wide budget through every per-project queue authority. */

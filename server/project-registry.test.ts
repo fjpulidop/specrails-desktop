@@ -64,6 +64,7 @@ vi.mock('./config', () => ({
 import { ProjectRegistry } from './project-registry'
 import { setRailTickets, getRail } from './rails-store'
 import { initDesktopDb, addProject, listProjects, getProject } from './desktop-db'
+import { createLoopRun, getLoopRun, listActiveLoopRuns } from './loop-runs-store'
 import type { DbInstance } from './db'
 import type { WsMessage } from './types'
 
@@ -773,6 +774,34 @@ describe('ProjectRegistry', () => {
       expect(readStatus()).toBe('todo')
       expect(onJobOutcome).toHaveBeenCalledWith(expect.objectContaining({ status: 'failed' }))
       expect(onRailReview).not.toHaveBeenCalled()
+    })
+
+    it('crash recovery replays loop failure through tickets, rail and Jira invariants', () => {
+      seedTicket('in_progress')
+      const { ctx, onJobOutcome } = setup()
+      setRailTickets(ctx.db, 0, [1])
+      createLoopRun(ctx.db, {
+        id: 'crash-run', projectId: ctx.project.id, loopId: 'loop-1',
+        railIndex: 0, ticketId: 1, iterationLimit: 3, startedAt: new Date().toISOString(),
+      })
+      const orphans = listActiveLoopRuns(ctx.db, ctx.project.id)
+
+      ;(registry as unknown as {
+        _recoverOrphanLoopRuns: (
+          project: typeof ctx.project,
+          db: typeof ctx.db,
+          runs: typeof ctx.railLoopRuns,
+          onFinished: typeof ctx.onLoopRunFinished,
+          orphans: typeof orphans,
+        ) => void
+      })._recoverOrphanLoopRuns(ctx.project, ctx.db, ctx.railLoopRuns, ctx.onLoopRunFinished, orphans)
+
+      expect(readStatus()).toBe('todo')
+      expect(getRail(ctx.db, 0).ticketIds).toEqual([])
+      expect(getLoopRun(ctx.db, 'crash-run')).toMatchObject({ status: 'completed', final_outcome: 'failed' })
+      expect(onJobOutcome).toHaveBeenCalledWith(expect.objectContaining({
+        ticketIds: [1], status: 'failed', jobId: 'crash-run',
+      }))
     })
   })
 

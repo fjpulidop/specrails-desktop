@@ -2490,6 +2490,41 @@ describe('QueueManager', () => {
       const jrow = db.prepare(`SELECT status FROM jobs WHERE id = 'orphan'`).get() as { status: string }
       expect(jrow.status).toBe('failed')
     })
+
+    it('captures a persisted running job before initDb can erase its accounting', () => {
+      const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'queue-crash-restore-'))
+      const dbPath = path.join(dir, 'jobs.sqlite')
+      try {
+        const beforeCrash = initDb(dbPath)
+        createJob(beforeCrash, { id: 'persisted-orphan', command: '/specrails:implement #9', started_at: new Date().toISOString() })
+        beforeCrash.prepare(
+          `UPDATE jobs SET status = 'running', total_cost_usd = 7.25, tokens_in = 222 WHERE id = 'persisted-orphan'`
+        ).run()
+        beforeCrash.close()
+
+        const afterRestart = initDb(dbPath)
+        new QueueManager(broadcast, afterRestart, [], undefined, { projectId: 'p1' })
+        const invocation = afterRestart.prepare(
+          `SELECT status, total_cost_usd, tokens_in FROM ai_invocations WHERE surface_ref_id = 'persisted-orphan'`
+        ).get() as { status: string; total_cost_usd: number; tokens_in: number } | undefined
+        expect(invocation).toMatchObject({ status: 'aborted', total_cost_usd: 7.25, tokens_in: 222 })
+        afterRestart.close()
+      } finally {
+        fs.rmSync(dir, { recursive: true, force: true })
+      }
+    })
+
+    it('replays the terminal domain callback for an orphaned job', () => {
+      const db = initDb(':memory:')
+      createJob(db, { id: 'callback-orphan', command: '/specrails:implement #4', started_at: new Date().toISOString() })
+      db.prepare(`UPDATE jobs SET status = 'running', total_cost_usd = 1.5 WHERE id = 'callback-orphan'`).run()
+      const onJobFinished = vi.fn()
+
+      new QueueManager(broadcast, db, [], undefined, { projectId: 'p1', onJobFinished })
+
+      expect(onJobFinished).toHaveBeenCalledWith('callback-orphan', 'failed', 1.5)
+      db.close()
+    })
   })
 
   describe('unkillable-job double-record guard (LOW-6)', () => {

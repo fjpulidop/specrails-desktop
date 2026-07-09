@@ -2919,6 +2919,14 @@ export class QueueManager {
     if (!this._db) return
 
     try {
+      type OrphanJob = {
+        id: string; command: string; started_at: string | null; model: string | null
+        tokens_in: number | null; tokens_out: number | null; tokens_cache_read: number | null
+        tokens_cache_create: number | null; total_cost_usd: number | null
+        total_cost_usd_estimated: number | null; num_turns: number | null
+        duration_ms: number | null; duration_api_ms: number | null; session_id: string | null
+      }
+      let orphans: OrphanJob[] = []
       // Backfill an aborted ai_invocations row for every job orphaned 'running'
       // by an UNGRACEFUL crash (no shutdown() flush ran). Each row carries
       // whatever spend the jobs row accumulated — interactive per-turn writes
@@ -2927,20 +2935,14 @@ export class QueueManager {
       // interactive session's cost is not lost from Analytics
       // (COST-ACCOUNTING-AUDIT CRIT-3 / HIGH-1, crash path). Runs BEFORE the
       // status flip so we can read the pre-fail token/cost columns.
-      if (this._projectId) {
-        try {
-          const orphans = this._db.prepare(
+      try {
+        orphans = this._db.prepare(
             `SELECT id, command, started_at, model, tokens_in, tokens_out, tokens_cache_read,
                     tokens_cache_create, total_cost_usd, total_cost_usd_estimated, num_turns,
                     duration_ms, duration_api_ms, session_id
              FROM jobs WHERE status = 'running'`
-          ).all() as Array<{
-            id: string; command: string; started_at: string | null; model: string | null
-            tokens_in: number | null; tokens_out: number | null; tokens_cache_read: number | null
-            tokens_cache_create: number | null; total_cost_usd: number | null
-            total_cost_usd_estimated: number | null; num_turns: number | null
-            duration_ms: number | null; duration_api_ms: number | null; session_id: string | null
-          }>
+          ).all() as OrphanJob[]
+        if (this._projectId) {
           const finishedAt = new Date().toISOString()
           for (const o of orphans) {
             this._recordJobInvocations({
@@ -2968,15 +2970,26 @@ export class QueueManager {
           if (orphans.length > 0) {
             this._broadcast({ type: 'spending.invalidated', projectId: this._projectId })
           }
-        } catch (err) {
-          console.error('[queue-manager] restore backfill failed:', err)
         }
+      } catch (err) {
+        console.error('[queue-manager] restore backfill failed:', err)
       }
 
       // Fail any jobs that were running when the server last shut down
       this._db.prepare(
         `UPDATE jobs SET status = 'failed', finished_at = CURRENT_TIMESTAMP WHERE status = 'running'`
       ).run()
+
+      // Replay the normal terminal callback after persistence is final. Project
+      // owners use this to release rail tickets and enqueue Jira/webhook state;
+      // bypassing it leaves a crash-recovered job inconsistent across layers.
+      for (const orphan of orphans) {
+        try {
+          this._onJobFinished?.(orphan.id, 'failed', orphan.total_cost_usd ?? undefined)
+        } catch (err) {
+          console.error(`[queue-manager] orphan outcome replay failed for ${orphan.id}: ${(err as Error).message}`)
+        }
+      }
 
       // Restore queued jobs in order (priority DESC then queue_position ASC)
       const rows = this._db.prepare(
