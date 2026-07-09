@@ -217,17 +217,21 @@ describe('transformCodexArgsForWindows', () => {
     const args = appendCodexHeadroomRelayOverride([
       'exec',
       '-c',
+      'model_provider="custom-local"',
+      '-c',
       'openai_base_url="http://127.0.0.1:8787/v1"',
       'multi\nline prompt',
     ], relay)
 
-    expect(args.slice(-2)).toEqual([
+    expect(args.slice(-4)).toEqual([
+      '-c',
+      'model_provider="openai"',
       '-c',
       `openai_base_url="${relay}/v1"`,
     ])
     const transformed = transformCodexArgsForWindows(args)
     expect(transformed.stdinPayload).toBe('multi\nline prompt')
-    expect(transformed.args.slice(-2)).toEqual(args.slice(-2))
+    expect(transformed.args.slice(-4)).toEqual(args.slice(-4))
   })
 
   it('keeps single-line exec prompt as positional argv', () => {
@@ -355,12 +359,28 @@ describe('spawnCodex Headroom relay integration', () => {
     })
     vi.mocked(spawnCli).mockImplementationOnce(() => child)
 
-    const originalArgs = ['exec', '-c', 'openai_base_url="http://127.0.0.1:8787/v1"', 'prompt']
+    const originalArgs = [
+      'exec',
+      '-c',
+      'model_provider="custom-local"',
+      '-c',
+      'openai_base_url="http://127.0.0.1:8787/v1"',
+      'prompt',
+    ]
     spawnCodex(originalArgs, { env: { PATH: '/bin', HEADROOM_PORT: '8787' } })
     const spawnedArgs = vi.mocked(spawnCli).mock.calls.at(-1)![1]
 
-    expect(originalArgs).toEqual(['exec', '-c', 'openai_base_url="http://127.0.0.1:8787/v1"', 'prompt'])
-    expect(spawnedArgs.slice(-2)).toEqual([
+    expect(originalArgs).toEqual([
+      'exec',
+      '-c',
+      'model_provider="custom-local"',
+      '-c',
+      'openai_base_url="http://127.0.0.1:8787/v1"',
+      'prompt',
+    ])
+    expect(spawnedArgs.slice(-4)).toEqual([
+      '-c',
+      'model_provider="openai"',
       '-c',
       `openai_base_url="${relay}/v1"`,
     ])

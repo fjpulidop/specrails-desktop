@@ -46,15 +46,15 @@ interface WindowsTransform {
 }
 
 /**
- * Codex's ChatGPT/WebSocket transport ignores OPENAI_BASE_URL unless its model
- * provider opts into WebSockets. The top-level config override is authoritative
- * for that built-in transport, so append it last (later -c values win) as one
- * argv token. Callers retain their original args, keeping the runtime relay
- * token out of their command logging/diagnostics.
+ * Codex's configured `model_provider` owns the request URL. Overriding only
+ * `openai_base_url` is therefore insufficient: a user-level custom provider can
+ * keep its own `model_providers.<name>.base_url` and bypass the trusted relay.
+ * Pin the built-in OpenAI provider AND its base URL as the final config values
+ * (later `-c` values win). Callers retain their original args.
  */
 export function appendCodexHeadroomRelayOverride(args: string[], relayBaseUrl: string): string[] {
   const value = `openai_base_url=${JSON.stringify(`${relayBaseUrl}/v1`)}`
-  return [...args, '-c', value]
+  return [...args, '-c', 'model_provider="openai"', '-c', value]
 }
 
 export function transformClaudeArgsForWindows(args: string[]): WindowsTransform {
