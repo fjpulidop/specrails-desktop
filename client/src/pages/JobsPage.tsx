@@ -14,6 +14,16 @@ import type { JobSummary } from '../types'
 import { getApiBase } from '../lib/api'
 import { useDesktop } from '../hooks/useDesktop'
 
+const PROPOSAL_STATUS_LABEL_KEYS: Record<string, string> = {
+  input: 'page.proposal.status.input',
+  exploring: 'page.proposal.status.exploring',
+  review: 'page.proposal.status.review',
+  refining: 'page.proposal.status.refining',
+  creating_issue: 'page.proposal.status.creatingIssue',
+  created: 'page.proposal.status.created',
+  cancelled: 'page.proposal.status.cancelled',
+}
+
 export default function JobsPage() {
   const { t } = useTranslation('jobs')
   const { activeProjectId } = useDesktop()
@@ -115,7 +125,7 @@ export default function JobsPage() {
                 <div className="flex items-center gap-2">
                   <DialogTitle className="flex-1 min-w-0">{t('page.proposal.title')}</DialogTitle>
                   <Badge variant={detailProposal.status === 'created' ? 'success' : detailProposal.status === 'cancelled' ? 'destructive' : 'secondary'}>
-                    {detailProposal.status}
+                    {t(PROPOSAL_STATUS_LABEL_KEYS[detailProposal.status] ?? 'page.proposal.status.unknown', { status: detailProposal.status })}
                   </Badge>
                 </div>
               </DialogHeader>

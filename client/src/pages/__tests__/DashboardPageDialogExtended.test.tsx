@@ -150,6 +150,15 @@ describe('JobsPage - proposal dialog content', () => {
     })
   })
 
+  it('renders a translated proposal status instead of the raw backend enum', async () => {
+    setupWithProposal({ status: 'creating_issue' })
+    render(<JobsPage />)
+    await openProposalDialog()
+
+    expect(await screen.findByText('Creating issue')).toBeInTheDocument()
+    expect(screen.queryByText('creating_issue')).not.toBeInTheDocument()
+  })
+
   it('renders result_markdown when present', async () => {
     setupWithProposal({ result_markdown: 'Proposal Result Content' })
     render(<JobsPage />)
@@ -253,7 +262,7 @@ describe('JobsPage - proposal dialog content', () => {
     await openProposalDialog()
 
     await waitFor(() => {
-      expect(screen.getByText('created')).toBeInTheDocument()
+      expect(screen.getByText('Created')).toBeInTheDocument()
     })
   })
 
@@ -263,7 +272,7 @@ describe('JobsPage - proposal dialog content', () => {
     await openProposalDialog()
 
     await waitFor(() => {
-      expect(screen.getByText('cancelled')).toBeInTheDocument()
+      expect(screen.getByText('Cancelled')).toBeInTheDocument()
     })
   })
 

@@ -35,7 +35,17 @@
     "proposal": {
       "title": "提案",
       "noContent": "暂无提案内容。",
-      "githubIssue": "GitHub Issue："
+      "githubIssue": "GitHub Issue：",
+      "status": {
+        "input": "等待输入",
+        "exploring": "探索中",
+        "review": "等待审核",
+        "refining": "优化中",
+        "creatingIssue": "正在创建议题",
+        "created": "已创建",
+        "cancelled": "已取消",
+        "unknown": "未知状态：{{status}}"
+      }
     }
   },
   "detail": {

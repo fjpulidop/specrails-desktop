@@ -35,7 +35,17 @@
     "proposal": {
       "title": "提案",
       "noContent": "提案の内容はまだありません。",
-      "githubIssue": "GitHub Issue:"
+      "githubIssue": "GitHub Issue:",
+      "status": {
+        "input": "入力待ち",
+        "exploring": "調査中",
+        "review": "レビュー待ち",
+        "refining": "改善中",
+        "creatingIssue": "Issue を作成中",
+        "created": "作成済み",
+        "cancelled": "キャンセル済み",
+        "unknown": "不明なステータス: {{status}}"
+      }
     }
   },
   "detail": {

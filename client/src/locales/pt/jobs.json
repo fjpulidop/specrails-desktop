@@ -35,7 +35,17 @@
     "proposal": {
       "title": "Proposta",
       "noContent": "Ainda não há conteúdo da proposta.",
-      "githubIssue": "Issue do GitHub:"
+      "githubIssue": "Issue do GitHub:",
+      "status": {
+        "input": "A aguardar dados",
+        "exploring": "A explorar",
+        "review": "Pronta para revisão",
+        "refining": "A refinar",
+        "creatingIssue": "A criar issue",
+        "created": "Criada",
+        "cancelled": "Cancelada",
+        "unknown": "Estado desconhecido: {{status}}"
+      }
     }
   },
   "detail": {
