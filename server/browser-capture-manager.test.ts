@@ -130,7 +130,14 @@ function makeWs(): BrowserWsClient & { sent: Array<string | Buffer>; closed: boo
   } as BrowserWsClient & { sent: Array<string | Buffer>; closed: boolean }
 }
 
-function makeManager(opts: { launcher?: ContextLauncher; db?: DbInstance; attachments?: ReturnType<typeof makeAttachments> } = {}) {
+function makeManager(opts: {
+  launcher?: ContextLauncher
+  db?: DbInstance
+  attachments?: ReturnType<typeof makeAttachments>
+  now?: () => number
+  sessionIdleTtlMs?: number
+  sessionSweepIntervalMs?: number
+} = {}) {
   const db = opts.db ?? initDb(':memory:')
   const ctx = new FakeContext()
   const launcher: ContextLauncher = opts.launcher ?? vi.fn(async () => ctx)
@@ -145,6 +152,9 @@ function makeManager(opts: { launcher?: ContextLauncher; db?: DbInstance; attach
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     attachments: attachments as any,
     profileDir: '/tmp/profile',
+    now: opts.now,
+    sessionIdleTtlMs: opts.sessionIdleTtlMs,
+    sessionSweepIntervalMs: opts.sessionSweepIntervalMs,
   })
   return { mgr, db, ctx, launcher, attachments, broadcast }
 }
@@ -239,6 +249,70 @@ describe('BrowserCaptureManager', () => {
     const { mgr } = makeManager({ db })
     await mgr.create(); await mgr.create(); await mgr.create(); await mgr.create()
     await expect(mgr.create()).rejects.toBeInstanceOf(BrowserLimitExceededError)
+  })
+
+  it('automatically reaps an orphan after the server-side idle TTL', async () => {
+    vi.useFakeTimers()
+    let now = 1_000
+    try {
+      const { mgr, ctx } = makeManager({
+        db,
+        now: () => now,
+        sessionIdleTtlMs: 1_000,
+        sessionSweepIntervalMs: 100,
+      })
+      await mgr.create()
+      now += 1_001
+
+      await vi.advanceTimersByTimeAsync(100)
+
+      expect(mgr.sessionCount()).toBe(0)
+      expect(ctx.pages[0].closed).toBe(true)
+      await mgr.shutdown()
+    } finally {
+      vi.useRealTimers()
+    }
+  })
+
+  it('does not reap a connected session and gives it a fresh TTL after detach', async () => {
+    let now = 1_000
+    const { mgr } = makeManager({ db, now: () => now, sessionIdleTtlMs: 1_000 })
+    const session = await mgr.create()
+    const ws = makeWs()
+    await mgr.attach(session.id, ws)
+    now += 5_000
+    expect(await mgr.sweepIdleSessions()).toBe(0)
+
+    mgr.detach(session.id, ws)
+    expect(await mgr.sweepIdleSessions()).toBe(0)
+    now += 1_001
+    expect(await mgr.sweepIdleSessions()).toBe(1)
+    expect(mgr.sessionCount()).toBe(0)
+    await mgr.shutdown()
+  })
+
+  it('does not reap a session while a page-dependent capture is in flight', async () => {
+    let now = 1_000
+    const { mgr, ctx } = makeManager({ db, now: () => now, sessionIdleTtlMs: 1_000 })
+    const session = await mgr.create()
+    let releaseScreenshot!: () => void
+    const screenshotGate = new Promise<void>((resolve) => { releaseScreenshot = resolve })
+    ctx.pages[0].screenshotClip = async () => {
+      await screenshotGate
+      return Buffer.from('PNGDATA')
+    }
+
+    const capture = mgr.capture(session.id, { x: 0, y: 0, width: 10, height: 10 }, 'pending-1')
+    await Promise.resolve()
+    now += 1_001
+    expect(await mgr.sweepIdleSessions()).toBe(0)
+    expect(ctx.pages[0].closed).toBe(false)
+
+    releaseScreenshot()
+    await capture
+    now += 1_001
+    expect(await mgr.sweepIdleSessions()).toBe(1)
+    await mgr.shutdown()
   })
 
   it('does not let concurrent create() calls race past the cap (BUG-BROWSER-02)', async () => {

@@ -89,11 +89,23 @@ export function useBrowserCaptureSession(opts: {
   const { projectId, open, initialUrl } = opts
   const canvasRef = useRef<HTMLCanvasElement | null>(null)
   const wsRef = useRef<WebSocket | null>(null)
-  const sessionIdRef = useRef<string | null>(null)
-  // True while a capture POST is awaiting. The effect cleanup must NOT kill the
+  const sessionRef = useRef<{ id: string; projectId: string } | null>(null)
+  // Count capture POSTs currently awaiting. The effect cleanup must NOT kill the
   // session out from under an in-flight capture (a transient effect re-run /
   // StrictMode double-invoke would otherwise 404 the capture).
-  const capturingRef = useRef(false)
+  const capturesInFlightRef = useRef(0)
+  // A project switch/unmount can happen while capture is awaiting. Retain every
+  // exact owner/session pair and flush it when the final capture settles.
+  const pendingKillsRef = useRef(new Map<string, { sessionId: string; projectId: string }>())
+
+  const flushPendingKills = useCallback(() => {
+    if (capturesInFlightRef.current !== 0 || pendingKillsRef.current.size === 0) return
+    const pending = [...pendingKillsRef.current.values()]
+    pendingKillsRef.current.clear()
+    for (const session of pending) {
+      void killBrowserSession(session.projectId, session.sessionId)
+    }
+  }, [])
 
   const [state, setState] = useState<BrowserSessionState>({
     status: 'connecting',
@@ -110,6 +122,7 @@ export function useBrowserCaptureSession(opts: {
   useEffect(() => {
     if (!open || !projectId) return
     let cancelled = false
+    let ownedSessionId: string | null = null
 
     setState((s) => ({ ...s, status: 'connecting', errorMsg: null, popup: null }))
 
@@ -134,12 +147,13 @@ export function useBrowserCaptureSession(opts: {
 
     ;(async () => {
       try {
-        const session = await createBrowserSession(initialUrl)
+        const session = await createBrowserSession(projectId, initialUrl)
         if (cancelled) {
-          void killBrowserSession(session.id)
+          void killBrowserSession(projectId, session.id)
           return
         }
-        sessionIdRef.current = session.id
+        ownedSessionId = session.id
+        sessionRef.current = { id: session.id, projectId }
         setState((s) => ({
           ...s,
           url: session.url,
@@ -204,14 +218,22 @@ export function useBrowserCaptureSession(opts: {
         try { ws.close() } catch { /* ignore */ }
       }
       wsRef.current = null
-      const sid = sessionIdRef.current
-      sessionIdRef.current = null
+      const sid = ownedSessionId
+      if (sid && sessionRef.current?.id === sid && sessionRef.current.projectId === projectId) {
+        sessionRef.current = null
+      }
       // Never kill a session with a capture in flight — a transient re-run/unmount
-      // would otherwise make the awaiting POST hit a dead session (404). The server
-      // sweeps idle sessions, so deferring this kill is safe.
-      if (sid && !capturingRef.current) void killBrowserSession(sid)
+      // would otherwise make the awaiting POST hit a dead session (404). The
+      // capture finally block performs the deferred kill deterministically.
+      if (sid) {
+        if (capturesInFlightRef.current > 0) {
+          pendingKillsRef.current.set(`${projectId}\0${sid}`, { sessionId: sid, projectId })
+        } else {
+          void killBrowserSession(projectId, sid)
+        }
+      }
     }
-  }, [open, projectId, initialUrl])
+  }, [open, projectId, initialUrl, flushPendingKills])
 
   const forwardInput = useCallback((event: BrowserInputEvent) => {
     const ws = wsRef.current
@@ -221,10 +243,11 @@ export function useBrowserCaptureSession(opts: {
   }, [])
 
   const navigate = useCallback(async (action: 'goto' | 'back' | 'forward' | 'reload', url?: string) => {
-    const sid = sessionIdRef.current
-    if (!sid) return
+    const session = sessionRef.current
+    if (!session) return
     try {
-      const result = await navigateBrowser(sid, action, url)
+      const result = await navigateBrowser(session.projectId, session.id, action, url)
+      if (sessionRef.current?.id !== session.id || sessionRef.current.projectId !== session.projectId) return
       setState((s) => ({ ...s, url: result.url, title: result.title }))
     } catch {
       /* nav failures are non-fatal */
@@ -232,31 +255,33 @@ export function useBrowserCaptureSession(opts: {
   }, [])
 
   const capture = useCallback(async (rect: CaptureRect, pendingSpecId: string, opts?: { captureNetwork?: boolean }): Promise<CaptureResult> => {
-    const sid = sessionIdRef.current
-    if (!sid) throw new Error('No active browser session')
-    capturingRef.current = true
+    const session = sessionRef.current
+    if (!session) throw new Error('No active browser session')
+    capturesInFlightRef.current += 1
     try {
-      return await captureBrowserRegion(sid, rect, pendingSpecId, opts)
+      return await captureBrowserRegion(session.projectId, session.id, rect, pendingSpecId, opts)
     } finally {
-      capturingRef.current = false
+      capturesInFlightRef.current = Math.max(0, capturesInFlightRef.current - 1)
+      flushPendingKills()
     }
-  }, [])
+  }, [flushPendingKills])
 
   const captureBreakpoints = useCallback(async (rect: CaptureRect, anchorPoint: { x: number; y: number }, pendingSpecId: string, breakpoints?: Record<string, { width: number; height: number }>): Promise<CaptureResult> => {
-    const sid = sessionIdRef.current
-    if (!sid) throw new Error('No active browser session')
-    capturingRef.current = true
+    const session = sessionRef.current
+    if (!session) throw new Error('No active browser session')
+    capturesInFlightRef.current += 1
     try {
-      return await captureBrowserBreakpoints(sid, rect, anchorPoint, pendingSpecId, breakpoints)
+      return await captureBrowserBreakpoints(session.projectId, session.id, rect, anchorPoint, pendingSpecId, breakpoints)
     } finally {
-      capturingRef.current = false
+      capturesInFlightRef.current = Math.max(0, capturesInFlightRef.current - 1)
+      flushPendingKills()
     }
-  }, [])
+  }, [flushPendingKills])
 
   const clipboard = useCallback(async (action: 'copy' | 'paste' | 'cut', text?: string): Promise<{ text: string }> => {
-    const sid = sessionIdRef.current
-    if (!sid) return { text: '' }
-    return browserClipboard(sid, action, text)
+    const session = sessionRef.current
+    if (!session) return { text: '' }
+    return browserClipboard(session.projectId, session.id, action, text)
   }, [])
 
   const setViewport = useCallback((width: number, height: number) => {
@@ -278,18 +303,18 @@ export function useBrowserCaptureSession(opts: {
   }, [])
 
   const navigateElement = useCallback(async (selector: string, direction: 'parent' | 'child' | 'self'): Promise<ElementProbe | null> => {
-    const sid = sessionIdRef.current
-    if (!sid) return null
-    return navigateBrowserElement(sid, selector, direction)
+    const session = sessionRef.current
+    if (!session) return null
+    return navigateBrowserElement(session.projectId, session.id, selector, direction)
   }, [])
 
   const setPopupView = useCallback((target: 'root' | 'popup') => {
-    const sid = sessionIdRef.current
-    if (!sid) return
+    const session = sessionRef.current
+    if (!session) return
     // Optimistic flip so the bar reacts instantly; the server's `popup` broadcast
     // is authoritative and reconciles the state right after.
     setState((s) => (s.popup ? { ...s, popup: { ...s.popup, active: target === 'popup' } } : s))
-    void setBrowserPopupView(sid, target)
+    void setBrowserPopupView(session.projectId, session.id, target)
   }, [])
 
   return {
