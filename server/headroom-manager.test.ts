@@ -11,6 +11,7 @@ import {
 import { getHeadroomRoutingState } from './headroom-routing'
 import type { DbInstance } from './db'
 import { EventEmitter } from 'events'
+import { PassThrough } from 'stream'
 import type { ChildProcess } from 'child_process'
 
 const STATE_KEY = 'plugins.headroom.state'
@@ -25,6 +26,29 @@ type HeadroomManagerTestHarness = {
   runCommandCapture: () => Promise<{ code: number; output: string }>
   readHeadroomVersion: () => string
   detectProviderRoutes: () => Record<'codex' | 'claude', boolean>
+  ensureProxy: () => Promise<{ ok: boolean; issue?: { code: string } }>
+  probeProxyHealthy: (port: number) => Promise<boolean>
+  waitForProxyHealthy: (
+    port: number,
+    timeoutMs: number,
+    isCurrent?: () => boolean,
+  ) => Promise<boolean>
+  refreshMetrics: () => Promise<void>
+  refreshMetricsInBackground: () => void
+  proxy: ChildProcess | null
+  proxyTrusted: boolean
+}
+
+function makeProxyChild(pid = 4242): ChildProcess {
+  const child = new EventEmitter() as ChildProcess
+  Object.assign(child, {
+    pid,
+    exitCode: null,
+    signalCode: null,
+    stdout: new PassThrough(),
+    stderr: new PassThrough(),
+  })
+  return child
 }
 
 function makeHeadroomExe(): { dir: string; exe: string } {
@@ -241,6 +265,234 @@ describe('HeadroomManager', () => {
     expect(getHeadroomRoutingState().activeProviders).toEqual({ codex: false, claude: false })
   })
 
+  it('opens persisted routing only after verification and closes it when the owned proxy exits', async () => {
+    db = initDesktopDb(':memory:')
+    const fake = makeHeadroomExe()
+    tempDir = fake.dir
+    process.env.SPECRAILS_REGISTRY_HOME = tempDir
+    setDesktopSetting(db, STATE_KEY, JSON.stringify({
+      installed: true,
+      version: '0.30.0',
+      executablePath: fake.exe,
+      installSource: 'managed',
+      port: 8787,
+      activeProviders: { codex: true, claude: false },
+      detectedRoutes: { codex: true, claude: false },
+    }))
+
+    const child = makeProxyChild()
+    const spawnProxy = vi.fn(() => child)
+    let releaseHealth!: (healthy: boolean) => void
+    const healthGate = new Promise<boolean>((resolve) => { releaseHealth = resolve })
+    const manager = new HeadroomManager(db, () => undefined, () => ['codex'], {
+      spawnProxy: spawnProxy as unknown as typeof import('child_process').spawn,
+      ownsProxyPort: () => true,
+    })
+    const internals = manager as unknown as HeadroomManagerTestHarness
+    internals.refreshMetricsInBackground = () => undefined
+    internals.refreshMetrics = async () => undefined
+    internals.probeProxyHealthy = async () => false
+    internals.waitForProxyHealthy = async () => healthGate
+
+    // Persisted provider activation is a preference, not proof that a trusted
+    // runtime exists. Constructor and candidate startup must remain fail-closed.
+    expect(getHeadroomRoutingState().activeProviders).toEqual({ codex: false, claude: false })
+    const boot = manager.startActiveProxyOnBoot()
+    await vi.waitFor(() => expect(spawnProxy).toHaveBeenCalledTimes(1))
+    expect(getHeadroomRoutingState().activeProviders).toEqual({ codex: false, claude: false })
+
+    releaseHealth(true)
+    await boot
+    expect(internals.proxyTrusted).toBe(true)
+    expect(getHeadroomRoutingState().activeProviders).toEqual({ codex: true, claude: false })
+
+    Object.assign(child, { exitCode: 1 })
+    child.emit('close', 1, null)
+    expect(internals.proxyTrusted).toBe(false)
+    expect(getHeadroomRoutingState().activeProviders).toEqual({ codex: false, claude: false })
+    // The crash changes runtime trust only; the user's persisted preference is
+    // retained for a future explicit retry or clean boot.
+    expect(manager.getState().activeProviders).toEqual({ codex: true, claude: false })
+  })
+
+  it('rejects an external livez responder that wins the bind race', async () => {
+    db = initDesktopDb(':memory:')
+    const fake = makeHeadroomExe()
+    tempDir = fake.dir
+    process.env.SPECRAILS_REGISTRY_HOME = tempDir
+    setDesktopSetting(db, STATE_KEY, JSON.stringify({
+      installed: true,
+      version: '0.30.0',
+      executablePath: fake.exe,
+      installSource: 'managed',
+      port: 8787,
+      activeProviders: { codex: false, claude: false },
+      detectedRoutes: { codex: false, claude: false },
+    }))
+
+    const child = makeProxyChild()
+    const spawnProxy = vi.fn(() => child)
+    const ownsProxyPort = vi.fn(() => false)
+    const killTree = vi.fn((_pid: number, signal: NodeJS.Signals, callback?: () => void) => {
+      callback?.()
+      Object.assign(child, { signalCode: signal })
+      child.emit('close', null, signal)
+    })
+    const manager = new HeadroomManager(db, () => undefined, () => ['codex'], {
+      spawnProxy: spawnProxy as unknown as typeof import('child_process').spawn,
+      ownsProxyPort,
+      killTree: killTree as unknown as typeof import('./util/win-spawn').treeKillSafe,
+    })
+    const internals = manager as unknown as HeadroomManagerTestHarness
+    internals.refreshMetricsInBackground = () => undefined
+    internals.probeProxyHealthy = async () => false
+    vi.spyOn(globalThis, 'fetch').mockResolvedValue(new Response(JSON.stringify({
+      service: 'headroom-proxy',
+      status: 'healthy',
+    }), { status: 200 }))
+
+    const result = await internals.ensureProxy()
+
+    expect(result.ok).toBe(false)
+    expect(result.issue?.code).toBe('proxy_port_busy')
+    expect(spawnProxy).toHaveBeenCalledTimes(1)
+    expect(ownsProxyPort).toHaveBeenCalledWith(4242, 8787)
+    expect(killTree).toHaveBeenCalledWith(4242, 'SIGTERM', expect.any(Function))
+    expect(internals.proxy).toBeNull()
+  })
+
+  it('times out a local health endpoint that accepts but never responds', async () => {
+    vi.useFakeTimers()
+    try {
+      db = initDesktopDb(':memory:')
+      const manager = new HeadroomManager(db, () => undefined, () => ['codex'])
+      const internals = manager as unknown as HeadroomManagerTestHarness
+      let requestSignal: AbortSignal | null = null
+      vi.spyOn(globalThis, 'fetch').mockImplementation((_input, init) => new Promise<Response>((_resolve, reject) => {
+        requestSignal = init?.signal ?? null
+        requestSignal?.addEventListener('abort', () => reject(new Error('aborted')), { once: true })
+      }))
+
+      const pending = internals.probeProxyHealthy(8787)
+      await Promise.resolve()
+      expect(requestSignal?.aborted).toBe(false)
+
+      await vi.advanceTimersByTimeAsync(751)
+
+      expect(await pending).toBe(false)
+      expect(requestSignal?.aborted).toBe(true)
+    } finally {
+      vi.useRealTimers()
+    }
+  })
+
+  it('does not publish concurrent activation while the spawned proxy is still a candidate', async () => {
+    db = initDesktopDb(':memory:')
+    const fake = makeHeadroomExe()
+    tempDir = fake.dir
+    process.env.SPECRAILS_REGISTRY_HOME = tempDir
+    setDesktopSetting(db, STATE_KEY, JSON.stringify({
+      installed: true,
+      version: '0.30.0',
+      executablePath: fake.exe,
+      installSource: 'managed',
+      port: 8787,
+      activeProviders: { codex: false, claude: false },
+      detectedRoutes: { codex: false, claude: false },
+    }))
+
+    const child = makeProxyChild()
+    const spawnProxy = vi.fn(() => child)
+    const ownsProxyPort = vi.fn(() => true)
+    let releaseHealth!: (healthy: boolean) => void
+    const healthGate = new Promise<boolean>((resolve) => { releaseHealth = resolve })
+    const manager = new HeadroomManager(db, () => undefined, () => ['codex', 'claude'], {
+      spawnProxy: spawnProxy as unknown as typeof import('child_process').spawn,
+      ownsProxyPort,
+    })
+    const internals = manager as unknown as HeadroomManagerTestHarness
+    internals.refreshMetricsInBackground = () => undefined
+    internals.refreshMetrics = async () => undefined
+    internals.waitForProxyHealthy = async () => healthGate
+    internals.probeProxyHealthy = vi.fn(async () => false)
+
+    const codex = manager.activate('codex')
+    let codexSettled = false
+    void codex.then(() => { codexSettled = true })
+    await vi.waitFor(() => expect(spawnProxy).toHaveBeenCalledTimes(1))
+
+    // The second activation arrives after spawn, while health/ownership are
+    // still unverified. It must join the candidate start rather than treating
+    // the mere existence of a child process as successful activation.
+    const claude = manager.activate('claude')
+    let claudeSettled = false
+    void claude.then(() => { claudeSettled = true })
+    await new Promise((resolve) => setTimeout(resolve, 0))
+
+    expect(internals.probeProxyHealthy).toHaveBeenCalledTimes(1)
+    expect(codexSettled).toBe(false)
+    expect(claudeSettled).toBe(false)
+    expect(manager.getState().activeProviders).toEqual({ codex: false, claude: false })
+    expect(getHeadroomRoutingState().activeProviders).toEqual({ codex: false, claude: false })
+
+    releaseHealth(true)
+    const [codexResult, claudeResult] = await Promise.all([codex, claude])
+
+    expect(codexResult.ok).toBe(true)
+    expect(claudeResult.ok).toBe(true)
+    expect(spawnProxy).toHaveBeenCalledTimes(1)
+    expect(internals.proxy).toBe(child)
+    expect(manager.getState().activeProviders).toEqual({ codex: true, claude: true })
+  })
+
+  it('does not resurrect a proxy when shutdown invalidates an in-flight start', async () => {
+    db = initDesktopDb(':memory:')
+    const fake = makeHeadroomExe()
+    tempDir = fake.dir
+    process.env.SPECRAILS_REGISTRY_HOME = tempDir
+    setDesktopSetting(db, STATE_KEY, JSON.stringify({
+      installed: true,
+      version: '0.30.0',
+      executablePath: fake.exe,
+      installSource: 'managed',
+      port: 8787,
+      activeProviders: { codex: false, claude: false },
+      detectedRoutes: { codex: false, claude: false },
+    }))
+
+    const child = makeProxyChild()
+    const spawnProxy = vi.fn(() => child)
+    const killTree = vi.fn((_pid: number, signal: NodeJS.Signals, callback?: () => void) => {
+      callback?.()
+      Object.assign(child, { signalCode: signal })
+      child.emit('close', null, signal)
+    })
+    let releaseHealth!: (healthy: boolean) => void
+    const healthGate = new Promise<boolean>((resolve) => { releaseHealth = resolve })
+    const manager = new HeadroomManager(db, () => undefined, () => ['codex'], {
+      spawnProxy: spawnProxy as unknown as typeof import('child_process').spawn,
+      ownsProxyPort: () => true,
+      killTree: killTree as unknown as typeof import('./util/win-spawn').treeKillSafe,
+    })
+    const internals = manager as unknown as HeadroomManagerTestHarness
+    internals.refreshMetricsInBackground = () => undefined
+    internals.refreshMetrics = async () => undefined
+    internals.probeProxyHealthy = async () => false
+    internals.waitForProxyHealthy = async () => healthGate
+
+    const activation = manager.activate('codex')
+    await vi.waitFor(() => expect(spawnProxy).toHaveBeenCalledTimes(1))
+    await manager.shutdown()
+    releaseHealth(true)
+
+    const result = await activation
+    expect(result.ok).toBe(false)
+    expect(killTree).toHaveBeenCalledTimes(1)
+    expect(internals.proxy).toBeNull()
+    expect(manager.getState().activeProviders).toEqual({ codex: false, claude: false })
+    expect(getHeadroomRoutingState().activeProviders).toEqual({ codex: false, claude: false })
+  })
+
   it('absorbs an asynchronous proxy spawn error instead of crashing the process', async () => {
     db = initDesktopDb(':memory:')
     const child = new EventEmitter() as ChildProcess
@@ -313,10 +565,16 @@ describe('HeadroomManager', () => {
       title: 'busy',
       guidance: 'choose another port',
     }
+    const restoredChild = makeProxyChild()
+    const internals = manager as unknown as HeadroomManagerTestHarness
     const ensure = vi
       .spyOn(manager as unknown as { ensureProxy: () => Promise<unknown> }, 'ensureProxy')
       .mockResolvedValueOnce({ ok: false, state: manager.getState(), issue: busy })
-      .mockResolvedValueOnce({ ok: true, state: manager.getState() })
+      .mockImplementationOnce(async () => {
+        internals.proxy = restoredChild
+        internals.proxyTrusted = true
+        return { ok: true, state: manager.getState() }
+      })
 
     const result = await manager.setPort(9999)
 
