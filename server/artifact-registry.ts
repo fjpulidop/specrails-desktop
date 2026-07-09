@@ -36,6 +36,7 @@ import {
 } from 'fs'
 import os from 'os'
 import path from 'path'
+import { isDeepStrictEqual } from 'util'
 
 /** Registry schema version. A reader that sees a higher value MUST treat all
  *  entries as absent (legacy fallback), never mis-parse. */
@@ -711,18 +712,25 @@ export function removeRegistryEntry(repoPath: string, home?: string): void {
 export function restoreRegistryEntry(
   repoPath: string,
   previousEntry: ProjectEntry | undefined,
+  expectedCurrentEntry: ProjectEntry,
   home?: string,
-): void {
+): boolean {
   const canon = canonicalizeRepoPath(repoPath)
   const key = normalizeKey(canon)
-  withFileLock(home, () => {
+  return withFileLock(home, () => {
     const reg = readRegistryOrEmpty(home)
+    // Hydration happens after the mirror lock is released. If core or another
+    // desktop process updated this repo meanwhile, that newer entry is no
+    // longer our mutation to undo. Leave it intact instead of restoring stale
+    // state over a lock-respecting concurrent writer.
+    if (!isDeepStrictEqual(reg.projects[key], expectedCurrentEntry)) return false
     if (previousEntry) reg.projects[key] = previousEntry
     else delete reg.projects[key]
     reg.schemaVersion = REGISTRY_SCHEMA_VERSION
     reg.generator = 'specrails-desktop'
     reg.updatedAt = new Date().toISOString()
     atomicWrite(registryPath(home), JSON.stringify(reg, null, 2) + '\n')
+    return true
   })
 }
 

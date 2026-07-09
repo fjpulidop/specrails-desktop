@@ -202,6 +202,7 @@ export class ProjectRegistry {
   }): ProjectContext {
     const row = addProjectToDesktopDb(this._desktopDb, opts)
     let previousRegistryEntry: ProjectEntry | undefined
+    let mirroredRegistryEntry: ProjectEntry | undefined
     let registryMirrored = false
     // Mirror the new project into the shared artifact registry so specrails-core
     // resolves its relocated artifacts. Wrapped so a registry write failure never
@@ -215,6 +216,7 @@ export class ProjectRegistry {
         desktopProjectId: row.id,
       })
       previousRegistryEntry = mutation.previousEntry
+      mirroredRegistryEntry = mutation.entry
       registryMirrored = true
     } catch (err) {
       console.error('[project-registry] registry mirror failed (non-fatal):', err)
@@ -232,8 +234,8 @@ export class ProjectRegistry {
       // only a successful mirror and restore that entry verbatim; deleting it
       // would strand core's relocated artifacts. A fresh mirror has no prior
       // entry, so the same rollback removes the newly-created projection.
-      if (registryMirrored) {
-        try { restoreRegistryEntry(row.path, previousRegistryEntry) } catch { /* best effort */ }
+      if (registryMirrored && mirroredRegistryEntry) {
+        try { restoreRegistryEntry(row.path, previousRegistryEntry, mirroredRegistryEntry) } catch { /* best effort */ }
       }
       try { removeProjectFromDesktopDb(this._desktopDb, row.id) } catch { /* best effort */ }
       throw err
