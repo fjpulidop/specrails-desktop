@@ -10,10 +10,11 @@ import { createLoopRun } from './loop-runs-store'
 import { createPrDelivery, getActivePrDeliveryByRail, getPrDelivery, transitionDecision, type CreatePrDeliveryInput } from './rail-pr-store'
 import type { LoopGraph } from './loop-graph'
 
-const { mockExecRun, mockRepoStatus, mockLaunchIsolated } = vi.hoisted(() => ({
+const { mockExecRun, mockRepoStatus, mockLaunchIsolated, mockCommitWorktreeAndVerify } = vi.hoisted(() => ({
   mockExecRun: vi.fn(),
   mockRepoStatus: vi.fn(),
   mockLaunchIsolated: vi.fn(),
+  mockCommitWorktreeAndVerify: vi.fn(),
 }))
 vi.mock('./pr-publisher', async (importActual) => ({
   ...(await (importActual as () => Promise<Record<string, unknown>>)()),
@@ -27,6 +28,7 @@ vi.mock('./pr-publisher', async (importActual) => ({
 vi.mock('./worktree-manager', async (importActual) => ({
   ...(await (importActual as () => Promise<Record<string, unknown>>)()),
   repoIsolationStatus: mockRepoStatus,
+  commitWorktreeAndVerify: mockCommitWorktreeAndVerify,
 }))
 vi.mock('./rail-isolated-launch', async (importActual) => ({
   ...(await (importActual as () => Promise<Record<string, unknown>>)()),
@@ -36,6 +38,7 @@ vi.mock('./rail-isolated-launch', async (importActual) => ({
 beforeEach(() => {
   mockRepoStatus.mockReset().mockResolvedValue('no-git')
   mockLaunchIsolated.mockReset()
+  mockCommitWorktreeAndVerify.mockReset().mockResolvedValue({ staged: true, committed: true, clean: true, dirty: [] })
 })
 
 function appWith(
