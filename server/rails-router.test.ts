@@ -1335,11 +1335,25 @@ describe('rails-router DELETE /:railIndex', () => {
     expect((await request(appWith(db)).delete('/rails/-1')).status).toBe(400)
   })
 
-  it('409 rail_not_empty when the rail still holds tickets', async () => {
+  it('atomically releases ticket assignments when deleting a non-empty rail', async () => {
     setRailTickets(db, 1, [5])
     const res = await request(appWith(db)).delete('/rails/1')
-    expect(res.status).toBe(409)
-    expect(res.body.error).toBe('rail_not_empty')
+    expect(res.status).toBe(200)
+    expect(getRail(db, 1).ticketIds).toEqual([])
+    expect((await request(appWith(db)).get('/rails')).body.rails.map((r: { railIndex: number }) => r.railIndex))
+      .toEqual([0, 2])
+  })
+
+  it('validates the last-rail guard before releasing its tickets', async () => {
+    expect((await request(appWith(db)).delete('/rails/0')).status).toBe(200)
+    expect((await request(appWith(db)).delete('/rails/1')).status).toBe(200)
+    setRailTickets(db, 2, [5, 6])
+
+    const res = await request(appWith(db)).delete('/rails/2')
+
+    expect(res.status).toBe(400)
+    expect(res.body.error).toBe('cannot_delete_last_rail')
+    expect(getRail(db, 2).ticketIds).toEqual([5, 6])
   })
 
   it('409 rail_active when the rail has an active loop run', async () => {

@@ -193,10 +193,11 @@ export function createRailsRouter(): Router {
     }
   })
 
-  // DELETE /rails/:railIndex — remove a rail slot. Guarded: the rail must
-  // exist, hold no tickets, have no active job/loop run, no undecided PR
-  // delivery, and must not be the last remaining rail. Indices are identity —
-  // deleting a middle rail leaves a gap (never re-numbered).
+  // DELETE /rails/:railIndex — remove a rail slot and release its ticket
+  // assignments as one transaction. All rejection guards run before the
+  // delete, so a failed last/active/pending-PR deletion cannot strand tickets
+  // in an unassigned intermediate state. Indices are identity — deleting a
+  // middle rail leaves a gap (never re-numbered).
   router.delete('/:railIndex', (req: Request, res: Response) => {
     const railIndex = parseInt(req.params.railIndex as string, 10)
     if (isNaN(railIndex) || railIndex < 0 || railIndex >= MAX_RAILS) {
@@ -214,9 +215,6 @@ export function createRailsRouter(): Router {
       const hasActiveRun = Array.from(c.railLoopRuns.values()).some((m) => m.railIndex === railIndex)
       if (hasActiveJob || hasActiveRun) {
         res.status(409).json({ error: 'rail_active' }); return
-      }
-      if (getRail(c.db, railIndex).ticketIds.length > 0) {
-        res.status(409).json({ error: 'rail_not_empty' }); return
       }
       const pending = getActivePrDeliveryByRail(c.db, railIndex)
       if (pending) {

@@ -229,9 +229,9 @@ export function createRail(db: DbInstance, name?: string | null): RailState {
 }
 
 /**
- * Delete a rail's identity + ticket rows. Pure mechanism — the router enforces
- * the guards (rail exists, empty, idle, no pending PR decision, not the last
- * rail). Deleting a middle rail leaves a sparse index gap on purpose: indices
+ * Delete a rail's identity + ticket assignments atomically. Pure mechanism —
+ * the router enforces the guards (rail exists, idle, no pending PR decision,
+ * not the last rail) before calling it. Deleting a middle rail leaves a sparse index gap on purpose: indices
  * are IDENTITY (metrics / pr-deliveries / worktree maps key by railIndex), so
  * they are never compacted/re-numbered.
  */
