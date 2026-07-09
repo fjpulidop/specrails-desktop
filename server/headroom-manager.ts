@@ -321,7 +321,6 @@ export function getHeadroomManagedInstallPlan(): {
       UV_PYTHON: HEADROOM_MANAGED_PYTHON_VERSION,
       UV_MANAGED_PYTHON: 'true',
       UV_PYTHON_DOWNLOADS: 'automatic',
-      UV_PYTHON_PREFERENCE: 'only-managed',
       UV_PYTHON_INSTALL_DIR: uvPythonInstallDir(),
       UV_PYTHON_CACHE_DIR: uvPythonCacheDir(),
       UV_PYTHON_BIN_DIR: uvPythonBinDir(),

@@ -95,7 +95,6 @@ describe('HeadroomManager', () => {
       UV_PYTHON: '3.12',
       UV_MANAGED_PYTHON: 'true',
       UV_PYTHON_DOWNLOADS: 'automatic',
-      UV_PYTHON_PREFERENCE: 'only-managed',
       UV_PYTHON_INSTALL_DIR: path.join(tempDir, '.specrails', 'tools', 'uv', 'python'),
       UV_PYTHON_CACHE_DIR: path.join(tempDir, '.specrails', 'tools', 'uv', 'python-cache'),
       UV_PYTHON_BIN_DIR: path.join(tempDir, '.specrails', 'tools', 'uv', 'python-bin'),
@@ -103,6 +102,7 @@ describe('HeadroomManager', () => {
       UV_PYTHON_INSTALL_REGISTRY: 'false',
       UV_NO_PROGRESS: '1',
     })
+    expect(plan.env).not.toHaveProperty('UV_PYTHON_PREFERENCE')
   })
 
   it('prepares managed Python before installing the Headroom tool', async () => {
@@ -149,11 +149,12 @@ describe('HeadroomManager', () => {
         command: uvExe,
         args: ['tool', 'install', '--python', '3.12', '--managed-python', '--force', 'headroom-ai[all]'],
       })
+      expect(calls[0].env).not.toHaveProperty('UV_PYTHON_PREFERENCE')
       expect(calls[1].env).toMatchObject({
         UV_PYTHON: '3.12',
-        UV_PYTHON_PREFERENCE: 'only-managed',
         UV_PYTHON_INSTALL_DIR: path.join(tempDir, '.specrails', 'tools', 'uv', 'python'),
       })
+      expect(calls[1].env).not.toHaveProperty('UV_PYTHON_PREFERENCE')
     } finally {
       if (previousRuntimePath === undefined) delete process.env.SPECRAILS_BUNDLED_RUNTIMES_PATH
       else process.env.SPECRAILS_BUNDLED_RUNTIMES_PATH = previousRuntimePath
