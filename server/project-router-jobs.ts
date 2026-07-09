@@ -44,6 +44,12 @@ import type { AdapterEvent } from './providers/types'
 import { getSpending, getInvocations, parseSpendingFilters } from './spending'
 import { randomUUID } from 'crypto'
 import {
+  findIdempotentJob,
+  fingerprintJobSpawn,
+  JobSpawnIdempotencyConflictError,
+  rememberIdempotentJob,
+} from './job-spawn-idempotency'
+import {
   getModelsForProvider,
   getProviderDefault,
   isValidModelForProvider,
@@ -139,6 +145,11 @@ export function registerJobsRoutes(deps: ProjectRoutesDeps): void {
       profileName === null ? null
         : typeof profileName === 'string' && profileName.trim() ? profileName.trim()
           : undefined
+    const idempotencyKey = req.get('Idempotency-Key')
+    if (idempotencyKey !== undefined && !/^[A-Za-z0-9._:-]{1,128}$/.test(idempotencyKey)) {
+      res.status(400).json({ error: 'Idempotency-Key must be 1-128 URL-safe characters' })
+      return
+    }
     // aiEngine: optional per-job provider override; must be installed on the
     // project. Omitting it runs on the project's primary provider.
     const engineCheck = validateRequestedProvider(ctx(req).project, aiEngine)
@@ -147,17 +158,43 @@ export function registerJobsRoutes(deps: ProjectRoutesDeps): void {
       return
     }
     try {
-      const job = ctx(req).queueManager.enqueue(command, (priority as JobPriority) ?? 'normal', {
+      const c = ctx(req)
+      const normalizedPriority = (priority as JobPriority) ?? 'normal'
+      const spawnFingerprint = idempotencyKey ? fingerprintJobSpawn({
+        command,
+        priority: normalizedPriority,
+        dependsOnJobId: dependsOnJobId || null,
+        pipelineId: pipelineId || null,
+        profileName: normalizedProfileName === undefined ? '__project_default__' : normalizedProfileName,
+        provider: aiEngine ? engineCheck.provider : null,
+      }) : null
+      if (idempotencyKey && spawnFingerprint) {
+        const existingJobId = findIdempotentJob(c.db, idempotencyKey, spawnFingerprint)
+        if (existingJobId) {
+          res.status(202).json({ jobId: existingJobId, position: null, idempotentReplay: true })
+          return
+        }
+      }
+
+      // This handler contains no await: Node runs lookup → enqueue → ledger
+      // insert without another request interleaving, while the durable row makes
+      // later retries (including after a response was lost) return the same job.
+      const job = c.queueManager.enqueue(command, normalizedPriority, {
         dependsOnJobId: dependsOnJobId || undefined,
         pipelineId: pipelineId || undefined,
         profileName: normalizedProfileName,
         provider: aiEngine ? engineCheck.provider : undefined,
       })
+      if (idempotencyKey && spawnFingerprint) {
+        rememberIdempotentJob(c.db, idempotencyKey, spawnFingerprint, job.id)
+      }
       const position = job.queuePosition ?? 0
       res.status(202).json({ jobId: job.id, position })
     } catch (err) {
       if (err instanceof ClaudeNotFoundError) {
         res.status(400).json({ error: err.message })
+      } else if (err instanceof JobSpawnIdempotencyConflictError) {
+        res.status(409).json({ error: err.message })
       } else {
         console.error('[project-router] spawn error:', err)
         res.status(500).json({ error: 'Internal server error' })

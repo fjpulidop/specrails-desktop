@@ -865,6 +865,24 @@ const MIGRATIONS: Migration[] = [
       INSERT OR IGNORE INTO rail_meta (rail_index, name) VALUES (0, NULL), (1, NULL), (2, NULL);
     `)
   },
+
+  // Migration 40: durable idempotency ledger for billable job spawns. Clients
+  // can safely retry a timed-out POST (or double-submit) without enqueueing a
+  // second job. Entries are deliberately short-lived and pruned by the route;
+  // the ledger is not job history and therefore has no foreign key to jobs.
+  (db) => {
+    db.exec(`
+      CREATE TABLE IF NOT EXISTS job_spawn_requests (
+        idempotency_key TEXT PRIMARY KEY,
+        fingerprint     TEXT NOT NULL,
+        job_id          TEXT NOT NULL,
+        created_at_ms   INTEGER NOT NULL,
+        expires_at_ms   INTEGER NOT NULL
+      );
+      CREATE INDEX IF NOT EXISTS idx_job_spawn_requests_expires
+        ON job_spawn_requests(expires_at_ms);
+    `)
+  },
 ]
 
 function applyMigrations(db: DbInstance): void {

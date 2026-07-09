@@ -85,6 +85,14 @@ describe('db', () => {
       expect(cols).toContain('name')
     })
 
+    it('creates the durable job spawn idempotency ledger', () => {
+      const db = makeDb()
+      const cols = (db.prepare('PRAGMA table_info(job_spawn_requests)').all() as { name: string }[]).map((c) => c.name)
+      expect(cols).toEqual(expect.arrayContaining([
+        'idempotency_key', 'fingerprint', 'job_id', 'created_at_ms', 'expires_at_ms',
+      ]))
+    })
+
     it('orphan detection marks running jobs as failed on initDb', () => {
       // Simulate: a DB already has a 'running' job (from a previous crashed session).
       // When initDb runs on that DB, it should mark the running job as 'failed'.

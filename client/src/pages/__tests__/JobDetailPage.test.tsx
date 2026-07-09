@@ -1,6 +1,6 @@
 import React from 'react'
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { render, screen, waitFor } from '../../test-utils'
+import { fireEvent, render, screen, waitFor } from '../../test-utils'
 import userEvent from '@testing-library/user-event'
 import JobDetailPage from '../JobDetailPage'
 import type { JobSummary, EventRow } from '../../types'
@@ -316,11 +316,30 @@ describe('JobDetailPage', () => {
         '/api/spawn',
         expect.objectContaining({
           method: 'POST',
+          headers: expect.objectContaining({ 'Idempotency-Key': expect.any(String) }),
           body: JSON.stringify({ command: '/specrails:implement' }),
         })
       )
       expect(mockNavigate).toHaveBeenCalledWith('/jobs/new-job-id')
     })
+  })
+
+  it('coalesces rapid Re-execute clicks into one billable spawn', async () => {
+    let resolveSpawn!: (value: unknown) => void
+    const pendingSpawn = new Promise((resolve) => { resolveSpawn = resolve })
+    global.fetch = vi.fn()
+      .mockResolvedValueOnce({ ok: true, json: async () => ({ job: mockJob, events: mockEvents }) })
+      .mockImplementationOnce(() => pendingSpawn)
+
+    render(<JobDetailPage />)
+    const button = await screen.findByRole('button', { name: /Re-execute/i })
+    fireEvent.click(button)
+    fireEvent.click(button)
+
+    await waitFor(() => expect(global.fetch).toHaveBeenCalledTimes(2))
+    expect(button).toBeDisabled()
+    resolveSpawn({ ok: true, json: async () => ({ jobId: 'new-job-id' }) })
+    await waitFor(() => expect(mockNavigate).toHaveBeenCalledWith('/jobs/new-job-id'))
   })
 
   describe('Export diagnostic', () => {

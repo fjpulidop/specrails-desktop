@@ -48,6 +48,9 @@ export default function JobDetailPage() {
   const [pipelineJobs, setPipelineJobs] = useState<JobSummary[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [notFound, setNotFound] = useState(false)
+  const [isRerunning, setIsRerunning] = useState(false)
+  const rerunInFlightRef = useRef(false)
+  const rerunIdempotencyKeyRef = useRef<string | null>(null)
 
   // Reset and re-fetch when project or job id changes
   useEffect(() => {
@@ -281,11 +284,21 @@ export default function JobDetailPage() {
   }
 
   async function handleRerun() {
-    if (!job) return
+    if (!job || rerunInFlightRef.current) return
+    rerunInFlightRef.current = true
+    setIsRerunning(true)
+    if (!rerunIdempotencyKeyRef.current) {
+      rerunIdempotencyKeyRef.current = typeof globalThis.crypto?.randomUUID === 'function'
+        ? globalThis.crypto.randomUUID()
+        : `rerun-${job.id}-${Date.now()}-${Math.random().toString(36).slice(2)}`
+    }
     try {
       const res = await fetch(`${getApiBase()}/spawn`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          'Idempotency-Key': rerunIdempotencyKeyRef.current,
+        },
         body: JSON.stringify({ command: job.command }),
       })
       const data = await res.json() as { jobId?: string; error?: string }
@@ -294,6 +307,9 @@ export default function JobDetailPage() {
       navigate(`/jobs/${data.jobId}`)
     } catch (err) {
       toast.error((err as Error).message)
+    } finally {
+      rerunInFlightRef.current = false
+      setIsRerunning(false)
     }
   }
 
@@ -435,6 +451,8 @@ export default function JobDetailPage() {
                     variant="outline"
                     size="sm"
                     onClick={handleRerun}
+                    disabled={isRerunning}
+                    aria-busy={isRerunning}
                     className="h-7"
                   >
                     <RotateCcw className="w-3.5 h-3.5 mr-1.5" />

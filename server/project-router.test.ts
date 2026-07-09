@@ -278,6 +278,43 @@ describe('project-router', () => {
       expect(res.status).toBe(202)
       expect(res.body.jobId).toBeDefined()
     })
+
+    it('returns the original job when an idempotent spawn is submitted twice', async () => {
+      const enqueue = vi.fn(() => ({ id: 'job-once', queuePosition: 0 }))
+      const ctx = makeContext(db, { queueManager: makeQueueManager({ enqueue }) as any })
+      const { app } = createApp(new Map([['proj-1', ctx]]))
+      const first = await request(app)
+        .post('/api/projects/proj-1/spawn')
+        .set('Idempotency-Key', 'rerun-abc')
+        .send({ command: 'sr:implement' })
+      const replay = await request(app)
+        .post('/api/projects/proj-1/spawn')
+        .set('Idempotency-Key', 'rerun-abc')
+        .send({ command: 'sr:implement' })
+
+      expect(first.status).toBe(202)
+      expect(replay.status).toBe(202)
+      expect(replay.body).toMatchObject({ jobId: 'job-once', idempotentReplay: true })
+      expect(enqueue).toHaveBeenCalledTimes(1)
+    })
+
+    it('rejects reuse of an idempotency key for a different command', async () => {
+      const enqueue = vi.fn(() => ({ id: 'job-once', queuePosition: 0 }))
+      const ctx = makeContext(db, { queueManager: makeQueueManager({ enqueue }) as any })
+      const { app } = createApp(new Map([['proj-1', ctx]]))
+      await request(app)
+        .post('/api/projects/proj-1/spawn')
+        .set('Idempotency-Key', 'rerun-abc')
+        .send({ command: 'sr:implement' })
+
+      const conflict = await request(app)
+        .post('/api/projects/proj-1/spawn')
+        .set('Idempotency-Key', 'rerun-abc')
+        .send({ command: 'sr:refine' })
+
+      expect(conflict.status).toBe(409)
+      expect(enqueue).toHaveBeenCalledTimes(1)
+    })
   })
 
   // ─── DELETE /jobs/:id ──────────────────────────────────────────────────────
