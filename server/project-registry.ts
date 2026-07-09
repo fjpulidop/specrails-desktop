@@ -440,6 +440,9 @@ export class ProjectRegistry {
         return { budget, totalSpend }
       },
       onBudgetExceeded: (event, data) => {
+        if (event === 'desktop_daily_budget_exceeded') {
+          this._pauseAllQueuesForDesktopBudget()
+        }
         // Deliver the budget event to this project's subscribed webhooks — the
         // WS broadcast alone never reached webhook subscribers, so a
         // daily_budget_exceeded / desktop_daily_budget_exceeded subscription was
@@ -828,5 +831,14 @@ export class ProjectRegistry {
     const ctx: ProjectContext = { project, db, queueManager, chatManager, setupManager, proposalManager, agentRefineManager, fileSummaryManager, specLauncherManager, ticketWatcher, browserCaptureManager, jiraSyncManager, broadcast: boundBroadcast, railJobs, loopRunManager, railLoopRuns, onLoopRunFinished, getTicketSpec, desktopDb: this._desktopDb }
     this._contexts.set(project.id, ctx)
     return ctx
+  }
+
+  /** Enforce the app-wide budget through every per-project queue authority. */
+  private _pauseAllQueuesForDesktopBudget(): void {
+    for (const context of this.listContexts()) {
+      try {
+        if (!context.queueManager.isPaused()) context.queueManager.pause()
+      } catch { /* a concurrently removed project is best-effort */ }
+    }
   }
 }

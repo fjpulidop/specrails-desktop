@@ -1145,6 +1145,12 @@ export class QueueManager {
     if (this._paused) return
     if (this._queue.length === 0) return
 
+    // App/project budgets are durable policies, not merely post-job alerts.
+    // Re-check before reserving a slot so a different project that crossed the
+    // app-wide cap cannot be followed by a fresh spawn from this queue.
+    this._enforceDailyBudget()
+    if (this._paused) return
+
     const readyIndex = this._queue.findIndex(id => {
       const job = this._jobs.get(id)
       if (!job) return true

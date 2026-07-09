@@ -1042,6 +1042,27 @@ describe('QueueManager', () => {
       expect(desktopBudgetCalls.length).toBeGreaterThan(0)
     })
 
+    it('checks the app daily budget before spawning a queued job', () => {
+      vi.mocked(mockExecSync).mockReturnValue(Buffer.from('/usr/bin/claude'))
+      vi.mocked(mockUuidV4).mockReturnValue('preflight-budget-job' as any)
+      const db = initDb(':memory:')
+      const onBudgetExceeded = vi.fn()
+      const qmWithDb = new QueueManager(broadcast, db, [], undefined, {
+        getDesktopDailyBudget: () => ({ budget: 1, totalSpend: 2 }),
+        onBudgetExceeded,
+      })
+
+      qmWithDb.enqueue('/implement')
+
+      expect(qmWithDb.isPaused()).toBe(true)
+      expect(vi.mocked(mockSpawn)).not.toHaveBeenCalled()
+      expect(onBudgetExceeded).toHaveBeenCalledWith(
+        'desktop_daily_budget_exceeded',
+        expect.objectContaining({ desktopDailySpend: 2, desktopBudget: 1 }),
+      )
+      db.close()
+    })
+
     it('emits cost_alert for per-project cost threshold', async () => {
       vi.mocked(mockExecSync).mockReturnValue(Buffer.from('/usr/bin/claude'))
       const child = createMockChildProcess()

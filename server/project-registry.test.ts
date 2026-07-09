@@ -285,6 +285,23 @@ describe('ProjectRegistry', () => {
     })
   })
 
+  describe('desktop budget coordination', () => {
+    it('pauses every project queue when the app-wide cap is exceeded', () => {
+      registry.addProject({ id: 'p1', slug: 's1', name: 'N1', path: '/p1' })
+      registry.addProject({ id: 'p2', slug: 's2', name: 'N2', path: '/p2' })
+      const queues = registry.listContexts().map((context) => context.queueManager)
+      for (const queue of queues) {
+        ;(queue as unknown as { isPaused: unknown }).isPaused = vi.fn(() => false)
+        ;(queue as unknown as { pause: unknown }).pause = vi.fn()
+      }
+
+      ;(registry as unknown as { _pauseAllQueuesForDesktopBudget: () => void })
+        ._pauseAllQueuesForDesktopBudget()
+
+      for (const queue of queues) expect(queue.pause).toHaveBeenCalledTimes(1)
+    })
+  })
+
   // ─── getContext / getContextByPath ──────────────────────────────────────────
 
   describe('getContext', () => {
