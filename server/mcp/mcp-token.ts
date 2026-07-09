@@ -1,9 +1,9 @@
-import fs from 'fs'
 import path from 'path'
 import os from 'os'
 import { randomUUID } from 'crypto'
 import type { Request, Response, NextFunction } from 'express'
 import { safeEqual } from '../auth'
+import { readPrivateTextFile, writePrivateTextFile } from '../util/secure-token-file'
 
 // ─── MCP-scoped token (design D3) ─────────────────────────────────────────────
 //
@@ -45,8 +45,9 @@ export function loadOrGenerateMcpToken(): string {
   if (_mcpToken) return _mcpToken
 
   try {
-    if (fs.existsSync(tokenPath())) {
-      const t = fs.readFileSync(tokenPath(), 'utf-8').trim()
+    const stored = readPrivateTextFile(tokenPath())
+    if (stored !== null) {
+      const t = stored.trim()
       if (t && t.length >= 32) {
         _mcpToken = t
         return _mcpToken
@@ -63,8 +64,7 @@ export function loadOrGenerateMcpToken(): string {
 
 function persist(token: string): void {
   try {
-    fs.mkdirSync(tokenDir(), { recursive: true })
-    fs.writeFileSync(tokenPath(), token, { encoding: 'utf-8', mode: 0o600 })
+    writePrivateTextFile(tokenPath(), token)
   } catch (err) {
     console.warn('[mcp] could not persist mcp token to disk:', err)
   }
