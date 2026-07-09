@@ -241,6 +241,9 @@ export class QueueManager {
   /** Set by shutdown(); once disposed the manager spawns no new jobs and never
    *  touches the (now possibly closed) DB from late child 'close' callbacks. */
   private _disposed: boolean
+  /** Invalidates async pre-spawn work across shutdown. A job captures the
+   *  generation at start and must still own the active slot before spawning. */
+  private _lifecycleGeneration: number
 
   private _getCostAlertThreshold: (() => number | null) | null
   private _getDesktopDailyBudget: (() => { budget: number | null; totalSpend: number }) | null
@@ -321,6 +324,16 @@ export class QueueManager {
    *  close that carries REAL cost replaces the no-cost placeholder rows
    *  (COST-ACCOUNTING-AUDIT LOW-6). In-memory only. */
   private _forceFailedRowJobs: Set<string>
+  /** Test seam for the sole async pre-spawn dependency. Production resolves the
+   *  implementation lazily to keep the plugin subsystem optional. */
+  private _resolvePluginsForSpawn: ((
+    projectPath: string,
+    projectId: string,
+    jobId: string,
+  ) => Promise<{
+    active: Array<{ name: string; version: string }>
+    degraded: Array<{ name: string; reason: string }>
+  }>) | null
 
   constructor(
     broadcast: (msg: WsMessage) => void,
@@ -354,6 +367,15 @@ export class QueueManager {
       /** Project slug used to locate per-job profile snapshots at
        *  ~/.specrails/projects/<slug>/jobs/<jobId>/profile.json */
       projectSlug?: string
+      /** Injectable async plugin resolver (tests). */
+      resolvePluginsForSpawn?: (
+        projectPath: string,
+        projectId: string,
+        jobId: string,
+      ) => Promise<{
+        active: Array<{ name: string; version: string }>
+        degraded: Array<{ name: string; reason: string }>
+      }>
     }
   ) {
     this._queue = []
@@ -371,6 +393,7 @@ export class QueueManager {
     this._cwd = cwd
     this._inactivityTimer = null
     this._disposed = false
+    this._lifecycleGeneration = 0
 
     this._getCostAlertThreshold = options?.getCostAlertThreshold ?? null
     this._getDesktopDailyBudget = options?.getDesktopDailyBudget ?? null
@@ -378,6 +401,7 @@ export class QueueManager {
     this._resolvedModel = options?.resolvedModel ?? null
     this._onJobFinished = options?.onJobFinished ?? null
     this._onBudgetExceeded = options?.onBudgetExceeded ?? null
+    this._resolvePluginsForSpawn = options?.resolvePluginsForSpawn ?? null
     this._projectId = options?.projectId ?? null
     this._desktopPort = options?.desktopPort ?? 4200
     this._projectSlug = options?.projectSlug ?? null
@@ -431,6 +455,7 @@ export class QueueManager {
   shutdown(): void {
     if (this._disposed) return
     this._disposed = true
+    this._lifecycleGeneration += 1
 
     if (this._inactivityTimer !== null) {
       clearTimeout(this._inactivityTimer)
@@ -1548,7 +1573,20 @@ export class QueueManager {
     this._drainQueue()
   }
 
+  /** True only while this async start still belongs to the live manager and its
+   *  synchronously-reserved queue slot. The generation closes the shutdown race;
+   *  the slot check also protects against future replacement/cancel paths. */
+  private _canContinueStart(jobId: string, lifecycleGeneration: number): boolean {
+    return (
+      !this._disposed &&
+      this._lifecycleGeneration === lifecycleGeneration &&
+      this._activeJobId === jobId
+    )
+  }
+
   private async _startJob(jobId: string): Promise<void> {
+    const lifecycleGeneration = this._lifecycleGeneration
+    if (!this._canContinueStart(jobId, lifecycleGeneration)) return
     const job = this._jobs.get(jobId)
     if (!job) {
       // Job vanished between the synchronous slot reservation in _drainQueue and
@@ -1868,14 +1906,30 @@ export class QueueManager {
     let pluginSnapshotPath: string | null = null
     if (adapter.mcpRegistration === 'project-json' && this._projectId && this._projectSlug && this._cwd) {
       try {
-        const { resolvePluginsForSpawn, snapshotPluginsForJob } =
-          require('./plugins/rail-integration') as typeof import('./plugins/rail-integration')
+        let resolver = this._resolvePluginsForSpawn
+        let snapshotter: typeof import('./plugins/rail-integration')['snapshotPluginsForJob'] | null = null
+        if (!resolver) {
+          const pluginIntegration = require('./plugins/rail-integration') as typeof import('./plugins/rail-integration')
+          resolver = pluginIntegration.resolvePluginsForSpawn
+          snapshotter = pluginIntegration.snapshotPluginsForJob
+        }
         // Relocated ⇒ `.mcp.json`/plugin state live in the workspace (execution.cwd).
-        const resolution = await resolvePluginsForSpawn(execution.cwd, this._projectId, jobId)
+        const resolution = await resolver(
+          execution.cwd,
+          this._projectId,
+          jobId,
+        )
+        // shutdown() may have run while plugin verification was awaiting. Never
+        // snapshot, broadcast, or spawn for a manager generation that no longer
+        // owns this active slot.
+        if (!this._canContinueStart(jobId, lifecycleGeneration)) return
         pluginActive = resolution.active
         pluginDegraded = resolution.degraded
         if (pluginActive.length > 0 || pluginDegraded.length > 0) {
-          pluginSnapshotPath = snapshotPluginsForJob(
+          // The injected resolver normally returns an empty test fixture. Load
+          // the snapshotter lazily only if its result actually needs one.
+          snapshotter ??= (require('./plugins/rail-integration') as typeof import('./plugins/rail-integration')).snapshotPluginsForJob
+          pluginSnapshotPath = snapshotter(
             this._projectSlug, jobId, this._projectId, pluginActive, pluginDegraded,
           )
         }
@@ -1893,6 +1947,8 @@ export class QueueManager {
         console.warn(`[queue-manager] plugin resolution failed for job ${jobId}: ${(err as Error).message}`)
       }
     }
+    // Covers resolver throws as well as future awaits added to the block above.
+    if (!this._canContinueStart(jobId, lifecycleGeneration)) return
     if (pluginActive.length > 0 && pluginSnapshotPath) {
       spawnEnv = {
         ...spawnEnv,
@@ -1991,6 +2047,7 @@ export class QueueManager {
     // provenance is captured around the SESSION lifecycle exactly like the
     // one-shot path: pre-spawn snapshot here, diff at settle.
     if (spawnInteractive) {
+      if (!this._canContinueStart(jobId, lifecycleGeneration)) return
       if (isCodeExplorerEnabled()) {
         try {
           const snap = snapshotWorkingTree(execution.repoDir)
@@ -2041,6 +2098,7 @@ export class QueueManager {
     }
 
     // spawnAiCli reroutes multi-line argv values through stdin on Windows.
+    if (!this._canContinueStart(jobId, lifecycleGeneration)) return
     const child = spawnAiCli(binary, args, {
       env: spawnEnv,
       stdio: ['ignore', 'pipe', 'pipe'],

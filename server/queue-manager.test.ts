@@ -2288,6 +2288,34 @@ describe('QueueManager', () => {
       expect(vi.mocked(mockSpawn)).toHaveBeenCalledTimes(1)
     })
 
+    it('does not spawn when shutdown happens during async plugin verification', async () => {
+      vi.mocked(mockExecSync).mockReturnValue(Buffer.from('/usr/bin/claude'))
+      vi.mocked(mockUuidV4).mockReturnValue('job-awaiting-plugin' as any)
+      let release!: (value: { active: []; degraded: [] }) => void
+      const resolvePluginsForSpawn = vi.fn(() => new Promise<{ active: []; degraded: [] }>((resolve) => {
+        release = resolve
+      }))
+      const db = initDb(':memory:')
+      const qm2 = new QueueManager(broadcast, db, [], '/tmp/repo', {
+        provider: 'claude',
+        projectId: 'p1',
+        projectSlug: 'proj',
+        resolvePluginsForSpawn,
+      })
+
+      qm2.enqueue('/specrails:implement #1')
+      expect(resolvePluginsForSpawn).toHaveBeenCalledTimes(1)
+      expect(vi.mocked(mockSpawn)).not.toHaveBeenCalled()
+
+      qm2.shutdown()
+      release({ active: [], degraded: [] })
+      await new Promise((resolve) => setImmediate(resolve))
+
+      expect(vi.mocked(mockSpawn)).not.toHaveBeenCalled()
+      expect(qm2.getActiveJobId()).toBeNull()
+      db.close()
+    })
+
     it('flushes an aborted, cost-estimated ai_invocations row for the in-flight job (CRIT-3)', async () => {
       vi.mocked(mockExecSync).mockReturnValue(Buffer.from('/usr/bin/claude'))
       const child = createMockChildProcess()
@@ -2824,20 +2852,27 @@ describe('QueueManager', () => {
 // override force the legacy one-shot spawn; codex/gemini never qualify
 // (no persistent-stdin capability).
 
+const interactiveChildrenByPid = new Map<number, any>()
+let nextInteractivePid = 776
+
 function createInteractiveMockChild() {
   const child = new EventEmitter() as any
   child.stdout = new Readable({ read() {} })
   child.stderr = new Readable({ read() {} })
   const writes: string[] = []
-  child.stdin = { write: (s: string) => { writes.push(s); return true }, destroyed: false }
+  const stdin = new EventEmitter() as any
+  stdin.write = (s: string) => { writes.push(s); return true }
+  stdin.destroyed = false
+  child.stdin = stdin
   child.stdinWrites = writes
-  child.pid = 777
+  child.pid = ++nextInteractivePid
   child.killed = false
   child.kill = (_sig?: string) => {
     child.killed = true
     queueMicrotask(() => child.emit('close', 0))
     return true
   }
+  interactiveChildrenByPid.set(child.pid, child)
   return child
 }
 
@@ -2863,10 +2898,20 @@ describe('interactive-by-default spawn gate (S1 flip)', () => {
   beforeEach(() => {
     vi.resetAllMocks()
     __resetBinaryProbeCacheForTest()
+    interactiveChildrenByPid.clear()
+    nextInteractivePid = 776
     delete process.env.SPECRAILS_INTERACTIVE_JOBS // default ON
     delete process.env.SPECRAILS_RAIL_DELIVER_PR // PR delivery default-on
     broadcast = vi.fn()
     vi.mocked(mockExecSync).mockReturnValue(Buffer.from('/usr/bin/claude'))
+    vi.mocked(treeKill).mockImplementation((pid, signal, callback) => {
+      callback?.()
+      const child = interactiveChildrenByPid.get(pid)
+      if (child && signal === 'SIGTERM') {
+        child.killed = true
+        queueMicrotask(() => child.emit('close', 0))
+      }
+    })
   })
 
   afterEach(() => {
