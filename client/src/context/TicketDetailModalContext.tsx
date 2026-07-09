@@ -215,10 +215,7 @@ export function TicketDetailModalProvider({ children }: { children: ReactNode })
           onClose={closeTicketDetail}
           onOpenTicket={openTicketDetail}
           onSave={updateTicket}
-          onDelete={(id) => {
-            deleteTicket(id)
-            closeTicketDetail()
-          }}
+          onDelete={deleteTicket}
         />
       )}
       {inSplit && (
@@ -229,10 +226,7 @@ export function TicketDetailModalProvider({ children }: { children: ReactNode })
           allTickets={tickets}
           allLabels={allLabels}
           onSave={updateTicket}
-          onDelete={(id) => {
-            deleteTicket(id)
-            closeTicketDetail()
-          }}
+          onDelete={deleteTicket}
           onOpenTicket={openTicketDetail}
           onCloseAll={closeTicketDetail}
           onSetCompared={setComparedTicket}

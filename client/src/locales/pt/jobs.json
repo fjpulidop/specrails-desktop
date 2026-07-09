@@ -183,6 +183,7 @@
   "recent": {
     "emptyTitle": "Ainda não há jobs",
     "emptyDescription": "Execute um comando acima para ver aqui o seu histórico de jobs",
+    "loadFailed": "Falha ao carregar os jobs",
     "filterAll": "Todos ({{count}})",
     "filterStatus": "{{status}} ({{count}})",
     "fromDate": "Data inicial",

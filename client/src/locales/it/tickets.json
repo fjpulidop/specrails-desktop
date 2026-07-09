@@ -39,7 +39,8 @@
   "detailModal": {
     "toast": {
       "updated": "Ticket aggiornato",
-      "updateFailed": "Impossibile aggiornare il ticket"
+      "updateFailed": "Impossibile aggiornare il ticket",
+      "deleteFailed": "Impossibile eliminare il ticket"
     },
     "compare": "Confronta",
     "compareTooltip": "Confronta con un'altra spec",

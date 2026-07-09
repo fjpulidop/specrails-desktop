@@ -3,7 +3,7 @@ import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
 import { formatDistanceToNow } from 'date-fns'
 import { Trans, useTranslation } from 'react-i18next'
-import { X, Pencil, Trash2, Save, Plus, XCircle, MessageSquare, ArrowRight, ArrowLeft, Columns2, ExternalLink } from 'lucide-react'
+import { X, Pencil, Trash2, Save, Plus, XCircle, MessageSquare, ArrowRight, ArrowLeft, Columns2, ExternalLink, Loader2 } from 'lucide-react'
 import { openExternalUrl } from '../lib/tauri-shell'
 import { toast } from 'sonner'
 import { getDateFnsLocale } from '../lib/i18n'
@@ -71,7 +71,7 @@ interface TicketDetailModalProps {
   /** Navigation hook: open a different ticket inside the same modal stack. */
   onOpenTicket?: (ticketId: number) => void
   onSave: (ticketId: number, fields: Partial<Pick<LocalTicket, 'title' | 'description' | 'status' | 'priority' | 'labels'>>) => Promise<boolean>
-  onDelete: (ticketId: number) => void
+  onDelete: (ticketId: number) => Promise<boolean>
   /** Rails available in the project — drives the Move-to-Rail popover. */
   rails?: RailState[]
   /** Move-to-Rail handler — same path as the dashboard postit card. */
@@ -146,6 +146,7 @@ export function TicketDetailModal({
   const [showDiscard, setShowDiscard] = useState(false)
   const [showJiraSaveConfirm, setShowJiraSaveConfirm] = useState(false)
   const [saving, setSaving] = useState(false)
+  const [deleting, setDeleting] = useState(false)
 
   // In a Jira-synced project, a Jira-backed spec is "moved to" the configured
   // discard status instead of being deleted. Otherwise the button stays Delete.
@@ -249,11 +250,23 @@ export function TicketDetailModal({
     }
   }, [title, description, priority, labels, ticket, onSave, onClose, t])
 
-  const handleDelete = useCallback(() => {
-    onDelete(ticket.id)
+  const handleDelete = useCallback(async () => {
+    if (deleting) return
+    setDeleting(true)
+    let ok = false
+    try {
+      ok = await onDelete(ticket.id)
+    } catch {
+      ok = false
+    }
+    setDeleting(false)
+    if (!ok) {
+      toast.error(t('detailModal.toast.deleteFailed'))
+      return
+    }
     setShowDeleteConfirm(false)
     onClose()
-  }, [ticket.id, onDelete, onClose])
+  }, [deleting, ticket.id, onDelete, onClose, t])
 
   // ─── Drag-to-snap (entry to split-view) ────────────────────────────────────
   const [dragOffset, setDragOffset] = useState(0)
@@ -752,7 +765,7 @@ export function TicketDetailModal({
       </div>
 
       {/* Delete confirmation dialog */}
-      <Dialog open={showDeleteConfirm} onOpenChange={setShowDeleteConfirm}>
+      <Dialog open={showDeleteConfirm} onOpenChange={(open) => { if (!deleting) setShowDeleteConfirm(open) }}>
         <DialogContent className="max-w-sm">
           <DialogHeader>
             <DialogTitle>{t('deleteDialog.title')}</DialogTitle>
@@ -766,11 +779,13 @@ export function TicketDetailModal({
             </DialogDescription>
           </DialogHeader>
           <DialogFooter>
-            <Button variant="outline" size="sm" onClick={() => setShowDeleteConfirm(false)}>
+            <Button variant="outline" size="sm" onClick={() => setShowDeleteConfirm(false)} disabled={deleting}>
               {t('common:actions.cancel')}
             </Button>
-            <Button variant="destructive" size="sm" onClick={handleDelete}>
-              <Trash2 className="w-3.5 h-3.5 mr-1.5" />
+            <Button variant="destructive" size="sm" onClick={() => { void handleDelete() }} disabled={deleting} aria-busy={deleting}>
+              {deleting
+                ? <Loader2 className="w-3.5 h-3.5 mr-1.5 animate-spin" />
+                : <Trash2 className="w-3.5 h-3.5 mr-1.5" />}
               {t('common:actions.delete')}
             </Button>
           </DialogFooter>

@@ -148,6 +148,70 @@ describe('useProjectCache', () => {
     // Data stays at initial value after error
     await waitFor(() => expect(result.current.isLoading).toBe(false))
     expect(result.current.data).toEqual(['initial'])
+    expect(result.current.error).toBe('fetch failed')
+  })
+
+  it('exposes a non-empty fallback when the fetcher rejects without a message', async () => {
+    const fetcher = vi.fn().mockRejectedValue(new Error())
+    const { result } = renderHook(() => useProjectCache({
+      namespace: 'empty-error-test',
+      projectId: 'proj-empty-error',
+      initialValue: ['last-good'] as string[],
+      fetcher,
+    }))
+
+    await waitFor(() => expect(result.current.isLoading).toBe(false))
+    expect(result.current.data).toEqual(['last-good'])
+    expect(result.current.error).toBe('Request failed')
+  })
+
+  it('failed refresh preserves the last good value and a later retry clears the error', async () => {
+    const fetcher = vi.fn()
+      .mockResolvedValueOnce(['good'])
+      .mockRejectedValueOnce(new Error('refresh failed'))
+      .mockResolvedValueOnce(['recovered'])
+    const { result } = renderHook(() => useProjectCache({
+      namespace: 'refresh-error-test',
+      projectId: 'proj-refresh-error',
+      initialValue: [] as string[],
+      fetcher,
+    }))
+    await waitFor(() => expect(result.current.data).toEqual(['good']))
+
+    await act(async () => { await result.current.refresh() })
+    expect(result.current.data).toEqual(['good'])
+    expect(result.current.error).toBe('refresh failed')
+
+    await act(async () => { await result.current.refresh() })
+    expect(result.current.data).toEqual(['recovered'])
+    expect(result.current.error).toBeNull()
+  })
+
+  it('ignores an older same-project refresh that resolves after a newer one', async () => {
+    let resolveOld!: (value: string[]) => void
+    const oldRequest = new Promise<string[]>((resolve) => { resolveOld = resolve })
+    const fetcher = vi.fn()
+      .mockResolvedValueOnce(['initial'])
+      .mockReturnValueOnce(oldRequest)
+      .mockResolvedValueOnce(['newest'])
+    const { result } = renderHook(() => useProjectCache({
+      namespace: 'refresh-generation-test',
+      projectId: 'proj-refresh-generation',
+      initialValue: [] as string[],
+      fetcher,
+    }))
+    await waitFor(() => expect(result.current.data).toEqual(['initial']))
+
+    let oldRefresh!: Promise<void>
+    act(() => { oldRefresh = result.current.refresh() })
+    await act(async () => { await result.current.refresh() })
+    expect(result.current.data).toEqual(['newest'])
+
+    await act(async () => {
+      resolveOld(['stale'])
+      await oldRefresh
+    })
+    expect(result.current.data).toEqual(['newest'])
   })
 
   it('refresh() triggers a new fetch', async () => {

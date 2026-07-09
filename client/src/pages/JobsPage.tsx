@@ -12,6 +12,7 @@ import { Button } from '../components/ui/button'
 import { Badge } from '../components/ui/badge'
 import type { JobSummary } from '../types'
 import { getApiBase } from '../lib/api'
+import { API_ORIGIN } from '../lib/origin'
 import { useDesktop } from '../hooks/useDesktop'
 
 const PROPOSAL_STATUS_LABEL_KEYS: Record<string, string> = {
@@ -24,31 +25,47 @@ const PROPOSAL_STATUS_LABEL_KEYS: Record<string, string> = {
   cancelled: 'page.proposal.status.cancelled',
 }
 
+function projectApiBase(projectId: string): string {
+  return `${API_ORIGIN}/api/projects/${encodeURIComponent(projectId)}`
+}
+
 export default function JobsPage() {
   const { t } = useTranslation('jobs')
   const { activeProjectId } = useDesktop()
   const { recentJobs } = usePipeline(activeProjectId)
 
-  const { data: rawJobs, isFirstLoad: isLoadingJobs, refresh: refreshJobs } = useProjectCache<JobSummary[]>({
+  const {
+    data: rawJobs,
+    isFirstLoad: jobsFirstLoad,
+    isLoading: jobsRefreshing,
+    error: jobsError,
+    refresh: refreshJobs,
+  } = useProjectCache<JobSummary[]>({
     namespace: 'jobs',
     projectId: activeProjectId,
     initialValue: recentJobs,
-    fetcher: async () => {
-      const res = await fetch(`${getApiBase()}/jobs?limit=10`)
-      if (!res.ok) return []
+    fetcher: async ({ projectId, signal }) => {
+      const res = await fetch(`${projectApiBase(projectId)}/jobs?limit=10`, { signal })
+      if (!res.ok) throw new Error(`Failed to fetch jobs: ${res.status}`)
       const data = await res.json() as { jobs: JobSummary[] }
       return data.jobs
     },
     pollInterval: 10_000,
   })
 
-  const { data: proposals } = useProjectCache<Array<{ id: string; idea: string; status: string; created_at: string; issue_url: string | null }>>({
+  const {
+    data: proposals,
+    isFirstLoad: proposalsFirstLoad,
+    isLoading: proposalsRefreshing,
+    error: proposalsError,
+    refresh: refreshProposals,
+  } = useProjectCache<Array<{ id: string; idea: string; status: string; created_at: string; issue_url: string | null }>>({
     namespace: 'proposals',
     projectId: activeProjectId,
     initialValue: [],
-    fetcher: async () => {
-      const res = await fetch(`${getApiBase()}/propose?limit=10`)
-      if (!res.ok) return []
+    fetcher: async ({ projectId, signal }) => {
+      const res = await fetch(`${projectApiBase(projectId)}/propose?limit=10`, { signal })
+      if (!res.ok) throw new Error(`Failed to fetch proposals: ${res.status}`)
       const data = await res.json() as { proposals: Array<{ id: string; idea: string; status: string; created_at: string; issue_url: string | null }> }
       return data.proposals
     },
@@ -94,10 +111,10 @@ export default function JobsPage() {
       const res = await fetch(`${getApiBase()}/propose/${proposalId}`, { method: 'DELETE' })
       if (res.ok) {
         toast.success(t('page.proposalDeleted'))
-        refreshJobs()
+        await refreshProposals()
       }
     } catch { /* ignore */ }
-  }, [refreshJobs, t])
+  }, [refreshProposals, t])
 
   return (
     <div className="max-w-4xl mx-auto px-4 py-6">
@@ -111,7 +128,9 @@ export default function JobsPage() {
 
       <RecentJobs
         jobs={jobs}
-        isLoading={isLoadingJobs}
+        isLoading={jobsFirstLoad || proposalsFirstLoad || jobsRefreshing || proposalsRefreshing}
+        error={jobsError ?? proposalsError}
+        onRetry={() => { void Promise.all([refreshJobs(), refreshProposals()]) }}
         onJobsCleared={refreshJobs}
         onProposalClick={handleProposalClick}
         onProposalDelete={handleProposalDelete}

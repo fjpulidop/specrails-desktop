@@ -39,7 +39,8 @@
   "detailModal": {
     "toast": {
       "updated": "工单已更新",
-      "updateFailed": "更新工单失败"
+      "updateFailed": "更新工单失败",
+      "deleteFailed": "删除工单失败"
     },
     "compare": "对比",
     "compareTooltip": "与另一个 spec 对比",

@@ -366,6 +366,64 @@ describe('useTickets', () => {
         expect(result.current.tickets).toEqual([])
       })
     })
+
+    it('aborts and ignores an old manual refetch after switching projects', async () => {
+      let resolveOldRefetch!: (value: Response) => void
+      let oldRefetchSignal: AbortSignal | undefined
+      const fetchMock = vi.fn()
+        .mockResolvedValueOnce({ ok: true, json: async () => ({ tickets: [makeTicket({ title: 'Project A' })] }) })
+        .mockImplementationOnce((_url: string, init?: RequestInit) => {
+          oldRefetchSignal = init?.signal as AbortSignal | undefined
+          return new Promise<Response>((resolve) => { resolveOldRefetch = resolve })
+        })
+        .mockResolvedValueOnce({ ok: true, json: async () => ({ tickets: [makeTicket({ title: 'Project B' })] }) })
+      global.fetch = fetchMock as typeof fetch
+
+      const { result, rerender } = renderHook(() => useTickets())
+      await waitFor(() => expect(result.current.tickets[0]?.title).toBe('Project A'))
+      act(() => { void result.current.refetch() })
+      await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(2))
+
+      mockActiveProjectId = 'proj-2'
+      rerender()
+      await waitFor(() => expect(result.current.tickets[0]?.title).toBe('Project B'))
+      expect(fetchMock.mock.calls[2][0]).toBe('/api/projects/proj-2/tickets')
+      expect(oldRefetchSignal?.aborted).toBe(true)
+
+      await act(async () => {
+        resolveOldRefetch({ ok: true, json: async () => ({ tickets: [makeTicket({ title: 'Stale A' })] }) } as Response)
+        await Promise.resolve()
+      })
+      expect(result.current.tickets[0]?.title).toBe('Project B')
+    })
+
+    it('keeps an in-flight mutation bound to its owner and does not refetch the new project', async () => {
+      let resolvePatch!: (value: Response) => void
+      const fetchMock = vi.fn((url: string, init?: RequestInit) => {
+        if (init?.method === 'PATCH') {
+          return new Promise<Response>((resolve) => { resolvePatch = resolve })
+        }
+        const title = url.includes('proj-2') ? 'Project B' : 'Project A'
+        return Promise.resolve({ ok: true, json: async () => ({ tickets: [makeTicket({ title })] }) } as Response)
+      })
+      global.fetch = fetchMock as typeof fetch
+
+      const { result, rerender } = renderHook(() => useTickets())
+      await waitFor(() => expect(result.current.tickets[0]?.title).toBe('Project A'))
+      let mutation!: Promise<boolean>
+      act(() => { mutation = result.current.updateTicket(1, { title: 'Changed in A' }) })
+
+      mockActiveProjectId = 'proj-2'
+      rerender()
+      await waitFor(() => expect(result.current.tickets[0]?.title).toBe('Project B'))
+      resolvePatch({ ok: true } as Response)
+      await act(async () => { expect(await mutation).toBe(true) })
+
+      const patchCall = fetchMock.mock.calls.find(([, init]) => init?.method === 'PATCH')
+      expect(patchCall?.[0]).toBe('/api/projects/proj-1/tickets/1')
+      const projectBReads = fetchMock.mock.calls.filter(([url, init]) => String(url).includes('proj-2') && !init?.method)
+      expect(projectBReads).toHaveLength(1)
+    })
   })
 
   // ── Refetch with toast ─────────────────────────────────────────────────────

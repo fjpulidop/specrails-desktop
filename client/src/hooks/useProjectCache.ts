@@ -18,6 +18,15 @@ function cacheKey(projectId: string, namespace: string): string {
   return `${projectId}:${namespace}`
 }
 
+function requestErrorMessage(error: unknown): string {
+  const message = error instanceof Error
+    ? error.message
+    : error == null
+      ? ''
+      : String(error)
+  return message.trim() || 'Request failed'
+}
+
 /**
  * Purge all cached entries for a project (every `${projectId}:<namespace>` key).
  *
@@ -42,8 +51,10 @@ interface UseProjectCacheOptions<T> {
   projectId: string | null
   /** Initial value when no cache exists */
   initialValue: T
-  /** Fetch function — called on mount and project switch */
-  fetcher: () => Promise<T>
+  /** Fetch function — receives the immutable project owner + cancellation signal
+   *  for this request. Callers may ignore the argument when they are not
+   *  project-scoped. */
+  fetcher: (context: { projectId: string; signal: AbortSignal }) => Promise<T>
   /** Poll interval in ms (0 = no polling) */
   pollInterval?: number
 }
@@ -53,7 +64,9 @@ interface UseProjectCacheReturn<T> {
   isLoading: boolean
   /** True only on first load (no cache exists). False when showing cached data. */
   isFirstLoad: boolean
-  refresh: () => void
+  /** Last request error. Cached/previous data remains available when set. */
+  error: string | null
+  refresh: () => Promise<void>
 }
 
 export function useProjectCache<T>({
@@ -76,71 +89,102 @@ export function useProjectCache<T>({
   })
 
   const [isLoading, setIsLoading] = useState(isFirstLoad)
+  const [error, setError] = useState<string | null>(null)
   const fetcherRef = useRef(fetcher)
   fetcherRef.current = fetcher
-  // B27: track the live key so a late-resolving manual refresh can detect a
-  // project switch and avoid writing the previous project's data into state.
+  const initialValueRef = useRef(initialValue)
+  initialValueRef.current = initialValue
+  // The key, generation and AbortController jointly enforce latest-request
+  // ownership even when a fetch implementation ignores AbortSignal.
   const keyRef = useRef(key)
   keyRef.current = key
+  const requestGenerationRef = useRef(0)
+  const activeControllerRef = useRef<AbortController | null>(null)
 
-  // On project switch: restore from cache instantly, then refresh
-  useEffect(() => {
-    if (!key) return
+  const runFetch = useCallback(async (
+    requestKey: string,
+    ownerProjectId: string,
+    showLoading: boolean,
+  ): Promise<void> => {
+    const generation = ++requestGenerationRef.current
+    activeControllerRef.current?.abort()
+    const controller = new AbortController()
+    activeControllerRef.current = controller
 
-    const cached = globalCache.get(key) as T | undefined
-    if (cached !== undefined) {
-      setData(cached)
-      setIsFirstLoad(false)
-      setIsLoading(false)
-    } else {
-      setData(initialValue)
-      setIsFirstLoad(true)
+    if (showLoading && keyRef.current === requestKey) {
       setIsLoading(true)
+      setError(null)
     }
 
-    let cancelled = false
-
-    async function doFetch() {
-      try {
-        const fresh = await fetcherRef.current()
-        if (cancelled) return
-        globalCache.set(key!, fresh)
+    try {
+      const fresh = await fetcherRef.current({ projectId: ownerProjectId, signal: controller.signal })
+      if (controller.signal.aborted || generation !== requestGenerationRef.current) return
+      globalCache.set(requestKey, fresh)
+      if (keyRef.current === requestKey) {
         setData(fresh)
-      } catch {
-        // Keep cached/initial data on error
-      } finally {
-        if (!cancelled) {
+        setError(null)
+      }
+    } catch (err) {
+      if (controller.signal.aborted || generation !== requestGenerationRef.current) return
+      if (keyRef.current === requestKey) {
+        setError(requestErrorMessage(err))
+      }
+    } finally {
+      if (generation === requestGenerationRef.current) {
+        if (activeControllerRef.current === controller) activeControllerRef.current = null
+        if (keyRef.current === requestKey) {
           setIsLoading(false)
           setIsFirstLoad(false)
         }
       }
     }
+  }, [])
 
-    doFetch()
+  // On project switch: restore from cache instantly, then refresh
+  useEffect(() => {
+    requestGenerationRef.current += 1
+    activeControllerRef.current?.abort()
+    activeControllerRef.current = null
+    setError(null)
+    if (!key || !projectId) {
+      setData(initialValueRef.current)
+      setIsFirstLoad(true)
+      setIsLoading(false)
+      return
+    }
+
+    const hasCached = globalCache.has(key)
+    if (hasCached) {
+      setData(globalCache.get(key) as T)
+      setIsFirstLoad(false)
+      setIsLoading(false)
+    } else {
+      setData(initialValueRef.current)
+      setIsFirstLoad(true)
+      setIsLoading(true)
+    }
+
+    void runFetch(key, projectId, !hasCached)
 
     // Polling
     let interval: ReturnType<typeof setInterval> | undefined
     if (pollInterval > 0) {
-      interval = setInterval(doFetch, pollInterval)
+      interval = setInterval(() => { void runFetch(key, projectId, false) }, pollInterval)
     }
 
     return () => {
-      cancelled = true
+      requestGenerationRef.current += 1
+      activeControllerRef.current?.abort()
+      activeControllerRef.current = null
       if (interval) clearInterval(interval)
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [key, pollInterval])
+  }, [key, projectId, pollInterval, runFetch])
 
-  const refresh = useCallback(() => {
-    if (!key) return
-    const refreshKey = key
-    fetcherRef.current().then((fresh) => {
-      // Always cache under the key the fetch was issued for…
-      globalCache.set(refreshKey, fresh)
-      // …but only push into live state if we're still on that project (B27).
-      if (keyRef.current === refreshKey) setData(fresh)
-    }).catch(() => {})
-  }, [key])
+  const refresh = useCallback(async () => {
+    if (!key || !projectId) return
+    await runFetch(key, projectId, true)
+  }, [key, projectId, runFetch])
 
-  return { data, isLoading, isFirstLoad, refresh }
+  return { data, isLoading, isFirstLoad, error, refresh }
 }

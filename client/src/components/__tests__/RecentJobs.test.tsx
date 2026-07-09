@@ -63,6 +63,21 @@ describe('RecentJobs', () => {
     expect(screen.getByText(/No jobs yet/i)).toBeInTheDocument()
   })
 
+  it('shows load error with Retry instead of the empty state', () => {
+    const onRetry = vi.fn()
+    render(<RecentJobs jobs={[]} error="request failed" onRetry={onRetry} />)
+    expect(screen.getByRole('alert')).toBeInTheDocument()
+    expect(screen.queryByText(/No jobs yet/i)).not.toBeInTheDocument()
+    fireEvent.click(screen.getByRole('button', { name: 'Retry' }))
+    expect(onRetry).toHaveBeenCalledTimes(1)
+  })
+
+  it('keeps the last good jobs visible when a refresh fails', () => {
+    render(<RecentJobs jobs={mockJobs} error="request failed" onRetry={vi.fn()} />)
+    expect(screen.getByRole('alert')).toBeInTheDocument()
+    expect(screen.getByText('/specrails:implement')).toBeInTheDocument()
+  })
+
   it('shows loading skeleton when isLoading is true', () => {
     const { container } = render(<RecentJobs jobs={[]} isLoading={true} />)
     const skeletons = container.querySelectorAll('.animate-pulse')

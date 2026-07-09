@@ -140,7 +140,7 @@ export default function DashboardPage() {
     const p = projects.find((pr) => pr.id === activeProjectId)
     return p ? projectProviders(p) : ['claude']
   })()
-  const { tickets, isLoading, updateTicket, updateTicketStatus, updateTicketPriority, deleteTicket, createTicket, refetch, contractRefiningIds } = useTickets()
+  const { tickets, isLoading, error: ticketsError, updateTicket, updateTicketStatus, updateTicketPriority, deleteTicket, createTicket, refetch, contractRefiningIds } = useTickets()
   const { registerHandler, unregisterHandler, connectionStatus } = useSharedWebSocket()
   const { specToOpen, clearSpecToOpen } = useSpecGenTracker()
   const [detailTicket, setDetailTicket] = useState<LocalTicket | null>(null)
@@ -1344,6 +1344,8 @@ export default function DashboardPage() {
             allTickets={tickets}
             doneTickets={doneSpecTickets}
             isLoading={isLoading}
+            error={ticketsError}
+            onRetry={() => { void refetch() }}
             onTicketClick={setDetailTicket}
             onTicketCreated={(ticket) => { setDetailTicket(ticket); refetch() }}
             onTicketDelete={(id) => deleteTicket(id)}
@@ -1462,10 +1464,7 @@ export default function DashboardPage() {
               if (next) setDetailTicket(next)
             }}
             onSave={updateTicket}
-            onDelete={(id) => {
-              deleteTicket(id)
-              setDetailTicket(null)
-            }}
+            onDelete={deleteTicket}
             rails={rails}
             onMoveToRail={handleMoveTicketToRail}
             onRemoveFromRail={handleRemoveTicketFromRail}

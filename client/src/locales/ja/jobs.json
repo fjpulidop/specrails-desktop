@@ -183,6 +183,7 @@
   "recent": {
     "emptyTitle": "ジョブはまだありません",
     "emptyDescription": "上でコマンドを実行すると、ここにジョブ履歴が表示されます",
+    "loadFailed": "ジョブの読み込みに失敗しました",
     "filterAll": "すべて ({{count}})",
     "filterStatus": "{{status}} ({{count}})",
     "fromDate": "開始日",

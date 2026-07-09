@@ -3,7 +3,7 @@ import { useTranslation } from 'react-i18next'
 import { useSearchParams } from 'react-router-dom'
 import { useDroppable } from '@dnd-kit/core'
 import { SortableContext, verticalListSortingStrategy } from '@dnd-kit/sortable'
-import { FileText, Plus, CheckCircle2 } from 'lucide-react'
+import { FileText, Plus, CheckCircle2, AlertTriangle } from 'lucide-react'
 import { Button } from './ui/button'
 import { SpecCard } from './SpecCard'
 import { TicketPostitCard } from './TicketPostitCard'
@@ -50,6 +50,8 @@ interface SpecsBoardProps {
   /** Tickets that have been implemented (status=done). */
   doneTickets?: LocalTicket[]
   isLoading: boolean
+  error?: string | null
+  onRetry?: () => void
   onTicketClick: (ticket: LocalTicket) => void
   onTicketCreated?: (ticket: LocalTicket) => void
   /** Delete handler — when provided, long-press on cards enters jiggle mode
@@ -160,6 +162,8 @@ export function SpecsBoard({
   allTickets,
   doneTickets = [],
   isLoading,
+  error,
+  onRetry,
   onTicketClick,
   onTicketCreated,
   onTicketDelete,
@@ -539,6 +543,7 @@ export function SpecsBoard({
   // Whether either status dimension is narrowing the view (drives the empty
   // states + header count pill).
   const statusNarrowed = statusFilter !== 'active' || activeJiraStatus !== null
+  const hasLastGoodData = tickets.length + doneTickets.length > 0
 
   return (
     <div className="flex flex-col h-full" onClick={handleBackgroundClick}>
@@ -636,14 +641,25 @@ export function SpecsBoard({
           buckets render; in `all` mode todo specs come first and the done
           bucket is always pinned to the bottom of the scroller. */}
       <div className="flex-1 overflow-y-auto min-h-0">
+        {error && (
+          <div role="alert" data-testid="specs-load-error" className="mx-4 mt-3 flex items-center gap-2 rounded-md border border-destructive/30 bg-destructive/10 px-3 py-2 text-xs text-destructive">
+            <AlertTriangle className="h-4 w-4 shrink-0" />
+            <span className="flex-1">{t('errors.loadFailed')}</span>
+            {onRetry && (
+              <Button type="button" variant="outline" size="sm" className="h-7" onClick={onRetry} disabled={isLoading}>
+                {t('common:actions.retry')}
+              </Button>
+            )}
+          </div>
+        )}
         {/* Active specs bucket (todo) — droppable zone */}
-        {showTodoBucket && (
+        {(!error || hasLastGoodData) && showTodoBucket && (
           <div
             ref={setNodeRef}
             data-tour="specs-list"
             className={`px-4 pt-3 pb-2 space-y-1.5 transition-colors duration-150 ${isOver ? 'bg-primary/[0.04]' : ''}`}
           >
-            {isLoading ? (
+            {isLoading && !hasLastGoodData ? (
               <div className="space-y-1.5">
                 {[0, 1, 2].map((i) => (
                   <div key={i} className="h-10 rounded-lg border border-border/40 bg-card/50 animate-pulse" />
@@ -740,7 +756,7 @@ export function SpecsBoard({
         )}
 
         {/* Done bucket — droppable, always pinned to the bottom of the scroller. */}
-        {showDoneBucket && (
+        {(!error || hasLastGoodData) && showDoneBucket && (
           <div
             ref={setDoneNodeRef}
             data-testid="specs-board-done-bucket"

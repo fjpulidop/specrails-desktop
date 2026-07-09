@@ -4,7 +4,7 @@ import { useTranslation } from 'react-i18next'
 import { getApiBase } from '../lib/api'
 import { getDateFnsLocale } from '../lib/i18n'
 import { formatDistanceToNow } from 'date-fns'
-import { Trash2, ClipboardList, GitCompareArrows, Link2 } from 'lucide-react'
+import { Trash2, ClipboardList, GitCompareArrows, Link2, AlertTriangle } from 'lucide-react'
 import { toast } from 'sonner'
 import { Badge } from './ui/badge'
 import { Button } from './ui/button'
@@ -108,6 +108,8 @@ export function isWithinLocalDayRange(startedAt: string, from: string, to: strin
 interface RecentJobsProps {
   jobs: JobSummary[]
   isLoading?: boolean
+  error?: string | null
+  onRetry?: () => void
   onJobsCleared?: () => void
   onProposalClick?: (proposalId: string) => void
   onProposalDelete?: (proposalId: string) => void
@@ -115,7 +117,7 @@ interface RecentJobsProps {
 
 const PAGE_SIZE = 10
 
-export function RecentJobs({ jobs, isLoading, onJobsCleared, onProposalClick, onProposalDelete }: RecentJobsProps) {
+export function RecentJobs({ jobs, isLoading, error, onRetry, onJobsCleared, onProposalClick, onProposalDelete }: RecentJobsProps) {
   const { t } = useTranslation('jobs')
   const navigate = useNavigate()
   const { activeProjectId, projects } = useDesktop()
@@ -200,7 +202,23 @@ export function RecentJobs({ jobs, isLoading, onJobsCleared, onProposalClick, on
     }
   }
 
-  if (isLoading) {
+  const loadError = error ? (
+    <div role="alert" data-testid="jobs-load-error" className="flex items-center gap-2 rounded-md border border-destructive/30 bg-destructive/10 px-3 py-2 text-xs text-destructive">
+      <AlertTriangle className="h-4 w-4 shrink-0" />
+      <span className="flex-1">{t('recent.loadFailed')}</span>
+      {onRetry && (
+        <Button type="button" variant="outline" size="sm" className="h-7" onClick={onRetry} disabled={isLoading}>
+          {t('common:actions.retry')}
+        </Button>
+      )}
+    </div>
+  ) : null
+
+  if (error && jobs.length === 0) {
+    return <div className="rounded-lg border border-border/40 bg-card/50 p-4">{loadError}</div>
+  }
+
+  if (isLoading && jobs.length === 0) {
     return (
       <div className="rounded-lg border border-border/40 bg-card/50 p-4 space-y-1">
         {[0, 1, 2].map((i) => (
@@ -224,6 +242,7 @@ export function RecentJobs({ jobs, isLoading, onJobsCleared, onProposalClick, on
 
   return (
     <div className="rounded-lg border border-border/40 bg-card/50 p-4 space-y-2">
+      {loadError}
       {/* Filter bar */}
       <div className="flex items-center justify-between gap-2">
         <div className="flex items-center gap-1">

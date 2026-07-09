@@ -51,6 +51,7 @@ vi.mock('../../hooks/usePipeline', () => ({
 }))
 
 const mockRefreshJobs = vi.fn()
+const mockRefreshProposals = vi.fn()
 
 vi.mock('../../hooks/useProjectCache', () => ({
   useProjectCache: ({ namespace }: { namespace: string }) => ({
@@ -61,7 +62,7 @@ vi.mock('../../hooks/useProjectCache', () => ({
       : [],
     isLoading: false,
     isFirstLoad: false,
-    refresh: mockRefreshJobs,
+    refresh: namespace === 'proposals' ? mockRefreshProposals : mockRefreshJobs,
   }),
 }))
 
@@ -219,7 +220,7 @@ describe('JobsPage - proposal dialog content', () => {
     })
   })
 
-  it('calls DELETE and refreshes when Delete button in dialog is clicked', async () => {
+  it('calls DELETE and refreshes proposals, not jobs, when Delete is clicked', async () => {
     const { toast } = await import('sonner')
 
     global.fetch = vi.fn()
@@ -253,6 +254,8 @@ describe('JobsPage - proposal dialog content', () => {
         expect.objectContaining({ method: 'DELETE' })
       )
       expect(toast.success).toHaveBeenCalledWith('Proposal deleted')
+      expect(mockRefreshProposals).toHaveBeenCalledTimes(1)
+      expect(mockRefreshJobs).not.toHaveBeenCalled()
     })
   })
 

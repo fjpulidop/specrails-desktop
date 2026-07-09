@@ -39,7 +39,8 @@
   "detailModal": {
     "toast": {
       "updated": "チケットを更新しました",
-      "updateFailed": "チケットの更新に失敗しました"
+      "updateFailed": "チケットの更新に失敗しました",
+      "deleteFailed": "チケットの削除に失敗しました"
     },
     "compare": "比較",
     "compareTooltip": "別のスペックと比較",
