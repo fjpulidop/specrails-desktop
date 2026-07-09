@@ -302,6 +302,25 @@ describe('launchIsolatedRail — ask-first PR delivery (rail_pr_deliveries lifec
     expect(mockRunMergeBack).not.toHaveBeenCalled()
   })
 
+  it('success outcome with uncommitted deliverable changes fails the implementation card instead of offering Create PR', async () => {
+    const { ctx, db, broadcast, onLoopRunFinished } = fakeCtx(settlingRun('success'))
+    const git = {
+      run: async (args: string[]) => {
+        if (args[0] === 'status') return { code: 0, stdout: ' M src/app.ts\n', stderr: '' }
+        return { code: 0, stdout: '', stderr: '' }
+      },
+    }
+
+    const ids = await launchIsolatedRail(input([1], ctx), { ...okIo(), git })
+
+    await vi.waitFor(() => expect(getActivePrDeliveryByRail(db, 0)?.decision).toBe('implementation_failed'))
+    const row = getActivePrDeliveryByRail(db, 0)!
+    expect(JSON.parse(row.branches)).toEqual([{ ticketId: 1, branch: 'sr/p/ticket-1', succeeded: false }])
+    expect(onLoopRunFinished).toHaveBeenCalledWith(ids[0], 'failed', { ticketCompletionStatus: 'on_review' })
+    expect(prStates(broadcast).map((m) => m.decision)).toEqual(['building', 'building', 'implementation_failed'])
+    expect(mockRunMergeBack).not.toHaveBeenCalled()
+  })
+
   it('settle (0 succeeded) → implementation_failed with run logs, branches persisted with succeeded:false', async () => {
     const { ctx, db, broadcast } = fakeCtx(settlingRun('failure'))
 

@@ -246,9 +246,10 @@
   },
   "projectDialog": {
     "title": "{{name}} — 设置",
-    "description": "项目级配置：提示词、环境、预算、遥测和终端。",
+    "description": "项目级配置：提示词、分支、环境、预算、遥测和终端。",
     "nav": {
       "general": "常规",
+      "branch": "分支",
       "environment": "环境",
       "budget": "预算",
       "telemetry": "遥测",

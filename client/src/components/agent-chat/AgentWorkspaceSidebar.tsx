@@ -1,17 +1,16 @@
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { Globe, TerminalSquare, FileCode2, PanelRight, Briefcase, Puzzle } from 'lucide-react'
+import { Globe, TerminalSquare, FileCode2, PanelRight, Briefcase } from 'lucide-react'
 import { cn } from '../../lib/utils'
 import { useResizableSidebar } from '../../hooks/useResizableSidebar'
 import { SidebarResizeGrip } from '../SidebarResizeGrip'
 import { useSidebarPin } from '../../context/SidebarPinContext'
-import { projectProviders, useDesktop } from '../../hooks/useDesktop'
+import { useDesktop } from '../../hooks/useDesktop'
 import { useTerminals } from '../../context/TerminalsContext'
 import { useAgentWorkspace } from '../../context/AgentWorkspaceContext'
 import { useAgentChat } from '../../context/AgentChatContext'
 import { FEATURE_CODE_EXPLORER, FEATURE_TERMINAL_PANEL } from '../../lib/feature-flags'
 import { isBrowserCaptureEnabled } from '../../lib/browser-capture'
-import { sectionVisibleForProviders } from '../../lib/provider-capabilities'
 
 const RIGHT_PIN_LABEL_KEY: Record<'pinned-open' | 'pinned-collapsed' | 'unpinned', string> = {
   'pinned-open': 'sidebarPin.right.pinnedOpen',
@@ -29,7 +28,7 @@ export function AgentWorkspaceSidebar() {
   const { t } = useTranslation('agent')
   const { t: tNav } = useTranslation('nav')
   const { rightMode, cycleRightMode } = useSidebarPin()
-  const { projects, activeProjectId } = useDesktop()
+  const { activeProjectId } = useDesktop()
   const terminals = useTerminals()
   const workspace = useAgentWorkspace()
   const { active } = useAgentChat()
@@ -43,10 +42,6 @@ export function AgentWorkspaceSidebar() {
   const lit = rightMode !== 'unpinned'
   const pinLabel = tNav(RIGHT_PIN_LABEL_KEY[rightMode])
   const noProject = !activeProjectId
-  const activeProject = projects.find((p) => p.id === activeProjectId)
-  const providers = activeProject ? projectProviders(activeProject) : ['claude']
-  const showIntegrations = sectionVisibleForProviders('integrations', providers)
-
   const tools = [
     // Jobs sits ABOVE Browser: the executions the agent launches are the first
     // thing the user reaches for from Agent Mode.
@@ -76,13 +71,6 @@ export function AgentWorkspaceSidebar() {
       ? [{
           key: 'files', icon: FileCode2, label: t('workspace.files'),
           onClick: () => workspace.toggleCodePane(),
-          disabled: noProject, disabledTitle: t('workspace.requiresProject'),
-        }]
-      : []),
-    ...(showIntegrations
-      ? [{
-          key: 'integrations', icon: Puzzle, label: tNav('rightSidebar.integrations'),
-          onClick: () => workspace.toggleIntegrationsModal(),
           disabled: noProject, disabledTitle: t('workspace.requiresProject'),
         }]
       : []),

@@ -211,24 +211,89 @@ export async function createWorktree(git: GitRunner, input: CreateWorktreeInput)
   return { branch, worktreePath: wt }
 }
 
+export interface CommitWorktreeResult {
+  /** `git add` accepted the deliverable pathspecs. */
+  staged: boolean
+  /** `git commit` created a commit. False is valid when there was nothing new. */
+  committed: boolean
+  /** No deliverable tracked/untracked changes remain after the commit attempt. */
+  clean: boolean
+  /** Porcelain status lines for deliverable paths still dirty after commit. */
+  dirty: string[]
+  /** Human-readable git failure, when add/commit/status failed. */
+  error?: string
+}
+
+function gitFailure(result: GitResult, fallback: string): string {
+  return result.stderr.trim() || result.stdout.trim() || fallback
+}
+
+function thrownGitFailure(err: unknown): GitResult {
+  return {
+    code: 1,
+    stdout: '',
+    stderr: err instanceof Error ? err.message : String(err),
+  }
+}
+
+async function gitRun(git: GitRunner, args: string[], cwd: string): Promise<GitResult> {
+  try {
+    return await git.run(args, cwd)
+  } catch (err) {
+    return thrownGitFailure(err)
+  }
+}
+
+function commitPathspecs(excludePaths: string[]): string[] {
+  const allExcludePaths = [...PR_NEVER_STAGE_PATHS, ...excludePaths]
+  return ['--', '.', ...allExcludePaths.map((p) => `:(exclude)${p}`)]
+}
+
+/**
+ * Commit the worktree's current deliverable changes to its branch and verify
+ * that no deliverable local modifications remain. Excluded overlay/private
+ * agent paths may stay untracked in the worktree because they must never land on
+ * the ticket branch or PR.
+ */
+export async function commitWorktreeAndVerify(
+  git: GitRunner,
+  worktreePath: string,
+  message: string,
+  excludePaths: string[] = []
+): Promise<CommitWorktreeResult> {
+  const pathspecs = commitPathspecs(excludePaths)
+  const add = await gitRun(git, ['add', '-A', ...pathspecs], worktreePath)
+  const commit = add.code === 0
+    ? await gitRun(git, ['commit', '-m', message], worktreePath)
+    : { code: 1, stdout: '', stderr: 'skipped commit because git add failed' }
+  const status = await gitRun(git, ['status', '--porcelain', '--untracked-files=all', ...pathspecs], worktreePath)
+  const dirty = status.code === 0
+    ? status.stdout.split('\n').map((line) => line.trimEnd()).filter(Boolean)
+    : []
+  const error = add.code !== 0
+    ? gitFailure(add, `git add failed with exit ${add.code}`)
+    : status.code !== 0
+      ? gitFailure(status, `git status failed with exit ${status.code}`)
+      : commit.code !== 0 && dirty.length > 0
+        ? gitFailure(commit, `git commit failed with exit ${commit.code}`)
+        : undefined
+  return {
+    staged: add.code === 0,
+    committed: commit.code === 0,
+    clean: status.code === 0 && dirty.length === 0,
+    dirty,
+    ...(error ? { error } : {}),
+  }
+}
+
 /**
  * Commit the worktree's current changes to its branch so the work is durable in
  * git — it survives worktree removal, is mergeable by the merge-back, and lets a
- * re-launched rail resume from it. No-op (the commit just exits non-zero) when
- * there is nothing to commit. Best-effort: never throws.
- *
- * `excludePaths` (worktree-relative, POSIX separators) are skipped via
- * `:(exclude)` pathspecs — the per-run overlay (worktree-overlay.ts) threads its
- * app-owned scaffolding (framework symlinks, `.mcp.json` copy, manifest) here so
- * it NEVER lands on the ticket branch / PR. All excluded paths are untracked by
- * construction (the overlay only creates entries the checkout lacked), so
- * excluding them can never drop real work.
+ * re-launched rail resume it. Retained as a best-effort compatibility wrapper;
+ * new delivery code should use `commitWorktreeAndVerify`.
  */
 export async function commitWorktree(git: GitRunner, worktreePath: string, message: string, excludePaths: string[] = []): Promise<void> {
-  const allExcludePaths = [...PR_NEVER_STAGE_PATHS, ...excludePaths]
-  const addArgs = ['add', '-A', '--', '.', ...allExcludePaths.map((p) => `:(exclude)${p}`)]
-  await git.run(addArgs, worktreePath).catch(() => {})
-  await git.run(['commit', '-m', message], worktreePath).catch(() => {})
+  await commitWorktreeAndVerify(git, worktreePath, message, excludePaths)
 }
 
 export interface RemoveWorktreeInput {
@@ -239,10 +304,14 @@ export interface RemoveWorktreeInput {
   deleteBranch?: boolean
 }
 
-/** Remove a worktree (force) and optionally delete its branch. Best-effort — a
- *  failure here must never break the run; it is swept again at startup. */
+/** Remove a worktree (force) and optionally delete its branch. Worktree removal
+ * failures throw so callers do not mark the ledger released while the checkout
+ * is still mounted. Branch deletion remains best-effort. */
 export async function removeWorktree(git: GitRunner, input: RemoveWorktreeInput): Promise<void> {
-  await git.run(['worktree', 'remove', '--force', input.worktreePath], input.repoDir)
+  const removed = await git.run(['worktree', 'remove', '--force', input.worktreePath], input.repoDir)
+  if (removed.code !== 0) {
+    throw new Error(`git worktree remove failed for ${input.worktreePath}: ${gitFailure(removed, `exit ${removed.code}`)}`)
+  }
   if (input.deleteBranch !== false) {
     await git.run(['branch', '-D', input.branch], input.repoDir)
   }

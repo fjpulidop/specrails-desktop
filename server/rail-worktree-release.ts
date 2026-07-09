@@ -20,12 +20,17 @@ export async function releaseRailWorktrees(input: ReleaseRailWorktreesInput): Pr
   for (const wtId of input.worktreeIds) {
     const wt = getRailWorktree(input.db, wtId)
     if (!wt) continue
-    await removeWorktree(input.git, {
-      repoDir: input.repoDir,
-      worktreePath: wt.worktree_path,
-      branch: wt.branch,
-      deleteBranch: false,
-    }).catch(() => {})
+    try {
+      await removeWorktree(input.git, {
+        repoDir: input.repoDir,
+        worktreePath: wt.worktree_path,
+        branch: wt.branch,
+        deleteBranch: false,
+      })
+    } catch (err) {
+      console.warn(`[rail-worktree-release] failed to remove worktree ${wt.worktree_path}: ${(err as Error).message}`)
+      continue
+    }
     if (!isTerminalMergeState(wt.merge_state)) updateRailWorktreeState(input.db, wt.id, state)
   }
 }

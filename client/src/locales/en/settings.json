@@ -246,9 +246,10 @@
   },
   "projectDialog": {
     "title": "{{name}} — Settings",
-    "description": "Project-level configuration: prompts, environment, budget, telemetry and terminal.",
+    "description": "Project-level configuration: prompts, branch, environment, budget, telemetry and terminal.",
     "nav": {
       "general": "General",
+      "branch": "Branch",
       "environment": "Environment",
       "budget": "Budget",
       "telemetry": "Telemetry",

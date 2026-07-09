@@ -41,6 +41,7 @@ vi.mock('../../worktree-manager', async (importActual) => ({
     worktreePath: `/tmp/fake-wt-${input.ticketId}`,
   }),
   commitWorktree: async () => {},
+  commitWorktreeAndVerify: async () => ({ staged: true, committed: true, clean: true, dirty: [] }),
   removeWorktree: async () => {},
 }))
 

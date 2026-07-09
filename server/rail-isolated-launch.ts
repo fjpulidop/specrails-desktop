@@ -25,7 +25,7 @@ import * as path from 'path'
 import { resolveHome } from './artifact-registry'
 import { newId } from './ids'
 import { loadConstantMap } from './loop-constants'
-import { defaultGitRunner, createWorktree, removeWorktree, commitWorktree, listLocalBranches, worktreeBranch, type GitRunner, type WorktreeHandle } from './worktree-manager'
+import { defaultGitRunner, createWorktree, removeWorktree, commitWorktreeAndVerify, listLocalBranches, worktreeBranch, type GitRunner, type WorktreeHandle, type CommitWorktreeResult } from './worktree-manager'
 import { createRailWorktree, updateRailWorktreeState, listNonTerminalRailWorktrees, railWorktreeBranchExistsForTicket, getRailWorktree, isTerminalMergeState } from './rail-worktrees-store'
 import { ticketBranchName, ticketRef, resolveCollisionFreeName, type TicketNamingInput } from './pr-naming'
 import { getLinkByLocalId } from './jira/jira-db'
@@ -158,6 +158,11 @@ function worktreeCommitMessage(ctx: ProjectContext, ticketId: number, runId: str
   const ref = ticketRef(input)
   const subjectRef = ref === String(ticketId) ? `ticket-${ticketId}` : `${ref} ticket-${ticketId}`
   return `specrails: ${subjectRef}${partial ? ' partial' : ''} (run ${runId})`
+}
+
+function commitFailureSummary(result: CommitWorktreeResult): string {
+  const dirty = result.dirty.length > 0 ? `; dirty=${result.dirty.slice(0, 8).join(', ')}` : ''
+  return `${result.error ?? 'worktree still has uncommitted deliverable changes'}${dirty}`
 }
 
 /**
@@ -478,22 +483,30 @@ export async function launchIsolatedRail(input: IsolatedLaunchInput, io: Isolate
         constants, provider, model, effort,
       })
       .then(async (r) => {
-        ctx.onLoopRunFinished(r.runId, r.outcome, runFinishedOpts)
         const succeeded = r.outcome === 'success'
         recordRunProvenance(a)
-        // Commit the run's work to its branch so the merge-back can integrate it
-        // (loops like autoloop-tdd don't commit) and a re-launch can resume it.
-        // Overlay scaffolding is excluded — it must never reach the branch/PR.
-        await commitWorktree(git, a.handle.worktreePath, worktreeCommitMessage(ctx, a.ticketId, a.runId), a.overlayExcludes)
-        updateRailWorktreeState(ctx.db, a.ledgerId, succeeded ? 'built' : 'failed')
-        return { run: a, succeeded }
+        // Commit the run's work to its branch so PR creation/merge-back can
+        // trust the branch as the durable source of truth. A "successful" loop
+        // with deliverable local changes still dirty is treated as failed
+        // instead of surfacing a Create PR card that cannot ship the work.
+        const commit = await commitWorktreeAndVerify(git, a.handle.worktreePath, worktreeCommitMessage(ctx, a.ticketId, a.runId), a.overlayExcludes)
+        const deliverable = succeeded && commit.clean
+        if (succeeded && !commit.clean) {
+          console.error(`[rail-isolated] run ${a.runId} finished success but commit verification failed: ${commitFailureSummary(commit)}`)
+        }
+        ctx.onLoopRunFinished(r.runId, deliverable ? 'success' : 'failed', runFinishedOpts)
+        updateRailWorktreeState(ctx.db, a.ledgerId, deliverable ? 'built' : 'failed')
+        return { run: a, succeeded: deliverable }
       })
       .catch(async (err) => {
         console.error('[rail-isolated] loop run failed:', err)
         ctx.onLoopRunFinished(a.runId, 'failed', runFinishedOpts)
         recordRunProvenance(a)
         // Commit partial work too → durable in git → resumable on re-launch.
-        await commitWorktree(git, a.handle.worktreePath, worktreeCommitMessage(ctx, a.ticketId, a.runId, true), a.overlayExcludes)
+        const commit = await commitWorktreeAndVerify(git, a.handle.worktreePath, worktreeCommitMessage(ctx, a.ticketId, a.runId, true), a.overlayExcludes)
+        if (!commit.clean) {
+          console.error(`[rail-isolated] failed run ${a.runId} left uncommitted deliverable changes: ${commitFailureSummary(commit)}`)
+        }
         updateRailWorktreeState(ctx.db, a.ledgerId, 'failed')
         return { run: a, succeeded: false }
       })
@@ -587,7 +600,9 @@ export async function launchIsolatedRail(input: IsolatedLaunchInput, io: Isolate
         for (const a of allocated) {
           await remove(git, {
             repoDir: baseRepo, worktreePath: a.handle.worktreePath, branch: a.handle.branch, deleteBranch: false,
-          }).catch(() => {})
+          }).catch((err) => {
+            console.warn(`[rail-isolated] failed to remove failed worktree ${a.handle.worktreePath}: ${(err as Error).message}`)
+          })
           const wt = getRailWorktree(ctx.db, a.ledgerId)
           if (wt && !isTerminalMergeState(wt.merge_state)) updateRailWorktreeState(ctx.db, a.ledgerId, 'failed')
         }

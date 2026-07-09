@@ -2,9 +2,6 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { fireEvent, render, screen } from '../../../test-utils'
 import { AgentWorkspaceSidebar } from '../AgentWorkspaceSidebar'
 
-const toggleIntegrationsModal = vi.fn()
-let visibleForProviders = true
-
 vi.mock('../../../hooks/useDesktop', async () => {
   const actual = await vi.importActual<typeof import('../../../hooks/useDesktop')>('../../../hooks/useDesktop')
   return {
@@ -35,7 +32,6 @@ vi.mock('../../../context/AgentWorkspaceContext', () => ({
     toggleJobsPane: vi.fn(),
     openBrowser: vi.fn(),
     toggleCodePane: vi.fn(),
-    toggleIntegrationsModal,
   }),
 }))
 
@@ -43,40 +39,18 @@ vi.mock('../../../context/AgentChatContext', () => ({
   useAgentChat: () => ({ active: { id: 'conversation-1' } }),
 }))
 
-vi.mock('../../../lib/provider-capabilities', async () => {
-  const actual = await vi.importActual<typeof import('../../../lib/provider-capabilities')>('../../../lib/provider-capabilities')
-  return {
-    ...actual,
-    sectionVisibleForProviders: vi.fn(() => visibleForProviders),
-  }
-})
-
 describe('AgentWorkspaceSidebar', () => {
   beforeEach(() => {
-    toggleIntegrationsModal.mockClear()
-    visibleForProviders = true
+    vi.clearAllMocks()
   })
 
-  it('shows Integrations immediately after Files and toggles the modal', () => {
+  it('shows workspace tools without the old Integrations entry', () => {
     const { container } = render(<AgentWorkspaceSidebar />)
 
     fireEvent.mouseEnter(container.firstChild as Element)
 
     const toolLabels = screen.getAllByRole('button').map((button) => button.textContent)
-    expect(toolLabels).toEqual(expect.arrayContaining(['Files', 'Integrations']))
-    expect(toolLabels.indexOf('Integrations')).toBe(toolLabels.indexOf('Files') + 1)
-
-    fireEvent.click(screen.getByRole('button', { name: /integrations/i }))
-
-    expect(toggleIntegrationsModal).toHaveBeenCalledTimes(1)
-  })
-
-  it('hides Integrations when provider visibility rejects it', () => {
-    visibleForProviders = false
-
-    const { container } = render(<AgentWorkspaceSidebar />)
-    fireEvent.mouseEnter(container.firstChild as Element)
-
+    expect(toolLabels).toEqual(expect.arrayContaining(['Jobs', 'Files']))
     expect(screen.queryByRole('button', { name: /integrations/i })).not.toBeInTheDocument()
   })
 })
