@@ -361,6 +361,17 @@ export function RecentJobs({ jobs, isLoading, onJobsCleared, onProposalClick, on
 
           const isSelected = compareSelection.includes(job.id)
           const isDisabled = compareMode && !isProposal && compareSelection.length === 2 && !isSelected
+          const activateRow = () => {
+            if (compareMode && !isProposal) {
+              toggleCompareSelect(job.id)
+              return
+            }
+            if (isProposal && proposalId) {
+              onProposalClick?.(proposalId)
+            } else {
+              navigate(`/jobs/${job.id}`)
+            }
+          }
 
           return (
             <div
@@ -374,16 +385,13 @@ export function RecentJobs({ jobs, isLoading, onJobsCleared, onProposalClick, on
                   ? 'opacity-40 cursor-not-allowed'
                   : 'hover:bg-accent/50'
               }`}
-              onClick={() => {
-                if (compareMode && !isProposal) {
-                  toggleCompareSelect(job.id)
-                  return
-                }
-                if (isProposal && proposalId) {
-                  onProposalClick?.(proposalId)
-                } else {
-                  navigate(`/jobs/${job.id}`)
-                }
+              onClick={activateRow}
+              onKeyDown={(e) => {
+                // Nested controls (for example proposal delete) own their keys.
+                if (e.target !== e.currentTarget) return
+                if (e.key !== 'Enter' && e.key !== ' ') return
+                e.preventDefault()
+                activateRow()
               }}
             >
               {/* Status badge */}

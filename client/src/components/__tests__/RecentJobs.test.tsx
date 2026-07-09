@@ -126,6 +126,13 @@ describe('RecentJobs', () => {
     expect(mockNavigate).toHaveBeenCalledWith('/jobs/job-1')
   })
 
+  it('pressing Enter on a focused job row navigates to job detail', () => {
+    render(<RecentJobs jobs={mockJobs} />)
+    const jobRow = screen.getByText('/specrails:implement').closest('[role="button"]')!
+    fireEvent.keyDown(jobRow, { key: 'Enter' })
+    expect(mockNavigate).toHaveBeenCalledWith('/jobs/job-1')
+  })
+
   it('clicking proposal row calls onProposalClick instead of navigate', async () => {
     const user = userEvent.setup()
     const onProposalClick = vi.fn()
@@ -138,6 +145,21 @@ describe('RecentJobs', () => {
     render(<RecentJobs jobs={[proposalJob]} onProposalClick={onProposalClick} />)
     const row = screen.getByText('/specrails:propose-feature some idea').closest('[role="button"]')!
     await user.click(row)
+    expect(onProposalClick).toHaveBeenCalledWith('abc123')
+    expect(mockNavigate).not.toHaveBeenCalled()
+  })
+
+  it('pressing Space on a focused proposal row invokes the proposal action', () => {
+    const onProposalClick = vi.fn()
+    const proposalJob: JobSummary = {
+      id: 'proposal:abc123',
+      command: '/specrails:propose-feature keyboard idea',
+      started_at: new Date().toISOString(),
+      status: 'completed',
+    }
+    render(<RecentJobs jobs={[proposalJob]} onProposalClick={onProposalClick} />)
+    const row = screen.getByText('/specrails:propose-feature keyboard idea').closest('[role="button"]')!
+    fireEvent.keyDown(row, { key: ' ' })
     expect(onProposalClick).toHaveBeenCalledWith('abc123')
     expect(mockNavigate).not.toHaveBeenCalled()
   })
