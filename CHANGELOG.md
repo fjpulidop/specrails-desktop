@@ -1,5 +1,13 @@
 # Changelog
 
+## [2.29.0](https://github.com/fjpulidop/specrails-desktop/compare/v2.28.1...v2.29.0) (2026-07-09)
+
+
+### Features
+
+* add SDD Quick OpenSpec workflow ([#541](https://github.com/fjpulidop/specrails-desktop/issues/541)) ([c6cccbd](https://github.com/fjpulidop/specrails-desktop/commit/c6cccbd4989c90933e4da39eb8035e7371fad601))
+* **loop:** pause implementation runs for human decisions ([#543](https://github.com/fjpulidop/specrails-desktop/issues/543)) ([36155cb](https://github.com/fjpulidop/specrails-desktop/commit/36155cb9d6115608f312776223b91717c023d69f))
+
 ## [2.28.1](https://github.com/fjpulidop/specrails-desktop/compare/v2.28.0...v2.28.1) (2026-07-08)
 
 
