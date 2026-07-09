@@ -7,7 +7,7 @@ import type { DbInstance } from './db'
 import { getDesktopSetting, setDesktopSetting } from './desktop-db'
 import type { WsMessage } from './types'
 import { setHeadroomRoutingState, type HeadroomProvider } from './headroom-routing'
-import { treeKillSafe } from './util/win-spawn'
+import { treeKillSafe, windowsSpawnEnv } from './util/win-spawn'
 
 export type HeadroomPhase =
   | 'idle'
@@ -114,6 +114,21 @@ interface HeadroomProcessControl {
   spawnProxy?: typeof spawn
   killTree?: typeof treeKillSafe
   ownsProxyPort?: (pid: number, port: number) => boolean
+}
+
+interface WindowsProcessRow {
+  ProcessId?: unknown
+  ParentProcessId?: unknown
+}
+
+interface WindowsOwnershipPayload {
+  listeningPids?: unknown
+  processes?: unknown
+}
+
+export interface WindowsOwnershipSnapshot {
+  listeningPids: Set<number>
+  parentByPid: Map<number, number>
 }
 
 const STATE_KEY = 'plugins.headroom.state'
@@ -351,6 +366,155 @@ function classifyProxyFailure(output: string, command: string): HeadroomIssue {
   return issue('proxy_unhealthy', output, command)
 }
 
+function positiveInteger(value: unknown): number | null {
+  const parsed = typeof value === 'number' ? value : Number(value)
+  return Number.isInteger(parsed) && parsed > 0 ? parsed : null
+}
+
+/** Parse the language-independent JSON emitted by the Windows ownership probe. */
+export function parseWindowsOwnershipSnapshot(raw: string): WindowsOwnershipSnapshot | null {
+  try {
+    const parsed = JSON.parse(raw.replace(/^\uFEFF/, '').trim()) as WindowsOwnershipPayload
+    const listeningValues = Array.isArray(parsed.listeningPids)
+      ? parsed.listeningPids
+      : parsed.listeningPids == null
+        ? []
+        : [parsed.listeningPids]
+    const processValues = Array.isArray(parsed.processes)
+      ? parsed.processes
+      : parsed.processes && typeof parsed.processes === 'object'
+        ? [parsed.processes]
+        : []
+
+    const listeningPids = new Set<number>()
+    for (const value of listeningValues) {
+      const pid = positiveInteger(value)
+      if (pid) listeningPids.add(pid)
+    }
+
+    const parentByPid = new Map<number, number>()
+    for (const value of processValues) {
+      if (!value || typeof value !== 'object') continue
+      const row = value as WindowsProcessRow
+      const pid = positiveInteger(row.ProcessId)
+      const parentPid = positiveInteger(row.ParentProcessId)
+      if (pid && parentPid) parentByPid.set(pid, parentPid)
+    }
+    return { listeningPids, parentByPid }
+  } catch {
+    return null
+  }
+}
+
+/** True only when a listening PID is the spawned process or one of its descendants. */
+export function windowsSnapshotHasOwnedListener(
+  snapshot: WindowsOwnershipSnapshot,
+  rootPid: number,
+): boolean {
+  if (!Number.isInteger(rootPid) || rootPid <= 0) return false
+  for (const listenerPid of snapshot.listeningPids) {
+    let current = listenerPid
+    const visited = new Set<number>()
+    while (current > 0 && !visited.has(current)) {
+      if (current === rootPid) return true
+      visited.add(current)
+      current = snapshot.parentByPid.get(current) ?? 0
+    }
+  }
+  return false
+}
+
+function descendantPids(rootPid: number, parentByPid: Map<number, number>): Set<number> {
+  const descendants = new Set<number>([rootPid])
+  let changed = true
+  while (changed) {
+    changed = false
+    for (const [pid, parentPid] of parentByPid) {
+      if (descendants.has(pid) || !descendants.has(parentPid)) continue
+      descendants.add(pid)
+      changed = true
+    }
+  }
+  return descendants
+}
+
+function readLinuxParentMap(): Map<number, number> {
+  const parentByPid = new Map<number, number>()
+  let entries: string[]
+  try { entries = fs.readdirSync('/proc') } catch { return parentByPid }
+  for (const entry of entries) {
+    if (!/^\d+$/.test(entry)) continue
+    try {
+      // /proc/<pid>/stat field 2 is parenthesized and may itself contain spaces
+      // or parentheses. Fields after the final ") " start with state, then PPID.
+      const stat = fs.readFileSync(`/proc/${entry}/stat`, 'utf8')
+      const suffix = stat.slice(stat.lastIndexOf(') ') + 2).trim().split(/\s+/)
+      const pid = positiveInteger(entry)
+      const parentPid = positiveInteger(suffix[1])
+      if (pid && parentPid) parentByPid.set(pid, parentPid)
+    } catch {
+      // Processes can exit while /proc is enumerated; omit them fail-closed.
+    }
+  }
+  return parentByPid
+}
+
+function readPosixParentMap(): Map<number, number> {
+  const ps = fs.existsSync('/bin/ps') ? '/bin/ps' : '/usr/bin/ps'
+  const result = spawnSync(ps, ['-axo', 'pid=,ppid='], {
+    encoding: 'utf8',
+    timeout: 2000,
+  })
+  const parentByPid = new Map<number, number>()
+  if (result.error || result.status !== 0) return parentByPid
+  for (const line of `${result.stdout ?? ''}`.split(/\r?\n/)) {
+    const match = line.match(/^\s*(\d+)\s+(\d+)\s*$/)
+    const pid = positiveInteger(match?.[1])
+    const parentPid = positiveInteger(match?.[2])
+    if (pid && parentPid) parentByPid.set(pid, parentPid)
+  }
+  return parentByPid
+}
+
+function windowsProcessOwnsListeningPort(pid: number, port: number): boolean {
+  const env = windowsSpawnEnv()
+  const systemRoot = (env.SystemRoot || env.windir || 'C:\\Windows').replace(/[\\/]$/, '')
+  const powershell = path.win32.join(
+    systemRoot,
+    'System32',
+    'WindowsPowerShell',
+    'v1.0',
+    'powershell.exe',
+  )
+  // uv-managed console entry points are native trampoline processes on
+  // Windows. The Python process that owns the socket is their child, so an
+  // exact-PID netstat comparison rejects every legitimate managed install.
+  // Query both the listener owner and the process tree in one fail-closed
+  // snapshot, then accept only a transitive descendant of our spawned PID.
+  const command = [
+    "$ErrorActionPreference = 'Stop'",
+    `$listeningPids = @(Get-NetTCPConnection -State Listen -LocalPort ${port} | ForEach-Object { [int]$_.OwningProcess })`,
+    '$processes = @(Get-CimInstance Win32_Process | Select-Object ProcessId, ParentProcessId)',
+    '[pscustomobject]@{ listeningPids = $listeningPids; processes = $processes } | ConvertTo-Json -Compress -Depth 4',
+  ].join('; ')
+  const result = spawnSync(powershell, [
+    '-NoLogo',
+    '-NoProfile',
+    '-NonInteractive',
+    '-Command',
+    command,
+  ], {
+    encoding: 'utf8',
+    timeout: 4000,
+    windowsHide: true,
+    env,
+    maxBuffer: 2 * 1024 * 1024,
+  })
+  if (result.error || result.status !== 0) return false
+  const snapshot = parseWindowsOwnershipSnapshot(`${result.stdout ?? ''}`)
+  return !!snapshot && windowsSnapshotHasOwnedListener(snapshot, pid)
+}
+
 /**
  * A successful HTTP probe is not proof that the process we spawned owns the
  * endpoint: another local process can bind between the preflight probe and the
@@ -375,11 +539,16 @@ function processOwnsListeningPort(pid: number, port: number): boolean {
         }
       }
       if (listeningInodes.size === 0) return false
-      for (const fd of fs.readdirSync(`/proc/${pid}/fd`)) {
-        let target: string
-        try { target = fs.readlinkSync(`/proc/${pid}/fd/${fd}`) } catch { continue }
-        const match = target.match(/^socket:\[(\d+)\]$/)
-        if (match?.[1] && listeningInodes.has(match[1])) return true
+      const ownedPids = descendantPids(pid, readLinuxParentMap())
+      for (const ownedPid of ownedPids) {
+        let fds: string[]
+        try { fds = fs.readdirSync(`/proc/${ownedPid}/fd`) } catch { continue }
+        for (const fd of fds) {
+          let target: string
+          try { target = fs.readlinkSync(`/proc/${ownedPid}/fd/${fd}`) } catch { continue }
+          const match = target.match(/^socket:\[(\d+)\]$/)
+          if (match?.[1] && listeningInodes.has(match[1])) return true
+        }
       }
       return false
     } catch {
@@ -388,25 +557,12 @@ function processOwnsListeningPort(pid: number, port: number): boolean {
   }
 
   if (process.platform === 'win32') {
-    const result = spawnSync('netstat', ['-ano', '-p', 'tcp'], {
-      encoding: 'utf8',
-      timeout: 2000,
-      windowsHide: true,
-    })
-    if (result.error || result.status !== 0) return false
-    return `${result.stdout ?? ''}`.split(/\r?\n/).some((line) => {
-      const columns = line.trim().split(/\s+/)
-      if (columns.length < 5 || columns[0]?.toUpperCase() !== 'TCP') return false
-      const localPort = Number(columns[1]?.match(/:(\d+)$/)?.[1])
-      return localPort === port && columns[3]?.toUpperCase() === 'LISTENING' && Number(columns[4]) === pid
-    })
+    return windowsProcessOwnsListeningPort(pid, port)
   }
 
   const lsof = fs.existsSync('/usr/sbin/lsof') ? '/usr/sbin/lsof' : 'lsof'
   const result = spawnSync(lsof, [
     '-nP',
-    '-a',
-    '-p', String(pid),
     `-iTCP:${port}`,
     '-sTCP:LISTEN',
     '-Fp',
@@ -415,7 +571,11 @@ function processOwnsListeningPort(pid: number, port: number): boolean {
     timeout: 2000,
   })
   if (result.error || result.status !== 0) return false
-  return `${result.stdout ?? ''}`.split(/\r?\n/).includes(`p${pid}`)
+  const ownedPids = descendantPids(pid, readPosixParentMap())
+  return `${result.stdout ?? ''}`.split(/\r?\n/).some((line) => {
+    const listenerPid = positiveInteger(line.match(/^p(\d+)$/)?.[1])
+    return !!listenerPid && ownedPids.has(listenerPid)
+  })
 }
 
 function providerLabel(provider: HeadroomProvider): string {
@@ -508,11 +668,19 @@ const OUTPUT_TOKEN_FIELDS = [
 
 export class HeadroomManager {
   private proxy: ChildProcess | null = null
-  private proxyTrusted = false
-  private proxyStart: { generation: number; promise: Promise<HeadroomActionResult> } | null = null
+  private proxyTrustedPort: number | null = null
+  private proxyStart: {
+    generation: number
+    port: number
+    promise: Promise<HeadroomActionResult>
+  } | null = null
   private proxyStop: Promise<void> | null = null
   private proxyGeneration = 0
   private shuttingDown = false
+  private shutdownPromise: Promise<void> | null = null
+  private shutdownState: HeadroomState | null = null
+  private lifecycleTail: Promise<void> = Promise.resolve()
+  private lifecycleCommands = new Map<ChildProcess, () => void>()
   private proxyTail = ''
   private routeDetectionCache: {
     executablePath: string
@@ -607,6 +775,11 @@ export class HeadroomManager {
   }
 
   async install(): Promise<HeadroomActionResult> {
+    return this.serializeLifecycle(() => this.installLocked())
+  }
+
+  private async installLocked(): Promise<HeadroomActionResult> {
+    if (this.shuttingDown) return this.cancelledProxyStart()
     const uv = this.resolveUvPath()
     if (!uv) {
       const failure = issue('uv_missing_or_corrupt')
@@ -632,6 +805,7 @@ export class HeadroomManager {
     this.emit('installing', logs[1])
 
     const pythonResult = await this.runCommand(uv, plan.pythonInstallArgs, plan.env, logs)
+    if (this.shuttingDown) return this.cancelledProxyStart()
     if (pythonResult.code !== 0) {
       const failure = classifyInstallFailure(logs.join('\n'), pythonCommand)
       this.updatePersisted({ lastIssue: failure })
@@ -645,6 +819,7 @@ export class HeadroomManager {
     this.emit('installing', logs[logs.length - 1])
 
     const result = await this.runCommand(uv, plan.toolInstallArgs, plan.env, logs)
+    if (this.shuttingDown) return this.cancelledProxyStart()
 
     if (result.code !== 0) {
       const failure = classifyInstallFailure(logs.join('\n'), installCommand)
@@ -672,12 +847,19 @@ export class HeadroomManager {
     })
 
     await this.enableOutputLearning(exe, logs)
+    if (this.shuttingDown) return this.cancelledProxyStart()
     this.emit('installed', `Headroom ${version} installed`)
     await this.refreshMetrics()
+    if (this.shuttingDown) return this.cancelledProxyStart()
     return { ok: true, state: this.getState(), logs }
   }
 
   async activate(provider: HeadroomProvider): Promise<HeadroomActionResult> {
+    return this.serializeLifecycle(() => this.activateLocked(provider))
+  }
+
+  private async activateLocked(provider: HeadroomProvider): Promise<HeadroomActionResult> {
+    if (this.shuttingDown) return this.cancelledProxyStart()
     const state = this.getState()
     if (!state.installed || !state.executablePath) {
       const failure = issue('not_installed')
@@ -709,6 +891,11 @@ export class HeadroomManager {
   }
 
   async deactivate(provider: HeadroomProvider): Promise<HeadroomActionResult> {
+    return this.serializeLifecycle(() => this.deactivateLocked(provider))
+  }
+
+  private async deactivateLocked(provider: HeadroomProvider): Promise<HeadroomActionResult> {
+    if (this.shuttingDown) return this.cancelledProxyStart()
     const current = this.readPersisted()
     const activeProviders = { ...current.activeProviders, [provider]: false }
     this.updatePersisted({ activeProviders, lastIssue: null })
@@ -719,6 +906,11 @@ export class HeadroomManager {
   }
 
   async uninstall(): Promise<HeadroomActionResult> {
+    return this.serializeLifecycle(() => this.uninstallLocked())
+  }
+
+  private async uninstallLocked(): Promise<HeadroomActionResult> {
+    if (this.shuttingDown) return this.cancelledProxyStart()
     const before = this.getState()
     this.updatePersisted({
       activeProviders: { codex: false, claude: false },
@@ -773,6 +965,7 @@ export class HeadroomManager {
       UV_CACHE_DIR: uvCacheDir(),
       UV_NO_PROGRESS: '1',
     }, logs)
+    if (this.shuttingDown) return this.cancelledProxyStart()
 
     const stillInstalled = fileExists(path.join(uvBinDir(), headroomExeName()))
     if (result.code !== 0 || stillInstalled) {
@@ -796,6 +989,11 @@ export class HeadroomManager {
   }
 
   async setPort(port: number): Promise<HeadroomActionResult> {
+    return this.serializeLifecycle(() => this.setPortLocked(port))
+  }
+
+  private async setPortLocked(port: number): Promise<HeadroomActionResult> {
+    if (this.shuttingDown) return this.cancelledProxyStart()
     if (!Number.isInteger(port) || port < 1 || port > 65535) {
       const failure = issue('proxy_port_busy', 'Port must be an integer between 1 and 65535.')
       return { ok: false, state: this.getState(), issue: failure }
@@ -804,6 +1002,7 @@ export class HeadroomManager {
     const previousPort = this.validPort(previous.port)
     const active = this.getState().activeProviders
     await this.stopProxy()
+    if (this.shuttingDown) return this.cancelledProxyStart()
 
     if (!active.codex && !active.claude) {
       this.updatePersisted({ port, lastIssue: null })
@@ -818,6 +1017,7 @@ export class HeadroomManager {
       lastIssue: null,
     })
     const candidate = await this.ensureProxy()
+    if (this.shuttingDown) return this.cancelledProxyStart()
     if (candidate.ok) {
       this.updatePersisted({ activeProviders: active, lastIssue: null })
       return { ok: true, state: this.getState() }
@@ -874,10 +1074,16 @@ export class HeadroomManager {
   }
 
   async startActiveProxyOnBoot(): Promise<void> {
+    return this.serializeLifecycle(() => this.startActiveProxyOnBootLocked())
+  }
+
+  private async startActiveProxyOnBootLocked(): Promise<void> {
+    if (this.shuttingDown) return
     const active = this.getState().activeProviders
     this.syncRouting()
     if (active.codex || active.claude) {
       const result = await this.ensureProxy()
+      if (this.shuttingDown) return
       if (!result.ok) {
         // Never keep provider credentials/prompts routed to a process we did not
         // spawn and therefore cannot authenticate. The user can retry activation
@@ -891,6 +1097,15 @@ export class HeadroomManager {
     }
   }
 
+  private serializeLifecycle<T>(operation: () => Promise<T>): Promise<T> {
+    const run = this.lifecycleTail.then(operation, operation)
+    this.lifecycleTail = run.then(
+      () => undefined,
+      () => undefined,
+    )
+    return run
+  }
+
   private async ensureProxy(): Promise<HeadroomActionResult> {
     if (this.proxyStop) await this.proxyStop
     const state = this.getState()
@@ -902,13 +1117,17 @@ export class HeadroomManager {
       const failure = issue('proxy_unhealthy', 'Headroom proxy startup was cancelled during shutdown.')
       return { ok: false, state, issue: failure }
     }
-    if (this.proxyStart) return this.proxyStart.promise
-    if (this.isProxyAvailable()) return { ok: true, state }
+    if (this.proxyStart) {
+      if (this.proxyStart.port === state.port) return this.proxyStart.promise
+      await this.stopProxy()
+      if (this.shuttingDown) return this.cancelledProxyStart()
+    }
+    if (this.isProxyAvailable(state.port)) return { ok: true, state }
     if (this.isProxyRunning()) await this.stopProxy()
 
     const generation = ++this.proxyGeneration
     const promise = this.startProxy(state, state.executablePath, generation)
-    this.proxyStart = { generation, promise }
+    this.proxyStart = { generation, port: state.port, promise }
     const clear = () => {
       if (this.proxyStart?.promise === promise) this.proxyStart = null
     }
@@ -958,14 +1177,14 @@ export class HeadroomManager {
       return { ok: false, state: this.getState(), issue: failure }
     }
     this.proxy = child
-    this.proxyTrusted = false
+    this.proxyTrustedPort = null
     this.syncRouting()
     child.stdout?.on('data', (chunk) => { this.proxyTail += chunk.toString(); this.trimProxyTail() })
     child.stderr?.on('data', (chunk) => { this.proxyTail += chunk.toString(); this.trimProxyTail() })
     const invalidateOwnedProxy = () => {
       if (this.proxy !== child) return
       this.proxy = null
-      this.proxyTrusted = false
+      this.proxyTrustedPort = null
       this.syncRouting()
     }
     // `spawn()` reports ENOENT/EACCES asynchronously. Without this listener the
@@ -999,11 +1218,12 @@ export class HeadroomManager {
     }
 
     const ownsProxyPort = this.processControl.ownsProxyPort ?? processOwnsListeningPort
-    if (
-      !this.isOwnedProxyCurrent(child, generation) ||
-      !child.pid ||
-      !ownsProxyPort(child.pid, state.port)
-    ) {
+    const ownedEndpointIsCurrent = () => {
+      if (!this.isOwnedProxyCurrent(child, generation) || !child.pid) return false
+      if (!ownsProxyPort(child.pid, state.port)) return false
+      return this.isOwnedProxyCurrent(child, generation)
+    }
+    if (!ownedEndpointIsCurrent()) {
       const failure = issue(
         'proxy_port_busy',
         'A healthy endpoint answered, but the Specrails-owned Headroom process does not own the listening socket.',
@@ -1020,25 +1240,24 @@ export class HeadroomManager {
       await this.discardProxyChild(child)
       return this.cancelledProxyStart()
     }
-    if (
-      !this.isOwnedProxyCurrent(child, generation) ||
-      !child.pid ||
-      !ownsProxyPort(child.pid, state.port)
-    ) {
+    if (!ownedEndpointIsCurrent()) {
       const failure = issue('proxy_unhealthy', 'The owned Headroom proxy exited during startup.', command)
       await this.discardProxyChild(child)
       this.updatePersisted({ lastIssue: failure })
       this.emit('failed', failure.title)
       return { ok: false, state: this.getState(), issue: failure }
     }
-    this.proxyTrusted = true
+    this.proxyTrustedPort = state.port
     this.updatePersisted({ lastIssue: null })
     return { ok: true, state: this.getState() }
   }
 
   private cancelledProxyStart(): HeadroomActionResult {
     const failure = issue('proxy_unhealthy', 'Headroom proxy startup was superseded by a newer lifecycle operation.')
-    return { ok: false, state: this.getState(), issue: failure }
+    const state = this.shuttingDown && this.shutdownState
+      ? this.shutdownState
+      : this.getState()
+    return { ok: false, state, issue: failure }
   }
 
   private isProxyGenerationCurrent(generation: number): boolean {
@@ -1055,7 +1274,7 @@ export class HeadroomManager {
   private async discardProxyChild(child: ChildProcess): Promise<void> {
     if (this.proxy === child) {
       this.proxy = null
-      this.proxyTrusted = false
+      this.proxyTrustedPort = null
       this.syncRouting()
     }
     await this.terminateProxyChild(child)
@@ -1154,6 +1373,7 @@ export class HeadroomManager {
       HEADROOM_OUTPUT_SHAPER: '1',
       HEADROOM_SAVINGS_PROFILE: process.env.HEADROOM_SAVINGS_PROFILE ?? 'agent-90',
     }, logs)
+    if (this.shuttingDown) return
     if (result.code === 0) {
       this.updatePersisted({
         learningEnabled: true,
@@ -1355,10 +1575,25 @@ export class HeadroomManager {
     logs: string[],
   ): Promise<{ code: number | null }> {
     return new Promise((resolve) => {
-      const child = spawn(command, args, {
-        env: { ...process.env, ...extraEnv },
-        stdio: ['ignore', 'pipe', 'pipe'],
-      })
+      let child: ChildProcess
+      try {
+        child = spawn(command, args, {
+          env: { ...process.env, ...extraEnv },
+          stdio: ['ignore', 'pipe', 'pipe'],
+        })
+      } catch (err) {
+        logs.push(err instanceof Error ? err.message : String(err))
+        resolve({ code: null })
+        return
+      }
+      let settled = false
+      const settle = (code: number | null) => {
+        if (settled) return
+        settled = true
+        this.lifecycleCommands.delete(child)
+        resolve({ code })
+      }
+      this.lifecycleCommands.set(child, () => settle(null))
       child.stdout?.on('data', (chunk) => {
         for (const line of chunk.toString().split(/\r?\n/)) {
           if (!line) continue
@@ -1375,9 +1610,10 @@ export class HeadroomManager {
       })
       child.on('error', (err) => {
         logs.push(err.message)
-        resolve({ code: null })
+        settle(null)
       })
-      child.on('close', (code) => resolve({ code }))
+      child.on('close', (code) => settle(code))
+      if (this.shuttingDown) settle(null)
     })
   }
 
@@ -1464,8 +1700,8 @@ export class HeadroomManager {
     return !!this.proxy && this.proxy.exitCode == null && this.proxy.signalCode == null
   }
 
-  private isProxyAvailable(): boolean {
-    return this.proxyTrusted && this.isProxyRunning()
+  private isProxyAvailable(port = this.validPort(this.readPersisted().port)): boolean {
+    return this.proxyTrustedPort === port && this.isProxyRunning()
   }
 
   private async stopProxy(): Promise<void> {
@@ -1473,7 +1709,7 @@ export class HeadroomManager {
     this.proxyStart = null
     const child = this.proxy
     this.proxy = null
-    this.proxyTrusted = false
+    this.proxyTrustedPort = null
     this.syncRouting()
     const previousStop = this.proxyStop
     const stop = (async () => {
@@ -1489,14 +1725,35 @@ export class HeadroomManager {
   }
 
   /** Stop the owned proxy before the app tears down its DB and HTTP server. */
-  async shutdown(): Promise<void> {
+  shutdown(): Promise<void> {
+    if (this.shutdownPromise) return this.shutdownPromise
     this.shuttingDown = true
+    const state = this.getState()
+    this.shutdownState = { ...state, proxyRunning: false, proxyPid: null }
+    const commands = [...this.lifecycleCommands.entries()]
+    for (const [, cancel] of commands) cancel()
+    const shutdown = this.finishShutdown(commands.map(([child]) => child))
+    this.shutdownPromise = shutdown
+    return shutdown
+  }
+
+  private async finishShutdown(commandChildren: ChildProcess[]): Promise<void> {
     // Runtime-only fail closed; persisted activation remains so a clean restart
     // can start a fresh owned proxy.
     setHeadroomRoutingState({
       port: this.validPort(this.readPersisted().port),
       activeProviders: { codex: false, claude: false },
     })
+    await Promise.all([
+      this.stopProxy(),
+      ...commandChildren.map((child) => this.terminateProxyChild(child)),
+    ])
+    // A lifecycle action may still be unwinding an aborted health/metrics
+    // request. Keep the desktop DB alive until it has observed `shuttingDown`
+    // and completed; queued actions fail at their locked-method guard.
+    await this.lifecycleTail
+    // Defense in depth for future lifecycle operations: no child may survive a
+    // completed shutdown even if a new await is added after an initial guard.
     await this.stopProxy()
   }
 
@@ -1561,9 +1818,10 @@ export class HeadroomManager {
 
   private syncRouting(): void {
     const persisted = this.readPersisted()
-    const trustedRuntimeAvailable = this.proxyTrusted && this.isProxyRunning()
+    const port = this.validPort(persisted.port)
+    const trustedRuntimeAvailable = this.proxyTrustedPort === port && this.isProxyRunning()
     setHeadroomRoutingState({
-      port: this.validPort(persisted.port),
+      port,
       activeProviders: this.shuttingDown || !trustedRuntimeAvailable ? { codex: false, claude: false } : {
         codex: !!persisted.activeProviders?.codex,
         claude: !!persisted.activeProviders?.claude,
