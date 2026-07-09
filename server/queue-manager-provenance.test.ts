@@ -30,6 +30,7 @@ vi.mock('tree-kill', () => ({ default: vi.fn() }))
 vi.mock('./hooks', () => ({ resetPhases: vi.fn(), setActivePhases: vi.fn() }))
 
 import { spawn as mockSpawn } from 'child_process'
+import treeKill from 'tree-kill'
 import { QueueManager } from './queue-manager'
 import { initDb, type DbInstance } from './db'
 import type { WsMessage } from './types'
@@ -58,7 +59,10 @@ function fakeInteractiveChild() {
     kill: (sig?: string) => boolean
   }
   const writes: string[] = []
-  child.stdin = { write: (s: string) => { writes.push(s); return true }, destroyed: false }
+  const stdin = new EventEmitter() as unknown as typeof child.stdin
+  stdin.write = (s: string) => { writes.push(s); return true }
+  stdin.destroyed = false
+  child.stdin = stdin
   child.stdinWrites = writes
   child.killed = false
   child.kill = () => {
@@ -188,6 +192,13 @@ describe('QueueManager — code-explorer provenance hook', () => {
     delete process.env.SPECRAILS_INTERACTIVE_JOBS
     const child = fakeInteractiveChild()
     vi.mocked(mockSpawn).mockReturnValue(child as never)
+    vi.mocked(treeKill).mockImplementation((_pid, signal, callback) => {
+      callback?.()
+      if (signal === 'SIGTERM') {
+        child.killed = true
+        queueMicrotask(() => (child as unknown as EventEmitter).emit('close', 0))
+      }
+    })
 
     qm.enqueue('/specrails:implement #42')
     // This manager has projectId+slug+cwd, so _startJob awaits plugin

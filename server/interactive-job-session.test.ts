@@ -20,8 +20,17 @@ function makeFakeChild() {
   child.stdout = new Readable({ read() {} })
   child.stderr = new Readable({ read() {} })
   const writes: string[] = []
-  child.stdin = { write: (s: string) => { writes.push(s); return true }, destroyed: false }
+  const stdin = new EventEmitter() as any
+  stdin.destroyed = false
+  stdin.write = (s: string) => {
+    child.stdinHadErrorListenerOnWrite = stdin.listenerCount('error') > 0
+    writes.push(s)
+    return true
+  }
+  child.stdin = stdin
   child.stdinWrites = writes
+  child.stdinHadErrorListenerOnWrite = false
+  child.treeKillSignals = [] as string[]
   child.pid = 4242
   child.killed = false
   child.kill = (_sig?: string) => {
@@ -64,6 +73,14 @@ function setup(jobId = 'job-1', extra: Partial<InteractiveJobSessionDeps> = {}):
   const broadcasts: WsMessage[] = []
   const settled: SettleInfo[] = []
   const child = makeFakeChild()
+  const killTree: NonNullable<InteractiveJobSessionDeps['killTree']> = (_pid, signal, callback) => {
+    child.treeKillSignals.push(signal ?? '')
+    child.killed = true
+    callback?.()
+    // Default fake obeys TERM immediately. Individual escalation tests inject a
+    // terminator that deliberately withholds `close`.
+    child.emit('close', 0)
+  }
   const session = new InteractiveJobSession({
     jobId,
     projectId: 'p1',
@@ -72,6 +89,7 @@ function setup(jobId = 'job-1', extra: Partial<InteractiveJobSessionDeps> = {}):
     broadcast: (m) => broadcasts.push(m),
     onSettle: (info) => settled.push(info),
     spawn: (() => child) as any,
+    killTree,
     ...extra,
   })
   return { db, child, broadcasts, settled, session }
@@ -88,7 +106,17 @@ describe('InteractiveJobSession', () => {
     expect(framed).toContain('"role":"user"')
     expect(framed).toContain('implement the spec')
     expect(framed.endsWith('\n')).toBe(true)
+    expect(h.child.stdinHadErrorListenerOnWrite).toBe(true)
     expect(h.session.isStreaming()).toBe(true)
+  })
+
+  it('handles an asynchronous stdin EPIPE without an unhandled error and settles crashed', () => {
+    h.session.start({ binary: 'claude', args: [] }, 'go')
+    expect(() => h.child.stdin.emit('error', new Error('EPIPE'))).not.toThrow()
+    expect(h.settled).toHaveLength(1)
+    expect(h.settled[0].reason).toBe('crashed')
+    expect(h.child.treeKillSignals).toEqual(['SIGTERM'])
+    expect(h.session.send('after failure')).toBe(false)
   })
 
   it('accumulates real usage into the job row + broadcasts turn_done on a result event', async () => {
@@ -283,9 +311,10 @@ describe('InteractiveJobSession', () => {
   it('settles via the kill-timer fallback when the child never emits close after finalize', async () => {
     vi.useFakeTimers()
     try {
-      const h2 = setup('job-stuck')
-      // A child that swallows signals — kill() never emits 'close'.
-      h2.child.kill = (_sig?: string) => { h2.child.killed = true; return true }
+      const killTree = vi.fn((_pid: number, _signal?: string, callback?: (err?: Error) => void) => callback?.())
+      const h2 = setup('job-stuck', { killTree })
+      // Prove escalation is based on a real close, not ChildProcess.killed.
+      h2.child.killed = true
       h2.session.start({ binary: 'claude', args: [] }, 'go')
       h2.session.finalize()
       // Before the grace window the slot is NOT yet released.
@@ -294,6 +323,21 @@ describe('InteractiveJobSession', () => {
       vi.advanceTimersByTime(2001)
       expect(h2.settled.length).toBe(1)
       expect(h2.settled[0].reason).toBe('finalized')
+      expect(killTree.mock.calls.map((c) => c[1])).toEqual(['SIGTERM', 'SIGKILL'])
+    } finally {
+      vi.useRealTimers()
+    }
+  })
+
+  it('cancels SIGKILL escalation after a real close event', () => {
+    vi.useFakeTimers()
+    try {
+      const h2 = setup('job-closes-on-term')
+      h2.session.start({ binary: 'claude', args: [] }, 'go')
+      h2.session.finalize()
+      vi.advanceTimersByTime(5000)
+      expect(h2.child.treeKillSignals).toEqual(['SIGTERM'])
+      expect(h2.settled).toHaveLength(1)
     } finally {
       vi.useRealTimers()
     }
@@ -302,8 +346,8 @@ describe('InteractiveJobSession', () => {
   it('does not double-settle when close arrives after the kill-timer already settled', async () => {
     vi.useFakeTimers()
     try {
-      const h2 = setup('job-late-close')
-      h2.child.kill = (_sig?: string) => { h2.child.killed = true; return true }
+      const killTree = vi.fn((_pid: number, _signal?: string, callback?: (err?: Error) => void) => callback?.())
+      const h2 = setup('job-late-close', { killTree })
       h2.session.start({ binary: 'claude', args: [] }, 'go')
       h2.session.finalize()
       vi.advanceTimersByTime(2001)
@@ -311,6 +355,28 @@ describe('InteractiveJobSession', () => {
       // A late 'close' now fires — must be a no-op (idempotent settle).
       h2.child.emit('close', 0)
       expect(h2.settled.length).toBe(1)
+    } finally {
+      vi.useRealTimers()
+    }
+  })
+
+  it('abort and dispose share tree termination; dispose escalates without settling', () => {
+    vi.useFakeTimers()
+    try {
+      const abortHarness = setup('job-abort')
+      abortHarness.session.start({ binary: 'claude', args: [] }, 'go')
+      abortHarness.session.abort()
+      expect(abortHarness.child.treeKillSignals).toEqual(['SIGTERM'])
+      expect(abortHarness.settled[0]?.reason).toBe('crashed')
+
+      const killTree = vi.fn((_pid: number, _signal?: string, callback?: (err?: Error) => void) => callback?.())
+      const disposeHarness = setup('job-dispose', { killTree })
+      disposeHarness.session.start({ binary: 'claude', args: [] }, 'go')
+      disposeHarness.session.dispose()
+      expect(disposeHarness.settled).toHaveLength(0)
+      vi.advanceTimersByTime(2001)
+      expect(killTree.mock.calls.map((c) => c[1])).toEqual(['SIGTERM', 'SIGKILL'])
+      expect(disposeHarness.settled).toHaveLength(0)
     } finally {
       vi.useRealTimers()
     }

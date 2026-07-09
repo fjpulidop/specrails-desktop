@@ -851,7 +851,10 @@ function makeFakeChild(): FakeChild {
   child.stdout = new Readable({ read() {} })
   child.stderr = new Readable({ read() {} })
   const writes: string[] = []
-  child.stdin = { write: (s: string) => { writes.push(s); return true }, destroyed: false }
+  const stdin = new EventEmitter() as FakeChild['stdin'] & EventEmitter
+  stdin.write = (s: string) => { writes.push(s); return true }
+  stdin.destroyed = false
+  child.stdin = stdin
   child.stdinWrites = writes
   child.pid = 4242
   child.killed = false
@@ -898,6 +901,11 @@ function interactiveExecutors(opts: { stepTimeoutMs?: number; over?: Partial<Loo
       spec: { binary: 'claude', args: ['-p', '--input-format', 'stream-json'], cwd: input.cwd },
       stepTimeoutMs: opts.stepTimeoutMs ?? 15 * 60_000,
       spawn: (() => child) as InteractiveAiStepPlan['spawn'],
+      killTree: ((_pid, _signal, callback) => {
+        child.killed = true
+        callback?.()
+        child.emit('close', 0)
+      }) as NonNullable<InteractiveAiStepPlan['killTree']>,
     }
   })
   return {

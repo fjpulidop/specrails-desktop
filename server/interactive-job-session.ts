@@ -30,6 +30,7 @@
 import type { ChildProcess } from 'node:child_process'
 import { createInterface, type Interface } from 'node:readline'
 import { spawnAiCli } from './util/cli-prompt'
+import { treeKillSafe } from './util/win-spawn'
 import { frameStreamJsonUserMessage } from './explore-stdin-session'
 import { finaliseInvocationResult } from './result-event'
 import { appendEvent, accumulateInteractiveTurn, type DbInstance } from './db'
@@ -184,6 +185,8 @@ export interface InteractiveJobSessionDeps {
   nextEventSeq?: () => number
   /** Injectable spawn (tests). Defaults to spawnAiCli. */
   spawn?: typeof spawnAiCli
+  /** Injectable process-tree terminator (tests). Defaults to treeKillSafe. */
+  killTree?: typeof treeKillSafe
 }
 
 function zeroUsage(): AccumulatedUsage {
@@ -211,6 +214,7 @@ export class InteractiveJobSession {
   private readonly _zombieTimeoutMs: number
   private readonly _nextEventSeq: (() => number) | null
   private readonly _spawn: typeof spawnAiCli
+  private readonly _killTree: typeof treeKillSafe
 
   private _child: ChildProcess | null = null
   private _stdoutReader: Interface | null = null
@@ -263,6 +267,12 @@ export class InteractiveJobSession {
   private _finalizing = false
   private _settled = false
   private _disposed = false
+  /** `ChildProcess.killed` only means a signal was sent. This tracks the real
+   *  lifecycle event used to decide whether SIGKILL escalation is still needed. */
+  private _childClosed = false
+  private _stdinFailed = false
+  private _terminationStarted = false
+  private _terminationReason: 'finalized' | 'crashed' | null = null
   private _killTimer: ReturnType<typeof setTimeout> | null = null
   /** Auto-mode wedge detector (see InteractiveJobSessionDeps.zombieTimeoutMs). */
   private _zombieTimer: ReturnType<typeof setTimeout> | null = null
@@ -278,6 +288,7 @@ export class InteractiveJobSession {
     this._zombieTimeoutMs = deps.zombieTimeoutMs ?? 0
     this._nextEventSeq = deps.nextEventSeq ?? null
     this._spawn = deps.spawn ?? spawnAiCli
+    this._killTree = deps.killTree ?? treeKillSafe
   }
 
   /** Spawn the resident child and run the first turn (the freestyle prompt). */
@@ -289,6 +300,10 @@ export class InteractiveJobSession {
       cwd: spec.cwd,
     } as Parameters<typeof spawnAiCli>[2])
     this._child = child
+    this._childClosed = false
+    this._stdinFailed = false
+    this._terminationStarted = false
+    this._terminationReason = null
 
     // Absorb spawn 'error' (e.g. ENOENT) so it does not crash the process; the
     // 'close' that follows settles the job as crashed through _handleClose.
@@ -304,7 +319,21 @@ export class InteractiveJobSession {
       this._stderrReader = createInterface({ input: child.stderr, crlfDelay: Infinity })
       this._stderrReader.on('line', (line) => this._handleStderrLine(line))
     }
-    child.on('close', (code) => this._handleClose(code))
+    child.on('close', (code) => {
+      this._childClosed = true
+      this._clearKillTimer()
+      this._handleClose(code)
+    })
+    // A buffered write can fail asynchronously (typically EPIPE after the child
+    // exits). `try/catch` around write() cannot observe that event, and an
+    // unhandled Writable 'error' terminates Node. Install this BEFORE the first
+    // `send()` below so even the initial frame is protected.
+    child.stdin?.on('error', (err) => {
+      this._stdinFailed = true
+      console.error(`[interactive-job] stdin failed for ${this._jobId}: ${err.message}`)
+      if (this._disposed || this._settled) return
+      this._terminateChildTree(this._finalizing ? 'finalized' : 'crashed')
+    })
 
     // Auto-mode wedge detector: reset on ANY raw output ('data' — synchronous
     // under fake timers, mirroring the one-shot path's zombie timer) and fire
@@ -343,7 +372,7 @@ export class InteractiveJobSession {
       const note = `⚠️ Could not deliver your message — the agent's input channel is closed.`
       this._persistLog('stderr', note)
       this._emitLog('stderr', note)
-      this._settle('crashed')
+      this._terminateChildTree('crashed')
       return false
     }
     // Surface the user turn in the transcript via the existing `log` channel so
@@ -386,20 +415,7 @@ export class InteractiveJobSession {
     if (this._finalizing || this._settled) return
     this._finalizing = true
     this._clearZombieTimer()
-    const child = this._child
-    if (!child || child.killed || !child.pid) {
-      this._settle('finalized')
-      return
-    }
-    try { child.kill('SIGTERM') } catch { /* already gone */ }
-    this._killTimer = setTimeout(() => {
-      try { if (this._child && !this._child.killed) this._child.kill('SIGKILL') } catch { /* gone */ }
-      // Hard-deadline fallback: if the child never emits 'close' (D-state /
-      // uninterruptible / signal-swallowing), _handleClose never runs and the slot
-      // would leak forever. Force the settle here so the queue always drains. If
-      // 'close' does fire, _settle is idempotent so this is a no-op.
-      this._settle('finalized')
-    }, FINALIZE_KILL_GRACE_MS)
+    this._terminateChildTree('finalized')
   }
 
   /** Programmatic teardown that SETTLES 'crashed' after folding any in-flight
@@ -415,26 +431,16 @@ export class InteractiveJobSession {
       this._persistLog('stderr', note)
       this._emitLog('stderr', note)
     }
-    const child = this._child
-    try { if (child && !child.killed) child.kill('SIGTERM') } catch { /* gone */ }
-    // Escalate to SIGKILL after the grace window if the child survives SIGTERM.
-    // NOT stored in _killTimer — _settle below clears that slot, and this
-    // escalation must outlive the settle. unref'd so it never holds the process.
-    const escalate = setTimeout(() => {
-      try { if (this._child && !this._child.killed) this._child.kill('SIGKILL') } catch { /* gone */ }
-    }, FINALIZE_KILL_GRACE_MS)
-    if (typeof escalate.unref === 'function') escalate.unref()
-    this._settle('crashed')
+    this._terminateChildTree('crashed')
   }
 
   /** Teardown without settling (project removal / shutdown). */
   dispose(): void {
     if (this._disposed) return
     this._disposed = true
-    this._clearKillTimer()
     this._clearZombieTimer()
     this._closeReaders()
-    try { if (this._child && !this._child.killed) this._child.kill('SIGTERM') } catch { /* gone */ }
+    this._terminateChildTree(null)
     this._child = null
   }
 
@@ -445,7 +451,7 @@ export class InteractiveJobSession {
    *  caller must NOT treat an unconfirmed turn as accepted. */
   private _writeTurn(text: string): boolean {
     const child = this._child
-    if (!child || !child.stdin || child.stdin.destroyed) return false
+    if (!child || !child.stdin || child.stdin.destroyed || this._stdinFailed) return false
     try {
       child.stdin.write(frameStreamJsonUserMessage(text))
     } catch (err) {
@@ -601,7 +607,7 @@ export class InteractiveJobSession {
           const note = `⚠️ Could not deliver a queued message — the agent's input channel is closed.`
           this._persistLog('stderr', note)
           this._emitLog('stderr', note)
-          this._settle('crashed')
+          this._terminateChildTree('crashed')
         }
       })
     } else if (this._settleMode === 'auto' && !this._finalizing) {
@@ -736,7 +742,7 @@ export class InteractiveJobSession {
 
   private _handleClose(_code: number | null): void {
     if (this._disposed || this._settled) return
-    this._settle(this._finalizing ? 'finalized' : 'crashed')
+    this._settle(this._terminationReason ?? (this._finalizing ? 'finalized' : 'crashed'))
   }
 
   // ─── Auto-mode wedge detector ────────────────────────────────────────────────
@@ -820,6 +826,55 @@ export class InteractiveJobSession {
       resultText: this._resultText,
       zeroWork,
     })
+  }
+
+  /**
+   * Shared teardown for finalize / abort / dispose. Signal the WHOLE process
+   * tree, then escalate only when the child has not emitted a real `close`.
+   * `ChildProcess.killed` is deliberately ignored: Node flips it as soon as a
+   * signal is sent, even when the process survives that signal.
+   *
+   * Finalize/abort settle on close. A child that never closes is force-settled
+   * only after SIGKILL has actually been requested, preserving queue liveness
+   * without releasing the slot after a mere SIGTERM attempt. Dispose never
+   * settles because its owner already flushed/reconciles the job separately.
+   */
+  private _terminateChildTree(reason: 'finalized' | 'crashed' | null): void {
+    if (reason !== null && this._terminationReason === null) this._terminationReason = reason
+    const child = this._child
+    if (!child || this._childClosed || !child.pid) {
+      if (reason !== null && !this._disposed) this._settle(reason)
+      return
+    }
+    if (this._terminationStarted) return
+    this._terminationStarted = true
+
+    const pid = child.pid
+    // Arm before SIGTERM: an injected/synchronous terminator may cause `close`
+    // immediately, and that close must be able to cancel the escalation.
+    this._killTimer = setTimeout(() => {
+      this._killTimer = null
+      if (this._childClosed) return
+      try {
+        this._killTree(pid, 'SIGKILL', (err) => {
+          if (err) console.error(`[interactive-job] SIGKILL failed for ${this._jobId}: ${err.message}`)
+        })
+      } catch (err) {
+        console.error(`[interactive-job] SIGKILL failed for ${this._jobId}: ${(err as Error).message}`)
+      }
+      // Hard deadline: the OS may never deliver `close` for an uninterruptible
+      // child. The tree has now received SIGKILL, so release an awaiting owner.
+      if (reason !== null && !this._disposed) this._settle(reason)
+    }, FINALIZE_KILL_GRACE_MS)
+    this._killTimer.unref?.()
+
+    try {
+      this._killTree(pid, 'SIGTERM', (err) => {
+        if (err) console.error(`[interactive-job] SIGTERM failed for ${this._jobId}: ${err.message}`)
+      })
+    } catch (err) {
+      console.error(`[interactive-job] SIGTERM failed for ${this._jobId}: ${(err as Error).message}`)
+    }
   }
 
   private _clearKillTimer(): void {

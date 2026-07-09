@@ -146,6 +146,8 @@ export interface InteractiveAiStepPlan {
   stepTimeoutMs: number
   /** Injectable spawn (tests). Defaults to the session's spawnAiCli. */
   spawn?: InteractiveJobSessionDeps['spawn']
+  /** Injectable process-tree terminator paired with `spawn` in tests. */
+  killTree?: InteractiveJobSessionDeps['killTree']
 }
 
 export interface LoopExecutors {
@@ -1322,6 +1324,7 @@ export class LoopRunManager {
         // has no zombie detector either (byte-parity), so none is armed here.
         nextEventSeq: input.nextEventSeq,
         spawn: input.plan.spawn,
+        killTree: input.plan.killTree,
         onSettle: (info) => {
           if (timer) { clearTimeout(timer); timer = null }
           this._interactiveSteps.delete(input.runId)
