@@ -722,14 +722,56 @@ export class HeadroomManager {
       const failure = issue('proxy_port_busy', 'Port must be an integer between 1 and 65535.')
       return { ok: false, state: this.getState(), issue: failure }
     }
+    const previous = this.readPersisted()
+    const previousPort = this.validPort(previous.port)
     const active = this.getState().activeProviders
-    this.stopProxy()
-    this.updatePersisted({ port, lastIssue: null })
-    this.syncRouting()
-    if (active.codex || active.claude) {
-      return this.ensureProxy()
+    const child = this.proxy
+    this.proxy = null
+    if (child) await this.terminateProxyChild(child)
+
+    if (!active.codex && !active.claude) {
+      this.updatePersisted({ port, lastIssue: null })
+      return { ok: true, state: this.getState() }
     }
-    return { ok: true, state: this.getState() }
+
+    // Keep routing disabled while the replacement is only a candidate. No job
+    // may send provider credentials to it until our owned child is healthy.
+    this.updatePersisted({
+      port,
+      activeProviders: { codex: false, claude: false },
+      lastIssue: null,
+    })
+    const candidate = await this.ensureProxy()
+    if (candidate.ok) {
+      this.updatePersisted({ activeProviders: active, lastIssue: null })
+      return { ok: true, state: this.getState() }
+    }
+
+    // Roll back the entire transition, including the old owned proxy. If even
+    // that cannot be restored, remain fail-closed instead of persisting an
+    // active route with no healthy service behind it.
+    this.updatePersisted({
+      port: previousPort,
+      activeProviders: { codex: false, claude: false },
+      lastIssue: candidate.issue ?? issue('proxy_unhealthy'),
+    })
+    const restored = await this.ensureProxy()
+    if (restored.ok) {
+      this.updatePersisted({
+        activeProviders: active,
+        lastIssue: candidate.issue ?? issue('proxy_unhealthy'),
+      })
+    } else {
+      this.updatePersisted({
+        activeProviders: { codex: false, claude: false },
+        lastIssue: restored.issue ?? candidate.issue ?? issue('proxy_unhealthy'),
+      })
+    }
+    return {
+      ok: false,
+      state: this.getState(),
+      issue: candidate.issue ?? issue('proxy_unhealthy'),
+    }
   }
 
   diagnostics(): Record<string, unknown> {

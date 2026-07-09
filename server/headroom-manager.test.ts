@@ -292,4 +292,42 @@ describe('HeadroomManager', () => {
     await pending
     vi.useRealTimers()
   })
+
+  it('rolls back port and routing when an active proxy cannot move', async () => {
+    db = initDesktopDb(':memory:')
+    const fake = makeHeadroomExe()
+    tempDir = fake.dir
+    process.env.SPECRAILS_REGISTRY_HOME = tempDir
+    setDesktopSetting(db, STATE_KEY, JSON.stringify({
+      installed: true,
+      version: '0.30.0',
+      executablePath: fake.exe,
+      installSource: 'managed',
+      port: 8787,
+      activeProviders: { codex: true, claude: false },
+      detectedRoutes: { codex: true, claude: false },
+    }))
+    const manager = new HeadroomManager(db, () => undefined, () => ['codex'])
+    const busy = {
+      code: 'proxy_port_busy' as const,
+      title: 'busy',
+      guidance: 'choose another port',
+    }
+    const ensure = vi
+      .spyOn(manager as unknown as { ensureProxy: () => Promise<unknown> }, 'ensureProxy')
+      .mockResolvedValueOnce({ ok: false, state: manager.getState(), issue: busy })
+      .mockResolvedValueOnce({ ok: true, state: manager.getState() })
+
+    const result = await manager.setPort(9999)
+
+    expect(result.ok).toBe(false)
+    expect(result.issue?.code).toBe('proxy_port_busy')
+    expect(ensure).toHaveBeenCalledTimes(2)
+    expect(result.state.port).toBe(8787)
+    expect(result.state.activeProviders).toEqual({ codex: true, claude: false })
+    expect(getHeadroomRoutingState()).toMatchObject({
+      port: 8787,
+      activeProviders: { codex: true, claude: false },
+    })
+  })
 })
