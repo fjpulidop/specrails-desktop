@@ -559,6 +559,54 @@ describe('ProjectRegistry', () => {
       expect(reg.generator).toBe('specrails-desktop')
     })
 
+    it('restores an adopted core-standalone entry when context hydration fails', () => {
+      const repo = '/repo/core-owned-before-failed-add'
+      const key = process.platform === 'darwin' || process.platform === 'win32'
+        ? path.resolve(repo).toLowerCase()
+        : path.resolve(repo)
+      const workspaceDir = path.join(registryHome, '.specrails', 'projects', 'core-slug', 'workspace')
+      const specrailsDir = path.join(workspaceDir, '.specrails')
+      const previousEntry = {
+        repoPath: path.resolve(repo),
+        slug: 'core-slug',
+        workspaceDir,
+        artifactRoot: workspaceDir,
+        codeRoot: path.resolve(repo),
+        stateDir: path.join(workspaceDir, '.claude'),
+        ticketsPath: path.join(specrailsDir, 'local-tickets.json'),
+        backlogConfigPath: path.join(specrailsDir, 'backlog-config.json'),
+        profilesDir: path.join(specrailsDir, 'profiles'),
+        pluginsStateDir: path.join(specrailsDir, 'plugins'),
+        fileSummariesDir: path.join(specrailsDir, 'file-summaries'),
+        providers: ['codex'],
+        primaryProvider: 'codex',
+        coreVersion: '9.9.9',
+        createdAt: '2025-01-02T03:04:05.000Z',
+        lastInstallAt: '2025-02-03T04:05:06.000Z',
+        updatedAt: '2025-03-04T05:06:07.000Z',
+        source: 'core-standalone',
+      }
+      const regPath = path.join(registryHome, '.specrails', 'registry.json')
+      fs.mkdirSync(path.dirname(regPath), { recursive: true })
+      fs.writeFileSync(regPath, JSON.stringify({
+        schemaVersion: 1,
+        generator: 'specrails-core',
+        projects: { [key]: previousEntry },
+      }))
+      vi.spyOn(registry as unknown as { _loadProjectContext: () => never }, '_loadProjectContext')
+        .mockImplementation(() => { throw new Error('corrupt jobs db') })
+
+      expect(() => registry.addProject({
+        id: 'failed-adoption',
+        slug: 'desktop-slug',
+        name: 'Failed adoption',
+        path: repo,
+      })).toThrow('corrupt jobs db')
+
+      expect(getProject(desktopDb, 'failed-adoption')).toBeUndefined()
+      expect(readRegistry().projects[key]).toEqual(previousEntry)
+    })
+
     it('addProject failure to mirror does not break project creation', () => {
       // Point the registry home at a path that cannot be created (a file, not a
       // dir) so the mirror write throws; addProject must still succeed.

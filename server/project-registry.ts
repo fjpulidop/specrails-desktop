@@ -22,7 +22,15 @@ import { removeExploreCwd } from './explore-cwd-manager'
 import { dropPhaseScope } from './hooks'
 import { killTransientChildren } from './transient-children'
 import { dropBlobStatesForProject } from './telemetry-receiver'
-import { mirrorProjectEntry, removeRegistryEntry, reconcileFromProjects, resolveArtifacts, resolveHome } from './artifact-registry'
+import {
+  mirrorProjectEntryWithPrevious,
+  removeRegistryEntry,
+  reconcileFromProjects,
+  resolveArtifacts,
+  resolveHome,
+  restoreRegistryEntry,
+  type ProjectEntry,
+} from './artifact-registry'
 import { resolveProjectExecution, resolveLoopBaseEnv } from './workspace-resolution'
 import { applyWorktreeEnvPassthrough } from './project-env'
 import { removeWorkspace } from './workspace-manager'
@@ -193,17 +201,21 @@ export class ProjectRegistry {
     providers?: CliProvider[]
   }): ProjectContext {
     const row = addProjectToDesktopDb(this._desktopDb, opts)
+    let previousRegistryEntry: ProjectEntry | undefined
+    let registryMirrored = false
     // Mirror the new project into the shared artifact registry so specrails-core
     // resolves its relocated artifacts. Wrapped so a registry write failure never
     // breaks project creation — the startup reconcile will recreate the entry.
     try {
-      mirrorProjectEntry({
+      const mutation = mirrorProjectEntryWithPrevious({
         repoPath: row.path,
         slug: row.slug,
         providers: row.providers,
         primaryProvider: row.provider,
         desktopProjectId: row.id,
       })
+      previousRegistryEntry = mutation.previousEntry
+      registryMirrored = true
     } catch (err) {
       console.error('[project-registry] registry mirror failed (non-fatal):', err)
     }
@@ -216,7 +228,13 @@ export class ProjectRegistry {
       // unusable through the API and would make every retry hit UNIQUE forever.
       this._contexts.delete(row.id)
       this._failedProjects.delete(row.id)
-      try { removeRegistryEntry(row.path) } catch { /* best effort */ }
+      // The mirror may have ADOPTED a pre-existing core-standalone entry. Undo
+      // only a successful mirror and restore that entry verbatim; deleting it
+      // would strand core's relocated artifacts. A fresh mirror has no prior
+      // entry, so the same rollback removes the newly-created projection.
+      if (registryMirrored) {
+        try { restoreRegistryEntry(row.path, previousRegistryEntry) } catch { /* best effort */ }
+      }
       try { removeProjectFromDesktopDb(this._desktopDb, row.id) } catch { /* best effort */ }
       throw err
     }
