@@ -10,6 +10,8 @@ import {
 } from './headroom-manager'
 import { getHeadroomRoutingState } from './headroom-routing'
 import type { DbInstance } from './db'
+import { EventEmitter } from 'events'
+import type { ChildProcess } from 'child_process'
 
 const STATE_KEY = 'plugins.headroom.state'
 
@@ -237,5 +239,57 @@ describe('HeadroomManager', () => {
     })
     expect(diagnostics.proxyTail).toBe('')
     expect(getHeadroomRoutingState().activeProviders).toEqual({ codex: false, claude: false })
+  })
+
+  it('absorbs an asynchronous proxy spawn error instead of crashing the process', async () => {
+    db = initDesktopDb(':memory:')
+    const child = new EventEmitter() as ChildProcess
+    Object.assign(child, { pid: undefined, exitCode: null, signalCode: null, stdout: null, stderr: null })
+    const manager = new HeadroomManager(db, () => undefined, () => ['codex'], {
+      spawnProxy: (() => child) as typeof import('child_process').spawn,
+    })
+    const internals = manager as unknown as {
+      ensureProxy: () => Promise<{ ok: boolean }>
+      probeProxyHealthy: () => Promise<boolean>
+      waitForProxyHealthy: () => Promise<boolean>
+      getState: () => Record<string, unknown>
+    }
+    internals.getState = () => ({
+      installed: true,
+      executablePath: '/vanished/headroom',
+      port: 8787,
+      learning: { enabled: true },
+    })
+    internals.probeProxyHealthy = async () => false
+    internals.waitForProxyHealthy = async () => false
+
+    const pending = internals.ensureProxy()
+    await Promise.resolve()
+    expect(child.listenerCount('error')).toBeGreaterThan(0)
+    expect(() => child.emit('error', new Error('spawn ENOENT'))).not.toThrow()
+    expect((await pending).ok).toBe(false)
+  })
+
+  it('shutdown tree-kills the owned proxy and escalates when close never arrives', async () => {
+    vi.useFakeTimers()
+    db = initDesktopDb(':memory:')
+    const child = new EventEmitter() as ChildProcess
+    Object.assign(child, { pid: 4242, exitCode: null, signalCode: null, stdout: null, stderr: null })
+    const kills: string[] = []
+    const manager = new HeadroomManager(db, () => undefined, () => ['codex'], {
+      killTree: ((_pid, signal, callback) => {
+        kills.push(String(signal))
+        callback?.()
+      }) as typeof import('./util/win-spawn').treeKillSafe,
+    })
+    ;(manager as unknown as { proxy: ChildProcess | null }).proxy = child
+
+    const pending = manager.shutdown()
+    expect(kills).toEqual(['SIGTERM'])
+    await vi.advanceTimersByTimeAsync(2_000)
+    expect(kills).toEqual(['SIGTERM', 'SIGKILL'])
+    child.emit('close', null, 'SIGKILL')
+    await pending
+    vi.useRealTimers()
   })
 })

@@ -286,6 +286,7 @@ let _registry: ProjectRegistry | null = null
 let _mobileGateway: MobileGateway | null = null
 let _mcpManager: McpServerManager | null = null
 let _agentChatManager: AgentChatManager | null = null
+let _headroomManager: HeadroomManager | null = null
 
 server.on('upgrade', (request, socket, head) => {
   const urlStr = request.url ?? '/'
@@ -582,6 +583,7 @@ function applyPtyWsRateLimiting(ws: WebSocket): void {
       provider === 'codex' || provider === 'claude',
     ),
   )
+  _headroomManager = headroomManager
   app.use('/api/global-plugins', createGlobalPluginsRouter(headroomManager))
   headroomManager.startActiveProxyOnBoot().catch((err) => {
     console.error('[headroom] boot start failed:', err)
@@ -702,6 +704,9 @@ async function shutdown(): Promise<void> {
   if (shuttingDown) return
   shuttingDown = true
   removePidFile()
+  try {
+    await _headroomManager?.shutdown()
+  } catch { /* ignore */ }
   try {
     _registry?.shutdown()
   } catch { /* ignore */ }

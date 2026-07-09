@@ -7,6 +7,7 @@ import type { DbInstance } from './db'
 import { getDesktopSetting, setDesktopSetting } from './desktop-db'
 import type { WsMessage } from './types'
 import { setHeadroomRoutingState, type HeadroomProvider } from './headroom-routing'
+import { treeKillSafe } from './util/win-spawn'
 
 export type HeadroomPhase =
   | 'idle'
@@ -108,6 +109,11 @@ export interface HeadroomActionResult {
 }
 
 type Broadcast = (msg: WsMessage) => void
+
+interface HeadroomProcessControl {
+  spawnProxy?: typeof spawn
+  killTree?: typeof treeKillSafe
+}
 
 const STATE_KEY = 'plugins.headroom.state'
 const DEFAULT_PORT = 8787
@@ -447,6 +453,7 @@ export class HeadroomManager {
     private readonly db: DbInstance,
     private readonly broadcast: Broadcast,
     private readonly availableProvidersSupplier: () => HeadroomProvider[] = () => ['claude', 'codex'],
+    private readonly processControl: HeadroomProcessControl = {},
   ) {
     this.syncRouting()
   }
@@ -788,7 +795,7 @@ export class HeadroomManager {
     const command = `${state.executablePath} ${args.join(' ')}`
     this.emit('starting-proxy', `Starting proxy on ${state.port}`)
     this.proxyTail = ''
-    const child = spawn(state.executablePath, args, {
+    const child = (this.processControl.spawnProxy ?? spawn)(state.executablePath, args, {
       env: {
         ...process.env,
         HEADROOM_PORT: String(state.port),
@@ -802,6 +809,14 @@ export class HeadroomManager {
     this.proxy = child
     child.stdout?.on('data', (chunk) => { this.proxyTail += chunk.toString(); this.trimProxyTail() })
     child.stderr?.on('data', (chunk) => { this.proxyTail += chunk.toString(); this.trimProxyTail() })
+    // `spawn()` reports ENOENT/EACCES asynchronously. Without this listener the
+    // EventEmitter contract turns a recoverable activation failure into an
+    // uncaught exception that terminates the desktop sidecar.
+    child.on('error', (err) => {
+      this.proxyTail += `${err.message}\n`
+      this.trimProxyTail()
+      if (this.proxy === child) this.proxy = null
+    })
     child.on('close', () => {
       if (this.proxy === child) this.proxy = null
     })
@@ -1203,7 +1218,7 @@ export class HeadroomManager {
   }
 
   private isProxyRunning(): boolean {
-    return !!this.proxy && !this.proxy.killed && this.proxy.exitCode == null
+    return !!this.proxy && this.proxy.exitCode == null && this.proxy.signalCode == null
   }
 
   private isProxyAvailable(): boolean {
@@ -1213,9 +1228,47 @@ export class HeadroomManager {
   private stopProxy(): void {
     const child = this.proxy
     this.proxy = null
-    if (child && !child.killed) {
-      try { child.kill('SIGTERM') } catch { /* ignore */ }
-    }
+    if (child) void this.terminateProxyChild(child)
+  }
+
+  /** Stop the owned proxy before the app tears down its DB and HTTP server. */
+  async shutdown(): Promise<void> {
+    const child = this.proxy
+    this.proxy = null
+    // Runtime-only fail closed; persisted activation remains so a clean restart
+    // can start a fresh owned proxy.
+    setHeadroomRoutingState({ port: this.getState().port, activeProviders: {} })
+    if (child) await this.terminateProxyChild(child)
+  }
+
+  private terminateProxyChild(child: ChildProcess): Promise<void> {
+    if (!child.pid || child.exitCode != null || child.signalCode != null) return Promise.resolve()
+    const pid = child.pid
+    const killTree = this.processControl.killTree ?? treeKillSafe
+    return new Promise((resolve) => {
+      let closed = false
+      let killTimer: NodeJS.Timeout | null = null
+      let deadlineTimer: NodeJS.Timeout | null = null
+      const finish = () => {
+        if (closed) return
+        closed = true
+        if (killTimer) clearTimeout(killTimer)
+        if (deadlineTimer) clearTimeout(deadlineTimer)
+        child.removeListener('close', finish)
+        resolve()
+      }
+      child.once('close', finish)
+      try { killTree(pid, 'SIGTERM', () => { /* close is authoritative */ }) } catch { /* gone */ }
+      killTimer = setTimeout(() => {
+        if (closed) return
+        try { killTree(pid, 'SIGKILL', () => { /* close is authoritative */ }) } catch { /* gone */ }
+      }, 2_000)
+      killTimer.unref?.()
+      // A D-state process may never emit close. Do not wedge app shutdown after
+      // escalation; the OS will reclaim it when possible.
+      deadlineTimer = setTimeout(finish, 2_500)
+      deadlineTimer.unref?.()
+    })
   }
 
   private trimProxyTail(): void {
