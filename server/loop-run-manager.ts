@@ -37,6 +37,8 @@ import {
   createLoopRun,
   updateLoopRunCounters,
   finishLoopRun,
+  pauseLoopRun,
+  resumeLoopRun,
   type LoopRunOutcome,
 } from './loop-runs-store'
 import { recordInvocation } from './ai-invocations'
@@ -366,6 +368,10 @@ export function extractChangeId(text: string): string | undefined {
   return m ? m[1] : undefined
 }
 
+type PausedHumanDecision =
+  | { action: 'resume'; text: string }
+  | { action: 'stop' }
+
 export class LoopRunManager {
   private readonly _cancelled = new Set<string>()
   /** The currently-spawned child per run, so cancel/stop can actually KILL a
@@ -377,6 +383,10 @@ export class LoopRunManager {
    *  id, which IS the backing job row's id — the manager-agnostic turn routing
    *  (project-router-jobs) addresses sessions by that job id. */
   private readonly _interactiveSteps = new Map<string, InteractiveJobSession>()
+  private readonly _pausedHumanDecisions = new Map<string, {
+    reason: string
+    resolve: (decision: PausedHumanDecision) => void
+  }>()
 
   constructor(
     private readonly db: DbInstance,
@@ -393,6 +403,11 @@ export class LoopRunManager {
    *  leave the engine's `await` hanging forever. */
   cancel(runId: string): void {
     this._cancelled.add(runId)
+    const paused = this._pausedHumanDecisions.get(runId)
+    if (paused) {
+      this._pausedHumanDecisions.delete(runId)
+      paused.resolve({ action: 'stop' })
+    }
     const session = this._interactiveSteps.get(runId)
     if (session) {
       session.abort('■ Run canceled — tearing down the interactive step session.')
@@ -410,10 +425,25 @@ export class LoopRunManager {
     return this._interactiveSteps.has(jobId)
   }
 
+  /** True while the loop is paused between engine steps awaiting a human call. */
+  isPaused(jobId: string): boolean {
+    return this._pausedHumanDecisions.has(jobId)
+  }
+
+  pausedReason(jobId: string): string | null {
+    return this._pausedHumanDecisions.get(jobId)?.reason ?? null
+  }
+
   /** Feed one more user prompt to the ACTIVE step session owning this job row
    *  (queued behind the active turn — steering; the loop tends to continue its
    *  plan). Returns false when no interactive step is live for the id. */
   sendInteractiveTurn(jobId: string, text: string): boolean {
+    const paused = this._pausedHumanDecisions.get(jobId)
+    if (paused) {
+      this._pausedHumanDecisions.delete(jobId)
+      paused.resolve({ action: 'resume', text })
+      return true
+    }
     const session = this._interactiveSteps.get(jobId)
     if (!session) return false
     return session.send(text)
@@ -445,6 +475,11 @@ export class LoopRunManager {
       }
     }
     this._activeChild.clear()
+    for (const [runId, paused] of this._pausedHumanDecisions.entries()) {
+      this._cancelled.add(runId)
+      try { paused.resolve({ action: 'stop' }) } catch { /* ignore */ }
+    }
+    this._pausedHumanDecisions.clear()
   }
 
   async run(req: LoopRunRequest): Promise<LoopRunResult> {
@@ -746,6 +781,65 @@ export class LoopRunManager {
     // that loop-back so each iteration starts FRESH (re-reading the current code),
     // keeping context bounded regardless of pass count. Within an iteration the
     // steps still resume, so RED→GREEN→REFACTOR share context.
+    const awaitHumanDecision = async (reason: string): Promise<PausedHumanDecision> => {
+      const decisionPromise = new Promise<PausedHumanDecision>((resolve) => {
+        this._pausedHumanDecisions.set(runId, { reason, resolve })
+      })
+      logLine(`\n■ Loop paused — needs a human decision: ${reason}`, 'stderr')
+      try { markJobInteractive(this.db, runId) } catch { /* best-effort */ }
+      pauseLoopRun(this.db, runId, {
+        iterationCount: iteration,
+        totalCostUsd: totalCost,
+        totalTokens,
+        totalDurationMs: totalDuration,
+      })
+      const pausedAt = new Date(this.now()).toISOString()
+      this.broadcast({
+        type: 'loop.run_paused',
+        projectId: req.projectId,
+        loopRunId: runId,
+        railIndex: req.railIndex ?? null,
+        reason,
+        ticketIds: req.ticketId != null ? [req.ticketId] : [],
+      })
+      this.broadcast({
+        type: 'job.interactive',
+        projectId: req.projectId,
+        jobId: runId,
+        acceptingTurns: true,
+        settleMode: 'auto',
+        timestamp: pausedAt,
+      })
+
+      const decision = await decisionPromise
+      if (decision.action === 'stop' || this._cancelled.has(runId)) {
+        logLine(`\n■ Loop stop requested while paused.`, 'stderr')
+        return { action: 'stop' }
+      }
+
+      resumeLoopRun(this.db, runId)
+      const answer = decision.text.trim()
+      const resumedAt = new Date(this.now()).toISOString()
+      logLine(`\n▶ Loop resumed — human decision received${answer ? `:\n${answer}` : '.'}`)
+      history.push(`Human decision: ${truncate(answer)}`)
+      this.broadcast({
+        type: 'loop.run_resumed',
+        projectId: req.projectId,
+        loopRunId: runId,
+        railIndex: req.railIndex ?? null,
+        ticketIds: req.ticketId != null ? [req.ticketId] : [],
+      })
+      this.broadcast({
+        type: 'job.interactive',
+        projectId: req.projectId,
+        jobId: runId,
+        acceptingTurns: false,
+        settleMode: 'auto',
+        timestamp: resumedAt,
+      })
+      return decision
+    }
+
     const firstStepId = start ? req.graph.edges.find((e) => e.source === start.id)?.target : undefined
 
     try {
@@ -888,14 +982,19 @@ export class LoopRunManager {
             // Only carry forward the session of a step that actually ran — a
             // hard-failed turn (codex still emits thread.started before its error)
             // would otherwise make the next step `--resume` a dead session.
-            if (res.sessionId && !stepFailed) aiSessionId = res.sessionId
+            if (res.sessionId && (!stepFailed || (blockedReason !== null && !res.failed && !zeroWork))) aiSessionId = res.sessionId
             history.push(`AI Step: ${truncate(res.text)}`)
             record(`loop:${runId}`, { ...res, failed: stepFailed }, aiStepStart)
             if (blockedReason) {
-              logLine(`\n■ Loop blocked — needs a human decision: ${blockedReason}`, 'stderr')
-              outcome = 'blocked'
-              settled = true
-              break
+              const decision = await awaitHumanDecision(blockedReason)
+              if (decision.action === 'stop') {
+                outcome = 'stopped'
+                settled = true
+                break
+              }
+              justContinued = true
+              nodeId = node.id
+              continue
             }
             // Capture the OpenSpec change id from a step's output the FIRST time it
             // appears (first-match-wins, kept stable across loop-back iterations so
@@ -1032,10 +1131,21 @@ export class LoopRunManager {
             // the fix for the verify→fix cycle spinning on an unanswered scope
             // question the loop can't resolve on its own.
             if (dec.blocked) {
-              logLine(`\n■ Loop blocked — needs a human decision: ${dec.reasoning}`, 'stderr')
-              outcome = 'blocked'
-              settled = true
-              break
+              const decision = await awaitHumanDecision(dec.reasoning)
+              if (decision.action === 'stop') {
+                outcome = 'stopped'
+                settled = true
+                break
+              }
+              const target = branchTarget('continue') ?? conts[0]?.id ?? firstStepId
+              if (!target) {
+                outcome = 'failed'
+                settled = true
+                break
+              }
+              justContinued = true
+              nodeId = target
+              continue
             }
             // Non-convergence guard: if two consecutive 'continue' iterations
             // leave the working tree byte-identical, the loop isn't progressing
@@ -1118,12 +1228,12 @@ export class LoopRunManager {
     // Settle the backing job so the Jobs list + JobDetail reflect the final
     // status, and emit job.finalized so an open JobDetail re-fetches + stops the
     // live stream (mirrors QueueManager).
-    // `blocked`/`stalled` are controlled halts (not done, not a hard crash) →
-    // surface as `canceled`, like a user stop, so tickets revert to todo rather
-    // than being marked done/on_review AND the run is never counted as success.
+    // `stopped`/`stalled` are controlled halts (not done, not a hard crash) →
+    // surface as `canceled`, so tickets revert to todo rather than being marked
+    // done/on_review AND the run is never counted as success.
     const jobStatus: JobStatus =
       outcome === 'success' ? 'completed'
-        : outcome === 'stopped' || outcome === 'blocked' || outcome === 'stalled' ? 'canceled'
+        : outcome === 'stopped' || outcome === 'stalled' ? 'canceled'
           : 'failed'
     // `≥` when any cost-bearing step ended unpriced (timeout/crash) — the figure
     // is a lower bound, not exact.

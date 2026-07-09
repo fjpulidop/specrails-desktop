@@ -17,6 +17,9 @@ import { useSharedWebSocket } from './useSharedWebSocket'
 export interface RunVitals {
   /** Job status; null until the initial GET settles. */
   status: string | null
+  /** True when the backing loop run is paused awaiting a human decision. */
+  paused: boolean
+  pausedReason: string | null
   /** True while the backing job is still executing (drives the ticker). */
   running: boolean
   /** REAL wall-clock ms (started_at → finished_at | now). Null until known. */
@@ -34,6 +37,8 @@ interface JobRowSlice {
   finished_at?: string | null
   total_cost_usd?: number | null
   num_turns?: number | null
+  loopPaused?: boolean
+  loopPauseReason?: string | null
 }
 
 interface WireTotals {
@@ -77,6 +82,8 @@ export function useRunVitals(projectId: string, runId: string, opts: { live: boo
   const [finishedAt, setFinishedAt] = useState<number | null>(null)
   const [costUsd, setCostUsd] = useState<number | null>(null)
   const [numTurns, setNumTurns] = useState<number | null>(null)
+  const [paused, setPaused] = useState(false)
+  const [pausedReason, setPausedReason] = useState<string | null>(null)
   const [now, setNow] = useState(() => Date.now())
 
   // Initial (and live→frozen flip) fetch of the authoritative jobs row. The
@@ -95,6 +102,8 @@ export function useRunVitals(projectId: string, runId: string, opts: { live: boo
           setFinishedAt(ts(job.finished_at))
           if (typeof job.total_cost_usd === 'number') setCostUsd(job.total_cost_usd)
           if (typeof job.num_turns === 'number') setNumTurns(job.num_turns)
+          setPaused(job.loopPaused === true)
+          setPausedReason(typeof job.loopPauseReason === 'string' ? job.loopPauseReason : null)
         }
         setLoaded(true)
       })
@@ -111,7 +120,19 @@ export function useRunVitals(projectId: string, runId: string, opts: { live: boo
     if (!ws || !live) return
     const handlerId = `run-vitals-${runId}-${uid}`
     ws.registerHandler(handlerId, (data: unknown) => {
-      const msg = data as { type?: string; jobId?: string; status?: string; timestamp?: string; totals?: WireTotals }
+      const msg = data as { type?: string; jobId?: string; loopRunId?: string; status?: string; timestamp?: string; totals?: WireTotals; reason?: string }
+      if (msg?.type === 'loop.run_paused' && msg.loopRunId === runId) {
+        setPaused(true)
+        setPausedReason(typeof msg.reason === 'string' ? msg.reason : null)
+        setStatus('running')
+        setFinishedAt(null)
+        return
+      }
+      if ((msg?.type === 'loop.run_resumed' || msg?.type === 'loop.run_completed') && msg.loopRunId === runId) {
+        setPaused(false)
+        setPausedReason(null)
+        return
+      }
       if (msg?.jobId !== runId) return
       if (msg.type === 'job.turn_done') {
         // Running SUM of completed turns' REAL usage — adopt wholesale.
@@ -122,6 +143,8 @@ export function useRunVitals(projectId: string, runId: string, opts: { live: boo
         if (typeof msg.totals?.total_cost_usd === 'number') setCostUsd(msg.totals.total_cost_usd)
         if (typeof msg.totals?.num_turns === 'number') setNumTurns(msg.totals.num_turns)
         if (typeof msg.status === 'string') setStatus(msg.status)
+        setPaused(false)
+        setPausedReason(null)
         setFinishedAt(ts(msg.timestamp) ?? Date.now())
       }
     })
@@ -137,5 +160,5 @@ export function useRunVitals(projectId: string, runId: string, opts: { live: boo
 
   const elapsedMs = startedAt === null ? null : Math.max(0, (finishedAt ?? now) - startedAt)
 
-  return { status, running, elapsedMs, costUsd, numTurns, loaded }
+  return { status, paused, pausedReason, running, elapsedMs, costUsd, numTurns, loaded }
 }

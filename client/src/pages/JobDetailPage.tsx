@@ -173,7 +173,11 @@ export default function JobDetailPage() {
         timestamp: msg.timestamp as string,
       }
       enqueuePending(syntheticEvent)
-    } else if (msg.type === 'job.finalized' && msg.jobId === id) {
+    } else if (
+      (msg.type === 'job.finalized' && msg.jobId === id)
+      || (msg.type === 'job.interactive' && msg.jobId === id)
+      || ((msg.type === 'loop.run_paused' || msg.type === 'loop.run_resumed') && msg.loopRunId === id)
+    ) {
       // The interactive session settled (turn totals live in the composer,
       // which owns the job.turn_* stream) — refetch the authoritative row.
       fetch(`${getApiBase()}/jobs/${id}`)

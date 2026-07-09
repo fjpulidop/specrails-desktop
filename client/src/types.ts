@@ -59,6 +59,10 @@ export interface JobSummary {
    *  this between ai-steps (no session ⇒ POST /messages would 409); live flips
    *  ride the `job.interactive` WS event. GET /jobs/:id only. */
   interactiveAcceptingTurns?: boolean
+  /** True when a loop run is paused awaiting a human decision. GET /jobs/:id only. */
+  loopPaused?: boolean
+  /** Human-decision pause reason from the loop engine. GET /jobs/:id only. */
+  loopPauseReason?: string | null
   /**
    * Tickets referenced by the job's command, resolved against the project's
    * local ticket store at request time. Only populated by GET /jobs/:id;

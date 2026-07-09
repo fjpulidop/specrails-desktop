@@ -5,7 +5,7 @@ import path from 'path'
 import { startBackgroundProcess, killOwnedBackgroundProcess, getBackgroundProcessLogs } from '../../transient-children'
 import type { WsMessage } from '../../types'
 import type { ProjectContext } from '../../project-registry'
-import { listRunningLoopRuns } from '../../loop-runs-store'
+import { listActiveLoopRuns } from '../../loop-runs-store'
 
 function resolveBackgroundCwd(projectRoot: string, cwd: string | undefined): string {
   const resolved = path.resolve(projectRoot, cwd && cwd.trim() ? cwd : '.')
@@ -37,8 +37,8 @@ function backgroundStartBusyReason(projectCtx: ProjectContext): string | null {
   const activeJobId = typeof projectCtx.queueManager?.getActiveJobId === 'function' ? projectCtx.queueManager.getActiveJobId() : null
   if (activeJobId) return `job ${activeJobId} is still running`
   try {
-    const runningLoops = listRunningLoopRuns(projectCtx.db, projectCtx.project.id)
-    if (runningLoops.length > 0) return `loop run ${runningLoops[0].id} is still running`
+    const activeLoops = listActiveLoopRuns(projectCtx.db, projectCtx.project.id)
+    if (activeLoops.length > 0) return `loop run ${activeLoops[0].id} is still running`
   } catch {
     // Some unit harnesses stub the DB narrowly; absence of loop metadata is not a blocker.
   }

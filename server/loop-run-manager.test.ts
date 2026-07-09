@@ -555,7 +555,7 @@ describe('LoopRunManager', () => {
     expect(prompt).toContain('Specrails rail continuation context')
   })
 
-  it('halts immediately when an unattended AI step asks the human how to proceed', async () => {
+  it('pauses when an unattended AI step asks the human how to proceed, then resumes with the decision', async () => {
     const graph: LoopGraph = {
       nodes: [
         { id: 's', type: 'start', position: { x: 0, y: 0 } },
@@ -570,29 +570,42 @@ describe('LoopRunManager', () => {
       ],
       config: { maxIterations: 5, timeoutMinutes: 30 },
     }
-    const runAiStep = vi.fn(async () => ({
-      text: [
-        'Before running the full pipeline, this is not a fresh feature to build.',
-        '**How would you like to proceed?**',
-        '1. Treat this as review follow-ups.',
-        '2. Sync first.',
-        "I haven't launched any agents yet, so no code has changed.",
-        'openspec/changes/key-terms-matching-review-followups/',
-      ].join('\n'),
-      provider: 'claude',
-      model: 'sonnet',
-    }))
+    const runAiStep = vi.fn(async () => {
+      if (runAiStep.mock.calls.length === 1) {
+        return {
+          text: [
+            'Before running the full pipeline, this is not a fresh feature to build.',
+            '**How would you like to proceed?**',
+            '1. Treat this as review follow-ups.',
+            '2. Sync first.',
+            "I haven't launched any agents yet, so no code has changed.",
+            'openspec/changes/key-terms-matching-review-followups/',
+          ].join('\n'),
+          provider: 'claude',
+          model: 'sonnet',
+        }
+      }
+      return { text: 'continued after human decision', provider: 'claude', model: 'sonnet' }
+    })
+    const m = manager(makeExecutors({ runAiStep }))
+    const runPromise = m.run({ ...baseReq(), runId: 'run-human-decision', graph })
 
-    const res = await manager(makeExecutors({ runAiStep })).run({ ...baseReq(), graph })
-
-    expect(res.outcome).toBe('blocked')
+    await waitFor(() => getLoopRun(db, 'run-human-decision')?.status === 'paused', 'loop pause')
     expect(runAiStep).toHaveBeenCalledTimes(1)
-    expect(getLoopRun(db, res.runId)!.final_outcome).toBe('blocked')
-    expect(broadcasts.some((m) => m.type === 'log' && ((m as { line?: string }).line ?? '').includes('Loop blocked'))).toBe(true)
-    expect(broadcasts.some((m) => m.type === 'log' && ((m as { line?: string }).line ?? '').includes('Captured OpenSpec change id'))).toBe(false)
+    expect(getLoopRun(db, 'run-human-decision')!.final_outcome).toBeNull()
+    expect(broadcasts.some((msg) => msg.type === 'loop.run_paused')).toBe(true)
+    expect(broadcasts.some((msg) => msg.type === 'log' && ((msg as { line?: string }).line ?? '').includes('Loop paused'))).toBe(true)
+    expect(broadcasts.some((msg) => msg.type === 'log' && ((msg as { line?: string }).line ?? '').includes('Captured OpenSpec change id'))).toBe(false)
+
+    expect(m.sendInteractiveTurn('run-human-decision', 'Use option 2 and implement only the delta.')).toBe(true)
+    const res = await runPromise
+    expect(res.outcome).toBe('success')
+    expect(runAiStep).toHaveBeenCalledTimes(3)
+    expect(getLoopRun(db, res.runId)!.final_outcome).toBe('success')
+    expect((runAiStep as ReturnType<typeof vi.fn>).mock.calls[1][0].prompt).toContain('Use option 2')
   })
 
-  it('halts immediately when an AI step emits LOOP_BLOCKED', async () => {
+  it('pauses when an AI step emits LOOP_BLOCKED', async () => {
     const graph: LoopGraph = {
       nodes: [
         { id: 's', type: 'start', position: { x: 0, y: 0 } },
@@ -607,12 +620,21 @@ describe('LoopRunManager', () => {
       ],
       config: { maxIterations: 5, timeoutMinutes: 30 },
     }
-    const runAiStep = vi.fn(async () => ({ text: 'LOOP_BLOCKED: Which review feedback should be applied?', provider: 'claude', model: 'sonnet' }))
+    const runAiStep = vi.fn(async () => (
+      runAiStep.mock.calls.length === 1
+        ? { text: 'LOOP_BLOCKED: Which review feedback should be applied?', provider: 'claude', model: 'sonnet' }
+        : { text: 'applied selected feedback', provider: 'claude', model: 'sonnet' }
+    ))
 
-    const res = await manager(makeExecutors({ runAiStep })).run({ ...baseReq(), graph })
+    const m = manager(makeExecutors({ runAiStep }))
+    const runPromise = m.run({ ...baseReq(), runId: 'run-loop-blocked', graph })
 
-    expect(res.outcome).toBe('blocked')
+    await waitFor(() => getLoopRun(db, 'run-loop-blocked')?.status === 'paused', 'loop pause')
     expect(runAiStep).toHaveBeenCalledTimes(1)
+    expect(m.sendInteractiveTurn('run-loop-blocked', 'Apply feedback A.')).toBe(true)
+    const res = await runPromise
+    expect(res.outcome).toBe('success')
+    expect(runAiStep).toHaveBeenCalledTimes(3)
     expect(broadcasts.some((m) => m.type === 'log' && ((m as { line?: string }).line ?? '').includes('Which review feedback should be applied?'))).toBe(true)
   })
 
@@ -1567,19 +1589,30 @@ describe('LoopRunManager structured run events', () => {
 })
 
 describe('LoopRunManager blocked + non-convergence guards', () => {
-  it('Decider "blocked" halts with outcome=blocked (NOT success) and surfaces the reason', async () => {
-    const runDecider = vi.fn(async () => ({
-      continue: false, blocked: true, reasoning: 'needs a human scope call on Supabase', parsed: true,
-      cost: 0.001, tokens: 20, provider: 'claude', model: 'sonnet',
-    }))
+  it('Decider "blocked" pauses until a human decision, then continues', async () => {
+    const runDecider = vi.fn(async () => (
+      runDecider.mock.calls.length === 1
+        ? {
+            continue: false, blocked: true, reasoning: 'needs a human scope call on Supabase', parsed: true,
+            cost: 0.001, tokens: 20, provider: 'claude', model: 'sonnet',
+          }
+        : {
+            continue: false, blocked: false, reasoning: 'done after human scope call', parsed: true,
+            cost: 0.001, tokens: 20, provider: 'claude', model: 'sonnet',
+          }
+    ))
     const ex = makeExecutors({ runDecider })
-    const res = await manager(ex).run({ ...baseReq(), graph: loopGraph(20) })
-    expect(res.outcome).toBe('blocked')
-    expect(getLoopRun(db, res.runId)!.final_outcome).toBe('blocked')
+    const m = manager(ex)
+    const runPromise = m.run({ ...baseReq(), runId: 'run-decider-paused', graph: loopGraph(20) })
+    await waitFor(() => getLoopRun(db, 'run-decider-paused')?.status === 'paused', 'loop pause')
+    expect(getLoopRun(db, 'run-decider-paused')!.final_outcome).toBeNull()
+    expect(m.sendInteractiveTurn('run-decider-paused', 'Use Supabase for this scope.')).toBe(true)
+    const res = await runPromise
+    expect(res.outcome).toBe('success')
+    expect(getLoopRun(db, res.runId)!.final_outcome).toBe('success')
     // The blocking reason reached the run log.
     expect(broadcasts.some((m) => m.type === 'log' && ((m as { line?: string }).line ?? '').includes('needs a human scope call'))).toBe(true)
-    // Only ONE decider call — it halted immediately, no cycling.
-    expect(runDecider).toHaveBeenCalledTimes(1)
+    expect(runDecider).toHaveBeenCalledTimes(2)
   })
 
   it('aborts "stalled" when repoStateHash is unchanged across consecutive continue verdicts', async () => {
