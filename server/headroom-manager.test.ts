@@ -1,10 +1,13 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
 import fs from 'fs'
+import http from 'http'
+import net from 'net'
 import os from 'os'
 import path from 'path'
 import { initDesktopDb, setDesktopSetting } from './desktop-db'
 import {
   HEADROOM_MANAGED_PYTHON_VERSION,
+  HEADROOM_RELAY_PATH,
   HeadroomManager,
   getHeadroomManagedInstallPlan,
   parseWindowsOwnershipSnapshot,
@@ -15,6 +18,7 @@ import type { DbInstance } from './db'
 import { EventEmitter } from 'events'
 import { PassThrough } from 'stream'
 import type { ChildProcess } from 'child_process'
+import { WebSocket, WebSocketServer } from 'ws'
 
 const STATE_KEY = 'plugins.headroom.state'
 
@@ -25,7 +29,12 @@ type HeadroomManagerTestHarness = {
     env: Record<string, string>,
     logs: string[],
   ) => Promise<{ code: number | null }>
-  runCommandCapture: () => Promise<{ code: number; output: string }>
+  runCommandCapture: (
+    command: string,
+    args: string[],
+    env: Record<string, string>,
+    timeoutMs: number,
+  ) => Promise<{ code: number | null; output: string }>
   readHeadroomVersion: () => string
   detectProviderRoutes: () => Record<'codex' | 'claude', boolean>
   ensureProxy: () => Promise<{ ok: boolean; issue?: { code: string } }>
@@ -36,10 +45,14 @@ type HeadroomManagerTestHarness = {
     isCurrent?: () => boolean,
   ) => Promise<boolean>
   refreshMetrics: () => Promise<void>
+  readProxyStats: (port: number) => Promise<Record<string, unknown> | null>
   refreshMetricsInBackground: () => void
   syncRouting: () => void
   proxy: ChildProcess | null
   proxyTrustedPort: number | null
+  lifecycleCommands: Map<ChildProcess, unknown>
+  stopProxy: () => Promise<void>
+  resolveUvPath: () => string | null
 }
 
 function makeProxyChild(pid = 4242): ChildProcess {
@@ -74,6 +87,22 @@ exit 0
 `)
   fs.chmodSync(exe, 0o755)
   return { dir, exe }
+}
+
+function listen(server: net.Server | http.Server): Promise<number> {
+  return new Promise((resolve, reject) => {
+    server.once('error', reject)
+    server.listen(0, '127.0.0.1', () => {
+      server.removeListener('error', reject)
+      const address = server.address()
+      if (!address || typeof address === 'string') return reject(new Error('missing server address'))
+      resolve(address.port)
+    })
+  })
+}
+
+function closeServer(server: net.Server | http.Server): Promise<void> {
+  return new Promise((resolve) => server.close(() => resolve()))
 }
 
 describe('Windows Headroom ownership snapshots', () => {
@@ -230,7 +259,7 @@ describe('HeadroomManager', () => {
     }
   })
 
-  it('does not report an unauthenticated external endpoint as the managed proxy', async () => {
+  it('does not report or consume metrics from an unauthenticated external endpoint', async () => {
     db = initDesktopDb(':memory:')
     const fake = makeHeadroomExe()
     tempDir = fake.dir
@@ -261,12 +290,12 @@ describe('HeadroomManager', () => {
 
     expect(state.proxyRunning).toBe(false)
     expect(state.proxyPid).toBeNull()
-    expect(state.metrics.proxyStatsAvailable).toBe(true)
+    expect(state.metrics.proxyStatsAvailable).toBe(false)
     expect(state.metrics.providers.codex).toMatchObject({
-      requests: 9001,
-      inputTokens: 333333333,
-      inputTokensSaved: 2222222,
-      outputTokens: 4444444,
+      requests: 0,
+      inputTokens: 0,
+      inputTokensSaved: 0,
+      outputTokens: 0,
     })
   })
 
@@ -329,6 +358,7 @@ describe('HeadroomManager', () => {
     const manager = new HeadroomManager(db, () => undefined, () => ['codex'], {
       spawnProxy: spawnProxy as unknown as typeof import('child_process').spawn,
       ownsProxyPort: () => true,
+      relayOrigin: 'http://127.0.0.1:4200',
     })
     const internals = manager as unknown as HeadroomManagerTestHarness
     internals.refreshMetricsInBackground = () => undefined
@@ -346,7 +376,11 @@ describe('HeadroomManager', () => {
     releaseHealth(true)
     await boot
     expect(internals.proxyTrustedPort).toBe(8787)
-    expect(getHeadroomRoutingState().activeProviders).toEqual({ codex: true, claude: false })
+    expect(getHeadroomRoutingState()).toMatchObject({
+      port: 4200,
+      relayBaseUrl: expect.stringMatching(/^http:\/\/127\.0\.0\.1:4200\/_specrails\/headroom\/[A-Za-z0-9_-]{40,}$/),
+      activeProviders: { codex: true, claude: false },
+    })
 
     Object.assign(child, { exitCode: 1 })
     child.emit('close', 1, null)
@@ -439,6 +473,254 @@ describe('HeadroomManager', () => {
     expect(ownsProxyPort).toHaveBeenCalledWith(4242, 8787)
     expect(killTree).toHaveBeenCalledWith(4242, 'SIGTERM', expect.any(Function))
     expect(internals.proxy).toBeNull()
+  })
+
+  it('sends zero credential-bearing bytes when the connected relay backend is not owned', async () => {
+    db = initDesktopDb(':memory:')
+    let received = Buffer.alloc(0)
+    const backend = net.createServer((socket) => {
+      socket.on('data', (chunk) => { received = Buffer.concat([received, chunk]) })
+    })
+    const backendPort = await listen(backend)
+    const child = makeProxyChild()
+    const manager = new HeadroomManager(db, () => undefined, () => ['codex'], {
+      ownsProxyPort: () => false,
+      relayOrigin: 'http://127.0.0.1:4200',
+    })
+    const internals = manager as unknown as HeadroomManagerTestHarness
+    internals.proxy = child
+    internals.proxyTrustedPort = backendPort
+    const relay = http.createServer((req, res) => {
+      void manager.handleRelayRequest(req, res)
+    })
+    const relayPort = await listen(relay)
+    const relayPath = new URL(getHeadroomRoutingState().relayBaseUrl!).pathname
+    const diagnosticBase = (manager as unknown as { relayDiagnosticBaseUrl: () => string }).relayDiagnosticBaseUrl()
+    expect(diagnosticBase).toContain('<redacted>')
+    expect(getHeadroomRoutingState().relayBaseUrl).not.toBe(diagnosticBase)
+
+    try {
+      const response = await new Promise<{ status: number; body: string }>((resolve, reject) => {
+        const request = http.request({
+          host: '127.0.0.1',
+          port: relayPort,
+          method: 'POST',
+          path: `${relayPath}/v1/responses`,
+          headers: {
+            authorization: 'Bearer provider-secret',
+            'content-type': 'application/json',
+          },
+        }, (res) => {
+          let body = ''
+          res.setEncoding('utf8')
+          res.on('data', (chunk) => { body += chunk })
+          res.on('end', () => resolve({ status: res.statusCode ?? 0, body }))
+        })
+        request.once('error', reject)
+        request.end('{"secretPrompt":"do not leak"}')
+      })
+
+      expect(response.status).toBe(503)
+      expect(response.body).toContain('request failed')
+      expect(received).toHaveLength(0)
+    } finally {
+      await closeServer(relay)
+      await closeServer(backend)
+    }
+  })
+
+  it('rejects a relay request without the runtime token before opening the backend', async () => {
+    db = initDesktopDb(':memory:')
+    let backendConnections = 0
+    let received = Buffer.alloc(0)
+    const backend = net.createServer((socket) => {
+      backendConnections += 1
+      socket.on('data', (chunk) => { received = Buffer.concat([received, chunk]) })
+    })
+    const backendPort = await listen(backend)
+    const manager = new HeadroomManager(db, () => undefined, () => ['codex'], {
+      ownsProxyPort: () => true,
+      relayOrigin: 'http://127.0.0.1:4200',
+    })
+    const internals = manager as unknown as HeadroomManagerTestHarness
+    internals.proxy = makeProxyChild()
+    internals.proxyTrustedPort = backendPort
+    const relay = http.createServer((req, res) => {
+      void manager.handleRelayRequest(req, res)
+    })
+    const relayPort = await listen(relay)
+
+    try {
+      const status = await new Promise<number>((resolve, reject) => {
+        const request = http.request({
+          host: '127.0.0.1',
+          port: relayPort,
+          method: 'POST',
+          path: `${HEADROOM_RELAY_PATH}/wrong-token/v1/responses`,
+          headers: { authorization: 'Bearer provider-secret' },
+        }, (res) => {
+          res.resume()
+          res.on('end', () => resolve(res.statusCode ?? 0))
+        })
+        request.once('error', reject)
+        request.end('{"secretPrompt":"do not leak"}')
+      })
+
+      expect(status).toBe(404)
+      expect(backendConnections).toBe(0)
+      expect(received).toHaveLength(0)
+    } finally {
+      await closeServer(relay)
+      await closeServer(backend)
+    }
+  })
+
+  it('streams through an owned backend while stripping hop-by-hop headers', async () => {
+    db = initDesktopDb(':memory:')
+    let observed: { authorization?: string; hop?: string; body?: string } = {}
+    const backend = http.createServer((req, res) => {
+      let body = ''
+      req.setEncoding('utf8')
+      req.on('data', (chunk) => { body += chunk })
+      req.on('end', () => {
+        observed = {
+          authorization: req.headers.authorization,
+          hop: req.headers['x-remove-me'] as string | undefined,
+          body,
+        }
+        res.setHeader('connection', 'x-backend-hop')
+        res.setHeader('x-backend-hop', 'must-not-escape')
+        res.end('proxied')
+      })
+    })
+    const backendPort = await listen(backend)
+    const child = makeProxyChild()
+    const manager = new HeadroomManager(db, () => undefined, () => ['codex'], {
+      ownsProxyPort: () => true,
+      relayOrigin: 'http://127.0.0.1:4200',
+    })
+    const internals = manager as unknown as HeadroomManagerTestHarness
+    internals.proxy = child
+    internals.proxyTrustedPort = backendPort
+    const relay = http.createServer((req, res) => {
+      void manager.handleRelayRequest(req, res)
+    })
+    const relayPort = await listen(relay)
+    const relayPath = new URL(getHeadroomRoutingState().relayBaseUrl!).pathname
+
+    try {
+      const response = await new Promise<{ status: number; body: string; hop?: string }>((resolve, reject) => {
+        const request = http.request({
+          host: '127.0.0.1',
+          port: relayPort,
+          method: 'POST',
+          path: `${relayPath}/v1/messages?stream=true`,
+          headers: {
+            authorization: 'Bearer provider-secret',
+            connection: 'x-remove-me',
+            'x-remove-me': 'must-not-forward',
+          },
+        }, (res) => {
+          let body = ''
+          res.setEncoding('utf8')
+          res.on('data', (chunk) => { body += chunk })
+          res.on('end', () => resolve({
+            status: res.statusCode ?? 0,
+            body,
+            hop: res.headers['x-backend-hop'] as string | undefined,
+          }))
+        })
+        request.once('error', reject)
+        request.end('streamed prompt')
+      })
+
+      expect(response).toEqual({ status: 200, body: 'proxied', hop: undefined })
+      expect(observed).toEqual({
+        authorization: 'Bearer provider-secret',
+        hop: undefined,
+        body: 'streamed prompt',
+      })
+    } finally {
+      await closeServer(relay)
+      await closeServer(backend)
+    }
+  })
+
+  it('relays an owned WebSocket upgrade without exposing it before verification', async () => {
+    db = initDesktopDb(':memory:')
+    const backendHttp = http.createServer()
+    const backendWs = new WebSocketServer({ server: backendHttp })
+    let observedPath = ''
+    let observedAuthorization = ''
+    backendWs.on('connection', (socket, request) => {
+      observedPath = request.url ?? ''
+      observedAuthorization = request.headers.authorization ?? ''
+      socket.on('message', (data) => socket.send(`echo:${data.toString()}`))
+    })
+    const backendPort = await listen(backendHttp)
+    const manager = new HeadroomManager(db, () => undefined, () => ['codex'], {
+      ownsProxyPort: () => true,
+      relayOrigin: 'http://127.0.0.1:4200',
+    })
+    const internals = manager as unknown as HeadroomManagerTestHarness
+    internals.proxy = makeProxyChild()
+    internals.proxyTrustedPort = backendPort
+    const relay = http.createServer()
+    relay.on('upgrade', (request, socket, head) => {
+      void manager.handleRelayUpgrade(request, socket, head)
+    })
+    const relayPort = await listen(relay)
+    const relayPath = new URL(getHeadroomRoutingState().relayBaseUrl!).pathname
+    const client = new WebSocket(`ws://127.0.0.1:${relayPort}${relayPath}/v1/responses?stream=1`, {
+      headers: { authorization: 'Bearer provider-secret' },
+    })
+
+    try {
+      await new Promise<void>((resolve, reject) => {
+        client.once('open', resolve)
+        client.once('error', reject)
+      })
+      const reply = await new Promise<string>((resolve, reject) => {
+        client.once('message', (data) => resolve(data.toString()))
+        client.once('error', reject)
+        client.send('hello')
+      })
+
+      expect(reply).toBe('echo:hello')
+      expect(observedPath).toBe('/v1/responses?stream=1')
+      expect(observedAuthorization).toBe('Bearer provider-secret')
+    } finally {
+      client.terminate()
+      await new Promise<void>((resolve) => backendWs.close(() => resolve()))
+      await closeServer(relay)
+      await closeServer(backendHttp)
+    }
+  })
+
+  it('reads runtime stats only through a post-connect ownership-verified socket', async () => {
+    db = initDesktopDb(':memory:')
+    let observedPath = ''
+    const backend = http.createServer((req, res) => {
+      observedPath = req.url ?? ''
+      res.setHeader('content-type', 'application/json')
+      res.end('{"agent_usage":{"agents":[]}}')
+    })
+    const backendPort = await listen(backend)
+    const ownsProxyPort = vi.fn(() => true)
+    const manager = new HeadroomManager(db, () => undefined, () => ['codex'], { ownsProxyPort })
+    const internals = manager as unknown as HeadroomManagerTestHarness
+    internals.proxy = makeProxyChild()
+    internals.proxyTrustedPort = backendPort
+
+    try {
+      const stats = await internals.readProxyStats(backendPort)
+      expect(stats).toEqual({ agent_usage: { agents: [] } })
+      expect(observedPath).toBe('/stats?cached=1')
+      expect(ownsProxyPort).toHaveBeenCalledWith(4242, backendPort)
+    } finally {
+      ;(manager as unknown as { relayAgent: http.Agent }).relayAgent.destroy()
+      await closeServer(backend)
+    }
   })
 
   it('times out a local health endpoint that accepts but never responds', async () => {
@@ -631,6 +913,103 @@ describe('HeadroomManager', () => {
     child.emit('close', null, 'SIGKILL')
     await pending
     vi.useRealTimers()
+  })
+
+  it('does not start a background metrics command while shutdown is taking its state snapshot', async () => {
+    db = initDesktopDb(':memory:')
+    const fake = makeHeadroomExe()
+    tempDir = fake.dir
+    process.env.SPECRAILS_REGISTRY_HOME = tempDir
+    setDesktopSetting(db, STATE_KEY, JSON.stringify({
+      installed: true,
+      version: '0.30.0',
+      executablePath: fake.exe,
+      installSource: 'system',
+      port: 8787,
+      activeProviders: { codex: false, claude: false },
+    }))
+    const manager = new HeadroomManager(db, () => undefined, () => ['codex'])
+    const internals = manager as unknown as HeadroomManagerTestHarness
+    const capture = vi.fn(async () => ({ code: 0, output: '{"by_client":[]}' }))
+    internals.runCommandCapture = capture
+
+    await manager.shutdown()
+
+    expect(capture).not.toHaveBeenCalled()
+  })
+
+  it('cancels, tree-terminates, and observes close for runCommandCapture during shutdown', async () => {
+    db = initDesktopDb(':memory:')
+    const manager = new HeadroomManager(db, () => undefined, () => ['codex'])
+    const internals = manager as unknown as HeadroomManagerTestHarness
+    const capture = internals.runCommandCapture(
+      process.execPath,
+      ['-e', 'setInterval(() => {}, 1000)'],
+      {},
+      30_000,
+    )
+    await vi.waitFor(() => expect(internals.lifecycleCommands.size).toBe(1))
+
+    const shutdown = manager.shutdown()
+    const result = await capture
+    await shutdown
+
+    expect(result.code).toBeNull()
+    await vi.waitFor(() => expect(internals.lifecycleCommands.size).toBe(0))
+  })
+
+  it('does not spawn uv after shutdown starts while uninstall is awaiting proxy stop', async () => {
+    db = initDesktopDb(':memory:')
+    const manager = new HeadroomManager(db, () => undefined, () => ['codex'])
+    const internals = manager as unknown as HeadroomManagerTestHarness
+    vi.spyOn(manager, 'getState').mockReturnValue({
+      installed: true,
+      installSource: 'managed',
+      version: '0.30.0',
+      executablePath: '/managed/headroom',
+      uvPath: process.execPath,
+      port: 8787,
+      phase: 'installed',
+      activeProviders: { codex: false, claude: false },
+      availableProviders: { codex: true, claude: false },
+      detectedRoutes: { codex: false, claude: false },
+      proxyRunning: false,
+      proxyPid: null,
+      learning: { enabled: false, baselineReady: false, baselineSamples: 0, updatedAt: null, lastIssue: null },
+      metrics: {
+        updatedAt: null,
+        proxyStatsAvailable: false,
+        durableSavingsAvailable: false,
+        outputSavingsAvailable: false,
+        outputSavingsMethod: null,
+        outputConfidence: null,
+        providers: {
+          codex: { provider: 'codex', label: 'Codex', active: false, available: true, detectedRoute: false, requests: 0, inputTokens: 0, inputTokensSaved: 0, outputTokens: 0, outputTokensSaved: 0, outputSavingsPercent: 0, outputSavingsMethod: 'none', outputSavingsAllocated: false },
+          claude: { provider: 'claude', label: 'Claude', active: false, available: false, detectedRoute: false, requests: 0, inputTokens: 0, inputTokensSaved: 0, outputTokens: 0, outputTokensSaved: 0, outputSavingsPercent: 0, outputSavingsMethod: 'none', outputSavingsAllocated: false },
+        },
+        lastIssue: null,
+      },
+      lastIssue: null,
+      updatedAt: null,
+    })
+    internals.resolveUvPath = () => process.execPath
+    let releaseStop!: () => void
+    const stopGate = new Promise<void>((resolve) => { releaseStop = resolve })
+    internals.stopProxy = vi.fn()
+      .mockImplementationOnce(() => stopGate)
+      .mockResolvedValue(undefined)
+    const run = vi.fn(async () => ({ code: 0 as number | null }))
+    internals.runCommand = run
+
+    const uninstall = manager.uninstall()
+    await vi.waitFor(() => expect(internals.stopProxy).toHaveBeenCalledTimes(1))
+    const shutdown = manager.shutdown()
+    releaseStop()
+    const result = await uninstall
+    await shutdown
+
+    expect(result.ok).toBe(false)
+    expect(run).not.toHaveBeenCalled()
   })
 
   it('serializes concurrent port changes so trust cannot move without the owned child', async () => {

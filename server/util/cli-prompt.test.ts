@@ -1,4 +1,6 @@
-import { describe, it, expect, vi } from 'vitest'
+import { afterEach, describe, it, expect, vi } from 'vitest'
+import { EventEmitter } from 'events'
+import type { ChildProcess } from 'child_process'
 
 // Wrap spawnCli with a spy that still delegates to the real implementation, so
 // the real-binary dispatch tests keep working while the env-passthrough tests
@@ -12,12 +14,21 @@ import {
   transformClaudeArgsForWindows,
   transformCodexArgsForWindows,
   ensureStdinPipe,
+  appendCodexHeadroomRelayOverride,
   spawnClaude,
   spawnCodex,
   spawnGemini,
   spawnAiCli,
 } from './cli-prompt'
 import { spawnCli } from './win-spawn'
+import {
+  headroomRoutedChildCount,
+  setHeadroomRoutingState,
+} from '../headroom-routing'
+
+afterEach(() => {
+  setHeadroomRoutingState({ port: 8787, activeProviders: {} })
+})
 
 describe('transformClaudeArgsForWindows', () => {
   it('returns args unchanged when no prompt flags are present', () => {
@@ -201,6 +212,24 @@ describe('transformCodexArgsForWindows', () => {
     expect(out.stdinPayload).toBeNull()
   })
 
+  it('keeps the final relay override authoritative and consumes its -c value on Windows', () => {
+    const relay = 'http://127.0.0.1:4200/_specrails/headroom/runtime-token'
+    const args = appendCodexHeadroomRelayOverride([
+      'exec',
+      '-c',
+      'openai_base_url="http://127.0.0.1:8787/v1"',
+      'multi\nline prompt',
+    ], relay)
+
+    expect(args.slice(-2)).toEqual([
+      '-c',
+      `openai_base_url="${relay}/v1"`,
+    ])
+    const transformed = transformCodexArgsForWindows(args)
+    expect(transformed.stdinPayload).toBe('multi\nline prompt')
+    expect(transformed.args.slice(-2)).toEqual(args.slice(-2))
+  })
+
   it('keeps single-line exec prompt as positional argv', () => {
     const out = transformCodexArgsForWindows([
       'exec',
@@ -304,6 +333,42 @@ describe('transformCodexArgsForWindows', () => {
       'gpt-x',
     ])
     expect(out.stdinPayload).toBe('next\nturn')
+  })
+})
+
+describe('spawnCodex Headroom relay integration', () => {
+  it('appends the authoritative config override and leases the routed child until close', () => {
+    const relay = 'http://127.0.0.1:4200/_specrails/headroom/runtime-token'
+    setHeadroomRoutingState({
+      port: 4200,
+      relayBaseUrl: relay,
+      activeProviders: { codex: true },
+    })
+    const child = new EventEmitter() as ChildProcess
+    Object.assign(child, {
+      pid: undefined,
+      exitCode: null,
+      signalCode: null,
+      stdin: null,
+      stdout: null,
+      stderr: null,
+    })
+    vi.mocked(spawnCli).mockImplementationOnce(() => child)
+
+    const originalArgs = ['exec', '-c', 'openai_base_url="http://127.0.0.1:8787/v1"', 'prompt']
+    spawnCodex(originalArgs, { env: { PATH: '/bin', HEADROOM_PORT: '8787' } })
+    const spawnedArgs = vi.mocked(spawnCli).mock.calls.at(-1)![1]
+
+    expect(originalArgs).toEqual(['exec', '-c', 'openai_base_url="http://127.0.0.1:8787/v1"', 'prompt'])
+    expect(spawnedArgs.slice(-2)).toEqual([
+      '-c',
+      `openai_base_url="${relay}/v1"`,
+    ])
+    expect(vi.mocked(spawnCli).mock.calls.at(-1)![2]?.env?.HEADROOM_PORT).toBeUndefined()
+    expect(headroomRoutedChildCount()).toBe(1)
+
+    child.emit('close', 0, null)
+    expect(headroomRoutedChildCount()).toBe(0)
   })
 })
 

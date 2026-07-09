@@ -1,12 +1,26 @@
 import { spawn, spawnSync } from 'child_process'
+import { randomBytes } from 'crypto'
 import fs from 'fs'
+import http, {
+  type IncomingHttpHeaders,
+  type IncomingMessage,
+  type OutgoingHttpHeaders,
+  type ServerResponse,
+} from 'http'
+import net from 'net'
 import os from 'os'
 import path from 'path'
+import type { Duplex } from 'stream'
 import type { ChildProcess } from 'child_process'
 import type { DbInstance } from './db'
+import { safeEqual } from './auth'
 import { getDesktopSetting, setDesktopSetting } from './desktop-db'
 import type { WsMessage } from './types'
-import { setHeadroomRoutingState, type HeadroomProvider } from './headroom-routing'
+import {
+  setHeadroomRoutingState,
+  terminateHeadroomRoutedChildren,
+  type HeadroomProvider,
+} from './headroom-routing'
 import { treeKillSafe, windowsSpawnEnv } from './util/win-spawn'
 
 export type HeadroomPhase =
@@ -114,6 +128,12 @@ interface HeadroomProcessControl {
   spawnProxy?: typeof spawn
   killTree?: typeof treeKillSafe
   ownsProxyPort?: (pid: number, port: number) => boolean
+  /** Origin of the stable desktop HTTP server that owns the client endpoint. */
+  relayOrigin?: string
+}
+
+interface LifecycleCommandControl {
+  cancel: () => void
 }
 
 interface WindowsProcessRow {
@@ -134,6 +154,8 @@ export interface WindowsOwnershipSnapshot {
 const STATE_KEY = 'plugins.headroom.state'
 const DEFAULT_PORT = 8787
 const PROXY_HEALTH_REQUEST_TIMEOUT_MS = 750
+const RELAY_CONNECT_TIMEOUT_MS = 3_000
+export const HEADROOM_RELAY_PATH = '/_specrails/headroom'
 export const HEADROOM_MANAGED_PYTHON_VERSION = '3.12'
 
 interface PersistedHeadroomState {
@@ -680,8 +702,10 @@ export class HeadroomManager {
   private shutdownPromise: Promise<void> | null = null
   private shutdownState: HeadroomState | null = null
   private lifecycleTail: Promise<void> = Promise.resolve()
-  private lifecycleCommands = new Map<ChildProcess, () => void>()
+  private lifecycleCommands = new Map<ChildProcess, LifecycleCommandControl>()
   private proxyTail = ''
+  private readonly relayToken = randomBytes(32).toString('base64url')
+  private readonly relayAgent: http.Agent
   private routeDetectionCache: {
     executablePath: string
     expiresAt: number
@@ -697,10 +721,26 @@ export class HeadroomManager {
     private readonly availableProvidersSupplier: () => HeadroomProvider[] = () => ['claude', 'codex'],
     private readonly processControl: HeadroomProcessControl = {},
   ) {
+    this.relayAgent = new http.Agent({ keepAlive: true, maxSockets: 16, maxFreeSockets: 4 })
+    // Agent#createConnection supports an asynchronous callback. Returning no
+    // socket prevents ClientRequest from writing queued headers/body on TCP
+    // connect; the socket is handed over only after the post-connect PID check.
+    this.relayAgent.createConnection = ((options, callback) => {
+      const expectedPort = Number(options.port)
+      void this.connectVerifiedBackend(expectedPort).then(
+        ({ socket }) => callback?.(null, socket),
+        (err) => callback?.(err as Error, undefined as unknown as net.Socket),
+      )
+      return undefined
+    }) as typeof this.relayAgent.createConnection
     this.syncRouting()
   }
 
   getState(): HeadroomState {
+    return this.buildState(true)
+  }
+
+  private buildState(refreshMetrics: boolean): HeadroomState {
     const persisted = this.readPersisted()
     const uvPath = this.resolveUvPath()
     const install = this.resolveHeadroomInstall(persisted.executablePath ?? null, !!persisted.ignoreSystemInstall)
@@ -739,7 +779,7 @@ export class HeadroomManager {
       }
     }
 
-    this.refreshMetricsInBackground()
+    if (refreshMetrics) this.refreshMetricsInBackground()
 
     const learning: HeadroomLearningState = {
       enabled: persisted.learningEnabled ?? installed,
@@ -770,8 +810,235 @@ export class HeadroomManager {
   }
 
   async getFreshState(): Promise<HeadroomState> {
+    if (this.shuttingDown) return this.shutdownState ?? this.buildState(false)
     await this.refreshMetrics()
     return this.getState()
+  }
+
+  /**
+   * Stream a provider request through the stable desktop listener. A TCP
+   * connection to the backend is established first, then ownership is verified,
+   * and only then are headers/body (including provider credentials) written.
+   * A process that rebinds the backend port can therefore receive a TCP handshake
+   * but never a secret-bearing byte.
+   */
+  async handleRelayRequest(req: IncomingMessage, res: ServerResponse): Promise<void> {
+    const upstreamPath = this.relayUpstreamPath(req.url)
+    if (!upstreamPath) {
+      this.writeRelayError(res, 404, 'Not Found')
+      return
+    }
+
+    const backendPort = this.trustedBackendPort()
+    if (!backendPort) {
+      this.writeRelayError(res, 503, 'Headroom proxy is unavailable')
+      return
+    }
+
+    const headers = this.filterRelayHttpHeaders(req.headers)
+    headers.host = `127.0.0.1:${backendPort}`
+    const upstream = http.request({
+      host: '127.0.0.1',
+      port: backendPort,
+      method: req.method,
+      path: upstreamPath,
+      headers,
+      agent: this.relayAgent,
+    }, (upstreamResponse) => {
+      if (res.destroyed) {
+        upstreamResponse.destroy()
+        return
+      }
+      res.writeHead(
+        upstreamResponse.statusCode ?? 502,
+        this.filterRelayHttpHeaders(upstreamResponse.headers),
+      )
+      upstreamResponse.pipe(res)
+    })
+
+    const fail = () => {
+      if (!res.headersSent) this.writeRelayError(res, 503, 'Headroom proxy request failed')
+      else res.destroy()
+    }
+    upstream.once('error', fail)
+    req.once('aborted', () => upstream.destroy())
+    req.pipe(upstream)
+  }
+
+  /** WebSocket equivalent of handleRelayRequest (used by Codex streaming). */
+  async handleRelayUpgrade(
+    req: IncomingMessage,
+    clientSocket: Duplex,
+    head: Buffer,
+  ): Promise<void> {
+    const upstreamPath = this.relayUpstreamPath(req.url)
+    if (!upstreamPath) {
+      this.rejectRelayUpgrade(clientSocket, 404, 'Not Found')
+      return
+    }
+
+    let backend: { socket: net.Socket; port: number }
+    try {
+      backend = await this.connectVerifiedBackend()
+    } catch {
+      this.rejectRelayUpgrade(clientSocket, 503, 'Headroom proxy unavailable')
+      return
+    }
+    if (clientSocket.destroyed) {
+      backend.socket.destroy()
+      return
+    }
+
+    const raw: string[] = [`${req.method ?? 'GET'} ${upstreamPath} HTTP/${req.httpVersion}`]
+    const connectionTokens = this.connectionHeaderTokens(req.headers)
+    let wroteHost = false
+    for (let i = 0; i < req.rawHeaders.length; i += 2) {
+      const name = req.rawHeaders[i]
+      const value = req.rawHeaders[i + 1]
+      if (!name || value === undefined) continue
+      const lower = name.toLowerCase()
+      if (lower === 'host') {
+        if (!wroteHost) raw.push(`Host: 127.0.0.1:${backend.port}`)
+        wroteHost = true
+        continue
+      }
+      if (
+        lower === 'connection' ||
+        lower === 'proxy-connection' ||
+        lower === 'keep-alive' ||
+        lower === 'transfer-encoding' ||
+        lower === 'te' ||
+        lower === 'trailer' ||
+        lower === 'proxy-authenticate' ||
+        lower === 'proxy-authorization' ||
+        (connectionTokens.has(lower) && lower !== 'upgrade')
+      ) continue
+      raw.push(`${name}: ${value}`)
+    }
+    if (!wroteHost) raw.push(`Host: 127.0.0.1:${backend.port}`)
+    raw.push('Connection: Upgrade')
+    raw.push('', '')
+
+    backend.socket.once('error', () => clientSocket.destroy())
+    clientSocket.once('error', () => backend.socket.destroy())
+    backend.socket.write(raw.join('\r\n'))
+    if (head.length > 0) backend.socket.write(head)
+    clientSocket.pipe(backend.socket).pipe(clientSocket)
+  }
+
+  private relayUpstreamPath(rawUrl: string | undefined): string | null {
+    try {
+      const parsed = new URL(rawUrl || '/', 'http://127.0.0.1')
+      const fullPrefix = `${HEADROOM_RELAY_PATH}/`
+      let relative = parsed.pathname.startsWith(fullPrefix)
+        ? parsed.pathname.slice(HEADROOM_RELAY_PATH.length)
+        : parsed.pathname
+      const separator = relative.indexOf('/', 1)
+      const providedToken = separator === -1 ? relative.slice(1) : relative.slice(1, separator)
+      if (!providedToken || !safeEqual(providedToken, this.relayToken)) return null
+      relative = separator === -1 ? '/' : relative.slice(separator)
+      return `${relative}${parsed.search}`
+    } catch {
+      return null
+    }
+  }
+
+  private trustedBackendPort(expectedPort?: number): number | null {
+    const child = this.proxy
+    const port = this.proxyTrustedPort
+    if (
+      !child || !port || !child.pid ||
+      (expectedPort !== undefined && port !== expectedPort) ||
+      child.exitCode != null || child.signalCode != null
+    ) return null
+    return port
+  }
+
+  private connectVerifiedBackend(expectedPort?: number): Promise<{ socket: net.Socket; port: number }> {
+    const child = this.proxy
+    const port = this.trustedBackendPort(expectedPort)
+    if (!child || !port || !child.pid) return Promise.reject(new Error('Headroom proxy is not trusted'))
+
+    return new Promise((resolve, reject) => {
+      const socket = net.connect({ host: '127.0.0.1', port })
+      let settled = false
+      const timer = setTimeout(() => fail(new Error('Headroom relay connect timed out')), RELAY_CONNECT_TIMEOUT_MS)
+      timer.unref?.()
+      const fail = (err: Error) => {
+        if (settled) return
+        settled = true
+        clearTimeout(timer)
+        socket.destroy()
+        reject(err)
+      }
+      socket.once('error', fail)
+      socket.once('connect', () => {
+        const ownsProxyPort = this.processControl.ownsProxyPort ?? processOwnsListeningPort
+        let listenerOwned = false
+        try { listenerOwned = ownsProxyPort(child.pid!, port) } catch { /* fail closed */ }
+        const owned =
+          this.proxy === child &&
+          this.proxyTrustedPort === port &&
+          child.exitCode == null &&
+          child.signalCode == null &&
+          !!child.pid &&
+          listenerOwned &&
+          this.proxy === child &&
+          this.proxyTrustedPort === port &&
+          child.exitCode == null &&
+          child.signalCode == null
+        if (!owned) {
+          fail(new Error('Headroom backend ownership changed'))
+          return
+        }
+        settled = true
+        clearTimeout(timer)
+        socket.removeListener('error', fail)
+        resolve({ socket, port })
+      })
+    })
+  }
+
+  private writeRelayError(res: ServerResponse, status: number, message: string): void {
+    if (res.headersSent || res.destroyed) return
+    res.writeHead(status, { 'content-type': 'application/json', connection: 'close' })
+    res.end(JSON.stringify({ error: message }))
+  }
+
+  private connectionHeaderTokens(headers: IncomingHttpHeaders): Set<string> {
+    const raw = headers.connection
+    const values = Array.isArray(raw) ? raw : raw ? [raw] : []
+    return new Set(values.flatMap((value) => value.split(',')).map((value) => value.trim().toLowerCase()).filter(Boolean))
+  }
+
+  private filterRelayHttpHeaders(headers: IncomingHttpHeaders): OutgoingHttpHeaders {
+    const connectionTokens = this.connectionHeaderTokens(headers)
+    const filtered: OutgoingHttpHeaders = {}
+    for (const [name, value] of Object.entries(headers)) {
+      const lower = name.toLowerCase()
+      if (
+        value === undefined ||
+        lower === 'connection' ||
+        lower === 'proxy-connection' ||
+        lower === 'keep-alive' ||
+        lower === 'transfer-encoding' ||
+        lower === 'upgrade' ||
+        lower === 'te' ||
+        lower === 'trailer' ||
+        lower === 'proxy-authenticate' ||
+        lower === 'proxy-authorization' ||
+        connectionTokens.has(lower)
+      ) continue
+      filtered[name] = value
+    }
+    return filtered
+  }
+
+  private rejectRelayUpgrade(socket: Duplex, status: number, message: string): void {
+    if (socket.destroyed) return
+    socket.end(
+      `HTTP/1.1 ${status} ${message}\r\nConnection: close\r\nContent-Length: 0\r\n\r\n`,
+    )
   }
 
   async install(): Promise<HeadroomActionResult> {
@@ -917,6 +1184,7 @@ export class HeadroomManager {
       lastIssue: null,
     })
     await this.stopProxy()
+    if (this.shuttingDown) return this.cancelledProxyStart()
     this.syncRouting()
 
     if (!before.installed && !before.executablePath) {
@@ -1067,8 +1335,12 @@ export class HeadroomManager {
       learning: state.learning,
       metrics: state.metrics,
       routing: {
-        codex: state.activeProviders.codex ? `OPENAI_BASE_URL=http://127.0.0.1:${state.port}/v1` : null,
-        claude: state.activeProviders.claude ? `ANTHROPIC_BASE_URL=http://127.0.0.1:${state.port}` : null,
+        codex: state.activeProviders.codex
+          ? `OPENAI_BASE_URL=${this.relayDiagnosticBaseUrl() ?? `http://127.0.0.1:${state.port}`}/v1`
+          : null,
+        claude: state.activeProviders.claude
+          ? `ANTHROPIC_BASE_URL=${this.relayDiagnosticBaseUrl() ?? `http://127.0.0.1:${state.port}`}`
+          : null,
       },
     }
   }
@@ -1183,6 +1455,7 @@ export class HeadroomManager {
     child.stderr?.on('data', (chunk) => { this.proxyTail += chunk.toString(); this.trimProxyTail() })
     const invalidateOwnedProxy = () => {
       if (this.proxy !== child) return
+      this.relayAgent.destroy()
       this.proxy = null
       this.proxyTrustedPort = null
       this.syncRouting()
@@ -1273,6 +1546,7 @@ export class HeadroomManager {
 
   private async discardProxyChild(child: ChildProcess): Promise<void> {
     if (this.proxy === child) {
+      this.relayAgent.destroy()
       this.proxy = null
       this.proxyTrustedPort = null
       this.syncRouting()
@@ -1392,6 +1666,7 @@ export class HeadroomManager {
   }
 
   private refreshMetricsInBackground(): void {
+    if (this.shuttingDown) return
     const state = this.getMetricsPrereqState()
     if (!state.installed || !state.executablePath) return
     if (this.metricsRefresh) return
@@ -1521,15 +1796,55 @@ export class HeadroomManager {
   }
 
   private async readProxyStats(port: number): Promise<Record<string, any> | null> {
-    const controller = new AbortController()
-    const timer = setTimeout(() => controller.abort(), 2500)
-    try {
-      const res = await fetch(`http://127.0.0.1:${port}/stats?cached=1`, { signal: controller.signal })
-      if (!res.ok) return null
-      return await res.json() as Record<string, any>
-    } finally {
-      clearTimeout(timer)
-    }
+    if (!this.isProxyAvailable(port)) return null
+    return await new Promise<Record<string, any> | null>((resolve, reject) => {
+        let settled = false
+        const finish = (value: Record<string, any> | null, err?: Error) => {
+          if (settled) return
+          settled = true
+          clearTimeout(timer)
+          if (err) reject(err)
+          else resolve(value)
+        }
+        const request = http.request({
+          host: '127.0.0.1',
+          port,
+          method: 'GET',
+          path: '/stats?cached=1',
+          headers: { host: `127.0.0.1:${port}` },
+          agent: this.relayAgent,
+        }, (response) => {
+          if ((response.statusCode ?? 500) < 200 || (response.statusCode ?? 500) >= 300) {
+            response.resume()
+            finish(null)
+            return
+          }
+          const chunks: Buffer[] = []
+          let size = 0
+          response.on('data', (chunk: Buffer | string) => {
+            const value = Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk)
+            size += value.length
+            if (size > 2 * 1024 * 1024) {
+              request.destroy(new Error('Headroom stats response exceeded 2 MB'))
+              return
+            }
+            chunks.push(value)
+          })
+          response.on('end', () => {
+            try {
+              finish(JSON.parse(Buffer.concat(chunks).toString('utf8')) as Record<string, any>)
+            } catch (err) {
+              finish(null, err instanceof Error ? err : new Error(String(err)))
+            }
+          })
+        })
+        const timer = setTimeout(() => {
+          request.destroy(new Error('Headroom stats request timed out'))
+        }, 2_500)
+        timer.unref?.()
+        request.once('error', (err) => finish(null, err))
+        request.end()
+      })
   }
 
   private decorateMetrics(
@@ -1574,6 +1889,7 @@ export class HeadroomManager {
     extraEnv: Record<string, string>,
     logs: string[],
   ): Promise<{ code: number | null }> {
+    if (this.shuttingDown) return { code: null }
     return new Promise((resolve) => {
       let child: ChildProcess
       try {
@@ -1590,10 +1906,9 @@ export class HeadroomManager {
       const settle = (code: number | null) => {
         if (settled) return
         settled = true
-        this.lifecycleCommands.delete(child)
         resolve({ code })
       }
-      this.lifecycleCommands.set(child, () => settle(null))
+      this.trackLifecycleCommand(child, () => settle(null))
       child.stdout?.on('data', (chunk) => {
         for (const line of chunk.toString().split(/\r?\n/)) {
           if (!line) continue
@@ -1613,7 +1928,10 @@ export class HeadroomManager {
         settle(null)
       })
       child.on('close', (code) => settle(code))
-      if (this.shuttingDown) settle(null)
+      if (this.shuttingDown) {
+        settle(null)
+        void this.terminateProxyChild(child)
+      }
     })
   }
 
@@ -1623,22 +1941,31 @@ export class HeadroomManager {
     extraEnv: Record<string, string>,
     timeoutMs: number,
   ): Promise<{ code: number | null; output: string }> {
+    if (this.shuttingDown) return { code: null, output: '' }
     return new Promise((resolve) => {
       let output = ''
       let settled = false
-      const child = spawn(command, args, {
-        env: { ...process.env, ...extraEnv },
-        stdio: ['ignore', 'pipe', 'pipe'],
-      })
+      let child: ChildProcess
+      try {
+        child = spawn(command, args, {
+          env: { ...process.env, ...extraEnv },
+          stdio: ['ignore', 'pipe', 'pipe'],
+        })
+      } catch (err) {
+        resolve({ code: null, output: err instanceof Error ? err.message : String(err) })
+        return
+      }
+      let timer: NodeJS.Timeout | null = null
       const settle = (code: number | null) => {
         if (settled) return
         settled = true
-        clearTimeout(timer)
+        if (timer) clearTimeout(timer)
         resolve({ code, output })
       }
-      const timer = setTimeout(() => {
-        try { child.kill('SIGTERM') } catch { /* ignore */ }
+      this.trackLifecycleCommand(child, () => settle(null))
+      timer = setTimeout(() => {
         settle(null)
+        void this.terminateProxyChild(child)
       }, timeoutMs)
       child.stdout?.on('data', (chunk) => { output += chunk.toString() })
       child.stderr?.on('data', (chunk) => { output += chunk.toString() })
@@ -1647,7 +1974,33 @@ export class HeadroomManager {
         settle(null)
       })
       child.on('close', (code) => settle(code))
+      if (this.shuttingDown) {
+        settle(null)
+        void this.terminateProxyChild(child)
+      }
     })
+  }
+
+  private trackLifecycleCommand(child: ChildProcess, cancel: () => void): void {
+    this.lifecycleCommands.set(child, { cancel })
+    child.once('close', () => {
+      this.lifecycleCommands.delete(child)
+    })
+  }
+
+  /** Cancel/terminate every command, including children added while draining. */
+  private async drainLifecycleCommands(): Promise<void> {
+    const attempted = new Set<ChildProcess>()
+    while (true) {
+      const pending = [...this.lifecycleCommands.entries()]
+        .filter(([child]) => !attempted.has(child))
+      if (pending.length === 0) return
+      for (const [child, control] of pending) {
+        attempted.add(child)
+        control.cancel()
+      }
+      await Promise.all(pending.map(([child]) => this.terminateProxyChild(child)))
+    }
   }
 
   private async waitForProxyHealthy(
@@ -1707,6 +2060,7 @@ export class HeadroomManager {
   private async stopProxy(): Promise<void> {
     this.proxyGeneration += 1
     this.proxyStart = null
+    this.relayAgent.destroy()
     const child = this.proxy
     this.proxy = null
     this.proxyTrustedPort = null
@@ -1728,25 +2082,32 @@ export class HeadroomManager {
   shutdown(): Promise<void> {
     if (this.shutdownPromise) return this.shutdownPromise
     this.shuttingDown = true
-    const state = this.getState()
+    this.syncRouting()
+    const state = this.buildState(false)
     this.shutdownState = { ...state, proxyRunning: false, proxyPid: null }
-    const commands = [...this.lifecycleCommands.entries()]
-    for (const [, cancel] of commands) cancel()
-    const shutdown = this.finishShutdown(commands.map(([child]) => child))
+    const shutdown = this.finishShutdown()
     this.shutdownPromise = shutdown
     return shutdown
   }
 
-  private async finishShutdown(commandChildren: ChildProcess[]): Promise<void> {
+  private async finishShutdown(): Promise<void> {
     // Runtime-only fail closed; persisted activation remains so a clean restart
     // can start a fresh owned proxy.
+    const persistedPort = this.validPort(this.readPersisted().port)
     setHeadroomRoutingState({
-      port: this.validPort(this.readPersisted().port),
+      port: this.routingClientPort(persistedPort),
+      relayBaseUrl: this.relayBaseUrl(),
       activeProviders: { codex: false, claude: false },
     })
+    // Routed provider children inherited the stable desktop endpoint. Stop and
+    // await them before the app can release that listener; until then the relay
+    // remains bound and rejects any untrusted backend instead of exposing a
+    // reusable Headroom port.
+    const stoppingProxy = this.stopProxy()
     await Promise.all([
-      this.stopProxy(),
-      ...commandChildren.map((child) => this.terminateProxyChild(child)),
+      terminateHeadroomRoutedChildren(),
+      stoppingProxy,
+      this.drainLifecycleCommands(),
     ])
     // A lifecycle action may still be unwinding an aborted health/metrics
     // request. Keep the desktop DB alive until it has observed `shuttingDown`
@@ -1754,6 +2115,7 @@ export class HeadroomManager {
     await this.lifecycleTail
     // Defense in depth for future lifecycle operations: no child may survive a
     // completed shutdown even if a new await is added after an initial guard.
+    await this.drainLifecycleCommands()
     await this.stopProxy()
   }
 
@@ -1795,6 +2157,38 @@ export class HeadroomManager {
     return Number.isInteger(value) && Number(value) >= 1 && Number(value) <= 65535 ? Number(value) : DEFAULT_PORT
   }
 
+  private relayBaseUrl(): string | undefined {
+    const origin = this.processControl.relayOrigin
+    if (!origin) return undefined
+    try {
+      const parsed = new URL(origin)
+      if (parsed.protocol !== 'http:' || !['127.0.0.1', 'localhost', '[::1]'].includes(parsed.hostname)) {
+        return undefined
+      }
+      return `${parsed.origin}${HEADROOM_RELAY_PATH}/${this.relayToken}`
+    } catch {
+      return undefined
+    }
+  }
+
+  private relayDiagnosticBaseUrl(): string | undefined {
+    const relay = this.relayBaseUrl()
+    if (!relay) return undefined
+    return `${new URL(relay).origin}${HEADROOM_RELAY_PATH}/<redacted>`
+  }
+
+  private routingClientPort(backendPort: number): number {
+    const relay = this.relayBaseUrl()
+    if (!relay) return backendPort
+    try {
+      const parsed = new URL(relay)
+      const port = Number(parsed.port || (parsed.protocol === 'https:' ? 443 : 80))
+      return this.validPort(port)
+    } catch {
+      return backendPort
+    }
+  }
+
   private readPersisted(): PersistedHeadroomState {
     const raw = getDesktopSetting(this.db, STATE_KEY)
     if (!raw) return { port: DEFAULT_PORT, activeProviders: {} }
@@ -1821,7 +2215,8 @@ export class HeadroomManager {
     const port = this.validPort(persisted.port)
     const trustedRuntimeAvailable = this.proxyTrustedPort === port && this.isProxyRunning()
     setHeadroomRoutingState({
-      port,
+      port: this.routingClientPort(port),
+      relayBaseUrl: this.relayBaseUrl(),
       activeProviders: this.shuttingDown || !trustedRuntimeAvailable ? { codex: false, claude: false } : {
         codex: !!persisted.activeProviders?.codex,
         claude: !!persisted.activeProviders?.claude,

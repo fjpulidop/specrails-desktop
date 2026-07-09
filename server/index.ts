@@ -15,7 +15,16 @@ import { ProjectRegistry } from './project-registry'
 import { createDesktopRouter } from './desktop-router'
 import { createProjectRouter } from './project-router'
 import { createDocsRouter } from './docs-router'
-import { requireAuth, requireLoopback, hostValidationMiddleware, safeEqual, loadOrGenerateToken, tokenFromUpgradeRequest } from './auth'
+import {
+  requireAuth,
+  requireLoopback,
+  hostValidationMiddleware,
+  isAllowedHost,
+  isLoopbackAddress,
+  safeEqual,
+  loadOrGenerateToken,
+  tokenFromUpgradeRequest,
+} from './auth'
 import { shouldDeliverToSubscriber, parseSubscribeFrame } from './ws-routing'
 import { getTerminalManager } from './terminal-manager'
 import { cleanupStaleShimDirs } from './terminal-shell-integration'
@@ -29,7 +38,7 @@ import type { BrowserWsClient } from './browser-capture-manager'
 import type { BrowserInputEvent } from './browser-capture-types'
 import { isNavigableUrl } from './browser-playwright'
 import { createTelemetryRouter } from './telemetry-receiver'
-import { HeadroomManager } from './headroom-manager'
+import { HEADROOM_RELAY_PATH, HeadroomManager } from './headroom-manager'
 import { createGlobalPluginsRouter } from './global-plugins-router'
 import { runCompactionForAll } from './telemetry-compactor'
 import { FrameworkManager } from './framework-manager'
@@ -162,6 +171,21 @@ function corsMiddleware(req: Request, res: Response, next: NextFunction): void {
 
 app.use(corsMiddleware)
 
+// Provider traffic uses the desktop listener as a stable relay. Mount before
+// every body parser so large/streaming request bodies and Codex event streams
+// pass through byte-for-byte; the relay verifies the connected Headroom backend
+// owner before forwarding any credential-bearing headers or body bytes.
+app.use(HEADROOM_RELAY_PATH, requireLoopback, (req, res) => {
+  if (!_headroomManager) {
+    res.status(503).json({ error: 'Headroom relay is not ready' })
+    return
+  }
+  void _headroomManager.handleRelayRequest(req, res).catch(() => {
+    if (!res.headersSent) res.status(502).json({ error: 'Headroom relay failed' })
+    else res.destroy()
+  })
+})
+
 // ─── Body size limit (MED-02) ─────────────────────────────────────────────────
 
 // OTLP telemetry blobs can legitimately reach the BLOB_SIZE_CAP (10 MB); the 1mb
@@ -290,12 +314,20 @@ let _headroomManager: HeadroomManager | null = null
 
 server.on('upgrade', (request, socket, head) => {
   const urlStr = request.url ?? '/'
+  const pathOnly = urlStr.split('?')[0]
+  if (pathOnly === HEADROOM_RELAY_PATH || pathOnly.startsWith(`${HEADROOM_RELAY_PATH}/`)) {
+    if (!isLoopbackAddress(request.socket.remoteAddress) || !isAllowedHost(request.headers.host)) {
+      return rejectUpgrade(socket, 403, 'Forbidden')
+    }
+    if (!_headroomManager) return rejectUpgrade(socket, 503, 'Service Unavailable')
+    void _headroomManager.handleRelayUpgrade(request, socket, head).catch(() => socket.destroy())
+    return
+  }
   const auth = authorizeUpgrade(request)
   if (auth === 'forbidden') return rejectUpgrade(socket, 403, 'Forbidden')
   if (auth === 'unauthorized') return rejectUpgrade(socket, 401, 'Unauthorized')
 
   // Terminal PTY WebSocket endpoint: /ws/terminal/:id?projectId=...
-  const pathOnly = urlStr.split('?')[0]
   const termMatch = pathOnly.match(TERMINAL_WS_RE)
   if (termMatch) {
     if (!TERMINAL_PANEL_ENABLED) return rejectUpgrade(socket, 404, 'Not Found')
@@ -582,6 +614,7 @@ function applyPtyWsRateLimiting(ws: WebSocket): void {
     registry.installedProvidersUnion().filter((provider): provider is 'codex' | 'claude' =>
       provider === 'codex' || provider === 'claude',
     ),
+    { relayOrigin: `http://127.0.0.1:${port}` },
   )
   _headroomManager = headroomManager
   app.use('/api/global-plugins', createGlobalPluginsRouter(headroomManager))

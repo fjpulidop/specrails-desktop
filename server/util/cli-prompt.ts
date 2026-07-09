@@ -22,7 +22,11 @@
 
 import type { ChildProcess, SpawnOptions, StdioOptions } from 'child_process'
 import { spawnCli } from './win-spawn'
-import { withHeadroomSpawnEnv } from '../headroom-routing'
+import {
+  headroomRelayBaseUrlForBinary,
+  registerHeadroomRoutedChild,
+  withHeadroomSpawnEnv,
+} from '../headroom-routing'
 
 // Per-call (not a frozen module const) so a test can flip the platform with a
 // `process.platform` spy without re-importing this module — which removes a
@@ -39,6 +43,18 @@ const CLAUDE_PROMPT_FLAGS = new Set([
 interface WindowsTransform {
   args: string[]
   stdinPayload: string | null
+}
+
+/**
+ * Codex's ChatGPT/WebSocket transport ignores OPENAI_BASE_URL unless its model
+ * provider opts into WebSockets. The top-level config override is authoritative
+ * for that built-in transport, so append it last (later -c values win) as one
+ * argv token. Callers retain their original args, keeping the runtime relay
+ * token out of their command logging/diagnostics.
+ */
+export function appendCodexHeadroomRelayOverride(args: string[], relayBaseUrl: string): string[] {
+  const value = `openai_base_url=${JSON.stringify(`${relayBaseUrl}/v1`)}`
+  return [...args, '-c', value]
 }
 
 export function transformClaudeArgsForWindows(args: string[]): WindowsTransform {
@@ -151,18 +167,25 @@ export function ensureStdinPipe(stdio: StdioOptions | undefined): StdioOptions {
  */
 export function spawnClaude(args: string[], options: SpawnOptions = {}): ChildProcess {
   options = withHeadroomSpawnEnv('claude', options)
+  let child: ChildProcess
   if (!isWin()) {
-    return spawnCli('claude', args, options)
+    child = spawnCli('claude', args, options)
+    registerHeadroomRoutedChild('claude', options.env, child)
+    return child
   }
   /* c8 ignore start -- Windows-only branch; coverage runs on Linux/macOS */
   const { args: winArgs, stdinPayload } = transformClaudeArgsForWindows(args)
   if (stdinPayload === null) {
-    return spawnCli('claude', winArgs, options)
+    child = spawnCli('claude', winArgs, options)
+    registerHeadroomRoutedChild('claude', options.env, child)
+    return child
   }
-  const child = spawnCli('claude', winArgs, {
+  const spawnOptions = {
     ...options,
     stdio: ensureStdinPipe(options.stdio),
-  })
+  }
+  child = spawnCli('claude', winArgs, spawnOptions)
+  registerHeadroomRoutedChild('claude', spawnOptions.env, child)
   if (child.stdin) child.stdin.end(stdinPayload)
   return child
   /* c8 ignore stop */
@@ -174,18 +197,27 @@ export function spawnClaude(args: string[], options: SpawnOptions = {}): ChildPr
  */
 export function spawnCodex(args: string[], options: SpawnOptions = {}): ChildProcess {
   options = withHeadroomSpawnEnv('codex', options)
+  const relayBaseUrl = headroomRelayBaseUrlForBinary('codex', options.env)
+  if (relayBaseUrl) args = appendCodexHeadroomRelayOverride(args, relayBaseUrl)
+  let child: ChildProcess
   if (!isWin()) {
-    return spawnCli('codex', args, options)
+    child = spawnCli('codex', args, options)
+    registerHeadroomRoutedChild('codex', options.env, child)
+    return child
   }
   /* c8 ignore start -- Windows-only branch; coverage runs on Linux/macOS */
   const { args: winArgs, stdinPayload } = transformCodexArgsForWindows(args)
   if (stdinPayload === null) {
-    return spawnCli('codex', winArgs, options)
+    child = spawnCli('codex', winArgs, options)
+    registerHeadroomRoutedChild('codex', options.env, child)
+    return child
   }
-  const child = spawnCli('codex', winArgs, {
+  const spawnOptions = {
     ...options,
     stdio: ensureStdinPipe(options.stdio),
-  })
+  }
+  child = spawnCli('codex', winArgs, spawnOptions)
+  registerHeadroomRoutedChild('codex', spawnOptions.env, child)
   if (child.stdin) child.stdin.end(stdinPayload)
   return child
   /* c8 ignore stop */
