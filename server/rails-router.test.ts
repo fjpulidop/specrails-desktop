@@ -4,6 +4,7 @@ import request from 'supertest'
 import { initDb, type DbInstance } from './db'
 import { initDesktopDb } from './desktop-db'
 import { createRailsRouter } from './rails-router'
+import { PrContinuationIsolationError } from './rail-isolated-launch'
 import { getRail, setRailTickets } from './rails-store'
 import { createLoop, publishLoop } from './loops-store'
 import { createLoopRun } from './loop-runs-store'
@@ -851,6 +852,13 @@ describe('rails-router POST /:railIndex/launch — ask-first PR delivery (safe-p
     expect(res.status).toBe(202)
     expect(res.body).toMatchObject({ loopRunIds: ['run-cont'], isolated: true })
     expect(mockLaunchIsolated).toHaveBeenCalledTimes(1)
+    expect(mockLaunchIsolated).toHaveBeenCalledWith(expect.objectContaining({
+      requiredPrContinuation: {
+        branch: 'feat/open-pr',
+        prUrl: 'https://github.com/o/r/pull/521',
+        prNumber: 521,
+      },
+    }))
   })
 
   it('still blocks an active PR delivery that does not cover every ticket on the rail', async () => {
@@ -919,7 +927,7 @@ describe('rails-router POST /:railIndex/launch — ask-first PR delivery (safe-p
     expect(res.body.isolated).toBeUndefined()
   })
 
-  it('keeps an existing-PR iteration card when isolation fails and shared-cwd fallback runs', async () => {
+  it('refuses shared-cwd fallback when an existing PR continuation cannot get a verified worktree', async () => {
     const existing = mkDelivery()
     transitionDecision(db, existing.id, 'building', 'on_review', {
       branches: [
@@ -936,44 +944,80 @@ describe('rails-router POST /:railIndex/launch — ask-first PR delivery (safe-p
     })
     transitionDecision(db, existing.id, 'pr_draft', 'pr_ready')
     mockRepoStatus.mockResolvedValue('ok')
-    let iterationDeliveryId = ''
-    mockLaunchIsolated.mockImplementation(async (input: {
-      preservePrDeliveryOnAllocationFailure?: boolean
-      onPrDeliveryCreated?: (id: string) => void
-    }) => {
-      expect(input.preservePrDeliveryOnAllocationFailure).toBe(true)
-      const iteration = mkDelivery()
-      iterationDeliveryId = iteration.id
-      transitionDecision(db, iteration.id, 'building', 'building', {
-        branch: 'feat/open-pr',
-        prUrl: 'https://github.com/o/r/pull/521',
-        prNumber: 521,
-        prState: 'pr-created',
+    mockLaunchIsolated.mockRejectedValue(new PrContinuationIsolationError(
+      'cannot allocate a verified worktree for PR branch feat/open-pr: already checked out',
+    ))
+    const run = vi.fn()
+
+    const res = await request(launchApp({
+      loopRunManager: { run, cancel: vi.fn() },
+    })).post('/rails/0/launch').send({ loopId: 'factory:implement' })
+
+    expect(res.status).toBe(409)
+    expect(res.body).toMatchObject({
+      error: 'pr_continuation_isolation_required',
+      detail: expect.stringContaining('already checked out'),
+      action: expect.stringContaining('dedicated git worktree'),
+    })
+    expect(run).not.toHaveBeenCalled()
+    expect(mockExecRun).not.toHaveBeenCalled()
+    expect(getPrDelivery(db, existing.id)?.decision).toBe('pr_ready')
+  })
+
+  it('refuses an existing PR continuation before launch when the repo cannot isolate it', async () => {
+    const existing = mkDelivery()
+    transitionDecision(db, existing.id, 'building', 'on_review', {
+      branches: [{ ticketId: 1, branch: 'feat/open-pr', succeeded: true }, { ticketId: 2, branch: 'feat/open-pr', succeeded: true }],
+      worktreeIds: [],
+    })
+    transitionDecision(db, existing.id, 'on_review', 'pr_draft', {
+      branch: 'feat/open-pr', prUrl: 'https://github.com/o/r/pull/521', prNumber: 521, prState: 'pr-created',
+    })
+    transitionDecision(db, existing.id, 'pr_draft', 'pr_ready')
+    mockRepoStatus.mockResolvedValue('no-commits')
+    const run = vi.fn()
+
+    const res = await request(launchApp({ loopRunManager: { run, cancel: vi.fn() } }))
+      .post('/rails/0/launch').send({ loopId: 'factory:implement' })
+
+    expect(res.status).toBe(409)
+    expect(res.body).toMatchObject({
+      error: 'pr_continuation_isolation_required',
+      detail: expect.stringContaining('no-commits'),
+    })
+    expect(mockLaunchIsolated).not.toHaveBeenCalled()
+    expect(run).not.toHaveBeenCalled()
+  })
+
+  it('does not bypass the continuation guard when the worktree kill-switch is off', async () => {
+    const existing = mkDelivery()
+    transitionDecision(db, existing.id, 'building', 'on_review', {
+      branches: [{ ticketId: 1, branch: 'feat/open-pr', succeeded: true }, { ticketId: 2, branch: 'feat/open-pr', succeeded: true }],
+      worktreeIds: [],
+    })
+    transitionDecision(db, existing.id, 'on_review', 'pr_draft', {
+      branch: 'feat/open-pr', prUrl: 'https://github.com/o/r/pull/521', prNumber: 521, prState: 'pr-created',
+    })
+    transitionDecision(db, existing.id, 'pr_draft', 'pr_ready')
+    const saved = process.env.SPECRAILS_RAIL_WORKTREES
+    process.env.SPECRAILS_RAIL_WORKTREES = '0'
+    try {
+      const run = vi.fn()
+      const res = await request(launchApp({ loopRunManager: { run, cancel: vi.fn() } }))
+        .post('/rails/0/launch').send({ loopId: 'factory:implement' })
+
+      expect(res.status).toBe(409)
+      expect(res.body).toMatchObject({
+        error: 'pr_continuation_isolation_required',
+        detail: expect.stringContaining('isolation is disabled'),
       })
-      input.onPrDeliveryCreated?.(iteration.id)
-      throw new Error('git worktree add failed for feat/open-pr: already checked out')
-    })
-    const broadcast = vi.fn()
-    mockExecRun.mockResolvedValue({ code: 0, stdout: '', stderr: '' })
-
-    const res = await request(launchApp({ broadcast })).post('/rails/0/launch').send({ loopId: 'factory:implement' })
-
-    expect(res.status).toBe(202)
-    expect(res.body).toMatchObject({ isolationUnavailable: 'error' })
-    await vi.waitFor(() => {
-      const active = getActivePrDeliveryByRail(db, 0)
-      expect(active?.id).toBe(iterationDeliveryId)
-      expect(active?.decision).toBe('pr_ready')
-      expect(active?.pr_url).toBe('https://github.com/o/r/pull/521')
-      expect(JSON.parse(active?.run_ids ?? '[]')).toHaveLength(1)
-    })
-    const prMessages = broadcast.mock.calls.map((c) => c[0]).filter((m: { type?: string }) => m.type === 'rail.pr_state')
-    expect(prMessages).toEqual(expect.arrayContaining([
-      expect.objectContaining({ prDeliveryId: iterationDeliveryId, decision: 'building', prUrl: 'https://github.com/o/r/pull/521' }),
-      expect.objectContaining({ prDeliveryId: iterationDeliveryId, decision: 'pr_ready', prUrl: 'https://github.com/o/r/pull/521' }),
-    ]))
-    expect(mockExecRun).toHaveBeenCalledWith('git', ['push', '-u', 'origin', 'feat/open-pr'], '/repo')
-    expect(getPrDelivery(db, iterationDeliveryId)?.decision).not.toBe('discarded')
+      expect(mockRepoStatus).not.toHaveBeenCalled()
+      expect(mockLaunchIsolated).not.toHaveBeenCalled()
+      expect(run).not.toHaveBeenCalled()
+    } finally {
+      if (saved === undefined) delete process.env.SPECRAILS_RAIL_WORKTREES
+      else process.env.SPECRAILS_RAIL_WORKTREES = saved
+    }
   })
 
   it('400 on a malformed originConversationId (charset / length / type / empty)', async () => {

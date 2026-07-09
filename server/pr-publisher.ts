@@ -82,6 +82,10 @@ export interface PushBranchInput {
   baseBranch: string
   /** Remote to push to (default `origin`). */
   remote?: string
+  /** Optional verified commit to publish. Existing-PR continuations pass the
+   *  worktree HEAD here so a concurrent local ref move cannot make `pr_ready`
+   *  describe a different commit than the one the run produced. */
+  sourceSha?: string
 }
 
 export type PushBranchResult =
@@ -100,9 +104,16 @@ export function parsePrUrl(stdout: string): string | undefined {
  *  second PR. */
 export async function pushBranch(exec: Exec, input: PushBranchInput): Promise<PushBranchResult> {
   const remote = input.remote ?? 'origin'
-  const { repoDir, branch, baseBranch } = input
+  const { repoDir, branch, baseBranch, sourceSha } = input
 
-  const pushArgs = ['push', '-u', remote, branch]
+  if (sourceSha !== undefined && !/^[0-9a-f]{40,64}$/i.test(sourceSha)) {
+    return { state: 'local-only', branch, reason: 'invalid verified source commit' }
+  }
+  // A raw commit refspec deliberately omits `-u`: git cannot configure branch
+  // tracking from an object id, and an existing PR branch already has a remote.
+  const pushArgs = sourceSha
+    ? ['push', remote, `${sourceSha}:refs/heads/${branch}`]
+    : ['push', '-u', remote, branch]
   assertGitAllowed('git', pushArgs, { protectedBranch: baseBranch })
   let push = await exec.run('git', pushArgs, repoDir)
   if (push.code !== 0 && isCredentialFailure(push)) {

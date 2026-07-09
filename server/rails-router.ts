@@ -29,11 +29,11 @@ import {
 } from './rail-pr-store'
 import { classifyLoopEffect } from './loop-effect'
 import { executePrDecision, isPrDecisionAction } from './rail-pr-decision'
-import { launchIsolatedRail } from './rail-isolated-launch'
-import { repoIsolationStatus, defaultGitRunner, commitWorktreeAndVerify } from './worktree-manager'
+import { launchIsolatedRail, PrContinuationIsolationError } from './rail-isolated-launch'
+import { repoIsolationStatus, defaultGitRunner } from './worktree-manager'
 import { releaseRailWorktrees } from './rail-worktree-release'
 import { checkoutProjectReviewBranch, getProjectGitInfo } from './project-git'
-import { defaultExec, pushBranch } from './pr-publisher'
+import { defaultExec } from './pr-publisher'
 import { newId } from './ids'
 import { getAgentChatManager } from './agent-chat-registry'
 import type { ReasoningEffort } from './providers/types'
@@ -527,30 +527,46 @@ export function createRailsRouter(): Router {
         // client so a silent fallback (no delivery row → no implementation
         // cards) is diagnosable from the UI, not just the server log.
         let isolationUnavailableDetail: string | undefined
-        let continuablePrDeliveryForFallback: PrDeliverySnapshot | null = null
-        let fallbackPrDeliveryId: string | null = null
+        let continuablePrDelivery: PrDeliverySnapshot | null = null
         // Read-only vs mutating is DERIVED from the loop's nodes (see loop-effect),
         // not a user flag — a content-read-only loop (no ai-step/shell) never writes,
         // so it is not isolated; anything that can write is.
         const loopReadOnly = classifyLoopEffect(loopGraph) === 'read-only'
-        if (isolationApplies({ loopsEnabled: isLoopsEnabled(), scope, ticketCount: rail.ticketIds.length, readOnly: loopReadOnly })) {
-          // Relaunch collision (ask-first PR delivery): a delivery that has not
-          // produced a real PR yet still needs a user decision before more work
-          // can safely append to its branches. Once a draft/published PR exists
-          // and covers this rail's tickets, relaunch is intentional continuation
-          // of that PR head branch (resolved inside launchIsolatedRail).
-          if (isRailPrDeliveryEnabled()) {
-            const pending = getActivePrDeliveryByRail(c.db, railIndex)
-            const pendingSnapshot = pending ? toPrDeliverySnapshot(pending) : null
-            if (pendingSnapshot && !prDeliveryContinuesTickets(pendingSnapshot, rail.ticketIds)) {
-              res.status(409).json({ error: 'pr_decision_pending', prDeliveryId: pendingSnapshot.id }); return
-            }
-            continuablePrDeliveryForFallback = pendingSnapshot
+        // Relaunch collision (ask-first PR delivery): this guard must run even
+        // when the worktree kill-switch is off. Otherwise a published PR follow-
+        // up silently drops to shared cwd and can commit on the ambient branch.
+        if (isRailPrDeliveryEnabled()) {
+          const pending = getActivePrDeliveryByRail(c.db, railIndex)
+          const pendingSnapshot = pending ? toPrDeliverySnapshot(pending) : null
+          if (pendingSnapshot && !prDeliveryContinuesTickets(pendingSnapshot, rail.ticketIds)) {
+            res.status(409).json({ error: 'pr_decision_pending', prDeliveryId: pendingSnapshot.id }); return
           }
+          continuablePrDelivery = pendingSnapshot
+        }
+        const useIsolation = isolationApplies({
+          loopsEnabled: isLoopsEnabled(), scope, ticketCount: rail.ticketIds.length, readOnly: loopReadOnly,
+        })
+        if (continuablePrDelivery && !loopReadOnly && !useIsolation) {
+          res.status(409).json({
+            error: 'pr_continuation_isolation_required',
+            detail: `Cannot continue PR branch ${continuablePrDelivery.branch} while worktree isolation is disabled.`,
+            action: 'Enable rail worktrees and retry; PR continuations never run in the shared project checkout.',
+          })
+          return
+        }
+        if (useIsolation) {
           // Worktree isolation needs a git repo WITH at least one commit (an
           // unborn HEAD can't be branched). Fall back (with a message) otherwise.
           const status = await repoIsolationStatus(defaultGitRunner, c.project.path)
           if (status !== 'ok') {
+            if (continuablePrDelivery) {
+              res.status(409).json({
+                error: 'pr_continuation_isolation_required',
+                detail: `Cannot continue PR branch ${continuablePrDelivery.branch} because worktree isolation is unavailable (${status}).`,
+                action: 'Restore a git repository with a committed HEAD, ensure the PR branch is free for a dedicated worktree, then retry.',
+              })
+              return
+            }
             isolationUnavailable = status // 'no-git' | 'no-commits'
             console.warn(`[rails-router] worktree isolation unavailable (${status}); running shared cwd`)
           } else {
@@ -560,12 +576,26 @@ export function createRailsRouter(): Router {
                 provider: loopProvider, model: loopModel, effort, scope,
                 originSurface: originSurface ?? 'dashboard',
                 originConversationId: originConversationId ?? null,
-                preservePrDeliveryOnAllocationFailure: Boolean(continuablePrDeliveryForFallback),
-                onPrDeliveryCreated: (id) => { fallbackPrDeliveryId = id },
+                ...(continuablePrDelivery ? {
+                  requiredPrContinuation: {
+                    branch: continuablePrDelivery.branch!,
+                    prUrl: continuablePrDelivery.prUrl!,
+                    prNumber: continuablePrDelivery.prNumber,
+                  },
+                } : {}),
               })
               res.status(202).json({ loopRunIds: ids, railIndex, mode, isolated: true })
               return
             } catch (err) {
+              if (continuablePrDelivery || err instanceof PrContinuationIsolationError) {
+                const detail = err instanceof Error ? err.message : String(err)
+                res.status(409).json({
+                  error: 'pr_continuation_isolation_required',
+                  detail,
+                  action: 'Ensure the PR branch is available for a dedicated git worktree, then retry.',
+                })
+                return
+              }
               console.error('[rails-router] isolated launch failed; falling back to shared cwd:', err)
               isolationUnavailable = 'error'
               isolationUnavailableDetail = err instanceof Error ? err.message : String(err)
@@ -578,7 +608,6 @@ export function createRailsRouter(): Router {
         // via SPECRAILS_REPO_DIR + `--add-dir` exactly like QueueManager.
         const loopExec = resolveProjectExecution({ slug: c.project.slug, path: c.project.path })
         const loopRunIds: string[] = []
-        const sharedRunSettles: Promise<boolean>[] = []
         const launchLoopRun = (runId: string, ticketIds: number[], spec: ReturnType<typeof c.getTicketSpec>) => {
           c.railLoopRuns.set(runId, { railIndex, ticketIds })
           // Code-Explorer provenance for shared-cwd loop runs (isolated runs
@@ -635,7 +664,7 @@ export function createRailsRouter(): Router {
               c.onLoopRunFinished(runId, 'failed')
               return false
             })
-          sharedRunSettles.push(runPromise)
+          void runPromise
           loopRunIds.push(runId)
           try { c.jiraSyncManager.onRailLaunch(ticketIds, runId) } catch { /* non-fatal */ }
         }
@@ -647,59 +676,6 @@ export function createRailsRouter(): Router {
           // One run per ticket.
           for (const ticketId of rail.ticketIds) {
             launchLoopRun(newId(), [ticketId], c.getTicketSpec(ticketId))
-          }
-        }
-        if (fallbackPrDeliveryId) {
-          const row = getPrDelivery(c.db, fallbackPrDeliveryId)
-          const isExistingPrIteration = row?.decision === 'building' && row.pr_state === 'pr-created' && Boolean(row.pr_url && row.branch)
-          if (isExistingPrIteration) {
-            if (transitionDecision(c.db, fallbackPrDeliveryId, 'building', 'building', { runIds: loopRunIds })) {
-              emitPrDeliveryUpdate(c, fallbackPrDeliveryId)
-            }
-            void Promise.allSettled(sharedRunSettles).then((settled) => {
-              void (async () => {
-                const current = getPrDelivery(c.db, fallbackPrDeliveryId!)
-                if (current?.decision !== 'building') return
-                if (current.pr_state === 'pr-created' && current.pr_url && current.branch) {
-                  const succeeded = settled.every((s) => s.status === 'fulfilled' && s.value === true)
-                  if (!succeeded) {
-                    if (transitionDecision(c.db, fallbackPrDeliveryId!, 'building', 'implementation_failed')) {
-                      emitPrDeliveryUpdate(c, fallbackPrDeliveryId!)
-                    }
-                    return
-                  }
-                  const commit = await commitWorktreeAndVerify(defaultGitRunner, c.project.path, `specrails: PR follow-up (${loopRunIds.join(', ')})`)
-                  if (!commit.clean) {
-                    console.error(`[rails-router] existing PR fallback commit verification failed: ${commit.error ?? 'dirty worktree'}${commit.dirty.length > 0 ? `; dirty=${commit.dirty.slice(0, 8).join(', ')}` : ''}`)
-                    if (transitionDecision(c.db, fallbackPrDeliveryId!, 'building', 'implementation_failed')) {
-                      emitPrDeliveryUpdate(c, fallbackPrDeliveryId!)
-                    }
-                    return
-                  }
-                  const pushed = await pushBranch(defaultExec, {
-                    repoDir: c.project.path,
-                    branch: current.branch,
-                    baseBranch: current.base_branch,
-                  })
-                  if (pushed.state === 'local-only') {
-                    if (transitionDecision(c.db, fallbackPrDeliveryId!, 'building', 'pr_failed', { prState: 'local-only' })) {
-                      emitPrDeliveryUpdate(c, fallbackPrDeliveryId!)
-                    }
-                    return
-                  }
-                  if (transitionDecision(c.db, fallbackPrDeliveryId!, 'building', 'pr_ready', { prState: 'pr-created' })) {
-                    emitPrDeliveryUpdate(c, fallbackPrDeliveryId!)
-                  }
-                }
-              })().catch((err) => {
-                console.error('[rails-router] existing PR fallback push failed:', err)
-                if (fallbackPrDeliveryId) {
-                  if (transitionDecision(c.db, fallbackPrDeliveryId, 'building', 'pr_failed', { prState: 'local-only' })) {
-                    emitPrDeliveryUpdate(c, fallbackPrDeliveryId)
-                  }
-                }
-              })
-            })
           }
         }
         res.status(202).json({

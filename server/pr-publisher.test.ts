@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { publishDraftPr, parsePrUrl, type Exec, type ExecResult } from './pr-publisher'
+import { publishDraftPr, parsePrUrl, pushBranch, type Exec, type ExecResult } from './pr-publisher'
 
 function fakeExec(handlers: {
   push?: ExecResult
@@ -67,6 +67,28 @@ describe('publishDraftPr degradation ladder', () => {
     const { exec, calls } = fakeExec({ pr: { code: 0, stdout: 'https://github.com/o/r/pull/9', stderr: '' } })
     await publishDraftPr(exec, { ...input, remote: 'upstream' })
     expect(calls[0].args).toEqual(['push', '-u', 'upstream', 'sr/p/ticket-1'])
+  })
+})
+
+describe('pushBranch verified source', () => {
+  it('pushes the exact verified commit to the named PR ref without resolving a mutable local branch', async () => {
+    const { exec, calls } = fakeExec()
+    const sha = 'b'.repeat(40)
+
+    const result = await pushBranch(exec, { ...input, sourceSha: sha })
+
+    expect(result).toEqual({ state: 'pushed', branch: input.branch })
+    expect(calls).toEqual([{
+      cmd: 'git',
+      args: ['push', 'origin', `${sha}:refs/heads/${input.branch}`],
+    }])
+  })
+
+  it('rejects an invalid source object id without invoking git', async () => {
+    const { exec, calls } = fakeExec()
+    const result = await pushBranch(exec, { ...input, sourceSha: 'HEAD:refs/heads/main' })
+    expect(result).toEqual({ state: 'local-only', branch: input.branch, reason: 'invalid verified source commit' })
+    expect(calls).toEqual([])
   })
 })
 

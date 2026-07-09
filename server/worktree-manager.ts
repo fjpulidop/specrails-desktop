@@ -94,6 +94,12 @@ export interface CreateWorktreeInput {
 export interface WorktreeHandle {
   branch: string
   worktreePath: string
+  /** True only when this call mounted the linked worktree. A reused mount is
+   *  borrowed state and must not be torn down by allocation rollback. */
+  worktreeCreated?: boolean
+  /** True only when this call created the branch ref. Existing/resumed/PR
+   *  branches are borrowed and must never be deleted by allocation rollback. */
+  branchCreated?: boolean
 }
 
 export const PR_NEVER_STAGE_PATHS = [
@@ -163,9 +169,10 @@ async function fastForwardExistingBranch(
 }
 
 /**
- * Create a fresh worktree+branch for a ticket. Idempotent-ish: if the branch
- * already exists it is reused with `-B`. Throws on git failure so the caller can
- * fall back to the shared-cwd path for that ticket.
+ * Create a fresh worktree+branch for a ticket. Idempotent-ish: an existing
+ * branch or mount is resumed without rewriting it. Throws on git failure; only
+ * callers creating fresh work may choose shared cwd. PR continuations must fail
+ * closed because shared cwd cannot guarantee branch identity.
  */
 export async function createWorktree(git: GitRunner, input: CreateWorktreeInput): Promise<WorktreeHandle> {
   const branch = input.branch ?? worktreeBranch(input.slug, input.ticketId)
@@ -194,7 +201,7 @@ export async function createWorktree(git: GitRunner, input: CreateWorktreeInput)
       await fastForwardExistingBranch(git, input.repoDir, branch, input.baseRef, wt)
     }
     await ensurePrNeverStageExcludes(git, wt)
-    return { branch: actualBranch, worktreePath: wt }
+    return { branch: actualBranch, worktreePath: wt, worktreeCreated: false, branchCreated: false }
   }
   const hasBranch = (await git.run(['rev-parse', '--verify', '--quiet', `refs/heads/${branch}`], input.repoDir)).code === 0
   if (hasBranch && input.refreshFromBaseRef) {
@@ -208,7 +215,7 @@ export async function createWorktree(git: GitRunner, input: CreateWorktreeInput)
     throw new Error(`git worktree add failed for ${branch}: ${res.stderr.trim() || res.stdout.trim() || `exit ${res.code}`}`)
   }
   await ensurePrNeverStageExcludes(git, wt)
-  return { branch, worktreePath: wt }
+  return { branch, worktreePath: wt, worktreeCreated: true, branchCreated: !hasBranch }
 }
 
 export interface CommitWorktreeResult {

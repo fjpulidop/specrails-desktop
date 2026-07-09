@@ -77,7 +77,7 @@ describe('createWorktree (resume-aware)', () => {
   it('creates a fresh branch off base when neither worktree nor branch exists', async () => {
     const { git, addCalls } = fakeGit()
     const h = await createWorktree(git, base)
-    expect(h).toEqual({ branch: 'sr/p/ticket-3', worktreePath: '/wt/ticket-3' })
+    expect(h).toEqual({ branch: 'sr/p/ticket-3', worktreePath: '/wt/ticket-3', worktreeCreated: true, branchCreated: true })
     expect(addCalls()[0]).toEqual(['worktree', 'add', '-b', 'sr/p/ticket-3', '/wt/ticket-3', 'HEAD'])
   })
 
@@ -90,7 +90,7 @@ describe('createWorktree (resume-aware)', () => {
   it('REUSES an existing worktree (resume) without re-adding', async () => {
     const { git, addCalls } = fakeGit({ worktrees: ['/wt/ticket-3'], mountedBranch: 'sr/p/ticket-3' })
     const h = await createWorktree(git, base)
-    expect(h).toEqual({ branch: 'sr/p/ticket-3', worktreePath: '/wt/ticket-3' })
+    expect(h).toEqual({ branch: 'sr/p/ticket-3', worktreePath: '/wt/ticket-3', worktreeCreated: false, branchCreated: false })
     expect(addCalls()).toHaveLength(0) // reused, not recreated
   })
 
@@ -101,7 +101,7 @@ describe('createWorktree (resume-aware)', () => {
     // had no ref → the PR delivery wedged at local-only forever.
     const { git, addCalls } = fakeGit({ worktrees: ['/wt/ticket-3'], mountedBranch: 'sr/p/ticket-3' })
     const h = await createWorktree(git, { ...base, branch: 'feat/3-add-guess-the-number-mini-game' })
-    expect(h).toEqual({ branch: 'sr/p/ticket-3', worktreePath: '/wt/ticket-3' })
+    expect(h).toEqual({ branch: 'sr/p/ticket-3', worktreePath: '/wt/ticket-3', worktreeCreated: false, branchCreated: false })
     expect(addCalls()).toHaveLength(0)
   })
 
@@ -131,14 +131,15 @@ describe('createWorktree (resume-aware)', () => {
   it('uses the preferred conventional branch name when provided', async () => {
     const { git, addCalls } = fakeGit()
     const h = await createWorktree(git, { ...base, branch: 'feat/PROJ-3-add-dark-mode' })
-    expect(h).toEqual({ branch: 'feat/PROJ-3-add-dark-mode', worktreePath: '/wt/ticket-3' })
+    expect(h).toEqual({ branch: 'feat/PROJ-3-add-dark-mode', worktreePath: '/wt/ticket-3', worktreeCreated: true, branchCreated: true })
     expect(addCalls()[0]).toEqual(['worktree', 'add', '-b', 'feat/PROJ-3-add-dark-mode', '/wt/ticket-3', 'HEAD'])
   })
 
   it('resumes an existing PREFERRED branch (same resume semantics as legacy)', async () => {
     const { git, addCalls } = fakeGit({ branchExists: true })
-    await createWorktree(git, { ...base, branch: 'feat/3-x' })
+    const handle = await createWorktree(git, { ...base, branch: 'feat/3-x' })
     expect(addCalls()[0]).toEqual(['worktree', 'add', '/wt/ticket-3', 'feat/3-x'])
+    expect(handle).toMatchObject({ worktreeCreated: true, branchCreated: false })
   })
 
   it('active-PR continuation fast-forwards an existing local branch from the remote PR head when safe', async () => {
