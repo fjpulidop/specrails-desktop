@@ -721,6 +721,8 @@ export class ProjectRegistry {
           labels: t.labels,
           jira_key: t.jira_key ?? null,
           jira_url: t.jira_url ?? null,
+          openspecChangeName: typeof t.metadata?.openspecChangeName === 'string' ? t.metadata.openspecChangeName : undefined,
+          metadata: t.metadata,
         }
       } catch {
         return undefined

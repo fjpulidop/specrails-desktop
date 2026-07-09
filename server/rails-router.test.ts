@@ -632,6 +632,27 @@ describe('rails-router loop mode', () => {
     expect(res.status).toBe(400)
   })
 
+  it('the SDD Quick OpenSpec factory loop runs through the loop engine', async () => {
+    setRailTickets(db, 0, [1], 'loop')
+    const run = vi.fn().mockResolvedValue({ runId: 'r-sdd', outcome: 'success', iterations: 1, totalCostUsd: 0 })
+    const app = appWith(db, {
+      desktopDb,
+      providers: ['claude'],
+      loopRunManager: { run, cancel: vi.fn() },
+      getTicketSpec: (id: number) => ({ id, title: 'T', description: 'D', metadata: { openspecChangeName: 'quick-change' } }),
+    })
+
+    const res = await request(app).post('/rails/0/launch').send({ mode: 'loop', loopId: 'factory:sdd-quick-openspec' })
+
+    expect(res.status).toBe(202)
+    expect(res.body.mode).toBe('loop')
+    expect(run).toHaveBeenCalledTimes(1)
+    const req = run.mock.calls[0][0] as { loopId: string; spec: { ticketIds: number[]; metadata?: { openspecChangeName?: string } } }
+    expect(req.loopId).toBe('factory:sdd-quick-openspec')
+    expect(req.spec.ticketIds).toEqual([1])
+    expect(req.spec.metadata?.openspecChangeName).toBe('quick-change')
+  })
+
   it('a factory loop runs through the loop engine (autonomous fix-loop), deriving its mode', async () => {
     setRailTickets(db, 0, [1, 2], 'loop')
     const enqueue = vi.fn()

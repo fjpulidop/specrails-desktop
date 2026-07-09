@@ -181,6 +181,29 @@ describe('MCP → rails launch → rail_pr_deliveries origin link (end-to-end)',
     })
   })
 
+  it('SDD Quick OpenSpec factory launch also persists origin and posts the PR decision card', async () => {
+    const r = await captured!(
+      { action: 'launch', projectId: 'p1', railIndex: 0, mode: 'loop', loopId: 'factory:sdd-quick-openspec' },
+      launchExtra({ [AGENT_CONVERSATION_HEADER]: 'conv-sdd-quick' }),
+    )
+
+    expect(r.isError).toBeFalsy()
+    const payload = JSON.parse(r.content[0].text)
+    expect(payload.isolated).toBe(true)
+    expect(payload.loopRunIds).toHaveLength(2)
+    expect(loopRun.mock.calls[0][0].loopId).toBe('factory:sdd-quick-openspec')
+
+    const row = getActivePrDeliveryByRail(db, 0)
+    expect(row).toBeTruthy()
+    expect(row!.origin_surface).toBe('agent-chat')
+    expect(row!.origin_conversation_id).toBe('conv-sdd-quick')
+    expect(postPrDecisionCard).toHaveBeenCalledWith(
+      'conv-sdd-quick',
+      expect.objectContaining({ kind: 'pr_decision', decision: 'building' }),
+    )
+    await settle()
+  })
+
   it('a no-git repo falls back to shared cwd: NO card, and the hint tells the agent to be honest (not promise a card)', async () => {
     isoStatus.value = 'no-git'
     const r = await captured!(

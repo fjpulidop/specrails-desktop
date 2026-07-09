@@ -11,12 +11,15 @@ import { assertDeciderBranches } from './loop-templates.test'
 
 describe('factory loops', () => {
   it('ships implement / batch / freestyle mapped to canonical rail modes + the graph-native openspec loop', () => {
-    expect(FACTORY_LOOPS.map((f) => f.id)).toEqual(['factory:implement', 'factory:batch', 'factory:freestyle', 'factory:openspec'])
+    expect(FACTORY_LOOPS.map((f) => f.id)).toEqual(['factory:implement', 'factory:batch', 'factory:freestyle', 'factory:sdd-quick-openspec'])
     expect(getFactoryLoop('factory:implement')?.mode).toBe('implement')
     expect(getFactoryLoop('factory:batch')?.mode).toBe('batch-implement')
     expect(getFactoryLoop('factory:freestyle')?.mode).toBe('freestyle')
     // Graph-native: no rail-mode fallback — runs only via the LoopRunManager.
+    expect(getFactoryLoop('factory:sdd-quick-openspec')?.mode).toBe('loop')
+    expect(getFactoryLoop('factory:sdd-quick-openspec')?.name).toBe('SDD Quick (OpenSpec)')
     expect(getFactoryLoop('factory:openspec')?.mode).toBe('loop')
+    expect(FACTORY_LOOPS.some((f) => f.id === 'factory:openspec')).toBe(false)
     expect(getFactoryLoop('factory:freestyle')?.name).toBe('Freestyle')
   })
 
@@ -67,6 +70,7 @@ describe('factory loops', () => {
       expect(f.graph.config.aiStepTimeoutMinutes, f.id).toBe(60)
     }
     // The openspec lifecycle keeps its own conservative bounds (3 passes max).
+    expect(getFactoryLoop('factory:sdd-quick-openspec')?.graph.config.maxIterations).toBe(3)
     expect(getFactoryLoop('factory:openspec')?.graph.config.maxIterations).toBe(3)
   })
 

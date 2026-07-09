@@ -49,6 +49,7 @@ export function railsTools(): McpToolSpec[] {
         'For on_review tickets with an already-open GitHub PR (including a published pr_ready delivery), launch automatically tries to continue that PR head branch; Jira-linked in_progress tickets can do the same when the PR match is explicit; fresh tickets still start from the project integration branch. ' +
         'When launched from the in-app agent chat without an explicit aiEngine, the engine defaults to your conversation\'s provider (pass aiEngine to override; launch_all always uses each rail\'s stored engine). ' +
         'User-facing naming: call the free-form autonomous mode "Freestyle"; use "freestyle" as the canonical API enum value for that same capability. ' +
+        'For small OpenSpec-governed work, recommend "SDD Quick (OpenSpec)" and launch with mode "loop" plus loopId "factory:sdd-quick-openspec"; keep Freestyle for ticket-local implementation-only work. ' +
         'NAMING: railIndex is the 0-BASED internal identity; the dashboard shows rails 1-based ("Rail N" = railIndex N-1). When talking to the user, ALWAYS say "Rail <railIndex + 1>" (or the rail\'s custom name) — results include railLabel with the correct user-facing label.',
       hintTier: 'read',
       tier: (a) => {
@@ -108,7 +109,7 @@ export function railsTools(): McpToolSpec[] {
         loopId: z
           .string()
           .optional()
-          .describe('Loop id to run (launch). Factory ids (e.g. "factory:implement") map to a legacy mode; a custom published loop id keeps mode="loop". Browse/author loops with specrails_loops; the loop must be Published.'),
+          .describe('Loop id to run (launch). Use "factory:sdd-quick-openspec" for SDD Quick (OpenSpec): small OpenSpec-governed work via mode="loop". Factory ids (e.g. "factory:implement") map to a legacy mode; a custom published loop id keeps mode="loop". Browse/author loops with specrails_loops; the loop must be Published.'),
         reasoning_effort: z
           .enum(['low', 'medium', 'high'])
           .optional()

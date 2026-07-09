@@ -14,7 +14,7 @@ import {
   type LoopExecutors,
 } from './loop-run-manager'
 import { getLoopTemplate, opsxLifecycleGraph } from './loop-templates'
-import { validateLoopGraph } from './loop-graph'
+import { interpolateSpec, validateLoopGraph } from './loop-graph'
 import type { WsMessage } from './types'
 
 // ── opsx:* magic commands (loop-magic-commands) ──────────────────────────────
@@ -106,6 +106,45 @@ describe('opsx-lifecycle template', () => {
     expect(g.nodes.some((n) => n.type === 'end')).toBe(true)
     // No opsx:new step.
     expect(prompts.some((p) => p.includes('opsx:new'))).toBe(false)
+  })
+
+  it('continues a structured OpenSpec target when metadata provides openspecChangeName', () => {
+    const g = opsxLifecycleGraph()
+    const ff = g.nodes.find((n) => n.id === 'ff')!
+    const prompt = interpolateSpec(String(ff.data?.prompt), {
+      title: 'Follow-up',
+      description: 'Tighten the small change',
+      metadata: { openspecChangeName: 'add-sdd-quick-openspec' },
+    })
+    expect(prompt).toContain('add-sdd-quick-openspec')
+    expect(prompt).toContain('CONTINUE that exact OpenSpec change')
+    expect(prompt).toContain('do NOT create a duplicate')
+
+    const withoutTarget = interpolateSpec(String(ff.data?.prompt), {
+      title: 'New quick change',
+      description: 'Create artifacts if needed',
+    })
+    expect(withoutTarget).not.toContain('{{spec.openspecChangeName}}')
+    expect(withoutTarget).toContain('If this value is non-blank')
+  })
+
+  it('keeps SDD Quick prompts artifact-authoritative before implementation', () => {
+    const g = opsxLifecycleGraph()
+    const ff = String(g.nodes.find((n) => n.id === 'ff')?.data?.prompt ?? '')
+    const apply = String(g.nodes.find((n) => n.id === 'apply')?.data?.prompt ?? '')
+    expect(ff).toContain('OpenSpec artifacts are authoritative')
+    expect(ff).toContain('amend the relevant OpenSpec artifacts before any code changes')
+    expect(apply).toContain('Before editing code')
+    expect(apply).toContain('amend the OpenSpec artifacts first')
+  })
+
+  it('verify prompt fails OpenSpec contract drift', () => {
+    const g = opsxLifecycleGraph()
+    const verify = String(g.nodes.find((n) => n.id === 'verify')?.data?.prompt ?? '')
+    const decider = String(g.nodes.find((n) => n.id === 'decide')?.data?.goal ?? '')
+    expect(verify).toContain('Report FAIL if the implementation diverges from the active OpenSpec artifacts')
+    expect(verify).toContain('{{const:VERIFICATION_FAIL}}')
+    expect(decider).toContain('active OpenSpec artifacts')
   })
 })
 

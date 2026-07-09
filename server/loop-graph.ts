@@ -230,6 +230,8 @@ export interface LoopSpec {
   labels?: string[]
   jira_key?: string | null
   jira_url?: string | null
+  openspecChangeName?: string
+  metadata?: { openspecChangeName?: unknown } & Record<string, unknown>
 }
 
 /** Whether a loop "needs a ticket/spec" — it references a `{{spec.*}}` token or a
@@ -258,6 +260,12 @@ export function interpolateSpec(text: string, spec?: LoopSpec): string {
       const ids = spec?.ticketIds ?? (spec?.id != null ? [spec.id] : [])
       return ids.map((id) => `#${id}`).join(' ')
     }
+    if (key === 'openspecChangeName') {
+      const direct = typeof spec?.openspecChangeName === 'string' ? spec.openspecChangeName.trim() : ''
+      const fromMetadata = typeof spec?.metadata?.openspecChangeName === 'string' ? spec.metadata.openspecChangeName.trim() : ''
+      return direct || fromMetadata
+    }
+    if (!['id', 'title', 'description', 'status', 'priority', 'labels', 'jira_key', 'jira_url'].includes(key)) return ''
     const value = spec ? (spec as Record<string, unknown>)[key] : undefined
     if (value == null) return ''
     if (Array.isArray(value)) return value.join(', ')

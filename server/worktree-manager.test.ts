@@ -1,4 +1,7 @@
 import { describe, it, expect } from 'vitest'
+import * as fs from 'fs'
+import * as os from 'os'
+import * as path from 'path'
 import {
   worktreeBranch,
   worktreePath,
@@ -7,8 +10,10 @@ import {
   listWorktrees,
   listLocalBranches,
   commitWorktree,
+  ensurePrNeverStageExcludes,
   isGitRepo,
   repoIsolationStatus,
+  PR_NEVER_STAGE_PATHS,
   type GitRunner,
   type GitResult,
 } from './worktree-manager'
@@ -169,10 +174,12 @@ describe('listLocalBranches', () => {
 })
 
 describe('commitWorktree', () => {
-  it('stages + commits the worktree to its branch', async () => {
+  const baseAddArgs = ['add', '-A', '--', '.', ...PR_NEVER_STAGE_PATHS.map((p) => `:(exclude)${p}`)]
+
+  it('stages + commits the worktree to its branch while excluding private agent artifacts', async () => {
     const { git, calls } = fakeGit()
     await commitWorktree(git, '/wt/ticket-1', 'wip')
-    expect(calls).toContainEqual(['add', '-A'])
+    expect(calls).toContainEqual(baseAddArgs)
     expect(calls).toContainEqual(['commit', '-m', 'wip'])
   })
   it('never throws even if git fails', async () => {
@@ -183,16 +190,48 @@ describe('commitWorktree', () => {
     const { git, calls } = fakeGit()
     await commitWorktree(git, '/wt/ticket-1', 'wip', ['.claude/commands/specrails', '.sr-rail-overlay.json'])
     expect(calls).toContainEqual([
-      'add', '-A', '--', '.',
+      ...baseAddArgs,
       ':(exclude).claude/commands/specrails',
       ':(exclude).sr-rail-overlay.json',
     ])
     expect(calls).toContainEqual(['commit', '-m', 'wip'])
   })
-  it('an empty exclude list keeps the byte-identical legacy add -A', async () => {
+  it('always excludes agent-memory and explanations from PR commits', async () => {
     const { git, calls } = fakeGit()
     await commitWorktree(git, '/wt/ticket-1', 'wip', [])
-    expect(calls).toContainEqual(['add', '-A'])
+    const addCall = calls.find((c) => c[0] === 'add')!
+    expect(addCall).toEqual(baseAddArgs)
+    expect(addCall).toEqual(expect.arrayContaining([
+      ':(exclude).claude/agent-memory',
+      ':(exclude).claude/agent-memory/**',
+      ':(exclude).claude/agent-memory/explanations',
+      ':(exclude).claude/agent-memory/explanations/**',
+      ':(exclude).codex/agent-memory',
+      ':(exclude).gemini/agent-memory',
+    ]))
+  })
+})
+
+describe('ensurePrNeverStageExcludes', () => {
+  it('installs local git excludes for agent-memory and explanations idempotently', async () => {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'specrails-pr-exclude-'))
+    const excludePath = path.join(dir, '.git', 'info', 'exclude')
+    const git: GitRunner = {
+      run: async (args) => {
+        expect(args).toEqual(['rev-parse', '--git-path', 'info/exclude'])
+        return { code: 0, stdout: `${excludePath}\n`, stderr: '' }
+      },
+    }
+
+    await ensurePrNeverStageExcludes(git, dir)
+    await ensurePrNeverStageExcludes(git, dir)
+
+    const text = fs.readFileSync(excludePath, 'utf8')
+    expect(text.match(/specrails: never stage private agent artifacts/g)).toHaveLength(2)
+    expect(text.match(/\.claude\/agent-memory\/\*\*/g)).toHaveLength(1)
+    expect(text).toContain('.claude/agent-memory/explanations/**')
+    expect(text).toContain('.codex/agent-memory/**')
+    expect(text).toContain('.gemini/agent-memory/**')
   })
 })
 
