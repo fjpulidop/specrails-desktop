@@ -390,10 +390,16 @@ export function registerJobsRoutes(deps: ProjectRoutesDeps): void {
         // the loop is still executing — cancel through the engine instead of
         // 404ing with a live child (the mission-modal "cancel did nothing" bug).
         const loopRun = getLoopRun(c.db, id)
-if (loopRun && (loopRun.status === 'running' || loopRun.status === 'paused') && c.loopRunManager) {
-          c.loopRunManager.cancel(id)
-          res.json({ ok: true, status: 'canceling' })
-          return
+        if (loopRun) {
+          if ((loopRun.status === 'running' || loopRun.status === 'paused') && c.loopRunManager) {
+            c.loopRunManager.cancel(id)
+            res.json({ ok: true, status: 'canceling' })
+            return
+          }
+          if (loopRun.status === 'completed') {
+            res.json({ ok: true, status: 'already_terminal' })
+            return
+          }
         }
         res.status(404).json({ error: 'Job not found' })
       } else if (err instanceof JobAlreadyTerminalError) {
