@@ -25,6 +25,7 @@ beforeEach(() => {
 
 async function waitForSelfFetchingSections() {
   await waitFor(() => expect(document.getElementById('project-pre-prompt')).toBeTruthy())
+  await screen.findByTestId('integration-branch-input')
   await screen.findByTestId('worktree-env-input')
   await waitFor(() => expect(screen.getByLabelText('Enable pipeline telemetry')).toBeInTheDocument())
   await waitFor(() => expect(screen.getByPlaceholderText('e.g. 5.00')).toBeInTheDocument())
@@ -34,7 +35,7 @@ describe('ProjectSettingsDialog', () => {
   it('shows the project name in the title and the section entries', async () => {
     render(<ProjectSettingsDialog open onClose={vi.fn()} />)
     expect(screen.getByText('acme-api — Settings')).toBeInTheDocument()
-    for (const label of ['General', 'Environment', 'Budget', 'Telemetry', 'Terminal']) {
+    for (const label of ['General', 'Branch', 'Environment', 'Budget', 'Telemetry', 'Terminal']) {
       expect(screen.getByRole('button', { name: label })).toBeInTheDocument()
     }
     await waitForSelfFetchingSections()
@@ -53,6 +54,10 @@ describe('ProjectSettingsDialog', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Terminal' }))
     expect(screen.getByTestId('terminal-section').closest('div.space-y-5')!.className).not.toContain('hidden')
     expect(generalField.closest('.hidden')).not.toBeNull()
+
+    fireEvent.click(screen.getByRole('button', { name: 'Branch' }))
+    expect(screen.getByTestId('integration-branch-input').closest('div.space-y-5')!.className).not.toContain('hidden')
+    expect(screen.getByTestId('terminal-section').closest('div.space-y-5')!.className).toContain('hidden')
   })
 
   it('closes through onOpenChange', async () => {

@@ -246,9 +246,10 @@
   },
   "projectDialog": {
     "title": "{{name}} — Ajustes",
-    "description": "Configuración del proyecto: prompts, entorno, presupuesto, telemetría y terminal.",
+    "description": "Configuración del proyecto: prompts, rama base, entorno, presupuesto, telemetría y terminal.",
     "nav": {
       "general": "General",
+      "branch": "Rama base",
       "environment": "Entorno",
       "budget": "Presupuesto",
       "telemetry": "Telemetría",

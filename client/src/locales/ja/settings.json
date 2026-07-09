@@ -246,9 +246,10 @@
   },
   "projectDialog": {
     "title": "{{name}} — 設定",
-    "description": "プロジェクト設定：プロンプト、環境、予算、テレメトリ、ターミナル。",
+    "description": "プロジェクト設定：プロンプト、ブランチ、環境、予算、テレメトリ、ターミナル。",
     "nav": {
       "general": "一般",
+      "branch": "ブランチ",
       "environment": "環境",
       "budget": "予算",
       "telemetry": "テレメトリ",
