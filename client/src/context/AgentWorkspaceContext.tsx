@@ -16,10 +16,6 @@ interface AgentWorkspaceContextValue {
   openJobsPane: () => void
   closeJobsPane: () => void
   toggleJobsPane: () => void
-  integrationsModalOpen: boolean
-  openIntegrationsModal: () => void
-  closeIntegrationsModal: () => void
-  toggleIntegrationsModal: () => void
   browserOpen: boolean
   openBrowser: () => void
   closeBrowser: () => void
@@ -35,7 +31,6 @@ const AgentWorkspaceContext = createContext<AgentWorkspaceContextValue | null>(n
 export function AgentWorkspaceProvider({ children }: { children: ReactNode }) {
   const [codePaneOpen, setCodePaneOpen] = useState(false)
   const [jobsPaneOpen, setJobsPaneOpen] = useState(false)
-  const [integrationsModalOpen, setIntegrationsModalOpen] = useState(false)
   const [browserOpen, setBrowserOpen] = useState(false)
   const [pendingCaptures, setPendingCaptures] = useState<AgentAttachment[]>([])
 
@@ -45,9 +40,6 @@ export function AgentWorkspaceProvider({ children }: { children: ReactNode }) {
   const openJobsPane = useCallback(() => setJobsPaneOpen(true), [])
   const closeJobsPane = useCallback(() => setJobsPaneOpen(false), [])
   const toggleJobsPane = useCallback(() => setJobsPaneOpen((v) => !v), [])
-  const openIntegrationsModal = useCallback(() => setIntegrationsModalOpen(true), [])
-  const closeIntegrationsModal = useCallback(() => setIntegrationsModalOpen(false), [])
-  const toggleIntegrationsModal = useCallback(() => setIntegrationsModalOpen((v) => !v), [])
   const openBrowser = useCallback(() => setBrowserOpen(true), [])
   const closeBrowser = useCallback(() => setBrowserOpen(false), [])
   const queueCapture = useCallback((att: AgentAttachment) => {
@@ -66,11 +58,10 @@ export function AgentWorkspaceProvider({ children }: { children: ReactNode }) {
     () => ({
       codePaneOpen, openCodePane, closeCodePane, toggleCodePane,
       jobsPaneOpen, openJobsPane, closeJobsPane, toggleJobsPane,
-      integrationsModalOpen, openIntegrationsModal, closeIntegrationsModal, toggleIntegrationsModal,
       browserOpen, openBrowser, closeBrowser,
       pendingCaptures, queueCapture, consumePendingCaptures,
     }),
-    [codePaneOpen, openCodePane, closeCodePane, toggleCodePane, jobsPaneOpen, openJobsPane, closeJobsPane, toggleJobsPane, integrationsModalOpen, openIntegrationsModal, closeIntegrationsModal, toggleIntegrationsModal, browserOpen, openBrowser, closeBrowser, pendingCaptures, queueCapture, consumePendingCaptures],
+    [codePaneOpen, openCodePane, closeCodePane, toggleCodePane, jobsPaneOpen, openJobsPane, closeJobsPane, toggleJobsPane, browserOpen, openBrowser, closeBrowser, pendingCaptures, queueCapture, consumePendingCaptures],
   )
   return <AgentWorkspaceContext.Provider value={value}>{children}</AgentWorkspaceContext.Provider>
 }
@@ -84,10 +75,6 @@ const NOOP: AgentWorkspaceContextValue = {
   openJobsPane: () => {},
   closeJobsPane: () => {},
   toggleJobsPane: () => {},
-  integrationsModalOpen: false,
-  openIntegrationsModal: () => {},
-  closeIntegrationsModal: () => {},
-  toggleIntegrationsModal: () => {},
   browserOpen: false,
   openBrowser: () => {},
   closeBrowser: () => {},

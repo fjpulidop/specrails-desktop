@@ -29,6 +29,12 @@ vi.mock('../../components/jira/JiraConnectWizard', () => ({
   ),
 }))
 
+vi.mock('../../components/jira/JiraConnectedCard', () => ({
+  JiraConnectedCard: ({ apiBase, state }: { apiBase?: string; state: { connection?: { jiraProjectKey?: string } } }) => (
+    <div data-testid="jira-connected-card">Jira connected {state.connection?.jiraProjectKey} for {apiBase}</div>
+  ),
+}))
+
 function project(id: string, name: string, provider: string, providers: string[]) {
   return {
     id,
@@ -117,15 +123,16 @@ function json(data: unknown, init: ResponseInit = {}) {
   })
 }
 
-function installFetchMock(state = headroomState()) {
+function installFetchMock(state = headroomState(), jiraConnections: Record<string, unknown> = {}) {
   const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
     const url = String(input)
 
     if (url.endsWith('/api/global-plugins/headroom')) {
       return json({ state })
     }
-    if (url.includes('/jira/connection')) {
-      return json({ connected: false })
+    const jiraMatch = /\/api\/projects\/([^/]+)\/jira\/connection$/.exec(url)
+    if (jiraMatch) {
+      return json(jiraConnections[jiraMatch[1]] ?? { connected: false })
     }
     if (url.endsWith('/plugins')) {
       return json({
@@ -222,7 +229,40 @@ describe('PluginsPage', () => {
     fireEvent.click(cardActionButton('Jira'))
     fireEvent.click(await screen.findByRole('button', { name: /Specrails Desktop/ }))
 
-    expect(screen.getByTestId('jira-wizard')).toHaveTextContent('/api/projects/proj-1')
+    expect(await screen.findByTestId('jira-wizard')).toHaveTextContent('/api/projects/proj-1')
+  })
+
+  it('shows the applied Jira configuration for a project that is already connected', async () => {
+    installFetchMock(headroomState(), {
+      'proj-1': {
+        connected: true,
+        connection: {
+          projectId: 'proj-1',
+          baseUrl: 'https://acme.atlassian.net',
+          deployment: 'cloud',
+          apiVersion: '3',
+          authScheme: 'basic',
+          accountEmail: 'ops@example.com',
+          jiraProjectKey: 'OPS',
+          jiraProjectId: '10001',
+          enabled: true,
+          statusMap: { todo: 'To Do', on_review: 'In Review' },
+          highWaterMs: null,
+          discardStatus: 'Cancelled',
+          hasToken: true,
+        },
+        outbox: { pending: 0, inflight: 0, done: 0, dead: 0 },
+      },
+    })
+
+    render(<PluginsPage />)
+
+    await waitFor(() => expect(cardActionButton('Jira')).toBeInTheDocument())
+    fireEvent.click(cardActionButton('Jira'))
+    fireEvent.click(await screen.findByRole('button', { name: /Specrails Desktop/ }))
+
+    expect(await screen.findByTestId('jira-connected-card')).toHaveTextContent('Jira connected OPS for /api/projects/proj-1')
+    expect(screen.queryByTestId('jira-wizard')).not.toBeInTheDocument()
   })
 
   it('keeps Serena project-local and disables projects without Claude', async () => {

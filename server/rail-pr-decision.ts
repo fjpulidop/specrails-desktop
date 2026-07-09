@@ -475,9 +475,14 @@ async function runDiscard(deps: PrDecisionDeps, row: RailPrDeliveryRow): Promise
     const wt = getRailWorktree(deps.db, wtId)
     if (!wt) continue
     if (!implementationFailed) branchSet.add(wt.branch)
-    await removeWorktree(deps.git, {
-      repoDir: deps.project.path, worktreePath: wt.worktree_path, branch: wt.branch, deleteBranch: false,
-    }).catch(() => {})
+    try {
+      await removeWorktree(deps.git, {
+        repoDir: deps.project.path, worktreePath: wt.worktree_path, branch: wt.branch, deleteBranch: false,
+      })
+    } catch (err) {
+      console.warn(`[rail-pr-decision] discard could not remove worktree ${wt.worktree_path}: ${(err as Error).message}`)
+      continue
+    }
     if (!isTerminalMergeState(wt.merge_state)) updateRailWorktreeState(deps.db, wt.id, 'failed')
   }
 
@@ -635,9 +640,14 @@ async function runMergeLocal(deps: PrDecisionDeps, row: RailPrDeliveryRow): Prom
     const wt = getRailWorktree(deps.db, wtId)
     if (!wt) continue
     branchSet.add(wt.branch)
-    await removeWorktree(deps.git, {
-      repoDir: deps.project.path, worktreePath: wt.worktree_path, branch: wt.branch, deleteBranch: false,
-    }).catch(() => {})
+    try {
+      await removeWorktree(deps.git, {
+        repoDir: deps.project.path, worktreePath: wt.worktree_path, branch: wt.branch, deleteBranch: false,
+      })
+    } catch (err) {
+      console.warn(`[rail-pr-decision] merge-local could not remove worktree ${wt.worktree_path}: ${(err as Error).message}`)
+      continue
+    }
     if (!isTerminalMergeState(wt.merge_state)) updateRailWorktreeState(deps.db, wt.id, 'merged')
   }
   for (const branch of branchSet) {

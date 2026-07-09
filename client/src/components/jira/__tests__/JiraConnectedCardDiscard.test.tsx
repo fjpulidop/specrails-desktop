@@ -98,6 +98,20 @@ describe('JiraConnectedCard — discard status picker', () => {
     expect(select.value).toBe('Cancelled')
   })
 
+  it('threads an explicit apiBase through project-scoped management calls', async () => {
+    const onChanged = vi.fn()
+    render(<JiraConnectedCard state={makeState(null)} onChanged={onChanged} apiBase="/api/projects/proj-42" />)
+
+    await waitFor(() => expect(api.listOutbox).toHaveBeenCalledWith('dead', '/api/projects/proj-42'))
+    await waitFor(() => expect(api.listStatuses).toHaveBeenCalledWith('/api/projects/proj-42'))
+
+    const select = (await screen.findByTestId('jira-discard-status-select')) as HTMLSelectElement
+    await waitFor(() => expect(within(select).getByRole('option', { name: 'Cancelled' })).toBeInTheDocument())
+    fireEvent.change(select, { target: { value: 'Cancelled' } })
+
+    await waitFor(() => expect(api.patchConnection).toHaveBeenCalledWith({ discardStatus: 'Cancelled' }, '/api/projects/proj-42'))
+  })
+
   it('patches discardStatus null when the picker is reset to the none option', async () => {
     const onChanged = vi.fn()
     render(<JiraConnectedCard state={makeState('Cancelled')} onChanged={onChanged} />)

@@ -19,7 +19,7 @@ const STATE_LABEL: Record<SpecLogicalState, string> = {
  * disconnect. Shared by the Integrations Jira card (and previously the Settings
  * section). `state.connection` must be present.
  */
-export function JiraConnectedCard({ state, onChanged }: { state: ConnectionState; onChanged: () => void }) {
+export function JiraConnectedCard({ state, onChanged, apiBase }: { state: ConnectionState; onChanged: () => void; apiBase?: string }) {
   const { t } = useTranslation('jira')
   const connection = state.connection!
   const [enabled, setEnabled] = useState(connection.enabled)
@@ -33,12 +33,12 @@ export function JiraConnectedCard({ state, onChanged }: { state: ConnectionState
 
   const loadDead = useCallback(async () => {
     try {
-      const { ops } = await jiraApi.listOutbox('dead')
+      const { ops } = apiBase ? await jiraApi.listOutbox('dead', apiBase) : await jiraApi.listOutbox('dead')
       setDeadOps(ops)
     } catch {
       setDeadOps([])
     }
-  }, [])
+  }, [apiBase])
 
   useEffect(() => {
     void loadDead()
@@ -48,17 +48,18 @@ export function JiraConnectedCard({ state, onChanged }: { state: ConnectionState
   useEffect(() => {
     let cancelled = false
     jiraApi
-      .listStatuses()
+      .listStatuses(apiBase)
       .then(({ statuses: list }) => { if (!cancelled) setStatuses(list) })
       .catch(() => { if (!cancelled) setStatuses([]) })
     return () => { cancelled = true }
-  }, [])
+  }, [apiBase])
 
   async function changeDiscardStatus(next: string) {
     const prev = discardStatus
     setDiscardStatus(next)
     try {
-      await jiraApi.patchConnection({ discardStatus: next || null })
+      if (apiBase) await jiraApi.patchConnection({ discardStatus: next || null }, apiBase)
+      else await jiraApi.patchConnection({ discardStatus: next || null })
       onChanged()
     } catch (e) {
       setDiscardStatus(prev)
@@ -72,7 +73,8 @@ export function JiraConnectedCard({ state, onChanged }: { state: ConnectionState
     setStatusMap(next)
     const clean = Object.fromEntries(Object.entries(next).filter(([, v]) => v)) as Partial<Record<SpecLogicalState, string>>
     try {
-      await jiraApi.patchConnection({ statusMap: Object.keys(clean).length ? clean : null })
+      if (apiBase) await jiraApi.patchConnection({ statusMap: Object.keys(clean).length ? clean : null }, apiBase)
+      else await jiraApi.patchConnection({ statusMap: Object.keys(clean).length ? clean : null })
       onChanged()
     } catch (e) {
       setStatusMap(prev)
@@ -85,7 +87,8 @@ export function JiraConnectedCard({ state, onChanged }: { state: ConnectionState
     setEnabled(next)
     setBusy(true)
     try {
-      await jiraApi.setEnabled(next)
+      if (apiBase) await jiraApi.setEnabled(next, apiBase)
+      else await jiraApi.setEnabled(next)
     } catch (e) {
       setEnabled(!next)
       toast.error(errMsg(e, t))
@@ -97,7 +100,7 @@ export function JiraConnectedCard({ state, onChanged }: { state: ConnectionState
   async function syncNow() {
     setSyncing(true)
     try {
-      const r = await jiraApi.syncNow()
+      const r = apiBase ? await jiraApi.syncNow(apiBase) : await jiraApi.syncNow()
       toast.success(t('status.syncedToast', { count: r.upserted }))
     } catch (e) {
       toast.error(errMsg(e, t))
@@ -110,7 +113,8 @@ export function JiraConnectedCard({ state, onChanged }: { state: ConnectionState
     if (!window.confirm(t('status.disconnectConfirm'))) return
     setBusy(true)
     try {
-      await jiraApi.disconnect()
+      if (apiBase) await jiraApi.disconnect(apiBase)
+      else await jiraApi.disconnect()
       toast.success(t('status.disconnectedToast'))
       onChanged()
     } catch (e) {
@@ -122,7 +126,8 @@ export function JiraConnectedCard({ state, onChanged }: { state: ConnectionState
 
   async function retry(id: number) {
     try {
-      await jiraApi.retryOutbox(id)
+      if (apiBase) await jiraApi.retryOutbox(id, apiBase)
+      else await jiraApi.retryOutbox(id)
       await loadDead()
     } catch (e) {
       toast.error(errMsg(e, t))

@@ -19,10 +19,6 @@ const AgentModeJobsPane = lazy(() =>
 const AgentBrowserCapture = lazy(() =>
   import('./AgentBrowserCapture').then((m) => ({ default: m.AgentBrowserCapture })),
 )
-const AgentIntegrationsModal = lazy(() =>
-  import('./AgentIntegrationsModal').then((m) => ({ default: m.AgentIntegrationsModal })),
-)
-
 /**
  * The full-screen Agent-Mode center surface. EMPTY (no active conversation) is a
  * centered "Plan, Build" composer card with a soft accent glow; ACTIVE renders
@@ -32,7 +28,7 @@ const AgentIntegrationsModal = lazy(() =>
 export function AgentModeSurface() {
   const { t } = useTranslation('agent')
   const { active, refreshConversations } = useAgentChat()
-  const { codePaneOpen, jobsPaneOpen, browserOpen, integrationsModalOpen, closeIntegrationsModal } = useAgentWorkspace()
+ const { codePaneOpen, jobsPaneOpen, browserOpen } = useAgentWorkspace()
   const { activeProjectId } = useDesktop()
   const activeTheme = useActiveTheme()
   const isGalaxy = activeTheme.id === 'galaxy'
@@ -49,7 +45,6 @@ export function AgentModeSurface() {
   // falling back to a Home key when no conversation is open yet).
   const showCode = codePaneOpen && !!activeProjectId
   const showJobs = jobsPaneOpen && !!activeProjectId
-  const showIntegrations = integrationsModalOpen && !!activeProjectId
 
   return (
     <MotionConfig reducedMotion="user">
@@ -113,12 +108,6 @@ export function AgentModeSurface() {
       {browserOpen && activeProjectId && (
         <Suspense fallback={null}>
           <AgentBrowserCapture projectId={activeProjectId} conversationId={active?.id ?? null} />
-        </Suspense>
-      )}
-
-      {showIntegrations && (
-        <Suspense fallback={null}>
-          <AgentIntegrationsModal onClose={closeIntegrationsModal} />
         </Suspense>
       )}
     </div>

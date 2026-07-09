@@ -10,6 +10,7 @@ import {
   listWorktrees,
   listLocalBranches,
   commitWorktree,
+  commitWorktreeAndVerify,
   ensurePrNeverStageExcludes,
   isGitRepo,
   repoIsolationStatus,
@@ -18,7 +19,7 @@ import {
   type GitResult,
 } from './worktree-manager'
 
-function fakeGit(opts: { worktrees?: string[]; branchExists?: boolean; addFails?: boolean; insideWorktree?: boolean; hasCommits?: boolean; mountedBranch?: string; headFails?: boolean; ancestor?: boolean } = {}) {
+function fakeGit(opts: { worktrees?: string[]; branchExists?: boolean; addFails?: boolean; removeFails?: boolean; insideWorktree?: boolean; hasCommits?: boolean; mountedBranch?: string; headFails?: boolean; ancestor?: boolean; dirtyStatus?: string } = {}) {
   const calls: string[][] = []
   const git: GitRunner = {
     async run(args): Promise<GitResult> {
@@ -49,6 +50,12 @@ function fakeGit(opts: { worktrees?: string[]; branchExists?: boolean; addFails?
       }
       if (args[0] === 'worktree' && args[1] === 'add') {
         return opts.addFails ? { code: 1, stdout: '', stderr: 'fatal: boom' } : { code: 0, stdout: '', stderr: '' }
+      }
+      if (args[0] === 'worktree' && args[1] === 'remove') {
+        return opts.removeFails ? { code: 1, stdout: '', stderr: 'fatal: dirty worktree' } : { code: 0, stdout: '', stderr: '' }
+      }
+      if (args[0] === 'status') {
+        return { code: 0, stdout: opts.dirtyStatus ?? '', stderr: '' }
       }
       return { code: 0, stdout: '', stderr: '' }
     },
@@ -209,6 +216,47 @@ describe('commitWorktree', () => {
       ':(exclude).codex/agent-memory',
       ':(exclude).gemini/agent-memory',
     ]))
+  })
+  it('reports a dirty deliverable worktree after the commit attempt', async () => {
+    const { git } = fakeGit({ dirtyStatus: ' M src/app.ts\n?? src/new.ts\n' })
+    const result = await commitWorktreeAndVerify(git, '/wt/ticket-1', 'wip', [])
+    expect(result.clean).toBe(false)
+    expect(result.dirty).toEqual([' M src/app.ts', '?? src/new.ts'])
+  })
+  it('treats only excluded overlay/private paths as clean after commit', async () => {
+    const git: GitRunner = {
+      run: async (args) => {
+        if (args[0] === 'status') {
+          expect(args).toEqual(expect.arrayContaining([
+            ':(exclude).claude/commands/specrails',
+            ':(exclude).sr-rail-overlay.json',
+          ]))
+        }
+        return { code: 0, stdout: '', stderr: '' }
+      },
+    }
+    const result = await commitWorktreeAndVerify(git, '/wt/ticket-1', 'wip', ['.claude/commands/specrails', '.sr-rail-overlay.json'])
+    expect(result.clean).toBe(true)
+  })
+})
+
+describe('removeWorktree', () => {
+  it('removes the worktree and deletes its branch by default', async () => {
+    const { git, calls } = fakeGit()
+    await removeWorktree(git, { repoDir: '/repo', worktreePath: '/wt/ticket-1', branch: 'sr/p/ticket-1' })
+    expect(calls).toContainEqual(['worktree', 'remove', '--force', '/wt/ticket-1'])
+    expect(calls).toContainEqual(['branch', '-D', 'sr/p/ticket-1'])
+  })
+  it('keeps the branch when deleteBranch is false', async () => {
+    const { git, calls } = fakeGit()
+    await removeWorktree(git, { repoDir: '/repo', worktreePath: '/wt/ticket-1', branch: 'sr/p/ticket-1', deleteBranch: false })
+    expect(calls).toContainEqual(['worktree', 'remove', '--force', '/wt/ticket-1'])
+    expect(calls.some((c) => c[0] === 'branch')).toBe(false)
+  })
+  it('throws when git cannot remove the worktree', async () => {
+    const { git, calls } = fakeGit({ removeFails: true })
+    await expect(removeWorktree(git, { repoDir: '/repo', worktreePath: '/wt/ticket-1', branch: 'sr/p/ticket-1' })).rejects.toThrow(/dirty worktree/)
+    expect(calls.some((c) => c[0] === 'branch')).toBe(false)
   })
 })
 

@@ -21,10 +21,12 @@ import {
 import { useTranslation } from 'react-i18next'
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '../components/ui/dialog'
 import { JiraConnectWizard } from '../components/jira/JiraConnectWizard'
+import { JiraConnectedCard } from '../components/jira/JiraConnectedCard'
 import { API_ORIGIN } from '../lib/origin'
 import { cn } from '../lib/utils'
 import { projectProviders, useDesktop, type DesktopProject } from '../hooks/useDesktop'
 import { useSharedWebSocket } from '../hooks/useSharedWebSocket'
+import type { ConnectionState } from '../lib/jira-api'
 
 type ScopeFilter = 'all' | 'global' | 'project'
 type Provider = 'codex' | 'claude'
@@ -1200,11 +1202,7 @@ function ProjectPluginWizard({
                 {t('plugins.projectWizard.selectProjectToContinue')}
               </div>
             ) : plugin === 'jira' ? (
-              <JiraConnectWizard
-                apiBase={projectApi(selected.id)}
-                onConnected={onClose}
-                onSkip={onClose}
-              />
+              <ProjectJiraPanel project={selected} onDone={onClose} />
             ) : (
               <SerenaInstall project={selected} onDone={onClose} />
             )}
@@ -1212,6 +1210,77 @@ function ProjectPluginWizard({
         </div>
       </DialogContent>
     </Dialog>
+  )
+}
+
+function ProjectJiraPanel({ project, onDone }: { project: DesktopProject; onDone: () => void }) {
+  const { t } = useTranslation('integrations')
+  const apiBase = projectApi(project.id)
+  const [state, setState] = useState<ConnectionState | null>(null)
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
+
+  const refresh = useCallback(async () => {
+    setLoading(true)
+    setError(null)
+    try {
+      const data = await fetch(`${apiBase}/jira/connection`).then((r) => readJson<ConnectionState>(r))
+      setState(data)
+    } catch (err) {
+      setState({ connected: false })
+      setError((err as Error).message)
+    } finally {
+      setLoading(false)
+    }
+  }, [apiBase])
+
+  useEffect(() => {
+    void refresh()
+  }, [refresh])
+
+  if (loading) {
+    return (
+      <div className="flex h-full items-center justify-center text-sm text-muted-foreground">
+        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+        {t('plugins.jira.loading', { defaultValue: 'Loading Jira...' })}
+      </div>
+    )
+  }
+
+  if (state?.connected && state.connection) {
+    return (
+      <div className="space-y-4">
+        <div>
+          <h3 className="text-sm font-semibold">{t('plugins.jira.titleForProject', { name: project.name, defaultValue: `Jira for ${project.name}` })}</h3>
+          <p className="mt-1 text-xs text-muted-foreground">
+            {t('plugins.jira.configuredDescription', { defaultValue: 'Manage the Jira project, status mapping, discard status, sync, and connection state.' })}
+          </p>
+        </div>
+        <JiraConnectedCard
+          state={state}
+          apiBase={apiBase}
+          onChanged={() => { void refresh() }}
+        />
+      </div>
+    )
+  }
+
+  return (
+    <div className="space-y-4">
+      <div>
+        <h3 className="text-sm font-semibold">{t('plugins.jira.titleForProject', { name: project.name, defaultValue: `Jira for ${project.name}` })}</h3>
+        <p className="mt-1 text-xs text-muted-foreground">
+          {error
+            ? t('plugins.jira.loadFailed', { message: error, defaultValue: `Could not load the current Jira configuration: ${error}` })
+            : t('plugins.jira.notConfiguredDescription', { defaultValue: 'Connect this project to Jira.' })}
+        </p>
+      </div>
+      <JiraConnectWizard
+        apiBase={apiBase}
+        onConnected={() => { void refresh() }}
+        onSkip={onDone}
+      />
+    </div>
   )
 }
 

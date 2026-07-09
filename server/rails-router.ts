@@ -30,7 +30,7 @@ import {
 import { classifyLoopEffect } from './loop-effect'
 import { executePrDecision, isPrDecisionAction } from './rail-pr-decision'
 import { launchIsolatedRail } from './rail-isolated-launch'
-import { repoIsolationStatus, defaultGitRunner, commitWorktree } from './worktree-manager'
+import { repoIsolationStatus, defaultGitRunner, commitWorktreeAndVerify } from './worktree-manager'
 import { releaseRailWorktrees } from './rail-worktree-release'
 import { checkoutProjectReviewBranch, getProjectGitInfo } from './project-git'
 import { defaultExec, pushBranch } from './pr-publisher'
@@ -670,7 +670,14 @@ export function createRailsRouter(): Router {
                     }
                     return
                   }
-                  await commitWorktree(defaultGitRunner, c.project.path, `specrails: PR follow-up (${loopRunIds.join(', ')})`)
+                  const commit = await commitWorktreeAndVerify(defaultGitRunner, c.project.path, `specrails: PR follow-up (${loopRunIds.join(', ')})`)
+                  if (!commit.clean) {
+                    console.error(`[rails-router] existing PR fallback commit verification failed: ${commit.error ?? 'dirty worktree'}${commit.dirty.length > 0 ? `; dirty=${commit.dirty.slice(0, 8).join(', ')}` : ''}`)
+                    if (transitionDecision(c.db, fallbackPrDeliveryId!, 'building', 'implementation_failed')) {
+                      emitPrDeliveryUpdate(c, fallbackPrDeliveryId!)
+                    }
+                    return
+                  }
                   const pushed = await pushBranch(defaultExec, {
                     repoDir: c.project.path,
                     branch: current.branch,
