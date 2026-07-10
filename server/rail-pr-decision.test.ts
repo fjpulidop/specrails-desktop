@@ -1533,6 +1533,38 @@ describe('race-safe and recoverable PR decisions', () => {
     },
   )
 
+  it('legacy blocked discard preserves an existing PR even when the continuation marker is missing', async () => {
+    const row = mkRow({ decision: 'pr_draft', prUrl: PR_URL, ticketIds: [1], isContinuation: false })
+    transitionDecision(db, row.id, 'pr_draft', 'pr_failed', {
+      implementationOutcome: 'succeeded',
+      deliveryOutcome: 'blocked',
+      statusCode: 'settlement_interrupted',
+      statusDetail: 'Recovered successful implementation from durable run logs.',
+    })
+    const { exec, calls: execCalls } = fakeExec()
+    const { git, calls: gitCalls } = fakeGit()
+    const { deps, jira } = mkDeps({ exec, git })
+
+    const result = await executePrDecision(deps, {
+      prDeliveryId: row.id, action: 'discard', expectedDecision: 'pr_failed',
+    })
+
+    expect(result).toMatchObject({
+      status: 200,
+      body: {
+        decision: 'discarded',
+        preservedExternalReview: true,
+      },
+    })
+    expect(execCalls.some((call) => call.cmd === 'gh' && call.args[1] === 'close')).toBe(false)
+    expect(gitCalls.some((call) => call.args[0] === 'branch' && call.args[1] === '-D')).toBe(false)
+    expect(readTicketStatuses(ticketFile)['1']).toBe('on_review')
+    expect(jira.onRailDiscard).not.toHaveBeenCalled()
+    expect(getPrDelivery(db, row.id)).toMatchObject({
+      decision: 'discarded', pr_url: PR_URL, is_continuation: 0,
+    })
+  })
+
   it('dismiss treats an already-released continuation worktree as idempotently clean', async () => {
     createRailWorktree(db, {
       id: 'released-continuation', railIndex: 0, ticketId: 1, branch: 'feat/1-t1',

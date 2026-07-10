@@ -71,6 +71,8 @@ If allocation of B fails, B becomes terminal and A is restored atomically. Clien
 
 Continuation ownership also changes destructive semantics. “Dismiss” clears a follow-up card and its Specrails-owned worktree without closing the pre-existing PR, deleting its head branch, or returning its tickets to the backlog. Only an explicitly described “Discard local result” may remove a blocked follow-up's uncommitted iteration; it still preserves the external PR and branch. Fresh deliveries retain the existing discard semantics.
 
+Legacy false-failure repair cannot always reconstruct the historical `is_continuation` bit. A blocked/recovered delivery that still carries a PR URL is therefore treated as external review state regardless of that bit: “Discard local result” may remove the explicitly confirmed local worktree, but it never closes the PR, deletes its head, or moves its review tickets. The visible consequence and server cleanup rule remain identical for migrated and newly-created cards.
+
 ### 4. Decision actions claim before effects and return authoritative state
 
 Before running `git`, `gh`, ticket, or cleanup effects, an action atomically claims the row with a unique token. Another surface receives a conflict before it can perform an effect. A bounded stale lease is reclaimable after process death. Every exit releases its own token; successful transitions preserve the claim until the new durable snapshot is written.
