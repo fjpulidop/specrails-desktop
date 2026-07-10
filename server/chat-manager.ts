@@ -1,4 +1,4 @@
-import { ChildProcess } from 'child_process'
+import { ChildProcess, type SpawnOptions as NodeSpawnOptions } from 'child_process'
 import { createInterface } from 'readline'
 import treeKill from 'tree-kill'
 import type { WsMessage } from './types'
@@ -102,6 +102,18 @@ export class ChatManager {
   private _buffers: Map<string, string>
   private _emittedProposals: Map<string, Set<string>>
   private _abortingConversations: Set<string>
+  /** Permanent lifecycle gate. Project contexts are not reusable after their
+   * DB is closed, so every public/asynchronous entry point must fail closed
+   * once shutdown starts. */
+  private _disposed = false
+  private _resolveDisposed!: () => void
+  private readonly _disposedSignal = new Promise<void>((resolve) => {
+    this._resolveDisposed = resolve
+  })
+  /** Active turn promises otherwise settle only when their child emits
+   * `close`. Shutdown must also settle them when a mocked/wedged child never
+   * closes, while late child callbacks become harmless no-ops. */
+  private _pendingTurnCancellations = new Set<() => void>()
   private _specDraftStates: Map<string, ConversationDraftState>
   /** Per-conversation live-strip state for `\`\`\`spec-draft` fenced blocks. */
   private _streamFilters: Map<string, StreamFilterState>
@@ -120,6 +132,9 @@ export class ChatManager {
   /** Persistent-stdin Explore transport (big bet #3, flag-gated default OFF).
    *  Holds long-lived claude children that survive between turns. */
   private _stdinSessions = new ExploreStdinSessions()
+  /** Mirror the transport's resident child handles so ChatManager can enforce
+   * its stronger process-group escalation for parked sessions too. */
+  private _persistentProcesses = new Map<string, ChildProcess>()
 
   /** MED-1: per-conversation cumulative usage snapshot for the persistent-stdin
    *  transport. One long-lived child serves every turn, so claude's `result`
@@ -133,6 +148,10 @@ export class ChatManager {
    *  tree-kill any in-flight one instead of orphaning it (BUG-CHAT-02). Each
    *  entry self-removes on its own `'close'`. */
   private _auxProcesses: Set<ChildProcess> = new Set()
+  /** Readline listeners owned by auxiliary children. Closing them at shutdown
+   * prevents buffered title output from running after the project DB closes. */
+  private _auxReaders = new Map<ChildProcess, ReturnType<typeof createInterface>>()
+  private _terminationTimers = new Map<ChildProcess, ReturnType<typeof setTimeout>>()
 
   private _cwd: string | undefined
   private _projectName: string | undefined
@@ -169,6 +188,71 @@ export class ChatManager {
   /** Compatibility accessor for tests that introspect the resolved provider. */
   get provider(): string {
     return this._adapter.id
+  }
+
+  private async _awaitWhileLive<T>(work: Promise<T>): Promise<
+    { disposed: true } | { disposed: false; value: T }
+  > {
+    if (this._disposed) return { disposed: true }
+    return Promise.race([
+      work.then((value) => ({ disposed: false as const, value })),
+      this._disposedSignal.then(() => ({ disposed: true as const })),
+    ])
+  }
+
+  /** POSIX children get a dedicated process group so escalation can still
+   * address descendants after the root CLI has already exited/reparented them.
+   * Windows uses taskkill /T /F through tree-kill instead. */
+  private _spawnOwned(binary: string, args: string[], options: NodeSpawnOptions = {}): ChildProcess {
+    if (process.platform === 'win32') return spawnAiCli(binary, args, options)
+    return spawnAiCli(binary, args, { ...options, detached: true })
+  }
+
+  /** Terminate the complete CLI/MCP subtree, escalating when SIGTERM is
+   * ignored. Do NOT cancel escalation when the root closes: descendants remain
+   * in the dedicated POSIX process group even after their parent exits. */
+  private _terminate(child: ChildProcess): void {
+    if (this._terminationTimers.has(child)) return
+    try {
+      if (!child.pid) {
+        child.kill('SIGTERM')
+        return
+      }
+      const pid = child.pid
+      treeKill(pid, 'SIGTERM')
+      const timer = setTimeout(() => {
+        this._terminationTimers.delete(child)
+        if (process.platform !== 'win32') {
+          // Negative PID targets the process GROUP. It remains addressable when
+          // the root has exited but an MCP descendant ignored SIGTERM.
+          try { process.kill(-pid, 'SIGKILL') } catch { /* group already gone */ }
+        } else {
+          try { treeKill(pid, 'SIGKILL', () => { /* best-effort */ }) } catch { /* gone */ }
+        }
+      }, 2000)
+      timer.unref?.()
+      this._terminationTimers.set(child, timer)
+    } catch {
+      /* already gone */
+    }
+  }
+
+  private _closeChildIo(child: ChildProcess): void {
+    try { child.stdin?.destroy() } catch { /* best-effort */ }
+    try { child.stdout?.destroy() } catch { /* best-effort */ }
+    try { child.stderr?.destroy() } catch { /* best-effort */ }
+  }
+
+  private _trackPersistentProcess(conversationId: string, child: ChildProcess): void {
+    if (this._persistentProcesses.get(conversationId) === child) return
+    this._persistentProcesses.set(conversationId, child)
+    const drop = () => {
+      if (this._persistentProcesses.get(conversationId) === child) {
+        this._persistentProcesses.delete(conversationId)
+      }
+    }
+    child.once('close', drop)
+    child.once('error', drop)
   }
 
   /**
@@ -214,16 +298,16 @@ export class ChatManager {
   }
 
   private _startIdleTimer(conversationId: string): void {
+    if (this._disposed) return
     const life = this._exploreLifecycle.get(conversationId)
     if (!life) return
     if (life.isStreaming) return
     if (!life.isMinimized) return
     this._clearIdleTimer(conversationId)
     life.idleTimer = setTimeout(() => {
-      const child = this._activeProcesses.get(conversationId)
-      if (child?.pid) {
-        try { treeKill(child.pid, 'SIGTERM') } catch { /* best-effort */ }
-      }
+      if (this._disposed) return
+      const child = this._activeProcesses.get(conversationId) ?? this._persistentProcesses.get(conversationId)
+      if (child) this._terminate(child)
       // Persistent-stdin children live OUTSIDE _activeProcesses between turns —
       // idle-kill must reach them too (the next turn re-spawns with --resume).
       this._stdinSessions.kill(conversationId)
@@ -236,6 +320,7 @@ export class ChatManager {
    * the timer starts when the turn completes.
    */
   notifyMinimized(conversationId: string): void {
+    if (this._disposed) return
     const life = this._getOrCreateExploreLifecycle(conversationId)
     life.isMinimized = true
     life.lastActivityAt = Date.now()
@@ -245,6 +330,7 @@ export class ChatManager {
   /** Mark an Explore conversation as restored (un-minimized). Cancels the
    *  pending idle-kill timer if any. */
   notifyRestored(conversationId: string): void {
+    if (this._disposed) return
     const life = this._exploreLifecycle.get(conversationId)
     if (!life) return
     life.isMinimized = false
@@ -274,6 +360,7 @@ export class ChatManager {
   }
 
   private _drainExploreQueue(): void {
+    if (this._disposed) return
     // A released waiter does NOT flip its `isStreaming` flag synchronously — it
     // does so only when its awaiting sendMessage continuation runs as a later
     // microtask. So `_countStreamingExplore()` stays stale across this fully
@@ -290,7 +377,8 @@ export class ChatManager {
     }
   }
 
-  private async _waitForExploreSlot(conversationId: string): Promise<'ok' | 'busy'> {
+  private async _waitForExploreSlot(conversationId: string): Promise<'ok' | 'busy' | 'disposed'> {
+    if (this._disposed) return 'disposed'
     if (this._countStreamingExplore() < EXPLORE_MAX_CONCURRENCY) return 'ok'
     // M14: a streaming slot is freed only when a STREAMING turn ends. The old code
     // evicted an idle (non-streaming) victim and immediately returned 'ok' — but
@@ -301,10 +389,8 @@ export class ChatManager {
     // stray child) but only grant the slot if the streaming count actually dropped.
     const victim = this._findIdleExploreVictim(conversationId)
     if (victim) {
-      const child = this._activeProcesses.get(victim)
-      if (child?.pid) {
-        try { treeKill(child.pid, 'SIGTERM') } catch { /* best-effort */ }
-      }
+      const child = this._activeProcesses.get(victim) ?? this._persistentProcesses.get(victim)
+      if (child) this._terminate(child)
       // Reclaim the slot from a persistent-stdin child parked between turns.
       this._stdinSessions.kill(victim)
       this._clearIdleTimer(victim)
@@ -312,7 +398,7 @@ export class ChatManager {
       if (this._countStreamingExplore() < EXPLORE_MAX_CONCURRENCY) return 'ok'
     }
     // Still at cap — queue with timeout until a streaming turn completes.
-    return new Promise<'ok' | 'busy'>((resolve) => {
+    return new Promise<'ok' | 'busy' | 'disposed'>((resolve) => {
       const timeoutTimer = setTimeout(() => {
         const idx = this._exploreQueue.findIndex((q) => q.conversationId === conversationId)
         if (idx >= 0) this._exploreQueue.splice(idx, 1)
@@ -323,7 +409,7 @@ export class ChatManager {
         enqueuedAt: Date.now(),
         timeoutTimer,
         onSlot: () => resolve('ok'),
-        onTimeout: () => resolve('busy'),
+        onTimeout: () => resolve(this._disposed ? 'disposed' : 'busy'),
       })
     })
   }
@@ -401,6 +487,7 @@ export class ChatManager {
 
   /** Drop the per-conversation draft state (used on conversation deletion). */
   forgetSpecDraft(conversationId: string): void {
+    if (this._disposed) return
     this._specDraftStates.delete(conversationId)
   }
 
@@ -409,6 +496,7 @@ export class ChatManager {
    *  a refresh / minimize cycle so updates Claude pushed while no shell
    *  was subscribed don't get lost. */
   getSpecDraftState(conversationId: string): ConversationDraftState | null {
+    if (this._disposed) return null
     return this._specDraftStates.get(conversationId) ?? null
   }
 
@@ -532,10 +620,11 @@ export class ChatManager {
   }
 
   isActive(conversationId: string): boolean {
-    return this._activeProcesses.has(conversationId)
+    return !this._disposed && this._activeProcesses.has(conversationId)
   }
 
   async sendMessage(conversationId: string, userText: string, options?: SendMessageOptions): Promise<void> {
+    if (this._disposed) return
     if (this._activeProcesses.has(conversationId) || this._reservedTurns.has(conversationId)) {
       console.warn(`[ChatManager] conversation ${conversationId} already has an active or pending stream`)
       return
@@ -570,6 +659,7 @@ export class ChatManager {
     // Explore: enforce per-project concurrency cap before doing any work.
     if (conversation.kind === 'explore') {
       const slot = await this._waitForExploreSlot(conversationId)
+      if (this._disposed || slot === 'disposed') return
       if (slot === 'busy') {
         this._broadcast({
           type: 'chat_error',
@@ -601,11 +691,15 @@ export class ChatManager {
     let hasAttachments = false
     if (options?.attachments && options.attachments.ids.length > 0) {
       try {
-        const { textBlocks } = await attachmentManager.getClaudeArgs(
-          options.attachments.slug,
-          options.attachments.ticketKey,
-          options.attachments.ids,
+        const attachmentResult = await this._awaitWhileLive(
+          attachmentManager.getClaudeArgs(
+            options.attachments.slug,
+            options.attachments.ticketKey,
+            options.attachments.ids,
+          ),
         )
+        if (attachmentResult.disposed) return
+        const { textBlocks } = attachmentResult.value
         if (textBlocks.length > 0) {
           resolvedText = `${resolvedText}\n\n## Attached Resources\n\n${textBlocks.join('\n\n')}`
           hasAttachments = true
@@ -613,6 +707,9 @@ export class ChatManager {
       } catch (err) {
         console.error(`[chat-manager] attachment extraction failed (${conversationId}):`, err)
       }
+      // Project removal may close the DB while attachment extraction is in
+      // flight. Never continue into context reads or a new spawn afterwards.
+      if (this._disposed) return
     }
 
     // Build spawn args via the resolved adapter. System prompt placement
@@ -740,7 +837,7 @@ export class ChatManager {
       })
     }
 
-    const child = spawnAiCli(binary, args, {
+    const child = this._spawnOwned(binary, args, {
       env: spawnEnv,
       stdio: ['ignore', 'pipe', 'pipe'],
       cwd: spawnCwd,
@@ -749,6 +846,7 @@ export class ChatManager {
     let stderrBuf = ''
     // Drain stderr so the pipe buffer never fills up (child process would block otherwise)
     child.stderr?.on('data', (chunk: Buffer) => {
+      if (this._disposed) return
       const text = chunk.toString()
       stderrBuf += text
       console.error(`[chat-manager] ${binary} stderr (${conversationId}):`, text.trim())
@@ -762,6 +860,7 @@ export class ChatManager {
     // Surface ENOENT (e.g. claude not on PATH) instead of crashing the app.
     /* c8 ignore start -- spawn-failure path; exercised manually, not in CI */
     child.on('error', (err) => {
+      if (this._disposed) return
       console.error(`[chat-manager] spawn failed for ${conversationId}: ${err.message}`)
       this._activeProcesses.delete(conversationId)
       this._buffers.delete(conversationId)
@@ -790,6 +889,7 @@ export class ChatManager {
     const stdoutReader = createInterface({ input: child.stdout!, crlfDelay: Infinity })
 
     const emitDelta = (newText: string) => {
+      if (this._disposed) return
       const prev = this._buffers.get(conversationId) ?? ''
       const updated = prev + newText
       this._buffers.set(conversationId, updated)
@@ -827,6 +927,7 @@ export class ChatManager {
     }
 
     const readerHandler = (line: string) => {
+      if (this._disposed) return
       const ev = adapter.parseStreamLine(line)
       if (!ev) return
       adapterEvents.push(ev)
@@ -867,7 +968,36 @@ export class ChatManager {
     let currentChild = child
     void currentChild // keep reference live for crash respawn
     return new Promise<void>((resolve) => {
+      let settled = false
+      const readers = new Set([stdoutReader])
+      const closeChildren = new Set<ChildProcess>([child])
+      const complete = () => {
+        if (settled) return
+        settled = true
+        this._pendingTurnCancellations.delete(cancelForShutdown)
+        resolve()
+      }
+      const cancelForShutdown = () => {
+        if (settled) return
+        for (const reader of readers) {
+          try { reader.close() } catch { /* best-effort */ }
+        }
+        for (const ownedChild of closeChildren) {
+          ownedChild.removeListener('close', onClose)
+        }
+        this._activeProcesses.delete(conversationId)
+        this._buffers.delete(conversationId)
+        this._emittedProposals.delete(conversationId)
+        this._abortingConversations.delete(conversationId)
+        this._streamFilters.delete(conversationId)
+        complete()
+      }
       const onClose = (code: number | null) => {
+        if (settled) return
+        if (this._disposed) {
+          cancelForShutdown()
+          return
+        }
         console.log(`[chat-manager] ${adapter.id} exited code=${code} conv=${conversationId}`)
         const fullText = this._buffers.get(conversationId) ?? ''
         const wasAborting = this._abortingConversations.has(conversationId)
@@ -908,12 +1038,13 @@ export class ChatManager {
                 : args
             console.warn(`[chat-manager] explore crash respawn for ${conversationId}`)
             try {
-              const newChild = spawnAiCli(binary, respawnArgs, {
+              const newChild = this._spawnOwned(binary, respawnArgs, {
                 env: process.env,
                 stdio: ['ignore', 'pipe', 'pipe'],
                 cwd: spawnCwd,
               })
               currentChild = newChild
+              closeChildren.add(newChild)
               args = respawnArgs
               // MED-2: the crashed spawn already burned tokens (tool-call rounds
               // before the crash). Its usage was aggregated into adapterEvents by
@@ -940,6 +1071,7 @@ export class ChatManager {
               adapterEvents.length = 0
               this._activeProcesses.set(conversationId, newChild)
               newChild.stderr?.on('data', (chunk: Buffer) => {
+                if (this._disposed) return
                 const text = chunk.toString()
                 stderrBuf += text
                 console.error(`[chat-manager] ${binary} stderr (${conversationId}):`, text.trim())
@@ -951,6 +1083,10 @@ export class ChatManager {
               // event and crash the entire app. Mirror the original handler.
               /* c8 ignore start -- respawn spawn-failure path; exercised manually, not in CI */
               newChild.on('error', (err) => {
+                if (this._disposed) {
+                  cancelForShutdown()
+                  return
+                }
                 console.error(`[chat-manager] explore crash-respawn spawn failed for ${conversationId}: ${err.message}`)
                 // MED-2: the respawn never streamed a result event, so the normal
                 // close-path recording is bypassed. Record whatever usage the
@@ -983,10 +1119,11 @@ export class ChatManager {
                   error: `Failed to launch ${binary}: ${err.message}`,
                   timestamp: new Date().toISOString(),
                 })
-                resolve()
+                complete()
               })
               /* c8 ignore stop */
               const newReader = createInterface({ input: newChild.stdout!, crlfDelay: Infinity })
+              readers.add(newReader)
               newReader.on('line', readerHandler)
               newChild.on('close', onClose)
               return
@@ -1036,7 +1173,7 @@ export class ChatManager {
 
         if (wasAborting) {
           // abort already emitted chat_error
-          resolve()
+          complete()
           return
         }
 
@@ -1102,8 +1239,9 @@ export class ChatManager {
           })
         }
 
-        resolve()
+        complete()
       }
+      this._pendingTurnCancellations.add(cancelForShutdown)
       child.on('close', onClose)
     })
     } finally {
@@ -1139,6 +1277,7 @@ export class ChatManager {
     lightweight: boolean
     conversationScope: ContextScope | null
   }): Promise<void> {
+    if (this._disposed) return
     const {
       conversationId, conversation, adapter, binary, model, systemPrompt,
       scopeFlags, spawnCwd, promptForAdapter, isFirstTurn, userText,
@@ -1155,8 +1294,9 @@ export class ChatManager {
     })
 
     const { child, isNew } = this._stdinSessions.getOrSpawn(conversationId, {
-      binary, args: sessionArgs, cwd: spawnCwd, env: process.env,
+      binary, args: sessionArgs, cwd: spawnCwd, env: process.env, spawn: this._spawnOwned.bind(this),
     })
+    this._trackPersistentProcess(conversationId, child)
     // MED-1: a fresh child restarts claude's session-cumulative counters at 0,
     // so drop any stale baseline. The next turn diffs against zero.
     if (isNew) this._stdinCumulative.delete(conversationId)
@@ -1171,6 +1311,7 @@ export class ChatManager {
     const turnStartedAt = new Date().toISOString()
 
     const emitDelta = (newText: string) => {
+      if (this._disposed) return
       const prev = this._buffers.get(conversationId) ?? ''
       this._buffers.set(conversationId, prev + newText)
       const filter = this._streamFilters.get(conversationId)
@@ -1201,6 +1342,7 @@ export class ChatManager {
     }
 
     const recordInv = (status: 'success' | 'failed' | 'aborted') => {
+      if (this._disposed) return
       if (!this._projectId) return
       try {
         const { result, estimated } = finaliseInvocationResult(adapter, adapterEvents, {
@@ -1273,6 +1415,7 @@ export class ChatManager {
     }
 
     const markStreamingEnded = (success: boolean) => {
+      if (this._disposed) return
       const life = this._exploreLifecycle.get(conversationId)
       if (life) {
         life.isStreaming = false
@@ -1285,6 +1428,18 @@ export class ChatManager {
 
     return new Promise<void>((resolve) => {
       let settled = false
+      const complete = () => {
+        this._pendingTurnCancellations.delete(cancelForShutdown)
+        resolve()
+      }
+      const cancelForShutdown = () => {
+        if (settled) return
+        settled = true
+        this._stdinSessions.clearHandlers(conversationId)
+        cleanupTurnState()
+        this._abortingConversations.delete(conversationId)
+        complete()
+      }
       // LOW-7: the persistent transport ends the turn on the `result` event even
       // when that event reports a failure (is_error / an `error_*` subtype, e.g.
       // error_max_turns). Recording those as status='success' misreports the
@@ -1294,6 +1449,10 @@ export class ChatManager {
 
       const finishTurn = () => {
         if (settled) return
+        if (this._disposed) {
+          cancelForShutdown()
+          return
+        }
         settled = true
         this._stdinSessions.clearHandlers(conversationId)
         const fullText = this._buffers.get(conversationId) ?? ''
@@ -1307,7 +1466,7 @@ export class ChatManager {
         // user-cancelled — do NOT persist the partial assistant message, update
         // the session, or broadcast chat_done (mirrors the legacy close handler).
         if (wasAborting) {
-          resolve()
+          complete()
           return
         }
 
@@ -1342,7 +1501,7 @@ export class ChatManager {
         if (isFirstTurn && fullText && !lightweight) {
           this._autoTitle(conversationId, userText, fullText)
         }
-        resolve()
+        complete()
       }
 
       const onClose = (code: number | null) => {
@@ -1351,6 +1510,10 @@ export class ChatManager {
         // the session is evicted by the transport; the next turn re-spawns with
         // `--resume`, so no persisted state is lost.
         if (settled) return
+        if (this._disposed) {
+          cancelForShutdown()
+          return
+        }
         settled = true
         this._stdinSessions.clearHandlers(conversationId)
         const wasAborting = this._abortingConversations.has(conversationId)
@@ -1359,7 +1522,7 @@ export class ChatManager {
         markStreamingEnded(false)
         recordInv(wasAborting ? 'aborted' : 'failed')
         if (wasAborting) {
-          resolve()
+          complete()
           return
         }
         const stderrTail = stderrBuf.trim().slice(-500)
@@ -1371,10 +1534,11 @@ export class ChatManager {
             : `Process exited with code ${code ?? 'unknown'}`,
           timestamp: new Date().toISOString(),
         })
-        resolve()
+        complete()
       }
 
       const onLine = (line: string) => {
+        if (this._disposed || settled) return
         const ev = adapter.parseStreamLine(line)
         if (!ev) return
         adapterEvents.push(ev)
@@ -1403,11 +1567,13 @@ export class ChatManager {
       this._stdinSessions.setHandlers(conversationId, {
         onLine,
         onStderr: (s) => {
+          if (this._disposed || settled) return
           stderrBuf += s
           console.error(`[chat-manager] ${binary} stderr (${conversationId}):`, s.trim())
         },
         onClose,
       })
+      this._pendingTurnCancellations.add(cancelForShutdown)
 
       if (!this._stdinSessions.writeTurn(conversationId, promptForAdapter)) {
         // stdin already gone (child died between spawn and write) — fail the turn.
@@ -1417,11 +1583,12 @@ export class ChatManager {
   }
 
   abort(conversationId: string): void {
+    if (this._disposed) return
     const child = this._activeProcesses.get(conversationId)
     if (!child || !child.pid) return
 
     this._abortingConversations.add(conversationId)
-    treeKill(child.pid, 'SIGTERM')
+    this._terminate(child)
 
     this._broadcast({
       type: 'chat_error',
@@ -1439,11 +1606,18 @@ export class ChatManager {
    * armed timers) don't accumulate for the lifetime of the project.
    */
   forgetExploreLifecycle(conversationId: string): void {
+    if (this._disposed) return
     this._clearIdleTimer(conversationId)
     const idx = this._exploreQueue.findIndex((q) => q.conversationId === conversationId)
     if (idx >= 0) {
       clearTimeout(this._exploreQueue[idx].timeoutTimer)
       this._exploreQueue.splice(idx, 1)
+    }
+    const persistentChild = this._persistentProcesses.get(conversationId)
+    if (persistentChild) {
+      this._terminate(persistentChild)
+      this._closeChildIo(persistentChild)
+      this._persistentProcesses.delete(conversationId)
     }
     this._stdinSessions.kill(conversationId)
     this._stdinCumulative.delete(conversationId)
@@ -1458,36 +1632,60 @@ export class ChatManager {
    * app exits and keep consuming API quota/CPU. Idempotent.
    */
   shutdown(): void {
-    for (const child of this._activeProcesses.values()) {
-      if (child?.pid) {
-        try { treeKill(child.pid, 'SIGTERM') } catch { /* best-effort */ }
-      }
+    if (this._disposed) return
+    this._disposed = true
+    this._resolveDisposed()
+
+    // Snapshot before cancellation callbacks remove ownership from the maps.
+    const ownedChildren = new Set([
+      ...this._activeProcesses.values(),
+      ...this._persistentProcesses.values(),
+    ])
+    const auxChildren = Array.from(this._auxProcesses)
+
+    // Settle every queued capacity waiter and every spawned-turn promise now;
+    // do not rely on a killed/wedged child eventually emitting `close`.
+    for (const q of this._exploreQueue) {
+      clearTimeout(q.timeoutTimer)
+      q.onTimeout()
+    }
+    this._exploreQueue = []
+    for (const cancel of Array.from(this._pendingTurnCancellations)) cancel()
+    this._pendingTurnCancellations.clear()
+
+    for (const child of ownedChildren) {
+      // ChatManager's process-group timer remains authoritative even for
+      // persistent children: the transport's legacy root-PID escalation cannot
+      // reach a resistant MCP after the root exits.
+      this._terminate(child)
+      this._closeChildIo(child)
     }
     // Persistent-stdin children outlive individual turns — tear them down too.
     this._stdinSessions.killAll()
+    this._persistentProcesses.clear()
     this._stdinCumulative.clear()
     // Fire-and-forget auxiliary children (auto-title) are not keyed by
     // conversation; tree-kill any in-flight one so it isn't orphaned on
     // shutdown / project removal (BUG-CHAT-02).
-    for (const child of this._auxProcesses) {
-      if (child?.pid) {
-        try { treeKill(child.pid, 'SIGTERM') } catch { /* best-effort */ }
-      }
+    for (const child of auxChildren) {
+      const reader = this._auxReaders.get(child)
+      try { reader?.close() } catch { /* best-effort */ }
+      this._terminate(child)
+      this._closeChildIo(child)
     }
+    this._auxReaders.clear()
     this._auxProcesses.clear()
     for (const id of this._exploreLifecycle.keys()) {
       this._clearIdleTimer(id)
     }
-    for (const q of this._exploreQueue) {
-      clearTimeout(q.timeoutTimer)
-    }
-    this._exploreQueue = []
     this._activeProcesses.clear()
+    this._reservedTurns.clear()
     this._buffers.clear()
     this._emittedProposals.clear()
     this._abortingConversations.clear()
     this._streamFilters.clear()
     this._exploreLifecycle.clear()
+    this._specDraftStates.clear()
   }
 
   /**
@@ -1517,6 +1715,7 @@ export class ChatManager {
     /** Defaults to `conversationId`. Auto-title passes `title:<conversationId>`. */
     surfaceRefId?: string
   }): void {
+    if (this._disposed) return
     if (!this._projectId) return
     if (opts.kind !== 'explore' && opts.kind !== 'sidebar') return
     const surface: Surface = opts.kind === 'explore' ? 'explore-spec' : 'chat-sidebar'
@@ -1544,6 +1743,7 @@ export class ChatManager {
   }
 
   private _autoTitle(conversationId: string, firstUserMsg: string, firstResponse: string): void {
+    if (this._disposed) return
     try {
       // Title generation runs on the conversation's own provider.
       const conv = getConversation(this._db, conversationId)
@@ -1556,7 +1756,7 @@ export class ChatManager {
         prompt: titlePrompt,
         model: adapter.defaultModel(),
       })
-      const child = spawnAiCli(adapter.binary, args, {
+      const child = this._spawnOwned(adapter.binary, args, {
         env: process.env,
         stdio: ['ignore', 'pipe', 'pipe'],
         cwd: this._cwd,
@@ -1574,8 +1774,10 @@ export class ChatManager {
       const titleEvents: AdapterEvent[] = []
       const titleStartedAt = new Date().toISOString()
       const reader = createInterface({ input: child.stdout!, crlfDelay: Infinity })
+      this._auxReaders.set(child, reader)
 
       reader.on('line', (line) => {
+        if (this._disposed) return
         const ev = adapter.parseStreamLine(line)
         if (!ev) return
         titleEvents.push(ev)
@@ -1586,8 +1788,16 @@ export class ChatManager {
         }
       })
 
+      child.on('error', () => {
+        this._auxProcesses.delete(child)
+        this._auxReaders.delete(child)
+        try { reader.close() } catch { /* best-effort */ }
+      })
       child.on('close', (code) => {
         this._auxProcesses.delete(child)
+        this._auxReaders.delete(child)
+        try { reader.close() } catch { /* best-effort */ }
+        if (this._disposed) return
         this._recordChatInvocation({
           conversationId,
           kind: conv?.kind,

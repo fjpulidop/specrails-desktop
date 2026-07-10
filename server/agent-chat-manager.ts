@@ -1,7 +1,8 @@
-import type { ChildProcess } from 'child_process'
+import type { ChildProcess, SpawnOptions as NodeSpawnOptions } from 'child_process'
 import { randomUUID } from 'crypto'
 import { createInterface } from 'readline'
 import { tmpdir } from 'os'
+import treeKill from 'tree-kill'
 import type { DbInstance } from './db'
 import type { WsMessage } from './types'
 import { getAdapter } from './providers'
@@ -77,6 +78,15 @@ export class AgentChatManager {
    *  shutdown() can tree-kill them instead of orphaning them. Self-removed on
    *  'close'/'error'. */
   private readonly _auxProcesses = new Set<ChildProcess>()
+  private readonly _auxReaders = new Map<ChildProcess, ReturnType<typeof createInterface>>()
+  private readonly _terminationTimers = new Map<ChildProcess, ReturnType<typeof setTimeout>>()
+  /** Permanent lifecycle gate: the app DB may be closed immediately after
+   * shutdown, so no delayed turn/title/card callback may touch it afterwards. */
+  private _disposed = false
+  private _resolveDisposed!: () => void
+  private readonly _disposedSignal = new Promise<void>((resolve) => {
+    this._resolveDisposed = resolve
+  })
 
   constructor(broadcast: (msg: WsMessage) => void, db: DbInstance, port: number, registry?: AgentContextRegistry | null) {
     this._broadcast = broadcast
@@ -85,14 +95,61 @@ export class AgentChatManager {
     this._registry = registry ?? null
   }
 
+  private async _awaitWhileLive<T>(work: Promise<T>): Promise<
+    { disposed: true } | { disposed: false; value: T }
+  > {
+    if (this._disposed) return { disposed: true }
+    return Promise.race([
+      work.then((value) => ({ disposed: false as const, value })),
+      this._disposedSignal.then(() => ({ disposed: true as const })),
+    ])
+  }
+
+  /** Own a dedicated POSIX process group so descendants remain killable after
+   * the root CLI exits. Windows tree termination is provided by taskkill /T /F. */
+  private _spawnOwned(binary: string, args: string[], options: NodeSpawnOptions = {}): ChildProcess {
+    if (process.platform === 'win32') return spawnAiCli(binary, args, options)
+    return spawnAiCli(binary, args, { ...options, detached: true })
+  }
+
+  private _terminate(child: ChildProcess): void {
+    if (this._terminationTimers.has(child)) return
+    try {
+      if (!child.pid) {
+        child.kill('SIGTERM')
+        return
+      }
+      const pid = child.pid
+      treeKill(pid, 'SIGTERM')
+      const timer = setTimeout(() => {
+        this._terminationTimers.delete(child)
+        if (process.platform !== 'win32') {
+          try { process.kill(-pid, 'SIGKILL') } catch { /* group already gone */ }
+        } else {
+          try { treeKill(pid, 'SIGKILL', () => { /* best-effort */ }) } catch { /* gone */ }
+        }
+      }, 2000)
+      timer.unref?.()
+      this._terminationTimers.set(child, timer)
+    } catch {
+      /* already gone */
+    }
+  }
+
+  private _closeChildIo(child: ChildProcess): void {
+    try { child.stdin?.destroy() } catch { /* best-effort */ }
+    try { child.stdout?.destroy() } catch { /* best-effort */ }
+    try { child.stderr?.destroy() } catch { /* best-effort */ }
+  }
+
   /** True while a turn is streaming for this conversation. */
   isStreaming(conversationId: string): boolean {
-    return this._active.has(conversationId)
+    return !this._disposed && this._active.has(conversationId)
   }
 
   /** True while a turn is in flight (spawned or reserved) — a send now queues. */
   isBusy(conversationId: string): boolean {
-    return this._active.has(conversationId) || this._reserved.has(conversationId)
+    return !this._disposed && (this._active.has(conversationId) || this._reserved.has(conversationId))
   }
 
   /**
@@ -106,6 +163,7 @@ export class AgentChatManager {
    * Queued turns drain FIFO after the current turn settles; abort discards them.
    */
   async sendMessage(conversationId: string, userText: string, options: AgentTurnOptions = {}): Promise<void> {
+    if (this._disposed) return
     const conversation = getAgentConversation(this._db, conversationId)
     if (!conversation) {
       this._emitError(conversationId, 'Unknown conversation')
@@ -133,12 +191,14 @@ export class AgentChatManager {
       // Drain messages queued while we were running. Each drained turn re-reads
       // the conversation row so a mid-flight tier/provider/model change applies.
       for (;;) {
+        if (this._disposed) break
         const pending = this._queue.get(conversationId)
         const next = pending?.shift()
         if (!next) break
         if (pending && pending.length === 0) this._queue.delete(conversationId)
         const conv = getAgentConversation(this._db, conversationId)
         if (!conv) break // deleted mid-drain (abort() already cleared the queue)
+        if (this._disposed) break
         this._broadcast({
           type: 'agent_dequeued',
           conversationId,
@@ -165,6 +225,7 @@ export class AgentChatManager {
     try {
       await this._runTurn(conversation, userText, options)
     } catch (err) {
+      if (this._disposed) return
       console.error(`[agent-chat] turn failed (${conversation.id}):`, err)
       this._emitError(conversation.id, err instanceof Error ? err.message : 'The agent turn failed.')
     }
@@ -175,6 +236,7 @@ export class AgentChatManager {
     userText: string,
     options: AgentTurnOptions,
   ): Promise<void> {
+    if (this._disposed) return
     const conversationId = conversation.id
     const tierLevel = normalizeLevel(options.tierLevel ?? conversation.tier_level)
     const adapter = getAdapter(conversation.provider)
@@ -202,16 +264,22 @@ export class AgentChatManager {
     let hasAttachments = false
     if (attachmentIds.length > 0) {
       try {
-        const resolved = await attachmentManager.getClaudeArgsAgent(conversationId, attachmentIds)
+        const attachmentResult = await this._awaitWhileLive(
+          attachmentManager.getClaudeArgsAgent(conversationId, attachmentIds),
+        )
+        if (attachmentResult.disposed) return
+        const resolved = attachmentResult.value
         if (resolved.textBlocks.length > 0) {
           userWithAttachments = `${userText}\n\n## Attached Resources\n\n${resolved.textBlocks.join('\n\n')}`
           hasAttachments = true
         }
         imagePaths = resolved.imagePaths
       } catch (err) {
+        if (this._disposed) return
         console.error(`[agent-chat] attachment extraction failed (${conversationId}):`, err)
       }
     }
+    if (this._disposed) return
     const contextBlock = buildResolvedAgentContextBlock(options.contextRefs ?? [], {
       desktopDb: this._db,
       registry: this._registry,
@@ -282,6 +350,7 @@ export class AgentChatManager {
       const timestamp = (): string => new Date().toISOString()
 
       interface TurnOutcome {
+        disposed: boolean
         text: string
         sessionId: string | null
         error: string | null
@@ -306,11 +375,12 @@ export class AgentChatManager {
             `action=${action} model=${model} cwd=${cwd} mcp=${mcpArgs.length ? 'mcp-config' : Object.keys(mcpEnv).join(',') || 'none'}`,
         )
 
-        const result = await runAiCliInvocation({
+        const invocation = this._awaitWhileLive(runAiCliInvocation({
           adapter,
           action,
           cwd,
           env: { ...process.env, ...mcpEnv },
+          spawn: this._spawnOwned.bind(this),
           buildOpts: {
             prompt,
             systemPrompt: adapter.capabilities.systemPromptArg ? systemPrompt : undefined,
@@ -321,9 +391,14 @@ export class AgentChatManager {
             reasoning_effort: reasoningEffort,
           },
           onSpawn: (child) => {
+            if (this._disposed) {
+              this._terminate(child)
+              return
+            }
             this._active.set(conversationId, child)
           },
           onEvent: (ev) => {
+            if (this._disposed) return
             switch (ev.kind) {
               case 'text-delta':
                 streamed += ev.text
@@ -354,7 +429,24 @@ export class AgentChatManager {
                 break
             }
           },
-        })
+        }))
+
+        const invocationResult = await invocation
+        if (invocationResult.disposed) {
+          this._active.delete(conversationId)
+          return {
+            disposed: true,
+            text: '',
+            sessionId: capturedSessionId,
+            error: null,
+            code: null,
+            spawnFailed: false,
+            stderrTail: '',
+            events: [],
+            startedAt,
+          }
+        }
+        const result = invocationResult.value
 
         this._active.delete(conversationId)
         const text = streamed.trim()
@@ -365,7 +457,7 @@ export class AgentChatManager {
         if (result.stderrTail && (result.spawnFailed || (result.code ?? 0) !== 0 || !text)) {
           console.error(`[agent-chat] ${adapter.id} stderr:\n${result.stderrTail}`)
         }
-        return { text, sessionId: capturedSessionId, error: capturedError, code: result.code, spawnFailed: result.spawnFailed, stderrTail: result.stderrTail, events: result.events, startedAt }
+        return { disposed: false, text, sessionId: capturedSessionId, error: capturedError, code: result.code, spawnFailed: result.spawnFailed, stderrTail: result.stderrTail, events: result.events, startedAt }
       }
 
       // Conversation CONFIG (provider/model/tier) is owned by the PATCH route —
@@ -375,12 +467,14 @@ export class AgentChatManager {
       // is still the one this turn actually ran on (a foreign session id must not
       // pollute the new provider's freshly-reset state).
       const persistSession = (sessionId: string | null): void => {
+        if (this._disposed) return
         const fresh = getAgentConversation(this._db, conversationId)
         if (fresh && fresh.provider === conversation.provider) {
           updateAgentConversation(this._db, conversationId, { session_id: sessionId })
         }
       }
       const settleAborted = (r: { text: string; sessionId: string | null }): void => {
+        if (this._disposed) return
         // Deliberate user Stop: keep any partial text (it was already streamed to
         // the client), never auto-heal, never surface an error.
         if (r.text && getAgentConversation(this._db, conversationId)) {
@@ -394,11 +488,13 @@ export class AgentChatManager {
       // terminal branch we exit through. `pinned_project_id` is captured at turn
       // start (NULL = Home / app-global).
       const record = (outcome: TurnOutcome, status: AgentInvocationStatus): void => {
+        if (this._disposed || outcome.disposed) return
         this._recordTurn(conversation, adapter, model, outcome, status)
       }
 
       const canResume = !!conversation.session_id && adapter.capabilities.nativeResume
       let r = await invoke(canResume)
+      if (this._disposed || r.disposed) return
 
       // Deleted mid-turn (DELETE aborts the child and drops the row): stop here —
       // no auto-heal respawn, no FK-violating assistant INSERT. The spawn still
@@ -420,6 +516,7 @@ export class AgentChatManager {
         console.log(`[agent-chat] resume produced no text — retrying fresh conv=${conversationId}`)
         updateAgentConversation(this._db, conversationId, { session_id: null })
         r = await invoke(false)
+        if (this._disposed || r.disposed) return
         if (!getAgentConversation(this._db, conversationId)) {
           record(r, 'aborted')
           return
@@ -480,6 +577,7 @@ export class AgentChatManager {
     outcome: { events: AdapterEvent[]; startedAt: string; sessionId: string | null },
     status: AgentInvocationStatus,
   ): void {
+    if (this._disposed) return
     try {
       const { result, estimated } = finaliseInvocationResult(adapter, outcome.events, {
         fallbackModel: model,
@@ -510,6 +608,7 @@ export class AgentChatManager {
    * `agent_title` so the sidebar list updates live.
    */
   private _autoTitle(conversationId: string, currentTitle: string | null): void {
+    if (this._disposed) return
     try {
       const userMsgs = listAgentMessages(this._db, conversationId).filter((m) => m.role === 'user')
       if (userMsgs.length === 0 || userMsgs.length > 2) return
@@ -537,6 +636,7 @@ export class AgentChatManager {
     firstUserMsg: string,
     firstResponse: string,
   ): void {
+    if (this._disposed) return
     try {
       const conversationId = conversation.id
       const assistantCount = listAgentMessages(this._db, conversationId).filter((m) => m.role === 'assistant').length
@@ -565,6 +665,7 @@ export class AgentChatManager {
     firstUserMsg: string,
     firstResponse: string,
   ): void {
+    if (this._disposed) return
     try {
       const conversationId = conversation.id
       const adapter = getAdapter(conversation.provider)
@@ -574,7 +675,7 @@ export class AgentChatManager {
         'Output ONLY the title text — no quotes, no punctuation, no markdown, no preamble.\n\n' +
         `User: ${firstUserMsg.slice(0, 240)}\nAssistant: ${firstResponse.slice(0, 320)}`
       const args = adapter.buildArgs('auto-title', { prompt, model })
-      const child = spawnAiCli(adapter.binary, args, {
+      const child = this._spawnOwned(adapter.binary, args, {
         env: process.env,
         stdio: ['ignore', 'pipe', 'pipe'],
         cwd: tmpdir(),
@@ -585,7 +686,9 @@ export class AgentChatManager {
       const events: AdapterEvent[] = []
       const startedAt = new Date().toISOString()
       const reader = createInterface({ input: child.stdout!, crlfDelay: Infinity })
+      this._auxReaders.set(child, reader)
       reader.on('line', (line) => {
+        if (this._disposed) return
         const ev = adapter.parseStreamLine(line)
         if (!ev) return
         events.push(ev)
@@ -593,9 +696,14 @@ export class AgentChatManager {
       })
       child.on('error', () => {
         this._auxProcesses.delete(child)
+        this._auxReaders.delete(child)
+        try { reader.close() } catch { /* best-effort */ }
       })
       child.on('close', (code) => {
         this._auxProcesses.delete(child)
+        this._auxReaders.delete(child)
+        try { reader.close() } catch { /* best-effort */ }
+        if (this._disposed) return
         const fresh = getAgentConversation(this._db, conversationId)
         if (!fresh) return // deleted mid-generation — FK-safe: skip record + update
         // Cost accounting parity with ChatManager LOW-1: the title spawn is a
@@ -624,6 +732,7 @@ export class AgentChatManager {
    * NEVER throws — it runs inside rail settle paths.
    */
   postPrDecisionCard(conversationId: string, envelope: PrDecisionCardEnvelope): void {
+    if (this._disposed) return
     try {
       if (!getAgentConversation(this._db, conversationId)) {
         console.log(`[agent-chat] pr-decision card skipped — conversation gone (${conversationId})`)
@@ -644,6 +753,7 @@ export class AgentChatManager {
    * conversation delete/restore). NEVER throws — it runs inside decision paths.
    */
   updatePrDecisionCard(conversationId: string, envelope: PrDecisionCardEnvelope): void {
+    if (this._disposed) return
     try {
       const existing = findAgentSystemMessage(this._db, conversationId, (content) => {
         try {
@@ -681,6 +791,7 @@ export class AgentChatManager {
    * Success broadcasts `agent_queue_edited` so every open window updates its chip.
    */
   editQueued(conversationId: string, queueId: string, text: string): boolean {
+    if (this._disposed) return false
     const pending = this._queue.get(conversationId)
     const item = pending?.find((q) => q.queueId === queueId)
     if (!item) return false
@@ -701,15 +812,12 @@ export class AgentChatManager {
    *  and the settling turn is marked aborted so the stale-session auto-heal
    *  can never resurrect the stopped prompt as a fresh spawn. */
   abort(conversationId: string): boolean {
+    if (this._disposed) return false
     this._clearQueue(conversationId)
     if (this.isBusy(conversationId)) this._abortedTurns.add(conversationId)
     const child = this._active.get(conversationId)
     if (!child) return false
-    try {
-      child.kill('SIGTERM')
-    } catch {
-      /* ignore */
-    }
+    this._terminate(child)
     this._active.delete(conversationId)
     return true
   }
@@ -723,26 +831,32 @@ export class AgentChatManager {
 
   /** Kills all active turns (graceful shutdown). */
   async shutdown(): Promise<void> {
+    if (this._disposed) return
+    this._disposed = true
+    this._resolveDisposed()
     this._queue.clear()
+    this._reserved.clear()
+    this._abortedTurns.clear()
     for (const [, child] of this._active) {
-      try {
-        child.kill('SIGTERM')
-      } catch {
-        /* ignore */
-      }
+      this._terminate(child)
+      // runAiCliInvocation owns readline listeners and an unbounded event
+      // accumulator. Cut the pipes now so an uncooperative child cannot keep
+      // feeding that detached invocation during the SIGTERM grace window.
+      this._closeChildIo(child)
     }
     this._active.clear()
     for (const child of this._auxProcesses) {
-      try {
-        child.kill('SIGTERM')
-      } catch {
-        /* ignore */
-      }
+      const reader = this._auxReaders.get(child)
+      try { reader?.close() } catch { /* best-effort */ }
+      this._terminate(child)
+      this._closeChildIo(child)
     }
+    this._auxReaders.clear()
     this._auxProcesses.clear()
   }
 
   private _emitError(conversationId: string, error: string): void {
+    if (this._disposed) return
     this._broadcast({ type: 'agent_error', conversationId, error, timestamp: new Date().toISOString() })
   }
 }

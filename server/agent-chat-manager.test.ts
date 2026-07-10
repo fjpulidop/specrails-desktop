@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach, vi } from 'vitest'
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
 import { EventEmitter } from 'events'
 import { Readable } from 'stream'
 
@@ -38,6 +38,7 @@ vi.mock('./attachment-manager', () => ({
 }))
 
 import { spawn as mockSpawn } from 'child_process'
+import treeKill from 'tree-kill'
 import { AgentChatManager, sanitizeAgentTitle } from './agent-chat-manager'
 import { initDesktopDb } from './desktop-db'
 import {
@@ -45,9 +46,18 @@ import {
   getAgentConversation,
   updateAgentConversation,
   addAgentMessage,
+  listAgentMessages,
 } from './agent-store'
 import type { DbInstance } from './db'
 import { _resetAgentCapabilitiesForTest, verifyAgentCapability } from './mcp/agent-capability'
+
+beforeEach(() => {
+  vi.spyOn(process, 'kill').mockImplementation(() => true)
+})
+
+afterEach(() => {
+  vi.restoreAllMocks()
+})
 
 function createMockChildProcess(): any {
   const child = new EventEmitter() as any
@@ -375,6 +385,102 @@ describe('AgentChatManager AI title', () => {
     // assistantCount === 2 → gate skips the AI title, only the main turn spawned.
     expect(mockSpawn).toHaveBeenCalledTimes(1)
     expect(rows()).toHaveLength(1)
+  })
+
+  it('shutdown suppresses a late AI-title close callback and its DB writes', async () => {
+    const conv = createAgentConversation(db, { provider: 'claude', pinnedProjectId: null })
+    const mainChild = createMockChildProcess()
+    const titleChild = createMockChildProcess()
+    titleChild.pid = 51999
+    vi.mocked(mockSpawn)
+      .mockReturnValueOnce(mainChild)
+      .mockReturnValueOnce(titleChild)
+
+    const turn = mgr.sendMessage(conv.id, 'build a tiny calendar')
+    mainChild.stdout.push(assistantLine('Done.') + '\n')
+    mainChild.stdout.push(resultLine({
+      session_id: 'sess-title-shutdown',
+      total_cost_usd: 0.02,
+      model: 'claude-sonnet-4',
+      usage: { input_tokens: 20, output_tokens: 10 },
+    }) + '\n')
+    mainChild.stdout.push(null)
+    await new Promise<void>((resolve) => setImmediate(() => {
+      mainChild.emit('close', 0)
+      resolve()
+    }))
+    await turn
+    expect(mockSpawn).toHaveBeenCalledTimes(2)
+    const titleBeforeShutdown = getAgentConversation(db, conv.id)?.title
+    const rowsBeforeShutdown = rows().length
+
+    await mgr.shutdown()
+    expect(vi.mocked(treeKill)).toHaveBeenCalledWith(titleChild.pid, 'SIGTERM')
+    const broadcastsAtShutdown = broadcast.mock.calls.length
+
+    titleChild.emit('error', new Error('late title error'))
+    titleChild.emit('close', 0)
+    await new Promise((resolve) => setImmediate(resolve))
+
+    expect(getAgentConversation(db, conv.id)?.title).toBe(titleBeforeShutdown)
+    expect(rows()).toHaveLength(rowsBeforeShutdown)
+    expect(broadcast.mock.calls).toHaveLength(broadcastsAtShutdown)
+  })
+})
+
+describe('AgentChatManager lifecycle shutdown', () => {
+  let db: DbInstance
+  let broadcast: ReturnType<typeof vi.fn>
+  let mgr: AgentChatManager
+
+  beforeEach(() => {
+    vi.clearAllMocks()
+    _resetAgentCapabilitiesForTest()
+    db = initDesktopDb(':memory:')
+    broadcast = vi.fn()
+    mgr = new AgentChatManager(broadcast, db, 4200)
+  })
+
+  it('settles an in-flight turn, drops its queue, and blocks late auto-heal after shutdown', async () => {
+    const conv = createAgentConversation(db, { provider: 'claude', pinnedProjectId: null })
+    updateAgentConversation(db, conv.id, { session_id: 'stale-session' })
+    const child = createMockChildProcess()
+    child.pid = 51888
+    vi.mocked(mockSpawn).mockImplementationOnce(() => child) // deliberately left open
+
+    const first = mgr.sendMessage(conv.id, 'first')
+    await waitFor(() => vi.mocked(mockSpawn).mock.calls.length === 1)
+    await mgr.sendMessage(conv.id, 'queued', { queueId: 'q-after-shutdown' })
+    expect(mgr.isBusy(conv.id)).toBe(true)
+
+    vi.useFakeTimers()
+    await mgr.shutdown()
+    await mgr.shutdown() // idempotent: no duplicate signal/timer/listener ownership
+    await expect(first).resolves.toBeUndefined()
+    expect(vi.mocked(treeKill)).toHaveBeenCalledWith(child.pid, 'SIGTERM')
+    expect(vi.mocked(treeKill)).toHaveBeenCalledTimes(1)
+    expect(vi.mocked(mockSpawn).mock.calls[0][2]).toMatchObject({ detached: true })
+    // Root exits before grace; escalation must still target the detached group
+    // where a resistant MCP descendant remains.
+    child.emit('close', 1)
+    await vi.advanceTimersByTimeAsync(2000)
+    expect(vi.mocked(process.kill)).toHaveBeenCalledWith(-child.pid, 'SIGKILL')
+    vi.useRealTimers()
+    expect(mgr.isBusy(conv.id)).toBe(false)
+    expect(mgr.editQueued(conv.id, 'q-after-shutdown', 'edited')).toBe(false)
+    expect(mgr.abort(conv.id)).toBe(false)
+    const broadcastsAtShutdown = broadcast.mock.calls.length
+
+    // A no-output resume would normally trigger the fresh-session auto-heal.
+    // Its late close must not spawn again or drain the queued turn.
+    await new Promise((resolve) => setImmediate(resolve))
+    expect(mockSpawn).toHaveBeenCalledTimes(1)
+    expect(broadcast.mock.calls).toHaveLength(broadcastsAtShutdown)
+    expect(listAgentMessages(db, conv.id).some((m) => m.content === 'queued')).toBe(false)
+
+    await mgr.sendMessage(conv.id, 'after shutdown')
+    expect(mockSpawn).toHaveBeenCalledTimes(1)
+    expect(listAgentMessages(db, conv.id).some((m) => m.content === 'after shutdown')).toBe(false)
   })
 })
 

@@ -23,6 +23,7 @@ import { spawn as mockSpawn, execSync as mockExecSync } from 'child_process'
 import { buildUserMcpArgs as mockBuildUserMcpArgs } from './user-mcp-config'
 import treeKill from 'tree-kill'
 import { ChatManager } from './chat-manager'
+import { attachmentManager } from './attachment-manager'
 import { __resetBinaryProbeCacheForTest } from './binary-probe'
 import { initDb, createConversation, getConversation, createJob, finishJob } from './db'
 import { mirrorProjectEntry as cmMirror, workspaceLayout as cmLayout, resolveHome as cmResolveHome } from './artifact-registry'
@@ -85,6 +86,7 @@ describe('ChatManager', () => {
 
   beforeEach(() => {
     vi.resetAllMocks()
+    vi.spyOn(process, 'kill').mockImplementation(() => true)
     __resetBinaryProbeCacheForTest()
     vi.mocked(mockExecSync).mockReturnValue(Buffer.from('/usr/bin/claude'))
     db = initDb(':memory:')
@@ -1367,10 +1369,18 @@ describe('ChatManager', () => {
       const t = cmP.sendMessage(convId, 'hi', { lightweight: true })
       await driveTurn(child, [assistantEvent('ok'), resultEvent('sess-sd')])
       await t
+      vi.useFakeTimers()
       cmP.shutdown()
       // BUG-CHAT-01: persistent child is now torn down via treeKill (reaches the
       // cmd.exe-wrapper grandchildren on Windows), not the bare child.kill.
       expect(vi.mocked(treeKill)).toHaveBeenCalledWith(child.pid, 'SIGTERM')
+      expect(vi.mocked(mockSpawn).mock.calls[0][2]).toMatchObject({ detached: true })
+      // The persistent root can close while an MCP ignores TERM. ChatManager's
+      // own PGID timer must survive the transport's close-based timer cleanup.
+      child.emit('close', 0)
+      await vi.advanceTimersByTimeAsync(2000)
+      expect(vi.mocked(process.kill)).toHaveBeenCalledWith(-child.pid, 'SIGKILL')
+      vi.useRealTimers()
     })
 
     it('forgetExploreLifecycle() kills the parked persistent child', async () => {
@@ -1851,6 +1861,96 @@ describe('ChatManager', () => {
       // Settle the dangling turn.
       await finishProcess(c, 0)
       await sendPromise
+    })
+
+    it('shutdown settles an active turn without waiting for close and ignores late child output', async () => {
+      const cmL = new ChatManager(broadcast, db, '/tmp/proj', 'P', 'claude', 'pid-sd-active', 'sl-sd-active')
+      const convId = 'conv-sd-active'
+      createConversation(db, { id: convId, model: 'sonnet', kind: 'sidebar' })
+      const child = createMockChildProcess()
+      vi.mocked(mockSpawn).mockReturnValue(child as any)
+
+      const sendPromise = cmL.sendMessage(convId, 'hi')
+      await Promise.resolve(); await Promise.resolve()
+      expect(vi.mocked(mockSpawn)).toHaveBeenCalledTimes(1)
+
+      vi.useFakeTimers()
+      cmL.shutdown()
+      cmL.shutdown() // idempotent: no duplicate signal/timer/listener ownership
+      // A wedged/mock child that never emits close cannot pin project removal.
+      await expect(sendPromise).resolves.toBeUndefined()
+      const broadcastsAtShutdown = broadcast.mock.calls.length
+      expect(vi.mocked(treeKill)).toHaveBeenCalledWith(child.pid, 'SIGTERM')
+      expect(vi.mocked(treeKill)).toHaveBeenCalledTimes(1)
+
+      // Root exits during grace; a resistant MCP descendant is still in the
+      // detached process group and must remain addressable by the timer.
+      child.emit('close', 0)
+      await vi.advanceTimersByTimeAsync(2000)
+      expect(vi.mocked(process.kill)).toHaveBeenCalledWith(-child.pid, 'SIGKILL')
+      vi.useRealTimers()
+
+      // The root's close callback must not touch the soon-to-close DB or
+      // resurrect the client stream.
+      expect(broadcast.mock.calls).toHaveLength(broadcastsAtShutdown)
+      expect((db.prepare(
+        `SELECT COUNT(*) AS n FROM chat_messages WHERE conversation_id = ? AND role = 'assistant'`,
+      ).get(convId) as { n: number }).n).toBe(0)
+
+      // The lifecycle gate is permanent and side-effect free.
+      await cmL.sendMessage(convId, 'after shutdown')
+      cmL.notifyMinimized(convId)
+      expect(vi.mocked(mockSpawn)).toHaveBeenCalledTimes(1)
+      expect(vi.mocked(mockSpawn).mock.calls[0][2]).toMatchObject({ detached: true })
+      expect((cmL as unknown as { _exploreLifecycle: Map<string, unknown> })._exploreLifecycle.size).toBe(0)
+    })
+
+    it('shutdown releases every Explore capacity waiter and prevents queued spawns', async () => {
+      const cmL = new ChatManager(broadcast, db, '/tmp/proj', 'P', 'claude', 'pid-sd-wait', 'sl-sd-wait')
+      const children: ReturnType<typeof createMockChildProcess>[] = []
+      vi.mocked(mockSpawn).mockImplementation(() => {
+        const child = createMockChildProcess()
+        child.pid += children.length
+        children.push(child)
+        return child as any
+      })
+
+      const turns: Array<Promise<void>> = []
+      for (let i = 0; i < 5; i++) {
+        const id = `conv-sd-wait-${i}`
+        createConversation(db, { id, model: 'sonnet', kind: 'explore', contextScope: MCP_SCOPE })
+        turns.push(cmL.sendMessage(id, 'hold', { lightweight: true }))
+        await Promise.resolve(); await Promise.resolve()
+      }
+      createConversation(db, { id: 'conv-sd-wait-queued', model: 'sonnet', kind: 'explore', contextScope: MCP_SCOPE })
+      turns.push(cmL.sendMessage('conv-sd-wait-queued', 'queued', { lightweight: true }))
+      await Promise.resolve(); await Promise.resolve()
+      expect(vi.mocked(mockSpawn)).toHaveBeenCalledTimes(5)
+
+      cmL.shutdown()
+      await expect(Promise.all(turns)).resolves.toHaveLength(6)
+      expect(vi.mocked(mockSpawn)).toHaveBeenCalledTimes(5)
+      expect((cmL as unknown as { _exploreQueue: unknown[] })._exploreQueue).toHaveLength(0)
+      expect((cmL as unknown as { _reservedTurns: Set<string> })._reservedTurns.size).toBe(0)
+    })
+
+    it('shutdown releases a turn stuck in attachment extraction before it can spawn', async () => {
+      const cmL = new ChatManager(broadcast, db)
+      const convId = 'conv-sd-attachment'
+      createConversation(db, { id: convId, model: 'sonnet', kind: 'sidebar' })
+      vi.spyOn(attachmentManager, 'getClaudeArgs').mockImplementation(
+        () => new Promise(() => { /* deliberately wedged extractor */ }),
+      )
+
+      const sendPromise = cmL.sendMessage(convId, 'inspect this', {
+        attachments: { slug: 'project', ticketKey: 'draft', ids: ['att-1'] },
+      })
+      await Promise.resolve(); await Promise.resolve()
+      cmL.shutdown()
+
+      await expect(sendPromise).resolves.toBeUndefined()
+      expect(vi.mocked(mockSpawn)).not.toHaveBeenCalled()
+      expect((cmL as unknown as { _reservedTurns: Set<string> })._reservedTurns.size).toBe(0)
     })
   })
 
