@@ -69,6 +69,27 @@ describe('FileTree', () => {
     expect(screen.getByText('job-123456')).toBeInTheDocument()
   })
 
+  it('opens files with Enter and toggles folders with Space', async () => {
+    const onOpenFile = vi.fn()
+    global.fetch = vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({ entries: [
+        { path: 'src', kind: 'dir', provenance: { modifiedByTicketIds: [] } },
+        { path: 'src/foo.ts', kind: 'file', provenance: { modifiedByTicketIds: [] } },
+      ] }),
+    }) as never
+    render(wrap(<FileTree onOpenFile={onOpenFile} selectedPath={null} />))
+
+    const fileRow = await screen.findByTestId('file-tree-row-src/foo.ts')
+    fireEvent.keyDown(fileRow, { key: 'Enter' })
+    expect(onOpenFile).toHaveBeenCalledWith('src/foo.ts')
+
+    const folderRow = screen.getByTestId('file-tree-row-src')
+    expect(folderRow).toHaveAttribute('aria-expanded', 'true')
+    fireEvent.keyDown(folderRow, { key: ' ' })
+    await waitFor(() => expect(folderRow).toHaveAttribute('aria-expanded', 'false'))
+  })
+
   it('follows server cursor pagination so no entries past the first page are lost', async () => {
     const page1 = { entries: [{ path: 'src/a.ts', kind: 'file', provenance: { modifiedByTicketIds: [] } }], nextCursor: 'cur1' }
     const page2 = { entries: [{ path: 'src/b.ts', kind: 'file', provenance: { modifiedByTicketIds: [] } }], nextCursor: null }

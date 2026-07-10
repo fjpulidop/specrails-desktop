@@ -1,9 +1,10 @@
 import { describe, it, expect } from 'vitest'
-import { publishDraftPr, parsePrUrl, type Exec, type ExecResult } from './pr-publisher'
+import { PR_COMMAND_TIMEOUT_MS, createBoundedExec, publishDraftPr, parsePrUrl, pushBranch, type Exec, type ExecResult } from './pr-publisher'
 
 function fakeExec(handlers: {
   push?: ExecResult
   pr?: ExecResult
+  lookup?: ExecResult
 } = {}): { exec: Exec; calls: Array<{ cmd: string; args: string[] }> } {
   const calls: Array<{ cmd: string; args: string[] }> = []
   const ok: ExecResult = { code: 0, stdout: '', stderr: '' }
@@ -11,6 +12,7 @@ function fakeExec(handlers: {
     async run(cmd, args) {
       calls.push({ cmd, args })
       if (cmd === 'git' && args[0] === 'push') return handlers.push ?? ok
+      if (cmd === 'gh' && args[0] === 'pr' && args[1] === 'list') return handlers.lookup ?? ok
       if (cmd === 'gh' && args[0] === 'pr') return handlers.pr ?? ok
       return ok
     },
@@ -25,6 +27,23 @@ const input = {
   title: 'T',
   body: 'B',
 }
+
+it('uses a generous production bound for repository-mutating commands', () => {
+  expect(PR_COMMAND_TIMEOUT_MS).toBe(120_000)
+})
+
+it('terminates a wedged command at the configured bound', async () => {
+  const startedAt = Date.now()
+  const result = await createBoundedExec(25).run(
+    process.execPath,
+    ['-e', 'setInterval(() => {}, 1000)'],
+    process.cwd(),
+  )
+
+  expect(result.code).not.toBe(0)
+  expect(result.stderr).not.toBe('')
+  expect(Date.now() - startedAt).toBeLessThan(2_000)
+})
 
 describe('parsePrUrl', () => {
   it('extracts a github pull URL', () => {
@@ -56,6 +75,61 @@ describe('publishDraftPr degradation ladder', () => {
     expect(r).toEqual({ state: 'pushed', branch: 'sr/p/ticket-1', reason: 'pr-created-no-url' })
   })
 
+  it('adopts the one exact OPEN head/base PR when create succeeds without a URL', async () => {
+    const existing = {
+      url: 'https://github.com/o/r/pull/17', isDraft: true,
+      headRefName: input.branch, baseRefName: input.baseBranch, state: 'OPEN',
+    }
+    const { exec, calls } = fakeExec({
+      pr: { code: 0, stdout: 'created\n', stderr: '' },
+      lookup: { code: 0, stdout: JSON.stringify([existing]), stderr: '' },
+    })
+
+    await expect(publishDraftPr(exec, input)).resolves.toEqual({
+      state: 'pr-created', branch: input.branch, prUrl: existing.url, isDraft: true,
+    })
+    expect(calls.at(-1)?.args).toEqual([
+      'pr', 'list', '--state', 'open', '--head', input.branch, '--base', input.baseBranch,
+      '--json', 'url,isDraft,headRefName,baseRefName,state',
+    ])
+  })
+
+  it('adopts an exact existing PR after an already-exists/ambiguous create failure', async () => {
+    const existing = {
+      url: 'https://github.com/o/r/pull/18', isDraft: false,
+      headRefName: input.branch, baseRefName: input.baseBranch, state: 'OPEN',
+    }
+    const { exec } = fakeExec({
+      pr: { code: 1, stdout: '', stderr: 'a pull request for this branch already exists' },
+      lookup: { code: 0, stdout: JSON.stringify([existing]), stderr: '' },
+    })
+
+    await expect(publishDraftPr(exec, input)).resolves.toEqual({
+      state: 'pr-created', branch: input.branch, prUrl: existing.url, isDraft: false,
+    })
+  })
+
+  it('never adopts a fuzzy, closed, or ambiguous head/base match', async () => {
+    const candidate = (url: string) => ({
+      url, isDraft: true, headRefName: input.branch, baseRefName: input.baseBranch, state: 'OPEN',
+    })
+    const { exec } = fakeExec({
+      pr: { code: 1, stdout: '', stderr: 'already exists' },
+      lookup: {
+        code: 0,
+        stdout: JSON.stringify([
+          candidate('https://github.com/o/r/pull/19'),
+          candidate('https://github.com/o/r/pull/20'),
+        ]),
+        stderr: '',
+      },
+    })
+
+    await expect(publishDraftPr(exec, input)).resolves.toEqual({
+      state: 'pushed', branch: input.branch, reason: 'already exists',
+    })
+  })
+
   it('local-only: push fails → local-only, gh is never called', async () => {
     const { exec, calls } = fakeExec({ push: { code: 128, stdout: '', stderr: 'fatal: No configured push destination\n' } })
     const r = await publishDraftPr(exec, input)
@@ -67,6 +141,28 @@ describe('publishDraftPr degradation ladder', () => {
     const { exec, calls } = fakeExec({ pr: { code: 0, stdout: 'https://github.com/o/r/pull/9', stderr: '' } })
     await publishDraftPr(exec, { ...input, remote: 'upstream' })
     expect(calls[0].args).toEqual(['push', '-u', 'upstream', 'sr/p/ticket-1'])
+  })
+})
+
+describe('pushBranch verified source', () => {
+  it('pushes the exact verified commit to the named PR ref without resolving a mutable local branch', async () => {
+    const { exec, calls } = fakeExec()
+    const sha = 'b'.repeat(40)
+
+    const result = await pushBranch(exec, { ...input, sourceSha: sha })
+
+    expect(result).toEqual({ state: 'pushed', branch: input.branch })
+    expect(calls).toEqual([{
+      cmd: 'git',
+      args: ['push', 'origin', `${sha}:refs/heads/${input.branch}`],
+    }])
+  })
+
+  it('rejects an invalid source object id without invoking git', async () => {
+    const { exec, calls } = fakeExec()
+    const result = await pushBranch(exec, { ...input, sourceSha: 'HEAD:refs/heads/main' })
+    expect(result).toEqual({ state: 'local-only', branch: input.branch, reason: 'invalid verified source commit' })
+    expect(calls).toEqual([])
   })
 })
 

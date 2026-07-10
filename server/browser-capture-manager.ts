@@ -30,6 +30,8 @@ function isTargetClosedError(err: unknown): boolean {
   return /target page, context or browser has been closed|target closed|has been closed/i.test(msg)
 }
 const MAX_SESSIONS_PER_PROJECT = 4
+const DEFAULT_SESSION_IDLE_TTL_MS = 10 * 60_000
+const DEFAULT_SESSION_SWEEP_INTERVAL_MS = 60_000
 const DOM_HTML_BYTE_CAP = 100_000
 const LAST_URL_KEY = 'config.browser_last_url'
 /** Conflation threshold for the screencast fan-out: skip sending a frame to a
@@ -72,6 +74,10 @@ interface BrowserSession {
   title: string | null
   viewport: { width: number; height: number }
   createdAt: number
+  /** Last client/session activity used by the server-side orphan reaper. */
+  lastActivityAt: number
+  /** Operations that still depend on the page and must not be reaped midway. */
+  activeOperations: number
   /** The page the screencast is currently running on (null = not running).
    *  Reconciled against `screencastDesired` + the active page by applyScreencast. */
   screencastPage: BrowserPageHandle | null
@@ -120,6 +126,10 @@ export interface BrowserCaptureManagerOptions {
    *  legacy behaviour of launching + owning a per-project context (used by tests
    *  and any non-pooled caller). */
   contextPool?: SharedBrowserContext
+  /** Clock + TTL overrides keep idle-session expiry deterministic in tests. */
+  now?: () => number
+  sessionIdleTtlMs?: number
+  sessionSweepIntervalMs?: number
 }
 
 /**
@@ -144,6 +154,9 @@ export class BrowserCaptureManager {
   /** When set, pages are opened in this app-wide shared context (global cookies)
    *  and this manager never owns/closes the context — only its own pages. */
   private readonly contextPool: SharedBrowserContext | null
+  private readonly now: () => number
+  private readonly sessionIdleTtlMs: number
+  private idleSweepTimer: ReturnType<typeof setInterval> | null = null
 
   private context: BrowserContextHandle | null = null
   private contextPromise: Promise<BrowserContextHandle> | null = null
@@ -161,9 +174,20 @@ export class BrowserCaptureManager {
     this.launcher = opts.launcher ?? createPlaywrightLauncher()
     this.attachments = opts.attachments ?? defaultAttachmentManager
     this.contextPool = opts.contextPool ?? null
+    this.now = opts.now ?? Date.now
+    const requestedIdleTtlMs = opts.sessionIdleTtlMs
+    this.sessionIdleTtlMs = typeof requestedIdleTtlMs === 'number' && Number.isFinite(requestedIdleTtlMs) && requestedIdleTtlMs > 0
+      ? requestedIdleTtlMs
+      : DEFAULT_SESSION_IDLE_TTL_MS
     this.profileDir =
       opts.profileDir ??
       path.join(opts.homeDir ?? os.homedir(), '.specrails', 'projects', opts.projectSlug, 'browser-profile')
+    const requestedSweepIntervalMs = opts.sessionSweepIntervalMs
+    const sweepIntervalMs = typeof requestedSweepIntervalMs === 'number' && Number.isFinite(requestedSweepIntervalMs) && requestedSweepIntervalMs > 0
+      ? requestedSweepIntervalMs
+      : Math.min(DEFAULT_SESSION_SWEEP_INTERVAL_MS, this.sessionIdleTtlMs)
+    this.idleSweepTimer = setInterval(() => { void this.sweepIdleSessions() }, sweepIntervalMs)
+    this.idleSweepTimer.unref?.()
   }
 
   // ─── Last-URL persistence (reuses the queue_state key/value table) ───────────
@@ -237,6 +261,22 @@ export class BrowserCaptureManager {
     return s && !s.closed ? s : undefined
   }
 
+  private getSessionForActivity(sessionId: string): BrowserSession | undefined {
+    const s = this.getSession(sessionId)
+    if (s) s.lastActivityAt = this.now()
+    return s
+  }
+
+  private beginOperation(s: BrowserSession): void {
+    s.lastActivityAt = this.now()
+    s.activeOperations += 1
+  }
+
+  private endOperation(s: BrowserSession): void {
+    s.activeOperations = Math.max(0, s.activeOperations - 1)
+    s.lastActivityAt = this.now()
+  }
+
   async create(opts?: { initialUrl?: string; createdAtMs?: number }): Promise<BrowserSessionMeta> {
     // Reserve the slot SYNCHRONOUSLY before any await so N concurrent creates can't
     // all observe `< MAX` and race past the cap (BUG-BROWSER-02). `_reserved`
@@ -268,6 +308,7 @@ export class BrowserCaptureManager {
     }
 
     const id = newId()
+    const activityAt = this.now()
     const session: BrowserSession = {
       id,
       projectId: this.projectId,
@@ -279,7 +320,9 @@ export class BrowserCaptureManager {
       url: null,
       title: null,
       viewport: { ...DEFAULT_VIEWPORT },
-      createdAt: opts?.createdAtMs ?? this.now(),
+      createdAt: opts?.createdAtMs ?? activityAt,
+      lastActivityAt: activityAt,
+      activeOperations: 0,
       screencastPage: null,
       screencastDesired: false,
       screencastOp: null,
@@ -400,7 +443,7 @@ export class BrowserCaptureManager {
   /** Switch the viewed page between the root page and the top popup ("back to
    *  page" / "show login window"). Returns false for an unknown session. */
   setPopupView(sessionId: string, target: 'root' | 'popup'): boolean {
-    const s = this.getSession(sessionId)
+    const s = this.getSessionForActivity(sessionId)
     if (!s) return false
     s.popupView = target === 'popup' && s.popups.length > 0
     this.broadcastPopupState(s)
@@ -412,7 +455,7 @@ export class BrowserCaptureManager {
 
   async attach(sessionId: string, ws: BrowserWsClient): Promise<BrowserSessionMeta | null> {
     if (this.disposed) return null
-    const s = this.getSession(sessionId)
+    const s = this.getSessionForActivity(sessionId)
     if (!s) return null
     s.clients.add(ws)
     this.safeSend(ws, JSON.stringify({ type: 'ready', id: s.id, url: s.url, title: s.title, viewport: s.viewport }))
@@ -432,6 +475,7 @@ export class BrowserCaptureManager {
     const s = this.sessions.get(sessionId)
     if (!s) return
     s.clients.delete(ws)
+    s.lastActivityAt = this.now()
     if (s.clients.size === 0 && !s.closed) {
       s.screencastDesired = false
       void this.applyScreencast(s)
@@ -491,7 +535,7 @@ export class BrowserCaptureManager {
 
   async probeElement(sessionId: string, point: { x: number; y: number }): Promise<ElementProbe | null> {
     if (this.disposed) return null
-    const s = this.getSession(sessionId)
+    const s = this.getSessionForActivity(sessionId)
     if (!s) return null
     return s.page.probeElementAt(point)
   }
@@ -499,14 +543,14 @@ export class BrowserCaptureManager {
   /** Re-resolve an element by selector and step to parent/child/self (breadcrumb). */
   async navigateElement(sessionId: string, selector: string, direction: 'parent' | 'child' | 'self'): Promise<ElementProbe | null> {
     if (this.disposed) return null
-    const s = this.getSession(sessionId)
+    const s = this.getSessionForActivity(sessionId)
     if (!s) return null
     return (await s.page.navigateElement?.(selector, direction)) ?? null
   }
 
   async handleInput(sessionId: string, event: BrowserInputEvent): Promise<void> {
     if (this.disposed) return
-    const s = this.getSession(sessionId)
+    const s = this.getSessionForActivity(sessionId)
     if (!s) return
     if (event.type === 'resize') {
       s.viewport = {
@@ -528,25 +572,30 @@ export class BrowserCaptureManager {
 
   async navigate(sessionId: string, action: 'goto' | 'back' | 'forward' | 'reload', url?: string): Promise<{ url: string; title: string } | null> {
     if (this.disposed) return null
-    const s = this.getSession(sessionId)
+    const s = this.getSessionForActivity(sessionId)
     if (!s) return null
-    let result: { url: string; title: string }
-    if (action === 'goto') result = await s.page.goto(url ?? 'about:blank')
-    else if (action === 'back') result = await s.page.goBack()
-    else if (action === 'forward') result = await s.page.goForward()
-    else result = await s.page.reload()
-    s.url = result.url
-    s.title = result.title
-    if (result.url && result.url !== 'about:blank') this.setLastUrl(result.url)
-    this.broadcastControl(s, { type: 'nav', url: result.url, title: result.title })
-    return result
+    this.beginOperation(s)
+    try {
+      let result: { url: string; title: string }
+      if (action === 'goto') result = await s.page.goto(url ?? 'about:blank')
+      else if (action === 'back') result = await s.page.goBack()
+      else if (action === 'forward') result = await s.page.goForward()
+      else result = await s.page.reload()
+      s.url = result.url
+      s.title = result.title
+      if (result.url && result.url !== 'about:blank') this.setLastUrl(result.url)
+      this.broadcastControl(s, { type: 'nav', url: result.url, title: result.title })
+      return result
+    } finally {
+      this.endOperation(s)
+    }
   }
 
   // ─── Capture: screenshot + rich DOM → attachments ───────────────────────────
 
   async capture(sessionId: string, rect: CaptureRect, pendingSpecId: string, opts?: { captureNetwork?: boolean }): Promise<CaptureResult | null> {
     if (this.disposed) return null
-    const s = this.getSession(sessionId)
+    const s = this.getSessionForActivity(sessionId)
     if (!s) return null
     const safeRect: CaptureRect = {
       x: Math.max(0, rect.x),
@@ -556,6 +605,7 @@ export class BrowserCaptureManager {
     }
     let png: Buffer
     let dom: CapturedDom
+    this.beginOperation(s)
     try {
       ;[png, dom] = await Promise.all([
         s.page.screenshotClip(safeRect),
@@ -570,6 +620,8 @@ export class BrowserCaptureManager {
         return null
       }
       throw err
+    } finally {
+      this.endOperation(s)
     }
 
     // Snapshot the recent network requests into the DOM payload (rides the same
@@ -618,7 +670,7 @@ export class BrowserCaptureManager {
    */
   async clipboard(sessionId: string, action: 'copy' | 'paste' | 'cut', text?: string): Promise<{ text: string } | null> {
     if (this.disposed) return null
-    const s = this.getSession(sessionId)
+    const s = this.getSessionForActivity(sessionId)
     if (!s) return null
     // Clipboard follows the viewed page: pasting credentials into an OAuth
     // popup must land in the popup, not the opener behind it.
@@ -651,11 +703,12 @@ export class BrowserCaptureManager {
     dims: Record<string, { width: number; height: number }>,
   ): Promise<CaptureResult | null> {
     if (this.disposed) return null
-    const s = this.getSession(sessionId)
+    const s = this.getSessionForActivity(sessionId)
     if (!s) return null
     const order = Object.keys(dims)
     if (order.length === 0) return null
 
+    this.beginOperation(s)
     const stashed = { ...s.viewport }
     let selector: string | null = null
     try { selector = (await s.page.resolveAnchorSelector?.(anchorPoint)) ?? null } catch { selector = null }
@@ -701,6 +754,7 @@ export class BrowserCaptureManager {
     } finally {
       try { await s.page.setViewport(stashed.width, stashed.height) } catch { /* ignore */ }
       s.viewport = stashed
+      this.endOperation(s)
     }
 
     const stamp = this.now()
@@ -739,6 +793,21 @@ export class BrowserCaptureManager {
 
   // ─── Teardown ───────────────────────────────────────────────────────────────
 
+  /** Reap sessions abandoned by clients. A connected socket or page-dependent
+   *  operation is authoritative activity and prevents expiry. `kill()` removes
+   *  the map entry synchronously, so an attach cannot race between the final
+   *  eligibility check and teardown on this event loop. */
+  async sweepIdleSessions(): Promise<number> {
+    if (this.disposed) return 0
+    const expiresBefore = this.now() - this.sessionIdleTtlMs
+    let reaped = 0
+    for (const [id, s] of this.sessions) {
+      if (s.closed || s.clients.size > 0 || s.activeOperations > 0 || s.lastActivityAt > expiresBefore) continue
+      if (await this.kill(id)) reaped += 1
+    }
+    return reaped
+  }
+
   async kill(sessionId: string): Promise<boolean> {
     const s = this.sessions.get(sessionId)
     if (!s) return false
@@ -765,6 +834,10 @@ export class BrowserCaptureManager {
   }
 
   async shutdown(): Promise<void> {
+    if (this.idleSweepTimer) {
+      clearInterval(this.idleSweepTimer)
+      this.idleSweepTimer = null
+    }
     if (this.disposed) return
     this.disposed = true
     for (const s of [...this.sessions.values()]) {
@@ -795,10 +868,5 @@ export class BrowserCaptureManager {
 
   sessionCount(): number {
     return [...this.sessions.values()].filter((s) => !s.closed).length
-  }
-
-  // Wall-clock indirection so tests can stay deterministic if needed.
-  private now(): number {
-    return Date.now()
   }
 }

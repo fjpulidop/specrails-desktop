@@ -5,7 +5,8 @@ import { launchIsolatedRail, reconcileRailWorktrees, type IsolatedLaunchIO } fro
 import { initDb } from './db'
 import { initDesktopDb } from './desktop-db'
 import { listRailWorktrees, createRailWorktree, updateRailWorktreeState, getRailWorktree } from './rail-worktrees-store'
-import { getActivePrDeliveryByRail, listActivePrDeliveries } from './rail-pr-store'
+import { createPrDelivery, getActivePrDeliveryByRail, getPrDelivery, listActivePrDeliveries, PrDeliveryGenerationConflict, transitionDecision } from './rail-pr-store'
+import { createLoopRun } from './loop-runs-store'
 import { insertLinkWithId } from './jira/jira-db'
 import { setAgentChatManager } from './agent-chat-registry'
 import type { AgentChatManager } from './agent-chat-manager'
@@ -57,6 +58,11 @@ function fakeCtx(runImpl?: (req: { runId: string }) => Promise<unknown>) {
 }
 
 const graph = { nodes: [], edges: [], config: {} } as never
+const TEST_SHA = 'a'.repeat(40)
+const successfulGitResult = (args: string[]) =>
+  args[0] === 'rev-parse' && args.includes('--verify')
+    ? { code: 0, stdout: `${TEST_SHA}\n`, stderr: '' }
+    : { code: 0, stdout: '', stderr: '' }
 const input = (ticketIds: number[], ctx: ProjectContext) => ({
   ctx, railIndex: 0, ticketIds, loopId: 'factory:implement', loopName: 'Implement',
   loopGraph: graph, provider: 'claude', model: 'sonnet',
@@ -105,7 +111,7 @@ describe('launchIsolatedRail', () => {
       run: async (args: string[]) => {
         if (args[0] === 'fetch') return { code: 1, stdout: '', stderr: "fatal: unable to access 'origin': Could not resolve host" }
         if (args[0] === 'symbolic-ref') return { code: 0, stdout: 'refs/remotes/origin/develop\n', stderr: '' }
-        return { code: 0, stdout: '', stderr: '' }
+        return successfulGitResult(args)
       },
     }
     const io: IsolatedLaunchIO = { git, create, remove: vi.fn(async () => {}) }
@@ -187,6 +193,47 @@ describe('launchIsolatedRail', () => {
     expect(remove).toHaveBeenCalledTimes(1)
     expect(run).not.toHaveBeenCalled()
   })
+
+  it('keeps a pre-existing resumable branch when a later allocation rolls back', async () => {
+    const { ctx, db, run } = fakeCtx()
+    createRailWorktree(db, {
+      id: 'prior-ticket-1',
+      railIndex: 0,
+      ticketId: 1,
+      branch: 'feat/1-t1',
+      worktreePath: '/old/ticket-1',
+      mergeState: 'failed',
+    })
+    let allocations = 0
+    const create = vi.fn(async (_g: unknown, createInput: { branch?: string; ticketId: number }) => {
+      allocations++
+      if (allocations === 2) throw new Error('second allocation failed')
+      return {
+        branch: createInput.branch!,
+        worktreePath: `/wt/ticket-${createInput.ticketId}`,
+        worktreeCreated: true,
+        branchCreated: false,
+      }
+    })
+    const remove = vi.fn(async () => {})
+    const git = {
+      run: async (args: string[]) => args[0] === 'for-each-ref'
+        ? { code: 0, stdout: 'feat/1-t1\n', stderr: '' }
+        : { code: 0, stdout: '', stderr: '' },
+    }
+
+    await expect(launchIsolatedRail(input([1, 2], ctx), { git, create, remove }))
+      .rejects.toThrow(/second allocation failed/)
+
+    expect(run).not.toHaveBeenCalled()
+    expect(remove).toHaveBeenCalledWith(git, {
+      repoDir: '/repo',
+      worktreePath: '/wt/ticket-1',
+      branch: 'feat/1-t1',
+      deleteBranch: false,
+    })
+    expect(getRailWorktree(db, 'prior-ticket-1')?.merge_state).toBe('failed')
+  })
 })
 
 // ── Cross-request batch dedup ("Launch all") ─────────────────────────────────
@@ -234,7 +281,7 @@ describe('launchIsolatedRail — ask-first PR delivery (rail_pr_deliveries lifec
   const okIo = (
     create = vi.fn(async (_g: unknown, { ticketId }: { ticketId: number }) => ({ branch: `sr/p/ticket-${ticketId}`, worktreePath: `/wt/ticket-${ticketId}` })),
   ): IsolatedLaunchIO =>
-    ({ git: { run: async () => ({ code: 0, stdout: '', stderr: '' }) }, create, remove: vi.fn(async () => {}) }) as IsolatedLaunchIO
+    ({ git: { run: async (args: string[]) => successfulGitResult(args) }, create, remove: vi.fn(async () => {}) }) as IsolatedLaunchIO
 
   beforeEach(() => { delete process.env.SPECRAILS_RAIL_DELIVER_PR }) // default-on
 
@@ -261,10 +308,16 @@ describe('launchIsolatedRail — ask-first PR delivery (rail_pr_deliveries lifec
       baseBranch: 'HEAD', branch: null, prUrl: null, prNumber: null,
       prState: 'none', decision: 'building', originConversationId: 'conv-1',
     }
-    expect(prStates(broadcast)).toEqual([
-      { ...base, runIds: [] },
-      { ...base, runIds: ids },
-    ])
+    const states = prStates(broadcast)
+    expect(states).toHaveLength(2)
+    expect(states[0]).toMatchObject({
+      ...base, runIds: [], implementationOutcome: 'running', deliveryOutcome: 'pending',
+      statusCode: 'implementation_running', units: [],
+    })
+    expect(states[1]).toMatchObject({
+      ...base, runIds: ids, implementationOutcome: 'running', deliveryOutcome: 'pending',
+      statusCode: 'implementation_running', units: [],
+    })
   })
 
   it('origin defaults to dashboard / null when the launch input omits it', async () => {
@@ -282,10 +335,21 @@ describe('launchIsolatedRail — ask-first PR delivery (rail_pr_deliveries lifec
 
     await vi.waitFor(() => expect(getActivePrDeliveryByRail(db, 0)!.decision).toBe('on_review'))
     const row = getActivePrDeliveryByRail(db, 0)!
-    expect(JSON.parse(row.branches)).toEqual([
-      { ticketId: 1, branch: 'sr/p/ticket-1', succeeded: true },
-      { ticketId: 2, branch: 'sr/p/ticket-2', succeeded: true },
-    ])
+    const units = JSON.parse(row.branches)
+    expect(units).toHaveLength(2)
+    expect(units[0]).toMatchObject({
+      ticketId: 1, branch: 'sr/p/ticket-1', succeeded: true, runId: ids[0],
+      implementationOutcome: 'succeeded', deliveryOutcome: 'ready',
+      initialSha: TEST_SHA, finalSha: TEST_SHA, changed: true, failureCode: null,
+    })
+    expect(units[1]).toMatchObject({
+      ticketId: 2, branch: 'sr/p/ticket-2', succeeded: true, runId: ids[1],
+      implementationOutcome: 'succeeded', deliveryOutcome: 'ready',
+      initialSha: TEST_SHA, finalSha: TEST_SHA, changed: true, failureCode: null,
+    })
+    expect(row).toMatchObject({
+      implementation_outcome: 'succeeded', delivery_outcome: 'ready', status_code: 'ready_for_review',
+    })
     // this launch's rail_worktrees ledger ids, verbatim (discard cleanup input)
     const ledgerIds = listRailWorktrees(db, 0).map((r) => r.id)
     expect([...(JSON.parse(row.worktree_ids) as string[])].sort()).toEqual([...ledgerIds].sort())
@@ -302,23 +366,146 @@ describe('launchIsolatedRail — ask-first PR delivery (rail_pr_deliveries lifec
     expect(mockRunMergeBack).not.toHaveBeenCalled()
   })
 
-  it('success outcome with uncommitted deliverable changes fails the implementation card instead of offering Create PR', async () => {
+  it('a proven clean zero-delta run becomes no_changes and never offers delivery', async () => {
+    const { ctx, db, onLoopRunFinished } = fakeCtx(settlingRun('success'))
+    const remove = vi.fn(async () => {})
+    const create = vi.fn(async (_git: unknown, createInput: { branch: string; ticketId: number }) => ({
+      branch: createInput.branch,
+      worktreePath: `/wt/ticket-${createInput.ticketId}`,
+      branchCreated: true,
+      worktreeCreated: true,
+    }))
+    const git = {
+      run: async (args: string[]) => args[0] === 'commit'
+        ? { code: 1, stdout: 'nothing to commit', stderr: '' }
+        : successfulGitResult(args),
+    }
+
+    const ids = await launchIsolatedRail(input([1], ctx), { git, create, remove })
+
+    await vi.waitFor(() => expect(getActivePrDeliveryByRail(db, 0)?.decision).toBe('no_changes'))
+    const row = getActivePrDeliveryByRail(db, 0)!
+    expect(row).toMatchObject({
+      implementation_outcome: 'succeeded', delivery_outcome: 'no_changes', status_code: 'no_changes',
+    })
+    expect(JSON.parse(row.branches)[0]).toMatchObject({
+      runId: ids[0], implementationOutcome: 'succeeded', deliveryOutcome: 'no_changes',
+      initialSha: TEST_SHA, finalSha: TEST_SHA, changed: false, succeeded: false,
+    })
+    expect(onLoopRunFinished).toHaveBeenCalledWith(ids[0], 'success', { ticketCompletionStatus: 'on_review' })
+    await vi.waitFor(() => expect(remove).toHaveBeenCalledTimes(1))
+  })
+
+  it('does not offer an empty PR for a resumed branch with zero commits ahead of base', async () => {
+    const { ctx, db } = fakeCtx(settlingRun('success'))
+    const git = {
+      run: async (args: string[]) => {
+        if (args[0] === 'commit') return { code: 1, stdout: 'nothing to commit', stderr: '' }
+        if (args[0] === 'diff') return { code: 0, stdout: '', stderr: '' }
+        return successfulGitResult(args)
+      },
+    }
+
+    await launchIsolatedRail(input([1], ctx), { ...okIo(), git })
+
+    await vi.waitFor(() => expect(getActivePrDeliveryByRail(db, 0)?.decision).toBe('no_changes'))
+    expect(JSON.parse(getActivePrDeliveryByRail(db, 0)!.branches)[0]).toMatchObject({
+      branch: 'sr/p/ticket-1', changed: false, deliveryOutcome: 'no_changes', succeeded: false,
+    })
+  })
+
+  it('persists a mixed batch as partial without dropping the failed unit', async () => {
+    let call = 0
+    const { ctx, db } = fakeCtx(async ({ runId }) => ({ runId, outcome: call++ === 0 ? 'success' : 'failed' }))
+    const create = vi.fn(async (_git: unknown, createInput: { branch: string; ticketId: number }) => ({
+      branch: createInput.branch,
+      worktreePath: `/wt/ticket-${createInput.ticketId}`,
+      branchCreated: true,
+      worktreeCreated: true,
+    }))
+
+    const ids = await launchIsolatedRail(input([1, 2], ctx), {
+      git: { run: async (args: string[]) => successfulGitResult(args) },
+      create,
+      remove: vi.fn(async () => {}),
+    })
+
+    await vi.waitFor(() => expect(getActivePrDeliveryByRail(db, 0)?.decision).toBe('on_review'))
+    const row = getActivePrDeliveryByRail(db, 0)!
+    expect(row).toMatchObject({
+      implementation_outcome: 'partially_succeeded', delivery_outcome: 'partial', status_code: 'partial_success',
+    })
+    const units = JSON.parse(row.branches)
+    expect(units).toHaveLength(2)
+    expect(units[0]).toMatchObject({ runId: ids[0], implementationOutcome: 'succeeded', deliveryOutcome: 'ready' })
+    expect(units[1]).toMatchObject({ runId: ids[1], implementationOutcome: 'failed', deliveryOutcome: 'not_started' })
+  })
+
+  it('retains a successful unit when deferred terminal settlement throws', async () => {
+    const { ctx, db, onLoopRunFinished } = fakeCtx(settlingRun('success'))
+    onLoopRunFinished.mockImplementation(() => { throw new Error('terminal callback unavailable') })
+
+    const ids = await launchIsolatedRail(input([1], ctx), okIo())
+
+    await vi.waitFor(() => expect(getActivePrDeliveryByRail(db, 0)?.decision).toBe('pr_failed'))
+    const row = getActivePrDeliveryByRail(db, 0)!
+    expect(row).toMatchObject({
+      implementation_outcome: 'succeeded', delivery_outcome: 'blocked', status_code: 'settlement_interrupted',
+    })
+    expect(JSON.parse(row.branches)).toHaveLength(1)
+    expect(JSON.parse(row.branches)[0]).toMatchObject({
+      runId: ids[0], implementationOutcome: 'succeeded', deliveryOutcome: 'blocked',
+      failureCode: 'settlement_interrupted',
+    })
+    expect(listRailWorktrees(db, 0)[0].merge_state).toBe('needs-review')
+  })
+
+  it('successful engine + dirty commit failure stays successful and preserves a needs-review worktree', async () => {
     const { ctx, db, broadcast, onLoopRunFinished } = fakeCtx(settlingRun('success'))
     const git = {
       run: async (args: string[]) => {
+        if (args[0] === 'commit') return { code: 1, stdout: '', stderr: 'pre-commit hook rejected the commit' }
         if (args[0] === 'status') return { code: 0, stdout: ' M src/app.ts\n', stderr: '' }
-        return { code: 0, stdout: '', stderr: '' }
+        return successfulGitResult(args)
       },
     }
 
     const ids = await launchIsolatedRail(input([1], ctx), { ...okIo(), git })
 
-    await vi.waitFor(() => expect(getActivePrDeliveryByRail(db, 0)?.decision).toBe('implementation_failed'))
+    await vi.waitFor(() => expect(getActivePrDeliveryByRail(db, 0)?.decision).toBe('pr_failed'))
     const row = getActivePrDeliveryByRail(db, 0)!
-    expect(JSON.parse(row.branches)).toEqual([{ ticketId: 1, branch: 'sr/p/ticket-1', succeeded: false }])
-    expect(onLoopRunFinished).toHaveBeenCalledWith(ids[0], 'failed', { ticketCompletionStatus: 'on_review' })
-    expect(prStates(broadcast).map((m) => m.decision)).toEqual(['building', 'building', 'implementation_failed'])
+    expect(row).toMatchObject({
+      implementation_outcome: 'succeeded', delivery_outcome: 'blocked', status_code: 'commit_failed',
+    })
+    expect(JSON.parse(row.branches)[0]).toMatchObject({
+      ticketId: 1, branch: 'sr/p/ticket-1', succeeded: false, runId: ids[0],
+      implementationOutcome: 'succeeded', deliveryOutcome: 'blocked', failureCode: 'commit_failed',
+    })
+    expect(onLoopRunFinished).toHaveBeenCalledWith(ids[0], 'success', { ticketCompletionStatus: 'on_review' })
+    expect(getRailWorktree(db, JSON.parse(row.worktree_ids)[0])?.merge_state).toBe('needs-review')
+    expect(prStates(broadcast).map((m) => m.decision)).toEqual(['building', 'building', 'pr_failed'])
     expect(mockRunMergeBack).not.toHaveBeenCalled()
+  })
+
+  it('a git status failure blocks delivery without rewriting successful engine truth', async () => {
+    const { ctx, db, onLoopRunFinished } = fakeCtx(settlingRun('success'))
+    const git = {
+      run: async (args: string[]) => args[0] === 'status'
+        ? { code: 128, stdout: '', stderr: 'cannot read index' }
+        : successfulGitResult(args),
+    }
+
+    const ids = await launchIsolatedRail(input([1], ctx), { ...okIo(), git })
+
+    await vi.waitFor(() => expect(getActivePrDeliveryByRail(db, 0)?.decision).toBe('pr_failed'))
+    expect(getActivePrDeliveryByRail(db, 0)).toMatchObject({
+      implementation_outcome: 'succeeded', delivery_outcome: 'blocked', status_code: 'commit_failed',
+    })
+    expect(JSON.parse(getActivePrDeliveryByRail(db, 0)!.branches)[0]).toMatchObject({
+      runId: ids[0], implementationOutcome: 'succeeded', deliveryOutcome: 'blocked', failureCode: 'commit_failed',
+    })
+    expect(onLoopRunFinished).toHaveBeenCalledWith(ids[0], 'success', { ticketCompletionStatus: 'on_review' })
+    expect(listRailWorktrees(db, 0)[0].merge_state).toBe('needs-review')
   })
 
   it('settle (0 succeeded) → implementation_failed with run logs, branches persisted with succeeded:false', async () => {
@@ -330,7 +517,11 @@ describe('launchIsolatedRail — ask-first PR delivery (rail_pr_deliveries lifec
     const all = db.prepare('SELECT decision, branches FROM rail_pr_deliveries').all() as { decision: string; branches: string }[]
     expect(all).toHaveLength(1)
     expect(all[0].decision).toBe('implementation_failed')
-    expect(JSON.parse(all[0].branches)).toEqual([{ ticketId: 1, branch: 'sr/p/ticket-1', succeeded: false }])
+    expect(JSON.parse(all[0].branches)[0]).toMatchObject({
+      ticketId: 1, branch: 'sr/p/ticket-1', succeeded: false, runId: ids[0],
+      implementationOutcome: 'failed', deliveryOutcome: 'not_started',
+      initialSha: TEST_SHA, finalSha: TEST_SHA,
+    })
     expect(prStates(broadcast).map((m) => m.decision)).toEqual(['building', 'building', 'implementation_failed'])
     expect(prStates(broadcast).at(-1)?.runIds).toEqual(ids)
     expect(mockRunMergeBack).not.toHaveBeenCalled()
@@ -350,7 +541,7 @@ describe('launchIsolatedRail — ask-first PR delivery (rail_pr_deliveries lifec
     expect(prStates(broadcast).map((m) => m.decision)).toEqual(['building', 'discarded'])
   })
 
-  it('can preserve the building row on allocation failure for router-managed shared-cwd continuation fallback', async () => {
+  it('always closes the building row on allocation failure; no shared-cwd continuation handoff remains', async () => {
     const { ctx, db, broadcast } = fakeCtx()
     let prDeliveryId = ''
     const create = vi.fn(async () => {
@@ -359,14 +550,13 @@ describe('launchIsolatedRail — ask-first PR delivery (rail_pr_deliveries lifec
 
     await expect(launchIsolatedRail({
       ...input([1], ctx),
-      preservePrDeliveryOnAllocationFailure: true,
       onPrDeliveryCreated: (id) => { prDeliveryId = id },
     }, okIo(create))).rejects.toThrow(/worktree add failed/)
 
     const row = getActivePrDeliveryByRail(db, 0)
-    expect(row?.id).toBe(prDeliveryId)
-    expect(row?.decision).toBe('building')
-    expect(prStates(broadcast).map((m) => m.decision)).toEqual(['building'])
+    expect(row).toBeUndefined()
+    expect(prDeliveryId).not.toBe('')
+    expect(prStates(broadcast).map((m) => m.decision)).toEqual(['building', 'discarded'])
   })
 
   describe('agent-chat completion driver (card posted at launch, updated at settle)', () => {
@@ -399,7 +589,7 @@ describe('launchIsolatedRail — ask-first PR delivery (rail_pr_deliveries lifec
       expect(updatePrDecisionCard.mock.calls[0][0]).toBe('conv-9')
       expect(updatePrDecisionCard.mock.calls[0][1]).toMatchObject({ kind: 'pr_decision', decision: 'building', runIds: ids })
       const row = getActivePrDeliveryByRail(db, 0)!
-      expect(updatePrDecisionCard).toHaveBeenLastCalledWith('conv-9', {
+      expect(updatePrDecisionCard).toHaveBeenLastCalledWith('conv-9', expect.objectContaining({
         kind: 'pr_decision',
         prDeliveryId: row.id,
         railIndex: 0,
@@ -412,7 +602,10 @@ describe('launchIsolatedRail — ask-first PR delivery (rail_pr_deliveries lifec
         prState: 'none',
         branch: null,
         runIds: ids,
-      })
+        implementationOutcome: 'succeeded',
+        deliveryOutcome: 'ready',
+        statusCode: 'ready_for_review',
+      }))
     })
 
     it('failed settle (0 succeeded) also updates the card so the origin learns the failed job outcome', async () => {
@@ -571,7 +764,7 @@ describe('launchIsolatedRail — conventional branch naming (pr-naming threading
     const git = {
       run: async (args: string[], cwd: string) => {
         calls.push({ args, cwd })
-        return { code: 0, stdout: '', stderr: '' }
+        return successfulGitResult(args)
       },
     }
     const create = mockCreate()
@@ -595,6 +788,41 @@ describe('launchIsolatedRail — active PR continuation', () => {
   beforeEach(() => { delete process.env.SPECRAILS_RAIL_DELIVER_PR }) // PR mode default-on
   afterEach(() => setAgentChatManager(null))
 
+  const continuationSha = 'a'.repeat(40)
+  const openPrLifecycle = (input: {
+    branch: string
+    url: string
+    number: number
+    isDraft?: boolean
+    title?: string
+    body?: string
+    sha?: string
+  }) => JSON.stringify({
+    state: 'OPEN',
+    isDraft: input.isDraft ?? false,
+    headRefName: input.branch,
+    baseRefName: 'main',
+    headRefOid: input.sha ?? continuationSha,
+    mergeCommit: null,
+    commits: [{ oid: input.sha ?? continuationSha }],
+    number: input.number,
+    url: input.url,
+    title: input.title ?? 'Existing implementation',
+    body: input.body ?? 'Follow-up implementation.',
+  })
+  const verifiedContinuationRef = (args: string[], cwd: string, branch: string) => {
+    if (cwd.startsWith('/wt/') && args[0] === 'rev-parse' && args[1] === '--abbrev-ref') {
+      return { code: 0, stdout: `${branch}\n`, stderr: '' }
+    }
+    if (cwd.startsWith('/wt/') && args.join(' ') === 'rev-parse --verify HEAD') {
+      return { code: 0, stdout: `${continuationSha}\n`, stderr: '' }
+    }
+    if (!args.includes('--quiet') && args.join(' ') === `rev-parse --verify refs/heads/${branch}`) {
+      return { code: 0, stdout: `${continuationSha}\n`, stderr: '' }
+    }
+    return null
+  }
+
   const continuationCtx = (status = 'on_review') => {
     const ctxs = fakeCtx(settlingRun('success'))
     ;(ctxs.ctx as unknown as { getTicketSpec: (id: number) => unknown }).getTicketSpec = (id: number) => ({
@@ -609,6 +837,89 @@ describe('launchIsolatedRail — active PR continuation', () => {
     return ctxs
   }
 
+  it('fails closed when the router-required PR branch cannot be materialized', async () => {
+    const { ctx, run } = continuationCtx()
+    const create = vi.fn()
+
+    await expect(launchIsolatedRail({
+      ...input([98], ctx),
+      requiredPrContinuation: {
+        deliveryId: 'missing-delivery',
+        decision: 'pr_ready',
+        branch: 'feat/missing-pr-head',
+        prUrl: 'https://github.com/o/r/pull/999',
+        prNumber: 999,
+      },
+    }, {
+      git: { run: async () => ({ code: 0, stdout: '', stderr: '' }) },
+      exec: { run: vi.fn(async () => ({ code: 0, stdout: '[]', stderr: '' })) },
+      create,
+      remove: vi.fn(async () => {}),
+    })).rejects.toThrow(/cannot safely continue PR branch feat\/missing-pr-head/)
+
+    expect(create).not.toHaveBeenCalled()
+    expect(run).not.toHaveBeenCalled()
+  })
+
+  it('restores the superseded PR generation atomically when continuation allocation fails', async () => {
+    const { ctx, db, broadcast, run } = continuationCtx()
+    const branch = 'feat/SKILLS-19-key-terms-activity'
+    const prUrl = 'https://github.com/o/r/pull/2147'
+    const prior = createPrDelivery(db, {
+      id: 'prior-generation', railIndex: 0, loopId: 'factory:implement',
+      railKey: '0-factory:implement', ticketIds: [98], baseBranch: 'main',
+      loopName: 'Implement', originSurface: 'dashboard',
+    })
+    transitionDecision(db, prior.id, 'building', 'pr_ready', {
+      branch, prUrl, prNumber: 2147, prState: 'pr-created',
+      implementationOutcome: 'succeeded', deliveryOutcome: 'delivered', statusCode: 'pr_ready',
+    })
+    const git = {
+      run: async (args: string[]) => {
+        if (args[0] === 'for-each-ref') return { code: 0, stdout: `${branch}\n`, stderr: '' }
+        if (args[0] === 'rev-parse' && args.at(-1) === `refs/heads/${branch}`) {
+          return { code: 0, stdout: `${continuationSha}\n`, stderr: '' }
+        }
+        return successfulGitResult(args)
+      },
+    }
+    const exec = {
+      run: vi.fn(async (_cmd: string, args: string[]) => ({
+        code: 0,
+        stdout: args[1] === 'view'
+          ? openPrLifecycle({ branch, url: prUrl, number: 2147 })
+          : JSON.stringify([{
+          number: 2147, title: 'Existing implementation', body: 'SKILLS-70',
+          headRefName: branch, baseRefName: 'main', url: prUrl, isDraft: false,
+          }]),
+        stderr: '',
+      })),
+    }
+
+    await expect(launchIsolatedRail({
+      ...input([98], ctx),
+      requiredPrContinuation: {
+        deliveryId: prior.id, decision: 'pr_ready', branch, prUrl, prNumber: 2147,
+      },
+    }, {
+      git,
+      exec,
+      create: vi.fn(async () => { throw new Error('worktree allocation failed') }),
+      remove: vi.fn(async () => {}),
+    })).rejects.toThrow(/worktree allocation failed/)
+
+    expect(run).not.toHaveBeenCalled()
+    expect(getActivePrDeliveryByRail(db, 0)).toMatchObject({ id: prior.id, decision: 'pr_ready' })
+    const generations = db.prepare('SELECT * FROM rail_pr_deliveries ORDER BY rowid').all() as Array<Record<string, unknown>>
+    expect(generations).toHaveLength(2)
+    expect(generations[1]).toMatchObject({
+      decision: 'discarded', is_continuation: 1, supersedes_delivery_id: prior.id,
+    })
+    expect(prStates(broadcast).map((state) => state.decision)).toEqual([
+      'superseded', 'building', 'discarded', 'pr_ready',
+    ])
+  })
+
   it('continues a matched open GitHub PR on its head branch instead of creating a fresh ticket branch', async () => {
     const { ctx, db } = continuationCtx()
     const create = vi.fn(async (_g: unknown, input: { branch?: string; ticketId: number }) => ({
@@ -616,19 +927,30 @@ describe('launchIsolatedRail — active PR continuation', () => {
       worktreePath: `/wt/ticket-${input.ticketId}`,
     }))
     const git = {
-      run: async (args: string[]) => {
+      run: async (args: string[], cwd: string) => {
+        const verified = verifiedContinuationRef(args, cwd, 'feat/SKILLS-19-key-terms-activity')
+        if (verified) return verified
         if (args[0] === 'symbolic-ref') return { code: 0, stdout: 'refs/remotes/origin/main\n', stderr: '' }
         if (args[0] === 'for-each-ref') return { code: 0, stdout: 'feat/SKILLS-19-key-terms-activity\n', stderr: '' }
         if (args[0] === 'rev-parse' && args.at(-1) === 'refs/heads/feat/SKILLS-19-key-terms-activity') {
           return { code: 0, stdout: '', stderr: '' }
         }
-        return { code: 0, stdout: '', stderr: '' }
+        return successfulGitResult(args)
       },
     }
     const exec = {
       run: vi.fn(async (cmd: string, args: string[]) => {
         if (cmd === 'git' && args[0] === 'push') return { code: 0, stdout: '', stderr: '' }
         if (cmd === 'gh' && args[0] === 'pr') {
+          if (args[1] === 'view') return {
+            code: 0,
+            stdout: openPrLifecycle({
+              branch: 'feat/SKILLS-19-key-terms-activity',
+              url: 'https://github.com/org/repo/pull/2147',
+              number: 2147,
+            }),
+            stderr: '',
+          }
           return {
             code: 0,
             stdout: JSON.stringify([{
@@ -668,6 +990,246 @@ describe('launchIsolatedRail — active PR continuation', () => {
     })
   })
 
+  it('groups multiple tickets targeting the same PR into one verified worktree and one atomic batch run', async () => {
+    const { ctx, db, run } = continuationCtx()
+    const branch = 'feat/SKILLS-70-review-followups'
+    const create = vi.fn(async () => ({
+      branch,
+      worktreePath: '/wt/ticket-98',
+      worktreeCreated: true,
+      branchCreated: false,
+    }))
+    const git = {
+      run: async (args: string[], cwd: string) => {
+        const verified = verifiedContinuationRef(args, cwd, branch)
+        if (verified) return verified
+        if (args[0] === 'for-each-ref') return { code: 0, stdout: `${branch}\n`, stderr: '' }
+        if (args[0] === 'rev-parse' && args.at(-1) === `refs/heads/${branch}`) {
+          return { code: 0, stdout: `${continuationSha}\n`, stderr: '' }
+        }
+        return { code: 0, stdout: '', stderr: '' }
+      },
+    }
+    const exec = {
+      run: vi.fn(async (cmd: string, args: string[]) => {
+        if (cmd === 'git' && args[0] === 'push') return { code: 0, stdout: '', stderr: '' }
+        if (args[1] === 'view') return {
+          code: 0,
+          stdout: openPrLifecycle({ branch, url: 'https://github.com/o/r/pull/2148', number: 2148 }),
+          stderr: '',
+        }
+        return {
+          code: 0,
+          stdout: JSON.stringify([{
+            number: 2148,
+            title: 'SKILLS-70 review follow-ups',
+            body: 'Follow-up work for SKILLS-70.',
+            headRefName: branch,
+            baseRefName: 'main',
+            url: 'https://github.com/o/r/pull/2148',
+            isDraft: false,
+          }]),
+          stderr: '',
+        }
+      }),
+    }
+
+    const ids = await launchIsolatedRail(input([98, 99], ctx), {
+      git,
+      exec,
+      create,
+      remove: vi.fn(async () => {}),
+    })
+
+    expect(ids).toHaveLength(1)
+    expect(create).toHaveBeenCalledTimes(1)
+    expect(run).toHaveBeenCalledTimes(1)
+    expect(run.mock.calls[0][0]).toMatchObject({
+      ticketId: 98,
+      spec: { ticketIds: [98, 99] },
+      isolation: { branch, worktreePath: '/wt/ticket-98' },
+    })
+    await vi.waitFor(() => expect(getActivePrDeliveryByRail(db, 0)?.decision).toBe('pr_ready'))
+    const units = JSON.parse(getActivePrDeliveryByRail(db, 0)!.branches)
+    expect(units).toHaveLength(2)
+    expect(units[0]).toMatchObject({
+      ticketId: 98, branch, succeeded: true, implementationOutcome: 'succeeded',
+      deliveryOutcome: 'ready', initialSha: continuationSha, finalSha: continuationSha,
+    })
+    expect(units[1]).toMatchObject({
+      ticketId: 99, branch, succeeded: true, implementationOutcome: 'succeeded',
+      deliveryOutcome: 'ready', initialSha: continuationSha, finalSha: continuationSha,
+    })
+    expect(exec.run).toHaveBeenCalledWith(
+      'git',
+      ['push', 'origin', `${continuationSha}:refs/heads/${branch}`],
+      '/repo',
+    )
+    expect(getActivePrDeliveryByRail(db, 0)?.delivery_sha).toBe(continuationSha)
+  })
+
+  it('reports an unchanged existing PR as no_changes without a redundant push', async () => {
+    const { ctx, db } = continuationCtx()
+    const branch = 'feat/SKILLS-19-key-terms-activity'
+    const prUrl = 'https://github.com/org/repo/pull/2147'
+    const create = vi.fn(async () => ({
+      branch, worktreePath: '/wt/ticket-98', worktreeCreated: true, branchCreated: false,
+    }))
+    const git = {
+      run: async (args: string[], cwd: string) => {
+        const verified = verifiedContinuationRef(args, cwd, branch)
+        if (verified) return verified
+        if (args[0] === 'commit') return { code: 1, stdout: 'nothing to commit', stderr: '' }
+        if (args[0] === 'for-each-ref') return { code: 0, stdout: `${branch}\n`, stderr: '' }
+        return successfulGitResult(args)
+      },
+    }
+    const exec = {
+      run: vi.fn(async (cmd: string, args: string[]) => {
+        if (cmd === 'git' && args[0] === 'push') return { code: 0, stdout: '', stderr: '' }
+        if (args[1] === 'view') return {
+          code: 0,
+          stdout: openPrLifecycle({ branch, url: prUrl, number: 2147 }),
+          stderr: '',
+        }
+        return {
+          code: 0,
+          stdout: JSON.stringify([{
+            number: 2147, title: 'Existing implementation', body: 'SKILLS-70',
+            headRefName: branch, baseRefName: 'main', url: prUrl, isDraft: false,
+          }]),
+          stderr: '',
+        }
+      }),
+    }
+
+    await launchIsolatedRail(input([98], ctx), { git, exec, create, remove: vi.fn(async () => {}) })
+
+    await vi.waitFor(() => expect(getActivePrDeliveryByRail(db, 0)?.decision).toBe('no_changes'))
+    expect(getActivePrDeliveryByRail(db, 0)).toMatchObject({
+      implementation_outcome: 'succeeded', delivery_outcome: 'no_changes', status_code: 'no_changes',
+      branch, pr_url: prUrl, pr_state: 'pr-created', delivery_sha: continuationSha,
+    })
+    expect(JSON.parse(getActivePrDeliveryByRail(db, 0)!.branches)[0]).toMatchObject({
+      implementationOutcome: 'succeeded', deliveryOutcome: 'no_changes', changed: false,
+      initialSha: continuationSha, finalSha: continuationSha,
+    })
+    expect(exec.run.mock.calls.filter(([cmd, args]) => cmd === 'git' && args[0] === 'push')).toHaveLength(0)
+  })
+
+  it('never publishes pr_ready when the PR branch ref moves away from the worktree HEAD after the run', async () => {
+    const { ctx, db } = continuationCtx()
+    const branch = 'feat/SKILLS-19-key-terms-activity'
+    const movedSha = 'b'.repeat(40)
+    let strictBranchReads = 0
+    const git = {
+      run: async (args: string[], cwd: string) => {
+        if (cwd.startsWith('/wt/') && args[0] === 'rev-parse' && args[1] === '--abbrev-ref') {
+          return { code: 0, stdout: `${branch}\n`, stderr: '' }
+        }
+        if (cwd.startsWith('/wt/') && args.join(' ') === 'rev-parse --verify HEAD') {
+          return { code: 0, stdout: `${continuationSha}\n`, stderr: '' }
+        }
+        if (!args.includes('--quiet') && args.join(' ') === `rev-parse --verify refs/heads/${branch}`) {
+          strictBranchReads++
+          return {
+            code: 0,
+            stdout: `${strictBranchReads === 1 ? continuationSha : movedSha}\n`,
+            stderr: '',
+          }
+        }
+        if (args[0] === 'for-each-ref') return { code: 0, stdout: `${branch}\n`, stderr: '' }
+        if (args[0] === 'rev-parse' && args.at(-1) === `refs/heads/${branch}`) {
+          return { code: 0, stdout: `${continuationSha}\n`, stderr: '' }
+        }
+        return { code: 0, stdout: '', stderr: '' }
+      },
+    }
+    const exec = {
+      run: vi.fn(async (cmd: string, args: string[]) => {
+        if (cmd === 'git' && args[0] === 'push') return { code: 0, stdout: '', stderr: '' }
+        return {
+          code: 0,
+          stdout: JSON.stringify([{
+            number: 2147,
+            title: 'SKILLS-70 existing implementation',
+            headRefName: branch,
+            baseRefName: 'main',
+            url: 'https://github.com/o/r/pull/2147',
+            isDraft: false,
+          }]),
+          stderr: '',
+        }
+      }),
+    }
+
+    await launchIsolatedRail(input([98], ctx), {
+      git,
+      exec,
+      create: vi.fn(async () => ({ branch, worktreePath: '/wt/ticket-98' })),
+      remove: vi.fn(async () => {}),
+    })
+
+    await vi.waitFor(() => expect(getActivePrDeliveryByRail(db, 0)?.decision).toBe('pr_failed'))
+    expect(exec.run.mock.calls.filter(([cmd, args]) => cmd === 'git' && args[0] === 'push')).toHaveLength(0)
+    expect(getActivePrDeliveryByRail(db, 0)).toMatchObject({
+      implementation_outcome: 'succeeded',
+      delivery_outcome: 'blocked',
+      status_code: 'branch_verification_failed',
+    })
+    expect(listRailWorktrees(db, 0)[0].merge_state).toBe('needs-review')
+  })
+
+  it('fails closed on a stale mounted branch and never deletes the borrowed PR branch', async () => {
+    const { ctx, db, run } = continuationCtx()
+    const branch = 'feat/SKILLS-19-key-terms-activity'
+    const remove = vi.fn(async () => {})
+    const git = {
+      run: async (args: string[]) => {
+        if (args[0] === 'for-each-ref') return { code: 0, stdout: `${branch}\n`, stderr: '' }
+        if (args[0] === 'rev-parse' && args.at(-1) === `refs/heads/${branch}`) {
+          return { code: 0, stdout: `${continuationSha}\n`, stderr: '' }
+        }
+        return { code: 0, stdout: '', stderr: '' }
+      },
+    }
+    const exec = {
+      run: vi.fn(async () => ({
+        code: 0,
+        stdout: JSON.stringify([{
+          number: 2147,
+          title: 'SKILLS-70 existing implementation',
+          headRefName: branch,
+          baseRefName: 'main',
+          url: 'https://github.com/o/r/pull/2147',
+          isDraft: false,
+        }]),
+        stderr: '',
+      })),
+    }
+
+    await expect(launchIsolatedRail(input([98], ctx), {
+      git,
+      exec,
+      create: vi.fn(async () => ({
+        branch: 'main',
+        worktreePath: '/wt/ticket-98',
+        worktreeCreated: true,
+        branchCreated: false,
+      })),
+      remove,
+    })).rejects.toThrow(/resolved to mounted branch main/)
+
+    expect(run).not.toHaveBeenCalled()
+    expect(remove).toHaveBeenCalledWith(git, {
+      repoDir: '/repo',
+      worktreePath: '/wt/ticket-98',
+      branch: 'main',
+      deleteBranch: false,
+    })
+    expect(getActivePrDeliveryByRail(db, 0)).toBeUndefined()
+  })
+
   it('marks an existing-PR continuation as pr_failed when follow-up push fails', async () => {
     const { ctx, db } = continuationCtx()
     const create = vi.fn(async (_g: unknown, input: { branch?: string; ticketId: number }) => ({
@@ -675,7 +1237,9 @@ describe('launchIsolatedRail — active PR continuation', () => {
       worktreePath: `/wt/ticket-${input.ticketId}`,
     }))
     const git = {
-      run: async (args: string[]) => {
+      run: async (args: string[], cwd: string) => {
+        const verified = verifiedContinuationRef(args, cwd, 'feat/SKILLS-19-key-terms-activity')
+        if (verified) return verified
         if (args[0] === 'rev-parse' && args.at(-1) === 'refs/heads/feat/SKILLS-19-key-terms-activity') {
           return { code: 0, stdout: '', stderr: '' }
         }
@@ -686,6 +1250,15 @@ describe('launchIsolatedRail — active PR continuation', () => {
       run: vi.fn(async (cmd: string, args: string[]) => {
         if (cmd === 'git' && args[0] === 'push') return { code: 1, stdout: '', stderr: 'no remote' }
         if (cmd === 'gh' && args[0] === 'pr') {
+          if (args[1] === 'view') return {
+            code: 0,
+            stdout: openPrLifecycle({
+              branch: 'feat/SKILLS-19-key-terms-activity',
+              url: 'https://github.com/org/repo/pull/2147',
+              number: 2147,
+            }),
+            stderr: '',
+          }
           return {
             code: 0,
             stdout: JSON.stringify([{
@@ -710,7 +1283,11 @@ describe('launchIsolatedRail — active PR continuation', () => {
     expect(getActivePrDeliveryByRail(db, 0)).toMatchObject({
       branch: 'feat/SKILLS-19-key-terms-activity',
       pr_url: 'https://github.com/org/repo/pull/2147',
-      pr_state: 'local-only',
+      pr_state: 'pr-created',
+      implementation_outcome: 'succeeded',
+      delivery_outcome: 'retryable_failure',
+      status_code: 'push_failed',
+      delivery_sha: continuationSha,
     })
   })
 
@@ -730,7 +1307,9 @@ describe('launchIsolatedRail — active PR continuation', () => {
       worktreePath: `/wt/ticket-${input.ticketId}`,
     }))
     const git = {
-      run: async (args: string[]) => {
+      run: async (args: string[], cwd: string) => {
+        const verified = verifiedContinuationRef(args, cwd, 'feat/SKILLS-19-key-terms-activity')
+        if (verified) return verified
         if (args[0] === 'rev-parse' && args.at(-1) === 'refs/heads/feat/SKILLS-19-key-terms-activity') {
           return { code: 0, stdout: '', stderr: '' }
         }
@@ -753,17 +1332,13 @@ describe('launchIsolatedRail — active PR continuation', () => {
           }]),
           stderr: '',
         }
-        if (args[0] === 'pr' && args[1] === 'view' && args[2] === '2147') return {
+        if (args[0] === 'pr' && args[1] === 'view') return {
           code: 0,
-          stdout: JSON.stringify({
-            number: 2147,
+          stdout: openPrLifecycle({
+            number: 2147, branch: 'feat/SKILLS-19-key-terms-activity',
+            url: 'https://github.com/org/repo/pull/2147',
             title: '[SKILLS-19] Key terms activity',
             body: 'Original implementation for the key-terms activity.',
-            headRefName: 'feat/SKILLS-19-key-terms-activity',
-            baseRefName: 'main',
-            url: 'https://github.com/org/repo/pull/2147',
-            isDraft: false,
-            state: 'OPEN',
           }),
           stderr: '',
         }
@@ -810,7 +1385,9 @@ describe('launchIsolatedRail — active PR continuation', () => {
       worktreePath: `/wt/ticket-${input.ticketId}`,
     }))
     const git = {
-      run: async (args: string[]) => {
+      run: async (args: string[], cwd: string) => {
+        const verified = verifiedContinuationRef(args, cwd, 'feat/SKILLS-70-review-followups')
+        if (verified) return verified
         if (args[0] === 'rev-parse' && args.at(-1) === 'refs/heads/feat/SKILLS-70-review-followups') {
           return { code: 0, stdout: '', stderr: '' }
         }
@@ -818,9 +1395,14 @@ describe('launchIsolatedRail — active PR continuation', () => {
       },
     }
     const exec = {
-      run: vi.fn(async () => ({
+      run: vi.fn(async (_cmd: string, args: string[]) => ({
         code: 0,
-        stdout: JSON.stringify([{
+        stdout: args[1] === 'view'
+          ? openPrLifecycle({
+              branch: 'feat/SKILLS-70-review-followups',
+              url: 'https://github.com/o/r/pull/2148', number: 2148,
+            })
+          : JSON.stringify([{
           number: 2148,
           title: 'SKILLS-70 review follow-ups',
           body: 'Follow-up work for the linked Jira issue.',
@@ -828,7 +1410,7 @@ describe('launchIsolatedRail — active PR continuation', () => {
           baseRefName: 'main',
           url: 'https://github.com/o/r/pull/2148',
           isDraft: false,
-        }]),
+          }]),
         stderr: '',
       })),
     }
@@ -849,7 +1431,9 @@ describe('launchIsolatedRail — active PR continuation', () => {
       worktreePath: `/wt/ticket-${input.ticketId}`,
     }))
     const git = {
-      run: async (args: string[]) => {
+      run: async (args: string[], cwd: string) => {
+        const verified = verifiedContinuationRef(args, cwd, 'feat/SKILLS-19-key-terms-activity')
+        if (verified) return verified
         if (args[0] === 'rev-parse' && args.at(-1) === 'refs/heads/feat/SKILLS-19-key-terms-activity') {
           return { code: 1, stdout: '', stderr: '' }
         }
@@ -860,16 +1444,21 @@ describe('launchIsolatedRail — active PR continuation', () => {
       },
     }
     const exec = {
-      run: vi.fn(async () => ({
+      run: vi.fn(async (_cmd: string, args: string[]) => ({
         code: 0,
-        stdout: JSON.stringify([{
+        stdout: args[1] === 'view'
+          ? openPrLifecycle({
+              branch: 'feat/SKILLS-19-key-terms-activity',
+              url: 'https://github.com/org/repo/pull/2147', number: 2147, isDraft: true,
+            })
+          : JSON.stringify([{
           number: 2147,
           title: '[SKILLS-70] Existing implementation',
           headRefName: 'feat/SKILLS-19-key-terms-activity',
           baseRefName: 'main',
           url: 'https://github.com/o/r/pull/2147',
           isDraft: true,
-        }]),
+          }]),
         stderr: '',
       })),
     }
@@ -925,7 +1514,7 @@ describe('launchIsolatedRail — stale mounted worktree from a prior run (live #
           return { code: 0, stdout: 'sr/p/ticket-1\n', stderr: '' } // the mounted checkout's REAL branch
         }
         if (args[0] === 'for-each-ref') return { code: 0, stdout: 'sr/p/ticket-1\n', stderr: '' }
-        return { code: 0, stdout: '', stderr: '' }
+        return successfulGitResult(args)
       },
     }
 
@@ -934,7 +1523,11 @@ describe('launchIsolatedRail — stale mounted worktree from a prior run (live #
 
     await vi.waitFor(() => expect(getActivePrDeliveryByRail(db, 0)!.decision).toBe('on_review'))
     const row = getActivePrDeliveryByRail(db, 0)!
-    expect(JSON.parse(row.branches)).toEqual([{ ticketId: 1, branch: 'sr/p/ticket-1', succeeded: true }])
+    expect(JSON.parse(row.branches)[0]).toMatchObject({
+      ticketId: 1, branch: 'sr/p/ticket-1', succeeded: true,
+      implementationOutcome: 'succeeded', deliveryOutcome: 'ready',
+      initialSha: TEST_SHA, finalSha: TEST_SHA,
+    })
     const fresh = listRailWorktrees(db, 0).filter((r) => r.id !== 'stale')
     expect(fresh).toHaveLength(1)
     expect(fresh[0].branch).toBe('sr/p/ticket-1')
@@ -945,7 +1538,7 @@ describe('launchIsolatedRail — stale mounted worktree from a prior run (live #
 describe('launchIsolatedRail — failed-implementation cleanup (0 succeeded)', () => {
   beforeEach(() => { delete process.env.SPECRAILS_RAIL_DELIVER_PR }) // PR mode default-on
 
-  const gitOk = () => ({ run: async () => ({ code: 0, stdout: '', stderr: '' }) })
+  const gitOk = () => ({ run: async (args: string[]) => successfulGitResult(args) })
   const okCreate = () =>
     vi.fn(async (_g: unknown, { ticketId }: { ticketId: number }) => ({ branch: `sr/p/ticket-${ticketId}`, worktreePath: `/wt/ticket-${ticketId}` }))
 
@@ -981,7 +1574,7 @@ describe('launchIsolatedRail — failed-implementation cleanup (0 succeeded)', (
 })
 
 describe('launchIsolatedRail — per-run worktree overlay', () => {
-  const gitOk = () => ({ run: async () => ({ code: 0, stdout: '', stderr: '' }) })
+  const gitOk = () => ({ run: async (args: string[]) => successfulGitResult(args) })
   const okCreate = () =>
     vi.fn(async (_g: unknown, { ticketId }: { ticketId: number }) => ({ branch: `sr/p/ticket-${ticketId}`, worktreePath: `/wt/ticket-${ticketId}` }))
   const noopOverlay = () => vi.fn(() => ({ createdPaths: [], warnings: [] }))
@@ -1041,7 +1634,7 @@ describe('launchIsolatedRail — per-run worktree overlay', () => {
   it('commit at settle EXCLUDES overlay-owned paths (never land on the ticket branch/PR)', async () => {
     const { ctx } = fakeCtx(settlingRun('success'))
     const calls: { args: string[]; cwd: string }[] = []
-    const git = { run: async (args: string[], cwd: string) => { calls.push({ args, cwd }); return { code: 0, stdout: '', stderr: '' } } }
+    const git = { run: async (args: string[], cwd: string) => { calls.push({ args, cwd }); return successfulGitResult(args) } }
     const overlay = vi.fn(() => ({
       createdPaths: ['.claude/commands/specrails', '.claude/agents', '.sr-rail-overlay.json'],
       warnings: [],
@@ -1063,7 +1656,7 @@ describe('launchIsolatedRail — per-run worktree overlay', () => {
   it('REGRESSION PIN: a no-op overlay (fully-tracked legacy repo) adds only permanent PR excludes', async () => {
     const { ctx } = fakeCtx(settlingRun('success'))
     const calls: { args: string[]; cwd: string }[] = []
-    const git = { run: async (args: string[], cwd: string) => { calls.push({ args, cwd }); return { code: 0, stdout: '', stderr: '' } } }
+    const git = { run: async (args: string[], cwd: string) => { calls.push({ args, cwd }); return successfulGitResult(args) } }
     await launchIsolatedRail(input([1], ctx), { git, create: okCreate(), remove: vi.fn(async () => {}), overlay: noopOverlay() })
 
     await vi.waitFor(() => expect(calls.some((c) => c.args[0] === 'add')).toBe(true))
@@ -1075,7 +1668,7 @@ describe('launchIsolatedRail — per-run worktree overlay', () => {
 })
 
 describe('launchIsolatedRail — Code-Explorer provenance (construction story seam)', () => {
-  const gitOk = () => ({ run: async () => ({ code: 0, stdout: '', stderr: '' }) })
+  const gitOk = () => ({ run: async (args: string[]) => successfulGitResult(args) })
   const okCreate = () =>
     vi.fn(async (_g: unknown, { ticketId }: { ticketId: number }) => ({ branch: `sr/p/ticket-${ticketId}`, worktreePath: `/wt/ticket-${ticketId}` }))
   const fakeSnapshot = { ref: '', untracked: ['.claude/agents'], headSha: 'base-sha' }
@@ -1141,7 +1734,133 @@ describe('launchIsolatedRail — Code-Explorer provenance (construction story se
 })
 
 describe('reconcileRailWorktrees (startup sweep)', () => {
-  it('removes non-terminal orphans (keeping branches) and marks them failed; leaves terminal rows', async () => {
+  const seedInterruptedDelivery = (dirty: boolean) => {
+    const db = initDb(':memory:')
+    const runId = 'recovery-run'
+    createLoopRun(db, {
+      id: runId,
+      projectId: 'proj',
+      loopId: 'factory:implement',
+      railIndex: 0,
+      ticketId: 1,
+      ticketIds: [1],
+      ticketCompletionStatus: 'on_review',
+      iterationLimit: 3,
+      startedAt: new Date().toISOString(),
+    })
+    db.prepare(`UPDATE loop_runs SET status = 'completed', final_outcome = 'success' WHERE id = ?`).run(runId)
+    const worktree = createRailWorktree(db, {
+      id: 'recovery-wt', railIndex: 0, ticketId: 1, runId,
+      branch: 'feat/1-recovery', worktreePath: '/wt/recovery',
+    })
+    const delivery = createPrDelivery(db, {
+      id: 'recovery-delivery', railIndex: 0, loopId: 'factory:implement',
+      railKey: '0-factory:implement', ticketIds: [1], baseBranch: 'main',
+      loopName: 'Implement', originSurface: 'dashboard',
+    })
+    transitionDecision(db, delivery.id, 'building', 'building', {
+      runIds: [runId], worktreeIds: [worktree.id],
+    })
+    const git = {
+      run: async (args: string[], cwd: string) => {
+        if (args[0] === 'status') return { code: 0, stdout: dirty ? ' M src/recovery.ts\n' : '', stderr: '' }
+        if (args[0] === 'rev-parse' && args[1] === '--abbrev-ref') {
+          return { code: 0, stdout: 'feat/1-recovery\n', stderr: '' }
+        }
+        if (args.join(' ') === 'rev-parse --verify HEAD' || (
+          cwd === '/repo' && args.join(' ') === 'rev-parse --verify refs/heads/feat/1-recovery'
+        )) {
+          return { code: 0, stdout: `${TEST_SHA}\n`, stderr: '' }
+        }
+        return successfulGitResult(args)
+      },
+    }
+    return { db, git, delivery, worktree }
+  }
+
+  it('preserves a successful dirty interrupted worktree and recovers an actionable blocked delivery', async () => {
+    const { db, git, delivery, worktree } = seedInterruptedDelivery(true)
+    const remove = vi.fn(async () => {})
+
+    await reconcileRailWorktrees(db, '/repo', { git, remove })
+
+    expect(remove).not.toHaveBeenCalled()
+    expect(getRailWorktree(db, worktree.id)?.merge_state).toBe('needs-review')
+    expect(db.prepare('SELECT * FROM rail_pr_deliveries WHERE id = ?').get(delivery.id)).toMatchObject({
+      decision: 'pr_failed', implementation_outcome: 'succeeded',
+      delivery_outcome: 'blocked', status_code: 'settlement_interrupted',
+    })
+  })
+
+  it('reconstructs a successful clean interrupted branch as ready for review', async () => {
+    const { db, git, delivery, worktree } = seedInterruptedDelivery(false)
+    const remove = vi.fn(async () => {})
+
+    await reconcileRailWorktrees(db, '/repo', { git, remove })
+
+    expect(remove).not.toHaveBeenCalled()
+    expect(getRailWorktree(db, worktree.id)?.merge_state).toBe('built')
+    expect(db.prepare('SELECT * FROM rail_pr_deliveries WHERE id = ?').get(delivery.id)).toMatchObject({
+      decision: 'on_review', implementation_outcome: 'succeeded',
+      delivery_outcome: 'ready', status_code: 'ready_for_review',
+    })
+  })
+
+  it('finishes safe cleanup after a crash that persisted no_changes before release', async () => {
+    const { db, git, delivery, worktree } = seedInterruptedDelivery(false)
+    transitionDecision(db, delivery.id, 'building', 'no_changes', {
+      implementationOutcome: 'succeeded', deliveryOutcome: 'no_changes', statusCode: 'no_changes',
+    })
+    const remove = vi.fn(async () => {})
+
+    await reconcileRailWorktrees(db, '/repo', { git, remove })
+
+    expect(remove).toHaveBeenCalledWith(git, {
+      repoDir: '/repo', worktreePath: '/wt/recovery', branch: 'feat/1-recovery', deleteBranch: false,
+    })
+    expect(getRailWorktree(db, worktree.id)?.merge_state).toBe('released')
+    expect(getPrDelivery(db, delivery.id)?.decision).toBe('no_changes')
+  })
+
+  it('recovers an exact retry SHA when a continuation crashed after safe worktree release', async () => {
+    const db = initDb(':memory:')
+    const runId = 'released-continuation-run'
+    const branch = 'feat/existing-pr'
+    createLoopRun(db, {
+      id: runId, projectId: 'proj', loopId: 'factory:implement', railIndex: 0,
+      ticketId: 1, ticketIds: [1], ticketCompletionStatus: 'on_review',
+      iterationLimit: 3, startedAt: new Date().toISOString(),
+    })
+    db.prepare(`UPDATE loop_runs SET status = 'completed', final_outcome = 'success' WHERE id = ?`).run(runId)
+    const worktree = createRailWorktree(db, {
+      id: 'released-continuation-wt', railIndex: 0, ticketId: 1, runId,
+      branch, worktreePath: '/wt/released', mergeState: 'released',
+    })
+    const delivery = createPrDelivery(db, {
+      id: 'released-continuation-delivery', railIndex: 0, loopId: 'factory:implement',
+      railKey: '0-factory:implement', ticketIds: [1], baseBranch: 'main',
+      loopName: 'Implement', originSurface: 'dashboard', isContinuation: true,
+    })
+    transitionDecision(db, delivery.id, 'building', 'building', {
+      runIds: [runId], worktreeIds: [worktree.id], branch,
+      prUrl: 'https://github.com/o/r/pull/1', prNumber: 1, prState: 'pr-created',
+    })
+    const git = {
+      run: async (args: string[]) => args.join(' ') === `rev-parse --verify refs/heads/${branch}`
+        ? { code: 0, stdout: `${TEST_SHA}\n`, stderr: '' }
+        : successfulGitResult(args),
+    }
+
+    await expect(reconcileRailWorktrees(db, '/repo', { git, remove: vi.fn(async () => {}) })).resolves.toBe(0)
+
+    expect(getActivePrDeliveryByRail(db, 0)).toMatchObject({
+      decision: 'pr_failed', implementation_outcome: 'succeeded',
+      delivery_outcome: 'retryable_failure', status_code: 'settlement_interrupted',
+      delivery_sha: TEST_SHA,
+    })
+  })
+
+  it('preserves non-terminal worktrees with missing run evidence as needs-review', async () => {
     const db = initDb(':memory:')
     createRailWorktree(db, { id: 'a', railIndex: 0, ticketId: 1, branch: 'sr/p/ticket-1', worktreePath: '/wt/1' })
     createRailWorktree(db, { id: 'b', railIndex: 0, ticketId: 2, branch: 'sr/p/ticket-2', worktreePath: '/wt/2' })
@@ -1154,12 +1873,10 @@ describe('reconcileRailWorktrees (startup sweep)', () => {
     const n = await reconcileRailWorktrees(db, '/repo', { git: { run: async () => ({ code: 0, stdout: '', stderr: '' }) }, remove })
 
     expect(n).toBe(2)
-    expect(remove).toHaveBeenCalledTimes(2)
-    // branches kept for inspection
-    expect(remove.mock.calls.every((c) => (c[1] as { deleteBranch?: boolean }).deleteBranch === false)).toBe(true)
+    expect(remove).not.toHaveBeenCalled()
     expect(getRailWorktree(db, 'a')?.merge_state).toBe('merged')
-    expect(getRailWorktree(db, 'b')?.merge_state).toBe('failed')
-    expect(getRailWorktree(db, 'c')?.merge_state).toBe('failed')
+    expect(getRailWorktree(db, 'b')?.merge_state).toBe('needs-review')
+    expect(getRailWorktree(db, 'c')?.merge_state).toBe('needs-review')
   })
 
   it('is a no-op (no git/remove calls) when there are no orphans', async () => {
@@ -1241,5 +1958,35 @@ describe('launchIsolatedRail — concurrent-launch allocation serialization', ()
     expect(rb.status).toBe('fulfilled')
     expect((rb as PromiseFulfilledResult<string[]>).value).toHaveLength(1)
     a.db.close(); b.db.close()
+  })
+
+  it('admits only one generation when two launches race for the same rail', async () => {
+    const { ctx, db, run } = fakeCtx()
+    const create = vi.fn(async (_git: unknown, createInput: { branch: string; ticketId: number }) => {
+      await new Promise((resolve) => setTimeout(resolve, 10))
+      return {
+        branch: createInput.branch,
+        worktreePath: `/wt/ticket-${createInput.ticketId}`,
+        branchCreated: true,
+        worktreeCreated: true,
+      }
+    })
+    const io: IsolatedLaunchIO = {
+      git: { run: async (args: string[]) => successfulGitResult(args) },
+      create,
+      remove: vi.fn(async () => {}),
+    }
+
+    const [first, second] = await Promise.allSettled([
+      launchIsolatedRail(input([1], ctx), io),
+      launchIsolatedRail(input([1], ctx), io),
+    ])
+
+    expect([first.status, second.status].sort()).toEqual(['fulfilled', 'rejected'])
+    const rejected = first.status === 'rejected' ? first.reason : (second as PromiseRejectedResult).reason
+    expect(rejected).toBeInstanceOf(PrDeliveryGenerationConflict)
+    expect(create).toHaveBeenCalledTimes(1)
+    expect(run).toHaveBeenCalledTimes(1)
+    expect(listActivePrDeliveries(db)).toHaveLength(1)
   })
 })

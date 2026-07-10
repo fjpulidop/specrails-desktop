@@ -80,7 +80,7 @@ describe('ActiveJobCard', () => {
       expect(link).toHaveAttribute('href', '/jobs/job-active-1')
     })
 
-    it('calls DELETE /jobs/:id when Cancel is clicked and shows toast', async () => {
+    it('calls POST /jobs/:id/cancel when Cancel is clicked and shows toast', async () => {
       ;(global.fetch as ReturnType<typeof vi.fn>).mockResolvedValueOnce({ ok: true })
       const { toast } = await import('sonner')
 
@@ -89,8 +89,8 @@ describe('ActiveJobCard', () => {
 
       await waitFor(() => {
         expect(global.fetch).toHaveBeenCalledWith(
-          '/api/projects/proj-1/jobs/job-active-1',
-          expect.objectContaining({ method: 'DELETE' })
+          '/api/projects/proj-1/jobs/job-active-1/cancel',
+          expect.objectContaining({ method: 'POST' })
         )
         expect(toast.success).toHaveBeenCalled()
       })

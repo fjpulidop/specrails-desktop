@@ -28,14 +28,34 @@
 // rail/ticket completion, ai_invocations) via the onSettle callback.
 
 import type { ChildProcess } from 'node:child_process'
+import { createHash } from 'node:crypto'
 import { createInterface, type Interface } from 'node:readline'
 import { spawnAiCli } from './util/cli-prompt'
+import { treeKillSafe } from './util/win-spawn'
 import { frameStreamJsonUserMessage } from './explore-stdin-session'
 import { finaliseInvocationResult } from './result-event'
-import { appendEvent, accumulateInteractiveTurn, type DbInstance } from './db'
+import { appendEvent, accumulateInteractiveTurn, type DbInstance, type InteractiveTurnUsage } from './db'
 import { extractDisplayText } from './util/stream-display'
 import type { AdapterEvent, ProviderAdapter } from './providers/types'
 import type { WsMessage } from './types'
+
+/** Claude's stream-json result frames do not carry a turn id. Hash a canonical
+ * representation of the real frame instead: an exact/semantic retransmission
+ * remains identifiable even after the next stdin turn has been armed, while a
+ * genuine later result differs through its cumulative/session/result fields. */
+function canonicalJson(value: unknown): string {
+  if (value === null || typeof value !== 'object') return JSON.stringify(value) ?? 'null'
+  if (Array.isArray(value)) return `[${value.map(canonicalJson).join(',')}]`
+  const record = value as Record<string, unknown>
+  return `{${Object.keys(record)
+    .sort()
+    .map((key) => `${JSON.stringify(key)}:${canonicalJson(record[key])}`)
+    .join(',')}}`
+}
+
+function resultFrameSignature(frame: Record<string, unknown>): string {
+  return createHash('sha256').update(canonicalJson(frame)).digest('hex')
+}
 
 /** Running sum of every completed turn's REAL usage in one interactive job. */
 export interface AccumulatedUsage {
@@ -182,8 +202,23 @@ export interface InteractiveJobSessionDeps {
    *  seq). Unset ⇒ the session's private counter starting at 0 — byte-identical
    *  QueueManager behaviour, where the session owns the whole job's events. */
   nextEventSeq?: () => number
+  /** Optional owner-provided durable turn checkpoint. LoopRunManager uses this
+   * to commit the jobs accumulator and loop-step raw-event frontier in ONE
+   * transaction. QueueManager omits it and retains the legacy direct update. */
+  persistTurnUsage?: (
+    turn: InteractiveTurnUsage,
+    completedEventSeq: number,
+    checkpoint?: { cost?: number; turns?: number; activeDurationMs: number },
+  ) => void
+  /** Loop owner hook for crash-recoverable active duration. Called before a
+   * turn is delivered and again as raw activity arrives. A thrown checkpoint
+   * failure fail-stops the session; it must never continue with an untracked
+   * provider turn. */
+  persistTurnActivity?: (turnStartedAtMs: number, activityAtMs: number) => void
   /** Injectable spawn (tests). Defaults to spawnAiCli. */
   spawn?: typeof spawnAiCli
+  /** Injectable process-tree terminator (tests). Defaults to treeKillSafe. */
+  killTree?: typeof treeKillSafe
 }
 
 function zeroUsage(): AccumulatedUsage {
@@ -210,20 +245,28 @@ export class InteractiveJobSession {
   private readonly _settleMode: 'finalize' | 'auto'
   private readonly _zombieTimeoutMs: number
   private readonly _nextEventSeq: (() => number) | null
+  private readonly _persistTurnUsage: ((
+    turn: InteractiveTurnUsage,
+    completedEventSeq: number,
+    checkpoint?: { cost?: number; turns?: number; activeDurationMs: number },
+  ) => void) | null
+  private readonly _persistTurnActivity: ((turnStartedAtMs: number, activityAtMs: number) => void) | null
   private readonly _spawn: typeof spawnAiCli
+  private readonly _killTree: typeof treeKillSafe
 
   private _child: ChildProcess | null = null
   private _stdoutReader: Interface | null = null
   private _stderrReader: Interface | null = null
 
   private _eventSeq = 0
+  private _lastPersistedEventSeq = -1
   private _streaming = false
   /** True between writing a turn to stdin and receiving its `result` event.
    *  Guards _onTurnResult against double-counting a duplicate `result` frame. */
   private _awaitingResult = false
-  /** Monotonic id assigned to each turn written to stdin. A `result` frame is only
-   *  counted when its turn-id matches the in-flight turn — so a stray/late/duplicate
-   *  result for a finished turn can never be folded into the NEXT turn's totals. */
+  /** Monotonic id assigned to each delivered turn. It gates one accepted result
+   * per active turn; canonical result signatures provide the cross-turn replay
+   * barrier because Claude's protocol does not expose a turn id. */
   private _turnSeq = 0
   /** The turn-id currently awaiting a `result` (== _turnSeq while streaming). */
   private _activeTurnId = 0
@@ -232,6 +275,10 @@ export class InteractiveJobSession {
   private _lastSettledTurnId = 0
   private _pending: string[] = []
   private _turnEvents: AdapterEvent[] = []
+  /** Accepted result-frame signatures for this resident child. The protocol has
+   * no turn id, so this is the durable-in-process correlation barrier that keeps
+   * a retransmitted prior result out of a newly-armed turn. */
+  private readonly _acceptedResultSignatures = new Set<string>()
 
   private readonly _accum: AccumulatedUsage = zeroUsage()
   private _model: string | null = null
@@ -263,6 +310,12 @@ export class InteractiveJobSession {
   private _finalizing = false
   private _settled = false
   private _disposed = false
+  /** `ChildProcess.killed` only means a signal was sent. This tracks the real
+   *  lifecycle event used to decide whether SIGKILL escalation is still needed. */
+  private _childClosed = false
+  private _stdinFailed = false
+  private _terminationStarted = false
+  private _terminationReason: 'finalized' | 'crashed' | null = null
   private _killTimer: ReturnType<typeof setTimeout> | null = null
   /** Auto-mode wedge detector (see InteractiveJobSessionDeps.zombieTimeoutMs). */
   private _zombieTimer: ReturnType<typeof setTimeout> | null = null
@@ -277,7 +330,10 @@ export class InteractiveJobSession {
     this._settleMode = deps.settleMode ?? 'finalize'
     this._zombieTimeoutMs = deps.zombieTimeoutMs ?? 0
     this._nextEventSeq = deps.nextEventSeq ?? null
+    this._persistTurnUsage = deps.persistTurnUsage ?? null
+    this._persistTurnActivity = deps.persistTurnActivity ?? null
     this._spawn = deps.spawn ?? spawnAiCli
+    this._killTree = deps.killTree ?? treeKillSafe
   }
 
   /** Spawn the resident child and run the first turn (the freestyle prompt). */
@@ -289,6 +345,10 @@ export class InteractiveJobSession {
       cwd: spec.cwd,
     } as Parameters<typeof spawnAiCli>[2])
     this._child = child
+    this._childClosed = false
+    this._stdinFailed = false
+    this._terminationStarted = false
+    this._terminationReason = null
 
     // Absorb spawn 'error' (e.g. ENOENT) so it does not crash the process; the
     // 'close' that follows settles the job as crashed through _handleClose.
@@ -304,7 +364,21 @@ export class InteractiveJobSession {
       this._stderrReader = createInterface({ input: child.stderr, crlfDelay: Infinity })
       this._stderrReader.on('line', (line) => this._handleStderrLine(line))
     }
-    child.on('close', (code) => this._handleClose(code))
+    child.on('close', (code) => {
+      this._childClosed = true
+      this._clearKillTimer()
+      this._handleClose(code)
+    })
+    // A buffered write can fail asynchronously (typically EPIPE after the child
+    // exits). `try/catch` around write() cannot observe that event, and an
+    // unhandled Writable 'error' terminates Node. Install this BEFORE the first
+    // `send()` below so even the initial frame is protected.
+    child.stdin?.on('error', (err) => {
+      this._stdinFailed = true
+      console.error(`[interactive-job] stdin failed for ${this._jobId}: ${err.message}`)
+      if (this._disposed || this._settled) return
+      this._terminateChildTree(this._finalizing ? 'finalized' : 'crashed')
+    })
 
     // Auto-mode wedge detector: reset on ANY raw output ('data' — synchronous
     // under fake timers, mirroring the one-shot path's zombie timer) and fire
@@ -343,7 +417,7 @@ export class InteractiveJobSession {
       const note = `⚠️ Could not deliver your message — the agent's input channel is closed.`
       this._persistLog('stderr', note)
       this._emitLog('stderr', note)
-      this._settle('crashed')
+      this._terminateChildTree('crashed')
       return false
     }
     // Surface the user turn in the transcript via the existing `log` channel so
@@ -386,20 +460,7 @@ export class InteractiveJobSession {
     if (this._finalizing || this._settled) return
     this._finalizing = true
     this._clearZombieTimer()
-    const child = this._child
-    if (!child || child.killed || !child.pid) {
-      this._settle('finalized')
-      return
-    }
-    try { child.kill('SIGTERM') } catch { /* already gone */ }
-    this._killTimer = setTimeout(() => {
-      try { if (this._child && !this._child.killed) this._child.kill('SIGKILL') } catch { /* gone */ }
-      // Hard-deadline fallback: if the child never emits 'close' (D-state /
-      // uninterruptible / signal-swallowing), _handleClose never runs and the slot
-      // would leak forever. Force the settle here so the queue always drains. If
-      // 'close' does fire, _settle is idempotent so this is a no-op.
-      this._settle('finalized')
-    }, FINALIZE_KILL_GRACE_MS)
+    this._terminateChildTree('finalized')
   }
 
   /** Programmatic teardown that SETTLES 'crashed' after folding any in-flight
@@ -415,26 +476,16 @@ export class InteractiveJobSession {
       this._persistLog('stderr', note)
       this._emitLog('stderr', note)
     }
-    const child = this._child
-    try { if (child && !child.killed) child.kill('SIGTERM') } catch { /* gone */ }
-    // Escalate to SIGKILL after the grace window if the child survives SIGTERM.
-    // NOT stored in _killTimer — _settle below clears that slot, and this
-    // escalation must outlive the settle. unref'd so it never holds the process.
-    const escalate = setTimeout(() => {
-      try { if (this._child && !this._child.killed) this._child.kill('SIGKILL') } catch { /* gone */ }
-    }, FINALIZE_KILL_GRACE_MS)
-    if (typeof escalate.unref === 'function') escalate.unref()
-    this._settle('crashed')
+    this._terminateChildTree('crashed')
   }
 
   /** Teardown without settling (project removal / shutdown). */
   dispose(): void {
     if (this._disposed) return
     this._disposed = true
-    this._clearKillTimer()
     this._clearZombieTimer()
     this._closeReaders()
-    try { if (this._child && !this._child.killed) this._child.kill('SIGTERM') } catch { /* gone */ }
+    this._terminateChildTree(null)
     this._child = null
   }
 
@@ -445,29 +496,51 @@ export class InteractiveJobSession {
    *  caller must NOT treat an unconfirmed turn as accepted. */
   private _writeTurn(text: string): boolean {
     const child = this._child
-    if (!child || !child.stdin || child.stdin.destroyed) return false
+    if (!child || !child.stdin || child.stdin.destroyed || this._stdinFailed) return false
+    const turnStartedAtMs = Date.now()
+    if (this._persistTurnActivity) {
+      try {
+        // Commit the start BEFORE stdin delivery. If this fails, the provider
+        // never receives work that startup recovery cannot time/account.
+        this._persistTurnActivity(turnStartedAtMs, turnStartedAtMs)
+      } catch (err) {
+        this._failStopPersistence('turn-start checkpoint', err)
+        return false
+      }
+    }
     try {
       child.stdin.write(frameStreamJsonUserMessage(text))
     } catch (err) {
       console.error('[interactive-job] stdin write failed:', err)
       return false
     }
-    // Tag this turn so only its OWN `result` is counted (BUG-INTJOB-03): a late or
-    // duplicate result for a prior turn won't match _activeTurnId once a new turn
-    // has begun, so it can never inflate the next turn's totals.
+    // Arm exactly one result for this delivered turn. Cross-turn retransmissions
+    // are rejected by the canonical-signature barrier in _handleStdoutLine.
     this._turnSeq += 1
     this._activeTurnId = this._turnSeq
     this._streaming = true
     this._awaitingResult = true
     this._turnEvents = []
     // Start the active-duration segment for this turn (LOW-15).
-    this._turnStartMs = Date.now()
+    this._turnStartMs = turnStartedAtMs
     return true
   }
 
   private _handleStdoutLine(line: string): void {
     let parsed: Record<string, unknown> | null = null
     try { parsed = JSON.parse(line) } catch { /* plain text */ }
+
+    // A late retransmission can arrive after the next queued prompt has already
+    // been written. Drop it BEFORE adapter parsing and event persistence: adding
+    // it to the next turn's event buffer corrupts live totals, while persisting
+    // it beyond the prior checkpoint would make crash recovery count it again.
+    if (parsed?.type === 'result') {
+      // A terminal frame with no active turn is causally unassignable. Drop it
+      // before adapter parsing/persistence so raw recovery cannot count it.
+      if (!this._awaitingResult) return
+      const signature = resultFrameSignature(parsed)
+      if (this._acceptedResultSignatures.has(signature)) return
+    }
 
     const adapterEv = this._adapter.parseStreamLine(line)
     if (adapterEv) {
@@ -477,7 +550,9 @@ export class InteractiveJobSession {
 
     if (parsed) {
       const eventType = (parsed.type as string) ?? 'unknown'
-      const seq = this._persistEvent(eventType, line)
+      const { seq, persisted } = this._persistEvent(eventType, line)
+      if (!persisted) return
+      if (eventType !== 'result' && !this._checkpointRawActivity()) return
       this._broadcast({
         type: 'event',
         jobId: this._jobId,
@@ -488,7 +563,7 @@ export class InteractiveJobSession {
         seq,
       })
       if (eventType === 'result') {
-        this._onTurnResult(parsed)
+        this._onTurnResult(parsed, seq, resultFrameSignature(parsed))
       }
       const displayText = extractDisplayText(parsed)
       if (displayText !== null) {
@@ -507,19 +582,48 @@ export class InteractiveJobSession {
 
   private _handleStderrLine(line: string): void {
     this._persistLog('stderr', line)
+    if (!this._checkpointRawActivity()) return
     this._emitLog('stderr', line)
   }
 
-  private _onTurnResult(parsed: Record<string, unknown>): void {
+  /** Update the active wall segment on raw activity. Failure is terminal: the
+   * raw event/log is already durable while the completed-event frontier remains
+   * unchanged, so startup can replay the turn exactly once. */
+  private _checkpointRawActivity(): boolean {
+    if (!this._persistTurnActivity || this._turnStartMs === null) return true
+    try {
+      this._persistTurnActivity(this._turnStartMs, Date.now())
+      return true
+    } catch (err) {
+      this._failStopPersistence('raw-activity checkpoint', err)
+      return false
+    }
+  }
+
+  private _failStopPersistence(context: string, err: unknown): void {
+    console.error(`[interactive-job] ${context} failed; stopping session:`, err)
+    if (this._disposed || this._settled) return
+    // Block send()/auto-settle immediately while the child termination is in
+    // flight. `_terminationReason` remains crashed even though `_finalizing`
+    // also serves as the admission gate.
+    this._finalizing = true
+    this._terminateChildTree('crashed')
+  }
+
+  private _onTurnResult(
+    parsed: Record<string, unknown>,
+    resultEventSeq: number,
+    resultSignature: string,
+  ): void {
     // Count a result only for the in-flight turn, exactly once (BUG-INTJOB-03).
     // `_awaitingResult` alone is insufficient: after a turn settles, the next
     // queued prompt re-arms `_awaitingResult`, so a stray/duplicate result for the
-    // PRIOR turn would be folded into the new turn's (reset) events. Tagging each
-    // turn with a monotonic id and recording the last settled id closes that gap —
-    // a result is rejected unless a turn is genuinely awaiting AND its id hasn't
-    // already been settled.
+    // PRIOR turn would be folded into the new turn's (reset) events. The active
+    // sequence gates one result per delivery; _handleStdoutLine rejects any
+    // previously accepted canonical frame before it reaches this method.
     if (!this._awaitingResult) return
     if (this._activeTurnId <= this._lastSettledTurnId) return
+    this._acceptedResultSignatures.add(resultSignature)
     this._lastSettledTurnId = this._activeTurnId
     this._awaitingResult = false
     this._streaming = false
@@ -564,8 +668,7 @@ export class InteractiveJobSession {
     if (normalised.session_id) this._sessionId = normalised.session_id
 
     if (this._db) {
-      try {
-        accumulateInteractiveTurn(this._db, this._jobId, {
+      const usage: InteractiveTurnUsage = {
           tokens_in: normalised.tokens_in ?? 0,
           tokens_out: normalised.tokens_out ?? 0,
           tokens_cache_read: normalised.tokens_cache_read ?? 0,
@@ -574,9 +677,27 @@ export class InteractiveJobSession {
           num_turns: turnsDelta,
           model: normalised.model,
           session_id: normalised.session_id,
-        })
-      } catch (err) {
-        console.error('[interactive-job] accumulate turn failed:', err)
+        }
+      if (this._persistTurnUsage) {
+        try {
+          this._persistTurnUsage(usage, resultEventSeq, {
+            cost: this._baselineCost,
+            turns: this._baselineTurns,
+            activeDurationMs: this._activeDurationMs,
+          })
+        } catch (err) {
+          // The result row is already durable, but its frontier did not commit.
+          // Stop before turn_done/next-prompt/auto-finalize; onSettle or startup
+          // recovery consumes the retained turn exactly once.
+          this._failStopPersistence('turn usage checkpoint', err)
+          return
+        }
+      } else {
+        try {
+          accumulateInteractiveTurn(this._db, this._jobId, usage)
+        } catch (err) {
+          console.error('[interactive-job] accumulate turn failed:', err)
+        }
       }
     }
 
@@ -601,7 +722,7 @@ export class InteractiveJobSession {
           const note = `⚠️ Could not deliver a queued message — the agent's input channel is closed.`
           this._persistLog('stderr', note)
           this._emitLog('stderr', note)
-          this._settle('crashed')
+          this._terminateChildTree('crashed')
         }
       })
     } else if (this._settleMode === 'auto' && !this._finalizing) {
@@ -627,19 +748,25 @@ export class InteractiveJobSession {
 
   /** Persist one raw provider event. Returns the seq it was written under so
    *  the caller's WS broadcast carries the same ordinal. */
-  private _persistEvent(eventType: string, payload: string): number {
+  private _persistEvent(eventType: string, payload: string): { seq: number; persisted: boolean } {
     const seq = this._takeSeq()
-    if (!this._db) return seq
+    if (!this._db) return { seq, persisted: true }
     try {
       appendEvent(this._db, this._jobId, seq, {
         event_type: eventType,
         source: 'stdout',
         payload,
       })
+      this._lastPersistedEventSeq = Math.max(this._lastPersistedEventSeq, seq)
+      return { seq, persisted: true }
     } catch (err) {
       console.error('[interactive-job] persist event failed:', err)
+      // Every DB-backed session now relies on raw rows for crash recovery.
+      // Continuing would let a later result/frontier certify provider work that
+      // cannot be reconstructed after process death.
+      this._failStopPersistence('raw event persistence', err)
+      return { seq, persisted: false }
     }
-    return seq
   }
 
   private _persistLog(source: 'stdout' | 'stderr', line: string): void {
@@ -698,7 +825,7 @@ export class InteractiveJobSession {
     if (partial.session_id) this._sessionId = partial.session_id
     if (this._db) {
       try {
-        accumulateInteractiveTurn(this._db, this._jobId, {
+        const usage: InteractiveTurnUsage = {
           tokens_in: partial.tokens_in ?? 0,
           tokens_out: partial.tokens_out ?? 0,
           tokens_cache_read: partial.tokens_cache_read ?? 0,
@@ -710,7 +837,13 @@ export class InteractiveJobSession {
           // Mark the jobs row estimated when this folded turn was priced from the
           // rate card (no terminal `result` frame) — keeps Job Detail honest.
           estimated: partialCost > 0 && estimated,
-        })
+        }
+        if (this._persistTurnUsage) {
+          this._persistTurnUsage(usage, this._lastPersistedEventSeq, {
+            activeDurationMs: this._activeDurationMs,
+          })
+        }
+        else accumulateInteractiveTurn(this._db, this._jobId, usage)
       } catch (err) {
         console.error('[interactive-job] fold in-flight turn failed:', err)
       }
@@ -736,7 +869,7 @@ export class InteractiveJobSession {
 
   private _handleClose(_code: number | null): void {
     if (this._disposed || this._settled) return
-    this._settle(this._finalizing ? 'finalized' : 'crashed')
+    this._settle(this._terminationReason ?? (this._finalizing ? 'finalized' : 'crashed'))
   }
 
   // ─── Auto-mode wedge detector ────────────────────────────────────────────────
@@ -820,6 +953,55 @@ export class InteractiveJobSession {
       resultText: this._resultText,
       zeroWork,
     })
+  }
+
+  /**
+   * Shared teardown for finalize / abort / dispose. Signal the WHOLE process
+   * tree, then escalate only when the child has not emitted a real `close`.
+   * `ChildProcess.killed` is deliberately ignored: Node flips it as soon as a
+   * signal is sent, even when the process survives that signal.
+   *
+   * Finalize/abort settle on close. A child that never closes is force-settled
+   * only after SIGKILL has actually been requested, preserving queue liveness
+   * without releasing the slot after a mere SIGTERM attempt. Dispose never
+   * settles because its owner already flushed/reconciles the job separately.
+   */
+  private _terminateChildTree(reason: 'finalized' | 'crashed' | null): void {
+    if (reason !== null && this._terminationReason === null) this._terminationReason = reason
+    const child = this._child
+    if (!child || this._childClosed || !child.pid) {
+      if (reason !== null && !this._disposed) this._settle(reason)
+      return
+    }
+    if (this._terminationStarted) return
+    this._terminationStarted = true
+
+    const pid = child.pid
+    // Arm before SIGTERM: an injected/synchronous terminator may cause `close`
+    // immediately, and that close must be able to cancel the escalation.
+    this._killTimer = setTimeout(() => {
+      this._killTimer = null
+      if (this._childClosed) return
+      try {
+        this._killTree(pid, 'SIGKILL', (err) => {
+          if (err) console.error(`[interactive-job] SIGKILL failed for ${this._jobId}: ${err.message}`)
+        })
+      } catch (err) {
+        console.error(`[interactive-job] SIGKILL failed for ${this._jobId}: ${(err as Error).message}`)
+      }
+      // Hard deadline: the OS may never deliver `close` for an uninterruptible
+      // child. The tree has now received SIGKILL, so release an awaiting owner.
+      if (reason !== null && !this._disposed) this._settle(reason)
+    }, FINALIZE_KILL_GRACE_MS)
+    this._killTimer.unref?.()
+
+    try {
+      this._killTree(pid, 'SIGTERM', (err) => {
+        if (err) console.error(`[interactive-job] SIGTERM failed for ${this._jobId}: ${err.message}`)
+      })
+    } catch (err) {
+      console.error(`[interactive-job] SIGTERM failed for ${this._jobId}: ${(err as Error).message}`)
+    }
   }
 
   private _clearKillTimer(): void {

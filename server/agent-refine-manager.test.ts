@@ -167,6 +167,9 @@ memory: project
       // spawnAiCli signature: (binary, args, options). Slot 1 is the argv.
       const args = vi.mocked(mockSpawnClaude).mock.calls[0][1] as string[]
       expect(args).not.toContain('--resume')
+      expect(args.slice(args.indexOf('--tools'), args.indexOf('--tools') + 2))
+        .toEqual(['--tools', '__none__'])
+      expect(args).not.toContain('--dangerously-skip-permissions')
       const opts = vi.mocked(mockSpawnClaude).mock.calls[0][2]!
       expect(opts.cwd).toBe(projectPath)
       pushLine(child, systemInit('sess'))
@@ -254,6 +257,9 @@ memory: project
       expect(args).toContain('--resume')
       const idx = args.indexOf('--resume')
       expect(args[idx + 1]).toBe('sess-r1')
+      expect(args.slice(args.indexOf('--tools'), args.indexOf('--tools') + 2))
+        .toEqual(['--tools', '__none__'])
+      expect(args).not.toContain('--dangerously-skip-permissions')
 
       pushLine(child2, assistantText(VALID_BODY))
       await close(child2, 0)
@@ -420,6 +426,21 @@ memory: project
       }
       // Drain the orphaned child; disposed short-circuit prevents DB writes.
       await close(child, 143)
+    })
+
+    it('permanently rejects mutations after disposal', async () => {
+      mgr.shutdown()
+
+      await expect(mgr.startRefine({
+        agentId: 'custom-foo',
+        instruction: 'late work',
+      })).rejects.toThrow('manager_disposed')
+      await expect(mgr.sendTurn({
+        refineId: 'late',
+        instruction: 'late work',
+      })).rejects.toThrow('manager_disposed')
+      expect(() => mgr.toggleAutoTest('late', true)).toThrow('manager_disposed')
+      expect(() => mgr.apply({ refineId: 'late' })).toThrow('manager_disposed')
     })
   })
 
@@ -620,12 +641,38 @@ memory: project
       pushLine(child, assistantText('partial before dispose'))
       // Project removed mid-flight: shutdown() marks the manager disposed.
       mgrCap.shutdown()
+      // Accounting is flushed synchronously while ProjectRegistry still owns
+      // an open DB; the child's later close must not write or duplicate it.
+      expect(db.prepare(`SELECT COUNT(*) AS count FROM ai_invocations WHERE project_id = ?`).get(projectId))
+        .toMatchObject({ count: 1 })
       await close(child, 143)
       const rows = db.prepare(`SELECT * FROM ai_invocations WHERE project_id = ?`).all(projectId) as Array<Record<string, unknown>>
       expect(rows).toHaveLength(1)
       expect(rows[0].status).toBe('aborted')
       expect(rows[0].surface).toBe('ai-edit')
       expect(rows[0].surface_ref_id).toBe(refineId)
+    })
+
+    it('records once when cancel and project shutdown race', async () => {
+      const projectId = 'proj-refine-cancel-dispose'
+      const mgrCap = new AgentRefineManager(broadcast, db, projectPath, projectId)
+      const child = createMockChild()
+      vi.mocked(mockSpawnClaude).mockReturnValue(child as never)
+      const { refineId } = await mgrCap.startRefine({
+        agentId: 'custom-foo',
+        instruction: 'go',
+        autoTest: false,
+      })
+      pushLine(child, assistantText('partial before cancel'))
+
+      mgrCap.cancel(refineId)
+      mgrCap.shutdown()
+      await close(child, 143)
+
+      expect(db.prepare(`SELECT COUNT(*) AS count FROM ai_invocations WHERE project_id = ?`).get(projectId))
+        .toMatchObject({ count: 1 })
+      expect(db.prepare(`SELECT status FROM ai_invocations WHERE project_id = ?`).get(projectId))
+        .toMatchObject({ status: 'aborted' })
     })
 
     it('skips capture when projectId is not provided', async () => {

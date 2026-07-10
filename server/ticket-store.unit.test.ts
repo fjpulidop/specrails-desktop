@@ -13,10 +13,19 @@ import {
   isValidPriority,
   validatePriorityForStatus,
   validateEpicChildIntegrity,
+  extractTicketIdsFromCommand,
   CURRENT_SCHEMA_VERSION,
   type Ticket,
   type TicketStore,
 } from './ticket-store'
+
+describe('extractTicketIdsFromCommand', () => {
+  it('returns unique positive safe ids and rejects zero or numeric overflow', () => {
+    expect(extractTicketIdsFromCommand(
+      '/implement #12 #0 #99999999999999999999999999999 #12 #9007199254740991',
+    )).toEqual([12, Number.MAX_SAFE_INTEGER])
+  })
+})
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 

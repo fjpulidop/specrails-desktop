@@ -4,6 +4,7 @@ import { isValidBranchName } from './integration-branch'
 import type { DbInstance } from './db'
 import type { Exec } from './pr-publisher'
 import type { GitRunner } from './worktree-manager'
+import { isExactOpenPr, observePrLifecycle } from './pr-lifecycle'
 
 export interface ContinuationTicketSpec {
   title?: string | null
@@ -268,7 +269,19 @@ export async function resolveActivePrContinuationTargets(
 ): Promise<Map<number, ActivePrContinuationTarget>> {
   const out = new Map<number, ActivePrContinuationTarget>()
   const internal = internalDeliveryTargets(input.db, input.ticketIds)
+  const lifecycleByUrl = new Map<string, ReturnType<typeof observePrLifecycle>>()
   for (const [ticketId, target] of internal) {
+    if (!target.prUrl) continue
+    let lifecycle = lifecycleByUrl.get(target.prUrl)
+    if (!lifecycle) {
+      lifecycle = observePrLifecycle(input.exec, input.repoDir, target.prUrl)
+      lifecycleByUrl.set(target.prUrl, lifecycle)
+    }
+    const observed = await lifecycle
+    // A ledger row is only a hint. GitHub remains lifecycle authority: a stale
+    // draft/ready row for a CLOSED/MERGED or different head/base PR must not be
+    // superseded and must not lend its branch to another implementation run.
+    if (!observed.ok || !isExactOpenPr(observed, target.branch, target.baseBranch)) continue
     const materialized = await materializeTarget(
       input.git,
       input.repoDir,
@@ -278,7 +291,7 @@ export async function resolveActivePrContinuationTargets(
       target.baseBranch,
       target.prUrl,
       target.prNumber,
-      target.isDraft,
+      observed.isDraft,
       'rail-pr-delivery',
     )
     if (materialized) out.set(ticketId, materialized)

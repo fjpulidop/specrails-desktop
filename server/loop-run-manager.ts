@@ -13,7 +13,7 @@
  */
 import type { ChildProcess } from 'node:child_process'
 import treeKill from 'tree-kill'
-import { createJob, finishJob, appendEvent, markJobInteractive, type DbInstance } from './db'
+import { createJob, appendEvent, markJobInteractive, accumulateInteractiveTurn, type DbInstance, type InteractiveTurnUsage } from './db'
 import {
   InteractiveJobSession,
   isZeroWorkSettle,
@@ -21,7 +21,7 @@ import {
   type InteractiveSpawnSpec,
 } from './interactive-job-session'
 import type { WsMessage, JobStatus } from './types'
-import type { ProviderAdapter, ReasoningEffort } from './providers/types'
+import type { AdapterEvent, ProviderAdapter, ReasoningEffort } from './providers/types'
 import {
   type LoopGraph,
   type LoopSpec,
@@ -36,13 +36,25 @@ import { buildDeciderSystemPrompt, buildDeciderUserPrompt, type DeciderDecision 
 import {
   createLoopRun,
   updateLoopRunCounters,
-  finishLoopRun,
+  finishLoopRunAndJob,
   pauseLoopRun,
   resumeLoopRun,
+  readLoopJobUsage,
+  stageLoopStepRecovery,
+  setLoopStepSettledResult,
+  updateLoopStepEventCheckpoint,
+  updateLoopStepActivityCheckpoint,
+  completeLoopStepRecovery,
+  listLoopStepRecoveries,
+  getLoopRun,
+  type LoopStepRecoveryPayload,
   type LoopRunOutcome,
 } from './loop-runs-store'
 import { recordInvocation } from './ai-invocations'
 import { newId } from './ids'
+import { getAdapter } from './providers'
+import { finaliseInvocationResult } from './result-event'
+import { claimRailTickets, claimTicketOutcomeOwners } from './rails-store'
 
 export interface AiStepResult {
   text: string
@@ -146,6 +158,8 @@ export interface InteractiveAiStepPlan {
   stepTimeoutMs: number
   /** Injectable spawn (tests). Defaults to the session's spawnAiCli. */
   spawn?: InteractiveJobSessionDeps['spawn']
+  /** Injectable process-tree terminator paired with `spawn` in tests. */
+  killTree?: InteractiveJobSessionDeps['killTree']
 }
 
 export interface LoopExecutors {
@@ -206,6 +220,12 @@ export interface LoopRunRequest {
   railIndex?: number | null
   ticketId?: number | null
   spec?: LoopSpec
+  /** Launch-captured terminal destination. Persisted before any provider spawn
+   * so a restart cannot re-read a changed feature flag. */
+  ticketCompletionStatus?: 'done' | 'on_review'
+  /** Isolated delivery performs commit/verification after the engine settles.
+   * Until the caller confirms it, restart recovery must fail conservatively. */
+  deferTerminalOutcome?: boolean
   /** name→value for `{{const:NAME}}` tokens (built-ins + custom global constants).
    *  Built-ins are always merged in by the engine, so a caller may omit this. */
   constants?: Record<string, string>
@@ -372,7 +392,265 @@ type PausedHumanDecision =
   | { action: 'resume'; text: string }
   | { action: 'stop' }
 
+type LoopRecordedResult = {
+  cost?: number
+  tokens?: number
+  tokensIn?: number
+  tokensOut?: number
+  tokensCacheRead?: number
+  tokensCacheCreate?: number
+  durationMs?: number
+  durationApiMs?: number
+  numTurns?: number
+  sessionId?: string
+  provider?: string
+  model?: string
+  estimated?: boolean
+  failed?: boolean
+}
+
+function insertLoopInvocation(
+  db: DbInstance,
+  payload: LoopStepRecoveryPayload,
+  result: LoopRecordedResult,
+  finishedAt: string,
+): void {
+  const ticketIds = Array.isArray(payload.ticketIds)
+    ? [...new Set(payload.ticketIds)]
+    : (payload.ticketId == null ? [] : [payload.ticketId])
+  const targets: Array<number | null> = ticketIds.length > 0 ? ticketIds : [null]
+  const splitInt = (value: number | undefined): Array<number | undefined> => {
+    if (value === undefined) return targets.map(() => undefined)
+    const base = Math.floor(value / targets.length)
+    const remainder = value - base * targets.length
+    return targets.map((_target, index) => base + (index < remainder ? 1 : 0))
+  }
+  const tokensIn = splitInt(result.tokensIn)
+  const tokensOut = splitInt(
+    result.tokensOut ?? (
+      result.tokensIn === undefined && result.tokensOut === undefined
+        ? result.tokens
+        : undefined
+    ),
+  )
+  const cacheRead = splitInt(result.tokensCacheRead)
+  const cacheCreate = splitInt(result.tokensCacheCreate)
+  const turns = splitInt(result.numTurns)
+  targets.forEach((ticketId, index) => {
+    const suffix = ticketId == null || targets.length === 1 ? '' : `:t${ticketId}`
+    recordInvocation(db, {
+      id: `${payload.invocationId}${suffix}`,
+      project_id: payload.projectId,
+      provider: result.provider ?? payload.provider,
+      surface: 'loop',
+      surface_ref_id: `${payload.surfaceRefId}${suffix}`,
+      ticket_id: ticketId,
+      status: result.failed ? 'failed' : 'success',
+      started_at: payload.startedAt,
+      finished_at: finishedAt,
+      total_cost_usd: result.cost === undefined ? undefined : result.cost / targets.length,
+      total_cost_usd_estimated: result.estimated ?? false,
+      tokens_in: tokensIn[index],
+      tokens_out: tokensOut[index],
+      tokens_cache_read: cacheRead[index],
+      tokens_cache_create: cacheCreate[index],
+      num_turns: turns[index],
+      session_id: result.sessionId,
+      duration_ms: result.durationMs === undefined ? undefined : result.durationMs / targets.length,
+      duration_api_ms: result.durationApiMs === undefined ? undefined : result.durationApiMs / targets.length,
+      model: result.model ?? payload.model ?? undefined,
+      loop_run_id: payload.runId,
+    })
+  })
+  const aggregate = db.prepare(`
+    SELECT COALESCE(SUM(total_cost_usd), 0) AS cost,
+           COALESCE(SUM(tokens_in), 0) AS tokens_in,
+           COALESCE(SUM(tokens_out), 0) AS tokens_out,
+           COALESCE(SUM(tokens_cache_read), 0) AS cache_read,
+           COALESCE(SUM(tokens_cache_create), 0) AS cache_create,
+           COALESCE(SUM(duration_ms), 0) AS duration,
+           COALESCE(SUM(num_turns), 0) AS turns
+      FROM ai_invocations
+     WHERE surface = 'loop' AND loop_run_id = ?
+  `).get(payload.runId) as {
+    cost: number; tokens_in: number; tokens_out: number
+    cache_read: number; cache_create: number; duration: number; turns: number
+  }
+  db.prepare(`
+    UPDATE jobs
+       SET total_cost_usd = ?, tokens_in = ?, tokens_out = ?,
+           tokens_cache_read = ?, tokens_cache_create = ?,
+           duration_ms = ?, num_turns = ?
+     WHERE id = ? AND owner = 'loop'
+  `).run(
+    aggregate.cost,
+    aggregate.tokens_in,
+    aggregate.tokens_out,
+    aggregate.cache_read,
+    aggregate.cache_create,
+    aggregate.duration,
+    aggregate.turns,
+    payload.runId,
+  )
+}
+
+/** Recover every AI/decider step that was staged before provider spawn but did
+ * not atomically land its invocation. Completed interactive turns are the jobs
+ * delta from the durable baseline; raw events after completedEventSeq are the
+ * unfinished/failed-to-checkpoint turn. The insert and checkpoint removal share
+ * one transaction, so a crash between them replays without duplication. */
+function boundedInflightDurationMs(
+  payload: LoopStepRecoveryPayload,
+  finishedAt: string,
+): number {
+  const startedAt = payload.activeTurnStartedAtMs
+  const lastActivityAt = payload.lastActivityAtMs
+  if (!Number.isFinite(startedAt) || !Number.isFinite(lastActivityAt)) return 0
+  const finishedAtMs = Date.parse(finishedAt)
+  const boundedEnd = Number.isFinite(finishedAtMs)
+    ? Math.min(lastActivityAt!, finishedAtMs)
+    : lastActivityAt!
+  return Math.max(0, boundedEnd - startedAt!)
+}
+
+export function recoverOrphanLoopStepAccounting(
+  db: DbInstance,
+  finishedAt = new Date().toISOString(),
+  onlyRunId?: string,
+): number {
+  let recovered = 0
+  for (const row of listLoopStepRecoveries(db).filter((candidate) => !onlyRunId || candidate.run_id === onlyRunId)) {
+    let payload: LoopStepRecoveryPayload
+    try {
+      payload = JSON.parse(row.payload) as LoopStepRecoveryPayload
+      if (!payload || payload.runId !== row.run_id || payload.stepKey !== row.step_key) continue
+    } catch {
+      continue
+    }
+    if (payload.settledResult) {
+      const settled = payload.settledResult as LoopRecordedResult
+      const didRecover = completeLoopStepRecovery(db, payload.runId, payload.stepKey, (stable) => {
+        insertLoopInvocation(db, stable, settled, finishedAt)
+        const aggregate = readLoopJobUsage(db, payload.runId)
+        const recoveredLoopDuration = (payload.loopDurationBaseline ?? 0) + (settled.durationMs ?? 0)
+        db.prepare(`
+          UPDATE loop_runs
+             SET total_cost_usd = ?, total_tokens = ?, total_duration_ms = ?,
+                 iteration_count = MAX(iteration_count, COALESCE(?, iteration_count))
+           WHERE id = ?
+        `).run(
+          aggregate.totalCostUsd,
+          aggregate.tokensIn + aggregate.tokensOut,
+          recoveredLoopDuration,
+          stable.iterationCount ?? null,
+          payload.runId,
+        )
+        // ai_invocations contains AI-active duration only. The backing job is
+        // the whole loop and must retain shell duration already represented by
+        // loopDurationBaseline across this recovery transaction.
+        db.prepare(`UPDATE jobs SET duration_ms = ? WHERE id = ? AND owner = 'loop'`)
+          .run(recoveredLoopDuration, payload.runId)
+      })
+      if (didRecover) recovered += 1
+      continue
+    }
+    const current = readLoopJobUsage(db, payload.runId)
+    const completed = {
+      tokensIn: Math.max(0, current.tokensIn - (payload.baseline?.tokensIn ?? 0)),
+      tokensOut: Math.max(0, current.tokensOut - (payload.baseline?.tokensOut ?? 0)),
+      tokensCacheRead: Math.max(0, current.tokensCacheRead - (payload.baseline?.tokensCacheRead ?? 0)),
+      tokensCacheCreate: Math.max(0, current.tokensCacheCreate - (payload.baseline?.tokensCacheCreate ?? 0)),
+      totalCostUsd: Math.max(0, current.totalCostUsd - (payload.baseline?.totalCostUsd ?? 0)),
+      numTurns: Math.max(0, current.numTurns - (payload.baseline?.numTurns ?? 0)),
+    }
+    const rawRows = db.prepare(`
+      SELECT seq, event_type, payload FROM events
+       WHERE job_id = ? AND seq > ? AND source = 'stdout'
+       ORDER BY seq
+    `).all(payload.runId, payload.completedEventSeq ?? -1) as Array<{
+      seq: number; event_type: string; payload: string
+    }>
+    const adapter = getAdapter(payload.provider as Parameters<typeof getAdapter>[0])
+    const events = rawRows
+      .map((raw) => adapter.parseStreamLine(raw.payload))
+      .filter((event): event is AdapterEvent => event != null)
+    const { result: partial, estimated } = finaliseInvocationResult(adapter, events, {
+      fallbackModel: payload.model ?? undefined,
+    })
+    const hasResult = rawRows.some((raw) => raw.event_type === 'result')
+    const partialCost = hasResult && partial.total_cost_usd != null
+      ? Math.max(0, partial.total_cost_usd - (payload.providerCostBaseline ?? 0))
+      : (partial.total_cost_usd ?? 0)
+    const partialTurns = hasResult && partial.num_turns != null
+      ? Math.max(0, partial.num_turns - (payload.providerTurnsBaseline ?? 0))
+      : (partial.num_turns ?? (events.length > 0 ? 1 : 0))
+    const partialUsage: InteractiveTurnUsage = {
+      tokens_in: partial.tokens_in ?? 0,
+      tokens_out: partial.tokens_out ?? 0,
+      tokens_cache_read: partial.tokens_cache_read ?? 0,
+      tokens_cache_create: partial.tokens_cache_create ?? 0,
+      total_cost_usd: partialCost,
+      num_turns: partialTurns,
+      model: partial.model,
+      session_id: partial.session_id,
+      estimated: partialCost > 0 && estimated,
+    }
+    const partialDurationMs = hasResult
+      ? (partial.duration_ms ?? 0)
+      : ((partial.duration_ms ?? 0) > 0
+          ? partial.duration_ms!
+          : boundedInflightDurationMs(payload, finishedAt))
+    // completedDurationMs contains only fully-checkpointed turns. The current
+    // raw turn contributes either provider duration OR the bounded wall fallback,
+    // never both.
+    const recoveredDurationMs = (payload.completedDurationMs ?? 0) + partialDurationMs
+    const didRecover = completeLoopStepRecovery(db, payload.runId, payload.stepKey, (stable) => {
+      if (
+        partialUsage.tokens_in || partialUsage.tokens_out ||
+        partialUsage.tokens_cache_read || partialUsage.tokens_cache_create ||
+        partialUsage.total_cost_usd || partialUsage.num_turns
+      ) {
+        accumulateInteractiveTurn(db, payload.runId, partialUsage)
+      }
+      insertLoopInvocation(db, stable, {
+        cost: completed.totalCostUsd + partialUsage.total_cost_usd,
+        tokens: completed.tokensIn + completed.tokensOut + partialUsage.tokens_in + partialUsage.tokens_out,
+        tokensIn: completed.tokensIn + partialUsage.tokens_in,
+        tokensOut: completed.tokensOut + partialUsage.tokens_out,
+        tokensCacheRead: completed.tokensCacheRead + partialUsage.tokens_cache_read,
+        tokensCacheCreate: completed.tokensCacheCreate + partialUsage.tokens_cache_create,
+        numTurns: completed.numTurns + partialUsage.num_turns,
+        durationMs: recoveredDurationMs,
+        model: partial.model ?? payload.model ?? undefined,
+        sessionId: partial.session_id,
+        provider: payload.provider,
+        estimated: partialUsage.estimated,
+        failed: true,
+      }, finishedAt)
+      const aggregate = readLoopJobUsage(db, payload.runId)
+      const recoveredLoopDuration = (payload.loopDurationBaseline ?? 0) + recoveredDurationMs
+      db.prepare(`
+        UPDATE loop_runs
+           SET total_cost_usd = ?, total_tokens = ?, total_duration_ms = ?,
+               iteration_count = MAX(iteration_count, COALESCE(?, iteration_count))
+         WHERE id = ?
+      `).run(
+        aggregate.totalCostUsd,
+        aggregate.tokensIn + aggregate.tokensOut,
+        recoveredLoopDuration,
+        stable.iterationCount ?? null,
+        payload.runId,
+      )
+      db.prepare(`UPDATE jobs SET duration_ms = ? WHERE id = ? AND owner = 'loop'`)
+        .run(recoveredLoopDuration, payload.runId)
+    })
+    if (didRecover) recovered += 1
+  }
+  return recovered
+}
+
 export class LoopRunManager {
+  private _disposed = false
   private readonly _cancelled = new Set<string>()
   /** The currently-spawned child per run, so cancel/stop can actually KILL a
    *  blocked spawn (the cooperative `_cancelled` flag can't interrupt an await). */
@@ -383,6 +661,7 @@ export class LoopRunManager {
    *  id, which IS the backing job row's id — the manager-agnostic turn routing
    *  (project-router-jobs) addresses sessions by that job id. */
   private readonly _interactiveSteps = new Map<string, InteractiveJobSession>()
+  private readonly _activeStepRecovery = new Map<string, string>()
   private readonly _pausedHumanDecisions = new Map<string, {
     reason: string
     resolve: (decision: PausedHumanDecision) => void
@@ -394,6 +673,12 @@ export class LoopRunManager {
     private readonly executors: LoopExecutors,
     private readonly now: () => number = () => Date.now()
   ) {}
+
+  /** WebSocket delivery is advisory. A disconnected/misbehaving listener must
+   * never change launch, accounting, traversal, or terminal outcomes. */
+  private _emit(msg: WsMessage): void {
+    try { this.broadcast(msg) } catch { /* persisted state remains authoritative */ }
+  }
 
   /** Cancel an in-flight run: flag it AND kill the active spawned child so a
    *  blocked AI Step / Shell returns immediately (the engine then settles
@@ -465,7 +750,59 @@ export class LoopRunManager {
    *  runs — the startup orphan sweeps (jobs + loop_runs) reconcile the rows on
    *  the next boot, exactly as they do for a crash today. */
   shutdown(): void {
-    for (const session of this._interactiveSteps.values()) {
+    if (this._disposed) return
+    this._disposed = true
+    for (const runId of this._activeChild.keys()) this._cancelled.add(runId)
+    for (const runId of this._interactiveSteps.keys()) this._cancelled.add(runId)
+    for (const [runId, session] of this._interactiveSteps) {
+      try {
+        const snapshot = session.snapshotForAbort()
+        const stepKey = this._activeStepRecovery.get(runId)
+        if (stepKey) {
+          let recoveredProjectId: string | null = null
+          completeLoopStepRecovery(this.db, runId, stepKey, (payload) => {
+            recoveredProjectId = payload.projectId
+            insertLoopInvocation(this.db, payload, {
+              cost: snapshot.totals.total_cost_usd,
+              tokens: snapshot.totals.tokens_in + snapshot.totals.tokens_out,
+              tokensIn: snapshot.totals.tokens_in,
+              tokensOut: snapshot.totals.tokens_out,
+              tokensCacheRead: snapshot.totals.tokens_cache_read,
+              tokensCacheCreate: snapshot.totals.tokens_cache_create,
+              numTurns: snapshot.totals.num_turns,
+              durationMs: snapshot.activeDurationMs,
+              sessionId: snapshot.sessionId ?? undefined,
+              model: snapshot.model ?? undefined,
+              provider: payload.provider,
+              estimated: snapshot.estimated,
+              failed: true,
+            }, new Date(this.now()).toISOString())
+            const aggregate = readLoopJobUsage(this.db, runId)
+            const recoveredLoopDuration = (payload.loopDurationBaseline ?? 0) + snapshot.activeDurationMs
+            this.db.prepare(`
+              UPDATE loop_runs
+                 SET total_cost_usd = ?, total_tokens = ?, total_duration_ms = ?,
+                     iteration_count = MAX(iteration_count, COALESCE(?, iteration_count))
+               WHERE id = ?
+            `).run(
+              aggregate.totalCostUsd,
+              aggregate.tokensIn + aggregate.tokensOut,
+              recoveredLoopDuration,
+              payload.iterationCount ?? null,
+              runId,
+            )
+            this.db.prepare(`UPDATE jobs SET duration_ms = ? WHERE id = ? AND owner = 'loop'`)
+              .run(recoveredLoopDuration, runId)
+          })
+          this._activeStepRecovery.delete(runId)
+          if (recoveredProjectId) {
+            this._emit({ type: 'spending.invalidated', projectId: recoveredProjectId })
+          }
+        }
+      } catch (err) {
+        // Leave the durable step checkpoint for startup raw-event recovery.
+        console.error(`[loop] shutdown accounting checkpoint failed for ${runId}:`, err)
+      }
       try { session.dispose() } catch { /* ignore */ }
     }
     this._interactiveSteps.clear()
@@ -483,6 +820,8 @@ export class LoopRunManager {
   }
 
   async run(req: LoopRunRequest): Promise<LoopRunResult> {
+    if (this._disposed) throw new Error('LoopRunManager is shut down')
+    const neverAfterDispose = (): Promise<LoopRunResult> => new Promise(() => { /* startup recovery owns settlement */ })
     const runId = req.runId ?? newId()
     const maxIterations = req.graph.config.maxIterations
     const timeoutMs = req.graph.config.timeoutMinutes * 60_000
@@ -501,20 +840,41 @@ export class LoopRunManager {
       ? req.graph.config.maxCostUsd
       : undefined
 
-    createLoopRun(this.db, {
-      id: runId,
-      projectId: req.projectId,
-      loopId: req.loopId,
-      loopName: req.loopName ?? null,
-      railIndex: req.railIndex ?? null,
-      ticketId: req.ticketId ?? null,
-      provider: req.provider,
-      model: req.model,
-      reasoningEffort: req.effort ?? null,
-      iterationLimit: maxIterations,
-      startedAt: new Date(this.now()).toISOString(),
+    const launchStartedAt = new Date(this.now()).toISOString()
+    const jobCommand = `loop: ${req.loopName ?? req.loopId}${req.ticketId != null ? ` #${req.ticketId}` : ''}`
+    const exactTicketIds = req.spec?.ticketIds ?? (req.ticketId == null ? [] : [req.ticketId])
+    const persistLaunch = this.db.transaction(() => {
+      claimTicketOutcomeOwners(this.db, exactTicketIds, runId)
+      if (req.railIndex != null && exactTicketIds.length > 0) {
+        claimRailTickets(this.db, req.railIndex, exactTicketIds, runId)
+      }
+      createLoopRun(this.db, {
+        id: runId,
+        projectId: req.projectId,
+        loopId: req.loopId,
+        loopName: req.loopName ?? null,
+        railIndex: req.railIndex ?? null,
+        ticketId: req.ticketId ?? null,
+        provider: req.provider,
+        model: req.model,
+        reasoningEffort: req.effort ?? null,
+        ticketIds: exactTicketIds,
+        ticketCompletionStatus: req.ticketCompletionStatus ?? 'done',
+        causalOwnership: true,
+        iterationLimit: maxIterations,
+        startedAt: launchStartedAt,
+      })
+      createJob(this.db, {
+        id: runId,
+        command: jobCommand,
+        started_at: launchStartedAt,
+        provider: req.provider,
+        owner: 'loop',
+        causal_ownership: true,
+      })
     })
-    this.broadcast({
+    persistLaunch()
+    this._emit({
       type: 'loop.run_started',
       projectId: req.projectId,
       loopRunId: runId,
@@ -523,13 +883,7 @@ export class LoopRunManager {
     })
 
     // Surface the run as a JOB so the full session streams live in the Jobs list
-    // + JobDetail, exactly like implement/freestyle. The job id IS the run id;
-    // createJob is idempotent. Synchronous (before the first await) so the row
-    // exists by the time the launch responds → "View Log" never 404s.
-    const jobCommand = `loop: ${req.loopName ?? req.loopId}${req.ticketId != null ? ` #${req.ticketId}` : ''}`
-    try {
-      createJob(this.db, { id: runId, command: jobCommand, started_at: new Date(this.now()).toISOString() })
-    } catch { /* best-effort; the run still proceeds */ }
+    // + JobDetail. Both identities committed together above, before any spawn.
     let seq = 0
     // Monotonic event-seq allocator for THIS run's job row. Shared with an
     // interactive step session (which persists its own provider events/logs on
@@ -551,7 +905,7 @@ export class LoopRunManager {
       try {
         appendEvent(this.db, runId, s, { event_type: eventType, source: 'stdout', payload: json })
       } catch { /* best-effort */ }
-      this.broadcast({ type: 'event', jobId: runId, event_type: eventType, source: 'stdout', payload: json, seq: s, timestamp: new Date(this.now()).toISOString() })
+      this._emit({ type: 'event', jobId: runId, event_type: eventType, source: 'stdout', payload: json, seq: s, timestamp: new Date(this.now()).toISOString() })
     }
     // Emit a structured step-boundary event (for a segmented/collapsible client
     // view) AND a visual divider line in the flat log, so each loop step is a
@@ -594,7 +948,7 @@ export class LoopRunManager {
       try {
         appendEvent(this.db, runId, s, { event_type: 'log', source, payload: JSON.stringify({ line }) })
       } catch { /* events table best-effort */ }
-      this.broadcast({ type: 'log', source, line, timestamp: new Date(this.now()).toISOString(), processId: runId })
+      this._emit({ type: 'log', source, line, timestamp: new Date(this.now()).toISOString(), processId: runId })
     }
     // Forward a RAW provider stdout line (claude/codex JSONL) as an `event` —
     // identical to QueueManager — so JobStatusPanel parses real activity
@@ -612,7 +966,21 @@ export class LoopRunManager {
       try {
         appendEvent(this.db, runId, s, { event_type: eventType, source: 'stdout', payload: line })
       } catch { /* best-effort */ }
-      this.broadcast({ type: 'event', jobId: runId, event_type: eventType, source: 'stdout', payload: line, seq: s, timestamp: new Date(this.now()).toISOString() })
+      const recoveryStepKey = this._activeStepRecovery.get(runId)
+      if (recoveryStepKey) {
+        try {
+          updateLoopStepActivityCheckpoint(
+            this.db,
+            runId,
+            recoveryStepKey,
+            undefined,
+            this.now(),
+          )
+        } catch (err) {
+          console.error(`[loop] raw activity checkpoint failed for ${runId}/${recoveryStepKey}:`, err)
+        }
+      }
+      this._emit({ type: 'event', jobId: runId, event_type: eventType, source: 'stdout', payload: line, seq: s, timestamp: new Date(this.now()).toISOString() })
     }
     logLine(`▶ Loop "${req.loopName ?? req.loopId}" started${req.spec?.title ? ` — spec: ${req.spec.title}` : ''}`)
     if (req.isolation) logLine(`⎇ Isolated worktree: ${req.isolation.worktreePath} (branch ${req.isolation.branch})`)
@@ -637,6 +1005,13 @@ export class LoopRunManager {
     let totalCost = 0
     let totalTokens = 0
     let totalDuration = 0
+    let finalJobUsage = {
+      tokensIn: 0,
+      tokensOut: 0,
+      tokensCacheRead: 0,
+      tokensCacheCreate: 0,
+      numTurns: 0,
+    }
     let aiSessionId: string | undefined
     // Consecutive AI steps that hard-failed with no output (provider down /
     // out of quota / crashing). Reset on any step that runs or produces output.
@@ -681,25 +1056,11 @@ export class LoopRunManager {
 
     const record = (
       refSuffix: string,
-      r: {
-        cost?: number
-        tokens?: number
-        tokensIn?: number
-        tokensOut?: number
-        tokensCacheRead?: number
-        tokensCacheCreate?: number
-        durationMs?: number
-        durationApiMs?: number
-        numTurns?: number
-        sessionId?: string
-        provider?: string
-        model?: string
-        estimated?: boolean
-        failed?: boolean
-      },
+      r: LoopRecordedResult,
       // The REAL turn-start instant, captured before the step/decider await. The
       // row is bucketed/ordered by started_at, so it must be the start, not finish.
       startedAt: string,
+      stepKey?: string,
     ) => {
       totalCost += r.cost ?? 0
       // A cost-bearing step that produced work (tokens) or hard-failed but reports
@@ -722,51 +1083,84 @@ export class LoopRunManager {
         costUnknownWarned = true
         logLine('⚠️ A step reported no priced cost (non-Claude estimate / unknown model / failed step) — the cost cap may under-count.', 'stderr')
       }
-      totalTokens += r.tokens ?? 0
+      totalTokens += r.tokens ?? ((r.tokensIn ?? 0) + (r.tokensOut ?? 0))
       totalDuration += r.durationMs ?? 0
-      recordInvocation(this.db, {
-        id: newId(),
-        project_id: req.projectId,
-        provider: r.provider ?? req.provider,
-        surface: 'loop',
-        surface_ref_id: refSuffix,
-        ticket_id: req.ticketId ?? null,
-        // A hard-failed step (spawn error / non-zero exit / timeout) must NOT be
-        // recorded as success — that under-states failureRate and lets a crashed
-        // step into the success-only avg-cost. The result object doesn't separate
-        // timeout from other hard-failures, so all map to 'failed'.
-        status: r.failed ? 'failed' : 'success',
-        // BUG-32: started_at is the real turn-start (captured before the await),
-        // not the finish instant — so daily-timeline bucketing + scatter/table
-        // ORDER BY started_at reflect when the step actually began.
-        started_at: startedAt,
-        finished_at: new Date(this.now()).toISOString(),
-        total_cost_usd: r.cost,
-        total_cost_usd_estimated: r.estimated ?? false,
-        // BUG-04: persist the per-direction breakdown to its matching column —
-        // folding everything into tokens_out drops cache tokens (the largest
-        // component on cache-hit claude runs) and corrupts the in/out split.
-        tokens_in: r.tokensIn,
-        tokens_out: r.tokensOut,
-        tokens_cache_read: r.tokensCacheRead,
-        tokens_cache_create: r.tokensCacheCreate,
-        // LOW-8: thread the finalised result's turn/session/duration metadata so
-        // surface='loop' rows aren't NULL on these columns — otherwise scatter
-        // numTurns, totalTurns and activeDurationMs silently exclude every loop step.
-        num_turns: r.numTurns,
-        session_id: r.sessionId,
-        duration_ms: r.durationMs,
-        duration_api_ms: r.durationApiMs,
-        model: r.model ?? req.model,
-        loop_run_id: runId,
-      })
+      const finishedAt = new Date(this.now()).toISOString()
+      if (stepKey) {
+        setLoopStepSettledResult(this.db, runId, stepKey, r)
+        const completed = completeLoopStepRecovery(this.db, runId, stepKey, (payload) => {
+          insertLoopInvocation(this.db, payload, r, finishedAt)
+          updateLoopRunCounters(this.db, runId, {
+            iterationCount: iteration,
+            totalCostUsd: totalCost,
+            totalTokens,
+            totalDurationMs: totalDuration,
+          })
+        })
+        if (!completed) throw new Error(`Missing loop step checkpoint ${runId}/${stepKey}`)
+      } else {
+        // Compatibility for synthetic/test call paths that predate staged steps.
+        recordInvocation(this.db, {
+          id: newId(), project_id: req.projectId,
+          provider: r.provider ?? req.provider, surface: 'loop',
+          surface_ref_id: refSuffix, ticket_id: req.ticketId ?? null,
+          status: r.failed ? 'failed' : 'success', started_at: startedAt,
+          finished_at: finishedAt, total_cost_usd: r.cost,
+          total_cost_usd_estimated: r.estimated ?? false,
+          tokens_in: r.tokensIn,
+          tokens_out: r.tokensOut ?? (
+            r.tokensIn === undefined && r.tokensOut === undefined ? r.tokens : undefined
+          ),
+          tokens_cache_read: r.tokensCacheRead,
+          tokens_cache_create: r.tokensCacheCreate,
+          num_turns: r.numTurns, session_id: r.sessionId,
+          duration_ms: r.durationMs, duration_api_ms: r.durationApiMs,
+          model: r.model ?? req.model, loop_run_id: runId,
+        })
+      }
       // BUG-07: the loop path is the only recordInvocation callsite that never
       // invalidated open spending dashboards — they'd freeze for the whole (often
       // multi-hour) run. Broadcast after each row, wrapped so a broadcast failure
       // can't break traversal (mirrors the file-summary callsite).
       try {
-        this.broadcast({ type: 'spending.invalidated', projectId: req.projectId })
+        this._emit({ type: 'spending.invalidated', projectId: req.projectId })
       } catch { /* best-effort — never break traversal on a broadcast failure */ }
+    }
+
+    const stageAiAccounting = (
+      kind: 'ai' | 'decider',
+      nodeId: string,
+      surfaceRefId: string,
+      startedAt: string,
+    ): string => {
+      const stepKey = `${kind}:${stepNum}:${nodeId}`
+      const startedAtMs = Date.parse(startedAt)
+      const payload: LoopStepRecoveryPayload = {
+        version: 1,
+        runId,
+        stepKey,
+        invocationId: newId(),
+        projectId: req.projectId,
+        provider: req.provider,
+        model: req.model ?? null,
+        surfaceRefId,
+        ticketIds: exactTicketIds,
+        startedAt,
+        baseline: readLoopJobUsage(this.db, runId),
+        completedEventSeq: seq - 1,
+        providerCostBaseline: 0,
+        providerTurnsBaseline: 0,
+        loopDurationBaseline: (this.db.prepare(`SELECT total_duration_ms FROM loop_runs WHERE id = ?`)
+          .get(runId) as { total_duration_ms: number } | undefined)?.total_duration_ms ?? totalDuration,
+        completedDurationMs: 0,
+        iterationCount: iteration,
+        ...(Number.isFinite(startedAtMs)
+          ? { activeTurnStartedAtMs: startedAtMs, lastActivityAtMs: startedAtMs }
+          : {}),
+      }
+      stageLoopStepRecovery(this.db, payload)
+      this._activeStepRecovery.set(runId, stepKey)
+      return stepKey
     }
 
     const composeHistory = (): string => {
@@ -794,15 +1188,15 @@ export class LoopRunManager {
         totalDurationMs: totalDuration,
       })
       const pausedAt = new Date(this.now()).toISOString()
-      this.broadcast({
+      this._emit({
         type: 'loop.run_paused',
         projectId: req.projectId,
         loopRunId: runId,
         railIndex: req.railIndex ?? null,
         reason,
-        ticketIds: req.ticketId != null ? [req.ticketId] : [],
+        ticketIds: exactTicketIds,
       })
-      this.broadcast({
+      this._emit({
         type: 'job.interactive',
         projectId: req.projectId,
         jobId: runId,
@@ -812,6 +1206,7 @@ export class LoopRunManager {
       })
 
       const decision = await decisionPromise
+      if (this._disposed) return new Promise(() => { /* startup recovery owns settlement */ })
       if (decision.action === 'stop' || this._cancelled.has(runId)) {
         logLine(`\n■ Loop stop requested while paused.`, 'stderr')
         return { action: 'stop' }
@@ -822,14 +1217,14 @@ export class LoopRunManager {
       const resumedAt = new Date(this.now()).toISOString()
       logLine(`\n▶ Loop resumed — human decision received${answer ? `:\n${answer}` : '.'}`)
       history.push(`Human decision: ${truncate(answer)}`)
-      this.broadcast({
+      this._emit({
         type: 'loop.run_resumed',
         projectId: req.projectId,
         loopRunId: runId,
         railIndex: req.railIndex ?? null,
-        ticketIds: req.ticketId != null ? [req.ticketId] : [],
+        ticketIds: exactTicketIds,
       })
-      this.broadcast({
+      this._emit({
         type: 'job.interactive',
         projectId: req.projectId,
         jobId: runId,
@@ -913,6 +1308,7 @@ export class LoopRunManager {
             // bucketed/ordered by started_at, which must be the turn-start, not the
             // finish time (this.now() evaluated after the await would be the finish).
             const aiStepStart = new Date(this.now()).toISOString()
+            const aiRecoveryKey = stageAiAccounting('ai', node.id, `loop:${runId}`, aiStepStart)
             // Interactive upgrade (default for persistent-stdin providers): the
             // executors return a resident-session plan when the kill-switch is on
             // and the provider is capable (claude); null falls through to the
@@ -935,8 +1331,10 @@ export class LoopRunManager {
                   prompt,
                   fallbackModel: nodeModel,
                   nextEventSeq: takeSeq,
+                  recoveryStepKey: aiRecoveryKey,
                 })
               : await this.executors.runAiStep({ prompt, sessionId: aiSessionId, provider: nodeProvider, model: nodeModel, effort: nodeEffort, cwd: req.cwd, repoDir: req.repoDir, onLine: logLine, onRawLine, onSpawn: (c) => this._activeChild.set(runId, c), aiStepTimeoutMs })
+            if (this._disposed) return neverAfterDispose()
             this._activeChild.delete(runId)
             // Zero-work strictness (run 01f41203): a settle that consumed NO
             // model work — the claude CLI's synthetic `Unknown command:` result
@@ -984,7 +1382,8 @@ export class LoopRunManager {
             // would otherwise make the next step `--resume` a dead session.
             if (res.sessionId && (!stepFailed || (blockedReason !== null && !res.failed && !zeroWork))) aiSessionId = res.sessionId
             history.push(`AI Step: ${truncate(res.text)}`)
-            record(`loop:${runId}`, { ...res, failed: stepFailed }, aiStepStart)
+            record(`loop:${runId}`, { ...res, failed: stepFailed }, aiStepStart, aiRecoveryKey)
+            this._activeStepRecovery.delete(runId)
             if (blockedReason) {
               const decision = await awaitHumanDecision(blockedReason)
               if (decision.action === 'stop') {
@@ -1050,10 +1449,17 @@ export class LoopRunManager {
             emitStep('shell', `⚡ ${nodeLabel || 'Shell'}`, node.id, iteration + 1)
             logLine(`$ ${command}`)
             const sh = await this.executors.runShell({ command, cwd: req.cwd, onLine: logLine, onSpawn: (c) => this._activeChild.set(runId, c) })
+            if (this._disposed) return neverAfterDispose()
             this._activeChild.delete(runId)
             logLine(`(exit ${sh.exitCode})`)
             emitStepEnd({ status: sh.exitCode === 0 ? 'ok' : 'failed', exitCode: sh.exitCode, durationMs: sh.durationMs })
             totalDuration += sh.durationMs ?? 0
+            updateLoopRunCounters(this.db, runId, {
+              iterationCount: iteration,
+              totalCostUsd: totalCost,
+              totalTokens,
+              totalDurationMs: totalDuration,
+            })
             history.push(`Shell \`${command}\` exit=${sh.exitCode}: ${truncate(sh.stdout || sh.stderr)}`)
             nodeId = succs[0]?.id
             break
@@ -1067,6 +1473,9 @@ export class LoopRunManager {
             logLine(`Goal: ${goal}`)
             // BUG-32: capture the real Decider start BEFORE the await (see AI step).
             const deciderStart = new Date(this.now()).toISOString()
+            const deciderRecoveryKey = stageAiAccounting(
+              'decider', node.id, `loop:${runId}:decider`, deciderStart,
+            )
             const dec = await this.executors.runDecider({
               systemPrompt: buildDeciderSystemPrompt(),
               // Give the Decider the spec so it can verify completeness against the
@@ -1081,6 +1490,7 @@ export class LoopRunManager {
               onRawLine,
               onSpawn: (c) => this._activeChild.set(runId, c),
             })
+            if (this._disposed) return neverAfterDispose()
             this._activeChild.delete(runId)
             // A parseable Decider verdict means this AI invocation (SAME
             // provider/model) succeeded → the provider is alive, so clear any
@@ -1091,7 +1501,13 @@ export class LoopRunManager {
             const verdictWord = dec.blocked ? 'blocked' : dec.continue ? 'continue' : 'stop'
             // BUG-03: a Decider that couldn't parse a verdict (dec.parsed === false)
             // is a failed AI invocation — record it as such, not as success.
-            record(`loop:${runId}:decider`, { ...dec, failed: !dec.parsed }, deciderStart)
+            record(
+              `loop:${runId}:decider`,
+              { ...dec, failed: !dec.parsed },
+              deciderStart,
+              deciderRecoveryKey,
+            )
+            this._activeStepRecovery.delete(runId)
             logLine(`Decision: ${verdictWord} — ${dec.reasoning}`)
             // The verdict line above is the decider step's last output. `decision`
             // is the route actually taken (an unparseable verdict defaults to
@@ -1108,7 +1524,7 @@ export class LoopRunManager {
               totalTokens,
               totalDurationMs: totalDuration,
             })
-            this.broadcast({
+            this._emit({
               type: 'loop.run_progress',
               projectId: req.projectId,
               loopRunId: runId,
@@ -1206,10 +1622,13 @@ export class LoopRunManager {
         }
       }
     } catch (err) {
+      if (this._disposed) return neverAfterDispose()
       outcome = 'failed'
       console.error(`[loop] run=${runId} traversal threw:`, err)
       logLine(`error: ${(err as Error)?.message ?? String(err)}`, 'stderr')
     }
+
+    if (this._disposed) return neverAfterDispose()
 
     // Backstop: a traversal exception (or any future path that breaks out
     // mid-step) must not leave the last step dangling — close it as failed.
@@ -1217,13 +1636,59 @@ export class LoopRunManager {
     // dispose (shutdown/project removal), where this code never runs.
     emitStepEnd({ status: 'failed' })
 
-    console.log(`[loop] settle run=${runId} outcome=${outcome} iterations=${iteration} cost=$${totalCost.toFixed(4)}`)
+    // A traversal exception can bypass record(). Reconcile the staged step
+    // BEFORE writing aggregate job totals, while its jobs baseline is still
+    // valid. If reconciliation itself fails, finishLoopRunAndJob detects the
+    // surviving checkpoint and preserves those baseline columns for startup.
+    try {
+      const recoveredSteps = recoverOrphanLoopStepAccounting(
+        this.db,
+        new Date(this.now()).toISOString(),
+        runId,
+      )
+      this._activeStepRecovery.delete(runId)
+      const aggregate = this.db.prepare(`
+        SELECT COALESCE(SUM(total_cost_usd), 0) AS cost,
+               COALESCE(SUM(tokens_in), 0) AS tokens_in,
+               COALESCE(SUM(tokens_out), 0) AS tokens_out,
+               COALESCE(SUM(tokens_cache_read), 0) AS cache_read,
+               COALESCE(SUM(tokens_cache_create), 0) AS cache_create,
+               COALESCE(SUM(duration_ms), 0) AS duration,
+               COALESCE(SUM(num_turns), 0) AS turns
+          FROM ai_invocations
+         WHERE surface = 'loop' AND loop_run_id = ?
+      `).get(runId) as {
+        cost: number; tokens_in: number; tokens_out: number
+        cache_read: number; cache_create: number; duration: number; turns: number
+      }
+      totalCost = aggregate.cost
+      totalTokens = aggregate.tokens_in + aggregate.tokens_out
+      if (recoveredSteps > 0) {
+        // Recovery already committed the authoritative D+X totals. Refresh the
+        // traversal locals before finishLoopRunAndJob; otherwise a catch path
+        // that never called record() writes its stale D baseline back over the
+        // recovered row (duration was the visible casualty, but keep all
+        // counters/iteration coherent).
+        const durable = getLoopRun(this.db, runId)
+        if (durable) {
+          totalCost = durable.total_cost_usd
+          totalTokens = durable.total_tokens
+          totalDuration = durable.total_duration_ms
+          iteration = Math.max(iteration, durable.iteration_count)
+        }
+      }
+      finalJobUsage = {
+        tokensIn: aggregate.tokens_in,
+        tokensOut: aggregate.tokens_out,
+        tokensCacheRead: aggregate.cache_read,
+        tokensCacheCreate: aggregate.cache_create,
+        numTurns: aggregate.turns,
+      }
+    } catch (err) {
+      console.error(`[loop] staged accounting reconciliation failed for ${runId}:`, err)
+    }
 
-    finishLoopRun(this.db, runId, {
-      outcome,
-      finishedAt: new Date(this.now()).toISOString(),
-      counters: { iterationCount: iteration, totalCostUsd: totalCost, totalTokens, totalDurationMs: totalDuration },
-    })
+    console.log(`[loop] settle run=${runId} outcome=${outcome} iterations=${iteration} cost=$${totalCost.toFixed(4)}`)
 
     // Settle the backing job so the Jobs list + JobDetail reflect the final
     // status, and emit job.finalized so an open JobDetail re-fetches + stops the
@@ -1238,38 +1703,52 @@ export class LoopRunManager {
     // `≥` when any cost-bearing step ended unpriced (timeout/crash) — the figure
     // is a lower bound, not exact.
     logLine(`\n■ Loop finished: ${outcome} — ${iteration} iteration${iteration === 1 ? '' : 's'}, ${costUncertain ? '≥ ' : ''}$${totalCost.toFixed(4)}`)
-    try {
-      finishJob(this.db, runId, {
-        exit_code: outcome === 'success' ? 0 : 1,
+    const finishedAt = new Date(this.now()).toISOString()
+    finishLoopRunAndJob(this.db, runId, {
+      outcome,
+      finishedAt,
+      counters: {
+        iterationCount: iteration,
+        totalCostUsd: totalCost,
+        totalTokens,
+        totalDurationMs: totalDuration,
+      },
+      job: {
+        exitCode: outcome === 'success' ? 0 : 1,
         status: jobStatus,
-        total_cost_usd: totalCost,
-        tokens_out: totalTokens,
-        duration_ms: totalDuration,
-        num_turns: iteration,
-      })
-    } catch { /* best-effort */ }
-    this.broadcast({
+        totalCostUsd: totalCost,
+        tokensIn: finalJobUsage.tokensIn,
+        tokensOut: finalJobUsage.tokensOut,
+        tokensCacheRead: finalJobUsage.tokensCacheRead,
+        tokensCacheCreate: finalJobUsage.tokensCacheCreate,
+        durationMs: totalDuration,
+        numTurns: finalJobUsage.numTurns,
+      },
+      callbackOutcome: req.deferTerminalOutcome ? 'failed' : outcome,
+      outcomeFinalized: !req.deferTerminalOutcome,
+    })
+    this._emit({
       type: 'job.finalized',
       projectId: req.projectId,
       jobId: runId,
       status: jobStatus,
       totals: {
-        tokens_in: 0,
-        tokens_out: totalTokens,
-        tokens_cache_read: 0,
-        tokens_cache_create: 0,
+        tokens_in: finalJobUsage.tokensIn,
+        tokens_out: finalJobUsage.tokensOut,
+        tokens_cache_read: finalJobUsage.tokensCacheRead,
+        tokens_cache_create: finalJobUsage.tokensCacheCreate,
         total_cost_usd: totalCost,
-        num_turns: iteration,
+        num_turns: finalJobUsage.numTurns,
       },
       timestamp: new Date(this.now()).toISOString(),
     })
-    this.broadcast({
+    this._emit({
       type: 'loop.run_completed',
       projectId: req.projectId,
       loopRunId: runId,
       railIndex: req.railIndex ?? null,
       status: outcome,
-      ticketIds: req.ticketId != null ? [req.ticketId] : [],
+      ticketIds: exactTicketIds,
     })
 
     return { runId, outcome, iterations: iteration, totalCostUsd: totalCost }
@@ -1307,6 +1786,7 @@ export class LoopRunManager {
     prompt: string
     fallbackModel: string
     nextEventSeq: () => number
+    recoveryStepKey: string
   }): Promise<AiStepResult> {
     return new Promise<AiStepResult>((resolve) => {
       let timer: ReturnType<typeof setTimeout> | null = null
@@ -1321,13 +1801,38 @@ export class LoopRunManager {
         // The step timeout below is the sole watchdog — the one-shot loop path
         // has no zombie detector either (byte-parity), so none is armed here.
         nextEventSeq: input.nextEventSeq,
+        persistTurnUsage: (usage, completedEventSeq, checkpoint) => {
+          const checkpointTurn = this.db.transaction(() => {
+            accumulateInteractiveTurn(this.db, input.runId, usage)
+            updateLoopStepEventCheckpoint(
+              this.db,
+              input.runId,
+              input.recoveryStepKey,
+              completedEventSeq,
+              checkpoint?.cost,
+              checkpoint?.turns,
+              checkpoint?.activeDurationMs,
+            )
+          })
+          checkpointTurn()
+        },
+        persistTurnActivity: (turnStartedAtMs, activityAtMs) => {
+          updateLoopStepActivityCheckpoint(
+            this.db,
+            input.runId,
+            input.recoveryStepKey,
+            turnStartedAtMs,
+            activityAtMs,
+          )
+        },
         spawn: input.plan.spawn,
+        killTree: input.plan.killTree,
         onSettle: (info) => {
           if (timer) { clearTimeout(timer); timer = null }
           this._interactiveSteps.delete(input.runId)
           // The step's session is gone — the composer flips to its gentle
           // "waiting for the next step" state instead of erroring on 409.
-          this.broadcast({
+          this._emit({
             type: 'job.interactive',
             projectId: input.projectId,
             jobId: input.runId,
@@ -1378,7 +1883,7 @@ export class LoopRunManager {
       try { markJobInteractive(this.db, input.runId) } catch { /* best-effort */ }
       // A resident step session is live — an open Job Detail composer re-enables
       // without polling (mirror flip of the onSettle broadcast above).
-      this.broadcast({
+      this._emit({
         type: 'job.interactive',
         projectId: input.projectId,
         jobId: input.runId,

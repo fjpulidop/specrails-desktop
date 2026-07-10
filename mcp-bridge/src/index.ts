@@ -13,10 +13,9 @@ async function main(): Promise<void> {
   const token = readMcpToken()
   const headers: Record<string, string> = token ? { Authorization: `Bearer ${token}` } : {}
 
-  // The in-app agent chat spawns this bridge with SPECRAILS_AGENT_* env set
-  // (tier ladder / pinned project / launching conversation); forward each as a
-  // loopback-only header so the app's tool guard enforces the agent ladder (not
-  // the external Settings tiers) and MCP-launched rails carry their origin link.
+  // The in-app agent chat gives this bridge a path to its 0600 per-turn
+  // capability. The server validates it and derives tier/project/conversation
+  // from its own in-memory binding; no caller-authored context header is trusted.
   Object.assign(headers, agentForwardHeaders())
 
   const appFacing = new StreamableHTTPClientTransport(appUrl(), { requestInit: { headers } })

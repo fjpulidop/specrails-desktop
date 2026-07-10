@@ -4,6 +4,8 @@ import {
   createLoopRun,
   updateLoopRunCounters,
   finishLoopRun,
+  finishLoopRunAndJob,
+  listPendingLoopTerminalRecoveries,
   pauseLoopRun,
   resumeLoopRun,
   getLoopRun,
@@ -12,6 +14,7 @@ import {
   countRunningForLoop,
   reconcileOrphanLoopRuns,
   getRunEventCounts,
+  updateLoopStepEventCheckpoint,
 } from './loop-runs-store'
 
 let db: DbInstance
@@ -38,6 +41,11 @@ function create(id: string, over: Partial<Parameters<typeof createLoopRun>[1]> =
 }
 
 describe('loop-runs-store', () => {
+  it('fails closed instead of advancing job usage without a step checkpoint', () => {
+    expect(() => updateLoopStepEventCheckpoint(db, 'missing-run', 'ai:1', 4))
+      .toThrow('Missing loop step checkpoint missing-run/ai:1')
+  })
+
   it('creates a running loop run', () => {
     const run = create('r1')
     expect(run.status).toBe('running')
@@ -111,6 +119,16 @@ describe('loop-runs-store', () => {
   it('reconciles orphan running runs to terminal (unwedges edit/publish after a restart)', () => {
     create('r1', { loopId: 'loop-A' }) // orphan running
     create('r2', { loopId: 'loop-A' }) // orphan paused
+    createJob(db, {
+      id: 'r1', command: 'loop: A #42', started_at: '2026-06-24T10:00:00.000Z',
+      provider: 'codex', owner: 'loop',
+    })
+    updateLoopRunCounters(db, 'r1', { totalDurationMs: 33 })
+    db.prepare(`UPDATE jobs SET duration_ms = 11 WHERE id = 'r1'`).run()
+    createJob(db, {
+      id: 'r2', command: 'loop: A #42', started_at: '2026-06-24T10:00:00.000Z',
+      provider: 'claude', owner: 'loop',
+    })
     pauseLoopRun(db, 'r2')
     create('r3', { loopId: 'loop-A' })
     finishLoopRun(db, 'r3', { outcome: 'success', finishedAt: '2026-06-24T10:05:00.000Z' }) // already terminal
@@ -127,8 +145,53 @@ describe('loop-runs-store', () => {
     expect(r2.status).toBe('completed')
     expect(r2.final_outcome).toBe('failed')
     expect(r2.finished_at).toBe('2026-06-24T12:00:00.000Z')
+    expect(db.prepare('SELECT status, provider, owner, duration_ms FROM jobs WHERE id = ?').get('r1')).toMatchObject({
+      status: 'failed', provider: 'codex', owner: 'loop', duration_ms: 33,
+    })
+    expect(db.prepare('SELECT status FROM jobs WHERE id = ?').get('r2')).toMatchObject({ status: 'failed' })
+    expect(db.prepare("SELECT COUNT(*) AS n FROM ai_invocations WHERE surface = 'job' AND surface_ref_id IN ('r1', 'r2')").get())
+      .toMatchObject({ n: 0 })
     // A second pass is a no-op (nothing left running).
     expect(reconcileOrphanLoopRuns(db, '2026-06-24T13:00:00.000Z')).toBe(0)
+  })
+
+  it('atomically finalizes loop + backing job + exact terminal outbox', () => {
+    create('atomic', {
+      ticketIds: [42, 43], ticketCompletionStatus: 'on_review', causalOwnership: true,
+    })
+    createJob(db, {
+      id: 'atomic', command: 'loop: atomic #42 #43',
+      started_at: '2026-06-24T10:00:00.000Z', owner: 'loop', provider: 'claude',
+    })
+    db.exec(`
+      CREATE TRIGGER reject_loop_terminal_intent
+      BEFORE INSERT ON loop_terminal_recovery
+      BEGIN SELECT RAISE(ABORT, 'intent failed'); END;
+    `)
+    const finish = () => finishLoopRunAndJob(db, 'atomic', {
+      outcome: 'success', finishedAt: '2026-06-24T11:00:00.000Z',
+      counters: { iterationCount: 1, totalCostUsd: 1, totalTokens: 30, totalDurationMs: 20 },
+      job: {
+        exitCode: 0, status: 'completed', totalCostUsd: 1,
+        tokensIn: 10, tokensOut: 20, tokensCacheRead: 3, tokensCacheCreate: 2,
+        durationMs: 20, numTurns: 2,
+      },
+    })
+    expect(finish).toThrow(/intent failed/)
+    expect(getLoopRun(db, 'atomic')).toMatchObject({ status: 'running', final_outcome: null })
+    expect(db.prepare(`SELECT status FROM jobs WHERE id = 'atomic'`).get()).toMatchObject({ status: 'running' })
+
+    db.exec(`DROP TRIGGER reject_loop_terminal_intent`)
+    finish()
+    expect(getLoopRun(db, 'atomic')).toMatchObject({ status: 'completed', final_outcome: 'success' })
+    expect(db.prepare(`SELECT status, tokens_in, tokens_out FROM jobs WHERE id = 'atomic'`).get())
+      .toMatchObject({ status: 'completed', tokens_in: 10, tokens_out: 20 })
+    const pending = listPendingLoopTerminalRecoveries(db)
+    expect(pending).toHaveLength(1)
+    expect(JSON.parse(pending[0].payload)).toMatchObject({
+      runId: 'atomic', ticketIds: [42, 43], railIndex: 1,
+      outcome: 'success', ticketCompletionStatus: 'on_review', causalOwnership: true,
+    })
   })
 
   describe('getRunEventCounts', () => {

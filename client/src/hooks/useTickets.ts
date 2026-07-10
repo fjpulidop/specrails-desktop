@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef, useCallback, useLayoutEffect, useId } from 'react'
 import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
-import { getApiBase } from '../lib/api'
+import { API_ORIGIN } from '../lib/origin'
 import { useSharedWebSocket } from './useSharedWebSocket'
 import { useDesktop } from './useDesktop'
 import { isSpecGenInFlight } from '../lib/spec-gen-suppression'
@@ -24,6 +24,10 @@ interface TicketWsMessage {
 
 const GLOW_DURATION_MS = 3000
 const CONTRACT_LAYER_MARKER = '\n\n---\n\n## Contract Layer\n\n'
+
+function ticketsApiBase(projectId: string): string {
+  return `${API_ORIGIN}/api/projects/${encodeURIComponent(projectId)}`
+}
 
 /** Cheap deep-equality for two tickets (both come from the same API shape). */
 function ticketsEqual(a: LocalTicket, b: LocalTicket): boolean {
@@ -59,7 +63,9 @@ export function useTickets() {
   const [contractRefiningIds, setContractRefiningIds] = useState<Set<number>>(new Set())
 
   const activeProjectIdRef = useRef(activeProjectId)
-  useEffect(() => { activeProjectIdRef.current = activeProjectId }, [activeProjectId])
+  activeProjectIdRef.current = activeProjectId
+  const requestGenerationRef = useRef(0)
+  const activeFetchControllerRef = useRef<AbortController | null>(null)
 
   // Track known ticket IDs so we can detect net-new additions on full refresh
   const knownIdsRef = useRef<Set<number>>(new Set())
@@ -74,8 +80,8 @@ export function useTickets() {
 
   // ── Fetch tickets from API ────────────────────────────────────────────────
 
-  const fetchTickets = useCallback(async (signal?: AbortSignal): Promise<LocalTicket[]> => {
-    const base = getApiBase()
+  const fetchTickets = useCallback(async (projectId: string, signal?: AbortSignal): Promise<LocalTicket[]> => {
+    const base = ticketsApiBase(projectId)
     // `cache: 'no-store'` is REQUIRED: the API sends a weak ETag and the webview
     // (WKWebView/Tauri) would otherwise serve a stale cached /tickets response —
     // tickets created out-of-band (e.g. via the MCP) never appeared until a full
@@ -88,81 +94,98 @@ export function useTickets() {
 
   // ── Initial load + project switch ─────────────────────────────────────────
 
-  const refetch = useCallback(() => {
-    if (!activeProjectIdRef.current) return
-    setLoading(true)
-    setError(null)
-
-    fetchTickets()
-      .then((fetched) => {
-        const oldIds = knownIdsRef.current
-        const newIds = new Set<number>()
-
-        for (const t of fetched) {
-          if (oldIds.size > 0 && !oldIds.has(t.id)) {
-            newIds.add(t.id)
-          }
-        }
-
-        knownIdsRef.current = new Set(fetched.map((t) => t.id))
-        // Non-destructive merge: reuse existing ticket object references for
-        // rows that are byte-identical so React doesn't re-render unchanged
-        // cards (and returns the SAME array when nothing changed at all). This
-        // keeps a background refetch — e.g. the Jira poll — from flickering the
-        // whole board.
-        setTickets((prev) => reconcileTickets(prev, fetched))
-
-        if (newIds.size > 0 && oldIds.size > 0) {
-          setNewTicketIds(newIds)
-          toast.success(t('toasts.newTicketsAdded', { count: newIds.size }), { id: `tickets-added-${activeProjectIdRef.current}` })
-          setTimeout(() => setNewTicketIds(new Set()), GLOW_DURATION_MS)
-        }
-      })
-      .catch((err) => {
-        if (err instanceof DOMException && err.name === 'AbortError') return
-        setError((err as Error).message)
-      })
-      .finally(() => setLoading(false))
-  }, [fetchTickets, t])
-
-  useEffect(() => {
-    if (!activeProjectId) {
-      setTickets([])
+  const loadTickets = useCallback(async (
+    ownerProjectId: string,
+    mode: 'replace' | 'merge',
+  ): Promise<void> => {
+    const generation = ++requestGenerationRef.current
+    activeFetchControllerRef.current?.abort()
+    const controller = new AbortController()
+    activeFetchControllerRef.current = controller
+    if (activeProjectIdRef.current === ownerProjectId) {
+      setLoading(true)
       setError(null)
-      knownIdsRef.current = new Set()
-      setNewTicketIds(new Set())
-      setContractRefiningIds(new Set())
-      return
     }
 
-    let cancelled = false
-    setLoading(true)
+    try {
+      const fetched = await fetchTickets(ownerProjectId, controller.signal)
+      if (
+        controller.signal.aborted ||
+        generation !== requestGenerationRef.current ||
+        activeProjectIdRef.current !== ownerProjectId
+      ) return
+
+      const oldIds = knownIdsRef.current
+      const newIds = new Set<number>()
+      if (mode === 'merge') {
+        for (const ticket of fetched) {
+          if (oldIds.size > 0 && !oldIds.has(ticket.id)) newIds.add(ticket.id)
+        }
+      }
+      knownIdsRef.current = new Set(fetched.map((ticket) => ticket.id))
+      if (mode === 'replace') {
+        setTickets(fetched)
+      } else {
+        // Reuse unchanged row references so a background refresh does not churn
+        // every ticket card.
+        setTickets((prev) => reconcileTickets(prev, fetched))
+      }
+
+      if (newIds.size > 0 && oldIds.size > 0) {
+        setNewTicketIds(newIds)
+        toast.success(t('toasts.newTicketsAdded', { count: newIds.size }), { id: `tickets-added-${ownerProjectId}` })
+        setTimeout(() => {
+          if (activeProjectIdRef.current !== ownerProjectId) return
+          setNewTicketIds((prev) => {
+            const next = new Set(prev)
+            for (const id of newIds) next.delete(id)
+            return next
+          })
+        }, GLOW_DURATION_MS)
+      }
+    } catch (err) {
+      if (
+        controller.signal.aborted ||
+        generation !== requestGenerationRef.current ||
+        activeProjectIdRef.current !== ownerProjectId
+      ) return
+      setError(err instanceof Error ? err.message : String(err))
+    } finally {
+      if (generation === requestGenerationRef.current) {
+        if (activeFetchControllerRef.current === controller) activeFetchControllerRef.current = null
+        if (activeProjectIdRef.current === ownerProjectId) setLoading(false)
+      }
+    }
+  }, [fetchTickets, t])
+
+  const refetch = useCallback(async (): Promise<void> => {
+    if (!activeProjectId) return
+    await loadTickets(activeProjectId, 'merge')
+  }, [activeProjectId, loadTickets])
+
+  useEffect(() => {
+    requestGenerationRef.current += 1
+    activeFetchControllerRef.current?.abort()
+    activeFetchControllerRef.current = null
+    setTickets([])
+    setLoading(false)
     setError(null)
+    knownIdsRef.current = new Set()
     setNewTicketIds(new Set())
     setContractRefiningIds(new Set())
 
-    const controller = new AbortController()
+    if (!activeProjectId) {
+      return
+    }
 
-    fetchTickets(controller.signal)
-      .then((fetched) => {
-        if (cancelled) return
-        knownIdsRef.current = new Set(fetched.map((t) => t.id))
-        setTickets(fetched)
-      })
-      .catch((err) => {
-        if (cancelled) return
-        if (err instanceof DOMException && err.name === 'AbortError') return
-        setError((err as Error).message)
-      })
-      .finally(() => {
-        if (!cancelled) setLoading(false)
-      })
+    void loadTickets(activeProjectId, 'replace')
 
     return () => {
-      cancelled = true
-      controller.abort()
+      requestGenerationRef.current += 1
+      activeFetchControllerRef.current?.abort()
+      activeFetchControllerRef.current = null
     }
-  }, [activeProjectId, fetchTickets])
+  }, [activeProjectId, loadTickets])
 
   // ── WebSocket handler ─────────────────────────────────────────────────────
 
@@ -277,61 +300,101 @@ export function useTickets() {
   // ── CRUD mutations ────────────────────────────────────────────────────────
 
   const deleteTicket = useCallback(async (ticketId: number): Promise<boolean> => {
-    const res = await fetch(`${getApiBase()}/tickets/${ticketId}`, { method: 'DELETE' })
-    if (res.ok) refetch()
-    return res.ok
-  }, [refetch])
+    const ownerProjectId = activeProjectId
+    if (!ownerProjectId) return false
+    try {
+      const res = await fetch(`${ticketsApiBase(ownerProjectId)}/tickets/${ticketId}`, { method: 'DELETE' })
+      if (res.ok && activeProjectIdRef.current === ownerProjectId) {
+        await loadTickets(ownerProjectId, 'merge')
+      }
+      return res.ok
+    } catch {
+      return false
+    }
+  }, [activeProjectId, loadTickets])
 
   const updateTicketStatus = useCallback(
     async (ticketId: number, status: LocalTicket['status']): Promise<boolean> => {
-      const res = await fetch(`${getApiBase()}/tickets/${ticketId}`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ status }),
-      })
-      if (res.ok) refetch()
-      return res.ok
+      const ownerProjectId = activeProjectId
+      if (!ownerProjectId) return false
+      try {
+        const res = await fetch(`${ticketsApiBase(ownerProjectId)}/tickets/${ticketId}`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ status }),
+        })
+        if (res.ok && activeProjectIdRef.current === ownerProjectId) {
+          await loadTickets(ownerProjectId, 'merge')
+        }
+        return res.ok
+      } catch {
+        return false
+      }
     },
-    [refetch]
+    [activeProjectId, loadTickets]
   )
 
   const updateTicketPriority = useCallback(
     async (ticketId: number, priority: LocalTicket['priority']): Promise<boolean> => {
-      const res = await fetch(`${getApiBase()}/tickets/${ticketId}`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ priority }),
-      })
-      if (res.ok) refetch()
-      return res.ok
+      const ownerProjectId = activeProjectId
+      if (!ownerProjectId) return false
+      try {
+        const res = await fetch(`${ticketsApiBase(ownerProjectId)}/tickets/${ticketId}`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ priority }),
+        })
+        if (res.ok && activeProjectIdRef.current === ownerProjectId) {
+          await loadTickets(ownerProjectId, 'merge')
+        }
+        return res.ok
+      } catch {
+        return false
+      }
     },
-    [refetch]
+    [activeProjectId, loadTickets]
   )
 
   const createTicket = useCallback(
     async (ticket: { title: string; description?: string; status?: LocalTicket['status']; priority?: LocalTicket['priority']; labels?: string[] }): Promise<boolean> => {
-      const res = await fetch(`${getApiBase()}/tickets`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(ticket),
-      })
-      if (res.ok) refetch()
-      return res.ok
+      const ownerProjectId = activeProjectId
+      if (!ownerProjectId) return false
+      try {
+        const res = await fetch(`${ticketsApiBase(ownerProjectId)}/tickets`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(ticket),
+        })
+        if (res.ok && activeProjectIdRef.current === ownerProjectId) {
+          await loadTickets(ownerProjectId, 'merge')
+        }
+        return res.ok
+      } catch {
+        return false
+      }
     },
-    [refetch]
+    [activeProjectId, loadTickets]
   )
 
   const updateTicket = useCallback(
     async (ticketId: number, fields: Partial<Pick<LocalTicket, 'title' | 'description' | 'status' | 'priority' | 'labels' | 'prerequisites'>>): Promise<boolean> => {
-      const res = await fetch(`${getApiBase()}/tickets/${ticketId}`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(fields),
-      })
-      if (res.ok) refetch()
-      return res.ok
+      const ownerProjectId = activeProjectId
+      if (!ownerProjectId) return false
+      try {
+        const res = await fetch(`${ticketsApiBase(ownerProjectId)}/tickets/${ticketId}`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(fields),
+        })
+        if (res.ok && activeProjectIdRef.current === ownerProjectId) {
+          await loadTickets(ownerProjectId, 'merge')
+        }
+        return res.ok
+      } catch {
+        return false
+      }
     },
-    [refetch]
+    [activeProjectId, loadTickets]
   )
 
   return {

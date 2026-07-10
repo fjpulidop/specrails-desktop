@@ -44,7 +44,7 @@ export function ActiveJobCard({ activeJob, phases, phaseDefinitions }: ActiveJob
   async function handleCancel() {
     if (!activeJob) return
     try {
-      const res = await fetch(`${getApiBase()}/jobs/${activeJob.id}`, { method: 'DELETE' })
+      const res = await fetch(`${getApiBase()}/jobs/${activeJob.id}/cancel`, { method: 'POST' })
       if (res.ok) {
         toast.success(t('activeJob.toast.cancelRequested'), {
           description: t('activeJob.toast.cancelRequestedDescription'),

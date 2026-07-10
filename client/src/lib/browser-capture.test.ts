@@ -152,15 +152,26 @@ describe('browser-capture lib', () => {
         expect(JSON.parse(String(init?.body)).initialUrl).toBe('https://x.dev')
         return { status: 201, body: { session: { id: 's1' } } }
       }) as typeof fetch
-      const s = await createBrowserSession('https://x.dev')
+      const s = await createBrowserSession('proj-1', 'https://x.dev')
       expect(s.id).toBe('s1')
+    })
+
+    it('routes session requests to their owner after the active project changes', async () => {
+      setActiveProjectId('proj-b')
+      global.fetch = mockFetch((url) => {
+        expect(url).toContain('/api/projects/proj-a/browser/sessions')
+        expect(url).not.toContain('/api/projects/proj-b/')
+        return { status: 201, body: { session: { id: 's-a' } } }
+      }) as typeof fetch
+
+      await createBrowserSession('proj-a')
     })
 
     it('createBrowserSession maps 409 → limit, 502 → launch failure', async () => {
       global.fetch = mockFetch(() => ({ status: 409 })) as typeof fetch
-      await expect(createBrowserSession()).rejects.toBeInstanceOf(BrowserSessionLimitError)
+      await expect(createBrowserSession('proj-1')).rejects.toBeInstanceOf(BrowserSessionLimitError)
       global.fetch = mockFetch(() => ({ status: 502 })) as typeof fetch
-      await expect(createBrowserSession()).rejects.toBeInstanceOf(BrowserLaunchFailedError)
+      await expect(createBrowserSession('proj-1')).rejects.toBeInstanceOf(BrowserLaunchFailedError)
     })
 
     it('navigateBrowser posts the action + url', async () => {
@@ -170,7 +181,7 @@ describe('browser-capture lib', () => {
         expect(body).toEqual({ action: 'goto', url: 'https://y.dev' })
         return { body: { url: 'https://y.dev', title: 'Y' } }
       }) as typeof fetch
-      expect(await navigateBrowser('s1', 'goto', 'https://y.dev')).toEqual({ url: 'https://y.dev', title: 'Y' })
+      expect(await navigateBrowser('proj-1', 's1', 'goto', 'https://y.dev')).toEqual({ url: 'https://y.dev', title: 'Y' })
     })
 
     it('captureBrowserRegion posts rect + pendingSpecId and returns the result', async () => {
@@ -181,14 +192,14 @@ describe('browser-capture lib', () => {
         expect(body.rect).toEqual({ x: 1, y: 2, width: 3, height: 4 })
         return { body: { screenshot: { id: 'a1' }, domAttachment: { id: 'a2' }, dom } }
       }) as typeof fetch
-      const r = await captureBrowserRegion('s1', { x: 1, y: 2, width: 3, height: 4 }, 'pend-1')
+      const r = await captureBrowserRegion('proj-1', 's1', { x: 1, y: 2, width: 3, height: 4 }, 'pend-1')
       expect(r.screenshot.id).toBe('a1')
       expect(r.domAttachment.id).toBe('a2')
     })
 
     it('captureBrowserRegion throws on non-ok', async () => {
       global.fetch = mockFetch(() => ({ status: 500 })) as typeof fetch
-      await expect(captureBrowserRegion('s1', { x: 0, y: 0, width: 1, height: 1 }, 'p')).rejects.toThrow()
+      await expect(captureBrowserRegion('proj-1', 's1', { x: 0, y: 0, width: 1, height: 1 }, 'p')).rejects.toThrow()
     })
 
     it('captureBrowserBreakpoints posts rect, anchor + breakpoints and returns the result', async () => {
@@ -200,7 +211,7 @@ describe('browser-capture lib', () => {
         expect(body.breakpoints.desktop).toEqual({ width: 1280, height: 800 })
         return { body: { screenshot: { id: 'b1' }, domAttachment: { id: 'b2' }, dom, screenshotDataUrl: 'data:image/png;base64,x', breakpoints: { desktop: { attachment: { id: 'b1' }, dataUrl: 'd', viewport: { width: 1280, height: 800 } } } } }
       }) as typeof fetch
-      const r = await captureBrowserBreakpoints('s1', { x: 1, y: 2, width: 3, height: 4 }, { x: 5, y: 5 }, 'pend-1')
+      const r = await captureBrowserBreakpoints('proj-1', 's1', { x: 1, y: 2, width: 3, height: 4 }, { x: 5, y: 5 }, 'pend-1')
       expect(r.breakpoints!.desktop.attachment.id).toBe('b1')
     })
 
@@ -221,7 +232,7 @@ describe('browser-capture lib', () => {
         expect(body).toEqual({ action: 'paste', text: 'hello' })
         return { body: { text: '' } }
       }) as typeof fetch
-      expect(await browserClipboard('s1', 'paste', 'hello')).toEqual({ text: '' })
+      expect(await browserClipboard('proj-1', 's1', 'paste', 'hello')).toEqual({ text: '' })
     })
 
     it('navigateBrowserElement posts selector + direction and returns the probe', async () => {
@@ -231,18 +242,18 @@ describe('browser-capture lib', () => {
         expect(body).toEqual({ selector: 'div.box', direction: 'parent' })
         return { body: { probe: { rect: { x: 0, y: 0, width: 1, height: 1 }, tag: 'section', selector: 'body', path: [] } } }
       }) as typeof fetch
-      const p = await navigateBrowserElement('s1', 'div.box', 'parent')
+      const p = await navigateBrowserElement('proj-1', 's1', 'div.box', 'parent')
       expect(p!.tag).toBe('section')
     })
 
     it('navigateBrowserElement returns null when the server reports no further step', async () => {
       global.fetch = mockFetch(() => ({ body: { probe: null } })) as typeof fetch
-      expect(await navigateBrowserElement('s1', 'body', 'parent')).toBeNull()
+      expect(await navigateBrowserElement('proj-1', 's1', 'body', 'parent')).toBeNull()
     })
 
     it('killBrowserSession swallows errors', async () => {
       global.fetch = vi.fn(async () => { throw new Error('network') }) as unknown as typeof fetch
-      await expect(killBrowserSession('s1')).resolves.toBeUndefined()
+      await expect(killBrowserSession('proj-1', 's1')).resolves.toBeUndefined()
     })
 
     it('setBrowserPopupView posts the target and swallows errors', async () => {
@@ -252,11 +263,11 @@ describe('browser-capture lib', () => {
         return { body: { ok: true } }
       })
       global.fetch = fetchMock as unknown as typeof fetch
-      await setBrowserPopupView('s1', 'root')
+      await setBrowserPopupView('proj-1', 's1', 'root')
       expect(fetchMock).toHaveBeenCalledTimes(1)
 
       global.fetch = vi.fn(async () => { throw new Error('network') }) as unknown as typeof fetch
-      await expect(setBrowserPopupView('s1', 'popup')).resolves.toBeUndefined()
+      await expect(setBrowserPopupView('proj-1', 's1', 'popup')).resolves.toBeUndefined()
     })
   })
 

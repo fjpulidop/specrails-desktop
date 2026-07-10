@@ -254,6 +254,16 @@ export function prMergedCommentMarker(refId: string, ticketId: number): string {
   return `[specrails:pr-merged=${refId}:ticket=${ticketId}]`
 }
 
+/** Idempotency marker for accepting a fresh no-change delivery as complete. */
+export function railCompletedCommentMarker(refId: string, ticketId: number): string {
+  return `[specrails:rail-completed=${refId}:ticket=${ticketId}]`
+}
+
+/** Idempotency marker for returning a fresh no-change delivery to refinement. */
+export function railRefinedCommentMarker(refId: string, ticketId: number): string {
+  return `[specrails:rail-refined=${refId}:ticket=${ticketId}]`
+}
+
 /**
  * Idempotency marker for the "ready for review" comment posted when an isolated
  * rail parks a Jira-linked ticket on_review awaiting the PR decision.

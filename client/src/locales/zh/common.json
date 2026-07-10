@@ -50,6 +50,34 @@
     "draft": "草稿",
     "onReview": "评审中"
   },
+  "prDeliveryStatus": {
+    "implementation_running": "实现进行中",
+    "implementation_failed": "实现失败",
+    "ready_for_review": "已可审查",
+    "partial_success": "部分实现完成",
+    "partial_delivery": "部分交付已就绪",
+    "existing_pr_updated": "现有 PR 已更新",
+    "no_changes": "无需更改",
+    "commit_failed": "提交阶段失败",
+    "branch_verification_failed": "分支验证失败",
+    "push_failed": "推送失败",
+    "settlement_interrupted": "交付准备被中断",
+    "operation_interrupted": "上一次交付操作已中断",
+    "delivery_failed": "交付失败",
+    "pr_draft_ready": "PR 草稿已就绪",
+    "pr_ready": "PR 已就绪",
+    "pr_closed": "PR 已关闭但未合并",
+    "merged": "已合并",
+    "discarded": "已丢弃",
+    "superseded": "已被较新的运行取代",
+    "cleanup_incomplete": "清理未完成",
+    "status_failed": "worktree 状态检查失败",
+    "ref_mismatch": "分支引用不匹配"
+  },
+  "prRecovery": {
+    "inProgress": "项目恢复仍在进行中。你的交付内容是安全的，请稍后重试。",
+    "interrupted": "上一次交付操作在重启期间被中断。你的工作已保留；请检查当前状态，并在准备好后重试。"
+  },
   "modal": {
     "resize": {
       "nw": "调整大小 — 左上角",

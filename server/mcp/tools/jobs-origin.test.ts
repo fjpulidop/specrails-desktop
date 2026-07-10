@@ -3,7 +3,7 @@ import express from 'express'
 import type { Server } from 'http'
 import type { AddressInfo } from 'net'
 import type { Request } from 'express'
-import { initDesktopDb } from '../../desktop-db'
+import { initDesktopDb, setDesktopSetting } from '../../desktop-db'
 import type { DbInstance } from '../../db'
 import { createAgentConversation } from '../../agent-store'
 import { registerJobsRoutes } from '../../project-router-jobs'
@@ -11,7 +11,8 @@ import type { ProjectRoutesDeps } from '../../project-router-helpers'
 import type { ProjectContext, ProjectRegistry } from '../../project-registry'
 import { registerTieredTool, setActiveProject, originConversationDefaults, type McpToolContext, type ToolHandlerExtra } from './types'
 import { jobsTools } from './jobs'
-import { AGENT_TIER_HEADER, AGENT_PROJECT_HEADER, AGENT_CONVERSATION_HEADER } from '../../agent-tier'
+import { AGENT_CAPABILITY_HEADER } from '../../agent-tier'
+import { _resetAgentCapabilitiesForTest, mintAgentCapability } from '../agent-capability'
 import { MobileEventBus } from '../../mobile/mobile-event-bus'
 import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js'
 
@@ -38,6 +39,8 @@ describe('MCP → jobs spawn → conversation-provider engine default', () => {
 
   beforeEach(async () => {
     desktopDb = initDesktopDb(':memory:')
+    _resetAgentCapabilitiesForTest()
+    setDesktopSetting(desktopDb, 'mcp_tier_ai_spawn', 'true')
     enqueue = vi.fn().mockReturnValue({ id: 'job-1', queuePosition: 0 })
 
     // The REAL spawn route (project-router-jobs) behind a real HTTP listener.
@@ -75,21 +78,17 @@ describe('MCP → jobs spawn → conversation-provider engine default', () => {
     desktopDb.close()
   })
 
-  const spawnExtra = (headers: Record<string, string> = {}): ToolHandlerExtra => ({
-    requestInfo: {
-      headers: {
-        [AGENT_TIER_HEADER]: 'operate', // ai-spawn allowed at level 2
-        [AGENT_PROJECT_HEADER]: 'p1',
-        ...headers,
-      },
-    },
-  })
+  const spawnExtra = (conversationId?: string): ToolHandlerExtra => {
+    if (!conversationId) return { requestInfo: { headers: {} } }
+    const capability = mintAgentCapability({ conversationId, projectId: 'p1', tierLevel: 2 })
+    return { requestInfo: { headers: { [AGENT_CAPABILITY_HEADER]: capability } } }
+  }
 
   const spawnArgs = { action: 'spawn', projectId: 'p1', command: '/specrails:implement #5 --yes' }
 
   it('a spawn from a CODEX conversation defaults the engine to codex through the real route', async () => {
     const conv = createAgentConversation(desktopDb, { provider: 'codex' })
-    const r = await captured!(spawnArgs, spawnExtra({ [AGENT_CONVERSATION_HEADER]: conv.id }))
+    const r = await captured!(spawnArgs, spawnExtra(conv.id))
     expect(r.isError).toBeFalsy()
     expect(JSON.parse(r.content[0].text)).toMatchObject({ jobId: 'job-1' })
 
@@ -99,12 +98,12 @@ describe('MCP → jobs spawn → conversation-provider engine default', () => {
 
   it('an explicit aiEngine always wins over the conversation default', async () => {
     const conv = createAgentConversation(desktopDb, { provider: 'codex' })
-    const r = await captured!({ ...spawnArgs, aiEngine: 'claude' }, spawnExtra({ [AGENT_CONVERSATION_HEADER]: conv.id }))
+    const r = await captured!({ ...spawnArgs, aiEngine: 'claude' }, spawnExtra(conv.id))
     expect(r.isError).toBeFalsy()
     expect(enqueue.mock.calls[0][2]).toMatchObject({ provider: 'claude' })
   })
 
-  it('without the conversation header no engine is sent (legacy primary resolution)', async () => {
+  it('without an agent capability no engine is sent (legacy primary resolution)', async () => {
     const r = await captured!(spawnArgs, spawnExtra())
     expect(r.isError).toBeFalsy()
     expect(enqueue).toHaveBeenCalledTimes(1)
@@ -114,7 +113,7 @@ describe('MCP → jobs spawn → conversation-provider engine default', () => {
   })
 
   it('an unknown conversation id is tolerated: no default, spawn proceeds', async () => {
-    const r = await captured!(spawnArgs, spawnExtra({ [AGENT_CONVERSATION_HEADER]: 'conv-that-does-not-exist' }))
+    const r = await captured!(spawnArgs, spawnExtra('conv-that-does-not-exist'))
     expect(r.isError).toBeFalsy()
     expect(enqueue).toHaveBeenCalledTimes(1)
     expect(enqueue.mock.calls[0][2].provider).toBeUndefined()
@@ -122,7 +121,7 @@ describe('MCP → jobs spawn → conversation-provider engine default', () => {
 
   it("a conversation provider NOT installed on the project surfaces the route's clear 400 as a tool error", async () => {
     const conv = createAgentConversation(desktopDb, { provider: 'gemini' })
-    const r = await captured!(spawnArgs, spawnExtra({ [AGENT_CONVERSATION_HEADER]: conv.id }))
+    const r = await captured!(spawnArgs, spawnExtra(conv.id))
     expect(r.isError).toBe(true)
     expect(r.content[0].text).toContain("provider 'gemini' is not installed")
     expect(enqueue).not.toHaveBeenCalled()
@@ -130,7 +129,7 @@ describe('MCP → jobs spawn → conversation-provider engine default', () => {
 
   // ── originConversationDefaults unit edges ───────────────────────────────────
 
-  it('originConversationDefaults: null (malformed header) and absent origin both yield {}', () => {
+  it('originConversationDefaults: null and absent origin both yield {}', () => {
     expect(originConversationDefaults(ctx)).toEqual({})
     expect(originConversationDefaults({ ...ctx, originConversationId: null })).toEqual({})
   })

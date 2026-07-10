@@ -16,6 +16,13 @@ const mockFs = fs as typeof fs & {
   writeFileSync: ReturnType<typeof vi.fn>
   mkdirSync: ReturnType<typeof vi.fn>
   renameSync: ReturnType<typeof vi.fn>
+  openSync: ReturnType<typeof vi.fn>
+  fstatSync: ReturnType<typeof vi.fn>
+  fchmodSync: ReturnType<typeof vi.fn>
+  fsyncSync: ReturnType<typeof vi.fn>
+  closeSync: ReturnType<typeof vi.fn>
+  chmodSync: ReturnType<typeof vi.fn>
+  unlinkSync: ReturnType<typeof vi.fn>
 }
 
 function createTestApp() {
@@ -44,6 +51,20 @@ describe('auth middleware', () => {
     mockFs.existsSync.mockReturnValue(false)
     mockFs.mkdirSync.mockReturnValue(undefined)
     mockFs.writeFileSync.mockReturnValue(undefined)
+    mockFs.openSync.mockImplementation((p: fs.PathLike) => {
+      if (String(p).endsWith('.tmp')) return 43
+      if (mockFs.existsSync(p)) return 42
+      throw Object.assign(new Error('missing'), { code: 'ENOENT' })
+    })
+    mockFs.fstatSync.mockReturnValue({
+      isFile: () => true,
+      uid: typeof process.getuid === 'function' ? process.getuid() : 0,
+    } as fs.Stats)
+    mockFs.fchmodSync.mockReturnValue(undefined)
+    mockFs.fsyncSync.mockReturnValue(undefined)
+    mockFs.closeSync.mockReturnValue(undefined)
+    mockFs.chmodSync.mockReturnValue(undefined)
+    mockFs.unlinkSync.mockReturnValue(undefined)
   })
 
   afterEach(() => {
@@ -84,7 +105,8 @@ describe('auth middleware', () => {
       const stored = 'b'.repeat(64)
       const files = new Map<string, string>([[legacyPath, stored]])
       mockFs.existsSync.mockImplementation((p: fs.PathLike) => files.has(String(p)))
-      mockFs.readFileSync.mockImplementation((p: fs.PathLike) => files.get(String(p)) ?? '')
+      mockFs.readFileSync.mockImplementation((p: fs.PathOrFileDescriptor) =>
+        typeof p === 'number' ? files.get(tokenPath) ?? '' : files.get(String(p)) ?? '')
       mockFs.renameSync.mockImplementation((from: fs.PathLike, to: fs.PathLike) => {
         const v = files.get(String(from))
         files.delete(String(from))
@@ -105,7 +127,8 @@ describe('auth middleware', () => {
         [tokenPath, 'n'.repeat(64)],
       ])
       mockFs.existsSync.mockImplementation((p: fs.PathLike) => files.has(String(p)))
-      mockFs.readFileSync.mockImplementation((p: fs.PathLike) => files.get(String(p)) ?? '')
+      mockFs.readFileSync.mockImplementation((p: fs.PathOrFileDescriptor) =>
+        typeof p === 'number' ? files.get(tokenPath) ?? '' : files.get(String(p)) ?? '')
 
       const token = loadOrGenerateToken()
       expect(mockFs.renameSync).not.toHaveBeenCalled()

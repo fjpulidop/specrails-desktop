@@ -33,6 +33,12 @@ export interface SpawnOptions {
   model: string
   sessionId?: string
   /**
+   * Effective tool boundary for output-only/read-only invocations. Claude maps
+   * this to an explicit `--tools` allowlist; adapters without a verified native
+   * equivalent may ignore it until their CLI contract supports one.
+   */
+  toolPolicy?: 'default' | 'none' | 'read-only'
+  /**
    * Reasoning effort for this invocation. Honoured only by providers whose
    * `capabilities.supportsReasoningEffort` is true: claude emits the native
    * `--effort <level>` flag; codex emits `-c model_reasoning_effort=<value>`.

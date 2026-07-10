@@ -51,6 +51,7 @@ vi.mock('../../hooks/usePipeline', () => ({
 }))
 
 const mockRefreshJobs = vi.fn()
+const mockRefreshProposals = vi.fn()
 
 vi.mock('../../hooks/useProjectCache', () => ({
   useProjectCache: ({ namespace }: { namespace: string }) => ({
@@ -61,7 +62,7 @@ vi.mock('../../hooks/useProjectCache', () => ({
       : [],
     isLoading: false,
     isFirstLoad: false,
-    refresh: mockRefreshJobs,
+    refresh: namespace === 'proposals' ? mockRefreshProposals : mockRefreshJobs,
   }),
 }))
 
@@ -150,6 +151,15 @@ describe('JobsPage - proposal dialog content', () => {
     })
   })
 
+  it('renders a translated proposal status instead of the raw backend enum', async () => {
+    setupWithProposal({ status: 'creating_issue' })
+    render(<JobsPage />)
+    await openProposalDialog()
+
+    expect(await screen.findByText('Creating issue')).toBeInTheDocument()
+    expect(screen.queryByText('creating_issue')).not.toBeInTheDocument()
+  })
+
   it('renders result_markdown when present', async () => {
     setupWithProposal({ result_markdown: 'Proposal Result Content' })
     render(<JobsPage />)
@@ -210,7 +220,7 @@ describe('JobsPage - proposal dialog content', () => {
     })
   })
 
-  it('calls DELETE and refreshes when Delete button in dialog is clicked', async () => {
+  it('calls DELETE and refreshes proposals, not jobs, when Delete is clicked', async () => {
     const { toast } = await import('sonner')
 
     global.fetch = vi.fn()
@@ -244,6 +254,8 @@ describe('JobsPage - proposal dialog content', () => {
         expect.objectContaining({ method: 'DELETE' })
       )
       expect(toast.success).toHaveBeenCalledWith('Proposal deleted')
+      expect(mockRefreshProposals).toHaveBeenCalledTimes(1)
+      expect(mockRefreshJobs).not.toHaveBeenCalled()
     })
   })
 
@@ -253,7 +265,7 @@ describe('JobsPage - proposal dialog content', () => {
     await openProposalDialog()
 
     await waitFor(() => {
-      expect(screen.getByText('created')).toBeInTheDocument()
+      expect(screen.getByText('Created')).toBeInTheDocument()
     })
   })
 
@@ -263,7 +275,7 @@ describe('JobsPage - proposal dialog content', () => {
     await openProposalDialog()
 
     await waitFor(() => {
-      expect(screen.getByText('cancelled')).toBeInTheDocument()
+      expect(screen.getByText('Cancelled')).toBeInTheDocument()
     })
   })
 

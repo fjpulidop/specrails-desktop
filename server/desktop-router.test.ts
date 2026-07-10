@@ -28,7 +28,7 @@ vi.mock('./specrails-tech-client', () => ({
 }))
 
 import { createDesktopRouter } from './desktop-router'
-import { initDesktopDb, addProject, removeProject as removeProjectFromDesktopDb, getDesktopSetting, setDesktopSetting, addAgent, getAgent, addWebhook } from './desktop-db'
+import { initDesktopDb, addProject, removeProject as removeProjectFromDesktopDb, getProject, getDesktopSetting, setDesktopSetting, addAgent, getAgent, addWebhook } from './desktop-db'
 import { initDb } from './db'
 import type { ProjectRegistry, ProjectContext } from './project-registry'
 import type { WsMessage } from './types'
@@ -46,6 +46,7 @@ function createMockRegistry(desktopDb: DbInstance) {
       }
       return undefined
     }),
+    getProjectRow: vi.fn((id: string) => getProject(desktopDb, id)),
     addProject: vi.fn((opts: { id: string; slug: string; name: string; path: string }) => {
       const row = addProject(desktopDb, opts)
       const ctx = {
@@ -272,6 +273,18 @@ describe('desktop-router', () => {
         .filter((m: any) => m.type === 'desktop.project_removed')
       expect(removeMsgs).toHaveLength(1)
       expect(removeMsgs[0].projectId).toBe(id)
+    })
+
+    it('removes a registered project even when its runtime context failed to load', async () => {
+      const { app } = createApp()
+      addProject(desktopDb, {
+        id: 'failed-load', slug: 'failed-load', name: 'Failed', path: '/repo/failed',
+      })
+
+      const res = await request(app).delete('/api/projects/failed-load')
+
+      expect(res.status).toBe(200)
+      expect(getProject(desktopDb, 'failed-load')).toBeUndefined()
     })
   })
 

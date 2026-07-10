@@ -48,6 +48,9 @@ export default function JobDetailPage() {
   const [pipelineJobs, setPipelineJobs] = useState<JobSummary[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [notFound, setNotFound] = useState(false)
+  const [isRerunning, setIsRerunning] = useState(false)
+  const rerunInFlightRef = useRef(false)
+  const rerunIdempotencyKeyRef = useRef<string | null>(null)
 
   // Reset and re-fetch when project or job id changes
   useEffect(() => {
@@ -241,17 +244,12 @@ export default function JobDetailPage() {
 
   async function handleCancel() {
     if (!id) return
-    // Shared manager-aware helper (same one JobDetailModal uses): DELETE
-    // /jobs/:id — the server dispatches to LoopRunManager or QueueManager by
+    // Shared manager-aware helper (same one JobDetailModal uses): POST
+    // /jobs/:id/cancel — the server dispatches to LoopRunManager or QueueManager by
     // owner. projectId=null → active project via getApiBase() (board mode).
     const outcome = await cancelJob({ projectId: null, jobId: id })
     if (outcome.ok) {
-      if (outcome.status === 'deleted') {
-        toast.success(t('detail.toast.jobDeleted'))
-        navigate('/jobs')
-      } else {
-        toast.success(t('detail.toast.cancelSignalSent'), { description: t('detail.toast.cancelSignalSentDescription') })
-      }
+      toast.success(t('detail.toast.cancelSignalSent'), { description: t('detail.toast.cancelSignalSentDescription') })
     } else if (outcome.httpStatus === null) {
       // Transport-level failure — same toast the old try/catch produced.
       toast.error(t('detail.toast.networkError'))
@@ -286,19 +284,37 @@ export default function JobDetailPage() {
   }
 
   async function handleRerun() {
-    if (!job) return
+    if (!job || rerunInFlightRef.current) return
+    rerunInFlightRef.current = true
+    setIsRerunning(true)
+    if (!rerunIdempotencyKeyRef.current) {
+      rerunIdempotencyKeyRef.current = typeof globalThis.crypto?.randomUUID === 'function'
+        ? globalThis.crypto.randomUUID()
+        : `rerun-${job.id}-${Date.now()}-${Math.random().toString(36).slice(2)}`
+    }
     try {
       const res = await fetch(`${getApiBase()}/spawn`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          'Idempotency-Key': rerunIdempotencyKeyRef.current,
+        },
         body: JSON.stringify({ command: job.command }),
       })
       const data = await res.json() as { jobId?: string; error?: string }
       if (!res.ok) throw new Error(data.error ?? t('detail.toast.spawnFailed'))
+      // A completed request owns exactly one idempotency window. React Router
+      // reuses this component when navigating job detail → job detail; keeping
+      // the old key would make a deliberate rerun of the new job replay the
+      // previous spawn (or conflict when its command differs).
+      rerunIdempotencyKeyRef.current = null
       toast.success(t('detail.toast.jobRequeued'))
       navigate(`/jobs/${data.jobId}`)
     } catch (err) {
       toast.error((err as Error).message)
+    } finally {
+      rerunInFlightRef.current = false
+      setIsRerunning(false)
     }
   }
 
@@ -440,6 +456,8 @@ export default function JobDetailPage() {
                     variant="outline"
                     size="sm"
                     onClick={handleRerun}
+                    disabled={isRerunning}
+                    aria-busy={isRerunning}
                     className="h-7"
                   >
                     <RotateCcw className="w-3.5 h-3.5 mr-1.5" />

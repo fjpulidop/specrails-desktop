@@ -148,8 +148,11 @@ heading inside the description); \`labels\`; \`priority\`. Spec content is Engli
   slash-command job (e.g. \`/specrails:implement #5 --yes\`); \`queue\`, \`pause\`,
   \`resume\`, \`reorder\`, \`priority\` manage the queue.
 - Long-running shell commands launched with \`specrails_jobs(background_start)\`
-  create chat chips; use \`specrails_jobs(background_logs, pid)\` to read bounded
-  stdout/stderr tail when a chip exits or fails.
+  create chat chips. Start/kill are destructive and available only to an
+  authenticated in-app Agent turn at Autonomous level after explicit user
+  confirmation; third-party MCP clients cannot invoke them. Use
+  \`specrails_jobs(background_logs, pid)\` to read bounded stdout/stderr tail
+  when a chip exits or fails.
 
 ## Async results (IMPORTANT)
 

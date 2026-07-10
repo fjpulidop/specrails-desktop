@@ -15,6 +15,10 @@ vi.mock('tree-kill', () => ({
 import { spawn as mockSpawn } from 'child_process'
 import { generateCustomAgent, testCustomAgent, type AgentStudioRecordCtx } from './agent-generator'
 import { initDb, type DbInstance } from './db'
+import {
+  beginProjectProcessQuiescence,
+  resetProcessAdmissionForTests,
+} from './process-admission'
 
 function createMockChildProcess() {
   const child = new EventEmitter() as any
@@ -62,6 +66,44 @@ describe('agent-generator', () => {
 
   afterEach(() => {
     vi.restoreAllMocks()
+    resetProcessAdmissionForTests()
+  })
+
+  describe('tool sandbox', () => {
+    it('generates Studio drafts with no Claude tools or permission bypass', async () => {
+      const child = createMockChildProcess()
+      vi.mocked(mockSpawn).mockReturnValue(child as any)
+
+      const p = generateCustomAgent('/cwd', { name: 'custom-x', description: 'does x' })
+      const args = vi.mocked(mockSpawn).mock.calls[0][1] as string[]
+      expect(args.slice(args.indexOf('--tools'), args.indexOf('--tools') + 2))
+        .toEqual(['--tools', '__none__'])
+      expect(args).not.toContain('--dangerously-skip-permissions')
+
+      pushLine(child, assistantLine('---\nname: custom-x\n---\nbody'))
+      await flush()
+      child.emit('close', 0)
+      await p
+    })
+
+    it('smoke-tests Studio drafts with no Claude tools or permission bypass', async () => {
+      const child = createMockChildProcess()
+      vi.mocked(mockSpawn).mockReturnValue(child as any)
+
+      const p = testCustomAgent('/cwd', {
+        draftBody: '---\nname: custom-x\n---\nbody',
+        sampleTask: 'do it',
+      })
+      const args = vi.mocked(mockSpawn).mock.calls[0][1] as string[]
+      expect(args.slice(args.indexOf('--tools'), args.indexOf('--tools') + 2))
+        .toEqual(['--tools', '__none__'])
+      expect(args).not.toContain('--dangerously-skip-permissions')
+
+      pushLine(child, assistantLine('result'))
+      await flush()
+      child.emit('close', 0)
+      await p
+    })
   })
 
   // ─── LOW-14: testCustomAgent token double-count fix ────────────────────────
@@ -139,6 +181,25 @@ describe('agent-generator', () => {
   // ─── MED-3: testCustomAgent records surface='agent-studio' ─────────────────
 
   describe('testCustomAgent recording (MED-3)', () => {
+    it('rejects a stale completion without touching the removed project DB', async () => {
+      const child = createMockChildProcess()
+      vi.mocked(mockSpawn).mockReturnValue(child as any)
+
+      const pending = testCustomAgent('/cwd', {
+        draftBody: '---\nname: x\n---\nbody',
+        sampleTask: 'go',
+        record,
+      })
+      pushLine(child, assistantLine('stale', { input_tokens: 10, output_tokens: 5 }))
+      await flush()
+      beginProjectProcessQuiescence('p1')
+      child.emit('close', 0)
+
+      await expect(pending).rejects.toThrow(/closed for project p1/)
+      expect(readRows(db)).toHaveLength(0)
+      expect(broadcast).not.toHaveBeenCalled()
+    })
+
     it('records a success row with native cost when a result event arrives', async () => {
       const child = createMockChildProcess()
       vi.mocked(mockSpawn).mockReturnValue(child as any)
@@ -204,11 +265,71 @@ describe('agent-generator', () => {
 
       expect(readRows(db)).toHaveLength(0)
     })
+
+    it('records exactly once when a spawn error is followed by close', async () => {
+      const child = createMockChildProcess()
+      vi.mocked(mockSpawn).mockReturnValue(child as any)
+
+      const p = testCustomAgent('/cwd', { draftBody: '---\nname: x\n---\nbody', sampleTask: 'go', record })
+      child.emit('error', new Error('spawn failed'))
+      await expect(p).rejects.toThrow('spawn failed')
+
+      // Node may emit `close` after `error`; it is the same invocation, not a
+      // second terminal outcome.
+      child.emit('close', 1)
+
+      const rows = readRows(db)
+      expect(rows).toHaveLength(1)
+      expect(rows[0].status).toBe('failed')
+      expect(broadcast).toHaveBeenCalledTimes(1)
+    })
+
+    it('records exactly one aborted invocation when timeout is followed by close', async () => {
+      vi.useFakeTimers()
+      try {
+        const child = createMockChildProcess()
+        vi.mocked(mockSpawn).mockReturnValue(child as any)
+
+        const p = testCustomAgent('/cwd', { draftBody: '---\nname: x\n---\nbody', sampleTask: 'go', record })
+        const rejection = expect(p).rejects.toThrow('timed out after 120s')
+        await vi.advanceTimersByTimeAsync(120_000)
+        await rejection
+
+        // The timeout-triggered kill eventually reaps the process and emits
+        // close. That must not replace/duplicate the already-recorded abort.
+        child.emit('close', 1)
+
+        const rows = readRows(db)
+        expect(rows).toHaveLength(1)
+        expect(rows[0].status).toBe('aborted')
+        expect(broadcast).toHaveBeenCalledTimes(1)
+      } finally {
+        vi.useRealTimers()
+      }
+    })
   })
 
   // ─── MED-3: generateCustomAgent records surface='agent-studio' ─────────────
 
   describe('generateCustomAgent recording (MED-3)', () => {
+    it('rejects a stale generated draft without recording after project removal', async () => {
+      const child = createMockChildProcess()
+      vi.mocked(mockSpawn).mockReturnValue(child as any)
+
+      const pending = generateCustomAgent('/cwd', {
+        name: 'custom-x',
+        description: 'does x',
+        record,
+      })
+      pushLine(child, assistantLine('draft', { input_tokens: 10, output_tokens: 5 }))
+      await flush()
+      beginProjectProcessQuiescence('p1')
+      child.emit('close', 0)
+
+      await expect(pending).rejects.toThrow(/closed for project p1/)
+      expect(readRows(db)).toHaveLength(0)
+    })
+
     it('records a success row on clean exit with output', async () => {
       const child = createMockChildProcess()
       vi.mocked(mockSpawn).mockReturnValue(child as any)
@@ -268,6 +389,42 @@ describe('agent-generator', () => {
       await p
 
       expect(readRows(db)).toHaveLength(0)
+    })
+
+    it('records exactly once when a spawn error is followed by close', async () => {
+      const child = createMockChildProcess()
+      vi.mocked(mockSpawn).mockReturnValue(child as any)
+
+      const p = generateCustomAgent('/cwd', { name: 'custom-x', description: 'does x', record })
+      child.emit('error', new Error('spawn failed'))
+      await expect(p).rejects.toThrow('spawn failed')
+      child.emit('close', 1)
+
+      const rows = readRows(db)
+      expect(rows).toHaveLength(1)
+      expect(rows[0].status).toBe('failed')
+      expect(broadcast).toHaveBeenCalledTimes(1)
+    })
+
+    it('records exactly one aborted invocation when timeout is followed by close', async () => {
+      vi.useFakeTimers()
+      try {
+        const child = createMockChildProcess()
+        vi.mocked(mockSpawn).mockReturnValue(child as any)
+
+        const p = generateCustomAgent('/cwd', { name: 'custom-x', description: 'does x', record })
+        const rejection = expect(p).rejects.toThrow('timed out after 90s')
+        await vi.advanceTimersByTimeAsync(90_000)
+        await rejection
+        child.emit('close', 1)
+
+        const rows = readRows(db)
+        expect(rows).toHaveLength(1)
+        expect(rows[0].status).toBe('aborted')
+        expect(broadcast).toHaveBeenCalledTimes(1)
+      } finally {
+        vi.useRealTimers()
+      }
     })
   })
 })

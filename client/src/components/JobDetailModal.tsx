@@ -19,11 +19,15 @@ import { useMovableResizableModal } from '../hooks/useMovableResizableModal'
 import { ResizeGrips } from './ui/ResizeGrips'
 import { useWebSocket } from '../hooks/useWebSocket'
 import { WS_URL } from '../lib/ws-url'
+import { jobActivityTimestamp, parseJobTimestamp } from '../lib/job-time'
 import type { JobSummary, EventRow, PhaseDefinition } from '../types'
 import type { PhaseMap, PhaseState } from '../hooks/usePipeline'
 
-function formatWallClock(startedAt: string, finishedAt: string): string {
-  const ms = new Date(finishedAt).getTime() - new Date(startedAt).getTime()
+function formatWallClock(startedAt: string | null, finishedAt: string): string {
+  const started = parseJobTimestamp(startedAt)
+  const finished = parseJobTimestamp(finishedAt)
+  if (!started || !finished) return '—'
+  const ms = finished.getTime() - started.getTime()
   if (ms < 0) return '—'
   const secs = Math.round(ms / 1000)
   if (secs < 60) return `${secs}s`
@@ -199,7 +203,7 @@ export function JobDetailModal({ jobId, onClose, projectId }: JobDetailModalProp
 
   // Cancel idiom: loop runs → "Stop", interactive sessions → "Discard" (the
   // same relabel JobDetailPage uses), everything else → "Cancel". ALL kinds
-  // go through the shared manager-aware helper (DELETE /jobs/:id — the server
+  // go through the shared manager-aware helper (POST /jobs/:id/cancel — the server
   // dispatches to LoopRunManager or QueueManager by owner).
   const cancelKind = job ? cancelKindForJob(job) : 'job'
   const isLoopRun = cancelKind === 'loop-run'
@@ -228,6 +232,7 @@ export function JobDetailModal({ jobId, onClose, projectId }: JobDetailModalProp
 
   const statusInfo = job ? (STATUS_BADGE[job.status] ?? STATUS_BADGE.queued) : STATUS_BADGE.queued
   const isRunning = job?.status === 'running'
+  const activityTime = job ? parseJobTimestamp(jobActivityTimestamp(job)) : null
 
   const { panelRef, panelStyle, headerHandleProps, resizeHandles, isFloating, guardBackdrop } = useMovableResizableModal()
 
@@ -274,12 +279,14 @@ export function JobDetailModal({ jobId, onClose, projectId }: JobDetailModalProp
                 </Tooltip>
                 <code className="text-xs font-mono text-foreground/80 truncate">{job.command}</code>
                 <span className="text-[10px] text-muted-foreground">
-                  {formatDistanceToNow(new Date(job.started_at), { addSuffix: true, locale: getDateFnsLocale() })}
+                  {activityTime
+                    ? formatDistanceToNow(activityTime, { addSuffix: true, locale: getDateFnsLocale() })
+                    : '—'}
                 </span>
                 {job.total_cost_usd != null && job.total_cost_usd > 0 && (
                   <span className="text-[10px] text-muted-foreground">${job.total_cost_usd.toFixed(4)}</span>
                 )}
-                {job.finished_at && (
+                {job.started_at && job.finished_at && (
                   <span className="text-[10px] text-muted-foreground">{formatWallClock(job.started_at, job.finished_at)}</span>
                 )}
               </>

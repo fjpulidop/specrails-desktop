@@ -11,7 +11,7 @@ interface SplitViewShellProps {
   allTickets: LocalTicket[]
   allLabels: string[]
   onSave: (ticketId: number, fields: Partial<Pick<LocalTicket, 'title' | 'description' | 'status' | 'priority' | 'labels'>>) => Promise<boolean>
-  onDelete: (ticketId: number) => void
+  onDelete: (ticketId: number) => Promise<boolean>
   onOpenTicket: (ticketId: number) => void
   onCloseAll: () => void
   onSetCompared: (ticketId: number | null, side: CompareSide) => void

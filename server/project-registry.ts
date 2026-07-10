@@ -22,20 +22,40 @@ import { removeExploreCwd } from './explore-cwd-manager'
 import { dropPhaseScope } from './hooks'
 import { killTransientChildren } from './transient-children'
 import { dropBlobStatesForProject } from './telemetry-receiver'
-import { mirrorProjectEntry, removeRegistryEntry, reconcileFromProjects, resolveArtifacts, resolveHome } from './artifact-registry'
+import {
+  mirrorProjectEntryWithPrevious,
+  removeRegistryEntry,
+  reconcileFromProjects,
+  resolveArtifacts,
+  resolveHome,
+  restoreRegistryEntry,
+  type ProjectEntry,
+} from './artifact-registry'
 import { resolveProjectExecution, resolveLoopBaseEnv } from './workspace-resolution'
 import { applyWorktreeEnvPassthrough } from './project-env'
 import { removeWorkspace } from './workspace-manager'
-import { resolveTicketStoragePath, mutateStore, applyJobOutcomeToTickets, readStore, type JobOutcome } from './ticket-store'
+import { resolveTicketStoragePath, mutateStore, applyJobOutcomeToTickets, extractTicketIdsFromCommand, readStore, type JobOutcome } from './ticket-store'
 import { JiraSyncManager } from './jira/jira-sync-manager'
-import { LoopRunManager } from './loop-run-manager'
+import { LoopRunManager, recoverOrphanLoopStepAccounting } from './loop-run-manager'
 import { createLoopExecutors } from './loop-executors'
 import { reconcileRailWorktrees } from './rail-isolated-launch'
 import { isRailPrDeliveryEnabled } from './rail-isolation'
-import { reconcileOrphanLoopRuns } from './loop-runs-store'
+import { clearOrphanedPrDeliveryOperations, getPrDelivery, listOriginLinkedPrDeliveries, toPrDecisionCardEnvelope, toPrDeliverySnapshot, toRailPrStateMessage } from './rail-pr-store'
+import { getAgentChatManager } from './agent-chat-registry'
+import { replayRailPrTicketEffectsUntilSettled } from './rail-pr-ticket-effects'
+import {
+  getLoopTerminalRecovery,
+  getLoopRun,
+  listActiveLoopRuns,
+  listPendingLoopTerminalRecoveries,
+  completeLoopTerminalRecovery,
+  reconcileOrphanLoopRuns,
+  type LoopRunRow,
+  type LoopTerminalRecoveryPayload,
+} from './loop-runs-store'
 import type { LoopSpec } from './loop-graph'
-import type { WsMessage, TicketUpdatedMessage, RailUpdatedMessage } from './types'
-import { getRails, setRailTickets } from './rails-store'
+import type { JobStatus, WsMessage, TicketUpdatedMessage, RailUpdatedMessage } from './types'
+import { claimRailTickets, claimTicketOutcomeOwners, getRails, releaseRailTicketsOwnedBy, ticketOutcomeOwner } from './rails-store'
 import {
   initDesktopDb,
   getDesktopDbPath,
@@ -53,8 +73,19 @@ import {
   type CliProvider,
 } from './desktop-db'
 import { getConfig } from './config'
+import {
+  beginProjectProcessQuiescence,
+  openProjectProcessAdmission,
+} from './process-admission'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
+
+/** The two live queue states are the only non-terminal members of JobStatus.
+ * Deriving terminality from that invariant avoids a second status list that can
+ * silently fall behind the queue contract when a new terminal outcome is added. */
+function isTerminalJobStatus(status: JobStatus): boolean {
+  return status !== 'queued' && status !== 'running'
+}
 
 export interface ProjectContext {
   project: ProjectRow
@@ -76,7 +107,13 @@ export interface ProjectContext {
   /** App-driven loop engine for this project (Loops mode rails). */
   loopRunManager: LoopRunManager
   /** Maps loopRunId → rail metadata for active rail-launched loop runs. */
-  railLoopRuns: Map<string, { railIndex: number; ticketIds: number[] }>
+  railLoopRuns: Map<string, {
+    railIndex: number
+    ticketIds: number[]
+    /** Current launchers settle through a durable loop_terminal_recovery row.
+     * Absence means admission failed; never reinterpret it as a legacy exit. */
+    requiresTerminalIntent?: boolean
+  }>
   /** Completion handler for a loop run: releases its tickets + rail slots,
    *  mapping the loop outcome to a ticket outcome. The engine already emits the
    *  loop.run_completed event. `opts.ticketCompletionStatus` overrides where a
@@ -94,6 +131,32 @@ export interface ProjectContext {
   getTicketSpec: (ticketId: number) => LoopSpec | undefined
   /** App-level DB (project registry + the global `loops` table). */
   desktopDb: DbInstance
+}
+
+/** Rehydrate both authoritative PR-decision surfaces after startup recovery.
+ * Recovery has already committed the row; broadcasts/cards are advisory and
+ * may be retried by normal hydration if a surface is unavailable. */
+export function emitRecoveredPrDelivery(ctx: ProjectContext, deliveryId: string): void {
+  const row = getPrDelivery(ctx.db, deliveryId)
+  if (!row) return
+  const snapshot = toPrDeliverySnapshot(row)
+  try { ctx.broadcast(toRailPrStateMessage(ctx.project.id, snapshot)) } catch { /* durable row is authoritative */ }
+  if (!row.origin_conversation_id) return
+  try {
+    getAgentChatManager()?.updatePrDecisionCard(
+      row.origin_conversation_id,
+      toPrDecisionCardEnvelope(ctx.project.id, snapshot),
+    )
+  } catch { /* conversation hydration can retry */ }
+}
+
+/** Migration/recovery or a crash after a terminal CAS can repair the ledger
+ * without touching system envelopes persisted in agent conversations. Project
+ * active AND terminal origin-linked rows so obsolete cards cannot stay pinned. */
+export function reprojectActivePrDeliveries(ctx: ProjectContext): number {
+  const rows = listOriginLinkedPrDeliveries(ctx.db)
+  for (const row of rows) emitRecoveredPrDelivery(ctx, row.id)
+  return rows.length
 }
 
 // ─── ProjectRegistry ──────────────────────────────────────────────────────────
@@ -193,30 +256,58 @@ export class ProjectRegistry {
     providers?: CliProvider[]
   }): ProjectContext {
     const row = addProjectToDesktopDb(this._desktopDb, opts)
+    let previousRegistryEntry: ProjectEntry | undefined
+    let mirroredRegistryEntry: ProjectEntry | undefined
+    let registryMirrored = false
     // Mirror the new project into the shared artifact registry so specrails-core
     // resolves its relocated artifacts. Wrapped so a registry write failure never
     // breaks project creation — the startup reconcile will recreate the entry.
     try {
-      mirrorProjectEntry({
+      const mutation = mirrorProjectEntryWithPrevious({
         repoPath: row.path,
         slug: row.slug,
         providers: row.providers,
         primaryProvider: row.provider,
         desktopProjectId: row.id,
       })
+      previousRegistryEntry = mutation.previousEntry
+      mirroredRegistryEntry = mutation.entry
+      registryMirrored = true
     } catch (err) {
       console.error('[project-registry] registry mirror failed (non-fatal):', err)
     }
-    return this._loadProjectContext(row)
+    try {
+      const context = this._loadProjectContext(row)
+      this._failedProjects.delete(row.id)
+      return context
+    } catch (err) {
+      // Registration is one logical operation. A row that cannot be hydrated is
+      // unusable through the API and would make every retry hit UNIQUE forever.
+      this._contexts.delete(row.id)
+      this._failedProjects.delete(row.id)
+      // The mirror may have ADOPTED a pre-existing core-standalone entry. Undo
+      // only a successful mirror and restore that entry verbatim; deleting it
+      // would strand core's relocated artifacts. A fresh mirror has no prior
+      // entry, so the same rollback removes the newly-created projection.
+      if (registryMirrored && mirroredRegistryEntry) {
+        try { restoreRegistryEntry(row.path, previousRegistryEntry, mirroredRegistryEntry) } catch { /* best effort */ }
+      }
+      try { removeProjectFromDesktopDb(this._desktopDb, row.id) } catch { /* best effort */ }
+      throw err
+    }
   }
 
   removeProject(id: string): void {
     // Resolve the repo path BEFORE the DB row is deleted below so we can drop the
     // shared artifact-registry entry. Prefer the live context, fall back to the
     // desktop DB row (project may be registered-but-not-loaded, e.g. M9 failure).
-    const repoPath = this._contexts.get(id)?.project.path ?? getProject(this._desktopDb, id)?.path
+    const persistedProject = getProject(this._desktopDb, id)
+    const repoPath = this._contexts.get(id)?.project.path ?? persistedProject?.path
     const ctx = this._contexts.get(id)
     if (ctx) {
+      // Invalidate async route continuations before any killed child can emit a
+      // late `close` against the DB that this removal is about to close.
+      beginProjectProcessQuiescence(id)
       // Tear down spawners BEFORE closing the DB. QueueManager.shutdown() drops
       // its DB handle so a late child 'close' can't run prepared statements on
       // the closed connection (which would crash the app) and terminates any
@@ -224,7 +315,20 @@ export class ProjectRegistry {
       // kills in-flight chat/Explore children and clears their idle timers.
       // SetupManager.abort() stops the 3s install poll and kills install/enrich
       // children. All are idempotent no-ops when nothing is running.
-      try { ctx.queueManager.shutdown() } catch { /* ignore */ }
+      let queueRecoveryComplete = false
+      try {
+        queueRecoveryComplete = typeof ctx.queueManager.shutdown === 'function'
+          ? ctx.queueManager.shutdown() !== false
+          : true
+      } catch (err) {
+        console.error(`[project-registry] queue shutdown failed for ${id}:`, err)
+      }
+      if (!queueRecoveryComplete) {
+        // The context remains registered with its DB intact. A retry can drain
+        // the durable callback/outbox once the external ticket store recovers;
+        // deleting the data dir here would make that effect unrecoverable.
+        throw new Error('Project removal deferred: terminal job recovery is still pending')
+      }
       try { ctx.chatManager.shutdown() } catch { /* ignore */ }
       // Loop engine teardown: dispose any resident interactive step sessions
       // (SIGTERM, no settle) + kill in-flight one-shot loop children — BEFORE
@@ -261,23 +365,18 @@ export class ProjectRegistry {
       try { dropBlobStatesForProject(id) } catch { /* ignore */ }
       // Close the DB connection BEFORE removing the project's data dir below.
       try { ctx.db.close() } catch { /* ignore */ }
-      // B54: remove the ENTIRE app-managed data dir for this project, not just
-      // the telemetry subdir. It also holds user-mcp.json (a copy of the user's
-      // MCP config that can contain API keys), profile snapshots, codex-home, and
-      // terminal shim dirs — all secret-bearing residue that previously survived
-      // project removal. Guard on a non-empty slug so we never rm the projects/
-      // root itself.
-      try {
-        const slug = ctx.project.slug
-        if (slug && slug.trim() && !slug.includes('/') && !slug.includes('..')) {
-          const projectDir = path.join(os.homedir(), '.specrails', 'projects', slug)
-          if (fs.existsSync(projectDir)) {
-            fs.rmSync(projectDir, { recursive: true, force: true })
-          }
-        }
-      } catch { /* ignore — non-fatal */ }
       this._contexts.delete(id)
     }
+    // B54: remove the ENTIRE app-managed data dir even when context hydration
+    // failed. The persisted row is authoritative for registered-but-not-loaded
+    // projects and contains the slug needed for safe cleanup.
+    try {
+      const slug = ctx?.project.slug ?? persistedProject?.slug
+      if (slug && slug.trim() && !slug.includes('/') && !slug.includes('..')) {
+        const projectDir = path.join(os.homedir(), '.specrails', 'projects', slug)
+        if (fs.existsSync(projectDir)) fs.rmSync(projectDir, { recursive: true, force: true })
+      }
+    } catch { /* ignore — non-fatal */ }
     // Drop the relocated WORKSPACE for an adopted project whose REGISTRY slug
     // differs from the desktop slug. The per-project data-dir rm above only
     // removes `projects/<desktop-slug>`; an adopted repo's workspace lives under
@@ -306,6 +405,7 @@ export class ProjectRegistry {
         console.error('[project-registry] registry remove failed (non-fatal):', err)
       }
     }
+    this._failedProjects.delete(id)
     removeProjectFromDesktopDb(this._desktopDb, id)
   }
 
@@ -370,18 +470,21 @@ export class ProjectRegistry {
     const existing = this._contexts.get(project.id)
     if (existing) return existing
 
+    // A context is visible synchronously, but no subprocess launch may enter
+    // until durable loop callbacks and isolated worktrees have been reconciled.
+    beginProjectProcessQuiescence(project.id)
+
     const db = initDb(project.db_path)
 
     // Bind broadcast with projectId so all WS messages carry context.
     // Also wire agent status: when a queued job reaches a terminal state,
     // clear current_job_id on any agent that was assigned to it.
-    const TERMINAL_JOB_STATUSES = new Set(['completed', 'failed', 'canceled'])
     const boundBroadcast = (msg: WsMessage): void => {
       const enriched = { ...msg, projectId: project.id }
       this._broadcast(enriched as WsMessage)
       if (msg.type === 'queue') {
         for (const job of msg.jobs) {
-          if (TERMINAL_JOB_STATUSES.has(job.status)) {
+          if (isTerminalJobStatus(job.status)) {
             clearAgentJob(this._desktopDb, job.id)
           }
         }
@@ -400,6 +503,10 @@ export class ProjectRegistry {
 
     const webhookManager = this._webhookManager
     const railJobs = new Map<string, { railIndex: number; mode: string; ticketIds: number[] }>()
+    const ticketStorePath = (): string => {
+      const exec = resolveProjectExecution({ slug: project.slug, path: project.path })
+      return exec.relocated ? exec.ticketsPath : resolveTicketStoragePath(project.path)
+    }
     // Jira sync (per-project, inert until a connection is configured). Constructed
     // before QueueManager so the onJobFinished closure can reference it.
     const jiraSyncManager = new JiraSyncManager({
@@ -414,6 +521,25 @@ export class ProjectRegistry {
       projectId: project.id,
       projectSlug: project.slug,
       desktopPort: this._desktopPort,
+      onJobAdmission: (projectDb, job) => {
+        const ticketIds = extractTicketIdsFromCommand(job.command)
+        claimTicketOutcomeOwners(projectDb, ticketIds, job.id)
+        const wanted = new Set(ticketIds)
+        for (const rail of getRails(projectDb)) {
+          const assigned = rail.ticketIds.filter((ticketId) => wanted.has(ticketId))
+          if (assigned.length > 0) claimRailTickets(projectDb, rail.railIndex, assigned, job.id)
+        }
+        // Distinguish current launches from genuinely pre-migration rows even
+        // when their current ticket owner later changes or becomes unreadable.
+        // This update shares the queue-admission transaction with the claims.
+        job.causalOwnership = true
+        const marked = projectDb.prepare(`
+          UPDATE queued_jobs SET causal_ownership = 1 WHERE id = ?
+        `).run(job.id)
+        if (marked.changes !== 1) {
+          throw new Error(`Failed to persist causal admission for job ${job.id}`)
+        }
+      },
       getCostAlertThreshold: () => {
         const val = getDesktopSetting(this._desktopDb, 'cost_alert_threshold_usd')
         return val != null ? parseFloat(val) : null
@@ -431,6 +557,9 @@ export class ProjectRegistry {
         return { budget, totalSpend }
       },
       onBudgetExceeded: (event, data) => {
+        if (event === 'desktop_daily_budget_exceeded') {
+          this._pauseAllQueuesForDesktopBudget()
+        }
         // Deliver the budget event to this project's subscribed webhooks — the
         // WS broadcast alone never reached webhook subscribers, so a
         // daily_budget_exceeded / desktop_daily_budget_exceeded subscription was
@@ -440,17 +569,34 @@ export class ProjectRegistry {
         } catch { /* best-effort */ }
       },
       onJobFinished: (jobId, status, costUsd, opts) => {
-        const jobRow = db.prepare('SELECT command, duration_ms FROM jobs WHERE id = ?').get(jobId) as
-          | { command: string; duration_ms: number | null }
+        // Recovery can deliver this callback without another queue snapshot.
+        // Clear the assignment here as the authoritative terminal effect; the
+        // bound queue broadcast above remains an idempotent live-path fallback.
+        if (isTerminalJobStatus(status)) {
+          clearAgentJob(this._desktopDb, jobId)
+        }
+        const jobRow = db.prepare('SELECT command, duration_ms, causal_ownership FROM jobs WHERE id = ?').get(jobId) as
+          | { command: string; duration_ms: number | null; causal_ownership: number }
           | undefined
+        // Recovery callbacks carry their own immutable inputs. Job history is
+        // independently deletable/purgeable once a row is terminal; replaying
+        // from that row would otherwise checkpoint an empty callback and strand
+        // the ticket/rail state forever.
+        const recoveryCommand = opts?.recoveryReplay ? opts.recoveryCommand : undefined
+        const effectiveCommand = recoveryCommand ?? jobRow?.command ?? ''
+        const effectiveDurationMs = opts?.recoveryReplay
+          ? (opts.recoveryDurationMs ?? jobRow?.duration_ms ?? null)
+          : (jobRow?.duration_ms ?? null)
+        const ticketOutcomeStatus: JobOutcome = status === 'skipped'
+          ? 'canceled'
+          : status as JobOutcome
+        const affectsTickets = status === 'completed' || status === 'failed' ||
+          status === 'canceled' || status === 'zombie_terminated' || status === 'skipped'
         const event = status === 'completed' ? 'job.completed' : status === 'canceled' ? 'job.canceled' : 'job.failed'
-        webhookManager.deliver(project.id, event, {
-          jobId,
-          command: jobRow?.command ?? '',
-          status,
-          costUsd: costUsd ?? null,
-          durationMs: jobRow?.duration_ms ?? null,
-        })
+        const criticalFailures: string[] = []
+        let outcomeStore: ReturnType<typeof readStore> | null = null
+        let changedTicketIds: number[] = []
+        let effectTicketIds: number[] = []
         // Broadcast rail.job_completed if this job was launched by a rail
         const railMeta = railJobs.get(jobId)
         if (railMeta) {
@@ -460,10 +606,26 @@ export class ProjectRegistry {
         // Determine ticket IDs: from rail metadata, or parse from command as fallback
         // (railJobs Map is in-memory and lost on server restart)
         let completedTicketIds: number[] = railMeta?.ticketIds ?? []
-        if (completedTicketIds.length === 0 && jobRow?.command) {
-          const matches = jobRow.command.match(/#(\d+)/g)
+        if (completedTicketIds.length === 0 && opts?.recoveryReplay && opts.recoveryTicketIds) {
+          completedTicketIds = [...new Set(opts.recoveryTicketIds)]
+        }
+        if (completedTicketIds.length === 0 && effectiveCommand) {
+          const matches = effectiveCommand.match(/#(\d+)/g)
           if (matches) completedTicketIds = matches.map((m) => parseInt(m.slice(1), 10))
         }
+        const ticketOwners = new Map<number, string | null>()
+        let ownershipReadable = true
+        try {
+          for (const ticketId of completedTicketIds) {
+            ticketOwners.set(ticketId, ticketOutcomeOwner(db, ticketId))
+          }
+        } catch (err) {
+          ownershipReadable = false
+          criticalFailures.push(`ticket ownership: ${err instanceof Error ? err.message : String(err)}`)
+        }
+        const callbackCausalOwnership = opts?.recoveryReplay
+          ? opts.recoveryCausalOwnership === true
+          : jobRow?.causal_ownership === 1
 
         // Apply the job outcome to its tickets. Success promotes todo/in_progress
         // → done (→ Specs Done) — or → on_review under the ask-first PR-delivery
@@ -482,7 +644,7 @@ export class ProjectRegistry {
         const completedStatus = opts?.ticketCompletionStatus ?? 'done'
         if (
           completedTicketIds.length > 0 &&
-          (status === 'completed' || status === 'failed' || status === 'canceled' || status === 'zombie_terminated')
+          affectsTickets
         ) {
           try {
             // Relocate-artifacts gate: write the job outcome to the workspace
@@ -492,51 +654,40 @@ export class ProjectRegistry {
               ? outcomeExec.ticketsPath
               : resolveTicketStoragePath(project.path)
             const now = new Date().toISOString()
-            let changedIds: number[] = []
-            const store = mutateStore(ticketFile, (s) => {
-              changedIds = applyJobOutcomeToTickets(s, completedTicketIds, status as JobOutcome, now, { completedStatus })
+            const causallyOwnedTicketIds = completedTicketIds.filter((ticketId) => {
+              if (!ownershipReadable) return false
+              const owner = ticketOwners.get(ticketId) ?? null
+              return owner === jobId || (!callbackCausalOwnership && owner === null)
             })
-            for (const tid of changedIds) {
+            const store = mutateStore(ticketFile, (s) => {
+              changedTicketIds = applyJobOutcomeToTickets(s, causallyOwnedTicketIds, ticketOutcomeStatus, now, {
+                completedStatus,
+                effectId: jobId,
+                causalOwnerConfirmed: true,
+              })
+            })
+            outcomeStore = store
+            effectTicketIds = causallyOwnedTicketIds.filter((ticketId) => {
+              const marker = store.tickets[String(ticketId)]?.metadata.specrails_outcome
+              return marker?.owner_id === jobId && marker.applied_effect_id === jobId
+            })
+            for (const tid of changedTicketIds) {
               const ticket = store.tickets[String(tid)]
               if (!ticket) continue
-              boundBroadcast({
-                type: 'ticket_updated',
-                ticket: ticket as unknown as import('./types').LocalTicket,
-                projectId: project.id,
-                timestamp: ticket.updated_at,
-              } as TicketUpdatedMessage)
-            }
-            // Jira write-back (inert for non-Jira projects): enqueue the status
-            // transition + completion comment per linked ticket. The LOCAL mutation
-            // above stays synchronous; only the durable outbox enqueue happens here,
-            // wrapped so a Jira failure can never break the job-exit handler.
-            if (status === 'completed' || status === 'failed' || status === 'canceled' || status === 'zombie_terminated') {
               try {
-                if (status === 'completed' && completedStatus === 'on_review') {
-                  // Under review, not done — enqueue the Jira on_review
-                  // transition instead of the done-flavoured completion
-                  // (comment + Done). Mirrors onLoopRunFinished's split; the
-                  // Done transition rides the later PR-merge / manual move.
-                  jiraSyncManager.onRailReview(changedIds, jobId)
-                } else {
-                  const needsReviewIds = completedTicketIds.filter(
-                    (tid) => store.tickets[String(tid)]?.needs_review === true
-                  )
-                  jiraSyncManager.onJobOutcome({
-                    ticketIds: completedTicketIds,
-                    status,
-                    jobId,
-                    costUsd: costUsd ?? null,
-                    durationMs: jobRow?.duration_ms ?? null,
-                    needsReviewIds,
-                  })
-                }
-              } catch (err) {
-                console.error('[project-registry] jira onJobOutcome failed:', err)
+                boundBroadcast({
+                  type: 'ticket_updated',
+                  ticket: ticket as unknown as import('./types').LocalTicket,
+                  projectId: project.id,
+                  timestamp: ticket.updated_at,
+                } as TicketUpdatedMessage)
+              } catch {
+                // The file mutation is authoritative; a startup client reloads it.
               }
             }
           } catch (err) {
             console.error('[project-registry] failed to apply job outcome to tickets:', err)
+            criticalFailures.push(`ticket outcome: ${err instanceof Error ? err.message : String(err)}`)
           }
         }
 
@@ -550,40 +701,117 @@ export class ProjectRegistry {
         // restart, when the in-memory railJobs map is lost.
         if (
           completedTicketIds.length > 0 &&
-          (status === 'completed' || status === 'failed' || status === 'canceled' || status === 'zombie_terminated')
+          affectsTickets
         ) {
           try {
-            for (const rail of getRails(db)) {
-              const remaining = rail.ticketIds.filter((id) => !completedTicketIds.includes(id))
-              if (remaining.length === rail.ticketIds.length) continue
-              setRailTickets(db, rail.railIndex, remaining, rail.mode, rail.profileName, rail.aiEngine)
-              boundBroadcast({
-                type: 'rail.updated',
-                projectId: project.id,
-                railIndex: rail.railIndex,
-                changed: 'tickets',
-                ticketIds: remaining,
-                name: rail.name ?? null,
-                mode: rail.mode,
-                profileName: rail.profileName ?? null,
-                aiEngine: rail.aiEngine ?? null,
-              } as RailUpdatedMessage)
+            const releasableTicketIds = completedTicketIds.filter((ticketId) => {
+              if (!ownershipReadable) return false
+              const owner = ticketOwners.get(ticketId) ?? null
+              return owner === jobId || (!callbackCausalOwnership && owner === null)
+            })
+            const releasedRails = releaseRailTicketsOwnedBy(db, jobId, releasableTicketIds, {
+              railIndex: railMeta?.railIndex ?? null,
+              allowUnowned: !callbackCausalOwnership,
+            })
+            for (const released of releasedRails) {
+              const rail = released.rail
+              try {
+                boundBroadcast({
+                  type: 'rail.updated',
+                  projectId: project.id,
+                  railIndex: rail.railIndex,
+                  changed: 'tickets',
+                  ticketIds: rail.ticketIds,
+                  name: rail.name ?? null,
+                  mode: rail.mode,
+                  profileName: rail.profileName ?? null,
+                  aiEngine: rail.aiEngine ?? null,
+                } as RailUpdatedMessage)
+              } catch {
+                // Persisted rail state is authoritative; WS delivery is advisory.
+              }
             }
           } catch (err) {
             console.error('[project-registry] failed to release rail tickets after job exit:', err)
+            criticalFailures.push(`rail release: ${err instanceof Error ? err.message : String(err)}`)
+          }
+        }
+
+        // QueueManager's recovery outbox checkpoints the callback only when it
+        // returns normally. Ticket-file and rail mutations are the two critical
+        // domain invariants, so surface either failure during a recovery replay.
+        // Live exits keep their long-standing best-effort behavior because they
+        // have no durable retry owner; they still continue to Jira/webhooks below.
+        // Both critical operations are idempotent, so partial replay is safe.
+        if (criticalFailures.length > 0 && opts?.recoveryReplay) {
+          throw new Error(`critical job outcome effects failed: ${criticalFailures.join('; ')}`)
+        }
+
+        // Jira is already backed by its own idempotent durable outbox. Keep it
+        // best-effort for this callback: a Jira configuration/network fault must
+        // never prevent the local recovery checkpoint.
+        if (
+          outcomeStore &&
+          effectTicketIds.length > 0 &&
+          affectsTickets
+        ) {
+          try {
+            if (status === 'completed' && completedStatus === 'on_review') {
+              // On a replay after the ticket mutation committed but a later rail
+              // mutation failed, changedTicketIds is empty. Derive the intended
+              // review set from the converged store so Jira still receives it.
+              const reviewIds = effectTicketIds.filter(
+                (tid) => outcomeStore?.tickets[String(tid)]?.status === 'on_review'
+              )
+              jiraSyncManager.onRailReview(reviewIds, jobId)
+            } else {
+              const needsReviewIds = effectTicketIds.filter(
+                (tid) => outcomeStore?.tickets[String(tid)]?.needs_review === true
+              )
+              jiraSyncManager.onJobOutcome({
+                ticketIds: effectTicketIds,
+                status: ticketOutcomeStatus,
+                    jobId,
+                    costUsd: costUsd ?? null,
+                    durationMs: effectiveDurationMs,
+                needsReviewIds,
+              })
+            }
+          } catch (err) {
+            console.error('[project-registry] jira onJobOutcome failed:', err)
+          }
+        }
+
+        // Webhook delivery is fire-and-forget and non-durable by design. A bad
+        // registration/desktop DB must not hold the local recovery outbox open.
+        if (status !== 'skipped') {
+          try {
+            webhookManager.deliver(project.id, event, {
+              jobId,
+              command: effectiveCommand,
+              status,
+              costUsd: costUsd ?? null,
+              durationMs: effectiveDurationMs,
+            })
+          } catch (err) {
+            console.error('[project-registry] webhook delivery scheduling failed:', err)
           }
         }
 
         // Broadcast rail.job_completed if we know the rail index
         if (railMeta) {
-          boundBroadcast({
-            type: 'rail.job_completed',
-            projectId: project.id,
-            railIndex: railMeta.railIndex,
-            jobId,
-            status,
-            ticketIds: completedTicketIds,
-          })
+          try {
+            boundBroadcast({
+              type: 'rail.job_completed',
+              projectId: project.id,
+              railIndex: railMeta.railIndex,
+              jobId,
+              status,
+              ticketIds: completedTicketIds,
+            })
+          } catch {
+            // Advisory only; local ticket/rail state already committed.
+          }
         }
       },
     })
@@ -677,18 +905,16 @@ export class ProjectRegistry {
     })
 
     // ── Loops engine (the Loops feature) ──────────────────────────────────────
-    const railLoopRuns = new Map<string, { railIndex: number; ticketIds: number[] }>()
-    // A restart kills any in-flight loop process, so reconcile orphan 'running'
-    // rows to terminal — otherwise they keep the loop un-editable (isRunning 409).
-    try {
-      const orphans = reconcileOrphanLoopRuns(db, new Date().toISOString())
-      if (orphans > 0) console.log(`[loops] reconciled ${orphans} orphan loop run(s) for ${project.slug}`)
-    } catch { /* non-fatal */ }
-    // Sweep worktrees left behind by a crashed parallel-rail fan-out (no-op +
-    // no git calls when isolation was never used). Best-effort, non-blocking.
-    void reconcileRailWorktrees(db, project.path)
-      .then((n) => { if (n > 0) console.log(`[loops] reconciled ${n} orphan worktree(s) for ${project.slug}`) })
-      .catch(() => { /* non-fatal */ })
+    const railLoopRuns = new Map<string, {
+      railIndex: number
+      ticketIds: number[]
+      requiresTerminalIntent?: boolean
+    }>()
+    // Capture before runtime construction. The status transition is deliberately
+    // delayed until onLoopRunFinished exists so crash recovery replays ticket,
+    // rail and Jira invariants instead of bypassing them with raw SQL.
+    let orphanLoopRuns: LoopRunRow[] = []
+    try { orphanLoopRuns = listActiveLoopRuns(db, project.id) } catch { /* non-fatal */ }
     // Loop executors resolve their base env LAZILY per step: a RELOCATED project
     // injects core's env-first artifact indirection (tickets/backlog/profiles/
     // state → the workspace) so an ISOLATED worktree run — whose cwd-relative
@@ -737,87 +963,286 @@ export class ProjectRegistry {
       outcome: string,
       opts?: { ticketCompletionStatus?: 'done' | 'on_review' },
     ): void => {
+      const intent = getLoopTerminalRecovery(db, runId)
+      let payload: LoopTerminalRecoveryPayload | null = null
+      if (intent) {
+        try {
+          const parsed = JSON.parse(intent.payload) as LoopTerminalRecoveryPayload
+          if (parsed?.runId !== runId || !Array.isArray(parsed.ticketIds)) {
+            throw new Error('loop terminal payload identity is invalid')
+          }
+          payload = parsed
+        } catch (err) {
+          console.error(`[loops] invalid terminal recovery payload for ${runId}:`, err)
+          return
+        }
+      }
       const meta = railLoopRuns.get(runId)
-      if (!meta) return
-      railLoopRuns.delete(runId)
-      const ticketIds = meta.ticketIds
-      if (ticketIds.length === 0) return
-      // `blocked`/`stalled` (Decider-flagged human blocker / non-convergence
-      // abort) are controlled halts: treat like a user stop → `canceled`, so
-      // tickets revert to todo (never done/on_review) and no PR delivery fires.
-      const status: JobOutcome =
-        outcome === 'success' ? 'completed'
-          : outcome === 'stopped' || outcome === 'blocked' || outcome === 'stalled' ? 'canceled'
-            : 'failed'
-      // Ask-first PR delivery parks a completed run's tickets at on_review (the
-      // user decides done vs discard via the PR decision flow / a manual move).
-      // Explicit opts (the isolated-rail launch passes its launch-captured
-      // prMode) always win — idempotent with the default. ABSENT opts
-      // (shared-cwd rail runs, standalone loop runs, isolation-unavailable
-      // fallbacks) derive the default from the PR-delivery flag, read ONCE here
-      // and reused by the Jira split below so one settle can never split across
-      // the two paths. Kill-switch off ⇒ 'done', the legacy promotion
-      // byte-identical; failures ignore the field.
-      const completedStatus =
-        opts?.ticketCompletionStatus ?? (isRailPrDeliveryEnabled() ? 'on_review' : 'done')
-      try {
-        const exec = resolveProjectExecution({ slug: project.slug, path: project.path })
-        const ticketFile = exec.relocated ? exec.ticketsPath : resolveTicketStoragePath(project.path)
-        const now = new Date().toISOString()
-        let changedIds: number[] = []
-        const store = mutateStore(ticketFile, (s) => {
-          changedIds = applyJobOutcomeToTickets(s, ticketIds, status, now, { completedStatus })
-        })
-        for (const tid of changedIds) {
-          const ticket = store.tickets[String(tid)]
-          if (!ticket) continue
-          boundBroadcast({
-            type: 'ticket_updated',
-            ticket: ticket as unknown as TicketUpdatedMessage['ticket'],
-            projectId: project.id,
-            timestamp: ticket.updated_at,
-          } as TicketUpdatedMessage)
+      if (!intent && meta?.requiresTerminalIntent) {
+        // Current launches atomically settle their run/job/outbox. If there is
+        // no outbox, the launch either never committed or failed before the
+        // engine acquired terminal authority. Do not release/revert tickets by
+        // falling through to the pre-outbox compatibility path.
+        if (!getLoopRun(db, runId)) railLoopRuns.delete(runId)
+        return
+      }
+      if (payload && payload.outcomeFinalized === false) {
+        const finalizedOutcome = outcome as LoopTerminalRecoveryPayload['outcome']
+        payload = {
+          ...payload,
+          outcome: finalizedOutcome,
+          jobStatus: finalizedOutcome === 'success'
+            ? 'completed'
+            : finalizedOutcome === 'stopped' || finalizedOutcome === 'blocked' || finalizedOutcome === 'stalled'
+              ? 'canceled'
+              : 'failed',
+          outcomeFinalized: true,
         }
         try {
-          if (status === 'completed' && completedStatus === 'on_review') {
-            // Under review, not done — enqueue the Jira on_review transition
-            // instead of the done-flavoured completion (comment + Done). The
-            // Done transition rides the later PR-merge / manual move.
-            jiraSyncManager.onRailReview(changedIds, runId)
-          } else {
-            const needsReviewIds = ticketIds.filter((tid) => store.tickets[String(tid)]?.needs_review === true)
-            jiraSyncManager.onJobOutcome({ ticketIds, status, jobId: runId, costUsd: null, durationMs: null, needsReviewIds })
-          }
+          // Monotonic decision commit precedes effect delivery. A rail/ticket
+          // failure may roll back its own transaction, but can never revert a
+          // verified isolated result to the conservative startup fallback.
+          db.prepare(`UPDATE loop_terminal_recovery SET payload = ? WHERE run_id = ?`)
+            .run(JSON.stringify(payload), runId)
         } catch (err) {
-          console.error('[project-registry] jira loop onJobOutcome failed:', err)
+          console.error(`[loops] failed to persist final outcome for ${runId}:`, err)
+          return
         }
-      } catch (err) {
-        console.error('[project-registry] failed to apply loop outcome to tickets:', err)
       }
+      const ticketIds = payload?.ticketIds ?? meta?.ticketIds ?? []
+      const railIndex = payload?.railIndex ?? meta?.railIndex ?? null
+      const effectiveOutcome = payload?.outcome ?? outcome
+      const status: JobOutcome =
+        effectiveOutcome === 'success' ? 'completed'
+          : effectiveOutcome === 'stopped' || effectiveOutcome === 'blocked' || effectiveOutcome === 'stalled'
+            ? 'canceled'
+            : 'failed'
+      const completedStatus = payload?.ticketCompletionStatus
+        ?? opts?.ticketCompletionStatus
+        ?? (isRailPrDeliveryEnabled() ? 'on_review' : 'done')
+
       try {
-        for (const rail of getRails(db)) {
-          const remaining = rail.ticketIds.filter((id) => !ticketIds.includes(id))
-          if (remaining.length === rail.ticketIds.length) continue
-          setRailTickets(db, rail.railIndex, remaining, rail.mode, rail.profileName, rail.aiEngine)
-          boundBroadcast({
-            type: 'rail.updated',
-            projectId: project.id,
-            railIndex: rail.railIndex,
-            changed: 'tickets',
-            ticketIds: remaining,
-            name: rail.name ?? null,
-            mode: rail.mode,
-            profileName: rail.profileName ?? null,
-            aiEngine: rail.aiEngine ?? null,
-          } as RailUpdatedMessage)
+        const deliver = db.transaction(() => {
+          let changedIds: number[] = []
+          let effectTicketIds: number[] = []
+          let store: ReturnType<typeof readStore> | null = null
+          const causallyOwnedTicketIds = ticketIds.filter((ticketId) => {
+            const owner = ticketOutcomeOwner(db, ticketId)
+            return owner === runId || (payload?.causalOwnership !== true && owner === null)
+          })
+          if (causallyOwnedTicketIds.length > 0) {
+            store = mutateStore(ticketStorePath(), (s) => {
+              changedIds = applyJobOutcomeToTickets(s, causallyOwnedTicketIds, status, new Date().toISOString(), {
+                completedStatus,
+                effectId: runId,
+                causalOwnerConfirmed: true,
+              })
+            })
+            effectTicketIds = causallyOwnedTicketIds.filter((ticketId) => {
+              const marker = store?.tickets[String(ticketId)]?.metadata.specrails_outcome
+              return marker?.owner_id === runId && marker.applied_effect_id === runId
+            })
+          }
+
+          const released = releaseRailTicketsOwnedBy(db, runId, causallyOwnedTicketIds, {
+            railIndex,
+            allowUnowned: payload ? payload.causalOwnership !== true : true,
+          })
+
+          // Jira has its own idempotent outbox keyed by runId/ticketId. Only
+          // tickets whose causal marker belongs to this run may be enqueued.
+          if (store && effectTicketIds.length > 0) {
+            try {
+              if (status === 'completed' && completedStatus === 'on_review') {
+                const reviewIds = effectTicketIds.filter(
+                  (ticketId) => store?.tickets[String(ticketId)]?.status === 'on_review',
+                )
+                jiraSyncManager.onRailReview(reviewIds, runId)
+              } else {
+                const needsReviewIds = effectTicketIds.filter(
+                  (ticketId) => store?.tickets[String(ticketId)]?.needs_review === true,
+                )
+                jiraSyncManager.onJobOutcome({
+                  ticketIds: effectTicketIds,
+                  status,
+                  jobId: runId,
+                  costUsd: null,
+                  durationMs: null,
+                  needsReviewIds,
+                })
+              }
+            } catch (err) {
+              console.error('[project-registry] jira loop onJobOutcome failed:', err)
+            }
+          }
+          if (intent) completeLoopTerminalRecovery(db, runId)
+          return { changedIds, store, released }
+        })
+        const delivered = deliver()
+        railLoopRuns.delete(runId)
+        for (const ticketId of delivered.changedIds) {
+          const ticket = delivered.store?.tickets[String(ticketId)]
+          if (!ticket) continue
+          try {
+            boundBroadcast({
+              type: 'ticket_updated',
+              ticket: ticket as unknown as TicketUpdatedMessage['ticket'],
+              projectId: project.id,
+              timestamp: ticket.updated_at,
+            } as TicketUpdatedMessage)
+          } catch { /* persisted file is authoritative */ }
+        }
+        for (const released of delivered.released) {
+          try {
+            boundBroadcast({
+              type: 'rail.updated',
+              projectId: project.id,
+              railIndex: released.rail.railIndex,
+              changed: 'tickets',
+              ticketIds: released.rail.ticketIds,
+              name: released.rail.name ?? null,
+              mode: released.rail.mode,
+              profileName: released.rail.profileName ?? null,
+              aiEngine: released.rail.aiEngine ?? null,
+            } as RailUpdatedMessage)
+          } catch { /* advisory */ }
         }
       } catch (err) {
-        console.error('[project-registry] failed to release rail tickets after loop run:', err)
+        // Durable intents remain pending. Ticket JSON may already contain the
+        // effect marker; replay is safe and cannot outrank a later owner.
+        console.error(`[loops] terminal effects failed for ${runId}:`, err)
       }
     }
 
     const ctx: ProjectContext = { project, db, queueManager, chatManager, setupManager, proposalManager, agentRefineManager, fileSummaryManager, specLauncherManager, ticketWatcher, browserCaptureManager, jiraSyncManager, broadcast: boundBroadcast, railJobs, loopRunManager, railLoopRuns, onLoopRunFinished, getTicketSpec, desktopDb: this._desktopDb }
     this._contexts.set(project.id, ctx)
+    const loopRecoveryOk = this._recoverOrphanLoopRuns(project, db, railLoopRuns, onLoopRunFinished, orphanLoopRuns)
+    if (loopRecoveryOk) {
+      // Decision tokens belong to the dead process. Clear them before any
+      // recovery projection while admission is still closed; otherwise every
+      // action on the card remains disabled and cannot trigger lease reclaim.
+      const orphanedDecisionLeases = clearOrphanedPrDeliveryOperations(db)
+      if (orphanedDecisionLeases > 0) {
+        console.log(`[safe-pr] cleared ${orphanedDecisionLeases} orphaned decision lease(s) for ${project.slug}`)
+      }
+      // Worktree/delivery recovery owns the same repo mutex as launch
+      // allocation. Admission opens only after it settles, so a request cannot
+      // reuse a ticket-keyed path while startup still inspects it.
+      void reconcileRailWorktrees(db, project.path)
+        .then(async (n) => {
+          if (n > 0) console.log(`[loops] reconciled ${n} orphan worktree(s) for ${project.slug}`)
+          if (this._contexts.get(project.id) === ctx) {
+            const effectDeps = {
+              db,
+              project: { id: project.id, slug: project.slug, path: project.path },
+              broadcast: boundBroadcast,
+              jiraSyncManager,
+            }
+            const ticketEffects = await replayRailPrTicketEffectsUntilSettled(effectDeps, {
+              isCurrent: () => this._contexts.get(project.id) === ctx,
+              onAttempt: (result) => {
+                if (result.attempted > 0) {
+                  console.log(`[safe-pr] replayed ${result.completed}/${result.attempted} ticket effect(s) for ${project.slug}; ${result.pending} pending`)
+                  // A failed attempt persists cleanup_incomplete on the terminal
+                  // delivery; project it immediately while admission remains
+                  // closed so both cards explain the recovery state.
+                  for (const deliveryId of result.attemptedDeliveryIds) {
+                    emitRecoveredPrDelivery(ctx, deliveryId)
+                  }
+                }
+              },
+            })
+            if (!ticketEffects.settled || this._contexts.get(project.id) !== ctx) return
+            reprojectActivePrDeliveries(ctx)
+            openProjectProcessAdmission(project.id)
+          }
+        })
+        .catch((err) => {
+          console.error(`[loops] isolated recovery failed for ${project.slug}; admission remains closed:`, err)
+        })
+    }
     return ctx
+  }
+
+  private _recoverOrphanLoopRuns(
+    project: ProjectRow,
+    db: DbInstance,
+    railLoopRuns: Map<string, {
+      railIndex: number
+      ticketIds: number[]
+      requiresTerminalIntent?: boolean
+    }>,
+    onLoopRunFinished: (runId: string, outcome: string) => void,
+    orphans: LoopRunRow[],
+  ): boolean {
+    try {
+      const recoveredSteps = recoverOrphanLoopStepAccounting(db)
+      if (recoveredSteps > 0) {
+        console.log(`[loops] recovered ${recoveredSteps} interrupted step invocation(s) for ${project.slug}`)
+      }
+      const countByRail = new Map<number, number>()
+      for (const run of orphans) {
+        if (run.rail_index != null) countByRail.set(run.rail_index, (countByRail.get(run.rail_index) ?? 0) + 1)
+      }
+      const rails = getRails(db)
+      const legacyTicketIds = new Map<string, number[]>()
+      for (const run of orphans) {
+        if (run.rail_index == null) continue
+        let persistedIds: number[] = []
+        try {
+          const parsed = JSON.parse(run.ticket_ids_json ?? '[]') as unknown
+          if (Array.isArray(parsed)) {
+            persistedIds = parsed.filter((id): id is number => Number.isSafeInteger(id) && id > 0)
+          }
+        } catch { /* pre-migration malformed value → legacy fallback */ }
+        let ticketIds = persistedIds.length > 0
+          ? persistedIds
+          : (run.ticket_id == null ? [] : [run.ticket_id])
+        // Compatibility only for rows launched before migration 45. New rows
+        // persist the exact set and never use this ambiguous heuristic.
+        if (persistedIds.length === 0 && (countByRail.get(run.rail_index) ?? 0) === 1) {
+          const rail = rails.find((candidate) => candidate.railIndex === run.rail_index)
+          if (rail && rail.ticketIds.length > 0) ticketIds = [...rail.ticketIds]
+        }
+        legacyTicketIds.set(run.id, ticketIds)
+        railLoopRuns.set(run.id, { railIndex: run.rail_index, ticketIds })
+      }
+      if (orphans.length > 0) {
+        reconcileOrphanLoopRuns(db, new Date().toISOString(), legacyTicketIds)
+      }
+      // Includes orphan intents created above AND normally-completed runs whose
+      // process died after the atomic settle but before its `.then` callback.
+      const pending = listPendingLoopTerminalRecoveries(db)
+      for (const row of pending) {
+        let terminalOutcome = 'failed'
+        try {
+          const payload = JSON.parse(row.payload) as LoopTerminalRecoveryPayload
+          terminalOutcome = payload.outcome
+          if (payload.outcomeFinalized === false) {
+            const durableRun = getLoopRun(db, row.run_id)
+            if (durableRun?.status === 'completed' && durableRun.final_outcome) {
+              terminalOutcome = durableRun.final_outcome
+            }
+          }
+        } catch { /* handler logs and retains malformed intent */ }
+        onLoopRunFinished(row.run_id, terminalOutcome)
+      }
+      if (orphans.length > 0) {
+        console.log(`[loops] reconciled ${orphans.length} orphan loop run(s) for ${project.slug}`)
+      }
+      return true
+    } catch (err) {
+      console.error(`[loops] orphan reconciliation failed for ${project.slug}:`, err)
+      return false
+    }
+  }
+
+  /** Enforce the app-wide budget through every per-project queue authority. */
+  private _pauseAllQueuesForDesktopBudget(): void {
+    for (const context of this.listContexts()) {
+      try {
+        if (!context.queueManager.isPaused()) context.queueManager.pause()
+      } catch { /* a concurrently removed project is best-effort */ }
+    }
   }
 }

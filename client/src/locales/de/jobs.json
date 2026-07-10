@@ -35,7 +35,17 @@
     "proposal": {
       "title": "Vorschlag",
       "noContent": "Noch kein Inhalt für den Vorschlag.",
-      "githubIssue": "GitHub-Issue:"
+      "githubIssue": "GitHub-Issue:",
+      "status": {
+        "input": "Wartet auf Eingabe",
+        "exploring": "Wird untersucht",
+        "review": "Bereit zur Prüfung",
+        "refining": "Wird verfeinert",
+        "creatingIssue": "Issue wird erstellt",
+        "created": "Erstellt",
+        "cancelled": "Abgebrochen",
+        "unknown": "Unbekannter Status: {{status}}"
+      }
     }
   },
   "detail": {
@@ -173,6 +183,7 @@
   "recent": {
     "emptyTitle": "Noch keine Jobs",
     "emptyDescription": "Führe oben einen Befehl aus, um hier deinen Job-Verlauf zu sehen",
+    "loadFailed": "Jobs konnten nicht geladen werden",
     "filterAll": "Alle ({{count}})",
     "filterStatus": "{{status}} ({{count}})",
     "fromDate": "Von",

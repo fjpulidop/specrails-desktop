@@ -52,12 +52,14 @@ vi.mock('../../components/SplitViewShell', () => ({
 import { TicketDetailModalProvider, useTicketDetailModal } from '../TicketDetailModalContext'
 
 function Opener() {
-  const { openTicketDetail, openTicketDetailInProject } = useTicketDetailModal()
+  const { openTicketDetail, openTicketDetailInProject, enterSplit, state } = useTicketDetailModal()
   return (
     <div>
       <button onClick={() => openTicketDetail(3)}>open-active</button>
       <button onClick={() => openTicketDetailInProject('p1', 7)}>open-same-project</button>
       <button onClick={() => openTicketDetailInProject('p2', 3)}>open-cross-project</button>
+      <button onClick={() => enterSplit('right', 3)}>enter-split</button>
+      <span data-testid="split-origin">{state.originSide ?? 'centered'}</span>
     </div>
   )
 }
@@ -70,10 +72,22 @@ const ui = () => (
 
 beforeEach(() => {
   vi.clearAllMocks()
+  Object.defineProperty(window, 'innerWidth', { configurable: true, writable: true, value: 1024 })
   act(() => desktop.store.set('p1'))
 })
 
 describe('TicketDetailModalProvider — openTicketDetailInProject', () => {
+  it('authoritatively rejects split entry below the minimum viewport width', () => {
+    window.innerWidth = 800
+    render(ui())
+    fireEvent.click(screen.getByText('open-active'))
+    fireEvent.click(screen.getByText('enter-split'))
+
+    expect(screen.getByTestId('split-origin')).toHaveTextContent('centered')
+    expect(screen.queryByTestId('split-shell')).not.toBeInTheDocument()
+    expect(screen.getByTestId('ticket-modal')).toBeInTheDocument()
+  })
+
   it('same project: opens directly without touching the active project', () => {
     render(ui())
     fireEvent.click(screen.getByText('open-same-project'))

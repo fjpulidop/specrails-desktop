@@ -6,7 +6,7 @@ import { Router, Request, Response, NextFunction } from 'express'
 import { newId as uuidv4 } from './ids'
 import type { ProjectRegistry, ProjectContext } from './project-registry'
 import {
-  listJobs, getJob, getJobEvents, purgeJobs, deleteJob, getProjectActivity,
+  getJob, getJobEvents, purgeJobs, deleteJob, getProjectActivity,
   createConversation, listConversations, getConversation,
   deleteConversation, updateConversation, getMessages,
   getStats, getPipelineJobs,
@@ -15,10 +15,17 @@ import {
   getProjectSettings, updateProjectSettings,
   getQuickContractRefineLast, setQuickContractRefineLast, hasQuickContractRefineLast,
   getTelemetryBlob, getTelemetrySummaries, getJobsWithTelemetry, hasJobTelemetry,
+  JobRecoveryPendingError,
 } from './db'
 import { createDiagnosticZip } from './telemetry-export'
 import { getProjectSetupSession } from './desktop-db'
-import { ClaudeNotFoundError, JobNotFoundError, JobAlreadyTerminalError, DEFAULT_ZOMBIE_TIMEOUT_MS } from './queue-manager'
+import {
+  ClaudeNotFoundError,
+  InvalidJobDependencyError,
+  JobNotFoundError,
+  JobAlreadyTerminalError,
+  DEFAULT_ZOMBIE_TIMEOUT_MS,
+} from './queue-manager'
 import { isInteractiveJobsEnabled } from './feature-flags'
 import type { JobPriority } from './types'
 import { VALID_PRIORITIES } from './types'
@@ -44,6 +51,13 @@ import type { AdapterEvent } from './providers/types'
 import { getSpending, getInvocations, parseSpendingFilters } from './spending'
 import { randomUUID } from 'crypto'
 import {
+  claimIdempotentJob,
+  findIdempotentJob,
+  fingerprintJobSpawn,
+  JobSpawnIdempotencyConflictError,
+  JobSpawnIdempotencyReplayError,
+} from './job-spawn-idempotency'
+import {
   getModelsForProvider,
   getProviderDefault,
   isValidModelForProvider,
@@ -54,6 +68,7 @@ import type { ChatConversationRow, JobTemplate, JobRow } from './types'
 import { readChanges } from './changes-reader'
 import { getLoopRun, listActiveLoopRuns } from './loop-runs-store'
 import { getProjectMetrics } from './metrics'
+import { getQueuedJobForListing, listUnifiedJobs } from './job-listing'
 import {
   resolveTicketStoragePath, readStore, mutateStore, filterTickets,
   isValidStatus, isValidPriority, validatePriorityForStatus,
@@ -134,11 +149,26 @@ export function registerJobsRoutes(deps: ProjectRoutesDeps): void {
       res.status(400).json({ error: 'priority must be one of: low, normal, high, critical' })
       return
     }
+    if (
+      dependsOnJobId !== undefined &&
+      (typeof dependsOnJobId !== 'string' || !dependsOnJobId.trim())
+    ) {
+      res.status(400).json({ error: 'dependsOnJobId must be a non-empty string' })
+      return
+    }
+    const normalizedDependsOnJobId = typeof dependsOnJobId === 'string'
+      ? dependsOnJobId.trim()
+      : undefined
     // profileName accepts: undefined (default resolution), null (force legacy), string (explicit)
     const normalizedProfileName: string | null | undefined =
       profileName === null ? null
         : typeof profileName === 'string' && profileName.trim() ? profileName.trim()
           : undefined
+    const idempotencyKey = req.get('Idempotency-Key')
+    if (idempotencyKey !== undefined && !/^[A-Za-z0-9._:-]{1,128}$/.test(idempotencyKey)) {
+      res.status(400).json({ error: 'Idempotency-Key must be 1-128 URL-safe characters' })
+      return
+    }
     // aiEngine: optional per-job provider override; must be installed on the
     // project. Omitting it runs on the project's primary provider.
     const engineCheck = validateRequestedProvider(ctx(req).project, aiEngine)
@@ -147,17 +177,59 @@ export function registerJobsRoutes(deps: ProjectRoutesDeps): void {
       return
     }
     try {
-      const job = ctx(req).queueManager.enqueue(command, (priority as JobPriority) ?? 'normal', {
-        dependsOnJobId: dependsOnJobId || undefined,
+      const c = ctx(req)
+      const normalizedPriority = (priority as JobPriority) ?? 'normal'
+      const spawnFingerprint = idempotencyKey ? fingerprintJobSpawn({
+        command,
+        priority: normalizedPriority,
+        dependsOnJobId: normalizedDependsOnJobId ?? null,
+        pipelineId: pipelineId || null,
+        profileName: normalizedProfileName === undefined ? '__project_default__' : normalizedProfileName,
+        provider: aiEngine ? engineCheck.provider : null,
+      }) : null
+      if (idempotencyKey && spawnFingerprint) {
+        const existingJobId = findIdempotentJob(c.db, idempotencyKey, spawnFingerprint)
+        if (existingJobId) {
+          res.status(202).json({ jobId: existingJobId, position: null, idempotentReplay: true })
+          return
+        }
+      }
+
+      // Preassign the id and commit queued_jobs + the idempotency claim in
+      // QueueManager's ONE outer transaction. QueueManager broadcasts/drains
+      // only after that commit, so a crash can expose neither an unclaimed job
+      // nor a ledger entry whose job was never admitted.
+      const preparedJobId = idempotencyKey ? uuidv4() : null
+      const enqueueOptions = {
+        dependsOnJobId: normalizedDependsOnJobId,
         pipelineId: pipelineId || undefined,
-        profileName: normalizedProfileName,
+        ...(normalizedProfileName !== undefined
+          ? { profileName: normalizedProfileName }
+          : {}),
         provider: aiEngine ? engineCheck.provider : undefined,
-      })
+      }
+      const job = idempotencyKey && spawnFingerprint && preparedJobId
+        ? c.queueManager.enqueue(command, normalizedPriority, enqueueOptions, {
+            jobId: preparedJobId,
+            commit: (db) => claimIdempotentJob(
+              db,
+              idempotencyKey,
+              spawnFingerprint,
+              preparedJobId,
+            ),
+          })
+        : c.queueManager.enqueue(command, normalizedPriority, enqueueOptions)
       const position = job.queuePosition ?? 0
       res.status(202).json({ jobId: job.id, position })
     } catch (err) {
       if (err instanceof ClaudeNotFoundError) {
         res.status(400).json({ error: err.message })
+      } else if (err instanceof InvalidJobDependencyError) {
+        res.status(409).json({ error: err.message })
+      } else if (err instanceof JobSpawnIdempotencyReplayError) {
+        res.status(202).json({ jobId: err.jobId, position: null, idempotentReplay: true })
+      } else if (err instanceof JobSpawnIdempotencyConflictError) {
+        res.status(409).json({ error: err.message })
       } else {
         console.error('[project-router] spawn error:', err)
         res.status(500).json({ error: 'Internal server error' })
@@ -329,7 +401,10 @@ export function registerJobsRoutes(deps: ProjectRoutesDeps): void {
     res.json({ model, provider, allowed, providers: project.providers })
   })
 
-  router.delete('/:projectId/jobs/:id', (req: Request, res: Response) => {
+  // Cancellation is idempotent and intentionally separate from history
+  // deletion. A stale UI request that races with natural completion must never
+  // erase the just-finished job and its telemetry.
+  router.post('/:projectId/jobs/:id/cancel', (req: Request, res: Response) => {
     const id = req.params.id as string
     const c = ctx(req)
     // A loop run is backed by a job row but is NOT a QueueManager job — it is
@@ -350,16 +425,20 @@ export function registerJobsRoutes(deps: ProjectRoutesDeps): void {
         // the loop is still executing — cancel through the engine instead of
         // 404ing with a live child (the mission-modal "cancel did nothing" bug).
         const loopRun = getLoopRun(c.db, id)
-if (loopRun && (loopRun.status === 'running' || loopRun.status === 'paused') && c.loopRunManager) {
-          c.loopRunManager.cancel(id)
-          res.json({ ok: true, status: 'canceling' })
-          return
+        if (loopRun) {
+          if ((loopRun.status === 'running' || loopRun.status === 'paused') && c.loopRunManager) {
+            c.loopRunManager.cancel(id)
+            res.json({ ok: true, status: 'canceling' })
+            return
+          }
+          if (loopRun.status === 'completed') {
+            res.json({ ok: true, status: 'already_terminal' })
+            return
+          }
         }
         res.status(404).json({ error: 'Job not found' })
       } else if (err instanceof JobAlreadyTerminalError) {
-        // Job already finished — delete it from the DB
-        deleteJob(ctx(req).db, req.params.id as string)
-        res.json({ ok: true, status: 'deleted' })
+        res.json({ ok: true, status: 'already_terminal' })
       } else {
         // Surface the real error (name/message/stack) so an unexpected cancel
         // failure — e.g. a Windows kill throw — is identifiable instead of being
@@ -368,6 +447,33 @@ if (loopRun && (loopRun.status === 'running' || loopRun.status === 'paused') && 
         console.error(`[jobs] cancel ${req.params.id} failed: ${e?.name}: ${e?.message}\n${e?.stack ?? ''}`)
         res.status(500).json({ error: 'Internal server error' })
       }
+    }
+  })
+
+  // Explicit history deletion. Active work must be canceled through the
+  // idempotent endpoint above and can only be deleted after it is terminal.
+  router.delete('/:projectId/jobs/:id', (req: Request, res: Response) => {
+    const id = req.params.id as string
+    const c = ctx(req)
+    const job = getJob(c.db, id)
+    if (!job) {
+      res.status(404).json({ error: 'Job not found' })
+      return
+    }
+    if (job.status === 'running' || job.status === 'queued') {
+      res.status(409).json({ error: 'Active jobs must be canceled before deletion' })
+      return
+    }
+    try {
+      deleteJob(c.db, id)
+      res.json({ ok: true, status: 'deleted' })
+    } catch (err) {
+      if (err instanceof JobRecoveryPendingError) {
+        res.status(409).json({ error: err.message, code: 'job_recovery_pending' })
+        return
+      }
+      console.error(`[jobs] delete ${id} failed:`, err)
+      res.status(500).json({ error: 'Failed to delete job' })
     }
   })
 
@@ -478,48 +584,12 @@ const accepted = c.queueManager.sendInteractiveTurn(jobId, text)
     // Clamp to [1, 200] (H-11): a negative limit is LIMIT -1 in SQLite, which
     // means UNLIMITED — without the lower bound `?limit=-1` dumps the whole table.
     const limit = Math.max(1, Math.min(parseInt(String(req.query.limit ?? '50'), 10) || 50, 200))
-    const offset = parseInt(String(req.query.offset ?? '0'), 10) || 0
+    const offset = Math.max(0, parseInt(String(req.query.offset ?? '0'), 10) || 0)
     const status = req.query.status as string | undefined
     const from = req.query.from as string | undefined
     const to = req.query.to as string | undefined
     const { db } = ctx(req)
-    const result = listJobs(db, { limit, offset, status, from, to })
-
-    // Merge in-memory queued jobs that haven't been persisted to DB yet
-    const { queueManager } = ctx(req)
-    const dbIds = new Set(result.jobs.map((j) => j.id))
-    const queuedRows = queueManager
-      .getJobs()
-      .filter((j) => j.status === 'queued' && !dbIds.has(j.id))
-      .filter((j) => !status || j.status === status)
-      .map((j) => ({
-        id: j.id,
-        command: j.command,
-        started_at: j.startedAt ?? new Date().toISOString(),
-        finished_at: j.finishedAt,
-        status: j.status,
-        exit_code: j.exitCode,
-        queue_position: j.queuePosition,
-        priority: j.priority,
-        tokens_in: null,
-        tokens_out: null,
-        tokens_cache_read: null,
-        tokens_cache_create: null,
-        total_cost_usd: null,
-        num_turns: null,
-        model: null,
-        duration_ms: null,
-        duration_api_ms: null,
-        session_id: null,
-        depends_on_job_id: j.dependsOnJobId,
-        pipeline_id: j.pipelineId,
-        skip_reason: j.skipReason,
-      } as import('./types').JobRow))
-
-    if (queuedRows.length > 0) {
-      result.jobs = [...queuedRows, ...result.jobs]
-      result.total += queuedRows.length
-    }
+    const result = listUnifiedJobs(db, { limit, offset, status, from, to })
 
     // Annotate each job with hasTelemetry so the client can show the
     // Export diagnostic button without an extra round trip.
@@ -628,21 +698,22 @@ const accepted = c.queueManager.sendInteractiveTurn(jobId, text)
     const jobId = req.params.id as string
     const job = getJob(db, jobId)
     if (!job) {
-      // Queued jobs live only in memory until spawn time (createJob runs on spawn,
-      // not enqueue). Fall back to the in-memory queue so /jobs/:id returns a
-      // usable payload instead of 404 — the detail page then renders a "queued"
-      // state and flips to live logs via WS once the job starts.
+      // Queued jobs have a durable admission timestamp but no execution start.
+      // Prefer SQLite so repeated detail reads return the same enqueued_at;
+      // retain the in-memory fallback only for non-project/test managers.
+      const durableQueued = getQueuedJobForListing(db, jobId)
       const inMemory = queueManager.getJobs().find((j) => j.id === jobId)
-      if (!inMemory) { res.status(404).json({ error: 'Job not found' }); return }
-      const synthetic: JobRow = {
-        id: inMemory.id,
-        command: inMemory.command,
-        started_at: inMemory.startedAt ?? '',
-        finished_at: inMemory.finishedAt,
-        status: inMemory.status,
-        exit_code: inMemory.exitCode,
-        queue_position: inMemory.queuePosition,
-        priority: inMemory.priority,
+      if (!durableQueued && !inMemory) { res.status(404).json({ error: 'Job not found' }); return }
+      const synthetic = durableQueued ?? {
+        id: inMemory!.id,
+        command: inMemory!.command,
+        started_at: null,
+        enqueued_at: null,
+        finished_at: inMemory!.finishedAt,
+        status: inMemory!.status,
+        exit_code: inMemory!.exitCode,
+        queue_position: inMemory!.queuePosition,
+        priority: inMemory!.priority,
         tokens_in: null,
         tokens_out: null,
         tokens_cache_read: null,
@@ -653,9 +724,9 @@ const accepted = c.queueManager.sendInteractiveTurn(jobId, text)
         duration_ms: null,
         duration_api_ms: null,
         session_id: null,
-        depends_on_job_id: inMemory.dependsOnJobId,
-        pipeline_id: inMemory.pipelineId,
-        skip_reason: inMemory.skipReason,
+        depends_on_job_id: inMemory!.dependsOnJobId,
+        pipeline_id: inMemory!.pipelineId,
+        skip_reason: inMemory!.skipReason,
       }
       const phaseDefinitions = queueManager.phasesForCommand(synthetic.command)
       const tickets = resolveTicketsFromCommand(project.path, synthetic.command, ticketPath(req))

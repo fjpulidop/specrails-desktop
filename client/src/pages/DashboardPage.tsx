@@ -140,7 +140,7 @@ export default function DashboardPage() {
     const p = projects.find((pr) => pr.id === activeProjectId)
     return p ? projectProviders(p) : ['claude']
   })()
-  const { tickets, isLoading, updateTicket, updateTicketStatus, updateTicketPriority, deleteTicket, createTicket, refetch, contractRefiningIds } = useTickets()
+  const { tickets, isLoading, error: ticketsError, updateTicket, updateTicketStatus, updateTicketPriority, deleteTicket, createTicket, refetch, contractRefiningIds } = useTickets()
   const { registerHandler, unregisterHandler, connectionStatus } = useSharedWebSocket()
   const { specToOpen, clearSpecToOpen } = useSpecGenTracker()
   const [detailTicket, setDetailTicket] = useState<LocalTicket | null>(null)
@@ -519,23 +519,18 @@ export default function DashboardPage() {
     const railIndex = railIndexFromId(railId)
     if (railIndex === null) { removeLocally(); return }
     try {
-      // Release any server-side assignment first (the server refuses to delete
-      // a rail that still holds tickets), then delete the identity row.
-      if (rail.ticketIds.length > 0) {
-        await fetch(`${getApiBase()}/rails/${railIndex}/tickets`, {
-          method: 'PUT',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ ticketIds: [] }),
-        }).catch(() => { /* best-effort */ })
-      }
+      // The server releases assignments and removes the rail atomically after
+      // validating last-rail, active-run, and pending-PR guards.
       const res = await fetch(`${getApiBase()}/rails/${railIndex}`, { method: 'DELETE' })
       // 404 = the server never knew this rail (legacy local-only) — still drop it.
       if (res.ok || res.status === 404) { removeLocally(); return }
-      // 409 rail_active / rail_not_empty / pr_decision_pending, 400 last-rail:
+      // 409 rail_active / pr_decision_pending, 400 last-rail:
       // the server knows something this board doesn't — keep the rail visible.
       toast.error(t('toasts.railDeleteFailed'))
     } catch {
-      removeLocally() // offline — best-effort local removal (legacy behavior)
+      // Unknown server state: keep the rail visible until a successful retry
+      // or refresh reconciles it. Optimistic removal here can desync the board.
+      toast.error(t('toasts.railDeleteFailed'))
     }
   }, [rails, updateRails, updateSpecOrder, t])
 
@@ -1349,6 +1344,8 @@ export default function DashboardPage() {
             allTickets={tickets}
             doneTickets={doneSpecTickets}
             isLoading={isLoading}
+            error={ticketsError}
+            onRetry={() => { void refetch() }}
             onTicketClick={setDetailTicket}
             onTicketCreated={(ticket) => { setDetailTicket(ticket); refetch() }}
             onTicketDelete={(id) => deleteTicket(id)}
@@ -1467,10 +1464,7 @@ export default function DashboardPage() {
               if (next) setDetailTicket(next)
             }}
             onSave={updateTicket}
-            onDelete={(id) => {
-              deleteTicket(id)
-              setDetailTicket(null)
-            }}
+            onDelete={deleteTicket}
             rails={rails}
             onMoveToRail={handleMoveTicketToRail}
             onRemoveFromRail={handleRemoveTicketFromRail}

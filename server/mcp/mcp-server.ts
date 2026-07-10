@@ -7,11 +7,12 @@ import type { ProjectRegistry } from '../project-registry'
 import type { WsMessage } from '../types'
 import { getMobileEventBus, type MobileEventBus } from '../mobile/mobile-event-bus'
 import { isMcpEnabled, MCP_ENABLED_KEY } from './mcp-tiers'
-import { AGENT_TIER_HEADER } from '../agent-tier'
+import { AGENT_CAPABILITY_HEADER } from '../agent-tier'
 import { setDesktopSetting } from '../desktop-db'
 import { buildToolSpecs } from './tools/catalog'
 import { registerTieredTool, type McpToolContext } from './tools/types'
 import { registerResources } from './resources'
+import { verifyAgentCapability } from './agent-capability'
 
 export interface McpServerManagerDeps {
   registry: ProjectRegistry
@@ -115,16 +116,12 @@ export class McpServerManager {
    * carry the `mcp-session-id` header.
    */
   async handleHttp(req: Request, res: Response): Promise<void> {
-    // The external Settings ▸ MCP toggle gates THIRD-PARTY clients only. The
-    // in-app agent chat is first-party: it reaches this loopback endpoint through
-    // the bundled bridge, which always forwards the `x-specrails-agent-tier`
-    // header. Serving that request regardless of the toggle means the in-app
-    // agent gets its MCP by default with zero config on a fresh install (the
-    // toggle defaults OFF). Third-party clients (no agent-tier header) still get
-    // 404 until the user explicitly opts in. Both paths already sit behind
-    // requireLoopback + requireMcpAuth (scoped token), so this is not an auth
-    // relaxation — only the enable-toggle is bypassed for the first-party agent.
-    const isFirstPartyAgent = Boolean(req.headers[AGENT_TIER_HEADER])
+    // The external Settings toggle gates third-party clients. Only a live,
+    // server-minted per-turn capability identifies the in-app agent and may
+    // bypass it; caller-authored context headers grant no authority.
+    const isFirstPartyAgent = verifyAgentCapability(
+      req.headers[AGENT_CAPABILITY_HEADER] as string | string[] | undefined,
+    ) !== null
     if (!this.isEnabledSetting() && !isFirstPartyAgent) {
       res.status(404).json(jsonRpcError('MCP is disabled. Enable it in the Specrails app under Settings ▸ MCP.', -32004))
       return

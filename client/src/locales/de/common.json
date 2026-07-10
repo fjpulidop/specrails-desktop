@@ -50,6 +50,34 @@
     "draft": "Entwurf",
     "onReview": "In Prüfung"
   },
+  "prDeliveryStatus": {
+    "implementation_running": "Implementierung läuft",
+    "implementation_failed": "Implementierung fehlgeschlagen",
+    "ready_for_review": "Bereit zur Prüfung",
+    "partial_success": "Teilweise implementiert",
+    "partial_delivery": "Teillieferung bereit",
+    "existing_pr_updated": "Bestehender PR aktualisiert",
+    "no_changes": "Keine Änderungen erforderlich",
+    "commit_failed": "Commit-Schritt fehlgeschlagen",
+    "branch_verification_failed": "Branch-Prüfung fehlgeschlagen",
+    "push_failed": "Push fehlgeschlagen",
+    "settlement_interrupted": "Vorbereitung der Lieferung unterbrochen",
+    "operation_interrupted": "Vorherige Lieferaktion unterbrochen",
+    "delivery_failed": "Lieferung fehlgeschlagen",
+    "pr_draft_ready": "PR-Entwurf bereit",
+    "pr_ready": "PR bereit",
+    "pr_closed": "PR ohne Merge geschlossen",
+    "merged": "Zusammengeführt",
+    "discarded": "Verworfen",
+    "superseded": "Durch einen neueren Lauf ersetzt",
+    "cleanup_incomplete": "Bereinigung unvollständig",
+    "status_failed": "Worktree-Statusprüfung fehlgeschlagen",
+    "ref_mismatch": "Branch-Referenz stimmt nicht überein"
+  },
+  "prRecovery": {
+    "inProgress": "Die Projektwiederherstellung läuft noch. Deine Lieferung ist sicher – versuche es gleich noch einmal.",
+    "interrupted": "Eine frühere Lieferaktion wurde beim Neustart unterbrochen. Deine Arbeit wurde erhalten; prüfe den aktuellen Stand und versuche es erneut, wenn du bereit bist."
+  },
   "modal": {
     "resize": {
       "nw": "Größe ändern — obere linke Ecke",

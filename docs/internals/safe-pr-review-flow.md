@@ -9,84 +9,93 @@
 
 ## The single source of truth
 
-One durable row per rail **launch** in `rail_pr_deliveries` (per-project `jobs.sqlite`,
-migration 36; CRUD in `server/rail-pr-store.ts`). Grain is the launch, not the ticket: a delivery
-is one PR for the whole launch, keyed internally by `rail_key = ${railIndex}-${loopId}`; the row
-is keyed by uuid because a rail slot can be relaunched.
+`rail_pr_deliveries` (per-project `jobs.sqlite`, migrations 36/38/48–50; CRUD in
+`server/rail-pr-store.ts`) stores one durable **generation** per implementation launch. A partial
+unique index enforces one non-terminal generation per rail. Reimplementing an attached PR creates
+generation B and atomically moves generation A to terminal `superseded`; A can never reappear after
+B closes. `supersedes_delivery_id` preserves that lineage and `is_continuation` records that the
+PR/head branch is borrowed review state rather than a resource this generation owns.
 
-Columns beyond the obvious: `ticket_ids` (JSON `number[]`), `base_branch` (the resolved
-integration branch — the "against `<base>`" in the question), `branches` (JSON
-`DeliverBranchRecord[]` — per-unit `{ticketId, branch, succeeded}` captured at build-settle),
-`worktree_ids` (JSON `string[]` of `rail_worktrees` ledger ids), `loop_name` (PR title/body),
-`pr_url`/`pr_number`, `pr_state` (`none | local-only | pushed | pr-created` — the pr-publisher
-degradation ladder, independent of `decision`), `origin_surface` (`dashboard | agent-chat`),
-`origin_conversation_id` (soft cross-DB reference to `agent_conversations.id` in
-`desktop.sqlite`; no FK is possible across SQLite files).
+The important rule is that no single enum carries all truth. The row has orthogonal axes:
 
-The `branches` + `worktree_ids` columns exist because PR creation is **deferred**: nothing about
-the settle survives in memory by the time the user clicks, so `create-pr` and `discard`
-reconstruct all their inputs from the row.
+- `implementation_outcome`: `running | succeeded | partially_succeeded | failed | unknown` —
+  derived **only** from loop terminal outcomes.
+- `delivery_outcome`: `pending | ready | delivered | partial | no_changes |
+  retryable_failure | blocked | not_started | unknown` — commit/ref/push readiness.
+- `decision`: the user/action lifecycle (`building`, `on_review`, `no_changes`, `pr_draft`,
+  `pr_ready`, `pr_closed`, `pr_failed`, `implementation_failed`, plus terminal `completed`,
+  `merged`, `discarded`, `superseded`).
+- `status_code` + bounded `status_detail`: localized stage/reason and secondary diagnostics.
+- `delivery_sha`: the exact verified object used by an existing-PR push or retry.
+- `pr_state`: `none | local-only | pushed | pr-created`, independent of all three axes.
 
-## State machine (`decision`)
+`branches` is the durable per-unit record: ticket/run, branch, actual implementation result,
+delivery eligibility, initial/final SHA, changed/no-change evidence, and failure code. Together
+with `worktree_ids` it lets deferred decisions and both cards reconstruct full/partial outcomes
+after refresh. `cleanup_warnings` reports best-effort cleanup honestly. `operation*` columns form
+a leased single-winner claim around decision-side Git/GitHub effects.
+
+## Outcome and decision matrix
 
 ```
-building ──(settle, ≥1 succeeded unit)──▶ on_review      [patch branches/worktree_ids]
-building ──(settle, 0 succeeded)────────▶ discarded      (terminal auto-close; per-run settle already reverted tickets)
-on_review | pr_failed ──[Create PR]────▶ pr_draft        (delivered)  |  pr_failed (assembly-failed / throw)
-pr_draft (pr_url != null) ──[Publish]──▶ pr_ready        (gh pr ready — opens the draft for team review)
-pr_draft | pr_ready ──[Check merge]────▶ merged          (gh pr view reports MERGED; else 200 no-op)
-on_review | pr_draft | pr_ready | pr_failed ──[Discard]─▶ discarded
-on_review | pr_failed | pr_draft (pr_url = null) ──[Integrate locally]─▶ merged   (remote-less acceptance)
+engine failed (all units)             → implementation_failed / not_started
+engine succeeded + clean verified diff→ on_review (fresh) or pr_draft|pr_ready (continuation)
+engine succeeded + no branch delta    → no_changes
+mixed clean units                     → on_review / partial (explicit subset)
+engine succeeded + commit/ref unsafe  → pr_failed / blocked (worktree preserved)
+verified existing-PR push failed      → pr_failed / retryable_failure (exact SHA retained)
+GitHub reports CLOSED, not merged      → pr_closed
+new generation replaces prior one     → prior generation superseded (terminal)
+fresh no-change accepted              → completed (terminal; no merge claimed)
 ```
 
-`merged` / `discarded` are terminal. A **degraded** draft (`pr_state` `pushed`/`local-only`,
-`pr_url = null`) offers no Publish — retry (`create-pr` is legal from a `pr_draft` whose
-`pr_url` is null), **Integrate locally**, or Discard.
+Only a real engine failure uses `implementation_failed`. A successful log can therefore coexist
+truthfully with “delivery needs attention”. A fresh no-op never offers Create PR. A continuation
+no-op leaves the existing PR untouched. Partial cards name the included and failed units before
+delivery.
 
-**`merge-local` (remote-less acceptance).** A repo with no GitHub remote can never leave
-`local-only` — retry loops forever and Discard destroys the work, so `merge-local` is the way to
-say *yes* without GitHub. Legal ONLY while `pr_url` is null (once a real PR exists, GitHub is the
-merge authority). It merges directly into the USER'S CHECKOUT, so it is triple-guarded: the
-checkout must have the integration branch checked out (a branch can only be checked out in one
-worktree, so a temp-worktree merge is impossible while the user holds it) and the working tree
-must be clean — violations return **409 `merge_local_blocked`** (`reason: 'wrong_branch' | 'dirty'`,
-user-fixable, no transition). Merge = the assembled head (`row.branch`) when it exists, else each
-succeeded unit branch sequentially, `--no-ff --no-edit`; any conflict → `merge --abort` +
-**502 `merge_failed`** (no transition — retry after manual resolution, or discard). Success sweeps
-worktrees + branches (ledger rows → `merged`), transitions to `merged` with `pr_url` still null,
-promotes tickets to `done` and fires Jira `onRailMerged(ticketIds, refId, null)`. Both surfaces
-offer it wherever no PR exists yet (on_review / degraded draft / pr_failed) behind a confirm. Every transition is the compare-and-set
-`transitionDecision(db, id, expected, next, patch)` — one atomic
-`UPDATE … WHERE id = ? AND decision = ?` — so two surfaces racing on the same delivery cannot
-both win; the loser's `false` return maps to **409 `stale_decision`**.
+Continuation cleanup is ownership-aware: **Dismiss** clears the follow-up card/worktree but never
+closes the pre-existing PR, deletes its head branch, or returns its tickets from review. A blocked
+dirty follow-up requires an explicit destructive “Discard local result” confirmation, while still
+preserving the external PR/branch. Fresh deliveries keep the full discard semantics.
 
-## Launch wiring (`server/rail-isolated-launch.ts`)
+Fresh no-change cards offer explicit **Mark done** and **Refine** outcomes. Mark done uses terminal
+`completed` and moves review tickets to Done without claiming a merge; Refine explicitly returns
+them to the backlog. Existing-PR no-change cards only dismiss their borrowed follow-up state.
 
-- `prMode = isRailPrDeliveryEnabled()` is captured **once at launch entry** — a mid-flight env
-  flip can never split one launch across the two delivery paths.
-- In PR mode the row is INSERTed **up front** (`decision='building'`) so the origin link is
-  persisted before any await can drop it and late-joining clients hydrate mid-build via
-  `GET /rails`. Worktree-allocation failure transitions the row to `discarded` (kept for audit,
-  never deleted) so a wedged `building` row can never block the slot.
-- Isolation units: `scope='per-ticket'` → one worktree/run per ticket; `scope='all'`
-  (implement/batch — one pipeline invocation covers all tickets) → **one** worktree/run covering
-  every ticket. `isolationApplies` (`server/rail-isolation.ts`) isolates per-ticket rails always
-  and `all`-scoped rails **only when PR delivery is on** (kill-switch off ⇒ byte-identical
-  legacy shared-cwd).
-- Per-run settle: `ctx.onLoopRunFinished(runId, outcome, { ticketCompletionStatus })` —
-  `'on_review'` in PR mode, `'done'` otherwise (`applyJobOutcomeToTickets` gains the analogous
-  `{ completedStatus }` option; explicit `'done'` / kill-switch off is byte-identical legacy).
-  When the caller passes NO opts (shared-cwd rail runs, standalone loop runs,
-  isolation-unavailable fallbacks) the default now derives from `isRailPrDeliveryEnabled()` —
-  read once per settle and reused for the Jira split, so one settle can never split across the
-  two paths (universal ask-first; the explicit isolated-rail opts are idempotent with it).
-  Failures ignore the field (revert `in_progress → todo` as always). In PR mode the completed
-  path calls `jiraSyncManager.onRailReview` instead of the done-flavoured `onJobOutcome`.
-- All-settle in PR mode: patch `branches` + `worktree_ids`, transition `building →`
-  `on_review` (≥1 succeeded) or `discarded` (0 succeeded), broadcast, and — when
-  `origin_conversation_id` is set — post the inline decision card into the conversation.
-  The legacy merge-back **never runs** in PR mode. Kill-switch off: no row, no `on_review`,
-  legacy local merge-back exactly as before.
+**`merge-local` (remote-less acceptance).** Legal only without a real PR. Both surfaces confirm
+because it changes the user's checkout. Source branches are first assembled away from the user's
+checkout; only a complete conflict-free result may advance a still-clean, still-at-the-original-
+HEAD integration branch. A conflict leaves the user's checkout byte-identical and the delivery
+actionable.
+
+## Launch and recovery wiring (`server/rail-isolated-launch.ts`)
+
+- `prMode` is captured once. Admission is rechecked inside the per-repository allocation lock;
+  two requests cannot both create a generation or reuse the ticket-keyed worktree.
+- A continuation supersedes its prior generation and creates the new `building` row in one DB
+  transaction. Allocation failure closes the new row and restores the prior generation atomically.
+- Isolation units remain `per-ticket` or one `all`-scope batch unit. Initial/final SHAs plus commit
+  verification distinguish changed, resumed, and no-change results.
+- Per-unit settlement returns structured execution + delivery results. `onLoopRunFinished` receives
+  the engine outcome only; commit/status/ref/provenance/push failures cannot rewrite it.
+- Clean, committed worktrees may be released. Dirty, unknown, or ref-mismatched worktrees become
+  `needs-review` and are never force-removed automatically. Push failure retains the exact SHA.
+- Project admission remains closed while startup reconciliation runs under the repo lock. Every
+  stale `building` shape becomes actionable; successful interrupted work is preserved and labelled
+  `settlement_interrupted`, while only all-failed runs become `implementation_failed`.
+- Operation leases are process capabilities. Startup clears every prior-process lease before card
+  projection, marks the still-active delivery `operation_interrupted`, and leaves its durable SHA,
+  PR and unit evidence intact so the user can safely retry.
+- `GET /rails` is hydration-only and never invokes crash recovery. This avoids misclassifying the
+  normal live window between durable loop completion and commit/ref/push settlement.
+- Startup retries pending terminal ticket effects in-process and re-projects active and terminal
+  origin-linked rows into Agent Chat before admission opens, repairing cards left stale by a crash
+  or migration. Admission remains closed and cards show `cleanup_incomplete` until every JSON/Jira
+  phase is durably settled.
+  An already-identical card is neither rewritten nor broadcast, so old terminal history does not
+  create fake unread activity on every launch.
+- PR mode never invokes legacy merge-back. Kill-switch-off behavior remains the legacy path.
 
 ## Per-run worktree overlay (`server/worktree-overlay.ts`)
 
@@ -133,29 +142,59 @@ v1 `POST /rails/pr-review`). The route validates and delegates to
 `server/rail-pr-decision.ts` `executePrDecision` (deps injected — db/git/exec/broadcast/jira/
 agent-chat — so the whole matrix unit-tests without git/gh/network).
 
+Before any Git, GitHub, cleanup or ticket effect, the endpoint atomically claims the row's leased
+`operation_token`. A second window loses **before** it can perform an effect. The token is cleared
+before the new snapshot is persisted to the agent card/broadcast; a dead-process lease is bounded
+and reclaimable, and the final CAS verifies that the caller still owns it. Every response also
+contains the authoritative post-action snapshot, so losing a WebSocket frame cannot leave the
+initiating card stale. While startup recovery owns the project, decision and checkout endpoints
+return a specific retry-later conflict. Every decision that can mutate refs/worktrees shares the
+same repository lock as recovery, launch allocation and checkout, revalidates its admission epoch
+after waiting for that lock, and uses bounded Git/GitHub command timeouts so a wedged child cannot
+block the repository forever.
+
 - **create-pr** — deferred `deliverRailAsPr` (`server/rail-pr-delivery.ts`: 1 unit → its
   branch; N → assembled onto the conventional batch branch off the integration branch, one PR
   covering every ticket). The PR **title and canonical body are composed here** (see "Branch
   naming & PR content" below) from the ticket store + `jira_links` + the branch diffs — all
-  failure-tolerant. Retry hazard handled first: a prior degraded delivery leaves the batch
-  branch behind and `deliverRailAsPr` assembles with `worktree add -b`, so the stale batch branch
-  is defensively `-D`'d (never the integration branch); inside `deliverRailAsPr` the batch name
-  additionally collide-suffixes `-2`… against the live branch listing. Delivered → `pr_draft`
-  (+`pr_url`/`pr_number` when `pr-created`; null when degraded); assembly-failed or a thrown
-  guardrail → `pr_failed` (retryable). Tickets stay `on_review` — a draft PR still awaits the
-  merge.
+  failure-tolerant. Each unit is pushed/merged from its immutable settled `finalSha`, never from a
+  later mutable or historical ticket branch. A degraded multi-unit retry reuses its owned assembled
+  head, preserving exact head/base PR identity; unrelated name collisions suffix `-2`… and are never
+  pre-deleted. Delivered → `pr_draft`
+  (+`pr_url`/`pr_number` when `pr-created`; null when degraded). `publishDraftPr` adopts an exact
+  existing head/base PR when `gh pr create` returns no URL, says it already exists, or a retry
+  follows an ambiguous interruption. Assembly/ref failures are blocked; only safe stages are
+  labelled retryable. Tickets stay `on_review`.
 - **publish** — `gh pr ready <url>` → `pr_ready` (the draft opens for the team's normal review).
   Requires a real `pr_url`.
-- **discard** — best-effort `gh pr close <url> --delete-branch`; remove the launch's worktrees
-  (ledger rows closed as `failed`); delete every referenced branch (per-unit sources, assembled
-  head, and the possibly-stale batch branch recomputed from the same ticket data create-pr names
-  it from — the integration branch is NEVER deleted); → `discarded`; revert
+- **discard** — for a fresh delivery, best-effort `gh pr close <url> --delete-branch`; remove the launch's worktrees
+  (ledger rows closed as `failed`); delete only branches durably recorded as created by this
+  delivery (owned per-unit sources plus its exact assembled head; preferred names are never
+  recomputed, and the integration branch is NEVER deleted); → `discarded`; revert
   still-`on_review` tickets → `todo` (a manually re-triaged spec is respected) + Jira
-  `onRailDiscard`.
-- **poll-merge** — on-demand `gh pr view <url> --json state,mergedAt`; `MERGED` → `merged` +
-  tickets → `done` + Jira `onRailMerged` (with a "PR merged: `<url>`" comment); anything else is
-  an observation-only 200. There is no background poller (loopback server, no webhooks) —
-  detection is click-driven.
+  `onRailDiscard`. Failures are retained in `cleanup_warnings` and disclosed. For a continuation,
+  discard can remove only the explicitly confirmed blocked local iteration: it preserves the
+  borrowed PR/head and review ticket state.
+- **dismiss** — continuation acknowledgement. Clears the generation and owned clean
+  worktree while preserving the existing PR, head branch and `on_review` tickets.
+- **acknowledge-no-changes** — fresh no-change acceptance → terminal `completed`, tickets Done,
+  with no PR/merge claim. Jira receives its own no-PR completion comment. Refine remains the
+  explicitly backlog-returning path and always uses Jira `todo`; it never inherits the configured
+  discard/cancellation status.
+- **poll-merge** — observes state, exact head/base/head OID, merge commit and PR commit set;
+  `MERGED` becomes `merged` only when that immutable evidence contains `delivery_sha`, then tickets
+  → `done` + Jira `onRailMerged`. `OPEN` is observation-only; `CLOSED` without merge → `pr_closed`.
+- **reopen** — `gh pr reopen` from `pr_closed`, returning to draft or ready according to GitHub.
+- **merge-local** — builds the complete merge in an isolated temporary checkout and advances the
+  user's revalidated clean base only after all branches succeed.
+
+Terminal discard/merge/completion inserts `rail_pr_ticket_effects` in the same SQLite transaction
+as its decision and snapshots each ticket's non-null outcome owner. Before crossing into ticket JSON
+the worker durably freezes only IDs still `on_review` whose owner still matches that snapshot, then
+checkpoints the JSON phase and Jira-outbox handoff separately. An old terminal row therefore cannot
+change or enqueue Jira work for a newer iteration. Jira's idempotency keys make a crash after enqueue
+safe to repeat; the effect becomes complete only after that durable handoff. Startup retries every
+unfinished phase, including causally provable migrated terminal rows, before admission opens.
 
 `gh` failures return 502 `gh_failed` with **no transition**. Illegal action for the current
 state → 409 (`stale_decision` + `reason: 'illegal_action'`).
@@ -204,8 +243,8 @@ diff collection), fully unit-tested.
 
 ## The sync contract (two surfaces, zero desync)
 
-Neither surface holds authoritative state; both render the last snapshot they received and POST
-the same endpoint with the `expectedDecision` they rendered.
+SQLite remains authoritative. Both surfaces render a full snapshot and POST the same endpoint with
+the `expectedDecision` they rendered.
 
 - **Durable WS event `rail.pr_state`** (project-scoped, full snapshot — replaces the retired
   one-shot `rail.pr_delivered`): broadcast at row INSERT (`building`), build-settle, and every
@@ -214,8 +253,9 @@ the same endpoint with the `expectedDecision` they rendered.
 - **Option A — dashboard.** `client/src/context/RailPrDecisionContext.tsx` (registerHandler on
   the shared socket + `GET /rails` seed) feeds `RailPrDecisionStrip` on `RailRow` (both density
   branches): on_review → Create PR / Discard; pr_draft → Open PR + Publish / Discard (degraded →
-  retry); pr_ready → Check merge / Discard; pr_failed → Retry / Discard. Buttons disable in
-  flight and reconcile to the next broadcast; Discard confirms first.
+  retry); pr_ready → Check merge; no_changes → Done/refine; pr_closed → Reopen; pr_failed derives
+  retry-vs-blocked actions from `delivery_outcome`. Logs remain available after settle. Buttons
+  disable in flight and apply the authoritative HTTP snapshot immediately.
 - **Option B — agent chat.** When the row carries `origin_conversation_id`, settle posts a
   **persisted inline card**: a `'system'`-role `agent_messages` row (role is unconstrained TEXT —
   no migration; TS unions widened) whose content is the `PrDecisionCardEnvelope` JSON.
@@ -224,15 +264,18 @@ the same endpoint with the `expectedDecision` they rendered.
   process-wide `server/agent-chat-registry.ts` singleton (null-safe: tests/disabled builds).
   Live updates ride the app-global `agent_pr_decision` WS event; the client renders
   `AgentPrDecisionCard` and POSTs the same project-scoped `/rails/pr-decision`.
-- **Race:** the second answer arrives with a stale `expectedDecision` → 409; the client shows a
-  neutral "already resolved" toast and reconciles to the broadcast.
+- **Race:** a stale generation or occupied operation lease returns 409 before effects. Clients
+  distinguish `operation_in_progress` from a stale decision, show the active operation, disable
+  actions, apply the response snapshot, ignore terminal events for an older delivery id, and
+  hydrate again on focus/reconnect.
 
 ## Relaunch guard
 
-`POST /rails/:i/launch` returns **409 `{ error: 'pr_decision_pending', prDeliveryId }`** when an
-active (non-terminal) delivery exists for the slot AND the launch would take the isolated PR
-path — a relaunch would append new commits to the undecided branches (worktree creation resumes
-existing branches). Legacy / non-isolated launches are unaffected.
+`POST /rails/:i/launch` returns **409 `{ error: 'pr_decision_pending', prDeliveryId }`** for an
+unresolved fresh delivery. An active `pr_draft`/`pr_ready` generation covering the same tickets is
+a verified continuation contract instead: launch revalidates it again under the repo lock,
+supersedes it atomically and runs only on that PR head. A stale concurrent request receives 409
+before it can allocate or claim anything. Legacy / non-isolated launches are unaffected.
 
 ## Ticket lifecycle — `on_review`
 
@@ -297,33 +340,30 @@ the launch INSERT. As-built:
 - `POST /rails/:i/launch` accepts `originConversationId` (validated `/^[A-Za-z0-9-]{1,64}$/`) and
   `originSurface` (`'dashboard' | 'agent-chat'`), threaded into `launchIsolatedRail`.
   Dashboard launches default to `origin_surface='dashboard'`, `origin_conversation_id=NULL`.
-- **The MCP auto-attach chain (shipped)** — four hops, so an agent-launched rail tags itself
-  end-to-end with no manager change (`AgentChatManager` already passes `conversationId` into
-  `prepareAgentMcp`):
-  1. `agent-mcp-config.ts` `buildSpecrailsMcpEntry` gained `conversationId` in its opts
-     (validated against the same launch regex; malformed ⇒ silently omitted) and sets
-     `SPECRAILS_AGENT_CONVERSATION` in `entry.env` — threaded at both internal call sites
-     (`prepareAgentMcp` and `buildAgentMcpArgs`), so the claude `--mcp-config` file, the codex
-     inline `-c mcp_servers.specrails.env.*` overrides and the gemini cwd `.mcp.json` all carry
-     it automatically. `mergeSpecrailsIntoWorkspaceMcp` (Part A workspace wiring) deliberately
-     stays conversation-less.
-  2. `mcp-bridge` forwards the env as the `x-specrails-agent-conversation` header
-     (`agentForwardHeaders` in `bridge.ts`, alongside the tier/project forwards). The staged
-     bundle `src-tauri/binaries/specrails-mcp.js` must be regenerated via
-     `npm run build:mcp-bridge` whenever the bridge source changes — a stale bundle silently
-     drops the header (origin degrades to NULL with no error).
-  3. `registerTieredTool` (`server/mcp/tools/types.ts`) reads the header into the per-call
-     `ctx.originConversationId` next to the project pin (same per-call ctx-copy discipline;
-     malformed ⇒ `null`, never throws — the launch degrades to untagged).
-  4. `specrails_rails(launch)` (`server/mcp/tools/rails.ts`) adds
+- **The authenticated MCP auto-attach chain (shipped)** — an agent-launched rail tags itself
+  end-to-end without trusting caller-controlled context headers:
+  1. `AgentChatManager` mints an unguessable, turn-scoped capability. The server stores only
+     its hash and binds it to the actual conversation, pinned project and permission level.
+  2. `prepareAgentMcp` writes the bearer to an app-owned `0600` capability file. Claude,
+     Codex and Gemini MCP configs carry only `SPECRAILS_AGENT_CAPABILITY_FILE`, so the raw
+     bearer never appears in command-line arguments. Workspace MCP wiring deliberately carries
+     no capability.
+  3. `mcp-bridge` reads that file and forwards the bearer as
+     `x-specrails-agent-capability`. Legacy tier/project/conversation env vars and headers are
+     ignored. The staged bundle `src-tauri/binaries/specrails-mcp.js` must be regenerated via
+     `npm run build:mcp-bridge` whenever the bridge source changes.
+  4. `registerTieredTool` (`server/mcp/tools/types.ts`) verifies the bearer and derives the
+     per-call tier, project and `ctx.originConversationId` from its server-side binding. The
+     manager revokes the capability and removes its file when the turn settles.
+  5. `specrails_rails(launch)` (`server/mcp/tools/rails.ts`) adds
      `originConversationId` + `originSurface:'agent-chat'` to the POST body when the ctx
      carries an id (`apiCall` forwards no custom headers, so the id rides the JSON body).
-  External MCP clients (Claude Desktop, Cursor, …) spawn the bridge without any
-  `SPECRAILS_AGENT_*` env → no header → untagged launches, by design. Covered end-to-end by
-  `server/mcp/tools/rails-origin.test.ts` (header → ctx → body → route → persisted row →
+  External MCP clients (Claude Desktop, Cursor, …) have no capability, so launches remain
+  untagged and Settings tiers govern them. Covered end-to-end by
+  `server/mcp/tools/rails-origin.test.ts` (capability → ctx → body → route → persisted row →
   settle fires `postPrDecisionCard` for that conversation).
 
-## Decisions (D1–D11, condensed)
+## Decisions (D1–D17, condensed)
 
 - **D1 — three extra columns** (`branches`, `loop_name`, `worktree_ids`) on migration 36:
   deferred create-pr/discard must be reconstructible from the row; nothing survives in memory
@@ -336,13 +376,14 @@ the launch INSERT. As-built:
   receives the spawn-captured flag from QueueManager — see "Ticket lifecycle" above. The opt-in
   option shape survives unchanged; only its defaults moved from hardcoded `'done'` to
   flag-derived.
-- **D3 — state machine**: 0-succeeded settles auto-close to `discarded`; degraded drafts
-  (`pr_url` null) have no Publish, only retry/discard; `pr_state` records delivery degradation
-  independent of `decision`.
-- **D4 — create-pr reconstructs deliverRailAsPr inputs from the row** and defensively deletes a
-  stale batch branch first (retry after a degraded delivery would die on "branch already
-  exists"); never the integration branch.
-- **D5 — relaunch collision** = 409 `pr_decision_pending` only on the isolated PR path.
+- **D3 — orthogonal outcomes**: only loop outcomes determine implementation success; delivery,
+  decision and PR lifecycle are independent. Zero actual successes becomes
+  `implementation_failed`; successful blocked/no-change runs retain their truth.
+- **D4 — create-pr reconstructs deliverRailAsPr inputs from the row** using each unit's exact
+  settled object. It reuses an owned degraded batch head and never deletes a merely name-matching
+  branch.
+- **D5 — relaunch admission**: unresolved fresh work returns 409; a matching open-PR generation
+  is superseded atomically and continued on its exact verified head.
 - **D6 — `rail.pr_delivered` retired**, replaced by the durable `rail.pr_state` + the
   `GET /rails` `prDeliveries` hydration; `Map<railIndex, …>` on the client keyed to the newest
   active row.
@@ -356,9 +397,26 @@ the launch INSERT. As-built:
   inbound preservation and the three outbox hooks.
 - **D10 — on_review everywhere**: server union + every client `Record<TicketStatus, …>` map,
   board bucketing (ToDo tab), drag/launch guards, context-menu out-only, pill, i18n ×8.
-- **D11 — premium decision UI**: disable-on-click reconciled to the broadcast, tooltips (base
-  branch, PR url), designed degraded/failed states, 409 → neutral "already resolved" toast;
+- **D11 — premium decision UI**: disable-on-click reconciled to authoritative snapshots, tooltips
+  (base branch, PR url), designed degraded/failed states, distinct stale-vs-operation-busy 409 UX;
   English source strings, all 8 locales, locale-parity green.
+- **D12 — no automatic data loss**: dirty, unknown and ref-mismatched worktrees are
+  `needs-review`; only explicit consequence-specific cleanup may force-remove them.
+- **D13 — one active generation**: migration 48 supersedes historical duplicates and a partial
+  unique index enforces one active row per rail.
+- **D14 — operation lease before effects**: a decision claims before Git/GitHub/ticket work;
+  the loser has no external side effects and HTTP returns the authoritative snapshot.
+- **D15 — exact/idempotent delivery**: continuation retry pushes `delivery_sha`; ambiguous PR
+  creation resolves exact open head/base identity; CLOSED is distinct and reopenable.
+- **D16 — crash recovery before admission**: startup preserves successful interrupted work and
+  makes every stale `building` generation actionable before another launch can reuse its path.
+- **D17 — ownership-aware continuation cleanup**: dismiss/discard never closes or deletes the
+  pre-existing PR/head and never reverts its review tickets.
+- **D18 — terminal ticket outbox**: terminal decision + ticket intent commit atomically; startup
+  replay closes the SQLite/JSON crash window, exact causal ownership prevents old generations from
+  mutating newer work, and terminal Agent cards are re-projected.
+- **D19 — truthful no-change completion**: fresh no-change has Mark done (`completed`) and Refine;
+  a continuation only dismisses its borrowed follow-up.
 
 ## Kill-switch
 

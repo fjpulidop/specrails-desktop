@@ -7,6 +7,11 @@ import { finaliseInvocationResult } from './result-event'
 import { recordInvocation, type InvocationStatus } from './ai-invocations'
 import type { DbInstance } from './db'
 import type { WsMessage } from './types'
+import {
+  captureProcessAdmission,
+  ProcessAdmissionClosedError,
+} from './process-admission'
+import { trackTransientChild } from './transient-children'
 
 /**
  * Optional recording context threaded from the caller (profiles-router Studio
@@ -95,6 +100,9 @@ export async function generateCustomAgent(
   cwd: string,
   opts: { name: string; description: string; record?: AgentStudioRecordCtx },
 ): Promise<string> {
+  const admission = opts.record
+    ? captureProcessAdmission(opts.record.projectId)
+    : captureProcessAdmission()
   const systemPrompt = [
     'You are a specrails agent-authoring assistant.',
     '',
@@ -126,7 +134,11 @@ export async function generateCustomAgent(
   return new Promise<string>((resolve, reject) => {
     const child = spawnClaude(
       [
-        '--dangerously-skip-permissions',
+        // This is a pure text transformation. The non-existent sentinel is
+        // intentional: an empty tool list is dropped by some Claude versions
+        // and silently restores the default toolkit.
+        '--tools',
+        '__none__',
         '--output-format',
         'stream-json',
         '--verbose',
@@ -141,6 +153,7 @@ export async function generateCustomAgent(
         cwd,
       },
     )
+    if (opts.record) trackTransientChild(opts.record.projectId, child)
 
     let collected = ''
     // Accumulate adapter events so a killed/failed generate run is still costed
@@ -148,11 +161,21 @@ export async function generateCustomAgent(
     const adapterEvents: AdapterEvent[] = []
     const startedAt = new Date().toISOString()
     const record = opts.record
+    let settled = false
+    const settle = (status: InvocationStatus, complete: () => void): void => {
+      if (settled) return
+      settled = true
+      clearTimeout(killer)
+      if (record && admission.isCurrent()) {
+        recordAgentStudioInvocation(record, adapterEvents, status, startedAt)
+      }
+      complete()
+    }
     const killer = setTimeout(() => {
-      escalateKill(child)
-      // Timeout kill — cost whatever tokens were burned before the SIGTERM.
-      if (record) recordAgentStudioInvocation(record, adapterEvents, 'aborted', startedAt)
-      reject(new Error('agent generation timed out after 90s'))
+      settle('aborted', () => {
+        escalateKill(child)
+        reject(new Error('agent generation timed out after 90s'))
+      })
     }, 90_000)
 
     const reader = createInterface({ input: child.stdout!, crlfDelay: Infinity })
@@ -182,27 +205,29 @@ export async function generateCustomAgent(
     child.stderr!.on('data', (chunk: Buffer) => { stderr += chunk.toString() })
 
     child.on('error', (err) => {
-      clearTimeout(killer)
-      if (record) recordAgentStudioInvocation(record, adapterEvents, 'failed', startedAt)
-      reject(err)
+      settle('failed', () => reject(admission.isCurrent()
+        ? err
+        : new ProcessAdmissionClosedError(opts.record?.projectId)))
     })
 
     child.on('close', (code) => {
-      clearTimeout(killer)
+      if (!admission.isCurrent()) {
+        settle('aborted', () => reject(new ProcessAdmissionClosedError(opts.record?.projectId)))
+        return
+      }
       const trimmed = collected.trim()
-      if (record) {
-        const status: InvocationStatus = code === 0 && trimmed ? 'success' : 'failed'
-        recordAgentStudioInvocation(record, adapterEvents, status, startedAt)
-      }
-      if (code !== 0) {
-        reject(new Error(`claude exited with code ${code}${stderr ? `: ${stderr.slice(-500)}` : ''}`))
-        return
-      }
-      if (!trimmed) {
-        reject(new Error('claude returned empty output'))
-        return
-      }
-      resolve(trimmed)
+      const status: InvocationStatus = code === 0 && trimmed ? 'success' : 'failed'
+      settle(status, () => {
+        if (code !== 0) {
+          reject(new Error(`claude exited with code ${code}${stderr ? `: ${stderr.slice(-500)}` : ''}`))
+          return
+        }
+        if (!trimmed) {
+          reject(new Error('claude returned empty output'))
+          return
+        }
+        resolve(trimmed)
+      })
     })
   })
 }
@@ -229,6 +254,9 @@ export async function testCustomAgent(
   cwd: string,
   opts: { draftBody: string; sampleTask: string; tokenCeiling?: number; record?: AgentStudioRecordCtx },
 ): Promise<TestAgentResult> {
+  const admission = opts.record
+    ? captureProcessAdmission(opts.record.projectId)
+    : captureProcessAdmission()
   const tokenCeiling = opts.tokenCeiling ?? 4000
   // Strip YAML frontmatter so we feed only the agent's instructions.
   const body = opts.draftBody.replace(/^---\r?\n[\s\S]*?\r?\n---\r?\n?/, '').trim()
@@ -251,7 +279,10 @@ export async function testCustomAgent(
   return new Promise<TestAgentResult>((resolve, reject) => {
     const child = spawnClaude(
       [
-        '--dangerously-skip-permissions',
+        // A Studio smoke test evaluates the supplied instructions and returns
+        // text; it never needs authority over the project it is testing in.
+        '--tools',
+        '__none__',
         '--output-format',
         'stream-json',
         '--verbose',
@@ -266,6 +297,7 @@ export async function testCustomAgent(
         cwd,
       },
     )
+    if (opts.record) trackTransientChild(opts.record.projectId, child)
 
     let collected = ''
     // LOW-14 double-count fix: the claude stream emits `message.usage` on EVERY
@@ -289,10 +321,21 @@ export async function testCustomAgent(
       resultTokensIn !== undefined || resultTokensOut !== undefined
         ? (resultTokensIn ?? 0) + (resultTokensOut ?? 0)
         : msgTokensIn + msgTokensOut
+    let settled = false
+    const settle = (status: InvocationStatus, complete: () => void): void => {
+      if (settled) return
+      settled = true
+      clearTimeout(killer)
+      if (record && admission.isCurrent()) {
+        recordAgentStudioInvocation(record, adapterEvents, status, startedAt)
+      }
+      complete()
+    }
     const killer = setTimeout(() => {
-      escalateKill(child)
-      if (record) recordAgentStudioInvocation(record, adapterEvents, 'aborted', startedAt)
-      reject(new Error('test agent run timed out after 120s'))
+      settle('aborted', () => {
+        escalateKill(child)
+        reject(new Error('test agent run timed out after 120s'))
+      })
     }, 120_000)
 
     const reader = createInterface({ input: child.stdout!, crlfDelay: Infinity })
@@ -343,32 +386,33 @@ export async function testCustomAgent(
     child.stderr!.on('data', (chunk: Buffer) => { stderr += chunk.toString() })
 
     child.on('error', (err) => {
-      clearTimeout(killer)
-      if (record) recordAgentStudioInvocation(record, adapterEvents, 'failed', startedAt)
-      reject(err)
+      settle('failed', () => reject(admission.isCurrent()
+        ? err
+        : new ProcessAdmissionClosedError(opts.record?.projectId)))
     })
 
     child.on('close', (code) => {
-      clearTimeout(killer)
-      const durationMs = Date.now() - started
-      const failedHard = !truncated && code !== 0 && !collected
-      if (record) {
-        const status: InvocationStatus = truncated ? 'aborted' : failedHard ? 'failed' : 'success'
-        recordAgentStudioInvocation(record, adapterEvents, status, startedAt)
-      }
-      if (failedHard) {
-        reject(new Error(`claude exited with code ${code}${stderr ? `: ${stderr.slice(-500)}` : ''}`))
+      if (!admission.isCurrent()) {
+        settle('aborted', () => reject(new ProcessAdmissionClosedError(opts.record?.projectId)))
         return
       }
-      resolve({
-        output: truncated
-          ? collected + `\n\n[… output truncated after reaching ${tokenCeiling}-token ceiling]`
-          : collected,
-        tokens: runningTotalTokens(),
-        durationMs,
-        draftHash,
+      const durationMs = Date.now() - started
+      const failedHard = !truncated && code !== 0 && !collected
+      const status: InvocationStatus = truncated ? 'aborted' : failedHard ? 'failed' : 'success'
+      settle(status, () => {
+        if (failedHard) {
+          reject(new Error(`claude exited with code ${code}${stderr ? `: ${stderr.slice(-500)}` : ''}`))
+          return
+        }
+        resolve({
+          output: truncated
+            ? collected + `\n\n[… output truncated after reaching ${tokenCeiling}-token ceiling]`
+            : collected,
+          tokens: runningTotalTokens(),
+          durationMs,
+          draftHash,
+        })
       })
     })
   })
 }
-

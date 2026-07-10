@@ -1,8 +1,13 @@
 import { describe, expect, it, afterEach } from 'vitest'
+import { EventEmitter } from 'events'
+import type { ChildProcess } from 'child_process'
 import {
   applyHeadroomEnvForBinary,
+  headroomRoutedChildCount,
   providerForBinary,
+  registerHeadroomRoutedChild,
   setHeadroomRoutingState,
+  terminateHeadroomRoutedChildren,
   withHeadroomSpawnEnv,
 } from './headroom-routing'
 
@@ -40,5 +45,50 @@ describe('headroom routing', () => {
     const other = withHeadroomSpawnEnv('gemini', { env: { PATH: '/bin' } })
     expect(other.env?.ANTHROPIC_BASE_URL).toBeUndefined()
     expect(other.env?.OPENAI_BASE_URL).toBeUndefined()
+  })
+
+  it('routes providers through the stable desktop relay without a bare-port bypass', () => {
+    setHeadroomRoutingState({
+      port: 4200,
+      relayBaseUrl: 'http://127.0.0.1:4200/_specrails/headroom',
+      activeProviders: { codex: true, claude: true },
+    })
+
+    const codex = applyHeadroomEnvForBinary('codex', {})
+    const claude = applyHeadroomEnvForBinary('claude', {})
+
+    expect(codex.OPENAI_BASE_URL).toBe('http://127.0.0.1:4200/_specrails/headroom/v1')
+    expect(claude.ANTHROPIC_BASE_URL).toBe('http://127.0.0.1:4200/_specrails/headroom')
+    expect(codex.HEADROOM_PORT).toBeUndefined()
+    expect(claude.HEADROOM_PORT).toBeUndefined()
+
+    const inherited = applyHeadroomEnvForBinary('codex', { HEADROOM_PORT: '8787' })
+    expect(inherited.HEADROOM_PORT).toBeUndefined()
+  })
+
+  it('keeps routed-child leases until close and drains them before endpoint release', async () => {
+    setHeadroomRoutingState({
+      port: 4200,
+      relayBaseUrl: 'http://127.0.0.1:4200/_specrails/headroom',
+      activeProviders: { codex: true },
+    })
+    const child = new EventEmitter() as ChildProcess
+    Object.assign(child, {
+      pid: undefined,
+      exitCode: null,
+      signalCode: null,
+      kill: (signal: NodeJS.Signals) => {
+        Object.assign(child, { signalCode: signal })
+        child.emit('close', null, signal)
+        return true
+      },
+    })
+    const env = applyHeadroomEnvForBinary('codex', {})
+
+    registerHeadroomRoutedChild('codex', env, child)
+    expect(headroomRoutedChildCount()).toBe(1)
+
+    await terminateHeadroomRoutedChildren()
+    expect(headroomRoutedChildCount()).toBe(0)
   })
 })

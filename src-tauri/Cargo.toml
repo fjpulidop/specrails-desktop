@@ -32,6 +32,12 @@ serde_json = "1"
 reqwest = { version = "0.12", features = ["blocking"] }
 dirs-next = "2"
 
+# wayland-scanner 0.31.10 still pins vulnerable quick-xml 0.39.x. Upstream has
+# landed the audited 0.41 bump but has not published a replacement crate yet.
+# Pin the exact security-fix revision until the next crates.io release.
+[patch.crates-io]
+wayland-scanner = { git = "https://github.com/Smithay/wayland-rs.git", rev = "d07c4f91f28b42e5a485823ffd9d8d5a210b1053" }
+
 [profile.release]
 panic = "abort"
 codegen-units = 1

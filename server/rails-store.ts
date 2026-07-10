@@ -166,9 +166,133 @@ export function setRailTickets(
     for (let i = 0; i < ticketIds.length; i++) {
       insertStmt.run(railIndex, ticketIds[i], i, resolvedMode, resolvedProfile, resolvedEngine)
     }
+    if (ticketIds.length === 0) {
+      db.prepare('DELETE FROM rail_ticket_ownership WHERE rail_index = ?').run(railIndex)
+    } else {
+      const placeholders = ticketIds.map(() => '?').join(', ')
+      db.prepare(
+        `DELETE FROM rail_ticket_ownership
+          WHERE rail_index = ? AND ticket_id NOT IN (${placeholders})`
+      ).run(railIndex, ...ticketIds)
+    }
   })()
 
   return { railIndex, ticketIds, mode: resolvedMode, profileName: resolvedProfile, aiEngine: resolvedEngine }
+}
+
+/** Claim the exact rail assignments for a concrete launch. Relaunching the
+ * same ticket advances its generation and replaces owner_id, so a delayed
+ * terminal replay from an older job/run cannot remove the new assignment. */
+export function claimRailTickets(
+  db: DbInstance,
+  railIndex: number,
+  ticketIds: readonly number[],
+  ownerId: string,
+): void {
+  const claim = db.prepare(`
+    INSERT INTO rail_ticket_ownership (
+      rail_index, ticket_id, owner_id, generation, claimed_at
+    ) VALUES (?, ?, ?, 1, datetime('now'))
+    ON CONFLICT(rail_index, ticket_id) DO UPDATE SET
+      owner_id = excluded.owner_id,
+      generation = rail_ticket_ownership.generation + 1,
+      claimed_at = excluded.claimed_at
+  `)
+  db.transaction(() => {
+    for (const ticketId of [...new Set(ticketIds)]) {
+      claim.run(railIndex, ticketId, ownerId)
+    }
+  })()
+}
+
+/** Project-wide causal owner for ticket terminal effects. Unlike the JSON
+ * applied-effect marker, this claim participates in the same SQLite commit as
+ * queue/loop admission, so a hard crash cannot create a ghost filesystem owner
+ * or admit work without ownership. */
+export function claimTicketOutcomeOwners(
+  db: DbInstance,
+  ticketIds: readonly number[],
+  ownerId: string,
+): void {
+  const claim = db.prepare(`
+    INSERT INTO ticket_outcome_ownership (
+      ticket_id, owner_id, generation, claimed_at
+    ) VALUES (?, ?, 1, datetime('now'))
+    ON CONFLICT(ticket_id) DO UPDATE SET
+      owner_id = excluded.owner_id,
+      generation = ticket_outcome_ownership.generation + 1,
+      claimed_at = excluded.claimed_at
+  `)
+  for (const ticketId of [...new Set(ticketIds)]) claim.run(ticketId, ownerId)
+}
+
+export function ticketOutcomeOwner(db: DbInstance, ticketId: number): string | null {
+  try {
+    const row = db.prepare(`
+      SELECT owner_id FROM ticket_outcome_ownership WHERE ticket_id = ?
+    `).get(ticketId) as { owner_id: string } | undefined
+    return row?.owner_id ?? null
+  } catch (err) {
+    // Compatibility only for isolated pre-migration schemas. Every other DB
+    // error must fail closed; treating corruption/closed handles as "legacy"
+    // would authorize a stale callback.
+    if (String((err as Error)?.message ?? err).includes('no such table: ticket_outcome_ownership')) {
+      return null
+    }
+    throw err
+  }
+}
+
+export interface ReleasedRailTickets {
+  rail: RailState
+  releasedTicketIds: number[]
+}
+
+/** Release only assignments still owned by `ownerId`. `allowUnowned` exists
+ * solely for pre-migration live/recovery rows; new launches always claim and
+ * therefore fail closed when another generation has taken ownership. */
+export function releaseRailTicketsOwnedBy(
+  db: DbInstance,
+  ownerId: string,
+  ticketIds: readonly number[],
+  opts?: { railIndex?: number | null; allowUnowned?: boolean },
+): ReleasedRailTickets[] {
+  const wanted = new Set(ticketIds)
+  if (wanted.size === 0) return []
+  const rails = opts?.railIndex == null ? getRails(db) : [getRail(db, opts.railIndex)]
+  const released: ReleasedRailTickets[] = []
+  db.transaction(() => {
+    for (const rail of rails) {
+      const removed: number[] = []
+      for (const ticketId of rail.ticketIds) {
+        if (!wanted.has(ticketId)) continue
+        const claim = db.prepare(`
+          SELECT owner_id FROM rail_ticket_ownership
+           WHERE rail_index = ? AND ticket_id = ?
+        `).get(rail.railIndex, ticketId) as { owner_id: string } | undefined
+        if (claim?.owner_id === ownerId || (!claim && opts?.allowUnowned === true)) {
+          removed.push(ticketId)
+        }
+      }
+      if (removed.length === 0) continue
+      const remaining = rail.ticketIds.filter((id) => !removed.includes(id))
+      const next = setRailTickets(
+        db,
+        rail.railIndex,
+        remaining,
+        rail.mode,
+        rail.profileName,
+        rail.aiEngine,
+      )
+      db.prepare(`
+        DELETE FROM rail_ticket_ownership
+         WHERE rail_index = ? AND owner_id = ?
+           AND ticket_id IN (${removed.map(() => '?').join(', ')})
+      `).run(rail.railIndex, ownerId, ...removed)
+      released.push({ rail: { ...next, name: rail.name }, releasedTicketIds: removed })
+    }
+  })()
+  return released
 }
 
 /**
@@ -229,14 +353,15 @@ export function createRail(db: DbInstance, name?: string | null): RailState {
 }
 
 /**
- * Delete a rail's identity + ticket rows. Pure mechanism — the router enforces
- * the guards (rail exists, empty, idle, no pending PR decision, not the last
- * rail). Deleting a middle rail leaves a sparse index gap on purpose: indices
+ * Delete a rail's identity + ticket assignments atomically. Pure mechanism —
+ * the router enforces the guards (rail exists, idle, no pending PR decision,
+ * not the last rail) before calling it. Deleting a middle rail leaves a sparse index gap on purpose: indices
  * are IDENTITY (metrics / pr-deliveries / worktree maps key by railIndex), so
  * they are never compacted/re-numbered.
  */
 export function deleteRail(db: DbInstance, railIndex: number): void {
   db.transaction(() => {
+    db.prepare('DELETE FROM rail_ticket_ownership WHERE rail_index = ?').run(railIndex)
     db.prepare('DELETE FROM rail_meta WHERE rail_index = ?').run(railIndex)
     db.prepare('DELETE FROM rails WHERE rail_index = ?').run(railIndex)
   })()

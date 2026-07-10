@@ -18,6 +18,10 @@ vi.mock('tree-kill', () => ({ default: vi.fn() }))
 vi.mock('child_process', () => ({ spawn: vi.fn() }))
 import treeKill from 'tree-kill'
 import { spawn } from 'child_process'
+import {
+  beginProjectProcessQuiescence,
+  resetProcessAdmissionForTests,
+} from './process-admission'
 
 function fakeChild(pid: number | undefined): any {
   const ee = new EventEmitter() as any
@@ -36,6 +40,28 @@ describe('transient-children', () => {
 
   afterEach(() => {
     vi.useRealTimers()
+    resetProcessAdmissionForTests()
+  })
+
+  it('rejects new project processes after teardown admission closes', () => {
+    beginProjectProcessQuiescence('closed-project')
+
+    expect(() => startBackgroundProcess(
+      'npm run dev',
+      '/repo',
+      'chat-1',
+      'closed-project',
+    )).toThrow(/closed for project closed-project/)
+    expect(spawn).not.toHaveBeenCalled()
+  })
+
+  it('kills a child that reaches registration after its project closed', () => {
+    const child = fakeChild(1099)
+    beginProjectProcessQuiescence('closed-project')
+
+    expect(() => trackTransientChild('closed-project', child))
+      .toThrow(/closed for project closed-project/)
+    expect(treeKill).toHaveBeenCalledWith(1099, 'SIGTERM', expect.any(Function))
   })
 
   it('tree-kills tracked children on killTransientChildren', () => {

@@ -12,17 +12,21 @@ import type { PrDecisionCardEnvelope, RailPrStateMessage } from './types'
 import { newId } from './ids'
 
 /**
- * building → on_review → pr_draft → pr_ready → merged, with discarded reachable
- * from every non-terminal state. `pr_failed` is the retryable create-PR failure;
- * `implementation_failed` is the pre-delivery job/loop failure state.
+ * `decision` is the user/action lifecycle only. Execution truth and delivery
+ * readiness are deliberately orthogonal columns below: a successful agent run
+ * can have a blocked commit/ref stage, and an open PR can be unchanged.
  */
 export type PrDecision =
   | 'building'
   | 'on_review'
+  | 'no_changes'
   | 'pr_draft'
   | 'pr_ready'
+  | 'pr_closed'
+  | 'completed'
   | 'merged'
   | 'discarded'
+  | 'superseded'
   | 'implementation_failed'
   | 'pr_failed'
 
@@ -32,22 +36,78 @@ export type PrDeliveryState = 'none' | 'local-only' | 'pushed' | 'pr-created'
 /** Which surface launched the rail; `agent-chat` rows carry an origin_conversation_id. */
 export type PrOriginSurface = 'dashboard' | 'agent-chat'
 
+/** The engine's immutable aggregate result — never derived from Git delivery. */
+export type PrImplementationOutcome =
+  | 'running'
+  | 'succeeded'
+  | 'partially_succeeded'
+  | 'failed'
+  | 'unknown'
+
+/** How far the verified result can safely progress through delivery. */
+export type PrDeliveryOutcome =
+  | 'pending'
+  | 'ready'
+  | 'delivered'
+  | 'partial'
+  | 'no_changes'
+  | 'retryable_failure'
+  | 'blocked'
+  | 'not_started'
+  | 'unknown'
+
+/** Stable machine reason; clients localize these rather than raw git stderr. */
+export type PrDeliveryStatusCode =
+  | 'implementation_running'
+  | 'implementation_failed'
+  | 'ready_for_review'
+  | 'partial_success'
+  | 'partial_delivery'
+  | 'existing_pr_updated'
+  | 'no_changes'
+  | 'commit_failed'
+  | 'branch_verification_failed'
+  | 'push_failed'
+  | 'settlement_interrupted'
+  | 'operation_interrupted'
+  | 'delivery_failed'
+  | 'pr_draft_ready'
+  | 'pr_ready'
+  | 'pr_closed'
+  | 'merged'
+  | 'discarded'
+  | 'superseded'
+  | 'cleanup_incomplete'
+
+export type PrDecisionOperation = 'create-pr' | 'publish' | 'discard' | 'dismiss' | 'poll-merge' | 'reopen' | 'merge-local' | 'acknowledge-no-changes'
+
 /** Per-unit branch record captured at build-settle (mirrors rail-pr-delivery's DeliverBranch). */
 export interface DeliverBranchRecord {
   ticketId: number
   branch: string
+  /** Legacy delivery-eligibility bit retained for older decision code/wire consumers. */
   succeeded: boolean
+  runId?: string
+  implementationOutcome?: 'succeeded' | 'failed'
+  deliveryOutcome?: 'ready' | 'no_changes' | 'blocked' | 'not_started'
+  initialSha?: string | null
+  finalSha?: string | null
+  changed?: boolean
+  failureCode?: PrDeliveryStatusCode | null
+  branchOwnership?: 'created' | 'preexisting' | 'borrowed-pr'
 }
 
 /** States after which the delivery is closed (no further decision possible). */
-export const TERMINAL_PR_DECISIONS: ReadonlySet<PrDecision> = new Set(['merged', 'discarded'])
+export const TERMINAL_PR_DECISIONS: ReadonlySet<PrDecision> = new Set(['completed', 'merged', 'discarded', 'superseded'])
 
 /** States in which the delivery still awaits (or is executing) a user decision. */
 export const ACTIVE_PR_DECISIONS: ReadonlySet<PrDecision> = new Set([
   'building',
   'on_review',
+  'no_changes',
   'pr_draft',
   'pr_ready',
+  'pr_closed',
   'implementation_failed',
   'pr_failed',
 ])
@@ -70,6 +130,19 @@ export interface RailPrDeliveryRow {
   pr_number: number | null
   pr_state: PrDeliveryState
   decision: PrDecision
+  implementation_outcome: PrImplementationOutcome
+  delivery_outcome: PrDeliveryOutcome
+  status_code: PrDeliveryStatusCode | null
+  status_detail: string | null
+  /** Exact verified object used for continuation push/retry. */
+  delivery_sha: string | null
+  is_continuation: number
+  supersedes_delivery_id: string | null
+  operation: PrDecisionOperation | null
+  operation_token: string | null
+  operation_started_at_ms: number | null
+  /** JSON string[] — bounded best-effort cleanup diagnostics. */
+  cleanup_warnings: string
   /** JSON DeliverBranchRecord[] — per-unit source branches captured at settle. */
   branches: string
   loop_name: string
@@ -96,6 +169,8 @@ export interface CreatePrDeliveryInput {
   loopName: string
   originSurface: PrOriginSurface
   originConversationId?: string | null
+  isContinuation?: boolean
+  supersedesDeliveryId?: string | null
 }
 
 /**
@@ -108,8 +183,11 @@ export function createPrDelivery(db: DbInstance, input: CreatePrDeliveryInput): 
   db.prepare(
     `INSERT INTO rail_pr_deliveries (
        id, rail_index, loop_id, rail_key, ticket_ids, base_branch,
-       loop_name, origin_surface, origin_conversation_id
-     ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`
+       loop_name, origin_surface, origin_conversation_id,
+       implementation_outcome, delivery_outcome, status_code,
+       is_continuation, supersedes_delivery_id
+     ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'running', 'pending',
+       'implementation_running', ?, ?)`
   ).run(
     id,
     input.railIndex,
@@ -119,9 +197,98 @@ export function createPrDelivery(db: DbInstance, input: CreatePrDeliveryInput): 
     input.baseBranch,
     input.loopName,
     input.originSurface,
-    input.originConversationId ?? null
+    input.originConversationId ?? null,
+    input.isContinuation ? 1 : 0,
+    input.supersedesDeliveryId ?? null,
   )
   return getPrDelivery(db, id)!
+}
+
+export class PrDeliveryGenerationConflict extends Error {
+  readonly code = 'PR_DELIVERY_GENERATION_CONFLICT'
+
+  constructor(readonly currentId: string | null) {
+    super(currentId
+      ? `rail already has active PR delivery ${currentId}`
+      : 'expected active PR delivery is no longer current')
+    this.name = 'PrDeliveryGenerationConflict'
+  }
+}
+
+export interface SupersededPrDelivery {
+  id: string
+  decision: PrDecision
+  statusCode: PrDeliveryStatusCode | null
+}
+
+/** Recheck admission and, for a continuation, replace the prior generation in
+ * one SQLite transaction. The partial unique index is therefore an invariant,
+ * not merely a router convention. Pass null for a genuinely fresh launch. */
+export function createPrDeliveryGeneration(
+  db: DbInstance,
+  input: CreatePrDeliveryInput,
+  expectedActive: { id: string; decision: PrDecision } | null,
+): { delivery: RailPrDeliveryRow; superseded: SupersededPrDelivery | null } {
+  return db.transaction(() => {
+    const current = getActivePrDeliveryByRail(db, input.railIndex)
+    if (expectedActive === null) {
+      if (current) throw new PrDeliveryGenerationConflict(current.id)
+      return { delivery: createPrDelivery(db, input), superseded: null }
+    }
+    if (
+      !current || current.id !== expectedActive.id || current.decision !== expectedActive.decision ||
+      current.operation_token !== null
+    ) {
+      throw new PrDeliveryGenerationConflict(current?.id ?? null)
+    }
+    const previous: SupersededPrDelivery = {
+      id: current.id,
+      decision: current.decision,
+      statusCode: current.status_code,
+    }
+    const moved = db.prepare(`
+      UPDATE rail_pr_deliveries
+         SET decision = 'superseded', updated_at = datetime('now')
+       WHERE id = ? AND decision = ? AND operation_token IS NULL
+    `).run(current.id, current.decision)
+    if (moved.changes !== 1) throw new PrDeliveryGenerationConflict(current.id)
+    const delivery = createPrDelivery(db, {
+      ...input,
+      // An expected active generation can be replaced either by a verified
+      // continuation or by a fresh lineage after its recorded PR went stale.
+      // Persist the caller's ownership decision in this same transaction so a
+      // crash cannot expose a fresh branch as a borrowed continuation branch.
+      isContinuation: input.isContinuation ?? true,
+      supersedesDeliveryId: current.id,
+    })
+    return { delivery, superseded: previous }
+  })()
+}
+
+/** Allocation failed after a continuation generation replaced its predecessor:
+ * close the failed generation first (freeing the unique slot), then restore the
+ * exact prior decision/status. A stale/raced row leaves both untouched. */
+export function failPrDeliveryAndRestoreSuperseded(
+  db: DbInstance,
+  failedId: string,
+  previous: SupersededPrDelivery,
+): boolean {
+  return db.transaction(() => {
+    const failed = db.prepare(`
+      UPDATE rail_pr_deliveries
+         SET decision = 'discarded', status_code = 'delivery_failed',
+             delivery_outcome = 'blocked', updated_at = datetime('now')
+       WHERE id = ? AND decision = 'building'
+    `).run(failedId)
+    if (failed.changes !== 1) return false
+    const restored = db.prepare(`
+      UPDATE rail_pr_deliveries
+         SET decision = ?, status_code = ?, updated_at = datetime('now')
+       WHERE id = ? AND decision = 'superseded'
+    `).run(previous.decision, previous.statusCode, previous.id)
+    if (restored.changes !== 1) throw new Error(`failed to restore superseded delivery ${previous.id}`)
+    return true
+  })()
 }
 
 export function getPrDelivery(db: DbInstance, id: string): RailPrDeliveryRow | undefined {
@@ -137,7 +304,7 @@ export function getActivePrDeliveryByRail(db: DbInstance, railIndex: number): Ra
   return db
     .prepare(
       `SELECT * FROM rail_pr_deliveries
-       WHERE rail_index = ? AND decision NOT IN ('merged','discarded')
+       WHERE rail_index = ? AND decision NOT IN ('completed','merged','discarded','superseded')
        ORDER BY created_at DESC, rowid DESC LIMIT 1`
     )
     .get(railIndex) as RailPrDeliveryRow | undefined
@@ -148,19 +315,34 @@ export function listActivePrDeliveries(db: DbInstance): RailPrDeliveryRow[] {
   return db
     .prepare(
       `SELECT * FROM rail_pr_deliveries
-       WHERE decision NOT IN ('merged','discarded')
+       WHERE decision NOT IN ('completed','merged','discarded','superseded')
        ORDER BY rail_index, created_at DESC, rowid DESC`
     )
     .all() as RailPrDeliveryRow[]
 }
 
+/** Startup projection source for persisted Agent cards. Terminal rows matter:
+ * a process may die after their SQLite transition but before the conversation
+ * envelope update, leaving an obsolete actionable card pinned forever. */
+export function listOriginLinkedPrDeliveries(db: DbInstance): RailPrDeliveryRow[] {
+  return db.prepare(`
+    SELECT * FROM rail_pr_deliveries
+     WHERE origin_conversation_id IS NOT NULL
+     ORDER BY created_at ASC, rowid ASC
+  `).all() as RailPrDeliveryRow[]
+}
+
 /**
- * Recover implementation cards stranded at `building` after the loop process
- * already settled all associated run ids without a success. This covers server
- * restarts and the settle gap where loop_runs/worktrees mark failure but the
- * PR-delivery row never receives its final card state.
+ * Recover cards stranded between engine completion and delivery settlement.
+ * Callers wait for every known run to finish; startup may additionally close
+ * impossible empty/incomplete generations from the prior process. Hydration
+ * never invokes this reconciler. Successful/uncertain work is NEVER called an
+ * implementation failure and this data-only pass never removes a worktree.
  */
-export function reconcileFailedBuildingPrDeliveries(db: DbInstance): RailPrDeliveryRow[] {
+export function reconcileFailedBuildingPrDeliveries(
+  db: DbInstance,
+  opts: { startup?: boolean } = {},
+): RailPrDeliveryRow[] {
   const rows = db
     .prepare(`SELECT * FROM rail_pr_deliveries WHERE decision = 'building' ORDER BY created_at ASC, rowid ASC`)
     .all() as RailPrDeliveryRow[]
@@ -168,17 +350,100 @@ export function reconcileFailedBuildingPrDeliveries(db: DbInstance): RailPrDeliv
 
   for (const row of rows) {
     const runIds = parseJsonArray<string>(row.run_ids ?? '[]')
-    if (runIds.length === 0) continue
+    if (runIds.length === 0) {
+      if (!opts.startup) continue
+      if (transitionDecision(db, row.id, 'building', 'pr_failed', {
+        implementationOutcome: 'unknown',
+        deliveryOutcome: 'blocked',
+        statusCode: 'settlement_interrupted',
+        statusDetail: 'The prior process stopped before run allocation became durable.',
+      })) {
+        const updated = getPrDelivery(db, row.id)
+        if (updated) reconciled.push(updated)
+      }
+      continue
+    }
     const uniqueRunIds = [...new Set(runIds)]
     const placeholders = uniqueRunIds.map(() => '?').join(',')
     const runs = db
       .prepare(`SELECT id, status, final_outcome FROM loop_runs WHERE id IN (${placeholders})`)
       .all(...uniqueRunIds) as Array<{ id: string; status: string; final_outcome: string | null }>
-    if (runs.length !== uniqueRunIds.length) continue
-    if (runs.some((run) => run.status !== 'completed')) continue
-    if (runs.some((run) => run.final_outcome === 'success')) continue
+    if (runs.length !== uniqueRunIds.length || runs.some((run) => run.status !== 'completed')) {
+      if (!opts.startup) continue
+      if (transitionDecision(db, row.id, 'building', 'pr_failed', {
+        implementationOutcome: 'unknown',
+        deliveryOutcome: 'blocked',
+        statusCode: 'settlement_interrupted',
+        statusDetail: 'The prior process stopped before every implementation unit settled.',
+      })) {
+        const updated = getPrDelivery(db, row.id)
+        if (updated) reconciled.push(updated)
+      }
+      continue
+    }
 
-    if (transitionDecision(db, row.id, 'building', 'implementation_failed')) {
+    const successfulRunIds = new Set(runs.filter((run) => run.final_outcome === 'success').map((run) => run.id))
+    if (successfulRunIds.size === 0) {
+      if (transitionDecision(db, row.id, 'building', 'implementation_failed', {
+        implementationOutcome: 'failed',
+        deliveryOutcome: 'not_started',
+        statusCode: 'implementation_failed',
+      })) {
+        const updated = getPrDelivery(db, row.id)
+        if (updated) reconciled.push(updated)
+      }
+      continue
+    }
+
+    const placeholdersForWorktrees = uniqueRunIds.map(() => '?').join(',')
+    const worktrees = db.prepare(`
+      SELECT id, ticket_id, run_id, branch, merge_state
+        FROM rail_worktrees
+       WHERE run_id IN (${placeholdersForWorktrees})
+       ORDER BY created_at ASC, rowid ASC
+    `).all(...uniqueRunIds) as Array<{
+      id: string
+      ticket_id: number
+      run_id: string | null
+      branch: string
+      merge_state: string
+    }>
+    const reconstructed = worktrees.map((worktree): DeliverBranchRecord => {
+      const implementationSucceeded = worktree.run_id != null && successfulRunIds.has(worktree.run_id)
+      const deliveryReady = implementationSucceeded && ['built', 'released'].includes(worktree.merge_state)
+      return {
+        ticketId: worktree.ticket_id,
+        branch: worktree.branch,
+        succeeded: deliveryReady,
+        ...(worktree.run_id ? { runId: worktree.run_id } : {}),
+        implementationOutcome: implementationSucceeded ? 'succeeded' : 'failed',
+        deliveryOutcome: deliveryReady ? 'ready' : implementationSucceeded ? 'blocked' : 'not_started',
+        changed: deliveryReady,
+        ...(!deliveryReady && implementationSucceeded ? { failureCode: 'settlement_interrupted' as const } : {}),
+      }
+    })
+    const readyCount = reconstructed.filter((unit) => unit.succeeded).length
+    const implementationOutcome: PrImplementationOutcome = successfulRunIds.size === runs.length
+      ? 'succeeded'
+      : 'partially_succeeded'
+    const canResumeFreshReview = row.is_continuation !== 1 && readyCount > 0
+    const next: PrDecision = canResumeFreshReview ? 'on_review' : 'pr_failed'
+    const deliveryOutcome: PrDeliveryOutcome = canResumeFreshReview
+      ? (implementationOutcome === 'partially_succeeded' ? 'partial' : 'ready')
+      : 'blocked'
+    const statusCode: PrDeliveryStatusCode = canResumeFreshReview
+      ? (implementationOutcome === 'partially_succeeded' ? 'partial_success' : 'ready_for_review')
+      : 'settlement_interrupted'
+    if (transitionDecision(db, row.id, 'building', next, {
+      implementationOutcome,
+      deliveryOutcome,
+      statusCode,
+      statusDetail: canResumeFreshReview
+        ? 'Recovered committed implementation branches after an interrupted settlement.'
+        : 'Implementation completed, but delivery settlement was interrupted before an exact deliverable could be proven.',
+      ...(reconstructed.length > 0 ? { branches: reconstructed } : {}),
+      ...(worktrees.length > 0 ? { worktreeIds: worktrees.map((worktree) => worktree.id) } : {}),
+    })) {
       const updated = getPrDelivery(db, row.id)
       if (updated) reconciled.push(updated)
     }
@@ -196,6 +461,17 @@ export interface PrDeliveryPatch {
   branches?: DeliverBranchRecord[]
   worktreeIds?: string[]
   runIds?: string[]
+  implementationOutcome?: PrImplementationOutcome
+  deliveryOutcome?: PrDeliveryOutcome
+  statusCode?: PrDeliveryStatusCode | null
+  statusDetail?: string | null
+  deliverySha?: string | null
+  isContinuation?: boolean
+  supersedesDeliveryId?: string | null
+  operation?: PrDecisionOperation | null
+  operationToken?: string | null
+  operationStartedAtMs?: number | null
+  cleanupWarnings?: string[]
 }
 
 // Column allow-list — patch keys are interpolated into the SET clause, so gate
@@ -209,12 +485,38 @@ const PATCH_COLUMNS: Record<keyof PrDeliveryPatch, string> = {
   branches: 'branches',
   worktreeIds: 'worktree_ids',
   runIds: 'run_ids',
+  implementationOutcome: 'implementation_outcome',
+  deliveryOutcome: 'delivery_outcome',
+  statusCode: 'status_code',
+  statusDetail: 'status_detail',
+  deliverySha: 'delivery_sha',
+  isContinuation: 'is_continuation',
+  supersedesDeliveryId: 'supersedes_delivery_id',
+  operation: 'operation',
+  operationToken: 'operation_token',
+  operationStartedAtMs: 'operation_started_at_ms',
+  cleanupWarnings: 'cleanup_warnings',
 }
 
 function patchValue(key: keyof PrDeliveryPatch, patch: PrDeliveryPatch): string | number | null {
   const raw = patch[key]
   if (key === 'branches' || key === 'worktreeIds' || key === 'runIds') return JSON.stringify(raw)
+  if (key === 'cleanupWarnings') return JSON.stringify(boundCleanupWarnings(raw as string[]))
+  if (key === 'statusDetail') return raw == null ? null : boundPrDiagnostic(String(raw))
+  if (key === 'isContinuation') return raw ? 1 : 0
   return raw as string | number | null
+}
+
+/** Bounded, single-line diagnostics are safe to persist/broadcast as secondary
+ * detail. Primary UI copy always derives from status_code. */
+export function boundPrDiagnostic(value: string, maxLength = 512): string {
+  return value.replace(/[\r\n\t\0]+/g, ' ').replace(/\s{2,}/g, ' ').trim().slice(0, maxLength)
+}
+
+/** Cleanup is best-effort; retain enough unique warnings to be honest without
+ * allowing unbounded command output to inflate every snapshot. */
+export function boundCleanupWarnings(values: readonly string[]): string[] {
+  return [...new Set(values.map((value) => boundPrDiagnostic(value)).filter(Boolean))].slice(0, 8)
 }
 
 /**
@@ -246,6 +548,88 @@ export function transitionDecision(
   )
 }
 
+/** Complete a decision transition only while the caller still owns the lease it
+ * claimed before external effects. A reclaimed stale lease invalidates the old
+ * worker's final CAS, so it cannot overwrite the newer owner's authoritative
+ * state after eventually returning. */
+export function transitionClaimedDecision(
+  db: DbInstance,
+  id: string,
+  expected: PrDecision,
+  next: PrDecision,
+  operationToken: string,
+  patch: PrDeliveryPatch = {},
+): boolean {
+  if (!operationToken) return false
+  const keys = (Object.keys(patch) as (keyof PrDeliveryPatch)[]).filter((key) => patch[key] !== undefined)
+  const patchClause = keys.map((key) => `, ${PATCH_COLUMNS[key]} = ?`).join('')
+  const values = keys.map((key) => patchValue(key, patch))
+  return db.prepare(`
+    UPDATE rail_pr_deliveries
+       SET decision = ?, updated_at = datetime('now')${patchClause}
+     WHERE id = ? AND decision = ? AND operation_token = ?
+  `).run(next, ...values, id, expected, operationToken).changes > 0
+}
+
+/** Decision-side Git/GitHub effects must be claimed BEFORE they start. The
+ * stale lease is reclaimable after a dead process; a live loser performs zero
+ * external work. `expected` remains the visible decision throughout the effect
+ * so the final decision transition keeps its existing CAS contract. */
+export function claimPrDeliveryOperation(
+  db: DbInstance,
+  id: string,
+  expected: PrDecision,
+  operation: PrDecisionOperation,
+  token: string,
+  nowMs = Date.now(),
+  leaseMs = 30 * 60 * 1000,
+): boolean {
+  if (!token) return false
+  const staleBefore = nowMs - Math.max(1, leaseMs)
+  return db.prepare(`
+    UPDATE rail_pr_deliveries
+       SET operation = ?, operation_token = ?, operation_started_at_ms = ?,
+           updated_at = datetime('now')
+     WHERE id = ? AND decision = ?
+       AND (operation_token IS NULL OR operation_started_at_ms IS NULL OR operation_started_at_ms < ?)
+  `).run(operation, token, nowMs, id, expected, staleBefore).changes > 0
+}
+
+/** Release only the caller's lease. Works after a successful decision change,
+ * too, so a handler can use one `finally` without racing a newer operation. */
+export function releasePrDeliveryOperation(db: DbInstance, id: string, token: string): boolean {
+  return db.prepare(`
+    UPDATE rail_pr_deliveries
+       SET operation = NULL, operation_token = NULL, operation_started_at_ms = NULL,
+           updated_at = datetime('now')
+     WHERE id = ? AND operation_token = ?
+  `).run(id, token).changes > 0
+}
+
+/** A process restart proves every persisted decision lease is orphaned: tokens
+ * are process-local capabilities and no prior worker can still complete inside
+ * this process. Clear them while startup admission is closed so reprojected
+ * cards never remain permanently disabled as "Publishing…"/"Discarding…". */
+export function clearOrphanedPrDeliveryOperations(db: DbInstance): number {
+  return db.prepare(`
+    UPDATE rail_pr_deliveries
+       SET operation = NULL, operation_token = NULL, operation_started_at_ms = NULL,
+           status_code = CASE
+             WHEN decision NOT IN ('completed','merged','discarded','superseded')
+             THEN 'operation_interrupted'
+             ELSE status_code
+           END,
+           status_detail = CASE
+             WHEN decision NOT IN ('completed','merged','discarded','superseded')
+              AND (status_detail IS NULL OR status_detail = '')
+             THEN 'A previous delivery action was interrupted by restart. Its durable evidence was preserved; review the current state and retry.'
+             ELSE status_detail
+           END,
+           updated_at = datetime('now')
+     WHERE operation IS NOT NULL OR operation_token IS NOT NULL OR operation_started_at_ms IS NOT NULL
+  `).run().changes
+}
+
 /**
  * The camelCase wire shape of a delivery row (JSON arrays parsed) — what the
  * rail.pr_state broadcast and the GET /rails prDeliveries record carry.
@@ -262,7 +646,18 @@ export interface PrDeliverySnapshot {
   prNumber: number | null
   prState: PrDeliveryState
   decision: PrDecision
+  implementationOutcome: PrImplementationOutcome
+  deliveryOutcome: PrDeliveryOutcome
+  statusCode: PrDeliveryStatusCode | null
+  statusDetail: string | null
+  deliverySha: string | null
+  isContinuation: boolean
+  supersedesDeliveryId: string | null
+  operation: PrDecisionOperation | null
+  cleanupWarnings: string[]
   branches: DeliverBranchRecord[]
+  /** Alias used by cards; branches remains for backward-compatible APIs. */
+  units: DeliverBranchRecord[]
   loopName: string
   worktreeIds: string[]
   /** The launch's loop-run ids, in ticket order (per-run log link + vitals). */
@@ -283,6 +678,7 @@ function parseJsonArray<T>(raw: string): T[] {
 }
 
 export function toPrDeliverySnapshot(row: RailPrDeliveryRow): PrDeliverySnapshot {
+  const units = parseJsonArray<DeliverBranchRecord>(row.branches)
   return {
     id: row.id,
     railIndex: row.rail_index,
@@ -295,7 +691,17 @@ export function toPrDeliverySnapshot(row: RailPrDeliveryRow): PrDeliverySnapshot
     prNumber: row.pr_number,
     prState: row.pr_state,
     decision: row.decision,
-    branches: parseJsonArray<DeliverBranchRecord>(row.branches),
+    implementationOutcome: row.implementation_outcome ?? 'unknown',
+    deliveryOutcome: row.delivery_outcome ?? 'unknown',
+    statusCode: row.status_code ?? null,
+    statusDetail: row.status_detail ?? null,
+    deliverySha: row.delivery_sha ?? null,
+    isContinuation: row.is_continuation === 1,
+    supersedesDeliveryId: row.supersedes_delivery_id ?? null,
+    operation: row.operation ?? null,
+    cleanupWarnings: parseJsonArray<string>(row.cleanup_warnings ?? '[]'),
+    branches: units,
+    units,
     loopName: row.loop_name,
     worktreeIds: parseJsonArray<string>(row.worktree_ids),
     runIds: parseJsonArray<string>(row.run_ids ?? '[]'),
@@ -326,6 +732,16 @@ export function toRailPrStateMessage(projectId: string, snap: PrDeliverySnapshot
     prNumber: snap.prNumber,
     prState: snap.prState,
     decision: snap.decision,
+    implementationOutcome: snap.implementationOutcome,
+    deliveryOutcome: snap.deliveryOutcome,
+    statusCode: snap.statusCode,
+    statusDetail: snap.statusDetail,
+    deliverySha: snap.deliverySha,
+    isContinuation: snap.isContinuation,
+    supersedesDeliveryId: snap.supersedesDeliveryId,
+    operation: snap.operation,
+    cleanupWarnings: snap.cleanupWarnings,
+    units: snap.units,
     runIds: snap.runIds,
     originConversationId: snap.originConversationId,
   }
@@ -346,6 +762,16 @@ export function toPrDecisionCardEnvelope(projectId: string, snap: PrDeliverySnap
     baseBranch: snap.baseBranch,
     ticketIds: snap.ticketIds,
     decision: snap.decision,
+    implementationOutcome: snap.implementationOutcome,
+    deliveryOutcome: snap.deliveryOutcome,
+    statusCode: snap.statusCode,
+    statusDetail: snap.statusDetail,
+    deliverySha: snap.deliverySha,
+    isContinuation: snap.isContinuation,
+    supersedesDeliveryId: snap.supersedesDeliveryId,
+    operation: snap.operation,
+    cleanupWarnings: snap.cleanupWarnings,
+    units: snap.units,
     prUrl: snap.prUrl,
     prNumber: snap.prNumber,
     prState: snap.prState,

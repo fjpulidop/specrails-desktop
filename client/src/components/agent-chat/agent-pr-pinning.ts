@@ -8,14 +8,16 @@ import {
 // ── PR-decision card pinning (safe-pr-review-flow) ────────────────────────────
 // While a delivery still DEMANDS ATTENTION its card is pinned above the chat
 // composer; once published or terminal it unpins back into chat history.
-// Locked semantics: PINNED while decision ∈ {building, on_review, pr_draft,
-// implementation_failed, pr_failed}; UNPINNED at pr_ready (published), merged,
-// discarded.
+// Locked semantics: PINNED while the card still needs a decision. Published
+// PRs unpin at pr_ready; terminal completed/merged/discarded/superseded cards
+// stay in history. No-change and closed-without-merge still need an action.
 
 export const PINNED_PR_DECISIONS: ReadonlySet<AgentPrDecisionValue> = new Set([
   'building',
   'on_review',
   'pr_draft',
+  'no_changes',
+  'pr_closed',
   'implementation_failed',
   'pr_failed',
 ])

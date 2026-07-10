@@ -22,7 +22,12 @@
 
 import type { ChildProcess, SpawnOptions, StdioOptions } from 'child_process'
 import { spawnCli } from './win-spawn'
-import { withHeadroomSpawnEnv } from '../headroom-routing'
+import {
+  headroomRelayBaseUrlForBinary,
+  registerHeadroomRoutedChild,
+  withHeadroomSpawnEnv,
+} from '../headroom-routing'
+import { assertProcessAdmission } from '../process-admission'
 
 // Per-call (not a frozen module const) so a test can flip the platform with a
 // `process.platform` spy without re-importing this module — which removes a
@@ -39,6 +44,18 @@ const CLAUDE_PROMPT_FLAGS = new Set([
 interface WindowsTransform {
   args: string[]
   stdinPayload: string | null
+}
+
+/**
+ * Codex's configured `model_provider` owns the request URL. Overriding only
+ * `openai_base_url` is therefore insufficient: a user-level custom provider can
+ * keep its own `model_providers.<name>.base_url` and bypass the trusted relay.
+ * Pin the built-in OpenAI provider AND its base URL as the final config values
+ * (later `-c` values win). Callers retain their original args.
+ */
+export function appendCodexHeadroomRelayOverride(args: string[], relayBaseUrl: string): string[] {
+  const value = `openai_base_url=${JSON.stringify(`${relayBaseUrl}/v1`)}`
+  return [...args, '-c', 'model_provider="openai"', '-c', value]
 }
 
 export function transformClaudeArgsForWindows(args: string[]): WindowsTransform {
@@ -150,19 +167,27 @@ export function ensureStdinPipe(stdio: StdioOptions | undefined): StdioOptions {
  * survive. POSIX call is identical to `spawnCli('claude', args, options)`.
  */
 export function spawnClaude(args: string[], options: SpawnOptions = {}): ChildProcess {
+  assertProcessAdmission()
   options = withHeadroomSpawnEnv('claude', options)
+  let child: ChildProcess
   if (!isWin()) {
-    return spawnCli('claude', args, options)
+    child = spawnCli('claude', args, options)
+    registerHeadroomRoutedChild('claude', options.env, child)
+    return child
   }
   /* c8 ignore start -- Windows-only branch; coverage runs on Linux/macOS */
   const { args: winArgs, stdinPayload } = transformClaudeArgsForWindows(args)
   if (stdinPayload === null) {
-    return spawnCli('claude', winArgs, options)
+    child = spawnCli('claude', winArgs, options)
+    registerHeadroomRoutedChild('claude', options.env, child)
+    return child
   }
-  const child = spawnCli('claude', winArgs, {
+  const spawnOptions = {
     ...options,
     stdio: ensureStdinPipe(options.stdio),
-  })
+  }
+  child = spawnCli('claude', winArgs, spawnOptions)
+  registerHeadroomRoutedChild('claude', spawnOptions.env, child)
   if (child.stdin) child.stdin.end(stdinPayload)
   return child
   /* c8 ignore stop */
@@ -173,19 +198,29 @@ export function spawnClaude(args: string[], options: SpawnOptions = {}): ChildPr
  * survive. POSIX call is identical to `spawnCli('codex', args, options)`.
  */
 export function spawnCodex(args: string[], options: SpawnOptions = {}): ChildProcess {
+  assertProcessAdmission()
   options = withHeadroomSpawnEnv('codex', options)
+  const relayBaseUrl = headroomRelayBaseUrlForBinary('codex', options.env)
+  if (relayBaseUrl) args = appendCodexHeadroomRelayOverride(args, relayBaseUrl)
+  let child: ChildProcess
   if (!isWin()) {
-    return spawnCli('codex', args, options)
+    child = spawnCli('codex', args, options)
+    registerHeadroomRoutedChild('codex', options.env, child)
+    return child
   }
   /* c8 ignore start -- Windows-only branch; coverage runs on Linux/macOS */
   const { args: winArgs, stdinPayload } = transformCodexArgsForWindows(args)
   if (stdinPayload === null) {
-    return spawnCli('codex', winArgs, options)
+    child = spawnCli('codex', winArgs, options)
+    registerHeadroomRoutedChild('codex', options.env, child)
+    return child
   }
-  const child = spawnCli('codex', winArgs, {
+  const spawnOptions = {
     ...options,
     stdio: ensureStdinPipe(options.stdio),
-  })
+  }
+  child = spawnCli('codex', winArgs, spawnOptions)
+  registerHeadroomRoutedChild('codex', spawnOptions.env, child)
   if (child.stdin) child.stdin.end(stdinPayload)
   return child
   /* c8 ignore stop */
@@ -215,6 +250,7 @@ const GEMINI_AUTH_ENV_VARS = [
 ] as const
 
 export function spawnGemini(args: string[], options: SpawnOptions = {}): ChildProcess {
+  assertProcessAdmission()
   const env: NodeJS.ProcessEnv = { ...(options.env ?? process.env), GEMINI_CLI_TRUST_WORKSPACE: 'true' }
   for (const key of GEMINI_AUTH_ENV_VARS) {
     if (process.env[key] && env[key] === undefined) env[key] = process.env[key]
@@ -232,6 +268,7 @@ export function spawnAiCli(
   args: string[],
   options: SpawnOptions = {},
 ): ChildProcess {
+  assertProcessAdmission()
   if (binary === 'claude') return spawnClaude(args, options)
   if (binary === 'codex') return spawnCodex(args, options)
   if (binary === 'gemini') return spawnGemini(args, options)

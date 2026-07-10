@@ -39,7 +39,8 @@
   "detailModal": {
     "toast": {
       "updated": "Ticket aktualisiert",
-      "updateFailed": "Ticket konnte nicht aktualisiert werden"
+      "updateFailed": "Ticket konnte nicht aktualisiert werden",
+      "deleteFailed": "Ticket konnte nicht gelöscht werden"
     },
     "compare": "Vergleichen",
     "compareTooltip": "Mit einer anderen Spec vergleichen",

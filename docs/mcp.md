@@ -207,6 +207,12 @@ codex mcp add specrails -- <bridge command from Settings ▸ MCP>
   network ingress; an MCP client must run on the same machine.
 - **Tiers, not blanket access.** Even with a valid token, an agent can only do
   what the enabled tiers allow (read by default). High-risk actions stay opt-in.
+- **Loopback is not identity.** The scoped MCP token identifies an external local
+  client; it cannot impersonate the embedded Agent Mode by adding tier, project,
+  or conversation headers. For each Agent Mode turn, Specrails mints a private,
+  short-lived capability bound server-side to that conversation, pinned project,
+  and permission level, transports it through an app-owned `0600` file, and
+  revokes it when the turn ends.
 - **The app must be running.** The MCP server is embedded in the desktop app's
   process — there is no standalone daemon. The Tauri shell keeps it alive even
   when you close the main window: closing the window **minimizes to the system
@@ -217,12 +223,16 @@ codex mcp add specrails -- <bridge command from Settings ▸ MCP>
 
 ## v1 limitations — what is *not* exposed
 
-The tool catalog deliberately leaves the highest-risk execution vectors out of
-v1. None of these are reachable over MCP:
+The public tool catalog deliberately leaves the highest-risk execution vectors
+out of v1. None of these are reachable by an external MCP client authenticated
+only with the scoped MCP token:
 
-- **Terminal shell execution.** The built-in terminal panel runs arbitrary
-  shell commands; the MCP surface does **not** expose it. An agent cannot run
-  shell on your machine through Specrails.
+- **Raw terminal shell execution.** The built-in terminal panel is not exposed
+  to external MCP clients. `background_start` and `background_kill` are a
+  private Agent Mode path: they require a live server-minted capability,
+  Autonomous permission, and explicit confirmation for the exact command.
+  Supplying legacy context headers or enabling the external Destructive tier
+  does not grant access to that path.
 - **Browser capture.** No browser navigation / screenshot / capture tool.
 - **In-app file write.** The code explorer is **read-only** over MCP — there is
   no source-file overwrite tool (`code_write_file`). An agent can read files and

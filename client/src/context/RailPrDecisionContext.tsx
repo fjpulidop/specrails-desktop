@@ -3,6 +3,7 @@ import { toast } from 'sonner'
 import { useTranslation } from 'react-i18next'
 import { useSharedWebSocket } from '../hooks/useSharedWebSocket'
 import type { RailPrDecision, RailPrDecisionAction, RailPrStateSnapshot } from '../types'
+import { coerceRailPrStateSnapshot } from '../lib/pr-delivery'
 
 /**
  * Ask-first PR decisions per rail (safe-pr-review-flow), keyed by railIndex.
@@ -11,11 +12,11 @@ import type { RailPrDecision, RailPrDecisionAction, RailPrStateSnapshot } from '
  * the shared WebSocket (`rail.pr_state`, project-filtered via ref), hydrates
  * from GET /rails `prDeliveries` on project switch, and exposes `act()` — the
  * single POST /rails/pr-decision caller both the dashboard rail row and any
- * other surface use. State is NEVER written optimistically: every mutation
- * re-broadcasts the durable snapshot and this map reconciles to it (buttons
- * disable while a request is in flight).
+ * other surface use. Actions apply the server's authoritative response
+ * snapshot immediately, then later broadcasts/focus hydration converge the
+ * same durable state (buttons disable while a request is in flight).
  *
- * Terminal decisions (`merged` / `discarded`) surface a toast once (only when
+ * Terminal decisions (`completed` / `merged` / `discarded`) surface a toast once (only when
  * the entry existed locally — dedupes replays) and REMOVE the entry, mirroring
  * the server's "active = non-terminal" hydration contract.
  */
@@ -34,6 +35,11 @@ export interface RailPrActResult {
   /** merge_local_blocked precondition (`wrong_branch` | `dirty`). */
   reason?: string
   base?: string
+  /** Authoritative post-action state; applied immediately even if WS is lost. */
+  snapshot?: RailPrStateSnapshot | null
+  /** A concurrent surface currently owns the durable operation lease. */
+  busy?: boolean
+  operation?: RailPrDecisionAction | null
 }
 
 export interface RailPrCheckoutResult {
@@ -67,6 +73,7 @@ export function useRailPrDecisions(): RailPrDecisionContextValue {
 /** Shape of a GET /rails prDeliveries entry (server PrDeliverySnapshot — `id`,
  *  not `prDeliveryId`, plus extra durable columns the client ignores). */
 interface ServerPrDeliverySnapshot {
+  [key: string]: unknown
   id?: string
   railIndex?: number
   railKey?: string
@@ -82,38 +89,96 @@ interface ServerPrDeliverySnapshot {
 }
 
 function fromServerSnapshot(raw: ServerPrDeliverySnapshot, railIndex: number): RailPrStateSnapshot | null {
-  if (!raw?.id || !raw.decision) return null
-  return {
-    prDeliveryId: raw.id,
-    railIndex: raw.railIndex ?? railIndex,
-    railKey: raw.railKey ?? '',
-    ticketIds: Array.isArray(raw.ticketIds) ? raw.ticketIds : [],
-    baseBranch: raw.baseBranch ?? '',
-    branch: raw.branch ?? null,
-    prUrl: raw.prUrl ?? null,
-    prNumber: raw.prNumber ?? null,
-    prState: raw.prState ?? 'none',
-    decision: raw.decision,
-    runIds: Array.isArray(raw.runIds) ? raw.runIds : [],
-    originConversationId: raw.originConversationId ?? null,
-  }
+  return coerceRailPrStateSnapshot(raw, railIndex)
 }
 
-const TERMINAL_DECISIONS: ReadonlySet<RailPrDecision> = new Set(['merged', 'discarded'])
+const TERMINAL_DECISIONS: ReadonlySet<RailPrDecision> = new Set(['merged', 'discarded', 'completed', 'superseded'])
+const PR_OPERATIONS: ReadonlySet<string> = new Set([
+  'create-pr', 'publish', 'discard', 'poll-merge', 'merge-local', 'dismiss', 'reopen', 'acknowledge-no-changes',
+])
 
 export function RailPrDecisionProvider({ activeProjectId, children }: { activeProjectId: string | null; children: React.ReactNode }) {
   const { t } = useTranslation('dashboard')
   const [decisions, setDecisions] = useState<Map<number, RailPrStateSnapshot>>(new Map())
   const [hydrated, setHydrated] = useState(false)
-  const { registerHandler, unregisterHandler } = useSharedWebSocket()
+  const { registerHandler, unregisterHandler, connectionStatus } = useSharedWebSocket()
   const projRef = useRef(activeProjectId)
   useEffect(() => { projRef.current = activeProjectId }, [activeProjectId])
-  // Mirror for act() so its callback never closes over a stale map.
+  // Synchronous mirror/source for snapshot arbitration and act(). Every map
+  // replacement updates this ref before React state so back-to-back WS/HTTP
+  // events validate against the latest accepted generation.
   const decisionsRef = useRef(decisions)
-  useEffect(() => { decisionsRef.current = decisions }, [decisions])
-  // Rail indexes that received a live rail.pr_state AFTER the last reset — the
-  // seed fetch must never clobber (or resurrect, post-terminal-removal) those.
-  const liveSinceResetRef = useRef<Set<number>>(new Set())
+  // Mutation generation per rail. Hydration merges around rails that changed
+  // while its GET was in flight, instead of dropping every other seeded card.
+  const railVersionsRef = useRef<Map<number, number>>(new Map())
+  const hydrateRequestRef = useRef(0)
+
+  const applySnapshot = useCallback((snap: RailPrStateSnapshot, announceTerminal = true): void => {
+    const currentMap = decisionsRef.current
+    const current = currentMap.get(snap.railIndex)
+    if (TERMINAL_DECISIONS.has(snap.decision)) {
+      // A late terminal event from superseded generation A must never erase
+      // active generation B merely because they share a rail index. Crucially,
+      // an ignored terminal is not a rail mutation: versioning it would make an
+      // in-flight hydration discard a valid generation B returned by the GET.
+      if (!current || current.prDeliveryId !== snap.prDeliveryId) return
+      if (announceTerminal) {
+        if (snap.cleanupWarnings?.length) {
+          toast.warning(t('railPr.cleanupIncomplete', { count: snap.cleanupWarnings.length }))
+        } else if (snap.decision === 'merged') {
+          toast.success(t('railPr.mergedToast'))
+        } else if (snap.decision === 'discarded') {
+          toast.info(t('railPr.discardedToast'))
+        } else if (snap.decision === 'completed') {
+          toast.success(t('railPr.completedToast'))
+        }
+      }
+    }
+
+    const next = new Map(currentMap)
+    if (TERMINAL_DECISIONS.has(snap.decision)) {
+      next.delete(snap.railIndex)
+    } else {
+      next.set(snap.railIndex, snap)
+    }
+    railVersionsRef.current.set(snap.railIndex, (railVersionsRef.current.get(snap.railIndex) ?? 0) + 1)
+    decisionsRef.current = next
+    setDecisions(next)
+  }, [t])
+
+  const hydrate = useCallback(async (projectId: string, markReady: boolean): Promise<void> => {
+    const request = ++hydrateRequestRef.current
+    const versionsAtStart = new Map(railVersionsRef.current)
+    try {
+      const response = await fetch(`/api/projects/${projectId}/rails`)
+      if (!response.ok) return
+      const data = await response.json() as { prDeliveries?: Record<string, ServerPrDeliverySnapshot> }
+      if (request !== hydrateRequestRef.current || projRef.current !== projectId) return
+      const seeded = new Map<number, RailPrStateSnapshot>()
+      for (const [idxStr, raw] of Object.entries(data.prDeliveries ?? {})) {
+        const snap = fromServerSnapshot(raw, Number(idxStr))
+        if (snap && !TERMINAL_DECISIONS.has(snap.decision)) seeded.set(Number(idxStr), snap)
+      }
+      const current = decisionsRef.current
+      const next = new Map(seeded)
+      // Preserve only rails that changed after this GET began. An accepted
+      // terminal event intentionally leaves no current entry and therefore
+      // deletes a stale seeded row; ignored older-generation terminals never
+      // advance the rail version and cannot erase a valid seed.
+      for (const [railIndex, version] of railVersionsRef.current) {
+        if (version === (versionsAtStart.get(railIndex) ?? 0)) continue
+        const live = current.get(railIndex)
+        if (live) next.set(railIndex, live)
+        else next.delete(railIndex)
+      }
+      decisionsRef.current = next
+      setDecisions(next)
+    } catch {
+      /* best-effort convergence */
+    } finally {
+      if (markReady && request === hydrateRequestRef.current && projRef.current === projectId) setHydrated(true)
+    }
+  }, [])
 
   // Reset on project switch, then SEED from the server so an active decision
   // survives a page refresh (the WS stream can't replay past broadcasts).
@@ -121,94 +186,55 @@ export function RailPrDecisionProvider({ activeProjectId, children }: { activePr
   // app-level and mounted regardless of the active project (the documented
   // RailMetricsContext deviation).
   useEffect(() => {
-    setDecisions(new Map())
+    projRef.current = activeProjectId
+    hydrateRequestRef.current++
+    const empty = new Map<number, RailPrStateSnapshot>()
+    decisionsRef.current = empty
+    setDecisions(empty)
     setHydrated(false)
-    liveSinceResetRef.current = new Set()
+    railVersionsRef.current = new Map()
     if (!activeProjectId) {
       setHydrated(true)
       return
     }
-    let cancelled = false
-    fetch(`/api/projects/${activeProjectId}/rails`)
-      .then((r) => (r.ok ? r.json() : null))
-      .then((data: { prDeliveries?: Record<string, ServerPrDeliverySnapshot> } | null) => {
-        if (cancelled) return
-        if (!data?.prDeliveries) {
-          setHydrated(true)
-          return
-        }
-        const seeded = new Map<number, RailPrStateSnapshot>()
-        for (const [idxStr, raw] of Object.entries(data.prDeliveries)) {
-          const snap = fromServerSnapshot(raw, Number(idxStr))
-          if (snap && !TERMINAL_DECISIONS.has(snap.decision)) seeded.set(Number(idxStr), snap)
-        }
-        if (seeded.size > 0) {
-          setDecisions((prev) => {
-            const next = new Map(prev)
-            for (const [idx, snap] of seeded) {
-              if (!liveSinceResetRef.current.has(idx)) next.set(idx, snap) // never clobber a live WS entry
-            }
-            return next
-          })
-        }
-        setHydrated(true)
-      })
-      .catch(() => { if (!cancelled) setHydrated(true) })
-    return () => { cancelled = true }
-  }, [activeProjectId])
+    void hydrate(activeProjectId, true)
+  }, [activeProjectId, hydrate])
 
   const handleMessage = useCallback((data: unknown) => {
     const m = data as { type?: string; projectId?: string; railIndex?: number; prDeliveryId?: string; decision?: RailPrDecision }
     if (!m || m.type !== 'rail.pr_state') return
     if (m.projectId !== projRef.current) return
     if (typeof m.railIndex !== 'number' || typeof m.prDeliveryId !== 'string' || !m.decision) return
-    const msg = m as unknown as RailPrStateSnapshot & { projectId: string }
-    const snap: RailPrStateSnapshot = {
-      prDeliveryId: msg.prDeliveryId,
-      railIndex: msg.railIndex,
-      railKey: msg.railKey ?? '',
-      ticketIds: Array.isArray(msg.ticketIds) ? msg.ticketIds : [],
-      baseBranch: msg.baseBranch ?? '',
-      branch: msg.branch ?? null,
-      prUrl: msg.prUrl ?? null,
-      prNumber: msg.prNumber ?? null,
-      prState: msg.prState ?? 'none',
-      decision: msg.decision,
-      runIds: Array.isArray(msg.runIds) ? msg.runIds : [],
-      originConversationId: msg.originConversationId ?? null,
-    }
-    liveSinceResetRef.current.add(snap.railIndex)
-
-    if (TERMINAL_DECISIONS.has(snap.decision)) {
-      setDecisions((prev) => {
-        if (!prev.has(snap.railIndex)) return prev // never seen locally — nothing to surface or remove
-        // Surface the terminal transition once, then drop the entry.
-        if (snap.decision === 'merged') {
-          toast.success(t('railPr.mergedToast'))
-        } else {
-          toast.info(t('railPr.discardedToast'))
-        }
-        const next = new Map(prev)
-        next.delete(snap.railIndex)
-        return next
-      })
-      return
-    }
-    setDecisions((prev) => {
-      const next = new Map(prev)
-      next.set(snap.railIndex, snap)
-      return next
-    })
-  }, [t])
+    const snap = coerceRailPrStateSnapshot(m, m.railIndex)
+    if (!snap) return
+    applySnapshot(snap)
+  }, [applySnapshot])
 
   useLayoutEffect(() => {
     registerHandler('rail-pr-decision', handleMessage)
     return () => unregisterHandler('rail-pr-decision')
   }, [handleMessage, registerHandler, unregisterHandler])
 
-  // The ONE decision-action caller. No optimistic state: the response is
-  // returned to the caller (for toasts / button state) and the map reconciles
-  // to the server's rail.pr_state re-broadcast.
+  useEffect(() => {
+    const onFocus = () => {
+      const projectId = projRef.current
+      if (projectId) void hydrate(projectId, false)
+    }
+    window.addEventListener('focus', onFocus)
+    return () => window.removeEventListener('focus', onFocus)
+  }, [hydrate])
+
+  const previousConnectionRef = useRef(connectionStatus)
+  useEffect(() => {
+    const previous = previousConnectionRef.current
+    previousConnectionRef.current = connectionStatus
+    const projectId = projRef.current
+    if (projectId && connectionStatus === 'connected' && previous !== 'connected') void hydrate(projectId, false)
+  }, [connectionStatus, hydrate])
+
+  // The ONE decision-action caller. This is not an optimistic write: the map
+  // advances only from the server's authoritative response snapshot. A later
+  // rail.pr_state broadcast is an idempotent convergence path.
   const act = useCallback(async (railIndex: number, action: RailPrDecisionAction, expectedDecision: RailPrDecision): Promise<RailPrActResult> => {
     const snap = decisionsRef.current.get(railIndex)
     const projectId = projRef.current
@@ -219,12 +245,27 @@ export function RailPrDecisionProvider({ activeProjectId, children }: { activePr
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ prDeliveryId: snap.prDeliveryId, action, expectedDecision }),
       })
-      const body = (await res.json().catch(() => ({}))) as Omit<RailPrActResult, 'status'>
-      return { ...body, status: res.status, ok: res.ok && body.ok === true }
+      const body = (await res.json().catch(() => ({}))) as Omit<RailPrActResult, 'status' | 'snapshot'> & { snapshot?: unknown }
+      const authoritative = coerceRailPrStateSnapshot(body.snapshot)
+      if (authoritative && projRef.current === projectId) {
+        applySnapshot(authoritative)
+      }
+      return {
+        ...body,
+        snapshot: authoritative,
+        busy: res.status === 409 && body.error === 'operation_in_progress',
+        operation: authoritative?.operation ?? (
+          typeof body.operation === 'string' && PR_OPERATIONS.has(body.operation)
+            ? body.operation as RailPrDecisionAction
+            : null
+        ),
+        status: res.status,
+        ok: res.ok && body.ok === true,
+      }
     } catch (err) {
       return { status: 0, ok: false, error: 'network', detail: (err as Error).message }
     }
-  }, [])
+  }, [applySnapshot])
 
   const checkout = useCallback(async (railIndex: number): Promise<RailPrCheckoutResult> => {
     const snap = decisionsRef.current.get(railIndex)

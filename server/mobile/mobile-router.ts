@@ -239,7 +239,7 @@ export function createMobileRouter(deps: MobileRouterDeps): Router {
   v1.delete('/projects/:pid/jobs/:jid', (req, res) => {
     const pid = seg(req.params.pid), jid = seg(req.params.jid)
     if (!validate(res, [pid, PID_RE], [jid, JOBID_RE])) return
-    void forward(res, 'DELETE', `/api/projects/${encodeURIComponent(pid)}/jobs/${encodeURIComponent(jid)}`, '')
+    void forward(res, 'POST', `/api/projects/${encodeURIComponent(pid)}/jobs/${encodeURIComponent(jid)}/cancel`, '')
   })
 
   v1.post('/projects/:pid/queue/pause', (req, res) => {

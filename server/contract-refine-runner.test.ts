@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach, vi } from 'vitest'
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
 import { EventEmitter } from 'node:events'
 import { Readable } from 'node:stream'
 import { ChildProcess } from 'node:child_process'
@@ -11,6 +11,10 @@ import {
   updateConversation,
   type DbInstance,
 } from './db'
+import {
+  beginProjectProcessQuiescence,
+  resetProcessAdmissionForTests,
+} from './process-admission'
 
 const SCOPE_OPT_IN = { specrails: true, openspec: false, full: true, mcp: false, contractRefine: true }
 import {
@@ -151,7 +155,7 @@ function streamLinesWithResult(text: string, resultOverrides: Record<string, unk
 }
 
 describe('prepareContractRefineSpawn', () => {
-  it('produces deterministic argv with --disallowedTools', () => {
+  it('produces deterministic pure-output argv with no tools or permission bypass', () => {
     const projectPath = tmpProjectPath()
     const out = prepareContractRefineSpawn(
       { projectSlug: 'slug', projectPath, projectName: 'proj' },
@@ -159,8 +163,10 @@ describe('prepareContractRefineSpawn', () => {
     )
     expect(out.args).toContain('--resume')
     expect(out.args).toContain('sess-1')
-    expect(out.args).toContain('--disallowedTools')
-    expect(out.args.join(',')).toContain('Read,Grep,Glob,Bash')
+    expect(out.args.slice(out.args.indexOf('--tools'), out.args.indexOf('--tools') + 2))
+      .toEqual(['--tools', '__none__'])
+    expect(out.args).not.toContain('--dangerously-skip-permissions')
+    expect(out.args).not.toContain('--disallowedTools')
     expect(out.args).toContain('-p')
     expect(out.args[out.args.length - 1]).toMatch(/CONTRACT REFINE/)
     expect(out.systemPrompt).toMatch(/Contract Refine/)
@@ -257,6 +263,8 @@ describe('runContractRefine', () => {
     projectPath = tmpProjectPath()
     broadcastEvents = []
   })
+
+  afterEach(() => resetProcessAdmissionForTests())
 
   function makeDeps(overrides: { spawn?: ReturnType<typeof fakeSpawn> } = {}) {
     return {
@@ -456,6 +464,29 @@ describe('runContractRefine', () => {
     expect(stored.tickets['1'].description).toBe('original body')
   })
 
+  it('abandons a stale completion after project teardown without DB or ticket writes', async () => {
+    seedTicket(projectPath, 1, 'original body')
+    makeExploreConv('conv-1')
+    const pending = runContractRefine(
+      makeDeps({ spawn: fakeSpawn(streamLines(validContractBlock()), 0, 20) }),
+      'conv-1',
+      1,
+    )
+
+    beginProjectProcessQuiescence('proj-1')
+    await expect(pending).resolves.toMatchObject({ ok: false, reason: 'aborted' })
+
+    const stored: TicketStore = JSON.parse(
+      fs.readFileSync(resolveTicketStoragePath(projectPath), 'utf8'),
+    )
+    expect(stored.tickets['1'].description).toBe('original body')
+    expect(db.prepare('SELECT COUNT(*) AS count FROM ai_invocations').get())
+      .toMatchObject({ count: 0 })
+    expect(broadcastEvents.some((event) =>
+      event.type === 'ticket_updated' || event.type === 'explore.contract_refine_failed'
+    )).toBe(false)
+  })
+
   it('records an ai_invocations row on success', async () => {
     seedTicket(projectPath, 1)
     makeExploreConv('conv-1')
@@ -503,6 +534,10 @@ describe('runContractRefine', () => {
     expect(out.ok).toBe(true)
     expect(seenArgs).not.toContain('--resume')
     expect(seenArgs).toContain('--system-prompt')
+    expect(seenArgs.slice(seenArgs.indexOf('--tools'), seenArgs.indexOf('--tools') + 2))
+      .toEqual(['--tools', '__none__'])
+    expect(seenArgs).not.toContain('--dangerously-skip-permissions')
+    expect(seenArgs).not.toContain('--disallowedTools')
     expect(seenArgs.join('\n')).toContain('Quick title')
     const rows = db.prepare('SELECT surface, surface_ref_id, conversation_id, ticket_id, status, model FROM ai_invocations').all() as Array<{
       surface: string

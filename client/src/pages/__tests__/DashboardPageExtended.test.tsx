@@ -57,7 +57,10 @@ vi.mock('../../hooks/useProjectCache', () => ({
     data: namespace === 'proposals'
       ? [{ id: 'prop-1', idea: 'Build a feature', status: 'created', created_at: '2024-01-01T00:00:00Z', issue_url: null }]
       : namespace === 'jobs'
-      ? [{ id: 'job-1', command: '/specrails:implement', started_at: new Date().toISOString(), status: 'completed' }]
+      ? [
+          { id: 'job-1', command: '/specrails:implement', started_at: '2026-01-01T00:00:00Z', status: 'completed' },
+          { id: 'job-queued', command: '/specrails:queued', started_at: null, enqueued_at: '2099-01-01T00:00:00Z', status: 'queued' },
+        ]
       : initialValue,
     isLoading: false,
     isFirstLoad: false,
@@ -71,7 +74,7 @@ vi.mock('../../components/RecentJobs', () => ({
     onProposalClick,
     onProposalDelete,
   }: {
-    jobs: Array<{ id: string; command: string; status: string; started_at: string }>
+    jobs: Array<{ id: string; command: string; status: string; started_at: string | null; enqueued_at?: string | null }>
     onProposalClick?: (id: string) => void
     onProposalDelete?: (id: string) => void
   }) => (
@@ -170,6 +173,13 @@ describe('JobsPage - extended coverage', () => {
   it('enrichedCommands shows implement job', () => {
     render(<JobsPage />)
     expect(screen.getByText('/specrails:implement')).toBeInTheDocument()
+  })
+
+  it('sorts queued jobs by enqueued_at without inventing a started_at', () => {
+    render(<JobsPage />)
+    const list = screen.getByTestId('recent-jobs')
+    expect(list.firstElementChild).toHaveAttribute('data-testid', 'job-row-job-queued')
+    expect(screen.getByText('/specrails:queued')).toBeInTheDocument()
   })
 
   it('renders ExportDropdown', () => {

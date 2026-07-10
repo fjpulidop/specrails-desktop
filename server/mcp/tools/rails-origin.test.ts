@@ -3,7 +3,7 @@ import express from 'express'
 import type { Server } from 'http'
 import type { AddressInfo } from 'net'
 import { initDb, type DbInstance } from '../../db'
-import { initDesktopDb } from '../../desktop-db'
+import { initDesktopDb, setDesktopSetting } from '../../desktop-db'
 import { createAgentConversation } from '../../agent-store'
 import { createRailsRouter } from '../../rails-router'
 import { setRailTickets } from '../../rails-store'
@@ -12,7 +12,8 @@ import { setAgentChatManager } from '../../agent-chat-registry'
 import type { AgentChatManager } from '../../agent-chat-manager'
 import { registerTieredTool, setActiveProject, type McpToolContext, type ToolHandlerExtra } from './types'
 import { railsTools } from './rails'
-import { AGENT_TIER_HEADER, AGENT_PROJECT_HEADER, AGENT_CONVERSATION_HEADER } from '../../agent-tier'
+import { AGENT_CAPABILITY_HEADER, AGENT_CONVERSATION_HEADER } from '../../agent-tier'
+import { _resetAgentCapabilitiesForTest, mintAgentCapability } from '../agent-capability'
 import { MobileEventBus } from '../../mobile/mobile-event-bus'
 import type { ProjectRegistry } from '../../project-registry'
 import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js'
@@ -20,7 +21,7 @@ import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js'
 // ── End-to-end origin link (design §8, safe-pr-review-flow) ───────────────────
 //
 // Drives the REAL chain with no hop mocked between the MCP tool guard and the
-// per-project DB: registerTieredTool reads the loopback conversation header into
+// per-project DB: registerTieredTool resolves the server-minted capability into
 // the per-call ctx → the specrails_rails launch handler puts it in the POST body
 // → a real HTTP round-trip hits the real rails-router → the real
 // launchIsolatedRail INSERTs the rail_pr_deliveries row carrying the origin —
@@ -29,10 +30,15 @@ import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js'
 
 // Mutable isolation status so a test can drive the no-git fallback path.
 const isoStatus = vi.hoisted(() => ({ value: 'ok' as 'ok' | 'no-git' | 'no-commits' }))
+const testRefs = vi.hoisted(() => ({ headSha: 'a'.repeat(40) }))
 
 vi.mock('../../worktree-manager', async (importActual) => ({
   ...(await (importActual as () => Promise<Record<string, unknown>>)()),
-  defaultGitRunner: { run: async () => ({ code: 1, stdout: '', stderr: '' }) }, // integration branch → 'HEAD' fallback
+  defaultGitRunner: {
+    run: async (args: string[]) => args.join(' ') === 'rev-parse --verify HEAD'
+      ? { code: 0, stdout: `${testRefs.headSha}\n`, stderr: '' }
+      : { code: 1, stdout: '', stderr: '' },
+  }, // integration branch still falls back to HEAD; settlement can prove exact HEAD
   repoIsolationStatus: async () => isoStatus.value,
   createWorktree: async (_git: unknown, input: { slug: string; ticketId: number; branch?: string }) => ({
     // The launch threads the conventional preferred name (pr-naming); echo it
@@ -67,6 +73,8 @@ describe('MCP → rails launch → rail_pr_deliveries origin link (end-to-end)',
     isoStatus.value = 'ok'
     db = initDb(':memory:')
     desktopDb = initDesktopDb(':memory:')
+    _resetAgentCapabilitiesForTest()
+    setDesktopSetting(desktopDb, 'mcp_tier_ai_spawn', 'true')
     setRailTickets(db, 0, [1, 2], 'loop')
 
     // The real rails-router behind a real HTTP listener (apiCall does real fetch).
@@ -126,20 +134,16 @@ describe('MCP → rails launch → rail_pr_deliveries origin link (end-to-end)',
     else process.env.SPECRAILS_RAIL_DELIVER_PR = ORIG_PR
   })
 
-  const launchExtra = (headers: Record<string, string> = {}): ToolHandlerExtra => ({
-    requestInfo: {
-      headers: {
-        [AGENT_TIER_HEADER]: 'operate', // ai-spawn allowed at level 2
-        [AGENT_PROJECT_HEADER]: 'p1',
-        ...headers,
-      },
-    },
-  })
+  const launchExtra = (conversationId?: string): ToolHandlerExtra => {
+    if (!conversationId) return { requestInfo: { headers: {} } }
+    const capability = mintAgentCapability({ conversationId, projectId: 'p1', tierLevel: 2 })
+    return { requestInfo: { headers: { [AGENT_CAPABILITY_HEADER]: capability } } }
+  }
 
-  it('a header-tagged launch persists origin_conversation_id on the delivery row and fires the chat card at settle', async () => {
+  it('a capability-authenticated launch persists origin_conversation_id and fires the chat card at settle', async () => {
     const r = await captured!(
       { action: 'launch', projectId: 'p1', railIndex: 0, loopId: 'factory:implement' },
-      launchExtra({ [AGENT_CONVERSATION_HEADER]: 'conv-int-42' }),
+      launchExtra('conv-int-42'),
     )
     expect(r.isError).toBeFalsy()
     const payload = JSON.parse(r.content[0].text)
@@ -185,7 +189,7 @@ describe('MCP → rails launch → rail_pr_deliveries origin link (end-to-end)',
   it('SDD Quick OpenSpec factory launch also persists origin and posts the PR decision card', async () => {
     const r = await captured!(
       { action: 'launch', projectId: 'p1', railIndex: 0, mode: 'loop', loopId: 'factory:sdd-quick-openspec' },
-      launchExtra({ [AGENT_CONVERSATION_HEADER]: 'conv-sdd-quick' }),
+      launchExtra('conv-sdd-quick'),
     )
 
     expect(r.isError).toBeFalsy()
@@ -209,14 +213,14 @@ describe('MCP → rails launch → rail_pr_deliveries origin link (end-to-end)',
     isoStatus.value = 'no-git'
     const r = await captured!(
       { action: 'launch', projectId: 'p1', railIndex: 0, loopId: 'factory:implement' },
-      launchExtra({ [AGENT_CONVERSATION_HEADER]: 'conv-nogit' }),
+      launchExtra('conv-nogit'),
     )
     expect(r.isError).toBeFalsy()
     const payload = JSON.parse(r.content[0].text)
     // Shared-cwd fallback surfaced verbatim + isolated flag absent.
     expect(payload.isolationUnavailable).toBe('no-git')
     expect(payload.isolated).toBeUndefined()
-    // No delivery row → no card ever posted, despite the origin header.
+    // No delivery row → no card ever posted, despite the authenticated origin.
     expect(getActivePrDeliveryByRail(db, 0)).toBeFalsy()
     expect(postPrDecisionCard).not.toHaveBeenCalled()
     // The hint forbids promising a card and explains the shared-cwd reality.
@@ -226,7 +230,7 @@ describe('MCP → rails launch → rail_pr_deliveries origin link (end-to-end)',
     expect(payload.hint).toMatch(/directly into the user's files/i)
   })
 
-  it('without the conversation header the launch lands as dashboard/NULL and no card fires', async () => {
+  it('without an agent capability the launch lands as dashboard/NULL and no card fires', async () => {
     const r = await captured!(
       { action: 'launch', projectId: 'p1', railIndex: 0, loopId: 'factory:implement' },
       launchExtra(),
@@ -257,7 +261,7 @@ describe('MCP → rails launch → rail_pr_deliveries origin link (end-to-end)',
     // would 500. The derivation must route it through the loop engine.
     const r = await captured!(
       { action: 'launch', projectId: 'p1', railIndex: 0, mode: 'implement' },
-      launchExtra({ [AGENT_CONVERSATION_HEADER]: 'conv-bare-7' }),
+      launchExtra('conv-bare-7'),
     )
     expect(r.isError).toBeFalsy()
     const payload = JSON.parse(r.content[0].text)
@@ -275,10 +279,10 @@ describe('MCP → rails launch → rail_pr_deliveries origin link (end-to-end)',
     })
   })
 
-  it('a malformed conversation header degrades to an untagged launch (never a 400)', async () => {
+  it('a malformed legacy conversation header is ignored and the launch remains untagged', async () => {
     const r = await captured!(
       { action: 'launch', projectId: 'p1', railIndex: 0, loopId: 'factory:implement' },
-      launchExtra({ [AGENT_CONVERSATION_HEADER]: 'not valid!!' }),
+      { requestInfo: { headers: { [AGENT_CONVERSATION_HEADER]: 'not valid!!' } } },
     )
     expect(r.isError).toBeFalsy() // sanitized to null → fields omitted from the body
 
@@ -307,7 +311,7 @@ describe('MCP → rails launch → rail_pr_deliveries origin link (end-to-end)',
     const conv = createAgentConversation(desktopDb, { provider: 'codex' })
     const r = await captured!(
       { action: 'launch', projectId: 'p1', railIndex: 0, loopId: 'factory:implement' },
-      launchExtra({ [AGENT_CONVERSATION_HEADER]: conv.id }),
+      launchExtra(conv.id),
     )
     expect(r.isError).toBeFalsy()
 
@@ -326,7 +330,7 @@ describe('MCP → rails launch → rail_pr_deliveries origin link (end-to-end)',
     const conv = createAgentConversation(desktopDb, { provider: 'codex' })
     const r = await captured!(
       { action: 'launch', projectId: 'p1', railIndex: 0, loopId: 'factory:implement', aiEngine: 'claude' },
-      launchExtra({ [AGENT_CONVERSATION_HEADER]: conv.id }),
+      launchExtra(conv.id),
     )
     expect(r.isError).toBeFalsy()
     expect(loopRun.mock.calls[0][0]).toMatchObject({ provider: 'claude' })
@@ -337,7 +341,7 @@ describe('MCP → rails launch → rail_pr_deliveries origin link (end-to-end)',
     const conv = createAgentConversation(desktopDb, { provider: 'codex' })
     const r = await captured!(
       { action: 'launch', projectId: 'p1', railIndex: 0, loopId: 'factory:implement', aiEngine: null },
-      launchExtra({ [AGENT_CONVERSATION_HEADER]: conv.id }),
+      launchExtra(conv.id),
     )
     expect(r.isError).toBeFalsy()
     expect(loopRun.mock.calls[0][0]).toMatchObject({ provider: 'claude' })
@@ -347,7 +351,7 @@ describe('MCP → rails launch → rail_pr_deliveries origin link (end-to-end)',
   it('an unknown conversation id is tolerated: no engine default, launch proceeds on primary', async () => {
     const r = await captured!(
       { action: 'launch', projectId: 'p1', railIndex: 0, loopId: 'factory:implement' },
-      launchExtra({ [AGENT_CONVERSATION_HEADER]: 'conv-that-does-not-exist' }),
+      launchExtra('conv-that-does-not-exist'),
     )
     expect(r.isError).toBeFalsy()
     expect(loopRun.mock.calls[0][0]).toMatchObject({ provider: 'claude' })
@@ -360,7 +364,7 @@ describe('MCP → rails launch → rail_pr_deliveries origin link (end-to-end)',
     const conv = createAgentConversation(desktopDb, { provider: 'gemini' })
     const r = await captured!(
       { action: 'launch', projectId: 'p1', railIndex: 0, loopId: 'factory:implement' },
-      launchExtra({ [AGENT_CONVERSATION_HEADER]: conv.id }),
+      launchExtra(conv.id),
     )
     expect(r.isError).toBe(true)
     expect(r.content[0].text).toContain("provider 'gemini' is not installed")
@@ -371,7 +375,7 @@ describe('MCP → rails launch → rail_pr_deliveries origin link (end-to-end)',
     const conv = createAgentConversation(desktopDb, { provider: 'codex', reasoningEffort: 'high' })
     const r = await captured!(
       { action: 'launch', projectId: 'p1', railIndex: 0, loopId: 'factory:implement' },
-      launchExtra({ [AGENT_CONVERSATION_HEADER]: conv.id }),
+      launchExtra(conv.id),
     )
     expect(r.isError).toBeFalsy()
     expect(loopRun.mock.calls[0][0]).toMatchObject({ provider: 'codex', effort: 'high' })
@@ -382,7 +386,7 @@ describe('MCP → rails launch → rail_pr_deliveries origin link (end-to-end)',
     const conv = createAgentConversation(desktopDb, { provider: 'codex', reasoningEffort: 'minimal' })
     const r = await captured!(
       { action: 'launch', projectId: 'p1', railIndex: 0, loopId: 'factory:implement' },
-      launchExtra({ [AGENT_CONVERSATION_HEADER]: conv.id }),
+      launchExtra(conv.id),
     )
     expect(r.isError).toBeFalsy()
     expect(loopRun.mock.calls[0][0]).toMatchObject({ provider: 'codex' })
@@ -394,7 +398,7 @@ describe('MCP → rails launch → rail_pr_deliveries origin link (end-to-end)',
     const conv = createAgentConversation(desktopDb, { provider: 'codex', reasoningEffort: 'high' })
     const r = await captured!(
       { action: 'launch', projectId: 'p1', railIndex: 0, loopId: 'factory:implement', reasoning_effort: 'low' },
-      launchExtra({ [AGENT_CONVERSATION_HEADER]: conv.id }),
+      launchExtra(conv.id),
     )
     expect(r.isError).toBeFalsy()
     expect(loopRun.mock.calls[0][0]).toMatchObject({ provider: 'codex', effort: 'low' })

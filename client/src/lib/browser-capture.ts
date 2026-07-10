@@ -1,4 +1,5 @@
 import { getApiBase } from './api'
+import { API_ORIGIN } from './origin'
 import { WS_URL } from './ws-url'
 import { getDesktopTokenProtocol } from './auth'
 import type { Attachment } from '../types'
@@ -155,8 +156,16 @@ export class BrowserLaunchFailedError extends Error {}
 
 // ─── REST helpers ─────────────────────────────────────────────────────────────
 
-export async function createBrowserSession(initialUrl?: string): Promise<BrowserSessionMeta> {
-  const res = await fetch(`${getApiBase()}/browser/sessions`, {
+/** Session requests must retain the project that created them. Resolving this
+ *  through the mutable active-project singleton can route late async cleanup to
+ *  a different project after the user switches workspaces. */
+function browserApiBase(projectId: string): string {
+  if (!projectId) throw new Error('A project owner is required for browser sessions')
+  return `${API_ORIGIN}/api/projects/${encodeURIComponent(projectId)}`
+}
+
+export async function createBrowserSession(projectId: string, initialUrl?: string): Promise<BrowserSessionMeta> {
+  const res = await fetch(`${browserApiBase(projectId)}/browser/sessions`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ initialUrl }),
@@ -169,11 +178,12 @@ export async function createBrowserSession(initialUrl?: string): Promise<Browser
 }
 
 export async function navigateBrowser(
+  projectId: string,
   sessionId: string,
   action: 'goto' | 'back' | 'forward' | 'reload',
   url?: string,
 ): Promise<{ url: string; title: string }> {
-  const res = await fetch(`${getApiBase()}/browser/sessions/${sessionId}/navigate`, {
+  const res = await fetch(`${browserApiBase(projectId)}/browser/sessions/${sessionId}/navigate`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ action, url }),
@@ -183,12 +193,13 @@ export async function navigateBrowser(
 }
 
 export async function captureBrowserRegion(
+  projectId: string,
   sessionId: string,
   rect: CaptureRect,
   pendingSpecId: string,
   opts?: { captureNetwork?: boolean },
 ): Promise<CaptureResult> {
-  const res = await fetch(`${getApiBase()}/browser/sessions/${sessionId}/capture`, {
+  const res = await fetch(`${browserApiBase(projectId)}/browser/sessions/${sessionId}/capture`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ rect, pendingSpecId, captureNetwork: opts?.captureNetwork ?? true }),
@@ -209,13 +220,14 @@ async function captureErrorMessage(res: Response): Promise<string> {
 }
 
 export async function captureBrowserBreakpoints(
+  projectId: string,
   sessionId: string,
   rect: CaptureRect,
   anchorPoint: { x: number; y: number },
   pendingSpecId: string,
   breakpoints: Record<string, { width: number; height: number }> = BREAKPOINT_DIMS,
 ): Promise<CaptureResult> {
-  const res = await fetch(`${getApiBase()}/browser/sessions/${sessionId}/capture-breakpoints`, {
+  const res = await fetch(`${browserApiBase(projectId)}/browser/sessions/${sessionId}/capture-breakpoints`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ rect, anchorPoint, pendingSpecId, breakpoints }),
@@ -238,11 +250,12 @@ export async function uploadCaptureImage(pendingSpecId: string, blob: Blob, file
 /** Bridge the host clipboard to the embedded page (which can't reach the OS
  *  clipboard): copy/cut return the page's selection text; paste injects text. */
 export async function browserClipboard(
+  projectId: string,
   sessionId: string,
   action: 'copy' | 'paste' | 'cut',
   text?: string,
 ): Promise<{ text: string }> {
-  const res = await fetch(`${getApiBase()}/browser/sessions/${sessionId}/clipboard`, {
+  const res = await fetch(`${browserApiBase(projectId)}/browser/sessions/${sessionId}/clipboard`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ action, text }),
@@ -254,11 +267,12 @@ export async function browserClipboard(
 /** Re-resolve an element by selector and step to parent/child/self for the
  *  DevTools-style breadcrumb. Returns null when it can't step further. */
 export async function navigateBrowserElement(
+  projectId: string,
   sessionId: string,
   selector: string,
   direction: 'parent' | 'child' | 'self',
 ): Promise<ElementProbe | null> {
-  const res = await fetch(`${getApiBase()}/browser/sessions/${sessionId}/element`, {
+  const res = await fetch(`${browserApiBase(projectId)}/browser/sessions/${sessionId}/element`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ selector, direction }),
@@ -270,9 +284,9 @@ export async function navigateBrowserElement(
 
 /** Switch the viewed page between the root page and the top popup (OAuth login
  *  window). Best-effort — the server broadcasts the resulting state over WS. */
-export async function setBrowserPopupView(sessionId: string, target: 'root' | 'popup'): Promise<void> {
+export async function setBrowserPopupView(projectId: string, sessionId: string, target: 'root' | 'popup'): Promise<void> {
   try {
-    await fetch(`${getApiBase()}/browser/sessions/${sessionId}/popup-view`, {
+    await fetch(`${browserApiBase(projectId)}/browser/sessions/${sessionId}/popup-view`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ target }),
@@ -293,9 +307,9 @@ export function popupOriginLabel(url: string | null | undefined): string {
   }
 }
 
-export async function killBrowserSession(sessionId: string): Promise<void> {
+export async function killBrowserSession(projectId: string, sessionId: string): Promise<void> {
   try {
-    await fetch(`${getApiBase()}/browser/sessions/${sessionId}`, { method: 'DELETE' })
+    await fetch(`${browserApiBase(projectId)}/browser/sessions/${sessionId}`, { method: 'DELETE' })
   } catch {
     /* best effort */
   }

@@ -4,6 +4,7 @@ import os from 'os'
 import { randomUUID, timingSafeEqual } from 'crypto'
 import type { IncomingMessage } from 'http'
 import type { Request, Response, NextFunction } from 'express'
+import { readPrivateTextFile, writePrivateTextFile } from './util/secure-token-file'
 
 const TOKEN_DIR = path.join(os.homedir(), '.specrails')
 const TOKEN_PATH = path.join(TOKEN_DIR, 'desktop.token')
@@ -48,8 +49,9 @@ export function loadOrGenerateToken(): string {
   migrateLegacyTokenFile()
 
   try {
-    if (fs.existsSync(TOKEN_PATH)) {
-      const t = fs.readFileSync(TOKEN_PATH, 'utf-8').trim()
+    const stored = readPrivateTextFile(TOKEN_PATH)
+    if (stored !== null) {
+      const t = stored.trim()
       if (t && t.length >= 32) {
         _token = t
         return _token
@@ -62,8 +64,7 @@ export function loadOrGenerateToken(): string {
   _token = randomUUID().replace(/-/g, '') + randomUUID().replace(/-/g, '')
 
   try {
-    fs.mkdirSync(TOKEN_DIR, { recursive: true })
-    fs.writeFileSync(TOKEN_PATH, _token, { encoding: 'utf-8', mode: 0o600 })
+    writePrivateTextFile(TOKEN_PATH, _token)
   } catch (err) {
     console.warn('[auth] could not persist token to disk:', err)
   }

@@ -1,13 +1,13 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
-import { SendHorizontal, History, Square, Paperclip, X, Clock, Check, Pencil } from 'lucide-react'
+import { SendHorizontal, History, Square, Paperclip, X, Clock, Check, Pencil, Bot, Gauge } from 'lucide-react'
 import { useAgentChat } from '../../context/AgentChatContext'
 import { useAgentWorkspace } from '../../context/AgentWorkspaceContext'
 import { useBackgroundProcesses } from '../../context/BackgroundProcessesContext'
 import { useDesktop } from '../../hooks/useDesktop'
 import { API_ORIGIN } from '../../lib/origin'
-import { uploadAgentAttachment, deleteAgentAttachment, getAgentModels, type AgentAttachment } from '../../lib/agent-api'
+import { uploadAgentAttachment, deleteAgentAttachment, type AgentAttachment } from '../../lib/agent-api'
 import {
   buildPaletteItems,
   buildNoResultPaletteItems,
@@ -25,6 +25,8 @@ import type { JobSummary, LocalTicket } from '../../types'
 import { AgentProjectSelector } from './AgentProjectSelector'
 import { AgentTierChip } from './AgentTierChip'
 import { AgentModelSelector } from './AgentModelSelector'
+import { AgentToolbarSelector } from './AgentToolbarSelector'
+import { useAgentProviderCatalog } from './useAgentProviderCatalog'
 import { AgentGitBar } from './AgentGitBar'
 import { AgentComposerContextChips, AgentContextPalette, AgentPlusMenu } from './AgentContextPalette'
 import { BackgroundProcessChip, type BackgroundProcessAccent } from '../BackgroundProcessChip'
@@ -59,7 +61,7 @@ export function __clearComposerDrafts(): void {
 }
 
 /**
- * Shared agent composer — controls row (project · provider · model · tier),
+ * Shared agent composer — controls row (project · provider · model · effort · tier),
  * prompt-history textarea, send/stop. Context-driven so the floating panel and
  * the inline Agent-Mode surface render the exact same input (attachment parity
  * lands here in a later phase). The project selector is re-homed here so it
@@ -242,23 +244,10 @@ export function AgentComposer({
     if (captured.length) setAttachmentDraft(draftKey, (prev) => [...prev, ...captured])
   }, [pendingCaptures, consumePendingCaptures, draftKey])
 
-  // Image affordance gates on the provider's capability (design D22: capability,
-  // never provider id — text-extractable attachments stay enabled regardless).
-  // The same fetch carries the provider's reasoning-effort tiers (empty ⇒ no
-  // selector — gemini has no per-spawn knob).
-  const [supportsImage, setSupportsImage] = useState(true)
-  const [efforts, setEfforts] = useState<string[]>([])
-  useEffect(() => {
-    let alive = true
-    getAgentModels(provider)
-      .then((r) => {
-        if (!alive) return
-        setSupportsImage(r.supportsImageInput)
-        setEfforts(r.efforts)
-      })
-      .catch(() => { /* keep last known values */ })
-    return () => { alive = false }
-  }, [provider])
+  // A single provider-tagged request owns models, effort tiers and image
+  // capability. Tagging prevents one render of stale options after a switch.
+  const providerCatalog = useAgentProviderCatalog(provider)
+  const { models, efforts, supportsImageInput: supportsImage } = providerCatalog
   const effort = (active ? active.reasoning_effort : draftEffort) ?? 'medium'
 
   const adoptNewMissionDrafts = (conversationId: string): void => {
@@ -563,35 +552,35 @@ export function AgentComposer({
             onSelect={(id) => void setPinnedProject(id)}
           />
         )}
-        <select
+        <AgentToolbarSelector
+          label={t('provider.label')}
           value={provider}
-          onChange={(e) => void setProvider(e.target.value)}
-          data-agent-interactive
-          aria-label={t('provider.label')}
-          className="rounded-md border border-border/50 bg-surface/60 px-2 py-1 text-xs text-foreground outline-none hover:bg-surface"
-        >
-          {PROVIDERS.map((p) => (
-            <option key={p} value={p}>{t(`provider.${p}`)}</option>
-          ))}
-        </select>
+          options={PROVIDERS.map((p) => ({ value: p, label: t(`provider.${p}`) }))}
+          icon={Bot}
+          onSelect={(nextProvider) => {
+            void setProvider(nextProvider).catch(() => toast.error(t('error.generic')))
+          }}
+          testId="agent-provider-selector"
+        />
         <AgentModelSelector
-          provider={provider}
+          models={models}
           model={active ? active.model : draftModel}
-          onSelect={(m) => void setModel(m)}
+          status={providerCatalog.status}
+          onSelect={(m) => {
+            void setModel(m).catch(() => toast.error(t('error.generic')))
+          }}
         />
         {efforts.length > 0 && (
-          <select
+          <AgentToolbarSelector
+            label={t('effort.label')}
             value={effort}
-            onChange={(e) => void setEffort(e.target.value)}
-            data-agent-interactive
-            aria-label={t('effort.label')}
-            title={t('effort.label')}
-            className="rounded-md border border-border/50 bg-surface/60 px-2 py-1 text-xs text-foreground outline-none hover:bg-surface"
-          >
-            {efforts.map((lvl) => (
-              <option key={lvl} value={lvl}>{t(`effort.${lvl}`)}</option>
-            ))}
-          </select>
+            options={efforts.map((level) => ({ value: level, label: t(`effort.${level}`) }))}
+            icon={Gauge}
+            onSelect={(nextEffort) => {
+              void setEffort(nextEffort).catch(() => toast.error(t('error.generic')))
+            }}
+            testId="agent-effort-selector"
+          />
         )}
         <div className="ml-auto">
           <AgentTierChip level={active?.tier_level ?? draftTierLevel} onCycle={() => void cycleTier()} />

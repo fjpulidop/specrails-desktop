@@ -6,7 +6,7 @@ import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
 import express, { Router, type Express } from 'express'
 import request from 'supertest'
 import { initDb, createJob, finishJob, type DbInstance } from './db'
-import { createLoopRun } from './loop-runs-store'
+import { createLoopRun, finishLoopRun } from './loop-runs-store'
 import { registerJobsRoutes } from './project-router-jobs'
 import { JobNotFoundError } from './queue-manager'
 import type { ProjectRoutesDeps } from './project-router-helpers'
@@ -230,7 +230,7 @@ describe('GET /jobs/:id interactive surface fields', () => {
 // Standalone loop runs (railIndex=null) never register in railLoopRuns — the
 // cancel route must fall back to the loop engine instead of 404ing while the
 // loop keeps executing (the mission-modal "cancel did nothing" incident).
-describe('DELETE /jobs/:id — standalone loop-run fallback', () => {
+describe('POST /jobs/:id/cancel — standalone loop-run fallback', () => {
   function buildCancelApp() {
     const loopCancel = vi.fn()
     const app = express()
@@ -264,7 +264,7 @@ describe('DELETE /jobs/:id — standalone loop-run fallback', () => {
       startedAt: new Date().toISOString(),
     })
 
-    const res = await request(app).delete('/api/projects/p1/jobs/' + runId)
+    const res = await request(app).post('/api/projects/p1/jobs/' + runId + '/cancel')
 
     expect(res.status).toBe(200)
     expect(res.body).toEqual({ ok: true, status: 'canceling' })
@@ -273,8 +273,26 @@ describe('DELETE /jobs/:id — standalone loop-run fallback', () => {
 
   it('still 404s for a genuinely unknown job id', async () => {
     const { app, loopCancel } = buildCancelApp()
-    const res = await request(app).delete('/api/projects/p1/jobs/nope')
+    const res = await request(app).post('/api/projects/p1/jobs/nope/cancel')
     expect(res.status).toBe(404)
+    expect(loopCancel).not.toHaveBeenCalled()
+  })
+
+  it('treats a standalone loop that finished before cancel landed as already terminal', async () => {
+    const { app, loopCancel } = buildCancelApp()
+    const runId = 'lr-standalone-done'
+    createJob(db, { id: runId, command: 'loop: Solo #9', started_at: new Date().toISOString() })
+    createLoopRun(db, {
+      id: runId, projectId: 'p1', loopId: 'l1', loopName: 'Solo', railIndex: null,
+      ticketId: 9, provider: 'claude', model: 'sonnet', iterationLimit: 3,
+      startedAt: new Date().toISOString(),
+    })
+    finishLoopRun(db, runId, { outcome: 'success', finishedAt: new Date().toISOString() })
+
+    const res = await request(app).post(`/api/projects/p1/jobs/${runId}/cancel`)
+
+    expect(res.status).toBe(200)
+    expect(res.body).toEqual({ ok: true, status: 'already_terminal' })
     expect(loopCancel).not.toHaveBeenCalled()
   })
 })

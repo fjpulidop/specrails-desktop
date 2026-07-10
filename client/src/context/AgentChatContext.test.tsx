@@ -70,7 +70,18 @@ vi.mock('sonner', () => ({
 }))
 
 import * as agentApi from '../lib/agent-api'
+import type { AgentPrDecisionEnvelope } from '../lib/agent-api'
 import { AgentChatProvider, useAgentChat } from './AgentChatContext'
+
+const prEnvelope = (over: Partial<AgentPrDecisionEnvelope> = {}): AgentPrDecisionEnvelope => ({
+  kind: 'pr_decision', prDeliveryId: 'd1', railIndex: 0, projectId: 'p1', baseBranch: 'main', ticketIds: [1],
+  decision: 'on_review', prUrl: null, prNumber: null, prState: 'none', branch: null, runIds: [], ...over,
+})
+
+const prMessage = (conversationId: string) => ({
+  id: `msg-${conversationId}`, conversation_id: conversationId, role: 'system' as const,
+  content: JSON.stringify(prEnvelope()), created_at: '',
+})
 
 function setDocumentVisibility(value: DocumentVisibilityState): void {
   Object.defineProperty(document, 'visibilityState', {
@@ -85,8 +96,13 @@ function Harness() {
     <div>
       <span data-testid="active-id">{agentChat.active?.id ?? ''}</span>
       <span data-testid="unread-ids">{[...agentChat.unreadConversationIds].sort().join(',')}</span>
+      <span data-testid="pr-deliveries">{agentChat.messages.flatMap((message) => {
+        const envelope = message.role === 'system' ? agentApi.parsePrDecisionEnvelope(message.content) : null
+        return envelope ? [`${envelope.prDeliveryId}:${envelope.decision}`] : []
+      }).join(',')}</span>
       <button onClick={agentChat.open}>open</button>
       <button onClick={() => void agentChat.selectConversation('c2')}>select-c2</button>
+      <button onClick={() => agentChat.applyPrDecisionSnapshot(prEnvelope({ decision: 'pr_draft' }))}>apply-d1</button>
     </div>
   )
 }
@@ -151,5 +167,34 @@ describe('AgentChatContext unread conversations', () => {
     await waitFor(() => expect(screen.getByTestId('active-id').textContent).toBe('c2'))
 
     expect(screen.getByTestId('unread-ids').textContent).toBe('')
+  })
+})
+
+describe('AgentChatContext authoritative PR snapshots', () => {
+  it('updates an authoritative snapshot when its delivery still belongs to the active thread', async () => {
+    vi.mocked(agentApi.getAgentConversation).mockResolvedValue({ conversation: api.conv1, messages: [prMessage('c1')] })
+    render(<AgentChatProvider><Harness /></AgentChatProvider>)
+    await act(async () => { fireEvent.click(screen.getByText('open')) })
+    await waitFor(() => expect(screen.getByTestId('pr-deliveries')).toHaveTextContent('d1:on_review'))
+    await act(async () => { fireEvent.click(screen.getByText('apply-d1')) })
+    expect(screen.getByTestId('pr-deliveries')).toHaveTextContent('d1:pr_draft')
+  })
+
+  it('does not append conversation A delivery into B when the action resolves after a switch', async () => {
+    vi.mocked(agentApi.getAgentConversation).mockImplementation(async (id: string) => ({
+      conversation: id === 'c2' ? api.conv2 : api.conv1,
+      messages: id === 'c2' ? [] : [prMessage('c1')],
+    }))
+    render(<AgentChatProvider><Harness /></AgentChatProvider>)
+    await act(async () => { fireEvent.click(screen.getByText('open')) })
+    await waitFor(() => expect(screen.getByTestId('pr-deliveries')).toHaveTextContent('d1:on_review'))
+
+    await act(async () => { fireEvent.click(screen.getByText('select-c2')) })
+    await waitFor(() => expect(screen.getByTestId('active-id')).toHaveTextContent('c2'))
+    expect(screen.getByTestId('pr-deliveries').textContent).toBe('')
+
+    await act(async () => { fireEvent.click(screen.getByText('apply-d1')) })
+    expect(screen.getByTestId('active-id')).toHaveTextContent('c2')
+    expect(screen.getByTestId('pr-deliveries').textContent).toBe('')
   })
 })

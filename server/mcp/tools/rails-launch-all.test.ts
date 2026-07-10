@@ -9,7 +9,8 @@ import { setRailTickets, createRail } from '../../rails-store'
 import { createPrDelivery, transitionDecision, type CreatePrDeliveryInput } from '../../rail-pr-store'
 import { registerTieredTool, setActiveProject, type McpToolContext, type ToolHandlerExtra } from './types'
 import { railsTools } from './rails'
-import { AGENT_TIER_HEADER } from '../../agent-tier'
+import { AGENT_CAPABILITY_HEADER } from '../../agent-tier'
+import { _resetAgentCapabilitiesForTest, mintAgentCapability } from '../agent-capability'
 import { MobileEventBus } from '../../mobile/mobile-event-bus'
 import type { ProjectRegistry } from '../../project-registry'
 import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js'
@@ -41,12 +42,14 @@ describe('specrails_rails — create_rail + launch_all', () => {
   const call = async (args: Record<string, unknown>) => {
     // In-app agent ladder at 'autonomous' so write/ai-spawn tiers pass the
     // guard (tier enforcement itself is covered by the mcp-tiers suites).
-    const extra: ToolHandlerExtra = { requestInfo: { headers: { [AGENT_TIER_HEADER]: 'autonomous' } } }
+    const capability = mintAgentCapability({ conversationId: 'conv-launch-all', projectId: 'p1', tierLevel: 3 })
+    const extra: ToolHandlerExtra = { requestInfo: { headers: { [AGENT_CAPABILITY_HEADER]: capability } } }
     const res = await captured!(args, extra)
     return { res, data: res.isError ? null : JSON.parse(res.content[0].text) }
   }
 
   beforeEach(async () => {
+    _resetAgentCapabilitiesForTest()
     process.env.SPECRAILS_LOOPS_SECTION = 'false'
     db = initDb(':memory:')
     desktopDb = initDesktopDb(':memory:')

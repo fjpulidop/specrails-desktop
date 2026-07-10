@@ -50,6 +50,34 @@
     "draft": "Draft",
     "onReview": "On Review"
   },
+  "prDeliveryStatus": {
+    "implementation_running": "Implementation running",
+    "implementation_failed": "Implementation failed",
+    "ready_for_review": "Ready for review",
+    "partial_success": "Partial implementation",
+    "partial_delivery": "Partial delivery ready",
+    "existing_pr_updated": "Existing PR updated",
+    "no_changes": "No changes required",
+    "commit_failed": "Commit step failed",
+    "branch_verification_failed": "Branch verification failed",
+    "push_failed": "Push failed",
+    "settlement_interrupted": "Delivery settlement interrupted",
+    "operation_interrupted": "Previous delivery action interrupted",
+    "delivery_failed": "Delivery failed",
+    "pr_draft_ready": "Draft PR ready",
+    "pr_ready": "PR ready",
+    "pr_closed": "PR closed without merge",
+    "merged": "Merged",
+    "discarded": "Discarded",
+    "superseded": "Replaced by a newer run",
+    "cleanup_incomplete": "Cleanup incomplete",
+    "status_failed": "Worktree status check failed",
+    "ref_mismatch": "Branch reference mismatch"
+  },
+  "prRecovery": {
+    "inProgress": "Project recovery is still in progress. Your delivery is safe — retry in a moment.",
+    "interrupted": "A previous delivery action was interrupted during restart. Your work was preserved; review the current state and retry when ready."
+  },
   "modal": {
     "resize": {
       "nw": "Resize modal — top-left corner",

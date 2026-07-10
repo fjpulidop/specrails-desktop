@@ -1,4 +1,11 @@
 import { API_ORIGIN } from './origin'
+import { coerceRailPrStateSnapshot } from './pr-delivery'
+import type {
+  RailDeliveryOutcome,
+  RailImplementationOutcome,
+  RailPrStateSnapshot,
+  RailPrUnitOutcome,
+} from '../types'
 
 // App-level (NOT per-project) client for the global agent chat. The global fetch
 // patch (lib/auth) attaches the desktop token automatically for localhost.
@@ -207,12 +214,13 @@ export async function editQueuedAgentMessage(
 // `agent_pr_decision` WS event.
 
 export type AgentPrDecisionValue =
-  | 'building' | 'on_review' | 'pr_draft' | 'pr_ready' | 'merged' | 'discarded' | 'implementation_failed' | 'pr_failed'
+  | 'building' | 'on_review' | 'pr_draft' | 'pr_ready' | 'no_changes' | 'completed' | 'pr_closed' | 'superseded'
+  | 'merged' | 'discarded' | 'implementation_failed' | 'pr_failed'
 
 export type AgentPrDeliveryState = 'none' | 'local-only' | 'pushed' | 'pr-created'
 
 const PR_DECISION_VALUES: readonly string[] =
-  ['building', 'on_review', 'pr_draft', 'pr_ready', 'merged', 'discarded', 'implementation_failed', 'pr_failed']
+  ['building', 'on_review', 'pr_draft', 'pr_ready', 'no_changes', 'completed', 'pr_closed', 'superseded', 'merged', 'discarded', 'implementation_failed', 'pr_failed']
 const PR_DELIVERY_STATES: readonly string[] = ['none', 'local-only', 'pushed', 'pr-created']
 
 /** Parsed content of a `system` pr_decision row (mirrors the server envelope). */
@@ -231,6 +239,16 @@ export interface AgentPrDecisionEnvelope {
   /** The launch's loop-run ids, in ticket order ([] until allocation lands, and
    *  for rows persisted before the column existed) — one "View log" chip each. */
   runIds: string[]
+  implementationOutcome?: RailImplementationOutcome
+  deliveryOutcome?: RailDeliveryOutcome
+  statusCode?: string | null
+  statusDetail?: string | null
+  deliverySha?: string | null
+  isContinuation?: boolean
+  supersedesDeliveryId?: string | null
+  operation?: AgentPrDecisionAction | null
+  cleanupWarnings?: string[]
+  units?: RailPrUnitOutcome[]
 }
 
 /**
@@ -247,15 +265,15 @@ export function coercePrDecisionEnvelope(v: unknown): AgentPrDecisionEnvelope | 
   if (typeof o.projectId !== 'string' || !o.projectId) return null
   if (typeof o.baseBranch !== 'string') return null
   if (typeof o.decision !== 'string' || !PR_DECISION_VALUES.includes(o.decision)) return null
+  const snapshot = coerceRailPrStateSnapshot({ ...o, prDeliveryId: o.prDeliveryId }, o.railIndex)
+  if (!snapshot) return null
   return {
     kind: 'pr_decision',
     prDeliveryId: o.prDeliveryId,
     railIndex: o.railIndex,
     projectId: o.projectId,
     baseBranch: o.baseBranch,
-    ticketIds: Array.isArray(o.ticketIds)
-      ? o.ticketIds.filter((n): n is number => typeof n === 'number')
-      : [],
+    ticketIds: snapshot.ticketIds,
     decision: o.decision as AgentPrDecisionValue,
     prUrl: typeof o.prUrl === 'string' && o.prUrl ? o.prUrl : null,
     prNumber: typeof o.prNumber === 'number' && Number.isInteger(o.prNumber) && o.prNumber > 0
@@ -267,9 +285,17 @@ export function coercePrDecisionEnvelope(v: unknown): AgentPrDecisionEnvelope | 
     branch: typeof o.branch === 'string' && o.branch ? o.branch : null,
     // Pre-runIds persisted cards (and mid-build inserts) default to [] — the
     // card simply renders no run chips.
-    runIds: Array.isArray(o.runIds)
-      ? o.runIds.filter((s): s is string => typeof s === 'string' && s.length > 0)
-      : [],
+    runIds: snapshot.runIds,
+    implementationOutcome: snapshot.implementationOutcome,
+    deliveryOutcome: snapshot.deliveryOutcome,
+    statusCode: snapshot.statusCode,
+    statusDetail: snapshot.statusDetail,
+    deliverySha: snapshot.deliverySha,
+    isContinuation: snapshot.isContinuation,
+    supersedesDeliveryId: snapshot.supersedesDeliveryId,
+    operation: snapshot.operation,
+    cleanupWarnings: snapshot.cleanupWarnings,
+    units: snapshot.units,
   }
 }
 
@@ -282,15 +308,23 @@ export function parsePrDecisionEnvelope(content: string): AgentPrDecisionEnvelop
   }
 }
 
-export type AgentPrDecisionAction = 'create-pr' | 'publish' | 'discard' | 'poll-merge' | 'merge-local'
+export type AgentPrDecisionAction = 'create-pr' | 'publish' | 'discard' | 'poll-merge' | 'merge-local' | 'dismiss' | 'reopen' | 'acknowledge-no-changes'
+
+const PR_DECISION_ACTION_VALUES: readonly AgentPrDecisionAction[] = [
+  'create-pr', 'publish', 'discard', 'poll-merge', 'merge-local', 'dismiss', 'reopen', 'acknowledge-no-changes',
+]
 
 export type AgentPrDecisionOutcome =
-  | { kind: 'ok'; decision: string; prUrl: string | null; merged: boolean }
-  /** ANY 409 — the other surface answered first; the next broadcast reconciles. */
-  | { kind: 'stale'; current: string }
+  | { kind: 'ok'; decision: string; prUrl: string | null; prState: AgentPrDeliveryState; merged: boolean; detail: string | null; snapshot: RailPrStateSnapshot | null }
+  /** Startup reconciliation owns the project; no decision effect was run. */
+  | { kind: 'recovering'; snapshot: RailPrStateSnapshot | null }
+  /** Decision changed before this request; the authoritative snapshot reconciles. */
+  | { kind: 'stale'; current: string; snapshot: RailPrStateSnapshot | null }
+  /** Another surface owns the durable operation lease; snapshot disables actions. */
+  | { kind: 'busy'; operation: AgentPrDecisionAction | null; snapshot: RailPrStateSnapshot | null }
   /** merge-local precondition failed — USER-fixable (checkout base / clean tree). */
-  | { kind: 'blocked'; reason: 'wrong_branch' | 'dirty'; base: string; current: string | null }
-  | { kind: 'failed'; detail: string }
+  | { kind: 'blocked'; reason: 'wrong_branch' | 'dirty'; base: string; current: string | null; snapshot: RailPrStateSnapshot | null }
+  | { kind: 'failed'; detail: string; snapshot: RailPrStateSnapshot | null }
 
 /**
  * POST the user's decision to the CARD's project. The agent chat is app-global,
@@ -316,29 +350,85 @@ export async function postRailPrDecision(
     data = null
   }
   if (res.ok) {
+    const snapshot = coerceRailPrStateSnapshot(data?.snapshot)
     return {
       kind: 'ok',
-      decision: typeof data?.decision === 'string' ? data.decision : body.expectedDecision,
-      prUrl: typeof data?.prUrl === 'string' ? data.prUrl : null,
+      decision: typeof data?.decision === 'string' ? data.decision : snapshot?.decision ?? body.expectedDecision,
+      prUrl: typeof data?.prUrl === 'string' ? data.prUrl : snapshot?.prUrl ?? null,
+      prState: typeof data?.prState === 'string' && PR_DELIVERY_STATES.includes(data.prState)
+        ? data.prState as AgentPrDeliveryState
+        : snapshot?.prState ?? 'none',
       merged: data?.merged === true,
+      detail: typeof data?.detail === 'string' && data.detail ? data.detail : null,
+      snapshot,
     }
   }
   if (res.status === 409) {
+    if (data?.error === 'project_recovery_in_progress') {
+      return { kind: 'recovering', snapshot: coerceRailPrStateSnapshot(data?.snapshot) }
+    }
+    if (data?.error === 'operation_in_progress') {
+      const snapshot = coerceRailPrStateSnapshot(data?.snapshot)
+      const rawOperation = snapshot?.operation ?? data?.operation
+      return {
+        kind: 'busy',
+        operation: typeof rawOperation === 'string' && PR_DECISION_ACTION_VALUES.includes(rawOperation as AgentPrDecisionAction)
+          ? rawOperation as AgentPrDecisionAction
+          : null,
+        snapshot,
+      }
+    }
     if (data?.error === 'merge_local_blocked') {
       return {
         kind: 'blocked',
         reason: data?.reason === 'dirty' ? 'dirty' : 'wrong_branch',
         base: String(data?.base ?? ''),
         current: typeof data?.current === 'string' ? data.current : null,
+        snapshot: coerceRailPrStateSnapshot(data?.snapshot),
       }
     }
-    return { kind: 'stale', current: String(data?.current ?? '') }
+    return { kind: 'stale', current: String(data?.current ?? ''), snapshot: coerceRailPrStateSnapshot(data?.snapshot) }
   }
-  return { kind: 'failed', detail: String(data?.detail ?? data?.error ?? `HTTP ${res.status}`) }
+  return {
+    kind: 'failed',
+    detail: String(data?.detail ?? data?.error ?? `HTTP ${res.status}`),
+    snapshot: coerceRailPrStateSnapshot(data?.snapshot),
+  }
+}
+
+/** Merge a project-scoped authoritative rail snapshot into an agent card. */
+export function agentEnvelopeFromSnapshot(
+  previous: AgentPrDecisionEnvelope,
+  snapshot: RailPrStateSnapshot,
+): AgentPrDecisionEnvelope {
+  return {
+    ...previous,
+    prDeliveryId: snapshot.prDeliveryId,
+    railIndex: snapshot.railIndex,
+    baseBranch: snapshot.baseBranch,
+    ticketIds: snapshot.ticketIds,
+    decision: snapshot.decision,
+    prUrl: snapshot.prUrl,
+    prNumber: snapshot.prNumber,
+    prState: snapshot.prState,
+    branch: snapshot.branch,
+    runIds: snapshot.runIds,
+    implementationOutcome: snapshot.implementationOutcome,
+    deliveryOutcome: snapshot.deliveryOutcome,
+    statusCode: snapshot.statusCode,
+    statusDetail: snapshot.statusDetail,
+    deliverySha: snapshot.deliverySha,
+    isContinuation: snapshot.isContinuation,
+    supersedesDeliveryId: snapshot.supersedesDeliveryId,
+    operation: snapshot.operation,
+    cleanupWarnings: snapshot.cleanupWarnings,
+    units: snapshot.units,
+  }
 }
 
 export type AgentPrCheckoutOutcome =
   | { kind: 'ok' }
+  | { kind: 'recovering' }
   | { kind: 'failed'; detail: string }
 
 export async function postRailPrCheckout(projectId: string, prDeliveryId: string): Promise<AgentPrCheckoutOutcome> {
@@ -355,6 +445,7 @@ export async function postRailPrCheckout(projectId: string, prDeliveryId: string
     data = null
   }
   if (res.ok) return { kind: 'ok' }
+  if (res.status === 409 && data?.error === 'project_recovery_in_progress') return { kind: 'recovering' }
   return { kind: 'failed', detail: String(data?.detail ?? data?.error ?? `HTTP ${res.status}`) }
 }
 

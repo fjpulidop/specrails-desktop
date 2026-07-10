@@ -4,9 +4,10 @@
  * ledger) into a running parallel rail. Gated OFF by default (rail-isolation's
  * opt-in flag), so this path is inert unless explicitly enabled.
  *
- * Flow: allocate one worktree+branch per ticket → fan out the loop runs IN those
- * worktrees (so concurrent AI CLIs never collide) → when ALL runs settle, run the
- * sequential validated merge-back on the base repo, then clean up worktrees.
+ * Flow: allocate one worktree+branch per independent delivery → fan out the loop
+ * runs IN those worktrees (so concurrent AI CLIs never collide) → when ALL runs
+ * settle, run the sequential validated merge-back on the base repo, then clean
+ * up worktrees. Tickets continuing one PR are grouped into its single checkout.
  *
  * The run spawns with cwd = the worktree (and repoDir = the worktree, so
  * writes/git land there). Because `git worktree add` materializes only TRACKED
@@ -22,10 +23,11 @@
  * via the executors' base env (see workspace-resolution.resolveLoopBaseEnv).
  */
 import * as path from 'path'
+import * as fs from 'fs'
 import { resolveHome } from './artifact-registry'
 import { newId } from './ids'
 import { loadConstantMap } from './loop-constants'
-import { defaultGitRunner, createWorktree, removeWorktree, commitWorktreeAndVerify, listLocalBranches, worktreeBranch, type GitRunner, type WorktreeHandle, type CommitWorktreeResult } from './worktree-manager'
+import { defaultGitRunner, createWorktree, removeWorktree, commitWorktreeAndVerify, listLocalBranches, worktreeBranch, PR_NEVER_STAGE_PATHS, type GitRunner, type WorktreeHandle, type CommitWorktreeResult } from './worktree-manager'
 import { createRailWorktree, updateRailWorktreeState, listNonTerminalRailWorktrees, railWorktreeBranchExistsForTicket, getRailWorktree, isTerminalMergeState } from './rail-worktrees-store'
 import { ticketBranchName, ticketRef, resolveCollisionFreeName, type TicketNamingInput } from './pr-naming'
 import { getLinkByLocalId } from './jira/jira-db'
@@ -35,13 +37,17 @@ import { resolveIntegrationBranch, fetchOrigin, resolveWorktreeBaseRef, type Res
 import { withRepoLock } from './repo-lock'
 import { isRailPrDeliveryEnabled } from './rail-isolation'
 import {
-  createPrDelivery, getPrDelivery, transitionDecision, toPrDeliverySnapshot,
-  toRailPrStateMessage, toPrDecisionCardEnvelope, type PrOriginSurface,
+  createPrDeliveryGeneration, failPrDeliveryAndRestoreSuperseded,
+  getPrDelivery, reconcileFailedBuildingPrDeliveries, transitionDecision, toPrDeliverySnapshot,
+  toRailPrStateMessage, toPrDecisionCardEnvelope,
+  type DeliverBranchRecord, type PrDecision, type PrDeliveryOutcome,
+  type PrDeliveryStatusCode, type PrImplementationOutcome, type PrOriginSurface,
+  type SupersededPrDelivery,
 } from './rail-pr-store'
 import { getAgentChatManager } from './agent-chat-registry'
 import { runMergeBack } from './rail-merge-orchestrator'
 import { createLoopExecutors } from './loop-executors'
-import { applyWorktreeOverlay } from './worktree-overlay'
+import { applyWorktreeOverlay, OVERLAY_MANIFEST } from './worktree-overlay'
 import { resolveProjectExecution } from './workspace-resolution'
 import { isCodeExplorerEnabled } from './feature-flags'
 import { snapshotWorkingTree, type WorkingTreeSnapshot } from './file-provenance'
@@ -49,6 +55,7 @@ import { recordLoopRunProvenance } from './file-story'
 import { getAdapter } from './providers'
 import { defaultExec, pushBranch, type Exec } from './pr-publisher'
 import { resolveActivePrContinuationTargets, type ActivePrContinuationTarget } from './active-pr-continuation'
+import { isExactOpenPr, observePrLifecycle } from './pr-lifecycle'
 import { releaseRailWorktrees } from './rail-worktree-release'
 import type { BranchToMerge } from './merge-manager'
 import type { LoopGraph } from './loop-graph'
@@ -77,12 +84,26 @@ export interface IsolatedLaunchInput {
   originConversationId?: string | null
   /** Called immediately after the PR-delivery row is inserted. */
   onPrDeliveryCreated?: (id: string) => void
-  /**
-   * When true, an allocation failure leaves the just-created delivery in
-   * `building` so the caller can attach a shared-cwd fallback run to the same
-   * implementation card. Default false keeps direct callers from wedging a rail.
-   */
-  preservePrDeliveryOnAllocationFailure?: boolean
+  /** Router-established continuation contract. When present, resolving or
+   * materializing any other branch is an error; never start fresh work. */
+  requiredPrContinuation?: {
+    deliveryId: string
+    decision: Extract<PrDecision, 'pr_draft' | 'pr_ready'>
+    branch: string
+    prUrl: string
+    prNumber: number | null
+  }
+}
+
+/** A PR follow-up may only run on the verified PR branch in a dedicated
+ * worktree. Routers must surface this error instead of degrading to shared cwd. */
+export class PrContinuationIsolationError extends Error {
+  readonly code = 'pr_continuation_isolation_required'
+
+  constructor(message: string) {
+    super(message)
+    this.name = 'PrContinuationIsolationError'
+  }
 }
 
 /** Injectable git/worktree IO (defaults to the real implementations) — lets the
@@ -121,6 +142,27 @@ interface AllocatedRun {
   provenanceSnapshot: WorkingTreeSnapshot | null
   /** Existing open PR branch this run is intentionally continuing, if any. */
   continuationTarget: ActivePrContinuationTarget | null
+  /** Ref the worktree was materialized/refreshed from (fresh/resume evidence). */
+  baseRef: string
+  /** HEAD observed before the loop starts. Null means Git could not prove it. */
+  initialSha: string | null
+  /** Ownership is captured at allocation so rollback cannot delete a borrowed
+   *  PR branch or a pre-existing/resumable local branch. */
+  branchOwnership: 'created' | 'preexisting' | 'borrowed-pr'
+  worktreeOwnership: 'created' | 'preexisting'
+}
+
+interface SettledRun {
+  run: AllocatedRun
+  implementationOutcome: 'succeeded' | 'failed'
+  deliveryOutcome: Extract<PrDeliveryOutcome, 'ready' | 'no_changes' | 'blocked' | 'not_started'>
+  initialSha: string | null
+  finalSha: string | null
+  changed?: boolean
+  failureCode?: PrDeliveryStatusCode
+  failureDetail?: string
+  /** False only after cleanliness and durable-ref checks prove force-removal safe. */
+  safeToRelease: boolean
 }
 
 /**
@@ -165,11 +207,98 @@ function commitFailureSummary(result: CommitWorktreeResult): string {
   return `${result.error ?? 'worktree still has uncommitted deliverable changes'}${dirty}`
 }
 
+const COMMIT_SHA_RE = /^[0-9a-f]{40,64}$/i
+
+/** Prove that the linked checkout is on the expected PR branch and that its
+ * HEAD is exactly the commit named by refs/heads/<branch>. The handle's branch
+ * string alone is insufficient: createWorktree may reuse a stale mounted path. */
+async function verifyContinuationWorktree(
+  git: GitRunner,
+  repoDir: string,
+  handle: WorktreeHandle,
+  target: ActivePrContinuationTarget,
+): Promise<string> {
+  if (handle.branch !== target.branch) {
+    throw new PrContinuationIsolationError(
+      `PR branch ${target.branch} resolved to mounted branch ${handle.branch}; free the stale worktree and retry`,
+    )
+  }
+  const checkedOut = await git.run(['rev-parse', '--abbrev-ref', 'HEAD'], handle.worktreePath)
+  const actualBranch = checkedOut.code === 0 ? checkedOut.stdout.trim() : ''
+  if (actualBranch !== target.branch) {
+    throw new PrContinuationIsolationError(
+      `worktree ${handle.worktreePath} is on ${actualBranch || 'an unverifiable ref'}, expected PR branch ${target.branch}; fix the checkout and retry`,
+    )
+  }
+  const [head, branchRef] = await Promise.all([
+    git.run(['rev-parse', '--verify', 'HEAD'], handle.worktreePath),
+    git.run(['rev-parse', '--verify', `refs/heads/${target.branch}`], repoDir),
+  ])
+  const headSha = head.code === 0 ? head.stdout.trim() : ''
+  const branchSha = branchRef.code === 0 ? branchRef.stdout.trim() : ''
+  if (!COMMIT_SHA_RE.test(headSha) || headSha !== branchSha) {
+    throw new PrContinuationIsolationError(
+      `worktree HEAD does not match refs/heads/${target.branch}; reconcile the PR branch and retry`,
+    )
+  }
+  return headSha
+}
+
+async function readHeadSha(git: GitRunner, cwd: string): Promise<string | null> {
+  try {
+    const result = await git.run(['rev-parse', '--verify', 'HEAD'], cwd)
+    const sha = result.code === 0 ? result.stdout.trim() : ''
+    return COMMIT_SHA_RE.test(sha) ? sha : null
+  } catch {
+    return null
+  }
+}
+
+async function branchHasDelta(git: GitRunner, cwd: string, baseRef: string): Promise<boolean | null> {
+  try {
+    const result = await git.run(['diff', '--quiet', `${baseRef}...HEAD`, '--'], cwd)
+    if (result.code === 0) return false
+    if (result.code === 1) return true
+    return null
+  } catch {
+    return null
+  }
+}
+
+function errorDetail(err: unknown): string {
+  return err instanceof Error ? err.message : String(err)
+}
+
+function aggregateImplementationOutcome(results: readonly SettledRun[]): PrImplementationOutcome {
+  const succeeded = results.filter((result) => result.implementationOutcome === 'succeeded').length
+  if (succeeded === results.length && results.length > 0) return 'succeeded'
+  if (succeeded > 0) return 'partially_succeeded'
+  return results.length > 0 ? 'failed' : 'unknown'
+}
+
+function branchRecords(results: readonly SettledRun[]): DeliverBranchRecord[] {
+  return results.flatMap((result) => result.run.ticketIds.map((ticketId) => ({
+    ticketId,
+    branch: result.run.handle.branch,
+    // Legacy consumers interpret this as delivery eligibility, not engine truth.
+    succeeded: result.deliveryOutcome === 'ready',
+    runId: result.run.runId,
+    implementationOutcome: result.implementationOutcome,
+    deliveryOutcome: result.deliveryOutcome,
+    initialSha: result.initialSha,
+    finalSha: result.finalSha,
+    ...(result.changed === undefined ? {} : { changed: result.changed }),
+    failureCode: result.failureCode ?? null,
+    branchOwnership: result.run.branchOwnership,
+  })))
+}
+
 /**
  * Launch the rail's tickets in isolated worktrees + schedule the merge-back.
- * Returns the loop run ids. Throws if worktree allocation fails (the caller then
- * falls back to the shared-cwd path) — but only after tearing down any partial
- * allocation, so a failure never leaves orphaned worktrees.
+ * Returns the loop run ids. Throws if worktree allocation fails, but only after
+ * tearing down owned partial allocation. A fresh launch may degrade to shared
+ * cwd in the router; a PR continuation raises PrContinuationIsolationError and
+ * must fail closed because shared cwd cannot prove which branch receives work.
  */
 export async function launchIsolatedRail(input: IsolatedLaunchInput, io: IsolatedLaunchIO = {}): Promise<string[]> {
   const { ctx, railIndex, ticketIds, loopId, loopName, loopGraph, provider, model, effort } = input
@@ -192,20 +321,20 @@ export async function launchIsolatedRail(input: IsolatedLaunchInput, io: Isolate
   // every await and late-joining clients hydrate mid-build via GET /rails —
   // and re-broadcast the durable rail.pr_state snapshot on every mutation.
   let prDeliveryId: string | null = null
-  const broadcastPrState = (): void => {
-    if (!prDeliveryId) return
-    const row = getPrDelivery(ctx.db, prDeliveryId)
-    if (row) ctx.broadcast(toRailPrStateMessage(ctx.project.id, toPrDeliverySnapshot(row)))
-  }
+  let supersededDelivery: SupersededPrDelivery | null = null
   // Origin-conversation card sync: when the launch came from an agent-chat
   // conversation, mirror the row's state into its inline decision card —
   // 'post' at launch (the user sees "working in an isolated worktree" from
   // second zero), 'update' on every later transition (settle, alloc-failure).
   // Null-safe: registry empty in tests / disabled builds; update falls back to
   // post when no card exists yet.
-  const syncOriginCard = (verb: 'post' | 'update'): void => {
-    if (!prDeliveryId) return
-    const row = getPrDelivery(ctx.db, prDeliveryId)
+  const broadcastDeliveryState = (deliveryId: string): void => {
+    const row = getPrDelivery(ctx.db, deliveryId)
+    if (!row) return
+    ctx.broadcast(toRailPrStateMessage(ctx.project.id, toPrDeliverySnapshot(row)))
+  }
+  const syncDeliveryCard = (deliveryId: string, verb: 'post' | 'update'): void => {
+    const row = getPrDelivery(ctx.db, deliveryId)
     if (!row?.origin_conversation_id) return
     const mgr = getAgentChatManager()
     if (!mgr) return
@@ -213,11 +342,37 @@ export async function launchIsolatedRail(input: IsolatedLaunchInput, io: Isolate
     if (verb === 'post') mgr.postPrDecisionCard(row.origin_conversation_id, envelope)
     else mgr.updatePrDecisionCard(row.origin_conversation_id, envelope)
   }
+  const emitPrDeliveryState = (deliveryId: string, verb: 'post' | 'update'): void => {
+    broadcastDeliveryState(deliveryId)
+    syncDeliveryCard(deliveryId, verb)
+  }
+  const broadcastPrState = (): void => {
+    if (prDeliveryId) broadcastDeliveryState(prDeliveryId)
+  }
+  const syncOriginCard = (verb: 'post' | 'update'): void => {
+    if (prDeliveryId) syncDeliveryCard(prDeliveryId, verb)
+  }
+  const closeFailedGeneration = (err: unknown): void => {
+    if (!prDeliveryId || getPrDelivery(ctx.db, prDeliveryId)?.decision !== 'building') return
+    const closed = supersededDelivery
+      ? failPrDeliveryAndRestoreSuperseded(ctx.db, prDeliveryId, supersededDelivery)
+      : transitionDecision(ctx.db, prDeliveryId, 'building', 'discarded', {
+          implementationOutcome: 'unknown',
+          deliveryOutcome: 'blocked',
+          statusCode: 'delivery_failed',
+          statusDetail: errorDetail(err),
+        })
+    if (!closed) return
+    try { emitPrDeliveryState(prDeliveryId, 'update') } catch { /* durable row is authoritative */ }
+    if (supersededDelivery) {
+      try { emitPrDeliveryState(supersededDelivery.id, 'update') } catch { /* durable row is authoritative */ }
+    }
+  }
   // Units of isolation: `all` → ONE unit covering every ticket (one worktree, one
   // run — the batch pipeline handles the tickets internally); `per-ticket` → one
   // unit per ticket. The branch/ledger key is the unit's primary (first) ticket.
   const scope = input.scope ?? 'per-ticket'
-  const units: { ticketId: number; ticketIds: number[] }[] =
+  let units: { ticketId: number; ticketIds: number[] }[] =
     scope === 'all'
       ? [{ ticketId: ticketIds[0], ticketIds: [...ticketIds] }]
       : ticketIds.map((id) => ({ ticketId: id, ticketIds: [id] }))
@@ -264,7 +419,8 @@ export async function launchIsolatedRail(input: IsolatedLaunchInput, io: Isolate
   let integration!: ResolvedIntegrationBranch
   let launchContinuation: ActivePrContinuationTarget | null = null
   const allocated: AllocatedRun[] = []
-  await withRepoLock(baseRepo, async () => {
+  try {
+    await withRepoLock(baseRepo, async () => {
   // Bring the repo's remote-tracking refs up to date BEFORE resolving the
   // integration branch or allocating any worktree — otherwise `git worktree
   // add -b <branch> <path> <bare-name>` resolves against whatever (possibly
@@ -306,19 +462,21 @@ export async function launchIsolatedRail(input: IsolatedLaunchInput, io: Isolate
   // integration-base path. Keep this deliberately single-target for now: one
   // rail delivery row can represent one PR URL, so multi-PR batches continue to
   // use the existing new-work flow instead of silently mixing PRs.
-  const continuationTargets = await resolveActivePrContinuationTargets({
-    db: ctx.db,
-    git,
-    exec,
-    repoDir: baseRepo,
-    ticketIds: units.map((u) => u.ticketId),
-    integrationBranch: integration.branch,
-    fetchOk: fetchResult.ok,
-    getTicketSpec: (ticketId) => {
-      try { return ctx.getTicketSpec(ticketId) as ReturnType<typeof unitNamingInput> & { status?: string; description?: string } }
-      catch { return undefined }
-    },
-  })
+  const continuationTargets = prMode
+    ? await resolveActivePrContinuationTargets({
+        db: ctx.db,
+        git,
+        exec,
+        repoDir: baseRepo,
+        ticketIds: units.map((u) => u.ticketId),
+        integrationBranch: integration.branch,
+        fetchOk: fetchResult.ok,
+        getTicketSpec: (ticketId) => {
+          try { return ctx.getTicketSpec(ticketId) as ReturnType<typeof unitNamingInput> & { status?: string; description?: string } }
+          catch { return undefined }
+        },
+      })
+    : new Map<number, ActivePrContinuationTarget>()
   const uniqueContinuationKeys = new Set(
     units
       .map((u) => continuationTargets.get(u.ticketId))
@@ -328,9 +486,45 @@ export async function launchIsolatedRail(input: IsolatedLaunchInput, io: Isolate
   if (uniqueContinuationKeys.size === 1 && units.every((u) => continuationTargets.has(u.ticketId))) {
     launchContinuation = continuationTargets.get(units[0].ticketId) ?? null
   }
+  let staleRequiredPr = false
+  if (input.requiredPrContinuation && (
+    !launchContinuation ||
+    launchContinuation.branch !== input.requiredPrContinuation.branch ||
+    launchContinuation.prUrl !== input.requiredPrContinuation.prUrl ||
+    launchContinuation.prNumber !== input.requiredPrContinuation.prNumber
+  )) {
+    const observed = await observePrLifecycle(
+      exec, baseRepo, input.requiredPrContinuation.prUrl,
+    )
+    if (observed.ok && (observed.state === 'CLOSED' || observed.state === 'MERGED')) {
+      // The router snapshot was stale, but this is not an isolation failure and
+      // must not trap the user in a 409 loop. Supersede that generation under
+      // the same expected-active CAS, then allocate a genuinely fresh branch.
+      staleRequiredPr = true
+      launchContinuation = null
+    } else {
+      const reason = observed.ok
+        ? `the PR no longer matches its recorded head/base (${observed.state})`
+        : `GitHub lifecycle could not be confirmed (${observed.detail})`
+      throw new PrContinuationIsolationError(
+        `cannot safely continue PR branch ${input.requiredPrContinuation.branch}: ${reason}; retry after the PR is verifiably open`,
+      )
+    }
+  }
+  // A git branch can only be checked out by one worktree. When several rail
+  // tickets all continue the same PR, make them one atomic batch run in one
+  // checkout instead of attempting N worktrees for the same branch (the second
+  // `git worktree add` necessarily fails). `ticketIds` preserves the full rail
+  // scope for {{spec.ids}} / ticket commands and completion bookkeeping.
+  if (launchContinuation && units.length > 1) {
+    units = [{
+      ticketId: units[0].ticketId,
+      ticketIds: units.flatMap((unit) => unit.ticketIds),
+    }]
+  }
 
   if (prMode) {
-    prDeliveryId = createPrDelivery(ctx.db, {
+    const generation = createPrDeliveryGeneration(ctx.db, {
       railIndex,
       loopId,
       railKey: `${railIndex}-${loopId}`,
@@ -339,7 +533,12 @@ export async function launchIsolatedRail(input: IsolatedLaunchInput, io: Isolate
       loopName,
       originSurface: input.originSurface ?? 'dashboard',
       originConversationId: input.originConversationId ?? null,
-    }).id
+      isContinuation: Boolean(launchContinuation),
+    }, input.requiredPrContinuation
+      ? { id: input.requiredPrContinuation.deliveryId, decision: input.requiredPrContinuation.decision }
+      : null)
+    prDeliveryId = generation.delivery.id
+    supersededDelivery = generation.superseded
     input.onPrDeliveryCreated?.(prDeliveryId)
     if (launchContinuation) {
       transitionDecision(ctx.db, prDeliveryId, 'building', 'building', {
@@ -347,10 +546,24 @@ export async function launchIsolatedRail(input: IsolatedLaunchInput, io: Isolate
         prUrl: launchContinuation.prUrl,
         prNumber: launchContinuation.prNumber,
         prState: 'pr-created',
+        isContinuation: true,
+        supersedesDeliveryId: supersededDelivery?.id ?? null,
+      })
+    } else if (staleRequiredPr) {
+      // This replacement deliberately starts a new PR lineage: the stale PR
+      // remains historical and its head is never borrowed. Ownership was
+      // already persisted atomically by createPrDeliveryGeneration; this
+      // transition only adds the user-facing explanation.
+      transitionDecision(ctx.db, prDeliveryId, 'building', 'building', {
+        supersedesDeliveryId: supersededDelivery?.id ?? null,
+        statusDetail: 'The previous PR was no longer open; this implementation will use a fresh branch and PR.',
       })
     }
-    broadcastPrState()
-    syncOriginCard('post')
+    if (supersededDelivery) {
+      try { emitPrDeliveryState(supersededDelivery.id, 'update') } catch { /* durable supersession is authoritative */ }
+    }
+    try { broadcastPrState() } catch { /* hydration can recover */ }
+    try { syncOriginCard('post') } catch { /* hydration can recover */ }
   }
 
   // Conventional branch naming (pr-naming): `<type>/<ref>-<kebab-title>`, the
@@ -361,11 +574,12 @@ export async function launchIsolatedRail(input: IsolatedLaunchInput, io: Isolate
   // `sr/<slug>/ticket-<id>` name. Snapshot under the lock so concurrent
   // launches see each other's just-created branches.
   const takenBranches = await listLocalBranches(git, baseRepo)
-  const unitBranchName = (ticketId: number): string => {
+  const preexistingBranches = new Set(takenBranches)
+  const unitBranchName = (ticketId: number): { branch: string; ownership: AllocatedRun['branchOwnership'] } => {
     const continuation = launchContinuation && continuationTargets.get(ticketId)
     if (continuation) {
       takenBranches.add(continuation.branch)
-      return continuation.branch
+      return { branch: continuation.branch, ownership: 'borrowed-pr' }
     }
     const preferred = ticketBranchName(unitNamingInput(ctx, ticketId))
     const branch = resolveCollisionFreeName(preferred, {
@@ -373,78 +587,147 @@ export async function launchIsolatedRail(input: IsolatedLaunchInput, io: Isolate
       reserved: [integration.branch],
     }) ?? worktreeBranch(slug, ticketId)
     takenBranches.add(branch)
-    return branch
+    return { branch, ownership: preexistingBranches.has(branch) ? 'preexisting' : 'created' }
   }
 
   try {
     for (const unit of units) {
       const continuationTarget = launchContinuation ? continuationTargets.get(unit.ticketId) ?? null : null
-      const handle = await create(git, {
-        repoDir: baseRepo,
-        worktreesRoot,
-        slug,
-        ticketId: unit.ticketId,
-        baseRef: continuationTarget?.baseRef ?? worktreeBaseRef.baseRef,
-        branch: unitBranchName(unit.ticketId),
-        refreshFromBaseRef: Boolean(continuationTarget?.baseRef),
-      })
-      // Per-run overlay: merge-link the framework surface the checkout didn't
-      // bring into the worktree (idempotent; resume-safe via its manifest).
-      let overlayExcludes: string[] = []
+      const branchPlan = unitBranchName(unit.ticketId)
+      let handle: WorktreeHandle | null = null
+      let branchOwnership = branchPlan.ownership
+      let worktreeOwnership: AllocatedRun['worktreeOwnership'] = 'created'
+      let initialSha: string | null = null
       try {
-        const res = overlay({
-          worktreePath: handle.worktreePath,
-          sourceRoot: overlaySourceRoot,
-          providerDir: overlayProviderDir,
-          instructionsFilename: overlayInstructions,
+        handle = await create(git, {
+          repoDir: baseRepo,
+          worktreesRoot,
+          slug,
+          ticketId: unit.ticketId,
+          baseRef: continuationTarget?.baseRef ?? worktreeBaseRef.baseRef,
+          branch: branchPlan.branch,
+          refreshFromBaseRef: Boolean(continuationTarget?.baseRef),
         })
-        overlayExcludes = res.createdPaths
-        if (res.warnings.length > 0) notifyOverlayDegraded(unit.ticketId, res.warnings)
-      } catch (err) {
-        // applyWorktreeOverlay never throws; this guards injected test doubles
-        // and future edits — the spawn proceeds regardless.
-        notifyOverlayDegraded(unit.ticketId, [err instanceof Error ? err.message : String(err)])
-      }
-      // Code-Explorer provenance: freeze the worktree's pre-run state (HEAD sha
-      // + the overlay's untracked set) so the settle diff attributes exactly
-      // the run's own writes. Best-effort — a snapshot failure only loses
-      // provenance, never the run.
-      let provenanceSnapshot: WorkingTreeSnapshot | null = null
-      if (isCodeExplorerEnabled()) {
-        try {
-          provenanceSnapshot = (io.snapshot ?? snapshotWorkingTree)(handle.worktreePath)
-        } catch (err) {
-          console.warn(`[rail-isolated] provenance snapshot failed: ${(err as Error).message}`)
+        worktreeOwnership = handle.worktreeCreated === false ? 'preexisting' : 'created'
+        if (!continuationTarget && (handle.branch !== branchPlan.branch || handle.branchCreated === false)) {
+          branchOwnership = 'preexisting'
         }
+        if (continuationTarget) {
+          initialSha = await verifyContinuationWorktree(git, baseRepo, handle, continuationTarget)
+        } else {
+          initialSha = await readHeadSha(git, handle.worktreePath)
+        }
+
+        // Per-run overlay: merge-link the framework surface the checkout didn't
+        // bring into the worktree (idempotent; resume-safe via its manifest).
+        let overlayExcludes: string[] = []
+        try {
+          const res = overlay({
+            worktreePath: handle.worktreePath,
+            sourceRoot: overlaySourceRoot,
+            providerDir: overlayProviderDir,
+            instructionsFilename: overlayInstructions,
+          })
+          overlayExcludes = res.createdPaths
+          if (res.warnings.length > 0) notifyOverlayDegraded(unit.ticketId, res.warnings)
+        } catch (err) {
+          // applyWorktreeOverlay never throws; this guards injected test doubles
+          // and future edits — the spawn proceeds regardless.
+          notifyOverlayDegraded(unit.ticketId, [err instanceof Error ? err.message : String(err)])
+        }
+        // Code-Explorer provenance: freeze the worktree's pre-run state (HEAD sha
+        // + the overlay's untracked set) so the settle diff attributes exactly
+        // the run's own writes. Best-effort — a snapshot failure only loses
+        // provenance, never the run.
+        let provenanceSnapshot: WorkingTreeSnapshot | null = null
+        if (isCodeExplorerEnabled()) {
+          try {
+            provenanceSnapshot = (io.snapshot ?? snapshotWorkingTree)(handle.worktreePath)
+          } catch (err) {
+            console.warn(`[rail-isolated] provenance snapshot failed: ${(err as Error).message}`)
+          }
+        }
+        const runId = newId()
+        const ledgerId = newId()
+        createRailWorktree(ctx.db, {
+          id: ledgerId, railIndex, ticketId: unit.ticketId, runId,
+          branch: handle.branch, worktreePath: handle.worktreePath,
+        })
+        allocated.push({
+          ticketId: unit.ticketId,
+          ticketIds: unit.ticketIds,
+          runId,
+          ledgerId,
+          handle,
+          overlayExcludes,
+          provenanceSnapshot,
+          continuationTarget,
+          baseRef: continuationTarget?.baseRef ?? worktreeBaseRef.baseRef,
+          initialSha,
+          branchOwnership,
+          worktreeOwnership,
+        })
+      } catch (err) {
+        // A handle that never reached `allocated` is still our responsibility,
+        // but only unmount/delete resources this call actually created.
+        if (handle && worktreeOwnership === 'created') {
+          await remove(git, {
+            repoDir: baseRepo,
+            worktreePath: handle.worktreePath,
+            branch: handle.branch,
+            deleteBranch: branchOwnership === 'created',
+          }).catch(() => {})
+        }
+        throw err
       }
-      const runId = newId()
-      const ledgerId = newId()
-      createRailWorktree(ctx.db, {
-        id: ledgerId, railIndex, ticketId: unit.ticketId, runId,
-        branch: handle.branch, worktreePath: handle.worktreePath,
-      })
-      allocated.push({ ticketId: unit.ticketId, ticketIds: unit.ticketIds, runId, ledgerId, handle, overlayExcludes, provenanceSnapshot, continuationTarget })
     }
   } catch (err) {
     for (const a of allocated) {
-      await remove(git, { repoDir: baseRepo, worktreePath: a.handle.worktreePath, branch: a.handle.branch }).catch(() => {})
+      if (a.worktreeOwnership === 'created') {
+        await remove(git, {
+          repoDir: baseRepo,
+          worktreePath: a.handle.worktreePath,
+          branch: a.handle.branch,
+          deleteBranch: a.branchOwnership === 'created',
+        }).catch(() => {})
+      }
+      updateRailWorktreeState(ctx.db, a.ledgerId, 'failed')
     }
-    // Close the just-inserted decision row (kept as 'discarded' for audit, never
-    // deleted) so a wedged 'building' row can never block relaunching the slot.
-    // Router-driven PR continuations may intentionally fall back to shared-cwd
-    // on the same PR branch; in that case the router preserves and updates the
-    // row as the live iteration card instead of showing a false discard.
-    if (!input.preservePrDeliveryOnAllocationFailure && prDeliveryId && transitionDecision(ctx.db, prDeliveryId, 'building', 'discarded')) {
-      broadcastPrState()
-      syncOriginCard('update')
+    // Close the failed generation. A continuation atomically restores the exact
+    // predecessor it superseded; a stale concurrent generation wins instead of
+    // letting this catch overwrite it.
+    closeFailedGeneration(err)
+    if (launchContinuation) {
+      if (err instanceof PrContinuationIsolationError) throw err
+      const detail = err instanceof Error ? err.message : String(err)
+      throw new PrContinuationIsolationError(
+        `cannot allocate a verified worktree for PR branch ${launchContinuation.branch}: ${detail}; free the branch checkout and retry`,
+      )
     }
     throw err
   }
-  }) // withRepoLock — allocation done; the fan-out below runs in parallel.
+    }) // withRepoLock — allocation done; the fan-out below runs in parallel.
+  } catch (err) {
+    closeFailedGeneration(err)
+    // Auto-detected GitHub continuations do not have a router-side delivery
+    // contract yet. Preserve the fail-closed signal for errors that happen
+    // after detection but before the allocation catch (for example DB setup).
+    // TypeScript does not observe assignments performed inside withRepoLock's
+    // async callback, so retain the explicit runtime type at this boundary.
+    const detectedContinuation = launchContinuation as ActivePrContinuationTarget | null
+    if (detectedContinuation && !(err instanceof PrContinuationIsolationError)) {
+      const detail = err instanceof Error ? err.message : String(err)
+      throw new PrContinuationIsolationError(
+        `cannot prepare a verified worktree for PR branch ${detectedContinuation.branch}: ${detail}`,
+      )
+    }
+    throw err
+  }
 
-  // 2. Fan out: one loop run per ticket, spawning IN its worktree. In PR mode a
-  //    COMPLETED run's tickets park at on_review (the user decides done vs
-  //    discard via the PR flow); failure outcomes ignore the field.
+  // 2. Fan out: one loop run per independent worktree. Same-PR tickets form one
+  //    atomic batch run because git cannot mount one branch in multiple linked
+  //    worktrees. In PR mode a COMPLETED run's tickets park at on_review (the
+  //    user decides done vs discard via the PR flow); failures ignore the field.
   const runFinishedOpts = { ticketCompletionStatus: prMode ? ('on_review' as const) : ('done' as const) }
   // Code-Explorer provenance at settle: diff the worktree against its pre-run
   // snapshot and record file_provenance/story rows (keyed by runId), exactly
@@ -459,58 +742,217 @@ export async function launchIsolatedRail(input: IsolatedLaunchInput, io: Isolate
   const recordRunProvenance = (a: AllocatedRun): void => {
     if (provenanceRecorded.has(a.runId)) return
     provenanceRecorded.add(a.runId)
-    recordProvenance({
-      db: ctx.db,
-      projectId: ctx.project.id,
-      runId: a.runId,
-      ticketId: a.ticketId,
-      repoDir: a.handle.worktreePath,
-      snapshot: a.provenanceSnapshot,
-      broadcast: (msg) => ctx.broadcast(msg),
-    })
+    try {
+      recordProvenance({
+        db: ctx.db,
+        projectId: ctx.project.id,
+        runId: a.runId,
+        ticketId: a.ticketId,
+        repoDir: a.handle.worktreePath,
+        snapshot: a.provenanceSnapshot,
+        broadcast: (msg) => ctx.broadcast(msg),
+      })
+    } catch (err) {
+      console.warn(`[rail-isolated] provenance recording failed for ${a.runId}: ${errorDetail(err)}`)
+    }
   }
-  const runPromises: Promise<{ run: AllocatedRun; succeeded: boolean }>[] = []
+
+  const markWorktree = (a: AllocatedRun, state: 'built' | 'failed' | 'needs-review'): string | null => {
+    try {
+      return updateRailWorktreeState(ctx.db, a.ledgerId, state)
+        ? null
+        : `worktree ledger ${a.ledgerId} no longer exists`
+    } catch (err) {
+      return errorDetail(err)
+    }
+  }
+
+  /** This function resolves for every allocated unit. Engine truth is captured
+   * before any delivery effect and is the only value sent to the deferred
+   * terminal callback. Delivery failures become blocked evidence instead. */
+  const settleAllocatedRun = async (
+    a: AllocatedRun,
+    enginePromise: Promise<{ runId: string; outcome: string }>,
+  ): Promise<SettledRun> => {
+    let actualOutcome = 'failed'
+    let engineFailure: string | undefined
+    try {
+      const result = await enginePromise
+      actualOutcome = result.outcome
+    } catch (err) {
+      engineFailure = errorDetail(err)
+      console.error(`[rail-isolated] loop run ${a.runId} rejected: ${engineFailure}`)
+    }
+
+    const implementationOutcome = actualOutcome === 'success' ? 'succeeded' as const : 'failed' as const
+    recordRunProvenance(a)
+
+    let callbackFailure: string | undefined
+    try {
+      ctx.onLoopRunFinished(a.runId, actualOutcome, runFinishedOpts)
+    } catch (err) {
+      callbackFailure = errorDetail(err)
+      console.error(`[rail-isolated] terminal callback failed for ${a.runId}: ${callbackFailure}`)
+    }
+
+    let commit: CommitWorktreeResult
+    try {
+      commit = await commitWorktreeAndVerify(
+        git,
+        a.handle.worktreePath,
+        worktreeCommitMessage(ctx, a.ticketId, a.runId, implementationOutcome === 'failed'),
+        a.overlayExcludes,
+      )
+    } catch (err) {
+      commit = { staged: false, committed: false, clean: false, dirty: [], error: errorDetail(err) }
+    }
+
+    if (!commit.clean) {
+      const detail = commitFailureSummary(commit)
+      console.error(`[rail-isolated] run ${a.runId} left an unsafe worktree: ${detail}`)
+      markWorktree(a, 'needs-review')
+      return {
+        run: a,
+        implementationOutcome,
+        deliveryOutcome: 'blocked',
+        initialSha: a.initialSha,
+        finalSha: await readHeadSha(git, a.handle.worktreePath),
+        failureCode: 'commit_failed',
+        failureDetail: detail,
+        safeToRelease: false,
+      }
+    }
+
+    let finalSha: string | null = null
+    let verificationFailure: string | undefined
+    if (a.continuationTarget) {
+      try {
+        finalSha = await verifyContinuationWorktree(git, baseRepo, a.handle, a.continuationTarget)
+      } catch (err) {
+        verificationFailure = errorDetail(err)
+      }
+    } else {
+      finalSha = await readHeadSha(git, a.handle.worktreePath)
+    }
+    const changed = commit.committed || Boolean(a.initialSha && finalSha && a.initialSha !== finalSha)
+
+    // A successful commit without a provable object is not retryable or safe to
+    // detach. A continuation additionally requires HEAD == refs/heads/<branch>.
+    if (verificationFailure || !finalSha || (
+      !commit.committed && a.branchOwnership === 'created' && !a.initialSha
+    )) {
+      const detail = verificationFailure
+        ?? (!finalSha
+          ? 'the final HEAD object could not be verified'
+          : 'the initial HEAD object was not captured, so a no-change result cannot be proven')
+      console.error(`[rail-isolated] run ${a.runId} finished on an unverified ref: ${detail}`)
+      markWorktree(a, 'needs-review')
+      return {
+        run: a,
+        implementationOutcome,
+        deliveryOutcome: 'blocked',
+        initialSha: a.initialSha,
+        finalSha,
+        changed,
+        failureCode: 'branch_verification_failed',
+        failureDetail: detail,
+        safeToRelease: false,
+      }
+    }
+
+    // Failed clean units remain `building` until aggregate cleanup removes the
+    // mount and atomically terminalizes the ledger as failed. Marking them
+    // terminal first would make idempotent cleanup skip a still-mounted path.
+    const ledgerFailure = implementationOutcome === 'succeeded'
+      ? (markWorktree(a, 'built') ?? undefined)
+      : undefined
+    const settlementFailure = callbackFailure ?? ledgerFailure
+    if (settlementFailure) {
+      markWorktree(a, 'needs-review')
+      return {
+        run: a,
+        implementationOutcome,
+        deliveryOutcome: 'blocked',
+        initialSha: a.initialSha,
+        finalSha,
+        changed,
+        failureCode: 'settlement_interrupted',
+        failureDetail: settlementFailure,
+        safeToRelease: false,
+      }
+    }
+
+    if (implementationOutcome === 'failed') {
+      return {
+        run: a,
+        implementationOutcome,
+        deliveryOutcome: 'not_started',
+        initialSha: a.initialSha,
+        finalSha,
+        changed,
+        ...(engineFailure ? { failureDetail: engineFailure } : {}),
+        safeToRelease: true,
+      }
+    }
+
+    // A resumed non-PR branch may already contain reviewable commits from an
+    // earlier attempt, even when this iteration itself did not add one.
+    let resumedBranchDelta: boolean | null = null
+    if (!changed && a.continuationTarget === null && a.branchOwnership === 'preexisting') {
+      resumedBranchDelta = await branchHasDelta(git, a.handle.worktreePath, a.baseRef)
+      if (resumedBranchDelta === null) {
+        const detail = `cannot prove whether resumed branch ${a.handle.branch} has commits ahead of ${a.baseRef}`
+        markWorktree(a, 'needs-review')
+        return {
+          run: a,
+          implementationOutcome,
+          deliveryOutcome: 'blocked',
+          initialSha: a.initialSha,
+          finalSha,
+          changed,
+          failureCode: 'branch_verification_failed',
+          failureDetail: detail,
+          safeToRelease: false,
+        }
+      }
+    }
+    const noChanges = !changed && Boolean(
+      a.initialSha && finalSha && a.initialSha === finalSha && (
+        a.continuationTarget !== null ||
+        a.branchOwnership === 'created' ||
+        resumedBranchDelta === false
+      ),
+    )
+    return {
+      run: a,
+      implementationOutcome,
+      deliveryOutcome: noChanges ? 'no_changes' : 'ready',
+      initialSha: a.initialSha,
+      finalSha,
+      changed,
+      safeToRelease: true,
+    }
+  }
+
+  const runPromises: Promise<SettledRun>[] = []
   for (const a of allocated) {
-    ctx.railLoopRuns.set(a.runId, { railIndex, ticketIds: a.ticketIds })
+    ctx.railLoopRuns.set(a.runId, {
+      railIndex,
+      ticketIds: a.ticketIds,
+      requiresTerminalIntent: true,
+    })
     const spec = ctx.getTicketSpec(a.ticketId)
-    const p = ctx.loopRunManager
-      .run({
+    const enginePromise = ctx.loopRunManager.run({
         runId: a.runId, loopId, loopName, graph: loopGraph, projectId: ctx.project.id,
         cwd: a.handle.worktreePath, repoDir: a.handle.worktreePath,
         isolation: { branch: a.handle.branch, worktreePath: a.handle.worktreePath },
         railIndex, ticketId: a.ticketId,
         spec: spec ? { ...spec, ticketIds: a.ticketIds } : { ticketIds: a.ticketIds },
+        ticketCompletionStatus: runFinishedOpts.ticketCompletionStatus,
+        deferTerminalOutcome: true,
         constants, provider, model, effort,
       })
-      .then(async (r) => {
-        const succeeded = r.outcome === 'success'
-        recordRunProvenance(a)
-        // Commit the run's work to its branch so PR creation/merge-back can
-        // trust the branch as the durable source of truth. A "successful" loop
-        // with deliverable local changes still dirty is treated as failed
-        // instead of surfacing a Create PR card that cannot ship the work.
-        const commit = await commitWorktreeAndVerify(git, a.handle.worktreePath, worktreeCommitMessage(ctx, a.ticketId, a.runId), a.overlayExcludes)
-        const deliverable = succeeded && commit.clean
-        if (succeeded && !commit.clean) {
-          console.error(`[rail-isolated] run ${a.runId} finished success but commit verification failed: ${commitFailureSummary(commit)}`)
-        }
-        ctx.onLoopRunFinished(r.runId, deliverable ? 'success' : 'failed', runFinishedOpts)
-        updateRailWorktreeState(ctx.db, a.ledgerId, deliverable ? 'built' : 'failed')
-        return { run: a, succeeded: deliverable }
-      })
-      .catch(async (err) => {
-        console.error('[rail-isolated] loop run failed:', err)
-        ctx.onLoopRunFinished(a.runId, 'failed', runFinishedOpts)
-        recordRunProvenance(a)
-        // Commit partial work too → durable in git → resumable on re-launch.
-        const commit = await commitWorktreeAndVerify(git, a.handle.worktreePath, worktreeCommitMessage(ctx, a.ticketId, a.runId, true), a.overlayExcludes)
-        if (!commit.clean) {
-          console.error(`[rail-isolated] failed run ${a.runId} left uncommitted deliverable changes: ${commitFailureSummary(commit)}`)
-        }
-        updateRailWorktreeState(ctx.db, a.ledgerId, 'failed')
-        return { run: a, succeeded: false }
-      })
-    runPromises.push(p)
+    runPromises.push(settleAllocatedRun(a, enginePromise))
     try { ctx.jiraSyncManager.onRailLaunch(a.ticketIds, a.runId) } catch { /* non-fatal */ }
   }
 
@@ -531,11 +973,31 @@ export async function launchIsolatedRail(input: IsolatedLaunchInput, io: Isolate
   //       work isolated on its branches and mark the decision row on_review —
   //       the draft PR is only created when the user clicks [Create PR] on the
   //       pr-decision endpoint (ask-first, safe-pr-review-flow).
-  void Promise.allSettled(runPromises).then(async (settled) => {
-    const results = settled.flatMap((s) => (s.status === 'fulfilled' ? [s.value] : []))
-    const branches: BranchToMerge[] = results.map((r) => ({
-      ticketId: r.run.ticketId, branch: r.run.handle.branch, succeeded: r.succeeded,
-    }))
+  const guardedRunPromises = runPromises.map((promise, index) => promise.catch(async (err): Promise<SettledRun> => {
+    const run = allocated[index]
+    const detail = errorDetail(err)
+    console.error(`[rail-isolated] unexpected settlement rejection for ${run.runId}: ${detail}`)
+    const durable = ctx.db.prepare('SELECT final_outcome FROM loop_runs WHERE id = ?').get(run.runId) as
+      | { final_outcome: string | null }
+      | undefined
+    const implementationOutcome = durable?.final_outcome === 'success' ? 'succeeded' as const : 'failed' as const
+    markWorktree(run, 'needs-review')
+    return {
+      run,
+      implementationOutcome,
+      deliveryOutcome: 'blocked',
+      initialSha: run.initialSha,
+      finalSha: await readHeadSha(git, run.handle.worktreePath),
+      failureCode: 'settlement_interrupted',
+      failureDetail: detail,
+      safeToRelease: false,
+    }
+  }))
+
+  void Promise.all(guardedRunPromises).then(async (settledResults) => {
+    // Cardinality is invariant: one structured result per allocated unit. The
+    // guarded promises above synthesize a blocked record for any rejection.
+    let results = settledResults
 
     if (prMode) {
       // Build-settle: persist the per-unit branch outcomes + this launch's
@@ -545,70 +1007,306 @@ export async function launchIsolatedRail(input: IsolatedLaunchInput, io: Isolate
       // keep the implementation card visible as a failed job state with run-log
       // chips instead of silently auto-discarding or leaving it at "building".
       const worktreeIds = allocated.map((a) => a.ledgerId)
-      const anySucceeded = results.some((r) => r.succeeded)
-      const settledContinuation = anySucceeded ? launchContinuation : null
+      let deliverySha: string | null = null
       let continuationPushFailed = false
       let continuationPushFailureReason: string | null = null
-      if (settledContinuation) {
-        const pushed = await pushBranch(exec, {
-          repoDir: baseRepo,
-          branch: settledContinuation.branch,
-          baseBranch: settledContinuation.baseBranch,
-        })
-        if (pushed.state === 'local-only') {
-          continuationPushFailed = true
-          continuationPushFailureReason = pushed.reason
-          console.warn(`[rail-isolated] existing PR follow-up push failed for ${settledContinuation.branch}: ${continuationPushFailureReason}`)
+      let continuationNeedsNewPr = false
+      let continuationExactPushCompleted = false
+      let continuationRemoteIsDraft = launchContinuation?.isDraft ?? null
+      let continuationMergedWithSha = false
+      let continuationClosedWithSha = false
+      let continuationLifecycleBlocked = false
+
+      const unchangedContinuation = launchContinuation
+        ? results.find((result) => result.run.continuationTarget && result.deliveryOutcome === 'no_changes')
+        : undefined
+      if (unchangedContinuation?.finalSha) deliverySha = unchangedContinuation.finalSha
+
+      // Revalidate immediately before an existing-PR push. Settlement's SHA is
+      // immutable delivery evidence; a moved ref blocks instead of substituting
+      // a newer object behind the user's back.
+      if (launchContinuation) {
+        const candidateIndex = results.findIndex((result) =>
+          result.deliveryOutcome === 'ready' && result.run.continuationTarget !== null,
+        )
+        if (candidateIndex >= 0) {
+          const candidate = results[candidateIndex]
+          try {
+            const verified = await verifyContinuationWorktree(
+              git,
+              baseRepo,
+              candidate.run.handle,
+              candidate.run.continuationTarget!,
+            )
+            if (!candidate.finalSha || verified !== candidate.finalSha) {
+              throw new PrContinuationIsolationError('PR branch moved after settlement; refusing to push an unverified object')
+            }
+            deliverySha = candidate.finalSha
+          } catch (err) {
+            const detail = errorDetail(err)
+            markWorktree(candidate.run, 'needs-review')
+            results = results.map((result, resultIndex) => resultIndex === candidateIndex
+              ? {
+                  ...result,
+                  deliveryOutcome: 'blocked' as const,
+                  failureCode: 'branch_verification_failed' as const,
+                  failureDetail: detail,
+                  safeToRelease: false,
+                }
+              : result)
+          }
         }
       }
-      const next = anySucceeded
-        ? (settledContinuation
-            ? (continuationPushFailed
-                ? 'pr_failed' as const
-                : (settledContinuation.isDraft === false ? 'pr_ready' as const : 'pr_draft' as const))
-            : 'on_review' as const)
-        : 'implementation_failed' as const
-      const patch = settledContinuation
-        ? {
-            branches,
-            worktreeIds,
-            branch: settledContinuation.branch,
-            prUrl: settledContinuation.prUrl,
-            prNumber: settledContinuation.prNumber,
-            prState: continuationPushFailed ? 'local-only' as const : 'pr-created' as const,
+
+      const implementationOutcome = aggregateImplementationOutcome(results)
+      let ready = results.filter((result) => result.deliveryOutcome === 'ready')
+      let blocked = results.filter((result) => result.deliveryOutcome === 'blocked')
+      let noChanges = results.filter((result) => result.deliveryOutcome === 'no_changes')
+      const continuationHadReadyWork = ready.length > 0
+
+      if (launchContinuation && deliverySha && (continuationHadReadyWork || noChanges.length > 0)) {
+        const beforePush = await observePrLifecycle(
+          exec, baseRepo, launchContinuation.prUrl!, deliverySha,
+        )
+        if (!beforePush.ok) {
+          continuationPushFailed = true
+          continuationPushFailureReason = `could not confirm the existing PR is open before push: ${beforePush.detail}`
+        } else if (!isExactOpenPr(beforePush, launchContinuation.branch, launchContinuation.baseBranch)) {
+          if (beforePush.state === 'MERGED' && beforePush.includesExpectedSha === true) {
+            // Another actor delivered the exact object before our push. Keep the
+            // old PR attached so poll-merge can apply the terminal ticket effect.
+            continuationRemoteIsDraft = false
+            continuationMergedWithSha = true
+          } else if (beforePush.state === 'CLOSED' && beforePush.includesExpectedSha === true && !continuationHadReadyWork) {
+            // An unchanged iteration may safely offer Reopen when the closed PR
+            // already contains its exact head. Changed work is never assumed to
+            // belong to a closed PR before we push it.
+            continuationClosedWithSha = true
+          } else {
+            continuationNeedsNewPr = true
+            continuationPushFailureReason = beforePush.includesExpectedSha === null
+              ? `the previous PR is ${beforePush.state.toLowerCase()} and GitHub could not prove it included this implementation; create a new draft PR from the preserved commit`
+              : `the previous PR is ${beforePush.state.toLowerCase()} without this implementation; create a new draft PR from the preserved commit`
           }
-        : { branches, worktreeIds }
+        } else if (!continuationHadReadyWork) {
+          // No-change still needs lifecycle truth: the PR may have merged while
+          // the run was active, and an advanced remote head must not be silently
+          // dismissed as though it were the verified unchanged object.
+          if (beforePush.headRefOid?.toLowerCase() !== deliverySha.toLowerCase()) {
+            continuationLifecycleBlocked = true
+            continuationPushFailureReason = 'the open PR head no longer exposes the exact verified commit from this unchanged iteration'
+          } else {
+            continuationRemoteIsDraft = beforePush.isDraft
+          }
+        } else {
+          continuationRemoteIsDraft = beforePush.isDraft
+          try {
+            const pushed = await pushBranch(exec, {
+              repoDir: baseRepo,
+              branch: launchContinuation.branch,
+              baseBranch: launchContinuation.baseBranch,
+              sourceSha: deliverySha,
+            })
+            if (pushed.state === 'local-only') {
+              continuationPushFailed = true
+              continuationPushFailureReason = pushed.reason
+            } else {
+              continuationExactPushCompleted = true
+              const afterPush = await observePrLifecycle(
+                exec, baseRepo, launchContinuation.prUrl!, deliverySha,
+              )
+              if (!afterPush.ok) {
+                continuationPushFailed = true
+                continuationPushFailureReason = `exact commit was pushed, but the PR lifecycle could not be confirmed: ${afterPush.detail}`
+              } else if (isExactOpenPr(afterPush, launchContinuation.branch, launchContinuation.baseBranch)) {
+                if (afterPush.headRefOid?.toLowerCase() === deliverySha.toLowerCase()) {
+                  continuationRemoteIsDraft = afterPush.isDraft
+                } else {
+                  // The object push returned success but another writer moved the
+                  // remote head before observation. Preserve local evidence and
+                  // block; creating a PR from the mutable branch would be unsafe.
+                  continuationLifecycleBlocked = true
+                  continuationPushFailureReason = 'the PR head moved after the exact push; the verified commit is preserved but no longer proven as the remote head'
+                }
+              } else if (afterPush.state === 'MERGED' && afterPush.includesExpectedSha === true) {
+                // The PR won the race but demonstrably included this exact SHA.
+                continuationRemoteIsDraft = false
+                continuationMergedWithSha = true
+              } else if (afterPush.state === 'MERGED' || afterPush.state === 'CLOSED') {
+                continuationNeedsNewPr = true
+                continuationPushFailureReason = afterPush.includesExpectedSha === null
+                  ? `the previous PR became ${afterPush.state.toLowerCase()} and GitHub could not prove it included this implementation; create a new draft PR from the preserved commit`
+                  : `the previous PR became ${afterPush.state.toLowerCase()} without this implementation; create a new draft PR from the preserved commit`
+              } else {
+                continuationLifecycleBlocked = true
+                continuationPushFailureReason = 'the existing PR no longer matches its recorded head/base after the exact push'
+              }
+            }
+          } catch (err) {
+            continuationPushFailed = true
+            continuationPushFailureReason = errorDetail(err)
+          }
+        }
+        if (continuationPushFailed) {
+          console.warn(`[rail-isolated] existing PR follow-up push failed for ${launchContinuation.branch}: ${continuationPushFailureReason}`)
+        }
+      }
+
+      if (continuationNeedsNewPr && noChanges.length > 0) {
+        // The iteration itself made no new commit, but the old PR did not deliver
+        // its verified head. That head is therefore real work for a fresh PR.
+        const noChangeRuns = new Set(noChanges.map((result) => result.run.runId))
+        results = results.map((result) => noChangeRuns.has(result.run.runId)
+          ? { ...result, deliveryOutcome: 'ready' as const }
+          : result)
+      }
+      if (continuationLifecycleBlocked) {
+        const affectedRuns = new Set(
+          results
+            .filter((result) => result.run.continuationTarget !== null &&
+              (result.deliveryOutcome === 'ready' || result.deliveryOutcome === 'no_changes'))
+            .map((result) => result.run.runId),
+        )
+        for (const result of results) {
+          if (affectedRuns.has(result.run.runId)) markWorktree(result.run, 'needs-review')
+        }
+        results = results.map((result) => affectedRuns.has(result.run.runId)
+          ? {
+              ...result,
+              deliveryOutcome: 'blocked' as const,
+              failureCode: 'branch_verification_failed' as const,
+              failureDetail: continuationPushFailureReason ?? 'PR lifecycle verification failed',
+              safeToRelease: false,
+            }
+          : result)
+      }
+
+      ready = results.filter((result) => result.deliveryOutcome === 'ready')
+      blocked = results.filter((result) => result.deliveryOutcome === 'blocked')
+      noChanges = results.filter((result) => result.deliveryOutcome === 'no_changes')
+
+      let deliveryOutcome: PrDeliveryOutcome
+      if (implementationOutcome === 'failed') {
+        deliveryOutcome = blocked.length > 0 ? 'blocked' : 'not_started'
+      } else if (continuationLifecycleBlocked) {
+        deliveryOutcome = 'blocked'
+      } else if (continuationMergedWithSha || continuationClosedWithSha) {
+        deliveryOutcome = 'delivered'
+      } else if (launchContinuation && ready.length > 0) {
+        deliveryOutcome = continuationNeedsNewPr
+          ? (implementationOutcome === 'partially_succeeded' ? 'partial' : 'ready')
+          : continuationPushFailed ? 'retryable_failure' : 'delivered'
+      } else if (ready.length > 0) {
+        deliveryOutcome = implementationOutcome === 'partially_succeeded' || blocked.length > 0 ? 'partial' : 'ready'
+      } else if (noChanges.length === results.length && implementationOutcome === 'succeeded') {
+        deliveryOutcome = 'no_changes'
+      } else if (implementationOutcome === 'partially_succeeded') {
+        deliveryOutcome = 'partial'
+      } else {
+        deliveryOutcome = 'blocked'
+      }
+
+      const next: PrDecision = implementationOutcome === 'failed'
+        ? 'implementation_failed'
+        : continuationLifecycleBlocked
+          ? 'pr_failed'
+          : continuationMergedWithSha
+            ? 'pr_ready'
+            : continuationClosedWithSha
+              ? 'pr_closed'
+        : ready.length > 0
+          ? (launchContinuation
+              ? (continuationNeedsNewPr
+                  ? 'on_review'
+                  : continuationPushFailed
+                  ? 'pr_failed'
+                  : (continuationRemoteIsDraft === false ? 'pr_ready' : 'pr_draft'))
+              : 'on_review')
+          : deliveryOutcome === 'no_changes'
+            ? 'no_changes'
+            : 'pr_failed'
+
+      const firstFailure = results.find((result) => result.failureCode)
+      const statusCode: PrDeliveryStatusCode = implementationOutcome === 'failed'
+        ? 'implementation_failed'
+        : continuationLifecycleBlocked
+          ? 'branch_verification_failed'
+          : continuationMergedWithSha
+            ? 'pr_ready'
+            : continuationClosedWithSha
+              ? 'pr_closed'
+              : continuationNeedsNewPr
+          ? 'ready_for_review'
+          : continuationPushFailed
+          ? 'push_failed'
+          : deliveryOutcome === 'no_changes'
+            ? 'no_changes'
+            : implementationOutcome === 'partially_succeeded'
+              ? 'partial_success'
+              : firstFailure?.failureCode
+                ?? (launchContinuation && ready.length > 0 ? 'existing_pr_updated' : 'ready_for_review')
+      const statusDetail = continuationPushFailureReason ?? firstFailure?.failureDetail ?? null
+
+      // Only proven-clean, durably referenced results are automatically
+      // detached. Fresh reviewable worktrees stay mounted for the later PR
+      // decision; dirty/unknown/ref-mismatched work is never passed to --force.
+      const failedSafeIds = results
+        .filter((result) => result.implementationOutcome === 'failed' && result.safeToRelease)
+        .map((result) => result.run.ledgerId)
+      const completedSafeIds = results
+        .filter((result) => result.safeToRelease && (
+          result.deliveryOutcome === 'no_changes' ||
+          (launchContinuation !== null && result.deliveryOutcome === 'ready')
+        ))
+        .map((result) => result.run.ledgerId)
+      const patch = {
+        branches: branchRecords(results),
+        worktreeIds,
+        implementationOutcome,
+        deliveryOutcome,
+        statusCode,
+        statusDetail,
+        deliverySha,
+        ...(launchContinuation ? {
+          branch: launchContinuation.branch,
+          prUrl: continuationNeedsNewPr ? null : launchContinuation.prUrl,
+          prNumber: continuationNeedsNewPr ? null : launchContinuation.prNumber,
+          // A stale CLOSED/MERGED PR is detached from this generation. The exact
+          // object remains locally or on its recorded branch, ready for Create PR.
+          prState: continuationNeedsNewPr
+            ? (continuationExactPushCompleted ? 'pushed' as const : 'local-only' as const)
+            : 'pr-created' as const,
+          // Once detached, this generation owns the lifecycle of the new PR,
+          // while per-unit branchOwnership still protects the borrowed branch.
+          isContinuation: !continuationNeedsNewPr,
+        } : {}),
+      }
       if (prDeliveryId && transitionDecision(ctx.db, prDeliveryId, 'building', next, patch)) {
-        if (settledContinuation && !continuationPushFailed) {
-          await releaseRailWorktrees({ db: ctx.db, git, repoDir: baseRepo, worktreeIds })
+        // Persist truthful settlement before cleanup. A crash can leave a
+        // safely-recoverable mount, but can no longer lose no-change/partial/
+        // exact-SHA evidence and regress the card back to `building`.
+        const cleanupWarnings = [
+          ...await releaseRailWorktrees({ db: ctx.db, git, repoDir: baseRepo, worktreeIds: failedSafeIds, state: 'failed', remove }),
+          ...await releaseRailWorktrees({ db: ctx.db, git, repoDir: baseRepo, worktreeIds: completedSafeIds, remove }),
+        ]
+        if (cleanupWarnings.length > 0) {
+          transitionDecision(ctx.db, prDeliveryId, next, next, { cleanupWarnings })
         }
         broadcastPrState()
         // Completion driver: refresh the origin conversation's card in place —
         // on_review asks the question, discarded informs the outcome.
         syncOriginCard('update')
       }
-      if (!anySucceeded) {
-        // FAILED-IMPLEMENTATION CLEANUP (0 succeeded): unmount every worktree NOW rather
-        // than leaving it for a restart's reconcile sweep — a still-mounted
-        // worktree POISONS the next run of the same ticket: the worktree path is
-        // keyed by ticketId, so the next allocation silently reuses this
-        // checkout and its stale branch. BRANCHES are kept: per-run settle
-        // committed partial work to them and a re-launch resumes a kept branch
-        // by name (createWorktree's resume path); user-discard remains the one
-        // explicit branch-deleting action. Ledger rows are already terminal
-        // ('failed') from per-run settle — ensured defensively here.
-        for (const a of allocated) {
-          await remove(git, {
-            repoDir: baseRepo, worktreePath: a.handle.worktreePath, branch: a.handle.branch, deleteBranch: false,
-          }).catch((err) => {
-            console.warn(`[rail-isolated] failed to remove failed worktree ${a.handle.worktreePath}: ${(err as Error).message}`)
-          })
-          const wt = getRailWorktree(ctx.db, a.ledgerId)
-          if (wt && !isTerminalMergeState(wt.merge_state)) updateRailWorktreeState(ctx.db, a.ledgerId, 'failed')
-        }
-      }
       return // legacy merge-back never runs in PR mode
     }
+
+    const branches: BranchToMerge[] = results.flatMap((result) =>
+      result.run.ticketIds.map((ticketId) => ({
+        ticketId,
+        branch: result.run.handle.branch,
+        succeeded: result.deliveryOutcome === 'ready',
+      })),
+    )
 
     try {
       const outcomes = await runMergeBack({
@@ -635,38 +1333,233 @@ export async function launchIsolatedRail(input: IsolatedLaunchInput, io: Isolate
       for (const o of outcomes) {
         const r = results.find((x) => x.run.ticketId === o.ticketId)
         if (!r) continue
+        if (!r.safeToRelease) {
+          updateRailWorktreeState(ctx.db, r.run.ledgerId, 'needs-review')
+          continue
+        }
         // Merged → drop the branch; needs-review / skipped → keep the branch for the human.
         await remove(git, {
           repoDir: baseRepo, worktreePath: r.run.handle.worktreePath, branch: o.branch,
           deleteBranch: o.state === 'merged',
+        }).then(() => {
+          if (r.implementationOutcome === 'failed') updateRailWorktreeState(ctx.db, r.run.ledgerId, 'failed')
         }).catch(() => {})
       }
     } catch (err) {
       console.error('[rail-isolated] merge-back failed:', err)
+    }
+  }).catch(async (err) => {
+    const detail = errorDetail(err)
+    console.error(`[rail-isolated] aggregate settlement failed: ${detail}`)
+    if (!prMode || !prDeliveryId || getPrDelivery(ctx.db, prDeliveryId)?.decision !== 'building') return
+    const retained = await Promise.all(guardedRunPromises)
+    for (const result of retained) markWorktree(result.run, 'needs-review')
+    if (transitionDecision(ctx.db, prDeliveryId, 'building', 'pr_failed', {
+      branches: branchRecords(retained.map((result) => ({
+        ...result,
+        deliveryOutcome: 'blocked' as const,
+        failureCode: result.failureCode ?? 'settlement_interrupted',
+        failureDetail: result.failureDetail ?? detail,
+        safeToRelease: false,
+      }))),
+      worktreeIds: allocated.map((run) => run.ledgerId),
+      implementationOutcome: aggregateImplementationOutcome(retained),
+      deliveryOutcome: 'blocked',
+      statusCode: 'settlement_interrupted',
+      statusDetail: detail,
+    })) {
+      broadcastPrState()
+      syncOriginCard('update')
     }
   })
 
   return allocated.map((a) => a.runId)
 }
 
+interface RecoveryWorktreeInspection {
+  safe: boolean
+  sha: string | null
+  detail?: string
+}
+
+function recoveryOverlayExcludes(worktreePath: string): string[] {
+  try {
+    const parsed = JSON.parse(fs.readFileSync(path.join(worktreePath, OVERLAY_MANIFEST), 'utf8')) as unknown
+    const values = Array.isArray(parsed) ? parsed : (parsed as { paths?: unknown })?.paths
+    if (!Array.isArray(values)) return []
+    return values.filter((value): value is string => {
+      if (typeof value !== 'string' || value.length === 0 || path.isAbsolute(value)) return false
+      if (value.includes('\\') || value.split('/').includes('..') || /[\0:*?\[\]]/.test(value)) return false
+      if (value === OVERLAY_MANIFEST) return true
+      if (!/^\.(?:claude|codex|gemini)\/[^/]+(?:\/[^/]+)*$/.test(value)) return false
+      try {
+        // Manifest contents are worktree-writable and therefore not authority.
+        // Ignore only links that still prove they are overlay scaffolding;
+        // copied/modified files remain recoverable dirty data.
+        return fs.lstatSync(path.join(worktreePath, value)).isSymbolicLink()
+      } catch {
+        return false
+      }
+    })
+  } catch {
+    return []
+  }
+}
+
+async function inspectRecoveryWorktree(
+  git: GitRunner,
+  repoDir: string,
+  row: { branch: string; worktree_path: string },
+): Promise<RecoveryWorktreeInspection> {
+  const excludes = [...PR_NEVER_STAGE_PATHS, ...recoveryOverlayExcludes(row.worktree_path)]
+  try {
+    const [status, actualBranch, head, branchRef] = await Promise.all([
+      git.run([
+        'status', '--porcelain', '--untracked-files=all', '--', '.',
+        ...excludes.map((entry) => `:(exclude)${entry}`),
+      ], row.worktree_path),
+      git.run(['rev-parse', '--abbrev-ref', 'HEAD'], row.worktree_path),
+      git.run(['rev-parse', '--verify', 'HEAD'], row.worktree_path),
+      git.run(['rev-parse', '--verify', `refs/heads/${row.branch}`], repoDir),
+    ])
+    const sha = head.code === 0 && COMMIT_SHA_RE.test(head.stdout.trim()) ? head.stdout.trim() : null
+    const refSha = branchRef.code === 0 ? branchRef.stdout.trim() : ''
+    if (status.code !== 0) return { safe: false, sha, detail: 'git status could not verify worktree cleanliness' }
+    if (status.stdout.trim().length > 0) return { safe: false, sha, detail: 'the interrupted worktree contains uncommitted changes' }
+    if (actualBranch.code !== 0 || actualBranch.stdout.trim() !== row.branch) {
+      return { safe: false, sha, detail: `worktree is not on expected branch ${row.branch}` }
+    }
+    if (!sha || refSha !== sha) {
+      return { safe: false, sha, detail: `HEAD does not match refs/heads/${row.branch}` }
+    }
+    return { safe: true, sha }
+  } catch (err) {
+    return { safe: false, sha: null, detail: errorDetail(err) }
+  }
+}
+
 /**
- * Startup reconciliation: a crash mid-fan-out leaves worktrees on disk and ledger
- * rows stuck in a non-terminal state. Remove each orphan's worktree (best-effort,
- * keeping its branch for inspection) and mark the row `failed`. No-op (no git
- * calls) when there are no stuck rows — so it is free for projects that never used
- * isolation. Returns how many rows were reconciled.
+ * Startup reconciliation is serialized with launch allocation. It proves each
+ * orphan clean and durably referenced before removal; successful, dirty,
+ * unknown, or ref-mismatched work remains mounted as needs-review. Building
+ * delivery generations are then recovered from the durable engine outcomes.
  */
 export async function reconcileRailWorktrees(
   db: DbInstance,
   repoDir: string,
-  io: { git?: GitRunner; remove?: typeof removeWorktree } = {}
+  io: {
+    git?: GitRunner
+    remove?: typeof removeWorktree
+    onDeliveryRecovered?: (deliveryId: string) => void
+  } = {}
 ): Promise<number> {
   const git = io.git ?? defaultGitRunner
   const remove = io.remove ?? removeWorktree
-  const stuck = listNonTerminalRailWorktrees(db)
-  for (const row of stuck) {
-    await remove(git, { repoDir, worktreePath: row.worktree_path, branch: row.branch, deleteBranch: false }).catch(() => {})
-    updateRailWorktreeState(db, row.id, 'failed')
-  }
-  return stuck.length
+  return withRepoLock(repoDir, async () => {
+    const stuck = listNonTerminalRailWorktrees(db)
+    const autoReleaseWorktreeIds = new Set<string>()
+    const settledDeliveries = db.prepare(`
+      SELECT decision, delivery_outcome, worktree_ids FROM rail_pr_deliveries
+       WHERE decision <> 'building'
+         AND delivery_outcome IN ('delivered', 'no_changes', 'retryable_failure')
+    `).all() as Array<{ decision: string; delivery_outcome: string; worktree_ids: string }>
+    for (const delivery of settledDeliveries) {
+      try {
+        const ids = JSON.parse(delivery.worktree_ids) as unknown
+        if (Array.isArray(ids)) {
+          for (const id of ids) if (typeof id === 'string') autoReleaseWorktreeIds.add(id)
+        }
+      } catch { /* malformed history never authorizes cleanup */ }
+    }
+    const verifiedShaByRun = new Map<string, string>()
+    for (const row of stuck) {
+      const run = row.run_id
+        ? db.prepare('SELECT status, final_outcome FROM loop_runs WHERE id = ?').get(row.run_id) as
+            | { status: string; final_outcome: string | null }
+            | undefined
+        : undefined
+      const inspection = await inspectRecoveryWorktree(git, repoDir, row)
+
+      if (run?.status === 'completed' && run.final_outcome === 'success') {
+        if (inspection.safe && inspection.sha) {
+          if (row.run_id) verifiedShaByRun.set(row.run_id, inspection.sha)
+          if (autoReleaseWorktreeIds.has(row.id)) {
+            try {
+              await remove(git, {
+                repoDir,
+                worktreePath: row.worktree_path,
+                branch: row.branch,
+                deleteBranch: false,
+              })
+              updateRailWorktreeState(db, row.id, 'released')
+            } catch {
+              updateRailWorktreeState(db, row.id, 'built')
+            }
+          } else {
+            updateRailWorktreeState(db, row.id, 'built')
+          }
+        } else {
+          updateRailWorktreeState(db, row.id, 'needs-review')
+        }
+        continue
+      }
+
+      if (run?.status === 'completed' && inspection.safe) {
+        try {
+          await remove(git, {
+            repoDir,
+            worktreePath: row.worktree_path,
+            branch: row.branch,
+            deleteBranch: false,
+          })
+          updateRailWorktreeState(db, row.id, 'failed')
+        } catch {
+          // A failed --force leaves mount state uncertain; retain the ledger as
+          // needs-review instead of claiming cleanup succeeded.
+          updateRailWorktreeState(db, row.id, 'needs-review')
+        }
+        continue
+      }
+
+      // Missing/incomplete run evidence, dirty state, status failure, and ref
+      // mismatch are all recoverable uncertainty. Never force-remove them.
+      updateRailWorktreeState(db, row.id, 'needs-review')
+    }
+
+    const recovered = reconcileFailedBuildingPrDeliveries(db, { startup: true })
+    for (const delivery of recovered) {
+      if (delivery.is_continuation !== 1 || !['succeeded', 'partially_succeeded'].includes(delivery.implementation_outcome)) continue
+      let runIds: string[] = []
+      try {
+        const parsed = JSON.parse(delivery.run_ids) as unknown
+        if (Array.isArray(parsed)) runIds = parsed.filter((value): value is string => typeof value === 'string')
+      } catch { /* malformed legacy row remains blocked without a retry SHA */ }
+      for (const runId of runIds) {
+        if (verifiedShaByRun.has(runId)) continue
+        const released = db.prepare(`
+          SELECT branch, merge_state FROM rail_worktrees
+           WHERE run_id = ? AND merge_state = 'released'
+           ORDER BY created_at DESC, rowid DESC LIMIT 1
+        `).get(runId) as { branch: string; merge_state: string } | undefined
+        if (!released) continue
+        try {
+          const ref = await git.run(['rev-parse', '--verify', `refs/heads/${released.branch}`], repoDir)
+          const sha = ref.code === 0 ? ref.stdout.trim() : ''
+          if (COMMIT_SHA_RE.test(sha)) verifiedShaByRun.set(runId, sha)
+        } catch { /* exact retry remains blocked */ }
+      }
+      const shas = [...new Set(runIds.map((runId) => verifiedShaByRun.get(runId)).filter((sha): sha is string => !!sha))]
+      if (shas.length !== 1) continue
+      transitionDecision(db, delivery.id, delivery.decision, delivery.decision, {
+        deliveryOutcome: 'retryable_failure',
+        statusCode: 'settlement_interrupted',
+        statusDetail: 'Recovered a clean exact continuation commit; delivery can be retried safely.',
+        deliverySha: shas[0],
+      })
+    }
+    for (const delivery of recovered) {
+      try { io.onDeliveryRecovered?.(delivery.id) } catch { /* durable state wins over advisory surfaces */ }
+    }
+    return stuck.length
+  })
 }

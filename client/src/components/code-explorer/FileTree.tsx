@@ -324,6 +324,13 @@ export function FileTree({ onOpenFile, selectedPath, filterJobId, filterTicketId
                     if (isFolder) toggleFolder(entry.path)
                     else onOpenFile(entry.path)
                   }}
+                  onKeyDown={(e) => {
+                    if (e.target !== e.currentTarget) return
+                    if (e.key !== 'Enter' && e.key !== ' ') return
+                    e.preventDefault()
+                    if (isFolder) toggleFolder(entry.path)
+                    else onOpenFile(entry.path)
+                  }}
                   role="button"
                   tabIndex={0}
                   aria-expanded={isFolder ? !isCollapsed : undefined}

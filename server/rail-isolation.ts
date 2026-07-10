@@ -29,8 +29,10 @@ export function mutatesRepo(loop: { readOnly?: boolean }): boolean {
  * every repo-mutating per-ticket rail UNLESS `SPECRAILS_RAIL_WORKTREES` is set to
  * `0`/`false`/`off`, which restores the legacy single shared cwd (byte-identical to
  * before this feature). Default-on is safe because the launch path degrades
- * gracefully when isolation is unavailable — a non-git repo, an unborn HEAD, or a
- * worktree-allocation error all fall back to the shared cwd (see rails-router).
+ * gracefully for fresh work when isolation is unavailable — a non-git repo, an
+ * unborn HEAD, or a worktree-allocation error falls back to the shared cwd (see
+ * rails-router). Existing-PR continuations are the deliberate exception: they
+ * fail closed because shared cwd cannot prove that commits land on the PR head.
  * Read per-call so a test can flip the env without re-importing.
  */
 export function isRailWorktreesEnabled(): boolean {

@@ -76,6 +76,21 @@ describe('SpecsBoard', () => {
     expect(screen.getByText(/Click "\+ Add" to get started/i)).toBeInTheDocument()
   })
 
+  it('shows load error with Retry instead of the empty state', () => {
+    const onRetry = vi.fn()
+    render(<SpecsBoard tickets={[]} isLoading={false} error="request failed" onRetry={onRetry} onTicketClick={onTicketClick} />)
+    expect(screen.getByRole('alert')).toHaveTextContent('Failed to load tickets')
+    expect(screen.queryByText('No specs yet')).not.toBeInTheDocument()
+    fireEvent.click(screen.getByRole('button', { name: 'Retry' }))
+    expect(onRetry).toHaveBeenCalledTimes(1)
+  })
+
+  it('keeps rendering the last good tickets alongside a refresh error', () => {
+    render(<SpecsBoard tickets={[makeTicket({ title: 'Last good spec' })]} isLoading={false} error="request failed" onRetry={vi.fn()} onTicketClick={onTicketClick} />)
+    expect(screen.getByRole('alert')).toBeInTheDocument()
+    expect(screen.getByText('Last good spec')).toBeInTheDocument()
+  })
+
   it('renders the postit grid when viewTier=postit and onMoveToRail is provided', () => {
     const tickets = [makeTicket({ id: 1, title: 'A' }), makeTicket({ id: 2, title: 'B' })]
     render(

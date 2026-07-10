@@ -442,8 +442,7 @@ export function createDesktopRouter(
   // DELETE /api/projects/:id — unregister a project
   router.delete('/projects/:id', (req, res) => {
     const { id } = req.params
-    const ctx = registry.getContext(id)
-    if (!ctx) {
+    if (!registry.getProjectRow(id)) {
       res.status(404).json({ error: 'Project not found' })
       return
     }

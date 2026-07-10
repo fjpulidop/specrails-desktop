@@ -35,7 +35,17 @@
     "proposal": {
       "title": "Proposition",
       "noContent": "Aucun contenu de proposition pour l'instant.",
-      "githubIssue": "Issue GitHub :"
+      "githubIssue": "Issue GitHub :",
+      "status": {
+        "input": "En attente de saisie",
+        "exploring": "Exploration",
+        "review": "Prête pour révision",
+        "refining": "Affinage",
+        "creatingIssue": "Création du ticket",
+        "created": "Créée",
+        "cancelled": "Annulée",
+        "unknown": "Statut inconnu : {{status}}"
+      }
     }
   },
   "detail": {
@@ -173,6 +183,7 @@
   "recent": {
     "emptyTitle": "Aucun job pour l'instant",
     "emptyDescription": "Exécutez une commande ci-dessus pour voir l'historique de vos jobs ici",
+    "loadFailed": "Échec du chargement des jobs",
     "filterAll": "Tous ({{count}})",
     "filterStatus": "{{status}} ({{count}})",
     "fromDate": "Date de début",

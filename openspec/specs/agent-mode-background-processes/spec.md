@@ -5,7 +5,7 @@ TBD - created by archiving change background-command-chips. Update Purpose after
 ## Requirements
 ### Requirement: Agent chat SHALL launch confirmed background shell commands
 
-The agent chat MUST require explicit user confirmation before invoking a project-scoped background shell command action.
+The agent chat MUST require explicit user confirmation and the Autonomous permission level before invoking a project-scoped background shell command action. The server MUST accept background start/kill only from a live, server-minted in-app agent capability and MUST derive chat ownership from that capability rather than caller arguments.
 
 #### Scenario: Agent proposes a long-running command
 - **WHEN** the user asks the agent to run a likely long-running command such as a dev server or watcher
@@ -14,6 +14,14 @@ The agent chat MUST require explicit user confirmation before invoking a project
 #### Scenario: Background command starts
 - **WHEN** the user confirms the launch
 - **THEN** the server starts the command in the selected project cwd and broadcasts `background_process.started` with pid, command, cwd, startedAt, status, chatId, and projectId
+
+#### Scenario: External MCP client spoofs agent context
+- **WHEN** a third-party MCP client sends agent tier, project, conversation, `chatId`, or `confirmed` values without a live server-minted capability
+- **THEN** the server refuses background start/kill and does not spawn or signal a process
+
+#### Scenario: Caller tries to substitute chat ownership
+- **WHEN** an authenticated in-app turn invokes background start/kill with a different `chatId` argument
+- **THEN** the server ignores that argument and uses the conversation bound to the capability
 
 ### Requirement: Background processes SHALL be scoped to the launching chat
 
@@ -62,4 +70,3 @@ The server MUST terminate background shell children when the user kills them, wh
 #### Scenario: Project or app closes
 - **WHEN** a project is removed or Specrails Desktop shuts down
 - **THEN** all active background processes for that project are tree-killed and removed from the registry
-

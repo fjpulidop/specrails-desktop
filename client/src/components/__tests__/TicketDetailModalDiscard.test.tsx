@@ -55,14 +55,14 @@ function makeDefaultProps(overrides: Partial<{
   allLabels: string[]
   onClose: () => void
   onSave: (id: number, fields: Partial<LocalTicket>) => Promise<boolean>
-  onDelete: (id: number) => void
+  onDelete: (id: number) => Promise<boolean>
 }> = {}) {
   return {
     ticket: makeTicket(),
     allLabels: ['bug', 'area:frontend', 'area:backend'],
     onClose: vi.fn(),
     onSave: vi.fn(async () => true),
-    onDelete: vi.fn(),
+    onDelete: vi.fn(async () => true),
     ...overrides,
   }
 }

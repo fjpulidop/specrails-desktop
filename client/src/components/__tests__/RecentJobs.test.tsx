@@ -1,6 +1,6 @@
 import React from 'react'
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { render, screen, waitFor, fireEvent } from '../../test-utils'
+import { render, screen, waitFor, fireEvent, within } from '../../test-utils'
 import userEvent from '@testing-library/user-event'
 import { RecentJobs } from '../RecentJobs'
 import type { JobSummary } from '../../types'
@@ -63,6 +63,21 @@ describe('RecentJobs', () => {
     expect(screen.getByText(/No jobs yet/i)).toBeInTheDocument()
   })
 
+  it('shows load error with Retry instead of the empty state', () => {
+    const onRetry = vi.fn()
+    render(<RecentJobs jobs={[]} error="request failed" onRetry={onRetry} />)
+    expect(screen.getByRole('alert')).toBeInTheDocument()
+    expect(screen.queryByText(/No jobs yet/i)).not.toBeInTheDocument()
+    fireEvent.click(screen.getByRole('button', { name: 'Retry' }))
+    expect(onRetry).toHaveBeenCalledTimes(1)
+  })
+
+  it('keeps the last good jobs visible when a refresh fails', () => {
+    render(<RecentJobs jobs={mockJobs} error="request failed" onRetry={vi.fn()} />)
+    expect(screen.getByRole('alert')).toBeInTheDocument()
+    expect(screen.getByText('/specrails:implement')).toBeInTheDocument()
+  })
+
   it('shows loading skeleton when isLoading is true', () => {
     const { container } = render(<RecentJobs jobs={[]} isLoading={true} />)
     const skeletons = container.querySelectorAll('.animate-pulse')
@@ -74,6 +89,25 @@ describe('RecentJobs', () => {
     expect(screen.getByText('done')).toBeInTheDocument()
     expect(screen.getByText('running')).toBeInTheDocument()
     expect(screen.getByText('failed')).toBeInTheDocument()
+  })
+
+  it('renders a queued admission without treating it as an execution start', () => {
+    const queued: JobSummary = {
+      id: 'queued-job',
+      command: '/specrails:queued',
+      status: 'queued',
+      started_at: null,
+      enqueued_at: '2026-07-10 10:00:00',
+    }
+
+    render(<RecentJobs jobs={[queued]} />)
+
+    const row = screen.getByText('/specrails:queued').closest('[role="button"]')
+    expect(row).not.toBeNull()
+    expect(within(row as HTMLElement).queryByText(/1970|Invalid Date/i)).not.toBeInTheDocument()
+    // The Started cell is intentionally empty for queued work. enqueued_at is
+    // only the queue-order/filter timestamp, not provider runtime.
+    expect(within(row as HTMLElement).getAllByText('—').length).toBeGreaterThan(0)
   })
 
   it('renders job commands', () => {
@@ -126,6 +160,13 @@ describe('RecentJobs', () => {
     expect(mockNavigate).toHaveBeenCalledWith('/jobs/job-1')
   })
 
+  it('pressing Enter on a focused job row navigates to job detail', () => {
+    render(<RecentJobs jobs={mockJobs} />)
+    const jobRow = screen.getByText('/specrails:implement').closest('[role="button"]')!
+    fireEvent.keyDown(jobRow, { key: 'Enter' })
+    expect(mockNavigate).toHaveBeenCalledWith('/jobs/job-1')
+  })
+
   it('clicking proposal row calls onProposalClick instead of navigate', async () => {
     const user = userEvent.setup()
     const onProposalClick = vi.fn()
@@ -138,6 +179,21 @@ describe('RecentJobs', () => {
     render(<RecentJobs jobs={[proposalJob]} onProposalClick={onProposalClick} />)
     const row = screen.getByText('/specrails:propose-feature some idea').closest('[role="button"]')!
     await user.click(row)
+    expect(onProposalClick).toHaveBeenCalledWith('abc123')
+    expect(mockNavigate).not.toHaveBeenCalled()
+  })
+
+  it('pressing Space on a focused proposal row invokes the proposal action', () => {
+    const onProposalClick = vi.fn()
+    const proposalJob: JobSummary = {
+      id: 'proposal:abc123',
+      command: '/specrails:propose-feature keyboard idea',
+      started_at: new Date().toISOString(),
+      status: 'completed',
+    }
+    render(<RecentJobs jobs={[proposalJob]} onProposalClick={onProposalClick} />)
+    const row = screen.getByText('/specrails:propose-feature keyboard idea').closest('[role="button"]')!
+    fireEvent.keyDown(row, { key: ' ' })
     expect(onProposalClick).toHaveBeenCalledWith('abc123')
     expect(mockNavigate).not.toHaveBeenCalled()
   })

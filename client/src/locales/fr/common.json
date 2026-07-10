@@ -50,6 +50,34 @@
     "draft": "Brouillon",
     "onReview": "En révision"
   },
+  "prDeliveryStatus": {
+    "implementation_running": "Implémentation en cours",
+    "implementation_failed": "Échec de l’implémentation",
+    "ready_for_review": "Prête pour la revue",
+    "partial_success": "Implémentation partielle",
+    "partial_delivery": "Livraison partielle prête",
+    "existing_pr_updated": "PR existante mise à jour",
+    "no_changes": "Aucune modification nécessaire",
+    "commit_failed": "Échec de l’étape de commit",
+    "branch_verification_failed": "Échec de la vérification de la branche",
+    "push_failed": "Échec du push",
+    "settlement_interrupted": "Préparation de la livraison interrompue",
+    "operation_interrupted": "Action de livraison précédente interrompue",
+    "delivery_failed": "Échec de la livraison",
+    "pr_draft_ready": "Brouillon de PR prêt",
+    "pr_ready": "PR prête",
+    "pr_closed": "PR fermée sans fusion",
+    "merged": "Fusionnée",
+    "discarded": "Supprimée",
+    "superseded": "Remplacée par une exécution plus récente",
+    "cleanup_incomplete": "Nettoyage incomplet",
+    "status_failed": "Échec de la vérification de l’état du worktree",
+    "ref_mismatch": "La référence de branche ne correspond pas"
+  },
+  "prRecovery": {
+    "inProgress": "La récupération du projet est toujours en cours. Votre livraison est en sécurité ; réessayez dans un instant.",
+    "interrupted": "Une action de livraison précédente a été interrompue lors du redémarrage. Votre travail a été préservé ; vérifiez l’état actuel et réessayez quand vous êtes prêt."
+  },
   "modal": {
     "resize": {
       "nw": "Redimensionner — coin supérieur gauche",

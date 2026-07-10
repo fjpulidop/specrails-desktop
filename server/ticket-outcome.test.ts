@@ -295,3 +295,22 @@ describe('writeStore atomicity + needs_review persistence', () => {
     expect(readStore(file).revision).toBe(s2.revision)
   })
 })
+
+describe('causal outcome marker', () => {
+  it('makes an exact replay a no-op after intervening user state changes', () => {
+    const store = makeStore([makeTicket(1, 'in_progress')])
+    expect(applyJobOutcomeToTickets(store, [1], 'failed', NOW, {
+      effectId: 'job-old', causalOwnerConfirmed: true,
+    })).toEqual([1])
+    expect(store.tickets['1'].status).toBe('todo')
+    store.tickets['1'].status = 'in_progress'
+
+    expect(applyJobOutcomeToTickets(store, [1], 'failed', NOW, {
+      effectId: 'job-old', causalOwnerConfirmed: true,
+    })).toEqual([])
+    expect(store.tickets['1'].status).toBe('in_progress')
+    expect(store.tickets['1'].metadata.specrails_outcome).toMatchObject({
+      owner_id: 'job-old', applied_effect_id: 'job-old',
+    })
+  })
+})

@@ -10,6 +10,7 @@ import { useProjectCache } from '../../hooks/useProjectCache'
 import { useSharedWebSocket } from '../../hooks/useSharedWebSocket'
 import { useDesktop } from '../../hooks/useDesktop'
 import { formatCommandForProvider } from '../../lib/format-command'
+import { jobActivityTimestamp, parseJobTimestamp } from '../../lib/job-time'
 import { Badge } from '../ui/badge'
 import { JobDetailModal } from '../JobDetailModal'
 import type { JobSummary } from '../../types'
@@ -164,7 +165,12 @@ export function AgentModeJobsPane({ projectId }: { projectId: string }) {
                     </Badge>
                     {job.status === 'running' && <Loader2 className="h-3 w-3 animate-spin text-accent-primary" />}
                     <span className="ml-auto text-[10px] text-muted-foreground">
-                      {formatDistanceToNow(new Date(job.started_at), { addSuffix: true, locale: getDateFnsLocale() })}
+                      {(() => {
+                        const timestamp = parseJobTimestamp(jobActivityTimestamp(job))
+                        return timestamp
+                          ? formatDistanceToNow(timestamp, { addSuffix: true, locale: getDateFnsLocale() })
+                          : '—'
+                      })()}
                     </span>
                   </div>
                   <code className="truncate font-mono text-xs text-foreground/85">

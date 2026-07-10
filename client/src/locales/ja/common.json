@@ -50,6 +50,34 @@
     "draft": "下書き",
     "onReview": "レビュー中"
   },
+  "prDeliveryStatus": {
+    "implementation_running": "実装を実行中",
+    "implementation_failed": "実装に失敗",
+    "ready_for_review": "レビュー準備完了",
+    "partial_success": "一部を実装済み",
+    "partial_delivery": "部分配信の準備完了",
+    "existing_pr_updated": "既存の PR を更新済み",
+    "no_changes": "変更不要",
+    "commit_failed": "コミット段階に失敗",
+    "branch_verification_failed": "ブランチ検証に失敗",
+    "push_failed": "プッシュに失敗",
+    "settlement_interrupted": "配信準備が中断されました",
+    "operation_interrupted": "以前の配信操作が中断されました",
+    "delivery_failed": "配信に失敗",
+    "pr_draft_ready": "PR 下書きの準備完了",
+    "pr_ready": "PR の準備完了",
+    "pr_closed": "PR はマージされずにクローズ",
+    "merged": "マージ済み",
+    "discarded": "破棄済み",
+    "superseded": "新しい実行に置換済み",
+    "cleanup_incomplete": "クリーンアップが不完全",
+    "status_failed": "worktree の状態確認に失敗",
+    "ref_mismatch": "ブランチ参照が一致しません"
+  },
+  "prRecovery": {
+    "inProgress": "プロジェクトの復旧が進行中です。配信内容は安全に保たれています。しばらくしてから再試行してください。",
+    "interrupted": "再起動中に以前の配信操作が中断されました。作業内容は保持されています。現在の状態を確認し、準備ができたら再試行してください。"
+  },
   "modal": {
     "resize": {
       "nw": "サイズ変更 — 左上隅",

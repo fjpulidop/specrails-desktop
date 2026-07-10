@@ -1,6 +1,6 @@
 import React from 'react'
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { render, screen, fireEvent, waitFor } from '../../test-utils'
+import { render, screen, fireEvent, waitFor, act } from '../../test-utils'
 import userEvent from '@testing-library/user-event'
 
 vi.mock('react-markdown', () => ({
@@ -51,14 +51,14 @@ function makeDefaultProps(overrides: Partial<{
   allLabels: string[]
   onClose: () => void
   onSave: (id: number, fields: Partial<LocalTicket>) => Promise<boolean>
-  onDelete: (id: number) => void
+  onDelete: (id: number) => Promise<boolean>
 }> = {}) {
   return {
     ticket: makeTicket(),
     allLabels: ['bug', 'area:frontend', 'area:backend'],
     onClose: vi.fn(),
     onSave: vi.fn(async () => true),
-    onDelete: vi.fn(),
+    onDelete: vi.fn(async () => true),
     ...overrides,
   }
 }
@@ -68,6 +68,7 @@ function makeDefaultProps(overrides: Partial<{
 describe('TicketDetailModal', () => {
   beforeEach(() => {
     vi.clearAllMocks()
+    Object.defineProperty(window, 'innerWidth', { configurable: true, writable: true, value: 1024 })
   })
 
   describe('board-mode stacking (agent-chat refs)', () => {
@@ -153,6 +154,16 @@ describe('TicketDetailModal', () => {
       render(<TicketDetailModal {...makeDefaultProps()} />)
       expect(screen.queryByTestId('ticket-modal-on-review-badge')).toBeNull()
     })
+
+    it('removes the compare affordance when the viewport shrinks below the split threshold', async () => {
+      render(<TicketDetailModal {...makeDefaultProps()} />)
+      expect(screen.getByTestId('ticket-modal-compare')).toBeInTheDocument()
+
+      window.innerWidth = 800
+      fireEvent(window, new Event('resize'))
+
+      await waitFor(() => expect(screen.queryByTestId('ticket-modal-compare')).not.toBeInTheDocument())
+    })
   })
 
   describe('close behavior', () => {
@@ -207,7 +218,7 @@ describe('TicketDetailModal', () => {
     })
 
     it('calls onDelete when delete is confirmed', async () => {
-      const onDelete = vi.fn()
+      const onDelete = vi.fn(async () => true)
       render(<TicketDetailModal {...makeDefaultProps({ onDelete })} />)
 
       // Open delete dialog
@@ -223,6 +234,35 @@ describe('TicketDetailModal', () => {
       await waitFor(() => {
         expect(onDelete).toHaveBeenCalledWith(1)
       })
+    })
+
+    it('stays busy and closes only after a successful delete resolves', async () => {
+      let resolveDelete!: (ok: boolean) => void
+      const onDelete = vi.fn(() => new Promise<boolean>((resolve) => { resolveDelete = resolve }))
+      const onClose = vi.fn()
+      render(<TicketDetailModal {...makeDefaultProps({ onDelete, onClose })} />)
+      fireEvent.click(screen.getByRole('button', { name: /delete/i }))
+      const confirm = screen.getAllByRole('button', { name: /delete/i }).at(-1)!
+      fireEvent.click(confirm)
+
+      expect(confirm).toBeDisabled()
+      expect(onClose).not.toHaveBeenCalled()
+      await act(async () => { resolveDelete(true) })
+      await waitFor(() => expect(onClose).toHaveBeenCalledTimes(1))
+    })
+
+    it('keeps the confirmation open and reports an error when delete fails', async () => {
+      const { toast } = await import('sonner')
+      const onDelete = vi.fn(async () => false)
+      const onClose = vi.fn()
+      render(<TicketDetailModal {...makeDefaultProps({ onDelete, onClose })} />)
+      fireEvent.click(screen.getByRole('button', { name: /delete/i }))
+      fireEvent.click(screen.getAllByRole('button', { name: /delete/i }).at(-1)!)
+
+      await waitFor(() => expect(onDelete).toHaveBeenCalledWith(1))
+      expect(onClose).not.toHaveBeenCalled()
+      expect(screen.getByText('Delete ticket')).toBeInTheDocument()
+      expect(toast.error).toHaveBeenCalled()
     })
   })
 

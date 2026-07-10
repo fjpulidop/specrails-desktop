@@ -34,7 +34,9 @@
     "max": "Maximieren"
   },
   "model": {
-    "label": "Modell"
+    "label": "Modell",
+    "loading": "Modelle werden geladen…",
+    "unavailable": "Modelle nicht verfügbar"
   },
   "history": {
     "hint": "Verlauf durchsuchen — tippen zum Bearbeiten, ↑↓ zum Navigieren"
@@ -106,6 +108,7 @@
   "project": {
     "home": "Start",
     "searchPlaceholder": "Mit Specrails sprechen…",
+    "searchProjectsPlaceholder": "Projekte suchen…",
     "recents": "Zuletzt verwendet",
     "allProjects": "Alle Projekte",
     "searchAll": "In allen Projekten suchen",
@@ -228,6 +231,27 @@
     "xhigh": "Sehr hoch"
   },
   "prCard": {
+    "operation": {
+      "inProgress": "Aktion läuft…",
+      "create-pr": "PR wird erstellt…",
+      "publish": "Wird veröffentlicht…",
+      "discard": "Wird verworfen…",
+      "dismiss": "Wird ausgeblendet…",
+      "poll-merge": "Merge wird geprüft…",
+      "reopen": "Wird erneut geöffnet…",
+      "merge-local": "Wird lokal integriert…",
+      "acknowledge-no-changes": "Wird als erledigt markiert…"
+    },
+    "markDone": "Als erledigt markieren",
+    "refine": "Verfeinern",
+    "completedNote": "Bestätigt — Specs nach Erledigt verschoben",
+    "partialSummary": "{{succeeded}} von {{total}} abgeschlossen; {{failed}} fehlgeschlagen",
+    "unit": {
+      "failed": "Implementierung fehlgeschlagen",
+      "blocked": "Bereitstellung blockiert",
+      "noChanges": "keine Änderungen",
+      "succeeded": "bereit"
+    },
     "rail": "Rail {{index}}",
     "specCount_one": "{{count}} Spec",
     "specCount_other": "{{count}} Specs",
@@ -235,6 +259,13 @@
     "openPr": "PR öffnen",
     "existingPr": "Bestehender PR",
     "title": {
+      "no_changes": "Keine Änderungen erforderlich",
+      "partial": "Teilweise implementiert",
+      "delivery_blocked": "Implementierung abgeschlossen — Bereitstellung erfordert Aufmerksamkeit",
+      "update_failed": "Implementierung abgeschlossen — Aktualisierung fehlgeschlagen",
+      "pr_closed": "PR ohne Merge geschlossen",
+      "superseded": "Durch einen neueren Lauf ersetzt",
+      "existing_pr_updated": "Bestehender PR aktualisiert",
       "building": "Implementierung in einem isolierten Worktree…",
       "buildingExistingPr": "Änderungen werden auf einen bestehenden PR angewendet…",
       "paused": "Benötigt eine menschliche Entscheidung",
@@ -269,6 +300,35 @@
     "mergedNote": "Gemergt — Specs nach Fertig verschoben",
     "discardedNote": "Verworfen — Specs zurück ins Backlog",
     "implementationFailedNote": "Der Implementierungslauf ist fehlgeschlagen, bevor etwas Auslieferbares entstanden ist. Öffne das Run-Protokoll, um den Fehler zu prüfen, und verwirf diese Karte vor einem erneuten Start.",
+    "dismiss": "Ausblenden",
+    "discardLocalResult": "Lokales Ergebnis verwerfen",
+    "retryPush": "Push wiederholen",
+    "reopen": "Erneut öffnen",
+    "createPartialPr": "PR mit {{count}} erstellen",
+    "supersededNote": "Ein neuerer Implementierungslauf hat diese Karte ersetzt.",
+    "noChangesExisting": "Es waren keine neuen Änderungen nötig; der bestehende PR bleibt unverändert.",
+    "noChangesNote": "Es waren keine Codeänderungen nötig. Markiere die Specs als erledigt oder lege sie zur Verfeinerung zurück in den Backlog.",
+    "deliveryNeedsAttention": "Implementierung abgeschlossen; Bereitstellung erfordert Aufmerksamkeit",
+    "deliveryBlockedNote": "Die Implementierung war erfolgreich, aber die Bereitstellung ist blockiert. Prüfe Stufendetail und Protokolle, bevor du das lokale Ergebnis verwirfst.",
+    "retryPushNote": "Die Implementierung war erfolgreich und die Änderungen sind lokal sicher. Wiederhole nur den Push.",
+    "cleanupIncomplete_one": "Bereinigung unvollständig ({{count}} Warnung)",
+    "cleanupIncomplete_other": "Bereinigung unvollständig ({{count}} Warnungen)",
+    "confirm": {
+      "noChangesDoneTitle": "Diese Specs als erledigt markieren?",
+      "noChangesDoneBody": "Die Implementierung hat bestätigt, dass keine Codeänderungen nötig sind. Die Specs werden nach Erledigt verschoben und der unveränderte Worktree wird bereinigt.",
+      "refineTitle": "Diese Specs verfeinern?",
+      "refineBody": "Das Ergebnis ohne Änderungen wird geschlossen und die Specs kehren zur Verfeinerung in den Backlog zurück. Die Ausführungsprotokolle bleiben verfügbar.",
+      "mergeLocalTitle": "Lokal integrieren?",
+      "mergeLocalBody": "Die gelieferten Branches werden in deinem lokalen Checkout in {{base}} zusammengeführt. Der Checkout muss auf {{base}} stehen und sauber sein.",
+      "freshDiscardTitle": "Diese Lieferung verwerfen?",
+      "freshDiscardBody": "Branches und Worktrees dieses Laufs werden entfernt und die Specs in den Backlog zurückgelegt. Dies kann nicht rückgängig gemacht werden.",
+      "implementationFailedDiscardTitle": "Diese fehlgeschlagene Lieferung verwerfen?",
+      "implementationFailedDiscardBody": "Die Karte wird geschlossen und ihre Specs kehren in den Backlog zurück. Lokale Arbeit und Branches bleiben zur Prüfung erhalten. Nur nachweislich sicher bereinigbare Ressourcen dürfen entfernt werden.",
+      "dismissTitle": "Diese Fortsetzung ausblenden?",
+      "dismissBody": "Nur diese Fortsetzungskarte und ihr Worktree werden entfernt. Der bestehende PR, sein Branch und der Review-Status bleiben unverändert.",
+      "discardLocalTitle": "Lokales Ergebnis verwerfen?",
+      "discardLocalBody": "Die wiederherstellbare lokale Iteration wird entfernt. Ein gegebenenfalls bestehender PR und sein Branch bleiben unverändert. Dies kann nicht rückgängig gemacht werden."
+    },
     "degraded": {
       "pushed": "Der Branch wurde gepusht, aber die PR konnte nicht erstellt werden — erneut versuchen, um abzuschließen.",
       "localOnly": "Die Änderungen wurden lokal zusammengeführt, aber nicht gepusht — erneut versuchen, um die PR zu veröffentlichen."
@@ -289,6 +349,10 @@
       "collapsed_one": "Implementierungskarte",
       "collapsed_other": "{{count}} Implementierungskarten",
       "state": {
+        "completed": "Erledigt",
+        "no_changes": "Keine Änderungen",
+        "pr_closed": "Geschlossen",
+        "superseded": "Ersetzt",
         "building": "Läuft",
         "on_review": "Review",
         "pr_draft": "Entwurfs-PR",

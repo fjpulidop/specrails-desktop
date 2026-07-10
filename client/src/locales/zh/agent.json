@@ -34,7 +34,9 @@
     "max": "最大化"
   },
   "model": {
-    "label": "模型"
+    "label": "模型",
+    "loading": "正在加载模型…",
+    "unavailable": "模型不可用"
   },
   "history": {
     "hint": "浏览提示历史 — 输入以编辑，↑↓ 导航"
@@ -106,6 +108,7 @@
   "project": {
     "home": "主页",
     "searchPlaceholder": "与 Specrails 对话…",
+    "searchProjectsPlaceholder": "搜索项目…",
     "recents": "最近",
     "allProjects": "所有项目",
     "searchAll": "在所有项目中搜索",
@@ -228,6 +231,27 @@
     "xhigh": "极高"
   },
   "prCard": {
+    "operation": {
+      "inProgress": "操作进行中…",
+      "create-pr": "正在创建 PR…",
+      "publish": "正在发布…",
+      "discard": "正在丢弃…",
+      "dismiss": "正在关闭提示…",
+      "poll-merge": "正在检查合并…",
+      "reopen": "正在重新打开…",
+      "merge-local": "正在本地集成…",
+      "acknowledge-no-changes": "正在标记完成…"
+    },
+    "markDone": "标记为完成",
+    "refine": "细化",
+    "completedNote": "已确认 — spec 已移至完成",
+    "partialSummary": "{{total}} 个中 {{succeeded}} 个完成，{{failed}} 个失败",
+    "unit": {
+      "failed": "实现失败",
+      "blocked": "交付受阻",
+      "noChanges": "无更改",
+      "succeeded": "已就绪"
+    },
     "rail": "Rail {{index}}",
     "specCount_one": "{{count}} 个 Spec",
     "specCount_other": "{{count}} 个 Spec",
@@ -235,6 +259,13 @@
     "openPr": "打开 PR",
     "existingPr": "现有 PR",
     "title": {
+      "no_changes": "无需更改",
+      "partial": "部分实现完成",
+      "delivery_blocked": "实现完成 — 交付需要处理",
+      "update_failed": "实现完成 — 更新失败",
+      "pr_closed": "PR 已关闭但未合并",
+      "superseded": "已被较新的运行取代",
+      "existing_pr_updated": "现有 PR 已更新",
       "building": "正在隔离的 worktree 中实现…",
       "buildingExistingPr": "正在向现有 PR 应用更改…",
       "paused": "需要人工决策",
@@ -269,6 +300,35 @@
     "mergedNote": "已合并 — Spec 已移至完成",
     "discardedNote": "已丢弃 — Spec 已退回待办",
     "implementationFailedNote": "实现运行在生成可交付内容前失败。请打开运行日志查看失败原因，然后在重新启动前丢弃此卡片。",
+    "dismiss": "关闭提示",
+    "discardLocalResult": "丢弃本地结果",
+    "retryPush": "重试推送",
+    "reopen": "重新打开",
+    "createPartialPr": "用 {{count}} 个结果创建 PR",
+    "supersededNote": "较新的实现运行已取代此卡片。",
+    "noChangesExisting": "无需新的更改；现有 PR 保持不变。",
+    "noChangesNote": "无需更改代码。请将 spec 标记为完成，或退回待办列表继续细化。",
+    "deliveryNeedsAttention": "实现完成；交付需要处理",
+    "deliveryBlockedNote": "实现已成功，但交付受阻。丢弃本地结果前，请查看阶段详情和运行日志。",
+    "retryPushNote": "实现已成功，更改安全保存在本地。请仅重试推送。",
+    "cleanupIncomplete_one": "清理未完成（{{count}} 条警告）",
+    "cleanupIncomplete_other": "清理未完成（{{count}} 条警告）",
+    "confirm": {
+      "noChangesDoneTitle": "将这些 spec 标记为完成？",
+      "noChangesDoneBody": "实现已确认无需更改代码。spec 将移至完成，并清理无更改的 worktree。",
+      "refineTitle": "细化这些 spec？",
+      "refineBody": "无更改结果将被关闭，spec 会返回待办列表以便细化。运行日志仍可查看。",
+      "mergeLocalTitle": "在本地集成？",
+      "mergeLocalBody": "已交付的分支将合并到本地 checkout 的 {{base}}。checkout 必须位于 {{base}}，且工作树干净。",
+      "freshDiscardTitle": "丢弃此交付？",
+      "freshDiscardBody": "此次运行的分支和 worktree 将被删除，spec 将返回待办列表。此操作无法撤销。",
+      "implementationFailedDiscardTitle": "丢弃此失败的交付？",
+      "implementationFailedDiscardBody": "卡片将被关闭，spec 会返回待办列表。本地工作和分支将保留以供检查。只有确认可安全清理的资源才可能被移除。",
+      "dismissTitle": "关闭此后续任务？",
+      "dismissBody": "只会清除此后续卡片及其 worktree。现有 PR、分支和审查状态不会改变。",
+      "discardLocalTitle": "丢弃本地结果？",
+      "discardLocalBody": "可恢复的本地迭代将被删除。任何现有 PR 及其分支都不会改变。此操作无法撤销。"
+    },
     "degraded": {
       "pushed": "分支已推送，但无法创建 PR — 请重试以完成。",
       "localOnly": "更改已在本地组装但未推送 — 请重试以发布 PR。"
@@ -289,6 +349,10 @@
       "collapsed_one": "实现卡片",
       "collapsed_other": "{{count}} 张实现卡片",
       "state": {
+        "completed": "已完成",
+        "no_changes": "无更改",
+        "pr_closed": "已关闭",
+        "superseded": "已取代",
         "building": "构建中",
         "on_review": "待审阅",
         "pr_draft": "草稿 PR",

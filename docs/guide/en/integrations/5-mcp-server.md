@@ -87,7 +87,7 @@ Because your assistant reads the built-in guide first, you rarely need to name t
 
 - **Specrails must be running.** The MCP server lives inside the app, so your assistant can reach it only while Specrails is open. Thanks to the tray, closing the window keeps it running in the background — only **Exit** from the tray (Mac menu bar / Windows system tray) actually stops it.
 - **Long actions stream.** Launching a rail or generating a spec returns immediately and finishes in the background; your assistant can "watch" it and report back when it settles.
-- **Security.** The MCP uses its own access token, separate from everything else, and only listens on your own machine (loopback). You can copy or regenerate that token any time from the panel.
-- **Not exposed (v1).** For safety, a few high-risk capabilities are intentionally left out: running shell commands in the terminal, the embedded browser, in-app file editing, and installing system prerequisites. Everything that *manages* Specrails is available; raw machine access is not.
+- **Security.** The MCP uses its own access token, separate from everything else, and only listens on your own machine (loopback). The token cannot impersonate Agent Mode by supplying tier, project, or conversation headers: the embedded agent uses a private, short-lived, server-minted capability. You can copy or regenerate the scoped token any time from the panel.
+- **Not exposed (v1).** For safety, external MCP clients cannot run raw terminal shell commands, use the embedded browser, edit files in-app, or install system prerequisites. Agent Mode has a separate authenticated path for confirmed long-running background commands at Autonomous permission; external clients cannot obtain it by enabling Destructive. Everything else that *manages* Specrails is available.
 
 You can disable MCP at any time from the same panel — your assistant simply loses access, and nothing else changes.

@@ -36,6 +36,7 @@ import {
 } from 'fs'
 import os from 'os'
 import path from 'path'
+import { isDeepStrictEqual } from 'util'
 
 /** Registry schema version. A reader that sees a higher value MUST treat all
  *  entries as absent (legacy fallback), never mis-parse. */
@@ -432,6 +433,13 @@ export interface MirrorProjectInput {
   desktopProjectId?: string
 }
 
+/** Result of a mirror write that lets a higher-level registration transaction
+ * restore the exact entry it replaced if its later hydration step fails. */
+export interface MirroredProjectMutation {
+  entry: ProjectEntry
+  previousEntry?: ProjectEntry
+}
+
 function normalizeProviders(
   providers: string[] | undefined,
   primary: string | undefined,
@@ -544,7 +552,10 @@ function buildMirroredEntry(
  *
  * Runs under the file lock with a re-read so concurrent writers serialise.
  */
-export function mirrorProjectEntry(input: MirrorProjectInput, home?: string): ProjectEntry {
+export function mirrorProjectEntryWithPrevious(
+  input: MirrorProjectInput,
+  home?: string,
+): MirroredProjectMutation {
   const canon = canonicalizeRepoPath(input.repoPath)
   const key = normalizeKey(canon)
   const { providers, primaryProvider } = normalizeProviders(input.providers, input.primaryProvider)
@@ -577,8 +588,12 @@ export function mirrorProjectEntry(input: MirrorProjectInput, home?: string): Pr
     reg.generator = 'specrails-desktop'
     reg.updatedAt = now
     atomicWrite(registryPath(home), JSON.stringify(reg, null, 2) + '\n')
-    return entry
+    return { entry, previousEntry: existing }
   })
+}
+
+export function mirrorProjectEntry(input: MirrorProjectInput, home?: string): ProjectEntry {
+  return mirrorProjectEntryWithPrevious(input, home).entry
 }
 
 // ─── Read-side resolution (the gate primitive for spawn/artifact routing) ──────
@@ -688,6 +703,34 @@ export function removeRegistryEntry(repoPath: string, home?: string): void {
     reg.generator = 'specrails-desktop'
     reg.updatedAt = new Date().toISOString()
     atomicWrite(registryPath(home), JSON.stringify(reg, null, 2) + '\n')
+  })
+}
+
+/** Restore a repo's exact pre-mirror entry, or remove the newly-created entry
+ * when no entry existed before the mirror. Used only to roll back a failed
+ * higher-level project registration after the mirror itself succeeded. */
+export function restoreRegistryEntry(
+  repoPath: string,
+  previousEntry: ProjectEntry | undefined,
+  expectedCurrentEntry: ProjectEntry,
+  home?: string,
+): boolean {
+  const canon = canonicalizeRepoPath(repoPath)
+  const key = normalizeKey(canon)
+  return withFileLock(home, () => {
+    const reg = readRegistryOrEmpty(home)
+    // Hydration happens after the mirror lock is released. If core or another
+    // desktop process updated this repo meanwhile, that newer entry is no
+    // longer our mutation to undo. Leave it intact instead of restoring stale
+    // state over a lock-respecting concurrent writer.
+    if (!isDeepStrictEqual(reg.projects[key], expectedCurrentEntry)) return false
+    if (previousEntry) reg.projects[key] = previousEntry
+    else delete reg.projects[key]
+    reg.schemaVersion = REGISTRY_SCHEMA_VERSION
+    reg.generator = 'specrails-desktop'
+    reg.updatedAt = new Date().toISOString()
+    atomicWrite(registryPath(home), JSON.stringify(reg, null, 2) + '\n')
+    return true
   })
 }
 

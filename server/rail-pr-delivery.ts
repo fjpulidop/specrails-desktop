@@ -30,6 +30,8 @@ export interface DeliverBranch {
   ticketId: number
   branch: string
   succeeded: boolean
+  /** Verified immutable object produced by settlement. */
+  sourceSha?: string
 }
 
 export interface DeliverRailInput {
@@ -69,6 +71,7 @@ export async function deliverRailAsPr(git: GitRunner, exec: Exec, input: Deliver
       baseBranch: input.integrationBranch,
       title: input.title,
       body: input.body,
+      sourceSha: b.sourceSha,
     })
     return { state: 'delivered', branch: b.branch, pr, ticketIds: [b.ticketId] }
   }
@@ -101,7 +104,7 @@ export async function deliverRailAsPr(git: GitRunner, exec: Exec, input: Deliver
   }
 
   for (const b of succeeded) {
-    const merge = await git.run(['merge', '--no-ff', '--no-edit', b.branch], wt)
+    const merge = await git.run(['merge', '--no-ff', '--no-edit', b.sourceSha ?? b.branch], wt)
     if (merge.code !== 0) {
       // Conflict/failure → abort and tear the batch down cleanly. Ticket branches
       // stay intact for a human. Never leave a half-merged batch.

@@ -4,7 +4,7 @@ import { useTranslation } from 'react-i18next'
 import { getApiBase } from '../lib/api'
 import { getDateFnsLocale } from '../lib/i18n'
 import { formatDistanceToNow } from 'date-fns'
-import { Trash2, ClipboardList, GitCompareArrows, Link2 } from 'lucide-react'
+import { Trash2, ClipboardList, GitCompareArrows, Link2, AlertTriangle } from 'lucide-react'
 import { toast } from 'sonner'
 import { Badge } from './ui/badge'
 import { Button } from './ui/button'
@@ -16,6 +16,7 @@ import { useDesktop } from '../hooks/useDesktop'
 import { formatCommandForProvider } from '../lib/format-command'
 import { useMovableResizableModal } from '../hooks/useMovableResizableModal'
 import { ResizeGrips } from './ui/ResizeGrips'
+import { jobActivityTimestamp, parseJobTimestamp } from '../lib/job-time'
 
 type BadgeVariant = 'default' | 'secondary' | 'destructive' | 'outline' | 'success' | 'warning' | 'running' | 'queued' | 'failed' | 'canceled'
 
@@ -45,9 +46,11 @@ function formatCost(cost: number | null | undefined): string | null {
 }
 
 /** Wall-clock duration from started_at / finished_at timestamps */
-function formatWallDuration(startedAt: string, finishedAt: string | null | undefined): string | null {
-  if (!finishedAt) return null
-  const ms = new Date(finishedAt).getTime() - new Date(startedAt).getTime()
+function formatWallDuration(startedAt: string | null, finishedAt: string | null | undefined): string | null {
+  const started = parseJobTimestamp(startedAt)
+  const finished = parseJobTimestamp(finishedAt)
+  if (!started || !finished) return null
+  const ms = finished.getTime() - started.getTime()
   if (ms < 0) return null
   const secs = Math.round(ms / 1000)
   if (secs < 60) return `${secs}s`
@@ -65,12 +68,10 @@ function formatTokens(n: number | null | undefined): string | null {
   return String(n)
 }
 
-function formatRelTime(dateStr: string): string {
-  try {
-    return formatDistanceToNow(new Date(dateStr), { addSuffix: true, locale: getDateFnsLocale() })
-  } catch {
-    return dateStr
-  }
+function formatRelTime(dateStr: string | null): string {
+  const date = parseJobTimestamp(dateStr)
+  if (!date) return '—'
+  return formatDistanceToNow(date, { addSuffix: true, locale: getDateFnsLocale() })
 }
 
 // ─── Local-day range helpers ─────────────────────────────────────────────────
@@ -96,10 +97,11 @@ export function localDayEndMs(day: string): number {
 }
 
 /** Whether a timestamp falls within [from, to] local days (inclusive). */
-export function isWithinLocalDayRange(startedAt: string, from: string, to: string): boolean {
+export function isWithinLocalDayRange(startedAt: string | null, from: string, to: string): boolean {
   if (!from && !to) return true
-  const t = new Date(startedAt).getTime()
-  if (Number.isNaN(t)) return true // unparsable timestamp — keep the job visible
+  const parsed = parseJobTimestamp(startedAt)
+  if (!parsed) return true // absent/unparsable timestamp — keep the job visible
+  const t = parsed.getTime()
   if (from && t < localDayStartMs(from)) return false
   if (to && t > localDayEndMs(to)) return false
   return true
@@ -108,6 +110,8 @@ export function isWithinLocalDayRange(startedAt: string, from: string, to: strin
 interface RecentJobsProps {
   jobs: JobSummary[]
   isLoading?: boolean
+  error?: string | null
+  onRetry?: () => void
   onJobsCleared?: () => void
   onProposalClick?: (proposalId: string) => void
   onProposalDelete?: (proposalId: string) => void
@@ -115,7 +119,7 @@ interface RecentJobsProps {
 
 const PAGE_SIZE = 10
 
-export function RecentJobs({ jobs, isLoading, onJobsCleared, onProposalClick, onProposalDelete }: RecentJobsProps) {
+export function RecentJobs({ jobs, isLoading, error, onRetry, onJobsCleared, onProposalClick, onProposalDelete }: RecentJobsProps) {
   const { t } = useTranslation('jobs')
   const navigate = useNavigate()
   const { activeProjectId, projects } = useDesktop()
@@ -158,11 +162,11 @@ export function RecentJobs({ jobs, isLoading, onJobsCleared, onProposalClick, on
 
   const filteredJobs = jobs.filter((j) => {
     if (statusFilter && j.status !== statusFilter) return false
-    return isWithinLocalDayRange(j.started_at, dateFrom, dateTo)
+    return isWithinLocalDayRange(jobActivityTimestamp(j), dateFrom, dateTo)
   })
 
   const clearRangeCount = jobs.filter((j) =>
-    isWithinLocalDayRange(j.started_at, clearFrom, clearTo)
+    isWithinLocalDayRange(jobActivityTimestamp(j), clearFrom, clearTo)
   ).length
 
   async function handleClear(mode: 'all' | 'range') {
@@ -200,7 +204,23 @@ export function RecentJobs({ jobs, isLoading, onJobsCleared, onProposalClick, on
     }
   }
 
-  if (isLoading) {
+  const loadError = error ? (
+    <div role="alert" data-testid="jobs-load-error" className="flex items-center gap-2 rounded-md border border-destructive/30 bg-destructive/10 px-3 py-2 text-xs text-destructive">
+      <AlertTriangle className="h-4 w-4 shrink-0" />
+      <span className="flex-1">{t('recent.loadFailed')}</span>
+      {onRetry && (
+        <Button type="button" variant="outline" size="sm" className="h-7" onClick={onRetry} disabled={isLoading}>
+          {t('common:actions.retry')}
+        </Button>
+      )}
+    </div>
+  ) : null
+
+  if (error && jobs.length === 0) {
+    return <div className="rounded-lg border border-border/40 bg-card/50 p-4">{loadError}</div>
+  }
+
+  if (isLoading && jobs.length === 0) {
     return (
       <div className="rounded-lg border border-border/40 bg-card/50 p-4 space-y-1">
         {[0, 1, 2].map((i) => (
@@ -224,6 +244,7 @@ export function RecentJobs({ jobs, isLoading, onJobsCleared, onProposalClick, on
 
   return (
     <div className="rounded-lg border border-border/40 bg-card/50 p-4 space-y-2">
+      {loadError}
       {/* Filter bar */}
       <div className="flex items-center justify-between gap-2">
         <div className="flex items-center gap-1">
@@ -361,6 +382,17 @@ export function RecentJobs({ jobs, isLoading, onJobsCleared, onProposalClick, on
 
           const isSelected = compareSelection.includes(job.id)
           const isDisabled = compareMode && !isProposal && compareSelection.length === 2 && !isSelected
+          const activateRow = () => {
+            if (compareMode && !isProposal) {
+              toggleCompareSelect(job.id)
+              return
+            }
+            if (isProposal && proposalId) {
+              onProposalClick?.(proposalId)
+            } else {
+              navigate(`/jobs/${job.id}`)
+            }
+          }
 
           return (
             <div
@@ -374,16 +406,13 @@ export function RecentJobs({ jobs, isLoading, onJobsCleared, onProposalClick, on
                   ? 'opacity-40 cursor-not-allowed'
                   : 'hover:bg-accent/50'
               }`}
-              onClick={() => {
-                if (compareMode && !isProposal) {
-                  toggleCompareSelect(job.id)
-                  return
-                }
-                if (isProposal && proposalId) {
-                  onProposalClick?.(proposalId)
-                } else {
-                  navigate(`/jobs/${job.id}`)
-                }
+              onClick={activateRow}
+              onKeyDown={(e) => {
+                // Nested controls (for example proposal delete) own their keys.
+                if (e.target !== e.currentTarget) return
+                if (e.key !== 'Enter' && e.key !== ' ') return
+                e.preventDefault()
+                activateRow()
               }}
             >
               {/* Status badge */}
@@ -439,7 +468,9 @@ export function RecentJobs({ jobs, isLoading, onJobsCleared, onProposalClick, on
                 <span className="w-14 text-right">{duration ?? '—'}</span>
                 <span className="w-12 text-right">{tokens ? `${tokens}` : '—'}</span>
                 <span className="w-12 text-right">{cost ?? '—'}</span>
-                <span className="w-20 text-right">{formatRelTime(job.started_at)}</span>
+                <span className="w-20 text-right">
+                  {job.status === 'queued' ? '—' : formatRelTime(job.started_at)}
+                </span>
                 {isProposal && proposalId && (
                   <button
                     type="button"

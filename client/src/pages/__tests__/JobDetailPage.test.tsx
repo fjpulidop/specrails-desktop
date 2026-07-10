@@ -1,6 +1,6 @@
 import React from 'react'
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { render, screen, waitFor } from '../../test-utils'
+import { fireEvent, render, screen, waitFor } from '../../test-utils'
 import userEvent from '@testing-library/user-event'
 import JobDetailPage from '../JobDetailPage'
 import type { JobSummary, EventRow } from '../../types'
@@ -186,7 +186,7 @@ describe('JobDetailPage', () => {
     })
   })
 
-  it('Cancel button sends DELETE request', async () => {
+  it('Cancel button sends an explicit POST cancel request', async () => {
     const user = userEvent.setup()
     const runningJob = { ...mockJob, status: 'running' as const }
     global.fetch = vi.fn()
@@ -201,8 +201,8 @@ describe('JobDetailPage', () => {
     await user.click(screen.getByRole('button', { name: /Cancel Job/i }))
     await waitFor(() => {
       expect(global.fetch).toHaveBeenCalledWith(
-        '/api/jobs/job-abc123',
-        expect.objectContaining({ method: 'DELETE' })
+        '/api/jobs/job-abc123/cancel',
+        expect.objectContaining({ method: 'POST' })
       )
     })
   })
@@ -316,11 +316,50 @@ describe('JobDetailPage', () => {
         '/api/spawn',
         expect.objectContaining({
           method: 'POST',
+          headers: expect.objectContaining({ 'Idempotency-Key': expect.any(String) }),
           body: JSON.stringify({ command: '/specrails:implement' }),
         })
       )
       expect(mockNavigate).toHaveBeenCalledWith('/jobs/new-job-id')
     })
+  })
+
+  it('coalesces rapid Re-execute clicks into one billable spawn', async () => {
+    let resolveSpawn!: (value: unknown) => void
+    const pendingSpawn = new Promise((resolve) => { resolveSpawn = resolve })
+    global.fetch = vi.fn()
+      .mockResolvedValueOnce({ ok: true, json: async () => ({ job: mockJob, events: mockEvents }) })
+      .mockImplementationOnce(() => pendingSpawn)
+
+    render(<JobDetailPage />)
+    const button = await screen.findByRole('button', { name: /Re-execute/i })
+    fireEvent.click(button)
+    fireEvent.click(button)
+
+    await waitFor(() => expect(global.fetch).toHaveBeenCalledTimes(2))
+    expect(button).toBeDisabled()
+    resolveSpawn({ ok: true, json: async () => ({ jobId: 'new-job-id' }) })
+    await waitFor(() => expect(mockNavigate).toHaveBeenCalledWith('/jobs/new-job-id'))
+  })
+
+  it('uses a fresh idempotency key for a deliberate rerun after the first succeeds', async () => {
+    const user = userEvent.setup()
+    global.fetch = vi.fn()
+      .mockResolvedValueOnce({ ok: true, json: async () => ({ job: mockJob, events: mockEvents }) })
+      .mockResolvedValueOnce({ ok: true, json: async () => ({ jobId: 'new-job-1' }) })
+      .mockResolvedValueOnce({ ok: true, json: async () => ({ jobId: 'new-job-2' }) })
+
+    render(<JobDetailPage />)
+    const button = await screen.findByRole('button', { name: /Re-execute/i })
+    await user.click(button)
+    await waitFor(() => expect(mockNavigate).toHaveBeenCalledWith('/jobs/new-job-1'))
+    await user.click(button)
+    await waitFor(() => expect(mockNavigate).toHaveBeenCalledWith('/jobs/new-job-2'))
+
+    const spawnCalls = (global.fetch as ReturnType<typeof vi.fn>).mock.calls.slice(1)
+    const firstKey = (spawnCalls[0][1] as RequestInit).headers as Record<string, string>
+    const secondKey = (spawnCalls[1][1] as RequestInit).headers as Record<string, string>
+    expect(firstKey['Idempotency-Key']).not.toBe(secondKey['Idempotency-Key'])
   })
 
   describe('Export diagnostic', () => {

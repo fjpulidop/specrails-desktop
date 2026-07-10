@@ -18,6 +18,7 @@ import {
   canonicalizeRepoPath,
   lockPath,
   mirrorProjectEntry,
+  mirrorProjectEntryWithPrevious,
   normalizeKey,
   readRegistryOrEmpty,
   reconcileFromProjects,
@@ -25,6 +26,7 @@ import {
   REGISTRY_SCHEMA_VERSION,
   registryPath,
   removeRegistryEntry,
+  restoreRegistryEntry,
   slugify,
   withFileLock,
   workspaceLayout,
@@ -464,6 +466,37 @@ describe('removeRegistryEntry', () => {
   it('is a no-op when the key is absent', () => {
     const repo = realpathSync(mkdtempSync(path.join(os.tmpdir(), 'ghost-')))
     expect(() => removeRegistryEntry(repo, home)).not.toThrow()
+    rmSync(repo, { recursive: true, force: true })
+  })
+})
+
+describe('restoreRegistryEntry', () => {
+  it('does not overwrite a newer lock-serialized mutation', () => {
+    const repo = realpathSync(mkdtempSync(path.join(os.tmpdir(), 'restore-race-')))
+    const key = keyFor(repo)
+    const previous: ProjectEntry = {
+      ...workspaceLayout(home, 'core-owned', canonicalizeRepoPath(repo)),
+      providers: ['claude'],
+      primaryProvider: 'claude',
+      source: 'core-standalone',
+    }
+    writeFileSync(registryPath(home), JSON.stringify({ schemaVersion: 1, projects: { [key]: previous } }))
+    const mutation = mirrorProjectEntryWithPrevious({
+      repoPath: repo,
+      slug: 'desktop-owned',
+      desktopProjectId: 'desktop-1',
+    }, home)
+    const newer: ProjectEntry = {
+      ...mutation.entry,
+      providers: ['claude', 'codex'],
+      updatedAt: '2099-01-01T00:00:00.000Z',
+    }
+    const registry = readRegistryOrEmpty(home)
+    registry.projects[key] = newer
+    writeFileSync(registryPath(home), JSON.stringify(registry))
+
+    expect(restoreRegistryEntry(repo, mutation.previousEntry, mutation.entry, home)).toBe(false)
+    expect(readRegistryOrEmpty(home).projects[key]).toEqual(newer)
     rmSync(repo, { recursive: true, force: true })
   })
 })

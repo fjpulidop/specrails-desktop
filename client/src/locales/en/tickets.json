@@ -39,7 +39,8 @@
   "detailModal": {
     "toast": {
       "updated": "Ticket updated",
-      "updateFailed": "Failed to update ticket"
+      "updateFailed": "Failed to update ticket",
+      "deleteFailed": "Failed to delete ticket"
     },
     "compare": "Compare",
     "compareTooltip": "Compare with another spec",

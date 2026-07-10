@@ -34,6 +34,8 @@ import { recordInvocation } from './ai-invocations'
 import { normaliseResultEvent } from './result-event'
 import { mutateStore, resolveTicketStoragePath, type Ticket, type TicketStore } from './ticket-store'
 import { resolveProjectExecution } from './workspace-resolution'
+import { captureProcessAdmission } from './process-admission'
+import { trackTransientChild } from './transient-children'
 
 const REFINE_TIMEOUT_MS = 60_000
 
@@ -57,6 +59,7 @@ export type RefineFailureReason =
   | 'crashed'
   | 'malformed'
   | 'timeout'
+  | 'aborted'
   | 'parser_error'
   | 'provider-unsupported'
 
@@ -113,11 +116,13 @@ function normalizeClaudeCodeModel(model: string | null | undefined): string {
 function buildRefineArgs(model: string, systemPrompt: string, sessionId: string): string[] {
   return [
     '--model', normalizeClaudeCodeModel(model),
-    '--dangerously-skip-permissions',
+    // Contract Refine receives all required spec context in the prompt. An
+    // explicit no-tool allowlist is stronger than trying to enumerate every
+    // present and future tool in --disallowedTools.
+    '--tools', '__none__',
     '--output-format', 'stream-json',
     '--verbose',
     '--system-prompt', systemPrompt,
-    '--disallowedTools', 'Read,Grep,Glob,Bash',
     '--resume', sessionId,
     '--max-turns', '1',
     '-p', CONTRACT_MARKER_USER_MESSAGE,
@@ -148,8 +153,8 @@ export function prepareContractRefineSpawn(
   // Explore turn uses:
   //   - mcp ON  → `project.path` (NOT the relocated workspace),
   //   - mcp OFF → the app-managed explore-cwd.
-  // We mirror that EXACTLY here. The refine uses no file tools (`--disallowedTools
-  // Read,Grep,Glob,Bash`) and its prompt rides on `--system-prompt`, so it needs
+  // We mirror that EXACTLY here. The refine uses no tools (`--tools __none__`)
+  // and its prompt rides on `--system-prompt`, so it needs
   // neither the workspace's `.mcp.json` nor its `.claude/commands`. Env still
   // carries SPECRAILS_REPO_DIR when relocated (harmless; no tools consume it).
   const exec = resolveProjectExecution({ slug: deps.projectSlug, path: deps.projectPath })
@@ -389,6 +394,7 @@ export async function runContractRefine(
     console.log(`[contract-refine-runner] skip: no session_id on conversation ${conversationId}`)
     return { ok: false, reason: 'no-session', ticketId, conversationId }
   }
+  const admission = captureProcessAdmission(deps.projectId)
   console.log(`[contract-refine-runner] spawning refine model=${conversation.model} session=${conversation.session_id}`)
   deps.broadcast({
     type: 'explore.contract_refine_started',
@@ -422,6 +428,7 @@ export async function runContractRefine(
     env: refineEnv ?? process.env,
     spawn,
     timeoutMs,
+    onSpawn: (child) => trackTransientChild(deps.projectId, child),
     onStdoutLine: (line) => {
       let parsed: Record<string, unknown> | null = null
       try { parsed = JSON.parse(line) } catch { return }
@@ -437,6 +444,9 @@ export async function runContractRefine(
       }
     },
   })
+  if (!admission.isCurrent()) {
+    return { ok: false, reason: 'aborted', ticketId, conversationId }
+  }
   if (run.spawnFailed) {
     recordSafely(deps, conversationId, ticketId, conversation.model, startedAt, now().toISOString(), 'failed', null)
     deps.broadcast({
@@ -573,6 +583,7 @@ export async function runContractRefineForQuick(
     console.log(`[contract-refine-runner] quick skip: kill switch active`)
     return { ok: false, reason: 'disabled', ticketId, conversationId: '' }
   }
+  const admission = captureProcessAdmission(deps.projectId)
 
   const systemPrompt = [
     buildContractRefineSystemPrompt(),
@@ -588,11 +599,10 @@ export async function runContractRefineForQuick(
 
   const args = [
     '--model', model ?? 'sonnet',
-    '--dangerously-skip-permissions',
+    '--tools', '__none__',
     '--output-format', 'stream-json',
     '--verbose',
     '--system-prompt', systemPrompt,
-    '--disallowedTools', 'Read,Grep,Glob,Bash',
     '--max-turns', '1',
     '-p', CONTRACT_MARKER_USER_MESSAGE,
   ]
@@ -614,6 +624,7 @@ export async function runContractRefineForQuick(
       stdio: ['ignore', 'pipe', 'pipe'],
       cwd: quickExec.cwd,
     })
+    trackTransientChild(deps.projectId, child)
   } catch (err) {
     recordSafelyQuick(deps, ticketId, model, startedAt, now().toISOString(), 'failed', null)
     deps.broadcast({
@@ -627,6 +638,9 @@ export async function runContractRefineForQuick(
   }
 
   const result = await readRefineChildOutput(child, timeoutMs)
+  if (!admission.isCurrent()) {
+    return { ok: false, reason: 'aborted', ticketId, conversationId: '' }
+  }
   const finishedAt = now().toISOString()
   console.log(`[contract-refine-runner] quick spawn done code=${result.code} timedOut=${result.timedOut} textBytes=${result.fullText.length}`)
 
