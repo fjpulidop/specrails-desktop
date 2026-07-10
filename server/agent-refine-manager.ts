@@ -80,6 +80,13 @@ export class AgentRefineManager {
   private _cancelledIds = new Set<string>()
   /** Pending SIGKILL escalation timers, keyed by refine id (BUG-LONGTAIL-02). */
   private _killTimers = new Map<string, ReturnType<typeof setTimeout>>()
+  /** Provider evidence retained outside the awaiting stack so shutdown can
+   *  account it while the project DB is still open. */
+  private _liveAccounting = new Map<string, {
+    events: AdapterEvent[]
+    model: string
+    startedAt: string
+  }>()
 
   constructor(
     broadcast: (msg: WsMessage) => void,
@@ -133,7 +140,12 @@ export class AgentRefineManager {
    * orphaned refine child. Idempotent.
    */
   shutdown(): void {
+    if (this._disposed) return
     this._disposed = true
+    for (const [refineId, live] of this._liveAccounting) {
+      this._recordRefineInvocation(refineId, live.events, live.model, 'aborted', live.startedAt)
+    }
+    this._liveAccounting.clear()
     for (const [refineId, child] of this._activeProcesses) {
       if (child.pid) this._killWithEscalation(refineId, child.pid)
     }
@@ -143,6 +155,7 @@ export class AgentRefineManager {
 
   /** Start a new refine session for the given custom agent. */
   async startRefine(opts: StartRefineOptions): Promise<{ refineId: string }> {
+    this._assertActive()
     if (!CUSTOM_PREFIX.test(opts.agentId)) {
       throw new Error('not_a_custom_agent')
     }
@@ -170,6 +183,7 @@ export class AgentRefineManager {
 
   /** Send a follow-up instruction on an existing session. */
   async sendTurn(opts: SendTurnOptions): Promise<void> {
+    this._assertActive()
     const session = getRefineSession(this._db, opts.refineId)
     if (!session) throw new Error('session_not_found')
     if (session.status === 'streaming') throw new Error('turn_in_progress')
@@ -180,6 +194,7 @@ export class AgentRefineManager {
 
   /** Cancel an in-flight session. Idempotent. */
   cancel(refineId: string): void {
+    this._assertActive()
     const child = this._activeProcesses.get(refineId)
     if (child?.pid) {
       // Mark intentionally-cancelled BEFORE killing so the spawn's settle path
@@ -202,6 +217,7 @@ export class AgentRefineManager {
 
   /** Toggle auto-test for a session. */
   toggleAutoTest(refineId: string, enabled: boolean): void {
+    this._assertActive()
     const session = getRefineSession(this._db, refineId)
     if (!session) throw new Error('session_not_found')
     updateRefineSession(this._db, refineId, { auto_test: enabled ? 1 : 0 })
@@ -209,6 +225,7 @@ export class AgentRefineManager {
 
   /** Apply the current draft_body to disk through the standard write path. */
   apply(opts: ApplyOptions): ApplyResult {
+    this._assertActive()
     const session = getRefineSession(this._db, opts.refineId)
     if (!session) return { ok: false, reason: 'session_not_found' }
     if (!session.draft_body) return { ok: false, reason: 'invalid_state' }
@@ -247,11 +264,16 @@ export class AgentRefineManager {
 
   /** Hard-delete a session (used by cleanup/admin paths). */
   destroy(refineId: string): void {
+    this._assertActive()
     this.cancel(refineId)
     deleteRefineSession(this._db, refineId)
   }
 
   // ─── Private ──────────────────────────────────────────────────────────────
+
+  private _assertActive(): void {
+    if (this._disposed) throw new Error('manager_disposed')
+  }
 
   private _agentFile(agentId: string): string {
     // Per-provider on-disk layout:
@@ -326,6 +348,8 @@ export class AgentRefineManager {
     this._bodyBuffers.set(refineId, '')
     const turnStartedAt = new Date().toISOString()
     const spawnState: { err: Error | null } = { err: null }
+    const liveAccounting = { events: [] as AdapterEvent[], model: refineModel, startedAt: turnStartedAt }
+    this._liveAccounting.set(refineId, liveAccounting)
 
     // Spawn / stream / settlement is owned by the shared spawn-lifecycle; the
     // refine-specific draft buffering, accounting, validation and history all
@@ -344,6 +368,8 @@ export class AgentRefineManager {
       onSpawn: (child) => this._activeProcesses.set(refineId, child),
       onSpawnError: (err) => { spawnState.err = err },
       onEvent: (ev) => {
+        if (this._disposed) return
+        liveAccounting.events.push(ev)
         switch (ev.kind) {
           case 'text-delta': {
             if (!drafted) {
@@ -381,6 +407,7 @@ export class AgentRefineManager {
 
     this._clearKillTimer(refineId)
     this._activeProcesses.delete(refineId)
+    this._liveAccounting.delete(refineId)
     const fullDraft = this._bodyBuffers.get(refineId) ?? ''
     this._bodyBuffers.delete(refineId)
     // A cancel() killed this child intentionally; its non-zero exit must NOT
@@ -390,9 +417,12 @@ export class AgentRefineManager {
     // adapter events) BEFORE short-circuiting — otherwise the cancel path loses
     // 100% of its spend (MED-12). No status overwrite, no failure emit.
     const wasCancelled = this._cancelledIds.delete(refineId)
-    if (wasCancelled || this._disposed) {
+    // shutdown() already flushed this live run synchronously while the DB was
+    // open. A cancel racing with project removal must not insert it twice.
+    if (this._disposed) return
+    if (wasCancelled) {
       this._recordRefineInvocation(refineId, run.events, refineModel, 'aborted', turnStartedAt)
-      return // cancel (BUG-LONGTAIL-01) / M12 dispose: project removed mid-flight
+      return // cancel (BUG-LONGTAIL-01)
     }
 
     if (run.spawnFailed) {
@@ -515,6 +545,7 @@ export class AgentRefineManager {
     draftBody: string,
     draftHash: string,
   ): Promise<void> {
+    if (this._disposed) return
     updateRefineSession(this._db, refineId, { phase: 'testing' })
     this._emitPhase(refineId, 'testing')
     const sampleTask = pickSampleTask(this._db, agentId)
@@ -528,6 +559,7 @@ export class AgentRefineManager {
           ? { db: this._db, projectId: this._projectId, surfaceRefId: refineId, broadcast: this._broadcast }
           : undefined,
       })
+      if (this._disposed) return
       this._db.prepare(
         `INSERT INTO agent_tests (agent_name, draft_hash, sample_task_id, tokens, duration_ms, output, created_at)
          VALUES (?, ?, ?, ?, ?, ?, ?)`,
@@ -551,6 +583,7 @@ export class AgentRefineManager {
         timestamp: new Date().toISOString(),
       })
     } catch (err) {
+      if (this._disposed) return
       this._emitError(refineId, `Auto-test failed: ${(err as Error).message}`)
       updateRefineSession(this._db, refineId, { phase: 'done' })
     }

@@ -1242,6 +1242,33 @@ describe('HeadroomManager', () => {
     await expect(manager.shutdown()).resolves.toBeUndefined()
   })
 
+  it('closes lifecycle admission synchronously before the proxy shutdown phase', async () => {
+    db = initDesktopDb(':memory:')
+    const fake = makeHeadroomExe()
+    tempDir = fake.dir
+    process.env.SPECRAILS_REGISTRY_HOME = tempDir
+    setDesktopSetting(db, STATE_KEY, JSON.stringify({
+      installed: true,
+      version: '0.30.0',
+      executablePath: fake.exe,
+      installSource: 'system',
+      port: 8787,
+      ...explicitActivation({ codex: false, claude: false }),
+    }))
+    const spawnProxy = vi.fn(() => makeProxyChild())
+    const manager = new HeadroomManager(db, () => undefined, () => ['codex'], {
+      spawnProxy: spawnProxy as unknown as typeof import('child_process').spawn,
+    })
+
+    manager.beginShutdown()
+    const activation = await manager.activate('codex')
+
+    expect(activation.ok).toBe(false)
+    expect(spawnProxy).not.toHaveBeenCalled()
+    expect(getHeadroomRoutingState().activeProviders).toEqual({ codex: false, claude: false })
+    await expect(manager.shutdown()).resolves.toBeUndefined()
+  })
+
   it('absorbs an asynchronous proxy spawn error instead of crashing the process', async () => {
     db = initDesktopDb(':memory:')
     const child = new EventEmitter() as ChildProcess

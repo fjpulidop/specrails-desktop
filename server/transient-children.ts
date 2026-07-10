@@ -2,6 +2,7 @@ import treeKill from 'tree-kill'
 import { spawn } from 'child_process'
 import type { ChildProcess } from 'child_process'
 import readline from 'readline'
+import { assertProcessAdmission } from './process-admission'
 
 /**
  * Registry of fire-and-forget child processes that are NOT owned by a long-lived
@@ -109,6 +110,15 @@ function cloneLogLine(line: BackgroundProcessLogLine): BackgroundProcessLogLine 
 
 /** Track a child under a projectId; auto-removes itself on close. */
 export function trackTransientChild(projectId: string, child: ChildProcess): void {
+  try {
+    assertProcessAdmission(projectId)
+  } catch (err) {
+    // A continuation may have spawned immediately before observing the closed
+    // project epoch. Never leave that child unowned simply because registration
+    // lost the teardown race.
+    if (child.pid) treeKillSafe(child.pid, 'SIGTERM')
+    throw err
+  }
   let set = byProject.get(projectId)
   if (!set) {
     set = new Set()
@@ -155,6 +165,7 @@ export function startBackgroundProcess(
   projectId: string,
   hooks?: BackgroundProcessHooks,
 ): BackgroundProcess {
+  assertProcessAdmission(projectId)
   const child = spawn(command, {
     cwd,
     shell: true,

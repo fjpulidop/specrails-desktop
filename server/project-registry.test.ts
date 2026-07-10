@@ -75,6 +75,10 @@ import {
 import { createLoopRun, finishLoopRunAndJob, getLoopRun, getLoopTerminalRecovery, listActiveLoopRuns } from './loop-runs-store'
 import { createJob, deleteJob, type DbInstance } from './db'
 import type { WsMessage } from './types'
+import {
+  captureProcessAdmission,
+  resetProcessAdmissionForTests,
+} from './process-admission'
 
 describe('ProjectRegistry', () => {
   let desktopDb: DbInstance
@@ -98,6 +102,7 @@ describe('ProjectRegistry', () => {
 
   afterEach(() => {
     vi.restoreAllMocks()
+    resetProcessAdmissionForTests()
     if (prevRegistryHome !== undefined) process.env.SPECRAILS_REGISTRY_HOME = prevRegistryHome
     else delete process.env.SPECRAILS_REGISTRY_HOME
     fs.rmSync(registryHome, { recursive: true, force: true })
@@ -221,6 +226,22 @@ describe('ProjectRegistry', () => {
   // ─── removeProject ─────────────────────────────────────────────────────────
 
   describe('removeProject', () => {
+    it('invalidates project continuations before manager teardown begins', () => {
+      registry.addProject({ id: 'p1', slug: 'my-proj', name: 'My Proj', path: '/path/to/proj' })
+      const ctx = registry.getContext('p1')!
+      const lease = captureProcessAdmission('p1')
+      const shutdown = vi.fn(() => {
+        expect(lease.isCurrent()).toBe(false)
+        return true
+      })
+      ;(ctx.queueManager as unknown as { shutdown: () => boolean }).shutdown = shutdown
+
+      registry.removeProject('p1')
+
+      expect(shutdown).toHaveBeenCalledTimes(1)
+      expect(lease.isCurrent()).toBe(false)
+    })
+
     it('removes project from contexts and the desktop DB', () => {
       registry.addProject({
         id: 'p1',

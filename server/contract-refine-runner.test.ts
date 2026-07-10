@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach, vi } from 'vitest'
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
 import { EventEmitter } from 'node:events'
 import { Readable } from 'node:stream'
 import { ChildProcess } from 'node:child_process'
@@ -11,6 +11,10 @@ import {
   updateConversation,
   type DbInstance,
 } from './db'
+import {
+  beginProjectProcessQuiescence,
+  resetProcessAdmissionForTests,
+} from './process-admission'
 
 const SCOPE_OPT_IN = { specrails: true, openspec: false, full: true, mcp: false, contractRefine: true }
 import {
@@ -260,6 +264,8 @@ describe('runContractRefine', () => {
     broadcastEvents = []
   })
 
+  afterEach(() => resetProcessAdmissionForTests())
+
   function makeDeps(overrides: { spawn?: ReturnType<typeof fakeSpawn> } = {}) {
     return {
       db,
@@ -456,6 +462,29 @@ describe('runContractRefine', () => {
     const filePath = resolveTicketStoragePath(projectPath)
     const stored: TicketStore = JSON.parse(fs.readFileSync(filePath, 'utf8'))
     expect(stored.tickets['1'].description).toBe('original body')
+  })
+
+  it('abandons a stale completion after project teardown without DB or ticket writes', async () => {
+    seedTicket(projectPath, 1, 'original body')
+    makeExploreConv('conv-1')
+    const pending = runContractRefine(
+      makeDeps({ spawn: fakeSpawn(streamLines(validContractBlock()), 0, 20) }),
+      'conv-1',
+      1,
+    )
+
+    beginProjectProcessQuiescence('proj-1')
+    await expect(pending).resolves.toMatchObject({ ok: false, reason: 'aborted' })
+
+    const stored: TicketStore = JSON.parse(
+      fs.readFileSync(resolveTicketStoragePath(projectPath), 'utf8'),
+    )
+    expect(stored.tickets['1'].description).toBe('original body')
+    expect(db.prepare('SELECT COUNT(*) AS count FROM ai_invocations').get())
+      .toMatchObject({ count: 0 })
+    expect(broadcastEvents.some((event) =>
+      event.type === 'ticket_updated' || event.type === 'explore.contract_refine_failed'
+    )).toBe(false)
   })
 
   it('records an ai_invocations row on success', async () => {

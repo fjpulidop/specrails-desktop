@@ -2273,13 +2273,23 @@ export class HeadroomManager {
     }
   }
 
-  /** Stop the owned proxy before the app tears down its DB and HTTP server. */
-  shutdown(): Promise<void> {
-    if (this.shutdownPromise) return this.shutdownPromise
+  /**
+   * Synchronously close lifecycle admission while other process owners drain.
+   * The proxy remains alive until shutdown() so already-routed children can be
+   * terminated before their transport disappears.
+   */
+  beginShutdown(): void {
+    if (this.shuttingDown) return
     this.shuttingDown = true
     this.syncRouting()
     const state = this.buildState(false)
     this.shutdownState = { ...state, proxyRunning: false, proxyPid: null }
+  }
+
+  /** Stop the owned proxy before the app tears down its DB and HTTP server. */
+  shutdown(): Promise<void> {
+    if (this.shutdownPromise) return this.shutdownPromise
+    this.beginShutdown()
     const shutdown = this.finishShutdown()
     this.shutdownPromise = shutdown
     return shutdown

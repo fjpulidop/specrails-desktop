@@ -27,6 +27,7 @@ import {
   registerHeadroomRoutedChild,
   withHeadroomSpawnEnv,
 } from '../headroom-routing'
+import { assertProcessAdmission } from '../process-admission'
 
 // Per-call (not a frozen module const) so a test can flip the platform with a
 // `process.platform` spy without re-importing this module — which removes a
@@ -166,6 +167,7 @@ export function ensureStdinPipe(stdio: StdioOptions | undefined): StdioOptions {
  * survive. POSIX call is identical to `spawnCli('claude', args, options)`.
  */
 export function spawnClaude(args: string[], options: SpawnOptions = {}): ChildProcess {
+  assertProcessAdmission()
   options = withHeadroomSpawnEnv('claude', options)
   let child: ChildProcess
   if (!isWin()) {
@@ -196,6 +198,7 @@ export function spawnClaude(args: string[], options: SpawnOptions = {}): ChildPr
  * survive. POSIX call is identical to `spawnCli('codex', args, options)`.
  */
 export function spawnCodex(args: string[], options: SpawnOptions = {}): ChildProcess {
+  assertProcessAdmission()
   options = withHeadroomSpawnEnv('codex', options)
   const relayBaseUrl = headroomRelayBaseUrlForBinary('codex', options.env)
   if (relayBaseUrl) args = appendCodexHeadroomRelayOverride(args, relayBaseUrl)
@@ -247,6 +250,7 @@ const GEMINI_AUTH_ENV_VARS = [
 ] as const
 
 export function spawnGemini(args: string[], options: SpawnOptions = {}): ChildProcess {
+  assertProcessAdmission()
   const env: NodeJS.ProcessEnv = { ...(options.env ?? process.env), GEMINI_CLI_TRUST_WORKSPACE: 'true' }
   for (const key of GEMINI_AUTH_ENV_VARS) {
     if (process.env[key] && env[key] === undefined) env[key] = process.env[key]
@@ -264,6 +268,7 @@ export function spawnAiCli(
   args: string[],
   options: SpawnOptions = {},
 ): ChildProcess {
+  assertProcessAdmission()
   if (binary === 'claude') return spawnClaude(args, options)
   if (binary === 'codex') return spawnCodex(args, options)
   if (binary === 'gemini') return spawnGemini(args, options)

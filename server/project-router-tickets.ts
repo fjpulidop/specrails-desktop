@@ -63,6 +63,7 @@ import { generateAutoTitle } from './explore-draft-title'
 import type { TicketCreatedMessage, TicketUpdatedMessage, TicketDeletedMessage, TicketAiEditStreamMessage, TicketAiEditDoneMessage, TicketAiEditErrorMessage, SpecGenStreamMessage, SpecGenDoneMessage, SpecGenErrorMessage, LocalTicket } from './types'
 import { spawnAiCli } from './util/cli-prompt'
 import { trackTransientChild } from './transient-children'
+import { captureProcessAdmission } from './process-admission'
 import { createInterface } from 'readline'
 import treeKill from 'tree-kill'
 import { resolveProjectExecution } from './workspace-resolution'
@@ -222,6 +223,7 @@ export function registerTicketsRoutes(deps: ProjectRoutesDeps): void {
 
     const requestId = uuidv4()
     const projectId = project.id
+    const admission = captureProcessAdmission(projectId)
     const filePath = ticketPath(req)
 
     let hasAttachments = false
@@ -238,6 +240,10 @@ export function registerTicketsRoutes(deps: ProjectRoutesDeps): void {
       } catch (err) {
         console.error('[project-router] generate-spec attachment extraction error:', err)
       }
+    }
+    if (!admission.isCurrent()) {
+      res.status(409).json({ error: 'Project is being removed' })
+      return
     }
 
     // Parse contextScope from body. Quick and Explore share the same Context
@@ -378,6 +384,7 @@ export function registerTicketsRoutes(deps: ProjectRoutesDeps): void {
       if (child.pid) {
         try { treeKill(child.pid, 'SIGTERM') } catch { /* best-effort */ }
       }
+      if (!admission.isCurrent()) return
       broadcast({
         type: 'spec_gen_error', projectId, requestId,
         error: `Spec generation timed out after ${Math.round(GENERATE_SPEC_TIMEOUT_MS / 1000)}s`,
@@ -406,6 +413,7 @@ export function registerTicketsRoutes(deps: ProjectRoutesDeps): void {
     child.on('error', (err) => {
       clearSpecGenWatchdog()
       console.error(`[project-router] spec-gen spawn failed (${binary}): ${err.message}`)
+      if (!admission.isCurrent()) return
       const errMsg: SpecGenErrorMessage = {
         type: 'spec_gen_error', projectId, requestId,
         error: `Failed to launch ${binary}: ${err.message}`,
@@ -428,6 +436,7 @@ export function registerTicketsRoutes(deps: ProjectRoutesDeps): void {
     const stdoutReader = createInterface({ input: child.stdout!, crlfDelay: Infinity })
 
     stdoutReader.on('line', (line) => {
+      if (!admission.isCurrent()) return
       const adapterEv = adapter.parseStreamLine(line)
       if (adapterEv) adapterEvents.push(adapterEv)
 
@@ -506,6 +515,7 @@ export function registerTicketsRoutes(deps: ProjectRoutesDeps): void {
 
     child.on('close', async (code) => {
       clearSpecGenWatchdog()
+      if (!admission.isCurrent()) return
       let createdTicketId: number | null = null
 
       // When claude burns its whole --max-turns budget it exits non-zero with
@@ -598,6 +608,7 @@ export function registerTicketsRoutes(deps: ProjectRoutesDeps): void {
             } catch (err) {
               console.error('[project-router] generate-spec attachment migration error:', err)
             }
+            if (!admission.isCurrent()) return
           }
 
           const ticketMsg: TicketCreatedMessage = {
@@ -629,6 +640,7 @@ export function registerTicketsRoutes(deps: ProjectRoutesDeps): void {
             const refineDescription = created.description
             const refineModel = (req.body?.model as string | undefined) ?? null
             process.nextTick(() => {
+              if (!admission.isCurrent()) return
               void runContractRefineForQuick(
                 {
                   db: ctx(req).db,
@@ -1645,6 +1657,7 @@ export function registerTicketsRoutes(deps: ProjectRoutesDeps): void {
     const adapter = getAdapter(provider)
     const requestId = uuidv4()
     const projectId = project.id
+    const admission = captureProcessAdmission(projectId)
     // Model used for the spawn (claude runs its CLI default, codex is pinned to
     // gpt-5.5, other providers use the adapter default). Used only as the
     // fallback model for cost accounting when the stream carries none.
@@ -1705,6 +1718,11 @@ export function registerTicketsRoutes(deps: ProjectRoutesDeps): void {
       }
     }
 
+    if (!admission.isCurrent()) {
+      res.status(409).json({ error: 'Project is being removed' })
+      return
+    }
+
     let binary: string
     let args: string[]
 
@@ -1745,6 +1763,7 @@ export function registerTicketsRoutes(deps: ProjectRoutesDeps): void {
       stdio: ['ignore', 'pipe', 'pipe'],
       cwd: project.path,
     })
+    trackTransientChild(projectId, child)
 
     _aiEditProcesses.set(requestId, child)
 
@@ -1764,6 +1783,7 @@ export function registerTicketsRoutes(deps: ProjectRoutesDeps): void {
     child.on('error', (err) => {
       console.error(`[project-router] ai-edit spawn failed (${binary}): ${err.message}`)
       _aiEditProcesses.delete(requestId)
+      if (!admission.isCurrent()) return
       const errMsg: TicketAiEditErrorMessage = {
         type: 'ticket_ai_edit_error', projectId, ticketId: Number(ticketId),
         requestId, error: `Failed to launch ${binary}: ${err.message}`,
@@ -1834,6 +1854,7 @@ export function registerTicketsRoutes(deps: ProjectRoutesDeps): void {
 
     child.on('close', (code) => {
       _aiEditProcesses.delete(requestId)
+      if (!admission.isCurrent()) return
       const delivered = code === 0 && buffer.trim().length > 0
       if (delivered) {
         const msg: TicketAiEditDoneMessage = {

@@ -15,6 +15,10 @@ vi.mock('tree-kill', () => ({
 import { spawn as mockSpawn } from 'child_process'
 import { generateCustomAgent, testCustomAgent, type AgentStudioRecordCtx } from './agent-generator'
 import { initDb, type DbInstance } from './db'
+import {
+  beginProjectProcessQuiescence,
+  resetProcessAdmissionForTests,
+} from './process-admission'
 
 function createMockChildProcess() {
   const child = new EventEmitter() as any
@@ -62,6 +66,7 @@ describe('agent-generator', () => {
 
   afterEach(() => {
     vi.restoreAllMocks()
+    resetProcessAdmissionForTests()
   })
 
   describe('tool sandbox', () => {
@@ -176,6 +181,25 @@ describe('agent-generator', () => {
   // ─── MED-3: testCustomAgent records surface='agent-studio' ─────────────────
 
   describe('testCustomAgent recording (MED-3)', () => {
+    it('rejects a stale completion without touching the removed project DB', async () => {
+      const child = createMockChildProcess()
+      vi.mocked(mockSpawn).mockReturnValue(child as any)
+
+      const pending = testCustomAgent('/cwd', {
+        draftBody: '---\nname: x\n---\nbody',
+        sampleTask: 'go',
+        record,
+      })
+      pushLine(child, assistantLine('stale', { input_tokens: 10, output_tokens: 5 }))
+      await flush()
+      beginProjectProcessQuiescence('p1')
+      child.emit('close', 0)
+
+      await expect(pending).rejects.toThrow(/closed for project p1/)
+      expect(readRows(db)).toHaveLength(0)
+      expect(broadcast).not.toHaveBeenCalled()
+    })
+
     it('records a success row with native cost when a result event arrives', async () => {
       const child = createMockChildProcess()
       vi.mocked(mockSpawn).mockReturnValue(child as any)
@@ -288,6 +312,24 @@ describe('agent-generator', () => {
   // ─── MED-3: generateCustomAgent records surface='agent-studio' ─────────────
 
   describe('generateCustomAgent recording (MED-3)', () => {
+    it('rejects a stale generated draft without recording after project removal', async () => {
+      const child = createMockChildProcess()
+      vi.mocked(mockSpawn).mockReturnValue(child as any)
+
+      const pending = generateCustomAgent('/cwd', {
+        name: 'custom-x',
+        description: 'does x',
+        record,
+      })
+      pushLine(child, assistantLine('draft', { input_tokens: 10, output_tokens: 5 }))
+      await flush()
+      beginProjectProcessQuiescence('p1')
+      child.emit('close', 0)
+
+      await expect(pending).rejects.toThrow(/closed for project p1/)
+      expect(readRows(db)).toHaveLength(0)
+    })
+
     it('records a success row on clean exit with output', async () => {
       const child = createMockChildProcess()
       vi.mocked(mockSpawn).mockReturnValue(child as any)

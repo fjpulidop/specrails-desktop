@@ -70,6 +70,10 @@ import {
   type CliProvider,
 } from './desktop-db'
 import { getConfig } from './config'
+import {
+  beginProjectProcessQuiescence,
+  openProjectProcessAdmission,
+} from './process-admission'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -272,6 +276,9 @@ export class ProjectRegistry {
     const repoPath = this._contexts.get(id)?.project.path ?? persistedProject?.path
     const ctx = this._contexts.get(id)
     if (ctx) {
+      // Invalidate async route continuations before any killed child can emit a
+      // late `close` against the DB that this removal is about to close.
+      beginProjectProcessQuiescence(id)
       // Tear down spawners BEFORE closing the DB. QueueManager.shutdown() drops
       // its DB handle so a late child 'close' can't run prepared statements on
       // the closed connection (which would crash the app) and terminates any
@@ -1082,6 +1089,7 @@ export class ProjectRegistry {
     const ctx: ProjectContext = { project, db, queueManager, chatManager, setupManager, proposalManager, agentRefineManager, fileSummaryManager, specLauncherManager, ticketWatcher, browserCaptureManager, jiraSyncManager, broadcast: boundBroadcast, railJobs, loopRunManager, railLoopRuns, onLoopRunFinished, getTicketSpec, desktopDb: this._desktopDb }
     this._contexts.set(project.id, ctx)
     this._recoverOrphanLoopRuns(project, db, railLoopRuns, onLoopRunFinished, orphanLoopRuns)
+    openProjectProcessAdmission(project.id)
     return ctx
   }
 

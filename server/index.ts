@@ -45,6 +45,7 @@ import { FrameworkManager } from './framework-manager'
 import { withFileLock } from './artifact-registry'
 import { resolveStartupPath, augmentPathFromLoginShell, augmentAuthEnvFromLoginShell, getPathDiagnostic, ensureWindowsBaseEnv } from './path-resolver'
 import { resolveServerPort } from './dev-ports'
+import { beginAppProcessQuiescence } from './process-admission'
 // Side-effect import: registers every bundled ProviderAdapter (claude, codex,
 // future providers) so `getAdapter`/`hasAdapter`/`listAdapters` are populated
 // before any manager constructs a project context. See
@@ -736,20 +737,26 @@ async function shutdown(): Promise<void> {
   // Idempotent: the watchdog, SIGTERM and SIGINT can all race into here.
   if (shuttingDown) return
   shuttingDown = true
+  // Close subprocess admission synchronously, before the first await. Existing
+  // keep-alive/WebSocket handlers can still resume while teardown runs; they
+  // must not create work after their owning managers have been disposed.
+  beginAppProcessQuiescence()
+  // Headroom lifecycle commands use their own direct process spawner. Close
+  // that admission now, but leave the proxy alive until provider owners drain.
+  _headroomManager?.beginShutdown()
   removePidFile()
+  // Stop every provider owner independently. A failure in Mobile/MCP must not
+  // skip Agent Chat, and Headroom must remain available until all routed AI
+  // children have received their termination signal.
+  await Promise.allSettled([
+    Promise.resolve().then(() => _registry?.shutdown()),
+    Promise.resolve().then(() => getTerminalManager().shutdown()),
+    Promise.resolve().then(() => _mobileGateway?.stop()),
+    Promise.resolve().then(() => _mcpManager?.stop()),
+    Promise.resolve().then(() => _agentChatManager?.shutdown()),
+  ])
   try {
     await _headroomManager?.shutdown()
-  } catch { /* ignore */ }
-  try {
-    _registry?.shutdown()
-  } catch { /* ignore */ }
-  try {
-    await getTerminalManager().shutdown()
-  } catch { /* ignore */ }
-  try {
-    await _mobileGateway?.stop()
-    await _mcpManager?.stop()
-    await _agentChatManager?.shutdown()
   } catch { /* ignore */ }
   try { wss.close() } catch { /* ignore */ }
   try { terminalWss.close() } catch { /* ignore */ }

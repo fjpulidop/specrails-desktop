@@ -7,6 +7,11 @@ import { finaliseInvocationResult } from './result-event'
 import { recordInvocation, type InvocationStatus } from './ai-invocations'
 import type { DbInstance } from './db'
 import type { WsMessage } from './types'
+import {
+  captureProcessAdmission,
+  ProcessAdmissionClosedError,
+} from './process-admission'
+import { trackTransientChild } from './transient-children'
 
 /**
  * Optional recording context threaded from the caller (profiles-router Studio
@@ -95,6 +100,9 @@ export async function generateCustomAgent(
   cwd: string,
   opts: { name: string; description: string; record?: AgentStudioRecordCtx },
 ): Promise<string> {
+  const admission = opts.record
+    ? captureProcessAdmission(opts.record.projectId)
+    : captureProcessAdmission()
   const systemPrompt = [
     'You are a specrails agent-authoring assistant.',
     '',
@@ -145,6 +153,7 @@ export async function generateCustomAgent(
         cwd,
       },
     )
+    if (opts.record) trackTransientChild(opts.record.projectId, child)
 
     let collected = ''
     // Accumulate adapter events so a killed/failed generate run is still costed
@@ -157,7 +166,9 @@ export async function generateCustomAgent(
       if (settled) return
       settled = true
       clearTimeout(killer)
-      if (record) recordAgentStudioInvocation(record, adapterEvents, status, startedAt)
+      if (record && admission.isCurrent()) {
+        recordAgentStudioInvocation(record, adapterEvents, status, startedAt)
+      }
       complete()
     }
     const killer = setTimeout(() => {
@@ -194,10 +205,16 @@ export async function generateCustomAgent(
     child.stderr!.on('data', (chunk: Buffer) => { stderr += chunk.toString() })
 
     child.on('error', (err) => {
-      settle('failed', () => reject(err))
+      settle('failed', () => reject(admission.isCurrent()
+        ? err
+        : new ProcessAdmissionClosedError(opts.record?.projectId)))
     })
 
     child.on('close', (code) => {
+      if (!admission.isCurrent()) {
+        settle('aborted', () => reject(new ProcessAdmissionClosedError(opts.record?.projectId)))
+        return
+      }
       const trimmed = collected.trim()
       const status: InvocationStatus = code === 0 && trimmed ? 'success' : 'failed'
       settle(status, () => {
@@ -237,6 +254,9 @@ export async function testCustomAgent(
   cwd: string,
   opts: { draftBody: string; sampleTask: string; tokenCeiling?: number; record?: AgentStudioRecordCtx },
 ): Promise<TestAgentResult> {
+  const admission = opts.record
+    ? captureProcessAdmission(opts.record.projectId)
+    : captureProcessAdmission()
   const tokenCeiling = opts.tokenCeiling ?? 4000
   // Strip YAML frontmatter so we feed only the agent's instructions.
   const body = opts.draftBody.replace(/^---\r?\n[\s\S]*?\r?\n---\r?\n?/, '').trim()
@@ -277,6 +297,7 @@ export async function testCustomAgent(
         cwd,
       },
     )
+    if (opts.record) trackTransientChild(opts.record.projectId, child)
 
     let collected = ''
     // LOW-14 double-count fix: the claude stream emits `message.usage` on EVERY
@@ -305,7 +326,9 @@ export async function testCustomAgent(
       if (settled) return
       settled = true
       clearTimeout(killer)
-      if (record) recordAgentStudioInvocation(record, adapterEvents, status, startedAt)
+      if (record && admission.isCurrent()) {
+        recordAgentStudioInvocation(record, adapterEvents, status, startedAt)
+      }
       complete()
     }
     const killer = setTimeout(() => {
@@ -363,10 +386,16 @@ export async function testCustomAgent(
     child.stderr!.on('data', (chunk: Buffer) => { stderr += chunk.toString() })
 
     child.on('error', (err) => {
-      settle('failed', () => reject(err))
+      settle('failed', () => reject(admission.isCurrent()
+        ? err
+        : new ProcessAdmissionClosedError(opts.record?.projectId)))
     })
 
     child.on('close', (code) => {
+      if (!admission.isCurrent()) {
+        settle('aborted', () => reject(new ProcessAdmissionClosedError(opts.record?.projectId)))
+        return
+      }
       const durationMs = Date.now() - started
       const failedHard = !truncated && code !== 0 && !collected
       const status: InvocationStatus = truncated ? 'aborted' : failedHard ? 'failed' : 'success'
