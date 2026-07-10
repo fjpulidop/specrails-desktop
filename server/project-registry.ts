@@ -51,7 +51,7 @@ import {
   type LoopTerminalRecoveryPayload,
 } from './loop-runs-store'
 import type { LoopSpec } from './loop-graph'
-import type { WsMessage, TicketUpdatedMessage, RailUpdatedMessage } from './types'
+import type { JobStatus, WsMessage, TicketUpdatedMessage, RailUpdatedMessage } from './types'
 import { claimRailTickets, claimTicketOutcomeOwners, getRails, releaseRailTicketsOwnedBy, ticketOutcomeOwner } from './rails-store'
 import {
   initDesktopDb,
@@ -72,6 +72,13 @@ import {
 import { getConfig } from './config'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
+
+/** The two live queue states are the only non-terminal members of JobStatus.
+ * Deriving terminality from that invariant avoids a second status list that can
+ * silently fall behind the queue contract when a new terminal outcome is added. */
+function isTerminalJobStatus(status: JobStatus): boolean {
+  return status !== 'queued' && status !== 'running'
+}
 
 export interface ProjectContext {
   project: ProjectRow
@@ -419,13 +426,12 @@ export class ProjectRegistry {
     // Bind broadcast with projectId so all WS messages carry context.
     // Also wire agent status: when a queued job reaches a terminal state,
     // clear current_job_id on any agent that was assigned to it.
-    const TERMINAL_JOB_STATUSES = new Set(['completed', 'failed', 'canceled'])
     const boundBroadcast = (msg: WsMessage): void => {
       const enriched = { ...msg, projectId: project.id }
       this._broadcast(enriched as WsMessage)
       if (msg.type === 'queue') {
         for (const job of msg.jobs) {
-          if (TERMINAL_JOB_STATUSES.has(job.status)) {
+          if (isTerminalJobStatus(job.status)) {
             clearAgentJob(this._desktopDb, job.id)
           }
         }
@@ -510,6 +516,12 @@ export class ProjectRegistry {
         } catch { /* best-effort */ }
       },
       onJobFinished: (jobId, status, costUsd, opts) => {
+        // Recovery can deliver this callback without another queue snapshot.
+        // Clear the assignment here as the authoritative terminal effect; the
+        // bound queue broadcast above remains an idempotent live-path fallback.
+        if (isTerminalJobStatus(status)) {
+          clearAgentJob(this._desktopDb, jobId)
+        }
         const jobRow = db.prepare('SELECT command, duration_ms, causal_ownership FROM jobs WHERE id = ?').get(jobId) as
           | { command: string; duration_ms: number | null; causal_ownership: number }
           | undefined

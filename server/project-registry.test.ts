@@ -63,7 +63,15 @@ vi.mock('./config', () => ({
 
 import { ProjectRegistry } from './project-registry'
 import { claimRailTickets, claimTicketOutcomeOwners, setRailTickets, getRail } from './rails-store'
-import { initDesktopDb, addProject, listProjects, getProject } from './desktop-db'
+import {
+  initDesktopDb,
+  addProject,
+  listProjects,
+  getProject,
+  addAgent,
+  updateAgent,
+  getAgent,
+} from './desktop-db'
 import { createLoopRun, finishLoopRunAndJob, getLoopRun, getLoopTerminalRecovery, listActiveLoopRuns } from './loop-runs-store'
 import { createJob, deleteJob, type DbInstance } from './db'
 import type { WsMessage } from './types'
@@ -510,25 +518,80 @@ describe('ProjectRegistry', () => {
   // ─── Bound broadcast with queue terminal status ──────────────────────────
 
   describe('bound broadcast clears agent jobs for terminal statuses', () => {
-    it('broadcasts queue message and calls clearAgentJob for terminal jobs', () => {
+    it('clears every terminal job while preserving queued and running assignments', () => {
       const ctx = registry.addProject({ id: 'aq-1', slug: 'aq-proj', name: 'AQ', path: '/aq' })
 
-      // Simulate a queue broadcast with terminal job statuses
+      const statuses = [
+        'completed',
+        'failed',
+        'canceled',
+        'zombie_terminated',
+        'skipped',
+        'queued',
+        'running',
+      ] as const
+      for (const status of statuses) {
+        addAgent(desktopDb, {
+          id: `agent-${status}`,
+          slug: `agent-${status}`,
+          name: `Agent ${status}`,
+        })
+        updateAgent(desktopDb, `agent-${status}`, {
+          status: 'busy',
+          current_job_id: `job-${status}`,
+        })
+      }
+
       ctx.broadcast({
         type: 'queue',
-        jobs: [
-          { id: 'j1', status: 'completed', command: 'cmd', priority: 'normal' },
-          { id: 'j2', status: 'running', command: 'cmd', priority: 'normal' },
-          { id: 'j3', status: 'failed', command: 'cmd', priority: 'normal' },
-        ],
+        jobs: statuses.map((status) => ({
+          id: `job-${status}`,
+          status,
+          command: 'cmd',
+          priority: 'normal',
+        })),
         paused: false,
         activeJobId: null,
       } as any)
 
-      // The broadcast should have been called with enriched projectId
       expect(broadcast).toHaveBeenCalledWith(
         expect.objectContaining({ projectId: 'aq-1', type: 'queue' })
       )
+      for (const status of statuses.slice(0, 5)) {
+        expect(getAgent(desktopDb, `agent-${status}`)).toMatchObject({
+          status: 'idle',
+          current_job_id: null,
+        })
+      }
+      for (const status of statuses.slice(5)) {
+        expect(getAgent(desktopDb, `agent-${status}`)).toMatchObject({
+          status: 'busy',
+          current_job_id: `job-${status}`,
+        })
+      }
+    })
+
+    it('clears a terminal assignment from the durable completion callback without a queue broadcast', async () => {
+      const { QueueManager } = await import('./queue-manager')
+      registry.addProject({ id: 'aq-2', slug: 'aq-proj-2', name: 'AQ2', path: '/aq2' })
+      addAgent(desktopDb, { id: 'agent-replay', slug: 'agent-replay', name: 'Agent Replay' })
+      updateAgent(desktopDb, 'agent-replay', {
+        status: 'busy',
+        current_job_id: 'job-replay',
+      })
+
+      const constructorCalls = vi.mocked(QueueManager).mock.calls
+      const options = constructorCalls[constructorCalls.length - 1][4] as any
+      options.onJobFinished('job-replay', 'zombie_terminated', null, {
+        recoveryReplay: true,
+        recoveryCommand: '',
+        recoveryTicketIds: [],
+      })
+
+      expect(getAgent(desktopDb, 'agent-replay')).toMatchObject({
+        status: 'idle',
+        current_job_id: null,
+      })
     })
   })
 
