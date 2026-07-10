@@ -34,7 +34,9 @@
     "max": "最大化"
   },
   "model": {
-    "label": "モデル"
+    "label": "モデル",
+    "loading": "モデルを読み込み中…",
+    "unavailable": "モデルを利用できません"
   },
   "history": {
     "hint": "プロンプト履歴を表示中 — 入力で編集、↑↓ で移動"
@@ -106,6 +108,7 @@
   "project": {
     "home": "ホーム",
     "searchPlaceholder": "Specrails に話しかける…",
+    "searchProjectsPlaceholder": "プロジェクトを検索…",
     "recents": "最近",
     "allProjects": "すべてのプロジェクト",
     "searchAll": "すべてのプロジェクトを検索",

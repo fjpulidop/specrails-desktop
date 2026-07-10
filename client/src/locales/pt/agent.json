@@ -34,7 +34,9 @@
     "max": "Maximizar"
   },
   "model": {
-    "label": "Modelo"
+    "label": "Modelo",
+    "loading": "Carregando modelos…",
+    "unavailable": "Modelos indisponíveis"
   },
   "history": {
     "hint": "Explorando histórico — escreva para editar, ↑↓ para navegar"
@@ -106,6 +108,7 @@
   "project": {
     "home": "Início",
     "searchPlaceholder": "Fale com o Specrails…",
+    "searchProjectsPlaceholder": "Buscar projetos…",
     "recents": "Recentes",
     "allProjects": "Todos os projetos",
     "searchAll": "Buscar em todos os projetos",

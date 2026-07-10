@@ -34,7 +34,9 @@
     "max": "最大化"
   },
   "model": {
-    "label": "模型"
+    "label": "模型",
+    "loading": "正在加载模型…",
+    "unavailable": "模型不可用"
   },
   "history": {
     "hint": "浏览提示历史 — 输入以编辑，↑↓ 导航"
@@ -106,6 +108,7 @@
   "project": {
     "home": "主页",
     "searchPlaceholder": "与 Specrails 对话…",
+    "searchProjectsPlaceholder": "搜索项目…",
     "recents": "最近",
     "allProjects": "所有项目",
     "searchAll": "在所有项目中搜索",

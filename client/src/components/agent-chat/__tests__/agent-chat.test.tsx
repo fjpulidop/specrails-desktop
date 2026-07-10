@@ -1,5 +1,6 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest'
 import { render, screen, fireEvent, waitFor, act } from '@testing-library/react'
+import userEvent from '@testing-library/user-event'
 import { StrictMode } from 'react'
 
 // ── Mocks ─────────────────────────────────────────────────────────────────────
@@ -133,6 +134,47 @@ describe('AgentProjectSelector', () => {
   it('shows the pinned project name', () => {
     render(<AgentProjectSelector pinnedProjectId="p2" onSelect={vi.fn()} />)
     expect(screen.getByText('deckdex')).toBeInTheDocument()
+  })
+
+  it('supports keyboard search/selection and restores focus to the trigger', () => {
+    const onSelect = vi.fn()
+    render(<AgentProjectSelector pinnedProjectId={null} onSelect={onSelect} />)
+    const trigger = screen.getByRole('button', { name: 'Home' })
+
+    fireEvent.keyDown(trigger, { key: 'ArrowDown' })
+    expect(trigger).toHaveAttribute('aria-expanded', 'true')
+    const search = screen.getByRole('combobox', { name: 'Search projects…' })
+    fireEvent.change(search, { target: { value: 'deck' } })
+    expect(search.getAttribute('aria-activedescendant')).toMatch(/-option-1$/)
+    fireEvent.keyDown(search, { key: 'Enter' })
+
+    expect(onSelect).toHaveBeenCalledWith('p2')
+    expect(trigger).toHaveFocus()
+    expect(trigger).toHaveAttribute('aria-expanded', 'false')
+  })
+
+  it('clears a search when the dropdown closes without a selection', () => {
+    render(<AgentProjectSelector pinnedProjectId={null} onSelect={vi.fn()} />)
+    const trigger = screen.getByRole('button', { name: 'Home' })
+    fireEvent.click(trigger)
+    fireEvent.change(screen.getByRole('combobox', { name: 'Search projects…' }), { target: { value: 'deck' } })
+    fireEvent.mouseDown(document.body)
+
+    fireEvent.click(trigger)
+    expect(screen.getByRole('combobox', { name: 'Search projects…' })).toHaveValue('')
+    expect(screen.getByRole('option', { name: 'Home' })).toHaveAttribute('aria-selected', 'true')
+  })
+
+  it('does not unpin the project when a search has no matches and Enter is pressed', () => {
+    const onSelect = vi.fn()
+    render(<AgentProjectSelector pinnedProjectId="p1" onSelect={onSelect} />)
+    fireEvent.click(screen.getByRole('button', { name: 'acme-api' }))
+    const search = screen.getByRole('combobox', { name: 'Search projects…' })
+    fireEvent.change(search, { target: { value: 'no-such-project' } })
+
+    expect(search).not.toHaveAttribute('aria-activedescendant')
+    fireEvent.keyDown(search, { key: 'Enter' })
+    expect(onSelect).not.toHaveBeenCalled()
   })
 })
 
@@ -373,12 +415,32 @@ describe('AgentMessage option chips', () => {
 
 // ── AgentModelSelector ────────────────────────────────────────────────────────
 describe('AgentModelSelector', () => {
-  it('loads the provider catalog and reports selection', async () => {
+  it('uses the themed listbox and reports selection', async () => {
     const onSelect = vi.fn()
-    render(<AgentModelSelector provider="codex" model={null} onSelect={onSelect} />)
-    await waitFor(() => expect(screen.getByText('GPT-5.5')).toBeInTheDocument())
-    fireEvent.change(screen.getByRole('combobox'), { target: { value: 'gpt-5.4' } })
+    const user = userEvent.setup()
+    render(
+      <AgentModelSelector
+        models={[
+          { value: 'gpt-5.5', label: 'GPT-5.5', default: true },
+          { value: 'gpt-5.4', label: 'GPT-5.4' },
+        ]}
+        model={null}
+        onSelect={onSelect}
+      />,
+    )
+    const trigger = screen.getByRole('combobox', { name: 'Model' })
+    expect(trigger).toHaveTextContent('GPT-5.5')
+    expect(trigger).toHaveClass('rounded-md', 'text-sm')
+    await user.click(trigger)
+    await user.click(screen.getByRole('option', { name: 'GPT-5.4' }))
     expect(onSelect).toHaveBeenCalledWith('gpt-5.4')
+  })
+
+  it('shows an explicit disabled loading state instead of stale options', () => {
+    render(<AgentModelSelector models={[]} model={null} status="loading" onSelect={vi.fn()} />)
+    const trigger = screen.getByRole('combobox', { name: 'Model' })
+    expect(trigger).toBeDisabled()
+    expect(trigger).toHaveTextContent('Loading models…')
   })
 })
 
@@ -411,6 +473,45 @@ function Harness() {
 }
 
 describe('AgentChatProvider', () => {
+  it('keeps project, provider, model and effort selectors visually coherent', async () => {
+    const user = userEvent.setup()
+    render(<AgentChatProvider><AgentComposer /></AgentChatProvider>)
+
+    const projectTrigger = screen.getByText('Home').closest('button')
+    const providerTrigger = screen.getByTestId('agent-provider-selector')
+    const modelTrigger = await screen.findByTestId('agent-model-selector')
+    const effortTrigger = await screen.findByTestId('agent-effort-selector')
+
+    expect(projectTrigger).not.toBeNull()
+    expect(providerTrigger.className).toBe(projectTrigger!.className)
+    expect(modelTrigger.className).toBe(providerTrigger.className)
+    expect(effortTrigger.className).toBe(providerTrigger.className)
+
+    await user.click(providerTrigger)
+    await user.click(screen.getByRole('option', { name: 'Codex' }))
+    await waitFor(() => expect(providerTrigger).toHaveTextContent('Codex'))
+    await waitFor(() => expect(modelTrigger).toHaveTextContent('GPT-5.5'))
+
+    const codexEffortTrigger = await screen.findByTestId('agent-effort-selector')
+    await user.click(codexEffortTrigger)
+    await user.click(screen.getByRole('option', { name: 'High' }))
+    await waitFor(() => expect(codexEffortTrigger).toHaveTextContent('High'))
+  })
+
+  it('surfaces provider selection persistence failures instead of failing silently', async () => {
+    const user = userEvent.setup()
+    vi.mocked(agentApi.patchAgentConversation).mockRejectedValueOnce(new Error('offline'))
+    render(<AgentChatProvider><Harness /></AgentChatProvider>)
+    await user.click(screen.getByRole('button', { name: 'open' }))
+
+    const providerTrigger = await screen.findByTestId('agent-provider-selector')
+    await user.click(providerTrigger)
+    await user.click(screen.getByRole('option', { name: 'Codex' }))
+
+    await waitFor(() => expect(toast.error).toHaveBeenCalledWith('Something went wrong. Try again.'))
+    expect(providerTrigger).toHaveTextContent('Claude')
+  })
+
   it('opens, ensures a conversation, streams a turn, persists on done', async () => {
     render(<AgentChatProvider><Harness /></AgentChatProvider>)
     await act(async () => { fireEvent.click(screen.getByText('open')) })
