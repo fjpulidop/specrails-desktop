@@ -477,6 +477,10 @@ export class QueueManager {
    * the active slot until shutdown/restart recovery succeeds. */
   private _terminalPersistenceBlockedJobs: Set<string>
   private _pendingLateReconciliations: Map<string, PendingLateReconciliation>
+  /** Last terminal state emitted per pipeline. Descendant skipping and parent
+   * settlement can both evaluate the same pipeline in one call stack; this
+   * keeps the externally visible transition exactly-once. */
+  private _emittedPipelineStatuses: Map<string, 'completed' | 'failed'>
   /** Test seam for the sole async pre-spawn dependency. Production resolves the
    *  implementation lazily to keep the plugin subsystem optional. */
   private _resolvePluginsForSpawn: ((
@@ -580,6 +584,7 @@ export class QueueManager {
     this._forceFailedProcesses = new Map()
     this._terminalPersistenceBlockedJobs = new Set()
     this._pendingLateReconciliations = new Map()
+    this._emittedPipelineStatuses = new Map()
 
     const envTimeout = process.env.WM_ZOMBIE_TIMEOUT_MS !== undefined
       ? parseInt(process.env.WM_ZOMBIE_TIMEOUT_MS, 10)
@@ -4948,11 +4953,16 @@ export class QueueManager {
     )
     const anyPending = pipelineJobs.some(j => j.status === 'queued' || j.status === 'running')
 
-    if (allDone) {
-      this._broadcast({ type: 'pipeline_status', pipelineId, status: 'completed' })
-    } else if (anyFailed && !anyPending) {
-      this._broadcast({ type: 'pipeline_status', pipelineId, status: 'failed' })
+    const status = allDone ? 'completed' : (anyFailed && !anyPending ? 'failed' : null)
+    if (!status) {
+      // A caller may append work to an existing pipeline id. Its next terminal
+      // transition is new and must be observable again.
+      this._emittedPipelineStatuses.delete(pipelineId)
+      return
     }
+    if (this._emittedPipelineStatuses.get(pipelineId) === status) return
+    this._broadcast({ type: 'pipeline_status', pipelineId, status })
+    this._emittedPipelineStatuses.set(pipelineId, status)
   }
 
   /**
@@ -4979,11 +4989,14 @@ export class QueueManager {
     const anyPending = rows.some((job) => job.status === 'queued' || job.status === 'running')
 
     try {
-      if (allDone) {
-        this._broadcast({ type: 'pipeline_status', pipelineId, status: 'completed' })
-      } else if (anyFailed && !anyPending) {
-        this._broadcast({ type: 'pipeline_status', pipelineId, status: 'failed' })
+      const status = allDone ? 'completed' : (anyFailed && !anyPending ? 'failed' : null)
+      if (!status) {
+        this._emittedPipelineStatuses.delete(pipelineId)
+        return
       }
+      if (this._emittedPipelineStatuses.get(pipelineId) === status) return
+      this._broadcast({ type: 'pipeline_status', pipelineId, status })
+      this._emittedPipelineStatuses.set(pipelineId, status)
     } catch {
       // Startup broadcasts are advisory; persisted terminal state is authoritative.
     }
