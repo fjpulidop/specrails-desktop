@@ -291,10 +291,18 @@ export function AgentPrDecisionCard({ envelope: envelopeProp }: { envelope: Agen
         action,
         expectedDecision: decision,
       })
+      let snapshotApplication: ReturnType<typeof applyPrDecisionSnapshot> | null = null
       if (r.snapshot) {
         const next = agentEnvelopeFromSnapshot(envelope, r.snapshot)
-        setLocalEnvelope(next)
-        applyPrDecisionSnapshot(next)
+        snapshotApplication = applyPrDecisionSnapshot(next)
+        if (snapshotApplication !== 'stale') setLocalEnvelope(next)
+      }
+      if (snapshotApplication === 'stale') {
+        // Another generation already superseded this card while its HTTP
+        // request was in flight. Never resurrect its controls or celebrate an
+        // outcome that is no longer the active delivery.
+        toast.info(t('prCard.alreadyResolved'))
+        return
       }
       if (r.kind === 'recovering') {
         toast.info(t('common:prRecovery.inProgress'))
@@ -311,10 +319,18 @@ export function AgentPrDecisionCard({ envelope: envelopeProp }: { envelope: Agen
           : t('prCard.mergeLocalBlockedBranch', { base: r.base || envelope.baseBranch, current: r.current ?? '?' }))
       } else if (r.kind === 'failed') {
         toast.error(t('prCard.actionFailed'), { description: r.detail })
+      } else if (r.kind === 'ok' && action === 'create-pr' && presentation.retryablePush && r.deliveryVerified) {
+        const sha = (r.verifiedSha ?? r.snapshot?.deliverySha ?? envelope.deliverySha ?? '').slice(0, 8)
+        toast.success(t(r.pushed ? 'prCard.retryPushVerified' : 'prCard.commitAlreadyVerified', { sha }))
       } else if (r.kind === 'ok' && action === 'create-pr' && r.detail) {
         // Successful HTTP can still mean a retryable/degraded delivery. Keep the
         // stable localized card title primary and expose the raw detail second.
         toast.error(t('prCard.deliveryNeedsAttention'), { description: r.detail })
+      } else if (r.kind === 'ok' && action === 'poll-merge' && r.deliveryVerified === false) {
+        toast.warning(t('prCard.commitMissingRetry'))
+      } else if (r.kind === 'ok' && action === 'poll-merge' && r.deliveryVerified && !r.merged) {
+        const sha = (r.verifiedSha ?? r.snapshot?.deliverySha ?? envelope.deliverySha ?? '').slice(0, 8)
+        toast.success(t('prCard.prVerifiedWaiting', { sha }))
       } else if (action === 'poll-merge' && !r.merged && r.decision !== 'pr_closed') {
         toast.info(t('prCard.notMergedYet'))
       } else if (action === 'merge-local' && r.kind === 'ok' && r.decision === 'merged') {
@@ -509,9 +525,11 @@ export function AgentPrDecisionCard({ envelope: envelopeProp }: { envelope: Agen
   }
 
   const Icon = HEADER_ICON[decision]
-  const title = presentation.noChanges
-    ? t('prCard.title.no_changes')
-    : presentation.deliveryBlocked
+  const title = presentation.superseded
+    ? t('prCard.title.superseded')
+    : presentation.noChanges
+      ? t('prCard.title.no_changes')
+      : presentation.deliveryBlocked
       ? t('prCard.title.delivery_blocked')
       : presentation.retryablePush
         ? t('prCard.title.update_failed')
@@ -519,9 +537,7 @@ export function AgentPrDecisionCard({ envelope: envelopeProp }: { envelope: Agen
           ? t('prCard.title.pr_closed')
           : presentation.partial
             ? t('prCard.title.partial')
-            : presentation.superseded
-              ? t('prCard.title.superseded')
-              : envelope.statusCode === 'existing_pr_updated'
+            : envelope.statusCode === 'existing_pr_updated'
                 ? t('prCard.title.existing_pr_updated')
                 : degradedDraft ? t('prCard.title.pr_draft_degraded') : t(`prCard.title.${decision}`)
 
@@ -673,6 +689,21 @@ export function AgentPrDecisionCard({ envelope: envelopeProp }: { envelope: Agen
         </span>
         {ticketChips}
         {prLink}
+        {envelope.deliverySha && (
+          <span
+            data-testid="agent-pr-delivery-sha"
+            title={envelope.deliverySha}
+            className={cn(
+              'inline-flex items-center gap-1 rounded-full border px-2 py-0.5 font-mono text-[11px]',
+              envelope.deliveryOutcome === 'delivered'
+                ? 'border-accent-success/35 bg-accent-success/10 text-accent-success'
+                : 'border-border/60 bg-surface/60 text-foreground/65',
+            )}
+          >
+            <CheckCircle2 className="h-3 w-3" />
+            {t('prCard.deliveryCommit', { sha: envelope.deliverySha.slice(0, 8) })}
+          </span>
+        )}
       </div>
 
       {/* Per-run log chips — frozen vitals once the rail settled. */}
@@ -700,17 +731,17 @@ export function AgentPrDecisionCard({ envelope: envelopeProp }: { envelope: Agen
         </p>
       )}
 
-      {presentation.deliveryBlocked && (
+      {!terminal && presentation.deliveryBlocked && (
         <p className="mt-2 flex items-start gap-1.5 text-[11px] leading-4 text-accent-warning">
           <AlertTriangle className="mt-px h-3 w-3 shrink-0" />
           <span>
-            {t('prCard.deliveryBlockedNote')}
+            {t(presentation.partial ? 'prCard.partialDeliveryBlockedNote' : 'prCard.deliveryBlockedNote')}
             {envelope.statusDetail && !interruptedOperationDetail ? <span className="mt-0.5 block text-foreground/50">{envelope.statusDetail}</span> : null}
           </span>
         </p>
       )}
 
-      {presentation.retryablePush && (
+      {!terminal && presentation.retryablePush && (
         <p className="mt-2 flex items-start gap-1.5 text-[11px] leading-4 text-accent-warning">
           <AlertTriangle className="mt-px h-3 w-3 shrink-0" />
           <span>
@@ -743,6 +774,24 @@ export function AgentPrDecisionCard({ envelope: envelopeProp }: { envelope: Agen
         </div>
       )}
 
+      {presentation.safetyArchives.length > 0 && (
+        <details
+          className="mt-2 rounded-md border border-accent-info/25 bg-accent-info/5 px-2 py-1.5 text-[11px] text-foreground/65"
+          data-agent-interactive
+          data-testid="agent-pr-safety-archives"
+        >
+          <summary className="cursor-pointer font-medium text-accent-info">
+            {t('prCard.safetyArchiveTitle', { count: presentation.safetyArchives.length })}
+          </summary>
+          <p className="mt-1 leading-4">{t('prCard.safetyArchiveHint')}</p>
+          <ul className="mt-1 space-y-0.5 font-mono text-[10px] text-foreground/50">
+            {presentation.safetyArchives.map((archive) => (
+              <li key={archive} className="break-all">{archive}</li>
+            ))}
+          </ul>
+        </details>
+      )}
+
       {/* Replace actions immediately when the authoritative state changes.
           Delaying the swap for an exit animation could briefly retain a stale,
           unsafe action after a blocked-delivery snapshot lands. */}
@@ -764,34 +813,36 @@ export function AgentPrDecisionCard({ envelope: envelopeProp }: { envelope: Agen
               </div>
             </div>
           )}
-          {presentation.deliveryBlocked && (
+          {!terminal && presentation.deliveryBlocked && (
             <div className="flex items-center gap-1.5">
               {checkoutAction}
-              {presentation.partialUndeliverable && presentation.continuation ? dismissAction : discardLocalAction}
+              {presentation.continuation
+                ? (presentation.partialUndeliverable ? dismissAction : discardLocalAction)
+                : discardAction}
             </div>
           )}
-          {presentation.retryablePush && (
+          {!terminal && presentation.retryablePush && (
             <div className="flex items-center gap-1.5">
               {checkoutAction}
               {primaryAction('create-pr', t('prCard.retryPush'))}
               {presentation.continuation ? dismissAction : discardAction}
             </div>
           )}
-          {presentation.retryablePrCreation && (
+          {!terminal && presentation.retryablePrCreation && (
             <div className="flex items-center gap-1.5">
               {primaryAction('create-pr', t('prCard.retryPr'))}
               {mergeLocalAction}
               {presentation.continuation ? dismissAction : discardAction}
             </div>
           )}
-          {presentation.closed && (
+          {!terminal && presentation.closed && (
             <div className="flex items-center gap-1.5">
               {checkoutAction}
               {primaryAction('reopen', t('prCard.reopen'))}
               {presentation.continuation ? dismissAction : discardAction}
             </div>
           )}
-          {partialCreatePending && !presentation.deliveryBlocked && !presentation.retryablePush && !presentation.retryablePrCreation && (
+          {!terminal && partialCreatePending && !presentation.deliveryBlocked && !presentation.retryablePush && !presentation.retryablePrCreation && (
             <div className="flex items-center gap-1.5">
               {primaryAction('create-pr', t('prCard.createPartialPr', { count: presentation.deliverableCount }))}
               {presentation.continuation ? dismissAction : discardAction}
@@ -821,7 +872,7 @@ export function AgentPrDecisionCard({ envelope: envelopeProp }: { envelope: Agen
           {decision === 'pr_ready' && !presentation.deliveryBlocked && !presentation.retryablePush && !presentation.retryablePrCreation && (
             <div className="flex items-center gap-1.5">
               {checkoutAction}
-              {primaryAction('poll-merge', t('prCard.checkMerge'))}
+              {primaryAction('poll-merge', t('prCard.verifyPr'))}
               {presentation.continuation ? dismissAction : discardAction}
             </div>
           )}

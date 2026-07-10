@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useNavigate } from 'react-router-dom'
 import { toast } from 'sonner'
@@ -20,9 +20,21 @@ interface RailPrDecisionStripProps {
   decision: RailPrStateSnapshot
   density: 'normal' | 'compact'
   /** POSTs /rails/pr-decision for this rail (bound to railIndex upstream). */
-  act: (action: RailPrDecisionAction, expectedDecision: RailPrDecision) => Promise<RailPrActResult>
+  act: (
+    action: RailPrDecisionAction,
+    expectedDecision: RailPrDecision,
+    expectedPrDeliveryId: string,
+  ) => Promise<RailPrActResult>
   /** Checks out this delivery's PR branch in the user's main repo. */
-  checkout?: () => Promise<RailPrCheckoutResult>
+  checkout?: (expectedPrDeliveryId: string) => Promise<RailPrCheckoutResult>
+}
+
+type ConfirmationKind = 'merge-local' | 'discard' | 'dismiss' | 'discard-local' | 'no-changes-done' | 'refine'
+
+interface PendingConfirmation {
+  kind: ConfirmationKind
+  prDeliveryId: string
+  expectedDecision: RailPrDecision
 }
 
 /**
@@ -37,12 +49,22 @@ export function RailPrDecisionStrip({ decision, density, act, checkout }: RailPr
   const navigate = useNavigate()
   const [inFlight, setInFlight] = useState<RailPrDecisionAction | null>(null)
   const [checkingOut, setCheckingOut] = useState(false)
-  const [confirmDiscard, setConfirmDiscard] = useState(false)
-  const [confirmMergeLocal, setConfirmMergeLocal] = useState(false)
-  const [confirmDismiss, setConfirmDismiss] = useState(false)
-  const [confirmDiscardLocal, setConfirmDiscardLocal] = useState(false)
-  const [confirmNoChangesDone, setConfirmNoChangesDone] = useState(false)
-  const [confirmRefine, setConfirmRefine] = useState(false)
+  const [confirmation, setConfirmation] = useState<PendingConfirmation | null>(null)
+  const currentDeliveryIdRef = useRef(decision.prDeliveryId)
+  currentDeliveryIdRef.current = decision.prDeliveryId
+  const mountedRef = useRef(true)
+
+  useEffect(() => {
+    mountedRef.current = true
+    return () => { mountedRef.current = false }
+  }, [])
+  useEffect(() => {
+    // Rail rows are reused. A dialog or pending request opened for generation A
+    // must disappear when generation B replaces it on the same rail.
+    setConfirmation(null)
+    setInFlight(null)
+    setCheckingOut(false)
+  }, [decision.prDeliveryId])
 
   const d = decision.decision
   const presentation = derivePrDeliveryPresentation(decision)
@@ -77,11 +99,41 @@ export function RailPrDecisionStrip({ decision, density, act, checkout }: RailPr
 
   const compact = density === 'compact'
 
-  async function run(action: RailPrDecisionAction, expected: RailPrDecision) {
-    if (inFlight || checkingOut || decision.operation) return
+  const confirmationIsOpen = (kind: ConfirmationKind): boolean => (
+    confirmation?.kind === kind && confirmation.prDeliveryId === decision.prDeliveryId
+  )
+  const openConfirmation = (kind: ConfirmationKind): void => {
+    setConfirmation({ kind, prDeliveryId: decision.prDeliveryId, expectedDecision: d })
+  }
+  const closeConfirmation = (): void => setConfirmation(null)
+  const confirmAction = (kind: ConfirmationKind, action: RailPrDecisionAction): void => {
+    const captured = confirmation
+    setConfirmation(null)
+    if (
+      !mountedRef.current ||
+      !captured ||
+      captured.kind !== kind ||
+      captured.prDeliveryId !== decision.prDeliveryId ||
+      captured.prDeliveryId !== currentDeliveryIdRef.current
+    ) return
+    void run(action, captured.expectedDecision, captured.prDeliveryId)
+  }
+
+  async function run(
+    action: RailPrDecisionAction,
+    expected: RailPrDecision,
+    expectedDeliveryId = decision.prDeliveryId,
+  ) {
+    if (
+      !mountedRef.current ||
+      expectedDeliveryId !== decision.prDeliveryId ||
+      expectedDeliveryId !== currentDeliveryIdRef.current ||
+      inFlight || checkingOut || decision.operation
+    ) return
     setInFlight(action)
     try {
-      const res = await act(action, expected)
+      const res = await act(action, expected, expectedDeliveryId)
+      if (!mountedRef.current || currentDeliveryIdRef.current !== expectedDeliveryId) return
       if (res.status === 409) {
         if (res.error === 'project_recovery_in_progress') {
           toast.info(t('common:prRecovery.inProgress'))
@@ -116,11 +168,22 @@ export function RailPrDecisionStrip({ decision, density, act, checkout }: RailPr
         toast.error(t('railPr.actionFailed'))
         return
       }
-      if (action === 'poll-merge' && res.merged === false && res.decision !== 'pr_closed') {
+      if (res.snapshot && res.snapshotApplication && res.snapshotApplication !== 'accepted') {
+        // The HTTP operation may have succeeded for generation A after this
+        // rail already advanced to B. Never celebrate A as B's result.
+        toast.info(t('railPr.alreadyResolved'))
+        return
+      }
+      if (action === 'poll-merge' && res.merged === false && res.decision !== 'pr_closed' && res.deliveryVerified == null) {
         toast.info(t('railPr.notMergedYet'))
       }
       if (action === 'merge-local' && res.decision === 'merged') {
         toast.success(t('railPr.mergedLocally', { base: decision.baseBranch }))
+      }
+      if (action === 'create-pr' && presentation.retryablePush && res.deliveryVerified) {
+        const sha = (res.verifiedSha ?? res.snapshot?.deliverySha ?? decision.deliverySha ?? '').slice(0, 8)
+        toast.success(t(res.pushed ? 'railPr.retryPushVerified' : 'railPr.commitAlreadyVerified', { sha }))
+        return
       }
       // create-pr can succeed as an HTTP call yet land on pr_failed (retryable
       // delivery failure) — say so, carrying the underlying git/gh detail when
@@ -135,17 +198,28 @@ export function RailPrDecisionStrip({ decision, density, act, checkout }: RailPr
       if (action === 'create-pr' && res.decision === 'pr_draft' && !res.prUrl && res.detail) {
         toast.error(t('railPr.createDegraded', { detail: res.detail }))
       }
+      if (action === 'poll-merge' && res.deliveryVerified === false) {
+        toast.warning(t('railPr.commitMissingRetry'))
+        return
+      }
+      if (action === 'poll-merge' && res.deliveryVerified && res.merged === false) {
+        const sha = (res.verifiedSha ?? res.snapshot?.deliverySha ?? decision.deliverySha ?? '').slice(0, 8)
+        toast.success(t('railPr.prVerifiedWaiting', { sha }))
+        return
+      }
       // Success state changes arrive via the rail.pr_state broadcast.
     } finally {
-      setInFlight(null)
+      if (mountedRef.current && currentDeliveryIdRef.current === expectedDeliveryId) setInFlight(null)
     }
   }
 
   async function runCheckout() {
-    if (!checkout || inFlight || checkingOut || decision.operation) return
+    if (!mountedRef.current || !checkout || inFlight || checkingOut || decision.operation) return
+    const expectedDeliveryId = decision.prDeliveryId
     setCheckingOut(true)
     try {
-      const res = await checkout()
+      const res = await checkout(expectedDeliveryId)
+      if (!mountedRef.current || currentDeliveryIdRef.current !== expectedDeliveryId) return
       if (!res.ok) {
         if (res.status === 409 && res.error === 'project_recovery_in_progress') {
           toast.info(t('common:prRecovery.inProgress'))
@@ -156,7 +230,7 @@ export function RailPrDecisionStrip({ decision, density, act, checkout }: RailPr
       }
       toast.success(t('railPr.checkoutSuccess', { branch: decision.branch ?? '' }))
     } finally {
-      setCheckingOut(false)
+      if (mountedRef.current && currentDeliveryIdRef.current === expectedDeliveryId) setCheckingOut(false)
     }
   }
 
@@ -208,7 +282,7 @@ export function RailPrDecisionStrip({ decision, density, act, checkout }: RailPr
       data-testid="rail-pr-discard"
       disabled={busy}
       title={discardTitle}
-      onClick={(e) => { e.stopPropagation(); setConfirmDiscard(true) }}
+      onClick={(e) => { e.stopPropagation(); openConfirmation('discard') }}
       className={ghostBtn}
     >
       {inFlight === 'discard' ? spinner : null}
@@ -225,7 +299,7 @@ export function RailPrDecisionStrip({ decision, density, act, checkout }: RailPr
       data-testid="rail-pr-merge-local"
       disabled={busy}
       title={t('railPr.mergeLocalTooltip', { base: decision.baseBranch })}
-      onClick={(e) => { e.stopPropagation(); setConfirmMergeLocal(true) }}
+      onClick={(e) => { e.stopPropagation(); openConfirmation('merge-local') }}
       className={`inline-flex items-center gap-1 rounded-md font-medium border border-accent-success/40 bg-accent-success/10 text-accent-success hover:bg-accent-success/20 disabled:opacity-50 disabled:pointer-events-none transition-colors ${
         compact ? 'px-1.5 py-0.5 text-[9px]' : 'px-2 py-0.5 text-[10px]'
       }`}
@@ -316,7 +390,7 @@ export function RailPrDecisionStrip({ decision, density, act, checkout }: RailPr
       type="button"
       data-testid="rail-pr-dismiss"
       disabled={busy}
-      onClick={(event) => { event.stopPropagation(); setConfirmDismiss(true) }}
+      onClick={(event) => { event.stopPropagation(); openConfirmation('dismiss') }}
       className={ghostBtn}
     >
       {inFlight === 'dismiss' ? spinner : null}
@@ -329,7 +403,7 @@ export function RailPrDecisionStrip({ decision, density, act, checkout }: RailPr
       type="button"
       data-testid="rail-pr-discard-local"
       disabled={busy}
-      onClick={(event) => { event.stopPropagation(); setConfirmDiscardLocal(true) }}
+      onClick={(event) => { event.stopPropagation(); openConfirmation('discard-local') }}
       className={ghostBtn}
     >
       {inFlight === 'discard' ? spinner : null}
@@ -342,7 +416,7 @@ export function RailPrDecisionStrip({ decision, density, act, checkout }: RailPr
       type="button"
       data-testid="rail-pr-no-changes-done"
       disabled={busy}
-      onClick={(event) => { event.stopPropagation(); setConfirmNoChangesDone(true) }}
+      onClick={(event) => { event.stopPropagation(); openConfirmation('no-changes-done') }}
       className={primaryBtn}
     >
       {inFlight === 'acknowledge-no-changes' ? spinner : <CheckCircle2 className={iconCls} aria-hidden />}
@@ -355,7 +429,7 @@ export function RailPrDecisionStrip({ decision, density, act, checkout }: RailPr
       type="button"
       data-testid="rail-pr-refine"
       disabled={busy}
-      onClick={(event) => { event.stopPropagation(); setConfirmRefine(true) }}
+      onClick={(event) => { event.stopPropagation(); openConfirmation('refine') }}
       className={ghostBtn}
     >
       {inFlight === 'discard' ? spinner : null}
@@ -409,7 +483,7 @@ export function RailPrDecisionStrip({ decision, density, act, checkout }: RailPr
         <>
           {linkChip}
           {checkoutBtn}
-          {actionButton('poll-merge', 'pr_ready', t('railPr.checkMerge'), 'rail-pr-poll', t('railPr.checkMergeTooltip'))}
+          {actionButton('poll-merge', 'pr_ready', t('railPr.verifyPr'), 'rail-pr-poll', t('railPr.verifyPrTooltip'))}
           {presentation.continuation ? dismissBtn : discardBtn}
         </>
       )
@@ -430,7 +504,13 @@ export function RailPrDecisionStrip({ decision, density, act, checkout }: RailPr
         {t('railPr.deliveryBlocked')}
       </span>
     )
-    actions = <>{linkChip}{checkoutBtn}{presentation.partialUndeliverable && presentation.continuation ? dismissBtn : discardLocalBtn}</>
+    actions = <>
+      {linkChip}
+      {checkoutBtn}
+      {presentation.continuation
+        ? (presentation.partialUndeliverable ? dismissBtn : discardLocalBtn)
+        : discardBtn}
+    </>
   } else if (presentation.retryablePush) {
     pill = (
       <span className={`${pillBase} border-accent-warning/30 bg-accent-warning/10 text-accent-warning`} title={decision.statusDetail ?? undefined}>
@@ -535,7 +615,7 @@ export function RailPrDecisionStrip({ decision, density, act, checkout }: RailPr
       <>
         {linkChip}
         {checkoutBtn}
-        {actionButton('poll-merge', 'pr_ready', t('railPr.checkMerge'), 'rail-pr-poll', t('railPr.checkMergeTooltip'))}
+        {actionButton('poll-merge', 'pr_ready', t('railPr.verifyPr'), 'rail-pr-poll', t('railPr.verifyPrTooltip'))}
         {presentation.continuation ? dismissBtn : discardBtn}
       </>
     )
@@ -585,6 +665,16 @@ export function RailPrDecisionStrip({ decision, density, act, checkout }: RailPr
         </span>
       )}
       {actions}
+      {decision.deliverySha && (
+        <span
+          className={`${pillBase} ${decision.deliveryOutcome === 'delivered' ? 'border-accent-success/30 bg-accent-success/10 text-accent-success' : 'border-border/60 bg-surface/60 text-foreground/60'} font-mono`}
+          data-testid="rail-pr-delivery-sha"
+          title={decision.deliverySha}
+        >
+          <CheckCircle2 className={iconCls} aria-hidden />
+          {t('railPr.deliveryCommit', { sha: decision.deliverySha.slice(0, 8) })}
+        </span>
+      )}
       {runLogChips}
       {unitEvidence}
       {statusLabel && (
@@ -613,23 +703,40 @@ export function RailPrDecisionStrip({ decision, density, act, checkout }: RailPr
         </div>
       )}
 
+      {presentation.safetyArchives.length > 0 && (
+        <details
+          className={`basis-full rounded-md border border-accent-info/25 bg-accent-info/5 text-foreground/65 ${compact ? 'px-1.5 py-1 text-[9px]' : 'px-2 py-1.5 text-[10px]'}`}
+          data-testid="rail-pr-safety-archives"
+        >
+          <summary className="cursor-pointer font-medium text-accent-info">
+            {t('railPr.safetyArchiveTitle', { count: presentation.safetyArchives.length })}
+          </summary>
+          <p className="mt-1">{t('railPr.safetyArchiveHint')}</p>
+          <ul className="mt-1 space-y-0.5 font-mono text-[0.9em] text-foreground/55">
+            {presentation.safetyArchives.map((archive) => (
+              <li key={archive} className="break-all">{archive}</li>
+            ))}
+          </ul>
+        </details>
+      )}
+
       {/* Merge-local confirmation — it writes merge commits into the user's
           checkout of the base branch. Constructive but repo-touching. */}
-      <Dialog open={confirmMergeLocal} onOpenChange={setConfirmMergeLocal}>
+      <Dialog open={confirmationIsOpen('merge-local')} onOpenChange={(open) => { if (!open) closeConfirmation() }}>
         <DialogContent className="max-w-sm" data-testid="rail-pr-merge-local-confirm">
           <DialogHeader>
             <DialogTitle>{t('railPr.mergeLocalConfirmTitle')}</DialogTitle>
             <DialogDescription>{t('railPr.mergeLocalConfirmBody', { base: decision.baseBranch })}</DialogDescription>
           </DialogHeader>
           <DialogFooter>
-            <Button variant="outline" size="sm" onClick={() => setConfirmMergeLocal(false)}>
+            <Button variant="outline" size="sm" onClick={closeConfirmation}>
               {t('common:actions.cancel')}
             </Button>
             <Button
               size="sm"
               disabled={busy}
               data-testid="rail-pr-merge-local-confirm-btn"
-              onClick={() => { setConfirmMergeLocal(false); void run('merge-local', d) }}
+              onClick={() => confirmAction('merge-local', 'merge-local')}
             >
               {t('railPr.mergeLocal')}
             </Button>
@@ -639,7 +746,7 @@ export function RailPrDecisionStrip({ decision, density, act, checkout }: RailPr
 
       {/* Fresh discard is consequence-specific: failed implementations keep
           recoverable local work for inspection and clean up only safe state. */}
-      <Dialog open={confirmDiscard} onOpenChange={setConfirmDiscard}>
+      <Dialog open={confirmationIsOpen('discard')} onOpenChange={(open) => { if (!open) closeConfirmation() }}>
         <DialogContent className="max-w-sm" data-testid="rail-pr-discard-confirm">
           <DialogHeader>
             <DialogTitle>{t(d === 'implementation_failed'
@@ -650,7 +757,7 @@ export function RailPrDecisionStrip({ decision, density, act, checkout }: RailPr
               : 'railPr.discardConfirmBody')}</DialogDescription>
           </DialogHeader>
           <DialogFooter>
-            <Button variant="outline" size="sm" onClick={() => setConfirmDiscard(false)}>
+            <Button variant="outline" size="sm" onClick={closeConfirmation}>
               {t('common:actions.cancel')}
             </Button>
             <Button
@@ -658,7 +765,7 @@ export function RailPrDecisionStrip({ decision, density, act, checkout }: RailPr
               size="sm"
               disabled={busy}
               data-testid="rail-pr-discard-confirm-btn"
-              onClick={() => { setConfirmDiscard(false); void run('discard', d) }}
+              onClick={() => confirmAction('discard', 'discard')}
             >
               {t('railPr.discard')}
             </Button>
@@ -668,21 +775,21 @@ export function RailPrDecisionStrip({ decision, density, act, checkout }: RailPr
 
       {/* A continuation borrows the user's existing PR. Dismiss only clears
           this follow-up generation; it does not close/delete external state. */}
-      <Dialog open={confirmDismiss} onOpenChange={setConfirmDismiss}>
+      <Dialog open={confirmationIsOpen('dismiss')} onOpenChange={(open) => { if (!open) closeConfirmation() }}>
         <DialogContent className="max-w-sm" data-testid="rail-pr-dismiss-confirm">
           <DialogHeader>
             <DialogTitle>{t('railPr.dismissConfirmTitle')}</DialogTitle>
             <DialogDescription>{t('railPr.dismissConfirmBody')}</DialogDescription>
           </DialogHeader>
           <DialogFooter>
-            <Button variant="outline" size="sm" onClick={() => setConfirmDismiss(false)}>
+            <Button variant="outline" size="sm" onClick={closeConfirmation}>
               {t('common:actions.cancel')}
             </Button>
             <Button
               size="sm"
               disabled={busy}
               data-testid="rail-pr-dismiss-confirm-btn"
-              onClick={() => { setConfirmDismiss(false); void run('dismiss', d) }}
+              onClick={() => confirmAction('dismiss', 'dismiss')}
             >
               {t('railPr.dismiss')}
             </Button>
@@ -692,14 +799,14 @@ export function RailPrDecisionStrip({ decision, density, act, checkout }: RailPr
 
       {/* Blocked work can contain the only recoverable local result. Name that
           consequence separately from dismissing a clean continuation. */}
-      <Dialog open={confirmDiscardLocal} onOpenChange={setConfirmDiscardLocal}>
+      <Dialog open={confirmationIsOpen('discard-local')} onOpenChange={(open) => { if (!open) closeConfirmation() }}>
         <DialogContent className="max-w-sm" data-testid="rail-pr-discard-local-confirm">
           <DialogHeader>
             <DialogTitle>{t('railPr.discardLocalConfirmTitle')}</DialogTitle>
             <DialogDescription>{t('railPr.discardLocalConfirmBody')}</DialogDescription>
           </DialogHeader>
           <DialogFooter>
-            <Button variant="outline" size="sm" onClick={() => setConfirmDiscardLocal(false)}>
+            <Button variant="outline" size="sm" onClick={closeConfirmation}>
               {t('common:actions.cancel')}
             </Button>
             <Button
@@ -707,7 +814,7 @@ export function RailPrDecisionStrip({ decision, density, act, checkout }: RailPr
               size="sm"
               disabled={busy}
               data-testid="rail-pr-discard-local-confirm-btn"
-              onClick={() => { setConfirmDiscardLocal(false); void run('discard', d) }}
+              onClick={() => confirmAction('discard-local', 'discard')}
             >
               {t('railPr.discardLocalResult')}
             </Button>
@@ -715,21 +822,21 @@ export function RailPrDecisionStrip({ decision, density, act, checkout }: RailPr
         </DialogContent>
       </Dialog>
 
-      <Dialog open={confirmNoChangesDone} onOpenChange={setConfirmNoChangesDone}>
+      <Dialog open={confirmationIsOpen('no-changes-done')} onOpenChange={(open) => { if (!open) closeConfirmation() }}>
         <DialogContent className="max-w-sm" data-testid="rail-pr-no-changes-done-confirm">
           <DialogHeader>
             <DialogTitle>{t('railPr.markDoneConfirmTitle')}</DialogTitle>
             <DialogDescription>{t('railPr.markDoneConfirmBody')}</DialogDescription>
           </DialogHeader>
           <DialogFooter>
-            <Button variant="outline" size="sm" onClick={() => setConfirmNoChangesDone(false)}>
+            <Button variant="outline" size="sm" onClick={closeConfirmation}>
               {t('common:actions.cancel')}
             </Button>
             <Button
               size="sm"
               disabled={busy}
               data-testid="rail-pr-no-changes-done-confirm-btn"
-              onClick={() => { setConfirmNoChangesDone(false); void run('acknowledge-no-changes', d) }}
+              onClick={() => confirmAction('no-changes-done', 'acknowledge-no-changes')}
             >
               {t('railPr.markDone')}
             </Button>
@@ -737,14 +844,14 @@ export function RailPrDecisionStrip({ decision, density, act, checkout }: RailPr
         </DialogContent>
       </Dialog>
 
-      <Dialog open={confirmRefine} onOpenChange={setConfirmRefine}>
+      <Dialog open={confirmationIsOpen('refine')} onOpenChange={(open) => { if (!open) closeConfirmation() }}>
         <DialogContent className="max-w-sm" data-testid="rail-pr-refine-confirm">
           <DialogHeader>
             <DialogTitle>{t('railPr.refineConfirmTitle')}</DialogTitle>
             <DialogDescription>{t('railPr.refineConfirmBody')}</DialogDescription>
           </DialogHeader>
           <DialogFooter>
-            <Button variant="outline" size="sm" onClick={() => setConfirmRefine(false)}>
+            <Button variant="outline" size="sm" onClick={closeConfirmation}>
               {t('common:actions.cancel')}
             </Button>
             <Button
@@ -752,7 +859,7 @@ export function RailPrDecisionStrip({ decision, density, act, checkout }: RailPr
               size="sm"
               disabled={busy}
               data-testid="rail-pr-refine-confirm-btn"
-              onClick={() => { setConfirmRefine(false); void run('discard', d) }}
+              onClick={() => confirmAction('refine', 'discard')}
             >
               {t('railPr.refine')}
             </Button>

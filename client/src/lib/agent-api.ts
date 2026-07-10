@@ -246,9 +246,13 @@ export interface AgentPrDecisionEnvelope {
   deliverySha?: string | null
   isContinuation?: boolean
   supersedesDeliveryId?: string | null
+  restoredFromDeliveryId?: string | null
   operation?: AgentPrDecisionAction | null
   cleanupWarnings?: string[]
+  safetyArchives?: string[]
   units?: RailPrUnitOutcome[]
+  createdAt?: string
+  updatedAt?: string
 }
 
 /**
@@ -293,9 +297,13 @@ export function coercePrDecisionEnvelope(v: unknown): AgentPrDecisionEnvelope | 
     deliverySha: snapshot.deliverySha,
     isContinuation: snapshot.isContinuation,
     supersedesDeliveryId: snapshot.supersedesDeliveryId,
+    restoredFromDeliveryId: snapshot.restoredFromDeliveryId,
     operation: snapshot.operation,
     cleanupWarnings: snapshot.cleanupWarnings,
+    safetyArchives: snapshot.safetyArchives,
     units: snapshot.units,
+    createdAt: snapshot.createdAt,
+    updatedAt: snapshot.updatedAt,
   }
 }
 
@@ -315,7 +323,19 @@ const PR_DECISION_ACTION_VALUES: readonly AgentPrDecisionAction[] = [
 ]
 
 export type AgentPrDecisionOutcome =
-  | { kind: 'ok'; decision: string; prUrl: string | null; prState: AgentPrDeliveryState; merged: boolean; detail: string | null; snapshot: RailPrStateSnapshot | null }
+  | {
+      kind: 'ok'
+      decision: string
+      prUrl: string | null
+      prState: AgentPrDeliveryState
+      merged: boolean
+      detail: string | null
+      deliveryVerified: boolean | null
+      verifiedSha: string | null
+      remoteHeadSha: string | null
+      pushed: boolean | null
+      snapshot: RailPrStateSnapshot | null
+    }
   /** Startup reconciliation owns the project; no decision effect was run. */
   | { kind: 'recovering'; snapshot: RailPrStateSnapshot | null }
   /** Decision changed before this request; the authoritative snapshot reconciles. */
@@ -360,6 +380,10 @@ export async function postRailPrDecision(
         : snapshot?.prState ?? 'none',
       merged: data?.merged === true,
       detail: typeof data?.detail === 'string' && data.detail ? data.detail : null,
+      deliveryVerified: typeof data?.deliveryVerified === 'boolean' ? data.deliveryVerified : null,
+      verifiedSha: typeof data?.verifiedSha === 'string' ? data.verifiedSha : null,
+      remoteHeadSha: typeof data?.remoteHeadSha === 'string' ? data.remoteHeadSha : null,
+      pushed: typeof data?.pushed === 'boolean' ? data.pushed : null,
       snapshot,
     }
   }
@@ -420,9 +444,13 @@ export function agentEnvelopeFromSnapshot(
     deliverySha: snapshot.deliverySha,
     isContinuation: snapshot.isContinuation,
     supersedesDeliveryId: snapshot.supersedesDeliveryId,
+    restoredFromDeliveryId: snapshot.restoredFromDeliveryId,
     operation: snapshot.operation,
     cleanupWarnings: snapshot.cleanupWarnings,
+    safetyArchives: snapshot.safetyArchives,
     units: snapshot.units,
+    createdAt: snapshot.createdAt,
+    updatedAt: snapshot.updatedAt,
   }
 }
 

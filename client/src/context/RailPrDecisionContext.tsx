@@ -3,7 +3,7 @@ import { toast } from 'sonner'
 import { useTranslation } from 'react-i18next'
 import { useSharedWebSocket } from '../hooks/useSharedWebSocket'
 import type { RailPrDecision, RailPrDecisionAction, RailPrStateSnapshot } from '../types'
-import { coerceRailPrStateSnapshot } from '../lib/pr-delivery'
+import { coerceRailPrStateSnapshot, comparePrSnapshotUpdatedAt } from '../lib/pr-delivery'
 
 /**
  * Ask-first PR decisions per rail (safe-pr-review-flow), keyed by railIndex.
@@ -22,6 +22,8 @@ import { coerceRailPrStateSnapshot } from '../lib/pr-delivery'
  */
 
 /** Result of a POST /rails/pr-decision call, HTTP status + parsed body. */
+export type RailPrSnapshotApplication = 'accepted' | 'stale' | 'untracked'
+
 export interface RailPrActResult {
   status: number
   ok: boolean
@@ -31,12 +33,18 @@ export interface RailPrActResult {
   merged?: boolean
   error?: string
   detail?: string
+  deliveryVerified?: boolean
+  verifiedSha?: string | null
+  remoteHeadSha?: string | null
+  pushed?: boolean
   current?: string
   /** merge_local_blocked precondition (`wrong_branch` | `dirty`). */
   reason?: string
   base?: string
   /** Authoritative post-action state; applied immediately even if WS is lost. */
   snapshot?: RailPrStateSnapshot | null
+  /** Whether that snapshot still belonged to the active delivery generation. */
+  snapshotApplication?: RailPrSnapshotApplication
   /** A concurrent surface currently owns the durable operation lease. */
   busy?: boolean
   operation?: RailPrDecisionAction | null
@@ -55,9 +63,14 @@ interface RailPrDecisionContextValue {
   /** True after the initial GET /rails seed for the active project has settled. */
   hydrated: boolean
   /** POST the decision action for the rail's active delivery. Never throws. */
-  act: (railIndex: number, action: RailPrDecisionAction, expectedDecision: RailPrDecision) => Promise<RailPrActResult>
+  act: (
+    railIndex: number,
+    action: RailPrDecisionAction,
+    expectedDecision: RailPrDecision,
+    expectedPrDeliveryId: string,
+  ) => Promise<RailPrActResult>
   /** Checkout the rail's delivered PR branch into the user's main repo. */
-  checkout: (railIndex: number) => Promise<RailPrCheckoutResult>
+  checkout: (railIndex: number, expectedPrDeliveryId: string) => Promise<RailPrCheckoutResult>
 }
 
 const noopAct = async (): Promise<RailPrActResult> => ({ status: 0, ok: false, error: 'no_provider' })
@@ -97,6 +110,10 @@ const PR_OPERATIONS: ReadonlySet<string> = new Set([
   'create-pr', 'publish', 'discard', 'poll-merge', 'merge-local', 'dismiss', 'reopen', 'acknowledge-no-changes',
 ])
 
+function snapshotsMatch(a: RailPrStateSnapshot, b: RailPrStateSnapshot): boolean {
+  return JSON.stringify(a) === JSON.stringify(b)
+}
+
 export function RailPrDecisionProvider({ activeProjectId, children }: { activeProjectId: string | null; children: React.ReactNode }) {
   const { t } = useTranslation('dashboard')
   const [decisions, setDecisions] = useState<Map<number, RailPrStateSnapshot>>(new Map())
@@ -112,19 +129,101 @@ export function RailPrDecisionProvider({ activeProjectId, children }: { activePr
   // while its GET was in flight, instead of dropping every other seeded card.
   const railVersionsRef = useRef<Map<number, number>>(new Map())
   const hydrateRequestRef = useRef(0)
+  const supersededDeliveryIdsRef = useRef(new Set<string>())
+  // Exact rollback lineage: predecessor A -> replacement B. Unlike the broad
+  // tombstone set, this map can authorize only A.restoredFromDeliveryId === B.
+  const supersededByDeliveryIdRef = useRef(new Map<string, string>())
+  const terminalDeliveryIdsRef = useRef(new Set<string>())
+  const acceptedRestorationsRef = useRef(new Map<string, string>())
 
-  const applySnapshot = useCallback((snap: RailPrStateSnapshot, announceTerminal = true): void => {
+  const applySnapshot = useCallback((snap: RailPrStateSnapshot, announceTerminal = true): RailPrSnapshotApplication => {
     const currentMap = decisionsRef.current
     const current = currentMap.get(snap.railIndex)
-    if (TERMINAL_DECISIONS.has(snap.decision)) {
+    const terminal = TERMINAL_DECISIONS.has(snap.decision)
+    const restorationSource = snap.restoredFromDeliveryId ?? null
+    const knownSuperseder = supersededByDeliveryIdRef.current.get(snap.prDeliveryId)
+    const currentSuperseder = current?.supersedesDeliveryId === snap.prDeliveryId
+      ? current.prDeliveryId
+      : null
+    const explicitRestoration = Boolean(
+      restorationSource &&
+      acceptedRestorationsRef.current.get(snap.prDeliveryId) !== restorationSource &&
+      (!knownSuperseder || knownSuperseder === restorationSource) &&
+      (!currentSuperseder || currentSuperseder === restorationSource),
+    )
+
+    if (current?.prDeliveryId === snap.prDeliveryId) {
+      const order = comparePrSnapshotUpdatedAt(current.updatedAt, snap.updatedAt)
+      if (order === -1) return 'stale'
+      // SQLite timestamps have one-second precision. A conflicting tie is not
+      // causal proof of freshness, even when one payload looks more advanced;
+      // focus/reconnect hydration converges the durable row without guessing.
+      if (order === 0 && !snapshotsMatch(current, snap)) return 'stale'
+      if (order === 0 && snapshotsMatch(current, snap)) return 'accepted'
+    }
+
+    if (!terminal && (
+      terminalDeliveryIdsRef.current.has(snap.prDeliveryId) ||
+      supersededDeliveryIdsRef.current.has(snap.prDeliveryId)
+    ) && !explicitRestoration) return 'stale'
+
+    let replacesCurrentGeneration = false
+    if (current && current.prDeliveryId !== snap.prDeliveryId) {
+      if (explicitRestoration && current.prDeliveryId === restorationSource) {
+        replacesCurrentGeneration = true
+      } else {
+        const explicitlySupersedesCurrent = snap.supersedesDeliveryId === current.prDeliveryId
+        const currentSupersedesIncoming = current.supersedesDeliveryId === snap.prDeliveryId ||
+          supersededDeliveryIdsRef.current.has(snap.prDeliveryId)
+        const incomingCreated = snap.createdAt ? Date.parse(snap.createdAt) : Number.NaN
+        const currentCreated = current.createdAt ? Date.parse(current.createdAt) : Number.NaN
+        const demonstrablyNewer = Number.isFinite(incomingCreated) && Number.isFinite(currentCreated) &&
+          incomingCreated > currentCreated
+        if (currentSupersedesIncoming || (!explicitlySupersedesCurrent && !demonstrablyNewer)) {
+          if (terminal) terminalDeliveryIdsRef.current.add(snap.prDeliveryId)
+          if (snap.decision === 'superseded') supersededDeliveryIdsRef.current.add(snap.prDeliveryId)
+          return terminal ? 'untracked' : 'stale'
+        }
+        replacesCurrentGeneration = true
+      }
+    }
+    if (explicitRestoration && restorationSource) {
+      terminalDeliveryIdsRef.current.delete(snap.prDeliveryId)
+      supersededDeliveryIdsRef.current.delete(snap.prDeliveryId)
+      terminalDeliveryIdsRef.current.add(restorationSource)
+      acceptedRestorationsRef.current.set(snap.prDeliveryId, restorationSource)
+      supersededByDeliveryIdRef.current.set(snap.prDeliveryId, restorationSource)
+    }
+    if (terminal) {
+      terminalDeliveryIdsRef.current.add(snap.prDeliveryId)
+      if (snap.decision === 'superseded') supersededDeliveryIdsRef.current.add(snap.prDeliveryId)
       // A late terminal event from superseded generation A must never erase
       // active generation B merely because they share a rail index. Crucially,
       // an ignored terminal is not a rail mutation: versioning it would make an
       // in-flight hydration discard a valid generation B returned by the GET.
-      if (!current || current.prDeliveryId !== snap.prDeliveryId) return
+      if (!current || current.prDeliveryId !== snap.prDeliveryId) return 'untracked'
       if (announceTerminal) {
+        if (snap.safetyArchives?.length) {
+          const archivePaths = snap.safetyArchives.join('\n')
+          toast.warning(t('railPr.safetyArchiveTitle', { count: snap.safetyArchives.length }), {
+            description: `${t('railPr.safetyArchiveHint')}\n${archivePaths}`,
+            duration: Infinity,
+            action: {
+              label: t('railPr.copySafetyArchive'),
+              onClick: () => { void navigator.clipboard?.writeText(archivePaths) },
+            },
+          })
+        }
         if (snap.cleanupWarnings?.length) {
-          toast.warning(t('railPr.cleanupIncomplete', { count: snap.cleanupWarnings.length }))
+          const cleanupDetails = snap.cleanupWarnings.join('\n')
+          toast.warning(t('railPr.cleanupIncomplete', { count: snap.cleanupWarnings.length }), {
+            description: `${t('railPr.cleanupIncompleteHint')}\n${cleanupDetails}`,
+            duration: Infinity,
+            action: {
+              label: t('railPr.copyCleanupDetails'),
+              onClick: () => { void navigator.clipboard?.writeText(cleanupDetails) },
+            },
+          })
         } else if (snap.decision === 'merged') {
           toast.success(t('railPr.mergedToast'))
         } else if (snap.decision === 'discarded') {
@@ -133,10 +232,16 @@ export function RailPrDecisionProvider({ activeProjectId, children }: { activePr
           toast.success(t('railPr.completedToast'))
         }
       }
+    } else {
+      if (snap.supersedesDeliveryId) {
+        supersededDeliveryIdsRef.current.add(snap.supersedesDeliveryId)
+        supersededByDeliveryIdRef.current.set(snap.supersedesDeliveryId, snap.prDeliveryId)
+      }
+      if (replacesCurrentGeneration && current) supersededDeliveryIdsRef.current.add(current.prDeliveryId)
     }
 
     const next = new Map(currentMap)
-    if (TERMINAL_DECISIONS.has(snap.decision)) {
+    if (terminal) {
       next.delete(snap.railIndex)
     } else {
       next.set(snap.railIndex, snap)
@@ -144,6 +249,7 @@ export function RailPrDecisionProvider({ activeProjectId, children }: { activePr
     railVersionsRef.current.set(snap.railIndex, (railVersionsRef.current.get(snap.railIndex) ?? 0) + 1)
     decisionsRef.current = next
     setDecisions(next)
+    return 'accepted'
   }, [t])
 
   const hydrate = useCallback(async (projectId: string, markReady: boolean): Promise<void> => {
@@ -157,7 +263,30 @@ export function RailPrDecisionProvider({ activeProjectId, children }: { activePr
       const seeded = new Map<number, RailPrStateSnapshot>()
       for (const [idxStr, raw] of Object.entries(data.prDeliveries ?? {})) {
         const snap = fromServerSnapshot(raw, Number(idxStr))
-        if (snap && !TERMINAL_DECISIONS.has(snap.decision)) seeded.set(Number(idxStr), snap)
+        const current = decisionsRef.current.get(snap?.railIndex ?? Number(idxStr))
+        const restorationSource = snap?.restoredFromDeliveryId ?? null
+        const knownSuperseder = snap
+          ? supersededByDeliveryIdRef.current.get(snap.prDeliveryId)
+          : undefined
+        const currentSuperseder = snap && current?.supersedesDeliveryId === snap.prDeliveryId
+          ? current.prDeliveryId
+          : null
+        const explicitRestoration = Boolean(
+          snap && restorationSource &&
+          acceptedRestorationsRef.current.get(snap.prDeliveryId) !== restorationSource &&
+          (!knownSuperseder || knownSuperseder === restorationSource) &&
+          (!currentSuperseder || currentSuperseder === restorationSource),
+        )
+        if (
+          snap &&
+          !TERMINAL_DECISIONS.has(snap.decision) &&
+          (explicitRestoration || (
+            !terminalDeliveryIdsRef.current.has(snap.prDeliveryId) &&
+            !supersededDeliveryIdsRef.current.has(snap.prDeliveryId)
+          ))
+        ) {
+          seeded.set(Number(idxStr), snap)
+        }
       }
       const current = decisionsRef.current
       const next = new Map(seeded)
@@ -170,6 +299,25 @@ export function RailPrDecisionProvider({ activeProjectId, children }: { activePr
         const live = current.get(railIndex)
         if (live) next.set(railIndex, live)
         else next.delete(railIndex)
+      }
+      for (const snap of next.values()) {
+        if (snap.supersedesDeliveryId) {
+          supersededDeliveryIdsRef.current.add(snap.supersedesDeliveryId)
+          supersededByDeliveryIdRef.current.set(snap.supersedesDeliveryId, snap.prDeliveryId)
+        }
+        const restorationSource = snap.restoredFromDeliveryId
+        if (
+          restorationSource &&
+          acceptedRestorationsRef.current.get(snap.prDeliveryId) !== restorationSource &&
+          (!supersededByDeliveryIdRef.current.get(snap.prDeliveryId) ||
+            supersededByDeliveryIdRef.current.get(snap.prDeliveryId) === restorationSource)
+        ) {
+          terminalDeliveryIdsRef.current.delete(snap.prDeliveryId)
+          supersededDeliveryIdsRef.current.delete(snap.prDeliveryId)
+          terminalDeliveryIdsRef.current.add(restorationSource)
+          acceptedRestorationsRef.current.set(snap.prDeliveryId, restorationSource)
+          supersededByDeliveryIdRef.current.set(snap.prDeliveryId, restorationSource)
+        }
       }
       decisionsRef.current = next
       setDecisions(next)
@@ -193,6 +341,10 @@ export function RailPrDecisionProvider({ activeProjectId, children }: { activePr
     setDecisions(empty)
     setHydrated(false)
     railVersionsRef.current = new Map()
+    supersededDeliveryIdsRef.current = new Set()
+    supersededByDeliveryIdRef.current = new Map()
+    terminalDeliveryIdsRef.current = new Set()
+    acceptedRestorationsRef.current = new Map()
     if (!activeProjectId) {
       setHydrated(true)
       return
@@ -235,10 +387,24 @@ export function RailPrDecisionProvider({ activeProjectId, children }: { activePr
   // The ONE decision-action caller. This is not an optimistic write: the map
   // advances only from the server's authoritative response snapshot. A later
   // rail.pr_state broadcast is an idempotent convergence path.
-  const act = useCallback(async (railIndex: number, action: RailPrDecisionAction, expectedDecision: RailPrDecision): Promise<RailPrActResult> => {
+  const act = useCallback(async (
+    railIndex: number,
+    action: RailPrDecisionAction,
+    expectedDecision: RailPrDecision,
+    expectedPrDeliveryId: string,
+  ): Promise<RailPrActResult> => {
     const snap = decisionsRef.current.get(railIndex)
     const projectId = projRef.current
     if (!snap || !projectId) return { status: 0, ok: false, error: 'no_delivery' }
+    if (snap.prDeliveryId !== expectedPrDeliveryId) {
+      return {
+        status: 409,
+        ok: false,
+        error: 'stale_decision',
+        current: snap.decision,
+        snapshotApplication: 'stale',
+      }
+    }
     try {
       const res = await fetch(`/api/projects/${projectId}/rails/pr-decision`, {
         method: 'POST',
@@ -247,12 +413,14 @@ export function RailPrDecisionProvider({ activeProjectId, children }: { activePr
       })
       const body = (await res.json().catch(() => ({}))) as Omit<RailPrActResult, 'status' | 'snapshot'> & { snapshot?: unknown }
       const authoritative = coerceRailPrStateSnapshot(body.snapshot)
+      let snapshotApplication: RailPrSnapshotApplication | undefined
       if (authoritative && projRef.current === projectId) {
-        applySnapshot(authoritative)
+        snapshotApplication = applySnapshot(authoritative)
       }
       return {
         ...body,
         snapshot: authoritative,
+        snapshotApplication,
         busy: res.status === 409 && body.error === 'operation_in_progress',
         operation: authoritative?.operation ?? (
           typeof body.operation === 'string' && PR_OPERATIONS.has(body.operation)
@@ -267,10 +435,16 @@ export function RailPrDecisionProvider({ activeProjectId, children }: { activePr
     }
   }, [applySnapshot])
 
-  const checkout = useCallback(async (railIndex: number): Promise<RailPrCheckoutResult> => {
+  const checkout = useCallback(async (
+    railIndex: number,
+    expectedPrDeliveryId: string,
+  ): Promise<RailPrCheckoutResult> => {
     const snap = decisionsRef.current.get(railIndex)
     const projectId = projRef.current
     if (!snap || !projectId) return { status: 0, ok: false, error: 'no_delivery' }
+    if (snap.prDeliveryId !== expectedPrDeliveryId) {
+      return { status: 409, ok: false, error: 'stale_decision', detail: 'The delivery generation changed before checkout.' }
+    }
     try {
       const res = await fetch(`/api/projects/${projectId}/rails/pr-checkout`, {
         method: 'POST',

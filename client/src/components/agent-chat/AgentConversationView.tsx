@@ -177,6 +177,7 @@ export function AgentConversationView({ variant }: { variant: 'floating' | 'inli
             if (m.role === 'system') {
               const envelope = prCards.byMessageId.get(m.id)
               if (!envelope) {
+                if (prCards.duplicateMessageIds.has(m.id)) return null
                 if (!warnedSystemRows.has(m.id)) {
                   warnedSystemRows.add(m.id)
                   console.warn(`[agent-chat] skipping unrenderable system message ${m.id}`)

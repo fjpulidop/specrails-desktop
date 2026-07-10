@@ -51,6 +51,36 @@ export function isInterruptedPrDeliveryOperation(
 const asString = (v: unknown): string | null => typeof v === 'string' && v.length > 0 ? v : null
 const asNullableString = (v: unknown): string | null => typeof v === 'string' && v.length > 0 ? v : null
 
+function parseDurableTimestamp(value: string | null | undefined): number | null {
+  if (!value) return null
+  // SQLite's datetime('now') wire value is UTC but omits both `T` and `Z`.
+  // Normalize that exact durable shape before falling back to ordinary ISO.
+  const sqliteUtc = /^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}$/.test(value)
+    ? `${value.replace(' ', 'T')}Z`
+    : value
+  const parsed = Date.parse(sqliteUtc)
+  return Number.isFinite(parsed) ? parsed : null
+}
+
+/** Compare two durable PR snapshot versions by `updatedAt`.
+ *
+ * Returns the INCOMING snapshot's order relative to CURRENT, or `null` when
+ * either timestamp is absent/malformed. Equal timestamps are intentionally
+ * explicit: SQLite stores these values at one-second precision, so callers
+ * must not mistake a tie for proof that a conflicting payload is newer.
+ */
+export function comparePrSnapshotUpdatedAt(
+  current: string | null | undefined,
+  incoming: string | null | undefined,
+): -1 | 0 | 1 | null {
+  const currentMs = parseDurableTimestamp(current)
+  const incomingMs = parseDurableTimestamp(incoming)
+  if (currentMs == null || incomingMs == null) return null
+  if (incomingMs < currentMs) return -1
+  if (incomingMs > currentMs) return 1
+  return 0
+}
+
 function coerceUnit(v: unknown): RailPrUnitOutcome | null {
   if (!v || typeof v !== 'object') return null
   const o = v as Record<string, unknown>
@@ -110,6 +140,8 @@ export function coerceRailPrStateSnapshot(v: unknown, fallbackRailIndex?: number
       ? o.runIds.filter((id): id is string => typeof id === 'string' && id.length > 0)
       : units.map((unit) => unit.runId).filter((id): id is string => typeof id === 'string' && id.length > 0),
     originConversationId: asNullableString(o.originConversationId),
+    createdAt: typeof o.createdAt === 'string' ? o.createdAt : undefined,
+    updatedAt: typeof o.updatedAt === 'string' ? o.updatedAt : undefined,
     ...(implementationOutcome ? { implementationOutcome } : {}),
     ...(deliveryOutcome ? { deliveryOutcome } : {}),
     statusCode: asNullableString(o.statusCode),
@@ -117,11 +149,15 @@ export function coerceRailPrStateSnapshot(v: unknown, fallbackRailIndex?: number
     deliverySha: asNullableString(o.deliverySha),
     isContinuation: o.isContinuation === true,
     supersedesDeliveryId: asNullableString(o.supersedesDeliveryId),
+    restoredFromDeliveryId: asNullableString(o.restoredFromDeliveryId),
     operation: typeof o.operation === 'string' && OPERATIONS.has(o.operation)
       ? o.operation as RailPrStateSnapshot['operation']
       : null,
     cleanupWarnings: Array.isArray(o.cleanupWarnings)
       ? o.cleanupWarnings.filter((warning): warning is string => typeof warning === 'string' && warning.length > 0)
+      : [],
+    safetyArchives: Array.isArray(o.safetyArchives)
+      ? o.safetyArchives.filter((archive): archive is string => typeof archive === 'string' && archive.length > 0)
       : [],
     units,
   }
@@ -138,6 +174,7 @@ export interface PrDeliverySemanticInput {
   statusDetail?: string | null
   isContinuation?: boolean
   cleanupWarnings?: string[]
+  safetyArchives?: string[]
   units?: RailPrUnitOutcome[]
 }
 
@@ -160,6 +197,7 @@ export interface PrDeliveryPresentation {
   totalCount: number
   units: RailPrUnitOutcome[]
   cleanupWarnings: string[]
+  safetyArchives: string[]
 }
 
 /** ONE semantic derivation shared by dashboard and agent-chat cards. */
@@ -183,15 +221,28 @@ export function derivePrDeliveryPresentation(input: PrDeliverySemanticInput): Pr
     input.implementationOutcome == null && input.decision === 'implementation_failed'
   )
   const retryableFailure = input.deliveryOutcome === 'retryable_failure'
-  const deliveryBlocked = (!retryableFailure && partialUndeliverable) || input.deliveryOutcome === 'blocked' || [
-    'commit_failed', 'branch_verification_failed', 'settlement_interrupted',
-    'status_failed', 'ref_mismatch',
-  ].includes(input.statusCode ?? '') || (!retryableFailure && input.statusCode === 'delivery_failed')
+  // Outcome precedence is deliberately exclusive. Historical recovery rows can
+  // retain a blocked-looking status code (notably settlement_interrupted) after
+  // the exact commit has become retryable, while an implementation failure may
+  // also carry delivery diagnostics. Neither must steal the card from the more
+  // actionable/truthful state.
+  const deliveryBlocked = !implementationFailed && !retryableFailure && (
+    partialUndeliverable || input.deliveryOutcome === 'blocked' || [
+      'commit_failed', 'branch_verification_failed', 'settlement_interrupted',
+      'status_failed', 'ref_mismatch', 'delivery_failed',
+    ].includes(input.statusCode ?? '')
+  )
+  // Card/ticket semantics follow the durable generation contract. Per-unit
+  // branch ownership is a cleanup constraint only: a fresh replacement PR can
+  // borrow or predate a branch and still be safely discarded without deleting
+  // that protected ref. Startup repairs legacy continuation bits before
+  // actions are admitted, so presentation must not infer them from failures or
+  // ownership.
   const continuation = input.isContinuation === true
-  const retryablePush = retryableFailure && (
+  const retryablePush = !implementationFailed && retryableFailure && (
     input.statusCode === 'push_failed' || continuation || Boolean(input.prUrl)
   )
-  const retryablePrCreation = retryableFailure && !retryablePush
+  const retryablePrCreation = !implementationFailed && retryableFailure && !retryablePush
   const closed = input.decision === 'pr_closed'
   const superseded = input.decision === 'superseded'
   return {
@@ -213,5 +264,6 @@ export function derivePrDeliveryPresentation(input: PrDeliverySemanticInput): Pr
     totalCount: units.length > 0 ? units.length : input.ticketIds.length,
     units,
     cleanupWarnings: input.cleanupWarnings ?? [],
+    safetyArchives: input.safetyArchives ?? [],
   }
 }
