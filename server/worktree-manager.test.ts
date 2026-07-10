@@ -194,13 +194,13 @@ describe('commitWorktree', () => {
     const git: GitRunner = { run: async () => { throw new Error('git gone') } }
     await expect(commitWorktree(git, '/wt/1', 'x')).resolves.toBeUndefined()
   })
-  it('excludes overlay-owned paths from the add via :(exclude) pathspecs', async () => {
+  it('excludes overlay-owned paths from the add via literal pathspecs', async () => {
     const { git, calls } = fakeGit()
     await commitWorktree(git, '/wt/ticket-1', 'wip', ['.claude/commands/specrails', '.sr-rail-overlay.json'])
     expect(calls).toContainEqual([
       ...baseAddArgs,
-      ':(exclude).claude/commands/specrails',
-      ':(exclude).sr-rail-overlay.json',
+      ':(top,exclude,literal).claude/commands/specrails',
+      ':(top,exclude,literal).sr-rail-overlay.json',
     ])
     expect(calls).toContainEqual(['commit', '-m', 'wip'])
   })
@@ -229,8 +229,8 @@ describe('commitWorktree', () => {
       run: async (args) => {
         if (args[0] === 'status') {
           expect(args).toEqual(expect.arrayContaining([
-            ':(exclude).claude/commands/specrails',
-            ':(exclude).sr-rail-overlay.json',
+            ':(top,exclude,literal).claude/commands/specrails',
+            ':(top,exclude,literal).sr-rail-overlay.json',
           ]))
         }
         return { code: 0, stdout: '', stderr: '' }
@@ -238,6 +238,13 @@ describe('commitWorktree', () => {
     }
     const result = await commitWorktreeAndVerify(git, '/wt/ticket-1', 'wip', ['.claude/commands/specrails', '.sr-rail-overlay.json'])
     expect(result.clean).toBe(true)
+  })
+  it('treats glob metacharacters in an overlay filename literally', async () => {
+    const { git, calls } = fakeGit()
+    await commitWorktree(git, '/wt/ticket-1', 'wip', ['.claude/rules/user[1]*.md'])
+    expect(calls.find((call) => call[0] === 'add')).toContain(
+      ':(top,exclude,literal).claude/rules/user[1]*.md',
+    )
   })
 })
 

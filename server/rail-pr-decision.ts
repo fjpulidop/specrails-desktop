@@ -27,21 +27,23 @@
  * without git/gh/net — the route in rails-router validates and delegates here.
  */
 import * as path from 'path'
+import * as fs from 'fs'
 import { resolveHome } from './artifact-registry'
 import type { DbInstance } from './db'
-import { removeWorktree, type GitRunner } from './worktree-manager'
+import type { GitRunner } from './worktree-manager'
 import { publishDraftPr, pushBranch, type Exec, type ExecResult } from './pr-publisher'
 import { deliverRailAsPr } from './rail-pr-delivery'
-import { releaseRailWorktrees } from './rail-worktree-release'
+import { durableBranchHeads, durableOverlayCleanupEvidence, releaseRailWorktrees } from './rail-worktree-release'
 import { batchBranchNameFor, buildPrTitle, type TicketNamingInput } from './pr-naming'
 import { buildCanonicalPrBody, collectBranchChanges, type BranchChanges } from './pr-body'
 import { getLinkByLocalId } from './jira/jira-db'
 import {
-  claimPrDeliveryOperation, getPrDelivery, releasePrDeliveryOperation, transitionClaimedDecision,
+  appendPrDeliverySafetyArchive, claimPrDeliveryOperation, getPrDelivery,
+  releasePrDeliveryOperation, transitionClaimedDecision,
   toPrDeliverySnapshot, toRailPrStateMessage, toPrDecisionCardEnvelope,
   type DeliverBranchRecord, type PrDecision, type PrDeliveryPatch, type PrDeliverySnapshot, type RailPrDeliveryRow,
 } from './rail-pr-store'
-import { getRailWorktree, updateRailWorktreeState, isTerminalMergeState } from './rail-worktrees-store'
+import { getRailWorktree } from './rail-worktrees-store'
 import { readStore, resolveTicketStoragePath } from './ticket-store'
 import { resolveProjectExecution } from './workspace-resolution'
 import { getAgentChatManager } from './agent-chat-registry'
@@ -52,11 +54,24 @@ import {
   transitionClaimedDecisionWithTicketEffect,
   type RailPrTicketEffect,
 } from './rail-pr-ticket-effects'
-import { isExactOpenPr, observePrLifecycle as observeGithubPrLifecycle, type PrLifecycleObservation } from './pr-lifecycle'
+import {
+  isExactOpenPr,
+  matchesRecordedPrIdentity,
+  observePrLifecycle as observeGithubPrLifecycle,
+  type PrLifecycleObservation,
+} from './pr-lifecycle'
 import type { WsMessage, PrDecisionCardEnvelope } from './types'
 
 export const PR_DECISION_ACTIONS = ['create-pr', 'publish', 'discard', 'dismiss', 'poll-merge', 'reopen', 'merge-local', 'acknowledge-no-changes'] as const
 export type PrDecisionAction = (typeof PR_DECISION_ACTIONS)[number]
+
+function safetyArchiveRecorder(deps: PrDecisionDeps, row: RailPrDeliveryRow) {
+  return (archive: string): void => {
+    if (!appendPrDeliverySafetyArchive(deps.db, row.id, archive)) {
+      throw new Error(`delivery ${row.id} disappeared while recording safety archive ${archive}`)
+    }
+  }
+}
 
 export function isPrDecisionAction(v: unknown): v is PrDecisionAction {
   return typeof v === 'string' && (PR_DECISION_ACTIONS as readonly string[]).includes(v)
@@ -311,6 +326,63 @@ function ownedDeliveryBranches(
   return owned
 }
 
+function immutableHeadForOwnedBranch(
+  row: RailPrDeliveryRow,
+  snap: PrDeliverySnapshot,
+  branch: string,
+): string | null {
+  if (branch === row.branch && row.delivery_sha && COMMIT_SHA_RE.test(row.delivery_sha)) {
+    return row.delivery_sha.toLowerCase()
+  }
+  const unitHeads = new Set(
+    snap.branches
+      .filter((unit) => unitWasDelivered(unit) && unit.branch === branch && unit.finalSha && COMMIT_SHA_RE.test(unit.finalSha))
+      .map((unit) => unit.finalSha!.toLowerCase()),
+  )
+  return unitHeads.size === 1 ? [...unitHeads][0] : null
+}
+
+async function deleteOwnedBranchesIfUnchanged(
+  deps: PrDecisionDeps,
+  row: RailPrDeliveryRow,
+  snap: PrDeliverySnapshot,
+  cleanupWarnings: string[],
+  protectedBranches: ReadonlySet<string> = new Set(),
+): Promise<void> {
+  for (const branch of ownedDeliveryBranches(row, snap, cleanupWarnings)) {
+    if (!branch || branch === row.base_branch) continue
+    // A failed release leaves the linked worktree mounted for inspection. Do
+    // not even attempt to delete its checked-out branch: preserving the files
+    // while erasing their durable ref would make the recovery story depend on
+    // Git's incidental checked-out-branch rejection.
+    if (protectedBranches.has(branch)) {
+      cleanupWarnings.push(`branch ${branch}: retained with its worktree for inspection`)
+      continue
+    }
+    try {
+      const expectedHead = immutableHeadForOwnedBranch(row, snap, branch)
+      if (!expectedHead) {
+        cleanupWarnings.push(`branch ${branch}: retained because no unambiguous immutable delivered HEAD was recorded`)
+        continue
+      }
+      const observed = await deps.git.run(['rev-parse', '--verify', `refs/heads/${branch}`], deps.project.path)
+      const observedHead = observed.code === 0 ? observed.stdout.trim().toLowerCase() : ''
+      if (!COMMIT_SHA_RE.test(observedHead) || observedHead !== expectedHead) {
+        cleanupWarnings.push(
+          `branch ${branch}: retained because its current tip no longer matches delivered HEAD ${expectedHead.slice(0, 12)}`,
+        )
+        continue
+      }
+      const deleted = await deps.git.run(['branch', '-D', branch], deps.project.path)
+      if (deleted.code !== 0) {
+        cleanupWarnings.push(`branch ${branch}: ${(deleted.stderr.trim() || deleted.stdout.trim()).split('\n')[0] || `exit ${deleted.code}`}`)
+      }
+    } catch (err) {
+      cleanupWarnings.push(`branch ${branch}: ${err instanceof Error ? err.message : String(err)}`)
+    }
+  }
+}
+
 function releasableWorktreeIds(
   deps: PrDecisionDeps,
   snap: PrDeliverySnapshot,
@@ -320,14 +392,6 @@ function releasableWorktreeIds(
     const wt = getRailWorktree(deps.db, id)
     return !wt || !preservedBranches.has(wt.branch)
   })
-}
-
-async function observePrLifecycle(
-  deps: PrDecisionDeps,
-  prUrl: string,
-): Promise<{ state: string; isDraft: boolean } | null> {
-  const observed = await observeGithubPrLifecycle(deps.exec, deps.project.path, prUrl)
-  return observed.ok ? { state: observed.state, isDraft: observed.isDraft } : null
 }
 
 function mergedEvidenceDetail(observation: PrLifecycleObservation): string {
@@ -346,15 +410,19 @@ async function rerouteFromStalePr(
   const cleanupWarnings = await releaseRailWorktrees({
     db: deps.db, git: deps.git, repoDir: deps.project.path,
     worktreeIds: releasableWorktreeIds(deps, snap),
+    expectedHeadByBranch: durableBranchHeads(snap.branches),
+    overlayEvidenceByBranch: durableOverlayCleanupEvidence(snap.branches),
+    onSafetyArchive: safetyArchiveRecorder(deps, row),
   })
   const partial = row.implementation_outcome === 'partially_succeeded'
+  const preserved = row.delivery_sha ? 'the preserved exact commit' : 'the preserved recorded branch'
   const conflict = casTransition(deps, row, 'on_review', {
     prUrl: null,
     prNumber: null,
     prState: exactWasPushed ? 'pushed' : 'local-only',
     deliveryOutcome: partial ? 'partial' : 'ready',
     statusCode: cleanupWarnings.length > 0 ? 'cleanup_incomplete' : partial ? 'partial_success' : 'ready_for_review',
-    statusDetail: `${detail}; create a new draft PR from the preserved exact commit`,
+    statusDetail: `${detail}; create a new draft PR from ${preserved}`,
     cleanupWarnings,
     // The replacement PR belongs to this generation. Per-unit branch ownership
     // remains unchanged so a borrowed/pre-existing ref is still never deleted.
@@ -379,6 +447,7 @@ async function settleObservedExistingPr(
   deps: PrDecisionDeps,
   row: RailPrDeliveryRow,
   observation: PrLifecycleObservation,
+  pushed: boolean,
 ): Promise<PrDecisionResult> {
   const next: Extract<PrDecision, 'pr_draft' | 'pr_ready'> =
     observation.state === 'MERGED' || observation.isDraft === false ? 'pr_ready' : 'pr_draft'
@@ -386,16 +455,71 @@ async function settleObservedExistingPr(
   const cleanupWarnings = await releaseRailWorktrees({
     db: deps.db, git: deps.git, repoDir: deps.project.path,
     worktreeIds: releasableWorktreeIds(deps, snap),
+    expectedHeadByBranch: durableBranchHeads(snap.branches),
+    overlayEvidenceByBranch: durableOverlayCleanupEvidence(snap.branches),
+    onSafetyArchive: safetyArchiveRecorder(deps, row),
   })
   const conflict = casTransition(deps, row, next, {
     prState: 'pr-created',
     deliveryOutcome: 'delivered',
     statusCode: cleanupWarnings.length > 0 ? 'cleanup_incomplete' : next === 'pr_ready' ? 'pr_ready' : 'existing_pr_updated',
+    statusDetail: null,
     cleanupWarnings,
   })
   if (conflict) return conflict
   const after = finalizeTransition(deps, row.id)
-  return { status: 200, body: { ok: true, decision: next, prUrl: after?.prUrl ?? row.pr_url, prState: 'pr-created' } }
+  return {
+    status: 200,
+    body: {
+      ok: true,
+      decision: next,
+      prUrl: after?.prUrl ?? row.pr_url,
+      prState: 'pr-created',
+      deliveryVerified: true,
+      verifiedSha: row.delivery_sha,
+      remoteHeadSha: observation.headRefOid,
+      pushed,
+    },
+  }
+}
+
+async function settleObservedClosedPr(
+  deps: PrDecisionDeps,
+  row: RailPrDeliveryRow,
+  observation: PrLifecycleObservation,
+): Promise<PrDecisionResult> {
+  const snap = toPrDeliverySnapshot(row)
+  const cleanupWarnings = await releaseRailWorktrees({
+    db: deps.db, git: deps.git, repoDir: deps.project.path,
+    worktreeIds: releasableWorktreeIds(deps, snap),
+    expectedHeadByBranch: durableBranchHeads(snap.branches),
+    overlayEvidenceByBranch: durableOverlayCleanupEvidence(snap.branches),
+    onSafetyArchive: safetyArchiveRecorder(deps, row),
+  })
+  const conflict = casTransition(deps, row, 'pr_closed', {
+    prState: 'pr-created',
+    deliveryOutcome: 'delivered',
+    statusCode: cleanupWarnings.length > 0 ? 'cleanup_incomplete' : 'pr_closed',
+    statusDetail: null,
+    cleanupWarnings,
+  })
+  if (conflict) return conflict
+  const after = finalizeTransition(deps, row.id)
+  return {
+    status: 200,
+    body: {
+      ok: true,
+      decision: 'pr_closed',
+      closed: true,
+      merged: false,
+      prUrl: after?.prUrl ?? row.pr_url,
+      prState: 'pr-created',
+      deliveryVerified: true,
+      verifiedSha: row.delivery_sha,
+      remoteHeadSha: observation.headRefOid,
+      pushed: false,
+    },
+  }
 }
 
 function persistRetryablePrObservationFailure(
@@ -451,16 +575,34 @@ async function retryExistingPrFollowupPush(deps: PrDecisionDeps, row: RailPrDeli
     )
   }
   if (!isExactOpenPr(beforePush, row.branch, row.base_branch)) {
-    if (beforePush.state === 'MERGED' && beforePush.includesExpectedSha === true) {
-      return settleObservedExistingPr(deps, row, beforePush)
+    const identityMatches = matchesRecordedPrIdentity(beforePush, row.branch, row.base_branch)
+    if (beforePush.state === 'MERGED' && identityMatches && beforePush.includesExpectedSha === true) {
+      return settleMergedPr(deps, row)
     }
     if (beforePush.state === 'MERGED') {
-      return rerouteFromStalePr(deps, row, mergedEvidenceDetail(beforePush), false)
+      return rerouteFromStalePr(
+        deps,
+        row,
+        identityMatches ? mergedEvidenceDetail(beforePush) : 'the previous PR merged after its recorded head/base identity changed',
+        false,
+      )
     }
     if (beforePush.state === 'CLOSED') {
+      if (identityMatches && beforePush.includesExpectedSha === true) {
+        return settleObservedClosedPr(deps, row, beforePush)
+      }
       return rerouteFromStalePr(deps, row, 'the previous PR closed before this implementation was delivered', false)
     }
-    return persistMovedPrHead(deps, row, 'the existing PR no longer matches its recorded head/base; the verified commit was not pushed')
+    return rerouteFromStalePr(
+      deps,
+      row,
+      'the existing open PR no longer matches its recorded head/base identity',
+      false,
+    )
+  }
+
+  if (beforePush.includesExpectedSha === true) {
+    return settleObservedExistingPr(deps, row, beforePush, false)
   }
 
   const pushed = await pushBranch(deps.exec, {
@@ -490,23 +632,37 @@ async function retryExistingPrFollowupPush(deps: PrDecisionDeps, row: RailPrDeli
     )
   }
   if (isExactOpenPr(afterPush, row.branch, row.base_branch)) {
-    if (afterPush.headRefOid?.toLowerCase() !== row.delivery_sha.toLowerCase()) {
-      return persistMovedPrHead(
-        deps, row, 'the PR head moved after the exact push; the verified commit is preserved but no longer proven as the remote head',
+    if (afterPush.includesExpectedSha !== true) {
+      return persistRetryablePrObservationFailure(
+        deps, row, 'the exact push completed, but the PR does not yet expose the verified commit as its head; Retry push remains safe and uses the preserved SHA',
       )
     }
-    return settleObservedExistingPr(deps, row, afterPush)
+    return settleObservedExistingPr(deps, row, afterPush, true)
   }
-  if (afterPush.state === 'MERGED' && afterPush.includesExpectedSha === true) {
-    return settleObservedExistingPr(deps, row, afterPush)
+  const identityMatches = matchesRecordedPrIdentity(afterPush, row.branch, row.base_branch)
+  if (afterPush.state === 'MERGED' && identityMatches && afterPush.includesExpectedSha === true) {
+    return settleMergedPr(deps, row)
   }
   if (afterPush.state === 'MERGED') {
-    return rerouteFromStalePr(deps, row, mergedEvidenceDetail(afterPush), true)
+    return rerouteFromStalePr(
+      deps,
+      row,
+      identityMatches ? mergedEvidenceDetail(afterPush) : 'the previous PR merged after its recorded head/base identity changed',
+      true,
+    )
   }
   if (afterPush.state === 'CLOSED') {
+    if (identityMatches && afterPush.includesExpectedSha === true) {
+      return settleObservedClosedPr(deps, row, afterPush)
+    }
     return rerouteFromStalePr(deps, row, 'the previous PR closed before this implementation was delivered', true)
   }
-  return persistMovedPrHead(deps, row, 'the existing PR no longer matches its recorded head/base after the exact push')
+  return rerouteFromStalePr(
+    deps,
+    row,
+    'the existing open PR no longer matches its recorded head/base identity after the exact push',
+    true,
+  )
 }
 
 /** Naming + body data for a PR's ticket, resolved at create-pr time. */
@@ -589,10 +745,18 @@ async function runCreatePr(deps: PrDecisionDeps, row: RailPrDeliveryRow): Promis
   // belongs to the same ticket.
   let effectiveBranches = snap.branches
   let branchEvidenceCaptured = false
+  const singleDeliverable = snap.branches.filter((unit) => unit.succeeded).length === 1
+  const frozenSingleSha = singleDeliverable && row.delivery_sha && COMMIT_SHA_RE.test(row.delivery_sha) &&
+    await commitObjectExists(deps, row.delivery_sha)
+    ? row.delivery_sha
+    : null
   for (let index = 0; index < snap.branches.length; index++) {
     const unit = snap.branches[index]
     if (!unit.succeeded) continue
-    let sourceSha = unit.finalSha && COMMIT_SHA_RE.test(unit.finalSha) ? unit.finalSha : null
+    // A detached/stale single-unit delivery already has authoritative immutable
+    // evidence. Prefer it over both legacy unit gaps and a branch ref that may
+    // have advanced while the card waited for the user's decision.
+    let sourceSha = frozenSingleSha ?? (unit.finalSha && COMMIT_SHA_RE.test(unit.finalSha) ? unit.finalSha : null)
     if (sourceSha) {
       if (!(await commitObjectExists(deps, sourceSha))) sourceSha = null
     } else {
@@ -749,7 +913,11 @@ async function runCreatePr(deps: PrDecisionDeps, row: RailPrDeliveryRow): Promis
   if ((next === 'pr_draft' || next === 'pr_ready') && patch.prUrl) {
     patch.cleanupWarnings = await releaseRailWorktrees({
       db: deps.db, git: deps.git, repoDir: deps.project.path, worktreeIds: releasableWorktreeIds(deps, snap),
+      expectedHeadByBranch: durableBranchHeads(effectiveBranches),
+      overlayEvidenceByBranch: durableOverlayCleanupEvidence(effectiveBranches),
+      onSafetyArchive: safetyArchiveRecorder(deps, row),
     })
+    if (patch.cleanupWarnings.length > 0) patch.statusCode = 'cleanup_incomplete'
   }
   const conflict = casTransition(deps, row, next, patch)
   if (conflict) return conflict
@@ -768,37 +936,94 @@ async function runCreatePr(deps: PrDecisionDeps, row: RailPrDeliveryRow): Promis
 }
 
 async function runPublish(deps: PrDecisionDeps, row: RailPrDeliveryRow): Promise<PrDecisionResult> {
+  if (!row.delivery_sha || !row.branch) {
+    return persistMovedPrHead(
+      deps,
+      row,
+      'the draft PR has no immutable delivery SHA/head identity; refusing to mutate unverifiable review state',
+    )
+  }
+
+  const beforePublish = await observeGithubPrLifecycle(
+    deps.exec, deps.project.path, row.pr_url!, row.delivery_sha,
+  )
+  if (!beforePublish.ok) {
+    return { status: 502, body: { error: 'gh_failed', detail: beforePublish.detail } }
+  }
+  if (!matchesRecordedPrIdentity(beforePublish, row.branch, row.base_branch)) {
+    return rerouteFromStalePr(
+      deps,
+      row,
+      `the recorded PR is ${beforePublish.state.toLowerCase()} but no longer matches its original head/base identity`,
+      beforePublish.includesExpectedSha === true,
+    )
+  }
+  if (beforePublish.state === 'MERGED') {
+    return beforePublish.includesExpectedSha === true
+      ? settleMergedPr(deps, row)
+      : rerouteFromStalePr(deps, row, mergedEvidenceDetail(beforePublish), false)
+  }
+  if (beforePublish.state === 'CLOSED') {
+    return beforePublish.includesExpectedSha === true
+      ? settleObservedClosedPr(deps, row, beforePublish)
+      : rerouteFromStalePr(deps, row, 'the draft PR closed without the verified implementation commit', false)
+  }
+  if (beforePublish.includesExpectedSha !== true) {
+    return persistRetryablePrObservationFailure(
+      deps,
+      row,
+      'the draft PR no longer exposes the verified implementation commit; Retry push is available and will use the preserved exact SHA',
+    )
+  }
+  if (beforePublish.isDraft === false) {
+    return settleObservedExistingPr(deps, row, beforePublish, false)
+  }
+
   let r: ExecResult
   try {
     r = await deps.exec.run('gh', ['pr', 'ready', row.pr_url!], deps.project.path)
   } catch (err) {
     r = { code: 1, stdout: '', stderr: err instanceof Error ? err.message : String(err) }
   }
-  if (r.code !== 0) {
-    // Crash/timeout ambiguity: `gh` may have made the PR ready before the local
-    // command reported failure. Adopt exact remote truth instead of retrying
-    // forever on "already ready".
-    const lifecycle = await observePrLifecycle(deps, row.pr_url!)
-    if (lifecycle?.state === 'CLOSED') {
-      const conflict = casTransition(deps, row, 'pr_closed', {
-        deliveryOutcome: 'delivered', statusCode: 'pr_closed',
-      })
-      if (conflict) return conflict
-      finalizeTransition(deps, row.id)
-      return { status: 200, body: { ok: true, decision: 'pr_closed', closed: true, prUrl: row.pr_url } }
-    }
-    if (lifecycle?.state !== 'OPEN' || lifecycle.isDraft) return ghFailed(r)
+  // `gh pr ready` is externally mutating and may return an ambiguous error.
+  // Re-observe exact remote truth in every case before changing the ledger.
+  const afterPublish = await observeGithubPrLifecycle(
+    deps.exec, deps.project.path, row.pr_url!, row.delivery_sha,
+  )
+  if (!afterPublish.ok) {
+    if (r.code !== 0) return ghFailed(r)
+    return { status: 502, body: { error: 'gh_failed', detail: `PR readiness could not be verified: ${afterPublish.detail}` } }
   }
-  const snap = toPrDeliverySnapshot(row)
-  const cleanupWarnings = await releaseRailWorktrees({
-    db: deps.db, git: deps.git, repoDir: deps.project.path, worktreeIds: releasableWorktreeIds(deps, snap),
-  })
-  const conflict = casTransition(deps, row, 'pr_ready', {
-    deliveryOutcome: 'delivered', statusCode: 'pr_ready', cleanupWarnings,
-  })
-  if (conflict) return conflict
-  finalizeTransition(deps, row.id)
-  return { status: 200, body: { ok: true, decision: 'pr_ready', prUrl: row.pr_url } }
+  if (!matchesRecordedPrIdentity(afterPublish, row.branch, row.base_branch)) {
+    return rerouteFromStalePr(
+      deps,
+      row,
+      `the PR identity changed while publishing it for review (${afterPublish.state.toLowerCase()})`,
+      afterPublish.includesExpectedSha === true,
+    )
+  }
+  if (afterPublish.state === 'MERGED') {
+    return afterPublish.includesExpectedSha === true
+      ? settleMergedPr(deps, row)
+      : rerouteFromStalePr(deps, row, mergedEvidenceDetail(afterPublish), false)
+  }
+  if (afterPublish.state === 'CLOSED') {
+    return afterPublish.includesExpectedSha === true
+      ? settleObservedClosedPr(deps, row, afterPublish)
+      : rerouteFromStalePr(deps, row, 'the PR closed without the verified implementation commit while being published', false)
+  }
+  if (afterPublish.includesExpectedSha !== true) {
+    return persistRetryablePrObservationFailure(
+      deps,
+      row,
+      'the PR no longer exposes the verified implementation commit after publishing; Retry push is available',
+    )
+  }
+  if (afterPublish.isDraft) {
+    if (r.code !== 0) return ghFailed(r)
+    return { status: 502, body: { error: 'gh_failed', detail: 'PR remained a draft after publishing' } }
+  }
+  return settleObservedExistingPr(deps, row, afterPublish, false)
 }
 
 async function runDiscard(
@@ -808,22 +1033,20 @@ async function runDiscard(
 ): Promise<PrDecisionResult> {
   const snap = toPrDeliverySnapshot(row)
   const implementationFailed = row.decision === 'implementation_failed'
-  // Migration 49 can prove that an old implementation succeeded but cannot
-  // always reconstruct whether its pre-v48 row continued an existing PR. The
-  // blocked-delivery card explicitly promises that Discard local result leaves
-  // any existing PR untouched, so a durable PR URL is sufficient ownership
-  // evidence to preserve that external review even when is_continuation=0.
-  const preserveExternalReview = row.is_continuation === 1 || (
-    row.delivery_outcome === 'blocked' && row.pr_url !== null
-  )
+  // PR lifecycle ownership and head-ref ownership are separate. Startup repairs
+  // historical continuation rows before admission opens; only that durable bit
+  // borrows the PR/ticket lifecycle. Per-unit ownership below independently
+  // prevents deletion of borrowed/pre-existing head refs for fresh replacements.
+  const preserveExternalReview = row.is_continuation === 1
   const cleanupWarnings: string[] = []
 
   // A continuation borrows an existing PR/head. Discarding its local iteration
   // may remove Specrails' worktree, but never closes or deletes borrowed review
-  // state. Fresh deliveries retain the original destructive semantics.
+  // state. A fresh PR is closed without GitHub's unleased --delete-branch: its
+  // remote head may have advanced since the card was rendered.
   if (row.pr_url && !implementationFailed && !preserveExternalReview) {
     try {
-      const r = await deps.exec.run('gh', ['pr', 'close', row.pr_url, '--delete-branch'], deps.project.path)
+      const r = await deps.exec.run('gh', ['pr', 'close', row.pr_url], deps.project.path)
       if (r.code !== 0) {
         const detail = (r.stderr.trim() || r.stdout.trim()).split('\n')[0] || `exit ${r.code}`
         cleanupWarnings.push(`PR close ${row.pr_url}: ${detail}`)
@@ -835,46 +1058,47 @@ async function runDiscard(
     }
   }
 
-  // 2. Remove the launch's worktrees (still on disk unless a restart already
-  //    swept them) and close their ledger rows — the reconcile-style removal,
-  //    branch deletion deferred to step 3 (a checked-out branch can't be -D'd).
+  // 2. Release only worktrees whose live tracked/untracked/ignored state and
+  //    exact HEAD/ref still match durable settlement evidence. Explicit
+  //    discard is not permission to contradict the confirmation copy by
+  //    force-removing subsequently changed local work. Authenticated overlays
+  //    take the same lossless quarantine path as automatic settlement.
   const deleteOwnedBranches = !implementationFailed && !preserveExternalReview
-  const branchSet = deleteOwnedBranches ? ownedDeliveryBranches(row, snap, cleanupWarnings) : new Set<string>()
-  for (const wtId of snap.worktreeIds) {
-    const wt = getRailWorktree(deps.db, wtId)
-    if (!wt) continue
-    if (wt.merge_state === 'needs-review' && opts.removeNeedsReview !== true) continue
-    if (wt.merge_state !== 'needs-review' && isTerminalMergeState(wt.merge_state)) continue
-    try {
-      await removeWorktree(deps.git, {
-        repoDir: deps.project.path, worktreePath: wt.worktree_path, branch: wt.branch, deleteBranch: false,
-      })
-    } catch (err) {
-      const detail = err instanceof Error ? err.message : String(err)
-      cleanupWarnings.push(`worktree ${wt.worktree_path}: ${detail}`)
-      console.warn(`[rail-pr-decision] discard could not remove worktree ${wt.worktree_path}: ${detail}`)
-      continue
-    }
-    if (!isTerminalMergeState(wt.merge_state)) updateRailWorktreeState(deps.db, wt.id, 'failed')
+  const skippedNeedsReview = opts.removeNeedsReview === true
+    ? []
+    : snap.worktreeIds
+        .map((wtId) => getRailWorktree(deps.db, wtId))
+        .filter((wt) => wt?.merge_state === 'needs-review')
+  for (const worktree of skippedNeedsReview) {
+    cleanupWarnings.push(
+      `worktree ${worktree!.worktree_path}: preserved for inspection because it already requires review`,
+    )
   }
+  const skippedIds = new Set(skippedNeedsReview.map((wt) => wt!.id))
+  const worktreeIds = snap.worktreeIds.filter((wtId) => !skippedIds.has(wtId))
+  cleanupWarnings.push(...await releaseRailWorktrees({
+    db: deps.db,
+    git: deps.git,
+    repoDir: deps.project.path,
+    worktreeIds,
+    state: 'failed',
+    expectedHeadByBranch: durableBranchHeads(snap.branches),
+    overlayEvidenceByBranch: durableOverlayCleanupEvidence(snap.branches),
+    onSafetyArchive: safetyArchiveRecorder(deps, row),
+  }))
 
-  // 3. Delete only branches this delivery durably records as created: owned
-  //    per-unit sources and, for a multi-unit fresh delivery, its exact
-  //    assembled head. A preferred name is never recomputed here because it
-  //    may belong to the user. Missing branches are tolerated; the integration
-  //    branch is NEVER deleted.
+  const retainedWorktreeBranches = new Set(
+    snap.worktreeIds
+      .map((wtId) => getRailWorktree(deps.db, wtId))
+      .filter((wt) => Boolean(wt && (wt.merge_state === 'needs-review' || fs.existsSync(wt.worktree_path))))
+      .map((wt) => wt!.branch),
+  )
+
+  // 3. Delete only branches this delivery durably records as created, and only
+  //    while their live tips still equal the immutable delivered commits.
+  //    Later user/collaborator commits are retained with a cleanup warning.
   if (deleteOwnedBranches) {
-    for (const branch of branchSet) {
-      if (!branch || branch === row.base_branch) continue
-      try {
-        const deleted = await deps.git.run(['branch', '-D', branch], deps.project.path)
-        if (deleted.code !== 0) {
-          cleanupWarnings.push(`branch ${branch}: ${(deleted.stderr.trim() || deleted.stdout.trim()).split('\n')[0] || `exit ${deleted.code}`}`)
-        }
-      } catch (err) {
-        cleanupWarnings.push(`branch ${branch}: ${err instanceof Error ? err.message : String(err)}`)
-      }
-    }
+    await deleteOwnedBranchesIfUnchanged(deps, row, snap, cleanupWarnings, retainedWorktreeBranches)
   }
 
   const terminalPatch: PrDeliveryPatch = {
@@ -920,6 +1144,9 @@ async function runAcknowledgeNoChanges(deps: PrDecisionDeps, row: RailPrDelivery
     git: deps.git,
     repoDir: deps.project.path,
     worktreeIds: snap.worktreeIds,
+    expectedHeadByBranch: durableBranchHeads(snap.branches),
+    overlayEvidenceByBranch: durableOverlayCleanupEvidence(snap.branches),
+    onSafetyArchive: safetyArchiveRecorder(deps, row),
   })
 
   // A fresh no-change branch is disposable only while Git still proves that it
@@ -967,74 +1194,21 @@ async function runAcknowledgeNoChanges(deps: PrDecisionDeps, row: RailPrDelivery
   }
 }
 
-async function runPollMerge(deps: PrDecisionDeps, row: RailPrDeliveryRow): Promise<PrDecisionResult> {
-  const observed = await observeGithubPrLifecycle(
-    deps.exec, deps.project.path, row.pr_url!, row.delivery_sha,
-  )
-  if (!observed.ok) return { status: 502, body: { error: 'gh_failed', detail: observed.detail } }
-  const { state, isDraft } = observed
-
-  if (state === 'CLOSED') {
-    const conflict = casTransition(deps, row, 'pr_closed', {
-      deliveryOutcome: 'delivered', statusCode: 'pr_closed',
-    })
-    if (conflict) return conflict
-    finalizeTransition(deps, row.id)
-    return { status: 200, body: { ok: true, decision: 'pr_closed', merged: false, closed: true, prUrl: row.pr_url } }
-  }
-
-  if (state === 'OPEN') {
-    // A successful reopen can be observed even if the explicit action lost its
-    // follow-up `gh view` response. Polling heals pr_closed from remote truth.
-    if (row.decision === 'pr_closed') {
-      const next = isDraft ? 'pr_draft' as const : 'pr_ready' as const
-      const conflict = casTransition(deps, row, next, {
-        deliveryOutcome: 'delivered', statusCode: isDraft ? 'pr_draft_ready' : 'pr_ready',
-      })
-      if (conflict) return conflict
-      finalizeTransition(deps, row.id)
-      return { status: 200, body: { ok: true, decision: next, merged: false, reopened: true, prUrl: row.pr_url } }
-    }
-    return { status: 200, body: { ok: true, decision: row.decision, merged: false } }
-  }
-
-  if (state !== 'MERGED') {
-    return { status: 502, body: { error: 'gh_failed', detail: `unexpected PR state: ${state}` } }
-  }
-
-  // A PR can merge just before a continuation push; GitHub may then accept a
-  // later update to the head branch even though that object was never part of
-  // the merge. Never move tickets to Done from state=MERGED alone.
-  if (!row.delivery_sha) {
-    return persistMovedPrHead(
-      deps, row, 'the merged PR has no persisted verified delivery SHA; refusing to infer delivery from a mutable branch',
-    )
-  }
-  if (observed.includesExpectedSha !== true) {
-    return rerouteFromStalePr(deps, row, mergedEvidenceDetail(observed), true)
-  }
-
+async function settleMergedPr(deps: PrDecisionDeps, row: RailPrDeliveryRow): Promise<PrDecisionResult> {
   const snap = toPrDeliverySnapshot(row)
   const cleanupWarnings = await releaseRailWorktrees({
     db: deps.db, git: deps.git, repoDir: deps.project.path,
     worktreeIds: releasableWorktreeIds(deps, snap), state: 'merged',
+    expectedHeadByBranch: durableBranchHeads(snap.branches),
+    overlayEvidenceByBranch: durableOverlayCleanupEvidence(snap.branches),
+    onSafetyArchive: safetyArchiveRecorder(deps, row),
   })
-  const branchSet = ownedDeliveryBranches(row, snap, cleanupWarnings)
-  for (const branch of branchSet) {
-    if (!branch || branch === row.base_branch) continue
-    try {
-      const deleted = await deps.git.run(['branch', '-D', branch], deps.project.path)
-      if (deleted.code !== 0) {
-        cleanupWarnings.push(`branch ${branch}: ${(deleted.stderr.trim() || deleted.stdout.trim()).split('\n')[0] || `exit ${deleted.code}`}`)
-      }
-    } catch (err) {
-      cleanupWarnings.push(`branch ${branch}: ${err instanceof Error ? err.message : String(err)}`)
-    }
-  }
+  await deleteOwnedBranchesIfUnchanged(deps, row, snap, cleanupWarnings)
 
   const conflict = casTransitionWithTicketEffect(deps, row, 'merged', {
     deliveryOutcome: 'delivered',
     statusCode: cleanupWarnings.length > 0 ? 'cleanup_incomplete' : 'merged',
+    statusDetail: null,
     cleanupWarnings,
   }, {
     deliveryId: row.id,
@@ -1049,26 +1223,226 @@ async function runPollMerge(deps: PrDecisionDeps, row: RailPrDeliveryRow): Promi
   return { status: 200, body: { ok: true, decision: 'merged', merged: true, prUrl: row.pr_url } }
 }
 
+async function runPollMerge(deps: PrDecisionDeps, row: RailPrDeliveryRow): Promise<PrDecisionResult> {
+  const observed = await observeGithubPrLifecycle(
+    deps.exec, deps.project.path, row.pr_url!, row.delivery_sha,
+  )
+  if (!observed.ok) return { status: 502, body: { error: 'gh_failed', detail: observed.detail } }
+  const { state, isDraft } = observed
+
+  if (!row.branch) {
+    return persistMovedPrHead(
+      deps, row, `the ${state.toLowerCase()} PR has no recorded delivery branch; refusing to infer recoverable work`,
+    )
+  }
+  if (!row.delivery_sha) {
+    // A legacy OPEN row cannot be retried without an immutable object. Once the
+    // attached PR is terminal, however, keeping that stale URL would strand the
+    // only recorded branch behind Discard. Detach it so Create PR can perform
+    // the existing one-time legacy ref capture, without claiming any delivery.
+    if (state === 'CLOSED' || state === 'MERGED') {
+      return rerouteFromStalePr(
+        deps,
+        row,
+        `the previous PR is ${state.toLowerCase()} and this legacy delivery has no persisted verified SHA`,
+        false,
+      )
+    }
+    return persistMovedPrHead(
+      deps, row, 'the open PR has no persisted verified delivery SHA; refusing to infer delivery from a mutable branch',
+    )
+  }
+  if (!matchesRecordedPrIdentity(observed, row.branch, row.base_branch)) {
+    return rerouteFromStalePr(
+      deps,
+      row,
+      `the recorded PR is ${state.toLowerCase()} but no longer matches its original head/base identity`,
+      observed.includesExpectedSha === true,
+    )
+  }
+
+  if (state === 'CLOSED') {
+    if (observed.includesExpectedSha !== true) {
+      return rerouteFromStalePr(
+        deps,
+        row,
+        'the previous PR closed without the verified implementation commit',
+        false,
+      )
+    }
+    return settleObservedClosedPr(deps, row, observed)
+  }
+
+  if (state === 'OPEN') {
+    if (observed.includesExpectedSha !== true) {
+      const detail = 'the open PR no longer exposes the verified implementation commit; Retry push is available and will use the preserved exact SHA'
+      const result = persistRetryablePrObservationFailure(deps, row, detail)
+      return {
+        ...result,
+        body: {
+          ...result.body,
+          deliveryVerified: false,
+          verifiedSha: row.delivery_sha,
+          remoteHeadSha: observed.headRefOid,
+        },
+      }
+    }
+    // A successful reopen can be observed even if the explicit action lost its
+    // follow-up `gh view` response. Polling heals pr_closed from remote truth.
+    if (row.decision === 'pr_closed') {
+      const next = isDraft ? 'pr_draft' as const : 'pr_ready' as const
+      const conflict = casTransition(deps, row, next, {
+        deliveryOutcome: 'delivered', statusCode: isDraft ? 'pr_draft_ready' : 'pr_ready',
+      })
+      if (conflict) return conflict
+      finalizeTransition(deps, row.id)
+      return {
+        status: 200,
+        body: {
+          ok: true,
+          decision: next,
+          merged: false,
+          reopened: true,
+          prUrl: row.pr_url,
+          deliveryVerified: true,
+          verifiedSha: row.delivery_sha,
+          remoteHeadSha: observed.headRefOid,
+          pushed: false,
+        },
+      }
+    }
+    return {
+      status: 200,
+      body: {
+        ok: true,
+        decision: row.decision,
+        merged: false,
+        deliveryVerified: true,
+        verifiedSha: row.delivery_sha,
+        remoteHeadSha: observed.headRefOid,
+        pushed: false,
+      },
+    }
+  }
+
+  if (state !== 'MERGED') {
+    return { status: 502, body: { error: 'gh_failed', detail: `unexpected PR state: ${state}` } }
+  }
+
+  // A PR can merge just before a continuation push; GitHub may then accept a
+  // later update to the head branch even though that object was never part of
+  // the merge. Never move tickets to Done from state=MERGED alone.
+  if (observed.includesExpectedSha !== true) {
+    return rerouteFromStalePr(deps, row, mergedEvidenceDetail(observed), false)
+  }
+
+  return settleMergedPr(deps, row)
+}
+
 async function runReopen(deps: PrDecisionDeps, row: RailPrDeliveryRow): Promise<PrDecisionResult> {
+  if (!row.delivery_sha || !row.branch) {
+    return rerouteFromStalePr(
+      deps,
+      row,
+      'the closed PR cannot be reopened safely because its immutable delivery SHA/head identity is unavailable',
+      false,
+    )
+  }
+  const beforeReopen = await observeGithubPrLifecycle(
+    deps.exec, deps.project.path, row.pr_url!, row.delivery_sha,
+  )
+  if (!beforeReopen.ok) {
+    return { status: 502, body: { error: 'gh_failed', detail: beforeReopen.detail } }
+  }
+  if (
+    !matchesRecordedPrIdentity(beforeReopen, row.branch, row.base_branch) ||
+    beforeReopen.includesExpectedSha !== true
+  ) {
+    return rerouteFromStalePr(
+      deps,
+      row,
+      'the closed PR no longer proves the recorded head/base and verified implementation commit',
+      false,
+    )
+  }
+  if (beforeReopen.state === 'MERGED') return settleMergedPr(deps, row)
+  if (beforeReopen.state === 'OPEN') {
+    const next = beforeReopen.isDraft ? 'pr_draft' as const : 'pr_ready' as const
+    const conflict = casTransition(deps, row, next, {
+      deliveryOutcome: 'delivered', statusCode: beforeReopen.isDraft ? 'pr_draft_ready' : 'pr_ready',
+      statusDetail: null,
+    })
+    if (conflict) return conflict
+    finalizeTransition(deps, row.id)
+    return {
+      status: 200,
+      body: {
+        ok: true, decision: next, reopened: true, prUrl: row.pr_url,
+        deliveryVerified: true, verifiedSha: row.delivery_sha,
+        remoteHeadSha: beforeReopen.headRefOid, pushed: false,
+      },
+    }
+  }
+
   let reopened: ExecResult
   try {
     reopened = await deps.exec.run('gh', ['pr', 'reopen', row.pr_url!], deps.project.path)
   } catch (err) {
     reopened = { code: 1, stdout: '', stderr: err instanceof Error ? err.message : String(err) }
   }
-  const lifecycle = await observePrLifecycle(deps, row.pr_url!)
-  if (lifecycle?.state !== 'OPEN') {
+  const observed = await observeGithubPrLifecycle(
+    deps.exec, deps.project.path, row.pr_url!, row.delivery_sha,
+  )
+  if (!observed.ok) {
     if (reopened.code !== 0) return ghFailed(reopened)
-    return { status: 502, body: { error: 'gh_failed', detail: `PR did not reopen (state ${lifecycle?.state ?? 'unknown'})` } }
+    return { status: 502, body: { error: 'gh_failed', detail: observed.detail } }
+  }
+  const identityMatches = matchesRecordedPrIdentity(observed, row.branch, row.base_branch)
+  if (observed.state === 'MERGED') {
+    if (identityMatches && observed.includesExpectedSha === true) return settleMergedPr(deps, row)
+    return rerouteFromStalePr(
+      deps,
+      row,
+      identityMatches ? mergedEvidenceDetail(observed) : 'the PR identity changed while it was being reopened',
+      false,
+    )
+  }
+  if (observed.state === 'CLOSED') {
+    if (!identityMatches || observed.includesExpectedSha !== true) {
+      return rerouteFromStalePr(
+        deps,
+        row,
+        'the PR remained closed without proving the recorded head/base and verified implementation commit',
+        false,
+      )
+    }
+    if (reopened.code !== 0) return ghFailed(reopened)
+    return { status: 502, body: { error: 'gh_failed', detail: 'PR remained closed after reopen' } }
+  }
+  if (!identityMatches || observed.includesExpectedSha !== true) {
+    return rerouteFromStalePr(
+      deps,
+      row,
+      'the reopened PR no longer proves the recorded head/base and verified implementation commit',
+      true,
+    )
   }
 
-  const next = lifecycle.isDraft ? 'pr_draft' as const : 'pr_ready' as const
+  const next = observed.isDraft ? 'pr_draft' as const : 'pr_ready' as const
   const conflict = casTransition(deps, row, next, {
-    deliveryOutcome: 'delivered', statusCode: lifecycle.isDraft ? 'pr_draft_ready' : 'pr_ready',
+    deliveryOutcome: 'delivered', statusCode: observed.isDraft ? 'pr_draft_ready' : 'pr_ready',
+    statusDetail: null,
   })
   if (conflict) return conflict
   finalizeTransition(deps, row.id)
-  return { status: 200, body: { ok: true, decision: next, reopened: true, prUrl: row.pr_url } }
+  return {
+    status: 200,
+    body: {
+      ok: true, decision: next, reopened: true, prUrl: row.pr_url,
+      deliveryVerified: true, verifiedSha: row.delivery_sha,
+      remoteHeadSha: observed.headRefOid, pushed: false,
+    },
+  }
 }
 
 async function runMergeLocal(deps: PrDecisionDeps, row: RailPrDeliveryRow): Promise<PrDecisionResult> {
@@ -1223,33 +1597,17 @@ async function runMergeLocalLocked(deps: PrDecisionDeps, row: RailPrDeliveryRow)
 
   // Post-advance sweep: the work now lives on
   // the integration branch, so the launch's worktrees + branches are spent.
-  const branchSet = ownedDeliveryBranches(row, snap, cleanupWarnings)
-  for (const wtId of releasableWorktreeIds(deps, snap)) {
-    const wt = getRailWorktree(deps.db, wtId)
-    if (!wt) continue
-    try {
-      await removeWorktree(deps.git, {
-        repoDir: deps.project.path, worktreePath: wt.worktree_path, branch: wt.branch, deleteBranch: false,
-      })
-    } catch (err) {
-      const detail = err instanceof Error ? err.message : String(err)
-      cleanupWarnings.push(`worktree ${wt.worktree_path}: ${detail}`)
-      console.warn(`[rail-pr-decision] merge-local could not remove worktree ${wt.worktree_path}: ${detail}`)
-      continue
-    }
-    if (!isTerminalMergeState(wt.merge_state)) updateRailWorktreeState(deps.db, wt.id, 'merged')
-  }
-  for (const branch of branchSet) {
-    if (!branch || branch === row.base_branch) continue
-    try {
-      const deleted = await deps.git.run(['branch', '-D', branch], deps.project.path)
-      if (deleted.code !== 0) {
-        cleanupWarnings.push(`branch ${branch}: ${(deleted.stderr.trim() || deleted.stdout.trim()).split('\n')[0] || `exit ${deleted.code}`}`)
-      }
-    } catch (err) {
-      cleanupWarnings.push(`branch ${branch}: ${err instanceof Error ? err.message : String(err)}`)
-    }
-  }
+  cleanupWarnings.push(...await releaseRailWorktrees({
+    db: deps.db,
+    git: deps.git,
+    repoDir: deps.project.path,
+    worktreeIds: releasableWorktreeIds(deps, snap),
+    state: 'merged',
+    expectedHeadByBranch: durableBranchHeads(snap.branches),
+    overlayEvidenceByBranch: durableOverlayCleanupEvidence(snap.branches),
+    onSafetyArchive: safetyArchiveRecorder(deps, row),
+  }))
+  await deleteOwnedBranchesIfUnchanged(deps, row, snap, cleanupWarnings)
 
   const conflict = casTransitionWithTicketEffect(deps, row, 'merged', {
     deliveryOutcome: 'delivered',

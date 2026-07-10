@@ -252,8 +252,14 @@ async function gitRun(git: GitRunner, args: string[], cwd: string): Promise<GitR
 }
 
 function commitPathspecs(excludePaths: string[]): string[] {
-  const allExcludePaths = [...PR_NEVER_STAGE_PATHS, ...excludePaths]
-  return ['--', '.', ...allExcludePaths.map((p) => `:(exclude)${p}`)]
+  return [
+    '--', '.',
+    ...PR_NEVER_STAGE_PATHS.map((p) => `:(exclude)${p}`),
+    // Overlay names originate in the workspace filesystem. Treat them as
+    // literal top-level paths so glob/pathspec metacharacters cannot broaden
+    // the never-commit surface.
+    ...excludePaths.map((p) => `:(top,exclude,literal)${p}`),
+  ]
 }
 
 /**
@@ -309,13 +315,21 @@ export interface RemoveWorktreeInput {
   branch: string
   /** Also delete the branch (default true — set false to keep a needs-review branch). */
   deleteBranch?: boolean
+  /** Automatic cleanup uses Git's non-force removal as a final TOCTOU guard:
+   * if the checkout became dirty after verification, Git must refuse removal.
+   * Explicit destructive cleanup retains the historical force default. */
+  force?: boolean
 }
 
-/** Remove a worktree (force) and optionally delete its branch. Worktree removal
- * failures throw so callers do not mark the ledger released while the checkout
- * is still mounted. Branch deletion remains best-effort. */
+/** Remove a worktree and optionally delete its branch. Explicit cleanup keeps
+ * the historical force default; automatic cleanup opts out. Removal failures
+ * throw so callers do not mark the ledger released while it is still mounted.
+ * Branch deletion remains best-effort. */
 export async function removeWorktree(git: GitRunner, input: RemoveWorktreeInput): Promise<void> {
-  const removed = await git.run(['worktree', 'remove', '--force', input.worktreePath], input.repoDir)
+  const removed = await git.run(
+    ['worktree', 'remove', ...(input.force === false ? [] : ['--force']), input.worktreePath],
+    input.repoDir,
+  )
   if (removed.code !== 0) {
     throw new Error(`git worktree remove failed for ${input.worktreePath}: ${gitFailure(removed, `exit ${removed.code}`)}`)
   }

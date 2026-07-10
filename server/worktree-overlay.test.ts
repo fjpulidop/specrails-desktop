@@ -2,7 +2,7 @@ import { describe, it, expect, beforeEach, afterEach } from 'vitest'
 import fs from 'fs'
 import os from 'os'
 import path from 'path'
-import { applyWorktreeOverlay, OVERLAY_MANIFEST } from './worktree-overlay'
+import { applyWorktreeOverlay, OVERLAY_MANIFEST, revalidateOverlayCleanupEvidence } from './worktree-overlay'
 
 let source: string
 let wt: string
@@ -82,6 +82,19 @@ describe('applyWorktreeOverlay — relocated workspace source', () => {
     expect(res.createdPaths).not.toContain('.claude/agents/custom-mine.md')
   })
 
+  it('preserves whitespace and glob metacharacters in authenticated overlay filenames', () => {
+    const name = ' user[1]*.md '
+    write(source, `.claude/rules/${name}`, 'literal filename')
+    write(wt, '.claude/rules/tracked.md', 'checkout')
+
+    const res = apply()
+    const rel = `.claude/rules/${name}`
+
+    expect(res.createdPaths).toContain(rel)
+    expect(res.cleanupEvidence.some((entry) => entry.path === rel)).toBe(true)
+    expect(fs.readFileSync(path.join(wt, rel), 'utf8')).toBe('literal filename')
+  })
+
   it('agent-memory is LINKED: writes through the worktree land in the shared source (shared-cwd semantics)', () => {
     seedWorkspaceSource()
     apply()
@@ -152,7 +165,7 @@ describe('applyWorktreeOverlay — legacy repo source (untracked on-disk entries
 
   it('a source with no providerDir / no root files at all is a silent no-op', () => {
     const res = apply()
-    expect(res).toEqual({ createdPaths: [], warnings: [] })
+    expect(res).toEqual({ createdPaths: [], cleanupEvidence: [], warnings: [] })
   })
 })
 
@@ -178,6 +191,49 @@ describe('applyWorktreeOverlay — idempotency + resume', () => {
     expect(resumed.createdPaths).toContain(OVERLAY_MANIFEST)
   })
 
+  it('never trusts a tampered manifest to claim an arbitrary user path', () => {
+    seedWorkspaceSource()
+    apply()
+    write(wt, 'user-cache/valuable.bin', 'keep me')
+    fs.writeFileSync(path.join(wt, OVERLAY_MANIFEST), JSON.stringify({
+      version: 1,
+      paths: ['.mcp.json', 'user-cache/valuable.bin'],
+    }))
+
+    const resumed = apply()
+
+    expect(resumed.createdPaths).toContain('.mcp.json')
+    expect(resumed.createdPaths).not.toContain('user-cache/valuable.bin')
+    expect(resumed.cleanupEvidence.some((entry) => entry.path === 'user-cache/valuable.bin')).toBe(false)
+    expect(fs.readFileSync(path.join(wt, 'user-cache/valuable.bin'), 'utf8')).toBe('keep me')
+  })
+
+  it('revokes cleanup authority when the writable manifest changes after allocation', () => {
+    seedWorkspaceSource()
+    const allocated = apply()
+    fs.writeFileSync(path.join(wt, OVERLAY_MANIFEST), JSON.stringify({ paths: ['valuable.txt'] }))
+
+    const settled = revalidateOverlayCleanupEvidence({
+      worktreePath: wt,
+      sourceRoot: source,
+      providerDir: '.claude',
+      instructionsFilename: 'CLAUDE.md',
+    }, allocated.cleanupEvidence)
+
+    expect(settled.some((entry) => entry.path === OVERLAY_MANIFEST)).toBe(false)
+  })
+
+  it('stops claiming a copied overlay file once the worktree copy is modified', () => {
+    seedWorkspaceSource()
+    apply()
+    fs.writeFileSync(path.join(wt, '.mcp.json'), '{"user":"changed this copy"}')
+
+    const resumed = apply()
+
+    expect(resumed.createdPaths).not.toContain('.mcp.json')
+    expect(fs.readFileSync(path.join(wt, '.mcp.json'), 'utf8')).toContain('changed this copy')
+  })
+
   it('tolerates a corrupt manifest (treated as empty)', () => {
     seedWorkspaceSource()
     fs.writeFileSync(path.join(wt, OVERLAY_MANIFEST), 'not-json{{{')
@@ -197,6 +253,7 @@ describe('applyWorktreeOverlay — degradation (never throws)', () => {
       instructionsFilename: 'CLAUDE.md',
     })
     expect(res.createdPaths).toEqual([])
+    expect(res.cleanupEvidence).toEqual([])
     expect(res.warnings.some((w) => w.includes('worktree dir missing'))).toBe(true)
   })
 
@@ -217,6 +274,6 @@ describe('applyWorktreeOverlay — degradation (never throws)', () => {
       providerDir: '.claude',
       instructionsFilename: 'CLAUDE.md',
     })
-    expect(res).toEqual({ createdPaths: [], warnings: [] })
+    expect(res).toEqual({ createdPaths: [], cleanupEvidence: [], warnings: [] })
   })
 })

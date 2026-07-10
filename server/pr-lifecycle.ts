@@ -81,11 +81,16 @@ export async function observePrLifecycle(
     // A merged PR's live head branch can advance after the merge. Its current
     // headRefOid is therefore NOT proof that the merge included that object.
     // Only the PR's commit snapshot / merge commit are valid MERGED evidence.
-    const observedOids = new Set([
-      ...(normalizedState === 'OPEN' ? [headRefOid] : []),
-      mergeCommitOid,
-      ...commitOids,
-    ].filter((value): value is string => value !== null))
+    // While OPEN, delivery verification is intentionally stronger than mere
+    // ancestry: the remote PR head itself must still be the frozen delivery
+    // object. Otherwise a concurrent writer could advance/substitute the head
+    // and a stale card would incorrectly report our exact push as verified.
+    // CLOSED/MERGED no longer have a mutable review head, so their immutable PR
+    // commit snapshot (or merge object) is the relevant inclusion evidence.
+    const observedOids = new Set((normalizedState === 'OPEN'
+      ? [headRefOid]
+      : [mergeCommitOid, ...commitOids]
+    ).filter((value): value is string => value !== null))
     const includesExpectedSha = expected === null
       ? null
       : observedOids.has(expected)
@@ -110,12 +115,22 @@ export async function observePrLifecycle(
   }
 }
 
+/** Head/base identity is required in every lifecycle state. A PR retargeted to
+ * another base must never satisfy delivery merely because it still lists the
+ * expected commit. */
+export function matchesRecordedPrIdentity(
+  observation: PrLifecycleResult,
+  branch: string,
+  baseBranch: string,
+): boolean {
+  return observation.ok && observation.headRefName === branch && observation.baseRefName === baseBranch
+}
+
 /** OPEN is continuation-safe only for the same recorded head/base identity. */
 export function isExactOpenPr(
   observation: PrLifecycleResult,
   branch: string,
   baseBranch: string,
 ): boolean {
-  return observation.ok && observation.state === 'OPEN' &&
-    observation.headRefName === branch && observation.baseRefName === baseBranch
+  return observation.ok && matchesRecordedPrIdentity(observation, branch, baseBranch) && observation.state === 'OPEN'
 }

@@ -139,6 +139,7 @@ describe('db', () => {
           'implementation_outcome', 'delivery_outcome', 'status_code', 'status_detail',
           'delivery_sha', 'is_continuation', 'supersedes_delivery_id', 'operation',
           'operation_token', 'operation_started_at_ms', 'cleanup_warnings',
+          'restored_from_delivery_id',
         ]))
         expect(db.prepare(`SELECT decision FROM rail_pr_deliveries WHERE id = 'older'`).get())
           .toEqual({ decision: 'superseded' })
@@ -370,6 +371,50 @@ describe('db', () => {
         expect(() => insert.run('accept-backlog', 'todo', 'backlog')).not.toThrow()
         expect(db.prepare(`SELECT version FROM schema_migrations WHERE version = 51`).get())
           .toEqual({ version: 51 })
+      } finally {
+        try { db.close() } catch { /* already closed */ }
+        fs.rmSync(dir, { recursive: true, force: true })
+      }
+    })
+
+    it('migration 53 adds explicit allocation-rollback lineage to delivery rows', () => {
+      const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'db-pr-restoration-migration-'))
+      const dbPath = path.join(dir, 'jobs.sqlite')
+      let db = initDb(dbPath)
+      try {
+        db.exec(`ALTER TABLE rail_pr_deliveries DROP COLUMN restored_from_delivery_id`)
+        db.prepare(`DELETE FROM schema_migrations WHERE version = 53`).run()
+        db.close()
+        db = initDb(dbPath)
+
+        const cols = (db.prepare(`PRAGMA table_info(rail_pr_deliveries)`).all() as { name: string }[])
+          .map((column) => column.name)
+        expect(cols).toContain('restored_from_delivery_id')
+        expect(db.prepare(`SELECT version FROM schema_migrations WHERE version = 53`).get())
+          .toEqual({ version: 53 })
+      } finally {
+        try { db.close() } catch { /* already closed */ }
+        fs.rmSync(dir, { recursive: true, force: true })
+      }
+    })
+
+    it('migration 54 adds durable safety archive storage to delivery rows', () => {
+      const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'db-pr-safety-archives-migration-'))
+      const dbPath = path.join(dir, 'jobs.sqlite')
+      let db = initDb(dbPath)
+      try {
+        db.exec(`ALTER TABLE rail_pr_deliveries DROP COLUMN safety_archives`)
+        db.prepare(`DELETE FROM schema_migrations WHERE version = 54`).run()
+        db.close()
+        db = initDb(dbPath)
+
+        const column = (db.prepare(`PRAGMA table_info(rail_pr_deliveries)`).all() as Array<{
+          name: string
+          dflt_value: string | null
+        }>).find((entry) => entry.name === 'safety_archives')
+        expect(column?.dflt_value).toBe("'[]'")
+        expect(db.prepare(`SELECT version FROM schema_migrations WHERE version = 54`).get())
+          .toEqual({ version: 54 })
       } finally {
         try { db.close() } catch { /* already closed */ }
         fs.rmSync(dir, { recursive: true, force: true })

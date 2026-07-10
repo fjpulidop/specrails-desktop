@@ -37,7 +37,7 @@ import { resolveIntegrationBranch, fetchOrigin, resolveWorktreeBaseRef, type Res
 import { withRepoLock } from './repo-lock'
 import { isRailPrDeliveryEnabled } from './rail-isolation'
 import {
-  createPrDeliveryGeneration, failPrDeliveryAndRestoreSuperseded,
+  appendPrDeliverySafetyArchive, createPrDeliveryGeneration, failPrDeliveryAndRestoreSuperseded,
   getPrDelivery, reconcileFailedBuildingPrDeliveries, transitionDecision, toPrDeliverySnapshot,
   toRailPrStateMessage, toPrDecisionCardEnvelope,
   type DeliverBranchRecord, type PrDecision, type PrDeliveryOutcome,
@@ -47,7 +47,10 @@ import {
 import { getAgentChatManager } from './agent-chat-registry'
 import { runMergeBack } from './rail-merge-orchestrator'
 import { createLoopExecutors } from './loop-executors'
-import { applyWorktreeOverlay, OVERLAY_MANIFEST } from './worktree-overlay'
+import {
+  applyWorktreeOverlay, revalidateOverlayCleanupEvidence, OVERLAY_MANIFEST,
+  type OverlayCleanupEvidence,
+} from './worktree-overlay'
 import { resolveProjectExecution } from './workspace-resolution'
 import { isCodeExplorerEnabled } from './feature-flags'
 import { snapshotWorkingTree, type WorkingTreeSnapshot } from './file-provenance'
@@ -55,8 +58,8 @@ import { recordLoopRunProvenance } from './file-story'
 import { getAdapter } from './providers'
 import { defaultExec, pushBranch, type Exec } from './pr-publisher'
 import { resolveActivePrContinuationTargets, type ActivePrContinuationTarget } from './active-pr-continuation'
-import { isExactOpenPr, observePrLifecycle } from './pr-lifecycle'
-import { releaseRailWorktrees } from './rail-worktree-release'
+import { isExactOpenPr, matchesRecordedPrIdentity, observePrLifecycle } from './pr-lifecycle'
+import { durableBranchHeads, durableOverlayCleanupEvidence, releaseRailWorktrees } from './rail-worktree-release'
 import type { BranchToMerge } from './merge-manager'
 import type { LoopGraph } from './loop-graph'
 import type { ProjectContext } from './project-registry'
@@ -90,8 +93,10 @@ export interface IsolatedLaunchInput {
     deliveryId: string
     decision: Extract<PrDecision, 'pr_draft' | 'pr_ready'>
     branch: string
+    baseBranch: string
     prUrl: string
     prNumber: number | null
+    deliverySha: string
   }
 }
 
@@ -136,6 +141,8 @@ interface AllocatedRun {
   /** Worktree-relative overlay-owned paths — excluded from commitWorktree so
    *  the app's framework scaffolding never lands on the ticket branch/PR. */
   overlayExcludes: string[]
+  /** Fingerprints proving the excluded paths are still allocator-owned. */
+  overlayCleanupEvidence: OverlayCleanupEvidence[]
   /** Pre-run Code-Explorer snapshot of the fresh worktree (null when the
    *  explorer is disabled or the snapshot failed) — diffed at settle so
    *  isolated loop runs record file_provenance like QueueManager jobs do. */
@@ -210,13 +217,18 @@ function commitFailureSummary(result: CommitWorktreeResult): string {
 const COMMIT_SHA_RE = /^[0-9a-f]{40,64}$/i
 
 /** Prove that the linked checkout is on the expected PR branch and that its
- * HEAD is exactly the commit named by refs/heads/<branch>. The handle's branch
- * string alone is insufficient: createWorktree may reuse a stale mounted path. */
+ * HEAD is exactly the commit named by refs/heads/<branch>. When expectedHeadSha
+ * is supplied (allocation and pre-push phases), also freeze the checkout to
+ * that immutable object. Post-run verification deliberately omits the old
+ * baseline because a successful implementation is expected to create a new
+ * commit. The handle's branch string alone is insufficient: createWorktree may
+ * reuse a stale mounted path. */
 async function verifyContinuationWorktree(
   git: GitRunner,
   repoDir: string,
   handle: WorktreeHandle,
   target: ActivePrContinuationTarget,
+  expectedHeadSha?: string | null,
 ): Promise<string> {
   if (handle.branch !== target.branch) {
     throw new PrContinuationIsolationError(
@@ -239,6 +251,13 @@ async function verifyContinuationWorktree(
   if (!COMMIT_SHA_RE.test(headSha) || headSha !== branchSha) {
     throw new PrContinuationIsolationError(
       `worktree HEAD does not match refs/heads/${target.branch}; reconcile the PR branch and retry`,
+    )
+  }
+  if (expectedHeadSha !== undefined && (
+    !expectedHeadSha || headSha.toLowerCase() !== expectedHeadSha.toLowerCase()
+  )) {
+    throw new PrContinuationIsolationError(
+      `local PR branch ${target.branch} is not at the verified continuation commit; preserve or reconcile the local commits before retrying`,
     )
   }
   return headSha
@@ -290,6 +309,8 @@ function branchRecords(results: readonly SettledRun[]): DeliverBranchRecord[] {
     ...(result.changed === undefined ? {} : { changed: result.changed }),
     failureCode: result.failureCode ?? null,
     branchOwnership: result.run.branchOwnership,
+    overlayExcludes: result.run.overlayExcludes,
+    overlayCleanupEvidence: result.run.overlayCleanupEvidence,
   })))
 }
 
@@ -468,7 +489,10 @@ export async function launchIsolatedRail(input: IsolatedLaunchInput, io: Isolate
         git,
         exec,
         repoDir: baseRepo,
-        ticketIds: units.map((u) => u.ticketId),
+        // Continuation authority is scoped to the launch's exact durable ticket
+        // set. In scope=all there is only one isolation unit, but its primary
+        // ticket must never stand in for the full batch during PR discovery.
+        ticketIds: [...ticketIds],
         integrationBranch: integration.branch,
         fetchOk: fetchResult.ok,
         getTicketSpec: (ticketId) => {
@@ -478,38 +502,40 @@ export async function launchIsolatedRail(input: IsolatedLaunchInput, io: Isolate
       })
     : new Map<number, ActivePrContinuationTarget>()
   const uniqueContinuationKeys = new Set(
-    units
-      .map((u) => continuationTargets.get(u.ticketId))
+    ticketIds
+      .map((ticketId) => continuationTargets.get(ticketId))
       .filter((t): t is ActivePrContinuationTarget => !!t)
       .map((t) => `${t.prUrl ?? ''}\n${t.branch}`),
   )
-  if (uniqueContinuationKeys.size === 1 && units.every((u) => continuationTargets.has(u.ticketId))) {
-    launchContinuation = continuationTargets.get(units[0].ticketId) ?? null
+  if (uniqueContinuationKeys.size === 1 && ticketIds.every((ticketId) => continuationTargets.has(ticketId))) {
+    launchContinuation = continuationTargets.get(ticketIds[0]) ?? null
   }
-  let staleRequiredPr = false
   if (input.requiredPrContinuation && (
     !launchContinuation ||
     launchContinuation.branch !== input.requiredPrContinuation.branch ||
+    launchContinuation.baseBranch !== input.requiredPrContinuation.baseBranch ||
     launchContinuation.prUrl !== input.requiredPrContinuation.prUrl ||
-    launchContinuation.prNumber !== input.requiredPrContinuation.prNumber
+    launchContinuation.prNumber !== input.requiredPrContinuation.prNumber ||
+    launchContinuation.deliverySha !== input.requiredPrContinuation.deliverySha
   )) {
     const observed = await observePrLifecycle(
       exec, baseRepo, input.requiredPrContinuation.prUrl,
+      input.requiredPrContinuation.deliverySha,
     )
-    if (observed.ok && (observed.state === 'CLOSED' || observed.state === 'MERGED')) {
-      // The router snapshot was stale, but this is not an isolation failure and
-      // must not trap the user in a 409 loop. Supersede that generation under
-      // the same expected-active CAS, then allocate a genuinely fresh branch.
-      staleRequiredPr = true
-      launchContinuation = null
-    } else {
-      const reason = observed.ok
-        ? `the PR no longer matches its recorded head/base (${observed.state})`
-        : `GitHub lifecycle could not be confirmed (${observed.detail})`
-      throw new PrContinuationIsolationError(
-        `cannot safely continue PR branch ${input.requiredPrContinuation.branch}: ${reason}; retry after the PR is verifiably open`,
-      )
-    }
+    const reason = observed.ok
+      ? matchesRecordedPrIdentity(
+          observed,
+          input.requiredPrContinuation.branch,
+          input.requiredPrContinuation.baseBranch,
+        ) && observed.state === 'OPEN' && observed.includesExpectedSha !== true
+        ? 'the open PR head no longer exposes the previously verified delivery commit; use Retry push'
+        : observed.state === 'CLOSED' || observed.state === 'MERGED'
+          ? `the attached PR is ${observed.state.toLowerCase()}; use Verify PR to reconcile it before relaunching`
+          : `the PR no longer matches its recorded head/base (${observed.state})`
+      : `GitHub lifecycle could not be confirmed (${observed.detail})`
+    throw new PrContinuationIsolationError(
+      `cannot safely continue PR branch ${input.requiredPrContinuation.branch}: ${reason}`,
+    )
   }
   // A git branch can only be checked out by one worktree. When several rail
   // tickets all continue the same PR, make them one atomic batch run in one
@@ -534,6 +560,9 @@ export async function launchIsolatedRail(input: IsolatedLaunchInput, io: Isolate
       originSurface: input.originSurface ?? 'dashboard',
       originConversationId: input.originConversationId ?? null,
       isContinuation: Boolean(launchContinuation),
+      supersedesDeliveryId: launchContinuation?.source === 'rail-pr-delivery'
+        ? launchContinuation.deliveryId
+        : null,
     }, input.requiredPrContinuation
       ? { id: input.requiredPrContinuation.deliveryId, decision: input.requiredPrContinuation.decision }
       : null)
@@ -546,17 +575,13 @@ export async function launchIsolatedRail(input: IsolatedLaunchInput, io: Isolate
         prUrl: launchContinuation.prUrl,
         prNumber: launchContinuation.prNumber,
         prState: 'pr-created',
+        // Persist the frozen OPEN head at generation creation, not only after
+        // settlement. If allocation/process recovery fails, this terminal
+        // continuation can still prove and resume the same borrowed PR instead
+        // of shadowing its predecessor with an evidence-less row.
+        deliverySha: launchContinuation.deliverySha,
         isContinuation: true,
-        supersedesDeliveryId: supersededDelivery?.id ?? null,
-      })
-    } else if (staleRequiredPr) {
-      // This replacement deliberately starts a new PR lineage: the stale PR
-      // remains historical and its head is never borrowed. Ownership was
-      // already persisted atomically by createPrDeliveryGeneration; this
-      // transition only adds the user-facing explanation.
-      transitionDecision(ctx.db, prDeliveryId, 'building', 'building', {
-        supersedesDeliveryId: supersededDelivery?.id ?? null,
-        statusDetail: 'The previous PR was no longer open; this implementation will use a fresh branch and PR.',
+        supersedesDeliveryId: supersededDelivery?.id ?? launchContinuation.deliveryId,
       })
     }
     if (supersededDelivery) {
@@ -613,7 +638,13 @@ export async function launchIsolatedRail(input: IsolatedLaunchInput, io: Isolate
           branchOwnership = 'preexisting'
         }
         if (continuationTarget) {
-          initialSha = await verifyContinuationWorktree(git, baseRepo, handle, continuationTarget)
+          initialSha = await verifyContinuationWorktree(
+            git,
+            baseRepo,
+            handle,
+            continuationTarget,
+            continuationTarget.deliverySha,
+          )
         } else {
           initialSha = await readHeadSha(git, handle.worktreePath)
         }
@@ -621,6 +652,7 @@ export async function launchIsolatedRail(input: IsolatedLaunchInput, io: Isolate
         // Per-run overlay: merge-link the framework surface the checkout didn't
         // bring into the worktree (idempotent; resume-safe via its manifest).
         let overlayExcludes: string[] = []
+        let overlayCleanupEvidence: OverlayCleanupEvidence[] = []
         try {
           const res = overlay({
             worktreePath: handle.worktreePath,
@@ -629,6 +661,7 @@ export async function launchIsolatedRail(input: IsolatedLaunchInput, io: Isolate
             instructionsFilename: overlayInstructions,
           })
           overlayExcludes = res.createdPaths
+          overlayCleanupEvidence = res.cleanupEvidence ?? []
           if (res.warnings.length > 0) notifyOverlayDegraded(unit.ticketId, res.warnings)
         } catch (err) {
           // applyWorktreeOverlay never throws; this guards injected test doubles
@@ -660,6 +693,7 @@ export async function launchIsolatedRail(input: IsolatedLaunchInput, io: Isolate
           ledgerId,
           handle,
           overlayExcludes,
+          overlayCleanupEvidence,
           provenanceSnapshot,
           continuationTarget,
           baseRef: continuationTarget?.baseRef ?? worktreeBaseRef.baseRef,
@@ -793,6 +827,19 @@ export async function launchIsolatedRail(input: IsolatedLaunchInput, io: Isolate
     } catch (err) {
       callbackFailure = errorDetail(err)
       console.error(`[rail-isolated] terminal callback failed for ${a.runId}: ${callbackFailure}`)
+    }
+
+    // The engine may have edited a copied overlay file. Re-authenticate only
+    // automatic-cleanup authority. Allocation-time paths remain conservative
+    // NEVER-COMMIT exclusions, while a modified copy is preserved in the
+    // worktree instead of being silently staged or deleted.
+    if (a.overlayCleanupEvidence.length > 0) {
+      a.overlayCleanupEvidence = revalidateOverlayCleanupEvidence({
+        worktreePath: a.handle.worktreePath,
+        sourceRoot: overlaySourceRoot,
+        providerDir: overlayProviderDir,
+        instructionsFilename: overlayInstructions,
+      }, a.overlayCleanupEvidence)
     }
 
     let commit: CommitWorktreeResult
@@ -1037,6 +1084,7 @@ export async function launchIsolatedRail(input: IsolatedLaunchInput, io: Isolate
               baseRepo,
               candidate.run.handle,
               candidate.run.continuationTarget!,
+              candidate.finalSha,
             )
             if (!candidate.finalSha || verified !== candidate.finalSha) {
               throw new PrContinuationIsolationError('PR branch moved after settlement; refusing to push an unverified object')
@@ -1072,12 +1120,20 @@ export async function launchIsolatedRail(input: IsolatedLaunchInput, io: Isolate
           continuationPushFailed = true
           continuationPushFailureReason = `could not confirm the existing PR is open before push: ${beforePush.detail}`
         } else if (!isExactOpenPr(beforePush, launchContinuation.branch, launchContinuation.baseBranch)) {
-          if (beforePush.state === 'MERGED' && beforePush.includesExpectedSha === true) {
+          const identityMatches = matchesRecordedPrIdentity(
+            beforePush,
+            launchContinuation.branch,
+            launchContinuation.baseBranch,
+          )
+          if (beforePush.state === 'MERGED' && identityMatches && beforePush.includesExpectedSha === true) {
             // Another actor delivered the exact object before our push. Keep the
             // old PR attached so poll-merge can apply the terminal ticket effect.
             continuationRemoteIsDraft = false
             continuationMergedWithSha = true
-          } else if (beforePush.state === 'CLOSED' && beforePush.includesExpectedSha === true && !continuationHadReadyWork) {
+          } else if (
+            beforePush.state === 'CLOSED' && identityMatches &&
+            beforePush.includesExpectedSha === true && !continuationHadReadyWork
+          ) {
             // An unchanged iteration may safely offer Reopen when the closed PR
             // already contains its exact head. Changed work is never assumed to
             // belong to a closed PR before we push it.
@@ -1122,24 +1178,43 @@ export async function launchIsolatedRail(input: IsolatedLaunchInput, io: Isolate
                 if (afterPush.headRefOid?.toLowerCase() === deliverySha.toLowerCase()) {
                   continuationRemoteIsDraft = afterPush.isDraft
                 } else {
-                  // The object push returned success but another writer moved the
-                  // remote head before observation. Preserve local evidence and
-                  // block; creating a PR from the mutable branch would be unsafe.
-                  continuationLifecycleBlocked = true
-                  continuationPushFailureReason = 'the PR head moved after the exact push; the verified commit is preserved but no longer proven as the remote head'
+                  // GitHub observation can lag a successful push, or another
+                  // writer may have moved the remote head. The retry remains
+                  // safe because it always uses the immutable SHA and a normal
+                  // non-forced refspec; preserve evidence and keep Retry push.
+                  continuationPushFailed = true
+                  continuationPushFailureReason = 'the exact push completed, but the PR does not yet expose the verified commit as its head; Retry push remains safe and uses the preserved SHA'
                 }
-              } else if (afterPush.state === 'MERGED' && afterPush.includesExpectedSha === true) {
+              } else if (
+                afterPush.state === 'MERGED' &&
+                matchesRecordedPrIdentity(
+                  afterPush,
+                  launchContinuation.branch,
+                  launchContinuation.baseBranch,
+                ) &&
+                afterPush.includesExpectedSha === true
+              ) {
                 // The PR won the race but demonstrably included this exact SHA.
                 continuationRemoteIsDraft = false
                 continuationMergedWithSha = true
+              } else if (
+                afterPush.state === 'CLOSED' &&
+                matchesRecordedPrIdentity(
+                  afterPush,
+                  launchContinuation.branch,
+                  launchContinuation.baseBranch,
+                ) &&
+                afterPush.includesExpectedSha === true
+              ) {
+                continuationClosedWithSha = true
               } else if (afterPush.state === 'MERGED' || afterPush.state === 'CLOSED') {
                 continuationNeedsNewPr = true
                 continuationPushFailureReason = afterPush.includesExpectedSha === null
                   ? `the previous PR became ${afterPush.state.toLowerCase()} and GitHub could not prove it included this implementation; create a new draft PR from the preserved commit`
                   : `the previous PR became ${afterPush.state.toLowerCase()} without this implementation; create a new draft PR from the preserved commit`
               } else {
-                continuationLifecycleBlocked = true
-                continuationPushFailureReason = 'the existing PR no longer matches its recorded head/base after the exact push'
+                continuationNeedsNewPr = true
+                continuationPushFailureReason = 'the existing PR no longer matches its recorded head/base after the exact push; create a new draft PR from the preserved commit'
               }
             }
           } catch (err) {
@@ -1259,8 +1334,11 @@ export async function launchIsolatedRail(input: IsolatedLaunchInput, io: Isolate
           (launchContinuation !== null && result.deliveryOutcome === 'ready')
         ))
         .map((result) => result.run.ledgerId)
+      const settledBranchRecords = branchRecords(results)
+      const expectedHeadByBranch = durableBranchHeads(settledBranchRecords)
+      const overlayEvidenceByBranch = durableOverlayCleanupEvidence(settledBranchRecords)
       const patch = {
-        branches: branchRecords(results),
+        branches: settledBranchRecords,
         worktreeIds,
         implementationOutcome,
         deliveryOutcome,
@@ -1285,9 +1363,21 @@ export async function launchIsolatedRail(input: IsolatedLaunchInput, io: Isolate
         // Persist truthful settlement before cleanup. A crash can leave a
         // safely-recoverable mount, but can no longer lose no-change/partial/
         // exact-SHA evidence and regress the card back to `building`.
+        const settledPrDeliveryId = prDeliveryId
+        const onSafetyArchive = (archive: string): void => {
+          if (!appendPrDeliverySafetyArchive(ctx.db, settledPrDeliveryId, archive)) {
+            throw new Error(`delivery ${settledPrDeliveryId} disappeared while recording safety archive ${archive}`)
+          }
+        }
         const cleanupWarnings = [
-          ...await releaseRailWorktrees({ db: ctx.db, git, repoDir: baseRepo, worktreeIds: failedSafeIds, state: 'failed', remove }),
-          ...await releaseRailWorktrees({ db: ctx.db, git, repoDir: baseRepo, worktreeIds: completedSafeIds, remove }),
+          ...await releaseRailWorktrees({
+            db: ctx.db, git, repoDir: baseRepo, worktreeIds: failedSafeIds,
+            state: 'failed', remove, expectedHeadByBranch, overlayEvidenceByBranch, onSafetyArchive,
+          }),
+          ...await releaseRailWorktrees({
+            db: ctx.db, git, repoDir: baseRepo, worktreeIds: completedSafeIds,
+            remove, expectedHeadByBranch, overlayEvidenceByBranch, onSafetyArchive,
+          }),
         ]
         if (cleanupWarnings.length > 0) {
           transitionDecision(ctx.db, prDeliveryId, next, next, { cleanupWarnings })
@@ -1340,7 +1430,12 @@ export async function launchIsolatedRail(input: IsolatedLaunchInput, io: Isolate
         // Merged → drop the branch; needs-review / skipped → keep the branch for the human.
         await remove(git, {
           repoDir: baseRepo, worktreePath: r.run.handle.worktreePath, branch: o.branch,
-          deleteBranch: o.state === 'merged',
+          // Legacy merge-back is still an automatic cleanup path. A non-force
+          // unmount fails closed if anything changed after merge-back, and the
+          // branch is retained because this path has no durable immutable tip
+          // evidence with which to authorize a destructive `branch -D`.
+          deleteBranch: false,
+          force: false,
         }).then(() => {
           if (r.implementationOutcome === 'failed') updateRailWorktreeState(ctx.db, r.run.ledgerId, 'failed')
         }).catch(() => {})
@@ -1382,7 +1477,7 @@ interface RecoveryWorktreeInspection {
   detail?: string
 }
 
-function recoveryOverlayExcludes(worktreePath: string): string[] {
+function recoveryOverlayExcludes(repoDir: string, worktreePath: string): string[] {
   try {
     const parsed = JSON.parse(fs.readFileSync(path.join(worktreePath, OVERLAY_MANIFEST), 'utf8')) as unknown
     const values = Array.isArray(parsed) ? parsed : (parsed as { paths?: unknown })?.paths
@@ -1396,7 +1491,10 @@ function recoveryOverlayExcludes(worktreePath: string): string[] {
         // Manifest contents are worktree-writable and therefore not authority.
         // Ignore only links that still prove they are overlay scaffolding;
         // copied/modified files remain recoverable dirty data.
-        return fs.lstatSync(path.join(worktreePath, value)).isSymbolicLink()
+        const destination = path.join(worktreePath, value)
+        if (!fs.lstatSync(destination).isSymbolicLink()) return false
+        const linkTarget = fs.readlinkSync(destination)
+        return path.resolve(path.dirname(destination), linkTarget) === path.resolve(repoDir, value)
       } catch {
         return false
       }
@@ -1411,12 +1509,13 @@ async function inspectRecoveryWorktree(
   repoDir: string,
   row: { branch: string; worktree_path: string },
 ): Promise<RecoveryWorktreeInspection> {
-  const excludes = [...PR_NEVER_STAGE_PATHS, ...recoveryOverlayExcludes(row.worktree_path)]
+  const overlayExcludes = recoveryOverlayExcludes(repoDir, row.worktree_path)
   try {
     const [status, actualBranch, head, branchRef] = await Promise.all([
       git.run([
-        'status', '--porcelain', '--untracked-files=all', '--', '.',
-        ...excludes.map((entry) => `:(exclude)${entry}`),
+        'status', '--porcelain', '--untracked-files=all', '--ignored=matching', '--', '.',
+        ...PR_NEVER_STAGE_PATHS.map((entry) => `:(exclude)${entry}`),
+        ...overlayExcludes.map((entry) => `:(top,exclude,literal)${entry}`),
       ], row.worktree_path),
       git.run(['rev-parse', '--abbrev-ref', 'HEAD'], row.worktree_path),
       git.run(['rev-parse', '--verify', 'HEAD'], row.worktree_path),
@@ -1438,6 +1537,39 @@ async function inspectRecoveryWorktree(
   }
 }
 
+async function settlementCommitsForRun(git: GitRunner, repoDir: string, runId: string): Promise<string[]> {
+  try {
+    const marker = `(run ${runId})`
+    const result = await git.run(
+      ['log', '--all', '--reflog', '--fixed-strings', `--grep=${marker}`, '--format=%H'],
+      repoDir,
+    )
+    if (result.code !== 0) return []
+    const candidates = [...new Set(result.stdout.split(/\s+/).filter((sha) => COMMIT_SHA_RE.test(sha)))]
+    const verified: string[] = []
+    for (const sha of candidates) {
+      if (await commitCarriesRunMarker(git, repoDir, sha, runId)) verified.push(sha)
+    }
+    return verified
+  } catch {
+    return []
+  }
+}
+
+async function commitCarriesRunMarker(
+  git: GitRunner,
+  repoDir: string,
+  sha: string,
+  runId: string,
+): Promise<boolean> {
+  try {
+    const result = await git.run(['show', '-s', '--format=%s', sha], repoDir)
+    return result.code === 0 && result.stdout.trim().includes(`(run ${runId})`)
+  } catch {
+    return false
+  }
+}
+
 /**
  * Startup reconciliation is serialized with launch allocation. It proves each
  * orphan clean and durably referenced before removal; successful, dirty,
@@ -1449,11 +1581,13 @@ export async function reconcileRailWorktrees(
   repoDir: string,
   io: {
     git?: GitRunner
+    exec?: Exec
     remove?: typeof removeWorktree
     onDeliveryRecovered?: (deliveryId: string) => void
   } = {}
 ): Promise<number> {
   const git = io.git ?? defaultGitRunner
+  const exec = io.exec ?? defaultExec
   const remove = io.remove ?? removeWorktree
   return withRepoLock(repoDir, async () => {
     const stuck = listNonTerminalRailWorktrees(db)
@@ -1490,6 +1624,7 @@ export async function reconcileRailWorktrees(
                 worktreePath: row.worktree_path,
                 branch: row.branch,
                 deleteBranch: false,
+                force: false,
               })
               updateRailWorktreeState(db, row.id, 'released')
             } catch {
@@ -1511,10 +1646,11 @@ export async function reconcileRailWorktrees(
             worktreePath: row.worktree_path,
             branch: row.branch,
             deleteBranch: false,
+            force: false,
           })
           updateRailWorktreeState(db, row.id, 'failed')
         } catch {
-          // A failed --force leaves mount state uncertain; retain the ledger as
+          // A failed non-force removal leaves mount state uncertain; retain the ledger as
           // needs-review instead of claiming cleanup succeeded.
           updateRailWorktreeState(db, row.id, 'needs-review')
         }
@@ -1537,14 +1673,36 @@ export async function reconcileRailWorktrees(
          AND implementation_outcome IN ('succeeded', 'partially_succeeded')
          AND delivery_outcome = 'blocked'
          AND status_code = 'settlement_interrupted'
-         AND delivery_sha IS NULL
          AND pr_url IS NOT NULL
          AND branch IS NOT NULL
     `).all() as Array<{ id: string }>)
       .map(({ id }) => getPrDelivery(db, id))
       .filter((delivery): delivery is NonNullable<ReturnType<typeof getPrDelivery>> => delivery !== undefined)
+    // Audit rows healed by an earlier release too. Migration 49 left its causal
+    // marker in the unit records even after Retry push changed the top-level
+    // status, which lets a newer build replace a mistakenly frozen old branch
+    // tip with the unique run-owned settlement commit.
+    const previouslyRecovered = (db.prepare(`
+      SELECT id FROM rail_pr_deliveries
+       WHERE decision IN ('pr_draft', 'pr_ready')
+         AND implementation_outcome IN ('succeeded', 'partially_succeeded')
+         AND delivery_outcome = 'delivered'
+         AND delivery_sha IS NOT NULL
+         AND pr_url IS NOT NULL
+         AND branch IS NOT NULL
+    `).all() as Array<{ id: string }>)
+      .map(({ id }) => getPrDelivery(db, id))
+      .filter((delivery): delivery is NonNullable<ReturnType<typeof getPrDelivery>> => {
+        if (!delivery) return false
+        try {
+          const units = JSON.parse(delivery.branches) as Array<{ failureCode?: unknown }>
+          return Array.isArray(units) && units.some((unit) => unit?.failureCode === 'settlement_interrupted')
+        } catch {
+          return false
+        }
+      })
     const recoveryCandidates = [...new Map(
-      [...recovered, ...migratedInterrupted].map((delivery) => [delivery.id, delivery]),
+      [...recovered, ...migratedInterrupted, ...previouslyRecovered].map((delivery) => [delivery.id, delivery]),
     ).values()]
     for (const delivery of recoveryCandidates) {
       if (!['succeeded', 'partially_succeeded'].includes(delivery.implementation_outcome)) continue
@@ -1558,55 +1716,194 @@ export async function reconcileRailWorktrees(
         const parsed = JSON.parse(delivery.run_ids) as unknown
         if (Array.isArray(parsed)) runIds = parsed.filter((value): value is string => typeof value === 'string')
       } catch { /* malformed legacy row remains blocked without a retry SHA */ }
-      const retainBlockedWithDetail = (detail: string): void => {
-        if (delivery.status_detail === detail) return
-        transitionDecision(db, delivery.id, delivery.decision, delivery.decision, {
+      const retainBlockedWithDetail = (detail: string, deliverySha: string | null = null): void => {
+        const next = delivery.decision === 'pr_draft' || delivery.decision === 'pr_ready'
+          ? 'pr_failed'
+          : delivery.decision
+        if (
+          delivery.decision === next && delivery.status_detail === detail &&
+          delivery.delivery_sha === deliverySha && delivery.is_continuation === 1
+        ) return
+        transitionDecision(db, delivery.id, delivery.decision, next, {
           deliveryOutcome: 'blocked',
           statusCode: 'settlement_interrupted',
           statusDetail: detail,
+          deliverySha,
+          isContinuation: true,
+        })
+      }
+      const retainRetryableWithDetail = (detail: string, deliverySha: string): void => {
+        transitionDecision(db, delivery.id, delivery.decision, 'pr_failed', {
+          deliveryOutcome: 'retryable_failure',
+          statusCode: 'settlement_interrupted',
+          statusDetail: detail,
+          deliverySha,
+          isContinuation: true,
         })
       }
       if (runIds.length === 0) {
         retainBlockedWithDetail('Exact commit recovery is unavailable because this legacy delivery has no durable run identifiers; the local result was preserved.')
         continue
       }
+      const ambiguousRunCommits = new Set<string>()
+      const unsafeRunEvidence = new Set<string>()
       for (const runId of runIds) {
-        if (verifiedShaByRun.has(runId)) continue
-        const terminal = db.prepare(`
+        let inspectedSha = verifiedShaByRun.get(runId) ?? null
+        verifiedShaByRun.delete(runId)
+        const ledger = db.prepare(`
           SELECT branch, worktree_path, merge_state FROM rail_worktrees
            WHERE run_id = ? AND branch = ?
-             AND merge_state IN ('released', 'failed')
            ORDER BY created_at DESC, rowid DESC LIMIT 1
         `).get(runId, delivery.branch) as {
           branch: string
           worktree_path: string
-          merge_state: 'released' | 'failed'
+          merge_state: string
         } | undefined
-        if (!terminal) continue
+        if (ledger?.merge_state === 'needs-review') {
+          unsafeRunEvidence.add(runId)
+          continue
+        }
+        if (ledger && fs.existsSync(ledger.worktree_path)) {
+          const inspection = await inspectRecoveryWorktree(git, repoDir, ledger)
+          if (!inspection.safe || !inspection.sha) {
+            unsafeRunEvidence.add(runId)
+            continue
+          }
+          inspectedSha = inspection.sha
+        } else if (
+          ledger && !['released', 'failed'].includes(ledger.merge_state) && !inspectedSha
+        ) {
+          unsafeRunEvidence.add(runId)
+          continue
+        }
+        const marked = await settlementCommitsForRun(git, repoDir, runId)
+        if (marked.length === 1) {
+          verifiedShaByRun.set(runId, marked[0])
+          continue
+        }
+        if (marked.length > 1) {
+          ambiguousRunCommits.add(runId)
+          continue
+        }
+        const terminal = ledger && ['released', 'failed'].includes(ledger.merge_state) ? ledger : undefined
+        if (!terminal && !inspectedSha) continue
         try {
-          let sha = ''
-          if (fs.existsSync(terminal.worktree_path)) {
+          let sha = inspectedSha ?? ''
+          if (!sha && terminal && fs.existsSync(terminal.worktree_path)) {
             const inspection = await inspectRecoveryWorktree(git, repoDir, terminal)
             if (inspection.safe && inspection.sha) sha = inspection.sha
-          } else {
+          } else if (!sha && terminal) {
             const ref = await git.run(['rev-parse', '--verify', `refs/heads/${terminal.branch}`], repoDir)
             sha = ref.code === 0 ? ref.stdout.trim() : ''
           }
-          if (COMMIT_SHA_RE.test(sha)) verifiedShaByRun.set(runId, sha)
+          if (COMMIT_SHA_RE.test(sha) && await commitCarriesRunMarker(git, repoDir, sha, runId)) {
+            verifiedShaByRun.set(runId, sha)
+          }
         } catch { /* exact retry remains blocked */ }
       }
       const shas = [...new Set(runIds.map((runId) => verifiedShaByRun.get(runId)).filter((sha): sha is string => !!sha))]
-      if (shas.length !== 1) {
-        retainBlockedWithDetail(shas.length > 1
-          ? 'Exact commit recovery found multiple different commits in this legacy delivery; the local result was preserved for manual review.'
-          : 'Exact commit recovery could not prove a clean commit from this delivery’s recorded branch/worktree; the local result was preserved.')
+      if (
+        unsafeRunEvidence.size > 0 || ambiguousRunCommits.size > 0 || shas.length !== 1 ||
+        runIds.some((runId) => !verifiedShaByRun.has(runId))
+      ) {
+        retainBlockedWithDetail(unsafeRunEvidence.size > 0
+          ? 'Exact commit recovery found dirty, needs-review, missing, or mismatched worktree evidence; every local result was preserved.'
+          : ambiguousRunCommits.size > 0 || shas.length > 1
+            ? 'Exact commit recovery found multiple different commits in this legacy delivery; the local result was preserved for manual review.'
+            : 'Exact commit recovery could not prove a run-owned commit from this delivery’s refs/reflogs; the local result was preserved.')
         continue
       }
-      transitionDecision(db, delivery.id, delivery.decision, delivery.decision, {
+      const candidateSha = shas[0]
+      let causallyRecoveredBranches: DeliverBranchRecord[] | undefined
+      try {
+        const units = JSON.parse(delivery.branches) as DeliverBranchRecord[]
+        if (Array.isArray(units)) {
+          causallyRecoveredBranches = units.map((unit) => {
+            const sha = unit.runId ? verifiedShaByRun.get(unit.runId) : undefined
+            if (unit.failureCode !== 'settlement_interrupted' || !sha) return unit
+            const { failureCode: _legacyFailure, ...rest } = unit
+            return {
+              ...rest,
+              succeeded: true,
+              deliveryOutcome: 'ready',
+              finalSha: sha,
+              changed: true,
+            }
+          })
+        }
+      } catch { /* malformed unit evidence stays untouched and conservative */ }
+      const detachFromStalePr = (detail: string): void => {
+        const partial = delivery.implementation_outcome === 'partially_succeeded'
+        transitionDecision(db, delivery.id, delivery.decision, 'on_review', {
+          prUrl: null,
+          prNumber: null,
+          prState: 'local-only',
+          deliveryOutcome: partial ? 'partial' : 'ready',
+          statusCode: partial ? 'partial_success' : 'ready_for_review',
+          statusDetail: `${detail}; create a new draft PR from the preserved run-owned commit`,
+          deliverySha: candidateSha,
+          branches: causallyRecoveredBranches,
+          isContinuation: false,
+        })
+      }
+      const observed = await observePrLifecycle(exec, repoDir, delivery.pr_url, candidateSha)
+      if (!observed.ok) {
+        retainRetryableWithDetail(
+          `Recovered the exact run-owned commit, but the recorded PR could not be observed: ${observed.detail}; Retry push will revalidate before any push.`,
+          candidateSha,
+        )
+        continue
+      }
+      const identityMatches = matchesRecordedPrIdentity(observed, delivery.branch, delivery.base_branch)
+      if (observed.state === 'MERGED') {
+        if (identityMatches && observed.includesExpectedSha === true) {
+          transitionDecision(db, delivery.id, delivery.decision, 'pr_ready', {
+            deliveryOutcome: 'delivered', statusCode: 'pr_ready', statusDetail: null,
+            deliverySha: candidateSha, branches: causallyRecoveredBranches, isContinuation: true,
+          })
+        } else {
+          detachFromStalePr(observed.includesExpectedSha === true
+            ? 'the previous PR was merged after its recorded head/base identity changed'
+            : 'the previous PR was merged without the recovered implementation commit')
+        }
+        continue
+      }
+      if (observed.state === 'CLOSED') {
+        if (identityMatches && observed.includesExpectedSha === true) {
+          transitionDecision(db, delivery.id, delivery.decision, 'pr_closed', {
+            deliveryOutcome: 'delivered', statusCode: 'pr_closed', statusDetail: null,
+            deliverySha: candidateSha, branches: causallyRecoveredBranches, isContinuation: true,
+          })
+        } else {
+          detachFromStalePr(observed.includesExpectedSha === true
+            ? 'the previous PR was closed after its recorded head/base identity changed'
+            : 'the previous PR was closed without the recovered implementation commit')
+        }
+        continue
+      }
+      if (!isExactOpenPr(observed, delivery.branch, delivery.base_branch)) {
+        detachFromStalePr('the previous open PR no longer matches its recorded head/base identity')
+        continue
+      }
+      if (observed.includesExpectedSha === true) {
+        const next = observed.isDraft ? 'pr_draft' : 'pr_ready'
+        transitionDecision(db, delivery.id, delivery.decision, next, {
+          deliveryOutcome: 'delivered',
+          statusCode: next === 'pr_ready' ? 'pr_ready' : 'existing_pr_updated',
+          statusDetail: null,
+          deliverySha: candidateSha,
+          branches: causallyRecoveredBranches,
+          isContinuation: true,
+        })
+        continue
+      }
+      transitionDecision(db, delivery.id, delivery.decision, 'pr_failed', {
         deliveryOutcome: 'retryable_failure',
         statusCode: 'settlement_interrupted',
         statusDetail: 'Recovered a clean exact continuation commit; delivery can be retried safely.',
-        deliverySha: shas[0],
+        deliverySha: candidateSha,
+        branches: causallyRecoveredBranches,
+        isContinuation: true,
       })
     }
     for (const delivery of recoveryCandidates) {

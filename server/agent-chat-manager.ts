@@ -27,7 +27,8 @@ import {
   addAgentMessage,
   updateAgentConversation,
   listAgentMessages,
-  findAgentSystemMessage,
+  findAgentSystemMessages,
+  deleteAgentMessagesByIds,
   updateAgentMessageContent,
 } from './agent-store'
 import type { PrDecisionCardEnvelope } from './types'
@@ -738,6 +739,11 @@ export class AgentChatManager {
         console.log(`[agent-chat] pr-decision card skipped — conversation gone (${conversationId})`)
         return
       }
+      const existing = this._findPrDecisionCards(conversationId, envelope.prDeliveryId)
+      if (existing.length > 0) {
+        this.updatePrDecisionCard(conversationId, envelope)
+        return
+      }
       addAgentMessage(this._db, { conversationId, role: 'system', content: JSON.stringify(envelope) })
       this._broadcastPrDecision(conversationId, envelope)
     } catch (err) {
@@ -755,29 +761,41 @@ export class AgentChatManager {
   updatePrDecisionCard(conversationId: string, envelope: PrDecisionCardEnvelope): void {
     if (this._disposed) return
     try {
-      const existing = findAgentSystemMessage(this._db, conversationId, (content) => {
-        try {
-          const parsed = JSON.parse(content) as { kind?: string; prDeliveryId?: string }
-          return parsed.kind === 'pr_decision' && parsed.prDeliveryId === envelope.prDeliveryId
-        } catch {
-          return false
-        }
-      })
-      if (!existing) {
+      const existing = this._findPrDecisionCards(conversationId, envelope.prDeliveryId)
+      if (existing.length === 0) {
         this.postPrDecisionCard(conversationId, envelope)
         return
       }
       const serialized = JSON.stringify(envelope)
+      // Keep the newest history anchor: client cold-load dedupe uses the same
+      // newest-row rule, so a crash between hydration and this repair cannot
+      // make an older blocked envelope authoritative again.
+      const canonical = existing[existing.length - 1]
+      const duplicateIds = existing.slice(0, -1).map((message) => message.id)
       // Startup recovery may inspect historical deliveries to heal a card that
       // missed its terminal update. Identical projection is not new activity:
       // avoid a redundant DB write and, crucially, do not broadcast an unread
       // event for an old card on every app launch.
-      if (existing.content === serialized) return
-      updateAgentMessageContent(this._db, existing.id, serialized)
+      if (canonical.content === serialized && duplicateIds.length === 0) return
+      this._db.transaction(() => {
+        if (canonical.content !== serialized) updateAgentMessageContent(this._db, canonical.id, serialized)
+        deleteAgentMessagesByIds(this._db, duplicateIds)
+      })()
       this._broadcastPrDecision(conversationId, envelope)
     } catch (err) {
       console.error(`[agent-chat] updatePrDecisionCard failed (${conversationId}):`, err)
     }
+  }
+
+  private _findPrDecisionCards(conversationId: string, prDeliveryId: string) {
+    return findAgentSystemMessages(this._db, conversationId, (content) => {
+      try {
+        const parsed = JSON.parse(content) as { kind?: string; prDeliveryId?: string }
+        return parsed.kind === 'pr_decision' && parsed.prDeliveryId === prDeliveryId
+      } catch {
+        return false
+      }
+    })
   }
 
   private _broadcastPrDecision(conversationId: string, envelope: PrDecisionCardEnvelope): void {

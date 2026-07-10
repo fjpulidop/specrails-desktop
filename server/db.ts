@@ -1545,6 +1545,33 @@ const MIGRATIONS: Migration[] = [
     }
     backfillTerminalRailPrTicketEffects(db)
   },
+
+  // Migration 53: an allocation rollback is the one legal way a previously
+  // superseded delivery can become active again. Persist the failed replacement
+  // id on the restored predecessor so clients can distinguish that explicit
+  // rollback from an ordinary stale non-terminal replay.
+  (db) => {
+    const cols = new Set(
+      (db.prepare(`PRAGMA table_info(rail_pr_deliveries)`).all() as { name: string }[])
+        .map((row) => row.name),
+    )
+    if (!cols.has('restored_from_delivery_id')) {
+      db.exec(`ALTER TABLE rail_pr_deliveries ADD COLUMN restored_from_delivery_id TEXT`)
+    }
+  },
+
+  // Migration 54: automatic worktree release quarantines authenticated overlay
+  // roots instead of deleting them. Persist the bounded archive locations so
+  // recovery remains discoverable after restart and card refresh.
+  (db) => {
+    const cols = new Set(
+      (db.prepare(`PRAGMA table_info(rail_pr_deliveries)`).all() as { name: string }[])
+        .map((row) => row.name),
+    )
+    if (!cols.has('safety_archives')) {
+      db.exec(`ALTER TABLE rail_pr_deliveries ADD COLUMN safety_archives TEXT NOT NULL DEFAULT '[]'`)
+    }
+  },
 ]
 
 function applyMigrations(db: DbInstance): void {

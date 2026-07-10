@@ -18,6 +18,7 @@ import { loopNeedsTicket, type LoopGraph } from './loop-graph'
 import { isolationApplies, isRailPrDeliveryEnabled } from './rail-isolation'
 import {
   getActivePrDeliveryByRail,
+  appendPrDeliverySafetyArchive,
   getPrDelivery,
   listActivePrDeliveries,
   toPrDecisionCardEnvelope,
@@ -31,7 +32,7 @@ import { classifyLoopEffect } from './loop-effect'
 import { executePrDecision, isPrDecisionAction } from './rail-pr-decision'
 import { launchIsolatedRail, PrContinuationIsolationError } from './rail-isolated-launch'
 import { repoIsolationStatus, defaultGitRunner } from './worktree-manager'
-import { releaseRailWorktrees } from './rail-worktree-release'
+import { durableBranchHeads, durableOverlayCleanupEvidence, releaseRailWorktrees } from './rail-worktree-release'
 import { checkoutProjectReviewBranch, getProjectGitInfo } from './project-git'
 import { defaultExec } from './pr-publisher'
 import { newId } from './ids'
@@ -58,7 +59,7 @@ const VALID_REASONING_EFFORTS = new Set(['low', 'medium', 'high'])
 
 function prDeliveryContinuesTickets(delivery: PrDeliverySnapshot, ticketIds: number[]): boolean {
   if (delivery.decision !== 'pr_draft' && delivery.decision !== 'pr_ready') return false
-  if (!delivery.prUrl || !delivery.branch || delivery.prState !== 'pr-created') return false
+  if (!delivery.prUrl || !delivery.branch || !delivery.deliverySha || delivery.prState !== 'pr-created') return false
   const covered = new Set(delivery.ticketIds)
   const requested = new Set(ticketIds)
   return requested.size > 0 && requested.size === covered.size && [...requested].every((id) => covered.has(id))
@@ -585,8 +586,10 @@ export function createRailsRouter(): Router {
                     deliveryId: continuablePrDelivery.id,
                     decision: continuablePrDelivery.decision as 'pr_draft' | 'pr_ready',
                     branch: continuablePrDelivery.branch!,
+                    baseBranch: continuablePrDelivery.baseBranch,
                     prUrl: continuablePrDelivery.prUrl!,
                     prNumber: continuablePrDelivery.prNumber,
+                    deliverySha: continuablePrDelivery.deliverySha!,
                   },
                 } : {}),
               })
@@ -938,6 +941,14 @@ export function createRailsRouter(): Router {
     if (!row) {
       res.status(404).json({ error: 'Unknown prDeliveryId' }); return
     }
+    const active = getActivePrDeliveryByRail(c.db, row.rail_index)
+    if (!active || active.id !== row.id) {
+      res.status(409).json({
+        error: 'stale_decision',
+        current: active?.decision ?? null,
+        currentPrDeliveryId: active?.id ?? null,
+      }); return
+    }
     const snap = toPrDeliverySnapshot(row)
     if (!snap.branch || !snap.prUrl) {
       res.status(409).json({ error: 'checkout_unavailable', detail: 'delivery has no PR branch' }); return
@@ -945,6 +956,16 @@ export function createRailsRouter(): Router {
     try {
       const outcome = await withRepoLock(c.project.path, async () => {
         admission.assertCurrent()
+        const current = getActivePrDeliveryByRail(c.db, row.rail_index)
+        if (!current || current.id !== row.id) {
+          return {
+            ok: false as const,
+            status: 409,
+            error: 'stale_decision',
+            detail: 'The delivery generation changed before checkout.',
+          }
+        }
+        const currentSnap = toPrDeliverySnapshot(current)
         const info = await getProjectGitInfo(c.project.path)
         if (!info.git) {
           return { ok: false as const, status: 409, error: 'checkout_unavailable', detail: 'project is not a git repository' }
@@ -952,12 +973,42 @@ export function createRailsRouter(): Router {
         if (info.dirty) {
           return { ok: false as const, status: 409, error: 'checkout_dirty', detail: 'Working tree has uncommitted changes. Commit or stash them before checkout.' }
         }
-        await releaseRailWorktrees({
+        let archived = false
+        const cleanupWarnings = await releaseRailWorktrees({
           db: c.db,
           git: defaultGitRunner,
           repoDir: c.project.path,
-          worktreeIds: snap.worktreeIds,
+          worktreeIds: currentSnap.worktreeIds,
+          expectedHeadByBranch: durableBranchHeads(currentSnap.branches),
+          overlayEvidenceByBranch: durableOverlayCleanupEvidence(currentSnap.branches),
+          onSafetyArchive: (archive) => {
+            archived = true
+            if (!appendPrDeliverySafetyArchive(c.db, row.id, archive)) {
+              throw new Error(`delivery ${row.id} disappeared while recording safety archive ${archive}`)
+            }
+          },
         })
+        if (archived) {
+          const archivedRow = getPrDelivery(c.db, row.id)
+          if (archivedRow) {
+            const archivedSnap = toPrDeliverySnapshot(archivedRow)
+            c.broadcast(toRailPrStateMessage(c.project.id, archivedSnap))
+            if (archivedRow.origin_conversation_id) {
+              getAgentChatManager()?.updatePrDecisionCard(
+                archivedRow.origin_conversation_id,
+                toPrDecisionCardEnvelope(c.project.id, archivedSnap),
+              )
+            }
+          }
+        }
+        if (cleanupWarnings.length > 0) {
+          return {
+            ok: false as const,
+            status: 409,
+            error: 'checkout_unavailable',
+            detail: cleanupWarnings[0],
+          }
+        }
         const checkedOut = await checkoutProjectReviewBranch(c.project.path, snap.branch!)
         if (!checkedOut.ok) {
           return { ok: false as const, status: 409, error: 'checkout_failed', detail: checkedOut.error }

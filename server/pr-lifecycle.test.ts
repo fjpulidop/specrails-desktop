@@ -46,4 +46,13 @@ describe('PR lifecycle evidence', () => {
     expect(isExactOpenPr(result, 'feat/follow-up', 'main')).toBe(true)
     expect(isExactOpenPr(result, 'feat/other', 'main')).toBe(false)
   })
+
+  it('does not verify an OPEN PR when the delivery SHA is only an ancestor of a newer head', async () => {
+    const result = await observePrLifecycle(execWith({
+      state: 'OPEN', isDraft: false, headRefName: 'feat/follow-up', baseRefName: 'main',
+      headRefOid: 'd'.repeat(40), mergeCommit: null, commits: [{ oid: expected }, { oid: 'd'.repeat(40) }],
+    }), '/repo', 'https://github.com/o/r/pull/1', expected)
+
+    expect(result).toMatchObject({ ok: true, state: 'OPEN', includesExpectedSha: false })
+  })
 })

@@ -855,6 +855,7 @@ describe('rails-router POST /:railIndex/launch — ask-first PR delivery (safe-p
       prUrl: 'https://github.com/o/r/pull/521',
       prNumber: 521,
       prState: 'pr-created',
+      deliverySha: 'a'.repeat(40),
     })
     transitionDecision(db, row.id, 'pr_draft', 'pr_ready')
     mockRepoStatus.mockResolvedValue('ok')
@@ -979,6 +980,7 @@ describe('rails-router POST /:railIndex/launch — ask-first PR delivery (safe-p
       prUrl: 'https://github.com/o/r/pull/521',
       prNumber: 521,
       prState: 'pr-created',
+      deliverySha: 'a'.repeat(40),
     })
     transitionDecision(db, existing.id, 'pr_draft', 'pr_ready')
     mockRepoStatus.mockResolvedValue('ok')
@@ -1010,6 +1012,7 @@ describe('rails-router POST /:railIndex/launch — ask-first PR delivery (safe-p
     })
     transitionDecision(db, existing.id, 'on_review', 'pr_draft', {
       branch: 'feat/open-pr', prUrl: 'https://github.com/o/r/pull/521', prNumber: 521, prState: 'pr-created',
+      deliverySha: 'a'.repeat(40),
     })
     transitionDecision(db, existing.id, 'pr_draft', 'pr_ready')
     mockRepoStatus.mockResolvedValue('no-commits')
@@ -1035,6 +1038,7 @@ describe('rails-router POST /:railIndex/launch — ask-first PR delivery (safe-p
     })
     transitionDecision(db, existing.id, 'on_review', 'pr_draft', {
       branch: 'feat/open-pr', prUrl: 'https://github.com/o/r/pull/521', prNumber: 521, prState: 'pr-created',
+      deliverySha: 'a'.repeat(40),
     })
     transitionDecision(db, existing.id, 'pr_draft', 'pr_ready')
     const saved = process.env.SPECRAILS_RAIL_WORKTREES
@@ -1251,6 +1255,14 @@ describe('rails-router POST /pr-decision', () => {
   afterEach(() => { openProjectProcessAdmission('p1'); db.close() })
 
   const url = 'https://github.com/o/r/pull/7'
+  const deliverySha = 'a'.repeat(40)
+
+  function prLifecycle(isDraft: boolean): string {
+    return JSON.stringify({
+      state: 'OPEN', isDraft, headRefName: 'sr/s1/ticket-1', baseRefName: 'main',
+      headRefOid: deliverySha, mergeCommit: null, commits: [{ oid: deliverySha }],
+    })
+  }
 
   /** A delivery row parked at pr_draft with a live PR URL (approve-ready). */
   function mkDraft(): string {
@@ -1263,6 +1275,7 @@ describe('rails-router POST /pr-decision', () => {
     })
     transitionDecision(db, row.id, 'on_review', 'pr_draft', {
       branch: 'sr/s1/ticket-1', prUrl: url, prNumber: 7, prState: 'pr-created',
+      deliverySha,
     })
     return row.id
   }
@@ -1334,7 +1347,14 @@ describe('rails-router POST /pr-decision', () => {
 
   it('publish → runs gh pr ready, transitions to pr_ready and broadcasts rail.pr_state', async () => {
     const id = mkDraft()
-    mockExecRun.mockResolvedValue({ code: 0, stdout: '', stderr: '' })
+    let viewCount = 0
+    mockExecRun.mockImplementation(async (_cmd: string, args: string[]) => {
+      if (args[1] === 'view') {
+        viewCount++
+        return { code: 0, stdout: prLifecycle(viewCount === 1), stderr: '' }
+      }
+      return { code: 0, stdout: '', stderr: '' }
+    })
     const broadcast = vi.fn()
     const res = await request(appWith(db, { broadcast })).post('/rails/pr-decision')
       .send({ prDeliveryId: id, action: 'publish', expectedDecision: 'pr_draft' })
@@ -1512,5 +1532,44 @@ describe('rails-router launch — concurrent-launch ticket guard', () => {
   it('rejects an out-of-range rail index on launch (MAX_RAILS cap)', async () => {
     const res = await request(appWith(db)).post('/rails/12/launch').send({ mode: 'implement' })
     expect(res.status).toBe(400)
+  })
+})
+
+describe('rails-router POST /pr-checkout generation guard', () => {
+  let db: DbInstance
+
+  beforeEach(() => { db = initDb(':memory:') })
+  afterEach(() => { db.close() })
+
+  it('rejects checkout for superseded generation A after generation B becomes active', async () => {
+    const generationA = createPrDelivery(db, {
+      id: 'generation-a', railIndex: 0, loopId: 'factory:implement',
+      railKey: '0-factory:implement', ticketIds: [1], baseBranch: 'main',
+      loopName: 'Implement', originSurface: 'dashboard',
+    })
+    transitionDecision(db, generationA.id, 'building', 'on_review', {
+      branch: 'feat/generation-a', implementationOutcome: 'succeeded',
+      deliveryOutcome: 'ready', statusCode: 'ready_for_review',
+      deliverySha: 'a'.repeat(40),
+    })
+    transitionDecision(db, generationA.id, 'on_review', 'pr_ready', {
+      prUrl: 'https://github.com/o/r/pull/1', prNumber: 1, prState: 'pr-created',
+      deliveryOutcome: 'delivered', statusCode: 'pr_ready',
+    })
+    transitionDecision(db, generationA.id, 'pr_ready', 'superseded')
+    createPrDelivery(db, {
+      id: 'generation-b', railIndex: 0, loopId: 'factory:implement',
+      railKey: '0-factory:implement', ticketIds: [1], baseBranch: 'main',
+      loopName: 'Implement', originSurface: 'dashboard', supersedesDeliveryId: generationA.id,
+    })
+
+    const res = await request(appWith(db)).post('/rails/pr-checkout').send({
+      prDeliveryId: generationA.id,
+    })
+
+    expect(res.status).toBe(409)
+    expect(res.body).toEqual({
+      error: 'stale_decision', current: 'building', currentPrDeliveryId: 'generation-b',
+    })
   })
 })

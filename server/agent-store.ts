@@ -209,22 +209,39 @@ export function listAgentMessages(db: DbInstance, conversationId: string): Agent
 }
 
 /**
- * First `system`-role message in a conversation whose content satisfies
+ * Every `system`-role message in a conversation whose content satisfies
  * `predicate` (oldest first). The store stays payload-agnostic — callers own
  * the content parsing (e.g. matching a PR-decision card by prDeliveryId).
  */
-export function findAgentSystemMessage(
+export function findAgentSystemMessages(
   db: DbInstance,
   conversationId: string,
   predicate: (content: string) => boolean = () => true,
-): AgentMessage | undefined {
+): AgentMessage[] {
   const rows = db
     .prepare(
       "SELECT * FROM agent_messages WHERE conversation_id = ? AND role = 'system' ORDER BY created_at ASC, rowid ASC",
     )
     .all(conversationId) as AgentMessageRaw[]
-  const hit = rows.find((r) => predicate(r.content))
-  return hit ? mapMessage(hit) : undefined
+  return rows.filter((row) => predicate(row.content)).map(mapMessage)
+}
+
+export function findAgentSystemMessage(
+  db: DbInstance,
+  conversationId: string,
+  predicate: (content: string) => boolean = () => true,
+): AgentMessage | undefined {
+  return findAgentSystemMessages(db, conversationId, predicate)[0]
+}
+
+/** Delete exact message ids without bumping conversation activity. Callers use
+ * this only to consolidate duplicate derived system cards, never user turns. */
+export function deleteAgentMessagesByIds(db: DbInstance, messageIds: readonly string[]): number {
+  if (messageIds.length === 0) return 0
+  const remove = db.prepare('DELETE FROM agent_messages WHERE id = ?')
+  let deleted = 0
+  for (const id of messageIds) deleted += remove.run(id).changes
+  return deleted
 }
 
 /**

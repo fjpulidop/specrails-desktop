@@ -1,11 +1,13 @@
 import { describe, it, expect, beforeEach } from 'vitest'
 import { initDb, type DbInstance } from './db'
 import {
+  appendPrDeliverySafetyArchive,
   createPrDelivery,
   createPrDeliveryGeneration,
   clearOrphanedPrDeliveryOperations,
   failPrDeliveryAndRestoreSuperseded,
   getPrDelivery,
+  getLatestTerminalPrDeliveryTouchingTicketSet,
   getActivePrDeliveryByRail,
   listActivePrDeliveries,
   transitionDecision,
@@ -59,7 +61,9 @@ describe('rail_pr_deliveries ledger', () => {
       status_code: 'implementation_running',
       is_continuation: 0,
       supersedes_delivery_id: null,
+      restored_from_delivery_id: null,
       cleanup_warnings: '[]',
+      safety_archives: '[]',
       branches: '[]',
       loop_name: 'Implement',
       worktree_ids: '[]',
@@ -101,6 +105,24 @@ describe('transitionDecision (compare-and-set)', () => {
     const row = getPrDelivery(db, 'a')!
     expect(row.decision).toBe('on_review')
     expect(row.updated_at).not.toBe('2000-01-01 00:00:00')
+  })
+
+  it('keeps updated_at strictly monotonic across same-instant claim, transition, and release writes', () => {
+    mk('a', 0)
+    const logicalFuture = '2099-01-01T00:00:00.000Z'
+    db.prepare('UPDATE rail_pr_deliveries SET updated_at = ? WHERE id = ?').run(logicalFuture, 'a')
+
+    expect(claimPrDeliveryOperation(db, 'a', 'building', 'create-pr', 'token')).toBe(true)
+    const claimedAt = getPrDelivery(db, 'a')!.updated_at
+    expect(Date.parse(claimedAt)).toBeGreaterThan(Date.parse(logicalFuture))
+
+    expect(transitionClaimedDecision(db, 'a', 'building', 'on_review', 'token')).toBe(true)
+    const transitionedAt = getPrDelivery(db, 'a')!.updated_at
+    expect(Date.parse(transitionedAt)).toBeGreaterThan(Date.parse(claimedAt))
+
+    expect(releasePrDeliveryOperation(db, 'a', 'token')).toBe(true)
+    const releasedAt = getPrDelivery(db, 'a')!.updated_at
+    expect(Date.parse(releasedAt)).toBeGreaterThan(Date.parse(transitionedAt))
   })
 
   it('returns false on a stale expected and leaves the row untouched', () => {
@@ -235,6 +257,48 @@ describe('active queries', () => {
   })
 })
 
+describe('terminal history authority by ticket lineage', () => {
+  it('returns the newest overlapping generation instead of resurrecting older exact history', () => {
+    const older = mk('older-exact', 0, { ticketIds: [1, 2] })
+    transitionDecision(db, older.id, 'building', 'discarded')
+    const newer = mk('newer-exact', 1, { ticketIds: [2, 1] })
+    transitionDecision(db, newer.id, 'building', 'discarded')
+    const unrelated = mk('newer-subset', 2, { ticketIds: [1] })
+    transitionDecision(db, unrelated.id, 'building', 'discarded')
+
+    expect(getLatestTerminalPrDeliveryTouchingTicketSet(db, [1, 2])?.id).toBe('newer-subset')
+  })
+
+  it('lets a newer superset shadow older exact history', () => {
+    const older = mk('older-single', 0, { ticketIds: [1] })
+    transitionDecision(db, older.id, 'building', 'discarded')
+    const newer = mk('newer-batch', 1, { ticketIds: [2, 1] })
+    transitionDecision(db, newer.id, 'building', 'discarded')
+
+    expect(getLatestTerminalPrDeliveryTouchingTicketSet(db, [1])?.id).toBe('newer-batch')
+  })
+
+  it('lets malformed newest target ownership shadow older valid history', () => {
+    const older = mk('older-valid', 0, { ticketIds: [1] })
+    transitionDecision(db, older.id, 'building', 'discarded')
+    const newer = mk('newer-malformed', 1, { ticketIds: [1] })
+    transitionDecision(db, newer.id, 'building', 'discarded')
+    db.prepare(`UPDATE rail_pr_deliveries SET ticket_ids = '[1,1]' WHERE id = ?`).run(newer.id)
+
+    expect(getLatestTerminalPrDeliveryTouchingTicketSet(db, [1])?.id).toBe('newer-malformed')
+  })
+
+  it('rejects empty and duplicate requested targets, and returns overlap authority otherwise', () => {
+    const row = mk('batch', 0, { ticketIds: [1, 2] })
+    transitionDecision(db, row.id, 'building', 'discarded')
+
+    expect(getLatestTerminalPrDeliveryTouchingTicketSet(db, [])).toBeUndefined()
+    expect(getLatestTerminalPrDeliveryTouchingTicketSet(db, [1, 1])).toBeUndefined()
+    expect(getLatestTerminalPrDeliveryTouchingTicketSet(db, [1])?.id).toBe('batch')
+    expect(getLatestTerminalPrDeliveryTouchingTicketSet(db, [1, 2, 3])?.id).toBe('batch')
+  })
+})
+
 describe('decision sets', () => {
   it('classifies terminal decisions', () => {
     expect(isTerminalPrDecision('completed')).toBe(true)
@@ -338,7 +402,26 @@ describe('generation and operation ownership', () => {
     expect(failPrDeliveryAndRestoreSuperseded(db, 'new', superseded!)).toBe(true)
     expect(getPrDelivery(db, 'new')?.decision).toBe('discarded')
     expect(getActivePrDeliveryByRail(db, 0)?.id).toBe('old')
-    expect(getPrDelivery(db, 'old')?.decision).toBe('pr_draft')
+    expect(getPrDelivery(db, 'old')).toMatchObject({
+      decision: 'pr_draft', restored_from_delivery_id: 'new',
+    })
+    expect(toPrDeliverySnapshot(getPrDelivery(db, 'old')!)).toMatchObject({
+      id: 'old', restoredFromDeliveryId: 'new',
+    })
+
+    // A later replacement clears the old rollback marker while A is terminal,
+    // then records only that exact replacement if allocation also fails.
+    const second = createPrDeliveryGeneration(db, {
+      id: 'newer', railIndex: 0, loopId: 'loop-1', railKey: '0-loop-1', ticketIds: [1],
+      baseBranch: 'main', loopName: 'Follow-up 2', originSurface: 'dashboard',
+    }, { id: 'old', decision: 'pr_draft' })
+    expect(getPrDelivery(db, 'old')).toMatchObject({
+      decision: 'superseded', restored_from_delivery_id: null,
+    })
+    expect(failPrDeliveryAndRestoreSuperseded(db, 'newer', second.superseded!)).toBe(true)
+    expect(getPrDelivery(db, 'old')).toMatchObject({
+      decision: 'pr_draft', restored_from_delivery_id: 'newer',
+    })
   })
 
   it('atomically records a stale-PR replacement as a fresh generation', () => {
@@ -443,8 +526,10 @@ describe('JSON round-trips + snapshot mapper', () => {
       deliverySha: null,
       isContinuation: false,
       supersedesDeliveryId: null,
+      restoredFromDeliveryId: null,
       operation: null,
       cleanupWarnings: [],
+      safetyArchives: [],
       branches: [
         { ticketId: 3, branch: 'sr/p/ticket-3', succeeded: true },
         { ticketId: 5, branch: 'sr/p/ticket-5', succeeded: false },
@@ -473,6 +558,35 @@ describe('JSON round-trips + snapshot mapper', () => {
     expect(snap.branches).toEqual([])
     expect(snap.worktreeIds).toEqual([])
     expect(snap.runIds).toEqual([])
+    expect(snap.safetyArchives).toEqual([])
+  })
+
+  it('coerces and deduplicates every exact safety archive path without dropping older pointers', () => {
+    mk('a', 0)
+    const paths = Array.from({ length: 10 }, (_, index) => `/archive/${index} `)
+    transitionDecision(db, 'a', 'building', 'building', {
+      safetyArchives: [...paths, paths[9]],
+    })
+
+    const snap = toPrDeliverySnapshot(getPrDelivery(db, 'a')!)
+    expect(snap.safetyArchives).toEqual(paths)
+    expect(JSON.parse(getPrDelivery(db, 'a')!.safety_archives)).toEqual(paths)
+
+    db.prepare(`UPDATE rail_pr_deliveries SET safety_archives = '["/safe",42,"","/safe"]' WHERE id = 'a'`).run()
+    expect(toPrDeliverySnapshot(getPrDelivery(db, 'a')!).safetyArchives).toEqual(['/safe'])
+  })
+
+  it('atomically appends safety archives without depending on lifecycle state', () => {
+    mk('a', 0)
+    expect(appendPrDeliverySafetyArchive(db, 'a', '/archive/one')).toEqual(['/archive/one'])
+    transitionDecision(db, 'a', 'building', 'on_review')
+    expect(appendPrDeliverySafetyArchive(db, 'a', '/archive/two')).toEqual([
+      '/archive/one', '/archive/two',
+    ])
+    expect(appendPrDeliverySafetyArchive(db, 'a', '/archive/one')).toEqual([
+      '/archive/two', '/archive/one',
+    ])
+    expect(appendPrDeliverySafetyArchive(db, 'missing', '/archive/lost')).toBeNull()
   })
 
   it('toRailPrStateMessage builds the exact rail.pr_state wire payload from a snapshot', () => {
@@ -499,6 +613,8 @@ describe('JSON round-trips + snapshot mapper', () => {
       implementationOutcome: 'running',
       deliveryOutcome: 'pending',
       statusCode: 'implementation_running',
+      restoredFromDeliveryId: null,
+      safetyArchives: [],
       units: [{ ticketId: 4, branch: 'sr/p/ticket-4', succeeded: true }],
       runIds: ['run-4', 'run-6'],
       originConversationId: 'conv-7',
@@ -520,6 +636,8 @@ describe('JSON round-trips + snapshot mapper', () => {
       implementationOutcome: 'running',
       deliveryOutcome: 'pending',
       statusCode: 'implementation_running',
+      restoredFromDeliveryId: null,
+      safetyArchives: [],
       units: [],
       prUrl: null,
       prNumber: null,
