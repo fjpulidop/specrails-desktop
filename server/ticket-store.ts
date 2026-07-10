@@ -517,7 +517,10 @@ export function extractTicketIdsFromCommand(command: string): number[] {
   const seen = new Set<number>()
   for (const match of command.matchAll(/#(\d+)/g)) {
     const id = Number.parseInt(match[1], 10)
-    if (Number.isNaN(id) || seen.has(id)) continue
+    // Ticket ids are positive safe integers everywhere they cross the durable
+    // queue/recovery boundary. Reject 0 and overflow here so producers and
+    // replay validators can never disagree on the same command.
+    if (!Number.isSafeInteger(id) || id <= 0 || seen.has(id)) continue
     seen.add(id)
     ids.push(id)
   }
