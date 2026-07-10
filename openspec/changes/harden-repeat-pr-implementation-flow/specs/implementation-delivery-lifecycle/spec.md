@@ -110,6 +110,14 @@ The platform SHALL treat a continuation's PR and head branch as borrowed user-ow
 - **THEN** the local iteration MAY be removed
 - **AND** the pre-existing PR and its head branch SHALL remain intact
 
+#### Scenario: Recovered legacy delivery lacks a continuation marker
+
+- **WHEN** migration recovers a successful but delivery-blocked row with an existing PR URL and no trustworthy historical continuation bit
+- **AND** the user confirms Discard local result
+- **THEN** only the recoverable local iteration MAY be removed
+- **AND** the existing PR, its head branch, and its review ticket state SHALL remain unchanged
+- **AND** the server behavior SHALL match the consequence shown by the card
+
 ### Requirement: Delivery reasons and evidence survive refresh
 
 The delivery ledger and every snapshot SHALL include a stable implementation outcome, delivery outcome, status code, continuation ownership, cleanup warnings, exact verified delivery SHA when available, and per-unit outcomes. The client SHALL localize the status code and treat raw detail as secondary diagnostics.

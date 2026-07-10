@@ -174,7 +174,8 @@ block the repository forever.
   still-`on_review` tickets → `todo` (a manually re-triaged spec is respected) + Jira
   `onRailDiscard`. Failures are retained in `cleanup_warnings` and disclosed. For a continuation,
   discard can remove only the explicitly confirmed blocked local iteration: it preserves the
-  borrowed PR/head and review ticket state.
+  borrowed PR/head and review ticket state. A recovered blocked legacy row with a PR URL receives
+  the same protection even when its old schema could not retain the continuation marker.
 - **dismiss** — continuation acknowledgement. Clears the generation and owned clean
   worktree while preserving the existing PR, head branch and `on_review` tickets.
 - **acknowledge-no-changes** — fresh no-change acceptance → terminal `completed`, tickets Done,

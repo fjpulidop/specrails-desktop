@@ -808,13 +808,20 @@ async function runDiscard(
 ): Promise<PrDecisionResult> {
   const snap = toPrDeliverySnapshot(row)
   const implementationFailed = row.decision === 'implementation_failed'
-  const preserveBorrowedReview = row.is_continuation === 1
+  // Migration 49 can prove that an old implementation succeeded but cannot
+  // always reconstruct whether its pre-v48 row continued an existing PR. The
+  // blocked-delivery card explicitly promises that Discard local result leaves
+  // any existing PR untouched, so a durable PR URL is sufficient ownership
+  // evidence to preserve that external review even when is_continuation=0.
+  const preserveExternalReview = row.is_continuation === 1 || (
+    row.delivery_outcome === 'blocked' && row.pr_url !== null
+  )
   const cleanupWarnings: string[] = []
 
   // A continuation borrows an existing PR/head. Discarding its local iteration
   // may remove Specrails' worktree, but never closes or deletes borrowed review
   // state. Fresh deliveries retain the original destructive semantics.
-  if (row.pr_url && !implementationFailed && !preserveBorrowedReview) {
+  if (row.pr_url && !implementationFailed && !preserveExternalReview) {
     try {
       const r = await deps.exec.run('gh', ['pr', 'close', row.pr_url, '--delete-branch'], deps.project.path)
       if (r.code !== 0) {
@@ -831,7 +838,7 @@ async function runDiscard(
   // 2. Remove the launch's worktrees (still on disk unless a restart already
   //    swept them) and close their ledger rows — the reconcile-style removal,
   //    branch deletion deferred to step 3 (a checked-out branch can't be -D'd).
-  const deleteOwnedBranches = !implementationFailed && !preserveBorrowedReview
+  const deleteOwnedBranches = !implementationFailed && !preserveExternalReview
   const branchSet = deleteOwnedBranches ? ownedDeliveryBranches(row, snap, cleanupWarnings) : new Set<string>()
   for (const wtId of snap.worktreeIds) {
     const wt = getRailWorktree(deps.db, wtId)
@@ -875,7 +882,7 @@ async function runDiscard(
     statusCode: cleanupWarnings.length > 0 ? 'cleanup_incomplete' : 'discarded',
     cleanupWarnings,
   }
-  const conflict = preserveBorrowedReview
+  const conflict = preserveExternalReview
     ? casTransition(deps, row, 'discarded', terminalPatch)
     : casTransitionWithTicketEffect(deps, row, 'discarded', terminalPatch, {
         deliveryId: row.id,
@@ -887,7 +894,7 @@ async function runDiscard(
         prUrl: null,
       })
   if (conflict) return conflict
-  if (!preserveBorrowedReview) applyTerminalTicketEffect(deps, row, 'discarded', cleanupWarnings)
+  if (!preserveExternalReview) applyTerminalTicketEffect(deps, row, 'discarded', cleanupWarnings)
   finalizeTransition(deps, row.id)
   return {
     status: 200,
@@ -895,7 +902,7 @@ async function runDiscard(
       ok: true,
       decision: 'discarded',
       ...(cleanupWarnings.length > 0 ? { cleanupWarnings } : {}),
-      ...(preserveBorrowedReview ? { preservedBorrowedReview: true } : {}),
+      ...(preserveExternalReview ? { preservedBorrowedReview: true, preservedExternalReview: true } : {}),
     },
   }
 }
