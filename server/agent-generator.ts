@@ -148,11 +148,19 @@ export async function generateCustomAgent(
     const adapterEvents: AdapterEvent[] = []
     const startedAt = new Date().toISOString()
     const record = opts.record
+    let settled = false
+    const settle = (status: InvocationStatus, complete: () => void): void => {
+      if (settled) return
+      settled = true
+      clearTimeout(killer)
+      if (record) recordAgentStudioInvocation(record, adapterEvents, status, startedAt)
+      complete()
+    }
     const killer = setTimeout(() => {
-      escalateKill(child)
-      // Timeout kill — cost whatever tokens were burned before the SIGTERM.
-      if (record) recordAgentStudioInvocation(record, adapterEvents, 'aborted', startedAt)
-      reject(new Error('agent generation timed out after 90s'))
+      settle('aborted', () => {
+        escalateKill(child)
+        reject(new Error('agent generation timed out after 90s'))
+      })
     }, 90_000)
 
     const reader = createInterface({ input: child.stdout!, crlfDelay: Infinity })
@@ -182,27 +190,23 @@ export async function generateCustomAgent(
     child.stderr!.on('data', (chunk: Buffer) => { stderr += chunk.toString() })
 
     child.on('error', (err) => {
-      clearTimeout(killer)
-      if (record) recordAgentStudioInvocation(record, adapterEvents, 'failed', startedAt)
-      reject(err)
+      settle('failed', () => reject(err))
     })
 
     child.on('close', (code) => {
-      clearTimeout(killer)
       const trimmed = collected.trim()
-      if (record) {
-        const status: InvocationStatus = code === 0 && trimmed ? 'success' : 'failed'
-        recordAgentStudioInvocation(record, adapterEvents, status, startedAt)
-      }
-      if (code !== 0) {
-        reject(new Error(`claude exited with code ${code}${stderr ? `: ${stderr.slice(-500)}` : ''}`))
-        return
-      }
-      if (!trimmed) {
-        reject(new Error('claude returned empty output'))
-        return
-      }
-      resolve(trimmed)
+      const status: InvocationStatus = code === 0 && trimmed ? 'success' : 'failed'
+      settle(status, () => {
+        if (code !== 0) {
+          reject(new Error(`claude exited with code ${code}${stderr ? `: ${stderr.slice(-500)}` : ''}`))
+          return
+        }
+        if (!trimmed) {
+          reject(new Error('claude returned empty output'))
+          return
+        }
+        resolve(trimmed)
+      })
     })
   })
 }
@@ -289,10 +293,19 @@ export async function testCustomAgent(
       resultTokensIn !== undefined || resultTokensOut !== undefined
         ? (resultTokensIn ?? 0) + (resultTokensOut ?? 0)
         : msgTokensIn + msgTokensOut
+    let settled = false
+    const settle = (status: InvocationStatus, complete: () => void): void => {
+      if (settled) return
+      settled = true
+      clearTimeout(killer)
+      if (record) recordAgentStudioInvocation(record, adapterEvents, status, startedAt)
+      complete()
+    }
     const killer = setTimeout(() => {
-      escalateKill(child)
-      if (record) recordAgentStudioInvocation(record, adapterEvents, 'aborted', startedAt)
-      reject(new Error('test agent run timed out after 120s'))
+      settle('aborted', () => {
+        escalateKill(child)
+        reject(new Error('test agent run timed out after 120s'))
+      })
     }, 120_000)
 
     const reader = createInterface({ input: child.stdout!, crlfDelay: Infinity })
@@ -343,32 +356,27 @@ export async function testCustomAgent(
     child.stderr!.on('data', (chunk: Buffer) => { stderr += chunk.toString() })
 
     child.on('error', (err) => {
-      clearTimeout(killer)
-      if (record) recordAgentStudioInvocation(record, adapterEvents, 'failed', startedAt)
-      reject(err)
+      settle('failed', () => reject(err))
     })
 
     child.on('close', (code) => {
-      clearTimeout(killer)
       const durationMs = Date.now() - started
       const failedHard = !truncated && code !== 0 && !collected
-      if (record) {
-        const status: InvocationStatus = truncated ? 'aborted' : failedHard ? 'failed' : 'success'
-        recordAgentStudioInvocation(record, adapterEvents, status, startedAt)
-      }
-      if (failedHard) {
-        reject(new Error(`claude exited with code ${code}${stderr ? `: ${stderr.slice(-500)}` : ''}`))
-        return
-      }
-      resolve({
-        output: truncated
-          ? collected + `\n\n[… output truncated after reaching ${tokenCeiling}-token ceiling]`
-          : collected,
-        tokens: runningTotalTokens(),
-        durationMs,
-        draftHash,
+      const status: InvocationStatus = truncated ? 'aborted' : failedHard ? 'failed' : 'success'
+      settle(status, () => {
+        if (failedHard) {
+          reject(new Error(`claude exited with code ${code}${stderr ? `: ${stderr.slice(-500)}` : ''}`))
+          return
+        }
+        resolve({
+          output: truncated
+            ? collected + `\n\n[… output truncated after reaching ${tokenCeiling}-token ceiling]`
+            : collected,
+          tokens: runningTotalTokens(),
+          durationMs,
+          draftHash,
+        })
       })
     })
   })
 }
-

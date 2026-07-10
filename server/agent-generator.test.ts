@@ -204,6 +204,48 @@ describe('agent-generator', () => {
 
       expect(readRows(db)).toHaveLength(0)
     })
+
+    it('records exactly once when a spawn error is followed by close', async () => {
+      const child = createMockChildProcess()
+      vi.mocked(mockSpawn).mockReturnValue(child as any)
+
+      const p = testCustomAgent('/cwd', { draftBody: '---\nname: x\n---\nbody', sampleTask: 'go', record })
+      child.emit('error', new Error('spawn failed'))
+      await expect(p).rejects.toThrow('spawn failed')
+
+      // Node may emit `close` after `error`; it is the same invocation, not a
+      // second terminal outcome.
+      child.emit('close', 1)
+
+      const rows = readRows(db)
+      expect(rows).toHaveLength(1)
+      expect(rows[0].status).toBe('failed')
+      expect(broadcast).toHaveBeenCalledTimes(1)
+    })
+
+    it('records exactly one aborted invocation when timeout is followed by close', async () => {
+      vi.useFakeTimers()
+      try {
+        const child = createMockChildProcess()
+        vi.mocked(mockSpawn).mockReturnValue(child as any)
+
+        const p = testCustomAgent('/cwd', { draftBody: '---\nname: x\n---\nbody', sampleTask: 'go', record })
+        const rejection = expect(p).rejects.toThrow('timed out after 120s')
+        await vi.advanceTimersByTimeAsync(120_000)
+        await rejection
+
+        // The timeout-triggered kill eventually reaps the process and emits
+        // close. That must not replace/duplicate the already-recorded abort.
+        child.emit('close', 1)
+
+        const rows = readRows(db)
+        expect(rows).toHaveLength(1)
+        expect(rows[0].status).toBe('aborted')
+        expect(broadcast).toHaveBeenCalledTimes(1)
+      } finally {
+        vi.useRealTimers()
+      }
+    })
   })
 
   // ─── MED-3: generateCustomAgent records surface='agent-studio' ─────────────
@@ -268,6 +310,42 @@ describe('agent-generator', () => {
       await p
 
       expect(readRows(db)).toHaveLength(0)
+    })
+
+    it('records exactly once when a spawn error is followed by close', async () => {
+      const child = createMockChildProcess()
+      vi.mocked(mockSpawn).mockReturnValue(child as any)
+
+      const p = generateCustomAgent('/cwd', { name: 'custom-x', description: 'does x', record })
+      child.emit('error', new Error('spawn failed'))
+      await expect(p).rejects.toThrow('spawn failed')
+      child.emit('close', 1)
+
+      const rows = readRows(db)
+      expect(rows).toHaveLength(1)
+      expect(rows[0].status).toBe('failed')
+      expect(broadcast).toHaveBeenCalledTimes(1)
+    })
+
+    it('records exactly one aborted invocation when timeout is followed by close', async () => {
+      vi.useFakeTimers()
+      try {
+        const child = createMockChildProcess()
+        vi.mocked(mockSpawn).mockReturnValue(child as any)
+
+        const p = generateCustomAgent('/cwd', { name: 'custom-x', description: 'does x', record })
+        const rejection = expect(p).rejects.toThrow('timed out after 90s')
+        await vi.advanceTimersByTimeAsync(90_000)
+        await rejection
+        child.emit('close', 1)
+
+        const rows = readRows(db)
+        expect(rows).toHaveLength(1)
+        expect(rows[0].status).toBe('aborted')
+        expect(broadcast).toHaveBeenCalledTimes(1)
+      } finally {
+        vi.useRealTimers()
+      }
     })
   })
 })
