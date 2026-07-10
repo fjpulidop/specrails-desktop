@@ -1,5 +1,12 @@
 # Changelog
 
+## [2.29.2](https://github.com/fjpulidop/specrails-desktop/compare/v2.29.1...v2.29.2) (2026-07-10)
+
+
+### Bug Fixes
+
+* adversarial hardening and truthful repeated PR delivery ([#546](https://github.com/fjpulidop/specrails-desktop/issues/546)) ([e8a7f07](https://github.com/fjpulidop/specrails-desktop/commit/e8a7f070cda654605c0ca8e5a6afc3d6c2a60153))
+
 ## [2.29.1](https://github.com/fjpulidop/specrails-desktop/compare/v2.29.0...v2.29.1) (2026-07-09)
 
 
