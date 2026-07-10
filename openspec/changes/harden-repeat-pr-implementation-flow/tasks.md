@@ -69,7 +69,7 @@
 - [x] 9.1 Persist exact failed-replacement rollback lineage and allow only that restoration to override a predecessor tombstone across dashboard, Agent Chat, hydration, and pinning.
 - [x] 9.2 Freeze inferred external PRs to an authoritative live remote head, require that SHA at allocation, allow a verified new post-run SHA, and push only the exact final object.
 - [x] 9.3 Replace check-then-delete overlay cleanup with atomic persistent quarantine plus post-rename revalidation, preserving concurrent writes and open-descriptor changes.
-- [ ] 9.4 Run focused and complete verification after all three adversarial blockers are integrated; validate OpenSpec and the final remote PR SHA.
+- [x] 9.4 Run focused and complete verification after all three adversarial blockers are integrated; validate OpenSpec and the final remote PR SHA.
 - [x] 9.5 Persist every successful overlay quarantine batch root as a separately rendered safety archive in both card surfaces and all eight locales, including a persistent terminal dashboard disclosure, without manufacturing cleanup warnings.
 - [x] 9.6 Use full fresh-discard actions/copy for blocked non-continuation deliveries with an attached PR; reserve local-result discard for borrowed continuations.
 - [x] 9.7 Make implementation-failed, retryable-push, and delivery-blocked presentations mutually exclusive in both renderers, including legacy `settlement_interrupted` recovery.
