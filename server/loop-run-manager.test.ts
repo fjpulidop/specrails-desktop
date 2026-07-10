@@ -1,9 +1,9 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest'
 import { EventEmitter } from 'events'
 import { Readable } from 'stream'
-import { initDb, getJob, getJobEvents, type DbInstance } from './db'
-import { LoopRunManager, truncate, type LoopExecutors, type InteractiveAiStepPlan, type InteractivePlanInput } from './loop-run-manager'
-import { getLoopRun } from './loop-runs-store'
+import { initDb, createJob, getJob, getJobEvents, type DbInstance } from './db'
+import { LoopRunManager, recoverOrphanLoopStepAccounting, truncate, type LoopExecutors, type InteractiveAiStepPlan, type InteractivePlanInput } from './loop-run-manager'
+import { createLoopRun, getLoopRun, stageLoopStepRecovery } from './loop-runs-store'
 import { fixLoopGraph } from './loop-templates'
 import { getAdapter } from './providers'
 import type { LoopGraph } from './loop-graph'
@@ -248,6 +248,46 @@ describe('LoopRunManager ai_invocations accounting (BUG-ANALYTICS-03/04/07/32)',
     }
   }
 
+  function shellOnlyGraph(): LoopGraph {
+    return {
+      nodes: [
+        { id: 's', type: 'start', position: { x: 0, y: 0 } },
+        { id: 'sh', type: 'shell', position: { x: 0, y: 1 }, data: { command: 'npm test' } },
+        { id: 'e', type: 'end', position: { x: 0, y: 2 } },
+      ],
+      edges: [
+        { id: 'e1', source: 's', target: 'sh' },
+        { id: 'e2', source: 'sh', target: 'e' },
+      ],
+      config: { maxIterations: 5, timeoutMinutes: 30 },
+    }
+  }
+
+  it('keeps executor duration for shell-only runs in both the loop and backing job', async () => {
+    const res = await manager(makeExecutors({
+      runShell: vi.fn(async () => ({ stdout: 'ok', stderr: '', exitCode: 0, durationMs: 13 })),
+    })).run({ ...baseReq(), graph: shellOnlyGraph() })
+
+    expect(getLoopRun(db, res.runId)?.total_duration_ms).toBe(13)
+    expect(getJob(db, res.runId)?.duration_ms).toBe(13)
+  })
+
+  it('keeps shell duration when terminal AI aggregates are rebuilt', async () => {
+    const res = await manager(makeExecutors({
+      runAiStep: vi.fn(async () => ({
+        text: 'worked', provider: 'claude', model: 'sonnet', durationMs: 11,
+      })),
+      runShell: vi.fn(async () => ({ stdout: 'ok', stderr: '', exitCode: 0, durationMs: 13 })),
+      runDecider: vi.fn(async () => ({
+        continue: false, reasoning: 'done', parsed: true,
+        provider: 'claude', model: 'sonnet', durationMs: 17,
+      })),
+    })).run(baseReq())
+
+    expect(getLoopRun(db, res.runId)?.total_duration_ms).toBe(41)
+    expect(getJob(db, res.runId)?.duration_ms).toBe(41)
+  })
+
   it('BUG-04: persists the per-direction token breakdown (incl. cache) to its matching column, not folded into tokens_out', async () => {
     // Mirrors a cache-hit claude step: in/out small, cache large. Folding into a
     // single tokens_out scalar would drop the cache volume entirely.
@@ -266,6 +306,22 @@ describe('LoopRunManager ai_invocations accounting (BUG-ANALYTICS-03/04/07/32)',
     expect(row.tokens_out).toBe(1000)
     expect(row.tokens_cache_read).toBe(20000)
     expect(row.tokens_cache_create).toBe(2000)
+  })
+
+  it('preserves a provider scalar token total when no direction breakdown exists', async () => {
+    const res = await manager(makeExecutors({
+      runAiStep: vi.fn(async () => ({
+        text: 'x', provider: 'claude', model: 'sonnet', tokens: 123,
+      })),
+    })).run({ ...baseReq(), graph: singleStepGraph() })
+
+    const invocation = db.prepare(`
+      SELECT tokens_in, tokens_out FROM ai_invocations
+       WHERE surface = 'loop' AND loop_run_id = ?
+    `).get(res.runId) as { tokens_in: number | null; tokens_out: number | null }
+    expect(invocation).toMatchObject({ tokens_in: null, tokens_out: 123 })
+    expect(getLoopRun(db, res.runId)?.total_tokens).toBe(123)
+    expect(getJob(db, res.runId)).toMatchObject({ tokens_in: 0, tokens_out: 123 })
   })
 
   it('LOW-8: threads num_turns / session_id / duration_ms / duration_api_ms from the executor result to the loop row', async () => {
@@ -946,8 +1002,10 @@ describe('LoopRunManager interactive ai-steps', () => {
     expect(planInputs[0]).toMatchObject({ provider: 'claude', model: 'sonnet', cwd: '/repo' })
     expect(planInputs[0].sessionId).toBeUndefined()
     // The run's backing job row is flagged interactive while the step runs.
-    const job = getJob(db, 'run-int-1') as unknown as { interactive: number | null }
-    expect(job.interactive).toBe(1)
+    const job = getJob(db, 'run-int-1') as unknown as {
+      interactive: number | null; provider: string | null; owner: string
+    }
+    expect(job).toMatchObject({ interactive: 1, provider: 'claude', owner: 'loop' })
     expect(mgr.isInteractiveJob('run-int-1')).toBe(true)
 
     // Step-session availability flip (S3): a `job.interactive` broadcast marks
@@ -1131,19 +1189,20 @@ describe('LoopRunManager interactive ai-steps', () => {
     expect(getLoopRun(db, res.runId)!.final_outcome).toBe('stopped')
   })
 
-  it('shutdown() disposes resident sessions without settling (project removal / process exit)', async () => {
+  it('shutdown() checkpoints resident step accounting before disposal', async () => {
     const { executors, children } = interactiveExecutors()
     const mgr = manager(executors)
-    // Deliberately NOT awaited — dispose never settles, mirroring QueueManager;
-    // the startup orphan sweeps reconcile the rows on next boot.
+    // Deliberately NOT awaited — shutdown records the interrupted step, while
+    // startup later reconciles the run/job terminal rows.
     void mgr.run({ ...baseReq(), runId: 'run-int-7', graph: singleInteractiveGraph() })
     await waitFor(() => children.length === 1, 'session spawn')
     mgr.shutdown()
     expect(children[0].killed).toBe(true)
     expect(mgr.isInteractiveJob('run-int-7')).toBe(false)
-    await tick() // the disposed session's close must NOT settle/record anything
-    const n = (db.prepare(`SELECT COUNT(*) AS n FROM ai_invocations WHERE surface='loop'`).get() as { n: number }).n
-    expect(n).toBe(0)
+    await tick()
+    const rows = db.prepare(`SELECT status FROM ai_invocations WHERE surface='loop'`).all() as Array<{ status: string }>
+    expect(rows).toEqual([{ status: 'failed' }])
+    expect(db.prepare(`SELECT 1 FROM loop_step_recovery WHERE run_id = 'run-int-7'`).get()).toBeUndefined()
   })
 
   it('sendInteractiveTurn routes only to the ACTIVE step session (false between/after steps)', async () => {
@@ -1407,6 +1466,395 @@ describe('LoopRunManager zero-work ai-steps', () => {
     expect(aiEnd.status).toBe('ok')
     const row = db.prepare(`SELECT status FROM ai_invocations WHERE surface='loop' AND loop_run_id=? AND surface_ref_id NOT LIKE '%decider'`).get(res.runId) as { status: string }
     expect(row.status).toBe('success')
+  })
+})
+
+describe('LoopRunManager crash-consistent accounting', () => {
+  it('replays the Decider iteration count from its durable step checkpoint', () => {
+    createLoopRun(db, {
+      id: 'iteration-replay', projectId: 'p1', loopId: 'loop-1',
+      iterationLimit: 5, startedAt: '2026-07-10T00:00:00.000Z',
+    })
+    createJob(db, {
+      id: 'iteration-replay', command: 'loop: iteration',
+      started_at: '2026-07-10T00:00:00.000Z', owner: 'loop',
+    })
+    stageLoopStepRecovery(db, {
+      version: 1,
+      runId: 'iteration-replay',
+      stepKey: 'decider:1:d',
+      invocationId: 'iteration-replay-invocation',
+      projectId: 'p1',
+      provider: 'claude',
+      model: 'sonnet',
+      surfaceRefId: 'loop:iteration-replay:decider',
+      ticketIds: [42],
+      startedAt: '2026-07-10T00:00:00.000Z',
+      baseline: {
+        tokensIn: 0, tokensOut: 0, tokensCacheRead: 0,
+        tokensCacheCreate: 0, totalCostUsd: 0, numTurns: 0,
+      },
+      completedEventSeq: -1,
+      providerCostBaseline: 0,
+      providerTurnsBaseline: 0,
+      loopDurationBaseline: 0,
+      completedDurationMs: 0,
+      iterationCount: 3,
+      settledResult: {
+        cost: 0.02, tokens: 12, tokensIn: 7, tokensOut: 5,
+        durationMs: 9, numTurns: 1, provider: 'claude', model: 'sonnet',
+      },
+    })
+
+    expect(recoverOrphanLoopStepAccounting(db, '2026-07-10T00:00:01.000Z', 'iteration-replay')).toBe(1)
+    expect(getLoopRun(db, 'iteration-replay')).toMatchObject({
+      iteration_count: 3,
+      total_cost_usd: 0.02,
+      total_tokens: 12,
+      total_duration_ms: 9,
+    })
+  })
+
+  it('rolls back ticket/rail ownership and the loop row when backing-job admission fails', async () => {
+    db.exec(`
+      CREATE TRIGGER reject_loop_backing_job
+      BEFORE INSERT ON jobs
+      WHEN NEW.id = 'atomic-launch-failure'
+      BEGIN SELECT RAISE(ABORT, 'backing job admission failed'); END;
+    `)
+
+    await expect(manager(makeExecutors()).run({
+      ...baseReq(), runId: 'atomic-launch-failure', graph: singleInteractiveGraph(),
+    })).rejects.toThrow('backing job admission failed')
+
+    expect(getLoopRun(db, 'atomic-launch-failure')).toBeUndefined()
+    expect(getJob(db, 'atomic-launch-failure')).toBeUndefined()
+    expect(db.prepare(`SELECT 1 FROM ticket_outcome_ownership WHERE owner_id = ?`).get('atomic-launch-failure'))
+      .toBeUndefined()
+    expect(db.prepare(`SELECT 1 FROM rail_ticket_ownership WHERE owner_id = ?`).get('atomic-launch-failure'))
+      .toBeUndefined()
+  })
+
+  it('treats every websocket broadcast as advisory to the durable run', async () => {
+    const mgr = new LoopRunManager(
+      db,
+      () => { throw new Error('websocket disconnected') },
+      makeExecutors(),
+      () => 1_000,
+    )
+
+    const res = await mgr.run({ ...baseReq(), runId: 'broadcast-failure' })
+
+    expect(res.outcome).toBe('success')
+    expect(getLoopRun(db, res.runId)).toMatchObject({ status: 'completed', final_outcome: 'success' })
+    expect(getJob(db, res.runId)).toMatchObject({ status: 'completed', causal_ownership: 1 })
+  })
+
+  it('recovers only completed-turn delta from a hard crash checkpoint', async () => {
+    let wallMs = 1_000
+    const dateNow = vi.spyOn(Date, 'now').mockImplementation(() => {
+      wallMs += 25
+      return wallMs
+    })
+    const { executors, children } = interactiveExecutors()
+    const mgr = manager(executors)
+    try {
+      void mgr.run({ ...baseReq(), runId: 'hard-completed', graph: singleInteractiveGraph() })
+      await waitFor(() => children.length === 1, 'interactive spawn')
+      expect(mgr.sendInteractiveTurn('hard-completed', 'second turn')).toBe(true)
+      children[0].stdout.push(assistantFrame('first turn work'))
+      children[0].stdout.push(resultFrame())
+      await waitFor(() => children[0].stdinWrites.length === 2, 'second turn write')
+      children[0].stderr.push('second turn is active\n')
+      await tick()
+
+      const checkpoint = JSON.parse((db.prepare(`
+        SELECT payload FROM loop_step_recovery WHERE run_id = 'hard-completed'
+      `).get() as { payload: string }).payload) as {
+        completedDurationMs: number
+        activeTurnStartedAtMs: number
+        lastActivityAtMs: number
+      }
+      const expectedDuration = checkpoint.completedDurationMs
+        + checkpoint.lastActivityAtMs - checkpoint.activeTurnStartedAtMs
+
+      expect(recoverOrphanLoopStepAccounting(db, '2026-07-10T00:00:00.000Z', 'hard-completed')).toBe(1)
+      const rows = db.prepare(`
+        SELECT tokens_in, tokens_out, total_cost_usd, num_turns, duration_ms
+          FROM ai_invocations WHERE loop_run_id = 'hard-completed'
+      `).all() as Array<Record<string, number>>
+      expect(rows).toHaveLength(1)
+      expect(rows[0]).toMatchObject({ tokens_in: 100, tokens_out: 200, total_cost_usd: 0.05, num_turns: 3 })
+      expect(rows[0].duration_ms).toBe(expectedDuration)
+      expect(getLoopRun(db, 'hard-completed')?.total_duration_ms).toBe(rows[0].duration_ms)
+      expect(getJob(db, 'hard-completed')?.duration_ms).toBe(rows[0].duration_ms)
+      expect(recoverOrphanLoopStepAccounting(db, '2026-07-10T00:00:01.000Z', 'hard-completed')).toBe(0)
+    } finally {
+      mgr.shutdown()
+      dateNow.mockRestore()
+    }
+  })
+
+  it('fail-stops the interactive step when the jobs+frontier transaction rolls back', async () => {
+    db.exec(`
+      CREATE TRIGGER reject_completed_turn_frontier
+      BEFORE UPDATE ON loop_step_recovery
+      WHEN json_extract(NEW.payload, '$.completedEventSeq')
+             > json_extract(OLD.payload, '$.completedEventSeq')
+      BEGIN SELECT RAISE(ABORT, 'simulated frontier checkpoint failure'); END;
+    `)
+    const { executors, children } = interactiveExecutors()
+    const mgr = manager(executors)
+    const run = mgr.run({
+      ...baseReq(), runId: 'frontier-fail-stop', graph: singleInteractiveGraph(),
+    })
+    await waitFor(() => children.length === 1, 'interactive spawn')
+    expect(mgr.sendInteractiveTurn('frontier-fail-stop', 'must not run')).toBe(true)
+
+    children[0].stdout.push(resultFrame())
+    await tick()
+    await tick()
+    // Defensive cleanup for the pre-fix behavior so the promise cannot hang:
+    // it swallowed the checkpoint error and fed the queued second prompt.
+    if (children[0].stdinWrites.length > 1) {
+      children[0].stdout.push(resultFrame({ total_cost_usd: 0.1, num_turns: 6 }))
+    }
+    const res = await run
+
+    expect(res.outcome).toBe('success')
+    expect(children[0].stdinWrites).toHaveLength(1)
+    expect(broadcasts.some((message) => message.type === 'job.turn_done')).toBe(false)
+    expect(db.prepare(`
+      SELECT tokens_in, tokens_out, total_cost_usd, num_turns, status
+        FROM ai_invocations WHERE loop_run_id = 'frontier-fail-stop'
+    `).get()).toMatchObject({
+      tokens_in: 100,
+      tokens_out: 200,
+      total_cost_usd: 0.05,
+      num_turns: 3,
+      status: 'failed',
+    })
+    expect(getJob(db, 'frontier-fail-stop')).toMatchObject({
+      tokens_in: 100,
+      tokens_out: 200,
+      total_cost_usd: 0.05,
+      num_turns: 3,
+    })
+    expect(db.prepare(`SELECT 1 FROM loop_step_recovery WHERE run_id = 'frontier-fail-stop'`).get())
+      .toBeUndefined()
+  })
+
+  it('fail-stops on raw event persistence failure without losing streamed usage', async () => {
+    db.exec(`
+      CREATE TRIGGER reject_loop_assistant_event
+      BEFORE INSERT ON events
+      WHEN NEW.job_id = 'raw-persist-fail' AND NEW.event_type = 'assistant'
+      BEGIN SELECT RAISE(ABORT, 'simulated raw event write failure'); END;
+    `)
+    const { executors, children } = interactiveExecutors()
+    const mgr = manager(executors)
+    const run = mgr.run({
+      ...baseReq(), runId: 'raw-persist-fail', graph: singleInteractiveGraph(),
+    })
+    await waitFor(() => children.length === 1, 'interactive spawn')
+    children[0].stdout.push(JSON.stringify({
+      type: 'assistant',
+      message: {
+        model: 'claude-opus-4-8',
+        usage: { input_tokens: 50, output_tokens: 25 },
+        content: [{ type: 'text', text: 'partial durable work' }],
+      },
+    }) + '\n')
+
+    const res = await run
+
+    expect(res.outcome).toBe('success')
+    expect(children[0].stdinWrites).toHaveLength(1)
+    expect(db.prepare(`SELECT COUNT(*) AS n FROM events WHERE job_id = 'raw-persist-fail' AND event_type = 'assistant'`).get())
+      .toEqual({ n: 0 })
+    expect(db.prepare(`
+      SELECT status, tokens_in, tokens_out
+        FROM ai_invocations WHERE loop_run_id = 'raw-persist-fail'
+    `).get()).toMatchObject({ status: 'failed', tokens_in: 50, tokens_out: 25 })
+    expect(getJob(db, 'raw-persist-fail')).toMatchObject({ tokens_in: 50, tokens_out: 25 })
+  })
+
+  it('recovers raw in-flight usage when no result checkpoint committed', async () => {
+    let wallMs = 2_000
+    const dateNow = vi.spyOn(Date, 'now').mockImplementation(() => {
+      wallMs += 20
+      return wallMs
+    })
+    const { executors, children } = interactiveExecutors()
+    const mgr = manager(executors)
+    try {
+      void mgr.run({ ...baseReq(), runId: 'hard-inflight', graph: singleInteractiveGraph() })
+      await waitFor(() => children.length === 1, 'interactive spawn')
+      children[0].stdout.push(JSON.stringify({
+        type: 'assistant',
+        message: {
+          model: 'claude-opus-4-8',
+          usage: { input_tokens: 50, output_tokens: 25, cache_read_input_tokens: 5, cache_creation_input_tokens: 2 },
+          content: [{ type: 'text', text: 'partial work' }],
+        },
+      }) + '\n')
+      await tick()
+      const checkpoint = JSON.parse((db.prepare(`
+        SELECT payload FROM loop_step_recovery WHERE run_id = 'hard-inflight'
+      `).get() as { payload: string }).payload) as {
+        activeTurnStartedAtMs: number
+        lastActivityAtMs: number
+      }
+      const observedDuration = checkpoint.lastActivityAtMs - checkpoint.activeTurnStartedAtMs
+      const boundedFinishedAtMs = checkpoint.activeTurnStartedAtMs + Math.max(1, Math.floor(observedDuration / 2))
+      const expectedDuration = boundedFinishedAtMs - checkpoint.activeTurnStartedAtMs
+
+      expect(recoverOrphanLoopStepAccounting(
+        db,
+        new Date(boundedFinishedAtMs).toISOString(),
+        'hard-inflight',
+      )).toBe(1)
+      const row = db.prepare(`
+        SELECT status, tokens_in, tokens_out, duration_ms
+          FROM ai_invocations WHERE loop_run_id = 'hard-inflight'
+      `).get() as { status: string; tokens_in: number; tokens_out: number; duration_ms: number }
+      expect(row).toMatchObject({
+        status: 'failed', tokens_in: 50, tokens_out: 25, duration_ms: expectedDuration,
+      })
+      expect(expectedDuration).toBeGreaterThan(0)
+      expect(expectedDuration).toBeLessThan(observedDuration)
+    } finally {
+      mgr.shutdown()
+      dateNow.mockRestore()
+    }
+  })
+
+  it('rolls invocation back with checkpoint failure, then replays once', async () => {
+    db.exec(`
+      CREATE TRIGGER reject_loop_step_checkpoint_delete
+      BEFORE DELETE ON loop_step_recovery
+      BEGIN SELECT RAISE(ABORT, 'checkpoint delete failed'); END;
+    `)
+    const res = await manager(makeExecutors()).run({
+      ...baseReq(), runId: 'checkpoint-rollback', graph: singleInteractiveGraph(),
+    })
+    expect(res.outcome).toBe('failed')
+    expect(db.prepare(`SELECT COUNT(*) AS n FROM ai_invocations WHERE loop_run_id = 'checkpoint-rollback'`).get())
+      .toMatchObject({ n: 0 })
+    expect(db.prepare(`SELECT 1 FROM loop_step_recovery WHERE run_id = 'checkpoint-rollback'`).get()).toBeDefined()
+
+    db.exec(`DROP TRIGGER reject_loop_step_checkpoint_delete`)
+    expect(recoverOrphanLoopStepAccounting(db, '2026-07-10T00:00:00.000Z', 'checkpoint-rollback')).toBe(1)
+    expect(recoverOrphanLoopStepAccounting(db, '2026-07-10T00:00:01.000Z', 'checkpoint-rollback')).toBe(0)
+    expect(db.prepare(`SELECT COUNT(*) AS n FROM ai_invocations WHERE loop_run_id = 'checkpoint-rollback'`).get())
+      .toMatchObject({ n: 1 })
+  })
+
+  it('preserves AI plus shell duration when a later checkpoint is replayed', async () => {
+    db.exec(`
+      CREATE TRIGGER reject_decider_checkpoint_delete
+      BEFORE DELETE ON loop_step_recovery
+      WHEN OLD.step_key LIKE 'decider:%'
+      BEGIN SELECT RAISE(ABORT, 'decider checkpoint delete failed'); END;
+    `)
+    const res = await manager(makeExecutors({
+      runAiStep: vi.fn(async () => ({
+        text: 'worked', provider: 'claude', model: 'sonnet', durationMs: 11,
+      })),
+      runShell: vi.fn(async () => ({ stdout: 'ok', stderr: '', exitCode: 0, durationMs: 13 })),
+      runDecider: vi.fn(async () => ({
+        continue: false, reasoning: 'done', parsed: true,
+        provider: 'claude', model: 'sonnet', durationMs: 17,
+      })),
+    })).run({ ...baseReq(), runId: 'duration-replay' })
+
+    expect(res.outcome).toBe('failed')
+    expect(db.prepare(`SELECT 1 FROM loop_step_recovery WHERE run_id = ?`).get(res.runId)).toBeDefined()
+    // While recovery is pending, finishLoopRunAndJob preserves the durable AI
+    // baseline instead of publishing guessed aggregate columns.
+    expect(getJob(db, res.runId)?.duration_ms).toBe(11)
+
+    db.exec(`DROP TRIGGER reject_decider_checkpoint_delete`)
+    expect(recoverOrphanLoopStepAccounting(db, '2026-07-10T00:00:00.000Z', res.runId)).toBe(1)
+    expect(getLoopRun(db, res.runId)?.total_duration_ms).toBe(41)
+    expect(getJob(db, res.runId)?.duration_ms).toBe(41)
+  })
+
+  it('resyncs traversal locals after inline raw recovery before terminal finish', async () => {
+    const shellThenAi: LoopGraph = {
+      nodes: [
+        { id: 's', type: 'start', position: { x: 0, y: 0 } },
+        { id: 'sh', type: 'shell', position: { x: 0, y: 1 }, data: { command: 'prepare' } },
+        { id: 'ai', type: 'ai-step', position: { x: 0, y: 2 }, data: { prompt: 'work' } },
+        { id: 'e', type: 'end', position: { x: 0, y: 3 } },
+      ],
+      edges: [
+        { id: 'e1', source: 's', target: 'sh' },
+        { id: 'e2', source: 'sh', target: 'ai' },
+        { id: 'e3', source: 'ai', target: 'e' },
+      ],
+      config: { maxIterations: 3, timeoutMinutes: 30 },
+    }
+    const runAiStep = vi.fn(async (input: Parameters<LoopExecutors['runAiStep']>[0]) => {
+      input.onRawLine?.(resultFrame({ duration_ms: 17 }))
+      throw new Error('executor crashed after durable result')
+    })
+
+    const res = await manager(makeExecutors({
+      runShell: vi.fn(async () => ({ stdout: 'ready', stderr: '', exitCode: 0, durationMs: 13 })),
+      runAiStep,
+    })).run({ ...baseReq(), runId: 'inline-resync', graph: shellThenAi })
+
+    expect(res.outcome).toBe('failed')
+    expect(getLoopRun(db, res.runId)).toMatchObject({
+      total_cost_usd: 0.05,
+      total_tokens: 300,
+      total_duration_ms: 30,
+    })
+    expect(getJob(db, res.runId)).toMatchObject({
+      total_cost_usd: 0.05,
+      tokens_in: 100,
+      tokens_out: 200,
+      duration_ms: 30,
+    })
+    expect(db.prepare(`SELECT duration_ms FROM ai_invocations WHERE loop_run_id = ?`).get(res.runId))
+      .toEqual({ duration_ms: 17 })
+  })
+
+  it('splits scope=all usage across every ticket with exact aggregate totals', async () => {
+    const runAiStep = vi.fn(async () => ({
+      text: 'done', cost: 0.8, tokens: 152,
+      tokensIn: 101, tokensOut: 51, tokensCacheRead: 9, tokensCacheCreate: 3,
+      numTurns: 3, durationMs: 21, provider: 'claude', model: 'sonnet',
+    }))
+    const res = await manager(makeExecutors({ runAiStep })).run({
+      ...baseReq(), runId: 'scope-all', graph: singleInteractiveGraph(),
+      spec: { ...baseReq().spec, ticketIds: [42, 43] },
+    })
+    const rows = db.prepare(`
+      SELECT ticket_id, total_cost_usd, tokens_in, tokens_out, num_turns
+        FROM ai_invocations WHERE loop_run_id = ? ORDER BY ticket_id
+    `).all(res.runId) as Array<{ ticket_id: number; total_cost_usd: number; tokens_in: number; tokens_out: number; num_turns: number }>
+    expect(rows.map((row) => row.ticket_id)).toEqual([42, 43])
+    expect(rows.reduce((sum, row) => sum + row.total_cost_usd, 0)).toBeCloseTo(0.8)
+    expect(rows.reduce((sum, row) => sum + row.tokens_in, 0)).toBe(101)
+    expect(rows.reduce((sum, row) => sum + row.tokens_out, 0)).toBe(51)
+    expect(rows.reduce((sum, row) => sum + row.num_turns, 0)).toBe(3)
+    const completed = broadcasts.find((msg) => msg.type === 'loop.run_completed') as { ticketIds: number[] }
+    expect(completed.ticketIds).toEqual([42, 43])
+  })
+
+  it('shutdown during the first interactive node never spawns the next node', async () => {
+    const { executors, children } = interactiveExecutors()
+    const mgr = manager(executors)
+    const graph = twoStepGraph('a1')
+    void mgr.run({ ...baseReq(), runId: 'shutdown-no-respawn', graph })
+    await waitFor(() => children.length === 1, 'first interactive spawn')
+    mgr.shutdown()
+    await tick()
+    await tick()
+    expect(children).toHaveLength(1)
+    expect(getLoopRun(db, 'shutdown-no-respawn')).toMatchObject({ status: 'running' })
   })
 })
 

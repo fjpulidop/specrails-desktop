@@ -608,8 +608,9 @@ export function createRailsRouter(): Router {
         // via SPECRAILS_REPO_DIR + `--add-dir` exactly like QueueManager.
         const loopExec = resolveProjectExecution({ slug: c.project.slug, path: c.project.path })
         const loopRunIds: string[] = []
+        const loopTicketCompletionStatus = isRailPrDeliveryEnabled() ? 'on_review' as const : 'done' as const
         const launchLoopRun = (runId: string, ticketIds: number[], spec: ReturnType<typeof c.getTicketSpec>) => {
-          c.railLoopRuns.set(runId, { railIndex, ticketIds })
+          c.railLoopRuns.set(runId, { railIndex, ticketIds, requiresTerminalIntent: true })
           // Code-Explorer provenance for shared-cwd loop runs (isolated runs
           // record inside rail-isolated-launch): snapshot the REPO before the
           // run, diff + record at settle. Loop runs settle outside QueueManager,
@@ -648,6 +649,7 @@ export function createRailsRouter(): Router {
               railIndex,
               ticketId: ticketIds[0],
               spec: spec ? { ...spec, ticketIds } : { ticketIds },
+              ticketCompletionStatus: loopTicketCompletionStatus,
               constants: loadConstantMap(c.desktopDb),
               provider: loopProvider,
               model: loopModel,

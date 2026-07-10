@@ -3,11 +3,15 @@ import { CheckCircle2, ChevronDown, Clock, Loader2, XCircle } from 'lucide-react
 import { useTranslation } from 'react-i18next'
 import { cn } from '../lib/utils'
 import { ARG_ACTIONS, deriveFrameActivity } from '../lib/frame-activity'
+import { parseJobTimestamp } from '../lib/job-time'
 import type { EventRow, JobSummary, PhaseDefinition } from '../types'
 
-function formatWallClock(startedAt: string, finishedAt: string | number): string {
-  const endMs = typeof finishedAt === 'number' ? finishedAt : new Date(finishedAt).getTime()
-  const ms = endMs - new Date(startedAt).getTime()
+function formatWallClock(startedAt: string | null, finishedAt: string | number): string {
+  const start = parseJobTimestamp(startedAt)
+  const endMs = typeof finishedAt === 'number'
+    ? finishedAt
+    : (parseJobTimestamp(finishedAt)?.getTime() ?? Number.NaN)
+  const ms = endMs - (start?.getTime() ?? Number.NaN)
   if (!Number.isFinite(ms) || ms < 0) return '—'
   const secs = Math.round(ms / 1000)
   if (secs < 60) return `${secs}s`

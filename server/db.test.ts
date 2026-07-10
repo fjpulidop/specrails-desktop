@@ -32,6 +32,7 @@ import {
   updateProjectSettings,
   getFreestylePrePrompt,
   DEFAULT_FREESTYLE_PRE_PROMPT,
+  JobRecoveryPendingError,
 } from './db'
 import type { DbInstance } from './db'
 import { recordInvocation } from './ai-invocations'
@@ -91,6 +92,87 @@ describe('db', () => {
       expect(cols).toEqual(expect.arrayContaining([
         'idempotency_key', 'fingerprint', 'job_id', 'created_at_ms', 'expires_at_ms',
       ]))
+    })
+
+    it('creates the durable orphan recovery outbox', () => {
+      const db = makeDb()
+      const cols = (db.prepare('PRAGMA table_info(orphan_job_recovery)').all() as { name: string }[]).map((c) => c.name)
+      expect(cols).toEqual(expect.arrayContaining([
+        'job_id', 'payload', 'accounting_completed', 'callback_completed', 'terminal_completed', 'created_at',
+      ]))
+      const jobCols = (db.prepare('PRAGMA table_info(jobs)').all() as { name: string }[]).map((c) => c.name)
+      expect(jobCols).toContain('provider')
+      expect(jobCols).toContain('owner')
+    })
+
+    it('creates a durable pre-start queue without overloading jobs.started_at', () => {
+      const db = makeDb()
+      const cols = (db.prepare('PRAGMA table_info(queued_jobs)').all() as { name: string }[]).map((c) => c.name)
+      expect(cols).toEqual(expect.arrayContaining([
+        'id', 'command', 'queue_position', 'priority', 'depends_on_job_id',
+        'pipeline_id', 'provider', 'model', 'profile_name',
+        'profile_selection_set', 'interactive', 'causal_ownership', 'enqueued_at',
+      ]))
+      const jobCols = (db.prepare('PRAGMA table_info(jobs)').all() as { name: string }[]).map((c) => c.name)
+      expect(jobCols).toContain('causal_ownership')
+    })
+
+    it('migration 44 classifies legacy loop jobs and backfills their provider', () => {
+      const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'db-job-owner-migration-'))
+      const dbPath = path.join(dir, 'jobs.sqlite')
+      let db = initDb(dbPath)
+      try {
+        db.prepare(`
+          INSERT INTO loop_runs (
+            id, project_id, loop_id, provider, iteration_limit, started_at
+          ) VALUES ('legacy-loop', 'p1', 'l1', 'codex', 3, ?)
+        `).run(new Date().toISOString())
+        createJob(db, {
+          id: 'legacy-loop', command: 'loop: legacy', started_at: new Date().toISOString(),
+        })
+        // Re-run just the additive migration as if this DB came from the build
+        // immediately before ownership was persisted.
+        db.prepare('DELETE FROM schema_migrations WHERE version = 44').run()
+        db.close()
+        db = initDb(dbPath)
+
+        expect(getJob(db, 'legacy-loop')).toMatchObject({
+          owner: 'loop', provider: 'codex', status: 'running',
+        })
+      } finally {
+        try { db.close() } catch { /* already closed */ }
+        fs.rmSync(dir, { recursive: true, force: true })
+      }
+    })
+
+    it('migration 45 removes pre-owner loop intents and double-counted job invocations', () => {
+      const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'db-loop-recovery-migration-'))
+      const dbPath = path.join(dir, 'jobs.sqlite')
+      let db = initDb(dbPath)
+      try {
+        db.prepare(`
+          INSERT INTO loop_runs (id, project_id, loop_id, provider, iteration_limit, started_at)
+          VALUES ('wip-loop', 'p1', 'l1', 'claude', 3, ?)
+        `).run(new Date().toISOString())
+        createJob(db, { id: 'wip-loop', command: 'loop: wip', started_at: new Date().toISOString() })
+        db.prepare(`INSERT INTO orphan_job_recovery (job_id, payload) VALUES ('wip-loop', '{}')`).run()
+        seedInvocation(db, {
+          id: 'wrong-job-ledger', surface: 'job', surface_ref_id: 'wip-loop',
+          status: 'aborted', total_cost_usd: 2,
+        })
+        db.prepare('DELETE FROM schema_migrations WHERE version IN (44, 45)').run()
+        db.close()
+        db = initDb(dbPath)
+
+        expect(getJob(db, 'wip-loop')).toMatchObject({ owner: 'loop' })
+        expect(db.prepare(`SELECT 1 FROM orphan_job_recovery WHERE job_id = 'wip-loop'`).get()).toBeUndefined()
+        expect(db.prepare(`SELECT 1 FROM ai_invocations WHERE id = 'wrong-job-ledger'`).get()).toBeUndefined()
+        expect((db.prepare(`PRAGMA table_info(loop_runs)`).all() as Array<{ name: string }>).map((c) => c.name))
+          .toEqual(expect.arrayContaining(['ticket_ids_json', 'ticket_completion_status', 'causal_ownership']))
+      } finally {
+        try { db.close() } catch { /* already closed */ }
+        fs.rmSync(dir, { recursive: true, force: true })
+      }
     })
 
     it('orphan detection marks running jobs as failed on initDb', () => {
@@ -221,6 +303,20 @@ describe('db', () => {
       createJob(db, { id: 'int', command: '/specrails:freestyle #1', started_at: now, interactive: true })
       expect(getJob(db, 'std')!.interactive).toBe(0)
       expect(getJob(db, 'int')!.interactive).toBe(1)
+    })
+
+    it('persists the provider and exclusive recovery owner', () => {
+      const db = makeDb()
+      const now = new Date().toISOString()
+      createJob(db, {
+        id: 'loop-owned', command: 'loop: verify', started_at: now,
+        provider: 'codex', owner: 'loop',
+      })
+      expect(getJob(db, 'loop-owned')).toMatchObject({
+        provider: 'codex', owner: 'loop', status: 'running',
+      })
+      createJob(db, { id: 'queue-owned', command: '/implement', started_at: now })
+      expect(getJob(db, 'queue-owned')).toMatchObject({ owner: 'queue' })
     })
   })
 
@@ -761,6 +857,22 @@ describe('project settings — freestyle pre-prompt', () => {
       const child = getJob(db, 'child')
       expect(child).toBeDefined()
       expect(child!.depends_on_job_id).toBeNull()
+    })
+
+    it('blocks delete and excludes purge while loop step recovery needs job/events', () => {
+      const now = new Date().toISOString()
+      createJob(db, { id: 'recovering-loop', command: 'loop: pending', started_at: now, owner: 'loop' })
+      finishJob(db, 'recovering-loop', { status: 'failed', exit_code: -1 })
+      appendEvent(db, 'recovering-loop', 0, { event_type: 'assistant', source: 'stdout', payload: '{}' })
+      db.prepare(`
+        INSERT INTO loop_step_recovery (run_id, step_key, invocation_id, payload)
+        VALUES ('recovering-loop', 'ai:1', 'stable-invocation', '{}')
+      `).run()
+
+      expect(() => deleteJob(db, 'recovering-loop')).toThrow(JobRecoveryPendingError)
+      expect(purgeJobs(db)).toBe(0)
+      expect(getJob(db, 'recovering-loop')).toBeDefined()
+      expect(getJobEvents(db, 'recovering-loop')).toHaveLength(1)
     })
   })
 

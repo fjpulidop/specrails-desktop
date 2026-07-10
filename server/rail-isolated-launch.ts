@@ -616,7 +616,11 @@ export async function launchIsolatedRail(input: IsolatedLaunchInput, io: Isolate
   }
   const runPromises: Promise<{ run: AllocatedRun; succeeded: boolean }>[] = []
   for (const a of allocated) {
-    ctx.railLoopRuns.set(a.runId, { railIndex, ticketIds: a.ticketIds })
+    ctx.railLoopRuns.set(a.runId, {
+      railIndex,
+      ticketIds: a.ticketIds,
+      requiresTerminalIntent: true,
+    })
     const spec = ctx.getTicketSpec(a.ticketId)
     const p = ctx.loopRunManager
       .run({
@@ -625,6 +629,8 @@ export async function launchIsolatedRail(input: IsolatedLaunchInput, io: Isolate
         isolation: { branch: a.handle.branch, worktreePath: a.handle.worktreePath },
         railIndex, ticketId: a.ticketId,
         spec: spec ? { ...spec, ticketIds: a.ticketIds } : { ticketIds: a.ticketIds },
+        ticketCompletionStatus: runFinishedOpts.ticketCompletionStatus,
+        deferTerminalOutcome: true,
         constants, provider, model, effort,
       })
       .then(async (r) => {

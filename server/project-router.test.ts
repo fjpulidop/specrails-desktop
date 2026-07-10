@@ -11,14 +11,19 @@ import { mirrorProjectEntry as regMirror, workspaceLayout as regLayout, resolveH
 import { initDb } from './db'
 import { initDesktopDb } from './desktop-db'
 import { installConfigPath, installConfigPathForProvider } from './install-config-path'
-import { ClaudeNotFoundError, JobNotFoundError, JobAlreadyTerminalError } from './queue-manager'
+import {
+  ClaudeNotFoundError,
+  InvalidJobDependencyError,
+  JobNotFoundError,
+  JobAlreadyTerminalError,
+} from './queue-manager'
 import type { ProjectRegistry, ProjectContext } from './project-registry'
 import type { DbInstance } from './db'
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
 function makeQueueManager(overrides: Partial<{
-  enqueue: () => any
+  enqueue: (...args: any[]) => any
   cancel: () => any
   pause: () => void
   resume: () => void
@@ -39,6 +44,39 @@ function makeQueueManager(overrides: Partial<{
     getActiveJobId: overrides.getActiveJobId ?? vi.fn(() => null),
     phasesForCommand: overrides.phasesForCommand ?? vi.fn(() => []),
   }
+}
+
+/** Minimal QueueManager admission protocol for route tests: queued_jobs and the
+ * route-supplied durable hook share one transaction, matching the real manager
+ * without spawning a CLI process. */
+function makeAtomicEnqueue(db: DbInstance) {
+  let fallbackId = 0
+  return vi.fn((
+    command: string,
+    priority: string = 'normal',
+    opts: { dependsOnJobId?: string; pipelineId?: string } = {},
+    admission?: { jobId: string; commit: (db: DbInstance, job: any) => void },
+  ) => {
+    const id = admission?.jobId ?? `route-job-${++fallbackId}`
+    const position = (db.prepare('SELECT COUNT(*) AS count FROM queued_jobs').get() as { count: number }).count + 1
+    const job = { id, command, queuePosition: position, priority }
+    db.transaction(() => {
+      db.prepare(`
+        INSERT INTO queued_jobs (
+          id, command, queue_position, priority, depends_on_job_id, pipeline_id
+        ) VALUES (?, ?, ?, ?, ?, ?)
+      `).run(
+        id,
+        command,
+        position,
+        priority,
+        opts.dependsOnJobId ?? null,
+        opts.pipelineId ?? null,
+      )
+      admission?.commit(db, job)
+    })()
+    return job
+  })
 }
 
 function makeSetupManager(overrides: Partial<{
@@ -263,6 +301,37 @@ describe('project-router', () => {
       expect(res.status).toBe(400)
     })
 
+    it('returns 400 when dependsOnJobId is not a non-empty string', async () => {
+      const enqueue = vi.fn()
+      const ctx = makeContext(db, { queueManager: makeQueueManager({ enqueue }) as any })
+      const { app } = createApp(new Map([['proj-1', ctx]]))
+
+      const res = await request(app)
+        .post('/api/projects/proj-1/spawn')
+        .send({ command: 'sr:implement', dependsOnJobId: { typo: true } })
+
+      expect(res.status).toBe(400)
+      expect(res.body.error).toContain('dependsOnJobId must be a non-empty string')
+      expect(enqueue).not.toHaveBeenCalled()
+    })
+
+    it('returns 409 when the requested parent is terminal and unsuccessful', async () => {
+      const enqueue = vi.fn(() => {
+        throw new InvalidJobDependencyError(
+          'Cannot depend on job failed-parent because it is failed',
+        )
+      })
+      const ctx = makeContext(db, { queueManager: makeQueueManager({ enqueue }) as any })
+      const { app } = createApp(new Map([['proj-1', ctx]]))
+
+      const res = await request(app)
+        .post('/api/projects/proj-1/spawn')
+        .send({ command: 'sr:implement', dependsOnJobId: 'failed-parent' })
+
+      expect(res.status).toBe(409)
+      expect(res.body.error).toContain('because it is failed')
+    })
+
     it('returns 400 when claude is not found', async () => {
       const qm = makeQueueManager({ enqueue: vi.fn(() => { throw new ClaudeNotFoundError() }) })
       const ctx = makeContext(db, { queueManager: qm as any })
@@ -279,8 +348,22 @@ describe('project-router', () => {
       expect(res.body.jobId).toBeDefined()
     })
 
+    it('leaves profileName absent when the client requests project-default resolution', async () => {
+      const enqueue = vi.fn(() => ({ id: 'default-profile-job', queuePosition: 0 }))
+      const ctx = makeContext(db, { queueManager: makeQueueManager({ enqueue }) as any })
+      const { app } = createApp(new Map([['proj-1', ctx]]))
+
+      const res = await request(app)
+        .post('/api/projects/proj-1/spawn')
+        .send({ command: 'sr:implement' })
+
+      expect(res.status).toBe(202)
+      const enqueueOptions = enqueue.mock.calls[0][2]
+      expect(Object.prototype.hasOwnProperty.call(enqueueOptions, 'profileName')).toBe(false)
+    })
+
     it('returns the original job when an idempotent spawn is submitted twice', async () => {
-      const enqueue = vi.fn(() => ({ id: 'job-once', queuePosition: 0 }))
+      const enqueue = makeAtomicEnqueue(db)
       const ctx = makeContext(db, { queueManager: makeQueueManager({ enqueue }) as any })
       const { app } = createApp(new Map([['proj-1', ctx]]))
       const first = await request(app)
@@ -294,12 +377,15 @@ describe('project-router', () => {
 
       expect(first.status).toBe(202)
       expect(replay.status).toBe(202)
-      expect(replay.body).toMatchObject({ jobId: 'job-once', idempotentReplay: true })
+      expect(replay.body).toMatchObject({ jobId: first.body.jobId, idempotentReplay: true })
       expect(enqueue).toHaveBeenCalledTimes(1)
+      expect(db.prepare('SELECT id FROM queued_jobs').all()).toEqual([{ id: first.body.jobId }])
+      expect(db.prepare('SELECT job_id FROM job_spawn_requests').all())
+        .toEqual([{ job_id: first.body.jobId }])
     })
 
     it('rejects reuse of an idempotency key for a different command', async () => {
-      const enqueue = vi.fn(() => ({ id: 'job-once', queuePosition: 0 }))
+      const enqueue = makeAtomicEnqueue(db)
       const ctx = makeContext(db, { queueManager: makeQueueManager({ enqueue }) as any })
       const { app } = createApp(new Map([['proj-1', ctx]]))
       await request(app)
@@ -314,6 +400,62 @@ describe('project-router', () => {
 
       expect(conflict.status).toBe(409)
       expect(enqueue).toHaveBeenCalledTimes(1)
+    })
+
+    it('rolls queue admission back when the idempotency ledger insert fails, then retries cleanly', async () => {
+      const enqueue = makeAtomicEnqueue(db)
+      const ctx = makeContext(db, { queueManager: makeQueueManager({ enqueue }) as any })
+      const { app } = createApp(new Map([['proj-1', ctx]]))
+      db.exec(`
+        CREATE TRIGGER reject_route_spawn_claim
+        BEFORE INSERT ON job_spawn_requests
+        BEGIN
+          SELECT RAISE(ABORT, 'simulated route ledger failure');
+        END;
+      `)
+
+      const failed = await request(app)
+        .post('/api/projects/proj-1/spawn')
+        .set('Idempotency-Key', 'atomic-route-key')
+        .send({ command: 'sr:implement' })
+      expect(failed.status).toBe(500)
+      expect(db.prepare('SELECT 1 FROM queued_jobs').all()).toEqual([])
+      expect(db.prepare('SELECT 1 FROM job_spawn_requests').all()).toEqual([])
+
+      db.exec('DROP TRIGGER reject_route_spawn_claim')
+      const retry = await request(app)
+        .post('/api/projects/proj-1/spawn')
+        .set('Idempotency-Key', 'atomic-route-key')
+        .send({ command: 'sr:implement' })
+      expect(retry.status).toBe(202)
+      expect(db.prepare('SELECT id FROM queued_jobs').all()).toEqual([{ id: retry.body.jobId }])
+      expect(db.prepare('SELECT job_id FROM job_spawn_requests').all())
+        .toEqual([{ job_id: retry.body.jobId }])
+    })
+
+    it('admits exactly one job for concurrent requests with the same exact key', async () => {
+      const enqueue = makeAtomicEnqueue(db)
+      const ctx = makeContext(db, { queueManager: makeQueueManager({ enqueue }) as any })
+      const { app } = createApp(new Map([['proj-1', ctx]]))
+
+      const [first, second] = await Promise.all([
+        request(app)
+          .post('/api/projects/proj-1/spawn')
+          .set('Idempotency-Key', 'concurrent-key')
+          .send({ command: 'sr:implement' }),
+        request(app)
+          .post('/api/projects/proj-1/spawn')
+          .set('Idempotency-Key', 'concurrent-key')
+          .send({ command: 'sr:implement' }),
+      ])
+
+      expect(first.status).toBe(202)
+      expect(second.status).toBe(202)
+      expect(first.body.jobId).toBe(second.body.jobId)
+      expect([first.body.idempotentReplay, second.body.idempotentReplay].filter(Boolean)).toHaveLength(1)
+      expect(enqueue).toHaveBeenCalledTimes(1)
+      expect(db.prepare('SELECT COUNT(*) AS count FROM queued_jobs').get()).toEqual({ count: 1 })
+      expect(db.prepare('SELECT COUNT(*) AS count FROM job_spawn_requests').get()).toEqual({ count: 1 })
     })
   })
 
@@ -366,6 +508,28 @@ describe('project-router', () => {
       expect(res.status).toBe(409)
       expect(db.prepare('SELECT status FROM jobs WHERE id = ?').get('live-job')).toEqual({ status: 'running' })
     })
+
+    it('returns a stable 409 while loop accounting recovery still references the job', async () => {
+      db.prepare(
+        `INSERT INTO jobs (id, command, started_at, status, owner)
+         VALUES ('recovering-job', 'loop: recover', '2025-01-01T10:00:00.000Z', 'failed', 'loop')`
+      ).run()
+      db.prepare(`
+        INSERT INTO loop_step_recovery (run_id, step_key, invocation_id, payload)
+        VALUES ('recovering-job', 'ai:1', 'recovering-invocation', '{}')
+      `).run()
+      const ctx = makeContext(db)
+      const { app } = createApp(new Map([['proj-1', ctx]]))
+
+      const res = await request(app).delete('/api/projects/proj-1/jobs/recovering-job')
+
+      expect(res.status).toBe(409)
+      expect(res.body).toMatchObject({ code: 'job_recovery_pending' })
+      expect(db.prepare(`SELECT id FROM jobs WHERE id = 'recovering-job'`).get())
+        .toEqual({ id: 'recovering-job' })
+      expect(db.prepare(`SELECT run_id FROM loop_step_recovery WHERE run_id = 'recovering-job'`).get())
+        .toEqual({ run_id: 'recovering-job' })
+    })
   })
 
   // ─── PUT /queue/reorder ────────────────────────────────────────────────────
@@ -385,6 +549,23 @@ describe('project-router', () => {
       const res = await request(app).put('/api/projects/proj-1/queue/reorder').send({ jobIds: ['a', 'b'] })
       expect(res.status).toBe(200)
       expect(res.body.ok).toBe(true)
+    })
+
+    it('returns 400 when a reorder would cross priority bands', async () => {
+      const qm = makeQueueManager({
+        reorder: vi.fn(() => {
+          throw new Error('Cannot reorder jobs across priority levels; update priority first')
+        }),
+      })
+      const ctx = makeContext(db, { queueManager: qm as any })
+      const { app } = createApp(new Map([['proj-1', ctx]]))
+
+      const res = await request(app)
+        .put('/api/projects/proj-1/queue/reorder')
+        .send({ jobIds: ['low-job', 'high-job'] })
+
+      expect(res.status).toBe(400)
+      expect(res.body.error).toContain('Cannot reorder jobs across priority levels')
     })
   })
 
@@ -415,6 +596,28 @@ describe('project-router', () => {
       // job fields. tickets[] is additive.
       expect(res.body.job.command).toBe('sr:implement')
       expect(res.body.job.tickets).toEqual([])
+    })
+
+    it('returns stable durable enqueue time and no synthetic start for a queued job', async () => {
+      db.prepare(`
+        INSERT INTO queued_jobs (
+          id, command, queue_position, priority, enqueued_at
+        ) VALUES ('queued-detail', '/queued', 1, 'normal', '2026-07-10 11:22:33')
+      `).run()
+      const ctx = makeContext(db)
+      const { app } = createApp(new Map([['proj-1', ctx]]))
+
+      const first = await request(app).get('/api/projects/proj-1/jobs/queued-detail')
+      const repeated = await request(app).get('/api/projects/proj-1/jobs/queued-detail')
+
+      expect(first.status).toBe(200)
+      expect(first.body.job).toMatchObject({
+        id: 'queued-detail',
+        status: 'queued',
+        started_at: null,
+        enqueued_at: '2026-07-10 11:22:33',
+      })
+      expect(repeated.body.job).toEqual(first.body.job)
     })
 
     describe('tickets field', () => {
@@ -2730,6 +2933,60 @@ describe('project-router', () => {
         '/api/projects/proj-1/jobs?limit=10&offset=0&status=completed'
       )
       expect(res.status).toBe(200)
+    })
+
+    it('pages durable queued admissions without limit amplification and keeps timestamps stable', async () => {
+      const insertQueued = db.prepare(`
+        INSERT INTO queued_jobs (
+          id, command, queue_position, priority, enqueued_at
+        ) VALUES (?, ?, ?, 'normal', ?)
+      `)
+      for (let index = 0; index < 55; index += 1) {
+        insertQueued.run(
+          `queued-${String(index).padStart(2, '0')}`,
+          `/queued-${index}`,
+          index + 1,
+          `2026-07-10 10:${String(index).padStart(2, '0')}:00`,
+        )
+      }
+      const insertHistory = db.prepare(`
+        INSERT INTO jobs (id, command, started_at, status)
+        VALUES (?, ?, ?, 'completed')
+      `)
+      for (let index = 0; index < 5; index += 1) {
+        insertHistory.run(
+          `history-${index}`,
+          `/history-${index}`,
+          `2026-07-09T0${index}:00:00.000Z`,
+        )
+      }
+      const ctx = makeContext(db)
+      const { app } = createApp(new Map([['proj-1', ctx]]))
+
+      const first = await request(app).get('/api/projects/proj-1/jobs?limit=10&offset=0')
+      const repeated = await request(app).get('/api/projects/proj-1/jobs?limit=10&offset=0')
+      expect(first.status).toBe(200)
+      expect(first.body.total).toBe(60)
+      expect(first.body.jobs).toHaveLength(10)
+      expect(first.body.jobs.map((job: any) => job.id)).toEqual(
+        Array.from({ length: 10 }, (_, index) => `queued-${String(index).padStart(2, '0')}`),
+      )
+      expect(first.body.jobs.every((job: any) => job.started_at === null)).toBe(true)
+      expect(first.body.jobs[0].enqueued_at).toBe('2026-07-10 10:00:00')
+      expect(repeated.body.jobs).toEqual(first.body.jobs)
+
+      const boundary = await request(app).get('/api/projects/proj-1/jobs?limit=10&offset=52')
+      expect(boundary.body.total).toBe(60)
+      expect(boundary.body.jobs).toHaveLength(8)
+      expect(boundary.body.jobs.slice(0, 3).map((job: any) => job.id))
+        .toEqual(['queued-52', 'queued-53', 'queued-54'])
+      expect(boundary.body.jobs.slice(3).map((job: any) => job.id))
+        .toEqual(['history-4', 'history-3', 'history-2', 'history-1', 'history-0'])
+
+      const historyOnly = await request(app)
+        .get('/api/projects/proj-1/jobs?limit=2&offset=1&status=completed')
+      expect(historyOnly.body.total).toBe(5)
+      expect(historyOnly.body.jobs.map((job: any) => job.id)).toEqual(['history-3', 'history-2'])
     })
   })
 

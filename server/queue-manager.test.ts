@@ -5,6 +5,11 @@ import fs from 'fs'
 import os from 'os'
 import path from 'path'
 import { initDb, updateProjectSettings, createJob } from './db'
+import {
+  claimIdempotentJob,
+  fingerprintJobSpawn,
+  JobSpawnIdempotencyReplayError,
+} from './job-spawn-idempotency'
 
 // Mock child_process and ids before importing queue-manager
 vi.mock('child_process', () => ({
@@ -296,6 +301,53 @@ describe('QueueManager', () => {
 
       // Provide wrong ID
       expect(() => qm.reorder(['job-a', 'wrong-id'])).toThrow()
+    })
+
+    it('rejects duplicate, amplified, and non-string reorder payloads', () => {
+      vi.mocked(mockExecSync).mockReturnValue(Buffer.from('/usr/bin/claude'))
+      vi.mocked(mockSpawn).mockReturnValue(createMockChildProcess() as any)
+      vi.mocked(mockUuidV4)
+        .mockReturnValueOnce('job-running' as any)
+        .mockReturnValueOnce('job-a' as any)
+        .mockReturnValueOnce('job-b' as any)
+      qm.enqueue('/running')
+      qm.enqueue('/a')
+      qm.enqueue('/b')
+
+      expect(() => qm.reorder(['job-a', 'job-a', 'job-b']))
+        .toThrow('exactly the IDs')
+      expect(() => qm.reorder(['job-a', 42] as unknown as string[]))
+        .toThrow('only string IDs')
+      expect(qm.getJobs().find((job) => job.id === 'job-a')?.queuePosition).toBe(1)
+      expect(qm.getJobs().find((job) => job.id === 'job-b')?.queuePosition).toBe(2)
+    })
+
+    it('normalizes duplicate/stale internal ids and never relaunches a job', () => {
+      vi.mocked(mockExecSync).mockReturnValue(Buffer.from('/usr/bin/claude'))
+      const first = createMockChildProcess()
+      const second = createMockChildProcess()
+      second.pid = 12346
+      vi.mocked(mockSpawn).mockReturnValueOnce(first as any).mockReturnValueOnce(second as any)
+      vi.mocked(mockUuidV4)
+        .mockReturnValueOnce('first-job' as any)
+        .mockReturnValueOnce('second-job' as any)
+      qm.enqueue('/first')
+      qm.enqueue('/second')
+
+      // Simulate a queue amplified by an old invalid reorder payload.
+      ;(qm as any)._queue.push('second-job')
+      first.emit('close', 0)
+      expect(vi.mocked(mockSpawn)).toHaveBeenCalledTimes(2)
+
+      second.emit('close', 0)
+      expect(vi.mocked(mockSpawn)).toHaveBeenCalledTimes(2)
+      expect(qm.getJobs().find((job) => job.id === 'second-job')?.status).toBe('completed')
+
+      // A stale terminal id is also discarded defensively on the next drain.
+      ;(qm as any)._queue.push('second-job')
+      qm.resume()
+      expect(vi.mocked(mockSpawn)).toHaveBeenCalledTimes(2)
+      expect((qm as any)._queue).toEqual([])
     })
   })
 
@@ -835,7 +887,7 @@ describe('QueueManager', () => {
       expect(qmWithDb.isPaused()).toBe(true)
     })
 
-    it('persistJob: enqueue on DB-backed manager writes queue_position to DB', () => {
+    it('persists a queued admission without manufacturing a jobs.started_at', () => {
       vi.mocked(mockExecSync).mockReturnValue(Buffer.from('/usr/bin/claude'))
       const child = createMockChildProcess()
       vi.mocked(mockSpawn).mockReturnValue(child as any)
@@ -850,11 +902,623 @@ describe('QueueManager', () => {
       qmWithDb.enqueue('/implement #1')
       qmWithDb.enqueue('/implement #2')
 
-      // The queued job should have a queue_position row in the DB
-      const row = db.prepare(`SELECT queue_position FROM jobs WHERE id = 'queued-job'`).get() as any
-      // The UPDATE may not find the row if createJob hasn't run yet — that's fine.
-      // Just ensure no error was thrown (the try/catch handles it gracefully).
+      const queuedRow = db.prepare(
+        `SELECT command, queue_position, priority FROM queued_jobs WHERE id = 'queued-job'`
+      ).get() as { command: string; queue_position: number; priority: string } | undefined
+      expect(queuedRow).toEqual({ command: '/implement #2', queue_position: 1, priority: 'normal' })
+      // jobs.started_at retains its meaning: no execution-history row exists
+      // until this admission is actually selected for spawn.
+      expect(db.prepare(`SELECT started_at FROM jobs WHERE id = 'queued-job'`).get()).toBeUndefined()
       expect(qmWithDb.getJobs()).toHaveLength(2)
+    })
+
+    it('removes a canceled pre-start admission so restart cannot resurrect it', () => {
+      vi.mocked(mockExecSync).mockReturnValue(Buffer.from('/usr/bin/claude'))
+      vi.mocked(mockSpawn).mockReturnValue(createMockChildProcess() as any)
+      vi.mocked(mockUuidV4)
+        .mockReturnValueOnce('running-job' as any)
+        .mockReturnValueOnce('canceled-job' as any)
+      const db = initDb(':memory:')
+      const qmWithDb = new QueueManager(broadcast, db, [], undefined, { zombieTimeoutMs: 0 })
+      qmWithDb.enqueue('/implement #1')
+      qmWithDb.enqueue('/implement #2')
+
+      expect(qmWithDb.cancel('canceled-job')).toBe('canceled')
+      expect(db.prepare(`SELECT 1 FROM queued_jobs WHERE id = 'canceled-job'`).get()).toBeUndefined()
+
+      const afterRestart = new QueueManager(broadcast, db, [], undefined, { zombieTimeoutMs: 0 })
+      expect(afterRestart.getJobs().find((job) => job.id === 'canceled-job')).toBeUndefined()
+      db.close()
+    })
+
+    it('cancels an async pre-spawn reservation durably before its child exists', async () => {
+      vi.mocked(mockExecSync).mockReturnValue(Buffer.from('/usr/bin/claude'))
+      vi.mocked(mockUuidV4).mockReturnValue('pre-spawn-cancel' as any)
+      let release!: (value: { active: []; degraded: [] }) => void
+      const resolvePluginsForSpawn = vi.fn(() => new Promise<{ active: []; degraded: [] }>((resolve) => {
+        release = resolve
+      }))
+      const db = initDb(':memory:')
+      const onJobFinished = vi.fn()
+      const qmWithDb = new QueueManager(broadcast, db, [], '/tmp/repo', {
+        provider: 'claude',
+        projectId: 'p1',
+        projectSlug: 'proj',
+        resolvePluginsForSpawn,
+        onJobFinished,
+      })
+
+      qmWithDb.enqueue('/specrails:implement #1')
+      expect(resolvePluginsForSpawn).toHaveBeenCalledTimes(1)
+      expect(db.prepare(`SELECT id FROM queued_jobs WHERE id = 'pre-spawn-cancel'`).get())
+        .toEqual({ id: 'pre-spawn-cancel' })
+
+      expect(qmWithDb.cancel('pre-spawn-cancel')).toBe('canceled')
+      expect(qmWithDb.getActiveJobId()).toBeNull()
+      expect(db.prepare(`SELECT 1 FROM queued_jobs WHERE id = 'pre-spawn-cancel'`).get()).toBeUndefined()
+      expect(db.prepare(`SELECT status FROM jobs WHERE id = 'pre-spawn-cancel'`).get())
+        .toEqual({ status: 'canceled' })
+      expect(onJobFinished).toHaveBeenCalledWith('pre-spawn-cancel', 'canceled', undefined)
+
+      release({ active: [], degraded: [] })
+      await new Promise((resolve) => setImmediate(resolve))
+      expect(vi.mocked(mockSpawn)).not.toHaveBeenCalled()
+
+      const afterRestart = new QueueManager(broadcast, db, [], undefined, { zombieTimeoutMs: 0 })
+      expect(afterRestart.getJobs().find((candidate) => candidate.id === 'pre-spawn-cancel')).toBeUndefined()
+      qmWithDb.shutdown()
+      afterRestart.shutdown()
+      db.close()
+    })
+
+    it('rolls back parent cancellation, recursive skips and positions as one transaction', () => {
+      const db = initDb(':memory:')
+      db.prepare(`INSERT OR REPLACE INTO queue_state (key, value) VALUES ('paused', 'true')`).run()
+      const insertQueued = db.prepare(
+        `INSERT INTO queued_jobs
+           (id, command, queue_position, priority, depends_on_job_id)
+         VALUES (?, ?, ?, 'normal', ?)`,
+      )
+      insertQueued.run('cancel-parent', '/parent', 1, null)
+      insertQueued.run('cancel-child', '/child', 2, 'cancel-parent')
+      insertQueued.run('cancel-grandchild', '/grandchild', 3, 'cancel-child')
+      insertQueued.run('survivor', '/survivor', 4, null)
+      db.exec(`
+        CREATE TRIGGER reject_recursive_skip
+        BEFORE INSERT ON jobs
+        WHEN NEW.id = 'cancel-child'
+        BEGIN
+          SELECT RAISE(ABORT, 'simulated recursive skip failure');
+        END;
+      `)
+      const qmWithDb = new QueueManager(broadcast, db)
+
+      expect(() => qmWithDb.cancel('cancel-parent')).toThrow('simulated recursive skip failure')
+      expect(qmWithDb.getJobs()
+        .filter((candidate) => candidate.status === 'queued')
+        .sort((a, b) => (a.queuePosition ?? 0) - (b.queuePosition ?? 0))
+        .map((candidate) => [candidate.id, candidate.queuePosition])
+      ).toEqual([
+        ['cancel-parent', 1],
+        ['cancel-child', 2],
+        ['cancel-grandchild', 3],
+        ['survivor', 4],
+      ])
+      expect(db.prepare(`SELECT id, queue_position FROM queued_jobs ORDER BY queue_position`).all())
+        .toEqual([
+          { id: 'cancel-parent', queue_position: 1 },
+          { id: 'cancel-child', queue_position: 2 },
+          { id: 'cancel-grandchild', queue_position: 3 },
+          { id: 'survivor', queue_position: 4 },
+        ])
+      expect(db.prepare(`SELECT id FROM jobs`).all()).toEqual([])
+
+      db.exec(`DROP TRIGGER reject_recursive_skip`)
+      expect(qmWithDb.cancel('cancel-parent')).toBe('canceled')
+      expect(db.prepare(`SELECT id, queue_position FROM queued_jobs ORDER BY queue_position`).all())
+        .toEqual([{ id: 'survivor', queue_position: 1 }])
+      expect(db.prepare(`SELECT id, status FROM jobs ORDER BY id`).all()).toEqual([
+        { id: 'cancel-child', status: 'skipped' },
+        { id: 'cancel-grandchild', status: 'skipped' },
+        { id: 'cancel-parent', status: 'canceled' },
+      ])
+      qmWithDb.shutdown()
+      db.close()
+    })
+
+    it('cancels a queued child whose parent has no jobs row yet', () => {
+      const db = initDb(':memory:')
+      db.prepare(`INSERT OR REPLACE INTO queue_state (key, value) VALUES ('paused', 'true')`).run()
+      db.prepare(
+        `INSERT INTO queued_jobs (id, command, queue_position, priority)
+         VALUES ('queued-parent', '/parent', 1, 'normal')`,
+      ).run()
+      db.prepare(
+        `INSERT INTO queued_jobs (
+           id, command, queue_position, priority, depends_on_job_id
+         ) VALUES ('queued-child', '/child', 2, 'normal', 'queued-parent')`,
+      ).run()
+      const qmWithDb = new QueueManager(broadcast, db)
+
+      expect(qmWithDb.cancel('queued-child')).toBe('canceled')
+      expect(db.prepare(`SELECT id, queue_position FROM queued_jobs`).all())
+        .toEqual([{ id: 'queued-parent', queue_position: 1 }])
+      expect(db.prepare(`SELECT status, depends_on_job_id FROM jobs WHERE id = 'queued-child'`).get())
+        .toEqual({ status: 'canceled', depends_on_job_id: null })
+      qmWithDb.shutdown()
+      db.close()
+    })
+
+    it('removes the legacy jobs.status=queued representation on cancel', () => {
+      const db = initDb(':memory:')
+      db.prepare(`INSERT OR REPLACE INTO queue_state (key, value) VALUES ('paused', 'true')`).run()
+      db.prepare(
+        `INSERT INTO jobs (id, command, started_at, status, queue_position, priority)
+         VALUES ('legacy-cancel', '/legacy', datetime('now'), 'queued', 1, 'normal')`,
+      ).run()
+      const qmWithDb = new QueueManager(broadcast, db)
+
+      expect(qmWithDb.cancel('legacy-cancel')).toBe('canceled')
+      expect(db.prepare(`SELECT status FROM jobs WHERE id = 'legacy-cancel'`).get())
+        .toEqual({ status: 'canceled' })
+
+      const afterRestart = new QueueManager(broadcast, db)
+      expect(afterRestart.getJobs().find((candidate) => candidate.id === 'legacy-cancel')).toBeUndefined()
+      qmWithDb.shutdown()
+      afterRestart.shutdown()
+      db.close()
+    })
+
+    it('rejects cross-priority reorder and preserves within-band order after restart', () => {
+      const db = initDb(':memory:')
+      db.prepare(`INSERT OR REPLACE INTO queue_state (key, value) VALUES ('paused', 'true')`).run()
+      const insertQueued = db.prepare(
+        `INSERT INTO queued_jobs (id, command, queue_position, priority) VALUES (?, ?, ?, ?)`,
+      )
+      insertQueued.run('high-a', '/high-a', 1, 'high')
+      insertQueued.run('high-b', '/high-b', 2, 'high')
+      insertQueued.run('low-a', '/low-a', 3, 'low')
+      const qmWithDb = new QueueManager(broadcast, db)
+
+      expect(() => qmWithDb.reorder(['low-a', 'high-a', 'high-b']))
+        .toThrow('Cannot reorder jobs across priority levels')
+      expect(db.prepare(`SELECT id FROM queued_jobs ORDER BY queue_position`).all())
+        .toEqual([{ id: 'high-a' }, { id: 'high-b' }, { id: 'low-a' }])
+
+      qmWithDb.reorder(['high-b', 'high-a', 'low-a'])
+      const afterRestart = new QueueManager(broadcast, db)
+      expect(afterRestart.getJobs()
+        .filter((candidate) => candidate.status === 'queued')
+        .sort((a, b) => (a.queuePosition ?? 0) - (b.queuePosition ?? 0))
+        .map((candidate) => candidate.id)
+      ).toEqual(['high-b', 'high-a', 'low-a'])
+      qmWithDb.shutdown()
+      afterRestart.shutdown()
+      db.close()
+    })
+
+    it('rolls back an enqueue when durable queue admission fails', () => {
+      vi.mocked(mockExecSync).mockReturnValue(Buffer.from('/usr/bin/claude'))
+      vi.mocked(mockSpawn).mockReturnValue(createMockChildProcess() as any)
+      vi.mocked(mockUuidV4)
+        .mockReturnValueOnce('running-job' as any)
+        .mockReturnValueOnce('queue-fail' as any)
+
+      const db = initDb(':memory:')
+      db.exec(`
+        CREATE TRIGGER reject_queue_admission
+        BEFORE INSERT ON queued_jobs
+        WHEN NEW.id = 'queue-fail'
+        BEGIN
+          SELECT RAISE(ABORT, 'simulated queue persistence failure');
+        END;
+      `)
+      const qmWithDb = new QueueManager(broadcast, db, [], undefined, { zombieTimeoutMs: 0 })
+      qmWithDb.enqueue('/implement #1')
+
+      expect(() => qmWithDb.enqueue('/implement #2')).toThrow('simulated queue persistence failure')
+      expect(qmWithDb.getJobs().map((job) => job.id)).toEqual(['running-job'])
+      expect(db.prepare(`SELECT 1 FROM queued_jobs WHERE id = 'queue-fail'`).get()).toBeUndefined()
+      expect(vi.mocked(mockSpawn)).toHaveBeenCalledTimes(1)
+      db.close()
+    })
+
+    it('rolls back queue persistence when a project-wide admission hook fails', () => {
+      vi.mocked(mockExecSync).mockReturnValue(Buffer.from('/usr/bin/claude'))
+      vi.mocked(mockUuidV4)
+        .mockReturnValueOnce('global-hook-fail' as any)
+        .mockReturnValueOnce('global-hook-success' as any)
+
+      const db = initDb(':memory:')
+      let rejectAdmission = true
+      const observedJobIds: string[] = []
+      const qmWithDb = new QueueManager(broadcast, db, [], undefined, {
+        onJobAdmission: (txDb, job) => {
+          // queued_jobs must already be visible to the hook, while remaining
+          // uncommitted until the hook itself succeeds.
+          expect(txDb.prepare(`SELECT id FROM queued_jobs WHERE id = ?`).get(job.id))
+            .toEqual({ id: job.id })
+          observedJobIds.push(job.id)
+          if (rejectAdmission) throw new Error('simulated project admission failure')
+        },
+      })
+      qmWithDb.pause()
+
+      expect(() => qmWithDb.enqueue('/global-hook')).toThrow('simulated project admission failure')
+      expect(qmWithDb.getJobs()).toEqual([])
+      expect(db.prepare(`SELECT 1 FROM queued_jobs WHERE id = 'global-hook-fail'`).get())
+        .toBeUndefined()
+
+      rejectAdmission = false
+      const admitted = qmWithDb.enqueue('/global-hook')
+      expect(admitted.id).toBe('global-hook-success')
+      expect(observedJobIds).toEqual(['global-hook-fail', 'global-hook-success'])
+      expect(db.prepare(`SELECT id FROM queued_jobs WHERE id = 'global-hook-success'`).get())
+        .toEqual({ id: 'global-hook-success' })
+      qmWithDb.shutdown()
+      db.close()
+    })
+
+    it('commits queued work and an external admission claim atomically before drain', () => {
+      vi.mocked(mockExecSync).mockReturnValue(Buffer.from('/usr/bin/claude'))
+      const db = initDb(':memory:')
+      const admissionOrder: string[] = []
+      const qmWithDb = new QueueManager(broadcast, db, [], undefined, {
+        onJobAdmission: () => { admissionOrder.push('project') },
+      })
+      qmWithDb.pause()
+      const fingerprint = fingerprintJobSpawn({ command: '/atomic' })
+      db.exec(`
+        CREATE TRIGGER reject_spawn_claim
+        BEFORE INSERT ON job_spawn_requests
+        BEGIN
+          SELECT RAISE(ABORT, 'simulated ledger insert failure');
+        END;
+      `)
+
+      expect(() => qmWithDb.enqueue('/atomic', 'normal', undefined, {
+        jobId: 'atomic-job',
+        commit: (txDb) => {
+          admissionOrder.push('route')
+          claimIdempotentJob(txDb, 'atomic-key', fingerprint, 'atomic-job')
+        },
+      })).toThrow('simulated ledger insert failure')
+      expect(qmWithDb.getJobs()).toEqual([])
+      expect(db.prepare(`SELECT 1 FROM queued_jobs WHERE id = 'atomic-job'`).get()).toBeUndefined()
+      expect(db.prepare(`SELECT 1 FROM job_spawn_requests WHERE idempotency_key = 'atomic-key'`).get()).toBeUndefined()
+      expect(vi.mocked(mockSpawn)).not.toHaveBeenCalled()
+
+      db.exec(`DROP TRIGGER reject_spawn_claim`)
+      const admitted = qmWithDb.enqueue('/atomic', 'normal', undefined, {
+        jobId: 'atomic-job',
+        commit: (txDb) => {
+          admissionOrder.push('route')
+          claimIdempotentJob(txDb, 'atomic-key', fingerprint, 'atomic-job')
+        },
+      })
+      expect(admitted.id).toBe('atomic-job')
+      expect(admissionOrder).toEqual(['project', 'route', 'project', 'route'])
+      expect(db.prepare(`SELECT id FROM queued_jobs WHERE id = 'atomic-job'`).get())
+        .toEqual({ id: 'atomic-job' })
+      expect(db.prepare(`SELECT job_id FROM job_spawn_requests WHERE idempotency_key = 'atomic-key'`).get())
+        .toEqual({ job_id: 'atomic-job' })
+      expect(vi.mocked(mockSpawn)).not.toHaveBeenCalled()
+      qmWithDb.shutdown()
+      db.close()
+    })
+
+    it('rolls back a speculative admission when another manager owns the exact key', () => {
+      vi.mocked(mockExecSync).mockReturnValue(Buffer.from('/usr/bin/claude'))
+      const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'queue-atomic-key-'))
+      const dbPath = path.join(dir, 'jobs.sqlite')
+      try {
+        const db1 = initDb(dbPath)
+        db1.prepare(`UPDATE queue_state SET value = 'true' WHERE key = 'paused'`).run()
+        const db2 = initDb(dbPath)
+        const qm1 = new QueueManager(broadcast, db1)
+        const qm2 = new QueueManager(broadcast, db2)
+        const fingerprint = fingerprintJobSpawn({ command: '/same' })
+
+        qm1.enqueue('/same', 'normal', undefined, {
+          jobId: 'winner-job',
+          commit: (txDb) => claimIdempotentJob(
+            txDb, 'same-key', fingerprint, 'winner-job',
+          ),
+        })
+        expect(() => qm2.enqueue('/same', 'normal', undefined, {
+          jobId: 'loser-job',
+          commit: (txDb) => claimIdempotentJob(
+            txDb, 'same-key', fingerprint, 'loser-job',
+          ),
+        })).toThrow(JobSpawnIdempotencyReplayError)
+
+        expect(qm2.getJobs()).toEqual([])
+        expect(db1.prepare(`SELECT id FROM queued_jobs ORDER BY id`).all())
+          .toEqual([{ id: 'winner-job' }])
+        expect(db1.prepare(`SELECT job_id FROM job_spawn_requests WHERE idempotency_key = 'same-key'`).get())
+          .toEqual({ job_id: 'winner-job' })
+        qm1.shutdown()
+        qm2.shutdown()
+        db1.close()
+        db2.close()
+      } finally {
+        fs.rmSync(dir, { recursive: true, force: true })
+      }
+    })
+
+    it('does not resurrect a queued admission when startup fails before promotion', async () => {
+      vi.mocked(mockExecSync).mockReturnValue(Buffer.from('/usr/bin/claude'))
+      vi.mocked(mockUuidV4).mockReturnValue('early-start-failure' as any)
+      const db = initDb(':memory:')
+      const onJobFinished = vi.fn()
+      const qmWithDb = new QueueManager(broadcast, db, [], undefined, {
+        zombieTimeoutMs: 0,
+        onJobFinished,
+      })
+      vi.spyOn(qmWithDb as any, '_resolveJobAdapter').mockImplementation(() => {
+        throw new Error('simulated early resolver failure')
+      })
+
+      qmWithDb.enqueue('/implement #1')
+      await new Promise((resolve) => setImmediate(resolve))
+
+      expect(qmWithDb.getJobs().find((job) => job.id === 'early-start-failure'))
+        .toMatchObject({ status: 'failed', startedAt: expect.any(String), finishedAt: expect.any(String) })
+      expect(db.prepare(`SELECT status, started_at FROM jobs WHERE id = 'early-start-failure'`).get())
+        .toMatchObject({ status: 'failed', started_at: expect.any(String) })
+      expect(db.prepare(`SELECT 1 FROM queued_jobs WHERE id = 'early-start-failure'`).get()).toBeUndefined()
+      expect(onJobFinished).toHaveBeenCalledWith('early-start-failure', 'failed', undefined)
+
+      const afterRestart = new QueueManager(broadcast, db, [], undefined, { zombieTimeoutMs: 0 })
+      expect(afterRestart.getJobs().find((job) => job.id === 'early-start-failure')).toBeUndefined()
+      expect(vi.mocked(mockSpawn)).not.toHaveBeenCalled()
+      db.close()
+    })
+
+    it('keeps the durable admission and suppresses side effects when startup failure cannot be persisted', async () => {
+      vi.mocked(mockExecSync).mockReturnValue(Buffer.from('/usr/bin/claude'))
+      vi.mocked(mockUuidV4).mockReturnValue('unpersisted-start-failure' as any)
+      const db = initDb(':memory:')
+      db.exec(`
+        CREATE TRIGGER reject_start_failure_history
+        BEFORE INSERT ON jobs
+        WHEN NEW.id = 'unpersisted-start-failure'
+        BEGIN
+          SELECT RAISE(ABORT, 'simulated terminal persistence failure');
+        END;
+      `)
+      const onJobFinished = vi.fn()
+      const qmWithDb = new QueueManager(broadcast, db, [], undefined, {
+        projectId: 'p1',
+        onJobFinished,
+      })
+      vi.spyOn(qmWithDb as any, '_resolveJobAdapter').mockImplementation(() => {
+        throw new Error('simulated resolver failure')
+      })
+
+      qmWithDb.enqueue('/implement #1')
+      await new Promise((resolve) => setImmediate(resolve))
+
+      expect(db.prepare(`SELECT id FROM queued_jobs WHERE id = 'unpersisted-start-failure'`).get())
+        .toEqual({ id: 'unpersisted-start-failure' })
+      expect(db.prepare(`SELECT 1 FROM jobs WHERE id = 'unpersisted-start-failure'`).get()).toBeUndefined()
+      expect(db.prepare(`SELECT COUNT(*) AS count FROM ai_invocations WHERE surface_ref_id = 'unpersisted-start-failure'`).get())
+        .toEqual({ count: 0 })
+      expect(onJobFinished).not.toHaveBeenCalled()
+      expect(vi.mocked(mockSpawn)).not.toHaveBeenCalled()
+      expect(qmWithDb.isPaused()).toBe(true)
+      expect(qmWithDb.getActiveJobId()).toBeNull()
+      expect(qmWithDb.getJobs().find((candidate) => candidate.id === 'unpersisted-start-failure'))
+        .toMatchObject({ status: 'queued', queuePosition: 1, startedAt: null, finishedAt: null })
+      expect(db.prepare(`SELECT value FROM queue_state WHERE key = 'paused'`).get())
+        .toEqual({ value: 'true' })
+      qmWithDb.shutdown()
+      db.close()
+    })
+
+    it('restores provider, model, profile, and interactive selections without collapsing tri-state values', () => {
+      vi.mocked(mockExecSync).mockReturnValue(Buffer.from('/usr/bin/provider-cli'))
+      vi.mocked(mockUuidV4)
+        .mockReturnValueOnce('selection-default' as any)
+        .mockReturnValueOnce('selection-legacy' as any)
+        .mockReturnValueOnce('selection-explicit' as any)
+      const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'queue-selection-restart-'))
+      const dbPath = path.join(dir, 'jobs.sqlite')
+
+      try {
+        const beforeDb = initDb(dbPath)
+        const before = new QueueManager(broadcast, beforeDb, [], undefined, { provider: 'claude' })
+        before.pause()
+        // An explicitly-present undefined must have the same semantics as an
+        // absent property: resolve the project default profile at spawn time.
+        before.enqueue('/default', { profileName: undefined })
+        before.enqueue('/legacy', {
+          provider: 'codex',
+          model: 'gpt-5.2',
+          profileName: null,
+          interactive: false,
+        })
+        before.enqueue('/explicit', {
+          provider: 'claude',
+          model: 'sonnet',
+          profileName: 'reviewer',
+          interactive: true,
+        })
+
+        expect(beforeDb.prepare(`
+          SELECT id, provider, model, profile_name, profile_selection_set, interactive
+            FROM queued_jobs ORDER BY queue_position
+        `).all()).toEqual([
+          {
+            id: 'selection-default', provider: 'claude', model: null,
+            profile_name: null, profile_selection_set: 0, interactive: null,
+          },
+          {
+            id: 'selection-legacy', provider: 'codex', model: 'gpt-5.2',
+            profile_name: null, profile_selection_set: 1, interactive: 0,
+          },
+          {
+            id: 'selection-explicit', provider: 'claude', model: 'sonnet',
+            profile_name: 'reviewer', profile_selection_set: 1, interactive: 1,
+          },
+        ])
+        before.shutdown()
+        beforeDb.close()
+
+        const afterDb = initDb(dbPath)
+        // Changing the project default must not reinterpret already-admitted
+        // provider choices.
+        const restored = new QueueManager(broadcast, afterDb, [], undefined, { provider: 'gemini' })
+        const providers = (restored as any)._jobProviderSelection as Map<string, string>
+        const models = (restored as any)._jobModelSelection as Map<string, string>
+        const profiles = (restored as any)._jobProfileSelection as Map<string, string | null>
+        const interactive = (restored as any)._jobInteractiveSelection as Map<string, boolean>
+
+        expect(providers.get('selection-default')).toBe('claude')
+        expect(providers.get('selection-legacy')).toBe('codex')
+        expect(providers.get('selection-explicit')).toBe('claude')
+        expect(models.has('selection-default')).toBe(false)
+        expect(models.get('selection-legacy')).toBe('gpt-5.2')
+        expect(models.get('selection-explicit')).toBe('sonnet')
+        expect(profiles.has('selection-default')).toBe(false)
+        expect(profiles.has('selection-legacy')).toBe(true)
+        expect(profiles.get('selection-legacy')).toBeNull()
+        expect(profiles.get('selection-explicit')).toBe('reviewer')
+        expect(interactive.has('selection-default')).toBe(false)
+        expect(interactive.get('selection-legacy')).toBe(false)
+        expect(interactive.get('selection-explicit')).toBe(true)
+        restored.shutdown()
+        afterDb.close()
+      } finally {
+        fs.rmSync(dir, { recursive: true, force: true })
+      }
+    })
+
+    it('preserves selections through a failed pre-spawn promotion and retries with the pinned provider', async () => {
+      vi.mocked(mockExecSync).mockReturnValue(Buffer.from('/usr/bin/provider-cli'))
+      vi.mocked(mockSpawn).mockReturnValue(createMockChildProcess() as any)
+      vi.mocked(mockUuidV4).mockReturnValueOnce('retry-selections' as any)
+      const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'queue-selection-retry-'))
+      const dbPath = path.join(dir, 'jobs.sqlite')
+
+      try {
+        const beforeDb = initDb(dbPath)
+        beforeDb.exec(`
+          CREATE TRIGGER reject_retry_selection_promotion
+          BEFORE INSERT ON jobs
+          WHEN NEW.id = 'retry-selections'
+          BEGIN
+            SELECT RAISE(ABORT, 'simulated promotion failure');
+          END;
+        `)
+        const before = new QueueManager(broadcast, beforeDb, [], undefined, { provider: 'claude' })
+        const buildArgs = vi.spyOn((before as any)._adapter, 'buildArgs')
+          .mockImplementation(() => { throw new Error('simulated pre-spawn failure') })
+
+        before.enqueue('/retry-selections', {
+          model: 'sonnet',
+          profileName: null,
+          interactive: false,
+        })
+        await new Promise((resolve) => setImmediate(resolve))
+
+        expect(before.isPaused()).toBe(true)
+        expect(beforeDb.prepare(`
+          SELECT provider, model, profile_name, profile_selection_set, interactive
+            FROM queued_jobs WHERE id = 'retry-selections'
+        `).get()).toEqual({
+          provider: 'claude',
+          model: 'sonnet',
+          profile_name: null,
+          profile_selection_set: 1,
+          interactive: 0,
+        })
+        buildArgs.mockRestore()
+        before.shutdown()
+        beforeDb.close()
+
+        const afterDb = initDb(dbPath)
+        afterDb.exec(`DROP TRIGGER reject_retry_selection_promotion`)
+        const restored = new QueueManager(broadcast, afterDb, [], undefined, { provider: 'codex' })
+        expect((restored as any)._jobProviderSelection.get('retry-selections')).toBe('claude')
+        expect((restored as any)._jobModelSelection.get('retry-selections')).toBe('sonnet')
+        expect((restored as any)._jobProfileSelection.has('retry-selections')).toBe(true)
+        expect((restored as any)._jobProfileSelection.get('retry-selections')).toBeNull()
+        expect((restored as any)._jobInteractiveSelection.get('retry-selections')).toBe(false)
+
+        restored.resume()
+        await new Promise((resolve) => setImmediate(resolve))
+
+        expect(vi.mocked(mockSpawn)).toHaveBeenCalled()
+        expect(vi.mocked(mockSpawn).mock.calls.at(-1)?.[0]).toBe('claude')
+        expect(afterDb.prepare(`
+          SELECT provider, interactive FROM jobs WHERE id = 'retry-selections'
+        `).get()).toEqual({ provider: 'claude', interactive: 0 })
+        expect(afterDb.prepare(`SELECT 1 FROM queued_jobs WHERE id = 'retry-selections'`).get())
+          .toBeUndefined()
+        restored.shutdown()
+        afterDb.close()
+      } finally {
+        fs.rmSync(dir, { recursive: true, force: true })
+      }
+    })
+
+    it('restores the full durable priority order from a real DB after restart', () => {
+      vi.mocked(mockExecSync).mockReturnValue(Buffer.from('/usr/bin/claude'))
+      vi.mocked(mockSpawn).mockReturnValue(createMockChildProcess() as any)
+      vi.mocked(mockUuidV4)
+        .mockReturnValueOnce('running-job' as any)
+        .mockReturnValueOnce('normal-a' as any)
+        .mockReturnValueOnce('normal-b' as any)
+        .mockReturnValueOnce('high-job' as any)
+
+      const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'queue-durable-restart-'))
+      const dbPath = path.join(dir, 'jobs.sqlite')
+      try {
+        const beforeCrash = initDb(dbPath)
+        const before = new QueueManager(broadcast, beforeCrash, [], undefined, { zombieTimeoutMs: 0 })
+        before.enqueue('/running')
+        before.enqueue('/normal-a')
+        before.enqueue('/normal-b')
+        before.enqueue('/high', 'high')
+        before.updatePriority('normal-b', 'critical')
+        before.pause()
+
+        expect(beforeCrash.prepare(
+          `SELECT id, queue_position FROM queued_jobs ORDER BY queue_position`
+        ).all()).toEqual([
+          { id: 'normal-b', queue_position: 1 },
+          { id: 'high-job', queue_position: 2 },
+          { id: 'normal-a', queue_position: 3 },
+        ])
+        expect(beforeCrash.prepare(
+          `SELECT id FROM jobs WHERE id IN ('normal-a', 'normal-b', 'high-job')`
+        ).all()).toEqual([])
+        beforeCrash.close() // simulate the app process disappearing
+
+        const afterRestart = initDb(dbPath)
+        const restored = new QueueManager(broadcast, afterRestart, [], undefined, { zombieTimeoutMs: 0 })
+        expect(restored.isPaused()).toBe(true)
+        expect(restored.getJobs()
+          .filter((job) => job.status === 'queued')
+          .sort((a, b) => (a.queuePosition ?? 0) - (b.queuePosition ?? 0))
+          .map((job) => [job.id, job.priority, job.startedAt])
+        ).toEqual([
+          ['normal-b', 'critical', null],
+          ['high-job', 'high', null],
+          ['normal-a', 'normal', null],
+        ])
+
+        restored.resume()
+        expect(restored.getJobs().find((job) => job.id === 'normal-b')?.status).toBe('running')
+        expect(afterRestart.prepare(`SELECT 1 FROM queued_jobs WHERE id = 'normal-b'`).get()).toBeUndefined()
+        expect(afterRestart.prepare(`SELECT status, started_at FROM jobs WHERE id = 'normal-b'`).get())
+          .toMatchObject({ status: 'running', started_at: expect.any(String) })
+        restored.shutdown()
+        afterRestart.close()
+      } finally {
+        fs.rmSync(dir, { recursive: true, force: true })
+      }
     })
 
     it('persistQueueState: pause() writes paused=true to DB', () => {
@@ -2375,6 +3039,76 @@ describe('QueueManager', () => {
       expect(jrow.status).toBe('failed')
       expect(jrow.total_cost_usd!).toBeGreaterThan(0)
     })
+
+    it('replays graceful-shutdown callbacks after reopen without duplicating accounting', () => {
+      const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'queue-graceful-recovery-'))
+      const dbPath = path.join(dir, 'jobs.sqlite')
+      try {
+        vi.mocked(mockExecSync).mockReturnValue(Buffer.from('/usr/bin/claude'))
+        const child = createMockChildProcess()
+        vi.mocked(mockSpawn).mockReturnValue(child as any)
+        vi.mocked(mockUuidV4)
+          .mockReturnValueOnce('graceful-parent' as any)
+          .mockReturnValueOnce('graceful-child' as any)
+        const firstDb = initDb(dbPath)
+        const failingCallback = vi.fn(() => { throw new Error('ticket store temporarily unavailable') })
+        const first = new QueueManager(broadcast, firstDb, [], undefined, {
+          projectId: 'p1',
+          onJobFinished: failingCallback,
+        })
+        first.enqueue('/specrails:implement #31')
+        first.enqueue('/specrails:verify #31', { dependsOnJobId: 'graceful-parent' })
+
+        first.shutdown()
+
+        expect(firstDb.prepare(
+          `SELECT COUNT(*) AS count FROM ai_invocations WHERE surface_ref_id = 'graceful-parent'`
+        ).get()).toMatchObject({ count: 1 })
+        expect(firstDb.prepare(
+          `SELECT accounting_completed, callback_completed, terminal_completed
+           FROM orphan_job_recovery WHERE job_id = 'graceful-parent'`
+        ).get()).toMatchObject({ accounting_completed: 1, callback_completed: 0, terminal_completed: 0 })
+        expect(firstDb.prepare(`SELECT 1 FROM queued_jobs WHERE id = 'graceful-child'`).get())
+          .toBeDefined()
+        firstDb.close()
+
+        const afterRestart = initDb(dbPath)
+        const succeedingCallback = vi.fn()
+        new QueueManager(broadcast, afterRestart, [], undefined, {
+          projectId: 'p1',
+          onJobFinished: succeedingCallback,
+        })
+
+        expect(succeedingCallback).toHaveBeenCalledWith(
+          'graceful-parent', 'failed', undefined, expect.objectContaining({
+            recoveryReplay: true,
+            recoveryCommand: '/specrails:implement #31',
+            recoveryTicketIds: [31],
+          }),
+        )
+        expect(succeedingCallback).toHaveBeenCalledWith(
+          'graceful-child', 'skipped', undefined, expect.objectContaining({
+            recoveryReplay: true,
+            recoveryCommand: '/specrails:verify #31',
+          }),
+        )
+        expect(afterRestart.prepare(
+          `SELECT status, skip_reason FROM jobs WHERE id = 'graceful-child'`
+        ).get()).toMatchObject({
+          status: 'skipped',
+          skip_reason: 'Parent job graceful-parent failed',
+        })
+        expect(afterRestart.prepare(
+          `SELECT COUNT(*) AS count FROM ai_invocations WHERE surface_ref_id = 'graceful-parent'`
+        ).get()).toMatchObject({ count: 1 })
+        expect(afterRestart.prepare(
+          `SELECT 1 FROM orphan_job_recovery WHERE job_id = 'graceful-parent'`
+        ).get()).toBeUndefined()
+        afterRestart.close()
+      } finally {
+        fs.rmSync(dir, { recursive: true, force: true })
+      }
+    })
   })
 
   // ─── cost-accounting audit fixes ─────────────────────────────────────────────
@@ -2522,7 +3256,209 @@ describe('QueueManager', () => {
 
       new QueueManager(broadcast, db, [], undefined, { projectId: 'p1', onJobFinished })
 
-      expect(onJobFinished).toHaveBeenCalledWith('callback-orphan', 'failed', 1.5)
+      expect(onJobFinished).toHaveBeenCalledWith(
+        'callback-orphan', 'failed', 1.5, expect.objectContaining({
+          recoveryReplay: true,
+          recoveryCommand: '/specrails:implement #4',
+          recoveryTicketIds: [4],
+          recoveryCausalOwnership: false,
+        }),
+      )
+      db.close()
+    })
+
+    it('retries failed accounting without replaying a checkpointed callback', () => {
+      const db = initDb(':memory:')
+      createJob(db, { id: 'accounting-retry-orphan', command: '/specrails:implement #14', started_at: new Date().toISOString() })
+      db.prepare(`UPDATE jobs SET status = 'running', total_cost_usd = 2.5 WHERE id = 'accounting-retry-orphan'`).run()
+      db.exec(`
+        CREATE TRIGGER reject_orphan_accounting
+        BEFORE INSERT ON ai_invocations
+        BEGIN
+          SELECT RAISE(ABORT, 'simulated accounting crash');
+        END;
+      `)
+      const onJobFinished = vi.fn()
+
+      new QueueManager(broadcast, db, [], undefined, { projectId: 'p1', onJobFinished })
+
+      expect(db.prepare(`SELECT status FROM jobs WHERE id = 'accounting-retry-orphan'`).get())
+        .toMatchObject({ status: 'failed' })
+      expect(db.prepare(`SELECT COUNT(*) AS count FROM ai_invocations WHERE surface_ref_id = 'accounting-retry-orphan'`).get())
+        .toMatchObject({ count: 0 })
+      expect(db.prepare(`SELECT accounting_completed, callback_completed FROM orphan_job_recovery WHERE job_id = 'accounting-retry-orphan'`).get())
+        .toMatchObject({ accounting_completed: 0, callback_completed: 1 })
+      expect(onJobFinished).toHaveBeenCalledTimes(1)
+
+      db.exec(`DROP TRIGGER reject_orphan_accounting`)
+      new QueueManager(broadcast, db, [], undefined, { projectId: 'p1', onJobFinished })
+
+      expect(db.prepare(`SELECT COUNT(*) AS count FROM ai_invocations WHERE surface_ref_id = 'accounting-retry-orphan'`).get())
+        .toMatchObject({ count: 1 })
+      expect(onJobFinished).toHaveBeenCalledTimes(1)
+      expect(db.prepare(`SELECT 1 FROM orphan_job_recovery WHERE job_id = 'accounting-retry-orphan'`).get()).toBeUndefined()
+      db.close()
+    })
+
+    it('retries a failed callback without duplicating checkpointed accounting', () => {
+      const db = initDb(':memory:')
+      createJob(db, { id: 'callback-retry-orphan', command: '/specrails:implement #15', started_at: new Date().toISOString() })
+      db.prepare(`UPDATE jobs SET status = 'running', total_cost_usd = 3.5 WHERE id = 'callback-retry-orphan'`).run()
+      const failingCallback = vi.fn(() => { throw new Error('simulated callback crash') })
+
+      new QueueManager(broadcast, db, [], undefined, { projectId: 'p1', onJobFinished: failingCallback })
+
+      expect(db.prepare(`SELECT COUNT(*) AS count FROM ai_invocations WHERE surface_ref_id = 'callback-retry-orphan'`).get())
+        .toMatchObject({ count: 1 })
+      expect(db.prepare(`SELECT accounting_completed, callback_completed FROM orphan_job_recovery WHERE job_id = 'callback-retry-orphan'`).get())
+        .toMatchObject({ accounting_completed: 1, callback_completed: 0 })
+      const succeedingCallback = vi.fn()
+
+      new QueueManager(broadcast, db, [], undefined, { projectId: 'p1', onJobFinished: succeedingCallback })
+
+      expect(db.prepare(`SELECT COUNT(*) AS count FROM ai_invocations WHERE surface_ref_id = 'callback-retry-orphan'`).get())
+        .toMatchObject({ count: 1 })
+      expect(succeedingCallback).toHaveBeenCalledWith(
+        'callback-retry-orphan', 'failed', 3.5, expect.objectContaining({
+          recoveryReplay: true,
+          recoveryCommand: '/specrails:implement #15',
+          recoveryTicketIds: [15],
+        }),
+      )
+      expect(db.prepare(`SELECT 1 FROM orphan_job_recovery WHERE job_id = 'callback-retry-orphan'`).get()).toBeUndefined()
+      db.close()
+    })
+
+    it('replays dependent skips transactionally after the queued jobs are restored', () => {
+      const db = initDb(':memory:')
+      createJob(db, {
+        id: 'crashed-parent',
+        command: '/specrails:implement #21',
+        started_at: new Date().toISOString(),
+        pipeline_id: 'recovery-pipeline',
+      })
+      db.prepare(
+        `INSERT INTO queued_jobs
+          (id, command, queue_position, priority, depends_on_job_id, pipeline_id)
+         VALUES (?, ?, 1, 'normal', ?, ?)`
+      ).run(
+        'dependent-child',
+        '/specrails:verify #21',
+        'crashed-parent',
+        'recovery-pipeline',
+      )
+      db.exec(`
+        CREATE TRIGGER reject_orphan_terminal_checkpoint
+        BEFORE UPDATE OF terminal_completed ON orphan_job_recovery
+        WHEN NEW.terminal_completed = 1
+        BEGIN
+          SELECT RAISE(ABORT, 'simulated terminal checkpoint crash');
+        END;
+      `)
+      const onJobFinished = vi.fn()
+
+      const firstManager = new QueueManager(
+        broadcast, db, [], undefined, { projectId: 'p1', onJobFinished },
+      )
+
+      // The dependent mutation and its checkpoint share one transaction. The
+      // injected checkpoint failure therefore rolls the persisted skip back.
+      expect(db.prepare(`SELECT id FROM queued_jobs WHERE id = 'dependent-child'`).get())
+        .toMatchObject({ id: 'dependent-child' })
+      expect(db.prepare(`SELECT 1 FROM jobs WHERE id = 'dependent-child'`).get()).toBeUndefined()
+      expect(db.prepare(
+        `SELECT accounting_completed, callback_completed, terminal_completed
+         FROM orphan_job_recovery WHERE job_id = 'crashed-parent'`
+      ).get()).toMatchObject({ accounting_completed: 1, callback_completed: 1, terminal_completed: 0 })
+      // The parent callback committed; the child callback ran inside the SQL
+      // transaction that the injected checkpoint failure rolls back. A mock's
+      // call history is external to SQLite, so it observes both deliveries.
+      expect(onJobFinished).toHaveBeenCalledTimes(2)
+      // The SQL transaction rolled back, so its in-memory projection must roll
+      // back too. Pre-fix the child stayed `skipped` and vanished from `_queue`
+      // until a full process restart despite remaining durable in queued_jobs.
+      expect(firstManager.getJobs().find((job) => job.id === 'dependent-child')).toMatchObject({
+        status: 'queued',
+      })
+
+      db.exec(`DROP TRIGGER reject_orphan_terminal_checkpoint`)
+      broadcast.mockClear()
+      new QueueManager(broadcast, db, [], undefined, { projectId: 'p1', onJobFinished })
+
+      expect(db.prepare(`SELECT status, skip_reason FROM jobs WHERE id = 'dependent-child'`).get())
+        .toMatchObject({
+          status: 'skipped',
+          skip_reason: 'Parent job crashed-parent failed',
+        })
+      expect(db.prepare(
+        `SELECT COUNT(*) AS count FROM ai_invocations WHERE surface_ref_id = 'crashed-parent'`
+      ).get()).toMatchObject({ count: 1 })
+      // The child delivery is intentionally at-least-once: its first DB effects
+      // rolled back with the checkpoint, so the recovery retry delivers it again.
+      expect(onJobFinished).toHaveBeenCalledTimes(3)
+      expect(db.prepare(`SELECT 1 FROM orphan_job_recovery WHERE job_id = 'crashed-parent'`).get()).toBeUndefined()
+      expect(broadcast).toHaveBeenCalledWith(expect.objectContaining({
+        type: 'pipeline_status', pipelineId: 'recovery-pipeline', status: 'failed',
+      }))
+      db.close()
+    })
+
+    it('recovers the persisted per-job provider instead of the project primary', () => {
+      const db = initDb(':memory:')
+      createJob(db, {
+        id: 'codex-override-orphan',
+        command: '/specrails:implement #22',
+        started_at: new Date().toISOString(),
+        provider: 'codex',
+      })
+      db.prepare(
+        `UPDATE jobs SET model = 'gpt-5.5', tokens_in = 42 WHERE id = 'codex-override-orphan'`
+      ).run()
+
+      new QueueManager(broadcast, db, [], undefined, {
+        projectId: 'p1',
+        provider: 'claude',
+        onJobFinished: vi.fn(),
+      })
+
+      expect(db.prepare(
+        `SELECT provider, model, tokens_in, status
+         FROM ai_invocations WHERE surface_ref_id = 'codex-override-orphan'`
+      ).get()).toMatchObject({
+        provider: 'codex', model: 'gpt-5.5', tokens_in: 42, status: 'aborted',
+      })
+      db.close()
+    })
+
+    it('leaves loop-owned backing jobs to the loop recovery authority', () => {
+      const db = initDb(':memory:')
+      createJob(db, {
+        id: 'loop-owned-orphan',
+        command: 'loop: verify #23',
+        started_at: new Date().toISOString(),
+        provider: 'codex',
+        owner: 'loop',
+      })
+      db.prepare(
+        `UPDATE jobs SET total_cost_usd = 4.25, tokens_in = 500
+          WHERE id = 'loop-owned-orphan'`
+      ).run()
+      const onJobFinished = vi.fn()
+
+      new QueueManager(broadcast, db, [], undefined, {
+        projectId: 'p1', provider: 'claude', onJobFinished,
+      })
+
+      expect(db.prepare(`SELECT status, provider, owner FROM jobs WHERE id = 'loop-owned-orphan'`).get())
+        .toMatchObject({ status: 'running', provider: 'codex', owner: 'loop' })
+      expect(db.prepare(
+        `SELECT COUNT(*) AS count FROM ai_invocations
+          WHERE surface = 'job' AND surface_ref_id = 'loop-owned-orphan'`
+      ).get()).toMatchObject({ count: 0 })
+      expect(db.prepare(
+        `SELECT 1 FROM orphan_job_recovery WHERE job_id = 'loop-owned-orphan'`
+      ).get()).toBeUndefined()
+      expect(onJobFinished).not.toHaveBeenCalled()
       db.close()
     })
   })
@@ -2736,7 +3672,9 @@ describe('QueueManager', () => {
         vi.mocked(mockExecSync).mockReturnValue(Buffer.from('/usr/bin/claude'))
         const child = createMockChildProcess()
         vi.mocked(mockSpawn).mockReturnValue(child as any)
-        vi.mocked(mockUuidV4).mockReturnValue('unkillable-job' as any)
+        vi.mocked(mockUuidV4)
+          .mockReturnValueOnce('unkillable-job' as any)
+          .mockReturnValueOnce('unkillable-child' as any)
 
         // SIGKILL escalation reports failure → recovery branch runs.
         vi.mocked(treeKill).mockImplementation(((pid: number, signal?: string, cb?: (e?: Error) => void) => {
@@ -2748,7 +3686,11 @@ describe('QueueManager', () => {
         const qmKill = new QueueManager(broadcast, db, [], '/tmp/repo', {
           provider: 'claude', projectId: 'p1', projectSlug: 'proj', onJobFinished,
         })
-        qmKill.enqueue('/specrails:implement #5')
+        qmKill.enqueue('/specrails:implement #5', { pipelineId: 'unkillable-pipeline' })
+        qmKill.enqueue('/specrails:verify #5', {
+          dependsOnJobId: 'unkillable-job',
+          pipelineId: 'unkillable-pipeline',
+        })
         expect(qmKill.getActiveJobId()).toBe('unkillable-job')
 
         qmKill.cancel('unkillable-job')
@@ -2772,6 +3714,14 @@ describe('QueueManager', () => {
         expect(inv?.surface).toBe('job')
         expect(inv?.status).toBe('aborted')
         expect(inv?.provider).toBe('claude')
+        expect(qmKill.getJobs().find((candidate) => candidate.id === 'unkillable-child'))
+          .toMatchObject({ status: 'skipped', skipReason: 'Parent job unkillable-job failed' })
+        expect(db.prepare(`SELECT status FROM jobs WHERE id = 'unkillable-child'`).get())
+          .toMatchObject({ status: 'skipped' })
+        expect(onJobFinished).toHaveBeenCalledWith('unkillable-child', 'skipped', undefined)
+        expect(broadcast).toHaveBeenCalledWith(expect.objectContaining({
+          type: 'pipeline_status', pipelineId: 'unkillable-pipeline', status: 'failed',
+        }))
       } finally {
         vi.useRealTimers()
       }
@@ -2798,6 +3748,9 @@ describe('QueueManager', () => {
         })
         qmKill.enqueue('/specrails:implement #7', { provider: 'codex' })
         expect(qmKill.getActiveJobId()).toBe('codex-unkillable-job')
+        expect(db.prepare(
+          `SELECT provider FROM jobs WHERE id = 'codex-unkillable-job'`
+        ).get()).toMatchObject({ provider: 'codex' })
 
         qmKill.cancel('codex-unkillable-job')
         vi.advanceTimersByTime(5100)
@@ -2828,14 +3781,20 @@ describe('QueueManager', () => {
       vi.mocked(mockSpawn).mockImplementation((() => {
         throw new Error('spawn ENOENT')
       }) as any)
-      vi.mocked(mockUuidV4).mockReturnValue('wedged-job' as any)
+      vi.mocked(mockUuidV4)
+        .mockReturnValueOnce('wedged-job' as any)
+        .mockReturnValueOnce('wedged-child' as any)
 
       const db = initDb(':memory:')
       const onJobFinished = vi.fn()
       const qm2 = new QueueManager(broadcast, db, [], '/tmp/repo', {
         provider: 'claude', projectId: 'p1', projectSlug: 'proj', onJobFinished,
       })
-      qm2.enqueue('/specrails:implement #9')
+      qm2.enqueue('/specrails:implement #9', { pipelineId: 'wedged-pipeline' })
+      qm2.enqueue('/specrails:verify #9', {
+        dependsOnJobId: 'wedged-job',
+        pipelineId: 'wedged-pipeline',
+      })
       // Let the async _startJob run and reject into _drainQueue's catch.
       await new Promise((r) => setImmediate(r))
       await new Promise((r) => setTimeout(r, 10))
@@ -2871,6 +3830,14 @@ describe('QueueManager', () => {
       expect(invalidated.length).toBeGreaterThanOrEqual(1)
       // onJobFinished still fired (rail/webhook settle path unchanged).
       expect(onJobFinished).toHaveBeenCalledWith('wedged-job', 'failed', undefined)
+      expect(qm2.getJobs().find((candidate) => candidate.id === 'wedged-child'))
+        .toMatchObject({ status: 'skipped', skipReason: 'Parent job wedged-job failed' })
+      expect(db.prepare(`SELECT status FROM jobs WHERE id = 'wedged-child'`).get())
+        .toMatchObject({ status: 'skipped' })
+      expect(onJobFinished).toHaveBeenCalledWith('wedged-child', 'skipped', undefined)
+      expect(broadcast).toHaveBeenCalledWith(expect.objectContaining({
+        type: 'pipeline_status', pipelineId: 'wedged-pipeline', status: 'failed',
+      }))
     })
 
     it('stamps the resolved per-job provider (codex) on the startup-failed row', async () => {
@@ -2978,6 +3945,41 @@ describe('interactive-by-default spawn gate (S1 flip)', () => {
     vi.restoreAllMocks()
   })
 
+  it('never starts an interactive child when queued-to-running promotion fails', async () => {
+    const db = initDb(':memory:')
+    db.exec(`
+      CREATE TRIGGER reject_interactive_promotion
+      BEFORE INSERT ON jobs
+      WHEN NEW.id = 'interactive-promotion-failure'
+      BEGIN
+        SELECT RAISE(ABORT, 'simulated interactive promotion failure');
+      END;
+    `)
+    vi.mocked(mockUuidV4).mockReturnValue('interactive-promotion-failure' as any)
+    const onJobFinished = vi.fn()
+    const qm = new QueueManager(broadcast, db, [], undefined, {
+      projectId: 'p1',
+      onJobFinished,
+    })
+
+    qm.enqueue('/specrails:implement #7 --yes')
+    await tick()
+
+    expect(vi.mocked(mockSpawn)).not.toHaveBeenCalled()
+    expect(db.prepare(`SELECT id FROM queued_jobs WHERE id = 'interactive-promotion-failure'`).get())
+      .toEqual({ id: 'interactive-promotion-failure' })
+    expect(db.prepare(`SELECT 1 FROM jobs WHERE id = 'interactive-promotion-failure'`).get()).toBeUndefined()
+    expect(db.prepare(`SELECT COUNT(*) AS count FROM ai_invocations WHERE surface_ref_id = 'interactive-promotion-failure'`).get())
+      .toEqual({ count: 0 })
+    expect(onJobFinished).not.toHaveBeenCalled()
+    expect(qm.isPaused()).toBe(true)
+    expect(qm.getActiveJobId()).toBeNull()
+    expect(qm.getJobs().find((candidate) => candidate.id === 'interactive-promotion-failure'))
+      .toMatchObject({ status: 'queued', queuePosition: 1, startedAt: null, finishedAt: null })
+    qm.shutdown()
+    db.close()
+  })
+
   it('spawns a claude slash-command job as an interactive session by default (first frame = the command)', () => {
     const db = initDb(':memory:')
     const child = createInteractiveMockChild()
@@ -3010,6 +4012,72 @@ describe('interactive-by-default spawn gate (S1 flip)', () => {
     expect(qm.getInteractiveSettleMode('ghost')).toBeNull()
 
     qm.shutdown()
+    db.close()
+  })
+
+  it('shutdown records the interactive session snapshot instead of an empty active-job row', async () => {
+    const db = initDb(':memory:')
+    const child = createInteractiveMockChild()
+    vi.mocked(mockSpawn).mockReturnValue(child)
+    vi.mocked(mockUuidV4).mockReturnValue('ijob-shutdown' as any)
+    const onJobFinished = vi.fn()
+    const qm = new QueueManager(broadcast, db, [], undefined, { projectId: 'p1', onJobFinished })
+
+    // Freestyle remains resident after a result, giving shutdown an accumulated
+    // session snapshot to fold rather than a naturally settled job.
+    qm.enqueue('/specrails:freestyle #8 --yes')
+    child.stdout.push(interactiveResultFrame({
+      total_cost_usd: 0.37,
+      num_turns: 4,
+      usage: {
+        input_tokens: 321,
+        output_tokens: 123,
+        cache_read_input_tokens: 21,
+        cache_creation_input_tokens: 7,
+      },
+    }))
+    await tick(); await tick(); await tick()
+    expect(qm.getJobs()[0].status).toBe('running')
+
+    qm.shutdown()
+
+    const invocation = db.prepare(
+      `SELECT provider, status, total_cost_usd, tokens_in, tokens_out, num_turns, model
+       FROM ai_invocations WHERE surface_ref_id = 'ijob-shutdown'`
+    ).get() as {
+      provider: string; status: string; total_cost_usd: number
+      tokens_in: number; tokens_out: number; num_turns: number; model: string
+    }
+    expect(invocation).toMatchObject({
+      provider: 'claude',
+      status: 'aborted',
+      total_cost_usd: 0.37,
+      tokens_in: 321,
+      tokens_out: 123,
+      num_turns: 4,
+      model: 'claude-opus-4-8',
+    })
+    expect(db.prepare(
+      `SELECT status, total_cost_usd, tokens_in, tokens_out, num_turns, interactive
+       FROM jobs WHERE id = 'ijob-shutdown'`
+    ).get()).toMatchObject({
+      status: 'failed',
+      total_cost_usd: 0.37,
+      tokens_in: 321,
+      tokens_out: 123,
+      num_turns: 4,
+      interactive: 1,
+    })
+    expect(onJobFinished).toHaveBeenCalledWith(
+      'ijob-shutdown', 'failed', 0.37, expect.objectContaining({
+        recoveryReplay: true,
+        recoveryCommand: '/specrails:freestyle #8 --yes',
+        recoveryTicketIds: [8],
+      }),
+    )
+    expect(db.prepare(
+      `SELECT COUNT(*) AS count FROM ai_invocations WHERE surface_ref_id = 'ijob-shutdown'`
+    ).get()).toMatchObject({ count: 1 })
     db.close()
   })
 

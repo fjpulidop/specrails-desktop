@@ -62,10 +62,10 @@ vi.mock('./config', () => ({
 }))
 
 import { ProjectRegistry } from './project-registry'
-import { setRailTickets, getRail } from './rails-store'
+import { claimRailTickets, claimTicketOutcomeOwners, setRailTickets, getRail } from './rails-store'
 import { initDesktopDb, addProject, listProjects, getProject } from './desktop-db'
-import { createLoopRun, getLoopRun, listActiveLoopRuns } from './loop-runs-store'
-import type { DbInstance } from './db'
+import { createLoopRun, finishLoopRunAndJob, getLoopRun, getLoopTerminalRecovery, listActiveLoopRuns } from './loop-runs-store'
+import { createJob, deleteJob, type DbInstance } from './db'
 import type { WsMessage } from './types'
 
 describe('ProjectRegistry', () => {
@@ -824,6 +824,27 @@ describe('ProjectRegistry', () => {
       expect(onRailReview).not.toHaveBeenCalled()
     })
 
+    it('does not reinterpret a failed current launch admission as a legacy terminal callback', () => {
+      seedTicket('in_progress')
+      const { ctx, onJobOutcome, onRailReview } = setup()
+      setRailTickets(ctx.db, 0, [1])
+      ctx.railLoopRuns.set('run-1', {
+        railIndex: 0,
+        ticketIds: [1],
+        requiresTerminalIntent: true,
+      })
+
+      // No loop_runs or terminal-intent row exists: the atomic launch rolled
+      // back. Its caller's catch must not release tickets or apply failure.
+      ctx.onLoopRunFinished('run-1', 'failed')
+
+      expect(readStatus()).toBe('in_progress')
+      expect(getRail(ctx.db, 0).ticketIds).toEqual([1])
+      expect(ctx.railLoopRuns.has('run-1')).toBe(false)
+      expect(onJobOutcome).not.toHaveBeenCalled()
+      expect(onRailReview).not.toHaveBeenCalled()
+    })
+
     it('crash recovery replays loop failure through tickets, rail and Jira invariants', () => {
       seedTicket('in_progress')
       const { ctx, onJobOutcome } = setup()
@@ -850,6 +871,80 @@ describe('ProjectRegistry', () => {
       expect(onJobOutcome).toHaveBeenCalledWith(expect.objectContaining({
         ticketIds: [1], status: 'failed', jobId: 'crash-run',
       }))
+    })
+
+    it('replays a normally-completed loop whose process died before its callback', () => {
+      seedTicket('in_progress')
+      const { ctx, onRailReview } = setup()
+      setRailTickets(ctx.db, 0, [1])
+      claimTicketOutcomeOwners(ctx.db, [1], 'normal-crash')
+      claimRailTickets(ctx.db, 0, [1], 'normal-crash')
+      createLoopRun(ctx.db, {
+        id: 'normal-crash', projectId: ctx.project.id, loopId: 'loop-1', railIndex: 0,
+        ticketId: 1, ticketIds: [1], ticketCompletionStatus: 'on_review',
+        causalOwnership: true, iterationLimit: 3, startedAt: new Date().toISOString(),
+      })
+      createJob(ctx.db, {
+        id: 'normal-crash', command: 'loop: normal #1', started_at: new Date().toISOString(),
+        provider: 'claude', owner: 'loop',
+      })
+      finishLoopRunAndJob(ctx.db, 'normal-crash', {
+        outcome: 'success', finishedAt: new Date().toISOString(),
+        counters: { iterationCount: 1, totalCostUsd: 0, totalTokens: 0, totalDurationMs: 0 },
+        job: {
+          exitCode: 0, status: 'completed', totalCostUsd: 0,
+          tokensIn: 0, tokensOut: 0, tokensCacheRead: 0, tokensCacheCreate: 0,
+          durationMs: 0, numTurns: 0,
+        },
+      })
+
+      ;(registry as unknown as { _recoverOrphanLoopRuns: (...args: unknown[]) => void })
+        ._recoverOrphanLoopRuns(ctx.project, ctx.db, ctx.railLoopRuns, ctx.onLoopRunFinished, [])
+
+      expect(readStatus()).toBe('on_review')
+      expect(getRail(ctx.db, 0).ticketIds).toEqual([])
+      expect(onRailReview).toHaveBeenCalledWith([1], 'normal-crash')
+      expect(getLoopTerminalRecovery(ctx.db, 'normal-crash')).toBeUndefined()
+    })
+
+    it('persists a deferred success before rail delivery retries', () => {
+      seedTicket('in_progress')
+      const { ctx } = setup()
+      setRailTickets(ctx.db, 0, [1])
+      claimTicketOutcomeOwners(ctx.db, [1], 'deferred')
+      claimRailTickets(ctx.db, 0, [1], 'deferred')
+      createLoopRun(ctx.db, {
+        id: 'deferred', projectId: ctx.project.id, loopId: 'loop-1', railIndex: 0,
+        ticketId: 1, ticketIds: [1], ticketCompletionStatus: 'on_review',
+        causalOwnership: true, iterationLimit: 3, startedAt: new Date().toISOString(),
+      })
+      createJob(ctx.db, {
+        id: 'deferred', command: 'loop: deferred #1', started_at: new Date().toISOString(),
+        provider: 'claude', owner: 'loop',
+      })
+      finishLoopRunAndJob(ctx.db, 'deferred', {
+        outcome: 'success', callbackOutcome: 'failed', outcomeFinalized: false,
+        finishedAt: new Date().toISOString(),
+        counters: { iterationCount: 1, totalCostUsd: 0, totalTokens: 0, totalDurationMs: 0 },
+        job: {
+          exitCode: 0, status: 'completed', totalCostUsd: 0,
+          tokensIn: 0, tokensOut: 0, tokensCacheRead: 0, tokensCacheCreate: 0,
+          durationMs: 0, numTurns: 0,
+        },
+      })
+      ctx.db.exec(`
+        CREATE TRIGGER reject_deferred_rail_release
+        BEFORE DELETE ON rails
+        BEGIN SELECT RAISE(ABORT, 'rail unavailable'); END;
+      `)
+      ctx.onLoopRunFinished('deferred', 'success', { ticketCompletionStatus: 'on_review' })
+      const persisted = JSON.parse(getLoopTerminalRecovery(ctx.db, 'deferred')!.payload)
+      expect(persisted).toMatchObject({ outcome: 'success', outcomeFinalized: true })
+
+      ctx.db.exec(`DROP TRIGGER reject_deferred_rail_release`)
+      ctx.onLoopRunFinished('deferred', 'failed')
+      expect(readStatus()).toBe('on_review')
+      expect(getRail(ctx.db, 0).ticketIds).toEqual([])
     })
   })
 
@@ -893,20 +988,59 @@ describe('ProjectRegistry', () => {
       ).run('job-1', '/specrails:implement #1 --yes', new Date().toISOString())
       const constructorCalls = vi.mocked(QueueManager).mock.calls
       const options = constructorCalls[constructorCalls.length - 1][4] as {
+        onJobAdmission: (db: DbInstance, job: {
+          id: string
+          command: string
+          causalOwnership?: boolean
+        }) => void
         onJobFinished: (
           jobId: string,
           status: string,
           costUsd?: number | null,
-          opts?: { ticketCompletionStatus?: 'done' | 'on_review' },
+          opts?: {
+            ticketCompletionStatus?: 'done' | 'on_review'
+            recoveryReplay?: boolean
+            recoveryCommand?: string
+            recoveryTicketIds?: number[]
+            recoveryDurationMs?: number | null
+            recoveryCausalOwnership?: boolean
+          },
         ) => void
       }
-      return { ctx, onJobOutcome, onRailReview, onJobFinished: options.onJobFinished }
+      return {
+        ctx,
+        onJobOutcome,
+        onRailReview,
+        onJobAdmission: options.onJobAdmission,
+        onJobFinished: options.onJobFinished,
+      }
     }
 
     beforeEach(() => { projDir = fs.mkdtempSync(path.join(os.tmpdir(), 'pr-job-tickets-')) })
     afterEach(() => {
       try { registry.removeProject('pJob') } catch { /* already gone */ }
       fs.rmSync(projDir, { recursive: true, force: true })
+    })
+
+    it('marks every new queue admission causal in the same transaction as ticket and rail ownership', async () => {
+      seedTicket('in_progress')
+      const { ctx, onJobAdmission } = await setup()
+      setRailTickets(ctx.db, 0, [1])
+      ctx.db.prepare(`
+        INSERT INTO queued_jobs (id, command, priority)
+        VALUES ('admitted-job', '/specrails:implement #1', 'normal')
+      `).run()
+      const job = { id: 'admitted-job', command: '/specrails:implement #1', causalOwnership: false }
+
+      ctx.db.transaction(() => onJobAdmission(ctx.db, job))()
+
+      expect(job.causalOwnership).toBe(true)
+      expect(ctx.db.prepare(`SELECT causal_ownership FROM queued_jobs WHERE id = 'admitted-job'`).get())
+        .toEqual({ causal_ownership: 1 })
+      expect(ctx.db.prepare(`SELECT owner_id FROM ticket_outcome_ownership WHERE ticket_id = 1`).get())
+        .toEqual({ owner_id: 'admitted-job' })
+      expect(ctx.db.prepare(`SELECT owner_id FROM rail_ticket_ownership WHERE rail_index = 0 AND ticket_id = 1`).get())
+        .toEqual({ owner_id: 'admitted-job' })
     })
 
     it("ticketCompletionStatus 'on_review' (the spawn-captured PR mode) parks a completed job's tickets at on_review and calls the Jira on-review hook", async () => {
@@ -957,6 +1091,207 @@ describe('ProjectRegistry', () => {
       expect(readStatus()).toBe('todo')
       expect(onJobOutcome).toHaveBeenCalledWith(expect.objectContaining({ status: 'failed' }))
       expect(onRailReview).not.toHaveBeenCalled()
+    })
+
+    it('propagates ticket-store failures only for durable recovery replays', async () => {
+      seedTicket('in_progress')
+      const { onJobFinished } = await setup()
+      fs.writeFileSync(ticketFile(), '{ malformed json', 'utf-8')
+      const webhookManager = (registry as unknown as {
+        _webhookManager: { deliver: (...args: unknown[]) => void }
+      })._webhookManager
+      const deliver = vi.spyOn(webhookManager, 'deliver').mockImplementation(() => undefined)
+
+      // Live terminal handling retains its historical best-effort behavior and
+      // continues with non-critical notifications.
+      expect(() => onJobFinished('job-1', 'failed', null)).not.toThrow()
+      expect(deliver).toHaveBeenCalledTimes(1)
+
+      deliver.mockClear()
+      expect(() => onJobFinished(
+        'job-1', 'failed', null, { recoveryReplay: true },
+      )).toThrow(/critical job outcome effects failed: ticket outcome/)
+      expect(deliver).not.toHaveBeenCalled()
+    })
+
+    it('retries a partial ticket success when rail persistence blocks recovery', async () => {
+      seedTicket('in_progress')
+      const { ctx, onJobOutcome, onJobFinished } = await setup()
+      setRailTickets(ctx.db, 0, [1])
+      ctx.db.exec(`
+        CREATE TRIGGER reject_recovery_rail_release
+        BEFORE DELETE ON rails
+        BEGIN
+          SELECT RAISE(ABORT, 'simulated rail write failure');
+        END;
+      `)
+
+      expect(() => onJobFinished(
+        'job-1', 'failed', null, { recoveryReplay: true },
+      )).toThrow(/critical job outcome effects failed: rail release/)
+      // The external ticket file committed before SQLite rejected the rail. A
+      // replay must converge from this partial state without losing Jira work.
+      expect(readStatus()).toBe('todo')
+      expect(getRail(ctx.db, 0).ticketIds).toEqual([1])
+      expect(onJobOutcome).not.toHaveBeenCalled()
+
+      ctx.db.exec(`DROP TRIGGER reject_recovery_rail_release`)
+      expect(() => onJobFinished(
+        'job-1', 'failed', null, { recoveryReplay: true },
+      )).not.toThrow()
+      expect(getRail(ctx.db, 0).ticketIds).toEqual([])
+      expect(onJobOutcome).toHaveBeenCalledWith(expect.objectContaining({
+        ticketIds: [1], status: 'failed', jobId: 'job-1',
+      }))
+    })
+
+    it('never lets an old partial replay undo a newer ticket/rail owner', async () => {
+      seedTicket('in_progress')
+      const { ctx, onJobFinished } = await setup()
+      setRailTickets(ctx.db, 0, [1])
+      claimTicketOutcomeOwners(ctx.db, [1], 'job-1')
+      claimRailTickets(ctx.db, 0, [1], 'job-1')
+      ctx.db.exec(`
+        CREATE TRIGGER reject_old_rail_release
+        BEFORE DELETE ON rails
+        BEGIN SELECT RAISE(ABORT, 'rail temporarily unavailable'); END;
+      `)
+      expect(() => onJobFinished('job-1', 'failed', null, {
+        recoveryReplay: true,
+        recoveryCommand: '/specrails:implement #1',
+        recoveryTicketIds: [1],
+        recoveryCausalOwnership: true,
+      })).toThrow(/critical job outcome effects failed: rail release/)
+      expect(readStatus()).toBe('todo')
+
+      ctx.db.exec(`DROP TRIGGER reject_old_rail_release`)
+      claimTicketOutcomeOwners(ctx.db, [1], 'job-2')
+      claimRailTickets(ctx.db, 0, [1], 'job-2')
+      const json = JSON.parse(fs.readFileSync(ticketFile(), 'utf-8')) as { tickets: Record<string, { status: string }> }
+      json.tickets['1'].status = 'in_progress'
+      fs.writeFileSync(ticketFile(), JSON.stringify(json), 'utf-8')
+
+      expect(() => onJobFinished('job-1', 'failed', null, {
+        recoveryReplay: true,
+        recoveryCommand: '/specrails:implement #1',
+        recoveryTicketIds: [1],
+        recoveryCausalOwnership: true,
+      })).not.toThrow()
+      expect(readStatus()).toBe('in_progress')
+      expect(getRail(ctx.db, 0).ticketIds).toEqual([1])
+    })
+
+    it('fails closed when a causal recovery no longer has an ownership row', async () => {
+      seedTicket('in_progress')
+      const { ctx, onJobOutcome, onJobFinished } = await setup()
+      setRailTickets(ctx.db, 0, [1])
+
+      expect(() => onJobFinished('job-1', 'failed', null, {
+        recoveryReplay: true,
+        recoveryCommand: '/specrails:implement #1',
+        recoveryTicketIds: [1],
+        recoveryCausalOwnership: true,
+      })).not.toThrow()
+
+      expect(readStatus()).toBe('in_progress')
+      expect(getRail(ctx.db, 0).ticketIds).toEqual([1])
+      expect(onJobOutcome).not.toHaveBeenCalled()
+    })
+
+    it('keeps a causal recovery pending when ownership cannot be read', async () => {
+      seedTicket('in_progress')
+      const { ctx, onJobOutcome, onJobFinished } = await setup()
+      setRailTickets(ctx.db, 0, [1])
+      // Force the ownership SELECT down a non-compatibility SQLite error path.
+      // Only an honestly missing pre-migration table may be treated as legacy.
+      ctx.db.exec(`
+        DROP TABLE ticket_outcome_ownership;
+        CREATE VIEW ticket_outcome_ownership AS SELECT id AS ticket_id FROM jobs;
+      `)
+
+      expect(() => onJobFinished('job-1', 'failed', null, {
+        recoveryReplay: true,
+        recoveryCommand: '/specrails:implement #1',
+        recoveryTicketIds: [1],
+        recoveryCausalOwnership: true,
+      })).toThrow(/critical job outcome effects failed: ticket ownership/)
+
+      expect(readStatus()).toBe('in_progress')
+      expect(getRail(ctx.db, 0).ticketIds).toEqual([1])
+      expect(onJobOutcome).not.toHaveBeenCalled()
+    })
+
+    it('maps a causally-owned skipped descendant to canceled and releases its rail', async () => {
+      seedTicket('in_progress')
+      const { ctx, onJobOutcome, onJobFinished } = await setup()
+      setRailTickets(ctx.db, 0, [1])
+      claimTicketOutcomeOwners(ctx.db, [1], 'job-1')
+      claimRailTickets(ctx.db, 0, [1], 'job-1')
+      const webhookManager = (registry as unknown as {
+        _webhookManager: { deliver: (...args: unknown[]) => void }
+      })._webhookManager
+      const deliver = vi.spyOn(webhookManager, 'deliver').mockImplementation(() => undefined)
+
+      onJobFinished('job-1', 'skipped', null, {
+        recoveryReplay: true,
+        recoveryCommand: '/specrails:verify #1',
+        recoveryTicketIds: [1],
+        recoveryCausalOwnership: true,
+      })
+
+      expect(readStatus()).toBe('todo')
+      expect(getRail(ctx.db, 0).ticketIds).toEqual([])
+      expect(onJobOutcome).toHaveBeenCalledWith(expect.objectContaining({
+        ticketIds: [1], status: 'canceled', jobId: 'job-1',
+      }))
+      expect(deliver).not.toHaveBeenCalled()
+    })
+
+    it('keeps Jira and webhook failures best-effort during recovery', async () => {
+      seedTicket('in_progress')
+      const { onJobOutcome, onJobFinished } = await setup()
+      onJobOutcome.mockImplementation(() => { throw new Error('jira unavailable') })
+      const webhookManager = (registry as unknown as {
+        _webhookManager: { deliver: (...args: unknown[]) => void }
+      })._webhookManager
+      vi.spyOn(webhookManager, 'deliver').mockImplementation(() => {
+        throw new Error('webhook registry unavailable')
+      })
+
+      expect(() => onJobFinished(
+        'job-1', 'failed', null, { recoveryReplay: true },
+      )).not.toThrow()
+      expect(readStatus()).toBe('todo')
+      expect(onJobOutcome).toHaveBeenCalledTimes(1)
+    })
+
+    it('replays from durable callback inputs after the jobs history row was deleted', async () => {
+      seedTicket('in_progress')
+      const { ctx, onJobOutcome, onJobFinished } = await setup()
+      setRailTickets(ctx.db, 0, [1])
+      deleteJob(ctx.db, 'job-1')
+      expect(ctx.db.prepare('SELECT 1 FROM jobs WHERE id = ?').get('job-1')).toBeUndefined()
+
+      const webhookManager = (registry as unknown as {
+        _webhookManager: { deliver: (...args: unknown[]) => void }
+      })._webhookManager
+      const deliver = vi.spyOn(webhookManager, 'deliver').mockImplementation(() => undefined)
+
+      expect(() => onJobFinished('job-1', 'failed', 0.5, {
+        recoveryReplay: true,
+        recoveryCommand: '/specrails:implement #1 --yes',
+        recoveryTicketIds: [1],
+        recoveryDurationMs: 1234,
+      })).not.toThrow()
+
+      expect(readStatus()).toBe('todo')
+      expect(getRail(ctx.db, 0).ticketIds).toEqual([])
+      expect(onJobOutcome).toHaveBeenCalledWith(expect.objectContaining({
+        ticketIds: [1], jobId: 'job-1', durationMs: 1234,
+      }))
+      expect(deliver).toHaveBeenCalledWith('pJob', 'job.failed', expect.objectContaining({
+        command: '/specrails:implement #1 --yes', durationMs: 1234,
+      }))
     })
   })
 })

@@ -14,6 +14,7 @@ import type { JobSummary } from '../types'
 import { getApiBase } from '../lib/api'
 import { API_ORIGIN } from '../lib/origin'
 import { useDesktop } from '../hooks/useDesktop'
+import { jobActivityTimestamp, parseJobTimestamp } from '../lib/job-time'
 
 const PROPOSAL_STATUS_LABEL_KEYS: Record<string, string> = {
   input: 'page.proposal.status.input',
@@ -86,11 +87,16 @@ export default function JobsPage() {
     id: `proposal:${p.id}`,
     command: `/specrails:propose-feature ${p.idea.length > 60 ? p.idea.slice(0, 57) + '...' : p.idea}`,
     started_at: p.created_at,
+    enqueued_at: p.created_at,
     status: PROPOSAL_STATUS_MAP[p.status] ?? 'queued',
   }))
 
   const jobs = [...rawJobs, ...proposalJobs].sort(
-    (a, b) => new Date(b.started_at).getTime() - new Date(a.started_at).getTime()
+    (a, b) => {
+      const bTime = parseJobTimestamp(jobActivityTimestamp(b))?.getTime() ?? 0
+      const aTime = parseJobTimestamp(jobActivityTimestamp(a))?.getTime() ?? 0
+      return bTime - aTime
+    }
   )
 
   const [detailProposal, setDetailProposal] = useState<{

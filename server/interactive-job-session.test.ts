@@ -145,6 +145,33 @@ describe('InteractiveJobSession', () => {
     expect(turnDone.jobId).toBe('job-1')
   })
 
+  it('fail-stops on a durable turn checkpoint failure without feeding the queued turn', async () => {
+    let durableFrontier = -1
+    h = setup('checkpoint-fail-stop', {
+      persistTurnUsage: (_usage, completedEventSeq) => {
+        // Fault injection: the durable transaction failed before its frontier
+        // could commit. The session must retain the turn in memory and stop.
+        expect(completedEventSeq).toBeGreaterThan(durableFrontier)
+        throw new Error('simulated checkpoint failure')
+      },
+    })
+    h.session.start({ binary: 'claude', args: [] }, 'go')
+    expect(h.session.send('must not run')).toBe(true)
+
+    h.child.stdout.push(resultFrame())
+    await tick()
+
+    expect(durableFrontier).toBe(-1)
+    expect(h.child.stdinWrites).toHaveLength(1)
+    expect(h.settled).toHaveLength(1)
+    expect(h.settled[0]).toMatchObject({
+      reason: 'crashed',
+      totals: { tokens_in: 100, tokens_out: 200, total_cost_usd: 0.05, num_turns: 3 },
+    })
+    expect(h.broadcasts.some((message) => message.type === 'job.turn_done')).toBe(false)
+    expect(h.session.send('after checkpoint failure')).toBe(false)
+  })
+
   it('sums per-turn tokens but records cost/turns as deltas of the cumulative reading (HIGH-2)', async () => {
     // The resident stream-json child reports total_cost_usd + num_turns
     // CUMULATIVELY per turn (turn 2's result carries the running session total).
@@ -305,6 +332,48 @@ describe('InteractiveJobSession', () => {
     await tick()
     expect(h.session.getTotals().tokens_in).toBe(200)
     expect(h.session.getTotals().num_turns).toBe(6)
+  })
+
+  it('rejects a late duplicate after the next turn is armed, then accepts that turn real result', async () => {
+    h.session.start({ binary: 'claude', args: [] }, 'go')
+    h.session.send('next')
+    const firstResult = resultFrame()
+
+    h.child.stdout.push(firstResult)
+    await tick() // queued prompt is now written and turn 2 is awaiting its result
+    expect(h.child.stdinWrites).toHaveLength(2)
+    expect(h.session.isStreaming()).toBe(true)
+
+    // This is deliberately a later event-loop delivery, not the same buffered
+    // stdout batch covered by the earlier regression test.
+    h.child.stdout.push(firstResult)
+    await tick()
+    expect(h.session.getTotals()).toMatchObject({
+      tokens_in: 100,
+      tokens_out: 200,
+      total_cost_usd: 0.05,
+      num_turns: 3,
+    })
+    expect(h.session.isStreaming()).toBe(true)
+
+    h.child.stdout.push(resultFrame({ total_cost_usd: 0.1, num_turns: 6 }))
+    await tick()
+    expect(h.session.getTotals()).toMatchObject({
+      tokens_in: 200,
+      tokens_out: 400,
+      total_cost_usd: 0.1,
+      num_turns: 6,
+    })
+    expect(getJob(h.db, 'job-1')).toMatchObject({
+      tokens_in: 200,
+      tokens_out: 400,
+      total_cost_usd: 0.1,
+      num_turns: 6,
+    })
+    expect(h.db.prepare(`
+      SELECT COUNT(*) AS count FROM events
+       WHERE job_id = 'job-1' AND event_type = 'result'
+    `).get()).toEqual({ count: 2 })
   })
 
   // ─── BUG-INTJOB-02: hard-deadline settle even if the child never emits 'close' ──

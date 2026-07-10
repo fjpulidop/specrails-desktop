@@ -24,7 +24,7 @@ vi.mock('./hooks', () => ({
 
 import { spawn as mockSpawn, execSync as mockExecSync } from 'child_process'
 import { newId as mockUuidV4 } from './ids'
-import { QueueManager } from './queue-manager'
+import { InvalidJobDependencyError, QueueManager } from './queue-manager'
 import type { WsMessage } from './types'
 
 function createMockChildProcess() {
@@ -215,6 +215,50 @@ describe('Job Dependencies', () => {
       // When parent is nonexistent (not in memory or DB), we treat as ready
       expect(jobs.find((j) => j.id === 'job-2')!.status).toBe('running')
     })
+
+    it('rejects malformed dependency ids at the manager boundary', () => {
+      qm = new QueueManager(broadcast)
+
+      expect(() => qm.enqueue('/implement', {
+        dependsOnJobId: { typo: true } as unknown as string,
+      })).toThrow(InvalidJobDependencyError)
+      expect(qm.getJobs()).toEqual([])
+      expect(vi.mocked(mockSpawn)).not.toHaveBeenCalled()
+    })
+
+    it('rejects a terminal failed parent instead of queueing forever', () => {
+      const db = initDb(':memory:')
+      db.prepare(
+        `INSERT INTO jobs (id, command, started_at, finished_at, status)
+         VALUES ('failed-parent', '/parent', datetime('now'), datetime('now'), 'failed')`,
+      ).run()
+      qm = new QueueManager(broadcast, db)
+
+      expect(() => qm.enqueue('/child', { dependsOnJobId: 'failed-parent' }))
+        .toThrow('Cannot depend on job failed-parent because it is failed')
+      expect(db.prepare(`SELECT 1 FROM queued_jobs WHERE id = 'test-uuid'`).get()).toBeUndefined()
+      expect(vi.mocked(mockSpawn)).not.toHaveBeenCalled()
+      db.close()
+    })
+
+    it('allows an already-completed parent and starts the child', () => {
+      const db = initDb(':memory:')
+      db.prepare(
+        `INSERT INTO jobs (id, command, started_at, finished_at, status)
+         VALUES ('completed-parent', '/parent', datetime('now'), datetime('now'), 'completed')`,
+      ).run()
+      const child = createMockChildProcess()
+      vi.mocked(mockSpawn).mockReturnValue(child as any)
+      vi.mocked(mockUuidV4).mockReturnValue('completed-child' as any)
+      qm = new QueueManager(broadcast, db)
+
+      const job = qm.enqueue('/child', { dependsOnJobId: 'completed-parent' })
+
+      expect(job.status).toBe('running')
+      expect(db.prepare(`SELECT status, depends_on_job_id FROM jobs WHERE id = 'completed-child'`).get())
+        .toEqual({ status: 'running', depends_on_job_id: 'completed-parent' })
+      db.close()
+    })
   })
 
   describe('cancel with dependents', () => {
@@ -379,6 +423,7 @@ describe('Job Dependencies', () => {
       const row = db.prepare('SELECT status, skip_reason FROM jobs WHERE id = ?').get('job-2') as any
       expect(row.status).toBe('skipped')
       expect(row.skip_reason).toContain('job-1')
+      expect(db.prepare('SELECT 1 FROM queued_jobs WHERE id = ?').get('job-2')).toBeUndefined()
 
       db.close()
     })

@@ -37,6 +37,11 @@ export type JobStatus = 'queued' | 'running' | 'completed' | 'failed' | 'cancele
 
 export type JobPriority = 'low' | 'normal' | 'high' | 'critical'
 
+/** Durable lifecycle authority for a row in `jobs`. Queue-owned jobs are
+ * reconciled by QueueManager; loop-owned backing rows are reconciled by the
+ * loop engine so one crash can never be accounted by both surfaces. */
+export type JobOwner = 'queue' | 'loop'
+
 export const PRIORITY_WEIGHT: Record<JobPriority, number> = {
   low: 0,
   normal: 1,
@@ -77,6 +82,12 @@ export interface JobRow {
   /** 1 when this is an interactive persistent freestyle session (added in
    *  migration 32); 0/absent for standard autonomous jobs. */
   interactive?: number | null
+  /** Provider selected for this concrete run (migration 42). */
+  provider?: string | null
+  /** Manager that exclusively owns terminal recovery (migration 44). */
+  owner?: JobOwner
+  /** 1 when launch-time causal ownership was durably claimed (migration 46). */
+  causal_ownership?: number
 }
 
 export interface EventRow {
@@ -264,6 +275,9 @@ export interface Job {
   pipelineId: string | null
   skipReason: string | null
   resultText: string | null
+  /** True for launches admitted through the durable causal-ownership protocol;
+   * false/absent is legacy work that may use the compatibility fallback. */
+  causalOwnership?: boolean
 }
 
 export interface QueueMessage {

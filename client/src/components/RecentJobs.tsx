@@ -16,6 +16,7 @@ import { useDesktop } from '../hooks/useDesktop'
 import { formatCommandForProvider } from '../lib/format-command'
 import { useMovableResizableModal } from '../hooks/useMovableResizableModal'
 import { ResizeGrips } from './ui/ResizeGrips'
+import { jobActivityTimestamp, parseJobTimestamp } from '../lib/job-time'
 
 type BadgeVariant = 'default' | 'secondary' | 'destructive' | 'outline' | 'success' | 'warning' | 'running' | 'queued' | 'failed' | 'canceled'
 
@@ -45,9 +46,11 @@ function formatCost(cost: number | null | undefined): string | null {
 }
 
 /** Wall-clock duration from started_at / finished_at timestamps */
-function formatWallDuration(startedAt: string, finishedAt: string | null | undefined): string | null {
-  if (!finishedAt) return null
-  const ms = new Date(finishedAt).getTime() - new Date(startedAt).getTime()
+function formatWallDuration(startedAt: string | null, finishedAt: string | null | undefined): string | null {
+  const started = parseJobTimestamp(startedAt)
+  const finished = parseJobTimestamp(finishedAt)
+  if (!started || !finished) return null
+  const ms = finished.getTime() - started.getTime()
   if (ms < 0) return null
   const secs = Math.round(ms / 1000)
   if (secs < 60) return `${secs}s`
@@ -65,12 +68,10 @@ function formatTokens(n: number | null | undefined): string | null {
   return String(n)
 }
 
-function formatRelTime(dateStr: string): string {
-  try {
-    return formatDistanceToNow(new Date(dateStr), { addSuffix: true, locale: getDateFnsLocale() })
-  } catch {
-    return dateStr
-  }
+function formatRelTime(dateStr: string | null): string {
+  const date = parseJobTimestamp(dateStr)
+  if (!date) return '—'
+  return formatDistanceToNow(date, { addSuffix: true, locale: getDateFnsLocale() })
 }
 
 // ─── Local-day range helpers ─────────────────────────────────────────────────
@@ -96,10 +97,11 @@ export function localDayEndMs(day: string): number {
 }
 
 /** Whether a timestamp falls within [from, to] local days (inclusive). */
-export function isWithinLocalDayRange(startedAt: string, from: string, to: string): boolean {
+export function isWithinLocalDayRange(startedAt: string | null, from: string, to: string): boolean {
   if (!from && !to) return true
-  const t = new Date(startedAt).getTime()
-  if (Number.isNaN(t)) return true // unparsable timestamp — keep the job visible
+  const parsed = parseJobTimestamp(startedAt)
+  if (!parsed) return true // absent/unparsable timestamp — keep the job visible
+  const t = parsed.getTime()
   if (from && t < localDayStartMs(from)) return false
   if (to && t > localDayEndMs(to)) return false
   return true
@@ -160,11 +162,11 @@ export function RecentJobs({ jobs, isLoading, error, onRetry, onJobsCleared, onP
 
   const filteredJobs = jobs.filter((j) => {
     if (statusFilter && j.status !== statusFilter) return false
-    return isWithinLocalDayRange(j.started_at, dateFrom, dateTo)
+    return isWithinLocalDayRange(jobActivityTimestamp(j), dateFrom, dateTo)
   })
 
   const clearRangeCount = jobs.filter((j) =>
-    isWithinLocalDayRange(j.started_at, clearFrom, clearTo)
+    isWithinLocalDayRange(jobActivityTimestamp(j), clearFrom, clearTo)
   ).length
 
   async function handleClear(mode: 'all' | 'range') {
@@ -466,7 +468,9 @@ export function RecentJobs({ jobs, isLoading, error, onRetry, onJobsCleared, onP
                 <span className="w-14 text-right">{duration ?? '—'}</span>
                 <span className="w-12 text-right">{tokens ? `${tokens}` : '—'}</span>
                 <span className="w-12 text-right">{cost ?? '—'}</span>
-                <span className="w-20 text-right">{formatRelTime(job.started_at)}</span>
+                <span className="w-20 text-right">
+                  {job.status === 'queued' ? '—' : formatRelTime(job.started_at)}
+                </span>
                 {isProposal && proposalId && (
                   <button
                     type="button"

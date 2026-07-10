@@ -105,6 +105,31 @@ describe('JobDetailModal', () => {
     expect(global.fetch).toHaveBeenCalledWith('/api/jobs/job-abc123')
   })
 
+  it('renders queued detail with null started_at without epoch or Invalid Date', async () => {
+    global.fetch = vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({
+        job: {
+          id: 'queued-detail',
+          command: '/specrails:queued',
+          status: 'queued',
+          started_at: null,
+          enqueued_at: '2026-07-10 10:00:00',
+          finished_at: null,
+        },
+        events: [],
+        phaseDefinitions: [],
+      }),
+    })
+
+    render(<JobDetailModal jobId="queued-detail" onClose={onClose} />)
+    await waitFor(() => {
+      expect(screen.getByText('/specrails:queued')).toBeInTheDocument()
+    })
+    expect(screen.queryByText(/1970|Invalid Date/i)).not.toBeInTheDocument()
+    expect(screen.getByText('queued')).toBeInTheDocument()
+  })
+
   it('an explicit projectId scopes every fetch to THAT project (agent-chat refs)', async () => {
     // Agent-chat ref chips open jobs from the mission's PINNED project, which
     // may differ from the active one — the modal must not call getApiBase().

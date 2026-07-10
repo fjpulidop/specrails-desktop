@@ -25,7 +25,10 @@ export interface PhaseDefinition {
 export interface JobSummary {
   id: string
   command: string
-  started_at: string
+  /** Real provider execution start; null while the job is only admitted. */
+  started_at: string | null
+  /** Durable queue admission time, present for queued jobs. */
+  enqueued_at?: string | null
   finished_at?: string | null
   status: JobStatus
   priority?: JobPriority

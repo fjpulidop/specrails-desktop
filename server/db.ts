@@ -1,7 +1,7 @@
 import fs from 'fs'
 import path from 'path'
 import Database from 'better-sqlite3'
-import type { JobRow, EventRow, StatsRow, JobStatus, JobPriority, ChatConversationRow, ChatMessageRow, ActivityItem } from './types'
+import type { JobRow, EventRow, StatsRow, JobStatus, JobPriority, JobOwner, ChatConversationRow, ChatMessageRow, ActivityItem } from './types'
 import { secureDir, secureDbFile } from './util/secure-fs'
 
 // ─── Proposal types ───────────────────────────────────────────────────────────
@@ -25,12 +25,42 @@ export interface NewJob {
   id: string
   command: string
   started_at: string
+  /** Provider resolved for this concrete run (including any per-job override).
+   *  Persisted so crash recovery does not fall back to the project's default. */
+  provider?: string | null
+  /** Manager that exclusively owns crash recovery for this row. */
+  owner?: JobOwner
+  /** True when launch-time ticket/rail ownership was durably claimed. False
+   *  is reserved for pre-provenance/legacy work. */
+  causal_ownership?: boolean
   priority?: JobPriority
   depends_on_job_id?: string | null
   pipeline_id?: string | null
   /** 1 when this is an interactive persistent session (freestyle + the rail's
    *  Interactive toggle); 0/undefined for standard autonomous jobs. */
   interactive?: boolean
+}
+
+/** Durable pre-start state. Queued work deliberately lives outside `jobs`:
+ * `jobs.started_at` is the execution start timestamp and is NOT NULL for
+ * historical rows, so inserting there before spawn would manufacture a start. */
+export interface QueuedJobRecord {
+  id: string
+  command: string
+  queue_position: number | null
+  priority: JobPriority
+  depends_on_job_id?: string | null
+  pipeline_id?: string | null
+  /** Per-job overrides. Null means use the project/provider default. */
+  provider?: string | null
+  model?: string | null
+  /** `profile_selection_set=false` is default resolution; true + null forces
+   * legacy mode; true + string selects that explicit profile. */
+  profile_name?: string | null
+  profile_selection_set?: boolean
+  /** Null is the spawn-time default; 0/1 are explicit false/true overrides. */
+  interactive?: boolean | null
+  causal_ownership?: boolean
 }
 
 /** Per-turn usage delta accumulated into an interactive job's row as each turn
@@ -883,6 +913,234 @@ const MIGRATIONS: Migration[] = [
         ON job_spawn_requests(expires_at_ms);
     `)
   },
+
+  // Migration 41: durable outbox for jobs left RUNNING by an ungraceful
+  // process exit. QueueManager atomically snapshots each orphan here before it
+  // flips the job to failed, then checkpoints accounting and the terminal
+  // domain callback independently. A second crash can therefore resume either
+  // step without duplicating the ai_invocations ledger or losing the callback.
+  (db) => {
+    db.exec(`
+      CREATE TABLE IF NOT EXISTS orphan_job_recovery (
+        job_id               TEXT PRIMARY KEY,
+        payload              TEXT NOT NULL,
+        accounting_completed INTEGER NOT NULL DEFAULT 0 CHECK (accounting_completed IN (0, 1)),
+        callback_completed   INTEGER NOT NULL DEFAULT 0 CHECK (callback_completed IN (0, 1)),
+        created_at           TEXT NOT NULL DEFAULT (datetime('now'))
+      );
+      CREATE INDEX IF NOT EXISTS idx_orphan_job_recovery_pending
+        ON orphan_job_recovery(accounting_completed, callback_completed);
+    `)
+  },
+
+  // Migration 42: persist the provider actually selected for each job and add
+  // a third durable recovery checkpoint for queue/pipeline terminal invariants.
+  // Both ALTERs are guarded so developer databases that already applied the
+  // unreleased orphan-outbox migration can advance safely.
+  (db) => {
+    const jobCols = (db.prepare(`PRAGMA table_info(jobs)`).all() as { name: string }[]).map((r) => r.name)
+    if (!jobCols.includes('provider')) {
+      db.exec(`ALTER TABLE jobs ADD COLUMN provider TEXT`)
+    }
+
+    const recoveryCols = (db.prepare(`PRAGMA table_info(orphan_job_recovery)`).all() as { name: string }[]).map((r) => r.name)
+    if (!recoveryCols.includes('terminal_completed')) {
+      db.exec(`
+        ALTER TABLE orphan_job_recovery
+        ADD COLUMN terminal_completed INTEGER NOT NULL DEFAULT 0
+          CHECK (terminal_completed IN (0, 1))
+      `)
+    }
+  },
+
+  // Migration 43: durable pre-start queue. This is intentionally separate from
+  // jobs: a queue admission is not an execution and therefore has no truthful
+  // jobs.started_at value. createJob atomically promotes a row out of this table
+  // when the provider process actually starts.
+  (db) => {
+    db.exec(`
+      CREATE TABLE IF NOT EXISTS queued_jobs (
+        id                TEXT PRIMARY KEY,
+        command           TEXT NOT NULL,
+        queue_position    INTEGER,
+        priority          TEXT NOT NULL DEFAULT 'normal',
+        depends_on_job_id TEXT,
+        pipeline_id       TEXT,
+        provider          TEXT,
+        model             TEXT,
+        profile_name      TEXT,
+        profile_selection_set INTEGER NOT NULL DEFAULT 0
+          CHECK (profile_selection_set IN (0, 1)),
+        interactive       INTEGER CHECK (interactive IN (0, 1)),
+        causal_ownership  INTEGER NOT NULL DEFAULT 0
+          CHECK (causal_ownership IN (0, 1)),
+        enqueued_at       TEXT NOT NULL DEFAULT (datetime('now'))
+      );
+      CREATE INDEX IF NOT EXISTS idx_queued_jobs_position
+        ON queued_jobs(queue_position);
+    `)
+  },
+
+  // Migration 44: persist which manager owns terminal recovery for each jobs
+  // row. Before this boundary QueueManager swept every RUNNING row, including
+  // LoopRunManager's backing rows, and recorded their already-accounted step
+  // spend again as surface='job'. Existing loop rows are classified by their
+  // durable loop_runs identity; every other historical job remains queue-owned.
+  (db) => {
+    const jobCols = (db.prepare(`PRAGMA table_info(jobs)`).all() as { name: string }[]).map((r) => r.name)
+    if (!jobCols.includes('owner')) {
+      db.exec(`
+        ALTER TABLE jobs
+        ADD COLUMN owner TEXT NOT NULL DEFAULT 'queue'
+          CHECK (owner IN ('queue', 'loop'))
+      `)
+    }
+    db.exec(`
+      UPDATE jobs
+         SET owner = 'loop',
+             provider = COALESCE(
+               jobs.provider,
+               (SELECT loop_runs.provider FROM loop_runs WHERE loop_runs.id = jobs.id)
+             )
+       WHERE EXISTS (SELECT 1 FROM loop_runs WHERE loop_runs.id = jobs.id);
+      CREATE INDEX IF NOT EXISTS idx_jobs_owner_status ON jobs(owner, status);
+    `)
+  },
+
+  // Migration 45: crash-consistent loop terminal/accounting outboxes and
+  // causal ownership for rail/ticket effects.  `loop_runs.ticket_ids_json`
+  // replaces the old startup heuristic ("one active run means scope=all") with
+  // the exact launch set.  The recovery tables intentionally have no FK to
+  // jobs: terminal history is independently deletable while recovery effects
+  // still have to finish.
+  (db) => {
+    const loopCols = (db.prepare(`PRAGMA table_info(loop_runs)`).all() as { name: string }[]).map((r) => r.name)
+    if (!loopCols.includes('ticket_ids_json')) {
+      db.exec(`ALTER TABLE loop_runs ADD COLUMN ticket_ids_json TEXT NOT NULL DEFAULT '[]'`)
+    }
+    if (!loopCols.includes('ticket_completion_status')) {
+      db.exec(`
+        ALTER TABLE loop_runs
+        ADD COLUMN ticket_completion_status TEXT NOT NULL DEFAULT 'done'
+          CHECK (ticket_completion_status IN ('done', 'on_review'))
+      `)
+    }
+    if (!loopCols.includes('causal_ownership')) {
+      db.exec(`
+        ALTER TABLE loop_runs
+        ADD COLUMN causal_ownership INTEGER NOT NULL DEFAULT 0
+          CHECK (causal_ownership IN (0, 1))
+      `)
+    }
+
+    db.exec(`
+      CREATE TABLE IF NOT EXISTS loop_terminal_recovery (
+        run_id             TEXT PRIMARY KEY,
+        payload            TEXT NOT NULL,
+        callback_completed INTEGER NOT NULL DEFAULT 0
+          CHECK (callback_completed IN (0, 1)),
+        created_at         TEXT NOT NULL DEFAULT (datetime('now'))
+      );
+
+      CREATE TABLE IF NOT EXISTS loop_step_recovery (
+        run_id         TEXT NOT NULL,
+        step_key       TEXT NOT NULL,
+        invocation_id  TEXT NOT NULL UNIQUE,
+        payload        TEXT NOT NULL,
+        created_at     TEXT NOT NULL DEFAULT (datetime('now')),
+        PRIMARY KEY (run_id, step_key)
+      );
+      CREATE INDEX IF NOT EXISTS idx_loop_step_recovery_run
+        ON loop_step_recovery(run_id);
+
+      CREATE TABLE IF NOT EXISTS rail_ticket_ownership (
+        rail_index INTEGER NOT NULL,
+        ticket_id  INTEGER NOT NULL,
+        owner_id   TEXT NOT NULL,
+        generation INTEGER NOT NULL DEFAULT 1,
+        claimed_at TEXT NOT NULL DEFAULT (datetime('now')),
+        PRIMARY KEY (rail_index, ticket_id)
+      );
+      CREATE INDEX IF NOT EXISTS idx_rail_ticket_owner
+        ON rail_ticket_ownership(owner_id);
+
+      CREATE TABLE IF NOT EXISTS ticket_outcome_ownership (
+        ticket_id   INTEGER PRIMARY KEY,
+        owner_id    TEXT NOT NULL,
+        generation  INTEGER NOT NULL DEFAULT 1,
+        claimed_at  TEXT NOT NULL DEFAULT (datetime('now'))
+      );
+      CREATE INDEX IF NOT EXISTS idx_ticket_outcome_owner
+        ON ticket_outcome_ownership(owner_id);
+
+      -- Builds from the pre-owner WIP may already have captured loop backing
+      -- rows in QueueManager's outbox, or even checkpointed the resulting
+      -- surface='job' invocation.  Those rows are unambiguously wrong: a jobs
+      -- id that is also a loop_runs id is exclusively loop-owned.
+      DELETE FROM orphan_job_recovery
+       WHERE job_id IN (SELECT id FROM loop_runs);
+      DELETE FROM ai_invocations
+       WHERE surface = 'job'
+         AND EXISTS (
+           SELECT 1 FROM loop_runs
+            WHERE ai_invocations.surface_ref_id = loop_runs.id
+               OR ai_invocations.surface_ref_id LIKE loop_runs.id || '#t%'
+         );
+    `)
+  },
+
+  // Migration 46: preserve every pre-spawn semantic override across restart.
+  // Nullable provider/model/interactive encode "use the spawn-time default";
+  // profile needs a separate presence bit because NULL itself means the
+  // deliberate force-legacy selection when the bit is set.
+  (db) => {
+    const cols = new Set(
+      (db.prepare(`PRAGMA table_info(queued_jobs)`).all() as { name: string }[])
+        .map((row) => row.name),
+    )
+    if (!cols.has('provider')) {
+      db.exec(`ALTER TABLE queued_jobs ADD COLUMN provider TEXT`)
+    }
+    if (!cols.has('model')) {
+      db.exec(`ALTER TABLE queued_jobs ADD COLUMN model TEXT`)
+    }
+    if (!cols.has('profile_name')) {
+      db.exec(`ALTER TABLE queued_jobs ADD COLUMN profile_name TEXT`)
+    }
+    if (!cols.has('profile_selection_set')) {
+      db.exec(`
+        ALTER TABLE queued_jobs
+        ADD COLUMN profile_selection_set INTEGER NOT NULL DEFAULT 0
+          CHECK (profile_selection_set IN (0, 1))
+      `)
+    }
+    if (!cols.has('interactive')) {
+      db.exec(`
+        ALTER TABLE queued_jobs
+        ADD COLUMN interactive INTEGER CHECK (interactive IN (0, 1))
+      `)
+    }
+
+    if (!cols.has('causal_ownership')) {
+      db.exec(`
+        ALTER TABLE queued_jobs
+        ADD COLUMN causal_ownership INTEGER NOT NULL DEFAULT 0
+          CHECK (causal_ownership IN (0, 1))
+      `)
+    }
+
+    const jobCols = new Set(
+      (db.prepare(`PRAGMA table_info(jobs)`).all() as { name: string }[])
+        .map((row) => row.name),
+    )
+    if (!jobCols.has('causal_ownership')) {
+      db.exec(`
+        ALTER TABLE jobs
+        ADD COLUMN causal_ownership INTEGER NOT NULL DEFAULT 0
+          CHECK (causal_ownership IN (0, 1))
+      `)
+    }
+  },
 ]
 
 function applyMigrations(db: DbInstance): void {
@@ -955,14 +1213,67 @@ export function initDb(dbPath: string): DbInstance {
 }
 
 export function createJob(db: DbInstance, job: NewJob): void {
-  // INSERT OR IGNORE handles the case where the job row already exists (restored from DB
-  // after server restart). The UPDATE that follows always sets status and started_at.
-  db.prepare(
-    'INSERT OR IGNORE INTO jobs (id, command, started_at, status, priority, depends_on_job_id, pipeline_id, interactive) VALUES (?, ?, ?, ?, ?, ?, ?, ?)'
-  ).run(job.id, job.command, job.started_at, 'running', job.priority ?? 'normal', job.depends_on_job_id ?? null, job.pipeline_id ?? null, job.interactive ? 1 : 0)
-  db.prepare(
-    'UPDATE jobs SET status = ?, started_at = ?, interactive = ? WHERE id = ?'
-  ).run('running', job.started_at, job.interactive ? 1 : 0, job.id)
+  // Promotion is atomic: after a crash the job is either still replayable in
+  // queued_jobs or is a running jobs row, never absent from both. INSERT OR
+  // IGNORE preserves idempotency for legacy/restored jobs that already exist.
+  const promote = db.transaction(() => {
+    db.prepare(
+      'INSERT OR IGNORE INTO jobs (id, command, started_at, status, provider, owner, priority, depends_on_job_id, pipeline_id, interactive, causal_ownership) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)'
+    ).run(job.id, job.command, job.started_at, 'running', job.provider ?? null, job.owner ?? 'queue', job.priority ?? 'normal', job.depends_on_job_id ?? null, job.pipeline_id ?? null, job.interactive ? 1 : 0, job.causal_ownership ? 1 : 0)
+    db.prepare(
+      'UPDATE jobs SET status = ?, started_at = ?, provider = ?, owner = ?, interactive = ?, causal_ownership = ? WHERE id = ?'
+    ).run('running', job.started_at, job.provider ?? null, job.owner ?? 'queue', job.interactive ? 1 : 0, job.causal_ownership ? 1 : 0, job.id)
+    db.prepare('DELETE FROM queued_jobs WHERE id = ?').run(job.id)
+  })
+  promote()
+}
+
+/** Idempotently persist a job that has been admitted but has not started. */
+export function upsertQueuedJob(db: DbInstance, job: QueuedJobRecord): void {
+  db.prepare(`
+    INSERT INTO queued_jobs (
+      id, command, queue_position, priority, depends_on_job_id, pipeline_id,
+      provider, model, profile_name, profile_selection_set, interactive,
+      causal_ownership
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    ON CONFLICT(id) DO UPDATE SET
+      command = excluded.command,
+      queue_position = excluded.queue_position,
+      priority = excluded.priority,
+      depends_on_job_id = excluded.depends_on_job_id,
+      pipeline_id = excluded.pipeline_id,
+      provider = excluded.provider,
+      model = excluded.model,
+      profile_name = excluded.profile_name,
+      profile_selection_set = excluded.profile_selection_set,
+      interactive = excluded.interactive,
+      causal_ownership = excluded.causal_ownership
+  `).run(
+    job.id,
+    job.command,
+    job.queue_position,
+    job.priority,
+    job.depends_on_job_id ?? null,
+    job.pipeline_id ?? null,
+    job.provider ?? null,
+    job.model ?? null,
+    job.profile_name ?? null,
+    job.profile_selection_set ? 1 : 0,
+    job.interactive == null ? null : (job.interactive ? 1 : 0),
+    job.causal_ownership ? 1 : 0,
+  )
+}
+
+/** Remove a queued admission after cancellation/skip. Idempotent.
+ *
+ * Migration 43 deliberately keeps a read fallback for pre-migration builds
+ * that represented queued work in `jobs`. Remove that legacy representation
+ * too, but only while it is still queued: promotion changes the status to
+ * running before calling this helper, and terminal history must never be
+ * deleted here. */
+export function deleteQueuedJob(db: DbInstance, jobId: string): void {
+  db.prepare('DELETE FROM queued_jobs WHERE id = ?').run(jobId)
+  db.prepare("DELETE FROM jobs WHERE id = ? AND status = 'queued'").run(jobId)
 }
 
 /**
@@ -1152,6 +1463,13 @@ export function getJobEvents(
     .all(jobId) as EventRow[]
 }
 
+export class JobRecoveryPendingError extends Error {
+  constructor(public readonly jobId: string) {
+    super('Job recovery is still pending; retry deletion after recovery completes')
+    this.name = 'JobRecoveryPendingError'
+  }
+}
+
 export function deleteJob(db: DbInstance, jobId: string): void {
   // M7: jobs.depends_on_job_id REFERENCES jobs(id) with no ON DELETE action and
   // foreign_keys=ON, so deleting a pipeline parent throws 'FOREIGN KEY
@@ -1159,6 +1477,10 @@ export function deleteJob(db: DbInstance, jobId: string): void {
   // references first, in the same transaction as the delete, so it always
   // succeeds (children keep running; they just lose the now-irrelevant pointer).
   const tx = db.transaction((id: string) => {
+    const pendingLoopStep = db.prepare(`SELECT 1 FROM loop_step_recovery WHERE run_id = ? LIMIT 1`).get(id)
+    if (pendingLoopStep) {
+      throw new JobRecoveryPendingError(id)
+    }
     db.prepare('UPDATE jobs SET depends_on_job_id = NULL WHERE depends_on_job_id = ?').run(id)
     // B41: events/job_phases cascade on the jobs FK, but telemetry_blobs/
     // telemetry_summaries (keyed `jobId`), job_profiles and file_provenance
@@ -1177,7 +1499,10 @@ export function purgeJobs(
   db: DbInstance,
   opts?: { from?: string; to?: string }
 ): number {
-  const conditions: string[] = ["status IN ('completed', 'failed', 'canceled', 'zombie_terminated', 'skipped')"]
+  const conditions: string[] = [
+    "status IN ('completed', 'failed', 'canceled', 'zombie_terminated', 'skipped')",
+    'NOT EXISTS (SELECT 1 FROM loop_step_recovery WHERE loop_step_recovery.run_id = jobs.id)',
+  ]
   const params: unknown[] = []
 
   if (opts?.from) {

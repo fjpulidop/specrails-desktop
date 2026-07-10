@@ -30,6 +30,13 @@ export interface Ticket {
     user_story?: string
     area?: string
     openspecChangeName?: string
+    /** Desktop-only O(1) causal guard for at-least-once terminal callbacks.
+     * Core ignores unknown metadata. owner_id is never cleared by completion;
+     * only a later launch may replace it. */
+    specrails_outcome?: {
+      owner_id?: string
+      applied_effect_id?: string
+    }
   }
   comments?: Array<{
     id: number
@@ -425,12 +432,36 @@ export function applyJobOutcomeToTickets(
   ticketIds: readonly number[],
   outcome: JobOutcome,
   now: string,
-  opts?: { completedStatus?: 'done' | 'on_review' },
+  opts?: {
+    completedStatus?: 'done' | 'on_review'
+    /** Stable job/run id. When present, mutation is causally idempotent. */
+    effectId?: string
+    /** Caller verified this effect against SQLite's current ticket generation. */
+    causalOwnerConfirmed?: boolean
+  },
 ): number[] {
   const changed: number[] = []
   for (const tid of ticketIds) {
     const ticket = store.tickets[String(tid)]
     if (!ticket) continue
+    let effectState = ticket.metadata.specrails_outcome
+    if (opts?.effectId) {
+      if (!effectState) {
+        effectState = {}
+        ticket.metadata.specrails_outcome = effectState
+      }
+      // An exact replay is a no-op even if the user changed status afterwards.
+      if (effectState.applied_effect_id === opts.effectId) continue
+      // A newer launch owns the ticket. Never mutate that run's status. Keeping
+      // owner_id permanently (until the next launch replaces it) is O(1) and
+      // remains safe after arbitrarily many intervening executions.
+      if (!opts.causalOwnerConfirmed && effectState.owner_id && effectState.owner_id !== opts.effectId) {
+        continue
+      }
+      // Legacy tickets have no owner; the first durable effect adopts them.
+      effectState.owner_id = opts.effectId
+      effectState.applied_effect_id = opts.effectId
+    }
     if (outcome === 'completed') {
       const promotable = ticket.status === 'todo' || ticket.status === 'in_progress'
       const clearWarning = ticket.needs_review === true

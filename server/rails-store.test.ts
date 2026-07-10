@@ -13,12 +13,39 @@ import {
   listRailIndices,
   MAX_RAILS,
   BASE_RAIL_COUNT,
+  claimRailTickets,
+  claimTicketOutcomeOwners,
+  releaseRailTicketsOwnedBy,
+  ticketOutcomeOwner,
 } from './rails-store'
 
 let db: DbInstance
 
 beforeEach(() => {
   db = initDb(':memory:')
+})
+
+describe('causal rail ownership', () => {
+  it('only the latest launch generation can release a ticket', () => {
+    setRailTickets(db, 0, [7])
+    claimTicketOutcomeOwners(db, [7], 'old')
+    claimRailTickets(db, 0, [7], 'old')
+    claimTicketOutcomeOwners(db, [7], 'new')
+    claimRailTickets(db, 0, [7], 'new')
+
+    expect(ticketOutcomeOwner(db, 7)).toBe('new')
+    expect(releaseRailTicketsOwnedBy(db, 'old', [7], { railIndex: 0 })).toEqual([])
+    expect(getRail(db, 0).ticketIds).toEqual([7])
+    expect(releaseRailTicketsOwnedBy(db, 'new', [7], { railIndex: 0 })).toHaveLength(1)
+    expect(getRail(db, 0).ticketIds).toEqual([])
+  })
+
+  it('fails closed for unowned rows unless explicitly replaying legacy state', () => {
+    setRailTickets(db, 1, [8])
+    expect(releaseRailTicketsOwnedBy(db, 'new', [8], { railIndex: 1, allowUnowned: false })).toEqual([])
+    expect(getRail(db, 1).ticketIds).toEqual([8])
+    expect(releaseRailTicketsOwnedBy(db, 'legacy', [8], { railIndex: 1, allowUnowned: true })).toHaveLength(1)
+  })
 })
 
 afterEach(() => {

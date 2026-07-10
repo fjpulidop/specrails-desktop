@@ -1,6 +1,6 @@
 import React from 'react'
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { render, screen, waitFor, fireEvent } from '../../test-utils'
+import { render, screen, waitFor, fireEvent, within } from '../../test-utils'
 import userEvent from '@testing-library/user-event'
 import { RecentJobs } from '../RecentJobs'
 import type { JobSummary } from '../../types'
@@ -89,6 +89,25 @@ describe('RecentJobs', () => {
     expect(screen.getByText('done')).toBeInTheDocument()
     expect(screen.getByText('running')).toBeInTheDocument()
     expect(screen.getByText('failed')).toBeInTheDocument()
+  })
+
+  it('renders a queued admission without treating it as an execution start', () => {
+    const queued: JobSummary = {
+      id: 'queued-job',
+      command: '/specrails:queued',
+      status: 'queued',
+      started_at: null,
+      enqueued_at: '2026-07-10 10:00:00',
+    }
+
+    render(<RecentJobs jobs={[queued]} />)
+
+    const row = screen.getByText('/specrails:queued').closest('[role="button"]')
+    expect(row).not.toBeNull()
+    expect(within(row as HTMLElement).queryByText(/1970|Invalid Date/i)).not.toBeInTheDocument()
+    // The Started cell is intentionally empty for queued work. enqueued_at is
+    // only the queue-order/filter timestamp, not provider runtime.
+    expect(within(row as HTMLElement).getAllByText('—').length).toBeGreaterThan(0)
   })
 
   it('renders job commands', () => {
