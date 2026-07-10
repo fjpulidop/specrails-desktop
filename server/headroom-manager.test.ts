@@ -4,12 +4,15 @@ import http from 'http'
 import net from 'net'
 import os from 'os'
 import path from 'path'
-import { initDesktopDb, setDesktopSetting } from './desktop-db'
+import { getDesktopSetting, initDesktopDb, setDesktopSetting } from './desktop-db'
 import {
+  HEADROOM_ACTIVATION_SCHEMA_VERSION,
+  HEADROOM_ACTIVATION_SOURCE,
   HEADROOM_MANAGED_PYTHON_VERSION,
   HEADROOM_RELAY_PATH,
   HeadroomManager,
   getHeadroomManagedInstallPlan,
+  parseHeadroomDoctorRoutes,
   parseWindowsOwnershipSnapshot,
   windowsSnapshotHasOwnedListener,
 } from './headroom-manager'
@@ -21,6 +24,21 @@ import type { ChildProcess } from 'child_process'
 import { WebSocket, WebSocketServer } from 'ws'
 
 const STATE_KEY = 'plugins.headroom.state'
+
+function explicitActivation(activeProviders: Partial<Record<'codex' | 'claude', boolean>>) {
+  const normalized = {
+    codex: !!activeProviders.codex,
+    claude: !!activeProviders.claude,
+  }
+  return {
+    activeProviders: normalized,
+    activation: {
+      version: HEADROOM_ACTIVATION_SCHEMA_VERSION,
+      source: HEADROOM_ACTIVATION_SOURCE,
+      activeProviders: normalized,
+    },
+  }
+}
 
 type HeadroomManagerTestHarness = {
   runCommand: (
@@ -165,6 +183,22 @@ describe('Windows Headroom ownership snapshots', () => {
   })
 })
 
+describe('Headroom doctor route parsing', () => {
+  it('rejects contradictory or failed checks instead of inferring from prose', () => {
+    expect(parseHeadroomDoctorRoutes(JSON.stringify({
+      checks: [
+        { name: 'codex', status: 'pass', summary: 'Codex is not routed through Headroom' },
+        { name: 'claude', status: 'fail', summary: 'Claude is routed through Headroom' },
+      ],
+    }))).toEqual({ codex: false, claude: false })
+
+    expect(parseHeadroomDoctorRoutes(JSON.stringify({
+      checks: [{ name: 'codex', status: 'pass' }],
+    }))).toEqual({ codex: true, claude: false })
+    expect(parseHeadroomDoctorRoutes('not-json')).toEqual({ codex: false, claude: false })
+  })
+})
+
 describe('HeadroomManager', () => {
   let db: DbInstance | null = null
   let tempDir: string | null = null
@@ -182,6 +216,52 @@ describe('HeadroomManager', () => {
     tempDir = null
     if (previousRegistryHome === undefined) delete process.env.SPECRAILS_REGISTRY_HOME
     else process.env.SPECRAILS_REGISTRY_HOME = previousRegistryHome
+  })
+
+  it.each([
+    ['legacy state with no provenance', undefined],
+    ['unknown activation version', {
+      version: HEADROOM_ACTIVATION_SCHEMA_VERSION + 1,
+      source: HEADROOM_ACTIVATION_SOURCE,
+      activeProviders: { codex: true },
+    }],
+    ['unknown activation provenance', {
+      version: HEADROOM_ACTIVATION_SCHEMA_VERSION,
+      source: 'doctor-autodetect',
+      activeProviders: { codex: true },
+    }],
+    ['non-boolean activation flag', {
+      version: HEADROOM_ACTIVATION_SCHEMA_VERSION,
+      source: HEADROOM_ACTIVATION_SOURCE,
+      activeProviders: { codex: 'true' },
+    }],
+  ])('fails closed for %s even when doctor reports a route', async (_label, activation) => {
+    db = initDesktopDb(':memory:')
+    const fake = makeHeadroomExe()
+    tempDir = fake.dir
+    process.env.SPECRAILS_REGISTRY_HOME = tempDir
+    setDesktopSetting(db, STATE_KEY, JSON.stringify({
+      installed: true,
+      version: '0.30.0',
+      executablePath: fake.exe,
+      installSource: 'system',
+      port: 8787,
+      activeProviders: { codex: true, claude: false },
+      ...(activation ? { activation } : {}),
+    }))
+    const spawnProxy = vi.fn(() => makeProxyChild())
+    const manager = new HeadroomManager(db, () => undefined, () => ['codex'], {
+      spawnProxy: spawnProxy as unknown as typeof import('child_process').spawn,
+      ownsProxyPort: async () => true,
+    })
+
+    expect(manager.getState()).toMatchObject({
+      detectedRoutes: { codex: true },
+      activeProviders: { codex: false, claude: false },
+    })
+    await manager.startActiveProxyOnBoot()
+    expect(spawnProxy).not.toHaveBeenCalled()
+    expect(getHeadroomRoutingState().activeProviders).toEqual({ codex: false, claude: false })
   })
 
   it('installs Headroom with an isolated uv-managed Python runtime', () => {
@@ -291,7 +371,7 @@ describe('HeadroomManager', () => {
       executablePath: fake.exe,
       installSource: 'managed',
       port: 8787,
-      activeProviders: { codex: true, claude: true },
+      ...explicitActivation({ codex: true, claude: true }),
       detectedRoutes: { codex: true, claude: true },
     }))
     vi.spyOn(globalThis, 'fetch').mockImplementation(async () => new Response(JSON.stringify({
@@ -331,7 +411,7 @@ describe('HeadroomManager', () => {
       executablePath: fake.exe,
       installSource: 'managed',
       port: 8787,
-      activeProviders: { codex: true, claude: true },
+      ...explicitActivation({ codex: true, claude: true }),
       detectedRoutes: { codex: true, claude: true },
       lastIssue: {
         code: 'proxy_port_busy',
@@ -368,7 +448,7 @@ describe('HeadroomManager', () => {
       executablePath: fake.exe,
       installSource: 'managed',
       port: 8787,
-      activeProviders: { codex: true, claude: false },
+      ...explicitActivation({ codex: true, claude: false }),
       detectedRoutes: { codex: true, claude: false },
     }))
 
@@ -423,7 +503,7 @@ describe('HeadroomManager', () => {
       executablePath: fake.exe,
       installSource: 'managed',
       port: 8787,
-      activeProviders: { codex: true, claude: false },
+      ...explicitActivation({ codex: true, claude: false }),
       detectedRoutes: { codex: true, claude: false },
     }))
     const manager = new HeadroomManager(db, () => undefined, () => ['codex'])
@@ -439,7 +519,7 @@ describe('HeadroomManager', () => {
       executablePath: fake.exe,
       installSource: 'managed',
       port: 9999,
-      activeProviders: { codex: true, claude: false },
+      ...explicitActivation({ codex: true, claude: false }),
       detectedRoutes: { codex: true, claude: false },
     }))
     internals.syncRouting()
@@ -496,6 +576,55 @@ describe('HeadroomManager', () => {
     expect(internals.proxy).toBeNull()
   })
 
+  it('awaits asynchronous PID ownership without blocking the event loop or opening routing early', async () => {
+    db = initDesktopDb(':memory:')
+    const fake = makeHeadroomExe()
+    tempDir = fake.dir
+    process.env.SPECRAILS_REGISTRY_HOME = tempDir
+    setDesktopSetting(db, STATE_KEY, JSON.stringify({
+      installed: true,
+      version: '0.30.0',
+      executablePath: fake.exe,
+      installSource: 'system',
+      port: 8787,
+      activeProviders: { codex: false, claude: false },
+    }))
+
+    const child = makeProxyChild()
+    let releaseOwnership!: (owned: boolean) => void
+    const ownership = new Promise<boolean>((resolve) => { releaseOwnership = resolve })
+    const ownsProxyPort = vi.fn(() => ownership)
+    const manager = new HeadroomManager(db, () => undefined, () => ['codex'], {
+      spawnProxy: (() => child) as typeof import('child_process').spawn,
+      ownsProxyPort,
+    })
+    const internals = manager as unknown as HeadroomManagerTestHarness
+    internals.refreshMetricsInBackground = () => undefined
+    internals.refreshMetrics = async () => undefined
+    internals.probeProxyHealthy = async () => false
+    internals.waitForProxyHealthy = async () => true
+
+    const activation = manager.activate('codex')
+    let settled = false
+    void activation.then(() => { settled = true })
+    await vi.waitFor(() => expect(ownsProxyPort).toHaveBeenCalledWith(4242, 8787))
+    let immediateRan = false
+    await new Promise<void>((resolve) => setImmediate(() => {
+      immediateRan = true
+      resolve()
+    }))
+
+    expect(immediateRan).toBe(true)
+    expect(settled).toBe(false)
+    expect(getHeadroomRoutingState().activeProviders.codex).toBe(false)
+
+    releaseOwnership(true)
+    await expect(activation).resolves.toMatchObject({
+      ok: true,
+      state: { activeProviders: { codex: true } },
+    })
+  })
+
   it('sends zero credential-bearing bytes when the connected relay backend is not owned', async () => {
     db = initDesktopDb(':memory:')
     let received = Buffer.alloc(0)
@@ -505,7 +634,7 @@ describe('HeadroomManager', () => {
     const backendPort = await listen(backend)
     const child = makeProxyChild()
     const manager = new HeadroomManager(db, () => undefined, () => ['codex'], {
-      ownsProxyPort: () => false,
+      ownsProxyPort: async () => false,
       relayOrigin: 'http://127.0.0.1:4200',
     })
     const internals = manager as unknown as HeadroomManagerTestHarness
@@ -1049,6 +1178,12 @@ describe('HeadroomManager', () => {
     expect(spawnProxy).toHaveBeenCalledTimes(1)
     expect(internals.proxy).toBe(child)
     expect(manager.getState().activeProviders).toEqual({ codex: true, claude: true })
+    const persisted = JSON.parse(getDesktopSetting(db, STATE_KEY)!) as Record<string, unknown>
+    expect(persisted.activation).toEqual({
+      version: HEADROOM_ACTIVATION_SCHEMA_VERSION,
+      source: HEADROOM_ACTIVATION_SOURCE,
+      activeProviders: { codex: true, claude: true },
+    })
   })
 
   it('does not resurrect a proxy when shutdown invalidates an in-flight start', async () => {
@@ -1267,7 +1402,7 @@ describe('HeadroomManager', () => {
       executablePath: fake.exe,
       installSource: 'managed',
       port: 8787,
-      activeProviders: { codex: true, claude: false },
+      ...explicitActivation({ codex: true, claude: false }),
       detectedRoutes: { codex: true, claude: false },
     }))
 
@@ -1325,7 +1460,7 @@ describe('HeadroomManager', () => {
       executablePath: fake.exe,
       installSource: 'managed',
       port: 8787,
-      activeProviders: { codex: true, claude: false },
+      ...explicitActivation({ codex: true, claude: false }),
       detectedRoutes: { codex: true, claude: false },
     }))
 
@@ -1388,7 +1523,7 @@ describe('HeadroomManager', () => {
       executablePath: fake.exe,
       installSource: 'managed',
       port: 8787,
-      activeProviders: { codex: true, claude: false },
+      ...explicitActivation({ codex: true, claude: false }),
       detectedRoutes: { codex: true, claude: false },
     }))
     const manager = new HeadroomManager(db, () => undefined, () => ['codex'])

@@ -127,7 +127,7 @@ type Broadcast = (msg: WsMessage) => void
 interface HeadroomProcessControl {
   spawnProxy?: typeof spawn
   killTree?: typeof treeKillSafe
-  ownsProxyPort?: (pid: number, port: number) => boolean
+  ownsProxyPort?: (pid: number, port: number) => boolean | Promise<boolean>
   /** Origin of the stable desktop HTTP server that owns the client endpoint. */
   relayOrigin?: string
 }
@@ -157,6 +157,14 @@ const PROXY_HEALTH_REQUEST_TIMEOUT_MS = 750
 const RELAY_CONNECT_TIMEOUT_MS = 3_000
 export const HEADROOM_RELAY_PATH = '/_specrails/headroom'
 export const HEADROOM_MANAGED_PYTHON_VERSION = '3.12'
+export const HEADROOM_ACTIVATION_SCHEMA_VERSION = 1
+export const HEADROOM_ACTIVATION_SOURCE = 'explicit-user-action'
+
+interface PersistedHeadroomActivation {
+  version?: number
+  source?: string
+  activeProviders?: Partial<Record<HeadroomProvider, boolean>>
+}
 
 interface PersistedHeadroomState {
   installed?: boolean
@@ -165,7 +173,13 @@ interface PersistedHeadroomState {
   installSource?: HeadroomInstallSource | null
   ignoreSystemInstall?: boolean
   port?: number
+  /**
+   * Legacy mirror retained for downgrade visibility. It is never authoritative:
+   * only a known activation envelope written by an explicit user action may
+   * enable provider routing.
+   */
   activeProviders?: Partial<Record<HeadroomProvider, boolean>>
+  activation?: PersistedHeadroomActivation
   detectedRoutes?: Partial<Record<HeadroomProvider, boolean>>
   learningEnabled?: boolean
   learningUpdatedAt?: string | null
@@ -460,36 +474,92 @@ function descendantPids(rootPid: number, parentByPid: Map<number, number>): Set<
   return descendants
 }
 
-function readLinuxParentMap(): Map<number, number> {
-  const parentByPid = new Map<number, number>()
-  let entries: string[]
-  try { entries = fs.readdirSync('/proc') } catch { return parentByPid }
-  for (const entry of entries) {
-    if (!/^\d+$/.test(entry)) continue
+async function captureCommandOutput(
+  command: string,
+  args: string[],
+  options: {
+    timeoutMs: number
+    env?: NodeJS.ProcessEnv
+    windowsHide?: boolean
+    maxBuffer?: number
+  },
+): Promise<string | null> {
+  return await new Promise((resolve) => {
+    let child: ChildProcess
     try {
-      // /proc/<pid>/stat field 2 is parenthesized and may itself contain spaces
-      // or parentheses. Fields after the final ") " start with state, then PPID.
-      const stat = fs.readFileSync(`/proc/${entry}/stat`, 'utf8')
-      const suffix = stat.slice(stat.lastIndexOf(') ') + 2).trim().split(/\s+/)
-      const pid = positiveInteger(entry)
-      const parentPid = positiveInteger(suffix[1])
-      if (pid && parentPid) parentByPid.set(pid, parentPid)
+      child = spawn(command, args, {
+        env: options.env ?? process.env,
+        stdio: ['ignore', 'pipe', 'ignore'],
+        windowsHide: options.windowsHide,
+      })
     } catch {
-      // Processes can exit while /proc is enumerated; omit them fail-closed.
+      resolve(null)
+      return
     }
-  }
-  return parentByPid
+
+    let output = ''
+    let size = 0
+    let settled = false
+    const maxBuffer = options.maxBuffer ?? 2 * 1024 * 1024
+    const settle = (value: string | null) => {
+      if (settled) return
+      settled = true
+      clearTimeout(timer)
+      resolve(value)
+    }
+    const timer = setTimeout(() => {
+      try { child.kill('SIGKILL') } catch { /* already gone */ }
+      settle(null)
+    }, options.timeoutMs)
+    timer.unref?.()
+    child.stdout?.on('data', (chunk: Buffer | string) => {
+      if (settled) return
+      const value = Buffer.isBuffer(chunk) ? chunk.toString('utf8') : chunk
+      size += Buffer.byteLength(value)
+      if (size > maxBuffer) {
+        try { child.kill('SIGKILL') } catch { /* already gone */ }
+        settle(null)
+        return
+      }
+      output += value
+    })
+    child.once('error', () => settle(null))
+    child.once('close', (code) => settle(code === 0 ? output : null))
+  })
 }
 
-function readPosixParentMap(): Map<number, number> {
-  const ps = fs.existsSync('/bin/ps') ? '/bin/ps' : '/usr/bin/ps'
-  const result = spawnSync(ps, ['-axo', 'pid=,ppid='], {
-    encoding: 'utf8',
-    timeout: 2000,
-  })
+async function readLinuxDescendantPids(rootPid: number): Promise<Set<number>> {
+  const descendants = new Set<number>([rootPid])
+  const pending = [rootPid]
+  while (pending.length > 0) {
+    const current = pending.shift()!
+    try {
+      const taskIds = await fs.promises.readdir(`/proc/${current}/task`)
+      for (const taskId of taskIds) {
+        let raw: string
+        try { raw = await fs.promises.readFile(`/proc/${current}/task/${taskId}/children`, 'utf8') } catch { continue }
+        for (const value of raw.trim().split(/\s+/)) {
+          const childPid = positiveInteger(value)
+          if (!childPid || descendants.has(childPid)) continue
+          descendants.add(childPid)
+          pending.push(childPid)
+        }
+      }
+    } catch {
+      // A process can exit while its descendants are enumerated. Omitting that
+      // branch is fail-closed for listener ownership.
+    }
+  }
+  return descendants
+}
+
+async function readPosixParentMap(): Promise<Map<number, number>> {
+  const args = ['-axo', 'pid=,ppid=']
+  const raw = await captureCommandOutput('/bin/ps', args, { timeoutMs: 2_000 })
+    ?? await captureCommandOutput('/usr/bin/ps', args, { timeoutMs: 2_000 })
   const parentByPid = new Map<number, number>()
-  if (result.error || result.status !== 0) return parentByPid
-  for (const line of `${result.stdout ?? ''}`.split(/\r?\n/)) {
+  if (raw === null) return parentByPid
+  for (const line of raw.split(/\r?\n/)) {
     const match = line.match(/^\s*(\d+)\s+(\d+)\s*$/)
     const pid = positiveInteger(match?.[1])
     const parentPid = positiveInteger(match?.[2])
@@ -498,7 +568,7 @@ function readPosixParentMap(): Map<number, number> {
   return parentByPid
 }
 
-function windowsProcessOwnsListeningPort(pid: number, port: number): boolean {
+async function windowsProcessOwnsListeningPort(pid: number, port: number): Promise<boolean> {
   const env = windowsSpawnEnv()
   const systemRoot = (env.SystemRoot || env.windir || 'C:\\Windows').replace(/[\\/]$/, '')
   const powershell = path.win32.join(
@@ -519,21 +589,22 @@ function windowsProcessOwnsListeningPort(pid: number, port: number): boolean {
     '$processes = @(Get-CimInstance Win32_Process | Select-Object ProcessId, ParentProcessId)',
     '[pscustomobject]@{ listeningPids = $listeningPids; processes = $processes } | ConvertTo-Json -Compress -Depth 4',
   ].join('; ')
-  const result = spawnSync(powershell, [
+  const raw = await captureCommandOutput(powershell, [
     '-NoLogo',
     '-NoProfile',
     '-NonInteractive',
     '-Command',
     command,
   ], {
-    encoding: 'utf8',
-    timeout: 4000,
+    // Keep this below the relay's connection deadline. A slow/ambiguous OS
+    // probe rejects the connection without ever releasing its queued headers.
+    timeoutMs: 2_500,
     windowsHide: true,
     env,
     maxBuffer: 2 * 1024 * 1024,
   })
-  if (result.error || result.status !== 0) return false
-  const snapshot = parseWindowsOwnershipSnapshot(`${result.stdout ?? ''}`)
+  if (raw === null) return false
+  const snapshot = parseWindowsOwnershipSnapshot(raw)
   return !!snapshot && windowsSnapshotHasOwnedListener(snapshot, pid)
 }
 
@@ -543,15 +614,16 @@ function windowsProcessOwnsListeningPort(pid: number, port: number): boolean {
  * child calling bind(2). Verify the listening socket belongs to the owned PID
  * before provider credentials are routed to it.
  */
-function processOwnsListeningPort(pid: number, port: number): boolean {
+async function processOwnsListeningPort(pid: number, port: number): Promise<boolean> {
   if (!Number.isInteger(pid) || pid <= 0) return false
 
   if (process.platform === 'linux') {
     try {
       const listeningInodes = new Set<string>()
-      for (const table of ['/proc/net/tcp', '/proc/net/tcp6']) {
-        let raw: string
-        try { raw = fs.readFileSync(table, 'utf8') } catch { continue }
+      const tables = await Promise.all(['/proc/net/tcp', '/proc/net/tcp6'].map(async (table) => {
+        try { return await fs.promises.readFile(table, 'utf8') } catch { return '' }
+      }))
+      for (const raw of tables) {
         for (const line of raw.split(/\r?\n/).slice(1)) {
           const columns = line.trim().split(/\s+/)
           if (columns.length < 10 || columns[3] !== '0A') continue
@@ -561,13 +633,13 @@ function processOwnsListeningPort(pid: number, port: number): boolean {
         }
       }
       if (listeningInodes.size === 0) return false
-      const ownedPids = descendantPids(pid, readLinuxParentMap())
+      const ownedPids = await readLinuxDescendantPids(pid)
       for (const ownedPid of ownedPids) {
         let fds: string[]
-        try { fds = fs.readdirSync(`/proc/${ownedPid}/fd`) } catch { continue }
+        try { fds = await fs.promises.readdir(`/proc/${ownedPid}/fd`) } catch { continue }
         for (const fd of fds) {
           let target: string
-          try { target = fs.readlinkSync(`/proc/${ownedPid}/fd/${fd}`) } catch { continue }
+          try { target = await fs.promises.readlink(`/proc/${ownedPid}/fd/${fd}`) } catch { continue }
           const match = target.match(/^socket:\[(\d+)\]$/)
           if (match?.[1] && listeningInodes.has(match[1])) return true
         }
@@ -579,22 +651,20 @@ function processOwnsListeningPort(pid: number, port: number): boolean {
   }
 
   if (process.platform === 'win32') {
-    return windowsProcessOwnsListeningPort(pid, port)
+    return await windowsProcessOwnsListeningPort(pid, port)
   }
 
-  const lsof = fs.existsSync('/usr/sbin/lsof') ? '/usr/sbin/lsof' : 'lsof'
-  const result = spawnSync(lsof, [
+  const args = [
     '-nP',
     `-iTCP:${port}`,
     '-sTCP:LISTEN',
     '-Fp',
-  ], {
-    encoding: 'utf8',
-    timeout: 2000,
-  })
-  if (result.error || result.status !== 0) return false
-  const ownedPids = descendantPids(pid, readPosixParentMap())
-  return `${result.stdout ?? ''}`.split(/\r?\n/).some((line) => {
+  ]
+  const output = await captureCommandOutput('/usr/sbin/lsof', args, { timeoutMs: 2_000 })
+    ?? await captureCommandOutput('lsof', args, { timeoutMs: 2_000 })
+  if (output === null) return false
+  const ownedPids = descendantPids(pid, await readPosixParentMap())
+  return output.split(/\r?\n/).some((line) => {
     const listenerPid = positiveInteger(line.match(/^p(\d+)$/)?.[1])
     return !!listenerPid && ownedPids.has(listenerPid)
   })
@@ -651,6 +721,29 @@ function normalizeProviderKey(value: unknown): HeadroomProvider | null {
   if (raw === 'codex' || raw === 'codex-cli' || raw === 'openai') return 'codex'
   if (raw === 'claude' || raw === 'claude-code' || raw === 'claude-cli' || raw === 'anthropic') return 'claude'
   return null
+}
+
+/** Parse only the documented pass/fail signal; human prose is never authority. */
+export function parseHeadroomDoctorRoutes(raw: string): Record<HeadroomProvider, boolean> {
+  const routes = { codex: false, claude: false }
+  try {
+    const parsed = JSON.parse(raw) as { checks?: unknown }
+    if (!Array.isArray(parsed.checks)) return routes
+    for (const value of parsed.checks) {
+      if (!value || typeof value !== 'object') continue
+      const check = value as { name?: unknown; status?: unknown; summary?: unknown }
+      const provider = normalizeProviderKey(check.name)
+      if (!provider || check.status !== 'pass') continue
+      const summary = typeof check.summary === 'string' ? check.summary.trim().toLowerCase() : ''
+      // Some Headroom versions have emitted a successful diagnostic check with
+      // text such as "not routed". A contradictory result must fail closed.
+      if (/\bnot(?:\s+\w+){0,3}\s+routed\b|\bunrouted\b|\brouting\s+(?:is\s+)?(?:disabled|inactive|off)\b/.test(summary)) continue
+      routes[provider] = true
+    }
+  } catch {
+    // Malformed/unknown doctor schemas are not evidence of a configured route.
+  }
+  return routes
 }
 
 function num(value: unknown): number {
@@ -750,10 +843,7 @@ export class HeadroomManager {
     const installed = !!exe && !!version
     const availableProviders = this.availableProviderRecord()
     const detectedRoutes = installed && exe ? this.detectProviderRoutes(exe) : providerRecord(persisted.detectedRoutes)
-    const activeProviders = {
-      codex: persisted.activeProviders?.codex ?? (availableProviders.codex && detectedRoutes.codex),
-      claude: persisted.activeProviders?.claude ?? (availableProviders.claude && detectedRoutes.claude),
-    }
+    const activeProviders = this.explicitActiveProviders(persisted)
 
     if (installed) {
       const shouldPersistInstall =
@@ -764,9 +854,7 @@ export class HeadroomManager {
         persisted.ignoreSystemInstall === true
       const shouldPersistRoutes =
         persisted.detectedRoutes?.codex !== detectedRoutes.codex ||
-        persisted.detectedRoutes?.claude !== detectedRoutes.claude ||
-        persisted.activeProviders?.codex !== activeProviders.codex ||
-        persisted.activeProviders?.claude !== activeProviders.claude
+        persisted.detectedRoutes?.claude !== detectedRoutes.claude
       if (shouldPersistInstall || shouldPersistRoutes) {
         this.updatePersisted({
           installed: true,
@@ -775,7 +863,6 @@ export class HeadroomManager {
           installSource: install?.source ?? null,
           ignoreSystemInstall: false,
           detectedRoutes,
-          activeProviders,
         })
       }
     }
@@ -1080,28 +1167,31 @@ export class HeadroomManager {
       }
       socket.once('error', fail)
       socket.once('connect', () => {
-        const ownsProxyPort = this.processControl.ownsProxyPort ?? processOwnsListeningPort
-        let listenerOwned = false
-        try { listenerOwned = ownsProxyPort(child.pid!, port) } catch { /* fail closed */ }
-        const owned =
-          this.proxy === child &&
-          this.proxyTrustedPort === port &&
-          child.exitCode == null &&
-          child.signalCode == null &&
-          !!child.pid &&
-          listenerOwned &&
-          this.proxy === child &&
-          this.proxyTrustedPort === port &&
-          child.exitCode == null &&
-          child.signalCode == null
-        if (!owned) {
-          fail(new Error('Headroom backend ownership changed'))
-          return
-        }
-        settled = true
-        clearTimeout(timer)
-        socket.removeListener('error', fail)
-        resolve({ socket, port })
+        void (async () => {
+          const ownsProxyPort = this.processControl.ownsProxyPort ?? processOwnsListeningPort
+          let listenerOwned = false
+          try { listenerOwned = await ownsProxyPort(child.pid!, port) } catch { /* fail closed */ }
+          if (settled) return
+          const owned =
+            this.proxy === child &&
+            this.proxyTrustedPort === port &&
+            child.exitCode == null &&
+            child.signalCode == null &&
+            !!child.pid &&
+            listenerOwned &&
+            this.proxy === child &&
+            this.proxyTrustedPort === port &&
+            child.exitCode == null &&
+            child.signalCode == null
+          if (!owned) {
+            fail(new Error('Headroom backend ownership changed'))
+            return
+          }
+          settled = true
+          clearTimeout(timer)
+          socket.removeListener('error', fail)
+          resolve({ socket, port })
+        })().catch((err) => fail(err instanceof Error ? err : new Error(String(err))))
       })
     })
   }
@@ -1254,13 +1344,13 @@ export class HeadroomManager {
     if (this.shuttingDown || !this.isProxyAvailable()) return this.cancelledProxyStart()
 
     const current = this.readPersisted()
-    const activeProviders = { ...current.activeProviders, [provider]: true }
-    this.updatePersisted({ activeProviders, lastIssue: null })
+    const activeProviders = { ...this.explicitActiveProviders(current), [provider]: true }
+    this.updatePersisted({ ...this.activationPatch(activeProviders), lastIssue: null })
     this.syncRouting()
 
     if (!this.verifyProviderRoute(provider)) {
       const rolledBack = { ...activeProviders, [provider]: false }
-      this.updatePersisted({ activeProviders: rolledBack, lastIssue: issue('provider_route_failed') })
+      this.updatePersisted({ ...this.activationPatch(rolledBack), lastIssue: issue('provider_route_failed') })
       this.syncRouting()
       return { ok: false, state: this.getState(), issue: issue('provider_route_failed') }
     }
@@ -1276,8 +1366,8 @@ export class HeadroomManager {
   private async deactivateLocked(provider: HeadroomProvider): Promise<HeadroomActionResult> {
     if (this.shuttingDown) return this.cancelledProxyStart()
     const current = this.readPersisted()
-    const activeProviders = { ...current.activeProviders, [provider]: false }
-    this.updatePersisted({ activeProviders, lastIssue: null })
+    const activeProviders = { ...this.explicitActiveProviders(current), [provider]: false }
+    this.updatePersisted({ ...this.activationPatch(activeProviders), lastIssue: null })
     this.syncRouting()
     if (!activeProviders.codex && !activeProviders.claude) await this.stopProxy()
     this.emit('installed', `${provider} Headroom route disabled`)
@@ -1292,7 +1382,7 @@ export class HeadroomManager {
     if (this.shuttingDown) return this.cancelledProxyStart()
     const before = this.getState()
     this.updatePersisted({
-      activeProviders: { codex: false, claude: false },
+      ...this.activationPatch({ codex: false, claude: false }),
       lastIssue: null,
     })
     await this.stopProxy()
@@ -1305,7 +1395,7 @@ export class HeadroomManager {
         version: null,
         executablePath: null,
         installSource: null,
-        activeProviders: { codex: false, claude: false },
+        ...this.activationPatch({ codex: false, claude: false }),
         detectedRoutes: { codex: false, claude: false },
         lastIssue: null,
       })
@@ -1319,7 +1409,7 @@ export class HeadroomManager {
         executablePath: null,
         installSource: null,
         ignoreSystemInstall: true,
-        activeProviders: { codex: false, claude: false },
+        ...this.activationPatch({ codex: false, claude: false }),
         detectedRoutes: { codex: false, claude: false },
         lastIssue: null,
       })
@@ -1360,7 +1450,7 @@ export class HeadroomManager {
       version: null,
       executablePath: null,
       installSource: null,
-      activeProviders: { codex: false, claude: false },
+      ...this.activationPatch({ codex: false, claude: false }),
       detectedRoutes: { codex: false, claude: false },
       lastIssue: null,
     })
@@ -1393,13 +1483,13 @@ export class HeadroomManager {
     // may send provider credentials to it until our owned child is healthy.
     this.updatePersisted({
       port,
-      activeProviders: { codex: false, claude: false },
+      ...this.activationPatch({ codex: false, claude: false }),
       lastIssue: null,
     })
     const candidate = await this.ensureProxy()
     if (this.shuttingDown) return this.cancelledProxyStart()
     if (candidate.ok) {
-      this.updatePersisted({ activeProviders: active, lastIssue: null })
+      this.updatePersisted({ ...this.activationPatch(active), lastIssue: null })
       return { ok: true, state: this.getState() }
     }
 
@@ -1408,18 +1498,18 @@ export class HeadroomManager {
     // active route with no healthy service behind it.
     this.updatePersisted({
       port: previousPort,
-      activeProviders: { codex: false, claude: false },
+      ...this.activationPatch({ codex: false, claude: false }),
       lastIssue: candidate.issue ?? issue('proxy_unhealthy'),
     })
     const restored = await this.ensureProxy()
     if (restored.ok) {
       this.updatePersisted({
-        activeProviders: active,
+        ...this.activationPatch(active),
         lastIssue: candidate.issue ?? issue('proxy_unhealthy'),
       })
     } else {
       this.updatePersisted({
-        activeProviders: { codex: false, claude: false },
+        ...this.activationPatch({ codex: false, claude: false }),
         lastIssue: restored.issue ?? candidate.issue ?? issue('proxy_unhealthy'),
       })
     }
@@ -1473,7 +1563,7 @@ export class HeadroomManager {
         // spawn and therefore cannot authenticate. The user can retry activation
         // after resolving the port conflict.
         this.updatePersisted({
-          activeProviders: { codex: false, claude: false },
+          ...this.activationPatch({ codex: false, claude: false }),
           lastIssue: result.issue ?? issue('proxy_unhealthy'),
         })
         console.warn('[headroom] boot proxy start failed:', result.issue)
@@ -1603,12 +1693,14 @@ export class HeadroomManager {
     }
 
     const ownsProxyPort = this.processControl.ownsProxyPort ?? processOwnsListeningPort
-    const ownedEndpointIsCurrent = () => {
+    const ownedEndpointIsCurrent = async () => {
       if (!this.isOwnedProxyCurrent(child, generation) || !child.pid) return false
-      if (!ownsProxyPort(child.pid, state.port)) return false
+      let listenerOwned = false
+      try { listenerOwned = await ownsProxyPort(child.pid, state.port) } catch { /* fail closed */ }
+      if (!listenerOwned) return false
       return this.isOwnedProxyCurrent(child, generation)
     }
-    if (!ownedEndpointIsCurrent()) {
+    if (!(await ownedEndpointIsCurrent())) {
       const failure = issue(
         'proxy_port_busy',
         'A healthy endpoint answered, but the Specrails-owned Headroom process does not own the listening socket.',
@@ -1625,7 +1717,7 @@ export class HeadroomManager {
       await this.discardProxyChild(child)
       return this.cancelledProxyStart()
     }
-    if (!ownedEndpointIsCurrent()) {
+    if (!(await ownedEndpointIsCurrent())) {
       const failure = issue('proxy_unhealthy', 'The owned Headroom proxy exited during startup.', command)
       await this.discardProxyChild(child)
       this.updatePersisted({ lastIssue: failure })
@@ -1701,7 +1793,7 @@ export class HeadroomManager {
       return this.routeDetectionCache.routes
     }
 
-    const routes = { codex: false, claude: false }
+    let routes = { codex: false, claude: false }
     try {
       const state = this.readPersisted()
       const probe = spawnSync(exe, ['doctor', '--json', '--port', String(this.validPort(state.port))], {
@@ -1710,14 +1802,8 @@ export class HeadroomManager {
         env: process.env,
       })
       const raw = `${probe.stdout ?? ''}`.trim()
-      const parsed = raw ? JSON.parse(raw) as { checks?: Array<{ name?: string; status?: string; summary?: string }> } : {}
-      for (const check of parsed.checks ?? []) {
-        const provider = normalizeProviderKey(check.name)
-        if (!provider) continue
-        const routed = check.status === 'pass' || String(check.summary ?? '').toLowerCase().includes('routed')
-        if (routed) routes[provider] = true
-      }
-      this.routeDetectionCache = { executablePath: exe, expiresAt: now + 10_000, routes, raw: parsed }
+      routes = probe.status === 0 && raw ? parseHeadroomDoctorRoutes(raw) : routes
+      this.routeDetectionCache = { executablePath: exe, expiresAt: now + 10_000, routes, raw }
     } catch {
       this.routeDetectionCache = { executablePath: exe, expiresAt: now + 10_000, routes, raw: null }
     }
@@ -1800,10 +1886,7 @@ export class HeadroomManager {
       port: this.validPort(persisted.port),
       availableProviders,
       detectedRoutes,
-      activeProviders: {
-        codex: persisted.activeProviders?.codex ?? (availableProviders.codex && detectedRoutes.codex),
-        claude: persisted.activeProviders?.claude ?? (availableProviders.claude && detectedRoutes.claude),
-      },
+      activeProviders: this.explicitActiveProviders(persisted),
     }
   }
 
@@ -2322,16 +2405,47 @@ export class HeadroomManager {
     this.syncRouting()
   }
 
+  private explicitActiveProviders(
+    persisted: PersistedHeadroomState,
+  ): Record<HeadroomProvider, boolean> {
+    const activation = persisted.activation
+    if (
+      activation?.version !== HEADROOM_ACTIVATION_SCHEMA_VERSION ||
+      activation.source !== HEADROOM_ACTIVATION_SOURCE
+    ) return { codex: false, claude: false }
+    return {
+      codex: activation.activeProviders?.codex === true,
+      claude: activation.activeProviders?.claude === true,
+    }
+  }
+
+  private activationPatch(
+    activeProviders: Partial<Record<HeadroomProvider, boolean>>,
+  ): Pick<PersistedHeadroomState, 'activeProviders' | 'activation'> {
+    const normalized = providerRecord(activeProviders)
+    return {
+      // Retain the old field for diagnostics/downgrades, but the versioned
+      // envelope below is the sole routing authority.
+      activeProviders: normalized,
+      activation: {
+        version: HEADROOM_ACTIVATION_SCHEMA_VERSION,
+        source: HEADROOM_ACTIVATION_SOURCE,
+        activeProviders: normalized,
+      },
+    }
+  }
+
   private syncRouting(): void {
     const persisted = this.readPersisted()
     const port = this.validPort(persisted.port)
     const trustedRuntimeAvailable = this.proxyTrustedPort === port && this.isProxyRunning()
+    const explicitActiveProviders = this.explicitActiveProviders(persisted)
     setHeadroomRoutingState({
       port: this.routingClientPort(port),
       relayBaseUrl: this.relayBaseUrl(),
       activeProviders: this.shuttingDown || !trustedRuntimeAvailable ? { codex: false, claude: false } : {
-        codex: !!persisted.activeProviders?.codex,
-        claude: !!persisted.activeProviders?.claude,
+        codex: explicitActiveProviders.codex,
+        claude: explicitActiveProviders.claude,
       },
     })
   }
