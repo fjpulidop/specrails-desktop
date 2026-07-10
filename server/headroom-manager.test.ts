@@ -16,7 +16,7 @@ import {
 import { getHeadroomRoutingState } from './headroom-routing'
 import type { DbInstance } from './db'
 import { EventEmitter } from 'events'
-import { PassThrough } from 'stream'
+import { Duplex, PassThrough } from 'stream'
 import type { ChildProcess } from 'child_process'
 import { WebSocket, WebSocketServer } from 'ws'
 
@@ -103,6 +103,27 @@ function listen(server: net.Server | http.Server): Promise<number> {
 
 function closeServer(server: net.Server | http.Server): Promise<void> {
   return new Promise((resolve) => server.close(() => resolve()))
+}
+
+function relayAgentResources(agent: http.Agent): number {
+  return [
+    ...Object.values(agent.sockets),
+    ...Object.values(agent.requests),
+    ...Object.values(agent.freeSockets),
+  ]
+    .reduce((total, entries) => total + entries.length, 0)
+}
+
+function inertDuplex(writes: Buffer[] = []): Duplex {
+  return new Duplex({
+    allowHalfOpen: true,
+    autoDestroy: false,
+    read() { /* test controls the readable side explicitly */ },
+    write(chunk, _encoding, callback) {
+      writes.push(Buffer.from(chunk))
+      callback()
+    },
+  })
 }
 
 describe('Windows Headroom ownership snapshots', () => {
@@ -646,6 +667,114 @@ describe('HeadroomManager', () => {
     }
   })
 
+  it('releases the backend stream and agent slot when the relay client aborts', async () => {
+    db = initDesktopDb(':memory:')
+    let backendSocket: net.Socket | null = null
+    let backendClosed = false
+    const backend = http.createServer((_req, res) => {
+      backendSocket = res.socket
+      res.socket?.once('close', () => { backendClosed = true })
+      res.writeHead(200, { 'content-type': 'text/event-stream' })
+      res.write('data: first\n\n')
+      // Deliberately keep the response open: the relay must tear this side down
+      // when its client stops consuming the stream.
+    })
+    const backendPort = await listen(backend)
+    const manager = new HeadroomManager(db, () => undefined, () => ['codex'], {
+      ownsProxyPort: () => true,
+      relayOrigin: 'http://127.0.0.1:4200',
+    })
+    const internals = manager as unknown as HeadroomManagerTestHarness
+    internals.proxy = makeProxyChild()
+    internals.proxyTrustedPort = backendPort
+    const relay = http.createServer((req, res) => {
+      void manager.handleRelayRequest(req, res)
+    })
+    const relayPort = await listen(relay)
+    const relayPath = new URL(getHeadroomRoutingState().relayBaseUrl!).pathname
+    const relayAgent = (manager as unknown as { relayAgent: http.Agent }).relayAgent
+    let clientRequest: http.ClientRequest | null = null
+
+    try {
+      await new Promise<void>((resolve, reject) => {
+        clientRequest = http.get({
+          host: '127.0.0.1',
+          port: relayPort,
+          path: `${relayPath}/v1/messages?stream=true`,
+        }, (response) => {
+          response.once('data', () => {
+            response.destroy()
+            resolve()
+          })
+          response.once('error', () => { /* expected after the local abort */ })
+        })
+        clientRequest.once('error', reject)
+      })
+
+      await vi.waitFor(() => {
+        expect(backendClosed).toBe(true)
+        expect(relayAgentResources(relayAgent)).toBe(0)
+      })
+    } finally {
+      clientRequest?.destroy()
+      relayAgent.destroy()
+      backendSocket?.destroy()
+      await closeServer(relay)
+      await closeServer(backend)
+    }
+  })
+
+  it('terminates the client response and releases its agent slot when the backend aborts', async () => {
+    db = initDesktopDb(':memory:')
+    let backendSocket: net.Socket | null = null
+    const backend = http.createServer((_req, res) => {
+      backendSocket = res.socket
+      res.writeHead(200, { 'content-type': 'text/event-stream' })
+      res.write('data: partial\n\n')
+      setImmediate(() => res.socket?.destroy())
+    })
+    const backendPort = await listen(backend)
+    const manager = new HeadroomManager(db, () => undefined, () => ['codex'], {
+      ownsProxyPort: () => true,
+      relayOrigin: 'http://127.0.0.1:4200',
+    })
+    const internals = manager as unknown as HeadroomManagerTestHarness
+    internals.proxy = makeProxyChild()
+    internals.proxyTrustedPort = backendPort
+    const relay = http.createServer((req, res) => {
+      void manager.handleRelayRequest(req, res)
+    })
+    const relayPort = await listen(relay)
+    const relayPath = new URL(getHeadroomRoutingState().relayBaseUrl!).pathname
+    const relayAgent = (manager as unknown as { relayAgent: http.Agent }).relayAgent
+    let clientRequest: http.ClientRequest | null = null
+
+    try {
+      const outcome = await new Promise<'premature' | 'clean'>((resolve) => {
+        clientRequest = http.get({
+          host: '127.0.0.1',
+          port: relayPort,
+          path: `${relayPath}/v1/messages?stream=true`,
+        }, (response) => {
+          response.once('aborted', () => resolve('premature'))
+          response.once('error', () => resolve('premature'))
+          response.once('end', () => resolve('clean'))
+          response.resume()
+        })
+        clientRequest.once('error', () => resolve('premature'))
+      })
+
+      expect(outcome).toBe('premature')
+      await vi.waitFor(() => expect(relayAgentResources(relayAgent)).toBe(0))
+    } finally {
+      clientRequest?.destroy()
+      relayAgent.destroy()
+      backendSocket?.destroy()
+      await closeServer(relay)
+      await closeServer(backend)
+    }
+  })
+
   it('relays an owned WebSocket upgrade without exposing it before verification', async () => {
     db = initDesktopDb(':memory:')
     const backendHttp = http.createServer()
@@ -694,6 +823,121 @@ describe('HeadroomManager', () => {
       await new Promise<void>((resolve) => backendWs.close(() => resolve()))
       await closeServer(relay)
       await closeServer(backendHttp)
+    }
+  })
+
+  it('tears down the backend when an upgraded client closes without a clean end', async () => {
+    db = initDesktopDb(':memory:')
+    const manager = new HeadroomManager(db, () => undefined, () => ['codex'], {
+      relayOrigin: 'http://127.0.0.1:4200',
+    })
+    const backend = inertDuplex()
+    const client = inertDuplex()
+    const relayPath = new URL(getHeadroomRoutingState().relayBaseUrl!).pathname
+    const request = {
+      url: `${relayPath}/v1/responses`,
+      method: 'GET',
+      httpVersion: '1.1',
+      rawHeaders: ['Host', '127.0.0.1', 'Connection', 'Upgrade', 'Upgrade', 'websocket'],
+      headers: { connection: 'Upgrade', upgrade: 'websocket' },
+    } as unknown as http.IncomingMessage
+    const internals = manager as unknown as {
+      connectVerifiedBackend: () => Promise<{ socket: net.Socket; port: number }>
+      relayAgent: http.Agent
+    }
+    internals.connectVerifiedBackend = async () => ({
+      socket: backend as unknown as net.Socket,
+      port: 8787,
+    })
+
+    try {
+      await manager.handleRelayUpgrade(request, client, Buffer.alloc(0))
+      client.destroy()
+
+      await vi.waitFor(() => expect(backend.destroyed).toBe(true))
+    } finally {
+      client.destroy()
+      backend.destroy()
+      internals.relayAgent.destroy()
+    }
+  })
+
+  it('preserves the final upgrade bytes after a clean backend half-close', async () => {
+    db = initDesktopDb(':memory:')
+    const manager = new HeadroomManager(db, () => undefined, () => ['codex'], {
+      relayOrigin: 'http://127.0.0.1:4200',
+    })
+    const backend = inertDuplex()
+    const clientWrites: Buffer[] = []
+    const client = inertDuplex(clientWrites)
+    const relayPath = new URL(getHeadroomRoutingState().relayBaseUrl!).pathname
+    const request = {
+      url: `${relayPath}/v1/responses`,
+      method: 'GET',
+      httpVersion: '1.1',
+      rawHeaders: ['Host', '127.0.0.1', 'Connection', 'Upgrade', 'Upgrade', 'websocket'],
+      headers: { connection: 'Upgrade', upgrade: 'websocket' },
+    } as unknown as http.IncomingMessage
+    const internals = manager as unknown as {
+      connectVerifiedBackend: () => Promise<{ socket: net.Socket; port: number }>
+      relayAgent: http.Agent
+    }
+    internals.connectVerifiedBackend = async () => ({
+      socket: backend as unknown as net.Socket,
+      port: 8787,
+    })
+
+    try {
+      await manager.handleRelayUpgrade(request, client, Buffer.alloc(0))
+      const backendEnded = new Promise<void>((resolve) => backend.once('end', resolve))
+      backend.push(Buffer.from('final-frame'))
+      backend.push(null)
+      await backendEnded
+      backend.destroy()
+
+      await vi.waitFor(() => expect(client.writableEnded).toBe(true))
+      expect(Buffer.concat(clientWrites).toString()).toContain('final-frame')
+      expect(client.destroyed).toBe(false)
+    } finally {
+      client.destroy()
+      backend.destroy()
+      internals.relayAgent.destroy()
+    }
+  })
+
+  it('tears down the upgraded client when the backend closes without a clean end', async () => {
+    db = initDesktopDb(':memory:')
+    const manager = new HeadroomManager(db, () => undefined, () => ['codex'], {
+      relayOrigin: 'http://127.0.0.1:4200',
+    })
+    const backend = inertDuplex()
+    const client = inertDuplex()
+    const relayPath = new URL(getHeadroomRoutingState().relayBaseUrl!).pathname
+    const request = {
+      url: `${relayPath}/v1/responses`,
+      method: 'GET',
+      httpVersion: '1.1',
+      rawHeaders: ['Host', '127.0.0.1', 'Connection', 'Upgrade', 'Upgrade', 'websocket'],
+      headers: { connection: 'Upgrade', upgrade: 'websocket' },
+    } as unknown as http.IncomingMessage
+    const internals = manager as unknown as {
+      connectVerifiedBackend: () => Promise<{ socket: net.Socket; port: number }>
+      relayAgent: http.Agent
+    }
+    internals.connectVerifiedBackend = async () => ({
+      socket: backend as unknown as net.Socket,
+      port: 8787,
+    })
+
+    try {
+      await manager.handleRelayUpgrade(request, client, Buffer.alloc(0))
+      backend.destroy()
+
+      await vi.waitFor(() => expect(client.destroyed).toBe(true))
+    } finally {
+      client.destroy()
+      backend.destroy()
+      internals.relayAgent.destroy()
     }
   })
 

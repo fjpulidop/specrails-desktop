@@ -706,6 +706,7 @@ export class HeadroomManager {
   private proxyTail = ''
   private readonly relayToken = randomBytes(32).toString('base64url')
   private readonly relayAgent: http.Agent
+  private readonly relayUpgradeTeardowns = new Set<() => void>()
   private routeDetectionCache: {
     executablePath: string
     expiresAt: number
@@ -837,6 +838,8 @@ export class HeadroomManager {
 
     const headers = this.filterRelayHttpHeaders(req.headers)
     headers.host = `127.0.0.1:${backendPort}`
+    let upstreamResponse: IncomingMessage | null = null
+    let relaySettled = false
     const upstream = http.request({
       host: '127.0.0.1',
       port: backendPort,
@@ -844,24 +847,64 @@ export class HeadroomManager {
       path: upstreamPath,
       headers,
       agent: this.relayAgent,
-    }, (upstreamResponse) => {
+    }, (response) => {
+      upstreamResponse = response
       if (res.destroyed) {
-        upstreamResponse.destroy()
+        abortRelay(false)
         return
       }
+      response.once('aborted', () => abortRelay(true))
+      response.once('error', () => abortRelay(true))
+      response.once('close', () => {
+        // IncomingMessage#close is also emitted after a fully-consumed response.
+        // Only an incomplete HTTP message is a broken backend stream.
+        if (!response.complete) abortRelay(true)
+      })
+      response.once('end', settleCleanRelay)
       res.writeHead(
-        upstreamResponse.statusCode ?? 502,
-        this.filterRelayHttpHeaders(upstreamResponse.headers),
+        response.statusCode ?? 502,
+        this.filterRelayHttpHeaders(response.headers),
       )
-      upstreamResponse.pipe(res)
+      response.pipe(res)
     })
 
-    const fail = () => {
+    const abortRelay = (notifyClient: boolean) => {
+      if (relaySettled) return
+      relaySettled = true
+      req.unpipe(upstream)
+      upstreamResponse?.unpipe(res)
+      upstreamResponse?.destroy()
+      upstream.destroy()
+      if (!notifyClient || res.destroyed || res.writableFinished) return
       if (!res.headersSent) this.writeRelayError(res, 503, 'Headroom proxy request failed')
       else res.destroy()
     }
-    upstream.once('error', fail)
-    req.once('aborted', () => upstream.destroy())
+
+    const settleCleanRelay = () => {
+      if (
+        req.complete &&
+        upstreamResponse?.complete &&
+        res.writableFinished
+      ) relaySettled = true
+    }
+
+    upstream.once('error', () => abortRelay(true))
+    upstream.once('close', () => {
+      if (!upstreamResponse) abortRelay(true)
+    })
+    req.once('aborted', () => abortRelay(false))
+    req.once('error', () => abortRelay(false))
+    req.once('close', () => {
+      // A normal IncomingMessage closes after the complete request body. Do not
+      // confuse that with a client disconnect while a valid response streams.
+      if (!req.complete) abortRelay(false)
+    })
+    req.once('end', settleCleanRelay)
+    res.once('error', () => abortRelay(false))
+    res.once('close', () => {
+      if (!res.writableFinished) abortRelay(false)
+    })
+    res.once('finish', settleCleanRelay)
     req.pipe(upstream)
   }
 
@@ -919,11 +962,75 @@ export class HeadroomManager {
     raw.push('Connection: Upgrade')
     raw.push('', '')
 
-    backend.socket.once('error', () => clientSocket.destroy())
-    clientSocket.once('error', () => backend.socket.destroy())
-    backend.socket.write(raw.join('\r\n'))
-    if (head.length > 0) backend.socket.write(head)
-    clientSocket.pipe(backend.socket).pipe(clientSocket)
+    const backendSocket = backend.socket
+    let clientEnded = false
+    let backendEnded = false
+    let clientClosed = false
+    let backendClosed = false
+    let tearingDown = false
+
+    const cleanup = () => {
+      this.relayUpgradeTeardowns.delete(destroyBoth)
+      clientSocket.unpipe(backendSocket)
+      backendSocket.unpipe(clientSocket)
+      clientSocket.removeListener('error', destroyBoth)
+      backendSocket.removeListener('error', destroyBoth)
+      clientSocket.removeListener('end', onClientEnd)
+      backendSocket.removeListener('end', onBackendEnd)
+      clientSocket.removeListener('close', onClientClose)
+      backendSocket.removeListener('close', onBackendClose)
+    }
+    const destroyBoth = () => {
+      if (tearingDown) return
+      tearingDown = true
+      cleanup()
+      if (!clientSocket.destroyed) clientSocket.destroy()
+      if (!backendSocket.destroyed) backendSocket.destroy()
+    }
+    const finishIfClosed = () => {
+      if (clientClosed && backendClosed) cleanup()
+    }
+    const onClientEnd = () => {
+      clientEnded = true
+      if (!backendSocket.destroyed && !backendSocket.writableEnded) backendSocket.end()
+    }
+    const onBackendEnd = () => {
+      backendEnded = true
+      if (!clientSocket.destroyed && !clientSocket.writableEnded) clientSocket.end()
+    }
+    const onClientClose = () => {
+      clientClosed = true
+      if (!clientEnded) destroyBoth()
+      else finishIfClosed()
+    }
+    const onBackendClose = () => {
+      backendClosed = true
+      if (!backendEnded) destroyBoth()
+      else finishIfClosed()
+    }
+
+    this.relayUpgradeTeardowns.add(destroyBoth)
+    clientSocket.once('error', destroyBoth)
+    backendSocket.once('error', destroyBoth)
+    clientSocket.once('end', onClientEnd)
+    backendSocket.once('end', onBackendEnd)
+    clientSocket.once('close', onClientClose)
+    backendSocket.once('close', onBackendClose)
+    if (clientSocket.destroyed || backendSocket.destroyed) {
+      destroyBoth()
+      return
+    }
+    try {
+      backendSocket.write(raw.join('\r\n'))
+      if (head.length > 0) backendSocket.write(head)
+      // Preserve a clean half-close so a peer that has finished sending can
+      // still receive the other direction's final frames. Premature close or
+      // error takes the idempotent destroyBoth path above.
+      clientSocket.pipe(backendSocket, { end: false })
+      backendSocket.pipe(clientSocket, { end: false })
+    } catch {
+      destroyBoth()
+    }
   }
 
   private relayUpstreamPath(rawUrl: string | undefined): string | null {
@@ -1039,6 +1146,11 @@ export class HeadroomManager {
     socket.end(
       `HTTP/1.1 ${status} ${message}\r\nConnection: close\r\nContent-Length: 0\r\n\r\n`,
     )
+  }
+
+  private destroyRelayTransports(): void {
+    this.relayAgent.destroy()
+    for (const teardown of [...this.relayUpgradeTeardowns]) teardown()
   }
 
   async install(): Promise<HeadroomActionResult> {
@@ -1455,7 +1567,7 @@ export class HeadroomManager {
     child.stderr?.on('data', (chunk) => { this.proxyTail += chunk.toString(); this.trimProxyTail() })
     const invalidateOwnedProxy = () => {
       if (this.proxy !== child) return
-      this.relayAgent.destroy()
+      this.destroyRelayTransports()
       this.proxy = null
       this.proxyTrustedPort = null
       this.syncRouting()
@@ -1546,7 +1658,7 @@ export class HeadroomManager {
 
   private async discardProxyChild(child: ChildProcess): Promise<void> {
     if (this.proxy === child) {
-      this.relayAgent.destroy()
+      this.destroyRelayTransports()
       this.proxy = null
       this.proxyTrustedPort = null
       this.syncRouting()
@@ -2060,7 +2172,7 @@ export class HeadroomManager {
   private async stopProxy(): Promise<void> {
     this.proxyGeneration += 1
     this.proxyStart = null
-    this.relayAgent.destroy()
+    this.destroyRelayTransports()
     const child = this.proxy
     this.proxy = null
     this.proxyTrustedPort = null
