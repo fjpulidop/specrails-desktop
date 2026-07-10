@@ -277,12 +277,17 @@ export interface JobTemplate {
 // ─── Rail PR decisions (safe-pr-review-flow) ─────────────────────────────────
 
 /** Decision state of a rail's isolated-launch PR delivery (mirrors the server's
- *  rail_pr_deliveries.decision column). `merged`/`discarded` are terminal. */
+ *  rail_pr_deliveries.decision column). completed/merged/discarded/superseded
+ *  are terminal. */
 export type RailPrDecision =
   | 'building'
   | 'on_review'
   | 'pr_draft'
   | 'pr_ready'
+  | 'no_changes'
+  | 'completed'
+  | 'pr_closed'
+  | 'superseded'
   | 'merged'
   | 'discarded'
   | 'implementation_failed'
@@ -291,8 +296,39 @@ export type RailPrDecision =
 /** How far a Create-PR attempt got (the pr-publisher degradation ladder). */
 export type RailPrDeliveryState = 'none' | 'local-only' | 'pushed' | 'pr-created'
 
-/** The four actions POST /rails/pr-decision accepts. */
-export type RailPrDecisionAction = 'create-pr' | 'publish' | 'discard' | 'poll-merge' | 'merge-local'
+/** Actions accepted by POST /rails/pr-decision. */
+export type RailPrDecisionAction = 'create-pr' | 'publish' | 'discard' | 'poll-merge' | 'merge-local' | 'dismiss' | 'reopen' | 'acknowledge-no-changes'
+
+/** Engine truth, deliberately independent from commit/push/PR delivery. */
+export type RailImplementationOutcome = 'running' | 'succeeded' | 'partially_succeeded' | 'failed' | 'unknown'
+
+/** Post-engine delivery truth. Additive/optional on legacy persisted rows. */
+export type RailDeliveryOutcome =
+  | 'pending'
+  | 'ready'
+  | 'delivered'
+  | 'partial'
+  | 'no_changes'
+  | 'retryable_failure'
+  | 'blocked'
+  | 'not_started'
+  | 'unknown'
+
+/** Per-ticket/unit evidence retained by the delivery ledger. */
+export interface RailPrUnitOutcome {
+  ticketId: number
+  branch: string
+  /** Legacy compatibility bit; the orthogonal outcomes take precedence. */
+  succeeded: boolean
+  runId?: string | null
+  implementationOutcome?: RailImplementationOutcome
+  deliveryOutcome?: RailDeliveryOutcome
+  initialSha?: string | null
+  finalSha?: string | null
+  changed?: boolean
+  failureCode?: string | null
+  branchOwnership?: 'created' | 'preexisting' | 'borrowed-pr'
+}
 
 /**
  * Durable snapshot of a rail launch's ask-first PR decision. The client keeps
@@ -311,6 +347,23 @@ export interface RailPrStateSnapshot {
   prNumber: number | null
   prState: RailPrDeliveryState
   decision: RailPrDecision
+  /** Orthogonal outcome axes; absent only on pre-migration snapshots. */
+  implementationOutcome?: RailImplementationOutcome
+  deliveryOutcome?: RailDeliveryOutcome
+  /** Stable client-localized reason + bounded secondary diagnostic. */
+  statusCode?: string | null
+  statusDetail?: string | null
+  /** Exact verified object used for an existing-PR push/retry. */
+  deliverySha?: string | null
+  /** Existing-PR generations borrow the PR/head and dismiss non-destructively. */
+  isContinuation?: boolean
+  supersedesDeliveryId?: string | null
+  /** Leased in-flight decision-side effect owned by another surface/process. */
+  operation?: RailPrDecisionAction | null
+  /** Bounded cleanup failures that remain after a terminal action. */
+  cleanupWarnings?: string[]
+  /** Structured evidence; legacy snapshots may omit it. */
+  units?: RailPrUnitOutcome[]
   /** The launch's loop-run ids, in ticket order ([] until allocation lands) —
    *  each links a per-run log + live vitals on the decision surfaces. */
   runIds: string[]

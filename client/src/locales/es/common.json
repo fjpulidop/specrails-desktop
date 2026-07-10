@@ -50,6 +50,34 @@
     "draft": "Borrador",
     "onReview": "En revisión"
   },
+  "prDeliveryStatus": {
+    "implementation_running": "Implementación en curso",
+    "implementation_failed": "Implementación fallida",
+    "ready_for_review": "Lista para revisión",
+    "partial_success": "Implementación parcial",
+    "partial_delivery": "Entrega parcial lista",
+    "existing_pr_updated": "PR existente actualizada",
+    "no_changes": "No se requieren cambios",
+    "commit_failed": "Falló la etapa de commit",
+    "branch_verification_failed": "Falló la verificación de la rama",
+    "push_failed": "Falló el push",
+    "settlement_interrupted": "Se interrumpió la preparación de la entrega",
+    "operation_interrupted": "Acción de entrega anterior interrumpida",
+    "delivery_failed": "La entrega falló",
+    "pr_draft_ready": "PR en borrador lista",
+    "pr_ready": "PR lista",
+    "pr_closed": "PR cerrada sin merge",
+    "merged": "Merge completado",
+    "discarded": "Descartada",
+    "superseded": "Sustituida por una ejecución más reciente",
+    "cleanup_incomplete": "Limpieza incompleta",
+    "status_failed": "Falló la comprobación del estado del worktree",
+    "ref_mismatch": "La referencia de la rama no coincide"
+  },
+  "prRecovery": {
+    "inProgress": "La recuperación del proyecto sigue en curso. Tu entrega está a salvo; vuelve a intentarlo en unos instantes.",
+    "interrupted": "Una acción de entrega anterior se interrumpió durante el reinicio. Tu trabajo se conservó; revisa el estado actual y vuelve a intentarlo cuando quieras."
+  },
   "modal": {
     "resize": {
       "nw": "Redimensionar — esquina superior izquierda",

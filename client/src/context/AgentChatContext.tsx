@@ -28,6 +28,7 @@ import {
   type AgentConversation,
   type AgentContextReference,
   type AgentMessage,
+  type AgentPrDecisionEnvelope,
   type AgentTierLevel,
 } from '../lib/agent-api'
 import { AgentChatPanel } from '../components/agent-chat/AgentChatPanel'
@@ -80,6 +81,33 @@ function saveFavoriteConversationIds(ids: ReadonlySet<string>): void {
 function pruneFavoriteConversationIds(prev: ReadonlySet<string>, conversations: AgentConversation[]): Set<string> {
   const valid = new Set(conversations.map((c) => c.id))
   return new Set([...prev].filter((id) => valid.has(id)))
+}
+
+function upsertPrDecisionMessage(
+  messages: AgentMessage[],
+  conversationId: string,
+  envelope: AgentPrDecisionEnvelope,
+): AgentMessage[] {
+  const content = JSON.stringify(envelope)
+  const idx = messages.findIndex(
+    (message) => message.role === 'system' && parsePrDecisionEnvelope(message.content)?.prDeliveryId === envelope.prDeliveryId,
+  )
+  if (idx >= 0) {
+    if (messages[idx].content === content) return messages
+    const copy = [...messages]
+    copy[idx] = { ...copy[idx], content }
+    return copy
+  }
+  return [
+    ...messages,
+    {
+      id: `prd-${envelope.prDeliveryId}`,
+      conversation_id: conversationId,
+      role: 'system',
+      content,
+      created_at: new Date().toISOString(),
+    },
+  ]
 }
 
 export interface AgentChatContextValue {
@@ -152,6 +180,9 @@ export interface AgentChatContextValue {
   /** Refresh the conversation list WITHOUT opening the floating panel. Used on
    *  entering Agent Mode (open() would mount the now-suppressed panel). */
   refreshConversations: () => Promise<void>
+  /** Apply the authoritative snapshot returned by a card action immediately;
+   *  the persisted message/WS update later becomes an idempotent no-op. */
+  applyPrDecisionSnapshot: (envelope: AgentPrDecisionEnvelope) => void
 }
 
 const AgentChatContext = createContext<AgentChatContextValue | null>(null)
@@ -172,7 +203,7 @@ let _toolSeq = 0
 let _queueSeq = 0
 
 export function AgentChatProvider({ children }: { children: ReactNode }) {
-  const { registerHandler, unregisterHandler } = useSharedWebSocket()
+  const { registerHandler, unregisterHandler, connectionStatus } = useSharedWebSocket()
   const { uiMode } = useUiMode()
   const { setActiveProjectId } = useDesktop()
 
@@ -180,6 +211,8 @@ export function AgentChatProvider({ children }: { children: ReactNode }) {
   const [conversations, setConversations] = useState<AgentConversation[]>([])
   const [active, setActive] = useState<AgentConversation | null>(null)
   const [messages, setMessages] = useState<AgentMessage[]>([])
+  const messagesRef = useRef(messages)
+  messagesRef.current = messages
   const [favoriteConversationIds, setFavoriteConversationIds] = useState<ReadonlySet<string>>(loadFavoriteConversationIds)
   const [unreadConversationIds, setUnreadConversationIds] = useState<ReadonlySet<string>>(new Set())
   // Live turn state is PER CONVERSATION: agents keep working in the background,
@@ -214,6 +247,29 @@ export function AgentChatProvider({ children }: { children: ReactNode }) {
   // must never re-add a chip that was consumed while the POST was in flight.
   const consumedQueueIdsRef = useRef(new Set<string>())
   const draftMaterializeRef = useRef<Promise<AgentConversation> | null>(null)
+  const prSnapshotVersionRef = useRef(0)
+
+  const applyPrDecisionSnapshot = useCallback((envelope: AgentPrDecisionEnvelope): void => {
+    const conversationId = activeIdRef.current
+    if (!conversationId) return
+    const belongsToActiveThread = messagesRef.current.some(
+      (message) => message.role === 'system' && parsePrDecisionEnvelope(message.content)?.prDeliveryId === envelope.prDeliveryId,
+    )
+    if (!belongsToActiveThread) return
+    // Advance before scheduling React state so an already-resolving focus GET
+    // cannot enqueue a stale overwrite in the same batch.
+    prSnapshotVersionRef.current++
+    setMessages((current) => {
+      // An action can resolve after the user switches conversations. HTTP card
+      // snapshots are update-only: the delivery must still exist in the active
+      // thread, otherwise appending would leak conversation A's card into B.
+      const stillBelongsToActiveThread = current.some(
+        (message) => message.role === 'system' && parsePrDecisionEnvelope(message.content)?.prDeliveryId === envelope.prDeliveryId,
+      )
+      if (!stillBelongsToActiveThread) return current
+      return upsertPrDecisionMessage(current, conversationId, envelope)
+    })
+  }, [])
 
   /** Update one conversation's live slice; a fully-idle slice drops its entry. */
   const patchLive = useCallback((id: string, fn: (prev: AgentConvLive) => AgentConvLive | null) => {
@@ -421,22 +477,8 @@ export function AgentChatProvider({ children }: { children: ReactNode }) {
         if (isActive) {
           const envelope = coercePrDecisionEnvelope(raw)
           if (envelope) {
-            const content = JSON.stringify(envelope)
-            setMessages((m) => {
-              const idx = m.findIndex(
-                (x) => x.role === 'system' && parsePrDecisionEnvelope(x.content)?.prDeliveryId === envelope.prDeliveryId,
-              )
-              if (idx >= 0) {
-                if (m[idx].content === content) return m
-                const copy = [...m]
-                copy[idx] = { ...copy[idx], content }
-                return copy
-              }
-              return [
-                ...m,
-                { id: `prd-${envelope.prDeliveryId}`, conversation_id: convId, role: 'system', content, created_at: new Date().toISOString() },
-              ]
-            })
+            prSnapshotVersionRef.current++
+            setMessages((current) => upsertPrDecisionMessage(current, convId, envelope))
           }
         }
       }
@@ -454,6 +496,43 @@ export function AgentChatProvider({ children }: { children: ReactNode }) {
     // deliberately NOT reset here — a background turn keeps its full context
     // and re-appears mid-stream when the user switches back.
   }, [clearUnread])
+
+  // A card action can complete while this window misses its WS packet. Re-read
+  // only the persisted PR system rows on focus/reconnect; user/stream messages
+  // remain untouched, so a live turn cannot be clobbered by hydration.
+  const hydrateActivePrCards = useCallback(async (): Promise<void> => {
+    const conversationId = activeIdRef.current
+    if (!conversationId) return
+    const version = prSnapshotVersionRef.current
+    try {
+      const fresh = await getAgentConversation(conversationId)
+      if (activeIdRef.current !== conversationId || prSnapshotVersionRef.current !== version) return
+      const envelopes = fresh.messages
+        .filter((message) => message.role === 'system')
+        .map((message) => parsePrDecisionEnvelope(message.content))
+        .filter((envelope): envelope is AgentPrDecisionEnvelope => envelope !== null)
+      if (envelopes.length === 0) return
+      setMessages((current) => envelopes.reduce(
+        (next, envelope) => upsertPrDecisionMessage(next, conversationId, envelope),
+        current,
+      ))
+    } catch {
+      /* Advisory convergence path; the next focus/reconnect can retry. */
+    }
+  }, [])
+
+  useEffect(() => {
+    const onFocus = () => { void hydrateActivePrCards() }
+    window.addEventListener('focus', onFocus)
+    return () => window.removeEventListener('focus', onFocus)
+  }, [hydrateActivePrCards])
+
+  const previousConnectionRef = useRef(connectionStatus)
+  useEffect(() => {
+    const previous = previousConnectionRef.current
+    previousConnectionRef.current = connectionStatus
+    if (connectionStatus === 'connected' && previous !== 'connected') void hydrateActivePrCards()
+  }, [connectionStatus, hydrateActivePrCards])
 
   const ensureActive = useCallback(async (): Promise<AgentConversation> => {
     if (active) return active
@@ -750,6 +829,7 @@ export function AgentChatProvider({ children }: { children: ReactNode }) {
     newConversation, startNewConversation, materializeDraftConversation, draftPinnedProjectId,
     draftProvider, draftModel, draftTierLevel, draftEffort, setEffort,
     selectConversation, deleteConversation, renameConversation, toggleFavoriteConversation, refreshConversations,
+    applyPrDecisionSnapshot,
   }), [
     visibility, open, close, minimize, toggle,
     conversations, active, messages, streamingText, isStreaming, liveTools,
@@ -760,6 +840,7 @@ export function AgentChatProvider({ children }: { children: ReactNode }) {
     newConversation, startNewConversation, materializeDraftConversation, draftPinnedProjectId,
     draftProvider, draftModel, draftTierLevel, draftEffort, setEffort,
     selectConversation, deleteConversation, renameConversation, toggleFavoriteConversation, refreshConversations,
+    applyPrDecisionSnapshot,
   ])
 
   // In Agent Mode the conversation UI is the full-screen surface, so the
@@ -799,6 +880,7 @@ const NOOP_AGENT_CHAT: AgentChatContextValue = {
   selectConversation: async () => {}, deleteConversation: async () => {}, renameConversation: async () => {},
   toggleFavoriteConversation: () => {},
   refreshConversations: async () => {},
+  applyPrDecisionSnapshot: () => {},
 }
 
 /**

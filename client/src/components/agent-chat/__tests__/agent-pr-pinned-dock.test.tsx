@@ -135,9 +135,13 @@ describe('derivePrCards / pin-state matrix', () => {
     ['building', true],
     ['on_review', true],
     ['pr_draft', true],
+    ['no_changes', true],
+    ['pr_closed', true],
     ['implementation_failed', true],
     ['pr_failed', true],
     ['pr_ready', false],
+    ['completed', false],
+    ['superseded', false],
     ['merged', false],
     ['discarded', false],
   ]
@@ -163,7 +167,7 @@ describe('derivePrCards / pin-state matrix', () => {
 
 // ── Pinned slot in the floating panel ─────────────────────────────────────────
 describe('pinned dock (floating panel)', () => {
-  it.each(['building', 'on_review', 'pr_draft', 'implementation_failed', 'pr_failed'] as const)(
+  it.each(['building', 'on_review', 'pr_draft', 'no_changes', 'pr_closed', 'implementation_failed', 'pr_failed'] as const)(
     'a %s card is PINNED above the composer with a history marker in its slot',
     async (decision) => {
       await renderPanelWithMessages([sysRow('s1', { decision })])
@@ -177,11 +181,11 @@ describe('pinned dock (floating panel)', () => {
     },
   )
 
-  it.each(['pr_ready', 'merged', 'discarded'] as const)(
+  it.each(['pr_ready', 'completed', 'superseded', 'merged', 'discarded'] as const)(
     'a %s card is UNPINNED: full card in history, no dock, no marker',
     async (decision) => {
       await renderPanelWithMessages([
-        sysRow('s1', { decision, prUrl: decision === 'discarded' ? null : 'https://github.com/o/r/pull/7', prState: decision === 'discarded' ? 'none' : 'pr-created' }),
+        sysRow('s1', { decision, prUrl: decision === 'discarded' || decision === 'completed' || decision === 'superseded' ? null : 'https://github.com/o/r/pull/7', prState: decision === 'discarded' || decision === 'completed' || decision === 'superseded' ? 'none' : 'pr-created' }),
       ])
       await waitFor(() => expect(fullCards()).toHaveLength(1))
       expect(dock()).toBeNull()

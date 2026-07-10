@@ -31,6 +31,7 @@ function snapshot(overrides: Partial<RailPrStateSnapshot> = {}): RailPrStateSnap
 }
 
 const okResult: RailPrActResult = { ok: true, status: 200 }
+const interruptedActionDetail = 'A previous delivery action was interrupted by restart. Its durable evidence was preserved; review the current state and retry.'
 
 const railProps = {
   id: 'rail-1',
@@ -181,6 +182,40 @@ describe('RailPrDecisionStrip interactions', () => {
     expect(mockToast.error).not.toHaveBeenCalled()
   })
 
+  it('409 project recovery reports a safe temporary pause instead of stale/destructive feedback', async () => {
+    const act = vi.fn().mockResolvedValue({ ok: false, status: 409, error: 'project_recovery_in_progress' })
+    renderStrip(snapshot(), act)
+    const create = screen.getByTestId('rail-pr-create')
+    fireEvent.click(create)
+
+    await waitFor(() => expect(mockToast.info).toHaveBeenCalledWith(
+      'Project recovery is still in progress. Your delivery is safe — retry in a moment.',
+    ))
+    expect(mockToast.info).not.toHaveBeenCalledWith('Already resolved elsewhere')
+    expect(mockToast.warning).not.toHaveBeenCalled()
+    expect(mockToast.error).not.toHaveBeenCalled()
+    expect(create).toBeEnabled()
+  })
+
+  it('409 operation_in_progress reports the owned operation instead of a stale-decision message', async () => {
+    const act = vi.fn().mockResolvedValue({
+      ok: false, status: 409, error: 'operation_in_progress', busy: true, operation: 'publish', current: 'pr_draft',
+    })
+    renderStrip(snapshot({ decision: 'pr_draft', prUrl: 'https://github.com/o/r/pull/4', prState: 'pr-created' }), act)
+    fireEvent.click(screen.getByTestId('rail-pr-publish'))
+    await waitFor(() => expect(mockToast.info).toHaveBeenCalledWith('Publishing…'))
+    expect(mockToast.info).not.toHaveBeenCalledWith('Already resolved elsewhere')
+  })
+
+  it('a hydrated operation lease disables all competing dashboard actions', () => {
+    renderStrip(snapshot({
+      decision: 'pr_draft', prUrl: 'https://github.com/o/r/pull/4', prState: 'pr-created', operation: 'publish',
+    }))
+    expect(screen.getByTestId('rail-pr-operation')).toHaveTextContent('Publishing…')
+    expect(screen.getByTestId('rail-pr-publish')).toBeDisabled()
+    expect(screen.getByTestId('rail-pr-discard')).toBeDisabled()
+  })
+
   it('502 gh_failed → error toast carrying the detail', async () => {
     const act = vi.fn().mockResolvedValue({ ok: false, status: 502, error: 'gh_failed', detail: 'gh: not logged in' })
     renderStrip(snapshot({ decision: 'pr_draft', prUrl: 'https://github.com/o/r/pull/4', prNumber: 4 }), act)
@@ -195,6 +230,14 @@ describe('RailPrDecisionStrip interactions', () => {
     fireEvent.click(screen.getByTestId('rail-pr-poll'))
     expect(act).toHaveBeenCalledWith('poll-merge', 'pr_ready')
     await waitFor(() => expect(mockToast.info).toHaveBeenCalledWith('Not merged yet'))
+  })
+
+  it('poll-merge CLOSED does not also claim it is merely not merged yet', async () => {
+    const act = vi.fn().mockResolvedValue({ ok: true, status: 200, decision: 'pr_closed', merged: false })
+    renderStrip(snapshot({ decision: 'pr_ready', prUrl: 'https://github.com/o/r/pull/5', prNumber: 5 }), act)
+    fireEvent.click(screen.getByTestId('rail-pr-poll'))
+    await waitFor(() => expect(act).toHaveBeenCalledWith('poll-merge', 'pr_ready'))
+    expect(mockToast.info).not.toHaveBeenCalledWith('Not merged yet')
   })
 
   it('Checkout calls the checkout callback and shows a success toast', async () => {
@@ -222,6 +265,43 @@ describe('RailPrDecisionStrip interactions', () => {
     await waitFor(() => expect(mockToast.success).toHaveBeenCalledWith('Checked out feat/review-followup'))
   })
 
+  it('checkout 409 project recovery uses the same safe temporary feedback', async () => {
+    const checkout = vi.fn().mockResolvedValue({ ok: false, status: 409, error: 'project_recovery_in_progress' })
+    render(
+      <RailPrDecisionStrip
+        decision={snapshot({
+          decision: 'pr_ready', branch: 'feat/review-followup',
+          prUrl: 'https://github.com/o/r/pull/5', prState: 'pr-created',
+        })}
+        density="normal"
+        act={vi.fn().mockResolvedValue(okResult)}
+        checkout={checkout}
+      />,
+    )
+    const button = screen.getByTestId('rail-pr-checkout')
+    fireEvent.click(button)
+
+    await waitFor(() => expect(mockToast.info).toHaveBeenCalledWith(
+      'Project recovery is still in progress. Your delivery is safe — retry in a moment.',
+    ))
+    expect(mockToast.warning).not.toHaveBeenCalled()
+    expect(button).toBeEnabled()
+  })
+
+  it('restart-interrupted action detail is localized and leaves the recovered card actionable', () => {
+    renderStrip(snapshot({
+      decision: 'on_review', operation: null, statusCode: 'operation_interrupted', statusDetail: interruptedActionDetail,
+    }))
+
+    expect(screen.getByTestId('rail-pr-status-code')).toHaveTextContent('Previous delivery action interrupted')
+    expect(screen.getByTestId('rail-pr-recovery-interrupted')).toHaveTextContent(
+      'A previous delivery action was interrupted during restart. Your work was preserved; review the current state and retry when ready.',
+    )
+    expect(screen.queryByText(interruptedActionDetail)).toBeNull()
+    expect(screen.getByTestId('rail-pr-create')).toBeEnabled()
+    expect(screen.getByTestId('rail-pr-discard')).toBeEnabled()
+  })
+
   it('Discard requires the destructive confirm; confirming calls act(discard, <current>)', async () => {
     const act = vi.fn().mockResolvedValue({ ok: true, status: 200, decision: 'discarded' })
     renderStrip(snapshot({ decision: 'pr_failed' }), act)
@@ -233,6 +313,16 @@ describe('RailPrDecisionStrip interactions', () => {
     expect(dialog).toHaveTextContent('return to Specs')
     fireEvent.click(within(dialog).getByTestId('rail-pr-discard-confirm-btn'))
     await waitFor(() => expect(act).toHaveBeenCalledWith('discard', 'pr_failed'))
+  })
+
+  it('implementation-failed discard says recoverable local work and branches are preserved', () => {
+    renderStrip(snapshot({ decision: 'implementation_failed', implementationOutcome: 'failed' }))
+    fireEvent.click(screen.getByTestId('rail-pr-discard'))
+
+    const dialog = screen.getByTestId('rail-pr-discard-confirm')
+    expect(dialog).toHaveTextContent('Local work and branches will be kept for inspection')
+    expect(dialog).toHaveTextContent('Only resources proven safe to clean up may be removed')
+    expect(dialog).not.toHaveTextContent('branches and worktrees will be dropped')
   })
 
   it('cancelling the discard confirm never calls act', async () => {
@@ -286,6 +376,189 @@ describe('RailPrDecisionStrip interactions', () => {
     renderStrip(snapshot(), act)
     fireEvent.click(screen.getByTestId('rail-pr-create'))
     await waitFor(() => expect(mockToast.error).toHaveBeenCalledWith("Couldn't apply the PR decision"))
+  })
+})
+
+describe('RailPrDecisionStrip orthogonal implementation/delivery outcomes', () => {
+  it('shows blocked delivery as successful implementation, preserves run evidence, and offers no unsafe retry', () => {
+    renderStrip(snapshot({
+      decision: 'pr_failed',
+      runIds: ['run-4'],
+      implementationOutcome: 'succeeded',
+      deliveryOutcome: 'blocked',
+      statusCode: 'branch_verification_failed',
+      statusDetail: 'the PR branch moved after implementation',
+      units: [{
+        ticketId: 1, runId: 'run-4', branch: 'feat/1', succeeded: true,
+        implementationOutcome: 'succeeded', deliveryOutcome: 'blocked',
+        initialSha: 'aaa', finalSha: 'bbb', changed: true, failureCode: 'branch_verification_failed',
+      }],
+    }))
+    const strip = screen.getByTestId('rail-pr-strip')
+    expect(strip).not.toHaveAttribute('role')
+    expect(within(strip).getByRole('status', { name: 'Implementation complete — delivery needs attention' })).toBeInTheDocument()
+    expect(within(strip).getByText('Implementation complete — delivery needs attention')).toBeInTheDocument()
+    expect(within(strip).getByText('the PR branch moved after implementation')).toBeInTheDocument()
+    expect(within(strip).getByTestId('rail-pr-status-code')).toHaveTextContent('Branch verification failed')
+    expect(within(strip).getByTestId('rail-pr-run-log')).toBeInTheDocument()
+    expect(within(strip).getByTestId('rail-pr-unit-evidence')).toHaveTextContent('delivery blocked')
+    expect(within(strip).queryByTestId('rail-pr-create')).toBeNull()
+    expect(within(strip).queryByTestId('rail-pr-retry-push')).toBeNull()
+    expect(within(strip).getByTestId('rail-pr-discard-local')).toBeInTheDocument()
+  })
+
+  it('labels retryable push failures and partial/no-change results truthfully', () => {
+    const retryable = renderStrip(snapshot({
+      decision: 'pr_failed', implementationOutcome: 'succeeded', deliveryOutcome: 'retryable_failure', statusCode: 'push_failed',
+    }))
+    expect(screen.getByText('Implementation complete — update failed')).toBeInTheDocument()
+    expect(screen.getByTestId('rail-pr-retry-push')).toHaveTextContent('Retry push')
+    retryable.view.unmount()
+
+    const partial = renderStrip(snapshot({
+      implementationOutcome: 'partially_succeeded', deliveryOutcome: 'partial',
+      units: [
+        { ticketId: 1, branch: 'feat/1', succeeded: true, implementationOutcome: 'succeeded', deliveryOutcome: 'ready', initialSha: null, finalSha: 'aaa' },
+        { ticketId: 2, branch: 'feat/2', succeeded: false, implementationOutcome: 'failed', deliveryOutcome: 'not_started', initialSha: null, finalSha: null, failureCode: 'loop_failed' },
+      ],
+    }))
+    expect(screen.getByText('1 of 2 implementations ready')).toBeInTheDocument()
+    expect(screen.getByTestId('rail-pr-create-partial')).toHaveTextContent('Create PR with 1')
+    partial.view.unmount()
+
+    renderStrip(snapshot({ decision: 'no_changes', implementationOutcome: 'succeeded', deliveryOutcome: 'no_changes', isContinuation: true }))
+    expect(screen.getByText('No changes needed')).toBeInTheDocument()
+    expect(screen.queryByTestId('rail-pr-create')).toBeNull()
+    expect(screen.getByTestId('rail-pr-dismiss')).toBeInTheDocument()
+  })
+
+  it('labels retryable PR creation distinctly from a push retry or blocked delivery', () => {
+    const draft = renderStrip(snapshot({
+      decision: 'pr_draft', prState: 'pushed', branch: 'sr/acme/batch-x',
+      implementationOutcome: 'succeeded', deliveryOutcome: 'retryable_failure', statusCode: 'delivery_failed',
+    }))
+    expect(screen.getByText('Branch pushed — PR pending')).toBeInTheDocument()
+    expect(screen.getByTestId('rail-pr-create')).toHaveTextContent('Retry PR')
+    expect(screen.getByTestId('rail-pr-merge-local')).toBeInTheDocument()
+    expect(screen.queryByTestId('rail-pr-retry-push')).toBeNull()
+    expect(screen.queryByTestId('rail-pr-discard-local')).toBeNull()
+    expect(screen.queryByText('Implementation complete — delivery needs attention')).toBeNull()
+    draft.view.unmount()
+
+    renderStrip(snapshot({
+      decision: 'pr_failed', prState: 'local-only',
+      implementationOutcome: 'succeeded', deliveryOutcome: 'retryable_failure', statusCode: 'delivery_failed',
+    }))
+    expect(screen.getByText('Changes available locally')).toBeInTheDocument()
+    expect(screen.getByTestId('rail-pr-create')).toHaveTextContent('Retry PR')
+    expect(screen.getByTestId('rail-pr-merge-local')).toBeInTheDocument()
+    expect(screen.queryByTestId('rail-pr-retry-push')).toBeNull()
+    expect(screen.queryByTestId('rail-pr-discard-local')).toBeNull()
+    expect(screen.queryByText('Implementation complete — delivery needs attention')).toBeNull()
+  })
+
+  it('prioritizes Retry PR when a partial result has a retryable PR-creation failure', () => {
+    renderStrip(snapshot({
+      decision: 'pr_failed', prState: 'local-only',
+      implementationOutcome: 'partially_succeeded', deliveryOutcome: 'retryable_failure', statusCode: 'delivery_failed',
+      units: [
+        { ticketId: 1, branch: 'feat/1', succeeded: false, implementationOutcome: 'succeeded', deliveryOutcome: 'retryable_failure', initialSha: null, finalSha: 'abc' },
+        { ticketId: 2, branch: 'feat/2', succeeded: false, implementationOutcome: 'failed', deliveryOutcome: 'not_started', initialSha: null, finalSha: null },
+      ],
+    }))
+
+    expect(screen.getByText('Changes available locally')).toBeInTheDocument()
+    expect(screen.getByTestId('rail-pr-create')).toHaveTextContent('Retry PR')
+    expect(screen.getByTestId('rail-pr-merge-local')).toBeInTheDocument()
+    expect(screen.queryByTestId('rail-pr-create-partial')).toBeNull()
+    expect(screen.queryByTestId('rail-pr-discard-local')).toBeNull()
+  })
+
+  it('keeps partial evidence while switching to draft/published lifecycle actions', () => {
+    const partialOutcome = {
+      implementationOutcome: 'partially_succeeded' as const,
+      deliveryOutcome: 'partial' as const,
+      units: [
+        { ticketId: 1, branch: 'feat/1', succeeded: true, implementationOutcome: 'succeeded' as const, deliveryOutcome: 'ready' as const, initialSha: null, finalSha: 'aaa' },
+        { ticketId: 2, branch: 'feat/2', succeeded: false, implementationOutcome: 'failed' as const, deliveryOutcome: 'not_started' as const, initialSha: null, finalSha: null },
+      ],
+    }
+    const draft = renderStrip(snapshot({
+      ...partialOutcome, decision: 'pr_draft', prUrl: 'https://github.com/o/r/pull/7', prState: 'pr-created',
+    }))
+    expect(screen.getByText('1 of 2 implementations ready')).toBeInTheDocument()
+    expect(screen.getByTestId('rail-pr-publish')).toHaveTextContent('Publish')
+    expect(screen.queryByTestId('rail-pr-create-partial')).toBeNull()
+    draft.view.unmount()
+
+    renderStrip(snapshot({
+      ...partialOutcome, decision: 'pr_ready', prUrl: 'https://github.com/o/r/pull/7', prState: 'pr-created',
+    }))
+    expect(screen.getByText('1 of 2 implementations ready')).toBeInTheDocument()
+    expect(screen.getByTestId('rail-pr-poll')).toHaveTextContent('Check merge')
+    expect(screen.queryByTestId('rail-pr-create-partial')).toBeNull()
+  })
+
+  it('partial with zero delivery-ready units is blocked and never offers create/retry', () => {
+    renderStrip(snapshot({
+      decision: 'pr_failed', implementationOutcome: 'partially_succeeded', deliveryOutcome: 'partial',
+      units: [
+        { ticketId: 1, branch: 'feat/1', succeeded: false, implementationOutcome: 'succeeded', deliveryOutcome: 'blocked', initialSha: null, finalSha: null, failureCode: 'commit_failed' },
+        { ticketId: 2, branch: 'feat/2', succeeded: false, implementationOutcome: 'failed', deliveryOutcome: 'not_started', initialSha: null, finalSha: null },
+      ],
+    }))
+    expect(screen.getByText('Implementation complete — delivery needs attention')).toBeInTheDocument()
+    expect(screen.queryByTestId('rail-pr-create-partial')).toBeNull()
+    expect(screen.queryByTestId('rail-pr-create')).toBeNull()
+    expect(screen.queryByTestId('rail-pr-retry-push')).toBeNull()
+    expect(screen.getByTestId('rail-pr-discard-local')).toBeInTheDocument()
+  })
+
+  it('fresh no-change confirms Mark done versus returning to backlog for refinement', async () => {
+    const act = vi.fn().mockResolvedValue({ ok: true, status: 200 })
+    renderStrip(snapshot({ decision: 'no_changes', implementationOutcome: 'succeeded', deliveryOutcome: 'no_changes' }), act)
+
+    fireEvent.click(screen.getByTestId('rail-pr-no-changes-done'))
+    expect(screen.getByTestId('rail-pr-no-changes-done-confirm')).toHaveTextContent('specs will move to Done')
+    fireEvent.click(screen.getByTestId('rail-pr-no-changes-done-confirm-btn'))
+    await waitFor(() => expect(act).toHaveBeenCalledWith('acknowledge-no-changes', 'no_changes'))
+
+    fireEvent.click(screen.getByTestId('rail-pr-refine'))
+    expect(screen.getByTestId('rail-pr-refine-confirm')).toHaveTextContent('return to the backlog')
+    fireEvent.click(screen.getByTestId('rail-pr-refine-confirm-btn'))
+    await waitFor(() => expect(act).toHaveBeenCalledWith('discard', 'no_changes'))
+  })
+
+  it('supports closed-PR reopen and consequence-specific continuation confirmations', async () => {
+    const act = vi.fn().mockResolvedValue({ ok: true, status: 200, decision: 'pr_ready' })
+    renderStrip(snapshot({ decision: 'pr_closed', prUrl: 'https://github.com/o/r/pull/9', prState: 'pr-created', isContinuation: true }), act)
+    fireEvent.click(screen.getByTestId('rail-pr-reopen'))
+    await waitFor(() => expect(act).toHaveBeenCalledWith('reopen', 'pr_closed'))
+
+    fireEvent.click(screen.getByTestId('rail-pr-dismiss'))
+    const dialog = screen.getByTestId('rail-pr-dismiss-confirm')
+    expect(dialog).toHaveTextContent('existing PR')
+    expect(act).toHaveBeenCalledTimes(1)
+    fireEvent.click(within(dialog).getByTestId('rail-pr-dismiss-confirm-btn'))
+    await waitFor(() => expect(act).toHaveBeenCalledWith('dismiss', 'pr_closed'))
+  })
+
+  it('blocked local-result discard is separately confirmed as destructive', async () => {
+    const act = vi.fn().mockResolvedValue({ ok: true, status: 200, decision: 'discarded' })
+    renderStrip(snapshot({
+      decision: 'pr_failed', implementationOutcome: 'succeeded', deliveryOutcome: 'blocked', statusCode: 'commit_failed', isContinuation: true,
+    }), act)
+    fireEvent.click(screen.getByTestId('rail-pr-discard-local'))
+    const dialog = screen.getByTestId('rail-pr-discard-local-confirm')
+    expect(dialog).toHaveTextContent('recoverable local iteration')
+    expect(act).not.toHaveBeenCalled()
+    fireEvent.click(within(dialog).getByTestId('rail-pr-discard-local-confirm-btn'))
+    await waitFor(() => expect(act).toHaveBeenCalledWith('discard', 'pr_failed'))
+  })
+
+  it('distinguishes local-only delivery from a pushed branch', () => {
+    renderStrip(snapshot({ decision: 'pr_draft', prState: 'local-only', branch: 'feat/local' }))
+    expect(screen.getByText('Changes available locally')).toBeInTheDocument()
   })
 })
 

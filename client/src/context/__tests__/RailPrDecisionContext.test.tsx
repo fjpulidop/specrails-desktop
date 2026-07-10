@@ -96,6 +96,25 @@ describe('RailPrDecisionProvider', () => {
     expect(mockToast.info).toHaveBeenCalledTimes(1)
   })
 
+  it('REMOVES completed no-change cards with a truthful Done toast', () => {
+    renderProvider()
+    send(wsState({ decision: 'no_changes', implementationOutcome: 'succeeded', deliveryOutcome: 'no_changes' }))
+    send(wsState({ decision: 'completed', implementationOutcome: 'succeeded', deliveryOutcome: 'no_changes' }))
+    expect(latest!.decisions.size).toBe(0)
+    expect(mockToast.success).toHaveBeenCalledWith('Confirmed — specs moved to Done')
+    expect(mockToast.info).not.toHaveBeenCalled()
+  })
+
+  it('ignores a late terminal event from an older delivery generation on the same rail', () => {
+    renderProvider()
+    send(wsState({ prDeliveryId: 'generation-a', decision: 'on_review' }))
+    send(wsState({ prDeliveryId: 'generation-b', decision: 'on_review' }))
+    send(wsState({ prDeliveryId: 'generation-a', decision: 'superseded' }))
+    expect(latest!.decisions.get(0)).toMatchObject({ prDeliveryId: 'generation-b', decision: 'on_review' })
+    expect(mockToast.success).not.toHaveBeenCalled()
+    expect(mockToast.info).not.toHaveBeenCalled()
+  })
+
   it('HYDRATES from GET /rails prDeliveries (server snapshot: id → prDeliveryId), skipping terminal rows', async () => {
     global.fetch = vi.fn().mockResolvedValue({
       ok: true,
@@ -112,7 +131,7 @@ describe('RailPrDecisionProvider', () => {
     expect(latest!.decisions.has(2)).toBe(false)
   })
 
-  it('never lets the seed clobber a snapshot a live broadcast already updated', async () => {
+  it('preserves a raced live rail while still hydrating unrelated pending rails from the same GET', async () => {
     let resolveFetch: (v: unknown) => void = () => {}
     global.fetch = vi.fn().mockReturnValue(new Promise((r) => { resolveFetch = r })) as unknown as typeof fetch
     renderProvider()
@@ -121,17 +140,55 @@ describe('RailPrDecisionProvider', () => {
     await act(async () => {
       resolveFetch({
         ok: true,
-        json: async () => ({ prDeliveries: { '0': { id: 'del-1', railIndex: 0, decision: 'on_review' } } }),
+        json: async () => ({ prDeliveries: {
+          '0': { id: 'del-1', railIndex: 0, decision: 'on_review' },
+          '1': { id: 'del-2', railIndex: 1, railKey: '1-impl', ticketIds: [8], baseBranch: 'main', decision: 'on_review' },
+        } }),
       })
     })
     expect(latest!.decisions.get(0)).toMatchObject({ decision: 'pr_draft', prNumber: 3 })
+    expect(latest!.decisions.get(1)).toMatchObject({ prDeliveryId: 'del-2', decision: 'on_review', ticketIds: [8] })
   })
 
-  it('act() POSTs the project-scoped pr-decision endpoint and does NOT mutate local state', async () => {
+  it('does not let an ignored terminal from generation A erase generation B returned by an in-flight hydration', async () => {
+    let resolveFetch: (value: unknown) => void = () => {}
+    global.fetch = vi.fn().mockReturnValue(new Promise((resolve) => { resolveFetch = resolve })) as unknown as typeof fetch
+    renderProvider()
+
+    // The client has not seeded generation B yet. A delayed terminal event for
+    // older generation A is therefore ignored and must not count as a live
+    // mutation of this rail.
+    send(wsState({ prDeliveryId: 'generation-a', decision: 'superseded' }))
+
+    await act(async () => {
+      resolveFetch({
+        ok: true,
+        json: async () => ({ prDeliveries: {
+          '0': {
+            id: 'generation-b', railIndex: 0, railKey: '0-impl', ticketIds: [1, 2],
+            baseBranch: 'main', decision: 'on_review', prState: 'none',
+          },
+        } }),
+      })
+    })
+
+    expect(latest!.decisions.get(0)).toMatchObject({ prDeliveryId: 'generation-b', decision: 'on_review' })
+  })
+
+  it('act() applies the authoritative HTTP snapshot immediately without waiting for WebSocket', async () => {
     renderProvider()
     send(wsState())
     const postFetch = vi.fn().mockResolvedValue({
-      ok: true, status: 200, json: async () => ({ ok: true, decision: 'pr_draft', prUrl: 'https://github.com/o/r/pull/9' }),
+      ok: true, status: 200, json: async () => ({
+        ok: true,
+        decision: 'pr_draft',
+        prUrl: 'https://github.com/o/r/pull/9',
+        snapshot: {
+          id: 'del-1', railIndex: 0, railKey: '0-impl', ticketIds: [1, 2], baseBranch: 'main', branch: 'feat/batch',
+          prUrl: 'https://github.com/o/r/pull/9', prNumber: 9, prState: 'pr-created', decision: 'pr_draft', runIds: [], originConversationId: null,
+          implementationOutcome: 'succeeded', deliveryOutcome: 'delivered', statusCode: 'pr_created', cleanupWarnings: [], units: [],
+        },
+      }),
     })
     global.fetch = postFetch as unknown as typeof fetch
     let result: RailPrActResult | undefined
@@ -141,9 +198,8 @@ describe('RailPrDecisionProvider', () => {
       body: JSON.stringify({ prDeliveryId: 'del-1', action: 'create-pr', expectedDecision: 'on_review' }),
     }))
     expect(result).toMatchObject({ ok: true, status: 200, decision: 'pr_draft' })
-    // No optimistic write — the map still holds the pre-mutation snapshot until
-    // the rail.pr_state broadcast reconciles it.
-    expect(latest!.decisions.get(0)).toMatchObject({ decision: 'on_review' })
+    expect(result?.snapshot).toMatchObject({ decision: 'pr_draft', prNumber: 9 })
+    expect(latest!.decisions.get(0)).toMatchObject({ decision: 'pr_draft', prNumber: 9 })
   })
 
   it('act() surfaces a 409 stale_decision result verbatim', async () => {
@@ -155,6 +211,24 @@ describe('RailPrDecisionProvider', () => {
     let result: RailPrActResult | undefined
     await act(async () => { result = await latest!.act(0, 'create-pr', 'on_review') })
     expect(result).toMatchObject({ ok: false, status: 409, error: 'stale_decision', current: 'pr_draft' })
+  })
+
+  it('act() distinguishes operation_in_progress and applies its disabling lease snapshot', async () => {
+    renderProvider()
+    send(wsState({ decision: 'pr_draft', prUrl: 'https://github.com/o/r/pull/9', prState: 'pr-created' }))
+    global.fetch = vi.fn().mockResolvedValue({
+      ok: false, status: 409, json: async () => ({
+        error: 'operation_in_progress', current: 'pr_draft', operation: 'publish',
+        snapshot: {
+          id: 'del-1', railIndex: 0, railKey: '0-impl', ticketIds: [1, 2], baseBranch: 'main', branch: 'feat/review',
+          prUrl: 'https://github.com/o/r/pull/9', prNumber: 9, prState: 'pr-created', decision: 'pr_draft', runIds: [], originConversationId: null, operation: 'publish',
+        },
+      }),
+    }) as unknown as typeof fetch
+    let result: RailPrActResult | undefined
+    await act(async () => { result = await latest!.act(0, 'publish', 'pr_draft') })
+    expect(result).toMatchObject({ ok: false, status: 409, busy: true, operation: 'publish' })
+    expect(latest!.decisions.get(0)).toMatchObject({ decision: 'pr_draft', operation: 'publish' })
   })
 
   it('act() without a local delivery (or a network failure) never throws', async () => {
