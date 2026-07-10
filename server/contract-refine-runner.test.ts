@@ -151,7 +151,7 @@ function streamLinesWithResult(text: string, resultOverrides: Record<string, unk
 }
 
 describe('prepareContractRefineSpawn', () => {
-  it('produces deterministic argv with --disallowedTools', () => {
+  it('produces deterministic pure-output argv with no tools or permission bypass', () => {
     const projectPath = tmpProjectPath()
     const out = prepareContractRefineSpawn(
       { projectSlug: 'slug', projectPath, projectName: 'proj' },
@@ -159,8 +159,10 @@ describe('prepareContractRefineSpawn', () => {
     )
     expect(out.args).toContain('--resume')
     expect(out.args).toContain('sess-1')
-    expect(out.args).toContain('--disallowedTools')
-    expect(out.args.join(',')).toContain('Read,Grep,Glob,Bash')
+    expect(out.args.slice(out.args.indexOf('--tools'), out.args.indexOf('--tools') + 2))
+      .toEqual(['--tools', '__none__'])
+    expect(out.args).not.toContain('--dangerously-skip-permissions')
+    expect(out.args).not.toContain('--disallowedTools')
     expect(out.args).toContain('-p')
     expect(out.args[out.args.length - 1]).toMatch(/CONTRACT REFINE/)
     expect(out.systemPrompt).toMatch(/Contract Refine/)
@@ -503,6 +505,10 @@ describe('runContractRefine', () => {
     expect(out.ok).toBe(true)
     expect(seenArgs).not.toContain('--resume')
     expect(seenArgs).toContain('--system-prompt')
+    expect(seenArgs.slice(seenArgs.indexOf('--tools'), seenArgs.indexOf('--tools') + 2))
+      .toEqual(['--tools', '__none__'])
+    expect(seenArgs).not.toContain('--dangerously-skip-permissions')
+    expect(seenArgs).not.toContain('--disallowedTools')
     expect(seenArgs.join('\n')).toContain('Quick title')
     const rows = db.prepare('SELECT surface, surface_ref_id, conversation_id, ticket_id, status, model FROM ai_invocations').all() as Array<{
       surface: string

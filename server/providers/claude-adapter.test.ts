@@ -141,6 +141,28 @@ describe('claudeAdapter.buildArgs', () => {
     expect(args.slice(-2)).toEqual(['--foo', 'bar'])
   })
 
+  it('toolPolicy=none emits the effective no-tool sentinel without bypassing permissions', () => {
+    const args = claudeAdapter.buildArgs('agent-refine', {
+      prompt: 'return replacement text',
+      model: 'sonnet',
+      toolPolicy: 'none',
+    })
+    expect(args.slice(args.indexOf('--tools'), args.indexOf('--tools') + 2))
+      .toEqual(['--tools', '__none__'])
+    expect(args).not.toContain('--dangerously-skip-permissions')
+  })
+
+  it('toolPolicy=read-only restricts Claude to Read, Grep, and Glob', () => {
+    const args = claudeAdapter.buildArgs('agent-refine', {
+      prompt: 'ground this text',
+      model: 'sonnet',
+      toolPolicy: 'read-only',
+    })
+    expect(args.slice(args.indexOf('--tools'), args.indexOf('--tools') + 2))
+      .toEqual(['--tools', 'Read,Grep,Glob'])
+    expect(args).toContain('--dangerously-skip-permissions')
+  })
+
   it('chat-turn normalises pinned model ids', () => {
     const args = claudeAdapter.buildArgs('chat-turn', {
       prompt: 'x',
@@ -237,13 +259,16 @@ describe('claudeAdapter.buildArgs', () => {
     expect(args[args.indexOf('--resume') + 1]).toBe('S789')
   })
 
-  it('auto-title uses minimal flags', () => {
+  it('auto-title is unconditionally pure-output', () => {
     const args = claudeAdapter.buildArgs('auto-title', {
       prompt: 'title prompt',
       model: 'sonnet',
     })
     expect(args).toContain('-p')
     expect(args).toContain('--output-format')
+    expect(args.slice(args.indexOf('--tools'), args.indexOf('--tools') + 2))
+      .toEqual(['--tools', '__none__'])
+    expect(args).not.toContain('--dangerously-skip-permissions')
   })
 })
 

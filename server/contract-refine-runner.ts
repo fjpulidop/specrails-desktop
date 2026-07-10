@@ -113,11 +113,13 @@ function normalizeClaudeCodeModel(model: string | null | undefined): string {
 function buildRefineArgs(model: string, systemPrompt: string, sessionId: string): string[] {
   return [
     '--model', normalizeClaudeCodeModel(model),
-    '--dangerously-skip-permissions',
+    // Contract Refine receives all required spec context in the prompt. An
+    // explicit no-tool allowlist is stronger than trying to enumerate every
+    // present and future tool in --disallowedTools.
+    '--tools', '__none__',
     '--output-format', 'stream-json',
     '--verbose',
     '--system-prompt', systemPrompt,
-    '--disallowedTools', 'Read,Grep,Glob,Bash',
     '--resume', sessionId,
     '--max-turns', '1',
     '-p', CONTRACT_MARKER_USER_MESSAGE,
@@ -148,8 +150,8 @@ export function prepareContractRefineSpawn(
   // Explore turn uses:
   //   - mcp ON  → `project.path` (NOT the relocated workspace),
   //   - mcp OFF → the app-managed explore-cwd.
-  // We mirror that EXACTLY here. The refine uses no file tools (`--disallowedTools
-  // Read,Grep,Glob,Bash`) and its prompt rides on `--system-prompt`, so it needs
+  // We mirror that EXACTLY here. The refine uses no tools (`--tools __none__`)
+  // and its prompt rides on `--system-prompt`, so it needs
   // neither the workspace's `.mcp.json` nor its `.claude/commands`. Env still
   // carries SPECRAILS_REPO_DIR when relocated (harmless; no tools consume it).
   const exec = resolveProjectExecution({ slug: deps.projectSlug, path: deps.projectPath })
@@ -588,11 +590,10 @@ export async function runContractRefineForQuick(
 
   const args = [
     '--model', model ?? 'sonnet',
-    '--dangerously-skip-permissions',
+    '--tools', '__none__',
     '--output-format', 'stream-json',
     '--verbose',
     '--system-prompt', systemPrompt,
-    '--disallowedTools', 'Read,Grep,Glob,Bash',
     '--max-turns', '1',
     '-p', CONTRACT_MARKER_USER_MESSAGE,
   ]

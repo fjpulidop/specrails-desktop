@@ -601,6 +601,10 @@ describe('ChatManager', () => {
 
     // Auto-title should have spawned a second process
     expect(mockSpawn).toHaveBeenCalledTimes(2)
+    const titleArgs = vi.mocked(mockSpawn).mock.calls[1][1] as string[]
+    expect(titleArgs.slice(titleArgs.indexOf('--tools'), titleArgs.indexOf('--tools') + 2))
+      .toEqual(['--tools', '__none__'])
+    expect(titleArgs).not.toContain('--dangerously-skip-permissions')
   })
 
   // ─── BUG-CHAT-02: in-flight auto-title child is tree-killed on shutdown ─────

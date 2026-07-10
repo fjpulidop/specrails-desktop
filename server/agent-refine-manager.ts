@@ -8,7 +8,13 @@ import { recordInvocation } from './ai-invocations'
 import { finaliseInvocationResult } from './result-event'
 import { runAiCliInvocation } from './spawn-lifecycle'
 import { resolveProjectExecution } from './workspace-resolution'
-import { getAdapter, type ProviderAdapter, type AdapterEvent, type ProviderId } from './providers'
+import {
+  getAdapter,
+  type ProviderAdapter,
+  type AdapterEvent,
+  type ProviderId,
+  type SpawnOptions,
+} from './providers'
 import type { DbInstance } from './db'
 import type {
   WsMessage,
@@ -305,11 +311,16 @@ export class AgentRefineManager {
       ? 'chat-resume' as const
       : 'agent-refine' as const
     const refineModel = this._adapter.defaultModel()
-    const args = this._adapter.buildArgs(action, {
+    const buildOpts: SpawnOptions = {
       prompt,
       model: refineModel,
       sessionId: session.session_id ?? undefined,
-    })
+      // The model receives the complete current agent body in its prompt and
+      // must only return a replacement body. Repo tools cannot improve this
+      // contract and would turn prompt text into filesystem authority.
+      toolPolicy: 'none',
+    }
+    const args = this._adapter.buildArgs(action, buildOpts)
 
     let drafted = false
     this._bodyBuffers.set(refineId, '')
@@ -325,8 +336,9 @@ export class AgentRefineManager {
     const refineEnv = refineExec.relocated ? { ...process.env, ...refineExec.env } : undefined
     const run = await runAiCliInvocation({
       adapter: this._adapter,
-      action,
-      buildOpts: { prompt, model: refineModel, sessionId: session.session_id ?? undefined },
+      // Pass the already-policy-bound argv so first turns and native resumes
+      // cannot diverge if the lifecycle rebuilds options later.
+      argv: args,
       cwd: refineExec.cwd,
       env: refineEnv,
       onSpawn: (child) => this._activeProcesses.set(refineId, child),

@@ -1665,7 +1665,7 @@ export function registerTicketsRoutes(deps: ProjectRoutesDeps): void {
       `- The SHORT-SUMMARY line MUST always be present. If the user's refinement does not change what the spec is about, keep the previous summary verbatim. Never omit the line.\n` +
       `- After the SHORT-SUMMARY line and blank line, output ONLY the modified description in markdown. No preamble, no explanation, no wrapping.\n` +
       `- Preserve the existing markdown structure and section headings in the description.\n` +
-      `- If the user asks to add technical details, briefly check CLAUDE.md and the project directory structure (ls, not deep reads) to ground your edits.\n` +
+      `- If the user asks to add technical details, briefly check CLAUDE.md and the project directory structure with Read, Grep, or Glob (not deep reads) to ground your edits.\n` +
       `- Keep it concise and actionable.\n` +
       `- Do NOT create files, tickets, or issues. Only output text.`
 
@@ -1716,7 +1716,9 @@ export function registerTicketsRoutes(deps: ProjectRoutesDeps): void {
       binary = 'claude'
       args = [
         '--dangerously-skip-permissions',
-        '--tools', 'default',
+        // AI Edit may ground prose in the repo, but it never needs shell,
+        // network, MCP, or filesystem mutation authority.
+        '--tools', 'Read,Grep,Glob',
         '--output-format', 'stream-json',
         '--verbose',
         '--max-turns', '4',

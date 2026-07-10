@@ -148,6 +148,12 @@ describe('project-router-tickets cost accounting', () => {
 
       void req.then(() => undefined, () => undefined) // kick off the lazy supertest request
       await waitForSpawn()
+      const args = vi.mocked(mockSpawn).mock.calls[0][1] as string[]
+      expect(args.slice(args.indexOf('--tools'), args.indexOf('--tools') + 2))
+        .toEqual(['--tools', 'Read,Grep,Glob'])
+      expect(args.join(',')).not.toContain('Bash')
+      expect(args.join(',')).not.toContain('Write')
+      expect(args.join(',')).not.toContain('Edit')
       child.stdout.push(JSON.stringify({
         type: 'assistant',
         message: {

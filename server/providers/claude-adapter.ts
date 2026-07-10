@@ -51,18 +51,8 @@ function normaliseModel(model: string | null | undefined): string {
   }
 }
 
-/** Default arg block every claude spawn shares. `--setting-sources` is appended
- *  separately per-spawn (see `commonFlagsFor`) because its value depends on
- *  whether the caller opted into loading the user's full Claude environment. */
-const COMMON_FLAGS = [
-  '--dangerously-skip-permissions',
-  '--tools', 'default',
-  '--output-format', 'stream-json',
-  '--verbose',
-] as const
-
 /**
- * COMMON_FLAGS + the `--setting-sources` value for this spawn.
+ * Common flags + the effective tool boundary for this spawn.
  *
  * Default (`project,local`) isolates app-spawned claude from the *user's*
  * global Claude config. Without this, the child loads ~/.claude (user CLAUDE.md
@@ -78,8 +68,23 @@ const COMMON_FLAGS = [
  * CLAUDE.md + hooks, which is the user's explicit opt-in via the toggle.
  */
 function commonFlagsFor(opts: SpawnOptions): string[] {
+  const toolPolicy = opts.toolPolicy ?? 'default'
+  const toolArgs = toolPolicy === 'none'
+    // Claude silently drops an empty tool list on some versions and falls back
+    // to the default toolkit. A non-existent sentinel is the established,
+    // tested way this repo disables every tool (see context-scope.ts).
+    ? ['--tools', '__none__']
+    : toolPolicy === 'read-only'
+      ? ['--tools', 'Read,Grep,Glob']
+      : ['--tools', 'default']
   return [
-    ...COMMON_FLAGS,
+    // No approval bypass is necessary when no tool can be invoked. Keeping it
+    // off also makes the pure-output boundary fail closed if Claude ever
+    // changes how it interprets the sentinel.
+    ...(toolPolicy === 'none' ? [] : ['--dangerously-skip-permissions']),
+    ...toolArgs,
+    '--output-format', 'stream-json',
+    '--verbose',
     '--setting-sources',
     opts.loadUserEnv ? 'user,project,local' : 'project,local',
     // Native reasoning-effort flag (claude CLI accepts low|medium|high|xhigh|max).
@@ -91,7 +96,11 @@ function commonFlagsFor(opts: SpawnOptions): string[] {
 function buildClaudeArgs(action: SpawnAction, opts: SpawnOptions): string[] {
   const args: string[] = []
   const model = normaliseModel(opts.model)
-  const commonFlags = commonFlagsFor(opts)
+  // Titles are unconditionally pure-output. Centralising the policy here keeps
+  // both ChatManager and AgentChatManager from accidentally regaining tools.
+  const commonFlags = commonFlagsFor(
+    action === 'auto-title' ? { ...opts, toolPolicy: 'none' } : opts,
+  )
 
   switch (action) {
     case 'chat-turn': {
@@ -151,7 +160,7 @@ function buildClaudeArgs(action: SpawnAction, opts: SpawnOptions): string[] {
       args.push('--model', model)
       if (opts.maxTurns != null) args.push('--max-turns', String(opts.maxTurns))
       // Caller passes --tools override via extraArgs when scoped; otherwise
-      // 'default' from COMMON_FLAGS applies.
+      // the default policy from commonFlagsFor applies.
       if (opts.systemPrompt) args.push('--system-prompt', opts.systemPrompt)
       args.push('-p', opts.prompt)
       if (opts.extraArgs) args.push(...opts.extraArgs)

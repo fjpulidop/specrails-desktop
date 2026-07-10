@@ -167,6 +167,9 @@ memory: project
       // spawnAiCli signature: (binary, args, options). Slot 1 is the argv.
       const args = vi.mocked(mockSpawnClaude).mock.calls[0][1] as string[]
       expect(args).not.toContain('--resume')
+      expect(args.slice(args.indexOf('--tools'), args.indexOf('--tools') + 2))
+        .toEqual(['--tools', '__none__'])
+      expect(args).not.toContain('--dangerously-skip-permissions')
       const opts = vi.mocked(mockSpawnClaude).mock.calls[0][2]!
       expect(opts.cwd).toBe(projectPath)
       pushLine(child, systemInit('sess'))
@@ -254,6 +257,9 @@ memory: project
       expect(args).toContain('--resume')
       const idx = args.indexOf('--resume')
       expect(args[idx + 1]).toBe('sess-r1')
+      expect(args.slice(args.indexOf('--tools'), args.indexOf('--tools') + 2))
+        .toEqual(['--tools', '__none__'])
+      expect(args).not.toContain('--dangerously-skip-permissions')
 
       pushLine(child2, assistantText(VALID_BODY))
       await close(child2, 0)

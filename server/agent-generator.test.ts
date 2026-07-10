@@ -64,6 +64,43 @@ describe('agent-generator', () => {
     vi.restoreAllMocks()
   })
 
+  describe('tool sandbox', () => {
+    it('generates Studio drafts with no Claude tools or permission bypass', async () => {
+      const child = createMockChildProcess()
+      vi.mocked(mockSpawn).mockReturnValue(child as any)
+
+      const p = generateCustomAgent('/cwd', { name: 'custom-x', description: 'does x' })
+      const args = vi.mocked(mockSpawn).mock.calls[0][1] as string[]
+      expect(args.slice(args.indexOf('--tools'), args.indexOf('--tools') + 2))
+        .toEqual(['--tools', '__none__'])
+      expect(args).not.toContain('--dangerously-skip-permissions')
+
+      pushLine(child, assistantLine('---\nname: custom-x\n---\nbody'))
+      await flush()
+      child.emit('close', 0)
+      await p
+    })
+
+    it('smoke-tests Studio drafts with no Claude tools or permission bypass', async () => {
+      const child = createMockChildProcess()
+      vi.mocked(mockSpawn).mockReturnValue(child as any)
+
+      const p = testCustomAgent('/cwd', {
+        draftBody: '---\nname: custom-x\n---\nbody',
+        sampleTask: 'do it',
+      })
+      const args = vi.mocked(mockSpawn).mock.calls[0][1] as string[]
+      expect(args.slice(args.indexOf('--tools'), args.indexOf('--tools') + 2))
+        .toEqual(['--tools', '__none__'])
+      expect(args).not.toContain('--dangerously-skip-permissions')
+
+      pushLine(child, assistantLine('result'))
+      await flush()
+      child.emit('close', 0)
+      await p
+    })
+  })
+
   // ─── LOW-14: testCustomAgent token double-count fix ────────────────────────
 
   describe('testCustomAgent token accounting (LOW-14)', () => {

@@ -331,6 +331,10 @@ describe('AgentChatManager AI title', () => {
     await waitFor(() => getAgentConversation(db, conv.id)?.title === 'Connect Four Mini-Game')
 
     expect(getAgentConversation(db, conv.id)?.title).toBe('Connect Four Mini-Game')
+    const titleArgs = vi.mocked(mockSpawn).mock.calls[1][1] as string[]
+    expect(titleArgs.slice(titleArgs.indexOf('--tools'), titleArgs.indexOf('--tools') + 2))
+      .toEqual(['--tools', '__none__'])
+    expect(titleArgs).not.toContain('--dangerously-skip-permissions')
     // Two billable rows: the main turn + the title spawn (LOW-1 accounting parity).
     await waitFor(() => rows().length === 2)
     expect(rows()).toHaveLength(2)

@@ -126,7 +126,11 @@ export async function generateCustomAgent(
   return new Promise<string>((resolve, reject) => {
     const child = spawnClaude(
       [
-        '--dangerously-skip-permissions',
+        // This is a pure text transformation. The non-existent sentinel is
+        // intentional: an empty tool list is dropped by some Claude versions
+        // and silently restores the default toolkit.
+        '--tools',
+        '__none__',
         '--output-format',
         'stream-json',
         '--verbose',
@@ -255,7 +259,10 @@ export async function testCustomAgent(
   return new Promise<TestAgentResult>((resolve, reject) => {
     const child = spawnClaude(
       [
-        '--dangerously-skip-permissions',
+        // A Studio smoke test evaluates the supplied instructions and returns
+        // text; it never needs authority over the project it is testing in.
+        '--tools',
+        '__none__',
         '--output-format',
         'stream-json',
         '--verbose',
