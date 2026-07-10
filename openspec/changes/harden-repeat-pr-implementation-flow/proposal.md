@@ -12,9 +12,16 @@ A successful implementation can currently be presented as an implementation fail
 - Give fresh no-change results separate Mark done and Refine outcomes, using a truthful terminal completion state rather than overloading merged/discarded.
 - Reconcile stranded `building` rows from durable run outcomes without overwriting successful implementations with a false failure.
 - Enforce one active delivery generation per rail and supersede the prior generation atomically when an existing PR is iterated again.
+- Make snapshot convergence monotonic by lineage/`createdAt`, with terminal/superseded tombstones, one durable rollback lineage exception for a failed replacement, and a hydration ABA guard that cannot resurrect any other older generation.
 - Serialize decision-side Git/GitHub effects before they start, make draft-PR creation discover an already-created PR, and represent a PR closed without merge explicitly.
-- Preserve dirty or unverifiable worktrees for explicit recovery, report cleanup warnings honestly, and never force-remove recoverable work as automatic failure cleanup.
+- Validate exact PR identity, head/base, and `delivery_sha` on admission, retry, reopen, and polling; terminalize exact merged evidence immediately and detach stale or missing-SHA terminal PRs without losing the immutable commit.
+- Require every continuation worktree to start at the exact live remote PR SHA; infer external PRs only from an explicit PR number or authoritative Jira key, and freeze their head through an authoritative GitHub view before allocation.
+- Require the recorded run marker in a legacy candidate's commit subject before freezing it as recovered `delivery_sha`.
+- Preserve dirty or unverifiable worktrees for explicit recovery, revalidate tracked/untracked/ignored data plus exact HEAD/ref immediately before non-force release, atomically quarantine authenticated overlay roots instead of deleting mutable paths, durably disclose those safety archives, preserve advanced or borrowed branches, and report cleanup warnings honestly.
 - Return the authoritative post-action snapshot so a dropped WebSocket event cannot leave either card stale.
+- Key confirmation dialogs and success feedback to the exact generation, and make same-id/different-generation snapshot convergence monotonic across live events and hydration.
+- Keep blocked fresh-delivery discard semantics distinct from ownership-safe continuation local-result discard, including when a PR is already attached.
+- Preserve a dismissed continuation as strict historical PR authority for the next local-only iteration, while preventing newer overlapping ticket generations, stale refs, dirty retained worktrees, or fuzzy Jira matches from resurrecting an older PR.
 - Update the Safe PR lifecycle documentation and add backend/client regression coverage for repeated implementation and recovery corner cases.
 
 ## Capabilities

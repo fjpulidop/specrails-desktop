@@ -9,12 +9,23 @@
 
 ## The single source of truth
 
-`rail_pr_deliveries` (per-project `jobs.sqlite`, migrations 36/38/48–50; CRUD in
+`rail_pr_deliveries` (per-project `jobs.sqlite`, migrations 36/38/48–54; CRUD in
 `server/rail-pr-store.ts`) stores one durable **generation** per implementation launch. A partial
 unique index enforces one non-terminal generation per rail. Reimplementing an attached PR creates
-generation B and atomically moves generation A to terminal `superseded`; A can never reappear after
-B closes. `supersedes_delivery_id` preserves that lineage and `is_continuation` records that the
+generation B and atomically moves generation A to terminal `superseded`; A cannot reappear through
+ordinary replay after B closes. The sole exception is an allocation rollback committed in the same
+transaction: B becomes terminal and restored A carries `restored_from_delivery_id=B` as exact causal
+proof. `supersedes_delivery_id` preserves forward lineage and `is_continuation` records that the
 PR/head branch is borrowed review state rather than a resource this generation owns.
+
+Every projected snapshot also carries `createdAt`/`updatedAt`; claim, transition, release, recovery,
+and supersession writes advance the latter with a strictly monotonic millisecond UTC logical clock.
+Consumers replace a different generation only through an explicit supersedes link or a strictly
+later valid `createdAt`, and advance the same id only with newer update evidence under a deterministic fail-closed tie policy.
+Delivery ids already observed terminal or superseded are tombstoned against non-terminal replay.
+Only the exact paired rollback above may consume such a tombstone; a delayed predecessor without
+that durable proof remains rejected. Missing or ambiguous ordering evidence fails closed instead of
+letting arrival order resurrect an old card.
 
 The important rule is that no single enum carries all truth. The row has orthogonal axes:
 
@@ -27,6 +38,10 @@ The important rule is that no single enum carries all truth. The row has orthogo
   `merged`, `discarded`, `superseded`).
 - `status_code` + bounded `status_detail`: localized stage/reason and secondary diagnostics.
 - `delivery_sha`: the exact verified object used by an existing-PR push or retry.
+- `supersedes_delivery_id` / `restored_from_delivery_id`: forward replacement and exact failed-
+  replacement rollback lineage.
+- `safety_archives`: deduplicated roots for persistent overlay quarantine batches; shown as neutral recovery
+  evidence rather than cleanup failures.
 - `pr_state`: `none | local-only | pushed | pr-created`, independent of all three axes.
 
 `branches` is the durable per-unit record: ticket/run, branch, actual implementation result,
@@ -44,7 +59,10 @@ engine succeeded + no branch delta    → no_changes
 mixed clean units                     → on_review / partial (explicit subset)
 engine succeeded + commit/ref unsafe  → pr_failed / blocked (worktree preserved)
 verified existing-PR push failed      → pr_failed / retryable_failure (exact SHA retained)
-GitHub reports CLOSED, not merged      → pr_closed
+exact OPEN head/base contains SHA      → attached delivery verified
+exact CLOSED head/base contains SHA    → pr_closed
+exact MERGED in a decision action      → merged immediately (terminal)
+stale/retargeted/terminal missing SHA  → on_review, PR detached, SHA retained
 new generation replaces prior one     → prior generation superseded (terminal)
 fresh no-change accepted              → completed (terminal; no merge claimed)
 ```
@@ -54,10 +72,28 @@ truthfully with “delivery needs attention”. A fresh no-op never offers Creat
 no-op leaves the existing PR untouched. Partial cards name the included and failed units before
 delivery.
 
-Continuation cleanup is ownership-aware: **Dismiss** clears the follow-up card/worktree but never
+Continuation cleanup is ownership-aware: **Dismiss** clears the follow-up card/worktree when its
+final live preflight proves that removal is lossless, but never
 closes the pre-existing PR, deletes its head branch, or returns its tickets from review. A blocked
-dirty follow-up requires an explicit destructive “Discard local result” confirmation, while still
-preserving the external PR/branch. Fresh deliveries keep the full discard semantics.
+dirty follow-up requires an explicit “Discard local result” confirmation, while still preserving
+the external PR/branch. That confirmation terminalizes the workflow result; it does not authorize
+forced byte deletion. New tracked, untracked, or ignored files keep the worktree and its checked-out
+branch mounted with an actionable cleanup warning. Fresh deliveries keep the full PR/ticket discard
+semantics under the same lossless local preflight.
+
+When a terminal dashboard action removes the card while recovery data remains, the cleanup warning
+stays visible indefinitely with the retained location and a localized Copy recovery details action.
+Agent Chat keeps the same evidence in terminal history.
+
+A dismissed continuation remains a strict historical anchor for the next local-only iteration. With
+no active delivery, the resolver considers only the newest terminal generation that overlaps any
+requested ticket. Reuse requires that row itself to be a discarded continuation for the exact full
+ticket set, with one valid PR/head/base/SHA; GitHub must still report that exact PR `OPEN` at that SHA,
+every available ref must agree, and no prior worktree may remain mounted or unsettled. A newer subset,
+superset, fresh, malformed, merged, completed, or superseded generation shadows older history. Failed
+historical proof blocks Jira/PR heuristics instead of silently selecting a different review. The next
+generation stores the verified baseline SHA and terminal predecessor lineage before worktree
+allocation so a crash is retryable and same-timestamp clients still elect the replacement.
 
 Fresh no-change cards offer explicit **Mark done** and **Refine** outcomes. Mark done uses terminal
 `completed` and moves review tickets to Done without claiming a merge; Refine explicitly returns
@@ -74,13 +110,24 @@ actionable.
 - `prMode` is captured once. Admission is rechecked inside the per-repository allocation lock;
   two requests cannot both create a generation or reuse the ticket-keyed worktree.
 - A continuation supersedes its prior generation and creates the new `building` row in one DB
-  transaction. Allocation failure closes the new row and restores the prior generation atomically.
+  transaction. Allocation failure closes the new row and restores the prior generation atomically,
+  recording the failed replacement id so every client can safely undo its tombstone for that pair.
 - Isolation units remain `per-ticket` or one `all`-scope batch unit. Initial/final SHAs plus commit
   verification distinguish changed, resumed, and no-change results.
 - Per-unit settlement returns structured execution + delivery results. `onLoopRunFinished` receives
   the engine outcome only; commit/status/ref/provenance/push failures cannot rewrite it.
-- Clean, committed worktrees may be released. Dirty, unknown, or ref-mismatched worktrees become
-  `needs-review` and are never force-removed automatically. Push failure retains the exact SHA.
+- Clean, committed worktrees may be released only after a final live preflight proves tracked,
+  untracked, and ignored status (apart from durably recorded Specrails overlay paths), plus exact
+  worktree HEAD and branch ref. Authenticated overlay roots are atomically renamed to a unique
+  persistent same-filesystem quarantine batch and revalidated there; automatic cleanup never unlinks that
+  quarantine, so a raced replacement or open-descriptor write remains recoverable. The batch root is
+  persisted before the first move and pointers are never evicted while their bytes remain on disk. A recreated
+  original path makes final non-force removal fail closed. Each quarantine batch root is persisted and shown
+  in a collapsed card section without changing an otherwise successful delivery to
+  `cleanup_incomplete`. If a terminal dashboard action creates an archive, a persistent notification
+  exposes its exact paths and a Copy paths action before the card is removed. Dirty, unknown,
+  ignored-user-data, concurrent-write, or ref-
+  mismatched worktrees become retryable `needs-review`; push failure retains the exact SHA.
 - Project admission remains closed while startup reconciliation runs under the repo lock. Every
   stale `building` shape becomes actionable; successful interrupted work is preserved and labelled
   `settlement_interrupted`, while only all-failed runs become `implementation_failed`.
@@ -88,11 +135,19 @@ actionable.
   projection, marks the still-active delivery `operation_interrupted`, and leaves its durable SHA,
   PR and unit evidence intact so the user can safely retry.
 - Migrated successful `settlement_interrupted` rows with an existing PR are re-examined at startup.
-  One clean exact commit proven by their own run/worktree/branch ledger becomes `delivery_sha` and
-  a Retry push action. Terminal `released` and legacy `failed` ledgers may resolve only their exact
-  recorded PR branch; a still-existing worktree must also be clean with matching HEAD/ref.
-  `needs-review`, dirty, missing, mismatched or ambiguous evidence stays blocked, preserved, and
-  receives a specific recovery diagnostic on the card.
+  Every refs/reflogs or recorded-branch candidate must carry the unique `(run <id>)` settlement
+  marker in its **commit subject**; branch/worktree association or a marker found only in the body
+  is never causal proof. A terminal `released`/legacy `failed` branch tip is only a fallback under
+  that same subject rule. One unambiguous run-owned commit becomes `delivery_sha` and a Retry push action
+  when absent from the recorded open PR. If GitHub already exposes that exact causal commit, the
+  row is classified as delivered without a no-op push. Startup audits earlier legacy recoveries
+  that already reached draft/ready too, replacing a frozen old PR-head SHA with the run-owned
+  commit when needed. Existing-PR recovery repairs `is_continuation=true` before exposing actions;
+  per-unit `branchOwnership=borrowed-pr|preexisting` independently prevents branch deletion without
+  incorrectly making every fresh replacement PR a borrowed continuation.
+  Dirty, missing, mismatched, unmarked or ambiguous evidence stays blocked, preserved, and receives
+  a specific recovery diagnostic on the card. Once the exact causal SHA is proven, a transient
+  GitHub lookup instead stays retryable and Retry push revalidates before mutation.
 - `GET /rails` is hydration-only and never invokes crash recovery. This avoids misclassifying the
   normal live window between durable loop completion and commit/ref/push settlement.
 - Startup retries pending terminal ticket effects in-process and re-projects active and terminal
@@ -122,12 +177,17 @@ entries. Each allocated worktree therefore gets `applyWorktreeOverlay(...)` at l
   `worktrees/` entry are never linked (nested pipeline worktrees stay local). `.mcp.json`
   and the instruction file (CLAUDE.md/AGENTS.md/GEMINI.md per provider) are COPIED when
   the checkout lacks them. Windows: junction → dereferencing-copy fallback.
-- **Never on the PR**: every overlay-owned path lands in a worktree-local manifest
-  (`.sr-rail-overlay.json`, unioned across passes so a RESUMED worktree keeps prior
-  entries claimed) and is excluded from `commitWorktree`'s stage via `:(exclude)`
-  pathspecs. Excluded paths are untracked by construction, so no real work can be lost;
-  a no-op overlay keeps the byte-identical `git add -A`. Worktree removal (`git worktree
-  remove --force`) deletes the symlinks as entries without following them.
+- **Never on the PR**: every allocator-created overlay path is excluded from staging with a literal
+  top-level pathspec. The writable worktree manifest is not cleanup authority; settlement persists
+  fingerprints captured from the trusted source/created entries. Cleanup atomically renames each
+  authenticated root into a unique sibling quarantine, revalidates it after the move, discloses
+  raced content there, and never deletes or restores quarantined paths automatically over a
+  possibly recreated source. A modified or
+  concurrently extended overlay is preserved as user data, while a no-op
+  overlay keeps the byte-identical ordinary staging behavior.
+  Successful quarantine batches deliberately remain beside the former worktree; automatic GC is
+  out of scope because deleting a path still writable through an open descriptor would reintroduce
+  the data-loss race. A future cleanup flow must be explicit and inspectable.
 - **Degrade, don't abort**: entry-level failures produce `warnings` — surfaced as a
   server log line plus the project-scoped `rail.overlay_degraded` WS event — and the
   spawn proceeds (a partial surface beats an aborted rail). `applyWorktreeOverlay` never
@@ -159,6 +219,17 @@ same repository lock as recovery, launch allocation and checkout, revalidates it
 after waiting for that lock, and uses bounded Git/GitHub command timeouts so a wedged child cannot
 block the repository forever.
 
+Every path that observes an attached PR—continuation admission, Retry push, post-push
+verification, Verify PR/poll, and Reopen—uses the same causal check: recorded PR identity, exact
+head/base, lifecycle, and inclusion of immutable `delivery_sha`. Admission is read-only and accepts
+only exact `OPEN` evidence; otherwise it refuses the launch without superseding the preserved card.
+Exact `MERGED` evidence containing that SHA terminalizes immediately in a Retry/Reopen/Verify
+decision action. A definitively stale/retargeted PR, or a `CLOSED`/`MERGED` PR without that SHA, is
+detached by that action to `on_review` with the SHA and local branch preserved for a new PR.
+Transient observation failure keeps the evidence and fails retryably.
+Initial settlement records exact post-push `CLOSED` as `pr_closed`; exact post-push `MERGED` stays
+attached and ready for Verify so that explicit decision can commit terminal ticket intent atomically.
+
 - **create-pr** — deferred `deliverRailAsPr` (`server/rail-pr-delivery.ts`: 1 unit → its
   branch; N → assembled onto the conventional batch branch off the integration branch, one PR
   covering every ticket). The PR **title and canonical body are composed here** (see "Branch
@@ -173,25 +244,34 @@ block the repository forever.
   labelled retryable. Tickets stay `on_review`.
 - **publish** — `gh pr ready <url>` → `pr_ready` (the draft opens for the team's normal review).
   Requires a real `pr_url`.
-- **discard** — for a fresh delivery, best-effort `gh pr close <url> --delete-branch`; remove the launch's worktrees
+- **discard** — for a fresh delivery, best-effort `gh pr close <url>` without unleased remote-head
+  deletion; remove the launch's worktrees
   (ledger rows closed as `failed`); delete only branches durably recorded as created by this
-  delivery (owned per-unit sources plus its exact assembled head; preferred names are never
+  delivery only while each live local tip still equals its frozen SHA (owned per-unit sources plus
+  its exact assembled head; advanced or remote heads are preserved, preferred names are never
   recomputed, and the integration branch is NEVER deleted); → `discarded`; revert
   still-`on_review` tickets → `todo` (a manually re-triaged spec is respected) + Jira
   `onRailDiscard`. Failures are retained in `cleanup_warnings` and disclosed. For a continuation,
   discard can remove only the explicitly confirmed blocked local iteration: it preserves the
-  borrowed PR/head and review ticket state. A recovered blocked legacy row with a PR URL receives
-  the same protection even when its old schema could not retain the continuation marker.
+  borrowed PR/head and review ticket state. Startup repairs migrated continuation ownership before
+  exposing actions, and per-unit `borrowed-pr` evidence independently keeps stale surfaces safe.
 - **dismiss** — continuation acknowledgement. Clears the generation and owned clean
   worktree while preserving the existing PR, head branch and `on_review` tickets.
 - **acknowledge-no-changes** — fresh no-change acceptance → terminal `completed`, tickets Done,
   with no PR/merge claim. Jira receives its own no-PR completion comment. Refine remains the
   explicitly backlog-returning path and always uses Jira `todo`; it never inherits the configured
   discard/cancellation status.
-- **poll-merge** — observes state, exact head/base/head OID, merge commit and PR commit set;
-  `MERGED` becomes `merged` only when that immutable evidence contains `delivery_sha`, then tickets
-  → `done` + Jira `onRailMerged`. `OPEN` is observation-only; `CLOSED` without merge → `pr_closed`.
-- **reopen** — `gh pr reopen` from `pr_closed`, returning to draft or ready according to GitHub.
+- **poll-merge / Verify PR** — observes state, exact head/base/head OID, merge commit and PR commit
+  set. `OPEN` remains delivery-verified only while its exact head is `delivery_sha`; a missing
+  remote commit restores Retry push instead of merely saying “not merged”. `MERGED` becomes
+  `merged` immediately when immutable evidence contains `delivery_sha`, then tickets → `done` + Jira
+  `onRailMerged`. Exact `CLOSED` containing the SHA → `pr_closed`; missing-SHA terminal evidence
+  detaches to `on_review`. Successful retry/check responses carry the verified SHA, remote head and
+  whether a push actually ran for immediate user feedback.
+- **reopen** — before and after `gh pr reopen`, revalidates exact PR/head/base and inclusion of
+  `delivery_sha`; mismatch or missing-SHA evidence detaches to `on_review` instead of retaining or
+  reopening the stale attachment. A valid reopen returns to draft or ready according to GitHub;
+  an exact merge racing the action terminalizes, while an exact still-closed result reports failure.
 - **merge-local** — builds the complete merge in an isolated temporary checkout and advances the
   user's revalidated clean base only after all branches succeed.
 
@@ -257,32 +337,52 @@ the `expectedDecision` they rendered.
   one-shot `rail.pr_delivered`): broadcast at row INSERT (`building`), build-settle, and every
   decision mutation. **`GET /rails`** returns `prDeliveries: Record<railIndex, snapshot>`
   (newest non-terminal row per slot) for late-join hydration.
+- **Monotonic generation arbitration.** Dashboard and Agent Chat retain terminal/superseded id
+  tombstones, accept a different id only through explicit lineage, strictly later `createdAt`, or
+  the exact `A.restoredFromDeliveryId=B` rollback after B terminalizes, and advance the same id only
+  through newer `updatedAt` evidence. A delayed A snapshot without that paired proof cannot replace
+  B, and a non-terminal replay cannot ordinarily reopen an id already observed terminal.
 - **Option A — dashboard.** `client/src/context/RailPrDecisionContext.tsx` (registerHandler on
   the shared socket + `GET /rails` seed) feeds `RailPrDecisionStrip` on `RailRow` (both density
   branches): on_review → Create PR / Discard; pr_draft → Open PR + Publish / Discard (degraded →
-  retry); pr_ready → Check merge; no_changes → Done/refine; pr_closed → Reopen; pr_failed derives
+  retry); pr_ready → Verify PR; no_changes → Done/refine; pr_closed → Reopen; pr_failed derives
   retry-vs-blocked actions from `delivery_outcome`. Logs remain available after settle. Buttons
   disable in flight and apply the authoritative HTTP snapshot immediately.
 - **Option B — agent chat.** When the row carries `origin_conversation_id`, settle posts a
   **persisted inline card**: a `'system'`-role `agent_messages` row (role is unconstrained TEXT —
   no migration; TS unions widened) whose content is the `PrDecisionCardEnvelope` JSON.
-  `AgentChatManager.postPrDecisionCard` / `updatePrDecisionCard` (update-in-place on every
-  transition, so cold-load shows terminal states correctly) are reached from rails code via the
+  `AgentChatManager.postPrDecisionCard` / `updatePrDecisionCard` (idempotent update-in-place on
+  every transition, transactionally consolidating legacy duplicate rows by delivery id) are reached via the
   process-wide `server/agent-chat-registry.ts` singleton (null-safe: tests/disabled builds).
   Live updates ride the app-global `agent_pr_decision` WS event; the client renders
-  `AgentPrDecisionCard` and POSTs the same project-scoped `/rails/pr-decision`.
-- **Race:** a stale generation or occupied operation lease returns 409 before effects. Clients
+  `AgentPrDecisionCard` and POSTs the same project-scoped `/rails/pr-decision`. Client hydration,
+  WS upsert and rendering also dedupe by delivery id, so stale blocked and current ready cards can
+  never expose two contradictory Checkout/Discard action sets.
+- **Race / hydration ABA guard:** a stale generation or occupied operation lease returns 409 before effects. Clients
   distinguish `operation_in_progress` from a stale decision, show the active operation, disable
   actions, apply the response snapshot, ignore terminal events for an older delivery id, and
-  hydrate again on focus/reconnect.
+  hydrate again on focus/reconnect. Each dashboard GET captures accepted per-rail mutation versions;
+  a live replacement or terminal deletion wins over its stale seed. Only accepted snapshots advance
+  that guard, so an ignored terminal for old A cannot make the same GET drop valid B.
+  Confirmation dialogs are bound to the exact delivery id/decision that opened them and disappear
+  when that generation changes; Checkout carries the same exact id through client and server, and
+  a rejected stale action never mutates or produces a success toast for B.
 
 ## Relaunch guard
 
 `POST /rails/:i/launch` returns **409 `{ error: 'pr_decision_pending', prDeliveryId }`** for an
 unresolved fresh delivery. An active `pr_draft`/`pr_ready` generation covering the same tickets is
-a verified continuation contract instead: launch revalidates it again under the repo lock,
-supersedes it atomically and runs only on that PR head. A stale concurrent request receives 409
-before it can allocate or claim anything. Legacy / non-isolated launches are unaffected.
+a continuation contract only after exact `OPEN` identity, head/base, and `delivery_sha` evidence is
+revalidated again under the repo lock, and its allocated worktree/local ref both equal that frozen
+SHA. External PR discovery requires an explicit PR number or authoritative Jira key; the list match
+is only discovery, and an exact authoritative PR view must freeze its live `headRefOid` before local
+allocation. Local ticket numbers, title similarity, and unrelated `Fixes #<id>` text are not
+authority. Any other evidence refuses admission and preserves
+the existing card for Retry push or Verify PR; those decision actions terminalize exact `MERGED`
+evidence or detach stale/missing-SHA terminal evidence to `on_review`. Only a verified continuation
+is superseded atomically and run on that PR head. A stale
+concurrent request receives 409 before it can allocate or claim anything. Legacy / non-isolated
+launches are unaffected.
 
 ## Ticket lifecycle — `on_review`
 
@@ -407,14 +507,24 @@ the launch INSERT. As-built:
 - **D11 — premium decision UI**: disable-on-click reconciled to authoritative snapshots, tooltips
   (base branch, PR url), designed degraded/failed states, distinct stale-vs-operation-busy 409 UX;
   English source strings, all 8 locales, locale-parity green.
-- **D12 — no automatic data loss**: dirty, unknown and ref-mismatched worktrees are
-  `needs-review`; only explicit consequence-specific cleanup may force-remove them.
+- **D12 — no automatic data loss**: live tracked/untracked/ignored state, HEAD, and branch ref are
+  revalidated before non-force automatic release; overlay roots are atomically moved into persistent
+  quarantine rather than unlinked; dirty, concurrent, unknown, user-ignored, ref-
+  mismatched, or advanced worktrees/branches are preserved.
 - **D13 — one active generation**: migration 48 supersedes historical duplicates and a partial
-  unique index enforces one active row per rail.
+  unique index enforces one active row per rail; snapshot consumers enforce lineage with
+  `createdAt`, same-id order with `updatedAt`, terminal/superseded tombstones, exact-generation
+  confirmations, an accepted-mutation ABA guard, and one exact failed-replacement rollback proof.
 - **D14 — operation lease before effects**: a decision claims before Git/GitHub/ticket work;
   the loser has no external side effects and HTTP returns the authoritative snapshot.
-- **D15 — exact/idempotent delivery**: continuation retry pushes `delivery_sha`; ambiguous PR
-  creation resolves exact open head/base identity; CLOSED is distinct and reopenable.
+- **D15 — exact/idempotent delivery**: continuation retry pushes `delivery_sha`; admission,
+  retry/post-push, poll and reopen all validate exact PR/head/base plus SHA inclusion. Admission is
+  read-only and refuses non-exact continuations; inferred external PRs freeze the authoritative live
+  head before worktree allocation, post-run verification permits only a matched HEAD/ref advance,
+  and pre-push settlement freezes the new exact SHA. Decision actions terminalize exact MERGED evidence
+  or detach stale/retargeted/terminal-without-SHA attachments to `on_review` with the SHA preserved.
+  Legacy recovery accepts only a unique run marker in the commit
+  subject. Ambiguous PR creation resolves exact open head/base identity.
 - **D16 — crash recovery before admission**: startup preserves successful interrupted work and
   makes every stale `building` generation actionable before another launch can reuse its path.
 - **D17 — ownership-aware continuation cleanup**: dismiss/discard never closes or deletes the
