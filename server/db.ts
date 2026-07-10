@@ -118,6 +118,76 @@ export interface ListJobsOpts {
 
 type Migration = (db: DbInstance) => void
 
+/** Backfill only terminal Safe-PR rows whose ticket ownership is unambiguous.
+ * Eligibility is intentionally deferred to the outbox drainer, which freezes
+ * only candidates still parked at on_review in the external ticket JSON. */
+function backfillTerminalRailPrTicketEffects(db: DbInstance): void {
+  const terminalRows = db.prepare(`
+    SELECT id, ticket_ids, run_ids, decision, is_continuation,
+           supersedes_delivery_id, pr_url
+      FROM rail_pr_deliveries
+     WHERE decision = 'merged'
+        OR (decision = 'discarded' AND is_continuation = 0
+            AND supersedes_delivery_id IS NULL AND pr_url IS NULL)
+  `).all() as Array<{
+    id: string
+    ticket_ids: string
+    run_ids: string
+    decision: 'merged' | 'discarded'
+    is_continuation: number
+    supersedes_delivery_id: string | null
+    pr_url: string | null
+  }>
+  const insertEffect = db.prepare(`
+    INSERT OR IGNORE INTO rail_pr_ticket_effects (
+      delivery_id, ticket_ids, causal_owners, target_status, jira_action, pr_url
+    ) VALUES (?, ?, ?, ?, ?, ?)
+  `)
+  const currentOwner = db.prepare(`
+    SELECT owner_id FROM ticket_outcome_ownership WHERE ticket_id = ?
+  `)
+  for (const row of terminalRows) {
+    let ticketIds: number[] = []
+    let runIds: string[] = []
+    try {
+      const parsed = JSON.parse(row.ticket_ids) as unknown
+      if (Array.isArray(parsed)) {
+        ticketIds = [...new Set(
+          parsed.filter((id): id is number => Number.isSafeInteger(id) && id > 0),
+        )]
+      }
+    } catch { /* malformed historical evidence is not safe to act on */ }
+    try {
+      const parsed = JSON.parse(row.run_ids) as unknown
+      if (Array.isArray(parsed)) {
+        runIds = [...new Set(parsed.filter((id): id is string => typeof id === 'string' && id.length > 0))]
+      }
+    } catch { /* absent causal evidence means the historical effect is unsafe */ }
+    if (ticketIds.length === 0 || runIds.length === 0) continue
+
+    const allowedOwners = new Set(runIds)
+    const causalOwners: Record<string, string> = {}
+    ticketIds = ticketIds.filter((ticketId) => {
+      const owner = currentOwner.get(ticketId) as { owner_id: string } | undefined
+      if (!owner || !allowedOwners.has(owner.owner_id)) return false
+      causalOwners[String(ticketId)] = owner.owner_id
+      return true
+    })
+    if (ticketIds.length === 0) continue
+    const merged = row.decision === 'merged'
+    insertEffect.run(
+      row.id,
+      JSON.stringify(ticketIds),
+      JSON.stringify(causalOwners),
+      merged ? 'done' : 'todo',
+      // A v49 fresh discard has lost whether it meant Refine or a real
+      // discard. Recover the backlog status without inventing either cause.
+      merged ? 'merged' : 'backlog',
+      merged ? row.pr_url : null,
+    )
+  }
+}
+
 const MIGRATIONS: Migration[] = [
   // Migration 1: initial schema
   (db) => {
@@ -1147,6 +1217,333 @@ const MIGRATIONS: Migration[] = [
   // the queue is fail-stopped during startup.
   (db) => {
     db.exec(`CREATE INDEX IF NOT EXISTS idx_events_job_seq ON events(job_id, seq)`)
+  },
+
+  // Migration 48: truthful Safe-PR settlement. Execution truth, delivery
+  // readiness, continuation ownership and decision-operation ownership are
+  // independent durable facts; the old decision/pr_state pair cannot explain
+  // a successful run whose commit/ref/push later failed. Before enforcing the
+  // intended one-active-generation-per-rail invariant, terminalize historical
+  // duplicate rows deterministically (newest rowid wins) so an older iteration
+  // can never resurface after the current one closes.
+  (db) => {
+    const cols = new Set(
+      (db.prepare(`PRAGMA table_info(rail_pr_deliveries)`).all() as { name: string }[])
+        .map((row) => row.name),
+    )
+    const add = (name: string, ddl: string): void => {
+      if (!cols.has(name)) db.exec(`ALTER TABLE rail_pr_deliveries ADD COLUMN ${ddl}`)
+    }
+    add('implementation_outcome', `implementation_outcome TEXT NOT NULL DEFAULT 'unknown'`)
+    add('delivery_outcome', `delivery_outcome TEXT NOT NULL DEFAULT 'unknown'`)
+    add('status_code', `status_code TEXT`)
+    add('status_detail', `status_detail TEXT`)
+    add('delivery_sha', `delivery_sha TEXT`)
+    add('is_continuation', `is_continuation INTEGER NOT NULL DEFAULT 0 CHECK (is_continuation IN (0, 1))`)
+    add('supersedes_delivery_id', `supersedes_delivery_id TEXT`)
+    add('operation', `operation TEXT`)
+    add('operation_token', `operation_token TEXT`)
+    add('operation_started_at_ms', `operation_started_at_ms INTEGER`)
+    add('cleanup_warnings', `cleanup_warnings TEXT NOT NULL DEFAULT '[]'`)
+
+    db.exec(`
+      UPDATE rail_pr_deliveries
+         SET implementation_outcome = CASE decision
+           WHEN 'building' THEN 'running'
+           WHEN 'implementation_failed' THEN 'failed'
+           WHEN 'on_review' THEN 'succeeded'
+           WHEN 'pr_draft' THEN 'succeeded'
+           WHEN 'pr_ready' THEN 'succeeded'
+           WHEN 'pr_failed' THEN 'succeeded'
+           WHEN 'merged' THEN 'succeeded'
+           ELSE implementation_outcome
+         END
+       WHERE implementation_outcome = 'unknown';
+
+      UPDATE rail_pr_deliveries
+         SET delivery_outcome = CASE decision
+           WHEN 'building' THEN 'pending'
+           WHEN 'implementation_failed' THEN 'not_started'
+           WHEN 'on_review' THEN 'ready'
+           WHEN 'pr_draft' THEN 'delivered'
+           WHEN 'pr_ready' THEN 'delivered'
+           WHEN 'pr_failed' THEN 'retryable_failure'
+           WHEN 'merged' THEN 'delivered'
+           ELSE delivery_outcome
+         END
+       WHERE delivery_outcome = 'unknown';
+
+      UPDATE rail_pr_deliveries
+         SET status_code = CASE decision
+           WHEN 'building' THEN 'implementation_running'
+           WHEN 'implementation_failed' THEN 'implementation_failed'
+           WHEN 'on_review' THEN 'ready_for_review'
+           WHEN 'pr_draft' THEN 'pr_draft_ready'
+           WHEN 'pr_ready' THEN 'pr_ready'
+           WHEN 'pr_failed' THEN 'delivery_failed'
+           WHEN 'merged' THEN 'merged'
+           ELSE status_code
+         END
+       WHERE status_code IS NULL;
+
+      UPDATE rail_pr_deliveries
+         SET decision = 'superseded',
+             status_code = 'superseded',
+             updated_at = datetime('now')
+       WHERE decision NOT IN ('merged', 'discarded', 'superseded')
+         AND rowid NOT IN (
+           SELECT MAX(rowid)
+             FROM rail_pr_deliveries
+            WHERE decision NOT IN ('merged', 'discarded', 'superseded')
+            GROUP BY rail_index
+         );
+
+      CREATE UNIQUE INDEX IF NOT EXISTS idx_rail_pr_deliveries_one_active_per_rail
+        ON rail_pr_deliveries(rail_index)
+        WHERE decision NOT IN ('merged', 'discarded', 'superseded');
+    `)
+  },
+
+  // Migration 49: repair the exact legacy false-failure shape that motivated
+  // the orthogonal lifecycle. Older settlement code could write
+  // decision='implementation_failed' after every loop had durably succeeded,
+  // solely because commit/ref delivery failed. Reclassify only rows whose full
+  // run set is present and terminal; ambiguous rows remain conservative. This
+  // migration also makes truthful no-change acknowledgement (`completed`) a
+  // terminal generation for the one-active-per-rail invariant.
+  (db) => {
+    const legacyRows = db.prepare(`
+      SELECT id, run_ids, branches
+        FROM rail_pr_deliveries
+       WHERE decision = 'implementation_failed'
+    `).all() as Array<{ id: string; run_ids: string; branches: string }>
+
+    const update = db.prepare(`
+      UPDATE rail_pr_deliveries
+         SET decision = 'pr_failed',
+             implementation_outcome = ?,
+             delivery_outcome = 'blocked',
+             status_code = 'settlement_interrupted',
+             status_detail = ?,
+             branches = ?,
+             updated_at = datetime('now')
+       WHERE id = ? AND decision = 'implementation_failed'
+    `)
+
+    for (const row of legacyRows) {
+      let runIds: string[] = []
+      try {
+        const parsed = JSON.parse(row.run_ids) as unknown
+        if (Array.isArray(parsed)) {
+          runIds = [...new Set(parsed.filter((value): value is string => typeof value === 'string' && value.length > 0))]
+        }
+      } catch { /* malformed legacy evidence stays conservative */ }
+      if (runIds.length === 0) continue
+
+      const placeholders = runIds.map(() => '?').join(',')
+      const runs = db.prepare(`
+        SELECT id, status, final_outcome
+          FROM loop_runs
+         WHERE id IN (${placeholders})
+      `).all(...runIds) as Array<{ id: string; status: string; final_outcome: string | null }>
+      if (runs.length !== runIds.length || runs.some((run) => run.status !== 'completed')) continue
+      const outcomes = new Map(runs.map((run) => [run.id, run.final_outcome]))
+      const succeeded = runIds.filter((runId) => outcomes.get(runId) === 'success').length
+      if (succeeded === 0) continue
+
+      let branches: unknown[] = []
+      try {
+        const parsed = JSON.parse(row.branches) as unknown
+        if (Array.isArray(parsed)) branches = parsed
+      } catch { /* retain an empty evidence set rather than malformed JSON */ }
+      const repairedBranches = branches.map((value, index) => {
+        if (!value || typeof value !== 'object') return value
+        const unit = value as Record<string, unknown>
+        const runId = runIds[index]
+        const implementationSucceeded = runId ? outcomes.get(runId) === 'success' : succeeded === runIds.length
+        return {
+          ...unit,
+          ...(runId ? { runId } : {}),
+          implementationOutcome: implementationSucceeded ? 'succeeded' : 'failed',
+          deliveryOutcome: implementationSucceeded ? 'blocked' : 'not_started',
+          ...(implementationSucceeded ? { failureCode: 'settlement_interrupted' } : {}),
+        }
+      })
+      update.run(
+        succeeded === runIds.length ? 'succeeded' : 'partially_succeeded',
+        'Recovered the successful implementation result from durable run logs; legacy delivery settlement was interrupted.',
+        JSON.stringify(repairedBranches),
+        row.id,
+      )
+    }
+
+    db.exec(`
+      DROP INDEX IF EXISTS idx_rail_pr_deliveries_one_active_per_rail;
+      CREATE UNIQUE INDEX idx_rail_pr_deliveries_one_active_per_rail
+        ON rail_pr_deliveries(rail_index)
+        WHERE decision NOT IN ('completed', 'merged', 'discarded', 'superseded');
+    `)
+  },
+
+  // Migration 50: terminal Safe-PR decisions and their ticket-file mutation
+  // cross SQLite/JSON boundaries. Persist an idempotent outbox row in the same
+  // transaction as the terminal decision so a crash can never leave tickets
+  // parked on_review with no legal action left to replay.
+  (db) => {
+    db.exec(`
+      CREATE TABLE IF NOT EXISTS rail_pr_ticket_effects (
+        delivery_id        TEXT PRIMARY KEY,
+        ticket_ids         TEXT NOT NULL,
+        causal_owners      TEXT NOT NULL DEFAULT '{}',
+        applied_ticket_ids TEXT,
+        target_status      TEXT NOT NULL CHECK (target_status IN ('todo', 'done')),
+        jira_action        TEXT NOT NULL CHECK (jira_action IN ('discard', 'merged', 'completed', 'refine', 'backlog')),
+        pr_url             TEXT,
+        attempts           INTEGER NOT NULL DEFAULT 0,
+        last_error         TEXT,
+        tickets_applied_at TEXT,
+        jira_enqueued_at   TEXT,
+        completed_at       TEXT,
+        created_at         TEXT NOT NULL DEFAULT (datetime('now')),
+        updated_at         TEXT NOT NULL DEFAULT (datetime('now'))
+      );
+      CREATE INDEX IF NOT EXISTS idx_rail_pr_ticket_effects_pending
+        ON rail_pr_ticket_effects(completed_at)
+        WHERE completed_at IS NULL;
+    `)
+
+    // Keep the migration restart-safe for development DBs that may have run an
+    // earlier migration-50 draft before these phase columns were added. Shipped
+    // migrations remain atomic, but additive guards make local upgrade testing
+    // deterministic as well.
+    const effectCols = new Set(
+      (db.prepare(`PRAGMA table_info(rail_pr_ticket_effects)`).all() as { name: string }[])
+        .map((row) => row.name),
+    )
+    if (!effectCols.has('applied_ticket_ids')) {
+      db.exec(`ALTER TABLE rail_pr_ticket_effects ADD COLUMN applied_ticket_ids TEXT`)
+    }
+    if (!effectCols.has('tickets_applied_at')) {
+      db.exec(`ALTER TABLE rail_pr_ticket_effects ADD COLUMN tickets_applied_at TEXT`)
+    }
+    if (!effectCols.has('jira_enqueued_at')) {
+      db.exec(`ALTER TABLE rail_pr_ticket_effects ADD COLUMN jira_enqueued_at TEXT`)
+    }
+    if (!effectCols.has('causal_owners')) {
+      db.exec(`ALTER TABLE rail_pr_ticket_effects ADD COLUMN causal_owners TEXT NOT NULL DEFAULT '{}'`)
+    }
+  },
+
+  // Migration 51: a development build briefly shipped migration 50 without
+  // phase columns and with a CHECK that allowed only discard/merged. A DB that
+  // already records version 50 will never rerun its edited body, so rebuild the
+  // table once, preserve every row, and install the complete action contract.
+  // Migration 52 owns the causal historical backfill after both schemas exist.
+  (db) => {
+    const table = db.prepare(`
+      SELECT sql FROM sqlite_master
+       WHERE type = 'table' AND name = 'rail_pr_ticket_effects'
+    `).get() as { sql: string | null } | undefined
+
+    const createFullTable = (name: string): void => {
+      db.exec(`
+        CREATE TABLE ${name} (
+          delivery_id        TEXT PRIMARY KEY,
+          ticket_ids         TEXT NOT NULL,
+          causal_owners      TEXT NOT NULL DEFAULT '{}',
+          applied_ticket_ids TEXT,
+          target_status      TEXT NOT NULL CHECK (target_status IN ('todo', 'done')),
+          jira_action        TEXT NOT NULL CHECK (jira_action IN ('discard', 'merged', 'completed', 'refine', 'backlog')),
+          pr_url             TEXT,
+          attempts           INTEGER NOT NULL DEFAULT 0,
+          last_error         TEXT,
+          tickets_applied_at TEXT,
+          jira_enqueued_at   TEXT,
+          completed_at       TEXT,
+          created_at         TEXT NOT NULL DEFAULT (datetime('now')),
+          updated_at         TEXT NOT NULL DEFAULT (datetime('now'))
+        )
+      `)
+    }
+
+    if (!table) {
+      createFullTable('rail_pr_ticket_effects')
+    } else {
+      const cols = new Set(
+        (db.prepare(`PRAGMA table_info(rail_pr_ticket_effects)`).all() as { name: string }[])
+          .map((row) => row.name),
+      )
+      const sql = table.sql ?? ''
+      const complete = ['causal_owners', 'applied_ticket_ids', 'tickets_applied_at', 'jira_enqueued_at']
+        .every((column) => cols.has(column)) &&
+        ['completed', 'refine', 'backlog'].every((action) => sql.includes(`'${action}'`))
+
+      if (!complete) {
+        db.exec(`DROP TABLE IF EXISTS rail_pr_ticket_effects_v51`)
+        createFullTable('rail_pr_ticket_effects_v51')
+        const value = (column: string, fallback: string): string => cols.has(column) ? column : fallback
+        db.exec(`
+          INSERT INTO rail_pr_ticket_effects_v51 (
+            delivery_id, ticket_ids, causal_owners, applied_ticket_ids, target_status,
+            jira_action, pr_url, attempts, last_error, tickets_applied_at,
+            jira_enqueued_at, completed_at, created_at, updated_at
+          )
+          SELECT
+            ${value('delivery_id', "''")},
+            ${value('ticket_ids', "'[]'")},
+            ${value('causal_owners', "'{}'")},
+            ${value('applied_ticket_ids', 'NULL')},
+            ${value('target_status', "'todo'")},
+            ${value('jira_action', "'backlog'")},
+            ${value('pr_url', 'NULL')},
+            ${value('attempts', '0')},
+            ${value('last_error', 'NULL')},
+            ${value('tickets_applied_at', 'NULL')},
+            ${value('jira_enqueued_at', 'NULL')},
+            ${value('completed_at', 'NULL')},
+            ${value('created_at', "datetime('now')")},
+            ${value('updated_at', "datetime('now')")}
+          FROM rail_pr_ticket_effects;
+
+          DROP TABLE rail_pr_ticket_effects;
+          ALTER TABLE rail_pr_ticket_effects_v51 RENAME TO rail_pr_ticket_effects;
+        `)
+      }
+    }
+
+    db.exec(`
+      CREATE INDEX IF NOT EXISTS idx_rail_pr_ticket_effects_pending
+        ON rail_pr_ticket_effects(completed_at)
+        WHERE completed_at IS NULL
+    `)
+  },
+
+  // Migration 52: bind every ticket effect to the SQLite ticket-generation
+  // owner that created it. Historical terminal rows are backfilled only when
+  // their run_ids still own the ticket; an old merge/discard can therefore
+  // never mutate a newer iteration merely because it is also on_review.
+  (db) => {
+    // Some development builds recorded migration 45 before its ownership
+    // table was added. Repair that incomplete historical shape before the
+    // causal backfill so one damaged project DB cannot prevent app startup.
+    db.exec(`
+      CREATE TABLE IF NOT EXISTS ticket_outcome_ownership (
+        ticket_id   INTEGER PRIMARY KEY,
+        owner_id    TEXT NOT NULL,
+        generation  INTEGER NOT NULL DEFAULT 1,
+        claimed_at  TEXT NOT NULL DEFAULT (datetime('now'))
+      );
+      CREATE INDEX IF NOT EXISTS idx_ticket_outcome_owner
+        ON ticket_outcome_ownership(owner_id);
+    `)
+    const cols = new Set(
+      (db.prepare(`PRAGMA table_info(rail_pr_ticket_effects)`).all() as { name: string }[])
+        .map((row) => row.name),
+    )
+    if (!cols.has('causal_owners')) {
+      db.exec(`ALTER TABLE rail_pr_ticket_effects ADD COLUMN causal_owners TEXT NOT NULL DEFAULT '{}'`)
+    }
+    backfillTerminalRailPrTicketEffects(db)
   },
 ]
 

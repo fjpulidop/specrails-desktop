@@ -10,6 +10,7 @@ import { createLoop, publishLoop } from './loops-store'
 import { createLoopRun } from './loop-runs-store'
 import { createPrDelivery, getActivePrDeliveryByRail, getPrDelivery, transitionDecision, type CreatePrDeliveryInput } from './rail-pr-store'
 import type { LoopGraph } from './loop-graph'
+import { beginProjectProcessQuiescence, openProjectProcessAdmission } from './process-admission'
 
 const { mockExecRun, mockRepoStatus, mockLaunchIsolated, mockCommitWorktreeAndVerify } = vi.hoisted(() => ({
   mockExecRun: vi.fn(),
@@ -799,6 +800,7 @@ describe('rails-router POST /:railIndex/launch — ask-first PR delivery (safe-p
     delete process.env.SPECRAILS_RAIL_DELIVER_PR // default-on
   })
   afterEach(() => {
+    openProjectProcessAdmission('p1')
     db.close(); desktopDb.close()
     if (ORIG_PR === undefined) delete process.env.SPECRAILS_RAIL_DELIVER_PR
     else process.env.SPECRAILS_RAIL_DELIVER_PR = ORIG_PR
@@ -818,6 +820,17 @@ describe('rails-router POST /:railIndex/launch — ask-first PR delivery (safe-p
       getTicketSpec: () => ({ title: 'T', description: 'D' }),
       ...opts,
     })
+
+  it('rejects launch admission while startup recovery still owns the project', async () => {
+    beginProjectProcessQuiescence('p1')
+
+    const res = await request(launchApp()).post('/rails/0/launch').send({ loopId: 'factory:implement' })
+
+    expect(res.status).toBe(409)
+    expect(res.body).toEqual({ error: 'project_recovery_in_progress' })
+    expect(mockLaunchIsolated).not.toHaveBeenCalled()
+    expect(mockRepoStatus).not.toHaveBeenCalled()
+  })
 
   it('409 pr_decision_pending when the slot has an unresolved delivery (before any git probe)', async () => {
     const row = mkDelivery()
@@ -853,11 +866,13 @@ describe('rails-router POST /:railIndex/launch — ask-first PR delivery (safe-p
     expect(res.body).toMatchObject({ loopRunIds: ['run-cont'], isolated: true })
     expect(mockLaunchIsolated).toHaveBeenCalledTimes(1)
     expect(mockLaunchIsolated).toHaveBeenCalledWith(expect.objectContaining({
-      requiredPrContinuation: {
+      requiredPrContinuation: expect.objectContaining({
+        deliveryId: row.id,
+        decision: 'pr_ready',
         branch: 'feat/open-pr',
         prUrl: 'https://github.com/o/r/pull/521',
         prNumber: 521,
-      },
+      }),
     }))
   })
 
@@ -874,6 +889,29 @@ describe('rails-router POST /:railIndex/launch — ask-first PR delivery (safe-p
       prState: 'pr-created',
     })
     transitionDecision(db, row.id, 'pr_draft', 'pr_ready')
+
+    const res = await request(launchApp()).post('/rails/0/launch').send({ loopId: 'factory:implement' })
+
+    expect(res.status).toBe(409)
+    expect(res.body).toEqual({ error: 'pr_decision_pending', prDeliveryId: row.id })
+    expect(mockLaunchIsolated).not.toHaveBeenCalled()
+    expect(mockRepoStatus).not.toHaveBeenCalled()
+  })
+
+  it('does not orphan omitted tickets by continuing only a subset of an active PR delivery', async () => {
+    const row = mkDelivery({ ticketIds: [1, 2] })
+    transitionDecision(db, row.id, 'building', 'on_review', {
+      branches: [
+        { ticketId: 1, branch: 'feat/shared-pr', succeeded: true },
+        { ticketId: 2, branch: 'feat/shared-pr', succeeded: true },
+      ],
+      worktreeIds: [],
+    })
+    transitionDecision(db, row.id, 'on_review', 'pr_draft', {
+      branch: 'feat/shared-pr', prUrl: 'https://github.com/o/r/pull/523',
+      prNumber: 523, prState: 'pr-created',
+    })
+    setRailTickets(db, 0, [1], 'loop')
 
     const res = await request(launchApp()).post('/rails/0/launch').send({ loopId: 'factory:implement' })
 
@@ -1195,6 +1233,7 @@ describe('rails-router GET / — prDeliveries enrichment (ask-first PR decisions
 
   it('keeps the NEWEST active delivery when a slot has several rows', async () => {
     mk('older', 0)
+    transitionDecision(db, 'older', 'building', 'superseded')
     mk('newer', 0)
     const res = await request(appWith(db)).get('/rails')
     expect(res.body.prDeliveries['0'].id).toBe('newer')
@@ -1209,7 +1248,7 @@ describe('rails-router GET / — prDeliveries enrichment (ask-first PR decisions
 describe('rails-router POST /pr-decision', () => {
   let db: DbInstance
   beforeEach(() => { db = initDb(':memory:'); mockExecRun.mockReset() })
-  afterEach(() => { db.close() })
+  afterEach(() => { openProjectProcessAdmission('p1'); db.close() })
 
   const url = 'https://github.com/o/r/pull/7'
 
@@ -1231,6 +1270,19 @@ describe('rails-router POST /pr-decision', () => {
   it('the legacy /pr-review route is GONE (404)', async () => {
     const res = await request(appWith(db)).post('/rails/pr-review').send({ prUrl: url, action: 'ready' })
     expect(res.status).toBe(404)
+  })
+
+  it('rejects decisions while startup recovery owns the repository', async () => {
+    const id = mkDraft()
+    beginProjectProcessQuiescence('p1')
+
+    const res = await request(appWith(db)).post('/rails/pr-decision')
+      .send({ prDeliveryId: id, action: 'publish', expectedDecision: 'pr_draft' })
+
+    expect(res.status).toBe(409)
+    expect(res.body).toEqual({ error: 'project_recovery_in_progress' })
+    expect(mockExecRun).not.toHaveBeenCalled()
+    expect(getPrDelivery(db, id)?.decision).toBe('pr_draft')
   })
 
   it('400 when prDeliveryId is missing or not a string', async () => {
@@ -1266,7 +1318,8 @@ describe('rails-router POST /pr-decision', () => {
     const res = await request(appWith(db)).post('/rails/pr-decision')
       .send({ prDeliveryId: id, action: 'create-pr', expectedDecision: 'on_review' })
     expect(res.status).toBe(409)
-    expect(res.body).toEqual({ error: 'stale_decision', current: 'pr_draft' })
+    expect(res.body).toMatchObject({ error: 'stale_decision', current: 'pr_draft' })
+    expect(res.body.snapshot).toMatchObject({ id, decision: 'pr_draft' })
     expect(mockExecRun).not.toHaveBeenCalled()
   })
 
@@ -1275,7 +1328,8 @@ describe('rails-router POST /pr-decision', () => {
     const res = await request(appWith(db)).post('/rails/pr-decision')
       .send({ prDeliveryId: id, action: 'create-pr', expectedDecision: 'pr_draft' })
     expect(res.status).toBe(409)
-    expect(res.body).toEqual({ error: 'stale_decision', current: 'pr_draft', reason: 'illegal_action' })
+    expect(res.body).toMatchObject({ error: 'stale_decision', current: 'pr_draft', reason: 'illegal_action' })
+    expect(res.body.snapshot).toMatchObject({ id, decision: 'pr_draft' })
   })
 
   it('publish → runs gh pr ready, transitions to pr_ready and broadcasts rail.pr_state', async () => {
@@ -1285,7 +1339,8 @@ describe('rails-router POST /pr-decision', () => {
     const res = await request(appWith(db, { broadcast })).post('/rails/pr-decision')
       .send({ prDeliveryId: id, action: 'publish', expectedDecision: 'pr_draft' })
     expect(res.status).toBe(200)
-    expect(res.body).toEqual({ ok: true, decision: 'pr_ready', prUrl: url })
+    expect(res.body).toMatchObject({ ok: true, decision: 'pr_ready', prUrl: url })
+    expect(res.body.snapshot).toMatchObject({ id, decision: 'pr_ready', deliveryOutcome: 'delivered' })
     expect(mockExecRun).toHaveBeenCalledWith('gh', ['pr', 'ready', url], '/repo')
     expect(getPrDelivery(db, id)?.decision).toBe('pr_ready')
     const msg = broadcast.mock.calls.map((c) => c[0] as { type: string; decision?: string })

@@ -767,7 +767,13 @@ export class AgentChatManager {
         this.postPrDecisionCard(conversationId, envelope)
         return
       }
-      updateAgentMessageContent(this._db, existing.id, JSON.stringify(envelope))
+      const serialized = JSON.stringify(envelope)
+      // Startup recovery may inspect historical deliveries to heal a card that
+      // missed its terminal update. Identical projection is not new activity:
+      // avoid a redundant DB write and, crucially, do not broadcast an unread
+      // event for an old card on every app launch.
+      if (existing.content === serialized) return
+      updateAgentMessageContent(this._db, existing.id, serialized)
       this._broadcastPrDecision(conversationId, envelope)
     } catch (err) {
       console.error(`[agent-chat] updatePrDecisionCard failed (${conversationId}):`, err)

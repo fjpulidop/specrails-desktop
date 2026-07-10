@@ -5,7 +5,8 @@
 //     classification → retry / dead-letter / auth-pause),
 //   - the write-back hooks: onRailLaunch (todo→In Progress), onJobOutcome
 //     (Done / revert + completion comment), onRailReview (ask-first PR delivery
-//     settle → on_review) and onRailMerged / onRailDiscard (PR-decision outcomes),
+//     settle → on_review) and the merged/completed/refined/discarded decision
+//     outcomes (each with truthful, idempotent Jira semantics),
 // and stays completely inert until the project configures a Jira connection.
 
 import { randomUUID } from 'node:crypto'
@@ -14,7 +15,16 @@ import { mutateStore, readStore, resolveTicketStoragePath, type Ticket, type Tic
 import type { WsMessage } from '../types'
 import { JiraClient, detectDeployment, type FetchImpl } from './jira-client'
 import { writeJiraBacklogConfig, writeLocalBacklogConfig } from './jira-backlog-config'
-import { commentMarker, discardCommentMarker, prMergedCommentMarker, railReviewCommentMarker, commentHasMarker, bodyForDeployment } from './jira-adf'
+import {
+  commentMarker,
+  discardCommentMarker,
+  prMergedCommentMarker,
+  railCompletedCommentMarker,
+  railRefinedCommentMarker,
+  railReviewCommentMarker,
+  commentHasMarker,
+  bodyForDeployment,
+} from './jira-adf'
 import { issueUrl, upsertIssuesIntoStore } from './jira-materializer'
 import {
   formatIssueFields,
@@ -810,11 +820,13 @@ export class JiraSyncManager {
    * known) per Jira-linked ticket. Outbox-only: the local on_review→done cache
    * write is the caller's job (the decision endpoint mutates the ticket store
    * itself). NOT onJobOutcome — its completion comment assumes job cost/duration
-   * that a merge poll does not have. Never throws.
+   * that a merge poll does not have. Never throws. Returns false only when the
+   * durable Jira-outbox handoff itself failed; callers that do not need the
+   * acknowledgement may continue to ignore the return value.
    */
-  onRailMerged(ticketIds: number[], refId: string, prUrl: string | null): void {
+  onRailMerged(ticketIds: number[], refId: string, prUrl: string | null): boolean {
     try {
-      if (!this.isActive()) return
+      if (!this.isActive()) return true
       const text = buildPrMergedComment(prUrl)
       const ops: EnqueueOutboxInput[] = []
       for (const localId of ticketIds) {
@@ -834,12 +846,128 @@ export class JiraSyncManager {
           payload: { localId, jiraIssueId: link.jiraIssueId, logicalState: 'done' as SpecLogicalState },
         })
       }
-      if (ops.length === 0) return
+      if (ops.length === 0) return true
       enqueueMany(this.db, ops)
       this.broadcastOutboxState()
       void this.drainOnce().catch(() => undefined)
+      return true
     } catch (err) {
       console.error('[jira-sync] onRailMerged failed:', err)
+      return false
+    }
+  }
+
+  /**
+   * Called when a fresh no-change result is explicitly accepted as complete.
+   * This is not a merge: enqueue a truthful no-PR comment plus Done transition,
+   * with action-specific keys so crash replay cannot duplicate either effect.
+   */
+  onRailCompleted(ticketIds: number[], refId: string): boolean {
+    try {
+      if (!this.isActive()) return true
+      const text = buildRailCompletedComment()
+      const ops: EnqueueOutboxInput[] = []
+      for (const localId of ticketIds) {
+        const link = getLinkByLocalId(this.db, localId)
+        if (!link || link.tombstoned) continue
+        ops.push({
+          jiraIssueId: link.jiraIssueId,
+          opType: 'comment',
+          idempotencyKey: `${refId}:${localId}:comment:completed`,
+          payload: {
+            jiraIssueId: link.jiraIssueId,
+            text,
+            marker: railCompletedCommentMarker(refId, localId),
+          },
+        })
+        ops.push({
+          jiraIssueId: link.jiraIssueId,
+          opType: 'transition',
+          idempotencyKey: `${refId}:${localId}:transition:completed`,
+          payload: { localId, jiraIssueId: link.jiraIssueId, logicalState: 'done' as SpecLogicalState },
+        })
+      }
+      if (ops.length === 0) return true
+      enqueueMany(this.db, ops)
+      this.broadcastOutboxState()
+      void this.drainOnce().catch(() => undefined)
+      return true
+    } catch (err) {
+      console.error('[jira-sync] onRailCompleted failed:', err)
+      return false
+    }
+  }
+
+  /**
+   * Called when a fresh no-change result is returned for refinement. Refine is
+   * deliberately distinct from discard: it always goes to logical todo and
+   * never consults the configured discard/cancelled status.
+   */
+  onRailRefined(ticketIds: number[], refId: string): boolean {
+    try {
+      if (!this.isActive()) return true
+      const text = buildRailRefinedComment()
+      const ops: EnqueueOutboxInput[] = []
+      for (const localId of ticketIds) {
+        const link = getLinkByLocalId(this.db, localId)
+        if (!link || link.tombstoned) continue
+        ops.push({
+          jiraIssueId: link.jiraIssueId,
+          opType: 'comment',
+          idempotencyKey: `${refId}:${localId}:comment:refine`,
+          payload: {
+            jiraIssueId: link.jiraIssueId,
+            text,
+            marker: railRefinedCommentMarker(refId, localId),
+          },
+        })
+        ops.push({
+          jiraIssueId: link.jiraIssueId,
+          opType: 'transition',
+          idempotencyKey: `${refId}:${localId}:transition:refine`,
+          payload: { localId, jiraIssueId: link.jiraIssueId, logicalState: 'todo' as SpecLogicalState },
+        })
+      }
+      if (ops.length === 0) return true
+      enqueueMany(this.db, ops)
+      this.broadcastOutboxState()
+      void this.drainOnce().catch(() => undefined)
+      return true
+    } catch (err) {
+      console.error('[jira-sync] onRailRefined failed:', err)
+      return false
+    }
+  }
+
+  /**
+   * Migration-only recovery for an ambiguous historical fresh discard. The
+   * only safe fact is that its local tickets must leave on_review for todo.
+   * Enqueue that transition without a causal comment and without consulting
+   * discardStatus, because v49 did not retain whether the user chose Refine or
+   * discarded a real delivery.
+   */
+  onRailBacklog(ticketIds: number[], refId: string): boolean {
+    try {
+      if (!this.isActive()) return true
+      const ops: EnqueueOutboxInput[] = []
+      for (const localId of ticketIds) {
+        const link = getLinkByLocalId(this.db, localId)
+        if (!link || link.tombstoned) continue
+        ops.push({
+          jiraIssueId: link.jiraIssueId,
+          opType: 'transition',
+          idempotencyKey: `${refId}:${localId}:transition:backlog`,
+          payload: { localId, jiraIssueId: link.jiraIssueId, logicalState: 'todo' as SpecLogicalState },
+        })
+      }
+      if (ops.length === 0) return true
+      enqueueMany(this.db, ops)
+      this.broadcastOutboxState()
+      void this.drainOnce().catch(() => undefined)
+      return true
+    } catch (err) {
+      console.error('[jira-sync] onRailBacklog failed:', err)
+      return false
     }
   }
 
@@ -849,11 +977,12 @@ export class JiraSyncManager {
    * (mirroring discardSpec's transition payload), else reverts it to the backlog
    * via a plain `todo` transition — a missing configuration is never an error.
    * Outbox-only like onRailMerged: local cache writes belong to the caller.
-   * Never throws.
+   * Never throws. Returns false only when the durable Jira-outbox handoff
+   * failed; existing fire-and-forget callers may ignore the acknowledgement.
    */
-  onRailDiscard(ticketIds: number[], refId: string): void {
+  onRailDiscard(ticketIds: number[], refId: string): boolean {
     try {
-      if (!this.isActive()) return
+      if (!this.isActive()) return true
       const conn = getConnection(this.db, this.projectId)
       const target = conn?.discardStatus ?? null
       const ops: EnqueueOutboxInput[] = []
@@ -871,12 +1000,14 @@ export class JiraSyncManager {
             : { localId, jiraIssueId: link.jiraIssueId, logicalState: 'todo' as SpecLogicalState },
         })
       }
-      if (ops.length === 0) return
+      if (ops.length === 0) return true
       enqueueMany(this.db, ops)
       this.broadcastOutboxState()
       void this.drainOnce().catch(() => undefined)
+      return true
     } catch (err) {
       console.error('[jira-sync] onRailDiscard failed:', err)
+      return false
     }
   }
 
@@ -1318,6 +1449,26 @@ export function buildPrMergedComment(prUrl: string | null): string {
   ]
   if (prUrl) parts.push(`PR: ${prUrl}`)
   return parts.join('\n')
+}
+
+/** Comment posted when the user accepts a fresh no-change result as complete. */
+export function buildRailCompletedComment(): string {
+  return [
+    'Specrails delivery accepted.',
+    'Result: no code changes were required.',
+    'No pull request was created.',
+    'Jira status: moving to Done.',
+  ].join('\n')
+}
+
+/** Comment posted when the user returns a fresh no-change result to refinement. */
+export function buildRailRefinedComment(): string {
+  return [
+    'Specrails delivery returned for refinement.',
+    'Result: no code changes were accepted as complete.',
+    'No pull request was created.',
+    'Jira status: returning to the backlog.',
+  ].join('\n')
 }
 
 function formatDuration(ms: number): string {

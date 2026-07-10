@@ -20,11 +20,11 @@ import {
   getActivePrDeliveryByRail,
   getPrDelivery,
   listActivePrDeliveries,
-  reconcileFailedBuildingPrDeliveries,
   toPrDecisionCardEnvelope,
   toPrDeliverySnapshot,
   toRailPrStateMessage,
   transitionDecision,
+  PrDeliveryGenerationConflict,
   type PrDeliverySnapshot,
 } from './rail-pr-store'
 import { classifyLoopEffect } from './loop-effect'
@@ -35,9 +35,11 @@ import { releaseRailWorktrees } from './rail-worktree-release'
 import { checkoutProjectReviewBranch, getProjectGitInfo } from './project-git'
 import { defaultExec } from './pr-publisher'
 import { newId } from './ids'
+import { withRepoLock } from './repo-lock'
 import { getAgentChatManager } from './agent-chat-registry'
 import type { ReasoningEffort } from './providers/types'
 import type { RailJobStartedMessage, RailJobStoppedMessage, RailUpdatedMessage, RailRemovedMessage, LoopRunStoppedMessage } from './types'
+import { assertProcessAdmission, captureProcessAdmission, ProcessAdmissionClosedError } from './process-admission'
 
 // Extend Express Request to carry resolved ProjectContext (declared in project-router)
 declare module 'express-serve-static-core' {
@@ -58,7 +60,8 @@ function prDeliveryContinuesTickets(delivery: PrDeliverySnapshot, ticketIds: num
   if (delivery.decision !== 'pr_draft' && delivery.decision !== 'pr_ready') return false
   if (!delivery.prUrl || !delivery.branch || delivery.prState !== 'pr-created') return false
   const covered = new Set(delivery.ticketIds)
-  return ticketIds.length > 0 && ticketIds.every((id) => covered.has(id))
+  const requested = new Set(ticketIds)
+  return requested.size > 0 && requested.size === covered.size && [...requested].every((id) => covered.has(id))
 }
 
 function emitPrDeliveryUpdate(c: ProjectContext, prDeliveryId: string): void {
@@ -71,12 +74,6 @@ function emitPrDeliveryUpdate(c: ProjectContext, prDeliveryId: string): void {
       row.origin_conversation_id,
       toPrDecisionCardEnvelope(c.project.id, snap),
     )
-  }
-}
-
-function reconcileAndEmitFailedPrDeliveries(c: ProjectContext): void {
-  for (const row of reconcileFailedBuildingPrDeliveries(c.db)) {
-    emitPrDeliveryUpdate(c, row.id)
   }
 }
 
@@ -152,7 +149,6 @@ export function createRailsRouter(): Router {
       // (non-terminal) delivery per rail slot, so a refreshed client re-renders
       // the decision surface without waiting for a broadcast. The store lists
       // newest-first within each rail — keep the first per index.
-      reconcileAndEmitFailedPrDeliveries(c)
       const prDeliveries: Record<number, PrDeliverySnapshot> = {}
       for (const row of listActivePrDeliveries(c.db)) {
         if (!(row.rail_index in prDeliveries)) prDeliveries[row.rail_index] = toPrDeliverySnapshot(row)
@@ -405,6 +401,14 @@ export function createRailsRouter(): Router {
     // legacy `interactive` body param is accepted and ignored (wire compat).
 
     const c = ctx(req)
+    try {
+      assertProcessAdmission(c.project.id)
+    } catch (err) {
+      if (err instanceof ProcessAdmissionClosedError) {
+        res.status(409).json({ error: 'project_recovery_in_progress' }); return
+      }
+      throw err
+    }
     const rail = getRail(c.db, railIndex)
 
     if (rail.ticketIds.length === 0) {
@@ -578,6 +582,8 @@ export function createRailsRouter(): Router {
                 originConversationId: originConversationId ?? null,
                 ...(continuablePrDelivery ? {
                   requiredPrContinuation: {
+                    deliveryId: continuablePrDelivery.id,
+                    decision: continuablePrDelivery.decision as 'pr_draft' | 'pr_ready',
                     branch: continuablePrDelivery.branch!,
                     prUrl: continuablePrDelivery.prUrl!,
                     prNumber: continuablePrDelivery.prNumber,
@@ -587,6 +593,13 @@ export function createRailsRouter(): Router {
               res.status(202).json({ loopRunIds: ids, railIndex, mode, isolated: true })
               return
             } catch (err) {
+              if (err instanceof PrDeliveryGenerationConflict) {
+                res.status(409).json({
+                  error: 'pr_delivery_generation_conflict',
+                  prDeliveryId: err.currentId,
+                })
+                return
+              }
               if (continuablePrDelivery || err instanceof PrContinuationIsolationError) {
                 const detail = err instanceof Error ? err.message : String(err)
                 res.status(409).json({
@@ -845,7 +858,8 @@ export function createRailsRouter(): Router {
 
   // POST /rails/pr-decision — the ONE decision action (safe-pr-review-flow) both
   // surfaces (dashboard rail row + agent-chat card) call on a rail_pr_deliveries
-  // row: create-pr | publish | discard | poll-merge, compare-and-set-guarded by
+  // row: create-pr | publish | discard/dismiss | poll/reopen | merge-local |
+  // acknowledge-no-changes, compare-and-set-guarded by
   // expectedDecision (a raced concurrent answer loses with 409 stale_decision).
   // Replaces the stateless v1 POST /rails/pr-review passthrough. The route only
   // validates and delegates — the action logic lives in rail-pr-decision.ts.
@@ -857,25 +871,44 @@ export function createRailsRouter(): Router {
       res.status(400).json({ error: 'prDeliveryId is required' }); return
     }
     if (!isPrDecisionAction(action)) {
-      res.status(400).json({ error: "action must be 'create-pr', 'publish', 'discard' or 'poll-merge'" }); return
+      res.status(400).json({ error: "action must be 'create-pr', 'publish', 'discard', 'dismiss', 'poll-merge', 'reopen', 'merge-local' or 'acknowledge-no-changes'" }); return
     }
     if (typeof expectedDecision !== 'string' || !expectedDecision) {
       res.status(400).json({ error: 'expectedDecision is required' }); return
     }
     try {
-      const result = await executePrDecision(
-        {
+      const admission = captureProcessAdmission(c.project.id)
+      const execute = () => {
+        admission.assertCurrent()
+        return executePrDecision({
           db: c.db,
           project: { id: c.project.id, slug: c.project.slug, path: c.project.path },
           git: defaultGitRunner,
           exec: defaultExec,
           broadcast: c.broadcast,
           jiraSyncManager: c.jiraSyncManager,
-        },
-        { prDeliveryId, action, expectedDecision },
-      )
-      res.status(result.status).json(result.body)
+          assertAdmission: () => admission.assertCurrent(),
+        }, { prDeliveryId, action, expectedDecision })
+      }
+      // Every decision that can touch refs/worktrees shares the same project
+      // mutex as startup reconciliation, launch allocation and checkout. Local
+      // merge already acquires it internally to keep its guarded read/advance
+      // sequence atomic, so avoid nesting that non-reentrant lock.
+      const result = action === 'merge-local'
+        ? await execute()
+        : await withRepoLock(c.project.path, execute)
+      // The durable row is authoritative. Return its post-action snapshot even
+      // when the WebSocket broadcast is dropped or another surface won the
+      // race; clients can converge immediately without optimistic inference.
+      const current = getPrDelivery(c.db, prDeliveryId)
+      res.status(result.status).json({
+        ...result.body,
+        ...(current ? { snapshot: toPrDeliverySnapshot(current) } : {}),
+      })
     } catch (err) {
+      if (err instanceof ProcessAdmissionClosedError) {
+        res.status(409).json({ error: 'project_recovery_in_progress' }); return
+      }
       console.error('[rails-router] pr-decision error:', err)
       res.status(500).json({ error: 'pr-decision failed', detail: (err as Error).message })
     }
@@ -892,6 +925,15 @@ export function createRailsRouter(): Router {
     if (typeof prDeliveryId !== 'string' || !prDeliveryId) {
       res.status(400).json({ error: 'prDeliveryId is required' }); return
     }
+    let admission: ReturnType<typeof captureProcessAdmission>
+    try {
+      admission = captureProcessAdmission(c.project.id)
+    } catch (err) {
+      if (err instanceof ProcessAdmissionClosedError) {
+        res.status(409).json({ error: 'project_recovery_in_progress' }); return
+      }
+      throw err
+    }
     const row = getPrDelivery(c.db, prDeliveryId)
     if (!row) {
       res.status(404).json({ error: 'Unknown prDeliveryId' }); return
@@ -901,24 +943,31 @@ export function createRailsRouter(): Router {
       res.status(409).json({ error: 'checkout_unavailable', detail: 'delivery has no PR branch' }); return
     }
     try {
-      const info = await getProjectGitInfo(c.project.path)
-      if (!info.git) {
-        res.status(409).json({ error: 'checkout_unavailable', detail: 'project is not a git repository' }); return
-      }
-      if (info.dirty) {
-        res.status(409).json({ error: 'checkout_dirty', detail: 'Working tree has uncommitted changes. Commit or stash them before checkout.' }); return
-      }
-      await releaseRailWorktrees({
-        db: c.db,
-        git: defaultGitRunner,
-        repoDir: c.project.path,
-        worktreeIds: snap.worktreeIds,
+      const outcome = await withRepoLock(c.project.path, async () => {
+        admission.assertCurrent()
+        const info = await getProjectGitInfo(c.project.path)
+        if (!info.git) {
+          return { ok: false as const, status: 409, error: 'checkout_unavailable', detail: 'project is not a git repository' }
+        }
+        if (info.dirty) {
+          return { ok: false as const, status: 409, error: 'checkout_dirty', detail: 'Working tree has uncommitted changes. Commit or stash them before checkout.' }
+        }
+        await releaseRailWorktrees({
+          db: c.db,
+          git: defaultGitRunner,
+          repoDir: c.project.path,
+          worktreeIds: snap.worktreeIds,
+        })
+        const checkedOut = await checkoutProjectReviewBranch(c.project.path, snap.branch!)
+        if (!checkedOut.ok) {
+          return { ok: false as const, status: 409, error: 'checkout_failed', detail: checkedOut.error }
+        }
+        return { ok: true as const, git: await getProjectGitInfo(c.project.path) }
       })
-      const result = await checkoutProjectReviewBranch(c.project.path, snap.branch)
-      if (!result.ok) {
-        res.status(409).json({ error: 'checkout_failed', detail: result.error }); return
+      if (!outcome.ok) {
+        res.status(outcome.status).json({ error: outcome.error, detail: outcome.detail }); return
       }
-      res.json({ ok: true, git: await getProjectGitInfo(c.project.path) })
+      res.json(outcome)
     } catch (err) {
       console.error('[rails-router] pr-checkout error:', err)
       res.status(500).json({ error: 'pr-checkout failed', detail: (err as Error).message })

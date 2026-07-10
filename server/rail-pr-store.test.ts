@@ -2,10 +2,14 @@ import { describe, it, expect, beforeEach } from 'vitest'
 import { initDb, type DbInstance } from './db'
 import {
   createPrDelivery,
+  createPrDeliveryGeneration,
+  clearOrphanedPrDeliveryOperations,
+  failPrDeliveryAndRestoreSuperseded,
   getPrDelivery,
   getActivePrDeliveryByRail,
   listActivePrDeliveries,
   transitionDecision,
+  transitionClaimedDecision,
   reconcileFailedBuildingPrDeliveries,
   toPrDeliverySnapshot,
   toRailPrStateMessage,
@@ -13,6 +17,8 @@ import {
   isTerminalPrDecision,
   TERMINAL_PR_DECISIONS,
   ACTIVE_PR_DECISIONS,
+  claimPrDeliveryOperation,
+  releasePrDeliveryOperation,
   type CreatePrDeliveryInput,
 } from './rail-pr-store'
 import { createLoopRun, finishLoopRun } from './loop-runs-store'
@@ -48,6 +54,12 @@ describe('rail_pr_deliveries ledger', () => {
       pr_number: null,
       pr_state: 'none',
       decision: 'building',
+      implementation_outcome: 'running',
+      delivery_outcome: 'pending',
+      status_code: 'implementation_running',
+      is_continuation: 0,
+      supersedes_delivery_id: null,
+      cleanup_warnings: '[]',
       branches: '[]',
       loop_name: 'Implement',
       worktree_ids: '[]',
@@ -177,8 +189,16 @@ describe('active queries', () => {
 
   it('getActivePrDeliveryByRail returns the newest non-terminal row for the rail', () => {
     mk('old', 0)
-    mk('new', 0)
+    transitionDecision(db, 'old', 'building', 'pr_ready', {
+      branch: 'feat/1-work', prUrl: 'https://github.com/o/r/pull/1', prState: 'pr-created',
+    })
+    const created = createPrDeliveryGeneration(db, {
+      id: 'new', railIndex: 0, loopId: 'loop-1', railKey: '0-loop-1', ticketIds: [1, 2],
+      baseBranch: 'main', loopName: 'Implement', originSurface: 'dashboard',
+    }, { id: 'old', decision: 'pr_ready' })
     mk('other-rail', 1)
+    expect(created.superseded?.id).toBe('old')
+    expect(getPrDelivery(db, 'old')?.decision).toBe('superseded')
     expect(getActivePrDeliveryByRail(db, 0)?.id).toBe('new')
     expect(getActivePrDeliveryByRail(db, 1)?.id).toBe('other-rail')
     expect(getActivePrDeliveryByRail(db, 2)).toBeUndefined()
@@ -210,26 +230,30 @@ describe('active queries', () => {
 
   it('listActivePrDeliveries is empty when everything is terminal', () => {
     mk('a', 0)
-    transitionDecision(db, 'a', 'building', 'discarded')
+    transitionDecision(db, 'a', 'building', 'completed')
     expect(listActivePrDeliveries(db)).toEqual([])
   })
 })
 
 describe('decision sets', () => {
   it('classifies terminal decisions', () => {
+    expect(isTerminalPrDecision('completed')).toBe(true)
     expect(isTerminalPrDecision('merged')).toBe(true)
     expect(isTerminalPrDecision('discarded')).toBe(true)
+    expect(isTerminalPrDecision('superseded')).toBe(true)
     expect(isTerminalPrDecision('building')).toBe(false)
     expect(isTerminalPrDecision('on_review')).toBe(false)
     expect(isTerminalPrDecision('pr_draft')).toBe(false)
     expect(isTerminalPrDecision('pr_ready')).toBe(false)
+    expect(isTerminalPrDecision('pr_closed')).toBe(false)
+    expect(isTerminalPrDecision('no_changes')).toBe(false)
     expect(isTerminalPrDecision('implementation_failed')).toBe(false)
     expect(isTerminalPrDecision('pr_failed')).toBe(false)
   })
 
   it('ACTIVE and TERMINAL sets partition the decision space', () => {
     for (const d of ACTIVE_PR_DECISIONS) expect(TERMINAL_PR_DECISIONS.has(d)).toBe(false)
-    expect(ACTIVE_PR_DECISIONS.size + TERMINAL_PR_DECISIONS.size).toBe(8)
+    expect(ACTIVE_PR_DECISIONS.size + TERMINAL_PR_DECISIONS.size).toBe(12)
   })
 })
 
@@ -255,7 +279,7 @@ describe('reconcileFailedBuildingPrDeliveries', () => {
     expect(getPrDelivery(db, 'a')?.decision).toBe('implementation_failed')
   })
 
-  it('leaves building rows alone while a run is still running or any run succeeded', () => {
+  it('leaves running rows alone and makes a successfully-run but unproven settle actionable', () => {
     mk('running', 0)
     transitionDecision(db, 'running', 'building', 'building', { runIds: ['run-running'] })
     createLoopRun(db, {
@@ -281,9 +305,110 @@ describe('reconcileFailedBuildingPrDeliveries', () => {
     })
     finishLoopRun(db, 'run-success', { outcome: 'success', finishedAt: '2026-07-07T00:01:00.000Z' })
 
-    expect(reconcileFailedBuildingPrDeliveries(db)).toEqual([])
+    expect(reconcileFailedBuildingPrDeliveries(db).map((row) => row.id)).toEqual(['success'])
     expect(getPrDelivery(db, 'running')?.decision).toBe('building')
-    expect(getPrDelivery(db, 'success')?.decision).toBe('building')
+    expect(getPrDelivery(db, 'success')).toMatchObject({
+      decision: 'pr_failed',
+      implementation_outcome: 'succeeded',
+      delivery_outcome: 'blocked',
+      status_code: 'settlement_interrupted',
+    })
+  })
+
+  it('makes a prior-process building row with no run ids actionable without inventing a run failure', () => {
+    mk('empty', 0)
+    expect(reconcileFailedBuildingPrDeliveries(db, { startup: true }).map((row) => row.id)).toEqual(['empty'])
+    expect(getPrDelivery(db, 'empty')).toMatchObject({
+      decision: 'pr_failed', implementation_outcome: 'unknown', delivery_outcome: 'blocked',
+      status_code: 'settlement_interrupted',
+    })
+  })
+})
+
+describe('generation and operation ownership', () => {
+  it('enforces one active generation and restores the predecessor when allocation fails', () => {
+    mk('old', 0)
+    transitionDecision(db, 'old', 'building', 'pr_draft')
+    const { delivery, superseded } = createPrDeliveryGeneration(db, {
+      id: 'new', railIndex: 0, loopId: 'loop-1', railKey: '0-loop-1', ticketIds: [1],
+      baseBranch: 'main', loopName: 'Follow-up', originSurface: 'dashboard',
+    }, { id: 'old', decision: 'pr_draft' })
+    expect(delivery).toMatchObject({ id: 'new', is_continuation: 1, supersedes_delivery_id: 'old' })
+    expect(() => mk('raced', 0)).toThrow()
+    expect(failPrDeliveryAndRestoreSuperseded(db, 'new', superseded!)).toBe(true)
+    expect(getPrDelivery(db, 'new')?.decision).toBe('discarded')
+    expect(getActivePrDeliveryByRail(db, 0)?.id).toBe('old')
+    expect(getPrDelivery(db, 'old')?.decision).toBe('pr_draft')
+  })
+
+  it('atomically records a stale-PR replacement as a fresh generation', () => {
+    mk('stale', 0)
+    transitionDecision(db, 'stale', 'building', 'pr_draft')
+
+    const { delivery, superseded } = createPrDeliveryGeneration(db, {
+      id: 'fresh', railIndex: 0, loopId: 'loop-2', railKey: '0-loop-2', ticketIds: [1],
+      baseBranch: 'main', loopName: 'Fresh follow-up', originSurface: 'dashboard',
+      isContinuation: false,
+    }, { id: 'stale', decision: 'pr_draft' })
+
+    expect(delivery).toMatchObject({
+      id: 'fresh',
+      is_continuation: 0,
+      supersedes_delivery_id: 'stale',
+    })
+    expect(superseded?.id).toBe('stale')
+    expect(getPrDelivery(db, 'stale')?.decision).toBe('superseded')
+  })
+
+  it('claims effects before work, rejects a live rival, and permits only the owner to release', () => {
+    mk('a', 0)
+    expect(claimPrDeliveryOperation(db, 'a', 'building', 'discard', 'owner', 10_000, 1_000)).toBe(true)
+    expect(claimPrDeliveryOperation(db, 'a', 'building', 'publish', 'rival', 10_500, 1_000)).toBe(false)
+    expect(releasePrDeliveryOperation(db, 'a', 'rival')).toBe(false)
+    expect(releasePrDeliveryOperation(db, 'a', 'owner')).toBe(true)
+    expect(getPrDelivery(db, 'a')).toMatchObject({ operation: null, operation_token: null })
+  })
+
+  it('clears prior-process operation leases before cards are reprojected', () => {
+    mk('restart-lease', 0)
+    transitionDecision(db, 'restart-lease', 'building', 'on_review')
+    expect(claimPrDeliveryOperation(db, 'restart-lease', 'on_review', 'create-pr', 'dead-process')).toBe(true)
+
+    expect(clearOrphanedPrDeliveryOperations(db)).toBe(1)
+    expect(getPrDelivery(db, 'restart-lease')).toMatchObject({
+      decision: 'on_review', operation: null, operation_token: null, operation_started_at_ms: null,
+      status_code: 'operation_interrupted',
+      status_detail: expect.stringContaining('interrupted by restart'),
+    })
+    expect(claimPrDeliveryOperation(db, 'restart-lease', 'on_review', 'create-pr', 'new-process')).toBe(true)
+  })
+
+  it('clears a lease left after a durable terminal CAS without calling the completed action interrupted', () => {
+    mk('terminal-lease', 0)
+    transitionDecision(db, 'terminal-lease', 'building', 'on_review')
+    expect(claimPrDeliveryOperation(db, 'terminal-lease', 'on_review', 'discard', 'dead-process')).toBe(true)
+    expect(transitionClaimedDecision(db, 'terminal-lease', 'on_review', 'discarded', 'dead-process')).toBe(true)
+
+    expect(clearOrphanedPrDeliveryOperations(db)).toBe(1)
+    expect(getPrDelivery(db, 'terminal-lease')).toMatchObject({
+      decision: 'discarded', operation: null, operation_token: null, status_detail: null,
+    })
+  })
+
+  it('allows a dead operation lease to be reclaimed', () => {
+    mk('a', 0)
+    expect(claimPrDeliveryOperation(db, 'a', 'building', 'discard', 'dead', 10_000, 1_000)).toBe(true)
+    expect(claimPrDeliveryOperation(db, 'a', 'building', 'publish', 'next', 11_001, 1_000)).toBe(true)
+    expect(getPrDelivery(db, 'a')).toMatchObject({ operation: 'publish', operation_token: 'next' })
+  })
+
+  it('lets only the current lease owner commit the post-effect transition', () => {
+    mk('a', 0)
+    expect(claimPrDeliveryOperation(db, 'a', 'building', 'publish', 'old', 10_000, 1_000)).toBe(true)
+    expect(claimPrDeliveryOperation(db, 'a', 'building', 'discard', 'new', 11_001, 1_000)).toBe(true)
+    expect(transitionClaimedDecision(db, 'a', 'building', 'pr_ready', 'old')).toBe(false)
+    expect(transitionClaimedDecision(db, 'a', 'building', 'discarded', 'new')).toBe(true)
+    expect(getPrDelivery(db, 'a')?.decision).toBe('discarded')
   })
 })
 
@@ -299,7 +424,7 @@ describe('JSON round-trips + snapshot mapper', () => {
       runIds: ['run-3', 'run-5'],
     })
     const snap = toPrDeliverySnapshot(getPrDelivery(db, 'a')!)
-    expect(snap).toEqual({
+    expect(snap).toMatchObject({
       id: 'a',
       railIndex: 2,
       loopId: 'loop-1',
@@ -311,7 +436,20 @@ describe('JSON round-trips + snapshot mapper', () => {
       prNumber: null,
       prState: 'none',
       decision: 'on_review',
+      implementationOutcome: 'running',
+      deliveryOutcome: 'pending',
+      statusCode: 'implementation_running',
+      statusDetail: null,
+      deliverySha: null,
+      isContinuation: false,
+      supersedesDeliveryId: null,
+      operation: null,
+      cleanupWarnings: [],
       branches: [
+        { ticketId: 3, branch: 'sr/p/ticket-3', succeeded: true },
+        { ticketId: 5, branch: 'sr/p/ticket-5', succeeded: false },
+      ],
+      units: [
         { ticketId: 3, branch: 'sr/p/ticket-3', succeeded: true },
         { ticketId: 5, branch: 'sr/p/ticket-5', succeeded: false },
       ],
@@ -345,7 +483,7 @@ describe('JSON round-trips + snapshot mapper', () => {
       runIds: ['run-4', 'run-6'],
     })
     const msg = toRailPrStateMessage('proj-1', toPrDeliverySnapshot(getPrDelivery(db, 'a')!))
-    expect(msg).toEqual({
+    expect(msg).toMatchObject({
       type: 'rail.pr_state',
       projectId: 'proj-1',
       railIndex: 1,
@@ -358,6 +496,10 @@ describe('JSON round-trips + snapshot mapper', () => {
       prNumber: null,
       prState: 'none',
       decision: 'on_review',
+      implementationOutcome: 'running',
+      deliveryOutcome: 'pending',
+      statusCode: 'implementation_running',
+      units: [{ ticketId: 4, branch: 'sr/p/ticket-4', succeeded: true }],
       runIds: ['run-4', 'run-6'],
       originConversationId: 'conv-7',
     })
@@ -367,7 +509,7 @@ describe('JSON round-trips + snapshot mapper', () => {
     mk('a', 3, { ticketIds: [9], originSurface: 'agent-chat', originConversationId: 'conv-2' })
     transitionDecision(db, 'a', 'building', 'building', { runIds: ['run-9'] })
     const envelope = toPrDecisionCardEnvelope('proj-1', toPrDeliverySnapshot(getPrDelivery(db, 'a')!))
-    expect(envelope).toEqual({
+    expect(envelope).toMatchObject({
       kind: 'pr_decision',
       prDeliveryId: 'a',
       railIndex: 3,
@@ -375,6 +517,10 @@ describe('JSON round-trips + snapshot mapper', () => {
       baseBranch: 'main',
       ticketIds: [9],
       decision: 'building',
+      implementationOutcome: 'running',
+      deliveryOutcome: 'pending',
+      statusCode: 'implementation_running',
+      units: [],
       prUrl: null,
       prNumber: null,
       prState: 'none',

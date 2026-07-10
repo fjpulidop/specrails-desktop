@@ -28,6 +28,8 @@ import {
   buildCompletionComment,
   buildRailReviewComment,
   buildPrMergedComment,
+  buildRailCompletedComment,
+  buildRailRefinedComment,
   type JiraSyncManagerOpts,
 } from './jira-sync-manager'
 
@@ -310,6 +312,24 @@ describe('buildPrMergedComment', () => {
     expect(text).toContain('Result: PR merged into the integration branch.')
     expect(text).not.toContain('PR:')
     expect(text).not.toContain('http')
+  })
+})
+
+describe('no-change decision comments', () => {
+  it('describes completion truthfully without claiming a PR', () => {
+    const text = buildRailCompletedComment()
+    expect(text).toContain('no code changes were required')
+    expect(text).toContain('No pull request was created')
+    expect(text).toContain('moving to Done')
+    expect(text).not.toContain('PR merged')
+  })
+
+  it('describes refinement as a backlog return without claiming discard', () => {
+    const text = buildRailRefinedComment()
+    expect(text).toContain('returned for refinement')
+    expect(text).toContain('No pull request was created')
+    expect(text).toContain('returning to the backlog')
+    expect(text).not.toMatch(/discard|cancel/i)
   })
 })
 
@@ -1182,7 +1202,7 @@ describe('onRailMerged()', () => {
   it('no-op when not active', () => {
     const { fetchImpl } = makeFakeFetch()
     const mgr = makeManager(fetchImpl)
-    mgr.onRailMerged([1], 'pd-1', 'https://github.com/acme/repo/pull/7')
+    expect(mgr.onRailMerged([1], 'pd-1', 'https://github.com/acme/repo/pull/7')).toBe(true)
     expect(listOutbox(db, {}).length).toBe(0)
   })
 
@@ -1194,7 +1214,7 @@ describe('onRailMerged()', () => {
     fake.on('POST', '/issue/I-31/comment', { status: 201, body: { id: 'c' } })
     fake.on('GET', '/issue/I-31?', { status: 200, body: { id: 'I-31', key: 'ACME-31', fields: { status: { name: 'Done', statusCategory: { key: 'done' } } } } })
     const mgr = makeManager(fake.fetchImpl)
-    mgr.onRailMerged([31], 'pd-31', 'https://github.com/acme/repo/pull/7')
+    expect(mgr.onRailMerged([31], 'pd-31', 'https://github.com/acme/repo/pull/7')).toBe(true)
 
     const ops = listOutbox(db, {})
     expect(ops.map((o) => o.opType).sort()).toEqual(['comment', 'transition'])
@@ -1214,6 +1234,21 @@ describe('onRailMerged()', () => {
     // Outbox-only: the local on_review→done write belongs to the caller.
     expect(readStore(resolveTicketStoragePath(projectPath)).tickets['31'].status).toBe('on_review')
     expect(typesOf()).not.toContain('ticket_updated')
+  })
+
+  it('returns false when the durable Jira-outbox handoff fails', () => {
+    seedConnection()
+    seedLinkedTicket(34, 'I-34', 'on_review')
+    db.exec(`DROP TABLE jira_outbox`)
+    const error = vi.spyOn(console, 'error').mockImplementation(() => undefined)
+    try {
+      const { fetchImpl } = makeFakeFetch()
+      const mgr = makeManager(fetchImpl)
+      expect(mgr.onRailMerged([34], 'pd-34', null)).toBe(false)
+      expect(error).toHaveBeenCalled()
+    } finally {
+      error.mockRestore()
+    }
   })
 
   it('omits the URL from the comment when prUrl is null', () => {
@@ -1239,13 +1274,92 @@ describe('onRailMerged()', () => {
   })
 })
 
+// ─── no-change terminal hooks ────────────────────────────────────────────────
+
+describe('onRailCompleted()', () => {
+  it('enqueues a truthful no-PR comment and Done transition idempotently', () => {
+    seedConnection()
+    seedLinkedTicket(35, 'I-35', 'on_review')
+    const { fetchImpl } = makeFakeFetch()
+    const mgr = makeManager(fetchImpl)
+
+    expect(mgr.onRailCompleted([35], 'pd-35')).toBe(true)
+    expect(mgr.onRailCompleted([35], 'pd-35')).toBe(true)
+
+    const ops = listOutbox(db, {})
+    expect(ops).toHaveLength(2)
+    const comment = ops.find((op) => op.opType === 'comment')!
+    expect(comment.idempotencyKey).toBe('pd-35:35:comment:completed')
+    expect(JSON.parse(comment.payload)).toMatchObject({
+      jiraIssueId: 'I-35',
+      marker: '[specrails:rail-completed=pd-35:ticket=35]',
+    })
+    expect(JSON.parse(comment.payload).text).toContain('No pull request was created.')
+    expect(JSON.parse(comment.payload).text).not.toContain('PR merged')
+    const transition = ops.find((op) => op.opType === 'transition')!
+    expect(transition.idempotencyKey).toBe('pd-35:35:transition:completed')
+    expect(JSON.parse(transition.payload)).toMatchObject({
+      localId: 35, jiraIssueId: 'I-35', logicalState: 'done',
+    })
+  })
+})
+
+describe('onRailRefined()', () => {
+  it('returns to todo and never uses configured discardStatus/cancelled', () => {
+    seedConnection()
+    setDiscardStatus(db, PROJECT_ID, 'Discarded')
+    seedLinkedTicket(36, 'I-36', 'on_review')
+    const { fetchImpl } = makeFakeFetch()
+    const mgr = makeManager(fetchImpl)
+
+    expect(mgr.onRailRefined([36], 'pd-36')).toBe(true)
+    expect(mgr.onRailRefined([36], 'pd-36')).toBe(true)
+
+    const ops = listOutbox(db, {})
+    expect(ops).toHaveLength(2)
+    const comment = ops.find((op) => op.opType === 'comment')!
+    expect(comment.idempotencyKey).toBe('pd-36:36:comment:refine')
+    expect(JSON.parse(comment.payload)).toMatchObject({
+      jiraIssueId: 'I-36',
+      marker: '[specrails:rail-refined=pd-36:ticket=36]',
+    })
+    expect(JSON.parse(comment.payload).text).toContain('returned for refinement')
+    const transition = ops.find((op) => op.opType === 'transition')!
+    expect(transition.idempotencyKey).toBe('pd-36:36:transition:refine')
+    const payload = JSON.parse(transition.payload)
+    expect(payload).toMatchObject({ localId: 36, jiraIssueId: 'I-36', logicalState: 'todo' })
+    expect(payload.targetStatus).toBeUndefined()
+  })
+})
+
+describe('onRailBacklog()', () => {
+  it('recovers ambiguous historical discards with a neutral todo transition only', () => {
+    seedConnection()
+    setDiscardStatus(db, PROJECT_ID, 'Discarded')
+    seedLinkedTicket(37, 'I-37', 'on_review')
+    const { fetchImpl } = makeFakeFetch()
+    const mgr = makeManager(fetchImpl)
+
+    expect(mgr.onRailBacklog([37], 'pd-37')).toBe(true)
+    expect(mgr.onRailBacklog([37], 'pd-37')).toBe(true)
+
+    const ops = listOutbox(db, {})
+    expect(ops).toHaveLength(1)
+    expect(ops[0].opType).toBe('transition')
+    expect(ops[0].idempotencyKey).toBe('pd-37:37:transition:backlog')
+    const payload = JSON.parse(ops[0].payload)
+    expect(payload).toMatchObject({ localId: 37, jiraIssueId: 'I-37', logicalState: 'todo' })
+    expect(payload.targetStatus).toBeUndefined()
+  })
+})
+
 // ─── onRailDiscard() ──────────────────────────────────────────────────────────
 
 describe('onRailDiscard()', () => {
   it('no-op when not active', () => {
     const { fetchImpl } = makeFakeFetch()
     const mgr = makeManager(fetchImpl)
-    mgr.onRailDiscard([1], 'pd-1')
+    expect(mgr.onRailDiscard([1], 'pd-1')).toBe(true)
     expect(listOutbox(db, {}).length).toBe(0)
   })
 

@@ -30,10 +30,15 @@ import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js'
 
 // Mutable isolation status so a test can drive the no-git fallback path.
 const isoStatus = vi.hoisted(() => ({ value: 'ok' as 'ok' | 'no-git' | 'no-commits' }))
+const testRefs = vi.hoisted(() => ({ headSha: 'a'.repeat(40) }))
 
 vi.mock('../../worktree-manager', async (importActual) => ({
   ...(await (importActual as () => Promise<Record<string, unknown>>)()),
-  defaultGitRunner: { run: async () => ({ code: 1, stdout: '', stderr: '' }) }, // integration branch → 'HEAD' fallback
+  defaultGitRunner: {
+    run: async (args: string[]) => args.join(' ') === 'rev-parse --verify HEAD'
+      ? { code: 0, stdout: `${testRefs.headSha}\n`, stderr: '' }
+      : { code: 1, stdout: '', stderr: '' },
+  }, // integration branch still falls back to HEAD; settlement can prove exact HEAD
   repoIsolationStatus: async () => isoStatus.value,
   createWorktree: async (_git: unknown, input: { slug: string; ticketId: number; branch?: string }) => ({
     // The launch threads the conventional preferred name (pr-naming); echo it

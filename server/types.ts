@@ -813,7 +813,29 @@ export interface RailPrStateMessage {
   prNumber: number | null
   /** How far a Create-PR attempt got (the pr-publisher degradation ladder). */
   prState: 'none' | 'local-only' | 'pushed' | 'pr-created'
-  decision: 'building' | 'on_review' | 'pr_draft' | 'pr_ready' | 'merged' | 'discarded' | 'implementation_failed' | 'pr_failed'
+  decision: 'building' | 'on_review' | 'no_changes' | 'pr_draft' | 'pr_ready' | 'pr_closed' | 'completed' | 'merged' | 'discarded' | 'superseded' | 'implementation_failed' | 'pr_failed'
+  implementationOutcome: 'running' | 'succeeded' | 'partially_succeeded' | 'failed' | 'unknown'
+  deliveryOutcome: 'pending' | 'ready' | 'delivered' | 'partial' | 'no_changes' | 'retryable_failure' | 'blocked' | 'not_started' | 'unknown'
+  statusCode: string | null
+  statusDetail: string | null
+  deliverySha: string | null
+  isContinuation: boolean
+  supersedesDeliveryId: string | null
+  operation: 'create-pr' | 'publish' | 'discard' | 'dismiss' | 'poll-merge' | 'reopen' | 'merge-local' | 'acknowledge-no-changes' | null
+  cleanupWarnings: string[]
+  units: Array<{
+    ticketId: number
+    branch: string
+    succeeded: boolean
+    runId?: string
+    implementationOutcome?: 'succeeded' | 'failed'
+    deliveryOutcome?: 'ready' | 'no_changes' | 'blocked' | 'not_started'
+    initialSha?: string | null
+    finalSha?: string | null
+    changed?: boolean
+    failureCode?: string | null
+    branchOwnership?: 'created' | 'preexisting' | 'borrowed-pr'
+  }>
   /** The launch's loop-run ids, in ticket order ([] until allocation lands) —
    *  each links a per-run log (JobDetailModal) + live vitals on the decision
    *  surfaces. */
@@ -1352,7 +1374,29 @@ export interface PrDecisionCardEnvelope {
   projectId: string
   baseBranch: string
   ticketIds: number[]
-  decision: 'building' | 'on_review' | 'pr_draft' | 'pr_ready' | 'merged' | 'discarded' | 'implementation_failed' | 'pr_failed'
+  decision: 'building' | 'on_review' | 'no_changes' | 'pr_draft' | 'pr_ready' | 'pr_closed' | 'completed' | 'merged' | 'discarded' | 'superseded' | 'implementation_failed' | 'pr_failed'
+  implementationOutcome: 'running' | 'succeeded' | 'partially_succeeded' | 'failed' | 'unknown'
+  deliveryOutcome: 'pending' | 'ready' | 'delivered' | 'partial' | 'no_changes' | 'retryable_failure' | 'blocked' | 'not_started' | 'unknown'
+  statusCode: string | null
+  statusDetail: string | null
+  deliverySha: string | null
+  isContinuation: boolean
+  supersedesDeliveryId: string | null
+  operation: 'create-pr' | 'publish' | 'discard' | 'dismiss' | 'poll-merge' | 'reopen' | 'merge-local' | 'acknowledge-no-changes' | null
+  cleanupWarnings: string[]
+  units: Array<{
+    ticketId: number
+    branch: string
+    succeeded: boolean
+    runId?: string
+    implementationOutcome?: 'succeeded' | 'failed'
+    deliveryOutcome?: 'ready' | 'no_changes' | 'blocked' | 'not_started'
+    initialSha?: string | null
+    finalSha?: string | null
+    changed?: boolean
+    failureCode?: string | null
+    branchOwnership?: 'created' | 'preexisting' | 'borrowed-pr'
+  }>
   prUrl: string | null
   prNumber: number | null
   prState: 'none' | 'local-only' | 'pushed' | 'pr-created'

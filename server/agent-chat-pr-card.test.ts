@@ -124,6 +124,19 @@ describe('AgentChatManager PR-decision card (safe-pr-review-flow)', () => {
     expect(events[1]).toMatchObject({ conversationId: conv.id, decision: 'pr_draft', prUrl: 'https://github.com/o/r/pull/7' })
   })
 
+  it('does not rewrite or broadcast an identical startup projection', () => {
+    const conv = createAgentConversation(db, { projectId: 'p1', title: 'Projection' })
+    const env = envelope({ prDeliveryId: 'del-same', decision: 'merged' })
+    mgr.postPrDecisionCard(conv.id, env)
+    broadcast.mockClear()
+    const before = listAgentMessages(db, conv.id)
+
+    mgr.updatePrDecisionCard(conv.id, env)
+
+    expect(listAgentMessages(db, conv.id)).toEqual(before)
+    expect(broadcast).not.toHaveBeenCalled()
+  })
+
   it('updatePrDecisionCard only touches the card with the matching prDeliveryId', () => {
     const conv = createAgentConversation(db, {})
     mgr.postPrDecisionCard(conv.id, envelope({ prDeliveryId: 'del-a', railIndex: 0 }))

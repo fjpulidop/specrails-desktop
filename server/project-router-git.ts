@@ -3,6 +3,8 @@ import type { ProjectRoutesDeps } from './project-router-helpers'
 import { getProjectGitInfo, checkoutProjectBranch } from './project-git'
 import { runGitDiagnostic, isGitDiagnosticAction, GIT_DIAGNOSTIC_ACTIONS } from './git-diagnostics'
 import { defaultExec } from './pr-publisher'
+import { withRepoLock } from './repo-lock'
+import { captureProcessAdmission, ProcessAdmissionClosedError } from './process-admission'
 
 // ─── Git domain routes (/api/projects/:projectId/git) ─────────────────────────
 //
@@ -73,9 +75,14 @@ export function registerGitRoutes(deps: ProjectRoutesDeps): void {
       res.status(400).json({ error: 'branch is required' })
       return
     }
-    const repoDir = ctx(req).project.path
+    const project = ctx(req).project
+    const repoDir = project.path
     try {
-      const result = await checkoutProjectBranch(repoDir, branch)
+      const admission = captureProcessAdmission(project.id)
+      const result = await withRepoLock(repoDir, () => {
+        admission.assertCurrent()
+        return checkoutProjectBranch(repoDir, branch)
+      })
       if (!result.ok) {
         // 409: the working tree state (or an unknown branch) refused the switch.
         res.status(409).json({ error: result.error })
@@ -83,6 +90,10 @@ export function registerGitRoutes(deps: ProjectRoutesDeps): void {
       }
       res.json(await getProjectGitInfo(repoDir))
     } catch (err) {
+      if (err instanceof ProcessAdmissionClosedError) {
+        res.status(409).json({ error: 'project_recovery_in_progress' })
+        return
+      }
       console.error('[project-git] checkout failed:', err)
       res.status(500).json({ error: 'Checkout failed' })
     }

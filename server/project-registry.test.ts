@@ -61,7 +61,7 @@ vi.mock('./config', () => ({
   }),
 }))
 
-import { ProjectRegistry } from './project-registry'
+import { emitRecoveredPrDelivery, ProjectRegistry, reprojectActivePrDeliveries, type ProjectContext } from './project-registry'
 import { claimRailTickets, claimTicketOutcomeOwners, setRailTickets, getRail } from './rails-store'
 import {
   initDesktopDb,
@@ -73,12 +73,16 @@ import {
   getAgent,
 } from './desktop-db'
 import { createLoopRun, finishLoopRunAndJob, getLoopRun, getLoopTerminalRecovery, listActiveLoopRuns } from './loop-runs-store'
-import { createJob, deleteJob, type DbInstance } from './db'
+import { createJob, deleteJob, initDb, type DbInstance } from './db'
 import type { WsMessage } from './types'
 import {
   captureProcessAdmission,
   resetProcessAdmissionForTests,
 } from './process-admission'
+import { createPrDelivery, getPrDelivery, transitionDecision } from './rail-pr-store'
+import { reconcileRailWorktrees } from './rail-isolated-launch'
+import { setAgentChatManager } from './agent-chat-registry'
+import type { AgentChatManager } from './agent-chat-manager'
 
 describe('ProjectRegistry', () => {
   let desktopDb: DbInstance
@@ -173,6 +177,117 @@ describe('ProjectRegistry', () => {
     })
   })
 
+  describe('startup delivery recovery', () => {
+    it('emits and persists the recovered agent card after a stale building generation is reconciled', async () => {
+      const db = initDb(':memory:')
+      const delivery = createPrDelivery(db, {
+        id: 'stale-card', railIndex: 0, loopId: 'factory:implement',
+        railKey: '0-factory:implement', ticketIds: [1], baseBranch: 'main',
+        loopName: 'Implement', originSurface: 'agent-chat', originConversationId: 'conv-recovery',
+      })
+      const recoveredBroadcast = vi.fn()
+      const updatePrDecisionCard = vi.fn()
+      setAgentChatManager({ updatePrDecisionCard } as unknown as AgentChatManager)
+      const recoveryCtx = {
+        db,
+        project: { id: 'p-recovery' },
+        broadcast: recoveredBroadcast,
+      } as unknown as ProjectContext
+      try {
+        await reconcileRailWorktrees(db, '/repo', {
+          git: { run: vi.fn(async () => ({ code: 1, stdout: '', stderr: 'not needed' })) },
+          onDeliveryRecovered: (deliveryId) => emitRecoveredPrDelivery(recoveryCtx, deliveryId),
+        })
+
+        expect(getPrDelivery(db, delivery.id)).toMatchObject({
+          decision: 'pr_failed', implementation_outcome: 'unknown',
+          delivery_outcome: 'blocked', status_code: 'settlement_interrupted',
+        })
+        expect(recoveredBroadcast).toHaveBeenCalledWith(expect.objectContaining({
+          type: 'rail.pr_state', prDeliveryId: delivery.id, decision: 'pr_failed',
+        }))
+        expect(updatePrDecisionCard).toHaveBeenCalledWith(
+          'conv-recovery',
+          expect.objectContaining({ kind: 'pr_decision', prDeliveryId: delivery.id, decision: 'pr_failed' }),
+        )
+      } finally {
+        setAgentChatManager(null)
+        db.close()
+      }
+    })
+
+    it('reprojects every active origin-linked ledger row over a stale legacy agent envelope', () => {
+      const db = initDb(':memory:')
+      const delivery = createPrDelivery(db, {
+        id: 'repaired-active', railIndex: 0, loopId: 'factory:implement',
+        railKey: '0-factory:implement', ticketIds: [1], baseBranch: 'main',
+        loopName: 'Implement', originSurface: 'agent-chat', originConversationId: 'conv-legacy',
+      })
+      db.prepare(`
+        UPDATE rail_pr_deliveries
+           SET decision = 'pr_failed', implementation_outcome = 'succeeded',
+               delivery_outcome = 'blocked', status_code = 'settlement_interrupted',
+               branch = 'feat/repaired', pr_url = 'https://github.com/o/r/pull/7',
+               pr_number = 7, pr_state = 'pr-created'
+         WHERE id = ?
+      `).run(delivery.id)
+      let persistedEnvelope: Record<string, unknown> = {
+        kind: 'pr_decision', prDeliveryId: delivery.id, decision: 'implementation_failed',
+      }
+      const updatePrDecisionCard = vi.fn((_conversationId: string, envelope: Record<string, unknown>) => {
+        persistedEnvelope = envelope
+      })
+      setAgentChatManager({ updatePrDecisionCard } as unknown as AgentChatManager)
+      const recoveredBroadcast = vi.fn()
+      const recoveryCtx = {
+        db,
+        project: { id: 'p-recovery' },
+        broadcast: recoveredBroadcast,
+      } as unknown as ProjectContext
+      try {
+        expect(reprojectActivePrDeliveries(recoveryCtx)).toBe(1)
+        expect(persistedEnvelope).toMatchObject({
+          kind: 'pr_decision', prDeliveryId: delivery.id, decision: 'pr_failed',
+          implementationOutcome: 'succeeded', deliveryOutcome: 'blocked', statusCode: 'settlement_interrupted',
+        })
+        expect(recoveredBroadcast).toHaveBeenCalledWith(expect.objectContaining({
+          type: 'rail.pr_state', prDeliveryId: delivery.id, decision: 'pr_failed',
+        }))
+      } finally {
+        setAgentChatManager(null)
+        db.close()
+      }
+    })
+
+    it('reprojects terminal origin-linked rows after a crash between terminal CAS and card update', () => {
+      const db = initDb(':memory:')
+      const delivery = createPrDelivery(db, {
+        id: 'terminal-after-crash', railIndex: 0, loopId: 'factory:implement',
+        railKey: '0-factory:implement', ticketIds: [1], baseBranch: 'main',
+        loopName: 'Implement', originSurface: 'agent-chat', originConversationId: 'conv-terminal',
+      })
+      transitionDecision(db, delivery.id, 'building', 'completed', {
+        implementationOutcome: 'succeeded', deliveryOutcome: 'no_changes', statusCode: 'no_changes',
+      })
+      const updatePrDecisionCard = vi.fn()
+      setAgentChatManager({ updatePrDecisionCard } as unknown as AgentChatManager)
+      const recoveryCtx = {
+        db,
+        project: { id: 'p-recovery' },
+        broadcast: vi.fn(),
+      } as unknown as ProjectContext
+      try {
+        expect(reprojectActivePrDeliveries(recoveryCtx)).toBe(1)
+        expect(updatePrDecisionCard).toHaveBeenCalledWith('conv-terminal', expect.objectContaining({
+          prDeliveryId: delivery.id, decision: 'completed', deliveryOutcome: 'no_changes',
+        }))
+      } finally {
+        setAgentChatManager(null)
+        db.close()
+      }
+    })
+  })
+
   // ─── addProject ────────────────────────────────────────────────────────────
 
   describe('addProject', () => {
@@ -226,9 +341,12 @@ describe('ProjectRegistry', () => {
   // ─── removeProject ─────────────────────────────────────────────────────────
 
   describe('removeProject', () => {
-    it('invalidates project continuations before manager teardown begins', () => {
+    it('invalidates project continuations before manager teardown begins', async () => {
       registry.addProject({ id: 'p1', slug: 'my-proj', name: 'My Proj', path: '/path/to/proj' })
       const ctx = registry.getContext('p1')!
+      // Project admission opens asynchronously only after startup worktree /
+      // delivery reconciliation has completed.
+      await vi.waitFor(() => expect(() => captureProcessAdmission('p1')).not.toThrow())
       const lease = captureProcessAdmission('p1')
       const shutdown = vi.fn(() => {
         expect(lease.isCurrent()).toBe(false)
@@ -989,6 +1107,42 @@ describe('ProjectRegistry', () => {
       expect(getRail(ctx.db, 0).ticketIds).toEqual([])
       expect(onRailReview).toHaveBeenCalledWith([1], 'normal-crash')
       expect(getLoopTerminalRecovery(ctx.db, 'normal-crash')).toBeUndefined()
+    })
+
+    it('startup replay trusts durable loop success over an unfinished conservative callback payload', () => {
+      seedTicket('in_progress')
+      const { ctx, onRailReview, onJobOutcome } = setup()
+      setRailTickets(ctx.db, 0, [1])
+      claimTicketOutcomeOwners(ctx.db, [1], 'deferred-crash')
+      claimRailTickets(ctx.db, 0, [1], 'deferred-crash')
+      createLoopRun(ctx.db, {
+        id: 'deferred-crash', projectId: ctx.project.id, loopId: 'loop-1', railIndex: 0,
+        ticketId: 1, ticketIds: [1], ticketCompletionStatus: 'on_review',
+        causalOwnership: true, iterationLimit: 3, startedAt: new Date().toISOString(),
+      })
+      createJob(ctx.db, {
+        id: 'deferred-crash', command: 'loop: deferred crash #1', started_at: new Date().toISOString(),
+        provider: 'claude', owner: 'loop',
+      })
+      finishLoopRunAndJob(ctx.db, 'deferred-crash', {
+        outcome: 'success', callbackOutcome: 'failed', outcomeFinalized: false,
+        finishedAt: new Date().toISOString(),
+        counters: { iterationCount: 1, totalCostUsd: 0, totalTokens: 0, totalDurationMs: 0 },
+        job: {
+          exitCode: 0, status: 'completed', totalCostUsd: 0,
+          tokensIn: 0, tokensOut: 0, tokensCacheRead: 0, tokensCacheCreate: 0,
+          durationMs: 0, numTurns: 0,
+        },
+      })
+
+      ;(registry as unknown as { _recoverOrphanLoopRuns: (...args: unknown[]) => boolean })
+        ._recoverOrphanLoopRuns(ctx.project, ctx.db, ctx.railLoopRuns, ctx.onLoopRunFinished, [])
+
+      expect(readStatus()).toBe('on_review')
+      expect(getRail(ctx.db, 0).ticketIds).toEqual([])
+      expect(onRailReview).toHaveBeenCalledWith([1], 'deferred-crash')
+      expect(onJobOutcome).not.toHaveBeenCalled()
+      expect(getLoopTerminalRecovery(ctx.db, 'deferred-crash')).toBeUndefined()
     })
 
     it('persists a deferred success before rail delivery retries', () => {

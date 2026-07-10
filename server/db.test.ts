@@ -117,6 +117,265 @@ describe('db', () => {
       expect(jobCols).toContain('causal_ownership')
     })
 
+    it('migration 48 adds truthful delivery fields and repairs duplicate active generations before enforcing uniqueness', () => {
+      const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'db-pr-delivery-migration-'))
+      const dbPath = path.join(dir, 'jobs.sqlite')
+      let db = initDb(dbPath)
+      try {
+        db.exec(`DROP INDEX idx_rail_pr_deliveries_one_active_per_rail`)
+        const insert = db.prepare(`
+          INSERT INTO rail_pr_deliveries (
+            id, rail_index, rail_key, ticket_ids, base_branch, loop_name, decision
+          ) VALUES (?, 0, ?, '[1]', 'main', 'Implement', ?)
+        `)
+        insert.run('older', '0-old', 'pr_ready')
+        insert.run('newer', '0-new', 'building')
+        db.prepare(`DELETE FROM schema_migrations WHERE version = 48`).run()
+        db.close()
+        db = initDb(dbPath)
+
+        const cols = (db.prepare(`PRAGMA table_info(rail_pr_deliveries)`).all() as { name: string }[]).map((c) => c.name)
+        expect(cols).toEqual(expect.arrayContaining([
+          'implementation_outcome', 'delivery_outcome', 'status_code', 'status_detail',
+          'delivery_sha', 'is_continuation', 'supersedes_delivery_id', 'operation',
+          'operation_token', 'operation_started_at_ms', 'cleanup_warnings',
+        ]))
+        expect(db.prepare(`SELECT decision FROM rail_pr_deliveries WHERE id = 'older'`).get())
+          .toEqual({ decision: 'superseded' })
+        expect(db.prepare(`SELECT decision FROM rail_pr_deliveries WHERE id = 'newer'`).get())
+          .toEqual({ decision: 'building' })
+        const insertAfter = db.prepare(`
+          INSERT INTO rail_pr_deliveries (
+            id, rail_index, rail_key, ticket_ids, base_branch, loop_name, decision
+          ) VALUES (?, 0, ?, '[1]', 'main', 'Implement', ?)
+        `)
+        expect(() => insertAfter.run('third', '0-third', 'on_review')).toThrow(/UNIQUE/)
+      } finally {
+        try { db.close() } catch { /* already closed */ }
+        fs.rmSync(dir, { recursive: true, force: true })
+      }
+    })
+
+    it('migration 49 repairs legacy false implementation failures and treats completed no-change rows as terminal', () => {
+      const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'db-pr-delivery-truth-repair-'))
+      const dbPath = path.join(dir, 'jobs.sqlite')
+      let db = initDb(dbPath)
+      try {
+        db.prepare(`
+          INSERT INTO loop_runs (
+            id, project_id, loop_id, status, final_outcome, iteration_limit,
+            started_at, finished_at
+          ) VALUES ('run-success', 'p1', 'loop-1', 'completed', 'success', 1, ?, ?)
+        `).run('2026-07-10T10:00:00.000Z', '2026-07-10T10:01:00.000Z')
+        db.prepare(`
+          INSERT INTO rail_pr_deliveries (
+            id, rail_index, loop_id, rail_key, ticket_ids, base_branch, loop_name,
+            decision, implementation_outcome, delivery_outcome, status_code,
+            run_ids, branches
+          ) VALUES (
+            'legacy-false-failure', 0, 'loop-1', '0-loop-1', '[1]', 'main', 'Implement',
+            'implementation_failed', 'failed', 'not_started', 'implementation_failed',
+            '["run-success"]', '[{"ticketId":1,"branch":"feat/1","succeeded":false}]'
+          )
+        `).run()
+        db.prepare('DELETE FROM schema_migrations WHERE version = 49').run()
+        db.close()
+        db = initDb(dbPath)
+
+        const repaired = db.prepare(`
+          SELECT decision, implementation_outcome, delivery_outcome, status_code, branches
+            FROM rail_pr_deliveries WHERE id = 'legacy-false-failure'
+        `).get() as {
+          decision: string
+          implementation_outcome: string
+          delivery_outcome: string
+          status_code: string
+          branches: string
+        }
+        expect(repaired).toMatchObject({
+          decision: 'pr_failed',
+          implementation_outcome: 'succeeded',
+          delivery_outcome: 'blocked',
+          status_code: 'settlement_interrupted',
+        })
+        expect(JSON.parse(repaired.branches)).toEqual([expect.objectContaining({
+          runId: 'run-success',
+          implementationOutcome: 'succeeded',
+          deliveryOutcome: 'blocked',
+          failureCode: 'settlement_interrupted',
+        })])
+
+        db.prepare(`UPDATE rail_pr_deliveries SET decision = 'completed' WHERE id = 'legacy-false-failure'`).run()
+        expect(() => db.prepare(`
+          INSERT INTO rail_pr_deliveries (
+            id, rail_index, rail_key, ticket_ids, base_branch, loop_name, decision
+          ) VALUES ('next-generation', 0, '0-next', '[1]', 'main', 'Implement', 'building')
+        `).run()).not.toThrow()
+      } finally {
+        try { db.close() } catch { /* already closed */ }
+        fs.rmSync(dir, { recursive: true, force: true })
+      }
+    })
+
+    it('migration 50 backfills only unambiguous terminal ticket effects from a v49 database', () => {
+      const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'db-pr-ticket-effect-migration-'))
+      const dbPath = path.join(dir, 'jobs.sqlite')
+      let db = initDb(dbPath)
+      try {
+        const insert = db.prepare(`
+          INSERT INTO rail_pr_deliveries (
+            id, rail_index, rail_key, ticket_ids, run_ids, base_branch, loop_name,
+            decision, is_continuation, pr_url
+          ) VALUES (?, ?, ?, ?, ?, 'main', 'Implement', ?, ?, ?)
+        `)
+        insert.run('merged-continuation', 0, '0-merged', '[1,2,2]', '["run-merged"]', 'merged', 1, 'https://example.test/pr/1')
+        insert.run('fresh-discard', 1, '1-discard', '[3,4]', '["run-discard"]', 'discarded', 0, null)
+        insert.run('continuation-discard', 2, '2-discard', '[5]', '["run-continuation"]', 'discarded', 1, 'https://example.test/pr/3')
+        insert.run('fresh-completed', 3, '3-completed', '[6]', '["run-completed"]', 'completed', 0, null)
+        insert.run('still-active', 4, '4-active', '[7]', '["run-active"]', 'on_review', 0, null)
+        insert.run('malformed-merged', 5, '5-malformed', 'not-json', '["run-malformed"]', 'merged', 0, null)
+        insert.run('stale-owner-merge', 6, '6-stale-owner', '[8]', '["run-old"]', 'merged', 0, 'https://example.test/pr/8')
+        const seedOwner = db.prepare(`
+          INSERT INTO ticket_outcome_ownership (ticket_id, owner_id)
+          VALUES (?, ?)
+        `)
+        seedOwner.run(1, 'run-merged')
+        seedOwner.run(2, 'run-merged')
+        seedOwner.run(3, 'run-discard')
+        seedOwner.run(4, 'run-discard')
+        seedOwner.run(8, 'run-newer-generation')
+
+        // Exact v49 shape: deliveries exist, but migration 50 and its outbox do
+        // not. Reopening must create intents without guessing continuation
+        // ownership or acting on malformed evidence.
+        db.exec(`DROP TABLE rail_pr_ticket_effects`)
+        db.prepare(`DELETE FROM schema_migrations WHERE version IN (50, 51, 52)`).run()
+        db.close()
+        db = initDb(dbPath)
+
+        const cols = (db.prepare(`PRAGMA table_info(rail_pr_ticket_effects)`).all() as { name: string }[])
+          .map((column) => column.name)
+        expect(cols).toEqual(expect.arrayContaining([
+          'applied_ticket_ids', 'tickets_applied_at', 'jira_enqueued_at', 'completed_at',
+        ]))
+        expect(db.prepare(`
+          SELECT delivery_id, ticket_ids, target_status, jira_action, pr_url,
+                 applied_ticket_ids, tickets_applied_at, jira_enqueued_at, completed_at
+            FROM rail_pr_ticket_effects
+           ORDER BY delivery_id
+        `).all()).toEqual([
+          {
+            delivery_id: 'fresh-discard',
+            ticket_ids: '[3,4]',
+            target_status: 'todo',
+            jira_action: 'backlog',
+            pr_url: null,
+            applied_ticket_ids: null,
+            tickets_applied_at: null,
+            jira_enqueued_at: null,
+            completed_at: null,
+          },
+          {
+            delivery_id: 'merged-continuation',
+            ticket_ids: '[1,2]',
+            target_status: 'done',
+            jira_action: 'merged',
+            pr_url: 'https://example.test/pr/1',
+            applied_ticket_ids: null,
+            tickets_applied_at: null,
+            jira_enqueued_at: null,
+            completed_at: null,
+          },
+        ])
+      } finally {
+        try { db.close() } catch { /* already closed */ }
+        fs.rmSync(dir, { recursive: true, force: true })
+      }
+    })
+
+    it('migration 51 upgrades an already-marked v50 draft table without losing rows', () => {
+      const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'db-pr-ticket-effect-v51-'))
+      const dbPath = path.join(dir, 'jobs.sqlite')
+      let db = initDb(dbPath)
+      try {
+        db.prepare(`
+          INSERT INTO rail_pr_deliveries (
+            id, rail_index, rail_key, ticket_ids, run_ids, base_branch, loop_name,
+            decision, is_continuation, pr_url
+          ) VALUES ('v50-missed-merge', 20, '20-merged', '[9]', '["run-v50"]', 'main', 'Implement',
+                    'merged', 0, 'https://example.test/pr/9')
+        `).run()
+        db.prepare(`
+          INSERT INTO ticket_outcome_ownership (ticket_id, owner_id)
+          VALUES (9, 'run-v50')
+        `).run()
+        db.exec(`
+          DROP TABLE rail_pr_ticket_effects;
+          CREATE TABLE rail_pr_ticket_effects (
+            delivery_id   TEXT PRIMARY KEY,
+            ticket_ids    TEXT NOT NULL,
+            target_status TEXT NOT NULL CHECK (target_status IN ('todo', 'done')),
+            jira_action   TEXT NOT NULL CHECK (jira_action IN ('discard', 'merged')),
+            pr_url        TEXT,
+            attempts      INTEGER NOT NULL DEFAULT 0,
+            last_error    TEXT,
+            completed_at  TEXT,
+            created_at    TEXT NOT NULL DEFAULT (datetime('now')),
+            updated_at    TEXT NOT NULL DEFAULT (datetime('now'))
+          );
+          INSERT INTO rail_pr_ticket_effects (
+            delivery_id, ticket_ids, target_status, jira_action, pr_url, attempts, last_error
+          ) VALUES ('preserved-effect', '[8]', 'todo', 'discard', NULL, 2, 'retry me');
+        `)
+        // Simulate a DB that has committed the draft v50 and therefore will not
+        // rerun migration 50 even though its body has since evolved.
+        expect(db.prepare(`SELECT version FROM schema_migrations WHERE version = 50`).get())
+          .toEqual({ version: 50 })
+        db.prepare(`DELETE FROM schema_migrations WHERE version IN (51, 52)`).run()
+        db.close()
+        db = initDb(dbPath)
+
+        expect(db.prepare(`
+          SELECT delivery_id, ticket_ids, target_status, jira_action, attempts, last_error,
+                 applied_ticket_ids, tickets_applied_at, jira_enqueued_at, completed_at
+            FROM rail_pr_ticket_effects WHERE delivery_id = 'preserved-effect'
+        `).get()).toEqual({
+          delivery_id: 'preserved-effect',
+          ticket_ids: '[8]',
+          target_status: 'todo',
+          jira_action: 'discard',
+          attempts: 2,
+          last_error: 'retry me',
+          applied_ticket_ids: null,
+          tickets_applied_at: null,
+          jira_enqueued_at: null,
+          completed_at: null,
+        })
+        expect(db.prepare(`
+          SELECT target_status, jira_action, pr_url
+            FROM rail_pr_ticket_effects WHERE delivery_id = 'v50-missed-merge'
+        `).get()).toEqual({
+          target_status: 'done',
+          jira_action: 'merged',
+          pr_url: 'https://example.test/pr/9',
+        })
+
+        const insert = db.prepare(`
+          INSERT INTO rail_pr_ticket_effects (
+            delivery_id, ticket_ids, target_status, jira_action, pr_url
+          ) VALUES (?, '[1]', ?, ?, NULL)
+        `)
+        expect(() => insert.run('accept-completed', 'done', 'completed')).not.toThrow()
+        expect(() => insert.run('accept-refine', 'todo', 'refine')).not.toThrow()
+        expect(() => insert.run('accept-backlog', 'todo', 'backlog')).not.toThrow()
+        expect(db.prepare(`SELECT version FROM schema_migrations WHERE version = 51`).get())
+          .toEqual({ version: 51 })
+      } finally {
+        try { db.close() } catch { /* already closed */ }
+        fs.rmSync(dir, { recursive: true, force: true })
+      }
+    })
+
     it('migration 44 classifies legacy loop jobs and backfills their provider', () => {
       const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'db-job-owner-migration-'))
       const dbPath = path.join(dir, 'jobs.sqlite')

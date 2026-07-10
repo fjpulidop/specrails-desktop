@@ -31,9 +31,13 @@ export interface Exec {
   run(cmd: string, args: string[], cwd: string): Promise<ExecResult>
 }
 
-export const defaultExec: Exec = {
-  run(cmd, args, cwd) {
-    return new Promise<ExecResult>((resolve) => {
+export const PR_COMMAND_TIMEOUT_MS = 120_000
+
+export function createBoundedExec(timeoutMs = PR_COMMAND_TIMEOUT_MS): Exec {
+  const boundedTimeoutMs = Math.max(1, Math.floor(timeoutMs))
+  return {
+    run(cmd, args, cwd) {
+      return new Promise<ExecResult>((resolve) => {
       // `windowsSpawnEnv()` backfills SystemRoot / ComSpec / USERPROFILE, which a
       // GUI-launched / pkg-stripped Windows sidecar can lack — without them the
       // `git`/`gh` child (and the `sh -c` the `!gh …` credential helper runs) can
@@ -41,13 +45,32 @@ export const defaultExec: Exec = {
       // (GIT_ASKPASS=echo / GIT_TERMINAL_PROMPT=0), which the push must keep. No-op
       // on POSIX (returns process.env), so mac/Linux behaviour is byte-identical.
       const env = windowsSpawnEnv()
-      execFile(cmd, args, { cwd, env, maxBuffer: 16 * 1024 * 1024, windowsHide: true }, (err, stdout, stderr) => {
+      // These commands can run while holding the per-repository mutation lock.
+      // A wedged credential helper/network child must be reaped before the lock
+      // can be released; otherwise every later launch/decision/checkout hangs
+      // behind it forever. Two minutes is deliberately generous for push/gh.
+      execFile(cmd, args, {
+        cwd,
+        env,
+        maxBuffer: 16 * 1024 * 1024,
+        windowsHide: true,
+        timeout: boundedTimeoutMs,
+        killSignal: 'SIGTERM',
+      }, (err, stdout, stderr) => {
         const code = err && typeof (err as { code?: unknown }).code === 'number' ? (err as { code: number }).code : err ? 1 : 0
-        resolve({ code, stdout: stdout?.toString() ?? '', stderr: stderr?.toString() ?? '' })
+        const errorText = err ? err.message : ''
+        resolve({
+          code,
+          stdout: stdout?.toString() ?? '',
+          stderr: stderr?.toString() || errorText,
+        })
       })
-    })
-  },
+      })
+    },
+  }
 }
+
+export const defaultExec: Exec = createBoundedExec()
 
 export type PrPublishState = 'pr-created' | 'pushed' | 'local-only'
 
@@ -56,6 +79,8 @@ export interface PrPublishResult {
   branch: string
   /** Present only when state === 'pr-created'. */
   prUrl?: string
+  /** Draft lifecycle reported by an adopted existing PR, when available. */
+  isDraft?: boolean
   /** Human/machine-readable reason for a degraded (pushed / local-only) outcome. */
   reason?: string
 }
@@ -71,6 +96,9 @@ export interface PublishDraftPrInput {
   body: string
   /** Remote to push to (default `origin`). */
   remote?: string
+  /** Immutable settled object to publish under `branch`. When present, the
+   * branch ref may move without changing what this delivery pushes. */
+  sourceSha?: string
 }
 
 export interface PushBranchInput {
@@ -96,6 +124,53 @@ export type PushBranchResult =
 export function parsePrUrl(stdout: string): string | undefined {
   const m = stdout.match(/https?:\/\/\S+\/pull\/\d+/)
   return m ? m[0] : undefined
+}
+
+interface ExistingPrCandidate {
+  url?: unknown
+  isDraft?: unknown
+  headRefName?: unknown
+  baseRefName?: unknown
+  state?: unknown
+}
+
+/**
+ * Recover an ambiguously-created PR by its exact remote identity. GitHub does
+ * not allow a second open PR for the same head in the common case, but we still
+ * require exactly one OPEN head/base match before adopting it: a fuzzy title or
+ * ticket match would attach the delivery to someone else's review.
+ */
+async function findExactOpenPr(
+  exec: Exec,
+  input: Pick<PublishDraftPrInput, 'repoDir' | 'branch' | 'baseBranch'>,
+): Promise<{ prUrl: string; isDraft?: boolean } | null> {
+  const lookup = await exec.run(
+    'gh',
+    [
+      'pr', 'list', '--state', 'open', '--head', input.branch, '--base', input.baseBranch,
+      '--json', 'url,isDraft,headRefName,baseRefName,state',
+    ],
+    input.repoDir,
+  )
+  if (lookup.code !== 0) return null
+  try {
+    const parsed = JSON.parse(lookup.stdout) as unknown
+    if (!Array.isArray(parsed)) return null
+    const exact = (parsed as ExistingPrCandidate[]).filter((candidate) =>
+      candidate.state === 'OPEN' &&
+      candidate.headRefName === input.branch &&
+      candidate.baseRefName === input.baseBranch &&
+      typeof candidate.url === 'string' &&
+      parsePrUrl(candidate.url) === candidate.url,
+    )
+    if (exact.length !== 1) return null
+    return {
+      prUrl: exact[0].url as string,
+      ...(typeof exact[0].isDraft === 'boolean' ? { isDraft: exact[0].isDraft } : {}),
+    }
+  } catch {
+    return null
+  }
 }
 
 /** Push a committed delivery branch, including the gh-credential retry used by
@@ -134,7 +209,7 @@ export async function publishDraftPr(exec: Exec, input: PublishDraftPrInput): Pr
 
   // 1. Push the branch (set upstream). Failure → local-only, never throw.
   //    Guardrail: never force-push, never push the integration branch itself.
-  const pushed = await pushBranch(exec, { repoDir, branch, baseBranch, remote })
+  const pushed = await pushBranch(exec, { repoDir, branch, baseBranch, remote, sourceSha: input.sourceSha })
   if (pushed.state === 'local-only') return pushed
 
   // 2. Open a DRAFT PR. Failure (no gh / not authed / perms) → pushed, never throw.
@@ -143,15 +218,18 @@ export async function publishDraftPr(exec: Exec, input: PublishDraftPrInput): Pr
     ['pr', 'create', '--draft', '--base', baseBranch, '--head', branch, '--title', input.title, '--body', input.body],
     repoDir,
   )
-  if (pr.code !== 0) {
-    return { state: 'pushed', branch, reason: reasonFrom(pr) }
-  }
-
-  const prUrl = parsePrUrl(pr.stdout)
+  const prUrl = pr.code === 0 ? parsePrUrl(pr.stdout) : undefined
   if (!prUrl) {
-    // gh exited 0 but we couldn't find a URL — treat as pushed (the PR likely
-    // exists) rather than claiming a URL we don't have.
-    return { state: 'pushed', branch, reason: 'pr-created-no-url' }
+    // `gh pr create` can report success without a parseable URL, return an
+    // "already exists" error on a retry, or fail after GitHub accepted the
+    // request. Resolve every ambiguous outcome by exact head/base identity.
+    const existing = await findExactOpenPr(exec, { repoDir, branch, baseBranch })
+    if (existing) return { state: 'pr-created', branch, ...existing }
+    return {
+      state: 'pushed',
+      branch,
+      reason: pr.code === 0 ? 'pr-created-no-url' : reasonFrom(pr),
+    }
   }
   return { state: 'pr-created', branch, prUrl }
 }

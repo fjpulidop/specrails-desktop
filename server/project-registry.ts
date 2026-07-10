@@ -40,6 +40,9 @@ import { LoopRunManager, recoverOrphanLoopStepAccounting } from './loop-run-mana
 import { createLoopExecutors } from './loop-executors'
 import { reconcileRailWorktrees } from './rail-isolated-launch'
 import { isRailPrDeliveryEnabled } from './rail-isolation'
+import { clearOrphanedPrDeliveryOperations, getPrDelivery, listOriginLinkedPrDeliveries, toPrDecisionCardEnvelope, toPrDeliverySnapshot, toRailPrStateMessage } from './rail-pr-store'
+import { getAgentChatManager } from './agent-chat-registry'
+import { replayRailPrTicketEffectsUntilSettled } from './rail-pr-ticket-effects'
 import {
   getLoopTerminalRecovery,
   getLoopRun,
@@ -128,6 +131,32 @@ export interface ProjectContext {
   getTicketSpec: (ticketId: number) => LoopSpec | undefined
   /** App-level DB (project registry + the global `loops` table). */
   desktopDb: DbInstance
+}
+
+/** Rehydrate both authoritative PR-decision surfaces after startup recovery.
+ * Recovery has already committed the row; broadcasts/cards are advisory and
+ * may be retried by normal hydration if a surface is unavailable. */
+export function emitRecoveredPrDelivery(ctx: ProjectContext, deliveryId: string): void {
+  const row = getPrDelivery(ctx.db, deliveryId)
+  if (!row) return
+  const snapshot = toPrDeliverySnapshot(row)
+  try { ctx.broadcast(toRailPrStateMessage(ctx.project.id, snapshot)) } catch { /* durable row is authoritative */ }
+  if (!row.origin_conversation_id) return
+  try {
+    getAgentChatManager()?.updatePrDecisionCard(
+      row.origin_conversation_id,
+      toPrDecisionCardEnvelope(ctx.project.id, snapshot),
+    )
+  } catch { /* conversation hydration can retry */ }
+}
+
+/** Migration/recovery or a crash after a terminal CAS can repair the ledger
+ * without touching system envelopes persisted in agent conversations. Project
+ * active AND terminal origin-linked rows so obsolete cards cannot stay pinned. */
+export function reprojectActivePrDeliveries(ctx: ProjectContext): number {
+  const rows = listOriginLinkedPrDeliveries(ctx.db)
+  for (const row of rows) emitRecoveredPrDelivery(ctx, row.id)
+  return rows.length
 }
 
 // ─── ProjectRegistry ──────────────────────────────────────────────────────────
@@ -440,6 +469,10 @@ export class ProjectRegistry {
     // Avoid double-loading
     const existing = this._contexts.get(project.id)
     if (existing) return existing
+
+    // A context is visible synchronously, but no subprocess launch may enter
+    // until durable loop callbacks and isolated worktrees have been reconciled.
+    beginProjectProcessQuiescence(project.id)
 
     const db = initDb(project.db_path)
 
@@ -882,11 +915,6 @@ export class ProjectRegistry {
     // rail and Jira invariants instead of bypassing them with raw SQL.
     let orphanLoopRuns: LoopRunRow[] = []
     try { orphanLoopRuns = listActiveLoopRuns(db, project.id) } catch { /* non-fatal */ }
-    // Sweep worktrees left behind by a crashed parallel-rail fan-out (no-op +
-    // no git calls when isolation was never used). Best-effort, non-blocking.
-    void reconcileRailWorktrees(db, project.path)
-      .then((n) => { if (n > 0) console.log(`[loops] reconciled ${n} orphan worktree(s) for ${project.slug}`) })
-      .catch(() => { /* non-fatal */ })
     // Loop executors resolve their base env LAZILY per step: a RELOCATED project
     // injects core's env-first artifact indirection (tickets/backlog/profiles/
     // state → the workspace) so an ISOLATED worktree run — whose cwd-relative
@@ -1088,8 +1116,51 @@ export class ProjectRegistry {
 
     const ctx: ProjectContext = { project, db, queueManager, chatManager, setupManager, proposalManager, agentRefineManager, fileSummaryManager, specLauncherManager, ticketWatcher, browserCaptureManager, jiraSyncManager, broadcast: boundBroadcast, railJobs, loopRunManager, railLoopRuns, onLoopRunFinished, getTicketSpec, desktopDb: this._desktopDb }
     this._contexts.set(project.id, ctx)
-    this._recoverOrphanLoopRuns(project, db, railLoopRuns, onLoopRunFinished, orphanLoopRuns)
-    openProjectProcessAdmission(project.id)
+    const loopRecoveryOk = this._recoverOrphanLoopRuns(project, db, railLoopRuns, onLoopRunFinished, orphanLoopRuns)
+    if (loopRecoveryOk) {
+      // Decision tokens belong to the dead process. Clear them before any
+      // recovery projection while admission is still closed; otherwise every
+      // action on the card remains disabled and cannot trigger lease reclaim.
+      const orphanedDecisionLeases = clearOrphanedPrDeliveryOperations(db)
+      if (orphanedDecisionLeases > 0) {
+        console.log(`[safe-pr] cleared ${orphanedDecisionLeases} orphaned decision lease(s) for ${project.slug}`)
+      }
+      // Worktree/delivery recovery owns the same repo mutex as launch
+      // allocation. Admission opens only after it settles, so a request cannot
+      // reuse a ticket-keyed path while startup still inspects it.
+      void reconcileRailWorktrees(db, project.path)
+        .then(async (n) => {
+          if (n > 0) console.log(`[loops] reconciled ${n} orphan worktree(s) for ${project.slug}`)
+          if (this._contexts.get(project.id) === ctx) {
+            const effectDeps = {
+              db,
+              project: { id: project.id, slug: project.slug, path: project.path },
+              broadcast: boundBroadcast,
+              jiraSyncManager,
+            }
+            const ticketEffects = await replayRailPrTicketEffectsUntilSettled(effectDeps, {
+              isCurrent: () => this._contexts.get(project.id) === ctx,
+              onAttempt: (result) => {
+                if (result.attempted > 0) {
+                  console.log(`[safe-pr] replayed ${result.completed}/${result.attempted} ticket effect(s) for ${project.slug}; ${result.pending} pending`)
+                  // A failed attempt persists cleanup_incomplete on the terminal
+                  // delivery; project it immediately while admission remains
+                  // closed so both cards explain the recovery state.
+                  for (const deliveryId of result.attemptedDeliveryIds) {
+                    emitRecoveredPrDelivery(ctx, deliveryId)
+                  }
+                }
+              },
+            })
+            if (!ticketEffects.settled || this._contexts.get(project.id) !== ctx) return
+            reprojectActivePrDeliveries(ctx)
+            openProjectProcessAdmission(project.id)
+          }
+        })
+        .catch((err) => {
+          console.error(`[loops] isolated recovery failed for ${project.slug}; admission remains closed:`, err)
+        })
+    }
     return ctx
   }
 
@@ -1103,7 +1174,7 @@ export class ProjectRegistry {
     }>,
     onLoopRunFinished: (runId: string, outcome: string) => void,
     orphans: LoopRunRow[],
-  ): void {
+  ): boolean {
     try {
       const recoveredSteps = recoverOrphanLoopStepAccounting(db)
       if (recoveredSteps > 0) {
@@ -1145,15 +1216,24 @@ export class ProjectRegistry {
       for (const row of pending) {
         let terminalOutcome = 'failed'
         try {
-          terminalOutcome = (JSON.parse(row.payload) as LoopTerminalRecoveryPayload).outcome
+          const payload = JSON.parse(row.payload) as LoopTerminalRecoveryPayload
+          terminalOutcome = payload.outcome
+          if (payload.outcomeFinalized === false) {
+            const durableRun = getLoopRun(db, row.run_id)
+            if (durableRun?.status === 'completed' && durableRun.final_outcome) {
+              terminalOutcome = durableRun.final_outcome
+            }
+          }
         } catch { /* handler logs and retains malformed intent */ }
         onLoopRunFinished(row.run_id, terminalOutcome)
       }
       if (orphans.length > 0) {
         console.log(`[loops] reconciled ${orphans.length} orphan loop run(s) for ${project.slug}`)
       }
+      return true
     } catch (err) {
       console.error(`[loops] orphan reconciliation failed for ${project.slug}:`, err)
+      return false
     }
   }
 

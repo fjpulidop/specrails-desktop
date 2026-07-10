@@ -68,6 +68,20 @@ describe('deliverRailAsPr', () => {
     expect(calls.some((c) => c[0] === 'worktree' && c[1] === 'add')).toBe(false)
   })
 
+  it('single ticket pushes the immutable settled object, not the mutable branch ref', async () => {
+    const sha = 'a'.repeat(40)
+    const { git } = fakeGit()
+    const { exec, calls } = fakeExec()
+    const r = await deliverRailAsPr(git, exec, {
+      ...base,
+      branches: [{ ...br(1, true), sourceSha: sha }],
+    })
+    expect(r.state).toBe('delivered')
+    expect(calls).toContainEqual({
+      cmd: 'git', args: ['push', 'origin', `${sha}:refs/heads/feat/1-t1`],
+    })
+  })
+
   it('multiple tickets clean → batch branch off integration, merges, one PR, worktree removed', async () => {
     const { git, calls } = fakeGit()
     const { exec, calls: execCalls } = fakeExec()
@@ -85,6 +99,24 @@ describe('deliverRailAsPr', () => {
     expect(execCalls.find((c) => c.cmd === 'gh')?.args).toContain('main')
     // transient worktree cleaned up
     expect(calls).toContainEqual(['worktree', 'remove', '--force', '/wt/batch-0-impl'])
+  })
+
+  it('batch assembly merges immutable settled objects', async () => {
+    const first = 'a'.repeat(40)
+    const second = 'b'.repeat(40)
+    const { git, calls } = fakeGit()
+    const { exec } = fakeExec()
+    await deliverRailAsPr(git, exec, {
+      ...base,
+      branches: [
+        { ...br(1, true), sourceSha: first },
+        { ...br(2, true), sourceSha: second },
+      ],
+    })
+    expect(calls.filter((call) => call[0] === 'merge')).toEqual([
+      ['merge', '--no-ff', '--no-edit', first],
+      ['merge', '--no-ff', '--no-edit', second],
+    ])
   })
 
   it('an existing branch of the preferred batch name → bounded -2 suffix', async () => {
