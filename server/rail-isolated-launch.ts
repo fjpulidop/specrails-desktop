@@ -1527,8 +1527,32 @@ export async function reconcileRailWorktrees(
     }
 
     const recovered = reconcileFailedBuildingPrDeliveries(db, { startup: true })
-    for (const delivery of recovered) {
-      if (delivery.is_continuation !== 1 || !['succeeded', 'partially_succeeded'].includes(delivery.implementation_outcome)) continue
+    // Migration 49 repairs legacy false implementation failures before Git is
+    // available. Revisit those already-pr_failed rows here: if their own
+    // durable run/worktree ledger proves one exact clean object, the card can
+    // safely offer Retry push instead of forcing destructive cleanup.
+    const migratedInterrupted = (db.prepare(`
+      SELECT id FROM rail_pr_deliveries
+       WHERE decision = 'pr_failed'
+         AND implementation_outcome IN ('succeeded', 'partially_succeeded')
+         AND delivery_outcome = 'blocked'
+         AND status_code = 'settlement_interrupted'
+         AND delivery_sha IS NULL
+         AND pr_url IS NOT NULL
+         AND branch IS NOT NULL
+    `).all() as Array<{ id: string }>)
+      .map(({ id }) => getPrDelivery(db, id))
+      .filter((delivery): delivery is NonNullable<ReturnType<typeof getPrDelivery>> => delivery !== undefined)
+    const recoveryCandidates = [...new Map(
+      [...recovered, ...migratedInterrupted].map((delivery) => [delivery.id, delivery]),
+    ).values()]
+    for (const delivery of recoveryCandidates) {
+      if (!['succeeded', 'partially_succeeded'].includes(delivery.implementation_outcome)) continue
+      // Exact-SHA promotion here is specifically an existing-PR retry. A fresh
+      // recovered generation remains on_review/ready and follows normal draft
+      // creation; it must not be relabelled as a failed push merely because its
+      // clean worktree also yielded a verifiable SHA.
+      if (!delivery.pr_url || !delivery.branch) continue
       let runIds: string[] = []
       try {
         const parsed = JSON.parse(delivery.run_ids) as unknown
@@ -1557,7 +1581,7 @@ export async function reconcileRailWorktrees(
         deliverySha: shas[0],
       })
     }
-    for (const delivery of recovered) {
+    for (const delivery of recoveryCandidates) {
       try { io.onDeliveryRecovered?.(delivery.id) } catch { /* durable state wins over advisory surfaces */ }
     }
     return stuck.length

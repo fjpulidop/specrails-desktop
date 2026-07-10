@@ -87,6 +87,9 @@ actionable.
 - Operation leases are process capabilities. Startup clears every prior-process lease before card
   projection, marks the still-active delivery `operation_interrupted`, and leaves its durable SHA,
   PR and unit evidence intact so the user can safely retry.
+- Migrated successful `settlement_interrupted` rows with an existing PR are re-examined at startup.
+  One clean exact commit proven by their own run/worktree/branch ledger becomes `delivery_sha` and
+  a Retry push action; dirty, missing, mismatched or ambiguous evidence stays blocked and preserved.
 - `GET /rails` is hydration-only and never invokes crash recovery. This avoids misclassifying the
   normal live window between durable loop completion and commit/ref/push settlement.
 - Startup retries pending terminal ticket effects in-process and re-projects active and terminal

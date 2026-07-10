@@ -1860,6 +1860,50 @@ describe('reconcileRailWorktrees (startup sweep)', () => {
     })
   })
 
+  it('promotes a migrated blocked PR row to exact-SHA Retry push without a continuation marker', async () => {
+    const db = initDb(':memory:')
+    const runId = 'legacy-recovered-run'
+    const branch = 'feat/existing-pr'
+    createLoopRun(db, {
+      id: runId, projectId: 'proj', loopId: 'factory:implement', railIndex: 0,
+      ticketId: 1, ticketIds: [1], ticketCompletionStatus: 'on_review',
+      iterationLimit: 3, startedAt: new Date().toISOString(),
+    })
+    db.prepare(`UPDATE loop_runs SET status = 'completed', final_outcome = 'success' WHERE id = ?`).run(runId)
+    const worktree = createRailWorktree(db, {
+      id: 'legacy-recovered-wt', railIndex: 0, ticketId: 1, runId,
+      branch, worktreePath: '/wt/legacy-recovered', mergeState: 'released',
+    })
+    const delivery = createPrDelivery(db, {
+      id: 'legacy-recovered-delivery', railIndex: 0, loopId: 'factory:implement',
+      railKey: '0-factory:implement', ticketIds: [1], baseBranch: 'main',
+      loopName: 'Implement', originSurface: 'agent-chat', isContinuation: false,
+    })
+    transitionDecision(db, delivery.id, 'building', 'pr_failed', {
+      runIds: [runId], worktreeIds: [worktree.id], branch,
+      prUrl: 'https://github.com/o/r/pull/1', prNumber: 1, prState: 'pr-created',
+      implementationOutcome: 'succeeded', deliveryOutcome: 'blocked',
+      statusCode: 'settlement_interrupted',
+    })
+    const onDeliveryRecovered = vi.fn()
+    const git = {
+      run: async (args: string[]) => args.join(' ') === `rev-parse --verify refs/heads/${branch}`
+        ? { code: 0, stdout: `${TEST_SHA}\n`, stderr: '' }
+        : successfulGitResult(args),
+    }
+
+    await reconcileRailWorktrees(db, '/repo', {
+      git, remove: vi.fn(async () => {}), onDeliveryRecovered,
+    })
+
+    expect(getActivePrDeliveryByRail(db, 0)).toMatchObject({
+      decision: 'pr_failed', is_continuation: 0,
+      implementation_outcome: 'succeeded', delivery_outcome: 'retryable_failure',
+      status_code: 'settlement_interrupted', delivery_sha: TEST_SHA,
+    })
+    expect(onDeliveryRecovered).toHaveBeenCalledWith(delivery.id)
+  })
+
   it('preserves non-terminal worktrees with missing run evidence as needs-review', async () => {
     const db = initDb(':memory:')
     createRailWorktree(db, { id: 'a', railIndex: 0, ticketId: 1, branch: 'sr/p/ticket-1', worktreePath: '/wt/1' })

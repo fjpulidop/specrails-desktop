@@ -118,6 +118,19 @@ The platform SHALL treat a continuation's PR and head branch as borrowed user-ow
 - **AND** the existing PR, its head branch, and its review ticket state SHALL remain unchanged
 - **AND** the server behavior SHALL match the consequence shown by the card
 
+#### Scenario: Recovered legacy commit is missing from the PR
+
+- **WHEN** a migrated successful row is delivery-blocked, its existing PR does not contain the implementation, and startup can prove one clean exact commit from that rows recorded run/worktree/branch evidence
+- **THEN** recovery SHALL persist that immutable commit as `delivery_sha`
+- **AND** the card SHALL offer Retry push against the existing PR rather than only destructive discard
+- **AND** retry SHALL push exactly that SHA after revalidating the PR lifecycle
+
+#### Scenario: Legacy commit cannot be proven exactly
+
+- **WHEN** the recorded worktree is dirty or its run/ref evidence is missing, mismatched, or resolves to multiple commits
+- **THEN** recovery SHALL keep delivery blocked and preserve the local result
+- **AND** SHALL NOT infer a retry SHA from an unrelated historical ticket branch
+
 ### Requirement: Delivery reasons and evidence survive refresh
 
 The delivery ledger and every snapshot SHALL include a stable implementation outcome, delivery outcome, status code, continuation ownership, cleanup warnings, exact verified delivery SHA when available, and per-unit outcomes. The client SHALL localize the status code and treat raw detail as secondary diagnostics.

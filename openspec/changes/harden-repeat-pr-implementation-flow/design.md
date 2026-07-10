@@ -73,6 +73,8 @@ Continuation ownership also changes destructive semantics. “Dismiss” clears 
 
 Legacy false-failure repair cannot always reconstruct the historical `is_continuation` bit. A blocked/recovered delivery that still carries a PR URL is therefore treated as external review state regardless of that bit: “Discard local result” may remove the explicitly confirmed local worktree, but it never closes the PR, deletes its head, or moves its review tickets. The visible consequence and server cleanup rule remain identical for migrated and newly-created cards.
 
+Startup also revisits those migrated `pr_failed + settlement_interrupted` rows. When the recorded successful run and its own worktree/branch ledger prove one clean exact commit, recovery freezes that SHA into `delivery_sha` and promotes the card from blocked to retryable. Retry push then uses the existing PR URL/head and that immutable object. If exact evidence is dirty, missing, ambiguous, or spans different SHAs, the card remains blocked and preserves the local result; recovery never substitutes another ticket branch.
+
 ### 4. Decision actions claim before effects and return authoritative state
 
 Before running `git`, `gh`, ticket, or cleanup effects, an action atomically claims the row with a unique token. Another surface receives a conflict before it can perform an effect. A bounded stale lease is reclaimable after process death. Every exit releases its own token; successful transitions preserve the claim until the new durable snapshot is written.
