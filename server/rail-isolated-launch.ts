@@ -1558,22 +1558,50 @@ export async function reconcileRailWorktrees(
         const parsed = JSON.parse(delivery.run_ids) as unknown
         if (Array.isArray(parsed)) runIds = parsed.filter((value): value is string => typeof value === 'string')
       } catch { /* malformed legacy row remains blocked without a retry SHA */ }
+      const retainBlockedWithDetail = (detail: string): void => {
+        if (delivery.status_detail === detail) return
+        transitionDecision(db, delivery.id, delivery.decision, delivery.decision, {
+          deliveryOutcome: 'blocked',
+          statusCode: 'settlement_interrupted',
+          statusDetail: detail,
+        })
+      }
+      if (runIds.length === 0) {
+        retainBlockedWithDetail('Exact commit recovery is unavailable because this legacy delivery has no durable run identifiers; the local result was preserved.')
+        continue
+      }
       for (const runId of runIds) {
         if (verifiedShaByRun.has(runId)) continue
-        const released = db.prepare(`
-          SELECT branch, merge_state FROM rail_worktrees
-           WHERE run_id = ? AND merge_state = 'released'
+        const terminal = db.prepare(`
+          SELECT branch, worktree_path, merge_state FROM rail_worktrees
+           WHERE run_id = ? AND branch = ?
+             AND merge_state IN ('released', 'failed')
            ORDER BY created_at DESC, rowid DESC LIMIT 1
-        `).get(runId) as { branch: string; merge_state: string } | undefined
-        if (!released) continue
+        `).get(runId, delivery.branch) as {
+          branch: string
+          worktree_path: string
+          merge_state: 'released' | 'failed'
+        } | undefined
+        if (!terminal) continue
         try {
-          const ref = await git.run(['rev-parse', '--verify', `refs/heads/${released.branch}`], repoDir)
-          const sha = ref.code === 0 ? ref.stdout.trim() : ''
+          let sha = ''
+          if (fs.existsSync(terminal.worktree_path)) {
+            const inspection = await inspectRecoveryWorktree(git, repoDir, terminal)
+            if (inspection.safe && inspection.sha) sha = inspection.sha
+          } else {
+            const ref = await git.run(['rev-parse', '--verify', `refs/heads/${terminal.branch}`], repoDir)
+            sha = ref.code === 0 ? ref.stdout.trim() : ''
+          }
           if (COMMIT_SHA_RE.test(sha)) verifiedShaByRun.set(runId, sha)
         } catch { /* exact retry remains blocked */ }
       }
       const shas = [...new Set(runIds.map((runId) => verifiedShaByRun.get(runId)).filter((sha): sha is string => !!sha))]
-      if (shas.length !== 1) continue
+      if (shas.length !== 1) {
+        retainBlockedWithDetail(shas.length > 1
+          ? 'Exact commit recovery found multiple different commits in this legacy delivery; the local result was preserved for manual review.'
+          : 'Exact commit recovery could not prove a clean commit from this delivery’s recorded branch/worktree; the local result was preserved.')
+        continue
+      }
       transitionDecision(db, delivery.id, delivery.decision, delivery.decision, {
         deliveryOutcome: 'retryable_failure',
         statusCode: 'settlement_interrupted',

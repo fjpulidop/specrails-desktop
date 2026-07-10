@@ -1872,7 +1872,7 @@ describe('reconcileRailWorktrees (startup sweep)', () => {
     db.prepare(`UPDATE loop_runs SET status = 'completed', final_outcome = 'success' WHERE id = ?`).run(runId)
     const worktree = createRailWorktree(db, {
       id: 'legacy-recovered-wt', railIndex: 0, ticketId: 1, runId,
-      branch, worktreePath: '/wt/legacy-recovered', mergeState: 'released',
+      branch, worktreePath: '/wt/legacy-recovered', mergeState: 'failed',
     })
     const delivery = createPrDelivery(db, {
       id: 'legacy-recovered-delivery', railIndex: 0, loopId: 'factory:implement',
@@ -1902,6 +1902,49 @@ describe('reconcileRailWorktrees (startup sweep)', () => {
       status_code: 'settlement_interrupted', delivery_sha: TEST_SHA,
     })
     expect(onDeliveryRecovered).toHaveBeenCalledWith(delivery.id)
+  })
+
+  it('keeps a migrated PR blocked when only needs-review evidence remains', async () => {
+    const db = initDb(':memory:')
+    const runId = 'legacy-needs-review-run'
+    const branch = 'feat/existing-pr'
+    createLoopRun(db, {
+      id: runId, projectId: 'proj', loopId: 'factory:implement', railIndex: 0,
+      ticketId: 1, ticketIds: [1], ticketCompletionStatus: 'on_review',
+      iterationLimit: 3, startedAt: new Date().toISOString(),
+    })
+    db.prepare(`UPDATE loop_runs SET status = 'completed', final_outcome = 'success' WHERE id = ?`).run(runId)
+    const worktree = createRailWorktree(db, {
+      id: 'legacy-needs-review-wt', railIndex: 0, ticketId: 1, runId,
+      branch, worktreePath: '/wt/legacy-needs-review', mergeState: 'needs-review',
+    })
+    const delivery = createPrDelivery(db, {
+      id: 'legacy-needs-review-delivery', railIndex: 0, loopId: 'factory:implement',
+      railKey: '0-factory:implement', ticketIds: [1], baseBranch: 'main',
+      loopName: 'Implement', originSurface: 'agent-chat', isContinuation: false,
+    })
+    transitionDecision(db, delivery.id, 'building', 'pr_failed', {
+      runIds: [runId], worktreeIds: [worktree.id], branch,
+      prUrl: 'https://github.com/o/r/pull/1', prNumber: 1, prState: 'pr-created',
+      implementationOutcome: 'succeeded', deliveryOutcome: 'blocked',
+      statusCode: 'settlement_interrupted',
+    })
+    const git = {
+      run: vi.fn(async (args: string[]) => args.join(' ') === `rev-parse --verify refs/heads/${branch}`
+        ? { code: 0, stdout: `${TEST_SHA}\n`, stderr: '' }
+        : successfulGitResult(args)),
+    }
+
+    await reconcileRailWorktrees(db, '/repo', { git, remove: vi.fn(async () => {}) })
+
+    expect(getActivePrDeliveryByRail(db, 0)).toMatchObject({
+      decision: 'pr_failed', delivery_outcome: 'blocked', delivery_sha: null,
+      status_code: 'settlement_interrupted',
+      status_detail: expect.stringContaining('could not prove a clean commit'),
+    })
+    expect(git.run).not.toHaveBeenCalledWith(
+      ['rev-parse', '--verify', `refs/heads/${branch}`], '/repo',
+    )
   })
 
   it('preserves non-terminal worktrees with missing run evidence as needs-review', async () => {

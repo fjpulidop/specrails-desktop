@@ -89,7 +89,10 @@ actionable.
   PR and unit evidence intact so the user can safely retry.
 - Migrated successful `settlement_interrupted` rows with an existing PR are re-examined at startup.
   One clean exact commit proven by their own run/worktree/branch ledger becomes `delivery_sha` and
-  a Retry push action; dirty, missing, mismatched or ambiguous evidence stays blocked and preserved.
+  a Retry push action. Terminal `released` and legacy `failed` ledgers may resolve only their exact
+  recorded PR branch; a still-existing worktree must also be clean with matching HEAD/ref.
+  `needs-review`, dirty, missing, mismatched or ambiguous evidence stays blocked, preserved, and
+  receives a specific recovery diagnostic on the card.
 - `GET /rails` is hydration-only and never invokes crash recovery. This avoids misclassifying the
   normal live window between durable loop completion and commit/ref/push settlement.
 - Startup retries pending terminal ticket effects in-process and re-projects active and terminal

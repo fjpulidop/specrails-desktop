@@ -124,12 +124,14 @@ The platform SHALL treat a continuation's PR and head branch as borrowed user-ow
 - **THEN** recovery SHALL persist that immutable commit as `delivery_sha`
 - **AND** the card SHALL offer Retry push against the existing PR rather than only destructive discard
 - **AND** retry SHALL push exactly that SHA after revalidating the PR lifecycle
+- **AND** a terminal legacy `failed` worktree ledger MAY provide its exact recorded branch only when its run succeeded and any still-existing worktree passes clean HEAD/ref inspection
 
 #### Scenario: Legacy commit cannot be proven exactly
 
 - **WHEN** the recorded worktree is dirty or its run/ref evidence is missing, mismatched, or resolves to multiple commits
 - **THEN** recovery SHALL keep delivery blocked and preserve the local result
 - **AND** SHALL NOT infer a retry SHA from an unrelated historical ticket branch
+- **AND** the card detail SHALL explain that exact recovery could not be proven
 
 ### Requirement: Delivery reasons and evidence survive refresh
 
