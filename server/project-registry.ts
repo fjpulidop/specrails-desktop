@@ -279,7 +279,20 @@ export class ProjectRegistry {
       // kills in-flight chat/Explore children and clears their idle timers.
       // SetupManager.abort() stops the 3s install poll and kills install/enrich
       // children. All are idempotent no-ops when nothing is running.
-      try { ctx.queueManager.shutdown() } catch { /* ignore */ }
+      let queueRecoveryComplete = false
+      try {
+        queueRecoveryComplete = typeof ctx.queueManager.shutdown === 'function'
+          ? ctx.queueManager.shutdown() !== false
+          : true
+      } catch (err) {
+        console.error(`[project-registry] queue shutdown failed for ${id}:`, err)
+      }
+      if (!queueRecoveryComplete) {
+        // The context remains registered with its DB intact. A retry can drain
+        // the durable callback/outbox once the external ticket store recovers;
+        // deleting the data dir here would make that effect unrecoverable.
+        throw new Error('Project removal deferred: terminal job recovery is still pending')
+      }
       try { ctx.chatManager.shutdown() } catch { /* ignore */ }
       // Loop engine teardown: dispose any resident interactive step sessions
       // (SIGTERM, no settle) + kill in-flight one-shot loop children — BEFORE

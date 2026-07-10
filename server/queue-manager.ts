@@ -2,6 +2,7 @@ import { ChildProcess } from 'child_process'
 import fsNode from 'fs'
 import pathNode from 'path'
 import { createInterface } from 'readline'
+import type { Interface as ReadlineInterface } from 'readline'
 import { newId as uuidv4 } from './ids'
 import { treeKillSafe } from './util/win-spawn'
 import type { WsMessage, LogMessage, Job, PhaseDefinition, JobPriority } from './types'
@@ -25,7 +26,7 @@ import { finaliseInvocationResult } from './result-event'
 import { randomUUID } from 'crypto'
 import { getAdapter, type ProviderAdapter, type AdapterEvent, type ProviderId } from './providers'
 import { createCodexOtelBridge, type CodexOtelBridge } from './codex-otel-bridge'
-import { createJob, deleteQueuedJob, finishJob, appendEvent, skipJob, getProjectSettings, getFreestylePrePrompt, DEFAULT_FREESTYLE_PRE_PROMPT, finalizeInteractiveJob, upsertQueuedJob } from './db'
+import { createJob, deleteQueuedJob, finishJob, appendEvent, skipJob, getProjectSettings, getFreestylePrePrompt, DEFAULT_FREESTYLE_PRE_PROMPT, upsertQueuedJob } from './db'
 import type { DbInstance, JobResult, QueuedJobRecord } from './db'
 import { InteractiveJobSession, type SettleInfo, type InteractiveSpawnSpec } from './interactive-job-session'
 import type { CommandInfo } from './config'
@@ -150,6 +151,36 @@ export function distributeIntEvenly(
   return out
 }
 
+function maxNullable(
+  left: number | null | undefined,
+  right: number | null | undefined,
+): number | null {
+  const safeLeft = typeof left === 'number' && Number.isFinite(left) && left >= 0 ? left : null
+  const safeRight = typeof right === 'number' && Number.isFinite(right) && right >= 0 ? right : null
+  if (safeLeft == null) return safeRight
+  if (safeRight == null) return safeLeft
+  return Math.max(safeLeft, safeRight)
+}
+
+function sanitizeRecoveredResult(result: Partial<JobResult>): Partial<JobResult> {
+  const safe = { ...result }
+  const numeric: Array<keyof JobResult> = [
+    'tokens_in', 'tokens_out', 'tokens_cache_read', 'tokens_cache_create',
+    'total_cost_usd', 'num_turns', 'duration_ms', 'duration_api_ms',
+  ]
+  for (const key of numeric) {
+    const value = safe[key]
+    if (value !== undefined && (
+      typeof value !== 'number' || !Number.isFinite(value) || value < 0
+    )) {
+      delete safe[key]
+    }
+  }
+  if (safe.model !== undefined && typeof safe.model !== 'string') delete safe.model
+  if (safe.session_id !== undefined && typeof safe.session_id !== 'string') delete safe.session_id
+  return safe
+}
+
 const LOG_BUFFER_MAX = 5000
 const LOG_BUFFER_DROP = 1000
 export const DEFAULT_ZOMBIE_TIMEOUT_MS = 1_800_000 // 30 minutes
@@ -255,6 +286,15 @@ interface OrphanRecoveryPayload {
   durationMs: number | null
   durationApiMs: number | null
   sessionId: string | null
+  /** Explicit terminal semantics for current outbox rows. Payloads written by
+   * older builds omit these fields and replay as failed/aborted. */
+  terminalStatus?: Exclude<Job['status'], 'queued' | 'running'>
+  invocationStatus?: InvocationStatus
+  ticketCompletionStatus?: 'done' | 'on_review'
+  exitCode?: number | null
+  /** Force-failed job whose child is still alive. Keep the completed outbox row
+   * until its late close durably replaces the partial usage snapshot. */
+  awaitingLateReconciliation?: boolean
   /** Exact recursive pre-start descendants captured before the parent becomes
    * deletable. Old payloads omit it and use dependency links as fallback. */
   descendants?: OrphanRecoveryDescendant[]
@@ -289,6 +329,34 @@ interface JobFinishedOptions {
   recoveryCausalOwnership?: boolean
 }
 
+interface StageTerminalIntent {
+  status: Exclude<Job['status'], 'queued' | 'running'>
+  invocationStatus: InvocationStatus
+  provider: string
+  finishedAt: string
+  exitCode: number | null
+  result?: Partial<JobResult>
+  interactive?: boolean
+  ticketCompletionStatus?: 'done' | 'on_review'
+  /** True for work that never reached a provider (queued cancel/skip). */
+  accountingCompleted?: boolean
+  /** A caller that already terminalized descendants in the same transaction
+   * still leaves this false: replay delivers their callbacks idempotently. */
+  terminalCompleted?: boolean
+  descendants?: OrphanRecoveryDescendant[]
+  /** Queued cancellation may have an unresolved queued parent that cannot be
+   * referenced from jobs yet; pass null while retaining descendant ownership. */
+  dependsOnJobId?: string | null
+  awaitingLateReconciliation?: boolean
+}
+
+interface PendingLateReconciliation {
+  code: number | null
+  adapterEvents: readonly AdapterEvent[]
+  adapter: ProviderAdapter
+  spawnedModel?: string
+}
+
 // ─── QueueManager ─────────────────────────────────────────────────────────────
 
 export class QueueManager {
@@ -300,6 +368,7 @@ export class QueueManager {
   private _killTimer: ReturnType<typeof setTimeout> | null
   private _cancelingJobs: Set<string>
   private _zombieJobs: Set<string>
+  private _persistenceFailedJobs: Set<string>
   private _broadcast: (msg: WsMessage) => void
   private _db: any
   private _logBuffer: LogMessage[]
@@ -310,6 +379,9 @@ export class QueueManager {
   /** Set by shutdown(); once disposed the manager spawns no new jobs and never
    *  touches the (now possibly closed) DB from late child 'close' callbacks. */
   private _disposed: boolean
+  /** Startup projection/capture failed and must be rebuilt before admissions
+   * or resume may proceed. Cleared only by a complete restore pass. */
+  private _restoreBlocked: boolean
   /** Invalidates async pre-spawn work across shutdown. A job captures the
    *  generation at start and must still own the active slot before spawning. */
   private _lifecycleGeneration: number
@@ -391,12 +463,20 @@ export class QueueManager {
    *  `_disposed` and the whole job's spend is lost (COST-ACCOUNTING-AUDIT CRIT-3).
    *  Cleared on every terminal path. In-memory only. */
   private _jobLiveAccounting: Map<string, { events: AdapterEvent[]; adapter: ProviderAdapter; model?: string }>
+  private _jobReaders: Map<string, { stdout: ReadlineInterface; stderr: ReadlineInterface }>
   /** Jobs terminated by `_forceFailUnkillableJob` (SIGKILL-escalation failure)
    *  whose surviving child's `close` may still fire `_onJobExit` later. Guards
    *  against a duplicate ai_invocations row + a double `_onJobFinished`; a late
    *  close that carries REAL cost replaces the no-cost placeholder rows
    *  (COST-ACCOUNTING-AUDIT LOW-6). In-memory only. */
   private _forceFailedRowJobs: Set<string>
+  /** Children that survived a failed SIGKILL escalation. They no longer own the
+   * runnable slot, but shutdown must still attempt to terminate them. */
+  private _forceFailedProcesses: Map<string, ChildProcess>
+  /** Child exits whose terminal transaction failed. They deliberately retain
+   * the active slot until shutdown/restart recovery succeeds. */
+  private _terminalPersistenceBlockedJobs: Set<string>
+  private _pendingLateReconciliations: Map<string, PendingLateReconciliation>
   /** Test seam for the sole async pre-spawn dependency. Production resolves the
    *  implementation lazily to keep the plugin subsystem optional. */
   private _resolvePluginsForSpawn: ((
@@ -463,6 +543,7 @@ export class QueueManager {
     this._killTimer = null
     this._cancelingJobs = new Set()
     this._zombieJobs = new Set()
+    this._persistenceFailedJobs = new Set()
     this._broadcast = broadcast
     this._db = db ?? null
     this._logBuffer = []
@@ -470,6 +551,7 @@ export class QueueManager {
     this._cwd = cwd
     this._inactivityTimer = null
     this._disposed = false
+    this._restoreBlocked = false
     this._lifecycleGeneration = 0
 
     this._getCostAlertThreshold = options?.getCostAlertThreshold ?? null
@@ -493,7 +575,11 @@ export class QueueManager {
     this._jobPrDelivery = new Map()
     this._interactiveSessions = new Map()
     this._jobLiveAccounting = new Map()
+    this._jobReaders = new Map()
     this._forceFailedRowJobs = new Set()
+    this._forceFailedProcesses = new Map()
+    this._terminalPersistenceBlockedJobs = new Set()
+    this._pendingLateReconciliations = new Map()
 
     const envTimeout = process.env.WM_ZOMBIE_TIMEOUT_MS !== undefined
       ? parseInt(process.env.WM_ZOMBIE_TIMEOUT_MS, 10)
@@ -530,8 +616,15 @@ export class QueueManager {
    * crash the whole app). Idempotent. Must be called BEFORE the per-project DB
    * is closed (e.g. in ProjectRegistry.removeProject) and on graceful shutdown.
    */
-  shutdown(): void {
-    if (this._disposed) return
+  shutdown(): boolean {
+    if (this._disposed) {
+      if (!this._db) return true
+      // A previous removal attempt may have stopped children but failed to
+      // stage their terminal intent. Re-enter the idempotent shutdown path with
+      // the retained ownership/maps so storage repair can converge it.
+      this._disposed = false
+      return this.shutdown()
+    }
     this._disposed = true
     this._lifecycleGeneration += 1
 
@@ -544,8 +637,11 @@ export class QueueManager {
       this._killTimer = null
     }
 
-    const proc = this._activeProcess
-    if (proc && proc.pid) {
+    const ownedProcesses = new Set<ChildProcess>()
+    if (this._activeProcess) ownedProcesses.add(this._activeProcess)
+    for (const proc of this._forceFailedProcesses.values()) ownedProcesses.add(proc)
+    for (const proc of ownedProcesses) {
+      if (!proc.pid) continue
       const pid = proc.pid
       try {
         treeKillSafe(pid, 'SIGTERM', () => { /* best-effort on shutdown */ })
@@ -563,10 +659,45 @@ export class QueueManager {
     // the treeKill'd child's later 'close' hits `if (this._disposed) return` in
     // _onJobExit, so without this flush the whole job's spend is lost
     // (COST-ACCOUNTING-AUDIT CRIT-3 / HIGH-1). Best-effort — never throws.
-    this._flushInFlightAccounting()
+    for (const jobId of Array.from(this._forceFailedRowJobs)) {
+      const live = this._jobLiveAccounting.get(jobId)
+      this._reconcileForceFailedJobExit(
+        jobId,
+        null,
+        live?.events ?? [],
+        live?.adapter ?? this._adapter,
+        live?.model,
+      )
+    }
+    for (const [jobId, pending] of Array.from(this._pendingLateReconciliations)) {
+      this._reconcileForceFailedJobExit(
+        jobId,
+        pending.code,
+        pending.adapterEvents,
+        pending.adapter,
+        pending.spawnedModel,
+      )
+    }
+    if (!this._flushInFlightAccounting()) return false
+    try {
+      // A child may have closed through the disposed guard after an earlier
+      // staging failure, leaving only its durable RUNNING row. Capture that row
+      // from raw events before declaring a retried removal safe.
+      this._captureOrphanRecoveries()
+      this._resumeOrphanRecoveries()
+    } catch (err) {
+      console.error('[queue-manager] shutdown orphan capture failed:', err)
+      return false
+    }
 
+    for (const readers of this._jobReaders.values()) {
+      try { readers.stdout.close() } catch { /* best-effort */ }
+      try { readers.stderr.close() } catch { /* best-effort */ }
+    }
+    this._jobReaders.clear()
     this._activeProcess = null
     this._activeJobId = null
+    this._forceFailedProcesses.clear()
     // Tear down any resident interactive sessions (SIGTERM their children) so
     // teardown orphans no persistent claude process. dispose() does not settle
     // (the aborted row was already written by _flushInFlightAccounting).
@@ -581,46 +712,103 @@ export class QueueManager {
     this._jobPrDelivery.clear()
     this._jobLiveAccounting.clear()
     this._openspecShims.clear()
-    // Drop the DB reference last so any in-flight 'close' callback sees null
-    // and skips all DB work via the existing `if (this._db)` guards.
-    this._db = null
+    // Project removal must retain this durable DB until every critical outbox
+    // effect converges. App shutdown may still close the connection externally;
+    // the file/outbox survives for next startup.
+    const recoveryComplete = this._terminalRecoveryComplete()
+    if (recoveryComplete) this._db = null
+    return recoveryComplete
   }
 
-  /**
-   * Atomically stage a graceful abort in the same durable outbox used for crash
-   * recovery. Job promotion/finalization, the ai_invocations insert, and the
-   * accounting checkpoint commit together; a failure leaves the original
-   * running/queued state for startup recovery rather than a half-settled job.
-   */
-  private _stageGracefulAbort(
-    job: Job,
-    payload: OrphanRecoveryPayload,
-    interactive: boolean,
-  ): void {
+  private _terminalRecoveryComplete(): boolean {
     const db = this._db
-    const projectId = this._projectId
-    if (!db || !projectId) return
-    payload.descendants ??= this._snapshotRecoveryDescendants(job.id)
-    payload.causalOwnership ??= job.causalOwnership === true
+    if (!db) return true
+    try {
+      const rows = db.prepare(`
+        SELECT job_id, payload, accounting_completed, callback_completed, terminal_completed
+          FROM orphan_job_recovery
+      `).all() as OrphanRecoveryRow[]
+      const running = db.prepare(
+        `SELECT 1 FROM jobs WHERE status = 'running' AND owner = 'queue' LIMIT 1`,
+      ).get()
+      if (running) return false
+      for (const row of rows) {
+        const { payload } = this._decodeRecoveryPayload(row.job_id, row.payload)
+        if (
+          row.accounting_completed === 0 ||
+          row.callback_completed === 0 ||
+          row.terminal_completed === 0 ||
+          payload.awaitingLateReconciliation
+        ) return false
+      }
+      return true
+    } catch (err) {
+      console.error('[queue-manager] terminal recovery completion check failed:', err)
+      return false
+    }
+  }
 
+  /** Atomically terminalize a job and create its immutable recovery intent.
+   * No accounting, ticket/rail callback, dependent mutation or user-visible
+   * terminal broadcast may happen before this transaction commits. */
+  private _stageTerminalIntent(job: Job, input: StageTerminalIntent): OrphanRecoveryPayload {
+    const db = this._db
+    if (!db) throw new Error('Cannot stage a terminal job without its project database')
+
+    const result = input.result ?? {}
+    const payload: OrphanRecoveryPayload = {
+      id: job.id,
+      command: job.command,
+      ticketIds: this._extractTicketIds(job.command),
+      pipelineId: job.pipelineId,
+      startedAt: job.startedAt ?? input.finishedAt,
+      finishedAt: input.finishedAt,
+      provider: input.provider,
+      model: result.model ?? null,
+      tokensIn: result.tokens_in ?? null,
+      tokensOut: result.tokens_out ?? null,
+      tokensCacheRead: result.tokens_cache_read ?? null,
+      tokensCacheCreate: result.tokens_cache_create ?? null,
+      totalCostUsd: result.total_cost_usd ?? null,
+      totalCostUsdEstimated: result.total_cost_usd_estimated == null
+        ? 0
+        : (result.total_cost_usd_estimated ? 1 : 0),
+      numTurns: result.num_turns ?? null,
+      durationMs: result.duration_ms ?? null,
+      durationApiMs: result.duration_api_ms ?? null,
+      sessionId: result.session_id ?? null,
+      descendants: input.descendants ?? (
+        input.status === 'completed' ? [] : this._snapshotRecoveryDescendants(job.id)
+      ),
+      causalOwnership: job.causalOwnership === true,
+      terminalStatus: input.status,
+      invocationStatus: input.invocationStatus,
+      ticketCompletionStatus: input.ticketCompletionStatus,
+      exitCode: input.exitCode,
+      awaitingLateReconciliation: input.awaitingLateReconciliation,
+    }
+    const encoded = JSON.stringify(
+      this._decodeRecoveryPayload(job.id, JSON.stringify(payload)).payload,
+    )
     const stage = db.transaction(() => {
-      // The job may still be in async pre-spawn work and exist only in the
-      // durable queued_jobs admission. Promote it first so a graceful shutdown
-      // cannot leave both a failed recovery intent and a replayable queued job.
+      // Works for both a running row and an async pre-spawn admission. The
+      // nested promotion transaction removes queued_jobs in the same commit.
       createJob(db, {
         id: job.id,
         command: job.command,
         started_at: payload.startedAt,
         provider: payload.provider,
         priority: job.priority,
-        depends_on_job_id: job.dependsOnJobId,
+        depends_on_job_id: input.dependsOnJobId === undefined
+          ? job.dependsOnJobId
+          : input.dependsOnJobId,
         pipeline_id: job.pipelineId,
-        interactive,
+        interactive: input.interactive,
         causal_ownership: job.causalOwnership === true,
       })
       finishJob(db, job.id, {
-        exit_code: -1,
-        status: 'failed',
+        exit_code: input.exitCode ?? -1,
+        status: input.status,
         tokens_in: payload.tokensIn ?? undefined,
         tokens_out: payload.tokensOut ?? undefined,
         tokens_cache_read: payload.tokensCacheRead ?? undefined,
@@ -633,46 +821,66 @@ export class QueueManager {
         duration_api_ms: payload.durationApiMs ?? undefined,
         session_id: payload.sessionId ?? undefined,
       })
-
-      db.prepare(
-        `INSERT OR IGNORE INTO orphan_job_recovery (job_id, payload)
-         VALUES (?, ?)`
-      ).run(job.id, JSON.stringify(payload))
-      const pending = db.prepare(
-        `SELECT accounting_completed FROM orphan_job_recovery WHERE job_id = ?`
-      ).get(job.id) as { accounting_completed: number } | undefined
-      if (!pending) throw new Error('graceful recovery intent was not persisted')
-
-      if (pending.accounting_completed === 0) {
-        this._recordJobInvocations({
-          jobId: payload.id,
-          provider: payload.provider,
-          status: 'aborted',
-          startedAt: payload.startedAt,
-          finishedAt: payload.finishedAt,
-          ticketIds: payload.ticketIds,
-          estimated: !!payload.totalCostUsdEstimated,
-          result: {
-            tokens_in: payload.tokensIn ?? undefined,
-            tokens_out: payload.tokensOut ?? undefined,
-            tokens_cache_read: payload.tokensCacheRead ?? undefined,
-            tokens_cache_create: payload.tokensCacheCreate ?? undefined,
-            total_cost_usd: payload.totalCostUsd ?? undefined,
-            num_turns: payload.numTurns ?? undefined,
-            model: payload.model ?? undefined,
-            session_id: payload.sessionId ?? undefined,
-            duration_ms: payload.durationMs ?? undefined,
-            duration_api_ms: payload.durationApiMs ?? undefined,
-          },
-        })
-        db.prepare(
-          `UPDATE orphan_job_recovery SET accounting_completed = 1 WHERE job_id = ?`
-        ).run(job.id)
+      db.prepare(`
+        INSERT INTO orphan_job_recovery (
+          job_id, payload, accounting_completed, callback_completed, terminal_completed
+        ) VALUES (?, ?, ?, ?, ?)
+        ON CONFLICT(job_id) DO NOTHING
+      `).run(
+        job.id,
+        encoded,
+        input.accountingCompleted || !this._projectId ? 1 : 0,
+        this._onJobFinished ? 0 : 1,
+        input.terminalCompleted ? 1 : 0,
+      )
+      const intent = db.prepare(`SELECT payload FROM orphan_job_recovery WHERE job_id = ?`)
+        .get(job.id) as { payload: string } | undefined
+      if (!intent || intent.payload !== encoded) {
+        throw new Error(`A different terminal recovery intent already owns job ${job.id}`)
+      }
+      const persisted = db.prepare(`SELECT status FROM jobs WHERE id = ?`).get(job.id) as
+        | { status: string }
+        | undefined
+      if (persisted?.status !== input.status) {
+        throw new Error(`Failed to persist terminal status ${input.status} for ${job.id}`)
       }
     })
     stage()
+    this._terminalPersistenceBlockedJobs.delete(job.id)
+    return payload
+  }
+
+  /** Graceful shutdown uses the same terminal intent as ordinary exits. */
+  private _stageGracefulAbort(
+    job: Job,
+    payload: OrphanRecoveryPayload,
+    interactive: boolean,
+  ): void {
+    this._stageTerminalIntent(job, {
+      status: 'failed',
+      invocationStatus: 'aborted',
+      provider: payload.provider,
+      finishedAt: payload.finishedAt,
+      exitCode: -1,
+      interactive,
+      result: {
+        tokens_in: payload.tokensIn ?? undefined,
+        tokens_out: payload.tokensOut ?? undefined,
+        tokens_cache_read: payload.tokensCacheRead ?? undefined,
+        tokens_cache_create: payload.tokensCacheCreate ?? undefined,
+        total_cost_usd: payload.totalCostUsd ?? undefined,
+        total_cost_usd_estimated: !!payload.totalCostUsdEstimated,
+        num_turns: payload.numTurns ?? undefined,
+        model: payload.model ?? undefined,
+        duration_ms: payload.durationMs ?? undefined,
+        duration_api_ms: payload.durationApiMs ?? undefined,
+        session_id: payload.sessionId ?? undefined,
+      },
+      descendants: payload.descendants,
+    })
     job.status = 'failed'
     job.finishedAt = payload.finishedAt
+    job.exitCode = -1
   }
 
   /**
@@ -680,10 +888,11 @@ export class QueueManager {
    * drain the callback and terminal checkpoints while the DB and project owners
    * are still alive. Any failed critical callback remains durable for restart.
    */
-  private _flushInFlightAccounting(): void {
+  private _flushInFlightAccounting(): boolean {
     const db = this._db
     const projectId = this._projectId
-    if (!db || !projectId) return
+    if (!db || !projectId) return true
+    let staged = true
 
     // ── Active non-interactive rail ──────────────────────────────────────────
     const activeJobId = this._activeJobId
@@ -719,6 +928,7 @@ export class QueueManager {
           }, false)
           this._broadcast({ type: 'spending.invalidated', projectId })
         } catch (err) {
+          staged = false
           console.error('[queue-manager] shutdown flush (active job) failed:', err)
         }
       }
@@ -754,6 +964,7 @@ export class QueueManager {
         }, true)
         this._broadcast({ type: 'spending.invalidated', projectId })
       } catch (err) {
+        staged = false
         console.error('[queue-manager] shutdown flush (interactive job) failed:', err)
       }
     }
@@ -766,9 +977,14 @@ export class QueueManager {
     } catch (err) {
       console.error('[queue-manager] shutdown recovery replay failed:', err)
     }
+    return staged
   }
 
   // ─── Public API ─────────────────────────────────────────────────────────────
+
+  private _assertMutable(): void {
+    if (this._disposed) throw new Error('Queue manager is shutting down')
+  }
 
   enqueue(
     command: string,
@@ -776,6 +992,10 @@ export class QueueManager {
     opts?: EnqueueOptions,
     durableAdmission?: DurableEnqueueAdmission,
   ): Job {
+    this._assertMutable()
+    if (this._restoreBlocked) {
+      throw new Error('Queue recovery is incomplete; retry resume after repairing storage')
+    }
     // Support both: enqueue(cmd, priority, opts) and enqueue(cmd, opts)
     let priority: JobPriority = 'normal'
     let resolvedOpts: EnqueueOptions | undefined = opts
@@ -920,12 +1140,16 @@ export class QueueManager {
   }
 
   cancel(jobId: string): 'canceled' | 'canceling' {
+    this._assertMutable()
     const job = this._jobs.get(jobId)
     if (!job) {
       throw new JobNotFoundError()
     }
     if (TERMINAL_STATUSES.has(job.status)) {
       throw new JobAlreadyTerminalError()
+    }
+    if (this._terminalPersistenceBlockedJobs.has(jobId)) {
+      throw new Error(`Job ${jobId} is awaiting durable terminal recovery`)
     }
 
     // `_startJob` marks the in-memory job running before its async plugin
@@ -1026,29 +1250,29 @@ export class QueueManager {
           const persistedParent = job.dependsOnJobId
             ? db.prepare('SELECT 1 FROM jobs WHERE id = ?').get(job.dependsOnJobId)
             : null
-          createJob(db, {
-            id: job.id,
-            command: job.command,
-            started_at: job.startedAt ?? canceledAt,
+          this._stageTerminalIntent(job, {
+            status: 'canceled',
+            invocationStatus: 'aborted',
             provider: this._jobResolvedProvider.get(job.id)
               ?? this._jobProviderSelection.get(job.id)
               ?? this._adapter.id,
-            priority: job.priority,
+            finishedAt: canceledAt,
+            exitCode: -1,
+            accountingCompleted: true,
             // A not-yet-started parent lives only in queued_jobs and therefore
             // cannot satisfy jobs.depends_on_job_id's FK. Terminal history does
             // not need to retain that unresolved edge; descendants of THIS job
             // still reference the canceled tombstone inserted here.
-            depends_on_job_id: persistedParent ? job.dependsOnJobId : null,
-            pipeline_id: job.pipelineId,
-            causal_ownership: job.causalOwnership === true,
+            dependsOnJobId: persistedParent ? job.dependsOnJobId : null,
+            descendants: skipped.map((child) => ({
+              id: child.id,
+              command: child.command,
+              parentId: child.dependsOnJobId ?? job.id,
+              pipelineId: child.pipelineId,
+              priority: child.priority,
+              causalOwnership: child.causalOwnership === true,
+            })),
           })
-          finishJob(db, job.id, { exit_code: -1, status: 'canceled' })
-          const terminal = db.prepare('SELECT status FROM jobs WHERE id = ?').get(job.id) as
-            | { status: string }
-            | undefined
-          if (terminal?.status !== 'canceled') {
-            throw new Error(`Failed to persist cancellation for ${job.id}`)
-          }
 
           for (const child of skipped) {
             const exists = db.prepare('SELECT 1 FROM jobs WHERE id = ?').get(child.id)
@@ -1112,30 +1336,84 @@ export class QueueManager {
       this._cleanupOpenspecShim(id)
     }
 
-    this._broadcastQueueState()
-    for (const child of skipped) {
-      try {
-        this._onJobFinished?.(child.id, 'skipped', undefined)
-      } catch (err) {
-        console.error(`[QueueManager] onJobFinished(skipped) failed for ${child.id}: ${(err as Error).message}`)
+    let accountingReady = true
+    if (this._db) {
+      accountingReady = this._resumeOrphanRecoveries()
+    } else {
+      for (const child of skipped) {
+        try {
+          this._onJobFinished?.(child.id, 'skipped', undefined)
+        } catch (err) {
+          console.error(`[QueueManager] onJobFinished(skipped) failed for ${child.id}: ${(err as Error).message}`)
+        }
       }
+      try {
+        this._onJobFinished?.(job.id, 'canceled', undefined)
+      } catch (err) {
+        console.error(`[QueueManager] onJobFinished(canceled) failed for ${job.id}: ${(err as Error).message}`)
+      }
+      const affectedPipelines = new Set<string>()
+      if (job.pipelineId) affectedPipelines.add(job.pipelineId)
+      for (const child of skipped) {
+        if (child.pipelineId) affectedPipelines.add(child.pipelineId)
+      }
+      for (const pipelineId of affectedPipelines) this._checkPipelineStatus(pipelineId)
     }
-    try {
-      this._onJobFinished?.(job.id, 'canceled', undefined)
-    } catch (err) {
-      console.error(`[QueueManager] onJobFinished(canceled) failed for ${job.id}: ${(err as Error).message}`)
+    if (!accountingReady) {
+      this._paused = true
+      this._persistQueueState()
     }
-    if (job.pipelineId) this._checkPipelineStatus(job.pipelineId)
-    this._drainQueue()
+    this._broadcastQueueState()
+    if (accountingReady) this._drainQueue()
   }
 
   pause(): void {
+    this._assertMutable()
     this._paused = true
     this._persistQueueState()
     this._broadcastQueueState()
   }
 
   resume(): void {
+    this._assertMutable()
+    if (this._restoreBlocked) {
+      this._restoreFromDb()
+      if (this._restoreBlocked) {
+        this._paused = true
+        this._persistQueueState()
+        this._broadcastQueueState()
+        return
+      }
+    }
+    for (const [jobId, pending] of Array.from(this._pendingLateReconciliations)) {
+      this._reconcileForceFailedJobExit(
+        jobId,
+        pending.code,
+        pending.adapterEvents,
+        pending.adapter,
+        pending.spawnedModel,
+      )
+    }
+    if (this._pendingLateReconciliations.size > 0) {
+      this._paused = true
+      this._persistQueueState()
+      this._broadcastQueueState()
+      return
+    }
+    if (this._terminalPersistenceBlockedJobs.size > 0) {
+      this._paused = true
+      this._persistQueueState()
+      this._broadcastQueueState()
+      return
+    }
+    if (!this._resumeOrphanRecoveries()) {
+      // A provider run whose ledger is still pending must remain ahead of new
+      // admissions; otherwise budget enforcement can undercount spend.
+      this._paused = true
+      this._persistQueueState()
+      this._broadcastQueueState()
+      return
+    }
     this._paused = false
     this._persistQueueState()
     this._broadcastQueueState()
@@ -1143,6 +1421,7 @@ export class QueueManager {
   }
 
   reorder(jobIds: string[]): void {
+    this._assertMutable()
     if (jobIds.some((id) => typeof id !== 'string')) {
       throw new Error('jobIds must contain only string IDs')
     }
@@ -1186,6 +1465,7 @@ export class QueueManager {
   }
 
   updatePriority(jobId: string, priority: JobPriority): void {
+    this._assertMutable()
     const job = this._jobs.get(jobId)
     if (!job) throw new JobNotFoundError()
     if (job.status !== 'queued') {
@@ -1256,6 +1536,7 @@ export class QueueManager {
    *  active turn). Returns false when the job isn't an active interactive
    *  session (unknown / already finalized / not interactive). */
   sendInteractiveTurn(jobId: string, text: string): boolean {
+    this._assertMutable()
     const session = this._interactiveSessions.get(jobId)
     if (!session) return false
     return session.send(text)
@@ -1265,6 +1546,7 @@ export class QueueManager {
    *  the settle path stamps the summed totals + 'completed' status. Returns false
    *  when the job isn't an active interactive session. */
   finalizeInteractive(jobId: string): boolean {
+    this._assertMutable()
     const session = this._interactiveSessions.get(jobId)
     if (!session) return false
     session.finalize()
@@ -1640,34 +1922,20 @@ export class QueueManager {
     let terminalPersisted = !this._db && !!job
     if (this._db) {
       try {
-        const db = this._db
-        const persistFailure = db.transaction(() => {
-          if (!job) throw new Error(`Missing in-memory job ${jobId}`)
-          // Early resolver failures happen before the normal pre-spawn
-          // promotion. Create the attempted-run row now so finishJob cannot
-          // silently update zero rows; createJob also removes queued_jobs in
-          // the same outer transaction.
-          createJob(db, {
-            id: jobId,
-            command: job.command,
-            started_at: job.startedAt ?? finishedAt,
-            provider: this._jobResolvedProvider.get(jobId)
-              ?? this._jobProviderSelection.get(jobId)
-              ?? this._adapter.id,
-            priority: job.priority,
-            depends_on_job_id: job.dependsOnJobId,
-            pipeline_id: job.pipelineId,
-            causal_ownership: job.causalOwnership === true,
-          })
-          finishJob(db, jobId, { exit_code: -1, status: 'failed' })
-          const terminal = db.prepare('SELECT status FROM jobs WHERE id = ?').get(jobId) as
-            | { status: string }
-            | undefined
-          if (terminal?.status !== 'failed') {
-            throw new Error(`Failed to persist startup failure for ${jobId}`)
-          }
+        if (!job) throw new Error(`Missing in-memory job ${jobId}`)
+        const durationMs = job.startedAt
+          ? new Date(finishedAt).getTime() - new Date(job.startedAt).getTime()
+          : undefined
+        this._stageTerminalIntent(job, {
+          status: 'failed',
+          invocationStatus: 'failed',
+          provider: this._jobResolvedProvider.get(jobId)
+            ?? this._jobProviderSelection.get(jobId)
+            ?? this._adapter.id,
+          finishedAt,
+          exitCode: -1,
+          result: { duration_ms: durationMs },
         })
-        persistFailure()
         terminalPersisted = true
       } catch (err) {
         // The transaction rollback preserves queued_jobs (or the pre-existing
@@ -1676,38 +1944,6 @@ export class QueueManager {
         console.error(`[queue-manager] startup failure persistence failed for ${jobId}:`, err)
       }
 
-      // ai_invocations capture (surface='job', failed) so a startup-failed job
-      // still counts toward totalRuns/failureRate on Analytics. _onJobExit never
-      // runs without a child, so this is the ONLY place the row can be written.
-      // No token/cost data was ever finalised (the spawn never produced output).
-      // BUG-ANALYTICS-01's limitation applies to the provider stamp here too: by
-      // this point the per-job override is consumed, so we read the resolved
-      // provider captured at _startJob (set right after adapter resolution; may
-      // be absent if the throw preceded it) with _adapter.id as the fallback.
-      if (terminalPersisted && this._projectId && job) {
-        try {
-          const ticketIds = this._extractTicketIds(job.command)
-          const durationMs = job.startedAt
-            ? new Date(finishedAt).getTime() - new Date(job.startedAt).getTime()
-            : undefined
-          recordInvocation(this._db, {
-            id: randomUUID(),
-            project_id: this._projectId,
-            provider: this._jobResolvedProvider.get(jobId) ?? this._adapter.id,
-            surface: 'job',
-            surface_ref_id: jobId,
-            ticket_id: ticketIds[0] ?? null,
-            status: 'failed',
-            started_at: job.startedAt ?? finishedAt,
-            finished_at: finishedAt,
-            total_cost_usd_estimated: false,
-            duration_ms: durationMs,
-          })
-          this._broadcast({ type: 'spending.invalidated', projectId: this._projectId })
-        } catch (err) {
-          console.error('[queue-manager] recordInvocation (wedged) failed:', err)
-        }
-      }
     }
     if (!terminalPersisted) {
       let durableQueued = false
@@ -1735,6 +1971,12 @@ export class QueueManager {
           if (!this._queue.includes(jobId)) this._queue.unshift(jobId)
           this._recomputePositions()
           this._persistQueuedState()
+        } else {
+          // Promotion already consumed queued_jobs, so there is no admission to
+          // retry. Retain ownership of the childless RUNNING row and make
+          // resume fail closed until shutdown/startup recovery stages it.
+          this._activeJobId = jobId
+          this._terminalPersistenceBlockedJobs.add(jobId)
         }
       }
 
@@ -1772,7 +2014,14 @@ export class QueueManager {
     // A wedged job may have had its openspec shim materialised already (the
     // wedge can land after _startJob's shim setup). Mirror the settle path.
     this._cleanupOpenspecShim(jobId)
-    if (terminalPersisted) {
+    let accountingReady = true
+    if (this._db) {
+      accountingReady = this._resumeOrphanRecoveries()
+      if (!accountingReady) {
+        this._paused = true
+        this._persistQueueState()
+      }
+    } else if (terminalPersisted) {
       try {
         this._onJobFinished?.(jobId, 'failed', undefined)
       } catch {
@@ -1784,7 +2033,7 @@ export class QueueManager {
     this._persistQueueState()
     this._broadcastQueueState()
     console.error(`[QueueManager] job ${jobId} failed before spawn: ${reason}`)
-    return true
+    return accountingReady
   }
 
   /**
@@ -1966,35 +2215,41 @@ export class QueueManager {
    * drains the queue.
    */
   private _settleInteractiveJob(jobId: string, info: SettleInfo): void {
-    this._interactiveSessions.delete(jobId)
-    if (this._activeJobId === jobId) {
-      this._activeProcess = null
-      this._activeJobId = null
-    }
-    // Consume the pre-spawn provenance snapshot + the resolved execution
-    // context BEFORE any early return (mirrors _onJobExit) so a disposed/
-    // unknown-job settle can never leak the map entries.
+    // Read terminal context first, but do not consume it until the durable
+    // terminal intent commits. If storage rejects the transition, shutdown can
+    // retry from the still-owned session instead of losing in-flight usage.
     const snapshot = this._snapshotRefs.get(jobId)
-    this._snapshotRefs.delete(jobId)
     const jobExecution = this._jobExecution.get(jobId)
-    this._jobExecution.delete(jobId)
     const provenanceRepoDir = jobExecution?.repoDir ?? this._cwd
-    this._jobResolvedProvider.delete(jobId)
+    const provider = this._jobResolvedProvider.get(jobId) ?? 'claude'
     // Consume the spawn-captured PR-delivery mode (before any early return so a
     // disposed/unknown-job settle can never leak the entry). Decides whether a
     // COMPLETED job's tickets park at on_review (ask-first) or done (legacy).
     const prDelivery = this._jobPrDelivery.get(jobId) ?? false
-    this._jobPrDelivery.delete(jobId)
 
-    // Clean up the per-job openspec PATH shim (relocated claude rails only).
-    this._cleanupOpenspecShim(jobId)
-
-    if (this._disposed) return
+    if (this._disposed) {
+      this._interactiveSessions.delete(jobId)
+      this._snapshotRefs.delete(jobId)
+      this._jobExecution.delete(jobId)
+      this._jobResolvedProvider.delete(jobId)
+      this._jobPrDelivery.delete(jobId)
+      this._cleanupOpenspecShim(jobId)
+      return
+    }
     const job = this._jobs.get(jobId)
-    if (!job) { this._drainQueue(); return }
+    if (!job) {
+      this._interactiveSessions.delete(jobId)
+      this._snapshotRefs.delete(jobId)
+      this._jobExecution.delete(jobId)
+      this._jobResolvedProvider.delete(jobId)
+      this._jobPrDelivery.delete(jobId)
+      this._cleanupOpenspecShim(jobId)
+      if (this._activeJobId === jobId) this._activeJobId = null
+      this._drainQueue()
+      return
+    }
 
     const wasCanceling = this._cancelingJobs.has(jobId)
-    this._cancelingJobs.delete(jobId)
     // Zero-work strictness: a session whose WHOLE life consumed no model work
     // (the claude CLI's synthetic `Unknown command:` result frame — num_turns
     // 0, no assistant events, zero usage tokens) settles FAILED even on a
@@ -2008,60 +2263,80 @@ export class QueueManager {
         ? 'completed'
         : 'failed'
 
+    const finishedAt = new Date().toISOString()
+    const exitCode = info.reason === 'finalized' && finalStatus !== 'failed' ? 0 : 1
+    const invStatus: InvocationStatus = finalStatus === 'completed'
+      ? 'success'
+      : finalStatus === 'canceled'
+        ? 'aborted'
+        : 'failed'
+    const totals = info.totals
+    const result: Partial<JobResult> = {
+      tokens_in: totals.tokens_in,
+      tokens_out: totals.tokens_out,
+      tokens_cache_read: totals.tokens_cache_read,
+      tokens_cache_create: totals.tokens_cache_create,
+      total_cost_usd: totals.total_cost_usd,
+      total_cost_usd_estimated: info.estimated,
+      num_turns: totals.num_turns,
+      model: info.model ?? undefined,
+      session_id: info.sessionId ?? undefined,
+      duration_ms: info.activeDurationMs,
+    }
+
+    if (this._db) {
+      try {
+        this._stageTerminalIntent(job, {
+          status: finalStatus,
+          invocationStatus: invStatus,
+          provider,
+          finishedAt,
+          exitCode,
+          interactive: true,
+          result,
+          ticketCompletionStatus: finalStatus === 'completed'
+            ? (prDelivery ? 'on_review' : 'done')
+            : undefined,
+        })
+      } catch (err) {
+        // The session has stopped, but its durable row intentionally remains
+        // running. Reserve the slot and pause so neither resume nor enqueue can
+        // overtake an unaccounted terminal transition; startup/shutdown recovery
+        // can safely retry it from that state.
+        this._activeProcess = null
+        this._activeJobId = jobId
+        this._terminalPersistenceBlockedJobs.add(jobId)
+        this._paused = true
+        this._persistQueueState()
+        this._broadcastQueueState()
+        console.error(`[queue-manager] interactive terminal staging failed for ${jobId}:`, err)
+        return
+      }
+    }
+
+    this._interactiveSessions.delete(jobId)
+    if (this._activeJobId === jobId) {
+      this._activeProcess = null
+      this._activeJobId = null
+    }
+    this._snapshotRefs.delete(jobId)
+    this._jobExecution.delete(jobId)
+    this._jobResolvedProvider.delete(jobId)
+    this._jobPrDelivery.delete(jobId)
+    this._cancelingJobs.delete(jobId)
+    this._cleanupOpenspecShim(jobId)
+
     job.status = finalStatus
-    job.finishedAt = new Date().toISOString()
-    job.exitCode = info.reason === 'finalized' && finalStatus !== 'failed' ? 0 : 1
+    job.finishedAt = finishedAt
+    job.exitCode = exitCode
     // Result text for output chaining between dependent pipeline steps — the
     // same field the one-shot path captures from its last `result` event.
     if (info.resultText != null) {
       job.resultText = info.resultText
     }
 
-    const totals = info.totals
+    let accountingReady = true
     if (this._db) {
-      try {
-        finalizeInteractiveJob(this._db, jobId, finalStatus)
-      } catch (err) {
-        console.error('[queue-manager] finalizeInteractiveJob failed:', err)
-      }
-
-      if (this._projectId) {
-        try {
-          const invStatus: InvocationStatus = finalStatus === 'completed'
-            ? 'success'
-            : finalStatus === 'canceled'
-              ? 'aborted'
-              : 'failed'
-          const ticketIds = this._extractTicketIds(job.command)
-          this._recordJobInvocations({
-            jobId,
-            provider: 'claude',
-            status: invStatus,
-            startedAt: job.startedAt ?? new Date().toISOString(),
-            finishedAt: job.finishedAt,
-            ticketIds,
-            // CRIT-4: true when a mid-turn finalize/crash folded an in-flight
-            // turn's rate-card-priced usage into the accumulated totals.
-            estimated: info.estimated,
-            result: {
-              tokens_in: totals.tokens_in,
-              tokens_out: totals.tokens_out,
-              tokens_cache_read: totals.tokens_cache_read,
-              tokens_cache_create: totals.tokens_cache_create,
-              total_cost_usd: totals.total_cost_usd,
-              num_turns: totals.num_turns,
-              model: info.model ?? undefined,
-              session_id: info.sessionId ?? undefined,
-              // LOW-15: sum of active turn wall-segments, not finished−started.
-              duration_ms: info.activeDurationMs,
-            },
-          })
-          this._broadcast({ type: 'spending.invalidated', projectId: this._projectId })
-        } catch (err) {
-          console.error('[queue-manager] recordInvocation (interactive) failed:', err)
-        }
-      }
-
       // Code-Explorer post-settle provenance hook — the interactive lifecycle
       // equivalent of _onJobExit's post-exit diff (pre-spawn snapshot taken in
       // _startJob's interactive branch, against the REPO dir, never the
@@ -2074,7 +2349,31 @@ export class QueueManager {
       if (totals.total_cost_usd > 0 && finalStatus === 'completed') {
         this._emitCostAlerts(jobId, totals.total_cost_usd)
       }
+      accountingReady = this._resumeOrphanRecoveries()
       this._enforceDailyBudget()
+    }
+
+    if (!this._db) {
+      try {
+        if (finalStatus === 'completed') {
+          this._onJobFinished?.(jobId, finalStatus, totals.total_cost_usd, {
+            ticketCompletionStatus: prDelivery ? 'on_review' : 'done',
+          })
+        } else {
+          this._onJobFinished?.(jobId, finalStatus, totals.total_cost_usd)
+        }
+      } catch (err) {
+        console.error(`[QueueManager] onJobFinished failed for ${jobId}: ${(err as Error).message}`)
+      }
+      if (finalStatus !== 'completed') {
+        this._skipDependents(jobId, `Parent job ${jobId} ${finalStatus}`)
+      }
+      if (job.pipelineId) this._checkPipelineStatus(job.pipelineId)
+    }
+
+    if (!accountingReady) {
+      this._paused = true
+      this._persistQueueState()
     }
 
     this._persistJob(job)
@@ -2088,34 +2387,7 @@ export class QueueManager {
     })
     this._broadcastQueueState()
 
-    if (this._onJobFinished) {
-      try {
-        if (finalStatus === 'completed') {
-          // Thread the spawn-captured PR-delivery mode: under the ask-first
-          // methodology a completed job's tickets park at on_review, never done.
-          // Failure statuses keep the legacy 3-arg call shape (the field is
-          // completion-only).
-          this._onJobFinished(jobId, finalStatus, totals.total_cost_usd, {
-            ticketCompletionStatus: prDelivery ? 'on_review' : 'done',
-          })
-        } else {
-          this._onJobFinished(jobId, finalStatus, totals.total_cost_usd)
-        }
-      } catch (err) {
-        console.error(`[QueueManager] onJobFinished failed for ${jobId}: ${(err as Error).message}`)
-      }
-    }
-
-    // Dependent-job + pipeline bookkeeping (mirrors _onJobExit) — chained /
-    // template jobs flow through the interactive settle path by default now.
-    if (finalStatus !== 'completed') {
-      this._skipDependents(jobId, `Parent job ${jobId} ${finalStatus}`)
-    }
-    if (job.pipelineId) {
-      this._checkPipelineStatus(job.pipelineId)
-    }
-
-    this._drainQueue()
+    if (accountingReady) this._drainQueue()
   }
 
   /** True only while this async start still belongs to the live manager and its
@@ -2694,12 +2966,50 @@ export class QueueManager {
     // Start zombie detection timer. Reset on any raw data from the process.
     // Using 'data' events (not readline 'line') ensures the timer resets
     // synchronously in test environments with fake timers.
-    this._resetZombieTimer()
-    child.stdout!.on('data', () => { this._resetZombieTimer() })
-    child.stderr!.on('data', () => { this._resetZombieTimer() })
+    this._resetZombieTimer(jobId)
+    child.stdout!.on('data', () => { this._resetZombieTimer(jobId) })
+    child.stderr!.on('data', () => { this._resetZombieTimer(jobId) })
 
     let eventSeq = 0
     let lastResultEvent: Record<string, unknown> | null = null
+    let rawPersistenceFailed = false
+    const persistEvent = (
+      event: { event_type: string; source?: string | null; payload: string },
+      critical = true,
+    ): { seq: number; persisted: boolean } => {
+      const seq = eventSeq++
+      const db = this._db
+      // A force-failed child may continue emitting after its durable job became
+      // terminal (and its history may already be deleted). Keep parsing usage
+      // in memory for late reconciliation, but never write child events through
+      // a terminal/missing FK or let storage failure escape readline.
+      if (!db) return { seq, persisted: true }
+      if (
+        this._jobs.get(jobId)?.status !== 'running' && !this._forceFailedRowJobs.has(jobId)
+      ) return { seq, persisted: false }
+      try {
+        appendEvent(db, jobId, seq, event)
+      } catch (err) {
+        console.error(`[queue-manager] event persistence failed for ${jobId}:`, err)
+        if (critical && !rawPersistenceFailed) {
+          rawPersistenceFailed = true
+          this._paused = true
+          this._persistQueueState()
+          this._broadcastQueueState()
+          if (this._activeJobId === jobId) {
+            this._persistenceFailedJobs.add(jobId)
+            this._kill(jobId)
+          } else {
+            const surviving = this._forceFailedProcesses.get(jobId)
+            if (surviving?.pid) {
+              try { treeKillSafe(surviving.pid, 'SIGTERM', () => { /* best-effort */ }) } catch { /* best-effort */ }
+            }
+          }
+        }
+        return { seq, persisted: false }
+      }
+      return { seq, persisted: true }
+    }
 
     // Accumulator of parsed AdapterEvent for finaliseInvocationResult on close.
     const adapterEvents: AdapterEvent[] = []
@@ -2727,10 +3037,12 @@ export class QueueManager {
     const FLUSH_INTERVAL_MS = 80
 
     const batchedBroadcast = (msg: WsMessage): void => {
+      if (this._disposed) return
       pendingBroadcast.push(msg)
       if (!flushTimer) {
         flushTimer = setTimeout(() => {
           flushTimer = null
+          if (this._disposed) { pendingBroadcast.length = 0; return }
           const batch = pendingBroadcast.splice(0)
           for (const m of batch) this._broadcast(m)
         }, FLUSH_INTERVAL_MS)
@@ -2740,6 +3052,7 @@ export class QueueManager {
     const flushPending = (): void => {
       if (flushTimer) { clearTimeout(flushTimer); flushTimer = null }
       const batch = pendingBroadcast.splice(0)
+      if (this._disposed) return
       for (const m of batch) this._broadcast(m)
     }
 
@@ -2760,8 +3073,10 @@ export class QueueManager {
 
     const stdoutReader = createInterface({ input: child.stdout!, crlfDelay: Infinity })
     const stderrReader = createInterface({ input: child.stderr!, crlfDelay: Infinity })
+    this._jobReaders.set(jobId, { stdout: stdoutReader, stderr: stderrReader })
 
     stdoutReader.on('line', (line) => {
+      if (this._disposed) return
       let parsed: Record<string, unknown> | null = null
       try { parsed = JSON.parse(line) } catch { /* plain text */ }
 
@@ -2778,13 +3093,12 @@ export class QueueManager {
 
       if (parsed) {
         const eventType = (parsed.type as string) ?? 'unknown'
-        if (this._db) {
-          appendEvent(this._db, jobId, eventSeq++, {
-            event_type: eventType,
-            source: 'stdout',
-            payload: line,
-          })
-        }
+        const persisted = persistEvent({
+          event_type: eventType,
+          source: 'stdout',
+          payload: line,
+        })
+        if (!persisted.persisted) return
         batchedBroadcast({
           type: 'event',
           jobId,
@@ -2792,30 +3106,26 @@ export class QueueManager {
           source: 'stdout',
           payload: line,
           timestamp: new Date().toISOString(),
-          seq: eventSeq - 1,
+          seq: persisted.seq,
         })
         if (eventType === 'result') {
           lastResultEvent = parsed
         }
         const displayText = extractDisplayText(parsed)
         if (displayText !== null) {
-          if (this._db) {
-            appendEvent(this._db, jobId, eventSeq++, {
-              event_type: 'log',
-              source: 'stdout',
-              payload: JSON.stringify({ line: displayText }),
-            })
-          }
+          persistEvent({
+            event_type: 'log',
+            source: 'stdout',
+            payload: JSON.stringify({ line: displayText }),
+          }, false)
           emitLine('stdout', displayText)
         }
       } else {
-        if (this._db) {
-          appendEvent(this._db, jobId, eventSeq++, {
-            event_type: 'log',
-            source: 'stdout',
-            payload: JSON.stringify({ line }),
-          })
-        }
+        persistEvent({
+          event_type: 'log',
+          source: 'stdout',
+          payload: JSON.stringify({ line }),
+        }, false)
         // For adapters whose stream is JSONL (claude, codex), a non-parseable
         // line is unexpected noise. For future plain-text adapters this is
         // their normal output. emitLine surfaces it either way.
@@ -2828,13 +3138,12 @@ export class QueueManager {
     })
 
     stderrReader.on('line', (line) => {
-      if (this._db) {
-        appendEvent(this._db, jobId, eventSeq++, {
-          event_type: 'log',
-          source: 'stderr',
-          payload: JSON.stringify({ line }),
-        })
-      }
+      if (this._disposed) return
+      persistEvent({
+        event_type: 'log',
+        source: 'stderr',
+        payload: JSON.stringify({ line }),
+      }, false)
       emitLine('stderr', line)
     })
 
@@ -2866,41 +3175,36 @@ export class QueueManager {
      *  for any caller that does not thread it (none today). */
     adapter: ProviderAdapter = this._adapter,
   ): void {
-    this._clearZombieTimer()
-
-    if (this._killTimer !== null) {
-      clearTimeout(this._killTimer)
-      this._killTimer = null
+    // Timers belong to the job currently holding the single execution slot.
+    // A late close from a previously force-failed, unkillable child must not
+    // disarm the successor's inactivity watchdog or SIGKILL escalation.
+    if (this._activeJobId === jobId) {
+      this._clearZombieTimer()
+      if (this._killTimer !== null) {
+        clearTimeout(this._killTimer)
+        this._killTimer = null
+      }
     }
 
-    // Reclaim the pre-spawn snapshot unconditionally, BEFORE any early return,
-    // so a disposed/unknown job can't leak its entry in _snapshotRefs (the git
-    // stash commit it references is dangling and git-GC'd on its own).
+    // Read terminal context now, but consume it only after the terminal row and
+    // recovery intent commit. A failed disk write must leave enough ownership
+    // for graceful/startup recovery to retry the exact same run.
     const snapshot = this._snapshotRefs.get(jobId)
-    this._snapshotRefs.delete(jobId)
-    // Relocate-artifacts: the repo dir this job snapshotted against (= repoDir,
-    // never the workspace). Falls back to this._cwd for jobs spawned before this
-    // map existed (e.g. restored-from-db) so provenance still targets the repo.
     const jobExecution = this._jobExecution.get(jobId)
-    this._jobExecution.delete(jobId)
-    // Release the resolved-provider entry on the normal child-exit path (the
-    // adapter is threaded into _onJobExit directly, so this is pure cleanup).
-    this._jobResolvedProvider.delete(jobId)
-    // Reclaim the live-accounting handle unconditionally (shutdown flush no longer
-    // needs it once the child has exited).
-    this._jobLiveAccounting.delete(jobId)
-    // Consume the spawn-captured PR-delivery mode (before any early return so a
-    // disposed/unknown-job exit can never leak the entry). Decides whether a
-    // COMPLETED job's tickets park at on_review (ask-first) or done (legacy).
     const prDelivery = this._jobPrDelivery.get(jobId) ?? false
-    this._jobPrDelivery.delete(jobId)
     const provenanceRepoDir = jobExecution?.repoDir ?? this._cwd
-
-    // Clean up the per-job openspec PATH shim (relocated claude rails only),
-    // BEFORE any early return, so a disposed/unknown-job exit can't leak the
-    // in-memory map entry or the on-disk chmod-700 dir. Mirrors the interactive
-    // settle path (the dominant non-interactive rail path lives here).
-    this._cleanupOpenspecShim(jobId)
+    const consumeTerminalContext = (): void => {
+      const readers = this._jobReaders.get(jobId)
+      try { readers?.stdout.close() } catch { /* best-effort */ }
+      try { readers?.stderr.close() } catch { /* best-effort */ }
+      this._jobReaders.delete(jobId)
+      this._snapshotRefs.delete(jobId)
+      this._jobExecution.delete(jobId)
+      this._jobResolvedProvider.delete(jobId)
+      this._jobLiveAccounting.delete(jobId)
+      this._jobPrDelivery.delete(jobId)
+      this._cleanupOpenspecShim(jobId)
+    }
 
     // A3: release the active slot for THIS job before any early return, so a
     // disposed/unknown-job exit can never leave the slot reserved (which would
@@ -2913,10 +3217,17 @@ export class QueueManager {
     // The manager was torn down (e.g. project removed) while the child was
     // still running. The DB may be closed; skip all bookkeeping to avoid an
     // uncaught throw inside this EventEmitter 'close' listener.
-    if (this._disposed) return
+    if (this._disposed) {
+      consumeTerminalContext()
+      return
+    }
 
     const job = this._jobs.get(jobId)
-    if (!job) return
+    if (!job) {
+      consumeTerminalContext()
+      this._drainQueue()
+      return
+    }
 
     // LOW-6: this is the LATE close of a job already force-failed by
     // _forceFailUnkillableJob (SIGKILL escalation failed, then the child died on
@@ -2925,17 +3236,19 @@ export class QueueManager {
     // that replaces the no-cost placeholder row(s) IF this close captured real
     // spend — never a duplicate row nor a second onJobFinished.
     if (this._forceFailedRowJobs.has(jobId)) {
+      consumeTerminalContext()
       this._reconcileForceFailedJobExit(jobId, code, adapterEvents, adapter, spawnedModel)
       return
     }
 
     const wasZombie = this._zombieJobs.has(jobId)
     const wasCanceling = this._cancelingJobs.has(jobId)
-    this._zombieJobs.delete(jobId)
-    this._cancelingJobs.delete(jobId)
+    const wasPersistenceFailed = this._persistenceFailedJobs.has(jobId)
 
-    let finalStatus: Job['status']
-    if (wasZombie) {
+    let finalStatus: Exclude<Job['status'], 'queued' | 'running'>
+    if (wasPersistenceFailed) {
+      finalStatus = 'failed'
+    } else if (wasZombie) {
       finalStatus = 'zombie_terminated'
     } else if (wasCanceling) {
       finalStatus = 'canceled'
@@ -2945,79 +3258,75 @@ export class QueueManager {
       finalStatus = 'failed'
     }
 
-    job.status = finalStatus
-    job.finishedAt = new Date().toISOString()
-    job.exitCode = code
+    // Adapter-driven finalisation must happen before staging so the immutable
+    // intent owns the same usage that lands on jobs and ai_invocations.
+    const { result: normalised, estimated } = finaliseInvocationResult(
+      adapter,
+      adapterEvents,
+      { fallbackModel: spawnedModel },
+    )
+    const tokenData: Partial<JobResult> = lastResultEvent || adapterEvents.length > 0
+      ? {
+          tokens_in: normalised.tokens_in,
+          tokens_out: normalised.tokens_out,
+          tokens_cache_read: normalised.tokens_cache_read,
+          tokens_cache_create: normalised.tokens_cache_create,
+          total_cost_usd: normalised.total_cost_usd,
+          total_cost_usd_estimated: estimated,
+          num_turns: normalised.num_turns,
+          model: normalised.model,
+          duration_ms: normalised.duration_ms,
+          duration_api_ms: normalised.duration_api_ms,
+          session_id: normalised.session_id,
+        }
+      : {}
+    const finishedAt = new Date().toISOString()
+    const invStatus: InvocationStatus = finalStatus === 'completed'
+      ? 'success'
+      : (finalStatus === 'canceled' || finalStatus === 'zombie_terminated')
+        ? 'aborted'
+        : 'failed'
 
-    // Capture result text for output chaining between pipeline steps
+    if (this._db) {
+      try {
+        this._stageTerminalIntent(job, {
+          status: finalStatus,
+          invocationStatus: invStatus,
+          provider: adapter.id,
+          finishedAt,
+          exitCode: code,
+          result: tokenData,
+          ticketCompletionStatus: finalStatus === 'completed'
+            ? (prDelivery ? 'on_review' : 'done')
+            : undefined,
+        })
+      } catch (err) {
+        // Keep the durable row running and reserve the now-childless slot. This
+        // is an explicit fail-stop: no later job may overtake unaccounted work.
+        this._activeProcess = null
+        this._activeJobId = jobId
+        this._terminalPersistenceBlockedJobs.add(jobId)
+        this._paused = true
+        this._persistQueueState()
+        this._broadcastQueueState()
+        console.error(`[queue-manager] terminal staging failed for ${jobId}:`, err)
+        return
+      }
+    }
+
+    consumeTerminalContext()
+    this._zombieJobs.delete(jobId)
+    this._cancelingJobs.delete(jobId)
+    this._persistenceFailedJobs.delete(jobId)
+    job.status = finalStatus
+    job.finishedAt = finishedAt
+    job.exitCode = code
     if (lastResultEvent && typeof lastResultEvent.result === 'string') {
       job.resultText = lastResultEvent.result
     }
 
-    // (_activeProcess/_activeJobId already released above, before the early
-    // returns, so the slot is freed on every exit path — A3.)
-
+    let accountingReady = true
     if (this._db) {
-      // Adapter-driven result finalisation handles tokens, cost (or pricing-
-      // table estimate for non-native-cost providers), and session_id stamping.
-      const { result: normalised, estimated } = finaliseInvocationResult(
-        adapter,
-        adapterEvents,
-        { fallbackModel: spawnedModel },
-      )
-      const tokenData: Partial<JobResult> = lastResultEvent || adapterEvents.length > 0
-        ? {
-            tokens_in: normalised.tokens_in,
-            tokens_out: normalised.tokens_out,
-            tokens_cache_read: normalised.tokens_cache_read,
-            tokens_cache_create: normalised.tokens_cache_create,
-            total_cost_usd: normalised.total_cost_usd,
-            total_cost_usd_estimated: estimated,
-            num_turns: normalised.num_turns,
-            model: normalised.model,
-            duration_ms: normalised.duration_ms,
-            duration_api_ms: normalised.duration_api_ms,
-            session_id: normalised.session_id,
-          }
-        : {}
-      try {
-        finishJob(this._db, jobId, {
-          exit_code: code ?? -1,
-          status: finalStatus,
-          ...tokenData,
-        })
-      } catch (err) {
-        // Defense-in-depth: the DB may have been closed underneath us mid-job.
-        // Never let a write throw uncaught inside the child 'close' listener.
-        console.error('[queue-manager] finishJob failed (db unavailable?):', err)
-      }
-
-      // ai_invocations capture (surface='job'). One row per job exit, or one row
-      // per extracted ticket for a multi-ticket batch (MED-7).
-      if (this._projectId) {
-        try {
-          const invStatus: InvocationStatus = finalStatus === 'completed'
-            ? 'success'
-            : (finalStatus === 'canceled' || finalStatus === 'zombie_terminated')
-              ? 'aborted'
-              : 'failed'
-          const ticketIds = this._extractTicketIds(job.command)
-          this._recordJobInvocations({
-            jobId,
-            provider: adapter.id,
-            status: invStatus,
-            startedAt: job.startedAt ?? new Date().toISOString(),
-            finishedAt: job.finishedAt,
-            ticketIds,
-            estimated,
-            result: normalised,
-          })
-          this._broadcast({ type: 'spending.invalidated', projectId: this._projectId })
-        } catch (err) {
-          console.error('[queue-manager] recordInvocation failed:', err)
-        }
-      }
-
       // Code-Explorer post-exit provenance hook. Diffs the working tree against
       // the pre-spawn snapshot and inserts one row per touched path. Gated by
       // SPECRAILS_CODE_EXPLORER (re-checked at each completion so the flag can
@@ -3038,6 +3347,8 @@ export class QueueManager {
         this._emitCostAlerts(jobId, jobCost)
       }
 
+      accountingReady = this._resumeOrphanRecoveries()
+
       // ─── Daily-budget enforcement (MED-5) ───────────────────────────────────
       // Runs on EVERY terminal exit, not just completed jobs: a failed/aborted
       // claude run still emits real cost (error_max_turns etc.), so a day of
@@ -3049,49 +3360,29 @@ export class QueueManager {
       this._enforceDailyBudget()
     } else {
       emitLine('stdout', `[process exited with code ${code ?? 'unknown'}]`)
-    }
-
-    // Notify webhook handler (if any) about job completion/failure/cancellation.
-    // zombie_terminated is included so a timed-out rail job still releases its
-    // tickets (revert/flag) and clears its in-memory railJobs entry instead of
-    // wedging the rail card in 'running' until a server restart.
-    if (
-      this._onJobFinished &&
-      (finalStatus === 'completed' || finalStatus === 'failed' || finalStatus === 'canceled' || finalStatus === 'zombie_terminated')
-    ) {
-      let costUsd: number | undefined
       try {
-        costUsd = this._db
-          ? (this._db.prepare('SELECT total_cost_usd FROM jobs WHERE id = ?').get(jobId) as { total_cost_usd: number | null } | undefined)?.total_cost_usd ?? undefined
-          : undefined
+        if (finalStatus === 'completed') {
+          this._onJobFinished?.(jobId, finalStatus, normalised.total_cost_usd, {
+            ticketCompletionStatus: prDelivery ? 'on_review' : 'done',
+          })
+        } else {
+          this._onJobFinished?.(jobId, finalStatus, normalised.total_cost_usd)
+        }
       } catch (err) {
-        console.error('[queue-manager] cost read for webhook failed (db unavailable?):', err)
+        console.error(`[QueueManager] onJobFinished failed for ${jobId}: ${(err as Error).message}`)
       }
-      if (finalStatus === 'completed') {
-        // Thread the spawn-captured PR-delivery mode: under the ask-first
-        // methodology a completed job's tickets park at on_review, never done.
-        // Failure statuses keep the legacy 3-arg call shape (the field is
-        // completion-only).
-        this._onJobFinished(jobId, finalStatus, costUsd ?? undefined, {
-          ticketCompletionStatus: prDelivery ? 'on_review' : 'done',
-        })
-      } else {
-        this._onJobFinished(jobId, finalStatus, costUsd ?? undefined)
+      if (finalStatus !== 'completed') {
+        this._skipDependents(jobId, `Parent job ${jobId} ${finalStatus}`)
       }
+      if (job.pipelineId) this._checkPipelineStatus(job.pipelineId)
     }
 
-    // Handle dependent jobs: skip them if parent did not complete successfully
-    if (finalStatus !== 'completed') {
-      this._skipDependents(jobId, `Parent job ${jobId} ${finalStatus}`)
+    if (!accountingReady) {
+      this._paused = true
+      this._persistQueueState()
     }
-
-    // Check pipeline status
-    if (job.pipelineId) {
-      this._checkPipelineStatus(job.pipelineId)
-    }
-
     this._broadcastQueueState()
-    this._drainQueue()
+    if (accountingReady) this._drainQueue()
   }
 
   /**
@@ -3163,16 +3454,16 @@ export class QueueManager {
     }
   }
 
-  private _resetZombieTimer(): void {
+  private _resetZombieTimer(ownerJobId?: string): void {
     if (this._zombieTimeoutMs <= 0) return
+    const jobId = ownerJobId ?? this._activeJobId
+    if (!jobId || this._activeJobId !== jobId) return
     if (this._inactivityTimer !== null) {
       clearTimeout(this._inactivityTimer)
     }
-    const jobId = this._activeJobId
-    if (!jobId) return
     this._inactivityTimer = setTimeout(() => {
       this._inactivityTimer = null
-      this._onZombieDetected(jobId)
+      if (this._activeJobId === jobId) this._onZombieDetected(jobId)
     }, this._zombieTimeoutMs)
   }
 
@@ -3269,52 +3560,59 @@ export class QueueManager {
   private _forceFailUnkillableJob(jobId: string): void {
     const job = this._jobs.get(jobId)
     const isRunning = !!job && job.status === 'running'
+    const survivingProcess = this._activeJobId === jobId ? this._activeProcess : null
+    let accountingReady = true
     if (job && isRunning) {
-      job.status = 'failed'
-      job.finishedAt = new Date().toISOString()
-      job.exitCode = -1
+      const finishedAt = new Date().toISOString()
+      const live = this._jobLiveAccounting.get(jobId)
+      const { result: normalised, estimated } = live
+        ? finaliseInvocationResult(live.adapter, live.events, { fallbackModel: live.model })
+        : { result: {} as ReturnType<typeof finaliseInvocationResult>['result'], estimated: false }
+      const durationMs = normalised.duration_ms ?? (job.startedAt
+        ? new Date(finishedAt).getTime() - new Date(job.startedAt).getTime()
+        : undefined)
+      const provider = live?.adapter.id ?? this._jobResolvedProvider.get(jobId) ?? this._adapter.id
       if (this._db) {
         try {
-          finishJob(this._db, jobId, { exit_code: -1, status: 'failed' })
-        } catch {
-          /* DB may be closed mid-shutdown — never throw from the kill callback */
+          this._stageTerminalIntent(job, {
+            status: 'failed',
+            invocationStatus: 'aborted',
+            provider,
+            finishedAt,
+            exitCode: -1,
+            awaitingLateReconciliation: true,
+            result: {
+              ...normalised,
+              total_cost_usd_estimated: estimated,
+              duration_ms: durationMs,
+            },
+          })
+        } catch (err) {
+          // The child still exists and continues to own the active slot. Leave
+          // every map intact and fail-stop the queue so a later close or
+          // shutdown can retry the terminal transaction with fuller usage.
+          this._terminalPersistenceBlockedJobs.add(jobId)
+          this._paused = true
+          this._persistQueueState()
+          this._broadcastQueueState()
+          console.error(`[queue-manager] unkillable terminal staging failed for ${jobId}:`, err)
+          return
         }
       }
 
-      // ai_invocations capture (surface='job', aborted) so the failed rail still
-      // shows on Analytics with no token/cost data (none was finalised). LOW-6:
-      // the surviving child's `close` may still fire `_onJobExit` later — mark the
-      // job so that late close replaces this no-cost placeholder with the real
-      // captured cost instead of inserting a SECOND row / re-firing onJobFinished.
-      if (this._db && this._projectId) {
-        try {
-          const ticketIds = this._extractTicketIds(job.command)
-          const durationMs = job.startedAt
-            ? new Date(job.finishedAt).getTime() - new Date(job.startedAt).getTime()
-            : undefined
-          this._recordJobInvocations({
-            jobId,
-            // Stamp the provider the child ACTUALLY ran on (per-job override
-            // already consumed from _jobProviderSelection); _adapter.id is the
-            // final fallback for jobs with no resolved-provider entry.
-            provider: this._jobResolvedProvider.get(jobId) ?? this._adapter.id,
-            status: 'aborted',
-            startedAt: job.startedAt ?? new Date().toISOString(),
-            finishedAt: job.finishedAt,
-            ticketIds,
-            estimated: false,
-            result: { duration_ms: durationMs },
-          })
-          this._forceFailedRowJobs.add(jobId)
-          this._broadcast({ type: 'spending.invalidated', projectId: this._projectId })
-        } catch (err) {
-          console.error('[queue-manager] recordInvocation (unkillable) failed:', err)
-        }
-      }
+      job.status = 'failed'
+      job.finishedAt = finishedAt
+      job.exitCode = -1
+      // A surviving child's late close only reconciles richer usage. The
+      // durable callback/dependency effects below must never be fired twice.
+      this._forceFailedRowJobs.add(jobId)
+      if (survivingProcess) this._forceFailedProcesses.set(jobId, survivingProcess)
+      if (this._db) accountingReady = this._resumeOrphanRecoveries()
     }
 
-    // Clear ALL per-job maps + the git-stash snapshot + the openspec shim so a
-    // surviving child cannot leak memory/disk (mirrors _onJobExit/_failWedgedJob).
+    // Clear completed lifecycle maps, but retain the live adapter-event
+    // accumulator until late close/shutdown so usage emitted by the surviving
+    // child can still be reconciled.
     this._snapshotRefs.delete(jobId)
     this._jobExecution.delete(jobId)
     this._jobModelSelection.delete(jobId)
@@ -3323,7 +3621,6 @@ export class QueueManager {
     this._jobResolvedProvider.delete(jobId)
     this._jobInteractiveSelection.delete(jobId)
     this._jobPrDelivery.delete(jobId)
-    this._jobLiveAccounting.delete(jobId)
     this._cleanupOpenspecShim(jobId)
 
     this._activeProcess = null
@@ -3331,9 +3628,9 @@ export class QueueManager {
     this._cancelingJobs.delete(jobId)
     this._zombieJobs.delete(jobId)
 
-    // Fire the rail/ticket completion callback so status reverts/flags and the
-    // budget/webhook/Jira write-back path runs — the whole point of the fix.
-    if (isRunning) {
+    // DB-backed terminal effects are delivered by the outbox. Keep the direct
+    // path only for ephemeral managers that have no durable project database.
+    if (isRunning && !this._db) {
       try {
         this._onJobFinished?.(jobId, 'failed', undefined)
       } catch (err) {
@@ -3343,8 +3640,12 @@ export class QueueManager {
       if (job?.pipelineId) this._checkPipelineStatus(job.pipelineId)
     }
 
+    if (!accountingReady) {
+      this._paused = true
+      this._persistQueueState()
+    }
     this._broadcastQueueState()
-    this._drainQueue()
+    if (accountingReady) this._drainQueue()
   }
 
   /**
@@ -3362,68 +3663,125 @@ export class QueueManager {
     adapter: ProviderAdapter,
     spawnedModel?: string,
   ): void {
-    this._forceFailedRowJobs.delete(jobId)
     const job = this._jobs.get(jobId)
-    // Remove the job now that its terminal handling is fully settled — a further
-    // stray close then hits the `if (!job) return` guard in _onJobExit.
-    this._jobs.delete(jobId)
-    this._jobLiveAccounting.delete(jobId)
-    if (!this._db || !this._projectId || !job) return
+    this._forceFailedProcesses.delete(jobId)
+    // Ephemeral managers have no second durable history projection. Retain both
+    // the failed tombstone and the late-close guard; a duplicate close remains
+    // a no-op instead of making the job disappear or re-firing callbacks.
+    if (!this._db || !job) return
+    this._pendingLateReconciliations.set(jobId, {
+      code,
+      adapterEvents: [...adapterEvents],
+      adapter,
+      spawnedModel,
+    })
 
     try {
-      const { result: normalised, estimated } = finaliseInvocationResult(
+      const finalised = finaliseInvocationResult(
         adapter,
         adapterEvents,
         { fallbackModel: spawnedModel },
       )
+      const normalised = sanitizeRecoveredResult(finalised.result)
+      const estimated = finalised.estimated
       const hasRealSpend =
         (normalised.total_cost_usd ?? 0) > 0 ||
         (normalised.tokens_in ?? 0) > 0 ||
         (normalised.tokens_out ?? 0) > 0 ||
         (normalised.tokens_cache_read ?? 0) > 0 ||
         (normalised.tokens_cache_create ?? 0) > 0
-      if (!hasRealSpend) return // placeholder stands; nothing real to record.
+      const finalStatus: InvocationStatus = code === 0
+        ? 'success'
+        : code === null
+          ? 'aborted'
+          : 'failed'
+      const reconcile = this._db.transaction(() => {
+        const recovery = this._db!.prepare(`
+          SELECT payload, accounting_completed
+            FROM orphan_job_recovery WHERE job_id = ?
+        `).get(jobId) as { payload: string; accounting_completed: number } | undefined
+        if (!recovery) {
+          throw new Error(`Missing late-reconciliation intent for ${jobId}`)
+        }
 
-      // Replace the placeholder row(s) with the real captured spend. Delete the
-      // plain-jobId row and any per-ticket split rows, then re-record.
-      this._db.prepare(
-        `DELETE FROM ai_invocations WHERE surface_ref_id = ? OR surface_ref_id LIKE ?`
-      ).run(jobId, `${jobId}#t%`)
+        const { payload } = this._decodeRecoveryPayload(jobId, recovery.payload)
+        payload.awaitingLateReconciliation = false
+        if (hasRealSpend) {
+          Object.assign(payload, {
+            provider: adapter.id,
+            model: normalised.model ?? null,
+            tokensIn: normalised.tokens_in ?? null,
+            tokensOut: normalised.tokens_out ?? null,
+            tokensCacheRead: normalised.tokens_cache_read ?? null,
+            tokensCacheCreate: normalised.tokens_cache_create ?? null,
+            totalCostUsd: normalised.total_cost_usd ?? null,
+            totalCostUsdEstimated: estimated ? 1 : 0,
+            numTurns: normalised.num_turns ?? null,
+            durationMs: normalised.duration_ms ?? null,
+            durationApiMs: normalised.duration_api_ms ?? null,
+            sessionId: normalised.session_id ?? null,
+            invocationStatus: finalStatus,
+          })
+        }
+        const validatedPayload = this._decodeRecoveryPayload(
+          jobId,
+          JSON.stringify(payload),
+        ).payload
 
-      const finalStatus: InvocationStatus = code === 0 ? 'success' : 'failed'
-      const ticketIds = this._extractTicketIds(job.command)
-      this._recordJobInvocations({
-        jobId,
-        provider: adapter.id,
-        status: finalStatus,
-        startedAt: job.startedAt ?? new Date().toISOString(),
-        finishedAt: job.finishedAt ?? new Date().toISOString(),
-        ticketIds,
-        estimated,
-        result: normalised,
+        // Convert the already-completed partial accounting checkpoint back into
+        // a durable pending intent before removing its placeholder. If the real
+        // ledger insert later fails, restart/resume owns the full late payload.
+        const shouldReaccount = hasRealSpend && !!this._projectId
+        this._db!.prepare(`
+          UPDATE orphan_job_recovery
+             SET payload = ?, accounting_completed = ?
+           WHERE job_id = ?
+        `).run(JSON.stringify(validatedPayload), shouldReaccount ? 0 : recovery.accounting_completed, jobId)
+        if (shouldReaccount) {
+          this._db!.prepare(
+            `DELETE FROM ai_invocations WHERE surface_ref_id = ? OR surface_ref_id LIKE ?`
+          ).run(jobId, `${jobId}#t%`)
+        }
+
+        if (hasRealSpend) {
+          // Reflect the real cost on the jobs row too (it was force-failed with
+          // a partial snapshot while the child was still alive).
+          finishJob(this._db!, jobId, {
+            exit_code: code ?? -1,
+            status: 'failed',
+            tokens_in: normalised.tokens_in,
+            tokens_out: normalised.tokens_out,
+            tokens_cache_read: normalised.tokens_cache_read,
+            tokens_cache_create: normalised.tokens_cache_create,
+            total_cost_usd: normalised.total_cost_usd,
+            total_cost_usd_estimated: estimated,
+            num_turns: normalised.num_turns,
+            model: normalised.model,
+            duration_ms: normalised.duration_ms,
+            duration_api_ms: normalised.duration_api_ms,
+            session_id: normalised.session_id,
+          })
+        }
       })
-      // Reflect the real cost on the jobs row too (it was stamped failed w/o cost).
-      try {
-        finishJob(this._db, jobId, {
-          exit_code: code ?? -1,
-          status: 'failed',
-          tokens_in: normalised.tokens_in,
-          tokens_out: normalised.tokens_out,
-          tokens_cache_read: normalised.tokens_cache_read,
-          tokens_cache_create: normalised.tokens_cache_create,
-          total_cost_usd: normalised.total_cost_usd,
-          total_cost_usd_estimated: estimated,
-          num_turns: normalised.num_turns,
-          model: normalised.model,
-          duration_ms: normalised.duration_ms,
-          duration_api_ms: normalised.duration_api_ms,
-          session_id: normalised.session_id,
-        })
-      } catch (err) {
-        console.error('[queue-manager] force-fail reconcile finishJob failed:', err)
+      reconcile()
+      this._forceFailedRowJobs.delete(jobId)
+      this._jobLiveAccounting.delete(jobId)
+      this._pendingLateReconciliations.delete(jobId)
+      this._terminalPersistenceBlockedJobs.delete(jobId)
+      const accountingReady = this._resumeOrphanRecoveries()
+      if (!accountingReady) {
+        this._paused = true
+        this._persistQueueState()
+        this._broadcastQueueState()
       }
-      this._broadcast({ type: 'spending.invalidated', projectId: this._projectId })
     } catch (err) {
+      // Keep the guard + tombstone so this runtime never treats a duplicate
+      // event as a new terminal job. No successor is admitted after an unknown
+      // late spend until the operator retries/restarts with healthy storage.
+      this._terminalPersistenceBlockedJobs.add(jobId)
+      this._paused = true
+      this._persistQueueState()
+      this._broadcastQueueState()
       console.error('[queue-manager] force-fail reconcile failed:', err)
     }
   }
@@ -3531,6 +3889,8 @@ export class QueueManager {
   private _restoreFromDb(): void {
     if (!this._db) return
 
+    let recoveryAccountingReady = false
+    const restoredIds: string[] = []
     try {
       this._captureOrphanRecoveries()
 
@@ -3585,6 +3945,7 @@ export class QueueManager {
         }
         this._jobs.set(row.id, job)
         this._queue.push(row.id)
+        restoredIds.push(row.id)
         if (row.provider) {
           this._jobProviderSelection.set(row.id, row.provider as ProviderId)
         }
@@ -3611,7 +3972,7 @@ export class QueueManager {
       // memory: the normal `_skipDependents` invariant walks `_jobs`/`_queue`.
       // Its own durable checkpoint keeps this replay-safe if startup crashes
       // before, during, or immediately after the recursive skip.
-      this._resumeOrphanRecoveries()
+      recoveryAccountingReady = this._resumeOrphanRecoveries()
       this._recomputePositions()
 
       // Restore pause state
@@ -3619,13 +3980,34 @@ export class QueueManager {
         `SELECT value FROM queue_state WHERE key = 'paused'`
       ).get() as { value: string } | undefined
 
-      this._paused = pauseRow?.value === 'true'
-    } catch {
-      // DB may not have queue_state table yet — ignore
+      this._paused = pauseRow?.value === 'true' || !recoveryAccountingReady
+      if (!recoveryAccountingReady) this._persistQueueState()
+      this._restoreBlocked = false
+    } catch (err) {
+      // Discard any partial in-memory projection from this attempt. Admissions
+      // are rejected while blocked, so every id here belongs exclusively to the
+      // failed restore and can be rebuilt deterministically on resume.
+      const restored = new Set(restoredIds)
+      this._queue = this._queue.filter((id) => !restored.has(id))
+      for (const id of restored) {
+        this._jobs.delete(id)
+        this._jobProfileSelection.delete(id)
+        this._jobProviderSelection.delete(id)
+        this._jobResolvedProvider.delete(id)
+        this._jobModelSelection.delete(id)
+        this._jobInteractiveSelection.delete(id)
+      }
+      this._restoreBlocked = true
+      // Startup cannot safely admit provider work when orphan capture/replay or
+      // queue restoration itself failed. Persist the fail-stop when possible;
+      // the user can retry after repairing the database.
+      this._paused = true
+      this._persistQueueState()
+      console.error('[queue-manager] durable queue recovery failed:', err)
     }
 
     // Kick off any restored queued jobs that are ready to run
-    this._drainQueue()
+    if (!this._restoreBlocked) this._drainQueue()
   }
 
   /** Resolve a parent across live state, execution history and the durable
@@ -3655,6 +4037,7 @@ export class QueueManager {
 
   private _skipDependents(parentJobId: string, reason: string): void {
     const toSkip: string[] = []
+    const affectedPipelines = new Set<string>()
 
     for (const [id, job] of this._jobs) {
       if (job.dependsOnJobId === parentJobId && job.status === 'queued') {
@@ -3672,6 +4055,7 @@ export class QueueManager {
       job.status = 'skipped'
       job.finishedAt = new Date().toISOString()
       job.skipReason = reason
+      if (job.pipelineId) affectedPipelines.add(job.pipelineId)
 
       if (this._db) {
         // Ensure the job row exists before updating (queued jobs may not have been persisted via createJob yet)
@@ -3697,6 +4081,7 @@ export class QueueManager {
 
     this._recomputePositions()
     this._persistQueuedState()
+    for (const pipelineId of affectedPipelines) this._checkPipelineStatus(pipelineId)
   }
 
   private _snapshotRecoveryDescendants(parentJobId: string): OrphanRecoveryDescendant[] {
@@ -3750,6 +4135,7 @@ export class QueueManager {
   private _skipRecoveredDescendants(
     parentJobId: string,
     descendants: readonly OrphanRecoveryDescendant[],
+    parentStatus: Exclude<Job['status'], 'queued' | 'running'> = 'failed',
   ): void {
     const db = this._db
     if (!db) return
@@ -3760,41 +4146,48 @@ export class QueueManager {
         | undefined
       const inMemory = this._jobs.get(descendant.id)
       const stillQueued = !!admission || history?.status === 'queued' || inMemory?.status === 'queued'
-      if (!stillQueued) continue
+      // Queued cancellation terminalizes descendants in the same transaction
+      // as the root intent. Their callbacks are nevertheless owned by this
+      // checkpoint, so an already-skipped snapshot still needs delivery. A
+      // different terminal status means a newer action won and is left alone.
+      const alreadySkipped = history?.status === 'skipped' || inMemory?.status === 'skipped'
+      if (!stillQueued && !alreadySkipped) continue
       const finishedAt = new Date().toISOString()
       const reason = `Parent job ${descendant.parentId === parentJobId ? parentJobId : descendant.parentId} ${
-        descendant.parentId === parentJobId ? 'failed' : 'was skipped'
+        descendant.parentId === parentJobId ? parentStatus : 'was skipped'
       }`
-      const index = this._queue.indexOf(descendant.id)
-      if (index !== -1) this._queue.splice(index, 1)
-      if (inMemory) {
-        inMemory.status = 'skipped'
-        inMemory.finishedAt = finishedAt
-        inMemory.skipReason = reason
-        inMemory.queuePosition = null
+      if (stillQueued) {
+        const index = this._queue.indexOf(descendant.id)
+        if (index !== -1) this._queue.splice(index, 1)
+        if (inMemory) {
+          inMemory.status = 'skipped'
+          inMemory.finishedAt = finishedAt
+          inMemory.skipReason = reason
+          inMemory.queuePosition = null
+        }
+        if (history) {
+          skipJob(db, descendant.id, reason)
+        } else {
+          const parentStillExists = db.prepare(`SELECT 1 FROM jobs WHERE id = ?`).get(descendant.parentId)
+          db.prepare(`
+            INSERT INTO jobs (
+              id, command, started_at, status, priority, skip_reason, finished_at,
+              depends_on_job_id, pipeline_id, causal_ownership
+            ) VALUES (?, ?, ?, 'skipped', ?, ?, ?, ?, ?, ?)
+          `).run(
+            descendant.id,
+            descendant.command,
+            finishedAt,
+            descendant.priority,
+            reason,
+            finishedAt,
+            parentStillExists ? descendant.parentId : null,
+            descendant.pipelineId,
+            descendant.causalOwnership === true ? 1 : 0,
+          )
+        }
+        deleteQueuedJob(db, descendant.id)
       }
-      if (history) {
-        skipJob(db, descendant.id, reason)
-      } else {
-        const parentStillExists = db.prepare(`SELECT 1 FROM jobs WHERE id = ?`).get(descendant.parentId)
-        db.prepare(`
-          INSERT INTO jobs (
-            id, command, started_at, status, priority, skip_reason, finished_at,
-            depends_on_job_id, pipeline_id, causal_ownership
-          ) VALUES (?, ?, ?, 'skipped', ?, ?, ?, ?, ?, ?)
-        `).run(
-          descendant.id,
-          descendant.command,
-          finishedAt,
-          descendant.priority,
-          reason,
-          finishedAt,
-          parentStillExists ? descendant.parentId : null,
-          descendant.pipelineId,
-          descendant.causalOwnership === true ? 1 : 0,
-        )
-      }
-      deleteQueuedJob(db, descendant.id)
       this._onJobFinished?.(descendant.id, 'skipped', undefined, {
         recoveryReplay: true,
         recoveryCommand: descendant.command,
@@ -3805,6 +4198,299 @@ export class QueueManager {
     }
     this._recomputePositions()
     this._persistQueuedState(true)
+  }
+
+  /** Rebuild the best durable usage frontier from raw provider frames. For
+   * interactive Claude sessions each result is a per-turn token snapshot but a
+   * cumulative cost/turn snapshot, so segments must be folded exactly like the
+   * live session; assistant-only tail frames are one estimated in-flight turn. */
+  private _recoverPersistedJobUsage(
+    jobId: string,
+    providerId: string,
+    fallbackModel: string | null,
+    interactive: boolean,
+  ): { result: Partial<JobResult>; estimated: boolean; authoritative: boolean } {
+    const db = this._db
+    if (!db) return { result: {}, estimated: false, authoritative: false }
+    let adapter: ProviderAdapter
+    try {
+      adapter = getAdapter(providerId as ProviderId)
+    } catch {
+      adapter = this._adapter
+    }
+    type RawRow = { seq: number; event_type: string; payload: string }
+    const parse = (row: RawRow): AdapterEvent | null => {
+      try {
+        return adapter.parseStreamLine(row.payload)
+      } catch (err) {
+        console.warn(`[queue-manager] ignored malformed durable event for ${jobId}:`, err)
+        return null
+      }
+    }
+    const makeUsageAccumulator = () => {
+      const totals = {
+        tokens_in: 0,
+        tokens_out: 0,
+        tokens_cache_read: 0,
+        tokens_cache_create: 0,
+        total_cost_usd: 0,
+        num_turns: 0,
+        duration_ms: 0,
+        duration_api_ms: 0,
+      }
+      let model: string | undefined = fallbackModel ?? undefined
+      let sessionId: string | undefined
+      let estimated = false
+      const snapshots = new Map<string, Partial<JobResult>>()
+      const MAX_SNAPSHOT_KEYS = 4_096
+      const add = (event: AdapterEvent, seq: number): void => {
+        const finalised = finaliseInvocationResult(adapter, [event], { fallbackModel: model })
+        const result = sanitizeRecoveredResult(finalised.result)
+        const raw = event.kind === 'other' ? event.raw : null
+        const message = raw && typeof raw.message === 'object' && raw.message
+          ? raw.message as Record<string, unknown>
+          : null
+        const directMessageId = (event as AdapterEvent & { messageId?: string }).messageId
+        const messageId = directMessageId ?? (
+          message && typeof message.id === 'string' ? message.id : undefined
+        )
+        const stableId = messageId ? `message:${messageId}` : `${event.kind}:${seq}`
+        const previous = snapshots.get(stableId) ?? {}
+        const addDelta = (key: keyof typeof totals): void => {
+          const current = result[key]
+          if (typeof current !== 'number') return
+          const prior = previous[key]
+          totals[key] += Math.max(0, current - (typeof prior === 'number' ? prior : 0))
+        }
+        addDelta('tokens_in')
+        addDelta('tokens_out')
+        addDelta('tokens_cache_read')
+        addDelta('tokens_cache_create')
+        addDelta('total_cost_usd')
+        addDelta('num_turns')
+        addDelta('duration_ms')
+        addDelta('duration_api_ms')
+        model = result.model ?? model
+        sessionId = result.session_id ?? sessionId
+        estimated = estimated || finalised.estimated
+        if (!snapshots.has(stableId) && snapshots.size >= MAX_SNAPSHOT_KEYS) {
+          snapshots.delete(snapshots.keys().next().value as string)
+        }
+        // Frames for one provider message are contiguous; retain a bounded LRU
+        // of recent snapshots for retransmission/delta dedupe without letting a
+        // malicious transcript allocate one map entry per event forever.
+        snapshots.delete(stableId)
+        snapshots.set(stableId, { ...previous, ...result })
+      }
+      const result = (): { result: Partial<JobResult>; estimated: boolean } => {
+        const hasUsage = Object.values(totals).some((value) => value > 0)
+        return {
+          result: hasUsage ? { ...totals, model, session_id: sessionId } : {},
+          estimated,
+        }
+      }
+      return { add, result }
+    }
+
+    if (!interactive) {
+      const accumulator = makeUsageAccumulator()
+      let lastValidResult:
+        | ReturnType<typeof finaliseInvocationResult>
+        | null = null
+      const events = db.prepare(`
+        SELECT seq, event_type, payload FROM events
+         WHERE job_id = ? AND source = 'stdout' AND event_type != 'log'
+         ORDER BY seq, id
+      `).iterate(jobId) as Iterable<RawRow>
+      for (const row of events) {
+        const event = parse(row)
+        if (event?.kind === 'result') {
+          const finalised = finaliseInvocationResult(adapter, [event], {
+            fallbackModel: fallbackModel ?? undefined,
+          })
+          lastValidResult = {
+            ...finalised,
+            result: sanitizeRecoveredResult(finalised.result),
+          }
+        } else if (event) {
+          accumulator.add(event, row.seq)
+        }
+      }
+      const fallback = accumulator.result()
+      if (lastValidResult) {
+        const result: Partial<JobResult> = { ...fallback.result }
+        for (const [key, value] of Object.entries(lastValidResult.result)) {
+          // Provider normalisers intentionally retain optional keys with an
+          // undefined value. Only concrete terminal fields are authoritative;
+          // an omitted field must not erase recoverable assistant evidence.
+          if (value !== undefined) {
+            (result as Record<string, unknown>)[key] = value
+          }
+        }
+        return {
+          result,
+          // A native terminal cost is authoritative. When the terminal frame
+          // omits cost, preserve whether the assistant-frame backfill was an
+          // estimate instead of silently relabelling it as exact.
+          estimated: result.total_cost_usd === lastValidResult.result.total_cost_usd &&
+            lastValidResult.result.total_cost_usd !== undefined
+            ? lastValidResult.estimated
+            : (lastValidResult.estimated || fallback.estimated),
+          authoritative: true,
+        }
+      }
+      return { ...fallback, authoritative: false }
+    }
+
+    const totals = {
+      tokens_in: 0,
+      tokens_out: 0,
+      tokens_cache_read: 0,
+      tokens_cache_create: 0,
+      total_cost_usd: 0,
+      num_turns: 0,
+      duration_ms: 0,
+      duration_api_ms: 0,
+    }
+    let model: string | undefined = fallbackModel ?? undefined
+    let sessionId: string | undefined
+    let baselineCost = 0
+    let baselineTurns = 0
+    let estimated = false
+    let lastResultSeq = -1
+    const resultRows = db.prepare(`
+      SELECT seq, event_type, payload FROM events
+       WHERE job_id = ? AND source = 'stdout' AND event_type = 'result'
+       ORDER BY seq, id
+    `).iterate(jobId) as Iterable<RawRow>
+    for (const row of resultRows) {
+      const event = parse(row)
+      if (event?.kind !== 'result') continue
+      const finalised = finaliseInvocationResult(adapter, [event], { fallbackModel: model })
+      const result = sanitizeRecoveredResult(finalised.result)
+      totals.tokens_in += result.tokens_in ?? 0
+      totals.tokens_out += result.tokens_out ?? 0
+      totals.tokens_cache_read += result.tokens_cache_read ?? 0
+      totals.tokens_cache_create += result.tokens_cache_create ?? 0
+      const cumulativeCost = result.total_cost_usd ?? baselineCost
+      totals.total_cost_usd += Math.max(0, cumulativeCost - baselineCost)
+      baselineCost = cumulativeCost
+      const cumulativeTurns = result.num_turns ?? (baselineTurns + 1)
+      totals.num_turns += Math.max(0, cumulativeTurns - baselineTurns)
+      baselineTurns = cumulativeTurns
+      totals.duration_ms += result.duration_ms ?? 0
+      totals.duration_api_ms += result.duration_api_ms ?? 0
+      model = result.model ?? model
+      sessionId = result.session_id ?? sessionId
+      estimated = estimated || finalised.estimated
+      lastResultSeq = row.seq
+    }
+
+    const tail = makeUsageAccumulator()
+    const tailRows = db.prepare(`
+      SELECT seq, event_type, payload FROM events
+       WHERE job_id = ? AND source = 'stdout' AND event_type != 'log' AND seq > ?
+       ORDER BY seq, id
+    `).iterate(jobId, lastResultSeq) as Iterable<RawRow>
+    for (const row of tailRows) {
+      const event = parse(row)
+      if (event && event.kind !== 'result') tail.add(event, row.seq)
+    }
+    const tailUsage = tail.result()
+    const tailResult = tailUsage.result
+    const hasTailUsage = [
+      tailResult.tokens_in,
+      tailResult.tokens_out,
+      tailResult.tokens_cache_read,
+      tailResult.tokens_cache_create,
+      tailResult.total_cost_usd,
+    ].some((value) => typeof value === 'number' && value > 0)
+    if (hasTailUsage) {
+      totals.tokens_in += tailResult.tokens_in ?? 0
+      totals.tokens_out += tailResult.tokens_out ?? 0
+      totals.tokens_cache_read += tailResult.tokens_cache_read ?? 0
+      totals.tokens_cache_create += tailResult.tokens_cache_create ?? 0
+      totals.total_cost_usd += tailResult.total_cost_usd ?? 0
+      totals.num_turns += tailResult.num_turns ?? 1
+      totals.duration_ms += tailResult.duration_ms ?? 0
+      totals.duration_api_ms += tailResult.duration_api_ms ?? 0
+      model = tailResult.model ?? model
+      sessionId = tailResult.session_id ?? sessionId
+      estimated = estimated || tailUsage.estimated
+    }
+
+    const hasRecoveredUsage = Object.values(totals).some((value) => value > 0)
+    return {
+      result: hasRecoveredUsage
+        ? {
+            ...totals,
+            model,
+            session_id: sessionId,
+          }
+        : {},
+      estimated,
+      authoritative: false,
+    }
+  }
+
+  private _decodeRecoveryPayload(
+    jobId: string,
+    encoded: string,
+  ): {
+    payload: OrphanRecoveryPayload
+    terminalStatus: Exclude<Job['status'], 'queued' | 'running'>
+    invocationStatus: InvocationStatus
+  } {
+    const payload = JSON.parse(encoded) as OrphanRecoveryPayload
+    if (!payload || typeof payload !== 'object') throw new Error('payload is not an object')
+    if (typeof payload.command !== 'string') throw new Error('payload command is invalid')
+    // Ticket ownership is derived from the immutable command, never trusted
+    // from a legacy/corrupt payload. This also repairs pre-fix [0]/overflow ids.
+    payload.ticketIds = extractTicketIdsFromCommand(payload.command)
+    payload.totalCostUsdEstimated ??= 0
+    const terminalStatus = payload.terminalStatus ?? 'failed'
+    const invocationStatus = payload.invocationStatus ?? 'aborted'
+    const nullableNumber = (value: unknown): boolean =>
+      value == null || (typeof value === 'number' && Number.isFinite(value) && value >= 0)
+    if (
+      payload.id !== jobId ||
+      typeof payload.startedAt !== 'string' ||
+      typeof payload.finishedAt !== 'string' ||
+      typeof payload.provider !== 'string' || !payload.provider ||
+      (payload.pipelineId !== null && typeof payload.pipelineId !== 'string') ||
+      !payload.ticketIds.every((id) => Number.isSafeInteger(id) && id > 0) ||
+      !nullableNumber(payload.tokensIn) ||
+      !nullableNumber(payload.tokensOut) ||
+      !nullableNumber(payload.tokensCacheRead) ||
+      !nullableNumber(payload.tokensCacheCreate) ||
+      !nullableNumber(payload.totalCostUsd) ||
+      !nullableNumber(payload.numTurns) ||
+      !nullableNumber(payload.durationMs) ||
+      !nullableNumber(payload.durationApiMs) ||
+      (payload.totalCostUsdEstimated !== 0 && payload.totalCostUsdEstimated !== 1) ||
+      (payload.exitCode != null && !Number.isInteger(payload.exitCode)) ||
+      (payload.model !== null && typeof payload.model !== 'string') ||
+      (payload.sessionId !== null && typeof payload.sessionId !== 'string') ||
+      (payload.causalOwnership !== undefined && typeof payload.causalOwnership !== 'boolean') ||
+      (payload.awaitingLateReconciliation !== undefined && typeof payload.awaitingLateReconciliation !== 'boolean') ||
+      (payload.ticketCompletionStatus !== undefined && !['done', 'on_review'].includes(payload.ticketCompletionStatus)) ||
+      !TERMINAL_STATUSES.has(terminalStatus) ||
+      !['success', 'failed', 'aborted'].includes(invocationStatus) ||
+      (payload.descendants !== undefined && (
+        !Array.isArray(payload.descendants) ||
+        !payload.descendants.every((descendant) =>
+          descendant && typeof descendant.id === 'string' &&
+          typeof descendant.command === 'string' &&
+          typeof descendant.parentId === 'string' &&
+          (descendant.pipelineId === null || typeof descendant.pipelineId === 'string') &&
+          VALID_PRIORITIES.has(descendant.priority) &&
+          (descendant.causalOwnership === undefined || typeof descendant.causalOwnership === 'boolean')
+        )
+      ))
+    ) {
+      throw new Error('payload identity or fields are invalid')
+    }
+    return { payload, terminalStatus, invocationStatus }
   }
 
   /**
@@ -3836,13 +4522,116 @@ export class QueueManager {
       duration_api_ms: number | null
       session_id: string | null
       causal_ownership: number
+      interactive: number
     }
 
     const capture = db.transaction(() => {
+      // A server restart proves that no prior-process `close` listener can
+      // still enrich a force-failed job. Release those holds and retain the
+      // partial usage already checkpointed as the best available evidence.
+      const heldRecoveries = db.prepare(`
+        SELECT recovery.job_id, recovery.payload, recovery.accounting_completed,
+               jobs.provider, jobs.model, jobs.interactive
+          FROM orphan_job_recovery AS recovery
+          LEFT JOIN jobs ON jobs.id = recovery.job_id
+      `).all() as Array<{
+        job_id: string
+        payload: string
+        accounting_completed: number
+        provider: string | null
+        model: string | null
+        interactive: number | null
+      }>
+      const releaseHold = db.prepare(`
+        UPDATE orphan_job_recovery
+           SET payload = ?, accounting_completed = ?
+         WHERE job_id = ?
+      `)
+      for (const held of heldRecoveries) {
+        let decoded: ReturnType<QueueManager['_decodeRecoveryPayload']>
+        try {
+          decoded = this._decodeRecoveryPayload(held.job_id, held.payload)
+        } catch (err) {
+          console.error(`[queue-manager] invalid held recovery payload for ${held.job_id}:`, err)
+          throw err
+        }
+        const { payload, terminalStatus } = decoded
+        if (!payload.awaitingLateReconciliation) continue
+        const recovered = this._recoverPersistedJobUsage(
+          held.job_id,
+          held.provider ?? payload.provider ?? this._adapter.id,
+          held.model ?? payload.model,
+          held.interactive === 1,
+        )
+        const hasRecoveredUsage = [
+          recovered.result.tokens_in,
+          recovered.result.tokens_out,
+          recovered.result.tokens_cache_read,
+          recovered.result.tokens_cache_create,
+          recovered.result.total_cost_usd,
+        ].some((value) => typeof value === 'number' && value > 0)
+        const hasRecoveredEvidence = hasRecoveredUsage || recovered.authoritative
+        if (hasRecoveredEvidence) {
+          if (recovered.authoritative) {
+            payload.model = recovered.result.model ?? null
+            payload.tokensIn = recovered.result.tokens_in ?? null
+            payload.tokensOut = recovered.result.tokens_out ?? null
+            payload.tokensCacheRead = recovered.result.tokens_cache_read ?? null
+            payload.tokensCacheCreate = recovered.result.tokens_cache_create ?? null
+            payload.totalCostUsd = recovered.result.total_cost_usd ?? null
+            payload.totalCostUsdEstimated = recovered.estimated ? 1 : 0
+            payload.numTurns = recovered.result.num_turns ?? null
+            payload.durationMs = recovered.result.duration_ms ?? null
+            payload.durationApiMs = recovered.result.duration_api_ms ?? null
+            payload.sessionId = recovered.result.session_id ?? null
+          } else {
+            payload.model = recovered.result.model ?? payload.model
+            payload.tokensIn = maxNullable(payload.tokensIn, recovered.result.tokens_in)
+            payload.tokensOut = maxNullable(payload.tokensOut, recovered.result.tokens_out)
+            payload.tokensCacheRead = maxNullable(payload.tokensCacheRead, recovered.result.tokens_cache_read)
+            payload.tokensCacheCreate = maxNullable(payload.tokensCacheCreate, recovered.result.tokens_cache_create)
+            payload.totalCostUsd = maxNullable(payload.totalCostUsd, recovered.result.total_cost_usd)
+            payload.totalCostUsdEstimated = (payload.totalCostUsdEstimated || recovered.estimated) ? 1 : 0
+            payload.numTurns = maxNullable(payload.numTurns, recovered.result.num_turns)
+            payload.durationMs = maxNullable(payload.durationMs, recovered.result.duration_ms)
+            payload.durationApiMs = maxNullable(payload.durationApiMs, recovered.result.duration_api_ms)
+            payload.sessionId = recovered.result.session_id ?? payload.sessionId
+          }
+          this._decodeRecoveryPayload(held.job_id, JSON.stringify(payload))
+          finishJob(db, held.job_id, {
+            exit_code: payload.exitCode ?? -1,
+            status: terminalStatus,
+            tokens_in: payload.tokensIn ?? undefined,
+            tokens_out: payload.tokensOut ?? undefined,
+            tokens_cache_read: payload.tokensCacheRead ?? undefined,
+            tokens_cache_create: payload.tokensCacheCreate ?? undefined,
+            total_cost_usd: payload.totalCostUsd ?? undefined,
+            total_cost_usd_estimated: !!payload.totalCostUsdEstimated,
+            num_turns: payload.numTurns ?? undefined,
+            model: payload.model ?? undefined,
+            duration_ms: payload.durationMs ?? undefined,
+            duration_api_ms: payload.durationApiMs ?? undefined,
+            session_id: payload.sessionId ?? undefined,
+          })
+        }
+        payload.awaitingLateReconciliation = false
+        const shouldReaccount = hasRecoveredEvidence && !!this._projectId
+        if (shouldReaccount) {
+          db.prepare(
+            `DELETE FROM ai_invocations WHERE surface_ref_id = ? OR surface_ref_id LIKE ?`,
+          ).run(held.job_id, `${held.job_id}#t%`)
+        }
+        releaseHold.run(
+          JSON.stringify(payload),
+          shouldReaccount ? 0 : held.accounting_completed,
+          held.job_id,
+        )
+      }
+
       const orphans = db.prepare(
         `SELECT id, command, pipeline_id, provider, started_at, model, tokens_in, tokens_out, tokens_cache_read,
                 tokens_cache_create, total_cost_usd, total_cost_usd_estimated, num_turns,
-                duration_ms, duration_api_ms, session_id, causal_ownership
+                duration_ms, duration_api_ms, session_id, causal_ownership, interactive
          FROM jobs WHERE status = 'running' AND owner = 'queue'`
       ).all() as OrphanJob[]
       if (orphans.length === 0) return
@@ -3853,6 +4642,18 @@ export class QueueManager {
          VALUES (?, ?)`
       )
       for (const orphan of orphans) {
+        const finalised = this._recoverPersistedJobUsage(
+          orphan.id,
+          orphan.provider ?? this._adapter.id,
+          orphan.model,
+          orphan.interactive === 1,
+        )
+        const recovered = finalised.result
+        const recoveredEstimated = finalised.estimated
+        const choose = (
+          persisted: number | null,
+          raw: number | null | undefined,
+        ): number | null => finalised.authoritative ? (raw ?? null) : maxNullable(persisted, raw)
         const payload: OrphanRecoveryPayload = {
           id: orphan.id,
           command: orphan.command,
@@ -3863,26 +4664,49 @@ export class QueueManager {
           // Old rows predate jobs.provider; their only honest fallback is the
           // project's primary adapter. New rows preserve per-job overrides.
           provider: orphan.provider ?? this._adapter.id,
-          model: orphan.model,
-          tokensIn: orphan.tokens_in,
-          tokensOut: orphan.tokens_out,
-          tokensCacheRead: orphan.tokens_cache_read,
-          tokensCacheCreate: orphan.tokens_cache_create,
-          totalCostUsd: orphan.total_cost_usd,
-          totalCostUsdEstimated: orphan.total_cost_usd_estimated,
-          numTurns: orphan.num_turns,
-          durationMs: orphan.duration_ms,
-          durationApiMs: orphan.duration_api_ms,
-          sessionId: orphan.session_id,
+          model: finalised.authoritative
+            ? (recovered.model ?? null)
+            : (recovered.model ?? orphan.model ?? null),
+          tokensIn: choose(orphan.tokens_in, recovered.tokens_in),
+          tokensOut: choose(orphan.tokens_out, recovered.tokens_out),
+          tokensCacheRead: choose(orphan.tokens_cache_read, recovered.tokens_cache_read),
+          tokensCacheCreate: choose(orphan.tokens_cache_create, recovered.tokens_cache_create),
+          totalCostUsd: choose(orphan.total_cost_usd, recovered.total_cost_usd),
+          totalCostUsdEstimated: finalised.authoritative
+            ? (recoveredEstimated ? 1 : 0)
+            : ((orphan.total_cost_usd_estimated || recoveredEstimated) ? 1 : 0),
+          numTurns: choose(orphan.num_turns, recovered.num_turns),
+          durationMs: choose(orphan.duration_ms, recovered.duration_ms),
+          durationApiMs: choose(orphan.duration_api_ms, recovered.duration_api_ms),
+          sessionId: finalised.authoritative
+            ? (recovered.session_id ?? null)
+            : (recovered.session_id ?? orphan.session_id ?? null),
           descendants: this._snapshotRecoveryDescendants(orphan.id),
           causalOwnership: orphan.causal_ownership === 1,
+          terminalStatus: 'failed',
+          invocationStatus: 'aborted',
+          exitCode: -1,
         }
-        insert.run(orphan.id, JSON.stringify(payload))
+        const encoded = JSON.stringify(
+          this._decodeRecoveryPayload(orphan.id, JSON.stringify(payload)).payload,
+        )
+        insert.run(orphan.id, encoded)
+        finishJob(db, orphan.id, {
+          exit_code: -1,
+          status: 'failed',
+          tokens_in: payload.tokensIn ?? undefined,
+          tokens_out: payload.tokensOut ?? undefined,
+          tokens_cache_read: payload.tokensCacheRead ?? undefined,
+          tokens_cache_create: payload.tokensCacheCreate ?? undefined,
+          total_cost_usd: payload.totalCostUsd ?? undefined,
+          total_cost_usd_estimated: !!payload.totalCostUsdEstimated,
+          num_turns: payload.numTurns ?? undefined,
+          model: payload.model ?? undefined,
+          duration_ms: payload.durationMs ?? undefined,
+          duration_api_ms: payload.durationApiMs ?? undefined,
+          session_id: payload.sessionId ?? undefined,
+        })
       }
-      db.prepare(
-        `UPDATE jobs SET status = 'failed', finished_at = ?
-          WHERE status = 'running' AND owner = 'queue'`
-      ).run(finishedAt)
     })
     capture()
   }
@@ -3897,9 +4721,21 @@ export class QueueManager {
    * third checkpoint replays the normal dependent-skip/pipeline invariants only
    * after queued rows have been restored into `_jobs` and `_queue`.
    */
-  private _resumeOrphanRecoveries(): void {
+  private _resumeOrphanRecoveries(): boolean {
+    try {
+      return this._resumeOrphanRecoveriesUnsafe()
+    } catch (err) {
+      // A durable effect remains pending by construction. Surface a fail-stop
+      // result instead of letting an EventEmitter close handler throw uncaught
+      // or allowing later provider work to overtake unknown accounting.
+      console.error('[queue-manager] terminal recovery drain failed:', err)
+      return false
+    }
+  }
+
+  private _resumeOrphanRecoveriesUnsafe(): boolean {
     const db = this._db
-    if (!db) return
+    if (!db) return true
 
     const rows = db.prepare(
       `SELECT job_id, payload, accounting_completed, callback_completed, terminal_completed
@@ -3908,44 +4744,27 @@ export class QueueManager {
        ORDER BY created_at, job_id`
     ).all() as OrphanRecoveryRow[]
     let spendingChanged = false
+    let invalidRecovery = false
 
     for (const row of rows) {
       let payload: OrphanRecoveryPayload
+      let terminalStatus: Exclude<Job['status'], 'queued' | 'running'>
+      let invocationStatus: InvocationStatus
       try {
-        payload = JSON.parse(row.payload) as OrphanRecoveryPayload
-        // Compatibility with recovery intents written by an earlier WIP build:
-        // the command was already durable, so materialise its ticket ids once.
-        if (!Array.isArray(payload?.ticketIds)) {
-          payload.ticketIds = extractTicketIdsFromCommand(payload.command)
-        }
-        if (
-          !payload ||
-          payload.id !== row.job_id ||
-          typeof payload.command !== 'string' ||
-          typeof payload.startedAt !== 'string' ||
-          typeof payload.finishedAt !== 'string' ||
-          typeof payload.provider !== 'string' ||
-          !payload.ticketIds.every((id) => Number.isSafeInteger(id) && id > 0) ||
-          (payload.descendants !== undefined && (
-            !Array.isArray(payload.descendants) ||
-            !payload.descendants.every((descendant) =>
-              descendant && typeof descendant.id === 'string' &&
-              typeof descendant.command === 'string' &&
-              typeof descendant.parentId === 'string' &&
-              (descendant.pipelineId === null || typeof descendant.pipelineId === 'string') &&
-              VALID_PRIORITIES.has(descendant.priority) &&
-              (descendant.causalOwnership === undefined || typeof descendant.causalOwnership === 'boolean')
-            )
-          ))
-        ) {
-          throw new Error('payload identity or required fields are invalid')
-        }
+        ({ payload, terminalStatus, invocationStatus } = this._decodeRecoveryPayload(
+          row.job_id,
+          row.payload,
+        ))
       } catch (err) {
         console.error(`[queue-manager] invalid orphan recovery payload for ${row.job_id}:`, err)
+        invalidRecovery = true
         continue
       }
 
-      if (row.accounting_completed === 0 && this._projectId) {
+      if (row.accounting_completed === 0 && !this._projectId) {
+        db.prepare(`UPDATE orphan_job_recovery SET accounting_completed = 1 WHERE job_id = ?`)
+          .run(row.job_id)
+      } else if (row.accounting_completed === 0 && this._projectId) {
         try {
           const recordAccounting = db.transaction(() => {
             const pending = db.prepare(
@@ -3956,7 +4775,7 @@ export class QueueManager {
             this._recordJobInvocations({
               jobId: payload.id,
               provider: payload.provider,
-              status: 'aborted',
+              status: invocationStatus,
               startedAt: payload.startedAt,
               finishedAt: payload.finishedAt,
               ticketIds: payload.ticketIds,
@@ -3985,7 +4804,10 @@ export class QueueManager {
         }
       }
 
-      if (row.callback_completed === 0 && this._onJobFinished) {
+      if (row.callback_completed === 0 && !this._onJobFinished) {
+        db.prepare(`UPDATE orphan_job_recovery SET callback_completed = 1 WHERE job_id = ?`)
+          .run(row.job_id)
+      } else if (row.callback_completed === 0 && this._onJobFinished) {
         try {
           const deliverCallback = db.transaction(() => {
             const pending = db.prepare(
@@ -3995,7 +4817,7 @@ export class QueueManager {
 
             this._onJobFinished?.(
               payload.id,
-              'failed',
+              terminalStatus,
               payload.totalCostUsd ?? undefined,
               {
                 recoveryReplay: true,
@@ -4003,6 +4825,9 @@ export class QueueManager {
                 recoveryTicketIds: payload.ticketIds,
                 recoveryDurationMs: payload.durationMs,
                 recoveryCausalOwnership: payload.causalOwnership === true,
+                ...(terminalStatus === 'completed' && payload.ticketCompletionStatus
+                  ? { ticketCompletionStatus: payload.ticketCompletionStatus }
+                  : {}),
               },
             )
             db.prepare(
@@ -4038,21 +4863,33 @@ export class QueueManager {
             // jobs. At this point startup has already restored every queued row
             // into memory, so descendants are persisted as skipped and removed
             // from the runnable queue just as they are on a normal exit.
-            if (Array.isArray(payload.descendants)) {
-              this._skipRecoveredDescendants(payload.id, payload.descendants)
-            } else {
-              // Compatibility with intents written before descendant snapshots.
-              this._skipDependents(payload.id, `Parent job ${payload.id} failed`)
+            // Compatibility with intents written before descendant snapshots:
+            // materialise once and reuse it for both recovery-safe callbacks
+            // and cross-pipeline status evaluation.
+            const recoveryDescendants = Array.isArray(payload.descendants)
+              ? payload.descendants
+              : this._snapshotRecoveryDescendants(payload.id)
+            if (terminalStatus !== 'completed') {
+              this._skipRecoveredDescendants(payload.id, recoveryDescendants, terminalStatus)
+            }
+            // Descendants may intentionally belong to different pipelines.
+            // Recompute every affected pipeline before checkpointing so a
+            // crash replays any missed notification instead of orphaning the
+            // child's pipeline in a stale running state.
+            const affectedPipelines = new Set<string>()
+            if (payload.pipelineId) affectedPipelines.add(payload.pipelineId)
+            for (const descendant of recoveryDescendants) {
+              if (descendant.pipelineId) affectedPipelines.add(descendant.pipelineId)
+            }
+            for (const pipelineId of affectedPipelines) {
+              this._checkPersistedPipelineStatus(pipelineId)
             }
             db.prepare(
               `UPDATE orphan_job_recovery SET terminal_completed = 1 WHERE job_id = ?`
             ).run(row.job_id)
             return true
           })
-          const replayed = replayTerminalInvariants()
-          if (replayed && payload.pipelineId) {
-            this._checkPersistedPipelineStatus(payload.pipelineId)
-          }
+          replayTerminalInvariants()
         } catch (err) {
           this._queue = queueBefore
           for (const [id, before] of jobsBefore) {
@@ -4070,13 +4907,35 @@ export class QueueManager {
 
     // A crash before this cleanup is harmless: completed rows are skipped on
     // the next startup and removed then.
-    db.prepare(
-      `DELETE FROM orphan_job_recovery
-       WHERE accounting_completed = 1 AND callback_completed = 1 AND terminal_completed = 1`
-    ).run()
+    const completedRows = db.prepare(`
+      SELECT job_id, payload FROM orphan_job_recovery
+       WHERE accounting_completed = 1
+         AND callback_completed = 1
+         AND terminal_completed = 1
+    `).all() as Array<{ job_id: string; payload: string }>
+    const removeCompleted = db.prepare(`DELETE FROM orphan_job_recovery WHERE job_id = ?`)
+    const cleanupCompleted = db.transaction(() => {
+      for (const completed of completedRows) {
+        let payload: OrphanRecoveryPayload
+        try {
+          payload = this._decodeRecoveryPayload(completed.job_id, completed.payload).payload
+        } catch (err) {
+          throw new Error(`Invalid completed recovery payload for ${completed.job_id}: ${(err as Error).message}`)
+        }
+        if (payload.awaitingLateReconciliation) continue
+        removeCompleted.run(completed.job_id)
+      }
+    })
+    cleanupCompleted()
     if (spendingChanged && this._projectId) {
-      this._broadcast({ type: 'spending.invalidated', projectId: this._projectId })
+      try { this._broadcast({ type: 'spending.invalidated', projectId: this._projectId }) } catch { /* advisory */ }
     }
+    const pendingCritical = db.prepare(`
+      SELECT 1 FROM orphan_job_recovery
+       WHERE accounting_completed = 0 OR terminal_completed = 0
+       LIMIT 1
+    `).get()
+    return !pendingCritical && !invalidRecovery
   }
 
   private _checkPipelineStatus(pipelineId: string): void {

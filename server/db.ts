@@ -1141,6 +1141,13 @@ const MIGRATIONS: Migration[] = [
       `)
     }
   },
+
+  // Migration 47: crash recovery reads the bounded newest provider frontier;
+  // this composite index avoids sorting/scanning an unbounded transcript while
+  // the queue is fail-stopped during startup.
+  (db) => {
+    db.exec(`CREATE INDEX IF NOT EXISTS idx_events_job_seq ON events(job_id, seq)`)
+  },
 ]
 
 function applyMigrations(db: DbInstance): void {
@@ -1478,7 +1485,10 @@ export function deleteJob(db: DbInstance, jobId: string): void {
   // succeeds (children keep running; they just lose the now-irrelevant pointer).
   const tx = db.transaction((id: string) => {
     const pendingLoopStep = db.prepare(`SELECT 1 FROM loop_step_recovery WHERE run_id = ? LIMIT 1`).get(id)
-    if (pendingLoopStep) {
+    const pendingQueueRecovery = db.prepare(
+      `SELECT 1 FROM orphan_job_recovery WHERE job_id = ? LIMIT 1`,
+    ).get(id)
+    if (pendingLoopStep || pendingQueueRecovery) {
       throw new JobRecoveryPendingError(id)
     }
     db.prepare('UPDATE jobs SET depends_on_job_id = NULL WHERE depends_on_job_id = ?').run(id)
@@ -1502,6 +1512,7 @@ export function purgeJobs(
   const conditions: string[] = [
     "status IN ('completed', 'failed', 'canceled', 'zombie_terminated', 'skipped')",
     'NOT EXISTS (SELECT 1 FROM loop_step_recovery WHERE loop_step_recovery.run_id = jobs.id)',
+    'NOT EXISTS (SELECT 1 FROM orphan_job_recovery WHERE orphan_job_recovery.job_id = jobs.id)',
   ]
   const params: unknown[] = []
 

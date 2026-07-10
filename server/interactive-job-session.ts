@@ -761,15 +761,11 @@ export class InteractiveJobSession {
       return { seq, persisted: true }
     } catch (err) {
       console.error('[interactive-job] persist event failed:', err)
-      if (this._persistTurnActivity) {
-        // Loop sessions rely on raw rows for recovery. Continuing would allow a
-        // later activity/frontier checkpoint to certify data that never landed.
-        this._failStopPersistence('raw event persistence', err)
-        return { seq, persisted: false }
-      }
-      // QueueManager's legacy/non-recovery session keeps its historical
-      // best-effort event behavior.
-      return { seq, persisted: true }
+      // Every DB-backed session now relies on raw rows for crash recovery.
+      // Continuing would let a later result/frontier certify provider work that
+      // cannot be reconstructed after process death.
+      this._failStopPersistence('raw event persistence', err)
+      return { seq, persisted: false }
     }
   }
 

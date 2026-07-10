@@ -958,7 +958,12 @@ describe('QueueManager', () => {
       expect(db.prepare(`SELECT 1 FROM queued_jobs WHERE id = 'pre-spawn-cancel'`).get()).toBeUndefined()
       expect(db.prepare(`SELECT status FROM jobs WHERE id = 'pre-spawn-cancel'`).get())
         .toEqual({ status: 'canceled' })
-      expect(onJobFinished).toHaveBeenCalledWith('pre-spawn-cancel', 'canceled', undefined)
+      expect(onJobFinished).toHaveBeenCalledWith(
+        'pre-spawn-cancel',
+        'canceled',
+        undefined,
+        expect.objectContaining({ recoveryReplay: true }),
+      )
 
       release({ active: [], degraded: [] })
       await new Promise((resolve) => setImmediate(resolve))
@@ -1267,7 +1272,12 @@ describe('QueueManager', () => {
       expect(db.prepare(`SELECT status, started_at FROM jobs WHERE id = 'early-start-failure'`).get())
         .toMatchObject({ status: 'failed', started_at: expect.any(String) })
       expect(db.prepare(`SELECT 1 FROM queued_jobs WHERE id = 'early-start-failure'`).get()).toBeUndefined()
-      expect(onJobFinished).toHaveBeenCalledWith('early-start-failure', 'failed', undefined)
+      expect(onJobFinished).toHaveBeenCalledWith(
+        'early-start-failure',
+        'failed',
+        undefined,
+        expect.objectContaining({ recoveryReplay: true }),
+      )
 
       const afterRestart = new QueueManager(broadcast, db, [], undefined, { zombieTimeoutMs: 0 })
       expect(afterRestart.getJobs().find((job) => job.id === 'early-start-failure')).toBeUndefined()
@@ -1875,9 +1885,10 @@ describe('QueueManager', () => {
       child.emit('close', 0)
       await new Promise((r) => setTimeout(r, 50))
 
-      expect(onJobFinished).toHaveBeenCalledWith('cost-cb-job', 'completed', expect.any(Number), {
+      expect(onJobFinished).toHaveBeenCalledWith('cost-cb-job', 'completed', expect.any(Number), expect.objectContaining({
+        recoveryReplay: true,
         ticketCompletionStatus: 'on_review',
-      })
+      }))
     })
   })
 
@@ -3199,6 +3210,251 @@ describe('QueueManager', () => {
     })
   })
 
+  describe('durable terminal outbox for live jobs', () => {
+    it('retries a live completion callback after restart without duplicating accounting', async () => {
+      vi.mocked(mockExecSync).mockReturnValue(Buffer.from('/usr/bin/claude'))
+      const child = createMockChildProcess()
+      vi.mocked(mockSpawn).mockReturnValue(child as any)
+      vi.mocked(mockUuidV4).mockReturnValue('live-callback-retry' as any)
+      const db = initDb(':memory:')
+      const failingCallback = vi.fn(() => { throw new Error('simulated live callback crash') })
+      const first = new QueueManager(broadcast, db, [], undefined, {
+        projectId: 'p1',
+        onJobFinished: failingCallback,
+      })
+
+      first.enqueue('/specrails:implement #31')
+      child.stdout.push(JSON.stringify({
+        type: 'result', total_cost_usd: 1.25, usage: { input_tokens: 20 },
+      }) + '\n')
+      await new Promise((resolve) => setImmediate(resolve))
+      child.emit('close', 0)
+
+      expect(db.prepare(`
+        SELECT accounting_completed, callback_completed, terminal_completed
+          FROM orphan_job_recovery WHERE job_id = 'live-callback-retry'
+      `).get()).toMatchObject({
+        accounting_completed: 1,
+        callback_completed: 0,
+        terminal_completed: 1,
+      })
+      expect(db.prepare(`
+        SELECT COUNT(*) AS count FROM ai_invocations
+         WHERE surface_ref_id = 'live-callback-retry'
+      `).get()).toMatchObject({ count: 1 })
+
+      const succeedingCallback = vi.fn()
+      const restarted = new QueueManager(broadcast, db, [], undefined, {
+        projectId: 'p1',
+        onJobFinished: succeedingCallback,
+      })
+
+      expect(succeedingCallback).toHaveBeenCalledWith(
+        'live-callback-retry',
+        'completed',
+        1.25,
+        expect.objectContaining({
+          recoveryReplay: true,
+          recoveryCommand: '/specrails:implement #31',
+          recoveryTicketIds: [31],
+        }),
+      )
+      expect(db.prepare(`
+        SELECT COUNT(*) AS count FROM ai_invocations
+         WHERE surface_ref_id = 'live-callback-retry'
+      `).get()).toMatchObject({ count: 1 })
+      expect(db.prepare(`
+        SELECT 1 FROM orphan_job_recovery WHERE job_id = 'live-callback-retry'
+      `).get()).toBeUndefined()
+      first.shutdown()
+      restarted.shutdown()
+      db.close()
+    })
+
+    it('pauses before spawning the next job while live accounting is pending', async () => {
+      vi.mocked(mockExecSync).mockReturnValue(Buffer.from('/usr/bin/claude'))
+      const firstChild = createMockChildProcess()
+      const secondChild = createMockChildProcess()
+      vi.mocked(mockSpawn)
+        .mockReturnValueOnce(firstChild as any)
+        .mockReturnValueOnce(secondChild as any)
+      vi.mocked(mockUuidV4)
+        .mockReturnValueOnce('live-accounting-retry' as any)
+        .mockReturnValueOnce('blocked-successor' as any)
+      const db = initDb(':memory:')
+      db.exec(`
+        CREATE TRIGGER reject_live_accounting
+        BEFORE INSERT ON ai_invocations
+        BEGIN
+          SELECT RAISE(ABORT, 'simulated live accounting crash');
+        END;
+      `)
+      const manager = new QueueManager(broadcast, db, [], undefined, {
+        projectId: 'p1',
+        onJobFinished: vi.fn(),
+      })
+
+      manager.enqueue('/specrails:implement #32')
+      manager.enqueue('/specrails:verify #32')
+      firstChild.emit('close', 0)
+
+      expect(manager.isPaused()).toBe(true)
+      expect(vi.mocked(mockSpawn)).toHaveBeenCalledTimes(1)
+      expect(db.prepare(`SELECT status FROM jobs WHERE id = 'live-accounting-retry'`).get())
+        .toMatchObject({ status: 'completed' })
+      expect(db.prepare(`
+        SELECT accounting_completed FROM orphan_job_recovery
+         WHERE job_id = 'live-accounting-retry'
+      `).get()).toMatchObject({ accounting_completed: 0 })
+
+      db.exec(`DROP TRIGGER reject_live_accounting`)
+      manager.resume()
+      await vi.waitFor(() => expect(vi.mocked(mockSpawn)).toHaveBeenCalledTimes(2))
+      expect(manager.isPaused()).toBe(false)
+      expect(db.prepare(`
+        SELECT COUNT(*) AS count FROM ai_invocations
+         WHERE surface_ref_id = 'live-accounting-retry'
+      `).get()).toMatchObject({ count: 1 })
+
+      secondChild.emit('close', 0)
+      manager.shutdown()
+      db.close()
+    })
+
+    it('keeps a childless terminal transition running and blocks successors when staging fails', () => {
+      vi.mocked(mockExecSync).mockReturnValue(Buffer.from('/usr/bin/claude'))
+      const firstChild = createMockChildProcess()
+      const secondChild = createMockChildProcess()
+      vi.mocked(mockSpawn)
+        .mockReturnValueOnce(firstChild as any)
+        .mockReturnValueOnce(secondChild as any)
+      vi.mocked(mockUuidV4)
+        .mockReturnValueOnce('unstaged-live-exit' as any)
+        .mockReturnValueOnce('unstaged-successor' as any)
+      const db = initDb(':memory:')
+      db.exec(`
+        CREATE TRIGGER reject_live_terminal_intent
+        BEFORE INSERT ON orphan_job_recovery
+        BEGIN
+          SELECT RAISE(ABORT, 'simulated terminal intent crash');
+        END;
+      `)
+      const onJobFinished = vi.fn()
+      const manager = new QueueManager(broadcast, db, [], undefined, {
+        projectId: 'p1',
+        onJobFinished,
+      })
+
+      manager.enqueue('/specrails:implement #33')
+      manager.enqueue('/specrails:verify #33')
+      firstChild.emit('close', 0)
+
+      expect(manager.isPaused()).toBe(true)
+      expect(manager.getActiveJobId()).toBe('unstaged-live-exit')
+      expect(manager.getJobs().find((job) => job.id === 'unstaged-live-exit'))
+        .toMatchObject({ status: 'running' })
+      expect(db.prepare(`SELECT status FROM jobs WHERE id = 'unstaged-live-exit'`).get())
+        .toMatchObject({ status: 'running' })
+      expect(vi.mocked(mockSpawn)).toHaveBeenCalledTimes(1)
+      expect(onJobFinished).not.toHaveBeenCalled()
+
+      db.exec(`DROP TRIGGER reject_live_terminal_intent`)
+      manager.shutdown()
+      expect(db.prepare(`SELECT status FROM jobs WHERE id = 'unstaged-live-exit'`).get())
+        .toMatchObject({ status: 'failed' })
+      expect(db.prepare(`
+        SELECT COUNT(*) AS count FROM ai_invocations
+         WHERE surface_ref_id = 'unstaged-live-exit'
+      `).get()).toMatchObject({ count: 1 })
+      expect(onJobFinished).toHaveBeenCalledTimes(1)
+      db.close()
+    })
+
+    it('recovers a disposed child close on a repaired second shutdown without losing accounting', async () => {
+      vi.mocked(mockExecSync).mockReturnValue(Buffer.from('/usr/bin/claude'))
+      const child = createMockChildProcess()
+      vi.mocked(mockSpawn).mockReturnValue(child as any)
+      vi.mocked(mockUuidV4).mockReturnValue('shutdown-retry-after-close' as any)
+      const db = initDb(':memory:')
+      db.exec(`
+        CREATE TRIGGER reject_shutdown_terminal_intent
+        BEFORE INSERT ON orphan_job_recovery
+        BEGIN
+          SELECT RAISE(ABORT, 'simulated shutdown terminal intent crash');
+        END;
+      `)
+      const onJobFinished = vi.fn()
+      const manager = new QueueManager(broadcast, db, [], undefined, {
+        projectId: 'p1',
+        onJobFinished,
+      })
+
+      manager.enqueue('/specrails:implement #34')
+      child.stdout.push(JSON.stringify({
+        type: 'assistant',
+        message: {
+          id: 'shutdown-message',
+          model: 'claude-sonnet-4-6',
+          usage: { input_tokens: 700, output_tokens: 80 },
+          content: [{ type: 'text', text: 'durable work' }],
+        },
+      }) + '\n')
+      await new Promise((resolve) => setImmediate(resolve))
+
+      expect(manager.shutdown()).toBe(false)
+      expect(db.prepare(`SELECT status FROM jobs WHERE id = 'shutdown-retry-after-close'`).get())
+        .toMatchObject({ status: 'running' })
+      expect(db.prepare(`SELECT 1 FROM orphan_job_recovery WHERE job_id = 'shutdown-retry-after-close'`).get())
+        .toBeUndefined()
+      expect(db.prepare(`
+        SELECT COUNT(*) AS count FROM ai_invocations
+         WHERE surface_ref_id = 'shutdown-retry-after-close'
+      `).get()).toMatchObject({ count: 0 })
+
+      // The process exits after shutdown has set the disposed guard. Its live
+      // in-memory accumulator is consumed, so the retry must recover from the
+      // durable RUNNING row and raw event log rather than the close callback.
+      child.emit('close', 0)
+      expect(manager.getActiveJobId()).toBeNull()
+
+      db.exec(`DROP TRIGGER reject_shutdown_terminal_intent`)
+      expect(manager.shutdown()).toBe(true)
+
+      const job = db.prepare(`
+        SELECT status, tokens_in, tokens_out, total_cost_usd, total_cost_usd_estimated
+          FROM jobs WHERE id = 'shutdown-retry-after-close'
+      `).get() as {
+        status: string
+        tokens_in: number | null
+        tokens_out: number | null
+        total_cost_usd: number | null
+        total_cost_usd_estimated: number
+      }
+      const invocation = db.prepare(`
+        SELECT status, tokens_in, tokens_out, total_cost_usd, total_cost_usd_estimated
+          FROM ai_invocations WHERE surface_ref_id = 'shutdown-retry-after-close'
+      `).get() as typeof job | undefined
+      expect(job).toMatchObject({
+        status: 'failed',
+        tokens_in: 700,
+        tokens_out: 80,
+        total_cost_usd_estimated: 1,
+      })
+      expect(job.total_cost_usd).toBeGreaterThan(0)
+      expect(invocation).toMatchObject({
+        status: 'aborted',
+        tokens_in: 700,
+        tokens_out: 80,
+        total_cost_usd_estimated: 1,
+      })
+      expect(invocation!.total_cost_usd).toBeCloseTo(job.total_cost_usd!, 12)
+      expect(db.prepare(`SELECT 1 FROM orphan_job_recovery WHERE job_id = 'shutdown-retry-after-close'`).get())
+        .toBeUndefined()
+      expect(onJobFinished).toHaveBeenCalledTimes(1)
+      db.close()
+    })
+  })
+
   describe('restore backfill (CRIT-3 crash path)', () => {
     it('writes an aborted ai_invocations row for a job orphaned running by a crash', () => {
       const db = initDb(':memory:')
@@ -3223,6 +3479,83 @@ describe('QueueManager', () => {
 
       const jrow = db.prepare(`SELECT status FROM jobs WHERE id = 'orphan'`).get() as { status: string }
       expect(jrow.status).toBe('failed')
+    })
+
+    it('backfills assistant usage when a non-interactive terminal result omits usage', () => {
+      const db = initDb(':memory:')
+      createJob(db, {
+        id: 'result-without-usage-orphan',
+        command: '/specrails:implement #35',
+        started_at: new Date().toISOString(),
+        provider: 'claude',
+      })
+      const insertEvent = db.prepare(
+        `INSERT INTO events (job_id, seq, event_type, source, payload)
+         VALUES (?, ?, ?, 'stdout', ?)`,
+      )
+      insertEvent.run('result-without-usage-orphan', 1, 'assistant', JSON.stringify({
+        type: 'assistant',
+        message: {
+          id: 'assistant-usage-before-result',
+          model: 'claude-sonnet-4-6',
+          usage: {
+            input_tokens: 900,
+            output_tokens: 120,
+            cache_read_input_tokens: 30,
+            cache_creation_input_tokens: 10,
+          },
+          content: [{ type: 'text', text: 'completed work' }],
+        },
+      }))
+      insertEvent.run('result-without-usage-orphan', 2, 'result', JSON.stringify({
+        type: 'result',
+        subtype: 'success',
+        model: 'claude-sonnet-4-6',
+      }))
+
+      new QueueManager(broadcast, db, [], undefined, { projectId: 'p1' })
+
+      const job = db.prepare(`
+        SELECT status, tokens_in, tokens_out, tokens_cache_read,
+               tokens_cache_create, total_cost_usd, total_cost_usd_estimated
+          FROM jobs WHERE id = 'result-without-usage-orphan'
+      `).get() as {
+        status: string
+        tokens_in: number | null
+        tokens_out: number | null
+        tokens_cache_read: number | null
+        tokens_cache_create: number | null
+        total_cost_usd: number | null
+        total_cost_usd_estimated: number
+      }
+      const invocation = db.prepare(`
+        SELECT status, tokens_in, tokens_out, tokens_cache_read,
+               tokens_cache_create, total_cost_usd, total_cost_usd_estimated
+          FROM ai_invocations WHERE surface_ref_id = 'result-without-usage-orphan'
+      `).get() as typeof job | undefined
+      expect(job).toMatchObject({
+        status: 'failed',
+        tokens_in: 900,
+        tokens_out: 120,
+        tokens_cache_read: 30,
+        tokens_cache_create: 10,
+        total_cost_usd_estimated: 1,
+      })
+      expect(job.total_cost_usd).toBeGreaterThan(0)
+      expect(invocation).toMatchObject({
+        status: 'aborted',
+        tokens_in: 900,
+        tokens_out: 120,
+        tokens_cache_read: 30,
+        tokens_cache_create: 10,
+        total_cost_usd_estimated: 1,
+      })
+      expect(invocation!.total_cost_usd).toBeCloseTo(job.total_cost_usd!, 12)
+      expect(db.prepare(`
+        SELECT COUNT(*) AS count FROM ai_invocations
+         WHERE surface_ref_id = 'result-without-usage-orphan'
+      `).get()).toMatchObject({ count: 1 })
+      db.close()
     })
 
     it('captures a persisted running job before initDb can erase its accounting', () => {
@@ -3703,7 +4036,12 @@ describe('QueueManager', () => {
         const job = qmKill.getJobs().find((j) => j.id === 'unkillable-job')
         expect(job?.status).toBe('failed')
         // onJobFinished fired (ticket revert / budget / webhook / Jira write-back).
-        expect(onJobFinished).toHaveBeenCalledWith('unkillable-job', 'failed', undefined)
+        expect(onJobFinished).toHaveBeenCalledWith(
+          'unkillable-job',
+          'failed',
+          undefined,
+          expect.objectContaining({ recoveryReplay: true }),
+        )
         // DB row stamped failed.
         const dbRow = db.prepare('SELECT status FROM jobs WHERE id = ?').get('unkillable-job') as { status: string } | undefined
         expect(dbRow?.status).toBe('failed')
@@ -3718,7 +4056,12 @@ describe('QueueManager', () => {
           .toMatchObject({ status: 'skipped', skipReason: 'Parent job unkillable-job failed' })
         expect(db.prepare(`SELECT status FROM jobs WHERE id = 'unkillable-child'`).get())
           .toMatchObject({ status: 'skipped' })
-        expect(onJobFinished).toHaveBeenCalledWith('unkillable-child', 'skipped', undefined)
+        expect(onJobFinished).toHaveBeenCalledWith(
+          'unkillable-child',
+          'skipped',
+          undefined,
+          expect.objectContaining({ recoveryReplay: true }),
+        )
         expect(broadcast).toHaveBeenCalledWith(expect.objectContaining({
           type: 'pipeline_status', pipelineId: 'unkillable-pipeline', status: 'failed',
         }))
@@ -3829,12 +4172,22 @@ describe('QueueManager', () => {
       )
       expect(invalidated.length).toBeGreaterThanOrEqual(1)
       // onJobFinished still fired (rail/webhook settle path unchanged).
-      expect(onJobFinished).toHaveBeenCalledWith('wedged-job', 'failed', undefined)
+      expect(onJobFinished).toHaveBeenCalledWith(
+        'wedged-job',
+        'failed',
+        undefined,
+        expect.objectContaining({ recoveryReplay: true }),
+      )
       expect(qm2.getJobs().find((candidate) => candidate.id === 'wedged-child'))
         .toMatchObject({ status: 'skipped', skipReason: 'Parent job wedged-job failed' })
       expect(db.prepare(`SELECT status FROM jobs WHERE id = 'wedged-child'`).get())
         .toMatchObject({ status: 'skipped' })
-      expect(onJobFinished).toHaveBeenCalledWith('wedged-child', 'skipped', undefined)
+      expect(onJobFinished).toHaveBeenCalledWith(
+        'wedged-child',
+        'skipped',
+        undefined,
+        expect.objectContaining({ recoveryReplay: true }),
+      )
       expect(broadcast).toHaveBeenCalledWith(expect.objectContaining({
         type: 'pipeline_status', pipelineId: 'wedged-pipeline', status: 'failed',
       }))
@@ -4195,9 +4548,10 @@ describe('interactive-by-default spawn gate (S1 flip)', () => {
     child.stdout.push(interactiveResultFrame())
     await vi.waitFor(() => expect(qm.getJobs()[0].status).toBe('completed'))
 
-    expect(onJobFinished).toHaveBeenCalledWith('ijob-pr', 'completed', expect.any(Number), {
+    expect(onJobFinished).toHaveBeenCalledWith('ijob-pr', 'completed', expect.any(Number), expect.objectContaining({
+      recoveryReplay: true,
       ticketCompletionStatus: 'on_review',
-    })
+    }))
 
     qm.shutdown()
     db.close()
@@ -4217,9 +4571,10 @@ describe('interactive-by-default spawn gate (S1 flip)', () => {
     await tick(); await tick(); await tick()
     expect(qm.finalizeInteractive('ijob-fin-pr')).toBe(true)
     await vi.waitFor(() => expect(qm.getJobs()[0].status).toBe('completed'))
-    expect(onJobFinished).toHaveBeenCalledWith('ijob-fin-pr', 'completed', expect.any(Number), {
+    expect(onJobFinished).toHaveBeenCalledWith('ijob-fin-pr', 'completed', expect.any(Number), expect.objectContaining({
+      recoveryReplay: true,
       ticketCompletionStatus: 'on_review',
-    })
+    }))
     qm.shutdown()
     db.close()
 
@@ -4237,9 +4592,10 @@ describe('interactive-by-default spawn gate (S1 flip)', () => {
     await tick(); await tick(); await tick()
     expect(qm2.finalizeInteractive('ijob-fin-legacy')).toBe(true)
     await vi.waitFor(() => expect(qm2.getJobs()[0].status).toBe('completed'))
-    expect(onJobFinished2).toHaveBeenCalledWith('ijob-fin-legacy', 'completed', expect.any(Number), {
+    expect(onJobFinished2).toHaveBeenCalledWith('ijob-fin-legacy', 'completed', expect.any(Number), expect.objectContaining({
+      recoveryReplay: true,
       ticketCompletionStatus: 'done',
-    })
+    }))
     qm2.shutdown()
     db2.close()
   })
@@ -4416,9 +4772,14 @@ describe('interactive-by-default spawn gate (S1 flip)', () => {
       .find((m) => m.type === 'log' && (m as any).source === 'stderr' && (m as any).line?.includes('Unknown command: /specrails:implement'))
     expect(note).toBeTruthy()
 
-    // Zero-work failure is UNAFFECTED by the ask-first flag: the callback keeps
-    // the legacy 3-arg failure shape (no ticketCompletionStatus on failures).
-    expect(onJobFinished).toHaveBeenCalledWith('zw-job-1', 'failed', expect.anything())
+    // Zero-work failure is UNAFFECTED by the ask-first flag: durable delivery
+    // carries replay metadata but never a completion-only ticket status.
+    expect(onJobFinished).toHaveBeenCalledWith(
+      'zw-job-1',
+      'failed',
+      expect.anything(),
+      expect.objectContaining({ recoveryReplay: true }),
+    )
 
     qm.shutdown()
     db.close()

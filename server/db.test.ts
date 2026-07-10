@@ -874,6 +874,23 @@ describe('project settings — freestyle pre-prompt', () => {
       expect(getJob(db, 'recovering-loop')).toBeDefined()
       expect(getJobEvents(db, 'recovering-loop')).toHaveLength(1)
     })
+
+    it('blocks delete and purge while queue terminal recovery owns the job', () => {
+      createJob(db, { id: 'recovering-queue', command: '/implement #1', started_at: now })
+      finishJob(db, 'recovering-queue', { status: 'failed', exit_code: -1 })
+      appendEvent(db, 'recovering-queue', 0, {
+        event_type: 'assistant', source: 'stdout', payload: '{}',
+      })
+      db.prepare(`
+        INSERT INTO orphan_job_recovery (job_id, payload)
+        VALUES ('recovering-queue', '{}')
+      `).run()
+
+      expect(() => deleteJob(db, 'recovering-queue')).toThrow(JobRecoveryPendingError)
+      expect(purgeJobs(db)).toBe(0)
+      expect(getJob(db, 'recovering-queue')).toBeDefined()
+      expect(getJobEvents(db, 'recovering-queue')).toHaveLength(1)
+    })
   })
 
   describe('purgeJobs FK + atomicity (M6)', () => {
