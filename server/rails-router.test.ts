@@ -11,12 +11,26 @@ import { createLoopRun } from './loop-runs-store'
 import { createPrDelivery, getActivePrDeliveryByRail, getPrDelivery, transitionDecision, type CreatePrDeliveryInput } from './rail-pr-store'
 import type { LoopGraph } from './loop-graph'
 import { beginProjectProcessQuiescence, openProjectProcessAdmission } from './process-admission'
+import { withRepoLock } from './repo-lock'
 
-const { mockExecRun, mockRepoStatus, mockLaunchIsolated, mockCommitWorktreeAndVerify } = vi.hoisted(() => ({
+const {
+  mockExecRun,
+  mockRepoStatus,
+  mockLaunchIsolated,
+  mockCommitWorktreeAndVerify,
+  mockGetProjectGitInfo,
+  mockInspectProjectCheckoutCleanliness,
+  mockCheckoutProjectReviewBranch,
+  mockReleaseRailWorktrees,
+} = vi.hoisted(() => ({
   mockExecRun: vi.fn(),
   mockRepoStatus: vi.fn(),
   mockLaunchIsolated: vi.fn(),
   mockCommitWorktreeAndVerify: vi.fn(),
+  mockGetProjectGitInfo: vi.fn(),
+  mockInspectProjectCheckoutCleanliness: vi.fn(),
+  mockCheckoutProjectReviewBranch: vi.fn(),
+  mockReleaseRailWorktrees: vi.fn(),
 }))
 vi.mock('./pr-publisher', async (importActual) => ({
   ...(await (importActual as () => Promise<Record<string, unknown>>)()),
@@ -36,11 +50,33 @@ vi.mock('./rail-isolated-launch', async (importActual) => ({
   ...(await (importActual as () => Promise<Record<string, unknown>>)()),
   launchIsolatedRail: mockLaunchIsolated,
 }))
+vi.mock('./project-git', async (importActual) => ({
+  ...(await (importActual as () => Promise<Record<string, unknown>>)()),
+  getProjectGitInfo: mockGetProjectGitInfo,
+  inspectProjectCheckoutCleanliness: mockInspectProjectCheckoutCleanliness,
+  checkoutProjectReviewBranch: mockCheckoutProjectReviewBranch,
+}))
+vi.mock('./rail-worktree-release', async (importActual) => ({
+  ...(await (importActual as () => Promise<Record<string, unknown>>)()),
+  releaseRailWorktrees: mockReleaseRailWorktrees,
+}))
 
 beforeEach(() => {
   mockRepoStatus.mockReset().mockResolvedValue('no-git')
   mockLaunchIsolated.mockReset()
   mockCommitWorktreeAndVerify.mockReset().mockResolvedValue({ staged: true, committed: true, clean: true, dirty: [] })
+  mockGetProjectGitInfo.mockReset().mockResolvedValue({
+    git: true,
+    branch: 'main',
+    detached: false,
+    dirty: false,
+    branches: ['main', 'feat/review'],
+    lastCommit: null,
+    worktrees: [],
+  })
+  mockInspectProjectCheckoutCleanliness.mockReset().mockResolvedValue({ ok: true, clean: true })
+  mockCheckoutProjectReviewBranch.mockReset().mockResolvedValue({ ok: true })
+  mockReleaseRailWorktrees.mockReset().mockResolvedValue([])
 })
 
 function appWith(
@@ -855,6 +891,7 @@ describe('rails-router POST /:railIndex/launch — ask-first PR delivery (safe-p
       prUrl: 'https://github.com/o/r/pull/521',
       prNumber: 521,
       prState: 'pr-created',
+      deliverySha: 'a'.repeat(40),
     })
     transitionDecision(db, row.id, 'pr_draft', 'pr_ready')
     mockRepoStatus.mockResolvedValue('ok')
@@ -979,6 +1016,7 @@ describe('rails-router POST /:railIndex/launch — ask-first PR delivery (safe-p
       prUrl: 'https://github.com/o/r/pull/521',
       prNumber: 521,
       prState: 'pr-created',
+      deliverySha: 'a'.repeat(40),
     })
     transitionDecision(db, existing.id, 'pr_draft', 'pr_ready')
     mockRepoStatus.mockResolvedValue('ok')
@@ -1010,6 +1048,7 @@ describe('rails-router POST /:railIndex/launch — ask-first PR delivery (safe-p
     })
     transitionDecision(db, existing.id, 'on_review', 'pr_draft', {
       branch: 'feat/open-pr', prUrl: 'https://github.com/o/r/pull/521', prNumber: 521, prState: 'pr-created',
+      deliverySha: 'a'.repeat(40),
     })
     transitionDecision(db, existing.id, 'pr_draft', 'pr_ready')
     mockRepoStatus.mockResolvedValue('no-commits')
@@ -1035,6 +1074,7 @@ describe('rails-router POST /:railIndex/launch — ask-first PR delivery (safe-p
     })
     transitionDecision(db, existing.id, 'on_review', 'pr_draft', {
       branch: 'feat/open-pr', prUrl: 'https://github.com/o/r/pull/521', prNumber: 521, prState: 'pr-created',
+      deliverySha: 'a'.repeat(40),
     })
     transitionDecision(db, existing.id, 'pr_draft', 'pr_ready')
     const saved = process.env.SPECRAILS_RAIL_WORKTREES
@@ -1251,6 +1291,15 @@ describe('rails-router POST /pr-decision', () => {
   afterEach(() => { openProjectProcessAdmission('p1'); db.close() })
 
   const url = 'https://github.com/o/r/pull/7'
+  const deliverySha = 'a'.repeat(40)
+
+  function prLifecycle(isDraft: boolean): string {
+    return JSON.stringify({
+      state: 'OPEN', isDraft, headRefName: 'sr/s1/ticket-1', baseRefName: 'main',
+      isCrossRepository: false,
+      headRefOid: deliverySha, mergeCommit: null, commits: [{ oid: deliverySha }],
+    })
+  }
 
   /** A delivery row parked at pr_draft with a live PR URL (approve-ready). */
   function mkDraft(): string {
@@ -1263,6 +1312,7 @@ describe('rails-router POST /pr-decision', () => {
     })
     transitionDecision(db, row.id, 'on_review', 'pr_draft', {
       branch: 'sr/s1/ticket-1', prUrl: url, prNumber: 7, prState: 'pr-created',
+      deliverySha,
     })
     return row.id
   }
@@ -1334,7 +1384,14 @@ describe('rails-router POST /pr-decision', () => {
 
   it('publish → runs gh pr ready, transitions to pr_ready and broadcasts rail.pr_state', async () => {
     const id = mkDraft()
-    mockExecRun.mockResolvedValue({ code: 0, stdout: '', stderr: '' })
+    let viewCount = 0
+    mockExecRun.mockImplementation(async (_cmd: string, args: string[]) => {
+      if (args[1] === 'view') {
+        viewCount++
+        return { code: 0, stdout: prLifecycle(viewCount === 1), stderr: '' }
+      }
+      return { code: 0, stdout: '', stderr: '' }
+    })
     const broadcast = vi.fn()
     const res = await request(appWith(db, { broadcast })).post('/rails/pr-decision')
       .send({ prDeliveryId: id, action: 'publish', expectedDecision: 'pr_draft' })
@@ -1512,5 +1569,178 @@ describe('rails-router launch — concurrent-launch ticket guard', () => {
   it('rejects an out-of-range rail index on launch (MAX_RAILS cap)', async () => {
     const res = await request(appWith(db)).post('/rails/12/launch').send({ mode: 'implement' })
     expect(res.status).toBe(400)
+  })
+})
+
+describe('rails-router POST /pr-checkout generation guard', () => {
+  let db: DbInstance
+
+  beforeEach(() => { db = initDb(':memory:') })
+  afterEach(() => { db.close() })
+
+  function checkoutDelivery(input: { id: string; deliveryOutcome: 'blocked' | 'delivered'; deliverySha: string | null }) {
+    const delivery = createPrDelivery(db, {
+      id: input.id, railIndex: 0, loopId: 'factory:implement',
+      railKey: '0-factory:implement', ticketIds: [1], baseBranch: 'main',
+      loopName: 'Implement', originSurface: 'dashboard',
+    })
+    transitionDecision(db, delivery.id, 'building', 'on_review', {
+      branch: 'feat/review', implementationOutcome: 'succeeded',
+      deliveryOutcome: 'ready', statusCode: 'ready_for_review',
+      deliverySha: input.deliverySha,
+    })
+    transitionDecision(db, delivery.id, 'on_review', 'pr_ready', {
+      prUrl: 'https://github.com/o/r/pull/1', prNumber: 1, prState: 'pr-created',
+      deliveryOutcome: input.deliveryOutcome,
+      statusCode: input.deliveryOutcome === 'blocked' ? 'settlement_interrupted' : 'pr_ready',
+    })
+    return delivery
+  }
+
+  it.each([
+    ['blocked delivery', 'blocked', 'a'.repeat(40)],
+    ['delivery without a verified SHA', 'delivered', null],
+  ] as const)('rejects a %s before repository inspection or mutation', async (_label, deliveryOutcome, deliverySha) => {
+    const delivery = checkoutDelivery({ id: `checkout-${deliveryOutcome}-${deliverySha ? 'sha' : 'no-sha'}`, deliveryOutcome, deliverySha })
+
+    const res = await request(appWith(db)).post('/rails/pr-checkout').send({
+      prDeliveryId: delivery.id,
+    })
+
+    expect(res.status).toBe(409)
+    expect(res.body).toMatchObject({ error: 'checkout_not_deliverable' })
+    expect(mockGetProjectGitInfo).not.toHaveBeenCalled()
+    expect(mockReleaseRailWorktrees).not.toHaveBeenCalled()
+    expect(mockCheckoutProjectReviewBranch).not.toHaveBeenCalled()
+  })
+
+  it('keeps a dirty primary checkout untouched and returns the stable dirty error', async () => {
+    const delivery = checkoutDelivery({ id: 'checkout-dirty', deliveryOutcome: 'delivered', deliverySha: 'b'.repeat(40) })
+    mockInspectProjectCheckoutCleanliness.mockResolvedValueOnce({ ok: true, clean: false })
+
+    const res = await request(appWith(db)).post('/rails/pr-checkout').send({
+      prDeliveryId: delivery.id,
+    })
+
+    expect(res.status).toBe(409)
+    expect(res.body).toEqual({
+      error: 'checkout_dirty',
+      detail: 'Working tree has uncommitted changes. Commit or stash them before checkout.',
+    })
+    expect(mockInspectProjectCheckoutCleanliness).toHaveBeenCalledOnce()
+    expect(mockGetProjectGitInfo).not.toHaveBeenCalled()
+    expect(mockReleaseRailWorktrees).not.toHaveBeenCalled()
+    expect(mockCheckoutProjectReviewBranch).not.toHaveBeenCalled()
+  })
+
+  it('fails closed when main-checkout cleanliness cannot be proved', async () => {
+    const delivery = checkoutDelivery({ id: 'checkout-status-unknown', deliveryOutcome: 'delivered', deliverySha: 'c'.repeat(40) })
+    mockInspectProjectCheckoutCleanliness.mockResolvedValueOnce({
+      ok: false,
+      detail: 'Working tree cleanliness could not be verified: status timed out',
+    })
+
+    const res = await request(appWith(db)).post('/rails/pr-checkout').send({ prDeliveryId: delivery.id })
+
+    expect(res.status).toBe(409)
+    expect(res.body).toEqual({
+      error: 'checkout_safety_unknown',
+      detail: 'Working tree cleanliness could not be verified: status timed out',
+    })
+    expect(mockGetProjectGitInfo).not.toHaveBeenCalled()
+    expect(mockReleaseRailWorktrees).not.toHaveBeenCalled()
+    expect(mockCheckoutProjectReviewBranch).not.toHaveBeenCalled()
+  })
+
+  it('passes the immutable delivery SHA to checkout and relays a divergent-ref refusal', async () => {
+    const deliverySha = 'e'.repeat(40)
+    const delivery = checkoutDelivery({ id: 'checkout-divergent-ref', deliveryOutcome: 'delivered', deliverySha })
+    mockCheckoutProjectReviewBranch.mockResolvedValueOnce({
+      ok: false,
+      error: 'Local branch points to another commit. It was preserved and not checked out.',
+    })
+
+    const res = await request(appWith(db)).post('/rails/pr-checkout').send({ prDeliveryId: delivery.id })
+
+    expect(res.status).toBe(409)
+    expect(res.body).toEqual({
+      error: 'checkout_failed',
+      detail: 'Local branch points to another commit. It was preserved and not checked out.',
+    })
+    expect(mockCheckoutProjectReviewBranch).toHaveBeenCalledWith('/repo', 'feat/review', deliverySha)
+  })
+
+  it('uses the current attached branch after waiting for the repository lock', async () => {
+    const delivery = checkoutDelivery({ id: 'checkout-queued', deliveryOutcome: 'delivered', deliverySha: 'd'.repeat(40) })
+    let releaseBlocker!: () => void
+    let blockerEntered!: () => void
+    const blockerGate = new Promise<void>((resolve) => { releaseBlocker = resolve })
+    const entered = new Promise<void>((resolve) => { blockerEntered = resolve })
+    const blocker = withRepoLock('/repo', async () => {
+      blockerEntered()
+      await blockerGate
+    })
+    await entered
+
+    const pendingResponse = request(appWith(db)).post('/rails/pr-checkout')
+      .send({ prDeliveryId: delivery.id })
+      .then((response) => response)
+    await new Promise<void>((resolve) => setImmediate(resolve))
+    transitionDecision(db, delivery.id, 'pr_ready', 'pr_ready', {
+      branch: 'feat/current-review',
+      prUrl: 'https://github.com/o/r/pull/2',
+      prNumber: 2,
+      prState: 'pr-created',
+      deliveryOutcome: 'delivered',
+      deliverySha: 'd'.repeat(40),
+    })
+    releaseBlocker()
+    await blocker
+
+    const res = await pendingResponse
+
+    expect(res.status).toBe(200)
+    expect(mockCheckoutProjectReviewBranch).toHaveBeenCalledWith(
+      '/repo',
+      'feat/current-review',
+      'd'.repeat(40),
+    )
+    expect(mockCheckoutProjectReviewBranch).not.toHaveBeenCalledWith(
+      '/repo',
+      'feat/review',
+      expect.anything(),
+    )
+  })
+
+  it('rejects checkout for superseded generation A after generation B becomes active', async () => {
+    const generationA = createPrDelivery(db, {
+      id: 'generation-a', railIndex: 0, loopId: 'factory:implement',
+      railKey: '0-factory:implement', ticketIds: [1], baseBranch: 'main',
+      loopName: 'Implement', originSurface: 'dashboard',
+    })
+    transitionDecision(db, generationA.id, 'building', 'on_review', {
+      branch: 'feat/generation-a', implementationOutcome: 'succeeded',
+      deliveryOutcome: 'ready', statusCode: 'ready_for_review',
+      deliverySha: 'a'.repeat(40),
+    })
+    transitionDecision(db, generationA.id, 'on_review', 'pr_ready', {
+      prUrl: 'https://github.com/o/r/pull/1', prNumber: 1, prState: 'pr-created',
+      deliveryOutcome: 'delivered', statusCode: 'pr_ready',
+    })
+    transitionDecision(db, generationA.id, 'pr_ready', 'superseded')
+    createPrDelivery(db, {
+      id: 'generation-b', railIndex: 0, loopId: 'factory:implement',
+      railKey: '0-factory:implement', ticketIds: [1], baseBranch: 'main',
+      loopName: 'Implement', originSurface: 'dashboard', supersedesDeliveryId: generationA.id,
+    })
+
+    const res = await request(appWith(db)).post('/rails/pr-checkout').send({
+      prDeliveryId: generationA.id,
+    })
+
+    expect(res.status).toBe(409)
+    expect(res.body).toEqual({
+      error: 'stale_decision', current: 'building', currentPrDeliveryId: 'generation-b',
+    })
   })
 })

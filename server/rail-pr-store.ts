@@ -8,6 +8,7 @@
  * pr-publisher and the launch wiring in rail-isolated-launch.
  */
 import type { DbInstance } from './db'
+import type { OverlayCleanupEvidence } from './worktree-overlay'
 import type { PrDecisionCardEnvelope, RailPrStateMessage } from './types'
 import { newId } from './ids'
 
@@ -69,6 +70,7 @@ export type PrDeliveryStatusCode =
   | 'branch_verification_failed'
   | 'push_failed'
   | 'settlement_interrupted'
+  | 'recovery_unavailable'
   | 'operation_interrupted'
   | 'delivery_failed'
   | 'pr_draft_ready'
@@ -79,7 +81,7 @@ export type PrDeliveryStatusCode =
   | 'superseded'
   | 'cleanup_incomplete'
 
-export type PrDecisionOperation = 'create-pr' | 'publish' | 'discard' | 'dismiss' | 'poll-merge' | 'reopen' | 'merge-local' | 'acknowledge-no-changes'
+export type PrDecisionOperation = 'create-pr' | 'publish' | 'discard' | 'dismiss' | 'poll-merge' | 'reopen' | 'merge-local' | 'acknowledge-no-changes' | 'recover-and-retry'
 
 /** Per-unit branch record captured at build-settle (mirrors rail-pr-delivery's DeliverBranch). */
 export interface DeliverBranchRecord {
@@ -95,6 +97,14 @@ export interface DeliverBranchRecord {
   changed?: boolean
   failureCode?: PrDeliveryStatusCode | null
   branchOwnership?: 'created' | 'preexisting' | 'borrowed-pr'
+  /** Delivery-owned isolated checkout retained for explicit local recovery. */
+  worktreePath?: string | null
+  /** Allocation-time never-commit paths. This list remains conservative even
+   * when a copied overlay file changes; it is not cleanup authorization. */
+  overlayExcludes?: string[]
+  /** Live-revalidated fingerprints for automatic cleanup. Legacy path-only
+   * records are intentionally insufficient removal authorization. */
+  overlayCleanupEvidence?: OverlayCleanupEvidence[]
 }
 
 /** States after which the delivery is closed (no further decision possible). */
@@ -138,11 +148,16 @@ export interface RailPrDeliveryRow {
   delivery_sha: string | null
   is_continuation: number
   supersedes_delivery_id: string | null
+  /** Failed replacement generation whose allocation rollback restored this row. */
+  restored_from_delivery_id: string | null
   operation: PrDecisionOperation | null
   operation_token: string | null
   operation_started_at_ms: number | null
   /** JSON string[] — bounded best-effort cleanup diagnostics. */
   cleanup_warnings: string
+  /** JSON string[] — persistent safety-quarantine paths, bounded newest-first
+   * across repeated cleanup attempts. */
+  safety_archives: string
   /** JSON DeliverBranchRecord[] — per-unit source branches captured at settle. */
   branches: string
   loop_name: string
@@ -221,6 +236,17 @@ export interface SupersededPrDelivery {
   statusCode: PrDeliveryStatusCode | null
 }
 
+/** SQLite's `datetime('now')` has one-second precision, so a claim, transition,
+ * and release in the same second used to produce conflicting snapshots with an
+ * identical `updatedAt`. Clients must fail closed on such ties. Keep the wire
+ * timestamp strictly increasing per row while retaining a parseable UTC ISO
+ * value for legacy rows and every mutation path. */
+const NEXT_PR_UPDATED_AT_SQL = `CASE
+  WHEN julianday('now') > julianday(updated_at)
+  THEN strftime('%Y-%m-%dT%H:%M:%fZ', 'now')
+  ELSE strftime('%Y-%m-%dT%H:%M:%fZ', updated_at, '+0.001 seconds')
+END`
+
 /** Recheck admission and, for a continuation, replace the prior generation in
  * one SQLite transaction. The partial unique index is therefore an invariant,
  * not merely a router convention. Pass null for a genuinely fresh launch. */
@@ -248,7 +274,8 @@ export function createPrDeliveryGeneration(
     }
     const moved = db.prepare(`
       UPDATE rail_pr_deliveries
-         SET decision = 'superseded', updated_at = datetime('now')
+         SET decision = 'superseded', restored_from_delivery_id = NULL,
+             updated_at = ${NEXT_PR_UPDATED_AT_SQL}
        WHERE id = ? AND decision = ? AND operation_token IS NULL
     `).run(current.id, current.decision)
     if (moved.changes !== 1) throw new PrDeliveryGenerationConflict(current.id)
@@ -277,15 +304,16 @@ export function failPrDeliveryAndRestoreSuperseded(
     const failed = db.prepare(`
       UPDATE rail_pr_deliveries
          SET decision = 'discarded', status_code = 'delivery_failed',
-             delivery_outcome = 'blocked', updated_at = datetime('now')
+             delivery_outcome = 'blocked', updated_at = ${NEXT_PR_UPDATED_AT_SQL}
        WHERE id = ? AND decision = 'building'
     `).run(failedId)
     if (failed.changes !== 1) return false
     const restored = db.prepare(`
       UPDATE rail_pr_deliveries
-         SET decision = ?, status_code = ?, updated_at = datetime('now')
+         SET decision = ?, status_code = ?, restored_from_delivery_id = ?,
+             updated_at = ${NEXT_PR_UPDATED_AT_SQL}
        WHERE id = ? AND decision = 'superseded'
-    `).run(previous.decision, previous.statusCode, previous.id)
+    `).run(previous.decision, previous.statusCode, failedId, previous.id)
     if (restored.changes !== 1) throw new Error(`failed to restore superseded delivery ${previous.id}`)
     return true
   })()
@@ -319,6 +347,48 @@ export function listActivePrDeliveries(db: DbInstance): RailPrDeliveryRow[] {
        ORDER BY rail_index, created_at DESC, rowid DESC`
     )
     .all() as RailPrDeliveryRow[]
+}
+
+/** Terminal delivery history, newest first. Continuation discovery uses this
+ * only as a conservative ownership hint: callers must still require an exact
+ * ticket target and revalidate the recorded PR/ref identity before reuse. */
+export function listTerminalPrDeliveries(db: DbInstance): RailPrDeliveryRow[] {
+  return db
+    .prepare(
+      `SELECT * FROM rail_pr_deliveries
+       WHERE decision IN ('completed','merged','discarded','superseded')
+       ORDER BY created_at DESC, rowid DESC`
+    )
+    .all() as RailPrDeliveryRow[]
+}
+
+function canonicalTicketSet(values: readonly unknown[]): string | null {
+  if (values.length === 0) return null
+  const tickets = new Set<number>()
+  for (const value of values) {
+    if (typeof value === 'number' && Number.isSafeInteger(value) && value > 0) tickets.add(value)
+  }
+  return tickets.size > 0 ? [...tickets].sort((a, b) => a - b).join(',') : null
+}
+
+/**
+ * Newest terminal generation touching any requested ticket. The returned row
+ * is intentionally not otherwise validated: a newer subset, superset, or
+ * malformed row still owns the overlapping ticket lineage and must shadow
+ * older exact-set history rather than letting a caller resurrect a stale PR.
+ */
+export function getLatestTerminalPrDeliveryTouchingTicketSet(
+  db: DbInstance,
+  ticketIds: readonly number[],
+): RailPrDeliveryRow | undefined {
+  const target = canonicalTicketSet(ticketIds)
+  if (!target || target.split(',').length !== ticketIds.length) return undefined
+  const wanted = new Set(target.split(',').map(Number))
+  return listTerminalPrDeliveries(db).find((row) => (
+    parseJsonArray<unknown>(row.ticket_ids).some((value) => (
+      typeof value === 'number' && Number.isSafeInteger(value) && wanted.has(value)
+    ))
+  ))
 }
 
 /** Startup projection source for persisted Agent cards. Terminal rows matter:
@@ -472,6 +542,7 @@ export interface PrDeliveryPatch {
   operationToken?: string | null
   operationStartedAtMs?: number | null
   cleanupWarnings?: string[]
+  safetyArchives?: string[]
 }
 
 // Column allow-list — patch keys are interpolated into the SET clause, so gate
@@ -496,12 +567,14 @@ const PATCH_COLUMNS: Record<keyof PrDeliveryPatch, string> = {
   operationToken: 'operation_token',
   operationStartedAtMs: 'operation_started_at_ms',
   cleanupWarnings: 'cleanup_warnings',
+  safetyArchives: 'safety_archives',
 }
 
 function patchValue(key: keyof PrDeliveryPatch, patch: PrDeliveryPatch): string | number | null {
   const raw = patch[key]
   if (key === 'branches' || key === 'worktreeIds' || key === 'runIds') return JSON.stringify(raw)
   if (key === 'cleanupWarnings') return JSON.stringify(boundCleanupWarnings(raw as string[]))
+  if (key === 'safetyArchives') return JSON.stringify(normalizeSafetyArchives(raw as string[]))
   if (key === 'statusDetail') return raw == null ? null : boundPrDiagnostic(String(raw))
   if (key === 'isContinuation') return raw ? 1 : 0
   return raw as string | number | null
@@ -517,6 +590,54 @@ export function boundPrDiagnostic(value: string, maxLength = 512): string {
  * allowing unbounded command output to inflate every snapshot. */
 export function boundCleanupWarnings(values: readonly string[]): string[] {
   return [...new Set(values.map((value) => boundPrDiagnostic(value)).filter(Boolean))].slice(0, 8)
+}
+
+/** Safety archive paths must remain exact filesystem locations. They are
+ * internally generated pointers to bytes that still occupy disk, so dropping
+ * an older pointer is never a valid payload-size optimization. Deduplicate
+ * exact non-empty OS-representable paths without trimming them. */
+export function normalizeSafetyArchives(values: readonly string[]): string[] {
+  const newestUnique: string[] = []
+  for (const value of values) {
+    if (typeof value !== 'string' || value.length === 0 || value.length > 8192 || value.includes('\0')) continue
+    const previous = newestUnique.indexOf(value)
+    if (previous >= 0) newestUnique.splice(previous, 1)
+    newestUnique.push(value)
+  }
+  return newestUnique
+}
+
+export function mergeSafetyArchives(
+  existing: readonly string[],
+  additions: readonly string[],
+): string[] {
+  return normalizeSafetyArchives([...existing, ...additions])
+}
+
+/** Add one quarantine path independently of lifecycle state. Safety archives
+ * are monotonic recovery metadata: a concurrent decision transition must not
+ * erase a path created just before a crash. */
+export function appendPrDeliverySafetyArchive(
+  db: DbInstance,
+  id: string,
+  archive: string,
+): string[] | null {
+  return db.transaction(() => {
+    const row = db.prepare(`SELECT safety_archives FROM rail_pr_deliveries WHERE id = ?`)
+      .get(id) as { safety_archives: string } | undefined
+    if (!row) return null
+    const existing = normalizeSafetyArchives(
+      parseJsonArray<unknown>(row.safety_archives ?? '[]')
+        .filter((value): value is string => typeof value === 'string'),
+    )
+    const merged = mergeSafetyArchives(existing, [archive])
+    db.prepare(`
+      UPDATE rail_pr_deliveries
+         SET safety_archives = ?, updated_at = ${NEXT_PR_UPDATED_AT_SQL}
+       WHERE id = ?
+    `).run(JSON.stringify(merged), id)
+    return merged
+  })()
 }
 
 /**
@@ -541,7 +662,7 @@ export function transitionDecision(
     db
       .prepare(
         `UPDATE rail_pr_deliveries
-         SET decision = ?, updated_at = datetime('now')${patchClause}
+         SET decision = ?, updated_at = ${NEXT_PR_UPDATED_AT_SQL}${patchClause}
          WHERE id = ? AND decision = ?`
       )
       .run(next, ...values, id, expected).changes > 0
@@ -566,7 +687,7 @@ export function transitionClaimedDecision(
   const values = keys.map((key) => patchValue(key, patch))
   return db.prepare(`
     UPDATE rail_pr_deliveries
-       SET decision = ?, updated_at = datetime('now')${patchClause}
+       SET decision = ?, updated_at = ${NEXT_PR_UPDATED_AT_SQL}${patchClause}
      WHERE id = ? AND decision = ? AND operation_token = ?
   `).run(next, ...values, id, expected, operationToken).changes > 0
 }
@@ -589,7 +710,7 @@ export function claimPrDeliveryOperation(
   return db.prepare(`
     UPDATE rail_pr_deliveries
        SET operation = ?, operation_token = ?, operation_started_at_ms = ?,
-           updated_at = datetime('now')
+           updated_at = ${NEXT_PR_UPDATED_AT_SQL}
      WHERE id = ? AND decision = ?
        AND (operation_token IS NULL OR operation_started_at_ms IS NULL OR operation_started_at_ms < ?)
   `).run(operation, token, nowMs, id, expected, staleBefore).changes > 0
@@ -601,7 +722,7 @@ export function releasePrDeliveryOperation(db: DbInstance, id: string, token: st
   return db.prepare(`
     UPDATE rail_pr_deliveries
        SET operation = NULL, operation_token = NULL, operation_started_at_ms = NULL,
-           updated_at = datetime('now')
+           updated_at = ${NEXT_PR_UPDATED_AT_SQL}
      WHERE id = ? AND operation_token = ?
   `).run(id, token).changes > 0
 }
@@ -616,16 +737,24 @@ export function clearOrphanedPrDeliveryOperations(db: DbInstance): number {
        SET operation = NULL, operation_token = NULL, operation_started_at_ms = NULL,
            status_code = CASE
              WHEN decision NOT IN ('completed','merged','discarded','superseded')
+              AND NOT (
+                operation = 'recover-and-retry'
+                AND status_code IN ('settlement_interrupted','recovery_unavailable')
+              )
              THEN 'operation_interrupted'
              ELSE status_code
            END,
            status_detail = CASE
              WHEN decision NOT IN ('completed','merged','discarded','superseded')
+              AND NOT (
+                operation = 'recover-and-retry'
+                AND status_code IN ('settlement_interrupted','recovery_unavailable')
+              )
               AND (status_detail IS NULL OR status_detail = '')
              THEN 'A previous delivery action was interrupted by restart. Its durable evidence was preserved; review the current state and retry.'
              ELSE status_detail
            END,
-           updated_at = datetime('now')
+           updated_at = ${NEXT_PR_UPDATED_AT_SQL}
      WHERE operation IS NOT NULL OR operation_token IS NOT NULL OR operation_started_at_ms IS NOT NULL
   `).run().changes
 }
@@ -653,8 +782,10 @@ export interface PrDeliverySnapshot {
   deliverySha: string | null
   isContinuation: boolean
   supersedesDeliveryId: string | null
+  restoredFromDeliveryId: string | null
   operation: PrDecisionOperation | null
   cleanupWarnings: string[]
+  safetyArchives: string[]
   branches: DeliverBranchRecord[]
   /** Alias used by cards; branches remains for backward-compatible APIs. */
   units: DeliverBranchRecord[]
@@ -698,8 +829,13 @@ export function toPrDeliverySnapshot(row: RailPrDeliveryRow): PrDeliverySnapshot
     deliverySha: row.delivery_sha ?? null,
     isContinuation: row.is_continuation === 1,
     supersedesDeliveryId: row.supersedes_delivery_id ?? null,
+    restoredFromDeliveryId: row.restored_from_delivery_id ?? null,
     operation: row.operation ?? null,
     cleanupWarnings: parseJsonArray<string>(row.cleanup_warnings ?? '[]'),
+    safetyArchives: normalizeSafetyArchives(
+      parseJsonArray<unknown>(row.safety_archives ?? '[]')
+        .filter((value): value is string => typeof value === 'string'),
+    ),
     branches: units,
     units,
     loopName: row.loop_name,
@@ -739,11 +875,15 @@ export function toRailPrStateMessage(projectId: string, snap: PrDeliverySnapshot
     deliverySha: snap.deliverySha,
     isContinuation: snap.isContinuation,
     supersedesDeliveryId: snap.supersedesDeliveryId,
+    restoredFromDeliveryId: snap.restoredFromDeliveryId,
     operation: snap.operation,
     cleanupWarnings: snap.cleanupWarnings,
+    safetyArchives: snap.safetyArchives,
     units: snap.units,
     runIds: snap.runIds,
     originConversationId: snap.originConversationId,
+    createdAt: snap.createdAt,
+    updatedAt: snap.updatedAt,
   }
 }
 
@@ -769,13 +909,17 @@ export function toPrDecisionCardEnvelope(projectId: string, snap: PrDeliverySnap
     deliverySha: snap.deliverySha,
     isContinuation: snap.isContinuation,
     supersedesDeliveryId: snap.supersedesDeliveryId,
+    restoredFromDeliveryId: snap.restoredFromDeliveryId,
     operation: snap.operation,
     cleanupWarnings: snap.cleanupWarnings,
+    safetyArchives: snap.safetyArchives,
     units: snap.units,
     prUrl: snap.prUrl,
     prNumber: snap.prNumber,
     prState: snap.prState,
     branch: snap.branch,
     runIds: snap.runIds,
+    createdAt: snap.createdAt,
+    updatedAt: snap.updatedAt,
   }
 }

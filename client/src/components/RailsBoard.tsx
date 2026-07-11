@@ -88,9 +88,14 @@ interface RailsBoardProps {
   /** Active ask-first PR decisions keyed by railIndex (safe-pr-review-flow). */
   railPrDecisions?: Map<number, RailPrStateSnapshot>
   /** POSTs /rails/pr-decision for a rail's active delivery. */
-  onPrDecision?: (railIndex: number, action: RailPrDecisionAction, expectedDecision: RailPrDecision) => Promise<RailPrActResult>
+  onPrDecision?: (
+    railIndex: number,
+    action: RailPrDecisionAction,
+    expectedDecision: RailPrDecision,
+    expectedPrDeliveryId: string,
+  ) => Promise<RailPrActResult>
   /** POSTs /rails/pr-checkout for a rail's active delivery. */
-  onPrCheckout?: (railIndex: number) => Promise<RailPrCheckoutResult>
+  onPrCheckout?: (railIndex: number, expectedPrDeliveryId: string) => Promise<RailPrCheckoutResult>
   /** Installed providers — when >1 the rail header shows an AI engine selector. */
   providers?: readonly string[]
   onModeChange: (railId: string, mode: RailMode) => void
@@ -241,8 +246,12 @@ export function RailsBoard({ rails, ticketMap, railWorktrees, railMetrics, railP
                     loopModel={rail.loopModel ?? null}
                     worktreeSummary={worktreeSummary(railWorktrees?.[railIndex])}
                     prDecision={railPrDecisions?.get(railIndex) ?? null}
-                    onPrDecision={onPrDecision ? (action, expected) => onPrDecision(railIndex, action, expected) : undefined}
-                    onPrCheckout={onPrCheckout ? () => onPrCheckout(railIndex) : undefined}
+                    onPrDecision={onPrDecision
+                      ? (action, expected, expectedPrDeliveryId) => onPrDecision(railIndex, action, expected, expectedPrDeliveryId)
+                      : undefined}
+                    onPrCheckout={onPrCheckout
+                      ? (expectedPrDeliveryId) => onPrCheckout(railIndex, expectedPrDeliveryId)
+                      : undefined}
                     executionMetric={railMetrics?.[railIndex] ?? null}
                     providers={providers}
                     loopAvailable={loopAvailable}

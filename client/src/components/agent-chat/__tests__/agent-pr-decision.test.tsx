@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest'
-import { render, screen, fireEvent, waitFor, act } from '@testing-library/react'
+import { render, screen, fireEvent, waitFor, act, within } from '@testing-library/react'
 
 // ── Mocks (mirror the agent-chat harness) ─────────────────────────────────────
 let wsHandler: ((msg: unknown) => void) | null = null
@@ -28,6 +28,12 @@ vi.mock('sonner', () => ({
   toast: Object.assign(vi.fn(), { info: vi.fn(), error: vi.fn(), success: vi.fn(), warning: vi.fn() }),
   Toaster: () => null,
 }))
+
+const tauriMocks = vi.hoisted(() => ({
+  isTauri: vi.fn(() => false),
+  revealItemInDir: vi.fn(async () => {}),
+}))
+vi.mock('../../../lib/tauri-shell', () => tauriMocks)
 
 const api = {
   conv: { id: 'c1', title: null, provider: 'claude', model: null, session_id: null, pinned_project_id: null, tier_level: 0 as const, reasoning_effort: null, created_at: '', updated_at: '' },
@@ -76,6 +82,59 @@ const env = (over: Partial<AgentPrDecisionEnvelope> = {}): AgentPrDecisionEnvelo
   ...over,
 })
 const interruptedActionDetail = 'A previous delivery action was interrupted by restart. Its durable evidence was preserved; review the current state and retry.'
+const recoveryWorktreePath = '/tmp/specrails/worktrees/ticket-4'
+const recoverableBlockedEnv = (over: Partial<AgentPrDecisionEnvelope> = {}) => env({
+  decision: 'pr_failed',
+  prUrl: 'https://github.com/o/r/pull/7',
+  prNumber: 7,
+  prState: 'pr-created',
+  branch: 'feat/review',
+  implementationOutcome: 'succeeded',
+  deliveryOutcome: 'blocked',
+  statusCode: 'settlement_interrupted',
+  isContinuation: true,
+  runIds: ['run-1'],
+  units: [{
+    ticketId: 4,
+    runId: 'run-1',
+    branch: 'feat/review',
+    succeeded: true,
+    implementationOutcome: 'succeeded',
+    deliveryOutcome: 'blocked',
+    initialSha: 'a'.repeat(40),
+    finalSha: null,
+    failureCode: 'settlement_interrupted',
+    branchOwnership: 'borrowed-pr',
+    worktreePath: recoveryWorktreePath,
+  }],
+  ...over,
+})
+const unavailableRecoveryEnv = (over: Partial<AgentPrDecisionEnvelope> = {}) => env({
+  decision: 'pr_failed',
+  prUrl: 'https://github.com/o/r/pull/7',
+  prNumber: 7,
+  prState: 'pr-created',
+  branch: 'feat/review',
+  implementationOutcome: 'succeeded',
+  deliveryOutcome: 'blocked',
+  statusCode: 'recovery_unavailable',
+  statusDetail: 'raw recovery scan detail that must not be shown',
+  isContinuation: true,
+  runIds: ['run-1'],
+  units: [{
+    ticketId: 4,
+    runId: 'run-1',
+    branch: 'feat/review',
+    succeeded: true,
+    implementationOutcome: 'succeeded',
+    deliveryOutcome: 'blocked',
+    initialSha: 'a'.repeat(40),
+    finalSha: null,
+    failureCode: 'recovery_unavailable',
+    branchOwnership: 'borrowed-pr',
+  }],
+  ...over,
+})
 
 /** JSON-body fetch stub shaped like postRailPrDecision expects (res.text()). */
 const httpRes = (status: number, body: unknown) => ({
@@ -87,6 +146,11 @@ const httpRes = (status: number, body: unknown) => ({
 beforeEach(() => {
   wsHandler = null
   vi.clearAllMocks()
+  tauriMocks.isTauri.mockReturnValue(false)
+  Object.defineProperty(navigator, 'clipboard', {
+    configurable: true,
+    value: { writeText: vi.fn(async () => {}) },
+  })
   vi.mocked(agentApi.listAgentConversations).mockResolvedValue([])
   vi.mocked(agentApi.createAgentConversation).mockResolvedValue(api.conv)
   vi.mocked(agentApi.getAgentConversation).mockResolvedValue({ conversation: api.conv, messages: [] })
@@ -136,12 +200,46 @@ describe('AgentPrDecisionCard states', () => {
     expect(screen.getByText(/assembled locally but not pushed/)).toBeInTheDocument()
   })
 
-  it('pr_ready: Check merge + Discard + link', () => {
+  it('pr_ready: Verify PR + Discard + link', () => {
     render(<AgentPrDecisionCard envelope={env({ decision: 'pr_ready', prUrl: 'https://github.com/o/r/pull/12', prState: 'pr-created' })} />)
     expect(screen.getByText('PR ready for merge')).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: 'Check merge' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Verify PR' })).toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'Discard' })).toBeInTheDocument()
     expect(screen.getByRole('link')).toHaveTextContent('#12')
+  })
+
+  it('repaired legacy PR-ready continuation offers only safe Dismiss', () => {
+    render(<AgentPrDecisionCard envelope={env({
+      decision: 'pr_ready', prUrl: 'https://github.com/o/r/pull/12', prState: 'pr-created',
+      branch: 'feat/review', isContinuation: true, deliverySha: 'a'.repeat(40),
+      implementationOutcome: 'succeeded', deliveryOutcome: 'delivered',
+      units: [{
+        ticketId: 4, runId: 'legacy-run', branch: 'feat/review', succeeded: true,
+        implementationOutcome: 'succeeded', deliveryOutcome: 'ready',
+        failureCode: 'settlement_interrupted', finalSha: 'a'.repeat(40), branchOwnership: 'borrowed-pr',
+      }],
+    })} />)
+
+    expect(screen.getByRole('button', { name: 'Dismiss follow-up' })).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Discard' })).toBeNull()
+    expect(screen.getByRole('button', { name: 'Verify PR' })).toBeInTheDocument()
+  })
+
+  it('fresh interrupted PR-ready recovery with an owned branch keeps Discard', () => {
+    render(<AgentPrDecisionCard envelope={env({
+      decision: 'pr_ready', prUrl: 'https://github.com/o/r/pull/13', prState: 'pr-created',
+      branch: 'feat/fresh', isContinuation: false, deliverySha: 'b'.repeat(40),
+      implementationOutcome: 'succeeded', deliveryOutcome: 'delivered',
+      units: [{
+        ticketId: 4, runId: 'fresh-run', branch: 'feat/fresh', succeeded: true,
+        implementationOutcome: 'succeeded', deliveryOutcome: 'ready',
+        failureCode: 'settlement_interrupted', finalSha: 'b'.repeat(40), branchOwnership: 'created',
+      }],
+    })} />)
+
+    expect(screen.getByRole('button', { name: 'Discard' })).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Dismiss follow-up' })).toBeNull()
+    expect(screen.getByRole('button', { name: 'Verify PR' })).toBeInTheDocument()
   })
 
   it('pr_failed: Retry + Discard', () => {
@@ -185,11 +283,125 @@ describe('AgentPrDecisionCard states', () => {
     expect(card).not.toHaveAttribute('role')
     expect(screen.getByRole('status', { name: 'Implementation complete — delivery needs attention' })).toBeInTheDocument()
     expect(screen.getByText('Implementation complete — delivery needs attention')).toBeInTheDocument()
+    expect(screen.getByText(/^Implementation succeeded, but delivery is blocked/)).toBeInTheDocument()
     expect(screen.getByText('pre-commit hook rejected the commit')).toBeInTheDocument()
     expect(screen.getByTestId('agent-pr-status-code')).toHaveTextContent('Commit step failed')
     expect(screen.queryByText('Implementation failed')).not.toBeInTheDocument()
     expect(screen.queryByRole('button', { name: 'Retry' })).not.toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Discard' })).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Discard local result' })).not.toBeInTheDocument()
+  })
+
+  it('fresh blocked delivery with an attached PR offers full Discard and truthful PR-close copy', () => {
+    render(<AgentPrDecisionCard envelope={env({
+      decision: 'pr_failed', implementationOutcome: 'succeeded', deliveryOutcome: 'blocked',
+      statusCode: 'branch_verification_failed', isContinuation: false,
+      prUrl: 'https://github.com/o/r/pull/44', prNumber: 44, prState: 'pr-created',
+    })} />)
+
+    expect(screen.getByRole('button', { name: 'Discard' })).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Discard local result' })).not.toBeInTheDocument()
+    fireEvent.click(screen.getByRole('button', { name: 'Discard' }))
+    const dialog = screen.getByTestId('agent-pr-discard-confirm')
+    expect(dialog).toHaveTextContent('The PR will be closed without deleting its remote branch')
+    expect(dialog).toHaveTextContent('specs will return to the backlog')
+  })
+
+  it('offers explicit local recovery actions for an interrupted follow-up without presenting Checkout', () => {
+    render(<AgentPrDecisionCard envelope={recoverableBlockedEnv()} />)
+
+    expect(screen.getByRole('button', { name: 'Inspect local result' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Commit & retry push' })).toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'Discard local result' })).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Checkout' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Discard' })).not.toBeInTheDocument()
+  })
+
+  it('offers safe Dismiss instead of claiming a local result exists on another computer', () => {
+    render(<AgentPrDecisionCard envelope={recoverableBlockedEnv({
+      units: [{
+        ticketId: 4, runId: 'run-1', branch: 'feat/review', succeeded: true,
+        implementationOutcome: 'succeeded', deliveryOutcome: 'blocked',
+        initialSha: 'a'.repeat(40), finalSha: null,
+        failureCode: 'settlement_interrupted', branchOwnership: 'borrowed-pr',
+      }],
+    })} />)
+
+    expect(screen.getByRole('button', { name: 'Commit & retry push' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Dismiss follow-up' })).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Inspect local result' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Discard local result' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Checkout' })).not.toBeInTheDocument()
+  })
+
+  it('shows a truthful unavailable-on-this-computer path with Check again, run inspection, and Dismiss only', () => {
+    render(<AgentPrDecisionCard envelope={unavailableRecoveryEnv()} />)
+
+    expect(screen.getByRole('button', { name: 'Check again' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /View run log/ })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Dismiss follow-up' })).toBeInTheDocument()
+    expect(screen.getByText('Specrails could not safely prove one delivery-owned result in this clone. Nothing was changed or removed. Inspect the stage detail and run logs. If the run executed on another computer, open Specrails there, then check again.')).toBeInTheDocument()
+    const technicalDetail = screen.getByTestId('agent-pr-recovery-technical-detail')
+    expect(technicalDetail).not.toHaveAttribute('open')
+    expect(within(technicalDetail).getByText('Technical recovery detail')).toBeInTheDocument()
+    expect(within(technicalDetail).getByText('raw recovery scan detail that must not be shown')).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Commit & retry push' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Inspect local result' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Checkout' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Discard' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Discard local result' })).not.toBeInTheDocument()
+  })
+
+  it('offers exactly one explicit local-result discard when unavailable recovery has a protected SHA', () => {
+    render(<AgentPrDecisionCard envelope={unavailableRecoveryEnv({ deliverySha: 'b'.repeat(40) })} />)
+
+    expect(screen.getByRole('button', { name: 'Check again' })).toBeInTheDocument()
+    expect(screen.getAllByRole('button', { name: 'Discard local result' })).toHaveLength(1)
+    expect(screen.queryByRole('button', { name: 'Dismiss follow-up' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Discard' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Commit & retry push' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Checkout' })).not.toBeInTheDocument()
+  })
+
+  it('never presents Checkout without a verified delivery SHA or while delivery is blocked', () => {
+    const missingSha = render(<AgentPrDecisionCard envelope={env({
+      decision: 'pr_ready',
+      prUrl: 'https://github.com/o/r/pull/7',
+      prState: 'pr-created',
+      branch: 'feat/review',
+      implementationOutcome: 'succeeded',
+      deliveryOutcome: 'delivered',
+    })} />)
+    expect(screen.queryByRole('button', { name: 'Checkout' })).not.toBeInTheDocument()
+    missingSha.unmount()
+
+    render(<AgentPrDecisionCard envelope={recoverableBlockedEnv({ deliverySha: 'b'.repeat(40) })} />)
+    expect(screen.queryByRole('button', { name: 'Checkout' })).not.toBeInTheDocument()
+  })
+
+  it('discloses durable safety archives separately from cleanup warnings', () => {
+    render(<AgentPrDecisionCard envelope={env({
+      decision: 'pr_ready', prUrl: 'https://github.com/o/r/pull/45', prState: 'pr-created',
+      safetyArchives: ['/worktrees/ticket-4.specrails-overlay-quarantine-a1/CLAUDE.md'],
+      cleanupWarnings: [],
+    })} />)
+
+    const archives = screen.getByTestId('agent-pr-safety-archives')
+    expect(archives).toHaveTextContent('Safety archive (1)')
+    expect(archives).toHaveTextContent('ticket-4.specrails-overlay-quarantine-a1/CLAUDE.md')
+    expect(screen.queryByTestId('agent-pr-cleanup-warning')).toBeNull()
+  })
+
+  it('keeps a terminal Dismiss cleanup warning and recovery path visible in Agent history', () => {
+    render(<AgentPrDecisionCard envelope={env({
+      decision: 'discarded', isContinuation: true,
+      cleanupWarnings: ['worktree /wt/recoverable-follow-up: preserved for inspection because it already requires review'],
+    })} />)
+
+    const warning = screen.getByTestId('agent-pr-cleanup-warning')
+    expect(warning).toHaveTextContent('Cleanup is incomplete (1 warning)')
+    expect(warning).toHaveTextContent('/wt/recoverable-follow-up')
+    expect(screen.queryByRole('button', { name: 'Dismiss follow-up' })).not.toBeInTheDocument()
   })
 
   it('partial and no-change outcomes use truthful counts and actions', () => {
@@ -209,7 +421,7 @@ describe('AgentPrDecisionCard states', () => {
     render(<AgentPrDecisionCard envelope={env({ decision: 'no_changes', implementationOutcome: 'succeeded', deliveryOutcome: 'no_changes', isContinuation: true })} />)
     expect(screen.getByText('No changes needed')).toBeInTheDocument()
     expect(screen.queryByRole('button', { name: 'Create PR' })).not.toBeInTheDocument()
-    expect(screen.getByRole('button', { name: 'Dismiss' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Dismiss follow-up' })).toBeInTheDocument()
   })
 
   it('keeps partial evidence while advancing to draft and ready PR lifecycle actions', () => {
@@ -233,7 +445,7 @@ describe('AgentPrDecisionCard states', () => {
       ...partialOutcome, decision: 'pr_ready', prUrl: 'https://github.com/o/r/pull/7', prState: 'pr-created',
     })} />)
     expect(screen.getByText('1 of 2 completed; 1 failed')).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: 'Check merge' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Verify PR' })).toBeInTheDocument()
     expect(screen.queryByRole('button', { name: 'Create PR with 1' })).not.toBeInTheDocument()
   })
 
@@ -246,9 +458,11 @@ describe('AgentPrDecisionCard states', () => {
       ],
     })} />)
     expect(screen.getByText('Implementation complete — delivery needs attention')).toBeInTheDocument()
+    expect(screen.getByText(/Part of the implementation succeeded, but nothing is safely deliverable yet/)).toBeInTheDocument()
+    expect(screen.queryByText(/^Implementation succeeded, but delivery is blocked/)).not.toBeInTheDocument()
     expect(screen.queryByRole('button', { name: /Create/ })).not.toBeInTheDocument()
     expect(screen.queryByRole('button', { name: /Retry/ })).not.toBeInTheDocument()
-    expect(screen.getByRole('button', { name: 'Dismiss' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Dismiss follow-up' })).toBeInTheDocument()
   })
 
   it('fresh no-change offers honest Done/Refine paths and completed is terminal history', () => {
@@ -276,13 +490,39 @@ describe('AgentPrDecisionCard states', () => {
     })} />)
     expect(screen.getByText('Implementation complete — update failed')).toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'Retry push' })).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: 'Dismiss' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Dismiss follow-up' })).toBeInTheDocument()
     retryable.unmount()
 
     render(<AgentPrDecisionCard envelope={env({ decision: 'pr_closed', prUrl: 'https://github.com/o/r/pull/7', prState: 'pr-created', isContinuation: true })} />)
     expect(screen.getByText('PR closed without merge')).toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'Reopen' })).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: 'Dismiss' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Dismiss follow-up' })).toBeInTheDocument()
+  })
+
+  it('shows Retry push for a recovered legacy settlement interruption, never the blocked card', () => {
+    render(<AgentPrDecisionCard envelope={env({
+      decision: 'pr_failed', prUrl: 'https://github.com/o/r/pull/7', prState: 'local-only',
+      implementationOutcome: 'succeeded', deliveryOutcome: 'retryable_failure',
+      statusCode: 'settlement_interrupted', isContinuation: true,
+    })} />)
+
+    expect(screen.getByRole('button', { name: 'Retry push' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Dismiss follow-up' })).toBeInTheDocument()
+    expect(screen.queryByText('Implementation complete — delivery needs attention')).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Discard local result' })).not.toBeInTheDocument()
+  })
+
+  it('shows implementation failure when contradictory delivery fields are also present', () => {
+    render(<AgentPrDecisionCard envelope={env({
+      decision: 'implementation_failed', implementationOutcome: 'failed',
+      deliveryOutcome: 'blocked', statusCode: 'commit_failed', runIds: ['run-1'],
+    })} />)
+
+    expect(screen.getByText('Implementation failed')).toBeInTheDocument()
+    expect(screen.getByText(/implementation run failed/)).toBeInTheDocument()
+    expect(screen.queryByText('Implementation complete — delivery needs attention')).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Retry push' })).not.toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Discard' })).toBeInTheDocument()
   })
 
   it('labels retryable PR creation distinctly from a push retry or blocked delivery', () => {
@@ -419,6 +659,7 @@ describe('AgentPrDecisionCard actions', () => {
     global.fetch = vi.fn(async () => httpRes(409, { error: 'project_recovery_in_progress' })) as unknown as typeof fetch
     render(<AgentPrDecisionCard envelope={env({
       decision: 'pr_ready', branch: 'feat/review', prUrl: 'https://github.com/o/r/pull/7', prState: 'pr-created',
+      deliverySha: 'a'.repeat(40),
     })} />)
     const checkout = screen.getByRole('button', { name: 'Checkout' })
     await act(async () => { fireEvent.click(checkout) })
@@ -429,6 +670,145 @@ describe('AgentPrDecisionCard actions', () => {
     expect(vi.mocked(toast.warning)).not.toHaveBeenCalled()
     expect(vi.mocked(toast.error)).not.toHaveBeenCalled()
     expect(checkout).toBeEnabled()
+  })
+
+  it.each([
+    [
+      'checkout_dirty',
+      'Checkout blocked to protect your changes',
+      'The main project folder has uncommitted changes. Commit or stash them, then retry. Nothing was changed.',
+    ],
+    [
+      'checkout_not_deliverable',
+      'This PR branch is not the preserved implementation',
+      'No exact delivery commit has been verified yet. Inspect or recover the local result instead.',
+    ],
+    [
+      'checkout_safety_unknown',
+      'Checkout paused because safety could not be verified',
+      'Specrails could not read the main project folder’s Git status. Nothing was released or changed. Retry after Git is available.',
+    ],
+  ])('localizes the %s checkout guard without exposing raw server copy', async (error, title, body) => {
+    global.fetch = vi.fn(async () => httpRes(409, { error, detail: 'raw server detail' })) as unknown as typeof fetch
+    render(<AgentPrDecisionCard envelope={env({
+      decision: 'pr_ready', branch: 'feat/review', prUrl: 'https://github.com/o/r/pull/7', prState: 'pr-created',
+      deliverySha: 'a'.repeat(40), implementationOutcome: 'succeeded', deliveryOutcome: 'delivered',
+    })} />)
+
+    await act(async () => { fireEvent.click(screen.getByRole('button', { name: 'Checkout' })) })
+
+    await waitFor(() => expect(vi.mocked(toast.warning)).toHaveBeenCalledWith(title, { description: body }))
+    expect(vi.mocked(toast.warning)).not.toHaveBeenCalledWith(expect.anything(), { description: 'raw server detail' })
+  })
+
+  it('copies and reveals the preserved worktree from Inspect local result', async () => {
+    tauriMocks.isTauri.mockReturnValue(true)
+    render(<AgentPrDecisionCard envelope={recoverableBlockedEnv()} />)
+
+    await act(async () => { fireEvent.click(screen.getByTestId('agent-pr-inspect-local-result')) })
+
+    expect(navigator.clipboard.writeText).toHaveBeenCalledWith(recoveryWorktreePath)
+    expect(tauriMocks.revealItemInDir).toHaveBeenCalledWith(recoveryWorktreePath)
+    expect(vi.mocked(toast.success)).toHaveBeenCalledWith('Local result path copied', { description: recoveryWorktreePath })
+    expect(vi.mocked(global.fetch).mock.calls.some(([url]) => String(url).includes('/rails/pr-decision'))).toBe(false)
+  })
+
+  it('still reveals the preserved worktree when clipboard access is unavailable', async () => {
+    tauriMocks.isTauri.mockReturnValue(true)
+    vi.mocked(navigator.clipboard.writeText).mockRejectedValueOnce(new Error('clipboard denied'))
+    render(<AgentPrDecisionCard envelope={recoverableBlockedEnv()} />)
+
+    await act(async () => { fireEvent.click(screen.getByTestId('agent-pr-inspect-local-result')) })
+
+    expect(tauriMocks.revealItemInDir).toHaveBeenCalledWith(recoveryWorktreePath)
+    expect(vi.mocked(toast.info)).toHaveBeenCalledWith('Preserved local result', { description: recoveryWorktreePath })
+  })
+
+  it('confirms Commit & retry push, posts the recovery action, and reports the verified SHA', async () => {
+    const sha = 'c'.repeat(40)
+    global.fetch = vi.fn(async () => httpRes(200, {
+      ok: true,
+      decision: 'merged',
+      merged: true,
+      prUrl: 'https://github.com/o/r/pull/7',
+      prState: 'pr-created',
+      deliveryVerified: true,
+      verifiedSha: sha,
+      remoteHeadSha: sha,
+      pushed: false,
+    })) as unknown as typeof fetch
+    render(<AgentPrDecisionCard envelope={recoverableBlockedEnv()} />)
+
+    fireEvent.click(screen.getByTestId('agent-pr-recover-and-retry'))
+    const dialog = screen.getByTestId('agent-pr-recover-and-retry-confirm')
+    expect(dialog).toHaveTextContent('Commit and push the preserved result?')
+    expect(dialog).toHaveTextContent('Your main project folder and its uncommitted changes will not be touched')
+    expect(vi.mocked(global.fetch).mock.calls.some(([url]) => String(url).includes('/rails/pr-decision'))).toBe(false)
+
+    await act(async () => { fireEvent.click(screen.getByTestId('agent-pr-recover-and-retry-confirm-btn')) })
+
+    expect(global.fetch).toHaveBeenCalledWith('/api/projects/p1/rails/pr-decision', expect.objectContaining({
+      method: 'POST',
+      body: JSON.stringify({ prDeliveryId: 'd1', action: 'recover-and-retry', expectedDecision: 'pr_failed' }),
+    }))
+    await waitFor(() => expect(vi.mocked(toast.success)).toHaveBeenCalledWith(
+      'Recovered commit cccccccc is verified in the PR',
+    ))
+  })
+
+  it('keeps recovery visibly blocked when the server cannot verify a safe delivery commit', async () => {
+    global.fetch = vi.fn(async () => httpRes(200, {
+      ok: true,
+      decision: 'pr_failed',
+      prUrl: 'https://github.com/o/r/pull/7',
+      prState: 'pr-created',
+      deliveryVerified: false,
+      detail: 'No unique fast-forward candidate remains.',
+    })) as unknown as typeof fetch
+    render(<AgentPrDecisionCard envelope={recoverableBlockedEnv()} />)
+
+    fireEvent.click(screen.getByTestId('agent-pr-recover-and-retry'))
+    await act(async () => { fireEvent.click(screen.getByTestId('agent-pr-recover-and-retry-confirm-btn')) })
+
+    await waitFor(() => expect(vi.mocked(toast.warning)).toHaveBeenCalledWith(
+      'Local recovery still needs attention',
+      { description: 'No unique fast-forward candidate remains.' },
+    ))
+  })
+
+  it('confirms Check again and reports unavailable recovery with localized, non-destructive feedback', async () => {
+    global.fetch = vi.fn(async () => httpRes(200, {
+      ok: true,
+      decision: 'pr_failed',
+      prUrl: 'https://github.com/o/r/pull/7',
+      prState: 'pr-created',
+      deliveryVerified: false,
+      recoveryUnavailable: true,
+      detail: 'raw scan result',
+    })) as unknown as typeof fetch
+    render(<AgentPrDecisionCard envelope={unavailableRecoveryEnv()} />)
+
+    fireEvent.click(screen.getByTestId('agent-pr-recheck-recovery'))
+    const dialog = screen.getByTestId('agent-pr-recover-and-retry-confirm')
+    expect(dialog).toHaveTextContent('Check this computer again?')
+    expect(dialog).toHaveTextContent('Specrails will rescan this clone’s delivery-owned worktree, branch, refs, reflogs, and orphan Git objects for feat/review')
+    expect(dialog).toHaveTextContent('Your main project folder will not be touched')
+    expect(vi.mocked(global.fetch).mock.calls.some(([url]) => String(url).includes('/rails/pr-decision'))).toBe(false)
+
+    await act(async () => { fireEvent.click(screen.getByTestId('agent-pr-recover-and-retry-confirm-btn')) })
+
+    expect(global.fetch).toHaveBeenCalledWith('/api/projects/p1/rails/pr-decision', expect.objectContaining({
+      method: 'POST',
+      body: JSON.stringify({ prDeliveryId: 'd1', action: 'recover-and-retry', expectedDecision: 'pr_failed' }),
+    }))
+    await waitFor(() => expect(vi.mocked(toast.info)).toHaveBeenCalledWith(
+      'Recovery could not be verified on this computer',
+      { description: 'Specrails could not safely prove one delivery-owned result in this clone. Nothing was changed or removed. Inspect the stage detail and run logs. If the run executed on another computer, open Specrails there, then check again.' },
+    ))
+    expect(vi.mocked(toast.warning)).not.toHaveBeenCalledWith(
+      'Local recovery still needs attention',
+      { description: 'raw scan result' },
+    )
   })
 
   it('409 operation_in_progress is busy, applies the lease snapshot, and never says already resolved', async () => {
@@ -459,9 +839,9 @@ describe('AgentPrDecisionCard actions', () => {
   it('poll-merge that is not merged yet → neutral toast, card unchanged', async () => {
     global.fetch = vi.fn(async () => httpRes(200, { ok: true, decision: 'pr_ready', merged: false })) as unknown as typeof fetch
     render(<AgentPrDecisionCard envelope={env({ decision: 'pr_ready', prUrl: 'https://github.com/o/r/pull/12', prState: 'pr-created' })} />)
-    await act(async () => { fireEvent.click(screen.getByRole('button', { name: 'Check merge' })) })
+    await act(async () => { fireEvent.click(screen.getByRole('button', { name: 'Verify PR' })) })
     await waitFor(() => expect(vi.mocked(toast.info)).toHaveBeenCalledWith('Not merged yet'))
-    expect(screen.getByRole('button', { name: 'Check merge' })).toBeEnabled()
+    expect(screen.getByRole('button', { name: 'Verify PR' })).toBeEnabled()
   })
 
   it('poll-merge CLOSED transitions to the explicit closed state without a contradictory not-merged toast', async () => {
@@ -473,7 +853,7 @@ describe('AgentPrDecisionCard actions', () => {
       },
     })) as unknown as typeof fetch
     render(<AgentPrDecisionCard envelope={env({ decision: 'pr_ready', prUrl: 'https://github.com/o/r/pull/12', prState: 'pr-created' })} />)
-    await act(async () => { fireEvent.click(screen.getByRole('button', { name: 'Check merge' })) })
+    await act(async () => { fireEvent.click(screen.getByRole('button', { name: 'Verify PR' })) })
     await waitFor(() => expect(screen.getByText('PR closed without merge')).toBeInTheDocument())
     expect(vi.mocked(toast.info)).not.toHaveBeenCalledWith('Not merged yet')
   })
@@ -484,7 +864,11 @@ describe('AgentPrDecisionCard actions', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Discard' }))
     const dialog = screen.getByTestId('agent-pr-discard-confirm')
     expect(dialog).toHaveTextContent('Discard this delivery?')
-    expect(dialog).toHaveTextContent('branches and worktrees')
+    expect(dialog).toHaveTextContent('PR will be closed without deleting its remote branch')
+    expect(dialog).toHaveTextContent('SpecRails-owned local branches and worktrees that are still at their recorded commit')
+    expect(dialog).toHaveTextContent('anything changed will be preserved with a warning')
+    expect(dialog).toHaveTextContent('specs will return to the backlog')
+    expect(dialog).toHaveTextContent('Removed local resources cannot be recovered')
     expect(global.fetch).not.toHaveBeenCalled()
     await act(async () => { fireEvent.click(screen.getByTestId('agent-pr-discard-confirm-btn')) })
     expect(global.fetch).toHaveBeenCalledWith(
@@ -520,6 +904,63 @@ describe('AgentPrDecisionCard actions', () => {
     await waitFor(() => expect(screen.getByText('Implementation complete — update failed')).toBeInTheDocument())
     expect(screen.getByRole('button', { name: 'Retry push' })).toBeInTheDocument()
     expect(vi.mocked(toast.error)).toHaveBeenCalledWith('Implementation complete; delivery needs attention', { description: 'remote temporarily unavailable' })
+  })
+
+  it('confirms the exact SHA after Retry push and immediately renders the verified PR state', async () => {
+    const sha = 'a'.repeat(40)
+    global.fetch = vi.fn(async () => httpRes(200, {
+      ok: true, decision: 'pr_ready', prUrl: 'https://github.com/o/r/pull/7', prState: 'pr-created',
+      deliveryVerified: true, verifiedSha: sha, remoteHeadSha: sha, pushed: true,
+      snapshot: {
+        id: 'd1', railIndex: 0, railKey: '0-impl', ticketIds: [4, 7], baseBranch: 'main',
+        branch: 'feat/review', prUrl: 'https://github.com/o/r/pull/7', prNumber: 7,
+        prState: 'pr-created', decision: 'pr_ready', runIds: [], originConversationId: 'c1',
+        implementationOutcome: 'succeeded', deliveryOutcome: 'delivered', statusCode: 'pr_ready',
+        statusDetail: null, deliverySha: sha,
+      },
+    })) as unknown as typeof fetch
+    render(<AgentPrDecisionCard envelope={env({
+      decision: 'pr_failed', prUrl: 'https://github.com/o/r/pull/7', prState: 'local-only',
+      branch: 'feat/review', implementationOutcome: 'succeeded',
+      deliveryOutcome: 'retryable_failure', statusCode: 'push_failed', deliverySha: sha,
+    })} />)
+
+    await act(async () => { fireEvent.click(screen.getByRole('button', { name: 'Retry push' })) })
+
+    await waitFor(() => expect(vi.mocked(toast.success)).toHaveBeenCalledWith(
+      'Push verified · commit aaaaaaaa is in the PR',
+    ))
+    expect(screen.getByRole('button', { name: 'Verify PR' })).toBeInTheDocument()
+    expect(screen.getByTestId('agent-pr-delivery-sha')).toHaveTextContent('commit aaaaaaaa')
+    expect(screen.queryByRole('button', { name: 'Retry push' })).toBeNull()
+  })
+
+  it('restores Retry push when Verify PR proves the commit is missing', async () => {
+    const sha = 'a'.repeat(40)
+    global.fetch = vi.fn(async () => httpRes(200, {
+      ok: true, decision: 'pr_failed', prUrl: 'https://github.com/o/r/pull/7',
+      deliveryVerified: false, verifiedSha: sha, remoteHeadSha: 'b'.repeat(40),
+      snapshot: {
+        id: 'd1', railIndex: 0, railKey: '0-impl', ticketIds: [4, 7], baseBranch: 'main',
+        branch: 'feat/review', prUrl: 'https://github.com/o/r/pull/7', prNumber: 7,
+        prState: 'pr-created', decision: 'pr_failed', runIds: [], originConversationId: 'c1',
+        implementationOutcome: 'succeeded', deliveryOutcome: 'retryable_failure', statusCode: 'push_failed',
+        statusDetail: 'the open PR no longer exposes the verified implementation commit', deliverySha: sha,
+      },
+    })) as unknown as typeof fetch
+    render(<AgentPrDecisionCard envelope={env({
+      decision: 'pr_ready', prUrl: 'https://github.com/o/r/pull/7', prState: 'pr-created',
+      branch: 'feat/review', implementationOutcome: 'succeeded',
+      deliveryOutcome: 'delivered', statusCode: 'pr_ready', deliverySha: sha,
+    })} />)
+
+    await act(async () => { fireEvent.click(screen.getByRole('button', { name: 'Verify PR' })) })
+
+    await waitFor(() => expect(vi.mocked(toast.warning)).toHaveBeenCalledWith(
+      'The delivery commit is no longer in the PR. Retry push is available again.',
+    ))
+    expect(screen.getByRole('button', { name: 'Retry push' })).toBeInTheDocument()
+    expect(vi.mocked(toast.info)).not.toHaveBeenCalledWith('Not merged yet')
   })
 
   it('local integration requires an explicit repository-changing confirmation', async () => {

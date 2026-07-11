@@ -37,6 +37,7 @@
  */
 import fs from 'fs'
 import path from 'path'
+import { createHash } from 'crypto'
 
 export interface WorktreeOverlayInput {
   /** The isolated rail worktree (spawn cwd). */
@@ -55,9 +56,19 @@ export interface WorktreeOverlayResult {
    *  the manifest) — cumulative across passes on a resumed worktree. The caller
    *  MUST exclude these from any `git add` so they never reach the branch. */
   createdPaths: string[]
+  /** Immutable cleanup proof for each returned path. Automatic worktree
+   * removal must re-check these fingerprints before excluding overlay files
+   * from its cleanliness inspection. */
+  cleanupEvidence: OverlayCleanupEvidence[]
   /** Non-fatal, human-readable problems (entry-level failures). Non-empty means
    *  the run may be missing commands/agents — surface it to the user. */
   warnings: string[]
+}
+
+export interface OverlayCleanupEvidence {
+  path: string
+  kind: 'symlink' | 'file' | 'directory'
+  digest: string
 }
 
 /** Overlay manifest filename (worktree root). Overlay-owned + git-excluded. */
@@ -99,6 +110,165 @@ function readManifest(manifestPath: string): string[] {
   } catch {
     return []
   }
+}
+
+function safeRelativePath(value: string): string | null {
+  // `value` is already constructed with POSIX separators. Preserve whitespace
+  // and, on POSIX, a literal backslash: both are valid filename characters.
+  // On Windows a backslash is a separator and is rejected fail-closed.
+  if (process.platform === 'win32' && value.includes('\\')) return null
+  if (value.split('/').includes('..')) return null
+  const normalized = path.posix.normalize(value)
+  if (
+    !normalized || normalized === '.' || normalized.startsWith('../') ||
+    path.posix.isAbsolute(normalized) || normalized.includes('\0')
+  ) return null
+  return normalized
+}
+
+function sourcePathForOverlayEntry(input: WorktreeOverlayInput, rel: string): string | null {
+  if (rel === '.mcp.json' || rel === input.instructionsFilename) {
+    return path.join(input.sourceRoot, rel)
+  }
+  const providerPrefix = `${input.providerDir}/`
+  if (!rel.startsWith(providerPrefix)) return null
+  const providerRel = rel.slice(providerPrefix.length)
+  if (!providerRel || providerRel === 'worktrees' || providerRel.startsWith('worktrees/')) return null
+  return path.join(input.sourceRoot, ...rel.split('/'))
+}
+
+function sha256(parts: readonly (string | Buffer)[]): string {
+  const hash = createHash('sha256')
+  for (const part of parts) hash.update(part)
+  return hash.digest('hex')
+}
+
+/** Content fingerprint that follows nested links. This deliberately matches
+ * the copy fallback's dereferencing semantics. */
+function dereferencedDigest(target: string, ancestors = new Set<string>()): string | null {
+  try {
+    const stat = fs.statSync(target)
+    if (stat.isFile()) return sha256(['file\0', fs.readFileSync(target)])
+    if (!stat.isDirectory()) return null
+    const real = fs.realpathSync(target)
+    if (ancestors.has(real)) return null
+    const nextAncestors = new Set(ancestors).add(real)
+    const parts: Array<string | Buffer> = ['directory\0']
+    for (const name of fs.readdirSync(target).sort()) {
+      const childDigest = dereferencedDigest(path.join(target, name), nextAncestors)
+      if (!childDigest) return null
+      parts.push(name, '\0', childDigest, '\0')
+    }
+    return sha256(parts)
+  } catch {
+    return null
+  }
+}
+
+export function fingerprintOverlayCleanupPath(
+  target: string,
+): Omit<OverlayCleanupEvidence, 'path'> | null {
+  try {
+    const stat = fs.lstatSync(target)
+    if (stat.isSymbolicLink()) {
+      const resolved = path.resolve(path.dirname(target), fs.readlinkSync(target))
+      return { kind: 'symlink', digest: sha256(['symlink\0', resolved]) }
+    }
+    if (stat.isFile()) return { kind: 'file', digest: sha256(['file\0', fs.readFileSync(target)]) }
+    if (stat.isDirectory()) {
+      const digest = dereferencedDigest(target)
+      return digest ? { kind: 'directory', digest } : null
+    }
+    return null
+  } catch {
+    return null
+  }
+}
+
+/** Authenticate candidate manifest entries against the configured overlay
+ * source and capture immutable cleanup evidence. The writable manifest alone
+ * never grants ownership of an arbitrary worktree path. */
+export function captureOverlayCleanupEvidence(
+  input: WorktreeOverlayInput,
+  candidates: readonly string[],
+  includeManifest = false,
+): OverlayCleanupEvidence[] {
+  const evidence: OverlayCleanupEvidence[] = []
+  const seen = new Set<string>()
+  for (const candidate of candidates) {
+    if (typeof candidate !== 'string') continue
+    const rel = safeRelativePath(candidate)
+    if (!rel || seen.has(rel)) continue
+    const destination = path.join(input.worktreePath, ...rel.split('/'))
+    if (rel === OVERLAY_MANIFEST) {
+      if (!includeManifest) continue
+      const fingerprint = fingerprintOverlayCleanupPath(destination)
+      if (fingerprint) {
+        evidence.push({ path: rel, ...fingerprint })
+        seen.add(rel)
+      }
+      continue
+    }
+    const source = sourcePathForOverlayEntry(input, rel)
+    if (!source) continue
+    const destinationStat = lstatSafe(destination)
+    if (!destinationStat) continue
+    if (destinationStat.isSymbolicLink()) {
+      try {
+        if (path.resolve(path.dirname(destination), fs.readlinkSync(destination)) !== path.resolve(source)) continue
+      } catch {
+        continue
+      }
+    } else {
+      const sourceDigest = dereferencedDigest(source)
+      const destinationDigest = dereferencedDigest(destination)
+      if (!sourceDigest || sourceDigest !== destinationDigest) continue
+    }
+    const fingerprint = fingerprintOverlayCleanupPath(destination)
+    if (!fingerprint) continue
+    evidence.push({ path: rel, ...fingerprint })
+    seen.add(rel)
+  }
+  return evidence
+}
+
+/** Revalidate one persisted overlay proof against the live worktree. */
+export function matchesOverlayCleanupEvidence(
+  worktreePath: string,
+  evidence: OverlayCleanupEvidence,
+): boolean {
+  const rel = safeRelativePath(evidence.path)
+  if (!rel || !/^[0-9a-f]{64}$/.test(evidence.digest)) return false
+  return matchesOverlayCleanupEvidenceAtPath(
+    path.join(worktreePath, ...rel.split('/')),
+    evidence,
+  )
+}
+
+/** Revalidate persisted evidence against an explicit path. Cleanup uses this
+ * for leaf-by-leaf deletion inside an authenticated copied directory. */
+export function matchesOverlayCleanupEvidenceAtPath(
+  target: string,
+  evidence: Pick<OverlayCleanupEvidence, 'kind' | 'digest'>,
+): boolean {
+  if (!/^[0-9a-f]{64}$/.test(evidence.digest)) return false
+  const live = fingerprintOverlayCleanupPath(target)
+  return live?.kind === evidence.kind && live.digest === evidence.digest
+}
+
+/** Narrow allocation-time authority after a run. Revalidation may revoke an
+ * entry but can never replace its original fingerprint with a newly modified
+ * value (especially important for the source-less writable manifest). */
+export function revalidateOverlayCleanupEvidence(
+  input: WorktreeOverlayInput,
+  original: readonly OverlayCleanupEvidence[],
+): OverlayCleanupEvidence[] {
+  const originalByPath = new Map(original.map((entry) => [entry.path, entry]))
+  return captureOverlayCleanupEvidence(input, original.map((entry) => entry.path), true)
+    .filter((live) => {
+      const prior = originalByPath.get(live.path)
+      return prior?.kind === live.kind && prior.digest === live.digest
+    })
 }
 
 /**
@@ -200,16 +370,16 @@ export function applyWorktreeOverlay(input: WorktreeOverlayInput): WorktreeOverl
   const warnings: string[] = []
   const created: string[] = []
   const manifestPath = path.join(worktreePath, OVERLAY_MANIFEST)
-  const prior = readManifest(manifestPath)
+  const prior = captureOverlayCleanupEvidence(input, readManifest(manifestPath)).map((entry) => entry.path)
 
   try {
     if (!isDir(worktreePath)) {
       warnings.push(`worktree dir missing: ${worktreePath}`)
-      return { createdPaths: prior, warnings }
+      return { createdPaths: [], cleanupEvidence: [], warnings }
     }
     if (path.resolve(sourceRoot) === path.resolve(worktreePath)) {
       // Paranoia: never overlay a worktree onto itself.
-      return { createdPaths: prior, warnings }
+      return { createdPaths: [], cleanupEvidence: [], warnings }
     }
 
     // 1. providerDir merge-overlay (commands/agents/skills/rules/settings/…).
@@ -272,5 +442,6 @@ export function applyWorktreeOverlay(input: WorktreeOverlayInput): WorktreeOverl
       warnings.push(`failed to write overlay manifest: ${errMsg(err)}`)
     }
   }
-  return { createdPaths: all, warnings }
+  const cleanupEvidence = captureOverlayCleanupEvidence(input, all, true)
+  return { createdPaths: cleanupEvidence.map((entry) => entry.path), cleanupEvidence, warnings }
 }

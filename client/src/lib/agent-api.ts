@@ -246,9 +246,13 @@ export interface AgentPrDecisionEnvelope {
   deliverySha?: string | null
   isContinuation?: boolean
   supersedesDeliveryId?: string | null
+  restoredFromDeliveryId?: string | null
   operation?: AgentPrDecisionAction | null
   cleanupWarnings?: string[]
+  safetyArchives?: string[]
   units?: RailPrUnitOutcome[]
+  createdAt?: string
+  updatedAt?: string
 }
 
 /**
@@ -293,9 +297,13 @@ export function coercePrDecisionEnvelope(v: unknown): AgentPrDecisionEnvelope | 
     deliverySha: snapshot.deliverySha,
     isContinuation: snapshot.isContinuation,
     supersedesDeliveryId: snapshot.supersedesDeliveryId,
+    restoredFromDeliveryId: snapshot.restoredFromDeliveryId,
     operation: snapshot.operation,
     cleanupWarnings: snapshot.cleanupWarnings,
+    safetyArchives: snapshot.safetyArchives,
     units: snapshot.units,
+    createdAt: snapshot.createdAt,
+    updatedAt: snapshot.updatedAt,
   }
 }
 
@@ -308,14 +316,27 @@ export function parsePrDecisionEnvelope(content: string): AgentPrDecisionEnvelop
   }
 }
 
-export type AgentPrDecisionAction = 'create-pr' | 'publish' | 'discard' | 'poll-merge' | 'merge-local' | 'dismiss' | 'reopen' | 'acknowledge-no-changes'
+export type AgentPrDecisionAction = 'create-pr' | 'publish' | 'discard' | 'poll-merge' | 'merge-local' | 'dismiss' | 'reopen' | 'acknowledge-no-changes' | 'recover-and-retry'
 
 const PR_DECISION_ACTION_VALUES: readonly AgentPrDecisionAction[] = [
-  'create-pr', 'publish', 'discard', 'poll-merge', 'merge-local', 'dismiss', 'reopen', 'acknowledge-no-changes',
+  'create-pr', 'publish', 'discard', 'poll-merge', 'merge-local', 'dismiss', 'reopen', 'acknowledge-no-changes', 'recover-and-retry',
 ]
 
 export type AgentPrDecisionOutcome =
-  | { kind: 'ok'; decision: string; prUrl: string | null; prState: AgentPrDeliveryState; merged: boolean; detail: string | null; snapshot: RailPrStateSnapshot | null }
+  | {
+      kind: 'ok'
+      decision: string
+      prUrl: string | null
+      prState: AgentPrDeliveryState
+      merged: boolean
+      detail: string | null
+      deliveryVerified: boolean | null
+      verifiedSha: string | null
+      remoteHeadSha: string | null
+      pushed: boolean | null
+      recoveryUnavailable: boolean
+      snapshot: RailPrStateSnapshot | null
+    }
   /** Startup reconciliation owns the project; no decision effect was run. */
   | { kind: 'recovering'; snapshot: RailPrStateSnapshot | null }
   /** Decision changed before this request; the authoritative snapshot reconciles. */
@@ -360,6 +381,11 @@ export async function postRailPrDecision(
         : snapshot?.prState ?? 'none',
       merged: data?.merged === true,
       detail: typeof data?.detail === 'string' && data.detail ? data.detail : null,
+      deliveryVerified: typeof data?.deliveryVerified === 'boolean' ? data.deliveryVerified : null,
+      verifiedSha: typeof data?.verifiedSha === 'string' ? data.verifiedSha : null,
+      remoteHeadSha: typeof data?.remoteHeadSha === 'string' ? data.remoteHeadSha : null,
+      pushed: typeof data?.pushed === 'boolean' ? data.pushed : null,
+      recoveryUnavailable: data?.recoveryUnavailable === true,
       snapshot,
     }
   }
@@ -420,16 +446,20 @@ export function agentEnvelopeFromSnapshot(
     deliverySha: snapshot.deliverySha,
     isContinuation: snapshot.isContinuation,
     supersedesDeliveryId: snapshot.supersedesDeliveryId,
+    restoredFromDeliveryId: snapshot.restoredFromDeliveryId,
     operation: snapshot.operation,
     cleanupWarnings: snapshot.cleanupWarnings,
+    safetyArchives: snapshot.safetyArchives,
     units: snapshot.units,
+    createdAt: snapshot.createdAt,
+    updatedAt: snapshot.updatedAt,
   }
 }
 
 export type AgentPrCheckoutOutcome =
   | { kind: 'ok' }
   | { kind: 'recovering' }
-  | { kind: 'failed'; detail: string }
+  | { kind: 'failed'; error: string; detail: string }
 
 export async function postRailPrCheckout(projectId: string, prDeliveryId: string): Promise<AgentPrCheckoutOutcome> {
   const res = await fetch(`${API_ORIGIN}/api/projects/${projectId}/rails/pr-checkout`, {
@@ -446,7 +476,11 @@ export async function postRailPrCheckout(projectId: string, prDeliveryId: string
   }
   if (res.ok) return { kind: 'ok' }
   if (res.status === 409 && data?.error === 'project_recovery_in_progress') return { kind: 'recovering' }
-  return { kind: 'failed', detail: String(data?.detail ?? data?.error ?? `HTTP ${res.status}`) }
+  return {
+    kind: 'failed',
+    error: String(data?.error ?? `http_${res.status}`),
+    detail: String(data?.detail ?? data?.error ?? `HTTP ${res.status}`),
+  }
 }
 
 // ── Provider availability (no AI CLI installed → degraded banner) ─────────────

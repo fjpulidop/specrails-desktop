@@ -297,7 +297,7 @@ export type RailPrDecision =
 export type RailPrDeliveryState = 'none' | 'local-only' | 'pushed' | 'pr-created'
 
 /** Actions accepted by POST /rails/pr-decision. */
-export type RailPrDecisionAction = 'create-pr' | 'publish' | 'discard' | 'poll-merge' | 'merge-local' | 'dismiss' | 'reopen' | 'acknowledge-no-changes'
+export type RailPrDecisionAction = 'create-pr' | 'publish' | 'discard' | 'poll-merge' | 'merge-local' | 'dismiss' | 'reopen' | 'acknowledge-no-changes' | 'recover-and-retry'
 
 /** Engine truth, deliberately independent from commit/push/PR delivery. */
 export type RailImplementationOutcome = 'running' | 'succeeded' | 'partially_succeeded' | 'failed' | 'unknown'
@@ -328,6 +328,7 @@ export interface RailPrUnitOutcome {
   changed?: boolean
   failureCode?: string | null
   branchOwnership?: 'created' | 'preexisting' | 'borrowed-pr'
+  worktreePath?: string | null
 }
 
 /**
@@ -358,10 +359,16 @@ export interface RailPrStateSnapshot {
   /** Existing-PR generations borrow the PR/head and dismiss non-destructively. */
   isContinuation?: boolean
   supersedesDeliveryId?: string | null
+  /** Explicit rollback lineage: this generation was restored because the
+   * referenced replacement failed before allocation completed. */
+  restoredFromDeliveryId?: string | null
   /** Leased in-flight decision-side effect owned by another surface/process. */
   operation?: RailPrDecisionAction | null
   /** Bounded cleanup failures that remain after a terminal action. */
   cleanupWarnings?: string[]
+  /** Persistent same-filesystem overlay archives retained outside the PR so
+   * concurrent/open-descriptor writes always remain inspectable. */
+  safetyArchives?: string[]
   /** Structured evidence; legacy snapshots may omit it. */
   units?: RailPrUnitOutcome[]
   /** The launch's loop-run ids, in ticket order ([] until allocation lands) —
@@ -369,6 +376,9 @@ export interface RailPrStateSnapshot {
   runIds: string[]
   /** The launching agent-chat conversation, null for dashboard launches. */
   originConversationId: string | null
+  /** Durable generation ordering evidence for stale-snapshot arbitration. */
+  createdAt?: string
+  updatedAt?: string
 }
 
 /** Wire shape of the project-scoped `rail.pr_state` WS broadcast (mirrors

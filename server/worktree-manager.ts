@@ -28,13 +28,22 @@ export interface GitRunner {
   run(args: string[], cwd: string): Promise<GitResult>
 }
 
+const GIT_RUNNER_TIMEOUT_MS = 120_000
+
 export const defaultGitRunner: GitRunner = {
   run(args, cwd) {
     return new Promise<GitResult>((resolve) => {
       // SystemRoot/ComSpec backfill so worktree + PR-decision git ops don't fail
       // to start under a pkg-stripped Windows sidecar env. No-op on POSIX.
       const env = windowsSpawnEnv()
-      execFile('git', args, { cwd, env, maxBuffer: 16 * 1024 * 1024, windowsHide: true }, (err, stdout, stderr) => {
+      execFile('git', args, {
+        cwd,
+        env,
+        timeout: GIT_RUNNER_TIMEOUT_MS,
+        killSignal: 'SIGTERM',
+        maxBuffer: 16 * 1024 * 1024,
+        windowsHide: true,
+      }, (err, stdout, stderr) => {
         const code = err && typeof (err as { code?: unknown }).code === 'number' ? (err as { code: number }).code : err ? 1 : 0
         resolve({ code, stdout: stdout?.toString() ?? '', stderr: stderr?.toString() ?? '' })
       })
@@ -227,7 +236,7 @@ export interface CommitWorktreeResult {
   clean: boolean
   /** Porcelain status lines for deliverable paths still dirty after commit. */
   dirty: string[]
-  /** Human-readable git failure, when add/commit/status failed. */
+  /** Human-readable git failure, including index audit/reset failures. */
   error?: string
 }
 
@@ -252,8 +261,79 @@ async function gitRun(git: GitRunner, args: string[], cwd: string): Promise<GitR
 }
 
 function commitPathspecs(excludePaths: string[]): string[] {
-  const allExcludePaths = [...PR_NEVER_STAGE_PATHS, ...excludePaths]
-  return ['--', '.', ...allExcludePaths.map((p) => `:(exclude)${p}`)]
+  return [
+    '--', '.',
+    ...PR_NEVER_STAGE_PATHS.map((p) => `:(exclude)${p}`),
+    // Overlay names originate in the workspace filesystem. Treat them as
+    // literal top-level paths so glob/pathspec metacharacters cannot broaden
+    // the never-commit surface.
+    ...excludePaths.map((p) => `:(top,exclude,literal)${p}`),
+  ]
+}
+
+const INDEX_AUDIT_ARGS = [
+  'diff', '--cached', '--name-only', '--no-renames', '-z',
+  '--diff-filter=ACDMRTUXB', '--',
+] as const
+
+const PR_NEVER_STAGE_ROOTS = [...new Set(
+  PR_NEVER_STAGE_PATHS.map((entry) => entry.endsWith('/**') ? entry.slice(0, -3) : entry),
+)]
+
+function normalizedGitPath(value: string): string {
+  return path.sep === '\\' ? value.replaceAll('\\', '/') : value
+}
+
+function isPathAtOrBelow(candidate: string, root: string): boolean {
+  return candidate === root || candidate.startsWith(`${root}/`)
+}
+
+function forbiddenStagedPaths(staged: string[], excludePaths: string[]): string[] {
+  const overlayRoots = excludePaths.map(normalizedGitPath).filter(Boolean)
+  return staged.filter((candidate) => (
+    PR_NEVER_STAGE_ROOTS.some((root) => isPathAtOrBelow(candidate, root))
+    || overlayRoots.some((root) => isPathAtOrBelow(candidate, root))
+  ))
+}
+
+function parseNulTerminatedPaths(result: GitResult, phase: string): { paths: string[]; error?: undefined } | { paths: []; error: string } {
+  if (result.code !== 0) {
+    return { paths: [], error: `${phase}: ${gitFailure(result, `git diff failed with exit ${result.code}`)}` }
+  }
+  if (result.stdout === '') return { paths: [] }
+  if (!result.stdout.endsWith('\0')) {
+    return { paths: [], error: `${phase}: git returned a malformed non-NUL-terminated path list` }
+  }
+  const paths = result.stdout.slice(0, -1).split('\0')
+  if (paths.some((entry) => entry.length === 0)) {
+    return { paths: [], error: `${phase}: git returned a malformed path list containing an empty entry` }
+  }
+  return { paths }
+}
+
+async function auditStagedPaths(
+  git: GitRunner,
+  worktreePath: string,
+  excludePaths: string[],
+  phase: string,
+): Promise<{ forbidden: string[]; error?: undefined } | { forbidden: []; error: string }> {
+  const result = await gitRun(git, [...INDEX_AUDIT_ARGS], worktreePath)
+  const parsed = parseNulTerminatedPaths(result, phase)
+  if (parsed.error) return { forbidden: [], error: parsed.error }
+  return { forbidden: forbiddenStagedPaths(parsed.paths, excludePaths) }
+}
+
+function forbiddenResetPathspecs(excludePaths: string[]): string[] {
+  return [
+    '--',
+    ...PR_NEVER_STAGE_ROOTS.map((entry) => `:(top,literal)${entry}`),
+    ...excludePaths.map(normalizedGitPath).filter(Boolean).map((entry) => `:(top,literal)${entry}`),
+  ]
+}
+
+function describeForbiddenPaths(paths: string[]): string {
+  const shown = paths.slice(0, 5).map((entry) => JSON.stringify(entry)).join(', ')
+  return paths.length > 5 ? `${shown}, and ${paths.length - 5} more` : shown
 }
 
 /**
@@ -270,24 +350,67 @@ export async function commitWorktreeAndVerify(
 ): Promise<CommitWorktreeResult> {
   const pathspecs = commitPathspecs(excludePaths)
   const add = await gitRun(git, ['add', '-A', ...pathspecs], worktreePath)
-  const commit = add.code === 0
-    ? await gitRun(git, ['commit', '-m', message], worktreePath)
-    : { code: 1, stdout: '', stderr: 'skipped commit because git add failed' }
+  let indexSafe = false
+  let indexError: string | undefined
+  if (add.code === 0) {
+    const initialAudit = await auditStagedPaths(
+      git, worktreePath, excludePaths, 'git index audit failed before commit',
+    )
+    if (initialAudit.error) {
+      indexError = initialAudit.error
+    } else if (initialAudit.forbidden.length === 0) {
+      indexSafe = true
+    } else {
+      // Exclude pathspecs prevent newly-staged private/overlay files, but an
+      // earlier process may already have put them in the index. Reset only the
+      // prohibited roots back to HEAD: working files remain intact for recovery.
+      const reset = await gitRun(
+        git,
+        ['reset', '--quiet', ...forbiddenResetPathspecs(excludePaths)],
+        worktreePath,
+      )
+      if (reset.code !== 0) {
+        indexError = `git could not safely unstage forbidden paths: ${gitFailure(reset, `git reset failed with exit ${reset.code}`)}`
+      } else {
+        const finalAudit = await auditStagedPaths(
+          git, worktreePath, excludePaths, 'git index re-audit failed after unstaging forbidden paths',
+        )
+        if (finalAudit.error) {
+          indexError = finalAudit.error
+        } else if (finalAudit.forbidden.length > 0) {
+          indexError = `forbidden paths remain staged after safe unstage: ${describeForbiddenPaths(finalAudit.forbidden)}`
+        } else {
+          indexSafe = true
+        }
+      }
+    }
+  }
+  // `--only` makes the allow/exclude pathspecs authoritative at commit time,
+  // not merely at the earlier `git add`/audit. This closes the remaining race
+  // where another process could stage a private path between audit and commit.
+  // Automated delivery also bypasses repository hooks: a pre-commit hook runs
+  // after our final audit and could otherwise stage an excluded secret into the
+  // commit. User working files and the ordinary index remain preserved.
+  const commit = add.code === 0 && indexSafe
+    ? await gitRun(git, ['commit', '--no-verify', '--only', '-m', message, ...pathspecs], worktreePath)
+    : { code: 1, stdout: '', stderr: 'skipped commit because the index was not proven safe' }
   const status = await gitRun(git, ['status', '--porcelain', '--untracked-files=all', ...pathspecs], worktreePath)
   const dirty = status.code === 0
     ? status.stdout.split('\n').map((line) => line.trimEnd()).filter(Boolean)
     : []
   const error = add.code !== 0
     ? gitFailure(add, `git add failed with exit ${add.code}`)
-    : status.code !== 0
-      ? gitFailure(status, `git status failed with exit ${status.code}`)
-      : commit.code !== 0 && dirty.length > 0
-        ? gitFailure(commit, `git commit failed with exit ${commit.code}`)
-        : undefined
+    : indexError
+      ? indexError
+      : status.code !== 0
+        ? gitFailure(status, `git status failed with exit ${status.code}`)
+        : commit.code !== 0 && dirty.length > 0
+          ? gitFailure(commit, `git commit failed with exit ${commit.code}`)
+          : undefined
   return {
     staged: add.code === 0,
     committed: commit.code === 0,
-    clean: status.code === 0 && dirty.length === 0,
+    clean: indexSafe && status.code === 0 && dirty.length === 0,
     dirty,
     ...(error ? { error } : {}),
   }
@@ -309,13 +432,21 @@ export interface RemoveWorktreeInput {
   branch: string
   /** Also delete the branch (default true — set false to keep a needs-review branch). */
   deleteBranch?: boolean
+  /** Automatic cleanup uses Git's non-force removal as a final TOCTOU guard:
+   * if the checkout became dirty after verification, Git must refuse removal.
+   * Explicit destructive cleanup retains the historical force default. */
+  force?: boolean
 }
 
-/** Remove a worktree (force) and optionally delete its branch. Worktree removal
- * failures throw so callers do not mark the ledger released while the checkout
- * is still mounted. Branch deletion remains best-effort. */
+/** Remove a worktree and optionally delete its branch. Explicit cleanup keeps
+ * the historical force default; automatic cleanup opts out. Removal failures
+ * throw so callers do not mark the ledger released while it is still mounted.
+ * Branch deletion remains best-effort. */
 export async function removeWorktree(git: GitRunner, input: RemoveWorktreeInput): Promise<void> {
-  const removed = await git.run(['worktree', 'remove', '--force', input.worktreePath], input.repoDir)
+  const removed = await git.run(
+    ['worktree', 'remove', ...(input.force === false ? [] : ['--force']), input.worktreePath],
+    input.repoDir,
+  )
   if (removed.code !== 0) {
     throw new Error(`git worktree remove failed for ${input.worktreePath}: ${gitFailure(removed, `exit ${removed.code}`)}`)
   }

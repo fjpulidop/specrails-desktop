@@ -62,6 +62,7 @@
     "branch_verification_failed": "Branch-Prüfung fehlgeschlagen",
     "push_failed": "Push fehlgeschlagen",
     "settlement_interrupted": "Vorbereitung der Lieferung unterbrochen",
+    "recovery_unavailable": "Auf diesem Computer konnte kein eindeutiges wiederherstellbares Ergebnis nachgewiesen werden",
     "operation_interrupted": "Vorherige Lieferaktion unterbrochen",
     "delivery_failed": "Lieferung fehlgeschlagen",
     "pr_draft_ready": "PR-Entwurf bereit",

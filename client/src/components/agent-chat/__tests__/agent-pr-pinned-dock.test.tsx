@@ -158,10 +158,141 @@ describe('derivePrCards / pin-state matrix', () => {
       { id: 'u1', conversation_id: 'c1', role: 'user', content: 'go', created_at: '' },
       sysRow('s1', { prDeliveryId: 'd1', decision: 'building' }),
       { id: 'sX', conversation_id: 'c1', role: 'system', content: 'not json', created_at: '' },
-      sysRow('s2', { prDeliveryId: 'd2', decision: 'on_review' }),
+      sysRow('s2', { prDeliveryId: 'd2', railIndex: 1, decision: 'on_review' }),
     ])
     expect(derived.byMessageId.size).toBe(2)
     expect(derived.pinned.map((p) => p.messageId)).toEqual(['s1', 's2'])
+  })
+
+  it('keeps only the newest authoritative envelope for duplicate legacy rows', () => {
+    const derived = derivePrCards([
+      sysRow('old-blocked', {
+        prDeliveryId: 'd1', decision: 'pr_failed',
+        implementationOutcome: 'succeeded', deliveryOutcome: 'blocked',
+      }),
+      sysRow('new-ready', {
+        prDeliveryId: 'd1', decision: 'pr_ready', prUrl: 'https://github.com/o/r/pull/7',
+        prState: 'pr-created', branch: 'feat/review', deliveryOutcome: 'delivered',
+      }),
+    ])
+
+    expect(derived.byMessageId.size).toBe(1)
+    expect(derived.byMessageId.get('new-ready')?.decision).toBe('pr_ready')
+    expect(derived.duplicateMessageIds).toEqual(new Set(['old-blocked']))
+    expect(derived.pinned).toHaveLength(0)
+  })
+
+  it('projects a superseded predecessor as terminal regardless of message order', () => {
+    const derived = derivePrCards([
+      // Deliberately strange order: the newest generation was persisted first.
+      sysRow('generation-c', {
+        prDeliveryId: 'generation-c', decision: 'on_review', supersedesDeliveryId: 'generation-b',
+      }),
+      sysRow('generation-a-stale', {
+        prDeliveryId: 'generation-a', decision: 'pr_failed',
+        implementationOutcome: 'succeeded', deliveryOutcome: 'retryable_failure', statusCode: 'push_failed',
+      }),
+      sysRow('generation-b-stale', {
+        prDeliveryId: 'generation-b', decision: 'pr_failed', supersedesDeliveryId: 'generation-a',
+      }),
+    ])
+
+    expect(derived.byMessageId.get('generation-a-stale')?.decision).toBe('superseded')
+    expect(derived.byMessageId.get('generation-b-stale')?.decision).toBe('superseded')
+    expect(derived.byMessageId.get('generation-c')?.decision).toBe('on_review')
+    expect(derived.pinned.map((card) => card.envelope.prDeliveryId)).toEqual(['generation-c'])
+  })
+
+  it('uses createdAt to expose only the newest generation on one rail without explicit lineage', () => {
+    const derived = derivePrCards([
+      sysRow('generation-a', {
+        prDeliveryId: 'generation-a', railIndex: 0, decision: 'pr_failed',
+        createdAt: '2026-07-10 12:00:01', updatedAt: '2026-07-10 12:00:01',
+      }),
+      sysRow('generation-b', {
+        prDeliveryId: 'generation-b', railIndex: 0, decision: 'on_review',
+        createdAt: '2026-07-10 12:00:02', updatedAt: '2026-07-10 12:00:02',
+      }),
+    ])
+
+    expect(derived.byMessageId.get('generation-a')?.decision).toBe('superseded')
+    expect(derived.byMessageId.get('generation-b')?.decision).toBe('on_review')
+    expect(derived.pinned.map((card) => card.envelope.prDeliveryId)).toEqual(['generation-b'])
+  })
+
+  it('keeps the first accepted generation on a createdAt tie without exposing two action sets', () => {
+    const tied = '2026-07-10 12:00:02'
+    const derived = derivePrCards([
+      sysRow('generation-a', {
+        prDeliveryId: 'generation-a', railIndex: 0, decision: 'on_review', createdAt: tied,
+      }),
+      sysRow('generation-b', {
+        prDeliveryId: 'generation-b', railIndex: 0, decision: 'pr_failed', createdAt: tied,
+      }),
+    ])
+
+    expect(derived.byMessageId.get('generation-a')?.decision).toBe('on_review')
+    expect(derived.byMessageId.get('generation-b')?.decision).toBe('superseded')
+    expect(derived.pinned.map((card) => card.envelope.prDeliveryId)).toEqual(['generation-a'])
+  })
+
+  it('pins an immediate historical relaunch over its discarded predecessor on a createdAt tie', () => {
+    const tied = '2026-07-10 12:00:02'
+    const derived = derivePrCards([
+      sysRow('dismissed-history', {
+        prDeliveryId: 'generation-b', railIndex: 0, decision: 'discarded', createdAt: tied,
+      }),
+      sysRow('historical-relaunch', {
+        prDeliveryId: 'generation-c', railIndex: 0, decision: 'building',
+        supersedesDeliveryId: 'generation-b', createdAt: tied,
+      }),
+    ])
+
+    expect(derived.byMessageId.get('dismissed-history')?.decision).toBe('superseded')
+    expect(derived.byMessageId.get('historical-relaunch')?.decision).toBe('building')
+    expect(derived.pinned.map((card) => card.envelope.prDeliveryId)).toEqual(['generation-c'])
+  })
+
+  it('renders restored A as the sole actionable card when explicit rollback names failed B', () => {
+    const derived = derivePrCards([
+      sysRow('generation-a', {
+        prDeliveryId: 'generation-a', railIndex: 0, decision: 'on_review',
+        restoredFromDeliveryId: 'generation-b',
+        createdAt: '2026-07-10T12:00:01.000Z', updatedAt: '2026-07-10T12:00:04.000Z',
+      }),
+      sysRow('generation-b', {
+        prDeliveryId: 'generation-b', railIndex: 0, decision: 'building',
+        supersedesDeliveryId: 'generation-a',
+        createdAt: '2026-07-10T12:00:02.000Z', updatedAt: '2026-07-10T12:00:02.000Z',
+      }),
+    ])
+
+    expect(derived.byMessageId.get('generation-a')?.decision).toBe('on_review')
+    expect(derived.byMessageId.get('generation-b')?.decision).toBe('discarded')
+    expect(derived.pinned.map((card) => card.envelope.prDeliveryId)).toEqual(['generation-a'])
+  })
+
+  it('rejects stale restore-from-B rendering after newer C supersedes A', () => {
+    const derived = derivePrCards([
+      sysRow('generation-a', {
+        prDeliveryId: 'generation-a', railIndex: 0, decision: 'on_review',
+        restoredFromDeliveryId: 'generation-b',
+        createdAt: '2026-07-10T12:00:01.000Z', updatedAt: '2026-07-10T12:00:04.000Z',
+      }),
+      sysRow('generation-b', {
+        prDeliveryId: 'generation-b', railIndex: 0, decision: 'discarded',
+        supersedesDeliveryId: 'generation-a',
+        createdAt: '2026-07-10T12:00:02.000Z', updatedAt: '2026-07-10T12:00:03.000Z',
+      }),
+      sysRow('generation-c', {
+        prDeliveryId: 'generation-c', railIndex: 0, decision: 'building',
+        supersedesDeliveryId: 'generation-a',
+        createdAt: '2026-07-10T12:00:06.000Z', updatedAt: '2026-07-10T12:00:06.000Z',
+      }),
+    ])
+
+    expect(derived.byMessageId.get('generation-a')?.decision).toBe('superseded')
+    expect(derived.pinned.map((card) => card.envelope.prDeliveryId)).toEqual(['generation-c'])
   })
 })
 
@@ -201,6 +332,67 @@ describe('pinned dock (floating panel)', () => {
     expect(dock()).toBeNull()
     expect(markers()).toHaveLength(0)
     expect(fullCards()).toHaveLength(0)
+  })
+
+  it('renders one coherent action set when legacy blocked and current PR-ready rows coexist', async () => {
+    await renderPanelWithMessages([
+      sysRow('old-blocked', {
+        prDeliveryId: 'd1', decision: 'pr_failed', prUrl: 'https://github.com/o/r/pull/7',
+        prState: 'pr-created', branch: 'feat/review', implementationOutcome: 'succeeded',
+        deliveryOutcome: 'blocked', statusCode: 'settlement_interrupted',
+      }),
+      sysRow('new-ready', {
+        prDeliveryId: 'd1', decision: 'pr_ready', prUrl: 'https://github.com/o/r/pull/7',
+        prState: 'pr-created', branch: 'feat/review', implementationOutcome: 'succeeded',
+        deliveryOutcome: 'delivered', deliverySha: 'a'.repeat(40),
+      }),
+    ])
+
+    await waitFor(() => expect(fullCards()).toHaveLength(1))
+    expect(dock()).toBeNull()
+    expect(markers()).toHaveLength(0)
+    expect(screen.getAllByRole('button', { name: 'Checkout' })).toHaveLength(1)
+    expect(screen.getAllByRole('button', { name: 'Verify PR' })).toHaveLength(1)
+    expect(screen.getAllByRole('button', { name: 'Discard' })).toHaveLength(1)
+    expect(screen.queryByRole('button', { name: 'Discard local result' })).toBeNull()
+  })
+
+  it('renders actions only for B when B supersedes a stale actionable A card', async () => {
+    await renderPanelWithMessages([
+      sysRow('generation-a', {
+        prDeliveryId: 'generation-a', decision: 'pr_failed', prUrl: 'https://github.com/o/r/pull/7',
+        prState: 'pr-created', branch: 'feat/a', implementationOutcome: 'succeeded',
+        deliveryOutcome: 'retryable_failure', statusCode: 'push_failed',
+      }),
+      sysRow('generation-b', {
+        prDeliveryId: 'generation-b', decision: 'on_review', supersedesDeliveryId: 'generation-a',
+        implementationOutcome: 'succeeded', deliveryOutcome: 'ready',
+      }),
+    ])
+
+    const d = await screen.findByTestId('agent-pr-pinned-dock')
+    expect(within(d).getAllByRole('button', { name: 'Create PR' })).toHaveLength(1)
+    expect(screen.queryByRole('button', { name: 'Retry push' })).toBeNull()
+    expect(screen.getAllByRole('button', { name: 'Discard' })).toHaveLength(1)
+    expect(screen.getByText('A newer implementation run replaced this card.')).toBeInTheDocument()
+  })
+
+  it('renders one action set for the newest createdAt generation even without a lineage edge', async () => {
+    await renderPanelWithMessages([
+      sysRow('generation-a', {
+        prDeliveryId: 'generation-a', railIndex: 0, decision: 'pr_failed',
+        createdAt: '2026-07-10 12:00:01', updatedAt: '2026-07-10 12:00:01',
+      }),
+      sysRow('generation-b', {
+        prDeliveryId: 'generation-b', railIndex: 0, decision: 'on_review',
+        createdAt: '2026-07-10 12:00:02', updatedAt: '2026-07-10 12:00:02',
+      }),
+    ])
+
+    const d = await screen.findByTestId('agent-pr-pinned-dock')
+    expect(within(d).getAllByRole('button', { name: 'Create PR' })).toHaveLength(1)
+    expect(screen.queryByRole('button', { name: 'Retry' })).toBeNull()
+    expect(screen.getByText('A newer implementation run replaced this card.')).toBeInTheDocument()
   })
 
   it('unpins on the publish WS transition: dock away, full card back in its chronological slot', async () => {

@@ -821,8 +821,12 @@ export interface RailPrStateMessage {
   deliverySha: string | null
   isContinuation: boolean
   supersedesDeliveryId: string | null
-  operation: 'create-pr' | 'publish' | 'discard' | 'dismiss' | 'poll-merge' | 'reopen' | 'merge-local' | 'acknowledge-no-changes' | null
+  /** Explicit allocation rollback: this active generation was restored after
+   * the referenced replacement generation failed. */
+  restoredFromDeliveryId: string | null
+  operation: 'create-pr' | 'publish' | 'discard' | 'dismiss' | 'poll-merge' | 'reopen' | 'merge-local' | 'acknowledge-no-changes' | 'recover-and-retry' | null
   cleanupWarnings: string[]
+  safetyArchives: string[]
   units: Array<{
     ticketId: number
     branch: string
@@ -835,11 +839,16 @@ export interface RailPrStateMessage {
     changed?: boolean
     failureCode?: string | null
     branchOwnership?: 'created' | 'preexisting' | 'borrowed-pr'
+    worktreePath?: string | null
   }>
   /** The launch's loop-run ids, in ticket order ([] until allocation lands) —
    *  each links a per-run log (JobDetailModal) + live vitals on the decision
    *  surfaces. */
   runIds: string[]
+  /** Generation ordering evidence used to reject late snapshots from an older
+   * delivery on the same rail. */
+  createdAt?: string
+  updatedAt?: string
   /** The launching agent-chat conversation, null for dashboard launches. */
   originConversationId: string | null
 }
@@ -1382,8 +1391,10 @@ export interface PrDecisionCardEnvelope {
   deliverySha: string | null
   isContinuation: boolean
   supersedesDeliveryId: string | null
-  operation: 'create-pr' | 'publish' | 'discard' | 'dismiss' | 'poll-merge' | 'reopen' | 'merge-local' | 'acknowledge-no-changes' | null
+  restoredFromDeliveryId: string | null
+  operation: 'create-pr' | 'publish' | 'discard' | 'dismiss' | 'poll-merge' | 'reopen' | 'merge-local' | 'acknowledge-no-changes' | 'recover-and-retry' | null
   cleanupWarnings: string[]
+  safetyArchives: string[]
   units: Array<{
     ticketId: number
     branch: string
@@ -1396,6 +1407,7 @@ export interface PrDecisionCardEnvelope {
     changed?: boolean
     failureCode?: string | null
     branchOwnership?: 'created' | 'preexisting' | 'borrowed-pr'
+    worktreePath?: string | null
   }>
   prUrl: string | null
   prNumber: number | null
@@ -1404,6 +1416,8 @@ export interface PrDecisionCardEnvelope {
   /** The launch's loop-run ids, in ticket order ([] until allocation lands) —
    *  the card renders one "View log" chip (JobDetailModal + live vitals) per run. */
   runIds: string[]
+  createdAt?: string
+  updatedAt?: string
 }
 
 /**

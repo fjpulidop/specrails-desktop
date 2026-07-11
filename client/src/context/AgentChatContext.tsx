@@ -35,8 +35,10 @@ import { AgentChatPanel } from '../components/agent-chat/AgentChatPanel'
 import { AgentBubble } from '../components/agent-chat/AgentBubble'
 import { useUiMode } from './UiModeContext'
 import { useDesktop } from '../hooks/useDesktop'
+import { comparePrSnapshotUpdatedAt } from '../lib/pr-delivery'
 
 export type AgentVisibility = 'hidden' | 'open' | 'minimized'
+export type PrDecisionSnapshotApplication = 'accepted' | 'stale' | 'untracked'
 
 export interface AgentLiveTool {
   id: string
@@ -83,23 +85,200 @@ function pruneFavoriteConversationIds(prev: ReadonlySet<string>, conversations: 
   return new Set([...prev].filter((id) => valid.has(id)))
 }
 
+const TERMINAL_PR_CARD_DECISIONS = new Set(['completed', 'merged', 'discarded', 'superseded'])
+
+function envelopesMatch(a: AgentPrDecisionEnvelope, b: AgentPrDecisionEnvelope): boolean {
+  return JSON.stringify(a) === JSON.stringify(b)
+}
+
+function createdAtMs(envelope: AgentPrDecisionEnvelope): number | null {
+  if (!envelope.createdAt) return null
+  const sqliteUtc = /^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}$/.test(envelope.createdAt)
+    ? `${envelope.createdAt.replace(' ', 'T')}Z`
+    : envelope.createdAt
+  const parsed = Date.parse(sqliteUtc)
+  return Number.isFinite(parsed) ? parsed : null
+}
+
+function incomingGenerationOrder(
+  existing: AgentPrDecisionEnvelope,
+  incoming: AgentPrDecisionEnvelope,
+): -1 | 0 | 1 | null {
+  if (incoming.supersedesDeliveryId === existing.prDeliveryId) return 1
+  if (existing.supersedesDeliveryId === incoming.prDeliveryId) return -1
+  const existingMs = createdAtMs(existing)
+  const incomingMs = createdAtMs(incoming)
+  if (existingMs == null || incomingMs == null) return null
+  if (incomingMs < existingMs) return -1
+  if (incomingMs > existingMs) return 1
+  return 0
+}
+
+function latestDirectSuperseder(
+  envelopes: readonly AgentPrDecisionEnvelope[],
+  predecessorId: string,
+): AgentPrDecisionEnvelope | null {
+  let latest: AgentPrDecisionEnvelope | null = null
+  for (const candidate of envelopes) {
+    if (candidate.supersedesDeliveryId !== predecessorId) continue
+    if (!latest) {
+      latest = candidate
+      continue
+    }
+    const latestCreated = createdAtMs(latest)
+    const candidateCreated = createdAtMs(candidate)
+    if (
+      latestCreated == null || candidateCreated == null ||
+      candidateCreated >= latestCreated
+    ) latest = candidate
+  }
+  return latest
+}
+
+function isExplicitPrRestoration(
+  envelopes: readonly AgentPrDecisionEnvelope[],
+  incoming: AgentPrDecisionEnvelope,
+): boolean {
+  const sourceId = incoming.restoredFromDeliveryId
+  if (!sourceId) return false
+  const latestSuperseder = latestDirectSuperseder(envelopes, incoming.prDeliveryId)
+  // The durable marker is sufficient when this conversation never contained
+  // B. If lineage is present, however, it must name that exact latest B; this
+  // prevents a delayed restore-from-B replay after newer generation C exists.
+  return !latestSuperseder || latestSuperseder.prDeliveryId === sourceId
+}
+
+function isStalePrDecisionEnvelope(
+  messages: readonly AgentMessage[],
+  incoming: AgentPrDecisionEnvelope,
+): boolean {
+  const envelopes = messages
+    .filter((message) => message.role === 'system')
+    .map((message) => parsePrDecisionEnvelope(message.content))
+    .filter((envelope): envelope is AgentPrDecisionEnvelope => envelope !== null)
+  const existing = [...envelopes].reverse().find(
+    (envelope) => envelope.prDeliveryId === incoming.prDeliveryId,
+  )
+  const explicitRestoration = isExplicitPrRestoration(envelopes, incoming)
+  if (existing) {
+    const existingTerminal = TERMINAL_PR_CARD_DECISIONS.has(existing.decision)
+    const incomingTerminal = TERMINAL_PR_CARD_DECISIONS.has(incoming.decision)
+    const order = comparePrSnapshotUpdatedAt(existing.updatedAt, incoming.updatedAt)
+    if (order === -1) return true
+    // Durable timestamps have one-second precision. Keep the accepted state
+    // on every conflicting tie; visual state is not causal ordering evidence.
+    if (order === 0 && !envelopesMatch(existing, incoming)) return true
+    // A rollback marker may consume the superseded tombstone once. It cannot
+    // reopen A after that restored generation has itself reached another
+    // terminal state, even if a delayed payload repeats the same A <- B proof.
+    if (
+      existingTerminal && !incomingTerminal &&
+      !(explicitRestoration && existing.decision === 'superseded')
+    ) return true
+  }
+  const supersededIds = new Set(
+    envelopes.map((envelope) => envelope.supersedesDeliveryId).filter((id): id is string => Boolean(id)),
+  )
+  if (explicitRestoration) return false
+  if (supersededIds.has(incoming.prDeliveryId) && incoming.decision !== 'superseded') return true
+
+  // Only one actionable delivery generation may exist per rail. Modern rows
+  // carry explicit lineage; `createdAt` is the durable fallback for recovered
+  // rows. With neither signal, keep an already-actionable generation instead
+  // of allowing two contradictory action sets to coexist.
+  for (const candidate of envelopes) {
+    if (
+      candidate.railIndex !== incoming.railIndex ||
+      candidate.prDeliveryId === incoming.prDeliveryId ||
+      supersededIds.has(candidate.prDeliveryId)
+    ) continue
+    const order = incomingGenerationOrder(candidate, incoming)
+    if (order === -1) return true
+    if (
+      (order === 0 || order === null) &&
+      !TERMINAL_PR_CARD_DECISIONS.has(candidate.decision) &&
+      incoming.supersedesDeliveryId !== candidate.prDeliveryId
+    ) return true
+  }
+  return false
+}
+
+function projectRestorationSource(
+  messages: AgentMessage[],
+  incoming: AgentPrDecisionEnvelope,
+): AgentMessage[] {
+  const sourceId = incoming.restoredFromDeliveryId
+  if (!sourceId) return messages
+  let changed = false
+  const projected = messages.map((message) => {
+    if (message.role !== 'system') return message
+    const envelope = parsePrDecisionEnvelope(message.content)
+    if (
+      !envelope || envelope.prDeliveryId !== sourceId ||
+      TERMINAL_PR_CARD_DECISIONS.has(envelope.decision)
+    ) return message
+    changed = true
+    return { ...message, content: JSON.stringify({ ...envelope, decision: 'discarded' as const }) }
+  })
+  return changed ? projected : messages
+}
+
+function projectOlderRailGenerations(
+  messages: AgentMessage[],
+  incoming: AgentPrDecisionEnvelope,
+): AgentMessage[] {
+  const envelopes = messages
+    .filter((message) => message.role === 'system')
+    .map((message) => parsePrDecisionEnvelope(message.content))
+    .filter((envelope): envelope is AgentPrDecisionEnvelope => envelope !== null)
+  const rolledBackByRestoredPredecessor = envelopes.some((envelope) => (
+    envelope.restoredFromDeliveryId === incoming.prDeliveryId &&
+    isExplicitPrRestoration(envelopes, envelope)
+  ))
+  if (rolledBackByRestoredPredecessor) return messages
+
+  let changed = false
+  const projected = messages.map((message) => {
+    if (message.role !== 'system') return message
+    const envelope = parsePrDecisionEnvelope(message.content)
+    if (
+      !envelope ||
+      envelope.railIndex !== incoming.railIndex ||
+      envelope.prDeliveryId === incoming.prDeliveryId ||
+      TERMINAL_PR_CARD_DECISIONS.has(envelope.decision) ||
+      incomingGenerationOrder(envelope, incoming) !== 1
+    ) return message
+    changed = true
+    return { ...message, content: JSON.stringify({ ...envelope, decision: 'superseded' as const }) }
+  })
+  return changed ? projected : messages
+}
+
 function upsertPrDecisionMessage(
   messages: AgentMessage[],
   conversationId: string,
   envelope: AgentPrDecisionEnvelope,
 ): AgentMessage[] {
+  if (isStalePrDecisionEnvelope(messages, envelope)) return messages
+  const restored = projectRestorationSource(messages, envelope)
+  const base = projectOlderRailGenerations(restored, envelope)
   const content = JSON.stringify(envelope)
-  const idx = messages.findIndex(
-    (message) => message.role === 'system' && parsePrDecisionEnvelope(message.content)?.prDeliveryId === envelope.prDeliveryId,
-  )
-  if (idx >= 0) {
-    if (messages[idx].content === content) return messages
-    const copy = [...messages]
-    copy[idx] = { ...copy[idx], content }
-    return copy
+  const matching = base.flatMap((message, index) => (
+    message.role === 'system' && parsePrDecisionEnvelope(message.content)?.prDeliveryId === envelope.prDeliveryId
+      ? [index]
+      : []
+  ))
+  if (matching.length > 0) {
+    const canonicalIndex = matching[matching.length - 1]
+    if (matching.length === 1 && base[canonicalIndex].content === content) return base
+    const duplicateIndexes = new Set(matching.slice(0, -1))
+    return base.flatMap((message, index) => {
+      if (duplicateIndexes.has(index)) return []
+      return [index === canonicalIndex ? { ...message, content } : message]
+    })
   }
   return [
-    ...messages,
+    ...base,
     {
       id: `prd-${envelope.prDeliveryId}`,
       conversation_id: conversationId,
@@ -181,8 +360,10 @@ export interface AgentChatContextValue {
    *  entering Agent Mode (open() would mount the now-suppressed panel). */
   refreshConversations: () => Promise<void>
   /** Apply the authoritative snapshot returned by a card action immediately;
-   *  the persisted message/WS update later becomes an idempotent no-op. */
-  applyPrDecisionSnapshot: (envelope: AgentPrDecisionEnvelope) => void
+   *  the persisted message/WS update later becomes an idempotent no-op.
+   *  Standalone cards receive `untracked` so they can still use a local
+   *  authoritative override; `stale` means a newer generation already won. */
+  applyPrDecisionSnapshot: (envelope: AgentPrDecisionEnvelope) => PrDecisionSnapshotApplication
 }
 
 const AgentChatContext = createContext<AgentChatContextValue | null>(null)
@@ -248,17 +429,23 @@ export function AgentChatProvider({ children }: { children: ReactNode }) {
   const consumedQueueIdsRef = useRef(new Set<string>())
   const draftMaterializeRef = useRef<Promise<AgentConversation> | null>(null)
   const prSnapshotVersionRef = useRef(0)
+  const conversationLoadEpochRef = useRef(0)
 
-  const applyPrDecisionSnapshot = useCallback((envelope: AgentPrDecisionEnvelope): void => {
+  const applyPrDecisionSnapshot = useCallback((
+    envelope: AgentPrDecisionEnvelope,
+  ): PrDecisionSnapshotApplication => {
     const conversationId = activeIdRef.current
-    if (!conversationId) return
+    if (!conversationId) return 'untracked'
+    if (isStalePrDecisionEnvelope(messagesRef.current, envelope)) return 'stale'
     const belongsToActiveThread = messagesRef.current.some(
       (message) => message.role === 'system' && parsePrDecisionEnvelope(message.content)?.prDeliveryId === envelope.prDeliveryId,
     )
-    if (!belongsToActiveThread) return
+    if (!belongsToActiveThread) return 'untracked'
     // Advance before scheduling React state so an already-resolving focus GET
     // cannot enqueue a stale overwrite in the same batch.
     prSnapshotVersionRef.current++
+    const projected = upsertPrDecisionMessage(messagesRef.current, conversationId, envelope)
+    messagesRef.current = projected
     setMessages((current) => {
       // An action can resolve after the user switches conversations. HTTP card
       // snapshots are update-only: the delivery must still exist in the active
@@ -266,9 +453,15 @@ export function AgentChatProvider({ children }: { children: ReactNode }) {
       const stillBelongsToActiveThread = current.some(
         (message) => message.role === 'system' && parsePrDecisionEnvelope(message.content)?.prDeliveryId === envelope.prDeliveryId,
       )
-      if (!stillBelongsToActiveThread) return current
-      return upsertPrDecisionMessage(current, conversationId, envelope)
+      if (!stillBelongsToActiveThread) {
+        messagesRef.current = current
+        return current
+      }
+      const next = upsertPrDecisionMessage(current, conversationId, envelope)
+      messagesRef.current = next
+      return next
     })
+    return 'accepted'
   }, [])
 
   /** Update one conversation's live slice; a fully-idle slice drops its entry. */
@@ -478,7 +671,13 @@ export function AgentChatProvider({ children }: { children: ReactNode }) {
           const envelope = coercePrDecisionEnvelope(raw)
           if (envelope) {
             prSnapshotVersionRef.current++
-            setMessages((current) => upsertPrDecisionMessage(current, convId, envelope))
+            const projected = upsertPrDecisionMessage(messagesRef.current, convId, envelope)
+            messagesRef.current = projected
+            setMessages((current) => {
+              const next = upsertPrDecisionMessage(current, convId, envelope)
+              messagesRef.current = next
+              return next
+            })
           }
         }
       }
@@ -488,8 +687,15 @@ export function AgentChatProvider({ children }: { children: ReactNode }) {
   }, [registerHandler, unregisterHandler, patchLive, markUnread])
 
   const loadConversation = useCallback(async (id: string) => {
+    const epoch = ++conversationLoadEpochRef.current
+    // Invalidates a focus/reconnect card hydration for the previous view even
+    // when navigation later returns to the same conversation (C1→C2→C1 ABA).
+    prSnapshotVersionRef.current++
     const { conversation, messages: msgs } = await getAgentConversation(id)
+    if (epoch !== conversationLoadEpochRef.current) return
+    prSnapshotVersionRef.current++
     setActive(conversation)
+    messagesRef.current = msgs
     setMessages(msgs)
     clearUnread(id)
     // Live state (stream text / tools / queue) is per-conversation and is
@@ -512,10 +718,14 @@ export function AgentChatProvider({ children }: { children: ReactNode }) {
         .map((message) => parsePrDecisionEnvelope(message.content))
         .filter((envelope): envelope is AgentPrDecisionEnvelope => envelope !== null)
       if (envelopes.length === 0) return
-      setMessages((current) => envelopes.reduce(
-        (next, envelope) => upsertPrDecisionMessage(next, conversationId, envelope),
-        current,
-      ))
+      setMessages((current) => {
+        const next = envelopes.reduce(
+          (projected, envelope) => upsertPrDecisionMessage(projected, conversationId, envelope),
+          current,
+        )
+        messagesRef.current = next
+        return next
+      })
     } catch {
       /* Advisory convergence path; the next focus/reconnect can retry. */
     }
@@ -880,7 +1090,7 @@ const NOOP_AGENT_CHAT: AgentChatContextValue = {
   selectConversation: async () => {}, deleteConversation: async () => {}, renameConversation: async () => {},
   toggleFavoriteConversation: () => {},
   refreshConversations: async () => {},
-  applyPrDecisionSnapshot: () => {},
+  applyPrDecisionSnapshot: () => 'untracked',
 }
 
 /**

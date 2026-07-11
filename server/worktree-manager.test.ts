@@ -1,4 +1,5 @@
 import { describe, it, expect } from 'vitest'
+import { execFileSync } from 'child_process'
 import * as fs from 'fs'
 import * as os from 'os'
 import * as path from 'path'
@@ -11,6 +12,7 @@ import {
   listLocalBranches,
   commitWorktree,
   commitWorktreeAndVerify,
+  defaultGitRunner,
   ensurePrNeverStageExcludes,
   isGitRepo,
   repoIsolationStatus,
@@ -188,21 +190,26 @@ describe('commitWorktree', () => {
     const { git, calls } = fakeGit()
     await commitWorktree(git, '/wt/ticket-1', 'wip')
     expect(calls).toContainEqual(baseAddArgs)
-    expect(calls).toContainEqual(['commit', '-m', 'wip'])
+    expect(calls).toContainEqual(['commit', '--no-verify', '--only', '-m', 'wip', ...baseAddArgs.slice(2)])
   })
   it('never throws even if git fails', async () => {
     const git: GitRunner = { run: async () => { throw new Error('git gone') } }
     await expect(commitWorktree(git, '/wt/1', 'x')).resolves.toBeUndefined()
   })
-  it('excludes overlay-owned paths from the add via :(exclude) pathspecs', async () => {
+  it('excludes overlay-owned paths from the add via literal pathspecs', async () => {
     const { git, calls } = fakeGit()
     await commitWorktree(git, '/wt/ticket-1', 'wip', ['.claude/commands/specrails', '.sr-rail-overlay.json'])
     expect(calls).toContainEqual([
       ...baseAddArgs,
-      ':(exclude).claude/commands/specrails',
-      ':(exclude).sr-rail-overlay.json',
+      ':(top,exclude,literal).claude/commands/specrails',
+      ':(top,exclude,literal).sr-rail-overlay.json',
     ])
-    expect(calls).toContainEqual(['commit', '-m', 'wip'])
+    expect(calls).toContainEqual([
+      'commit', '--no-verify', '--only', '-m', 'wip',
+      ...baseAddArgs.slice(2),
+      ':(top,exclude,literal).claude/commands/specrails',
+      ':(top,exclude,literal).sr-rail-overlay.json',
+    ])
   })
   it('always excludes agent-memory and explanations from PR commits', async () => {
     const { git, calls } = fakeGit()
@@ -229,8 +236,8 @@ describe('commitWorktree', () => {
       run: async (args) => {
         if (args[0] === 'status') {
           expect(args).toEqual(expect.arrayContaining([
-            ':(exclude).claude/commands/specrails',
-            ':(exclude).sr-rail-overlay.json',
+            ':(top,exclude,literal).claude/commands/specrails',
+            ':(top,exclude,literal).sr-rail-overlay.json',
           ]))
         }
         return { code: 0, stdout: '', stderr: '' }
@@ -238,6 +245,173 @@ describe('commitWorktree', () => {
     }
     const result = await commitWorktreeAndVerify(git, '/wt/ticket-1', 'wip', ['.claude/commands/specrails', '.sr-rail-overlay.json'])
     expect(result.clean).toBe(true)
+  })
+  it('treats glob metacharacters in an overlay filename literally', async () => {
+    const { git, calls } = fakeGit()
+    await commitWorktree(git, '/wt/ticket-1', 'wip', ['.claude/rules/user[1]*.md'])
+    expect(calls.find((call) => call[0] === 'add')).toContain(
+      ':(top,exclude,literal).claude/rules/user[1]*.md',
+    )
+  })
+
+  it('NUL-safely removes pre-staged private and literal overlay paths before committing allowed files', async () => {
+    const before = [
+      '.claude/agent-memory/private\nnotes.txt',
+      '.codex/agent-memory/key\tmaterial.txt',
+      '.overlay[1]*/odd\nname.txt',
+      'src/allowed file.ts',
+    ]
+    const calls: string[][] = []
+    let audits = 0
+    const git: GitRunner = {
+      run: async (args) => {
+        calls.push(args)
+        if (args[0] === 'diff') {
+          audits += 1
+          const paths = audits === 1 ? before : ['src/allowed file.ts']
+          return { code: 0, stdout: `${paths.join('\0')}\0`, stderr: '' }
+        }
+        return { code: 0, stdout: '', stderr: '' }
+      },
+    }
+
+    const result = await commitWorktreeAndVerify(git, '/wt/ticket-1', 'safe commit', ['.overlay[1]*'])
+
+    expect(result).toMatchObject({ staged: true, committed: true, clean: true })
+    expect(calls.filter((call) => call[0] === 'diff')).toHaveLength(2)
+    const reset = calls.find((call) => call[0] === 'reset')
+    expect(reset).toEqual(expect.arrayContaining([
+      ':(top,literal).claude/agent-memory',
+      ':(top,literal).codex/agent-memory',
+      ':(top,literal).overlay[1]*',
+    ]))
+    expect(reset).not.toContain('src/allowed file.ts')
+    expect(calls.findIndex((call) => call[0] === 'reset')).toBeLessThan(
+      calls.findIndex((call) => call[0] === 'commit'),
+    )
+  })
+
+  it.each([
+    {
+      name: 'git failure',
+      audit: { code: 128, stdout: '', stderr: 'index unavailable' },
+      detail: /index unavailable/,
+    },
+    {
+      name: 'malformed non-NUL output',
+      audit: { code: 0, stdout: '.claude/agent-memory/private.txt', stderr: '' },
+      detail: /malformed non-NUL-terminated/,
+    },
+  ])('fails closed without committing when the index audit returns $name', async ({ audit, detail }) => {
+    const calls: string[][] = []
+    const git: GitRunner = {
+      run: async (args) => {
+        calls.push(args)
+        if (args[0] === 'diff') return audit
+        return { code: 0, stdout: '', stderr: '' }
+      },
+    }
+
+    const result = await commitWorktreeAndVerify(git, '/wt/ticket-1', 'unsafe commit')
+
+    expect(result).toMatchObject({ staged: true, committed: false, clean: false })
+    expect(result.error).toMatch(detail)
+    expect(calls.some((call) => call[0] === 'commit')).toBe(false)
+  })
+
+  it('fails closed when a forbidden path remains staged after the safe reset', async () => {
+    const calls: string[][] = []
+    const git: GitRunner = {
+      run: async (args) => {
+        calls.push(args)
+        if (args[0] === 'diff') {
+          return { code: 0, stdout: '.claude/agent-memory/private.txt\0', stderr: '' }
+        }
+        return { code: 0, stdout: '', stderr: '' }
+      },
+    }
+
+    const result = await commitWorktreeAndVerify(git, '/wt/ticket-1', 'unsafe commit')
+
+    expect(result).toMatchObject({ staged: true, committed: false, clean: false })
+    expect(result.error).toContain('forbidden paths remain staged')
+    expect(calls.filter((call) => call[0] === 'diff')).toHaveLength(2)
+    expect(calls.some((call) => call[0] === 'commit')).toBe(false)
+  })
+
+  it('fails closed when Git cannot unstage a forbidden path', async () => {
+    const calls: string[][] = []
+    const git: GitRunner = {
+      run: async (args) => {
+        calls.push(args)
+        if (args[0] === 'diff') {
+          return { code: 0, stdout: '.codex/agent-memory/private.txt\0', stderr: '' }
+        }
+        if (args[0] === 'reset') {
+          return { code: 128, stdout: '', stderr: 'index is locked' }
+        }
+        return { code: 0, stdout: '', stderr: '' }
+      },
+    }
+
+    const result = await commitWorktreeAndVerify(git, '/wt/ticket-1', 'unsafe commit')
+
+    expect(result).toMatchObject({ staged: true, committed: false, clean: false })
+    expect(result.error).toContain('index is locked')
+    expect(calls.filter((call) => call[0] === 'diff')).toHaveLength(1)
+    expect(calls.some((call) => call[0] === 'commit')).toBe(false)
+  })
+
+  it('preserves pre-staged forbidden working files while committing only allowed files', async () => {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'specrails-safe-index-'))
+    const git = (args: string[]) => execFileSync('git', args, { cwd: dir, encoding: 'utf8' })
+    const files = {
+      allowed: 'src/allowed [1].txt',
+      claude: '.claude/agent-memory/private.txt',
+      codex: '.codex/agent-memory/private.txt',
+      overlay: '.claude/rules/custom [1].md',
+    }
+    try {
+      git(['init', '--quiet'])
+      git(['config', 'user.email', 'specrails@example.test'])
+      git(['config', 'user.name', 'Specrails Test'])
+      fs.writeFileSync(path.join(dir, 'README.md'), 'base\n')
+      git(['add', 'README.md'])
+      git(['commit', '--quiet', '-m', 'base'])
+      const hooksDir = path.join(dir, '.git', 'hooks')
+      const hookMarker = path.join(dir, 'pre-commit-ran')
+      const preCommit = path.join(hooksDir, 'pre-commit')
+      fs.writeFileSync(preCommit, [
+        '#!/bin/sh',
+        `touch ${JSON.stringify(hookMarker)}`,
+        `git add -- ${JSON.stringify(files.claude)}`,
+      ].join('\n'))
+      fs.chmodSync(preCommit, 0o755)
+      for (const [name, relative] of Object.entries(files)) {
+        fs.mkdirSync(path.dirname(path.join(dir, relative)), { recursive: true })
+        fs.writeFileSync(path.join(dir, relative), `${name}\n`)
+      }
+      git(['add', '-A'])
+
+      const result = await commitWorktreeAndVerify(
+        defaultGitRunner,
+        dir,
+        'safe delivery',
+        ['.claude/rules'],
+      )
+
+      expect(result).toMatchObject({ staged: true, committed: true, clean: true })
+      const committed = git(['diff-tree', '--no-commit-id', '--name-only', '-r', '-z', 'HEAD'])
+        .slice(0, -1).split('\0')
+      expect(committed).toEqual([files.allowed])
+      expect(git(['diff', '--cached', '--name-only', '-z'])).toBe('')
+      expect(fs.readFileSync(path.join(dir, files.claude), 'utf8')).toBe('claude\n')
+      expect(fs.readFileSync(path.join(dir, files.codex), 'utf8')).toBe('codex\n')
+      expect(fs.readFileSync(path.join(dir, files.overlay), 'utf8')).toBe('overlay\n')
+      expect(fs.existsSync(hookMarker)).toBe(false)
+    } finally {
+      fs.rmSync(dir, { recursive: true, force: true })
+    }
   })
 })
 

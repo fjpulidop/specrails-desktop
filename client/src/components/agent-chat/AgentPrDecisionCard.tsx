@@ -4,7 +4,7 @@ import { toast } from 'sonner'
 import { motion } from 'motion/react'
 import {
   GitBranch, GitMerge, GitPullRequest, AlertTriangle, XCircle,
-  ExternalLink, Loader2, CheckCircle2, Ticket, ScrollText, Play, Square, RotateCcw,
+  ExternalLink, Loader2, CheckCircle2, Ticket, ScrollText, Play, Square, RotateCcw, FolderOpen,
 } from 'lucide-react'
 import { cn } from '../../lib/utils'
 import { useDesktop } from '../../hooks/useDesktop'
@@ -20,6 +20,7 @@ import {
 } from '../../lib/agent-api'
 import { derivePrDeliveryPresentation, isInterruptedPrDeliveryOperation, isKnownPrDeliveryStatusCode } from '../../lib/pr-delivery'
 import { cancelJob } from '../../lib/cancel-job'
+import { isTauri, revealItemInDir } from '../../lib/tauri-shell'
 import { useAgentChat } from '../../context/AgentChatContext'
 import {
   Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle,
@@ -220,6 +221,7 @@ export function AgentPrDecisionCard({ envelope: envelopeProp }: { envelope: Agen
   const [confirmingMergeLocal, setConfirmingMergeLocal] = useState(false)
   const [confirmingNoChangesDone, setConfirmingNoChangesDone] = useState(false)
   const [confirmingRefine, setConfirmingRefine] = useState(false)
+  const [confirmingRecoverAndRetry, setConfirmingRecoverAndRetry] = useState(false)
   // HTTP action snapshots render immediately; the persisted message/WS update
   // replaces this override and keeps pinning/history placement authoritative.
   const [localEnvelope, setLocalEnvelope] = useState<AgentPrDecisionEnvelope | null>(null)
@@ -257,7 +259,8 @@ export function AgentPrDecisionCard({ envelope: envelopeProp }: { envelope: Agen
     setConfirmingMergeLocal(false)
     setConfirmingNoChangesDone(false)
     setConfirmingRefine(false)
-  }, [decision, prUrl])
+    setConfirmingRecoverAndRetry(false)
+  }, [decision, prUrl, envelope.prDeliveryId])
 
   const onRunVitals = useCallback((runId: string, vitals: { paused: boolean; pausedReason: string | null }) => {
     setPausedRuns((prev) => {
@@ -291,10 +294,18 @@ export function AgentPrDecisionCard({ envelope: envelopeProp }: { envelope: Agen
         action,
         expectedDecision: decision,
       })
+      let snapshotApplication: ReturnType<typeof applyPrDecisionSnapshot> | null = null
       if (r.snapshot) {
         const next = agentEnvelopeFromSnapshot(envelope, r.snapshot)
-        setLocalEnvelope(next)
-        applyPrDecisionSnapshot(next)
+        snapshotApplication = applyPrDecisionSnapshot(next)
+        if (snapshotApplication !== 'stale') setLocalEnvelope(next)
+      }
+      if (snapshotApplication === 'stale') {
+        // Another generation already superseded this card while its HTTP
+        // request was in flight. Never resurrect its controls or celebrate an
+        // outcome that is no longer the active delivery.
+        toast.info(t('prCard.alreadyResolved'))
+        return
       }
       if (r.kind === 'recovering') {
         toast.info(t('common:prRecovery.inProgress'))
@@ -311,10 +322,27 @@ export function AgentPrDecisionCard({ envelope: envelopeProp }: { envelope: Agen
           : t('prCard.mergeLocalBlockedBranch', { base: r.base || envelope.baseBranch, current: r.current ?? '?' }))
       } else if (r.kind === 'failed') {
         toast.error(t('prCard.actionFailed'), { description: r.detail })
+      } else if (r.kind === 'ok' && action === 'recover-and-retry') {
+        if (r.deliveryVerified) {
+          const sha = (r.verifiedSha ?? r.snapshot?.deliverySha ?? '').slice(0, 8)
+          toast.success(t('prCard.recoverAndRetryVerified', { sha }))
+        } else if (r.recoveryUnavailable || r.snapshot?.statusCode === 'recovery_unavailable') {
+          toast.info(t('prCard.recoveryUnavailable'), { description: t('prCard.recoveryUnavailableBody') })
+        } else {
+          toast.warning(t('prCard.recoveryStillBlocked'), { description: r.detail ?? undefined })
+        }
+      } else if (r.kind === 'ok' && action === 'create-pr' && presentation.retryablePush && r.deliveryVerified) {
+        const sha = (r.verifiedSha ?? r.snapshot?.deliverySha ?? envelope.deliverySha ?? '').slice(0, 8)
+        toast.success(t(r.pushed ? 'prCard.retryPushVerified' : 'prCard.commitAlreadyVerified', { sha }))
       } else if (r.kind === 'ok' && action === 'create-pr' && r.detail) {
         // Successful HTTP can still mean a retryable/degraded delivery. Keep the
         // stable localized card title primary and expose the raw detail second.
         toast.error(t('prCard.deliveryNeedsAttention'), { description: r.detail })
+      } else if (r.kind === 'ok' && action === 'poll-merge' && r.deliveryVerified === false) {
+        toast.warning(t('prCard.commitMissingRetry'))
+      } else if (r.kind === 'ok' && action === 'poll-merge' && r.deliveryVerified && !r.merged) {
+        const sha = (r.verifiedSha ?? r.snapshot?.deliverySha ?? envelope.deliverySha ?? '').slice(0, 8)
+        toast.success(t('prCard.prVerifiedWaiting', { sha }))
       } else if (action === 'poll-merge' && !r.merged && r.decision !== 'pr_closed') {
         toast.info(t('prCard.notMergedYet'))
       } else if (action === 'merge-local' && r.kind === 'ok' && r.decision === 'merged') {
@@ -336,6 +364,12 @@ export function AgentPrDecisionCard({ envelope: envelopeProp }: { envelope: Agen
         toast.success(t('prCard.checkoutSuccess', { branch: envelope.branch ?? '' }))
       } else if (r.kind === 'recovering') {
         toast.info(t('common:prRecovery.inProgress'))
+      } else if (r.error === 'checkout_dirty') {
+        toast.warning(t('prCard.checkoutDirtyTitle'), { description: t('prCard.checkoutDirtyBody') })
+      } else if (r.error === 'checkout_not_deliverable') {
+        toast.warning(t('prCard.checkoutNotDeliverableTitle'), { description: t('prCard.checkoutNotDeliverableBody') })
+      } else if (r.error === 'checkout_safety_unknown') {
+        toast.warning(t('prCard.checkoutSafetyUnknownTitle'), { description: t('prCard.checkoutSafetyUnknownBody') })
       } else {
         toast.warning(t('prCard.checkoutFailed'), { description: r.detail })
       }
@@ -343,6 +377,28 @@ export function AgentPrDecisionCard({ envelope: envelopeProp }: { envelope: Agen
       toast.error(t('prCard.checkoutFailed'), { description: e instanceof Error ? e.message : undefined })
     } finally {
       setCheckingOut(false)
+    }
+  }
+
+  const inspectLocalResult = async () => {
+    const paths = presentation.recoveryWorktreePaths
+    if (paths.length === 0) {
+      toast.info(t('prCard.localResultUnavailableHere'))
+      return
+    }
+    const value = paths.join('\n')
+    let copied = false
+    try {
+      await navigator.clipboard.writeText(value)
+      copied = true
+    } catch { /* the preserved path remains visible in the fallback toast */ }
+    try {
+      if (isTauri()) await revealItemInDir(paths[0])
+    } catch { /* revealing is best-effort; copying still succeeds independently */ }
+    if (copied) {
+      toast.success(t('prCard.localResultPathCopied'), { description: value })
+    } else {
+      toast.info(t('prCard.localResultPath'), { description: value })
     }
   }
 
@@ -509,9 +565,11 @@ export function AgentPrDecisionCard({ envelope: envelopeProp }: { envelope: Agen
   }
 
   const Icon = HEADER_ICON[decision]
-  const title = presentation.noChanges
-    ? t('prCard.title.no_changes')
-    : presentation.deliveryBlocked
+  const title = presentation.superseded
+    ? t('prCard.title.superseded')
+    : presentation.noChanges
+      ? t('prCard.title.no_changes')
+      : presentation.deliveryBlocked
       ? t('prCard.title.delivery_blocked')
       : presentation.retryablePush
         ? t('prCard.title.update_failed')
@@ -519,9 +577,7 @@ export function AgentPrDecisionCard({ envelope: envelopeProp }: { envelope: Agen
           ? t('prCard.title.pr_closed')
           : presentation.partial
             ? t('prCard.title.partial')
-            : presentation.superseded
-              ? t('prCard.title.superseded')
-              : envelope.statusCode === 'existing_pr_updated'
+            : envelope.statusCode === 'existing_pr_updated'
                 ? t('prCard.title.existing_pr_updated')
                 : degradedDraft ? t('prCard.title.pr_draft_degraded') : t(`prCard.title.${decision}`)
 
@@ -543,7 +599,7 @@ export function AgentPrDecisionCard({ envelope: envelopeProp }: { envelope: Agen
     </button>
   )
 
-  const checkoutAction = prUrl && envelope.branch && (
+  const checkoutAction = prUrl && envelope.branch && envelope.deliverySha && !presentation.deliveryBlocked && (
     <button
       type="button"
       onClick={() => void checkoutPrBranch()}
@@ -555,6 +611,38 @@ export function AgentPrDecisionCard({ envelope: envelopeProp }: { envelope: Agen
     >
       {checkingOut ? spinner : <GitBranch className="h-3 w-3" />}
       {t('prCard.checkout')}
+    </button>
+  )
+
+  const inspectLocalResultAction = presentation.recoveryWorktreePaths.length > 0 && (
+    <button
+      type="button"
+      onClick={() => void inspectLocalResult()}
+      disabled={anyBusy}
+      data-testid="agent-pr-inspect-local-result"
+      data-agent-interactive
+      title={t('prCard.inspectLocalResultTooltip')}
+      className="inline-flex items-center gap-1 rounded-md border border-border/60 px-2 py-1 text-[11px] font-medium text-foreground/70 transition-colors hover:border-accent-primary/40 hover:bg-accent-primary/10 disabled:pointer-events-none disabled:opacity-50"
+    >
+      <FolderOpen className="h-3 w-3" aria-hidden />
+      {t('prCard.inspectLocalResult')}
+    </button>
+  )
+
+  const recoveryIsRecheck = presentation.recoveryRecheck
+  const recoverAndRetryAction = (presentation.manualRecovery || recoveryIsRecheck) && (
+    <button
+      type="button"
+      onClick={() => setConfirmingRecoverAndRetry(true)}
+      disabled={anyBusy}
+      data-testid={recoveryIsRecheck ? 'agent-pr-recheck-recovery' : 'agent-pr-recover-and-retry'}
+      data-agent-interactive
+      className={recoveryIsRecheck
+        ? 'inline-flex items-center gap-1 rounded-md border border-border/60 px-2 py-1 text-[11px] font-medium text-foreground/70 transition-colors hover:border-accent-primary/40 hover:bg-accent-primary/10 disabled:pointer-events-none disabled:opacity-50'
+        : primaryBtn}
+    >
+      {busy === 'recover-and-retry' ? spinner : <RotateCcw className="h-3 w-3" aria-hidden />}
+      {t(recoveryIsRecheck ? 'prCard.recheckRecovery' : 'prCard.recoverAndRetry')}
     </button>
   )
 
@@ -673,6 +761,21 @@ export function AgentPrDecisionCard({ envelope: envelopeProp }: { envelope: Agen
         </span>
         {ticketChips}
         {prLink}
+        {envelope.deliverySha && (
+          <span
+            data-testid="agent-pr-delivery-sha"
+            title={envelope.deliverySha}
+            className={cn(
+              'inline-flex items-center gap-1 rounded-full border px-2 py-0.5 font-mono text-[11px]',
+              envelope.deliveryOutcome === 'delivered'
+                ? 'border-accent-success/35 bg-accent-success/10 text-accent-success'
+                : 'border-border/60 bg-surface/60 text-foreground/65',
+            )}
+          >
+            <CheckCircle2 className="h-3 w-3" />
+            {t('prCard.deliveryCommit', { sha: envelope.deliverySha.slice(0, 8) })}
+          </span>
+        )}
       </div>
 
       {/* Per-run log chips — frozen vitals once the rail settled. */}
@@ -700,17 +803,28 @@ export function AgentPrDecisionCard({ envelope: envelopeProp }: { envelope: Agen
         </p>
       )}
 
-      {presentation.deliveryBlocked && (
+      {!terminal && presentation.deliveryBlocked && (
         <p className="mt-2 flex items-start gap-1.5 text-[11px] leading-4 text-accent-warning">
           <AlertTriangle className="mt-px h-3 w-3 shrink-0" />
           <span>
-            {t('prCard.deliveryBlockedNote')}
-            {envelope.statusDetail && !interruptedOperationDetail ? <span className="mt-0.5 block text-foreground/50">{envelope.statusDetail}</span> : null}
+            {presentation.recoveryUnavailable
+              ? t('prCard.recoveryUnavailableBody')
+              : t(presentation.partial ? 'prCard.partialDeliveryBlockedNote' : 'prCard.deliveryBlockedNote')}
+            {envelope.statusDetail && !interruptedOperationDetail && !presentation.recoveryUnavailable
+              ? <span className="mt-0.5 block text-foreground/50">{envelope.statusDetail}</span>
+              : null}
           </span>
         </p>
       )}
 
-      {presentation.retryablePush && (
+      {!terminal && presentation.recoveryUnavailable && envelope.statusDetail && !interruptedOperationDetail && (
+        <details className="mt-1.5 text-[10px] leading-4 text-foreground/55" data-testid="agent-pr-recovery-technical-detail">
+          <summary className="cursor-pointer font-medium text-foreground/65">{t('prCard.recoveryDetailSummary')}</summary>
+          <p className="mt-1 break-words">{envelope.statusDetail}</p>
+        </details>
+      )}
+
+      {!terminal && presentation.retryablePush && (
         <p className="mt-2 flex items-start gap-1.5 text-[11px] leading-4 text-accent-warning">
           <AlertTriangle className="mt-px h-3 w-3 shrink-0" />
           <span>
@@ -743,6 +857,24 @@ export function AgentPrDecisionCard({ envelope: envelopeProp }: { envelope: Agen
         </div>
       )}
 
+      {presentation.safetyArchives.length > 0 && (
+        <details
+          className="mt-2 rounded-md border border-accent-info/25 bg-accent-info/5 px-2 py-1.5 text-[11px] text-foreground/65"
+          data-agent-interactive
+          data-testid="agent-pr-safety-archives"
+        >
+          <summary className="cursor-pointer font-medium text-accent-info">
+            {t('prCard.safetyArchiveTitle', { count: presentation.safetyArchives.length })}
+          </summary>
+          <p className="mt-1 leading-4">{t('prCard.safetyArchiveHint')}</p>
+          <ul className="mt-1 space-y-0.5 font-mono text-[10px] text-foreground/50">
+            {presentation.safetyArchives.map((archive) => (
+              <li key={archive} className="break-all">{archive}</li>
+            ))}
+          </ul>
+        </details>
+      )}
+
       {/* Replace actions immediately when the authoritative state changes.
           Delaying the swap for an exit animation could briefly retain a stale,
           unsafe action after a blocked-delivery snapshot lands. */}
@@ -764,34 +896,37 @@ export function AgentPrDecisionCard({ envelope: envelopeProp }: { envelope: Agen
               </div>
             </div>
           )}
-          {presentation.deliveryBlocked && (
-            <div className="flex items-center gap-1.5">
-              {checkoutAction}
-              {presentation.partialUndeliverable && presentation.continuation ? dismissAction : discardLocalAction}
+          {!terminal && presentation.deliveryBlocked && (
+            <div className="flex flex-wrap items-center gap-1.5">
+              {inspectLocalResultAction}
+              {recoverAndRetryAction}
+              {presentation.continuation
+                ? (presentation.hasDiscardableRecoveryResult ? discardLocalAction : dismissAction)
+                : discardAction}
             </div>
           )}
-          {presentation.retryablePush && (
+          {!terminal && presentation.retryablePush && (
             <div className="flex items-center gap-1.5">
               {checkoutAction}
               {primaryAction('create-pr', t('prCard.retryPush'))}
               {presentation.continuation ? dismissAction : discardAction}
             </div>
           )}
-          {presentation.retryablePrCreation && (
+          {!terminal && presentation.retryablePrCreation && (
             <div className="flex items-center gap-1.5">
               {primaryAction('create-pr', t('prCard.retryPr'))}
               {mergeLocalAction}
               {presentation.continuation ? dismissAction : discardAction}
             </div>
           )}
-          {presentation.closed && (
+          {!terminal && presentation.closed && (
             <div className="flex items-center gap-1.5">
               {checkoutAction}
               {primaryAction('reopen', t('prCard.reopen'))}
               {presentation.continuation ? dismissAction : discardAction}
             </div>
           )}
-          {partialCreatePending && !presentation.deliveryBlocked && !presentation.retryablePush && !presentation.retryablePrCreation && (
+          {!terminal && partialCreatePending && !presentation.deliveryBlocked && !presentation.retryablePush && !presentation.retryablePrCreation && (
             <div className="flex items-center gap-1.5">
               {primaryAction('create-pr', t('prCard.createPartialPr', { count: presentation.deliverableCount }))}
               {presentation.continuation ? dismissAction : discardAction}
@@ -821,7 +956,7 @@ export function AgentPrDecisionCard({ envelope: envelopeProp }: { envelope: Agen
           {decision === 'pr_ready' && !presentation.deliveryBlocked && !presentation.retryablePush && !presentation.retryablePrCreation && (
             <div className="flex items-center gap-1.5">
               {checkoutAction}
-              {primaryAction('poll-merge', t('prCard.checkMerge'))}
+              {primaryAction('poll-merge', t('prCard.verifyPr'))}
               {presentation.continuation ? dismissAction : discardAction}
             </div>
           )}
@@ -879,6 +1014,20 @@ export function AgentPrDecisionCard({ envelope: envelopeProp }: { envelope: Agen
             <Button variant="outline" size="sm" onClick={() => setConfirmingMergeLocal(false)}>{t('common:actions.cancel')}</Button>
             <Button size="sm" disabled={anyBusy} data-testid="agent-pr-merge-local-confirm-btn" onClick={() => { setConfirmingMergeLocal(false); void act('merge-local') }}>
               {t('prCard.mergeLocal')}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+      <Dialog open={confirmingRecoverAndRetry} onOpenChange={setConfirmingRecoverAndRetry}>
+        <DialogContent className="max-w-sm" data-testid="agent-pr-recover-and-retry-confirm">
+          <DialogHeader>
+            <DialogTitle>{t(recoveryIsRecheck ? 'prCard.confirm.recheckRecoveryTitle' : 'prCard.confirm.recoverAndRetryTitle')}</DialogTitle>
+            <DialogDescription>{t(recoveryIsRecheck ? 'prCard.confirm.recheckRecoveryBody' : 'prCard.confirm.recoverAndRetryBody', { branch: envelope.branch ?? '' })}</DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button variant="outline" size="sm" onClick={() => setConfirmingRecoverAndRetry(false)}>{t('common:actions.cancel')}</Button>
+            <Button size="sm" disabled={anyBusy} data-testid="agent-pr-recover-and-retry-confirm-btn" onClick={() => { setConfirmingRecoverAndRetry(false); void act('recover-and-retry') }}>
+              {t(recoveryIsRecheck ? 'prCard.recheckRecovery' : 'prCard.recoverAndRetry')}
             </Button>
           </DialogFooter>
         </DialogContent>

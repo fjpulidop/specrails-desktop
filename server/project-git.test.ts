@@ -4,7 +4,7 @@ import { execFileSync } from 'child_process'
 import fs from 'fs'
 import os from 'os'
 import path from 'path'
-import { getProjectGitInfo, checkoutProjectBranch, checkoutProjectReviewBranch, parseWorktreePorcelain, compactCheckoutError } from './project-git'
+import { getProjectGitInfo, checkoutProjectBranch, checkoutProjectReviewBranch, inspectProjectCheckoutCleanliness, parseWorktreePorcelain, compactCheckoutError } from './project-git'
 import { registerGitRoutes } from './project-router-git'
 import type { ProjectRoutesDeps } from './project-router-helpers'
 
@@ -19,6 +19,10 @@ const GIT_ENV = {
 
 function run(cwd: string, ...args: string[]): void {
   execFileSync('git', args, { cwd, env: GIT_ENV, stdio: 'pipe' })
+}
+
+function output(cwd: string, ...args: string[]): string {
+  return execFileSync('git', args, { cwd, env: GIT_ENV, encoding: 'utf8', stdio: 'pipe' }).trim()
 }
 
 let repo: string
@@ -67,6 +71,14 @@ describe('project-git', () => {
     expect((await getProjectGitInfo(repo)).dirty).toBe(false)
   })
 
+  it('reports checkout cleanliness as tri-state and fails closed when status is unreadable', async () => {
+    await expect(inspectProjectCheckoutCleanliness(repo)).resolves.toEqual({ ok: true, clean: true })
+    fs.writeFileSync(path.join(repo, 'untracked.txt'), 'valuable\n')
+    await expect(inspectProjectCheckoutCleanliness(repo)).resolves.toEqual({ ok: true, clean: false })
+    fs.rmSync(path.join(repo, 'untracked.txt'))
+    await expect(inspectProjectCheckoutCleanliness(plainDir)).resolves.toMatchObject({ ok: false })
+  })
+
   it('checks out an existing local branch', async () => {
     const r = await checkoutProjectBranch(repo, 'feature')
     expect(r).toEqual({ ok: true })
@@ -106,6 +118,20 @@ describe('project-git', () => {
     const ok = await checkoutProjectReviewBranch(repo, 'feature')
     expect(ok).toEqual({ ok: true })
     expect((await getProjectGitInfo(repo)).branch).toBe('feature')
+    run(repo, 'checkout', 'main')
+  })
+
+  it('checks out only the exact verified delivery SHA and preserves a divergent local branch', async () => {
+    const featureSha = output(repo, 'rev-parse', 'refs/heads/feature')
+    const mainSha = output(repo, 'rev-parse', 'refs/heads/main')
+
+    await expect(checkoutProjectReviewBranch(repo, 'feature', mainSha)).resolves.toMatchObject({ ok: false })
+    expect((await getProjectGitInfo(repo)).branch).toBe('main')
+    expect(output(repo, 'rev-parse', 'refs/heads/feature')).toBe(featureSha)
+
+    await expect(checkoutProjectReviewBranch(repo, 'feature', featureSha)).resolves.toEqual({ ok: true })
+    expect((await getProjectGitInfo(repo)).branch).toBe('feature')
+    expect(output(repo, 'rev-parse', 'HEAD')).toBe(featureSha)
     run(repo, 'checkout', 'main')
   })
 

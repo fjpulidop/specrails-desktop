@@ -41,6 +41,7 @@ function envelope(overrides: Partial<PrDecisionCardEnvelope> = {}): PrDecisionCa
     prNumber: null,
     prState: 'none',
     branch: null,
+    safetyArchives: [],
     ...overrides,
   }
 }
@@ -86,6 +87,7 @@ describe('AgentChatManager PR-decision card (safe-pr-review-flow)', () => {
       baseBranch: 'main',
       ticketIds: [1, 2],
       decision: 'on_review',
+      safetyArchives: [],
       prUrl: null,
       prState: 'none',
       branch: null,
@@ -122,6 +124,44 @@ describe('AgentChatManager PR-decision card (safe-pr-review-flow)', () => {
     const events = decisionBroadcasts(broadcast)
     expect(events).toHaveLength(2) // post + update
     expect(events[1]).toMatchObject({ conversationId: conv.id, decision: 'pr_draft', prUrl: 'https://github.com/o/r/pull/7' })
+  })
+
+  it('postPrDecisionCard is idempotent for one delivery instead of appending a duplicate card', () => {
+    const conv = createAgentConversation(db, {})
+    mgr.postPrDecisionCard(conv.id, envelope({ decision: 'pr_failed' }))
+    mgr.postPrDecisionCard(conv.id, envelope({ decision: 'pr_ready' }))
+
+    const system = listAgentMessages(db, conv.id).filter((message) => message.role === 'system')
+    expect(system).toHaveLength(1)
+    expect(JSON.parse(system[0].content)).toMatchObject({ prDeliveryId: 'del-1', decision: 'pr_ready' })
+  })
+
+  it('consolidates legacy duplicate rows atomically and keeps the newest history anchor authoritative', () => {
+    const conv = createAgentConversation(db, {})
+    const old = addAgentMessage(db, {
+      conversationId: conv.id,
+      role: 'system',
+      content: JSON.stringify(envelope({ decision: 'pr_failed', deliveryOutcome: 'blocked' })),
+    })
+    const newest = addAgentMessage(db, {
+      conversationId: conv.id,
+      role: 'system',
+      content: JSON.stringify(envelope({ decision: 'pr_failed', deliveryOutcome: 'retryable_failure' })),
+    })
+    broadcast.mockClear()
+
+    mgr.updatePrDecisionCard(conv.id, envelope({
+      decision: 'pr_ready', deliveryOutcome: 'delivered', deliverySha: 'a'.repeat(40),
+    }))
+
+    const system = listAgentMessages(db, conv.id).filter((message) => message.role === 'system')
+    expect(system).toHaveLength(1)
+    expect(system[0].id).toBe(newest.id)
+    expect(system[0].id).not.toBe(old.id)
+    expect(JSON.parse(system[0].content)).toMatchObject({
+      prDeliveryId: 'del-1', decision: 'pr_ready', deliveryOutcome: 'delivered',
+    })
+    expect(decisionBroadcasts(broadcast)).toHaveLength(1)
   })
 
   it('does not rewrite or broadcast an identical startup projection', () => {

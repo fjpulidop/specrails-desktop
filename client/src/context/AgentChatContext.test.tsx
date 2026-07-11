@@ -1,4 +1,5 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest'
+import { useState } from 'react'
 import { render, screen, fireEvent, waitFor, act } from '@testing-library/react'
 
 let wsHandler: ((msg: unknown) => void) | null = null
@@ -78,9 +79,13 @@ const prEnvelope = (over: Partial<AgentPrDecisionEnvelope> = {}): AgentPrDecisio
   decision: 'on_review', prUrl: null, prNumber: null, prState: 'none', branch: null, runIds: [], ...over,
 })
 
-const prMessage = (conversationId: string) => ({
-  id: `msg-${conversationId}`, conversation_id: conversationId, role: 'system' as const,
-  content: JSON.stringify(prEnvelope()), created_at: '',
+const prMessage = (
+  conversationId: string,
+  envelope: AgentPrDecisionEnvelope = prEnvelope(),
+  id = `msg-${conversationId}-${envelope.prDeliveryId}`,
+) => ({
+  id, conversation_id: conversationId, role: 'system' as const,
+  content: JSON.stringify(envelope), created_at: '',
 })
 
 function setDocumentVisibility(value: DocumentVisibilityState): void {
@@ -92,6 +97,7 @@ function setDocumentVisibility(value: DocumentVisibilityState): void {
 
 function Harness() {
   const agentChat = useAgentChat()
+  const [applyResult, setApplyResult] = useState('')
   return (
     <div>
       <span data-testid="active-id">{agentChat.active?.id ?? ''}</span>
@@ -100,9 +106,15 @@ function Harness() {
         const envelope = message.role === 'system' ? agentApi.parsePrDecisionEnvelope(message.content) : null
         return envelope ? [`${envelope.prDeliveryId}:${envelope.decision}`] : []
       }).join(',')}</span>
+      <span data-testid="apply-result">{applyResult}</span>
       <button onClick={agentChat.open}>open</button>
+      <button onClick={() => void agentChat.selectConversation('c1')}>select-c1</button>
       <button onClick={() => void agentChat.selectConversation('c2')}>select-c2</button>
-      <button onClick={() => agentChat.applyPrDecisionSnapshot(prEnvelope({ decision: 'pr_draft' }))}>apply-d1</button>
+      <button onClick={() => setApplyResult(agentChat.applyPrDecisionSnapshot(prEnvelope({ decision: 'pr_draft' })))}>apply-d1</button>
+      <button onClick={() => setApplyResult(agentChat.applyPrDecisionSnapshot(prEnvelope({
+        prDeliveryId: 'generation-a', decision: 'pr_ready', prUrl: 'https://github.com/o/r/pull/7',
+        prState: 'pr-created', branch: 'feat/a',
+      })))}>apply-a-late</button>
     </div>
   )
 }
@@ -178,6 +190,267 @@ describe('AgentChatContext authoritative PR snapshots', () => {
     await waitFor(() => expect(screen.getByTestId('pr-deliveries')).toHaveTextContent('d1:on_review'))
     await act(async () => { fireEvent.click(screen.getByText('apply-d1')) })
     expect(screen.getByTestId('pr-deliveries')).toHaveTextContent('d1:pr_draft')
+    expect(screen.getByTestId('apply-result')).toHaveTextContent('accepted')
+  })
+
+  it('orders same-delivery WS snapshots by updatedAt and keeps a conflicting tie fail-safe', async () => {
+    vi.mocked(agentApi.getAgentConversation).mockResolvedValue({
+      conversation: api.conv1,
+      messages: [prMessage('c1', prEnvelope({
+        decision: 'pr_draft', updatedAt: '2026-07-10 12:00:02',
+        prUrl: 'https://github.com/o/r/pull/4', prState: 'pr-created',
+      }))],
+    })
+    render(<AgentChatProvider><Harness /></AgentChatProvider>)
+    await act(async () => { fireEvent.click(screen.getByText('open')) })
+    await waitFor(() => expect(screen.getByTestId('pr-deliveries')).toHaveTextContent('d1:pr_draft'))
+
+    await act(async () => { wsHandler!({
+      type: 'agent_pr_decision', conversationId: 'c1',
+      ...prEnvelope({ decision: 'on_review', updatedAt: '2026-07-10 12:00:01' }),
+    }) })
+    expect(screen.getByTestId('pr-deliveries')).toHaveTextContent('d1:pr_draft')
+
+    await act(async () => { wsHandler!({
+      type: 'agent_pr_decision', conversationId: 'c1',
+      ...prEnvelope({ decision: 'pr_failed', updatedAt: '2026-07-10 12:00:02' }),
+    }) })
+    expect(screen.getByTestId('pr-deliveries')).toHaveTextContent('d1:pr_draft')
+
+    await act(async () => { wsHandler!({
+      type: 'agent_pr_decision', conversationId: 'c1',
+      ...prEnvelope({ decision: 'pr_ready', updatedAt: '2026-07-10 12:00:03', prState: 'pr-created' }),
+    }) })
+    expect(screen.getByTestId('pr-deliveries')).toHaveTextContent('d1:pr_ready')
+  })
+
+  it('projects an older rail generation out when a newer createdAt generation arrives without coexistence', async () => {
+    vi.mocked(agentApi.getAgentConversation).mockResolvedValue({
+      conversation: api.conv1,
+      messages: [prMessage('c1', prEnvelope({
+        prDeliveryId: 'generation-a', decision: 'pr_failed',
+        createdAt: '2026-07-10 12:00:01', updatedAt: '2026-07-10 12:00:01',
+      }), 'msg-a')],
+    })
+    render(<AgentChatProvider><Harness /></AgentChatProvider>)
+    await act(async () => { fireEvent.click(screen.getByText('open')) })
+    await waitFor(() => expect(screen.getByTestId('pr-deliveries')).toHaveTextContent('generation-a:pr_failed'))
+
+    await act(async () => { wsHandler!({
+      type: 'agent_pr_decision', conversationId: 'c1',
+      ...prEnvelope({
+        prDeliveryId: 'generation-b', decision: 'building',
+        createdAt: '2026-07-10 12:00:02', updatedAt: '2026-07-10 12:00:02',
+      }),
+    }) })
+
+    expect(screen.getByTestId('pr-deliveries')).toHaveTextContent('generation-a:superseded,generation-b:building')
+    expect(screen.getByTestId('pr-deliveries')).not.toHaveTextContent('generation-a:pr_failed')
+
+    // Even a later-arriving payload cannot revive A: generation creation time
+    // is immutable and B has already made A terminal in this view.
+    await act(async () => { wsHandler!({
+      type: 'agent_pr_decision', conversationId: 'c1',
+      ...prEnvelope({
+        prDeliveryId: 'generation-a', decision: 'pr_ready',
+        createdAt: '2026-07-10 12:00:01', updatedAt: '2026-07-10 12:00:03',
+      }),
+    }) })
+    expect(screen.getByTestId('pr-deliveries')).toHaveTextContent('generation-a:superseded,generation-b:building')
+  })
+
+  it('accepts persisted A-from-B rollback evidence, terminalizes B, and rejects stale lineage replays', async () => {
+    vi.mocked(agentApi.getAgentConversation).mockResolvedValue({
+      conversation: api.conv1,
+      messages: [prMessage('c1', prEnvelope({
+        prDeliveryId: 'generation-a', decision: 'on_review',
+        createdAt: '2026-07-10T12:00:01.000Z', updatedAt: '2026-07-10T12:00:01.000Z',
+      }), 'msg-a')],
+    })
+    render(<AgentChatProvider><Harness /></AgentChatProvider>)
+    await act(async () => { fireEvent.click(screen.getByText('open')) })
+    await waitFor(() => expect(screen.getByTestId('pr-deliveries')).toHaveTextContent('generation-a:on_review'))
+
+    await act(async () => { wsHandler!({
+      type: 'agent_pr_decision', conversationId: 'c1',
+      ...prEnvelope({
+        prDeliveryId: 'generation-b', decision: 'building', supersedesDeliveryId: 'generation-a',
+        createdAt: '2026-07-10T12:00:02.000Z', updatedAt: '2026-07-10T12:00:02.000Z',
+      }),
+    }) })
+    await act(async () => { wsHandler!({
+      type: 'agent_pr_decision', conversationId: 'c1',
+      ...prEnvelope({
+        prDeliveryId: 'generation-b', decision: 'discarded', supersedesDeliveryId: 'generation-a',
+        createdAt: '2026-07-10T12:00:02.000Z', updatedAt: '2026-07-10T12:00:03.000Z',
+      }),
+    }) })
+    expect(screen.getByTestId('pr-deliveries')).toHaveTextContent('generation-a:superseded,generation-b:discarded')
+
+    await act(async () => { wsHandler!({
+      type: 'agent_pr_decision', conversationId: 'c1',
+      ...prEnvelope({
+        prDeliveryId: 'generation-a', decision: 'on_review', restoredFromDeliveryId: 'generation-b',
+        createdAt: '2026-07-10T12:00:01.000Z', updatedAt: '2026-07-10T12:00:04.000Z',
+      }),
+    }) })
+    expect(screen.getByTestId('pr-deliveries')).toHaveTextContent('generation-a:on_review,generation-b:discarded')
+
+    await act(async () => { wsHandler!({
+      type: 'agent_pr_decision', conversationId: 'c1',
+      ...prEnvelope({
+        prDeliveryId: 'generation-c', decision: 'building', supersedesDeliveryId: 'generation-a',
+        createdAt: '2026-07-10T12:00:06.000Z', updatedAt: '2026-07-10T12:00:06.000Z',
+      }),
+    }) })
+    await act(async () => { wsHandler!({
+      type: 'agent_pr_decision', conversationId: 'c1',
+      ...prEnvelope({
+        prDeliveryId: 'generation-a', decision: 'on_review', restoredFromDeliveryId: 'generation-b',
+        createdAt: '2026-07-10T12:00:01.000Z', updatedAt: '2026-07-10T12:00:07.000Z',
+      }),
+    }) })
+    expect(screen.getByTestId('pr-deliveries')).toHaveTextContent(
+      'generation-a:superseded,generation-b:discarded,generation-c:building',
+    )
+  })
+
+  it('focus hydration can restore A from persisted B rollback lineage', async () => {
+    const supersededA = prMessage('c1', prEnvelope({
+      prDeliveryId: 'generation-a', decision: 'superseded',
+      createdAt: '2026-07-10T12:00:01.000Z', updatedAt: '2026-07-10T12:00:02.000Z',
+    }), 'msg-a')
+    const failedB = prMessage('c1', prEnvelope({
+      prDeliveryId: 'generation-b', decision: 'discarded', supersedesDeliveryId: 'generation-a',
+      createdAt: '2026-07-10T12:00:02.000Z', updatedAt: '2026-07-10T12:00:03.000Z',
+    }), 'msg-b')
+    const restoredA = prMessage('c1', prEnvelope({
+      prDeliveryId: 'generation-a', decision: 'on_review', restoredFromDeliveryId: 'generation-b',
+      createdAt: '2026-07-10T12:00:01.000Z', updatedAt: '2026-07-10T12:00:04.000Z',
+    }), 'msg-a')
+    vi.mocked(agentApi.getAgentConversation)
+      .mockResolvedValueOnce({ conversation: api.conv1, messages: [supersededA, failedB] })
+      .mockResolvedValueOnce({ conversation: api.conv1, messages: [restoredA, failedB] })
+
+    render(<AgentChatProvider><Harness /></AgentChatProvider>)
+    await act(async () => { fireEvent.click(screen.getByText('open')) })
+    await waitFor(() => expect(screen.getByTestId('pr-deliveries')).toHaveTextContent(
+      'generation-a:superseded,generation-b:discarded',
+    ))
+
+    await act(async () => { window.dispatchEvent(new Event('focus')) })
+    await waitFor(() => expect(screen.getByTestId('pr-deliveries')).toHaveTextContent(
+      'generation-a:on_review,generation-b:discarded',
+    ))
+  })
+
+  it('consumes an explicit A-from-B rollback only once after restored A terminalizes', async () => {
+    vi.mocked(agentApi.getAgentConversation).mockResolvedValue({
+      conversation: api.conv1,
+      messages: [prMessage('c1', prEnvelope({
+        prDeliveryId: 'generation-a', decision: 'superseded',
+        createdAt: '2026-07-10T12:00:01.000Z', updatedAt: '2026-07-10T12:00:02.000Z',
+      }), 'msg-a')],
+    })
+    render(<AgentChatProvider><Harness /></AgentChatProvider>)
+    await act(async () => { fireEvent.click(screen.getByText('open')) })
+
+    await act(async () => { wsHandler!({
+      type: 'agent_pr_decision', conversationId: 'c1',
+      ...prEnvelope({
+        prDeliveryId: 'generation-b', decision: 'discarded', supersedesDeliveryId: 'generation-a',
+        createdAt: '2026-07-10T12:00:02.000Z', updatedAt: '2026-07-10T12:00:03.000Z',
+      }),
+    }) })
+    await act(async () => { wsHandler!({
+      type: 'agent_pr_decision', conversationId: 'c1',
+      ...prEnvelope({
+        prDeliveryId: 'generation-a', decision: 'on_review', restoredFromDeliveryId: 'generation-b',
+        createdAt: '2026-07-10T12:00:01.000Z', updatedAt: '2026-07-10T12:00:04.000Z',
+      }),
+    }) })
+    await act(async () => { wsHandler!({
+      type: 'agent_pr_decision', conversationId: 'c1',
+      ...prEnvelope({
+        prDeliveryId: 'generation-a', decision: 'completed', restoredFromDeliveryId: 'generation-b',
+        createdAt: '2026-07-10T12:00:01.000Z', updatedAt: '2026-07-10T12:00:05.000Z',
+      }),
+    }) })
+
+    await act(async () => { wsHandler!({
+      type: 'agent_pr_decision', conversationId: 'c1',
+      ...prEnvelope({
+        prDeliveryId: 'generation-a', decision: 'on_review', restoredFromDeliveryId: 'generation-b',
+        createdAt: '2026-07-10T12:00:01.000Z', updatedAt: '2026-07-10T12:00:06.000Z',
+      }),
+    }) })
+
+    expect(screen.getByTestId('pr-deliveries')).toHaveTextContent(
+      'generation-a:completed,generation-b:discarded',
+    )
+  })
+
+  it('rejects a delayed HTTP snapshot for A after B superseded it', async () => {
+    const messages = [
+      prMessage('c1', prEnvelope({
+        prDeliveryId: 'generation-c', decision: 'building', supersedesDeliveryId: 'generation-b',
+      }), 'msg-c'),
+      // Deliberately out of order and still actionable in persisted history:
+      // lineage, not row position or A's own decision, makes A stale.
+      prMessage('c1', prEnvelope({ prDeliveryId: 'generation-a', decision: 'pr_failed' }), 'msg-a'),
+      prMessage('c1', prEnvelope({
+        prDeliveryId: 'generation-b', decision: 'superseded', supersedesDeliveryId: 'generation-a',
+      }), 'msg-b'),
+    ]
+    vi.mocked(agentApi.getAgentConversation).mockResolvedValue({ conversation: api.conv1, messages })
+    render(<AgentChatProvider><Harness /></AgentChatProvider>)
+    await act(async () => { fireEvent.click(screen.getByText('open')) })
+    await waitFor(() => expect(screen.getByTestId('pr-deliveries')).toHaveTextContent(
+      'generation-c:building,generation-a:pr_failed,generation-b:superseded',
+    ))
+
+    await act(async () => { fireEvent.click(screen.getByText('apply-a-late')) })
+
+    expect(screen.getByTestId('apply-result')).toHaveTextContent('stale')
+    expect(screen.getByTestId('pr-deliveries')).toHaveTextContent(
+      'generation-c:building,generation-a:pr_failed,generation-b:superseded',
+    )
+  })
+
+  it('keeps the fresh C1 card when an older focus hydration resolves after C1→C2→C1', async () => {
+    let c1Calls = 0
+    let resolveStaleHydration!: (value: { conversation: typeof api.conv1; messages: ReturnType<typeof prMessage>[] }) => void
+    const staleHydration = new Promise<{ conversation: typeof api.conv1; messages: ReturnType<typeof prMessage>[] }>(
+      (resolve) => { resolveStaleHydration = resolve },
+    )
+    const initial = prMessage('c1', prEnvelope({ decision: 'on_review' }), 'initial')
+    const stale = prMessage('c1', prEnvelope({ decision: 'pr_failed' }), 'stale')
+    const fresh = prMessage('c1', prEnvelope({
+      decision: 'pr_ready', prUrl: 'https://github.com/o/r/pull/9', prState: 'pr-created', branch: 'feat/fresh',
+    }), 'fresh')
+    vi.mocked(agentApi.getAgentConversation).mockImplementation(async (id: string) => {
+      if (id === 'c2') return { conversation: api.conv2, messages: [] }
+      c1Calls++
+      if (c1Calls === 1) return { conversation: api.conv1, messages: [initial] }
+      if (c1Calls === 2) return staleHydration
+      return { conversation: api.conv1, messages: [fresh] }
+    })
+    render(<AgentChatProvider><Harness /></AgentChatProvider>)
+    await act(async () => { fireEvent.click(screen.getByText('open')) })
+    await waitFor(() => expect(screen.getByTestId('pr-deliveries')).toHaveTextContent('d1:on_review'))
+
+    act(() => { window.dispatchEvent(new Event('focus')) })
+    await waitFor(() => expect(c1Calls).toBe(2))
+    await act(async () => { fireEvent.click(screen.getByText('select-c2')) })
+    await waitFor(() => expect(screen.getByTestId('active-id')).toHaveTextContent('c2'))
+    await act(async () => { fireEvent.click(screen.getByText('select-c1')) })
+    await waitFor(() => expect(screen.getByTestId('pr-deliveries')).toHaveTextContent('d1:pr_ready'))
+
+    await act(async () => { resolveStaleHydration({ conversation: api.conv1, messages: [stale] }) })
+
+    expect(screen.getByTestId('active-id')).toHaveTextContent('c1')
+    expect(screen.getByTestId('pr-deliveries')).toHaveTextContent('d1:pr_ready')
+    expect(screen.getByTestId('pr-deliveries')).not.toHaveTextContent('d1:pr_failed')
   })
 
   it('does not append conversation A delivery into B when the action resolves after a switch', async () => {

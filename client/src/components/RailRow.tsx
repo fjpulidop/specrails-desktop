@@ -50,9 +50,13 @@ interface RailRowProps {
   /** Active ask-first PR decision for this rail (null when none). */
   prDecision?: RailPrStateSnapshot | null
   /** POSTs /rails/pr-decision for this rail (already bound to its railIndex). */
-  onPrDecision?: (action: RailPrDecisionAction, expectedDecision: RailPrDecision) => Promise<RailPrActResult>
+  onPrDecision?: (
+    action: RailPrDecisionAction,
+    expectedDecision: RailPrDecision,
+    expectedPrDeliveryId: string,
+  ) => Promise<RailPrActResult>
   /** Checks out this rail's delivered PR branch in the user's main repo. */
-  onPrCheckout?: () => Promise<RailPrCheckoutResult>
+  onPrCheckout?: (expectedPrDeliveryId: string) => Promise<RailPrCheckoutResult>
   /** Live execution metrics (elapsed/steps/lines) while running — same WS source
    *  as the Jobs view. Null when not running / no data. */
   executionMetric?: import('../context/RailMetricsContext').RailExecMetric | null
@@ -483,7 +487,7 @@ export function RailRow({
         {/* Ask-first PR decision strip (safe-pr-review-flow) */}
         {prDecision && onPrDecision && (
           <div className="mt-1">
-            <RailPrDecisionStrip decision={prDecision} density="compact" act={onPrDecision} checkout={onPrCheckout} />
+            <RailPrDecisionStrip key={prDecision.prDeliveryId} decision={prDecision} density="compact" act={onPrDecision} checkout={onPrCheckout} />
           </div>
         )}
 
@@ -649,7 +653,7 @@ export function RailRow({
           {/* Ask-first PR decision strip (safe-pr-review-flow) */}
           {prDecision && onPrDecision && (
             <div className="px-3 pb-1.5">
-              <RailPrDecisionStrip decision={prDecision} density="normal" act={onPrDecision} checkout={onPrCheckout} />
+              <RailPrDecisionStrip key={prDecision.prDeliveryId} decision={prDecision} density="normal" act={onPrDecision} checkout={onPrCheckout} />
             </div>
           )}
 
