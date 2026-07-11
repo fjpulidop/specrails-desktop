@@ -92,4 +92,4 @@
 - [x] 11.2 Recover only exact durable/run-owned candidates, update every matching unit, protect orphan SHAs with delivery-specific internal refs across crashes, and never adopt or bundle a later unrelated branch tip.
 - [x] 11.3 Classify already-delivered and durably proven no-change baselines, otherwise persist `recovery_unavailable` and keep startup/Recheck able to heal it without modifying the main checkout.
 - [x] 11.4 Render localized premium Recheck/other-computer guidance on dashboard and Agent cards in all eight locales, with no repeated impossible Commit/Checkout action and no raw-English primary feedback.
-- [ ] 11.5 Add server/client regression coverage, update lifecycle documentation, run focused/full suites, locale parity, typecheck/build/Cargo/core checks, strict OpenSpec validation, and verify the final PR #548 remote SHA/CI.
+- [x] 11.5 Add server/client regression coverage, update lifecycle documentation, run focused/full suites, locale parity, typecheck/build/Cargo/core checks, strict OpenSpec validation, and verify the final PR #548 remote SHA/CI.
