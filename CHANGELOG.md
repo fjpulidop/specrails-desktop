@@ -1,5 +1,12 @@
 # Changelog
 
+## [2.29.3](https://github.com/fjpulidop/specrails-desktop/compare/v2.29.2...v2.29.3) (2026-07-11)
+
+
+### Bug Fixes
+
+* **safe-pr:** harden repeated PR delivery and recovery ([#548](https://github.com/fjpulidop/specrails-desktop/issues/548)) ([74c0097](https://github.com/fjpulidop/specrails-desktop/commit/74c0097d5995498fe30261d3275282247a2d0e00))
+
 ## [2.29.2](https://github.com/fjpulidop/specrails-desktop/compare/v2.29.1...v2.29.2) (2026-07-10)
 
 
