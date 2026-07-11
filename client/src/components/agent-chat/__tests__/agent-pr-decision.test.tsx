@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest'
-import { render, screen, fireEvent, waitFor, act } from '@testing-library/react'
+import { render, screen, fireEvent, waitFor, act, within } from '@testing-library/react'
 
 // ── Mocks (mirror the agent-chat harness) ─────────────────────────────────────
 let wsHandler: ((msg: unknown) => void) | null = null
@@ -106,6 +106,32 @@ const recoverableBlockedEnv = (over: Partial<AgentPrDecisionEnvelope> = {}) => e
     failureCode: 'settlement_interrupted',
     branchOwnership: 'borrowed-pr',
     worktreePath: recoveryWorktreePath,
+  }],
+  ...over,
+})
+const unavailableRecoveryEnv = (over: Partial<AgentPrDecisionEnvelope> = {}) => env({
+  decision: 'pr_failed',
+  prUrl: 'https://github.com/o/r/pull/7',
+  prNumber: 7,
+  prState: 'pr-created',
+  branch: 'feat/review',
+  implementationOutcome: 'succeeded',
+  deliveryOutcome: 'blocked',
+  statusCode: 'recovery_unavailable',
+  statusDetail: 'raw recovery scan detail that must not be shown',
+  isContinuation: true,
+  runIds: ['run-1'],
+  units: [{
+    ticketId: 4,
+    runId: 'run-1',
+    branch: 'feat/review',
+    succeeded: true,
+    implementationOutcome: 'succeeded',
+    deliveryOutcome: 'blocked',
+    initialSha: 'a'.repeat(40),
+    finalSha: null,
+    failureCode: 'recovery_unavailable',
+    branchOwnership: 'borrowed-pr',
   }],
   ...over,
 })
@@ -305,6 +331,35 @@ describe('AgentPrDecisionCard states', () => {
     expect(screen.getByRole('button', { name: 'Dismiss follow-up' })).toBeInTheDocument()
     expect(screen.queryByRole('button', { name: 'Inspect local result' })).not.toBeInTheDocument()
     expect(screen.queryByRole('button', { name: 'Discard local result' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Checkout' })).not.toBeInTheDocument()
+  })
+
+  it('shows a truthful unavailable-on-this-computer path with Check again, run inspection, and Dismiss only', () => {
+    render(<AgentPrDecisionCard envelope={unavailableRecoveryEnv()} />)
+
+    expect(screen.getByRole('button', { name: 'Check again' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /View run log/ })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Dismiss follow-up' })).toBeInTheDocument()
+    expect(screen.getByText('Specrails could not safely prove one delivery-owned result in this clone. Nothing was changed or removed. Inspect the stage detail and run logs. If the run executed on another computer, open Specrails there, then check again.')).toBeInTheDocument()
+    const technicalDetail = screen.getByTestId('agent-pr-recovery-technical-detail')
+    expect(technicalDetail).not.toHaveAttribute('open')
+    expect(within(technicalDetail).getByText('Technical recovery detail')).toBeInTheDocument()
+    expect(within(technicalDetail).getByText('raw recovery scan detail that must not be shown')).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Commit & retry push' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Inspect local result' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Checkout' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Discard' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Discard local result' })).not.toBeInTheDocument()
+  })
+
+  it('offers exactly one explicit local-result discard when unavailable recovery has a protected SHA', () => {
+    render(<AgentPrDecisionCard envelope={unavailableRecoveryEnv({ deliverySha: 'b'.repeat(40) })} />)
+
+    expect(screen.getByRole('button', { name: 'Check again' })).toBeInTheDocument()
+    expect(screen.getAllByRole('button', { name: 'Discard local result' })).toHaveLength(1)
+    expect(screen.queryByRole('button', { name: 'Dismiss follow-up' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Discard' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Commit & retry push' })).not.toBeInTheDocument()
     expect(screen.queryByRole('button', { name: 'Checkout' })).not.toBeInTheDocument()
   })
 
@@ -719,6 +774,41 @@ describe('AgentPrDecisionCard actions', () => {
       'Local recovery still needs attention',
       { description: 'No unique fast-forward candidate remains.' },
     ))
+  })
+
+  it('confirms Check again and reports unavailable recovery with localized, non-destructive feedback', async () => {
+    global.fetch = vi.fn(async () => httpRes(200, {
+      ok: true,
+      decision: 'pr_failed',
+      prUrl: 'https://github.com/o/r/pull/7',
+      prState: 'pr-created',
+      deliveryVerified: false,
+      recoveryUnavailable: true,
+      detail: 'raw scan result',
+    })) as unknown as typeof fetch
+    render(<AgentPrDecisionCard envelope={unavailableRecoveryEnv()} />)
+
+    fireEvent.click(screen.getByTestId('agent-pr-recheck-recovery'))
+    const dialog = screen.getByTestId('agent-pr-recover-and-retry-confirm')
+    expect(dialog).toHaveTextContent('Check this computer again?')
+    expect(dialog).toHaveTextContent('Specrails will rescan this clone’s delivery-owned worktree, branch, refs, reflogs, and orphan Git objects for feat/review')
+    expect(dialog).toHaveTextContent('Your main project folder will not be touched')
+    expect(vi.mocked(global.fetch).mock.calls.some(([url]) => String(url).includes('/rails/pr-decision'))).toBe(false)
+
+    await act(async () => { fireEvent.click(screen.getByTestId('agent-pr-recover-and-retry-confirm-btn')) })
+
+    expect(global.fetch).toHaveBeenCalledWith('/api/projects/p1/rails/pr-decision', expect.objectContaining({
+      method: 'POST',
+      body: JSON.stringify({ prDeliveryId: 'd1', action: 'recover-and-retry', expectedDecision: 'pr_failed' }),
+    }))
+    await waitFor(() => expect(vi.mocked(toast.info)).toHaveBeenCalledWith(
+      'Recovery could not be verified on this computer',
+      { description: 'Specrails could not safely prove one delivery-owned result in this clone. Nothing was changed or removed. Inspect the stage detail and run logs. If the run executed on another computer, open Specrails there, then check again.' },
+    ))
+    expect(vi.mocked(toast.warning)).not.toHaveBeenCalledWith(
+      'Local recovery still needs attention',
+      { description: 'raw scan result' },
+    )
   })
 
   it('409 operation_in_progress is busy, applies the lease snapshot, and never says already resolved', async () => {

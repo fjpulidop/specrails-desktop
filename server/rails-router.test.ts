@@ -1652,6 +1652,24 @@ describe('rails-router POST /pr-checkout generation guard', () => {
     expect(mockCheckoutProjectReviewBranch).not.toHaveBeenCalled()
   })
 
+  it('passes the immutable delivery SHA to checkout and relays a divergent-ref refusal', async () => {
+    const deliverySha = 'e'.repeat(40)
+    const delivery = checkoutDelivery({ id: 'checkout-divergent-ref', deliveryOutcome: 'delivered', deliverySha })
+    mockCheckoutProjectReviewBranch.mockResolvedValueOnce({
+      ok: false,
+      error: 'Local branch points to another commit. It was preserved and not checked out.',
+    })
+
+    const res = await request(appWith(db)).post('/rails/pr-checkout').send({ prDeliveryId: delivery.id })
+
+    expect(res.status).toBe(409)
+    expect(res.body).toEqual({
+      error: 'checkout_failed',
+      detail: 'Local branch points to another commit. It was preserved and not checked out.',
+    })
+    expect(mockCheckoutProjectReviewBranch).toHaveBeenCalledWith('/repo', 'feat/review', deliverySha)
+  })
+
   it('uses the current attached branch after waiting for the repository lock', async () => {
     const delivery = checkoutDelivery({ id: 'checkout-queued', deliveryOutcome: 'delivered', deliverySha: 'd'.repeat(40) })
     let releaseBlocker!: () => void
@@ -1682,8 +1700,16 @@ describe('rails-router POST /pr-checkout generation guard', () => {
     const res = await pendingResponse
 
     expect(res.status).toBe(200)
-    expect(mockCheckoutProjectReviewBranch).toHaveBeenCalledWith('/repo', 'feat/current-review')
-    expect(mockCheckoutProjectReviewBranch).not.toHaveBeenCalledWith('/repo', 'feat/review')
+    expect(mockCheckoutProjectReviewBranch).toHaveBeenCalledWith(
+      '/repo',
+      'feat/current-review',
+      'd'.repeat(40),
+    )
+    expect(mockCheckoutProjectReviewBranch).not.toHaveBeenCalledWith(
+      '/repo',
+      'feat/review',
+      expect.anything(),
+    )
   })
 
   it('rejects checkout for superseded generation A after generation B becomes active', async () => {

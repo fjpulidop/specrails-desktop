@@ -85,3 +85,11 @@
 - [x] 10.2 Add a lease-guarded Commit & retry push action for one exact delivery-owned worktree/branch, with exact PR baseline, fast-forward, never-commit, immutable-SHA, same-repository/origin ownership, and non-force-push checks; apply the same origin proof to automatic continuation pushes.
 - [x] 10.3 Project live recovery worktree paths, replace blocked Checkout with Inspect local result and recovery actions on both surfaces, and keep dirty-checkout feedback localized and lossless.
 - [x] 10.4 Add server/client regression coverage, all eight locale keys, documentation, typecheck/build/full-suite verification, strict OpenSpec validation, and final remote PR SHA verification.
+
+## 11. Removed-worktree orphan recovery and truthful recheck
+
+- [x] 11.1 Extract one bounded fail-closed run-marker discovery helper shared by startup and explicit recovery, including refs, reflogs, unreachable objects, malformed output, subject-read failure, ambiguity, and combined candidate caps.
+- [x] 11.2 Recover only exact durable/run-owned candidates, update every matching unit, protect orphan SHAs with delivery-specific internal refs across crashes, and never adopt or bundle a later unrelated branch tip.
+- [x] 11.3 Classify already-delivered and durably proven no-change baselines, otherwise persist `recovery_unavailable` and keep startup/Recheck able to heal it without modifying the main checkout.
+- [x] 11.4 Render localized premium Recheck/other-computer guidance on dashboard and Agent cards in all eight locales, with no repeated impossible Commit/Checkout action and no raw-English primary feedback.
+- [ ] 11.5 Add server/client regression coverage, update lifecycle documentation, run focused/full suites, locale parity, typecheck/build/Cargo/core checks, strict OpenSpec validation, and verify the final PR #548 remote SHA/CI.

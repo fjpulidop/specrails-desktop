@@ -314,7 +314,9 @@ The platform SHALL treat a continuation's PR and head branch as borrowed user-ow
 - **THEN** Specrails SHALL revalidate the exact open PR head/base, stage only deliverable paths in that isolated worktree, and create a run-marked commit when changes are uncommitted
 - **AND** it SHALL require an exact per-unit run/branch record and authenticate the non-symlink path as a uniquely registered worktree of this repository both before inspection and immediately before staging
 - **AND** never-commit/private paths SHALL remain excluded even when previously staged, concurrently staged, or added by a repository hook
-- **AND** an already-committed candidate MAY be explicitly adopted only when it is the recorded local branch and a fast-forward descendant of the live PR head
+- **AND** before claiming no local change it SHALL apply the same bounded refs/reflogs/unreachable exact-subject scan as startup and fail closed if enumeration, subject inspection, or uniqueness cannot be proven
+- **AND** an already-committed candidate MAY be adopted only when it is every matching unit's consistent durable `finalSha` or the unique exact-subject run-marked commit, and every matching unit SHALL be updated together
+- **AND** it SHALL pin a proven candidate under a delivery-specific internal recovery ref before persisting or pushing it, retain that ref across interruption, and remove it only after exact remote delivery or explicit local-result discard
 - **AND** a push SHALL require GitHub proof that the PR is not cross-repository plus exact equality between the PR repository and the local `origin` push URL
 - **AND** it SHALL persist and push the exact candidate SHA without force, then re-observe delivery
 - **AND** it SHALL NOT modify, stash, clean, or switch the user's main checkout
@@ -324,6 +326,49 @@ The platform SHALL treat a continuation's PR and head branch as borrowed user-ow
 - **WHEN** the preserved worktree/branch is missing, ambiguous, divergent, on another ref, cannot commit cleanly, or the PR identity/lifecycle changed
 - **THEN** Commit & retry push SHALL fail closed with an actionable explanation
 - **AND** all remaining local evidence SHALL stay intact
+
+#### Scenario: Removed worktree left a uniquely recoverable orphan commit
+
+- **WHEN** the recorded worktree is gone and the local PR branch still equals the live PR head
+- **AND** refs, reflogs, or bounded unreachable-object discovery proves exactly one fast-forward commit with the exact run marker
+- **THEN** explicit recovery SHALL pin that object with an internal recovery ref, persist its SHA, and deliver exactly that object without moving the user's checkout or branch
+- **AND** a crash before delivery verification SHALL leave the object reachable for ordinary retry
+
+#### Scenario: Local branch advanced after the implementation run
+
+- **WHEN** the recorded branch tip is ahead of the PR but differs from both the consistent durable unit `finalSha` and the unique run-marked commit
+- **THEN** explicit recovery SHALL NOT adopt, bundle, commit on top of, or push that later branch tip
+- **AND** the later local work SHALL remain intact with an actionable branch-drift explanation
+
+#### Scenario: A live unsafe worktree coexists with a run-owned orphan
+
+- **WHEN** the recorded worktree path is dirty, recreated, unauthenticated, or resolves to a different HEAD while causal discovery also finds one exact run-owned commit
+- **THEN** Specrails SHALL pin the run-owned commit before depending on network state
+- **AND** SHALL preserve the worktree and protected object as distinct results without committing, bundling, selecting, or pushing either automatically
+- **AND** the card SHALL expose the authenticated path and protected SHA when available so the user can inspect or explicitly discard the local result
+
+#### Scenario: Recovery is interrupted after pinning but before SHA persistence
+
+- **WHEN** the process stops after creating the delivery-specific recovery ref but before writing `delivery_sha`
+- **THEN** restart SHALL preserve the recovery-family status and rerun causal reconciliation rather than replacing it with a generic interrupted-operation dead end
+- **AND** the exact delivery-specific recovery ref SHALL remain authoritative when its newer commit and an unreachable marker-bearing ancestor would otherwise make the global run-marker scan ambiguous
+- **AND WHEN** the user explicitly discards the local result
+- **THEN** Specrails MAY remove that internal ref only after its exact object is re-proven by the delivery's durable final SHA or run marker
+- **AND** a substituted or unreadable ref SHALL be retained with a cleanup warning
+
+#### Scenario: Recovery baseline has no proven deliverable result on this computer
+
+- **WHEN** the worktree/branch equals the live PR head and bounded causal discovery finds no additional run-owned commit
+- **AND** durable units do not consistently prove a no-change result or already-delivered final SHA
+- **THEN** the delivery SHALL remain blocked with stable status `recovery_unavailable`
+- **AND** both cards SHALL say that no single recoverable result could be proven on this computer, preserve every local object/path, hide Commit and Checkout, and offer localized Recheck plus ownership-safe Inspect/Dismiss or explicit local-result discard actions as applicable
+
+#### Scenario: Manual recovery proves no changes or an already-delivered result
+
+- **WHEN** every matching unit proves `changed=false` and `initialSha=finalSha=live PR head`
+- **THEN** the continuation SHALL become `no_changes` without a commit, push, removal, or failure claim
+- **OR WHEN** a consistent durable final SHA or unique run-owned commit already equals the exact live PR head
+- **THEN** the attached PR SHALL be classified as already containing the implementation without a redundant push
 
 #### Scenario: Recovery path or push ownership is substituted
 
@@ -703,6 +748,13 @@ Dashboard and agent-chat surfaces SHALL derive titles, tones, evidence, links, l
 - **OR** the same delivery loses or changes its attached PR branch while Checkout waits for the repository lock
 - **THEN** the server SHALL fail closed before worktree release and use no pre-lock branch value
 - **AND** both surfaces SHALL present a localized protective refusal
+
+#### Scenario: A deliverable PR branch diverged locally before Checkout
+
+- **WHEN** a delivery has immutable `delivery_sha=D` but the same-named local or fetched remote branch points to another commit `U`
+- **THEN** Checkout SHALL preserve `U`, refuse before switching the main checkout, and explain that the branch does not match the verified delivery
+- **AND** a successful Checkout SHALL revalidate after switching that both the checked-out branch and `HEAD` equal `D`
+- **AND** a failed `pull --ff-only` or mutable branch-name match SHALL never be reported as successful delivery checkout
 
 ### Requirement: Startup recovery makes every stale generation actionable
 

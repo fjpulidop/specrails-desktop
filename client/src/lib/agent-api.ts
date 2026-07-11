@@ -334,6 +334,7 @@ export type AgentPrDecisionOutcome =
       verifiedSha: string | null
       remoteHeadSha: string | null
       pushed: boolean | null
+      recoveryUnavailable: boolean
       snapshot: RailPrStateSnapshot | null
     }
   /** Startup reconciliation owns the project; no decision effect was run. */
@@ -384,6 +385,7 @@ export async function postRailPrDecision(
       verifiedSha: typeof data?.verifiedSha === 'string' ? data.verifiedSha : null,
       remoteHeadSha: typeof data?.remoteHeadSha === 'string' ? data.remoteHeadSha : null,
       pushed: typeof data?.pushed === 'boolean' ? data.pushed : null,
+      recoveryUnavailable: data?.recoveryUnavailable === true,
       snapshot,
     }
   }

@@ -25,6 +25,7 @@ A successful implementation can currently be presented as an implementation fail
 - Recover uniquely run-marked commits that survive only as unreachable Git objects, and give an explicitly confirmed blocked continuation a lossless `Commit & retry push` path that operates only on its delivery-owned worktree/branch.
 - Replace misleading Checkout controls on unproven blocked results with inspectable local-recovery controls; keep main-checkout dirtiness a localized no-op that never releases the preserved worktree.
 - Authenticate recovery paths against Git's live worktree registry, make never-commit pathspecs authoritative at commit time, reject cross-repository PR heads and mismatched `origin` targets, and fail Checkout closed when cleanliness cannot be read.
+- Make explicit recovery reuse the same bounded refs/reflogs/unreachable causal scan as startup, protect a recovered orphan with an internal ref before persistence/network work, and distinguish already-delivered, proven no-change, and no-evidence-on-this-computer outcomes without repeatedly offering an impossible Commit action.
 - Update the Safe PR lifecycle documentation and add backend/client regression coverage for repeated implementation and recovery corner cases.
 
 ## Capabilities

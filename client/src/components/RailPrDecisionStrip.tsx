@@ -185,6 +185,8 @@ export function RailPrDecisionStrip({ decision, density, act, checkout }: RailPr
         if (res.deliveryVerified) {
           const sha = (res.verifiedSha ?? res.snapshot?.deliverySha ?? '').slice(0, 8)
           toast.success(t('railPr.recoverAndRetryVerified', { sha }))
+        } else if (res.recoveryUnavailable || res.snapshot?.statusCode === 'recovery_unavailable') {
+          toast.info(t('railPr.recoveryUnavailable'), { description: t('railPr.recoveryUnavailableBody') })
         } else {
           toast.warning(t('railPr.recoveryStillBlocked'), { description: res.detail ?? undefined })
         }
@@ -407,16 +409,17 @@ export function RailPrDecisionStrip({ decision, density, act, checkout }: RailPr
     </button>
   ) : null
 
-  const recoverAndRetryBtn = presentation.manualRecovery ? (
+  const recoveryIsRecheck = presentation.recoveryRecheck
+  const recoverAndRetryBtn = presentation.manualRecovery || recoveryIsRecheck ? (
     <button
       type="button"
-      data-testid="rail-pr-recover-and-retry"
+      data-testid={recoveryIsRecheck ? 'rail-pr-recheck-recovery' : 'rail-pr-recover-and-retry'}
       disabled={busy}
       onClick={(event) => { event.stopPropagation(); openConfirmation('recover-and-retry') }}
-      className={primaryBtn}
+      className={recoveryIsRecheck ? secondaryBtn : primaryBtn}
     >
       {inFlight === 'recover-and-retry' ? spinner : <RotateCcw className={iconCls} aria-hidden />}
-      {t('railPr.recoverAndRetry')}
+      {t(recoveryIsRecheck ? 'railPr.recheckRecovery' : 'railPr.recoverAndRetry')}
     </button>
   ) : null
 
@@ -583,7 +586,7 @@ export function RailPrDecisionStrip({ decision, density, act, checkout }: RailPr
       {inspectLocalResultBtn}
       {recoverAndRetryBtn}
       {presentation.continuation
-        ? (presentation.partialUndeliverable || presentation.recoveryWorktreePaths.length === 0 ? dismissBtn : discardLocalBtn)
+        ? (presentation.hasDiscardableRecoveryResult ? discardLocalBtn : dismissBtn)
         : discardBtn}
     </>
   } else if (presentation.retryablePush) {
@@ -758,7 +761,9 @@ export function RailPrDecisionStrip({ decision, density, act, checkout }: RailPr
         </span>
       )}
 
-      {(recoveredInterruptedOperation || (!interruptedOperationDetail && decision.statusDetail) || presentation.cleanupWarnings.length > 0) && (
+      {(recoveredInterruptedOperation || presentation.recoveryUnavailable ||
+        (!interruptedOperationDetail && decision.statusDetail && !presentation.recoveryUnavailable) ||
+        presentation.cleanupWarnings.length > 0) && (
         <div className={`basis-full rounded-md border border-accent-warning/30 bg-accent-warning/10 text-accent-warning ${compact ? 'px-1.5 py-1 text-[9px]' : 'px-2 py-1.5 text-[10px]'}`} data-testid="rail-pr-delivery-detail">
           {recoveredInterruptedOperation && (
             <p className="flex items-start gap-1.5" data-testid="rail-pr-recovery-interrupted">
@@ -766,7 +771,16 @@ export function RailPrDecisionStrip({ decision, density, act, checkout }: RailPr
               <span>{t('common:prRecovery.interrupted')}</span>
             </p>
           )}
-          {!interruptedOperationDetail && decision.statusDetail && <p>{decision.statusDetail}</p>}
+          {presentation.recoveryUnavailable && (
+            <p data-testid="rail-pr-recovery-unavailable">{t('railPr.recoveryUnavailableBody')}</p>
+          )}
+          {presentation.recoveryUnavailable && decision.statusDetail && !interruptedOperationDetail && (
+            <details className="mt-1 text-foreground/60" data-testid="rail-pr-recovery-technical-detail">
+              <summary className="cursor-pointer font-medium text-foreground/70">{t('railPr.recoveryDetailSummary')}</summary>
+              <p className="mt-1 break-words">{decision.statusDetail}</p>
+            </details>
+          )}
+          {!interruptedOperationDetail && decision.statusDetail && !presentation.recoveryUnavailable && <p>{decision.statusDetail}</p>}
           {presentation.cleanupWarnings.length > 0 && (
             <div className={recoveredInterruptedOperation || (!interruptedOperationDetail && decision.statusDetail) ? 'mt-1' : undefined}>
               <p className="font-medium">{t('railPr.cleanupIncomplete', { count: presentation.cleanupWarnings.length })}</p>
@@ -945,13 +959,13 @@ export function RailPrDecisionStrip({ decision, density, act, checkout }: RailPr
       <Dialog open={confirmationIsOpen('recover-and-retry')} onOpenChange={(open) => { if (!open) closeConfirmation() }}>
         <DialogContent className="max-w-sm" data-testid="rail-pr-recover-and-retry-confirm">
           <DialogHeader>
-            <DialogTitle>{t('railPr.recoverAndRetryConfirmTitle')}</DialogTitle>
-            <DialogDescription>{t('railPr.recoverAndRetryConfirmBody', { branch: decision.branch ?? '' })}</DialogDescription>
+            <DialogTitle>{t(recoveryIsRecheck ? 'railPr.recheckRecoveryConfirmTitle' : 'railPr.recoverAndRetryConfirmTitle')}</DialogTitle>
+            <DialogDescription>{t(recoveryIsRecheck ? 'railPr.recheckRecoveryConfirmBody' : 'railPr.recoverAndRetryConfirmBody', { branch: decision.branch ?? '' })}</DialogDescription>
           </DialogHeader>
           <DialogFooter>
             <Button variant="outline" size="sm" onClick={closeConfirmation}>{t('common:actions.cancel')}</Button>
             <Button size="sm" disabled={busy} onClick={() => confirmAction('recover-and-retry', 'recover-and-retry')}>
-              {t('railPr.recoverAndRetry')}
+              {t(recoveryIsRecheck ? 'railPr.recheckRecovery' : 'railPr.recoverAndRetry')}
             </Button>
           </DialogFooter>
         </DialogContent>

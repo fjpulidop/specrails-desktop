@@ -124,6 +124,93 @@ describe('PR delivery semantic derivation', () => {
     expect(result.recoveryWorktreePaths).toEqual(['/tmp/worktree-1'])
   })
 
+  it('turns an unavailable local recovery into a truthful recheck path, never the commit recovery loop', () => {
+    const result = derivePrDeliveryPresentation({
+      decision: 'pr_failed',
+      ticketIds: [1],
+      prUrl: 'https://github.com/o/r/pull/548',
+      branch: 'feat/review',
+      prState: 'pr-created',
+      implementationOutcome: 'succeeded',
+      deliveryOutcome: 'blocked',
+      statusCode: 'recovery_unavailable',
+      isContinuation: true,
+      runIds: ['run-1'],
+      units: [{
+        ticketId: 1, runId: 'run-1', branch: 'feat/review', succeeded: true,
+        implementationOutcome: 'succeeded', deliveryOutcome: 'blocked',
+        initialSha: 'a', finalSha: null, failureCode: 'recovery_unavailable',
+      }],
+    })
+
+    expect(result).toMatchObject({
+      implementationFailed: false,
+      deliveryBlocked: true,
+      manualRecovery: false,
+      recoveryUnavailable: true,
+      recoveryRecheck: true,
+      hasDiscardableRecoveryResult: false,
+      recoveryWorktreePaths: [],
+    })
+  })
+
+  it('marks a durable unavailable-recovery SHA as explicitly discardable without inventing a worktree', () => {
+    const result = derivePrDeliveryPresentation({
+      decision: 'pr_failed',
+      ticketIds: [1],
+      prUrl: 'https://github.com/o/r/pull/548',
+      branch: 'feat/review',
+      prState: 'pr-created',
+      deliverySha: 'b'.repeat(40),
+      implementationOutcome: 'succeeded',
+      deliveryOutcome: 'blocked',
+      statusCode: 'recovery_unavailable',
+      isContinuation: true,
+      runIds: ['run-1'],
+      units: [{
+        ticketId: 1, runId: 'run-1', branch: 'feat/review', succeeded: true,
+        implementationOutcome: 'succeeded', deliveryOutcome: 'blocked',
+        initialSha: 'a', finalSha: 'b'.repeat(40), failureCode: 'recovery_unavailable',
+      }],
+    })
+
+    expect(result).toMatchObject({
+      recoveryUnavailable: true,
+      recoveryRecheck: true,
+      hasDiscardableRecoveryResult: true,
+      recoveryWorktreePaths: [],
+    })
+  })
+
+  it('does not offer recheck without exact run-and-branch evidence', () => {
+    const base = {
+      decision: 'pr_failed' as const,
+      ticketIds: [1],
+      prUrl: 'https://github.com/o/r/pull/548',
+      branch: 'feat/review',
+      prState: 'pr-created' as const,
+      implementationOutcome: 'succeeded' as const,
+      deliveryOutcome: 'blocked' as const,
+      statusCode: 'recovery_unavailable',
+      isContinuation: true,
+      runIds: ['run-1'],
+      units: [{
+        ticketId: 1, runId: 'run-1', branch: 'feat/review', succeeded: true,
+        implementationOutcome: 'succeeded' as const, deliveryOutcome: 'blocked' as const,
+        initialSha: 'a', finalSha: null,
+      }],
+    }
+
+    expect(derivePrDeliveryPresentation({ ...base, prUrl: null }).recoveryRecheck).toBe(false)
+    expect(derivePrDeliveryPresentation({ ...base, branch: null }).recoveryRecheck).toBe(false)
+    expect(derivePrDeliveryPresentation({ ...base, runIds: [] }).recoveryRecheck).toBe(false)
+    expect(derivePrDeliveryPresentation({ ...base, units: [] }).recoveryRecheck).toBe(false)
+    expect(derivePrDeliveryPresentation({
+      ...base,
+      units: [{ ...base.units[0], runId: 'another-run' }],
+    }).recoveryRecheck).toBe(false)
+  })
+
   it('does not offer manual recovery outside the exact interrupted existing-PR continuation state', () => {
     const base = {
       decision: 'pr_failed' as const,

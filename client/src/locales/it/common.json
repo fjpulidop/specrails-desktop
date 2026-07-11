@@ -62,6 +62,7 @@
     "branch_verification_failed": "Verifica del branch non riuscita",
     "push_failed": "Push non riuscito",
     "settlement_interrupted": "Preparazione della consegna interrotta",
+    "recovery_unavailable": "Non è stato possibile dimostrare un unico risultato recuperabile su questo computer",
     "operation_interrupted": "Azione di consegna precedente interrotta",
     "delivery_failed": "Consegna non riuscita",
     "pr_draft_ready": "Bozza PR pronta",

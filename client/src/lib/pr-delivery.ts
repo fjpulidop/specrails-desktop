@@ -25,7 +25,7 @@ const STATUS_CODES: ReadonlySet<string> = new Set([
   'implementation_running', 'implementation_failed', 'ready_for_review',
   'partial_success', 'partial_delivery', 'existing_pr_updated', 'no_changes',
   'commit_failed', 'branch_verification_failed', 'push_failed',
-  'settlement_interrupted', 'operation_interrupted', 'delivery_failed', 'pr_draft_ready', 'pr_ready',
+  'settlement_interrupted', 'recovery_unavailable', 'operation_interrupted', 'delivery_failed', 'pr_draft_ready', 'pr_ready',
   'pr_closed', 'merged', 'discarded', 'superseded', 'cleanup_incomplete',
   // Conservative legacy aliases retained by old recovered rows.
   'status_failed', 'ref_mismatch',
@@ -174,6 +174,7 @@ export interface PrDeliverySemanticInput {
   deliveryOutcome?: RailDeliveryOutcome
   statusCode?: string | null
   statusDetail?: string | null
+  deliverySha?: string | null
   isContinuation?: boolean
   runIds?: string[]
   cleanupWarnings?: string[]
@@ -190,6 +191,9 @@ export interface PrDeliveryPresentation {
   retryablePush: boolean
   retryablePrCreation: boolean
   manualRecovery: boolean
+  recoveryUnavailable: boolean
+  recoveryRecheck: boolean
+  hasDiscardableRecoveryResult: boolean
   continuation: boolean
   localOnly: boolean
   closed: boolean
@@ -233,7 +237,7 @@ export function derivePrDeliveryPresentation(input: PrDeliverySemanticInput): Pr
   // actionable/truthful state.
   const deliveryBlocked = !implementationFailed && !retryableFailure && (
     partialUndeliverable || input.deliveryOutcome === 'blocked' || [
-      'commit_failed', 'branch_verification_failed', 'settlement_interrupted',
+      'commit_failed', 'branch_verification_failed', 'settlement_interrupted', 'recovery_unavailable',
       'status_failed', 'ref_mismatch', 'delivery_failed',
     ].includes(input.statusCode ?? '')
   )
@@ -255,7 +259,8 @@ export function derivePrDeliveryPresentation(input: PrDeliverySemanticInput): Pr
       .map((unit) => unit.worktreePath)
       .filter((value): value is string => Boolean(value)),
   )]
-  const recoveryWorktreePaths = input.statusCode === 'settlement_interrupted' && continuation
+  const recoveryFamily = (input.statusCode === 'settlement_interrupted' || input.statusCode === 'recovery_unavailable') && continuation
+  const recoveryWorktreePaths = recoveryFamily
     ? matchingRecoveryWorktreePaths
     : [...new Set(
         units.map((unit) => unit.worktreePath).filter((value): value is string => Boolean(value)),
@@ -265,6 +270,13 @@ export function derivePrDeliveryPresentation(input: PrDeliverySemanticInput): Pr
     recoveryRunIds.length === 1 && matchingRecoveryUnits.length > 0 && matchingRecoveryWorktreePaths.length <= 1 &&
     input.statusCode === 'settlement_interrupted' &&
     (input.implementationOutcome === 'succeeded' || input.implementationOutcome === 'partially_succeeded')
+  const recoveryUnavailable = input.decision === 'pr_failed' && input.deliveryOutcome === 'blocked' &&
+    deliveryBlocked && continuation && input.statusCode === 'recovery_unavailable'
+  const recoveryRecheck = recoveryUnavailable && Boolean(input.prUrl) && Boolean(input.branch) &&
+    recoveryRunIds.length === 1 && matchingRecoveryUnits.length > 0 && matchingRecoveryWorktreePaths.length <= 1 &&
+    (input.implementationOutcome === 'succeeded' || input.implementationOutcome === 'partially_succeeded')
+  const hasDiscardableRecoveryResult = recoveryWorktreePaths.length > 0 ||
+    (recoveryUnavailable && Boolean(input.deliverySha))
   const retryablePush = !implementationFailed && retryableFailure && (
     input.statusCode === 'push_failed' || continuation || Boolean(input.prUrl)
   )
@@ -280,6 +292,9 @@ export function derivePrDeliveryPresentation(input: PrDeliverySemanticInput): Pr
     retryablePush,
     retryablePrCreation,
     manualRecovery,
+    recoveryUnavailable,
+    recoveryRecheck,
+    hasDiscardableRecoveryResult,
     continuation,
     localOnly: input.prState === 'local-only',
     closed,

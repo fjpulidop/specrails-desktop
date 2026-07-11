@@ -1049,7 +1049,11 @@ export function createRailsRouter(): Router {
             detail: cleanupWarnings[0],
           }
         }
-        const checkedOut = await checkoutProjectReviewBranch(c.project.path, currentSnap.branch)
+        const checkedOut = await checkoutProjectReviewBranch(
+          c.project.path,
+          currentSnap.branch,
+          currentSnap.deliverySha,
+        )
         if (!checkedOut.ok) {
           return { ok: false as const, status: 409, error: 'checkout_failed', detail: checkedOut.error }
         }

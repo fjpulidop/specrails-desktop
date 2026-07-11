@@ -16,6 +16,7 @@ import type { RailPrStateMessage, RailFetchDegradedMessage } from './types'
 import type { ProjectContext } from './project-registry'
 import { __resetFetchOriginCache } from './integration-branch'
 import { PR_NEVER_STAGE_PATHS } from './worktree-manager'
+import { recoveryRefForDelivery } from './rail-pr-recovery-git'
 
 // The legacy merge-back must never spawn real executors from a test settle —
 // stub it (PR-mode tests assert it is NOT called; the kill-switch-off pin
@@ -76,6 +77,50 @@ const successfulGitResult = (args: string[]) =>
   args[0] === 'rev-parse' && args.includes('--verify')
     ? { code: 0, stdout: `${TEST_SHA}\n`, stderr: '' }
     : { code: 0, stdout: '', stderr: '' }
+
+function recoveryRefAwareGit(
+  fallback: (args: string[], cwd: string) => Promise<{ code: number; stdout: string; stderr: string }> | { code: number; stdout: string; stderr: string },
+) {
+  const refs = new Map<string, string>()
+  const run = vi.fn(async (args: string[], cwd: string) => {
+    if (args[0] === 'for-each-ref' && args[2] === 'refs/specrails/recovery/') {
+      return {
+        code: 0,
+        stdout: [...refs].map(([ref, sha]) => `${ref}\t${sha}`).join('\n'),
+        stderr: '',
+      }
+    }
+    if (args[0] === 'show-ref' && args[3]?.startsWith('refs/specrails/recovery/')) {
+      return refs.has(args[3])
+        ? { code: 0, stdout: '', stderr: '' }
+        : { code: 1, stdout: '', stderr: '' }
+    }
+    if (args[0] === 'update-ref' && args[1] === '-d') {
+      const [, , ref, expected] = args
+      if (!refs.has(ref)) return { code: 0, stdout: '', stderr: '' }
+      if (expected && refs.get(ref) !== expected) return { code: 1, stdout: '', stderr: 'mismatch' }
+      refs.delete(ref)
+      return { code: 0, stdout: '', stderr: '' }
+    }
+    if (args[0] === 'update-ref' && args[1]?.startsWith('refs/specrails/recovery/')) {
+      const [, ref, sha, expected] = args
+      if (expected && refs.has(ref)) return { code: 1, stdout: '', stderr: 'exists' }
+      refs.set(ref, sha)
+      return { code: 0, stdout: '', stderr: '' }
+    }
+    if (
+      args[0] === 'rev-parse' && args[1] === '--verify' &&
+      args[2]?.startsWith('refs/specrails/recovery/')
+    ) {
+      const value = refs.get(args[2])
+      return value
+        ? { code: 0, stdout: `${value}\n`, stderr: '' }
+        : { code: 1, stdout: '', stderr: 'missing' }
+    }
+    return fallback(args, cwd)
+  })
+  return { git: { run }, run, refs }
+}
 const input = (ticketIds: number[], ctx: ProjectContext) => ({
   ctx, railIndex: 0, ticketIds, loopId: 'factory:implement', loopName: 'Implement',
   loopGraph: graph, provider: 'claude', model: 'sonnet',
@@ -2433,8 +2478,7 @@ describe('reconcileRailWorktrees (startup sweep)', () => {
       implementationOutcome: 'succeeded', deliveryOutcome: 'blocked',
       statusCode: 'settlement_interrupted',
     })
-    const git = {
-      run: vi.fn(async (args: string[]) => {
+    const { git, refs: recoveryRefs } = recoveryRefAwareGit(async (args: string[]) => {
         // `git log --grep` searches the whole commit message. Tests may return a
         // candidate here while `git show --format=%s` proves its subject is not
         // the settlement subject.
@@ -2443,9 +2487,8 @@ describe('reconcileRailWorktrees (startup sweep)', () => {
           return { code: 0, stdout: `${subject ?? `specrails: ticket-1 (run ${runId})`}\n`, stderr: '' }
         }
         return successfulGitResult(args)
-      }),
-    }
-    return { db, runId, branch, recoveredSha, delivery, worktree, git }
+      })
+    return { db, runId, branch, recoveredSha, delivery, worktree, git, recoveryRefs }
   }
 
   it('preserves a successful dirty interrupted worktree and recovers an actionable blocked delivery', async () => {
@@ -2609,8 +2652,7 @@ describe('reconcileRailWorktrees (startup sweep)', () => {
   it('recovers a uniquely run-marked settlement commit that survives only as an unreachable object', async () => {
     const seeded = seedLegacyPrRecoveryCandidate('legacy-unreachable-only')
     const oldPrHead = 'b'.repeat(40)
-    const git = {
-      run: vi.fn(async (args: string[]) => {
+    const { git, refs: recoveryRefs } = recoveryRefAwareGit(async (args: string[]) => {
         if (args[0] === 'fsck') {
           return {
             code: 0,
@@ -2633,8 +2675,7 @@ describe('reconcileRailWorktrees (startup sweep)', () => {
           return { code: 0, stdout: `${oldPrHead}\n`, stderr: '' }
         }
         return successfulGitResult(args)
-      }),
-    }
+      })
 
     await reconcileRailWorktrees(seeded.db, '/repo', {
       git, exec: recoveryPrExec(seeded.branch, oldPrHead), remove: vi.fn(async () => {}),
@@ -2647,6 +2688,199 @@ describe('reconcileRailWorktrees (startup sweep)', () => {
     expect(git.run).toHaveBeenCalledWith(
       ['fsck', '--unreachable', '--no-reflogs', '--no-progress'], '/repo',
     )
+    expect([...recoveryRefs.values()]).toEqual([seeded.recoveredSha])
+  })
+
+  it('pins a unique orphan but stays blocked when the same run still owns unsafe needs-review worktree evidence', async () => {
+    const seeded = seedLegacyPrRecoveryCandidate('legacy-orphan-plus-needs-review')
+    updateRailWorktreeState(seeded.db, seeded.worktree.id, 'needs-review')
+    const exec = { run: vi.fn(async () => ({ code: 1, stdout: '', stderr: 'must not observe PR' })) }
+
+    await reconcileRailWorktrees(seeded.db, '/repo', {
+      git: seeded.git, exec, remove: vi.fn(async () => {}),
+    })
+
+    expect(getPrDelivery(seeded.db, seeded.delivery.id)).toMatchObject({
+      decision: 'pr_failed', delivery_outcome: 'blocked', status_code: 'recovery_unavailable',
+      delivery_sha: seeded.recoveredSha, is_continuation: 1,
+      status_detail: expect.stringContaining('needs-review'),
+    })
+    expect([...seeded.recoveryRefs.values()]).toEqual([seeded.recoveredSha])
+    expect(getRailWorktree(seeded.db, seeded.worktree.id)?.merge_state).toBe('needs-review')
+    expect(exec.run).not.toHaveBeenCalled()
+  })
+
+  it('pins unique run object Y but preserves and blocks on a safe authenticated worktree at different X', async () => {
+    const root = fs.mkdtempSync(path.join(os.tmpdir(), 'specrails-safe-x-orphan-y-'))
+    const repoDir = path.join(root, 'repo')
+    const worktreePath = path.join(root, 'ticket-1')
+    fs.mkdirSync(repoDir, { recursive: true })
+    fs.mkdirSync(worktreePath, { recursive: true })
+    try {
+      const seeded = seedLegacyPrRecoveryCandidate('legacy-safe-x-orphan-y')
+      const worktreeSha = 'a'.repeat(40)
+      const orphanSha = seeded.recoveredSha
+      const worktreeRealPath = fs.realpathSync(worktreePath)
+      seeded.db.prepare(`
+        UPDATE rail_worktrees
+           SET worktree_path = ?, merge_state = 'built'
+         WHERE id = ?
+      `).run(worktreePath, seeded.worktree.id)
+      const { git, refs } = recoveryRefAwareGit(async (args: string[], cwd: string) => {
+        if (args[0] === 'status' && (cwd === worktreePath || cwd === worktreeRealPath)) {
+          return { code: 0, stdout: '', stderr: '' }
+        }
+        if (args.join(' ') === 'rev-parse --abbrev-ref HEAD' && (cwd === worktreePath || cwd === worktreeRealPath)) {
+          return { code: 0, stdout: `${seeded.branch}\n`, stderr: '' }
+        }
+        if (args.join(' ') === 'rev-parse --verify HEAD' && (cwd === worktreePath || cwd === worktreeRealPath)) {
+          return { code: 0, stdout: `${worktreeSha}\n`, stderr: '' }
+        }
+        if (args.join(' ') === `rev-parse --verify refs/heads/${seeded.branch}` && cwd === repoDir) {
+          return { code: 0, stdout: `${worktreeSha}\n`, stderr: '' }
+        }
+        if (args.join(' ') === 'worktree list --porcelain' && cwd === repoDir) {
+          return {
+            code: 0,
+            stdout: `worktree ${repoDir}\nHEAD ${worktreeSha}\nbranch refs/heads/main\n\nworktree ${worktreePath}\nHEAD ${worktreeSha}\nbranch refs/heads/${seeded.branch}\n`,
+            stderr: '',
+          }
+        }
+        if (args[0] === 'fsck') return { code: 0, stdout: '', stderr: '' }
+        if (args[0] === 'log') return { code: 0, stdout: `${orphanSha}\n`, stderr: '' }
+        if (args[0] === 'show') {
+          return { code: 0, stdout: `settle (run ${seeded.runId})\n`, stderr: '' }
+        }
+        return successfulGitResult(args)
+      })
+      const exec = { run: vi.fn(async () => ({ code: 1, stdout: '', stderr: 'must not observe PR' })) }
+
+      await reconcileRailWorktrees(seeded.db, repoDir, {
+        git, exec, remove: vi.fn(async () => {}),
+      })
+
+      expect(getPrDelivery(seeded.db, seeded.delivery.id)).toMatchObject({
+        decision: 'pr_failed', delivery_outcome: 'blocked', status_code: 'settlement_interrupted',
+        delivery_sha: orphanSha, is_continuation: 1,
+        status_detail: expect.stringContaining('mismatched worktree evidence'),
+      })
+      expect([...refs.values()]).toEqual([orphanSha])
+      expect(getRailWorktree(seeded.db, seeded.worktree.id)).toMatchObject({
+        merge_state: 'built', worktree_path: worktreePath,
+      })
+      const units = JSON.parse(getPrDelivery(seeded.db, seeded.delivery.id)!.branches) as DeliverBranchRecord[]
+      expect(units[0]).toMatchObject({ worktreePath: worktreeRealPath })
+      expect(exec.run).not.toHaveBeenCalled()
+    } finally {
+      fs.rmSync(root, { recursive: true, force: true })
+    }
+  })
+
+  it('prefers advanced delivery ref B after a crash even when refs/reflogs still expose marked A and B', async () => {
+    const seeded = seedLegacyPrRecoveryCandidate('legacy-ref-advanced-before-freeze')
+    const earlierSha = 'b'.repeat(40)
+    const advancedSha = seeded.recoveredSha
+    const oldPrHead = 'd'.repeat(40)
+    const { git, refs, run } = recoveryRefAwareGit(async (args: string[]) => {
+      if (args[0] === 'fsck') return { code: 0, stdout: '', stderr: '' }
+      if (args[0] === 'log') return { code: 0, stdout: `${earlierSha}\n${advancedSha}\n`, stderr: '' }
+      if (args[0] === 'show') return { code: 0, stdout: `settle (run ${seeded.runId})\n`, stderr: '' }
+      if (args[0] === 'cat-file' || args[0] === 'merge-base') return { code: 0, stdout: '', stderr: '' }
+      return successfulGitResult(args)
+    })
+    const recoveryRef = recoveryRefForDelivery(seeded.delivery.id)
+    refs.set(recoveryRef, advancedSha)
+
+    await reconcileRailWorktrees(seeded.db, '/repo', {
+      git, exec: recoveryPrExec(seeded.branch, oldPrHead), remove: vi.fn(async () => {}),
+    })
+
+    expect(getPrDelivery(seeded.db, seeded.delivery.id)).toMatchObject({
+      decision: 'pr_failed', delivery_outcome: 'retryable_failure',
+      status_code: 'settlement_interrupted', delivery_sha: advancedSha, is_continuation: 1,
+    })
+    expect(refs.get(recoveryRef)).toBe(advancedSha)
+    expect(run.mock.calls.some(([args]) => (args as string[])[0] === 'log' || (args as string[])[0] === 'fsck')).toBe(false)
+  })
+
+  it('keeps a substituted protected ref blocked instead of replacing it with another marked object', async () => {
+    const seeded = seedLegacyPrRecoveryCandidate('legacy-substituted-protection')
+    const substitutedSha = 'e'.repeat(40)
+    const discoveredSha = seeded.recoveredSha
+    const { git, refs } = recoveryRefAwareGit(async (args: string[]) => {
+      if (args[0] === 'fsck') return { code: 0, stdout: '', stderr: '' }
+      if (args[0] === 'log') return { code: 0, stdout: `${discoveredSha}\n`, stderr: '' }
+      if (args[0] === 'show') {
+        const inspected = args[args.length - 1]
+        return {
+          code: 0,
+          stdout: inspected === substitutedSha
+            ? 'unrelated substituted commit\n'
+            : `settle (run ${seeded.runId})\n`,
+          stderr: '',
+        }
+      }
+      return successfulGitResult(args)
+    })
+    const recoveryRef = recoveryRefForDelivery(seeded.delivery.id)
+    refs.set(recoveryRef, substitutedSha)
+    const exec = { run: vi.fn(async () => ({ code: 1, stdout: '', stderr: 'must not observe PR' })) }
+
+    await reconcileRailWorktrees(seeded.db, '/repo', {
+      git, exec, remove: vi.fn(async () => {}),
+    })
+
+    expect(getPrDelivery(seeded.db, seeded.delivery.id)).toMatchObject({
+      decision: 'pr_failed', delivery_outcome: 'blocked', status_code: 'recovery_unavailable',
+      delivery_sha: null, is_continuation: 1,
+      status_detail: expect.stringContaining('different commit already owns'),
+    })
+    expect(refs.get(recoveryRef)).toBe(substitutedSha)
+    expect(exec.run).not.toHaveBeenCalled()
+  })
+
+  it('classifies a unique run-owned commit already at the live PR head as delivered without Retry', async () => {
+    const seeded = seedLegacyPrRecoveryCandidate('legacy-already-delivered')
+
+    await reconcileRailWorktrees(seeded.db, '/repo', {
+      git: seeded.git,
+      exec: recoveryPrExec(seeded.branch, seeded.recoveredSha),
+      remove: vi.fn(async () => {}),
+    })
+
+    expect(getPrDelivery(seeded.db, seeded.delivery.id)).toMatchObject({
+      decision: 'pr_ready', delivery_outcome: 'delivered', status_code: 'pr_ready',
+      delivery_sha: seeded.recoveredSha, is_continuation: 1,
+    })
+    expect(seeded.recoveryRefs.size).toBe(0)
+  })
+
+  it('does not offer Retry for a divergent run-marked orphan and keeps its exact object protected', async () => {
+    const seeded = seedLegacyPrRecoveryCandidate('legacy-unreachable-divergent')
+    const oldPrHead = 'b'.repeat(40)
+    const { git, refs: recoveryRefs } = recoveryRefAwareGit(async (args: string[]) => {
+      if (args[0] === 'fsck') {
+        return { code: 0, stdout: `unreachable commit ${seeded.recoveredSha}\n`, stderr: '' }
+      }
+      if (args[0] === 'log') return { code: 0, stdout: '', stderr: '' }
+      if (args[0] === 'show') {
+        return { code: 0, stdout: `specrails: ticket-1 (run ${seeded.runId})\n`, stderr: '' }
+      }
+      if (args[0] === 'cat-file') return { code: 0, stdout: '', stderr: '' }
+      if (args[0] === 'merge-base') return { code: 1, stdout: '', stderr: 'not an ancestor' }
+      return successfulGitResult(args)
+    })
+
+    await reconcileRailWorktrees(seeded.db, '/repo', {
+      git, exec: recoveryPrExec(seeded.branch, oldPrHead), remove: vi.fn(async () => {}),
+    })
+
+    expect(getPrDelivery(seeded.db, seeded.delivery.id)).toMatchObject({
+      decision: 'pr_failed', delivery_outcome: 'blocked', status_code: 'recovery_unavailable',
+      delivery_sha: seeded.recoveredSha, is_continuation: 1,
+      status_detail: expect.stringContaining('not a fast-forward'),
+    })
+    expect([...recoveryRefs.values()]).toEqual([seeded.recoveredSha])
   })
 
   it('unions refs/reflogs with unreachable objects and blocks two marked commits for one run', async () => {
@@ -2756,10 +2990,16 @@ describe('reconcileRailWorktrees (startup sweep)', () => {
       git, exec: recoveryPrExec(branch, TEST_SHA), remove: vi.fn(async () => {}),
     })
 
+    const unavailableAt = getActivePrDeliveryByRail(db, 0)!.updated_at
+    await reconcileRailWorktrees(db, '/repo', {
+      git, exec: recoveryPrExec(branch, TEST_SHA), remove: vi.fn(async () => {}),
+    })
+
     expect(getActivePrDeliveryByRail(db, 0)).toMatchObject({
       decision: 'pr_failed', delivery_outcome: 'blocked', delivery_sha: null,
-      status_code: 'settlement_interrupted',
+      status_code: 'recovery_unavailable',
       status_detail: expect.stringContaining('could not prove a run-owned commit'),
+      updated_at: unavailableAt,
     })
     expect(getRailWorktree(db, worktree.id)?.branch).toBe(branch)
   })
@@ -2800,13 +3040,11 @@ describe('reconcileRailWorktrees (startup sweep)', () => {
       implementationOutcome: 'succeeded', deliveryOutcome: 'delivered',
       statusCode: 'pr_ready', statusDetail: null, deliverySha: oldPrHead,
     })
-    const git = {
-      run: async (args: string[]) => {
+    const { git } = recoveryRefAwareGit(async (args: string[]) => {
         if (args[0] === 'log') return { code: 0, stdout: `${recoveredRunSha}\n`, stderr: '' }
         if (args[0] === 'show') return { code: 0, stdout: `specrails: ticket-1 (run ${runId})\n`, stderr: '' }
         return successfulGitResult(args)
-      },
-    }
+      })
 
     await reconcileRailWorktrees(db, '/repo', {
       git, exec: recoveryPrExec(branch, oldPrHead), remove: vi.fn(async () => {}),
@@ -2889,7 +3127,7 @@ describe('reconcileRailWorktrees (startup sweep)', () => {
 
     expect(getPrDelivery(db, delivery.id)).toMatchObject({
       decision: 'pr_failed', delivery_outcome: 'blocked', delivery_sha: null,
-      status_code: 'settlement_interrupted', is_continuation: 1,
+      status_code: 'recovery_unavailable', is_continuation: 1,
       status_detail: expect.stringContaining('could not prove a run-owned commit'),
     })
     expect(getRailWorktree(db, worktree.id)?.branch).toBe('feat/existing-pr')
@@ -2933,12 +3171,72 @@ describe('reconcileRailWorktrees (startup sweep)', () => {
 
     expect(getActivePrDeliveryByRail(db, 0)).toMatchObject({
       decision: 'pr_failed', delivery_outcome: 'blocked', delivery_sha: null,
-      status_code: 'settlement_interrupted',
+      status_code: 'recovery_unavailable',
       status_detail: expect.stringContaining('needs-review'),
     })
     expect(git.run).not.toHaveBeenCalledWith(
       ['rev-parse', '--verify', `refs/heads/${branch}`], '/repo',
     )
+  })
+
+  it('restores actionable settlement recovery when a recovery_unavailable row regains a dirty authenticated worktree', async () => {
+    const root = fs.mkdtempSync(path.join(os.tmpdir(), 'specrails-recovery-restored-'))
+    const repoDir = path.join(root, 'repo')
+    const worktreePath = path.join(root, 'ticket-1')
+    fs.mkdirSync(repoDir, { recursive: true })
+    fs.mkdirSync(worktreePath, { recursive: true })
+    try {
+      const worktreeRealPath = fs.realpathSync(worktreePath)
+      const seeded = seedLegacyPrRecoveryCandidate('legacy-restored-worktree')
+      seeded.db.prepare(`
+        UPDATE rail_worktrees
+           SET worktree_path = ?, merge_state = 'needs-review'
+         WHERE id = ?
+      `).run(worktreePath, seeded.worktree.id)
+      transitionDecision(seeded.db, seeded.delivery.id, 'pr_failed', 'pr_failed', {
+        statusCode: 'recovery_unavailable',
+        statusDetail: 'No recovery evidence was available on this computer.',
+      })
+      const git = {
+        run: vi.fn(async (args: string[], cwd: string) => {
+          if (args.join(' ') === 'worktree list --porcelain' && cwd === repoDir) {
+            return {
+              code: 0,
+              stdout: `worktree ${repoDir}\nHEAD ${TEST_SHA}\nbranch refs/heads/main\n\nworktree ${worktreePath}\nHEAD ${TEST_SHA}\nbranch refs/heads/${seeded.branch}\n`,
+              stderr: '',
+            }
+          }
+          if (args[0] === 'status' && (cwd === worktreePath || cwd === worktreeRealPath)) {
+            return { code: 0, stdout: ' M app/recovered.ts\n', stderr: '' }
+          }
+          if (args.join(' ') === 'rev-parse --abbrev-ref HEAD' && (cwd === worktreePath || cwd === worktreeRealPath)) {
+            return { code: 0, stdout: `${seeded.branch}\n`, stderr: '' }
+          }
+          if (args.join(' ') === 'rev-parse --verify HEAD' && (cwd === worktreePath || cwd === worktreeRealPath)) {
+            return { code: 0, stdout: `${TEST_SHA}\n`, stderr: '' }
+          }
+          if (args.join(' ') === `rev-parse --verify refs/heads/${seeded.branch}` && cwd === repoDir) {
+            return { code: 0, stdout: `${TEST_SHA}\n`, stderr: '' }
+          }
+          return successfulGitResult(args)
+        }),
+      }
+
+      await reconcileRailWorktrees(seeded.db, repoDir, {
+        git, exec: recoveryPrExec(seeded.branch, TEST_SHA), remove: vi.fn(async () => {}),
+      })
+
+      expect(getPrDelivery(seeded.db, seeded.delivery.id)).toMatchObject({
+        decision: 'pr_failed', delivery_outcome: 'blocked', delivery_sha: null,
+        status_code: 'settlement_interrupted', is_continuation: 1,
+        status_detail: expect.stringContaining('needs-review'),
+      })
+      const units = JSON.parse(getPrDelivery(seeded.db, seeded.delivery.id)!.branches) as DeliverBranchRecord[]
+      expect(units[0]).toMatchObject({ worktreePath: worktreeRealPath })
+      expect(getRailWorktree(seeded.db, seeded.worktree.id)?.merge_state).toBe('needs-review')
+    } finally {
+      fs.rmSync(root, { recursive: true, force: true })
+    }
   })
 
   it('projects only a currently registered recovery worktree and removes a stale device-local path', async () => {

@@ -60,6 +60,18 @@ import { defaultExec, pushBranch, type Exec } from './pr-publisher'
 import { resolveActivePrContinuationTargets, type ActivePrContinuationTarget } from './active-pr-continuation'
 import { isExactOpenPr, matchesRecordedPrIdentity, observePrLifecycle, verifyPushRemoteForPr } from './pr-lifecycle'
 import { durableBranchHeads, durableOverlayCleanupEvidence, releaseRailWorktrees } from './rail-worktree-release'
+import {
+  commitCarriesRunMarker,
+  discoverRunMarkedCommit,
+  inspectRecoveryCommitProtection,
+  listRecoveryCommitProtections,
+  protectRecoveryCommit,
+  recoveryRefForDelivery,
+  releaseRecoveryCommit,
+  scanUnreachableRecoveryCommits,
+  type RecoveryCommitProtectionScan,
+  type UnreachableRecoveryScan,
+} from './rail-pr-recovery-git'
 import type { BranchToMerge } from './merge-manager'
 import type { LoopGraph } from './loop-graph'
 import type { ProjectContext } from './project-registry'
@@ -215,11 +227,71 @@ function commitFailureSummary(result: CommitWorktreeResult): string {
 }
 
 const COMMIT_SHA_RE = /^[0-9a-f]{40,64}$/i
-// Recovery runs during project startup, so an object store with an excessive
-// number of unreachable commits must degrade to manual review instead of
-// spawning an unbounded number of subject inspections. This is a safety cap,
-// never a truncation: exceeding it invalidates the scan.
-const MAX_UNREACHABLE_RECOVERY_COMMITS = 512
+
+async function recoveryCommitObjectExists(
+  git: GitRunner,
+  repoDir: string,
+  sha: string,
+): Promise<boolean> {
+  if (!COMMIT_SHA_RE.test(sha)) return false
+  try {
+    return (await git.run(['cat-file', '-e', `${sha}^{commit}`], repoDir)).code === 0
+  } catch {
+    return false
+  }
+}
+
+async function isFastForwardRecoveryCommit(
+  git: GitRunner,
+  repoDir: string,
+  baselineSha: string,
+  candidateSha: string,
+): Promise<boolean> {
+  if (!COMMIT_SHA_RE.test(baselineSha) || !COMMIT_SHA_RE.test(candidateSha)) return false
+  if (baselineSha.toLowerCase() === candidateSha.toLowerCase()) return true
+  try {
+    return (await git.run(
+      ['merge-base', '--is-ancestor', baselineSha, candidateSha],
+      repoDir,
+    )).code === 0
+  } catch {
+    return false
+  }
+}
+
+async function releaseDeliveredRecoveryLineage(
+  db: DbInstance,
+  git: GitRunner,
+  repoDir: string,
+  delivery: NonNullable<ReturnType<typeof getPrDelivery>>,
+  deliveredSha: string,
+): Promise<void> {
+  const currentProtection = await inspectRecoveryCommitProtection(git, repoDir, delivery.id)
+  if (
+    currentProtection.kind === 'present' &&
+    currentProtection.sha.toLowerCase() === deliveredSha.toLowerCase()
+  ) {
+    await releaseRecoveryCommit(git, repoDir, delivery.id, deliveredSha)
+  }
+  const visited = new Set<string>([delivery.id])
+  let predecessorId = delivery.supersedes_delivery_id
+  for (let depth = 0; predecessorId && depth < 32 && !visited.has(predecessorId); depth++) {
+    visited.add(predecessorId)
+    const predecessor = getPrDelivery(db, predecessorId)
+    if (!predecessor) break
+    if (predecessor.decision !== 'discarded' && predecessor.decision !== 'superseded') break
+    const protection = await inspectRecoveryCommitProtection(git, repoDir, predecessor.id)
+    if (protection.kind === 'present' && await isFastForwardRecoveryCommit(
+      git,
+      repoDir,
+      protection.sha,
+      deliveredSha,
+    )) {
+      await releaseRecoveryCommit(git, repoDir, predecessor.id, protection.sha)
+    }
+    predecessorId = predecessor.supersedes_delivery_id
+  }
+}
 
 /** Prove that the linked checkout is on the expected PR branch and that its
  * HEAD is exactly the commit named by refs/heads/<branch>. When expectedHeadSha
@@ -1592,88 +1664,6 @@ async function inspectRecoveryWorktree(
   }
 }
 
-type UnreachableRecoveryScan =
-  | { ok: true; commits: string[] }
-  | { ok: false }
-
-/**
- * Inspect only the read-only, unreachable-commit records emitted by fsck. Blob,
- * tree and tag records are expected noise. Any malformed/unknown record or an
- * excessive commit set invalidates the whole scan so recovery cannot infer
- * uniqueness from truncated or ambiguous evidence.
- */
-async function scanUnreachableRecoveryCommits(
-  git: GitRunner,
-  repoDir: string,
-): Promise<UnreachableRecoveryScan> {
-  try {
-    const result = await git.run(
-      ['fsck', '--unreachable', '--no-reflogs', '--no-progress'],
-      repoDir,
-    )
-    if (result.code !== 0) return { ok: false }
-
-    const commits = new Set<string>()
-    for (const rawLine of result.stdout.split(/\r?\n/)) {
-      const line = rawLine.trim()
-      if (!line) continue
-      const commit = /^unreachable commit ([0-9a-f]{40,64})$/i.exec(line)
-      if (commit) {
-        commits.add(commit[1].toLowerCase())
-        if (commits.size > MAX_UNREACHABLE_RECOVERY_COMMITS) return { ok: false }
-        continue
-      }
-      if (/^(?:unreachable|dangling) (?:blob|tree|tag) [0-9a-f]{40,64}$/i.test(line)) continue
-      return { ok: false }
-    }
-    return { ok: true, commits: [...commits] }
-  } catch {
-    return { ok: false }
-  }
-}
-
-async function settlementCommitsForRun(
-  git: GitRunner,
-  repoDir: string,
-  runId: string,
-  unreachableCommits: readonly string[],
-): Promise<string[]> {
-  const candidates = new Set<string>(unreachableCommits)
-  try {
-    const marker = `(run ${runId})`
-    const result = await git.run(
-      ['log', '--all', '--reflog', '--fixed-strings', `--grep=${marker}`, '--format=%H'],
-      repoDir,
-    )
-    if (result.code === 0) {
-      for (const sha of result.stdout.split(/\s+/)) {
-        if (COMMIT_SHA_RE.test(sha)) candidates.add(sha.toLowerCase())
-      }
-    }
-    const verified: string[] = []
-    for (const sha of candidates) {
-      if (await commitCarriesRunMarker(git, repoDir, sha, runId)) verified.push(sha)
-    }
-    return verified
-  } catch {
-    return []
-  }
-}
-
-async function commitCarriesRunMarker(
-  git: GitRunner,
-  repoDir: string,
-  sha: string,
-  runId: string,
-): Promise<boolean> {
-  try {
-    const result = await git.run(['show', '-s', '--format=%s', sha], repoDir)
-    return result.code === 0 && result.stdout.trim().includes(`(run ${runId})`)
-  } catch {
-    return false
-  }
-}
-
 /**
  * Startup reconciliation is serialized with launch allocation. It proves each
  * orphan clean and durably referenced before removal; successful, dirty,
@@ -1776,7 +1766,7 @@ export async function reconcileRailWorktrees(
        WHERE decision = 'pr_failed'
          AND implementation_outcome IN ('succeeded', 'partially_succeeded')
          AND delivery_outcome = 'blocked'
-         AND status_code = 'settlement_interrupted'
+         AND status_code IN ('settlement_interrupted', 'recovery_unavailable')
          AND pr_url IS NOT NULL
          AND branch IS NOT NULL
     `).all() as Array<{ id: string }>)
@@ -1818,6 +1808,13 @@ export async function reconcileRailWorktrees(
         unreachableRecoveryScan = scanUnreachableRecoveryCommits(git, repoDir)
       }
       return unreachableRecoveryScan
+    }
+    let recoveryProtectionScan: Promise<RecoveryCommitProtectionScan> | null = null
+    const getRecoveryProtectionScan = (): Promise<RecoveryCommitProtectionScan> => {
+      if (!recoveryProtectionScan) {
+        recoveryProtectionScan = listRecoveryCommitProtections(git, repoDir)
+      }
+      return recoveryProtectionScan
     }
     for (const delivery of recoveryCandidates) {
       if (!['succeeded', 'partially_succeeded'].includes(delivery.implementation_outcome)) continue
@@ -1874,7 +1871,17 @@ export async function reconcileRailWorktrees(
         }
       } catch { /* malformed legacy unit/path evidence stays undisclosed */ }
       const recoveryLocation = [...new Set(liveRecoveryPaths)][0] ?? null
-      const retainBlockedWithDetail = (detail: string, deliverySha: string | null = null): void => {
+      const retainBlockedWithDetail = (
+        detail: string,
+        deliverySha: string | null = null,
+        // A currently authenticated worktree is actionable local evidence;
+        // without one, repeated Commit promises are misleading. Recheck stays
+        // legal in recovery_unavailable and can still promote a later restored
+        // worktree or newly discovered orphan object.
+        statusCode: PrDeliveryStatusCode = recoveryLocation
+          ? 'settlement_interrupted'
+          : 'recovery_unavailable',
+      ): void => {
         const next = delivery.decision === 'pr_draft' || delivery.decision === 'pr_ready'
           ? 'pr_failed'
           : delivery.decision
@@ -1883,11 +1890,11 @@ export async function reconcileRailWorktrees(
         if (
           delivery.decision === next && delivery.status_detail === detail &&
           delivery.delivery_sha === deliverySha && delivery.is_continuation === 1 &&
-          projectedBranchesUnchanged
+          delivery.status_code === statusCode && projectedBranchesUnchanged
         ) return
         transitionDecision(db, delivery.id, delivery.decision, next, {
           deliveryOutcome: 'blocked',
-          statusCode: 'settlement_interrupted',
+          statusCode,
           statusDetail: detail,
           deliverySha,
           isContinuation: true,
@@ -1910,8 +1917,17 @@ export async function reconcileRailWorktrees(
           : 'Exact commit recovery is unavailable because this legacy delivery has no durable run identifiers; no remaining local evidence was deleted.')
         continue
       }
+      const protectionScan = await getRecoveryProtectionScan()
+      const protectedCandidateSha = protectionScan.ok
+        ? protectionScan.protections.get(recoveryRefForDelivery(delivery.id)) ?? null
+        : null
+      const protectedRunSha = protectedCandidateSha && runIds.length === 1 &&
+        await commitCarriesRunMarker(git, repoDir, protectedCandidateSha, runIds[0])
+        ? protectedCandidateSha
+        : null
       const ambiguousRunCommits = new Set<string>()
       const unsafeRunEvidence = new Set<string>()
+      if (protectedCandidateSha && !protectedRunSha) unsafeRunEvidence.add('protected-ref')
       let unreachableDiscoveryFailed = false
       for (const runId of runIds) {
         let inspectedSha = verifiedShaByRun.get(runId) ?? null
@@ -1927,33 +1943,44 @@ export async function reconcileRailWorktrees(
         } | undefined
         if (ledger?.merge_state === 'needs-review') {
           unsafeRunEvidence.add(runId)
-          continue
-        }
-        if (ledger && fs.existsSync(ledger.worktree_path)) {
+        } else if (ledger && fs.existsSync(ledger.worktree_path)) {
           const inspection = await inspectRecoveryWorktree(git, repoDir, ledger)
           if (!inspection.safe || !inspection.sha) {
             unsafeRunEvidence.add(runId)
-            continue
+          } else {
+            inspectedSha = inspection.sha
           }
-          inspectedSha = inspection.sha
         } else if (
           ledger && !['released', 'failed'].includes(ledger.merge_state) && !inspectedSha
         ) {
           unsafeRunEvidence.add(runId)
+        }
+        if (protectedRunSha && runId === runIds[0]) {
+          if (inspectedSha && inspectedSha.toLowerCase() !== protectedRunSha.toLowerCase()) {
+            unsafeRunEvidence.add(runId)
+          }
+          verifiedShaByRun.set(runId, protectedRunSha)
           continue
         }
-        const unreachable = await getUnreachableRecoveryScan()
-        if (!unreachable.ok) {
-          unreachableDiscoveryFailed = true
+        const discovery = await discoverRunMarkedCommit(
+          git,
+          repoDir,
+          runId,
+          await getUnreachableRecoveryScan(),
+        )
+        if (discovery.kind === 'unique') {
+          if (inspectedSha && inspectedSha.toLowerCase() !== discovery.sha.toLowerCase()) {
+            unsafeRunEvidence.add(runId)
+          }
+          verifiedShaByRun.set(runId, discovery.sha)
           continue
         }
-        const marked = await settlementCommitsForRun(git, repoDir, runId, unreachable.commits)
-        if (marked.length === 1) {
-          verifiedShaByRun.set(runId, marked[0])
-          continue
-        }
-        if (marked.length > 1) {
+        if (discovery.kind === 'ambiguous') {
           ambiguousRunCommits.add(runId)
+          continue
+        }
+        if (discovery.kind === 'scan_failed') {
+          unreachableDiscoveryFailed = true
           continue
         }
         const terminal = ledger && ['released', 'failed'].includes(ledger.merge_state) ? ledger : undefined
@@ -1973,6 +2000,20 @@ export async function reconcileRailWorktrees(
         } catch { /* exact retry remains blocked */ }
       }
       const shas = [...new Set(runIds.map((runId) => verifiedShaByRun.get(runId)).filter((sha): sha is string => !!sha))]
+      const hasOneCompleteCandidate = !unreachableDiscoveryFailed &&
+        ambiguousRunCommits.size === 0 && shas.length === 1 &&
+        runIds.every((runId) => verifiedShaByRun.has(runId))
+      let protectedUnsafeCandidate: string | null = null
+      if (unsafeRunEvidence.size > 0 && hasOneCompleteCandidate) {
+        const protection = await protectRecoveryCommit(git, repoDir, delivery.id, shas[0])
+        if (!protection.ok) {
+          retainBlockedWithDetail(
+            `${protection.detail}; the unsafe worktree and every user-visible ref were left unchanged.`,
+          )
+          continue
+        }
+        protectedUnsafeCandidate = shas[0]
+      }
       if (
         unsafeRunEvidence.size > 0 || unreachableDiscoveryFailed ||
         ambiguousRunCommits.size > 0 || shas.length !== 1 ||
@@ -1988,10 +2029,24 @@ export async function reconcileRailWorktrees(
               : 'Exact commit recovery found multiple different commits; no ambiguous object was selected or deleted.'
             : recoveryLocation
               ? `Exact commit recovery could not prove a run-owned commit; inspect the preserved worktree at ${recoveryLocation}.`
-              : 'Exact commit recovery could not prove a run-owned commit from this delivery’s refs, reflogs, or unreachable objects; no remaining local evidence was deleted.')
+              : 'Exact commit recovery could not prove a run-owned commit from this delivery’s refs, reflogs, or unreachable objects; no remaining local evidence was deleted.',
+          protectedUnsafeCandidate,
+          recoveryLocation ? 'settlement_interrupted' : 'recovery_unavailable')
         continue
       }
       const candidateSha = shas[0]
+      const protectedCommit = await protectRecoveryCommit(
+        git,
+        repoDir,
+        delivery.id,
+        candidateSha,
+      )
+      if (!protectedCommit.ok) {
+        retainBlockedWithDetail(
+          `${protectedCommit.detail}; no local evidence was changed or removed.`,
+        )
+        continue
+      }
       let causallyRecoveredBranches: DeliverBranchRecord[] | undefined
       try {
         const units = recoveryAwareBranches ?? JSON.parse(delivery.branches) as DeliverBranchRecord[]
@@ -2035,10 +2090,11 @@ export async function reconcileRailWorktrees(
       const identityMatches = matchesRecordedPrIdentity(observed, delivery.branch, delivery.base_branch)
       if (observed.state === 'MERGED') {
         if (identityMatches && observed.includesExpectedSha === true) {
-          transitionDecision(db, delivery.id, delivery.decision, 'pr_ready', {
+          const transitioned = transitionDecision(db, delivery.id, delivery.decision, 'pr_ready', {
             deliveryOutcome: 'delivered', statusCode: 'pr_ready', statusDetail: null,
             deliverySha: candidateSha, branches: causallyRecoveredBranches, isContinuation: true,
           })
+          if (transitioned) await releaseDeliveredRecoveryLineage(db, git, repoDir, delivery, candidateSha)
         } else {
           detachFromStalePr(observed.includesExpectedSha === true
             ? 'the previous PR was merged after its recorded head/base identity changed'
@@ -2048,10 +2104,11 @@ export async function reconcileRailWorktrees(
       }
       if (observed.state === 'CLOSED') {
         if (identityMatches && observed.includesExpectedSha === true) {
-          transitionDecision(db, delivery.id, delivery.decision, 'pr_closed', {
+          const transitioned = transitionDecision(db, delivery.id, delivery.decision, 'pr_closed', {
             deliveryOutcome: 'delivered', statusCode: 'pr_closed', statusDetail: null,
             deliverySha: candidateSha, branches: causallyRecoveredBranches, isContinuation: true,
           })
+          if (transitioned) await releaseDeliveredRecoveryLineage(db, git, repoDir, delivery, candidateSha)
         } else {
           detachFromStalePr(observed.includesExpectedSha === true
             ? 'the previous PR was closed after its recorded head/base identity changed'
@@ -2065,7 +2122,7 @@ export async function reconcileRailWorktrees(
       }
       if (observed.includesExpectedSha === true) {
         const next = observed.isDraft ? 'pr_draft' : 'pr_ready'
-        transitionDecision(db, delivery.id, delivery.decision, next, {
+        const transitioned = transitionDecision(db, delivery.id, delivery.decision, next, {
           deliveryOutcome: 'delivered',
           statusCode: next === 'pr_ready' ? 'pr_ready' : 'existing_pr_updated',
           statusDetail: null,
@@ -2073,6 +2130,26 @@ export async function reconcileRailWorktrees(
           branches: causallyRecoveredBranches,
           isContinuation: true,
         })
+        if (transitioned) await releaseDeliveredRecoveryLineage(db, git, repoDir, delivery, candidateSha)
+        continue
+      }
+      if (observed.headRefOid && !await recoveryCommitObjectExists(git, repoDir, observed.headRefOid)) {
+        try {
+          await git.run(['fetch', 'origin', `refs/heads/${delivery.branch}`], repoDir)
+        } catch { /* the immutable object check below remains authoritative */ }
+      }
+      if (
+        !observed.headRefOid ||
+        !await recoveryCommitObjectExists(git, repoDir, observed.headRefOid) ||
+        !await isFastForwardRecoveryCommit(git, repoDir, observed.headRefOid, candidateSha)
+      ) {
+        retainBlockedWithDetail(
+          observed.headRefOid && await recoveryCommitObjectExists(git, repoDir, observed.headRefOid)
+            ? 'Recovered the exact run-owned commit, but it is not a fast-forward of the live PR head. The commit remains protected and nothing was pushed or removed.'
+            : 'Recovered the exact run-owned commit, but the live PR head object could not be verified locally. The commit remains protected and nothing was pushed or removed.',
+          candidateSha,
+          'recovery_unavailable',
+        )
         continue
       }
       transitionDecision(db, delivery.id, delivery.decision, 'pr_failed', {
@@ -2083,6 +2160,41 @@ export async function reconcileRailWorktrees(
         branches: causallyRecoveredBranches,
         isContinuation: true,
       })
+    }
+    // Internal refs are deliberately released only after the durable row proves
+    // exact delivery/no-change. If a previous process crashed after that row
+    // transition but before `update-ref -d`, retry the idempotent exact cleanup
+    // now, including discarded/superseded predecessor refs whose objects are
+    // ancestors of the delivered successor.
+    const settledRecoveryRefs = (db.prepare(`
+      SELECT id FROM rail_pr_deliveries
+       WHERE delivery_sha IS NOT NULL
+         AND (delivery_outcome IN ('delivered','no_changes') OR decision IN ('merged','completed'))
+    `).all() as Array<{ id: string }>)
+      .map(({ id }) => getPrDelivery(db, id))
+      .filter((row): row is NonNullable<ReturnType<typeof getPrDelivery>> => Boolean(row?.delivery_sha))
+    if (settledRecoveryRefs.length > 0) {
+      const protectionScan = await getRecoveryProtectionScan()
+      if (protectionScan.ok && protectionScan.protections.size > 0) {
+        for (const settled of settledRecoveryRefs) {
+          const visited = new Set<string>()
+          let lineage: typeof settled | undefined = settled
+          let hasProtectedLineage = false
+          for (let depth = 0; lineage && depth < 32 && !visited.has(lineage.id); depth++) {
+            visited.add(lineage.id)
+            if (protectionScan.protections.has(recoveryRefForDelivery(lineage.id))) {
+              hasProtectedLineage = true
+              break
+            }
+            lineage = lineage.supersedes_delivery_id
+              ? getPrDelivery(db, lineage.supersedes_delivery_id)
+              : undefined
+          }
+          if (hasProtectedLineage) {
+            await releaseDeliveredRecoveryLineage(db, git, repoDir, settled, settled.delivery_sha!)
+          }
+        }
+      }
     }
     for (const delivery of recoveryCandidates) {
       try { io.onDeliveryRecovered?.(delivery.id) } catch { /* durable state wins over advisory surfaces */ }

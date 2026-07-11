@@ -326,6 +326,8 @@ export function AgentPrDecisionCard({ envelope: envelopeProp }: { envelope: Agen
         if (r.deliveryVerified) {
           const sha = (r.verifiedSha ?? r.snapshot?.deliverySha ?? '').slice(0, 8)
           toast.success(t('prCard.recoverAndRetryVerified', { sha }))
+        } else if (r.recoveryUnavailable || r.snapshot?.statusCode === 'recovery_unavailable') {
+          toast.info(t('prCard.recoveryUnavailable'), { description: t('prCard.recoveryUnavailableBody') })
         } else {
           toast.warning(t('prCard.recoveryStillBlocked'), { description: r.detail ?? undefined })
         }
@@ -627,17 +629,20 @@ export function AgentPrDecisionCard({ envelope: envelopeProp }: { envelope: Agen
     </button>
   )
 
-  const recoverAndRetryAction = presentation.manualRecovery && (
+  const recoveryIsRecheck = presentation.recoveryRecheck
+  const recoverAndRetryAction = (presentation.manualRecovery || recoveryIsRecheck) && (
     <button
       type="button"
       onClick={() => setConfirmingRecoverAndRetry(true)}
       disabled={anyBusy}
-      data-testid="agent-pr-recover-and-retry"
+      data-testid={recoveryIsRecheck ? 'agent-pr-recheck-recovery' : 'agent-pr-recover-and-retry'}
       data-agent-interactive
-      className={primaryBtn}
+      className={recoveryIsRecheck
+        ? 'inline-flex items-center gap-1 rounded-md border border-border/60 px-2 py-1 text-[11px] font-medium text-foreground/70 transition-colors hover:border-accent-primary/40 hover:bg-accent-primary/10 disabled:pointer-events-none disabled:opacity-50'
+        : primaryBtn}
     >
       {busy === 'recover-and-retry' ? spinner : <RotateCcw className="h-3 w-3" aria-hidden />}
-      {t('prCard.recoverAndRetry')}
+      {t(recoveryIsRecheck ? 'prCard.recheckRecovery' : 'prCard.recoverAndRetry')}
     </button>
   )
 
@@ -802,10 +807,21 @@ export function AgentPrDecisionCard({ envelope: envelopeProp }: { envelope: Agen
         <p className="mt-2 flex items-start gap-1.5 text-[11px] leading-4 text-accent-warning">
           <AlertTriangle className="mt-px h-3 w-3 shrink-0" />
           <span>
-            {t(presentation.partial ? 'prCard.partialDeliveryBlockedNote' : 'prCard.deliveryBlockedNote')}
-            {envelope.statusDetail && !interruptedOperationDetail ? <span className="mt-0.5 block text-foreground/50">{envelope.statusDetail}</span> : null}
+            {presentation.recoveryUnavailable
+              ? t('prCard.recoveryUnavailableBody')
+              : t(presentation.partial ? 'prCard.partialDeliveryBlockedNote' : 'prCard.deliveryBlockedNote')}
+            {envelope.statusDetail && !interruptedOperationDetail && !presentation.recoveryUnavailable
+              ? <span className="mt-0.5 block text-foreground/50">{envelope.statusDetail}</span>
+              : null}
           </span>
         </p>
+      )}
+
+      {!terminal && presentation.recoveryUnavailable && envelope.statusDetail && !interruptedOperationDetail && (
+        <details className="mt-1.5 text-[10px] leading-4 text-foreground/55" data-testid="agent-pr-recovery-technical-detail">
+          <summary className="cursor-pointer font-medium text-foreground/65">{t('prCard.recoveryDetailSummary')}</summary>
+          <p className="mt-1 break-words">{envelope.statusDetail}</p>
+        </details>
       )}
 
       {!terminal && presentation.retryablePush && (
@@ -885,7 +901,7 @@ export function AgentPrDecisionCard({ envelope: envelopeProp }: { envelope: Agen
               {inspectLocalResultAction}
               {recoverAndRetryAction}
               {presentation.continuation
-                ? (presentation.partialUndeliverable || presentation.recoveryWorktreePaths.length === 0 ? dismissAction : discardLocalAction)
+                ? (presentation.hasDiscardableRecoveryResult ? discardLocalAction : dismissAction)
                 : discardAction}
             </div>
           )}
@@ -1005,13 +1021,13 @@ export function AgentPrDecisionCard({ envelope: envelopeProp }: { envelope: Agen
       <Dialog open={confirmingRecoverAndRetry} onOpenChange={setConfirmingRecoverAndRetry}>
         <DialogContent className="max-w-sm" data-testid="agent-pr-recover-and-retry-confirm">
           <DialogHeader>
-            <DialogTitle>{t('prCard.confirm.recoverAndRetryTitle')}</DialogTitle>
-            <DialogDescription>{t('prCard.confirm.recoverAndRetryBody', { branch: envelope.branch ?? '' })}</DialogDescription>
+            <DialogTitle>{t(recoveryIsRecheck ? 'prCard.confirm.recheckRecoveryTitle' : 'prCard.confirm.recoverAndRetryTitle')}</DialogTitle>
+            <DialogDescription>{t(recoveryIsRecheck ? 'prCard.confirm.recheckRecoveryBody' : 'prCard.confirm.recoverAndRetryBody', { branch: envelope.branch ?? '' })}</DialogDescription>
           </DialogHeader>
           <DialogFooter>
             <Button variant="outline" size="sm" onClick={() => setConfirmingRecoverAndRetry(false)}>{t('common:actions.cancel')}</Button>
             <Button size="sm" disabled={anyBusy} data-testid="agent-pr-recover-and-retry-confirm-btn" onClick={() => { setConfirmingRecoverAndRetry(false); void act('recover-and-retry') }}>
-              {t('prCard.recoverAndRetry')}
+              {t(recoveryIsRecheck ? 'prCard.recheckRecovery' : 'prCard.recoverAndRetry')}
             </Button>
           </DialogFooter>
         </DialogContent>

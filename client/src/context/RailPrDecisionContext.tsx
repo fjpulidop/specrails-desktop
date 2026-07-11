@@ -37,6 +37,7 @@ export interface RailPrActResult {
   verifiedSha?: string | null
   remoteHeadSha?: string | null
   pushed?: boolean
+  recoveryUnavailable?: boolean
   current?: string
   /** merge_local_blocked precondition (`wrong_branch` | `dirty`). */
   reason?: string

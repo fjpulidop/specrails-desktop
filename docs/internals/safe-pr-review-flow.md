@@ -136,8 +136,11 @@ actionable.
 - Operation leases are process capabilities. Startup clears every prior-process lease before card
   projection, marks the still-active delivery `operation_interrupted`, and leaves its durable SHA,
   PR and unit evidence intact so the user can safely retry.
-- Migrated successful `settlement_interrupted` rows with an existing PR are re-examined at startup.
-  Every refs/reflogs, unreachable-object, or recorded-branch candidate must carry the unique `(run <id>)` settlement
+- Migrated successful `settlement_interrupted` and `recovery_unavailable` rows with an existing PR
+  are re-examined at startup. Startup and the explicit recovery action share one bounded,
+  fail-closed scan over refs, reflogs, and unreachable objects; a command/read failure, malformed
+  output, excessive combined candidate set, or ambiguous marker can never become false proof of a
+  unique result. Every refs/reflogs, unreachable-object, or recorded-branch candidate must carry the unique `(run <id>)` settlement
   marker in its **commit subject**; branch/worktree association or a marker found only in the body
   is never causal proof. The unreachable-object scan runs at most once per serialized reconciliation,
   accepts only a bounded, unambiguous set of commit objects, and fails closed on malformed or excessive
@@ -149,8 +152,19 @@ actionable.
   commit when needed. Existing-PR recovery repairs `is_continuation=true` before exposing actions;
   per-unit `branchOwnership=borrowed-pr|preexisting` independently prevents branch deletion without
   incorrectly making every fresh replacement PR a borrowed continuation.
-  Dirty, missing, mismatched, unmarked or ambiguous evidence stays blocked, preserved, and receives
-  a specific recovery diagnostic on the card. Once the exact causal SHA is proven, a transient
+  Before persisting or pushing a recovered orphan, Specrails pins it under a delivery-specific
+  `refs/specrails/recovery/*` ref. The ref survives crashes and protects the object from Git garbage
+  collection until exact remote delivery is proved or the user explicitly discards the result.
+  Discovery still runs when a ledger path exists but is dirty, recreated, or unauthenticated; if a
+  distinct worktree result and run-owned orphan coexist, both are preserved and neither is selected,
+  bundled, or pushed automatically. Restart preserves a `recover-and-retry` recovery-family status,
+  and explicit discard may remove a pre-persistence ref only after its exact run/final ownership is
+  re-proven. If the ref was advanced from marker-bearing ancestor A to descendant B before a crash,
+  that exact delivery ref selects B rather than letting the global scan manufacture self-ambiguity.
+  Successful successor delivery and startup settlement retry clean up exact ancestor refs.
+  A later unrelated branch tip is never substituted for the durable final SHA or unique run-marked
+  object, and all matching units are updated together. Dirty, missing, mismatched, unmarked or
+  ambiguous evidence stays blocked and preserved. Once the exact causal SHA is proven, a transient
   GitHub lookup instead stays retryable and Retry push revalidates before mutation.
 - A blocked legacy card exposes a worktree path only after the path is proved absolute,
   non-symlink, outside the main checkout, uniquely present in this repository's live worktree
@@ -285,6 +299,13 @@ attached and ready for Verify so that explicit decision can commit terminal tick
   PR and the local `origin` push URL must identify that exact PR repository before the immutable SHA
   is pushed without force. A merge racing recovery returns verified success rather than a warning.
   The user's main checkout is never switched, staged, stashed, committed, or cleaned by this action.
+  If the worktree was already removed, the same action scans refs, reflogs, and unreachable commits
+  before declaring the result absent. Baseline equality means “already delivered” only with an exact
+  durable final SHA/run marker, and means “no changes” only when every matching unit durably records
+  `changed=false` and `initialSha=finalSha=live PR head`. Otherwise the row becomes
+  `recovery_unavailable`: the card offers a secondary Recheck action, keeps Inspect/log access and
+  explains that Git evidence is local to the computer where the run executed instead of repeating
+  an impossible Commit or Checkout action.
 - **poll-merge / Verify PR** — observes state, exact head/base/head OID, merge commit and PR commit
   set. `OPEN` remains delivery-verified only while its exact head is `delivery_sha`; a missing
   remote commit restores Retry push instead of merely saying “not merged”. `MERGED` becomes
@@ -372,11 +393,15 @@ the `expectedDecision` they rendered.
   retry); pr_ready → Verify PR; no_changes → Done/refine; pr_closed → Reopen; pr_failed derives
   retry-vs-blocked actions from `delivery_outcome`. A blocked legacy continuation without
   `delivery_sha` never offers Checkout: it exposes any live preserved worktree through Inspect local
-  result and offers the confirmed Commit & retry push action above. Ordinary Checkout is restricted
+  result and offers the confirmed Commit & retry push action above. A `recovery_unavailable` row
+  replaces that primary action with Check again; a clone without the original worktree/object never
+  claims that the implementation failed or that local progress was discarded. Ordinary Checkout is restricted
   to a delivery with an immutable SHA; the server repeats that guard under the repo lock and refuses
   a dirty or unreadable main checkout before releasing a worktree or changing any ref. Checkout
-  re-reads and uses only the current attached PR branch after acquiring the repository lock, never
-  the pre-lock snapshot. Logs remain available after settle. Buttons
+  re-reads and uses only the current attached PR branch and immutable `delivery_sha` after acquiring
+  the repository lock, never the pre-lock snapshot. A same-named local/remote branch must equal that
+  SHA before switching, and the final branch plus HEAD are verified afterward; divergence is
+  preserved and a failed fast-forward can never be reported as success. Logs remain available after settle. Buttons
   disable in flight and apply the authoritative HTTP snapshot immediately.
 - **Option B — agent chat.** When the row carries `origin_conversation_id`, settle posts a
   **persisted inline card**: a `'system'`-role `agent_messages` row (role is unconstrained TEXT —
@@ -570,6 +595,11 @@ the launch INSERT. As-built:
   offer a lease-guarded Commit & retry push that is exact-baseline, fast-forward, immutable-SHA and
   non-force while leaving the user's main checkout untouched. Recovery worktrees, commit index
   pathspecs, same-repository PR ownership, origin identity, and checkout cleanliness all fail closed.
+- **D21 — orphan protection and truthful device-local fallback**: startup and manual Recheck share
+  one bounded refs/reflogs/unreachable scan; an exact orphan is pinned under an internal recovery ref
+  before durable/network mutation. No evidence, ambiguous evidence, or a later unrelated branch tip
+  stays non-destructive and renders localized other-computer guidance instead of looping Commit or
+  Checkout.
 
 ## Kill-switch
 

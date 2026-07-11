@@ -17,6 +17,7 @@ import { PR_LIFECYCLE_JSON_FIELDS } from './pr-lifecycle'
 import { withRepoLock } from './repo-lock'
 import { claimTicketOutcomeOwners } from './rails-store'
 import { fingerprintOverlayCleanupPath } from './worktree-overlay'
+import { recoveryRefForDelivery } from './rail-pr-recovery-git'
 
 // ─── Fakes (DI — no git/gh/net; commands recorded for assertions) ─────────────
 
@@ -152,6 +153,7 @@ function mkRow(input: {
   branch?: string
   deliverySha?: string | null
   isContinuation?: boolean
+  supersedesDeliveryId?: string | null
 }) {
   const ticketIds = input.ticketIds ?? [1, 2]
   const row = createPrDelivery(db, {
@@ -160,6 +162,7 @@ function mkRow(input: {
     originSurface: input.originConversationId ? 'agent-chat' : 'dashboard',
     originConversationId: input.originConversationId ?? null,
     isContinuation: input.isContinuation,
+    supersedesDeliveryId: input.supersedesDeliveryId,
   })
   // Production loop admission claims these exact tickets before a delivery can
   // settle. Keep the fixture causally faithful so terminal outbox assertions do
@@ -837,10 +840,28 @@ describe('create-pr', () => {
       deliverySha: null, isContinuation: true,
     })
     let head = baseline
+    const recoveryRefs = new Map<string, string>()
     const gitCalls: Array<{ args: string[]; cwd: string }> = []
     const git: GitRunner = {
       async run(args, cwd) {
         gitCalls.push({ args, cwd })
+        if (args[0] === 'update-ref' && args[1] === '-d') {
+          const [, , ref, expected] = args
+          if (expected && recoveryRefs.get(ref) !== expected) return { code: 1, stdout: '', stderr: 'mismatch' }
+          recoveryRefs.delete(ref)
+          return ok
+        }
+        if (args[0] === 'update-ref' && args[1]?.startsWith('refs/specrails/recovery/')) {
+          const [, ref, sha] = args
+          recoveryRefs.set(ref, sha)
+          return ok
+        }
+        if (args[0] === 'rev-parse' && args[2]?.startsWith('refs/specrails/recovery/')) {
+          const value = recoveryRefs.get(args[2])
+          return value
+            ? { code: 0, stdout: `${value}\n`, stderr: '' }
+            : { code: 1, stdout: '', stderr: 'missing' }
+        }
         if (args.join(' ') === 'worktree list --porcelain -z' && cwd === projectPath) {
           return {
             code: 0,
@@ -913,9 +934,10 @@ describe('create-pr', () => {
       decision: 'pr_ready', delivery_sha: recovered, delivery_outcome: 'delivered',
     })
     expect(getRailWorktree(db, 'legacy-recovery-wt')?.merge_state).toBe('released')
+    expect(recoveryRefs.size).toBe(0)
   })
 
-  it('Commit & retry push may explicitly adopt only a fast-forward recorded branch commit', async () => {
+  it('Commit & retry push preserves an arbitrary later branch tip instead of adopting it', async () => {
     const runId = 'legacy-branch-only-run'
     const branch = 'feat/1-t1'
     const baseline = 'a'.repeat(40)
@@ -933,10 +955,23 @@ describe('create-pr', () => {
       runIds: [runId], deliveryOutcome: 'blocked', statusCode: 'settlement_interrupted',
       deliverySha: null, isContinuation: true,
     })
+    const refs = new Map<string, string>()
     const gitCalls: string[][] = []
     const git: GitRunner = {
       async run(args) {
         gitCalls.push(args)
+        if (args[0] === 'update-ref' && args[1] === '-d') {
+          refs.delete(args[2])
+          return ok
+        }
+        if (args[0] === 'update-ref' && args[1]?.startsWith('refs/specrails/recovery/')) {
+          refs.set(args[1], args[2])
+          return ok
+        }
+        if (args[0] === 'rev-parse' && args[2]?.startsWith('refs/specrails/recovery/')) {
+          const value = refs.get(args[2])
+          return value ? { code: 0, stdout: `${value}\n`, stderr: '' } : { code: 1, stdout: '', stderr: '' }
+        }
         if (args.join(' ') === `rev-parse --verify refs/heads/${branch}`) {
           return { code: 0, stdout: `${candidate}\n`, stderr: '' }
         }
@@ -944,15 +979,594 @@ describe('create-pr', () => {
         return ok
       },
     }
-    let views = 0
     const { exec, calls } = fakeExec({
-      view: () => ++views < 3
-        ? {
+      view: {
+        code: 0,
+        stdout: lifecycleJson({ state: 'OPEN', sha: baseline, headSha: baseline, branch }),
+        stderr: '',
+      },
+    })
+
+    const result = await executePrDecision(mkDeps({ git, exec }).deps, {
+      prDeliveryId: draft.id, action: 'recover-and-retry', expectedDecision: 'pr_failed',
+    })
+
+    expect(result).toMatchObject({
+      status: 200,
+      body: {
+        decision: 'pr_failed',
+        recoveryUnavailable: true,
+        detail: expect.stringContaining('branch advanced beyond the run-owned result'),
+      },
+    })
+    expect(gitCalls.some((args) => args[0] === 'commit' || args[0] === 'checkout')).toBe(false)
+    expect(calls.some((call) => call.cmd === 'git' && call.args[0] === 'push')).toBe(false)
+    expect(getPrDelivery(db, draft.id)).toMatchObject({
+      status_code: 'recovery_unavailable', delivery_sha: null,
+    })
+  })
+
+  it('recovers a removed-worktree orphan, pins it, updates every matching unit, and releases the ref after exact delivery', async () => {
+    const runId = 'removed-worktree-run'
+    const branch = 'feat/1-t1'
+    const baseline = 'a'.repeat(40)
+    const candidate = 'b'.repeat(40)
+    const draft = mkRow({
+      decision: 'pr_draft', ticketIds: [1, 2], prUrl: PR_URL, branch,
+      isContinuation: true,
+      branches: [1, 2].map((ticketId) => ({
+        ticketId, runId, branch, succeeded: false,
+        implementationOutcome: 'succeeded' as const,
+        deliveryOutcome: 'blocked' as const,
+        failureCode: 'settlement_interrupted',
+        branchOwnership: 'borrowed-pr' as const,
+      })),
+    })
+    transitionDecision(db, draft.id, 'pr_draft', 'pr_failed', {
+      runIds: [runId], deliveryOutcome: 'blocked', statusCode: 'settlement_interrupted',
+      deliverySha: null, isContinuation: true,
+    })
+    const refs = new Map<string, string>()
+    const gitCalls: string[][] = []
+    const git: GitRunner = {
+      async run(args) {
+        gitCalls.push(args)
+        if (args[0] === 'update-ref' && args[1] === '-d') {
+          const [, , ref, expected] = args
+          if (expected && refs.get(ref) !== expected) return { code: 1, stdout: '', stderr: 'mismatch' }
+          refs.delete(ref)
+          return ok
+        }
+        if (args[0] === 'update-ref' && args[1]?.startsWith('refs/specrails/recovery/')) {
+          refs.set(args[1], args[2])
+          return ok
+        }
+        if (args[0] === 'rev-parse' && args[2]?.startsWith('refs/specrails/recovery/')) {
+          const value = refs.get(args[2])
+          return value
+            ? { code: 0, stdout: `${value}\n`, stderr: '' }
+            : { code: 1, stdout: '', stderr: 'missing' }
+        }
+        if (args.join(' ') === `rev-parse --verify refs/heads/${branch}`) {
+          return { code: 0, stdout: `${baseline}\n`, stderr: '' }
+        }
+        if (args[0] === 'fsck') {
+          return { code: 0, stdout: `unreachable commit ${candidate}\n`, stderr: '' }
+        }
+        if (args[0] === 'log') return ok
+        if (args[0] === 'show') {
+          return { code: 0, stdout: `specrails: recovered follow-up (run ${runId})\n`, stderr: '' }
+        }
+        if (args[0] === 'cat-file' || args[0] === 'merge-base') return ok
+        return ok
+      },
+    }
+    const { exec, calls: execCalls } = fakeExec({
+      view: lifecycleSequence(
+        lifecycleJson({ state: 'OPEN', sha: baseline, headSha: baseline, branch }),
+        lifecycleJson({ state: 'OPEN', sha: baseline, headSha: baseline, branch }),
+        lifecycleJson({ state: 'OPEN', sha: candidate, headSha: candidate, branch }),
+      ),
+    })
+
+    const result = await executePrDecision(mkDeps({ git, exec }).deps, {
+      prDeliveryId: draft.id, action: 'recover-and-retry', expectedDecision: 'pr_failed',
+    })
+
+    expect(result).toMatchObject({
+      status: 200,
+      body: { decision: 'pr_ready', deliveryVerified: true, verifiedSha: candidate, pushed: true },
+    })
+    expect(execCalls).toContainEqual({
+      cmd: 'git', args: ['push', 'https://github.com/o/r.git', `${candidate}:refs/heads/${branch}`], cwd: PROJECT.path,
+    })
+    expect(gitCalls).toContainEqual(['fsck', '--unreachable', '--no-reflogs', '--no-progress'])
+    expect(gitCalls.some((args) => args[0] === 'update-ref' && args[1]?.startsWith('refs/specrails/recovery/'))).toBe(true)
+    expect(gitCalls.some((args) => args[0] === 'update-ref' && args[1] === '-d')).toBe(true)
+    expect(refs.size).toBe(0)
+    const settled = toPrDeliverySnapshot(getPrDelivery(db, draft.id)!)
+    expect(settled.branches).toHaveLength(2)
+    expect(settled.branches).toEqual(expect.arrayContaining([
+      expect.objectContaining({ ticketId: 1, succeeded: true, finalSha: candidate, changed: true, failureCode: null }),
+      expect.objectContaining({ ticketId: 2, succeeded: true, finalSha: candidate, changed: true, failureCode: null }),
+    ]))
+  })
+
+  it('pins and freezes a removed-worktree orphan before a transient GitHub observation failure', async () => {
+    const runId = 'offline-orphan-run'
+    const branch = 'feat/1-t1'
+    const candidate = 'b'.repeat(40)
+    const draft = mkRow({
+      decision: 'pr_draft', ticketIds: [1], prUrl: PR_URL, branch, isContinuation: true,
+      branches: [{
+        ticketId: 1, runId, branch, succeeded: false,
+        implementationOutcome: 'succeeded', deliveryOutcome: 'blocked',
+        failureCode: 'settlement_interrupted', branchOwnership: 'borrowed-pr',
+      }],
+    })
+    transitionDecision(db, draft.id, 'pr_draft', 'pr_failed', {
+      runIds: [runId], deliveryOutcome: 'blocked', statusCode: 'settlement_interrupted',
+      deliverySha: null, isContinuation: true,
+    })
+    const refs = new Map<string, string>()
+    const git: GitRunner = {
+      async run(args) {
+        if (args[0] === 'update-ref' && args[1]?.startsWith('refs/specrails/recovery/')) {
+          refs.set(args[1], args[2])
+          return ok
+        }
+        if (args[0] === 'rev-parse' && args[2]?.startsWith('refs/specrails/recovery/')) {
+          const value = refs.get(args[2])
+          return value ? { code: 0, stdout: `${value}\n`, stderr: '' } : { code: 1, stdout: '', stderr: '' }
+        }
+        if (args[0] === 'fsck') return { code: 0, stdout: `unreachable commit ${candidate}\n`, stderr: '' }
+        if (args[0] === 'log') return ok
+        if (args[0] === 'show') return { code: 0, stdout: `settle (run ${runId})\n`, stderr: '' }
+        if (args[0] === 'cat-file') return ok
+        return ok
+      },
+    }
+    const { exec, calls } = fakeExec({
+      view: { code: 1, stdout: '', stderr: 'GitHub unavailable' },
+    })
+
+    const result = await executePrDecision(mkDeps({ git, exec }).deps, {
+      prDeliveryId: draft.id, action: 'recover-and-retry', expectedDecision: 'pr_failed',
+    })
+
+    expect(result).toMatchObject({
+      status: 200,
+      body: { decision: 'pr_failed', recovered: true, detail: expect.stringContaining('GitHub unavailable') },
+    })
+    expect(getPrDelivery(db, draft.id)).toMatchObject({
+      decision: 'pr_failed', delivery_outcome: 'retryable_failure',
+      status_code: 'settlement_interrupted', delivery_sha: candidate,
+    })
+    expect([...refs.values()]).toEqual([candidate])
+    expect(calls.some((call) => call.cmd === 'git' && call.args[0] === 'push')).toBe(false)
+    expect(toPrDeliverySnapshot(getPrDelivery(db, draft.id)!).branches[0]).toMatchObject({
+      succeeded: true, finalSha: candidate, deliveryOutcome: 'ready', failureCode: null,
+    })
+  })
+
+  it.each([
+    { state: 'MERGED' as const, decision: 'merged' },
+    { state: 'CLOSED' as const, decision: 'pr_closed' },
+  ])('settles an exact orphan already present in a $state PR without pushing', async ({ state, decision }) => {
+    const runId = `orphan-${state.toLowerCase()}-run`
+    const branch = 'feat/1-t1'
+    const candidate = 'b'.repeat(40)
+    const draft = mkRow({
+      decision: 'pr_draft', ticketIds: [1], prUrl: PR_URL, branch, isContinuation: true,
+      branches: [{
+        ticketId: 1, runId, branch, succeeded: false,
+        implementationOutcome: 'succeeded', deliveryOutcome: 'blocked',
+        failureCode: 'settlement_interrupted', branchOwnership: 'borrowed-pr',
+      }],
+    })
+    transitionDecision(db, draft.id, 'pr_draft', 'pr_failed', {
+      runIds: [runId], deliveryOutcome: 'blocked', statusCode: 'settlement_interrupted',
+      deliverySha: null, isContinuation: true,
+    })
+    const refs = new Map<string, string>()
+    const git: GitRunner = {
+      async run(args) {
+        if (args[0] === 'update-ref' && args[1] === '-d') {
+          refs.delete(args[2])
+          return ok
+        }
+        if (args[0] === 'update-ref' && args[1]?.startsWith('refs/specrails/recovery/')) {
+          refs.set(args[1], args[2])
+          return ok
+        }
+        if (args[0] === 'rev-parse' && args[2]?.startsWith('refs/specrails/recovery/')) {
+          const value = refs.get(args[2])
+          return value ? { code: 0, stdout: `${value}\n`, stderr: '' } : { code: 1, stdout: '', stderr: '' }
+        }
+        if (args[0] === 'fsck') return { code: 0, stdout: `unreachable commit ${candidate}\n`, stderr: '' }
+        if (args[0] === 'log') return ok
+        if (args[0] === 'show') return { code: 0, stdout: `settle (run ${runId})\n`, stderr: '' }
+        if (args[0] === 'cat-file') return ok
+        return ok
+      },
+    }
+    const { exec, calls } = fakeExec({
+      view: {
+        code: 0,
+        stdout: lifecycleJson({ state, sha: candidate, headSha: candidate, branch }),
+        stderr: '',
+      },
+    })
+
+    const result = await executePrDecision(mkDeps({ git, exec }).deps, {
+      prDeliveryId: draft.id, action: 'recover-and-retry', expectedDecision: 'pr_failed',
+    })
+
+    expect(result).toMatchObject({
+      status: 200,
+      body: { decision, deliveryVerified: true, verifiedSha: candidate, pushed: false },
+    })
+    expect(getPrDelivery(db, draft.id)).toMatchObject({
+      decision, delivery_outcome: 'delivered', delivery_sha: candidate,
+    })
+    expect(refs.size).toBe(0)
+    expect(calls.some((call) => call.cmd === 'git' && call.args[0] === 'push')).toBe(false)
+  })
+
+  it('pins a unique orphan while preserving a different dirty authenticated worktree without commit or push', async () => {
+    const runId = 'orphan-plus-dirty-worktree-run'
+    const branch = 'feat/1-t1'
+    const baseline = 'a'.repeat(40)
+    const orphan = 'b'.repeat(40)
+    const projectPath = path.join(tmpDir, 'orphan-dirty-repo')
+    const worktreePath = path.join(tmpDir, 'orphan-dirty-worktree')
+    fs.mkdirSync(projectPath, { recursive: true })
+    fs.mkdirSync(worktreePath, { recursive: true })
+    fs.writeFileSync(path.join(worktreePath, 'valuable-local-change.txt'), 'preserve me')
+    const worktreeRealPath = fs.realpathSync(worktreePath)
+    createRailWorktree(db, {
+      id: 'orphan-dirty-wt', railIndex: 0, ticketId: 1, runId, branch,
+      worktreePath, mergeState: 'needs-review',
+    })
+    const draft = mkRow({
+      decision: 'pr_draft', ticketIds: [1], prUrl: PR_URL, branch,
+      worktreeIds: ['orphan-dirty-wt'], isContinuation: true,
+      branches: [{
+        ticketId: 1, runId, branch, succeeded: false,
+        implementationOutcome: 'succeeded', deliveryOutcome: 'blocked',
+        failureCode: 'settlement_interrupted', branchOwnership: 'borrowed-pr',
+      }],
+    })
+    transitionDecision(db, draft.id, 'pr_draft', 'pr_failed', {
+      runIds: [runId], deliveryOutcome: 'blocked', statusCode: 'settlement_interrupted',
+      deliverySha: null, isContinuation: true,
+    })
+    const refs = new Map<string, string>()
+    const gitCalls: Array<{ args: string[]; cwd: string }> = []
+    const git: GitRunner = {
+      async run(args, cwd) {
+        gitCalls.push({ args, cwd })
+        if (args[0] === 'update-ref' && args[1]?.startsWith('refs/specrails/recovery/')) {
+          refs.set(args[1], args[2])
+          return ok
+        }
+        if (args[0] === 'rev-parse' && args[2]?.startsWith('refs/specrails/recovery/')) {
+          const value = refs.get(args[2])
+          return value ? { code: 0, stdout: `${value}\n`, stderr: '' } : { code: 1, stdout: '', stderr: '' }
+        }
+        if (args[0] === 'fsck') return { code: 0, stdout: `unreachable commit ${orphan}\n`, stderr: '' }
+        if (args[0] === 'log') return ok
+        if (args[0] === 'show') return { code: 0, stdout: `settle (run ${runId})\n`, stderr: '' }
+        if (args[0] === 'cat-file') return ok
+        if (args.join(' ') === 'worktree list --porcelain -z' && cwd === projectPath) {
+          return {
             code: 0,
-            stdout: lifecycleJson({ state: 'OPEN', sha: candidate, headSha: baseline, includeSha: false, branch }),
+            stdout: registeredWorktreeList([
+              { worktreePath: projectPath, head: baseline, branch: 'main' },
+              { worktreePath, head: baseline, branch },
+            ]),
             stderr: '',
           }
-        : { code: 0, stdout: lifecycleJson({ state: 'OPEN', sha: candidate, branch }), stderr: '' },
+        }
+        if (args.join(' ') === 'rev-parse --abbrev-ref HEAD' && cwd === worktreeRealPath) {
+          return { code: 0, stdout: `${branch}\n`, stderr: '' }
+        }
+        if (args.join(' ') === 'rev-parse --verify HEAD' && cwd === worktreeRealPath) {
+          return { code: 0, stdout: `${baseline}\n`, stderr: '' }
+        }
+        if (args.join(' ') === `rev-parse --verify refs/heads/${branch}` && cwd === projectPath) {
+          return { code: 0, stdout: `${baseline}\n`, stderr: '' }
+        }
+        if (args[0] === 'status') return { code: 0, stdout: '?? valuable-local-change.txt\n', stderr: '' }
+        return ok
+      },
+    }
+    const { exec, calls } = fakeExec({
+      view: {
+        code: 0,
+        stdout: lifecycleJson({ state: 'OPEN', sha: baseline, headSha: baseline, branch }),
+        stderr: '',
+      },
+    })
+
+    const result = await executePrDecision(mkDeps({
+      git, exec, project: { ...PROJECT, path: projectPath },
+    }).deps, {
+      prDeliveryId: draft.id, action: 'recover-and-retry', expectedDecision: 'pr_failed',
+    })
+
+    expect(result).toMatchObject({
+      status: 200,
+      body: {
+        decision: 'pr_failed', recoveryUnavailable: true,
+        detail: expect.stringContaining('different live worktree result'),
+      },
+    })
+    expect(getPrDelivery(db, draft.id)).toMatchObject({
+      delivery_outcome: 'blocked', status_code: 'recovery_unavailable', delivery_sha: orphan,
+    })
+    expect([...refs.values()]).toEqual([orphan])
+    expect(fs.readFileSync(path.join(worktreePath, 'valuable-local-change.txt'), 'utf8')).toBe('preserve me')
+    expect(gitCalls.some(({ args }) => args[0] === 'add' || args[0] === 'commit')).toBe(false)
+    // Worktree enumeration is read-only; no worktree remove/move may run.
+    expect(gitCalls.some(({ args }) => args[0] === 'worktree' && args[1] !== 'list')).toBe(false)
+    expect(calls.some((call) => call.cmd === 'git' && call.args[0] === 'push')).toBe(false)
+    expect(getRailWorktree(db, 'orphan-dirty-wt')?.merge_state).toBe('needs-review')
+  })
+
+  it('pins a unique orphan while preserving a recreated unregistered ledger directory', async () => {
+    const runId = 'orphan-plus-recreated-path-run'
+    const branch = 'feat/1-t1'
+    const baseline = 'a'.repeat(40)
+    const orphan = 'b'.repeat(40)
+    const projectPath = path.join(tmpDir, 'orphan-recreated-repo')
+    const worktreePath = path.join(tmpDir, 'orphan-recreated-directory')
+    fs.mkdirSync(projectPath, { recursive: true })
+    fs.mkdirSync(worktreePath, { recursive: true })
+    fs.writeFileSync(path.join(worktreePath, 'unrelated.txt'), 'unrelated directory')
+    createRailWorktree(db, {
+      id: 'orphan-recreated-wt', railIndex: 0, ticketId: 1, runId, branch,
+      worktreePath, mergeState: 'needs-review',
+    })
+    const draft = mkRow({
+      decision: 'pr_draft', ticketIds: [1], prUrl: PR_URL, branch,
+      worktreeIds: ['orphan-recreated-wt'], isContinuation: true,
+      branches: [{
+        ticketId: 1, runId, branch, succeeded: false,
+        implementationOutcome: 'succeeded', deliveryOutcome: 'blocked',
+        failureCode: 'settlement_interrupted', branchOwnership: 'borrowed-pr',
+      }],
+    })
+    transitionDecision(db, draft.id, 'pr_draft', 'pr_failed', {
+      runIds: [runId], deliveryOutcome: 'blocked', statusCode: 'settlement_interrupted',
+      deliverySha: null, isContinuation: true,
+    })
+    const refs = new Map<string, string>()
+    const gitCalls: string[][] = []
+    const git: GitRunner = {
+      async run(args, cwd) {
+        gitCalls.push(args)
+        if (args[0] === 'update-ref' && args[1]?.startsWith('refs/specrails/recovery/')) {
+          refs.set(args[1], args[2])
+          return ok
+        }
+        if (args[0] === 'rev-parse' && args[2]?.startsWith('refs/specrails/recovery/')) {
+          const value = refs.get(args[2])
+          return value ? { code: 0, stdout: `${value}\n`, stderr: '' } : { code: 1, stdout: '', stderr: '' }
+        }
+        if (args[0] === 'fsck') return { code: 0, stdout: `unreachable commit ${orphan}\n`, stderr: '' }
+        if (args[0] === 'log') return ok
+        if (args[0] === 'show') return { code: 0, stdout: `settle (run ${runId})\n`, stderr: '' }
+        if (args[0] === 'cat-file') return ok
+        if (args.join(' ') === 'worktree list --porcelain -z' && cwd === projectPath) {
+          return {
+            code: 0,
+            stdout: registeredWorktreeList([{ worktreePath: projectPath, head: baseline, branch: 'main' }]),
+            stderr: '',
+          }
+        }
+        return ok
+      },
+    }
+    const { exec, calls } = fakeExec({
+      view: {
+        code: 0,
+        stdout: lifecycleJson({ state: 'OPEN', sha: baseline, headSha: baseline, branch }),
+        stderr: '',
+      },
+    })
+
+    const result = await executePrDecision(mkDeps({
+      git, exec, project: { ...PROJECT, path: projectPath },
+    }).deps, {
+      prDeliveryId: draft.id, action: 'recover-and-retry', expectedDecision: 'pr_failed',
+    })
+
+    expect(result).toMatchObject({
+      status: 200,
+      body: { decision: 'pr_failed', recoveryUnavailable: true, detail: expect.stringContaining('not uniquely registered') },
+    })
+    expect(getPrDelivery(db, draft.id)).toMatchObject({ delivery_sha: orphan, status_code: 'recovery_unavailable' })
+    expect([...refs.values()]).toEqual([orphan])
+    expect(fs.readFileSync(path.join(worktreePath, 'unrelated.txt'), 'utf8')).toBe('unrelated directory')
+    expect(gitCalls.some((args) => args[0] === 'add' || args[0] === 'commit')).toBe(false)
+    expect(calls.some((call) => call.cmd === 'git' && call.args[0] === 'push')).toBe(false)
+  })
+
+  it.each([
+    { name: 'ambiguous marked objects', scanCode: 0, ambiguous: true },
+    { name: 'failed object enumeration', scanCode: 1, ambiguous: false },
+  ])('fails closed with recovery_unavailable for $name', async ({ scanCode, ambiguous }) => {
+    const runId = 'failed-discovery-run'
+    const branch = 'feat/1-t1'
+    const baseline = 'a'.repeat(40)
+    const first = 'b'.repeat(40)
+    const second = 'c'.repeat(40)
+    const draft = mkRow({
+      decision: 'pr_draft', ticketIds: [1], prUrl: PR_URL, branch, isContinuation: true,
+      branches: [{
+        ticketId: 1, runId, branch, succeeded: false,
+        implementationOutcome: 'succeeded', deliveryOutcome: 'blocked',
+        failureCode: 'settlement_interrupted', branchOwnership: 'borrowed-pr',
+      }],
+    })
+    transitionDecision(db, draft.id, 'pr_draft', 'pr_failed', {
+      runIds: [runId], deliveryOutcome: 'blocked', statusCode: 'settlement_interrupted',
+      deliverySha: null, isContinuation: true,
+    })
+    const gitCalls: string[][] = []
+    const git: GitRunner = {
+      async run(args) {
+        gitCalls.push(args)
+        if (args.join(' ') === `rev-parse --verify refs/heads/${branch}`) {
+          return { code: 0, stdout: `${baseline}\n`, stderr: '' }
+        }
+        if (args[0] === 'cat-file') return ok
+        if (args[0] === 'fsck') {
+          return scanCode === 0
+            ? { code: 0, stdout: `unreachable commit ${first}\nunreachable commit ${second}\n`, stderr: '' }
+            : { code: 1, stdout: '', stderr: 'fsck failed' }
+        }
+        if (args[0] === 'log') return ok
+        if (args[0] === 'show') {
+          return { code: 0, stdout: ambiguous ? `settle (run ${runId})\n` : 'unrelated\n', stderr: '' }
+        }
+        return ok
+      },
+    }
+    const { exec, calls } = fakeExec({
+      view: {
+        code: 0,
+        stdout: lifecycleJson({ state: 'OPEN', sha: baseline, headSha: baseline, branch }),
+        stderr: '',
+      },
+    })
+
+    const result = await executePrDecision(mkDeps({ git, exec }).deps, {
+      prDeliveryId: draft.id, action: 'recover-and-retry', expectedDecision: 'pr_failed',
+    })
+
+    expect(result).toMatchObject({
+      status: 200,
+      body: { decision: 'pr_failed', recoveryUnavailable: true },
+    })
+    expect(getPrDelivery(db, draft.id)).toMatchObject({
+      status_code: 'recovery_unavailable', delivery_sha: null,
+    })
+    expect(gitCalls.some((args) => args[0] === 'update-ref')).toBe(false)
+    expect(calls.some((call) => call.cmd === 'git' && call.args[0] === 'push')).toBe(false)
+  })
+
+  it('rejects a non-fast-forward run-marked orphan while keeping its exact ref discardable', async () => {
+    const runId = 'non-fast-forward-run'
+    const branch = 'feat/1-t1'
+    const baseline = 'a'.repeat(40)
+    const candidate = 'b'.repeat(40)
+    const draft = mkRow({
+      decision: 'pr_draft', ticketIds: [1], prUrl: PR_URL, branch, isContinuation: true,
+      branches: [{
+        ticketId: 1, runId, branch, succeeded: false,
+        implementationOutcome: 'succeeded', deliveryOutcome: 'blocked',
+        failureCode: 'settlement_interrupted', branchOwnership: 'borrowed-pr',
+      }],
+    })
+    transitionDecision(db, draft.id, 'pr_draft', 'pr_failed', {
+      runIds: [runId], deliveryOutcome: 'blocked', statusCode: 'settlement_interrupted',
+      deliverySha: null, isContinuation: true,
+    })
+    const refs = new Map<string, string>()
+    const gitCalls: string[][] = []
+    const git: GitRunner = {
+      async run(args) {
+        gitCalls.push(args)
+        if (args[0] === 'update-ref' && args[1]?.startsWith('refs/specrails/recovery/')) {
+          refs.set(args[1], args[2])
+          return ok
+        }
+        if (args[0] === 'rev-parse' && args[2]?.startsWith('refs/specrails/recovery/')) {
+          const value = refs.get(args[2])
+          return value ? { code: 0, stdout: `${value}\n`, stderr: '' } : { code: 1, stdout: '', stderr: '' }
+        }
+        if (args.join(' ') === `rev-parse --verify refs/heads/${branch}`) {
+          return { code: 0, stdout: `${baseline}\n`, stderr: '' }
+        }
+        if (args[0] === 'cat-file') return ok
+        if (args[0] === 'fsck') return { code: 0, stdout: `unreachable commit ${candidate}\n`, stderr: '' }
+        if (args[0] === 'log') return ok
+        if (args[0] === 'show') return { code: 0, stdout: `settle (run ${runId})\n`, stderr: '' }
+        if (args[0] === 'merge-base') return { code: 1, stdout: '', stderr: 'not an ancestor' }
+        return ok
+      },
+    }
+    const { exec, calls } = fakeExec({
+      view: {
+        code: 0,
+        stdout: lifecycleJson({ state: 'OPEN', sha: baseline, headSha: baseline, branch }),
+        stderr: '',
+      },
+    })
+
+    const result = await executePrDecision(mkDeps({ git, exec }).deps, {
+      prDeliveryId: draft.id, action: 'recover-and-retry', expectedDecision: 'pr_failed',
+    })
+
+    expect(result).toMatchObject({
+      status: 200,
+      body: { decision: 'pr_failed', recoveryUnavailable: true, detail: expect.stringContaining('not a fast-forward') },
+    })
+    expect([...refs.values()]).toEqual([candidate])
+    expect(calls.some((call) => call.cmd === 'git' && call.args[0] === 'push')).toBe(false)
+    expect(getPrDelivery(db, draft.id)).toMatchObject({ delivery_sha: candidate })
+  })
+
+  it('recovers a consistent durable final SHA after the visible branch was reset to the PR baseline', async () => {
+    const runId = 'durable-final-run'
+    const branch = 'feat/1-t1'
+    const baseline = 'a'.repeat(40)
+    const candidate = 'b'.repeat(40)
+    const draft = mkRow({
+      decision: 'pr_draft', ticketIds: [1], prUrl: PR_URL, branch, isContinuation: true,
+      branches: [{
+        ticketId: 1, runId, branch, succeeded: false,
+        implementationOutcome: 'succeeded', deliveryOutcome: 'blocked',
+        failureCode: 'settlement_interrupted', branchOwnership: 'borrowed-pr',
+        initialSha: baseline, finalSha: candidate, changed: true,
+      }],
+    })
+    transitionDecision(db, draft.id, 'pr_draft', 'pr_failed', {
+      runIds: [runId], deliveryOutcome: 'blocked', statusCode: 'settlement_interrupted',
+      deliverySha: null, isContinuation: true,
+    })
+    const refs = new Map<string, string>()
+    const gitCalls: string[][] = []
+    const git: GitRunner = {
+      async run(args) {
+        gitCalls.push(args)
+        if (args[0] === 'update-ref' && args[1] === '-d') {
+          refs.delete(args[2])
+          return ok
+        }
+        if (args[0] === 'update-ref') {
+          refs.set(args[1], args[2])
+          return ok
+        }
+        if (args[0] === 'rev-parse' && args[2]?.startsWith('refs/specrails/recovery/')) {
+          const value = refs.get(args[2])
+          return value ? { code: 0, stdout: `${value}\n`, stderr: '' } : { code: 1, stdout: '', stderr: '' }
+        }
+        if (args.join(' ') === `rev-parse --verify refs/heads/${branch}`) {
+          return { code: 0, stdout: `${baseline}\n`, stderr: '' }
+        }
+        if (args[0] === 'cat-file' || args[0] === 'merge-base') return ok
+        return ok
+      },
+    }
+    const { exec, calls } = fakeExec({
+      view: lifecycleSequence(
+        lifecycleJson({ state: 'OPEN', sha: baseline, headSha: baseline, branch }),
+        lifecycleJson({ state: 'OPEN', sha: baseline, headSha: baseline, branch }),
+        lifecycleJson({ state: 'OPEN', sha: candidate, headSha: candidate, branch }),
+      ),
     })
 
     const result = await executePrDecision(mkDeps({ git, exec }).deps, {
@@ -960,11 +1574,448 @@ describe('create-pr', () => {
     })
 
     expect(result).toMatchObject({ status: 200, body: { decision: 'pr_ready', verifiedSha: candidate } })
-    expect(gitCalls.some((args) => args[0] === 'commit' || args[0] === 'checkout')).toBe(false)
+    expect(gitCalls.some((args) => args[0] === 'fsck' || args[0] === 'log')).toBe(false)
     expect(calls).toContainEqual({
       cmd: 'git', args: ['push', 'https://github.com/o/r.git', `${candidate}:refs/heads/${branch}`], cwd: PROJECT.path,
     })
   })
+
+  it.each([
+    { name: 'durably proven no changes', noChanges: true },
+    { name: 'durable final already at the PR head', noChanges: false },
+  ])('classifies $name without creating a commit or pushing', async ({ noChanges }) => {
+    const runId = noChanges ? 'no-change-run' : 'already-delivered-run'
+    const branch = 'feat/1-t1'
+    const baseline = 'a'.repeat(40)
+    const draft = mkRow({
+      decision: 'pr_draft', ticketIds: [1], prUrl: PR_URL, branch, isContinuation: true,
+      branches: [{
+        ticketId: 1, runId, branch, succeeded: false,
+        implementationOutcome: 'succeeded', deliveryOutcome: 'blocked',
+        failureCode: 'settlement_interrupted', branchOwnership: 'borrowed-pr',
+        initialSha: baseline, finalSha: baseline, changed: noChanges ? false : true,
+      }],
+    })
+    transitionDecision(db, draft.id, 'pr_draft', 'pr_failed', {
+      runIds: [runId], implementationOutcome: 'succeeded', deliveryOutcome: 'blocked',
+      statusCode: 'settlement_interrupted', deliverySha: null, isContinuation: true,
+    })
+    const refs = new Map<string, string>()
+    const gitCalls: string[][] = []
+    const git: GitRunner = {
+      async run(args) {
+        gitCalls.push(args)
+        if (args[0] === 'update-ref' && args[1] === '-d') {
+          refs.delete(args[2])
+          return ok
+        }
+        if (args[0] === 'update-ref' && args[1]?.startsWith('refs/specrails/recovery/')) {
+          refs.set(args[1], args[2])
+          return ok
+        }
+        if (args[0] === 'rev-parse' && args[2]?.startsWith('refs/specrails/recovery/')) {
+          const value = refs.get(args[2])
+          return value ? { code: 0, stdout: `${value}\n`, stderr: '' } : { code: 1, stdout: '', stderr: '' }
+        }
+        if (args.join(' ') === `rev-parse --verify refs/heads/${branch}`) {
+          return { code: 0, stdout: `${baseline}\n`, stderr: '' }
+        }
+        if (args[0] === 'cat-file') return ok
+        if (args[0] === 'fsck' || args[0] === 'log') return ok
+        return ok
+      },
+    }
+    const { exec, calls } = fakeExec({
+      view: {
+        code: 0,
+        stdout: lifecycleJson({ state: 'OPEN', sha: baseline, headSha: baseline, branch }),
+        stderr: '',
+      },
+    })
+
+    const result = await executePrDecision(mkDeps({ git, exec }).deps, {
+      prDeliveryId: draft.id, action: 'recover-and-retry', expectedDecision: 'pr_failed',
+    })
+
+    expect(result).toMatchObject({
+      status: 200,
+      body: {
+        decision: noChanges ? 'no_changes' : 'pr_ready',
+        deliveryVerified: true,
+        verifiedSha: baseline,
+        pushed: false,
+      },
+    })
+    expect(gitCalls.some((args) => args[0] === 'commit')).toBe(false)
+    expect(refs.size).toBe(0)
+    expect(calls.some((call) => call.cmd === 'git' && call.args[0] === 'push')).toBe(false)
+  })
+
+  it.each([
+    { action: 'discard', retained: false },
+    { action: 'dismiss', retained: true },
+  ] as const)('$action applies the explicit recovery-ref ownership contract', async ({ action, retained }) => {
+    const candidate = 'b'.repeat(40)
+    const row = mkRow({
+      decision: 'pr_draft', ticketIds: [1], prUrl: PR_URL, branch: 'feat/1-t1',
+      isContinuation: true, deliverySha: candidate,
+      branches: [{
+        ticketId: 1, branch: 'feat/1-t1', succeeded: true, finalSha: candidate,
+        branchOwnership: 'borrowed-pr',
+      }],
+    })
+    transitionDecision(db, row.id, 'pr_draft', 'pr_failed', {
+      deliveryOutcome: 'retryable_failure', statusCode: 'push_failed',
+      deliverySha: candidate, isContinuation: true,
+    })
+    const ref = recoveryRefForDelivery(row.id)
+    const refs = new Map([[ref, candidate]])
+    const git: GitRunner = {
+      async run(args) {
+        if (args[0] === 'update-ref' && args[1] === '-d') {
+          const [, , targetRef, expected] = args
+          if (expected && refs.get(targetRef) !== expected) return { code: 1, stdout: '', stderr: 'mismatch' }
+          refs.delete(targetRef)
+          return ok
+        }
+        if (args[0] === 'rev-parse' && args[2] === ref) {
+          const value = refs.get(ref)
+          return value ? { code: 0, stdout: `${value}\n`, stderr: '' } : { code: 1, stdout: '', stderr: '' }
+        }
+        return ok
+      },
+    }
+
+    const result = await executePrDecision(mkDeps({ git }).deps, {
+      prDeliveryId: row.id, action, expectedDecision: 'pr_failed',
+    })
+
+    expect(result).toMatchObject({ status: 200, body: { decision: 'discarded' } })
+    expect(refs.has(ref)).toBe(retained)
+  })
+
+  it.each([
+    { proof: 'exact run marker', durableFinal: false },
+    { proof: 'consistent durable final', durableFinal: true },
+  ])('Discard after a pre-persistence crash releases a ref proven by $proof', async ({ durableFinal }) => {
+    const runId = durableFinal ? 'discard-durable-final-run' : 'discard-run-marker-run'
+    const candidate = 'b'.repeat(40)
+    const row = mkRow({
+      decision: 'pr_draft', ticketIds: [1], prUrl: PR_URL, branch: 'feat/1-t1',
+      isContinuation: true, deliverySha: null,
+      branches: [{
+        ticketId: 1, runId, branch: 'feat/1-t1', succeeded: false,
+        finalSha: durableFinal ? candidate : undefined,
+        implementationOutcome: 'succeeded', deliveryOutcome: 'blocked',
+        failureCode: 'settlement_interrupted', branchOwnership: 'borrowed-pr',
+      }],
+    })
+    transitionDecision(db, row.id, 'pr_draft', 'pr_failed', {
+      runIds: [runId], implementationOutcome: 'succeeded', deliveryOutcome: 'blocked',
+      statusCode: 'recovery_unavailable', deliverySha: null, isContinuation: true,
+    })
+    const ref = recoveryRefForDelivery(row.id)
+    const refs = new Map([[ref, candidate]])
+    const gitCalls: string[][] = []
+    const git: GitRunner = {
+      async run(args) {
+        gitCalls.push(args)
+        if (args[0] === 'rev-parse' && args[2] === ref) {
+          const value = refs.get(ref)
+          return value ? { code: 0, stdout: `${value}\n`, stderr: '' } : { code: 1, stdout: '', stderr: '' }
+        }
+        if (args[0] === 'show') {
+          return {
+            code: 0,
+            stdout: durableFinal ? 'unmarked durable commit\n' : `settle (run ${runId})\n`,
+            stderr: '',
+          }
+        }
+        if (args[0] === 'update-ref' && args[1] === '-d') {
+          const [, , targetRef, expected] = args
+          if (refs.get(targetRef) !== expected) return { code: 1, stdout: '', stderr: 'mismatch' }
+          refs.delete(targetRef)
+          return ok
+        }
+        return ok
+      },
+    }
+
+    const result = await executePrDecision(mkDeps({ git }).deps, {
+      prDeliveryId: row.id, action: 'discard', expectedDecision: 'pr_failed',
+    })
+
+    expect(result).toMatchObject({ status: 200, body: { decision: 'discarded' } })
+    expect(result.body).not.toHaveProperty('cleanupWarnings')
+    expect(refs.has(ref)).toBe(false)
+    expect(gitCalls).toContainEqual(['update-ref', '-d', ref, candidate])
+    expect(getPrDelivery(db, row.id)).toMatchObject({
+      decision: 'discarded', status_code: 'discarded', delivery_sha: null,
+    })
+  })
+
+  it('Discard after a pre-persistence crash warns and preserves a substituted recovery ref', async () => {
+    const runId = 'discard-substituted-run'
+    const ownedFinal = 'b'.repeat(40)
+    const substituted = 'c'.repeat(40)
+    const row = mkRow({
+      decision: 'pr_draft', ticketIds: [1], prUrl: PR_URL, branch: 'feat/1-t1',
+      isContinuation: true, deliverySha: null,
+      branches: [{
+        ticketId: 1, runId, branch: 'feat/1-t1', succeeded: false, finalSha: ownedFinal,
+        implementationOutcome: 'succeeded', deliveryOutcome: 'blocked',
+        failureCode: 'settlement_interrupted', branchOwnership: 'borrowed-pr',
+      }],
+    })
+    transitionDecision(db, row.id, 'pr_draft', 'pr_failed', {
+      runIds: [runId], implementationOutcome: 'succeeded', deliveryOutcome: 'blocked',
+      statusCode: 'recovery_unavailable', deliverySha: null, isContinuation: true,
+    })
+    const ref = recoveryRefForDelivery(row.id)
+    const refs = new Map([[ref, substituted]])
+    const gitCalls: string[][] = []
+    const git: GitRunner = {
+      async run(args) {
+        gitCalls.push(args)
+        if (args[0] === 'rev-parse' && args[2] === ref) {
+          return { code: 0, stdout: `${refs.get(ref)}\n`, stderr: '' }
+        }
+        if (args[0] === 'show') return { code: 0, stdout: 'unrelated commit\n', stderr: '' }
+        if (args[0] === 'update-ref' && args[1] === '-d') {
+          refs.delete(args[2])
+          return ok
+        }
+        return ok
+      },
+    }
+
+    const result = await executePrDecision(mkDeps({ git }).deps, {
+      prDeliveryId: row.id, action: 'discard', expectedDecision: 'pr_failed',
+    })
+
+    expect(result).toMatchObject({
+      status: 200,
+      body: {
+        decision: 'discarded',
+        cleanupWarnings: [expect.stringContaining('could not be proven to belong to this delivery')],
+      },
+    })
+    expect(refs.get(ref)).toBe(substituted)
+    expect(gitCalls.some((args) => args[0] === 'update-ref' && args[1] === '-d')).toBe(false)
+    expect(getPrDelivery(db, row.id)).toMatchObject({ decision: 'discarded', status_code: 'cleanup_incomplete' })
+  })
+
+  it('retains the exact recovery ref and frozen SHA when a retry push fails', async () => {
+    const candidate = 'b'.repeat(40)
+    const baseline = 'a'.repeat(40)
+    const row = mkRow({
+      decision: 'pr_draft', ticketIds: [1], prUrl: PR_URL, branch: 'feat/1-t1',
+      isContinuation: true, deliverySha: candidate,
+      branches: [{
+        ticketId: 1, branch: 'feat/1-t1', succeeded: true, finalSha: candidate,
+        branchOwnership: 'borrowed-pr',
+      }],
+    })
+    transitionDecision(db, row.id, 'pr_draft', 'pr_failed', {
+      deliveryOutcome: 'retryable_failure', statusCode: 'settlement_interrupted',
+      deliverySha: candidate, isContinuation: true,
+    })
+    const ref = recoveryRefForDelivery(row.id)
+    const refs = new Map([[ref, candidate]])
+    const git: GitRunner = {
+      async run(args) {
+        if (args[0] === 'update-ref' && args[1] === '-d') {
+          refs.delete(args[2])
+          return ok
+        }
+        return ok
+      },
+    }
+    const { exec } = fakeExec({
+      view: {
+        code: 0,
+        stdout: lifecycleJson({ state: 'OPEN', sha: baseline, headSha: baseline, branch: 'feat/1-t1' }),
+        stderr: '',
+      },
+      push: { code: 1, stdout: '', stderr: 'network unavailable' },
+    })
+
+    const result = await executePrDecision(mkDeps({ git, exec }).deps, {
+      prDeliveryId: row.id, action: 'create-pr', expectedDecision: 'pr_failed',
+    })
+
+    expect(result).toMatchObject({
+      status: 200,
+      body: { decision: 'pr_failed', detail: 'network unavailable' },
+    })
+    expect(getPrDelivery(db, row.id)).toMatchObject({
+      decision: 'pr_failed', delivery_sha: candidate, delivery_outcome: 'retryable_failure',
+    })
+    expect(refs.get(ref)).toBe(candidate)
+  })
+
+  it.each([
+    { name: 'a proven fast-forward', divergent: false },
+    { name: 'a divergent delivery', divergent: true },
+  ])('Retry push fetches the live PR object and handles $name safely', async ({ divergent }) => {
+    const baseline = 'a'.repeat(40)
+    const candidate = 'b'.repeat(40)
+    const branch = 'feat/1-t1'
+    const row = mkRow({
+      decision: 'pr_draft', ticketIds: [1], prUrl: PR_URL, branch,
+      isContinuation: true, deliverySha: candidate,
+      branches: [{
+        ticketId: 1, branch, succeeded: true, finalSha: candidate,
+        branchOwnership: 'borrowed-pr',
+      }],
+    })
+    transitionDecision(db, row.id, 'pr_draft', 'pr_failed', {
+      deliveryOutcome: 'retryable_failure', statusCode: 'push_failed',
+      deliverySha: candidate, isContinuation: true,
+    })
+    const ref = recoveryRefForDelivery(row.id)
+    const refs = new Map([[ref, candidate]])
+    let fetched = false
+    const gitCalls: string[][] = []
+    const git: GitRunner = {
+      async run(args) {
+        gitCalls.push(args)
+        if (args[0] === 'cat-file' && args[2] === `${baseline}^{commit}`) {
+          return fetched ? ok : { code: 1, stdout: '', stderr: 'missing' }
+        }
+        if (args[0] === 'fetch') {
+          fetched = true
+          return ok
+        }
+        if (args[0] === 'merge-base') {
+          return divergent ? { code: 1, stdout: '', stderr: 'not an ancestor' } : ok
+        }
+        if (args[0] === 'show-ref' && args[3]?.startsWith('refs/specrails/recovery/')) {
+          return refs.has(args[3]) ? ok : { code: 1, stdout: '', stderr: '' }
+        }
+        if (args[0] === 'rev-parse' && args[2]?.startsWith('refs/specrails/recovery/')) {
+          const value = refs.get(args[2])
+          return value ? { code: 0, stdout: `${value}\n`, stderr: '' } : { code: 1, stdout: '', stderr: '' }
+        }
+        if (args[0] === 'update-ref' && args[1] === '-d') {
+          const [, , targetRef, expected] = args
+          if (refs.has(targetRef) && refs.get(targetRef) !== expected) {
+            return { code: 1, stdout: '', stderr: 'mismatch' }
+          }
+          refs.delete(targetRef)
+          return ok
+        }
+        return ok
+      },
+    }
+    const { exec, calls } = fakeExec({
+      view: lifecycleSequence(
+        lifecycleJson({ state: 'OPEN', sha: baseline, headSha: baseline, branch }),
+        lifecycleJson({ state: 'OPEN', sha: candidate, headSha: candidate, branch }),
+      ),
+    })
+
+    const result = await executePrDecision(mkDeps({ git, exec }).deps, {
+      prDeliveryId: row.id, action: 'create-pr', expectedDecision: 'pr_failed',
+    })
+
+    expect(gitCalls).toContainEqual(['fetch', 'origin', `refs/heads/${branch}`])
+    expect(gitCalls).toContainEqual(['merge-base', '--is-ancestor', baseline, candidate])
+    const pushes = calls.filter((call) => call.cmd === 'git' && call.args[0] === 'push')
+    if (divergent) {
+      expect(result).toMatchObject({
+        status: 200,
+        body: { decision: 'pr_failed', recoveryUnavailable: true, detail: expect.stringContaining('not a fast-forward') },
+      })
+      expect(pushes).toEqual([])
+      expect(refs.get(ref)).toBe(candidate)
+      expect(getPrDelivery(db, row.id)).toMatchObject({
+        decision: 'pr_failed', delivery_outcome: 'blocked', status_code: 'recovery_unavailable',
+        delivery_sha: candidate,
+      })
+    } else {
+      expect(result).toMatchObject({
+        status: 200,
+        body: { decision: 'pr_ready', deliveryVerified: true, verifiedSha: candidate, pushed: true },
+      })
+      expect(pushes).toHaveLength(1)
+      expect(gitCalls).toContainEqual(['update-ref', '-d', ref, candidate])
+      expect(refs.has(ref)).toBe(false)
+    }
+  })
+
+  it.each(['discarded', 'superseded'] as const)(
+    'exact successor delivery releases an ancestor ref retained by its %s predecessor',
+    async (predecessorDecision) => {
+      const ancestor = 'a'.repeat(40)
+      const delivered = 'b'.repeat(40)
+      const branch = 'feat/1-t1'
+      const predecessor = mkRow({
+        decision: 'pr_draft', ticketIds: [1], prUrl: PR_URL, branch,
+        isContinuation: true, deliverySha: ancestor,
+        branches: [{
+          ticketId: 1, branch, succeeded: true, finalSha: ancestor,
+          branchOwnership: 'borrowed-pr',
+        }],
+      })
+      transitionDecision(db, predecessor.id, 'pr_draft', predecessorDecision, {
+        deliverySha: ancestor, isContinuation: true,
+      })
+      const successor = mkRow({
+        decision: 'pr_draft', ticketIds: [1], prUrl: PR_URL, branch,
+        isContinuation: true, deliverySha: delivered,
+        supersedesDeliveryId: predecessor.id,
+        branches: [{
+          ticketId: 1, branch, succeeded: true, finalSha: delivered,
+          branchOwnership: 'borrowed-pr',
+        }],
+      })
+      transitionDecision(db, successor.id, 'pr_draft', 'pr_failed', {
+        deliveryOutcome: 'retryable_failure', statusCode: 'push_failed',
+        deliverySha: delivered, isContinuation: true,
+      })
+      const predecessorRef = recoveryRefForDelivery(predecessor.id)
+      const refs = new Map([[predecessorRef, ancestor]])
+      const gitCalls: string[][] = []
+      const git: GitRunner = {
+        async run(args) {
+          gitCalls.push(args)
+          if (args[0] === 'rev-parse' && args[2]?.startsWith('refs/specrails/recovery/')) {
+            const value = refs.get(args[2])
+            return value ? { code: 0, stdout: `${value}\n`, stderr: '' } : { code: 1, stdout: '', stderr: '' }
+          }
+          if (args[0] === 'merge-base') return ok
+          if (args[0] === 'update-ref' && args[1] === '-d') {
+            const [, , ref, expected] = args
+            if (refs.has(ref) && refs.get(ref) !== expected) return { code: 1, stdout: '', stderr: 'mismatch' }
+            refs.delete(ref)
+            return ok
+          }
+          return ok
+        },
+      }
+      const { exec, calls } = fakeExec({
+        view: {
+          code: 0,
+          stdout: lifecycleJson({ state: 'OPEN', sha: delivered, headSha: delivered, branch }),
+          stderr: '',
+        },
+      })
+
+      const result = await executePrDecision(mkDeps({ git, exec }).deps, {
+        prDeliveryId: successor.id, action: 'create-pr', expectedDecision: 'pr_failed',
+      })
+
+      expect(result).toMatchObject({
+        status: 200,
+        body: { decision: 'pr_ready', deliveryVerified: true, verifiedSha: delivered, pushed: false },
+      })
+      expect(refs.has(predecessorRef)).toBe(false)
+      expect(gitCalls).toContainEqual(['merge-base', '--is-ancestor', ancestor, delivered])
+      expect(gitCalls).toContainEqual(['update-ref', '-d', predecessorRef, ancestor])
+      expect(calls.some((call) => call.cmd === 'git' && call.args[0] === 'push')).toBe(false)
+    },
+  )
 
   it('Commit & retry push stays blocked without local evidence on this computer and performs no mutation', async () => {
     const runId = 'legacy-other-computer-run'
@@ -1006,12 +2057,16 @@ describe('create-pr', () => {
 
     expect(result).toMatchObject({
       status: 200,
-      body: { decision: 'pr_failed', detail: expect.stringContaining('available on this computer') },
+      body: {
+        decision: 'pr_failed',
+        recoveryUnavailable: true,
+        detail: expect.stringContaining('available in this clone'),
+      },
     })
     expect(gitCalls.some((args) => ['add', 'commit', 'checkout', 'reset', 'stash'].includes(args[0]))).toBe(false)
     expect(calls.some((call) => call.cmd === 'git' && call.args[0] === 'push')).toBe(false)
     expect(getPrDelivery(db, draft.id)).toMatchObject({
-      decision: 'pr_failed', delivery_outcome: 'blocked', delivery_sha: null,
+      decision: 'pr_failed', delivery_outcome: 'blocked', status_code: 'recovery_unavailable', delivery_sha: null,
     })
   })
 

@@ -587,6 +587,95 @@ describe('RailPrDecisionStrip orthogonal implementation/delivery outcomes', () =
     expect(screen.queryByTestId('rail-pr-discard-local')).toBeNull()
   })
 
+  it('shows a truthful unavailable-on-this-computer path with Check again, run inspection, and Dismiss only', () => {
+    renderStrip(snapshot({
+      decision: 'pr_failed', prUrl: 'https://github.com/o/r/pull/548',
+      branch: 'fix/legacy-pr-delivery-recovery', prState: 'pr-created', deliverySha: null,
+      implementationOutcome: 'succeeded', deliveryOutcome: 'blocked', isContinuation: true,
+      statusCode: 'recovery_unavailable', statusDetail: 'raw recovery scan detail that must not be shown',
+      runIds: ['run-recovered'],
+      units: [{
+        ticketId: 1, runId: 'run-recovered', branch: 'fix/legacy-pr-delivery-recovery',
+        succeeded: true, implementationOutcome: 'succeeded', deliveryOutcome: 'blocked',
+        initialSha: 'a'.repeat(40), finalSha: null, failureCode: 'recovery_unavailable',
+      }],
+    }))
+
+    expect(screen.getByTestId('rail-pr-recheck-recovery')).toHaveTextContent('Check again')
+    expect(screen.getByTestId('rail-pr-run-log')).toBeInTheDocument()
+    expect(screen.getByTestId('rail-pr-dismiss')).toHaveTextContent('Dismiss follow-up')
+    expect(screen.getByTestId('rail-pr-recovery-unavailable')).toHaveTextContent(
+      'Specrails could not safely prove one delivery-owned result in this clone. Nothing was changed or removed. Inspect the stage detail and run logs. If the run executed on another computer, open Specrails there, then check again.',
+    )
+    const technicalDetail = screen.getByTestId('rail-pr-recovery-technical-detail')
+    expect(technicalDetail).not.toHaveAttribute('open')
+    expect(within(technicalDetail).getByText('Technical recovery detail')).toBeInTheDocument()
+    expect(within(technicalDetail).getByText('raw recovery scan detail that must not be shown')).toBeInTheDocument()
+    expect(screen.queryByTestId('rail-pr-recover-and-retry')).toBeNull()
+    expect(screen.queryByTestId('rail-pr-inspect-local-result')).toBeNull()
+    expect(screen.queryByTestId('rail-pr-checkout')).toBeNull()
+    expect(screen.queryByTestId('rail-pr-discard')).toBeNull()
+    expect(screen.queryByTestId('rail-pr-discard-local')).toBeNull()
+  })
+
+  it('offers exactly one explicit local-result discard when unavailable recovery has a protected SHA', () => {
+    renderStrip(snapshot({
+      decision: 'pr_failed', prUrl: 'https://github.com/o/r/pull/548',
+      branch: 'fix/legacy-pr-delivery-recovery', prState: 'pr-created', deliverySha: 'b'.repeat(40),
+      implementationOutcome: 'succeeded', deliveryOutcome: 'blocked', isContinuation: true,
+      statusCode: 'recovery_unavailable', runIds: ['run-recovered'],
+      units: [{
+        ticketId: 1, runId: 'run-recovered', branch: 'fix/legacy-pr-delivery-recovery',
+        succeeded: true, implementationOutcome: 'succeeded', deliveryOutcome: 'blocked',
+        initialSha: 'a'.repeat(40), finalSha: 'b'.repeat(40), failureCode: 'recovery_unavailable',
+      }],
+    }))
+
+    expect(screen.getByTestId('rail-pr-recheck-recovery')).toHaveTextContent('Check again')
+    expect(screen.getAllByTestId('rail-pr-discard-local')).toHaveLength(1)
+    expect(screen.queryByTestId('rail-pr-dismiss')).toBeNull()
+    expect(screen.queryByTestId('rail-pr-discard')).toBeNull()
+    expect(screen.queryByTestId('rail-pr-recover-and-retry')).toBeNull()
+    expect(screen.queryByTestId('rail-pr-checkout')).toBeNull()
+  })
+
+  it('confirms Check again and reports unavailable recovery with localized, non-destructive feedback', async () => {
+    const act = vi.fn().mockResolvedValue({
+      ok: true, status: 200, decision: 'pr_failed', deliveryVerified: false,
+      recoveryUnavailable: true, detail: 'raw scan result',
+    } satisfies RailPrActResult)
+    renderStrip(snapshot({
+      decision: 'pr_failed', prUrl: 'https://github.com/o/r/pull/548',
+      branch: 'fix/legacy-pr-delivery-recovery', prState: 'pr-created',
+      implementationOutcome: 'succeeded', deliveryOutcome: 'blocked', isContinuation: true,
+      statusCode: 'recovery_unavailable', runIds: ['run-recovered'],
+      units: [{
+        ticketId: 1, runId: 'run-recovered', branch: 'fix/legacy-pr-delivery-recovery',
+        succeeded: true, implementationOutcome: 'succeeded', deliveryOutcome: 'blocked',
+        initialSha: 'a'.repeat(40), finalSha: null, failureCode: 'recovery_unavailable',
+      }],
+    }), act)
+
+    fireEvent.click(screen.getByTestId('rail-pr-recheck-recovery'))
+    const dialog = screen.getByTestId('rail-pr-recover-and-retry-confirm')
+    expect(dialog).toHaveTextContent('Check this computer again?')
+    expect(dialog).toHaveTextContent('Specrails will rescan this clone’s delivery-owned worktree, branch, refs, reflogs, and orphan Git objects for fix/legacy-pr-delivery-recovery')
+    expect(dialog).toHaveTextContent('Your main project folder will not be touched')
+    expect(act).not.toHaveBeenCalled()
+
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Check again' }))
+
+    await waitFor(() => expect(act).toHaveBeenCalledWith('recover-and-retry', 'pr_failed', 'del-1'))
+    await waitFor(() => expect(mockToast.info).toHaveBeenCalledWith(
+      'Recovery could not be verified on this computer',
+      { description: 'Specrails could not safely prove one delivery-owned result in this clone. Nothing was changed or removed. Inspect the stage detail and run logs. If the run executed on another computer, open Specrails there, then check again.' },
+    ))
+    expect(mockToast.warning).not.toHaveBeenCalledWith(
+      'Local recovery still needs attention',
+      { description: 'raw scan result' },
+    )
+  })
+
   it('still reveals the preserved worktree in Tauri when clipboard permission is denied', async () => {
     mockIsTauri.mockReturnValue(true)
     mockClipboardWriteText.mockRejectedValueOnce(new Error('clipboard denied'))

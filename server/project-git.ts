@@ -12,6 +12,7 @@ import { isValidBranchName } from './integration-branch'
 
 const GIT_TIMEOUT_MS = 10_000
 const GIT_MAX_BUFFER = 4 * 1024 * 1024
+const COMMIT_SHA_RE = /^[0-9a-f]{40,64}$/i
 
 function git(repoDir: string, args: string[]): Promise<string> {
   return new Promise((resolve, reject) => {
@@ -199,10 +200,21 @@ async function remoteBranchExists(repoDir: string, branch: string): Promise<bool
 /** Checkout a PR/review branch into the user's main repo. Unlike the small
  *  AgentGitBar switcher, this path may materialize a local tracking branch from
  *  `origin/<branch>` because a PR delivery can be remote-only after worktree
- *  cleanup or a fresh clone. It never overwrites dirty local work. */
-export async function checkoutProjectReviewBranch(repoDir: string, branch: string): Promise<CheckoutResult> {
+ *  cleanup or a fresh clone. When supplied, `expectedSha` is an immutable
+ *  delivery lease: a divergent local/remote branch is preserved and checkout
+ *  succeeds only when the final branch HEAD equals that exact object. It never
+ *  overwrites dirty local work. */
+export async function checkoutProjectReviewBranch(
+  repoDir: string,
+  branch: string,
+  expectedSha?: string | null,
+): Promise<CheckoutResult> {
   const target = branch.trim()
   if (!isValidBranchName(target)) return { ok: false, error: `Invalid branch name: ${branch}` }
+  const expected = expectedSha?.trim().toLowerCase() ?? null
+  if (expected !== null && !COMMIT_SHA_RE.test(expected)) {
+    return { ok: false, error: 'The verified delivery commit is invalid; checkout was not attempted.' }
+  }
 
   let dirty = false
   try {
@@ -225,14 +237,53 @@ export async function checkoutProjectReviewBranch(repoDir: string, branch: strin
 
   try {
     if (branches.includes(target)) {
+      if (expected) {
+        const localSha = (await git(repoDir, ['rev-parse', '--verify', `refs/heads/${target}`])).toLowerCase()
+        if (localSha !== expected) {
+          return {
+            ok: false,
+            error: `Local branch '${target}' points to ${localSha.slice(0, 8)}, not verified delivery ${expected.slice(0, 8)}. It was preserved and not checked out.`,
+          }
+        }
+      }
       await git(repoDir, ['checkout', target])
     } else if (await remoteBranchExists(repoDir, target)) {
+      if (expected) {
+        const remoteSha = (await git(
+          repoDir,
+          ['rev-parse', '--verify', `refs/remotes/origin/${target}`],
+        )).toLowerCase()
+        if (remoteSha !== expected) {
+          return {
+            ok: false,
+            error: `Remote branch 'origin/${target}' points to ${remoteSha.slice(0, 8)}, not verified delivery ${expected.slice(0, 8)}. Checkout was not attempted.`,
+          }
+        }
+      }
       await git(repoDir, ['checkout', '-b', target, '--track', `origin/${target}`])
     } else {
       return { ok: false, error: `Unknown branch: ${target}` }
     }
   } catch (err) {
     return { ok: false, error: compactCheckoutError(err instanceof Error ? err.message : 'git checkout failed') }
+  }
+
+  if (expected) {
+    try {
+      const [currentBranch, currentSha] = await Promise.all([
+        git(repoDir, ['rev-parse', '--abbrev-ref', 'HEAD']),
+        git(repoDir, ['rev-parse', '--verify', 'HEAD']),
+      ])
+      if (currentBranch !== target || currentSha.toLowerCase() !== expected) {
+        return {
+          ok: false,
+          error: `Checkout changed concurrently and did not land on verified delivery ${expected.slice(0, 8)}. No reset or cleanup was performed.`,
+        }
+      }
+      return { ok: true }
+    } catch (err) {
+      return { ok: false, error: compactCheckoutError(err instanceof Error ? err.message : 'git checkout verification failed') }
+    }
   }
 
   // A failed ff-only pull should not undo a successful checkout; the branch is

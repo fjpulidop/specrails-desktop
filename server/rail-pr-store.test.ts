@@ -466,6 +466,41 @@ describe('generation and operation ownership', () => {
     expect(claimPrDeliveryOperation(db, 'restart-lease', 'on_review', 'create-pr', 'new-process')).toBe(true)
   })
 
+  it.each(['settlement_interrupted', 'recovery_unavailable'] as const)(
+    'clears an orphaned recovery lease without erasing the causal %s status',
+    (statusCode) => {
+      const id = `restart-recovery-${statusCode}`
+      mk(id, 0, { isContinuation: true })
+      transitionDecision(db, id, 'building', 'pr_failed', {
+        implementationOutcome: 'succeeded',
+        deliveryOutcome: 'blocked',
+        statusCode,
+        statusDetail: `causal detail for ${statusCode}`,
+        branch: 'feat/existing-pr',
+        prUrl: 'https://github.com/o/r/pull/1',
+        isContinuation: true,
+      })
+      expect(claimPrDeliveryOperation(
+        db,
+        id,
+        'pr_failed',
+        'recover-and-retry',
+        'dead-recovery-process',
+      )).toBe(true)
+
+      expect(clearOrphanedPrDeliveryOperations(db)).toBe(1)
+      expect(getPrDelivery(db, id)).toMatchObject({
+        decision: 'pr_failed',
+        delivery_outcome: 'blocked',
+        operation: null,
+        operation_token: null,
+        operation_started_at_ms: null,
+        status_code: statusCode,
+        status_detail: `causal detail for ${statusCode}`,
+      })
+    },
+  )
+
   it('clears a lease left after a durable terminal CAS without calling the completed action interrupted', () => {
     mk('terminal-lease', 0)
     transitionDecision(db, 'terminal-lease', 'building', 'on_review')

@@ -21,6 +21,10 @@ function run(cwd: string, ...args: string[]): void {
   execFileSync('git', args, { cwd, env: GIT_ENV, stdio: 'pipe' })
 }
 
+function output(cwd: string, ...args: string[]): string {
+  return execFileSync('git', args, { cwd, env: GIT_ENV, encoding: 'utf8', stdio: 'pipe' }).trim()
+}
+
 let repo: string
 let plainDir: string
 
@@ -114,6 +118,20 @@ describe('project-git', () => {
     const ok = await checkoutProjectReviewBranch(repo, 'feature')
     expect(ok).toEqual({ ok: true })
     expect((await getProjectGitInfo(repo)).branch).toBe('feature')
+    run(repo, 'checkout', 'main')
+  })
+
+  it('checks out only the exact verified delivery SHA and preserves a divergent local branch', async () => {
+    const featureSha = output(repo, 'rev-parse', 'refs/heads/feature')
+    const mainSha = output(repo, 'rev-parse', 'refs/heads/main')
+
+    await expect(checkoutProjectReviewBranch(repo, 'feature', mainSha)).resolves.toMatchObject({ ok: false })
+    expect((await getProjectGitInfo(repo)).branch).toBe('main')
+    expect(output(repo, 'rev-parse', 'refs/heads/feature')).toBe(featureSha)
+
+    await expect(checkoutProjectReviewBranch(repo, 'feature', featureSha)).resolves.toEqual({ ok: true })
+    expect((await getProjectGitInfo(repo)).branch).toBe('feature')
+    expect(output(repo, 'rev-parse', 'HEAD')).toBe(featureSha)
     run(repo, 'checkout', 'main')
   })
 

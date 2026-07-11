@@ -70,6 +70,7 @@ export type PrDeliveryStatusCode =
   | 'branch_verification_failed'
   | 'push_failed'
   | 'settlement_interrupted'
+  | 'recovery_unavailable'
   | 'operation_interrupted'
   | 'delivery_failed'
   | 'pr_draft_ready'
@@ -736,11 +737,19 @@ export function clearOrphanedPrDeliveryOperations(db: DbInstance): number {
        SET operation = NULL, operation_token = NULL, operation_started_at_ms = NULL,
            status_code = CASE
              WHEN decision NOT IN ('completed','merged','discarded','superseded')
+              AND NOT (
+                operation = 'recover-and-retry'
+                AND status_code IN ('settlement_interrupted','recovery_unavailable')
+              )
              THEN 'operation_interrupted'
              ELSE status_code
            END,
            status_detail = CASE
              WHEN decision NOT IN ('completed','merged','discarded','superseded')
+              AND NOT (
+                operation = 'recover-and-retry'
+                AND status_code IN ('settlement_interrupted','recovery_unavailable')
+              )
               AND (status_detail IS NULL OR status_detail = '')
              THEN 'A previous delivery action was interrupted by restart. Its durable evidence was preserved; review the current state and retry.'
              ELSE status_detail
