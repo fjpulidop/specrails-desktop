@@ -3,10 +3,17 @@ import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { render, screen, fireEvent, waitFor, within } from '../../test-utils'
 import { DndContext } from '@dnd-kit/core'
 
-const { mockToast } = vi.hoisted(() => ({
+const { mockToast, mockRevealItemInDir, mockClipboardWriteText, mockIsTauri } = vi.hoisted(() => ({
   mockToast: { success: vi.fn(), error: vi.fn(), info: vi.fn(), warning: vi.fn() },
+  mockRevealItemInDir: vi.fn(),
+  mockClipboardWriteText: vi.fn().mockResolvedValue(undefined),
+  mockIsTauri: vi.fn(() => false),
 }))
 vi.mock('sonner', () => ({ toast: mockToast }))
+vi.mock('../../lib/tauri-shell', () => ({
+  isTauri: mockIsTauri,
+  revealItemInDir: mockRevealItemInDir,
+}))
 
 import { RailRow } from '../RailRow'
 import { RailPrDecisionStrip } from '../RailPrDecisionStrip'
@@ -64,6 +71,12 @@ function renderStrip(decision: RailPrStateSnapshot, act = vi.fn().mockResolvedVa
 
 beforeEach(() => {
   vi.clearAllMocks()
+  mockIsTauri.mockReturnValue(false)
+  mockClipboardWriteText.mockResolvedValue(undefined)
+  Object.defineProperty(navigator, 'clipboard', {
+    configurable: true,
+    value: { writeText: mockClipboardWriteText },
+  })
 })
 
 describe('RailPrDecisionStrip states (via RailRow, both densities)', () => {
@@ -274,6 +287,7 @@ describe('RailPrDecisionStrip interactions', () => {
           prUrl: 'https://github.com/o/r/pull/5',
           prNumber: 5,
           prState: 'pr-created',
+          deliverySha: 'a'.repeat(40),
         })}
         density="normal"
         act={act}
@@ -295,6 +309,7 @@ describe('RailPrDecisionStrip interactions', () => {
         decision={snapshot({
           decision: 'pr_ready', branch: 'feat/review-followup',
           prUrl: 'https://github.com/o/r/pull/5', prState: 'pr-created',
+          deliverySha: 'a'.repeat(40),
         })}
         density="normal"
         act={vi.fn().mockResolvedValue(okResult)}
@@ -309,6 +324,55 @@ describe('RailPrDecisionStrip interactions', () => {
     ))
     expect(mockToast.warning).not.toHaveBeenCalled()
     expect(button).toBeEnabled()
+  })
+
+  it('localizes a dirty checkout refusal and makes clear that nothing changed', async () => {
+    const checkout = vi.fn().mockResolvedValue({ ok: false, status: 409, error: 'checkout_dirty' })
+    render(
+      <RailPrDecisionStrip
+        decision={snapshot({
+          decision: 'pr_ready', branch: 'feat/review-followup',
+          prUrl: 'https://github.com/o/r/pull/5', prState: 'pr-created',
+          deliverySha: 'a'.repeat(40),
+        })}
+        density="normal"
+        act={vi.fn().mockResolvedValue(okResult)}
+        checkout={checkout}
+      />,
+    )
+
+    fireEvent.click(screen.getByTestId('rail-pr-checkout'))
+
+    await waitFor(() => expect(mockToast.warning).toHaveBeenCalledWith(
+      'Checkout blocked to protect your changes',
+      { description: 'The main project folder has uncommitted changes. Commit or stash them, then retry. Nothing was changed.' },
+    ))
+  })
+
+  it('localizes an unreadable checkout safety preflight without exposing raw Git output', async () => {
+    const checkout = vi.fn().mockResolvedValue({
+      ok: false, status: 409, error: 'checkout_safety_unknown', detail: 'fatal: index.lock permission denied',
+    })
+    render(
+      <RailPrDecisionStrip
+        decision={snapshot({
+          decision: 'pr_ready', branch: 'feat/review-followup',
+          prUrl: 'https://github.com/o/r/pull/5', prState: 'pr-created',
+          deliverySha: 'a'.repeat(40),
+        })}
+        density="normal"
+        act={vi.fn().mockResolvedValue(okResult)}
+        checkout={checkout}
+      />,
+    )
+
+    fireEvent.click(screen.getByTestId('rail-pr-checkout'))
+
+    await waitFor(() => expect(mockToast.warning).toHaveBeenCalledWith(
+      'Checkout paused because safety could not be verified',
+      { description: 'Specrails could not read the main project folder’s Git status. Nothing was released or changed. Retry after Git is available.' },
+    ))
+    expect(mockToast.warning).not.toHaveBeenCalledWith(expect.anything(), { description: expect.stringContaining('index.lock') })
   })
 
   it('restart-interrupted action detail is localized and leaves the recovered card actionable', () => {
@@ -452,7 +516,100 @@ describe('RailPrDecisionStrip orthogonal implementation/delivery outcomes', () =
     expect(within(strip).getByTestId('rail-pr-unit-evidence')).toHaveTextContent('delivery blocked')
     expect(within(strip).queryByTestId('rail-pr-create')).toBeNull()
     expect(within(strip).queryByTestId('rail-pr-retry-push')).toBeNull()
-    expect(within(strip).getByTestId('rail-pr-discard-local')).toBeInTheDocument()
+    expect(within(strip).getByTestId('rail-pr-dismiss')).toBeInTheDocument()
+    expect(within(strip).queryByTestId('rail-pr-discard-local')).toBeNull()
+  })
+
+  it('replaces unsafe Checkout with inspect and confirmed commit-and-push recovery for the interrupted continuation', async () => {
+    const sha = 'c'.repeat(40)
+    const act = vi.fn().mockResolvedValue({
+      ok: true, status: 200, decision: 'pr_ready', deliveryVerified: true,
+      verifiedSha: sha, remoteHeadSha: sha, pushed: true,
+    } satisfies RailPrActResult)
+    const checkout = vi.fn()
+    render(
+      <RailPrDecisionStrip
+        decision={snapshot({
+          decision: 'pr_failed', prUrl: 'https://github.com/o/r/pull/548', prNumber: 548,
+          branch: 'fix/legacy-pr-delivery-recovery', prState: 'pr-created', deliverySha: null,
+          implementationOutcome: 'succeeded', deliveryOutcome: 'blocked', isContinuation: true,
+          statusCode: 'settlement_interrupted', runIds: ['run-recovered'],
+          units: [{
+            ticketId: 1, runId: 'run-recovered', branch: 'fix/legacy-pr-delivery-recovery',
+            succeeded: true, implementationOutcome: 'succeeded', deliveryOutcome: 'blocked',
+            initialSha: 'a'.repeat(40), finalSha: null, failureCode: 'settlement_interrupted',
+            worktreePath: '/tmp/specrails/worktrees/ticket-1',
+          }],
+        })}
+        density="normal"
+        act={act}
+        checkout={checkout}
+      />,
+    )
+
+    expect(screen.queryByTestId('rail-pr-checkout')).toBeNull()
+    expect(screen.getByTestId('rail-pr-inspect-local-result')).toHaveTextContent('Inspect local result')
+    expect(screen.getByTestId('rail-pr-recover-and-retry')).toHaveTextContent('Commit & retry push')
+
+    fireEvent.click(screen.getByTestId('rail-pr-inspect-local-result'))
+    await waitFor(() => expect(mockClipboardWriteText).toHaveBeenCalledWith('/tmp/specrails/worktrees/ticket-1'))
+    expect(mockRevealItemInDir).not.toHaveBeenCalled()
+
+    fireEvent.click(screen.getByTestId('rail-pr-recover-and-retry'))
+    const dialog = screen.getByTestId('rail-pr-recover-and-retry-confirm')
+    expect(dialog).toHaveTextContent('Your main project folder and its uncommitted changes will not be touched')
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Commit & retry push' }))
+
+    await waitFor(() => expect(act).toHaveBeenCalledWith('recover-and-retry', 'pr_failed', 'del-1'))
+    await waitFor(() => expect(mockToast.success).toHaveBeenCalledWith(
+      'Recovered commit cccccccc is verified in the PR',
+    ))
+    expect(checkout).not.toHaveBeenCalled()
+  })
+
+  it('offers recovery but no misleading local-path action when this computer has no preserved worktree', () => {
+    renderStrip(snapshot({
+      decision: 'pr_failed', prUrl: 'https://github.com/o/r/pull/548',
+      branch: 'fix/legacy-pr-delivery-recovery', prState: 'pr-created', deliverySha: null,
+      implementationOutcome: 'succeeded', deliveryOutcome: 'blocked', isContinuation: true,
+      statusCode: 'settlement_interrupted', runIds: ['run-recovered'],
+      units: [{
+        ticketId: 1, runId: 'run-recovered', branch: 'fix/legacy-pr-delivery-recovery',
+        succeeded: true, implementationOutcome: 'succeeded', deliveryOutcome: 'blocked',
+        initialSha: 'a'.repeat(40), finalSha: null, failureCode: 'settlement_interrupted',
+      }],
+    }))
+
+    expect(screen.getByTestId('rail-pr-recover-and-retry')).toBeInTheDocument()
+    expect(screen.queryByTestId('rail-pr-inspect-local-result')).toBeNull()
+    expect(screen.queryByTestId('rail-pr-checkout')).toBeNull()
+    expect(screen.getByTestId('rail-pr-dismiss')).toBeInTheDocument()
+    expect(screen.queryByTestId('rail-pr-discard-local')).toBeNull()
+  })
+
+  it('still reveals the preserved worktree in Tauri when clipboard permission is denied', async () => {
+    mockIsTauri.mockReturnValue(true)
+    mockClipboardWriteText.mockRejectedValueOnce(new Error('clipboard denied'))
+    renderStrip(snapshot({
+      decision: 'pr_failed', prUrl: 'https://github.com/o/r/pull/548',
+      branch: 'fix/legacy-pr-delivery-recovery', prState: 'pr-created',
+      implementationOutcome: 'succeeded', deliveryOutcome: 'blocked', isContinuation: true,
+      statusCode: 'settlement_interrupted', runIds: ['run-recovered'],
+      units: [{
+        ticketId: 1, runId: 'run-recovered', branch: 'fix/legacy-pr-delivery-recovery',
+        succeeded: true, implementationOutcome: 'succeeded', deliveryOutcome: 'blocked',
+        initialSha: 'a'.repeat(40), finalSha: null,
+        worktreePath: '/tmp/specrails/worktrees/ticket-1',
+      }],
+    }))
+
+    fireEvent.click(screen.getByTestId('rail-pr-inspect-local-result'))
+
+    await waitFor(() => expect(mockRevealItemInDir).toHaveBeenCalledWith('/tmp/specrails/worktrees/ticket-1'))
+    expect(mockToast.info).toHaveBeenCalledWith(
+      'Preserved local result',
+      { description: '/tmp/specrails/worktrees/ticket-1' },
+    )
   })
 
   it('labels retryable push failures and partial/no-change results truthfully', () => {
@@ -693,6 +850,11 @@ describe('RailPrDecisionStrip orthogonal implementation/delivery outcomes', () =
     const act = vi.fn().mockResolvedValue({ ok: true, status: 200, decision: 'discarded' })
     renderStrip(snapshot({
       decision: 'pr_failed', implementationOutcome: 'succeeded', deliveryOutcome: 'blocked', statusCode: 'commit_failed', isContinuation: true,
+      units: [{
+        ticketId: 1, branch: 'feat/1', succeeded: true,
+        implementationOutcome: 'succeeded', deliveryOutcome: 'blocked',
+        initialSha: null, finalSha: null, worktreePath: '/tmp/recoverable-ticket-1',
+      }],
     }), act)
     fireEvent.click(screen.getByTestId('rail-pr-discard-local'))
     const dialog = screen.getByTestId('rail-pr-discard-local-confirm')

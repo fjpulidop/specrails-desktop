@@ -19,7 +19,7 @@ const DELIVERY_OUTCOMES: ReadonlySet<string> = new Set([
   'retryable_failure', 'blocked', 'not_started', 'unknown',
 ])
 const OPERATIONS: ReadonlySet<string> = new Set([
-  'create-pr', 'publish', 'discard', 'poll-merge', 'merge-local', 'dismiss', 'reopen', 'acknowledge-no-changes',
+  'create-pr', 'publish', 'discard', 'poll-merge', 'merge-local', 'dismiss', 'reopen', 'acknowledge-no-changes', 'recover-and-retry',
 ])
 const STATUS_CODES: ReadonlySet<string> = new Set([
   'implementation_running', 'implementation_failed', 'ready_for_review',
@@ -105,6 +105,7 @@ function coerceUnit(v: unknown): RailPrUnitOutcome | null {
     ...(o.branchOwnership === 'created' || o.branchOwnership === 'preexisting' || o.branchOwnership === 'borrowed-pr'
       ? { branchOwnership: o.branchOwnership }
       : {}),
+    worktreePath: asNullableString(o.worktreePath),
   }
 }
 
@@ -167,12 +168,14 @@ export interface PrDeliverySemanticInput {
   decision: RailPrDecision
   ticketIds: number[]
   prUrl: string | null
+  branch?: string | null
   prState: RailPrStateSnapshot['prState']
   implementationOutcome?: RailImplementationOutcome
   deliveryOutcome?: RailDeliveryOutcome
   statusCode?: string | null
   statusDetail?: string | null
   isContinuation?: boolean
+  runIds?: string[]
   cleanupWarnings?: string[]
   safetyArchives?: string[]
   units?: RailPrUnitOutcome[]
@@ -186,6 +189,7 @@ export interface PrDeliveryPresentation {
   deliveryBlocked: boolean
   retryablePush: boolean
   retryablePrCreation: boolean
+  manualRecovery: boolean
   continuation: boolean
   localOnly: boolean
   closed: boolean
@@ -198,6 +202,7 @@ export interface PrDeliveryPresentation {
   units: RailPrUnitOutcome[]
   cleanupWarnings: string[]
   safetyArchives: string[]
+  recoveryWorktreePaths: string[]
 }
 
 /** ONE semantic derivation shared by dashboard and agent-chat cards. */
@@ -239,6 +244,27 @@ export function derivePrDeliveryPresentation(input: PrDeliverySemanticInput): Pr
   // actions are admitted, so presentation must not infer them from failures or
   // ownership.
   const continuation = input.isContinuation === true
+  const recoveryRunIds = [...new Set((input.runIds ?? [])
+    .filter((value): value is string => typeof value === 'string' && value.length > 0))]
+  const recoveryRunId = recoveryRunIds.length === 1 ? recoveryRunIds[0] : null
+  const matchingRecoveryUnits = recoveryRunId && input.branch
+    ? units.filter((unit) => unit.runId === recoveryRunId && unit.branch === input.branch)
+    : []
+  const matchingRecoveryWorktreePaths = [...new Set(
+    matchingRecoveryUnits
+      .map((unit) => unit.worktreePath)
+      .filter((value): value is string => Boolean(value)),
+  )]
+  const recoveryWorktreePaths = input.statusCode === 'settlement_interrupted' && continuation
+    ? matchingRecoveryWorktreePaths
+    : [...new Set(
+        units.map((unit) => unit.worktreePath).filter((value): value is string => Boolean(value)),
+      )]
+  const manualRecovery = input.decision === 'pr_failed' && input.deliveryOutcome === 'blocked' &&
+    deliveryBlocked && continuation && Boolean(input.prUrl) && Boolean(input.branch) &&
+    recoveryRunIds.length === 1 && matchingRecoveryUnits.length > 0 && matchingRecoveryWorktreePaths.length <= 1 &&
+    input.statusCode === 'settlement_interrupted' &&
+    (input.implementationOutcome === 'succeeded' || input.implementationOutcome === 'partially_succeeded')
   const retryablePush = !implementationFailed && retryableFailure && (
     input.statusCode === 'push_failed' || continuation || Boolean(input.prUrl)
   )
@@ -253,6 +279,7 @@ export function derivePrDeliveryPresentation(input: PrDeliverySemanticInput): Pr
     deliveryBlocked,
     retryablePush,
     retryablePrCreation,
+    manualRecovery,
     continuation,
     localOnly: input.prState === 'local-only',
     closed,
@@ -265,5 +292,6 @@ export function derivePrDeliveryPresentation(input: PrDeliverySemanticInput): Pr
     units,
     cleanupWarnings: input.cleanupWarnings ?? [],
     safetyArchives: input.safetyArchives ?? [],
+    recoveryWorktreePaths,
   }
 }

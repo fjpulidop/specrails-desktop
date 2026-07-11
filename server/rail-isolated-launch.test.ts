@@ -1,4 +1,6 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
+import * as fs from 'fs'
+import * as os from 'os'
 import * as path from 'path'
 import { resolveHome } from './artifact-registry'
 import { launchIsolatedRail, reconcileRailWorktrees, type IsolatedLaunchIO } from './rail-isolated-launch'
@@ -64,6 +66,7 @@ const recoveryPrExec = (branch: string, headSha = 'b'.repeat(40)) => ({
     code: 0,
     stdout: JSON.stringify({
       state: 'OPEN', isDraft: false, headRefName: branch, baseRefName: 'main',
+      isCrossRepository: false,
       headRefOid: headSha, mergeCommit: null, commits: [{ oid: headSha }],
     }),
     stderr: '',
@@ -786,11 +789,13 @@ describe('launchIsolatedRail — conventional branch naming (pr-naming threading
     })
 
     await vi.waitFor(() => expect(calls.some((c) => c.args[0] === 'commit')).toBe(true))
-    expect(calls.find((c) => c.args[0] === 'commit')!.args).toEqual([
+    expect(calls.find((c) => c.args[0] === 'commit')!.args).toEqual(expect.arrayContaining([
       'commit',
+      '--no-verify',
+      '--only',
       '-m',
       expect.stringMatching(/^specrails: SKILLS-70 ticket-98 \(run /),
-    ])
+    ]))
   })
 })
 
@@ -812,6 +817,7 @@ describe('launchIsolatedRail — active PR continuation', () => {
     isDraft: input.isDraft ?? false,
     headRefName: input.branch,
     baseRefName: 'main',
+    isCrossRepository: false,
     headRefOid: input.sha ?? continuationSha,
     mergeCommit: null,
     commits: [{ oid: input.sha ?? continuationSha }],
@@ -820,6 +826,10 @@ describe('launchIsolatedRail — active PR continuation', () => {
     title: input.title ?? 'Existing implementation',
     body: input.body ?? 'Follow-up implementation.',
   })
+  const matchingPushRemote = (prUrl: string) => {
+    const segments = new URL(prUrl).pathname.split('/').filter(Boolean)
+    return { code: 0, stdout: `https://github.com/${segments[0]}/${segments[1]}.git\n`, stderr: '' }
+  }
   const verifiedContinuationRef = (args: string[], cwd: string, branch: string) => {
     if (cwd.startsWith('/wt/') && args[0] === 'rev-parse' && args[1] === '--abbrev-ref') {
       return { code: 0, stdout: `${branch}\n`, stderr: '' }
@@ -1127,6 +1137,7 @@ describe('launchIsolatedRail — active PR continuation', () => {
     }
     const exec = {
       run: vi.fn(async (cmd: string, args: string[]) => {
+        if (cmd === 'git' && args[0] === 'remote') return matchingPushRemote(prUrl)
         if (cmd === 'git' && args[0] === 'push') return { code: 0, stdout: '', stderr: '' }
         if (args[1] === 'view') return {
           code: 0,
@@ -1187,6 +1198,7 @@ describe('launchIsolatedRail — active PR continuation', () => {
     }
     const exec = {
       run: vi.fn(async (cmd: string, args: string[]) => {
+        if (cmd === 'git' && args[0] === 'remote') return matchingPushRemote(prUrl)
         if (cmd === 'git' && args[0] === 'push') return { code: 0, stdout: '', stderr: '' }
         if (args[1] === 'view') {
           viewCalls++
@@ -1221,7 +1233,7 @@ describe('launchIsolatedRail — active PR continuation', () => {
 
     await vi.waitFor(() => expect(getActivePrDeliveryByRail(db, 0)?.decision).toBe('pr_ready'))
     expect(exec.run).toHaveBeenCalledWith(
-      'git', ['push', 'origin', `${finalSha}:refs/heads/${branch}`], '/repo',
+      'git', ['push', 'https://github.com/o/r.git', `${finalSha}:refs/heads/${branch}`], '/repo',
     )
     expect(getActivePrDeliveryByRail(db, 0)).toMatchObject({
       delivery_sha: finalSha, status_code: 'existing_pr_updated', delivery_outcome: 'delivered',
@@ -1317,6 +1329,9 @@ describe('launchIsolatedRail — active PR continuation', () => {
     }
     const exec = {
       run: vi.fn(async (cmd: string, args: string[]) => {
+        if (cmd === 'git' && args[0] === 'remote') {
+          return matchingPushRemote('https://github.com/org/repo/pull/2147')
+        }
         if (cmd === 'git' && args[0] === 'push') return { code: 0, stdout: '', stderr: '' }
         if (cmd === 'gh' && args[0] === 'pr') {
           if (args[1] === 'view') return {
@@ -1389,6 +1404,9 @@ describe('launchIsolatedRail — active PR continuation', () => {
     }
     const exec = {
       run: vi.fn(async (cmd: string, args: string[]) => {
+        if (cmd === 'git' && args[0] === 'remote') {
+          return matchingPushRemote('https://github.com/o/r/pull/2148')
+        }
         if (cmd === 'git' && args[0] === 'push') return { code: 0, stdout: '', stderr: '' }
         if (args[1] === 'view') return {
           code: 0,
@@ -1439,7 +1457,7 @@ describe('launchIsolatedRail — active PR continuation', () => {
     })
     expect(exec.run).toHaveBeenCalledWith(
       'git',
-      ['push', 'origin', `${continuationSha}:refs/heads/${branch}`],
+      ['push', 'https://github.com/o/r.git', `${continuationSha}:refs/heads/${branch}`],
       '/repo',
     )
     expect(getActivePrDeliveryByRail(db, 0)?.delivery_sha).toBe(continuationSha)
@@ -1466,6 +1484,7 @@ describe('launchIsolatedRail — active PR continuation', () => {
     }
     const exec = {
       run: vi.fn(async (cmd: string, args: string[]) => {
+        if (cmd === 'git' && args[0] === 'remote') return matchingPushRemote(prUrl)
         if (cmd === 'git' && args[0] === 'push') return { code: 0, stdout: '', stderr: '' }
         if (args[1] === 'view') {
           viewCalls++
@@ -1476,6 +1495,7 @@ describe('launchIsolatedRail — active PR continuation', () => {
             code: 0,
             stdout: JSON.stringify({
               state: 'CLOSED', isDraft: false, headRefName: branch, baseRefName: 'main',
+              isCrossRepository: false,
               headRefOid: continuationSha, mergeCommit: null,
               commits: [{ oid: continuationSha }], number: 2148, url: prUrl,
             }),
@@ -1503,7 +1523,7 @@ describe('launchIsolatedRail — active PR continuation', () => {
       delivery_sha: continuationSha, branch, pr_url: prUrl,
     })
     expect(exec.run).toHaveBeenCalledWith(
-      'git', ['push', 'origin', `${continuationSha}:refs/heads/${branch}`], '/repo',
+      'git', ['push', 'https://github.com/o/r.git', `${continuationSha}:refs/heads/${branch}`], '/repo',
     )
   })
 
@@ -1525,6 +1545,9 @@ describe('launchIsolatedRail — active PR continuation', () => {
     }
     const exec = {
       run: vi.fn(async (cmd: string, args: string[]) => {
+        if (cmd === 'git' && args[0] === 'remote') {
+          return matchingPushRemote('https://github.com/o/r/pull/2147')
+        }
         if (cmd === 'git' && args[0] === 'push') return { code: 0, stdout: '', stderr: '' }
         if (args[1] === 'view') return {
           code: 0,
@@ -1586,6 +1609,9 @@ describe('launchIsolatedRail — active PR continuation', () => {
     }
     const exec = {
       run: vi.fn(async (cmd: string, args: string[]) => {
+        if (cmd === 'git' && args[0] === 'remote') {
+          return matchingPushRemote('https://github.com/o/r/pull/2147')
+        }
         if (cmd === 'git' && args[0] === 'push') return { code: 0, stdout: '', stderr: '' }
         if (args[1] === 'view') return {
           code: 0,
@@ -1702,6 +1728,9 @@ describe('launchIsolatedRail — active PR continuation', () => {
     }
     const exec = {
       run: vi.fn(async (cmd: string, args: string[]) => {
+        if (cmd === 'git' && args[0] === 'remote') {
+          return matchingPushRemote('https://github.com/org/repo/pull/2147')
+        }
         if (cmd === 'git' && args[0] === 'push') return { code: 1, stdout: '', stderr: 'no remote' }
         if (cmd === 'gh' && args[0] === 'pr') {
           if (args[1] === 'view') return {
@@ -1745,6 +1774,75 @@ describe('launchIsolatedRail — active PR continuation', () => {
     })
   })
 
+  it('refuses to push an existing-PR continuation when origin has multiple push URLs', async () => {
+    const { ctx, db } = continuationCtx()
+    const branch = 'feat/SKILLS-19-key-terms-activity'
+    const prUrl = 'https://github.com/org/repo/pull/2147'
+    const create = vi.fn(async (_g: unknown, request: { branch?: string; ticketId: number }) => ({
+      branch: request.branch ?? `sr/p/ticket-${request.ticketId}`,
+      worktreePath: `/wt/ticket-${request.ticketId}`,
+    }))
+    const git = {
+      run: async (args: string[], cwd: string) => {
+        const verified = verifiedContinuationRef(args, cwd, branch)
+        if (verified) return verified
+        if (args[0] === 'rev-parse' && args.at(-1) === `refs/heads/${branch}`) {
+          return { code: 0, stdout: '', stderr: '' }
+        }
+        return { code: 0, stdout: '', stderr: '' }
+      },
+    }
+    const exec = {
+      run: vi.fn(async (cmd: string, args: string[]) => {
+        if (cmd === 'git' && args[0] === 'remote') {
+          return {
+            code: 0,
+            stdout: 'https://github.com/org/repo.git\nhttps://github.com/someone/fork.git\n',
+            stderr: '',
+          }
+        }
+        if (cmd === 'git' && args[0] === 'push') return { code: 0, stdout: '', stderr: '' }
+        if (cmd === 'gh' && args[0] === 'pr') {
+          if (args[1] === 'view') return {
+            code: 0,
+            stdout: openPrLifecycle({ branch, url: prUrl, number: 2147 }),
+            stderr: '',
+          }
+          return {
+            code: 0,
+            stdout: JSON.stringify([{
+              number: 2147,
+              title: '[SKILLS-70] Existing implementation',
+              body: 'Implements ticket #98.',
+              headRefName: branch,
+              baseRefName: 'main',
+              url: prUrl,
+              isDraft: false,
+            }]),
+            stderr: '',
+          }
+        }
+        return { code: 1, stdout: '', stderr: 'unexpected' }
+      }),
+    }
+
+    await launchIsolatedRail(input([98], ctx), {
+      git, exec, create, remove: vi.fn(async () => {}),
+    })
+
+    await vi.waitFor(() => expect(getActivePrDeliveryByRail(db, 0)?.decision).toBe('pr_failed'))
+    expect(exec.run.mock.calls.filter(([cmd, args]) => cmd === 'git' && args[0] === 'push')).toHaveLength(0)
+    expect(getActivePrDeliveryByRail(db, 0)).toMatchObject({
+      branch,
+      pr_url: prUrl,
+      implementation_outcome: 'succeeded',
+      delivery_outcome: 'retryable_failure',
+      status_code: 'push_failed',
+      delivery_sha: continuationSha,
+      status_detail: expect.stringContaining('exactly one URL'),
+    })
+  })
+
   it('continues the explicitly mentioned PR number even when the PR branch uses an older Jira key', async () => {
     const { ctx, db } = continuationCtx()
     ;(ctx as unknown as { getTicketSpec: (id: number) => unknown }).getTicketSpec = (id: number) => ({
@@ -1772,6 +1870,9 @@ describe('launchIsolatedRail — active PR continuation', () => {
     }
     const exec = {
       run: vi.fn(async (cmd: string, args: string[]) => {
+        if (cmd === 'git' && args[0] === 'remote') {
+          return matchingPushRemote('https://github.com/org/repo/pull/2147')
+        }
         if (cmd === 'git' && args[0] === 'push') return { code: 0, stdout: '', stderr: '' }
         if (args[0] === 'pr' && args[1] === 'list') return {
           code: 0,
@@ -1849,24 +1950,30 @@ describe('launchIsolatedRail — active PR continuation', () => {
       },
     }
     const exec = {
-      run: vi.fn(async (_cmd: string, args: string[]) => ({
-        code: 0,
-        stdout: args[1] === 'view'
-          ? openPrLifecycle({
+      run: vi.fn(async (cmd: string, args: string[]) => {
+        if (cmd === 'git' && args[0] === 'remote') {
+          return matchingPushRemote('https://github.com/o/r/pull/2148')
+        }
+        if (cmd === 'git' && args[0] === 'push') return { code: 0, stdout: '', stderr: '' }
+        return {
+          code: 0,
+          stdout: args[1] === 'view'
+            ? openPrLifecycle({
               branch: 'feat/SKILLS-70-review-followups',
               url: 'https://github.com/o/r/pull/2148', number: 2148,
             })
-          : JSON.stringify([{
-          number: 2148,
-          title: 'SKILLS-70 review follow-ups',
-          body: 'Follow-up work for the linked Jira issue.',
-          headRefName: 'feat/SKILLS-70-review-followups',
-          baseRefName: 'main',
-          url: 'https://github.com/o/r/pull/2148',
-          isDraft: false,
-          }]),
-        stderr: '',
-      })),
+            : JSON.stringify([{
+              number: 2148,
+              title: 'SKILLS-70 review follow-ups',
+              body: 'Follow-up work for the linked Jira issue.',
+              headRefName: 'feat/SKILLS-70-review-followups',
+              baseRefName: 'main',
+              url: 'https://github.com/o/r/pull/2148',
+              isDraft: false,
+            }]),
+          stderr: '',
+        }
+      }),
     }
 
     await launchIsolatedRail(input([98], ctx), { git, exec, create, remove: vi.fn(async () => {}) })
@@ -2499,6 +2606,118 @@ describe('reconcileRailWorktrees (startup sweep)', () => {
     expect(onDeliveryRecovered).toHaveBeenCalledWith(delivery.id)
   })
 
+  it('recovers a uniquely run-marked settlement commit that survives only as an unreachable object', async () => {
+    const seeded = seedLegacyPrRecoveryCandidate('legacy-unreachable-only')
+    const oldPrHead = 'b'.repeat(40)
+    const git = {
+      run: vi.fn(async (args: string[]) => {
+        if (args[0] === 'fsck') {
+          return {
+            code: 0,
+            stdout: `unreachable blob ${'d'.repeat(40)}\nunreachable commit ${seeded.recoveredSha}\n`,
+            stderr: '',
+          }
+        }
+        if (args[0] === 'log') return { code: 0, stdout: '', stderr: '' }
+        if (args[0] === 'show') {
+          const sha = args[args.length - 1]
+          return {
+            code: 0,
+            stdout: sha === seeded.recoveredSha
+              ? `specrails: ticket-1 (run ${seeded.runId})\n`
+              : 'pre-existing PR commit\n',
+            stderr: '',
+          }
+        }
+        if (args.join(' ') === `rev-parse --verify refs/heads/${seeded.branch}`) {
+          return { code: 0, stdout: `${oldPrHead}\n`, stderr: '' }
+        }
+        return successfulGitResult(args)
+      }),
+    }
+
+    await reconcileRailWorktrees(seeded.db, '/repo', {
+      git, exec: recoveryPrExec(seeded.branch, oldPrHead), remove: vi.fn(async () => {}),
+    })
+
+    expect(getPrDelivery(seeded.db, seeded.delivery.id)).toMatchObject({
+      decision: 'pr_failed', delivery_outcome: 'retryable_failure',
+      delivery_sha: seeded.recoveredSha, is_continuation: 1,
+    })
+    expect(git.run).toHaveBeenCalledWith(
+      ['fsck', '--unreachable', '--no-reflogs', '--no-progress'], '/repo',
+    )
+  })
+
+  it('unions refs/reflogs with unreachable objects and blocks two marked commits for one run', async () => {
+    const seeded = seedLegacyPrRecoveryCandidate('legacy-unreachable-ambiguous')
+    const unreachableSha = 'd'.repeat(40)
+    const git = {
+      run: vi.fn(async (args: string[]) => {
+        if (args[0] === 'fsck') {
+          return { code: 0, stdout: `unreachable commit ${unreachableSha}\n`, stderr: '' }
+        }
+        if (args[0] === 'log') {
+          return { code: 0, stdout: `${seeded.recoveredSha}\n`, stderr: '' }
+        }
+        if (args[0] === 'show') {
+          return { code: 0, stdout: `specrails: ticket-1 (run ${seeded.runId})\n`, stderr: '' }
+        }
+        return successfulGitResult(args)
+      }),
+    }
+
+    await reconcileRailWorktrees(seeded.db, '/repo', {
+      git, exec: recoveryPrExec(seeded.branch), remove: vi.fn(async () => {}),
+    })
+
+    expect(getPrDelivery(seeded.db, seeded.delivery.id)).toMatchObject({
+      decision: 'pr_failed', delivery_outcome: 'blocked', delivery_sha: null,
+      status_detail: expect.stringContaining('multiple different commits'),
+    })
+  })
+
+  it.each([
+    {
+      name: 'command failure',
+      result: { code: 1, stdout: '', stderr: 'fsck failed' },
+    },
+    {
+      name: 'malformed commit record',
+      result: { code: 0, stdout: 'unreachable commit not-a-sha\n', stderr: '' },
+    },
+    {
+      name: 'candidate cap exceeded',
+      result: {
+        code: 0,
+        stdout: Array.from(
+          { length: 513 },
+          (_, index) => `unreachable commit ${index.toString(16).padStart(40, '0')}`,
+        ).join('\n'),
+        stderr: '',
+      },
+    },
+  ])('keeps legacy recovery blocked when unreachable discovery has $name', async ({ result }) => {
+    const seeded = seedLegacyPrRecoveryCandidate(`legacy-unreachable-invalid-${result.code}-${result.stdout.length}`)
+    const git = {
+      run: vi.fn(async (args: string[]) => {
+        if (args[0] === 'fsck') return result
+        if (args[0] === 'log') return { code: 0, stdout: '', stderr: '' }
+        if (args[0] === 'show') return { code: 0, stdout: 'pre-existing PR commit\n', stderr: '' }
+        return successfulGitResult(args)
+      }),
+    }
+
+    await reconcileRailWorktrees(seeded.db, '/repo', {
+      git, exec: recoveryPrExec(seeded.branch), remove: vi.fn(async () => {}),
+    })
+
+    expect(getPrDelivery(seeded.db, seeded.delivery.id)).toMatchObject({
+      decision: 'pr_failed', delivery_outcome: 'blocked', delivery_sha: null,
+      status_detail: expect.stringContaining('could not prove a run-owned commit'),
+    })
+  })
+
   it('refuses a no-op legacy Retry push when the recovered branch is already the PR head', async () => {
     const db = initDb(':memory:')
     const runId = 'legacy-no-op-run'
@@ -2635,6 +2854,7 @@ describe('reconcileRailWorktrees (startup sweep)', () => {
           code: 0,
           stdout: JSON.stringify({
             state, isDraft: false, headRefName: branch, baseRefName: 'main',
+            isCrossRepository: false,
             headRefOid: remoteSha,
             mergeCommit: state === 'MERGED' ? { oid: 'e'.repeat(40) } : null,
             commits: [{ oid: remoteSha }],
@@ -2721,6 +2941,91 @@ describe('reconcileRailWorktrees (startup sweep)', () => {
     )
   })
 
+  it('projects only a currently registered recovery worktree and removes a stale device-local path', async () => {
+    const root = fs.mkdtempSync(path.join(os.tmpdir(), 'specrails-recovery-display-'))
+    const repoDir = path.join(root, 'repo')
+    const worktreePath = path.join(root, 'worktree')
+    fs.mkdirSync(repoDir)
+    fs.mkdirSync(worktreePath)
+    const canonicalWorktreePath = fs.realpathSync(worktreePath)
+    const db = initDb(':memory:')
+    const runId = 'display-run'
+    const branch = 'feat/display-recovery'
+    createLoopRun(db, {
+      id: runId, projectId: 'proj', loopId: 'factory:implement', railIndex: 0,
+      ticketId: 1, ticketIds: [1], ticketCompletionStatus: 'on_review',
+      iterationLimit: 3, startedAt: new Date().toISOString(),
+    })
+    db.prepare(`UPDATE loop_runs SET status = 'completed', final_outcome = 'success' WHERE id = ?`).run(runId)
+    const worktree = createRailWorktree(db, {
+      id: 'display-wt', railIndex: 0, ticketId: 1, runId,
+      branch, worktreePath, mergeState: 'needs-review',
+    })
+    const delivery = createPrDelivery(db, {
+      id: 'display-delivery', railIndex: 0, loopId: 'factory:implement',
+      railKey: '0-factory:implement', ticketIds: [1], baseBranch: 'main',
+      loopName: 'Implement', originSurface: 'agent-chat', isContinuation: true,
+    })
+    transitionDecision(db, delivery.id, 'building', 'pr_failed', {
+      runIds: [runId], worktreeIds: [worktree.id], branch,
+      branches: [{
+        ticketId: 1, runId, branch, succeeded: false,
+        implementationOutcome: 'succeeded', deliveryOutcome: 'blocked',
+        failureCode: 'settlement_interrupted', worktreePath: '/stale/other-device/worktree',
+      }],
+      prUrl: 'https://github.com/o/r/pull/1', prNumber: 1, prState: 'pr-created',
+      implementationOutcome: 'succeeded', deliveryOutcome: 'blocked',
+      statusCode: 'settlement_interrupted', isContinuation: true,
+    })
+    let registered = true
+    const git = {
+      run: vi.fn(async (args: string[], cwd: string) => {
+        if (args.join(' ') === 'worktree list --porcelain') {
+          return {
+            code: 0,
+            stdout: [
+              `worktree ${repoDir}`, `HEAD ${'a'.repeat(40)}`, 'branch refs/heads/main', '',
+              ...(registered
+                ? [`worktree ${worktreePath}`, `HEAD ${TEST_SHA}`, `branch refs/heads/${branch}`, '']
+                : []),
+            ].join('\n'),
+            stderr: '',
+          }
+        }
+        if (cwd === canonicalWorktreePath && args.join(' ') === 'rev-parse --abbrev-ref HEAD') {
+          return { code: 0, stdout: `${branch}\n`, stderr: '' }
+        }
+        if (cwd === canonicalWorktreePath && args.join(' ') === 'rev-parse --verify HEAD') {
+          return { code: 0, stdout: `${TEST_SHA}\n`, stderr: '' }
+        }
+        if (args[0] === 'fsck' || args[0] === 'log') return { code: 0, stdout: '', stderr: '' }
+        return successfulGitResult(args)
+      }),
+    }
+
+    try {
+      await reconcileRailWorktrees(db, repoDir, { git, remove: vi.fn(async () => {}) })
+      let units = JSON.parse(getPrDelivery(db, delivery.id)!.branches) as Array<Record<string, unknown>>
+      expect(units[0].worktreePath).toBe(canonicalWorktreePath)
+
+      // Reproduce a row previously reconciled on another build: the durable
+      // detail is already the generic no-local-evidence text, but its branch
+      // payload still carries a device-local path. Branch projection must not
+      // be skipped merely because every top-level status field is unchanged.
+      db.prepare(`UPDATE rail_pr_deliveries SET status_detail = ? WHERE id = ?`).run(
+        'Exact commit recovery found dirty, needs-review, missing, or mismatched worktree evidence; no remaining local evidence was deleted.',
+        delivery.id,
+      )
+      registered = false
+      await reconcileRailWorktrees(db, repoDir, { git, remove: vi.fn(async () => {}) })
+      units = JSON.parse(getPrDelivery(db, delivery.id)!.branches) as Array<Record<string, unknown>>
+      expect(units[0]).not.toHaveProperty('worktreePath')
+    } finally {
+      db.close()
+      fs.rmSync(root, { recursive: true, force: true })
+    }
+  })
+
   it('preserves non-terminal worktrees with missing run evidence as needs-review', async () => {
     const db = initDb(':memory:')
     createRailWorktree(db, { id: 'a', railIndex: 0, ticketId: 1, branch: 'sr/p/ticket-1', worktreePath: '/wt/1' })
@@ -2743,9 +3048,11 @@ describe('reconcileRailWorktrees (startup sweep)', () => {
   it('is a no-op (no git/remove calls) when there are no orphans', async () => {
     const db = initDb(':memory:')
     const remove = vi.fn(async () => {})
-    const n = await reconcileRailWorktrees(db, '/repo', { git: { run: async () => ({ code: 0, stdout: '', stderr: '' }) }, remove })
+    const git = { run: vi.fn(async () => ({ code: 0, stdout: '', stderr: '' })) }
+    const n = await reconcileRailWorktrees(db, '/repo', { git, remove })
     expect(n).toBe(0)
     expect(remove).not.toHaveBeenCalled()
+    expect(git.run).not.toHaveBeenCalled()
   })
 })
 

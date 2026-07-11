@@ -82,6 +82,25 @@ async function listLocalBranches(repoDir: string): Promise<string[]> {
   return out.split('\n').map((b) => b.trim()).filter(Boolean)
 }
 
+export type ProjectCheckoutCleanliness =
+  | { ok: true; clean: boolean }
+  | { ok: false; detail: string }
+
+/** Lossless checkout preflight. Unlike the dashboard-oriented aggregate info,
+ * this result is tri-state: an unreadable status is never interpreted as a
+ * clean checkout. */
+export async function inspectProjectCheckoutCleanliness(repoDir: string): Promise<ProjectCheckoutCleanliness> {
+  try {
+    const status = await git(repoDir, ['status', '--porcelain', '--untracked-files=all'])
+    return { ok: true, clean: status === '' }
+  } catch (err) {
+    return {
+      ok: false,
+      detail: `Working tree cleanliness could not be verified: ${err instanceof Error ? err.message : String(err)}`,
+    }
+  }
+}
+
 export async function getProjectGitInfo(repoDir: string): Promise<ProjectGitInfo> {
   try {
     await git(repoDir, ['rev-parse', '--is-inside-work-tree'])

@@ -78,7 +78,9 @@ closes the pre-existing PR, deletes its head branch, or returns its tickets from
 dirty follow-up requires an explicit “Discard local result” confirmation, while still preserving
 the external PR/branch. That confirmation terminalizes the workflow result; it does not authorize
 forced byte deletion. New tracked, untracked, or ignored files keep the worktree and its checked-out
-branch mounted with an actionable cleanup warning. Fresh deliveries keep the full PR/ticket discard
+branch mounted with an actionable cleanup warning. If this computer has no authenticated live
+worktree path, the blocked continuation shows ownership-safe **Dismiss** instead of claiming that a
+local result will be discarded; the existing PR/branch/review state remains untouched. Fresh deliveries keep the full PR/ticket discard
 semantics under the same lossless local preflight.
 
 When a terminal dashboard action removes the card while recovery data remains, the cleanup warning
@@ -135,9 +137,11 @@ actionable.
   projection, marks the still-active delivery `operation_interrupted`, and leaves its durable SHA,
   PR and unit evidence intact so the user can safely retry.
 - Migrated successful `settlement_interrupted` rows with an existing PR are re-examined at startup.
-  Every refs/reflogs or recorded-branch candidate must carry the unique `(run <id>)` settlement
+  Every refs/reflogs, unreachable-object, or recorded-branch candidate must carry the unique `(run <id>)` settlement
   marker in its **commit subject**; branch/worktree association or a marker found only in the body
-  is never causal proof. A terminal `released`/legacy `failed` branch tip is only a fallback under
+  is never causal proof. The unreachable-object scan runs at most once per serialized reconciliation,
+  accepts only a bounded, unambiguous set of commit objects, and fails closed on malformed or excessive
+  output. A terminal `released`/legacy `failed` branch tip is only a fallback under
   that same subject rule. One unambiguous run-owned commit becomes `delivery_sha` and a Retry push action
   when absent from the recorded open PR. If GitHub already exposes that exact causal commit, the
   row is classified as delivered without a no-op push. Startup audits earlier legacy recoveries
@@ -148,6 +152,10 @@ actionable.
   Dirty, missing, mismatched, unmarked or ambiguous evidence stays blocked, preserved, and receives
   a specific recovery diagnostic on the card. Once the exact causal SHA is proven, a transient
   GitHub lookup instead stays retryable and Retry push revalidates before mutation.
+- A blocked legacy card exposes a worktree path only after the path is proved absolute,
+  non-symlink, outside the main checkout, uniquely present in this repository's live worktree
+  registry, and checked out on the recorded branch/HEAD. Historical or other-device paths are
+  removed from the snapshot instead of being presented as available.
 - `GET /rails` is hydration-only and never invokes crash recovery. This avoids misclassifying the
   normal live window between durable loop completion and commit/ref/push settlement.
 - Startup retries pending terminal ticket effects in-process and re-projects active and terminal
@@ -223,6 +231,13 @@ Every path that observes an attached PR—continuation admission, Retry push, po
 verification, Verify PR/poll, and Reopen—uses the same causal check: recorded PR identity, exact
 head/base, lifecycle, and inclusion of immutable `delivery_sha`. Admission is read-only and accepts
 only exact `OPEN` evidence; otherwise it refuses the launch without superseding the preserved card.
+Immediately before any existing-PR push, including automatic second-iteration settlement, the local
+`origin` must resolve to exactly one push URL identifying the repository that owns the same-repository
+PR. A fork, multiple URLs, ambiguous URL, missing remote, or mismatch preserves the immutable SHA and
+fails retryably without mutation. The push targets that already-verified raw URL, not the mutable
+`origin` alias, closing the verification/use window. URLs with credential-bearing userinfo,
+passwords, query strings, or fragments are rejected before they can enter process arguments or
+persisted diagnostics; Git/`gh` credential helpers remain the authentication channel.
 Exact `MERGED` evidence containing that SHA terminalizes immediately in a Retry/Reopen/Verify
 decision action. A definitively stale/retargeted PR, or a `CLOSED`/`MERGED` PR without that SHA, is
 detached by that action to `on_review` with the SHA and local branch preserved for a new PR.
@@ -261,6 +276,15 @@ attached and ready for Verify so that explicit decision can commit terminal tick
   with no PR/merge claim. Jira receives its own no-PR completion comment. Refine remains the
   explicitly backlog-returning path and always uses Jira `todo`; it never inherits the configured
   discard/cancellation status.
+- **recover-and-retry** — for one exact successful `settlement_interrupted` continuation, confirms
+  use of its recorded run/unit and authenticated isolated worktree. Authentication is repeated
+  immediately before staging; symlinks, the main checkout, reused directories and unregistered
+  paths fail closed. Private/overlay paths are excluded from add and from the final `commit --only`
+  pathspec; pre-staged forbidden entries are safely unstaged, hooks are bypassed, and the index is
+  re-audited. The candidate must fast-forward the live PR head. GitHub must prove a same-repository
+  PR and the local `origin` push URL must identify that exact PR repository before the immutable SHA
+  is pushed without force. A merge racing recovery returns verified success rather than a warning.
+  The user's main checkout is never switched, staged, stashed, committed, or cleaned by this action.
 - **poll-merge / Verify PR** — observes state, exact head/base/head OID, merge commit and PR commit
   set. `OPEN` remains delivery-verified only while its exact head is `delivery_sha`; a missing
   remote commit restores Retry push instead of merely saying “not merged”. `MERGED` becomes
@@ -346,7 +370,13 @@ the `expectedDecision` they rendered.
   the shared socket + `GET /rails` seed) feeds `RailPrDecisionStrip` on `RailRow` (both density
   branches): on_review → Create PR / Discard; pr_draft → Open PR + Publish / Discard (degraded →
   retry); pr_ready → Verify PR; no_changes → Done/refine; pr_closed → Reopen; pr_failed derives
-  retry-vs-blocked actions from `delivery_outcome`. Logs remain available after settle. Buttons
+  retry-vs-blocked actions from `delivery_outcome`. A blocked legacy continuation without
+  `delivery_sha` never offers Checkout: it exposes any live preserved worktree through Inspect local
+  result and offers the confirmed Commit & retry push action above. Ordinary Checkout is restricted
+  to a delivery with an immutable SHA; the server repeats that guard under the repo lock and refuses
+  a dirty or unreadable main checkout before releasing a worktree or changing any ref. Checkout
+  re-reads and uses only the current attached PR branch after acquiring the repository lock, never
+  the pre-lock snapshot. Logs remain available after settle. Buttons
   disable in flight and apply the authoritative HTTP snapshot immediately.
 - **Option B — agent chat.** When the row carries `origin_conversation_id`, settle posts a
   **persisted inline card**: a `'system'`-role `agent_messages` row (role is unconstrained TEXT —
@@ -521,7 +551,8 @@ the launch INSERT. As-built:
   retry/post-push, poll and reopen all validate exact PR/head/base plus SHA inclusion. Admission is
   read-only and refuses non-exact continuations; inferred external PRs freeze the authoritative live
   head before worktree allocation, post-run verification permits only a matched HEAD/ref advance,
-  and pre-push settlement freezes the new exact SHA. Decision actions terminalize exact MERGED evidence
+  and pre-push settlement freezes the new exact SHA and proves `origin` owns the attached PR before
+  every automatic or user-triggered push. Decision actions terminalize exact MERGED evidence
   or detach stale/retargeted/terminal-without-SHA attachments to `on_review` with the SHA preserved.
   Legacy recovery accepts only a unique run marker in the commit
   subject. Ambiguous PR creation resolves exact open head/base identity.
@@ -534,6 +565,11 @@ the launch INSERT. As-built:
   mutating newer work, and terminal Agent cards are re-projected.
 - **D19 — truthful no-change completion**: fresh no-change has Mark done (`completed`) and Refine;
   a continuation only dismisses its borrowed follow-up.
+- **D20 — preserved-result recovery**: startup also recovers one uniquely run-marked unreachable
+  commit; otherwise both cards hide misleading Checkout, reveal live delivery-owned worktrees, and
+  offer a lease-guarded Commit & retry push that is exact-baseline, fast-forward, immutable-SHA and
+  non-force while leaving the user's main checkout untouched. Recovery worktrees, commit index
+  pathspecs, same-repository PR ownership, origin identity, and checkout cleanliness all fail closed.
 
 ## Kill-switch
 

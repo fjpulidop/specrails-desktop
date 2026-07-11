@@ -58,14 +58,17 @@ function fakeGit(opts: { failOn?: (args: string[]) => boolean } = {}) {
 
 type GhHandler = ExecResult | (() => ExecResult)
 
-/** gh handlers keyed on the pr subcommand (create/ready/close/view) + git push. */
-function fakeExec(handlers: Partial<Record<'create' | 'ready' | 'close' | 'view' | 'reopen' | 'push', GhHandler>> = {}, opts: { throwOnGh?: boolean } = {}) {
+/** gh handlers keyed on the pr subcommand plus Git push/remote inspection. */
+function fakeExec(handlers: Partial<Record<'create' | 'ready' | 'close' | 'view' | 'reopen' | 'push' | 'remote', GhHandler>> = {}, opts: { throwOnGh?: boolean } = {}) {
   const calls: Array<{ cmd: string; args: string[]; cwd: string }> = []
   const resolve = (h: GhHandler | undefined): ExecResult => (typeof h === 'function' ? h() : h ?? ok)
   const exec: Exec = {
     async run(cmd, args, cwd) {
       calls.push({ cmd, args, cwd })
       if (cmd === 'git' && args[0] === 'push') return resolve(handlers.push)
+      if (cmd === 'git' && args.join(' ') === 'remote get-url --push --all origin') {
+        return resolve(handlers.remote ?? { code: 0, stdout: 'https://github.com/o/r.git\n', stderr: '' })
+      }
       if (cmd === 'gh') {
         if (opts.throwOnGh) throw new Error('gh exploded')
         return resolve(handlers[args[1] as 'create' | 'ready' | 'close' | 'view' | 'reopen'])
@@ -258,6 +261,7 @@ function lifecycleJson(input: {
     isDraft: input.isDraft ?? false,
     headRefName: input.branch ?? 'feat/1-t1',
     baseRefName: input.base ?? 'main',
+    isCrossRepository: false,
     headRefOid: input.headSha === undefined ? sha : input.headSha,
     mergeCommit: input.state === 'MERGED' ? { oid: 'f'.repeat(40) } : null,
     commits: includeSha && sha ? [{ oid: sha }] : [{ oid: 'e'.repeat(40) }],
@@ -273,6 +277,12 @@ function lifecycleSequence(...snapshots: string[]): GhHandler {
   })
 }
 
+function registeredWorktreeList(entries: Array<{ worktreePath: string; head: string; branch: string }>): string {
+  return entries
+    .map((entry) => `worktree ${entry.worktreePath}\0HEAD ${entry.head}\0branch refs/heads/${entry.branch}\0`)
+    .join('\0')
+}
+
 function verifiedPublishExec(sha: string) {
   return fakeExec({
     view: lifecycleSequence(
@@ -286,7 +296,7 @@ function verifiedPublishExec(sha: string) {
 
 describe('executePrDecision guards', () => {
   it('isPrDecisionAction accepts the decision actions and rejects everything else', () => {
-    for (const a of ['create-pr', 'publish', 'discard', 'dismiss', 'poll-merge', 'reopen', 'merge-local', 'acknowledge-no-changes']) {
+    for (const a of ['create-pr', 'publish', 'discard', 'dismiss', 'poll-merge', 'reopen', 'merge-local', 'acknowledge-no-changes', 'recover-and-retry']) {
       expect(isPrDecisionAction(a)).toBe(true)
     }
     for (const a of ['ready', 'merge', 'approve', '', 42, null, undefined]) expect(isPrDecisionAction(a)).toBe(false)
@@ -320,6 +330,9 @@ describe('executePrDecision guards', () => {
     ['poll-merge', 'implementation_failed'],
     ['create-pr', 'implementation_failed'],
     ['merge-local', 'implementation_failed'],
+    ['recover-and-retry', 'on_review'],
+    ['recover-and-retry', 'pr_ready'],
+    ['recover-and-retry', 'implementation_failed'],
     ['create-pr', 'merged'],
     ['discard', 'discarded'],
   ] as const)('409 illegal_action: %s from %s', async (action, decision) => {
@@ -752,7 +765,7 @@ describe('create-pr', () => {
       remoteHeadSha: 'a'.repeat(40), pushed: true,
     })
     expect(execCalls).toContainEqual({
-      cmd: 'git', args: ['push', 'origin', `${'a'.repeat(40)}:refs/heads/feat/1-t1`], cwd: '/repo',
+      cmd: 'git', args: ['push', 'https://github.com/o/r.git', `${'a'.repeat(40)}:refs/heads/feat/1-t1`], cwd: '/repo',
     })
     expect(execCalls.some((c) => c.cmd === 'gh' && c.args[1] === 'create')).toBe(false)
     expect(gitCalls).toContainEqual({ args: ['worktree', 'remove', '/wt/ticket-1'], cwd: '/repo' })
@@ -796,6 +809,501 @@ describe('create-pr', () => {
     expect(prStateBroadcasts(broadcast)[0]).toMatchObject({ decision: 'pr_failed', prState: 'local-only' })
   })
 
+  it('Commit & retry push commits only the preserved worktree and delivers its exact SHA', async () => {
+    const runId = 'legacy-recovery-run'
+    const branch = 'feat/1-t1'
+    const baseline = 'a'.repeat(40)
+    const recovered = 'b'.repeat(40)
+    const projectPath = path.join(tmpDir, 'legacy-recovery-repo')
+    const worktreePath = path.join(tmpDir, 'legacy-recovery-wt')
+    fs.mkdirSync(projectPath, { recursive: true })
+    fs.mkdirSync(worktreePath, { recursive: true })
+    const worktreeRealPath = fs.realpathSync(worktreePath)
+    createRailWorktree(db, {
+      id: 'legacy-recovery-wt', railIndex: 0, ticketId: 1, runId, branch,
+      worktreePath, mergeState: 'needs-review',
+    })
+    const draft = mkRow({
+      decision: 'pr_draft', ticketIds: [1], prUrl: PR_URL, branch,
+      worktreeIds: ['legacy-recovery-wt'], isContinuation: true,
+      branches: [{
+        ticketId: 1, runId, branch, succeeded: false,
+        implementationOutcome: 'succeeded', deliveryOutcome: 'blocked',
+        failureCode: 'settlement_interrupted', branchOwnership: 'borrowed-pr',
+      }],
+    })
+    transitionDecision(db, draft.id, 'pr_draft', 'pr_failed', {
+      runIds: [runId], deliveryOutcome: 'blocked', statusCode: 'settlement_interrupted',
+      deliverySha: null, isContinuation: true,
+    })
+    let head = baseline
+    const gitCalls: Array<{ args: string[]; cwd: string }> = []
+    const git: GitRunner = {
+      async run(args, cwd) {
+        gitCalls.push({ args, cwd })
+        if (args.join(' ') === 'worktree list --porcelain -z' && cwd === projectPath) {
+          return {
+            code: 0,
+            stdout: registeredWorktreeList([
+              { worktreePath: projectPath, head: baseline, branch: 'main' },
+              { worktreePath, head, branch },
+            ]),
+            stderr: '',
+          }
+        }
+        if (args.join(' ') === 'rev-parse --abbrev-ref HEAD' && (cwd === worktreeRealPath || cwd === worktreePath)) {
+          return { code: 0, stdout: `${branch}\n`, stderr: '' }
+        }
+        if (args.join(' ') === 'rev-parse --verify HEAD' && (cwd === worktreeRealPath || cwd === worktreePath)) {
+          return { code: 0, stdout: `${head}\n`, stderr: '' }
+        }
+        if (args.join(' ') === `rev-parse --verify refs/heads/${branch}` && cwd === projectPath) {
+          return { code: 0, stdout: `${head}\n`, stderr: '' }
+        }
+        if (args[0] === 'cat-file') return ok
+        if (args[0] === 'merge-base') return ok
+        if (args[0] === 'add') return ok
+        if (args[0] === 'commit') {
+          head = recovered
+          return ok
+        }
+        if (args[0] === 'status') return ok
+        if (args[0] === 'ls-files') return { code: 1, stdout: '', stderr: '' }
+        if (args[0] === 'worktree' && args[1] === 'remove') return ok
+        return ok
+      },
+    }
+    let views = 0
+    const { exec, calls: execCalls } = fakeExec({
+      view: () => {
+        views++
+        if (views < 3) {
+          return {
+            code: 0,
+            stdout: lifecycleJson({ state: 'OPEN', sha: recovered, headSha: baseline, includeSha: false, branch }),
+            stderr: '',
+          }
+        }
+        return { code: 0, stdout: lifecycleJson({ state: 'OPEN', sha: recovered, branch }), stderr: '' }
+      },
+    })
+
+    const result = await executePrDecision(mkDeps({
+      git,
+      exec,
+      project: { ...PROJECT, path: projectPath },
+    }).deps, {
+      prDeliveryId: draft.id, action: 'recover-and-retry', expectedDecision: 'pr_failed',
+    })
+
+    expect(result).toMatchObject({
+      status: 200,
+      body: { decision: 'pr_ready', deliveryVerified: true, verifiedSha: recovered, pushed: true },
+    })
+    expect(gitCalls).toContainEqual(expect.objectContaining({
+      args: expect.arrayContaining(['commit', '-m', `specrails: recovered follow-up (run ${runId})`]),
+      cwd: worktreeRealPath,
+    }))
+    expect(execCalls).toContainEqual({
+      cmd: 'git', args: ['push', 'https://github.com/o/r.git', `${recovered}:refs/heads/${branch}`], cwd: projectPath,
+    })
+    expect(gitCalls.filter(({ args }) => args.join(' ') === 'worktree list --porcelain -z')).toHaveLength(2)
+    expect(gitCalls.some(({ args, cwd }) => cwd === projectPath && args[0] === 'checkout')).toBe(false)
+    expect(getPrDelivery(db, draft.id)).toMatchObject({
+      decision: 'pr_ready', delivery_sha: recovered, delivery_outcome: 'delivered',
+    })
+    expect(getRailWorktree(db, 'legacy-recovery-wt')?.merge_state).toBe('released')
+  })
+
+  it('Commit & retry push may explicitly adopt only a fast-forward recorded branch commit', async () => {
+    const runId = 'legacy-branch-only-run'
+    const branch = 'feat/1-t1'
+    const baseline = 'a'.repeat(40)
+    const candidate = 'b'.repeat(40)
+    const draft = mkRow({
+      decision: 'pr_draft', ticketIds: [1], prUrl: PR_URL, branch,
+      isContinuation: true,
+      branches: [{
+        ticketId: 1, runId, branch, succeeded: false,
+        implementationOutcome: 'succeeded', deliveryOutcome: 'blocked',
+        failureCode: 'settlement_interrupted', branchOwnership: 'borrowed-pr',
+      }],
+    })
+    transitionDecision(db, draft.id, 'pr_draft', 'pr_failed', {
+      runIds: [runId], deliveryOutcome: 'blocked', statusCode: 'settlement_interrupted',
+      deliverySha: null, isContinuation: true,
+    })
+    const gitCalls: string[][] = []
+    const git: GitRunner = {
+      async run(args) {
+        gitCalls.push(args)
+        if (args.join(' ') === `rev-parse --verify refs/heads/${branch}`) {
+          return { code: 0, stdout: `${candidate}\n`, stderr: '' }
+        }
+        if (args[0] === 'cat-file' || args[0] === 'merge-base') return ok
+        return ok
+      },
+    }
+    let views = 0
+    const { exec, calls } = fakeExec({
+      view: () => ++views < 3
+        ? {
+            code: 0,
+            stdout: lifecycleJson({ state: 'OPEN', sha: candidate, headSha: baseline, includeSha: false, branch }),
+            stderr: '',
+          }
+        : { code: 0, stdout: lifecycleJson({ state: 'OPEN', sha: candidate, branch }), stderr: '' },
+    })
+
+    const result = await executePrDecision(mkDeps({ git, exec }).deps, {
+      prDeliveryId: draft.id, action: 'recover-and-retry', expectedDecision: 'pr_failed',
+    })
+
+    expect(result).toMatchObject({ status: 200, body: { decision: 'pr_ready', verifiedSha: candidate } })
+    expect(gitCalls.some((args) => args[0] === 'commit' || args[0] === 'checkout')).toBe(false)
+    expect(calls).toContainEqual({
+      cmd: 'git', args: ['push', 'https://github.com/o/r.git', `${candidate}:refs/heads/${branch}`], cwd: PROJECT.path,
+    })
+  })
+
+  it('Commit & retry push stays blocked without local evidence on this computer and performs no mutation', async () => {
+    const runId = 'legacy-other-computer-run'
+    const branch = 'feat/1-t1'
+    const baseline = 'a'.repeat(40)
+    const draft = mkRow({
+      decision: 'pr_draft', ticketIds: [1], prUrl: PR_URL, branch,
+      isContinuation: true,
+      branches: [{
+        ticketId: 1, runId, branch, succeeded: false,
+        implementationOutcome: 'succeeded', deliveryOutcome: 'blocked',
+        failureCode: 'settlement_interrupted', branchOwnership: 'borrowed-pr',
+      }],
+    })
+    transitionDecision(db, draft.id, 'pr_draft', 'pr_failed', {
+      runIds: [runId], deliveryOutcome: 'blocked', statusCode: 'settlement_interrupted',
+      deliverySha: null, isContinuation: true,
+    })
+    const gitCalls: string[][] = []
+    const git: GitRunner = {
+      async run(args) {
+        gitCalls.push(args)
+        if (args[0] === 'cat-file') return ok
+        if (args[0] === 'rev-parse') return { code: 1, stdout: '', stderr: 'unknown ref' }
+        return ok
+      },
+    }
+    const { exec, calls } = fakeExec({
+      view: {
+        code: 0,
+        stdout: lifecycleJson({ state: 'OPEN', sha: baseline, headSha: baseline, branch }),
+        stderr: '',
+      },
+    })
+
+    const result = await executePrDecision(mkDeps({ git, exec }).deps, {
+      prDeliveryId: draft.id, action: 'recover-and-retry', expectedDecision: 'pr_failed',
+    })
+
+    expect(result).toMatchObject({
+      status: 200,
+      body: { decision: 'pr_failed', detail: expect.stringContaining('available on this computer') },
+    })
+    expect(gitCalls.some((args) => ['add', 'commit', 'checkout', 'reset', 'stash'].includes(args[0]))).toBe(false)
+    expect(calls.some((call) => call.cmd === 'git' && call.args[0] === 'push')).toBe(false)
+    expect(getPrDelivery(db, draft.id)).toMatchObject({
+      decision: 'pr_failed', delivery_outcome: 'blocked', delivery_sha: null,
+    })
+  })
+
+  it('Commit & retry push refuses to fabricate ownership when no exact run-and-branch unit exists', async () => {
+    const runId = 'legacy-owned-run'
+    const branch = 'feat/1-t1'
+    const draft = mkRow({
+      decision: 'pr_draft', ticketIds: [1], prUrl: PR_URL, branch, isContinuation: true,
+      branches: [{
+        ticketId: 1, runId: 'different-run', branch, succeeded: false,
+        implementationOutcome: 'succeeded', deliveryOutcome: 'blocked',
+        failureCode: 'settlement_interrupted', branchOwnership: 'borrowed-pr',
+      }],
+    })
+    transitionDecision(db, draft.id, 'pr_draft', 'pr_failed', {
+      runIds: [runId], deliveryOutcome: 'blocked', statusCode: 'settlement_interrupted',
+      deliverySha: null, isContinuation: true,
+    })
+    const { git, calls: gitCalls } = fakeGit()
+    const { exec, calls } = fakeExec()
+
+    const result = await executePrDecision(mkDeps({ git, exec }).deps, {
+      prDeliveryId: draft.id, action: 'recover-and-retry', expectedDecision: 'pr_failed',
+    })
+
+    expect(result).toMatchObject({
+      status: 200,
+      body: { decision: 'pr_failed', detail: expect.stringContaining('exact recorded unit') },
+    })
+    expect(gitCalls).toEqual([])
+    expect(calls).toEqual([])
+  })
+
+  it('Commit & retry push refuses a divergent preserved branch before commit or push', async () => {
+    const runId = 'legacy-diverged-run'
+    const branch = 'feat/1-t1'
+    const baseline = 'a'.repeat(40)
+    const divergent = 'c'.repeat(40)
+    const projectPath = path.join(tmpDir, 'legacy-diverged-repo')
+    const worktreePath = path.join(tmpDir, 'legacy-diverged-wt')
+    fs.mkdirSync(projectPath, { recursive: true })
+    fs.mkdirSync(worktreePath, { recursive: true })
+    createRailWorktree(db, {
+      id: 'legacy-diverged-wt', railIndex: 0, ticketId: 1, runId, branch,
+      worktreePath, mergeState: 'needs-review',
+    })
+    const draft = mkRow({
+      decision: 'pr_draft', ticketIds: [1], prUrl: PR_URL, branch,
+      worktreeIds: ['legacy-diverged-wt'], isContinuation: true,
+      branches: [{ ticketId: 1, runId, branch, succeeded: false, branchOwnership: 'borrowed-pr' }],
+    })
+    transitionDecision(db, draft.id, 'pr_draft', 'pr_failed', {
+      runIds: [runId], implementationOutcome: 'succeeded', deliveryOutcome: 'blocked',
+      statusCode: 'settlement_interrupted', deliverySha: null, isContinuation: true,
+    })
+    const gitCalls: string[][] = []
+    const git: GitRunner = {
+      async run(args, cwd) {
+        gitCalls.push(args)
+        if (args.join(' ') === 'worktree list --porcelain -z' && cwd === projectPath) {
+          return {
+            code: 0,
+            stdout: registeredWorktreeList([
+              { worktreePath: projectPath, head: baseline, branch: 'main' },
+              { worktreePath, head: divergent, branch },
+            ]),
+            stderr: '',
+          }
+        }
+        if (args.join(' ') === 'rev-parse --abbrev-ref HEAD') return { code: 0, stdout: `${branch}\n`, stderr: '' }
+        if (args.join(' ') === 'rev-parse --verify HEAD') return { code: 0, stdout: `${divergent}\n`, stderr: '' }
+        if (args.join(' ') === `rev-parse --verify refs/heads/${branch}`) return { code: 0, stdout: `${divergent}\n`, stderr: '' }
+        if (args[0] === 'cat-file') return ok
+        if (args[0] === 'merge-base') return { code: 1, stdout: '', stderr: 'not an ancestor' }
+        return ok
+      },
+    }
+    const { exec, calls } = fakeExec({
+      view: {
+        code: 0,
+        stdout: lifecycleJson({ state: 'OPEN', sha: divergent, headSha: baseline, includeSha: false, branch }),
+        stderr: '',
+      },
+    })
+
+    const result = await executePrDecision(mkDeps({
+      git,
+      exec,
+      project: { ...PROJECT, path: projectPath },
+    }).deps, {
+      prDeliveryId: draft.id, action: 'recover-and-retry', expectedDecision: 'pr_failed',
+    })
+
+    expect(result).toMatchObject({ status: 200, body: { decision: 'pr_failed', detail: expect.stringContaining('diverges') } })
+    expect(gitCalls.some((args) => args[0] === 'add' || args[0] === 'commit')).toBe(false)
+    expect(calls.some((call) => call.cmd === 'git' && call.args[0] === 'push')).toBe(false)
+    expect(getRailWorktree(db, 'legacy-diverged-wt')?.merge_state).toBe('needs-review')
+  })
+
+  it('Commit & retry push rejects a ledger worktree symlinked to the main checkout before staging', async () => {
+    const runId = 'legacy-symlink-run'
+    const branch = 'feat/1-t1'
+    const baseline = 'a'.repeat(40)
+    const projectPath = path.join(tmpDir, 'symlink-main-repo')
+    const worktreePath = path.join(tmpDir, 'symlink-hijack-wt')
+    fs.mkdirSync(projectPath, { recursive: true })
+    fs.symlinkSync(projectPath, worktreePath, process.platform === 'win32' ? 'junction' : 'dir')
+    createRailWorktree(db, {
+      id: 'symlink-hijack-wt', railIndex: 0, ticketId: 1, runId, branch,
+      worktreePath, mergeState: 'needs-review',
+    })
+    const draft = mkRow({
+      decision: 'pr_draft', ticketIds: [1], prUrl: PR_URL, branch,
+      worktreeIds: ['symlink-hijack-wt'], isContinuation: true,
+      branches: [{
+        ticketId: 1, runId, branch, succeeded: false,
+        implementationOutcome: 'succeeded', deliveryOutcome: 'blocked',
+        failureCode: 'settlement_interrupted', branchOwnership: 'borrowed-pr',
+      }],
+    })
+    transitionDecision(db, draft.id, 'pr_draft', 'pr_failed', {
+      runIds: [runId], deliveryOutcome: 'blocked', statusCode: 'settlement_interrupted',
+      deliverySha: null, isContinuation: true,
+    })
+    const gitCalls: string[][] = []
+    const git: GitRunner = {
+      async run(args) {
+        gitCalls.push(args)
+        if (args[0] === 'cat-file') return ok
+        return ok
+      },
+    }
+    const { exec, calls } = fakeExec({
+      view: { code: 0, stdout: lifecycleJson({ state: 'OPEN', sha: baseline, headSha: baseline, branch }), stderr: '' },
+    })
+
+    const result = await executePrDecision(mkDeps({
+      git,
+      exec,
+      project: { ...PROJECT, path: projectPath },
+    }).deps, {
+      prDeliveryId: draft.id, action: 'recover-and-retry', expectedDecision: 'pr_failed',
+    })
+
+    expect(result).toMatchObject({
+      status: 200,
+      body: { decision: 'pr_failed', detail: expect.stringContaining('symbolic link') },
+    })
+    expect(gitCalls.some((args) => args[0] === 'add' || args[0] === 'commit')).toBe(false)
+    expect(calls.some((call) => call.cmd === 'git' && call.args[0] === 'push')).toBe(false)
+    expect(fs.lstatSync(worktreePath).isSymbolicLink()).toBe(true)
+  })
+
+  it('Commit & retry push rejects a reused directory that is no longer a registered Git worktree', async () => {
+    const runId = 'legacy-reused-path-run'
+    const branch = 'feat/1-t1'
+    const baseline = 'a'.repeat(40)
+    const projectPath = path.join(tmpDir, 'reused-path-repo')
+    const worktreePath = path.join(tmpDir, 'reused-ordinary-directory')
+    fs.mkdirSync(projectPath, { recursive: true })
+    fs.mkdirSync(worktreePath, { recursive: true })
+    createRailWorktree(db, {
+      id: 'reused-path-wt', railIndex: 0, ticketId: 1, runId, branch,
+      worktreePath, mergeState: 'needs-review',
+    })
+    const draft = mkRow({
+      decision: 'pr_draft', ticketIds: [1], prUrl: PR_URL, branch,
+      worktreeIds: ['reused-path-wt'], isContinuation: true,
+      branches: [{
+        ticketId: 1, runId, branch, succeeded: false,
+        implementationOutcome: 'succeeded', deliveryOutcome: 'blocked',
+        failureCode: 'settlement_interrupted', branchOwnership: 'borrowed-pr',
+      }],
+    })
+    transitionDecision(db, draft.id, 'pr_draft', 'pr_failed', {
+      runIds: [runId], deliveryOutcome: 'blocked', statusCode: 'settlement_interrupted',
+      deliverySha: null, isContinuation: true,
+    })
+    const gitCalls: string[][] = []
+    const git: GitRunner = {
+      async run(args) {
+        gitCalls.push(args)
+        if (args[0] === 'cat-file') return ok
+        if (args.join(' ') === 'worktree list --porcelain -z') {
+          return {
+            code: 0,
+            stdout: registeredWorktreeList([{ worktreePath: projectPath, head: baseline, branch: 'main' }]),
+            stderr: '',
+          }
+        }
+        return ok
+      },
+    }
+    const { exec, calls } = fakeExec({
+      view: { code: 0, stdout: lifecycleJson({ state: 'OPEN', sha: baseline, headSha: baseline, branch }), stderr: '' },
+    })
+
+    const result = await executePrDecision(mkDeps({
+      git,
+      exec,
+      project: { ...PROJECT, path: projectPath },
+    }).deps, {
+      prDeliveryId: draft.id, action: 'recover-and-retry', expectedDecision: 'pr_failed',
+    })
+
+    expect(result).toMatchObject({
+      status: 200,
+      body: { decision: 'pr_failed', detail: expect.stringContaining('not uniquely registered') },
+    })
+    expect(gitCalls.some((args) => args[0] === 'add' || args[0] === 'commit')).toBe(false)
+    expect(calls.some((call) => call.cmd === 'git' && call.args[0] === 'push')).toBe(false)
+    expect(fs.readdirSync(worktreePath)).toEqual([])
+  })
+
+  it('Commit & retry push reauthenticates Git registration immediately before staging', async () => {
+    const runId = 'legacy-registration-race-run'
+    const branch = 'feat/1-t1'
+    const baseline = 'a'.repeat(40)
+    const projectPath = path.join(tmpDir, 'registration-race-repo')
+    const worktreePath = path.join(tmpDir, 'registration-race-wt')
+    fs.mkdirSync(projectPath, { recursive: true })
+    fs.mkdirSync(worktreePath, { recursive: true })
+    const worktreeRealPath = fs.realpathSync(worktreePath)
+    createRailWorktree(db, {
+      id: 'registration-race-wt', railIndex: 0, ticketId: 1, runId, branch,
+      worktreePath, mergeState: 'needs-review',
+    })
+    const draft = mkRow({
+      decision: 'pr_draft', ticketIds: [1], prUrl: PR_URL, branch,
+      worktreeIds: ['registration-race-wt'], isContinuation: true,
+      branches: [{
+        ticketId: 1, runId, branch, succeeded: false,
+        implementationOutcome: 'succeeded', deliveryOutcome: 'blocked',
+        failureCode: 'settlement_interrupted', branchOwnership: 'borrowed-pr',
+      }],
+    })
+    transitionDecision(db, draft.id, 'pr_draft', 'pr_failed', {
+      runIds: [runId], deliveryOutcome: 'blocked', statusCode: 'settlement_interrupted',
+      deliverySha: null, isContinuation: true,
+    })
+    let registrations = 0
+    const gitCalls: string[][] = []
+    const git: GitRunner = {
+      async run(args, cwd) {
+        gitCalls.push(args)
+        if (args[0] === 'cat-file' || args[0] === 'merge-base') return ok
+        if (args.join(' ') === 'worktree list --porcelain -z') {
+          registrations++
+          return {
+            code: 0,
+            stdout: registeredWorktreeList(registrations === 1
+              ? [
+                  { worktreePath: projectPath, head: baseline, branch: 'main' },
+                  { worktreePath, head: baseline, branch },
+                ]
+              : [{ worktreePath: projectPath, head: baseline, branch: 'main' }]),
+            stderr: '',
+          }
+        }
+        if (args.join(' ') === 'rev-parse --abbrev-ref HEAD' && cwd === worktreeRealPath) {
+          return { code: 0, stdout: `${branch}\n`, stderr: '' }
+        }
+        if (args.join(' ') === 'rev-parse --verify HEAD' && cwd === worktreeRealPath) {
+          return { code: 0, stdout: `${baseline}\n`, stderr: '' }
+        }
+        if (args.join(' ') === `rev-parse --verify refs/heads/${branch}` && cwd === projectPath) {
+          return { code: 0, stdout: `${baseline}\n`, stderr: '' }
+        }
+        return ok
+      },
+    }
+    const { exec, calls } = fakeExec({
+      view: { code: 0, stdout: lifecycleJson({ state: 'OPEN', sha: baseline, headSha: baseline, branch }), stderr: '' },
+    })
+
+    const result = await executePrDecision(mkDeps({
+      git,
+      exec,
+      project: { ...PROJECT, path: projectPath },
+    }).deps, {
+      prDeliveryId: draft.id, action: 'recover-and-retry', expectedDecision: 'pr_failed',
+    })
+
+    expect(registrations).toBe(2)
+    expect(result).toMatchObject({
+      status: 200,
+      body: { decision: 'pr_failed', detail: expect.stringContaining('failed final authentication') },
+    })
+    expect(gitCalls.some((args) => args[0] === 'add' || args[0] === 'commit')).toBe(false)
+    expect(calls.some((call) => call.cmd === 'git' && call.args[0] === 'push')).toBe(false)
+  })
+
   it('keeps an existing PR retryable when lifecycle observation fails after an exact push', async () => {
     const draft = mkRow({
       decision: 'pr_draft', prUrl: PR_URL, deliverySha: 'a'.repeat(40), isContinuation: true,
@@ -823,6 +1331,40 @@ describe('create-pr', () => {
     expect(result).toMatchObject({ status: 200, body: { decision: 'pr_failed', prUrl: PR_URL } })
     expect(getPrDelivery(db, draft.id)).toMatchObject({
       decision: 'pr_failed', delivery_outcome: 'retryable_failure', delivery_sha: 'a'.repeat(40),
+    })
+  })
+
+  it('refuses an exact-SHA retry when origin points at a different repository', async () => {
+    const sha = 'a'.repeat(40)
+    const draft = mkRow({
+      decision: 'pr_draft', prUrl: PR_URL, deliverySha: sha, isContinuation: true,
+    })
+    transitionDecision(db, draft.id, 'pr_draft', 'pr_failed', {
+      deliveryOutcome: 'retryable_failure', statusCode: 'push_failed',
+    })
+    const { exec, calls } = fakeExec({
+      view: {
+        code: 0,
+        stdout: lifecycleJson({ state: 'OPEN', sha, headSha: 'b'.repeat(40), includeSha: false }),
+        stderr: '',
+      },
+      remote: { code: 0, stdout: 'git@github.com:someone-else/r.git\n', stderr: '' },
+    })
+
+    const result = await executePrDecision(mkDeps({ exec }).deps, {
+      prDeliveryId: draft.id, action: 'create-pr', expectedDecision: 'pr_failed',
+    })
+
+    expect(result).toMatchObject({
+      status: 200,
+      body: { decision: 'pr_failed', detail: expect.stringContaining('does not own') },
+    })
+    expect(calls).toContainEqual({
+      cmd: 'git', args: ['remote', 'get-url', '--push', '--all', 'origin'], cwd: PROJECT.path,
+    })
+    expect(calls.some((call) => call.cmd === 'git' && call.args[0] === 'push')).toBe(false)
+    expect(getPrDelivery(db, draft.id)).toMatchObject({
+      decision: 'pr_failed', delivery_outcome: 'retryable_failure', delivery_sha: sha,
     })
   })
 
@@ -1428,7 +1970,10 @@ describe('poll-merge', () => {
     const r = await executePrDecision(deps, { prDeliveryId: row.id, action: 'poll-merge', expectedDecision: 'pr_ready' })
 
     expect(r.status).toBe(200)
-    expect(r.body).toEqual({ ok: true, decision: 'merged', merged: true, prUrl: PR_URL })
+    expect(r.body).toEqual({
+      ok: true, decision: 'merged', merged: true, prUrl: PR_URL,
+      deliveryVerified: true, verifiedSha: row.delivery_sha, pushed: false,
+    })
     expect(calls).toContainEqual({ cmd: 'gh', args: ['pr', 'view', PR_URL, '--json', PR_LIFECYCLE_JSON_FIELDS], cwd: '/repo' })
     expect(getPrDelivery(db, row.id)?.decision).toBe('merged')
     const statuses = readTicketStatuses(ticketFile)
@@ -2235,6 +2780,36 @@ describe('race-safe and recoverable PR decisions', () => {
     expect(result).toMatchObject({ status: 200, body: { decision: 'discarded' } })
     expect(calls).toEqual([])
     expect(getPrDelivery(db, row.id)?.cleanup_warnings).toBe('[]')
+  })
+
+  it('allows a blocked continuation with no live worktree to be dismissed without touching its PR', async () => {
+    const row = mkRow({
+      decision: 'pr_draft', prUrl: PR_URL, ticketIds: [1], isContinuation: true,
+      branches: [{
+        ticketId: 1, runId: 'legacy-run', branch: 'feat/1-t1', succeeded: false,
+        implementationOutcome: 'succeeded', deliveryOutcome: 'blocked',
+        failureCode: 'settlement_interrupted', branchOwnership: 'borrowed-pr',
+      }],
+    })
+    transitionDecision(db, row.id, 'pr_draft', 'pr_failed', {
+      runIds: ['legacy-run'], implementationOutcome: 'succeeded', deliveryOutcome: 'blocked',
+      statusCode: 'settlement_interrupted', deliverySha: null, isContinuation: true,
+    })
+    const { exec, calls } = fakeExec()
+
+    const result = await executePrDecision(mkDeps({ exec }).deps, {
+      prDeliveryId: row.id, action: 'dismiss', expectedDecision: 'pr_failed',
+    })
+
+    expect(result).toMatchObject({
+      status: 200,
+      body: { decision: 'discarded', preservedExternalReview: true },
+    })
+    expect(calls.some((call) => call.cmd === 'gh' && call.args[1] === 'close')).toBe(false)
+    expect(getPrDelivery(db, row.id)).toMatchObject({
+      decision: 'discarded', pr_url: PR_URL, is_continuation: 1,
+    })
+    expect(readTicketStatuses(ticketFile)['1']).toBe('on_review')
   })
 
   it('dismiss discloses every needs-review worktree it intentionally leaves mounted', async () => {

@@ -300,6 +300,38 @@ The platform SHALL treat a continuation's PR and head branch as borrowed user-ow
 - **THEN** recovery SHALL reject that candidate as causal evidence
 - **AND** SHALL preserve the branch/object without freezing it as `delivery_sha` or offering Retry push
 
+#### Scenario: Run-owned commit survives only as an unreachable Git object
+
+- **WHEN** refs and reflogs no longer expose the interrupted settlement commit
+- **AND** `git fsck --unreachable --no-reflogs --no-progress` exposes exactly one commit whose subject carries the delivery run's exact settlement marker
+- **THEN** startup recovery SHALL freeze that object as `delivery_sha` and continue the ordinary exact-PR retry classification
+- **AND** malformed, failed, zero-result, or multiple marked-object discovery SHALL remain blocked without adopting an unmarked branch tip
+
+#### Scenario: User commits and retries a preserved isolated result
+
+- **WHEN** automatic recovery cannot prove a commit but the active blocked continuation still owns one exact recorded worktree/branch and successful run
+- **AND** the user confirms Commit & retry push
+- **THEN** Specrails SHALL revalidate the exact open PR head/base, stage only deliverable paths in that isolated worktree, and create a run-marked commit when changes are uncommitted
+- **AND** it SHALL require an exact per-unit run/branch record and authenticate the non-symlink path as a uniquely registered worktree of this repository both before inspection and immediately before staging
+- **AND** never-commit/private paths SHALL remain excluded even when previously staged, concurrently staged, or added by a repository hook
+- **AND** an already-committed candidate MAY be explicitly adopted only when it is the recorded local branch and a fast-forward descendant of the live PR head
+- **AND** a push SHALL require GitHub proof that the PR is not cross-repository plus exact equality between the PR repository and the local `origin` push URL
+- **AND** it SHALL persist and push the exact candidate SHA without force, then re-observe delivery
+- **AND** it SHALL NOT modify, stash, clean, or switch the user's main checkout
+
+#### Scenario: Explicit recovery evidence is unsafe or absent
+
+- **WHEN** the preserved worktree/branch is missing, ambiguous, divergent, on another ref, cannot commit cleanly, or the PR identity/lifecycle changed
+- **THEN** Commit & retry push SHALL fail closed with an actionable explanation
+- **AND** all remaining local evidence SHALL stay intact
+
+#### Scenario: Recovery path or push ownership is substituted
+
+- **WHEN** a recorded path is a symlink, the main checkout, an ordinary reused directory, absent from this repository's live worktree registry, or changes identity before staging
+- **OR** the attached PR is cross-repository or local `origin` does not identify that PR's repository
+- **THEN** recovery SHALL perform no commit or push from that evidence
+- **AND** SHALL retain the local result with an actionable ownership diagnostic
+
 #### Scenario: GitHub is unavailable after exact legacy recovery
 
 - **WHEN** startup has uniquely proven and frozen the run-owned legacy commit but transiently cannot observe the recorded PR
@@ -427,7 +459,7 @@ Every deliverable unit SHALL be identified by its verified final commit SHA. PR 
 
 Continuation admission, Retry push, reopen, and every poll/verification or post-push observation SHALL validate the recorded PR identity, exact head/base names, and the immutable `delivery_sha` against GitHub's `OPEN`, `CLOSED`, or `MERGED` evidence. Admission SHALL remain read-only and accept only exact `OPEN` evidence; otherwise it SHALL refuse to launch or supersede and direct the user to reconcile the existing card. An exact `MERGED` observation that contains `delivery_sha` SHALL terminalize the delivery immediately in the observing decision action. A definitively stale or retargeted PR, or a `CLOSED`/`MERGED` PR that does not contain `delivery_sha`, SHALL be detached by that decision action and return to `on_review` with the SHA and local branch preserved for a new PR. A transient observation failure SHALL fail closed without guessing or detaching.
 
-Every continuation SHALL prove that the allocated local worktree and branch ref both start exactly at a frozen remote PR head. For an internal delivery that baseline is `delivery_sha`. For an inferred external PR, list/search data is discovery evidence only; an authoritative exact-PR observation SHALL prove the PR is `OPEN`, validate exact head/base, and provide a valid `headRefOid` that becomes the immutable allocation baseline. Local commits beyond either baseline are preserved but SHALL NOT be silently folded into the new run. After implementation, worktree HEAD and the local branch ref MAY advance together to the newly created commit, which SHALL be verified and frozen as the exact push SHA. An external open PR may be inferred only from an explicit PR number in the ticket/spec or an authoritative Jira key match. A repository-local ticket number, title similarity, branch wording, or `Fixes #<local-id>` in an unrelated PR is not continuation authority.
+Every continuation SHALL prove that the allocated local worktree and branch ref both start exactly at a frozen remote PR head. For an internal delivery that baseline is `delivery_sha`. For an inferred external PR, list/search data is discovery evidence only; an authoritative exact-PR observation SHALL prove the PR is `OPEN`, validate exact head/base, and provide a valid `headRefOid` that becomes the immutable allocation baseline. Local commits beyond either baseline are preserved but SHALL NOT be silently folded into the new run. After implementation, worktree HEAD and the local branch ref MAY advance together to the newly created commit, which SHALL be verified and frozen as the exact push SHA. Immediately before every automatic or user-triggered existing-PR push, the local `origin` SHALL resolve to exactly one push URL identifying the GitHub repository that owns the recorded same-repository PR; missing, multiple, ambiguous, fork, or mismatched targets SHALL fail closed without a push. Delivery SHALL reject credential-bearing userinfo, passwords, query strings, or fragments, authenticate through credential helpers, and push through the already-verified exact URL rather than resolving the mutable alias again. An external open PR may be inferred only from an explicit PR number in the ticket/spec or an authoritative Jira key match. A repository-local ticket number, title similarity, branch wording, or `Fixes #<local-id>` in an unrelated PR is not continuation authority.
 
 #### Scenario: Exact PR was closed without merge
 
@@ -479,6 +511,13 @@ Every continuation SHALL prove that the allocated local worktree and branch ref 
 - **WHEN** a continuation worktree starts exactly at verified baseline A and the implementation cleanly advances both worktree HEAD and its branch ref to C
 - **THEN** post-run verification SHALL accept C rather than incorrectly requiring the old A baseline
 - **AND** pre-push settlement SHALL reverify and push exactly immutable C
+
+#### Scenario: Automatic continuation push remote does not own the PR
+
+- **WHEN** a continuation produces verified immutable commit C for a same-repository PR
+- **AND** the local `origin` resolves to zero, multiple, ambiguous, or differently-owned push URLs
+- **THEN** initial settlement SHALL perform no push
+- **AND** SHALL preserve C in a retryable delivery state with an actionable ownership diagnostic
 
 #### Scenario: Unrelated PR mentions a local ticket number
 
@@ -643,6 +682,27 @@ Dashboard and agent-chat surfaces SHALL derive titles, tones, evidence, links, l
 - **WHEN** either implementation-card surface renders an action, confirmation, recovery explanation, verified-SHA result, or cleanup warning
 - **THEN** equivalent keys SHALL exist in `de`, `en`, `es`, `fr`, `it`, `ja`, `pt`, and `zh`
 - **AND** locale parity SHALL fail verification if any supported language falls back because a key is missing
+
+#### Scenario: Blocked legacy result has local recovery evidence
+
+- **WHEN** a successful legacy continuation is blocked without an immutable `delivery_sha`
+- **THEN** neither card SHALL offer Checkout as though the old PR branch contained the implementation
+- **AND** a live delivery-owned worktree SHALL be exposed through Inspect local result with its exact copyable/revealable path
+- **AND** both cards SHALL offer the confirmed recovery action when the server-side recovery contract is eligible
+- **AND** when no authenticated worktree path is available on this computer, the continuation SHALL offer ownership-safe Dismiss rather than claim that a local result will be discarded
+
+#### Scenario: Main checkout is dirty
+
+- **WHEN** the user requests ordinary Checkout for an otherwise deliverable PR while the main project folder has uncommitted changes
+- **THEN** the server SHALL refuse before releasing any worktree or changing any ref
+- **AND** both surfaces SHALL localize that protective refusal and state that nothing changed
+
+#### Scenario: Main checkout cleanliness is unreadable or delivery changes while queued
+
+- **WHEN** `git status` fails or times out before Checkout
+- **OR** the same delivery loses or changes its attached PR branch while Checkout waits for the repository lock
+- **THEN** the server SHALL fail closed before worktree release and use no pre-lock branch value
+- **AND** both surfaces SHALL present a localized protective refusal
 
 ### Requirement: Startup recovery makes every stale generation actionable
 

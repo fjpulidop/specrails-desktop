@@ -107,7 +107,7 @@ function fromServerSnapshot(raw: ServerPrDeliverySnapshot, railIndex: number): R
 
 const TERMINAL_DECISIONS: ReadonlySet<RailPrDecision> = new Set(['merged', 'discarded', 'completed', 'superseded'])
 const PR_OPERATIONS: ReadonlySet<string> = new Set([
-  'create-pr', 'publish', 'discard', 'poll-merge', 'merge-local', 'dismiss', 'reopen', 'acknowledge-no-changes',
+  'create-pr', 'publish', 'discard', 'poll-merge', 'merge-local', 'dismiss', 'reopen', 'acknowledge-no-changes', 'recover-and-retry',
 ])
 
 function snapshotsMatch(a: RailPrStateSnapshot, b: RailPrStateSnapshot): boolean {

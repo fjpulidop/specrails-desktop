@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useNavigate } from 'react-router-dom'
 import { toast } from 'sonner'
-import { GitPullRequest, GitMerge, ExternalLink, Loader2, AlertTriangle, Eye, GitBranch, ScrollText, CheckCircle2, RotateCcw } from 'lucide-react'
+import { GitPullRequest, GitMerge, ExternalLink, Loader2, AlertTriangle, Eye, GitBranch, ScrollText, CheckCircle2, RotateCcw, FolderOpen } from 'lucide-react'
 import {
   Dialog,
   DialogContent,
@@ -15,6 +15,7 @@ import { Button } from './ui/button'
 import type { RailPrDecision, RailPrDecisionAction, RailPrStateSnapshot } from '../types'
 import type { RailPrActResult, RailPrCheckoutResult } from '../context/RailPrDecisionContext'
 import { derivePrDeliveryPresentation, isInterruptedPrDeliveryOperation, isKnownPrDeliveryStatusCode } from '../lib/pr-delivery'
+import { isTauri, revealItemInDir } from '../lib/tauri-shell'
 
 interface RailPrDecisionStripProps {
   decision: RailPrStateSnapshot
@@ -29,7 +30,7 @@ interface RailPrDecisionStripProps {
   checkout?: (expectedPrDeliveryId: string) => Promise<RailPrCheckoutResult>
 }
 
-type ConfirmationKind = 'merge-local' | 'discard' | 'dismiss' | 'discard-local' | 'no-changes-done' | 'refine'
+type ConfirmationKind = 'merge-local' | 'discard' | 'dismiss' | 'discard-local' | 'no-changes-done' | 'refine' | 'recover-and-retry'
 
 interface PendingConfirmation {
   kind: ConfirmationKind
@@ -180,6 +181,15 @@ export function RailPrDecisionStrip({ decision, density, act, checkout }: RailPr
       if (action === 'merge-local' && res.decision === 'merged') {
         toast.success(t('railPr.mergedLocally', { base: decision.baseBranch }))
       }
+      if (action === 'recover-and-retry') {
+        if (res.deliveryVerified) {
+          const sha = (res.verifiedSha ?? res.snapshot?.deliverySha ?? '').slice(0, 8)
+          toast.success(t('railPr.recoverAndRetryVerified', { sha }))
+        } else {
+          toast.warning(t('railPr.recoveryStillBlocked'), { description: res.detail ?? undefined })
+        }
+        return
+      }
       if (action === 'create-pr' && presentation.retryablePush && res.deliveryVerified) {
         const sha = (res.verifiedSha ?? res.snapshot?.deliverySha ?? decision.deliverySha ?? '').slice(0, 8)
         toast.success(t(res.pushed ? 'railPr.retryPushVerified' : 'railPr.commitAlreadyVerified', { sha }))
@@ -225,6 +235,18 @@ export function RailPrDecisionStrip({ decision, density, act, checkout }: RailPr
           toast.info(t('common:prRecovery.inProgress'))
           return
         }
+        if (res.error === 'checkout_dirty') {
+          toast.warning(t('railPr.checkoutDirtyTitle'), { description: t('railPr.checkoutDirtyBody') })
+          return
+        }
+        if (res.error === 'checkout_not_deliverable') {
+          toast.warning(t('railPr.checkoutNotDeliverableTitle'), { description: t('railPr.checkoutNotDeliverableBody') })
+          return
+        }
+        if (res.error === 'checkout_safety_unknown') {
+          toast.warning(t('railPr.checkoutSafetyUnknownTitle'), { description: t('railPr.checkoutSafetyUnknownBody') })
+          return
+        }
         toast.warning(t('railPr.checkoutFailed'), { description: res.detail ?? res.error })
         return
       }
@@ -234,11 +256,36 @@ export function RailPrDecisionStrip({ decision, density, act, checkout }: RailPr
     }
   }
 
+  async function inspectLocalResult() {
+    const paths = presentation.recoveryWorktreePaths
+    if (paths.length === 0) {
+      toast.info(t('railPr.localResultUnavailableHere'))
+      return
+    }
+    const value = paths.join('\n')
+    let copied = false
+    try {
+      await navigator.clipboard.writeText(value)
+      copied = true
+    } catch { /* the preserved path remains visible in the fallback toast */ }
+    try {
+      if (isTauri()) await revealItemInDir(paths[0])
+    } catch { /* reveal is best-effort and independent from clipboard access */ }
+    if (copied) {
+      toast.success(t('railPr.localResultPathCopied'), { description: value })
+    } else {
+      toast.info(t('railPr.localResultPath'), { description: value })
+    }
+  }
+
   // ── shared bits ─────────────────────────────────────────────────────────────
   const pillBase = `inline-flex items-center gap-1 rounded-full font-medium border ${
     compact ? 'px-1.5 py-0.5 text-[9px]' : 'px-2 py-0.5 text-[10px]'
   }`
   const primaryBtn = `inline-flex items-center gap-1 rounded-md font-medium bg-accent-primary text-white hover:bg-accent-primary/90 disabled:opacity-50 disabled:pointer-events-none transition-colors ${
+    compact ? 'px-1.5 py-0.5 text-[9px]' : 'px-2 py-0.5 text-[10px]'
+  }`
+  const secondaryBtn = `inline-flex items-center gap-1 rounded-md font-medium border border-border/60 text-foreground/70 hover:border-accent-primary/40 hover:bg-accent-primary/10 disabled:opacity-50 disabled:pointer-events-none transition-colors ${
     compact ? 'px-1.5 py-0.5 text-[9px]' : 'px-2 py-0.5 text-[10px]'
   }`
   const ghostBtn = `inline-flex items-center gap-1 rounded-md text-muted-foreground hover:text-destructive hover:bg-destructive/10 disabled:opacity-50 disabled:pointer-events-none transition-colors ${
@@ -330,7 +377,7 @@ export function RailPrDecisionStrip({ decision, density, act, checkout }: RailPr
     </button>
   )
 
-  const checkoutBtn = checkout && decision.prUrl && decision.branch ? (
+  const checkoutBtn = checkout && decision.prUrl && decision.branch && decision.deliverySha && !presentation.deliveryBlocked ? (
     <button
       type="button"
       data-testid="rail-pr-checkout"
@@ -343,6 +390,33 @@ export function RailPrDecisionStrip({ decision, density, act, checkout }: RailPr
     >
       {checkingOut ? spinner : <GitBranch className={iconCls} aria-hidden />}
       {t('railPr.checkout')}
+    </button>
+  ) : null
+
+  const inspectLocalResultBtn = presentation.recoveryWorktreePaths.length > 0 ? (
+    <button
+      type="button"
+      data-testid="rail-pr-inspect-local-result"
+      disabled={busy}
+      onClick={(event) => { event.stopPropagation(); void inspectLocalResult() }}
+      className={secondaryBtn}
+      title={t('railPr.inspectLocalResultTooltip')}
+    >
+      <FolderOpen className={iconCls} aria-hidden />
+      {t('railPr.inspectLocalResult')}
+    </button>
+  ) : null
+
+  const recoverAndRetryBtn = presentation.manualRecovery ? (
+    <button
+      type="button"
+      data-testid="rail-pr-recover-and-retry"
+      disabled={busy}
+      onClick={(event) => { event.stopPropagation(); openConfirmation('recover-and-retry') }}
+      className={primaryBtn}
+    >
+      {inFlight === 'recover-and-retry' ? spinner : <RotateCcw className={iconCls} aria-hidden />}
+      {t('railPr.recoverAndRetry')}
     </button>
   ) : null
 
@@ -506,9 +580,10 @@ export function RailPrDecisionStrip({ decision, density, act, checkout }: RailPr
     )
     actions = <>
       {linkChip}
-      {checkoutBtn}
+      {inspectLocalResultBtn}
+      {recoverAndRetryBtn}
       {presentation.continuation
-        ? (presentation.partialUndeliverable ? dismissBtn : discardLocalBtn)
+        ? (presentation.partialUndeliverable || presentation.recoveryWorktreePaths.length === 0 ? dismissBtn : discardLocalBtn)
         : discardBtn}
     </>
   } else if (presentation.retryablePush) {
@@ -862,6 +937,21 @@ export function RailPrDecisionStrip({ decision, density, act, checkout }: RailPr
               onClick={() => confirmAction('refine', 'discard')}
             >
               {t('railPr.refine')}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={confirmationIsOpen('recover-and-retry')} onOpenChange={(open) => { if (!open) closeConfirmation() }}>
+        <DialogContent className="max-w-sm" data-testid="rail-pr-recover-and-retry-confirm">
+          <DialogHeader>
+            <DialogTitle>{t('railPr.recoverAndRetryConfirmTitle')}</DialogTitle>
+            <DialogDescription>{t('railPr.recoverAndRetryConfirmBody', { branch: decision.branch ?? '' })}</DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button variant="outline" size="sm" onClick={closeConfirmation}>{t('common:actions.cancel')}</Button>
+            <Button size="sm" disabled={busy} onClick={() => confirmAction('recover-and-retry', 'recover-and-retry')}>
+              {t('railPr.recoverAndRetry')}
             </Button>
           </DialogFooter>
         </DialogContent>

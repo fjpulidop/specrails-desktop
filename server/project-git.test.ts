@@ -4,7 +4,7 @@ import { execFileSync } from 'child_process'
 import fs from 'fs'
 import os from 'os'
 import path from 'path'
-import { getProjectGitInfo, checkoutProjectBranch, checkoutProjectReviewBranch, parseWorktreePorcelain, compactCheckoutError } from './project-git'
+import { getProjectGitInfo, checkoutProjectBranch, checkoutProjectReviewBranch, inspectProjectCheckoutCleanliness, parseWorktreePorcelain, compactCheckoutError } from './project-git'
 import { registerGitRoutes } from './project-router-git'
 import type { ProjectRoutesDeps } from './project-router-helpers'
 
@@ -65,6 +65,14 @@ describe('project-git', () => {
     expect((await getProjectGitInfo(repo)).dirty).toBe(true)
     run(repo, 'checkout', '--', 'file.txt')
     expect((await getProjectGitInfo(repo)).dirty).toBe(false)
+  })
+
+  it('reports checkout cleanliness as tri-state and fails closed when status is unreadable', async () => {
+    await expect(inspectProjectCheckoutCleanliness(repo)).resolves.toEqual({ ok: true, clean: true })
+    fs.writeFileSync(path.join(repo, 'untracked.txt'), 'valuable\n')
+    await expect(inspectProjectCheckoutCleanliness(repo)).resolves.toEqual({ ok: true, clean: false })
+    fs.rmSync(path.join(repo, 'untracked.txt'))
+    await expect(inspectProjectCheckoutCleanliness(plainDir)).resolves.toMatchObject({ ok: false })
   })
 
   it('checks out an existing local branch', async () => {

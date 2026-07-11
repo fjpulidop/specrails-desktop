@@ -316,10 +316,10 @@ export function parsePrDecisionEnvelope(content: string): AgentPrDecisionEnvelop
   }
 }
 
-export type AgentPrDecisionAction = 'create-pr' | 'publish' | 'discard' | 'poll-merge' | 'merge-local' | 'dismiss' | 'reopen' | 'acknowledge-no-changes'
+export type AgentPrDecisionAction = 'create-pr' | 'publish' | 'discard' | 'poll-merge' | 'merge-local' | 'dismiss' | 'reopen' | 'acknowledge-no-changes' | 'recover-and-retry'
 
 const PR_DECISION_ACTION_VALUES: readonly AgentPrDecisionAction[] = [
-  'create-pr', 'publish', 'discard', 'poll-merge', 'merge-local', 'dismiss', 'reopen', 'acknowledge-no-changes',
+  'create-pr', 'publish', 'discard', 'poll-merge', 'merge-local', 'dismiss', 'reopen', 'acknowledge-no-changes', 'recover-and-retry',
 ]
 
 export type AgentPrDecisionOutcome =
@@ -457,7 +457,7 @@ export function agentEnvelopeFromSnapshot(
 export type AgentPrCheckoutOutcome =
   | { kind: 'ok' }
   | { kind: 'recovering' }
-  | { kind: 'failed'; detail: string }
+  | { kind: 'failed'; error: string; detail: string }
 
 export async function postRailPrCheckout(projectId: string, prDeliveryId: string): Promise<AgentPrCheckoutOutcome> {
   const res = await fetch(`${API_ORIGIN}/api/projects/${projectId}/rails/pr-checkout`, {
@@ -474,7 +474,11 @@ export async function postRailPrCheckout(projectId: string, prDeliveryId: string
   }
   if (res.ok) return { kind: 'ok' }
   if (res.status === 409 && data?.error === 'project_recovery_in_progress') return { kind: 'recovering' }
-  return { kind: 'failed', detail: String(data?.detail ?? data?.error ?? `HTTP ${res.status}`) }
+  return {
+    kind: 'failed',
+    error: String(data?.error ?? `http_${res.status}`),
+    detail: String(data?.detail ?? data?.error ?? `HTTP ${res.status}`),
+  }
 }
 
 // ── Provider availability (no AI CLI installed → degraded banner) ─────────────

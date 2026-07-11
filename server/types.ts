@@ -824,7 +824,7 @@ export interface RailPrStateMessage {
   /** Explicit allocation rollback: this active generation was restored after
    * the referenced replacement generation failed. */
   restoredFromDeliveryId: string | null
-  operation: 'create-pr' | 'publish' | 'discard' | 'dismiss' | 'poll-merge' | 'reopen' | 'merge-local' | 'acknowledge-no-changes' | null
+  operation: 'create-pr' | 'publish' | 'discard' | 'dismiss' | 'poll-merge' | 'reopen' | 'merge-local' | 'acknowledge-no-changes' | 'recover-and-retry' | null
   cleanupWarnings: string[]
   safetyArchives: string[]
   units: Array<{
@@ -839,6 +839,7 @@ export interface RailPrStateMessage {
     changed?: boolean
     failureCode?: string | null
     branchOwnership?: 'created' | 'preexisting' | 'borrowed-pr'
+    worktreePath?: string | null
   }>
   /** The launch's loop-run ids, in ticket order ([] until allocation lands) —
    *  each links a per-run log (JobDetailModal) + live vitals on the decision
@@ -1391,7 +1392,7 @@ export interface PrDecisionCardEnvelope {
   isContinuation: boolean
   supersedesDeliveryId: string | null
   restoredFromDeliveryId: string | null
-  operation: 'create-pr' | 'publish' | 'discard' | 'dismiss' | 'poll-merge' | 'reopen' | 'merge-local' | 'acknowledge-no-changes' | null
+  operation: 'create-pr' | 'publish' | 'discard' | 'dismiss' | 'poll-merge' | 'reopen' | 'merge-local' | 'acknowledge-no-changes' | 'recover-and-retry' | null
   cleanupWarnings: string[]
   safetyArchives: string[]
   units: Array<{
@@ -1406,6 +1407,7 @@ export interface PrDecisionCardEnvelope {
     changed?: boolean
     failureCode?: string | null
     branchOwnership?: 'created' | 'preexisting' | 'borrowed-pr'
+    worktreePath?: string | null
   }>
   prUrl: string | null
   prNumber: number | null

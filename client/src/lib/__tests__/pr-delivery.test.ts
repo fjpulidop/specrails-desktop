@@ -83,6 +83,7 @@ describe('PR delivery semantic derivation', () => {
       deliveryOutcome: 'retryable_failure',
       statusCode: 'settlement_interrupted',
       isContinuation: true,
+      runIds: ['run-1'],
     })
 
     expect(result).toMatchObject({
@@ -91,6 +92,82 @@ describe('PR delivery semantic derivation', () => {
       retryablePush: true,
       retryablePrCreation: false,
     })
+  })
+
+  it('derives explicit legacy recovery and only exposes worktree paths carried by durable unit evidence', () => {
+    const result = derivePrDeliveryPresentation({
+      decision: 'pr_failed',
+      ticketIds: [1, 2],
+      prUrl: 'https://github.com/o/r/pull/548',
+      branch: 'feat/review',
+      prState: 'pr-created',
+      implementationOutcome: 'succeeded',
+      deliveryOutcome: 'blocked',
+      statusCode: 'settlement_interrupted',
+      isContinuation: true,
+      runIds: ['run-1'],
+      units: [
+        {
+          ticketId: 1, runId: 'run-1', branch: 'feat/review', succeeded: true,
+          implementationOutcome: 'succeeded', deliveryOutcome: 'blocked',
+          initialSha: 'a', finalSha: null, worktreePath: '/tmp/worktree-1',
+        },
+        {
+          ticketId: 2, runId: 'run-1', branch: 'feat/review', succeeded: true,
+          implementationOutcome: 'succeeded', deliveryOutcome: 'blocked',
+          initialSha: 'a', finalSha: null, worktreePath: '/tmp/worktree-1',
+        },
+      ],
+    })
+
+    expect(result.manualRecovery).toBe(true)
+    expect(result.recoveryWorktreePaths).toEqual(['/tmp/worktree-1'])
+  })
+
+  it('does not offer manual recovery outside the exact interrupted existing-PR continuation state', () => {
+    const base = {
+      decision: 'pr_failed' as const,
+      ticketIds: [1],
+      prUrl: 'https://github.com/o/r/pull/548',
+      branch: 'feat/review',
+      prState: 'pr-created' as const,
+      implementationOutcome: 'succeeded' as const,
+      deliveryOutcome: 'blocked' as const,
+      statusCode: 'settlement_interrupted',
+      isContinuation: true,
+      runIds: ['run-1'],
+      units: [{
+        ticketId: 1, runId: 'run-1', branch: 'feat/review', succeeded: true,
+        implementationOutcome: 'succeeded' as const, deliveryOutcome: 'blocked' as const,
+        initialSha: null, finalSha: null,
+      }],
+    }
+
+    expect(derivePrDeliveryPresentation({ ...base, prUrl: null }).manualRecovery).toBe(false)
+    expect(derivePrDeliveryPresentation({ ...base, branch: null }).manualRecovery).toBe(false)
+    expect(derivePrDeliveryPresentation({ ...base, runIds: [] }).manualRecovery).toBe(false)
+    expect(derivePrDeliveryPresentation({ ...base, runIds: ['run-1', 'run-2'] }).manualRecovery).toBe(false)
+    expect(derivePrDeliveryPresentation({
+      ...base,
+      units: [
+        { ticketId: 1, runId: 'run-1', branch: 'feat/review', succeeded: true, initialSha: null, finalSha: null, worktreePath: '/tmp/one' },
+        { ticketId: 1, runId: 'run-1', branch: 'feat/review', succeeded: true, initialSha: null, finalSha: null, worktreePath: '/tmp/two' },
+      ],
+    }).manualRecovery).toBe(false)
+    expect(derivePrDeliveryPresentation({ ...base, units: [] }).manualRecovery).toBe(false)
+    expect(derivePrDeliveryPresentation({
+      ...base,
+      units: [{ ...base.units[0], runId: 'another-run' }],
+    }).manualRecovery).toBe(false)
+    expect(derivePrDeliveryPresentation({
+      ...base,
+      units: [{ ...base.units[0], branch: 'feat/another-branch' }],
+    }).manualRecovery).toBe(false)
+    expect(derivePrDeliveryPresentation({ ...base, isContinuation: false }).manualRecovery).toBe(false)
+    expect(derivePrDeliveryPresentation({ ...base, decision: 'pr_draft' }).manualRecovery).toBe(false)
+    expect(derivePrDeliveryPresentation({ ...base, deliveryOutcome: 'partial' }).manualRecovery).toBe(false)
+    expect(derivePrDeliveryPresentation({ ...base, statusCode: 'commit_failed' }).manualRecovery).toBe(false)
+    expect(derivePrDeliveryPresentation({ ...base, implementationOutcome: 'failed' }).manualRecovery).toBe(false)
   })
 
   it('lets implementation failure outrank contradictory delivery diagnostics', () => {
@@ -187,7 +264,7 @@ describe('authoritative PR snapshot coercion', () => {
       branches: [{
         ticketId: 8, runId: 'run-8', branch: 'feat/8', succeeded: true,
         implementationOutcome: 'succeeded', deliveryOutcome: 'blocked', initialSha: 'a', finalSha: 'b', changed: true,
-        failureCode: 'branch_verification_failed',
+        failureCode: 'branch_verification_failed', worktreePath: '/tmp/worktree-8',
       }],
     })).toMatchObject({
       prDeliveryId: 'delivery-1', railIndex: 2, implementationOutcome: 'succeeded', deliveryOutcome: 'blocked',
@@ -195,7 +272,9 @@ describe('authoritative PR snapshot coercion', () => {
       safetyArchives: ['/tmp/ticket-8.specrails-overlay-quarantine-a/.mcp.json'],
       restoredFromDeliveryId: 'failed-replacement',
       operation: 'publish',
-      runIds: ['run-8'], units: [{ ticketId: 8, runId: 'run-8', finalSha: 'b', changed: true }],
+      runIds: ['run-8'], units: [{
+        ticketId: 8, runId: 'run-8', finalSha: 'b', changed: true, worktreePath: '/tmp/worktree-8',
+      }],
     })
   })
 })

@@ -30,6 +30,7 @@ function lifecycle(overrides: {
     isDraft: overrides.isDraft ?? false,
     headRefName: overrides.branch ?? BRANCH,
     baseRefName: overrides.baseBranch ?? 'main',
+    isCrossRepository: false,
     headRefOid: sha,
     mergeCommit: null,
     commits: [{ oid: sha }],
@@ -327,6 +328,7 @@ describe('historical active-PR continuation recovery', () => {
         code: 0,
         stdout: JSON.stringify({
           state: 'OPEN', isDraft: false, headRefName: BRANCH, baseRefName: 'main',
+          isCrossRepository: false,
           headRefOid: OTHER_SHA, mergeCommit: null, commits: [{ oid: SHA }, { oid: OTHER_SHA }],
         }),
         stderr: '',

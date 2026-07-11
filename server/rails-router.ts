@@ -29,11 +29,11 @@ import {
   type PrDeliverySnapshot,
 } from './rail-pr-store'
 import { classifyLoopEffect } from './loop-effect'
-import { executePrDecision, isPrDecisionAction } from './rail-pr-decision'
+import { executePrDecision, isPrDecisionAction, PR_DECISION_ACTIONS } from './rail-pr-decision'
 import { launchIsolatedRail, PrContinuationIsolationError } from './rail-isolated-launch'
 import { repoIsolationStatus, defaultGitRunner } from './worktree-manager'
 import { durableBranchHeads, durableOverlayCleanupEvidence, releaseRailWorktrees } from './rail-worktree-release'
-import { checkoutProjectReviewBranch, getProjectGitInfo } from './project-git'
+import { checkoutProjectReviewBranch, getProjectGitInfo, inspectProjectCheckoutCleanliness } from './project-git'
 import { defaultExec } from './pr-publisher'
 import { newId } from './ids'
 import { withRepoLock } from './repo-lock'
@@ -63,6 +63,16 @@ function prDeliveryContinuesTickets(delivery: PrDeliverySnapshot, ticketIds: num
   const covered = new Set(delivery.ticketIds)
   const requested = new Set(ticketIds)
   return requested.size > 0 && requested.size === covered.size && [...requested].every((id) => covered.has(id))
+}
+
+function prDeliveryCheckoutBlock(delivery: PrDeliverySnapshot): string | null {
+  if (delivery.deliveryOutcome === 'blocked') {
+    return 'delivery is blocked and has no safely checkoutable result'
+  }
+  if (!delivery.deliverySha) {
+    return 'delivery has no verified commit available for checkout'
+  }
+  return null
 }
 
 function emitPrDeliveryUpdate(c: ProjectContext, prDeliveryId: string): void {
@@ -862,7 +872,7 @@ export function createRailsRouter(): Router {
   // POST /rails/pr-decision — the ONE decision action (safe-pr-review-flow) both
   // surfaces (dashboard rail row + agent-chat card) call on a rail_pr_deliveries
   // row: create-pr | publish | discard/dismiss | poll/reopen | merge-local |
-  // acknowledge-no-changes, compare-and-set-guarded by
+  // acknowledge-no-changes | recover-and-retry, compare-and-set-guarded by
   // expectedDecision (a raced concurrent answer loses with 409 stale_decision).
   // Replaces the stateless v1 POST /rails/pr-review passthrough. The route only
   // validates and delegates — the action logic lives in rail-pr-decision.ts.
@@ -874,7 +884,7 @@ export function createRailsRouter(): Router {
       res.status(400).json({ error: 'prDeliveryId is required' }); return
     }
     if (!isPrDecisionAction(action)) {
-      res.status(400).json({ error: "action must be 'create-pr', 'publish', 'discard', 'dismiss', 'poll-merge', 'reopen', 'merge-local' or 'acknowledge-no-changes'" }); return
+      res.status(400).json({ error: `action must be one of: ${PR_DECISION_ACTIONS.join(', ')}` }); return
     }
     if (typeof expectedDecision !== 'string' || !expectedDecision) {
       res.status(400).json({ error: 'expectedDecision is required' }); return
@@ -950,6 +960,10 @@ export function createRailsRouter(): Router {
       }); return
     }
     const snap = toPrDeliverySnapshot(row)
+    const checkoutBlock = prDeliveryCheckoutBlock(snap)
+    if (checkoutBlock) {
+      res.status(409).json({ error: 'checkout_not_deliverable', detail: checkoutBlock }); return
+    }
     if (!snap.branch || !snap.prUrl) {
       res.status(409).json({ error: 'checkout_unavailable', detail: 'delivery has no PR branch' }); return
     }
@@ -966,12 +980,38 @@ export function createRailsRouter(): Router {
           }
         }
         const currentSnap = toPrDeliverySnapshot(current)
+        const currentCheckoutBlock = prDeliveryCheckoutBlock(currentSnap)
+        if (currentCheckoutBlock) {
+          return {
+            ok: false as const,
+            status: 409,
+            error: 'checkout_not_deliverable',
+            detail: currentCheckoutBlock,
+          }
+        }
+        if (!currentSnap.branch || !currentSnap.prUrl) {
+          return {
+            ok: false as const,
+            status: 409,
+            error: 'checkout_not_deliverable',
+            detail: 'The current delivery no longer has an attached PR branch.',
+          }
+        }
+        const cleanliness = await inspectProjectCheckoutCleanliness(c.project.path)
+        if (!cleanliness.ok) {
+          return {
+            ok: false as const,
+            status: 409,
+            error: 'checkout_safety_unknown',
+            detail: cleanliness.detail,
+          }
+        }
+        if (!cleanliness.clean) {
+          return { ok: false as const, status: 409, error: 'checkout_dirty', detail: 'Working tree has uncommitted changes. Commit or stash them before checkout.' }
+        }
         const info = await getProjectGitInfo(c.project.path)
         if (!info.git) {
           return { ok: false as const, status: 409, error: 'checkout_unavailable', detail: 'project is not a git repository' }
-        }
-        if (info.dirty) {
-          return { ok: false as const, status: 409, error: 'checkout_dirty', detail: 'Working tree has uncommitted changes. Commit or stash them before checkout.' }
         }
         let archived = false
         const cleanupWarnings = await releaseRailWorktrees({
@@ -1009,7 +1049,7 @@ export function createRailsRouter(): Router {
             detail: cleanupWarnings[0],
           }
         }
-        const checkedOut = await checkoutProjectReviewBranch(c.project.path, snap.branch!)
+        const checkedOut = await checkoutProjectReviewBranch(c.project.path, currentSnap.branch)
         if (!checkedOut.ok) {
           return { ok: false as const, status: 409, error: 'checkout_failed', detail: checkedOut.error }
         }

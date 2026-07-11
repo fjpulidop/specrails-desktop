@@ -27,7 +27,7 @@ import * as fs from 'fs'
 import { resolveHome } from './artifact-registry'
 import { newId } from './ids'
 import { loadConstantMap } from './loop-constants'
-import { defaultGitRunner, createWorktree, removeWorktree, commitWorktreeAndVerify, listLocalBranches, worktreeBranch, PR_NEVER_STAGE_PATHS, type GitRunner, type WorktreeHandle, type CommitWorktreeResult } from './worktree-manager'
+import { defaultGitRunner, createWorktree, removeWorktree, commitWorktreeAndVerify, listLocalBranches, listWorktrees, worktreeBranch, PR_NEVER_STAGE_PATHS, type GitRunner, type WorktreeHandle, type CommitWorktreeResult } from './worktree-manager'
 import { createRailWorktree, updateRailWorktreeState, listNonTerminalRailWorktrees, railWorktreeBranchExistsForTicket, getRailWorktree, isTerminalMergeState } from './rail-worktrees-store'
 import { ticketBranchName, ticketRef, resolveCollisionFreeName, type TicketNamingInput } from './pr-naming'
 import { getLinkByLocalId } from './jira/jira-db'
@@ -58,7 +58,7 @@ import { recordLoopRunProvenance } from './file-story'
 import { getAdapter } from './providers'
 import { defaultExec, pushBranch, type Exec } from './pr-publisher'
 import { resolveActivePrContinuationTargets, type ActivePrContinuationTarget } from './active-pr-continuation'
-import { isExactOpenPr, matchesRecordedPrIdentity, observePrLifecycle } from './pr-lifecycle'
+import { isExactOpenPr, matchesRecordedPrIdentity, observePrLifecycle, verifyPushRemoteForPr } from './pr-lifecycle'
 import { durableBranchHeads, durableOverlayCleanupEvidence, releaseRailWorktrees } from './rail-worktree-release'
 import type { BranchToMerge } from './merge-manager'
 import type { LoopGraph } from './loop-graph'
@@ -215,6 +215,11 @@ function commitFailureSummary(result: CommitWorktreeResult): string {
 }
 
 const COMMIT_SHA_RE = /^[0-9a-f]{40,64}$/i
+// Recovery runs during project startup, so an object store with an excessive
+// number of unreachable commits must degrade to manual review instead of
+// spawning an unbounded number of subject inspections. This is a safety cap,
+// never a truncation: exceeding it invalidates the scan.
+const MAX_UNREACHABLE_RECOVERY_COMMITS = 512
 
 /** Prove that the linked checkout is on the expected PR branch and that its
  * HEAD is exactly the commit named by refs/heads/<branch>. When expectedHeadSha
@@ -309,6 +314,7 @@ function branchRecords(results: readonly SettledRun[]): DeliverBranchRecord[] {
     ...(result.changed === undefined ? {} : { changed: result.changed }),
     failureCode: result.failureCode ?? null,
     branchOwnership: result.run.branchOwnership,
+    worktreePath: result.run.handle.worktreePath,
     overlayExcludes: result.run.overlayExcludes,
     overlayCleanupEvidence: result.run.overlayCleanupEvidence,
   })))
@@ -1156,70 +1162,79 @@ export async function launchIsolatedRail(input: IsolatedLaunchInput, io: Isolate
           }
         } else {
           continuationRemoteIsDraft = beforePush.isDraft
-          try {
-            const pushed = await pushBranch(exec, {
-              repoDir: baseRepo,
-              branch: launchContinuation.branch,
-              baseBranch: launchContinuation.baseBranch,
-              sourceSha: deliverySha,
-            })
-            if (pushed.state === 'local-only') {
-              continuationPushFailed = true
-              continuationPushFailureReason = pushed.reason
-            } else {
-              continuationExactPushCompleted = true
-              const afterPush = await observePrLifecycle(
-                exec, baseRepo, launchContinuation.prUrl!, deliverySha,
-              )
-              if (!afterPush.ok) {
-                continuationPushFailed = true
-                continuationPushFailureReason = `exact commit was pushed, but the PR lifecycle could not be confirmed: ${afterPush.detail}`
-              } else if (isExactOpenPr(afterPush, launchContinuation.branch, launchContinuation.baseBranch)) {
-                if (afterPush.headRefOid?.toLowerCase() === deliverySha.toLowerCase()) {
-                  continuationRemoteIsDraft = afterPush.isDraft
-                } else {
-                  // GitHub observation can lag a successful push, or another
-                  // writer may have moved the remote head. The retry remains
-                  // safe because it always uses the immutable SHA and a normal
-                  // non-forced refspec; preserve evidence and keep Retry push.
-                  continuationPushFailed = true
-                  continuationPushFailureReason = 'the exact push completed, but the PR does not yet expose the verified commit as its head; Retry push remains safe and uses the preserved SHA'
-                }
-              } else if (
-                afterPush.state === 'MERGED' &&
-                matchesRecordedPrIdentity(
-                  afterPush,
-                  launchContinuation.branch,
-                  launchContinuation.baseBranch,
-                ) &&
-                afterPush.includesExpectedSha === true
-              ) {
-                // The PR won the race but demonstrably included this exact SHA.
-                continuationRemoteIsDraft = false
-                continuationMergedWithSha = true
-              } else if (
-                afterPush.state === 'CLOSED' &&
-                matchesRecordedPrIdentity(
-                  afterPush,
-                  launchContinuation.branch,
-                  launchContinuation.baseBranch,
-                ) &&
-                afterPush.includesExpectedSha === true
-              ) {
-                continuationClosedWithSha = true
-              } else if (afterPush.state === 'MERGED' || afterPush.state === 'CLOSED') {
-                continuationNeedsNewPr = true
-                continuationPushFailureReason = afterPush.includesExpectedSha === null
-                  ? `the previous PR became ${afterPush.state.toLowerCase()} and GitHub could not prove it included this implementation; create a new draft PR from the preserved commit`
-                  : `the previous PR became ${afterPush.state.toLowerCase()} without this implementation; create a new draft PR from the preserved commit`
-              } else {
-                continuationNeedsNewPr = true
-                continuationPushFailureReason = 'the existing PR no longer matches its recorded head/base after the exact push; create a new draft PR from the preserved commit'
-              }
-            }
-          } catch (err) {
+          const pushRemote = await verifyPushRemoteForPr(
+            exec, baseRepo, launchContinuation.prUrl!,
+          )
+          if (!pushRemote.ok) {
             continuationPushFailed = true
-            continuationPushFailureReason = errorDetail(err)
+            continuationPushFailureReason = `refusing to push the preserved implementation: ${pushRemote.detail}`
+          } else {
+            try {
+              const pushed = await pushBranch(exec, {
+                repoDir: baseRepo,
+                branch: launchContinuation.branch,
+                baseBranch: launchContinuation.baseBranch,
+                remote: pushRemote.pushTarget,
+                sourceSha: deliverySha,
+              })
+              if (pushed.state === 'local-only') {
+                continuationPushFailed = true
+                continuationPushFailureReason = pushed.reason
+              } else {
+                continuationExactPushCompleted = true
+                const afterPush = await observePrLifecycle(
+                  exec, baseRepo, launchContinuation.prUrl!, deliverySha,
+                )
+                if (!afterPush.ok) {
+                  continuationPushFailed = true
+                  continuationPushFailureReason = `exact commit was pushed, but the PR lifecycle could not be confirmed: ${afterPush.detail}`
+                } else if (isExactOpenPr(afterPush, launchContinuation.branch, launchContinuation.baseBranch)) {
+                  if (afterPush.headRefOid?.toLowerCase() === deliverySha.toLowerCase()) {
+                    continuationRemoteIsDraft = afterPush.isDraft
+                  } else {
+                    // GitHub observation can lag a successful push, or another
+                    // writer may have moved the remote head. The retry remains
+                    // safe because it always uses the immutable SHA and a normal
+                    // non-forced refspec; preserve evidence and keep Retry push.
+                    continuationPushFailed = true
+                    continuationPushFailureReason = 'the exact push completed, but the PR does not yet expose the verified commit as its head; Retry push remains safe and uses the preserved SHA'
+                  }
+                } else if (
+                  afterPush.state === 'MERGED' &&
+                  matchesRecordedPrIdentity(
+                    afterPush,
+                    launchContinuation.branch,
+                    launchContinuation.baseBranch,
+                  ) &&
+                  afterPush.includesExpectedSha === true
+                ) {
+                  // The PR won the race but demonstrably included this exact SHA.
+                  continuationRemoteIsDraft = false
+                  continuationMergedWithSha = true
+                } else if (
+                  afterPush.state === 'CLOSED' &&
+                  matchesRecordedPrIdentity(
+                    afterPush,
+                    launchContinuation.branch,
+                    launchContinuation.baseBranch,
+                  ) &&
+                  afterPush.includesExpectedSha === true
+                ) {
+                  continuationClosedWithSha = true
+                } else if (afterPush.state === 'MERGED' || afterPush.state === 'CLOSED') {
+                  continuationNeedsNewPr = true
+                  continuationPushFailureReason = afterPush.includesExpectedSha === null
+                    ? `the previous PR became ${afterPush.state.toLowerCase()} and GitHub could not prove it included this implementation; create a new draft PR from the preserved commit`
+                    : `the previous PR became ${afterPush.state.toLowerCase()} without this implementation; create a new draft PR from the preserved commit`
+                } else {
+                  continuationNeedsNewPr = true
+                  continuationPushFailureReason = 'the existing PR no longer matches its recorded head/base after the exact push; create a new draft PR from the preserved commit'
+                }
+              }
+            } catch (err) {
+              continuationPushFailed = true
+              continuationPushFailureReason = errorDetail(err)
+            }
           }
         }
         if (continuationPushFailed) {
@@ -1504,6 +1519,46 @@ function recoveryOverlayExcludes(repoDir: string, worktreePath: string): string[
   }
 }
 
+async function authenticatedRecoveryDisplayPath(
+  git: GitRunner,
+  repoDir: string,
+  ledgerPath: string,
+  expectedBranch: string,
+  registeredPaths: readonly string[],
+): Promise<string | null> {
+  if (!path.isAbsolute(ledgerPath)) return null
+  let realPath: string
+  let repoRealPath: string
+  try {
+    const stat = fs.lstatSync(ledgerPath)
+    if (stat.isSymbolicLink() || !stat.isDirectory()) return null
+    realPath = fs.realpathSync(ledgerPath)
+    repoRealPath = fs.realpathSync(repoDir)
+  } catch {
+    return null
+  }
+  if (realPath === repoRealPath) return null
+  const registeredMatches = registeredPaths.filter((registeredPath) => {
+    try {
+      return fs.realpathSync(registeredPath) === realPath
+    } catch {
+      return false
+    }
+  })
+  if (registeredMatches.length !== 1) return null
+  try {
+    const [branch, head] = await Promise.all([
+      git.run(['rev-parse', '--abbrev-ref', 'HEAD'], realPath),
+      git.run(['rev-parse', '--verify', 'HEAD'], realPath),
+    ])
+    if (branch.code !== 0 || branch.stdout.trim() !== expectedBranch) return null
+    if (head.code !== 0 || !COMMIT_SHA_RE.test(head.stdout.trim())) return null
+    return realPath
+  } catch {
+    return null
+  }
+}
+
 async function inspectRecoveryWorktree(
   git: GitRunner,
   repoDir: string,
@@ -1537,15 +1592,64 @@ async function inspectRecoveryWorktree(
   }
 }
 
-async function settlementCommitsForRun(git: GitRunner, repoDir: string, runId: string): Promise<string[]> {
+type UnreachableRecoveryScan =
+  | { ok: true; commits: string[] }
+  | { ok: false }
+
+/**
+ * Inspect only the read-only, unreachable-commit records emitted by fsck. Blob,
+ * tree and tag records are expected noise. Any malformed/unknown record or an
+ * excessive commit set invalidates the whole scan so recovery cannot infer
+ * uniqueness from truncated or ambiguous evidence.
+ */
+async function scanUnreachableRecoveryCommits(
+  git: GitRunner,
+  repoDir: string,
+): Promise<UnreachableRecoveryScan> {
+  try {
+    const result = await git.run(
+      ['fsck', '--unreachable', '--no-reflogs', '--no-progress'],
+      repoDir,
+    )
+    if (result.code !== 0) return { ok: false }
+
+    const commits = new Set<string>()
+    for (const rawLine of result.stdout.split(/\r?\n/)) {
+      const line = rawLine.trim()
+      if (!line) continue
+      const commit = /^unreachable commit ([0-9a-f]{40,64})$/i.exec(line)
+      if (commit) {
+        commits.add(commit[1].toLowerCase())
+        if (commits.size > MAX_UNREACHABLE_RECOVERY_COMMITS) return { ok: false }
+        continue
+      }
+      if (/^(?:unreachable|dangling) (?:blob|tree|tag) [0-9a-f]{40,64}$/i.test(line)) continue
+      return { ok: false }
+    }
+    return { ok: true, commits: [...commits] }
+  } catch {
+    return { ok: false }
+  }
+}
+
+async function settlementCommitsForRun(
+  git: GitRunner,
+  repoDir: string,
+  runId: string,
+  unreachableCommits: readonly string[],
+): Promise<string[]> {
+  const candidates = new Set<string>(unreachableCommits)
   try {
     const marker = `(run ${runId})`
     const result = await git.run(
       ['log', '--all', '--reflog', '--fixed-strings', `--grep=${marker}`, '--format=%H'],
       repoDir,
     )
-    if (result.code !== 0) return []
-    const candidates = [...new Set(result.stdout.split(/\s+/).filter((sha) => COMMIT_SHA_RE.test(sha)))]
+    if (result.code === 0) {
+      for (const sha of result.stdout.split(/\s+/)) {
+        if (COMMIT_SHA_RE.test(sha)) candidates.add(sha.toLowerCase())
+      }
+    }
     const verified: string[] = []
     for (const sha of candidates) {
       if (await commitCarriesRunMarker(git, repoDir, sha, runId)) verified.push(sha)
@@ -1704,6 +1808,17 @@ export async function reconcileRailWorktrees(
     const recoveryCandidates = [...new Map(
       [...recovered, ...migratedInterrupted, ...previouslyRecovered].map((delivery) => [delivery.id, delivery]),
     ).values()]
+    // `git fsck` can be materially more expensive than the ordinary refs/log
+    // lookup. Defer it until a causally eligible legacy run actually needs
+    // inspection, then share the exact result across every candidate in this
+    // serialized reconciliation pass.
+    let unreachableRecoveryScan: Promise<UnreachableRecoveryScan> | null = null
+    const getUnreachableRecoveryScan = (): Promise<UnreachableRecoveryScan> => {
+      if (!unreachableRecoveryScan) {
+        unreachableRecoveryScan = scanUnreachableRecoveryCommits(git, repoDir)
+      }
+      return unreachableRecoveryScan
+    }
     for (const delivery of recoveryCandidates) {
       if (!['succeeded', 'partially_succeeded'].includes(delivery.implementation_outcome)) continue
       // Exact-SHA promotion here is specifically an existing-PR retry. A fresh
@@ -1716,13 +1831,59 @@ export async function reconcileRailWorktrees(
         const parsed = JSON.parse(delivery.run_ids) as unknown
         if (Array.isArray(parsed)) runIds = parsed.filter((value): value is string => typeof value === 'string')
       } catch { /* malformed legacy row remains blocked without a retry SHA */ }
+      let recoveryAwareBranches: DeliverBranchRecord[] | undefined
+      const liveRecoveryPaths: string[] = []
+      try {
+        const units = JSON.parse(delivery.branches) as DeliverBranchRecord[]
+        const worktreeIds = JSON.parse(delivery.worktree_ids) as unknown
+        const ledgers = Array.isArray(worktreeIds)
+          ? worktreeIds
+              .filter((value): value is string => typeof value === 'string')
+              .map((worktreeId) => getRailWorktree(db, worktreeId))
+              .filter((worktree): worktree is NonNullable<ReturnType<typeof getRailWorktree>> => Boolean(worktree))
+          : []
+        if (Array.isArray(units)) {
+          const registeredPaths = await listWorktrees(git, repoDir)
+          recoveryAwareBranches = []
+          for (const unit of units) {
+            const ledger = ledgers.find((candidate) => (
+              candidate.branch === unit.branch &&
+              (unit.runId ? candidate.run_id === unit.runId : true) &&
+              fs.existsSync(candidate.worktree_path)
+            ))
+            if (!ledger) {
+              // A path is device-local, ephemeral evidence. Never keep an old
+              // pointer merely because a previous reconciliation projected it:
+              // another computer or later cleanup may no longer have those
+              // bytes, and the UI must not advertise a historical path as live.
+              const { worktreePath: _stalePath, ...withoutStalePath } = unit
+              recoveryAwareBranches.push(withoutStalePath)
+              continue
+            }
+            const authenticatedPath = await authenticatedRecoveryDisplayPath(
+              git, repoDir, ledger.worktree_path, unit.branch, registeredPaths,
+            )
+            if (!authenticatedPath) {
+              const { worktreePath: _stalePath, ...withoutUnauthenticatedPath } = unit
+              recoveryAwareBranches.push(withoutUnauthenticatedPath)
+              continue
+            }
+            liveRecoveryPaths.push(authenticatedPath)
+            recoveryAwareBranches.push({ ...unit, worktreePath: authenticatedPath })
+          }
+        }
+      } catch { /* malformed legacy unit/path evidence stays undisclosed */ }
+      const recoveryLocation = [...new Set(liveRecoveryPaths)][0] ?? null
       const retainBlockedWithDetail = (detail: string, deliverySha: string | null = null): void => {
         const next = delivery.decision === 'pr_draft' || delivery.decision === 'pr_ready'
           ? 'pr_failed'
           : delivery.decision
+        const projectedBranchesUnchanged = recoveryAwareBranches === undefined ||
+          delivery.branches === JSON.stringify(recoveryAwareBranches)
         if (
           delivery.decision === next && delivery.status_detail === detail &&
-          delivery.delivery_sha === deliverySha && delivery.is_continuation === 1
+          delivery.delivery_sha === deliverySha && delivery.is_continuation === 1 &&
+          projectedBranchesUnchanged
         ) return
         transitionDecision(db, delivery.id, delivery.decision, next, {
           deliveryOutcome: 'blocked',
@@ -1730,6 +1891,7 @@ export async function reconcileRailWorktrees(
           statusDetail: detail,
           deliverySha,
           isContinuation: true,
+          branches: recoveryAwareBranches,
         })
       }
       const retainRetryableWithDetail = (detail: string, deliverySha: string): void => {
@@ -1739,14 +1901,18 @@ export async function reconcileRailWorktrees(
           statusDetail: detail,
           deliverySha,
           isContinuation: true,
+          branches: recoveryAwareBranches,
         })
       }
       if (runIds.length === 0) {
-        retainBlockedWithDetail('Exact commit recovery is unavailable because this legacy delivery has no durable run identifiers; the local result was preserved.')
+        retainBlockedWithDetail(recoveryLocation
+          ? `Exact commit recovery is unavailable because this legacy delivery has no durable run identifiers; inspect the preserved worktree at ${recoveryLocation}.`
+          : 'Exact commit recovery is unavailable because this legacy delivery has no durable run identifiers; no remaining local evidence was deleted.')
         continue
       }
       const ambiguousRunCommits = new Set<string>()
       const unsafeRunEvidence = new Set<string>()
+      let unreachableDiscoveryFailed = false
       for (const runId of runIds) {
         let inspectedSha = verifiedShaByRun.get(runId) ?? null
         verifiedShaByRun.delete(runId)
@@ -1776,7 +1942,12 @@ export async function reconcileRailWorktrees(
           unsafeRunEvidence.add(runId)
           continue
         }
-        const marked = await settlementCommitsForRun(git, repoDir, runId)
+        const unreachable = await getUnreachableRecoveryScan()
+        if (!unreachable.ok) {
+          unreachableDiscoveryFailed = true
+          continue
+        }
+        const marked = await settlementCommitsForRun(git, repoDir, runId, unreachable.commits)
         if (marked.length === 1) {
           verifiedShaByRun.set(runId, marked[0])
           continue
@@ -1803,20 +1974,27 @@ export async function reconcileRailWorktrees(
       }
       const shas = [...new Set(runIds.map((runId) => verifiedShaByRun.get(runId)).filter((sha): sha is string => !!sha))]
       if (
-        unsafeRunEvidence.size > 0 || ambiguousRunCommits.size > 0 || shas.length !== 1 ||
+        unsafeRunEvidence.size > 0 || unreachableDiscoveryFailed ||
+        ambiguousRunCommits.size > 0 || shas.length !== 1 ||
         runIds.some((runId) => !verifiedShaByRun.has(runId))
       ) {
         retainBlockedWithDetail(unsafeRunEvidence.size > 0
-          ? 'Exact commit recovery found dirty, needs-review, missing, or mismatched worktree evidence; every local result was preserved.'
+          ? recoveryLocation
+            ? `Exact commit recovery found dirty, needs-review, missing, or mismatched worktree evidence; inspect the preserved worktree at ${recoveryLocation}.`
+            : 'Exact commit recovery found dirty, needs-review, missing, or mismatched worktree evidence; no remaining local evidence was deleted.'
           : ambiguousRunCommits.size > 0 || shas.length > 1
-            ? 'Exact commit recovery found multiple different commits in this legacy delivery; the local result was preserved for manual review.'
-            : 'Exact commit recovery could not prove a run-owned commit from this delivery’s refs/reflogs; the local result was preserved.')
+            ? recoveryLocation
+              ? `Exact commit recovery found multiple different commits in this legacy delivery; inspect the preserved worktree at ${recoveryLocation}.`
+              : 'Exact commit recovery found multiple different commits; no ambiguous object was selected or deleted.'
+            : recoveryLocation
+              ? `Exact commit recovery could not prove a run-owned commit; inspect the preserved worktree at ${recoveryLocation}.`
+              : 'Exact commit recovery could not prove a run-owned commit from this delivery’s refs, reflogs, or unreachable objects; no remaining local evidence was deleted.')
         continue
       }
       const candidateSha = shas[0]
       let causallyRecoveredBranches: DeliverBranchRecord[] | undefined
       try {
-        const units = JSON.parse(delivery.branches) as DeliverBranchRecord[]
+        const units = recoveryAwareBranches ?? JSON.parse(delivery.branches) as DeliverBranchRecord[]
         if (Array.isArray(units)) {
           causallyRecoveredBranches = units.map((unit) => {
             const sha = unit.runId ? verifiedShaByRun.get(unit.runId) : undefined

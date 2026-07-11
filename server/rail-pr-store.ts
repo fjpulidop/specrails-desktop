@@ -80,7 +80,7 @@ export type PrDeliveryStatusCode =
   | 'superseded'
   | 'cleanup_incomplete'
 
-export type PrDecisionOperation = 'create-pr' | 'publish' | 'discard' | 'dismiss' | 'poll-merge' | 'reopen' | 'merge-local' | 'acknowledge-no-changes'
+export type PrDecisionOperation = 'create-pr' | 'publish' | 'discard' | 'dismiss' | 'poll-merge' | 'reopen' | 'merge-local' | 'acknowledge-no-changes' | 'recover-and-retry'
 
 /** Per-unit branch record captured at build-settle (mirrors rail-pr-delivery's DeliverBranch). */
 export interface DeliverBranchRecord {
@@ -96,6 +96,8 @@ export interface DeliverBranchRecord {
   changed?: boolean
   failureCode?: PrDeliveryStatusCode | null
   branchOwnership?: 'created' | 'preexisting' | 'borrowed-pr'
+  /** Delivery-owned isolated checkout retained for explicit local recovery. */
+  worktreePath?: string | null
   /** Allocation-time never-commit paths. This list remains conservative even
    * when a copied overlay file changes; it is not cleanup authorization. */
   overlayExcludes?: string[]

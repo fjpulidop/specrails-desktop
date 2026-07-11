@@ -30,7 +30,7 @@ import * as path from 'path'
 import * as fs from 'fs'
 import { resolveHome } from './artifact-registry'
 import type { DbInstance } from './db'
-import type { GitRunner } from './worktree-manager'
+import { commitWorktreeAndVerify, type GitRunner } from './worktree-manager'
 import { publishDraftPr, pushBranch, type Exec, type ExecResult } from './pr-publisher'
 import { deliverRailAsPr } from './rail-pr-delivery'
 import { durableBranchHeads, durableOverlayCleanupEvidence, releaseRailWorktrees } from './rail-worktree-release'
@@ -43,7 +43,7 @@ import {
   toPrDeliverySnapshot, toRailPrStateMessage, toPrDecisionCardEnvelope,
   type DeliverBranchRecord, type PrDecision, type PrDeliveryPatch, type PrDeliverySnapshot, type RailPrDeliveryRow,
 } from './rail-pr-store'
-import { getRailWorktree } from './rail-worktrees-store'
+import { getRailWorktree, updateRailWorktreeState } from './rail-worktrees-store'
 import { readStore, resolveTicketStoragePath } from './ticket-store'
 import { resolveProjectExecution } from './workspace-resolution'
 import { getAgentChatManager } from './agent-chat-registry'
@@ -58,11 +58,12 @@ import {
   isExactOpenPr,
   matchesRecordedPrIdentity,
   observePrLifecycle as observeGithubPrLifecycle,
+  verifyPushRemoteForPr,
   type PrLifecycleObservation,
 } from './pr-lifecycle'
 import type { WsMessage, PrDecisionCardEnvelope } from './types'
 
-export const PR_DECISION_ACTIONS = ['create-pr', 'publish', 'discard', 'dismiss', 'poll-merge', 'reopen', 'merge-local', 'acknowledge-no-changes'] as const
+export const PR_DECISION_ACTIONS = ['create-pr', 'publish', 'discard', 'dismiss', 'poll-merge', 'reopen', 'merge-local', 'acknowledge-no-changes', 'recover-and-retry'] as const
 export type PrDecisionAction = (typeof PR_DECISION_ACTIONS)[number]
 
 function safetyArchiveRecorder(deps: PrDecisionDeps, row: RailPrDeliveryRow) {
@@ -152,8 +153,7 @@ function actionAllowed(action: PrDecisionAction, row: RailPrDeliveryRow): boolea
         row.decision === 'pr_failed'
     case 'dismiss':
       return row.is_continuation === 1 && row.decision !== 'building' &&
-        row.decision !== 'merged' && row.decision !== 'discarded' && row.decision !== 'superseded' &&
-        row.delivery_outcome !== 'blocked'
+        row.decision !== 'merged' && row.decision !== 'discarded' && row.decision !== 'superseded'
     case 'poll-merge':
       return (row.decision === 'pr_draft' || row.decision === 'pr_ready' || row.decision === 'pr_closed') && row.pr_url !== null
     case 'reopen':
@@ -165,6 +165,11 @@ function actionAllowed(action: PrDecisionAction, row: RailPrDeliveryRow): boolea
         (row.decision === 'on_review' || row.decision === 'pr_failed' || row.decision === 'pr_draft')
     case 'acknowledge-no-changes':
       return row.decision === 'no_changes' && row.is_continuation !== 1
+    case 'recover-and-retry':
+      return row.decision === 'pr_failed' && row.delivery_outcome === 'blocked' &&
+        row.status_code === 'settlement_interrupted' && row.is_continuation === 1 &&
+        (row.implementation_outcome === 'succeeded' || row.implementation_outcome === 'partially_succeeded') &&
+        row.pr_url !== null && row.branch !== null
   }
 }
 
@@ -206,6 +211,7 @@ export async function executePrDecision(deps: PrDecisionDeps, input: PrDecisionI
       case 'reopen': return await runReopen(deps, claimedRow)
       case 'merge-local': return await runMergeLocal(deps, claimedRow)
       case 'acknowledge-no-changes': return await runAcknowledgeNoChanges(deps, claimedRow)
+      case 'recover-and-retry': return await runRecoverAndRetry(deps, claimedRow)
     }
     return illegalAction(row.decision)
   } finally {
@@ -552,6 +558,384 @@ function persistMovedPrHead(
   return { status: 200, body: { ok: true, decision: 'pr_failed', prUrl: row.pr_url, detail } }
 }
 
+function persistRecoveryBlocked(
+  deps: PrDecisionDeps,
+  row: RailPrDeliveryRow,
+  detail: string,
+): PrDecisionResult {
+  const conflict = casTransition(deps, row, 'pr_failed', {
+    deliveryOutcome: 'blocked',
+    statusCode: 'settlement_interrupted',
+    statusDetail: detail,
+    isContinuation: true,
+  })
+  if (conflict) return conflict
+  finalizeTransition(deps, row.id)
+  return { status: 200, body: { ok: true, decision: 'pr_failed', prUrl: row.pr_url, detail } }
+}
+
+async function exactRefSha(
+  deps: PrDecisionDeps,
+  cwd: string,
+  ref: string,
+): Promise<string | null> {
+  try {
+    const result = await deps.git.run(['rev-parse', '--verify', ref], cwd)
+    const sha = result.code === 0 ? result.stdout.trim() : ''
+    return COMMIT_SHA_RE.test(sha) ? sha : null
+  } catch {
+    return null
+  }
+}
+
+async function isFastForwardCandidate(
+  deps: PrDecisionDeps,
+  baselineSha: string,
+  candidateSha: string,
+): Promise<boolean> {
+  if (baselineSha === candidateSha) return true
+  try {
+    return (await deps.git.run(
+      ['merge-base', '--is-ancestor', baselineSha, candidateSha],
+      deps.project.path,
+    )).code === 0
+  } catch {
+    return false
+  }
+}
+
+interface RegisteredGitWorktree {
+  worktreePath: string
+  head: string | null
+  branch: string | null
+}
+
+function parseRegisteredGitWorktrees(stdout: string): RegisteredGitWorktree[] {
+  const worktrees: RegisteredGitWorktree[] = []
+  let current: RegisteredGitWorktree | null = null
+  const finish = () => {
+    if (current) worktrees.push(current)
+    current = null
+  }
+  for (const field of stdout.split('\0')) {
+    if (field === '') {
+      finish()
+      continue
+    }
+    if (field.startsWith('worktree ')) {
+      finish()
+      current = { worktreePath: field.slice('worktree '.length), head: null, branch: null }
+      continue
+    }
+    if (!current) continue
+    if (field.startsWith('HEAD ')) current.head = field.slice('HEAD '.length)
+    if (field.startsWith('branch ')) current.branch = field.slice('branch '.length)
+  }
+  finish()
+  return worktrees
+}
+
+type RecoveryWorktreeAuthentication =
+  | { ok: true; realPath: string; head: string }
+  | { ok: false; detail: string }
+
+/** Authenticate a ledger path as a live, non-symlink worktree registered by
+ * this exact repository. The main checkout and ordinary directories fail
+ * closed. Callers repeat this immediately before staging to close the useful
+ * path-replacement window between inspection and mutation. */
+async function authenticateRecoveryWorktree(
+  deps: PrDecisionDeps,
+  ledgerPath: string,
+  expectedBranch: string,
+  expectedHead?: string,
+): Promise<RecoveryWorktreeAuthentication> {
+  if (!path.isAbsolute(ledgerPath)) {
+    return { ok: false, detail: 'the recorded worktree path is not absolute' }
+  }
+  let realPath: string
+  let projectRealPath: string
+  try {
+    const ledgerStat = fs.lstatSync(ledgerPath)
+    if (ledgerStat.isSymbolicLink()) {
+      return { ok: false, detail: 'the recorded worktree path is a symbolic link' }
+    }
+    if (!ledgerStat.isDirectory()) {
+      return { ok: false, detail: 'the recorded worktree path is not a directory' }
+    }
+    realPath = fs.realpathSync(ledgerPath)
+    projectRealPath = fs.realpathSync(deps.project.path)
+    if (!fs.statSync(realPath).isDirectory()) {
+      return { ok: false, detail: 'the canonical worktree path is not a directory' }
+    }
+  } catch {
+    return { ok: false, detail: 'the recorded worktree path could not be resolved safely' }
+  }
+  if (realPath === projectRealPath) {
+    return { ok: false, detail: 'the recorded worktree path resolves to the main project checkout' }
+  }
+
+  let listed: Awaited<ReturnType<GitRunner['run']>>
+  try {
+    listed = await deps.git.run(['worktree', 'list', '--porcelain', '-z'], deps.project.path)
+  } catch {
+    return { ok: false, detail: 'Git worktree registration could not be verified' }
+  }
+  if (listed.code !== 0) {
+    return { ok: false, detail: 'Git worktree registration could not be verified' }
+  }
+  const matches = parseRegisteredGitWorktrees(listed.stdout).filter((registered) => {
+    try {
+      return fs.realpathSync(registered.worktreePath) === realPath
+    } catch {
+      return false
+    }
+  })
+  if (matches.length !== 1) {
+    return { ok: false, detail: 'the recorded path is not uniquely registered as a Git worktree of this project' }
+  }
+  const registered = matches[0]
+  if (registered.branch !== `refs/heads/${expectedBranch}`) {
+    return { ok: false, detail: 'the registered Git worktree is not on the recorded delivery branch' }
+  }
+  if (!registered.head || !COMMIT_SHA_RE.test(registered.head)) {
+    return { ok: false, detail: 'the registered Git worktree has no verifiable commit identity' }
+  }
+  if (expectedHead && registered.head.toLowerCase() !== expectedHead.toLowerCase()) {
+    return { ok: false, detail: 'the registered Git worktree changed commits before staging' }
+  }
+  return { ok: true, realPath, head: registered.head }
+}
+
+/**
+ * Explicit recovery for a legacy successful continuation whose automatic
+ * causal scan could not freeze a commit. Unlike Checkout, this operates only
+ * on the delivery-owned isolated worktree/branch and never changes the user's
+ * main checkout. The user's confirmation authorizes adopting already-committed
+ * progress on that exact branch, but only as a non-force fast-forward of the
+ * live PR head.
+ */
+async function runRecoverAndRetry(deps: PrDecisionDeps, row: RailPrDeliveryRow): Promise<PrDecisionResult> {
+  if (!row.pr_url || !row.branch || !row.operation_token) return illegalAction(row.decision)
+  const snap = toPrDeliverySnapshot(row)
+  const runIds = [...new Set(snap.runIds.filter((runId) => typeof runId === 'string' && runId.length > 0))]
+  if (runIds.length !== 1) {
+    return persistRecoveryBlocked(
+      deps, row,
+      `Commit & retry push requires exactly one recorded implementation run; found ${runIds.length}. No local evidence was changed.`,
+    )
+  }
+  const runId = runIds[0]
+  const matchingUnitIndex = snap.branches.findIndex((branch) => (
+    branch.branch === row.branch && branch.runId === runId
+  ))
+  if (matchingUnitIndex < 0) {
+    return persistRecoveryBlocked(
+      deps, row,
+      'Commit & retry push could not prove an exact recorded unit for this run and PR branch. No local evidence was changed.',
+    )
+  }
+  const matchingUnit = snap.branches[matchingUnitIndex]
+
+  const observed = await observeGithubPrLifecycle(deps.exec, deps.project.path, row.pr_url)
+  if (!observed.ok) {
+    return persistRecoveryBlocked(
+      deps, row,
+      `The existing PR could not be verified before local recovery: ${observed.detail}. No local evidence was changed.`,
+    )
+  }
+  if (!isExactOpenPr(observed, row.branch, row.base_branch) || !observed.headRefOid) {
+    return persistRecoveryBlocked(
+      deps, row,
+      'The recorded PR is no longer an exact open head/base recovery target. No local evidence was changed.',
+    )
+  }
+  const baselineSha = observed.headRefOid
+
+  // Ensure the live remote baseline object is available for the ancestry proof
+  // without advancing any local branch or touching the main checkout.
+  if (!(await commitObjectExists(deps, baselineSha))) {
+    try {
+      await deps.git.run(['fetch', 'origin', `refs/heads/${row.branch}`], deps.project.path)
+    } catch { /* the exact object check below remains authoritative */ }
+  }
+  if (!(await commitObjectExists(deps, baselineSha))) {
+    return persistRecoveryBlocked(
+      deps, row,
+      'The live PR head object is unavailable locally, so fast-forward recovery cannot be proven. No local evidence was changed.',
+    )
+  }
+
+  const ownedWorktrees = snap.worktreeIds
+    .map((worktreeId) => getRailWorktree(deps.db, worktreeId))
+    .filter((worktree): worktree is NonNullable<ReturnType<typeof getRailWorktree>> => Boolean(
+      worktree && worktree.branch === row.branch &&
+      (worktree.run_id === runId || worktree.run_id === null),
+    ))
+  const presentWorktrees = ownedWorktrees.filter((worktree) => {
+    try {
+      fs.lstatSync(worktree.worktree_path)
+      return true
+    } catch {
+      return false
+    }
+  })
+  if (presentWorktrees.length > 1) {
+    return persistRecoveryBlocked(
+      deps, row,
+      'Multiple live worktrees claim this run and branch, so Specrails refused to choose one. Every local result remains intact.',
+    )
+  }
+
+  const worktree = presentWorktrees[0] ?? null
+  let candidateSha: string | null = null
+  let committed = false
+  if (worktree) {
+    const authenticated = await authenticateRecoveryWorktree(deps, worktree.worktree_path, row.branch)
+    if (!authenticated.ok) {
+      return persistRecoveryBlocked(
+        deps, row,
+        `The preserved path at ${worktree.worktree_path} could not be authenticated safely: ${authenticated.detail}. Nothing was staged, pushed, or removed.`,
+      )
+    }
+    const authenticatedPath = authenticated.realPath
+    const [actualBranch, worktreeHead, branchHead] = await Promise.all([
+      deps.git.run(['rev-parse', '--abbrev-ref', 'HEAD'], authenticatedPath).catch(() => ({ code: 1, stdout: '', stderr: '' })),
+      exactRefSha(deps, authenticatedPath, 'HEAD'),
+      exactRefSha(deps, deps.project.path, `refs/heads/${row.branch}`),
+    ])
+    if (
+      actualBranch.code !== 0 || actualBranch.stdout.trim() !== row.branch ||
+      !worktreeHead || !branchHead || worktreeHead !== branchHead ||
+      authenticated.head.toLowerCase() !== worktreeHead.toLowerCase()
+    ) {
+      return persistRecoveryBlocked(
+        deps, row,
+        `The preserved worktree at ${worktree.worktree_path} is not on the exact recorded branch/HEAD. It was left untouched.`,
+      )
+    }
+    if (!(await isFastForwardCandidate(deps, baselineSha, worktreeHead))) {
+      return persistRecoveryBlocked(
+        deps, row,
+        `The preserved branch diverges from the live PR head. The worktree at ${worktree.worktree_path} was left untouched.`,
+      )
+    }
+
+    deps.assertAdmission?.()
+    const reauthenticated = await authenticateRecoveryWorktree(
+      deps,
+      worktree.worktree_path,
+      row.branch,
+      worktreeHead,
+    )
+    if (!reauthenticated.ok || reauthenticated.realPath !== authenticatedPath) {
+      const detail = reauthenticated.ok
+        ? 'the canonical worktree path changed before staging'
+        : reauthenticated.detail
+      return persistRecoveryBlocked(
+        deps, row,
+        `The preserved path at ${worktree.worktree_path} failed final authentication: ${detail}. Nothing was staged, pushed, or removed.`,
+      )
+    }
+    deps.assertAdmission?.()
+    const commit = await commitWorktreeAndVerify(
+      deps.git,
+      reauthenticated.realPath,
+      `specrails: recovered follow-up (run ${runId})`,
+      matchingUnit.overlayExcludes ?? [],
+    )
+    if (!commit.clean) {
+      return persistRecoveryBlocked(
+        deps, row,
+        `The preserved worktree could not be committed safely: ${commit.error ?? (commit.dirty.join(', ') || 'deliverable changes remain')}. It was left intact at ${worktree.worktree_path}.`,
+      )
+    }
+    committed = commit.committed
+    const [afterBranch, afterHead, afterBranchHead] = await Promise.all([
+      deps.git.run(['rev-parse', '--abbrev-ref', 'HEAD'], reauthenticated.realPath).catch(() => ({ code: 1, stdout: '', stderr: '' })),
+      exactRefSha(deps, reauthenticated.realPath, 'HEAD'),
+      exactRefSha(deps, deps.project.path, `refs/heads/${row.branch}`),
+    ])
+    if (
+      afterBranch.code !== 0 || afterBranch.stdout.trim() !== row.branch ||
+      !afterHead || afterHead !== afterBranchHead
+    ) {
+      return persistRecoveryBlocked(
+        deps, row,
+        `The recovery commit exists, but final branch verification failed. It remains preserved at ${worktree.worktree_path}.`,
+      )
+    }
+    candidateSha = afterHead
+  } else {
+    candidateSha = await exactRefSha(deps, deps.project.path, `refs/heads/${row.branch}`)
+  }
+
+  if (!candidateSha || !(await commitObjectExists(deps, candidateSha))) {
+    return persistRecoveryBlocked(
+      deps, row,
+      'No exact delivery-owned worktree or local branch commit is available on this computer. Review the run log on the machine where it executed.',
+    )
+  }
+  if (!(await isFastForwardCandidate(deps, baselineSha, candidateSha))) {
+    return persistRecoveryBlocked(
+      deps, row,
+      'The recorded local branch is not a fast-forward of the live PR head. Nothing was pushed or removed.',
+    )
+  }
+  if (candidateSha === baselineSha) {
+    return persistRecoveryBlocked(
+      deps, row,
+      'No deliverable local change remains beyond the current PR head. Nothing was committed, pushed, or removed.',
+    )
+  }
+
+  const recoveredUnit: DeliverBranchRecord = {
+    ...matchingUnit,
+    runId,
+    branch: row.branch,
+    succeeded: true,
+    implementationOutcome: 'succeeded',
+    deliveryOutcome: 'ready',
+    initialSha: matchingUnit.initialSha ?? baselineSha,
+    finalSha: candidateSha,
+    changed: true,
+    failureCode: null,
+    branchOwnership: 'borrowed-pr',
+    ...(worktree ? { worktreePath: worktree.worktree_path } : {}),
+  }
+  const recoveredBranches = snap.branches.map((branch, index) => index === matchingUnitIndex ? recoveredUnit : branch)
+
+  // Freeze before the network mutation. A crash after this write leaves a
+  // normal immutable Retry push card; a crash before it leaves the run-marked
+  // commit discoverable by startup recovery.
+  if (!transitionClaimedDecision(
+    deps.db,
+    row.id,
+    row.decision,
+    'pr_failed',
+    row.operation_token,
+    {
+      branches: recoveredBranches,
+      deliverySha: candidateSha,
+      deliveryOutcome: 'retryable_failure',
+      statusCode: 'settlement_interrupted',
+      statusDetail: committed
+        ? `Committed the preserved worktree as ${candidateSha.slice(0, 8)}; validating the exact PR before push.`
+        : `Explicitly adopted the recorded fast-forward branch commit ${candidateSha.slice(0, 8)}; validating the exact PR before push.`,
+      isContinuation: true,
+    },
+  )) {
+    const current = getPrDelivery(deps.db, row.id)
+    return staleDecision(current?.decision ?? row.decision)
+  }
+  if (worktree) updateRailWorktreeState(deps.db, worktree.id, 'built')
+  const recoveredRow = getPrDelivery(deps.db, row.id)
+  if (!recoveredRow || recoveredRow.operation_token !== row.operation_token) {
+    return staleDecision(recoveredRow?.decision ?? row.decision)
+  }
+  deps.assertAdmission?.()
+  return retryExistingPrFollowupPush(deps, recoveredRow)
+}
+
 async function retryExistingPrFollowupPush(deps: PrDecisionDeps, row: RailPrDeliveryRow): Promise<PrDecisionResult> {
   if (!row.branch || !row.pr_url) return { status: 502, body: { error: 'push_failed', detail: 'missing PR branch/url' } }
   if (!row.delivery_sha) {
@@ -605,10 +989,18 @@ async function retryExistingPrFollowupPush(deps: PrDecisionDeps, row: RailPrDeli
     return settleObservedExistingPr(deps, row, beforePush, false)
   }
 
+  const remote = await verifyPushRemoteForPr(deps.exec, deps.project.path, row.pr_url)
+  if (!remote.ok) {
+    return persistRetryablePrObservationFailure(
+      deps, row, `refusing to push until the PR repository and origin are proven identical: ${remote.detail}`,
+    )
+  }
+
   const pushed = await pushBranch(deps.exec, {
     repoDir: deps.project.path,
     branch: row.branch,
     baseBranch: row.base_branch,
+    remote: remote.pushTarget,
     sourceSha: row.delivery_sha,
   })
   if (pushed.state === 'local-only') {
@@ -1220,7 +1612,20 @@ async function settleMergedPr(deps: PrDecisionDeps, row: RailPrDeliveryRow): Pro
   if (conflict) return conflict
   applyTerminalTicketEffect(deps, row, 'merged', cleanupWarnings)
   finalizeTransition(deps, row.id)
-  return { status: 200, body: { ok: true, decision: 'merged', merged: true, prUrl: row.pr_url } }
+  return {
+    status: 200,
+    body: {
+      ok: true,
+      decision: 'merged',
+      merged: true,
+      prUrl: row.pr_url,
+      ...(row.delivery_sha ? {
+        deliveryVerified: true,
+        verifiedSha: row.delivery_sha,
+        pushed: false,
+      } : {}),
+    },
+  }
 }
 
 async function runPollMerge(deps: PrDecisionDeps, row: RailPrDeliveryRow): Promise<PrDecisionResult> {

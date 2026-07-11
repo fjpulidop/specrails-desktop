@@ -297,7 +297,7 @@ export type RailPrDecision =
 export type RailPrDeliveryState = 'none' | 'local-only' | 'pushed' | 'pr-created'
 
 /** Actions accepted by POST /rails/pr-decision. */
-export type RailPrDecisionAction = 'create-pr' | 'publish' | 'discard' | 'poll-merge' | 'merge-local' | 'dismiss' | 'reopen' | 'acknowledge-no-changes'
+export type RailPrDecisionAction = 'create-pr' | 'publish' | 'discard' | 'poll-merge' | 'merge-local' | 'dismiss' | 'reopen' | 'acknowledge-no-changes' | 'recover-and-retry'
 
 /** Engine truth, deliberately independent from commit/push/PR delivery. */
 export type RailImplementationOutcome = 'running' | 'succeeded' | 'partially_succeeded' | 'failed' | 'unknown'
@@ -328,6 +328,7 @@ export interface RailPrUnitOutcome {
   changed?: boolean
   failureCode?: string | null
   branchOwnership?: 'created' | 'preexisting' | 'borrowed-pr'
+  worktreePath?: string | null
 }
 
 /**

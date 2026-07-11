@@ -29,6 +29,12 @@ vi.mock('sonner', () => ({
   Toaster: () => null,
 }))
 
+const tauriMocks = vi.hoisted(() => ({
+  isTauri: vi.fn(() => false),
+  revealItemInDir: vi.fn(async () => {}),
+}))
+vi.mock('../../../lib/tauri-shell', () => tauriMocks)
+
 const api = {
   conv: { id: 'c1', title: null, provider: 'claude', model: null, session_id: null, pinned_project_id: null, tier_level: 0 as const, reasoning_effort: null, created_at: '', updated_at: '' },
 }
@@ -76,6 +82,33 @@ const env = (over: Partial<AgentPrDecisionEnvelope> = {}): AgentPrDecisionEnvelo
   ...over,
 })
 const interruptedActionDetail = 'A previous delivery action was interrupted by restart. Its durable evidence was preserved; review the current state and retry.'
+const recoveryWorktreePath = '/tmp/specrails/worktrees/ticket-4'
+const recoverableBlockedEnv = (over: Partial<AgentPrDecisionEnvelope> = {}) => env({
+  decision: 'pr_failed',
+  prUrl: 'https://github.com/o/r/pull/7',
+  prNumber: 7,
+  prState: 'pr-created',
+  branch: 'feat/review',
+  implementationOutcome: 'succeeded',
+  deliveryOutcome: 'blocked',
+  statusCode: 'settlement_interrupted',
+  isContinuation: true,
+  runIds: ['run-1'],
+  units: [{
+    ticketId: 4,
+    runId: 'run-1',
+    branch: 'feat/review',
+    succeeded: true,
+    implementationOutcome: 'succeeded',
+    deliveryOutcome: 'blocked',
+    initialSha: 'a'.repeat(40),
+    finalSha: null,
+    failureCode: 'settlement_interrupted',
+    branchOwnership: 'borrowed-pr',
+    worktreePath: recoveryWorktreePath,
+  }],
+  ...over,
+})
 
 /** JSON-body fetch stub shaped like postRailPrDecision expects (res.text()). */
 const httpRes = (status: number, body: unknown) => ({
@@ -87,6 +120,11 @@ const httpRes = (status: number, body: unknown) => ({
 beforeEach(() => {
   wsHandler = null
   vi.clearAllMocks()
+  tauriMocks.isTauri.mockReturnValue(false)
+  Object.defineProperty(navigator, 'clipboard', {
+    configurable: true,
+    value: { writeText: vi.fn(async () => {}) },
+  })
   vi.mocked(agentApi.listAgentConversations).mockResolvedValue([])
   vi.mocked(agentApi.createAgentConversation).mockResolvedValue(api.conv)
   vi.mocked(agentApi.getAgentConversation).mockResolvedValue({ conversation: api.conv, messages: [] })
@@ -241,6 +279,49 @@ describe('AgentPrDecisionCard states', () => {
     const dialog = screen.getByTestId('agent-pr-discard-confirm')
     expect(dialog).toHaveTextContent('The PR will be closed without deleting its remote branch')
     expect(dialog).toHaveTextContent('specs will return to the backlog')
+  })
+
+  it('offers explicit local recovery actions for an interrupted follow-up without presenting Checkout', () => {
+    render(<AgentPrDecisionCard envelope={recoverableBlockedEnv()} />)
+
+    expect(screen.getByRole('button', { name: 'Inspect local result' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Commit & retry push' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Discard local result' })).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Checkout' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Discard' })).not.toBeInTheDocument()
+  })
+
+  it('offers safe Dismiss instead of claiming a local result exists on another computer', () => {
+    render(<AgentPrDecisionCard envelope={recoverableBlockedEnv({
+      units: [{
+        ticketId: 4, runId: 'run-1', branch: 'feat/review', succeeded: true,
+        implementationOutcome: 'succeeded', deliveryOutcome: 'blocked',
+        initialSha: 'a'.repeat(40), finalSha: null,
+        failureCode: 'settlement_interrupted', branchOwnership: 'borrowed-pr',
+      }],
+    })} />)
+
+    expect(screen.getByRole('button', { name: 'Commit & retry push' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Dismiss follow-up' })).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Inspect local result' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Discard local result' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Checkout' })).not.toBeInTheDocument()
+  })
+
+  it('never presents Checkout without a verified delivery SHA or while delivery is blocked', () => {
+    const missingSha = render(<AgentPrDecisionCard envelope={env({
+      decision: 'pr_ready',
+      prUrl: 'https://github.com/o/r/pull/7',
+      prState: 'pr-created',
+      branch: 'feat/review',
+      implementationOutcome: 'succeeded',
+      deliveryOutcome: 'delivered',
+    })} />)
+    expect(screen.queryByRole('button', { name: 'Checkout' })).not.toBeInTheDocument()
+    missingSha.unmount()
+
+    render(<AgentPrDecisionCard envelope={recoverableBlockedEnv({ deliverySha: 'b'.repeat(40) })} />)
+    expect(screen.queryByRole('button', { name: 'Checkout' })).not.toBeInTheDocument()
   })
 
   it('discloses durable safety archives separately from cleanup warnings', () => {
@@ -523,6 +604,7 @@ describe('AgentPrDecisionCard actions', () => {
     global.fetch = vi.fn(async () => httpRes(409, { error: 'project_recovery_in_progress' })) as unknown as typeof fetch
     render(<AgentPrDecisionCard envelope={env({
       decision: 'pr_ready', branch: 'feat/review', prUrl: 'https://github.com/o/r/pull/7', prState: 'pr-created',
+      deliverySha: 'a'.repeat(40),
     })} />)
     const checkout = screen.getByRole('button', { name: 'Checkout' })
     await act(async () => { fireEvent.click(checkout) })
@@ -533,6 +615,110 @@ describe('AgentPrDecisionCard actions', () => {
     expect(vi.mocked(toast.warning)).not.toHaveBeenCalled()
     expect(vi.mocked(toast.error)).not.toHaveBeenCalled()
     expect(checkout).toBeEnabled()
+  })
+
+  it.each([
+    [
+      'checkout_dirty',
+      'Checkout blocked to protect your changes',
+      'The main project folder has uncommitted changes. Commit or stash them, then retry. Nothing was changed.',
+    ],
+    [
+      'checkout_not_deliverable',
+      'This PR branch is not the preserved implementation',
+      'No exact delivery commit has been verified yet. Inspect or recover the local result instead.',
+    ],
+    [
+      'checkout_safety_unknown',
+      'Checkout paused because safety could not be verified',
+      'Specrails could not read the main project folder’s Git status. Nothing was released or changed. Retry after Git is available.',
+    ],
+  ])('localizes the %s checkout guard without exposing raw server copy', async (error, title, body) => {
+    global.fetch = vi.fn(async () => httpRes(409, { error, detail: 'raw server detail' })) as unknown as typeof fetch
+    render(<AgentPrDecisionCard envelope={env({
+      decision: 'pr_ready', branch: 'feat/review', prUrl: 'https://github.com/o/r/pull/7', prState: 'pr-created',
+      deliverySha: 'a'.repeat(40), implementationOutcome: 'succeeded', deliveryOutcome: 'delivered',
+    })} />)
+
+    await act(async () => { fireEvent.click(screen.getByRole('button', { name: 'Checkout' })) })
+
+    await waitFor(() => expect(vi.mocked(toast.warning)).toHaveBeenCalledWith(title, { description: body }))
+    expect(vi.mocked(toast.warning)).not.toHaveBeenCalledWith(expect.anything(), { description: 'raw server detail' })
+  })
+
+  it('copies and reveals the preserved worktree from Inspect local result', async () => {
+    tauriMocks.isTauri.mockReturnValue(true)
+    render(<AgentPrDecisionCard envelope={recoverableBlockedEnv()} />)
+
+    await act(async () => { fireEvent.click(screen.getByTestId('agent-pr-inspect-local-result')) })
+
+    expect(navigator.clipboard.writeText).toHaveBeenCalledWith(recoveryWorktreePath)
+    expect(tauriMocks.revealItemInDir).toHaveBeenCalledWith(recoveryWorktreePath)
+    expect(vi.mocked(toast.success)).toHaveBeenCalledWith('Local result path copied', { description: recoveryWorktreePath })
+    expect(vi.mocked(global.fetch).mock.calls.some(([url]) => String(url).includes('/rails/pr-decision'))).toBe(false)
+  })
+
+  it('still reveals the preserved worktree when clipboard access is unavailable', async () => {
+    tauriMocks.isTauri.mockReturnValue(true)
+    vi.mocked(navigator.clipboard.writeText).mockRejectedValueOnce(new Error('clipboard denied'))
+    render(<AgentPrDecisionCard envelope={recoverableBlockedEnv()} />)
+
+    await act(async () => { fireEvent.click(screen.getByTestId('agent-pr-inspect-local-result')) })
+
+    expect(tauriMocks.revealItemInDir).toHaveBeenCalledWith(recoveryWorktreePath)
+    expect(vi.mocked(toast.info)).toHaveBeenCalledWith('Preserved local result', { description: recoveryWorktreePath })
+  })
+
+  it('confirms Commit & retry push, posts the recovery action, and reports the verified SHA', async () => {
+    const sha = 'c'.repeat(40)
+    global.fetch = vi.fn(async () => httpRes(200, {
+      ok: true,
+      decision: 'merged',
+      merged: true,
+      prUrl: 'https://github.com/o/r/pull/7',
+      prState: 'pr-created',
+      deliveryVerified: true,
+      verifiedSha: sha,
+      remoteHeadSha: sha,
+      pushed: false,
+    })) as unknown as typeof fetch
+    render(<AgentPrDecisionCard envelope={recoverableBlockedEnv()} />)
+
+    fireEvent.click(screen.getByTestId('agent-pr-recover-and-retry'))
+    const dialog = screen.getByTestId('agent-pr-recover-and-retry-confirm')
+    expect(dialog).toHaveTextContent('Commit and push the preserved result?')
+    expect(dialog).toHaveTextContent('Your main project folder and its uncommitted changes will not be touched')
+    expect(vi.mocked(global.fetch).mock.calls.some(([url]) => String(url).includes('/rails/pr-decision'))).toBe(false)
+
+    await act(async () => { fireEvent.click(screen.getByTestId('agent-pr-recover-and-retry-confirm-btn')) })
+
+    expect(global.fetch).toHaveBeenCalledWith('/api/projects/p1/rails/pr-decision', expect.objectContaining({
+      method: 'POST',
+      body: JSON.stringify({ prDeliveryId: 'd1', action: 'recover-and-retry', expectedDecision: 'pr_failed' }),
+    }))
+    await waitFor(() => expect(vi.mocked(toast.success)).toHaveBeenCalledWith(
+      'Recovered commit cccccccc is verified in the PR',
+    ))
+  })
+
+  it('keeps recovery visibly blocked when the server cannot verify a safe delivery commit', async () => {
+    global.fetch = vi.fn(async () => httpRes(200, {
+      ok: true,
+      decision: 'pr_failed',
+      prUrl: 'https://github.com/o/r/pull/7',
+      prState: 'pr-created',
+      deliveryVerified: false,
+      detail: 'No unique fast-forward candidate remains.',
+    })) as unknown as typeof fetch
+    render(<AgentPrDecisionCard envelope={recoverableBlockedEnv()} />)
+
+    fireEvent.click(screen.getByTestId('agent-pr-recover-and-retry'))
+    await act(async () => { fireEvent.click(screen.getByTestId('agent-pr-recover-and-retry-confirm-btn')) })
+
+    await waitFor(() => expect(vi.mocked(toast.warning)).toHaveBeenCalledWith(
+      'Local recovery still needs attention',
+      { description: 'No unique fast-forward candidate remains.' },
+    ))
   })
 
   it('409 operation_in_progress is busy, applies the lease snapshot, and never says already resolved', async () => {

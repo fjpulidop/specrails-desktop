@@ -22,6 +22,9 @@ A successful implementation can currently be presented as an implementation fail
 - Key confirmation dialogs and success feedback to the exact generation, and make same-id/different-generation snapshot convergence monotonic across live events and hydration.
 - Keep blocked fresh-delivery discard semantics distinct from ownership-safe continuation local-result discard, including when a PR is already attached.
 - Preserve a dismissed continuation as strict historical PR authority for the next local-only iteration, while preventing newer overlapping ticket generations, stale refs, dirty retained worktrees, or fuzzy Jira matches from resurrecting an older PR.
+- Recover uniquely run-marked commits that survive only as unreachable Git objects, and give an explicitly confirmed blocked continuation a lossless `Commit & retry push` path that operates only on its delivery-owned worktree/branch.
+- Replace misleading Checkout controls on unproven blocked results with inspectable local-recovery controls; keep main-checkout dirtiness a localized no-op that never releases the preserved worktree.
+- Authenticate recovery paths against Git's live worktree registry, make never-commit pathspecs authoritative at commit time, reject cross-repository PR heads and mismatched `origin` targets, and fail Checkout closed when cleanliness cannot be read.
 - Update the Safe PR lifecycle documentation and add backend/client regression coverage for repeated implementation and recovery corner cases.
 
 ## Capabilities
