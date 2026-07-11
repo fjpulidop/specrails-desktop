@@ -84,4 +84,4 @@
 - [x] 10.1 Extend automatic legacy recovery to uniquely run-marked unreachable Git commits without accepting unmarked or ambiguous objects.
 - [x] 10.2 Add a lease-guarded Commit & retry push action for one exact delivery-owned worktree/branch, with exact PR baseline, fast-forward, never-commit, immutable-SHA, same-repository/origin ownership, and non-force-push checks; apply the same origin proof to automatic continuation pushes.
 - [x] 10.3 Project live recovery worktree paths, replace blocked Checkout with Inspect local result and recovery actions on both surfaces, and keep dirty-checkout feedback localized and lossless.
-- [ ] 10.4 Add server/client regression coverage, all eight locale keys, documentation, typecheck/build/full-suite verification, strict OpenSpec validation, and final remote PR SHA verification.
+- [x] 10.4 Add server/client regression coverage, all eight locale keys, documentation, typecheck/build/full-suite verification, strict OpenSpec validation, and final remote PR SHA verification.
