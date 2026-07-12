@@ -39,6 +39,13 @@ The platform SHALL remove a worktree only after proving, immediately before remo
 - **AND** SHALL NOT trust a writable worktree manifest or a live name-based classification to mark those paths disposable
 - **AND** a delivery without a recorded settlement snapshot SHALL receive no ignored-path authorization at all
 
+#### Scenario: Externally removed worktree terminalizes cleanly
+
+- **WHEN** a recorded worktree's path no longer exists on the filesystem and Git itself cannot inspect it (the user ran `git worktree remove` by hand, or an external prune cleaned it)
+- **THEN** automatic release SHALL prune the stale registration and terminalize the ledger row without a cleanup warning
+- **AND** SHALL NOT keep failing cleanliness verification against the nonexistent path in a way that permanently blocks Checkout of the now-free branch
+- **AND** a path that still exists SHALL keep the full verification requirements unchanged
+
 #### Scenario: An authenticated overlay changes during cleanup
 
 - **WHEN** an external writer creates, replaces, or changes a leaf after the overlay was authenticated, including through an already-open file descriptor

@@ -26,6 +26,13 @@ function removeOverlayQuarantines(worktreePath: string): void {
 describe('releaseRailWorktrees', () => {
   const sha = 'a'.repeat(40)
 
+  // Rows must point at a REAL directory: a missing path takes the
+  // externally-removed shortcut (prune + terminalize) and would bypass the
+  // verification paths these tests exercise.
+  function realWt(prefix: string): string {
+    return fs.mkdtempSync(path.join(os.tmpdir(), `sr-release-${prefix}-`))
+  }
+
   function verifiedGit(overrides: { dirty?: boolean; head?: string } = {}) {
     const calls: Array<{ args: string[]; cwd: string }> = []
     const git: GitRunner = {
@@ -45,13 +52,15 @@ describe('releaseRailWorktrees', () => {
 
   it('releases exact worktrees, preserves unverifiable needs-review data, and revalidates it later', async () => {
     const db = initDb(':memory:')
+    const cleanPath = realWt('clean')
+    const recoverablePath = realWt('recoverable')
     createRailWorktree(db, {
       id: 'clean', railIndex: 0, ticketId: 1, branch: 'feat/clean',
-      worktreePath: '/wt/clean', mergeState: 'built',
+      worktreePath: cleanPath, mergeState: 'built',
     })
     createRailWorktree(db, {
       id: 'recoverable', railIndex: 0, ticketId: 2, branch: 'feat/recoverable',
-      worktreePath: '/wt/recoverable', mergeState: 'needs-review',
+      worktreePath: recoverablePath, mergeState: 'needs-review',
     })
     const { git, calls } = verifiedGit()
 
@@ -61,7 +70,7 @@ describe('releaseRailWorktrees', () => {
       overlayEvidenceByBranch: new Map(),
     })).resolves.toEqual([expect.stringContaining('no durable settled HEAD')])
 
-    expect(calls).toContainEqual({ args: ['worktree', 'remove', '/wt/clean'], cwd: '/repo' })
+    expect(calls).toContainEqual({ args: ['worktree', 'remove', cleanPath], cwd: '/repo' })
     expect(getRailWorktree(db, 'clean')?.merge_state).toBe('released')
     expect(getRailWorktree(db, 'recoverable')?.merge_state).toBe('needs-review')
 
@@ -70,7 +79,7 @@ describe('releaseRailWorktrees', () => {
       expectedHeadByBranch: new Map([['feat/clean', sha], ['feat/recoverable', sha]]),
       overlayEvidenceByBranch: new Map(),
     })).resolves.toEqual([])
-    expect(calls).toContainEqual({ args: ['worktree', 'remove', '/wt/recoverable'], cwd: '/repo' })
+    expect(calls).toContainEqual({ args: ['worktree', 'remove', recoverablePath], cwd: '/repo' })
     expect(getRailWorktree(db, 'recoverable')?.merge_state).toBe('released')
 
     const callCount = calls.length
@@ -83,11 +92,42 @@ describe('releaseRailWorktrees', () => {
     db.close()
   })
 
+  it('terminalizes an externally removed worktree (missing path) with prune and NO warning', async () => {
+    const db = initDb(':memory:')
+    // The user ran `git worktree remove` by hand: the path no longer exists.
+    // There are no bytes to preserve — the row must terminalize instead of
+    // failing cleanliness verification forever and blocking Checkout.
+    createRailWorktree(db, {
+      id: 'gone', railIndex: 0, ticketId: 1, branch: 'feat/gone',
+      worktreePath: path.join(os.tmpdir(), 'sr-release-definitely-missing', 'ticket-1'),
+      mergeState: 'needs-review',
+    })
+    const calls: Array<{ args: string[]; cwd: string }> = []
+    // Real git in a missing cwd: the status spawn itself fails.
+    const git: GitRunner = {
+      async run(args, cwd) {
+        calls.push({ args, cwd })
+        if (args[0] === 'status') throw new Error('spawn git ENOENT')
+        return { code: 0, stdout: `${sha}\n`, stderr: '' }
+      },
+    }
+
+    await expect(releaseRailWorktrees({
+      db, git, repoDir: '/repo', worktreeIds: ['gone'],
+      expectedHeadByBranch: new Map([['feat/gone', sha]]),
+      overlayEvidenceByBranch: new Map(),
+    })).resolves.toEqual([])
+
+    expect(calls).toContainEqual({ args: ['worktree', 'prune'], cwd: '/repo' })
+    expect(getRailWorktree(db, 'gone')?.merge_state).toBe('released')
+    db.close()
+  })
+
   it('treats a concurrent successful release as idempotent instead of a cleanup warning', async () => {
     const db = initDb(':memory:')
     createRailWorktree(db, {
       id: 'raced', railIndex: 0, ticketId: 1, branch: 'feat/raced',
-      worktreePath: '/wt/raced', mergeState: 'built',
+      worktreePath: realWt('raced'), mergeState: 'built',
     })
 
     await expect(releaseRailWorktrees({
@@ -113,7 +153,7 @@ describe('releaseRailWorktrees', () => {
     const db = initDb(':memory:')
     createRailWorktree(db, {
       id: 'changed', railIndex: 0, ticketId: 1, branch: 'feat/changed',
-      worktreePath: '/wt/changed', mergeState: 'built',
+      worktreePath: realWt('changed'), mergeState: 'built',
     })
     const { git, calls } = makeGit()
 
@@ -132,7 +172,7 @@ describe('releaseRailWorktrees', () => {
     const db = initDb(':memory:')
     createRailWorktree(db, {
       id: 'raced-dirty', railIndex: 0, ticketId: 1, branch: 'feat/raced-dirty',
-      worktreePath: '/wt/raced-dirty', mergeState: 'built',
+      worktreePath: realWt('raced-dirty'), mergeState: 'built',
     })
     const remove = vi.fn(async (_git, input) => {
       expect(input.force).toBe(false)
@@ -188,7 +228,7 @@ describe('releaseRailWorktrees', () => {
 
     createRailWorktree(db, {
       id: 'unknown-ignored', railIndex: 0, ticketId: 2, branch: 'feat/unknown-ignored',
-      worktreePath: '/wt/unknown-ignored', mergeState: 'built',
+      worktreePath: realWt('unknown-ignored'), mergeState: 'built',
     })
     const unknownGit: GitRunner = {
       async run(args) {
@@ -485,10 +525,14 @@ describe('settlement ignored-path snapshot (run-created artifacts)', () => {
   }
 
   function seed(db: ReturnType<typeof initDb>) {
+    // A REAL directory: a missing path takes the externally-removed shortcut
+    // and would bypass the verification under test.
+    const worktreePath = fs.mkdtempSync(path.join(os.tmpdir(), 'sr-release-snap-'))
     createRailWorktree(db, {
       id: 'wt-1', railIndex: 0, ticketId: 1, branch: 'feat/x',
-      worktreePath: '/wt/x', mergeState: 'built',
+      worktreePath, mergeState: 'built',
     })
+    return worktreePath
   }
 
   it('releases when every live ignored path is covered by the settlement snapshot', async () => {

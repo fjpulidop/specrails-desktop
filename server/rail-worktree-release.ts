@@ -149,6 +149,9 @@ function coveredBySnapshot(livePath: string, snapshot: readonly string[]): boole
 interface VerifiedReleaseEvidence {
   failure: string | null
   overlayEntries: OverlayCleanupEvidence[]
+  /** True when Git could not inspect the worktree AND the path is absent from
+   * the filesystem — the mount was removed externally; nothing to preserve. */
+  gone?: boolean
 }
 
 async function verifyReleaseEvidence(
@@ -171,7 +174,10 @@ async function verifyReleaseEvidence(
       ],
       worktree.worktree_path,
     )
-    if (status.code !== 0) return { failure: 'Git could not verify worktree cleanliness', overlayEntries: [] }
+    if (status.code !== 0) {
+      if (!pathStillExists(worktree.worktree_path)) return { failure: null, overlayEntries: [], gone: true }
+      return { failure: 'Git could not verify worktree cleanliness', overlayEntries: [] }
+    }
     // Partition: tracked/untracked entries are unconditional dirt (unchanged
     // strictness); gitignored entries are release-safe ONLY when the immutable
     // settlement snapshot already contained them — run-created build caches
@@ -206,6 +212,7 @@ async function verifyReleaseEvidence(
     }
     return { failure: null, overlayEntries }
   } catch (err) {
+    if (!pathStillExists(worktree.worktree_path)) return { failure: null, overlayEntries: [], gone: true }
     return { failure: `verification failed: ${err instanceof Error ? err.message : String(err)}`, overlayEntries: [] }
   }
 }
@@ -354,6 +361,18 @@ export async function releaseRailWorktrees(input: ReleaseRailWorktreesInput): Pr
     // Poll / Discard follow-ups into false cleanup_incomplete warnings.
     if (wt.merge_state !== 'needs-review' && isTerminalMergeState(wt.merge_state)) continue
     const evidence = await verifyReleaseEvidence(input, wt)
+    // The mount is already GONE (the user ran `git worktree remove` manually,
+    // or an external prune cleaned it): Git could not even inspect the path
+    // AND the filesystem confirms it is absent. There are no bytes left to
+    // preserve — failing verification forever would permanently block Checkout
+    // on a branch that is actually free. Prune the stale registration
+    // (best-effort; prune only drops entries whose dir is missing) and
+    // terminalize the ledger row honestly.
+    if (evidence.gone) {
+      try { await input.git.run(['worktree', 'prune'], input.repoDir) } catch { /* a leftover registration surfaces at checkout with git's own error */ }
+      updateRailWorktreeState(input.db, wt.id, state)
+      continue
+    }
     if (evidence.failure) {
       updateRailWorktreeState(input.db, wt.id, 'needs-review')
       const warning = `worktree ${wt.worktree_path}: preserved because ${evidence.failure}`
