@@ -343,6 +343,42 @@ describe('launchIsolatedRail — ask-first PR delivery (rail_pr_deliveries lifec
 
   beforeEach(() => { delete process.env.SPECRAILS_RAIL_DELIVER_PR }) // default-on
 
+  it('records the settlement ignored-path snapshot on the branch record (run-created build caches)', async () => {
+    const { ctx, db } = fakeCtx(settlingRun('success'))
+    const git = {
+      run: async (args: string[]) => {
+        // The snapshot capture is the ONLY status call carrying --ignored=matching;
+        // the commit-time dirty check must stay clean.
+        if (args[0] === 'status' && args.includes('--ignored=matching')) {
+          return { code: 0, stdout: '!! __pycache__/\n!! .pytest_cache/\n', stderr: '' }
+        }
+        return successfulGitResult(args)
+      },
+    }
+    await launchIsolatedRail(input([1], ctx), { git, create: okIo().create, remove: vi.fn(async () => {}) })
+
+    await vi.waitFor(() => expect(getActivePrDeliveryByRail(db, 0)?.decision).toBe('on_review'))
+    const [record] = JSON.parse(getActivePrDeliveryByRail(db, 0)!.branches) as DeliverBranchRecord[]
+    expect(record.settlementIgnoredPaths).toEqual(['__pycache__', '.pytest_cache'])
+  })
+
+  it('a failed snapshot capture records null (no ignored-release authorization)', async () => {
+    const { ctx, db } = fakeCtx(settlingRun('success'))
+    const git = {
+      run: async (args: string[]) => {
+        if (args[0] === 'status' && args.includes('--ignored=matching')) {
+          return { code: 128, stdout: '', stderr: 'boom' }
+        }
+        return successfulGitResult(args)
+      },
+    }
+    await launchIsolatedRail(input([1], ctx), { git, create: okIo().create, remove: vi.fn(async () => {}) })
+
+    await vi.waitFor(() => expect(getActivePrDeliveryByRail(db, 0)?.decision).toBe('on_review'))
+    const [record] = JSON.parse(getActivePrDeliveryByRail(db, 0)!.branches) as DeliverBranchRecord[]
+    expect(record.settlementIgnoredPaths).toBeNull()
+  })
+
   it('inserts a building row at launch (origin persisted) and broadcasts rail.pr_state at insert + run allocation', async () => {
     const { ctx, db, broadcast } = fakeCtx() // never-settling runs → row stays 'building'
 

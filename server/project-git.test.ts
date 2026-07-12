@@ -73,9 +73,15 @@ describe('project-git', () => {
 
   it('reports checkout cleanliness as tri-state and fails closed when status is unreadable', async () => {
     await expect(inspectProjectCheckoutCleanliness(repo)).resolves.toEqual({ ok: true, clean: true })
+    // Untracked files are NOT dirt: `git checkout` never loses them, and
+    // app-owned state (`.specrails/local-tickets.json`) must not permanently
+    // block Checkout. Only tracked modifications count.
     fs.writeFileSync(path.join(repo, 'untracked.txt'), 'valuable\n')
-    await expect(inspectProjectCheckoutCleanliness(repo)).resolves.toEqual({ ok: true, clean: false })
+    await expect(inspectProjectCheckoutCleanliness(repo)).resolves.toEqual({ ok: true, clean: true })
     fs.rmSync(path.join(repo, 'untracked.txt'))
+    fs.writeFileSync(path.join(repo, 'file.txt'), 'tracked modification\n')
+    await expect(inspectProjectCheckoutCleanliness(repo)).resolves.toEqual({ ok: true, clean: false })
+    run(repo, 'checkout', '--', 'file.txt')
     await expect(inspectProjectCheckoutCleanliness(plainDir)).resolves.toMatchObject({ ok: false })
   })
 
@@ -119,6 +125,21 @@ describe('project-git', () => {
     expect(ok).toEqual({ ok: true })
     expect((await getProjectGitInfo(repo)).branch).toBe('feature')
     run(repo, 'checkout', 'main')
+  })
+
+  it('checkoutProjectReviewBranch proceeds when only untracked app-owned files exist', async () => {
+    // App-owned untracked state (e.g. `.specrails/local-tickets.json`) exists
+    // permanently in legacy projects — it must never block Checkout: a branch
+    // switch does not touch untracked files, and a genuine collision aborts
+    // inside git itself.
+    fs.mkdirSync(path.join(repo, '.specrails'), { recursive: true })
+    fs.writeFileSync(path.join(repo, '.specrails', 'local-tickets.json'), '{}\n')
+    const r = await checkoutProjectReviewBranch(repo, 'feature')
+    expect(r).toEqual({ ok: true })
+    expect((await getProjectGitInfo(repo)).branch).toBe('feature')
+    expect(fs.existsSync(path.join(repo, '.specrails', 'local-tickets.json'))).toBe(true)
+    run(repo, 'checkout', 'main')
+    fs.rmSync(path.join(repo, '.specrails'), { recursive: true, force: true })
   })
 
   it('checks out only the exact verified delivery SHA and preserves a divergent local branch', async () => {

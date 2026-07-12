@@ -33,7 +33,7 @@ import { executePrDecision, isPrDecisionAction, PR_DECISION_ACTIONS } from './ra
 import { ExplicitPrTargetError, listPrCandidatesForTickets } from './active-pr-continuation'
 import { launchIsolatedRail, PrContinuationIsolationError } from './rail-isolated-launch'
 import { repoIsolationStatus, defaultGitRunner } from './worktree-manager'
-import { durableBranchHeads, durableOverlayCleanupEvidence, releaseRailWorktrees } from './rail-worktree-release'
+import { durableBranchHeads, durableOverlayCleanupEvidence, durableSettlementIgnoredPaths, releaseRailWorktrees } from './rail-worktree-release'
 import { checkoutProjectReviewBranch, getProjectGitInfo, inspectProjectCheckoutCleanliness } from './project-git'
 import { defaultExec } from './pr-publisher'
 import { newId } from './ids'
@@ -1097,6 +1097,7 @@ export function createRailsRouter(): Router {
           worktreeIds: currentSnap.worktreeIds,
           expectedHeadByBranch: durableBranchHeads(currentSnap.branches),
           overlayEvidenceByBranch: durableOverlayCleanupEvidence(currentSnap.branches),
+          settlementIgnoredByBranch: durableSettlementIgnoredPaths(currentSnap.branches),
           onSafetyArchive: (archive) => {
             archived = true
             if (!appendPrDeliverySafetyArchive(c.db, row.id, archive)) {

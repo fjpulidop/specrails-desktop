@@ -105,6 +105,11 @@ export interface DeliverBranchRecord {
   /** Live-revalidated fingerprints for automatic cleanup. Legacy path-only
    * records are intentionally insufficient removal authorization. */
   overlayCleanupEvidence?: OverlayCleanupEvidence[]
+  /** Gitignored paths present at the moment the worktree was proven clean —
+   * the IMMUTABLE settlement snapshot that authorizes releasing run-created
+   * ignored artifacts (build caches). null/absent = no ignored authorization
+   * (capture failed, overflowed, or legacy row) — release preserves as before. */
+  settlementIgnoredPaths?: string[] | null
 }
 
 /** States after which the delivery is closed (no further decision possible). */

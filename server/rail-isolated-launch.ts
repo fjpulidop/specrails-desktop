@@ -59,7 +59,7 @@ import { getAdapter } from './providers'
 import { defaultExec, pushBranch, type Exec } from './pr-publisher'
 import { resolveActivePrContinuationTargets, resolveExplicitPrTarget, type ActivePrContinuationTarget } from './active-pr-continuation'
 import { isExactOpenPr, matchesRecordedPrIdentity, observePrLifecycle, verifyPushRemoteForPr } from './pr-lifecycle'
-import { durableBranchHeads, durableOverlayCleanupEvidence, releaseRailWorktrees } from './rail-worktree-release'
+import { durableBranchHeads, durableOverlayCleanupEvidence, durableSettlementIgnoredPaths, releaseRailWorktrees } from './rail-worktree-release'
 import {
   commitCarriesRunMarker,
   discoverRunMarkedCommit,
@@ -160,6 +160,9 @@ interface AllocatedRun {
   overlayExcludes: string[]
   /** Fingerprints proving the excluded paths are still allocator-owned. */
   overlayCleanupEvidence: OverlayCleanupEvidence[]
+  /** Immutable settlement snapshot of gitignored paths (captured the moment
+   *  the worktree is proven clean). null = no ignored-release authorization. */
+  settlementIgnoredPaths?: string[] | null
   /** Pre-run Code-Explorer snapshot of the fresh worktree (null when the
    *  explorer is disabled or the snapshot failed) — diffed at settle so
    *  isolated loop runs record file_provenance like QueueManager jobs do. */
@@ -377,6 +380,41 @@ function aggregateImplementationOutcome(results: readonly SettledRun[]): PrImple
   return results.length > 0 ? 'failed' : 'unknown'
 }
 
+const SETTLEMENT_IGNORED_SNAPSHOT_CAP = 400
+
+/** Capture the gitignored paths present at the moment the worktree was proven
+ * clean — the IMMUTABLE settlement snapshot that later authorizes releasing
+ * run-created ignored artifacts (build caches like __pycache__/node_modules).
+ * Fail-safe: any git failure, malformed line, or overflow records null (no
+ * ignored authorization → release preserves exactly as before). */
+async function captureSettlementIgnoredPaths(
+  git: GitRunner,
+  worktreePath: string,
+  overlayExcludes: readonly string[],
+): Promise<string[] | null> {
+  try {
+    const status = await git.run([
+      'status', '--porcelain', '--untracked-files=all', '--ignored=matching', '--', '.',
+      ...overlayExcludes.map((entry) => `:(top,exclude,literal)${entry}`),
+    ], worktreePath)
+    if (status.code !== 0) return null
+    const paths: string[] = []
+    for (const raw of status.stdout.split('\n')) {
+      const line = raw.trimEnd()
+      if (!line) continue
+      // Non-ignored entries are the dirty check's jurisdiction, not the snapshot's.
+      if (!line.startsWith('!! ')) continue
+      const entry = line.slice(3).replace(/\/$/, '')
+      if (!entry) return null
+      paths.push(entry)
+      if (paths.length > SETTLEMENT_IGNORED_SNAPSHOT_CAP) return null
+    }
+    return paths
+  } catch {
+    return null
+  }
+}
+
 function branchRecords(results: readonly SettledRun[]): DeliverBranchRecord[] {
   return results.flatMap((result) => result.run.ticketIds.map((ticketId) => ({
     ticketId,
@@ -394,6 +432,7 @@ function branchRecords(results: readonly SettledRun[]): DeliverBranchRecord[] {
     worktreePath: result.run.handle.worktreePath,
     overlayExcludes: result.run.overlayExcludes,
     overlayCleanupEvidence: result.run.overlayCleanupEvidence,
+    settlementIgnoredPaths: result.run.settlementIgnoredPaths ?? null,
   })))
 }
 
@@ -972,6 +1011,14 @@ export async function launchIsolatedRail(input: IsolatedLaunchInput, io: Isolate
       }
     }
 
+    // The worktree is proven clean THIS instant — freeze the ignored-path set
+    // as the settlement snapshot. Everything ignored right now is run residue
+    // by construction (the worktree is app-created and deliverables are
+    // committed); anything ignored that appears LATER preserves the worktree.
+    a.settlementIgnoredPaths = await captureSettlementIgnoredPaths(
+      git, a.handle.worktreePath, a.overlayExcludes,
+    )
+
     let finalSha: string | null = null
     let verificationFailure: string | undefined
     if (a.continuationTarget) {
@@ -1448,6 +1495,7 @@ export async function launchIsolatedRail(input: IsolatedLaunchInput, io: Isolate
       const settledBranchRecords = branchRecords(results)
       const expectedHeadByBranch = durableBranchHeads(settledBranchRecords)
       const overlayEvidenceByBranch = durableOverlayCleanupEvidence(settledBranchRecords)
+      const settlementIgnoredByBranch = durableSettlementIgnoredPaths(settledBranchRecords)
       const patch = {
         branches: settledBranchRecords,
         worktreeIds,
@@ -1483,11 +1531,11 @@ export async function launchIsolatedRail(input: IsolatedLaunchInput, io: Isolate
         const cleanupWarnings = [
           ...await releaseRailWorktrees({
             db: ctx.db, git, repoDir: baseRepo, worktreeIds: failedSafeIds,
-            state: 'failed', remove, expectedHeadByBranch, overlayEvidenceByBranch, onSafetyArchive,
+            state: 'failed', remove, expectedHeadByBranch, overlayEvidenceByBranch, settlementIgnoredByBranch, onSafetyArchive,
           }),
           ...await releaseRailWorktrees({
             db: ctx.db, git, repoDir: baseRepo, worktreeIds: completedSafeIds,
-            remove, expectedHeadByBranch, overlayEvidenceByBranch, onSafetyArchive,
+            remove, expectedHeadByBranch, overlayEvidenceByBranch, settlementIgnoredByBranch, onSafetyArchive,
           }),
         ]
         if (cleanupWarnings.length > 0) {

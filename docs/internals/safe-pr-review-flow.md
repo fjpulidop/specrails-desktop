@@ -118,9 +118,14 @@ actionable.
   verification distinguish changed, resumed, and no-change results.
 - Per-unit settlement returns structured execution + delivery results. `onLoopRunFinished` receives
   the engine outcome only; commit/status/ref/provenance/push failures cannot rewrite it.
-- Clean, committed worktrees may be released only after a final live preflight proves tracked,
-  untracked, and ignored status (apart from durably recorded Specrails overlay paths), plus exact
-  worktree HEAD and branch ref. Authenticated overlay roots are atomically renamed to a unique
+- Clean, committed worktrees may be released only after a final live preflight proves tracked and
+  untracked status (apart from durably recorded Specrails overlay paths), plus exact worktree HEAD
+  and branch ref. Gitignored paths are release-safe only when covered by the IMMUTABLE settlement
+  snapshot (`DeliverBranchRecord.settlementIgnoredPaths`, captured the moment the worktree was
+  proven clean) — run-created build caches (`__pycache__`, `node_modules`) release cleanly, while an
+  ignored path that APPEARS after settlement, a failed/oversized capture (>400 paths → null), a
+  legacy row without a snapshot, or conflicting per-branch snapshots all preserve the worktree
+  (`durableSettlementIgnoredPaths`, cleanup-and-checkout-tolerate-run-artifacts). Authenticated overlay roots are atomically renamed to a unique
   persistent same-filesystem quarantine batch and revalidated there; automatic cleanup never unlinks that
   quarantine, so a raced replacement or open-descriptor write remains recoverable. The batch root is
   persisted before the first move and pointers are never evicted while their bytes remain on disk. A recreated

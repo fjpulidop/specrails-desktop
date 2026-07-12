@@ -92,7 +92,11 @@ export type ProjectCheckoutCleanliness =
  * clean checkout. */
 export async function inspectProjectCheckoutCleanliness(repoDir: string): Promise<ProjectCheckoutCleanliness> {
   try {
-    const status = await git(repoDir, ['status', '--porcelain', '--untracked-files=all'])
+    // Tracked modifications only. `git checkout` never loses untracked files —
+    // app-owned state (`.specrails/local-tickets.json`) or editor droppings
+    // must not permanently block Checkout; a genuine untracked collision still
+    // aborts inside git itself and surfaces as a failed checkout.
+    const status = await git(repoDir, ['status', '--porcelain', '--untracked-files=no'])
     return { ok: true, clean: status === '' }
   } catch (err) {
     return {
@@ -218,7 +222,8 @@ export async function checkoutProjectReviewBranch(
 
   let dirty = false
   try {
-    dirty = (await git(repoDir, ['status', '--porcelain'])) !== ''
+    // Tracked modifications only — see inspectProjectCheckoutCleanliness.
+    dirty = (await git(repoDir, ['status', '--porcelain', '--untracked-files=no'])) !== ''
   } catch (err) {
     return { ok: false, error: err instanceof Error ? err.message : 'git status failed' }
   }
