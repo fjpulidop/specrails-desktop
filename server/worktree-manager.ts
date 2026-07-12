@@ -263,7 +263,7 @@ async function gitRun(git: GitRunner, args: string[], cwd: string): Promise<GitR
 function commitPathspecs(excludePaths: string[]): string[] {
   return [
     '--', '.',
-    ...PR_NEVER_STAGE_PATHS.map((p) => `:(exclude)${p}`),
+    ...PR_NEVER_STAGE_PATHSPEC_ROOTS.map((p) => `:(exclude)${p}`),
     // Overlay names originate in the workspace filesystem. Treat them as
     // literal top-level paths so glob/pathspec metacharacters cannot broaden
     // the never-commit surface.
@@ -287,6 +287,25 @@ function normalizedGitPath(value: string): string {
 function isPathAtOrBelow(candidate: string, root: string): boolean {
   return candidate === root || candidate.startsWith(`${root}/`)
 }
+
+/**
+ * Collapse a path list to its minimal roots — drop any entry that is at or
+ * below another. Overlay-owned entries like `.claude/agent-memory` are
+ * SYMLINKS (the overlay links shared memory in). A git pathspec that descends
+ * INTO a symlink — `:(exclude).claude/agent-memory/**` or the `/explanations`
+ * subpaths — is rejected with `fatal: pathspec ... is beyond a symbolic link`,
+ * which aborts the entire `git add`/`git status` and blocks PR delivery. The
+ * symlink ROOT alone (`:(exclude).claude/agent-memory`) still excludes all of
+ * its contents (dir-level pathspec semantics) without traversing the link, and
+ * is equally correct for the copy-fallback case where it is a real directory.
+ */
+function minimalPathRoots(paths: readonly string[]): string[] {
+  const norm = [...new Set(paths.map((p) => (p.endsWith('/**') ? p.slice(0, -3) : p)))]
+  return norm.filter((p) => !norm.some((other) => other !== p && isPathAtOrBelow(p, other)))
+}
+
+/** Symlink-safe never-stage pathspec roots (see {@link minimalPathRoots}). */
+export const PR_NEVER_STAGE_PATHSPEC_ROOTS = minimalPathRoots(PR_NEVER_STAGE_PATHS)
 
 function forbiddenStagedPaths(staged: string[], excludePaths: string[]): string[] {
   const overlayRoots = excludePaths.map(normalizedGitPath).filter(Boolean)

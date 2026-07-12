@@ -27,7 +27,7 @@ import * as fs from 'fs'
 import { resolveHome } from './artifact-registry'
 import { newId } from './ids'
 import { loadConstantMap } from './loop-constants'
-import { defaultGitRunner, createWorktree, removeWorktree, commitWorktreeAndVerify, listLocalBranches, listWorktrees, worktreeBranch, PR_NEVER_STAGE_PATHS, type GitRunner, type WorktreeHandle, type CommitWorktreeResult } from './worktree-manager'
+import { defaultGitRunner, createWorktree, removeWorktree, commitWorktreeAndVerify, listLocalBranches, listWorktrees, worktreeBranch, PR_NEVER_STAGE_PATHSPEC_ROOTS, type GitRunner, type WorktreeHandle, type CommitWorktreeResult } from './worktree-manager'
 import { createRailWorktree, updateRailWorktreeState, listNonTerminalRailWorktrees, railWorktreeBranchExistsForTicket, getRailWorktree, isTerminalMergeState } from './rail-worktrees-store'
 import { ticketBranchName, ticketRef, resolveCollisionFreeName, type TicketNamingInput } from './pr-naming'
 import { getLinkByLocalId } from './jira/jira-db'
@@ -1641,7 +1641,7 @@ async function inspectRecoveryWorktree(
     const [status, actualBranch, head, branchRef] = await Promise.all([
       git.run([
         'status', '--porcelain', '--untracked-files=all', '--ignored=matching', '--', '.',
-        ...PR_NEVER_STAGE_PATHS.map((entry) => `:(exclude)${entry}`),
+        ...PR_NEVER_STAGE_PATHSPEC_ROOTS.map((entry) => `:(exclude)${entry}`),
         ...overlayExcludes.map((entry) => `:(top,exclude,literal)${entry}`),
       ], row.worktree_path),
       git.run(['rev-parse', '--abbrev-ref', 'HEAD'], row.worktree_path),

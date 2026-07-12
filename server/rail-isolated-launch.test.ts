@@ -15,7 +15,7 @@ import type { AgentChatManager } from './agent-chat-manager'
 import type { RailPrStateMessage, RailFetchDegradedMessage } from './types'
 import type { ProjectContext } from './project-registry'
 import { __resetFetchOriginCache } from './integration-branch'
-import { PR_NEVER_STAGE_PATHS } from './worktree-manager'
+import { PR_NEVER_STAGE_PATHSPEC_ROOTS } from './worktree-manager'
 import { recoveryRefForDelivery } from './rail-pr-recovery-git'
 
 // The legacy merge-back must never spawn real executors from a test settle —
@@ -2311,7 +2311,7 @@ describe('launchIsolatedRail — per-run worktree overlay', () => {
     expect(add.cwd).toBe('/wt/ticket-1')
     expect(add.args).toEqual([
       'add', '-A', '--', '.',
-      ...PR_NEVER_STAGE_PATHS.map((p) => `:(exclude)${p}`),
+      ...PR_NEVER_STAGE_PATHSPEC_ROOTS.map((p) => `:(exclude)${p}`),
       ':(top,exclude,literal).claude/commands/specrails',
       ':(top,exclude,literal).claude/agents',
       ':(top,exclude,literal).sr-rail-overlay.json',
@@ -2331,7 +2331,7 @@ describe('launchIsolatedRail — per-run worktree overlay', () => {
     await vi.waitFor(() => expect(calls.some((c) => c.args[0] === 'add')).toBe(true))
     expect(calls.find((c) => c.args[0] === 'add')!.args).toEqual([
       'add', '-A', '--', '.',
-      ...PR_NEVER_STAGE_PATHS.map((p) => `:(exclude)${p}`),
+      ...PR_NEVER_STAGE_PATHSPEC_ROOTS.map((p) => `:(exclude)${p}`),
     ])
   })
 })

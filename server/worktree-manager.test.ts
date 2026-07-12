@@ -17,6 +17,7 @@ import {
   isGitRepo,
   repoIsolationStatus,
   PR_NEVER_STAGE_PATHS,
+  PR_NEVER_STAGE_PATHSPEC_ROOTS,
   type GitRunner,
   type GitResult,
 } from './worktree-manager'
@@ -184,7 +185,7 @@ describe('listLocalBranches', () => {
 })
 
 describe('commitWorktree', () => {
-  const baseAddArgs = ['add', '-A', '--', '.', ...PR_NEVER_STAGE_PATHS.map((p) => `:(exclude)${p}`)]
+  const baseAddArgs = ['add', '-A', '--', '.', ...PR_NEVER_STAGE_PATHSPEC_ROOTS.map((p) => `:(exclude)${p}`)]
 
   it('stages + commits the worktree to its branch while excluding private agent artifacts', async () => {
     const { git, calls } = fakeGit()
@@ -211,19 +212,22 @@ describe('commitWorktree', () => {
       ':(top,exclude,literal).sr-rail-overlay.json',
     ])
   })
-  it('always excludes agent-memory and explanations from PR commits', async () => {
+  it('excludes each agent-memory root from PR commits without descending into the overlay symlink', async () => {
     const { git, calls } = fakeGit()
     await commitWorktree(git, '/wt/ticket-1', 'wip', [])
     const addCall = calls.find((c) => c[0] === 'add')!
     expect(addCall).toEqual(baseAddArgs)
+    // Symlink-root pathspecs only — a dir-level exclude already covers all
+    // contents, and any subpath (`/**`, `/explanations`) would descend INTO the
+    // `agent-memory` symlink and abort `git add` with "beyond a symbolic link".
     expect(addCall).toEqual(expect.arrayContaining([
       ':(exclude).claude/agent-memory',
-      ':(exclude).claude/agent-memory/**',
-      ':(exclude).claude/agent-memory/explanations',
-      ':(exclude).claude/agent-memory/explanations/**',
       ':(exclude).codex/agent-memory',
       ':(exclude).gemini/agent-memory',
     ]))
+    for (const spec of addCall) {
+      expect(spec).not.toMatch(/agent-memory\/(\*\*|explanations)/)
+    }
   })
   it('reports a dirty deliverable worktree after the commit attempt', async () => {
     const { git } = fakeGit({ dirtyStatus: ' M src/app.ts\n?? src/new.ts\n' })
@@ -409,6 +413,46 @@ describe('commitWorktree', () => {
       expect(fs.readFileSync(path.join(dir, files.codex), 'utf8')).toBe('codex\n')
       expect(fs.readFileSync(path.join(dir, files.overlay), 'utf8')).toBe('overlay\n')
       expect(fs.existsSync(hookMarker)).toBe(false)
+    } finally {
+      fs.rmSync(dir, { recursive: true, force: true })
+    }
+  })
+
+  it('commits deliverables when agent-memory is an overlay SYMLINK (regression: "beyond a symbolic link")', async () => {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'specrails-symlink-memory-'))
+    const git = (args: string[]) => execFileSync('git', args, { cwd: dir, encoding: 'utf8' })
+    try {
+      git(['init', '--quiet'])
+      git(['config', 'user.email', 'specrails@example.test'])
+      git(['config', 'user.name', 'Specrails Test'])
+      fs.writeFileSync(path.join(dir, 'README.md'), 'base\n')
+      git(['add', 'README.md'])
+      git(['commit', '--quiet', '-m', 'base'])
+
+      // Reproduce the overlay: a shared memory dir OUTSIDE the worktree, linked
+      // in at .claude/agent-memory. Previously the `:(exclude).claude/agent-memory/**`
+      // pathspec descended into this symlink and aborted the whole `git add`.
+      const sharedMemory = fs.mkdtempSync(path.join(os.tmpdir(), 'specrails-shared-memory-'))
+      fs.writeFileSync(path.join(sharedMemory, 'mem.md'), 'private memory\n')
+      fs.mkdirSync(path.join(dir, '.claude'), { recursive: true })
+      fs.symlinkSync(sharedMemory, path.join(dir, '.claude', 'agent-memory'))
+      // A real deliverable change, as the SDD Quick loop would produce.
+      fs.writeFileSync(path.join(dir, 'app.py'), 'code = 1\n')
+
+      try {
+        const result = await commitWorktreeAndVerify(defaultGitRunner, dir, 'sdd quick delivery', [])
+
+        expect(result.error).toBeUndefined()
+        expect(result).toMatchObject({ staged: true, committed: true, clean: true })
+        const committed = git(['diff-tree', '--no-commit-id', '--name-only', '-r', '-z', 'HEAD'])
+          .slice(0, -1).split('\0')
+        expect(committed).toEqual(['app.py'])
+        // The symlink and its private target never reach the branch.
+        expect(committed.some((p) => p.startsWith('.claude/agent-memory'))).toBe(false)
+        expect(fs.readFileSync(path.join(sharedMemory, 'mem.md'), 'utf8')).toBe('private memory\n')
+      } finally {
+        fs.rmSync(sharedMemory, { recursive: true, force: true })
+      }
     } finally {
       fs.rmSync(dir, { recursive: true, force: true })
     }
