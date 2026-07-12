@@ -240,5 +240,29 @@
   },
   "useRails": {
     "fetchFailed": "Rails konnten nicht geladen werden: {{status}}"
+  },
+  "targetPr": {
+    "chipNew": "Neuer PR",
+    "chipTitle": "In einen bestehenden PR liefern",
+    "clear": "PR-Ziel entfernen",
+    "newPr": "Neuer PR (Standard)",
+    "loading": "Offene PRs werden geladen…",
+    "none": "Keine offenen PRs gefunden",
+    "fork": "Fork — kein Push möglich",
+    "manualPlaceholder": "PR-Nummer",
+    "manualUse": "Verwenden",
+    "confirmTitle": "In bestehenden PR liefern?",
+    "confirmBody": "Dieser Lauf arbeitet auf dem Head-Branch des PR und pusht hinein — es wird kein neuer PR erstellt.",
+    "confirmBranch": "Head-Branch",
+    "confirmLaunch": "In PR #{{number}} starten",
+    "errors": {
+      "invalid_target_pr": "Ungültige PR-Nummer",
+      "target_pr_requires_pr_mode": "Die Lieferung in einen bestehenden PR erfordert den isolierten PR-Flow",
+      "target_pr_not_found": "PR in diesem Repository nicht gefunden",
+      "target_pr_not_open": "Dieser PR ist nicht mehr offen",
+      "target_pr_fork": "Dieser PR stammt aus einem Fork und kann nicht gepusht werden",
+      "target_pr_invalid": "Die Branches des PR sind als Lieferziel unbrauchbar",
+      "target_pr_unfetchable": "Der Head-Branch des PR konnte nicht geholt werden"
+    }
   }
 }

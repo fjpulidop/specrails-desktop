@@ -30,6 +30,8 @@ import { TicketDetailModal } from '../components/TicketDetailModal'
 import { CreateTicketModal } from '../components/CreateTicketModal'
 import { FreestyleLaunchDialog } from '../components/FreestyleLaunchDialog'
 import { LaunchAllDialog } from '../components/LaunchAllDialog'
+import { TargetPrLaunchDialog } from '../components/TargetPrLaunchDialog'
+import type { RailTargetPr } from '../components/RailTargetPrSelector'
 import { getApiBase } from '../lib/api'
 import { FEATURE_LOOPS_SECTION } from '../lib/feature-flags'
 import { effectiveLoopId, deriveRailMode } from '../lib/rail-loops'
@@ -147,6 +149,9 @@ export default function DashboardPage() {
   const [createTicketOpen, setCreateTicketOpen] = useState(false)
   // Rail pending an freestyle-launch confirmation (variable-cost warning modal).
   const [freestyleConfirm, setFreestyleConfirm] = useState<{ railId: string } | null>(null)
+  // Confirm-before-launch when the rail targets an EXISTING PR (mis-pick must
+  // be visible before any work starts on that PR's head branch).
+  const [targetPrConfirm, setTargetPrConfirm] = useState<{ railId: string } | null>(null)
   // Launch-all pending its batch confirmation (N parallel AI launches).
   const [launchAllConfirm, setLaunchAllConfirm] = useState(false)
 
@@ -1120,6 +1125,10 @@ export default function DashboardPage() {
     }
   }
 
+  function handleTargetPrChange(railId: string, value: RailTargetPr | null) {
+    updateRails((prev) => prev.map((r) => (r.id === railId ? { ...r, targetPr: value } : r)))
+  }
+
   async function handleToggle(railId: string) {
     const rail = rails.find((r) => r.id === railId)
     const railIndex = serverRailIndex(railId)
@@ -1142,6 +1151,12 @@ export default function DashboardPage() {
     // Freestyle bypasses OpenSpec and has variable cost — confirm before launch.
     if (rail.mode === 'freestyle') {
       setFreestyleConfirm({ railId })
+      return
+    }
+
+    // Deliver-into-existing-PR: name the exact PR before launching into it.
+    if (rail.targetPr) {
+      setTargetPrConfirm({ railId })
       return
     }
 
@@ -1212,6 +1227,9 @@ export default function DashboardPage() {
           // factory loop → its legacy mode; a custom loop runs the loop engine.
           loopId: launchLoopId,
           ...(rail.mode === 'loop' && rail.reasoningEffort ? { reasoning_effort: rail.reasoningEffort } : {}),
+          // Explicit delivery target (deliver-rail-into-existing-pr): the run
+          // continues this open PR's head branch; settle pushes into it.
+          ...(rail.targetPr ? { targetPrNumber: rail.targetPr.number } : {}),
         }),
       })
       if (!res.ok) {
@@ -1227,6 +1245,19 @@ export default function DashboardPage() {
         if (res.status === 409 && data.error === 'tickets_in_flight') {
           if (!silent) toast.info(t('toasts.launchTicketsInFlight'))
           return 'skipped'
+        }
+        // Explicit-target validation failed server-side (fail-closed — no
+        // fallback launch happened). Surface the exact reason; keep the
+        // selection so the user can fix or clear it.
+        const targetCodes = ['invalid_target_pr', 'target_pr_requires_pr_mode', 'target_pr_not_found', 'target_pr_not_open', 'target_pr_fork', 'target_pr_invalid', 'target_pr_unfetchable']
+        if (typeof data.error === 'string' && targetCodes.includes(data.error)) {
+          if (!silent) {
+            toast.error(t(`targetPr.errors.${data.error}`), {
+              description: (data as { detail?: string }).detail,
+              duration: 10000,
+            })
+          }
+          return 'failed'
         }
         if (!silent) toast.error(data.error || t('toasts.launchFailed'))
         return 'failed'
@@ -1251,7 +1282,9 @@ export default function DashboardPage() {
         })
       }
       const activeJobId = data.jobId ?? data.loopRunIds?.[0]
-      updateRails((prev) => prev.map((r) => (r.id === railId ? { ...r, status: 'running', activeJobId } : r)))
+      // targetPr is a ONE-SHOT designation: consumed by this launch (the
+      // delivery row now owns the PR link); the next launch defaults to New PR.
+      updateRails((prev) => prev.map((r) => (r.id === railId ? { ...r, status: 'running', activeJobId, targetPr: null } : r)))
       if (!silent) {
         toast.success(t('toasts.railLaunched', { rail: rail.label }), {
           description: t('toasts.launchDescription', { mode: rail.mode, count: rail.ticketIds.length }),
@@ -1395,6 +1428,7 @@ export default function DashboardPage() {
             onLoopChange={handleLoopChange}
             onEffortChange={handleEffortChange}
             onToggle={handleToggle}
+            onTargetPrChange={handleTargetPrChange}
             onTicketClick={setDetailTicket}
             onAddRail={() => { void handleAddRail() }}
             onDeleteRail={(railId) => { void handleDeleteRail(railId) }}
@@ -1485,6 +1519,22 @@ export default function DashboardPage() {
         onCancel={() => setLaunchAllConfirm(false)}
         onConfirm={() => { void runLaunchAll() }}
       />
+
+      {(() => {
+        const r = targetPrConfirm ? rails.find((x) => x.id === targetPrConfirm.railId) : undefined
+        return (
+          <TargetPrLaunchDialog
+            open={!!targetPrConfirm && !!r?.targetPr}
+            target={r?.targetPr ?? null}
+            onCancel={() => setTargetPrConfirm(null)}
+            onConfirm={() => {
+              const id = targetPrConfirm?.railId
+              setTargetPrConfirm(null)
+              if (id) void doLaunchRail(id)
+            }}
+          />
+        )
+      })()}
 
       {(() => {
         const r = freestyleConfirm ? rails.find((x) => x.id === freestyleConfirm.railId) : undefined

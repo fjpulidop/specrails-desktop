@@ -2151,6 +2151,121 @@ describe('launchIsolatedRail — active PR continuation', () => {
     expect(exec.run).not.toHaveBeenCalled()
     expect(create).toHaveBeenCalledWith(expect.anything(), expect.objectContaining({ branch: 'feat/1-t1' }))
   })
+
+  describe('explicit target PR (deliver-rail-into-existing-pr)', () => {
+    const targetBranch = 'feat/skills-existing-pr'
+    const targetUrl = 'https://github.com/o/r/pull/151'
+
+    const explicitIo = (opts: { lifecycle?: Record<string, unknown> } = {}) => {
+      const lifecyclePayload = JSON.stringify({
+        state: 'OPEN', isDraft: true, headRefName: targetBranch, baseRefName: 'main',
+        isCrossRepository: false, headRefOid: continuationSha, mergeCommit: null,
+        commits: [{ oid: continuationSha }],
+        ...(opts.lifecycle ?? {}),
+      })
+      const exec = {
+        run: vi.fn(async (_cmd: string, args: string[]) => {
+          if (args.includes('url,number')) {
+            return { code: 0, stdout: JSON.stringify({ url: targetUrl, number: 151 }), stderr: '' }
+          }
+          if (args[0] === 'pr' && args[1] === 'view') {
+            return { code: 0, stdout: lifecyclePayload, stderr: '' }
+          }
+          // push-remote verification etc.
+          return matchingPushRemote(targetUrl)
+        }),
+      }
+      const git = {
+        run: async (args: string[], cwd: string) => {
+          const verified = verifiedContinuationRef(args, cwd, targetBranch)
+          if (verified) return verified
+          if (args[0] === 'rev-parse' && args.at(-1) === `refs/heads/${targetBranch}`) {
+            return { code: 0, stdout: `${continuationSha}\n`, stderr: '' }
+          }
+          if (args[0] === 'rev-parse' && args.at(-1) === `refs/remotes/origin/${targetBranch}`) {
+            return { code: 0, stdout: `${continuationSha}\n`, stderr: '' }
+          }
+          if (args[0] === 'for-each-ref') return { code: 0, stdout: `${targetBranch}\n`, stderr: '' }
+          return successfulGitResult(args)
+        },
+      }
+      const create = vi.fn(async (_git: unknown, request: { branch: string; ticketId: number }) => ({
+        branch: request.branch,
+        worktreePath: `/wt/ticket-${request.ticketId}`,
+        worktreeCreated: true,
+        branchCreated: false,
+      }))
+      return { git, exec, create, remove: vi.fn(async () => {}) }
+    }
+
+    it('a todo ticket launches onto the designated PR head, born attached', async () => {
+      const { ctx, db, run } = fakeCtx(settlingRun('success')) // plain todo spec, no PR mentions
+      const io = explicitIo()
+
+      const ids = await launchIsolatedRail({
+        ...input([1], ctx),
+        explicitPrTarget: { prNumber: 151 },
+      }, io)
+
+      expect(ids).toHaveLength(1)
+      expect(io.create).toHaveBeenCalledWith(io.git, expect.objectContaining({
+        ticketId: 1,
+        branch: targetBranch,
+        baseRef: `origin/${targetBranch}`,
+      }))
+      expect(run).toHaveBeenCalledTimes(1)
+      expect(getActivePrDeliveryByRail(db, 0)).toMatchObject({
+        branch: targetBranch,
+        pr_url: targetUrl,
+        pr_number: 151,
+        base_branch: 'main', // the PR's baseRefName wins over the integration branch
+        is_continuation: 1,
+        delivery_sha: continuationSha,
+      })
+    })
+
+    it('a multi-ticket launch collapses onto ONE checkout of the designated PR', async () => {
+      const { ctx, run } = fakeCtx(settlingRun('success'))
+      const io = explicitIo()
+
+      const ids = await launchIsolatedRail({
+        ...input([1, 2], ctx),
+        explicitPrTarget: { prNumber: 151 },
+      }, io)
+
+      expect(ids).toHaveLength(1)
+      expect(io.create).toHaveBeenCalledTimes(1)
+      expect(run).toHaveBeenCalledTimes(1)
+      expect(run.mock.calls[0][0]).toMatchObject({ spec: { ticketIds: [1, 2] } })
+    })
+
+    it('validation failure (merged PR) leaves zero rows, branches, and worktrees', async () => {
+      const { ctx, db, run } = fakeCtx()
+      const io = explicitIo({ lifecycle: { state: 'MERGED' } })
+
+      await expect(launchIsolatedRail({
+        ...input([1], ctx),
+        explicitPrTarget: { prNumber: 151 },
+      }, io)).rejects.toMatchObject({ name: 'ExplicitPrTargetError', code: 'target_pr_not_open' })
+
+      expect(io.create).not.toHaveBeenCalled()
+      expect(run).not.toHaveBeenCalled()
+      expect(db.prepare('SELECT COUNT(*) AS n FROM rail_pr_deliveries').get()).toEqual({ n: 0 })
+    })
+
+    it('fork PR rejected before any allocation', async () => {
+      const { ctx, db } = fakeCtx()
+      const io = explicitIo({ lifecycle: { isCrossRepository: true } })
+
+      await expect(launchIsolatedRail({
+        ...input([1], ctx),
+        explicitPrTarget: { prNumber: 151 },
+      }, io)).rejects.toMatchObject({ code: 'target_pr_fork' })
+
+      expect(io.create).not.toHaveBeenCalled()
+      expect(db.prepare('SELECT COUNT(*) AS n FROM rail_pr_deliveries').get()).toEqual({ n: 0 })
+    })
+  })
 })
 
 describe('launchIsolatedRail — stale mounted worktree from a prior run (live #37 repro)', () => {

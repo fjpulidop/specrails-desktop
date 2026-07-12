@@ -240,5 +240,29 @@
   },
   "useRails": {
     "fetchFailed": "Failed to fetch rails: {{status}}"
+  },
+  "targetPr": {
+    "chipNew": "New PR",
+    "chipTitle": "Deliver into an existing PR",
+    "clear": "Clear PR target",
+    "newPr": "New PR (default)",
+    "loading": "Loading open PRs…",
+    "none": "No open PRs found",
+    "fork": "Fork — not pushable",
+    "manualPlaceholder": "PR number",
+    "manualUse": "Use",
+    "confirmTitle": "Deliver into existing PR?",
+    "confirmBody": "This run works on the PR's head branch and pushes into it — no new PR is created.",
+    "confirmBranch": "Head branch",
+    "confirmLaunch": "Launch into PR #{{number}}",
+    "errors": {
+      "invalid_target_pr": "Invalid PR number",
+      "target_pr_requires_pr_mode": "Delivering into an existing PR needs the isolated PR flow",
+      "target_pr_not_found": "PR not found on this repository",
+      "target_pr_not_open": "That PR is not open anymore",
+      "target_pr_fork": "That PR comes from a fork and cannot be pushed to",
+      "target_pr_invalid": "The PR's branches are unusable as a delivery target",
+      "target_pr_unfetchable": "The PR's head branch could not be fetched"
+    }
   }
 }

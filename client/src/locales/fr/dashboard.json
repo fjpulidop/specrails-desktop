@@ -240,5 +240,29 @@
   },
   "useRails": {
     "fetchFailed": "Échec de la récupération des rails : {{status}}"
+  },
+  "targetPr": {
+    "chipNew": "Nouvelle PR",
+    "chipTitle": "Livrer dans une PR existante",
+    "clear": "Retirer la PR cible",
+    "newPr": "Nouvelle PR (par défaut)",
+    "loading": "Chargement des PR ouvertes…",
+    "none": "Aucune PR ouverte trouvée",
+    "fork": "Fork — push impossible",
+    "manualPlaceholder": "Numéro de PR",
+    "manualUse": "Utiliser",
+    "confirmTitle": "Livrer dans la PR existante ?",
+    "confirmBody": "Cette exécution travaille sur la branche head de la PR et pousse dedans — aucune nouvelle PR n'est créée.",
+    "confirmBranch": "Branche head",
+    "confirmLaunch": "Lancer vers la PR #{{number}}",
+    "errors": {
+      "invalid_target_pr": "Numéro de PR invalide",
+      "target_pr_requires_pr_mode": "Livrer dans une PR existante nécessite le flux PR isolé",
+      "target_pr_not_found": "PR introuvable sur ce dépôt",
+      "target_pr_not_open": "Cette PR n'est plus ouverte",
+      "target_pr_fork": "Cette PR provient d'un fork et ne peut pas recevoir de push",
+      "target_pr_invalid": "Les branches de la PR sont inutilisables comme cible de livraison",
+      "target_pr_unfetchable": "Impossible de récupérer la branche head de la PR"
+    }
   }
 }

@@ -14,6 +14,8 @@ import { RailLoopSelector } from './agents/RailLoopSelector'
 import { RailExecutionInfo } from './RailExecutionInfo'
 import { RailEffortSelector, type ReasoningEffort } from './agents/RailEffortSelector'
 import { RailPrDecisionStrip } from './RailPrDecisionStrip'
+import { RailTargetPrSelector, type RailTargetPr } from './RailTargetPrSelector'
+import { railIndexFromId } from '../lib/rail-id'
 import { providerSupportsReasoningEffort } from '../lib/provider-capabilities'
 import { modelsForProvider, defaultModelForProvider } from '../lib/loop-run-models'
 import type { LocalTicket, RailPrDecision, RailPrDecisionAction, RailPrStateSnapshot } from '../types'
@@ -45,6 +47,9 @@ interface RailRowProps {
   selectedLoopId?: string | null
   /** Selected reasoning effort (loop mode). */
   reasoningEffort?: ReasoningEffort | null
+  /** Explicit delivery target: an existing open PR this rail's next launch
+   *  delivers into (deliver-rail-into-existing-pr). null/undefined = new PR. */
+  targetPr?: RailTargetPr | null
   /** Merge-back progress for a parallel/isolated launch (null when none). */
   worktreeSummary?: { merged: number; needsReview: number; failed: number; reported: number } | null
   /** Active ask-first PR decision for this rail (null when none). */
@@ -79,6 +84,7 @@ interface RailRowProps {
   onLoopModelChange?: (model: string) => void
   onLoopChange?: (loopId: string) => void
   onEffortChange?: (effort: ReasoningEffort) => void
+  onTargetPrChange?: (value: RailTargetPr | null) => void
   onToggle: () => void
   onTicketClick: (ticket: LocalTicket) => void
   onDelete: () => void
@@ -92,12 +98,15 @@ interface RailRowProps {
 
 export function RailRow({
   id, label, tickets, mode, status, activeJobId, profileName, aiEngine, freestyleModel, loopModel, providers,
-  loopAvailable, selectedLoopId, reasoningEffort, worktreeSummary, prDecision, onPrDecision, onPrCheckout, executionMetric, jiggleMode,
+  loopAvailable, selectedLoopId, reasoningEffort, targetPr, worktreeSummary, prDecision, onPrDecision, onPrCheckout, executionMetric, jiggleMode,
   dragHandleListeners, dragHandleAttributes, density = 'normal',
-  onModeChange, onProfileChange, onEngineChange, onFreestyleModelChange, onLoopModelChange, onLoopChange, onEffortChange, onToggle, onTicketClick, onDelete, onLongPress, onRename,
+  onModeChange, onProfileChange, onEngineChange, onFreestyleModelChange, onLoopModelChange, onLoopChange, onEffortChange, onTargetPrChange, onToggle, onTicketClick, onDelete, onLongPress, onRename,
   onTicketMoveToSpecs,
 }: RailRowProps) {
   const { t } = useTranslation('dashboard')
+  // Server rail index for identity-keyed endpoints (pr-candidates). Null for
+  // exotic/test ids — the target-PR selector simply doesn't render then.
+  const serverRailIdx = railIndexFromId(id)
   // Codex has no agent profiles — hide the profile selector when this rail's
   // engine is codex (the engine selector is shown only on multi-provider projects).
   const profileApplies = (aiEngine ?? providers?.[0]) !== 'codex'
@@ -457,6 +466,9 @@ export function RailRow({
           {onEffortChange && !isRunning && mode === 'loop' && effortApplies && (
             <RailEffortSelector value={reasoningEffort ?? null} onChange={onEffortChange} />
           )}
+          {onTargetPrChange && !isRunning && serverRailIdx !== null && (
+            <RailTargetPrSelector railIndex={serverRailIdx} value={targetPr ?? null} onChange={onTargetPrChange} />
+          )}
           <RailControls
             mode={mode}
             status={status}
@@ -682,6 +694,9 @@ export function RailRow({
               )}
               {mode === 'loop' && !isRunning && effortApplies && onEffortChange && (
                 <RailEffortSelector value={reasoningEffort ?? null} onChange={onEffortChange} />
+              )}
+              {onTargetPrChange && !isRunning && serverRailIdx !== null && (
+                <RailTargetPrSelector railIndex={serverRailIdx} value={targetPr ?? null} onChange={onTargetPrChange} />
               )}
             </div>
           )}

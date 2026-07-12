@@ -57,7 +57,7 @@ import { snapshotWorkingTree, type WorkingTreeSnapshot } from './file-provenance
 import { recordLoopRunProvenance } from './file-story'
 import { getAdapter } from './providers'
 import { defaultExec, pushBranch, type Exec } from './pr-publisher'
-import { resolveActivePrContinuationTargets, type ActivePrContinuationTarget } from './active-pr-continuation'
+import { resolveActivePrContinuationTargets, resolveExplicitPrTarget, type ActivePrContinuationTarget } from './active-pr-continuation'
 import { isExactOpenPr, matchesRecordedPrIdentity, observePrLifecycle, verifyPushRemoteForPr } from './pr-lifecycle'
 import { durableBranchHeads, durableOverlayCleanupEvidence, releaseRailWorktrees } from './rail-worktree-release'
 import {
@@ -110,6 +110,11 @@ export interface IsolatedLaunchInput {
     prNumber: number | null
     deliverySha: string
   }
+  /** Explicit user-designated target PR (deliver-rail-into-existing-pr).
+   * When present, this launch continues that exact open PR — automatic
+   * continuation discovery is skipped and validation failure throws
+   * `ExplicitPrTargetError` BEFORE any delivery row or worktree exists. */
+  explicitPrTarget?: { prNumber: number }
 }
 
 /** A PR follow-up may only run on the verified PR branch in a dedicated
@@ -562,22 +567,41 @@ export async function launchIsolatedRail(input: IsolatedLaunchInput, io: Isolate
   // rail delivery row can represent one PR URL, so multi-PR batches continue to
   // use the existing new-work flow instead of silently mixing PRs.
   const continuationTargets = prMode
-    ? await resolveActivePrContinuationTargets({
-        db: ctx.db,
-        git,
-        exec,
-        repoDir: baseRepo,
-        // Continuation authority is scoped to the launch's exact durable ticket
-        // set. In scope=all there is only one isolation unit, but its primary
-        // ticket must never stand in for the full batch during PR discovery.
-        ticketIds: [...ticketIds],
-        integrationBranch: integration.branch,
-        fetchOk: fetchResult.ok,
-        getTicketSpec: (ticketId) => {
-          try { return ctx.getTicketSpec(ticketId) as ReturnType<typeof unitNamingInput> & { status?: string; description?: string } }
-          catch { return undefined }
-        },
-      })
+    ? input.explicitPrTarget
+      // Explicit designation is the user's answer, not a discovery guess: it
+      // replaces automatic resolution entirely and applies the ONE verified
+      // target to every launch ticket. Validation failure throws
+      // ExplicitPrTargetError here — before createPrDeliveryGeneration — so a
+      // rejected launch leaves zero rows, branches, or worktrees behind.
+      ? await (async () => {
+          const target = await resolveExplicitPrTarget({
+            git,
+            exec,
+            repoDir: baseRepo,
+            prNumber: input.explicitPrTarget!.prNumber,
+            integrationBranch: integration.branch,
+            fetchOk: fetchResult.ok,
+          })
+          return new Map<number, ActivePrContinuationTarget>(
+            ticketIds.map((ticketId) => [ticketId, { ...target, ticketId }]),
+          )
+        })()
+      : await resolveActivePrContinuationTargets({
+          db: ctx.db,
+          git,
+          exec,
+          repoDir: baseRepo,
+          // Continuation authority is scoped to the launch's exact durable ticket
+          // set. In scope=all there is only one isolation unit, but its primary
+          // ticket must never stand in for the full batch during PR discovery.
+          ticketIds: [...ticketIds],
+          integrationBranch: integration.branch,
+          fetchOk: fetchResult.ok,
+          getTicketSpec: (ticketId) => {
+            try { return ctx.getTicketSpec(ticketId) as ReturnType<typeof unitNamingInput> & { status?: string; description?: string } }
+            catch { return undefined }
+          },
+        })
     : new Map<number, ActivePrContinuationTarget>()
   const uniqueContinuationKeys = new Set(
     ticketIds
