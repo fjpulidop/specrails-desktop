@@ -2309,8 +2309,12 @@ describe('launchIsolatedRail — per-run worktree overlay', () => {
     await vi.waitFor(() => expect(calls.some((c) => c.args[0] === 'add')).toBe(true))
     const add = calls.find((c) => c.args[0] === 'add')!
     expect(add.cwd).toBe('/wt/ticket-1')
-    expect(add.args).toEqual([
-      'add', '-A', '--', '.',
+    // The add is PLAIN (exclude pathspecs naming git-ignored paths abort
+    // git add); the overlay exclusions are enforced at COMMIT time.
+    expect(add.args).toEqual(['add', '-A', '--', '.'])
+    await vi.waitFor(() => expect(calls.some((c) => c.args[0] === 'commit')).toBe(true))
+    expect(calls.find((c) => c.args[0] === 'commit')!.args).toEqual([
+      'commit', '--no-verify', '--only', '-m', expect.any(String), '--', '.',
       ...PR_NEVER_STAGE_PATHSPEC_ROOTS.map((p) => `:(exclude)${p}`),
       ':(top,exclude,literal).claude/commands/specrails',
       ':(top,exclude,literal).claude/agents',
@@ -2322,15 +2326,17 @@ describe('launchIsolatedRail — per-run worktree overlay', () => {
     expect(record.overlayCleanupEvidence).toEqual([])
   })
 
-  it('REGRESSION PIN: a no-op overlay (fully-tracked legacy repo) adds only permanent PR excludes', async () => {
+  it('REGRESSION PIN: a no-op overlay (fully-tracked legacy repo) stages plainly and keeps only permanent PR excludes on the commit', async () => {
     const { ctx } = fakeCtx(settlingRun('success'))
     const calls: { args: string[]; cwd: string }[] = []
     const git = { run: async (args: string[], cwd: string) => { calls.push({ args, cwd }); return successfulGitResult(args) } }
     await launchIsolatedRail(input([1], ctx), { git, create: okCreate(), remove: vi.fn(async () => {}), overlay: noopOverlay() })
 
     await vi.waitFor(() => expect(calls.some((c) => c.args[0] === 'add')).toBe(true))
-    expect(calls.find((c) => c.args[0] === 'add')!.args).toEqual([
-      'add', '-A', '--', '.',
+    expect(calls.find((c) => c.args[0] === 'add')!.args).toEqual(['add', '-A', '--', '.'])
+    await vi.waitFor(() => expect(calls.some((c) => c.args[0] === 'commit')).toBe(true))
+    expect(calls.find((c) => c.args[0] === 'commit')!.args).toEqual([
+      'commit', '--no-verify', '--only', '-m', expect.any(String), '--', '.',
       ...PR_NEVER_STAGE_PATHSPEC_ROOTS.map((p) => `:(exclude)${p}`),
     ])
   })

@@ -185,29 +185,30 @@ describe('listLocalBranches', () => {
 })
 
 describe('commitWorktree', () => {
-  const baseAddArgs = ['add', '-A', '--', '.', ...PR_NEVER_STAGE_PATHSPEC_ROOTS.map((p) => `:(exclude)${p}`)]
+  // The add is PLAIN (no exclude pathspecs): `git add` exits 1 when any
+  // pathspec item — exclude items included — names a git-ignored path, and the
+  // never-stage roots ARE git-ignored via our own info/exclude block. The
+  // commit keeps the authoritative `--only` exclusions.
+  const plainAddArgs = ['add', '-A', '--', '.']
+  const basePathspecs = ['--', '.', ...PR_NEVER_STAGE_PATHSPEC_ROOTS.map((p) => `:(exclude)${p}`)]
 
-  it('stages + commits the worktree to its branch while excluding private agent artifacts', async () => {
+  it('stages plainly + commits the worktree excluding private agent artifacts at commit time', async () => {
     const { git, calls } = fakeGit()
     await commitWorktree(git, '/wt/ticket-1', 'wip')
-    expect(calls).toContainEqual(baseAddArgs)
-    expect(calls).toContainEqual(['commit', '--no-verify', '--only', '-m', 'wip', ...baseAddArgs.slice(2)])
+    expect(calls).toContainEqual(plainAddArgs)
+    expect(calls).toContainEqual(['commit', '--no-verify', '--only', '-m', 'wip', ...basePathspecs])
   })
   it('never throws even if git fails', async () => {
     const git: GitRunner = { run: async () => { throw new Error('git gone') } }
     await expect(commitWorktree(git, '/wt/1', 'x')).resolves.toBeUndefined()
   })
-  it('excludes overlay-owned paths from the add via literal pathspecs', async () => {
+  it('excludes overlay-owned paths from the commit via literal pathspecs, never from the add', async () => {
     const { git, calls } = fakeGit()
     await commitWorktree(git, '/wt/ticket-1', 'wip', ['.claude/commands/specrails', '.sr-rail-overlay.json'])
-    expect(calls).toContainEqual([
-      ...baseAddArgs,
-      ':(top,exclude,literal).claude/commands/specrails',
-      ':(top,exclude,literal).sr-rail-overlay.json',
-    ])
+    expect(calls).toContainEqual(plainAddArgs)
     expect(calls).toContainEqual([
       'commit', '--no-verify', '--only', '-m', 'wip',
-      ...baseAddArgs.slice(2),
+      ...basePathspecs,
       ':(top,exclude,literal).claude/commands/specrails',
       ':(top,exclude,literal).sr-rail-overlay.json',
     ])
@@ -215,19 +216,21 @@ describe('commitWorktree', () => {
   it('excludes each agent-memory root from PR commits without descending into the overlay symlink', async () => {
     const { git, calls } = fakeGit()
     await commitWorktree(git, '/wt/ticket-1', 'wip', [])
-    const addCall = calls.find((c) => c[0] === 'add')!
-    expect(addCall).toEqual(baseAddArgs)
+    const commitCall = calls.find((c) => c[0] === 'commit')!
     // Symlink-root pathspecs only — a dir-level exclude already covers all
     // contents, and any subpath (`/**`, `/explanations`) would descend INTO the
-    // `agent-memory` symlink and abort `git add` with "beyond a symbolic link".
-    expect(addCall).toEqual(expect.arrayContaining([
+    // `agent-memory` symlink and abort git with "beyond a symbolic link".
+    expect(commitCall).toEqual(expect.arrayContaining([
       ':(exclude).claude/agent-memory',
       ':(exclude).codex/agent-memory',
       ':(exclude).gemini/agent-memory',
     ]))
-    for (const spec of addCall) {
+    for (const spec of commitCall) {
       expect(spec).not.toMatch(/agent-memory\/(\*\*|explanations)/)
     }
+    // And the add carries NO exclude pathspecs at all: naming a git-ignored
+    // path in any add pathspec aborts with "The following paths are ignored".
+    expect(calls.find((c) => c[0] === 'add')).toEqual(plainAddArgs)
   })
   it('reports a dirty deliverable worktree after the commit attempt', async () => {
     const { git } = fakeGit({ dirtyStatus: ' M src/app.ts\n?? src/new.ts\n' })
@@ -253,7 +256,7 @@ describe('commitWorktree', () => {
   it('treats glob metacharacters in an overlay filename literally', async () => {
     const { git, calls } = fakeGit()
     await commitWorktree(git, '/wt/ticket-1', 'wip', ['.claude/rules/user[1]*.md'])
-    expect(calls.find((call) => call[0] === 'add')).toContain(
+    expect(calls.find((call) => call[0] === 'commit')).toContain(
       ':(top,exclude,literal).claude/rules/user[1]*.md',
     )
   })
@@ -453,6 +456,46 @@ describe('commitWorktree', () => {
       } finally {
         fs.rmSync(sharedMemory, { recursive: true, force: true })
       }
+    } finally {
+      fs.rmSync(dir, { recursive: true, force: true })
+    }
+  })
+
+  it('commits deliverables when excluded paths are git-ignored (regression: "The following paths are ignored")', async () => {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'specrails-ignored-exclude-'))
+    const git = (args: string[]) => execFileSync('git', args, { cwd: dir, encoding: 'utf8' })
+    try {
+      git(['init', '--quiet'])
+      git(['config', 'user.email', 'specrails@example.test'])
+      git(['config', 'user.name', 'Specrails Test'])
+      // The repo's own .gitignore ignores an overlay-created file, exactly like
+      // a real project ignoring `.claude/settings.local.json`.
+      fs.writeFileSync(path.join(dir, '.gitignore'), '.claude/settings.local.json\n')
+      git(['add', '.gitignore'])
+      git(['commit', '--quiet', '-m', 'base'])
+
+      // The real flow: createWorktree installs the never-stage info/exclude
+      // block, making the agent-memory roots GIT-IGNORED. Naming an ignored
+      // path in any `git add` pathspec — exclude items included — previously
+      // aborted the add with exit 1 ("The following paths are ignored by one
+      // of your .gitignore files") and blocked the whole PR delivery.
+      await ensurePrNeverStageExcludes(defaultGitRunner, dir)
+      fs.mkdirSync(path.join(dir, '.claude', 'agent-memory'), { recursive: true })
+      fs.writeFileSync(path.join(dir, '.claude', 'agent-memory', 'mem.md'), 'private\n')
+      fs.writeFileSync(path.join(dir, '.claude', 'settings.local.json'), '{}\n')
+      fs.writeFileSync(path.join(dir, '.sr-rail-overlay.json'), '{"version":1}\n')
+      fs.writeFileSync(path.join(dir, 'app.py'), 'code = 1\n')
+
+      const result = await commitWorktreeAndVerify(
+        defaultGitRunner, dir, 'sdd quick delivery',
+        ['.claude/settings.local.json', '.sr-rail-overlay.json'],
+      )
+
+      expect(result.error).toBeUndefined()
+      expect(result).toMatchObject({ staged: true, committed: true, clean: true })
+      const committed = git(['diff-tree', '--no-commit-id', '--name-only', '-r', '-z', 'HEAD'])
+        .slice(0, -1).split('\0')
+      expect(committed).toEqual(['app.py'])
     } finally {
       fs.rmSync(dir, { recursive: true, force: true })
     }

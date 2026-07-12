@@ -368,7 +368,17 @@ export async function commitWorktreeAndVerify(
   excludePaths: string[] = []
 ): Promise<CommitWorktreeResult> {
   const pathspecs = commitPathspecs(excludePaths)
-  const add = await gitRun(git, ['add', '-A', ...pathspecs], worktreePath)
+  // The add is deliberately PLAIN — no exclude pathspecs. `git add` exits 1
+  // with "The following paths are ignored by one of your .gitignore files"
+  // whenever ANY pathspec item (exclude items included) names a git-ignored
+  // path, and our own info/exclude block (ensurePrNeverStageExcludes) plus repo
+  // .gitignore entries (e.g. `.claude/settings.local.json`) make exactly the
+  // excluded paths ignored. Ignored paths can never be staged without `-f`, so
+  // the plain add is safe for them; non-ignored overlay files DO get staged
+  // here and are unstaged by the audit → reset flow below before the commit,
+  // whose `--only` pathspecs (which git commit accepts without the
+  // ignored-path check) remain the authoritative exclusion.
+  const add = await gitRun(git, ['add', '-A', '--', '.'], worktreePath)
   let indexSafe = false
   let indexError: string | undefined
   if (add.code === 0) {
@@ -380,8 +390,8 @@ export async function commitWorktreeAndVerify(
     } else if (initialAudit.forbidden.length === 0) {
       indexSafe = true
     } else {
-      // Exclude pathspecs prevent newly-staged private/overlay files, but an
-      // earlier process may already have put them in the index. Reset only the
+      // The plain add routinely stages non-ignored overlay files, and an
+      // earlier process may have put private paths in the index. Reset only the
       // prohibited roots back to HEAD: working files remain intact for recovery.
       const reset = await gitRun(
         git,
