@@ -1126,6 +1126,17 @@ export function createRailsRouter(): Router {
             detail: cleanupWarnings[0],
           }
         }
+        // Cleanup just completed with ZERO warnings — clear any stale
+        // cleanup_incomplete evidence persisted by earlier failed release
+        // attempts, so the card stops claiming "Cleanup is incomplete" after
+        // the condition has been resolved. Same-state patch + live broadcast.
+        if (currentSnap.cleanupWarnings.length > 0 || currentSnap.statusCode === 'cleanup_incomplete') {
+          transitionDecision(c.db, row.id, currentSnap.decision, currentSnap.decision, {
+            cleanupWarnings: [],
+            ...(currentSnap.statusCode === 'cleanup_incomplete' ? { statusCode: null } : {}),
+          })
+          emitPrDeliveryUpdate(c, row.id)
+        }
         const checkedOut = await checkoutProjectReviewBranch(
           c.project.path,
           currentSnap.branch,

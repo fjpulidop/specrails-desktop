@@ -1831,6 +1831,25 @@ describe('rails-router POST /pr-checkout generation guard', () => {
     expect(mockCheckoutProjectReviewBranch).not.toHaveBeenCalled()
   })
 
+  it('clears stale cleanup_incomplete evidence after a warning-free release', async () => {
+    const deliverySha = 'f'.repeat(40)
+    const delivery = checkoutDelivery({ id: 'checkout-clears-stale', deliveryOutcome: 'delivered', deliverySha })
+    // Earlier failed release attempts persisted a warning + cleanup_incomplete.
+    transitionDecision(db, delivery.id, 'pr_ready', 'pr_ready', {
+      cleanupWarnings: ['worktree /wt/old: preserved because the worktree contains changes made after settlement'],
+      statusCode: 'cleanup_incomplete',
+    })
+    mockReleaseRailWorktrees.mockResolvedValueOnce([])
+    mockCheckoutProjectReviewBranch.mockResolvedValueOnce({ ok: true })
+
+    const res = await request(appWith(db)).post('/rails/pr-checkout').send({ prDeliveryId: delivery.id })
+
+    expect(res.status).toBe(200)
+    const row = getPrDelivery(db, delivery.id)!
+    expect(JSON.parse(row.cleanup_warnings)).toEqual([])
+    expect(row.status_code).toBeNull()
+  })
+
   it('passes the immutable delivery SHA to checkout and relays a divergent-ref refusal', async () => {
     const deliverySha = 'e'.repeat(40)
     const delivery = checkoutDelivery({ id: 'checkout-divergent-ref', deliveryOutcome: 'delivered', deliverySha })
