@@ -118,9 +118,14 @@ actionable.
   verification distinguish changed, resumed, and no-change results.
 - Per-unit settlement returns structured execution + delivery results. `onLoopRunFinished` receives
   the engine outcome only; commit/status/ref/provenance/push failures cannot rewrite it.
-- Clean, committed worktrees may be released only after a final live preflight proves tracked,
-  untracked, and ignored status (apart from durably recorded Specrails overlay paths), plus exact
-  worktree HEAD and branch ref. Authenticated overlay roots are atomically renamed to a unique
+- Clean, committed worktrees may be released only after a final live preflight proves tracked and
+  untracked status (apart from durably recorded Specrails overlay paths), plus exact worktree HEAD
+  and branch ref. Gitignored paths are release-safe only when covered by the IMMUTABLE settlement
+  snapshot (`DeliverBranchRecord.settlementIgnoredPaths`, captured the moment the worktree was
+  proven clean) — run-created build caches (`__pycache__`, `node_modules`) release cleanly, while an
+  ignored path that APPEARS after settlement, a failed/oversized capture (>400 paths → null), a
+  legacy row without a snapshot, or conflicting per-branch snapshots all preserve the worktree
+  (`durableSettlementIgnoredPaths`, cleanup-and-checkout-tolerate-run-artifacts). Authenticated overlay roots are atomically renamed to a unique
   persistent same-filesystem quarantine batch and revalidated there; automatic cleanup never unlinks that
   quarantine, so a raced replacement or open-descriptor write remains recoverable. The batch root is
   persisted before the first move and pointers are never evicted while their bytes remain on disk. A recreated
@@ -438,6 +443,30 @@ evidence or detach stale/missing-SHA terminal evidence to `on_review`. Only a ve
 is superseded atomically and run on that PR head. A stale
 concurrent request receives 409 before it can allocate or claim anything. Legacy / non-isolated
 launches are unaffected.
+
+## Explicit target PR (deliver-rail-into-existing-pr)
+
+The launch body accepts an optional `targetPrNumber` — the user's explicit designation of an
+existing open PR as the delivery destination ("extend PR #151"). It bypasses the automatic-inference
+status gates (which never probe GitHub for a `todo` ticket) but keeps the authoritative validation
+ladder: `resolveExplicitPrTarget` (`server/active-pr-continuation.ts`) resolves the number to its
+canonical URL, observes the lifecycle, and throws `ExplicitPrTargetError` with a distinct code —
+`target_pr_not_found` (404) / `target_pr_not_open` / `target_pr_fork` (`isCrossRepository !== false`)
+/ `target_pr_invalid` / `target_pr_unfetchable` (all 409) — rejecting the launch BEFORE any delivery
+row or worktree exists; there is never a silent fallback to a fresh integration-branch run. The
+router also 400s `invalid_target_pr` (shape) and `target_pr_requires_pr_mode` (loops/PR-delivery off,
+non-isolated launch, or isolation unavailable). A valid target becomes one `ActivePrContinuationTarget`
+(`source: 'explicit-target'`) applied to every launch ticket — the existing single-checkout collapse,
+born-attached generation (`pr_url`/`pr_number` at insert, `isContinuation`, `borrowed-pr` ownership),
+and attached-PR decision card all reuse the automatic-continuation machinery byte-identically. The
+PR's `baseRefName` wins over the configured integration branch. When the slot has a continuable
+delivery for the SAME PR the continuation contract drives instead (explicit target dropped as
+redundant); a DIFFERENT number 409s `pr_decision_pending`. Surfaces: dashboard rail header
+`RailTargetPrSelector` (candidates from `GET /rails/:i/pr-candidates` — the automatic matchers
+without the status gate, display-only, fork rows disabled — plus manual number entry; selection is
+one-shot, consumed by the launch) with `TargetPrLaunchDialog` confirming number/title/head branch;
+MCP `specrails_rails(launch, targetPrNumber)` with operator-prompt teaching ("user names a PR →
+pass it; never create a duplicate"). Fork PR push support and multi-PR batches remain out of scope.
 
 ## Ticket lifecycle — `on_review`
 

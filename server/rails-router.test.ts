@@ -11,6 +11,7 @@ import { createLoopRun } from './loop-runs-store'
 import { createPrDelivery, getActivePrDeliveryByRail, getPrDelivery, transitionDecision, type CreatePrDeliveryInput } from './rail-pr-store'
 import type { LoopGraph } from './loop-graph'
 import { beginProjectProcessQuiescence, openProjectProcessAdmission } from './process-admission'
+import { ExplicitPrTargetError } from './active-pr-continuation'
 import { withRepoLock } from './repo-lock'
 
 const {
@@ -1144,6 +1145,184 @@ describe('rails-router POST /:railIndex/launch — ask-first PR delivery (safe-p
   })
 })
 
+describe('rails-router POST /:railIndex/launch — explicit target PR (deliver-rail-into-existing-pr)', () => {
+  let db: DbInstance
+  let desktopDb: DbInstance
+  const ORIG_PR = process.env.SPECRAILS_RAIL_DELIVER_PR
+
+  beforeEach(() => {
+    db = initDb(':memory:')
+    desktopDb = initDesktopDb(':memory:')
+    setRailTickets(db, 0, [1, 2], 'loop')
+    delete process.env.SPECRAILS_RAIL_DELIVER_PR // default-on
+  })
+  afterEach(() => {
+    db.close(); desktopDb.close()
+    if (ORIG_PR === undefined) delete process.env.SPECRAILS_RAIL_DELIVER_PR
+    else process.env.SPECRAILS_RAIL_DELIVER_PR = ORIG_PR
+  })
+
+  const launchApp = (opts: Parameters<typeof appWith>[1] = {}) =>
+    appWith(db, {
+      desktopDb,
+      loopRunManager: { run: vi.fn().mockResolvedValue({ runId: 'r', outcome: 'success', iterations: 1, totalCostUsd: 0 }), cancel: vi.fn() },
+      getTicketSpec: () => ({ title: 'T', description: 'D' }),
+      ...opts,
+    })
+
+  it.each([
+    ['a string', 'abc'],
+    ['a float', 1.5],
+    ['zero', 0],
+    ['negative', -3],
+    ['out of bounds', 2_000_000_000],
+  ])('400 invalid_target_pr when targetPrNumber is %s', async (_label, value) => {
+    const res = await request(launchApp()).post('/rails/0/launch')
+      .send({ loopId: 'factory:implement', targetPrNumber: value })
+    expect(res.status).toBe(400)
+    expect(res.body.error).toBe('invalid_target_pr')
+    expect(mockLaunchIsolated).not.toHaveBeenCalled()
+  })
+
+  it('400 target_pr_requires_pr_mode when PR delivery is switched off', async () => {
+    process.env.SPECRAILS_RAIL_DELIVER_PR = '0'
+    const res = await request(launchApp()).post('/rails/0/launch')
+      .send({ loopId: 'factory:implement', targetPrNumber: 151 })
+    expect(res.status).toBe(400)
+    expect(res.body.error).toBe('target_pr_requires_pr_mode')
+    expect(mockLaunchIsolated).not.toHaveBeenCalled()
+  })
+
+  it('400 target_pr_requires_pr_mode when worktree isolation is unavailable — never a silent fresh launch', async () => {
+    mockRepoStatus.mockResolvedValue('no-git')
+    const res = await request(launchApp()).post('/rails/0/launch')
+      .send({ loopId: 'factory:implement', targetPrNumber: 151 })
+    expect(res.status).toBe(400)
+    expect(res.body.error).toBe('target_pr_requires_pr_mode')
+    expect(res.body.detail).toMatch(/no-git/)
+    expect(mockLaunchIsolated).not.toHaveBeenCalled()
+  })
+
+  it('threads explicitPrTarget into the isolated launch', async () => {
+    mockRepoStatus.mockResolvedValue('ok')
+    mockLaunchIsolated.mockResolvedValue(['run-explicit'])
+    const res = await request(launchApp()).post('/rails/0/launch')
+      .send({ loopId: 'factory:implement', targetPrNumber: 151 })
+    expect(res.status).toBe(202)
+    expect(mockLaunchIsolated).toHaveBeenCalledWith(expect.objectContaining({
+      explicitPrTarget: { prNumber: 151 },
+    }))
+  })
+
+  it.each([
+    ['target_pr_not_found', 404],
+    ['target_pr_not_open', 409],
+    ['target_pr_fork', 409],
+    ['target_pr_invalid', 409],
+    ['target_pr_unfetchable', 409],
+  ] as const)('maps ExplicitPrTargetError %s to %d without falling back to shared cwd', async (code, status) => {
+    mockRepoStatus.mockResolvedValue('ok')
+    mockLaunchIsolated.mockRejectedValue(new ExplicitPrTargetError(code, `boom: ${code}`))
+    const res = await request(launchApp()).post('/rails/0/launch')
+      .send({ loopId: 'factory:implement', targetPrNumber: 151 })
+    expect(res.status).toBe(status)
+    expect(res.body).toEqual({ error: code, detail: `boom: ${code}` })
+  })
+
+  it('409 pr_decision_pending when the slot has an undecided delivery for a DIFFERENT PR', async () => {
+    const row = createPrDelivery(db, {
+      railIndex: 0, loopId: 'factory:implement', railKey: '0-factory:implement',
+      ticketIds: [1, 2], baseBranch: 'main', loopName: 'Implement', originSurface: 'dashboard',
+    })
+    transitionDecision(db, row.id, 'building', 'on_review', {
+      branches: [
+        { ticketId: 1, branch: 'feat/open-pr', succeeded: true },
+        { ticketId: 2, branch: 'feat/open-pr', succeeded: true },
+      ],
+      worktreeIds: [],
+    })
+    transitionDecision(db, row.id, 'on_review', 'pr_draft', {
+      branch: 'feat/open-pr', prUrl: 'https://github.com/o/r/pull/521', prNumber: 521,
+      prState: 'pr-created', deliverySha: 'a'.repeat(40),
+    })
+    transitionDecision(db, row.id, 'pr_draft', 'pr_ready')
+
+    const res = await request(launchApp()).post('/rails/0/launch')
+      .send({ loopId: 'factory:implement', targetPrNumber: 151 })
+    expect(res.status).toBe(409)
+    expect(res.body).toEqual({ error: 'pr_decision_pending', prDeliveryId: row.id })
+    expect(mockLaunchIsolated).not.toHaveBeenCalled()
+  })
+
+  it('SAME PR as the continuable delivery proceeds via the continuation contract, not explicitPrTarget', async () => {
+    const row = createPrDelivery(db, {
+      railIndex: 0, loopId: 'factory:implement', railKey: '0-factory:implement',
+      ticketIds: [1, 2], baseBranch: 'main', loopName: 'Implement', originSurface: 'dashboard',
+    })
+    transitionDecision(db, row.id, 'building', 'on_review', {
+      branches: [
+        { ticketId: 1, branch: 'feat/open-pr', succeeded: true },
+        { ticketId: 2, branch: 'feat/open-pr', succeeded: true },
+      ],
+      worktreeIds: [],
+    })
+    transitionDecision(db, row.id, 'on_review', 'pr_draft', {
+      branch: 'feat/open-pr', prUrl: 'https://github.com/o/r/pull/521', prNumber: 521,
+      prState: 'pr-created', deliverySha: 'a'.repeat(40),
+    })
+    transitionDecision(db, row.id, 'pr_draft', 'pr_ready')
+    mockRepoStatus.mockResolvedValue('ok')
+    mockLaunchIsolated.mockResolvedValue(['run-cont'])
+
+    const res = await request(launchApp()).post('/rails/0/launch')
+      .send({ loopId: 'factory:implement', targetPrNumber: 521 })
+    expect(res.status).toBe(202)
+    const call = mockLaunchIsolated.mock.calls[0][0]
+    expect(call.requiredPrContinuation).toMatchObject({ prNumber: 521 })
+    expect(call.explicitPrTarget).toBeUndefined()
+  })
+})
+
+describe('rails-router GET /:railIndex/pr-candidates', () => {
+  let db: DbInstance
+  let desktopDb: DbInstance
+
+  beforeEach(() => {
+    db = initDb(':memory:')
+    desktopDb = initDesktopDb(':memory:')
+    setRailTickets(db, 0, [112], 'loop')
+  })
+  afterEach(() => { db.close(); desktopDb.close() })
+
+  it('returns matched-first display candidates with fork flags', async () => {
+    mockExecRun.mockImplementation(async (_cmd: string, args: string[]) => {
+      if (args[1] === 'list') {
+        return {
+          code: 0,
+          stdout: JSON.stringify([
+            { number: 7, title: 'Other', headRefName: 'feat/x', baseRefName: 'main', url: 'https://github.com/e/r/pull/7', isDraft: false, isCrossRepository: false, state: 'OPEN' },
+            { number: 151, title: 'Skills', headRefName: 'feat/skills', baseRefName: 'develop', url: 'https://github.com/e/r/pull/151', isDraft: true, isCrossRepository: false, state: 'OPEN' },
+          ]),
+          stderr: '',
+        }
+      }
+      return { code: 1, stdout: '', stderr: '' }
+    })
+    const app = appWith(db, {
+      desktopDb,
+      getTicketSpec: () => ({ title: 'extend PR #151', description: 'see PR #151', status: 'todo' }),
+    })
+    const res = await request(app).get('/rails/0/pr-candidates')
+    expect(res.status).toBe(200)
+    expect(res.body.candidates.map((c: { number: number }) => c.number)).toEqual([151, 7])
+  })
+
+  it('400 on an out-of-range rail index', async () => {
+    const res = await request(appWith(db, { desktopDb })).get('/rails/99/pr-candidates')
+    expect(res.status).toBe(400)
+  })
+})
+
 // The behavioral fix under test: with Loops enabled (the DEFAULT), a bare legacy
 // mode from ANY launch door (MCP tools, mobile, direct REST — no loopId) derives
 // its factory loop and routes through the loop engine, so worktree isolation and
@@ -1650,6 +1829,25 @@ describe('rails-router POST /pr-checkout generation guard', () => {
     expect(mockGetProjectGitInfo).not.toHaveBeenCalled()
     expect(mockReleaseRailWorktrees).not.toHaveBeenCalled()
     expect(mockCheckoutProjectReviewBranch).not.toHaveBeenCalled()
+  })
+
+  it('clears stale cleanup_incomplete evidence after a warning-free release', async () => {
+    const deliverySha = 'f'.repeat(40)
+    const delivery = checkoutDelivery({ id: 'checkout-clears-stale', deliveryOutcome: 'delivered', deliverySha })
+    // Earlier failed release attempts persisted a warning + cleanup_incomplete.
+    transitionDecision(db, delivery.id, 'pr_ready', 'pr_ready', {
+      cleanupWarnings: ['worktree /wt/old: preserved because the worktree contains changes made after settlement'],
+      statusCode: 'cleanup_incomplete',
+    })
+    mockReleaseRailWorktrees.mockResolvedValueOnce([])
+    mockCheckoutProjectReviewBranch.mockResolvedValueOnce({ ok: true })
+
+    const res = await request(appWith(db)).post('/rails/pr-checkout').send({ prDeliveryId: delivery.id })
+
+    expect(res.status).toBe(200)
+    const row = getPrDelivery(db, delivery.id)!
+    expect(JSON.parse(row.cleanup_warnings)).toEqual([])
+    expect(row.status_code).toBeNull()
   })
 
   it('passes the immutable delivery SHA to checkout and relays a divergent-ref refusal', async () => {

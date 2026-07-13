@@ -240,5 +240,29 @@
   },
   "useRails": {
     "fetchFailed": "获取 Rails 失败：{{status}}"
+  },
+  "targetPr": {
+    "chipNew": "新 PR",
+    "chipTitle": "交付到现有 PR",
+    "clear": "清除目标 PR",
+    "newPr": "新 PR（默认）",
+    "loading": "正在加载打开的 PR…",
+    "none": "未找到打开的 PR",
+    "fork": "Fork — 无法推送",
+    "manualPlaceholder": "PR 编号",
+    "manualUse": "使用",
+    "confirmTitle": "交付到现有 PR？",
+    "confirmBody": "本次运行将在该 PR 的 head 分支上工作并推送到它 — 不会创建新 PR。",
+    "confirmBranch": "Head 分支",
+    "confirmLaunch": "启动并交付到 PR #{{number}}",
+    "errors": {
+      "invalid_target_pr": "PR 编号无效",
+      "target_pr_requires_pr_mode": "交付到现有 PR 需要隔离的 PR 流程",
+      "target_pr_not_found": "在此仓库中未找到该 PR",
+      "target_pr_not_open": "该 PR 已不再打开",
+      "target_pr_fork": "该 PR 来自 fork，无法推送",
+      "target_pr_invalid": "该 PR 的分支无法作为交付目标",
+      "target_pr_unfetchable": "无法获取该 PR 的 head 分支"
+    }
   }
 }

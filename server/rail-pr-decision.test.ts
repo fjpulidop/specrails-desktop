@@ -2837,7 +2837,9 @@ describe('discard', () => {
     expect(result.status).toBe(200)
     expect(result.body).toMatchObject({ decision: 'discarded' })
     expect(result.body.cleanupWarnings).toEqual(expect.arrayContaining([
-      expect.stringContaining('contains changes'),
+      // Ignored path with NO settlement snapshot → preserved with the
+      // snapshot-specific reason (cleanup-and-checkout-tolerate-run-artifacts).
+      expect.stringContaining('no settlement snapshot'),
     ]))
     expect(gitCalls.some((call) => call.args[0] === 'worktree' && call.args[1] === 'remove')).toBe(false)
     expect(gitCalls.some((call) => call.args.includes('--force'))).toBe(false)

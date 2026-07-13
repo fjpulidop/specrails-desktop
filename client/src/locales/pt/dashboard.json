@@ -240,5 +240,29 @@
   },
   "useRails": {
     "fetchFailed": "Falha ao obter os rails: {{status}}"
+  },
+  "targetPr": {
+    "chipNew": "PR nova",
+    "chipTitle": "Entregar em uma PR existente",
+    "clear": "Remover PR alvo",
+    "newPr": "PR nova (padrão)",
+    "loading": "Carregando PRs abertas…",
+    "none": "Nenhuma PR aberta encontrada",
+    "fork": "Fork — não é possível fazer push",
+    "manualPlaceholder": "Número da PR",
+    "manualUse": "Usar",
+    "confirmTitle": "Entregar na PR existente?",
+    "confirmBody": "Esta execução trabalha na branch head da PR e faz push nela — nenhuma PR nova é criada.",
+    "confirmBranch": "Branch head",
+    "confirmLaunch": "Lançar para a PR #{{number}}",
+    "errors": {
+      "invalid_target_pr": "Número de PR inválido",
+      "target_pr_requires_pr_mode": "Entregar em uma PR existente exige o fluxo isolado de PR",
+      "target_pr_not_found": "PR não encontrada neste repositório",
+      "target_pr_not_open": "Essa PR não está mais aberta",
+      "target_pr_fork": "Essa PR vem de um fork e não pode receber push",
+      "target_pr_invalid": "As branches da PR não servem como destino de entrega",
+      "target_pr_unfetchable": "Não foi possível buscar a branch head da PR"
+    }
   }
 }

@@ -114,6 +114,12 @@ export function railsTools(): McpToolSpec[] {
           .enum(['low', 'medium', 'high'])
           .optional()
           .describe('Reasoning-effort tier for loop launches (launch, loop mode). From the in-app agent chat, omitting it defaults to the launching conversation\'s effort when that is low/medium/high.'),
+        targetPrNumber: z
+          .number()
+          .int()
+          .min(1)
+          .optional()
+          .describe('Deliver INTO an existing open PR instead of creating a new one (launch). When the user names an existing PR ("extend PR #151"), pass its number here — the rail then works on that PR\'s head branch and settle pushes to it; NEVER launch without it in that case (a plain launch would create a duplicate PR). The PR must be open and same-repo (fork PRs are rejected with target_pr_fork).'),
       },
       async handler(ctx, args) {
         const base = `${projectPath(ctx, args.projectId as string | undefined)}/rails`
@@ -198,6 +204,7 @@ export function railsTools(): McpToolSpec[] {
             if (args.interactive !== undefined) body.interactive = args.interactive as boolean
             if (args.loopId !== undefined) body.loopId = args.loopId as string
             if (args.reasoning_effort !== undefined) body.reasoning_effort = args.reasoning_effort as string
+            if (args.targetPrNumber !== undefined) body.targetPrNumber = args.targetPrNumber as number
             // Origin link (safe-pr-review-flow): a launch driven by the in-app
             // agent carries its conversation id (from the loopback header, via
             // ctx) so the PR decision card is posted back into that conversation.

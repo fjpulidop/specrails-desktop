@@ -24,6 +24,10 @@ export interface ReleaseRailWorktreesInput {
   /** Fingerprinted overlay paths persisted in SQLite at settlement. Each proof
    * is checked against the live worktree before its path can be excluded. */
   overlayEvidenceByBranch: ReadonlyMap<string, readonly OverlayCleanupEvidence[]>
+  /** Immutable settlement snapshot of gitignored paths per branch. A live
+   * ignored path is release-safe ONLY when covered by this snapshot; absent
+   * map/branch = no ignored authorization (legacy rows preserve as before). */
+  settlementIgnoredByBranch?: ReadonlyMap<string, readonly string[]>
   /** Called exactly once for each persistent quarantine batch root before any
    * overlay is moved beneath it. One durable root discloses every child and
    * remains valid across crashes or later release failure. */
@@ -42,6 +46,8 @@ export interface DurableBranchHeadRecord {
   finalSha?: string | null
   overlayExcludes?: string[]
   overlayCleanupEvidence?: OverlayCleanupEvidence[]
+  /** Immutable settlement snapshot of gitignored paths (null = no capture). */
+  settlementIgnoredPaths?: string[] | null
 }
 
 /** Collapse per-unit settlement evidence into one unambiguous immutable HEAD per
@@ -105,9 +111,47 @@ export function durableOverlayCleanupEvidence(
   return new Map([...byBranch].map(([branch, values]) => [branch, [...values.values()]]))
 }
 
+/** Collapse persisted settlement ignored-path snapshots per branch. The same
+ * conservative rules as overlay evidence: malformed paths, a failed capture
+ * (null), or conflicting per-branch snapshots grant NO authorization. */
+export function durableSettlementIgnoredPaths(
+  records: readonly DurableBranchHeadRecord[],
+): Map<string, readonly string[]> {
+  const byBranch = new Map<string, string[] | null>()
+  for (const record of records) {
+    if (!record.branch || record.settlementIgnoredPaths === undefined) continue
+    const prior = byBranch.get(record.branch)
+    if (prior === null) continue // already poisoned
+    if (record.settlementIgnoredPaths === null) { byBranch.set(record.branch, null); continue }
+    if (!Array.isArray(record.settlementIgnoredPaths)) { byBranch.set(record.branch, null); continue }
+    const safe: string[] = []
+    let valid = true
+    for (const value of record.settlementIgnoredPaths) {
+      const normalized = typeof value === 'string' ? safeRelativeOverlayPath(value.replace(/\/$/, '')) : null
+      if (!normalized) { valid = false; break }
+      safe.push(normalized)
+    }
+    if (!valid) { byBranch.set(record.branch, null); continue }
+    const sorted = [...new Set(safe)].sort()
+    if (prior === undefined) { byBranch.set(record.branch, sorted); continue }
+    if (prior.join('\0') !== sorted.join('\0')) byBranch.set(record.branch, null)
+  }
+  return new Map(
+    [...byBranch].flatMap(([branch, paths]) => (paths === null ? [] : [[branch, paths] as const])),
+  )
+}
+
+function coveredBySnapshot(livePath: string, snapshot: readonly string[]): boolean {
+  const live = livePath.replace(/\/$/, '')
+  return snapshot.some((entry) => live === entry || live.startsWith(`${entry}/`))
+}
+
 interface VerifiedReleaseEvidence {
   failure: string | null
   overlayEntries: OverlayCleanupEvidence[]
+  /** True when Git could not inspect the worktree AND the path is absent from
+   * the filesystem — the mount was removed externally; nothing to preserve. */
+  gone?: boolean
 }
 
 async function verifyReleaseEvidence(
@@ -130,8 +174,29 @@ async function verifyReleaseEvidence(
       ],
       worktree.worktree_path,
     )
-    if (status.code !== 0) return { failure: 'Git could not verify worktree cleanliness', overlayEntries: [] }
-    if (status.stdout.trim()) return { failure: 'the worktree contains changes made after settlement', overlayEntries: [] }
+    if (status.code !== 0) {
+      if (!pathStillExists(worktree.worktree_path)) return { failure: null, overlayEntries: [], gone: true }
+      return { failure: 'Git could not verify worktree cleanliness', overlayEntries: [] }
+    }
+    // Partition: tracked/untracked entries are unconditional dirt (unchanged
+    // strictness); gitignored entries are release-safe ONLY when the immutable
+    // settlement snapshot already contained them — run-created build caches
+    // release cleanly, anything ignored that APPEARED after settlement (a
+    // user-parked file) preserves the worktree exactly as before.
+    const statusLines = status.stdout.split('\n').map((line) => line.trimEnd()).filter(Boolean)
+    const dirtyLines = statusLines.filter((line) => !line.startsWith('!! '))
+    if (dirtyLines.length > 0) return { failure: 'the worktree contains changes made after settlement', overlayEntries: [] }
+    const ignoredPaths = statusLines.filter((line) => line.startsWith('!! ')).map((line) => line.slice(3))
+    if (ignoredPaths.length > 0) {
+      const snapshot = input.settlementIgnoredByBranch?.get(worktree.branch)
+      if (!snapshot) {
+        return { failure: 'the worktree contains ignored paths and no settlement snapshot authorizes them', overlayEntries: [] }
+      }
+      const uncovered = ignoredPaths.filter((livePath) => !coveredBySnapshot(livePath, snapshot))
+      if (uncovered.length > 0) {
+        return { failure: `the worktree contains ignored paths that appeared after settlement (${uncovered.slice(0, 3).join(', ')})`, overlayEntries: [] }
+      }
+    }
 
     const [head, branchRef] = await Promise.all([
       input.git.run(['rev-parse', '--verify', 'HEAD'], worktree.worktree_path),
@@ -147,6 +212,7 @@ async function verifyReleaseEvidence(
     }
     return { failure: null, overlayEntries }
   } catch (err) {
+    if (!pathStillExists(worktree.worktree_path)) return { failure: null, overlayEntries: [], gone: true }
     return { failure: `verification failed: ${err instanceof Error ? err.message : String(err)}`, overlayEntries: [] }
   }
 }
@@ -295,6 +361,18 @@ export async function releaseRailWorktrees(input: ReleaseRailWorktreesInput): Pr
     // Poll / Discard follow-ups into false cleanup_incomplete warnings.
     if (wt.merge_state !== 'needs-review' && isTerminalMergeState(wt.merge_state)) continue
     const evidence = await verifyReleaseEvidence(input, wt)
+    // The mount is already GONE (the user ran `git worktree remove` manually,
+    // or an external prune cleaned it): Git could not even inspect the path
+    // AND the filesystem confirms it is absent. There are no bytes left to
+    // preserve — failing verification forever would permanently block Checkout
+    // on a branch that is actually free. Prune the stale registration
+    // (best-effort; prune only drops entries whose dir is missing) and
+    // terminalize the ledger row honestly.
+    if (evidence.gone) {
+      try { await input.git.run(['worktree', 'prune'], input.repoDir) } catch { /* a leftover registration surfaces at checkout with git's own error */ }
+      updateRailWorktreeState(input.db, wt.id, state)
+      continue
+    }
     if (evidence.failure) {
       updateRailWorktreeState(input.db, wt.id, 'needs-review')
       const warning = `worktree ${wt.worktree_path}: preserved because ${evidence.failure}`

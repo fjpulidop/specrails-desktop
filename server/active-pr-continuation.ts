@@ -38,7 +38,35 @@ export interface ActivePrContinuationTarget {
    * allocation. Ledger continuations additionally require that exact SHA to
    * match the commit previously delivered by Specrails. */
   deliverySha: string | null
-  source: 'rail-pr-delivery' | 'github-open-pr'
+  source: 'rail-pr-delivery' | 'github-open-pr' | 'explicit-target'
+}
+
+/** Machine-readable launch-rejection codes for an explicitly designated
+ * target PR. Every code fails the launch closed — there is NEVER a silent
+ * fallback to a fresh integration-branch run. */
+export type ExplicitPrTargetFailureCode =
+  | 'target_pr_not_found'
+  | 'target_pr_not_open'
+  | 'target_pr_fork'
+  | 'target_pr_invalid'
+  | 'target_pr_unfetchable'
+
+export class ExplicitPrTargetError extends Error {
+  readonly code: ExplicitPrTargetFailureCode
+  constructor(code: ExplicitPrTargetFailureCode, message: string) {
+    super(message)
+    this.name = 'ExplicitPrTargetError'
+    this.code = code
+  }
+}
+
+export interface ResolveExplicitPrTargetInput {
+  git: GitRunner
+  exec: Exec
+  repoDir: string
+  prNumber: number
+  integrationBranch: string
+  fetchOk: boolean
 }
 
 export interface ResolveActivePrContinuationInput {
@@ -61,6 +89,19 @@ interface OpenPr {
   url?: string
   isDraft?: boolean
   state?: string
+  isCrossRepository?: boolean
+}
+
+/** Display-only open-PR candidate for the launch UI's target picker. */
+export interface PrTargetCandidate {
+  number: number
+  title: string
+  headRefName: string
+  baseRefName: string
+  url: string
+  isDraft: boolean
+  /** True (or unproven-null → true) means fork — not selectable as a target. */
+  isCrossRepository: boolean
 }
 
 type PrMatchKind = 'pr-number' | 'jira-key'
@@ -196,6 +237,78 @@ async function materializeTarget(
   }
   if (remoteRef) return { ticketId, deliveryId, branch: head, baseBranch: base, baseRef: remoteRef, prUrl, prNumber, isDraft, deliverySha, source }
   return null
+}
+
+/**
+ * Resolve an EXPLICITLY user-designated PR number into a continuation target.
+ * This is the user's answer, not a discovery guess: it bypasses the automatic
+ * inference gates (`canProbeGithubForContinuation`, spec-text matching) but
+ * keeps the same authoritative validation ladder — the PR must be verifiably
+ * OPEN on the SAME repository with a materializable head. Every failure throws
+ * `ExplicitPrTargetError` with a distinct code; callers reject the launch
+ * before any delivery row or worktree exists.
+ */
+export async function resolveExplicitPrTarget(
+  input: ResolveExplicitPrTargetInput,
+): Promise<ActivePrContinuationTarget> {
+  const { prNumber } = input
+  // 1. Resolve the PR number to its canonical URL (identity for the delivery
+  //    row and for every later lifecycle observation / poll-merge).
+  let lookup: Awaited<ReturnType<Exec['run']>>
+  try {
+    lookup = await input.exec.run('gh', ['pr', 'view', String(prNumber), '--json', 'url,number'], input.repoDir)
+  } catch (err) {
+    throw new ExplicitPrTargetError(
+      'target_pr_not_found',
+      `PR #${prNumber} could not be looked up: ${(err instanceof Error ? err.message : String(err)).slice(0, 256)}`,
+    )
+  }
+  if (lookup.code !== 0) {
+    const detail = (lookup.stderr.trim() || lookup.stdout.trim()).split('\n')[0].slice(0, 256)
+    throw new ExplicitPrTargetError('target_pr_not_found', `PR #${prNumber} could not be looked up: ${detail || `gh exited ${lookup.code}`}`)
+  }
+  let prUrl: string
+  try {
+    const parsed = JSON.parse(lookup.stdout) as { url?: unknown; number?: unknown }
+    if (typeof parsed.url !== 'string' || !parsed.url.trim() || parsed.number !== prNumber) {
+      throw new Error('unexpected gh payload')
+    }
+    prUrl = parsed.url.trim()
+  } catch {
+    throw new ExplicitPrTargetError('target_pr_invalid', `GitHub returned an unusable identity for PR #${prNumber}`)
+  }
+
+  // 2. Authoritative lifecycle observation — state, fork boundary, exact head.
+  const observed = await observePrLifecycle(input.exec, input.repoDir, prUrl)
+  if (!observed.ok) {
+    throw new ExplicitPrTargetError('target_pr_not_found', `PR #${prNumber} lifecycle could not be confirmed: ${observed.detail}`)
+  }
+  if (observed.state !== 'OPEN') {
+    throw new ExplicitPrTargetError('target_pr_not_open', `PR #${prNumber} is ${observed.state.toLowerCase()}, not open`)
+  }
+  // `null` means GitHub did not prove the head belongs to this repository —
+  // conservative rejection: a fork head is not pushable with origin rights.
+  if (observed.isCrossRepository !== false) {
+    throw new ExplicitPrTargetError('target_pr_fork', `PR #${prNumber} head lives on a fork (or same-repo could not be proven); fork PRs are not pushable`)
+  }
+  const head = observed.headRefName?.trim()
+  const base = observed.baseRefName?.trim() || input.integrationBranch
+  if (!head || !base || head === base || !isValidBranchName(head) || !isValidBranchName(base) || !observed.headRefOid) {
+    throw new ExplicitPrTargetError('target_pr_invalid', `PR #${prNumber} head/base refs are unusable (head=${head ?? '?'}, base=${base ?? '?'})`)
+  }
+
+  // 3. Materialize exactly like automatic continuations: the head branch must
+  //    exist locally or be fetchable from origin; the worktree verification
+  //    later pins it to the observed head OID.
+  const target = await materializeTarget(
+    input.git, input.repoDir, input.fetchOk,
+    0, head, base, prUrl, prNumber,
+    observed.isDraft, observed.headRefOid, null, 'explicit-target',
+  )
+  if (!target) {
+    throw new ExplicitPrTargetError('target_pr_unfetchable', `PR #${prNumber} head branch ${head} is neither present locally nor fetchable from origin`)
+  }
+  return target
 }
 
 function hasRetainedOrUnsettledWorktree(db: DbInstance, worktreeIds: readonly string[]): boolean {
@@ -345,7 +458,7 @@ async function materializeHistoricalContinuation(
   }]))
 }
 
-const PR_JSON_FIELDS = 'number,title,body,headRefName,baseRefName,url,isDraft,state'
+const PR_JSON_FIELDS = 'number,title,body,headRefName,baseRefName,url,isDraft,state,isCrossRepository'
 
 async function listOpenPrs(exec: Exec, repoDir: string): Promise<OpenPr[]> {
   const r = await exec.run('gh', ['pr', 'list', '--state', 'open', '--limit', '200', '--json', PR_JSON_FIELDS], repoDir)
@@ -390,6 +503,53 @@ function mergeOpenPrs(prs: OpenPr[]): OpenPr[] {
     out.push(pr)
   }
   return out
+}
+
+/**
+ * Display-only candidate discovery for the launch UI's "deliver into existing
+ * PR" picker. Reuses the same matchers as automatic continuation (PR-number
+ * mention in the spec text, Jira key in the PR title/body/head) but WITHOUT
+ * the ticket-status gate — suggestions are informational and never
+ * auto-selected, so the strict gates guarding automatic adoption don't apply.
+ * Matched PRs sort first; the remaining open PRs follow for manual pick.
+ */
+export async function listPrCandidatesForTickets(input: {
+  db: DbInstance
+  exec: Exec
+  repoDir: string
+  ticketIds: number[]
+  getTicketSpec: (ticketId: number) => ContinuationTicketSpec | undefined
+}): Promise<PrTargetCandidate[]> {
+  const mentioned = new Set<number>()
+  for (const ticketId of input.ticketIds) {
+    for (const n of mentionedPrNumbers(input.getTicketSpec(ticketId))) mentioned.add(n)
+  }
+  const openPrs = mergeOpenPrs([
+    ...await listOpenPrs(input.exec, input.repoDir),
+    ...await mentionedOpenPrs(input.exec, input.repoDir, mentioned),
+  ])
+  const matched: PrTargetCandidate[] = []
+  const rest: PrTargetCandidate[] = []
+  for (const pr of openPrs) {
+    const number = typeof pr.number === 'number' ? pr.number : parsePrNumber(pr.url)
+    const url = pr.url?.trim()
+    const head = pr.headRefName?.trim()
+    if (!number || !url || !head) continue
+    const candidate: PrTargetCandidate = {
+      number,
+      title: pr.title?.trim() || `PR #${number}`,
+      headRefName: head,
+      baseRefName: pr.baseRefName?.trim() || '',
+      url,
+      isDraft: pr.isDraft === true,
+      isCrossRepository: pr.isCrossRepository !== false,
+    }
+    const isMatch = input.ticketIds.some((ticketId) => (
+      prMatchKind(input.db, ticketId, input.getTicketSpec(ticketId), pr) !== null
+    ))
+    ;(isMatch ? matched : rest).push(candidate)
+  }
+  return [...matched, ...rest]
 }
 
 /**

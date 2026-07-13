@@ -240,5 +240,29 @@
   },
   "useRails": {
     "fetchFailed": "レールの取得に失敗しました: {{status}}"
+  },
+  "targetPr": {
+    "chipNew": "新規 PR",
+    "chipTitle": "既存の PR に届ける",
+    "clear": "対象 PR をクリア",
+    "newPr": "新規 PR（デフォルト）",
+    "loading": "オープンな PR を読み込み中…",
+    "none": "オープンな PR が見つかりません",
+    "fork": "フォーク — プッシュ不可",
+    "manualPlaceholder": "PR 番号",
+    "manualUse": "使用",
+    "confirmTitle": "既存の PR に届けますか？",
+    "confirmBody": "この実行は PR の head ブランチ上で作業し、そこへプッシュします — 新しい PR は作成されません。",
+    "confirmBranch": "Head ブランチ",
+    "confirmLaunch": "PR #{{number}} へ起動",
+    "errors": {
+      "invalid_target_pr": "PR 番号が無効です",
+      "target_pr_requires_pr_mode": "既存の PR への配信には分離された PR フローが必要です",
+      "target_pr_not_found": "このリポジトリに PR が見つかりません",
+      "target_pr_not_open": "その PR はすでにオープンではありません",
+      "target_pr_fork": "その PR はフォーク由来のためプッシュできません",
+      "target_pr_invalid": "PR のブランチは配信先として使用できません",
+      "target_pr_unfetchable": "PR の head ブランチを取得できませんでした"
+    }
   }
 }

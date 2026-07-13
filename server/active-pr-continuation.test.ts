@@ -2,6 +2,9 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { initDb, type DbInstance } from './db'
 import {
   resolveActivePrContinuationTargets,
+  resolveExplicitPrTarget,
+  listPrCandidatesForTickets,
+  ExplicitPrTargetError,
   type ResolveActivePrContinuationInput,
 } from './active-pr-continuation'
 import { createPrDelivery, transitionDecision, type PrDecision } from './rail-pr-store'
@@ -464,5 +467,146 @@ describe('historical active-PR continuation recovery', () => {
       expect.arrayContaining(['list']),
       '/repo',
     )
+  })
+})
+
+describe('resolveExplicitPrTarget (deliver-rail-into-existing-pr)', () => {
+  const N = 151
+  const URL = `https://github.com/example/repo/pull/${N}`
+
+  function explicitExec(opts: {
+    lookupCode?: number
+    lookupJson?: string
+    lifecycleJson?: string
+    lifecycleCode?: number
+  } = {}): Exec {
+    return {
+      run: vi.fn(async (_cmd: string, args: string[]) => {
+        if (args[2] === String(N) && args.includes('url,number')) {
+          return {
+            code: opts.lookupCode ?? 0,
+            stdout: opts.lookupJson ?? JSON.stringify({ url: URL, number: N }),
+            stderr: opts.lookupCode ? 'no pull requests found' : '',
+          }
+        }
+        // second call: observePrLifecycle(url)
+        return {
+          code: opts.lifecycleCode ?? 0,
+          stdout: opts.lifecycleJson ?? lifecycle(),
+          stderr: '',
+        }
+      }),
+    }
+  }
+
+  const baseInput = (exec: Exec, git: GitRunner = gitRefs()) => ({
+    git,
+    exec,
+    repoDir: '/repo',
+    prNumber: N,
+    integrationBranch: 'develop',
+    fetchOk: true,
+  })
+
+  it('resolves an open same-repo PR into an explicit-target continuation', async () => {
+    const target = await resolveExplicitPrTarget(baseInput(explicitExec()))
+    expect(target.source).toBe('explicit-target')
+    expect(target.branch).toBe(BRANCH)
+    expect(target.prUrl).toBe(URL)
+    expect(target.prNumber).toBe(N)
+    expect(target.deliverySha).toBe(SHA)
+    // The PR's baseRefName WINS over the configured integration branch.
+    expect(target.baseBranch).toBe('main')
+  })
+
+  it('falls back to the integration branch when the PR reports no base', async () => {
+    const body = JSON.parse(lifecycle())
+    body.baseRefName = null
+    const target = await resolveExplicitPrTarget(
+      baseInput(explicitExec({ lifecycleJson: JSON.stringify(body) })),
+    )
+    expect(target.baseBranch).toBe('develop')
+  })
+
+  it('throws target_pr_not_found when gh cannot resolve the number', async () => {
+    await expect(resolveExplicitPrTarget(baseInput(explicitExec({ lookupCode: 1 }))))
+      .rejects.toMatchObject({ name: 'ExplicitPrTargetError', code: 'target_pr_not_found' })
+  })
+
+  it('throws target_pr_invalid on an unusable gh identity payload', async () => {
+    await expect(resolveExplicitPrTarget(baseInput(explicitExec({ lookupJson: '{"url":""}' }))))
+      .rejects.toMatchObject({ code: 'target_pr_invalid' })
+  })
+
+  it('throws target_pr_not_open for merged/closed PRs', async () => {
+    await expect(resolveExplicitPrTarget(
+      baseInput(explicitExec({ lifecycleJson: lifecycle({ state: 'MERGED' }) })),
+    )).rejects.toMatchObject({ code: 'target_pr_not_open' })
+  })
+
+  it.each([
+    ['true (fork)', true],
+    ['null (unproven)', null],
+  ])('throws target_pr_fork when isCrossRepository is %s', async (_label, value) => {
+    const body = JSON.parse(lifecycle())
+    body.isCrossRepository = value
+    await expect(resolveExplicitPrTarget(
+      baseInput(explicitExec({ lifecycleJson: JSON.stringify(body) })),
+    )).rejects.toMatchObject({ code: 'target_pr_fork' })
+  })
+
+  it('throws target_pr_invalid when head equals base', async () => {
+    const body = JSON.parse(lifecycle())
+    body.baseRefName = body.headRefName
+    await expect(resolveExplicitPrTarget(
+      baseInput(explicitExec({ lifecycleJson: JSON.stringify(body) })),
+    )).rejects.toMatchObject({ code: 'target_pr_invalid' })
+  })
+
+  it('throws target_pr_unfetchable when the head branch is neither local nor on origin', async () => {
+    await expect(resolveExplicitPrTarget(
+      baseInput(explicitExec(), gitRefs(null, null)),
+    )).rejects.toMatchObject({ code: 'target_pr_unfetchable' })
+    expect(new ExplicitPrTargetError('target_pr_fork', 'x').name).toBe('ExplicitPrTargetError')
+  })
+})
+
+describe('listPrCandidatesForTickets (display-only picker feed)', () => {
+  let db: DbInstance
+  beforeEach(() => { db = initDb(':memory:') })
+  afterEach(() => { db.close() })
+
+  it('sorts matched PRs first, flags forks, and skips unusable rows', async () => {
+    const prs = [
+      { number: 7, title: 'Unrelated', headRefName: 'feat/x', baseRefName: 'main', url: 'https://github.com/e/r/pull/7', isDraft: false, isCrossRepository: false, state: 'OPEN' },
+      { number: 151, title: 'SKILLS-110 whitelist', headRefName: 'feat/skills', baseRefName: 'develop', url: 'https://github.com/e/r/pull/151', isDraft: true, isCrossRepository: false, state: 'OPEN' },
+      { number: 9, title: 'From a fork', headRefName: 'fork/x', baseRefName: 'main', url: 'https://github.com/e/r/pull/9', state: 'OPEN' },
+      { title: 'No number, no url', headRefName: 'z' },
+    ]
+    const exec: Exec = {
+      run: vi.fn(async (_cmd: string, args: string[]) => {
+        if (args[1] === 'list') return { code: 0, stdout: JSON.stringify(prs), stderr: '' }
+        return { code: 1, stdout: '', stderr: '' }
+      }),
+    }
+    const candidates = await listPrCandidatesForTickets({
+      db,
+      exec,
+      repoDir: '/repo',
+      ticketIds: [112],
+      // Spec text mentions PR #151 → that PR must sort first.
+      getTicketSpec: () => ({ title: 'extend PR #151', description: 'see PR #151', status: 'todo' }),
+    })
+    expect(candidates.map((c) => c.number)).toEqual([151, 7, 9])
+    expect(candidates[0]).toMatchObject({ isDraft: true, isCrossRepository: false, headRefName: 'feat/skills' })
+    // Missing isCrossRepository is treated as unproven → fork-flagged.
+    expect(candidates.find((c) => c.number === 9)?.isCrossRepository).toBe(true)
+  })
+
+  it('returns an empty list when gh fails', async () => {
+    const exec: Exec = { run: vi.fn(async () => ({ code: 1, stdout: '', stderr: 'no gh' })) }
+    await expect(listPrCandidatesForTickets({
+      db, exec, repoDir: '/repo', ticketIds: [1], getTicketSpec: () => undefined,
+    })).resolves.toEqual([])
   })
 })

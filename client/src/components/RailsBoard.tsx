@@ -41,6 +41,8 @@ export interface RailState {
   reasoningEffort?: ReasoningEffort | null
   /** Selected model for custom loop rails. null/undefined = provider default. */
   loopModel?: string | null
+  /** Explicit delivery target: existing open PR the next launch delivers into. */
+  targetPr?: import('./RailTargetPrSelector').RailTargetPr | null
 }
 
 /**
@@ -107,6 +109,7 @@ interface RailsBoardProps {
   loopAvailable?: boolean
   onLoopChange?: (railId: string, loopId: string) => void
   onEffortChange?: (railId: string, effort: ReasoningEffort) => void
+  onTargetPrChange?: (railId: string, value: import('./RailTargetPrSelector').RailTargetPr | null) => void
   onToggle: (railId: string) => void
   onTicketClick: (ticket: LocalTicket) => void
   onAddRail: () => void
@@ -140,7 +143,7 @@ function SortableRailWrapper({ railId, children }: { railId: string; children: (
 /** Width threshold below which rail rows switch to the compact mini-card layout. */
 export const RAILS_COMPACT_THRESHOLD_PX = 320
 
-export function RailsBoard({ rails, ticketMap, railWorktrees, railMetrics, railPrDecisions, onPrDecision, onPrCheckout, providers, onModeChange, onProfileChange, onEngineChange, onFreestyleModelChange, onLoopModelChange, loopAvailable, onLoopChange, onEffortChange, onToggle, onTicketClick, onAddRail, onDeleteRail, onRenameRail, onTicketMoveToSpecs, onLaunchAll, launchAllCount }: RailsBoardProps) {
+export function RailsBoard({ rails, ticketMap, railWorktrees, railMetrics, railPrDecisions, onPrDecision, onPrCheckout, providers, onModeChange, onProfileChange, onEngineChange, onFreestyleModelChange, onLoopModelChange, loopAvailable, onLoopChange, onEffortChange, onTargetPrChange, onToggle, onTicketClick, onAddRail, onDeleteRail, onRenameRail, onTicketMoveToSpecs, onLaunchAll, launchAllCount }: RailsBoardProps) {
   const { t } = useTranslation('dashboard')
   const activeRails = rails.filter((r) => r.status === 'running').length
   const [jiggleMode, setJiggleMode] = useState(false)
@@ -257,6 +260,7 @@ export function RailsBoard({ rails, ticketMap, railWorktrees, railMetrics, railP
                     loopAvailable={loopAvailable}
                     selectedLoopId={rail.selectedLoopId ?? null}
                     reasoningEffort={rail.reasoningEffort ?? null}
+                    targetPr={rail.targetPr ?? null}
                     jiggleMode={jiggleMode}
                     density={density}
                     dragHandleListeners={listeners}
@@ -268,6 +272,7 @@ export function RailsBoard({ rails, ticketMap, railWorktrees, railMetrics, railP
                     onLoopModelChange={onLoopModelChange ? (m) => onLoopModelChange(rail.id, m) : undefined}
                     onLoopChange={onLoopChange ? (l) => onLoopChange(rail.id, l) : undefined}
                     onEffortChange={onEffortChange ? (eff) => onEffortChange(rail.id, eff) : undefined}
+                    onTargetPrChange={onTargetPrChange ? (v) => onTargetPrChange(rail.id, v) : undefined}
                                         onToggle={() => onToggle(rail.id)}
                     onTicketClick={onTicketClick}
                     onDelete={() => onDeleteRail(rail.id)}

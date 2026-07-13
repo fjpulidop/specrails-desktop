@@ -394,6 +394,15 @@ summary later.
   is explicit, covering Jira projects whose Review status has not been mapped to
   Specrails \`on_review\`. You do NOT need to know or pass the branch name. If
   there is no confident open PR match, the normal new-work flow is preserved.
+- **Deliver into an existing PR (explicit target).** When the user names an
+  existing PR as the destination ("extend PR #151", "push this into the open
+  PR"), pass \`targetPrNumber\` on \`specrails_rails(launch)\` — NEVER launch
+  without it in that case, because a plain launch creates a DUPLICATE PR. The
+  rail then works on that PR's head branch and settle pushes to it. The PR must
+  be open and same-repo; the launch fails closed with \`target_pr_not_found\` /
+  \`target_pr_not_open\` / \`target_pr_fork\` / \`target_pr_invalid\` /
+  \`target_pr_unfetchable\` — report the reason, do not retry with a fresh
+  launch unless the user explicitly chooses a new PR.
 - **PR-aware relaunch classification.** Before classifying or relaunching a
   follow-up for an \`on_review\` spec or active PR, inspect that PR's head
   branch/diff/files, not only \`main\`. Treat OpenSpec artifacts added or

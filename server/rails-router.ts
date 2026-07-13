@@ -30,9 +30,10 @@ import {
 } from './rail-pr-store'
 import { classifyLoopEffect } from './loop-effect'
 import { executePrDecision, isPrDecisionAction, PR_DECISION_ACTIONS } from './rail-pr-decision'
+import { ExplicitPrTargetError, listPrCandidatesForTickets } from './active-pr-continuation'
 import { launchIsolatedRail, PrContinuationIsolationError } from './rail-isolated-launch'
 import { repoIsolationStatus, defaultGitRunner } from './worktree-manager'
-import { durableBranchHeads, durableOverlayCleanupEvidence, releaseRailWorktrees } from './rail-worktree-release'
+import { durableBranchHeads, durableOverlayCleanupEvidence, durableSettlementIgnoredPaths, releaseRailWorktrees } from './rail-worktree-release'
 import { checkoutProjectReviewBranch, getProjectGitInfo, inspectProjectCheckoutCleanliness } from './project-git'
 import { defaultExec } from './pr-publisher'
 import { newId } from './ids'
@@ -297,6 +298,34 @@ export function createRailsRouter(): Router {
     }
   })
 
+  // GET /rails/:railIndex/pr-candidates — display-only open-PR suggestions for
+  // the "deliver into existing PR" launch affordance. Reuses the automatic-
+  // continuation matchers WITHOUT the ticket-status gate: suggestions are
+  // informational, selection is always an explicit user action. No side effects.
+  router.get('/:railIndex/pr-candidates', async (req: Request, res: Response) => {
+    const c = ctx(req)
+    const railIndex = parseInt(req.params.railIndex as string, 10)
+    if (isNaN(railIndex) || railIndex < 0 || railIndex >= MAX_RAILS) {
+      res.status(400).json({ error: 'Invalid rail index' }); return
+    }
+    try {
+      const rail: RailState = getRail(c.db, railIndex)
+      const candidates = await listPrCandidatesForTickets({
+        db: c.db,
+        exec: defaultExec,
+        repoDir: c.project.path,
+        ticketIds: [...(rail?.ticketIds ?? [])],
+        getTicketSpec: (ticketId) => {
+          try { return c.getTicketSpec(ticketId) ?? undefined } catch { return undefined }
+        },
+      })
+      res.json({ candidates })
+    } catch (err) {
+      console.error('[rails-router] pr-candidates error:', err)
+      res.status(500).json({ error: 'Failed to list PR candidates' })
+    }
+  })
+
   // PUT /rails/:railIndex/engine — set the AI engine override for a rail
   // Body: { aiEngine: string | null } (null = use the project's primary provider)
   router.put('/:railIndex/engine', (req: Request, res: Response) => {
@@ -363,7 +392,15 @@ export function createRailsRouter(): Router {
     }
 
     let { mode = 'implement' } = req.body ?? {}
-    const { profileName, aiEngine, model, loopId: rawLoopId, reasoning_effort, originConversationId, originSurface } = req.body ?? {}
+    const { profileName, aiEngine, model, loopId: rawLoopId, reasoning_effort, originConversationId, originSurface, targetPrNumber } = req.body ?? {}
+    // Explicit target PR (deliver-rail-into-existing-pr): the user names an
+    // existing open PR as the delivery destination. Shape-validated here;
+    // resolved and verified inside the isolated launch, fail-closed.
+    if (targetPrNumber !== undefined && targetPrNumber !== null) {
+      if (typeof targetPrNumber !== 'number' || !Number.isSafeInteger(targetPrNumber) || targetPrNumber <= 0 || targetPrNumber > 1_000_000_000) {
+        res.status(400).json({ error: 'invalid_target_pr', detail: 'targetPrNumber must be a positive integer' }); return
+      }
+    }
     let loopId: unknown = rawLoopId
     // Origin link (safe-pr-review-flow): an agent-chat/MCP launch tags itself so
     // the PR decision can later be posted back into the launching conversation.
@@ -398,6 +435,12 @@ export function createRailsRouter(): Router {
     }
     if (mode === 'loop' && !isLoopsEnabled()) {
       res.status(403).json({ error: 'Loops are disabled on this server' }); return
+    }
+    // An explicit target PR is only meaningful on the isolated PR-delivery
+    // path. Reject early when that path is structurally unavailable rather
+    // than silently launching fresh work next to the designated PR.
+    if (typeof targetPrNumber === 'number' && (!isLoopsEnabled() || !isRailPrDeliveryEnabled())) {
+      res.status(400).json({ error: 'target_pr_requires_pr_mode', detail: 'targetPrNumber requires loops and PR delivery to be enabled' }); return
     }
     // Freestyle model picker: optional, validated against the allow-list.
     // Ignored for non-freestyle modes (they use the orchestrator model).
@@ -556,11 +599,21 @@ export function createRailsRouter(): Router {
           if (pendingSnapshot && !prDeliveryContinuesTickets(pendingSnapshot, rail.ticketIds)) {
             res.status(409).json({ error: 'pr_decision_pending', prDeliveryId: pendingSnapshot.id }); return
           }
+          // Explicit target vs an undecided continuable delivery: the slot's
+          // active generation owns its PR. A DIFFERENT explicit target would
+          // append to the undecided branches → 409; the SAME PR is redundant
+          // (the continuation contract below already drives it) and is dropped.
+          if (pendingSnapshot && typeof targetPrNumber === 'number' && pendingSnapshot.prNumber !== targetPrNumber) {
+            res.status(409).json({ error: 'pr_decision_pending', prDeliveryId: pendingSnapshot.id }); return
+          }
           continuablePrDelivery = pendingSnapshot
         }
         const useIsolation = isolationApplies({
           loopsEnabled: isLoopsEnabled(), scope, ticketCount: rail.ticketIds.length, readOnly: loopReadOnly,
         })
+        if (typeof targetPrNumber === 'number' && !useIsolation) {
+          res.status(400).json({ error: 'target_pr_requires_pr_mode', detail: 'targetPrNumber requires an isolated (worktree) launch; this launch would run in the shared checkout' }); return
+        }
         if (continuablePrDelivery && !loopReadOnly && !useIsolation) {
           res.status(409).json({
             error: 'pr_continuation_isolation_required',
@@ -574,6 +627,13 @@ export function createRailsRouter(): Router {
           // unborn HEAD can't be branched). Fall back (with a message) otherwise.
           const status = await repoIsolationStatus(defaultGitRunner, c.project.path)
           if (status !== 'ok') {
+            if (typeof targetPrNumber === 'number') {
+              res.status(400).json({
+                error: 'target_pr_requires_pr_mode',
+                detail: `targetPrNumber requires worktree isolation, which is unavailable (${status})`,
+              })
+              return
+            }
             if (continuablePrDelivery) {
               res.status(409).json({
                 error: 'pr_continuation_isolation_required',
@@ -602,6 +662,12 @@ export function createRailsRouter(): Router {
                     deliverySha: continuablePrDelivery.deliverySha!,
                   },
                 } : {}),
+                // Explicit target only drives fresh launches; when the slot has
+                // a continuable delivery for the same PR, the continuation
+                // contract above is the (stricter) authority.
+                ...(typeof targetPrNumber === 'number' && !continuablePrDelivery
+                  ? { explicitPrTarget: { prNumber: targetPrNumber } }
+                  : {}),
               })
               res.status(202).json({ loopRunIds: ids, railIndex, mode, isolated: true })
               return
@@ -610,6 +676,16 @@ export function createRailsRouter(): Router {
                 res.status(409).json({
                   error: 'pr_delivery_generation_conflict',
                   prDeliveryId: err.currentId,
+                })
+                return
+              }
+              // Explicit-target validation failures are the USER's answer being
+              // unusable — fail closed with the machine-readable code; never
+              // fall back to a fresh shared-cwd run next to the designated PR.
+              if (err instanceof ExplicitPrTargetError) {
+                res.status(err.code === 'target_pr_not_found' ? 404 : 409).json({
+                  error: err.code,
+                  detail: err.message,
                 })
                 return
               }
@@ -1021,6 +1097,7 @@ export function createRailsRouter(): Router {
           worktreeIds: currentSnap.worktreeIds,
           expectedHeadByBranch: durableBranchHeads(currentSnap.branches),
           overlayEvidenceByBranch: durableOverlayCleanupEvidence(currentSnap.branches),
+          settlementIgnoredByBranch: durableSettlementIgnoredPaths(currentSnap.branches),
           onSafetyArchive: (archive) => {
             archived = true
             if (!appendPrDeliverySafetyArchive(c.db, row.id, archive)) {
@@ -1048,6 +1125,17 @@ export function createRailsRouter(): Router {
             error: 'checkout_unavailable',
             detail: cleanupWarnings[0],
           }
+        }
+        // Cleanup just completed with ZERO warnings — clear any stale
+        // cleanup_incomplete evidence persisted by earlier failed release
+        // attempts, so the card stops claiming "Cleanup is incomplete" after
+        // the condition has been resolved. Same-state patch + live broadcast.
+        if (currentSnap.cleanupWarnings.length > 0 || currentSnap.statusCode === 'cleanup_incomplete') {
+          transitionDecision(c.db, row.id, currentSnap.decision, currentSnap.decision, {
+            cleanupWarnings: [],
+            ...(currentSnap.statusCode === 'cleanup_incomplete' ? { statusCode: null } : {}),
+          })
+          emitPrDeliveryUpdate(c, row.id)
         }
         const checkedOut = await checkoutProjectReviewBranch(
           c.project.path,

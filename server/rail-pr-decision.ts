@@ -33,7 +33,7 @@ import type { DbInstance } from './db'
 import { commitWorktreeAndVerify, type GitRunner } from './worktree-manager'
 import { publishDraftPr, pushBranch, type Exec, type ExecResult } from './pr-publisher'
 import { deliverRailAsPr } from './rail-pr-delivery'
-import { durableBranchHeads, durableOverlayCleanupEvidence, releaseRailWorktrees } from './rail-worktree-release'
+import { durableBranchHeads, durableOverlayCleanupEvidence, durableSettlementIgnoredPaths, releaseRailWorktrees } from './rail-worktree-release'
 import { batchBranchNameFor, buildPrTitle, type TicketNamingInput } from './pr-naming'
 import { buildCanonicalPrBody, collectBranchChanges, type BranchChanges } from './pr-body'
 import { getLinkByLocalId } from './jira/jira-db'
@@ -427,6 +427,7 @@ async function rerouteFromStalePr(
     worktreeIds: releasableWorktreeIds(deps, snap),
     expectedHeadByBranch: durableBranchHeads(snap.branches),
     overlayEvidenceByBranch: durableOverlayCleanupEvidence(snap.branches),
+    settlementIgnoredByBranch: durableSettlementIgnoredPaths(snap.branches),
     onSafetyArchive: safetyArchiveRecorder(deps, row),
   })
   const partial = row.implementation_outcome === 'partially_succeeded'
@@ -472,6 +473,7 @@ async function settleObservedExistingPr(
     worktreeIds: releasableWorktreeIds(deps, snap),
     expectedHeadByBranch: durableBranchHeads(snap.branches),
     overlayEvidenceByBranch: durableOverlayCleanupEvidence(snap.branches),
+    settlementIgnoredByBranch: durableSettlementIgnoredPaths(snap.branches),
     onSafetyArchive: safetyArchiveRecorder(deps, row),
   })
   const conflict = casTransition(deps, row, next, {
@@ -510,6 +512,7 @@ async function settleObservedClosedPr(
     worktreeIds: releasableWorktreeIds(deps, snap),
     expectedHeadByBranch: durableBranchHeads(snap.branches),
     overlayEvidenceByBranch: durableOverlayCleanupEvidence(snap.branches),
+    settlementIgnoredByBranch: durableSettlementIgnoredPaths(snap.branches),
     onSafetyArchive: safetyArchiveRecorder(deps, row),
   })
   const conflict = casTransition(deps, row, 'pr_closed', {
@@ -1764,6 +1767,7 @@ async function runCreatePr(deps: PrDecisionDeps, row: RailPrDeliveryRow): Promis
       db: deps.db, git: deps.git, repoDir: deps.project.path, worktreeIds: releasableWorktreeIds(deps, snap),
       expectedHeadByBranch: durableBranchHeads(effectiveBranches),
       overlayEvidenceByBranch: durableOverlayCleanupEvidence(effectiveBranches),
+      settlementIgnoredByBranch: durableSettlementIgnoredPaths(effectiveBranches),
       onSafetyArchive: safetyArchiveRecorder(deps, row),
     })
     if (patch.cleanupWarnings.length > 0) patch.statusCode = 'cleanup_incomplete'
@@ -1936,6 +1940,7 @@ async function runDiscard(
     state: 'failed',
     expectedHeadByBranch: durableBranchHeads(snap.branches),
     overlayEvidenceByBranch: durableOverlayCleanupEvidence(snap.branches),
+    settlementIgnoredByBranch: durableSettlementIgnoredPaths(snap.branches),
     onSafetyArchive: safetyArchiveRecorder(deps, row),
   }))
 
@@ -2051,6 +2056,7 @@ async function runAcknowledgeNoChanges(deps: PrDecisionDeps, row: RailPrDelivery
     worktreeIds: snap.worktreeIds,
     expectedHeadByBranch: durableBranchHeads(snap.branches),
     overlayEvidenceByBranch: durableOverlayCleanupEvidence(snap.branches),
+    settlementIgnoredByBranch: durableSettlementIgnoredPaths(snap.branches),
     onSafetyArchive: safetyArchiveRecorder(deps, row),
   })
 
@@ -2106,6 +2112,7 @@ async function settleMergedPr(deps: PrDecisionDeps, row: RailPrDeliveryRow): Pro
     worktreeIds: releasableWorktreeIds(deps, snap), state: 'merged',
     expectedHeadByBranch: durableBranchHeads(snap.branches),
     overlayEvidenceByBranch: durableOverlayCleanupEvidence(snap.branches),
+    settlementIgnoredByBranch: durableSettlementIgnoredPaths(snap.branches),
     onSafetyArchive: safetyArchiveRecorder(deps, row),
   })
   await deleteOwnedBranchesIfUnchanged(deps, row, snap, cleanupWarnings)
@@ -2524,6 +2531,7 @@ async function runMergeLocalLocked(deps: PrDecisionDeps, row: RailPrDeliveryRow)
     state: 'merged',
     expectedHeadByBranch: durableBranchHeads(snap.branches),
     overlayEvidenceByBranch: durableOverlayCleanupEvidence(snap.branches),
+    settlementIgnoredByBranch: durableSettlementIgnoredPaths(snap.branches),
     onSafetyArchive: safetyArchiveRecorder(deps, row),
   }))
   await deleteOwnedBranchesIfUnchanged(deps, row, snap, cleanupWarnings)
