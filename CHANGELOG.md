@@ -1,5 +1,12 @@
 # Changelog
 
+## [2.29.4](https://github.com/fjpulidop/specrails-desktop/compare/v2.29.3...v2.29.4) (2026-07-13)
+
+
+### Bug Fixes
+
+* **safe-pr:** unblock worktree commit delivery + deliver into an existing PR ([#550](https://github.com/fjpulidop/specrails-desktop/issues/550)) ([80ec858](https://github.com/fjpulidop/specrails-desktop/commit/80ec858a6e16e4813e1cb7998b34a554334a31cd))
+
 ## [2.29.3](https://github.com/fjpulidop/specrails-desktop/compare/v2.29.2...v2.29.3) (2026-07-11)
 
 
