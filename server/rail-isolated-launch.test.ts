@@ -2405,7 +2405,7 @@ describe('launchIsolatedRail — per-run worktree overlay', () => {
     })
   })
 
-  it('RELOCATED project → the WORKSPACE is the overlay source root', async () => {
+  it('RELOCATED project → the WORKSPACE is the overlay source root, the REPO the fallback root', async () => {
     const { ctx } = fakeCtx()
     const overlay = noopOverlay()
     const resolveExecution = vi.fn(() => ({ relocated: true, workspaceDir: '/home/.specrails/projects/p/workspace' })) as never
@@ -2414,6 +2414,20 @@ describe('launchIsolatedRail — per-run worktree overlay', () => {
     expect(overlay).toHaveBeenCalledWith(expect.objectContaining({
       worktreePath: '/wt/ticket-1',
       sourceRoot: '/home/.specrails/projects/p/workspace',
+      // The repo fallback carries the untracked repo-resident carve-outs
+      // (OpenSpec's /opsx:* commands) into the worktree.
+      fallbackSourceRoots: ['/repo'],
+    }))
+  })
+
+  it('LEGACY project → no fallback roots (single-root, byte-identical)', async () => {
+    const { ctx } = fakeCtx()
+    const overlay = noopOverlay()
+    await launchIsolatedRail(input([1], ctx), { git: gitOk(), create: okCreate(), remove: vi.fn(async () => {}), overlay })
+
+    expect(overlay).toHaveBeenCalledWith(expect.objectContaining({
+      sourceRoot: '/repo',
+      fallbackSourceRoots: undefined,
     }))
   })
 

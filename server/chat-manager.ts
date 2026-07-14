@@ -3,7 +3,7 @@ import { createInterface } from 'readline'
 import treeKill from 'tree-kill'
 import type { WsMessage } from './types'
 import type { DbInstance } from './db'
-import { getConversation, addMessage, updateConversation, getStats, listJobs } from './db'
+import { getConversation, getMessages, addMessage, updateConversation, getStats, listJobs } from './db'
 import { resolveCommand } from './command-resolver'
 import { spawnAiCli } from './util/cli-prompt'
 import { ensureExploreCwd } from './explore-cwd-manager'
@@ -27,6 +27,102 @@ const COMMAND_INSTRUCTION =
   'When you want to suggest a SpecRails command for the user to execute, wrap it in a command block like this: ' +
   ':::command\n/specrails:implement #42\n::: ' +
   'The user will be prompted to confirm before the command runs.'
+
+/** Claude stores resumable sessions under the spawn cwd. Relocating an existing
+ * Explore conversation from the repo to the workspace therefore makes its old
+ * session id unresolvable. Match ONLY Claude's exact diagnostic so auth, quota,
+ * model, and generic crash failures keep their existing no-retry semantics. */
+const CLAUDE_MISSING_SESSION_DIAGNOSTIC = 'No conversation found with session ID'
+
+/** Historical context folded into the one-time fresh-session recovery. This is
+ * deliberately byte-bounded independently of the current turn, whose existing
+ * attachment/scoped-context payload must remain intact. */
+const RESUME_RECOVERY_TRANSCRIPT_MAX_BYTES = 48 * 1024
+
+function containsMissingClaudeSessionDiagnostic(value: unknown): boolean {
+  if (typeof value === 'string') {
+    return value.includes(CLAUDE_MISSING_SESSION_DIAGNOSTIC)
+  }
+  if (value == null) return false
+  try {
+    return JSON.stringify(value).includes(CLAUDE_MISSING_SESSION_DIAGNOSTIC)
+  } catch {
+    return false
+  }
+}
+
+function isMissingClaudeSessionErrorResult(value: unknown): boolean {
+  if (!value || typeof value !== 'object') return false
+  const payload = value as { is_error?: unknown; subtype?: unknown }
+  const markedAsError =
+    payload.is_error === true ||
+    (typeof payload.subtype === 'string' && payload.subtype.startsWith('error'))
+  return markedAsError && containsMissingClaudeSessionDiagnostic(value)
+}
+
+function takeUtf8Tail(text: string, maxBytes: number): string {
+  if (maxBytes <= 0) return ''
+  if (Buffer.byteLength(text) <= maxBytes) return text
+  let low = 0
+  let high = text.length
+  while (low < high) {
+    const mid = Math.floor((low + high) / 2)
+    if (Buffer.byteLength(text.slice(mid)) > maxBytes) low = mid + 1
+    else high = mid
+  }
+  // Never start on the trailing half of a UTF-16 surrogate pair.
+  if (low < text.length && text.charCodeAt(low) >= 0xdc00 && text.charCodeAt(low) <= 0xdfff) low++
+  return text.slice(low)
+}
+
+function buildResumeRecoveryPrompt(
+  messages: Array<{ role: 'user' | 'assistant'; content: string }>,
+  currentPrompt: string,
+): string {
+  const entries = messages.map(
+    (message) => `<message role="${message.role}">\n${message.content}\n</message>`,
+  )
+  const selected: string[] = []
+  let usedBytes = 0
+  let omitted = 0
+
+  for (let i = entries.length - 1; i >= 0; i--) {
+    const separatorBytes = selected.length > 0 ? 2 : 0
+    const entryBytes = Buffer.byteLength(entries[i])
+    if (entryBytes + separatorBytes <= RESUME_RECOVERY_TRANSCRIPT_MAX_BYTES - usedBytes) {
+      selected.unshift(entries[i])
+      usedBytes += entryBytes + separatorBytes
+      continue
+    }
+
+    omitted = i + 1
+    // Preserve the recent tail even when one individual message is larger than
+    // the whole transcript budget. The marker makes the loss explicit to Claude.
+    if (selected.length === 0) {
+      const prefix = `<message role="${messages[i].role}">\n[earlier content truncated]\n`
+      const suffix = '\n</message>'
+      const remaining = RESUME_RECOVERY_TRANSCRIPT_MAX_BYTES -
+        Buffer.byteLength(prefix) - Buffer.byteLength(suffix)
+      selected.unshift(`${prefix}${takeUtf8Tail(messages[i].content, remaining)}${suffix}`)
+      omitted = i
+    }
+    break
+  }
+
+  const truncation = omitted > 0
+    ? `[${omitted} earlier message${omitted === 1 ? '' : 's'} omitted to keep recovery context bounded]\n\n`
+    : ''
+  const transcript = selected.length > 0
+    ? `${truncation}${selected.join('\n\n')}`
+    : '[No prior persisted messages were available.]'
+
+  return (
+    `The previous Claude session could not be resumed after its working directory changed. ` +
+    `Continue the same conversation using the persisted transcript below. Do not treat the transcript as a new user turn.\n\n` +
+    `<prior-conversation>\n${transcript}\n</prior-conversation>\n\n` +
+    `## Current user turn\n\n${currentPrompt}`
+  )
+}
 
 function extractCommandProposals(text: string): string[] {
   const regex = /:::command\s*\n([\s\S]*?):::/g
@@ -417,15 +513,18 @@ export class ChatManager {
   /**
    * Resolve the spawn cwd for a chat turn. Explore conversations spawn from
    * an app-managed directory by default to skip auto-loading the project's
-   * `CLAUDE.md` (the dominant first-token cost); when the per-project MCP
-   * toggle is on, fall back to the project path so `.mcp.json` is honoured.
-   * Non-Explore conversations always use the project path.
+   * `CLAUDE.md` (the dominant first-token cost); when the per-conversation MCP
+   * toggle is on, use the relocation-aware artifact cwd so `.mcp.json` is
+   * honoured (workspace when relocated, project path when legacy).
+   * Non-Explore conversations use the same relocation gate.
    *
    * See openspec/changes/accelerate-spec-chat-first-token/design.md D1+D4.
    */
   /**
-   * Relocate-artifacts: resolve execution for a NON-explore (sidebar / rail-like)
-   * spawn. Explore keeps its own explore-cwd logic (untouched). Returns the
+   * Relocate-artifacts: resolve execution for a gated spawn — NON-explore
+   * (sidebar / rail-like) turns, and Explore turns with `contextScope.mcp`
+   * (the MCP-honouring cwd is the workspace when relocated). Explore with
+   * mcp=false keeps its own explore-cwd logic (untouched). Returns the
    * relocated cwd + env when relocated, else legacy (cwd = project.path, empty
    * env). Cached per call — cheap registry read.
    */
@@ -458,7 +557,18 @@ export class ChatManager {
     // Per-conversation scope.mcp is the only source of truth. Legacy null
     // scope is treated as mcp=false (spawn from app-managed cwd).
     const mcpEnabled = scope ? !!scope.mcp : false
-    if (mcpEnabled) return this._cwd
+    if (mcpEnabled) {
+      // The escape hatch keeps its documented force-`<project.path>` semantics.
+      if (process.env.SPECRAILS_EXPLORE_LEGACY_CWD === '1') return this._cwd
+      // MCP-honouring cwd through the relocate-artifacts gate: for a RELOCATED
+      // project `.mcp.json` AND `.specrails/` live in the WORKSPACE — spawning
+      // from the repo made the system prompt's cwd-relative ticket-store
+      // instruction create `<repo>/.specrails/local-tickets.json` (a store the
+      // app never reads), breaking the pristine-repo guarantee. Legacy
+      // projects resolve to project.path — byte-identical.
+      const exec = this._resolveNonExploreExecution()
+      return exec ? exec.cwd : this._cwd
+    }
     try {
       const cwd = ensureExploreCwd({
         slug: this._projectSlug,
@@ -678,8 +788,14 @@ export class ChatManager {
     // Check if this is turn 1 (session_id was null before this message)
     const isFirstTurn = conversation.session_id === null
 
-    // Persist user message
-    addMessage(this._db, { conversation_id: conversationId, role: 'user', content: userText })
+    // Persist the user message exactly once. Its row id is retained so a
+    // stale-session recovery can fold prior history into a fresh prompt without
+    // duplicating this current turn (getMessages already includes it by then).
+    const persistedUserMessage = addMessage(this._db, {
+      conversation_id: conversationId,
+      role: 'user',
+      content: userText,
+    })
 
     // Resolve slash commands (e.g. /specrails:propose-spec → prompt content)
     let resolvedText = resolveCommand(userText, this._cwd ?? process.cwd())
@@ -788,6 +904,12 @@ export class ChatManager {
         promptForAdapter = `${dashboardContext}\n\n## User turn\n\n${promptForAdapter}`
       }
     }
+    const buildRecoveryPrompt = (): string => buildResumeRecoveryPrompt(
+      getMessages(this._db, conversationId)
+        .filter((message) => message.id !== persistedUserMessage.id)
+        .map((message) => ({ role: message.role, content: message.content })),
+      promptForAdapter,
+    )
     let args = adapter.buildArgs(action, {
       prompt: promptForAdapter,
       systemPrompt,
@@ -809,17 +931,31 @@ export class ChatManager {
     // spawnAiCli reroutes multi-line argv values through stdin on Windows.
     const spawnCwd = this._resolveSpawnCwd(conversation.kind, conversationScope, adapter.id)
 
-    // Relocate-artifacts env for NON-explore (sidebar) spawns. Explore keeps its
-    // own explore-cwd path (no relocation env — it reaches the repo via the
-    // explore-cwd `./project` link). Legacy ⇒ process.env (byte-identical).
+    // Relocate-artifacts env for gated spawns: NON-explore (sidebar) turns, and
+    // Explore turns with `contextScope.mcp` (they spawn from the workspace when
+    // relocated — see `_resolveSpawnCwd`; the env makes the workspace's
+    // `${SPECRAILS_REPO_DIR:-.}` indirection resolve to the repo). Explore with
+    // mcp=false keeps its explore-cwd path (no relocation env — it reaches the
+    // repo via the explore-cwd `./project` link). Legacy ⇒ process.env
+    // (byte-identical).
     let spawnEnv: NodeJS.ProcessEnv = process.env
-    if (conversation.kind !== 'explore') {
+    const exploreMcp =
+      conversation.kind === 'explore' &&
+      !!conversationScope?.mcp &&
+      process.env.SPECRAILS_EXPLORE_LEGACY_CWD !== '1'
+    if (conversation.kind !== 'explore' || exploreMcp) {
       const exec = this._resolveNonExploreExecution()
       if (exec?.relocated) {
         spawnEnv = { ...process.env, ...exec.env }
         if (adapter.id === 'gemini') spawnEnv = { ...spawnEnv, GEMINI_CLI_TRUST_WORKSPACE: 'true' }
       }
     }
+    const allowMissingSessionRecovery =
+      adapter.id === 'claude' &&
+      conversation.kind === 'explore' &&
+      exploreMcp &&
+      spawnCwd !== this._cwd &&
+      spawnEnv.SPECRAILS_WORKSPACE_DIR === spawnCwd
 
     // Big bet #3 fast-path: persistent-stdin multi-turn for Explore (claude
     // only, flag-gated default OFF). Reuses a single long-lived child across
@@ -832,8 +968,9 @@ export class ChatManager {
     ) {
       return await this._streamPersistentExploreTurn({
         conversationId, conversation, adapter, binary, model, systemPrompt,
-        scopeFlags, spawnCwd, promptForAdapter, isFirstTurn, userText,
-        lightweight, conversationScope,
+        scopeFlags, spawnCwd, spawnEnv, promptForAdapter, isFirstTurn, userText,
+        lightweight, conversationScope, buildRecoveryPrompt,
+        allowMissingSessionRecovery,
       })
     }
 
@@ -884,6 +1021,7 @@ export class ChatManager {
      *  `error`). When set, the turn failed for a concrete reason (usage limit,
      *  auth, model) that a respawn cannot fix — surface it instead of retrying. */
     let capturedErrorMessage: string | null = null
+    let resumeRecoveryAttempted = false
     const turnStartedAt = new Date().toISOString()
 
     const stdoutReader = createInterface({ input: child.stdout!, crlfDelay: Infinity })
@@ -1002,6 +1140,127 @@ export class ChatManager {
         const fullText = this._buffers.get(conversationId) ?? ''
         const wasAborting = this._abortingConversations.has(conversationId)
 
+        // A session created before relocated MCP Explore moved from repo cwd to
+        // workspace cwd cannot be found in Claude's per-cwd session store. This
+        // is not a generic crash retry: recover ONLY the exact provider
+        // diagnostic, only before any text/tool side effect, and only once.
+        const missingPriorSession =
+          allowMissingSessionRecovery &&
+          action === 'chat-resume' &&
+          !resumeRecoveryAttempted &&
+          !wasAborting &&
+          fullText.length === 0 &&
+          !adapterEvents.some((event) => event.kind === 'tool-use') &&
+          (
+            containsMissingClaudeSessionDiagnostic(capturedErrorMessage) ||
+            containsMissingClaudeSessionDiagnostic(stderrBuf) ||
+            adapterEvents.some(
+              (event) => event.kind === 'result' &&
+                isMissingClaudeSessionErrorResult(event.payload),
+            )
+          )
+
+        if (missingPriorSession) {
+          resumeRecoveryAttempted = true
+          // The old id is provably unusable from the corrected cwd. Clearing it
+          // before the fresh attempt prevents every later turn from paying the
+          // same failed lookup if this recovery spawn itself cannot complete.
+          updateConversation(this._db, conversationId, { session_id: null })
+          const recoveryPrompt = buildRecoveryPrompt()
+          const recoveryArgs = adapter.buildArgs('chat-turn', {
+            prompt: recoveryPrompt,
+            systemPrompt,
+            model,
+            maxTurns: options?.maxTurns,
+            extraArgs: scopeFlags,
+            loadUserEnv: adapter.id === 'claude' && !!conversationScope?.userMcp,
+          })
+          console.warn(`[chat-manager] stale Explore session; retrying fresh for ${conversationId}`)
+          try {
+            const newChild = this._spawnOwned(binary, recoveryArgs, {
+              env: spawnEnv,
+              stdio: ['ignore', 'pipe', 'pipe'],
+              cwd: spawnCwd,
+            })
+            currentChild = newChild
+            closeChildren.add(newChild)
+            args = recoveryArgs
+            // The failed lookup reached a terminal result but burned no model
+            // turn. Keep it visible in analytics, then isolate the fresh turn's
+            // canonical result/session id from the stale frame.
+            this._recordChatInvocation({
+              conversationId,
+              kind: conversation.kind,
+              adapter,
+              events: adapterEvents,
+              model,
+              status: 'failed',
+              startedAt: turnStartedAt,
+            })
+            this._buffers.set(conversationId, '')
+            this._streamFilters.set(conversationId, { inBlock: false, pendingTail: '' })
+            adapterEvents.length = 0
+            capturedSessionId = null
+            capturedErrorMessage = null
+            sawResult = false
+            stderrBuf = ''
+            // Consume the normal Explore crash budget so a failed fresh retry is
+            // surfaced rather than replaying the same user turn a third time.
+            const life = this._exploreLifecycle.get(conversationId)
+            if (life) life.crashCount = 1
+            this._activeProcesses.set(conversationId, newChild)
+            newChild.stderr?.on('data', (chunk: Buffer) => {
+              if (this._disposed) return
+              const text = chunk.toString()
+              stderrBuf += text
+              console.error(`[chat-manager] ${binary} stderr (${conversationId}):`, text.trim())
+            })
+            newChild.on('error', (err) => {
+              if (this._disposed) {
+                cancelForShutdown()
+                return
+              }
+              console.error(`[chat-manager] stale-session recovery spawn failed for ${conversationId}: ${err.message}`)
+              this._recordChatInvocation({
+                conversationId,
+                kind: conversation.kind,
+                adapter,
+                events: adapterEvents,
+                model,
+                status: 'failed',
+                startedAt: turnStartedAt,
+              })
+              this._activeProcesses.delete(conversationId)
+              this._buffers.delete(conversationId)
+              this._emittedProposals.delete(conversationId)
+              this._abortingConversations.delete(conversationId)
+              this._streamFilters.delete(conversationId)
+              const activeLife = this._exploreLifecycle.get(conversationId)
+              if (activeLife) {
+                activeLife.isStreaming = false
+                activeLife.lastActivityAt = Date.now()
+                if (activeLife.isMinimized) this._startIdleTimer(conversationId)
+              }
+              this._drainExploreQueue()
+              this._broadcast({
+                type: 'chat_error',
+                conversationId,
+                error: `Failed to launch ${binary}: ${err.message}`,
+                timestamp: new Date().toISOString(),
+              })
+              complete()
+            })
+            const newReader = createInterface({ input: newChild.stdout!, crlfDelay: Infinity })
+            readers.add(newReader)
+            newReader.on('line', readerHandler)
+            newChild.on('close', onClose)
+            return
+          } catch (err) {
+            console.error('[chat-manager] stale-session recovery spawn failed:', err)
+            // Fall through and surface the original missing-session error.
+          }
+        }
+
         // Crash auto-respawn for Explore: if the child exited non-zero before
         // emitting a `result` event, the user did not explicitly abort, and
         // we have not yet retried, respawn the same turn once via chat-resume
@@ -1010,6 +1269,7 @@ export class ChatManager {
         if (
           conversation.kind === 'explore' &&
           !wasAborting &&
+          !resumeRecoveryAttempted &&
           code !== 0 &&
           !sawResult &&
           // A provider-reported failure (usage limit, auth, unsupported model)
@@ -1039,7 +1299,7 @@ export class ChatManager {
             console.warn(`[chat-manager] explore crash respawn for ${conversationId}`)
             try {
               const newChild = this._spawnOwned(binary, respawnArgs, {
-                env: process.env,
+                env: spawnEnv,
                 stdio: ['ignore', 'pipe', 'pipe'],
                 cwd: spawnCwd,
               })
@@ -1271,17 +1531,21 @@ export class ChatManager {
     systemPrompt: string
     scopeFlags: string[]
     spawnCwd: string | undefined
+    spawnEnv: NodeJS.ProcessEnv
     promptForAdapter: string
     isFirstTurn: boolean
     userText: string
     lightweight: boolean
     conversationScope: ContextScope | null
+    buildRecoveryPrompt: () => string
+    allowMissingSessionRecovery: boolean
+    resumeRecoveryAttempted?: boolean
   }): Promise<void> {
     if (this._disposed) return
     const {
       conversationId, conversation, adapter, binary, model, systemPrompt,
-      scopeFlags, spawnCwd, promptForAdapter, isFirstTurn, userText,
-      lightweight, conversationScope,
+      scopeFlags, spawnCwd, spawnEnv, promptForAdapter, isFirstTurn, userText,
+      lightweight, conversationScope, buildRecoveryPrompt,
     } = p
 
     const sessionArgs = adapter.buildArgs('chat-stream', {
@@ -1294,7 +1558,7 @@ export class ChatManager {
     })
 
     const { child, isNew } = this._stdinSessions.getOrSpawn(conversationId, {
-      binary, args: sessionArgs, cwd: spawnCwd, env: process.env, spawn: this._spawnOwned.bind(this),
+      binary, args: sessionArgs, cwd: spawnCwd, env: spawnEnv, spawn: this._spawnOwned.bind(this),
     })
     this._trackPersistentProcess(conversationId, child)
     // MED-1: a fresh child restarts claude's session-cumulative counters at 0,
@@ -1447,6 +1711,58 @@ export class ChatManager {
       // usage). Set at result time, read by finishTurn.
       let resultIsError = false
 
+      const recoverMissingSession = (diagnostic: unknown): boolean => {
+        if (
+          settled ||
+          !p.allowMissingSessionRecovery ||
+          !conversation.session_id ||
+          p.resumeRecoveryAttempted ||
+          this._abortingConversations.has(conversationId) ||
+          (this._buffers.get(conversationId) ?? '').length > 0 ||
+          adapterEvents.some((event) => event.kind === 'tool-use') ||
+          !(
+            containsMissingClaudeSessionDiagnostic(diagnostic) ||
+            containsMissingClaudeSessionDiagnostic(stderrBuf)
+          )
+        ) {
+          return false
+        }
+
+        // The persistent child was launched with the stale --resume before its
+        // first stdin turn. Evict it, but keep the Explore lifecycle slot held
+        // while a brand-new stream child receives the same turn exactly once.
+        settled = true
+        // Persist the invalidation before replacing the old stream child. A
+        // failed fresh attempt must not leave the known-bad repo-cwd id behind.
+        updateConversation(this._db, conversationId, { session_id: null })
+        this._stdinSessions.clearHandlers(conversationId)
+        cleanupTurnState()
+        recordInv('failed')
+        this._stdinSessions.kill(conversationId)
+        console.warn(`[chat-manager] stale persistent Explore session; retrying fresh for ${conversationId}`)
+
+        void this._streamPersistentExploreTurn({
+          ...p,
+          conversation: { ...conversation, session_id: null },
+          promptForAdapter: buildRecoveryPrompt(),
+          isFirstTurn: false,
+          resumeRecoveryAttempted: true,
+        }).then(complete).catch((err) => {
+          if (!this._disposed) {
+            console.error(`[chat-manager] persistent stale-session recovery failed for ${conversationId}:`, err)
+            markStreamingEnded(false)
+            this._broadcast({
+              type: 'chat_error',
+              conversationId,
+              error: err instanceof Error ? err.message : String(err),
+              timestamp: new Date().toISOString(),
+            })
+          }
+          complete()
+        })
+        return true
+      }
+
       const finishTurn = () => {
         if (settled) return
         if (this._disposed) {
@@ -1514,6 +1830,7 @@ export class ChatManager {
           cancelForShutdown()
           return
         }
+        if (recoverMissingSession(stderrBuf)) return
         settled = true
         this._stdinSessions.clearHandlers(conversationId)
         const wasAborting = this._abortingConversations.has(conversationId)
@@ -1551,6 +1868,7 @@ export class ChatManager {
             break
           case 'result': {
             const payload = ev.payload as { session_id?: string; is_error?: unknown; subtype?: unknown }
+            if (recoverMissingSession(isMissingClaudeSessionErrorResult(payload) ? payload : null)) break
             if (payload.session_id) capturedSessionId = payload.session_id
             // LOW-7: detect a failed turn reported through the result frame.
             resultIsError =

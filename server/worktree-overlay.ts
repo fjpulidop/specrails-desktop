@@ -12,10 +12,24 @@
  * (in-repo) projects have the sibling problem for their UNTRACKED `.claude`
  * entries: present on disk in the repo, absent from the checkout.
  *
+ * Sources are ORDERED roots: `sourceRoot` (the effective artifact root — the
+ * workspace for relocated projects, the repo for legacy ones) plus optional
+ * `fallbackSourceRoots`. Relocated launches pass the REPO as the fallback so
+ * repo-resident untracked carve-outs (OpenSpec's `/opsx:*` command dirs,
+ * `openspec-*` skills, user extras) reach the worktree exactly as they do for
+ * legacy projects — a relocated workspace links the framework `commands/`
+ * subtree, which ships only `specrails/`, so without the fallback the claude
+ * CLI reports `Unknown command: /opsx:ff` inside isolated rails.
+ *
  * Mechanics — a MERGE-overlay under `<worktree>/<providerDir>/`:
  *  - For each source entry missing in the worktree, SYMLINK it (dir symlink when
  *    the whole dir is absent, per-file/per-child when partially present). The
  *    checkout's own content is NEVER overwritten — tracked files always win.
+ *  - Earlier roots win per entry. When SEVERAL roots contribute children to the
+ *    same directory (workspace `commands/specrails` + repo `commands/opsx`),
+ *    the dir is materialized as a REAL directory of per-child links — a
+ *    whole-dir link to either root would hide the other's children. A prior
+ *    pass's own whole-dir link is upgraded in place on resume.
  *  - `agent-memory` is linked like everything else: all runs SHARE agent memory,
  *    exactly matching the pre-isolation shared-cwd semantics (deliberate).
  *  - The providerDir ROOT itself is never linked (a real dir is created) so
@@ -29,11 +43,11 @@
  *
  * Idempotent + resume-safe: every created entry is recorded in a manifest
  * (`.sr-rail-overlay.json`, itself overlay-owned) whose UNION across passes is
- * returned as `createdPaths` — the caller excludes those paths from
- * `commitWorktree`'s `git add -A` so overlay scaffolding NEVER lands on the
- * ticket branch / PR. Failures degrade per entry into `warnings` (the spawn
- * proceeds — a partial surface beats an aborted rail); this function never
- * throws.
+ * returned as `createdPaths`. `commitWorktree` uses those paths for its index
+ * audit/reset and authoritative `git commit --only` literal exclusions, so
+ * overlay scaffolding NEVER lands on the ticket branch / PR. Failures degrade
+ * per entry into `warnings` (the spawn proceeds — a partial surface beats an
+ * aborted rail); this function never throws.
  */
 import fs from 'fs'
 import path from 'path'
@@ -45,6 +59,11 @@ export interface WorktreeOverlayInput {
   /** Effective artifact root: the WORKSPACE for relocated projects, the repo
    *  path for legacy projects. */
   sourceRoot: string
+  /** Ordered LOWER-priority roots merged after `sourceRoot` (first match wins
+   *  per entry). Relocated launches pass the repo here so its untracked
+   *  provider-dir entries (OpenSpec's `/opsx:*` commands, user extras) reach
+   *  the worktree. Legacy launches omit it — byte-identical behaviour. */
+  fallbackSourceRoots?: string[]
   /** Provider dir name (`.claude` / `.codex` / `.gemini`). */
   providerDir: string
   /** Provider instruction filename (`CLAUDE.md` / `AGENTS.md` / `GEMINI.md`). */
@@ -54,7 +73,7 @@ export interface WorktreeOverlayInput {
 export interface WorktreeOverlayResult {
   /** Worktree-relative POSIX paths of every overlay-owned entry (links, copies,
    *  the manifest) — cumulative across passes on a resumed worktree. The caller
-   *  MUST exclude these from any `git add` so they never reach the branch. */
+   *  MUST enforce them as commit exclusions so they never reach the branch. */
   createdPaths: string[]
   /** Immutable cleanup proof for each returned path. Automatic worktree
    * removal must re-check these fingerprints before excluding overlay files
@@ -126,15 +145,34 @@ function safeRelativePath(value: string): string | null {
   return normalized
 }
 
-function sourcePathForOverlayEntry(input: WorktreeOverlayInput, rel: string): string | null {
+/** The configured source roots in priority order, deduped, never the worktree
+ *  itself (self-overlay paranoia extends to fallback roots). */
+function overlayRootsOf(input: WorktreeOverlayInput): string[] {
+  const worktree = path.resolve(input.worktreePath)
+  const roots: string[] = []
+  const seen = new Set<string>()
+  for (const root of [input.sourceRoot, ...(input.fallbackSourceRoots ?? [])]) {
+    if (!root) continue
+    const resolved = path.resolve(root)
+    if (resolved === worktree || seen.has(resolved)) continue
+    seen.add(resolved)
+    roots.push(root)
+  }
+  return roots
+}
+
+/** Candidate source paths (one per configured root, priority order) an overlay
+ *  manifest entry may authenticate against. Empty for unauthorised rels. */
+function sourceCandidatesForOverlayEntry(input: WorktreeOverlayInput, rel: string): string[] {
+  const roots = overlayRootsOf(input)
   if (rel === '.mcp.json' || rel === input.instructionsFilename) {
-    return path.join(input.sourceRoot, rel)
+    return roots.map((root) => path.join(root, rel))
   }
   const providerPrefix = `${input.providerDir}/`
-  if (!rel.startsWith(providerPrefix)) return null
+  if (!rel.startsWith(providerPrefix)) return []
   const providerRel = rel.slice(providerPrefix.length)
-  if (!providerRel || providerRel === 'worktrees' || providerRel.startsWith('worktrees/')) return null
-  return path.join(input.sourceRoot, ...rel.split('/'))
+  if (!providerRel || providerRel === 'worktrees' || providerRel.startsWith('worktrees/')) return []
+  return roots.map((root) => path.join(root, ...rel.split('/')))
 }
 
 function sha256(parts: readonly (string | Buffer)[]): string {
@@ -209,20 +247,22 @@ export function captureOverlayCleanupEvidence(
       }
       continue
     }
-    const source = sourcePathForOverlayEntry(input, rel)
-    if (!source) continue
+    const sources = sourceCandidatesForOverlayEntry(input, rel)
+    if (sources.length === 0) continue
     const destinationStat = lstatSafe(destination)
     if (!destinationStat) continue
     if (destinationStat.isSymbolicLink()) {
+      let target: string
       try {
-        if (path.resolve(path.dirname(destination), fs.readlinkSync(destination)) !== path.resolve(source)) continue
+        target = path.resolve(path.dirname(destination), fs.readlinkSync(destination))
       } catch {
         continue
       }
+      if (!sources.some((source) => path.resolve(source) === target)) continue
     } else {
-      const sourceDigest = dereferencedDigest(source)
       const destinationDigest = dereferencedDigest(destination)
-      if (!sourceDigest || sourceDigest !== destinationDigest) continue
+      if (!destinationDigest) continue
+      if (!sources.some((source) => dereferencedDigest(source) === destinationDigest)) continue
     }
     const fingerprint = fingerprintOverlayCleanupPath(destination)
     if (!fingerprint) continue
@@ -310,44 +350,194 @@ function linkOrCopyEntry(src: string, dest: string, rel: string, created: string
   created.push(rel)
 }
 
+/** True when `secondary` contributes any entry name (recursively, by tree
+ *  shape) that is not reachable through `primary`. Drives the resume-time
+ *  upgrade of a prior whole-dir link into a merged real dir. Follows dir
+ *  symlinks with a realpath ancestor guard (framework subtrees are links). */
+function contributesExtraEntries(secondary: string, primary: string, ancestors = new Set<string>()): boolean {
+  let names: string[]
+  try {
+    names = fs.readdirSync(secondary)
+  } catch {
+    return false
+  }
+  let real: string
+  try {
+    real = fs.realpathSync(secondary)
+  } catch {
+    return false
+  }
+  if (ancestors.has(real)) return false
+  const nextAncestors = new Set(ancestors).add(real)
+  for (const name of names) {
+    const primaryChild = path.join(primary, name)
+    if (!lstatSafe(primaryChild)) return true
+    const secondaryChild = path.join(secondary, name)
+    if (isDir(secondaryChild) && isDir(primaryChild) &&
+        contributesExtraEntries(secondaryChild, primaryChild, nextAncestors)) {
+      return true
+    }
+  }
+  return false
+}
+
 /**
- * Merge `src` into `dest` non-destructively:
- *  - dest missing            → link (whole entry).
- *  - dest is OUR prior link  → re-claim (record) without touching it.
- *  - dest is a real dir AND src is a dir → recurse per child (per-file links
- *    where the checkout is partially present).
- *  - anything else           → skip (the checkout's content always wins).
+ * Merge the ordered existing sources for ONE entry into `dest`
+ * non-destructively (`srcs` = the roots' paths that exist for this rel,
+ * priority order — earlier roots win):
+ *  - dest missing, one contributing dir (or a file first) → link whole entry.
+ *  - dest missing, several contributing dirs → REAL dir + per-child recursion
+ *    (a whole-dir link to either root would hide the other's children).
+ *  - dest is OUR prior link/copy → re-claim; rebuild from the current ordered
+ *    sources when a higher-priority winner appears or another root contributes
+ *    extra directory entries (resume path).
+ *  - dest is a real dir AND the highest-priority src is a dir → recurse per
+ *    child over the union (per-file links where checkout is partially present).
+ *  - anything else → skip (the checkout's content always wins).
  */
-function mergeLink(src: string, dest: string, rel: string, created: string[], warnings: string[]): void {
+function mergeLink(
+  srcs: string[],
+  dest: string,
+  rel: string,
+  created: string[],
+  warnings: string[],
+  priorOwned: ReadonlySet<string>,
+  converted: Set<string>,
+): void {
+  if (srcs.length === 0) return
+  const primary = srcs[0]
+  const primaryIsDir = isDir(primary)
+  // A highest-priority FILE shadows every lower-priority entry, including
+  // directories. Only collect mergeable dirs when the primary itself is one.
+  const dirSrcs = primaryIsDir ? srcs.filter((src) => isDir(src)) : []
   const destSt = lstatSafe(dest)
+
   if (!destSt) {
-    linkOrCopyEntry(src, dest, rel, created, warnings)
+    if (!primaryIsDir || dirSrcs.length <= 1) {
+      // A file in the highest-priority root shadows lower roots entirely; a
+      // dir contributed by a single root keeps the whole-dir link (status quo).
+      linkOrCopyEntry(primary, dest, rel, created, warnings)
+      return
+    }
+    try {
+      fs.mkdirSync(dest, { recursive: true })
+    } catch (err) {
+      warnings.push(`failed to create ${rel}: ${errMsg(err)}`)
+      return
+    }
+    // The merged real dir itself is NOT recorded (precedent: the providerDir
+    // root); only its leaf links carry manifest entries + cleanup evidence.
+    mergeChildren(dirSrcs, dest, rel, created, warnings, priorOwned, converted)
     return
   }
+
   if (destSt.isSymbolicLink()) {
     // Idempotent re-claim of a link a prior pass created; a foreign symlink
     // (brought by the checkout) is left alone and NOT claimed.
+    let target: string
     try {
-      if (path.resolve(path.dirname(dest), fs.readlinkSync(dest)) === path.resolve(src)) created.push(rel)
+      target = path.resolve(path.dirname(dest), fs.readlinkSync(dest))
     } catch {
-      /* unreadable link — leave it */
+      return /* unreadable link — leave it */
     }
-    return
-  }
-  if (destSt.isDirectory() && isDir(src)) {
-    let entries: string[]
-    try {
-      entries = fs.readdirSync(src)
-    } catch (err) {
-      warnings.push(`failed to read ${rel}: ${errMsg(err)}`)
+    const owned = srcs.find((src) => path.resolve(src) === target)
+    // Target equality authenticates WHAT the link points at, but not WHO made
+    // it. Destructive resume conversion additionally requires authenticated
+    // prior-manifest ownership; a checkout/foreign link may legitimately point
+    // at the same configured source and must never be replaced or claimed.
+    if (!owned || !priorOwned.has(rel)) return
+    const winnerChanged = path.resolve(owned) !== path.resolve(primary)
+    const needsDirectoryMerge =
+      isDir(owned) && primaryIsDir && dirSrcs.length > 1 &&
+      dirSrcs.some((src) => src !== owned && contributesExtraEntries(src, owned))
+    if (winnerChanged || needsDirectoryMerge) {
+      // Resume upgrade: rebuild OUR authenticated entry when a higher-priority
+      // source appeared or another dir now contributes children. Re-entering
+      // mergeLink with a missing destination selects the current winner and
+      // materializes a merged REAL dir when required.
+      try {
+        fs.unlinkSync(dest)
+      } catch (err) {
+        warnings.push(`failed to upgrade ${rel}: ${errMsg(err)}`)
+        created.push(rel) // still ours — keep it commit-excluded
+        return
+      }
+      converted.add(rel)
+      mergeLink(srcs, dest, rel, created, warnings, priorOwned, converted)
       return
     }
-    for (const name of entries) {
-      mergeLink(path.join(src, name), path.join(dest, name), `${rel}/${name}`, created, warnings)
+    created.push(rel)
+    return
+  }
+
+  if ((destSt.isDirectory() || destSt.isFile()) && priorOwned.has(rel)) {
+    // Windows may have materialized a prior overlay as a COPY when link
+    // creation was unavailable. Rebuild an authenticated source-identical copy
+    // when a higher-priority source appeared or a directory needs children
+    // from another root. Merely recursing into a prior dir copy would leave its
+    // old children unrecorded after the parent digest stops matching.
+    const destinationDigest = dereferencedDigest(dest)
+    const owned = destinationDigest
+      ? srcs.find((src) => dereferencedDigest(src) === destinationDigest)
+      : undefined
+    const winnerChanged = !!owned && path.resolve(owned) !== path.resolve(primary)
+    const needsDirectoryMerge =
+      !!owned && isDir(owned) && primaryIsDir && dirSrcs.length > 1 &&
+      dirSrcs.some((src) => src !== owned && contributesExtraEntries(src, owned))
+    if (owned && (winnerChanged || needsDirectoryMerge)) {
+      try {
+        // Recompute immediately before removal so a user modification between
+        // manifest authentication and conversion revokes destructive authority.
+        if (dereferencedDigest(dest) !== destinationDigest) return
+        fs.rmSync(dest, { recursive: destSt.isDirectory() })
+      } catch (err) {
+        warnings.push(`failed to upgrade ${rel}: ${errMsg(err)}`)
+        return
+      }
+      converted.add(rel)
+      mergeLink(srcs, dest, rel, created, warnings, priorOwned, converted)
+      return
     }
+  }
+
+  if (destSt.isDirectory() && primaryIsDir && dirSrcs.length > 0) {
+    mergeChildren(dirSrcs, dest, rel, created, warnings, priorOwned, converted)
     return
   }
   // dest exists as a file (or src is a file while dest is a dir) — never overwrite.
+}
+
+/** Recurse `mergeLink` per child over the UNION of children across the
+ *  contributing dirs, preserving root priority order. */
+function mergeChildren(
+  dirSrcs: string[],
+  dest: string,
+  rel: string,
+  created: string[],
+  warnings: string[],
+  priorOwned: ReadonlySet<string>,
+  converted: Set<string>,
+): void {
+  const names = new Set<string>()
+  for (const dir of dirSrcs) {
+    try {
+      for (const name of fs.readdirSync(dir)) names.add(name)
+    } catch (err) {
+      warnings.push(`failed to read ${rel}: ${errMsg(err)}`)
+    }
+  }
+  for (const name of [...names].sort()) {
+    const childSrcs = dirSrcs.map((dir) => path.join(dir, name)).filter((p) => lstatSafe(p) !== null)
+    mergeLink(
+      childSrcs,
+      path.join(dest, name),
+      `${rel}/${name}`,
+      created,
+      warnings,
+      priorOwned,
+      converted,
+    )
+  }
 }
 
 /** Copy `src` → `dest` only when `dest` does not exist. Records `rel`. */
@@ -371,6 +561,8 @@ export function applyWorktreeOverlay(input: WorktreeOverlayInput): WorktreeOverl
   const created: string[] = []
   const manifestPath = path.join(worktreePath, OVERLAY_MANIFEST)
   const prior = captureOverlayCleanupEvidence(input, readManifest(manifestPath)).map((entry) => entry.path)
+  const priorOwned = new Set(prior)
+  const converted = new Set<string>()
 
   try {
     if (!isDir(worktreePath)) {
@@ -381,10 +573,12 @@ export function applyWorktreeOverlay(input: WorktreeOverlayInput): WorktreeOverl
       // Paranoia: never overlay a worktree onto itself.
       return { createdPaths: [], cleanupEvidence: [], warnings }
     }
+    const roots = overlayRootsOf(input)
 
-    // 1. providerDir merge-overlay (commands/agents/skills/rules/settings/…).
-    const srcProvider = path.join(sourceRoot, providerDir)
-    if (isDir(srcProvider)) {
+    // 1. providerDir merge-overlay (commands/agents/skills/rules/settings/…),
+    //    over the UNION of entries across the configured roots (earlier wins).
+    const srcProviders = roots.map((root) => path.join(root, providerDir)).filter((p) => isDir(p))
+    if (srcProviders.length > 0) {
       const destProvider = path.join(worktreePath, providerDir)
       // The providerDir root is ALWAYS a real local dir (never a link) so
       // nested `.claude/worktrees/**` stay local — see the module header.
@@ -402,38 +596,57 @@ export function applyWorktreeOverlay(input: WorktreeOverlayInput): WorktreeOverl
         providerReady = false
       }
       if (providerReady) {
-        let entries: string[] = []
-        try {
-          entries = fs.readdirSync(srcProvider)
-        } catch (err) {
-          warnings.push(`failed to read source ${providerDir}: ${errMsg(err)}`)
+        const names = new Set<string>()
+        for (const srcProvider of srcProviders) {
+          try {
+            for (const name of fs.readdirSync(srcProvider)) names.add(name)
+          } catch (err) {
+            warnings.push(`failed to read source ${providerDir}: ${errMsg(err)}`)
+          }
         }
-        for (const name of entries) {
+        for (const name of [...names].sort()) {
           if (SKIP_PROVIDER_ENTRIES.has(name)) continue
-          mergeLink(path.join(srcProvider, name), path.join(destProvider, name), `${providerDir}/${name}`, created, warnings)
+          const childSrcs = srcProviders.map((srcProvider) => path.join(srcProvider, name)).filter((p) => lstatSafe(p) !== null)
+          mergeLink(
+            childSrcs,
+            path.join(destProvider, name),
+            `${providerDir}/${name}`,
+            created,
+            warnings,
+            priorOwned,
+            converted,
+          )
         }
       }
     }
 
     // 2. `.mcp.json` — COPY (spawn-local), only when the checkout lacks one.
-    copyIfAbsent(path.join(sourceRoot, '.mcp.json'), path.join(worktreePath, '.mcp.json'), '.mcp.json', created, warnings)
+    //    First root that has one wins.
+    const mcpSrc = roots.map((root) => path.join(root, '.mcp.json')).find((p) => fs.existsSync(p))
+    if (mcpSrc) copyIfAbsent(mcpSrc, path.join(worktreePath, '.mcp.json'), '.mcp.json', created, warnings)
 
-    // 3. Provider instruction file — COPY when the source has one and the
+    // 3. Provider instruction file — COPY when a source has one and the
     //    checkout doesn't (a repo-tracked CLAUDE.md always wins).
-    copyIfAbsent(
-      path.join(sourceRoot, instructionsFilename),
-      path.join(worktreePath, instructionsFilename),
-      instructionsFilename,
-      created,
-      warnings,
-    )
+    const instructionsSrc = roots.map((root) => path.join(root, instructionsFilename)).find((p) => fs.existsSync(p))
+    if (instructionsSrc) {
+      copyIfAbsent(
+        instructionsSrc,
+        path.join(worktreePath, instructionsFilename),
+        instructionsFilename,
+        created,
+        warnings,
+      )
+    }
   } catch (err) {
     warnings.push(`overlay failed: ${errMsg(err)}`)
   }
 
   // Union with the prior manifest so a RESUMED worktree keeps every overlay
   // entry excluded from commits, then persist (the manifest is overlay-owned).
-  const all = [...new Set([...prior, ...created])]
+  // A converted whole-dir link is no longer an overlay leaf. Drop it even if
+  // the merged real directory happens to have the same dereferenced digest as
+  // one source root (e.g. a fallback root already contains the full superset).
+  const all = [...new Set([...prior.filter((rel) => !converted.has(rel)), ...created])]
   if (all.length > 0) {
     try {
       fs.writeFileSync(manifestPath, JSON.stringify({ version: 1, paths: all }, null, 2))

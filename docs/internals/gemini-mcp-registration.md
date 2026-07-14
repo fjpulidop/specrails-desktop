@@ -38,7 +38,7 @@ loads** for gemini:
 |---|---|---|
 | Plugins on rails (`server/plugin-manager.ts`, e.g. Serena) | surgical merge into `<project>/.mcp.json` for `project-json` providers | plugin installs "successfully", MCP server never loads in gemini rail spawns |
 | Workspace MCP (`server/agent-mcp-config.ts` `mergeSpecrailsIntoWorkspaceMcp`, via `workspace-manager.ts`) | writes `<workspace>/.mcp.json` | not read by gemini |
-| Explore `context_scope.mcp` (`server/chat-manager.ts`) | spawns from `<project.path>` so `.mcp.json` loads | loads nothing on gemini |
+| Explore `context_scope.mcp` (`server/chat-manager.ts`) | spawns from the relocation-aware artifact cwd (workspace when relocated, `<project.path>` when legacy) so `.mcp.json` loads | loads nothing on gemini |
 
 Fixing these means writing into the repo's / workspace's `.gemini/settings.json`, which
 intersects the **pristine-repo / artifact-relocation policy** (the app must not mutate the

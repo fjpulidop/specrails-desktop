@@ -243,6 +243,272 @@ describe('applyWorktreeOverlay — idempotency + resume', () => {
   })
 })
 
+describe('applyWorktreeOverlay — fallback source roots (relocated: workspace + repo)', () => {
+  let repoRoot: string
+
+  beforeEach(() => {
+    repoRoot = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), 'sr-overlay-repo-')))
+  })
+
+  afterEach(() => {
+    fs.rmSync(repoRoot, { recursive: true, force: true })
+  })
+
+  const applyWithRepoFallback = () =>
+    applyWorktreeOverlay({
+      worktreePath: wt,
+      sourceRoot: source,
+      fallbackSourceRoots: [repoRoot],
+      providerDir: '.claude',
+      instructionsFilename: 'CLAUDE.md',
+    })
+
+  /** The live bug shape: workspace commands ship only specrails/; OpenSpec
+   *  installed opsx/ into the REPO (untracked → absent from the checkout). */
+  function seedOpsxShape(): void {
+    seedWorkspaceSource()
+    write(repoRoot, '.claude/commands/opsx/ff.md', '# opsx ff')
+    write(repoRoot, '.claude/commands/opsx/apply.md', '# opsx apply')
+    write(repoRoot, '.claude/skills/openspec-ff-change/SKILL.md', '# openspec skill')
+  }
+
+  it('repo-resident opsx commands reach the worktree alongside the workspace framework', () => {
+    seedOpsxShape()
+
+    const res = applyWithRepoFallback()
+
+    expect(res.warnings).toEqual([])
+    // Both roots contribute children to commands/ → REAL dir + per-child links.
+    expect(fs.lstatSync(path.join(wt, '.claude', 'commands')).isDirectory()).toBe(true)
+    expect(fs.lstatSync(path.join(wt, '.claude', 'commands', 'specrails')).isSymbolicLink()).toBe(true)
+    expect(fs.lstatSync(path.join(wt, '.claude', 'commands', 'opsx')).isSymbolicLink()).toBe(true)
+    expect(fs.readFileSync(path.join(wt, '.claude', 'commands', 'opsx', 'ff.md'), 'utf-8')).toBe('# opsx ff')
+    expect(fs.readFileSync(path.join(wt, '.claude', 'commands', 'specrails', 'implement.md'), 'utf-8')).toBe('# implement')
+    // skills/ also merges: workspace spec/ + repo openspec-ff-change/.
+    expect(fs.readFileSync(path.join(wt, '.claude', 'skills', 'openspec-ff-change', 'SKILL.md'), 'utf-8')).toBe('# openspec skill')
+    expect(fs.readFileSync(path.join(wt, '.claude', 'skills', 'spec', 'SKILL.md'), 'utf-8')).toBe('# skill')
+    // Merged real dirs are NOT recorded; their leaf links are.
+    expect(res.createdPaths).not.toContain('.claude/commands')
+    expect(res.createdPaths).toContain('.claude/commands/specrails')
+    expect(res.createdPaths).toContain('.claude/commands/opsx')
+    // Cleanup evidence covers the repo-sourced link too.
+    expect(res.cleanupEvidence.some((e) => e.path === '.claude/commands/opsx' && e.kind === 'symlink')).toBe(true)
+  })
+
+  it('earlier roots win when both provide the same file', () => {
+    seedWorkspaceSource()
+    write(repoRoot, '.claude/settings.json', '{"from":"repo"}')
+
+    applyWithRepoFallback()
+
+    const link = path.join(wt, '.claude', 'settings.json')
+    expect(fs.lstatSync(link).isSymbolicLink()).toBe(true)
+    expect(fs.realpathSync(link)).toBe(fs.realpathSync(path.join(source, '.claude', 'settings.json')))
+  })
+
+  it('RESUME: promotes an authenticated fallback dir when the primary later appears', () => {
+    seedWorkspaceSource()
+    write(repoRoot, '.claude/commands/opsx/ff.md', 'REPO VERSION')
+    const first = applyWithRepoFallback()
+    const destination = path.join(wt, '.claude', 'commands', 'opsx')
+    expect(fs.lstatSync(destination).isSymbolicLink()).toBe(true)
+    expect(fs.readFileSync(path.join(destination, 'ff.md'), 'utf8')).toBe('REPO VERSION')
+    expect(first.createdPaths).toContain('.claude/commands/opsx')
+
+    // No new child name: only the higher-priority root and its content changed.
+    // Resume must still rebuild instead of retaining the old fallback target.
+    write(source, '.claude/commands/opsx/ff.md', 'WORKSPACE VERSION')
+    const resumed = applyWithRepoFallback()
+
+    expect(fs.lstatSync(destination).isDirectory()).toBe(true)
+    expect(fs.lstatSync(destination).isSymbolicLink()).toBe(false)
+    expect(fs.readFileSync(path.join(destination, 'ff.md'), 'utf8')).toBe('WORKSPACE VERSION')
+    expect(resumed.createdPaths).not.toContain('.claude/commands/opsx')
+    expect(resumed.createdPaths).toContain('.claude/commands/opsx/ff.md')
+  })
+
+  it('RESUME: promotes an authenticated fallback file copy when the primary later appears', () => {
+    const rel = '.claude/fallback-only.json'
+    write(repoRoot, rel, 'REPO VERSION')
+    write(wt, rel, 'REPO VERSION') // simulate the Windows no-link copy fallback
+    fs.writeFileSync(path.join(wt, OVERLAY_MANIFEST), JSON.stringify({ version: 1, paths: [rel] }))
+    write(source, rel, 'WORKSPACE VERSION')
+
+    const resumed = applyWithRepoFallback()
+
+    const destination = path.join(wt, rel)
+    expect(fs.lstatSync(destination).isSymbolicLink()).toBe(true)
+    expect(fs.realpathSync(destination)).toBe(fs.realpathSync(path.join(source, rel)))
+    expect(fs.readFileSync(destination, 'utf8')).toBe('WORKSPACE VERSION')
+    expect(resumed.createdPaths).toContain(rel)
+  })
+
+  it('RESUME: upgrades a prior single-root whole-dir link when the repo now contributes children', () => {
+    seedWorkspaceSource()
+    // First allocation ran WITHOUT the fallback (pre-fix worktree).
+    const first = apply()
+    expect(first.createdPaths).toContain('.claude/commands')
+    expect(fs.lstatSync(path.join(wt, '.claude', 'commands')).isSymbolicLink()).toBe(true)
+
+    write(repoRoot, '.claude/commands/opsx/ff.md', '# opsx ff')
+    const resumed = applyWithRepoFallback()
+
+    // The link became a merged real dir; both children resolve.
+    expect(fs.lstatSync(path.join(wt, '.claude', 'commands')).isDirectory()).toBe(true)
+    expect(fs.lstatSync(path.join(wt, '.claude', 'commands')).isSymbolicLink()).toBe(false)
+    expect(fs.readFileSync(path.join(wt, '.claude', 'commands', 'opsx', 'ff.md'), 'utf-8')).toBe('# opsx ff')
+    expect(fs.readFileSync(path.join(wt, '.claude', 'commands', 'specrails', 'implement.md'), 'utf-8')).toBe('# implement')
+    expect(resumed.createdPaths).toContain('.claude/commands/specrails')
+    expect(resumed.createdPaths).toContain('.claude/commands/opsx')
+    expect(resumed.warnings).toEqual([])
+  })
+
+  it('RESUME: converted parent drops out even when the merged dir matches a fallback superset', () => {
+    seedWorkspaceSource()
+    const first = apply()
+    expect(first.createdPaths).toContain('.claude/commands')
+
+    // The fallback contains the complete dereferenced union. Without an
+    // explicit converted-path revocation, the new REAL directory can match
+    // this source digest and incorrectly keep the obsolete parent authority.
+    write(repoRoot, '.claude/commands/specrails/implement.md', '# implement')
+    write(repoRoot, '.claude/commands/specrails/retry.md', '# retry')
+    write(repoRoot, '.claude/commands/opsx/ff.md', '# opsx ff')
+
+    const resumed = applyWithRepoFallback()
+
+    expect(fs.lstatSync(path.join(wt, '.claude', 'commands')).isDirectory()).toBe(true)
+    expect(resumed.createdPaths).not.toContain('.claude/commands')
+    // Both roots also carry specrails/, so that nested dir is merged one level
+    // deeper and its individually-owned files are the recorded leaves.
+    expect(resumed.createdPaths).toContain('.claude/commands/specrails/implement.md')
+    expect(resumed.createdPaths).toContain('.claude/commands/opsx')
+  })
+
+  it('RESUME: rebuilds an authenticated prior whole-dir copy into recorded leaves', () => {
+    seedWorkspaceSource()
+    fs.mkdirSync(path.join(wt, '.claude'), { recursive: true })
+    fs.cpSync(
+      path.join(source, '.claude', 'commands'),
+      path.join(wt, '.claude', 'commands'),
+      { recursive: true },
+    )
+    fs.writeFileSync(path.join(wt, OVERLAY_MANIFEST), JSON.stringify({
+      version: 1,
+      paths: ['.claude/commands'],
+    }))
+    write(repoRoot, '.claude/commands/opsx/ff.md', '# opsx ff')
+
+    const resumed = applyWithRepoFallback()
+
+    expect(fs.lstatSync(path.join(wt, '.claude', 'commands')).isDirectory()).toBe(true)
+    expect(fs.lstatSync(path.join(wt, '.claude', 'commands', 'specrails')).isSymbolicLink()).toBe(true)
+    expect(fs.lstatSync(path.join(wt, '.claude', 'commands', 'opsx')).isSymbolicLink()).toBe(true)
+    expect(resumed.createdPaths).not.toContain('.claude/commands')
+    expect(resumed.createdPaths).toContain('.claude/commands/specrails')
+    expect(resumed.createdPaths).toContain('.claude/commands/opsx')
+  })
+
+  it('never upgrades a FOREIGN symlink the checkout brought', () => {
+    seedWorkspaceSource()
+    const elsewhere = fs.mkdtempSync(path.join(os.tmpdir(), 'sr-overlay-foreign-'))
+    fs.mkdirSync(path.join(wt, '.claude'), { recursive: true })
+    fs.symlinkSync(elsewhere, path.join(wt, '.claude', 'commands'))
+    write(repoRoot, '.claude/commands/opsx/ff.md', '# opsx ff')
+    try {
+      const res = applyWithRepoFallback()
+      expect(fs.lstatSync(path.join(wt, '.claude', 'commands')).isSymbolicLink()).toBe(true)
+      expect(fs.readlinkSync(path.join(wt, '.claude', 'commands'))).toBe(elsewhere)
+      expect(res.createdPaths).not.toContain('.claude/commands')
+    } finally {
+      fs.rmSync(elsewhere, { recursive: true, force: true })
+    }
+  })
+
+  it('never upgrades a FOREIGN symlink even when it targets a configured source', () => {
+    seedWorkspaceSource()
+    fs.mkdirSync(path.join(wt, '.claude'), { recursive: true })
+    const sourceCommands = path.join(source, '.claude', 'commands')
+    fs.symlinkSync(sourceCommands, path.join(wt, '.claude', 'commands'))
+    write(repoRoot, '.claude/commands/opsx/ff.md', '# opsx ff')
+
+    const res = applyWithRepoFallback()
+
+    const destination = path.join(wt, '.claude', 'commands')
+    expect(fs.lstatSync(destination).isSymbolicLink()).toBe(true)
+    expect(fs.realpathSync(destination)).toBe(fs.realpathSync(sourceCommands))
+    expect(fs.existsSync(path.join(destination, 'opsx'))).toBe(false)
+    expect(res.createdPaths).not.toContain('.claude/commands')
+  })
+
+  it('a primary-root file shadows a fallback directory when checkout has a directory', () => {
+    seedWorkspaceSource() // primary `.claude/settings.json` is a file
+    write(repoRoot, '.claude/settings.json/fallback.txt', 'must stay hidden')
+    write(wt, '.claude/settings.json/checkout.txt', 'checkout wins')
+
+    const res = applyWithRepoFallback()
+
+    expect(fs.readFileSync(path.join(wt, '.claude', 'settings.json', 'checkout.txt'), 'utf8')).toBe('checkout wins')
+    expect(fs.existsSync(path.join(wt, '.claude', 'settings.json', 'fallback.txt'))).toBe(false)
+    expect(res.createdPaths).not.toContain('.claude/settings.json/fallback.txt')
+  })
+
+  it('checkout content still wins over fallback-root entries', () => {
+    seedWorkspaceSource()
+    write(repoRoot, '.claude/commands/opsx/ff.md', 'REPO VERSION')
+    write(wt, '.claude/commands/opsx/ff.md', 'CHECKOUT VERSION')
+
+    const res = applyWithRepoFallback()
+
+    expect(fs.readFileSync(path.join(wt, '.claude', 'commands', 'opsx', 'ff.md'), 'utf-8')).toBe('CHECKOUT VERSION')
+    expect(res.createdPaths).not.toContain('.claude/commands/opsx/ff.md')
+  })
+
+  it('.mcp.json comes from the first root that has one', () => {
+    write(repoRoot, '.mcp.json', '{"from":"repo"}')
+    const res = applyWithRepoFallback()
+    expect(fs.readFileSync(path.join(wt, '.mcp.json'), 'utf-8')).toBe('{"from":"repo"}')
+    expect(res.createdPaths).toContain('.mcp.json')
+  })
+
+  it('a fallback root equal to the worktree is ignored (self-overlay guard)', () => {
+    seedWorkspaceSource()
+    const res = applyWorktreeOverlay({
+      worktreePath: wt,
+      sourceRoot: source,
+      fallbackSourceRoots: [wt],
+      providerDir: '.claude',
+      instructionsFilename: 'CLAUDE.md',
+    })
+    expect(res.warnings).toEqual([])
+    expect(fs.lstatSync(path.join(wt, '.claude', 'commands')).isSymbolicLink()).toBe(true)
+  })
+
+  it('revalidation keeps authority over repo-sourced links after settle', () => {
+    seedOpsxShape()
+    const allocated = applyWithRepoFallback()
+
+    const settled = revalidateOverlayCleanupEvidence({
+      worktreePath: wt,
+      sourceRoot: source,
+      fallbackSourceRoots: [repoRoot],
+      providerDir: '.claude',
+      instructionsFilename: 'CLAUDE.md',
+    }, allocated.cleanupEvidence)
+
+    expect(settled.some((e) => e.path === '.claude/commands/opsx')).toBe(true)
+    expect(settled.some((e) => e.path === '.claude/commands/specrails')).toBe(true)
+  })
+
+  it('a second pass with the fallback is idempotent', () => {
+    seedOpsxShape()
+    const first = applyWithRepoFallback()
+    const second = applyWithRepoFallback()
+    expect([...second.createdPaths].sort()).toEqual([...first.createdPaths].sort())
+    expect(second.warnings).toEqual([])
+  })
+})
+
 describe('applyWorktreeOverlay — degradation (never throws)', () => {
   it('missing worktree dir → warning, empty result', () => {
     seedWorkspaceSource()

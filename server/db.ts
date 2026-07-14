@@ -2051,7 +2051,7 @@ export function deleteConversation(db: DbInstance, id: string): void {
 export function updateConversation(
   db: DbInstance,
   id: string,
-  patch: { title?: string; session_id?: string; model?: string }
+  patch: { title?: string; session_id?: string | null; model?: string }
 ): void {
   const sets: string[] = ['updated_at = ?']
   const params: unknown[] = [new Date().toISOString()]
