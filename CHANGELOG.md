@@ -1,5 +1,12 @@
 # Changelog
 
+## [2.29.5](https://github.com/fjpulidop/specrails-desktop/compare/v2.29.4...v2.29.5) (2026-07-14)
+
+
+### Bug Fixes
+
+* **relocation:** restore opsx overlays and Explore workspace cwd ([#552](https://github.com/fjpulidop/specrails-desktop/issues/552)) ([42c3028](https://github.com/fjpulidop/specrails-desktop/commit/42c3028a837c395b040403ec7d5e48c5bb116167))
+
 ## [2.29.4](https://github.com/fjpulidop/specrails-desktop/compare/v2.29.3...v2.29.4) (2026-07-13)
 
 
