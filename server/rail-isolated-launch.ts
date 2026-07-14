@@ -137,7 +137,7 @@ export interface IsolatedLaunchIO {
   /** Per-run framework overlay applied to each fresh worktree. */
   overlay?: typeof applyWorktreeOverlay
   /** Resolves the project's execution (relocated vs legacy) — decides the
-   *  overlay's source root (workspace vs repo). */
+   *  overlay's primary root and whether the repo is added as fallback. */
   resolveExecution?: typeof resolveProjectExecution
   /** Code-Explorer provenance: pre-run worktree snapshot + settle recorder
    *  (injectable so unit tests need no real git repo). */
@@ -528,9 +528,18 @@ export async function launchIsolatedRail(input: IsolatedLaunchInput, io: Isolate
   // overlay their repo's own untracked on-disk entries instead. Resolved ONCE
   // per launch; a resolution failure degrades to the legacy (repo) source.
   let overlaySourceRoot = baseRepo
+  let overlayFallbackRoots: string[] | undefined
   try {
     const exec = resolveExecution({ slug, path: baseRepo })
-    if (exec.relocated && exec.workspaceDir) overlaySourceRoot = exec.workspaceDir
+    if (exec.relocated && exec.workspaceDir) {
+      overlaySourceRoot = exec.workspaceDir
+      // The repo as FALLBACK root: repo-resident untracked carve-outs
+      // (OpenSpec's `/opsx:*` commands, `openspec-*` skills, user extras)
+      // are absent from both the checkout (untracked) and the workspace
+      // (the framework ships only `specrails/`), so without this the claude
+      // CLI reports `Unknown command: /opsx:ff` inside isolated rails.
+      overlayFallbackRoots = [baseRepo]
+    }
   } catch { /* legacy fallback */ }
   let overlayProviderDir = '.claude'
   let overlayInstructions = 'CLAUDE.md'
@@ -798,6 +807,7 @@ export async function launchIsolatedRail(input: IsolatedLaunchInput, io: Isolate
           const res = overlay({
             worktreePath: handle.worktreePath,
             sourceRoot: overlaySourceRoot,
+            fallbackSourceRoots: overlayFallbackRoots,
             providerDir: overlayProviderDir,
             instructionsFilename: overlayInstructions,
           })
@@ -978,6 +988,7 @@ export async function launchIsolatedRail(input: IsolatedLaunchInput, io: Isolate
       a.overlayCleanupEvidence = revalidateOverlayCleanupEvidence({
         worktreePath: a.handle.worktreePath,
         sourceRoot: overlaySourceRoot,
+        fallbackSourceRoots: overlayFallbackRoots,
         providerDir: overlayProviderDir,
         instructionsFilename: overlayInstructions,
       }, a.overlayCleanupEvidence)

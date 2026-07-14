@@ -25,7 +25,10 @@ import treeKill from 'tree-kill'
 import { ChatManager } from './chat-manager'
 import { attachmentManager } from './attachment-manager'
 import { __resetBinaryProbeCacheForTest } from './binary-probe'
-import { initDb, createConversation, getConversation, createJob, finishJob } from './db'
+import {
+  initDb, createConversation, getConversation, getMessages, addMessage,
+  updateConversation, createJob, finishJob,
+} from './db'
 import { mirrorProjectEntry as cmMirror, workspaceLayout as cmLayout, resolveHome as cmResolveHome } from './artifact-registry'
 import fsNode from 'fs'
 import osNode from 'os'
@@ -69,6 +72,19 @@ function assistantEvent(text: string): string {
 
 function resultEvent(sessionId: string): string {
   return JSON.stringify({ type: 'result', session_id: sessionId })
+}
+
+function missingSessionResult(sessionId = 'stale-session'): string {
+  return JSON.stringify({
+    type: 'result',
+    subtype: 'error_during_execution',
+    is_error: true,
+    errors: [`No conversation found with session ID: ${sessionId}`],
+  })
+}
+
+function occurrences(text: string, needle: string): number {
+  return text.split(needle).length - 1
 }
 
 function getBroadcastedByType(broadcast: ReturnType<typeof vi.fn>, type: string) {
@@ -167,6 +183,354 @@ describe('ChatManager', () => {
       const opts = vi.mocked(mockSpawn).mock.calls[0][2] as { cwd: string; env: NodeJS.ProcessEnv }
       expect(opts.cwd).toBe(repo)
       expect(opts.env.SPECRAILS_REPO_DIR).toBeUndefined()
+    })
+
+    it('RELOCATED explore + mcp=true: spawns from the WORKSPACE (never the repo), relocation env injected', async () => {
+      // The repo cwd + the "write directly to .specrails/local-tickets.json"
+      // prompt made the model create <repo>/.specrails/local-tickets.json — a
+      // store the app never reads — on relocated projects. The MCP-honouring
+      // cwd for a relocated project is the workspace (.mcp.json lives there).
+      const ws = seedRelocated('acme')
+      const cmReloc = new ChatManager(broadcast, db, repo, 'Acme', 'claude', 'p1', 'acme')
+      createConversation(db, { id: 'exp-mcp-reloc', model: 'sonnet', kind: 'explore', contextScope: MCP_SCOPE })
+      const child = createMockChildProcess()
+      vi.mocked(mockSpawn).mockReturnValue(child as any)
+
+      const sendPromise = cmReloc.sendMessage('exp-mcp-reloc', 'Hi', { lightweight: true })
+      pushLine(child, assistantEvent('ok'))
+      pushLine(child, resultEvent('s3'))
+      await finishProcess(child, 0)
+      await sendPromise
+
+      const opts = vi.mocked(mockSpawn).mock.calls[0][2] as { cwd: string; env: NodeJS.ProcessEnv }
+      expect(opts.cwd).toBe(ws)
+      expect(opts.cwd).not.toBe(repo)
+      expect(opts.env.SPECRAILS_REPO_DIR).toBe(repo)
+    })
+
+    it('RELOCATED explore + stale repo-cwd session: retries fresh once in the workspace with bounded history', async () => {
+      const ws = seedRelocated('acme')
+      const cmReloc = new ChatManager(broadcast, db, repo, 'Acme', 'claude', 'p1', 'acme')
+      const convId = 'exp-mcp-stale-resume'
+      createConversation(db, { id: convId, model: 'sonnet', kind: 'explore', contextScope: MCP_SCOPE })
+      // This session predates the cwd fix: Claude stored it under the repo. Keep
+      // one oversized old message to prove the recovery transcript is bounded,
+      // plus recent context that must survive the fresh-session handoff.
+      addMessage(db, { conversation_id: convId, role: 'user', content: `old context ${'x'.repeat(60 * 1024)}` })
+      addMessage(db, { conversation_id: convId, role: 'assistant', content: 'Recent decision: use the payments API.' })
+      updateConversation(db, convId, { session_id: 'repo-session' })
+
+      const staleChild = createMockChildProcess()
+      const freshChild = createMockChildProcess()
+      vi.mocked(mockSpawn)
+        .mockReturnValueOnce(staleChild as any)
+        .mockReturnValueOnce(freshChild as any)
+
+      const currentTurn = 'Please continue from that decision.'
+      const sendPromise = cmReloc.sendMessage(convId, currentTurn, { lightweight: true })
+      pushLine(staleChild, missingSessionResult('repo-session'))
+      await finishProcess(staleChild, 1)
+
+      pushLine(freshChild, assistantEvent('Continued in the workspace.'))
+      pushLine(freshChild, resultEvent('workspace-session'))
+      await finishProcess(freshChild, 0)
+      await sendPromise
+
+      expect(vi.mocked(mockSpawn)).toHaveBeenCalledTimes(2)
+      const firstCall = vi.mocked(mockSpawn).mock.calls[0]
+      const retryCall = vi.mocked(mockSpawn).mock.calls[1]
+      const firstArgs = firstCall[1] as string[]
+      const retryArgs = retryCall[1] as string[]
+      expect(firstArgs).toContain('--resume')
+      expect(firstArgs).toContain('repo-session')
+      expect(retryArgs).not.toContain('--resume')
+      expect(retryArgs).not.toContain('repo-session')
+
+      const firstOpts = firstCall[2] as { cwd: string; env: NodeJS.ProcessEnv }
+      const retryOpts = retryCall[2] as { cwd: string; env: NodeJS.ProcessEnv }
+      expect(retryOpts.cwd).toBe(ws)
+      expect(retryOpts.cwd).toBe(firstOpts.cwd)
+      expect(retryOpts.env).toBe(firstOpts.env)
+      expect(retryOpts.env.SPECRAILS_REPO_DIR).toBe(repo)
+
+      const retryPrompt = retryArgs[retryArgs.indexOf('-p') + 1]
+      expect(retryPrompt).toContain('Recent decision: use the payments API.')
+      expect(retryPrompt).toContain('earlier message')
+      expect(occurrences(retryPrompt, currentTurn)).toBe(1)
+      // 48 KiB transcript budget plus a small recovery wrapper/current turn.
+      expect(Buffer.byteLength(retryPrompt)).toBeLessThan(52 * 1024)
+
+      const messages = getMessages(db, convId)
+      expect(messages.filter((message) => message.role === 'user' && message.content === currentTurn)).toHaveLength(1)
+      expect(messages.filter((message) => message.role === 'assistant' && message.content === 'Continued in the workspace.')).toHaveLength(1)
+      expect(getConversation(db, convId)?.session_id).toBe('workspace-session')
+      expect(getBroadcastedByType(broadcast, 'chat_error')).toHaveLength(0)
+      expect(getBroadcastedByType(broadcast, 'chat_done')).toHaveLength(1)
+    })
+
+    it('does not fresh-retry a resume for a different Claude error', async () => {
+      seedRelocated('acme')
+      const cmReloc = new ChatManager(broadcast, db, repo, 'Acme', 'claude', 'p1', 'acme')
+      const convId = 'exp-mcp-other-resume-error'
+      createConversation(db, { id: convId, model: 'sonnet', kind: 'explore', contextScope: MCP_SCOPE })
+      updateConversation(db, convId, { session_id: 'valid-session' })
+      const child = createMockChildProcess()
+      vi.mocked(mockSpawn).mockReturnValue(child as any)
+
+      const sendPromise = cmReloc.sendMessage(convId, 'Continue', { lightweight: true })
+      pushLine(child, JSON.stringify({
+        type: 'result', subtype: 'error_during_execution', is_error: true,
+        errors: ['Authentication failed'],
+      }))
+      await finishProcess(child, 1)
+      await sendPromise
+
+      expect(vi.mocked(mockSpawn)).toHaveBeenCalledTimes(1)
+      expect(getConversation(db, convId)?.session_id).toBe('valid-session')
+      expect(getBroadcastedByType(broadcast, 'chat_error')).toHaveLength(1)
+    })
+
+    it('attempts stale-session fresh recovery at most once when the fresh child also fails', async () => {
+      seedRelocated('acme')
+      const cmReloc = new ChatManager(broadcast, db, repo, 'Acme', 'claude', 'p1', 'acme')
+      const convId = 'exp-mcp-stale-recovery-fails'
+      createConversation(db, { id: convId, model: 'sonnet', kind: 'explore', contextScope: MCP_SCOPE })
+      updateConversation(db, convId, { session_id: 'repo-session' })
+      const staleChild = createMockChildProcess()
+      const freshChild = createMockChildProcess()
+      vi.mocked(mockSpawn)
+        .mockReturnValueOnce(staleChild as any)
+        .mockReturnValueOnce(freshChild as any)
+
+      const sendPromise = cmReloc.sendMessage(convId, 'Continue', { lightweight: true })
+      pushLine(staleChild, missingSessionResult('repo-session'))
+      await finishProcess(staleChild, 1)
+      await finishProcess(freshChild, 1)
+      await sendPromise
+
+      // The recovery consumes this turn's crash budget: never replay a third
+      // time when the one allowed fresh child also fails.
+      expect(vi.mocked(mockSpawn)).toHaveBeenCalledTimes(2)
+      expect(getBroadcastedByType(broadcast, 'chat_error')).toHaveLength(1)
+      expect(getConversation(db, convId)?.session_id).toBeNull()
+    })
+
+    it('does not fall back to --resume when the fresh recovery spawn throws synchronously', async () => {
+      seedRelocated('acme')
+      const cmReloc = new ChatManager(broadcast, db, repo, 'Acme', 'claude', 'p1', 'acme')
+      const convId = 'exp-mcp-stale-recovery-spawn-throws'
+      createConversation(db, { id: convId, model: 'sonnet', kind: 'explore', contextScope: MCP_SCOPE })
+      updateConversation(db, convId, { session_id: 'repo-session' })
+      const staleChild = createMockChildProcess()
+      vi.mocked(mockSpawn)
+        .mockReturnValueOnce(staleChild as any)
+        .mockImplementationOnce(() => { throw new Error('spawn EAGAIN') })
+
+      const sendPromise = cmReloc.sendMessage(convId, 'Continue', { lightweight: true })
+      pushLine(staleChild, missingSessionResult('repo-session'))
+      await finishProcess(staleChild, 1)
+      await sendPromise
+
+      expect(vi.mocked(mockSpawn)).toHaveBeenCalledTimes(2)
+      const recoveryArgs = vi.mocked(mockSpawn).mock.calls[1][1] as string[]
+      expect(recoveryArgs).not.toContain('--resume')
+      expect(getConversation(db, convId)?.session_id).toBeNull()
+      expect(getBroadcastedByType(broadcast, 'chat_error')).toHaveLength(1)
+    })
+
+    it('RELOCATED explore + mcp=true: crash respawn preserves workspace cwd and relocation env', async () => {
+      const ws = seedRelocated('acme')
+      const cmReloc = new ChatManager(broadcast, db, repo, 'Acme', 'claude', 'p1', 'acme')
+      createConversation(db, { id: 'exp-mcp-respawn', model: 'sonnet', kind: 'explore', contextScope: MCP_SCOPE })
+      const first = createMockChildProcess()
+      const second = createMockChildProcess()
+      vi.mocked(mockSpawn).mockReturnValueOnce(first as any).mockReturnValueOnce(second as any)
+
+      const sendPromise = cmReloc.sendMessage('exp-mcp-respawn', 'Hi', { lightweight: true })
+      await finishProcess(first, 1)
+      pushLine(second, assistantEvent('ok after retry'))
+      pushLine(second, resultEvent('s-respawn'))
+      await finishProcess(second, 0)
+      await sendPromise
+
+      expect(vi.mocked(mockSpawn)).toHaveBeenCalledTimes(2)
+      const firstOpts = vi.mocked(mockSpawn).mock.calls[0][2] as { cwd: string; env: NodeJS.ProcessEnv }
+      const retryOpts = vi.mocked(mockSpawn).mock.calls[1][2] as { cwd: string; env: NodeJS.ProcessEnv }
+      expect(retryOpts.cwd).toBe(ws)
+      expect(retryOpts.cwd).toBe(firstOpts.cwd)
+      expect(retryOpts.env).toBe(firstOpts.env)
+      expect(retryOpts.env.SPECRAILS_REPO_DIR).toBe(repo)
+      expect(retryOpts.env.SPECRAILS_WORKSPACE_DIR).toBe(ws)
+    })
+
+    it('RELOCATED explore + mcp=true: persistent stdin spawn receives the relocation env', async () => {
+      const prevPersistent = process.env.SPECRAILS_EXPLORE_PERSISTENT_STDIN
+      process.env.SPECRAILS_EXPLORE_PERSISTENT_STDIN = '1'
+      const ws = seedRelocated('acme')
+      const cmReloc = new ChatManager(broadcast, db, repo, 'Acme', 'claude', 'p1', 'acme')
+      createConversation(db, { id: 'exp-mcp-persistent', model: 'sonnet', kind: 'explore', contextScope: MCP_SCOPE })
+      const child = createMockChildProcess()
+      const stdin = new EventEmitter() as any
+      stdin.destroyed = false
+      stdin.write = vi.fn(() => true)
+      child.stdin = stdin
+      vi.mocked(mockSpawn).mockReturnValue(child as any)
+
+      try {
+        const sendPromise = cmReloc.sendMessage('exp-mcp-persistent', 'Hi', { lightweight: true })
+        await new Promise((resolve) => setImmediate(resolve))
+        pushLine(child, assistantEvent('ok'))
+        pushLine(child, resultEvent('s-persistent'))
+        await sendPromise
+
+        const opts = vi.mocked(mockSpawn).mock.calls[0][2] as { cwd: string; env: NodeJS.ProcessEnv }
+        expect(opts.cwd).toBe(ws)
+        expect(opts.env.SPECRAILS_REPO_DIR).toBe(repo)
+        expect(opts.env.SPECRAILS_WORKSPACE_DIR).toBe(ws)
+      } finally {
+        cmReloc.forgetExploreLifecycle('exp-mcp-persistent')
+        if (prevPersistent !== undefined) process.env.SPECRAILS_EXPLORE_PERSISTENT_STDIN = prevPersistent
+        else delete process.env.SPECRAILS_EXPLORE_PERSISTENT_STDIN
+      }
+    })
+
+    it('RELOCATED persistent Explore + stale repo-cwd session: retries one fresh stream in the same workspace', async () => {
+      const prevPersistent = process.env.SPECRAILS_EXPLORE_PERSISTENT_STDIN
+      process.env.SPECRAILS_EXPLORE_PERSISTENT_STDIN = '1'
+      const ws = seedRelocated('acme')
+      const cmReloc = new ChatManager(broadcast, db, repo, 'Acme', 'claude', 'p1', 'acme')
+      const convId = 'exp-mcp-persistent-stale'
+      createConversation(db, { id: convId, model: 'sonnet', kind: 'explore', contextScope: MCP_SCOPE })
+      addMessage(db, { conversation_id: convId, role: 'assistant', content: 'Persisted plan: keep the webhook idempotent.' })
+      updateConversation(db, convId, { session_id: 'repo-persistent-session' })
+
+      const persistentChild = () => {
+        const child = createMockChildProcess()
+        const stdin = new EventEmitter() as any
+        stdin.destroyed = false
+        stdin.writes = [] as string[]
+        stdin.write = vi.fn((chunk: string | Buffer) => {
+          stdin.writes.push(chunk.toString())
+          return true
+        })
+        child.stdin = stdin
+        return child
+      }
+      const staleChild = persistentChild()
+      const freshChild = persistentChild()
+      vi.mocked(mockSpawn)
+        .mockReturnValueOnce(staleChild as any)
+        .mockReturnValueOnce(freshChild as any)
+
+      try {
+        const currentTurn = 'Continue with the webhook design.'
+        const sendPromise = cmReloc.sendMessage(convId, currentTurn, { lightweight: true })
+        await new Promise((resolve) => setImmediate(resolve))
+        expect(staleChild.stdin.writes).toHaveLength(1)
+
+        pushLine(staleChild, missingSessionResult('repo-persistent-session'))
+        await new Promise((resolve) => setImmediate(resolve))
+        expect(vi.mocked(mockSpawn)).toHaveBeenCalledTimes(2)
+        expect(freshChild.stdin.writes).toHaveLength(1)
+
+        pushLine(freshChild, assistantEvent('Webhook design continued.'))
+        pushLine(freshChild, resultEvent('workspace-persistent-session'))
+        await sendPromise
+
+        const firstCall = vi.mocked(mockSpawn).mock.calls[0]
+        const retryCall = vi.mocked(mockSpawn).mock.calls[1]
+        const firstArgs = firstCall[1] as string[]
+        const retryArgs = retryCall[1] as string[]
+        expect(firstArgs).toContain('--resume')
+        expect(firstArgs).toContain('repo-persistent-session')
+        expect(retryArgs).not.toContain('--resume')
+        expect(retryArgs).not.toContain('repo-persistent-session')
+
+        const firstOpts = firstCall[2] as { cwd: string; env: NodeJS.ProcessEnv }
+        const retryOpts = retryCall[2] as { cwd: string; env: NodeJS.ProcessEnv }
+        expect(retryOpts.cwd).toBe(ws)
+        expect(retryOpts.cwd).toBe(firstOpts.cwd)
+        expect(retryOpts.env).toBe(firstOpts.env)
+        expect(retryOpts.env.SPECRAILS_REPO_DIR).toBe(repo)
+
+        const recoveryFrame = JSON.parse(freshChild.stdin.writes[0]) as {
+          message: { content: string }
+        }
+        expect(recoveryFrame.message.content).toContain('Persisted plan: keep the webhook idempotent.')
+        expect(occurrences(recoveryFrame.message.content, currentTurn)).toBe(1)
+        expect(getMessages(db, convId).filter(
+          (message) => message.role === 'user' && message.content === currentTurn,
+        )).toHaveLength(1)
+        expect(getConversation(db, convId)?.session_id).toBe('workspace-persistent-session')
+        expect(getBroadcastedByType(broadcast, 'chat_error')).toHaveLength(0)
+        expect(getBroadcastedByType(broadcast, 'chat_done')).toHaveLength(1)
+      } finally {
+        cmReloc.forgetExploreLifecycle(convId)
+        if (prevPersistent !== undefined) process.env.SPECRAILS_EXPLORE_PERSISTENT_STDIN = prevPersistent
+        else delete process.env.SPECRAILS_EXPLORE_PERSISTENT_STDIN
+      }
+    })
+
+    it('RELOCATED explore + mcp=true + SPECRAILS_EXPLORE_LEGACY_CWD=1: still forces project.path', async () => {
+      const prevLegacy = process.env.SPECRAILS_EXPLORE_LEGACY_CWD
+      process.env.SPECRAILS_EXPLORE_LEGACY_CWD = '1'
+      try {
+        seedRelocated('acme')
+        const cmReloc = new ChatManager(broadcast, db, repo, 'Acme', 'claude', 'p1', 'acme')
+        createConversation(db, { id: 'exp-mcp-legacy', model: 'sonnet', kind: 'explore', contextScope: MCP_SCOPE })
+        const child = createMockChildProcess()
+        vi.mocked(mockSpawn).mockReturnValue(child as any)
+
+        const sendPromise = cmReloc.sendMessage('exp-mcp-legacy', 'Hi', { lightweight: true })
+        pushLine(child, assistantEvent('ok'))
+        pushLine(child, resultEvent('s4'))
+        await finishProcess(child, 0)
+        await sendPromise
+
+        const opts = vi.mocked(mockSpawn).mock.calls[0][2] as { cwd: string; env: NodeJS.ProcessEnv }
+        expect(opts.cwd).toBe(repo)
+        expect(opts.env.SPECRAILS_REPO_DIR).toBeUndefined()
+      } finally {
+        if (prevLegacy !== undefined) process.env.SPECRAILS_EXPLORE_LEGACY_CWD = prevLegacy
+        else delete process.env.SPECRAILS_EXPLORE_LEGACY_CWD
+      }
+    })
+
+    it('LEGACY explore + mcp=true: spawns from project.path (byte-identical)', async () => {
+      cmMirror({ repoPath: repo, slug: 'acme', providers: ['claude'] }, regHome) // registry entry, workspace NOT populated
+      const cmLegacy = new ChatManager(broadcast, db, repo, 'Acme', 'claude', 'p1', 'acme')
+      createConversation(db, { id: 'exp-mcp-leg2', model: 'sonnet', kind: 'explore', contextScope: MCP_SCOPE })
+      const child = createMockChildProcess()
+      vi.mocked(mockSpawn).mockReturnValue(child as any)
+
+      const sendPromise = cmLegacy.sendMessage('exp-mcp-leg2', 'Hi', { lightweight: true })
+      pushLine(child, assistantEvent('ok'))
+      pushLine(child, resultEvent('s5'))
+      await finishProcess(child, 0)
+      await sendPromise
+
+      const opts = vi.mocked(mockSpawn).mock.calls[0][2] as { cwd: string; env: NodeJS.ProcessEnv }
+      expect(opts.cwd).toBe(repo)
+      expect(opts.env.SPECRAILS_REPO_DIR).toBeUndefined()
+    })
+
+    it('LEGACY explore + mcp=true: a missing session keeps the legacy no-retry path', async () => {
+      cmMirror({ repoPath: repo, slug: 'acme', providers: ['claude'] }, regHome)
+      const cmLegacy = new ChatManager(broadcast, db, repo, 'Acme', 'claude', 'p1', 'acme')
+      const convId = 'exp-mcp-legacy-stale'
+      createConversation(db, { id: convId, model: 'sonnet', kind: 'explore', contextScope: MCP_SCOPE })
+      updateConversation(db, convId, { session_id: 'legacy-session' })
+      const child = createMockChildProcess()
+      vi.mocked(mockSpawn).mockReturnValue(child as any)
+
+      const sendPromise = cmLegacy.sendMessage(convId, 'Continue', { lightweight: true })
+      pushLine(child, missingSessionResult('legacy-session'))
+      await finishProcess(child, 1)
+      await sendPromise
+
+      expect(vi.mocked(mockSpawn)).toHaveBeenCalledTimes(1)
+      expect(getConversation(db, convId)?.session_id).toBe('legacy-session')
+      expect(getBroadcastedByType(broadcast, 'chat_error')).toHaveLength(1)
     })
   })
 

@@ -85,7 +85,9 @@ export function ensureFrameworkAgents(workspaceDir: string, providerDir: string,
 
 /** The framework subtrees `assemble` installs as a single DIR-symlink into
  *  `current/<provider>/` (unlike agents, which are per-file). `/specrails:*`
- *  and `/opsx:*` slash commands live under `commands/`. */
+ *  slash commands live under `commands/`. (`/opsx:*` is NOT framework — the
+ *  external OpenSpec binary installs it into the REPO's provider dir; isolated
+ *  rails receive it via the worktree overlay's repo fallback root.) */
 const DIR_LINKED_SUBTREES = ['commands', 'skills', 'rules'] as const
 
 /**

@@ -193,25 +193,35 @@ seeded instruction file), which lives in `~/.specrails/projects/<slug>/workspace
 absent from the worktree: the claude CLI reported `Unknown command: /specrails:implement`
 and the loop "succeeded" through verify/fix without implementing (live evidence: run
 01f41203). Legacy projects have the sibling gap for their UNTRACKED on-disk `.claude`
-entries. Each allocated worktree therefore gets `applyWorktreeOverlay(...)` at launch:
+entries. Relocated projects also need repo-resident carve-outs that are intentionally not
+part of the workspace framework, notably OpenSpec's untracked `/opsx:*` commands and
+`openspec-*` skills. Each allocated worktree therefore gets `applyWorktreeOverlay(...)`
+at launch:
 
-- **Source root** = the project's effective artifact root, resolved once per launch via
-  `resolveProjectExecution`: the workspace when relocated, else the repo itself.
-- **Merge-only symlinks** under `<worktree>/<providerDir>/`: dir links where a dir is
-  wholly absent, per-file/per-child where the checkout is partially present; checkout
-  content is NEVER overwritten. `agent-memory` is linked (all runs share memory — the
-  pre-isolation shared-cwd semantics, deliberate). The providerDir root and the source's
-  `worktrees/` entry are never linked (nested pipeline worktrees stay local). `.mcp.json`
-  and the instruction file (CLAUDE.md/AGENTS.md/GEMINI.md per provider) are COPIED when
-  the checkout lacks them. Windows: junction → dereferencing-copy fallback.
-- **Never on the PR**: every allocator-created overlay path is excluded from staging with a literal
-  top-level pathspec. The writable worktree manifest is not cleanup authority; settlement persists
-  fingerprints captured from the trusted source/created entries. Cleanup atomically renames each
-  authenticated root into a unique sibling quarantine, revalidates it after the move, discloses
-  raced content there, and never deletes or restores quarantined paths automatically over a
-  possibly recreated source. A modified or
-  concurrently extended overlay is preserved as user data, while a no-op
-  overlay keeps the byte-identical ordinary staging behavior.
+- **Ordered source roots** are resolved once per launch. The primary root is the effective
+  artifact root (`resolveProjectExecution`: workspace when relocated, repo when legacy).
+  A relocated launch additionally passes the repo as a lower-priority fallback so its
+  untracked provider entries reach the worktree. Earlier roots win per entry; legacy stays
+  on its byte-identical single-root path.
+- **Merge-only links/copies** under `<worktree>/<providerDir>/`: one contributing directory
+  stays a whole-dir link; when several roots contribute children, the destination is a REAL
+  directory of per-child links. Checkout content is NEVER overwritten, including source
+  file/directory type conflicts. On resume, only an authenticated prior-manifest whole-dir
+  link/copy may be rebuilt into recorded leaves; a foreign symlink is untouched even when it
+  targets a configured source. Converted parents are revoked from the manifest. `agent-memory`
+  remains linked (shared pre-isolation semantics). The providerDir root and every source's
+  `worktrees/` entry are never linked. `.mcp.json` and the provider instruction file are COPIED
+  from the first root containing them when checkout lacks them. Windows: junction →
+  dereferencing-copy fallback.
+- **Never on the PR**: the resume-safe manifest records authenticated overlay leaves against
+  any configured root; settlement persists immutable fingerprints. Commit delivery deliberately
+  runs plain `git add -A`, audits the index, resets forbidden literal top-level paths, re-audits,
+  and makes those exclusions authoritative with `git commit --only`. The writable manifest alone
+  never grants cleanup authority. Cleanup atomically renames each authenticated root into a unique
+  sibling quarantine, revalidates it after the move, discloses raced content there, and never
+  deletes or restores quarantined paths automatically over a possibly recreated source. A modified
+  or concurrently extended overlay is preserved as user data, while a no-op overlay keeps the
+  byte-identical ordinary staging behavior.
   Successful quarantine batches deliberately remain beside the former worktree; automatic GC is
   out of scope because deleting a path still writable through an open descriptor would reintroduce
   the data-loss race. A future cleanup flow must be explicit and inspectable.

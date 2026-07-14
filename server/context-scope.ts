@@ -1,12 +1,15 @@
 // Context Scope — per-spec configuration that controls what context is fed
 // into the Add Spec flow (Quick `generate-spec` and Explore chat turns).
 //
-// Four orthogonal toggles:
+// Six orthogonal toggles:
 //   - specrails: concat <project>/.specrails/local-tickets.json (all tickets)
 //                into the system prompt
 //   - openspec:  concat <project>/openspec/specs/**/spec.md into the system prompt
-//   - full:      allow Read/Grep/Glob (Bash is never auto-allowed)
-//   - mcp:       Explore-only — spawn from <project> so .mcp.json is honored
+//   - full:      enable source inspection; with an MCP toggle the high tier
+//                retains Bash/MCP tools while denying GUI file-writer tools
+//   - mcp:       Explore-only — spawn from the relocation-aware artifact cwd so
+//                .mcp.json is honored (workspace when relocated, repo when legacy)
+//   - contractRefine: run the post-commit structural refinement turn
 //   - userMcp:   Explore-only — inject the user's own already-approved MCP
 //                servers (claude: ~/.claude.json user+local scope, fed via
 //                `--mcp-config`; codex: ~/.codex is read natively). Independent

@@ -239,7 +239,7 @@ $HOME/.specrails/
 ├── jira-secret.key               # keyfile AES-256-GCM (0600), desktop-only
 ├── doctor.log                    # log append-only, core-only (única lectura $HOME de core hoy)
 └── projects/<slug>/
-    ├── workspace/                # = artifactRoot. cwd de spawn de todas las AI-CLI
+    ├── workspace/                # = artifactRoot. cwd de jobs y Explore mcp=true relocalizados
     │   ├── .specrails/
     │   │   ├── local-tickets.json (+ .lock)   ← SPECRAILS_TICKETS_PATH        [core escribe/lee · desktop escribe]
     │   │   ├── backlog-config.json            ← SPECRAILS_BACKLOG_CONFIG_PATH  [desktop escribe · core lee]
@@ -365,9 +365,9 @@ El lado desktop ya tiene el precedente load-bearing en producción (`explore-cwd
 
 ### 6.1 cwd de spawn + env por provider
 
-`ExploreCwdManager` se generaliza a un `WorkspaceManager` que materializa `~/.specrails/projects/<slug>/workspace/` con `./project -> <project.path>` (symlink/junction, fallback `project-path.txt` — la lógica existente `ensureProjectLink`). **Todas las AI-CLI mueven cwd al workspace.**
+`ExploreCwdManager` se generaliza a un `WorkspaceManager` que materializa `~/.specrails/projects/<slug>/workspace/` con `./project -> <project.path>` (symlink/junction, fallback `project-path.txt` — la lógica existente `ensureProjectLink`). **Las AI-CLI relocalizadas usan el workspace salvo los procesos deliberadamente repo-bound y Explore con `mcp=false`, que conserva su `explore-cwd`.**
 
-**Managers que MUEVEN cwd → workspace:** `QueueManager._startJob` (rails — el grande), `ChatManager` (Explore + sidebar), `AgentRefineManager` (ai-edit), `ContractRefineRunner`, `project-router /tickets/generate-spec` (quick-spec), `FileSummaryManager`, `SetupManager.startInstall` (corre `npx specrails-core init --root-dir <project.path> --workspace-dir <workspace>`).
+**Managers que MUEVEN cwd → workspace:** `QueueManager._startJob` (rails — el grande), `ChatManager` (sidebar + Explore con `mcp=true`), `AgentRefineManager` (ai-edit), `ContractRefineRunner` cuando refleja un Explore `mcp=true`, `project-router /tickets/generate-spec` (quick-spec), `FileSummaryManager`, `SetupManager.startInstall` (corre `npx specrails-core init --root-dir <project.path> --workspace-dir <workspace>`). Explore y Contract Refine con `mcp=false` permanecen en el app-managed `explore-cwd`.
 
 **Managers que CONSERVAN cwd = `project.path`:** `TerminalManager` (shell repo-bound), `file-provenance.ts` (git repo-bound), `code-explorer-router` (lee fuente), lecturas de fuente de `FileSummaryManager`, `metrics.ts` (coverage).
 
@@ -380,7 +380,7 @@ El lado desktop ya tiene el precedente load-bearing en producción (`explore-cwd
   - **Smoke check (manual):** en un proyecto relocalizado con provider=codex, lanzar un loop "Implement" cuyo paso de fix deba editar una fuente del repo; confirmar en el transcript que (a) `apply_patch`/edit a `<repoDir>/...` **NO** devuelve `Operation not permitted`, y (b) `npm run build`/`tsc -b` puede escribir `node_modules/.tmp/*.tsbuildinfo`. Reproducción del fallo: revertir el `extraArgs` de codex → la edición del repo en la iteración ≥2 vuelve a fallar con `Operation not permitted`. Cubierto por `server/loop-executors.test.ts` (assert del arg `writable_roots`).
 - **gemini**: inyecta `GEMINI_CLI_TRUST_WORKSPACE=true` (ancla el root confiable al workspace). **Re-keya** `~/.gemini/acknowledgments/agents.json` al workspace.
 - Los tres: el workspace **estrictamente fuera del repo** y el discovery no debe seguir `./project` (mitiga la fuga por ancestor-walk de codex/gemini).
-- **Caso especial Explore `mcp=true`**: hoy `chat-manager.ts:326` conmuta cwd a `project.path` para cargar el `.mcp.json` del repo — tras relocalizar, `.mcp.json` está en el workspace, así que este special-case se **ELIMINA**, no se re-apunta.
+- **Caso especial Explore `mcp=true` (implementado):** `ChatManager` resuelve el cwd mediante la misma puerta de relocalización: workspace cuando el proyecto está relocalizado, `project.path` en legacy. Las rutas persistent-stdin, crash-respawn y Contract Refine conservan esa misma pareja cwd/env. Una sesión anterior creada bajo el cwd del repo que devuelve exactamente `No conversation found with session ID` se invalida y reintenta fresh una sola vez desde el workspace (transcript persistido acotado para Explore; ticket sembrado y tools deshabilitadas para Contract Refine), nunca volviendo al repo. `SPECRAILS_EXPLORE_LEGACY_CWD=1` sigue forzando `project.path`.
 
 ### 6.2 Sitios de re-apuntado de path (`project.path` → workspace)
 

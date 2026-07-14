@@ -59,8 +59,12 @@ function tmpProjectPath(): string {
   return fs.mkdtempSync(path.join(os.tmpdir(), 'cr-runner-'))
 }
 
-function seedTicket(projectPath: string, id: number, description = 'user-authored body'): void {
-  const filePath = resolveTicketStoragePath(projectPath)
+function seedTicketFile(
+  filePath: string,
+  id: number,
+  description = 'user-authored body',
+  title = 'test',
+): void {
   fs.mkdirSync(path.dirname(filePath), { recursive: true })
   // Initialise empty store via mutateStore (creates the file if missing).
   mutateStore(filePath, (s) => {
@@ -68,7 +72,7 @@ function seedTicket(projectPath: string, id: number, description = 'user-authore
     s.next_id = id + 1
     s.tickets[String(id)] = {
       id,
-      title: 'test',
+      title,
       description,
       status: 'todo',
       priority: 'medium',
@@ -88,6 +92,45 @@ function seedTicket(projectPath: string, id: number, description = 'user-authore
       source: 'propose-spec',
     }
   })
+}
+
+function seedTicket(projectPath: string, id: number, description = 'user-authored body'): void {
+  seedTicketFile(resolveTicketStoragePath(projectPath), id, description)
+}
+
+function setupRelocatedProject(slug: string): {
+  repo: string
+  workspace: string
+  ticketsPath: string
+  restore: () => void
+} {
+  const previousHome = process.env.SPECRAILS_REGISTRY_HOME
+  const previousLegacyCwd = process.env.SPECRAILS_EXPLORE_LEGACY_CWD
+  const registryHome = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), 'cr-recovery-home-')))
+  fs.mkdirSync(path.join(registryHome, '.specrails'), { recursive: true })
+  process.env.SPECRAILS_REGISTRY_HOME = registryHome
+  delete process.env.SPECRAILS_EXPLORE_LEGACY_CWD
+
+  const repo = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), 'cr-recovery-repo-')))
+  mirrorProjectEntry({ repoPath: repo, slug, providers: ['claude'] }, registryHome)
+  const workspace = workspaceLayout(resolveHome(registryHome), slug, repo).workspaceDir
+  const ticketsPath = path.join(workspace, '.specrails', 'local-tickets.json')
+  fs.mkdirSync(path.dirname(ticketsPath), { recursive: true })
+  fs.writeFileSync(path.join(workspace, '.specrails', 'specrails-version'), '4.10.0\n')
+
+  return {
+    repo,
+    workspace,
+    ticketsPath,
+    restore: () => {
+      if (previousHome !== undefined) process.env.SPECRAILS_REGISTRY_HOME = previousHome
+      else delete process.env.SPECRAILS_REGISTRY_HOME
+      if (previousLegacyCwd !== undefined) process.env.SPECRAILS_EXPLORE_LEGACY_CWD = previousLegacyCwd
+      else delete process.env.SPECRAILS_EXPLORE_LEGACY_CWD
+      fs.rmSync(registryHome, { recursive: true, force: true })
+      fs.rmSync(repo, { recursive: true, force: true })
+    },
+  }
 }
 
 function validContractBlock(): string {
@@ -181,11 +224,12 @@ describe('prepareContractRefineSpawn', () => {
     expect(out.cwd).toBe(projectPath)
   })
 
-  it('RELOCATED + mcp: resumes from project.path, NOT the workspace (Desktop-tier session bug)', () => {
-    // The Explore turn that created the resumable session spawned from
-    // project.path (chat-manager _resolveSpawnCwd: mcp ⇒ this._cwd, NOT the
-    // relocated workspace). A relocated refine that resumed from exec.cwd (the
-    // workspace) made claude fail with "No conversation found with session ID …".
+  it('RELOCATED + mcp: resumes from the WORKSPACE (matches the Explore mcp-on spawn cwd)', () => {
+    // The Explore mcp-on turn spawns through the relocate-artifacts gate — the
+    // WORKSPACE when relocated (where `.mcp.json` and `.specrails/` live; a
+    // repo cwd made the model create `<repo>/.specrails/local-tickets.json`).
+    // The refine `--resume`s that session, so it must use the SAME cwd or
+    // claude fails with "No conversation found with session ID …".
     const prevHome = process.env.SPECRAILS_REGISTRY_HOME
     const regHome = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), 'cr-reloc-home-')))
     fs.mkdirSync(path.join(regHome, '.specrails'), { recursive: true })
@@ -201,11 +245,43 @@ describe('prepareContractRefineSpawn', () => {
         { projectSlug: 'acme', projectPath: repo, projectName: 'Acme' },
         { model: 'sonnet', session_id: 'sess-x', context_scope: JSON.stringify({ mcp: true }) },
       )
-      expect(out.cwd).toBe(repo)   // project.path — matches the Explore session's cwd
-      expect(out.cwd).not.toBe(ws) // NOT the relocated workspace (the bug)
+      expect(out.cwd).toBe(ws)     // the workspace — matches the Explore session's cwd
+      expect(out.cwd).not.toBe(repo)
+      expect(out.env?.SPECRAILS_REPO_DIR).toBe(repo)
+      expect(out.env?.SPECRAILS_WORKSPACE_DIR).toBe(ws)
     } finally {
       if (prevHome !== undefined) process.env.SPECRAILS_REGISTRY_HOME = prevHome
       else delete process.env.SPECRAILS_REGISTRY_HOME
+      fs.rmSync(regHome, { recursive: true, force: true })
+      fs.rmSync(repo, { recursive: true, force: true })
+    }
+  })
+
+  it('RELOCATED + mcp + SPECRAILS_EXPLORE_LEGACY_CWD=1: forces project.path', () => {
+    const prevHome = process.env.SPECRAILS_REGISTRY_HOME
+    const prevLegacy = process.env.SPECRAILS_EXPLORE_LEGACY_CWD
+    const regHome = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), 'cr-reloc-home-')))
+    fs.mkdirSync(path.join(regHome, '.specrails'), { recursive: true })
+    process.env.SPECRAILS_REGISTRY_HOME = regHome
+    process.env.SPECRAILS_EXPLORE_LEGACY_CWD = '1'
+    const repo = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), 'cr-reloc-repo-')))
+    try {
+      mirrorProjectEntry({ repoPath: repo, slug: 'acme', providers: ['claude'] }, regHome)
+      const ws = workspaceLayout(resolveHome(regHome), 'acme', repo).workspaceDir
+      fs.mkdirSync(path.join(ws, '.specrails'), { recursive: true })
+      fs.writeFileSync(path.join(ws, '.specrails', 'specrails-version'), '4.10.0\n')
+
+      const out = prepareContractRefineSpawn(
+        { projectSlug: 'acme', projectPath: repo, projectName: 'Acme' },
+        { model: 'sonnet', session_id: 'sess-x', context_scope: JSON.stringify({ mcp: true }) },
+      )
+      expect(out.cwd).toBe(repo)
+      expect(out.env).toBeUndefined()
+    } finally {
+      if (prevHome !== undefined) process.env.SPECRAILS_REGISTRY_HOME = prevHome
+      else delete process.env.SPECRAILS_REGISTRY_HOME
+      if (prevLegacy !== undefined) process.env.SPECRAILS_EXPLORE_LEGACY_CWD = prevLegacy
+      else delete process.env.SPECRAILS_EXPLORE_LEGACY_CWD
       fs.rmSync(regHome, { recursive: true, force: true })
       fs.rmSync(repo, { recursive: true, force: true })
     }
@@ -375,6 +451,151 @@ describe('runContractRefine', () => {
     const filePath = resolveTicketStoragePath(projectPath)
     const stored: TicketStore = JSON.parse(fs.readFileSync(filePath, 'utf8'))
     expect(stored.tickets['1'].description).toContain('### Invariants')
+  })
+
+  it('RELOCATED stale Explore session: retries once fresh in the same workspace with ticket context', async () => {
+    const relocated = setupRelocatedProject('slug')
+    projectPath = relocated.repo
+    seedTicketFile(
+      relocated.ticketsPath,
+      1,
+      'Recovery description sentinel',
+      'Recovery title sentinel',
+    )
+    makeExploreConv('conv-1')
+    setConversationScope('conv-1', { ...SCOPE_OPT_IN, mcp: true })
+
+    const missingSessionLines = [JSON.stringify({
+      type: 'result',
+      subtype: 'error_during_execution',
+      is_error: true,
+      errors: ['No conversation found with session ID: sess-1'],
+      session_id: 'sess-1',
+    })]
+    const calls: Array<{ args: string[]; cwd?: string; env?: NodeJS.ProcessEnv }> = []
+    const spawn = ((_bin: string, args: string[], opts: { cwd?: string; env?: NodeJS.ProcessEnv }) => {
+      calls.push({ args: [...args], cwd: opts.cwd, env: opts.env })
+      const lines = calls.length === 1
+        ? missingSessionLines
+        : streamLines(validContractBlock())
+      const child = new FakeChild(lines)
+      setTimeout(() => child.emit('close', calls.length === 1 ? 1 : 0), 5)
+      return child as unknown as ChildProcess
+    }) as unknown as typeof import('./util/cli-prompt')['spawnAiCli']
+
+    try {
+      const out = await runContractRefine(makeDeps({ spawn }), 'conv-1', 1)
+
+      expect(out).toEqual({ ok: true, ticketId: 1, conversationId: 'conv-1' })
+      expect(calls).toHaveLength(2)
+      expect(calls[0].args).toContain('--resume')
+      expect(calls[0].args).toContain('sess-1')
+      expect(calls[1].args).not.toContain('--resume')
+      expect(calls[1].args.slice(
+        calls[1].args.indexOf('--tools'),
+        calls[1].args.indexOf('--tools') + 2,
+      )).toEqual(['--tools', '__none__'])
+      expect(calls[0].cwd).toBe(relocated.workspace)
+      expect(calls[1].cwd).toBe(relocated.workspace)
+      expect(calls[1].cwd).not.toBe(relocated.repo)
+      expect(calls[1].env).toBe(calls[0].env)
+      expect(calls[1].env?.SPECRAILS_REPO_DIR).toBe(relocated.repo)
+      expect(calls[1].env?.SPECRAILS_WORKSPACE_DIR).toBe(relocated.workspace)
+
+      const freshSystemPrompt = calls[1].args[calls[1].args.indexOf('--system-prompt') + 1]
+      expect(freshSystemPrompt).toContain('Recovery title sentinel')
+      expect(freshSystemPrompt).toContain('Recovery description sentinel')
+
+      const stored = JSON.parse(fs.readFileSync(relocated.ticketsPath, 'utf8')) as TicketStore
+      expect(stored.tickets['1'].description.split(CONTRACT_LAYER_SEPARATOR)).toHaveLength(2)
+      const rows = db.prepare(
+        'SELECT surface, surface_ref_id, conversation_id, ticket_id, status FROM ai_invocations',
+      ).all()
+      expect(rows).toEqual([{
+        surface: 'explore-spec',
+        surface_ref_id: 'contract-refine:conv-1',
+        conversation_id: 'conv-1',
+        ticket_id: 1,
+        status: 'success',
+      }])
+      expect(broadcastEvents.filter((event) => event.type === 'explore.contract_refine_started')).toHaveLength(1)
+      expect(broadcastEvents.filter((event) => event.type === 'explore.contract_refine_failed')).toHaveLength(0)
+    } finally {
+      relocated.restore()
+    }
+  })
+
+  it('does not fresh-retry a relocated resume for a different Claude error', async () => {
+    const relocated = setupRelocatedProject('slug')
+    projectPath = relocated.repo
+    seedTicketFile(relocated.ticketsPath, 1, 'original body')
+    makeExploreConv('conv-1')
+    setConversationScope('conv-1', { ...SCOPE_OPT_IN, mcp: true })
+
+    let spawnCount = 0
+    const otherErrorLines = [JSON.stringify({
+      type: 'result',
+      subtype: 'error_during_execution',
+      is_error: true,
+      errors: ['Authentication failed'],
+      session_id: 'sess-1',
+    })]
+    const spawn = ((_bin: string, _args: string[]) => {
+      spawnCount++
+      const child = new FakeChild(otherErrorLines)
+      setTimeout(() => child.emit('close', 1), 5)
+      return child as unknown as ChildProcess
+    }) as unknown as typeof import('./util/cli-prompt')['spawnAiCli']
+
+    try {
+      const out = await runContractRefine(makeDeps({ spawn }), 'conv-1', 1)
+
+      expect(out).toMatchObject({ ok: false, reason: 'model_error' })
+      expect(spawnCount).toBe(1)
+      const stored = JSON.parse(fs.readFileSync(relocated.ticketsPath, 'utf8')) as TicketStore
+      expect(stored.tickets['1'].description).toBe('original body')
+      expect(db.prepare(
+        'SELECT conversation_id, status FROM ai_invocations',
+      ).all()).toEqual([{ conversation_id: 'conv-1', status: 'failed' }])
+    } finally {
+      relocated.restore()
+    }
+  })
+
+  it('does not retry the fresh compatibility pass when it also fails', async () => {
+    const relocated = setupRelocatedProject('slug')
+    projectPath = relocated.repo
+    seedTicketFile(relocated.ticketsPath, 1, 'original body')
+    makeExploreConv('conv-1')
+    setConversationScope('conv-1', { ...SCOPE_OPT_IN, mcp: true })
+
+    let spawnCount = 0
+    const missingSessionLines = [JSON.stringify({
+      type: 'result',
+      subtype: 'error_during_execution',
+      is_error: true,
+      errors: ['No conversation found with session ID: sess-1'],
+      session_id: 'sess-1',
+    })]
+    const spawn = ((_bin: string, _args: string[]) => {
+      spawnCount++
+      const child = new FakeChild(missingSessionLines)
+      setTimeout(() => child.emit('close', 1), 5)
+      return child as unknown as ChildProcess
+    }) as unknown as typeof import('./util/cli-prompt')['spawnAiCli']
+
+    try {
+      const out = await runContractRefine(makeDeps({ spawn }), 'conv-1', 1)
+
+      expect(out).toMatchObject({ ok: false, reason: 'model_error' })
+      expect(spawnCount).toBe(2)
+      const stored = JSON.parse(fs.readFileSync(relocated.ticketsPath, 'utf8')) as TicketStore
+      expect(stored.tickets['1'].description).toBe('original body')
+      expect(db.prepare('SELECT conversation_id, status FROM ai_invocations').all())
+        .toEqual([{ conversation_id: 'conv-1', status: 'failed' }])
+    } finally {
+      relocated.restore()
+    }
   })
 
   it('emits explore.contract_refine_failed with reason=malformed for an unparseable block', async () => {

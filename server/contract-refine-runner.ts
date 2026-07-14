@@ -4,8 +4,9 @@
  * Standalone runner that spawns a single Claude turn to produce the
  * Contract Layer for a just-committed Explore Spec ticket. Lives outside the
  * ChatManager lifecycle for now (design.md D3 — "thin sibling helper" option):
- * the refine is fire-and-forget, single-attempt, 60 s budget, no idle-kill /
- * crash-respawn semantics.
+ * the refine is fire-and-forget with a 60 s budget per invocation and no
+ * idle-kill / crash-respawn semantics. Only the exact relocated missing-session
+ * diagnostic permits one fresh compatibility retry.
  *
  * See openspec/changes/explore-spec-contract-refine.
  */
@@ -32,12 +33,13 @@ import {
 import { ensureExploreCwd } from './explore-cwd-manager'
 import { recordInvocation } from './ai-invocations'
 import { normaliseResultEvent } from './result-event'
-import { mutateStore, resolveTicketStoragePath, type Ticket, type TicketStore } from './ticket-store'
+import { mutateStore, readStore, resolveTicketStoragePath, type Ticket, type TicketStore } from './ticket-store'
 import { resolveProjectExecution } from './workspace-resolution'
 import { captureProcessAdmission } from './process-admission'
 import { trackTransientChild } from './transient-children'
 
 const REFINE_TIMEOUT_MS = 60_000
+const CLAUDE_MISSING_SESSION_DIAGNOSTIC = 'No conversation found with session ID'
 
 /**
  * Relocate-artifacts: resolve the ticket store path honouring the gate.
@@ -129,6 +131,47 @@ function buildRefineArgs(model: string, systemPrompt: string, sessionId: string)
   ]
 }
 
+/** Build the pure-output, no-resume invocation used by Quick Refine and by the
+ * one-time compatibility recovery for cwd-scoped Explore sessions. */
+function buildFreshRefineArgs(model: string, title: string, description: string): string[] {
+  const systemPrompt = [
+    buildContractRefineSystemPrompt(),
+    '',
+    '## Spec under refinement',
+    '',
+    '### Title',
+    title,
+    '',
+    '### Description',
+    description,
+  ].join('\n')
+
+  return [
+    '--model', model,
+    '--tools', '__none__',
+    '--output-format', 'stream-json',
+    '--verbose',
+    '--system-prompt', systemPrompt,
+    '--max-turns', '1',
+    '-p', CONTRACT_MARKER_USER_MESSAGE,
+  ]
+}
+
+/** Match only Claude's missing cwd-scoped session diagnostic. The CLI has
+ * emitted it both as stderr and inside structured result payloads, so inspect
+ * all captured provider output while keeping unrelated failures ineligible. */
+function containsMissingClaudeSessionDiagnostic(value: unknown): boolean {
+  if (typeof value === 'string') {
+    return value.includes(CLAUDE_MISSING_SESSION_DIAGNOSTIC)
+  }
+  if (value == null) return false
+  try {
+    return JSON.stringify(value).includes(CLAUDE_MISSING_SESSION_DIAGNOSTIC)
+  } catch {
+    return false
+  }
+}
+
 /**
  * Build the spawn argv + cwd for the refine turn. Exported for tests.
  */
@@ -151,19 +194,24 @@ export function prepareContractRefineSpawn(
   // different per-cwd session store and fails with "No conversation found with
   // session ID …" (the Desktop-tier bug). chat-manager `_resolveSpawnCwd` for an
   // Explore turn uses:
-  //   - mcp ON  → `project.path` (NOT the relocated workspace),
+  //   - mcp ON  → the relocate-artifacts gate (workspace when relocated, else
+  //     `project.path`); `SPECRAILS_EXPLORE_LEGACY_CWD=1` forces `project.path`,
   //   - mcp OFF → the app-managed explore-cwd.
   // We mirror that EXACTLY here. The refine uses no tools (`--tools __none__`)
   // and its prompt rides on `--system-prompt`, so it needs
-  // neither the workspace's `.mcp.json` nor its `.claude/commands`. Env still
-  // carries SPECRAILS_REPO_DIR when relocated (harmless; no tools consume it).
+  // neither the workspace's `.mcp.json` nor its `.claude/commands`. The env is
+  // mirrored too so the legacy-cwd escape hatch remains byte-identical.
   const exec = resolveProjectExecution({ slug: deps.projectSlug, path: deps.projectPath })
-  let env: NodeJS.ProcessEnv | undefined = exec.relocated ? { ...process.env, ...exec.env } : undefined
+  let env: NodeJS.ProcessEnv | undefined
   let cwd: string
   if (mcpEnabled) {
-    // Match the Explore mcp-on spawn cwd (`this._cwd` = project.path), even when
-    // relocated (where exec.cwd would be the workspace ≠ project.path).
-    cwd = deps.projectPath
+    // Match the Explore mcp-on spawn cwd through the same gate + escape hatch.
+    if (process.env.SPECRAILS_EXPLORE_LEGACY_CWD === '1') {
+      cwd = deps.projectPath
+    } else {
+      cwd = exec.cwd
+      if (exec.relocated) env = { ...process.env, ...exec.env }
+    }
   } else {
     try {
       cwd = ensureExploreCwd({
@@ -172,7 +220,9 @@ export function prepareContractRefineSpawn(
         projectName: deps.projectName,
       })
     } catch {
-      cwd = exec.cwd
+      // Match ChatManager's fail-closed fallback for an unavailable
+      // app-managed Explore cwd.
+      cwd = deps.projectPath
     }
   }
   const args = buildRefineArgs(conversation.model ?? 'sonnet', systemPrompt, conversation.session_id ?? '')
@@ -331,7 +381,8 @@ export function applyContractLayerToTicket(
 }
 
 /**
- * Fire a single Contract Refine attempt for the given conversation + ticket.
+ * Run Contract Refine for the given conversation + ticket (normally one
+ * invocation; at most two for the narrow missing-session compatibility path).
  *
  * Returns a Promise that resolves with the outcome. Side effects:
  *  - On success: patches the ticket's description, broadcasts `ticket_updated`
@@ -415,51 +466,100 @@ export async function runContractRefine(
   const startedAt = now().toISOString()
   // Spawn/stream/timeout/settlement is owned by the shared spawn-lifecycle; the
   // contract-refine-specific raw parse (fullText from assistant text blocks,
-  // the raw result event) and ALL finalize/record/broadcast logic stay here,
-  // byte-for-byte, so behaviour is unchanged (it still records via the legacy
-  // recordSafely path).
-  let fullText = ''
-  let resultEvent: Record<string, unknown> | null = null
-  const run = await runAiCliInvocation({
-    adapter: getAdapter('claude'),
-    binary: 'claude',
-    argv: args,
-    cwd,
-    env: refineEnv ?? process.env,
-    spawn,
-    timeoutMs,
-    onSpawn: (child) => trackTransientChild(deps.projectId, child),
-    onStdoutLine: (line) => {
-      let parsed: Record<string, unknown> | null = null
-      try { parsed = JSON.parse(line) } catch { return }
-      if (!parsed) return
-      const type = parsed.type as string
-      if (type === 'result') {
-        resultEvent = parsed
-      } else if (type === 'assistant') {
-        const message = parsed.message as { content?: Array<{ type: string; text?: string }> } | undefined
-        for (const b of (message?.content ?? [])) {
-          if (b.type === 'text' && typeof b.text === 'string') fullText += b.text
+  // the raw result event) and all finalize/record/broadcast logic stay here.
+  // Keeping the invocation result in one shape also lets the narrowly-gated
+  // missing-session recovery re-enter the exact same finalization path.
+  const invoke = async (invocationArgs: string[]) => {
+    let fullText = ''
+    let resultEvent: Record<string, unknown> | null = null
+    const run = await runAiCliInvocation({
+      adapter: getAdapter('claude'),
+      binary: 'claude',
+      argv: invocationArgs,
+      cwd,
+      env: refineEnv ?? process.env,
+      spawn,
+      timeoutMs,
+      onSpawn: (child) => trackTransientChild(deps.projectId, child),
+      onStdoutLine: (line) => {
+        let parsed: Record<string, unknown> | null = null
+        try { parsed = JSON.parse(line) } catch { return }
+        if (!parsed) return
+        const type = parsed.type as string
+        if (type === 'result') {
+          resultEvent = parsed
+        } else if (type === 'assistant') {
+          const message = parsed.message as { content?: Array<{ type: string; text?: string }> } | undefined
+          for (const b of (message?.content ?? [])) {
+            if (b.type === 'text' && typeof b.text === 'string') fullText += b.text
+          }
         }
-      }
-    },
-  })
+      },
+    })
+    return {
+      fullText,
+      resultEvent,
+      code: run.code,
+      timedOut: run.timedOut,
+      spawnFailed: run.spawnFailed,
+      stderrTail: run.stderrTail,
+    }
+  }
+
+  let result = await invoke(args)
   if (!admission.isCurrent()) {
     return { ok: false, reason: 'aborted', ticketId, conversationId }
   }
-  if (run.spawnFailed) {
-    recordSafely(deps, conversationId, ticketId, conversation.model, startedAt, now().toISOString(), 'failed', null)
+
+  // A pre-relocation Explore session was created under the repo cwd and cannot
+  // be resumed after the corrected mcp=true route moves to the workspace.
+  // Recover only that exact provider failure, once, and never by returning to
+  // the repo. The fresh turn is explicitly seeded because it has no resumed
+  // conversation context.
+  const resumedFromRelocatedWorkspace =
+    refineEnv?.SPECRAILS_WORKSPACE_DIR === cwd && cwd !== deps.projectPath
+  const resumeFailed =
+    !result.spawnFailed &&
+    !result.timedOut &&
+    (result.code !== 0 || !result.resultEvent || isResultErrorEvent(result.resultEvent))
+  const missingSessionDiagnostic =
+    containsMissingClaudeSessionDiagnostic(result.fullText) ||
+    containsMissingClaudeSessionDiagnostic(result.resultEvent) ||
+    containsMissingClaudeSessionDiagnostic(result.stderrTail)
+
+  if (resumedFromRelocatedWorkspace && resumeFailed && missingSessionDiagnostic) {
+    let ticket: Ticket | null = null
+    try {
+      ticket = readStore(resolveContractTicketsPath(deps.projectPath)).tickets[String(ticketId)] ?? null
+    } catch (err) {
+      console.error('[contract-refine-runner] unable to read ticket for missing-session recovery:', err)
+    }
+
+    if (ticket) {
+      console.warn(`[contract-refine-runner] resume session unavailable; retrying once fresh from workspace ticket=${ticketId}`)
+      result = await invoke(buildFreshRefineArgs(
+        conversation.model ?? 'sonnet',
+        ticket.title,
+        ticket.description,
+      ))
+      if (!admission.isCurrent()) {
+        return { ok: false, reason: 'aborted', ticketId, conversationId }
+      }
+    }
+  }
+
+  const finishedAt = now().toISOString()
+  if (result.spawnFailed) {
+    recordSafely(deps, conversationId, ticketId, conversation.model, startedAt, finishedAt, 'failed', null)
     deps.broadcast({
       type: 'explore.contract_refine_failed',
       projectId: deps.projectId,
       ticketId,
       reason: 'crashed',
-      timestamp: now().toISOString(),
+      timestamp: finishedAt,
     })
     return { ok: false, reason: 'crashed', ticketId, conversationId }
   }
-  const result = { fullText, resultEvent, code: run.code, timedOut: run.timedOut }
-  const finishedAt = now().toISOString()
   console.log(`[contract-refine-runner] spawn done code=${result.code} timedOut=${result.timedOut} hasResult=${!!result.resultEvent} textBytes=${result.fullText.length}`)
 
   if (result.timedOut) {
@@ -585,27 +685,11 @@ export async function runContractRefineForQuick(
   }
   const admission = captureProcessAdmission(deps.projectId)
 
-  const systemPrompt = [
-    buildContractRefineSystemPrompt(),
-    '',
-    '## Spec under refinement',
-    '',
-    `### Title`,
+  const args = buildFreshRefineArgs(
+    model ?? 'sonnet',
     generatedTitle,
-    '',
-    `### Description`,
     generatedDescription,
-  ].join('\n')
-
-  const args = [
-    '--model', model ?? 'sonnet',
-    '--tools', '__none__',
-    '--output-format', 'stream-json',
-    '--verbose',
-    '--system-prompt', systemPrompt,
-    '--max-turns', '1',
-    '-p', CONTRACT_MARKER_USER_MESSAGE,
-  ]
+  )
 
   const startedAt = now().toISOString()
   deps.broadcast({

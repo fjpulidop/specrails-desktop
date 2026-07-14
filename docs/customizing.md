@@ -161,7 +161,7 @@ Most settings live in the UI. A few app-level switches are env-only because they
 | `SPECRAILS_GEMINI_BETA=0` | Emergency rollback — disable the Gemini provider (default unset = enabled; only the exact string `0` disables; **no legacy fallback name**) |
 | `SPECRAILS_SMASH=0` | Kill switch for SMASH spec decomposition (`0` / `false` / `off`; endpoints return 409) |
 | `SPECRAILS_EXPLORE_CONTRACT_REFINE=0` | App-wide kill switch for Contract Refine (auto-fire + retry endpoint; accepts `0` / `false` / `off`) |
-| `SPECRAILS_EXPLORE_LEGACY_CWD=1` | Force Explore spawns to use the project root instead of the app-managed `explore-cwd/` |
+| `SPECRAILS_EXPLORE_LEGACY_CWD=1` | Force every Explore spawn to use the project root instead of the app-managed `explore-cwd/` or a relocated workspace |
 | `SPECRAILS_FILE_SUMMARY_MODEL` | Override the model used for Code-section file summaries. Per-provider overrides take precedence: `SPECRAILS_FILE_SUMMARY_MODEL_CLAUDE` (Claude) and `SPECRAILS_FILE_SUMMARY_MODEL_CODEX` (Codex); the generic var is the fallback |
 | `SPECRAILS_ALLOW_LOCAL_WEBHOOKS=1` | Allow outbound webhooks to target loopback / private-network addresses |
 
