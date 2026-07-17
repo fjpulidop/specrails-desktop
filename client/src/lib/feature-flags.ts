@@ -81,3 +81,13 @@ export const FEATURE_LOOPS_SECTION = (() => {
   if (typeof override === 'string') return override !== 'false'
   return true
 })()
+
+/** Gates the Project Builder (greenfield "New project" path on Add Project:
+ *  day-0 blueprint chat + orchestrated bootstrap commit). Default ON; mirrors
+ *  server SPECRAILS_PROJECT_BUILDER. Opt-out via VITE_FEATURE_PROJECT_BUILDER=false. */
+export const FEATURE_PROJECT_BUILDER = (() => {
+  const env = (import.meta as unknown as { env?: Record<string, string | undefined> }).env
+  const override = env?.VITE_FEATURE_PROJECT_BUILDER
+  if (typeof override === 'string') return override !== 'false'
+  return true
+})()

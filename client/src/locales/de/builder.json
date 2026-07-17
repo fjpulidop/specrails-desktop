@@ -1,0 +1,129 @@
+{
+  "shell": {
+    "title": "Projekt-Builder",
+    "subtitle": "Von der Idee zum Meilenstein-1-Backlog",
+    "close": "Builder schließen",
+    "emptyTitle": "Beschreibe deine App-Idee",
+    "emptyHint": "Ein oder zwei Sätze genügen — der Builder interviewt dich kurz und schlägt einen vollständigen Blueprint vor. Du kannst ihn auch alles entscheiden lassen.",
+    "surpriseMe": "Überrasch mich",
+    "inputPlaceholder": "Eine App, die…",
+    "createSpecs": "Specs erstellen",
+    "createSpecsHint": "Verfügbar, sobald der Blueprint Meilenstein-1-Specs enthält"
+  },
+  "panel": {
+    "title": "Blueprint",
+    "product": "Produkt",
+    "coreFlow": "Kernablauf",
+    "platform": "Plattform",
+    "stack": "Stack",
+    "milestones": "Meilensteine",
+    "milestonesValue": "{{count}} geplant",
+    "assumptions": "Annahmen",
+    "m1Specs": "Meilenstein-1-Specs ({{count}})",
+    "dependsOn": "baut auf #{{index}} auf",
+    "criteriaCount": "{{count}} Akzeptanzkriterien",
+    "laterMilestones": "Spätere Meilensteine",
+    "empty": "Der Blueprint füllt sich während des Gesprächs."
+  },
+  "commit": {
+    "title": "Projekt erstellen",
+    "description": "Nichts berührt die Festplatte, bis du bestätigst. Das Repo bleibt unberührt — Specrails-Artefakte liegen außerhalb.",
+    "nameLabel": "Projektname",
+    "locationLabel": "Speicherort",
+    "locationHint": "Hier wird ein neuer Ordner erstellt (muss leer sein oder fehlen).",
+    "providersLabel": "KI-Anbieter",
+    "githubLabel": "Privates GitHub-Repository erstellen",
+    "githubAuthHint": "Zuerst anmelden: gh auth login",
+    "back": "Zurück",
+    "submit": "Projekt erstellen",
+    "creating": "Wird erstellt…",
+    "errors": {
+      "generic": "Der Commit konnte nicht starten. Prüfe die Werte und versuche es erneut.",
+      "invalid_name": "Der Projektname ist erforderlich.",
+      "invalid_location": "Der Speicherort ist erforderlich.",
+      "providers_required": "Wähle mindestens einen Anbieter.",
+      "unknown_provider": "Einer der gewählten Anbieter ist nicht verfügbar.",
+      "invalid_blueprint": "Der Blueprint ist unvollständig — geh zurück und vervollständige ihn mit dem Builder.",
+      "m1_specs_required": "Der Blueprint hat noch keine Meilenstein-1-Specs.",
+      "m1_specs_over_cap": "Meilenstein 1 hat zu viele Specs (max. 10). Bitte den Builder, ihn zu verschlanken.",
+      "m1_spec_quality_invalid": "Die generierten Specs sind noch nicht umsetzungsreif. Kehre zum Builder zurück und verfeinere den angegebenen Punkt.",
+      "bundled_framework_missing": "Das mitgelieferte Framework fehlt — installiere die Specrails-App neu.",
+      "location_not_empty": "Dieser Ordner existiert bereits und ist nicht leer. Wähle einen anderen Ort.",
+      "location_already_registered": "Dieser Ort gehört bereits zu einem registrierten Projekt.",
+      "commit_failed": "Die Projekterstellung ist fehlgeschlagen — der Grund steht in der Schrittliste."
+    }
+  },
+  "progress": {
+    "title": "Dein Projekt wird erstellt…",
+    "steps": {
+      "create-dir": "Projektordner erstellen",
+      "git-init": "Git-Repository + README initialisieren",
+      "assemble": "Specrails-Workspace zusammenbauen (offline)",
+      "blueprint": "Blueprint schreiben",
+      "tickets": "Meilenstein-1-Specs einfügen",
+      "register": "Projekt registrieren",
+      "github": "GitHub-Repository erstellen"
+    },
+    "githubErrors": {
+      "gh_not_installed": "GitHub CLI (gh) ist nicht installiert — Repository nicht erstellt",
+      "gh_not_authenticated": "gh ist nicht angemeldet (gh auth login ausführen) — Repository nicht erstellt",
+      "gh_scope": "Dein gh-Token kann keine Repositories erstellen (repo-Scope fehlt)",
+      "gh_repo_exists": "Ein Repository mit diesem Namen existiert bereits in deinem Konto",
+      "gh_network": "Netzwerkfehler mit GitHub — Repository nicht erstellt",
+      "generic": "GitHub-Repository konnte nicht erstellt werden"
+    }
+  },
+  "done": {
+    "title": "Projekt erstellt",
+    "description": "Dein Meilenstein-1-Backlog ist auf dem Board, mit M1 gelabelt.",
+    "launchM1": "Meilenstein 1 starten",
+    "openProject": "Projekt öffnen",
+    "launchToast": "Meilenstein 1 gestartet — {{count}} Specs auf einem Rail",
+    "launchFailed": "Meilenstein 1 konnte nicht gestartet werden"
+  },
+  "sidebar": {
+    "title": "Blueprint",
+    "milestone": "M{{n}}",
+    "progress": "{{done}}/{{total}} fertig",
+    "launchM1": "Meilenstein 1 starten",
+    "generateNext": "M{{n}} generieren",
+    "generateHint": "Öffnet eine im Code verankerte Spec-Session, gesät mit dem Blueprint"
+  },
+  "errors": {
+    "startFailed": "Die Builder-Konversation konnte nicht gestartet werden.",
+    "turnFailed": "Der Builder-Turn ist fehlgeschlagen.",
+    "commitFailed": "Die Projekterstellung ist fehlgeschlagen."
+  },
+  "milestone": {
+    "title": "{{label}} generieren",
+    "inputPlaceholder": "Specs verfeinern…",
+    "commit": "{{count}} Specs als {{label}} übernehmen",
+    "commitToast": "{{count}} Specs als {{label}} auf das Board übernommen",
+    "commitFailed": "Der Meilenstein konnte nicht übernommen werden"
+  },
+  "mode": {
+    "title": "Projekt-Builder",
+    "subtitle": "Der Agent baut ein neues Projekt",
+    "exit": "Beenden",
+    "exitConfirmTitle": "Builder verlassen?",
+    "exitConfirmBody": "Der laufende Blueprint wird verworfen.",
+    "exitConfirmCancel": "Weiterbauen",
+    "exitConfirmDiscard": "Verwerfen und beenden"
+  },
+  "prompts": {
+    "surpriseMe": "Überrasch mich — schlage sinnvolle Werte für alle Blueprint-Dimensionen vor, lasse m1Specs leer und lass mich den Plan vor der Erstellung detaillierter Specs genehmigen.",
+    "milestoneSeed": "Generiere die detaillierten Specs für Meilenstein {{label}} (\"{{title}}\"). Lies zuerst die echte Codebasis, validiere den vollständigen Satz und gib erst dann ALLE detaillierten Specs des Meilensteins in einer einzigen blueprint-draft-Antwort/einem einzigen Snapshot aus.",
+    "milestoneSeedWithPlanned": "Generiere die detaillierten Specs für Meilenstein {{label}} (\"{{title}}\"). Geplante Spec-Titel: {{planned}}. Lies zuerst die echte Codebasis, validiere den vollständigen Satz und gib erst dann ALLE detaillierten Specs des Meilensteins in einer einzigen blueprint-draft-Antwort/einem einzigen Snapshot aus."
+  },
+  "specModal": {
+    "eyebrow": "{{milestone}} · Spec {{index}}",
+    "close": "Schließen",
+    "open": "Spec-Details ansehen",
+    "empty": "Noch keine Beschreibung.",
+    "summary": "Zusammenfassung",
+    "priority": "Priorität",
+    "description": "Spec-Beschreibung",
+    "acceptanceCriteria": "Akzeptanzkriterien",
+    "criteriaEmpty": "Noch keine Akzeptanzkriterien."
+  }
+}

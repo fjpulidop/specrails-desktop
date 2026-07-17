@@ -155,6 +155,21 @@ describe('DashboardPage', () => {
     }
   })
 
+  it('includes Project Builder specs, including the legacy manual classification', () => {
+    const original = mockTickets
+    mockTickets = [
+      ...original,
+      { ...original[0], id: 101, title: 'Builder spec', source: 'project-builder', created_by: 'project-builder' },
+      { ...original[0], id: 102, title: 'Legacy builder spec', source: 'manual', created_by: 'project-builder' },
+    ]
+    try {
+      render(<DashboardPage />)
+      expect(screen.getByTestId('specs-board-ticket-count')).toHaveTextContent('3')
+    } finally {
+      mockTickets = original
+    }
+  })
+
   it('shows Rails board with rail rows', () => {
     render(<DashboardPage />)
     expect(screen.getByText('Rail 1')).toBeInTheDocument()

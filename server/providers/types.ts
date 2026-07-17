@@ -23,9 +23,10 @@ export type SpawnAction =
 /** Reasoning-effort tiers, shared by the spawn layer and the UI selectors.
  *  This is the cross-provider SUPERSET — each adapter advertises the subset it
  *  actually accepts via `capabilities.reasoningEfforts` (claude adds `xhigh`,
- *  codex adds `minimal`; legacy rail/loop surfaces keep their own low|medium|high
- *  validation). */
-export type ReasoningEffort = 'minimal' | 'low' | 'medium' | 'high' | 'xhigh'
+ *  codex adds `minimal` plus the GPT-5.6 tiers `max`/`ultra` — `ultra` is
+ *  Sol-only upstream and codex clamps/rejects it on other models; legacy
+ *  rail/loop surfaces keep their own low|medium|high validation). */
+export type ReasoningEffort = 'minimal' | 'low' | 'medium' | 'high' | 'xhigh' | 'max' | 'ultra'
 
 export interface SpawnOptions {
   prompt: string
@@ -33,9 +34,11 @@ export interface SpawnOptions {
   model: string
   sessionId?: string
   /**
-   * Effective tool boundary for output-only/read-only invocations. Claude maps
-   * this to an explicit `--tools` allowlist; adapters without a verified native
-   * equivalent may ignore it until their CLI contract supports one.
+   * Effective tool boundary for output-only/read-only invocations. Adapters map
+   * `read-only` to their verified native control: Claude plan mode plus its
+   * Read/Grep/Glob allowlist, Codex's read-only sandbox, and Gemini plan mode.
+   * Adapters without a verified native equivalent may ignore it until their CLI
+   * contract supports one.
    */
   toolPolicy?: 'default' | 'none' | 'read-only'
   /**

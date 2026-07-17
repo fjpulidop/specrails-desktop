@@ -15,6 +15,8 @@ import {
   DialogFooter,
 } from './ui/dialog'
 import { useDesktop } from '../hooks/useDesktop'
+import { FEATURE_PROJECT_BUILDER } from '../lib/feature-flags'
+import { FolderGit2, Sparkles } from 'lucide-react'
 import { usePrerequisites } from '../hooks/usePrerequisites'
 import { PrerequisitesPanel } from './PrerequisitesPanel'
 import { InstallInstructionsModal } from './InstallInstructionsModal'
@@ -24,6 +26,9 @@ import type { ProviderId } from '../lib/provider-capabilities'
 interface AddProjectDialogProps {
   open: boolean
   onClose: () => void
+  /** Opens the Project Builder (greenfield path). When absent the chooser
+   *  pre-screen is skipped and the dialog behaves exactly as before. */
+  onOpenBuilder?: () => void
 }
 
 type Provider = ProviderId
@@ -47,7 +52,12 @@ function providerRenderOrder(avail: Record<string, boolean>): string[] {
   return [...known, ...extras]
 }
 
-export function AddProjectDialog({ open, onClose }: AddProjectDialogProps) {
+export function AddProjectDialog({ open, onClose, onOpenBuilder }: AddProjectDialogProps) {
+  // Existing|New chooser pre-screen (add-project-builder). Only when the
+  // Project Builder is enabled AND the parent wired the Builder open callback;
+  // otherwise the dialog is byte-identical to the pre-Builder behaviour.
+  const chooserEnabled = FEATURE_PROJECT_BUILDER && !!onOpenBuilder
+  const [step, setStep] = useState<'choose' | 'existing'>(chooserEnabled ? 'choose' : 'existing')
   // Multi-select: a project can be created with one or both providers. When both
   // are available we pre-select both; the user can deselect down to one (but
   // never zero). The first in canonical order is the primary/default provider.
@@ -153,6 +163,7 @@ export function AddProjectDialog({ open, onClose }: AddProjectDialogProps) {
   function resetAndClose() {
     setProjectPath('')
     setProjectName('')
+    setStep(chooserEnabled ? 'choose' : 'existing')
     onClose()
   }
 
@@ -161,6 +172,44 @@ export function AddProjectDialog({ open, onClose }: AddProjectDialogProps) {
   }
 
   const noProviderAvailable = !Object.values(availableProviders).some(Boolean)
+
+  if (step === 'choose') {
+    return (
+      <Dialog open={open} onOpenChange={handleOpenChange}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <FolderOpen className="w-4 h-4" />
+              {t('addProject.title')}
+            </DialogTitle>
+            <DialogDescription>{t('addProject.chooser.description')}</DialogDescription>
+          </DialogHeader>
+          <div className="grid grid-cols-2 gap-3 py-2">
+            <button
+              type="button"
+              data-testid="chooser-existing"
+              onClick={() => setStep('existing')}
+              className="flex flex-col items-start gap-2 rounded-lg border border-border/40 p-4 text-left transition-colors hover:border-accent-primary/50 hover:bg-accent-primary/5 focus:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+            >
+              <FolderGit2 className="h-5 w-5 text-accent-info" />
+              <span className="text-sm font-medium">{t('addProject.chooser.existingTitle')}</span>
+              <span className="text-[11px] text-muted-foreground">{t('addProject.chooser.existingDescription')}</span>
+            </button>
+            <button
+              type="button"
+              data-testid="chooser-new"
+              onClick={() => { resetAndClose(); onOpenBuilder?.() }}
+              className="flex flex-col items-start gap-2 rounded-lg border border-border/40 p-4 text-left transition-colors hover:border-accent-highlight/50 hover:bg-accent-highlight/5 focus:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+            >
+              <Sparkles className="h-5 w-5 text-accent-highlight" />
+              <span className="text-sm font-medium">{t('addProject.chooser.newTitle')}</span>
+              <span className="text-[11px] text-muted-foreground">{t('addProject.chooser.newDescription')}</span>
+            </button>
+          </div>
+        </DialogContent>
+      </Dialog>
+    )
+  }
 
   return (
     <Dialog open={open} onOpenChange={handleOpenChange}>

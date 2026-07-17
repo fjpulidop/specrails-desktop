@@ -80,8 +80,14 @@ function commonFlagsFor(opts: SpawnOptions): string[] {
   return [
     // No approval bypass is necessary when no tool can be invoked. Keeping it
     // off also makes the pure-output boundary fail closed if Claude ever
-    // changes how it interprets the sentinel.
-    ...(toolPolicy === 'none' ? [] : ['--dangerously-skip-permissions']),
+    // changes how it interprets the sentinel. Read-only work uses Claude's
+    // native plan mode: Read/Grep/Glob stay usable without granting the
+    // blanket permission bypass carried by normal autonomous turns.
+    ...(toolPolicy === 'default'
+      ? ['--dangerously-skip-permissions']
+      : toolPolicy === 'read-only'
+        ? ['--permission-mode', 'plan', '--safe-mode']
+        : []),
     ...toolArgs,
     '--output-format', 'stream-json',
     '--verbose',

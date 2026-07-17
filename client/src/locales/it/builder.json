@@ -1,0 +1,129 @@
+{
+  "shell": {
+    "title": "Costruttore di progetti",
+    "subtitle": "Dall'idea al backlog della Milestone 1",
+    "close": "Chiudi il Costruttore",
+    "emptyTitle": "Descrivi la tua idea di app",
+    "emptyHint": "Bastano una o due frasi — il Costruttore ti intervisterà brevemente e proporrà un blueprint completo. Puoi anche lasciargli decidere tutto.",
+    "surpriseMe": "Sorprendimi",
+    "inputPlaceholder": "Un'app che…",
+    "createSpecs": "Crea le spec",
+    "createSpecsHint": "Disponibile quando il blueprint ha spec della Milestone 1"
+  },
+  "panel": {
+    "title": "Blueprint",
+    "product": "Prodotto",
+    "coreFlow": "Flusso principale",
+    "platform": "Piattaforma",
+    "stack": "Stack",
+    "milestones": "Milestone",
+    "milestonesValue": "{{count}} pianificate",
+    "assumptions": "Assunzioni",
+    "m1Specs": "Spec della Milestone 1 ({{count}})",
+    "dependsOn": "dipende da #{{index}}",
+    "criteriaCount": "{{count}} criteri di accettazione",
+    "laterMilestones": "Milestone successive",
+    "empty": "Il blueprint si riempie mentre conversi."
+  },
+  "commit": {
+    "title": "Crea il progetto",
+    "description": "Nulla tocca il disco finché non confermi. Il repo resta intatto — gli artefatti Specrails vivono altrove.",
+    "nameLabel": "Nome del progetto",
+    "locationLabel": "Percorso",
+    "locationHint": "Qui verrà creata una nuova cartella (vuota o inesistente).",
+    "providersLabel": "Provider IA",
+    "githubLabel": "Crea repository GitHub privato",
+    "githubAuthHint": "Accedi prima: gh auth login",
+    "back": "Indietro",
+    "submit": "Crea progetto",
+    "creating": "Creazione…",
+    "errors": {
+      "generic": "Il commit non è potuto partire. Controlla i valori e riprova.",
+      "invalid_name": "Il nome del progetto è obbligatorio.",
+      "invalid_location": "Il percorso è obbligatorio.",
+      "providers_required": "Seleziona almeno un provider.",
+      "unknown_provider": "Uno dei provider selezionati non è disponibile.",
+      "invalid_blueprint": "Il blueprint è incompleto — torna indietro e completalo col Costruttore.",
+      "m1_specs_required": "Il blueprint non ha ancora spec della Milestone 1.",
+      "m1_specs_over_cap": "La Milestone 1 ha troppe spec (max 10). Chiedi al Costruttore di snellirla.",
+      "m1_spec_quality_invalid": "Le spec generate non sono ancora pronte per l'implementazione. Torna al Costruttore e perfeziona l'elemento indicato.",
+      "bundled_framework_missing": "Manca il framework integrato — reinstalla l'app Specrails.",
+      "location_not_empty": "Quella cartella esiste già e non è vuota. Scegli un altro percorso.",
+      "location_already_registered": "Quel percorso appartiene già a un progetto registrato.",
+      "commit_failed": "La creazione del progetto è fallita — vedi l'elenco dei passi per il motivo."
+    }
+  },
+  "progress": {
+    "title": "Creazione del progetto…",
+    "steps": {
+      "create-dir": "Crea la cartella del progetto",
+      "git-init": "Inizializza il repository git + README",
+      "assemble": "Assembla il workspace Specrails (offline)",
+      "blueprint": "Scrivi il blueprint",
+      "tickets": "Inserisci le spec della Milestone 1",
+      "register": "Registra il progetto",
+      "github": "Crea il repository GitHub"
+    },
+    "githubErrors": {
+      "gh_not_installed": "GitHub CLI (gh) non è installato — repository non creato",
+      "gh_not_authenticated": "gh non è autenticato (esegui gh auth login) — repository non creato",
+      "gh_scope": "Il tuo token gh non può creare repository (manca lo scope repo)",
+      "gh_repo_exists": "Esiste già un repository con questo nome nel tuo account",
+      "gh_network": "Errore di rete con GitHub — repository non creato",
+      "generic": "Creazione del repository GitHub non riuscita"
+    }
+  },
+  "done": {
+    "title": "Progetto creato",
+    "description": "Il backlog della Milestone 1 è sulla board, etichettato M1.",
+    "launchM1": "Lancia la Milestone 1",
+    "openProject": "Apri il progetto",
+    "launchToast": "Milestone 1 lanciata — {{count}} spec su un binario",
+    "launchFailed": "Impossibile lanciare la Milestone 1"
+  },
+  "sidebar": {
+    "title": "Blueprint",
+    "milestone": "M{{n}}",
+    "progress": "{{done}}/{{total}} fatte",
+    "launchM1": "Lancia la Milestone 1",
+    "generateNext": "Genera M{{n}}",
+    "generateHint": "Apre una sessione di spec ancorata al codice, seminata col blueprint"
+  },
+  "errors": {
+    "startFailed": "Impossibile avviare la conversazione del Costruttore.",
+    "turnFailed": "Il turno del Costruttore è fallito.",
+    "commitFailed": "La creazione del progetto è fallita."
+  },
+  "milestone": {
+    "title": "Genera {{label}}",
+    "inputPlaceholder": "Rifinisci le spec…",
+    "commit": "Conferma {{count}} spec come {{label}}",
+    "commitToast": "{{count}} spec aggiunte alla board come {{label}}",
+    "commitFailed": "Impossibile confermare la milestone"
+  },
+  "mode": {
+    "title": "Costruttore di progetti",
+    "subtitle": "L'agente sta costruendo un nuovo progetto",
+    "exit": "Esci",
+    "exitConfirmTitle": "Uscire dal Costruttore?",
+    "exitConfirmBody": "Il blueprint in corso verrà scartato.",
+    "exitConfirmCancel": "Continua a costruire",
+    "exitConfirmDiscard": "Scarta ed esci"
+  },
+  "prompts": {
+    "surpriseMe": "Sorprendimi — proponi valori sensati per tutte le dimensioni del blueprint, lascia m1Specs vuoto e fammi approvare il piano prima di generare le spec dettagliate.",
+    "milestoneSeed": "Genera le spec dettagliate della milestone {{label}} (\"{{title}}\"). Leggi prima il codice reale, valida il lotto completo e solo allora emetti TUTTE le spec dettagliate della milestone in un'unica risposta/snapshot blueprint-draft.",
+    "milestoneSeedWithPlanned": "Genera le spec dettagliate della milestone {{label}} (\"{{title}}\"). Titoli di spec pianificate: {{planned}}. Leggi prima il codice reale, valida il lotto completo e solo allora emetti TUTTE le spec dettagliate della milestone in un'unica risposta/snapshot blueprint-draft."
+  },
+  "specModal": {
+    "eyebrow": "{{milestone}} · Spec {{index}}",
+    "close": "Chiudi",
+    "open": "Vedi dettaglio della spec",
+    "empty": "Ancora nessuna descrizione.",
+    "summary": "Riepilogo",
+    "priority": "Priorità",
+    "description": "Descrizione della spec",
+    "acceptanceCriteria": "Criteri di accettazione",
+    "criteriaEmpty": "Ancora nessun criterio di accettazione."
+  }
+}

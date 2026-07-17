@@ -111,6 +111,22 @@ describe('estimateCostUsd', () => {
     expect(withCacheCreate).toBe(withoutCacheCreate)
   })
 
+  it('prices the GPT-5.6 family, billing cache WRITES at 1.25x input (new 5.6 semantics)', () => {
+    // Sol: $5 in / $30 out / $0.50 cache-read / $6.25 cache-write per 1M.
+    const sol = estimateCostUsd('codex', 'gpt-5.6-sol', {
+      tokens_in: 1_000_000,
+      tokens_out: 100_000,
+      tokens_cache_read: 400_000, // subset of tokens_in (OpenAI semantics)
+      tokens_cache_create: 200_000,
+    })
+    // fresh input 600k*$5 + cache-read 400k*$0.50 + out 100k*$30 + cache-write 200k*$6.25
+    expect(sol).toBeCloseTo(3.0 + 0.2 + 3.0 + 1.25, 6)
+    // Luna: $1 / $6 — cheapest 5.6 tier still prices.
+    const luna = estimateCostUsd('codex', 'gpt-5.6-luna', { tokens_in: 1_000_000 })
+    expect(luna).toBeCloseTo(1.0, 6)
+    expect(estimateCostUsd('codex', 'gpt-5.6-terra', { tokens_in: 1_000_000 })).toBeCloseTo(2.5, 6)
+  })
+
   it('returns null when model is null', () => {
     expect(estimateCostUsd('codex', null, { tokens_in: 100 })).toBeNull()
   })

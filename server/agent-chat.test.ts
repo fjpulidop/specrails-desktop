@@ -448,7 +448,7 @@ describe('agent-chat-router', () => {
     const claude = await req(app, 'GET', '/api/agent/models?provider=claude')
     expect(claude.body.efforts).toEqual(['low', 'medium', 'high', 'xhigh'])
     const codex = await req(app, 'GET', '/api/agent/models?provider=codex')
-    expect(codex.body.efforts).toEqual(['minimal', 'low', 'medium', 'high'])
+    expect(codex.body.efforts).toEqual(['minimal', 'low', 'medium', 'high', 'xhigh', 'max', 'ultra'])
     const gemini = await req(app, 'GET', '/api/agent/models?provider=gemini')
     expect(gemini.body.efforts).toEqual([])
   })

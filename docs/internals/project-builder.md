@@ -1,0 +1,306 @@
+# Project Builder — as-built internals
+
+> OpenSpec change `add-project-builder`. Greenfield project creation from an
+> idea: a day-0 blueprint conversation, an orchestrated bootstrap commit, and a
+> milestone lifecycle (Launch M1 batch rail, sidebar re-entry, Generate M2+).
+
+## Entry + builder mode (reskin)
+
+"+ Add Project" shows an **Existing | New** pre-screen (`AddProjectDialog`,
+`chooser-existing` / `chooser-new` cards) when both `FEATURE_PROJECT_BUILDER`
+(client) and the parent-wired `onOpenBuilder` callback are present. *Existing*
+continues into the unchanged AddProjectDialog/setup-wizard flow; *New* calls
+`AgentChatContext.builderMode.enter()` — the AGENT transforms into the Builder
+(change `reskin-project-builder-into-agent-panel`; the original full-screen
+`ProjectBuilderShell` overlay is deleted). Flags:
+`VITE_FEATURE_PROJECT_BUILDER` (client) / `SPECRAILS_PROJECT_BUILDER` (server),
+both default ON, `"false"` opts out (server flag 404s every `/api/blueprint/*`
+route).
+
+**Builder mode (client architecture):**
+
+- `builderMode` slice on `AgentChatContext`: `{ active, enter, exit, session }`.
+  `enter()` also opens the floating panel outside Agent Mode; `exit()` aborts
+  the in-flight builder turn (`POST /abort`) and resets every session slice.
+  The agent's own chrome (project/mission selectors, conversation, queue,
+  pinned cards) is hidden while active but NEVER unmounted.
+- Session logic in `client/src/hooks/useBuilderSession.ts` (extracted from the
+  retired shell): bootstrap, `blueprint.*` WS handling with NULL-SAFE identity
+  checks (a pre-bootstrap/pre-commit null ref must never match a null/absent
+  message id), phases, snapshot, send/commit/launch actions, `dirty` flag.
+- `BuilderConversation` (`client/src/components/project-builder/`): the four
+  phases in the MISSION format — chat renders a centered message column with
+  the `BuilderComposer` docked at the bottom (centered card while empty,
+  mission-style); in Agent Mode the hero and docked cards share a `layoutId`,
+  so the first send morphs the agent smoothly down. Then commit
+  (`BlueprintCommitForm`), progress step list, done (Launch M1 / Open project).
+  Esc: commit→chat, chat→exit (confirm-gated when dirty).
+- `BuilderComposer`: mirrors the mission composer's visual language — the SAME
+  provider/model/effort selectors (provider/model bind to the blueprint
+  conversation; reasoning effort is validated against the selected provider
+  and rides each send), surprise-me chip, native `resize-y` textarea, and the
+  same `SendHorizontal` action. Models and effort levels come from
+  `GET /api/blueprint/models?provider=`.
+- `BuilderHalo`: orbiting ring — CSS `builder-halo-spin` keyframes over an
+  XOR-masked conic-gradient border band (follows ANY radius: circular on the
+  bubble/panel-header icon, card radius on the composer; no per-frame JS),
+  `motion` enter/exit, `prefers-reduced-motion` ⇒ static glow. It is strictly
+  an ENTRY flourish: shown on the fresh empty composer and the matching
+  bubble/panel-header identity, then removed as soon as the first work message
+  begins. Builder mode itself continues without a halo; there is no wind-down.
+- Per UI mode: **board** — `AgentChatPanel` widens (860px) and gains an
+  attached blueprint side pane; **Agent Mode** — `AgentModeSurface` renders
+  the builder conversation and `AgentWorkspaceSidebar` swaps (AnimatePresence)
+  to `BlueprintPanel` + the Create-specs CTA, forced-expanded for the duration.
+- The builder conversation stays on `blueprint_conversations` / `blueprint.*`
+  — never mixed into `agent_conversations` or the mission selector.
+- `BlueprintPanel` M1 spec cards are clickable → `BlueprintSpecModal`
+  (hand-rolled body portal at z-[65], same tier as `LoopPreviewModal`; Esc +
+  backdrop close). At day 0 the specs are NOT tickets yet (only in the
+  snapshot), so this is a lightweight read-only preview — NOT the heavy
+  `TicketDetailModal`. Cards expose `shortSummary`, priority, and acceptance-
+  criteria count; the modal exposes the summary, priority, canonical five-
+  section description, and every separate acceptance criterion. The same panel
+  (and therefore the modal) is reused in the M2+ `MilestoneGenerateShell`, so
+  the user reviews the content that will become the authoritative tickets
+  (apart from the deterministic criteria fold). The detailed M2+ preview is
+  transient; the blueprint has no per-milestone detailed-spec collection.
+
+## Day-0 chat (no project exists)
+
+- **Manager**: `server/blueprint-chat-manager.ts` `BlueprintChatManager` — an
+  app-level sibling of `AgentChatManager` reusing `runAiCliInvocation`. Spawns
+  from `~/.specrails/builder-cwd/` (`server/builder-cwd-manager.ts`: always
+  re-written instruction files from `server/blueprint-operator-prompt.ts`, NO
+  `./project` symlink, NO MCP). Auto-heal: a resume that yields no text retries
+  fresh once. Abort keeps partial text and records `aborted`.
+- **Persistence**: `blueprint_conversations` / `blueprint_messages` in
+  `desktop.sqlite` (migration 22; CRUD in `server/blueprint-store.ts`).
+- **WS**: app-global `blueprint.stream` / `blueprint.done` / `blueprint.error`
+  (no `projectId`; NOT in the mobile-ws translation layer). `blueprint.done`
+  carries the STRIPPED `fullText` plus the last valid `blueprint` snapshot.
+- **Accounting**: one `agent_invocations` row per settled turn with
+  `project_id NULL` (the Home-turn precedent). No backfill after creation.
+- **REST**: `/api/blueprint/*` (`server/blueprint-router.ts`) — conversations
+  CRUD, `/send` (202, 409 while streaming), `/abort`, `/models`, `/commit`.
+  `/models` returns the provider's `efforts` catalog; `/send` accepts only a
+  catalog-valid `reasoning_effort`, and providers without the capability omit
+  the field when spawning.
+- **Generation boundary**: interview turns and Surprise Me may complete the
+  product/flow/platform/stack/assumption/milestone proposal, but MUST keep
+  `m1Specs: []` and `specsComplete: false`. Detailed M1 generation starts only
+  after explicit user approval or a direct request to generate the backlog.
+  That next assistant turn emits the entire self-validated 5–10-spec M1 set in
+  ONE response containing ONE complete fenced snapshot. It never publishes a
+  partial subset as the latest draft; `specsComplete: true` appears only on the
+  complete set. If generation cannot finish, the prior non-complete proposal
+  remains the last valid state and cannot be committed.
+
+## blueprint-draft protocol
+
+Fenced ` ```blueprint-draft ` JSON blocks. FULL snapshots, LAST syntactically
+valid block wins, streaming tail cut (unterminated trailing fence never
+parsed/shown — `cutUnterminatedBlock`). Unknown keys dropped; missing or
+non-integer `blueprintVersion` rejects the block. Parser pair:
+`server/blueprint-draft-parser.ts` ⇄ `client/src/lib/blueprint-draft.ts` (keep
+coercion rules in sync). Schema types in `server/blueprint-types.ts`:
+`product{name,pitch,audience}`, `coreFlow`, `platform`,
+`stack{language,framework,db,notes?}`, `assumptions[]`,
+`milestones[]{id,title,goal,status: planned|committed|done, plannedSpecs[],
+ticketIds?}` (ticketIds ADVISORY only), `specsComplete`, and detailed
+`m1Specs[]{kind,title,shortSummary,description,acceptanceCriteria[],priority,
+labels[],dependsOnIndex?}`. `kind` is `scaffold|feature|verification`; priority
+is `low|medium|high|critical`. After approval, detailed M1 generation arrives
+as one complete 5–10-spec snapshot with an explicit scaffold first. M2+
+milestones carry `plannedSpecs` titles only until that milestone is explicitly
+generated, at which point the target milestone's entire detailed set likewise
+arrives in one assistant response/snapshot. The version stays 1: legacy
+snapshots default missing `specsComplete=false`, `kind='feature'`,
+`shortSummary=''`, criteria to `[]`, and missing/invalid priority to `medium`
+on read. Those defaults preserve readability only; newly committed batches
+must pass the strict quality gate.
+
+Parsing deliberately retains two representations of the LAST valid block:
+`blueprint` is the compatibility-normalized `Blueprint` used by preview/read
+surfaces, while `rawBlueprint` is the exact parsed JSON before enum defaults,
+dependency drops, or missing-field defaults. `blueprint.done` carries both;
+the client mirrors the pair, derives readiness from the raw value, and sends
+that raw value to M1/M2+ commit. Therefore an invalid `kind`, `priority`,
+`dependsOnIndex`, or required field cannot disappear/default during rendering
+and then pass the mutation gate. Persisted legacy files are a different read
+boundary: `readBlueprint()` calls `coerceBlueprint()` server-side so old v1
+files remain readable (and returns null for missing/corrupt input).
+
+## Canonical rich-spec contract (M1 and generated M2+)
+
+There is no Builder-specific “lite spec” format. Every detailed Builder spec
+uses the normal Specrails contract:
+
+1. `kind`: `scaffold`, `feature`, or `verification`
+2. an English, action-oriented, unique `title`
+3. a one-sentence `shortSummary` no longer than 240 characters
+4. `description` with exactly these `##` headings, once and in this order:
+   `Problem Statement`, `Proposed Solution`, `Out of Scope`,
+   `Technical Considerations`, `Estimated Complexity`
+5. a separate `acceptanceCriteria[]` containing 4–10 non-empty, independently
+   testable outcomes; `description` MUST NOT contain `## Acceptance Criteria`
+6. a catalog-valid `priority`, non-empty domain labels, and an optional
+   `dependsOnIndex` that points strictly backward (the M1 scaffold omits it)
+
+Every named description section has a non-empty body. `Out of Scope` and
+`Technical Considerations` each contain at least 2 bullets; Estimated
+Complexity includes a reasoned estimate. Day-0 technical considerations name
+the selected stack, planned components/contracts, risks, and inter-spec
+dependencies but never fabricate repository paths. Generated M2+ specs first
+inspect the real project and may name only verified existing paths and
+identifiers; their criteria cover behavior, failure/edge cases, and tests.
+
+`server/blueprint-spec-quality.ts` is the shared deterministic authority. It
+validates `specsComplete=true`, the complete-set size, all fields/sections
+above (including both 2-bullet minima), unique titles, the M1 first-item
+`kind='scaffold'` rule, and backward-only dependencies. Both commit paths run
+it before any filesystem, registry, blueprint, milestone, or ticket-store
+mutation and return a stable spec/field-oriented detail when it rejects. A
+prompt is a generation aid, never the integrity boundary. Validation receives
+the exact raw generated payload; normalized compatibility views are not
+commit evidence.
+
+## Orchestrated commit (register-project-LAST)
+
+`POST /api/blueprint/commit` → sync validation (named errors: `invalid_name`,
+`invalid_location`, `providers_required`, `unknown_provider`,
+`invalid_blueprint`, `m1_specs_required`, `m1_specs_over_cap`,
+`bundled_framework_missing`, `location_not_empty`,
+`location_already_registered`; rich-spec failures include actionable spec/field
+detail) → 202 `{commitId}` → per-step
+`blueprint.commit_progress` → terminal `blueprint.commit_done{projectId}` /
+`commit_failed{step,error}`. Orchestrator: `server/blueprint-commit.ts`
+`createBlueprintCommitRunner` (DI IO bag — every step fail-injectable in
+tests). Step order:
+
+1. `create-dir` — mkdir target
+2. `git-init` — `git init -b main` + deterministic README (no AI call,
+   `renderReadme`) + initial commit (pinned committer identity)
+3. `assemble` — registry mirror + framework materialize + one core
+   `init --from-config` per provider (`server/offline-assemble.ts`
+   `assembleProjectOffline`, extracted from `SetupManager`): PREFERS the
+   bundled core (offline `node <bundled-cli> init`, `spawnBundledCoreInit`),
+   falls back to `npx specrails-core` (`spawnNpxCoreInit`) when no bundle —
+   so `npm run dev` and runtimes-less builds work. `canAssembleProject()` is
+   the validation gate: true when the bundle is present OR
+   `SPECRAILS_IS_DESKTOP !== '1'`; only a packaged desktop build with a
+   missing/corrupted bundle returns false → `bundled_framework_missing`
+   ("reinstall the app"). Verifies the workspace exists afterwards.
+4. `blueprint` — `writeBlueprintPair` into `<workspace>/.specrails/`
+   (`blueprint.json` source of truth + deterministic `blueprint.md`,
+   `server/blueprint-render.ts`; repo stays pristine)
+5. `tickets` — `mutateStore` on the workspace `local-tickets.json`: `todo`,
+   label `M1`, `source='project-builder'`, `created_by='project-builder'`, spec
+   order preserved, generated priority/short summary/domain labels retained,
+   structured criteria folded once via the normal
+   `formatDescriptionWithCriteria` helper, `dependsOnIndex` → `prerequisites`,
+   advisory ids written back to milestone m1 (+ `status='committed'`) and the
+   pair re-rendered
+6. `register` — `ProjectRegistry.addProject` with the pre-generated id/slug
+   (LAST mutation; broadcast `desktop.project_added`)
+7. `github` — best-effort, never aborts. A server-side pre-flight
+   (`gh auth token`) runs first as defence against a stale client cache: a
+   spawn error (gh not on PATH) → warning `gh_not_installed`; a non-zero exit
+   → warning `gh_not_authenticated`, both WITHOUT spawning the create. Then
+   `gh repo create <slug> --private --source . --push`; a failure is
+   classified by `classifyGhCreateError` (`gh_scope` for 403/scope,
+   `gh_repo_exists`, `gh_network`, else `gh_failed`). Every warning rides the
+   `blueprint.commit_progress` payload's additive `code` field so the client
+   renders an i18n message (`builder:progress.githubErrors.*` ×8, raw stderr
+   tail kept as tooltip) and fires ONE non-blocking `toast.warning` per commit
+   attempt (`useBuilderSession` `ghWarnedRef`).
+
+**Checkbox gating** (`BlueprintCommitForm`): the "Create private GitHub
+repository" option renders ONLY when gh is installed+executable
+(`usePrerequisites()` gh entry); installed-but-unauthenticated shows it
+disabled with the actionable `commit.githubAuthHint` («gh auth login»). gh
+absent ⇒ the checkbox does not exist. Submit force-clears the flag unless gh
+is fully ready (installed + authenticated).
+
+**Crash posture**: a crash before step 6 leaves an orphan dir + registry entry
+but NO project row (invisible; re-run rejects `location_not_empty`). After
+step 6 it is an ordinary project missing only the remote.
+
+## Milestone lifecycle
+
+- **Launch Milestone 1** (`client/src/lib/milestone-launch.ts`
+  `launchMilestone`): gather `M1`-labeled `todo` tickets → `POST /rails`
+  (server allocates the lowest free index) → `PUT /rails/:i/tickets` → `POST
+  /rails/:i/launch {mode:'batch-implement'}` (the server maps the bare mode to
+  the batch factory loop: worktree isolation + ask-first PR). Offered on the
+  Builder done screen and the sidebar entry; existing 409 guards surface as
+  toasts.
+- **Sidebar re-entry** (`BuilderSidebarEntry`, mounted in
+  `ProjectRightSidebar` + `AgentWorkspaceSidebar`): visible iff
+  `GET /api/projects/:id/blueprint` (project-router) returns a blueprint
+  (404 = hidden). Progress derives LIVE from board tickets by `M<n>` label —
+  never from stored ticket ids. Actions: Launch M1 (while launchable) +
+  Generate M<next> (first `planned` milestone > 1).
+- **Board classification**: new Builder tickets use
+  `source='project-builder'` + `created_by='project-builder'`. For projects
+  created before that source existed, `DashboardPage` also treats
+  `source='manual'` + `created_by='project-builder'` as specs; existing tickets
+  appear after reload without rewriting the user's ticket store.
+- **Generate M2+** (`MilestoneGenerateShell`): PROJECT-level conversation
+  `kind='milestone'` through the existing ChatManager. The milestone id rides
+  `context_scope` as `{milestone:'m2'}` (`POST /chat/conversations` body
+  `{kind:'milestone', milestone}`); `ChatManager._buildMilestoneSystemPrompt`
+  seeds the prompt with the workspace `blueprint.json`, the target
+  `plannedSpecs`, the complete canonical rich-spec/quality contract, and the
+  code-grounding rules. It instructs the agent to return every detailed spec
+  for the target milestone in one assistant response and one complete snapshot,
+  never an incrementally committable subset. Claude receives it through the
+  system prompt; adapters without that argument receive the same dynamic
+  instructions and blueprint context in the effective user turn, so Claude,
+  Codex, and Gemini receive equivalent authoring/context instructions.
+  Generation itself is read-only: the prompt forbids repository/workspace/
+  ticket/config/git mutation, write-capable shell/tool actions, builds, and
+  tests. `toolPolicy='read-only'` maps Claude to `--permission-mode plan`
+  + `--safe-mode` + only `Read,Grep,Glob`; Codex fresh turns use
+  `--sandbox read-only` and resumes carry `sandbox_mode="read-only"`; Gemini
+  uses `--approval-mode plan` and never `--yolo`. Gemini CLI does not expose a
+  selectable filesystem sandbox comparable to Codex, so its protection is the
+  native plan/policy layer plus the prompt—not an OS/filesystem sandbox. If a
+  CLI version rejects an incompatible safety flag, the turn fails closed; it
+  is never retried with a mutating/yolo policy. For relocated projects the
+  prompt identifies the absolute real repo, its `./project` mount, and
+  `SPECRAILS_REPO_DIR`; it explicitly warns Read/Grep/Glob not to receive
+  literal shell-variable expressions, preventing grounding against the empty
+  workspace. Grounded specs name only verified paths/identifiers and require
+  behavioral, failure/edge-case, and testing criteria. Accounting records
+  `surface='explore-spec'` (no new surface value). Committing calls
+  `POST /api/projects/:id/blueprint/commit-milestone {milestoneId, specs[]}` —
+  atomically validates the complete batch before any write, then inserts
+  `M<n>`-labeled `todo` tickets with Builder source/provenance and the same
+  priority/summary/criteria/labels/prerequisite ticket-materialization rules as M1
+  (broadcasting `ticket_created` per row), flips the milestone to `committed`,
+  and re-renders the pair. These tickets are the authoritative detailed M2+
+  representation: their descriptions contain the folded criteria and they
+  retain priority, short summary, domain + `M<n>` labels, and prerequisites.
+  `blueprint.json` deliberately stores only the existing milestone skeleton
+  with `status='committed'` and advisory `ticketIds`; it has no detailed-M2-
+  per-milestone schema. On 201 the shell calls `onCommitted`, increments the
+  sidebar blueprint refresh key (no-store refetch), closes, and the next CTA
+  resolves to the first later milestone still `planned`. Jira-connected
+  projects ride the existing machinery on the store mutation.
+
+## Tests
+
+`server/blueprint-{draft-parser,render,store,chat-manager,commit,router}.test.ts`,
+`server/offline-assemble.test.ts`, `server/project-router.test.ts`; client
+`src/lib/__tests__/{blueprint-draft,milestone-launch}.test.ts`,
+`src/hooks/__tests__/useBuilderSession.test.ts`,
+`src/components/__tests__/{ProjectBuilder,BuilderSidebarEntry}.test.tsx`, and
+`src/pages/__tests__/DashboardPage.test.tsx`.
+Locale parity covers the `builder` namespace ×8.
+
+## Deferred (v2)
+
+Resume/minimize for Builder conversations (no dock chip — no `projectId` to
+tag), an orphan-dir startup sweeper, non-GitHub remotes, editing an existing
+blueprint via the day-0 Builder, a live side-panel draft during M2 generation.

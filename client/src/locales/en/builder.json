@@ -1,0 +1,129 @@
+{
+  "shell": {
+    "title": "Project Builder",
+    "subtitle": "From idea to Milestone-1 backlog",
+    "close": "Close the Builder",
+    "emptyTitle": "Describe your app idea",
+    "emptyHint": "One or two sentences are enough — the Builder will interview you briefly and propose a full blueprint. You can also ask it to decide everything for you.",
+    "surpriseMe": "Surprise me",
+    "inputPlaceholder": "An app that…",
+    "createSpecs": "Create specs",
+    "createSpecsHint": "Available once the blueprint has Milestone-1 specs"
+  },
+  "panel": {
+    "title": "Blueprint",
+    "product": "Product",
+    "coreFlow": "Core flow",
+    "platform": "Platform",
+    "stack": "Stack",
+    "milestones": "Milestones",
+    "milestonesValue": "{{count}} planned",
+    "assumptions": "Assumptions",
+    "m1Specs": "Milestone 1 specs ({{count}})",
+    "dependsOn": "builds on #{{index}}",
+    "criteriaCount": "{{count}} acceptance criteria",
+    "laterMilestones": "Later milestones",
+    "empty": "The blueprint fills in as you talk."
+  },
+  "commit": {
+    "title": "Create the project",
+    "description": "Nothing touches disk until you confirm. The repo stays pristine — Specrails artifacts live outside it.",
+    "nameLabel": "Project name",
+    "locationLabel": "Location",
+    "locationHint": "A new folder will be created here (must be empty or absent).",
+    "providersLabel": "AI providers",
+    "githubLabel": "Create private GitHub repository",
+    "githubAuthHint": "Sign in first: gh auth login",
+    "back": "Back",
+    "submit": "Create project",
+    "creating": "Creating…",
+    "errors": {
+      "generic": "The commit could not start. Check the values and try again.",
+      "invalid_name": "The project name is required.",
+      "invalid_location": "The location is required.",
+      "providers_required": "Select at least one provider.",
+      "unknown_provider": "One of the selected providers is not available.",
+      "invalid_blueprint": "The blueprint is incomplete — go back and finish it with the Builder.",
+      "m1_specs_required": "The blueprint has no Milestone-1 specs yet.",
+      "m1_specs_over_cap": "Milestone 1 has too many specs (max 10). Ask the Builder to slim it down.",
+      "m1_spec_quality_invalid": "The generated specs are not implementation-ready yet. Return to the Builder and refine the indicated item.",
+      "bundled_framework_missing": "The bundled framework is missing — reinstall the Specrails app.",
+      "location_not_empty": "That folder already exists and is not empty. Pick another location.",
+      "location_already_registered": "That location already belongs to a registered project.",
+      "commit_failed": "The project creation failed — see the step list for the reason."
+    }
+  },
+  "progress": {
+    "title": "Creating your project…",
+    "steps": {
+      "create-dir": "Create project folder",
+      "git-init": "Initialize git repository + README",
+      "assemble": "Assemble the Specrails workspace (offline)",
+      "blueprint": "Write the blueprint",
+      "tickets": "Insert Milestone-1 specs",
+      "register": "Register the project",
+      "github": "Create GitHub repository"
+    },
+    "githubErrors": {
+      "gh_not_installed": "GitHub CLI (gh) is not installed — repository not created",
+      "gh_not_authenticated": "gh is not signed in (run gh auth login) — repository not created",
+      "gh_scope": "Your gh token cannot create repositories (missing repo scope)",
+      "gh_repo_exists": "A repository with that name already exists on your account",
+      "gh_network": "Network error talking to GitHub — repository not created",
+      "generic": "GitHub repository creation failed"
+    }
+  },
+  "done": {
+    "title": "Project created",
+    "description": "Your Milestone-1 backlog is on the board, labeled M1.",
+    "launchM1": "Launch Milestone 1",
+    "openProject": "Open the project",
+    "launchToast": "Milestone 1 launched — {{count}} specs on one rail",
+    "launchFailed": "Could not launch Milestone 1"
+  },
+  "sidebar": {
+    "title": "Blueprint",
+    "milestone": "M{{n}}",
+    "progress": "{{done}}/{{total}} done",
+    "launchM1": "Launch Milestone 1",
+    "generateNext": "Generate M{{n}}",
+    "generateHint": "Opens a grounded spec session seeded with the blueprint"
+  },
+  "errors": {
+    "startFailed": "Could not start the Builder conversation.",
+    "turnFailed": "The Builder turn failed.",
+    "commitFailed": "Project creation failed."
+  },
+  "milestone": {
+    "title": "Generate {{label}}",
+    "inputPlaceholder": "Refine the specs…",
+    "commit": "Commit {{count}} specs as {{label}}",
+    "commitToast": "{{count}} specs committed to the board as {{label}}",
+    "commitFailed": "Could not commit the milestone"
+  },
+  "mode": {
+    "title": "Project Builder",
+    "subtitle": "The agent is building a new project",
+    "exit": "Exit",
+    "exitConfirmTitle": "Leave the Builder?",
+    "exitConfirmBody": "The blueprint in progress will be discarded.",
+    "exitConfirmCancel": "Keep building",
+    "exitConfirmDiscard": "Discard and exit"
+  },
+  "prompts": {
+    "surpriseMe": "Surprise me — propose sensible defaults for every blueprint dimension, keep m1Specs empty, and let me approve the plan before generating detailed specs.",
+    "milestoneSeed": "Generate the detailed specs for milestone {{label}} (\"{{title}}\"). Read the real codebase first, validate the complete batch, then emit ALL detailed milestone specs in one blueprint-draft response/snapshot.",
+    "milestoneSeedWithPlanned": "Generate the detailed specs for milestone {{label}} (\"{{title}}\"). Planned spec titles: {{planned}}. Read the real codebase first, validate the complete batch, then emit ALL detailed milestone specs in one blueprint-draft response/snapshot."
+  },
+  "specModal": {
+    "eyebrow": "{{milestone}} · Spec {{index}}",
+    "close": "Close",
+    "open": "View spec detail",
+    "empty": "No description yet.",
+    "summary": "Summary",
+    "priority": "Priority",
+    "description": "Spec description",
+    "acceptanceCriteria": "Acceptance criteria",
+    "criteriaEmpty": "No acceptance criteria yet."
+  }
+}

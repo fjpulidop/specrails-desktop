@@ -82,6 +82,13 @@
     },
     "toasts": {
       "registered": "Projekt „{{name}}“ registriert"
+    },
+    "chooser": {
+      "description": "Bring ein bestehendes Repository mit oder baue ein ganz neues Projekt aus einer Idee.",
+      "existingTitle": "Bestehendes Projekt",
+      "existingDescription": "Registriere ein Repository, das bereits auf der Festplatte existiert.",
+      "newTitle": "Neues Projekt",
+      "newDescription": "Beschreibe eine Idee und erhalte ein aufgesetztes Repo mit einem Meilenstein-1-Backlog."
     }
   },
   "prerequisites": {

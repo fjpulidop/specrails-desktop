@@ -17,9 +17,9 @@ import { randomUUID } from 'crypto'
 import type { DbInstance } from './db'
 import { mirrorProjectEntry, resolveArtifacts, resolveHome } from './artifact-registry'
 import { installConfigPath, installConfigPathForProvider, type InstallConfigProject } from './install-config-path'
-import { getBundledCoreCli, getBundledCoreRoot, getBundledCoreVersion } from './bundled-core'
-import { getBundledOpenspecCli } from './bundled-openspec'
+import { getBundledCoreCli, getBundledCoreVersion } from './bundled-core'
 import { resolveBundledNodeExe } from './path-resolver'
+import { spawnBundledCoreInit } from './offline-assemble'
 import { FrameworkManager } from './framework-manager'
 import { resolveProjectExecution } from './workspace-resolution'
 import type { ProviderAdapter, SpawnAction, ProviderId } from './providers/types'
@@ -90,61 +90,10 @@ function spawnCoreInit(args: string[], cwd: string): ChildProcess {
   })
 }
 
-/**
- * Spawn the BUNDLED specrails-core `init` (offline framework + assemble; openspec
- * is the only network step). Runs `node <bundled-cli> init <args>` with
- * `SPECRAILS_CORE_SCRIPT_DIR` pointed at the bundle so core's template/command
- * sources resolve from the app bundle, NOT a global install or npm registry. The
- * framework was already materialized by FrameworkManager.materialize() (idempotent
- * — core's ensureFramework skips re-materialization), so this call only assembles
- * the workspace by symlink + runs openspec init.
- *
- * Returns null when no bundled core is present (caller falls back to spawnCoreInit).
- */
-function spawnBundledCoreInit(args: string[], cwd: string): ChildProcess | null {
-  const cli = getBundledCoreCli()
-  const coreRoot = getBundledCoreRoot()
-  if (!cli || !coreRoot) return null
-  const fullArgs = [cli, 'init', ...args]
-  // Force RELOCATION (core installs in-repo by default; the desktop keeps the
-  // user's repo pristine + manages the spawn cwd). See spawnCoreInit.
-  const env: NodeJS.ProcessEnv = { ...windowsSpawnEnv(), SPECRAILS_CORE_SCRIPT_DIR: coreRoot, SPECRAILS_RELOCATE: '1' }
-
-  // Bundled openspec (offline) — the LAST network step of project-add. When the
-  // app ships @fission-ai/openspec, point specrails-core's `installOpenSpecProject`
-  // at the bundled CLI and the SAME node we run the bundled core with. Tauri
-  // strips exec bits from bundled resources and the openspec CLI is a node script,
-  // so it MUST be invoked as `node <cli> init …` — hence we set BOTH the BIN and
-  // the NODE env (specrails-core's buildOpenSpecInvocation form 1). When absent we
-  // leave them unset → core falls back to `npx @fission-ai/openspec` (still works
-  // online). Bundled core + bundled openspec ⇒ project-add is FULLY OFFLINE.
-  const openspecCli = getBundledOpenspecCli()
-  if (openspecCli) {
-    env.SPECRAILS_OPENSPEC_BIN = openspecCli
-    // Core runs openspec as `<node> <cli> init …`. SPECRAILS_OPENSPEC_NODE MUST be
-    // a REAL node executable — NOT process.execPath (the packaged `specrails-server`
-    // pkg binary), which cannot run openspec's ESM CLI and made `openspec init`
-    // exit with code -1 (→ core throws InstallerError code 50, setup fails). Prefer
-    // the bundled Node; fall back to `node` on PATH (resolveStartupPath prepends the
-    // bundled node bin in desktop mode, so PATH `node` is the bundled node too).
-    env.SPECRAILS_OPENSPEC_NODE = resolveBundledNodeExe() ?? 'node'
-  }
-
-  // Run the core CLI with the REAL bundled node — NOT process.execPath, which in
-  // the packaged app is the `specrails-server` pkg binary and would re-launch the
-  // server instead of running cli.js (same trap as SPECRAILS_OPENSPEC_NODE above).
-  // Fall back to process.execPath only in dev/tests where it IS node.
-  const nodeBin = resolveBundledNodeExe() ?? process.execPath
-  console.log(
-    `[SetupManager] spawning BUNDLED core: ${nodeBin} ${fullArgs.join(' ')} (cwd=${cwd})` +
-      (openspecCli ? ' [bundled openspec: offline]' : ' [openspec: npx fallback]'),
-  )
-  return spawnCli(nodeBin, fullArgs, {
-    cwd,
-    env,
-    stdio: ['ignore', 'pipe', 'pipe'],
-  })
-}
+// The bundled-core `init` spawn primitive is shared with the Project Builder's
+// orchestrated commit (extract-don't-fork, add-project-builder D4) — the wizard
+// keeps its streaming/phase shell and npx fallback around it.
+// (Imported: spawnBundledCoreInit from ./offline-assemble.)
 
 // H19: hard cap on the runtime probe. `npx --yes --prefer-online
 // <CORE_PACKAGE_SPEC> version` does a network round-trip to the npm

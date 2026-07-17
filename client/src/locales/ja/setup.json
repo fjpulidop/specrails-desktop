@@ -82,6 +82,13 @@
     },
     "toasts": {
       "registered": "プロジェクト「{{name}}」を登録しました"
+    },
+    "chooser": {
+      "description": "既存のリポジトリを取り込むか、アイデアから新しいプロジェクトを作りましょう。",
+      "existingTitle": "既存プロジェクト",
+      "existingDescription": "ディスク上に既にあるリポジトリを登録します。",
+      "newTitle": "新規プロジェクト",
+      "newDescription": "アイデアを伝えると、マイルストーン1のバックログ付きでリポジトリが用意されます。"
     }
   },
   "prerequisites": {

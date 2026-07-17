@@ -106,6 +106,13 @@ Every isolated run SHALL spawn with `cwd` set directly to the worktree, with `SP
 - **WHEN** an isolated relocated run records file provenance or runs git
 - **THEN** those operations SHALL target the worktree (the real repo), never the workspace
 
+#### Scenario: Private agent artifacts never reach PR branches
+
+- **WHEN** an isolated rail worktree is created or reused
+- **THEN** the worktree-local Git excludes SHALL ignore provider `agent-memory` directories and their `explanations` subdirectories
+- **AND** Specrails' final worktree commit SHALL also exclude those paths with Git pathspec excludes
+- **AND** `.claude/agent-memory`, `.codex/agent-memory`, `.gemini/agent-memory`, and their `explanations` contents SHALL NOT be staged by Specrails for PR branches
+
 ### Requirement: Worktree concurrency cap and teardown
 
 The number of simultaneous worktrees per rail launch SHALL be bounded by a configured cap; tickets beyond the cap SHALL queue. Each worktree SHALL be removed when its branch reaches a terminal merge state (merged or empty), when the rail is stopped or cancelled, and a startup sweep SHALL remove worktrees whose ledger row is terminal (overlay artifacts live inside the worktree, so worktree removal covers them; symlinks are removed as entries, never followed). Worktrees SHALL never be orphaned across a server restart.
@@ -172,4 +179,53 @@ When multiple rail launches for the same repository are issued in a short window
 
 - **WHEN** a rail launch is a custom loop (not `implement`/`batch-implement`) that qualifies for worktree isolation
 - **THEN** it SHALL go through the identical fetch-before-worktree-allocation behavior, with no difference in fetch, fallback, or dedup semantics versus an `implement`/`batch-implement` rail launch
+
+### Requirement: Isolated settlement preserves execution truth
+
+Each isolated unit SHALL settle into separate implementation and delivery results. The implementation result SHALL be derived only from the loop engine's terminal outcome; commit cleanliness, ref verification, and push SHALL govern delivery only. The aggregate SHALL retain every allocated unit, including unexpected rejected promises, and SHALL fail closed without deleting uncertain work.
+
+#### Scenario: Ref moves after a successful run
+
+- **WHEN** a continuation loop succeeds but the worktree HEAD no longer matches the expected PR branch ref at settlement
+- **THEN** the unit's implementation SHALL remain successful
+- **AND** delivery SHALL be blocked with `branch_verification_failed`
+- **AND** no push SHALL occur
+- **AND** the worktree/commit SHALL remain recoverable
+
+#### Scenario: Settlement promise rejects unexpectedly
+
+- **WHEN** one unit rejects during post-run settlement
+- **THEN** the aggregate SHALL retain an explicit result for that unit
+- **AND** SHALL classify its known loop outcome independently from the settlement error
+- **AND** SHALL not silently omit the unit from counts or cleanup
+
+#### Scenario: Clean successful partial batch
+
+- **WHEN** one unit succeeds with a verified deliverable branch and another loop unit fails without dirty uncommitted work
+- **THEN** the aggregate MAY offer an explicitly partial delivery containing only the successful unit
+- **AND** it SHALL preserve the failed unit's logs and outcome
+
+### Requirement: Isolated launch admission is generation-safe
+
+The per-repository allocation lock SHALL revalidate the expected active delivery generation before creating or reusing any worktree. Ticket/worktree ownership SHALL NOT be overwritten by a concurrent launch that did not win admission.
+
+#### Scenario: Stale pre-lock guard
+
+- **WHEN** a request passed its outer guard but another launch created the active generation before it acquired the repository lock
+- **THEN** the stale request SHALL fail with a conflict before allocating, claiming, or spawning
+
+### Requirement: Startup worktree reconciliation is non-destructive and serialized
+
+Startup worktree reconciliation SHALL finish under the repository lock before new isolated launches are admitted. It SHALL use delivery/run generation ownership and SHALL preserve a worktree associated with a successful or uncertain unfinished settlement.
+
+#### Scenario: Successful stale run owns dirty worktree
+
+- **WHEN** a stale worktree belongs to a run whose durable engine outcome is success but settlement is incomplete
+- **THEN** reconciliation SHALL mark it needs-review and preserve it
+- **AND** SHALL not force-remove it
+
+#### Scenario: New launch waits for sweep
+
+- **WHEN** project startup is still reconciling an older worktree path
+- **THEN** a new launch SHALL not reuse that path until reconciliation has completed
 

@@ -142,12 +142,25 @@ export function registerChatRoutes(deps: ProjectRoutesDeps): void {
       return
     }
     const rawKind = req.body?.kind
-    const kind: 'sidebar' | 'explore' = rawKind === 'explore' ? 'explore' : 'sidebar'
+    const kind: 'sidebar' | 'explore' | 'milestone' =
+      rawKind === 'explore' ? 'explore' : rawKind === 'milestone' ? 'milestone' : 'sidebar'
     const id = uuidv4()
     const rawScope = req.body?.contextScope
     if (rawScope !== undefined && kind !== 'explore') {
       res.status(400).json({ error: 'contextScope is only allowed for kind=explore' })
       return
+    }
+    // Milestone generation (add-project-builder D7): the target milestone id
+    // rides context_scope as a minimal `{ milestone }` object so ChatManager
+    // can seed its milestone system prompt from the workspace blueprint.
+    let milestoneScope: Record<string, unknown> | undefined
+    if (kind === 'milestone') {
+      const rawMilestone = req.body?.milestone
+      if (typeof rawMilestone !== 'string' || !/^m[0-9]{1,3}$/i.test(rawMilestone)) {
+        res.status(400).json({ error: 'milestone (e.g. "m2") is required for kind=milestone' })
+        return
+      }
+      milestoneScope = { milestone: rawMilestone.toLowerCase() }
     }
     let scope: ContextScope | undefined
     if (kind === 'explore') {
@@ -167,7 +180,7 @@ export function registerChatRoutes(deps: ProjectRoutesDeps): void {
     // Only persist provider when the project is multi-provider; single-provider
     // projects leave it NULL so behaviour is byte-identical to before.
     const persistProvider = isMultiProvider(project) ? provider : null
-    createConversation(db, { id, model, kind, contextScope: scope, provider: persistProvider })
+    createConversation(db, { id, model, kind, contextScope: scope ?? milestoneScope, provider: persistProvider })
     const conversation = getConversation(db, id) as ChatConversationRow
     res.status(201).json({ conversation })
   })

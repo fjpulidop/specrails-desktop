@@ -116,7 +116,8 @@ the [Gemini guide](gemini.md).)
 | **Min CLI version** | none pinned | `0.128.0` | `0.11.0` |
 | **Project dir** | `.claude/` | `.codex/` | `.gemini/` |
 | **Instructions file** | `CLAUDE.md` | `AGENTS.md` | `GEMINI.md` |
-| **Default model** | `sonnet` | `gpt-5.5` | `gemini-3.5-flash` |
+| **Default model** | `sonnet` | `gpt-5.5` (catalog includes the GPT-5.6 family: `gpt-5.6-sol` / `gpt-5.6-terra` / `gpt-5.6-luna`) | `gemini-3.5-flash` |
+| **Reasoning efforts** | `low`–`xhigh` | `minimal`–`ultra` (`xhigh`/`max`/`ultra` ship with GPT-5.6; `ultra` is Sol-only upstream) | none |
 | **Agent format** | `.claude/agents/<id>.md` with `model:` frontmatter | `.codex/skills/<id>/SKILL.md` Skill format | `.gemini/` command + agent target |
 | **Agent profiles** | Full support (rail `RailProfileSelector`) | **None** — rails force the profile to `null` | **None** — rails force the profile to `null` |
 | **Pipeline rails** | ✅ all rail types | ✅ (except Freestyle) | ✅ (except Freestyle) |

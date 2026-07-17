@@ -82,6 +82,13 @@
     },
     "toasts": {
       "registered": "项目“{{name}}”已注册"
+    },
+    "chooser": {
+      "description": "导入现有仓库，或从一个想法构建全新项目。",
+      "existingTitle": "现有项目",
+      "existingDescription": "注册磁盘上已存在的仓库。",
+      "newTitle": "新项目",
+      "newDescription": "描述一个想法，获得已初始化的仓库和里程碑 1 待办清单。"
     }
   },
   "prerequisites": {

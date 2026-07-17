@@ -103,6 +103,18 @@ describe('geminiAdapter.buildArgs', () => {
     expect(args.some((a) => a.includes('explicit permission'))).toBe(false)
   })
 
+  it('toolPolicy=read-only selects plan mode without yolo for a fresh chat', () => {
+    const args = geminiAdapter.buildArgs('chat-turn', {
+      prompt: 'inspect only',
+      model: 'gemini-3.5-flash',
+      toolPolicy: 'read-only',
+    })
+    expect(args.slice(args.indexOf('--approval-mode'), args.indexOf('--approval-mode') + 2))
+      .toEqual(['--approval-mode', 'plan'])
+    expect(args).not.toContain('--yolo')
+    expect(args).not.toContain('-y')
+  })
+
   it('chat-resume requires sessionId and passes --resume <id> with user-only prompt', () => {
     expect(() =>
       geminiAdapter.buildArgs('chat-resume', { prompt: 'x', model: 'gemini-3.5-flash' }),
@@ -118,6 +130,20 @@ describe('geminiAdapter.buildArgs', () => {
     expect(args[args.indexOf('--resume') + 1]).toBe('11111111-2222-3333-4444-555555555555')
     expect(args.some((a) => a === 'sys')).toBe(false)
     expect(args.some((a) => a.includes('sys\n\n---\n\n'))).toBe(false)
+  })
+
+  it('toolPolicy=read-only preserves plan mode without yolo on resume', () => {
+    const args = geminiAdapter.buildArgs('chat-resume', {
+      prompt: 'continue inspecting',
+      model: 'gemini-3.5-flash',
+      sessionId: '11111111-2222-3333-4444-555555555555',
+      toolPolicy: 'read-only',
+    })
+    expect(args).toContain('--resume')
+    expect(args.slice(args.indexOf('--approval-mode'), args.indexOf('--approval-mode') + 2))
+      .toEqual(['--approval-mode', 'plan'])
+    expect(args).not.toContain('--yolo')
+    expect(args).not.toContain('-y')
   })
 
   it('chat-stream throws (no persistent stdin transport)', () => {

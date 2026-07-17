@@ -228,7 +228,9 @@
     "low": "Faible",
     "medium": "Moyen",
     "high": "Élevé",
-    "xhigh": "Très élevé"
+    "xhigh": "Très élevé",
+    "max": "Maximum",
+    "ultra": "Ultra"
   },
   "prCard": {
     "operation": {

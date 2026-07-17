@@ -8,10 +8,12 @@ interface Props {
   model: string | null
   onSelect: (model: string) => void
   status?: 'loading' | 'ready' | 'error'
+  disabled?: boolean
+  testId?: string
 }
 
 /** Per-provider model picker using the Agent toolbar's shared visual language. */
-export function AgentModelSelector({ models, model, onSelect, status = 'ready' }: Props) {
+export function AgentModelSelector({ models, model, onSelect, status = 'ready', disabled = false, testId = 'agent-model-selector' }: Props) {
   const { t } = useTranslation('agent')
 
   // Resolve the shown value: explicit model, else the catalog default, else first.
@@ -30,8 +32,8 @@ export function AgentModelSelector({ models, model, onSelect, status = 'ready' }
       icon={Sparkles}
       onSelect={onSelect}
       placeholder={placeholder}
-      disabled={status !== 'ready'}
-      testId="agent-model-selector"
+      disabled={disabled || status !== 'ready'}
+      testId={testId}
     />
   )
 }

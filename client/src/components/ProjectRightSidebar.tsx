@@ -7,6 +7,7 @@ import { useSidebarPin } from '../context/SidebarPinContext'
 import { useDesktop, projectProviders } from '../hooks/useDesktop'
 import { FEATURE_AGENTS_SECTION, FEATURE_CODE_EXPLORER } from '../lib/feature-flags'
 import { sectionVisibleForProviders } from '../lib/provider-capabilities'
+import { BuilderSidebarEntry } from './project-builder/BuilderSidebarEntry'
 
 const RIGHT_PIN_LABEL_KEY: Record<'pinned-open' | 'pinned-collapsed' | 'unpinned', string> = {
   'pinned-open': 'sidebarPin.right.pinnedOpen',
@@ -85,6 +86,7 @@ export function ProjectRightSidebar() {
 
       {/* Nav items */}
       <nav className="flex-1 py-2 px-1.5 space-y-0.5">
+        <BuilderSidebarEntry expanded={expanded} />
         {navItems.map(({ to, end, icon: Icon, label }) => (
           <NavLink
             key={to}
