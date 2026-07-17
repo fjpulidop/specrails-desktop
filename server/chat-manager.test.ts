@@ -119,6 +119,175 @@ describe('ChatManager', () => {
     return TEST_CONV_ID
   }
 
+  describe('grounded milestone rich-spec prompt', () => {
+    let registryHome: string
+    let projectPath: string
+    let priorRegistryHome: string | undefined
+
+    beforeEach(() => {
+      priorRegistryHome = process.env.SPECRAILS_REGISTRY_HOME
+      registryHome = fsNode.realpathSync(fsNode.mkdtempSync(pathNode.join(osNode.tmpdir(), 'milestone-prompt-home-')))
+      projectPath = fsNode.realpathSync(fsNode.mkdtempSync(pathNode.join(osNode.tmpdir(), 'milestone-prompt-repo-')))
+      fsNode.mkdirSync(pathNode.join(registryHome, '.specrails'), { recursive: true })
+      process.env.SPECRAILS_REGISTRY_HOME = registryHome
+    })
+
+    afterEach(() => {
+      if (priorRegistryHome === undefined) delete process.env.SPECRAILS_REGISTRY_HOME
+      else process.env.SPECRAILS_REGISTRY_HOME = priorRegistryHome
+      fsNode.rmSync(registryHome, { recursive: true, force: true })
+      fsNode.rmSync(projectPath, { recursive: true, force: true })
+    })
+
+    function seedMilestone(provider: 'claude' | 'codex' | 'gemini'): { manager: ChatManager; conversationId: string } {
+      const slug = `atlas-${provider}`
+      cmMirror({ repoPath: projectPath, slug, providers: [provider] }, registryHome)
+      const workspace = cmLayout(cmResolveHome(registryHome), slug, projectPath).workspaceDir
+      const specrailsDir = pathNode.join(workspace, '.specrails')
+      fsNode.mkdirSync(specrailsDir, { recursive: true })
+      fsNode.writeFileSync(pathNode.join(specrailsDir, 'specrails-version'), '4.11.1\n')
+      fsNode.writeFileSync(pathNode.join(specrailsDir, 'blueprint.json'), JSON.stringify({
+        blueprintVersion: 1,
+        product: { name: 'Atlas', pitch: 'Operational reporting', audience: 'Operators' },
+        coreFlow: 'An operator opens and exports a verified report.',
+        platform: 'web',
+        stack: { language: 'TypeScript', framework: 'React', db: 'SQLite' },
+        assumptions: ['Reports use the existing local data store.'],
+        milestones: [
+          { id: 'm1', title: 'Foundation', goal: 'Runnable shell', status: 'committed', plannedSpecs: [] },
+          { id: 'm2', title: 'Reporting', goal: 'Verified operational reports', status: 'planned', plannedSpecs: ['Add code-grounded reports'] },
+        ],
+        specsComplete: true,
+        m1Specs: [],
+      }, null, 2))
+      const conversationId = `milestone-${provider}`
+      const model = provider === 'claude' ? 'sonnet' : provider === 'codex' ? 'gpt-5.5' : 'gemini-3.5-flash'
+      createConversation(db, {
+        id: conversationId,
+        model,
+        kind: 'milestone',
+        provider,
+        contextScope: { milestone: 'm2' },
+      })
+      return {
+        manager: new ChatManager(broadcast, db, projectPath, 'Atlas', provider, 'project-atlas', slug),
+        conversationId,
+      }
+    }
+
+    function expectRichMilestoneContract(prompt: string): void {
+      expect(prompt).toContain('## Read-only security boundary')
+      expect(prompt).toContain('Do not modify the repository, workspace, ticket store, configuration, or git state')
+      expect(prompt).toContain('You may list, search, glob, and read files')
+      expect(prompt).toContain('Do not run builds or tests during this turn')
+      expect(prompt).toContain('Add code-grounded reports')
+      expect(prompt).toContain('Current blueprint (source of truth)')
+      expect(prompt).toContain('specsComplete')
+      for (const field of ['kind', 'shortSummary', 'acceptanceCriteria', 'priority', 'labels', 'dependsOnIndex']) {
+        expect(prompt).toContain(field)
+      }
+      for (const heading of [
+        '## Problem Statement',
+        '## Proposed Solution',
+        '## Out of Scope',
+        '## Technical Considerations',
+        '## Estimated Complexity',
+      ]) {
+        expect(prompt).toContain(heading)
+      }
+      expect(prompt).toContain('4-10 non-empty, independent, testable outcomes')
+      expect(prompt).toContain('failure/edge cases')
+      expect(prompt).toContain('unit/integration/end-to-end tests')
+      expect(prompt).toContain('verifying it in the code during this turn')
+      expect(prompt).toContain('Never fabricate a path')
+      expect(prompt).toContain('complete grounded target batch (1-10 specs) in this response')
+      expect(prompt).toContain('m1Specs: [] with')
+      expect(prompt).toContain('dependsOnIndex is optional')
+      expect(prompt).not.toContain('"dependsOnIndex": 0')
+      expect(prompt).not.toContain('cumulative batches of 2-3')
+      expect(prompt).toContain('## Repository location (relocated project)')
+      expect(prompt).toContain(`The real source repository is at this absolute path: ${projectPath}`)
+      expect(prompt).toContain('mounted from the workspace as ./project and exported in SPECRAILS_REPO_DIR')
+      expect(prompt).toContain('cite verified paths relative to the real repository')
+    }
+
+    function expectRelocatedSpawn(callIndex = 0): void {
+      const spawnOpts = vi.mocked(mockSpawn).mock.calls[callIndex][2] as {
+        cwd: string
+        env: NodeJS.ProcessEnv
+      }
+      expect(spawnOpts.cwd).not.toBe(projectPath)
+      expect(spawnOpts.env.SPECRAILS_REPO_DIR).toBe(projectPath)
+      expect(fsNode.realpathSync(pathNode.join(spawnOpts.cwd, 'project'))).toBe(projectPath)
+    }
+
+    it('Claude receives the dynamic contract and blueprint through --system-prompt', async () => {
+      const { manager, conversationId } = seedMilestone('claude')
+      const child = createMockChildProcess()
+      vi.mocked(mockSpawn).mockReturnValue(child as any)
+
+      const sendPromise = manager.sendMessage(conversationId, 'Generate M2 now')
+      await Promise.resolve()
+
+      const args = vi.mocked(mockSpawn).mock.calls[0][1] as string[]
+      const systemIndex = args.indexOf('--system-prompt')
+      expect(systemIndex).toBeGreaterThanOrEqual(0)
+      expectRichMilestoneContract(args[systemIndex + 1])
+      expect(args.slice(args.indexOf('--tools'), args.indexOf('--tools') + 2))
+        .toEqual(['--tools', 'Read,Grep,Glob'])
+      expect(args.slice(args.indexOf('--permission-mode'), args.indexOf('--permission-mode') + 2))
+        .toEqual(['--permission-mode', 'plan'])
+      expect(args).toContain('--safe-mode')
+      expect(args).not.toContain('--dangerously-skip-permissions')
+      expect(args).not.toContain('--yolo')
+      expectRelocatedSpawn()
+      const effectivePrompt = args[args.indexOf('-p') + 1]
+      expect(effectivePrompt).toContain('## User turn\n\nGenerate M2 now')
+      expect(effectivePrompt).not.toContain('## Milestone generation instructions')
+
+      pushLine(child, assistantEvent('Working on the grounded batch.'))
+      pushLine(child, resultEvent('milestone-claude-session'))
+      await finishProcess(child, 0)
+      await sendPromise
+    })
+
+    it.each([
+      ['codex', '{"type":"item.completed","item":{"type":"agent_message","text":"Working on the grounded batch."}}'],
+      ['gemini', '{"type":"message","role":"assistant","content":"Working on the grounded batch.","delta":true}'],
+    ] as const)('%s receives the same dynamic contract folded into the effective user turn', async (provider, event) => {
+      const { manager, conversationId } = seedMilestone(provider)
+      const child = createMockChildProcess()
+      vi.mocked(mockSpawn).mockReturnValue(child as any)
+
+      const sendPromise = manager.sendMessage(conversationId, 'Generate M2 now')
+      await Promise.resolve()
+
+      const args = vi.mocked(mockSpawn).mock.calls[0][1] as string[]
+      const effectivePrompt = args.find((arg) => arg.includes('## Milestone generation instructions'))
+      expect(effectivePrompt).toBeDefined()
+      expectRichMilestoneContract(effectivePrompt ?? '')
+      expect(effectivePrompt).toContain('## User turn\n\nGenerate M2 now')
+      expect(args).not.toContain('--system-prompt')
+      expect(args).not.toContain('--dangerously-skip-permissions')
+      expect(args).not.toContain('--yolo')
+      expect(args).not.toContain('-y')
+      expect(args).not.toContain('workspace-write')
+      expect(args).not.toContain('danger-full-access')
+      if (provider === 'codex') {
+        expect(args.slice(args.indexOf('--sandbox'), args.indexOf('--sandbox') + 2))
+          .toEqual(['--sandbox', 'read-only'])
+      } else {
+        expect(args.slice(args.indexOf('--approval-mode'), args.indexOf('--approval-mode') + 2))
+          .toEqual(['--approval-mode', 'plan'])
+      }
+      expectRelocatedSpawn()
+
+      pushLine(child, event)
+      await finishProcess(child, 0)
+      await sendPromise
+    })
+  })
+
   // ─── Relocate-artifacts gate (non-explore sidebar) ──────────────────────────
   describe('relocate-artifacts (sidebar spawn)', () => {
     let regHome: string

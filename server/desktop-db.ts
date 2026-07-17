@@ -460,6 +460,33 @@ function applyDesktopMigrations(db: DbInstance): void {
     () => {
       db.exec(`ALTER TABLE agent_messages ADD COLUMN context_refs TEXT;`)
     },
+    // 22: Project Builder day-0 conversations (add-project-builder D1). The
+    // Builder runs BEFORE any project exists, so its conversations live in the
+    // app registry DB — same shape as agent_conversations but a separate pair
+    // of tables: the Builder has no tier ladder and no pinned project, and its
+    // lifecycle (discarded after commit or abandoned) should never mix with
+    // agent-chat history.
+    () => {
+      db.exec(`
+        CREATE TABLE IF NOT EXISTS blueprint_conversations (
+          id         TEXT PRIMARY KEY,
+          title      TEXT,
+          provider   TEXT NOT NULL DEFAULT 'claude',
+          model      TEXT,
+          session_id TEXT,
+          created_at TEXT NOT NULL DEFAULT (datetime('now')),
+          updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+        );
+        CREATE TABLE IF NOT EXISTS blueprint_messages (
+          id              TEXT PRIMARY KEY,
+          conversation_id TEXT NOT NULL REFERENCES blueprint_conversations(id) ON DELETE CASCADE,
+          role            TEXT NOT NULL,
+          content         TEXT NOT NULL,
+          created_at      TEXT NOT NULL DEFAULT (datetime('now'))
+        );
+        CREATE INDEX IF NOT EXISTS idx_blueprint_messages_conv ON blueprint_messages(conversation_id, created_at);
+      `)
+    },
   ]
 
   for (let i = 0; i < migrations.length; i++) {

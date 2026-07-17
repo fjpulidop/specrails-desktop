@@ -1,6 +1,9 @@
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { Globe, TerminalSquare, FileCode2, PanelRight, Briefcase } from 'lucide-react'
+import { motion, AnimatePresence } from 'motion/react'
+import { Globe, TerminalSquare, FileCode2, PanelRight, Briefcase, Rocket } from 'lucide-react'
+import { Button } from '../ui/button'
+import { BlueprintPanel } from '../project-builder/BlueprintPanel'
 import { cn } from '../../lib/utils'
 import { useResizableSidebar } from '../../hooks/useResizableSidebar'
 import { SidebarResizeGrip } from '../SidebarResizeGrip'
@@ -11,6 +14,7 @@ import { useAgentWorkspace } from '../../context/AgentWorkspaceContext'
 import { useAgentChat } from '../../context/AgentChatContext'
 import { FEATURE_CODE_EXPLORER, FEATURE_TERMINAL_PANEL } from '../../lib/feature-flags'
 import { isBrowserCaptureEnabled } from '../../lib/browser-capture'
+import { BuilderSidebarEntry } from '../project-builder/BuilderSidebarEntry'
 
 const RIGHT_PIN_LABEL_KEY: Record<'pinned-open' | 'pinned-collapsed' | 'unpinned', string> = {
   'pinned-open': 'sidebarPin.right.pinnedOpen',
@@ -27,13 +31,16 @@ const RIGHT_PIN_LABEL_KEY: Record<'pinned-open' | 'pinned-collapsed' | 'unpinned
 export function AgentWorkspaceSidebar() {
   const { t } = useTranslation('agent')
   const { t: tNav } = useTranslation('nav')
+  const { t: tBuilder } = useTranslation('builder')
   const { rightMode, cycleRightMode } = useSidebarPin()
   const { activeProjectId } = useDesktop()
   const terminals = useTerminals()
   const workspace = useAgentWorkspace()
-  const { active } = useAgentChat()
+  const { active, builderMode } = useAgentChat()
   const [hovered, setHovered] = useState(false)
-  const expanded = rightMode === 'pinned-open' || (rightMode === 'unpinned' && hovered)
+  // Builder mode transforms this rail into the live blueprint panel (reskin
+  // D4) — force it expanded for the duration so the panel is readable.
+  const expanded = builderMode.active || rightMode === 'pinned-open' || (rightMode === 'unpinned' && hovered)
   // Imperative drag-resize (208px expanded, 44px collapsed rail). The mouseleave
   // guard keeps `hovered` true during a drag so an unpinned rail can't collapse.
   const resize = useResizableSidebar('right-workspace', {
@@ -121,7 +128,45 @@ export function AgentWorkspaceSidebar() {
         </button>
       </div>
 
+      {builderMode.active ? (
+        // ── Builder transformation: the tool rail becomes the live blueprint
+        // panel + the phase CTA while the Builder skin is active. Animated
+        // swap; the rail returns untouched on exit.
+        <AnimatePresence mode="wait" initial={false}>
+          <motion.div
+            key="builder-blueprint"
+            initial={{ opacity: 0, x: 24 }}
+            animate={{ opacity: 1, x: 0 }}
+            exit={{ opacity: 0, x: 24 }}
+            transition={{ duration: 0.22, ease: 'easeOut' }}
+            className="flex min-h-0 flex-1 flex-col"
+            data-testid="workspace-blueprint-panel"
+          >
+            <BlueprintPanel blueprint={builderMode.session.blueprint} />
+            {builderMode.session.phase === 'chat' && (
+              <div className="border-t border-border/40 p-3">
+                <Button
+                  className="w-full"
+                  size="sm"
+                  disabled={!builderMode.session.canProposeCommit}
+                  onClick={builderMode.session.goToCommit}
+                  data-testid="builder-create-specs"
+                >
+                  <Rocket className="mr-1.5 h-3.5 w-3.5" />
+                  {tBuilder('shell.createSpecs')}
+                </Button>
+                {!builderMode.session.canProposeCommit && (
+                  <p className="mt-1.5 text-center text-[10px] text-muted-foreground">
+                    {builderMode.session.specQualityDetail ?? tBuilder('shell.createSpecsHint')}
+                  </p>
+                )}
+              </div>
+            )}
+          </motion.div>
+        </AnimatePresence>
+      ) : (
       <nav className="flex-1 py-2 px-1.5 space-y-0.5">
+        <BuilderSidebarEntry expanded={expanded} />
         {tools.map(({ key, icon: Icon, label, onClick, disabled, disabledTitle }) => (
           <button
             key={key}
@@ -142,6 +187,7 @@ export function AgentWorkspaceSidebar() {
           </button>
         ))}
       </nav>
+      )}
     </div>
   )
 }

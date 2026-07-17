@@ -1,0 +1,129 @@
+{
+  "shell": {
+    "title": "プロジェクトビルダー",
+    "subtitle": "アイデアからマイルストーン1のバックログへ",
+    "close": "ビルダーを閉じる",
+    "emptyTitle": "アプリのアイデアを教えてください",
+    "emptyHint": "1〜2文で十分です。ビルダーが短くインタビューし、完全なブループリントを提案します。すべて任せることもできます。",
+    "surpriseMe": "おまかせ",
+    "inputPlaceholder": "〜ができるアプリ",
+    "createSpecs": "スペックを作成",
+    "createSpecsHint": "ブループリントにマイルストーン1のスペックが揃うと使えます"
+  },
+  "panel": {
+    "title": "ブループリント",
+    "product": "プロダクト",
+    "coreFlow": "コアフロー",
+    "platform": "プラットフォーム",
+    "stack": "スタック",
+    "milestones": "マイルストーン",
+    "milestonesValue": "{{count}} 件計画済み",
+    "assumptions": "前提",
+    "m1Specs": "マイルストーン1のスペック（{{count}}）",
+    "dependsOn": "#{{index}} に依存",
+    "criteriaCount": "受け入れ基準 {{count}} 件",
+    "laterMilestones": "以降のマイルストーン",
+    "empty": "会話に合わせてブループリントが埋まっていきます。"
+  },
+  "commit": {
+    "title": "プロジェクトを作成",
+    "description": "確認するまでディスクには何も書き込みません。リポジトリはクリーンなまま — Specrails の成果物は外部に置かれます。",
+    "nameLabel": "プロジェクト名",
+    "locationLabel": "場所",
+    "locationHint": "ここに新しいフォルダを作成します（空か存在しないこと）。",
+    "providersLabel": "AI プロバイダー",
+    "githubLabel": "プライベート GitHub リポジトリを作成",
+    "githubAuthHint": "先にサインイン: gh auth login",
+    "back": "戻る",
+    "submit": "プロジェクトを作成",
+    "creating": "作成中…",
+    "errors": {
+      "generic": "コミットを開始できませんでした。値を確認して再試行してください。",
+      "invalid_name": "プロジェクト名は必須です。",
+      "invalid_location": "場所は必須です。",
+      "providers_required": "少なくとも1つのプロバイダーを選択してください。",
+      "unknown_provider": "選択したプロバイダーの1つが利用できません。",
+      "invalid_blueprint": "ブループリントが不完全です。戻ってビルダーで完成させてください。",
+      "m1_specs_required": "ブループリントにマイルストーン1のスペックがまだありません。",
+      "m1_specs_over_cap": "マイルストーン1のスペックが多すぎます（最大10）。ビルダーに絞り込みを頼んでください。",
+      "m1_spec_quality_invalid": "生成されたスペックはまだ実装可能な品質ではありません。ビルダーに戻り、示された項目を改善してください。",
+      "bundled_framework_missing": "同梱フレームワークがありません。Specrails アプリを再インストールしてください。",
+      "location_not_empty": "そのフォルダは既に存在し、空ではありません。別の場所を選んでください。",
+      "location_already_registered": "その場所は既に登録済みプロジェクトのものです。",
+      "commit_failed": "プロジェクト作成に失敗しました。理由はステップ一覧をご覧ください。"
+    }
+  },
+  "progress": {
+    "title": "プロジェクトを作成中…",
+    "steps": {
+      "create-dir": "プロジェクトフォルダを作成",
+      "git-init": "git リポジトリ + README を初期化",
+      "assemble": "Specrails ワークスペースを組み立て（オフライン）",
+      "blueprint": "ブループリントを書き込み",
+      "tickets": "マイルストーン1のスペックを挿入",
+      "register": "プロジェクトを登録",
+      "github": "GitHub リポジトリを作成"
+    },
+    "githubErrors": {
+      "gh_not_installed": "GitHub CLI (gh) がインストールされていません — リポジトリは作成されませんでした",
+      "gh_not_authenticated": "gh が未ログインです（gh auth login を実行）— リポジトリは作成されませんでした",
+      "gh_scope": "gh のトークンにリポジトリ作成権限がありません（repo スコープ不足）",
+      "gh_repo_exists": "同名のリポジトリが既にアカウントに存在します",
+      "gh_network": "GitHub とのネットワークエラー — リポジトリは作成されませんでした",
+      "generic": "GitHub リポジトリの作成に失敗しました"
+    }
+  },
+  "done": {
+    "title": "プロジェクトを作成しました",
+    "description": "マイルストーン1のバックログが M1 ラベル付きでボードにあります。",
+    "launchM1": "マイルストーン1を起動",
+    "openProject": "プロジェクトを開く",
+    "launchToast": "マイルストーン1を起動 — {{count}} 件のスペックを1つのレールで",
+    "launchFailed": "マイルストーン1を起動できませんでした"
+  },
+  "sidebar": {
+    "title": "ブループリント",
+    "milestone": "M{{n}}",
+    "progress": "{{done}}/{{total}} 完了",
+    "launchM1": "マイルストーン1を起動",
+    "generateNext": "M{{n}} を生成",
+    "generateHint": "ブループリントを種にした、実コードに根ざすスペックセッションを開きます"
+  },
+  "errors": {
+    "startFailed": "ビルダーの会話を開始できませんでした。",
+    "turnFailed": "ビルダーのターンが失敗しました。",
+    "commitFailed": "プロジェクト作成に失敗しました。"
+  },
+  "milestone": {
+    "title": "{{label}} を生成",
+    "inputPlaceholder": "スペックを磨き込む…",
+    "commit": "{{count}} 件のスペックを {{label}} としてコミット",
+    "commitToast": "{{count}} 件のスペックが {{label}} としてボードに追加されました",
+    "commitFailed": "マイルストーンをコミットできませんでした"
+  },
+  "mode": {
+    "title": "プロジェクトビルダー",
+    "subtitle": "エージェントが新しいプロジェクトを作成中",
+    "exit": "終了",
+    "exitConfirmTitle": "ビルダーを終了しますか？",
+    "exitConfirmBody": "作成中のブループリントは破棄されます。",
+    "exitConfirmCancel": "作成を続ける",
+    "exitConfirmDiscard": "破棄して終了"
+  },
+  "prompts": {
+    "surpriseMe": "おまかせで——ブループリントの全項目に妥当な値を提案し、m1Specs は空のまま、詳細スペックを生成する前に計画を承認させてください。",
+    "milestoneSeed": "マイルストーン {{label}}（\"{{title}}\"）の詳細スペックを生成してください。まず実際のコードを読み、完全な一括セットを検証してから、マイルストーンの詳細スペックをすべて単一の blueprint-draft レスポンス／スナップショットで出力してください。",
+    "milestoneSeedWithPlanned": "マイルストーン {{label}}（\"{{title}}\"）の詳細スペックを生成してください。計画中のスペックタイトル：{{planned}}。まず実際のコードを読み、完全な一括セットを検証してから、マイルストーンの詳細スペックをすべて単一の blueprint-draft レスポンス／スナップショットで出力してください。"
+  },
+  "specModal": {
+    "eyebrow": "{{milestone}} · スペック {{index}}",
+    "close": "閉じる",
+    "open": "スペックの詳細を見る",
+    "empty": "まだ説明がありません。",
+    "summary": "概要",
+    "priority": "優先度",
+    "description": "スペックの説明",
+    "acceptanceCriteria": "受け入れ基準",
+    "criteriaEmpty": "受け入れ基準はまだありません。"
+  }
+}

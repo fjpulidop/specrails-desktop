@@ -74,6 +74,11 @@ export interface TokenUsage {
 /** Key shape: `<providerId>:<model>` (case-sensitive). */
 export const PRICING: Record<string, PriceEntry> = {
   // Codex (OpenAI). Reference: https://openai.com/pricing
+  // GPT-5.6 family (GA 2026-07-09): cache reads keep the 90% discount; 5.6+
+  // ALSO bills cache WRITES at 1.25x the uncached input rate (new semantics).
+  'codex:gpt-5.6-sol':   { inputPer1M: 5.00, outputPer1M: 30.00, cacheReadPer1M: 0.50,  cacheWritePer1M: 6.25,  lastReviewedAt: '2026-07-17' },
+  'codex:gpt-5.6-terra': { inputPer1M: 2.50, outputPer1M: 15.00, cacheReadPer1M: 0.25,  cacheWritePer1M: 3.125, lastReviewedAt: '2026-07-17' },
+  'codex:gpt-5.6-luna':  { inputPer1M: 1.00, outputPer1M: 6.00,  cacheReadPer1M: 0.10,  cacheWritePer1M: 1.25,  lastReviewedAt: '2026-07-17' },
   'codex:gpt-5.5':       { inputPer1M: 1.25, outputPer1M: 10.00, cacheReadPer1M: 0.125, lastReviewedAt: '2026-05-17' },
   'codex:gpt-5.4':       { inputPer1M: 2.50, outputPer1M: 10.00, cacheReadPer1M: 0.25,  lastReviewedAt: '2026-05-17' },
   'codex:gpt-5.4-mini':  { inputPer1M: 0.25, outputPer1M: 2.00,  cacheReadPer1M: 0.025, lastReviewedAt: '2026-05-17' },

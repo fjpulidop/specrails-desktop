@@ -11,6 +11,7 @@ import { mirrorProjectEntry as regMirror, workspaceLayout as regLayout, resolveH
 import { initDb } from './db'
 import { initDesktopDb } from './desktop-db'
 import { installConfigPath, installConfigPathForProvider } from './install-config-path'
+import { readBlueprint, writeBlueprintPair } from './blueprint-render'
 import {
   ClaudeNotFoundError,
   InvalidJobDependencyError,
@@ -220,6 +221,121 @@ describe('project-router', () => {
       const { app } = createApp()
       const res = await request(app).get('/api/projects/bad-id/jobs')
       expect(res.status).toBe(404)
+    })
+  })
+
+  // ─── Project Builder: milestone ticket provenance ─────────────────────────
+
+  describe('POST /:projectId/blueprint/commit-milestone', () => {
+    let repoDir: string
+    let registryHome: string
+    let priorRegistryHome: string | undefined
+
+    beforeEach(() => {
+      repoDir = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), 'builder-milestone-repo-')))
+      registryHome = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), 'builder-milestone-home-')))
+      priorRegistryHome = process.env.SPECRAILS_REGISTRY_HOME
+      process.env.SPECRAILS_REGISTRY_HOME = registryHome
+    })
+
+    afterEach(() => {
+      fs.rmSync(repoDir, { recursive: true, force: true })
+      fs.rmSync(registryHome, { recursive: true, force: true })
+      if (priorRegistryHome === undefined) delete process.env.SPECRAILS_REGISTRY_HOME
+      else process.env.SPECRAILS_REGISTRY_HOME = priorRegistryHome
+    })
+
+    it('persists M2+ specs with project-builder provenance', async () => {
+      const entry = regMirror({
+        repoPath: repoDir,
+        slug: 'proj',
+        providers: ['claude'],
+        desktopProjectId: 'proj-1',
+      }, registryHome)
+      fs.mkdirSync(path.join(entry.workspaceDir, '.specrails'), { recursive: true })
+      fs.writeFileSync(path.join(entry.workspaceDir, '.specrails', 'specrails-version'), 'test\n')
+      writeBlueprintPair(entry.workspaceDir, {
+        blueprintVersion: 1,
+        product: { name: 'Test Project', pitch: 'A useful app', audience: 'Testers' },
+        coreFlow: 'Create and verify a project',
+        platform: 'desktop',
+        stack: { language: 'TypeScript', framework: 'React', db: 'SQLite' },
+        assumptions: [],
+        milestones: [
+          { id: 'm1', title: 'Foundation', goal: 'Start', status: 'committed', plannedSpecs: [] },
+          { id: 'm2', title: 'Expansion', goal: 'Grow', status: 'planned', plannedSpecs: ['Add reports'] },
+          { id: 'm3', title: 'Automation', goal: 'Automate', status: 'planned', plannedSpecs: ['Add alerts'] },
+        ],
+        specsComplete: true,
+        m1Specs: [],
+      })
+
+      const projectCtx = makeContext(db, {
+        project: {
+          id: 'proj-1', slug: 'proj', name: 'Test Project', path: repoDir,
+          db_path: ':memory:', provider: 'claude', providers: ['claude'],
+          added_at: '', last_seen_at: '',
+        },
+      })
+      const { app } = createApp(new Map([['proj-1', projectCtx]]))
+
+      const response = await request(app)
+        .post('/api/projects/proj-1/blueprint/commit-milestone')
+        .send({
+          milestoneId: 'm2',
+          specsComplete: true,
+          specs: [{
+            kind: 'feature',
+            title: 'Add reports',
+            shortSummary: 'Show actionable progress reports.',
+            description: [
+              '## Problem Statement', 'Teams cannot understand progress or identify stalled work from the current project view.',
+              '', '## Proposed Solution', 'Add a grounded report view that derives milestone progress from the existing ticket store and current status model.',
+              '', '## Out of Scope', '- Predictive forecasting', '- External data warehouse exports',
+              '', '## Technical Considerations', '- Reuse the existing ticket storage contract', '- Cover empty, loading, success, and failure states',
+              '', '## Estimated Complexity', 'Medium — the report crosses server aggregation and client presentation.',
+            ].join('\n'),
+            acceptanceCriteria: [
+              'The report shows progress for every committed milestone.',
+              'An empty project renders a deliberate empty state.',
+              'A ticket read failure produces an actionable error state.',
+              'Automated tests cover aggregation and presentation behavior.',
+            ],
+            priority: 'high',
+            labels: ['analytics', 'M2'],
+          }],
+        })
+
+      expect(response.status).toBe(201)
+      expect(response.body.insertedIds).toHaveLength(1)
+      const ticket = readStore(entry.ticketsPath).tickets[String(response.body.insertedIds[0])]
+      expect(ticket).toMatchObject({
+        title: 'Add reports',
+        status: 'todo',
+        labels: ['analytics', 'M2'],
+        priority: 'high',
+        short_summary: 'Show actionable progress reports.',
+        source: 'project-builder',
+        created_by: 'project-builder',
+      })
+      expect(ticket.description).toContain('## Problem Statement')
+      expect(ticket.description).toContain('## Acceptance Criteria')
+      expect(ticket.description.match(/## Acceptance Criteria/g)).toHaveLength(1)
+
+      const invalid = await request(app)
+        .post('/api/projects/proj-1/blueprint/commit-milestone')
+        .send({
+          milestoneId: 'm3',
+          specsComplete: false,
+          specs: [{ title: 'Add alerts', description: 'Send alerts.', labels: ['M3'] }],
+        })
+      expect(invalid.status).toBe(400)
+      expect(invalid.body).toMatchObject({
+        error: 'milestone_spec_quality_invalid',
+        detail: 'generation is not marked complete',
+      })
+      expect(Object.values(readStore(entry.ticketsPath).tickets)).toHaveLength(1)
+      expect(readBlueprint(entry.workspaceDir)?.milestones.find((item) => item.id === 'm3')?.status).toBe('planned')
     })
   })
 
@@ -3645,7 +3761,7 @@ describe('project-router', () => {
       expect(res.status).toBe(200)
       expect(res.body.provider).toBe('codex')
       expect(res.body.model).toBe('gpt-5.5')
-      expect(res.body.allowed.map((m: { value: string }) => m.value)).toEqual(['gpt-5.5', 'gpt-5.4', 'gpt-5.4-mini', 'gpt-5.3-codex'])
+      expect(res.body.allowed.map((m: { value: string }) => m.value)).toEqual(['gpt-5.6-sol', 'gpt-5.6-terra', 'gpt-5.6-luna', 'gpt-5.5', 'gpt-5.4', 'gpt-5.4-mini', 'gpt-5.3-codex'])
     })
 
     it('honors install-config defaults.model when valid', async () => {

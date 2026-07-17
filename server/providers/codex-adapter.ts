@@ -40,6 +40,9 @@ const WHICH_CMD = process.platform === 'win32' ? 'where' : 'which'
 const CODEX_MIN_VERSION = '0.128.0'
 
 const CODEX_MODELS = [
+  { value: 'gpt-5.6-sol', label: 'GPT-5.6 Sol' },
+  { value: 'gpt-5.6-terra', label: 'GPT-5.6 Terra' },
+  { value: 'gpt-5.6-luna', label: 'GPT-5.6 Luna' },
   { value: 'gpt-5.5', label: 'GPT-5.5', default: true as const },
   { value: 'gpt-5.4', label: 'GPT-5.4' },
   { value: 'gpt-5.4-mini', label: 'GPT-5.4 Mini' },
@@ -49,11 +52,20 @@ const CODEX_MODELS = [
 const SANDBOX_FLAGS = ['--sandbox', 'workspace-write'] as const
 const RAIL_SANDBOX_FLAGS = ['--sandbox', 'danger-full-access'] as const
 // `codex exec resume` does NOT accept `--sandbox` (the flag only exists on
-// `codex exec`); pass the policy as a `-c` config override instead so the
-// resumed session honours workspace-write even when the per-project
-// `.codex/config.toml` isn't on the spawn cwd (e.g. explore-cwd).
-const SANDBOX_RESUME_FLAGS = ['-c', 'sandbox_mode="workspace-write"'] as const
+// `codex exec`); `resumeSandboxFlags` passes the selected policy as a `-c`
+// config override instead, even when the per-project `.codex/config.toml`
+// isn't on the spawn cwd (e.g. explore-cwd).
 const SKIP_GIT_CHECK = '--skip-git-repo-check' as const
+
+function sandboxFlags(opts: SpawnOptions, rail = false): string[] {
+  if (opts.toolPolicy === 'read-only') return ['--sandbox', 'read-only']
+  return rail ? [...RAIL_SANDBOX_FLAGS] : [...SANDBOX_FLAGS]
+}
+
+function resumeSandboxFlags(opts: SpawnOptions): string[] {
+  const mode = opts.toolPolicy === 'read-only' ? 'read-only' : 'workspace-write'
+  return ['-c', `sandbox_mode="${mode}"`]
+}
 
 /** Fold system prompt into the user prompt for providers without --system-prompt. */
 function fold(systemPrompt: string | undefined, prompt: string): string {
@@ -84,7 +96,7 @@ function buildCodexArgs(action: SpawnAction, opts: SpawnOptions): string[] {
       // ("quiero hacer un tetris"), the long system text dominates the prompt
       // and codex responds to the system instructions instead of the user.
       // Trust AGENTS.md and pass only the user prompt.
-      args.push('exec', '--json', ...SANDBOX_FLAGS, SKIP_GIT_CHECK)
+      args.push('exec', '--json', ...sandboxFlags(opts), SKIP_GIT_CHECK)
       args.push(opts.prompt)
       args.push('--model', opts.model)
       // Native reasoning effort (codex 0.139+). String value is quoted to match
@@ -99,7 +111,7 @@ function buildCodexArgs(action: SpawnAction, opts: SpawnOptions): string[] {
     case 'agent-refine':
     case 'auto-title':
     case 'setup-enrich': {
-      args.push('exec', '--json', ...SANDBOX_FLAGS, SKIP_GIT_CHECK)
+      args.push('exec', '--json', ...sandboxFlags(opts), SKIP_GIT_CHECK)
       args.push(fold(opts.systemPrompt, opts.prompt))
       args.push('--model', opts.model)
       // Native reasoning effort (codex 0.139+). String value is quoted to match
@@ -115,7 +127,7 @@ function buildCodexArgs(action: SpawnAction, opts: SpawnOptions): string[] {
       // See chat-turn note: AGENTS.md in explore-cwd carries the Explore
       // framing; the per-turn argv must stay user-text-only so codex doesn't
       // mistake the system prompt for the user request.
-      args.push('exec', 'resume', '--json', ...SANDBOX_RESUME_FLAGS, SKIP_GIT_CHECK)
+      args.push('exec', 'resume', '--json', ...resumeSandboxFlags(opts), SKIP_GIT_CHECK)
       args.push(opts.sessionId)
       args.push(opts.prompt)
       args.push('--model', opts.model)
@@ -131,7 +143,7 @@ function buildCodexArgs(action: SpawnAction, opts: SpawnOptions): string[] {
       if (!opts.sessionId) {
         throw new Error(`${action} requires sessionId`)
       }
-      args.push('exec', 'resume', '--json', ...SANDBOX_RESUME_FLAGS, SKIP_GIT_CHECK)
+      args.push('exec', 'resume', '--json', ...resumeSandboxFlags(opts), SKIP_GIT_CHECK)
       args.push(opts.sessionId)
       args.push(fold(opts.systemPrompt, opts.prompt))
       args.push('--model', opts.model)
@@ -153,7 +165,7 @@ function buildCodexArgs(action: SpawnAction, opts: SpawnOptions): string[] {
       // On Windows, Codex's workspace-write sandbox can fail before the first
       // shell command with `windows sandbox: spawn setup refresh`; full access
       // matches the existing fully-autonomous rail contract.
-      args.push('exec', '--json', ...RAIL_SANDBOX_FLAGS, SKIP_GIT_CHECK)
+      args.push('exec', '--json', ...sandboxFlags(opts, true), SKIP_GIT_CHECK)
       args.push(fold(opts.systemPrompt, opts.prompt))
       args.push('--model', opts.model)
       // Native reasoning effort (codex 0.139+). String value is quoted to match
@@ -335,7 +347,9 @@ export const codexAdapter: ProviderAdapter = {
     profileEnvSupport: true,
     systemPromptArg: false,
     supportsReasoningEffort: true,
-    reasoningEfforts: ['minimal', 'low', 'medium', 'high'], // codex model_reasoning_effort values
+    // codex model_reasoning_effort values. xhigh/max ship with GPT-5.6 (all
+    // tiers); ultra is Sol-only upstream — codex validates the combo itself.
+    reasoningEfforts: ['minimal', 'low', 'medium', 'high', 'xhigh', 'max', 'ultra'],
     supportsImageInput: true, // codex-cli `-i/--image <FILE>...` (verified 0.141)
   },
   modelCatalog: () => CODEX_MODELS,

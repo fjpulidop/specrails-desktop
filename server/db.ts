@@ -2026,7 +2026,7 @@ export function getProjectActivity(db: DbInstance, opts: ActivityQueryOpts): Act
 
 export function createConversation(
   db: DbInstance,
-  opts: { id: string; model: string; kind?: 'sidebar' | 'explore'; contextScope?: unknown; provider?: string | null }
+  opts: { id: string; model: string; kind?: 'sidebar' | 'explore' | 'milestone'; contextScope?: unknown; provider?: string | null }
 ): void {
   const scopeJson = opts.contextScope != null ? JSON.stringify(opts.contextScope) : null
   db.prepare(

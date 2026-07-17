@@ -757,6 +757,11 @@ export default function DashboardPage() {
           t.source === 'free-prompt' ||
           // Specs created by an external LLM through the MCP server.
           t.source === 'mcp' ||
+          // Day-0 specs committed by the Project Builder. The created_by
+          // fallback keeps projects created before `project-builder` became a
+          // first-class source visible without rewriting their ticket store.
+          t.source === 'project-builder' ||
+          (t.source === 'manual' && t.created_by === 'project-builder') ||
           // Jira-backed specs are materialized into local-tickets.json with
           // source:'jira' — they must show on the board like any other spec.
           t.source === 'jira') &&

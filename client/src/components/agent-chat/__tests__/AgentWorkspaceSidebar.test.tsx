@@ -36,7 +36,7 @@ vi.mock('../../../context/AgentWorkspaceContext', () => ({
 }))
 
 vi.mock('../../../context/AgentChatContext', () => ({
-  useAgentChat: () => ({ active: { id: 'conversation-1' } }),
+  useAgentChat: () => ({ active: { id: 'conversation-1' }, builderMode: { active: false, enter: () => {}, exit: () => {}, session: { phase: 'chat', blueprint: null } } }),
 }))
 
 describe('AgentWorkspaceSidebar', () => {

@@ -230,7 +230,7 @@ export interface ChatConversationRow {
   session_id: string | null
   created_at: string
   updated_at: string
-  kind: 'sidebar' | 'explore'
+  kind: 'sidebar' | 'explore' | 'milestone'
   context_scope: string | null
   /** Per-conversation AI engine for multi-provider projects. NULL = project primary. */
   provider: string | null
@@ -1274,6 +1274,66 @@ export type WsMessage =
   | AgentQueuedMessage | AgentDequeuedMessage | AgentQueueClearedMessage
   | AgentQueueEditedMessage
   | AgentPrDecisionMessage
+  | BlueprintStreamMessage | BlueprintDoneMessage | BlueprintErrorMessage
+  | BlueprintCommitProgressMessage | BlueprintCommitDoneMessage | BlueprintCommitFailedMessage
+
+// ─── Project Builder day-0 chat (app-global, no projectId — a project does ────
+// not exist yet). NOT part of the mobile-ws translation layer.
+
+/** A text delta from the Builder's current turn. */
+export interface BlueprintStreamMessage {
+  type: 'blueprint.stream'
+  conversationId: string
+  delta: string
+  timestamp: string
+}
+
+/** Builder turn finished. `fullText` has blueprint-draft blocks stripped;
+ *  `blueprint` is the normalized last valid snapshot and `rawBlueprint` is
+ *  its exact pre-coercion JSON payload for strict commit validation. */
+export interface BlueprintDoneMessage {
+  type: 'blueprint.done'
+  conversationId: string
+  fullText: string
+  blueprint: unknown | null
+  rawBlueprint: unknown | null
+  timestamp: string
+}
+
+/** Builder turn failed (spawn error / non-zero exit / busy). */
+export interface BlueprintErrorMessage {
+  type: 'blueprint.error'
+  conversationId: string
+  error: string
+  timestamp: string
+}
+
+/** One orchestrated-commit step changed state. */
+export interface BlueprintCommitProgressMessage {
+  type: 'blueprint.commit_progress'
+  commitId: string
+  step: string
+  status: 'running' | 'done' | 'warning' | 'failed'
+  detail?: string
+  timestamp: string
+}
+
+/** Orchestrated commit finished; the project is registered and usable. */
+export interface BlueprintCommitDoneMessage {
+  type: 'blueprint.commit_done'
+  commitId: string
+  projectId: string
+  timestamp: string
+}
+
+/** Orchestrated commit failed at `step` (no project row was created). */
+export interface BlueprintCommitFailedMessage {
+  type: 'blueprint.commit_failed'
+  commitId: string
+  step: string
+  error: string
+  timestamp: string
+}
 
 // ─── App-global agent chat (no projectId — fans to all subscribers) ───────────
 

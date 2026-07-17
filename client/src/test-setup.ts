@@ -23,19 +23,24 @@ beforeEach(() => {
   setActiveProjectId('test-project')
 })
 
-// Mock window.matchMedia (required by some Radix components)
+// Mock window.matchMedia (required by some Radix components and by
+// motion's useReducedMotion). A PLAIN function, not vi.fn(): a suite calling
+// vi.restoreAllMocks() would clear a vi.fn implementation and make
+// matchMedia(...) return undefined mid-run (motion's initPrefersReducedMotion
+// then crashes on `.addEventListener` of undefined) — same reasoning as the
+// class-based ResizeObserver mock below.
 Object.defineProperty(window, 'matchMedia', {
   writable: true,
-  value: vi.fn().mockImplementation((query: string) => ({
+  value: (query: string) => ({
     matches: false,
     media: query,
     onchange: null,
-    addListener: vi.fn(),
-    removeListener: vi.fn(),
-    addEventListener: vi.fn(),
-    removeEventListener: vi.fn(),
-    dispatchEvent: vi.fn(),
-  })),
+    addListener: () => {},
+    removeListener: () => {},
+    addEventListener: () => {},
+    removeEventListener: () => {},
+    dispatchEvent: () => false,
+  }),
 })
 
 // Mock ResizeObserver (required by Radix and @dnd-kit)

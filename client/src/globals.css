@@ -988,3 +988,11 @@ select {
 [data-theme="aurora-light"] .prose-invert :not(pre) > code {
   color: var(--color-accent-secondary);
 }
+
+/* Project Builder halo (reskin-project-builder-into-agent-panel D3): the
+   orbiting ring is pure CSS so it costs no per-frame JS. Consumed via the
+   Tailwind arbitrary animation `animate-[builder-halo-spin_…]`. */
+@keyframes builder-halo-spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}

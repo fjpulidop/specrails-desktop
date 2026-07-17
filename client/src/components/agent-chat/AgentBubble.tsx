@@ -3,6 +3,7 @@ import { useTranslation } from 'react-i18next'
 import { motion, AnimatePresence, useMotionValue } from 'motion/react'
 import { Bot } from 'lucide-react'
 import { useAgentChat } from '../../context/AgentChatContext'
+import { BuilderHalo } from '../project-builder/BuilderHalo'
 
 // Persisted bubble position (top-left px). Remembered across minimize/open cycles.
 const POS_KEY = 'specrails-desktop:agent-bubble-pos'
@@ -41,7 +42,8 @@ function defaultPos(): Pos {
  */
 export function AgentBubble() {
   const { t } = useTranslation('agent')
-  const { open, isStreaming, active } = useAgentChat()
+  const { t: tBuilder } = useTranslation('builder')
+  const { open, isStreaming, active, builderMode } = useAgentChat()
   const [hovered, setHovered] = useState(false)
   const [pos, setPos] = useState<Pos>(() => clamp(readStored() ?? defaultPos()))
 
@@ -49,6 +51,7 @@ export function AgentBubble() {
   const x = useMotionValue(0)
   const y = useMotionValue(0)
   const draggedRef = useRef(false)
+  const showingActivity = builderMode.active ? builderMode.session.busy : isStreaming
 
   // Keep the bubble on-screen when the window shrinks.
   useEffect(() => {
@@ -106,8 +109,12 @@ export function AgentBubble() {
       className="z-[60] flex h-14 items-center gap-2 rounded-full border border-border/60 bg-card/85 px-3 shadow-2xl backdrop-blur-xl cursor-grab"
     >
       <span className="relative flex h-9 w-9 items-center justify-center rounded-full bg-accent-primary/15">
+        <BuilderHalo
+          active={builderMode.active && builderMode.session.messages.length === 0 && builderMode.session.phase === 'chat'}
+          inset={-4}
+        />
         <Bot className="h-5 w-5 text-accent-primary" />
-        {isStreaming && (
+        {showingActivity && (
           <motion.span
             className="absolute inset-0 rounded-full ring-2 ring-accent-success"
             animate={{ opacity: [0.8, 0.2, 0.8], scale: [1, 1.18, 1] }}
@@ -116,7 +123,7 @@ export function AgentBubble() {
         )}
       </span>
       <AnimatePresence initial={false}>
-        {(hovered || isStreaming) && (
+        {(hovered || showingActivity) && (
           <motion.span
             initial={{ opacity: 0, width: 0, marginRight: 0 }}
             animate={{ opacity: 1, width: 'auto', marginRight: 4 }}
@@ -124,7 +131,7 @@ export function AgentBubble() {
             transition={{ duration: 0.18, ease: 'easeOut' }}
             className="overflow-hidden whitespace-nowrap text-sm font-medium text-foreground"
           >
-            {isStreaming ? t('thinking') : active?.title || t('trigger')}
+            {showingActivity ? t('thinking') : builderMode.active ? tBuilder('mode.title') : active?.title || t('trigger')}
           </motion.span>
         )}
       </AnimatePresence>

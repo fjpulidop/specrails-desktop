@@ -14,6 +14,7 @@ vi.mock('../../../context/AgentChatContext', () => ({
   useAgentChat: () => ({
     active: null,
     refreshConversations,
+    builderMode: { active: false, enter: () => {}, exit: () => {}, session: { phase: 'chat', blueprint: null } },
   }),
 }))
 

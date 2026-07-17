@@ -82,6 +82,13 @@
     },
     "toasts": {
       "registered": "Projet « {{name}} » enregistré"
+    },
+    "chooser": {
+      "description": "Apportez un dépôt existant, ou construisez un tout nouveau projet à partir d'une idée.",
+      "existingTitle": "Projet existant",
+      "existingDescription": "Enregistrez un dépôt qui existe déjà sur le disque.",
+      "newTitle": "Nouveau projet",
+      "newDescription": "Décrivez une idée et obtenez un dépôt initialisé avec un backlog du Jalon 1."
     }
   },
   "prerequisites": {

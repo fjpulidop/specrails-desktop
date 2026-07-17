@@ -21,6 +21,8 @@ import { buildUserMcpArgs } from './user-mcp-config'
 import { binaryOnPath } from './binary-probe'
 import { ExploreStdinSessions, isExplorePersistentStdinEnabled } from './explore-stdin-session'
 import { resolveProjectExecution, type ProjectExecution } from './workspace-resolution'
+import { workspacePathFor } from './workspace-manager'
+import { readBlueprint } from './blueprint-render'
 import type { ChatConversationRow } from './types'
 
 const COMMAND_INSTRUCTION =
@@ -700,6 +702,115 @@ export class ChatManager {
    *
    * See openspec/changes/accelerate-spec-chat-first-token/design.md D5.
    */
+  /**
+   * Milestone generation prompt (add-project-builder D7): grounded project-level
+   * spec generation for one blueprint milestone. Seeded with the workspace
+   * blueprint.json and the target milestone's plannedSpecs; output rides the
+   * SAME `blueprint-draft` protocol as the day-0 Builder so the client panel
+   * and the commit-milestone endpoint reuse the parser unchanged.
+   */
+  private _buildMilestoneSystemPrompt(conversation: { context_scope: string | null }): string {
+    const name = this._projectName ?? 'this project'
+    const execution = this._resolveNonExploreExecution()
+    let milestoneId = ''
+    try {
+      const scope = conversation.context_scope ? JSON.parse(conversation.context_scope) as { milestone?: string } : null
+      if (scope && typeof scope.milestone === 'string') milestoneId = scope.milestone
+    } catch { /* tolerate malformed scope */ }
+    let blueprintJson = ''
+    try {
+      if (this._projectSlug) {
+        const bp = readBlueprint(workspacePathFor(this._projectSlug))
+        if (bp) blueprintJson = JSON.stringify(bp, null, 2)
+      }
+    } catch { /* blueprint unavailable — the prompt degrades gracefully */ }
+    const milestoneLabel = milestoneId ? milestoneId.toUpperCase() : 'M2'
+    const lines = [
+      `You are generating the "${milestoneId || 'next'}" milestone specs for the "${name}" project.`,
+      '',
+      '## Read-only security boundary',
+      '',
+      '- This is an inspection-and-authoring turn, never an implementation turn. Inspect the repository and return',
+      '  blueprint-draft text only. Do not modify the repository, workspace, ticket store, configuration, or git state.',
+      '- You may list, search, glob, and read files. Do not create, edit, delete, rename, move, format, generate, install,',
+      '  migrate, commit, checkout, or execute any command/tool that can write files or other project state.',
+      '- Do not run builds or tests during this turn: they may create caches, snapshots, coverage, or generated files.',
+      '',
+      '## Grounding is mandatory',
+      '',
+      '- Inspect the real repository before drafting. Read the relevant source, tests, configuration, schemas, and',
+      '  public contracts needed to understand what is already implemented and where the milestone fits.',
+      '- Name a repository path, module, component, function, type, endpoint, table, or other identifier only after',
+      '  verifying it in the code during this turn. Never fabricate a path or infer one from framework convention.',
+      '- Start from the blueprint plannedSpecs titles, but refine, split, reorder, or drop them when verified code',
+      '  shows that the original plan is stale, already implemented, or too broad. Preserve the milestone goal.',
+      '',
+      '## Full-snapshot protocol',
+      '',
+      '- Emit at most one fenced ```blueprint-draft JSON block per message and put it at the END.',
+      '- Every block is a FULL valid-JSON snapshot containing blueprintVersion, product, coreFlow, platform, stack,',
+      '  assumptions, milestones, specsComplete, and this target milestone\'s complete detailed specs in m1Specs.',
+      '- Generate the complete grounded target batch (1-10 specs) in this response and one FULL snapshot. Never',
+      '  expose a partial batch that requires the user to ask you to continue.',
+      '- If the complete batch cannot be produced and pass the self-audit below, emit m1Specs: [] with',
+      '  specsComplete: false and explain the blocker instead of returning partially generated specs.',
+      '',
+      '## Exact detailed-spec payload',
+      '',
+      'Every item in m1Specs has exactly this semantic shape:',
+      '{ "kind": "scaffold|feature|verification", "title": "...", "shortSummary": "...",',
+      '  "description": "...", "acceptanceCriteria": ["..."], "priority": "low|medium|high|critical",',
+      `  "labels": ["${milestoneLabel}", "domain-label"] }`,
+      '- Write all spec fields in English; conversational prose follows the user\'s language.',
+      '- title: concise, action-oriented, and unique in this generated batch.',
+      '- shortSummary: one useful sentence no longer than 240 characters.',
+      '- kind: scaffold, feature, or verification, chosen by the work rather than defaulted blindly.',
+      '- priority: low, medium, high, or critical based on delivery urgency/risk, not implementation complexity.',
+      `- labels: include ${milestoneLabel} plus at least one concise domain label; preserve useful domain taxonomy.`,
+      '- dependsOnIndex is optional. When present it must point strictly backward to an earlier item in this batch;',
+      '  the first item always omits it. Never point to the same item or a later item.',
+      '',
+      '## Canonical description contract',
+      '',
+      'description is English markdown with exactly these five ## headings, once each and in this order:',
+      '1. ## Problem Statement — the concrete user/system problem confirmed by the blueprint and current code.',
+      '2. ## Proposed Solution — observable behavior and integration with verified existing components/contracts.',
+      '3. ## Out of Scope — at least two bullets naming adjacent work deliberately deferred.',
+      '4. ## Technical Considerations — at least two bullets naming only verified paths and identifiers, plus data/contracts,',
+      '   compatibility, risks, failure handling, observability, migrations, and test strategy where relevant.',
+      '5. ## Estimated Complexity — Low/Medium/High/Very High plus one sentence explaining the estimate.',
+      'Do NOT put an ## Acceptance Criteria heading in description. The app folds the separate criteria array into',
+      'the final ticket deterministically.',
+      '',
+      '## Acceptance and self-audit',
+      '',
+      '- acceptanceCriteria contains 4-10 non-empty, independent, testable outcomes rather than implementation steps.',
+      '- Across the criteria, cover intended functional behavior, observable failure/edge cases, compatibility where',
+      '  relevant, and the automated unit/integration/end-to-end tests that prove the change.',
+      '- Before specsComplete: true, audit every item for all payload fields, exact heading names/order, non-empty',
+      '  sections, English content, 4-10 criteria, valid priority, milestone plus domain labels, unique titles,',
+      '  verified code references, and strictly backward dependencies. Repair failures before marking complete.',
+    ]
+    if (execution?.relocated && execution.repoDir) {
+      lines.push(
+        '',
+        '## Repository location (relocated project)',
+        '',
+        'The process cwd is a Specrails workspace containing configuration and artifacts, NOT the source repository.',
+        `The real source repository is at this absolute path: ${execution.repoDir}`,
+        'The same repository is mounted from the workspace as ./project and exported in SPECRAILS_REPO_DIR.',
+        'Use the absolute path above or ./project for every source list/search/read. Read/Grep/Glob tools do not expand',
+        'shell-variable expressions, so never pass literal ${SPECRAILS_REPO_DIR} or ${SPECRAILS_REPO_DIR:-.} as a path.',
+        'When writing specs, cite verified paths relative to the real repository (for example src/...), never paths',
+        'under the workspace and never a misleading project/ or .specrails/ prefix.',
+      )
+    }
+    if (blueprintJson) {
+      lines.push('', 'Current blueprint (source of truth):', '```json', blueprintJson, '```')
+    }
+    return lines.join('\n')
+  }
+
   private _buildLightweightSystemPrompt(scope?: ContextScope | null): string {
     const name = this._projectName ?? 'this project'
     // High tier = the user opted into MCP/connectors (Max/Desktop presets). At
@@ -833,9 +944,11 @@ export class ChatManager {
     // adapter-driven via capability flags.
     const lightweight = options?.lightweight ?? false
     const conversationScope = this._resolveConversationScope(conversation)
-    let systemPrompt = lightweight
-      ? this._buildLightweightSystemPrompt(conversationScope)
-      : this._buildSystemPrompt()
+    let systemPrompt = conversation.kind === 'milestone'
+      ? this._buildMilestoneSystemPrompt(conversation)
+      : lightweight
+        ? this._buildLightweightSystemPrompt(conversationScope)
+        : this._buildSystemPrompt()
     if (hasAttachments) systemPrompt = `${systemPrompt}\n\n${USER_ATTACHMENT_SYSTEM_NOTE}`
 
     const binary = adapter.binary
@@ -869,6 +982,16 @@ export class ChatManager {
       )
     }
     let promptForAdapter = resolvedText
+    // Milestone prompts contain volatile blueprint context and the complete
+    // grounding/spec contract. Providers without a dedicated system-prompt
+    // argument would otherwise receive none of it. Fold the exact same prompt
+    // into their effective user turn so Claude, Codex, Gemini, and future
+    // capability-equivalent adapters get the same instructions.
+    if (conversation.kind === 'milestone' && !adapter.capabilities.systemPromptArg) {
+      promptForAdapter =
+        `## Milestone generation instructions\n\n${systemPrompt}\n\n` +
+        `## User turn\n\n${resolvedText}`
+    }
     // Providers WITHOUT a --system-prompt flag (codex AND gemini) drop
     // opts.systemPrompt for chat turns, so the Explore scoped-context (the
     // project's tickets/spec prefix the Add Spec scope toggle injects) would
@@ -915,6 +1038,10 @@ export class ChatManager {
       systemPrompt,
       model,
       sessionId: conversation.session_id ?? undefined,
+      // Milestone generation only inspects the real repository and authors a
+      // JSON draft. Enforce that boundary natively in every adapter; prompt
+      // wording is defence-in-depth, not the permission boundary.
+      toolPolicy: conversation.kind === 'milestone' ? 'read-only' : 'default',
       maxTurns: options?.maxTurns,
       extraArgs: scopeFlags,
       // "My approved MCPs" (scope.userMcp) loads the developer's user-scope,
@@ -2035,8 +2162,10 @@ export class ChatManager {
   }): void {
     if (this._disposed) return
     if (!this._projectId) return
-    if (opts.kind !== 'explore' && opts.kind !== 'sidebar') return
-    const surface: Surface = opts.kind === 'explore' ? 'explore-spec' : 'chat-sidebar'
+    if (opts.kind !== 'explore' && opts.kind !== 'sidebar' && opts.kind !== 'milestone') return
+    // Milestone generation (add-project-builder D7) deliberately records as
+    // 'explore-spec' — no new surface value (analytics guardrail).
+    const surface: Surface = opts.kind === 'explore' || opts.kind === 'milestone' ? 'explore-spec' : 'chat-sidebar'
     try {
       const { result, estimated } = finaliseInvocationResult(opts.adapter, opts.events, {
         fallbackModel: opts.model,

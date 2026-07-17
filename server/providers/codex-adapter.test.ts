@@ -62,6 +62,17 @@ describe('codexAdapter — identity', () => {
     expect(defaults[0].value).toBe('gpt-5.5')
     expect(codexAdapter.defaultModel()).toBe('gpt-5.5')
   })
+
+  it('catalogs the GPT-5.6 family (sol/terra/luna) ahead of gpt-5.5', () => {
+    const values = codexAdapter.modelCatalog().map((m) => m.value)
+    expect(values.slice(0, 3)).toEqual(['gpt-5.6-sol', 'gpt-5.6-terra', 'gpt-5.6-luna'])
+    expect(values).toContain('gpt-5.5')
+  })
+
+  it('advertises the GPT-5.6 reasoning tiers (xhigh/max/ultra)', () => {
+    const efforts = codexAdapter.capabilities.reasoningEfforts ?? []
+    for (const level of ['xhigh', 'max', 'ultra']) expect(efforts).toContain(level)
+  })
 })
 
 describe('codexAdapter._compareSemver', () => {
@@ -100,6 +111,18 @@ describe('codexAdapter.buildArgs', () => {
       model: 'gpt-5.4-mini',
     })
     expect(args.find((a) => a === 'just user')).toBe('just user')
+  })
+
+  it('toolPolicy=read-only selects the native read-only sandbox for a fresh chat', () => {
+    const args = codexAdapter.buildArgs('chat-turn', {
+      prompt: 'inspect only',
+      model: 'gpt-5.5',
+      toolPolicy: 'read-only',
+    })
+    expect(args.slice(args.indexOf('--sandbox'), args.indexOf('--sandbox') + 2))
+      .toEqual(['--sandbox', 'read-only'])
+    expect(args).not.toContain('workspace-write')
+    expect(args).not.toContain('danger-full-access')
   })
 
   it('chat-turn preserves short user prompts verbatim even with a long systemPrompt', () => {
@@ -143,6 +166,19 @@ describe('codexAdapter.buildArgs', () => {
     expect(args).not.toContain('--sandbox')
     expect(args).toContain('-c')
     expect(args).toContain('sandbox_mode="workspace-write"')
+  })
+
+  it('toolPolicy=read-only carries the native read-only sandbox through resume config', () => {
+    const args = codexAdapter.buildArgs('chat-resume', {
+      prompt: 'continue inspecting',
+      model: 'gpt-5.5',
+      sessionId: '019e37c6-3bd4-7120-992f-6f96dc82eda1',
+      toolPolicy: 'read-only',
+    })
+    expect(args).not.toContain('--sandbox')
+    expect(args).toContain('sandbox_mode="read-only"')
+    expect(args).not.toContain('sandbox_mode="workspace-write"')
+    expect(args).not.toContain('danger-full-access')
   })
 
   it('rail-job uses full-access sandbox for headless implementation rails', () => {

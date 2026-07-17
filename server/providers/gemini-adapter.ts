@@ -52,10 +52,20 @@ const GEMINI_MODELS = [
 ] as const
 
 const STREAM_JSON_FLAGS = ['--output-format', 'stream-json'] as const
-// Auto-approve tool calls so headless turns never block on an approval prompt.
-// Parity with codex's workspace-write/full-access sandbox; the non-destructive
-// stance for Explore is carried by GEMINI.md + the system prompt, not a sandbox.
+// Default autonomous turns auto-approve tool calls so they never block on a
+// headless approval prompt. `approvalFlags` replaces this with native plan mode
+// for explicitly read-only work; the two modes are never combined.
 const YOLO_FLAG = '--yolo' as const
+
+function approvalFlags(opts: SpawnOptions): string[] {
+  // Gemini CLI has no Codex-style selectable filesystem sandbox mode. Its
+  // verified native read-only boundary is approval-mode=plan (documented by
+  // the CLI itself as "plan (read-only mode)"). Crucially, never combine it
+  // with --yolo, which would auto-approve every action.
+  return opts.toolPolicy === 'read-only'
+    ? ['--approval-mode', 'plan']
+    : [YOLO_FLAG]
+}
 
 /** Fold system prompt into the user prompt for providers without --system-prompt. */
 function fold(systemPrompt: string | undefined, prompt: string): string {
@@ -73,11 +83,11 @@ function buildGeminiArgs(action: SpawnAction, opts: SpawnOptions): string[] {
       // short user message ("quiero hacer un tetris") makes the model answer the
       // system instructions instead of the user — so pass user text only and
       // trust GEMINI.md, exactly like the codex adapter trusts AGENTS.md.
-      return ['-p', opts.prompt, ...model, ...STREAM_JSON_FLAGS, YOLO_FLAG, ...(opts.extraArgs ?? [])]
+      return ['-p', opts.prompt, ...model, ...STREAM_JSON_FLAGS, ...approvalFlags(opts), ...(opts.extraArgs ?? [])]
     }
     case 'chat-resume': {
       if (!opts.sessionId) throw new Error(`${action} requires sessionId`)
-      return ['-p', opts.prompt, ...model, ...STREAM_JSON_FLAGS, '--resume', opts.sessionId, YOLO_FLAG, ...(opts.extraArgs ?? [])]
+      return ['-p', opts.prompt, ...model, ...STREAM_JSON_FLAGS, '--resume', opts.sessionId, ...approvalFlags(opts), ...(opts.extraArgs ?? [])]
     }
     case 'chat-stream': {
       // Gemini has no persistent-stdin multi-turn transport; the Explore
@@ -90,11 +100,11 @@ function buildGeminiArgs(action: SpawnAction, opts: SpawnOptions): string[] {
     case 'auto-title':
     case 'setup-enrich':
     case 'rail-job': {
-      return ['-p', fold(opts.systemPrompt, opts.prompt), ...model, ...STREAM_JSON_FLAGS, YOLO_FLAG, ...(opts.extraArgs ?? [])]
+      return ['-p', fold(opts.systemPrompt, opts.prompt), ...model, ...STREAM_JSON_FLAGS, ...approvalFlags(opts), ...(opts.extraArgs ?? [])]
     }
     case 'setup-enrich-resume': {
       if (!opts.sessionId) throw new Error(`${action} requires sessionId`)
-      return ['-p', fold(opts.systemPrompt, opts.prompt), ...model, ...STREAM_JSON_FLAGS, '--resume', opts.sessionId, YOLO_FLAG, ...(opts.extraArgs ?? [])]
+      return ['-p', fold(opts.systemPrompt, opts.prompt), ...model, ...STREAM_JSON_FLAGS, '--resume', opts.sessionId, ...approvalFlags(opts), ...(opts.extraArgs ?? [])]
     }
   }
 }

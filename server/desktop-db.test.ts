@@ -75,10 +75,10 @@ describe('desktop-db', () => {
       expect(names).toContain('idx_projects_path')
     })
 
-    it('applies migrations 1 through 21 and records them', () => {
+    it('applies migrations 1 through 22 and records them', () => {
       const versions = db.prepare('SELECT version FROM schema_migrations ORDER BY version').all() as { version: number }[]
-      expect(versions).toHaveLength(21)
-      expect(versions.map((v) => v.version)).toEqual(Array.from({ length: 21 }, (_, i) => i + 1))
+      expect(versions).toHaveLength(22)
+      expect(versions.map((v) => v.version)).toEqual(Array.from({ length: 22 }, (_, i) => i + 1))
       const columns = db.prepare('PRAGMA table_info(agent_messages)').all() as { name: string }[]
       expect(columns.map((c) => c.name)).toContain('context_refs')
     })
@@ -87,7 +87,7 @@ describe('desktop-db', () => {
       // Re-init on same DB (in-memory so we just call again)
       const db2 = makeDb()
       const versions = db2.prepare('SELECT version FROM schema_migrations').all() as { version: number }[]
-      expect(versions).toHaveLength(21)
+      expect(versions).toHaveLength(22)
     })
   })
 

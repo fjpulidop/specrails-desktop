@@ -152,7 +152,7 @@ describe('claudeAdapter.buildArgs', () => {
     expect(args).not.toContain('--dangerously-skip-permissions')
   })
 
-  it('toolPolicy=read-only restricts Claude to Read, Grep, and Glob', () => {
+  it('toolPolicy=read-only uses plan mode with only Read, Grep, and Glob', () => {
     const args = claudeAdapter.buildArgs('agent-refine', {
       prompt: 'ground this text',
       model: 'sonnet',
@@ -160,7 +160,10 @@ describe('claudeAdapter.buildArgs', () => {
     })
     expect(args.slice(args.indexOf('--tools'), args.indexOf('--tools') + 2))
       .toEqual(['--tools', 'Read,Grep,Glob'])
-    expect(args).toContain('--dangerously-skip-permissions')
+    expect(args.slice(args.indexOf('--permission-mode'), args.indexOf('--permission-mode') + 2))
+      .toEqual(['--permission-mode', 'plan'])
+    expect(args).toContain('--safe-mode')
+    expect(args).not.toContain('--dangerously-skip-permissions')
   })
 
   it('chat-turn normalises pinned model ids', () => {

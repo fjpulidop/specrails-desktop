@@ -1,0 +1,129 @@
+{
+  "shell": {
+    "title": "项目构建器",
+    "subtitle": "从想法到里程碑 1 的待办清单",
+    "close": "关闭构建器",
+    "emptyTitle": "描述你的应用想法",
+    "emptyHint": "一两句话就够了——构建器会简短地采访你并提出完整的蓝图。你也可以让它替你决定一切。",
+    "surpriseMe": "给我惊喜",
+    "inputPlaceholder": "一个能……的应用",
+    "createSpecs": "创建规格",
+    "createSpecsHint": "蓝图包含里程碑 1 规格后可用"
+  },
+  "panel": {
+    "title": "蓝图",
+    "product": "产品",
+    "coreFlow": "核心流程",
+    "platform": "平台",
+    "stack": "技术栈",
+    "milestones": "里程碑",
+    "milestonesValue": "已规划 {{count}} 个",
+    "assumptions": "假设",
+    "m1Specs": "里程碑 1 规格（{{count}}）",
+    "dependsOn": "依赖 #{{index}}",
+    "criteriaCount": "{{count}} 条验收标准",
+    "laterMilestones": "后续里程碑",
+    "empty": "蓝图会在对话中逐步填充。"
+  },
+  "commit": {
+    "title": "创建项目",
+    "description": "确认之前不会写入磁盘。仓库保持纯净——Specrails 的产物存放在仓库之外。",
+    "nameLabel": "项目名称",
+    "locationLabel": "位置",
+    "locationHint": "将在此创建一个新文件夹（必须为空或不存在）。",
+    "providersLabel": "AI 提供商",
+    "githubLabel": "创建私有 GitHub 仓库",
+    "githubAuthHint": "请先登录：gh auth login",
+    "back": "返回",
+    "submit": "创建项目",
+    "creating": "创建中…",
+    "errors": {
+      "generic": "无法启动提交。请检查数值后重试。",
+      "invalid_name": "项目名称为必填项。",
+      "invalid_location": "位置为必填项。",
+      "providers_required": "请至少选择一个提供商。",
+      "unknown_provider": "所选提供商之一不可用。",
+      "invalid_blueprint": "蓝图不完整——请返回并与构建器一起完成它。",
+      "m1_specs_required": "蓝图还没有里程碑 1 的规格。",
+      "m1_specs_over_cap": "里程碑 1 的规格太多（最多 10 个）。请让构建器精简。",
+      "m1_spec_quality_invalid": "生成的规格尚未达到可实施质量。请返回构建器并完善所指出的项目。",
+      "bundled_framework_missing": "缺少内置框架——请重新安装 Specrails 应用。",
+      "location_not_empty": "该文件夹已存在且非空。请选择其他位置。",
+      "location_already_registered": "该位置已属于一个已注册的项目。",
+      "commit_failed": "项目创建失败——原因见步骤列表。"
+    }
+  },
+  "progress": {
+    "title": "正在创建你的项目…",
+    "steps": {
+      "create-dir": "创建项目文件夹",
+      "git-init": "初始化 git 仓库 + README",
+      "assemble": "组装 Specrails 工作区（离线）",
+      "blueprint": "写入蓝图",
+      "tickets": "插入里程碑 1 规格",
+      "register": "注册项目",
+      "github": "创建 GitHub 仓库"
+    },
+    "githubErrors": {
+      "gh_not_installed": "未安装 GitHub CLI（gh）— 未创建仓库",
+      "gh_not_authenticated": "gh 未登录（请运行 gh auth login）— 未创建仓库",
+      "gh_scope": "你的 gh 令牌无权创建仓库（缺少 repo 权限）",
+      "gh_repo_exists": "你的账户中已存在同名仓库",
+      "gh_network": "与 GitHub 通信时网络出错 — 未创建仓库",
+      "generic": "创建 GitHub 仓库失败"
+    }
+  },
+  "done": {
+    "title": "项目已创建",
+    "description": "里程碑 1 的待办清单已在看板上，标签为 M1。",
+    "launchM1": "启动里程碑 1",
+    "openProject": "打开项目",
+    "launchToast": "里程碑 1 已启动——{{count}} 个规格在一条轨道上",
+    "launchFailed": "无法启动里程碑 1"
+  },
+  "sidebar": {
+    "title": "蓝图",
+    "milestone": "M{{n}}",
+    "progress": "{{done}}/{{total}} 已完成",
+    "launchM1": "启动里程碑 1",
+    "generateNext": "生成 M{{n}}",
+    "generateHint": "打开以蓝图为种子、扎根真实代码的规格会话"
+  },
+  "errors": {
+    "startFailed": "无法启动构建器对话。",
+    "turnFailed": "构建器回合失败。",
+    "commitFailed": "项目创建失败。"
+  },
+  "milestone": {
+    "title": "生成 {{label}}",
+    "inputPlaceholder": "完善规格…",
+    "commit": "将 {{count}} 个规格提交为 {{label}}",
+    "commitToast": "{{count}} 个规格已作为 {{label}} 加入看板",
+    "commitFailed": "无法提交里程碑"
+  },
+  "mode": {
+    "title": "项目构建器",
+    "subtitle": "智能体正在构建新项目",
+    "exit": "退出",
+    "exitConfirmTitle": "退出构建器？",
+    "exitConfirmBody": "进行中的蓝图将被丢弃。",
+    "exitConfirmCancel": "继续构建",
+    "exitConfirmDiscard": "丢弃并退出"
+  },
+  "prompts": {
+    "surpriseMe": "给我惊喜——为蓝图的所有维度提出合理方案，保持 m1Specs 为空，并在生成详细规格前让我先批准计划。",
+    "milestoneSeed": "为里程碑 {{label}}（\"{{title}}\"）生成详细规格。先阅读真实代码并验证完整批次，然后在一次 blueprint-draft 回复/快照中输出该里程碑的全部详细规格。",
+    "milestoneSeedWithPlanned": "为里程碑 {{label}}（\"{{title}}\"）生成详细规格。计划的规格标题：{{planned}}。先阅读真实代码并验证完整批次，然后在一次 blueprint-draft 回复/快照中输出该里程碑的全部详细规格。"
+  },
+  "specModal": {
+    "eyebrow": "{{milestone}} · 规格 {{index}}",
+    "close": "关闭",
+    "open": "查看规格详情",
+    "empty": "尚无描述。",
+    "summary": "摘要",
+    "priority": "优先级",
+    "description": "规格描述",
+    "acceptanceCriteria": "验收标准",
+    "criteriaEmpty": "尚无验收标准。"
+  }
+}

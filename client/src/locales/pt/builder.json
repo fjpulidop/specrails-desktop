@@ -1,0 +1,129 @@
+{
+  "shell": {
+    "title": "Construtor de projetos",
+    "subtitle": "Da ideia ao backlog do Marco 1",
+    "close": "Fechar o Construtor",
+    "emptyTitle": "Descreva sua ideia de app",
+    "emptyHint": "Uma ou duas frases bastam — o Construtor fará uma breve entrevista e proporá um blueprint completo. Você também pode deixá-lo decidir tudo.",
+    "surpriseMe": "Surpreenda-me",
+    "inputPlaceholder": "Um app que…",
+    "createSpecs": "Criar specs",
+    "createSpecsHint": "Disponível quando o blueprint tiver specs do Marco 1"
+  },
+  "panel": {
+    "title": "Blueprint",
+    "product": "Produto",
+    "coreFlow": "Fluxo principal",
+    "platform": "Plataforma",
+    "stack": "Stack",
+    "milestones": "Marcos",
+    "milestonesValue": "{{count}} planejados",
+    "assumptions": "Suposições",
+    "m1Specs": "Specs do Marco 1 ({{count}})",
+    "dependsOn": "depende de #{{index}}",
+    "criteriaCount": "{{count}} critérios de aceitação",
+    "laterMilestones": "Marcos posteriores",
+    "empty": "O blueprint se preenche enquanto você conversa."
+  },
+  "commit": {
+    "title": "Criar o projeto",
+    "description": "Nada toca o disco até você confirmar. O repo fica intocado — os artefatos do Specrails vivem fora dele.",
+    "nameLabel": "Nome do projeto",
+    "locationLabel": "Local",
+    "locationHint": "Uma nova pasta será criada aqui (vazia ou inexistente).",
+    "providersLabel": "Provedores de IA",
+    "githubLabel": "Criar repositório privado no GitHub",
+    "githubAuthHint": "Inicie sessão primeiro: gh auth login",
+    "back": "Voltar",
+    "submit": "Criar projeto",
+    "creating": "Criando…",
+    "errors": {
+      "generic": "O commit não pôde iniciar. Verifique os valores e tente de novo.",
+      "invalid_name": "O nome do projeto é obrigatório.",
+      "invalid_location": "O local é obrigatório.",
+      "providers_required": "Selecione pelo menos um provedor.",
+      "unknown_provider": "Um dos provedores selecionados não está disponível.",
+      "invalid_blueprint": "O blueprint está incompleto — volte e termine com o Construtor.",
+      "m1_specs_required": "O blueprint ainda não tem specs do Marco 1.",
+      "m1_specs_over_cap": "O Marco 1 tem specs demais (máx. 10). Peça ao Construtor para enxugá-lo.",
+      "m1_spec_quality_invalid": "As specs geradas ainda não estão prontas para implementação. Volte ao Construtor e refine o item indicado.",
+      "bundled_framework_missing": "O framework embutido está ausente — reinstale o app Specrails.",
+      "location_not_empty": "Essa pasta já existe e não está vazia. Escolha outro local.",
+      "location_already_registered": "Esse local já pertence a um projeto registrado.",
+      "commit_failed": "A criação do projeto falhou — veja a lista de passos para o motivo."
+    }
+  },
+  "progress": {
+    "title": "Criando seu projeto…",
+    "steps": {
+      "create-dir": "Criar a pasta do projeto",
+      "git-init": "Inicializar o repositório git + README",
+      "assemble": "Montar o workspace do Specrails (offline)",
+      "blueprint": "Gravar o blueprint",
+      "tickets": "Inserir as specs do Marco 1",
+      "register": "Registrar o projeto",
+      "github": "Criar o repositório no GitHub"
+    },
+    "githubErrors": {
+      "gh_not_installed": "GitHub CLI (gh) não está instalado — repositório não criado",
+      "gh_not_authenticated": "gh sem sessão (execute gh auth login) — repositório não criado",
+      "gh_scope": "Seu token do gh não pode criar repositórios (falta o scope repo)",
+      "gh_repo_exists": "Já existe um repositório com esse nome na sua conta",
+      "gh_network": "Erro de rede com o GitHub — repositório não criado",
+      "generic": "Falha ao criar o repositório do GitHub"
+    }
+  },
+  "done": {
+    "title": "Projeto criado",
+    "description": "Seu backlog do Marco 1 está no quadro, com a etiqueta M1.",
+    "launchM1": "Lançar o Marco 1",
+    "openProject": "Abrir o projeto",
+    "launchToast": "Marco 1 lançado — {{count}} specs em um trilho",
+    "launchFailed": "Não foi possível lançar o Marco 1"
+  },
+  "sidebar": {
+    "title": "Blueprint",
+    "milestone": "M{{n}}",
+    "progress": "{{done}}/{{total}} concluídas",
+    "launchM1": "Lançar o Marco 1",
+    "generateNext": "Gerar M{{n}}",
+    "generateHint": "Abre uma sessão de specs ancorada no código, semeada com o blueprint"
+  },
+  "errors": {
+    "startFailed": "Não foi possível iniciar a conversa do Construtor.",
+    "turnFailed": "O turno do Construtor falhou.",
+    "commitFailed": "A criação do projeto falhou."
+  },
+  "milestone": {
+    "title": "Gerar {{label}}",
+    "inputPlaceholder": "Refine as specs…",
+    "commit": "Confirmar {{count}} specs como {{label}}",
+    "commitToast": "{{count}} specs adicionadas ao quadro como {{label}}",
+    "commitFailed": "Não foi possível confirmar o marco"
+  },
+  "mode": {
+    "title": "Construtor de projetos",
+    "subtitle": "O agente está construindo um projeto novo",
+    "exit": "Sair",
+    "exitConfirmTitle": "Sair do Construtor?",
+    "exitConfirmBody": "O blueprint em andamento será descartado.",
+    "exitConfirmCancel": "Continuar construindo",
+    "exitConfirmDiscard": "Descartar e sair"
+  },
+  "prompts": {
+    "surpriseMe": "Surpreenda-me — proponha valores sensatos para todas as dimensões do blueprint, mantenha m1Specs vazio e deixe-me aprovar o plano antes de gerar as specs detalhadas.",
+    "milestoneSeed": "Gere as specs detalhadas do marco {{label}} (\"{{title}}\"). Leia primeiro o código real, valide o lote completo e só então emita TODAS as specs detalhadas do marco em uma única resposta/snapshot blueprint-draft.",
+    "milestoneSeedWithPlanned": "Gere as specs detalhadas do marco {{label}} (\"{{title}}\"). Títulos de specs planejadas: {{planned}}. Leia primeiro o código real, valide o lote completo e só então emita TODAS as specs detalhadas do marco em uma única resposta/snapshot blueprint-draft."
+  },
+  "specModal": {
+    "eyebrow": "{{milestone}} · Spec {{index}}",
+    "close": "Fechar",
+    "open": "Ver detalhe da spec",
+    "empty": "Ainda sem descrição.",
+    "summary": "Resumo",
+    "priority": "Prioridade",
+    "description": "Descrição da spec",
+    "acceptanceCriteria": "Critérios de aceitação",
+    "criteriaEmpty": "Ainda não há critérios de aceitação."
+  }
+}

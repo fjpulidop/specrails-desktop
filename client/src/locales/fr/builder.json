@@ -1,0 +1,129 @@
+{
+  "shell": {
+    "title": "Constructeur de projets",
+    "subtitle": "De l'idée au backlog du Jalon 1",
+    "close": "Fermer le Constructeur",
+    "emptyTitle": "Décrivez votre idée d'app",
+    "emptyHint": "Une ou deux phrases suffisent — le Constructeur vous interviewera brièvement et proposera un blueprint complet. Vous pouvez aussi le laisser tout décider.",
+    "surpriseMe": "Surprenez-moi",
+    "inputPlaceholder": "Une app qui…",
+    "createSpecs": "Créer les specs",
+    "createSpecsHint": "Disponible dès que le blueprint contient des specs du Jalon 1"
+  },
+  "panel": {
+    "title": "Blueprint",
+    "product": "Produit",
+    "coreFlow": "Flux principal",
+    "platform": "Plateforme",
+    "stack": "Stack",
+    "milestones": "Jalons",
+    "milestonesValue": "{{count}} planifiés",
+    "assumptions": "Hypothèses",
+    "m1Specs": "Specs du Jalon 1 ({{count}})",
+    "dependsOn": "dépend de #{{index}}",
+    "criteriaCount": "{{count}} critères d'acceptation",
+    "laterMilestones": "Jalons suivants",
+    "empty": "Le blueprint se remplit au fil de la conversation."
+  },
+  "commit": {
+    "title": "Créer le projet",
+    "description": "Rien ne touche le disque avant votre confirmation. Le dépôt reste vierge — les artefacts Specrails vivent ailleurs.",
+    "nameLabel": "Nom du projet",
+    "locationLabel": "Emplacement",
+    "locationHint": "Un nouveau dossier sera créé ici (vide ou inexistant).",
+    "providersLabel": "Fournisseurs d'IA",
+    "githubLabel": "Créer un dépôt GitHub privé",
+    "githubAuthHint": "Connectez-vous d’abord : gh auth login",
+    "back": "Retour",
+    "submit": "Créer le projet",
+    "creating": "Création…",
+    "errors": {
+      "generic": "Le commit n'a pas pu démarrer. Vérifiez les valeurs et réessayez.",
+      "invalid_name": "Le nom du projet est requis.",
+      "invalid_location": "L'emplacement est requis.",
+      "providers_required": "Sélectionnez au moins un fournisseur.",
+      "unknown_provider": "Un des fournisseurs sélectionnés n'est pas disponible.",
+      "invalid_blueprint": "Le blueprint est incomplet — revenez le terminer avec le Constructeur.",
+      "m1_specs_required": "Le blueprint n'a pas encore de specs du Jalon 1.",
+      "m1_specs_over_cap": "Le Jalon 1 a trop de specs (max. 10). Demandez au Constructeur de l'alléger.",
+      "m1_spec_quality_invalid": "Les specs générées ne sont pas encore prêtes à être implémentées. Revenez au Constructeur et affinez l'élément indiqué.",
+      "bundled_framework_missing": "Le framework embarqué est absent — réinstallez l'app Specrails.",
+      "location_not_empty": "Ce dossier existe déjà et n'est pas vide. Choisissez un autre emplacement.",
+      "location_already_registered": "Cet emplacement appartient déjà à un projet enregistré.",
+      "commit_failed": "La création du projet a échoué — voyez la liste des étapes pour la raison."
+    }
+  },
+  "progress": {
+    "title": "Création de votre projet…",
+    "steps": {
+      "create-dir": "Créer le dossier du projet",
+      "git-init": "Initialiser le dépôt git + README",
+      "assemble": "Assembler le workspace Specrails (hors ligne)",
+      "blueprint": "Écrire le blueprint",
+      "tickets": "Insérer les specs du Jalon 1",
+      "register": "Enregistrer le projet",
+      "github": "Créer le dépôt GitHub"
+    },
+    "githubErrors": {
+      "gh_not_installed": "GitHub CLI (gh) n’est pas installé — dépôt non créé",
+      "gh_not_authenticated": "gh n’est pas connecté (exécutez gh auth login) — dépôt non créé",
+      "gh_scope": "Votre jeton gh ne peut pas créer de dépôts (scope repo manquant)",
+      "gh_repo_exists": "Un dépôt portant ce nom existe déjà sur votre compte",
+      "gh_network": "Erreur réseau avec GitHub — dépôt non créé",
+      "generic": "La création du dépôt GitHub a échoué"
+    }
+  },
+  "done": {
+    "title": "Projet créé",
+    "description": "Votre backlog du Jalon 1 est sur le tableau, étiqueté M1.",
+    "launchM1": "Lancer le Jalon 1",
+    "openProject": "Ouvrir le projet",
+    "launchToast": "Jalon 1 lancé — {{count}} specs sur un rail",
+    "launchFailed": "Impossible de lancer le Jalon 1"
+  },
+  "sidebar": {
+    "title": "Blueprint",
+    "milestone": "M{{n}}",
+    "progress": "{{done}}/{{total}} faites",
+    "launchM1": "Lancer le Jalon 1",
+    "generateNext": "Générer M{{n}}",
+    "generateHint": "Ouvre une session de specs ancrée dans le code, semée avec le blueprint"
+  },
+  "errors": {
+    "startFailed": "Impossible de démarrer la conversation du Constructeur.",
+    "turnFailed": "Le tour du Constructeur a échoué.",
+    "commitFailed": "La création du projet a échoué."
+  },
+  "milestone": {
+    "title": "Générer {{label}}",
+    "inputPlaceholder": "Affinez les specs…",
+    "commit": "Valider {{count}} specs comme {{label}}",
+    "commitToast": "{{count}} specs ajoutées au tableau comme {{label}}",
+    "commitFailed": "Impossible de valider le jalon"
+  },
+  "mode": {
+    "title": "Constructeur de projets",
+    "subtitle": "L'agent construit un nouveau projet",
+    "exit": "Quitter",
+    "exitConfirmTitle": "Quitter le Constructeur ?",
+    "exitConfirmBody": "Le blueprint en cours sera abandonné.",
+    "exitConfirmCancel": "Continuer",
+    "exitConfirmDiscard": "Abandonner et quitter"
+  },
+  "prompts": {
+    "surpriseMe": "Surprends-moi — propose des valeurs cohérentes pour toutes les dimensions du blueprint, garde m1Specs vide et laisse-moi approuver le plan avant de générer les specs détaillées.",
+    "milestoneSeed": "Génère les specs détaillées du jalon {{label}} (\"{{title}}\"). Lis d'abord le vrai code, valide le lot complet, puis émets TOUTES les specs détaillées du jalon dans une seule réponse/un seul snapshot blueprint-draft.",
+    "milestoneSeedWithPlanned": "Génère les specs détaillées du jalon {{label}} (\"{{title}}\"). Titres de specs prévus : {{planned}}. Lis d'abord le vrai code, valide le lot complet, puis émets TOUTES les specs détaillées du jalon dans une seule réponse/un seul snapshot blueprint-draft."
+  },
+  "specModal": {
+    "eyebrow": "{{milestone}} · Spec {{index}}",
+    "close": "Fermer",
+    "open": "Voir le détail de la spec",
+    "empty": "Pas encore de description.",
+    "summary": "Résumé",
+    "priority": "Priorité",
+    "description": "Description de la spec",
+    "acceptanceCriteria": "Critères d'acceptation",
+    "criteriaEmpty": "Aucun critère d'acceptation pour le moment."
+  }
+}

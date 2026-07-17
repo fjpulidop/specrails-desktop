@@ -203,6 +203,20 @@ describe('OPERATOR_SYSTEM_PROMPT — SDD Quick policy', () => {
   })
 })
 
+describe('batch sizing recommendation (max 3 specs per rail)', () => {
+  it('OPERATOR_INSTRUCTIONS caps batch-implement recommendations at 3 specs per rail', () => {
+    expect(OPERATOR_INSTRUCTIONS).toContain('Batch sizing: at most 3 specs per rail.')
+    expect(OPERATOR_INSTRUCTIONS).toContain('never propose more than 3 specs on one rail')
+    // The escape hatch is explicit-user-insistence only.
+    expect(OPERATOR_INSTRUCTIONS).toContain('when the user explicitly insists')
+  })
+
+  it('OPERATOR_SYSTEM_PROMPT carries the same cap', () => {
+    expect(OPERATOR_SYSTEM_PROMPT).toContain('never recommend more than 3 specs per rail')
+    expect(OPERATOR_SYSTEM_PROMPT).toContain('exceeding 3 only on explicit user insistence')
+  })
+})
+
 describe('byte-stability contract', () => {
   it('both prompts are static strings (no per-call variance)', () => {
     // Trivially true for constants, but pins the module shape: re-importing

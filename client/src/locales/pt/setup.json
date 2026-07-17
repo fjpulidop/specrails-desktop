@@ -82,6 +82,13 @@
     },
     "toasts": {
       "registered": "Projeto \"{{name}}\" registado"
+    },
+    "chooser": {
+      "description": "Traga um repositório existente ou construa um projeto novinho a partir de uma ideia.",
+      "existingTitle": "Projeto existente",
+      "existingDescription": "Registre um repositório que já existe no disco.",
+      "newTitle": "Projeto novo",
+      "newDescription": "Descreva uma ideia e receba um repo inicializado com um backlog do Marco 1."
     }
   },
   "prerequisites": {

@@ -65,6 +65,9 @@ const MODEL_PRICE_PER_1K_INPUT_TOKENS: Record<string, number> = {
   'gpt-5.5': 0.0015,
   'gpt-5.4-mini': 0.0006,
   'gpt-5.4': 0.005,
+  'gpt-5.6-sol': 0.005,
+  'gpt-5.6-terra': 0.0025,
+  'gpt-5.6-luna': 0.001,
 }
 
 export function estimateInputTokens(scope: ContextScope, budget: ContextBudget): number {

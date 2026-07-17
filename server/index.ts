@@ -33,6 +33,9 @@ import { MobileGateway, createMobileAdminRouter, getMobileEventBus } from './mob
 import { McpServerManager, requireMcpAuth, createMcpAdminRouter } from './mcp'
 import { AgentChatManager } from './agent-chat-manager'
 import { createAgentChatRouter, isAgentChatEnabled } from './agent-chat-router'
+import { BlueprintChatManager } from './blueprint-chat-manager'
+import { createBlueprintRouter } from './blueprint-router'
+import { createBlueprintCommitRunner } from './blueprint-commit'
 import { setAgentChatManager } from './agent-chat-registry'
 import type { BrowserWsClient } from './browser-capture-manager'
 import type { BrowserInputEvent } from './browser-capture-types'
@@ -311,6 +314,7 @@ let _registry: ProjectRegistry | null = null
 let _mobileGateway: MobileGateway | null = null
 let _mcpManager: McpServerManager | null = null
 let _agentChatManager: AgentChatManager | null = null
+let _blueprintChatManager: BlueprintChatManager | null = null
 let _headroomManager: HeadroomManager | null = null
 
 server.on('upgrade', (request, socket, head) => {
@@ -631,6 +635,17 @@ function applyPtyWsRateLimiting(ws: WebSocket): void {
   setAgentChatManager(isAgentChatEnabled() ? agentChatManager : null)
   app.use('/api/agent', createAgentChatRouter({ manager: agentChatManager, desktopDb: registry.desktopDb }))
 
+  // Project Builder day-0 chat + orchestrated commit (add-project-builder).
+  // App-level like agent chat — a Builder conversation runs before any project
+  // exists. Route-gated by SPECRAILS_PROJECT_BUILDER inside the router.
+  const blueprintChatManager = new BlueprintChatManager(broadcast, registry.desktopDb)
+  _blueprintChatManager = blueprintChatManager
+  app.use('/api/blueprint', createBlueprintRouter({
+    manager: blueprintChatManager,
+    desktopDb: registry.desktopDb,
+    runCommit: createBlueprintCommitRunner({ registry, broadcast }),
+  }))
+
   // App-level routes. CRITICAL mount order: the desktop router is mounted at
   // '/api' BEFORE the project router below so its exact routes (e.g.
   // GET /api/projects, DELETE /api/projects/:id) are handled here, while
@@ -754,6 +769,7 @@ async function shutdown(): Promise<void> {
     Promise.resolve().then(() => _mobileGateway?.stop()),
     Promise.resolve().then(() => _mcpManager?.stop()),
     Promise.resolve().then(() => _agentChatManager?.shutdown()),
+    Promise.resolve().then(() => _blueprintChatManager?.shutdown()),
   ])
   try {
     await _headroomManager?.shutdown()

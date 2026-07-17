@@ -9,6 +9,7 @@ import { useActiveTheme } from '../../context/ThemeContext'
 import { Starfield } from '../theme-effects/Starfield'
 import { AgentConversationView } from './AgentConversationView'
 import { AgentComposer } from './AgentComposer'
+import { BuilderConversation } from '../project-builder/BuilderConversation'
 
 const AgentModeCodePane = lazy(() =>
   import('./AgentModeCodePane').then((m) => ({ default: m.AgentModeCodePane })),
@@ -27,7 +28,7 @@ const AgentBrowserCapture = lazy(() =>
  */
 export function AgentModeSurface() {
   const { t } = useTranslation('agent')
-  const { active, refreshConversations } = useAgentChat()
+  const { active, refreshConversations, builderMode } = useAgentChat()
  const { codePaneOpen, jobsPaneOpen, browserOpen } = useAgentWorkspace()
   const { activeProjectId } = useDesktop()
   const activeTheme = useActiveTheme()
@@ -62,7 +63,15 @@ export function AgentModeSurface() {
               'radial-gradient(60% 55% at 50% 45%, color-mix(in srgb, var(--color-accent-primary) 13%, transparent), transparent 70%)',
           }}
         />
-        {active === null ? (
+        {builderMode.active ? (
+          // ── BUILDER MODE (reskin): a "new mission" in new-project mode — the
+          // MISSION format (centered column, docked composer) with the halo on
+          // the composer card itself. The workspace sidebar transforms into
+          // the blueprint panel (D4).
+          <div className="relative z-10 flex min-h-0 flex-1 flex-col overflow-hidden">
+            <BuilderConversation variant="inline" />
+          </div>
+        ) : active === null ? (
           // ── EMPTY: centered composer card. The card carries the shared
           // `layoutId`, so the first send morphs it down into the docked
           // composer of the conversation view (and New Mission morphs it back).

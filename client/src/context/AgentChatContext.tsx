@@ -33,6 +33,7 @@ import {
 } from '../lib/agent-api'
 import { AgentChatPanel } from '../components/agent-chat/AgentChatPanel'
 import { AgentBubble } from '../components/agent-chat/AgentBubble'
+import { useBuilderSession, type BuilderSession } from '../hooks/useBuilderSession'
 import { useUiMode } from './UiModeContext'
 import { useDesktop } from '../hooks/useDesktop'
 import { comparePrSnapshotUpdatedAt } from '../lib/pr-delivery'
@@ -364,6 +365,17 @@ export interface AgentChatContextValue {
    *  Standalone cards receive `untracked` so they can still use a local
    *  authoritative override; `stale` means a newer generation already won. */
   applyPrDecisionSnapshot: (envelope: AgentPrDecisionEnvelope) => PrDecisionSnapshotApplication
+
+  /** Project Builder mode (reskin-project-builder-into-agent-panel): the agent
+   *  surfaces transform into the day-0 Builder while `active`. `enter` also
+   *  opens the floating panel outside Agent Mode; `exit` aborts + resets the
+   *  builder session and restores the agent chrome. */
+  builderMode: {
+    active: boolean
+    enter: () => void
+    exit: () => void
+    session: BuilderSession
+  }
 }
 
 const AgentChatContext = createContext<AgentChatContextValue | null>(null)
@@ -775,6 +787,26 @@ export function AgentChatProvider({ children }: { children: ReactNode }) {
 
   const close = useCallback(() => setVisibility('hidden'), [])
   const minimize = useCallback(() => setVisibility('minimized'), [])
+
+  // ─── Builder mode (reskin-project-builder-into-agent-panel D1) ─────────────
+  // The day-0 Project Builder rides the agent surfaces as a SKIN: while active,
+  // the panel/mission surface render the builder session (blueprint transport)
+  // and the normal agent chrome is hidden — never unmounted, so queues, pinned
+  // cards, and live streams survive the mode untouched.
+  const [builderActive, setBuilderActive] = useState(false)
+  const builderSessionRef = useRef<BuilderSession | null>(null)
+  const exitBuilderMode = useCallback(() => {
+    builderSessionRef.current?.abortAndReset()
+    setBuilderActive(false)
+  }, [])
+  const builderSession = useBuilderSession(builderActive, { onFinished: exitBuilderMode })
+  builderSessionRef.current = builderSession
+  const enterBuilderMode = useCallback(() => {
+    setBuilderActive(true)
+    // Board mode: the builder lives in the floating panel — summon it. Agent
+    // Mode suppresses the panel; the mission surface takes the builder skin.
+    if (uiMode !== 'agent') open()
+  }, [uiMode, open])
   const toggle = useCallback(() => {
     setVisibility((v) => (v === 'open' ? 'minimized' : 'open'))
     if (visibility !== 'open') {
@@ -950,6 +982,10 @@ export function AgentChatProvider({ children }: { children: ReactNode }) {
   }, [active, patchActive, uiMode, setActiveProjectId])
 
   const startNewConversation = useCallback((projectId?: string | null) => {
+    // An explicit mission action while the Builder skin is up is a clear
+    // intent to leave it — exit (abort + reset) so the normal compose screen
+    // is actually visible, not hidden behind the builder branch.
+    exitBuilderMode()
     setActive(null)
     setMessages([])
     setDraftPinnedProjectId(projectId ?? null)
@@ -957,9 +993,10 @@ export function AgentChatProvider({ children }: { children: ReactNode }) {
     setDraftModel(null)
     setDraftTierLevel(0)
     setDraftEffort(null)
-  }, [])
+  }, [exitBuilderMode])
 
   const newConversation = useCallback(async (projectId?: string | null) => {
+    exitBuilderMode() // same intent-to-leave as startNewConversation
     // Explicit arg pins to that project (null ⇒ Home); arg-less preserves the
     // legacy behavior of inheriting the active conversation's pin.
     const pinnedProjectId = projectId !== undefined ? projectId : (active?.pinned_project_id ?? null)
@@ -967,9 +1004,12 @@ export function AgentChatProvider({ children }: { children: ReactNode }) {
     setConversations((c) => [created, ...c])
     setActive(created)
     setMessages([])
-  }, [active])
+  }, [active, exitBuilderMode])
 
-  const selectConversation = useCallback(async (id: string) => { await loadConversation(id) }, [loadConversation])
+  const selectConversation = useCallback(async (id: string) => {
+    exitBuilderMode() // picking a mission leaves the Builder skin
+    await loadConversation(id)
+  }, [loadConversation, exitBuilderMode])
 
   const deleteConversation = useCallback(async (id: string) => {
     await deleteAgentConversation(id)
@@ -1040,8 +1080,10 @@ export function AgentChatProvider({ children }: { children: ReactNode }) {
     draftProvider, draftModel, draftTierLevel, draftEffort, setEffort,
     selectConversation, deleteConversation, renameConversation, toggleFavoriteConversation, refreshConversations,
     applyPrDecisionSnapshot,
+    builderMode: { active: builderActive, enter: enterBuilderMode, exit: exitBuilderMode, session: builderSession },
   }), [
     visibility, open, close, minimize, toggle,
+    builderActive, enterBuilderMode, exitBuilderMode, builderSession,
     conversations, active, messages, streamingText, isStreaming, liveTools,
     queuedMessages, streamingConversationIds, liveByConv, unreadConversationIds, favoriteConversationIds,
     mcpEnabled, enablingMcp, enableMcpServer, providersReady,
@@ -1091,6 +1133,20 @@ const NOOP_AGENT_CHAT: AgentChatContextValue = {
   toggleFavoriteConversation: () => {},
   refreshConversations: async () => {},
   applyPrDecisionSnapshot: () => 'untracked',
+  builderMode: {
+    active: false,
+    enter: () => {},
+    exit: () => {},
+    session: {
+      phase: 'chat', messages: [], streamBuffer: null, blueprint: null, busy: false,
+      commitError: null, commitErrorDetail: null, commitSteps: [], createdProjectId: null, launching: false, submitting: false,
+      conversationReady: false, dirty: false, canProposeCommit: false, specQualityDetail: null, showSurpriseMe: true,
+      provider: 'claude', model: null, models: [], efforts: [], effort: 'medium', draft: '', setDraft: () => {},
+      setEffort: () => {}, setProvider: () => {}, setModel: () => {},
+      send: () => {}, surpriseMe: () => {}, goToCommit: () => {}, backToChat: () => {},
+      submitCommit: () => {}, launchM1: async () => {}, openProject: () => {}, abortAndReset: () => {},
+    },
+  },
 }
 
 /**

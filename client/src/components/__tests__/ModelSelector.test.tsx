@@ -1,13 +1,21 @@
 import { describe, it, expect, vi } from 'vitest'
 import { screen, fireEvent } from '@testing-library/react'
 import { render } from '../../test-utils'
-import { getDefaultModel, ModelSelector } from '../ModelSelector'
+import { CODEX_MODELS, getDefaultModel, ModelSelector } from '../ModelSelector'
 import type { AgentDef } from '../AgentSelector'
 
 const SAMPLE_AGENTS: AgentDef[] = [
   { id: 'sr-developer', name: 'Developer', description: 'Full-stack', category: 'Core' },
   { id: 'sr-architect', name: 'Architect', description: 'Architecture', category: 'Core' },
 ]
+
+describe('CODEX_MODELS catalog', () => {
+  it('lists the GPT-5.6 family (sol/terra/luna) ahead of gpt-5.5', () => {
+    const values = CODEX_MODELS.map((m) => m.value)
+    expect(values.slice(0, 3)).toEqual(['gpt-5.6-sol', 'gpt-5.6-terra', 'gpt-5.6-luna'])
+    expect(values).toContain('gpt-5.5')
+  })
+})
 
 describe('getDefaultModel', () => {
   it('returns sonnet for non-special agents in balanced preset (claude)', () => {
@@ -42,12 +50,12 @@ describe('getDefaultModel', () => {
     expect(getDefaultModel('sr-architect', 'balanced', 'codex')).toBe('gpt-5.5')
   })
 
-  it('returns o3 for sr-architect in max preset (codex)', () => {
-    expect(getDefaultModel('sr-architect', 'max', 'codex')).toBe('gpt-5.3-codex')
+  it('returns gpt-5.6-sol for sr-architect in max preset (codex)', () => {
+    expect(getDefaultModel('sr-architect', 'max', 'codex')).toBe('gpt-5.6-sol')
   })
 
-  it('returns o3 for sr-product-manager in max preset (codex)', () => {
-    expect(getDefaultModel('sr-product-manager', 'max', 'codex')).toBe('gpt-5.3-codex')
+  it('returns gpt-5.6-sol for sr-product-manager in max preset (codex)', () => {
+    expect(getDefaultModel('sr-product-manager', 'max', 'codex')).toBe('gpt-5.6-sol')
   })
 
   it('returns gemini-3.5-flash for non-special agents in balanced preset (gemini)', () => {
@@ -66,8 +74,8 @@ describe('getDefaultModel', () => {
     expect(getDefaultModel('sr-developer', 'balanced', 'mystery')).toBe('sonnet')
   })
 
-  it('returns gpt-5.5 for sr-developer in max preset (codex)', () => {
-    expect(getDefaultModel('sr-developer', 'max', 'codex')).toBe('gpt-5.5')
+  it('returns gpt-5.6-sol for sr-developer in max preset (codex)', () => {
+    expect(getDefaultModel('sr-developer', 'max', 'codex')).toBe('gpt-5.6-sol')
   })
 
   it('returns gpt-5.4-mini for any agent in budget preset (codex)', () => {

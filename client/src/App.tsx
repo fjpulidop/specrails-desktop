@@ -461,7 +461,10 @@ function DesktopApp() {
         ? !isInSetup && !onGlobalRoute && <AgentWorkspaceSidebar />
         : activeProject && !isInSetup && !onGlobalRoute && <ProjectRightSidebar />}
 
-      <AddProjectDialog open={addDialogOpen} onClose={() => setAddDialogOpen(false)} />
+      {/* New-project path (reskin): the chooser's New card puts the AGENT into
+          builder mode (floating panel in board mode; mission surface + sidebar
+          transform in Agent Mode) — no standalone overlay. */}
+      <AddProjectDialog open={addDialogOpen} onClose={() => setAddDialogOpen(false)} onOpenBuilder={() => agentChat.builderMode.enter()} />
       <SettingsDialog open={settingsOpen} onClose={() => setSettingsOpen(false)} onOpenOnboarding={() => { setSettingsOpen(false); setOnboardingOpen(true) }} />
 
       <Dialog open={analyticsOpen} onOpenChange={setAnalyticsOpen}>
