@@ -1,5 +1,12 @@
 # Changelog
 
+## [2.30.0](https://github.com/fjpulidop/specrails-desktop/compare/v2.29.5...v2.30.0) (2026-07-17)
+
+
+### Features
+
+* **builder:** Project Builder + gh-gated GitHub repo option + GPT-5.6 models + batch cap ([#554](https://github.com/fjpulidop/specrails-desktop/issues/554)) ([08666dc](https://github.com/fjpulidop/specrails-desktop/commit/08666dc1b575e73760afcb8775abd9ea99e5a50e))
+
 ## [2.29.5](https://github.com/fjpulidop/specrails-desktop/compare/v2.29.4...v2.29.5) (2026-07-14)
 
 
