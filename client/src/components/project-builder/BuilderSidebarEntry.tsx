@@ -147,7 +147,7 @@ export function BuilderSidebarEntry({ expanded }: BuilderSidebarEntryProps) {
 
       {panelOpen && (
         <div
-          className="absolute bottom-0 right-full z-[60] mr-2 w-64 rounded-lg border border-border/50 bg-background p-3 shadow-xl"
+          className="absolute top-0 right-full z-[60] mr-2 w-64 rounded-lg border border-border/50 bg-background p-3 shadow-xl"
           data-testid="builder-sidebar-panel"
         >
           <h4 className="text-xs font-semibold">{t('sidebar.title')}</h4>
