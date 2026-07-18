@@ -260,6 +260,27 @@ describe('FrameworkManager', () => {
       writeFileSync(path.join(coreDir, 'dist', 'installer', 'cli.js'), 'process.exit(5)')
       expect(fm.swapCurrent('9.9.9')).toBe(false)
     })
+
+    it('swapCurrentDetailed carries WHY: subprocess stderr, exit code, or missing CLI', () => {
+      installFakeCore('5.0.0')
+      const fm = new FrameworkManager({ home })
+      fm.materialize('5.0.0', ['claude'])
+      // stderr wins when the subprocess emits one.
+      writeFileSync(
+        path.join(coreDir, 'dist', 'installer', 'cli.js'),
+        `process.stderr.write('version dir 9.9.9 does not exist'); process.exit(41)`,
+      )
+      const failed = fm.swapCurrentDetailed('9.9.9')
+      expect(failed.ok).toBe(false)
+      expect(failed.detail).toContain('version dir 9.9.9 does not exist')
+      // Silent failure falls back to the exit code.
+      writeFileSync(path.join(coreDir, 'dist', 'installer', 'cli.js'), 'process.exit(5)')
+      expect(fm.swapCurrentDetailed('9.9.9')).toEqual({ ok: false, detail: 'exit 5' })
+      // No usable CLI at all.
+      delete process.env.SPECRAILS_BUNDLED_CORE_PATH
+      const noCli = new FrameworkManager({ home })
+      expect(noCli.swapCurrentDetailed('9.9.9').detail).toMatch(/no usable core CLI/)
+    })
   })
 
   describe('versionCheck when materialize fails', () => {

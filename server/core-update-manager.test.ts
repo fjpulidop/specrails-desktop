@@ -199,6 +199,45 @@ describe('CoreUpdateManager', () => {
       expect(events.some((e) => e.type === 'core_update.progress' && e.phase === 'error')).toBe(true)
     })
 
+    it('surfaces the swap-current subprocess stderr in the error', async () => {
+      bundle('4.8.0')
+      // install-framework succeeds; swap-current fails loudly.
+      const cliSwapFail = FAKE_CLI.replace(
+        `if(sub==='swap-current'){const fw=arg('framework-dir');const v=arg('version');if(!fs.existsSync(path.join(fw,v)))process.exit(41);swap(fw,v);process.exit(0)}`,
+        `if(sub==='swap-current'){process.stderr.write('symlink EPERM: operation not permitted');process.exit(41)}`,
+      )
+      const m = new CoreUpdateManager({
+        home,
+        npmInstall: stagingInstaller('4.9.0', cliSwapFail),
+      })
+      const res = await m.update('4.9.0')
+      expect(res.ok).toBe(false)
+      expect(res.error).toMatch(/swap-current failed: .*EPERM/)
+      expect(readCurrentFrameworkVersion(home)).toBeNull()
+    })
+
+    it('fails BEFORE the swap when materialize reports no errors but zero providers', async () => {
+      bundle('4.8.0')
+      let swapAttempted = false
+      const m = new CoreUpdateManager({
+        home,
+        npmInstall: stagingInstaller('4.9.0'),
+        makeFramework: () =>
+          ({
+            bundledVersion: () => '4.9.0',
+            materialize: () => ({ ran: true, version: '4.9.0', providers: [], errors: [] }),
+            swapCurrentDetailed: () => {
+              swapAttempted = true
+              return { ok: false, detail: null }
+            },
+          }) as unknown as import('./framework-manager').FrameworkManager,
+      })
+      const res = await m.update('4.9.0')
+      expect(res.ok).toBe(false)
+      expect(res.error).toMatch(/without materializing any provider/)
+      expect(swapAttempted).toBe(false)
+    })
+
     it('fails when the staged core has no cli.js', async () => {
       bundle('4.8.0')
       const m = new CoreUpdateManager({
