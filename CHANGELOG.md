@@ -1,5 +1,12 @@
 # Changelog
 
+## [2.30.1](https://github.com/fjpulidop/specrails-desktop/compare/v2.30.0...v2.30.1) (2026-07-18)
+
+
+### Bug Fixes
+
+* **interactive:** graceful stdin-EOF teardown on quiescent auto-settle ([#558](https://github.com/fjpulidop/specrails-desktop/issues/558)) ([df00574](https://github.com/fjpulidop/specrails-desktop/commit/df0057465be668da4f8667c3a896fdae3a3fca95))
+
 ## [2.30.0](https://github.com/fjpulidop/specrails-desktop/compare/v2.29.5...v2.30.0) (2026-07-17)
 
 
