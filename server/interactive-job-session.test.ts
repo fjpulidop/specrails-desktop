@@ -27,8 +27,16 @@ function makeFakeChild() {
     writes.push(s)
     return true
   }
+  // Mirrors the real CLI: stdin EOF ⇒ the child flushes and exits by itself
+  // (the graceful quiescent teardown relies on this). Escalation tests replace
+  // `end` with a no-op to simulate a child that ignores EOF.
+  stdin.end = () => {
+    child.stdinEnded = true
+    queueMicrotask(() => child.emit('close', 0))
+  }
   child.stdin = stdin
   child.stdinWrites = writes
+  child.stdinEnded = false
   child.stdinHadErrorListenerOnWrite = false
   child.treeKillSignals = [] as string[]
   child.pid = 4242
@@ -583,7 +591,11 @@ describe("InteractiveJobSession settleMode 'auto'", () => {
     h.child.stdout.push(resultFrame({ result: 'all done' }))
     await tick()
 
-    expect(h.child.killed).toBe(true)
+    // Graceful teardown: stdin EOF (the CLI exits itself, flushing its session
+    // transcript so the next step can --resume) — NOT an immediate SIGTERM.
+    expect(h.child.stdinEnded).toBe(true)
+    expect(h.child.killed).toBe(false)
+    expect(h.child.treeKillSignals).toEqual([])
     expect(h.settled.length).toBe(1)
     expect(h.settled[0].reason).toBe('finalized')
     expect(h.settled[0].totals.total_cost_usd).toBeCloseTo(0.05)
@@ -591,6 +603,31 @@ describe("InteractiveJobSession settleMode 'auto'", () => {
     expect(h.settled[0].estimated).toBe(false)
     // The turn's result payload rides SettleInfo for output chaining.
     expect(h.settled[0].resultText).toBe('all done')
+  })
+
+  it('escalates to SIGTERM when the child ignores the stdin EOF (grace elapsed)', async () => {
+    const h = setup('job-auto-eof', { settleMode: 'auto', quiescentEofGraceMs: 10 })
+    h.child.stdin.end = () => { h.child.stdinEnded = true } // child ignores EOF
+    h.session.start({ binary: 'claude', args: [] }, 'go')
+    h.child.stdout.push(resultFrame({ result: 'done' }))
+    await tick()
+    expect(h.child.stdinEnded).toBe(true)
+    expect(h.settled.length).toBe(0) // grace window — child still has time to exit
+    await new Promise((r) => setTimeout(r, 40))
+    expect(h.child.treeKillSignals).toEqual(['SIGTERM'])
+    expect(h.settled.length).toBe(1)
+    expect(h.settled[0].reason).toBe('finalized')
+  })
+
+  it('falls back to SIGTERM when stdin is already gone at quiescence', async () => {
+    const h = setup('job-auto-nostdin', { settleMode: 'auto' })
+    h.session.start({ binary: 'claude', args: [] }, 'go')
+    h.child.stdin.destroyed = true
+    h.child.stdout.push(resultFrame({ result: 'done' }))
+    await tick()
+    expect(h.child.treeKillSignals).toEqual(['SIGTERM'])
+    expect(h.settled.length).toBe(1)
+    expect(h.settled[0].reason).toBe('finalized')
   })
 
   it('a queued user turn EXTENDS the session instead of settling', async () => {

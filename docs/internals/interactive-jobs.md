@@ -61,7 +61,7 @@ spawnInteractive = isInteractiveJobsEnabled()            // SPECRAILS_INTERACTIV
 | | `'finalize'` | `'auto'` |
 |---|---|---|
 | Who gets it | freestyle/Freestyle QueueManager jobs (claude) | every other interactive job + ALL loop ai-steps |
-| End of session | explicit human **Finalize** only (SIGTERM → 2s → SIGKILL) | **quiescence**: a turn `result` arrived, nothing queued, no write in flight |
+| End of session | explicit human **Finalize** only (SIGTERM → 2s → SIGKILL) | **quiescence**: a turn `result` arrived, nothing queued, no write in flight — torn down GRACEFULLY: stdin EOF (the CLI exits itself, flushing its session transcript so the next loop step can `--resume`), SIGTERM only after a grace window (`quiescentEofGraceMs`, default 5s) or when stdin is already gone |
 | Idle between turns | by design (awaiting the human) | only transiently (microtask window) |
 | Wedge detector | never armed | the queue's zombie-timeout budget, reset on any raw child output; silence for the whole budget → fold in-flight turn, settle `crashed` |
 | Composer action | **Finalize Job** | **Wrap up now** (QueueManager) / **Settle this step** (loop step) |
