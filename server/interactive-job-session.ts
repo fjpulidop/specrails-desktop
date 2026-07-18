@@ -195,6 +195,13 @@ export interface InteractiveJobSessionDeps {
    *  Never armed in 'finalize' mode — idling awaiting the human is by design.
    *  Unset / <= 0 disables the timer. */
   zombieTimeoutMs?: number
+  /** Grace window for the QUIESCENT auto-settle's graceful teardown: the child
+   *  gets its stdin EOF'd (the stream-json CLI exits by itself after flushing
+   *  its session transcript — an immediate SIGTERM races that flush and leaves
+   *  the session unresumable, so the NEXT loop step's `--resume` lands on a
+   *  missing conversation and settles zero-work) and only after this window is
+   *  it SIGTERM'd. Default 5000ms. */
+  quiescentEofGraceMs?: number
   /** Shared event-seq allocator. A session that shares its job row with OTHER
    *  writers (the loop engine persists its own step-boundary/log events on the
    *  same job id) must draw seq numbers from the owner's monotonic counter, or
@@ -244,6 +251,10 @@ export class InteractiveJobSession {
   private readonly _onSettle: (info: SettleInfo) => void
   private readonly _settleMode: 'finalize' | 'auto'
   private readonly _zombieTimeoutMs: number
+  private readonly _quiescentEofGraceMs: number
+  /** Armed by the quiescent graceful teardown: SIGTERM escalation if the child
+   *  ignores the stdin EOF. Cleared on close/settle/dispose. */
+  private _eofTimer: ReturnType<typeof setTimeout> | null = null
   private readonly _nextEventSeq: (() => number) | null
   private readonly _persistTurnUsage: ((
     turn: InteractiveTurnUsage,
@@ -329,6 +340,7 @@ export class InteractiveJobSession {
     this._onSettle = deps.onSettle
     this._settleMode = deps.settleMode ?? 'finalize'
     this._zombieTimeoutMs = deps.zombieTimeoutMs ?? 0
+    this._quiescentEofGraceMs = deps.quiescentEofGraceMs ?? 5000
     this._nextEventSeq = deps.nextEventSeq ?? null
     this._persistTurnUsage = deps.persistTurnUsage ?? null
     this._persistTurnActivity = deps.persistTurnActivity ?? null
@@ -367,6 +379,7 @@ export class InteractiveJobSession {
     child.on('close', (code) => {
       this._childClosed = true
       this._clearKillTimer()
+      this._clearEofTimer()
       this._handleClose(code)
     })
     // A buffered write can fail asynchronously (typically EPIPE after the child
@@ -463,6 +476,37 @@ export class InteractiveJobSession {
     this._terminateChildTree('finalized')
   }
 
+  /** Quiescent auto-settle teardown, GRACEFUL: EOF the child's stdin so the
+   *  stream-json CLI exits by itself — it flushes its session transcript on the
+   *  way out, keeping the session `--resume`-able by the NEXT loop step. The
+   *  previous immediate SIGTERM raced that flush: the next step's resume found
+   *  no conversation, got an instant empty synthetic result, and settled
+   *  zero-work in 0.0s. SIGTERM remains as escalation after the grace window,
+   *  and as the direct fallback when stdin is already gone. */
+  private _finalizeQuiescent(): void {
+    if (this._finalizing || this._settled) return
+    this._finalizing = true
+    this._clearZombieTimer()
+    const child = this._child
+    const stdin = child?.stdin
+    if (!child || this._childClosed || !stdin || stdin.destroyed || this._stdinFailed) {
+      this._terminateChildTree('finalized')
+      return
+    }
+    try {
+      stdin.end()
+    } catch {
+      this._terminateChildTree('finalized')
+      return
+    }
+    this._eofTimer = setTimeout(() => {
+      this._eofTimer = null
+      if (this._childClosed || this._settled || this._disposed) return
+      this._terminateChildTree('finalized')
+    }, this._quiescentEofGraceMs)
+    this._eofTimer.unref?.()
+  }
+
   /** Programmatic teardown that SETTLES 'crashed' after folding any in-flight
    *  turn (loop step timeout / run cancel). Unlike dispose(), the onSettle
    *  callback fires — an owner AWAITING the settle (the loop engine) is
@@ -484,6 +528,7 @@ export class InteractiveJobSession {
     if (this._disposed) return
     this._disposed = true
     this._clearZombieTimer()
+    this._clearEofTimer()
     this._closeReaders()
     this._terminateChildTree(null)
     this._child = null
@@ -735,7 +780,7 @@ export class InteractiveJobSession {
       queueMicrotask(() => {
         if (this._disposed || this._settled || this._finalizing) return
         if (this._streaming || this._pending.length > 0) return
-        this.finalize()
+        this._finalizeQuiescent()
       })
     }
   }
@@ -912,6 +957,7 @@ export class InteractiveJobSession {
     this._streaming = false
     this._awaitingResult = false
     this._clearKillTimer()
+    this._clearEofTimer()
     this._clearZombieTimer()
     this._closeReaders()
     // The child is gone — any prompts still queued (turn died without a `result`,
@@ -1008,6 +1054,13 @@ export class InteractiveJobSession {
     if (this._killTimer !== null) {
       clearTimeout(this._killTimer)
       this._killTimer = null
+    }
+  }
+
+  private _clearEofTimer(): void {
+    if (this._eofTimer !== null) {
+      clearTimeout(this._eofTimer)
+      this._eofTimer = null
     }
   }
 
