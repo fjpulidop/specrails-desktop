@@ -1654,7 +1654,7 @@ export class LoopRunManager {
                 // session so the next pass starts fresh (re-reads the code on disk).
                 // Provider-agnostic: clearing aiSessionId makes runAiStep use the
                 // 'rail-job' (fresh) action, which every adapter maps to its own
-                // native spawn — no claude/codex/gemini branching here.
+                // native spawn — no claude/codex/gemini/kimi branching here.
                 if (target === firstStepId) aiSessionId = undefined
               }
               else { outcome = 'success'; settled = true }

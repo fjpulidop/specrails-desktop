@@ -76,7 +76,7 @@ Esta es la pieza central. `registry.json` es la **única fuente de verdad inspec
 | `profilesDir` | sí | `.specrails/profiles/` relocalizado. El snapshot por job sigue ganando vía `SPECRAILS_PROFILE_PATH`; este es el fallback standalone. |
 | `pluginsStateDir` | desktop-only | `.specrails/plugins/`. Core ignora plugins; presente por completitud/inspeccionabilidad. |
 | `fileSummariesDir` | desktop-only | `.specrails/file-summaries/`. Propiedad de desktop (Code explorer). |
-| `providers` | sí | `["claude","codex","gemini"]`. Espejo de `desktop.sqlite projects.providers`. Permite a core detectar el provider desde el registry en vez de sondear `.claude`/`.codex`/`.gemini` bajo el repo (ahora vacío). |
+| `providers` | sí | `["claude","codex","gemini","kimi"]`. Espejo de `desktop.sqlite projects.providers`. Permite a core detectar el provider desde el registry en vez de sondear `.claude`/`.codex`/`.gemini`/`.kimi-code` bajo el repo (ahora vacío). |
 | `primaryProvider` | sí | `providers[0]`. Espejo de `desktop.sqlite projects.provider`. |
 | `coreVersion` | sí | El pin `specrails-version` (nombre y formato **congelados** — desktop lo regex-matchea; solo su ubicación se mueve). |
 | `createdAt` | no | Primera asignación de la entrada. |

@@ -145,7 +145,7 @@ Para el caso standalone, el framework viene del propio paquete npm de core (no d
 ### 4.1 Bundle de templates en la app (espeja el patrón runtimes **verbatim**)
 
 - **`tauri.conf.json`**: añadir `"framework/**/*"` a `bundle.resources` (junto a `"runtimes/**/*"`, hoy en línea 46). Forma glob para preservar la estructura anidada.
-- **CI (`desktop-release.yml`)**: paso que ensambla `src-tauri/framework/` antes de `tauri build` — copia `templates/**`, `commands/{enrich,doctor}.md`, y genera los providerDir materializados (claude/codex/gemini) + `setup-templates/`. Es el mismo patrón que ensambla `runtimes/`. `src-tauri/framework/` gitignored con `.gitkeep`.
+- **CI (`desktop-release.yml`)**: paso que ensambla `src-tauri/framework/` antes de `tauri build` — copia `templates/**`, `commands/{enrich,doctor}.md`, y genera los providerDir materializados (claude/codex/gemini/kimi) + `setup-templates/`. Es el mismo patrón que ensambla `runtimes/`. `src-tauri/framework/` gitignored con `.gitkeep`.
 - **`scripts/build-sidecar.mjs`**: si algún asset del framework debe resolverse en filesystem real (no dentro del snapshot pkg), copiarlo igual que `node-pty`. La mayoría son ficheros de texto estáticos → bajo riesgo (ver §9).
 - **`lib.rs`** (espejo de líneas 181-215): resolver `<resource_dir>/framework`, gate por existencia (`framework/.../claude/agents` existe y no vacío), y exportar `SPECRAILS_BUNDLED_FRAMEWORK_PATH` al sidecar. **Existence-gated** como los runtimes: si no hay framework empaquetado → fallback al `npx` legacy (no dead-end).
 
@@ -154,7 +154,7 @@ Para el caso standalone, el framework viene del propio paquete npm de core (no d
 - `materialize()`: copia `SPECRAILS_BUNDLED_FRAMEWORK_PATH` → `~/.specrails/framework/<version>/` si esa versión no existe. Idempotente (skip si manifest hash coincide).
 - `swapCurrent(version)`: `renameSync` atómico de `~/.specrails/framework/current` (reusa `atomicWrite`/rename de artifact-registry.ts:213-227). Crea `current.tmp` → rename.
 - `versionCheck()`: en **first-run** y **post-update**, compara la versión bundleada con `current` → materializa + swap si difiere.
-- Multi-provider: materializa por provider; el swap de `current` cambia **todos los providers a la vez** (un solo `current` por versión que contiene los 3 providerDirs).
+- Multi-provider: materializa por provider; el swap de `current` cambia **todos los providers a la vez** (un solo `current` por versión que contiene los 4 providerDirs).
 
 ### 4.3 Extender `ensureWorkspace` para enlazar el framework
 

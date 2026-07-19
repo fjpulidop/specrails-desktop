@@ -19,7 +19,7 @@ If you're contributing to the app itself or building on its API, head over to [`
 | [Creating specs](creating-specs.md) | …you want to draft a spec, compare two specs, save a draft, split a big epic, or refine an existing spec |
 | [Running pipelines](running-pipelines.md) | …you want to launch the AI pipeline against a spec, manage rails, pick agent profiles, or install plugins |
 | [Using Codex](codex.md) | …you added a project with OpenAI's Codex CLI instead of (or alongside) Claude |
-| [Using Gemini](gemini.md) | …you added a project with Google's Gemini CLI instead of (or alongside) Claude or Codex |
+| [Using Gemini](gemini.md) | …you added a project with Google's Gemini CLI instead of (or alongside) Claude, Codex, or Kimi |
 | [Using Kimi](kimi.md) | …you want Kimi Code setup, models/effort, session behavior, MCP, and native limitations |
 | [Tracking cost](tracking-cost.md) | …you want to see what AI is costing you and which specs are the most expensive |
 | [Customising the app](customizing.md) | …you want to change theme, configure settings, set a budget, or turn on telemetry |
