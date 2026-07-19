@@ -915,6 +915,9 @@ describe('RailPrDecisionStrip orthogonal implementation/delivery outcomes', () =
     fireEvent.click(screen.getByTestId('rail-pr-no-changes-done-confirm-btn'))
     await waitFor(() => expect(act).toHaveBeenCalledWith('acknowledge-no-changes', 'no_changes', 'del-1'))
 
+    // the in-flight state clears only after the act promise settles — wait for
+    // the button to re-enable or the next click lands on a disabled control
+    await waitFor(() => expect(screen.getByTestId('rail-pr-refine')).toBeEnabled())
     fireEvent.click(screen.getByTestId('rail-pr-refine'))
     expect(screen.getByTestId('rail-pr-refine-confirm')).toHaveTextContent('return to the backlog')
     fireEvent.click(screen.getByTestId('rail-pr-refine-confirm-btn'))
@@ -927,6 +930,7 @@ describe('RailPrDecisionStrip orthogonal implementation/delivery outcomes', () =
     fireEvent.click(screen.getByTestId('rail-pr-reopen'))
     await waitFor(() => expect(act).toHaveBeenCalledWith('reopen', 'pr_closed', 'del-1'))
 
+    await waitFor(() => expect(screen.getByTestId('rail-pr-dismiss')).toBeEnabled())
     fireEvent.click(screen.getByTestId('rail-pr-dismiss'))
     const dialog = screen.getByTestId('rail-pr-dismiss-confirm')
     expect(dialog).toHaveTextContent('existing PR')
