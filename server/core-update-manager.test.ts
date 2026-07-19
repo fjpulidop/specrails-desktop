@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach, afterEach } from 'vitest'
-import { mkdtempSync, mkdirSync, rmSync, writeFileSync, symlinkSync, existsSync } from 'fs'
+import { mkdtempSync, mkdirSync, rmSync, writeFileSync, symlinkSync, existsSync, realpathSync } from 'fs'
 import os from 'os'
 import path from 'path'
 
@@ -155,6 +155,31 @@ describe('CoreUpdateManager', () => {
       expect(phases).toContain('materializing')
       expect(phases).toContain('done')
       expect(events.some((e) => e.type === 'framework.updated' && e.version === '4.9.0')).toBe(true)
+    })
+
+    it('stages the download under a fully realpathed tmp dir (symlinked macOS /var/folders)', async () => {
+      // Core's cli.js auto-run guard compares import.meta.url (realpathed by
+      // Node) against the literal argv[1]; a symlinked staging path makes the
+      // child a silent exit-0 no-op. The staging dir must therefore already be
+      // symlink-free.
+      bundle('4.8.0')
+      let stagedCwd = ''
+      let stagedReal = ''
+      const m = new CoreUpdateManager({
+        home,
+        providers: () => ['claude'],
+        fetchLatest: async () => '4.9.0',
+        npmInstall: (spec, cwd) => {
+          stagedCwd = cwd
+          stagedReal = realpathSync(cwd) // while the dir still exists
+          stagingInstaller('4.9.0')(spec, cwd)
+        },
+      })
+      await m.checkForUpdate()
+      const res = await m.update()
+      expect(res.ok).toBe(true)
+      expect(stagedCwd).not.toBe('')
+      expect(stagedCwd).toBe(stagedReal)
     })
 
     it('rejects when unavailable (no bundled core)', async () => {

@@ -7,6 +7,8 @@ import {
   existsSync,
   lstatSync,
   readlinkSync,
+  readFileSync,
+  realpathSync,
   symlinkSync,
 } from 'fs'
 import os from 'os'
@@ -127,6 +129,30 @@ describe('FrameworkManager', () => {
       expect(existsSync(path.join(fw, '5.0.0', '.claude', 'agents', 'sr-architect.md'))).toBe(true)
       // materialize uses --no-swap: current is NOT moved by materialize alone.
       expect(readCurrentFrameworkVersion(home)).toBeNull()
+    })
+
+    it('passes a realpathed cli.js as argv[1] when the coreRoot path is symlinked', () => {
+      // Core's cli.js auto-run guard compares import.meta.url (realpathed by
+      // Node's ESM loader) against pathToFileURL(argv[1]) — a symlinked argv[1]
+      // (e.g. macOS /var/folders staging) makes main() silently never run.
+      installFakeCore('5.0.0')
+      // FAKE cli that dumps its own argv[1] into <framework-dir>/argv1.txt.
+      const dumpCli = `
+        const fs = require('fs')
+        function arg(n){const i=process.argv.indexOf('--'+n);return i>=0?process.argv[i+1]:undefined}
+        fs.mkdirSync(arg('framework-dir'), { recursive: true })
+        fs.writeFileSync(require('path').join(arg('framework-dir'), 'argv1.txt'), process.argv[1])
+        process.exit(0)
+      `
+      writeFileSync(path.join(coreDir, 'dist', 'installer', 'cli.js'), dumpCli)
+      const linkRoot = path.join(home, 'core-link')
+      symlinkSync(coreDir, linkRoot)
+      const fm = new FrameworkManager({ home, coreRoot: linkRoot })
+      const res = fm.materialize('5.0.0', ['claude'])
+      expect(res.errors).toEqual([])
+      const recorded = readFileSync(path.join(frameworkRoot(home), 'argv1.txt'), 'utf8')
+      expect(recorded).toBe(realpathSync(path.join(linkRoot, 'dist', 'installer', 'cli.js')))
+      expect(recorded).not.toContain('core-link')
     })
 
     it('materializes multiple providers', () => {

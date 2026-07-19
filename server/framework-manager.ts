@@ -65,6 +65,22 @@ export interface MaterializeResult {
   errors: Array<{ provider: string; message: string }>
 }
 
+/**
+ * Resolve symlinks in the CLI path we pass as the child's argv[1]. Core's
+ * cli.js auto-run guard compares import.meta.url (realpathed by Node's ESM
+ * loader) against pathToFileURL(process.argv[1]) — a symlinked argv[1] (e.g.
+ * a staging dir under macOS /var/folders) makes them differ, so main() never
+ * runs and the child exits 0 as a silent no-op. Realpathing here keeps the
+ * guard true regardless of where the core package lives.
+ */
+function realpathOrSelf(p: string): string {
+  try {
+    return fs.realpathSync(p)
+  } catch {
+    return p
+  }
+}
+
 /** `~/.specrails/framework` — same home as the registry. */
 export function frameworkRoot(home?: string): string {
   return path.join(resolveHome(home), '.specrails', 'framework')
@@ -160,9 +176,10 @@ export class FrameworkManager {
   private resolveCli(): string | null {
     if (this.coreRoot) {
       const cli = path.join(this.coreRoot, 'dist', 'installer', 'cli.js')
-      return fs.existsSync(cli) ? cli : null
+      return fs.existsSync(cli) ? realpathOrSelf(cli) : null
     }
-    return getBundledCoreCli()
+    const bundled = getBundledCoreCli()
+    return bundled ? realpathOrSelf(bundled) : null
   }
 
   /** True when a usable core (override or bundled) is present (else methods no-op). */

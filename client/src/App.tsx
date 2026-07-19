@@ -1,4 +1,5 @@
 import { useState, useEffect, useLayoutEffect, useRef, useMemo, useCallback, lazy, Suspense }from 'react'
+import { createPortal } from 'react-dom'
 import { Routes, Route, Navigate, useLocation, useNavigate } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { Toaster } from 'sonner'
@@ -575,7 +576,14 @@ function ThemedToaster() {
   const danger = theme.status.failed
   const warning = theme.status.canceled
   const info = theme.status.running
-  return (
+  // Portal to <body>: sonner renders in place and #root establishes its own
+  // stacking context (position:relative + z-index:0 in globals.css, needed by
+  // the code-rain layer), so a toaster INSIDE #root can never paint above the
+  // body-portalled modal layers (Radix dialogs z-50, JobDetailModal z-[65],
+  // TicketDetailModal z-[68], browser-capture z-[80]) no matter its own
+  // z-index. At body level its max z-index wins over every modal — toasts are
+  // always on top.
+  return createPortal(
     <Toaster
       position="bottom-right"
       className="specrails-toaster"
@@ -613,7 +621,8 @@ function ThemedToaster() {
           loading: '',
         },
       }}
-    />
+    />,
+    document.body,
   )
 }
 

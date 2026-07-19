@@ -161,7 +161,13 @@ export class CoreUpdateManager {
 
     this.updating = true
     this.emit('downloading', { version: requested })
-    const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'core-update-'))
+    // realpath the tmp root: on macOS os.tmpdir() is a symlinked path
+    // (/var/folders → /private/var/folders). The staged core's cli.js has an
+    // auto-run guard comparing import.meta.url (realpathed by Node's ESM
+    // loader) against process.argv[1] (the literal spawn arg) — a symlinked
+    // staging path makes them differ, so main() never runs and every
+    // install-framework/swap-current child exits 0 as a silent no-op.
+    const tmp = fs.mkdtempSync(path.join(realTmpDir(), 'core-update-'))
     try {
       this.npmInstallFn(`${CORE_PACKAGE}@${requested}`, tmp)
       const coreRoot = path.join(tmp, 'node_modules', CORE_PACKAGE)
@@ -235,6 +241,16 @@ export class CoreUpdateManager {
 function uniqueProviders(values: string[]): string[] {
   const out = Array.from(new Set(values.filter((v) => typeof v === 'string' && v.length > 0)))
   return out.length > 0 ? out : ['claude']
+}
+
+/** os.tmpdir() with symlinks resolved (macOS /var/folders → /private/var/folders). */
+function realTmpDir(): string {
+  const dir = os.tmpdir()
+  try {
+    return fs.realpathSync(dir)
+  } catch {
+    return dir
+  }
 }
 
 /** GET the latest published version from the npm registry (no npm binary needed). */
