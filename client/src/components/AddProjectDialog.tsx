@@ -59,9 +59,9 @@ export function AddProjectDialog({ open, onClose, onOpenBuilder }: AddProjectDia
   // otherwise the dialog is byte-identical to the pre-Builder behaviour.
   const chooserEnabled = FEATURE_PROJECT_BUILDER && !!onOpenBuilder
   const [step, setStep] = useState<'choose' | 'existing'>(chooserEnabled ? 'choose' : 'existing')
-  // Multi-select: a project can be created with one or both providers. When both
-  // are available we pre-select both; the user can deselect down to one (but
-  // never zero). The first in canonical order is the primary/default provider.
+  // Multi-select: a project can be created with one or more providers. Available
+  // providers are pre-selected; the user can deselect down to one (but never
+  // zero). The first in canonical order is the primary/default provider.
   const [selectedProviders, setSelectedProviders] = useState<Set<Provider>>(new Set(['claude']))
   const [projectPath, setProjectPath] = useState('')
   const [projectName, setProjectName] = useState('')
@@ -305,7 +305,7 @@ export function AddProjectDialog({ open, onClose, onOpenBuilder }: AddProjectDia
             </p>
           </div>
 
-          {/* Provider selector — multi-select. Pick one or both. */}
+          {/* Provider selector — multi-select. Pick one or more. */}
           <div className="space-y-1.5">
             <label className="text-xs font-medium text-muted-foreground">{t('addProject.providersLabel')}</label>
             <div className="flex gap-2">

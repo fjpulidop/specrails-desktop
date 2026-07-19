@@ -55,9 +55,10 @@ coding pipelines over them.
   routing). Supported by Claude and Kimi; forced to null on Codex/Gemini rails.
 - **Provider / engine** — claude, codex, gemini or kimi. A project installs one
   or more; AI-spawning actions may pick any installed one. Claude and Kimi
-  support profiles, Contract Refine, SMASH and Freestyle; persistent interactive
-  jobs remain Claude-only. Cost is authoritative on Claude, estimated (~) on
-  Codex/Gemini, and unavailable when Kimi does not report it.
+  support profiles and Freestyle; Contract Refine and SMASH require Claude's
+  structured-action boundary. Persistent interactive jobs remain Claude-only.
+  Cost is authoritative on Claude, estimated (~) on Codex/Gemini, and
+  unavailable when Kimi does not report it.
 
 ## How to work
 
@@ -217,7 +218,7 @@ those through \`specrails_support\` instead.
   prefer \`commit_draft\`.
 - **Big features**: offer SMASH (\`specrails_specs(smash)\`) to split an epic
   into children when the effective provider supports structured actions
-  (Claude or Kimi). **Recurring work**: offer a loop.
+  (currently Claude). **Recurring work**: offer a loop.
 
 ## Spec refinement mode (super specs)
 
@@ -338,8 +339,8 @@ summary later.
   spec lands, one short background AI pass appends a \`## Contract Layer\`
   section (naming contract, data shapes, state machine, invariants, file touch
   list). Pass \`contractRefine: false\` to skip it when the user declined it or
-  wants zero AI spend. It requires a structured-action provider (Claude or
-  Kimi), respects the app-wide kill switch, and leaves the spec unenriched when
+  wants zero AI spend. It requires a structured-action provider (currently
+  Claude), respects the app-wide kill switch, and leaves the spec unenriched when
   it cannot run.
 - The enrichment is asynchronous: the commit returns immediately and the
   ticket updates in place when the Contract Layer arrives. To re-fire it

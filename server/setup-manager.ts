@@ -565,7 +565,8 @@ export function computeSummary(
       // - specrailsCommands = everything else under `skills/` (ported claude
       //   slash commands like propose-spec, explore-spec, retry, doctor,
       //   enrich, vpc-drift, …)
-      // - personas = 0 today; codex VPC pass not implemented yet.
+      // - personas = Kimi's provider-local `.kimi-code/personas/*.md`; Codex
+      //              keeps its legacy nested skill representation.
       const skillsDir = join(
         projectPath,
         provider === 'kimi' ? '.kimi-code' : '.codex',
@@ -594,6 +595,14 @@ export function computeSummary(
           if (/^sr-/.test(entry)) agents++
           else if (/^openspec-/.test(entry)) opsxCommands++
           else specrailsCommands++
+        }
+      }
+      if (provider === 'kimi') {
+        const personasDir = join(projectPath, '.kimi-code', 'personas')
+        if (existsSync(personasDir)) {
+          personas = (readdirSync(personasDir) as string[])
+            .filter((entry) => entry.endsWith('.md'))
+            .length
         }
       }
     } else {

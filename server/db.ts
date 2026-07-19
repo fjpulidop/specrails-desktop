@@ -2317,9 +2317,9 @@ export function getStats(db: DbInstance): StatsRow {
 // ─── Project settings ─────────────────────────────────────────────────────────
 
 /**
- * Default pre-prompt used by Freestyle (Claude-only rails) when the project
+ * Default pre-prompt used by provider-capable Freestyle rails when the project
  * has no per-project override. Freestyle skips the OpenSpec pipeline entirely:
- * it hands Claude the spec text plus this instruction and lets it work
+ * it hands the selected autonomous provider the spec text plus this instruction and lets it work
  * autonomously end-to-end.
  */
 export const DEFAULT_FREESTYLE_PRE_PROMPT = [

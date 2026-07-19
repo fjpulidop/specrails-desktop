@@ -1478,6 +1478,36 @@ describe('SetupManager', () => {
       expect(result.specrailsCommands).toBe(0)
       expect(result.opsxCommands).toBe(0)
     })
+
+    it('counts Kimi direct-child skills and provider-local VPC personas', () => {
+      vi.mocked(existsSync).mockImplementation((p: any) => {
+        const s = String(p)
+        return s.endsWith('.kimi-code/skills')
+          || s.endsWith('.kimi-code/personas')
+          || s.endsWith('/sr-architect/SKILL.md')
+          || s.endsWith('/specrails-enrich/SKILL.md')
+          || s.endsWith('/openspec-apply-change/SKILL.md')
+      })
+      vi.mocked(readdirSync).mockImplementation((p: any) => {
+        const s = String(p)
+        if (s.endsWith('.kimi-code/skills')) {
+          return ['sr-architect', 'specrails-enrich', 'openspec-apply-change'] as any
+        }
+        if (s.endsWith('.kimi-code/personas')) {
+          return ['the-builder.md', 'the-maintainer.md', 'README.txt'] as any
+        }
+        return [] as any
+      })
+
+      expect(computeSummary('/path', 'full', 'kimi')).toMatchObject({
+        provider: 'kimi',
+        tier: 'full',
+        agents: 1,
+        personas: 2,
+        specrailsCommands: 1,
+        opsxCommands: 1,
+      })
+    })
   })
 
   // ─── sweepLegacySrCommands ─────────────────────────────────────────────────

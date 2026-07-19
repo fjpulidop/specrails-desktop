@@ -77,6 +77,18 @@ describe('OPERATOR_INSTRUCTIONS — super-spec refinement mode', () => {
 })
 
 describe('OPERATOR_INSTRUCTIONS — launch, then release the turn', () => {
+  it('states the Kimi capability boundary without advertising Claude-only transforms', () => {
+    expect(OPERATOR_INSTRUCTIONS).toContain('Claude and Kimi\n  support profiles and Freestyle')
+    expect(OPERATOR_INSTRUCTIONS).toContain('Contract Refine and SMASH require Claude')
+    expect(OPERATOR_INSTRUCTIONS).toContain('structured actions\n  (currently Claude)')
+    expect(OPERATOR_INSTRUCTIONS).toContain('structured-action provider (currently\n  Claude)')
+    expect(OPERATOR_INSTRUCTIONS).not.toContain(
+      'Claude and Kimi\n  support profiles, Contract Refine, SMASH and Freestyle',
+    )
+    expect(OPERATOR_INSTRUCTIONS).not.toContain('structured actions\n  (Claude or Kimi)')
+    expect(OPERATOR_INSTRUCTIONS).not.toContain('structured-action provider (Claude or\n  Kimi)')
+  })
+
   it('forbids blocking the turn on a launched rail/job', () => {
     expect(OPERATOR_INSTRUCTIONS).toContain('Launch, then release the turn')
     expect(OPERATOR_INSTRUCTIONS).toContain('END YOUR REPLY\n  immediately — do NOT sit on the turn watching the run')

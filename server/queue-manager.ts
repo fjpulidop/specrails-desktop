@@ -2620,10 +2620,10 @@ export class QueueManager {
     //    claude slash command — propose-spec, implement, batch-implement,
     //    explore-spec, retry, …). This is the rail equivalent of the
     //    user typing `$implement #1 --yes` themselves in `codex`.
-    // Freestyle (Claude only): skip the slash command entirely and send the
-    // pre-prompt + spec text directly as the prompt. The server route guards
-    // that freestyle never reaches a non-claude adapter; defensively, a codex
-    // adapter still falls through to its skill-translation path below.
+    // Freestyle (capability-gated; currently Claude and Kimi): skip the slash
+    // command entirely and send the pre-prompt + spec text directly as the
+    // prompt. The server route rejects adapters that do not advertise
+    // `freestyle` before this point.
     // (`isFreestyle` itself is resolved above, before the systemAppend build.)
     const railPrompt = isFreestyle
       ? this._buildFreestylePrompt(commandToRun)

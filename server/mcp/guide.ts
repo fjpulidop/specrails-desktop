@@ -213,7 +213,8 @@ read + write — ai-spawn is required only to launch work or spawn a nested AI.
 ## Domain cheat-sheet
 
 - **Epics / SMASH** (\`specrails_specs\`): \`smash\` splits a large spec into child
-  specs with Claude or Kimi; \`smash_undo\` restores (needs the \`smashedAt\` stamp);
+  specs with a structured-action provider (currently Claude); \`smash_undo\`
+  restores (needs the \`smashedAt\` stamp);
   \`delete_epic_children\` removes a whole family.
 - **Attachments**: \`list_attachments\` / \`get_attachment\` read files the user
   attached in the app UI; \`generate\` / \`ai_edit\` accept \`attachmentIds\`.
