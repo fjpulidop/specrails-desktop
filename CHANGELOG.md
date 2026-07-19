@@ -1,5 +1,13 @@
 # Changelog
 
+## [2.30.2](https://github.com/fjpulidop/specrails-desktop/compare/v2.30.1...v2.30.2) (2026-07-19)
+
+
+### Bug Fixes
+
+* **builder:** anchor the sidebar blueprint panel to the trigger's top edge ([#557](https://github.com/fjpulidop/specrails-desktop/issues/557)) ([a7bfec0](https://github.com/fjpulidop/specrails-desktop/commit/a7bfec06b79acf78e687ba71adaec392585ce626))
+* **core-update:** guard zero-provider materialize + surface swap-current failure detail ([#556](https://github.com/fjpulidop/specrails-desktop/issues/556)) ([d09597b](https://github.com/fjpulidop/specrails-desktop/commit/d09597bf005427ce10823d17d50d5a6b96b74ac6))
+
 ## [2.30.1](https://github.com/fjpulidop/specrails-desktop/compare/v2.30.0...v2.30.1) (2026-07-18)
 
 
