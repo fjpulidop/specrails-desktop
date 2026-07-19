@@ -231,8 +231,8 @@ describe('setup prerequisites', () => {
       if (cmd === 'npx') return { status: 0, stdout: '10.0.0\n', stderr: '' } as any
       if (cmd === 'git') return { status: 0, stdout: 'git version 2.42.1\n', stderr: '' } as any
       // All providers fail their version probe → unusable. claude/codex return a
-      // non-zero status; gemini returns 0 with empty stdout (no version match →
-      // meetsMinimum false), so all three are unusable.
+      // non-zero status; gemini/kimi return 0 with empty stdout (no version
+      // match → meetsMinimum false), so all registered providers are unusable.
       if (cmd === 'claude' || cmd === 'codex') return { status: 1, stdout: '', stderr: 'auth missing' } as any
       return { status: 0, stdout: '', stderr: '' } as any
     })
@@ -243,7 +243,27 @@ describe('setup prerequisites', () => {
       .filter((p) => p.kind === 'provider')
       .map((p) => p.key)
       .sort()
-    expect(missingProviders).toEqual(['claude', 'codex', 'gemini'])
+    expect(missingProviders).toEqual(['claude', 'codex', 'gemini', 'kimi'])
+  })
+
+  it('registers Kimi 0.27+ with official install/login remediation', () => {
+    mockSpawnSync.mockImplementation((cmd: any) => {
+      if (cmd === 'which' || cmd === 'where') return { status: 0, stdout: `/bin/${cmd}\n` } as any
+      if (cmd === 'kimi') return { status: 0, stdout: 'Kimi Code 0.27.1\n', stderr: '' } as any
+      return { status: 0, stdout: '99.0.0\n', stderr: '' } as any
+    })
+    const kimi = getSetupPrerequisitesStatus().prerequisites.find((item) => item.key === 'kimi')
+    expect(kimi).toMatchObject({
+      kind: 'provider',
+      label: 'Kimi Code',
+      command: 'kimi',
+      minVersion: '0.27.0',
+      installed: true,
+      executable: true,
+      meetsMinimum: true,
+    })
+    expect(kimi?.installUrl).toContain('kimi.com/code')
+    expect(kimi?.installHint).toContain('kimi login')
   })
 
   it('does NOT block when at least one provider is usable', () => {

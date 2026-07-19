@@ -12,7 +12,7 @@ export interface ChatConversation {
   id: string
   title: string | null
   model: string
-  /** AI provider driving this conversation (claude/codex/gemini). NULL/undefined
+  /** AI provider driving this conversation (for example Claude, Codex, Gemini, or Kimi). NULL/undefined
    *  on single-provider projects → rendered as the default (Claude). */
   provider?: string | null
   messages: ChatMessage[]
@@ -372,7 +372,7 @@ export function useChat(): UseChatReturn {
         title: data.conversation.title,
         model: data.conversation.model,
         // Server persists provider only on multi-provider projects (else NULL).
-        // Fall back to the requested engine so a freshly-started gemini/codex
+        // Fall back to the requested engine so a freshly-started non-default
         // session labels its bubbles correctly without waiting for a reload.
         provider: data.conversation.provider ?? provider ?? null,
         messages: [],

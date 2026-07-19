@@ -202,7 +202,7 @@
     "implement": "Implement",
     "batch": "Batch",
     "freestyle": "Freestyle",
-    "freestyleTitle": "Freestyle — Claude implements the spec autonomously, no pipeline",
+    "freestyleTitle": "Freestyle — the selected provider implements the spec autonomously, no pipeline",
     "loop": "Loop",
     "loopTitle": "Loop — run a published automation loop against the rail's specs",
     "pickLoop": "Pick a loop…",
@@ -232,10 +232,10 @@
     "context_other": "{{rail}} · {{count}} specs",
     "noPipelineTitle": "No OpenSpec pipeline.",
     "noPipelineBody": "The structured architect → developer → reviewer flow is skipped entirely.",
-    "autonomyTitle": "Native Claude autonomy.",
-    "autonomyBody": "Claude works on its own using native agents and dynamic workflows.",
+    "autonomyTitle": "Native {{provider}} autonomy.",
+    "autonomyBody": "{{provider}} works on its own using native agents and dynamic workflows.",
     "costTitle": "Variable cost.",
-    "costBody": "Spend depends on what Claude decides to do — it can be higher than expected.",
+    "costBody": "Spend depends on what {{provider}} decides to do — it can be higher than expected.",
     "continue": "Continue"
   },
   "useRails": {

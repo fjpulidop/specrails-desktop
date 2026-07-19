@@ -113,6 +113,86 @@ describe('project-router standalone loop runs', () => {
     expect(run).not.toHaveBeenCalled()
   })
 
+  it('accepts Kimi effort for K3 and rejects it for other Kimi models', async () => {
+    const id = publish('kimi-loop', 'Inspect the repository')
+    const app = buildApp({ provider: 'kimi', providers: ['kimi'] })
+    const accepted = await request(app)
+      .post('/api/projects/p1/loop-runs')
+      .send({ loopId: id, model: 'k3', reasoning_effort: 'max' })
+    expect(accepted.status).toBe(202)
+    expect((run.mock.calls[0][0] as { effort: string }).effort).toBe('max')
+
+    run.mockClear()
+    const rejected = await request(app)
+      .post('/api/projects/p1/loop-runs')
+      .send({ loopId: id, model: 'kimi-for-coding', reasoning_effort: 'max' })
+    expect(rejected.status).toBe(400)
+    expect(rejected.body.allowed).toEqual([])
+    expect(run).not.toHaveBeenCalled()
+  })
+
+  it('preserves a safe custom Kimi alias exactly and omits effort', async () => {
+    const id = publish('kimi-custom-model', 'Inspect the repository')
+    const customAlias = 'moonshot-team/private-coder:v2'
+    const res = await request(buildApp({ provider: 'kimi', providers: ['kimi'] }))
+      .post('/api/projects/p1/loop-runs')
+      .send({ loopId: id, model: customAlias })
+
+    expect(res.status).toBe(202)
+    expect(run).toHaveBeenCalledTimes(1)
+    expect(run.mock.calls[0][0]).toMatchObject({
+      provider: 'kimi',
+      model: customAlias,
+      effort: undefined,
+    })
+  })
+
+  it('rejects effort and unsafe flag-like values for a custom Kimi alias', async () => {
+    const id = publish('kimi-custom-model-invalid', 'Inspect the repository')
+    const customAlias = 'moonshot-team/private-coder:v2'
+
+    const withEffort = await request(buildApp({ provider: 'kimi', providers: ['kimi'] }))
+      .post('/api/projects/p1/loop-runs')
+      .send({ loopId: id, model: customAlias, reasoning_effort: 'max' })
+    expect(withEffort.status).toBe(400)
+    expect(withEffort.body.allowed).toEqual([])
+    expect(run).not.toHaveBeenCalled()
+
+    const unsafe = await request(buildApp({ provider: 'kimi', providers: ['kimi'] }))
+      .post('/api/projects/p1/loop-runs')
+      .send({ loopId: id, model: '--yolo' })
+    expect(unsafe.status).toBe(400)
+    expect(run).not.toHaveBeenCalled()
+  })
+
+  it('409s a Kimi loop with a Decider because Kimi headless cannot enforce read-only', async () => {
+    const graph = graphWith('Inspect the repository')
+    graph.nodes.splice(2, 0, {
+      id: 'd',
+      type: 'decider',
+      position: { x: 0, y: 2 },
+      data: { goal: 'done' },
+    })
+    graph.edges = [
+      { id: 'e1', source: 's', target: 'ai' },
+      { id: 'e2', source: 'ai', target: 'd' },
+      { id: 'e3', source: 'd', target: 'e', branch: 'stop' },
+    ]
+    const loop = createLoop(desktopDb, { id: 'kimi-decider', name: 'Kimi Decider', graph })
+    publishLoop(desktopDb, loop.id)
+
+    const res = await request(buildApp({ provider: 'kimi', providers: ['kimi'] }))
+      .post('/api/projects/p1/loop-runs')
+      .send({ loopId: loop.id })
+    expect(res.status).toBe(409)
+    expect(res.body).toMatchObject({
+      code: 'provider_tool_policy_unsupported',
+      provider: 'kimi',
+      requiredPolicy: 'read-only',
+    })
+    expect(run).not.toHaveBeenCalled()
+  })
+
   it('404s when the Loops section is disabled', async () => {
     process.env.SPECRAILS_LOOPS_SECTION = 'false'
     const id = publish('ci')
@@ -141,6 +221,43 @@ describe('project-router GET /loop-runs/:id', () => {
     expect(ok.body.loopRun).toMatchObject({ id: 'run-1', loop_id: 'factory:implement', loop_name: 'Implement' })
 
     expect((await request(app).get('/api/projects/p1/loop-runs/nope')).status).toBe(404)
+  })
+
+  it('serializes unavailable Kimi loop usage as null instead of zero', async () => {
+    const { initDb } = await import('./db')
+    const { createLoopRun } = await import('./loop-runs-store')
+    const db = initDb(':memory:')
+    createLoopRun(db, {
+      id: 'run-kimi',
+      projectId: 'p1',
+      loopId: 'kimi-loop',
+      provider: 'kimi',
+      model: 'k3',
+      iterationLimit: 1,
+      startedAt: new Date(1000).toISOString(),
+    })
+
+    const app = express()
+    app.use(express.json())
+    const router = Router()
+    const ctx = () => ({
+      db,
+      desktopDb,
+      project: { id: 'p1', slug: 's1', path: '/repo', provider: 'kimi', providers: ['kimi'] },
+      loopRunManager: { run: vi.fn(), cancel: vi.fn() },
+      onLoopRunFinished: vi.fn(),
+    })
+    registerLoopRunRoutes({ router, ctx } as unknown as ProjectRoutesDeps)
+    app.use('/api/projects', router)
+
+    const res = await request(app).get('/api/projects/p1/loop-runs/run-kimi')
+    expect(res.status).toBe(200)
+    expect(res.body.loopRun).toMatchObject({
+      id: 'run-kimi',
+      usage_available: false,
+      total_cost_usd: null,
+      total_tokens: null,
+    })
   })
 
   it('404s the whole loop-runs surface when Loops are disabled', async () => {

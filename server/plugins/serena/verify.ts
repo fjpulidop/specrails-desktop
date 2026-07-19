@@ -1,6 +1,10 @@
 import { spawn } from 'child_process'
-import type { PluginVerifyResult } from '../../types'
+import fs from 'fs'
+import path from 'path'
+import type { PluginLifecycleContext, PluginVerifyResult } from '../../types'
 import { windowsSpawnEnv } from '../../util/win-spawn'
+import { getAdapter, hasAdapter } from '../../providers'
+import { codexMcpList } from '../codex-mcp'
 
 const TIMEOUT_MS = 1800
 
@@ -18,7 +22,48 @@ const TIMEOUT_MS = 1800
  * picks up `uv.exe` (or, if astral installed via winget, the .cmd shim) the
  * same way it does in `setup-prerequisites.ts`.
  */
-export async function verifySerena(): Promise<PluginVerifyResult> {
+type SerenaVerifyContext = Pick<
+  PluginLifecycleContext,
+  'projectPath' | 'projectId' | 'providerId' | 'slug'
+>
+
+function registrationProblem(ctx?: SerenaVerifyContext): string | null {
+  // Direct callers from the pre-provider API used verifySerena() as a cheap uv
+  // probe. Keep that contract; PluginManager always supplies provider context
+  // and therefore receives the stronger registration check below.
+  if (!ctx?.providerId) return null
+  if (!hasAdapter(ctx.providerId)) return `unknown-provider:${ctx.providerId}`
+  const adapter = getAdapter(ctx.providerId)
+
+  if (adapter.mcpRegistration === 'cli-add') {
+    const slug = ctx.slug?.trim() || path.basename(ctx.projectPath)
+    const listing = codexMcpList(slug)
+    if (!listing.ok) return 'mcp-registry-unavailable'
+    return listing.servers.includes('serena') ? null : 'mcp-registration-missing'
+  }
+
+  const file = adapter.projectMcpPath?.(ctx.projectPath)
+  if (!file || !fs.existsSync(file)) return 'mcp-registration-missing'
+  try {
+    const parsed = JSON.parse(fs.readFileSync(file, 'utf8')) as {
+      mcpServers?: Record<string, unknown>
+    }
+    if (
+      !parsed.mcpServers ||
+      typeof parsed.mcpServers !== 'object' ||
+      Array.isArray(parsed.mcpServers)
+    ) {
+      return 'mcp-registration-invalid'
+    }
+    return Object.prototype.hasOwnProperty.call(parsed.mcpServers, 'serena')
+      ? null
+      : 'mcp-registration-missing'
+  } catch {
+    return 'mcp-registration-invalid'
+  }
+}
+
+export async function verifySerena(ctx?: SerenaVerifyContext): Promise<PluginVerifyResult> {
   const checkedAt = new Date().toISOString()
   const isWin = process.platform === 'win32'
   return new Promise<PluginVerifyResult>((resolve) => {
@@ -62,7 +107,10 @@ export async function verifySerena(): Promise<PluginVerifyResult> {
       settled = true
       clearTimeout(timer)
       if (code === 0) {
-        resolve({ ok: true, reason: undefined, checkedAt })
+        const reason = registrationProblem(ctx)
+        resolve(reason
+          ? { ok: false, reason, checkedAt }
+          : { ok: true, reason: undefined, checkedAt })
       } else {
         resolve({
           ok: false,

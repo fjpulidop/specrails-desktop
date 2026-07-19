@@ -3,7 +3,11 @@ import multer from 'multer'
 import { Router, type Request, type Response, type NextFunction } from 'express'
 import type { DbInstance } from './db'
 import type { AgentChatManager, AgentContextReference } from './agent-chat-manager'
-import { getAdapter } from './providers'
+import {
+  getAdapter,
+  isModelAvailableForAdapter,
+  reasoningEffortsForModel,
+} from './providers'
 import { normalizeLevel } from './agent-tier'
 import { attachmentManager, isSupportedUploadedFile } from './attachment-manager'
 import {
@@ -132,23 +136,33 @@ export function createAgentChatRouter(deps: AgentRouterDeps): Router {
   router.get('/models', (req: Request, res: Response) => {
     const provider = validProvider(req.query.provider) ?? 'claude'
     const adapter = getAdapter(provider)
+    const requestedModel = isModelAvailableForAdapter(adapter, req.query.model)
+      ? req.query.model
+      : null
+    const model = requestedModel ?? adapter.defaultModel()
     res.json({
       provider,
+      model,
       models: adapter.modelCatalog(),
+      customModelAliases: adapter.capabilities.customModelAliases === true,
       // The composer gates the image affordance on this (design D22: capability,
       // never provider id — gemini stays false until live-verified).
       supportsImageInput: adapter.capabilities.supportsImageInput === true,
       // Per-provider reasoning-effort tiers (ascending). Empty ⇒ no selector
       // (gemini has no per-spawn knob).
-      efforts: adapter.capabilities.reasoningEfforts ?? [],
+      efforts: reasoningEffortsForModel(adapter, model),
     })
   })
 
-  /** Validate a requested reasoning effort against a provider's catalog. */
-  const validEffort = (provider: string, value: unknown): string | null | undefined => {
+  /** Validate a requested effort against the effective model's exact catalog. */
+  const validEffort = (
+    provider: string,
+    model: string,
+    value: unknown,
+  ): string | null | undefined => {
     if (value === null) return null
     if (typeof value !== 'string') return undefined
-    const efforts = getAdapter(provider).capabilities.reasoningEfforts ?? []
+    const efforts = reasoningEffortsForModel(getAdapter(provider), model)
     return (efforts as readonly string[]).includes(value) ? value : undefined
   }
 
@@ -167,13 +181,20 @@ export function createAgentChatRouter(deps: AgentRouterDeps): Router {
       }
       provider = v
     }
+    const adapter = getAdapter(provider)
+    const requestedModel = body.model == null ? null : body.model
+    if (requestedModel !== null && !isModelAvailableForAdapter(adapter, requestedModel)) {
+      res.status(400).json({ error: 'Model not available for this provider' })
+      return
+    }
+    const effectiveModel = requestedModel ?? adapter.defaultModel()
     const conversation = createAgentConversation(desktopDb, {
       provider,
-      model: typeof body.model === 'string' ? body.model : null,
+      model: requestedModel,
       pinnedProjectId: typeof body.pinnedProjectId === 'string' ? body.pinnedProjectId : null,
       tierLevel: body.tierLevel !== undefined ? normalizeLevel(body.tierLevel) : 0,
-      // Off-catalog values fall back to null (= app default "medium").
-      reasoningEffort: validEffort(provider, body.reasoningEffort) ?? null,
+      // Off-catalog values fall back to null (= no provider-specific override).
+      reasoningEffort: validEffort(provider, effectiveModel, body.reasoningEffort) ?? null,
     })
     res.status(201).json({ conversation })
   })
@@ -219,29 +240,40 @@ export function createAgentChatRouter(deps: AgentRouterDeps): Router {
       }
     }
     // Explicit model pick — validated against the (new or current) provider's catalog.
-    if (body.model !== undefined && patch.model === undefined) {
+    if (body.model !== undefined) {
+      const effectiveProvider = (patch.provider as string | undefined) ?? conversation.provider
       if (body.model === null) {
         patch.model = null
       } else if (typeof body.model === 'string') {
-        const effectiveProvider = (patch.provider as string | undefined) ?? conversation.provider
-        const valid = new Set(getAdapter(effectiveProvider).modelCatalog().map((m) => m.value))
-        if (!valid.has(body.model)) {
+        if (!isModelAvailableForAdapter(getAdapter(effectiveProvider), body.model)) {
           res.status(400).json({ error: 'Model not available for this provider' })
           return
         }
         patch.model = body.model
       }
     }
-    // Explicit effort pick — validated against the (new or current) provider's
-    // effort catalog; null resets to the app default ("medium").
-    if (body.reasoningEffort !== undefined && patch.reasoning_effort === undefined) {
-      const effectiveProvider = (patch.provider as string | undefined) ?? conversation.provider
-      const v = validEffort(effectiveProvider, body.reasoningEffort)
+    const effectiveProvider = (patch.provider as string | undefined) ?? conversation.provider
+    const adapter = getAdapter(effectiveProvider)
+    const effectiveModel = typeof patch.model === 'string'
+      ? patch.model
+      : patch.model === null
+        ? adapter.defaultModel()
+        : conversation.model ?? adapter.defaultModel()
+    // Explicit effort pick — validated against the effective model. A model
+    // change without an effort pick clears a now-incompatible persisted value.
+    if (body.reasoningEffort !== undefined) {
+      const v = validEffort(effectiveProvider, effectiveModel, body.reasoningEffort)
       if (v === undefined) {
-        res.status(400).json({ error: 'Effort not available for this provider' })
+        res.status(400).json({ error: 'Effort not available for this provider and model' })
         return
       }
       patch.reasoning_effort = v
+    } else if (
+      body.model !== undefined
+      && conversation.reasoning_effort
+      && validEffort(effectiveProvider, effectiveModel, conversation.reasoning_effort) === undefined
+    ) {
+      patch.reasoning_effort = null
     }
     res.json({ conversation: updateAgentConversation(desktopDb, conversation.id, patch) })
   })

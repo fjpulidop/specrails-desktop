@@ -39,6 +39,15 @@ describe('ModelBreakdown', () => {
     expect(screen.getByText(/\$8\.00 · 10/)).toBeInTheDocument()
   })
 
+  it('renders unavailable instead of $0.00 for an unpriced Kimi model', () => {
+    const data = emptyData([
+      { model: 'k3', provider: 'kimi', count: 3, costUsd: 0, unpricedCount: 3 },
+    ])
+    render(<ModelBreakdown data={data} loading={false} onSelectModel={() => {}} activeModel={undefined} />)
+    expect(screen.getByTestId('model-cost-unavailable')).toHaveTextContent('— · 3')
+    expect(screen.queryByText(/\$0\.00 · 3/)).not.toBeInTheDocument()
+  })
+
   it('fires onSelectModel with the model and its provider when clicked', () => {
     const onSelect = vi.fn()
     const data = emptyData([{ model: 'opus', count: 10, costUsd: 8 }])

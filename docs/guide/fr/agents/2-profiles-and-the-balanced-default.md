@@ -37,7 +37,11 @@ Voilà tout le flux : choisir un profil, lancer, terminé. Des rails simultanés
 
 ## Quand la section Agents reste silencieuse
 
-Les profils sont une capacité de Claude. Sur un projet qui inclut un provider non-Claude (Codex ou Gemini), la section Agents est masquée et les rails tournent sans profils — c'est le comportement attendu, pas un bug. Les profils exigent aussi un `specrails-core` suffisamment récent dans le projet ; s'il est plus ancien, vous verrez une bannière jaune. Les profils que vous créez sont tout de même **enregistrés** — ils n'affectent simplement pas le pipeline tant que core n'est pas mis à jour. Mettez à jour avec la commande indiquée dans la bannière pour les débloquer.
+Les profils sont séparés par fournisseur. Claude et Kimi prennent en charge
+profils/rôles ; Codex et Gemini utilisent le mode legacy. Dans un projet
+mixte, un même nom ne traverse jamais Claude/Kimi. Kimi permet les rôles
+manuels, mais génération, smoke test et AI Refine d'Agent Studio échouent
+avant démarrage. Kimi exige `specrails-core` 4.12.0 ou plus récent.
 
 ## Pour aller plus loin
 

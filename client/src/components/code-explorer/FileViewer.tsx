@@ -3,6 +3,7 @@ import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
 import { ChevronDown, ChevronUp, FileMinus2, FilePlus2, FileText, GitCommitHorizontal } from 'lucide-react'
 import { getApiBase } from '../../lib/api'
+import { providerSupportsPureOutput } from '../../lib/provider-capabilities'
 import { useDesktop } from '../../hooks/useDesktop'
 import { useSharedWebSocket } from '../../hooks/useSharedWebSocket'
 import { useTicketDetailModal } from '../../context/TicketDetailModalContext'
@@ -142,7 +143,9 @@ function clampHistoryHeight(height: number, containerHeight: number): number {
 
 export function FileViewer({ relPath, onFilterJob, onSummaryActionChange, onCopyPathActionChange }: FileViewerProps) {
   const { t } = useTranslation('code')
-  const { activeProjectId } = useDesktop()
+  const { activeProjectId, projects } = useDesktop()
+  const activeProvider = projects.find((project) => project.id === activeProjectId)?.provider
+  const aiTransformsAvailable = providerSupportsPureOutput(activeProvider)
   const { openTicketDetail } = useTicketDetailModal()
   const { registerHandler, unregisterHandler } = useSharedWebSocket()
   const budgetModal = useMovableResizableModal({ allowMove: false })
@@ -277,6 +280,7 @@ export function FileViewer({ relPath, onFilterJob, onSummaryActionChange, onCopy
   }, [activeProjectId, registerHandler, unregisterHandler, fetchFile, t])
 
   const handleRegenerate = useCallback(async (overrideBudget: boolean) => {
+    if (!aiTransformsAvailable) return
     setRegenerating(true)
     try {
       const res = await fetch(
@@ -312,7 +316,7 @@ export function FileViewer({ relPath, onFilterJob, onSummaryActionChange, onCopy
       setRegenerating(false)
       toast.error(t('summary.generationFailed'))
     }
-  }, [fetchFile, relPath, t])
+  }, [aiTransformsAvailable, fetchFile, relPath, t])
 
   const copyAbsolutePath = useCallback(async () => {
     const abs = file?.absolutePath ?? relPath
@@ -370,13 +374,15 @@ export function FileViewer({ relPath, onFilterJob, onSummaryActionChange, onCopy
   const stale = !!file?.summaryStale
   const provenance = file?.provenance ?? []
   const missing = file?.reason === 'not-found'
-  const summaryDisabledReason = missing
-    ? t('summary.reason.missing')
-    : file?.binary
-      ? t('summary.reason.binary')
-      : file?.tooLarge
-        ? t('summary.reason.tooLarge')
-        : null
+  const summaryDisabledReason = !aiTransformsAvailable
+    ? t('summary.reason.providerNoPureOutput')
+    : missing
+      ? t('summary.reason.missing')
+      : file?.binary
+        ? t('summary.reason.binary')
+        : file?.tooLarge
+          ? t('summary.reason.tooLarge')
+          : null
 
   useEffect(() => {
     if (!onSummaryActionChange) return

@@ -5,10 +5,18 @@ import treeKill from 'tree-kill'
 import type { WsMessage } from './types'
 import type { DbInstance } from './db'
 import { resolveCommand } from './command-resolver'
-import { spawnClaude } from './util/cli-prompt'
+import { spawnAiCli } from './util/cli-prompt'
 import { getAdapter, type ProviderAdapter, type AdapterEvent } from './providers'
 import { finaliseInvocationResult } from './result-event'
 import { recordInvocation, type InvocationStatus } from './ai-invocations'
+import {
+  buildProviderEnv,
+  buildProviderRepoAccessArgs,
+  formatProviderCommand,
+  parseStreamEvents,
+} from './providers/runtime'
+import { expandCommands } from './loop-command-catalog'
+import { resolveProjectExecution, type ProjectExecution } from './workspace-resolution'
 
 // ─── SpecLauncherManager ──────────────────────────────────────────────────────
 
@@ -35,21 +43,35 @@ export class SpecLauncherManager {
    *  fires when BOTH are present. */
   private _db?: DbInstance
   private _projectId?: string
-  /** claude adapter — the launcher only ever spawns claude. Used to parse the
-   *  stream into AdapterEvents for cost finalisation. */
-  private _adapter: ProviderAdapter = getAdapter('claude')
+  private _projectSlug?: string
+  private _adapter: ProviderAdapter
   /** Accumulated adapter events per active launch, drained at close. */
   private _events = new Map<string, AdapterEvent[]>()
   /** Spawn timestamp per active launch (ISO), for the invocation row. */
   private _startedAt = new Map<string, string>()
 
-  constructor(broadcast: (msg: WsMessage) => void, cwd: string, db?: DbInstance, projectId?: string) {
+  constructor(
+    broadcast: (msg: WsMessage) => void,
+    cwd: string,
+    db?: DbInstance,
+    projectId?: string,
+    providerId: string = 'claude',
+    projectSlug?: string,
+  ) {
     this._broadcast = broadcast
     this._cwd = cwd
     this._db = db
     this._projectId = projectId
+    this._projectSlug = projectSlug
+    this._adapter = getAdapter(providerId)
     this._activeProcesses = new Map()
     this._buffers = new Map()
+  }
+
+  /** Resolve lazily because Core may populate the relocated workspace after
+   * this project-scoped manager was constructed. */
+  private _execution(): ProjectExecution {
+    return resolveProjectExecution({ slug: this._projectSlug, path: this._cwd })
   }
 
   /**
@@ -66,8 +88,10 @@ export class SpecLauncherManager {
     const startedAt = this._startedAt.get(launchId) ?? new Date().toISOString()
     if (!db || !projectId) return
     try {
+      const finishedAt = new Date().toISOString()
       const { result, estimated } = finaliseInvocationResult(this._adapter, events, {
         fallbackModel: this._adapter.defaultModel(),
+        durationMs: Math.max(0, Date.parse(finishedAt) - Date.parse(startedAt)),
       })
       recordInvocation(db, {
         id: randomUUID(),
@@ -77,7 +101,7 @@ export class SpecLauncherManager {
         surface_ref_id: launchId,
         status,
         started_at: startedAt,
-        finished_at: new Date().toISOString(),
+        finished_at: finishedAt,
         total_cost_usd_estimated: estimated,
         ...result,
       })
@@ -135,26 +159,46 @@ export class SpecLauncherManager {
   }
 
   async launch(launchId: string, description: string): Promise<void> {
+    const execution = this._execution()
     const rawCommand = `/opsx:ff ${description}`
-    const prompt = resolveCommand(rawCommand, this._cwd)
-    if (prompt === rawCommand) {
+    const resolvedPrompt = this._adapter.capabilities.materializeHeadlessSkills
+      ? rawCommand
+      : resolveCommand(rawCommand, execution.cwd)
+    const providerCommand = resolvedPrompt === rawCommand
+      ? `${expandCommands('{{cmd:opsx:ff}}', { provider: this._adapter.id })} ${description}`
+      : resolvedPrompt
+    if (providerCommand === rawCommand) {
       this._broadcastError(launchId, 'This project does not have the /opsx:ff command installed. Run "npx specrails-core@latest" to install it.')
       return
     }
+    let prompt: string
+    try {
+      prompt = formatProviderCommand(this._adapter, providerCommand, execution.cwd)
+    } catch (error) {
+      this._broadcastError(
+        launchId,
+        error instanceof Error ? error.message : String(error),
+      )
+      return
+    }
 
-    const args = [
-      '--dangerously-skip-permissions',
-      '--tools', 'default',
-      '--output-format', 'stream-json',
-      '--verbose',
-      '-p', prompt,
-    ]
+    const spawnOptions = {
+      prompt,
+      model: this._adapter.defaultModel(),
+      toolPolicy: 'default' as const,
+      extraArgs: execution.relocated
+        ? buildProviderRepoAccessArgs(this._adapter, [execution.repoDir])
+        : [],
+    }
+    const args = this._adapter.buildArgs('spec-gen', spawnOptions)
 
-    // spawnClaude reroutes multi-line argv values through stdin on Windows.
-    const child = spawnClaude(args, {
-      env: process.env,
+    const child = spawnAiCli(this._adapter.binary, args, {
+      env: buildProviderEnv(this._adapter, spawnOptions, {
+        ...process.env,
+        ...execution.env,
+      }),
       stdio: ['ignore', 'pipe', 'pipe'],
-      cwd: this._cwd,
+      cwd: execution.cwd,
     })
 
     this._activeProcesses.set(launchId, child)
@@ -177,7 +221,7 @@ export class SpecLauncherManager {
         type: 'spec_launcher_error',
         projectId: '',
         launchId,
-        error: `Failed to launch claude: ${err.message}`,
+        error: `Failed to launch ${this._adapter.binary}: ${err.message}`,
         timestamp: new Date().toISOString(),
       })
     })
@@ -190,27 +234,12 @@ export class SpecLauncherManager {
 
     stdoutReader.on('line', (line) => {
       // Accumulate adapter events so a killed/failed launch is still costed from
-      // the per-assistant-event usage snapshots (HIGH-5). Only when DB-wired.
-      if (this._db && this._projectId) {
-        const ev = this._adapter.parseStreamLine(line)
-        if (ev) this._events.get(launchId)?.push(ev)
-      }
-
-      let parsed: Record<string, unknown> | null = null
-      try { parsed = JSON.parse(line) } catch { /* skip non-JSON */ }
-      if (!parsed) return
-
-      const eventType = parsed.type as string
-
-      if (eventType === 'assistant') {
-        const msg = parsed.message as { content?: Array<{ type: string; text?: string; name?: string }> } | undefined
-        const blocks = msg?.content ?? []
-
-        const texts = blocks
-          .filter((c) => c.type === 'text')
-          .map((c) => c.text ?? '')
-        const newText = texts.join('')
-        if (newText) {
+      // the per-assistant-event usage snapshots (HIGH-5), and so explicit
+      // provider failures remain terminal even when a CLI anomalously exits 0.
+      for (const event of parseStreamEvents(this._adapter, line)) {
+        this._events.get(launchId)?.push(event)
+        if (event.kind === 'text-delta') {
+          const newText = event.text
           // Try to detect change ID from output (look for "openspec/changes/<id>" pattern)
           const changeMatch = newText.match(/openspec\/changes\/([^\s/]+)/)
           if (changeMatch) detectedChangeId = changeMatch[1]
@@ -224,18 +253,14 @@ export class SpecLauncherManager {
             delta: newText,
             timestamp: new Date().toISOString(),
           })
-        }
-
-        for (const block of blocks) {
-          if (block.type === 'tool_use' && block.name) {
-            this._broadcast({
-              type: 'spec_launcher_stream',
-              projectId: '',
-              launchId,
-              delta: `<!--tool:${block.name}-->`,
-              timestamp: new Date().toISOString(),
-            })
-          }
+        } else if (event.kind === 'tool-use') {
+          this._broadcast({
+            type: 'spec_launcher_stream',
+            projectId: '',
+            launchId,
+            delta: `<!--tool:${event.name}-->`,
+            timestamp: new Date().toISOString(),
+          })
         }
       }
     })
@@ -247,13 +272,18 @@ export class SpecLauncherManager {
         this._activeProcesses.delete(launchId)
         this._buffers.delete(launchId)
         const wasCancelled = this._cancelledIds.delete(launchId)
+        const providerError = this._events.get(launchId)?.find(
+          (event): event is Extract<AdapterEvent, { kind: 'error' }> =>
+            event.kind === 'error',
+        )?.message
         // Record the invocation regardless of cancel/done outcome (the spend is
         // real either way) — but NOT when the project is being torn down, since
         // its DB is closing (recordInvocation would throw). A cancelled/killed
         // launch is 'aborted'; a non-zero exit is 'failed'; a clean exit is
         // 'success' (HIGH-5).
         if (!this._disposed) {
-          const status: InvocationStatus = wasCancelled ? 'aborted' : code === 0 ? 'success' : 'failed'
+          const status: InvocationStatus =
+            wasCancelled ? 'aborted' : code === 0 && !providerError ? 'success' : 'failed'
           this._recordInvocation(launchId, status)
         }
         this._events.delete(launchId)
@@ -263,7 +293,7 @@ export class SpecLauncherManager {
         // a cancelled/torn-down launch (BUG-LONGTAIL-04).
         if (wasCancelled || this._disposed) { resolve(); return }
 
-        if (code === 0) {
+        if (code === 0 && !providerError) {
           // Also try to extract change ID from full text
           if (!detectedChangeId) {
             const match = fullText.match(/openspec\/changes\/([^\s/]+)/)
@@ -277,7 +307,7 @@ export class SpecLauncherManager {
             timestamp: new Date().toISOString(),
           })
         } else {
-          this._broadcastError(launchId, 'Spec generation failed')
+          this._broadcastError(launchId, providerError ?? 'Spec generation failed')
         }
 
         resolve()

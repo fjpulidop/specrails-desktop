@@ -16,8 +16,14 @@ import { RailEffortSelector, type ReasoningEffort } from './agents/RailEffortSel
 import { RailPrDecisionStrip } from './RailPrDecisionStrip'
 import { RailTargetPrSelector, type RailTargetPr } from './RailTargetPrSelector'
 import { railIndexFromId } from '../lib/rail-id'
-import { providerSupportsReasoningEffort } from '../lib/provider-capabilities'
+import {
+  providerSupportsCustomModelAliases,
+  providerSupportsFreestyle,
+  providerSupportsProfiles,
+  providerSupportsReasoningEffort,
+} from '../lib/provider-capabilities'
 import { modelsForProvider, defaultModelForProvider } from '../lib/loop-run-models'
+import { isSafeCustomModelAlias } from '../lib/model-alias'
 import type { LocalTicket, RailPrDecision, RailPrDecisionAction, RailPrStateSnapshot } from '../types'
 import type { RailPrActResult, RailPrCheckoutResult } from '../context/RailPrDecisionContext'
 
@@ -34,7 +40,7 @@ interface RailRowProps {
   profileName?: string | null
   /** Selected AI engine for this rail (multi-provider). null/undefined = primary. */
   aiEngine?: string | null
-  /** Selected model for freestyle rails. null/undefined = default (sonnet). */
+  /** Selected model for freestyle rails. null/undefined = provider default. */
   freestyleModel?: FreestyleModel | null
   /** Selected model for custom loop rails. null/undefined = provider default. */
   loopModel?: string | null
@@ -107,37 +113,37 @@ export function RailRow({
   // Server rail index for identity-keyed endpoints (pr-candidates). Null for
   // exotic/test ids — the target-PR selector simply doesn't render then.
   const serverRailIdx = railIndexFromId(id)
-  // Codex has no agent profiles — hide the profile selector when this rail's
-  // engine is codex (the engine selector is shown only on multi-provider projects).
-  const profileApplies = (aiEngine ?? providers?.[0]) !== 'codex'
-  // Freestyle is Claude-only. Effective engine = explicit rail override, else
-  // the project's primary provider (providers[0]); default to claude when
-  // unknown (single-provider claude projects pass no providers list).
-  const engineIsClaude = (aiEngine ?? providers?.[0] ?? 'claude') === 'claude'
-  // Reasoning effort applies only to providers with a per-invocation knob
-  // (codex native, claude soft) — NOT gemini, so its selector is hidden there.
-  const effortApplies = providerSupportsReasoningEffort(aiEngine ?? providers?.[0] ?? 'claude')
+  const effectiveProvider = aiEngine ?? providers?.[0] ?? 'claude'
+  const profileApplies = providerSupportsProfiles(effectiveProvider)
+  const freestyleAvailable = providerSupportsFreestyle(effectiveProvider)
   // Which secondary selectors are visible right now. When any is shown we move
   // them onto their own row beneath the rail name so the header doesn't cram
   // engine + model + mode segments + play into a single line.
   const showEngineSel = !!onEngineChange && status !== 'running' && (providers?.length ?? 0) > 1
   const showProfileSel = !!onProfileChange && status !== 'running' && profileApplies && mode !== 'loop'
-  const showModelSel = !!onFreestyleModelChange && status !== 'running' && mode === 'freestyle' && engineIsClaude
+  const showModelSel = !!onFreestyleModelChange && status !== 'running' && mode === 'freestyle' && freestyleAvailable
   // Model picker for custom loop rails (non-factory loops) — provider-aware.
   const showLoopModelSel = !!onLoopModelChange && status !== 'running' && mode === 'loop'
-  const loopModelProvider = aiEngine ?? providers?.[0] ?? 'claude'
+  const loopModelProvider = effectiveProvider
   const loopModelOptions = modelsForProvider(loopModelProvider)
-  const effectiveLoopModel = loopModel ?? defaultModelForProvider(loopModelProvider)
+  const effectiveLoopModel = loopModel && (
+    loopModelOptions.some((option) => option.value === loopModel)
+    || (
+      providerSupportsCustomModelAliases(loopModelProvider)
+      && isSafeCustomModelAlias(loopModel)
+    )
+  )
+    ? loopModel
+    : defaultModelForProvider(loopModelProvider)
+  const effortApplies = providerSupportsReasoningEffort(effectiveProvider, effectiveLoopModel)
   const loopModelPickerEl = showLoopModelSel && onLoopModelChange ? (
-    <select
-      data-testid="loop-model-selector"
-      aria-label={t('railSelectors.loopModelTitle')}
+    <RailModelSelector
+      provider={loopModelProvider}
       value={effectiveLoopModel}
-      onChange={(e) => onLoopModelChange(e.target.value)}
-      className="h-5 text-[10px] rounded border border-border/50 bg-transparent text-muted-foreground hover:text-foreground pr-4 pl-1 focus:outline-none focus:ring-1 focus:ring-primary/40"
-    >
-      {loopModelOptions.map((m) => <option key={m.value} value={m.value}>{m.label}</option>)}
-    </select>
+      onChange={onLoopModelChange}
+      testId="loop-model-selector"
+      ariaLabel={t('railSelectors.loopModelTitle')}
+    />
   ) : null
   // The rail's unified Loop picker (factory + custom loops) replaces the old mode
   // segmented control — always shown when idle. Effort shows for custom loops.
@@ -449,22 +455,22 @@ export function RailRow({
             <RailEngineSelector value={aiEngine ?? null} providers={providers ?? []} onChange={onEngineChange} />
           )}
           {onProfileChange && !isRunning && profileApplies && mode !== 'loop' && (
-            <RailProfileSelector value={profileName ?? null} onChange={onProfileChange} />
+            <RailProfileSelector provider={effectiveProvider} value={profileName ?? null} onChange={onProfileChange} />
           )}
-          {onFreestyleModelChange && !isRunning && mode === 'freestyle' && engineIsClaude && (
-            <RailModelSelector value={freestyleModel ?? null} onChange={onFreestyleModelChange} />
+          {onFreestyleModelChange && !isRunning && mode === 'freestyle' && freestyleAvailable && (
+            <RailModelSelector provider={effectiveProvider} value={freestyleModel ?? null} onChange={onFreestyleModelChange} />
           )}
           {loopModelPickerEl}
           {onLoopChange && !isRunning && (
             <RailLoopSelector
               value={effectiveLoopId(selectedLoopId, mode)}
               onChange={onLoopChange}
-              freestyleAvailable={engineIsClaude}
+              freestyleAvailable={freestyleAvailable}
               loopsEnabled={loopAvailable}
             />
           )}
           {onEffortChange && !isRunning && mode === 'loop' && effortApplies && (
-            <RailEffortSelector value={reasoningEffort ?? null} onChange={onEffortChange} />
+            <RailEffortSelector provider={effectiveProvider} model={effectiveLoopModel} value={reasoningEffort ?? null} onChange={onEffortChange} />
           )}
           {onTargetPrChange && !isRunning && serverRailIdx !== null && (
             <RailTargetPrSelector railIndex={serverRailIdx} value={targetPr ?? null} onChange={onTargetPrChange} />
@@ -474,7 +480,7 @@ export function RailRow({
             status={status}
             activeJobId={activeJobId}
             ticketCount={tickets.length}
-            freestyleAvailable={engineIsClaude}
+            freestyleAvailable={freestyleAvailable}
             loopAvailable={loopAvailable}
             onModeChange={onModeChange}
                 onToggle={onToggle}
@@ -630,9 +636,9 @@ export function RailRow({
             {/* Profile stays inline when no second row exists (it self-hides
                 with no profiles, so it never leaves an empty gap here). */}
             {!hasSelectorRow && showProfileSel && onProfileChange && (
-              <RailProfileSelector value={profileName ?? null} onChange={onProfileChange} />
+              <RailProfileSelector provider={effectiveProvider} value={profileName ?? null} onChange={onProfileChange} />
             )}
-            <RailControls mode={mode} status={status} activeJobId={activeJobId} ticketCount={tickets.length} freestyleAvailable={engineIsClaude} loopAvailable={loopAvailable} onModeChange={onModeChange} onToggle={onToggle} />
+            <RailControls mode={mode} status={status} activeJobId={activeJobId} ticketCount={tickets.length} freestyleAvailable={freestyleAvailable} loopAvailable={loopAvailable} onModeChange={onModeChange} onToggle={onToggle} />
             {/* Jiggle-mode delete button */}
             {jiggleMode && canDelete && (
               <button
@@ -678,22 +684,22 @@ export function RailRow({
                 <RailEngineSelector value={aiEngine ?? null} providers={providers ?? []} onChange={onEngineChange} />
               )}
               {hasSelectorRow && showProfileSel && onProfileChange && (
-                <RailProfileSelector value={profileName ?? null} onChange={onProfileChange} />
+                <RailProfileSelector provider={effectiveProvider} value={profileName ?? null} onChange={onProfileChange} />
               )}
               {showModelSel && onFreestyleModelChange && (
-                <RailModelSelector value={freestyleModel ?? null} onChange={onFreestyleModelChange} />
+                <RailModelSelector provider={effectiveProvider} value={freestyleModel ?? null} onChange={onFreestyleModelChange} />
               )}
               {loopModelPickerEl}
               {showLoopSel && onLoopChange && (
                 <RailLoopSelector
                   value={effectiveLoopId(selectedLoopId, mode)}
                   onChange={onLoopChange}
-                  freestyleAvailable={engineIsClaude}
+                  freestyleAvailable={freestyleAvailable}
                   loopsEnabled={loopAvailable}
                 />
               )}
               {mode === 'loop' && !isRunning && effortApplies && onEffortChange && (
-                <RailEffortSelector value={reasoningEffort ?? null} onChange={onEffortChange} />
+                <RailEffortSelector provider={effectiveProvider} model={effectiveLoopModel} value={reasoningEffort ?? null} onChange={onEffortChange} />
               )}
               {onTargetPrChange && !isRunning && serverRailIdx !== null && (
                 <RailTargetPrSelector railIndex={serverRailIdx} value={targetPr ?? null} onChange={onTargetPrChange} />

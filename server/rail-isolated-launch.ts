@@ -1656,7 +1656,7 @@ function recoveryOverlayExcludes(repoDir: string, worktreePath: string): string[
       if (typeof value !== 'string' || value.length === 0 || path.isAbsolute(value)) return false
       if (value.includes('\\') || value.split('/').includes('..') || /[\0:*?\[\]]/.test(value)) return false
       if (value === OVERLAY_MANIFEST) return true
-      if (!/^\.(?:claude|codex|gemini)\/[^/]+(?:\/[^/]+)*$/.test(value)) return false
+      if (!/^\.(?:claude|codex|gemini|kimi-code)\/[^/]+(?:\/[^/]+)*$/.test(value)) return false
       try {
         // Manifest contents are worktree-writable and therefore not authority.
         // Ignore only links that still prove they are overlay scaffolding;

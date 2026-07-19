@@ -25,6 +25,21 @@ describe('FreestyleLaunchDialog', () => {
     expect(screen.getByText(/Rail 1 · 1 spec ·/)).toBeInTheDocument()
   })
 
+  it('renders Kimi as the autonomous provider without implying Claude models', () => {
+    render(
+      <FreestyleLaunchDialog
+        {...base}
+        provider="kimi"
+        model="k3"
+        onConfirm={vi.fn()}
+        onCancel={vi.fn()}
+      />,
+    )
+    expect(screen.getByText(/Kimi works on its own/)).toBeInTheDocument()
+    expect(screen.getByText(/Rail 1 · 2 specs · k3/)).toBeInTheDocument()
+    expect(screen.queryByText(/Claude works/)).not.toBeInTheDocument()
+  })
+
   it('calls onConfirm when Continue is clicked', () => {
     const onConfirm = vi.fn()
     render(<FreestyleLaunchDialog {...base} onConfirm={onConfirm} onCancel={vi.fn()} />)

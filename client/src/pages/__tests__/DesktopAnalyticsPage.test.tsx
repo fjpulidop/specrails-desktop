@@ -166,6 +166,46 @@ describe('DesktopAnalyticsPage', () => {
     })
   })
 
+  it('renders unavailable instead of $0 for Kimi-only cost telemetry', async () => {
+    const kimiData = {
+      ...mockAnalyticsData,
+      kpi: {
+        ...mockAnalyticsData.kpi,
+        totalCostUsd: 0,
+        costToday: 0,
+        totalJobs: 1,
+        jobsToday: 1,
+        pricedRuns: 0,
+        unpricedRuns: 1,
+        pricedTodayRuns: 0,
+        unpricedTodayRuns: 1,
+      },
+      costTimeline: [{ date: '2024-01-01', costUsd: 0, unpricedCount: 1 }],
+      projectBreakdown: [{
+        ...mockAnalyticsData.projectBreakdown[0],
+        projectName: 'Kimi Project',
+        totalCostUsd: 0,
+        totalJobs: 1,
+        pricedRuns: 0,
+        unpricedRuns: 1,
+      }],
+    }
+    ;(global.fetch as ReturnType<typeof vi.fn>).mockResolvedValue({
+      ok: true,
+      json: async () => kimiData,
+    })
+
+    const DesktopAnalyticsPage = (await import('../DesktopAnalyticsPage')).default
+    render(<DesktopAnalyticsPage />)
+
+    await waitFor(() => {
+      expect(screen.getByTestId('kpi-cost-coverage-note')).toHaveTextContent(/cost telemetry is unavailable/i)
+    })
+    expect(screen.getByTestId('desktop-timeline-cost-unavailable')).toBeInTheDocument()
+    expect(screen.getByTestId('desktop-project-cost-unavailable')).toBeInTheDocument()
+    expect(screen.queryByText('$0.0000')).not.toBeInTheDocument()
+  })
+
   it('renders "No projects registered." when projectBreakdown is empty', async () => {
     ;(global.fetch as ReturnType<typeof vi.fn>).mockResolvedValue({
       ok: true,

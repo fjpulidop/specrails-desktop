@@ -25,6 +25,12 @@ import {
 import { finaliseInvocationResult } from './result-event'
 import { randomUUID } from 'crypto'
 import { getAdapter, type ProviderAdapter, type AdapterEvent, type ProviderId } from './providers'
+import {
+  buildProviderEnv,
+  buildProviderRepoAccessArgs,
+  formatProviderCommand,
+  parseStreamEvents,
+} from './providers/runtime'
 import { createCodexOtelBridge, type CodexOtelBridge } from './codex-otel-bridge'
 import { createJob, deleteQueuedJob, finishJob, appendEvent, skipJob, getProjectSettings, getFreestylePrePrompt, DEFAULT_FREESTYLE_PRE_PROMPT, upsertQueuedJob } from './db'
 import type { DbInstance, JobResult, QueuedJobRecord } from './db'
@@ -487,6 +493,9 @@ export class QueueManager {
     projectPath: string,
     projectId: string,
     jobId: string,
+    providerId?: string,
+    legacyProviderId?: string,
+    slug?: string,
   ) => Promise<{
     active: Array<{ name: string; version: string }>
     degraded: Array<{ name: string; reason: string }>
@@ -533,6 +542,9 @@ export class QueueManager {
         projectPath: string,
         projectId: string,
         jobId: string,
+        providerId?: string,
+        legacyProviderId?: string,
+        slug?: string,
       ) => Promise<{
         active: Array<{ name: string; version: string }>
         degraded: Array<{ name: string; reason: string }>
@@ -2494,7 +2506,8 @@ export class QueueManager {
     // true forces interactive where capable, undefined = default ON. Derived
     // HERE (spawn time), not at enqueue, so legacy queued rows with no explicit
     // selection still receive the current default after restart.
-    const isFreestyle = adapter.id === 'claude' && FREESTYLE_COMMAND_RE.test(commandToRun)
+    const isFreestyle =
+      adapter.capabilities.freestyle === true && FREESTYLE_COMMAND_RE.test(commandToRun)
     const interactiveOverride = this._jobInteractiveSelection.get(jobId)
     const spawnInteractive =
       isInteractiveJobsEnabled() &&
@@ -2614,31 +2627,19 @@ export class QueueManager {
     // (`isFreestyle` itself is resolved above, before the systemAppend build.)
     const railPrompt = isFreestyle
       ? this._buildFreestylePrompt(commandToRun)
-      : adapter.id === 'codex'
-        ? commandToRun.replace(/^\/(specrails|sr):([\w-]+)/, '$$$2')
-        : commandToRun
+      : formatProviderCommand(adapter, commandToRun, execution.cwd)
     // Per-job model override (consumed once) takes precedence — used by the
     // freestyle model picker so the user can choose haiku/sonnet/opus per launch.
     const modelOverride = this._jobModelSelection.get(jobId)
-    const railModel = modelOverride
-      ? modelOverride
-      : adapter.id === 'claude' && this._db
-        ? getProjectSettings(this._db).orchestratorModel
-        : (this._resolvedModel ?? adapter.defaultModel())
+    const fallbackRailModel = adapter.id === 'claude' && this._db
+      ? getProjectSettings(this._db).orchestratorModel
+      : (this._resolvedModel ?? adapter.defaultModel())
     // Relocate-artifacts: when relocated, claude is spawned from the workspace
     // so add `--add-dir <repoDir>` so its tools can still reach repo files by
     // absolute path. (gemini/codex get env-only tweaks at spawn time below.)
-    const railExtraArgs: string[] | undefined =
-      execution.relocated && adapter.id === 'claude'
-        ? ['--add-dir', execution.repoDir]
-        : undefined
-    const args = adapter.buildArgs('rail-job', {
-      prompt: railPrompt,
-      systemPrompt: systemAppend || undefined,
-      model: railModel,
-      extraArgs: railExtraArgs,
-    })
-
+    const railExtraArgs = execution.relocated
+      ? buildProviderRepoAccessArgs(adapter, [execution.repoDir])
+      : []
     // Resolve agent profile (if any) and snapshot per-job before spawn.
     // Super mode only (projectId + projectSlug + cwd all present).
     // Skipped when the adapter does not honour `SPECRAILS_PROFILE_PATH` AND
@@ -2649,6 +2650,7 @@ export class QueueManager {
     // tracked in OpenSpec change task §13.
     let profileSnapshotPath: string | null = null
     let profileName: string | null = null
+    let profileOrchestratorModel: string | null = null
     if (adapter.capabilities.profileEnvSupport && this._projectId && this._projectSlug && this._cwd) {
       try {
         const selection = this._jobProfileSelection.get(jobId) // undefined|null|string
@@ -2666,6 +2668,7 @@ export class QueueManager {
           if (resolved) {
             profileSnapshotPath = snapshotForJob(this._projectSlug, jobId, resolved)
             profileName = resolved.name
+            profileOrchestratorModel = resolved.profile.orchestrator.model
             if (this._db) {
               persistJobProfile(this._db, jobId, resolved)
             }
@@ -2677,6 +2680,18 @@ export class QueueManager {
         console.warn(`[queue-manager] profile resolution failed for job ${jobId}: ${(err as Error).message}`)
       }
     }
+
+    // One authoritative model for both transports:
+    // explicit per-job override > resolved profile orchestrator > project/default.
+    // resolveProfile validates the profile model against this adapter's catalog.
+    const railModel = modelOverride ?? profileOrchestratorModel ?? fallbackRailModel
+    const railSpawnOptions = {
+      prompt: railPrompt,
+      systemPrompt: systemAppend || undefined,
+      model: railModel,
+      extraArgs: railExtraArgs.length > 0 ? railExtraArgs : undefined,
+    }
+    const args = adapter.buildArgs('rail-job', railSpawnOptions)
 
     // Read pipelineTelemetryEnabled at spawn time (not constructor time) so
     // toggling the setting takes effect on the next job without restarting.
@@ -2721,10 +2736,9 @@ export class QueueManager {
     // or timed out. Degraded does NOT block spawn — rail proceeds, UI gets
     // a `plugin.degraded` event so the user can reinstall.
     //
-    // Today PluginManager only supports the `project-json` MCP registration
-    // (claude). Codex (`cli-add`) is covered by tasks §14 — until that lands
-    // we skip plugin resolution for non-`project-json` adapters so the rail
-    // spawns cleanly without errors.
+    // Project-json providers (Claude, Kimi, Gemini) resolve only the plugin
+    // installations scoped to this rail's effective provider. CLI-managed MCP
+    // registries remain outside this snapshot path.
     let pluginActive: Array<{ name: string; version: string }> = []
     let pluginDegraded: Array<{ name: string; reason: string }> = []
     let pluginSnapshotPath: string | null = null
@@ -2742,6 +2756,9 @@ export class QueueManager {
           execution.cwd,
           this._projectId,
           jobId,
+          adapter.id,
+          this._adapter.id,
+          this._projectSlug,
         )
         // shutdown() may have run while plugin verification was awaiting. Never
         // snapshot, broadcast, or spawn for a manager generation that no longer
@@ -2762,6 +2779,7 @@ export class QueueManager {
             type: 'plugin.degraded',
             projectId: this._projectId,
             name: d.name,
+            providerId: adapter.id,
             reason: d.reason,
             jobId,
             timestamp: new Date().toISOString(),
@@ -2880,7 +2898,7 @@ export class QueueManager {
           console.warn(`[queue-manager] provenance snapshot failed: ${(err as Error).message}`)
         }
       }
-      const interactiveArgs = adapter.buildArgs('chat-stream', {
+      const interactiveSpawnOptions = {
         // chat-stream feeds the prompt over stdin per-turn, so the argv `prompt`
         // is unused — pass empty to satisfy the shared SpawnOptions shape.
         prompt: '',
@@ -2893,13 +2911,14 @@ export class QueueManager {
         model: railModel,
         extraArgs: !isFreestyle && systemAppend
           ? ['--append-system-prompt', systemAppend, ...(railExtraArgs ?? [])]
-          : railExtraArgs,
-      })
+          : (railExtraArgs.length > 0 ? railExtraArgs : undefined),
+      }
+      const interactiveArgs = adapter.buildArgs('chat-stream', interactiveSpawnOptions)
       this._startInteractiveJob(
         jobId,
         job,
         adapter,
-        { binary, args: interactiveArgs, cwd: spawnCwd, env: spawnEnv },
+        { binary, args: interactiveArgs, cwd: spawnCwd, env: buildProviderEnv(adapter, interactiveSpawnOptions, spawnEnv) },
         railPrompt,
         interactiveSettleMode,
       )
@@ -2942,7 +2961,7 @@ export class QueueManager {
 
     // spawnAiCli reroutes multi-line argv values through stdin on Windows.
     const child = spawnAiCli(binary, args, {
-      env: spawnEnv,
+      env: buildProviderEnv(adapter, railSpawnOptions, spawnEnv),
       stdio: ['ignore', 'pipe', 'pipe'],
       cwd: spawnCwd,
     })
@@ -3090,14 +3109,14 @@ export class QueueManager {
       // alongside the raw event persistence below, NOT in place of it: the
       // raw event log is what feeds the live Job Detail UI and the
       // telemetry export ZIP for non-bridge providers.
-      const adapterEv = adapter.parseStreamLine(line)
-      if (adapterEv) {
+      const adapterEventsForLine = parseStreamEvents(adapter, line)
+      for (const adapterEv of adapterEventsForLine) {
         adapterEvents.push(adapterEv)
         otelBridge?.consumeEvent(adapterEv)
       }
 
       if (parsed) {
-        const eventType = (parsed.type as string) ?? 'unknown'
+        const eventType = (parsed.type as string) ?? (parsed.role as string) ?? 'unknown'
         const persisted = persistEvent({
           event_type: eventType,
           source: 'stdout',
@@ -3134,8 +3153,9 @@ export class QueueManager {
         // For adapters whose stream is JSONL (claude, codex), a non-parseable
         // line is unexpected noise. For future plain-text adapters this is
         // their normal output. emitLine surfaces it either way.
-        if (adapterEv?.kind === 'text-delta') {
-          emitLine('stdout', adapterEv.text)
+        const textEvent = adapterEventsForLine.find((event) => event.kind === 'text-delta')
+        if (textEvent?.kind === 'text-delta') {
+          emitLine('stdout', textEvent.text)
         } else {
           emitLine('stdout', line)
         }
@@ -3249,6 +3269,12 @@ export class QueueManager {
     const wasZombie = this._zombieJobs.has(jobId)
     const wasCanceling = this._cancelingJobs.has(jobId)
     const wasPersistenceFailed = this._persistenceFailedJobs.has(jobId)
+    // A provider may report a semantic turn failure while its CLI still exits
+    // successfully (code 0). AdapterEvent is the provider-neutral contract for
+    // that condition, so do not let the process exit code relabel it completed.
+    // Cancellation/zombie outcomes retain precedence because they describe the
+    // user/manager-owned termination of the whole job.
+    const providerReportedError = adapterEvents.some((event) => event.kind === 'error')
 
     let finalStatus: Exclude<Job['status'], 'queued' | 'running'>
     if (wasPersistenceFailed) {
@@ -3257,18 +3283,29 @@ export class QueueManager {
       finalStatus = 'zombie_terminated'
     } else if (wasCanceling) {
       finalStatus = 'canceled'
+    } else if (providerReportedError) {
+      finalStatus = 'failed'
     } else if (code === 0) {
       finalStatus = 'completed'
     } else {
       finalStatus = 'failed'
     }
 
+    const finishedAt = new Date().toISOString()
+    const startedAtMs = job.startedAt ? new Date(job.startedAt).getTime() : Number.NaN
+    const finishedAtMs = new Date(finishedAt).getTime()
+    const wallDurationMs = Number.isFinite(startedAtMs)
+      ? Math.max(0, finishedAtMs - startedAtMs)
+      : undefined
+
     // Adapter-driven finalisation must happen before staging so the immutable
-    // intent owns the same usage that lands on jobs and ai_invocations.
+    // intent owns the same usage that lands on jobs and ai_invocations. The
+    // manager wall clock fills providers such as Kimi that emit no duration;
+    // a provider-native duration retains precedence inside the finaliser.
     const { result: normalised, estimated } = finaliseInvocationResult(
       adapter,
       adapterEvents,
-      { fallbackModel: spawnedModel },
+      { fallbackModel: spawnedModel, durationMs: wallDurationMs },
     )
     const tokenData: Partial<JobResult> = lastResultEvent || adapterEvents.length > 0
       ? {
@@ -3285,7 +3322,6 @@ export class QueueManager {
           session_id: normalised.session_id,
         }
       : {}
-    const finishedAt = new Date().toISOString()
     const invStatus: InvocationStatus = finalStatus === 'completed'
       ? 'success'
       : (finalStatus === 'canceled' || finalStatus === 'zombie_terminated')
@@ -4224,12 +4260,12 @@ export class QueueManager {
       adapter = this._adapter
     }
     type RawRow = { seq: number; event_type: string; payload: string }
-    const parse = (row: RawRow): AdapterEvent | null => {
+    const parse = (row: RawRow): readonly AdapterEvent[] => {
       try {
-        return adapter.parseStreamLine(row.payload)
+        return parseStreamEvents(adapter, row.payload)
       } catch (err) {
         console.warn(`[queue-manager] ignored malformed durable event for ${jobId}:`, err)
-        return null
+        return []
       }
     }
     const makeUsageAccumulator = () => {
@@ -4308,17 +4344,18 @@ export class QueueManager {
          ORDER BY seq, id
       `).iterate(jobId) as Iterable<RawRow>
       for (const row of events) {
-        const event = parse(row)
-        if (event?.kind === 'result') {
-          const finalised = finaliseInvocationResult(adapter, [event], {
-            fallbackModel: fallbackModel ?? undefined,
-          })
-          lastValidResult = {
-            ...finalised,
-            result: sanitizeRecoveredResult(finalised.result),
+        for (const event of parse(row)) {
+          if (event.kind === 'result') {
+            const finalised = finaliseInvocationResult(adapter, [event], {
+              fallbackModel: fallbackModel ?? undefined,
+            })
+            lastValidResult = {
+              ...finalised,
+              result: sanitizeRecoveredResult(finalised.result),
+            }
+          } else {
+            accumulator.add(event, row.seq)
           }
-        } else if (event) {
-          accumulator.add(event, row.seq)
         }
       }
       const fallback = accumulator.result()
@@ -4369,26 +4406,27 @@ export class QueueManager {
        ORDER BY seq, id
     `).iterate(jobId) as Iterable<RawRow>
     for (const row of resultRows) {
-      const event = parse(row)
-      if (event?.kind !== 'result') continue
-      const finalised = finaliseInvocationResult(adapter, [event], { fallbackModel: model })
-      const result = sanitizeRecoveredResult(finalised.result)
-      totals.tokens_in += result.tokens_in ?? 0
-      totals.tokens_out += result.tokens_out ?? 0
-      totals.tokens_cache_read += result.tokens_cache_read ?? 0
-      totals.tokens_cache_create += result.tokens_cache_create ?? 0
-      const cumulativeCost = result.total_cost_usd ?? baselineCost
-      totals.total_cost_usd += Math.max(0, cumulativeCost - baselineCost)
-      baselineCost = cumulativeCost
-      const cumulativeTurns = result.num_turns ?? (baselineTurns + 1)
-      totals.num_turns += Math.max(0, cumulativeTurns - baselineTurns)
-      baselineTurns = cumulativeTurns
-      totals.duration_ms += result.duration_ms ?? 0
-      totals.duration_api_ms += result.duration_api_ms ?? 0
-      model = result.model ?? model
-      sessionId = result.session_id ?? sessionId
-      estimated = estimated || finalised.estimated
-      lastResultSeq = row.seq
+      for (const event of parse(row)) {
+        if (event.kind !== 'result') continue
+        const finalised = finaliseInvocationResult(adapter, [event], { fallbackModel: model })
+        const result = sanitizeRecoveredResult(finalised.result)
+        totals.tokens_in += result.tokens_in ?? 0
+        totals.tokens_out += result.tokens_out ?? 0
+        totals.tokens_cache_read += result.tokens_cache_read ?? 0
+        totals.tokens_cache_create += result.tokens_cache_create ?? 0
+        const cumulativeCost = result.total_cost_usd ?? baselineCost
+        totals.total_cost_usd += Math.max(0, cumulativeCost - baselineCost)
+        baselineCost = cumulativeCost
+        const cumulativeTurns = result.num_turns ?? (baselineTurns + 1)
+        totals.num_turns += Math.max(0, cumulativeTurns - baselineTurns)
+        baselineTurns = cumulativeTurns
+        totals.duration_ms += result.duration_ms ?? 0
+        totals.duration_api_ms += result.duration_api_ms ?? 0
+        model = result.model ?? model
+        sessionId = result.session_id ?? sessionId
+        estimated = estimated || finalised.estimated
+        lastResultSeq = row.seq
+      }
     }
 
     const tail = makeUsageAccumulator()
@@ -4398,8 +4436,9 @@ export class QueueManager {
        ORDER BY seq, id
     `).iterate(jobId, lastResultSeq) as Iterable<RawRow>
     for (const row of tailRows) {
-      const event = parse(row)
-      if (event && event.kind !== 'result') tail.add(event, row.seq)
+      for (const event of parse(row)) {
+        if (event.kind !== 'result') tail.add(event, row.seq)
+      }
     }
     const tailUsage = tail.result()
     const tailResult = tailUsage.result

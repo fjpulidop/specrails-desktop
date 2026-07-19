@@ -144,6 +144,26 @@ describe('from-draft agent-authored Contract Refine scheduling', () => {
     expect(runContractRefineForQuick).not.toHaveBeenCalled()
   })
 
+  it('treats a NULL conversation provider as the Kimi project primary and does not schedule Contract Refine', async () => {
+    const kimiCtx = makeContext(db, tmpDir, ['kimi'])
+    createConversation(db, { id: 'conv-kimi-primary', model: 'k3', kind: 'explore', provider: null })
+    const app = createApp(kimiCtx)
+
+    const res = await request(app)
+      .post('/api/projects/proj-1/tickets/from-draft')
+      .send({
+        title: 'Kimi Explore spec',
+        description: 'Body',
+        conversationId: 'conv-kimi-primary',
+        contractRefine: true,
+      })
+
+    expect(res.status).toBe(201)
+    await drainScheduling()
+    expect(runContractRefine).not.toHaveBeenCalled()
+    expect(runContractRefineForQuick).not.toHaveBeenCalled()
+  })
+
   it('skips the enrichment when claude is not among the project providers', async () => {
     const codexCtx = makeContext(db, tmpDir, ['codex'])
     const app = createApp(codexCtx)
@@ -229,6 +249,7 @@ describe('contract-refine retry endpoint — quick fallback for origin-less tick
 
   it('keeps the Explore --resume path when the ticket has an origin conversation', async () => {
     const id = seedTicket({ description: 'body', originConversationId: 'conv-9' })
+    createConversation(db, { id: 'conv-9', model: 'sonnet', kind: 'explore', provider: null })
     const app = createApp(ctx)
     const res = await request(app).post(`/api/projects/proj-1/tickets/${id}/contract-refine`).send({})
     expect(res.status).toBe(202)
@@ -238,6 +259,44 @@ describe('contract-refine retry endpoint — quick fallback for origin-less tick
     expect((deps as { ignoreConversationScope?: boolean }).ignoreConversationScope).toBe(true)
     expect(convoId).toBe('conv-9')
     expect(ticketId).toBe(id)
+    expect(runContractRefineForQuick).not.toHaveBeenCalled()
+  })
+
+  it('rejects explicit Kimi refine in a Claude-primary mixed project before scheduling either runner', async () => {
+    ctx = makeContext(db, tmpDir, ['claude', 'kimi'])
+    const id = seedTicket({ description: 'body' })
+    const app = createApp(ctx)
+
+    const res = await request(app)
+      .post(`/api/projects/proj-1/tickets/${id}/contract-refine`)
+      .send({ provider: 'kimi' })
+
+    expect(res.status).toBe(409)
+    expect(res.body.error).toBe('contract_refine_unsupported_for_kimi')
+    await drainScheduling()
+    expect(runContractRefine).not.toHaveBeenCalled()
+    expect(runContractRefineForQuick).not.toHaveBeenCalled()
+  })
+
+  it('rejects a Kimi-origin retry in a Claude-primary mixed project before scheduling either runner', async () => {
+    ctx = makeContext(db, tmpDir, ['claude', 'kimi'])
+    createConversation(db, {
+      id: 'conv-kimi',
+      model: 'k3',
+      kind: 'explore',
+      provider: 'kimi',
+    })
+    const id = seedTicket({ description: 'body', originConversationId: 'conv-kimi' })
+    const app = createApp(ctx)
+
+    const res = await request(app)
+      .post(`/api/projects/proj-1/tickets/${id}/contract-refine`)
+      .send({})
+
+    expect(res.status).toBe(409)
+    expect(res.body.error).toBe('contract_refine_unsupported_for_kimi')
+    await drainScheduling()
+    expect(runContractRefine).not.toHaveBeenCalled()
     expect(runContractRefineForQuick).not.toHaveBeenCalled()
   })
 

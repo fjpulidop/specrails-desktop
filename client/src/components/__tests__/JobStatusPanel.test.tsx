@@ -249,6 +249,53 @@ describe('JobStatusPanel', () => {
     expect(screen.queryByTestId('pipeline-partial-hint')).not.toBeInTheDocument()
   })
 
+  it('renders unavailable instead of $0/0k for an all-Kimi pipeline', () => {
+    render(
+      <JobStatusPanel
+        job={completedJob}
+        events={[]}
+        pipelineTotals={{
+          totalCostUsd: 0,
+          hasNullCost: true,
+          nullCostCount: 3,
+          costUnavailable: true,
+          totalTokensIn: 0,
+          totalTokensOut: 0,
+          totalTokensCacheRead: 0,
+          totalTokensCacheCreate: 0,
+          nullTokenCount: 3,
+          tokensUnavailable: true,
+          jobCount: 3,
+        }}
+      />,
+    )
+    expect(screen.getByTestId('pipeline-cost-unavailable')).toBeInTheDocument()
+    expect(screen.getByTestId('pipeline-usage-coverage-hint')).toHaveTextContent(/unavailable for every phase/i)
+    expect(screen.queryByText('$0.0000')).not.toBeInTheDocument()
+    expect(screen.queryByText('0.0k')).not.toBeInTheDocument()
+  })
+
+  it('marks mixed pipeline token usage as a known lower bound', () => {
+    render(
+      <JobStatusPanel
+        job={completedJob}
+        events={[]}
+        pipelineTotals={{
+          totalCostUsd: 1,
+          totalTokensIn: 1000,
+          totalTokensOut: 500,
+          totalTokensCacheRead: 0,
+          totalTokensCacheCreate: 0,
+          nullTokenCount: 1,
+          tokensUnavailable: false,
+          jobCount: 2,
+        }}
+      />,
+    )
+    expect(screen.getByText('≥1.5k')).toBeInTheDocument()
+    expect(screen.getByTestId('pipeline-usage-coverage-hint')).toHaveTextContent(/1 phase/i)
+  })
+
   // ── Running (HONEST live state) ─────────────────────────────────────────────
 
   describe('running', () => {

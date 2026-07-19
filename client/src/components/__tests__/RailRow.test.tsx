@@ -190,4 +190,60 @@ describe('RailRow', () => {
       expect(screen.queryByTestId('loop-model-selector')).not.toBeInTheDocument()
     })
   })
+
+  it('offers Kimi Freestyle with Kimi models and exact effort tiers', () => {
+    renderRailRow({
+      ...defaultProps,
+      mode: 'freestyle',
+      aiEngine: 'kimi',
+      providers: ['kimi'],
+      onFreestyleModelChange: vi.fn(),
+      onLoopChange: vi.fn(),
+    } as any)
+    expect(screen.getByTestId('rail-model-selector')).toHaveValue('k3')
+    expect(screen.getByRole('option', { name: 'Freestyle' })).toBeInTheDocument()
+  })
+
+  it('shows Kimi loop effort only while the effective model is K3', () => {
+    const props = {
+      ...defaultProps,
+      mode: 'loop' as const,
+      selectedLoopId: 'custom-loop',
+      aiEngine: 'kimi',
+      providers: ['kimi'],
+      loopModel: 'k3',
+      onLoopModelChange: vi.fn(),
+      onEffortChange: vi.fn(),
+    }
+    const { rerender } = renderRailRow(props as any)
+    expect(screen.getByTestId('rail-effort-selector')).toBeInTheDocument()
+
+    rerender(
+      <DndContext>
+        <RailRow {...props} loopModel="kimi-for-coding" />
+      </DndContext>,
+    )
+    expect(screen.queryByTestId('rail-effort-selector')).not.toBeInTheDocument()
+  })
+
+  it('preserves a custom Kimi loop alias exactly and keeps effort hidden', () => {
+    const onLoopModelChange = vi.fn()
+    renderRailRow({
+      ...defaultProps,
+      mode: 'loop',
+      selectedLoopId: 'custom-loop',
+      aiEngine: 'kimi',
+      providers: ['kimi'],
+      loopModel: 'moonshot-team/private-coder:v1',
+      onLoopModelChange,
+      onEffortChange: vi.fn(),
+    } as any)
+
+    const input = screen.getByTestId('loop-model-selector')
+    expect(input).toHaveValue('moonshot-team/private-coder:v1')
+    expect(screen.queryByTestId('rail-effort-selector')).not.toBeInTheDocument()
+    fireEvent.change(input, { target: { value: 'Moonshot-Team/Private_Coder:v2' } })
+    fireEvent.blur(input)
+    expect(onLoopModelChange).toHaveBeenCalledWith('Moonshot-Team/Private_Coder:v2')
+  })
 })

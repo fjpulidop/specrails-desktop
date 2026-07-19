@@ -8,7 +8,8 @@
     "surpriseMe": "おまかせ",
     "inputPlaceholder": "〜ができるアプリ",
     "createSpecs": "スペックを作成",
-    "createSpecsHint": "ブループリントにマイルストーン1のスペックが揃うと使えます"
+    "createSpecsHint": "ブループリントにマイルストーン1のスペックが揃うと使えます",
+    "providerUnavailable": "プロジェクトビルダーには、ツールなしまたは読み取り専用のネイティブモードを持つプロバイダーが必要です。このプロバイダーは利用できません。"
   },
   "panel": {
     "title": "ブループリント",
@@ -87,7 +88,8 @@
     "progress": "{{done}}/{{total}} 完了",
     "launchM1": "マイルストーン1を起動",
     "generateNext": "M{{n}} を生成",
-    "generateHint": "ブループリントを種にした、実コードに根ざすスペックセッションを開きます"
+    "generateHint": "ブループリントを種にした、実コードに根ざすスペックセッションを開きます",
+    "generateUnavailable": "マイルストーン生成にはネイティブの読み取り専用モードが必要です"
   },
   "errors": {
     "startFailed": "ビルダーの会話を開始できませんでした。",
@@ -99,7 +101,8 @@
     "inputPlaceholder": "スペックを磨き込む…",
     "commit": "{{count}} 件のスペックを {{label}} としてコミット",
     "commitToast": "{{count}} 件のスペックが {{label}} としてボードに追加されました",
-    "commitFailed": "マイルストーンをコミットできませんでした"
+    "commitFailed": "マイルストーンをコミットできませんでした",
+    "providerUnavailable": "このプロバイダーにはネイティブの読み取り専用モードがないため、マイルストーン生成は利用できません。"
   },
   "mode": {
     "title": "プロジェクトビルダー",

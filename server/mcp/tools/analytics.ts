@@ -57,11 +57,11 @@ export function analyticsTools(): McpToolSpec[] {
         modelProvider: z
           .array(z.string())
           .optional()
-          .describe('Providers index-aligned to model[] (scopes each model id to its provider so codex/gemini estimated cost does not merge into a claude bar)'),
+          .describe('Providers index-aligned to model[] (scopes each model id to its provider so native or estimated costs from claude/codex/gemini/kimi do not merge into another provider\'s bar)'),
         provider: z
           .array(z.string())
           .optional()
-          .describe('Filter to these providers (e.g. claude, codex, gemini) (CSV)'),
+          .describe('Filter to these providers (e.g. claude, codex, gemini, kimi) (CSV)'),
         status: z.enum(['success', 'failed', 'aborted']).optional().describe('Filter by invocation status'),
         minCostUsd: z.number().optional().describe('Only invocations costing at least this many USD'),
         ticketId: z.number().int().optional().describe('Scope to a single ticket id'),

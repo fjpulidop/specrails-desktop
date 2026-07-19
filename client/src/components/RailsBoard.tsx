@@ -31,7 +31,7 @@ export interface RailState {
   profileName?: string | null
   /** Selected AI engine for this rail (multi-provider). null/undefined = primary. */
   aiEngine?: string | null
-  /** Selected model for freestyle rails. null/undefined = default (sonnet). */
+  /** Selected model for freestyle rails. null/undefined = provider default. */
   freestyleModel?: FreestyleModel | null
   /** Per-rail "Interactive" toggle (freestyle only). When true, the launched job
    *  becomes a persistent chat session with a Finalize button. */

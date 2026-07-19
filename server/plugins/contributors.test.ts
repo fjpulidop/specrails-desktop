@@ -113,10 +113,26 @@ describe('applyContributors / revertContributors', () => {
     }
   })
 
-  it('contributorPaths reflects provider (CLAUDE.md vs AGENTS.md)', () => {
+  it('writes Kimi guidance to .kimi-code/AGENTS.md without touching Codex AGENTS.md', async () => {
+    const plugin = makePlugin('## kimi-aware hint')
+    const touched = await applyContributors(plugin, projectPath, 'kimi')
+    const relativePath = path.join('.kimi-code', 'AGENTS.md')
+    const kimiAgentsPath = path.join(projectPath, relativePath)
+
+    expect(touched).toEqual([relativePath])
+    expect(fs.readFileSync(kimiAgentsPath, 'utf8')).toContain('## kimi-aware hint')
+    expect(fs.existsSync(path.join(projectPath, 'AGENTS.md'))).toBe(false)
+
+    await revertContributors(plugin, projectPath, 'kimi')
+    expect(fs.existsSync(kimiAgentsPath)).toBe(false)
+  })
+
+  it('contributorPaths reflects each provider instruction path', () => {
     expect(contributorPaths(makePlugin('## x'))).toEqual(['CLAUDE.md'])
     expect(contributorPaths(makePlugin('## x'), 'claude')).toEqual(['CLAUDE.md'])
     expect(contributorPaths(makePlugin('## x'), 'codex')).toEqual(['AGENTS.md'])
+    expect(contributorPaths(makePlugin('## x'), 'kimi'))
+      .toEqual([path.join('.kimi-code', 'AGENTS.md')])
   })
 
   it('unknown providerId falls back to CLAUDE.md gracefully', () => {

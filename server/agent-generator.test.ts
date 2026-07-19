@@ -104,6 +104,46 @@ describe('agent-generator', () => {
       child.emit('close', 0)
       await p
     })
+
+    it.each([
+      {
+        provider: 'codex',
+        expected: ['--sandbox', 'read-only'],
+        forbidden: '--sandbox-dangerously-bypass-approvals-and-sandbox',
+        line: JSON.stringify({ type: 'item.completed', item: { type: 'agent_message', text: 'draft' } }),
+      },
+      {
+        provider: 'gemini',
+        expected: ['--approval-mode', 'plan'],
+        forbidden: '--yolo',
+        line: JSON.stringify({ type: 'message', role: 'assistant', content: 'draft' }),
+      },
+    ])('uses the verified read-only Studio boundary for $provider', async ({ provider, expected, forbidden, line }) => {
+      const child = createMockChildProcess()
+      vi.mocked(mockSpawn).mockReturnValue(child as any)
+      const p = generateCustomAgent('/cwd', {
+        name: 'custom-x',
+        description: 'does x',
+        providerId: provider,
+      })
+      const args = vi.mocked(mockSpawn).mock.calls[0][1] as string[]
+      const start = args.indexOf(expected[0])
+      expect(args.slice(start, start + expected.length)).toEqual(expected)
+      expect(args).not.toContain(forbidden)
+      pushLine(child, line)
+      await flush()
+      child.emit('close', 0)
+      await p
+    })
+
+    it('rejects Kimi Studio automation before spawning', async () => {
+      await expect(generateCustomAgent('/cwd', {
+        name: 'custom-x',
+        description: 'does x',
+        providerId: 'kimi',
+      })).rejects.toThrow('provider_tool_policy_unsupported:kimi')
+      expect(mockSpawn).not.toHaveBeenCalled()
+    })
   })
 
   // ─── LOW-14: testCustomAgent token double-count fix ────────────────────────

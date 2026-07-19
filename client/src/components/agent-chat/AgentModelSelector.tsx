@@ -2,6 +2,7 @@ import { useTranslation } from 'react-i18next'
 import { Sparkles } from 'lucide-react'
 import type { AgentModel } from '../../lib/agent-api'
 import { AgentToolbarSelector } from './AgentToolbarSelector'
+import { CustomModelAliasInput } from '../CustomModelAliasInput'
 
 interface Props {
   models: AgentModel[]
@@ -10,10 +11,19 @@ interface Props {
   status?: 'loading' | 'ready' | 'error'
   disabled?: boolean
   testId?: string
+  customModelAliases?: boolean
 }
 
 /** Per-provider model picker using the Agent toolbar's shared visual language. */
-export function AgentModelSelector({ models, model, onSelect, status = 'ready', disabled = false, testId = 'agent-model-selector' }: Props) {
+export function AgentModelSelector({
+  models,
+  model,
+  onSelect,
+  status = 'ready',
+  disabled = false,
+  testId = 'agent-model-selector',
+  customModelAliases = false,
+}: Props) {
   const { t } = useTranslation('agent')
 
   // Resolve the shown value: explicit model, else the catalog default, else first.
@@ -23,6 +33,24 @@ export function AgentModelSelector({ models, model, onSelect, status = 'ready', 
     : status === 'error'
       ? t('model.unavailable')
       : t('model.label')
+
+  if (customModelAliases) {
+    return (
+      <div className="flex min-w-0 items-center gap-1.5 rounded-md px-1.5 py-1">
+        <Sparkles className="h-3.5 w-3.5 shrink-0 text-accent-primary" aria-hidden />
+        <CustomModelAliasInput
+          value={current}
+          options={models}
+          onCommit={onSelect}
+          disabled={disabled || status !== 'ready'}
+          ariaLabel={t('model.label')}
+          testId={testId}
+          placeholder={placeholder}
+          className="h-6 w-48 border-border/40 px-1.5 text-xs"
+        />
+      </div>
+    )
+  }
 
   return (
     <AgentToolbarSelector

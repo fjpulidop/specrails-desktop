@@ -21,7 +21,7 @@ Le plugin phare est :
 3. Cliquez sur le plugin pour **prévisualiser l'installation** — cela vous montre exactement quels fichiers vont changer avant que quoi que ce soit ne se produise.
 4. Cliquez sur **Installer**. Vous suivez la progression en direct pendant la mise en place.
 
-En coulisses, l'installation est *chirurgicale et additive* : elle n'ajoute que ses propres entrées au `.mcp.json` de votre projet (et, pour certains plugins, un fichier de fragment dans l'espace de noms protégé `.claude/agents/`). Elle ne réécrit jamais votre configuration dans son ensemble, et l'ajout d'un second plugin ne peut jamais perturber le premier. Si l'installation ne parvient pas à se vérifier comme saine, elle effectue un retour arrière propre.
+En coulisses, l'installation est *chirurgicale et additive* : elle n'ajoute ses entrées qu'à la configuration MCP native du fournisseur choisi (et, pour certaines installations Claude, un fragment sous `.claude/agents/`). Elle ne réécrit jamais toute la configuration et revient proprement en arrière si la vérification échoue.
 
 ## Gérer les plugins installés
 
@@ -37,8 +37,8 @@ En coulisses, l'installation est *chirurgicale et additive* : elle n'ajoute que 
 
 ## Notes sur les fournisseurs
 
-Les plugins tiennent compte du fournisseur. Serena et les plugins MCP similaires s'activent pour les fournisseurs qui enregistrent MCP via le `.mcp.json` du projet (Claude et Gemini). Pour les projets Codex, les serveurs MCP sont gérés via la configuration globale propre à Codex ; les entrées de plugin dans **Intégrations** sont donc filtrées en conséquence. La carte Jira dans Intégrations est indépendante du fournisseur et s'affiche pour tout le monde — voir le guide Jira.
+Les plugins tiennent compte du fournisseur. Serena prend en charge Claude via `.mcp.json`, Codex via `codex mcp add` avec un `CODEX_HOME` isolé par projet, et Kimi via `.kimi-code/mcp.json`. Un plugin n'apparaît que si son manifeste déclare le fournisseur ; Serena n'est donc pas proposé pour Gemini. La carte Jira reste indépendante du fournisseur.
 
 ## Fichiers réservés
 
-Les plugins gèrent un petit ensemble de fichiers bien défini dans votre projet : votre `.mcp.json` (fusionné chirurgicalement), un peu d'état sous `.specrails/plugins/`, et les fragments d'agent par plugin dans `.claude/agents/custom-<plugin>.md`. Ce sont des ressources d'équipe versionnables si vous souhaitez partager une intégration avec vos coéquipiers — l'app ne les écrase jamais aveuglément.
+Les plugins gèrent la configuration MCP native du fournisseur, l'état sous `.specrails/plugins/` et, uniquement pour Claude si nécessaire, des fragments sous `.claude/agents/custom-<plugin>.md`. Les entrées Kimi vivent dans `.kimi-code/mcp.json` ; l'app n'écrit aucun fragment réservé à Claude pour Kimi et n'écrase jamais une configuration aveuglément.

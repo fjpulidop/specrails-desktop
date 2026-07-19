@@ -32,10 +32,16 @@ interface PipelineTotals {
   costEstimated?: boolean
   /** How many phases have no cost recorded (drives the partial hint copy). */
   nullCostCount?: number
+  /** True when no phase has any cost telemetry. */
+  costUnavailable?: boolean
   totalTokensIn: number
   totalTokensOut: number
   totalTokensCacheRead: number
   totalTokensCacheCreate: number
+  /** Phases with no token counter at all. */
+  nullTokenCount?: number
+  /** True when no phase exposes token telemetry. */
+  tokensUnavailable?: boolean
   jobCount: number
 }
 
@@ -349,24 +355,53 @@ export function JobStatusPanel({
                   <div className="grid grid-cols-2 gap-2">
                     <SummaryMetric
                       label={t('statusPanel.totalCost')}
-                      value={`${pipelineTotals.costEstimated ? '~' : ''}${pipelineTotals.hasNullCost ? '≥' : ''}$${pipelineTotals.totalCostUsd.toFixed(4)}`}
+                      value={
+                        pipelineTotals.costUnavailable
+                          ? '—'
+                          : `${pipelineTotals.costEstimated ? '~' : ''}${pipelineTotals.hasNullCost ? '≥' : ''}$${pipelineTotals.totalCostUsd.toFixed(4)}`
+                      }
                       valueClass="text-yellow-400 aurora-light:text-accent-warning"
                     />
                     <SummaryMetric
                       label={t('statusPanel.totalTokens')}
-                      value={`${((pipelineTotals.totalTokensIn +
-                        pipelineTotals.totalTokensOut +
-                        pipelineTotals.totalTokensCacheRead +
-                        pipelineTotals.totalTokensCacheCreate) / 1000).toFixed(1)}k`}
+                      value={
+                        pipelineTotals.tokensUnavailable
+                          ? '—'
+                          : `${(pipelineTotals.nullTokenCount ?? 0) > 0 ? '≥' : ''}${((pipelineTotals.totalTokensIn +
+                            pipelineTotals.totalTokensOut +
+                            pipelineTotals.totalTokensCacheRead +
+                            pipelineTotals.totalTokensCacheCreate) / 1000).toFixed(1)}k`
+                      }
                     />
                   </div>
-                  {pipelineTotals.hasNullCost && (
+                  {pipelineTotals.hasNullCost && !pipelineTotals.costUnavailable && (
                     <p
                       data-testid="pipeline-partial-hint"
                       className="text-[10px] text-muted-foreground/70 mt-1.5"
                       title={t('statusPanel.pipelinePartialTooltip')}
                     >
                       {t('statusPanel.pipelinePartial', { count: pipelineTotals.nullCostCount ?? 0 })}
+                    </p>
+                  )}
+                  {pipelineTotals.costUnavailable && (
+                    <p
+                      data-testid="pipeline-cost-unavailable"
+                      className="text-[10px] text-muted-foreground/70 mt-1.5"
+                    >
+                      {t('statusPanel.pipelineCostUnavailable')}
+                    </p>
+                  )}
+                  {(pipelineTotals.nullTokenCount ?? 0) > 0 && (
+                    <p
+                      data-testid="pipeline-usage-coverage-hint"
+                      className="text-[10px] text-muted-foreground/70 mt-1"
+                      title={t('statusPanel.pipelineUsageTooltip')}
+                    >
+                      {pipelineTotals.tokensUnavailable
+                        ? t('statusPanel.pipelineUsageUnavailable')
+                        : t('statusPanel.pipelineUsagePartial', {
+                            count: pipelineTotals.nullTokenCount ?? 0,
+                          })}
                     </p>
                   )}
                 </div>

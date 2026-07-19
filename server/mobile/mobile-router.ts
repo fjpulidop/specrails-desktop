@@ -207,7 +207,14 @@ export function createMobileRouter(deps: MobileRouterDeps): Router {
     // rails-as-loops: let a mobile client launch a chosen Loop (factory or custom).
     // Additive — the frozen bare-`mode` path is untouched (a v1 client sends no loopId).
     if (typeof b.loopId === 'string') narrowed.loopId = b.loopId
-    if (b.reasoning_effort === 'low' || b.reasoning_effort === 'medium' || b.reasoning_effort === 'high') narrowed.reasoning_effort = b.reasoning_effort
+    if (
+      typeof b.reasoning_effort === 'string' &&
+      ['minimal', 'low', 'medium', 'high', 'xhigh', 'max', 'ultra'].includes(b.reasoning_effort)
+    ) {
+      // The internal rail route validates the tier against the selected
+      // provider. This gateway only narrows to the cross-provider enum.
+      narrowed.reasoning_effort = b.reasoning_effort
+    }
     if (typeof b.interactive === 'boolean') narrowed.interactive = b.interactive
     void forward(res, 'POST', `/api/projects/${encodeURIComponent(pid)}/rails/${encodeURIComponent(i)}/launch`, '', narrowed)
   })

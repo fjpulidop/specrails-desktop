@@ -426,7 +426,7 @@ export function AgentChatProvider({ children }: { children: ReactNode }) {
   const [draftProvider, setDraftProvider] = useState('claude')
   const [draftModel, setDraftModel] = useState<string | null>(null)
   const [draftTierLevel, setDraftTierLevel] = useState<AgentTierLevel>(0)
-  // null = the app default ("medium") — shown as Medium in the selector.
+  // null = no provider-specific effort override.
   const [draftEffort, setDraftEffort] = useState<string | null>(null)
   const draftConvRef = useRef({ provider: 'claude', model: null as string | null, tierLevel: 0 as AgentTierLevel, effort: null as string | null })
   draftConvRef.current = { provider: draftProvider, model: draftModel, tierLevel: draftTierLevel, effort: draftEffort }
@@ -963,7 +963,10 @@ export function AgentChatProvider({ children }: { children: ReactNode }) {
   }, [active, patchActive])
   const setModel = useCallback(async (model: string) => {
     if (active) await patchActive({ model })
-    else setDraftModel(model)
+    else {
+      setDraftModel(model)
+      setDraftEffort(null)
+    }
   }, [active, patchActive])
   const setEffort = useCallback(async (effort: string | null) => {
     if (active) await patchActive({ reasoningEffort: effort })

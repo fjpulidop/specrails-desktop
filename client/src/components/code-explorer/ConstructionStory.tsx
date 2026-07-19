@@ -3,6 +3,7 @@ import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
 import { FileMinus2, FilePlus2, FileText, Sparkles } from 'lucide-react'
 import { getApiBase } from '../../lib/api'
+import { providerSupportsPureOutput } from '../../lib/provider-capabilities'
 import { useDesktop } from '../../hooks/useDesktop'
 import { useSharedWebSocket } from '../../hooks/useSharedWebSocket'
 
@@ -49,7 +50,9 @@ function kindIcon(kind: StoryEntry['kind']) {
  */
 export function ConstructionStory({ relPath, height, onOpenTicket, onFilterJob }: ConstructionStoryProps) {
   const { t } = useTranslation('code')
-  const { activeProjectId } = useDesktop()
+  const { activeProjectId, projects } = useDesktop()
+  const activeProvider = projects.find((project) => project.id === activeProjectId)?.provider
+  const aiTransformsAvailable = providerSupportsPureOutput(activeProvider)
   const { registerHandler, unregisterHandler } = useSharedWebSocket()
   const [story, setStory] = useState<StoryEntry[] | null>(null)
   const [failed, setFailed] = useState(false)
@@ -107,6 +110,7 @@ export function ConstructionStory({ relPath, height, onOpenTicket, onFilterJob }
   }, [activeProjectId, registerHandler, unregisterHandler, fetchStory])
 
   const explain = useCallback(async (entry: StoryEntry, overrideBudget: boolean) => {
+    if (!aiTransformsAvailable) return
     setExplainState((prev) => ({ ...prev, [entry.provenanceId]: 'busy' }))
     try {
       const res = await fetch(
@@ -145,7 +149,7 @@ export function ConstructionStory({ relPath, height, onOpenTicket, onFilterJob }
         return next
       })
     }
-  }, [fetchStory, relPath, t])
+  }, [aiTransformsAvailable, fetchStory, relPath, t])
 
   return (
     <div
@@ -167,6 +171,7 @@ export function ConstructionStory({ relPath, height, onOpenTicket, onFilterJob }
                 key={entry.provenanceId}
                 entry={entry}
                 state={explainState[entry.provenanceId]}
+                canExplain={aiTransformsAvailable}
                 onOpenTicket={onOpenTicket}
                 onFilterJob={onFilterJob}
                 onExplain={(override) => { void explain(entry, override) }}
@@ -182,12 +187,14 @@ export function ConstructionStory({ relPath, height, onOpenTicket, onFilterJob }
 function StoryCard({
   entry,
   state,
+  canExplain,
   onOpenTicket,
   onFilterJob,
   onExplain,
 }: {
   entry: StoryEntry
   state: 'busy' | 'budget' | undefined
+  canExplain: boolean
   onOpenTicket: (ticketId: number) => void
   onFilterJob?: (jobId: string) => void
   onExplain: (overrideBudget: boolean) => void
@@ -263,7 +270,14 @@ function StoryCard({
               <p className="text-xs text-muted-foreground" data-testid="story-fallback">
                 {t(`story.fallback.${fallbackKey}`)}
               </p>
-              {state === 'budget' ? (
+              {!canExplain ? (
+                <span
+                  className="text-[10px] text-muted-foreground"
+                  data-testid="story-explain-unavailable"
+                >
+                  {t('story.explainUnavailable')}
+                </span>
+              ) : state === 'budget' ? (
                 <span className="inline-flex items-center gap-1.5">
                   <span className="text-[10px] text-accent-warning">{t('story.budgetReached')}</span>
                   <button

@@ -1,6 +1,6 @@
 import React from 'react'
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { render, screen } from '../../test-utils'
+import { fireEvent, render, screen } from '../../test-utils'
 import userEvent from '@testing-library/user-event'
 import { ChatInput } from '../ChatInput'
 
@@ -165,5 +165,52 @@ describe('ChatInput', () => {
     )
     const select = screen.getByRole('combobox') as HTMLSelectElement
     expect(select.value).toBe('gpt-5.4-mini')
+  })
+
+  it('preserves and commits a safe custom Kimi alias exactly', () => {
+    const onModelChange = vi.fn()
+    render(
+      <ChatInput
+        {...defaultProps}
+        provider="kimi"
+        model="moonshot-team/private-coder:v1"
+        onModelChange={onModelChange}
+      />,
+    )
+
+    const input = screen.getByTestId('chat-model-alias-input')
+    expect(input).toHaveValue('moonshot-team/private-coder:v1')
+    fireEvent.change(input, { target: { value: 'Moonshot-Team/Private_Coder:v2' } })
+    fireEvent.blur(input)
+    expect(onModelChange).toHaveBeenCalledWith('Moonshot-Team/Private_Coder:v2')
+  })
+
+  it('does not commit an unsafe Kimi alias or unlock the picker after messages exist', () => {
+    const onModelChange = vi.fn()
+    const { rerender } = render(
+      <ChatInput
+        {...defaultProps}
+        provider="kimi"
+        model="k3"
+        onModelChange={onModelChange}
+      />,
+    )
+    const input = screen.getByTestId('chat-model-alias-input')
+    fireEvent.change(input, { target: { value: '--yolo' } })
+    expect(input).toHaveAttribute('aria-invalid', 'true')
+    fireEvent.blur(input)
+    expect(onModelChange).not.toHaveBeenCalled()
+    expect(input).toHaveValue('k3')
+
+    rerender(
+      <ChatInput
+        {...defaultProps}
+        provider="kimi"
+        model="k3"
+        hasMessages
+        onModelChange={onModelChange}
+      />,
+    )
+    expect(screen.getByTestId('chat-model-alias-input')).toBeDisabled()
   })
 })

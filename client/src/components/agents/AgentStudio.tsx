@@ -27,6 +27,8 @@ interface Props {
    * overlay.
    */
   draftFromRefine?: string
+  provider?: string
+  defaultModel?: string
   onClose: () => void
   onSaved?: (id: string) => void
   /**
@@ -34,6 +36,8 @@ interface Props {
    * (refineId, agentId, baseBody) so the parent can re-open the overlay.
    */
   onResumeRefine?: (refineId: string, agentId: string, baseBody: string) => void
+  /** Safe provider tool policies are required for test/refine automation. */
+  automationEnabled?: boolean
 }
 
 // Template catalog lives in agentTemplates.ts (45+ entries across 13
@@ -68,12 +72,19 @@ const SAMPLE_TASKS: Array<{ labelKey: string; prompt: string }> = [
   },
 ]
 
-const BLANK_TEMPLATE = `---
-name: custom-<name>
+export function blankTemplate(
+  provider: string,
+  defaultModel: string,
+  name = 'custom-<name>',
+): string {
+  const providerMetadata = provider === 'claude'
+    ? 'color: blue\nmemory: project\n'
+    : ''
+  return `---
+name: ${name}
 description: "Short description of when to use this agent."
-model: sonnet
-color: blue
-memory: project
+model: ${defaultModel}
+${providerMetadata}\
 ---
 
 # Identity
@@ -95,20 +106,44 @@ You are ...
 - **detail_level**: full
 - **focus_areas**: ...
 `
+}
+
+export function synchronizeFrontmatterName(body: string, name: string): string {
+  const match = body.match(/^---(\r?\n)([\s\S]*?)\r?\n---/)
+  if (!match) return body
+  const newline = match[1]
+  const frontmatter = /^name:\s*.*$/m.test(match[2])
+    ? match[2].replace(/^name:\s*.*$/m, `name: ${name}`)
+    : `name: ${name}${newline}${match[2]}`
+  return body.replace(match[0], `---${newline}${frontmatter}${newline}---`)
+}
+
+export function customRoleDisplayPath(provider: string, agentId: string): string {
+  if (provider === 'kimi') return `.kimi-code/skills/${agentId}/SKILL.md`
+  if (provider === 'codex') return `.codex/skills/rails/${agentId}/SKILL.md`
+  if (provider === 'gemini') return `.gemini/agents/${agentId}.md`
+  return `.claude/agents/${agentId}.md`
+}
 
 export function AgentStudio({
   agentId,
   initialBody,
   initialName,
   draftFromRefine,
+  provider = 'claude',
+  defaultModel = 'sonnet',
   onClose,
   onSaved,
   onResumeRefine,
+  automationEnabled = true,
 }: Props) {
   const { t } = useTranslation('agentstudio')
   const isCreate = !agentId
-  const [id, setId] = useState(agentId ?? initialName ?? '')
-  const [body, setBody] = useState(initialBody ?? BLANK_TEMPLATE)
+  const initialId = agentId ?? initialName ?? ''
+  const [id, setId] = useState(initialId)
+  const [body, setBody] = useState(
+    initialBody ?? blankTemplate(provider, defaultModel, initialId || undefined),
+  )
   const [loading, setLoading] = useState(!isCreate && !initialBody && !draftFromRefine)
   const [refineDraftLoading, setRefineDraftLoading] = useState(!!draftFromRefine && !isCreate)
   const [saving, setSaving] = useState(false)
@@ -120,7 +155,7 @@ export function AgentStudio({
   const [sampleTask, setSampleTask] = useState('')
   const [testing, setTesting] = useState(false)
   const [testResult, setTestResult] = useState<
-    { output: string; tokens: number; durationMs: number } | null
+    { output: string; tokens: number | null; durationMs: number } | null
   >(null)
   const [testError, setTestError] = useState<string | null>(null)
   const [confirmDelete, setConfirmDelete] = useState(false)
@@ -130,7 +165,7 @@ export function AgentStudio({
     // Refine handoff path: load draft body from the in-flight session.
     if (draftFromRefine) {
       let cancelled = false
-      fetch(`${getApiBase()}/profiles/catalog/${encodeURIComponent(agentId!)}/refine/${draftFromRefine}`)
+      fetch(`${getApiBase()}/profiles/catalog/${encodeURIComponent(agentId!)}/refine/${draftFromRefine}?provider=${encodeURIComponent(provider)}`)
         .then((r) => {
           if (!r.ok) throw new Error(t('studio.errors.loadDraftFailed', { status: r.status }))
           return r.json() as Promise<{ draftBody: string | null }>
@@ -152,7 +187,7 @@ export function AgentStudio({
       }
     }
     let cancelled = false
-    fetch(`${getApiBase()}/profiles/catalog/${encodeURIComponent(agentId!)}`)
+    fetch(`${getApiBase()}/profiles/catalog/${encodeURIComponent(agentId!)}?provider=${encodeURIComponent(provider)}`)
       .then((r) => {
         if (!r.ok) throw new Error(t('studio.errors.loadFailed', { status: r.status }))
         return r.json() as Promise<{ id: string; body: string }>
@@ -169,15 +204,15 @@ export function AgentStudio({
     return () => {
       cancelled = true
     }
-  }, [agentId, isCreate, initialBody, draftFromRefine])
+  }, [agentId, draftFromRefine, initialBody, isCreate, provider, t])
 
   const loadVersions = useCallback(() => {
     if (isCreate) return
-    fetch(`${getApiBase()}/profiles/catalog/${encodeURIComponent(agentId!)}/versions`)
+    fetch(`${getApiBase()}/profiles/catalog/${encodeURIComponent(agentId!)}/versions?provider=${encodeURIComponent(provider)}`)
       .then((r) => (r.ok ? (r.json() as Promise<{ versions: AgentVersion[] }>) : { versions: [] }))
       .then((d) => setVersions(d.versions))
       .catch(() => setVersions([]))
-  }, [agentId, isCreate])
+  }, [agentId, isCreate, provider])
 
   useEffect(() => {
     if (showVersions) loadVersions()
@@ -194,14 +229,17 @@ export function AgentStudio({
     setError(null)
     try {
       let res: Response
+      const persistedBody = isCreate && provider === 'kimi'
+        ? synchronizeFrontmatterName(body, id)
+        : body
       if (isCreate) {
-        res = await fetch(`${getApiBase()}/profiles/catalog`, {
+        res = await fetch(`${getApiBase()}/profiles/catalog?provider=${encodeURIComponent(provider)}`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ id, body }),
+          body: JSON.stringify({ id, body: persistedBody, provider }),
         })
       } else {
-        res = await fetch(`${getApiBase()}/profiles/catalog/${encodeURIComponent(agentId!)}`, {
+        res = await fetch(`${getApiBase()}/profiles/catalog/${encodeURIComponent(agentId!)}?provider=${encodeURIComponent(provider)}`, {
           method: 'PATCH',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ body }),
@@ -212,6 +250,7 @@ export function AgentStudio({
         throw new Error(err.error ?? t('studio.errors.saveFailed', { status: res.status }))
       }
       setDirty(false)
+      if (persistedBody !== body) setBody(persistedBody)
       toast.success(isCreate ? t('studio.toasts.agentCreated') : t('studio.toasts.agentSaved'), {
         description: isCreate ? id : agentId,
       })
@@ -225,7 +264,7 @@ export function AgentStudio({
     } finally {
       setSaving(false)
     }
-  }, [agentId, body, id, isCreate, onSaved, t])
+  }, [agentId, body, id, isCreate, onSaved, provider, t])
 
   const remove = useCallback(async () => {
     if (isCreate) return
@@ -233,7 +272,7 @@ export function AgentStudio({
     setSaving(true)
     setError(null)
     try {
-      const res = await fetch(`${getApiBase()}/profiles/catalog/${encodeURIComponent(agentId!)}`, {
+      const res = await fetch(`${getApiBase()}/profiles/catalog/${encodeURIComponent(agentId!)}?provider=${encodeURIComponent(provider)}`, {
         method: 'DELETE',
       })
       if (!res.ok) {
@@ -250,7 +289,7 @@ export function AgentStudio({
     } finally {
       setSaving(false)
     }
-  }, [agentId, isCreate, onClose, onSaved, t])
+  }, [agentId, isCreate, onClose, onSaved, provider, t])
 
   const restore = useCallback((v: AgentVersion) => {
     setBody(v.body)
@@ -259,11 +298,12 @@ export function AgentStudio({
   }, [])
 
   const runTest = useCallback(async () => {
+    if (!automationEnabled) return
     setTesting(true)
     setTestError(null)
     setTestResult(null)
     try {
-      const res = await fetch(`${getApiBase()}/profiles/catalog/test`, {
+      const res = await fetch(`${getApiBase()}/profiles/catalog/test?provider=${encodeURIComponent(provider)}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -276,14 +316,14 @@ export function AgentStudio({
         const err = await res.json().catch(() => ({}))
         throw new Error(err.error ?? t('studio.errors.testFailed', { status: res.status }))
       }
-      const data = (await res.json()) as { output: string; tokens: number; durationMs: number }
+      const data = (await res.json()) as { output: string; tokens: number | null; durationMs: number }
       setTestResult(data)
     } catch (e) {
       setTestError((e as Error).message)
     } finally {
       setTesting(false)
     }
-  }, [agentId, body, id, isCreate, sampleTask, t])
+  }, [agentId, automationEnabled, body, id, isCreate, provider, sampleTask, t])
 
   if (loading) {
     return (
@@ -324,7 +364,13 @@ export function AgentStudio({
             <Input
               value={id}
               onChange={(e) => {
-                setId(e.target.value)
+                const nextId = e.target.value
+                setId(nextId)
+                if (provider === 'kimi') {
+                  setBody((current) =>
+                    synchronizeFrontmatterName(current, nextId || 'custom-<name>'),
+                  )
+                }
                 setDirty(true)
               }}
               placeholder="custom-my-agent"
@@ -333,14 +379,14 @@ export function AgentStudio({
           ) : (
             <div className="flex items-center gap-2">
               <div className="text-sm font-mono">{agentId}</div>
-              {draftFromRefine && (
+              {automationEnabled && draftFromRefine && (
                 <button
                   type="button"
                   onClick={async () => {
                     if (!onResumeRefine || !agentId) return
                     try {
                       const r = await fetch(
-                        `${getApiBase()}/profiles/catalog/${encodeURIComponent(agentId)}`,
+                        `${getApiBase()}/profiles/catalog/${encodeURIComponent(agentId)}?provider=${encodeURIComponent(provider)}`,
                       )
                       if (!r.ok) return
                       const data = (await r.json()) as { body: string }
@@ -362,18 +408,20 @@ export function AgentStudio({
           )}
         </div>
         <div className="flex items-center gap-2">
-          <Button
-            size="sm"
-            variant="ghost"
-            onClick={() => {
-              setTestPaneOpen((v) => !v)
-              if (!testPaneOpen) setShowVersions(false)
-            }}
-            title={t('studio.testButtonTitle')}
-          >
-            <FlaskConical className="w-3.5 h-3.5 mr-1" />
-            {t('studio.testButton')}
-          </Button>
+          {automationEnabled && (
+            <Button
+              size="sm"
+              variant="ghost"
+              onClick={() => {
+                setTestPaneOpen((v) => !v)
+                if (!testPaneOpen) setShowVersions(false)
+              }}
+              title={t('studio.testButtonTitle')}
+            >
+              <FlaskConical className="w-3.5 h-3.5 mr-1" />
+              {t('studio.testButton')}
+            </Button>
+          )}
           {!isCreate && (
             <Button
               size="sm"
@@ -431,7 +479,7 @@ export function AgentStudio({
       <div className="flex flex-1 min-h-0">
         <div className="flex-1 flex flex-col min-h-0">
           <div className="px-4 py-1.5 border-b border-border text-[11px] font-mono text-muted-foreground flex items-center justify-between">
-            <span>.claude/agents/{isCreate ? id || 'custom-…' : agentId}.md</span>
+            <span>{customRoleDisplayPath(provider, isCreate ? id || 'custom-…' : agentId!)}</span>
             {dirty && <span className="text-yellow-500 aurora-light:text-accent-warning">{t('studio.unsaved')}</span>}
           </div>
           <textarea
@@ -445,7 +493,7 @@ export function AgentStudio({
           />
         </div>
 
-        {testPaneOpen && (
+        {automationEnabled && testPaneOpen && (
           <aside className="w-96 flex-shrink-0 border-l border-border flex flex-col min-h-0">
             <div className="px-3 py-2 border-b border-border text-xs font-medium text-muted-foreground uppercase tracking-wide flex items-center gap-2">
               <FlaskConical className="w-3.5 h-3.5" /> {t('studio.testPane.header')}
@@ -505,12 +553,22 @@ export function AgentStudio({
                 <>
                   <div className="flex items-center gap-3 text-[11px] text-muted-foreground mb-2">
                     <span>
-                      <Trans
-                        t={t}
-                        i18nKey="studio.testPane.tokens"
-                        count={testResult.tokens}
-                        components={{ mono: <span className="text-foreground font-mono" /> }}
-                      />
+                      {testResult.tokens === null ? (
+                        <span
+                          className="text-foreground font-mono"
+                          title={t('studio.testPane.tokensUnavailable')}
+                          aria-label={t('studio.testPane.tokensUnavailable')}
+                        >
+                          —
+                        </span>
+                      ) : (
+                        <Trans
+                          t={t}
+                          i18nKey="studio.testPane.tokens"
+                          count={testResult.tokens}
+                          components={{ mono: <span className="text-foreground font-mono" /> }}
+                        />
+                      )}
                     </span>
                     <span>
                       <span className="text-foreground font-mono">

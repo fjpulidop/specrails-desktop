@@ -74,13 +74,29 @@ function serializeInstallConfigYaml(config: Record<string, unknown>): string {
 // ─── Agent model helpers ──────────────────────────────────────────────────────
 
 const VALID_MODEL_ALIASES = ['sonnet', 'fable', 'opus', 'haiku'] as const
-type ModelAlias = typeof VALID_MODEL_ALIASES[number]
+/**
+ * Model ids are provider-owned strings. Runtime callers must validate them
+ * with `isValidModelForProvider`; keeping this type as the historical Claude
+ * union would force unsafe casts for Kimi's configured aliases and any future
+ * adapter-defined ids.
+ */
+type ModelAlias = string
 
 /** Minimal project shape the agent-model helpers need. `slug` resolves the
  *  relocated install-config (HOME) + agents dir (workspace). */
 export interface AgentModelProject {
   slug?: string
   path: string
+  provider?: string | null
+}
+
+function projectExecutionRoot(project: AgentModelProject): string {
+  const exec = resolveProjectExecution({ slug: project.slug, path: project.path })
+  return exec.relocated && exec.workspaceDir ? exec.workspaceDir : project.path
+}
+
+function isKimiAgentModelProject(project: AgentModelProject): boolean {
+  return project.provider === 'kimi'
 }
 
 /**
@@ -90,9 +106,87 @@ export interface AgentModelProject {
  * router uses for profiles). Legacy ⇒ `<project>/.claude/agents` (byte-identical).
  */
 function resolveAgentsDir(project: AgentModelProject): string {
-  const exec = resolveProjectExecution({ slug: project.slug, path: project.path })
-  const root = exec.relocated && exec.workspaceDir ? exec.workspaceDir : project.path
-  return path.join(root, '.claude', 'agents')
+  return path.join(projectExecutionRoot(project), '.claude', 'agents')
+}
+
+function resolveKimiSkillsDir(project: AgentModelProject): string {
+  return path.join(projectExecutionRoot(project), '.kimi-code', 'skills')
+}
+
+interface ParsedAgentModelConfig {
+  defaultModel: string
+  overrides: Record<string, string>
+}
+
+function readAgentModelSelection(project: AgentModelProject): ParsedAgentModelConfig {
+  const provider = (project.provider ?? 'claude') as SpecProvider
+  const fallback = getProviderDefault(provider)
+  const configPath = installConfigPath(project)
+  if (!fs.existsSync(configPath)) return { defaultModel: fallback, overrides: {} }
+
+  let configText: string
+  try {
+    configText = fs.readFileSync(configPath, 'utf-8')
+  } catch {
+    return { defaultModel: fallback, overrides: {} }
+  }
+
+  const defaultsMatch = configText.match(/defaults:\s*\{\s*model:\s*(\S+?)\s*\}/)
+  const configuredDefault = defaultsMatch?.[1]
+  const defaultModel = configuredDefault && isValidModelForProvider(configuredDefault, provider)
+    ? configuredDefault
+    : fallback
+
+  const overrides: Record<string, string> = {}
+  const overridesBlockMatch = configText.match(/overrides:([\s\S]*?)(?:\n\S|$)/)
+  if (overridesBlockMatch) {
+    const overrideLines = overridesBlockMatch[1].match(/^ {2,}(\S+):\s*(\S+)/gm) ?? []
+    for (const line of overrideLines) {
+      const match = line.match(/^\s+(\S+):\s*(\S+)/)
+      if (
+        match
+        && isValidModelForProvider(match[2], provider)
+      ) {
+        overrides[match[1]] = match[2]
+      }
+    }
+  }
+
+  return { defaultModel, overrides }
+}
+
+function readKimiAgentModels(project: AgentModelProject): { name: string; model: string }[] {
+  const skillsDir = resolveKimiSkillsDir(project)
+  if (!fs.existsSync(skillsDir)) return []
+
+  let entries: fs.Dirent[]
+  try {
+    entries = fs.readdirSync(skillsDir, { withFileTypes: true })
+  } catch {
+    return []
+  }
+
+  const { defaultModel, overrides } = readAgentModelSelection(project)
+  const agents: { name: string; model: string }[] = []
+  for (const entry of entries) {
+    // Kimi commands and OpenSpec skills share this directory. Only direct
+    // provider-native rail roles participate in per-agent model overrides.
+    if (
+      !entry.isDirectory()
+      || (!entry.name.startsWith('sr-') && !entry.name.startsWith('custom-'))
+    ) continue
+    const skillPath = path.join(skillsDir, entry.name, 'SKILL.md')
+    try {
+      if (!fs.statSync(skillPath).isFile()) continue
+      agents.push({
+        name: entry.name,
+        model: overrides[entry.name] ?? defaultModel,
+      })
+    } catch {
+      // Skip incomplete or unreadable role directories.
+    }
+  }
+  return agents
 }
 
 /**
@@ -100,6 +194,8 @@ function resolveAgentsDir(project: AgentModelProject): string {
  * Extracts the `model:` field from YAML frontmatter.
  */
 function readAgentModels(project: AgentModelProject): { name: string; model: string }[] {
+  if (isKimiAgentModelProject(project)) return readKimiAgentModels(project)
+
   const agentsDir = resolveAgentsDir(project)
   if (!fs.existsSync(agentsDir)) return []
 
@@ -139,6 +235,12 @@ function readAgentModels(project: AgentModelProject): { name: string; model: str
  * defaults/overrides. No-op if the config file does not exist.
  */
 function applyModelConfig(project: AgentModelProject): void {
+  // Kimi SKILL.md frontmatter has no per-role `model:` field. Its selected
+  // default/overrides live in install-config.yaml and are applied by the
+  // runtime when the role is invoked. Never inject Claude agent syntax into a
+  // Kimi skill: readAgentModels projects the config over the direct roles.
+  if (isKimiAgentModelProject(project)) return
+
   const configPath = installConfigPath(project)
   if (!fs.existsSync(configPath)) return
 
@@ -329,6 +431,7 @@ declare module 'express-serve-static-core' {
 export {
   TERMINAL_PANEL_ENABLED,
   VALID_MODEL_ALIASES,
+  readAgentModelSelection,
   readAgentModels,
   applyModelConfig,
   serializeInstallConfigYaml,

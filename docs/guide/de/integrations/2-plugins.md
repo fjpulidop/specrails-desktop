@@ -21,7 +21,7 @@ Das Vorzeige-Plugin ist:
 3. Klicke in das Plugin hinein, um die **Installation vorab anzusehen** — das zeigt dir genau, welche Dateien sich ändern werden, bevor irgendetwas passiert.
 4. Klicke auf **Installieren**. Du siehst den Fortschritt live, während es eingerichtet wird.
 
-Im Hintergrund läuft die Installation *chirurgisch und additiv* ab: Sie fügt der `.mcp.json` deines Projekts nur ihre eigenen Einträge hinzu (und bei manchen Plugins eine Fragment-Datei im geschützten `.claude/agents/`-Namensraum). Sie schreibt deine Konfiguration nie komplett neu, und ein zweites Plugin kann das erste niemals stören. Kann sich eine Installation nicht als fehlerfrei verifizieren, wird sie sauber zurückgerollt.
+Im Hintergrund läuft die Installation *chirurgisch und additiv*: Sie ergänzt nur die native MCP-Konfiguration des gewählten Providers (und bei manchen Claude-Installationen ein Fragment unter `.claude/agents/`). Sie schreibt die Konfiguration nie komplett neu und rollt bei fehlgeschlagener Verifikation sauber zurück.
 
 ## Installierte Plugins verwalten
 
@@ -37,8 +37,8 @@ Im Hintergrund läuft die Installation *chirurgisch und additiv* ab: Sie fügt d
 
 ## Anbieterhinweise
 
-Plugins sind anbieterbewusst. Serena und ähnliche MCP-Plugins greifen bei Anbietern, die MCP über die `.mcp.json` des Projekts registrieren (Claude und Gemini). Bei Codex-Projekten werden MCP-Server stattdessen über Codex' eigene globale Konfiguration verwaltet, sodass Plugin-Einträge in **Integrationen** entsprechend gefiltert werden. Die Jira-Karte in den Integrationen ist anbieterunabhängig und erscheint für alle — siehe den Jira-Guide.
+Plugins sind anbieterbewusst. Serena unterstützt Claude über `.mcp.json`, Codex über `codex mcp add` mit isoliertem `CODEX_HOME` pro Projekt und Kimi über `.kimi-code/mcp.json`. Ein Plugin erscheint nur, wenn sein Manifest den Provider deklariert; Serena wird daher für Gemini nicht angeboten. Die Jira-Karte ist providerunabhängig.
 
 ## Reservierte Dateien
 
-Plugins verwalten eine kleine, klar abgegrenzte Menge an Dateien in deinem Projekt: deine `.mcp.json` (chirurgisch zusammengeführt), etwas Zustand unter `.specrails/plugins/` sowie pro Plugin Agenten-Fragmente unter `.claude/agents/custom-<plugin>.md`. Das sind committbare Team-Assets, falls du eine Integration mit deinen Teamkolleg:innen teilen möchtest — die App überschreibt sie nie blind.
+Plugins verwalten die native MCP-Konfiguration des Providers, Zustand unter `.specrails/plugins/` und nur bei Bedarf für Claude Fragmente unter `.claude/agents/custom-<plugin>.md`. Kimi-Einträge liegen in `.kimi-code/mcp.json`; die App schreibt keine Claude-Fragmente für Kimi und überschreibt Konfigurationen nie blind.

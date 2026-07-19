@@ -94,7 +94,9 @@ Quelques points à connaître :
 - **La ligne de totaux est réelle.** Le composeur affiche un résumé en direct `N tours · $X`, sommé à partir de l'usage réel de chaque tour terminé — cohérent avec la promesse de cette page de ne rien deviner.
 - **Deux façons de terminer une session.** La plupart des jobs **se terminent tout seuls** : dès qu'un tour se conclut sans message en attente, la session se règle et le job se termine — vos messages sont un pilotage optionnel, jamais une obligation. Une action discrète **Conclure maintenant** l'arrête plus tôt avec tout ce qui a été produit. Les jobs **Freestyle** sont l'exception : ils patientent entre les tours jusqu'à ce que vous cliquiez sur **Finalize** — c'est leur conception, une session d'aller-retour que vous fermez quand vous avez fini.
 - **Dans un loop, les messages vont à l'étape active.** Sur un loop intégré ou personnalisé, votre message atteint **l'étape IA en cours d'exécution**. Entre les étapes (pendant que le Loop Decider réfléchit ou qu'une commande shell tourne), le composeur affiche un bref état *« En attente de la prochaine étape… »* — votre brouillon est conservé, et l'envoi se réactive au démarrage de la prochaine étape IA. **Régler cette étape** termine l'étape en cours plus tôt et laisse le loop avancer avec ce qu'elle a produit.
-- **Claude uniquement, pour l'instant.** Les jobs Codex et Gemini s'exécutent en un seul passage exactement comme avant — aucun composeur n'apparaît. (Les opérateurs du serveur peuvent désactiver toute la fonctionnalité avec `SPECRAILS_INTERACTIVE_JOBS=false`.)
+- **L'interaction persistante est réservée à Claude.** Codex, Gemini et Kimi
+  sont one-shot ; Kimi reprend un chat avec un nouveau `kimi --session=<id> -p` après un
+  resume hint réussi.
 
 ## Export de diagnostic
 

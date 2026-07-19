@@ -94,7 +94,8 @@ Algumas coisas que vale a pena saber:
 - **A linha de totais é real.** O compositor mostra um resumo ao vivo `N turnos · $X`, somado a partir do uso real de cada turno concluído — coerente com a promessa desta página de nunca adivinhar.
 - **Duas formas de uma sessão terminar.** A maioria dos jobs **termina sozinha**: assim que um turno acaba sem mensagens em fila, a sessão assenta e o job conclui — as suas mensagens são orientação opcional, nunca uma obrigação. Uma ação discreta **Concluir agora** termina-a mais cedo com tudo o que foi produzido até então. Os jobs **Freestyle** são a exceção: ficam à espera entre turnos até que clique em **Finalize** — é esse o seu desenho, uma sessão de ida e volta que fecha quando terminar.
 - **Nas execuções de loop, as mensagens vão para o passo ativo.** Num loop embutido ou personalizado, a sua mensagem chega ao **passo de IA que está a correr nesse momento**. Entre passos (enquanto o Loop Decider pensa, ou um comando de shell corre) o compositor mostra um breve estado *«À espera do próximo passo…»* — o texto rascunhado mantém-se, e o envio reativa-se quando o próximo passo de IA arranca. **Assentar este passo** termina o passo atual mais cedo e deixa o loop avançar com o que ele produziu.
-- **Só Claude, por agora.** Os jobs Codex e Gemini correm numa só passagem exatamente como antes — não aparece compositor. (Os operadores do servidor podem desligar a funcionalidade inteira com `SPECRAILS_INTERACTIVE_JOBS=false`.)
+- **Interação persistente é só Claude.** Codex, Gemini e Kimi correm one-shot;
+  Kimi retoma o chat com novo `kimi --session=<id> -p` depois de um resume hint.
 
 ## Exportação de diagnóstico
 

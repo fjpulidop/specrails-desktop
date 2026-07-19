@@ -37,7 +37,10 @@ Profile 的选择就发生在你启动的地方——**rail 头部**，通过 Pr
 
 ## 当 Agents 区悄无声息时
 
-Profile 是 Claude 的能力。在包含非 Claude 提供商（Codex 或 Gemini）的项目上，Agents 区会被隐藏，rail 会在没有 Profile 的情况下运行——这是预期行为，并非 bug。Profile 还要求项目中的 `specrails-core` 足够新；如果版本偏旧，你会看到一条黄色横幅。你创建的 Profile 仍会**保存**——只是在 core 更新之前不会影响流水线。按横幅中给出的命令更新，即可解锁它们。
+Profile 按 provider 隔离。Claude 和 Kimi 支持 profile/role；Codex 和
+Gemini 使用 legacy mode。混合项目中相同名称也不会在 Claude/Kimi 之间
+串用。Kimi 支持手动 role，但 Agent Studio 的 generation、smoke test
+和 AI Refine 会在 spawn 前拒绝。Kimi 需要 `specrails-core` 4.12.0+。
 
 ## 接下来去哪儿
 

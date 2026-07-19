@@ -53,6 +53,7 @@
       "templateTitle": "Start from a template",
       "generate": "Generate",
       "generateWithClaude": "Generate with Claude",
+      "generateWithAi": "Generate with AI",
       "blank": "Blank",
       "blankTitle": "Start from a blank template"
     },
@@ -80,6 +81,7 @@
     }
   },
   "profiles": {
+    "providerLabel": "Profile provider",
     "loading": "Loading profiles…",
     "selectPrompt": "Select a profile to edit",
     "errors": {

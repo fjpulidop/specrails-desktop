@@ -91,4 +91,63 @@ describe('ProfileEditor', () => {
       ],
     })
   })
+
+  it('renders a Kimi-bound profile with Kimi models and native commands', async () => {
+    const kimiProfile = makeProfile({
+      provider: 'kimi',
+      orchestrator: { model: 'k3' },
+      agents: [
+        { id: 'sr-architect', model: 'k3', required: true },
+        { id: 'sr-developer', model: 'k3', required: true },
+        { id: 'sr-reviewer', model: 'k3', required: true },
+      ],
+    })
+    await act(async () => {
+      render(
+        <ProfileEditor
+          profile={kimiProfile}
+          provider="kimi"
+          modelCatalog={[
+            { value: 'k3', label: 'Kimi K3' },
+            { value: 'kimi-for-coding', label: 'Kimi for Coding' },
+          ]}
+          defaultModel="k3"
+          customModelAliases
+          baselineAgents={['sr-architect', 'sr-developer', 'sr-reviewer']}
+          onChange={vi.fn()}
+        />,
+      )
+    })
+
+    expect(screen.getByText(/\/skill:specrails-implement.*\/skill:specrails-batch-implement/))
+      .toBeInTheDocument()
+    expect(screen.getByTestId('profile-orchestrator-model')).toHaveValue('k3')
+    expect(screen.queryByDisplayValue('sonnet')).not.toBeInTheDocument()
+  })
+
+  it('preserves and edits a configured custom Kimi model alias exactly', async () => {
+    const onChange = vi.fn()
+    await act(async () => {
+      render(
+        <ProfileEditor
+          profile={makeProfile({
+            provider: 'kimi',
+            orchestrator: { model: 'moonshot/team-alias' },
+          })}
+          provider="kimi"
+          modelCatalog={[{ value: 'k3', label: 'Kimi K3' }]}
+          defaultModel="k3"
+          customModelAliases
+          onChange={onChange}
+        />,
+      )
+    })
+    const input = screen.getByTestId('profile-orchestrator-model')
+    expect(input).toHaveValue('moonshot/team-alias')
+    fireEvent.change(input, { target: { value: 'Moonshot-Team/Private_Coder:v2' } })
+    fireEvent.blur(input)
+    expect(onChange.mock.calls.at(-1)?.[0]).toMatchObject({
+      orchestrator: { model: 'Moonshot-Team/Private_Coder:v2' },
+    })
+  })
 })

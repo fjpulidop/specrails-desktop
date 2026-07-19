@@ -150,6 +150,19 @@ describe('BlueprintChatManager', () => {
     expect(invalidArgs).not.toContain('--effort')
   })
 
+  it('rejects Kimi before persistence or spawn when no pure-output policy exists', async () => {
+    const conv = createBlueprintConversation(db, { provider: 'kimi', model: 'k3' })
+    await mgr.sendMessage(conv.id, 'first request')
+
+    expect(mockSpawn).not.toHaveBeenCalled()
+    expect(listBlueprintMessages(db, conv.id)).toEqual([])
+    expect(broadcastsOfType(broadcast, 'blueprint.error')).toEqual([
+      expect.objectContaining({
+        error: 'provider_tool_policy_unsupported:kimi:pure-output',
+      }),
+    ])
+  })
+
   it('unknown conversation emits blueprint.error', async () => {
     await mgr.sendMessage('nope', 'hi')
     const errors = broadcastsOfType(broadcast, 'blueprint.error')

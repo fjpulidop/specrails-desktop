@@ -119,13 +119,14 @@ describe('ProviderBreakdownCard', () => {
 
   it('shows the no-cost message when every provider has zero cost', () => {
     const data = makeData([
-      makeProvider({ provider: 'claude', count: 4 }),
-      makeProvider({ provider: 'codex', count: 2 }),
+      makeProvider({ provider: 'claude', count: 4, pricedCount: 4, unpricedCount: 0 }),
+      makeProvider({ provider: 'codex', count: 2, pricedCount: 2, unpricedCount: 0 }),
     ])
     render(<ProviderBreakdownCard data={data} loading={false} />)
     expect(screen.getByText('No cost recorded yet in this window.')).toBeInTheDocument()
-    // No bar segments / rows in the zero-cost state
-    expect(screen.queryByText('Claude')).not.toBeInTheDocument()
+    // Exact coverage says these are real priced zeroes, so the provider rows
+    // remain available even though there is no stacked cost bar.
+    expect(screen.getByText('Claude')).toBeInTheDocument()
   })
 
   it('skips the bar segment (but keeps the row) for a provider with zero cost', () => {
@@ -158,6 +159,32 @@ describe('ProviderBreakdownCard', () => {
     expect(screen.queryByText('~$0.0000')).not.toBeInTheDocument()
     // The codex run count is still shown so the row is not silently empty
     expect(screen.getByText('40 runs')).toBeInTheDocument()
+  })
+
+  it('uses exact coverage counters for a Kimi-only-unpriced provider row', () => {
+    const data = makeData([
+      makeProvider({ provider: 'claude', count: 2, costUsd: 1, pricedCount: 2, unpricedCount: 0 }),
+      makeProvider({ provider: 'kimi', count: 3, pricedCount: 0, unpricedCount: 3 }),
+    ])
+    render(<ProviderBreakdownCard data={data} loading={false} />)
+    expect(screen.getByText('Kimi')).toBeInTheDocument()
+    expect(screen.getByText('cost unavailable')).toBeInTheDocument()
+    expect(screen.queryByText('$0.0000')).not.toBeInTheDocument()
+  })
+
+  it('labels a mixed provider value as a known subtotal', () => {
+    const data = makeData([
+      makeProvider({ provider: 'claude', count: 1, costUsd: 1 }),
+      makeProvider({
+        provider: 'kimi',
+        count: 2,
+        costUsd: 0.5,
+        pricedCount: 1,
+        unpricedCount: 1,
+      }),
+    ])
+    render(<ProviderBreakdownCard data={data} loading={false} />)
+    expect(screen.getByText(/1 unavailable/)).toBeInTheDocument()
   })
 
   it('prefixes ~ on the bar-segment tooltip for an estimated-only provider (BUG-ANALYTICS-10)', () => {

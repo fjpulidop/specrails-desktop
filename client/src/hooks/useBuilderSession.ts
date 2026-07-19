@@ -12,6 +12,10 @@ import {
 import type { CommitFormValue } from '../components/project-builder/BlueprintCommitForm'
 import { launchMilestone } from '../lib/milestone-launch'
 import { analyzeBlueprintSpecQuality } from '../lib/blueprint-spec-quality'
+import {
+  defaultReasoningEffortForProvider,
+  reasoningEffortsForProvider,
+} from '../lib/provider-capabilities'
 
 // Builder session logic (reskin-project-builder-into-agent-panel D1) —
 // extracted from the retired ProjectBuilderShell so the agent surfaces (the
@@ -129,9 +133,15 @@ export function useBuilderSession(enabled: boolean, opts: { onFinished: () => vo
   const [provider, setProviderState] = useState('claude')
   const [model, setModelState] = useState<string | null>(null)
   const [models, setModels] = useState<Array<{ value: string; label: string }>>([])
-  const [efforts, setEfforts] = useState<string[]>([])
+  const [defaultModel, setDefaultModel] = useState('')
+  const [providerEfforts, setProviderEfforts] = useState<string[]>([])
   const [effort, setEffort] = useState('medium')
   const [draft, setDraft] = useState('')
+  const effectiveModel = model ?? defaultModel
+  const efforts = useMemo(() => {
+    const allowed = reasoningEffortsForProvider(provider, effectiveModel)
+    return providerEfforts.filter((level) => (allowed as readonly string[]).includes(level))
+  }, [effectiveModel, provider, providerEfforts])
 
   const conversationIdRef = useRef<string | null>(null)
   const commitIdRef = useRef<string | null>(null)
@@ -139,12 +149,14 @@ export function useBuilderSession(enabled: boolean, opts: { onFinished: () => vo
   const ghWarnedRef = useRef(false)
   const effortRef = useRef(effort)
   const effortsRef = useRef(efforts)
+  const modelRef = useRef(model)
   const submittingRef = useRef(false)
   const onFinishedRef = useRef(opts.onFinished)
   useEffect(() => { conversationIdRef.current = conversationId }, [conversationId])
   useEffect(() => { commitIdRef.current = commitId }, [commitId])
   useEffect(() => { effortRef.current = effort }, [effort])
   useEffect(() => { effortsRef.current = efforts }, [efforts])
+  useEffect(() => { modelRef.current = model }, [model])
   useEffect(() => { onFinishedRef.current = opts.onFinished }, [opts.onFinished])
 
   // Bootstrap a conversation when the session activates (fresh each entry —
@@ -176,18 +188,35 @@ export function useBuilderSession(enabled: boolean, opts: { onFinished: () => vo
     if (!enabled) return
     let cancelled = false
     // Do not expose or submit the previous provider's catalog while the next
-    // one is loading (notably Claude/Codex -> Gemini, which has no effort knob).
+    // one is loading (for example switching to Gemini, which has no effort knob).
     setModels([])
-    setEfforts([])
+    setDefaultModel('')
+    setProviderEfforts([])
+    setEffort('')
     fetch(`/api/blueprint/models?provider=${encodeURIComponent(provider)}`)
       .then((r) => r.json())
-      .then((data: { models?: Array<{ value: string; label: string }>; efforts?: string[] }) => {
+      .then((data: {
+        models?: Array<{ value: string; label: string }>
+        defaultModel?: string
+        efforts?: string[]
+      }) => {
         if (cancelled) return
         setModels(data.models ?? [])
-        const nextEfforts = data.efforts ?? []
-        setEfforts(nextEfforts)
-        // Reset to a valid effort for the new provider (default 'medium' when present).
-        setEffort((prev) => (nextEfforts.includes(prev) ? prev : nextEfforts.includes('medium') ? 'medium' : nextEfforts[0] ?? 'medium'))
+        const nextDefaultModel = data.defaultModel ?? data.models?.[0]?.value ?? ''
+        const advertisedEfforts = data.efforts ?? []
+        const allowed = reasoningEffortsForProvider(provider, nextDefaultModel)
+        const nextEfforts = advertisedEfforts.filter((level) =>
+          (allowed as readonly string[]).includes(level),
+        )
+        setDefaultModel(nextDefaultModel)
+        setProviderEfforts(advertisedEfforts)
+        // Reset to a valid effort for the new provider. Kimi has no `medium`,
+        // so its first advertised tier (`low`) is the safe initial value.
+        setEffort((prev) => (
+          nextEfforts.includes(prev)
+            ? prev
+            : defaultReasoningEffortForProvider(provider, nextDefaultModel) ?? ''
+        ))
       })
       .catch(() => { /* selector degrades to empty */ })
     return () => { cancelled = true }
@@ -207,6 +236,15 @@ export function useBuilderSession(enabled: boolean, opts: { onFinished: () => vo
 
   const setModel = useCallback((next: string) => {
     setModelState(next)
+    const allowed = reasoningEffortsForProvider(provider, next)
+    const nextEfforts = providerEfforts.filter((level) =>
+      (allowed as readonly string[]).includes(level),
+    )
+    setEffort((previous) => (
+      nextEfforts.includes(previous)
+        ? previous
+        : defaultReasoningEffortForProvider(provider, next) ?? ''
+    ))
     const conv = conversationIdRef.current
     if (!conv) return
     fetch(`/api/blueprint/conversations/${conv}`, {
@@ -214,7 +252,7 @@ export function useBuilderSession(enabled: boolean, opts: { onFinished: () => vo
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ model: next }),
     }).catch(() => { /* next turn falls back server-side */ })
-  }, [])
+  }, [provider, providerEfforts])
 
   // WS wiring: streams, done (with blueprint snapshot), errors, commit progress.
   useEffect(() => {
@@ -292,6 +330,7 @@ export function useBuilderSession(enabled: boolean, opts: { onFinished: () => vo
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           text: trimmed,
+          ...(modelRef.current ? { model: modelRef.current } : {}),
           ...(supportsSelectedEffort ? { reasoning_effort: selectedEffort } : {}),
         }),
       })
@@ -397,7 +436,8 @@ export function useBuilderSession(enabled: boolean, opts: { onFinished: () => vo
     setProviderState('claude')
     setModelState(null)
     setModels([])
-    setEfforts([])
+    setDefaultModel('')
+    setProviderEfforts([])
     setEffort('medium')
     setDraft('')
   }, [])

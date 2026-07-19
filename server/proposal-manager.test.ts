@@ -1,6 +1,9 @@
 import { describe, it, expect, beforeEach, vi, afterEach } from 'vitest'
 import { EventEmitter } from 'events'
 import { Readable } from 'stream'
+import { mkdtempSync, mkdirSync, rmSync, writeFileSync } from 'node:fs'
+import os from 'node:os'
+import path from 'node:path'
 
 vi.mock('child_process', () => ({
   spawn: vi.fn(),
@@ -21,6 +24,7 @@ import treeKill from 'tree-kill'
 import { ProposalManager } from './proposal-manager'
 import { initDb, createProposal, getProposal } from './db'
 import type { DbInstance } from './db'
+import * as workspaceResolution from './workspace-resolution'
 
 // ─── Mock helpers ─────────────────────────────────────────────────────────────
 
@@ -112,6 +116,103 @@ describe('ProposalManager', () => {
         ]),
         expect.objectContaining({ cwd: TEST_CWD })
       )
+    })
+
+    it('materializes the installed Kimi workflow before the headless spawn', async () => {
+      const root = mkdtempSync(path.join(os.tmpdir(), 'proposal-kimi-skill-'))
+      const skillDir = path.join(
+        root,
+        '.kimi-code',
+        'skills',
+        'specrails-propose-feature',
+      )
+      mkdirSync(skillDir, { recursive: true })
+      writeFileSync(
+        path.join(skillDir, 'SKILL.md'),
+        '---\nname: specrails-propose-feature\ndescription: test\ntype: prompt\n---\nPropose: $ARGUMENTS\n',
+      )
+      const kimi = new ProposalManager(broadcast, db, root, undefined, 'kimi')
+      expect(kimi.canStartExploration()).toBe(true)
+      const proposalId = setupProposal('proposal-kimi')
+      const child = createMockChildProcess()
+      vi.mocked(mockSpawn).mockReturnValue(child as any)
+
+      const explorePromise = kimi.startExploration(proposalId, 'Add passkeys')
+      const [binary, args] = vi.mocked(mockSpawn).mock.calls[0] as [string, string[]]
+      expect(binary).toBe('kimi')
+      const prompt = args[args.indexOf('-p') + 1]
+      expect(prompt).toContain('Propose: Add passkeys')
+      expect(prompt).toContain('<kimi-skill-loaded')
+      expect(prompt).not.toContain('/skill:specrails-propose-feature')
+      await finishProcess(child, 0)
+      await explorePromise
+      kimi.shutdown()
+      rmSync(root, { recursive: true, force: true })
+    })
+
+    it('fails the provider-aware Kimi preflight when the workflow is absent', () => {
+      const root = mkdtempSync(path.join(os.tmpdir(), 'proposal-kimi-missing-'))
+      const kimi = new ProposalManager(broadcast, db, root, undefined, 'kimi')
+      expect(kimi.canStartExploration()).toBe(false)
+      kimi.shutdown()
+      rmSync(root, { recursive: true, force: true })
+    })
+
+    it('uses relocated Kimi skills/cwd, grants repo access, and fails on an explicit error with exit 0', async () => {
+      const repo = mkdtempSync(path.join(os.tmpdir(), 'proposal-kimi-repo-'))
+      const workspace = mkdtempSync(path.join(os.tmpdir(), 'proposal-kimi-workspace-'))
+      const skillDir = path.join(
+        workspace,
+        '.kimi-code',
+        'skills',
+        'specrails-propose-feature',
+      )
+      mkdirSync(skillDir, { recursive: true })
+      writeFileSync(
+        path.join(skillDir, 'SKILL.md'),
+        '---\nname: specrails-propose-feature\ndescription: test\ntype: prompt\n---\nPropose: $ARGUMENTS\n',
+      )
+      vi.spyOn(workspaceResolution, 'resolveProjectExecution').mockReturnValue({
+        relocated: true,
+        cwd: workspace,
+        repoDir: repo,
+        workspaceDir: workspace,
+        env: { SPECRAILS_REPO_DIR: repo },
+      } as any)
+      const kimi = new ProposalManager(broadcast, db, repo, 'p1', 'kimi', 'slug')
+      expect(kimi.canStartExploration()).toBe(true)
+      const proposalId = setupProposal('proposal-kimi-relocated')
+      const child = createMockChildProcess()
+      vi.mocked(mockSpawn).mockReturnValue(child as any)
+
+      const explorePromise = kimi.startExploration(proposalId, 'Add passkeys')
+      const [binary, args, options] = vi.mocked(mockSpawn).mock.calls[0] as [
+        string,
+        string[],
+        { cwd: string; env: NodeJS.ProcessEnv },
+      ]
+      expect(binary).toBe('kimi')
+      expect(args[args.indexOf('-p') + 1]).toContain('<kimi-skill-loaded')
+      expect(args).toEqual(expect.arrayContaining(['--add-dir', repo]))
+      expect(options.cwd).toBe(workspace)
+      expect(options.env.SPECRAILS_REPO_DIR).toBe(repo)
+
+      pushLine(child, JSON.stringify({
+        role: 'meta',
+        type: 'system.error',
+        message: 'Authentication required. Run kimi login.',
+      }))
+      await finishProcess(child, 0)
+      await explorePromise
+
+      expect(getProposal(db, proposalId)?.status).toBe('input')
+      expect(getBroadcastedByType(broadcast, 'proposal_ready')).toHaveLength(0)
+      expect(getBroadcastedByType(broadcast, 'proposal_error')).toEqual([
+        expect.objectContaining({ error: 'Authentication required. Run kimi login.' }),
+      ])
+      kimi.shutdown()
+      rmSync(repo, { recursive: true, force: true })
+      rmSync(workspace, { recursive: true, force: true })
     })
 
     it('broadcasts proposal_stream deltas as text arrives', async () => {

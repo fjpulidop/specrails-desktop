@@ -22,6 +22,7 @@ const PROVIDER_LABEL: Record<string, string> = {
   claude: 'Claude',
   codex: 'Codex',
   gemini: 'Gemini',
+  kimi: 'Kimi',
 }
 function providerLabel(id: string): string {
   return PROVIDER_LABEL[id] ?? id

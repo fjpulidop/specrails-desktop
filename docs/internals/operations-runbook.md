@@ -43,7 +43,7 @@ The two forms print different output. The `status` **subcommand** prints `server
 
 > `specrails-desktop --jobs` is **not** functional against the running server — the server does not expose a cross-project `/api/jobs` route, so the command prints a message that jobs history requires a manager with SQLite persistence and exits `1`. Browse job history per project in the app's **Jobs** page instead.
 
-> **Offline CLI fallback.** When you run a command and no manager is up, the CLI prints `manager not running — invoking claude directly` and spawns a local `claude` process to handle it. This fallback **always uses `claude`** — it never spawns `codex` or `gemini`, regardless of a project's primary provider — and it writes **nothing** to Analytics (no `ai_invocations` row; cost/tokens are only echoed to your terminal). Start the manager (`specrails-desktop start`) to route through your project's real provider and capture the run.
+> **Offline CLI fallback.** When you run a command and no manager is up, the CLI prints `manager not running — invoking claude directly` and spawns a local `claude` process to handle it. This fallback **always uses `claude`** — it never spawns `codex`, `gemini`, or `kimi`, regardless of a project's primary provider — and it writes **nothing** to Analytics (no `ai_invocations` row; cost/tokens are only echoed to your terminal). Start the manager (`specrails-desktop start`) to route through your project's real provider and capture the run.
 
 ## App data location
 

@@ -141,7 +141,11 @@
       "starting": "Starting…"
     },
     "pipelinePartial": "≥ shown — {{count}} phase(s) have no recorded cost yet",
-    "pipelinePartialTooltip": "Some phases were killed before their cost was reported, so this total is a lower bound."
+    "pipelinePartialTooltip": "Some phases did not report cost, so this total is a lower bound.",
+    "pipelineCostUnavailable": "Cost telemetry is unavailable for every phase.",
+    "pipelineUsageUnavailable": "Token telemetry is unavailable for every phase.",
+    "pipelineUsagePartial": "≥ shown — {{count}} phase(s) have no token telemetry",
+    "pipelineUsageTooltip": "Providers may complete phases without exposing token telemetry; only known usage is included."
   },
   "ticketHeader": {
     "showMore": "+ {{count}} more",

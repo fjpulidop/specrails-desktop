@@ -1,4 +1,4 @@
-// Centralized claude/codex spawn wrapper.
+// Centralized AI CLI spawn wrapper.
 //
 // Why this exists:
 //
@@ -18,10 +18,14 @@
 // The helpers below detect multi-line argv values on Windows,
 // reroute them through child stdin (claude reads stdin when
 // `-p`/`--print` has no positional argument; codex `exec -` does the
-// equivalent), and call spawnCli. POSIX is unchanged byte-for-byte.
+// equivalent), and call spawnCli. Kimi's required `-p <prompt>` has no stdin
+// equivalent, so its Windows npm shim is unwrapped and its JavaScript entry is
+// launched with Node directly. POSIX is unchanged byte-for-byte.
 
 import type { ChildProcess, SpawnOptions, StdioOptions } from 'child_process'
-import { spawnCli } from './win-spawn'
+import { existsSync, readFileSync } from 'node:fs'
+import path from 'node:path'
+import { resolveWindowsBinary, spawnCli } from './win-spawn'
 import {
   headroomRelayBaseUrlForBinary,
   registerHeadroomRoutedChild,
@@ -154,7 +158,10 @@ export function ensureStdinPipe(stdio: StdioOptions | undefined): StdioOptions {
   }
   if (Array.isArray(stdio)) {
     return [
-      stdio[0] === 'ignore' ? 'pipe' : (stdio[0] ?? 'pipe'),
+      // The transformed prompt always travels on fd 0. `inherit`,
+      // `overlapped`, numeric fds, and streams leave child.stdin null just as
+      // `ignore` does, so every array form must be upgraded unconditionally.
+      'pipe',
       stdio[1] ?? 'pipe',
       stdio[2] ?? 'pipe',
     ] as StdioOptions
@@ -259,9 +266,136 @@ export function spawnGemini(args: string[], options: SpawnOptions = {}): ChildPr
 }
 
 /**
+ * Extract the JavaScript entry from a standard npm-generated Windows `.cmd`
+ * launcher. npm writes the target as `%dp0%\<package path>.mjs %*`; resolving
+ * that path lets us bypass cmd.exe while preserving the exact argv payload.
+ */
+export function parseNpmCmdShimEntry(shimPath: string, contents: string): string | null {
+  const match = contents.match(
+    /%dp0%[\\/]([^"\r\n]*?\.(?:mjs|cjs|js))["']?\s+%\*/i,
+  )
+  if (!match?.[1]) return null
+  return path.win32.join(path.win32.dirname(shimPath), match[1])
+}
+
+/**
+ * Spawn Kimi in daemon-free prompt mode.
+ *
+ * Kimi 0.27 requires `-p <prompt>` and cannot itself read that prompt from
+ * stdin. On Windows, a native executable receives argv directly. For npm's
+ * `.cmd` shim, launch a tiny Node bootstrap that reads the complete prompt from
+ * stdin, restores it into process.argv at the `-p` value slot, then imports the
+ * generated JavaScript entry. This bypasses both cmd.exe newline reparsing and
+ * CreateProcess's ~32K command-line ceiling without changing Kimi semantics.
+ * A non-standard or unreadable command shim fails closed.
+ */
+const KIMI_WINDOWS_ARGV_SAFE_CHARS = 30_000
+const KIMI_WINDOWS_STDIN_BOOTSTRAP = [
+  'const fs=require("node:fs");',
+  'const {pathToFileURL}=require("node:url");',
+  'const entry=process.argv[1];',
+  'const slot=Number(process.argv[2]);',
+  'const args=process.argv.slice(3);',
+  'args[slot]=fs.readFileSync(0,"utf8");',
+  'process.argv=[process.execPath,entry,...args];',
+  'import(pathToFileURL(entry).href).catch((error)=>{console.error(error);process.exitCode=1;});',
+].join('')
+
+function kimiPromptValueIndex(args: readonly string[]): number {
+  const flagIndex = args.indexOf('-p')
+  return flagIndex >= 0 && flagIndex + 1 < args.length ? flagIndex + 1 : -1
+}
+
+function estimatedWindowsArgvChars(binary: string, args: readonly string[]): number {
+  return binary.length + 1 + args.reduce((total, arg) => total + arg.length + 3, 0)
+}
+
+export function spawnKimi(args: string[], options: SpawnOptions = {}): ChildProcess {
+  assertProcessAdmission()
+  if (!isWin()) return spawnCli('kimi', args, options)
+
+  /* c8 ignore start -- Windows-only branch; unit tests force process.platform */
+  const resolved = resolveWindowsBinary('kimi')
+  const extension = path.win32.extname(resolved).toLowerCase()
+  if (extension !== '.cmd' && extension !== '.bat') {
+    const promptIndex = kimiPromptValueIndex(args)
+    if (
+      promptIndex >= 0 &&
+      estimatedWindowsArgvChars(resolved, args) > KIMI_WINDOWS_ARGV_SAFE_CHARS
+    ) {
+      throw new Error(
+        `kimi_windows_native_prompt_too_large:${args[promptIndex].length}: ` +
+        'the native Kimi executable cannot receive this prompt within the Windows ' +
+        'CreateProcess limit; install the npm Kimi Code CLI shim or shorten the prompt.',
+      )
+    }
+    return spawnCli(resolved, args, options)
+  }
+
+  let entry: string | null
+  try {
+    entry = parseNpmCmdShimEntry(resolved, readFileSync(resolved, 'utf8'))
+  } catch (error) {
+    throw new Error(
+      `unsupported_kimi_windows_shim:${resolved}:` +
+      (error instanceof Error ? error.message : String(error)),
+    )
+  }
+  if (!entry) {
+    throw new Error(`unsupported_kimi_windows_shim:${resolved}`)
+  }
+  const localNode = path.win32.join(path.win32.dirname(resolved), 'node.exe')
+  const nodeBinary = existsSync(localNode) ? localNode : 'node'
+  const promptIndex = kimiPromptValueIndex(args)
+  if (promptIndex < 0) {
+    return spawnCli(nodeBinary, [entry, ...args], options)
+  }
+
+  const prompt = args[promptIndex]
+  const forwardedArgs = [...args]
+  // Preserve the exact argv shape for Kimi; the bootstrap replaces only this
+  // placeholder after reading stdin. The real prompt never reaches
+  // CreateProcess, cmd.exe, environment variables, or a temporary file.
+  forwardedArgs[promptIndex] = ''
+  const spawnOptions = {
+    ...options,
+    stdio: ensureStdinPipe(options.stdio),
+  }
+  const child = spawnCli(nodeBinary, [
+    '-e',
+    KIMI_WINDOWS_STDIN_BOOTSTRAP,
+    entry,
+    String(promptIndex),
+    ...forwardedArgs,
+  ], spawnOptions)
+  if (!child.stdin) {
+    try { child.kill('SIGTERM') } catch { /* best-effort */ }
+    throw new Error('kimi_windows_bootstrap_stdin_unavailable')
+  }
+  // A short-lived bootstrap can exit before the buffered write settles.
+  // Without an error listener, the resulting EPIPE is an unhandled EventEmitter
+  // error and can terminate Desktop itself. Broken pipes are already reflected
+  // by the child's terminal status; log any different transport failure.
+  child.stdin.on('error', (error: NodeJS.ErrnoException) => {
+    if (error.code === 'EPIPE') return
+    console.error('[cli-prompt] Kimi Windows prompt transport failed:', error)
+    // A failed transport must never leave the bootstrap free to invoke Kimi
+    // with an empty or partial prompt. Managers will observe the terminated
+    // child through their normal lifecycle/error path.
+    try { child.kill('SIGTERM') } catch { /* best-effort */ }
+  })
+  try {
+    child.stdin.end(prompt)
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException)?.code !== 'EPIPE') throw error
+  }
+  return child
+  /* c8 ignore stop */
+}
+
+/**
  * Convenience: dispatch on binary name. Use when callsite picks the
- * binary dynamically (claude vs codex vs gemini). Anything else routes through
- * the underlying spawnCli unchanged.
+ * binary dynamically. Anything else routes through the underlying spawnCli.
  */
 export function spawnAiCli(
   binary: string,
@@ -272,5 +406,6 @@ export function spawnAiCli(
   if (binary === 'claude') return spawnClaude(args, options)
   if (binary === 'codex') return spawnCodex(args, options)
   if (binary === 'gemini') return spawnGemini(args, options)
+  if (binary === 'kimi') return spawnKimi(args, options)
   return spawnCli(binary, args, options)
 }

@@ -3,9 +3,10 @@ import path from 'path'
 import { atomicWriteFileSync, withFileLock } from './json-mutation'
 
 /**
- * Plugins contribute named sections to the project's top-level instructions
- * file (`CLAUDE.md` for claude projects, `AGENTS.md` for codex projects, and
- * the adapter-declared filename for future providers) so the agent's global
+ * Plugins contribute named sections to the project's provider-native
+ * instructions path (`CLAUDE.md` for Claude, `AGENTS.md` for Codex,
+ * `.kimi-code/AGENTS.md` for Kimi, and the adapter-declared path for future
+ * providers) so the agent's global
  * context includes per-plugin usage hints (e.g. "prefer Serena tools over
  * raw Read/Grep when locating symbols"). Each plugin owns one named block
  * delimited by HTML-comment markers; multiple plugins coexist without
@@ -95,7 +96,7 @@ export function getBlockContent(projectPath: string, pluginName: string, filenam
  * file does not exist, it is created with just the block. If it exists
  * without our block, the block is appended at the end (separated by a blank
  * line). The filename defaults to `CLAUDE.md` for backwards compatibility;
- * codex projects pass `AGENTS.md`.
+ * other providers pass their adapter-declared relative path.
  */
 export async function upsertBlock(
   projectPath: string,

@@ -40,6 +40,47 @@ describe('SpendingHero', () => {
     expect(screen.getByText('Explore')).toBeInTheDocument()
   })
 
+  it('renders unavailable — not $0 — when Kimi exposes neither cost nor usage', () => {
+    const data: SpendingResponse = {
+      ...baseData,
+      summary: {
+        ...baseData.summary,
+        totalCostUsd: 0,
+        totalTokens: null,
+        totalRuns: 2,
+        pricedRuns: 0,
+        unpricedRuns: 2,
+        usageReportedRuns: 0,
+        usageUnavailableRuns: 2,
+        deltaPct: null,
+      },
+      bySurface: [{ surface: 'job', count: 2, costUsd: 0, unpricedCount: 2 }],
+    }
+    render(<SpendingHero data={data} loading={false} />)
+    expect(screen.getByTestId('hero-cost-unavailable')).toHaveTextContent('—')
+    expect(screen.getByTestId('hero-usage-unavailable')).toHaveTextContent('token usage unavailable')
+    expect(screen.queryByText('$0.00')).not.toBeInTheDocument()
+  })
+
+  it('marks mixed Claude + Kimi totals as known partial telemetry', () => {
+    const data: SpendingResponse = {
+      ...baseData,
+      summary: {
+        ...baseData.summary,
+        totalCostUsd: 1.25,
+        totalTokens: 125,
+        totalRuns: 2,
+        pricedRuns: 1,
+        unpricedRuns: 1,
+        usageReportedRuns: 1,
+        usageUnavailableRuns: 1,
+      },
+    }
+    render(<SpendingHero data={data} loading={false} />)
+    expect(screen.getByTestId('hero-cost-partial')).toHaveTextContent('known subtotal')
+    expect(screen.getByText(/125 known tokens/i)).toBeInTheDocument()
+  })
+
   it('renders positive delta with warning accent and arrow up', () => {
     render(<SpendingHero data={baseData} loading={false} />)
     expect(screen.getByText(/23% vs prev/)).toBeInTheDocument()

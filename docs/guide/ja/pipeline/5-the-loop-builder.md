@@ -17,7 +17,7 @@
 
 - Loop は **Loops** セクション（左サイドバー、プロジェクトの隣）にあります — これらは **グローバル** で、すべてのプロジェクトで共有されます。
 - レールはヘッダー（Loop ピッカー）で **Loop を選び**、Play を押すとそれを実行します。
-- プロバイダー、モデル、推論の労力（reasoning effort）を決めるのは **レール** であって、Loop のステップではありません。同じ Loop が、レール次第で Claude、Codex、Gemini のいずれでも実行されます。
+- provider、model、compatible effort は **rail** が決めます。compatible な Loop は Claude、Codex、Gemini、Kimi で実行できます。
 
 つまり、Loop を一度作ってしまえば、どのプロジェクトのどのレールでもそれを選べます。
 
@@ -41,6 +41,10 @@ Loop は **ノード** を **エッジ**（矢印）でつないだグラフで�
 
 エッジはステップを順番につなぎます。**Loop Decider** には **continue** と **stop** という 2 つのラベル付き出力があるので、「まだ終わっていない」を作業へ配線して戻し、「終わった」を End へ配線して出します。
 
+> **Kimi は AI/shell step の loop に対応しますが、Loop Decider には
+> 対応しません。** verdict は pure-output で、`kimi -p` は no-tools
+> 境界を強制できません。run は最初の step より前に拒否されます。
+
 ### ステップのテキストを書く
 
 AI Step や Decider の中では、次のものを参照できます。
@@ -57,7 +61,7 @@ AI Step や Decider の中では、次のものを参照できます。
 |-------|--------------|
 | **Max iterations** | Decider が判断にかかわらずループバックできる回数のハードキャップ。 |
 | **Timeout (min)** | 実行全体に対する実時間（壁時計）の上限。 |
-| **Max cost ($)** | *任意。* 累積コストが予算を超えた時点で Loop を停止します。**ステップとステップの間** でチェックされるため（あるステップのコストはそれが終わってからしかわかりません）、1 ステップ分だけオーバーシュートすることがあります。Claude ではコストは正確で、Codex と Gemini では見積もりです。上限を設けないなら空のままにしておきます。 |
+| **Max cost ($)** | *任意。* Claude は cost、Codex/Gemini は estimate。Kimi は authoritative USD cost を報告しません。 |
 
 ## 自信を持って組み立てる
 

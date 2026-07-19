@@ -1,6 +1,8 @@
 # レールごとのエンジン選択
 
-Specrails desktop は **Claude Code**、**Codex CLI**、**Gemini CLI** をいずれも一級のエンジンとして扱います。プロジェクトには 1 つ、2 つ、あるいは 3 つすべてをインストールできます — そして複数がある場合は、各レールをどのエンジンで実行するかをあなたが選びます。このページでは、レールごとのエンジンセレクターと、それぞれをどんなときに選ぶべきかを扱います。
+Specrails desktop は **Claude Code**、**Codex CLI**、**Gemini CLI**、
+**Kimi Code** を一級の engine として扱います。compatible な組み合わせを
+install できます。
 
 ## セレクターが現れるとき
 
@@ -13,30 +15,27 @@ Specrails desktop は **Claude Code**、**Codex CLI**、**Gemini CLI** をいず
 ## エンジンの選び方
 
 1. レールのエンジンセレクターが表示されていることを確認します（プロジェクトにプロバイダーが 2 つ以上）。
-2. クリックして **Claude**、**Codex**、**Gemini** のいずれかを選びます。
+2. **Claude**、**Codex**、**Gemini**、**Kimi** を選びます。
 3. **▶ Play** でレールを起動します。
 
 選んだエンジンが、そのレールのパイプラインの全フェーズを実行します。選んだエンジンの CLI がインストールされていない場合、起動は即座に失敗します — 何も生成されません。足りない CLI をインストールして、もう一度試してください。
 
 ## それぞれのエンジンが得意なこと
 
-3 つすべてが、標準の **Implement** と **Batch** のパイプラインを実行します。選び方の実用的なガイドはこちらです。
+4 つすべてが **Implement** と **Batch** を実行します。
 
 | エンジン | こんなときに | 補足 |
 |--------|--------------------|-------|
-| **Claude** | フルの機能セットがほしいとき: エージェントプロファイル、Freestyle、ネイティブのコスト報告、最も充実したツールサポート。たいていの作業のデフォルト。 | **エージェントプロファイル**、**Freestyle**、いくつかの Claude 専用スペック機能（Contract Layer、SMASH）をサポートする唯一のエンジン。 |
+| **Claude** | native cost、persistent interaction、strict tool policy が必要。 | Profile、Freestyle、structured transform。 |
 | **Codex** | OpenAI Codex CLI を好むとき、あるいはプロバイダー間で実装を比べたいとき。 | `codex` ≥ 0.128.0。ネイティブのコスト報告なし — アプリが料金表からコストを補います。プロファイルは適用されません。 |
 | **Gemini** | Google の Gemini CLI を使いたいとき、ネイティブのテレメトリがほしいとき、あるいは日常的なスペックを安く実行したいとき。 | `gemini` ≥ 0.11.0（`GEMINI_API_KEY` を設定）。ネイティブの OTLP テレメトリ。プロファイルは適用されません。 |
+| **Kimi** | Implement、Batch、Freestyle、Decider のない loop に agentic Kimi を使う。 | 外部 `kimi` ≥ 0.27.0。Profile/role、effort は K3 のみ。token/cost は unavailable。 |
 
-### Claude 専用の機能
+### Capability の違い
 
-いくつかの機能は Claude レールでしか動きません — 必要なら Claude を選んでください。
-
-- **エージェントプロファイル** — エージェントごとのモデルルーティング。Codex や Gemini のレールでは、実行は常にレガシーモードになり、選んだプロファイルは **無視されます**。プロファイルピッカーは Claude 以外のエンジンでは非表示になります。
-- **Freestyle** — 自律的でパイプラインをバイパスするモード。`Freestyle` セグメントと、その Haiku/Sonnet/Opus のモデルピッカーは、レールのエンジンが Claude のときだけ表示されます。
-- **Contract Layer と SMASH** — Claude 専用のスペック改良機能（これらはレールのオプションではなく Add-Spec のオプションですが、同じ制約が当てはまります）。
-
-プロジェクトが複数のエンジンを混在させると、右サイドバーにはインストール済みの **すべての** プロバイダーがサポートするセクションだけが表示されます — つまり、Claude 以外のプロバイダーを含むプロジェクトでは **エージェント** セクションがまるごと消えます。プロファイルは Claude 固有のものだからです。
+Claude/Kimi は Profile と Freestyle、Codex/Gemini は legacy。Kimi は
+Loop Decider と [Kimi guide](../../../kimi.md) の pure-output transform
+を拒否します。Claude/Kimi Profile は分離されます。
 
 ## 実用的なワークフロー
 
@@ -49,12 +48,14 @@ Specrails desktop は **Claude Code**、**Codex CLI**、**Gemini CLI** をいず
 ## 覚えておきたいこと
 
 - **プロバイダーの選択はプロジェクト作成後は変更できません**（v1）。インストールするプロバイダーはプロジェクトを追加するときに選びます。あとから追加・削除する設定トグルはありません。
-- **コストは常に追跡されます。** ネイティブのコスト報告を持たないエンジンでも、アプリが料金表にフォールバックするので、Codex や Gemini の実行も [分析](../analytics/tracking-cost) に表示されます。
+- **available metrics は記録されます。** Kimi は authoritative token/
+  USD cost を報告しないため空欄です。
 - **ターミナルの「Open AI CLI」ボタン** も、複数プロバイダーのプロジェクトではプロバイダーピッカーを表示します。自分の手で CLI を動かしたいときにどうぞ。
 
 ## 次に読むもの
 
 - [Codex を使う](../integrations/using-codex) — インストールとサインイン。
 - [Gemini を使う](../integrations/using-gemini) — インストール、`GEMINI_API_KEY`、テレメトリ。
+- [Kimi を使う](../../../kimi.md) — install と capability matrix。
 - [レールとジョブ](rails-and-jobs) — キューと起動の流れ。
 - [コストの追跡](../analytics/tracking-cost) — エンジンごとのコスト内訳。

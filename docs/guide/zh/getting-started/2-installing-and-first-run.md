@@ -23,6 +23,7 @@ specrails 唯一无法内置的，是 **AI 提供商 CLI** 本身。你至少需
 - **Claude Code**
 - **Codex CLI**
 - **Gemini CLI**
+- **Kimi Code**
 
 把你打算用的那个装好，在终端里登录一次，就齐活了。specrails 会自动检测出有哪些提供商可用。
 

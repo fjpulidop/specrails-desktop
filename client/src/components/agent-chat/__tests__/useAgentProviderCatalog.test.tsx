@@ -12,6 +12,7 @@ interface CatalogResponse {
   models: Array<{ value: string; label: string; default?: boolean }>
   efforts: string[]
   supportsImageInput: boolean
+  customModelAliases: boolean
 }
 
 function deferred<T>() {
@@ -51,6 +52,7 @@ describe('useAgentProviderCatalog', () => {
         models: [{ value: 'sonnet', label: 'Claude Sonnet', default: true }],
         efforts: ['low', 'medium', 'high'],
         supportsImageInput: true,
+        customModelAliases: false,
       })
       await claude.promise
     })
@@ -61,6 +63,7 @@ describe('useAgentProviderCatalog', () => {
         models: [{ value: 'gpt-5.5', label: 'GPT-5.5', default: true }],
         efforts: ['minimal', 'low', 'medium', 'high'],
         supportsImageInput: true,
+        customModelAliases: false,
       })
       await codex.promise
     })
@@ -69,6 +72,7 @@ describe('useAgentProviderCatalog', () => {
       provider: 'codex',
       models: [{ value: 'gpt-5.5', label: 'GPT-5.5', default: true }],
       efforts: ['minimal', 'low', 'medium', 'high'],
+      customModelAliases: false,
     })
     expect(api.getAgentModels).toHaveBeenCalledTimes(2)
   })
@@ -80,5 +84,18 @@ describe('useAgentProviderCatalog', () => {
     await waitFor(() => expect(result.current.status).toBe('error'))
     expect(result.current.models).toEqual([])
     expect(result.current.efforts).toEqual([])
+  })
+
+  it('exposes the server-owned custom-alias capability for Kimi', async () => {
+    api.getAgentModels.mockResolvedValue({
+      models: [{ value: 'k3', label: 'Kimi K3', default: true }],
+      efforts: ['low', 'high', 'max'],
+      supportsImageInput: true,
+      customModelAliases: true,
+    })
+    const { result } = renderHook(() => useAgentProviderCatalog('kimi'))
+
+    await waitFor(() => expect(result.current.status).toBe('ready'))
+    expect(result.current.customModelAliases).toBe(true)
   })
 })

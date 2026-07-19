@@ -33,7 +33,7 @@
   },
   "freestylePrePrompt": {
     "title": "Freestyle プレプロンプト",
-    "description": "Freestyle（Claude 専用レール）で Claude に送られる指示です。Freestyle は OpenSpec パイプラインをスキップし、このプレプロンプトとスペックテキストを Claude に渡して自律的に実装させます。空欄の場合は組み込みのデフォルトを使用します。",
+    "description": "Freestyle で選択したプロバイダーに送られる指示です。Freestyle は OpenSpec パイプラインをスキップし、このプレプロンプトとスペックテキストをプロバイダーに渡して自律的に実装させます。空欄の場合は組み込みのデフォルトを使用します。",
     "label": "Freestyle プレプロンプト",
     "placeholder": "空欄の場合はデフォルトの Freestyle 指示を使用します。",
     "helper": "スペックテキストはこのプレプロンプトの後に自動で追加されます。空欄 = デフォルト。",

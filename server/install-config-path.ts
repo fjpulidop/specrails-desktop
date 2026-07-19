@@ -53,7 +53,7 @@ function isSafeSlug(slug: string | undefined): slug is string {
 }
 
 /** True when a provider id is a safe filename segment (registry ids are
- *  lowercase-kebab — `claude` / `codex` / `gemini`). */
+ *  lowercase-kebab — `claude` / `codex` / `gemini` / `kimi`). */
 function isSafeProvider(provider: string | undefined): provider is string {
   return typeof provider === 'string' && /^[a-z0-9][a-z0-9-]*$/.test(provider)
 }

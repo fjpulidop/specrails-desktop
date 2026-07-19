@@ -41,11 +41,11 @@ reading one description. The tools are:
 | `specrails_rails` | Assign tickets to a rail, configure it, and launch the pipeline — rails are dynamic (`create_rail`, up to 12) and `launch_all` starts every ready rail in parallel (worktree-isolated) |
 | `specrails_jobs` | Inspect, stream, and stop pipeline jobs |
 | `specrails_chat` | Explore / sidebar chat conversations and turns |
-| `specrails_agents` | Agent profiles and the agents catalog (Claude-only features) |
+| `specrails_agents` | Provider-scoped agent profiles and catalog (Claude and Kimi execution; Kimi manual roles only) |
 | `specrails_plugins` | The per-project plugin marketplace (install / verify / uninstall) |
 | `specrails_jira` | The Jira integration (connect, sync, outbox) |
 | `specrails_loops` | Saved loop workflows |
-| `specrails_code` | The read-only code explorer (tree, file, summaries, provenance) |
+| `specrails_code` | The code explorer (tree/file/provenance are provider-neutral; AI transforms are capability-gated) |
 | `specrails_setup` | Add-project setup wizard surface |
 | `specrails_analytics` | Per-project spending analytics + budget |
 | `specrails_settings` | App-level settings |
@@ -76,6 +76,13 @@ app's WebSocket bus. An agent gets the actual outcome by calling
 `specrails_watch` with that reference; it waits for the operation to settle and
 returns the final result. Don't assume success from the acceptance alone — this
 is spelled out in `specrails_guide`.
+
+Provider membership does not bypass capability checks. With Kimi, agentic
+chat/Explore/Quick Launcher/rails/loops without Decider/profiles are
+available, while Quick Spec, AI Edit, Contract Refine, SMASH/Re-SMASH,
+Project Builder generation, Loop Decider, Code Explorer AI transforms, and
+Agent Studio automation are rejected before spawn. Destructive gates run
+before any mutation.
 
 ## The four permission tiers
 

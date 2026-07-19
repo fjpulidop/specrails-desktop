@@ -1,7 +1,7 @@
 import { spawn, spawnSync, ChildProcess } from 'child_process'
 import { createInterface } from 'readline'
 import { existsSync, readdirSync, rmSync, mkdirSync, readFileSync, writeFileSync, copyFileSync } from 'fs'
-import { isAbsolute, join, resolve as resolvePath } from 'path'
+import { basename, isAbsolute, join, resolve as resolvePath } from 'path'
 import { tmpdir } from 'os'
 import treeKill from 'tree-kill'
 import type { WsMessage } from './types'
@@ -11,6 +11,11 @@ import { spawnCli, windowsSpawnEnv } from './util/win-spawn'
 import { formatMissingSetupPrerequisites } from './setup-prerequisites'
 import { CORE_PACKAGE_SPEC } from './core-package'
 import { getAdapter, hasAdapter, type AdapterEvent } from './providers'
+import {
+  buildProviderEnv,
+  buildProviderRepoAccessArgs,
+  parseStreamEvents,
+} from './providers/runtime'
 import { finaliseInvocationResult } from './result-event'
 import { recordInvocation, type InvocationStatus } from './ai-invocations'
 import { randomUUID } from 'crypto'
@@ -278,23 +283,32 @@ export interface CheckpointStatus {
   duration_ms?: number
 }
 
-function checkFilesystem(projectPath: string): Partial<Record<string, boolean>> {
-  const dir = SPECRAILS_DIR
+function checkFilesystem(
+  projectPath: string,
+  provider: CLIProvider = 'claude',
+): Partial<Record<string, boolean>> {
+  const adapter = hasAdapter(provider) ? getAdapter(provider) : getAdapter('claude')
+  const dir = adapter.projectDirName
+  const artifactState = setupArtifactState(projectPath, 'full', provider)
   const hasBaseInstall = existsSync(join(projectPath, '.specrails', 'specrails-version')) ||
     existsSync(join(projectPath, '.specrails-version'))
   const hasSetupTemplates = existsSync(join(projectPath, '.specrails', 'setup-templates')) ||
     existsSync(join(projectPath, dir, 'setup-templates'))
   const hasRules = existsSync(join(projectPath, dir, 'rules')) &&
     hasFiles(join(projectPath, dir, 'rules'), /\.md$/)
-  const hasPersonas = existsSync(join(projectPath, dir, 'agents', 'personas')) &&
-    hasFiles(join(projectPath, dir, 'agents', 'personas'), /\.md$/)
-  const hasAgents = existsSync(join(projectPath, dir, 'agents')) &&
-    hasFiles(join(projectPath, dir, 'agents'), /^sr-.*\.md$/)
-  const hasCommands = (
-    (existsSync(join(projectPath, dir, 'commands', 'sr')) && hasFiles(join(projectPath, dir, 'commands', 'sr'), /\.md$/)) ||
-    (existsSync(join(projectPath, dir, 'commands', 'specrails')) && hasFiles(join(projectPath, dir, 'commands', 'specrails'), /\.md$/))
-  )
-  const hasCLAUDE = existsSync(join(projectPath, 'CLAUDE.md'))
+  const hasPersonas = artifactState.hasPersonas
+  const hasAgents = artifactState.hasAgents
+  const hasCommands = artifactState.hasCommands
+  const instructionCandidates = [join(projectPath, adapter.instructionsFilename)]
+  // Older Core releases sometimes placed a top-level instructions filename
+  // inside the provider directory. Preserve that compatibility only for
+  // actual filenames: Kimi's adapter already declares the provider-relative
+  // `.kimi-code/AGENTS.md` path, so prefixing projectDirName again would probe
+  // the nonsensical `.kimi-code/.kimi-code/AGENTS.md`.
+  if (adapter.instructionsFilename === basename(adapter.instructionsFilename)) {
+    instructionCandidates.push(join(projectPath, dir, adapter.instructionsFilename))
+  }
+  const hasInstructions = instructionCandidates.some((candidate) => existsSync(candidate))
   const hasInstallConfig = existsSync(join(projectPath, '.specrails', 'install-config.yaml')) ||
     existsSync(join(projectPath, dir, 'install-config.yaml'))
   const hasAgentConfig = existsSync(join(projectPath, dir, 'agents.yaml'))
@@ -305,7 +319,7 @@ function checkFilesystem(projectPath: string): Partial<Record<string, boolean>> 
     // Back-compat filesystem signals from older cores are translated to the
     // current integration-contract checkpoint keys.
     agent_selection: hasInstallConfig || hasAgentConfig || hasBacklogConfig || hasAgents || hasCommands,
-    codebase_analysis: hasBaseInstall && (hasCLAUDE || hasSetupTemplates),
+    codebase_analysis: hasBaseInstall && (hasInstructions || hasSetupTemplates),
     vpc_discovery: hasPersonas,
     persona_synthesis: hasPersonas,
     agent_generation: hasAgents,
@@ -403,19 +417,21 @@ export function detectCheckpointFromText(
   if (/\/agents\/sr-[^/]+\.md/.test(text)) {
     hits.push({ key: 'agent_generation', detail: 'Writing agents...' })
   }
-  // Codex path: .codex/skills/sr-<name>/SKILL.md (rail skills ship in
-  // specrails-core 4.6.0+ — see openspec/.../specs/setup-wizard… for the
-  // checkpoint protocol shared across providers).
-  if (/\.codex\/skills\/sr-[^/]+\/SKILL\.md/.test(text)) {
+  // Provider-native rail skills. Kimi's upstream discovery contract scans only
+  // direct children of `.kimi-code/skills`, so its roles are top-level
+  // `.kimi-code/skills/sr-*/SKILL.md` entries. Codex may also use `rails/`.
+  if (
+    /\.(?:codex|kimi-code)\/skills\/(?:rails\/)?sr-[^/]+\/SKILL\.md/.test(text)
+  ) {
     hits.push({ key: 'agent_generation', detail: 'Writing agent skills...' })
   }
   if ((text.includes('/commands/sr/') || text.includes('/commands/specrails/')) && text.includes('.md')) {
     hits.push({ key: 'command_generation', detail: 'Writing commands...' })
   }
-  // Codex enrich/doctor skills (the non-rail commands) also indicate
+  // Provider-native enrich/doctor skills (the non-rail commands) also indicate
   // command_generation progress.
-  if (/\.codex\/skills\/(enrich|doctor)\/SKILL\.md/.test(text)) {
-    hits.push({ key: 'command_generation', detail: 'Writing codex command skills...' })
+  if (/\.(?:codex|kimi-code)\/skills\/(?:specrails-)?(?:enrich|doctor)\/SKILL\.md/.test(text)) {
+    hits.push({ key: 'command_generation', detail: 'Writing provider command skills...' })
   }
   if (text.includes('/rules/') && text.includes('.md')) {
     hits.push({ key: 'command_generation', detail: 'Writing conventions...' })
@@ -538,23 +554,37 @@ export function computeSummary(
   let opsxCommands = 0
 
   try {
-    if (provider === 'codex') {
-      // Codex layout: every artefact ships as a SKILL under `.codex/skills/`.
+    if (provider === 'codex' || provider === 'kimi') {
+      // Codex/Kimi layout: every artefact ships as a SKILL under the provider's
+      // `skills/` root.
       // - agents  = rail personas (`skills/rails/sr-*/SKILL.md`) + orchestrator
-      //             skills at the root with an `sr-` prefix (sr-implement,
-      //             sr-batch-implement, …)
+      //             skills at the root with an `sr-` prefix. Kimi roles MUST be
+      //             direct children (`skills/sr-*/SKILL.md`) because upstream
+      //             Kimi discovery is intentionally one level deep.
       // - opsxCommands     = `skills/openspec-*/SKILL.md`
       // - specrailsCommands = everything else under `skills/` (ported claude
       //   slash commands like propose-spec, explore-spec, retry, doctor,
       //   enrich, vpc-drift, …)
       // - personas = 0 today; codex VPC pass not implemented yet.
-      const skillsDir = join(projectPath, '.codex', 'skills')
+      const skillsDir = join(
+        projectPath,
+        provider === 'kimi' ? '.kimi-code' : '.codex',
+        'skills',
+      )
       if (existsSync(skillsDir)) {
-        // Rails (always counted as agents).
+        // Codex retains its nested Rails catalog. Kimi cannot: nested skills
+        // are not discoverable by the Kimi CLI.
         const railsDir = join(skillsDir, 'rails')
-        if (existsSync(railsDir)) {
+        if (provider === 'codex' && existsSync(railsDir)) {
           for (const entry of readdirSync(railsDir) as string[]) {
-            if (existsSync(join(railsDir, entry, 'SKILL.md'))) agents++
+            if (entry === 'personas') {
+              const personasDir = join(railsDir, entry)
+              personas = (readdirSync(personasDir) as string[]).filter((persona) =>
+                existsSync(join(personasDir, persona, 'SKILL.md')),
+              ).length
+            } else if (existsSync(join(railsDir, entry, 'SKILL.md'))) {
+              agents++
+            }
           }
         }
         // Top-level skill dirs.
@@ -585,9 +615,17 @@ export function computeSummary(
         }
       }
       const commandsDirSpecrails = join(projectPath, dir, 'commands', 'specrails')
+      const commandsDirLegacySr = join(projectPath, dir, 'commands', 'sr')
       const commandsDirOpsx = join(projectPath, dir, 'commands', 'opsx')
       if (existsSync(commandsDirSpecrails)) {
         specrailsCommands = (readdirSync(commandsDirSpecrails) as string[]).filter((f) => f.endsWith(commandExt)).length
+      }
+      if (specrailsCommands === 0 && existsSync(commandsDirLegacySr)) {
+        // Core <=4.1 used commands/sr. Count it only when the canonical
+        // specrails tree has no commands so a transition install is never
+        // doubled but an empty pre-created directory cannot hide real legacy
+        // artefacts.
+        specrailsCommands = (readdirSync(commandsDirLegacySr) as string[]).filter((f) => f.endsWith(commandExt)).length
       }
       if (existsSync(commandsDirOpsx)) {
         opsxCommands = (readdirSync(commandsDirOpsx) as string[]).filter((f) => f.endsWith(commandExt)).length
@@ -598,6 +636,51 @@ export function computeSummary(
   }
 
   return { agents, specrailsCommands, opsxCommands, personas, legacySrRemoved: 0, tier, provider }
+}
+
+interface SetupArtifactState {
+  summary: SetupSummary
+  hasAgents: boolean
+  hasCommands: boolean
+  hasPersonas: boolean
+  complete: boolean
+}
+
+/**
+ * Resolve completion against the selected provider's real filesystem layout.
+ * A legacy `.claude` fallback remains intentional only for Codex/Gemini:
+ * older Core releases scaffolded Claude artefacts for those selections.
+ * Kimi never had such a released legacy Core target; accepting a mixed
+ * project's `.claude` tree would falsely report a missing `.kimi-code` setup
+ * as complete.
+ */
+function setupArtifactState(
+  projectPath: string,
+  tier: 'quick' | 'full',
+  provider: CLIProvider,
+): SetupArtifactState {
+  const nativeSummary = computeSummary(projectPath, tier, provider)
+  const supportsLegacyClaudeFallback = provider === 'codex' || provider === 'gemini'
+  const legacySummary = supportsLegacyClaudeFallback
+    ? computeSummary(projectPath, tier, 'claude')
+    : nativeSummary
+  const nativeHasCommands =
+    nativeSummary.specrailsCommands + nativeSummary.opsxCommands > 0
+  const legacyHasCommands =
+    legacySummary.specrailsCommands + legacySummary.opsxCommands > 0
+  const nativeComplete = nativeSummary.agents > 0 && nativeHasCommands
+  const legacyComplete = legacySummary.agents > 0 && legacyHasCommands
+  const selected = nativeComplete || !legacyComplete ? nativeSummary : legacySummary
+
+  return {
+    // Preserve the actual selected provider for UI labels even when the
+    // artefacts came from the legacy Claude compatibility tree.
+    summary: { ...selected, provider },
+    hasAgents: nativeSummary.agents > 0 || legacySummary.agents > 0,
+    hasCommands: nativeHasCommands || legacyHasCommands,
+    hasPersonas: nativeSummary.personas > 0 || legacySummary.personas > 0,
+    complete: nativeComplete || legacyComplete,
+  }
 }
 
 /**
@@ -1046,16 +1129,22 @@ export class SetupManager {
 
     this._initCheckpoints(projectId)
 
+    // Resolve the relocated artifact workspace before touching any provider
+    // directories. The imported source repo must remain pristine.
+    const enrichSlug = resolveArtifacts(projectPath).entry?.slug
+    if (enrichSlug) this._projectSlugs.set(projectId, enrichSlug)
+    const enrichRoot = this._artifactRoot(projectId, projectPath)
+
     // Pre-create the directory structure that /specrails:enrich will write to.
     // Claude Code's Write tool does not create parent directories automatically —
     // if a target directory doesn't exist the write fails and Claude reports a
     // misleading "write permissions aren't enabled" error.  Creating the dirs
     // here ensures enrich runs transparently without any user intervention.
     try {
-      mkdirSync(join(projectPath, SPECRAILS_DIR, 'agents', 'personas'), { recursive: true })
-      mkdirSync(join(projectPath, SPECRAILS_DIR, 'commands', 'sr'), { recursive: true })
-      mkdirSync(join(projectPath, SPECRAILS_DIR, 'commands', 'specrails'), { recursive: true })
-      mkdirSync(join(projectPath, SPECRAILS_DIR, 'rules'), { recursive: true })
+      mkdirSync(join(enrichRoot, SPECRAILS_DIR, 'agents', 'personas'), { recursive: true })
+      mkdirSync(join(enrichRoot, SPECRAILS_DIR, 'commands', 'sr'), { recursive: true })
+      mkdirSync(join(enrichRoot, SPECRAILS_DIR, 'commands', 'specrails'), { recursive: true })
+      mkdirSync(join(enrichRoot, SPECRAILS_DIR, 'rules'), { recursive: true })
     } catch (err) {
       console.warn(`[SetupManager] Failed to pre-create enrich directories: ${err}`)
     }
@@ -1064,7 +1153,6 @@ export class SetupManager {
     // The slug was allocated at addProject and mirrored into the shared registry
     // before/at install time, so resolve it from there (legacy full-flow path —
     // not exercised by the app's quick flow).
-    const enrichSlug = resolveArtifacts(projectPath).entry?.slug
     const configPath = installConfigPath({ slug: enrichSlug, path: projectPath })
     const hasConfig = existsSync(configPath)
     const enrichCmd = hasConfig ? '/specrails:enrich --from-config' : '/specrails:enrich'
@@ -1163,8 +1251,10 @@ export class SetupManager {
     const db = this._dbForProject?.(projectId)
     if (!db) return
     try {
+      const finishedAt = new Date().toISOString()
       const { result, estimated } = finaliseInvocationResult(adapter, events, {
         fallbackModel: adapter.defaultModel(),
+        durationMs: Math.max(0, Date.parse(finishedAt) - Date.parse(startedAtIso)),
       })
       recordInvocation(db, {
         id: randomUUID(),
@@ -1174,7 +1264,7 @@ export class SetupManager {
         surface_ref_id: projectId,
         status,
         started_at: startedAtIso,
-        finished_at: new Date().toISOString(),
+        finished_at: finishedAt,
         total_cost_usd_estimated: estimated,
         ...result,
       })
@@ -1206,6 +1296,10 @@ export class SetupManager {
       console.warn('[SetupManager] No AI CLI detected. Falling back to claude.')
     }
     const adapter: ProviderAdapter = getAdapter(resolvedProvider ?? 'claude')
+    const execution = resolveProjectExecution({
+      slug: this._projectSlugs.get(projectId),
+      path: projectPath,
+    })
 
     // Provider-aware prompt resolution:
     //   - claude: pass the slash command unresolved so the CLI looks up
@@ -1213,34 +1307,56 @@ export class SetupManager {
     //     skills-resolution priority over CLAUDE.md.
     //   - codex: no slash-command support; fold the enrich.md content into
     //     the prompt with the PROJECT context header so codex knows the cwd.
-    let effectivePrompt = opts.prompt
+    let effectivePrompt: string
+    try {
+      effectivePrompt = adapter.formatCoreCommand?.(opts.prompt, execution.cwd) ?? opts.prompt
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error)
+      console.error(`[SetupManager] provider command resolution failed for ${projectId}: ${message}`)
+      this._stopFilesystemPoll(projectId)
+      this._broadcast({
+        type: 'setup_error',
+        projectId,
+        error: message,
+      })
+      return
+    }
     if (
+      adapter.id === 'codex' &&
       !adapter.capabilities.systemPromptArg &&
       (opts.prompt === '/specrails:enrich' || opts.prompt === '/specrails:enrich --from-config')
     ) {
-      const enrichContent = readEnrichMdContent(projectPath)
+      const enrichContent = readEnrichMdContent(execution.cwd)
       if (enrichContent) {
         const projectName = this._projectNames.get(projectId)
+        const cwdContext = execution.relocated
+          ? `CWD: ${execution.cwd}\nREPOSITORY: ${execution.repoDir}`
+          : `CWD: ${projectPath}`
         effectivePrompt = projectName
-          ? `PROJECT: ${projectName}\nCWD: ${projectPath}\n\n---\n\n${enrichContent}`
+          ? `PROJECT: ${projectName}\n${cwdContext}\n\n---\n\n${enrichContent}`
           : enrichContent
       } else {
         console.warn(`[SetupManager] Could not read enrich.md or setup.md — falling back to literal prompt`)
       }
     }
 
-    const args = adapter.buildArgs(opts.action as SpawnAction, {
+    const repoAccessArgs = execution.relocated
+      ? buildProviderRepoAccessArgs(adapter, [execution.repoDir])
+      : []
+    const spawnOpts = {
       prompt: effectivePrompt,
       model: adapter.defaultModel(),
       sessionId: opts.sessionId,
-    })
+      extraArgs: repoAccessArgs,
+    }
+    const args = adapter.buildArgs(opts.action as SpawnAction, spawnOpts)
 
     // No OTEL env injection here — SetupManager spawns drive the initial project
     // setup wizard, not repeatable pipeline jobs. Telemetry is scoped to
     // QueueManager pipeline runs only.
     const child = spawnAiCli(adapter.binary, args, {
-      cwd: projectPath,
-      env: process.env,
+      cwd: execution.cwd,
+      env: buildProviderEnv(adapter, spawnOpts, { ...process.env, ...execution.env }),
       stdio: ['ignore', 'pipe', 'pipe'],
     })
 
@@ -1269,20 +1385,22 @@ export class SetupManager {
     this._startFilesystemPoll(projectId, projectPath)
 
     let capturedSessionId: string | null = null
+    let providerError: string | null = null
 
     const stdoutReader = createInterface({ input: child.stdout!, crlfDelay: Infinity })
     const stderrReader = createInterface({ input: child.stderr!, crlfDelay: Infinity })
 
     stdoutReader.on('line', (line) => {
-      const ev = adapter.parseStreamLine(line)
-      if (ev) adapterEvents.push(ev)
-      if (!ev) {
+      const parsedEvents = parseStreamEvents(adapter, line)
+      if (parsedEvents.length === 0) {
         // Non-parseable line — emit as raw log.
         if (line) this._broadcast({ type: 'setup_log', projectId, line, stream: 'stdout' })
         return
       }
 
-      switch (ev.kind) {
+      for (const ev of parsedEvents) {
+        adapterEvents.push(ev)
+        switch (ev.kind) {
         case 'session-started': {
           if (!capturedSessionId) {
             capturedSessionId = ev.sessionId
@@ -1325,10 +1443,15 @@ export class SetupManager {
           }
           break
         }
+        case 'error':
+          providerError = ev.message
+          this._broadcast({ type: 'setup_log', projectId, line: ev.message, stream: 'stderr' })
+          break
         case 'other':
           // Other event types (system progress markers) — already broadcast
           // implicitly through the line itself if useful. Skip.
           break
+        }
       }
     })
 
@@ -1349,18 +1472,19 @@ export class SetupManager {
 
       // Record the completed setup turn's spend (success on clean exit, failed
       // otherwise). LOW-2.
+      const providerReportedFailure = providerError !== null
       this._recordSetupInvocation(
         projectId,
         adapter,
         adapterEvents,
-        code === 0 ? 'success' : 'failed',
+        code === 0 && !providerReportedFailure ? 'success' : 'failed',
         turnStartedAt,
       )
 
       // Final filesystem sync
       this._syncFilesystemCheckpoints(projectId, projectPath)
 
-      if (code === 0) {
+      if (code === 0 && !providerReportedFailure) {
         // Sync filesystem checkpoints
         this._syncFilesystemCheckpoints(projectId, projectPath)
 
@@ -1368,19 +1492,20 @@ export class SetupManager {
         // resolve the has-agents/has-commands gate + summary against it.
         const artifactRoot = this._artifactRoot(projectId, projectPath)
 
-        // Check if setup is truly complete — real artifacts must exist
-        const hasAgents = existsSync(join(artifactRoot, SPECRAILS_DIR, 'agents')) &&
-          hasFiles(join(artifactRoot, SPECRAILS_DIR, 'agents'), /^sr-.*\.md$/)
-        const hasCommands = (
-          (existsSync(join(artifactRoot, SPECRAILS_DIR, 'commands', 'sr')) && hasFiles(join(artifactRoot, SPECRAILS_DIR, 'commands', 'sr'), /\.md$/)) ||
-          (existsSync(join(artifactRoot, SPECRAILS_DIR, 'commands', 'specrails')) && hasFiles(join(artifactRoot, SPECRAILS_DIR, 'commands', 'specrails'), /\.md$/))
-        )
-        const isComplete = hasAgents && hasCommands
+        // Check completion against the selected provider's native artefacts.
+        // In particular, Kimi rail roles are direct-child SKILL.md files under
+        // `.kimi-code/skills/`, not Markdown agents/commands in `.claude`.
+        const tier = this._projectTiers.get(projectId) ?? 'full'
+        const provider = this._projectProviders.get(projectId) ?? 'claude'
+        const artifactState = setupArtifactState(artifactRoot, tier, provider)
+        const isComplete = artifactState.complete
 
         if (isComplete) {
           const legacySrRemoved = sweepLegacySrCommands(artifactRoot)
-          const tier = this._projectTiers.get(projectId) ?? 'full'
-          const summary: SetupSummary = { ...computeSummary(artifactRoot, tier, this._projectProviders.get(projectId) ?? 'claude'), legacySrRemoved }
+          const summary: SetupSummary = {
+            ...artifactState.summary,
+            legacySrRemoved,
+          }
           this._onSetupDone?.(projectId)
           this._broadcast({
             type: 'setup_complete',
@@ -1402,7 +1527,7 @@ export class SetupManager {
         this._broadcast({
           type: 'setup_error',
           projectId,
-          error: `${adapter.binary} enrich exited with code ${code ?? 'unknown'}`,
+          error: providerError ?? `${adapter.binary} enrich exited with code ${code ?? 'unknown'}`,
         })
       }
     })
@@ -1475,7 +1600,6 @@ export class SetupManager {
    *  known or the project isn't relocated. */
   private _artifactRoot(projectId: string, projectPath: string): string {
     const slug = this._projectSlugs.get(projectId)
-    if (!slug) return projectPath
     try {
       return resolveProjectExecution({ slug, path: projectPath }).cwd
     } catch {
@@ -1487,7 +1611,10 @@ export class SetupManager {
     const statuses = this._checkpoints.get(projectId)
     if (!statuses) return
 
-    const fsChecks = checkFilesystem(this._artifactRoot(projectId, projectPath))
+    const fsChecks = checkFilesystem(
+      this._artifactRoot(projectId, projectPath),
+      this._projectProviders.get(projectId) ?? 'claude',
+    )
 
     for (const [key, exists] of Object.entries(fsChecks)) {
       if (!exists) continue

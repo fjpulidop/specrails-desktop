@@ -49,6 +49,15 @@ export function TicketSpendingLine({ ticketId }: Props) {
     .filter(([, v]) => v.count > 0)
     .map(([s, v]) => t('spendingLine.breakdownItem', { n: v.count, label: SURFACE_LABEL[s].toLowerCase() }))
     .join(' + ')
+  const unpricedRuns = summary.unpricedRuns ?? 0
+  const pricedRuns = summary.pricedRuns
+    ?? Math.max(0, summary.totalRuns - unpricedRuns)
+  const costUnavailable = unpricedRuns > 0 && pricedRuns === 0
+  const costPartiallyUnavailable = unpricedRuns > 0 && pricedRuns > 0
+  const turnsUnavailableRuns = summary.turnsUnavailableRuns ?? 0
+  const turnsUnavailable = summary.totalTurns == null
+    || (turnsUnavailableRuns > 0 && (summary.turnsReportedRuns ?? 0) === 0)
+  const turnsPartiallyUnavailable = !turnsUnavailable && turnsUnavailableRuns > 0
 
   return (
     <button
@@ -63,12 +72,37 @@ export function TicketSpendingLine({ ticketId }: Props) {
     >
       <span
         className="tabular-nums font-medium text-foreground"
-        title={(summary.estimatedCostUsd ?? 0) > 0 ? t('spendingLine.estimatedTooltip') : undefined}
+        data-testid={costUnavailable ? 'ticket-cost-unavailable' : undefined}
+        title={
+          costUnavailable
+            ? t('spendingLine.costUnavailableTooltip')
+            : costPartiallyUnavailable
+              ? t('spendingLine.costPartiallyUnavailableTooltip')
+              : (summary.estimatedCostUsd ?? 0) > 0
+                ? t('spendingLine.estimatedTooltip')
+                : undefined
+        }
       >
-        {(summary.estimatedCostUsd ?? 0) > 0 ? '~' : ''}{fmtCost(summary.totalCostUsd)}
+        {costUnavailable
+          ? '—'
+          : `${(summary.estimatedCostUsd ?? 0) > 0 ? '~' : ''}${costPartiallyUnavailable ? '≥' : ''}${fmtCost(summary.totalCostUsd)}`}
       </span>
       <span className="text-muted-foreground/60">·</span>
-      <span className="tabular-nums">{t('spendingLine.turns', { count: summary.totalTurns })}</span>
+      <span
+        className="tabular-nums"
+        data-testid={turnsUnavailable ? 'ticket-turns-unavailable' : undefined}
+        title={
+          turnsUnavailable
+            ? t('spendingLine.turnsUnavailableTooltip')
+            : turnsPartiallyUnavailable
+              ? t('spendingLine.turnsPartiallyUnavailableTooltip')
+              : undefined
+        }
+      >
+        {turnsUnavailable
+          ? '—'
+          : `${turnsPartiallyUnavailable ? '≥' : ''}${t('spendingLine.turns', { count: summary.totalTurns })}`}
+      </span>
       <span className="text-muted-foreground/60">·</span>
       <span className="tabular-nums">{t('spendingLine.active', { duration: fmtDur(summary.activeDurationMs) })}</span>
       {breakdown && (

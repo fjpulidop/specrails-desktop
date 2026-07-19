@@ -72,7 +72,8 @@
     "label": "プロバイダー",
     "claude": "Claude",
     "codex": "Codex",
-    "gemini": "Gemini"
+    "gemini": "Gemini",
+    "kimi": "Kimi"
   },
   "tier": {
     "cycleHint": "⇧⇥ で変更",
@@ -167,7 +168,7 @@
   },
   "noProvider": {
     "title": "AIプロバイダーが未インストール",
-    "body": "エージェントには Claude、Codex、Gemini のいずれかが必要です。インストールしてからエージェントを再度開いてください。",
+    "body": "エージェントには Claude、Codex、Gemini、Kimi のいずれかが必要です。インストールしてからエージェントを再度開いてください。",
     "placeholder": "AIプロバイダーをインストールしてエージェントを利用…"
   },
   "degraded": {

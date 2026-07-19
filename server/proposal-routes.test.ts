@@ -78,6 +78,7 @@ vi.mock('./setup-manager', () => ({
 // Mock ProposalManager — will be the mock instance
 let mockProposalManagerInstance: {
   isActive: ReturnType<typeof vi.fn>
+  canStartExploration: ReturnType<typeof vi.fn>
   startExploration: ReturnType<typeof vi.fn>
   sendRefinement: ReturnType<typeof vi.fn>
   createIssue: ReturnType<typeof vi.fn>
@@ -88,6 +89,7 @@ vi.mock('./proposal-manager', () => {
   const ProposalManager = vi.fn(function () {
     mockProposalManagerInstance = {
       isActive: vi.fn().mockReturnValue(false),
+      canStartExploration: vi.fn().mockReturnValue(true),
       startExploration: vi.fn().mockResolvedValue(undefined),
       sendRefinement: vi.fn().mockResolvedValue(undefined),
       createIssue: vi.fn().mockResolvedValue(undefined),

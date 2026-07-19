@@ -21,7 +21,7 @@
 3. プラグインをクリックして**インストールのプレビュー**を確認します — 何かが起こる前に、どのファイルが変更されるのかを正確に確認できます。
 4. **Install** をクリックします。セットアップの進行状況がリアルタイムで表示されます。
 
-内部的には、インストールは*外科的かつ追加的*です。プロジェクトの `.mcp.json`（および一部のプラグインでは、保護された `.claude/agents/` 名前空間内のフラグメントファイル）に、自分自身のエントリだけを追加します。設定全体を書き換えることは決してなく、2 つ目のプラグインを追加しても 1 つ目を乱すことはありません。インストールが自身の正常性を検証できなかった場合は、きれいにロールバックされます。
+内部のインストールは*外科的かつ追加的*です。選択 provider の native MCP 設定（Claude の一部では `.claude/agents/` の fragment も）に自分の entry だけを加えます。設定全体は書き換えず、検証に失敗すれば clean に rollback します。
 
 ## インストール済みプラグインを管理する
 
@@ -37,8 +37,8 @@
 
 ## プロバイダーに関する注意
 
-プラグインはプロバイダーを意識します。Serena のような MCP プラグインは、プロジェクトの `.mcp.json` を通して MCP を登録するプロバイダー（Claude と Gemini）で解決されます。Codex のプロジェクトでは、MCP サーバーは Codex 自身のグローバル設定で管理されるため、**Integrations** 内のプラグインエントリはそれに応じてフィルタリングされます。Integrations 内の Jira カードはプロバイダーに依存せず、誰にでも表示されます — Jira ガイドを参照してください。
+Plugin は provider-aware です。Serena は Claude の `.mcp.json`、project ごとに分離した `CODEX_HOME` での `codex mcp add`、Kimi の `.kimi-code/mcp.json` をサポートします。Manifest が provider を宣言したときだけ表示されるため、Gemini には Serena は提供されません。Jira card は provider 非依存です。
 
 ## 予約ファイル
 
-プラグインは、プロジェクト内の小さく明確に定義されたファイル群を管理します。`.mcp.json`（外科的にマージされます）、`.specrails/plugins/` 配下の一部の状態、そして `.claude/agents/custom-<plugin>.md` にあるプラグインごとのエージェントフラグメントです。インテグレーションをチームと共有したい場合、これらはコミットできるチーム資産です — アプリがこれらを無造作に上書きすることは決してありません。
+Plugin は provider の native MCP 設定、`.specrails/plugins/` の state、必要な Claude plugin の `.claude/agents/custom-<plugin>.md` だけを管理します。Kimi entry は `.kimi-code/mcp.json` に置かれ、Kimi に Claude-only fragment を書いたり設定を無造作に上書きしたりしません。

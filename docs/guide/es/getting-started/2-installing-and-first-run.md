@@ -23,6 +23,7 @@ Lo único que specrails no puede incluir es el **CLI del provider de IA** en sí
 - **Claude Code**
 - **Codex CLI**
 - **Gemini CLI**
+- **Kimi Code**
 
 Instala el que tengas pensado usar, inicia sesión una vez desde tu terminal y listo. specrails detecta automáticamente qué providers están presentes.
 

@@ -41,6 +41,14 @@
     "invocations_other": "{{count}} 回の呼び出し",
     "tokens": "· {{tokens}} トークン",
     "tokensTooltip": "合計トークン = この期間の全呼び出しにおける新規入力 + 出力 + キャッシュ読み取り + キャッシュ作成の合計。",
+    "usageUnavailable": "· トークン使用量は利用できません",
+    "usageUnavailableTooltip": "プロバイダーはこれらの呼び出しを完了しましたが、トークンのテレメトリを提供しませんでした。",
+    "usagePartiallyUnavailable": "· 既知のトークン {{tokens}}；{{count}} 件はデータなし",
+    "usagePartiallyUnavailableTooltip": "既知のトークン小計のみです。一部の呼び出しではトークンのテレメトリが提供されませんでした。",
+    "costUnavailable": "コスト利用不可",
+    "costUnavailableTooltip": "プロバイダーはこれらの呼び出しを完了しましたが、コストを特定するための十分なテレメトリを提供しませんでした。",
+    "costPartiallyUnavailable": "· 既知の小計；{{count}} 件はコスト不明",
+    "costPartiallyUnavailableTooltip": "既知のコスト小計のみです。一部の呼び出しではコストを特定するための十分なテレメトリが提供されませんでした。",
     "includesEstimated": "· 約 {{amount}} の推定値を含む",
     "includesEstimatedTooltip": "ネイティブのコストフィールドを持たないプロバイダーからの推定コスト {{amount}} を含みます（例: ローカル料金表で算出する codex）。",
     "trackingStarted": "トラッキング開始: {{date}}",
@@ -54,12 +62,16 @@
     "noCost": "この期間に記録されたコストはまだありません。",
     "segmentTitle": "{{label}}: {{value}} ({{count}})",
     "costUnavailable": "コスト利用不可",
-    "costUnavailableTooltip": "このプロバイダーは実行されましたが、そのモデルが料金表にないため、コストを計算できませんでした。"
+    "costUnavailableTooltip": "このプロバイダーは実行されましたが、コストを特定するための十分なテレメトリを提供しませんでした。",
+    "costPartiallyUnavailable": "· {{count}} 件は利用不可",
+    "costPartiallyUnavailableTooltip": "既知の小計のみです。一部の実行ではコストを利用できません。"
   },
   "timeline": {
     "title": "日次タイムライン",
     "subtitle": "サーフェス別の積み上げ",
-    "empty": "この期間の支出はありません。"
+    "empty": "この期間の支出はありません。",
+    "costUnavailable": "呼び出しは記録されていますが、コストのテレメトリは利用できません。",
+    "costPartiallyUnavailable": "既知のコスト · {{count}} 件は利用不可"
   },
   "quickVsExplore": {
     "title": "クイック vs Explore",
@@ -73,27 +85,39 @@
     "avgDuration": "平均 {{duration}}",
     "ratio": "スペックあたり {{ratio}}× 多い",
     "estimatedTooltip": "推定コスト（codex/gemini の料金表フォールバック、プロバイダー請求ではありません）",
-    "estimatedFootnote": "~ 推定コストを含みます（codex/gemini）"
+    "estimatedFootnote": "~ 推定コストを含みます（codex/gemini）",
+    "costUnavailable": "spec あたりのコストは利用不可",
+    "costUnavailableTooltip": "1 件以上の実行でコストのテレメトリが提供されなかったため、spec あたりの平均を計算できません。"
   },
   "models": {
     "title": "モデル",
     "empty": "記録されたモデルはありません。",
     "estimatedTooltip": "ローカルの料金表からの推定値 — このプロバイダーはコストをネイティブに報告しません。",
-    "others": "その他"
+    "others": "その他",
+    "costUnavailableWithRuns": "— · {{count}}",
+    "costUnavailableTooltip": "このモデルのすべての実行でコストのテレメトリを利用できません。",
+    "costPartiallyUnavailable": "· {{count}} 件は利用不可",
+    "costPartiallyUnavailableTooltip": "既知の小計のみです。このモデルの一部の実行ではコストのテレメトリがありません。"
   },
   "scatter": {
     "title": "コスト vs ターン",
     "empty": "プロットする呼び出しがありません。",
     "turnsLabel": "ターン",
     "costLabel": "コスト",
-    "truncated": "{{total}} 件中 {{shown}} 件を表示 — 最もコストの高いポイントは保持されますが、それ以前のポイントは非表示になります"
+    "truncated": "{{total}} 件中 {{shown}} 件を表示 — 最もコストの高いポイントは保持されますが、それ以前のポイントは非表示になります",
+    "costUnavailable": "呼び出しは記録されていますが、プロットできるコストのテレメトリがありません。",
+    "costPartiallyUnavailable": "プロットにはコストが判明している実行のみ含まれます。{{count}} 件はコストを利用できません。"
   },
   "topTickets": {
     "title": "上位チケット",
     "empty": "この期間のチケットアクティビティはありません。",
     "breakdownItem": "{{n}} {{label}}",
     "unattributed": "未割り当て",
-    "deletedTicket": "削除済みチケット #{{id}}"
+    "deletedTicket": "削除済みチケット #{{id}}",
+    "costUnavailable": "コスト利用不可",
+    "costUnavailableTooltip": "このチケットの実行ではコストのテレメトリが提供されませんでした。",
+    "costPartiallyUnavailable": "{{count}} 件は利用不可",
+    "costPartiallyUnavailableTooltip": "既知の小計のみです。このチケットの一部の実行ではコストを利用できません。"
   },
   "table": {
     "title": "すべての呼び出し",
@@ -145,12 +169,14 @@
     "failedToLoad": "アナリティクスの読み込みに失敗しました: {{error}}",
     "totalCost": "合計コスト",
     "costToday": "本日 {{value}}",
+    "costTodayUnavailable": "本日のコストは利用不可",
     "totalJobs": "合計ジョブ数",
     "jobsToday": "本日 {{n}} 件",
     "successRate": "成功率",
     "acrossAllProjects": "全プロジェクト",
     "avgCostPerJob": "ジョブあたり平均コスト",
     "periodAverage": "期間平均",
+    "averageUnavailable": "コストのテレメトリが不完全なため平均は利用不可",
     "costOverTime": "プロジェクト横断のコスト推移",
     "noCostData": "この期間のコストデータはありません",
     "projectComparison": "プロジェクト比較",
@@ -165,7 +191,10 @@
     "timelineEstimatedTooltip": "一部の日には ~ で示された料金表による推定コスト（codex/gemini）が含まれます。",
     "estimatedBadge": "推定",
     "projectEstimatedTooltip": "このプロジェクトのコストのうち {{amount}} は料金表による推定値です（codex/gemini）。プロバイダー請求ではありません。",
-    "statusBarEstimatedTooltip": "料金表による推定コスト（codex/gemini）を含みます。プロバイダー請求ではありません。"
+    "statusBarEstimatedTooltip": "料金表による推定コスト（codex/gemini）を含みます。プロバイダー請求ではありません。",
+    "costUnavailable": "呼び出しは記録されていますが、コストのテレメトリは利用できません。",
+    "costUnavailableShort": "利用不可",
+    "costPartiallyUnavailable": "既知のコスト小計；{{count}} 件の呼び出しは利用不可。"
   },
   "windowLabels": {
     "7d": "過去 7 日間",

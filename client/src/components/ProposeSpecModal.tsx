@@ -14,7 +14,14 @@ import { AiEngineSelector } from './AiEngineSelector'
 import type { LocalTicket, TicketPriority } from '../types'
 import { ContextScopeChecks } from './ContextScopeChecks'
 import { ContextScopeSlider } from './ContextScopeSlider'
-import { isSmashCapable, type ProviderId } from '../lib/provider-capabilities'
+import {
+  isSmashCapable,
+  providerLabel,
+  providerSupportsPureOutput,
+  providerSupportsStructuredActions,
+  providerSupportsUserMcp,
+  type ProviderId,
+} from '../lib/provider-capabilities'
 import { getLastEngine, setLastEngine } from '../lib/last-engine'
 import { useContextScope } from '../hooks/useContextScope'
 import { useContextBudget } from '../hooks/useContextBudget'
@@ -124,7 +131,15 @@ export function ProposeSpecModal({ open, onClose, tickets, onExploreLaunch }: Pr
   // Model picker — fetched on each open. Locked for the whole flow once the
   // user submits; no downstream surface changes it. See spec
   // `add-spec-model-selection`. Refetches when the engine changes.
-  const { model, setModel, allowed, loading: modelLoading, provider, providers } =
+  const {
+    model,
+    setModel,
+    allowed,
+    customModelAliases,
+    loading: modelLoading,
+    provider,
+    providers,
+  } =
     useDefaultSpecModel(activeProjectId, open, engine)
 
   // Initialise the engine selection once providers are known (remember last
@@ -142,22 +157,61 @@ export function ProposeSpecModal({ open, onClose, tickets, onExploreLaunch }: Pr
   // Effective provider drives SMASH gating + the payload's aiEngine. Prefer the
   // user's pick; fall back to the resolved primary while it loads.
   const effectiveProvider = engine ?? provider
+  const quickAvailable = effectiveProvider == null
+    || providerSupportsPureOutput(effectiveProvider)
+  const userMcpSupported = effectiveProvider == null
+    || providerSupportsUserMcp(effectiveProvider)
+  const contractRefineSupported = effectiveProvider == null
+    || providerSupportsStructuredActions(effectiveProvider)
 
   const { scope, setScope, persist: persistScope } = useContextScope(activeProjectId, mode, open)
   const quickRefine = useQuickContractRefineLast(activeProjectId, open)
   const { data: budget, isError: budgetError } = useContextBudget(activeProjectId, open)
-  const tier = useMemo(() => tierFromScope(scope), [scope])
+  const sanitizeScopeForProvider = useCallback((candidate: ContextScope): ContextScope => {
+    const userMcp = userMcpSupported ? candidate.userMcp : false
+    const contractRefine = contractRefineSupported ? candidate.contractRefine : false
+    if (
+      userMcp === candidate.userMcp
+      && contractRefine === candidate.contractRefine
+    ) {
+      return candidate
+    }
+    return { ...candidate, userMcp, contractRefine }
+  }, [userMcpSupported, contractRefineSupported])
+  const effectiveScope = useMemo(
+    () => sanitizeScopeForProvider(scope),
+    [scope, sanitizeScopeForProvider],
+  )
+  const tier = useMemo(() => tierFromScope(effectiveScope), [effectiveScope])
   const smashCapable = isSmashCapable(effectiveProvider)
 
   useEffect(() => {
-    if (mode !== 'quick' || !quickRefine.loaded || scopeTouchedRef.current) return
+    if (open && mode === 'quick' && !quickAvailable) setMode('explore')
+  }, [open, mode, quickAvailable])
+
+  useEffect(() => {
+    if (
+      mode !== 'quick'
+      || !quickRefine.loaded
+      || scopeTouchedRef.current
+      || !contractRefineSupported
+    ) return
     setScope((prev) => ({ ...prev, contractRefine: quickRefine.value }))
-  }, [mode, quickRefine.loaded, quickRefine.value, setScope])
+  }, [mode, quickRefine.loaded, quickRefine.value, setScope, contractRefineSupported])
+
+  // Provider changes can invalidate values restored from the previous
+  // provider's persisted preset. Clear them in state as well as at submit time
+  // so disabled controls never conceal a stale true value.
+  useEffect(() => {
+    if (scope !== effectiveScope) setScope(effectiveScope)
+  }, [scope, effectiveScope, setScope])
 
   const handleScopeChange = useCallback((next: ContextScope | ((s: ContextScope) => ContextScope)) => {
     scopeTouchedRef.current = true
-    setScope(next)
-  }, [setScope])
+    setScope((previous) => sanitizeScopeForProvider(
+      typeof next === 'function' ? next(previous) : next,
+    ))
+  }, [setScope, sanitizeScopeForProvider])
 
   useEffect(() => {
     scopeTouchedRef.current = false
@@ -203,7 +257,12 @@ export function ProposeSpecModal({ open, onClose, tickets, onExploreLaunch }: Pr
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open])
 
-  const canSubmit = useMemo(() => (hasText || captures.length > 0) && !isSubmitting, [hasText, captures.length, isSubmitting])
+  const canSubmit = useMemo(
+    () => (hasText || captures.length > 0)
+      && !isSubmitting
+      && (mode !== 'quick' || quickAvailable),
+    [hasText, captures.length, isSubmitting, mode, quickAvailable],
+  )
 
   const handleCaptured = useCallback((result: CaptureResult) => {
     // A capture contributes two attachments (screenshot image + DOM JSON). Both
@@ -264,6 +323,10 @@ export function ProposeSpecModal({ open, onClose, tickets, onExploreLaunch }: Pr
 
     const projectId = activeProjectIdRef.current
     if (!projectId) return
+    if (mode === 'quick' && !quickAvailable) {
+      setMode('explore')
+      return
+    }
 
     // Raw mode: persist the prompt verbatim as a spec ticket. No AI runs — a
     // direct create against /tickets/from-prompt (status='todo', ready for
@@ -322,7 +385,7 @@ export function ProposeSpecModal({ open, onClose, tickets, onExploreLaunch }: Pr
         return
       }
       submittedRef.current = true // suppress attachment cleanup on close
-      void persistScope(scope)
+      void persistScope(effectiveScope)
       // If the picker is still resolving, fall back to 'sonnet' as a safe
       // claude default — server re-validates and will resolve the project's
       // configured default if this doesn't fit.
@@ -330,7 +393,7 @@ export function ProposeSpecModal({ open, onClose, tickets, onExploreLaunch }: Pr
         idea, pendingSpecId, initialAttachmentIds: attachmentIds,
         model: model ?? 'sonnet',
         provider: effectiveProvider ?? undefined,
-        contextScope: scope,
+        contextScope: effectiveScope,
       })
       onClose()
       return
@@ -345,7 +408,7 @@ export function ProposeSpecModal({ open, onClose, tickets, onExploreLaunch }: Pr
     toast.loading(`${projectName} · ${truncated}`, { id: toastId, description: t('proposeModal.toast.generating') })
 
     submittedRef.current = true
-    void quickRefine.persist(scope.contractRefine)
+    void quickRefine.persist(effectiveScope.contractRefine)
     setIsSubmitting(true)
     editorRef.current?.clear()
     setAttachmentCount(0)
@@ -364,14 +427,14 @@ export function ProposeSpecModal({ open, onClose, tickets, onExploreLaunch }: Pr
             idea, attachmentIds, pendingSpecId, model: model ?? undefined,
             aiEngine: effectiveProvider ?? undefined,
             contextScope: {
-              specrails: scope.specrails,
-              openspec: scope.openspec,
-              full: scope.full,
-              mcp: scope.mcp,
-              userMcp: scope.userMcp,
-              contractRefine: scope.contractRefine,
+              specrails: effectiveScope.specrails,
+              openspec: effectiveScope.openspec,
+              full: effectiveScope.full,
+              mcp: effectiveScope.mcp,
+              userMcp: effectiveScope.userMcp,
+              contractRefine: effectiveScope.contractRefine,
             },
-            contractRefine: scope.contractRefine,
+            contractRefine: effectiveScope.contractRefine,
           }),
         })
       } catch (err) {
@@ -388,7 +451,7 @@ export function ProposeSpecModal({ open, onClose, tickets, onExploreLaunch }: Pr
     } finally {
       setIsSubmitting(false)
     }
-  }, [mode, tickets, tracker, pendingSpecId, onClose, onExploreLaunch, model, quickRefine, scope, effectiveProvider, captures, title, priority, labels, t])
+  }, [mode, tickets, tracker, pendingSpecId, onClose, onExploreLaunch, model, quickRefine, effectiveScope, effectiveProvider, quickAvailable, captures, title, priority, labels, t])
 
   return (
     <>
@@ -412,7 +475,12 @@ export function ProposeSpecModal({ open, onClose, tickets, onExploreLaunch }: Pr
 
           <div className="flex flex-col p-5 gap-4 flex-1 min-h-0 overflow-y-auto">
             <div className="flex items-center justify-between gap-3">
-              <ModeSegmented value={mode} onChange={setMode} fullCodebase={scope.full} />
+              <ModeSegmented
+                value={mode}
+                onChange={setMode}
+                fullCodebase={effectiveScope.full}
+                quickAvailable={quickAvailable}
+              />
               {mode !== 'free' && (
                 <div className="flex items-center gap-2">
                   <AiEngineSelector
@@ -425,6 +493,7 @@ export function ProposeSpecModal({ open, onClose, tickets, onExploreLaunch }: Pr
                   <SpecModelPicker
                     value={model}
                     allowed={allowed}
+                    customModelAliases={customModelAliases}
                     loading={modelLoading}
                     onChange={setModel}
                   />
@@ -435,7 +504,7 @@ export function ProposeSpecModal({ open, onClose, tickets, onExploreLaunch }: Pr
             {mode !== 'free' && (
               <div className="space-y-3">
                 <ContextScopeSlider
-                  value={scope}
+                  value={effectiveScope}
                   onChange={handleScopeChange}
                   budget={budget}
                   budgetError={budgetError}
@@ -443,7 +512,16 @@ export function ProposeSpecModal({ open, onClose, tickets, onExploreLaunch }: Pr
                   maxPresetId={mode === 'quick' ? 'max' : 'desktop'}
                   smashCapable={smashCapable}
                 />
-                <ContextScopeChecks scope={scope} mode={mode} onChange={handleScopeChange} label={t('contextScope.fineTune')} showSummary={false} />
+                <ContextScopeChecks
+                  scope={effectiveScope}
+                  mode={mode}
+                  onChange={handleScopeChange}
+                  label={t('contextScope.fineTune')}
+                  showSummary={false}
+                  userMcpSupported={userMcpSupported}
+                  contractRefineSupported={contractRefineSupported}
+                  providerLabel={providerLabel(effectiveProvider)}
+                />
               </div>
             )}
 
@@ -683,17 +761,30 @@ export function ProposeSpecModal({ open, onClose, tickets, onExploreLaunch }: Pr
 }
 
 function ModeSegmented({
-  value, onChange, fullCodebase,
-}: { value: SpecMode; onChange: (v: SpecMode) => void; fullCodebase: boolean }) {
+  value,
+  onChange,
+  fullCodebase,
+  quickAvailable,
+}: {
+  value: SpecMode
+  onChange: (v: SpecMode) => void
+  fullCodebase: boolean
+  quickAvailable: boolean
+}) {
   const { t } = useTranslation('addspec')
+  const quickUnavailable = t('proposeModal.mode.quickUnavailable')
   return (
     <div role="tablist" aria-label={t('proposeModal.modeTablistLabel')} className="inline-flex items-center gap-1 p-1 rounded-lg border border-border/50 bg-card/40 self-start">
       <ModeOption
         active={value === 'quick'}
         icon={<Zap className="w-3.5 h-3.5" />}
         label={t('proposeModal.mode.quick')}
-        hint={quickHintForScope({ specrails: false, openspec: false, full: fullCodebase, mcp: false, contractRefine: false })}
+        hint={quickAvailable
+          ? quickHintForScope({ specrails: false, openspec: false, full: fullCodebase, mcp: false, contractRefine: false })
+          : quickUnavailable}
         onClick={() => onChange('quick')}
+        disabled={!quickAvailable}
+        disabledReason={quickUnavailable}
       />
       <ModeOption
         active={value === 'explore'}
@@ -714,16 +805,36 @@ function ModeSegmented({
 }
 
 function ModeOption({
-  active, icon, label, hint, onClick,
-}: { active: boolean; icon: React.ReactNode; label: string; hint: string; onClick: () => void }) {
+  active,
+  icon,
+  label,
+  hint,
+  onClick,
+  disabled = false,
+  disabledReason,
+}: {
+  active: boolean
+  icon: React.ReactNode
+  label: string
+  hint: string
+  onClick: () => void
+  disabled?: boolean
+  disabledReason?: string
+}) {
   return (
     <button
       role="tab"
       type="button"
       aria-selected={active}
+      disabled={disabled}
+      title={disabled ? disabledReason : hint}
       onClick={onClick}
       className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium transition-colors ${
-        active ? 'bg-primary/15 text-primary' : 'text-muted-foreground hover:text-foreground hover:bg-card/60'
+        disabled
+          ? 'cursor-not-allowed text-muted-foreground/50 opacity-70'
+          : active
+            ? 'bg-primary/15 text-primary'
+            : 'text-muted-foreground hover:text-foreground hover:bg-card/60'
       }`}
     >
       {icon}

@@ -25,12 +25,20 @@ function makePlugin(): Plugin {
       whatItDoes: ['x'],
       requirements: [{ name: 'uv', minVersion: '0.1.0' }],
       owns: { mcpServers: ['serena'] },
+      providerSupport: {
+        claude: { mcpEntry: { command: 'uvx', args: [] } },
+        kimi: { mcpEntry: { command: 'uvx', args: [] } },
+      },
     },
     install: async (ctx) => {
-      await PluginManager.mergeMcpServers(ctx.projectPath, { serena: { command: 'uvx' } })
+      await PluginManager.mergeMcpServers(
+        ctx.projectPath,
+        { serena: { command: 'uvx' } },
+        ctx.providerId,
+      )
     },
     uninstall: async (ctx) => {
-      await PluginManager.removeMcpServers(ctx.projectPath, ['serena'])
+      await PluginManager.removeMcpServers(ctx.projectPath, ['serena'], ctx.providerId)
     },
     verify: async () => ({ ok: true, checkedAt: new Date().toISOString() }),
   }
@@ -48,6 +56,7 @@ function mountApp(plugins: Plugin[] = [makePlugin()]): void {
       name: 'Test',
       path: projectPath,
       provider: 'claude',
+      providers: ['claude', 'kimi'],
       last_active: null,
       setup_session: null,
       agent_job_id: null,
@@ -87,6 +96,33 @@ describe('GET /plugins', () => {
     expect(res.body.plugins).toHaveLength(1)
     expect(res.body.plugins[0].status).toBe('not-installed')
   })
+
+  it('projects catalog state independently for a configured secondary provider', async () => {
+    await request(app)
+      .post('/api/projects/proj-test/plugins/serena/install')
+      .send({ provider: 'kimi' })
+
+    const kimi = await request(app)
+      .get('/api/projects/proj-test/plugins?provider=kimi')
+    const claude = await request(app)
+      .get('/api/projects/proj-test/plugins?provider=claude')
+
+    expect(kimi.status).toBe(200)
+    expect(kimi.body.plugins[0]).toMatchObject({
+      providerId: 'kimi',
+      status: 'installed',
+    })
+    expect(claude.body.plugins[0]).toMatchObject({
+      providerId: 'claude',
+      status: 'not-installed',
+    })
+  })
+
+  it('rejects a provider not configured for the project', async () => {
+    const res = await request(app).get('/api/projects/proj-test/plugins?provider=codex')
+    expect(res.status).toBe(400)
+    expect(res.body.error).toMatch(/not configured/)
+  })
 })
 
 describe('GET /plugins/:name/preview-install', () => {
@@ -102,6 +138,15 @@ describe('GET /plugins/:name/preview-install', () => {
   it('returns 404 for unknown plugin', async () => {
     const res = await request(app).get('/api/projects/proj-test/plugins/nope/preview-install')
     expect(res.status).toBe(404)
+  })
+
+  it('previews Kimi files in its native project config', async () => {
+    const res = await request(app)
+      .get('/api/projects/proj-test/plugins/serena/preview-install?provider=kimi')
+    expect(res.status).toBe(200)
+    expect(res.body.files).toEqual(expect.arrayContaining([
+      expect.objectContaining({ path: '.kimi-code/mcp.json', op: 'create' }),
+    ]))
   })
 })
 
@@ -121,6 +166,24 @@ describe('POST /plugins/:name/install', () => {
     await request(app).post('/api/projects/proj-test/plugins/serena/install')
     const res = await request(app).post('/api/projects/proj-test/plugins/serena/install')
     expect(res.status).toBe(409)
+  })
+
+  it('installs Kimi without writing Claude .mcp.json', async () => {
+    const res = await request(app)
+      .post('/api/projects/proj-test/plugins/serena/install')
+      .send({ provider: 'kimi' })
+
+    expect(res.status).toBe(200)
+    expect(fs.existsSync(path.join(projectPath, '.mcp.json'))).toBe(false)
+    const config = JSON.parse(
+      fs.readFileSync(path.join(projectPath, '.kimi-code', 'mcp.json'), 'utf8'),
+    )
+    expect(config.mcpServers.serena.command).toBe('uvx')
+    expect(
+      broadcasts.some((event) =>
+        event.type === 'plugin.installed' &&
+        (event as { providerId?: string }).providerId === 'kimi'),
+    ).toBe(true)
   })
 })
 

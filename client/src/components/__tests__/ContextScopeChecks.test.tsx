@@ -44,6 +44,28 @@ describe('ContextScopeChecks', () => {
     expect(onChange).toHaveBeenLastCalledWith({ ...baseScope, userMcp: true })
   })
 
+  it('disables and clears unsupported provider-owned controls', () => {
+    render(
+      <ContextScopeChecks
+        scope={{ ...baseScope, userMcp: true, contractRefine: true }}
+        mode="explore"
+        onChange={() => {}}
+        defaultOpen
+        userMcpSupported={false}
+        contractRefineSupported={false}
+        providerLabel="Kimi"
+      />,
+    )
+    const userMcp = screen.getByLabelText('My approved MCPs')
+    const contractRefine = screen.getByLabelText('Enrich with Contract Layer')
+    expect(userMcp).toBeDisabled()
+    expect(userMcp).toHaveAttribute('aria-checked', 'false')
+    expect(userMcp.parentElement).toHaveAttribute('title', 'Unavailable for Kimi')
+    expect(contractRefine).toBeDisabled()
+    expect(contractRefine).toHaveAttribute('aria-checked', 'false')
+    expect(contractRefine.parentElement).toHaveAttribute('title', 'Unavailable for Kimi')
+  })
+
   it('Project MCPs toggle is enabled in both Quick and Explore', () => {
     const { rerender } = render(<ContextScopeChecks scope={baseScope} mode="quick" onChange={() => {}} defaultOpen />)
     expect((screen.getByLabelText('Project MCPs') as HTMLButtonElement).disabled).toBe(false)

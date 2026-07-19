@@ -11,21 +11,34 @@ Each catalog entry shows what the agent is for and its default model, so you can
 
 ## Adding a custom agent
 
-Custom agents are plain Markdown files in your repository under `.claude/agents/`, named `custom-<something>.md`. The file contains the agent's instructions (its system prompt) and a small frontmatter header that includes a default `model:`.
+Custom roles are provider-native Markdown assets. Claude uses
+`.claude/agents/custom-<something>.md`; Kimi uses
+`.kimi-code/skills/custom-<something>/SKILL.md` with valid Skill
+frontmatter. The catalog/profile editor scopes models and paths to the selected
+provider.
 
-Once the file exists in the project, it appears in the catalog as a custom agent, and you can add its id to any profile's agent chain (and route tasks to it). The id must match the filename — an entry for `custom-docs` maps to `.claude/agents/custom-docs.md`.
+Once the asset exists, it appears in that provider's catalog and can be added
+to a matching profile. A Kimi role is never resolved through
+`.claude/agents`, and same-named Claude/Kimi roles remain independent.
 
 Because they live in your repo, custom agents are **committable team assets**: commit the file and your whole team gets the agent. This mirrors the core idea throughout the Agents section —
 
 > **Agent definitions are shared (they live in the repo and travel with `git`). Model configuration is per-project (it lives in profiles).**
 
-The `custom-*` namespace is reserved and protected: `specrails-core`'s `init` and `update` commands never touch `.claude/agents/custom-*.md`, so your custom agents survive core upgrades untouched. (The same protection covers plugin-contributed fragments like `custom-serena.md`.)
+The `custom-*` namespace is reserved and protected: `specrails-core` never
+overwrites Claude custom files or Kimi custom skill directories.
+
+Kimi supports manual blank/template/duplicate/edit and execution. Agent Studio
+generation, smoke Test, and AI Refine are unavailable for Kimi because
+`kimi -p` cannot enforce their no-tools/read-only boundary; direct requests
+fail before spawn.
 
 ## Putting a custom agent to work
 
 The typical flow:
 
-1. Write `.claude/agents/custom-<name>.md` with instructions and a default model.
+1. Create the provider-native Claude agent file or Kimi Skill directory with
+   instructions and a valid provider model.
 2. Confirm it shows up in **Agents → Catalog** under Custom.
 3. In **Agents → Profiles**, add the agent to a profile's chain (optionally overriding its model for that profile).
 4. Add a routing rule so tasks with the right tags reach it — or rely on the chain order.

@@ -232,6 +232,24 @@ describe('useAgentRefine', () => {
       })
     })
 
+    it('preserves unavailable token usage instead of fabricating zero', async () => {
+      const { result } = renderRefine(ws)
+      await startSession(result)
+      act(() => {
+        ws.emit({
+          type: 'agent_refine_test',
+          projectId: PROJECT,
+          refineId: 'r1',
+          result: { output: 'done', tokens: null, durationMs: 300 },
+        })
+      })
+      expect(result.current.state.testResult).toEqual({
+        output: 'done',
+        tokens: null,
+        durationMs: 300,
+      })
+    })
+
     it('handles applied, cancelled and error events', async () => {
       const { result } = renderRefine(ws)
       await startSession(result)

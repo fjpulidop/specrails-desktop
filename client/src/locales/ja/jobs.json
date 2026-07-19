@@ -140,8 +140,12 @@
       "connecting": "エージェントに接続中…",
       "starting": "起動中…"
     },
-    "pipelinePartial": "≥ は部分値 — {{count}} 個のフェーズにコスト記録がありません",
-    "pipelinePartialTooltip": "一部のフェーズはコストを報告する前に終了したため、この合計は下限値です。"
+  "pipelinePartial": "≥ は部分値 — {{count}} 個のフェーズにコスト記録がありません",
+  "pipelinePartialTooltip": "一部のフェーズはコストを報告する前に終了したため、この合計は下限値です。",
+  "pipelineCostUnavailable": "すべてのフェーズでコストのテレメトリを利用できません。",
+  "pipelineUsageUnavailable": "すべてのフェーズでトークンのテレメトリを利用できません。",
+  "pipelineUsagePartial": "≥ 表示値 — {{count}} フェーズでトークンのテレメトリなし",
+  "pipelineUsageTooltip": "プロバイダーはトークンのテレメトリを提供せずにフェーズを完了する場合があります。既知の使用量のみが含まれます。"
   },
   "ticketHeader": {
     "showMore": "+ 他 {{count}} 件",

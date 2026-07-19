@@ -54,7 +54,12 @@ The desktop app ships its own **Node** and **Git** runtimes inside the bundle, s
 
 When the bundle is present, the Tauri host sets `SPECRAILS_IS_DESKTOP=1` and `SPECRAILS_BUNDLED_RUNTIMES_PATH`, and the embedded server prepends the bundled `node`/`git` directories to the front of `PATH` so a system install can never shadow them. If a build ships **without** the runtimes (or a partial extraction occurs), the app does not dead-end — it falls back to discovering `node`/`git` on your system `PATH` (probed with Windows `where.exe`) instead of reporting a corrupted bundle.
 
-The **provider CLIs** — **Claude Code**, **Codex**, and **Gemini** — are **never bundled**. All three are probed via your system `PATH`, in every mode (using Windows `where.exe`). Install at least one before adding a project; the prerequisites panel blocks Add Project until one is usable. All three are enabled by default; you can roll one back with `SPECRAILS_CODEX_BETA=0` or `SPECRAILS_GEMINI_BETA=0` (each disabled only by the exact string `0`). See the per-provider setup guides: [Codex](../codex.md) and [Gemini](../gemini.md).
+The **provider CLIs** — **Claude Code**, **Codex**, **Gemini**, and **Kimi
+Code** — are **never bundled**. All four are probed through the system `PATH`
+with `where.exe`; install at least one. Kimi 0.27+ requires Git for
+Windows/Git Bash and the npm distribution requires Node 22.19+, both
+user-managed. See [Kimi](../kimi.md), [Codex](../codex.md), and
+[Gemini](../gemini.md).
 
 ## Updates
 
@@ -64,11 +69,11 @@ Note that updates are delivered as the **MSI** (verified by an embedded **minisi
 
 ## Setup wizard
 
-When you add a project, the setup wizard runs `npx specrails-core@^4.8.0 init --from-config` under the hood (the full spawn is `npx --yes --prefer-online specrails-core@^4.8.0 init --yes --from-config <tempPath>`, with the app writing a temporary `install-config.yaml`). The wizard has three steps — **Configure / Install / Done**.
+When you add a project, the setup wizard runs `npx specrails-core@^4.12.0 init --from-config` under the hood (the full spawn is `npx --yes --prefer-online specrails-core@^4.12.0 init --yes --from-config <tempPath>`, with the app writing a temporary `install-config.yaml`). The wizard has three steps — **Configure / Install / Done**.
 
 There are two distinct version floors to be aware of:
 
-- The app **installs** `specrails-core@^4.8.0` — the major-pinned range it ships (4.8.0 is the release that adds the Gemini provider target). The exact package spec is the `CORE_PACKAGE_SPEC` constant in `server/core-package.ts`, so it stays verifiable in one place. You need internet access at install time so `npx` can resolve it.
+- The app **installs** `specrails-core@^4.12.0` — the major-pinned range it ships (4.12.0 is the release that adds the Kimi provider target). The exact package spec is the `CORE_PACKAGE_SPEC` constant in `server/core-package.ts`, so it stays verifiable in one place. You need internet access at install time so `npx` can resolve it.
 - The minimum it will **accept** at runtime is **specrails-core ≥ 4.1.0** — the Node-native installer floor (`MIN_NODE_NATIVE_CORE_VERSION`). Anything below that is a legacy bash/python3 installer and cannot run on Windows without WSL.
 
 You can point the app at a local or linked build with the `SPECRAILS_CORE_BIN` environment variable (it overrides the `npx` spec above).
@@ -91,5 +96,5 @@ Reserved paths (`.specrails/profiles/**`, `.claude/agents/custom-*.md`) are pres
 
 - [macOS platform guide](./macos.md) — the equivalent guide for Apple Silicon.
 - [Getting started](../getting-started.md) — first run, adding a project, the dashboard tour.
-- [Codex provider setup](../codex.md) and [Gemini provider setup](../gemini.md) — installing and configuring the provider CLIs.
+- [Codex provider setup](../codex.md), [Gemini provider setup](../gemini.md), and [Kimi provider setup](../kimi.md) — installing and configuring the provider CLIs.
 - [CLI reference](../cli.md) — driving Specrails from the command line.

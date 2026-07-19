@@ -51,7 +51,7 @@
     "docs": "Docs",
     "settings": "Paramètres",
     "noCli": "Aucune CLI IA",
-    "noCliTooltip": "Aucune CLI IA détectée. Installez Claude Code ou Codex CLI.",
+    "noCliTooltip": "Aucune CLI IA détectée. Installez Claude Code, Codex CLI, Gemini CLI ou Kimi Code.",
     "activeCli": "CLI active : {{label}}"
   },
   "statusBar": {

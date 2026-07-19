@@ -22,7 +22,11 @@ Picking a project here **does not** move your dashboard — the agent's target a
 
 ## Provider and model
 
-Just above the message box you choose the **provider** (Claude, Codex or Gemini) and its **model**. Each provider has its own model list, and switching provider starts a fresh session with that provider's default model — so you can, say, drive the app with Claude and switch to Codex for another conversation without anything getting crossed.
+Just above the message box you choose the **provider** (Claude, Codex, Gemini,
+or Kimi) and its **model**. Each provider has its own model list, and switching
+provider starts a fresh session with that provider's default model. Kimi turns
+use external `kimi -p` processes and resume only from a successful
+`session.resume_hint`.
 
 ## Permission levels — you hold the leash
 
@@ -36,6 +40,14 @@ The agent can touch the whole app, so you decide how much freedom it has with a 
 | 🔥 **Autonomous** | The above **+** delete and stop things — irreversible actions. |
 
 Start on **Observe** and raise the level only when you want the agent to act. If it tries something above the current level it stops and tells you exactly which level to switch on — it never works around the limit. This is separate from the Settings ▸ MCP tiers, which govern *external* assistants; the level here is just for this in-app agent.
+
+With Kimi, the levels still gate which **Specrails MCP tools** Desktop exposes,
+but they do not turn upstream `kimi -p` into a filesystem sandbox: prompt mode
+automatically approves Kimi-native tools. Use Kimi Agent Chat only where that
+autonomous posture is intended. Safety-sensitive pure-output operations
+(Quick Spec, AI Edit, Contract Refine, SMASH/Re-SMASH, Project Builder
+generation, Loop Decider, Code Explorer AI transforms, and Agent Studio
+automation) are rejected server-side before spawn.
 
 ## A few things you can ask
 
@@ -53,7 +65,7 @@ Replies stream in smoothly and land formatted (headings, tables, lists), each wi
 
 ## Handy touches
 
-- **Super specs from a conversation.** Ask the agent to *shape* a spec with you instead of one-shotting it: it reads the real code first, interviews you briefly, and shows the evolving draft as a live card right in the conversation. On your yes it creates the spec and — by default — enriches it in the background with a **Contract Layer** (exact file paths, data shapes, invariants) so the implementing agents don’t improvise. Say "no contract layer" to skip the enrichment.
+- **Super specs from a conversation.** Ask the agent to *shape* a spec with you instead of one-shotting it: it reads the real code first, interviews you briefly, and shows the evolving draft as a live card right in the conversation. On providers with a safe structured-action policy, your approval can enrich it with a **Contract Layer**. Kimi can shape and create the proposal, but Contract Refine stays unavailable.
 - **Click what it mentions.** In a project-pinned mission, spec numbers (`#12`) and job/run ids in the agent's replies are clickable chips — a spec opens the board's detail modal, a job id opens the live job view. If the reference no longer exists you get a quiet "not found" note.
 - **The implementation card stays in sight.** When the agent implements specs, a live card tracks the work — and while it needs something from you (create the PR, publish it, retry, discard) it stays **pinned just above the message box**, however far the conversation scrolls; its place in the history shows a slim "pinned above" marker instead. Several active cards stack as small chips (click one to bring it forward), and a chevron minimizes the card to a slim bar. Once the PR is published — or the work is merged or discarded — the card settles back into the conversation history.
 - **Prompt history.** With the box empty, press **↑**/**↓** to browse what you asked before (shown dimmed while you scroll); start typing to edit it, or hit Enter to send.

@@ -1,0 +1,22 @@
+{
+  "role": "assistant",
+  "content": "I will inspect both files.",
+  "tool_calls": [
+    {
+      "type": "function",
+      "id": "call-shell",
+      "function": {
+        "name": "Shell",
+        "arguments": "{\"command\":\"git status --short\"}"
+      }
+    },
+    {
+      "type": "function",
+      "id": "call-read",
+      "function": {
+        "name": "ReadFile",
+        "arguments": "{\"path\":\"package.json\"}"
+      }
+    }
+  ]
+}

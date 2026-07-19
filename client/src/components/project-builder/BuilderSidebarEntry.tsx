@@ -8,6 +8,7 @@ import { getApiBase } from '../../lib/api'
 import { coerceBlueprint, type Blueprint } from '../../lib/blueprint-draft'
 import { launchMilestone, milestoneLabel } from '../../lib/milestone-launch'
 import { MilestoneGenerateShell } from './MilestoneGenerateShell'
+import { providerSupportsToolPolicy } from '../../lib/provider-capabilities'
 
 // Builder sidebar re-entry (add-project-builder D5/D6): visible only when the
 // ACTIVE project's workspace has a blueprint.json (404 hides it). Progress is
@@ -72,7 +73,7 @@ interface BuilderSidebarEntryProps {
 
 export function BuilderSidebarEntry({ expanded }: BuilderSidebarEntryProps) {
   const { t } = useTranslation('builder')
-  const { activeProjectId } = useDesktop()
+  const { activeProjectId, projects } = useDesktop()
   const [blueprintRefreshKey, setBlueprintRefreshKey] = useState(0)
   const blueprint = useProjectBlueprint(activeProjectId, blueprintRefreshKey)
 
@@ -127,6 +128,9 @@ export function BuilderSidebarEntry({ expanded }: BuilderSidebarEntryProps) {
   const rows = deriveMilestoneRows(blueprint, tickets)
   const m1Launchable = tickets.some((tk) => tk.status === 'todo' && tk.labels?.includes('M1'))
   const nextPlanned = rows.find((r) => r.status === 'planned' && r.n > 1)
+  const project = projects.find((candidate) => candidate.id === activeProjectId)
+  const projectProvider = project?.provider ?? project?.providers?.[0] ?? 'claude'
+  const milestoneGenerationAvailable = providerSupportsToolPolicy(projectProvider, 'read-only')
 
   return (
     <div ref={rootRef} className="relative" data-testid="builder-sidebar-entry">
@@ -191,9 +195,16 @@ export function BuilderSidebarEntry({ expanded }: BuilderSidebarEntryProps) {
             {nextPlanned && (
               <button
                 type="button"
-                onClick={() => { setGenerating(nextPlanned.id); setPanelOpen(false) }}
+                onClick={() => {
+                  if (!milestoneGenerationAvailable) return
+                  setGenerating(nextPlanned.id)
+                  setPanelOpen(false)
+                }}
+                disabled={!milestoneGenerationAvailable}
                 className="inline-flex items-center justify-center gap-1.5 rounded-md border border-accent-highlight/40 px-2 py-1.5 text-[11px] font-medium text-accent-highlight transition-colors hover:bg-accent-highlight/10"
-                title={t('sidebar.generateHint')}
+                title={milestoneGenerationAvailable
+                  ? t('sidebar.generateHint')
+                  : t('sidebar.generateUnavailable')}
                 data-testid="sidebar-generate-next"
               >
                 <Sparkles className="h-3 w-3" />
@@ -212,6 +223,7 @@ export function BuilderSidebarEntry({ expanded }: BuilderSidebarEntryProps) {
           projectId={activeProjectId}
           milestoneId={generating}
           blueprint={blueprint}
+          provider={projectProvider}
         />
       )}
     </div>

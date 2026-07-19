@@ -37,7 +37,12 @@
 
 ## Agents セクションが静かなとき
 
-プロファイルは Claude の機能です。Claude 以外のプロバイダー（Codex または Gemini）を含むプロジェクトでは、Agents セクションは非表示になり、レールはプロファイルなしで実行されます —— これはバグではなく想定どおりの動作です。プロファイルにはまた、プロジェクトに十分新しい `specrails-core` も必要です。古い場合は黄色のバナーが表示されます。作成したプロファイルは引き続き **保存** されます —— ただし core が更新されるまではパイプラインに影響しません。バナーに表示されたコマンドで更新すると、それらが有効になります。
+Profile は provider ごとに分離されます。Claude と Kimi は profile/
+role に対応し、Codex と Gemini は legacy mode で実行します。混在する
+project でも同じ名前が Claude/Kimi 間で交差することはありません。
+Kimi は手動 role に対応しますが、Agent Studio の generation、smoke
+test、AI Refine は spawn 前に拒否されます。Kimi には
+`specrails-core` 4.12.0 以降が必要です。
 
 ## 次に読むなら
 

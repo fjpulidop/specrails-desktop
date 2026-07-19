@@ -4,7 +4,11 @@ REST and WebSocket endpoints exposed by the app server. The server binds to `127
 
 > **New here?** This page is the contract the desktop UI, the CLI, and the mobile gateway all speak to the local server. **You normally never call these endpoints directly — the app does it for you.** Read on only if you are scripting against the server, writing an integration, or debugging. Everything is local-only: there is no cloud API.
 
-The app speaks to three interchangeable AI provider CLIs — **Claude, Codex, and Gemini** — all enabled by default. Endpoints that accept a provider value (`provider` / `aiEngine`) take any of `claude`, `codex`, or `gemini`, validated against the providers the project actually installed. See the [Codex guide](../codex.md) and the [Gemini guide](../gemini.md) for provider specifics.
+The app registers four AI provider CLIs — **Claude, Codex, Gemini, and Kimi**
+— all enabled by default. Endpoints that accept `provider` / `aiEngine` take
+`claude`, `codex`, `gemini`, or `kimi`, validate project membership, then
+enforce the requested surface's adapter capabilities. See the
+[Kimi guide](../kimi.md) for its exact matrix.
 
 ## Authentication
 
@@ -59,7 +63,7 @@ A non-localhost `Origin` header is rejected by the CORS middleware with `403 For
 | Method | Path | Notes |
 |--------|------|-------|
 | `GET` | `/projects` | List registered projects |
-| `POST` | `/projects` | Register a project. Body `{ path, name?, provider?, providers? }`. Each provider value is one of `claude`, `codex`, `gemini` (registry-validated). `providers: string[]` enables a multi-provider project (first entry = primary/default); legacy single `provider` still honoured; omit both to default to `["claude"]`. 409 if the path is already registered. 400 if a provider is unknown, or if a disabled provider is selected: `codex` when `SPECRAILS_CODEX_BETA=0`, `gemini` when `SPECRAILS_GEMINI_BETA=0` (both default-enabled) |
+| `POST` | `/projects` | Register a project. Body `{ path, name?, provider?, providers? }`. Each provider value is one of `claude`, `codex`, `gemini`, `kimi` (registry-validated). `providers: string[]` enables a multi-provider project (first entry = primary/default); legacy single `provider` still honoured; omit both to default to `["claude"]`. 409 if the path is already registered or Kimi fails its executable/version/Core-target checks. 400 if a provider is unknown, or if a disabled provider is selected: `codex` when `SPECRAILS_CODEX_BETA=0`, `gemini` when `SPECRAILS_GEMINI_BETA=0` (both default-enabled). Kimi has no beta flag: it requires a usable `kimi` CLI ≥ 0.27.0 and a Core build that advertises the Kimi target. Kimi 0.27 has no safe non-billing authentication probe, so login/model configuration is confirmed by the first real turn |
 | `DELETE` | `/projects/:id` | Unregister (does not delete the project directory) |
 | `GET` | `/resolve?path=…` | Find a project by **exact** canonical filesystem path. No parent-directory walking — a subdirectory returns 404 |
 
@@ -80,8 +84,8 @@ Example — register a project that uses both Claude and Gemini:
 | Method | Path | Notes |
 |--------|------|-------|
 | `GET` | `/state` | `{ projects, projectCount, …todayStats }` (today's cross-project cost/run aggregates spread into the response) |
-| `GET` | `/cli-status` | Detected AI CLI provider + version (`{ provider, version }`), e.g. `claude`, `codex`, or `gemini` — runs `<binary> --version`. Registry-driven |
-| `GET` | `/available-providers` | Provider catalogue used by the setup wizard. Registry-driven map (`{ claude, codex, gemini, tiers }`) reporting which CLIs are installed. Codex/Gemini are surfaced unless forced off by `SPECRAILS_CODEX_BETA=0` / `SPECRAILS_GEMINI_BETA=0` (both enabled by default) |
+| `GET` | `/cli-status` | Detected AI CLI provider + version (`{ provider, version }`), e.g. `claude`, `codex`, `gemini`, or `kimi` — runs the registered adapter's version probe. Registry-driven |
+| `GET` | `/available-providers` | Provider catalogue used by the setup wizard. Registry-driven map (`{ claude, codex, gemini, kimi, tiers, providerIssues, launchDescriptors }`) reporting which CLIs are usable. Codex/Gemini are surfaced unless forced off by `SPECRAILS_CODEX_BETA=0` / `SPECRAILS_GEMINI_BETA=0` (both enabled by default). Kimi is reported unavailable, with a machine-readable `providerIssues.kimi`, when the CLI is missing/unusable, is older than 0.27.0, or the installed Core lacks the Kimi target. The bounded readiness probe is intentionally non-billing and cannot prove account authentication; a login/configuration problem is surfaced by the first model turn. `launchDescriptors` exposes each external CLI command; the app does not bundle a Kimi daemon/server |
 | `GET` | `/core-compat` | specrails-core version compatibility probe |
 | `GET` | `/setup-prerequisites` | Tool checks (`node`/`npm`/`npx`/`git`, optionally `uv`). Add `?diagnostic=1` to nest a `diagnostic` object: `{ pathSegments, pathSources, loginShellStatus, whichResults, nodeEnv, platform }` |
 
@@ -199,7 +203,11 @@ Example — queue a command on a specific provider:
 | `POST` | `/jobs/:id/finalize` | Finalize a running interactive job (SIGTERM the resident child; final totals + terminal status are stamped when it closes). For a loop run this settles the **current step** and the loop advances. `202` scheduled, `403` interactive jobs disabled, `409` not an active interactive session |
 | `GET` | `/jobs/:jobId/diagnostic` | Stream a diagnostic ZIP (telemetry + profile + plugins snapshots) |
 
-The two interactive endpoints back the in-job chat that is **on by default for every Claude job** — QueueManager jobs (implement / batch / Freestyle / custom commands) and the loop engine's claude ai-steps alike. Two settle modes: Freestyle/freestyle jobs idle until an explicit finalize (`'finalize'`); everything else settles itself on quiescence (`'auto'` — a turn result with nothing queued), where finalize acts as "wrap up now" / "settle this step". Providers without persistent stdin (Codex, Gemini) run one-shot as before and 409 here. Both endpoints 403 when the server has `SPECRAILS_INTERACTIVE_JOBS=false`. As-built detail: [interactive-jobs.md](interactive-jobs.md).
+The two interactive endpoints back Claude's persistent-stdin in-job chat.
+Providers without persistent stdin (Codex, Gemini, and Kimi) run one-shot and
+return 409 here; Kimi chat surfaces resume via a new `kimi --session=<id> -p` child after
+a successful resume hint. Both endpoints return 403 when
+`SPECRAILS_INTERACTIVE_JOBS=false`.
 
 Example — fetch one job:
 
@@ -258,7 +266,8 @@ Example — the Analytics dashboard payload (abridged):
 }
 ```
 
-Cost is **provider-billed and exact for Claude**; for Codex and Gemini it is **estimated from a rate card** (those CLIs do not report a native cost).
+Cost is provider-billed for Claude and estimated for Codex/Gemini. Kimi
+provides no authoritative token/USD envelope, so those values remain null.
 
 ### Budget
 
@@ -280,7 +289,7 @@ Cost is **provider-billed and exact for Claude**; for Codex and Gemini it is **e
 | `POST` | `/tickets/save-as-draft` | Persist an Explore conversation as a draft (idempotent on `conversationId`) |
 | `POST` | `/tickets/from-draft` | Commit a draft (flip-in-place) or insert a new ticket |
 | `POST` | `/tickets/from-prompt` | Create a ticket directly from a prompt |
-| `POST` | `/tickets/:id/contract-refine` | Retry Contract Refine for an existing ticket. `202` scheduled, `404` unknown ticket, `409` when: the project is Codex (`contract_refine_unsupported_for_codex` — Contract Refine is Claude-only), the kill switch is active (`feature_disabled_by_env`), or the ticket has no origin conversation |
+| `POST` | `/tickets/:id/contract-refine` | Retry Contract Refine for an existing ticket. `202` scheduled, `404` unknown ticket, `409` when the effective provider cannot enforce the required tool policy (`contract_refine_unsupported_for_<provider>`; this includes Kimi), the kill switch is active (`feature_disabled_by_env`), or the ticket has no origin conversation. Kimi is rejected before spawn or mutation |
 | `POST` | `/tickets/:id/smash` | SMASH an epic into sub-specs |
 | `POST` | `/tickets/:id/smash/undo` | Undo a SMASH operation |
 | `DELETE` | `/tickets/:id/children` | Delete all children of an epic |
@@ -315,7 +324,7 @@ The setup wizard is a three-step flow (Configure / Install / Done). The `enrich/
 | Method | Path | Notes |
 |--------|------|-------|
 | `POST` | `/setup/install-config` | Write `.specrails/install-config.yaml` to the project |
-| `POST` | `/setup/install` | Run `npx specrails-core init --from-config <file>` (the pinned core release — currently `specrails-core@^4.8.0` — is resolved by SetupManager, overridable via `SPECRAILS_CORE_BIN`) |
+| `POST` | `/setup/install` | Run `npx specrails-core init --from-config <file>` (the pinned core release — currently `specrails-core@^4.12.0` — is resolved by SetupManager, overridable via `SPECRAILS_CORE_BIN`) |
 | `POST` | `/setup/start` | Legacy setup-chat session start |
 | `POST` | `/setup/message` | Legacy setup-chat turn |
 | `POST` | `/enrich/start` | Legacy AI-enrich session start |
@@ -435,16 +444,25 @@ A non-developer-friendly file tree + Monaco viewer with plain-language AI summar
 | `PUT` | `/:railIndex/profile` | Set the rail's default profile |
 | `PUT` | `/:railIndex/engine` | Set the rail's AI engine override. Body `{ aiEngine }` (string — one of the project's providers — or `null` to clear) |
 | `PUT` | `/:railIndex/name` | Set the rail's display name. Body `{ name }` (string or `null` to clear back to the default label); 400 if longer than 60 characters |
-| `POST` | `/:railIndex/launch` | Launch the rail. Body `{ mode?, loopId?, profileName?, aiEngine?, model?, reasoning_effort?, originConversationId?, originSurface?, interactive? }`. `mode` is `implement` / `batch-implement` / `freestyle` / `loop`; a factory `loopId` (`factory:implement` etc.) maps to its canonical rail mode, and a **bare mode with no `loopId`** (MCP / mobile / direct REST) derives the matching factory loop when Loops are enabled, so every launch door gets the same isolation + ask-first PR flow as the dashboard. `model` (haiku/sonnet/opus/fable) applies to freestyle only. The in-job chat is **on by default for every Claude job** — the `interactive` param is accepted and **ignored** (wire compat; the spawn-time gate decides). Returns `202 { jobId, railIndex, mode }`; **`503`** when the Claude or Codex CLI binary is not found (a missing Gemini/other binary surfaces as `500`) |
+| `POST` | `/:railIndex/launch` | Launch the rail. Body `{ mode?, loopId?, profileName?, aiEngine?, model?, reasoning_effort?, originConversationId?, originSurface?, interactive? }`. `mode` is `implement` / `batch-implement` / `freestyle` / `loop`; a factory `loopId` maps to its canonical rail mode. `model` and `reasoning_effort` are validated against the effective adapter/model (Kimi effort is K3-only). Kimi + a loop containing a Decider returns a capability error before the first step. Claude alone advertises persistent in-job stdin; `interactive` remains wire-compatible. Returns `202 { jobId, railIndex, mode }`; a missing provider CLI fails before a job starts. |
 | `POST` | `/:railIndex/stop` | Stop the rail's running job (cancels every job the rail registered) |
 
 ---
 
 ## `/api/projects/:projectId/profiles/*`
 
-Gated by `SPECRAILS_AGENTS_SECTION !== 'false'`. Rails force legacy (no-profile) mode whenever the chosen engine is not Claude, and the Agents section is hidden in multi-provider projects; profile env-injection itself works for any provider whose adapter advertises `profileEnvSupport`.
+Gated by `SPECRAILS_AGENTS_SECTION !== 'false'`. Profiles are provider-scoped;
+Claude and Kimi advertise profile execution, while Codex and Gemini force
+legacy mode. CRUD requests may carry the effective provider so same-named
+Claude/Kimi profiles do not collide.
 
-> **Provider capability notes.** A few behaviours are not the same across all three providers: **Contract Refine** is Claude-only; **rails force no-profile mode** for any non-Claude engine; **Freestyle rails** are Claude-only; the **Serena plugin** (and other `project-json` plugins) work for Claude and Gemini but are filtered out for Codex; and **cost is exact only for Claude** (estimated from a rate card for Codex and Gemini). See the [Codex guide](../codex.md) and [Gemini guide](../gemini.md).
+> **Provider capability notes.** Claude and Kimi support provider-scoped
+> profiles and Freestyle; integration state/health is also provider-scoped.
+> Kimi agentic surfaces are available, but pure-output/read-only actions
+> (Quick Spec, AI Edit, Contract Refine, SMASH/Re-SMASH, Project Builder
+> generation, Loop Decider, Code Explorer AI, and Agent Studio automation)
+> reject Kimi before spawn. Kimi tokens/USD cost remain null. See the
+> [Kimi guide](../kimi.md).
 
 ### Profile CRUD
 
@@ -498,10 +516,15 @@ Gated by `SPECRAILS_AGENTS_SECTION !== 'false'`. Rails force legacy (no-profile)
 
 Gated by `SPECRAILS_PLUGINS_SECTION !== 'false'`.
 
+Every route accepts an optional provider target. Read and delete routes use
+`?provider=<id>`; mutation routes accept `{ "provider": "<id>" }`. The value
+must belong to the project's configured `providers`; omission preserves the
+legacy behaviour and targets the primary `project.provider`.
+
 | Method | Path | Notes |
 |--------|------|-------|
 | `GET` | `/` | List bundled plugins with installed/orphan/degraded state |
-| `GET` | `/:name/preview-install` | Diff of what would be added to `.mcp.json` and `agents/` |
+| `GET` | `/:name/preview-install` | Provider-native MCP/instructions diff |
 | `POST` | `/:name/install` | Install (streams progress over WS) |
 | `DELETE` | `/:name` | Uninstall or remove an orphan |
 | `POST` | `/:name/activate` | Activate (post-install) |
@@ -729,7 +752,8 @@ The app uses standard HTTP status codes. Notable conventions:
 - `413` — payload too large (code-explorer edit over the 2 MB cap)
 - `415` — unsupported media type (code-explorer edit of binary content)
 - `500` — unhandled exception (logged to stdout)
-- `503` — the Claude or Codex CLI binary was not found when launching a rail job (a missing Gemini/other-provider binary falls through to `500`)
+- `503` / launch error — the selected provider CLI was not found; no job is
+  allowed to start with a missing executable
 
 Error responses are `{ "error": "<message>" }`.
 

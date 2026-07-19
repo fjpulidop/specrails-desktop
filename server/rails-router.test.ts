@@ -83,7 +83,7 @@ beforeEach(() => {
 function appWith(
   db: DbInstance,
   opts?: {
-    providers?: ('claude' | 'codex')[]
+    providers?: ('claude' | 'codex' | 'gemini' | 'kimi')[]
     queueManager?: { enqueue: (...args: unknown[]) => unknown }
     broadcast?: (msg: unknown) => void
     desktopDb?: DbInstance
@@ -439,6 +439,34 @@ describe('rails-router POST /:railIndex/launch freestyle mode (loops off — Que
     expect((enqueue.mock.calls[0][2] as { model?: string }).model).toBe('opus')
   })
 
+  it('preserves an exact custom Kimi alias for freestyle without forwarding effort', async () => {
+    setRailTickets(db, 0, [1])
+    const customAlias = 'moonshot-team/private-coder:v2'
+    const enqueue = vi.fn().mockReturnValue({ id: 'job-1', queuePosition: 0 })
+    const res = await request(appWith(db, { providers: ['kimi'], queueManager: { enqueue } }))
+      .post('/rails/0/launch')
+      .send({ mode: 'freestyle', model: customAlias })
+
+    expect(res.status).toBe(202)
+    expect(enqueue).toHaveBeenCalledTimes(1)
+    expect(enqueue.mock.calls[0][2]).toMatchObject({
+      provider: 'kimi',
+      model: customAlias,
+    })
+    expect(enqueue.mock.calls[0][2]).not.toHaveProperty('effort')
+  })
+
+  it('rejects an unsafe flag-like Kimi alias for freestyle', async () => {
+    setRailTickets(db, 0, [1])
+    const enqueue = vi.fn()
+    const res = await request(appWith(db, { providers: ['kimi'], queueManager: { enqueue } }))
+      .post('/rails/0/launch')
+      .send({ mode: 'freestyle', model: '--yolo' })
+
+    expect(res.status).toBe(400)
+    expect(enqueue).not.toHaveBeenCalled()
+  })
+
   it('rejects an invalid freestyle model', async () => {
     setRailTickets(db, 0, [1])
     const enqueue = vi.fn()
@@ -666,6 +694,87 @@ describe('rails-router loop mode', () => {
     const app = appWith(db, { desktopDb, loopRunManager: { run: vi.fn(), cancel: vi.fn() } })
     const res = await request(app).post('/rails/0/launch').send({ mode: 'loop', loopId, reasoning_effort: 'turbo' })
     expect(res.status).toBe(400)
+  })
+
+  it('rejects Kimi effort when the selected loop model is not K3', async () => {
+    const loopId = publishedLoop()
+    const run = vi.fn()
+    const app = appWith(db, {
+      desktopDb,
+      providers: ['kimi'],
+      loopRunManager: { run, cancel: vi.fn() },
+    })
+    const res = await request(app).post('/rails/0/launch').send({
+      mode: 'loop',
+      loopId,
+      model: 'kimi-for-coding',
+      reasoning_effort: 'high',
+    })
+    expect(res.status).toBe(400)
+    expect(res.body.allowed).toEqual([])
+    expect(run).not.toHaveBeenCalled()
+  })
+
+  it('preserves an exact custom Kimi alias for a rail loop and omits effort', async () => {
+    const loopId = publishedLoop()
+    const customAlias = 'moonshot-team/private-coder:v2'
+    const run = vi.fn().mockResolvedValue({
+      runId: 'kimi-custom-run',
+      outcome: 'success',
+      iterations: 1,
+      totalCostUsd: null,
+    })
+    const app = appWith(db, {
+      desktopDb,
+      providers: ['kimi'],
+      loopRunManager: { run, cancel: vi.fn() },
+    })
+    const res = await request(app).post('/rails/0/launch').send({
+      mode: 'loop',
+      loopId,
+      model: customAlias,
+    })
+
+    expect(res.status).toBe(202)
+    expect(run).toHaveBeenCalledTimes(1)
+    expect(run.mock.calls[0][0]).toMatchObject({
+      provider: 'kimi',
+      model: customAlias,
+      effort: undefined,
+    })
+  })
+
+  it('rejects effort and unsafe flag-like values for a custom Kimi rail-loop alias', async () => {
+    const loopId = publishedLoop()
+    const customAlias = 'moonshot-team/private-coder:v2'
+
+    const effortRun = vi.fn()
+    const withEffort = await request(appWith(db, {
+      desktopDb,
+      providers: ['kimi'],
+      loopRunManager: { run: effortRun, cancel: vi.fn() },
+    })).post('/rails/0/launch').send({
+      mode: 'loop',
+      loopId,
+      model: customAlias,
+      reasoning_effort: 'max',
+    })
+    expect(withEffort.status).toBe(400)
+    expect(withEffort.body.allowed).toEqual([])
+    expect(effortRun).not.toHaveBeenCalled()
+
+    const unsafeRun = vi.fn()
+    const unsafe = await request(appWith(db, {
+      desktopDb,
+      providers: ['kimi'],
+      loopRunManager: { run: unsafeRun, cancel: vi.fn() },
+    })).post('/rails/0/launch').send({
+      mode: 'loop',
+      loopId,
+      model: '--yolo',
+    })
+    expect(unsafe.status).toBe(400)
+    expect(unsafeRun).not.toHaveBeenCalled()
   })
 
   it('requires a loopId for loop mode (400)', async () => {

@@ -13,6 +13,7 @@ import {
   type Blueprint,
 } from '../../lib/blueprint-draft'
 import { analyzeBlueprintSpecQuality } from '../../lib/blueprint-spec-quality'
+import { providerSupportsToolPolicy } from '../../lib/provider-capabilities'
 
 // "Generate M<n>" (add-project-builder D7): PROJECT-level grounded milestone
 // generation. Spawns through the existing ChatManager (kind='milestone' —
@@ -28,6 +29,7 @@ interface MilestoneGenerateShellProps {
   projectId: string
   milestoneId: string // e.g. "m2"
   blueprint: Blueprint
+  provider?: string
 }
 
 interface ChatMessage {
@@ -35,7 +37,15 @@ interface ChatMessage {
   content: string
 }
 
-export function MilestoneGenerateShell({ open, onClose, onCommitted, projectId, milestoneId, blueprint }: MilestoneGenerateShellProps) {
+export function MilestoneGenerateShell({
+  open,
+  onClose,
+  onCommitted,
+  projectId,
+  milestoneId,
+  blueprint,
+  provider = 'claude',
+}: MilestoneGenerateShellProps) {
   const { t } = useTranslation('builder')
   const { registerHandler, unregisterHandler } = useSharedWebSocket()
 
@@ -58,6 +68,7 @@ export function MilestoneGenerateShell({ open, onClose, onCommitted, projectId, 
 
   const milestone = blueprint.milestones.find((m) => m.id === milestoneId)
   const label = milestoneId.toUpperCase()
+  const generationAvailable = providerSupportsToolPolicy(provider, 'read-only')
   const specQuality = useMemo(
     () => analyzeBlueprintSpecQuality(
       rawDraft ?? draft,
@@ -68,7 +79,7 @@ export function MilestoneGenerateShell({ open, onClose, onCommitted, projectId, 
 
   // Bootstrap the milestone conversation and fire the seeded first turn.
   useEffect(() => {
-    if (!open || conversationId) return
+    if (!open || conversationId || !generationAvailable) return
     let cancelled = false
     fetch(`${getApiBase()}/chat/conversations`, {
       method: 'POST',
@@ -102,7 +113,7 @@ export function MilestoneGenerateShell({ open, onClose, onCommitted, projectId, 
         if (!cancelled) toast.error(t('errors.startFailed'))
       })
     return () => { cancelled = true }
-  }, [open, conversationId, milestoneId, milestone, label, t])
+  }, [open, conversationId, milestoneId, milestone, label, generationAvailable, t])
 
   useEffect(() => {
     if (!open) return
@@ -188,6 +199,32 @@ export function MilestoneGenerateShell({ open, onClose, onCommitted, projectId, 
   if (!open) return null
 
   const specCount = draft?.m1Specs.length ?? 0
+
+  if (!generationAvailable) {
+    return (
+      <div className="fixed inset-0 z-50 flex flex-col bg-background/95 backdrop-blur-sm" data-testid="milestone-shell">
+        <header className="flex items-center gap-2 border-b border-border/40 px-4 py-2.5">
+          <Hammer className="h-4 w-4 text-accent-primary" />
+          <h1 className="text-sm font-semibold">{t('milestone.title', { label })}</h1>
+          <button
+            type="button"
+            onClick={onClose}
+            className="ml-auto rounded-md p-1.5 text-muted-foreground hover:bg-muted hover:text-foreground"
+            aria-label={t('shell.close')}
+            data-testid="milestone-close"
+          >
+            <X className="h-4 w-4" />
+          </button>
+        </header>
+        <p
+          className="m-4 rounded-md border border-accent-warning/30 bg-accent-warning/10 p-3 text-sm text-accent-warning"
+          data-testid="milestone-provider-unavailable"
+        >
+          {t('milestone.providerUnavailable')}
+        </p>
+      </div>
+    )
+  }
 
   return (
     <div className="fixed inset-0 z-50 flex flex-col bg-background/95 backdrop-blur-sm" data-testid="milestone-shell">

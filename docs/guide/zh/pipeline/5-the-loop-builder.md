@@ -17,7 +17,7 @@
 
 - loop 住在 **Loops** 区里（左侧栏，和你的项目并列）——它们是**全局**的，跨所有项目共享。
 - 一条 rail 在它的头部（Loop 选择器）**挑一个 loop**，按下 Play 时就运行它。
-- 是 **rail** 决定提供方、模型和推理强度——而*不是* loop 的步骤。同一个 loop 跑在 Claude、Codex 还是 Gemini 上，取决于这条 rail。
+- **rail** 决定 provider、model 和 compatible effort。compatible loop 可在 Claude、Codex、Gemini 或 Kimi 上运行。
 
 所以：一个 loop 只需搭一次，之后就能在任意项目的任意 rail 上挑来用。
 
@@ -41,6 +41,10 @@
 
 边按顺序把各个步骤连起来。**Loop Decider** 有两个带标签的输出——**continue** 和 **stop**——所以你把"还没完"接回到活儿里去，把"完成了"接出去到一个 End。
 
+> **Kimi 支持包含 AI/shell step 的 loop，但不支持 Loop Decider。**
+> verdict 是 pure-output，`kimi -p` 无法强制 no-tools 边界；run 会在第一
+> 个 step 前拒绝。
+
 ### 编写步骤文本
 
 在任意 AI Step 或 Decider 里，你都可以引用：
@@ -57,7 +61,7 @@
 |-------|--------------|
 | **Max iterations** | 不管 Decider 怎么裁决，它最多能绕回多少次的硬上限。 |
 | **Timeout (min)** | 整次运行的挂钟时间上限。 |
-| **Max cost ($)** | *可选。* 一旦累计成本越过你的预算就停掉 loop。它在**步骤之间**检查（一个步骤的成本只有等它结束才知道），所以可能会超出一个步骤。在 Claude 上成本是精确的；在 Codex 和 Gemini 上是估算值。留空就表示不设上限。 |
+| **Max cost ($)** | *可选。* Claude 报告 cost；Codex/Gemini 使用估算。Kimi 不报告 authoritative USD cost。 |
 
 ## 有把握地搭建
 

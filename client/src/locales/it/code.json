@@ -66,7 +66,8 @@
     "reason": {
       "missing": "file mancante",
       "binary": "file binario",
-      "tooLarge": "file troppo grande"
+      "tooLarge": "file troppo grande",
+      "providerNoPureOutput": "il provider IA selezionato non può imporre una modalità sicura di sola uscita"
     }
   },
   "story": {
@@ -97,6 +98,7 @@
     "explain": "Spiega questa modifica",
     "explaining": "Spiegazione in corso…",
     "explainFailed": "Impossibile generare la spiegazione",
+    "explainUnavailable": "La spiegazione IA non è disponibile perché il provider selezionato non può imporre una modalità sicura di sola uscita.",
     "budgetReached": "Budget IA mensile raggiunto.",
     "generateAnyway": "Genera comunque",
     "explainedBy": "Spiegato da {{model}}",

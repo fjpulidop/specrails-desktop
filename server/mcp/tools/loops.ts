@@ -124,9 +124,9 @@ export function loopsTools(): McpToolSpec[] {
           .optional()
           .describe('Model for run — validated against the chosen provider\'s catalog; omit for the provider default'),
         reasoning_effort: z
-          .enum(['low', 'medium', 'high'])
+          .enum(['minimal', 'low', 'medium', 'high', 'xhigh', 'max', 'ultra'])
           .optional()
-          .describe('Reasoning-effort tier for run'),
+          .describe('Provider-supported reasoning-effort tier for run; Kimi K3 supports low/high/max'),
         loops: z.array(z.unknown()).optional().describe('Array of loop export envelopes (for import)'),
       },
       async handler(ctx, args) {

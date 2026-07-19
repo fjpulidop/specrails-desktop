@@ -66,7 +66,8 @@
     "reason": {
       "missing": "ファイルが存在しません",
       "binary": "バイナリファイル",
-      "tooLarge": "ファイルが大きすぎます"
+      "tooLarge": "ファイルが大きすぎます",
+      "providerNoPureOutput": "選択した AI プロバイダーは安全な出力専用モードを強制できません"
     }
   },
   "story": {
@@ -97,6 +98,7 @@
     "explain": "この変更を説明",
     "explaining": "説明を生成中…",
     "explainFailed": "説明を生成できませんでした",
+    "explainUnavailable": "選択したプロバイダーが安全な出力専用モードを強制できないため、AI による説明は利用できません。",
     "budgetReached": "月間 AI 予算に達しました。",
     "generateAnyway": "それでも生成する",
     "explainedBy": "{{model}} による説明",

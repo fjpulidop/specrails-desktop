@@ -57,7 +57,7 @@
   "addProject": {
     "title": "添加项目",
     "description": "注册一个项目目录，以便在 Specrails 中管理。",
-    "noProviderDetected": "未检测到 AI CLI。请先安装 Claude Code 或 Codex CLI。",
+    "noProviderDetected": "未检测到 AI CLI。请先安装 Claude Code、Codex CLI、Gemini CLI 或 Kimi Code。",
     "pathLabel": "项目路径",
     "pathPlaceholder": "/Users/me/my-project",
     "pathHint": "项目根目录的绝对路径",
@@ -69,6 +69,7 @@
     "nameHint": "默认为目录名",
     "providersLabel": "AI 提供商",
     "notFound": "未找到",
+    "coreUpdateRequired": "需要更新 Core",
     "multiProviderHint": "两个引擎都将被安装。第一个为项目默认引擎。创建后不可更改。",
     "singleProviderHint": "项目创建后不可更改。",
     "adding": "添加中…",
@@ -238,7 +239,7 @@
       "jobLabel": "每个任务运行什么",
       "flowCaption": "每个阶段的日志都会实时流式展示。",
       "modeLabel": "选择要运行的 Loop",
-      "modeBody": "每个 rail 都运行一个 <b>Loop</b>。可以选择内置的 Loop —— <b>Implement</b>（完整的结构化流水线）、<b>Batch</b>（一次处理多个 spec）或 <b>Freestyle</b>（Claude 自主工作，无固定流水线）—— 也可以选择你自己构建的 Loop。",
+      "modeBody": "每个 rail 都运行一个 <b>Loop</b>。可以选择 <b>Implement</b>、<b>Batch</b> 或由兼容提供方自主工作的 <b>Freestyle</b>，也可以选择自建 Loop。",
       "profilesLabel": "Agent Profile",
       "profilesBody": "项目级的声明式目录，决定运行哪些 Agent 以及各自使用的模型——按 rail 选择、按任务快照，并发工作互不干扰。",
       "jobDetailLabel": "实时任务详情",
@@ -267,8 +268,8 @@
     "providers": {
       "nav": "你的 Agent",
       "title": "自带 Agent",
-      "subtitle": "Claude Code、Codex 与 Gemini 皆为一等引擎",
-      "intro": "应用将 <b>Claude Code</b>、<b>Codex CLI</b> 与 <b>Gemini CLI</b> 视为同一契约下可互换的引擎。项目可安装一个或多个——在安装时选择。",
+      "subtitle": "Claude Code、Codex、Gemini 与 Kimi 皆为一等引擎",
+      "intro": "应用将 <b>Claude Code</b>、<b>Codex CLI</b>、<b>Gemini CLI</b> 与 <b>Kimi Code</b> 视为同一契约下可互换的引擎。项目可安装一个或多个。",
       "table": {
         "capability": "能力",
         "streamingResume": "流式输出与会话恢复",
@@ -276,24 +277,25 @@
         "costReporting": "成本报告",
         "providerBilled": "提供商实际计费",
         "estimated": "估算（~）",
+        "unavailable": "不可用",
         "telemetry": "遥测（OTEL）",
         "synthesized": "合成",
         "agentProfiles": "Agent Profile"
       },
       "calloutLabel": "安装多个引擎时",
-      "calloutBody": "可<b>按 spec、按 rail 或按终端启动</b>选择引擎。应用会记住每个项目的上次选择。Codex 成本基于本地费率表估算，并始终以 <mono>~</mono> 标注。"
+      "calloutBody": "可<b>按 spec、按 rail 或按终端启动</b>选择引擎。估算成本以 <mono>~</mono> 标注；Kimi 不报告 token 或成本。"
     },
     "cost": {
       "nav": "成本追踪",
       "title": "每一分钱都有迹可循",
       "subtitle": "每次计费调用都被记录并可视化",
-      "intro": "每次 AI 调用——包括 rail、Quick、Explore、AI 编辑、SMASH 和文件摘要——<b>Claude 和 Codex</b> 都会被记录。再也不用猜 Agent 花了多少钱。",
+      "intro": "每次 AI 调用都会记录生命周期和提供方。若 Kimi 等提供方不报告用量或成本，这些字段会保持不可用。",
       "analyticsLabel": "分析页面",
       "analyticsBody": "消耗速率概览、每日时间线、热门工单、模型分布，以及成本-轮次散点图。可按周期（7 天 / 30 天 / 90 天 / 全部）和来源筛选。",
       "perTicketLabel": "按工单统计支出",
       "perTicketBody": "每个 spec 的详情会显示其成本和轮次，并可深链到按该工单筛选的分析页面。",
       "honestLabel": "诚实的数字",
-      "honestBody": "Claude 成本为提供商实际计费；Codex 为估算值并以 <mono>~</mono> 标注。Token 总数包含各缓存层级，数字真正对得上账。",
+      "honestBody": "Claude 成本来自提供方；Codex 和 Gemini 的估算值以 <mono>~</mono> 标注。Kimi 的 token 和 USD 成本显示为不可用，而不是零。",
       "budgetsLabel": "预算与告警",
       "budgetsBody": "设置每日预算和单任务成本告警；超限时应用会自动暂停队列。任何数据都可导出为 CSV 或 JSON。"
     },

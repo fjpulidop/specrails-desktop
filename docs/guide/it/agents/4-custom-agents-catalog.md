@@ -11,21 +11,24 @@ Ogni voce del catalogo mostra a cosa serve l'agente e il suo modello predefinito
 
 ## Aggiungere un agente custom
 
-Gli agenti custom sono semplici file Markdown nel tuo repository, sotto `.claude/agents/`, con nome `custom-<qualcosa>.md`. Il file contiene le istruzioni dell'agente (il suo system prompt) e un piccolo header di frontmatter che include un `model:` predefinito.
+I ruoli sono asset nativi del provider: Claude usa
+`.claude/agents/custom-<nome>.md`; Kimi usa
+`.kimi-code/skills/custom-<nome>/SKILL.md`.
 
-Una volta che il file esiste nel progetto, compare nel catalogo come agente custom, e puoi aggiungere il suo id alla catena di agenti di qualsiasi profilo (e instradare i task verso di esso). L'id deve corrispondere al nome del file — una voce per `custom-docs` mappa su `.claude/agents/custom-docs.md`.
+Quando l'asset esiste, compare nel catalogo del provider e il suo id può essere aggiunto a un profilo dello stesso provider. `custom-docs` mappa su `.claude/agents/custom-docs.md` per Claude o `.kimi-code/skills/custom-docs/SKILL.md` per Kimi; i due restano separati.
 
 Poiché vivono nel tuo repo, gli agenti custom sono **asset di squadra committabili**: committi il file e tutta la tua squadra ottiene l'agente. Questo riflette l'idea centrale che attraversa l'intera sezione Agenti —
 
 > **Le definizioni degli agenti sono condivise (vivono nel repo e viaggiano con `git`). La configurazione dei modelli è per progetto (vive nei profili).**
 
-Il namespace `custom-*` è riservato e protetto: i comandi `init` e `update` di `specrails-core` non toccano mai `.claude/agents/custom-*.md`, così i tuoi agenti custom sopravvivono intatti agli aggiornamenti di core. (La stessa protezione copre i frammenti contribuiti dai plugin, come `custom-serena.md`.)
+Core protegge entrambi i formati. Kimi permette creazione/modifica manuale ed
+esecuzione; Generate, Test e AI Refine sono rifiutati prima dello spawn.
 
 ## Mettere al lavoro un agente custom
 
 Il flusso tipico:
 
-1. Scrivi `.claude/agents/custom-<nome>.md` con le istruzioni e un modello predefinito.
+1. Crea l'asset Claude o lo Skill Kimi nativo con istruzioni/modello validi.
 2. Verifica che compaia in **Agenti → Catalogo** sotto Custom.
 3. In **Agenti → Profili**, aggiungi l'agente alla catena di un profilo (facendo eventualmente l'override del suo modello per quel profilo).
 4. Aggiungi una regola di routing affinché i task con i tag giusti lo raggiungano — oppure affidati all'ordine della catena.

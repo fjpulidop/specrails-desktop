@@ -36,6 +36,7 @@ specrails 支持主流的 AI 编程 CLI：
 - **Claude**（Claude Code）
 - **Codex**（Codex CLI）
 - **Gemini**（Gemini CLI）
+- **Kimi**（Kimi Code）
 
 挑一个你已经在用的就行——或者多装几个，按任务来选。一个项目可以只跑一个提供商，也可以同时跑多个，所以你永远不会被某一个绑死。
 

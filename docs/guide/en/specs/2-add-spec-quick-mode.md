@@ -2,6 +2,11 @@
 
 Quick mode is for when you already know what you want. You type your idea, the AI writes the full spec, and it lands on your board as a **Todo**. No back-and-forth — just describe it and go.
 
+> **Kimi is not offered for Quick Spec.** Kimi 0.27 `-p` automatically
+> approves tools and cannot enforce this form's pure-output boundary. Desktop
+> rejects direct Kimi requests before spawn. Use agentic Explore, Raw, or a
+> Quick Launcher command such as `/opsx:ff` instead.
+
 ## Create a spec in Quick mode
 
 To create a spec quickly:
@@ -19,7 +24,11 @@ That's the whole flow. Everything below is optional fine-tuning.
 
 **Model** — by default the AI picks a sensible model. You can override it per spec from the model picker if you want a faster or more capable one.
 
-**Engine** — if your project has more than one AI provider installed (any mix of Claude, Codex, and Gemini), an engine selector sits at the top of the dialog so you can choose which one generates this spec. Your choice is remembered per project. Single-provider projects don't show this — there's nothing to choose between.
+**Engine** — if your project has more than one **compatible** AI provider
+installed, an engine selector sits at the top of the dialog so you can choose
+which one generates this spec. Kimi is excluded from this surface. Your choice
+is remembered per project; single-compatible-provider projects don't show the
+selector.
 
 **Context** — Quick mode usually runs as a single turn, because it doesn't need to read your codebase to write a spec from your description. But a context slider lets you give it more to work with:
 

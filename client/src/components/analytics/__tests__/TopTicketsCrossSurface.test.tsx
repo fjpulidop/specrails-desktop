@@ -50,4 +50,21 @@ describe('TopTicketsCrossSurface', () => {
     render(<TopTicketsCrossSurface data={data} loading={false} onSelectTicket={onSelect} />)
     expect(screen.getByText(/deleted ticket #99/)).toBeInTheDocument()
   })
+
+  it('renders unavailable rather than $0.00 for an all-Kimi ticket', () => {
+    const data = emptyData()
+    data.topTickets = [{
+      ticketId: 3,
+      ticketTitle: 'Kimi task',
+      totalCostUsd: 0,
+      totalRuns: 2,
+      unpricedCount: 2,
+      bySurface: {
+        job: { count: 2, costUsd: 0, unpricedCount: 2 },
+      } as SpendingResponse['topTickets'][number]['bySurface'],
+    }]
+    render(<TopTicketsCrossSurface data={data} loading={false} onSelectTicket={() => {}} />)
+    expect(screen.getByText('cost unavailable')).toBeInTheDocument()
+    expect(screen.queryByText('$0.00')).not.toBeInTheDocument()
+  })
 })

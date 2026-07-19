@@ -1,16 +1,21 @@
-# Fournisseurs d'IA (Claude, Codex, Gemini)
+# Fournisseurs d'IA (Claude, Codex, Gemini, Kimi)
 
-Specrails n'est lié à aucune IA en particulier. Chaque endroit de l'app qui dialogue avec une IA — Explore Spec, Quick spec, les rails, le chat, l'AI Edit, le bouton « Open AI CLI » du terminal — peut passer par l'un des trois fournisseurs de premier plan. Vous choisissez ceux qu'un projet utilise, et vous pouvez même changer de fournisseur tâche par tâche.
+Specrails n'est lié à aucune IA. Claude, Codex, Gemini et Kimi sont des
+fournisseurs de premier plan ; chaque surface ne propose que les moteurs dont
+les capacités respectent son contrat.
 
-## Les trois fournisseurs
+## Les quatre fournisseurs
 
 | Fournisseur | CLI | Édité par | Notes |
 |---|---|---|---|
-| **Claude** | `claude` | Anthropic | Le plus complet. Seul fournisseur pour les Agents (profils), les rails Freestyle et le Contract Refine. |
+| **Claude** | `claude` | Anthropic | Coût natif et transport interactif persistant. |
 | **Codex** | `codex` | OpenAI | Nécessite codex `0.128.0+`. Lit ses serveurs MCP depuis votre fichier global `~/.codex/config.toml`. |
 | **Gemini** | `gemini` | Google | Nécessite gemini `0.11.0+`. Utilise une télémétrie native et un fichier d'instructions `GEMINI.md`. |
+| **Kimi Code** | `kimi` | Moonshot AI | Nécessite Kimi `0.27.0+`. Desktop lance la CLI externe avec `-p` ; aucun serveur n'est installé ou démarré. |
 
-Les trois sont **activés par défaut**. Un fournisseur apparaît dans **Ajouter un projet** dès que sa CLI est installée et présente dans votre `PATH`. La première étape est donc toujours la même : installez la CLI souhaitée et connectez-vous avec, exactement comme l'indique sa propre documentation. Dès que `claude --version` (ou `codex`, ou `gemini`) fonctionne dans votre terminal, Specrails peut l'utiliser.
+Les quatre sont **activés par défaut**. Un fournisseur apparaît dans **Ajouter
+un projet** lorsque sa CLI est installée et présente dans votre `PATH`. Pour
+Kimi, vérifiez `kimi --version` puis exécutez `kimi login`.
 
 ## Installer un fournisseur pour un projet
 
@@ -25,40 +30,46 @@ Vous pouvez installer **plus d'un** fournisseur dans le même projet — par exe
 Quelques points utiles à connaître sur les projets multi-fournisseurs :
 
 - **Avec un seul fournisseur, rien ne change.** Si un projet n'a qu'un seul fournisseur, vous ne verrez jamais de sélecteur de fournisseur où que ce soit — l'app reste épurée et simple.
-- **La barre latérale droite n'affiche que les sections prises en charge par tous les fournisseurs installés.** Comme les Agents (profils) sont un concept propre à Claude, la section **Agents** disparaît dès qu'un projet inclut un fournisseur autre que Claude. Tout le reste (Specs, Code, Analytics, Intégrations, Terminal, Chat) demeure.
+- **Les capacités pilotent l'interface.** Claude et Kimi prennent en charge des
+  profils séparés par fournisseur ; Codex et Gemini utilisent le mode legacy.
 - **Le choix des fournisseurs est verrouillé après la création.** Dans cette version, vous choisissez vos fournisseurs au moment d'ajouter le projet et vous ne pouvez plus les modifier ensuite depuis les Réglages. S'il vous faut une combinaison différente, créez un nouveau projet.
 
 ## Choisir un fournisseur à chaque invocation
 
 Tout l'intérêt d'un projet multi-fournisseurs, c'est de choisir l'IA la plus adaptée à chaque tâche — sans toucher au moindre réglage global. Partout où une IA s'exécute, un petit sélecteur de fournisseur apparaît (uniquement lorsque le projet en compte plusieurs) :
 
-- **Ajouter une spec** — un sélecteur de moteur vous permet d'Explorer ou de générer en Quick une spec avec le fournisseur de votre choix.
+- **Ajouter une spec** — Explore accepte Kimi ; Quick Spec ne propose que les
+  fournisseurs capables d'imposer sa frontière pure-output, donc pas Kimi.
 - **En-tête de rail** — choisissez le moteur de ce rail précis avant de le lancer.
 - **Terminal** — le bouton « Open AI CLI » (Sparkles) ouvre un menu de fournisseurs pour basculer dans n'importe quelle CLI installée, dans le répertoire de ce projet.
 
 Votre choix est mémorisé par projet, avec le fournisseur principal comme valeur par défaut, pour ne pas avoir à le refaire à chaque fois.
 
-## Ce que seul Claude peut faire
+## Différences de capacités
 
-Une poignée de fonctionnalités sont par nature propres à Claude : elles sont donc soit masquées, soit ignorées lorsqu'un autre fournisseur est en jeu :
+Kimi prend en charge Project/Agent Chat, Explore et les propositions, Quick
+Launcher (`/opsx:ff`), les rails, Freestyle, les loops sans Decider, les
+profils/rôles manuels, MCP, Serena, le terminal et les pièces jointes.
 
-- **Agents (profils)** — le catalogue d'agents par projet et le routage des modèles. Masqué sur tout projet incluant un fournisseur autre que Claude.
-- **Rails Freestyle** — toujours exécutés sur Claude.
-- **Contract Refine** — la passe supplémentaire « Contract Layer » sur une spec validée ne s'exécute que lorsque le fournisseur de la conversation est Claude.
-- **Modes avancés d'Ajouter une spec** (SMASH / Contract Layer) — masqués pour les moteurs autres que Claude.
-
-Tout le reste — Explore, Quick spec, le pipeline complet des rails, l'AI Edit, le chat, les analytics de coût — fonctionne avec les trois fournisseurs.
+`kimi -p` approuve automatiquement les outils et ne peut pas imposer une
+frontière sans outils/read-only. Sont donc refusés avant démarrage : Quick
+Spec, AI Edit, Contract Refine, SMASH/Re-SMASH, génération de
+blueprint/milestone Project Builder, Loop Decider, résumés/histoire de
+construction et automatisation Agent Studio. L'auto-title utilise un fallback
+déterministe. Voir le [guide Kimi](../../../kimi.md).
 
 ## Suivi des coûts entre fournisseurs
 
-La page **Analytics** suit chaque invocation facturable, quel que soit le fournisseur. Sur les projets multi-fournisseurs, elle ajoute des puces de filtre par moteur pour comparer les dépenses par fournisseur. Claude rapporte son coût exact ; pour Codex et Gemini, Specrails estime le coût à partir d'une table de tarifs intégrée — ce sont donc des approximations proches plutôt que les montants réellement facturés.
+**Analytics** enregistre les invocations réellement lancées. Claude rapporte
+son coût ; Codex et Gemini utilisent une estimation. Kimi ne fournit ni tokens
+ni coût USD autoritatifs, donc ces champs restent vides.
 
 ## Dépannage
 
-- **Un fournisseur que j'ai installé n'est pas proposé.** Vérifiez que la CLI est dans votre `PATH` (essayez `claude --version` / `codex --version` / `gemini --version` dans un terminal neuf). L'app sonde les CLI des fournisseurs via votre `PATH` système.
+- **Un fournisseur que j'ai installé n'est pas proposé.** Vérifiez la CLI dans votre `PATH` (`claude --version` / `codex --version` / `gemini --version` / `kimi --version`).
 - **Les serveurs MCP de Codex ne se chargent pas dans le chat.** Codex lit ses serveurs MCP depuis votre fichier global `~/.codex/config.toml` — enregistrez-les là avec `codex mcp add`.
 - **Désactivation d'urgence.** Un fournisseur peut être coupé à l'échelle de l'app via une variable d'environnement (`SPECRAILS_CODEX_BETA=0` ou `SPECRAILS_GEMINI_BETA=0`). Cela masque uniquement le fournisseur de la *sélection* ; c'est rarement nécessaire.
 
 ## Voir aussi
 
-Les guides dédiés à chaque fournisseur entrent davantage dans le détail de chaque CLI : le guide Codex et le guide Gemini couvrent chacun l'installation, ce qui fonctionne et les particularités propres au fournisseur.
+Consultez les guides dédiés à [Kimi](../../../kimi.md), Codex et Gemini.

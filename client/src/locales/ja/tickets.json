@@ -102,7 +102,11 @@
     "turns_other": "{{count}} ターン",
     "active": "アクティブ {{duration}}",
     "breakdownItem": "{{n}} {{label}}",
-    "estimatedTooltip": "ローカルの料金表からの推定値 — このプロバイダーはコストをネイティブに報告しません。"
+    "estimatedTooltip": "ローカルの料金表からの推定値 — このプロバイダーはコストをネイティブに報告しません。",
+    "costUnavailableTooltip": "このチケットの呼び出しではコストのテレメトリが提供されませんでした。",
+    "costPartiallyUnavailableTooltip": "既知のコスト小計のみです。一部の呼び出しではコストのテレメトリが提供されませんでした。",
+    "turnsUnavailableTooltip": "このチケットではターンのテレメトリを利用できません。",
+    "turnsPartiallyUnavailableTooltip": "既知のターン小計のみです。一部の呼び出しではターンのテレメトリが提供されませんでした。"
   },
   "toasts": {
     "newTicket": "新しいチケット: {{title}}",

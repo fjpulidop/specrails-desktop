@@ -53,6 +53,7 @@
       "templateTitle": "Partir d'un template",
       "generate": "Générer",
       "generateWithClaude": "Générer avec Claude",
+      "generateWithAi": "Générer avec l’IA",
       "blank": "Vierge",
       "blankTitle": "Partir d'un template vierge"
     },
@@ -80,6 +81,7 @@
     }
   },
   "profiles": {
+    "providerLabel": "Fournisseur du profil",
     "loading": "Chargement des profils…",
     "selectPrompt": "Sélectionnez un profil à modifier",
     "errors": {

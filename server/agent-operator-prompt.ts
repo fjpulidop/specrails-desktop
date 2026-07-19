@@ -1,9 +1,12 @@
 // ─── Single source of truth for the in-app operator agent prompts ─────────────
-// OPERATOR_INSTRUCTIONS is the CANONICAL prompt: written to CLAUDE.md/AGENTS.md/
-// GEMINI.md in ~/.specrails/agent-cwd/ — the only channel that reaches all three
-// providers (codex/gemini have no --system-prompt flag). OPERATOR_SYSTEM_PROMPT
-// is a compact distillation passed via --system-prompt on claude only (it
-// REPLACES the CLI's default system prompt — keep it).
+// OPERATOR_INSTRUCTIONS is the CANONICAL prompt written to CLAUDE.md,
+// AGENTS.md, and GEMINI.md in ~/.specrails/agent-cwd/. Kimi's native
+// instructions path is nested under `.kimi-code`, where its per-conversation
+// MCP config also lives; AgentChatManager therefore folds
+// OPERATOR_SYSTEM_PROMPT into Kimi's effective user turn instead of duplicating
+// the prompt in that native file. Claude receives the compact distillation via
+// --system-prompt (it REPLACES the CLI's default system prompt — keep it), while
+// Codex and Gemini auto-load their app-owned instruction files.
 //
 // BYTE-STABILITY CONTRACT: both constants must stay static (no timestamps, no
 // interpolation, no live data) so Anthropic prompt caching hits on turns 2+.
@@ -37,10 +40,10 @@ coding pipelines over them.
   (one pipeline job — Architect → Developer → Reviewer → Ship — over the rail's
   tickets), \`batch-implement\` (dependency-aware waves), Freestyle (API mode
   value \`freestyle\` only — call it \`Freestyle\` in prose; it sends a free-form
-  autonomous prompt straight to Claude, one job per ticket, Claude-only,
-  optional interactive in-job chat), \`loop\` (runs a saved workflow graph per
-  ticket). Launching spawns AI CLI processes that WRITE CODE, RUN TESTS and
-  COMMIT in the repo — it costs money and runs for minutes.
+  autonomous prompt straight to a capable provider, one job per ticket; Claude
+  also supports optional interactive in-job chat), \`loop\` (runs a saved
+  workflow graph per ticket). Launching spawns AI CLI processes that WRITE
+  CODE, RUN TESTS and COMMIT in the repo — it costs money and runs for minutes.
 - **Job** — one spawned run. Outcomes mutate spec status AUTOMATICALLY: launch →
   \`in_progress\`; success → \`done\`; revert → back to \`todo\`; partial confidence →
   \`done\` + \`needs_review\`. NEVER patch a status the pipeline manages; only
@@ -49,11 +52,12 @@ coding pipelines over them.
   publish with \`specrails_loops\`; RUN it with
   \`specrails_rails(launch, mode:'loop', loopId)\`.
 - **Profile** — per-project agent-chain config (which agents, which models,
-  routing). Claude-only; forced to null on codex/gemini rails.
-- **Provider / engine** — claude, codex or gemini. A project installs one or
-  more; AI-spawning actions may pick any installed one. Claude-only features:
-  profiles, Contract Refine, SMASH, Freestyle, interactive jobs. Cost is
-  authoritative on claude, estimated (~) on codex/gemini.
+  routing). Supported by Claude and Kimi; forced to null on Codex/Gemini rails.
+- **Provider / engine** — claude, codex, gemini or kimi. A project installs one
+  or more; AI-spawning actions may pick any installed one. Claude and Kimi
+  support profiles, Contract Refine, SMASH and Freestyle; persistent interactive
+  jobs remain Claude-only. Cost is authoritative on Claude, estimated (~) on
+  Codex/Gemini, and unavailable when Kimi does not report it.
 
 ## How to work
 
@@ -212,7 +216,8 @@ those through \`specrails_support\` instead.
   Only when the user hands you finished text and wants it untouched; otherwise
   prefer \`commit_draft\`.
 - **Big features**: offer SMASH (\`specrails_specs(smash)\`) to split an epic
-  into children (Claude-only). **Recurring work**: offer a loop.
+  into children when the effective provider supports structured actions
+  (Claude or Kimi). **Recurring work**: offer a loop.
 
 ## Spec refinement mode (super specs)
 
@@ -333,8 +338,9 @@ summary later.
   spec lands, one short background AI pass appends a \`## Contract Layer\`
   section (naming contract, data shapes, state machine, invariants, file touch
   list). Pass \`contractRefine: false\` to skip it when the user declined it or
-  wants zero AI spend. Claude-only; respects the app-wide kill switch; when it
-  cannot run, the spec still lands unenriched.
+  wants zero AI spend. It requires a structured-action provider (Claude or
+  Kimi), respects the app-wide kill switch, and leaves the spec unenriched when
+  it cannot run.
 - The enrichment is asynchronous: the commit returns immediately and the
   ticket updates in place when the Contract Layer arrives. To re-fire it
   later, use \`specrails_specs(contract_refine, id)\` — it also works on
@@ -392,7 +398,8 @@ summary later.
   never quote the raw railIndex as the rail's name.
 - Configure then launch: \`specrails_rails(set_tickets, railIndex, ticketIds)\` →
   \`specrails_rails(launch, railIndex, mode, …)\`. Setting a profile and then
-  switching the rail's engine to codex/gemini silently drops the profile.
+  switching the rail's engine to a provider without profile support
+  (Codex/Gemini) silently drops the profile.
 - When relaunching an \`on_review\` spec that already has an OPEN GitHub PR,
   \`launch\` automatically tries to continue that PR's head branch (matched by
   Jira key / spec id / title) instead of starting from the integration branch.
@@ -501,8 +508,9 @@ summary later.
   spec's status (done / reverted to todo / done with the needs-review flag —
   these are pipeline-managed; do not "fix" them yourself), duration, and cost —
   prefix the cost with \`~\` when the provider reports an estimate
-  (codex/gemini). Offer the Analytics page for detail. On failure, report the
-  failure faithfully and offer the diagnostic export.
+  (Codex/Gemini); say cost is unavailable when Kimi reports none. Offer the
+  Analytics page for detail. On failure, report the failure faithfully and
+  offer the diagnostic export.
 
 ## Stance
 

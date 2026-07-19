@@ -452,13 +452,29 @@ export function registerSpendingRoutes(deps: ProjectRoutesDeps): void {
       // with both the /analytics dashboard and Claude's per-day accounting.
       const { startIso, endIso } = localDayBoundsUtc(parseTzOffsetMinutes(req.query.tzOffsetMinutes))
       const costRow = db.prepare(
-        `SELECT COALESCE(SUM(total_cost_usd), 0) as costToday FROM ai_invocations WHERE started_at >= ? AND started_at < ?`
-      ).get(startIso, endIso) as { costToday: number }
+        `SELECT
+           COALESCE(SUM(total_cost_usd), 0) as costToday,
+           COUNT(total_cost_usd) as pricedRuns,
+           SUM(CASE WHEN total_cost_usd IS NULL THEN 1 ELSE 0 END) as unpricedRuns
+         FROM ai_invocations WHERE started_at >= ? AND started_at < ?`
+      ).get(startIso, endIso) as {
+        costToday: number
+        pricedRuns: number
+        unpricedRuns: number | null
+      }
       const costToday = costRow.costToday
-      const budgetUtilizationPct = dailyBudgetUsd != null && dailyBudgetUsd > 0
+      const unpricedRuns = costRow.unpricedRuns ?? 0
+      const budgetUtilizationPct = dailyBudgetUsd != null && dailyBudgetUsd > 0 && unpricedRuns === 0
         ? (costToday / dailyBudgetUsd) * 100
         : null
-      res.json({ dailyBudgetUsd, jobCostThresholdUsd, costToday, budgetUtilizationPct })
+      res.json({
+        dailyBudgetUsd,
+        jobCostThresholdUsd,
+        costToday,
+        pricedRuns: costRow.pricedRuns,
+        unpricedRuns,
+        budgetUtilizationPct,
+      })
     } catch (err) {
       console.error('[project-router] budget get error:', err)
       res.status(500).json({ error: 'Failed to read budget' })

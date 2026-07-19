@@ -2,6 +2,10 @@
 
 当你已经清楚自己想要什么时，Quick 模式正合适。你输入想法，AI 写出完整的 spec，它就以 **待办** 状态落在你的看板上。不需要来回讨论——只管描述，然后开干。
 
+> **Kimi 不支持 Quick Spec。** `kimi -p` 无法强制此表单的 pure-output
+> 边界，因此请求会在 spawn 前拒绝。请使用 Explore、Raw 或 Quick
+> Launcher（`/opsx:ff`）。
+
 ## 用 Quick 模式创建 spec
 
 要快速创建一份 spec：
@@ -19,7 +23,8 @@
 
 **模型**——默认情况下，AI 会挑选一个合适的模型。如果你想要更快或更强的模型，可以在模型选择器里按 spec 单独覆写。
 
-**引擎**——如果你的项目安装了不止一个 AI provider（Claude、Codex、Gemini 的任意组合），对话框顶部会有一个引擎选择器，让你选择由哪一个来生成这份 spec。你的选择会按项目记住。单 provider 的项目不会显示它——因为没有可选的余地。
+**引擎**——选择器只显示 **compatible** provider；Quick Spec 不包含
+Kimi。
 
 **上下文**——Quick 模式通常作为单轮运行，因为它不需要读取你的代码库就能根据你的描述写出 spec。但一个上下文滑块可以给它更多素材：
 

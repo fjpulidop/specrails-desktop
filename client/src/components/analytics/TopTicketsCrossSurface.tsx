@@ -24,7 +24,7 @@ export function TopTicketsCrossSurface({ data, loading, onSelectTicket }: Props)
       ) : (
         <ul className="divide-y divide-border/30">
           {list.map((tk, i) => {
-            const breakdown = (Object.entries(tk.bySurface) as Array<[string, { count: number; costUsd: number }]>)
+            const breakdown = (Object.entries(tk.bySurface) as Array<[string, { count: number; costUsd: number; unpricedCount?: number }]>)
               .filter(([, v]) => v.count > 0)
               .map(([s, v]) => t('topTickets.breakdownItem', { n: v.count, label: SURFACE_LABEL[s as keyof typeof SURFACE_LABEL].toLowerCase() }))
               .join(' + ')
@@ -35,6 +35,9 @@ export function TopTicketsCrossSurface({ data, loading, onSelectTicket }: Props)
                 ? `#${tk.ticketId} ${tk.ticketTitle}`
                 : t('topTickets.deletedTicket', { id: tk.ticketId })
             const dim = !tk.ticketTitle && !isUnattributed ? 'opacity-50' : ''
+            const unpricedCount = tk.unpricedCount ?? 0
+            const costUnavailable = tk.totalRuns > 0 && unpricedCount === tk.totalRuns
+            const costPartiallyUnavailable = unpricedCount > 0 && !costUnavailable
             return (
               <li key={`${tk.ticketId ?? 'u'}-${i}`}>
                 <button
@@ -48,7 +51,25 @@ export function TopTicketsCrossSurface({ data, loading, onSelectTicket }: Props)
                     <div className="text-[11px] text-muted-foreground truncate">{breakdown || '—'}</div>
                   </div>
                   <div className="text-right tabular-nums">
-                    <div className="text-sm font-medium">${tk.totalCostUsd.toFixed(2)}</div>
+                    <div
+                      className="text-sm font-medium"
+                      title={
+                        costUnavailable
+                          ? t('topTickets.costUnavailableTooltip')
+                          : costPartiallyUnavailable
+                            ? t('topTickets.costPartiallyUnavailableTooltip')
+                            : undefined
+                      }
+                    >
+                      {costUnavailable
+                        ? t('topTickets.costUnavailable')
+                        : `$${tk.totalCostUsd.toFixed(2)}`}
+                    </div>
+                    {costPartiallyUnavailable && (
+                      <div className="text-[10px] text-muted-foreground italic">
+                        {t('topTickets.costPartiallyUnavailable', { count: unpricedCount })}
+                      </div>
+                    )}
                     <div className="text-[10px] text-muted-foreground">{t('runs', { count: tk.totalRuns })}</div>
                   </div>
                 </button>

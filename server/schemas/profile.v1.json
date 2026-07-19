@@ -26,7 +26,7 @@
     "provider": {
       "type": "string",
       "pattern": "^[a-z0-9][a-z0-9-]*$",
-      "description": "Optional provider id (e.g. `claude`, `codex`). When set, the profile's model values are validated against that provider's adapter catalog. When omitted, validation falls back to the project's resolved provider."
+      "description": "Optional registered provider id (for example `claude`, `codex`, `gemini`, or `kimi`). When set, the profile's model values are validated according to that provider adapter: normally against its catalog, while adapters that support configured aliases (such as Kimi) accept any schema-valid non-empty alias. When omitted, validation falls back to the project's resolved provider."
     },
     "orchestrator": {
       "type": "object",
@@ -82,8 +82,7 @@
     "modelAlias": {
       "type": "string",
       "minLength": 1,
-      "maxLength": 64,
-      "description": "Accepted model alias. JSON schema accepts any non-empty string; provider-specific catalog enforcement runs at runtime (see profile-manager.validateStructural)."
+      "description": "Accepted model alias. JSON schema accepts any non-empty string without truncating provider-configured aliases; provider-specific catalog enforcement runs at runtime (see profile-manager.validateStructural)."
     },
     "agentEntry": {
       "type": "object",
@@ -93,7 +92,7 @@
         "id": {
           "type": "string",
           "pattern": "^(sr|custom)-[a-z0-9][a-z0-9-]*$",
-          "description": "Agent identifier. MUST correspond to a file at `.claude/agents/<id>.md`."
+          "description": "Agent identifier. MUST correspond to the selected provider's provider-native role artifact. File-based providers use their own agents catalog (for example `.claude/agents/<id>.md`); Kimi uses the directly discoverable `.kimi-code/skills/<id>/SKILL.md` layout."
         },
         "model": {
           "$ref": "#/$defs/modelAlias",

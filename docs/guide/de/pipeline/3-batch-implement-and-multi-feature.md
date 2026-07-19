@@ -81,4 +81,4 @@ Es gibt kein globales Parallelitäts-Limit, das du einstellen musst. Öffne die 
 
 - [Rails & Jobs](rails-and-jobs) — das Queue-Modell im Detail.
 - [Die Job-Detail-Ansicht](the-job-detail-view) — einem Batch-Lauf live zusehen.
-- [Engine pro Rail wählen](picking-an-engine-per-rail) — beachte: Batch läuft auf jedem Provider; Freestyle gibt es nur bei Claude.
+- [Engine pro Rail wählen](picking-an-engine-per-rail) — Batch läuft auf jedem Provider; Freestyle gibt es mit Claude und Kimi.

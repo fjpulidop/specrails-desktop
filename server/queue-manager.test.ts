@@ -140,6 +140,55 @@ describe('QueueManager', () => {
       )
       expect(queueBroadcasts.length).toBeGreaterThanOrEqual(1)
     })
+
+    it('materializes a Kimi rail skill before spawning the autonomous job', async () => {
+      vi.mocked(mockExecSync).mockReturnValue(Buffer.from('/usr/bin/kimi'))
+      const root = fs.mkdtempSync(path.join(os.tmpdir(), 'queue-kimi-skill-'))
+      const customAlias = 'moonshot-team/private-coder:v2'
+      const inheritedEffort = process.env.KIMI_MODEL_THINKING_EFFORT
+      process.env.KIMI_MODEL_THINKING_EFFORT = 'max'
+      const skillDir = path.join(root, '.kimi-code', 'skills', 'specrails-implement')
+      fs.mkdirSync(skillDir, { recursive: true })
+      fs.writeFileSync(
+        path.join(skillDir, 'SKILL.md'),
+        '---\nname: specrails-implement\ndescription: test\ntype: prompt\n---\nRail input: $ARGUMENTS\n',
+      )
+      const child = createMockChildProcess()
+      vi.mocked(mockSpawn).mockReturnValue(child as any)
+      const kimiQueue = new QueueManager(
+        broadcast,
+        undefined,
+        [],
+        root,
+        { provider: 'kimi' },
+      )
+
+      try {
+        kimiQueue.enqueue('/specrails:implement #9 --yes', 'normal', { model: customAlias })
+        await new Promise<void>((resolve) => setImmediate(resolve))
+        const [binary, args, options] = vi.mocked(mockSpawn).mock.calls[0] as [
+          string,
+          string[],
+          { env: NodeJS.ProcessEnv },
+        ]
+        expect(binary).toBe('kimi')
+        expect(args[args.indexOf('-m') + 1]).toBe(customAlias)
+        expect(options.env).not.toHaveProperty('KIMI_MODEL_THINKING_EFFORT')
+        const prompt = args[args.indexOf('-p') + 1]
+        expect(prompt).toContain('Rail input: #9 --yes')
+        expect(prompt).toContain('<kimi-skill-loaded')
+        expect(prompt).not.toContain('/skill:specrails-implement')
+
+        child.stdout.push(null)
+        child.stderr.push(null)
+        child.emit('close', 0)
+      } finally {
+        kimiQueue.shutdown()
+        if (inheritedEffort === undefined) delete process.env.KIMI_MODEL_THINKING_EFFORT
+        else process.env.KIMI_MODEL_THINKING_EFFORT = inheritedEffort
+        fs.rmSync(root, { recursive: true, force: true })
+      }
+    })
   })
 
   // ─── cancel ───────────────────────────────────────────────────────────────
@@ -384,6 +433,35 @@ describe('QueueManager', () => {
       const jobs = qm.getJobs()
       expect(jobs[0].status).toBe('failed')
       expect(jobs[0].exitCode).toBe(1)
+    })
+
+    it('job transitions to failed when the provider reports an error before exit code 0', async () => {
+      vi.mocked(mockExecSync).mockReturnValue(Buffer.from('/usr/bin/codex'))
+      const child = createMockChildProcess()
+      vi.mocked(mockSpawn).mockReturnValue(child as any)
+      vi.mocked(mockUuidV4).mockReturnValue('provider-error-job' as any)
+      const providerQueue = new QueueManager(
+        broadcast,
+        undefined,
+        [],
+        undefined,
+        { provider: 'codex' },
+      )
+
+      providerQueue.enqueue('/implement #1')
+      child.stdout!.push(JSON.stringify({
+        type: 'turn.failed',
+        error: { message: 'provider rejected the turn' },
+      }) + '\n')
+      await new Promise<void>((resolve) => setImmediate(resolve))
+      child.emit('close', 0)
+      await new Promise<void>((resolve) => setImmediate(resolve))
+
+      const job = providerQueue.getJobs()[0]
+      expect(job.status).toBe('failed')
+      // Preserve the actual process outcome for diagnostics even though the
+      // provider-level outcome determines the semantic job status.
+      expect(job.exitCode).toBe(0)
     })
   })
 
@@ -2819,6 +2897,43 @@ describe('QueueManager', () => {
         | undefined
       expect(inv?.provider).toBe('codex')
       expect(inv?.total_cost_usd_estimated).toBe(1)
+    })
+
+    it('records wall-clock duration for a completed Kimi rail without native usage', async () => {
+      vi.mocked(mockExecSync).mockReturnValue(Buffer.from('/usr/bin/kimi'))
+      const child = createMockChildProcess()
+      vi.mocked(mockSpawn).mockReturnValue(child as any)
+      vi.mocked(mockUuidV4).mockReturnValue('kimi-duration-job' as any)
+
+      const db = initDb(':memory:')
+      const kimiQueue = new QueueManager(broadcast, db, undefined, undefined, {
+        provider: 'kimi',
+        resolvedModel: 'k3',
+        projectId: 'p1',
+        projectSlug: 'proj',
+      })
+      kimiQueue.enqueue('implement the selected ticket')
+
+      child.stdout.push(
+        '{"role":"assistant","content":"done"}\n' +
+        '{"role":"meta","type":"session.resume_hint","session_id":"01KIMI00000000000000000001"}\n',
+      )
+      child.stdout.push(null)
+      child.stderr.push(null)
+      await new Promise((resolve) => setImmediate(resolve))
+      child.emit('close', 0)
+      await new Promise((resolve) => setTimeout(resolve, 30))
+
+      const job = db.prepare(`
+        SELECT duration_ms FROM jobs WHERE id = ?
+      `).get('kimi-duration-job') as { duration_ms: number | null }
+      const invocation = db.prepare(`
+        SELECT duration_ms FROM ai_invocations WHERE surface_ref_id = ?
+      `).get('kimi-duration-job') as { duration_ms: number | null }
+      expect(job.duration_ms).not.toBeNull()
+      expect(job.duration_ms).toBeGreaterThanOrEqual(0)
+      expect(invocation.duration_ms).toBe(job.duration_ms)
+      kimiQueue.shutdown()
     })
 
     it('output chaining: embeds parent resultText in codex prompt via systemAppend', () => {

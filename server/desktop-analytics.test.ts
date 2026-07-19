@@ -8,8 +8,8 @@ import type { DbInstance } from './db'
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
-interface JobSeed { costUsd: number; status: string; startedAt?: string; estimated?: boolean }
-interface InvSeed { costUsd: number; surface: Surface; startedAt?: string; estimated?: boolean; status?: 'success' | 'failed' | 'aborted' }
+interface JobSeed { costUsd: number | null; status: string; startedAt?: string; estimated?: boolean }
+interface InvSeed { costUsd: number | null; surface: Surface; startedAt?: string; estimated?: boolean; status?: 'success' | 'failed' | 'aborted' }
 
 // A job entry seeds BOTH a jobs row (for the job-COUNT metrics) and a matching
 // ai_invocations `surface='job'` row (for COST — MED-8 sources cost from
@@ -185,6 +185,31 @@ describe('getDesktopAnalytics', () => {
     expect(result.kpi.jobsToday).toBe(1)
     expect(result.kpi.costToday).toBeCloseTo(0.10, 5)
   })
+
+  it('reports unavailable coverage instead of treating Kimi NULL cost as zero', () => {
+    const today = new Date().toISOString().slice(0, 10)
+    const db = makeProjectDb([
+      { costUsd: null, status: 'completed', startedAt: `${today}T10:00:00.000Z` },
+    ])
+    const registry = makeRegistry([{ id: 'p1', name: 'Kimi', db }])
+
+    const result = getDesktopAnalytics(registry, { period: '7d' })
+
+    expect(result.kpi).toMatchObject({
+      totalCostUsd: 0,
+      pricedRuns: 0,
+      unpricedRuns: 1,
+      pricedTodayRuns: 0,
+      unpricedTodayRuns: 1,
+    })
+    expect(result.projectBreakdown[0]).toMatchObject({
+      projectName: 'Kimi',
+      totalCostUsd: 0,
+      pricedRuns: 0,
+      unpricedRuns: 1,
+    })
+    expect(result.costTimeline.find((row) => row.date === today)?.unpricedCount).toBe(1)
+  })
 })
 
 // ─── MED-8: all-surface + agent-chat cost sourcing ────────────────────────────
@@ -350,6 +375,19 @@ describe('getDesktopTodayStats', () => {
     const stats = getDesktopTodayStats(registry)
     expect(stats.jobsToday).toBe(2)
     expect(stats.costToday).toBeCloseTo(0.12, 5)
+  })
+
+  it('exposes Kimi today-cost coverage instead of an authoritative zero', () => {
+    const today = new Date().toISOString().slice(0, 10)
+    const db = makeProjectDb([
+      { costUsd: null, status: 'completed', startedAt: `${today}T10:00:00.000Z` },
+    ])
+    const stats = getDesktopTodayStats(makeRegistry([{ id: 'p1', name: 'Kimi', db }]))
+    expect(stats).toMatchObject({
+      costToday: 0,
+      pricedRuns: 0,
+      unpricedRuns: 1,
+    })
   })
 
   it('MED-8: counts all surfaces + all statuses in costToday', () => {

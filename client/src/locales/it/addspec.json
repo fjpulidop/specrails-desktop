@@ -9,11 +9,12 @@
       "explore": "Explore",
       "raw": "Raw",
       "exploreHint": "interattiva",
-      "rawHint": "senza AI"
+      "rawHint": "senza AI",
+      "quickUnavailable": "non disponibile per Kimi"
     },
     "modeDescription": {
       "quick": "Descrivi la funzionalità o la modifica. Allega mockup, brief o dati per più contesto.",
-      "explore": "Descrivi un'idea abbozzata. Claude ti aiuterà a darle forma attraverso la conversazione — decidi tu quando confermare.",
+      "explore": "Descrivi un'idea abbozzata. L'assistente IA selezionato ti aiuterà a darle forma attraverso la conversazione — decidi tu quando confermare.",
       "raw": "Il tuo prompt, così com'è — salvato come ticket spec. Nessuna AI per ora; trascinalo su un rail per realizzarlo."
     },
     "editorPlaceholder": {
@@ -132,9 +133,10 @@
       "mcpLabel": "MCP del progetto",
       "mcpHint": "server .mcp.json",
       "userMcpLabel": "I miei MCP approvati",
-      "userMcpHint": "server ~/.claude · ~/.codex",
-      "userMcpTooltip": "I tuoi server MCP approvati localmente (claude mcp add / codex mcp add)",
+      "userMcpHint": "server ~/.claude",
+      "userMcpTooltip": "I tuoi server MCP approvati localmente (claude mcp add)",
       "exploreOnly": "Solo modalità Explore",
+      "providerUnsupported": "Non disponibile per {{provider}}",
       "contractLabel": "Arricchisci con Contract Layer",
       "contractHint": "raffinamento post-commit · abilita SMASH"
     }

@@ -65,6 +65,20 @@ describe('createFileSummaryGenerator', () => {
     expect(out.provider).toBe('claude')
   })
 
+  it('fails closed before spawning Kimi because pure-output tool isolation is unavailable', async () => {
+    const spawn = vi.fn(() => fakeChild()) as any
+    const gen = createFileSummaryGenerator({
+      adapter: getAdapter('kimi'),
+      cwd: '/tmp',
+      spawn,
+    })
+
+    await expect(gen(INPUT)).rejects.toThrow(
+      'provider_tool_policy_unsupported:kimi:pure-output',
+    )
+    expect(spawn).not.toHaveBeenCalled()
+  })
+
   it('rejects on a non-zero exit', async () => {
     const child = fakeChild()
     const gen = createFileSummaryGenerator({

@@ -111,6 +111,34 @@ describe('extractDisplayText', () => {
     })
   })
 
+  describe('Kimi stream-json frames', () => {
+    it('renders role-discriminated assistant text without a type field', () => {
+      expect(extractDisplayText({ role: 'assistant', content: 'Kimi says hello' })).toBe('Kimi says hello')
+    })
+
+    it('joins array content and renders all function calls from the same frame', () => {
+      const frame = {
+        role: 'assistant',
+        content: [{ type: 'text', text: 'Checking files' }],
+        tool_calls: [
+          { function: { name: 'ReadFile', arguments: '{"path":"README.md"}' } },
+          { function: { name: 'Search', arguments: { query: 'provider' } } },
+        ],
+      }
+      expect(extractDisplayText(frame)).toBe(
+        'Checking files\n[tool: ReadFile] {"path":"README.md"}\n[tool: Search] {"query":"provider"}',
+      )
+    })
+
+    it('returns null for non-assistant Kimi metadata', () => {
+      expect(extractDisplayText({
+        role: 'meta',
+        type: 'session.resume_hint',
+        session_id: 's1',
+      })).toBeNull()
+    })
+  })
+
   it('returns null for an unknown frame type', () => {
     expect(extractDisplayText({ type: 'totally-unknown' })).toBeNull()
   })

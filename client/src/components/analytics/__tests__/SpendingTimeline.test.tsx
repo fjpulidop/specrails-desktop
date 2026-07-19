@@ -59,6 +59,15 @@ describe('SpendingTimeline', () => {
     expect(screen.getByText(/No spend in this period/i)).toBeInTheDocument()
   })
 
+  it('distinguishes unavailable Kimi cost telemetry from a real no-spend period', () => {
+    const data = emptyData([
+      day('2026-05-01', { unpricedCount: 2 }),
+    ])
+    render(<SpendingTimeline data={data} loading={false} />)
+    expect(screen.getByTestId('timeline-cost-unavailable')).toHaveTextContent(/cost telemetry is unavailable/i)
+    expect(screen.queryByText(/No spend in this period/i)).not.toBeInTheDocument()
+  })
+
   it('renders chart with one Bar per surface (including smash + loop)', () => {
     const data = emptyData([
       day('2026-05-01', { jobsCostUsd: 5 }),

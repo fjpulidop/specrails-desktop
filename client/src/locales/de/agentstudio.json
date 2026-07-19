@@ -52,6 +52,7 @@
       "sandboxNote": "Sandbox-Modus; es werden keine Dateien geschrieben.",
       "tokens_one": "<mono>{{count}}</mono> Token",
       "tokens_other": "<mono>{{count}}</mono> Tokens",
+      "tokensUnavailable": "Token-Nutzung nicht verfügbar",
       "emptyHint": "Führen Sie eine Beispielaufgabe gegen den aktuellen Entwurf aus. Die Ausgabe erscheint hier."
     },
     "versions": {

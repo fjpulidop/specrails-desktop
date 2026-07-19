@@ -202,7 +202,7 @@
     "implement": "Implementa",
     "batch": "Batch",
     "freestyle": "Freestyle",
-    "freestyleTitle": "Freestyle — Claude implementa la spec in autonomia, senza pipeline",
+    "freestyleTitle": "Freestyle — il provider selezionato implementa la spec in autonomia, senza pipeline",
     "loop": "Loop",
     "loopTitle": "Loop — esegui un loop di automazione pubblicato sulle spec del rail",
     "pickLoop": "Scegli un loop…",
@@ -232,10 +232,10 @@
     "context_other": "{{rail}} · {{count}} spec",
     "noPipelineTitle": "Nessuna pipeline OpenSpec.",
     "noPipelineBody": "Il flusso strutturato architect → developer → reviewer viene saltato del tutto.",
-    "autonomyTitle": "Autonomia nativa di Claude.",
-    "autonomyBody": "Claude lavora in autonomia usando agenti nativi e workflow dinamici.",
+    "autonomyTitle": "Autonomia nativa di {{provider}}.",
+    "autonomyBody": "{{provider}} lavora in autonomia usando agenti nativi e workflow dinamici.",
     "costTitle": "Costo variabile.",
-    "costBody": "La spesa dipende da cosa Claude decide di fare — può essere più alta del previsto.",
+    "costBody": "La spesa dipende da cosa decide {{provider}} — può essere più alta del previsto.",
     "continue": "Continua"
   },
   "useRails": {

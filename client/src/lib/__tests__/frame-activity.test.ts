@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest'
 import { deriveFrameActivity, countActivitySteps, mapTool } from '../frame-activity'
 import type { EventRow } from '../../types'
+import kimiAssistantToolCalls from './fixtures/kimi-assistant-tool-calls.json'
 
 const ev = (event_type: string, payload: unknown): EventRow =>
   ({ event_type, payload: typeof payload === 'string' ? payload : JSON.stringify(payload) }) as EventRow
@@ -12,6 +13,18 @@ describe('deriveFrameActivity', () => {
   })
   it('assistant text-only frame = 1 thinking step', () => {
     expect(deriveFrameActivity(ev('assistant', { message: { content: [{ type: 'text', text: 'hi' }] } }))).toMatchObject({ step: true, actionKey: 'thinking' })
+  })
+  it('Kimi assistant frame counts function calls and labels the last action', () => {
+    expect(deriveFrameActivity(ev('assistant', kimiAssistantToolCalls))).toMatchObject({
+      step: true,
+      stepCount: 2,
+      actionKey: 'reading',
+      actionArg: 'package.json',
+    })
+  })
+  it('Kimi assistant text-only frame = 1 thinking step', () => {
+    expect(deriveFrameActivity(ev('assistant', { role: 'assistant', content: 'Done.' })))
+      .toMatchObject({ step: true, actionKey: 'thinking' })
   })
   it('bare tool_use = 1 step', () => {
     expect(deriveFrameActivity(ev('tool_use', { name: 'Bash', input: { command: 'npm test' } }))).toMatchObject({ step: true, actionKey: 'running', actionArg: 'npm' })
@@ -45,6 +58,8 @@ describe('countActivitySteps', () => {
 describe('mapTool', () => {
   it('maps known tools to action keys', () => {
     expect(mapTool('Write', { file_path: '/x/y.ts' })).toMatchObject({ actionKey: 'writing', actionArg: 'y.ts' })
+    expect(mapTool('WriteFile', { path: '/x/kimi.ts' })).toMatchObject({ actionKey: 'writing', actionArg: 'kimi.ts' })
+    expect(mapTool('ReadMediaFile', { path: '/x/mock.png' })).toMatchObject({ actionKey: 'reading', actionArg: 'mock.png' })
     expect(mapTool('Grep', { pattern: 'foo' })).toMatchObject({ actionKey: 'searching', actionArg: 'foo' })
     expect(mapTool('Unknown', {})).toMatchObject({ actionKey: 'working' })
   })

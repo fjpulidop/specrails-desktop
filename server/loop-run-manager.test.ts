@@ -180,6 +180,78 @@ describe('LoopRunManager honest cost (unpriced step → lower bound)', () => {
     expect(broadcasts.some((m) => m.type === 'log' && /Step cost unknown/.test((m as { line: string }).line))).toBe(false)
     expect(broadcasts.some((m) => m.type === 'log' && /Loop finished:.*≥/.test((m as { line: string }).line))).toBe(false)
   })
+
+  it('keeps Kimi usage null and disables an unverifiable maxCostUsd guard', async () => {
+    const graph: LoopGraph = {
+      nodes: [
+        { id: 's', type: 'start', position: { x: 0, y: 0 } },
+        { id: 'ai', type: 'ai-step', position: { x: 0, y: 1 }, data: { prompt: 'work' } },
+        { id: 'e', type: 'end', position: { x: 0, y: 2 } },
+      ],
+      edges: [
+        { id: 'e1', source: 's', target: 'ai' },
+        { id: 'e2', source: 'ai', target: 'e' },
+      ],
+      config: { maxIterations: 5, timeoutMinutes: 30, maxCostUsd: 0.0001 },
+    }
+    const ex = makeExecutors({
+      runAiStep: vi.fn(async () => ({
+        text: 'completed work',
+        provider: 'kimi',
+        model: 'k3',
+        durationMs: 17,
+      })),
+    })
+    const res = await manager(ex).run({
+      ...baseReq(),
+      graph,
+      provider: 'kimi',
+      model: 'k3',
+    })
+
+    expect(res.outcome).toBe('success')
+    expect(res.totalCostUsd).toBeNull()
+    expect(getJob(db, res.runId)).toMatchObject({
+      total_cost_usd: null,
+      tokens_in: null,
+      tokens_out: null,
+      tokens_cache_read: null,
+      tokens_cache_create: null,
+      num_turns: null,
+      duration_ms: 17,
+    })
+    const finalized = broadcasts.find((message) => message.type === 'job.finalized')
+    expect(finalized).toMatchObject({
+      type: 'job.finalized',
+      totals: {
+        total_cost_usd: null,
+        tokens_in: null,
+        tokens_out: null,
+      },
+    })
+    const lines = broadcasts
+      .filter((message) => message.type === 'log')
+      .map((message) => (message as { line: string }).line)
+    expect(lines.some((line) => /usage totals will remain unavailable/i.test(line))).toBe(true)
+    expect(lines.some((line) => /maxCostUsd guard is disabled/i.test(line))).toBe(true)
+    expect(lines.some((line) => /Loop finished:.*usage\/cost unavailable/i.test(line))).toBe(true)
+    expect(lines.some((line) => /Loop finished:.*\$0\.0000/i.test(line))).toBe(false)
+  })
+
+  it('rejects a Kimi Decider before persisting or invoking any executor', async () => {
+    const ex = makeExecutors()
+    await expect(manager(ex).run({
+      ...baseReq(),
+      runId: 'kimi-decider-rejected',
+      provider: 'kimi',
+      model: 'k3',
+    })).rejects.toThrow('provider_tool_policy_unsupported:kimi:read-only')
+
+    expect(getLoopRun(db, 'kimi-decider-rejected')).toBeUndefined()
+    expect(getJob(db, 'kimi-decider-rejected')).toBeUndefined()
+    expect(ex.runAiStep).not.toHaveBeenCalled()
+    expect(ex.runDecider).not.toHaveBeenCalled()
+  })
 })
 
 describe('LoopRunManager session bounding (provider-agnostic)', () => {
@@ -1512,6 +1584,58 @@ describe('LoopRunManager crash-consistent accounting', () => {
       total_cost_usd: 0.02,
       total_tokens: 12,
       total_duration_ms: 9,
+    })
+  })
+
+  it('preserves unavailable Kimi telemetry while recovering an orphan step', () => {
+    createLoopRun(db, {
+      id: 'kimi-orphan', projectId: 'p1', loopId: 'loop-1',
+      iterationLimit: 5, startedAt: '2026-07-10T00:00:00.000Z',
+    })
+    createJob(db, {
+      id: 'kimi-orphan', command: 'loop: kimi',
+      started_at: '2026-07-10T00:00:00.000Z', owner: 'loop',
+      provider: 'kimi',
+    })
+    stageLoopStepRecovery(db, {
+      version: 1,
+      runId: 'kimi-orphan',
+      stepKey: 'ai:1:kimi',
+      invocationId: 'kimi-orphan-invocation',
+      projectId: 'p1',
+      provider: 'kimi',
+      model: 'k3',
+      surfaceRefId: 'loop:kimi-orphan:ai',
+      ticketIds: [42],
+      startedAt: '2026-07-10T00:00:00.000Z',
+      baseline: {
+        tokensIn: 0, tokensOut: 0, tokensCacheRead: 0,
+        tokensCacheCreate: 0, totalCostUsd: 0, numTurns: 0,
+      },
+      completedEventSeq: -1,
+      providerCostBaseline: 0,
+      providerTurnsBaseline: 0,
+      loopDurationBaseline: 0,
+      completedDurationMs: 0,
+    })
+
+    expect(recoverOrphanLoopStepAccounting(
+      db,
+      '2026-07-10T00:00:01.000Z',
+      'kimi-orphan',
+    )).toBe(1)
+    expect(db.prepare(`
+      SELECT provider, total_cost_usd, tokens_in, tokens_out,
+             tokens_cache_read, tokens_cache_create, num_turns
+        FROM ai_invocations WHERE loop_run_id = 'kimi-orphan'
+    `).get()).toEqual({
+      provider: 'kimi',
+      total_cost_usd: null,
+      tokens_in: null,
+      tokens_out: null,
+      tokens_cache_read: null,
+      tokens_cache_create: null,
+      num_turns: null,
     })
   })
 

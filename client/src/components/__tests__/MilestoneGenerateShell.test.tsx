@@ -111,6 +111,23 @@ beforeEach(() => {
 })
 
 describe('MilestoneGenerateShell rich-spec gate', () => {
+  it('does not create or send a milestone conversation for Kimi', () => {
+    render(
+      <SharedWebSocketContext.Provider value={ws}>
+        <MilestoneGenerateShell
+          open
+          onClose={vi.fn()}
+          projectId="proj-1"
+          milestoneId="m2"
+          blueprint={projectBlueprint}
+          provider="kimi"
+        />
+      </SharedWebSocketContext.Provider>,
+    )
+    expect(screen.getByTestId('milestone-provider-unavailable')).toHaveTextContent(/read-only/i)
+    expect(global.fetch).not.toHaveBeenCalled()
+  })
+
   it('rejects invalid raw fields even when the preview parser normalizes them', async () => {
     renderShell()
     await waitFor(() => expect(global.fetch).toHaveBeenCalledWith(

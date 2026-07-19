@@ -5,6 +5,7 @@ import { cn } from '../lib/utils'
 import { getApiBase } from '../lib/api'
 
 interface Stats {
+  totalJobs?: number
   jobsToday: number
   costToday: number
   totalCostUsd: number
@@ -14,6 +15,8 @@ interface Stats {
   estimatedCostUsd?: number
   /** True when any part of the surfaced cost is a rate-card estimate. */
   includesEstimated?: boolean
+  pricedRuns?: number
+  unpricedRuns?: number
 }
 
 interface StatusBarProps {
@@ -111,18 +114,34 @@ export function StatusBar({ connectionStatus, rightSlot, minimal = false }: Stat
 
       {/* Stats + right slot (terminal chevron) */}
       <div className="flex items-center gap-2">
-        {!minimal && stats && stats.totalCostUsd > 0 && (() => {
+        {!minimal && stats && (stats.totalCostUsd > 0 || (stats.unpricedRuns ?? 0) > 0) && (() => {
           // BUG-ANALYTICS-27: never present a codex/gemini rate-card estimate as
           // a billed figure — prefix '~' + tooltip when any part is estimated.
           const estimated =
             stats.includesEstimated ??
             ((stats.estimatedCostUsd ?? 0) > 0 || (stats.estimatedCostToday ?? 0) > 0)
+          const unpricedRuns = stats.unpricedRuns ?? 0
+          const pricedRuns = stats.pricedRuns
+            ?? Math.max(0, (stats.totalJobs ?? 0) - unpricedRuns)
+          const unavailable = stats.totalCostUsd === 0 && unpricedRuns > 0 && pricedRuns === 0
+          const partial = unpricedRuns > 0 && (pricedRuns > 0 || stats.totalCostUsd > 0)
           return (
             <span
               data-estimated={estimated ? 'true' : undefined}
-              title={estimated ? tAnalytics('desktop.statusBarEstimatedTooltip') : undefined}
+              data-testid={unavailable ? 'statusbar-cost-unavailable' : undefined}
+              title={
+                unavailable
+                  ? tAnalytics('desktop.costUnavailable')
+                  : partial
+                    ? tAnalytics('desktop.costPartiallyUnavailable', { count: unpricedRuns })
+                    : estimated
+                      ? tAnalytics('desktop.statusBarEstimatedTooltip')
+                      : undefined
+              }
             >
-              {estimated ? '~' : ''}${stats.totalCostUsd.toFixed(2)}
+              {unavailable
+                ? tAnalytics('desktop.costUnavailableShort')
+                : `${estimated ? '~' : ''}${partial ? '≥' : ''}$${stats.totalCostUsd.toFixed(2)}`}
             </span>
           )
         })()}

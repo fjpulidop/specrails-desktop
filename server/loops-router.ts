@@ -94,7 +94,7 @@ export function registerLoopsRoutes(router: Router, deps: LoopsRoutesDeps): void
         name: f.name,
         description: f.description,
         mode: f.mode,
-        claudeOnly: f.claudeOnly ?? false,
+        requiredCapability: f.requiredCapability ?? null,
         graph: f.graph,
       })),
     })

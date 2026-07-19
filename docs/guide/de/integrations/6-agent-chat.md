@@ -22,7 +22,14 @@ Ein Projekt hier auszuwählen **verschiebt** dein Dashboard **nicht** — das Zi
 
 ## Anbieter und Modell
 
-Direkt über dem Nachrichtenfeld wählst du den **Anbieter** (Claude, Codex oder Gemini) und dessen **Modell**. Jeder Anbieter hat seine eigene Modellliste, und ein Anbieterwechsel startet eine frische Sitzung mit dem Standardmodell dieses Anbieters — so kannst du etwa die App mit Claude steuern und für eine andere Unterhaltung zu Codex wechseln, ohne dass etwas durcheinandergerät.
+Direkt über dem Nachrichtenfeld wählst du den **Anbieter** (Claude, Codex,
+Gemini oder Kimi) und dessen **Modell**. Ein Anbieterwechsel startet eine
+getrennte Sitzung.
+
+Bei Kimi begrenzen die Stufen Specrails-MCP-Tools, machen `kimi -p` aber nicht
+zum Sandbox-Prozess: native Kimi-Tools werden automatisch genehmigt. Unsichere
+Pure-Output-Aktionen werden vor dem Spawn abgelehnt; siehe
+[Kimi-Matrix](../../../kimi.md).
 
 ## Berechtigungsstufen — du hältst die Leine
 

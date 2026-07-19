@@ -11,8 +11,8 @@ interface RailControlsProps {
   status: RailStatus
   activeJobId?: string
   ticketCount: number
-  /** When true, show the Claude-only Freestyle segment. Freestyle bypasses
-   *  the OpenSpec pipeline and lets Claude implement the spec autonomously. */
+  /** When true, show Freestyle. It bypasses the OpenSpec pipeline and lets the
+   *  selected capable provider implement the spec autonomously. */
   freestyleAvailable?: boolean
   /** When true, show the "Loop" segment (runs a published global loop against
    *  the rail's specs). Gated by FEATURE_LOOPS_SECTION at the call site. */

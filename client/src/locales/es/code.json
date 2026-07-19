@@ -66,7 +66,8 @@
     "reason": {
       "missing": "archivo no encontrado",
       "binary": "archivo binario",
-      "tooLarge": "archivo demasiado grande"
+      "tooLarge": "archivo demasiado grande",
+      "providerNoPureOutput": "el proveedor de IA seleccionado no puede imponer un modo seguro de solo salida"
     }
   },
   "story": {
@@ -97,6 +98,7 @@
     "explain": "Explicar este cambio",
     "explaining": "Explicando…",
     "explainFailed": "No se pudo generar la explicación",
+    "explainUnavailable": "La explicación con IA no está disponible porque el proveedor seleccionado no puede imponer un modo seguro de solo salida.",
     "budgetReached": "Presupuesto mensual de IA alcanzado.",
     "generateAnyway": "Generar de todos modos",
     "explainedBy": "Explicado por {{model}}",

@@ -73,6 +73,13 @@ describe('codexAdapter — identity', () => {
     const efforts = codexAdapter.capabilities.reasoningEfforts ?? []
     for (const level of ['xhigh', 'max', 'ultra']) expect(efforts).toContain(level)
   })
+
+  it('preserves the relocated-repo writable_roots contract', () => {
+    expect(codexAdapter.buildRepoAccessArgs(['/repo', '/workspace'])).toEqual([
+      '-c',
+      'sandbox_workspace_write.writable_roots=["/repo", "/workspace"]',
+    ])
+  })
 })
 
 describe('codexAdapter._compareSemver', () => {

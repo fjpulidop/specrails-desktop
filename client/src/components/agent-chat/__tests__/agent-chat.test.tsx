@@ -21,6 +21,16 @@ vi.mock('../../../hooks/useDesktop', () => ({
   useDesktop: () => ({ projects, activeProjectId: 'p1', setActiveProjectId: vi.fn() }),
 }))
 
+vi.mock('../../../hooks/useAvailableProviders', () => ({
+  useAvailableProviders: () => ({
+    available: { claude: true, codex: true, gemini: true, kimi: true },
+    availableIds: ['claude', 'codex', 'gemini', 'kimi'],
+    issues: {},
+    launchDescriptors: {},
+    loading: false,
+  }),
+}))
+
 const api = {
   conv: { id: 'c1', title: null, provider: 'claude', model: null, session_id: null, pinned_project_id: null, tier_level: 0 as const, created_at: '', updated_at: '' },
 }
@@ -51,9 +61,18 @@ vi.mock('../../../lib/agent-api', async (orig) => {
     getAgentModels: vi.fn(async (p: string) => ({
       models: p === 'codex'
         ? [{ value: 'gpt-5.5', label: 'GPT-5.5', default: true }, { value: 'gpt-5.4', label: 'GPT-5.4' }]
+        : p === 'kimi'
+          ? [{ value: 'k3', label: 'Kimi K3', default: true }, { value: 'kimi-for-coding', label: 'Kimi for Coding' }]
         : [{ value: 'sonnet', label: 'Claude Sonnet', default: true }, { value: 'opus', label: 'Claude Opus' }],
       supportsImageInput: p !== 'gemini',
-      efforts: p === 'gemini' ? [] : p === 'codex' ? ['minimal', 'low', 'medium', 'high'] : ['low', 'medium', 'high', 'xhigh'],
+      customModelAliases: p === 'kimi',
+      efforts: p === 'gemini'
+        ? []
+        : p === 'codex'
+          ? ['minimal', 'low', 'medium', 'high']
+          : p === 'kimi'
+            ? ['low', 'high', 'max']
+            : ['low', 'medium', 'high', 'xhigh'],
     })),
   }
 })
@@ -496,6 +515,23 @@ describe('AgentChatProvider', () => {
     await user.click(codexEffortTrigger)
     await user.click(screen.getByRole('option', { name: 'High' }))
     await waitFor(() => expect(codexEffortTrigger).toHaveTextContent('High'))
+  })
+
+  it('accepts an exact custom Kimi alias and hides K3-only effort immediately', async () => {
+    const user = userEvent.setup()
+    render(<AgentChatProvider><AgentComposer /></AgentChatProvider>)
+
+    const providerTrigger = screen.getByTestId('agent-provider-selector')
+    await user.click(providerTrigger)
+    await user.click(screen.getByRole('option', { name: 'Kimi' }))
+    await waitFor(() => expect(providerTrigger).toHaveTextContent('Kimi'))
+    expect(await screen.findByTestId('agent-effort-selector')).toBeInTheDocument()
+
+    const modelInput = screen.getByTestId('agent-model-selector')
+    fireEvent.change(modelInput, { target: { value: 'Moonshot-Team/Private_Coder:v2' } })
+    fireEvent.blur(modelInput)
+    await waitFor(() => expect(modelInput).toHaveValue('Moonshot-Team/Private_Coder:v2'))
+    expect(screen.queryByTestId('agent-effort-selector')).not.toBeInTheDocument()
   })
 
   it('surfaces provider selection persistence failures instead of failing silently', async () => {

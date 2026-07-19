@@ -9,7 +9,12 @@ import {
   SelectValue,
 } from '../ui/select'
 import { getApiBase } from '../../lib/api'
-import type { ProviderId } from '../../lib/provider-capabilities'
+import {
+  providerSupportsCustomModelAliases,
+  type ProviderId,
+} from '../../lib/provider-capabilities'
+import { modelsForProvider } from '../../lib/loop-run-models'
+import { CustomModelAliasInput } from '../CustomModelAliasInput'
 
 export interface SpecModelOption {
   value: string
@@ -20,6 +25,7 @@ export interface DefaultSpecModelResponse {
   model: string
   provider: ProviderId
   allowed: SpecModelOption[]
+  customModelAliases?: boolean
   /** All providers installed for the project (multi-provider AI Engine selector). */
   providers?: (ProviderId)[]
 }
@@ -29,18 +35,43 @@ interface SpecModelPickerProps {
   value: string | null
   /** Allowed list to render. Empty while loading. */
   allowed: SpecModelOption[]
+  customModelAliases?: boolean
   loading: boolean
   onChange: (next: string) => void
   ariaLabel?: string
 }
 
-export function SpecModelPicker({ value, allowed, loading, onChange, ariaLabel }: SpecModelPickerProps) {
+export function SpecModelPicker({
+  value,
+  allowed,
+  customModelAliases = false,
+  loading,
+  onChange,
+  ariaLabel,
+}: SpecModelPickerProps) {
   const { t } = useTranslation('explore')
+  const label = ariaLabel ?? t('modelPicker.ariaLabel')
+
+  if (customModelAliases) {
+    return (
+      <CustomModelAliasInput
+        value={value ?? ''}
+        options={allowed}
+        onCommit={onChange}
+        disabled={loading}
+        ariaLabel={label}
+        testId="spec-model-picker"
+        placeholder={loading ? t('common:states.loading') : t('modelPicker.placeholder')}
+        className="h-8 w-[210px] px-2 text-xs"
+      />
+    )
+  }
+
   return (
     <Select value={value ?? ''} onValueChange={onChange} disabled={loading || allowed.length === 0}>
       <SelectTrigger
         className="h-8 w-[160px] text-xs gap-1.5"
-        aria-label={ariaLabel ?? t('modelPicker.ariaLabel')}
+        aria-label={label}
         data-testid="spec-model-picker"
       >
         {loading ? (
@@ -80,6 +111,7 @@ export function useDefaultSpecModel(
   const [allowed, setAllowed] = useState<SpecModelOption[]>([])
   const [provider, setProvider] = useState<ProviderId | null>(null)
   const [providers, setProviders] = useState<(ProviderId)[]>([])
+  const [customModelAliases, setCustomModelAliases] = useState(false)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
@@ -88,6 +120,7 @@ export function useDefaultSpecModel(
     let cancelled = false
     setLoading(true)
     setError(null)
+    setCustomModelAliases(false)
     const qs = providerOverride ? `?provider=${encodeURIComponent(providerOverride)}` : ''
     fetch(`${getApiBase()}/default-spec-model${qs}`)
       .then(async (r) => {
@@ -96,24 +129,34 @@ export function useDefaultSpecModel(
       })
       .then((data) => {
         if (cancelled) return
-        setModel(typeof data?.model === 'string' ? data.model : 'sonnet')
-        setAllowed(Array.isArray(data?.allowed) && data.allowed.length > 0
+        const resolvedProvider = data?.provider ?? providerOverride ?? 'claude'
+        const localCatalog = modelsForProvider(resolvedProvider)
+        const resolvedAllowed = Array.isArray(data?.allowed) && data.allowed.length > 0
           ? data.allowed
-          : [{ value: 'sonnet', label: 'Claude Sonnet' }])
-        setProvider(data?.provider ?? 'claude')
+          : localCatalog
+        setModel(typeof data?.model === 'string'
+          ? data.model
+          : resolvedAllowed[0]?.value ?? null)
+        setAllowed(resolvedAllowed)
+        setProvider(resolvedProvider)
+        setCustomModelAliases(data?.customModelAliases === true)
         setProviders(Array.isArray(data?.providers) && data.providers.length > 0
           ? data.providers
-          : [data?.provider ?? 'claude'])
+          : [resolvedProvider])
       })
       .catch((err: Error) => {
         if (cancelled) return
         setError(err.message)
-        // Conservative client-side fallback: claude/sonnet so the modal can
-        // still submit. Server re-validates and resolves on its side.
-        setModel('sonnet')
-        setAllowed([{ value: 'sonnet', label: 'Claude Sonnet' }])
-        setProvider('claude')
-        setProviders(['claude'])
+        // Preserve an explicit engine selection. Known providers use their
+        // local adapter-mirrored catalog; unknown providers fail closed rather
+        // than silently submitting a Claude model to another engine.
+        const fallbackProvider = providerOverride ?? 'claude'
+        const localCatalog = modelsForProvider(fallbackProvider)
+        setModel(localCatalog[0]?.value ?? null)
+        setAllowed(localCatalog)
+        setProvider(fallbackProvider)
+        setCustomModelAliases(providerSupportsCustomModelAliases(fallbackProvider))
+        setProviders([fallbackProvider])
       })
       .finally(() => {
         if (!cancelled) setLoading(false)
@@ -121,5 +164,14 @@ export function useDefaultSpecModel(
     return () => { cancelled = true }
   }, [enabled, projectId, providerOverride])
 
-  return { model, setModel, allowed, provider, providers, loading, error }
+  return {
+    model,
+    setModel,
+    allowed,
+    customModelAliases,
+    provider,
+    providers,
+    loading,
+    error,
+  }
 }

@@ -1,7 +1,7 @@
 import { describe, it, expect, vi } from 'vitest'
 import { screen, fireEvent } from '@testing-library/react'
 import { render } from '../../test-utils'
-import { CODEX_MODELS, getDefaultModel, ModelSelector } from '../ModelSelector'
+import { CODEX_MODELS, KIMI_MODELS, getDefaultModel, ModelSelector } from '../ModelSelector'
 import type { AgentDef } from '../AgentSelector'
 
 const SAMPLE_AGENTS: AgentDef[] = [
@@ -70,8 +70,14 @@ describe('getDefaultModel', () => {
     expect(getDefaultModel('sr-architect', 'max', 'gemini')).toBe('gemini-3.1-pro-preview')
   })
 
-  it('falls back to claude models for an unknown provider', () => {
-    expect(getDefaultModel('sr-developer', 'balanced', 'mystery')).toBe('sonnet')
+  it('returns k3 for every Kimi preset', () => {
+    expect(getDefaultModel('sr-developer', 'balanced', 'kimi')).toBe('k3')
+    expect(getDefaultModel('sr-developer', 'budget', 'kimi')).toBe('k3')
+    expect(getDefaultModel('sr-architect', 'max', 'kimi')).toBe('k3')
+  })
+
+  it('does not silently route an unknown provider through Claude', () => {
+    expect(getDefaultModel('sr-developer', 'balanced', 'mystery')).toBe('')
   })
 
   it('returns gpt-5.6-sol for sr-developer in max preset (codex)', () => {
@@ -190,5 +196,54 @@ describe('ModelSelector', () => {
     )
     // Codex model names should appear (GPT-5.x lineup)
     expect(screen.getAllByText(/GPT-5\.5/i).length).toBeGreaterThan(0)
+  })
+
+  it('uses the complete Kimi model catalog when provider is Kimi', () => {
+    render(
+      <ModelSelector
+        agents={SAMPLE_AGENTS}
+        provider="kimi"
+        preset="balanced"
+        overrides={{}}
+        onPresetChange={vi.fn()}
+        onOverrideChange={vi.fn()}
+      />
+    )
+    const developerInput = screen.getByTestId('model-override-sr-developer') as HTMLInputElement
+    expect(developerInput.value).toBe('k3')
+    const datalist = document.getElementById(developerInput.getAttribute('list') ?? '')
+    expect(Array.from(datalist?.querySelectorAll('option') ?? [], (option) => option.value))
+      .toEqual(['k3', 'kimi-for-coding', 'kimi-for-coding-highspeed'])
+    expect(KIMI_MODELS.map((model) => model.value)).toEqual([
+      'k3',
+      'kimi-for-coding',
+      'kimi-for-coding-highspeed',
+    ])
+  })
+
+  it('commits only a safe custom Kimi override byte-for-byte', () => {
+    const onOverrideChange = vi.fn()
+    render(
+      <ModelSelector
+        agents={SAMPLE_AGENTS}
+        provider="kimi"
+        preset="balanced"
+        overrides={{ 'sr-developer': 'moonshot-team/private-coder:v1' }}
+        onPresetChange={vi.fn()}
+        onOverrideChange={onOverrideChange}
+      />,
+    )
+    const input = screen.getByTestId('model-override-sr-developer')
+    expect(input).toHaveValue('moonshot-team/private-coder:v1')
+    fireEvent.change(input, { target: { value: 'Moonshot-Team/Private_Coder:v2' } })
+    fireEvent.blur(input)
+    expect(onOverrideChange).toHaveBeenCalledWith(
+      'sr-developer',
+      'Moonshot-Team/Private_Coder:v2',
+    )
+
+    fireEvent.change(input, { target: { value: '--yolo' } })
+    fireEvent.blur(input)
+    expect(onOverrideChange).toHaveBeenCalledTimes(1)
   })
 })

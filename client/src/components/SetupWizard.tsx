@@ -74,13 +74,13 @@ function toShortModelName(modelId: string): string {
   if (modelId.includes('opus')) return 'opus'
   if (modelId.includes('haiku')) return 'haiku'
   if (modelId.includes('sonnet')) return 'sonnet'
-  return modelId // codex models pass through as-is
+  return modelId // Non-Claude model ids pass through as-is.
 }
 
-// Preset → the preset's default model for a given provider (claude/codex/gemini).
+// Preset → the preset's default model for a registered provider.
 function presetToDefaultModel(preset: ModelPreset, provider: string): string {
   const byProvider = PRESET_DEFAULTS[preset]
-  return byProvider[provider] ?? byProvider.claude
+  return byProvider[provider] ?? ''
 }
 
 function buildDefaultConfig(): InstallConfig {

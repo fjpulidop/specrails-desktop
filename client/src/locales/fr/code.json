@@ -66,7 +66,8 @@
     "reason": {
       "missing": "fichier manquant",
       "binary": "fichier binaire",
-      "tooLarge": "fichier trop volumineux"
+      "tooLarge": "fichier trop volumineux",
+      "providerNoPureOutput": "le fournisseur d'IA sélectionné ne peut pas imposer un mode de sortie seule sécurisé"
     }
   },
   "story": {
@@ -97,6 +98,7 @@
     "explain": "Expliquer ce changement",
     "explaining": "Explication en cours…",
     "explainFailed": "Impossible de générer l'explication",
+    "explainUnavailable": "L'explication par IA est indisponible, car le fournisseur sélectionné ne peut pas imposer un mode de sortie seule sécurisé.",
     "budgetReached": "Budget IA mensuel atteint.",
     "generateAnyway": "Générer quand même",
     "explainedBy": "Expliqué par {{model}}",

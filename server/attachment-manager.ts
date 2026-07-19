@@ -86,6 +86,41 @@ function escapeUserAttachmentTag(s: string): string {
   return s.replace(/<\/user-attachment>/gi, '<\\/user-attachment>')
 }
 
+/**
+ * Resolve a sidecar-controlled stored filename without ever allowing it to
+ * escape the app-managed attachment directory. Sidecars live on disk and can
+ * be edited by the local user (or left behind by an older version), so treating
+ * `storedName` as trusted would let an attachment prompt expose an arbitrary
+ * absolute path to the provider. The realpath check also rejects symlink
+ * escapes, which a lexical `path.resolve` containment check alone misses.
+ */
+function resolveManagedAttachmentPath(dir: string, storedName: string): string | null {
+  if (
+    typeof storedName !== 'string' ||
+    storedName.length === 0 ||
+    storedName !== path.basename(storedName) ||
+    storedName.includes('/') ||
+    storedName.includes('\\')
+  ) {
+    throw new Error(`Unsafe attachment stored name: ${JSON.stringify(storedName)}`)
+  }
+
+  const candidate = path.resolve(dir, storedName)
+  const lexicalRelative = path.relative(path.resolve(dir), candidate)
+  if (lexicalRelative === '..' || lexicalRelative.startsWith(`..${path.sep}`) || path.isAbsolute(lexicalRelative)) {
+    throw new Error(`Unsafe attachment path: ${JSON.stringify(storedName)}`)
+  }
+  if (!fs.existsSync(candidate)) return null
+
+  const realDir = fs.realpathSync(dir)
+  const realCandidate = fs.realpathSync(candidate)
+  const realRelative = path.relative(realDir, realCandidate)
+  if (realRelative === '..' || realRelative.startsWith(`..${path.sep}`) || path.isAbsolute(realRelative)) {
+    throw new Error(`Unsafe attachment symlink: ${JSON.stringify(storedName)}`)
+  }
+  return realCandidate
+}
+
 export class AttachmentManager {
   private readonly homeDir: string
 
@@ -204,8 +239,7 @@ export class AttachmentManager {
   getFilePath(slug: string, ticketKey: string | number, attachmentId: string): string | null {
     const meta = this.readMeta(slug, ticketKey, attachmentId)
     if (!meta) return null
-    const abs = path.join(this.ticketDir(slug, ticketKey), meta.storedName)
-    return fs.existsSync(abs) ? abs : null
+    return resolveManagedAttachmentPath(this.ticketDir(slug, ticketKey), meta.storedName)
   }
 
   getMeta(slug: string, ticketKey: string | number, attachmentId: string): Attachment | null {
@@ -223,8 +257,11 @@ export class AttachmentManager {
     const meta = this.readMeta(opts.slug, opts.ticketKey, opts.attachmentId)
     if (!meta) return false
     const dir = this.ticketDir(opts.slug, opts.ticketKey)
-    const bin = path.join(dir, meta.storedName)
-    if (fs.existsSync(bin)) fs.unlinkSync(bin)
+    // Validate the sidecar-controlled path before deleting either the sidecar
+    // or ticket-store reference. On rejection the operation is atomic from the
+    // caller's perspective and an out-of-root target is never touched.
+    const bin = resolveManagedAttachmentPath(dir, meta.storedName)
+    if (bin) fs.unlinkSync(bin)
     const side = this.sidecarPath(opts.slug, opts.ticketKey, opts.attachmentId)
     if (fs.existsSync(side)) fs.unlinkSync(side)
     if (opts.ticketStorePath) {
@@ -288,14 +325,16 @@ export class AttachmentManager {
     slug: string,
     ticketKey: string | number,
     attachmentIds: string[],
-  ): Promise<{ imageFlags: string[]; textBlocks: string[] }> {
+  ): Promise<{ imageFlags: string[]; textBlocks: string[]; imagePaths: string[] }> {
     const textBlocks: string[] = []
+    const imagePaths: string[] = []
     for (const id of attachmentIds) {
       const meta = this.readMeta(slug, ticketKey, id)
       if (!meta) continue
-      const abs = path.join(this.ticketDir(slug, ticketKey), meta.storedName)
-      if (!fs.existsSync(abs)) continue
+      const abs = resolveManagedAttachmentPath(this.ticketDir(slug, ticketKey), meta.storedName)
+      if (!abs) continue
       if (meta.mimeType.startsWith(IMAGE_MIME_PREFIX)) {
+        imagePaths.push(abs)
         textBlocks.push(wrapUserAttachment(meta, `@${abs}`))
         continue
       }
@@ -306,7 +345,7 @@ export class AttachmentManager {
         textBlocks.push(wrapUserAttachment(meta, '[extraction failed]'))
       }
     }
-    return { imageFlags: [], textBlocks }
+    return { imageFlags: [], textBlocks, imagePaths }
   }
 
   /**
@@ -327,8 +366,8 @@ export class AttachmentManager {
     for (const id of attachmentIds) {
       const meta = this.readMeta(slug, ticketKey, id)
       if (!meta) continue
-      const abs = path.join(this.ticketDir(slug, ticketKey), meta.storedName)
-      if (!fs.existsSync(abs)) continue
+      const abs = resolveManagedAttachmentPath(this.ticketDir(slug, ticketKey), meta.storedName)
+      if (!abs) continue
       if (meta.mimeType.startsWith(IMAGE_MIME_PREFIX)) {
         textBlocks.push(wrapUserAttachment(meta, `@${abs}`))
         continue
@@ -433,16 +472,15 @@ export class AttachmentManager {
   getAgentFilePath(conversationId: string, attachmentId: string): string | null {
     const meta = this.readAgentMeta(conversationId, attachmentId)
     if (!meta) return null
-    const abs = path.join(this.agentDir(conversationId), meta.storedName)
-    return fs.existsSync(abs) ? abs : null
+    return resolveManagedAttachmentPath(this.agentDir(conversationId), meta.storedName)
   }
 
   async deleteAgent(conversationId: string, attachmentId: string): Promise<boolean> {
     const meta = this.readAgentMeta(conversationId, attachmentId)
     if (!meta) return false
     const dir = this.agentDir(conversationId)
-    const bin = path.join(dir, meta.storedName)
-    if (fs.existsSync(bin)) fs.unlinkSync(bin)
+    const bin = resolveManagedAttachmentPath(dir, meta.storedName)
+    if (bin) fs.unlinkSync(bin)
     const side = this.agentSidecarPath(conversationId, attachmentId)
     if (fs.existsSync(side)) fs.unlinkSync(side)
     return true
@@ -471,8 +509,8 @@ export class AttachmentManager {
     for (const id of attachmentIds) {
       const meta = this.readAgentMeta(conversationId, id)
       if (!meta) continue
-      const abs = path.join(this.agentDir(conversationId), meta.storedName)
-      if (!fs.existsSync(abs)) continue
+      const abs = resolveManagedAttachmentPath(this.agentDir(conversationId), meta.storedName)
+      if (!abs) continue
       if (meta.mimeType.startsWith(IMAGE_MIME_PREFIX)) {
         imagePaths.push(abs)
         textBlocks.push(wrapUserAttachment(meta, `@${abs}`))

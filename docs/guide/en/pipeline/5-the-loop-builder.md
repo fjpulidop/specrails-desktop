@@ -17,7 +17,7 @@ A **loop** is the *recipe* for the work; a **rail** is the *lane* that runs it a
 
 - Loops live in the **Loops** section (left sidebar, alongside your projects) — they are **global**, shared across every project.
 - A rail **picks a loop** in its header (the Loop picker) and runs it when you press Play.
-- The **rail** decides the provider, model and reasoning effort — *not* the loop's steps. The same loop runs on Claude, Codex or Gemini depending on the rail.
+- The **rail** decides the provider, model and supported reasoning effort — *not* the loop's steps. The same capability-compatible loop runs on Claude, Codex, Gemini, or Kimi depending on the rail.
 
 So: build a loop once, then pick it on any rail in any project.
 
@@ -41,6 +41,11 @@ A loop is a graph of **nodes** connected by **edges** (the arrows). Each node is
 
 Edges connect the steps in order. The **Loop Decider** has two labelled outputs — **continue** and **stop** — so you wire "not done yet" back into the work and "done" out to an End.
 
+> **Kimi:** AI and shell steps are supported, but a graph containing a Loop
+> Decider is not. The verdict is a constrained pure-output action and Kimi
+> 0.27 `-p` cannot enforce its no-tools boundary; Desktop rejects the run before
+> it starts.
+
 ### Writing step text
 
 Inside any AI Step or Decider you can reference:
@@ -57,7 +62,7 @@ A loop that never stops would burn money forever, so every run has three guards 
 |-------|--------------|
 | **Max iterations** | Hard cap on how many times the Decider may loop back, regardless of its verdict. |
 | **Timeout (min)** | Wall-clock limit for the whole run. |
-| **Max cost ($)** | *Optional.* Stops the loop once the accumulated cost crosses your budget. Checked **between steps** (a step's cost is only known once it finishes), so it may overshoot by one step. On Claude the cost is exact; on Codex and Gemini it's an estimate. Leave it empty for no cap. |
+| **Max cost ($)** | *Optional.* Stops the loop once the accumulated cost crosses your budget. Checked **between steps** (a step's cost is only known once it finishes), so it may overshoot by one step. On Claude the cost is exact; on Codex and Gemini it's an estimate. Kimi reports no native token/USD envelope, so a cost cap cannot derive authoritative Kimi spend. Leave it empty for no cap. |
 
 ## Building with confidence
 

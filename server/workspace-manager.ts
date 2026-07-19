@@ -284,7 +284,7 @@ export function assembleWorkspaceFramework(
   // the repo). Best-effort: a failure here must not break workspace assembly.
   try {
     const port = Number(process.env.SPECRAILS_MCP_PORT || process.env.SPECRAILS_PORT || 4200)
-    mergeSpecrailsIntoWorkspaceMcp(ws, port)
+    mergeSpecrailsIntoWorkspaceMcp(ws, port, provider)
   } catch {
     /* non-fatal */
   }

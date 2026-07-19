@@ -9,11 +9,12 @@
       "explore": "Explore",
       "raw": "Raw",
       "exploreHint": "対話型",
-      "rawHint": "AIなし"
+      "rawHint": "AIなし",
+      "quickUnavailable": "Kimiでは利用不可"
     },
     "modeDescription": {
       "quick": "機能や変更内容を記述してください。モックアップ、ブリーフ、データを添付するとコンテキストが充実します。",
-      "explore": "大まかなアイデアを記述してください。Claude が対話を通じて形にするのを手伝います — コミットのタイミングはあなたが決めます。",
+      "explore": "大まかなアイデアを記述してください。選択した AI アシスタントが対話を通じて形にするのを手伝います — コミットのタイミングはあなたが決めます。",
       "raw": "プロンプトをそのままスペックチケットとして保存します。今は AI を実行しません。レールにドラッグするとビルドされます。"
     },
     "editorPlaceholder": {
@@ -132,9 +133,10 @@
       "mcpLabel": "プロジェクト MCP",
       "mcpHint": ".mcp.json のサーバー",
       "userMcpLabel": "承認済みの MCP",
-      "userMcpHint": "~/.claude · ~/.codex のサーバー",
-      "userMcpTooltip": "ローカルで承認済みの MCP サーバー（claude mcp add / codex mcp add）",
+      "userMcpHint": "~/.claude のサーバー",
+      "userMcpTooltip": "ローカルで承認済みの MCP サーバー（claude mcp add）",
       "exploreOnly": "Explore モードのみ",
+      "providerUnsupported": "{{provider}} では利用できません",
       "contractLabel": "Contract Layer で強化",
       "contractHint": "コミット後の改良 · SMASH を有効化"
     }

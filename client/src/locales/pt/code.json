@@ -66,7 +66,8 @@
     "reason": {
       "missing": "ficheiro em falta",
       "binary": "ficheiro binário",
-      "tooLarge": "ficheiro demasiado grande"
+      "tooLarge": "ficheiro demasiado grande",
+      "providerNoPureOutput": "o fornecedor de IA selecionado não consegue impor um modo seguro apenas de saída"
     }
   },
   "story": {
@@ -97,6 +98,7 @@
     "explain": "Explicar esta alteração",
     "explaining": "Explicando…",
     "explainFailed": "Não foi possível gerar a explicação",
+    "explainUnavailable": "A explicação por IA não está disponível porque o fornecedor selecionado não consegue impor um modo seguro apenas de saída.",
     "budgetReached": "Orçamento mensal de IA atingido.",
     "generateAnyway": "Gerar mesmo assim",
     "explainedBy": "Explicado por {{model}}",

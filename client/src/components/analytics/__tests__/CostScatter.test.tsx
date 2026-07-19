@@ -46,6 +46,14 @@ describe('CostScatter', () => {
     expect(screen.getByText(/No invocations to plot/i)).toBeInTheDocument()
   })
 
+  it('explains that Kimi invocations cannot be plotted when cost is unavailable', () => {
+    const data = emptyData([])
+    data.summary = { ...data.summary, totalRuns: 2, pricedRuns: 0, unpricedRuns: 2 }
+    render(<CostScatter data={data} loading={false} onSelectPoint={() => {}} />)
+    expect(screen.getByTestId('scatter-cost-unavailable')).toHaveTextContent(/no cost telemetry/i)
+    expect(screen.queryByText(/No invocations to plot/i)).not.toBeInTheDocument()
+  })
+
   it('groups points by surface and renders one Scatter per surface', () => {
     const scatter: SpendingResponse['scatter'] = [
       { id: '1', surface: 'job', costUsd: 1, numTurns: 3, durationMs: 1000, ticketId: null, startedAt: '2026-05-06T00:00:00Z' },

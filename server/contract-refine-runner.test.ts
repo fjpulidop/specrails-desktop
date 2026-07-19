@@ -26,6 +26,7 @@ import {
 } from './contract-refine-runner'
 import {
   CONTRACT_LAYER_SEPARATOR,
+  CONTRACT_MARKER_USER_MESSAGE,
   type ContractLayer,
 } from './explore-contract-refine'
 import { mutateStore, resolveTicketStoragePath, type TicketStore, CURRENT_SCHEMA_VERSION } from './ticket-store'
@@ -211,7 +212,7 @@ describe('prepareContractRefineSpawn', () => {
     expect(out.args).not.toContain('--dangerously-skip-permissions')
     expect(out.args).not.toContain('--disallowedTools')
     expect(out.args).toContain('-p')
-    expect(out.args[out.args.length - 1]).toMatch(/CONTRACT REFINE/)
+    expect(out.args[out.args.indexOf('-p') + 1]).toMatch(/CONTRACT REFINE/)
     expect(out.systemPrompt).toMatch(/Contract Refine/)
   })
 
@@ -222,6 +223,21 @@ describe('prepareContractRefineSpawn', () => {
       { model: 'sonnet', session_id: 'sess-1', context_scope: JSON.stringify({ mcp: true }) },
     )
     expect(out.cwd).toBe(projectPath)
+  })
+
+  it('fails closed for Kimi because prompt mode cannot enforce the no-tools boundary', () => {
+    const projectPath = tmpProjectPath()
+    expect(() =>
+      prepareContractRefineSpawn(
+        { projectSlug: 'slug', projectPath, projectName: 'proj', providerId: 'kimi' },
+        {
+          provider: 'kimi',
+          model: 'k3',
+          session_id: 'kimi-session',
+          context_scope: null,
+        },
+      ),
+    ).toThrow('provider_tool_policy_unsupported:kimi:none')
   })
 
   it('RELOCATED + mcp: resumes from the WORKSPACE (matches the Explore mcp-on spawn cwd)', () => {
@@ -498,7 +514,9 @@ describe('runContractRefine', () => {
       expect(calls[0].cwd).toBe(relocated.workspace)
       expect(calls[1].cwd).toBe(relocated.workspace)
       expect(calls[1].cwd).not.toBe(relocated.repo)
-      expect(calls[1].env).toBe(calls[0].env)
+      // Provider runtime composition returns a fresh env object per invocation;
+      // resume and fallback must be value-identical, not reference-identical.
+      expect(calls[1].env).toStrictEqual(calls[0].env)
       expect(calls[1].env?.SPECRAILS_REPO_DIR).toBe(relocated.repo)
       expect(calls[1].env?.SPECRAILS_WORKSPACE_DIR).toBe(relocated.workspace)
 

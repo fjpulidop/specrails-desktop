@@ -4,6 +4,10 @@
 > covers the per-file **construction story** — the narrative layer that tells a
 > non-developer, for any file, HOW it was built: which specs intervened and what
 > each one contributed.
+>
+> Kimi 0.27 `-p` does not advertise an enforceable read-only tool policy.
+> `FileStoryManager.explain` and file-summary generation therefore reject Kimi
+> before spawn. Deterministic provenance/stats/log views remain provider-neutral.
 
 ## Problem
 

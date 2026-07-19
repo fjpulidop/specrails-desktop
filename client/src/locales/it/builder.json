@@ -8,7 +8,8 @@
     "surpriseMe": "Sorprendimi",
     "inputPlaceholder": "Un'app che…",
     "createSpecs": "Crea le spec",
-    "createSpecsHint": "Disponibile quando il blueprint ha spec della Milestone 1"
+    "createSpecsHint": "Disponibile quando il blueprint ha spec della Milestone 1",
+    "providerUnavailable": "Il Costruttore richiede un provider con modalità nativa senza strumenti o di sola lettura. Questo provider non è disponibile qui."
   },
   "panel": {
     "title": "Blueprint",
@@ -87,7 +88,8 @@
     "progress": "{{done}}/{{total}} fatte",
     "launchM1": "Lancia la Milestone 1",
     "generateNext": "Genera M{{n}}",
-    "generateHint": "Apre una sessione di spec ancorata al codice, seminata col blueprint"
+    "generateHint": "Apre una sessione di spec ancorata al codice, seminata col blueprint",
+    "generateUnavailable": "La generazione delle milestone richiede una modalità nativa di sola lettura"
   },
   "errors": {
     "startFailed": "Impossibile avviare la conversazione del Costruttore.",
@@ -99,7 +101,8 @@
     "inputPlaceholder": "Rifinisci le spec…",
     "commit": "Conferma {{count}} spec come {{label}}",
     "commitToast": "{{count}} spec aggiunte alla board come {{label}}",
-    "commitFailed": "Impossibile confermare la milestone"
+    "commitFailed": "Impossibile confermare la milestone",
+    "providerUnavailable": "La generazione delle milestone non è disponibile perché questo provider non ha una modalità nativa di sola lettura."
   },
   "mode": {
     "title": "Costruttore di progetti",

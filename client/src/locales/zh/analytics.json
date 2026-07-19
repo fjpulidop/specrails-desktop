@@ -41,6 +41,14 @@
     "invocations_other": "{{count}} 次调用",
     "tokens": "· {{tokens}} token",
     "tokensTooltip": "总 token 数 = 此时间窗口内所有调用的新输入 + 输出 + 缓存读取 + 缓存创建之和。",
+    "usageUnavailable": "· token 使用量不可用",
+    "usageUnavailableTooltip": "提供方已完成这些调用，但未提供 token 遥测数据。",
+    "usagePartiallyUnavailable": "· 已知 {{tokens}} 个 token；{{count}} 次调用无数据",
+    "usagePartiallyUnavailableTooltip": "仅显示已知 token 小计；部分调用未提供 token 遥测数据。",
+    "costUnavailable": "成本不可用",
+    "costUnavailableTooltip": "提供方已完成这些调用，但未提供足以确定成本的遥测数据。",
+    "costPartiallyUnavailable": "· 已知小计；{{count}} 次调用无成本数据",
+    "costPartiallyUnavailableTooltip": "仅显示已知成本小计；部分调用未提供足以确定成本的遥测数据。",
     "includesEstimated": "· 含约 {{amount}} 估算值",
     "includesEstimatedTooltip": "包含 {{amount}} 的估算成本，来自不原生上报成本的提供方（例如 codex，按本地价格表估算）。",
     "trackingStarted": "追踪始于 {{date}}",
@@ -54,12 +62,16 @@
     "noCost": "此时间窗口内暂无成本记录。",
     "segmentTitle": "{{label}}：{{value}}（{{count}}）",
     "costUnavailable": "成本不可用",
-    "costUnavailableTooltip": "此提供商已运行，但其模型不在价格表中，因此无法计算成本。"
+    "costUnavailableTooltip": "此提供方已运行，但未提供足以确定成本的遥测数据。",
+    "costPartiallyUnavailable": "· {{count}} 次不可用",
+    "costPartiallyUnavailableTooltip": "仅显示已知小计；部分运行的成本不可用。"
   },
   "timeline": {
     "title": "每日时间线",
     "subtitle": "按来源堆叠",
-    "empty": "此期间没有支出。"
+    "empty": "此期间没有支出。",
+    "costUnavailable": "已记录调用，但成本遥测数据不可用。",
+    "costPartiallyUnavailable": "已知成本 · {{count}} 次不可用"
   },
   "quickVsExplore": {
     "title": "Quick vs Explore",
@@ -73,27 +85,39 @@
     "avgDuration": "平均 {{duration}}",
     "ratio": "每个 spec 多 {{ratio}}×",
     "estimatedTooltip": "估算成本（codex/gemini 价格表回退，非提供商计费）",
-    "estimatedFootnote": "~ 包含估算成本（codex/gemini）"
+    "estimatedFootnote": "~ 包含估算成本（codex/gemini）",
+    "costUnavailable": "每个 spec 的成本不可用",
+    "costUnavailableTooltip": "由于一次或多次运行未提供成本遥测数据，无法计算每个 spec 的平均成本。"
   },
   "models": {
     "title": "模型",
     "empty": "暂无模型记录。",
     "estimatedTooltip": "根据本地价格表估算 — 此提供商不原生报告成本。",
-    "others": "其他"
+    "others": "其他",
+    "costUnavailableWithRuns": "— · {{count}}",
+    "costUnavailableTooltip": "此模型的所有运行均无成本遥测数据。",
+    "costPartiallyUnavailable": "· {{count}} 次不可用",
+    "costPartiallyUnavailableTooltip": "仅显示已知小计；此模型的部分运行无成本遥测数据。"
   },
   "scatter": {
     "title": "成本 vs 轮次",
     "empty": "暂无可绘制的调用。",
     "turnsLabel": "轮次",
     "costLabel": "成本",
-    "truncated": "显示 {{total}} 中的 {{shown}} 个 — 保留成本最高的点，但隐藏较早的点"
+    "truncated": "显示 {{total}} 中的 {{shown}} 个 — 保留成本最高的点，但隐藏较早的点",
+    "costUnavailable": "已记录调用，但没有可供绘图的成本遥测数据。",
+    "costPartiallyUnavailable": "图表仅包含有成本数据的运行；{{count}} 次运行的成本不可用。"
   },
   "topTickets": {
     "title": "热门工单",
     "empty": "此期间没有工单活动。",
     "breakdownItem": "{{n}} {{label}}",
     "unattributed": "未归属",
-    "deletedTicket": "已删除工单 #{{id}}"
+    "deletedTicket": "已删除工单 #{{id}}",
+    "costUnavailable": "成本不可用",
+    "costUnavailableTooltip": "此工单的所有运行均未提供成本遥测数据。",
+    "costPartiallyUnavailable": "{{count}} 次不可用",
+    "costPartiallyUnavailableTooltip": "仅显示已知小计；此工单的部分运行成本不可用。"
   },
   "table": {
     "title": "全部调用",
@@ -145,12 +169,14 @@
     "failedToLoad": "加载分析数据失败：{{error}}",
     "totalCost": "总成本",
     "costToday": "今日 {{value}}",
+    "costTodayUnavailable": "今日成本不可用",
     "totalJobs": "任务总数",
     "jobsToday": "今日 {{n}} 个",
     "successRate": "成功率",
     "acrossAllProjects": "所有项目汇总",
     "avgCostPerJob": "平均成本 / 任务",
     "periodAverage": "期间平均",
+    "averageUnavailable": "成本遥测数据不完整，平均值不可用",
     "costOverTime": "跨项目成本走势",
     "noCostData": "此期间无成本数据",
     "projectComparison": "项目对比",
@@ -165,7 +191,10 @@
     "timelineEstimatedTooltip": "某些天包含以 ~ 标记的价格表估算成本（codex/gemini）。",
     "estimatedBadge": "估算",
     "projectEstimatedTooltip": "此项目成本中的 {{amount}} 为价格表估算（codex/gemini），非提供商计费。",
-    "statusBarEstimatedTooltip": "包含价格表估算成本（codex/gemini），非提供商计费。"
+    "statusBarEstimatedTooltip": "包含价格表估算成本（codex/gemini），非提供商计费。",
+    "costUnavailable": "已记录调用，但成本遥测数据不可用。",
+    "costUnavailableShort": "不可用",
+    "costPartiallyUnavailable": "已知成本小计；{{count}} 次调用不可用。"
   },
   "windowLabels": {
     "7d": "最近 7 天",

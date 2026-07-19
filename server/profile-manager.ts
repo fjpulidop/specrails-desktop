@@ -5,7 +5,7 @@ import Ajv2020 from 'ajv/dist/2020'
 import type { ValidateFunction } from 'ajv'
 import type { DbInstance } from './db'
 import profileSchema from './schemas/profile.v1.json'
-import { getAdapter, hasAdapter } from './providers'
+import { getAdapter, hasAdapter, isModelAvailableForAdapter } from './providers'
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -48,6 +48,9 @@ export interface Profile {
 export interface ProfileListEntry {
   name: string
   description?: string
+  /** Execution provider this profile belongs to. Legacy unscoped files inherit
+   * the caller's fallback provider. */
+  provider: string
   isDefault: boolean
   updatedAt: number
 }
@@ -94,8 +97,38 @@ function profilesDir(projectPath: string): string {
   return path.join(projectPath, '.specrails', 'profiles')
 }
 
-function profilePath(projectPath: string, name: string): string {
+function legacyProfilePath(projectPath: string, name: string): string {
   return path.join(profilesDir(projectPath), `${name}.json`)
+}
+
+/** Provider-scoped filenames allow e.g. Claude and Kimi to both own a logical
+ * `default` profile. The JSON body keeps the user-facing name unchanged. */
+function scopedProfilePath(projectPath: string, name: string, provider: string): string {
+  return path.join(profilesDir(projectPath), `${provider}--${name}.json`)
+}
+
+function profileCandidates(projectPath: string, name: string, provider: string): string[] {
+  return [
+    scopedProfilePath(projectPath, name, provider),
+    legacyProfilePath(projectPath, name),
+  ]
+}
+
+function existingProfilePath(projectPath: string, name: string, provider: string): string | null {
+  const [scoped, legacy] = profileCandidates(projectPath, name, provider)
+  if (fs.existsSync(scoped)) return scoped
+  if (!fs.existsSync(legacy)) return null
+  try {
+    const raw = JSON.parse(fs.readFileSync(legacy, 'utf8')) as { provider?: unknown }
+    // Historical unscoped profiles predate multi-provider support and belong
+    // to Claude unless they explicitly declare another provider.
+    return typeof raw.provider === 'string'
+      ? raw.provider === provider ? legacy : null
+      : provider === 'claude' || name === `${provider}-default` ? legacy : null
+  } catch {
+    // Preserve the editor's ability to surface malformed legacy Claude JSON.
+    return provider === 'claude' ? legacy : null
+  }
 }
 
 function jobSnapshotPath(slug: string, jobId: string): string {
@@ -125,8 +158,13 @@ function assertValidName(name: string): void {
  *                  profile itself omits the `provider` field. Defaults to
  *                  `'claude'` so legacy callsites stay backwards compatible.
  */
-function validateStructural(profile: Profile, expectedProvider: string = 'claude'): void {
-  const providerId = profile.provider ?? expectedProvider
+function validateStructural(profile: Profile, expectedProvider?: string): void {
+  const providerId = profile.provider ?? expectedProvider ?? 'claude'
+  if (profile.provider && expectedProvider && profile.provider !== expectedProvider) {
+    throw new ProfileValidationError([
+      `profile provider '${profile.provider}' does not match requested provider '${expectedProvider}'`,
+    ])
+  }
   if (!hasAdapter(providerId)) {
     throw new ProfileValidationError([
       `profile references unknown provider '${providerId}'`,
@@ -148,8 +186,9 @@ function validateStructural(profile: Profile, expectedProvider: string = 'claude
     ])
   }
 
-  // Orchestrator model must be in the adapter's catalog.
-  if (!validModels.has(profile.orchestrator.model)) {
+  // Orchestrator model must be in the adapter catalog, or a safe configured
+  // alias when the adapter explicitly supports them.
+  if (!isModelAvailableForAdapter(adapter, profile.orchestrator.model)) {
     throw new ProfileValidationError([
       `orchestrator.model '${profile.orchestrator.model}' is not valid for provider '${providerId}'. Valid models: ${[...validModels].join(', ')}`,
     ])
@@ -157,7 +196,10 @@ function validateStructural(profile: Profile, expectedProvider: string = 'claude
 
   // Per-agent model (when set) must also be in the catalog.
   for (const agent of profile.agents) {
-    if (agent.model !== undefined && !validModels.has(agent.model)) {
+    if (
+      agent.model !== undefined
+      && !isModelAvailableForAdapter(adapter, agent.model)
+    ) {
       throw new ProfileValidationError([
         `agent '${agent.id}' uses model '${agent.model}' which is not valid for provider '${providerId}'. Valid models: ${[...validModels].join(', ')}`,
       ])
@@ -198,7 +240,7 @@ function validateStructural(profile: Profile, expectedProvider: string = 'claude
   }
 }
 
-export function validateProfile(raw: unknown, expectedProvider: string = 'claude'): Profile {
+export function validateProfile(raw: unknown, expectedProvider?: string): Profile {
   const validate = getValidator()
   if (!validate(raw)) {
     const msgs = (validate.errors || []).map(
@@ -213,38 +255,64 @@ export function validateProfile(raw: unknown, expectedProvider: string = 'claude
 
 // ─── Public API ──────────────────────────────────────────────────────────────
 
-export function listProfiles(projectPath: string): ProfileListEntry[] {
+export function listProfiles(projectPath: string, _fallbackProvider: string = 'claude'): ProfileListEntry[] {
   const dir = profilesDir(projectPath)
   if (!fs.existsSync(dir)) return []
-  const entries: ProfileListEntry[] = []
+  const entries = new Map<string, ProfileListEntry & { scoped: boolean }>()
   for (const file of fs.readdirSync(dir)) {
     if (!file.endsWith('.json')) continue
     if (file === '.user-preferred.json') continue
     if (file.startsWith('.')) continue
-    const name = file.slice(0, -'.json'.length)
     const full = path.join(dir, file)
     try {
       const raw = JSON.parse(fs.readFileSync(full, 'utf8'))
       const stat = fs.statSync(full)
-      entries.push({
+      const name = typeof raw?.name === 'string'
+        ? raw.name
+        : file.slice(0, -'.json'.length)
+      const inferredDefaultProvider = typeof name === 'string'
+        ? name.match(/^([a-z0-9][a-z0-9-]*)-default$/)?.[1]
+        : undefined
+      const provider = typeof raw?.provider === 'string'
+        ? raw.provider
+        : inferredDefaultProvider && hasAdapter(inferredDefaultProvider)
+          ? inferredDefaultProvider
+          // Unscoped/provider-less profiles predate multi-provider storage and
+          // are Claude profiles regardless of which provider is primary today.
+          // Provider defaults such as `kimi-default.json` are handled by the
+          // filename inference above. Keeping this aligned with
+          // existingProfilePath prevents a Kimi-primary project from listing a
+          // legacy Claude `project-default` as Kimi and then returning 404 when
+          // it is opened.
+          : 'claude'
+      const scoped = file === `${provider}--${name}.json`
+      const key = `${provider}\0${name}`
+      const candidate = {
         name,
         description: typeof raw?.description === 'string' ? raw.description : undefined,
-        isDefault: name === 'default' || name === 'project-default',
+        provider,
+        isDefault:
+          name === 'default'
+          || name === 'project-default'
+          || name === `${provider}-default`,
         updatedAt: Math.floor(stat.mtimeMs),
-      })
+        scoped,
+      }
+      // Prefer the provider-scoped file over a stale legacy duplicate.
+      if (!entries.has(key) || scoped) entries.set(key, candidate)
     } catch {
       // Skip unparseable files silently; the caller can surface via getProfile.
     }
   }
-  return entries.sort((a, b) => a.name.localeCompare(b.name))
+  return [...entries.values()]
+    .map(({ scoped: _scoped, ...entry }) => entry)
+    .sort((a, b) => a.name.localeCompare(b.name) || a.provider.localeCompare(b.provider))
 }
 
 export function getProfile(projectPath: string, name: string, expectedProvider: string = 'claude'): Profile {
   assertValidName(name)
-  const full = profilePath(projectPath, name)
-  if (!fs.existsSync(full)) {
-    throw new ProfileNotFoundError(name)
-  }
+  const full = existingProfilePath(projectPath, name, expectedProvider)
+  if (!full) throw new ProfileNotFoundError(name)
   const raw = JSON.parse(fs.readFileSync(full, 'utf8'))
   return validateProfile(raw, expectedProvider)
 }
@@ -263,10 +331,8 @@ export function getProfileRaw(
   expectedProvider: string = 'claude',
 ): { profile: unknown; valid: boolean; errors: string[] } {
   assertValidName(name)
-  const full = profilePath(projectPath, name)
-  if (!fs.existsSync(full)) {
-    throw new ProfileNotFoundError(name)
-  }
+  const full = existingProfilePath(projectPath, name, expectedProvider)
+  if (!full) throw new ProfileNotFoundError(name)
   const raw = JSON.parse(fs.readFileSync(full, 'utf8'))
   try {
     validateProfile(raw, expectedProvider)
@@ -280,8 +346,16 @@ export function getProfileRaw(
 export function createProfile(projectPath: string, profile: Profile, expectedProvider: string = 'claude'): void {
   assertValidName(profile.name)
   validateProfile(profile, expectedProvider)
-  const full = profilePath(projectPath, profile.name)
-  if (fs.existsSync(full)) {
+  const provider = profile.provider ?? expectedProvider
+  const full = profile.provider || expectedProvider !== 'claude'
+    ? scopedProfilePath(projectPath, profile.name, provider)
+    : legacyProfilePath(projectPath, profile.name)
+  // Core may already own a provider-specific default in the historical
+  // unscoped shape (for example `kimi-default.json`). Treat that as the same
+  // logical profile as Desktop's collision-safe `kimi--kimi-default.json`;
+  // otherwise POST would silently create two defaults. `updateProfile` remains
+  // the explicit migration path from legacy to scoped storage.
+  if (existingProfilePath(projectPath, profile.name, provider)) {
     throw new ProfileConflictError(profile.name)
   }
   fs.mkdirSync(profilesDir(projectPath), { recursive: true })
@@ -291,22 +365,29 @@ export function createProfile(projectPath: string, profile: Profile, expectedPro
 export function updateProfile(projectPath: string, profile: Profile, expectedProvider: string = 'claude'): void {
   assertValidName(profile.name)
   validateProfile(profile, expectedProvider)
-  const full = profilePath(projectPath, profile.name)
-  if (!fs.existsSync(full)) {
-    throw new ProfileNotFoundError(profile.name)
-  }
-  fs.writeFileSync(full, JSON.stringify(profile, null, 2) + '\n', 'utf8')
+  const provider = profile.provider ?? expectedProvider
+  const existing = existingProfilePath(projectPath, profile.name, provider)
+  if (!existing) throw new ProfileNotFoundError(profile.name)
+  const destination = profile.provider || expectedProvider !== 'claude'
+    ? scopedProfilePath(projectPath, profile.name, provider)
+    : existing
+  fs.writeFileSync(destination, JSON.stringify(profile, null, 2) + '\n', 'utf8')
+  // Updating a legacy provider-stamped file migrates it to the collision-safe
+  // scoped filename after the replacement is durably visible.
+  if (destination !== existing && fs.existsSync(existing)) fs.unlinkSync(existing)
 }
 
-export function deleteProfile(projectPath: string, name: string): void {
+export function deleteProfile(projectPath: string, name: string, expectedProvider: string = 'claude'): void {
   assertValidName(name)
-  if (name === 'default' || name === 'project-default') {
+  if (
+    name === 'default'
+    || name === 'project-default'
+    || name === `${expectedProvider}-default`
+  ) {
     throw new ProfileValidationError(['cannot delete the default profile'])
   }
-  const full = profilePath(projectPath, name)
-  if (!fs.existsSync(full)) {
-    throw new ProfileNotFoundError(name)
-  }
+  const full = existingProfilePath(projectPath, name, expectedProvider)
+  if (!full) throw new ProfileNotFoundError(name)
   fs.unlinkSync(full)
 }
 
@@ -330,12 +411,32 @@ export function renameProfile(
 ): Profile {
   // Renaming the default away would leave no default → resolveProfile returns
   // null and rails silently drop to legacy/no-profile mode. Mirror deleteProfile.
-  if (fromName === 'default' || fromName === 'project-default') {
+  if (
+    fromName === 'default'
+    || fromName === 'project-default'
+    || fromName === `${expectedProvider}-default`
+  ) {
     throw new ProfileValidationError(['cannot rename the default profile'])
   }
   const source = getProfile(projectPath, fromName, expectedProvider)
   assertValidName(toName)
-  if (fs.existsSync(profilePath(projectPath, toName))) {
+  if (
+    toName === 'default'
+    || toName === 'project-default'
+    || toName === `${expectedProvider}-default`
+  ) {
+    throw new ProfileValidationError(['cannot rename a profile to a reserved default name'])
+  }
+  const provider = source.provider ?? expectedProvider
+  const sourcePath = existingProfilePath(projectPath, fromName, provider)
+  if (!sourcePath) throw new ProfileNotFoundError(fromName)
+  const dest = source.provider || expectedProvider !== 'claude'
+    ? scopedProfilePath(projectPath, toName, provider)
+    : legacyProfilePath(projectPath, toName)
+  // Collision is logical, not just destination-path based: a Core-authored
+  // legacy `<name>.json` may already represent this provider even when Desktop
+  // would publish the renamed profile as `<provider>--<name>.json`.
+  if (existingProfilePath(projectPath, toName, provider)) {
     throw new ProfileConflictError(toName)
   }
   const renamed: Profile = { ...source, name: toName }
@@ -343,12 +444,11 @@ export function renameProfile(
   // Atomic publish: write to a temp file in the same dir, fsync-rename into
   // place, THEN remove the old file. A crash/unlink failure can no longer
   // leave both files on disk (which listProfiles would surface as duplicates).
-  const dest = profilePath(projectPath, toName)
   const tmp = `${dest}.tmp-${process.pid}`
   fs.writeFileSync(tmp, JSON.stringify(renamed, null, 2) + '\n', 'utf8')
   fs.renameSync(tmp, dest)
   try {
-    fs.unlinkSync(profilePath(projectPath, fromName))
+    fs.unlinkSync(sourcePath)
   } catch {
     // The new file is fully published; a stale source is at worst a transient
     // duplicate, never data loss.
@@ -393,7 +493,21 @@ export function resolveProfile(
     throw new ProfileNotFoundError(explicit)
   }
 
-  return tryName('default') ?? tryName('project-default')
+  const fallbacks = expectedProvider === 'claude'
+    ? ['default', 'project-default']
+    : [`${expectedProvider}-default`, 'default', 'project-default']
+  for (const fallback of fallbacks) {
+    try {
+      const resolved = tryName(fallback)
+      if (resolved) return resolved
+    } catch (error) {
+      // A legacy unscoped default may belong to another provider. In a mixed
+      // project it must not prevent the selected provider from falling through
+      // to its own alternate default (or legacy mode).
+      if (!(error instanceof ProfileValidationError)) throw error
+    }
+  }
+  return null
 }
 
 // ─── Snapshot-per-job ────────────────────────────────────────────────────────

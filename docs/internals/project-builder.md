@@ -4,6 +4,12 @@
 > idea: a day-0 blueprint conversation, an orchestrated bootstrap commit, and a
 > milestone lifecycle (Launch M1 batch rail, sidebar re-entry, Generate M2+).
 
+> **Kimi capability boundary:** Kimi may be selected as a target provider for
+> the materialized project, and it may launch an already committed milestone
+> through the normal agentic Batch rail. Day-0 blueprint snapshots and M2+
+> milestone generation are pure structured-output actions and therefore fail
+> closed for Kimi 0.27 `-p`; no Kimi process is spawned for them.
+
 ## Entry + builder mode (reskin)
 
 "+ Add Project" shows an **Existing | New** pre-screen (`AddProjectDialog`,
@@ -67,6 +73,11 @@ route).
   transient; the blueprint has no per-milestone detailed-spec collection.
 
 ## Day-0 chat (no project exists)
+
+The provider selector excludes adapters that cannot enforce the blueprint
+generator's pure-output policy. A direct Kimi request is rejected before
+`BlueprintChatManager` spawns. This does not prevent the approved blueprint
+from declaring Kimi among the new project's target providers.
 
 - **Manager**: `server/blueprint-chat-manager.ts` `BlueprintChatManager` — an
   app-level sibling of `AgentChatManager` reusing `runAiCliInvocation`. Spawns
@@ -227,6 +238,11 @@ but NO project row (invisible; re-run rejects `location_not_empty`). After
 step 6 it is an ordinary project missing only the remote.
 
 ## Milestone lifecycle
+
+Generating detailed M2+ specs uses the same pure-output capability gate as
+day-0 blueprint generation. Kimi cannot be selected for that generation turn.
+Launching the already committed M1/M2+ tickets is ordinary Batch rail
+execution and can use Kimi.
 
 - **Launch Milestone 1** (`client/src/lib/milestone-launch.ts`
   `launchMilestone`): gather `M1`-labeled `todo` tickets → `POST /rails`

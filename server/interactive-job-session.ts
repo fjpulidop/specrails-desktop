@@ -37,6 +37,7 @@ import { finaliseInvocationResult } from './result-event'
 import { appendEvent, accumulateInteractiveTurn, type DbInstance, type InteractiveTurnUsage } from './db'
 import { extractDisplayText } from './util/stream-display'
 import type { AdapterEvent, ProviderAdapter } from './providers/types'
+import { parseStreamEvents } from './providers/runtime'
 import type { WsMessage } from './types'
 
 /** Claude's stream-json result frames do not carry a turn id. Hash a canonical
@@ -587,10 +588,10 @@ export class InteractiveJobSession {
       if (this._acceptedResultSignatures.has(signature)) return
     }
 
-    const adapterEv = this._adapter.parseStreamLine(line)
-    if (adapterEv) {
-      this._turnEvents.push(adapterEv)
-      if (!this._sawModelWork && isModelWorkEvent(adapterEv)) this._sawModelWork = true
+    const adapterEvents = parseStreamEvents(this._adapter, line)
+    for (const adapterEvent of adapterEvents) {
+      this._turnEvents.push(adapterEvent)
+      if (!this._sawModelWork && isModelWorkEvent(adapterEvent)) this._sawModelWork = true
     }
 
     if (parsed) {
@@ -617,8 +618,9 @@ export class InteractiveJobSession {
       }
     } else {
       this._persistLog('stdout', line)
-      if (adapterEv?.kind === 'text-delta') {
-        this._emitLog('stdout', adapterEv.text)
+      const textEvent = adapterEvents.find((event) => event.kind === 'text-delta')
+      if (textEvent?.kind === 'text-delta') {
+        this._emitLog('stdout', textEvent.text)
       } else {
         this._emitLog('stdout', line)
       }

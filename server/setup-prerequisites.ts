@@ -627,6 +627,8 @@ function providerInstallUrl(id: string): string {
       return 'https://developers.openai.com/codex'
     case 'gemini':
       return 'https://github.com/google-gemini/gemini-cli'
+    case 'kimi':
+      return 'https://www.kimi.com/code/docs/en/'
     default:
       return 'https://github.com'
   }
@@ -644,6 +646,10 @@ function providerInstallHint(id: string, platform: NodeJS.Platform): string {
           : 'Install Codex CLI from https://developers.openai.com/codex (or `pipx install codex-cli`), authenticate with `codex login`, then restart Specrails.'
     case 'gemini':
       return 'Install Gemini CLI via `npm i -g @google/gemini-cli` (or see https://github.com/google-gemini/gemini-cli), set GEMINI_API_KEY, then restart Specrails.'
+    case 'kimi':
+      return platform === 'win32'
+        ? 'Install Kimi Code from https://www.kimi.com/code/docs/en/, run `kimi login`, then restart Specrails so Windows refreshes PATH.'
+        : 'Install Kimi Code from https://www.kimi.com/code/docs/en/, run `kimi login`, then restart Specrails.'
     default:
       return `Install the ${id} CLI and restart Specrails.`
   }

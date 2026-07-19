@@ -1,6 +1,9 @@
 import { describe, it, expect, beforeEach, vi, afterEach } from 'vitest'
 import { EventEmitter } from 'events'
 import { Readable } from 'stream'
+import { mkdtempSync, mkdirSync, rmSync, writeFileSync } from 'node:fs'
+import os from 'node:os'
+import path from 'node:path'
 
 // Mock child_process before importing spec-launcher-manager
 vi.mock('child_process', () => ({
@@ -21,6 +24,7 @@ import { resolveCommand } from './command-resolver'
 import { SpecLauncherManager } from './spec-launcher-manager'
 import { initDb, type DbInstance } from './db'
 import type { WsMessage } from './types'
+import * as workspaceResolution from './workspace-resolution'
 
 function createMockChildProcess() {
   const child = new EventEmitter() as any
@@ -127,6 +131,103 @@ describe('SpecLauncherManager', () => {
         ]),
         expect.objectContaining({ cwd: CWD })
       )
+    })
+
+    it('materializes the OpenSpec Kimi skill instead of forwarding /skill text', async () => {
+      const root = mkdtempSync(path.join(os.tmpdir(), 'launcher-kimi-skill-'))
+      const skillDir = path.join(
+        root,
+        '.kimi-code',
+        'skills',
+        'openspec-ff-change',
+      )
+      mkdirSync(skillDir, { recursive: true })
+      writeFileSync(
+        path.join(skillDir, 'SKILL.md'),
+        '---\nname: openspec-ff-change\ndescription: test\ntype: prompt\n---\nFast-forward: $ARGUMENTS\n',
+      )
+      const kimi = new SpecLauncherManager(broadcast, root, undefined, undefined, 'kimi')
+      const child = createMockChildProcess()
+      vi.mocked(mockSpawn).mockReturnValue(child as any)
+
+      const launchPromise = kimi.launch('launch-kimi', 'create auth spec')
+      const [binary, args] = vi.mocked(mockSpawn).mock.calls[0] as [string, string[]]
+      expect(binary).toBe('kimi')
+      const prompt = args[args.indexOf('-p') + 1]
+      expect(prompt).toContain('Fast-forward: create auth spec')
+      expect(prompt).toContain('<kimi-skill-loaded')
+      expect(prompt).not.toContain('/skill:openspec-ff-change')
+      child.emit('close', 0)
+      await launchPromise
+      kimi.shutdown()
+      rmSync(root, { recursive: true, force: true })
+    })
+
+    it('uses relocated Kimi skills/cwd and treats an explicit error as failure even on exit 0', async () => {
+      const repo = mkdtempSync(path.join(os.tmpdir(), 'launcher-kimi-repo-'))
+      const workspace = mkdtempSync(path.join(os.tmpdir(), 'launcher-kimi-workspace-'))
+      const skillDir = path.join(
+        workspace,
+        '.kimi-code',
+        'skills',
+        'openspec-ff-change',
+      )
+      mkdirSync(skillDir, { recursive: true })
+      writeFileSync(
+        path.join(skillDir, 'SKILL.md'),
+        '---\nname: openspec-ff-change\ndescription: test\ntype: prompt\n---\nFast-forward: $ARGUMENTS\n',
+      )
+      vi.spyOn(workspaceResolution, 'resolveProjectExecution').mockReturnValue({
+        relocated: true,
+        cwd: workspace,
+        repoDir: repo,
+        workspaceDir: workspace,
+        env: { SPECRAILS_REPO_DIR: repo },
+      } as any)
+      const kimi = new SpecLauncherManager(
+        broadcast,
+        repo,
+        undefined,
+        'p1',
+        'kimi',
+        'slug',
+      )
+      const child = createMockChildProcess()
+      vi.mocked(mockSpawn).mockReturnValue(child as any)
+
+      const launchPromise = kimi.launch('launch-kimi-relocated', 'create auth spec')
+      const [binary, args, options] = vi.mocked(mockSpawn).mock.calls[0] as [
+        string,
+        string[],
+        { cwd: string; env: NodeJS.ProcessEnv },
+      ]
+      expect(binary).toBe('kimi')
+      expect(args[args.indexOf('-p') + 1]).toContain('<kimi-skill-loaded')
+      expect(args).toEqual(expect.arrayContaining(['--add-dir', repo]))
+      expect(options.cwd).toBe(workspace)
+      expect(options.env.SPECRAILS_REPO_DIR).toBe(repo)
+
+      await emitLinesAndFlush(child.stdout, [JSON.stringify({
+        role: 'meta',
+        type: 'system.error',
+        message: 'Authentication required. Run kimi login.',
+      })])
+      child.emit('close', 0)
+      await launchPromise
+
+      const messages = broadcast.mock.calls.map(([message]) => message)
+      expect(messages).not.toEqual(expect.arrayContaining([
+        expect.objectContaining({ type: 'spec_launcher_done' }),
+      ]))
+      expect(messages).toEqual(expect.arrayContaining([
+        expect.objectContaining({
+          type: 'spec_launcher_error',
+          error: 'Authentication required. Run kimi login.',
+        }),
+      ]))
+      kimi.shutdown()
+      rmSync(repo, { recursive: true, force: true })
+      rmSync(workspace, { recursive: true, force: true })
     })
 
     it('broadcasts spec_launcher_stream for assistant text blocks', async () => {

@@ -26,6 +26,7 @@
 // Spec: openspec/specs/multi-provider-architecture/spec.md
 
 import { execSync } from 'child_process'
+import path from 'path'
 import type {
   AdapterEvent,
   DetectionResult,
@@ -331,7 +332,7 @@ async function detectCodexInstalled(): Promise<DetectionResult> {
   }
 }
 
-export const codexAdapter: ProviderAdapter = {
+export const codexAdapter = {
   id: 'codex',
   displayName: 'Codex CLI',
   binary: 'codex',
@@ -351,14 +352,33 @@ export const codexAdapter: ProviderAdapter = {
     // tiers); ultra is Sol-only upstream — codex validates the combo itself.
     reasoningEfforts: ['minimal', 'low', 'medium', 'high', 'xhigh', 'max', 'ultra'],
     supportsImageInput: true, // codex-cli `-i/--image <FILE>...` (verified 0.141)
+    structuredActions: false,
+    // Codex has an enforced read-only sandbox, but no true "no tools" mode in
+    // this adapter (workspace-write is not an output-only boundary).
+    toolPolicies: ['read-only'],
+    profiles: false,
+    customRoles: false,
+    freestyle: false,
+    userMcp: false,
   },
   modelCatalog: () => CODEX_MODELS,
   defaultModel: () => 'gpt-5.5',
   buildArgs: buildCodexArgs,
   parseStreamLine: parseCodexStreamLine,
   extractResult: extractCodexResult,
+  formatCoreCommand: (command: string) =>
+    command.replace(/^\/(?:specrails|sr):([\w-]+)/, '$$$1'),
+  buildRepoAccessArgs: (paths: readonly string[]) =>
+    paths.length === 0
+      ? []
+      : [
+          '-c',
+          `sandbox_workspace_write.writable_roots=[${paths.map((repoPath) => JSON.stringify(repoPath)).join(', ')}]`,
+        ],
+  customRolePath: (root: string, roleId: string) =>
+    path.join(root, '.codex', 'skills', 'rails', roleId, 'SKILL.md'),
   baselineAgents: () => ['sr-architect', 'sr-developer', 'sr-reviewer'],
   detectInstalled: detectCodexInstalled,
-}
+} satisfies ProviderAdapter
 
 export { CODEX_MIN_VERSION as _CODEX_MIN_VERSION, compareSemver as _compareSemver }

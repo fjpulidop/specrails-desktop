@@ -371,6 +371,61 @@ describe('AttachmentManager', () => {
       )
       expect(store.tickets['1'].attachments ?? []).toHaveLength(0)
     })
+
+    it('rejects a sidecar traversal before deleting the sidecar or an outside file', async () => {
+      const att = await manager.upload({
+        slug: 'proj', ticketKey: '1', ticketStorePath: null, file: makeFile(),
+      })
+      const outside = path.join(tmpDir, 'outside-secret.txt')
+      fs.writeFileSync(outside, 'keep me', 'utf8')
+      const sidecar = path.join(manager.ticketDir('proj', '1'), `${att.id}.meta.json`)
+      fs.writeFileSync(
+        sidecar,
+        JSON.stringify({ ...att, storedName: '../../../outside-secret.txt' }),
+        'utf8',
+      )
+
+      await expect(manager.delete({
+        slug: 'proj', ticketKey: '1', attachmentId: att.id, ticketStorePath: null,
+      })).rejects.toThrow(/Unsafe attachment stored name/)
+      expect(fs.readFileSync(outside, 'utf8')).toBe('keep me')
+      expect(fs.existsSync(sidecar)).toBe(true)
+    })
+
+    it.skipIf(process.platform === 'win32')(
+      'rejects a sidecar symlink escape before deleting metadata',
+      async () => {
+        const att = await manager.upload({
+          slug: 'proj', ticketKey: '1', ticketStorePath: null, file: makeFile(),
+        })
+        const outside = path.join(tmpDir, 'outside-agent-secret.txt')
+        fs.writeFileSync(outside, 'keep me too', 'utf8')
+        const dir = manager.ticketDir('proj', '1')
+        const managed = path.join(dir, att.storedName)
+        fs.unlinkSync(managed)
+        fs.symlinkSync(outside, managed)
+        const sidecar = path.join(dir, `${att.id}.meta.json`)
+
+        await expect(manager.delete({
+          slug: 'proj', ticketKey: '1', attachmentId: att.id, ticketStorePath: null,
+        })).rejects.toThrow(/Unsafe attachment symlink/)
+        expect(fs.readFileSync(outside, 'utf8')).toBe('keep me too')
+        expect(fs.existsSync(sidecar)).toBe(true)
+      },
+    )
+
+    it('applies the same sidecar path boundary to agent attachment deletion', async () => {
+      const att = await manager.uploadAgent({ conversationId: 'conv-1', file: makeFile() })
+      const sidecar = path.join(
+        homeDir, '.specrails', 'agent', 'conv-1', 'attachments', `${att.id}.meta.json`,
+      )
+      fs.writeFileSync(sidecar, JSON.stringify({ ...att, storedName: '../outside.txt' }), 'utf8')
+
+      await expect(manager.deleteAgent('conv-1', att.id)).rejects.toThrow(
+        /Unsafe attachment stored name/,
+      )
+      expect(fs.existsSync(sidecar)).toBe(true)
+    })
   })
 
   // ─── deleteAll ─────────────────────────────────────────────────────────────

@@ -8,7 +8,8 @@
     "surpriseMe": "Surprenez-moi",
     "inputPlaceholder": "Une app qui…",
     "createSpecs": "Créer les specs",
-    "createSpecsHint": "Disponible dès que le blueprint contient des specs du Jalon 1"
+    "createSpecsHint": "Disponible dès que le blueprint contient des specs du Jalon 1",
+    "providerUnavailable": "Le Constructeur nécessite un fournisseur avec un mode natif sans outils ou en lecture seule. Ce fournisseur n’est pas disponible ici."
   },
   "panel": {
     "title": "Blueprint",
@@ -87,7 +88,8 @@
     "progress": "{{done}}/{{total}} faites",
     "launchM1": "Lancer le Jalon 1",
     "generateNext": "Générer M{{n}}",
-    "generateHint": "Ouvre une session de specs ancrée dans le code, semée avec le blueprint"
+    "generateHint": "Ouvre une session de specs ancrée dans le code, semée avec le blueprint",
+    "generateUnavailable": "La génération de jalons nécessite un mode natif en lecture seule"
   },
   "errors": {
     "startFailed": "Impossible de démarrer la conversation du Constructeur.",
@@ -99,7 +101,8 @@
     "inputPlaceholder": "Affinez les specs…",
     "commit": "Valider {{count}} specs comme {{label}}",
     "commitToast": "{{count}} specs ajoutées au tableau comme {{label}}",
-    "commitFailed": "Impossible de valider le jalon"
+    "commitFailed": "Impossible de valider le jalon",
+    "providerUnavailable": "La génération de jalons est indisponible car ce fournisseur n’a pas de mode natif en lecture seule."
   },
   "mode": {
     "title": "Constructeur de projets",

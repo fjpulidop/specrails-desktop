@@ -28,6 +28,8 @@ vi.mock('./specrails-tech-client', () => ({
 }))
 
 import { createDesktopRouter } from './desktop-router'
+import { checkCoreCompat, detectAvailableCLIs } from './core-compat'
+import { kimiAdapter } from './providers'
 import { initDesktopDb, addProject, removeProject as removeProjectFromDesktopDb, getProject, getDesktopSetting, setDesktopSetting, addAgent, getAgent, addWebhook } from './desktop-db'
 import { initDb } from './db'
 import type { ProjectRegistry, ProjectContext } from './project-registry'
@@ -81,6 +83,12 @@ describe('desktop-router', () => {
 
   beforeEach(() => {
     vi.restoreAllMocks()
+    vi.spyOn(kimiAdapter, 'detectInstalled').mockResolvedValue({
+      installed: true,
+      executable: true,
+      version: '0.27.0',
+      meetsMinimum: true,
+    })
     desktopDb = initDesktopDb(':memory:')
     // Spy on fs.existsSync so the router's `fs.existsSync(resolvedPath)` is intercepted
     existsSyncSpy = vi.spyOn(fs, 'existsSync').mockReturnValue(true)
@@ -590,6 +598,90 @@ describe('desktop-router', () => {
       expect(res.body.codex).toBe(false)
     })
 
+    it('gates detected Kimi on Core rendering support and returns remediation', async () => {
+      vi.mocked(detectAvailableCLIs).mockReturnValue({
+        claude: false,
+        codex: false,
+        gemini: false,
+        kimi: true,
+      })
+      vi.mocked(checkCoreCompat).mockResolvedValue({
+        compatible: true,
+        contractFound: true,
+        supportedProviders: [],
+      } as never)
+      const { app } = createApp()
+      const res = await request(app).get('/api/available-providers')
+      expect(res.status).toBe(200)
+      expect(res.body.kimi).toBe(false)
+      expect(res.body.providerIssues.kimi).toMatchObject({
+        code: 'core_provider_unsupported',
+      })
+      expect(res.body.launchDescriptors.kimi).toEqual({ command: 'kimi', args: [] })
+      expect(res.body.tiers).toEqual(['quick'])
+    })
+
+    it('enables detected Kimi when bundled Core advertises providers.kimi', async () => {
+      vi.mocked(detectAvailableCLIs).mockReturnValue({
+        claude: false,
+        codex: false,
+        gemini: false,
+        kimi: true,
+      })
+      vi.mocked(checkCoreCompat).mockResolvedValue({
+        compatible: true,
+        contractFound: true,
+        supportedProviders: ['kimi'],
+      } as never)
+      const { app } = createApp()
+      const res = await request(app).get('/api/available-providers')
+      expect(res.body.kimi).toBe(true)
+      expect(res.body.providerIssues.kimi).toBeUndefined()
+      expect(res.body.tiers).toEqual(['quick', 'full'])
+    })
+
+    it('does not advertise a detected Kimi binary below the supported 0.27 floor', async () => {
+      vi.mocked(detectAvailableCLIs).mockReturnValue({
+        claude: false,
+        codex: false,
+        gemini: false,
+        kimi: true,
+      })
+      vi.mocked(kimiAdapter.detectInstalled).mockResolvedValue({
+        installed: true,
+        executable: true,
+        version: '0.26.9',
+        meetsMinimum: false,
+        error: 'kimi 0.26.9 is older than required 0.27.0',
+      })
+      const { app } = createApp()
+      const res = await request(app).get('/api/available-providers')
+      expect(res.status).toBe(200)
+      expect(res.body.kimi).toBe(false)
+      expect(res.body.providerIssues.kimi).toMatchObject({
+        code: 'provider_cli_outdated',
+        message: expect.stringMatching(/0\.27\.0/),
+      })
+      expect(res.body.tiers).toEqual(['quick'])
+    })
+
+    it('does not advertise a Kimi shim that exists but cannot execute', async () => {
+      vi.mocked(detectAvailableCLIs).mockReturnValue({
+        claude: false,
+        codex: false,
+        gemini: false,
+        kimi: true,
+      })
+      vi.mocked(kimiAdapter.detectInstalled).mockResolvedValue({
+        installed: true,
+        executable: false,
+      })
+      const { app } = createApp()
+      const res = await request(app).get('/api/available-providers')
+      expect(res.body.kimi).toBe(false)
+      expect(res.body.providerIssues.kimi.code).toBe('provider_cli_unusable')
+    })
+
     it('surfaces gemini by default (enabled — key reflects real detection)', async () => {
       const prev = process.env.SPECRAILS_GEMINI_BETA
       delete process.env.SPECRAILS_GEMINI_BETA
@@ -623,6 +715,67 @@ describe('desktop-router', () => {
   // ─── POST /projects — provider validation ───────────────────────────────────
 
   describe('POST /api/projects — provider field', () => {
+    it('refuses a partial Kimi project when Core cannot render Kimi skills', async () => {
+      vi.mocked(checkCoreCompat).mockResolvedValue({
+        compatible: true,
+        contractFound: true,
+        supportedProviders: [],
+      } as never)
+      const { app } = createApp()
+      const res = await request(app).post('/api/projects').send({
+        path: '/home/user/kimi-old-core',
+        provider: 'kimi',
+      })
+      expect(res.status).toBe(409)
+      expect(res.body).toMatchObject({
+        code: 'core_provider_unsupported',
+        provider: 'kimi',
+      })
+      expect(res.body.error).toMatch(/update|reinstall/i)
+    })
+
+    it('accepts Kimi when Core advertises providers.kimi', async () => {
+      vi.mocked(checkCoreCompat).mockResolvedValue({
+        compatible: true,
+        contractFound: true,
+        supportedProviders: ['kimi'],
+      } as never)
+      const { app } = createApp()
+      const res = await request(app).post('/api/projects').send({
+        path: '/home/user/kimi-project',
+        provider: 'kimi',
+      })
+      expect(res.status).toBe(201)
+      expect(res.body.project.provider).toBe('kimi')
+      expect(res.body.project.providers).toEqual(['kimi'])
+    })
+
+    it('refuses to register Kimi when the installed CLI is older than 0.27', async () => {
+      vi.mocked(kimiAdapter.detectInstalled).mockResolvedValue({
+        installed: true,
+        executable: true,
+        version: '0.26.8',
+        meetsMinimum: false,
+        error: 'kimi 0.26.8 is older than required 0.27.0',
+      })
+      const { app } = createApp()
+      const res = await request(app).post('/api/projects').send({
+        path: '/home/user/kimi-old-cli',
+        provider: 'kimi',
+      })
+      expect(res.status).toBe(409)
+      expect(res.body).toMatchObject({
+        code: 'provider_cli_outdated',
+        provider: 'kimi',
+        detection: {
+          installed: true,
+          executable: true,
+          version: '0.26.8',
+          meetsMinimum: false,
+        },
+      })
+    })
+
     it('accepts gemini by default (enabled)', async () => {
       const prev = process.env.SPECRAILS_GEMINI_BETA
       delete process.env.SPECRAILS_GEMINI_BETA

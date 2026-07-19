@@ -5,7 +5,11 @@ import type { ProjectContext } from './project-registry'
 import { generateCustomAgent, testCustomAgent } from './agent-generator'
 import { getRefineSession, listRefineSessionsForAgent } from './agent-refine-db'
 import { refineSessionToJson } from './agent-refine-manager'
-import { getAdapter } from './providers'
+import { getAdapter, hasAdapter, isModelAvailableForAdapter } from './providers'
+import {
+  parseKimiSkillDocument,
+  validateKimiRoleDocument,
+} from './providers/kimi-skill-prompt'
 import {
   createProfile,
   deleteProfile,
@@ -22,27 +26,103 @@ import {
   type Profile,
 } from './profile-manager'
 import { resolveProjectExecution } from './workspace-resolution'
+import {
+  readAgentModelSelection,
+  readAgentModels,
+} from './project-router-helpers'
 
 /**
  * Relocate-artifacts gate: the dir whose `.specrails/{profiles,specrails-version}`
- * AND whose `.claude/agents/**` catalog the profiles surface reads/writes.
- * Relocated ⇒ the workspace dir (where core assembled the agents catalog +
+ * and provider-native roles catalog the profiles surface reads/writes.
+ * Relocated ⇒ the workspace dir (where Core assembled the roles catalog +
  * `.specrails/profiles`); legacy ⇒ project.path (byte-identical to today).
  *
- * The `.claude/agents/**` catalog MUST follow this same root: when relocated,
- * core materializes the agents into `<workspace>/.claude/agents`, so a profiles
- * catalog read/write rooted at `project.path` would (a) read a stale/absent repo
- * copy and (b) write custom-* agents into the repo — violating repo-immutability
- * and never reaching the workspace the rails actually load from.
+ * The roles catalog MUST follow this same root. Depending on the selected
+ * adapter, Core materializes file-based roles such as
+ * `<workspace>/.claude/agents/<id>.md`, or skill-based roles such as
+ * `<workspace>/.kimi-code/skills/<id>/SKILL.md`. Reading/writing beneath
+ * `project.path` would miss the execution catalog and violate repo immutability.
  */
 function specRoot(project: { slug: string; path: string }): string {
   const exec = resolveProjectExecution({ slug: project.slug, path: project.path })
   return exec.relocated && exec.workspaceDir ? exec.workspaceDir : project.path
 }
 
-/** The agents-catalog directory for the relocate-aware root (`<root>/.claude/agents`). */
-function agentsCatalogDir(project: { slug: string; path: string }): string {
-  return path.join(specRoot(project), '.claude', 'agents')
+type ProviderProject = {
+  slug: string
+  path: string
+  provider?: string | null
+  providers?: readonly string[] | null
+}
+
+function installedProviders(project: Pick<ProviderProject, 'provider' | 'providers'>): string[] {
+  const primary = project.provider ?? 'claude'
+  const configured = project.providers?.filter((provider): provider is string => typeof provider === 'string')
+  return configured?.length ? [...new Set([primary, ...configured])] : [primary]
+}
+
+function requestedProvider(
+  req: Request,
+  project: Pick<ProviderProject, 'provider' | 'providers'>,
+  bodyProvider?: unknown,
+): string {
+  const queryProvider = typeof req.query.provider === 'string' ? req.query.provider : undefined
+  const explicitBodyProvider = typeof bodyProvider === 'string' && bodyProvider.length > 0
+    ? bodyProvider
+    : undefined
+  if (queryProvider && explicitBodyProvider && queryProvider !== explicitBodyProvider) {
+    throw new ProfileValidationError([
+      `body provider '${explicitBodyProvider}' does not match requested provider '${queryProvider}'`,
+    ])
+  }
+  const provider = queryProvider ?? explicitBodyProvider ?? project.provider ?? 'claude'
+  if (!hasAdapter(provider) || !installedProviders(project).includes(provider)) {
+    throw new ProfileValidationError([
+      `provider '${provider}' is not installed for this project`,
+    ])
+  }
+  return provider
+}
+
+function projectAdapter(project: { provider?: string | null }, provider?: string) {
+  return getAdapter(provider ?? project.provider ?? 'claude')
+}
+
+function agentFile(project: ProviderProject, agentId: string, provider?: string): string {
+  const root = specRoot(project)
+  const adapter = projectAdapter(project, provider)
+  return adapter.customRolePath?.(root, agentId)
+    ?? path.join(root, adapter.projectDirName, 'agents', `${agentId}.md`)
+}
+
+/** The provider-native roles catalog directory. */
+function agentsCatalogDir(project: ProviderProject, provider?: string): string {
+  const probe = agentFile(project, '__catalog_probe__', provider)
+  // File-based roles use `<catalog>/<id>.md`; skill-based roles (Kimi) use
+  // `<catalog>/<id>/SKILL.md`.
+  return path.basename(probe) === 'SKILL.md'
+    ? path.dirname(path.dirname(probe))
+    : path.dirname(probe)
+}
+
+function listAgentFiles(
+  project: ProviderProject,
+  provider?: string,
+): Array<{ id: string; file: string }> {
+  const dir = agentsCatalogDir(project, provider)
+  if (!fs.existsSync(dir)) return []
+  const out: Array<{ id: string; file: string }> = []
+  for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
+    const id = entry.isDirectory()
+      ? entry.name
+      : entry.isFile() && entry.name.endsWith('.md')
+        ? entry.name.slice(0, -3)
+        : null
+    if (!id) continue
+    const file = agentFile(project, id, provider)
+    if (fs.existsSync(file)) out.push({ id, file })
+  }
+  return out
 }
 
 // Request augmentation declared in project-router.ts
@@ -71,6 +151,36 @@ function handleError(res: Response, err: unknown): void {
   res.status(500).json({ error: message })
 }
 
+/** Studio automation is safe when the CLI can enforce either a no-tools or a
+ * read-only boundary. Codex/Gemini use their verified native read-only modes;
+ * Kimi prompt mode exposes neither and therefore fails closed. */
+export function providerSupportsAgentStudioAutomation(provider: string): boolean {
+  const adapter = getAdapter(provider)
+  const policies = adapter.capabilities.toolPolicies ?? []
+  return policies.includes('none') || policies.includes('read-only')
+}
+
+function requireSafeStudioPolicy(res: Response, provider: string): boolean {
+  if (providerSupportsAgentStudioAutomation(provider)) return true
+  res.status(409).json({
+    error: 'provider_tool_policy_unsupported',
+    provider,
+    requiredPolicies: ['none', 'read-only'],
+  })
+  return false
+}
+
+/** Kimi custom roles are provider-native Skills, so a non-empty markdown file
+ * is not enough: discovery requires valid identifying frontmatter. Reuse the
+ * execution parser directly so Profiles can never persist regex-accepted YAML
+ * that the Kimi headless path rejects later. The parser module is dependency
+ * leaf (fs/path/js-yaml only), so this direct import does not create a router /
+ * adapter cycle. */
+function validateCustomRoleBody(provider: string, agentId: string, body: string): string[] {
+  if (provider !== 'kimi') return []
+  return validateKimiRoleDocument(body, agentId, `${agentId}/SKILL.md`)
+}
+
 export function createProfilesRouter(): Router {
   const router = Router({ mergeParams: true })
 
@@ -87,37 +197,74 @@ export function createProfilesRouter(): Router {
     next()
   })
 
+  // GET /api/projects/:projectId/profiles/context
+  // Provider-aware catalogs drive both Profiles and Agent Studio without
+  // hard-coding a Claude fallback into either client.
+  router.get('/context', (req, res) => {
+    try {
+      const { project } = ctx(req)
+      const providers = installedProviders(project)
+      const catalogs = Object.fromEntries(providers.map((provider) => {
+        const adapter = getAdapter(provider)
+        return [provider, {
+          models: adapter.modelCatalog().map(({ value, label }) => ({ value, label })),
+          defaultModel: adapter.defaultModel(),
+          baselineAgents: [...adapter.baselineAgents()],
+          customModelAliases: adapter.capabilities.customModelAliases === true,
+        }]
+      }))
+      res.json({
+        primaryProvider: project.provider ?? providers[0] ?? 'claude',
+        providers,
+        catalogs,
+      })
+    } catch (err) {
+      handleError(res, err)
+    }
+  })
+
   // POST /api/projects/:projectId/profiles/migrate-from-settings
   // Seed a `default` profile from the agent frontmatter + legacy routing.
   // Intended for first-time onboarding of existing projects.
   router.post('/migrate-from-settings', (req, res) => {
     try {
       const { project, broadcast } = ctx(req)
-      const agentsDir = agentsCatalogDir(project)
+      const provider = requestedProvider(req, project)
+      const adapter = projectAdapter(project, provider)
+      const configuredKimiModels = provider === 'kimi'
+        ? readAgentModelSelection({ ...project, provider })
+        : null
+      const projectedKimiModels = configuredKimiModels
+        ? new Map(
+            readAgentModels({ ...project, provider })
+              .map((entry) => [entry.name, entry.model] as const),
+          )
+        : null
+      const agentsDir = agentsCatalogDir(project, provider)
       if (!fs.existsSync(agentsDir)) {
-        res.status(400).json({ error: 'no .claude/agents/ directory found' })
+        res.status(400).json({ error: `no ${adapter.projectDirName} roles catalog found` })
         return
       }
-      // Gather installed sr-*.md with their declared models.
-      const agents: Array<{ id: string; model: 'sonnet' | 'opus' | 'haiku' }> = []
-      for (const entry of fs.readdirSync(agentsDir)) {
-        if (!entry.endsWith('.md')) continue
-        if (!entry.startsWith('sr-')) continue
-        const id = entry.slice(0, -'.md'.length)
-        let model: 'sonnet' | 'opus' | 'haiku' = 'sonnet'
-        try {
-          const content = fs.readFileSync(path.join(agentsDir, entry), 'utf8')
-          const fm = content.match(/^---\r?\n([\s\S]*?)\r?\n---/)
-          if (fm) {
-            const m = fm[1].match(/^model:\s*(sonnet|opus|haiku)/m)
-            if (m) model = m[1] as 'sonnet' | 'opus' | 'haiku'
+      const agents: Array<{ id: string; model: string }> = []
+      for (const entry of listAgentFiles(project, provider)) {
+        if (!entry.id.startsWith('sr-')) continue
+        const id = entry.id
+        let model = projectedKimiModels?.get(id) ?? adapter.defaultModel()
+        if (!projectedKimiModels) {
+          try {
+            const content = fs.readFileSync(entry.file, 'utf8')
+            const fm = content.match(/^---\r?\n([\s\S]*?)\r?\n---/)
+            if (fm) {
+              const m = fm[1].match(/^model:\s*(\S+)/m)
+              if (m && isModelAvailableForAdapter(adapter, m[1])) model = m[1]
+            }
+          } catch {
+            // skip unreadable files
           }
-        } catch {
-          // skip unreadable files
         }
         agents.push({ id, model })
       }
-      const baseline = ['sr-architect', 'sr-developer', 'sr-reviewer']
+      const baseline = [...adapter.baselineAgents()]
       const missing = baseline.filter((id) => !agents.some((a) => a.id === id))
       if (missing.length > 0) {
         res.status(400).json({
@@ -140,23 +287,23 @@ export function createProfilesRouter(): Router {
           .sort((a, b) => a.id.localeCompare(b.id)),
         ...agents.filter((a) => pinnedLast.has(a.id)),
       ]
-      // Build the default profile mirroring legacy routing. The frontmatter
-      // model aliases parsed above are claude-specific; for any other provider
-      // they are not in the adapter's catalog, so fall back to that provider's
-      // default model and stamp the provider so the persisted profile validates
-      // against the right catalog on every future read.
-      const provider = project.provider ?? 'claude'
+      // Build the default profile mirroring legacy routing. Claude keeps its
+      // role-frontmatter projection. Kimi has no compatible `model:` field in
+      // SKILL.md, so its exact validated default/overrides come from the
+      // provider install config projected above.
       const isClaude = provider === 'claude'
-      const fallbackModel = isClaude ? 'sonnet' : getAdapter(provider).defaultModel()
+      const fallbackModel = adapter.defaultModel()
       const profile = {
         schemaVersion: 1 as const,
         name: 'default',
         description: 'Baseline profile migrated from your current agent frontmatters.',
-        ...(isClaude ? {} : { provider }),
-        orchestrator: { model: isClaude ? 'sonnet' : fallbackModel },
+        ...(!isClaude || installedProviders(project).length > 1 ? { provider } : {}),
+        orchestrator: {
+          model: configuredKimiModels?.defaultModel ?? fallbackModel,
+        },
         agents: orderedAgents.map((a) => ({
           id: a.id,
-          model: isClaude ? a.model : fallbackModel,
+          model: a.model,
           required: baseline.includes(a.id),
         })),
         routing: [
@@ -189,7 +336,8 @@ export function createProfilesRouter(): Router {
   // Per-profile aggregated metrics over the requested time window.
   router.get('/analytics', (req, res) => {
     try {
-      const { db } = ctx(req)
+      const { db, project } = ctx(req)
+      const provider = requestedProvider(req, project)
       const windowDays = Math.max(1, Math.min(365, parseInt((req.query.windowDays ?? '30') as string, 10) || 30))
       const since = Date.now() - windowDays * 24 * 60 * 60 * 1000
       const rows = db
@@ -199,24 +347,42 @@ export function createProfilesRouter(): Router {
              COUNT(*) AS jobs,
              SUM(CASE WHEN j.status = 'completed' THEN 1 ELSE 0 END) AS succeeded,
              AVG(j.duration_ms) AS avgDurationMs,
-             AVG(COALESCE(j.tokens_in, 0) + COALESCE(j.tokens_out, 0)
-                 + COALESCE(j.tokens_cache_read, 0) + COALESCE(j.tokens_cache_create, 0)) AS avgTokens,
-             AVG(j.total_cost_usd) AS avgCostUsd
+             AVG(CASE
+                   WHEN j.tokens_in IS NOT NULL OR j.tokens_out IS NOT NULL
+                     OR j.tokens_cache_read IS NOT NULL OR j.tokens_cache_create IS NOT NULL
+                   THEN COALESCE(j.tokens_in, 0) + COALESCE(j.tokens_out, 0)
+                     + COALESCE(j.tokens_cache_read, 0) + COALESCE(j.tokens_cache_create, 0)
+                 END) AS avgTokens,
+             AVG(j.total_cost_usd) AS avgCostUsd,
+             SUM(CASE WHEN j.tokens_in IS NOT NULL OR j.tokens_out IS NOT NULL
+                           OR j.tokens_cache_read IS NOT NULL OR j.tokens_cache_create IS NOT NULL
+                      THEN 1 ELSE 0 END) AS usageReportedJobs,
+             SUM(CASE WHEN j.tokens_in IS NULL AND j.tokens_out IS NULL
+                           AND j.tokens_cache_read IS NULL AND j.tokens_cache_create IS NULL
+                      THEN 1 ELSE 0 END) AS usageUnavailableJobs,
+             COUNT(j.total_cost_usd) AS pricedJobs,
+             SUM(CASE WHEN j.total_cost_usd IS NULL THEN 1 ELSE 0 END) AS unpricedJobs
            FROM job_profiles jp
            JOIN jobs j ON j.id = jp.job_id
            WHERE jp.created_at >= ?
+             AND COALESCE(j.provider, 'claude') = ?
            GROUP BY jp.profile_name
            ORDER BY jobs DESC`,
         )
-        .all(since) as Array<{
+        .all(since, provider) as Array<{
           profileName: string
           jobs: number
           succeeded: number
           avgDurationMs: number | null
           avgTokens: number | null
           avgCostUsd: number | null
+          usageReportedJobs: number
+          usageUnavailableJobs: number
+          pricedJobs: number
+          unpricedJobs: number
         }>
       res.json({
+        provider,
         windowDays,
         rows: rows.map((r) => ({
           profileName: r.profileName,
@@ -226,6 +392,10 @@ export function createProfilesRouter(): Router {
           avgDurationMs: r.avgDurationMs,
           avgTokens: r.avgTokens,
           avgCostUsd: r.avgCostUsd,
+          usageReportedJobs: r.usageReportedJobs,
+          usageUnavailableJobs: r.usageUnavailableJobs,
+          pricedJobs: r.pricedJobs,
+          unpricedJobs: r.unpricedJobs,
         })),
       })
     } catch (err) {
@@ -274,12 +444,13 @@ export function createProfilesRouter(): Router {
   })
 
   // GET /api/projects/:projectId/profiles/catalog
-  // List all agents available in .claude/agents/ (upstream sr-* and custom custom-*)
+  // List all roles in the selected provider-native catalog (sr-* + custom-*).
   router.get('/catalog', (req, res) => {
     try {
       const { project } = ctx(req)
-      const dir = agentsCatalogDir(project)
-      if (!fs.existsSync(dir)) {
+      const provider = requestedProvider(req, project)
+      const files = listAgentFiles(project, provider)
+      if (files.length === 0) {
         res.json({ agents: [] })
         return
       }
@@ -289,9 +460,8 @@ export function createProfilesRouter(): Router {
         description?: string
         model?: string
       }> = []
-      for (const file of fs.readdirSync(dir)) {
-        if (!file.endsWith('.md')) continue
-        const id = file.slice(0, -'.md'.length)
+      for (const entry of files) {
+        const id = entry.id
         const kind: 'upstream' | 'custom' | null = id.startsWith('sr-')
           ? 'upstream'
           : id.startsWith('custom-')
@@ -301,9 +471,14 @@ export function createProfilesRouter(): Router {
         let description: string | undefined
         let model: string | undefined
         try {
-          const body = fs.readFileSync(path.join(dir, file), 'utf8')
-          const fm = body.match(/^---\r?\n([\s\S]*?)\r?\n---/)
-          if (fm) {
+          const body = fs.readFileSync(entry.file, 'utf8')
+          if (provider === 'kimi') {
+            // Use the same js-yaml metadata parser as validation/execution so
+            // folded/literal descriptions and quoted scalars render correctly.
+            description = parseKimiSkillDocument(body, entry.file).description
+          } else {
+            const fm = body.match(/^---\r?\n([\s\S]*?)\r?\n---/)
+            if (!fm) throw new Error(`Missing frontmatter in ${entry.file}`)
             // description can be a long JSON-escaped string spanning multiple lines.
             // Match from `description:` up to the next top-level YAML key or the end
             // of the frontmatter block. Then unescape \n, \t, \" and strip surrounding
@@ -333,6 +508,9 @@ export function createProfilesRouter(): Router {
             const modelMatch = fm[1].match(/^model:\s*(\S+)/m)
             if (modelMatch) model = modelMatch[1]
           }
+          if (description && description.length > 280) {
+            description = description.slice(0, 277) + '…'
+          }
         } catch {
           // ignore unreadable files
         }
@@ -350,12 +528,13 @@ export function createProfilesRouter(): Router {
   router.get('/catalog/:agentId', (req, res) => {
     try {
       const { project } = ctx(req)
+      const provider = requestedProvider(req, project)
       const agentId = req.params.agentId
       if (!/^(sr|custom)-[a-z0-9][a-z0-9-]*$/.test(agentId)) {
         res.status(400).json({ error: 'invalid agent id' })
         return
       }
-      const file = path.join(agentsCatalogDir(project), `${agentId}.md`)
+      const file = agentFile(project, agentId, provider)
       if (!fs.existsSync(file)) {
         res.status(404).json({ error: 'agent not found' })
         return
@@ -373,6 +552,7 @@ export function createProfilesRouter(): Router {
   router.post('/catalog', (req, res) => {
     try {
       const { project, db, broadcast } = ctx(req)
+      const provider = requestedProvider(req, project, req.body?.provider)
       const id = (req.body?.id ?? '').toString().trim()
       const body = (req.body?.body ?? '').toString()
       if (!/^custom-[a-z0-9][a-z0-9-]*$/.test(id)) {
@@ -383,9 +563,13 @@ export function createProfilesRouter(): Router {
         res.status(400).json({ error: 'body is required' })
         return
       }
-      const agentsDir = agentsCatalogDir(project)
-      fs.mkdirSync(agentsDir, { recursive: true })
-      const file = path.join(agentsDir, `${id}.md`)
+      const roleErrors = validateCustomRoleBody(provider, id, body)
+      if (roleErrors.length > 0) {
+        res.status(400).json({ error: 'invalid_kimi_skill', details: roleErrors })
+        return
+      }
+      const file = agentFile(project, id, provider)
+      fs.mkdirSync(path.dirname(file), { recursive: true })
       if (fs.existsSync(file)) {
         res.status(409).json({ error: `agent '${id}' already exists` })
         return
@@ -394,8 +578,9 @@ export function createProfilesRouter(): Router {
       // Record initial version
       const nextVersion = 1
       db.prepare(
-        `INSERT INTO agent_versions (agent_name, version, body, created_at) VALUES (?, ?, ?, ?)`,
-      ).run(id, nextVersion, body, Date.now())
+        `INSERT INTO agent_versions (provider, agent_name, version, body, created_at)
+         VALUES (?, ?, ?, ?, ?)`,
+      ).run(provider, id, nextVersion, body, Date.now())
       broadcast({ type: 'agent.changed', projectId: project.id, id } as never)
       res.status(201).json({ id, body, version: nextVersion })
     } catch (err) {
@@ -408,6 +593,7 @@ export function createProfilesRouter(): Router {
   router.patch('/catalog/:agentId', (req, res) => {
     try {
       const { project, db, broadcast } = ctx(req)
+      const provider = requestedProvider(req, project, req.body?.provider)
       const agentId = req.params.agentId
       if (!/^custom-[a-z0-9][a-z0-9-]*$/.test(agentId)) {
         res.status(403).json({ error: 'only custom-* agents can be edited from the app' })
@@ -418,19 +604,28 @@ export function createProfilesRouter(): Router {
         res.status(400).json({ error: 'body is required' })
         return
       }
-      const file = path.join(agentsCatalogDir(project), `${agentId}.md`)
+      const roleErrors = validateCustomRoleBody(provider, agentId, body)
+      if (roleErrors.length > 0) {
+        res.status(400).json({ error: 'invalid_kimi_skill', details: roleErrors })
+        return
+      }
+      const file = agentFile(project, agentId, provider)
       if (!fs.existsSync(file)) {
         res.status(404).json({ error: 'agent not found' })
         return
       }
       fs.writeFileSync(file, body, 'utf8')
       const maxVersion = (db
-        .prepare(`SELECT COALESCE(MAX(version), 0) AS v FROM agent_versions WHERE agent_name = ?`)
-        .get(agentId) as { v: number }).v
+        .prepare(
+          `SELECT COALESCE(MAX(version), 0) AS v FROM agent_versions
+           WHERE provider = ? AND agent_name = ?`,
+        )
+        .get(provider, agentId) as { v: number }).v
       const nextVersion = maxVersion + 1
       db.prepare(
-        `INSERT INTO agent_versions (agent_name, version, body, created_at) VALUES (?, ?, ?, ?)`,
-      ).run(agentId, nextVersion, body, Date.now())
+        `INSERT INTO agent_versions (provider, agent_name, version, body, created_at)
+         VALUES (?, ?, ?, ?, ?)`,
+      ).run(provider, agentId, nextVersion, body, Date.now())
       broadcast({ type: 'agent.changed', projectId: project.id, id: agentId } as never)
       res.json({ id: agentId, body, version: nextVersion })
     } catch (err) {
@@ -443,17 +638,22 @@ export function createProfilesRouter(): Router {
   router.delete('/catalog/:agentId', (req, res) => {
     try {
       const { project, broadcast } = ctx(req)
+      const provider = requestedProvider(req, project)
       const agentId = req.params.agentId
       if (!/^custom-[a-z0-9][a-z0-9-]*$/.test(agentId)) {
         res.status(403).json({ error: 'only custom-* agents can be deleted' })
         return
       }
-      const file = path.join(agentsCatalogDir(project), `${agentId}.md`)
+      const file = agentFile(project, agentId, provider)
       if (!fs.existsSync(file)) {
         res.status(404).json({ error: 'agent not found' })
         return
       }
       fs.unlinkSync(file)
+      try {
+        const parent = path.dirname(file)
+        if (parent !== agentsCatalogDir(project, provider) && fs.readdirSync(parent).length === 0) fs.rmdirSync(parent)
+      } catch { /* best-effort */ }
       broadcast({ type: 'agent.changed', projectId: project.id, id: agentId, deleted: true } as never)
       res.json({ ok: true })
     } catch (err) {
@@ -468,6 +668,8 @@ export function createProfilesRouter(): Router {
   router.post('/catalog/test', async (req, res) => {
     try {
       const { project, db, broadcast } = ctx(req)
+      const provider = requestedProvider(req, project, req.body?.provider)
+      if (!requireSafeStudioPolicy(res, provider)) return
       const agentId = (req.body?.agentId ?? '').toString().trim() || 'draft'
       const draftBody = (req.body?.draftBody ?? '').toString()
       const sampleTask = (req.body?.sampleTask ?? '').toString().trim()
@@ -482,12 +684,14 @@ export function createProfilesRouter(): Router {
       const result = await testCustomAgent(project.path, {
         draftBody,
         sampleTask,
+        providerId: provider,
         record: { db, projectId: project.id, surfaceRefId: agentId, broadcast },
       })
       db.prepare(
-        `INSERT INTO agent_tests (agent_name, draft_hash, sample_task_id, tokens, duration_ms, output, created_at)
-         VALUES (?, ?, ?, ?, ?, ?, ?)`,
-      ).run(agentId, result.draftHash, null, result.tokens, result.durationMs, result.output, Date.now())
+        `INSERT INTO agent_tests
+           (provider, agent_name, draft_hash, sample_task_id, tokens, duration_ms, output, created_at)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+      ).run(provider, agentId, result.draftHash, null, result.tokens, result.durationMs, result.output, Date.now())
       res.json(result)
     } catch (err) {
       handleError(res, err)
@@ -501,6 +705,8 @@ export function createProfilesRouter(): Router {
   router.post('/catalog/generate', async (req, res) => {
     try {
       const { project, db, broadcast } = ctx(req)
+      const provider = requestedProvider(req, project, req.body?.provider)
+      if (!requireSafeStudioPolicy(res, provider)) return
       const name = (req.body?.name ?? '').toString().trim()
       const description = (req.body?.description ?? '').toString().trim()
       if (!/^custom-[a-z0-9][a-z0-9-]*$/.test(name)) {
@@ -514,6 +720,7 @@ export function createProfilesRouter(): Router {
       const draft = await generateCustomAgent(project.path, {
         name,
         description,
+        providerId: provider,
         record: { db, projectId: project.id, surfaceRefId: name, broadcast },
       })
       res.json({ draft })
@@ -528,7 +735,19 @@ export function createProfilesRouter(): Router {
   router.post('/catalog/:agentId/refine', async (req, res) => {
     try {
       const ctxObj = ctx(req)
-      const { agentRefineManager } = ctxObj
+      const { agentRefineManager, project } = ctxObj
+      const provider = requestedProvider(req, project, req.body?.provider)
+      if (!requireSafeStudioPolicy(res, provider)) return
+      // AgentRefineManager owns the primary provider's native session store.
+      // Cross-provider sessions need a provider column/migration before they
+      // can be resumed safely; reject instead of silently using the primary.
+      if (provider !== (project.provider ?? 'claude')) {
+        res.status(409).json({
+          error: 'provider_refine_manager_unavailable',
+          provider,
+        })
+        return
+      }
       const agentId = req.params.agentId
       if (!/^custom-[a-z0-9][a-z0-9-]*$/.test(agentId)) {
         res.status(400).json({ error: 'not_a_custom_agent' })
@@ -562,7 +781,16 @@ export function createProfilesRouter(): Router {
 
   router.post('/catalog/:agentId/refine/:refineId/turn', async (req, res) => {
     try {
-      const { agentRefineManager, db } = ctx(req)
+      const { agentRefineManager, db, project } = ctx(req)
+      const provider = requestedProvider(req, project, req.body?.provider)
+      if (!requireSafeStudioPolicy(res, provider)) return
+      if (provider !== (project.provider ?? 'claude')) {
+        res.status(409).json({
+          error: 'provider_refine_manager_unavailable',
+          provider,
+        })
+        return
+      }
       const refineId = req.params.refineId
       const instruction = (req.body?.instruction ?? '').toString().trim()
       if (!instruction) {
@@ -694,14 +922,15 @@ export function createProfilesRouter(): Router {
   // GET /api/projects/:projectId/profiles/catalog/:agentId/versions
   router.get('/catalog/:agentId/versions', (req, res) => {
     try {
-      const { db } = ctx(req)
+      const { db, project } = ctx(req)
+      const provider = requestedProvider(req, project)
       const agentId = req.params.agentId
       const rows = db
         .prepare(
           `SELECT version, body, created_at AS createdAt FROM agent_versions
-           WHERE agent_name = ? ORDER BY version DESC`,
+           WHERE provider = ? AND agent_name = ? ORDER BY version DESC`,
         )
-        .all(agentId) as Array<{ version: number; body: string; createdAt: number }>
+        .all(provider, agentId) as Array<{ version: number; body: string; createdAt: number }>
       res.json({ versions: rows })
     } catch (err) {
       handleError(res, err)
@@ -712,7 +941,12 @@ export function createProfilesRouter(): Router {
   router.get('/', (req, res) => {
     try {
       const { project } = ctx(req)
-      res.json({ profiles: listProfiles(specRoot(project)) })
+      const provider = requestedProvider(req, project)
+      const primary = project.provider ?? 'claude'
+      res.json({
+        profiles: listProfiles(specRoot(project), primary)
+          .filter((profile) => profile.provider === provider),
+      })
     } catch (err) {
       handleError(res, err)
     }
@@ -722,8 +956,9 @@ export function createProfilesRouter(): Router {
   router.get('/resolve', (req, res) => {
     try {
       const { project } = ctx(req)
+      const provider = requestedProvider(req, project)
       const explicit = typeof req.query.profile === 'string' ? req.query.profile : undefined
-      const resolved = resolveProfile(specRoot(project), explicit, project.provider ?? 'claude')
+      const resolved = resolveProfile(specRoot(project), explicit, provider)
       if (!resolved) {
         res.json({ resolved: null })
         return
@@ -738,8 +973,15 @@ export function createProfilesRouter(): Router {
   router.post('/', (req, res) => {
     try {
       const { project, broadcast } = ctx(req)
-      const body = req.body as Profile
-      createProfile(specRoot(project), body, project.provider ?? 'claude')
+      const input = req.body as Profile
+      const provider = requestedProvider(req, project, input?.provider)
+      const body: Profile = {
+        ...input,
+        ...(input?.provider || provider !== 'claude' || installedProviders(project).length > 1
+          ? { provider }
+          : {}),
+      }
+      createProfile(specRoot(project), body, provider)
       broadcast({ type: 'profile.changed', projectId: project.id, name: body.name } as never)
       res.status(201).json({ profile: body })
     } catch (err) {
@@ -751,12 +993,13 @@ export function createProfilesRouter(): Router {
   router.post('/:name/duplicate', (req, res) => {
     try {
       const { project, broadcast } = ctx(req)
+      const provider = requestedProvider(req, project, req.body?.provider)
       const newName = (req.body?.name ?? '').toString()
       if (!newName) {
         res.status(400).json({ error: "body field 'name' is required" })
         return
       }
-      const copy = duplicateProfile(specRoot(project), req.params.name, newName, project.provider ?? 'claude')
+      const copy = duplicateProfile(specRoot(project), req.params.name, newName, provider)
       broadcast({ type: 'profile.changed', projectId: project.id, name: newName } as never)
       res.status(201).json({ profile: copy })
     } catch (err) {
@@ -768,12 +1011,13 @@ export function createProfilesRouter(): Router {
   router.post('/:name/rename', (req, res) => {
     try {
       const { project, broadcast } = ctx(req)
+      const provider = requestedProvider(req, project, req.body?.provider)
       const newName = (req.body?.name ?? '').toString()
       if (!newName) {
         res.status(400).json({ error: "body field 'name' is required" })
         return
       }
-      const renamed = renameProfile(specRoot(project), req.params.name, newName, project.provider ?? 'claude')
+      const renamed = renameProfile(specRoot(project), req.params.name, newName, provider)
       broadcast({ type: 'profile.changed', projectId: project.id, name: newName } as never)
       res.json({ profile: renamed })
     } catch (err) {
@@ -785,10 +1029,11 @@ export function createProfilesRouter(): Router {
   router.get('/:name', (req, res) => {
     try {
       const { project } = ctx(req)
+      const provider = requestedProvider(req, project)
       // Non-validating read so a profile that drifted invalid against the current
       // catalog can still be opened + repaired in the editor (getProfile threw and
       // locked it out). The body + validation errors are both returned.
-      const { profile, valid, errors } = getProfileRaw(specRoot(project), req.params.name, project.provider ?? 'claude')
+      const { profile, valid, errors } = getProfileRaw(specRoot(project), req.params.name, provider)
       res.json({ profile, valid, validationErrors: errors })
     } catch (err) {
       handleError(res, err)
@@ -799,12 +1044,19 @@ export function createProfilesRouter(): Router {
   router.patch('/:name', (req, res) => {
     try {
       const { project, broadcast } = ctx(req)
-      const body = req.body as Profile
+      const input = req.body as Profile
+      const provider = requestedProvider(req, project, input?.provider)
+      const body: Profile = {
+        ...input,
+        ...(input?.provider || provider !== 'claude' || installedProviders(project).length > 1
+          ? { provider }
+          : {}),
+      }
       if (body.name !== req.params.name) {
         res.status(400).json({ error: "body.name must match path parameter (use /rename to change name)" })
         return
       }
-      updateProfile(specRoot(project), body, project.provider ?? 'claude')
+      updateProfile(specRoot(project), body, provider)
       broadcast({ type: 'profile.changed', projectId: project.id, name: body.name } as never)
       res.json({ profile: body })
     } catch (err) {
@@ -816,7 +1068,8 @@ export function createProfilesRouter(): Router {
   router.delete('/:name', (req, res) => {
     try {
       const { project, broadcast } = ctx(req)
-      deleteProfile(specRoot(project), req.params.name)
+      const provider = requestedProvider(req, project)
+      deleteProfile(specRoot(project), req.params.name, provider)
       broadcast({ type: 'profile.changed', projectId: project.id, name: req.params.name, deleted: true } as never)
       res.json({ ok: true })
     } catch (err) {

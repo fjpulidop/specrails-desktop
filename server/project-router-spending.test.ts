@@ -305,6 +305,18 @@ describe('project-router-spending', () => {
       expect(res.body.dailyBudgetUsd).toBe(10)
       expect(res.body.budgetUtilizationPct).toBeCloseTo(25, 5)
     })
+
+    it('does not claim budget utilization when Kimi cost is unavailable', async () => {
+      h.db.prepare(`INSERT OR REPLACE INTO queue_state (key, value) VALUES ('config.daily_budget_usd', '10')`).run()
+      insert(h.db, { surface: 'job', cost: null, status: 'success', provider: 'kimi' })
+      const res = await request(h.app).get(`/api/projects/${PROJECT_ID}/budget`)
+      expect(res.body).toMatchObject({
+        costToday: 0,
+        pricedRuns: 0,
+        unpricedRuns: 1,
+        budgetUtilizationPct: null,
+      })
+    })
   })
 
   // ─── LOW-3: summary CSV '# By model' reconciles to '# Totals' ────────────────

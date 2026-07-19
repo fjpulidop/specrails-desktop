@@ -26,6 +26,7 @@
 // Spec: openspec/specs/multi-provider-architecture/spec.md
 
 import { execSync } from 'child_process'
+import path from 'path'
 import { windowsSpawnEnv } from '../util/win-spawn'
 import { acknowledgeGeminiProjectAgents } from './gemini-agent-ack'
 import type {
@@ -237,7 +238,7 @@ async function detectGeminiInstalled(): Promise<DetectionResult> {
   }
 }
 
-export const geminiAdapter: ProviderAdapter = {
+export const geminiAdapter = {
   id: 'gemini',
   displayName: 'Gemini CLI',
   binary: 'gemini',
@@ -259,17 +260,28 @@ export const geminiAdapter: ProviderAdapter = {
     // No dedicated image flag; `@path` in the prompt is unverified for vision
     // under `-p`. Disabled until a live smoke-test passes (design D22).
     supportsImageInput: false,
+    structuredActions: false,
+    // Gemini plan approval mode is verified read-only; its existing `none`
+    // path maps to --yolo and therefore is not an output-only boundary.
+    toolPolicies: ['read-only'],
+    profiles: false,
+    customRoles: false,
+    freestyle: false,
+    userMcp: false,
   },
   modelCatalog: () => GEMINI_MODELS,
   defaultModel: () => 'gemini-3.5-flash',
   buildArgs: buildGeminiArgs,
   parseStreamLine: parseGeminiStreamLine,
   extractResult: extractGeminiResult,
+  projectMcpPath: (root: string) => path.join(root, '.gemini', 'settings.json'),
+  customRolePath: (root: string, roleId: string) =>
+    path.join(root, '.gemini', 'agents', `${roleId}.md`),
   baselineAgents: () => ['sr-architect', 'sr-developer', 'sr-reviewer'],
   detectInstalled: detectGeminiInstalled,
   // Pre-acknowledge the project's custom subagents so they load in headless
   // `gemini -p` rail spawns (else invoke_agent reports "Subagent not found").
   prepareHeadlessSpawn: acknowledgeGeminiProjectAgents,
-}
+} satisfies ProviderAdapter
 
 export { GEMINI_MIN_VERSION as _GEMINI_MIN_VERSION, compareSemver as _compareSemver }

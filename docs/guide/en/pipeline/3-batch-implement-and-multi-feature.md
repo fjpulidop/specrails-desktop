@@ -83,4 +83,4 @@ There's no global concurrency limit to tune. Open the projects or rails you need
 
 - [Rails & jobs](rails-and-jobs) — the queue model in depth.
 - [The Job Detail view](the-job-detail-view) — watch a batch run live.
-- [Picking an engine per rail](picking-an-engine-per-rail) — note that Batch runs on any provider; Freestyle is Claude-only.
+- [Picking an engine per rail](picking-an-engine-per-rail) — Batch runs on any provider; Freestyle is available on Claude and Kimi.

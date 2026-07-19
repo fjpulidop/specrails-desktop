@@ -59,13 +59,30 @@ export const serenaManifest: PluginManifest = {
         ],
       },
     },
+    kimi: {
+      mcpEntry: {
+        command: 'uvx',
+        args: [
+          '--from',
+          'git+https://github.com/oraios/serena',
+          'serena',
+          'start-mcp-server',
+          '--context',
+          'ide-assistant',
+          '--project',
+          '.',
+          '--enable-web-dashboard',
+          'false',
+        ],
+      },
+    },
   },
   // Format: structured "when / tools / why / fallback" block. Lets generic
   // agent prompts (specrails-core sr-* "Tool Selection — Honor Project-
   // Documented MCP Tools" section) match the right entry to the task.
   //
-  // Tool names below are verified against Serena's actual exposed tools
-  // (visible in Claude session init's tools list). Keep this list aligned
+  // Tool names below are verified against Serena's actual exposed MCP tools.
+  // Keep this list aligned
   // with upstream — wrong names cause agents to mistrust the whole block.
   claudeMdInstructions: `## Plugin: serena (semantic code navigation)
 
@@ -84,11 +101,11 @@ export const serenaManifest: PluginManifest = {
 - \`replace_content\` — surgical text replace inside a single file when symbol-aware tools don't fit.
 - \`get_diagnostics_for_file\` — language-server diagnostics for a file.
 
-**Why prefer over built-ins**: Serena returns only the relevant symbol body, not whole files. Empirically cuts input tokens 40–60% on real workloads compared to \`Read\` / \`Grep\`.
+**Why prefer over built-ins**: Serena returns only the relevant symbol body, not whole files. Empirically cuts input tokens 40–60% on real workloads compared with whole-file reads or broad text search.
 
-**Fallback to \`Read\` / \`Grep\` for**: binary files, free-form prose, structured data without symbols (logs, JSON without schema, plain Markdown).
+**Fallback to the provider's built-in file/search tools for**: binary files, free-form prose, structured data without symbols (logs, JSON without schema, plain Markdown).
 
-**Subagents**: MCP access is inherited from the parent Claude session; pass these tool names through when delegating via the \`Task\` tool.`,
+**Delegated agents**: when the active provider supports delegation, tell the delegated role to use these Serena tools. MCP inheritance is provider-owned, so verify availability in the delegated context and fall back to built-in file/search tools when needed.`,
 }
 
 export const SERENA_MCP_ENTRY = {

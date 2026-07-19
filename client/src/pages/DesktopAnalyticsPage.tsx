@@ -37,12 +37,30 @@ function DesktopKpiCards({ kpi, windowLabel }: { kpi: EstimatedKpi; windowLabel:
   // figure carries a '~' marker so it is never read as a billed fact.
   const totalIsEstimated = estimatedTotal > 0
   const todayIsEstimated = estimatedToday > 0
+  const hasCoverage =
+    typeof kpi.pricedRuns === 'number' || typeof kpi.unpricedRuns === 'number'
+  const unpricedRuns = kpi.unpricedRuns ?? 0
+  const pricedRuns = kpi.pricedRuns
+    ?? (hasCoverage ? Math.max(0, kpi.totalJobs - unpricedRuns) : kpi.totalJobs)
+  const costUnavailable =
+    hasCoverage && kpi.totalCostUsd === 0 && unpricedRuns > 0 && pricedRuns === 0
+  const costPartiallyUnavailable =
+    unpricedRuns > 0 && (pricedRuns > 0 || kpi.totalCostUsd > 0)
+  const todayUnpricedRuns = kpi.unpricedTodayRuns ?? 0
+  const todayPricedRuns = kpi.pricedTodayRuns
+    ?? (hasCoverage ? Math.max(0, kpi.jobsToday - todayUnpricedRuns) : kpi.jobsToday)
+  const todayCostUnavailable =
+    hasCoverage && kpi.costToday === 0 && todayUnpricedRuns > 0 && todayPricedRuns === 0
   const cards = [
     {
       key: 'totalCost',
       label: t('desktop.totalCost'),
-      value: `${totalIsEstimated ? '~' : ''}$${kpi.totalCostUsd.toFixed(4)}`,
-      sub: t('desktop.costToday', { value: `${todayIsEstimated ? '~' : ''}$${kpi.costToday.toFixed(4)}` }),
+      value: costUnavailable
+        ? '—'
+        : `${totalIsEstimated ? '~' : ''}$${kpi.totalCostUsd.toFixed(4)}`,
+      sub: todayCostUnavailable
+        ? t('desktop.costTodayUnavailable')
+        : t('desktop.costToday', { value: `${todayIsEstimated ? '~' : ''}$${kpi.costToday.toFixed(4)}` }),
       estimated: totalIsEstimated,
       // The KPI is windowed (default 7d) but labelled "Total cost" — state the
       // window explicitly so it is never read as a grand all-time total (MED-10).
@@ -65,8 +83,10 @@ function DesktopKpiCards({ kpi, windowLabel }: { kpi: EstimatedKpi; windowLabel:
     {
       key: 'avgCostPerJob',
       label: t('desktop.avgCostPerJob'),
-      value: kpi.totalJobs > 0 ? `${totalIsEstimated ? '~' : ''}$${(kpi.totalCostUsd / kpi.totalJobs).toFixed(5)}` : '—',
-      sub: t('desktop.periodAverage'),
+      value: kpi.totalJobs > 0 && unpricedRuns === 0
+        ? `${totalIsEstimated ? '~' : ''}$${(kpi.totalCostUsd / kpi.totalJobs).toFixed(5)}`
+        : '—',
+      sub: unpricedRuns > 0 ? t('desktop.averageUnavailable') : t('desktop.periodAverage'),
       estimated: totalIsEstimated && kpi.totalJobs > 0,
     },
   ]
@@ -105,6 +125,16 @@ function DesktopKpiCards({ kpi, windowLabel }: { kpi: EstimatedKpi; windowLabel:
           {t('desktop.includesEstimated', { amount: `$${estimatedTotal.toFixed(4)}` })}
         </p>
       )}
+      {(costUnavailable || costPartiallyUnavailable) && (
+        <p
+          data-testid="kpi-cost-coverage-note"
+          className="text-[10px] text-muted-foreground/70 italic"
+        >
+          {costUnavailable
+            ? t('desktop.costUnavailable')
+            : t('desktop.costPartiallyUnavailable', { count: unpricedRuns })}
+        </p>
+      )}
     </div>
   )
 }
@@ -115,6 +145,9 @@ function DesktopCostTimeline({ data }: { data: EstimatedTimelinePoint[] }) {
   const { t } = useTranslation('analytics')
   const theme = useActiveTheme()
   const hasData = data.length > 0 && data.some((d) => d.costUsd > 0)
+  const unpricedCount = data.reduce((sum, d) => sum + (d.unpricedCount ?? 0), 0)
+  const costUnavailable = !hasData && unpricedCount > 0
+  const costPartiallyUnavailable = hasData && unpricedCount > 0
   const tickStep = Math.max(1, Math.floor(data.length / 7))
   const ticks = data.filter((_, i) => i % tickStep === 0).map((d) => d.date)
   // BUG-ANALYTICS-26: index estimated portion by date so the tooltip can flag
@@ -135,8 +168,20 @@ function DesktopCostTimeline({ data }: { data: EstimatedTimelinePoint[] }) {
             {t('desktop.includesEstimatedShort')}
           </span>
         )}
+        {costPartiallyUnavailable && (
+          <span className="text-[10px] text-muted-foreground/70 italic">
+            {t('desktop.costPartiallyUnavailable', { count: unpricedCount })}
+          </span>
+        )}
       </div>
-      {!hasData ? (
+      {costUnavailable ? (
+        <div
+          data-testid="desktop-timeline-cost-unavailable"
+          className="h-[200px] flex items-center justify-center text-xs text-muted-foreground"
+        >
+          {t('desktop.costUnavailable')}
+        </div>
+      ) : !hasData ? (
         <div className="h-[200px] flex items-center justify-center text-xs text-muted-foreground">
           {t('desktop.noCostData')}
         </div>
@@ -209,6 +254,11 @@ function ProjectBreakdown({ projects }: { projects: EstimatedProjectStats[] }) {
         {projects.map((p, idx) => {
           const estimated = p.estimatedCostUsd ?? 0
           const isEstimated = estimated > 0
+          const unpricedRuns = p.unpricedRuns ?? 0
+          const pricedRuns = p.pricedRuns
+            ?? Math.max(0, p.totalJobs - unpricedRuns)
+          const costUnavailable = unpricedRuns > 0 && pricedRuns === 0
+          const costPartiallyUnavailable = unpricedRuns > 0 && pricedRuns > 0
           return (
           <div key={p.projectId} className="space-y-1" data-estimated={isEstimated ? 'true' : undefined}>
             <div className="flex items-center justify-between text-xs">
@@ -227,7 +277,14 @@ function ProjectBreakdown({ projects }: { projects: EstimatedProjectStats[] }) {
               <div className="flex items-center gap-4 text-muted-foreground">
                 <span>{t('desktop.jobsCount', { count: p.totalJobs })}</span>
                 <span>{t('desktop.successPct', { pct: (p.successRate * 100).toFixed(0) })}</span>
-                <span className="font-mono text-foreground">{isEstimated ? '~' : ''}${p.totalCostUsd.toFixed(4)}</span>
+                <span
+                  className="font-mono text-foreground"
+                  title={costPartiallyUnavailable ? t('desktop.costPartiallyUnavailable', { count: unpricedRuns }) : undefined}
+                >
+                  {costUnavailable
+                    ? t('desktop.costUnavailableShort')
+                    : `${isEstimated ? '~' : ''}$${p.totalCostUsd.toFixed(4)}`}
+                </span>
               </div>
             </div>
             <div className="h-1.5 rounded-full bg-border/30 overflow-hidden">
@@ -254,10 +311,20 @@ function ProjectCostBar({ projects }: { projects: EstimatedProjectStats[] }) {
   const theme = useActiveTheme()
   if (projects.length === 0) return null
   const data = projects.map((p) => ({ name: p.projectName.slice(0, 12), costUsd: p.totalCostUsd }))
+  const hasKnownCost = projects.some((p) => p.totalCostUsd > 0)
+  const hasUnavailableCost = projects.some((p) => (p.unpricedRuns ?? 0) > 0)
 
   return (
     <div className="rounded-lg border border-border/40 bg-card/50 p-4">
       <h3 className="text-sm font-medium mb-3">{t('desktop.costByProject')}</h3>
+      {!hasKnownCost && hasUnavailableCost ? (
+        <div
+          data-testid="desktop-project-cost-unavailable"
+          className="h-[180px] flex items-center justify-center text-xs text-muted-foreground"
+        >
+          {t('desktop.costUnavailable')}
+        </div>
+      ) : (
       <ResponsiveContainer width="100%" height={180}>
         <BarChart data={data} margin={{ top: 4, right: 8, left: 0, bottom: 0 }}>
           <CartesianGrid strokeDasharray="3 3" stroke="var(--color-border)" />
@@ -287,6 +354,7 @@ function ProjectCostBar({ projects }: { projects: EstimatedProjectStats[] }) {
           <Bar dataKey="costUsd" fill={theme.chart[1]} radius={[3, 3, 0, 0]} />
         </BarChart>
       </ResponsiveContainer>
+      )}
     </div>
   )
 }

@@ -27,17 +27,14 @@ Dashboard/Jobs/Analytics/Settings).
 When the project has no profiles yet, the empty state offers two entry
 points:
 
-- **Migrate from current agents** — reads your existing
-  `.claude/agents/` frontmatter models and creates a `default` profile
-  mirroring today's behavior (zero-loss). It requires the baseline trio
+- **Migrate from current agents** — reads the primary provider's native role
+  catalog (`.claude/agents/` or `.kimi-code/skills/`) and creates a
+  `default` profile mirroring today's behavior. It requires the baseline trio
   `sr-architect`, `sr-developer`, and `sr-reviewer` to be present — the
-  server rejects the migration if any is missing. On a project whose
-  primary provider is **not** Claude (Codex or Gemini), the frontmatter
-  model aliases aren't in that provider's catalog, so the migration stamps
-  the project's `provider` onto the profile and substitutes that provider's
-  default model — the resulting `default` profile still validates and is
-  ready to edit (though it only takes effect on Claude rails — see
-  [Multi-provider rails](#multi-provider-rails-claude-codex-and-gemini)).
+  server rejects the migration if any is missing. Provider-specific model
+  identifiers are retained only when they are in that provider's catalog;
+  otherwise migration uses its default and stamps the provider into the saved
+  profile.
 - **Blank profile** — start from scratch.
 
 ## 2. Saved profiles vs selection
@@ -71,26 +68,19 @@ wizard. Each rail header has a compact profile dropdown
 The "No profile" option is always available — use it to run a
 rail exactly as it did pre-4.1.0.
 
-### Multi-provider rails (Claude, Codex, and Gemini)
+### Multi-provider rails
 
-**Profiles apply only to Claude rails.** specrails-desktop supports three
-interchangeable AI providers — Claude, Codex, and Gemini — but agent
-profiles are a Claude-only concept (Codex and Gemini have no equivalent).
+Profiles apply to **Claude and Kimi** rails. Kimi profiles use exact Kimi
+model ids for both the parent orchestrator and every routed role; Core executes
+role skills through separate Kimi processes so a role can select a different
+model from its parent.
 
-When a rail's AI engine is **anything other than Claude** (Codex or
-Gemini), the app force-nulls the profile and runs the rail in legacy mode.
-The rails router enforces this server-side for *any* non-Claude engine, so
-no profile env var is ever injected on a Codex or Gemini rail regardless of
-what the UI shows.
+Codex and Gemini currently advertise no profile capability. Selecting either
+engine force-nulls the rail profile server-side and the client hides the
+selector. A profile whose `provider` does not match the effective rail provider
+is rejected rather than silently translating model aliases.
 
-> **Known UI limitation.** The client currently only hides the profile
-> selector for **Codex** rails. On a **Gemini** rail the selector can still
-> appear — but the server ignores any profile you pick there (it always
-> falls back to legacy mode). Picking a profile on a Gemini rail therefore
-> has no effect; treat it as a no-op until the selector is hidden for all
-> non-Claude engines.
-
-Provider availability itself is gated separately (both default-enabled): set
+Codex/Gemini availability itself is gated separately (both default-enabled): set
 `SPECRAILS_CODEX_BETA=0` or `SPECRAILS_GEMINI_BETA=0` to disable a provider
 app-wide. See [../codex.md](../codex.md) and [../gemini.md](../gemini.md).
 
@@ -101,18 +91,20 @@ From the Catalog tab, create a new custom agent via:
 - **Template** — start from one of ~50 curated templates spanning many
   categories (engineering, product, data, security, …) — for example
   Security Reviewer, Performance Profiler, Data Engineer, or UI/UX Polisher.
-- **Generate** — describe the agent in natural language; Claude drafts the
-  full `.md` for you to review and edit before saving.
+- **Generate** — describe the agent in natural language; a provider with the
+  required no-tools policy drafts it. Kimi does not offer this action.
 - **Blank** — start from a minimal template.
 - **Duplicate** — copy any existing agent (upstream or custom).
 
-Custom agents live at `.claude/agents/custom-*.md` and are never touched
-by `specrails-core`'s installer/update scripts. Every save appends a new
-version row; open **History** in the Studio to browse and restore.
+Custom agents live at `.claude/agents/custom-*.md` for Claude or
+`.kimi-code/skills/custom-*/SKILL.md` for Kimi and are never touched by
+`specrails-core`'s installer/update scripts. Every save appends a new version
+row; open **History** in the Studio to browse and restore.
 
-Click **Test** in the Studio to run the current draft against a sample
-task in an isolated `claude` invocation — no files are written, and you
-see output, token count, and duration inline.
+Click **Test** in the Studio to run the current draft against a sample task
+only when the selected provider can enforce the smoke test's safe tool policy.
+Kimi generation, Test, and AI Refine are rejected before spawn; manual blank/
+template/duplicate/edit and rail execution remain available.
 
 ## 5. Observe
 
@@ -127,15 +119,15 @@ see output, token count, and duration inline.
 ## 6. Troubleshooting
 
 - **Upgrade banner on Agents page** — run
-  `npx specrails-core@^4.8.0 update` in the project to bring it up to date
-  (profiles need ≥ 4.1.0; the version the app installs is `^4.8.0`).
+  `npx specrails-core@^4.12.0 update` in the project to bring it up to date
+  (profiles need ≥ 4.1.0; the version the app installs is `^4.12.0`).
 - **Save disabled with "N issues to resolve"** — the live validator
   enforces the baseline trio (`sr-architect`, `sr-developer`, `sr-reviewer`)
   and routing ordering. Among the rules: a `default: true` routing rule (if
   present) must be the **last** entry in `routing` and must target
   `sr-developer`. Fix the listed issues and Save re-enables.
 - **"agent 'xyz' already exists" (409)** — the name collides with an
-  existing file in `.claude/agents/`. Pick a different name.
+  existing provider role. Pick a different name.
 - **The whole Agents section is missing** — it can be disabled server-side
   with `SPECRAILS_AGENTS_SECTION=false`, which 404s the entire
   `/profiles` router. Unset it (or leave it at its default) to restore the
@@ -148,6 +140,7 @@ see output, token count, and duration inline.
 
 - `.specrails/profiles/**` — your profile catalog.
 - `.claude/agents/custom-*.md` — your custom agents.
+- `.kimi-code/skills/custom-*/**` — your custom Kimi roles.
 
 Everything else under `.specrails/` (install-config, specrails-version,
 setup-templates) is managed by the installer and may be overwritten on
@@ -160,16 +153,15 @@ A few internals worth knowing if you're working on this surface:
 - **Version gate.** Profile-aware spawns are gated by
   `projectSupportsProfiles()` (`server/queue-manager.ts`), which reads the
   project's `.specrails/specrails-version` and requires
-  `specrails-core >= 4.1.0`. Below that, the rail spawns in legacy mode and
-  no profile env var is injected. The same is true on any non-Claude rail:
-  the rails router force-nulls the profile for Codex/Gemini engines, so the
-  `SPECRAILS_PROFILE_PATH` injection below only ever takes effect on a
-  Claude rail.
+  `specrails-core >= 4.1.0`; Kimi additionally requires the Core 4.12 target.
+  Below the applicable floor, the rail spawns in legacy mode and no profile
+  env var is injected. The rails router also force-nulls profiles for adapters
+  that do not advertise profile support (currently Codex/Gemini).
 - **Snapshot per job.** When a rail launches with a profile, the resolved
   profile is written to
   `~/.specrails/projects/<slug>/jobs/<jobId>/profile.json` (chmod `400`, so
-  mid-run edits are impossible) before the `claude` process spawns. The
-  spawn env then carries `SPECRAILS_PROFILE_PATH` pointing at that file.
+  mid-run edits are impossible) before the provider process spawns. The spawn
+  env then carries `SPECRAILS_PROFILE_PATH` pointing at that file.
   The same snapshot is persisted to the `job_profiles` table for the Usage
   analytics.
 - **REST surface.** All profile operations live under

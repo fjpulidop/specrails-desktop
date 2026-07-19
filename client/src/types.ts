@@ -37,6 +37,8 @@ export interface JobSummary {
    *  authoritative from the provider (claude). Drives the `~` cost badge. */
   total_cost_usd_estimated?: number | null
   duration_ms?: number | null
+  /** Provider that executed this concrete job (null/absent on legacy rows). */
+  provider?: string | null
   model?: string | null
   tokens_in?: number | null
   tokens_out?: number | null
@@ -183,6 +185,9 @@ export interface DesktopProjectStats {
   projectId: string
   projectName: string
   totalCostUsd: number
+  estimatedCostUsd?: number
+  pricedRuns?: number
+  unpricedRuns?: number
   totalJobs: number
   successRate: number
   avgDurationMs: number | null
@@ -196,13 +201,25 @@ export interface DesktopAnalyticsResponse {
   }
   kpi: {
     totalCostUsd: number
+    estimatedCostUsd?: number
+    includesEstimated?: boolean
+    pricedRuns?: number
+    unpricedRuns?: number
     totalJobs: number
     successRate: number
     costToday: number
+    estimatedCostToday?: number
+    pricedTodayRuns?: number
+    unpricedTodayRuns?: number
     jobsToday: number
   }
   projectBreakdown: DesktopProjectStats[]
-  costTimeline: Array<{ date: string; costUsd: number }>
+  costTimeline: Array<{
+    date: string
+    costUsd: number
+    estimatedCostUsd?: number
+    unpricedCount?: number
+  }>
 }
 
 export interface ChatConversationSummary {

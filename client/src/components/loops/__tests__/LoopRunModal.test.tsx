@@ -5,6 +5,7 @@ import { LoopRunModal, type RunModalProject } from '../LoopRunModal'
 const PROJECTS: RunModalProject[] = [
   { id: 'p1', name: 'Project One', providers: ['claude'] },
   { id: 'p2', name: 'Project Two', providers: ['claude', 'codex'] },
+  { id: 'p3', name: 'Kimi Project', providers: ['kimi'] },
 ]
 
 describe('LoopRunModal', () => {
@@ -64,6 +65,79 @@ describe('LoopRunModal', () => {
     expect(within(modelSel).queryByRole('option', { name: 'Claude Sonnet' })).not.toBeInTheDocument()
     fireEvent.click(within(dialog).getByRole('button', { name: /Execute/i }))
     expect(onExecute).toHaveBeenCalledWith(expect.objectContaining({ provider: 'codex', model: 'gpt-5.5' }))
+  })
+
+  it('offers only Kimi low/high/max effort and submits a valid default', () => {
+    const onExecute = vi.fn()
+    render(<LoopRunModal loop={{ id: 'l1', name: 'CI Watch' }} projects={PROJECTS} onClose={() => {}} onExecute={onExecute} />)
+    const dialog = screen.getByRole('dialog')
+    fireEvent.change(within(dialog).getByTestId('run-project-select'), { target: { value: 'p3' } })
+    const effort = within(dialog).getByLabelText('Reasoning effort') as HTMLSelectElement
+    expect(Array.from(effort.options, (option) => option.value)).toEqual(['low', 'high', 'max'])
+    expect(effort.value).toBe('high')
+    expect(within(dialog).getByTestId('run-model-select')).toHaveValue('k3')
+    fireEvent.click(within(dialog).getByRole('button', { name: /Execute/i }))
+    expect(onExecute).toHaveBeenCalledWith(expect.objectContaining({
+      projectId: 'p3',
+      model: 'k3',
+      effort: 'high',
+    }))
+  })
+
+  it('clears and omits effort when Kimi switches away from K3', () => {
+    const onExecute = vi.fn()
+    render(<LoopRunModal loop={{ id: 'l1', name: 'CI Watch' }} projects={PROJECTS} onClose={() => {}} onExecute={onExecute} />)
+    const dialog = screen.getByRole('dialog')
+    fireEvent.change(within(dialog).getByTestId('run-project-select'), { target: { value: 'p3' } })
+    expect(within(dialog).getByLabelText('Reasoning effort')).toBeInTheDocument()
+
+    fireEvent.change(within(dialog).getByTestId('run-model-select'), {
+      target: { value: 'kimi-for-coding' },
+    })
+    fireEvent.blur(within(dialog).getByTestId('run-model-select'))
+    expect(within(dialog).queryByLabelText('Reasoning effort')).not.toBeInTheDocument()
+
+    fireEvent.click(within(dialog).getByRole('button', { name: /Execute/i }))
+    expect(onExecute).toHaveBeenCalledWith({
+      projectId: 'p3',
+      provider: undefined,
+      model: 'kimi-for-coding',
+      effort: undefined,
+    })
+  })
+
+  it('submits a custom Kimi alias byte-for-byte and omits effort', () => {
+    const onExecute = vi.fn()
+    render(<LoopRunModal loop={{ id: 'l1', name: 'CI Watch' }} projects={PROJECTS} onClose={() => {}} onExecute={onExecute} />)
+    const dialog = screen.getByRole('dialog')
+    fireEvent.change(within(dialog).getByTestId('run-project-select'), { target: { value: 'p3' } })
+
+    const model = within(dialog).getByTestId('run-model-select')
+    fireEvent.change(model, { target: { value: 'Moonshot-Team/Private_Coder:v2' } })
+    fireEvent.blur(model)
+    expect(within(dialog).queryByLabelText('Reasoning effort')).not.toBeInTheDocument()
+    fireEvent.click(within(dialog).getByRole('button', { name: /Execute/i }))
+
+    expect(onExecute).toHaveBeenCalledWith({
+      projectId: 'p3',
+      provider: undefined,
+      model: 'Moonshot-Team/Private_Coder:v2',
+      effort: undefined,
+    })
+  })
+
+  it('restores K3 instead of executing a flag-like Kimi alias', () => {
+    const onExecute = vi.fn()
+    render(<LoopRunModal loop={{ id: 'l1', name: 'CI Watch' }} projects={PROJECTS} onClose={() => {}} onExecute={onExecute} />)
+    const dialog = screen.getByRole('dialog')
+    fireEvent.change(within(dialog).getByTestId('run-project-select'), { target: { value: 'p3' } })
+    const model = within(dialog).getByTestId('run-model-select')
+    fireEvent.change(model, { target: { value: '--yolo' } })
+    fireEvent.blur(model)
+    expect(model).toHaveValue('k3')
+
+    fireEvent.click(within(dialog).getByRole('button', { name: /Execute/i }))
+    expect(onExecute).toHaveBeenCalledWith(expect.objectContaining({ model: 'k3' }))
   })
 
   it('disables Execute when there are no projects', () => {

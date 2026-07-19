@@ -77,6 +77,57 @@ describe('runAiCliInvocation', () => {
     expect(spy).toHaveBeenCalledWith('claude', ['--x'], expect.objectContaining({ cwd: '/x' }))
   })
 
+  it('flattens every event emitted from one provider stream line', async () => {
+    const batchAdapter = {
+      ...fakeAdapter,
+      parseStreamLine: () => [
+        { kind: 'text-delta', text: 'mixed' },
+        { kind: 'tool-use', name: 'ReadFile', inputPreview: '{}' },
+      ] satisfies AdapterEvent[],
+    } as unknown as ProviderAdapter
+    const onEvent = vi.fn()
+    const result = await runAiCliInvocation({
+      adapter: batchAdapter,
+      argv: ['--x'],
+      cwd: '/x',
+      spawn: fakeSpawn(['one-line'], 0),
+      onEvent,
+    })
+    expect(result.events).toEqual([
+      { kind: 'text-delta', text: 'mixed' },
+      { kind: 'tool-use', name: 'ReadFile', inputPreview: '{}' },
+    ])
+    expect(onEvent).toHaveBeenCalledTimes(2)
+  })
+
+  it('applies provider-scoped env overrides without mutating the supplied env', async () => {
+    const envAdapter = {
+      ...fakeAdapter,
+      buildEnv: () => ({
+        KIMI_MODEL_THINKING_EFFORT: undefined,
+        PROVIDER_SCOPED: 'yes',
+      }),
+    } as unknown as ProviderAdapter
+    const baseEnv = { PATH: '/bin', KIMI_MODEL_THINKING_EFFORT: 'stale' }
+    const spy = vi.fn(fakeSpawn([], 0))
+    await runAiCliInvocation({
+      adapter: envAdapter,
+      action: 'chat-turn',
+      buildOpts: { prompt: 'p', model: 'm' },
+      cwd: '/x',
+      env: baseEnv,
+      spawn: spy as never,
+    })
+    expect(spy).toHaveBeenCalledWith(
+      'claude',
+      ['--built', 'p'],
+      expect.objectContaining({
+        env: { PATH: '/bin', PROVIDER_SCOPED: 'yes' },
+      }),
+    )
+    expect(baseEnv).toEqual({ PATH: '/bin', KIMI_MODEL_THINKING_EFFORT: 'stale' })
+  })
+
   it('reports spawnFailed when the spawn throws (ENOENT)', async () => {
     const onSpawnError = vi.fn()
     const r = await runAiCliInvocation({

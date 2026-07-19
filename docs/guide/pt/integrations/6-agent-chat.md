@@ -22,7 +22,13 @@ Escolher um projeto aqui **não** move o seu painel — o alvo do agente e o que
 
 ## Provedor e modelo
 
-Logo acima da caixa de mensagem você escolhe o **provedor** (Claude, Codex ou Gemini) e o seu **modelo**. Cada provedor tem a sua própria lista de modelos, e trocar de provedor inicia uma sessão nova com o modelo padrão daquele provedor — assim você pode, por exemplo, conduzir a aplicação com o Claude e passar para o Codex em outra conversa sem que nada se misture.
+Logo acima da caixa de mensagem escolhe o **provider** (Claude, Codex, Gemini
+ou Kimi) e o seu **modelo**. Trocar de provider inicia uma sessão separada.
+
+Com Kimi, os níveis limitam as ferramentas MCP Specrails, mas não transformam
+`kimi -p` numa sandbox: ferramentas nativas são aprovadas automaticamente.
+Ações pure-output inseguras são recusadas antes do spawn; consulte a
+[matriz Kimi](../../../kimi.md).
 
 ## Níveis de permissão — a rédea está com você
 

@@ -35,8 +35,8 @@ SpecsBoard（左）            レール（右）
 | **ステータスピル** | `idle`、`running`、`failed` のいずれか。「completed」という別ステータスはありません — ジョブがきれいに完了すると、レールは `idle` に戻ります。 |
 | **スペック一覧** | このレールに割り当てられた ID。さらにドラッグして追加したり、ドラッグして外したりできます。 |
 | **Loop ピッカー** | このレールが実行する Loop — 組み込み（`Implement` / `Batch` / `Freestyle`）かカスタム Loop。下の表を参照してください。レールごとに保持されます。 |
-| **プロファイルピッカー** | どのエージェントプロファイルを実行するか（Claude レール限定）。プロジェクトにプロファイルが 1 つ以上あるときだけ表示されます。 |
-| **エンジンセレクター** | このレールをどのインストール済みプロバイダーで実行するか — Claude、Codex、Gemini。プロジェクトに複数のプロバイダーがある場合だけ表示されます。[レールごとのエンジン選択](picking-an-engine-per-rail) を参照してください。 |
+| **プロファイルピッカー** | 実行する provider profile（Claude/Kimi rail）。 |
+| **エンジンセレクター** | rail を実行する provider — Claude、Codex、Gemini、Kimi。 |
 | **▶ Play / ■ Stop** | 開始またはキャンセル。 |
 
 ### レールが実行するもの: Loop
@@ -47,9 +47,11 @@ SpecsBoard（左）            レール（右）
 |------|---------|--------------|
 | **Implement** | `/specrails:implement` | レール上のすべてのスペックをまとめた 1 つのジョブ。Architect → Developer → Reviewer → Ship のフルパイプラインを実行します。日常的に使うデフォルトです。 |
 | **Batch** | `/specrails:batch-implement` | レール上のスペックを、依存関係を考慮したウェーブで順番に処理する 1 つのジョブ。関連する複数のスペックに最適です。 |
-| **Freestyle** | Freestyle | Claude が各スペックをパイプラインを**バイパス**して自律的に実装します。スペックごとに独立したジョブが 1 つずつ作られます。Claude 専用。 |
+| **Freestyle** | Freestyle | Claude または Kimi が pipeline を**バイパス**して自律的に実装します。 |
 
-Freestyle は少し毛色が違います。エージェントチェーンを飛ばし、生のスペックを Claude に渡してネイティブツールで作業させます。自由度が高いぶん、Play を押すとまず確認ダイアログが開き、レールごとのモデルピッカーで Haiku / Sonnet / Opus を選べます。Freestyle はレールのエンジンが Claude のときだけ表示されます。さらに Freestyle の実行は、**あなたを待って開き続ける**唯一のジョブでもあります。ジョブ詳細のコンポーザーから会話し、満足したら **Finalize** をクリックしてください（それ以外のジョブはすべて自分で締めくくります）。
+Freestyle は provider の native tool/model を使います。Claude は
+persistent interactive transport、Kimi は persistent stdin のない agentic
+`kimi -p` process を使います。
 
 組み込みのほかにも、**自分だけの Loop を作る** ことができます — verify → fix → verify のサイクルを目標が達成されるまで繰り返したり、AI ステップの間にシェルコマンドを連ねたり、さらにいろいろなことができます。そうしたカスタム Loop は同じ Loop ピッカーに表示されます。それが次の大きなアイデア、[Loop Builder](the-loop-builder) です。
 
@@ -81,7 +83,8 @@ git のないプロジェクトでは worktree 隔離も PR 継続も使えま�
 
 ## レールが起動しないとき
 
-CLI がマシンにインストールされていないエンジンを選ぶと、起動は壊れたジョブを始めるのではなく **即座に失敗** します — 何も生成されません。足りないプロバイダー CLI をインストールして（[Codex を使う](../integrations/using-codex)、[Gemini を使う](../integrations/using-gemini)）、もう一度起動してください。Claude や Codex が見つからない場合は「*&lt;provider&gt; CLI not found*」という正確なメッセージが出ます。Gemini が見つからない場合は現時点では一般的な起動エラーが表示されますが、結果は同じです。
+選択した CLI がなければ spawn 前に失敗します。Kimi は `kimi`
+0.27+ を install/login してください。Desktop は server を起動しません。
 
 ## すべてを止める
 
@@ -96,4 +99,4 @@ CLI がマシンにインストールされていないエンジンを選ぶと�
 - [Loop Builder](the-loop-builder) — レールが実行するもの、そして自分だけの Loop を作る方法。
 - [ジョブ詳細ビュー](the-job-detail-view) — フェーズ、ライブメトリクス、チケットカード。
 - [バッチ実装とマルチフィーチャー](batch-implement-and-multi-feature) — 複数のスペックをまとめて実行する。
-- [レールごとのエンジン選択](picking-an-engine-per-rail) — Claude / Codex / Gemini の使い分け。
+- [レールごとのエンジン選択](picking-an-engine-per-rail) — Claude / Codex / Gemini / Kimi。

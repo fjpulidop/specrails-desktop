@@ -1,9 +1,9 @@
 # Adding a new AI provider to Specrails
 
-> Last verified against `main` (app 2.8.0), which ships **three** registered
-> providers: **Claude, Codex, and Gemini**. Gemini is the freshest worked
-> example — `server/providers/gemini-adapter.ts` is the cleanest single-file
-> template to copy.
+> Last verified with the Kimi provider change, which ships **four** registered
+> providers: **Claude, Codex, Gemini, and Kimi**. Kimi is the freshest worked
+> example — `server/providers/kimi-adapter.ts` demonstrates multi-event JSONL,
+> per-child environment overrides, native skill commands, and CLI-only resume.
 
 The app is provider-agnostic by design. Every manager that spawns an AI
 CLI consumes a `ProviderAdapter` rather than branching on a hardcoded
@@ -71,10 +71,11 @@ export const exampleAdapter: ProviderAdapter = {
 
 The `ProviderAdapter` interface is documented in
 `server/providers/types.ts`. Read the existing
-`server/providers/{claude,codex,gemini}-adapter.ts` for the patterns —
+`server/providers/{claude,codex,gemini,kimi}-adapter.ts` for the patterns —
 `SpawnAction` shapes per provider, `text-delta` event normalisation
-across native JSONL formats, etc. **`gemini-adapter.ts` is the newest and
-most representative end-to-end exemplar** to copy: it shows the optional
+across native JSONL formats, etc. **`kimi-adapter.ts` is the newest
+end-to-end exemplar** for prompt-mode providers; Gemini remains the example for
+the optional
 `prepareHeadlessSpawn` hook, `systemPromptArg: false` system-prompt folding
 (via the `GEMINI_SYSTEM_MD` env), native OTEL with `nativeCostUsd: false`,
 and a per-action `buildArgs` switch that throws defensively on the
@@ -231,7 +232,7 @@ Two paths, picked by your `nativeOtelEnv` capability flag:
   rail spawn and the CLI exports OTLP/JSON to the app's receiver natively. There
   is no `GEMINI_TELEMETRY_*` env var — Gemini honours the same `OTEL_*` vars as
   Claude.
-- **`nativeOtelEnv: false`** (Codex) ⇒ the synthetic OTEL bridge at
+- **`nativeOtelEnv: false`** (Codex, Kimi) ⇒ the synthetic OTEL bridge at
   `server/codex-otel-bridge.ts` fills the gap. It's provider-neutral despite its
   name — it consumes the canonical `AdapterEvent` stream. As long as your
   adapter's `parseStreamLine` emits `text-delta`, `tool-use`, `session-started`,
@@ -249,10 +250,11 @@ whenever `getAdapter(providerId).mcpRegistration === 'cli-add'`. The
 app-level `PluginManager` already threads `providerId` through every
 relevant method.
 
-For `mcpRegistration === 'project-json'` providers, the existing
-`.mcp.json` surgical-merge path applies — **but only if your CLI actually
-reads claude-style `.mcp.json`**. `project-json` really names that one
-mechanism, and Gemini is the proof it isn't universal: gemini-cli has
+For `mcpRegistration === 'project-json'` providers, the adapter's
+`projectMcpPath()` selects the JSON file for surgical merge: Claude uses
+`.mcp.json`, Kimi uses `.kimi-code/mcp.json`, and Gemini uses
+`.gemini/settings.json`. Never assume a CLI reads Claude's root `.mcp.json`.
+Gemini is the proof it isn't universal: gemini-cli has
 never read `.mcp.json` — its only MCP surface is `mcpServers` in
 `settings.json` (user scope `~/.gemini/`, project scope
 `<cwd>/.gemini/`), and an untrusted cwd suppresses MCP entirely (headless
@@ -260,16 +262,15 @@ runs exit 55 with `FatalUntrustedWorkspaceError`; the app injects
 `GEMINI_CLI_TRUST_WORKSPACE=true` per spawn). The desktop agent chat
 registers its MCP for gemini via `<agent-cwd>/.gemini/settings.json` +
 that trust env (`prepareAgentMcp` in `server/agent-mcp-config.ts`);
-the plugin `.mcp.json` merge path still runs for gemini rails but the
-server silently never loads there — a known deferred gap. Full facts +
-the gap table: [gemini-mcp-registration.md](gemini-mcp-registration.md).
-If your provider has its own config surface, mirror the gemini branch of
-`prepareAgentMcp` rather than assuming `.mcp.json` is enough.
+Full facts are in
+[gemini-mcp-registration.md](gemini-mcp-registration.md). If your provider has
+its own config surface, implement `projectMcpPath()` and mirror the relevant
+`prepareAgentMcp` branch rather than assuming `.mcp.json` is enough.
 
 ### 6. (If the binary needs a spawn-env quirk) add it to cli-prompt.ts
 
 Per-binary spawn quirks live in `server/util/cli-prompt.ts` — the spawn layer
-already special-cases `spawnClaude` / `spawnCodex` / `spawnGemini`, dispatched
+already special-cases `spawnClaude` / `spawnCodex` / `spawnGemini` / `spawnKimi`, dispatched
 by binary name. Gemini needed `GEMINI_CLI_TRUST_WORKSPACE=true` injected into
 every spawn (its "trusted folders" gate otherwise silently disables `--yolo`
 and blocks headless tool calls). If your CLI has an equivalent env that
@@ -281,13 +282,15 @@ providers need nothing here.
 Two distinct version concepts — don't conflate them:
 
 - **`minCliVersion`** is the **binary** floor surfaced by `detectInstalled`
-  (Claude = `null` / none pinned, Codex = `0.128.0`, Gemini = `0.11.0`). It
+  (Claude = `null` / none pinned, Codex = `0.128.0`, Gemini = `0.11.0`,
+  Kimi = `0.27.0`). It
   guards stream-format / flag availability for that one CLI.
-- **`specrails-core@^4.8.0`** (`CORE_PACKAGE_SPEC`, `server/core-package.ts`) is
+- **`specrails-core@^4.12.0`** (`CORE_PACKAGE_SPEC`, `server/core-package.ts`) is
   the single shared package floor the app installs/probes for **all** providers.
   It matters when your provider's **rails** rely on core-side scaffolding: core
   must emit the provider's command/agent/skill tree (e.g. Gemini needed core
-  `4.8.0` to ship the `.gemini/` commands + `sr-*` agents). The desktop adapter
+  `4.8.0` to ship the `.gemini/` commands + `sr-*` agents, while Kimi requires
+  4.12.0 for `.kimi-code/`). The desktop adapter
   alone covers spec / explore / quick; rails need the matching core target.
 
 ## Known gotchas
@@ -298,13 +301,14 @@ Two distinct version concepts — don't conflate them:
   `provider === 'claude'`; everything else falls into the non-claude
   (codex-shaped) branch. A new provider hitting that path would be
   silently parsed as codex — migrate the callsite or extend the branch.
-- **Rail slash-command translation is provider-specific.** In
-  `server/queue-manager.ts` the rail prompt builder rewrites
-  `/specrails:<name>` → `$<name>` for codex (so codex picks up the
-  matching `.codex/skills/<name>/SKILL.md`), while claude passes the
-  command verbatim. A new adapter falls through to the claude branch
-  (verbatim). If your CLI needs a different invocation syntax, add a
-  branch keyed on a capability, not on the provider id.
+- **Rail command translation is provider-specific.** Implement
+  `formatCoreCommand()` on the adapter. Codex maps `/specrails:<name>` to a
+  `$<name>` skill; Claude passes its native slash command unchanged. Kimi is
+  different in headless mode: its TUI/ACP intercept `/skill:<name>`, but
+  `kimi -p` does not. Its hook therefore loads the installed
+  `.kimi-code/skills/<name>/SKILL.md`, expands arguments, and returns the
+  materialized activation prompt. Always pass the execution artifact `cwd` to
+  this hook and fail before spawn when the skill cannot be resolved.
 
 ## Drop a fixture set
 

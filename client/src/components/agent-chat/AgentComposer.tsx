@@ -30,8 +30,8 @@ import { useAgentProviderCatalog } from './useAgentProviderCatalog'
 import { AgentGitBar } from './AgentGitBar'
 import { AgentComposerContextChips, AgentContextPalette, AgentPlusMenu } from './AgentContextPalette'
 import { BackgroundProcessChip, type BackgroundProcessAccent } from '../BackgroundProcessChip'
-
-const PROVIDERS = ['claude', 'codex', 'gemini'] as const
+import { useAvailableProviders } from '../../hooks/useAvailableProviders'
+import { reasoningEffortsForProvider } from '../../lib/provider-capabilities'
 
 function removePaletteTriggerText(
   text: string,
@@ -148,6 +148,11 @@ export function AgentComposer({
   // screen we materialise the draft conversation just before the upload.
   const canAttach = !blocked
   const provider = active?.provider ?? draftProvider
+  const { availableIds: discoveredProviders } = useAvailableProviders()
+  const selectableProviders = useMemo(
+    () => [provider, ...discoveredProviders].filter((id, index, all) => all.indexOf(id) === index),
+    [provider, discoveredProviders],
+  )
   // The git strip follows the MISSION's pinned project (or the draft pin on the
   // EMPTY compose screen) — never the app's active project.
   const gitProjectId = active ? active.pinned_project_id : draftPinnedProjectId
@@ -247,8 +252,26 @@ export function AgentComposer({
   // A single provider-tagged request owns models, effort tiers and image
   // capability. Tagging prevents one render of stale options after a switch.
   const providerCatalog = useAgentProviderCatalog(provider)
-  const { models, efforts, supportsImageInput: supportsImage } = providerCatalog
-  const effort = (active ? active.reasoning_effort : draftEffort) ?? 'medium'
+  const {
+    models,
+    efforts: providerEfforts,
+    supportsImageInput: supportsImage,
+    customModelAliases,
+  } = providerCatalog
+  const configuredModel = active ? active.model : draftModel
+  const effectiveModel =
+    configuredModel ?? models.find((entry) => entry.default)?.value ?? models[0]?.value ?? ''
+  const modelEfforts = reasoningEffortsForProvider(provider, effectiveModel)
+  // The server catalog remains authoritative; the client model gate narrows it
+  // immediately on model switches without another request.
+  const efforts = providerEfforts.filter((level) =>
+    (modelEfforts as readonly string[]).includes(level),
+  )
+  const configuredEffort = active ? active.reasoning_effort : draftEffort
+  const effort =
+    configuredEffort && efforts.includes(configuredEffort)
+      ? configuredEffort
+      : ''
 
   const adoptNewMissionDrafts = (conversationId: string): void => {
     const prompt = composerDrafts.get(NEW_MISSION_DRAFT_KEY)
@@ -555,7 +578,10 @@ export function AgentComposer({
         <AgentToolbarSelector
           label={t('provider.label')}
           value={provider}
-          options={PROVIDERS.map((p) => ({ value: p, label: t(`provider.${p}`) }))}
+          options={selectableProviders.map((p) => ({
+            value: p,
+            label: t(`provider.${p}`, { defaultValue: p }),
+          }))}
           icon={Bot}
           onSelect={(nextProvider) => {
             void setProvider(nextProvider).catch(() => toast.error(t('error.generic')))
@@ -566,6 +592,7 @@ export function AgentComposer({
           models={models}
           model={active ? active.model : draftModel}
           status={providerCatalog.status}
+          customModelAliases={customModelAliases}
           onSelect={(m) => {
             void setModel(m).catch(() => toast.error(t('error.generic')))
           }}

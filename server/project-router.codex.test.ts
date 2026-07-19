@@ -35,7 +35,10 @@ function createMockChildProcess() {
   return child
 }
 
-function makeMinimalContext(db: DbInstance, provider: 'claude' | 'codex' = 'codex'): ProjectContext {
+function makeMinimalContext(
+  db: DbInstance,
+  provider: 'claude' | 'codex' | 'kimi' = 'codex',
+): ProjectContext {
   return {
     project: {
       id: 'proj-codex',
@@ -203,6 +206,69 @@ describe('codex model propagation in project-router', () => {
 
       // Cleanup
       try { const { rmSync } = await import('fs'); rmSync(tmpDir, { recursive: true }) } catch { /* ignore */ }
+    })
+  })
+
+  describe('Kimi pure-output safety gates', () => {
+    it('rejects Quick Spec before spawning because prompt mode cannot enforce tool isolation', async () => {
+      const ctx = makeMinimalContext(db, 'kimi')
+      const { app } = createApp(ctx)
+
+      const response = await request(app)
+        .post('/api/projects/proj-codex/tickets/generate-spec')
+        .send({ idea: 'Add a dark mode toggle' })
+
+      expect(response.status).toBe(409)
+      expect(response.body).toEqual({
+        error: 'provider_tool_policy_unsupported',
+        provider: 'kimi',
+        requiredPolicy: 'pure-output',
+      })
+      expect(mockSpawn).not.toHaveBeenCalled()
+    })
+
+    it('rejects AI Edit before spawning because prompt mode cannot enforce read-only tools', async () => {
+      const ctx = makeMinimalContext(db, 'kimi')
+      const { app } = createApp(ctx)
+
+      const response = await request(app)
+        .post('/api/projects/proj-codex/tickets/1/ai-edit')
+        .send({
+          title: 'Test',
+          instructions: 'Make it clearer',
+          description: '# Test\n\nOriginal description.',
+        })
+
+      expect(response.status).toBe(409)
+      expect(response.body).toEqual({
+        error: 'provider_tool_policy_unsupported',
+        provider: 'kimi',
+        requiredPolicy: 'read-only',
+      })
+      expect(mockSpawn).not.toHaveBeenCalled()
+    })
+
+    it('rejects an explicit Kimi AI Edit in a Claude-primary mixed project instead of silently using Claude', async () => {
+      const ctx = makeMinimalContext(db, 'claude')
+      ctx.project.providers = ['claude', 'kimi']
+      const { app } = createApp(ctx)
+
+      const response = await request(app)
+        .post('/api/projects/proj-codex/tickets/1/ai-edit')
+        .send({
+          provider: 'kimi',
+          title: 'Test',
+          instructions: 'Make it clearer',
+          description: '# Test\n\nOriginal description.',
+        })
+
+      expect(response.status).toBe(409)
+      expect(response.body).toEqual({
+        error: 'provider_tool_policy_unsupported',
+        provider: 'kimi',
+        requiredPolicy: 'read-only',
+      })
+      expect(mockSpawn).not.toHaveBeenCalled()
     })
   })
 })

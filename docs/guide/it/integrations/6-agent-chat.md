@@ -22,7 +22,14 @@ Scegliere un progetto qui **non** sposta la tua dashboard: l'obiettivo dell'agen
 
 ## Provider e modello
 
-Proprio sopra la casella del messaggio scegli il **provider** (Claude, Codex o Gemini) e il suo **modello**. Ogni provider ha la propria lista di modelli, e cambiare provider avvia una sessione nuova con il modello predefinito di quel provider — così puoi, ad esempio, pilotare l'app con Claude e passare a Codex per un'altra conversazione senza che nulla si incroci.
+Proprio sopra la casella del messaggio scegli il **provider** (Claude, Codex,
+Gemini o Kimi) e il suo **modello**. Cambiare provider avvia una sessione
+separata.
+
+Con Kimi i livelli limitano gli strumenti MCP Specrails, ma non trasformano
+`kimi -p` in una sandbox: gli strumenti nativi sono approvati
+automaticamente. Le azioni pure-output non sicure sono rifiutate prima dello
+spawn; vedi la [matrice Kimi](../../../kimi.md).
 
 ## Livelli di permesso — le redini le tieni tu
 

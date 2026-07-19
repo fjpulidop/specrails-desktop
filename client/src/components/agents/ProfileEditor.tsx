@@ -20,7 +20,9 @@ import {
 import { CSS } from '@dnd-kit/utilities'
 import { Input } from '../ui/input'
 import { Button } from '../ui/button'
+import { CustomModelAliasInput } from '../CustomModelAliasInput'
 import { getApiBase } from '../../lib/api'
+import { formatCommandForProvider } from '../../lib/format-command'
 import { RoutingRuleDialog } from './RoutingRuleDialog'
 import {
   BASELINE_REQUIRED_AGENTS,
@@ -28,12 +30,15 @@ import {
   type ModelAlias,
   type Profile,
   type ProfileAgent,
+  type ProfileModelOption,
   type RoutingDefaultRule,
   type RoutingRule,
   type RoutingTagRule,
 } from './types'
 
 const ROUTING_TAG_PATTERN = /^[a-z0-9][a-z0-9-]*$/
+const DEFAULT_PROFILE_MODELS = MODEL_ALIASES.map((value) => ({ value, label: value }))
+const DEFAULT_BASELINE_AGENTS = [...BASELINE_REQUIRED_AGENTS]
 
 interface CatalogAgent {
   id: string
@@ -44,12 +49,22 @@ export function ProfileEditor({
   profile,
   onChange,
   footer,
+  provider = profile.provider ?? 'claude',
+  modelCatalog = DEFAULT_PROFILE_MODELS,
+  defaultModel = modelCatalog[0]?.value ?? '',
+  customModelAliases = false,
+  baselineAgents = DEFAULT_BASELINE_AGENTS,
   onValidityChange,
   onSoftWarningsChange,
 }: {
   profile: Profile
   onChange: (p: Profile) => void
   footer?: ReactNode
+  provider?: string
+  modelCatalog?: ProfileModelOption[]
+  defaultModel?: string
+  customModelAliases?: boolean
+  baselineAgents?: readonly string[]
   onValidityChange?: (issues: string[]) => void
   onSoftWarningsChange?: (warnings: { agentsMissingRouting: string[] }) => void
 }) {
@@ -61,10 +76,11 @@ export function ProfileEditor({
   const [pickingAgent, setPickingAgent] = useState(false)
   const [addRoutingPrompt, setAddRoutingPrompt] = useState(false)
   const [editRoutingIdx, setEditRoutingIdx] = useState<number | null>(null)
+  const requiredAgents = useMemo(() => new Set(baselineAgents), [baselineAgents])
 
   useEffect(() => {
     let cancelled = false
-    fetch(`${getApiBase()}/profiles/catalog`)
+    fetch(`${getApiBase()}/profiles/catalog?provider=${encodeURIComponent(provider)}`)
       .then((r) => (r.ok ? (r.json() as Promise<{ agents: CatalogAgent[] }>) : { agents: [] }))
       .then((data) => {
         if (!cancelled) setCatalog(data.agents)
@@ -75,7 +91,7 @@ export function ProfileEditor({
     return () => {
       cancelled = true
     }
-  }, [])
+  }, [provider])
 
   const update = (mutate: (draft: Profile) => void) => {
     const draft = JSON.parse(JSON.stringify(profile)) as Profile
@@ -90,7 +106,7 @@ export function ProfileEditor({
   const validationIssues: string[] = useMemo(() => {
     const issues: string[] = []
     // Baseline is required on every profile — default and custom alike.
-    for (const baseline of BASELINE_REQUIRED_AGENTS) {
+    for (const baseline of requiredAgents) {
       if (!profile.agents.some((a) => a.id === baseline)) {
         issues.push(t('profileEditor.validation.missingBaseline', { agent: baseline }))
       }
@@ -123,7 +139,7 @@ export function ProfileEditor({
       }
     }
     return issues
-  }, [profile, t])
+  }, [profile, requiredAgents, t])
 
   // ── Soft warnings (non-blocking, surfaced at save-time) ─────────────────────
   // Only surface this when explicit routing exists. If routing is empty the
@@ -132,9 +148,9 @@ export function ProfileEditor({
     if (profile.routing.length === 0) return []
     const routedIds = new Set(profile.routing.map((r) => r.agent))
     return profile.agents
-      .filter((a) => !BASELINE_REQUIRED_AGENTS.has(a.id) && !routedIds.has(a.id))
+      .filter((a) => !requiredAgents.has(a.id) && !routedIds.has(a.id))
       .map((a) => a.id)
-  }, [profile])
+  }, [profile, requiredAgents])
 
   const hasDefaultRoutingRule = useMemo(
     () => profile.routing.some((r) => 'default' in r && r.default === true),
@@ -153,7 +169,7 @@ export function ProfileEditor({
     update((d) => {
       // Insert before sr-merge-resolver if present so the merge row stays
       // pinned last without a manual reorder after every add.
-      const row: ProfileAgent = { id, model: 'sonnet' }
+      const row: ProfileAgent = { id, model: defaultModel }
       const mergeIdx = d.agents.findIndex((a) => a.id === 'sr-merge-resolver')
       if (mergeIdx >= 0) {
         d.agents.splice(mergeIdx, 0, row)
@@ -168,7 +184,7 @@ export function ProfileEditor({
     const agent = profile.agents[idx]
     // Baseline agents (architect/developer/reviewer/merge-resolver) can't be
     // removed from any profile — the pipeline depends on all four.
-    if (BASELINE_REQUIRED_AGENTS.has(agent.id)) return
+    if (requiredAgents.has(agent.id)) return
     update((d) => {
       d.agents.splice(idx, 1)
       // Cascade: drop routing rules that target the removed agent.
@@ -352,7 +368,8 @@ export function ProfileEditor({
         <div className="flex items-center gap-3 p-3 rounded-md border border-border">
           <div className="flex-1 min-w-0">
             <div className="text-sm font-mono text-foreground truncate">
-              /specrails:implement · /specrails:batch-implement
+              {formatCommandForProvider('/specrails:implement', provider)} ·{' '}
+              {formatCommandForProvider('/specrails:batch-implement', provider)}
             </div>
             <div className="text-[11px] text-muted-foreground mt-0.5">
               {t('profileEditor.orchestrator.description')}
@@ -360,6 +377,9 @@ export function ProfileEditor({
           </div>
           <ModelSelect
             value={profile.orchestrator.model}
+            models={modelCatalog}
+            customModelAliases={customModelAliases}
+            testId="profile-orchestrator-model"
             onChange={(m) =>
               update((d) => {
                 d.orchestrator.model = m
@@ -439,7 +459,11 @@ export function ProfileEditor({
                 <AgentRow
                   key={agent.id}
                   agent={agent}
-                  canRemove={!BASELINE_REQUIRED_AGENTS.has(agent.id)}
+                  required={requiredAgents.has(agent.id)}
+                  canRemove={!requiredAgents.has(agent.id)}
+                  models={modelCatalog}
+                  defaultModel={defaultModel}
+                  customModelAliases={customModelAliases}
                   onModel={(m) => setAgentModel(idx, m)}
                   onRemove={() => removeAgent(idx)}
                 />
@@ -525,19 +549,27 @@ export function ProfileEditor({
 
 function AgentRow({
   agent,
+  required,
   canRemove,
+  models,
+  defaultModel,
+  customModelAliases,
   onModel,
   onRemove,
 }: {
   agent: ProfileAgent
+  required: boolean
   canRemove: boolean
+  models: ProfileModelOption[]
+  defaultModel: string
+  customModelAliases: boolean
   onModel: (m: ModelAlias) => void
   onRemove: () => void
 }) {
   const { t } = useTranslation('agentstudio')
   // Baseline is required + pinned on every profile. Architect first,
   // merge-resolver last.
-  const isRequired = BASELINE_REQUIRED_AGENTS.has(agent.id)
+  const isRequired = required
   const pinnedFirst = agent.id === 'sr-architect'
   const pinnedLast = agent.id === 'sr-merge-resolver'
   // sr-merge-resolver and sr-architect stay draggable like the rest; the
@@ -591,7 +623,13 @@ function AgentRow({
           {t('profileEditor.agentRow.required')}
         </span>
       )}
-      <ModelSelect value={agent.model ?? 'sonnet'} onChange={onModel} />
+      <ModelSelect
+        value={agent.model ?? defaultModel}
+        models={models}
+        customModelAliases={customModelAliases}
+        testId={`profile-agent-model-${agent.id}`}
+        onChange={onModel}
+      />
       <button
         type="button"
         className="p-1 hover:bg-red-500/20 aurora-light:hover:bg-destructive/15 text-red-400 aurora-light:text-destructive rounded disabled:opacity-30 disabled:cursor-not-allowed opacity-0 group-hover:opacity-100 transition-opacity"
@@ -724,20 +762,45 @@ function RoutingRow({
 
 function ModelSelect({
   value,
+  models,
+  customModelAliases,
+  testId,
   onChange,
 }: {
   value: ModelAlias
+  models: ProfileModelOption[]
+  customModelAliases: boolean
+  testId?: string
   onChange: (m: ModelAlias) => void
 }) {
+  if (customModelAliases) {
+    return (
+      <CustomModelAliasInput
+        value={value}
+        options={models}
+        ariaLabel="Model alias"
+        testId={testId}
+        className="h-7 w-52 bg-background px-2 text-xs"
+        onCommit={onChange}
+      />
+    )
+  }
+
+  // Keep a configured custom alias visible even when it is not part of the
+  // provider's static official catalog. The backend validates configured
+  // aliases; the client must not silently replace them with a Claude model.
+  const options = models.some((model) => model.value === value)
+    ? models
+    : [...models, { value, label: value }]
   return (
     <select
       value={value}
       onChange={(e) => onChange(e.target.value as ModelAlias)}
       className="h-7 px-2 text-xs rounded border border-border bg-background"
     >
-      {MODEL_ALIASES.map((m) => (
-        <option key={m} value={m}>
-          {m}
+      {options.map((model) => (
+        <option key={model.value} value={model.value}>
+          {model.label}
         </option>
       ))}
     </select>

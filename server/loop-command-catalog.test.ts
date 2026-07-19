@@ -9,10 +9,10 @@ import {
 import { interpolateSpec } from './loop-graph'
 
 describe('loop command catalog', () => {
-  it('ships implement (all), batch (all), freestyle (per-ticket, claude-only)', () => {
+  it('ships implement (all), batch (all), freestyle (per-ticket, capability-gated)', () => {
     expect(getLoopCommand('implement')).toMatchObject({ coreCommand: 'implement', ticketScope: 'all' })
     expect(getLoopCommand('batch')).toMatchObject({ coreCommand: 'batch-implement', ticketScope: 'all' })
-    expect(getLoopCommand('freestyle')).toMatchObject({ native: true, claudeOnly: true, ticketScope: 'per-ticket' })
+    expect(getLoopCommand('freestyle')).toMatchObject({ native: true, requiredCapability: 'freestyle', ticketScope: 'per-ticket' })
     expect(LOOP_COMMANDS.some((c) => c.name === 'verify')).toBe(true)
   })
 
@@ -42,9 +42,9 @@ describe('loop command catalog', () => {
     expect(expandCommands('x {{cmd:bogus}} y', { provider: 'claude' })).toBe('x  y')
   })
 
-  it('resolve-merge expands to a conflict-resolution prompt carrying the MERGE_SAFE token, not claude-only', () => {
+  it('resolve-merge expands to a conflict-resolution prompt carrying the MERGE_SAFE token without a capability gate', () => {
     expect(getLoopCommand('resolve-merge')).toMatchObject({ ticketScope: 'per-ticket' })
-    expect(getLoopCommand('resolve-merge')?.claudeOnly).toBeFalsy()
+    expect(getLoopCommand('resolve-merge')?.requiredCapability).toBeUndefined()
     const out = expandCommands('{{cmd:resolve-merge}}', { provider: 'codex', ticketIds: [1] })
     expect(out).toMatch(/conflict/i)
     // command expansion leaves the constant token for the constants pass to resolve
@@ -58,7 +58,7 @@ describe('loop command catalog', () => {
     expect(dominantTicketScope('plain prompt, no command')).toBe('per-ticket')
   })
 
-  it('referencesClaudeOnlyCommand flags freestyle only', () => {
+  it('legacy referencesClaudeOnlyCommand helper flags the freestyle capability', () => {
     expect(referencesClaudeOnlyCommand('{{cmd:freestyle}}')).toBe(true)
     expect(referencesClaudeOnlyCommand('{{cmd:implement}}')).toBe(false)
   })
@@ -73,8 +73,8 @@ describe('loop command catalog', () => {
     expect(gem.toLowerCase()).toContain('autonomously')
   })
 
-  it('{{cmd:loop}} is NOT a claude-only command (portable across providers)', () => {
-    expect(getLoopCommand('loop')?.claudeOnly).toBeFalsy()
+  it('{{cmd:loop}} has no provider capability gate (portable across providers)', () => {
+    expect(getLoopCommand('loop')?.requiredCapability).toBeUndefined()
     expect(referencesClaudeOnlyCommand('{{cmd:loop}}')).toBe(false)
   })
 

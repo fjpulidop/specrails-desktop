@@ -143,7 +143,7 @@ function inferTopic(question: string): SupportTopic {
   if (/\b(mcp|claude desktop|cursor|external ai|token|settings.*mcp)\b/.test(q)) return 'mcp_connection'
   if (/\b(agent chat|chat panel|shift\+tab|permission level|observe|operate|autonomous)\b/.test(q)) return 'agent_chat'
   if (/\b(specrails-core|core framework|missing agents?|missing skills?|no agents?|no skills?|slash command|command not found|propose-feature|opsx|framework files?|reinstall)\b/.test(q)) return 'framework_install'
-  if (/\b(claude|codex|gemini|provider|engine|cli|auth|login|api key|path)\b/.test(q)) return 'provider_cli'
+  if (/\b(claude|codex|gemini|kimi|provider|engine|cli|auth|login|api key|path)\b/.test(q)) return 'provider_cli'
   if (/\b(add project|project setup|setup wizard|provision|checkpoint|install config)\b/.test(q)) return 'project_setup'
   if (/\b(install|installation|setup|prerequisite|node|npm|npx|git)\b/.test(q)) return 'installation'
   if (/\b(rail|job|launch|run|queue|stuck|failed|logs?)\b/.test(q)) return 'rails_jobs'

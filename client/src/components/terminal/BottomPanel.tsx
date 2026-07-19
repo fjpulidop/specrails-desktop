@@ -19,6 +19,7 @@ import { TerminalSidebar } from './TerminalSidebar'
 import { TerminalViewport } from './TerminalViewport'
 import { TerminalDragHandle } from './TerminalDragHandle'
 import { EmptyTerminalPlaceholder } from './EmptyTerminalPlaceholder'
+import { useAvailableProviders } from '../../hooks/useAvailableProviders'
 
 const PANEL_CURTAIN_MS = 300
 type PanelCurtainPhase = 'hidden' | 'opening' | 'open' | 'closing'
@@ -45,6 +46,7 @@ export function BottomPanel({ projectId, provider = 'claude', providers, state, 
   const [settings, setSettings] = useState<TerminalSettings>(DEFAULT_TERMINAL_SETTINGS)
   const [shortcutMenu, setShortcutMenu] = useState<{ x: number; y: number; kind: 'browser' | 'script' } | null>(null)
   const [cliMenu, setCliMenu] = useState<{ x: number; y: number } | null>(null)
+  const { launchDescriptors } = useAvailableProviders()
   const animateInitialOpenRef = useRef(statusBarHeight === 0 && state.visibility !== 'hidden')
   const [curtainPhase, setCurtainPhase] = useState<PanelCurtainPhase>(() =>
     state.visibility === 'hidden' ? 'hidden' : animateInitialOpenRef.current ? 'opening' : 'open',
@@ -163,17 +165,19 @@ export function BottomPanel({ projectId, provider = 'claude', providers, state, 
 
   const launchCli = useCallback((which: ProviderId) => {
     if (!canCreate) return
-    // The provider id IS the CLI binary name (claude / codex / gemini), so the
-    // shell command typed below is the provider verbatim — never hardcode a
-    // two-provider fallback that would relaunch claude for a gemini project.
+    // The registry owns the launch descriptor: a provider id need not equal its
+    // executable name. Descriptors are CLI-only and never include a server
+    // subcommand.
+    const descriptor = launchDescriptors[which] ?? { command: which, args: [] }
+    const launchText = [descriptor.command, ...descriptor.args].join(' ') + '\n'
     const baseName = which || 'claude'
     const numberSuffix = new RegExp(`^${baseName} \\(\\d+\\)$`)
     const matches = state.sessions.filter(
       (s) => s.name === baseName || numberSuffix.test(s.name),
     )
     const name = matches.length === 0 ? baseName : `${baseName} (${matches.length + 1})`
-    void t.createAndType(projectId, `${baseName}\n`, { name })
-  }, [canCreate, projectId, state.sessions, t])
+    void t.createAndType(projectId, launchText, { name })
+  }, [canCreate, launchDescriptors, projectId, state.sessions, t])
 
   const handleOpenCli = useCallback((anchor?: { x: number; y: number }) => {
     if (!canCreate) return

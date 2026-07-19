@@ -28,7 +28,7 @@ export interface SharedFileContributor {
   appliesTo(plugin: Plugin): boolean
   /** Project-relative paths this contributor will create/modify. The
    *  optional `providerId` lets the contributor pick a per-provider file
-   *  (CLAUDE.md vs AGENTS.md). */
+ *  (for example CLAUDE.md, AGENTS.md, or .kimi-code/AGENTS.md). */
   relativePaths(plugin: Plugin, providerId?: string): string[]
   /** Write/refresh the plugin's region. Idempotent. */
   apply(plugin: Plugin, projectPath: string, providerId?: string): Promise<void>

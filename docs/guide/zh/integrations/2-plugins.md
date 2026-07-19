@@ -21,7 +21,7 @@
 3. 点进插件，**预览安装**——这会在任何改动发生之前，明确告诉你哪些文件会被改动。
 4. 点击 **安装**。安装过程中你会看到实时进度。
 
-在底层，安装是*精准且增量*的：它只会把自己的条目加进你项目的 `.mcp.json`（对某些插件，还会在受保护的 `.claude/agents/` 命名空间下加一个片段文件）。它绝不会整体重写你的配置，而且再装第二个插件也绝不会干扰第一个。如果安装无法自我验证为健康状态，它会干净利落地回滚。
+底层安装是*精准且增量*的：它只向所选 provider 的原生 MCP 配置添加自己的条目（某些 Claude 安装还会写入 `.claude/agents/` 片段）。它不会整体重写配置；健康检查失败时会干净回滚。
 
 ## 管理已安装的插件
 
@@ -37,8 +37,8 @@
 
 ## 提供方相关说明
 
-插件是「提供方感知」的。Serena 及类似的 MCP 插件，会对那些通过项目 `.mcp.json` 注册 MCP 的提供方（Claude 和 Gemini）生效。对于 Codex 项目，MCP 服务器是通过 Codex 自己的全局配置来管理的，因此 **Integrations** 里的插件条目会相应地被过滤掉。Integrations 里的 Jira 卡片与提供方无关，对所有人都会显示——参见 Jira 指南。
+插件是 provider-aware 的。Serena 通过 `.mcp.json` 支持 Claude，通过项目隔离的 `CODEX_HOME` 和 `codex mcp add` 支持 Codex，并通过 `.kimi-code/mcp.json` 支持 Kimi。只有 manifest 声明支持时才显示，因此 Gemini 不提供 Serena。Jira 卡片与 provider 无关。
 
 ## 受保留的文件
 
-插件会管理你项目里一小撮定义明确的文件：你的 `.mcp.json`（精准合并）、`.specrails/plugins/` 下的一些状态，以及位于 `.claude/agents/custom-<plugin>.md` 的各插件 agent 片段。如果你想和队友共享某个集成，这些都是可以提交进仓库的团队资产——应用绝不会盲目覆盖它们。
+插件只管理 provider 的原生 MCP 配置、`.specrails/plugins/` 状态，以及 Claude 确实需要时的 `.claude/agents/custom-<plugin>.md` 片段。Kimi 条目位于 `.kimi-code/mcp.json`；应用不会为 Kimi 写 Claude-only 片段，也不会盲目覆盖配置。

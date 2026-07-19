@@ -155,6 +155,102 @@ describe('ProposeSpecModal', () => {
     expect(tabs.some((t) => t.textContent?.toLowerCase().includes('raw'))).toBe(true)
   })
 
+  it('switches Kimi to Explore and disables Quick with a localized explanation', async () => {
+    ;(global.fetch as ReturnType<typeof vi.fn>).mockImplementation((url: string) => {
+      if (typeof url === 'string' && url.includes('/default-spec-model')) {
+        return Promise.resolve({
+          ok: true,
+          json: async () => ({
+            model: 'k3',
+            provider: 'kimi',
+            providers: ['kimi'],
+            allowed: [{ value: 'k3', label: 'Kimi K3' }],
+          }),
+        })
+      }
+      return Promise.resolve({ ok: true, json: async () => ({}) })
+    })
+    render(<ProposeSpecModal open onClose={onCloseMock} tickets={emptyTickets} onExploreLaunch={vi.fn()} />)
+
+    const quickTab = screen.getAllByRole('tab').find((tab) =>
+      tab.textContent?.toLowerCase().includes('quick'),
+    )!
+    const exploreTab = screen.getAllByRole('tab').find((tab) =>
+      tab.textContent?.toLowerCase().includes('explore'),
+    )!
+    await waitFor(() => {
+      expect(quickTab).toBeDisabled()
+      expect(quickTab).toHaveAttribute('title', 'unavailable for Kimi')
+      expect(quickTab).toHaveTextContent('unavailable for Kimi')
+      expect(exploreTab).toHaveAttribute('aria-selected', 'true')
+    })
+    expect(screen.getAllByRole('tab').find((tab) =>
+      tab.textContent?.toLowerCase().includes('raw'),
+    )).not.toBeDisabled()
+    expect(global.fetch).not.toHaveBeenCalledWith(
+      expect.stringContaining('/tickets/generate-spec'),
+      expect.anything(),
+    )
+  })
+
+  it('clears Kimi-incompatible MCP/refine scopes before Explore handoff', async () => {
+    ;(global.fetch as ReturnType<typeof vi.fn>).mockImplementation((url: string) => {
+      if (typeof url === 'string' && url.includes('/default-spec-model')) {
+        return Promise.resolve({
+          ok: true,
+          json: async () => ({
+            model: 'k3',
+            provider: 'kimi',
+            providers: ['kimi'],
+            allowed: [{ value: 'k3', label: 'Kimi K3' }],
+          }),
+        })
+      }
+      return Promise.resolve({ ok: true, json: async () => ({}) })
+    })
+    const onExploreLaunch = vi.fn()
+    render(
+      <ProposeSpecModal
+        open
+        onClose={onCloseMock}
+        tickets={emptyTickets}
+        onExploreLaunch={onExploreLaunch}
+      />,
+    )
+
+    await waitFor(() => {
+      expect(screen.getAllByRole('tab').find((tab) =>
+        tab.textContent?.toLowerCase().includes('explore'),
+      )).toHaveAttribute('aria-selected', 'true')
+    })
+    fireEvent.click(screen.getByTestId('context-scope-toggle'))
+    const userMcp = screen.getByLabelText('My approved MCPs')
+    const contractRefine = screen.getByLabelText('Enrich with Contract Layer')
+    expect(userMcp).toBeDisabled()
+    expect(userMcp).toHaveAttribute('aria-checked', 'false')
+    expect(userMcp.parentElement).toHaveAttribute('title', 'Unavailable for Kimi')
+    expect(contractRefine).toBeDisabled()
+    expect(contractRefine).toHaveAttribute('aria-checked', 'false')
+
+    // Desktop preset normally enables both booleans. The provider-aware
+    // setter must retain supported project MCP scope while clearing them.
+    fireEvent.click(screen.getByTestId('scope-stop-desktop'))
+    const textarea = screen.getByPlaceholderText(/dark mode/i)
+    fireEvent.change(textarea, { target: { value: 'Kimi explore scope' } })
+    fireEvent.click(screen.getByRole('button', { name: /continue/i }))
+
+    await waitFor(() => {
+      expect(onExploreLaunch).toHaveBeenCalledWith(expect.objectContaining({
+        provider: 'kimi',
+        contextScope: expect.objectContaining({
+          mcp: true,
+          userMcp: false,
+          contractRefine: false,
+        }),
+      }))
+    })
+  })
+
   it('renames the action button to Continue in Explore mode', () => {
     render(<ProposeSpecModal open={true} onClose={onCloseMock} tickets={emptyTickets} />)
     const exploreTab = screen.getAllByRole('tab').find((t) => t.textContent?.toLowerCase().includes('explore'))!

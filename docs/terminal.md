@@ -32,7 +32,7 @@ You don't have to. You can keep using iTerm/Windows Terminal/Alacritty/whatever 
 
 The panel header carries three one-click shortcuts:
 
-- **Open AI CLI** (✨ Sparkles) — spins up a fresh session and types the launch command for you. On a single-provider project it launches the project's provider CLI directly (`claude`, `codex`, or `gemini`); on a multi-provider project it opens a small picker so you choose which CLI to start.
+- **Open AI CLI** (✨ Sparkles) — spins up a fresh session and types the launch command for you. On a single-provider project it launches the project's provider CLI directly (`claude`, `codex`, `gemini`, or `kimi`); on a multi-provider project it opens a small picker so you choose which CLI to start. Kimi launches the CLI itself, not `kimi server`.
 - **Open in browser** (🌐 Globe) — opens the URL from the `browserShortcutUrl` setting (default `https://specrails.dev`). Right-click it to jump to the setting and change the URL.
 - **Paste quick script** (`</>`) — writes the snippet from the `quickScript` setting (which defaults to a personalised `echo "Wake up, <username> …"` reminder, editable in Settings) into the active session. Right-click it to edit the snippet in Settings. Disabled when there's no active terminal or the snippet is empty.
 

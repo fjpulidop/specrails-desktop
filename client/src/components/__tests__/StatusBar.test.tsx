@@ -167,4 +167,35 @@ describe('StatusBar', () => {
     expect(screen.queryByText(/\$0/)).not.toBeInTheDocument()
     expect(screen.queryByText(/\$/)).not.toBeInTheDocument()
   })
+
+  it('shows unavailable instead of hiding an all-Kimi cost ledger', async () => {
+    global.fetch = vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({
+        jobsToday: 2,
+        totalCostUsd: 0,
+        costToday: 0,
+        pricedRuns: 0,
+        unpricedRuns: 2,
+      }),
+    })
+    render(<StatusBar connectionStatus="connected" />)
+    expect(await screen.findByTestId('statusbar-cost-unavailable')).toHaveTextContent('unavailable')
+    expect(screen.queryByText(/\$0/)).not.toBeInTheDocument()
+  })
+
+  it('marks mixed provider cost as a known lower bound', async () => {
+    global.fetch = vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({
+        jobsToday: 2,
+        totalCostUsd: 1.5,
+        costToday: 1.5,
+        pricedRuns: 1,
+        unpricedRuns: 1,
+      }),
+    })
+    render(<StatusBar connectionStatus="connected" />)
+    expect(await screen.findByText('≥$1.50')).toBeInTheDocument()
+  })
 })

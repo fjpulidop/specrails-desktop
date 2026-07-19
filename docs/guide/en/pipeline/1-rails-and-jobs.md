@@ -35,8 +35,8 @@ That's it. The rail spins up an AI CLI process in the right execution context an
 | **Status pill** | `idle`, `running`, or `failed`. There's no separate "completed" — a rail returns to `idle` when its job finishes cleanly. |
 | **Spec list** | The IDs assigned to this rail. Drag more in, drag them out to detach. |
 | **Loop picker** | The Loop this rail runs — a built-in (`Implement` / `Batch` / `Freestyle`) or a custom loop. See the table below. Persisted per rail. |
-| **Profile picker** | Which agent profile runs (Claude rails only). Only appears once the project has at least one profile. |
-| **Engine selector** | Which installed provider runs this rail — Claude, Codex, or Gemini. Only renders when the project has more than one provider. See [Picking an engine per rail](picking-an-engine-per-rail). |
+| **Profile picker** | Which provider-scoped agent profile runs (Claude and Kimi rails). Only appears once the effective provider has at least one profile. |
+| **Engine selector** | Which installed provider runs this rail — Claude, Codex, Gemini, or Kimi. Only renders when the project has more than one provider. See [Picking an engine per rail](picking-an-engine-per-rail). |
 | **▶ Play / ■ Stop** | Start or cancel. |
 
 ### What a rail runs: Loops
@@ -47,11 +47,19 @@ A rail runs a **Loop** — the recipe for the work. Three loops are **built in**
 |------|---------|--------------|
 | **Implement** | `/specrails:implement` | One job covering all specs on the rail. Runs the full Architect → Developer → Reviewer → Ship pipeline. The everyday default. |
 | **Batch** | `/specrails:batch-implement` | One job that works through the rail's specs sequentially, in dependency-aware waves. Best for several related specs. |
-| **Freestyle** | Freestyle | Claude implements each spec autonomously, **bypassing** the pipeline. One independent job per spec. Claude only. |
+| **Freestyle** | Freestyle | A capable provider implements each spec autonomously, **bypassing** the pipeline. One independent job per spec. Claude and Kimi support it. |
 
-Freestyle is the odd one out: it skips the agent chain and hands Claude the raw spec to work on with its native tools. It's open-ended, so pressing Play opens a confirmation first, and a per-rail model picker lets you choose Haiku / Sonnet / Opus. It only appears when the rail's engine is Claude. A Freestyle run is also the one job that **stays open for you**: chat with it from the Job Detail composer and click **Finalize** when you're satisfied (every other job wraps up on its own).
+Freestyle is the odd one out: it skips the agent chain and hands the capable
+provider the raw spec to work on with native tools. It's open-ended, so
+pressing Play opens a confirmation first, and its model picker follows that
+provider's catalog. Claude uses its persistent live-session flow; Kimi uses an
+owned agentic `kimi -p` process and has no persistent stdin.
 
-Beyond the built-ins, you can **build your own loops** — repeat a verify → fix → verify cycle until a goal is met, chain shell commands between AI steps, and more. Those custom loops appear in the same Loop picker. That's the next big idea: [The Loop Builder](the-loop-builder).
+Beyond the built-ins, you can **build your own loops** — repeat a verify → fix
+→ verify cycle until a goal is met, chain shell commands between AI steps, and
+more. Kimi runs loops without a Loop Decider; its `-p` transport cannot enforce
+the Decider's pure-output verdict boundary. Those custom loops appear in the
+same Loop picker. That's the next big idea: [The Loop Builder](the-loop-builder).
 
 ## The job queue
 
@@ -81,7 +89,11 @@ Click **■ Stop** on the rail header. The app sends `SIGTERM` to the subprocess
 
 ## If a rail won't launch
 
-If you pick an engine whose CLI isn't installed on your machine, the launch **fails fast** instead of starting a broken job — nothing spawns. Install the missing provider CLI ([Using Codex](../integrations/using-codex), [Using Gemini](../integrations/using-gemini)) and launch again. Missing Claude or Codex gives a precise "*&lt;provider&gt; CLI not found*" message; missing Gemini surfaces a generic launch error today, but the outcome is the same.
+If you pick an engine whose CLI isn't installed on your machine, the launch
+**fails fast** instead of starting a broken job — nothing spawns. Install the
+missing provider CLI ([Using Codex](../integrations/using-codex),
+[Using Gemini](../integrations/using-gemini), or
+[Using Kimi](../../../kimi.md)) and launch again.
 
 ## Stopping everything
 
@@ -96,4 +108,4 @@ If something looks wrong:
 - [The Loop Builder](the-loop-builder) — what a rail runs, and how to build your own loops.
 - [The Job Detail view](the-job-detail-view) — phases, live metrics, ticket cards.
 - [Batch implement & multi-feature](batch-implement-and-multi-feature) — run several specs at once.
-- [Picking an engine per rail](picking-an-engine-per-rail) — Claude vs Codex vs Gemini.
+- [Picking an engine per rail](picking-an-engine-per-rail) — Claude vs Codex vs Gemini vs Kimi.

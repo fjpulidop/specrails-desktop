@@ -1,6 +1,9 @@
 import { useTranslation } from 'react-i18next'
 import { cn } from '../lib/utils'
-import type { ProviderId } from '../lib/provider-capabilities'
+import {
+  providerSupportsCustomModelAliases,
+  type ProviderId,
+} from '../lib/provider-capabilities'
 import {
   Select,
   SelectContent,
@@ -9,6 +12,7 @@ import {
   SelectValue,
 } from './ui/select'
 import type { AgentDef } from './AgentSelector'
+import { CustomModelAliasInput } from './CustomModelAliasInput'
 
 // ─── Model definitions ────────────────────────────────────────────────────────
 
@@ -42,26 +46,33 @@ export const GEMINI_MODELS = [
   { value: 'gemini-2.5-flash-lite', label: 'Gemini 2.5 Flash Lite' },
 ]
 
+export const KIMI_MODELS = [
+  { value: 'k3', label: 'Kimi K3' },
+  { value: 'kimi-for-coding', label: 'Kimi for Coding' },
+  { value: 'kimi-for-coding-highspeed', label: 'Kimi for Coding Highspeed' },
+]
+
 // Per-provider model catalog. Lookup keyed by provider id (not a branch) — a new
-// provider adds one entry, with no edit to consumers. Fallback is Claude's list.
+// provider adds one entry, with no edit to consumers. Unknown means no models.
 const PROVIDER_MODELS: Record<string, { value: string; label: string }[]> = {
   claude: CLAUDE_MODELS,
   codex: CODEX_MODELS,
   gemini: GEMINI_MODELS,
+  kimi: KIMI_MODELS,
 }
 
 // Preset → default model per provider (matches specrails-core MODEL_PRESETS).
-// Inner maps are keyed by provider id; an unknown provider falls back to Claude.
+// Inner maps are keyed by provider id; unknown providers have no implicit model.
 export const PRESET_DEFAULTS: Record<ModelPreset, Record<string, string>> = {
-  balanced: { claude: 'sonnet', codex: 'gpt-5.5', gemini: 'gemini-3.5-flash' },
-  budget: { claude: 'haiku', codex: 'gpt-5.4-mini', gemini: 'gemini-2.5-flash-lite' },
-  max: { claude: 'sonnet', codex: 'gpt-5.6-sol', gemini: 'gemini-3.5-flash' },
+  balanced: { claude: 'sonnet', codex: 'gpt-5.5', gemini: 'gemini-3.5-flash', kimi: 'k3' },
+  budget: { claude: 'haiku', codex: 'gpt-5.4-mini', gemini: 'gemini-2.5-flash-lite', kimi: 'k3' },
+  max: { claude: 'sonnet', codex: 'gpt-5.6-sol', gemini: 'gemini-3.5-flash', kimi: 'k3' },
 }
 
 // "max" preset: top model for architect + PM, default for rest (matches specrails-core)
 const MAX_OVERRIDES: Record<string, Record<string, string>> = {
-  'sr-architect': { claude: 'opus', codex: 'gpt-5.6-sol', gemini: 'gemini-3.1-pro-preview' },
-  'sr-product-manager': { claude: 'opus', codex: 'gpt-5.6-sol', gemini: 'gemini-3.1-pro-preview' },
+  'sr-architect': { claude: 'opus', codex: 'gpt-5.6-sol', gemini: 'gemini-3.1-pro-preview', kimi: 'k3' },
+  'sr-product-manager': { claude: 'opus', codex: 'gpt-5.6-sol', gemini: 'gemini-3.1-pro-preview', kimi: 'k3' },
 }
 
 export function getDefaultModel(
@@ -71,9 +82,9 @@ export function getDefaultModel(
 ): string {
   const presetDefaults = PRESET_DEFAULTS[preset]
   if (preset === 'max' && MAX_OVERRIDES[agentId]) {
-    return MAX_OVERRIDES[agentId][provider] ?? presetDefaults[provider] ?? presetDefaults.claude
+    return MAX_OVERRIDES[agentId][provider] ?? presetDefaults[provider] ?? ''
   }
-  return presetDefaults[provider] ?? presetDefaults.claude
+  return presetDefaults[provider] ?? ''
 }
 
 // ─── ModelSelector ────────────────────────────────────────────────────────────
@@ -99,7 +110,8 @@ export function ModelSelector({
   onOverrideChange,
 }: ModelSelectorProps) {
   const { t } = useTranslation('addspec')
-  const models = PROVIDER_MODELS[provider] ?? CLAUDE_MODELS
+  const models = PROVIDER_MODELS[provider] ?? []
+  const customModelAliases = providerSupportsCustomModelAliases(provider)
 
   // Provider-aware preset descriptions: interpolate the ACTUAL model labels for
   // the selected provider so a gemini/codex project never reads "Sonnet for all
@@ -190,21 +202,32 @@ export function ModelSelector({
                   )}
                 </div>
                 <div className="flex items-center gap-1">
-                  <Select
-                    value={effectiveModel}
-                    onValueChange={(val) => onOverrideChange(agent.id, val)}
-                  >
-                    <SelectTrigger className="h-6 w-44 text-[10px] px-2">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {models.map((m) => (
-                        <SelectItem key={m.value} value={m.value}>
-                          {m.label}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+                  {customModelAliases ? (
+                    <CustomModelAliasInput
+                      value={effectiveModel}
+                      options={models}
+                      ariaLabel={`Model for ${agent.name}`}
+                      testId={`model-override-${agent.id}`}
+                      className="h-6 w-44 px-2 text-[10px]"
+                      onCommit={(value) => onOverrideChange(agent.id, value)}
+                    />
+                  ) : (
+                    <Select
+                      value={effectiveModel}
+                      onValueChange={(val) => onOverrideChange(agent.id, val)}
+                    >
+                      <SelectTrigger className="h-6 w-44 text-[10px] px-2">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {models.map((m) => (
+                          <SelectItem key={m.value} value={m.value}>
+                            {m.label}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  )}
                   {overridden && (
                     <button
                       onClick={() => clearOverride(agent.id)}

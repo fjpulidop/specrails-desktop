@@ -9,7 +9,7 @@ interface TerminalTopBarProps {
   visibility: PanelVisibility
   canCreate: boolean
   hasActive: boolean
-  /** CLI to launch from the Sparkles shortcut: 'claude' (default) or 'codex'.
+  /** Provider CLI to launch from the Sparkles shortcut.
    *  Used for the button label when only one provider is installed. */
   provider?: ProviderId
   /** All installed providers. When >1, clicking the Sparkles shortcut opens a

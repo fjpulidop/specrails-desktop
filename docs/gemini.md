@@ -1,11 +1,10 @@
 # Using Specrails with the Gemini CLI
 
-Specrails supports **three AI providers**: Anthropic's
+Specrails supports **four AI providers**: Anthropic's
 [Claude Code](https://claude.com/claude-code), OpenAI's
 [Codex CLI](https://developers.openai.com/codex), and Google's
-[Gemini CLI](https://github.com/google-gemini/gemini-cli). You pick one,
-two, or all three when you add a project, and the rest of the app behaves
-the same across them.
+[Gemini CLI](https://github.com/google-gemini/gemini-cli), plus
+[Kimi Code](kimi.md). You pick any compatible subset when you add a project.
 
 > **Gemini is enabled by default** (parity with Claude and Codex). It shows
 > up in **Add Project** and is selectable whenever the `gemini` CLI is on
@@ -16,8 +15,8 @@ the same across them.
 
 **What works with Gemini:** Explore Spec, Quick spec, AI Edit, the terminal
 "Open AI CLI" launcher, cost analytics, **and the full rails pipeline**
-(`/specrails:implement`, `batch-implement`). The one exception is
-**Freestyle rails**, which remain Claude-only.
+(`/specrails:implement`, `batch-implement`). Gemini does not advertise
+**Freestyle rails**; choose Claude or Kimi for that autonomous rail mode.
 
 ## Prerequisites
 
@@ -25,12 +24,13 @@ the same across them.
 |---|---|---|
 | `gemini` CLI ≥ 0.11.0 | Earlier versions lack `--output-format stream-json` + headless `--resume`, which the app relies on | `npm i -g @google/gemini-cli` · check with `gemini --version` |
 | A Gemini API key | The app spawns Gemini headlessly, so it needs non-interactive auth | Set `GEMINI_API_KEY` to a paid Gemini Developer API key from [Google AI Studio](https://aistudio.google.com/apikey) |
-| `specrails-core` ≥ 4.8.0 in the project | 4.8.0 ships the Gemini provider target (`.gemini/` commands + agents) that the rails pipeline needs | The Add-Project install flow uses `specrails-core@^4.8.0` automatically |
+| `specrails-core` ≥ 4.8.0 in the project | 4.8.0 ships the Gemini provider target (`.gemini/` commands + agents) that the rails pipeline needs | The current Add-Project install flow uses `specrails-core@^4.12.0` automatically |
 | `git`, `node`, `npm`, `npx` | Same as Claude — needed for `specrails-core init` | Use your usual installer |
 
 > **Two different minimums.** The `gemini` **binary** floor is **0.11.0**.
-> The `specrails-core` **package** floor is **4.8.0** (a single shared
-> version for all providers). They are separate things — the binary on your
+> The current Desktop `specrails-core` **package** floor is **4.12.0** (a
+> single shared version for all providers, including Kimi). They are separate
+> things — the binary on your
 > machine vs. the artifacts installed into the project.
 
 **On the API key.** The free OAuth "Login with Google" tier exists, but it
@@ -52,7 +52,7 @@ the Gemini provider checkbox with a "not found" hint when the binary isn't on
    project](#running-multiple-providers-in-one-project)). The first provider
    you select becomes the project default.
 4. Submit. The app writes `.specrails/install-config.yaml` and spawns
-   `npx --yes --prefer-online specrails-core@^4.8.0 init --yes --from-config <file>`.
+   `npx --yes --prefer-online specrails-core@^4.12.0 init --yes --from-config <file>`.
    The install produces the `.gemini/` artifacts (commands + `sr-*` agents),
    plus a `GEMINI.md` instructions file.
 
@@ -79,7 +79,7 @@ these pickers don't render — there's nothing to choose.
 
 ## Running multiple providers in one project
 
-A single project can install **Claude, Codex, and Gemini** in any
+A single project can install **Claude, Codex, Gemini, and Kimi** in any
 combination. In **Add Project** the **AI providers** control is a
 multi-select; check the ones you want and the app runs each provider's
 install sequentially. The first you select is the **primary/default**.
@@ -88,31 +88,26 @@ Once more than one is installed:
 
 - **Engine pickers** (above) appear on Add Spec, the rail header, and the
   terminal launcher.
-- **Capability intersection.** The right sidebar only shows sections that
-  *every* installed provider supports. Because Gemini and Codex have no
-  agent profiles, the **Agents** section is **hidden** on a mixed project.
-  The **Integrations** section stays visible (it hosts the
-  provider-agnostic Jira card); only the Serena **plugin** entry inside it
-  is filtered per-provider. In the Add Spec dialog, the SMASH and Contract
-  Layer options are hidden when the selected engine is Gemini.
+- **Capabilities are provider-scoped.** Gemini/Codex rails run in legacy
+  profile mode; Claude/Kimi profiles stay independent. Integration
+  state/health and structured-action selectors follow the effective provider.
 
 When only one provider is installed the app behaves byte-identically to a
 single-provider project — no engine pickers, no provider persisted on spawns.
 
 ## What's different vs Claude
 
-| Capability | Claude | Codex | Gemini |
-|---|---|---|---|
-| **CLI / project dir** | `claude` / `.claude/` | `codex` / `.codex/` | `gemini` / `.gemini/` |
-| **Instructions file** | `CLAUDE.md` | `AGENTS.md` | `GEMINI.md` |
-| **Native cost report** | ✅ `total_cost_usd` | ❌ estimated | ❌ estimated |
-| **Native OTEL** | ✅ | 🔧 synthesized by the app | ✅ native (no bridge) |
-| **`--system-prompt` flag** | ✅ | ❌ folded into prompt | ❌ folded into prompt |
-| **Rails pipeline** | ✅ | ✅ | ✅ |
-| **Freestyle rails** | ✅ | ❌ Claude-only | ❌ Claude-only |
-| **Agent profiles on rails** | ✅ | ❌ forced legacy | ❌ forced legacy |
-| **SMASH / Contract Refine** | ✅ | ❌ Claude-only | ❌ Claude-only |
-| **Plugins (Serena)** | ✅ | ❌ | ⚠️ offered, doesn't load (known gap) |
+| Capability | Claude | Codex | Gemini | Kimi |
+|---|---|---|---|---|
+| **CLI / project dir** | `claude` / `.claude/` | `codex` / `.codex/` | `gemini` / `.gemini/` | `kimi` / `.kimi-code/` |
+| **Instructions file** | `CLAUDE.md` | `AGENTS.md` | `GEMINI.md` | `AGENTS.md` |
+| **Native cost report** | ✅ exact | ❌ estimated | ❌ estimated | ❌ unavailable |
+| **Native OTEL** | ✅ | 🔧 synthesized | ✅ native | ❌ |
+| **Rails pipeline** | ✅ | ✅ | ✅ | ✅ |
+| **Freestyle rails** | ✅ | ❌ | ❌ | ✅ |
+| **Agent profiles on rails** | ✅ | ❌ legacy | ❌ legacy | ✅ provider-scoped |
+| **Pure-output transforms** | capability-dependent | capability-dependent | capability-dependent | ❌ fail closed |
+| **Plugins (Serena)** | ✅ | ✅ provider-scoped | ❌ not declared | ✅ provider-scoped |
 
 A few of these deserve a fuller explanation:
 
@@ -128,23 +123,16 @@ A few of these deserve a fuller explanation:
   non-Explore actions the system prompt is folded into the user prompt.
   Explore turns stay user-only and trust the app-managed `GEMINI.md` in the
   explore cwd.
-- **Agent profiles aren't selectable for Gemini rails.** The rails router
-  forces the profile to `null` (legacy mode) for any non-Claude engine. (UI
-  limitation: the rail header may still render a profile picker for a Gemini
-  rail, but the server ignores the selection.)
-- **Plugins are offered but don't actually load (known gap).** Gemini is
-  declared a `project-json` MCP provider, so the Integrations page offers
-  plugins such as **Serena** and installing one writes
-  `<project>/.mcp.json` — but gemini-cli has **never read `.mcp.json`**
-  (a Claude convention). Its only MCP surface is `mcpServers` in
-  `settings.json` (`~/.gemini/` or `<cwd>/.gemini/`), so the plugin's MCP
-  server silently never loads in Gemini rail spawns. Fixing this means
-  writing into the repo's `.gemini/settings.json`, which conflicts with
-  the keep-the-repo-pristine policy — it's a deliberate deferred change.
-  (The desktop **Agent Chat** registers its own Specrails MCP for Gemini
-  correctly, via `.gemini/settings.json` in the app-owned agent cwd plus
-  `GEMINI_CLI_TRUST_WORKSPACE=true`; there Gemini sees the tools with an
-  FQN prefix, `mcp_specrails_<name>`.) Details:
+- **Agent profiles aren't selectable for Gemini rails.** Gemini does not
+  advertise profile support, so the rails router forces legacy/no-profile mode.
+  Claude and Kimi keep independent provider-scoped profile catalogs.
+- **Serena is not offered for Gemini.** Plugin entries are filtered by the
+  manifest's provider support. Gemini CLI has never read Claude's `.mcp.json`;
+  its MCP surface is `mcpServers` in `settings.json`, so silently installing a
+  Claude-style entry would be incorrect. The desktop **Agent Chat** registers
+  its own Specrails MCP for Gemini correctly, via `.gemini/settings.json` in
+  the app-owned agent cwd plus `GEMINI_CLI_TRUST_WORKSPACE=true`; there Gemini
+  sees the tools with an FQN prefix, `mcp_specrails_<name>`. Details:
   [internals/gemini-mcp-registration.md](internals/gemini-mcp-registration.md).
 
 ## How rails work headlessly (`prepareHeadlessSpawn`)

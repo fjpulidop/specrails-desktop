@@ -3,14 +3,57 @@ import { Trans, useTranslation } from 'react-i18next'
 import { Plus, Trash2, Copy, Save, Wand2 } from 'lucide-react'
 import { toast } from 'sonner'
 import { getApiBase } from '../../lib/api'
+import { providerLabel } from '../../lib/provider-capabilities'
 import { Button } from '../ui/button'
 import { ProfileEditor } from './ProfileEditor'
 import { ConfirmDialog, PromptDialog } from './PromptDialog'
-import type { Profile, ProfileListEntry } from './types'
+import {
+  BASELINE_REQUIRED_AGENTS,
+  MODEL_ALIASES,
+  type Profile,
+  type ProfileListEntry,
+  type ProfilesContext,
+  type ProviderProfileCatalog,
+} from './types'
+
+const FALLBACK_CATALOG: ProviderProfileCatalog = {
+  models: MODEL_ALIASES.map((value) => ({ value, label: value })),
+  defaultModel: 'sonnet',
+  baselineAgents: [...BASELINE_REQUIRED_AGENTS],
+  customModelAliases: false,
+}
+
+const FALLBACK_CONTEXT: ProfilesContext = {
+  primaryProvider: 'claude',
+  providers: ['claude'],
+  catalogs: { claude: FALLBACK_CATALOG },
+}
+
+export function buildNewProfile(
+  name: string,
+  provider: string,
+  catalog: ProviderProfileCatalog,
+): Profile {
+  return {
+    schemaVersion: 1,
+    name,
+    description: '',
+    provider,
+    orchestrator: { model: catalog.defaultModel },
+    agents: catalog.baselineAgents.map((id) => ({
+      id,
+      model: catalog.defaultModel,
+      required: true,
+    })),
+    routing: [{ default: true, agent: 'sr-developer' }],
+  }
+}
 
 export function ProfilesTab() {
   const { t } = useTranslation('agents')
   const [profiles, setProfiles] = useState<ProfileListEntry[]>([])
+  const [profileContext, setProfileContext] = useState<ProfilesContext>(FALLBACK_CONTEXT)
+  const [selectedProvider, setSelectedProvider] = useState('')
   const [selected, setSelected] = useState<string | null>(null)
   const [editing, setEditing] = useState<Profile | null>(null)
   const [loading, setLoading] = useState(true)
@@ -21,28 +64,62 @@ export function ProfilesTab() {
   const [createDialog, setCreateDialog] = useState(false)
   const [duplicateDialog, setDuplicateDialog] = useState<{ from: string } | null>(null)
   const [deleteDialog, setDeleteDialog] = useState<{ name: string } | null>(null)
+  const activeProvider = selectedProvider
+  const activeCatalog = profileContext.catalogs[activeProvider] ?? FALLBACK_CATALOG
+
+  useEffect(() => {
+    let cancelled = false
+    fetch(`${getApiBase()}/profiles/context`)
+      .then((res) => {
+        if (!res.ok) throw new Error('profile context unavailable')
+        return res.json() as Promise<ProfilesContext>
+      })
+      .then((context) => {
+        if (cancelled) return
+        const providers = Array.isArray(context.providers) && context.providers.length > 0
+          ? context.providers
+          : [context.primaryProvider || 'claude']
+        const primaryProvider = providers.includes(context.primaryProvider)
+          ? context.primaryProvider
+          : providers[0]
+        setProfileContext({ ...context, providers, primaryProvider })
+        setSelectedProvider(primaryProvider)
+      })
+      .catch(() => {
+        if (!cancelled) {
+          setProfileContext(FALLBACK_CONTEXT)
+          setSelectedProvider(FALLBACK_CONTEXT.primaryProvider)
+        }
+      })
+    return () => { cancelled = true }
+  }, [])
 
   const refresh = useCallback(async () => {
+    if (!activeProvider) return
     setLoading(true)
     setError(null)
     try {
-      const profilesRes = await fetch(`${getApiBase()}/profiles`)
+      const profilesRes = await fetch(
+        `${getApiBase()}/profiles?provider=${encodeURIComponent(activeProvider)}`,
+      )
       if (!profilesRes.ok) throw new Error(t('profiles.errors.listFailed', { status: profilesRes.status }))
       const profilesData = (await profilesRes.json()) as { profiles: ProfileListEntry[] }
       setProfiles(profilesData.profiles)
-      if (profilesData.profiles.length > 0 && !selected) {
-        setSelected(profilesData.profiles[0].name)
-      }
+      setSelected((current) =>
+        current && profilesData.profiles.some((profile) => profile.name === current)
+          ? current
+          : profilesData.profiles[0]?.name ?? null,
+      )
     } catch (e) {
       setError((e as Error).message)
     } finally {
       setLoading(false)
     }
-  }, [selected])
+  }, [activeProvider, t])
 
   useEffect(() => {
-    void refresh()
-  }, [refresh])
+    if (activeProvider) void refresh()
+  }, [activeProvider, refresh])
 
   useEffect(() => {
     if (!selected) {
@@ -50,7 +127,9 @@ export function ProfilesTab() {
       return
     }
     let cancelled = false
-    fetch(`${getApiBase()}/profiles/${encodeURIComponent(selected)}`)
+    fetch(
+      `${getApiBase()}/profiles/${encodeURIComponent(selected)}?provider=${encodeURIComponent(activeProvider)}`,
+    )
       .then((r) => {
         if (!r.ok) throw new Error(t('profiles.errors.loadFailed', { status: r.status }))
         return r.json() as Promise<{ profile: Profile }>
@@ -64,15 +143,18 @@ export function ProfilesTab() {
     return () => {
       cancelled = true
     }
-  }, [selected])
+  }, [activeProvider, selected, t])
 
   const migrateFromSettings = useCallback(async () => {
     setSaving(true)
     setError(null)
     try {
-      const res = await fetch(`${getApiBase()}/profiles/migrate-from-settings`, {
+      const res = await fetch(
+        `${getApiBase()}/profiles/migrate-from-settings?provider=${encodeURIComponent(activeProvider)}`,
+        {
         method: 'POST',
-      })
+        },
+      )
       if (!res.ok) {
         const err = await res.json().catch(() => ({}))
         throw new Error(err.error ?? t('profiles.errors.migrationFailed', { status: res.status }))
@@ -89,7 +171,7 @@ export function ProfilesTab() {
     } finally {
       setSaving(false)
     }
-  }, [refresh])
+  }, [activeProvider, refresh, t])
 
   const doCreate = useCallback(
     async (trimmed: string) => {
@@ -97,24 +179,15 @@ export function ProfilesTab() {
       setSaving(true)
       setError(null)
       try {
-        const body: Profile = {
-          schemaVersion: 1,
-          name: trimmed,
-          description: '',
-          orchestrator: { model: 'sonnet' },
-          agents: [
-            { id: 'sr-architect', model: 'sonnet', required: true },
-            { id: 'sr-developer', model: 'sonnet', required: true },
-            { id: 'sr-reviewer', model: 'sonnet', required: true },
-            { id: 'sr-merge-resolver', model: 'sonnet', required: true },
-          ],
-          routing: [{ default: true, agent: 'sr-developer' }],
-        }
-        const res = await fetch(`${getApiBase()}/profiles`, {
+        const body = buildNewProfile(trimmed, activeProvider, activeCatalog)
+        const res = await fetch(
+          `${getApiBase()}/profiles?provider=${encodeURIComponent(activeProvider)}`,
+          {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(body),
-        })
+          },
+        )
         if (!res.ok) {
           const err = await res.json().catch(() => ({}))
           throw new Error(err.error ?? t('profiles.errors.createFailed', { status: res.status }))
@@ -130,7 +203,7 @@ export function ProfilesTab() {
         setSaving(false)
       }
     },
-    [refresh],
+    [activeCatalog, activeProvider, refresh, t],
   )
 
   const doDuplicate = useCallback(
@@ -140,11 +213,11 @@ export function ProfilesTab() {
       setError(null)
       try {
         const res = await fetch(
-          `${getApiBase()}/profiles/${encodeURIComponent(from)}/duplicate`,
+          `${getApiBase()}/profiles/${encodeURIComponent(from)}/duplicate?provider=${encodeURIComponent(activeProvider)}`,
           {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ name: newName }),
+            body: JSON.stringify({ name: newName, provider: activeProvider }),
           },
         )
         if (!res.ok) {
@@ -164,7 +237,7 @@ export function ProfilesTab() {
         setSaving(false)
       }
     },
-    [refresh],
+    [activeProvider, refresh, t],
   )
 
   const doRemove = useCallback(
@@ -173,9 +246,10 @@ export function ProfilesTab() {
       setSaving(true)
       setError(null)
       try {
-        const res = await fetch(`${getApiBase()}/profiles/${encodeURIComponent(name)}`, {
-          method: 'DELETE',
-        })
+        const res = await fetch(
+          `${getApiBase()}/profiles/${encodeURIComponent(name)}?provider=${encodeURIComponent(activeProvider)}`,
+          { method: 'DELETE' },
+        )
         if (!res.ok) {
           const err = await res.json().catch(() => ({}))
           throw new Error(err.error ?? t('profiles.errors.deleteFailed', { status: res.status }))
@@ -191,7 +265,7 @@ export function ProfilesTab() {
         setSaving(false)
       }
     },
-    [refresh],
+    [activeProvider, refresh, t],
   )
 
   const createNew = useCallback(() => setCreateDialog(true), [])
@@ -202,11 +276,14 @@ export function ProfilesTab() {
     setSaving(true)
     setError(null)
     try {
-      const res = await fetch(`${getApiBase()}/profiles/${encodeURIComponent(profile.name)}`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(profile),
-      })
+      const res = await fetch(
+        `${getApiBase()}/profiles/${encodeURIComponent(profile.name)}?provider=${encodeURIComponent(activeProvider)}`,
+        {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ ...profile, provider: activeProvider }),
+        },
+      )
       if (!res.ok) {
         const err = await res.json().catch(() => ({}))
         throw new Error(err.error ?? t('profiles.errors.saveFailed', { status: res.status }))
@@ -229,7 +306,7 @@ export function ProfilesTab() {
     } finally {
       setSaving(false)
     }
-  }, [t])
+  }, [activeProvider, t])
 
   const dialogs = (
     <>
@@ -290,6 +367,22 @@ export function ProfilesTab() {
           <div className="text-xs text-muted-foreground mt-1 mb-4">
             {t('profiles.empty.body')}
           </div>
+          {profileContext.providers.length > 1 && (
+            <select
+              value={activeProvider}
+              aria-label={t('profiles.providerLabel')}
+              onChange={(event) => {
+                setSelected(null)
+                setEditing(null)
+                setSelectedProvider(event.target.value)
+              }}
+              className="mb-4 h-8 w-full rounded border border-border bg-background px-2 text-xs"
+            >
+              {profileContext.providers.map((provider) => (
+                <option key={provider} value={provider}>{providerLabel(provider)}</option>
+              ))}
+            </select>
+          )}
           <div className="flex items-center gap-2 justify-center">
             <Button size="sm" onClick={migrateFromSettings} disabled={saving}>
               <Wand2 className="w-3.5 h-3.5 mr-1.5" /> {t('profiles.empty.migrateButton')}
@@ -318,13 +411,31 @@ export function ProfilesTab() {
       <div className="flex flex-1 min-h-0">
       {/* Left: profile list */}
       <aside className="w-64 flex-shrink-0 border-r border-border flex flex-col">
-        <div className="p-3 flex items-center justify-between">
-          <div className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
-            {t('profiles.sidebar.title')}
+        <div className="p-3 space-y-2">
+          <div className="flex items-center justify-between">
+            <div className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
+              {t('profiles.sidebar.title')}
+            </div>
+            <Button size="sm" variant="ghost" onClick={createNew} disabled={saving}>
+              <Plus className="w-3.5 h-3.5" />
+            </Button>
           </div>
-          <Button size="sm" variant="ghost" onClick={createNew} disabled={saving}>
-            <Plus className="w-3.5 h-3.5" />
-          </Button>
+          {profileContext.providers.length > 1 && (
+            <select
+              value={activeProvider}
+              aria-label={t('profiles.providerLabel')}
+              onChange={(event) => {
+                setSelected(null)
+                setEditing(null)
+                setSelectedProvider(event.target.value)
+              }}
+              className="h-7 w-full rounded border border-border bg-background px-2 text-xs"
+            >
+              {profileContext.providers.map((provider) => (
+                <option key={provider} value={provider}>{providerLabel(provider)}</option>
+              ))}
+            </select>
+          )}
         </div>
         <div className="flex-1 overflow-auto px-2 pb-3">
           {profiles.map((p) => {
@@ -392,8 +503,13 @@ export function ProfilesTab() {
         )}
         {editing ? (
           <ProfileEditor
-            key={editing.name}
+            key={`${activeProvider}:${editing.name}`}
             profile={editing}
+            provider={activeProvider}
+            modelCatalog={activeCatalog.models}
+            defaultModel={activeCatalog.defaultModel}
+            customModelAliases={activeCatalog.customModelAliases === true}
+            baselineAgents={activeCatalog.baselineAgents}
             onChange={setEditing}
             onValidityChange={setValidationIssues}
             onSoftWarningsChange={(w) => setAgentsMissingRouting(w.agentsMissingRouting)}

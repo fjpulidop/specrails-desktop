@@ -102,7 +102,11 @@
     "turns_other": "{{count}} tours",
     "active": "{{duration}} actif",
     "breakdownItem": "{{n}} {{label}}",
-    "estimatedTooltip": "Estimé à partir de la table de tarifs locale — ce fournisseur ne signale pas le coût de manière native."
+    "estimatedTooltip": "Estimé à partir de la table de tarifs locale — ce fournisseur ne signale pas le coût de manière native.",
+    "costUnavailableTooltip": "Aucune invocation de ce ticket n'a exposé de télémétrie de coût.",
+    "costPartiallyUnavailableTooltip": "Sous-total des coûts connus uniquement ; certaines invocations n'ont pas exposé leur coût.",
+    "turnsUnavailableTooltip": "La télémétrie des tours est indisponible pour ce ticket.",
+    "turnsPartiallyUnavailableTooltip": "Sous-total des tours connus uniquement ; certaines invocations n'ont pas exposé leur télémétrie des tours."
   },
   "toasts": {
     "newTicket": "Nouveau ticket : {{title}}",

@@ -8,7 +8,8 @@
     "surpriseMe": "Surprise me",
     "inputPlaceholder": "An app that…",
     "createSpecs": "Create specs",
-    "createSpecsHint": "Available once the blueprint has Milestone-1 specs"
+    "createSpecsHint": "Available once the blueprint has Milestone-1 specs",
+    "providerUnavailable": "Project Builder requires a provider with a native no-tools or read-only mode. This provider is unavailable here."
   },
   "panel": {
     "title": "Blueprint",
@@ -87,7 +88,8 @@
     "progress": "{{done}}/{{total}} done",
     "launchM1": "Launch Milestone 1",
     "generateNext": "Generate M{{n}}",
-    "generateHint": "Opens a grounded spec session seeded with the blueprint"
+    "generateHint": "Opens a grounded spec session seeded with the blueprint",
+    "generateUnavailable": "Milestone generation requires a provider with native read-only mode"
   },
   "errors": {
     "startFailed": "Could not start the Builder conversation.",
@@ -99,7 +101,8 @@
     "inputPlaceholder": "Refine the specs…",
     "commit": "Commit {{count}} specs as {{label}}",
     "commitToast": "{{count}} specs committed to the board as {{label}}",
-    "commitFailed": "Could not commit the milestone"
+    "commitFailed": "Could not commit the milestone",
+    "providerUnavailable": "Milestone generation is unavailable because this provider has no native read-only mode."
   },
   "mode": {
     "title": "Project Builder",

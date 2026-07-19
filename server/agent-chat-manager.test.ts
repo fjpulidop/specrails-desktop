@@ -229,6 +229,66 @@ describe('AgentChatManager cost accounting (HIGH-3)', () => {
     expect(verifyAgentCapability(capability)).toBeNull()
     expect(agentMcpMocks.removeCapabilityFile).toHaveBeenCalledWith(conv.id)
   })
+
+  it('applies Kimi effort only to K3 and drops stale effort for other models', async () => {
+    const inherited = process.env.KIMI_MODEL_THINKING_EFFORT
+    process.env.KIMI_MODEL_THINKING_EFFORT = 'max'
+    try {
+      const k3 = createAgentConversation(db, { provider: 'kimi', model: 'k3' })
+      updateAgentConversation(db, k3.id, { title: 'Existing title', reasoning_effort: 'high' })
+      primeTurn([
+        JSON.stringify({ role: 'assistant', content: 'K3 answer' }),
+        JSON.stringify({ role: 'meta', type: 'session.resume_hint', session_id: 'k3-session' }),
+      ])
+      await mgr.sendMessage(k3.id, 'think')
+      const k3Env = vi.mocked(mockSpawn).mock.calls[0][2]?.env as NodeJS.ProcessEnv
+      expect(k3Env.KIMI_MODEL_THINKING_EFFORT).toBe('high')
+
+      const coding = createAgentConversation(db, {
+        provider: 'kimi',
+        model: 'kimi-for-coding',
+      })
+      updateAgentConversation(db, coding.id, {
+        title: 'Existing title',
+        reasoning_effort: 'high',
+      })
+      primeTurn([
+        JSON.stringify({ role: 'assistant', content: 'Coding answer' }),
+        JSON.stringify({ role: 'meta', type: 'session.resume_hint', session_id: 'coding-session' }),
+      ])
+      await mgr.sendMessage(coding.id, 'code')
+      const codingEnv = vi.mocked(mockSpawn).mock.calls[1][2]?.env as NodeJS.ProcessEnv
+      expect(codingEnv).not.toHaveProperty('KIMI_MODEL_THINKING_EFFORT')
+    } finally {
+      if (inherited === undefined) delete process.env.KIMI_MODEL_THINKING_EFFORT
+      else process.env.KIMI_MODEL_THINKING_EFFORT = inherited
+    }
+  })
+
+  it('passes a configured Kimi model alias through exactly without K3 effort', async () => {
+    const alias = 'moonshot-team/private-coder:v2'
+    const conv = createAgentConversation(db, { provider: 'kimi', model: alias })
+    updateAgentConversation(db, conv.id, {
+      title: 'Existing title',
+      reasoning_effort: 'max',
+    })
+    primeTurn([
+      JSON.stringify({ role: 'assistant', content: 'Custom model answer' }),
+      JSON.stringify({
+        role: 'meta',
+        type: 'session.resume_hint',
+        session_id: 'custom-model-session',
+      }),
+    ])
+
+    await mgr.sendMessage(conv.id, 'use my configured model')
+
+    const args = vi.mocked(mockSpawn).mock.calls[0][1] as string[]
+    expect(args[args.indexOf('-m') + 1]).toBe(alias)
+    const env = vi.mocked(mockSpawn).mock.calls[0][2]?.env as NodeJS.ProcessEnv
+    expect(env).not.toHaveProperty('KIMI_MODEL_THINKING_EFFORT')
+    expect(rows()[0].model).toBe(alias)
+  })
 })
 
 describe('AgentChatManager Gemini MCP isolation', () => {
@@ -350,6 +410,29 @@ describe('AgentChatManager AI title', () => {
     expect(rows()).toHaveLength(2)
     // The AI title reached the client over the same agent_title event.
     expect(broadcastsOfType(broadcast, 'agent_title').some((m) => m.title === 'Connect Four Mini-Game')).toBe(true)
+  })
+
+  it('keeps the deterministic title and skips an unsafe Kimi pure-output spawn', async () => {
+    const conv = createAgentConversation(db, {
+      provider: 'kimi',
+      model: 'k3',
+      pinnedProjectId: null,
+    })
+    primeTurn([
+      JSON.stringify({ role: 'assistant', content: 'I can implement that flow.' }),
+      JSON.stringify({
+        role: 'meta',
+        type: 'session.resume_hint',
+        session_id: 'kimi-title-session',
+      }),
+    ])
+
+    await mgr.sendMessage(conv.id, 'implement the oauth callback flow')
+    await new Promise((resolve) => setImmediate(resolve))
+
+    expect(getAgentConversation(db, conv.id)?.title).toBeTruthy()
+    expect(mockSpawn).toHaveBeenCalledTimes(1)
+    expect(rows()).toHaveLength(1)
   })
 
   it('never clobbers a manually-renamed conversation (no title spawn fires)', async () => {

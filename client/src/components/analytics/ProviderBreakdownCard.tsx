@@ -10,12 +10,14 @@ const PROVIDER_LABEL: Record<string, string> = {
   claude: 'Claude',
   codex: 'Codex',
   gemini: 'Gemini',
+  kimi: 'Kimi',
 }
 
 const PROVIDER_ACCENT: Record<string, string> = {
   claude: 'bg-accent-info',
   codex: 'bg-accent-highlight',
   gemini: 'bg-accent-success',
+  kimi: 'bg-purple-400',
 }
 
 function fmtUsd(v: number): string {
@@ -51,6 +53,13 @@ export function ProviderBreakdownCard({ data, loading }: Props) {
     (acc, p) => acc + p.costUsd + p.estimatedCostUsd,
     0,
   )
+  const hasUnpriced = data.byProvider.some((p) => {
+    if (typeof p.unpricedCount === 'number') return p.unpricedCount > 0
+    // Legacy-server fallback: before exact coverage counters existed, a
+    // provider with runs and no authoritative/estimated value was the only
+    // signal available.
+    return p.count > 0 && p.costUsd === 0 && p.estimatedCostUsd === 0
+  })
 
   return (
     <div className="rounded-xl border border-border/50 bg-card/40 p-4">
@@ -69,11 +78,12 @@ export function ProviderBreakdownCard({ data, loading }: Props) {
         </div>
       </div>
 
-      {total === 0 ? (
+      {total === 0 && (
         <div className="text-xs text-muted-foreground italic">
-          {t('providerCard.noCost')}
+          {hasUnpriced ? t('providerCard.costUnavailableTooltip') : t('providerCard.noCost')}
         </div>
-      ) : (
+      )}
+      {total > 0 && (
         <>
           <div className="h-2 w-full rounded-full overflow-hidden bg-background-deep flex mb-3">
             {data.byProvider.map((p) => {
@@ -94,13 +104,13 @@ export function ProviderBreakdownCard({ data, loading }: Props) {
               )
             })}
           </div>
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-            {data.byProvider.map((p) => (
-              <ProviderRow key={p.provider} entry={p} />
-            ))}
-          </div>
         </>
       )}
+      <div className={`grid grid-cols-1 sm:grid-cols-2 gap-2 ${total > 0 ? '' : 'mt-3'}`}>
+        {data.byProvider.map((p) => (
+          <ProviderRow key={p.provider} entry={p} />
+        ))}
+      </div>
     </div>
   )
 }
@@ -109,10 +119,13 @@ function ProviderRow({ entry }: { entry: ByProviderEntry }) {
   const { t } = useTranslation('analytics')
   const sum = entry.costUsd + entry.estimatedCostUsd
   const allEstimated = entry.costUsd === 0 && entry.estimatedCostUsd > 0
-  // A provider with real runs but zero priced/estimated cost means its model
-  // is absent from the pricing table (catalog drift) — render an explicit
-  // "cost unavailable" affordance rather than a misleading authoritative $0.
-  const costUnavailable = entry.count > 0 && entry.costUsd === 0 && entry.estimatedCostUsd === 0
+  const unpricedCount = entry.unpricedCount
+    ?? (entry.count > 0 && entry.costUsd === 0 && entry.estimatedCostUsd === 0
+      ? entry.count
+      : 0)
+  const pricedCount = entry.pricedCount ?? Math.max(0, entry.count - unpricedCount)
+  const costUnavailable = entry.count > 0 && unpricedCount > 0 && pricedCount === 0
+  const costPartiallyUnavailable = pricedCount > 0 && unpricedCount > 0
   return (
     <div className="flex items-center gap-2.5 rounded-md border border-border/30 px-2.5 py-1.5">
       <span className={`w-2 h-2 rounded-full shrink-0 ${providerAccent(entry.provider)}`} />
@@ -128,8 +141,16 @@ function ProviderRow({ entry }: { entry: ByProviderEntry }) {
           {t('providerCard.costUnavailable')}
         </span>
       ) : (
-        <span className="ml-auto text-xs font-medium tabular-nums">
+        <span
+          className="ml-auto text-xs font-medium tabular-nums"
+          title={costPartiallyUnavailable ? t('providerCard.costPartiallyUnavailableTooltip') : undefined}
+        >
           {allEstimated ? '~' : ''}{fmtUsd(sum)}
+          {costPartiallyUnavailable && (
+            <span className="ml-1 font-normal text-muted-foreground/80 italic">
+              {t('providerCard.costPartiallyUnavailable', { count: unpricedCount })}
+            </span>
+          )}
         </span>
       )}
     </div>

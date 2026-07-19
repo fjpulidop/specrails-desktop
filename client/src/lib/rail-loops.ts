@@ -16,12 +16,12 @@ export const FACTORY_LOOP_ID: Record<Exclude<RailMode, 'loop'>, string> = {
  * The built-in loops offered in the rail picker. Defined CLIENT-SIDE (not fetched)
  * because they ARE the always-available rail modes — they must work even when the
  * Loops section feature is off. `labelKey` reuses the existing `railControls.*`
- * i18n; `claudeOnly` hides Freestyle on non-Claude rails.
+ * i18n; `requiresFreestyle` hides Freestyle when the active adapter lacks it.
  */
-export const FACTORY_RAIL_LOOPS: { id: string; labelKey: string; claudeOnly?: boolean; requiresLoops?: boolean }[] = [
+export const FACTORY_RAIL_LOOPS: { id: string; labelKey: string; requiresFreestyle?: boolean; requiresLoops?: boolean }[] = [
   { id: 'factory:implement', labelKey: 'railControls.implement' },
   { id: 'factory:batch', labelKey: 'railControls.batch' },
-  { id: 'factory:freestyle', labelKey: 'railControls.freestyle', claudeOnly: true },
+  { id: 'factory:freestyle', labelKey: 'railControls.freestyle', requiresFreestyle: true },
   // Graph-native built-in: runs only through the LoopRunManager, so it is
   // offered only while the Loops feature is enabled.
   { id: 'factory:sdd-quick-openspec', labelKey: 'railControls.openspec', requiresLoops: true },

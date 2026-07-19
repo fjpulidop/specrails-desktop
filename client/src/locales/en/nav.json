@@ -51,7 +51,7 @@
     "docs": "Docs",
     "settings": "Settings",
     "noCli": "No AI CLI",
-    "noCliTooltip": "No AI CLI detected. Install Claude Code or Codex CLI.",
+    "noCliTooltip": "No AI CLI detected. Install Claude Code, Codex CLI, Gemini CLI or Kimi Code.",
     "activeCli": "Active CLI: {{label}}"
   },
   "statusBar": {

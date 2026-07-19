@@ -140,8 +140,53 @@ export function registerJobsRoutes(deps: ProjectRoutesDeps): void {
   // ─── Queue / Spawn routes ────────────────────────────────────────────────────
 
   router.post('/:projectId/spawn', (req: Request, res: Response) => {
-    const { command, priority, dependsOnJobId, pipelineId, profileName, aiEngine } = req.body ?? {}
-    if (!command || typeof command !== 'string' || !command.trim()) {
+    const {
+      command,
+      priority,
+      dependsOnJobId,
+      pipelineId,
+      profileName,
+      aiEngine,
+      model,
+      rerunOfJobId,
+    } = req.body ?? {}
+    if (
+      rerunOfJobId !== undefined
+      && (typeof rerunOfJobId !== 'string' || !/^[A-Za-z0-9._:-]{1,128}$/.test(rerunOfJobId))
+    ) {
+      res.status(400).json({ error: 'rerunOfJobId must be 1-128 URL-safe characters' })
+      return
+    }
+
+    const c = ctx(req)
+    const rerunSource = typeof rerunOfJobId === 'string'
+      ? getJob(c.db, rerunOfJobId)
+      : undefined
+    if (typeof rerunOfJobId === 'string' && !rerunSource) {
+      res.status(404).json({ error: 'Rerun source job not found' })
+      return
+    }
+    if (
+      rerunSource
+      && rerunSource.status !== 'completed'
+      && rerunSource.status !== 'failed'
+    ) {
+      res.status(409).json({ error: 'Only completed or failed jobs can be rerun' })
+      return
+    }
+
+    // A rerun is server-owned: never trust duplicated command/provider/model/
+    // profile metadata from the client. The exact command retains ticket
+    // identity, while the persisted job + profile snapshot retain execution
+    // identity. Jobs do not persist reasoning effort or launch-surface origin,
+    // so this route deliberately does not manufacture either value.
+    const effectiveCommand = rerunSource?.command ?? command
+    const effectiveAiEngine = rerunSource?.provider ?? (rerunSource ? undefined : aiEngine)
+    const requestedModel = rerunSource?.model ?? (rerunSource ? undefined : model)
+    const requestedProfileName = rerunSource
+      ? (rerunSource.profile_name ?? null)
+      : profileName
+    if (!effectiveCommand || typeof effectiveCommand !== 'string' || !effectiveCommand.trim()) {
       res.status(400).json({ error: 'command is required' })
       return
     }
@@ -161,8 +206,8 @@ export function registerJobsRoutes(deps: ProjectRoutesDeps): void {
       : undefined
     // profileName accepts: undefined (default resolution), null (force legacy), string (explicit)
     const normalizedProfileName: string | null | undefined =
-      profileName === null ? null
-        : typeof profileName === 'string' && profileName.trim() ? profileName.trim()
+      requestedProfileName === null ? null
+        : typeof requestedProfileName === 'string' && requestedProfileName.trim() ? requestedProfileName.trim()
           : undefined
     const idempotencyKey = req.get('Idempotency-Key')
     if (idempotencyKey !== undefined && !/^[A-Za-z0-9._:-]{1,128}$/.test(idempotencyKey)) {
@@ -171,21 +216,48 @@ export function registerJobsRoutes(deps: ProjectRoutesDeps): void {
     }
     // aiEngine: optional per-job provider override; must be installed on the
     // project. Omitting it runs on the project's primary provider.
-    const engineCheck = validateRequestedProvider(ctx(req).project, aiEngine)
+    const engineCheck = validateRequestedProvider(c.project, effectiveAiEngine)
     if (!engineCheck.ok) {
       res.status(400).json({ error: engineCheck.error })
       return
     }
+    let normalizedModel: string | undefined
+    if (requestedModel !== undefined && requestedModel !== null) {
+      if (
+        typeof requestedModel !== 'string'
+        || !isValidModelForProvider(requestedModel, engineCheck.provider as SpecProvider)
+      ) {
+        // Some older non-alias providers persisted the provider-reported full
+        // model ID rather than the launch alias. Preserve their historical
+        // rerun behaviour (provider default) while failing closed for adapters
+        // that advertise exact custom aliases such as Kimi.
+        if (
+          rerunSource
+          && getAdapter(engineCheck.provider).capabilities.customModelAliases !== true
+        ) {
+          normalizedModel = undefined
+        } else {
+          res.status(400).json({
+            error: `model is not valid for provider "${engineCheck.provider}"`,
+            allowed: getModelsForProvider(engineCheck.provider as SpecProvider),
+          })
+          return
+        }
+      } else {
+        normalizedModel = requestedModel
+      }
+    }
     try {
-      const c = ctx(req)
       const normalizedPriority = (priority as JobPriority) ?? 'normal'
       const spawnFingerprint = idempotencyKey ? fingerprintJobSpawn({
-        command,
+        command: effectiveCommand,
         priority: normalizedPriority,
         dependsOnJobId: normalizedDependsOnJobId ?? null,
         pipelineId: pipelineId || null,
         profileName: normalizedProfileName === undefined ? '__project_default__' : normalizedProfileName,
-        provider: aiEngine ? engineCheck.provider : null,
+        provider: effectiveAiEngine ? engineCheck.provider : null,
+        model: normalizedModel ?? null,
+        rerunOfJobId: rerunOfJobId ?? null,
       }) : null
       if (idempotencyKey && spawnFingerprint) {
         const existingJobId = findIdempotentJob(c.db, idempotencyKey, spawnFingerprint)
@@ -206,10 +278,11 @@ export function registerJobsRoutes(deps: ProjectRoutesDeps): void {
         ...(normalizedProfileName !== undefined
           ? { profileName: normalizedProfileName }
           : {}),
-        provider: aiEngine ? engineCheck.provider : undefined,
+        provider: effectiveAiEngine ? engineCheck.provider : undefined,
+        ...(normalizedModel ? { model: normalizedModel } : {}),
       }
       const job = idempotencyKey && spawnFingerprint && preparedJobId
-        ? c.queueManager.enqueue(command, normalizedPriority, enqueueOptions, {
+        ? c.queueManager.enqueue(effectiveCommand, normalizedPriority, enqueueOptions, {
             jobId: preparedJobId,
             commit: (db) => claimIdempotentJob(
               db,
@@ -218,7 +291,7 @@ export function registerJobsRoutes(deps: ProjectRoutesDeps): void {
               preparedJobId,
             ),
           })
-        : c.queueManager.enqueue(command, normalizedPriority, enqueueOptions)
+        : c.queueManager.enqueue(effectiveCommand, normalizedPriority, enqueueOptions)
       const position = job.queuePosition ?? 0
       res.status(202).json({ jobId: job.id, position })
     } catch (err) {
@@ -398,7 +471,14 @@ export function registerJobsRoutes(deps: ProjectRoutesDeps): void {
     const provider = resolveProvider(project, typeof req.query.provider === 'string' ? req.query.provider : undefined) as SpecProvider
     const model = resolveDefaultSpecModel({ projectPath: project.path, slug: project.slug, provider })
     const allowed = getModelsForProvider(provider)
-    res.json({ model, provider, allowed, providers: project.providers })
+    const adapter = getAdapter(provider)
+    res.json({
+      model,
+      provider,
+      allowed,
+      providers: project.providers,
+      customModelAliases: adapter.capabilities.customModelAliases === true,
+    })
   })
 
   // Cancellation is idempotent and intentionally separate from history

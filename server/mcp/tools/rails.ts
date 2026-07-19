@@ -2,11 +2,6 @@ import { z } from 'zod'
 import type { McpToolSpec } from './types'
 import { apiCall, projectPath, originConversationDefaults } from './types'
 
-/** Launch-route contract (rails-router VALID_REASONING_EFFORTS): conversation
- *  efforts outside it (codex 'minimal', claude 'xhigh') are never defaulted —
- *  a default must not 400 a launch that would succeed without it. */
-const RAIL_REASONING_EFFORTS = new Set(['low', 'medium', 'high'])
-
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value)
 }
@@ -26,7 +21,7 @@ function prDeliveryContinuesTickets(raw: unknown, ticketIds: number[]): boolean 
 /**
  * Rails domain facade. A "rail" is a numbered launch slot per project: it holds
  * a set of assigned ticket IDs plus a mode/profile/engine/name, and launching it
- * spawns the AI pipeline (claude/codex/gemini) over those tickets.
+ * spawns the selected installed provider's AI pipeline over those tickets.
  *
  * Every operation is per-project under /api/projects/:projectId/rails. The
  * launch action is the only cost-incurring / repo-mutating one (ai-spawn, 202);
@@ -43,7 +38,7 @@ export function railsTools(): McpToolSpec[] {
         'Launching several rails in parallel is safe and normal: each launch runs in its own isolated git worktree. ' +
         'Actions: list (rails + active jobs/loop runs), create_rail (add a new rail slot; returns its railIndex), set_tickets (assign ticket IDs), set_profile (default agent profile, null=legacy), ' +
         'set_engine (provider override, null=primary), set_name (display label, null clears), ' +
-        'launch (ai-spawn — spawns claude/codex/gemini CLI job(s) that WRITE CODE, RUN TESTS, COMMIT, and INCUR TOKEN COST; returns 202 with jobId/jobIds/loopRunIds), ' +
+        'launch (ai-spawn — spawns the selected installed provider CLI job(s), including Kimi when installed, that WRITE CODE, RUN TESTS, COMMIT, and INCUR TOKEN COST; returns 202 with jobId/jobIds/loopRunIds), ' +
         'launch_all (ai-spawn — launches EVERY rail that has tickets and no active run/uncontinuable pending PR decision, in parallel, using each rail\'s stored mode/engine/profile; returns per-rail outcomes with skip reasons), ' +
         'stop (destructive — kills all active jobs and loop runs for the rail). ' +
         'For on_review tickets with an already-open GitHub PR (including a published pr_ready delivery), launch automatically tries to continue that PR head branch; Jira-linked in_progress tickets can do the same when the PR match is explicit; fresh tickets still start from the project integration branch. ' +
@@ -97,11 +92,11 @@ export function railsTools(): McpToolSpec[] {
         mode: z
           .enum(['implement', 'batch-implement', 'freestyle', 'loop'])
           .optional()
-          .describe('Launch mode (launch; default "implement"). Use "freestyle" as the canonical API enum value for Freestyle: a free-form autonomous prompt sent straight to Claude, one job per ticket. In prose, call it "Freestyle". Loop runs an app-driven loop per ticket.'),
+          .describe('Launch mode (launch; default "implement"). Use "freestyle" as the canonical API enum value for Freestyle. It invokes the selected provider\'s native free-form autonomous workflow (currently Claude and Kimi), one job per ticket. In prose, call it "Freestyle". Loop runs an app-driven loop per ticket.'),
         model: z
           .string()
           .optional()
-          .describe('Model for launch. Freestyle is Claude-only and takes a Claude alias (haiku | sonnet | opus | fable); its API mode value is "freestyle". For loop mode, any model string valid for the rail\'s provider (claude/codex/gemini).'),
+          .describe('Model for launch. For Freestyle or loop mode, pass a model string valid for the selected installed provider; Kimi preserves configured model aliases. Freestyle availability is capability-gated by provider.'),
         interactive: z
           .boolean()
           .optional()
@@ -111,9 +106,9 @@ export function railsTools(): McpToolSpec[] {
           .optional()
           .describe('Loop id to run (launch). Use "factory:sdd-quick-openspec" for SDD Quick (OpenSpec): small OpenSpec-governed work via mode="loop". Factory ids (e.g. "factory:implement") map to a legacy mode; a custom published loop id keeps mode="loop". Browse/author loops with specrails_loops; the loop must be Published.'),
         reasoning_effort: z
-          .enum(['low', 'medium', 'high'])
+          .enum(['minimal', 'low', 'medium', 'high', 'xhigh', 'max', 'ultra'])
           .optional()
-          .describe('Reasoning-effort tier for loop launches (launch, loop mode). From the in-app agent chat, omitting it defaults to the launching conversation\'s effort when that is low/medium/high.'),
+          .describe('Provider-supported reasoning-effort tier for loop launches. Kimi K3 supports low/high/max; the server validates against the selected provider.'),
         targetPrNumber: z
           .number()
           .int()
@@ -219,14 +214,19 @@ export function railsTools(): McpToolSpec[] {
             // not silently launch claude via the router's rail/primary
             // fall-through. Explicit aiEngine (string OR null) always wins; the
             // router still validates installed-ness (clear 400 back). The
-            // conversation's reasoning effort rides along only when it fits the
-            // launch contract (low|medium|high). Dashboard / external-client
+            // conversation's already-provider-validated reasoning effort rides
+            // along only when this launch targets that same provider. Dashboard / external-client
             // calls (no origin conversation) are byte-identical to before.
             const defaults = originConversationDefaults(ctx)
             if (body.aiEngine === undefined && defaults.provider) {
               body.aiEngine = defaults.provider
             }
-            if (body.reasoning_effort === undefined && defaults.reasoningEffort && RAIL_REASONING_EFFORTS.has(defaults.reasoningEffort)) {
+            if (
+              body.reasoning_effort === undefined &&
+              defaults.reasoningEffort &&
+              defaults.provider &&
+              body.aiEngine === defaults.provider
+            ) {
               body.reasoning_effort = defaults.reasoningEffort
             }
             const r = await apiCall(ctx, 'POST', `${base}/${railIndex}/launch`, body) as Record<string, unknown>

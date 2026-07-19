@@ -282,7 +282,7 @@ function resolveStartupPathBase(): void {
         const inheritedSet = new Set(inherited)
         const bundledDirs = [nodeBinDir, gitBinDir, uvBinDir].filter((d): d is string => !!d && !inheritedSet.has(d))
         bundledDirs.forEach((d) => inheritedSet.add(d))
-        // Provider CLIs (claude/codex/gemini) are NEVER bundled — they always
+        // Provider CLIs (claude/codex/gemini/kimi) are NEVER bundled — they always
         // come from the system. On Windows their `.cmd` shims live in
         // `%APPDATA%\npm`, which a GUI-launched (Explorer/Tauri) process may not
         // have on PATH. This branch returns early, skipping the win32 fallback
@@ -317,7 +317,7 @@ function resolveStartupPathBase(): void {
 
   if (process.platform === 'win32') {
     // Prepend well-known global-CLI dirs (npm prefix, Program Files\nodejs) that
-    // a GUI-launched process may lack, so provider shims (claude/codex/gemini
+    // a GUI-launched process may lack, so provider shims (claude/codex/gemini/kimi
     // .cmd) — and any RECURSIVE bare-name invocation by a spawned CLI — resolve.
     // Existence-gated + deduped; no-op when already present (the common case).
     const winPrepend: string[] = []

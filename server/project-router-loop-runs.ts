@@ -11,15 +11,13 @@ import { isLoopsEnabled } from './feature-flags'
 import { getLoop } from './loops-store'
 import { getLoopRun } from './loop-runs-store'
 import { loadConstantMap } from './loop-constants'
-import { getAdapter } from './providers'
+import { getAdapter, hasAdapter, reasoningEffortsForModel, supportsToolPolicy } from './providers'
 import { validateRequestedProvider } from './provider-selection'
 import { isValidModelForProvider, getModelsForProvider, type SpecProvider } from './spec-models'
 import { resolveProjectExecution } from './workspace-resolution'
-import { referencesClaudeOnlyCommand } from './loop-command-catalog'
+import { referencesUnsupportedProviderCommand } from './loop-command-catalog'
 import { newId } from './ids'
 import type { ReasoningEffort } from './providers/types'
-
-const VALID_REASONING_EFFORTS = new Set(['low', 'medium', 'high'])
 
 export function registerLoopRunRoutes(deps: ProjectRoutesDeps): void {
   const { router, ctx } = deps
@@ -33,7 +31,20 @@ export function registerLoopRunRoutes(deps: ProjectRoutesDeps): void {
     if (!run || run.project_id !== c.project.id) {
       res.status(404).json({ error: 'Loop run not found' }); return
     }
-    res.json({ loopRun: run })
+    const usageAvailable =
+      !run.provider
+      || !hasAdapter(run.provider)
+      || getAdapter(run.provider).capabilities.reportsUsage !== false
+    res.json({
+      loopRun: usageAvailable
+        ? { ...run, usage_available: true }
+        : {
+            ...run,
+            total_cost_usd: null,
+            total_tokens: null,
+            usage_available: false,
+          },
+    })
   })
 
   router.post('/:projectId/loop-runs', (req: Request, res: Response) => {
@@ -51,25 +62,33 @@ export function registerLoopRunRoutes(deps: ProjectRoutesDeps): void {
       res.status(400).json({ error: 'Loop must be published before it can run' }); return
     }
 
-    let effort: ReasoningEffort | undefined
-    if (reasoning_effort !== undefined && reasoning_effort !== null) {
-      if (typeof reasoning_effort !== 'string' || !VALID_REASONING_EFFORTS.has(reasoning_effort)) {
-        res.status(400).json({ error: 'reasoning_effort must be one of: low, medium, high' }); return
-      }
-      effort = reasoning_effort as ReasoningEffort
-    }
-
     const check = validateRequestedProvider(c.project, aiEngine ?? providerAlias)
     if (!check.ok) { res.status(400).json({ error: check.error }); return }
     const provider = check.provider
+    const adapter = getAdapter(provider)
 
-    // claude-only guard (e.g. a loop that uses {{cmd:freestyle}}).
+    if (
+      loop.graph.nodes.some((node) => node.type === 'decider')
+      && !supportsToolPolicy(adapter, 'read-only')
+    ) {
+      res.status(409).json({
+        code: 'provider_tool_policy_unsupported',
+        provider,
+        requiredPolicy: 'read-only',
+        error:
+          `Provider '${provider}' cannot run Loop Deciders because its headless CLI ` +
+          'does not enforce a read-only tool policy.',
+      })
+      return
+    }
+
+    // Provider-capability guard (e.g. a loop that uses {{cmd:freestyle}}).
     const promptsText = loop.graph.nodes
       .filter((n) => n.type === 'ai-step')
       .map((n) => String(n.data?.prompt ?? ''))
       .join('\n')
-    if (referencesClaudeOnlyCommand(promptsText) && provider !== 'claude') {
-      res.status(400).json({ error: 'This loop uses a Claude-only command and requires the Claude provider' }); return
+    if (referencesUnsupportedProviderCommand(promptsText, provider)) {
+      res.status(400).json({ error: `This loop uses a command unsupported by provider '${provider}'` }); return
     }
 
     // Optional explicit model — validated against the chosen provider's catalog
@@ -81,7 +100,21 @@ export function registerLoopRunRoutes(deps: ProjectRoutesDeps): void {
       }
       model = requestedModel
     } else {
-      model = getAdapter(provider).defaultModel()
+      model = adapter.defaultModel()
+    }
+    let effort: ReasoningEffort | undefined
+    if (reasoning_effort !== undefined && reasoning_effort !== null) {
+      const allowed = reasoningEffortsForModel(adapter, model)
+      if (
+        typeof reasoning_effort !== 'string' ||
+        !(allowed as readonly string[]).includes(reasoning_effort)
+      ) {
+        res.status(400).json({
+          error: `reasoning_effort is not valid for provider "${provider}" and model "${model}"`,
+          allowed,
+        }); return
+      }
+      effort = reasoning_effort as ReasoningEffort
     }
     const exec = resolveProjectExecution({ slug: c.project.slug, path: c.project.path })
     const runId = newId()

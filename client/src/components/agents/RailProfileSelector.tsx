@@ -5,6 +5,7 @@ import { getApiBase } from '../../lib/api'
 import type { ProfileListEntry } from './types'
 
 interface Props {
+  provider: string
   /** null = legacy (no profile). undefined = not yet chosen; treated like null. */
   value: string | null
   onChange: (value: string | null) => void
@@ -16,19 +17,25 @@ const LEGACY_VALUE = '__legacy__'
  * Compact rail-header profile selector. Hides itself if no profiles exist
  * in the project (rails default to legacy then). Auto-refreshes on mount.
  */
-export function RailProfileSelector({ value, onChange }: Props) {
+export function RailProfileSelector({ provider, value, onChange }: Props) {
   const { t } = useTranslation('agents')
   const [profiles, setProfiles] = useState<ProfileListEntry[]>([])
   const [loaded, setLoaded] = useState(false)
 
   useEffect(() => {
     let cancelled = false
-    fetch(`${getApiBase()}/profiles`)
+    fetch(`${getApiBase()}/profiles?provider=${encodeURIComponent(provider)}`)
       .then((r) => (r.ok ? (r.json() as Promise<{ profiles: ProfileListEntry[] }>) : { profiles: [] }))
       .then((data) => {
         // A malformed/empty payload must degrade to "no profiles", never crash
         // the rail header render.
-        if (!cancelled) setProfiles(Array.isArray(data.profiles) ? data.profiles : [])
+        if (cancelled) return
+        const compatible = Array.isArray(data.profiles)
+          ? data.profiles.filter((profile) => !profile.provider || profile.provider === provider)
+          : []
+        setProfiles(compatible)
+        // An engine switch must not carry an incompatible profile into launch.
+        if (value && !compatible.some((profile) => profile.name === value)) onChange(null)
       })
       .catch(() => {
         if (!cancelled) setProfiles([])
@@ -39,7 +46,7 @@ export function RailProfileSelector({ value, onChange }: Props) {
     return () => {
       cancelled = true
     }
-  }, [])
+  }, [provider])
 
   if (!loaded) return null
   if (profiles.length === 0) return null

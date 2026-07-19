@@ -317,11 +317,36 @@ describe('JobDetailPage', () => {
         expect.objectContaining({
           method: 'POST',
           headers: expect.objectContaining({ 'Idempotency-Key': expect.any(String) }),
-          body: JSON.stringify({ command: '/specrails:implement' }),
+          body: JSON.stringify({ rerunOfJobId: 'job-abc123' }),
         })
       )
       expect(mockNavigate).toHaveBeenCalledWith('/jobs/new-job-id')
     })
+  })
+
+  it('delegates a Kimi custom-alias rerun to the server without inventing effort', async () => {
+    const user = userEvent.setup()
+    const kimiJob: JobSummary = {
+      ...mockJob,
+      command: '/specrails:implement #42 --yes',
+      provider: 'kimi',
+      model: 'moonshot-team/private-coder:v2',
+      profile_name: 'kimi-balanced',
+      tickets: [{ id: 42, title: 'Keep rerun metadata' }],
+    }
+    global.fetch = vi.fn()
+      .mockResolvedValueOnce({ ok: true, json: async () => ({ job: kimiJob, events: [] }) })
+      .mockResolvedValueOnce({ ok: true, json: async () => ({ jobId: 'kimi-rerun' }) })
+
+    render(<JobDetailPage />)
+    await user.click(await screen.findByRole('button', { name: /Re-execute/i }))
+
+    const [, init] = (global.fetch as ReturnType<typeof vi.fn>).mock.calls[1] as [string, RequestInit]
+    const payload = JSON.parse(String(init.body)) as Record<string, unknown>
+    expect(payload).toEqual({ rerunOfJobId: 'job-abc123' })
+    expect(payload).not.toHaveProperty('reasoning_effort')
+    expect(payload).not.toHaveProperty('effort')
+    await waitFor(() => expect(mockNavigate).toHaveBeenCalledWith('/jobs/kimi-rerun'))
   })
 
   it('coalesces rapid Re-execute clicks into one billable spawn', async () => {
@@ -439,6 +464,41 @@ describe('JobDetailPage', () => {
       await waitFor(() => {
         expect(screen.getByText('Job in progress')).toBeInTheDocument()
       })
+    })
+
+    it('derives unavailable pipeline coverage for Kimi phases instead of zero totals', async () => {
+      const kimiJob = {
+        ...mockJob,
+        provider: 'kimi',
+        pipeline_id: 'pipe-kimi',
+        total_cost_usd: null,
+        tokens_in: null,
+        tokens_out: null,
+        tokens_cache_read: null,
+        tokens_cache_create: null,
+      }
+      global.fetch = vi.fn()
+        .mockResolvedValueOnce({
+          ok: true,
+          json: async () => ({ job: kimiJob, events: [] }),
+        })
+        .mockResolvedValueOnce({
+          ok: true,
+          json: async () => ({
+            jobs: [
+              { ...kimiJob, id: 'phase-1' },
+              { ...kimiJob, id: 'phase-2' },
+            ],
+          }),
+        })
+      render(<JobDetailPage />)
+
+      await waitFor(() => {
+        expect(screen.getByTestId('pipeline-cost-unavailable')).toBeInTheDocument()
+      })
+      expect(screen.getByTestId('pipeline-usage-coverage-hint')).toHaveTextContent(/unavailable for every phase/i)
+      expect(screen.queryByText('$0.0000')).not.toBeInTheDocument()
+      expect(screen.queryByText('0.0k')).not.toBeInTheDocument()
     })
   })
 

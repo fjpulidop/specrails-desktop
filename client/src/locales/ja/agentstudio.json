@@ -52,6 +52,7 @@
       "sandboxNote": "サンドボックス実行。ファイルへの書き込みはありません。",
       "tokens_one": "<mono>{{count}}</mono> トークン",
       "tokens_other": "<mono>{{count}}</mono> トークン",
+      "tokensUnavailable": "トークン使用量は利用できません",
       "emptyHint": "現在のドラフトに対してサンプルタスクを実行します。出力はここに表示されます。"
     },
     "versions": {

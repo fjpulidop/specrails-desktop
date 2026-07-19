@@ -204,6 +204,47 @@ describe('useBuilderSession', () => {
     expect(requestBodyFor('/send')).toEqual({ text: 'gemini turn' })
   })
 
+  it('clears Kimi effort when the builder model switches away from K3', async () => {
+    mockFetch({
+      '/api/blueprint/models?provider=claude': {
+        body: {
+          models: [{ value: 'sonnet', label: 'Claude Sonnet' }],
+          defaultModel: 'sonnet',
+          efforts: ['low', 'medium', 'high'],
+        },
+      },
+      '/api/blueprint/models?provider=kimi': {
+        body: {
+          models: [
+            { value: 'k3', label: 'Kimi K3' },
+            { value: 'kimi-for-coding', label: 'Kimi for Coding' },
+          ],
+          defaultModel: 'k3',
+          efforts: ['low', 'high', 'max'],
+        },
+      },
+      '/api/blueprint/conversations': { body: { conversation: { id: 'conv-1' } } },
+    })
+    const { result } = renderHook(() => useBuilderSession(true, { onFinished: vi.fn() }), { wrapper })
+    await waitFor(() => expect(result.current.conversationReady).toBe(true))
+    act(() => result.current.setProvider('kimi'))
+    await waitFor(() => expect(result.current.efforts).toEqual(['low', 'high', 'max']))
+    expect(result.current.effort).toBe('high')
+
+    act(() => {
+      result.current.setEffort('high')
+      result.current.setModel('kimi-for-coding')
+    })
+    await waitFor(() => expect(result.current.efforts).toEqual([]))
+    expect(result.current.effort).toBe('')
+
+    act(() => result.current.send('coding turn'))
+    expect(requestBodyFor('/send')).toEqual({
+      text: 'coding turn',
+      model: 'kimi-for-coding',
+    })
+  })
+
   it('commit 202 → progress phase; commit_done → done with the projectId', async () => {
     mockFetch({
       '/api/blueprint/conversations': { body: { conversation: { id: 'conv-1' } } },

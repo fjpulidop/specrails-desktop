@@ -15,6 +15,8 @@ import { ChildProcess } from 'node:child_process'
 import treeKill from 'tree-kill'
 
 import { spawnAiCli } from './util/cli-prompt'
+import { runAiCliInvocation } from './spawn-lifecycle'
+import { getAdapter, type AdapterEvent, type ProviderAdapter, type SpawnOptions } from './providers'
 import {
   buildSmashSystemPrompt,
   parseSmashOutput,
@@ -26,7 +28,7 @@ import {
 import { ensureExploreCwd } from './explore-cwd-manager'
 import { resolveProjectExecution } from './workspace-resolution'
 import { recordInvocation } from './ai-invocations'
-import { normaliseResultEvent } from './result-event'
+import { finaliseInvocationResult } from './result-event'
 import { clampShortSummary } from './ticket-store'
 import {
   mutateStore,
@@ -35,6 +37,8 @@ import {
   type TicketStore,
 } from './ticket-store'
 import type { DbInstance } from './db'
+import { buildProviderEnv } from './providers/runtime'
+import { trackTransientChild } from './transient-children'
 
 /** Resolve the tickets-store path for a SMASH run: the gated `ticketsPath` when
  *  the caller threaded it (relocation-aware), else the legacy repo-relative
@@ -62,6 +66,7 @@ export type SmashFailureReason =
   | 'invalid-output'
   | 'mutation-failed'
   | 'in-progress'
+  | 'provider-unsupported'
 
 export interface SmashDeps {
   db: DbInstance
@@ -69,6 +74,8 @@ export interface SmashDeps {
   projectSlug: string
   projectPath: string
   projectName: string
+  /** Execution provider selected for this structured action. */
+  providerId?: string
   /** Relocate-artifacts: the gated tickets-store path (workspace when relocated,
    *  else `<project>/.specrails/local-tickets.json`). When provided, SMASH reads
    *  and writes the store HERE instead of re-deriving from `projectPath` (which
@@ -134,34 +141,32 @@ export function checkSmashEligibility(store: TicketStore, ticketId: number): Sma
 // ─── Spawn helpers ───────────────────────────────────────────────────────────
 
 function buildSmashArgs(
+  adapter: ProviderAdapter,
   model: string,
   systemPrompt: string,
   userPrompt: string,
   mode: SmashMode,
-): string[] {
-  // Simple: deny all tools, single turn — fast, no codebase access.
-  // Full: allow Read/Grep/Glob (read-only), multi-turn — slower, grounded.
-  const disallowed = mode === 'full' ? 'Bash,Edit,Write,NotebookEdit' : 'Read,Grep,Glob,Bash'
+): { args: string[]; options: SpawnOptions } {
+  // Simple: deny all tools, single turn — fast, no codebase access. Full:
+  // request the adapter's verified read-only boundary.
   const maxTurns = mode === 'full' ? SMASH_MAX_TURNS_FULL : SMASH_MAX_TURNS_SIMPLE
-  return [
-    '--model', model,
-    '--dangerously-skip-permissions',
-    '--output-format', 'stream-json',
-    '--verbose',
-    '--system-prompt', systemPrompt,
-    '--disallowedTools', disallowed,
-    '--max-turns', String(maxTurns),
-    '-p', userPrompt,
-  ]
+  const options: SpawnOptions = {
+    prompt: userPrompt,
+    model,
+    systemPrompt,
+    toolPolicy: mode === 'full' ? 'read-only' : 'none',
+    maxTurns,
+  }
+  return { args: adapter.buildArgs('spec-gen', options), options }
 }
 
 /**
  * Build the spawn argv + cwd. Exported for tests.
  */
 export function prepareSmashSpawn(
-  deps: Pick<SmashDeps, 'projectSlug' | 'projectPath' | 'projectName' | 'model' | 'mode'>,
+  deps: Pick<SmashDeps, 'projectSlug' | 'projectPath' | 'projectName' | 'model' | 'mode' | 'providerId'>,
   ticket: Ticket,
-): { args: string[]; cwd: string; env?: Record<string, string>; systemPrompt: string; userPrompt: string; mode: SmashMode } {
+): { args: string[]; cwd: string; env?: Record<string, string>; systemPrompt: string; userPrompt: string; mode: SmashMode; options: SpawnOptions; adapter: ProviderAdapter } {
   const mode: SmashMode = deps.mode === 'full' ? 'full' : 'simple'
   const systemPrompt = buildSmashSystemPrompt(mode)
   const userPrompt = `${ticket.title}\n\n${ticket.description}`
@@ -188,8 +193,10 @@ export function prepareSmashSpawn(
       cwd = deps.projectPath
     }
   }
-  const model = deps.model ?? 'sonnet'
-  return { args: buildSmashArgs(model, systemPrompt, userPrompt, mode), cwd, env, systemPrompt, userPrompt, mode }
+  const adapter = getAdapter(deps.providerId ?? 'claude')
+  const model = deps.model ?? adapter.defaultModel()
+  const built = buildSmashArgs(adapter, model, systemPrompt, userPrompt, mode)
+  return { args: built.args, cwd, env, systemPrompt, userPrompt, mode, options: built.options, adapter }
 }
 
 /** Grace before SIGKILL-escalating a child that swallowed SIGTERM. */
@@ -458,20 +465,24 @@ export function applyDeleteEpicChildren(
 
 function recordSafely(
   deps: SmashDeps,
+  adapter: ProviderAdapter,
   ticketId: number,
   runId: string,
   startedAt: string,
   finishedAt: string,
   status: 'success' | 'failed' | 'aborted',
-  resultEvent: Record<string, unknown> | null,
+  events: readonly AdapterEvent[],
   model: string | null | undefined,
 ): void {
   try {
-    const normalised = resultEvent ? normaliseResultEvent(resultEvent, 'claude') : {}
+    const { result: normalised, estimated } = finaliseInvocationResult(adapter, events, {
+      fallbackModel: model ?? adapter.defaultModel(),
+      durationMs: Math.max(0, Date.parse(finishedAt) - Date.parse(startedAt)),
+    })
     recordInvocation(deps.db, {
       id: randomUUID(),
       project_id: deps.projectId,
-      provider: 'claude',
+      provider: adapter.id,
       surface: 'smash',
       surface_ref_id: `smash:${runId}`,
       conversation_id: null,
@@ -479,8 +490,9 @@ function recordSafely(
       status,
       started_at: startedAt,
       finished_at: finishedAt,
+      total_cost_usd_estimated: estimated,
       ...normalised,
-      model: (resultEvent?.model as string | undefined) ?? model ?? undefined,
+      model: normalised.model ?? model ?? undefined,
     })
   } catch (err) {
     console.error('[smash-runner] recordInvocation failed:', err)
@@ -525,15 +537,19 @@ function distributeInt(
  */
 function recordChildrenInvocations(
   deps: SmashDeps,
+  adapter: ProviderAdapter,
   childrenIds: number[],
   runId: string,
   startedAt: string,
   finishedAt: string,
-  resultEvent: Record<string, unknown> | null,
+  events: readonly AdapterEvent[],
   model: string | null | undefined,
 ): void {
-  if (childrenIds.length === 0 || !resultEvent) return
-  const normalised = normaliseResultEvent(resultEvent, 'claude')
+  if (childrenIds.length === 0) return
+  const { result: normalised, estimated } = finaliseInvocationResult(adapter, events, {
+    fallbackModel: model ?? adapter.defaultModel(),
+    durationMs: Math.max(0, Date.parse(finishedAt) - Date.parse(startedAt)),
+  })
   const n = childrenIds.length
   const split = <T extends number | null | undefined>(v: T): number | undefined => {
     if (v === null || v === undefined) return undefined
@@ -552,7 +568,7 @@ function recordChildrenInvocations(
       recordInvocation(deps.db, {
         id: randomUUID(),
         project_id: deps.projectId,
-        provider: 'claude',
+        provider: adapter.id,
         surface: 'smash',
         surface_ref_id: `smash:${runId}:child:${childId}`,
         conversation_id: null,
@@ -560,6 +576,7 @@ function recordChildrenInvocations(
         status: 'success',
         started_at: startedAt,
         finished_at: finishedAt,
+        total_cost_usd_estimated: estimated,
         duration_ms: split(normalised.duration_ms),
         duration_api_ms: split(normalised.duration_api_ms),
         tokens_in: tokensIn[i],
@@ -569,7 +586,7 @@ function recordChildrenInvocations(
         total_cost_usd: split(normalised.total_cost_usd),
         num_turns: numTurns[i],
         session_id: normalised.session_id,
-        model: (resultEvent.model as string | undefined) ?? model ?? undefined,
+        model: normalised.model ?? model ?? undefined,
       })
     } catch (err) {
       console.error('[smash-runner] recordChildrenInvocations failed for child', childId, err)
@@ -603,6 +620,10 @@ export async function runSmash(
 
   if (isSpecsSmashKillSwitchActive()) {
     return { ok: false, reason: 'disabled', ticketId, runId }
+  }
+  const adapter = getAdapter(deps.providerId ?? 'claude')
+  if (adapter.capabilities.structuredActions !== true) {
+    return { ok: false, reason: 'provider-unsupported', ticketId, runId }
   }
 
   // B60: reject a concurrent SMASH of the same ticket. The has-check + add are
@@ -654,39 +675,17 @@ export async function runSmash(
     timestamp: startedAt,
   })
 
-  const { args, cwd, env: spawnEnv } = prepareSmashSpawn(
+  const { args, cwd, env: spawnEnv, options: spawnOptions } = prepareSmashSpawn(
     {
       projectSlug: deps.projectSlug,
       projectPath: deps.projectPath,
       projectName: deps.projectName,
       model: deps.model,
       mode,
+      providerId: adapter.id,
     },
     ticket,
   )
-
-  let child: ChildProcess
-  try {
-    child = spawn('claude', args, {
-      env: spawnEnv ? { ...process.env, ...spawnEnv } : process.env,
-      stdio: ['ignore', 'pipe', 'pipe'],
-      cwd,
-    })
-  } catch (err) {
-    const finishedAt = now().toISOString()
-    recordSafely(deps, ticketId, runId, startedAt, finishedAt, 'failed', null, deps.model)
-    deps.broadcast({
-      type: 'smash.failed',
-      projectId: deps.projectId,
-      ticketId,
-      runId,
-      reason: 'crashed',
-      timestamp: finishedAt,
-    })
-    // LOW-10: a row was recorded — invalidate open dashboards.
-    deps.broadcast({ type: 'spending.invalidated', projectId: deps.projectId })
-    return { ok: false, reason: 'crashed', ticketId, runId }
-  }
 
   // Synthesize progress pills as the spawn proceeds. The runner uses fixed
   // offsets — cheap and deterministic vs trying to read tool-use events.
@@ -705,13 +704,53 @@ export async function runSmash(
     }, 200 + i * 1500))
   })
 
-  const result = await readSmashChildOutput(child, timeoutMs)
+  let fullText = ''
+  let resultEvent: Record<string, unknown> | null = null
+  const run = await runAiCliInvocation({
+    adapter,
+    binary: adapter.binary,
+    argv: args,
+    cwd,
+    env: buildProviderEnv(
+      adapter,
+      spawnOptions,
+      spawnEnv ? { ...process.env, ...spawnEnv } : process.env,
+    ),
+    spawn,
+    timeoutMs,
+    onSpawn: (child) => trackTransientChild(deps.projectId, child),
+    onEvent: (event) => {
+      if (event.kind === 'text-delta') fullText += event.text
+      else if (event.kind === 'result') resultEvent = event.payload
+    },
+  })
+  const result = {
+    fullText,
+    resultEvent,
+    code: run.code,
+    timedOut: run.timedOut,
+    spawnFailed: run.spawnFailed,
+    events: run.events,
+  }
   progressTimers.forEach((t) => clearTimeout(t))
   const finishedAt = now().toISOString()
   console.log(`[smash-runner] spawn done code=${result.code} timedOut=${result.timedOut} hasResult=${!!result.resultEvent} textBytes=${result.fullText.length}`)
 
+  if (result.spawnFailed) {
+    recordSafely(deps, adapter, ticketId, runId, startedAt, finishedAt, 'failed', result.events, deps.model)
+    deps.broadcast({
+      type: 'smash.failed',
+      projectId: deps.projectId,
+      ticketId,
+      runId,
+      reason: 'crashed',
+      timestamp: finishedAt,
+    })
+    deps.broadcast({ type: 'spending.invalidated', projectId: deps.projectId })
+    return { ok: false, reason: 'crashed', ticketId, runId }
+  }
   if (result.timedOut) {
-    recordSafely(deps, ticketId, runId, startedAt, finishedAt, 'aborted', result.resultEvent, deps.model)
+    recordSafely(deps, adapter, ticketId, runId, startedAt, finishedAt, 'aborted', result.events, deps.model)
     deps.broadcast({
       type: 'smash.failed',
       projectId: deps.projectId,
@@ -724,9 +763,10 @@ export async function runSmash(
     deps.broadcast({ type: 'spending.invalidated', projectId: deps.projectId })
     return { ok: false, reason: 'timeout', ticketId, runId }
   }
-  if (result.code !== 0 || !result.resultEvent) {
-    recordSafely(deps, ticketId, runId, startedAt, finishedAt, 'failed', result.resultEvent, deps.model)
-    const reason: SmashFailureReason = result.resultEvent ? 'model_error' : 'crashed'
+  const providerError = result.events.some((event) => event.kind === 'error')
+  if (result.code !== 0 || providerError || !result.fullText.trim()) {
+    recordSafely(deps, adapter, ticketId, runId, startedAt, finishedAt, 'failed', result.events, deps.model)
+    const reason: SmashFailureReason = providerError || result.resultEvent ? 'model_error' : 'crashed'
     deps.broadcast({
       type: 'smash.failed',
       projectId: deps.projectId,
@@ -743,7 +783,7 @@ export async function runSmash(
   const parse = parseSmashOutput(result.fullText)
   if (!parse.ok) {
     console.log(`[smash-runner] parse failed reason=${parse.reason} detail=${parse.detail ?? '-'}`)
-    recordSafely(deps, ticketId, runId, startedAt, finishedAt, 'failed', result.resultEvent, deps.model)
+    recordSafely(deps, adapter, ticketId, runId, startedAt, finishedAt, 'failed', result.events, deps.model)
     deps.broadcast({
       type: 'smash.failed',
       projectId: deps.projectId,
@@ -771,7 +811,7 @@ export async function runSmash(
     )
   } catch (err) {
     console.error('[smash-runner] mutation failed:', err)
-    recordSafely(deps, ticketId, runId, startedAt, finishedAt, 'failed', result.resultEvent, deps.model)
+    recordSafely(deps, adapter, ticketId, runId, startedAt, finishedAt, 'failed', result.events, deps.model)
     deps.broadcast({
       type: 'smash.failed',
       projectId: deps.projectId,
@@ -789,15 +829,31 @@ export async function runSmash(
   // (cost split evenly). The Epic itself does not accrue cost here — the
   // operation logically birthed the Sub-Specs and the cost belongs to them.
   // Total project cost remains the original spawn cost (sum of N × X/N = X).
-  recordChildrenInvocations(
-    deps,
-    applied.children.map((c) => c.id),
-    runId,
-    startedAt,
-    finishedAt,
-    result.resultEvent,
-    deps.model,
-  )
+  const reported = finaliseInvocationResult(adapter, result.events, {
+    fallbackModel: deps.model ?? adapter.defaultModel(),
+  }).result
+  const hasAttributableUsage =
+    reported.total_cost_usd !== undefined ||
+    reported.tokens_in !== undefined ||
+    reported.tokens_out !== undefined ||
+    reported.tokens_cache_read !== undefined ||
+    reported.tokens_cache_create !== undefined
+  if (hasAttributableUsage) {
+    recordChildrenInvocations(
+      deps,
+      adapter,
+      applied.children.map((c) => c.id),
+      runId,
+      startedAt,
+      finishedAt,
+      result.events,
+      deps.model,
+    )
+  } else {
+    // Kimi's stream has no usage/cost envelope. Record the actual process once
+    // with null cost instead of fabricating N zero-cost child invocations.
+    recordSafely(deps, adapter, ticketId, runId, startedAt, finishedAt, 'success', result.events, deps.model)
+  }
 
   // Broadcast underlying state changes first, then the SMASH-specific event.
   deps.broadcast({

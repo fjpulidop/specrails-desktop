@@ -22,6 +22,9 @@ export async function resolvePluginsForSpawn(
   projectPath: string,
   projectId: string,
   _jobId: string,
+  providerId: string = 'claude',
+  legacyProviderId: string = providerId,
+  slug?: string,
 ): Promise<ResolvedPlugins> {
   const mgr = getPluginManager()
   const state = mgr.getProjectState(projectPath)
@@ -32,14 +35,31 @@ export async function resolvePluginsForSpawn(
   // already timeout-wrapped inside PluginManager.
   const checks = await Promise.all(
     Object.entries(state.plugins).map(async ([name, entry]) => {
+      const scopedProviderState = entry.providers?.[providerId]
+      const providerInstalled = entry.providers
+        ? scopedProviderState !== undefined
+        : providerId === legacyProviderId
+      // A plugin installed only for another provider must not appear in this
+      // rail's snapshot. Explicitly deactivated installs are intentionally
+      // absent rather than misreported as degraded.
+      if (!providerInstalled || scopedProviderState?.active === false) return null
       // Skip orphans — they are not in the registry, so verify cannot run.
       if (!mgr.registry.byName.has(name)) return { name, version: entry.version, result: { ok: false, reason: 'orphan', checkedAt: new Date().toISOString() } }
-      const result = await mgr.verify(projectPath, projectId, name)
+      const result = await mgr.verify(
+        projectPath,
+        projectId,
+        name,
+        undefined,
+        providerId,
+        legacyProviderId,
+        slug,
+      )
       return { name, version: entry.version, result }
     }),
   )
 
   for (const c of checks) {
+    if (!c) continue
     if (c.result.ok) active.push({ name: c.name, version: c.version })
     else degraded.push({ name: c.name, reason: c.result.reason ?? 'unknown' })
   }

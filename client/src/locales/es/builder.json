@@ -8,7 +8,8 @@
     "surpriseMe": "Sorpréndeme",
     "inputPlaceholder": "Una app que…",
     "createSpecs": "Crear specs",
-    "createSpecsHint": "Disponible cuando el blueprint tenga specs del Hito 1"
+    "createSpecsHint": "Disponible cuando el blueprint tenga specs del Hito 1",
+    "providerUnavailable": "El Constructor requiere un proveedor con modo nativo sin herramientas o de solo lectura. Este proveedor no está disponible aquí."
   },
   "panel": {
     "title": "Blueprint",
@@ -87,7 +88,8 @@
     "progress": "{{done}}/{{total}} hechas",
     "launchM1": "Lanzar el Hito 1",
     "generateNext": "Generar M{{n}}",
-    "generateHint": "Abre una sesión de specs con contexto real sembrada con el blueprint"
+    "generateHint": "Abre una sesión de specs con contexto real sembrada con el blueprint",
+    "generateUnavailable": "La generación de hitos requiere un modo nativo de solo lectura"
   },
   "errors": {
     "startFailed": "No se pudo iniciar la conversación del Constructor.",
@@ -99,7 +101,8 @@
     "inputPlaceholder": "Refina las specs…",
     "commit": "Confirmar {{count}} specs como {{label}}",
     "commitToast": "{{count}} specs añadidas al tablero como {{label}}",
-    "commitFailed": "No se pudo confirmar el hito"
+    "commitFailed": "No se pudo confirmar el hito",
+    "providerUnavailable": "La generación de hitos no está disponible porque este proveedor no tiene modo nativo de solo lectura."
   },
   "mode": {
     "title": "Constructor de proyectos",

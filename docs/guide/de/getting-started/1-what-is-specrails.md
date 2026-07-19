@@ -36,6 +36,7 @@ specrails arbeitet mit den großen KI-Programmier-CLIs zusammen:
 - **Claude** (Claude Code)
 - **Codex** (Codex CLI)
 - **Gemini** (Gemini CLI)
+- **Kimi** (Kimi Code)
 
 Nimm einfach den, den du ohnehin schon nutzt – oder installiere mehrere und wähle pro Aufgabe. Ein Projekt kann mit einem einzelnen Provider oder mit mehreren gleichzeitig laufen, sodass du dich nie festlegen musst.
 

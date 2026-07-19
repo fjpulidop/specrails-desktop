@@ -161,3 +161,34 @@ describe('installSerena / uninstallSerena — codex provider', () => {
     expect(ctx.logs.some((l) => l.includes('codex mcp remove warning'))).toBe(true)
   })
 })
+
+describe('installSerena / uninstallSerena — kimi provider', () => {
+  it('uses .kimi-code/mcp.json and never writes Claude-only files', async () => {
+    const ctx = makeCtx('kimi')
+    await installSerena(ctx)
+
+    const kimiConfig = JSON.parse(
+      fs.readFileSync(path.join(projectPath, '.kimi-code', 'mcp.json'), 'utf8'),
+    )
+    expect(kimiConfig.mcpServers.serena.args).toContain('start-mcp-server')
+    expect(fs.existsSync(path.join(projectPath, '.mcp.json'))).toBe(false)
+    expect(
+      fs.existsSync(path.join(projectPath, '.claude', 'agents', 'custom-serena.md')),
+    ).toBe(false)
+  })
+
+  it('removes only Serena from Kimi MCP config', async () => {
+    const configPath = path.join(projectPath, '.kimi-code', 'mcp.json')
+    fs.mkdirSync(path.dirname(configPath), { recursive: true })
+    fs.writeFileSync(configPath, JSON.stringify({
+      mcpServers: { userServer: { command: 'mine' } },
+    }))
+    const ctx = makeCtx('kimi')
+    await installSerena(ctx)
+    await uninstallSerena(ctx)
+
+    const after = JSON.parse(fs.readFileSync(configPath, 'utf8'))
+    expect(after.mcpServers.userServer).toEqual({ command: 'mine' })
+    expect(after.mcpServers.serena).toBeUndefined()
+  })
+})

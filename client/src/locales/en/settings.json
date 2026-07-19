@@ -33,7 +33,7 @@
   },
   "freestylePrePrompt": {
     "title": "Freestyle pre-prompt",
-    "description": "Instruction sent to Claude in Freestyle (Claude-only rails). Freestyle skips the OpenSpec pipeline — it hands Claude this pre-prompt plus the spec text and lets it implement autonomously. Leave blank to use the built-in default.",
+    "description": "Instruction sent to the selected provider in Freestyle. Freestyle skips the OpenSpec pipeline — it hands the provider this pre-prompt plus the spec text and lets it implement autonomously. Leave blank to use the built-in default.",
     "label": "Freestyle pre-prompt",
     "placeholder": "Leave blank to use the default Freestyle instruction.",
     "helper": "The spec text is appended automatically after this pre-prompt. Empty = default.",

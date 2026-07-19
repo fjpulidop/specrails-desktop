@@ -10,6 +10,7 @@ import type {
   PluginPreviewFileEntry,
   PluginPreviewResult,
   PluginRequirement,
+  PluginProviderStateEntry,
   PluginState,
   PluginStateEntry,
   PluginVerifyResult,
@@ -29,10 +30,18 @@ import {
   stateFilePath,
 } from './plugins/paths'
 
-function readMcpServersMap(projectPath: string): Record<string, unknown> {
+function providerMcpJsonPath(projectPath: string, providerId?: string): string {
+  if (providerId && hasAdapter(providerId)) {
+    return getAdapter(providerId).projectMcpPath?.(projectPath) ?? mcpJsonPath(projectPath)
+  }
+  return mcpJsonPath(projectPath)
+}
+
+function readMcpServersMap(projectPath: string, providerId?: string): Record<string, unknown> {
   try {
-    if (!fs.existsSync(mcpJsonPath(projectPath))) return {}
-    const raw = fs.readFileSync(mcpJsonPath(projectPath), 'utf8')
+    const file = providerMcpJsonPath(projectPath, providerId)
+    if (!fs.existsSync(file)) return {}
+    const raw = fs.readFileSync(file, 'utf8')
     if (!raw.trim()) return {}
     const parsed = JSON.parse(raw) as { mcpServers?: Record<string, unknown> }
     return parsed.mcpServers ?? {}
@@ -59,6 +68,104 @@ export type PluginBroadcast = (msg: WsMessage) => void
  * (written before this field existed) simply lack it; readers tolerate that.
  */
 type PluginStateEntryWithOwned = PluginStateEntry & { ownedMcpServers?: string[] }
+
+const LEGACY_PROVIDER = 'claude'
+
+function targetProvider(providerId?: string): string {
+  return providerId?.trim() || LEGACY_PROVIDER
+}
+
+function legacyProvider(providerId: string, legacyProviderId?: string): string {
+  return legacyProviderId?.trim() || providerId
+}
+
+function legacyProviderState(entry: PluginStateEntryWithOwned): PluginProviderStateEntry {
+  return {
+    installedAt: entry.installedAt,
+    installedFiles: [...(entry.installedFiles ?? [])],
+    health: entry.health,
+    healthReason: entry.healthReason,
+    ownedMcpServers: [...(entry.ownedMcpServers ?? [])],
+  }
+}
+
+/** Resolve one provider without pretending a legacy primary install also
+ * belongs to every secondary provider. */
+function getProviderState(
+  entry: PluginStateEntryWithOwned | undefined,
+  providerId: string,
+  legacyProviderId: string,
+): PluginProviderStateEntry | undefined {
+  if (!entry) return undefined
+  if (entry.providers) return entry.providers[providerId]
+  return providerId === legacyProviderId ? legacyProviderState(entry) : undefined
+}
+
+/** Materialize the provider map lazily when the first post-migration mutation
+ * occurs. Until then legacy state remains byte-compatible on disk. */
+function ensureProviderStates(
+  entry: PluginStateEntryWithOwned,
+  legacyProviderId: string,
+): Record<string, PluginProviderStateEntry> {
+  if (!entry.providers) {
+    entry.providers = { [legacyProviderId]: legacyProviderState(entry) }
+  }
+  return entry.providers
+}
+
+/** Keep the schema-v1 aggregate fields truthful for older Desktop builds and
+ * diagnostics that have not learned the provider map yet. */
+function syncAggregateState(entry: PluginStateEntryWithOwned): void {
+  const states = Object.values(entry.providers ?? {})
+  if (states.length === 0) return
+  entry.installedAt = states
+    .map((state) => state.installedAt)
+    .sort()[0] ?? entry.installedAt
+  entry.installedFiles = Array.from(new Set(states.flatMap((state) => state.installedFiles ?? [])))
+  const degraded = states.find((state) => state.health === 'degraded')
+  if (degraded) {
+    entry.health = 'degraded'
+    entry.healthReason = degraded.healthReason
+  } else if (states.every((state) => state.health === 'ok')) {
+    entry.health = 'ok'
+    delete entry.healthReason
+  } else {
+    entry.health = 'unknown'
+    delete entry.healthReason
+  }
+  entry.ownedMcpServers = Array.from(
+    new Set(states.flatMap((state) => state.ownedMcpServers ?? [])),
+  )
+}
+
+function supportsProvider(plugin: Plugin, providerId: string): boolean {
+  const declared = plugin.manifest.providerSupport
+  return declared === undefined
+    ? providerId === LEGACY_PROVIDER
+    : Object.prototype.hasOwnProperty.call(declared, providerId)
+}
+
+function sameInstructionsFile(leftProviderId: string, rightProviderId: string): boolean {
+  if (!hasAdapter(leftProviderId) || !hasAdapter(rightProviderId)) return false
+  return getAdapter(leftProviderId).instructionsFilename === getAdapter(rightProviderId).instructionsFilename
+}
+
+/** A single managed instructions block may be shared by providers that declare
+ * the same project-relative instructions path. Removing or deactivating one
+ * provider must not remove that block while another such provider still has
+ * the plugin active. Codex (`AGENTS.md`) and Kimi
+ * (`.kimi-code/AGENTS.md`) are intentionally independent. */
+function hasOtherActiveContributor(
+  entry: PluginStateEntryWithOwned,
+  providerId: string,
+): boolean {
+  if (!entry.providers) return false
+  return Object.entries(entry.providers).some(([candidate, state]) =>
+    candidate !== providerId &&
+    state.active !== false &&
+    sameInstructionsFile(candidate, providerId),
+  )
+}
 
 export type PrerequisiteCheck = (req: PluginRequirement) => Promise<{
   installed: boolean
@@ -166,14 +273,21 @@ export class PluginManager {
 
   // ─── Catalog ───────────────────────────────────────────────────────────────
 
-  async listAvailable(projectPath: string, providerId?: string): Promise<PluginCatalogEntry[]> {
+  async listAvailable(
+    projectPath: string,
+    providerId?: string,
+    legacyProviderId?: string,
+  ): Promise<PluginCatalogEntry[]> {
+    const provider = targetProvider(providerId)
+    const primaryProvider = legacyProvider(provider, legacyProviderId)
     const state = this.getProjectState(projectPath)
     const entries: PluginCatalogEntry[] = []
 
     // Bundled plugins, regardless of install state.
     for (const plugin of this.registry.byName.values()) {
       const m = plugin.manifest
-      const stateEntry = state.plugins[m.name]
+      const stateEntry = state.plugins[m.name] as PluginStateEntryWithOwned | undefined
+      const providerState = getProviderState(stateEntry, provider, primaryProvider)
       let status: PluginCatalogEntry['status']
 
       // Provider applicability: a plugin is `not-applicable` when the
@@ -181,18 +295,16 @@ export class PluginManager {
       // there's no entry for this provider. Plugins that don't declare
       // providerSupport at all default to claude-compatible (preserves
       // pre-§14 behaviour for unchanged manifests).
-      const supportsThisProvider = providerId === undefined
-        ? true
-        : m.providerSupport === undefined
-          ? providerId === 'claude'
-          : providerId in m.providerSupport
+      const supportsThisProvider = supportsProvider(plugin, provider)
 
       if (!supportsThisProvider) {
         status = 'not-applicable'
-      } else if (!stateEntry) {
+      } else if (!providerState) {
         status = 'not-installed'
-      } else if (stateEntry.health === 'degraded') {
+      } else if (providerState.health === 'degraded') {
         status = 'degraded'
+      } else if (providerState.active === false) {
+        status = 'deactivated'
       } else {
         // Plugin install lives in two files:
         //   (a) state.json — the app's record that the plugin is installed
@@ -202,13 +314,13 @@ export class PluginManager {
         // (b) check is skipped because the registration lives outside the
         // project filesystem (CODEX_HOME).
         let allKeysPresent = true
-        if (providerId === 'codex') {
+        if (hasAdapter(provider) && getAdapter(provider).mcpRegistration === 'cli-add') {
           // For codex we trust state.json — `codex mcp list` against the
           // per-project CODEX_HOME is the source of truth, but it requires a
           // subprocess which is too expensive for a catalog listing call.
           allKeysPresent = true
         } else {
-          const mcpServers = readMcpServersMap(projectPath)
+          const mcpServers = readMcpServersMap(projectPath, provider)
           for (const server of m.owns.mcpServers ?? []) {
             if (!(server in mcpServers)) { allKeysPresent = false; break }
           }
@@ -219,16 +331,20 @@ export class PluginManager {
       // affordance when our project-scoped install is being shadowed.
       const conflicts: string[] = []
       const cachedDisabled: string[] = []
-      for (const server of m.owns.mcpServers ?? []) {
-        for (const key of findEnabledMarketplaceKeys(server)) {
-          if (!conflicts.includes(key)) conflicts.push(key)
-        }
-        for (const key of findInstalledButNotEnabledMarketplaceKeys(server)) {
-          if (!cachedDisabled.includes(key)) cachedDisabled.push(key)
+      if (provider === 'claude') {
+        for (const server of m.owns.mcpServers ?? []) {
+          for (const key of findEnabledMarketplaceKeys(server)) {
+            if (!conflicts.includes(key)) conflicts.push(key)
+          }
+          for (const key of findInstalledButNotEnabledMarketplaceKeys(server)) {
+            if (!cachedDisabled.includes(key)) cachedDisabled.push(key)
+          }
         }
       }
       // Drift detection: only meaningful when actually installed.
-      const updateAvailable = stateEntry ? detectMcpDrift(projectPath, plugin) : false
+      const updateAvailable = providerState
+        ? detectMcpDrift(projectPath, plugin, provider)
+        : false
       entries.push({
         name: m.name,
         version: m.version,
@@ -238,9 +354,10 @@ export class PluginManager {
         requirements: m.requirements ?? [],
         owns: m.owns,
         status,
-        installedAt: stateEntry?.installedAt,
-        health: stateEntry?.health,
-        healthReason: stateEntry?.healthReason,
+        installedAt: providerState?.installedAt,
+        health: providerState?.health,
+        healthReason: providerState?.healthReason,
+        providerId: provider,
         marketplaceConflicts: conflicts.length > 0 ? conflicts : undefined,
         marketplaceCachedButDisabled: cachedDisabled.length > 0 ? cachedDisabled : undefined,
         updateAvailable: updateAvailable || undefined,
@@ -250,6 +367,12 @@ export class PluginManager {
     // Orphan plugins: present in state.json but not in the bundled registry.
     for (const [name, entry] of Object.entries(state.plugins)) {
       if (this.registry.byName.has(name)) continue
+      const providerState = getProviderState(
+        entry as PluginStateEntryWithOwned,
+        provider,
+        primaryProvider,
+      )
+      if (!providerState) continue
       entries.push({
         name,
         version: entry.version,
@@ -258,9 +381,10 @@ export class PluginManager {
         requirements: [],
         owns: {},
         status: 'orphan',
-        installedAt: entry.installedAt,
-        health: entry.health,
-        healthReason: entry.healthReason,
+        installedAt: providerState.installedAt,
+        health: providerState.health,
+        healthReason: providerState.healthReason,
+        providerId: provider,
       })
     }
 
@@ -273,15 +397,28 @@ export class PluginManager {
     projectPath: string,
     projectId: string,
     name: string,
+    providerId?: string,
+    slug?: string,
   ): Promise<PluginPreviewResult> {
     const plugin = this.registry.byName.get(name)
     if (!plugin) throw new PluginNotFoundError(name)
+    const provider = targetProvider(providerId)
+    if (!supportsProvider(plugin, provider)) {
+      throw new PluginInstallError(
+        `plugin '${name}' is not applicable for provider '${provider}'.`,
+      )
+    }
 
     let files: PluginPreviewFileEntry[]
     if (plugin.previewInstall) {
-      files = await plugin.previewInstall({ projectPath, projectId })
+      files = await plugin.previewInstall({
+        projectPath,
+        projectId,
+        providerId: provider,
+        slug,
+      })
     } else {
-      files = this._derivePreviewFiles(projectPath, plugin)
+      files = this._derivePreviewFiles(projectPath, plugin, provider)
     }
 
     const requirements = await Promise.all(
@@ -305,28 +442,29 @@ export class PluginManager {
     }
   }
 
-  private _derivePreviewFiles(projectPath: string, plugin: Plugin): PluginPreviewFileEntry[] {
+  private _derivePreviewFiles(projectPath: string, plugin: Plugin, providerId?: string): PluginPreviewFileEntry[] {
     const out: PluginPreviewFileEntry[] = []
     const m = plugin.manifest
 
     // .mcp.json
     if ((m.owns.mcpServers ?? []).length > 0) {
-      const mcpExists = fs.existsSync(mcpJsonPath(projectPath))
+      const mcpFile = providerMcpJsonPath(projectPath, providerId)
+      const mcpExists = fs.existsSync(mcpFile)
       out.push({
-        path: '.mcp.json',
+        path: path.relative(projectPath, mcpFile),
         op: mcpExists ? 'modify' : 'create',
         summary: `+ mcpServers.${(m.owns.mcpServers ?? []).join(', mcpServers.')}`,
       })
     }
 
     // Agent fragments
-    for (const frag of m.owns.agentFragments ?? []) {
+    for (const frag of providerId && providerId !== 'claude' ? [] : (m.owns.agentFragments ?? [])) {
       const exists = fs.existsSync(path.join(projectPath, frag))
       out.push({ path: frag, op: exists ? 'modify' : 'create' })
     }
 
     // Shared-file contributors (CLAUDE.md today, more in the future).
-    for (const rel of contributorPaths(plugin)) {
+    for (const rel of contributorPaths(plugin, providerId)) {
       const exists = fs.existsSync(path.join(projectPath, rel))
       out.push({
         path: rel,
@@ -355,35 +493,41 @@ export class PluginManager {
     broadcast: PluginBroadcast,
     providerId?: string,
     slug?: string,
+    legacyProviderId?: string,
   ): Promise<void> {
     const plugin = this.registry.byName.get(name)
     if (!plugin) throw new PluginNotFoundError(name)
+    const provider = targetProvider(providerId)
+    const primaryProvider = legacyProvider(provider, legacyProviderId)
 
     // Provider applicability gate: refuse to install a plugin that has no
     // providerSupport entry for this project's provider. Plugins that omit
     // providerSupport altogether default to claude-compatible.
-    if (providerId !== undefined && providerId !== 'claude') {
+    if (!supportsProvider(plugin, provider)) {
       const declared = plugin.manifest.providerSupport
-      if (declared !== undefined && !(providerId in declared)) {
-        throw new PluginInstallError(
-          `plugin '${name}' is not applicable for provider '${providerId}'. Declared providers: ${Object.keys(declared).join(', ')}.`,
-        )
-      }
+      throw new PluginInstallError(
+        `plugin '${name}' is not applicable for provider '${provider}'. Declared providers: ${
+          declared ? Object.keys(declared).join(', ') : LEGACY_PROVIDER
+        }.`,
+      )
     }
 
     const state = this.getProjectState(projectPath)
-    if (state.plugins[name]) throw new PluginAlreadyInstalledError(name)
+    const existingEntry = state.plugins[name] as PluginStateEntryWithOwned | undefined
+    if (getProviderState(existingEntry, provider, primaryProvider)) {
+      throw new PluginAlreadyInstalledError(name)
+    }
 
     // Check for ownership conflicts with user-authored `.mcp.json` entries.
     // Only meaningful for `project-json` MCP registration providers (claude
     // today). Codex registers via `codex mcp add` against per-project
     // CODEX_HOME, which the plugin's install path checks via `codex mcp list`.
-    const adapter = providerId !== undefined && hasAdapter(providerId)
-      ? getAdapter(providerId)
+    const adapter = hasAdapter(provider)
+      ? getAdapter(provider)
       : null
     const usesProjectJsonMcp = adapter === null || adapter.mcpRegistration === 'project-json'
     if (usesProjectJsonMcp) {
-      const mcpFile = mcpJsonPath(projectPath)
+      const mcpFile = providerMcpJsonPath(projectPath, provider)
       if (fs.existsSync(mcpFile)) {
         const raw = fs.readFileSync(mcpFile, 'utf8')
         let parsed: Record<string, unknown>
@@ -393,14 +537,14 @@ export class PluginManager {
           // A hand-edited / broken `.mcp.json` should yield an actionable 409,
           // not an opaque 500 with a raw "Unexpected token" SyntaxError.
           throw new PluginInstallError(
-            `cannot install '${name}': '${mcpJsonPath(projectPath)}' is not valid JSON; fix it first.`,
+            `cannot install '${name}': '${mcpFile}' is not valid JSON; fix it first.`,
           )
         }
         const servers = (parsed.mcpServers as Record<string, unknown> | undefined) ?? {}
         for (const key of plugin.manifest.owns.mcpServers ?? []) {
           if (key in servers) {
             throw new PluginInstallError(
-              `cannot install '${name}': '${mcpJsonPath(projectPath)}' already has a 'mcpServers.${key}' entry. Remove it first.`,
+              `cannot install '${name}': '${mcpFile}' already has a 'mcpServers.${key}' entry. Remove it first.`,
             )
           }
         }
@@ -410,14 +554,15 @@ export class PluginManager {
     // Snapshot pre-install state of every file the plugin might touch — we
     // need exact bytes to roll back if install/verify fails.
     const targetPaths = [
-      mcpJsonPath(projectPath),
+      providerMcpJsonPath(projectPath, provider),
       stateFilePath(projectPath),
-      ...(plugin.manifest.owns.agentFragments ?? []).map((f) => path.join(projectPath, f)),
+      ...(provider !== 'claude' ? [] : (plugin.manifest.owns.agentFragments ?? []))
+        .map((f) => path.join(projectPath, f)),
       // Include the shared instructions file (CLAUDE.md / AGENTS.md) so a failed
       // install rolls it back too — otherwise an applyContributors write that
       // survives a later failure leaves an orphaned managed block with no state
       // entry, which uninstall can never remove (breaks byte-identical restore).
-      ...contributorPaths(plugin, providerId).map((rel) => path.join(projectPath, rel)),
+      ...contributorPaths(plugin, provider).map((rel) => path.join(projectPath, rel)),
     ]
     const preState = new Map<string, Buffer | null>()
     for (const p of targetPaths) {
@@ -430,6 +575,7 @@ export class PluginManager {
         type: 'plugin.install_progress',
         projectId,
         name,
+        providerId: provider,
         line,
         timestamp: new Date().toISOString(),
       }
@@ -440,7 +586,7 @@ export class PluginManager {
       projectPath,
       projectId,
       slug,
-      providerId,
+      providerId: provider,
       recordInstalledFile: (rel: string) => { installedFiles.push(rel) },
       log: onLog,
     }
@@ -450,7 +596,7 @@ export class PluginManager {
 
       // Verify immediately. A degraded result also triggers rollback because
       // the spec requires verify-pass before we commit state.
-      const verify = await this._runVerify(plugin, projectPath, projectId)
+      const verify = await this._runVerify(plugin, projectPath, projectId, provider, slug)
       if (!verify.ok) {
         throw new PluginInstallError(
           `verify failed after install: ${verify.reason ?? 'unknown'}`,
@@ -463,28 +609,61 @@ export class PluginManager {
       // the merged `.mcp.json` entries instead of leaving them loaded forever.
       const ownedMcpServers = [...(plugin.manifest.owns.mcpServers ?? [])]
       await this.lockedUpdateState(projectPath, (s) => {
-        const entry: PluginStateEntryWithOwned = {
-          version: plugin.manifest.version,
-          installedAt: new Date().toISOString(),
-          installedFiles,
+        const installedAt = new Date().toISOString()
+        const providerEntry: PluginProviderStateEntry = {
+          installedAt,
+          installedFiles: [...installedFiles],
+          active: true,
           health: 'ok',
+          ownedMcpServers,
         }
-        if (ownedMcpServers.length > 0) entry.ownedMcpServers = ownedMcpServers
-        s.plugins[name] = entry
+        const current = s.plugins[name] as PluginStateEntryWithOwned | undefined
+        if (!current) {
+          const entry: PluginStateEntryWithOwned = {
+            version: plugin.manifest.version,
+            installedAt,
+            installedFiles: [...installedFiles],
+            health: 'ok',
+          }
+          if (ownedMcpServers.length > 0) entry.ownedMcpServers = ownedMcpServers
+          // A primary-provider-only install stays in the historical shape.
+          // The provider map is materialised only when it is required, keeping
+          // state byte-compatible for existing single-provider projects.
+          if (provider !== primaryProvider) {
+            entry.providers = { [provider]: providerEntry }
+          }
+          s.plugins[name] = entry
+          return
+        }
+        const providerStates = ensureProviderStates(current, primaryProvider)
+        if (providerStates[provider]) {
+          throw new PluginAlreadyInstalledError(name)
+        }
+        current.version = plugin.manifest.version
+        providerStates[provider] = providerEntry
+        syncAggregateState(current)
       })
       // No additional approval write needed: any server in `.mcp.json` loads
       // automatically when Claude opens the project. Install IS active.
 
       // Apply shared-file contributors (CLAUDE.md block today, more in the
       // future). Each contributor is per-plugin and idempotent.
-      const sharedTouched = await applyContributors(plugin, projectPath, providerId)
+      const sharedTouched = await applyContributors(plugin, projectPath, provider)
       if (sharedTouched.length > 0) {
         for (const p of sharedTouched) {
           if (!installedFiles.includes(p)) installedFiles.push(p)
         }
         await this.lockedUpdateState(projectPath, (s) => {
-          if (s.plugins[name]) s.plugins[name].installedFiles = installedFiles
-          else return false
+          const entry = s.plugins[name] as PluginStateEntryWithOwned | undefined
+          if (!entry) return false
+          if (!entry.providers && provider === primaryProvider) {
+            entry.installedFiles = [...installedFiles]
+            return
+          }
+          const providerState = getProviderState(entry, provider, primaryProvider)
+          if (!providerState) return false
+          ensureProviderStates(entry, primaryProvider)[provider].installedFiles = [...installedFiles]
+          syncAggregateState(entry)
         })
       }
     } catch (err) {
@@ -507,10 +686,10 @@ export class PluginManager {
       // CODEX_HOME, NOT the snapshotted filesystem — the file rollback above
       // can't undo it. Run the plugin's uninstall so a verify-failed codex
       // install leaves no orphaned MCP registration (best-effort).
-      if (providerId && hasAdapter(providerId) && getAdapter(providerId).mcpRegistration === 'cli-add') {
+      if (hasAdapter(provider) && getAdapter(provider).mcpRegistration === 'cli-add') {
         try {
           await plugin.uninstall({
-            projectPath, projectId, slug, providerId,
+            projectPath, projectId, slug, providerId: provider,
             recordInstalledFile: () => {}, log: onLog,
           })
         } catch { /* best-effort rollback of the codex registration */ }
@@ -526,6 +705,7 @@ export class PluginManager {
       projectId,
       name,
       version: plugin.manifest.version,
+      providerId: provider,
       timestamp: new Date().toISOString(),
     }
     broadcast(msg)
@@ -540,10 +720,14 @@ export class PluginManager {
     broadcast: PluginBroadcast,
     providerId?: string,
     slug?: string,
+    legacyProviderId?: string,
   ): Promise<void> {
+    const provider = targetProvider(providerId)
+    const primaryProvider = legacyProvider(provider, legacyProviderId)
     const state = this.getProjectState(projectPath)
-    const entry = state.plugins[name]
-    if (!entry) throw new PluginNotInstalledError(name)
+    const entry = state.plugins[name] as PluginStateEntryWithOwned | undefined
+    const providerState = getProviderState(entry, provider, primaryProvider)
+    if (!entry || !providerState) throw new PluginNotInstalledError(name)
 
     const plugin = this.registry.byName.get(name)
     const onLog = (line: string) => {
@@ -551,20 +735,23 @@ export class PluginManager {
         type: 'plugin.install_progress',
         projectId,
         name,
+        providerId: provider,
         line,
         timestamp: new Date().toISOString(),
       } as PluginInstallProgressMessage)
     }
 
     if (plugin) {
-      // Revert shared-file contributors first so a partial uninstall doesn't
+      // Revert provider instruction contributors first so a partial uninstall doesn't
       // leave dangling instructions referencing missing tools.
-      await revertContributors(plugin, projectPath, providerId)
+      if (!hasOtherActiveContributor(entry, provider)) {
+        await revertContributors(plugin, projectPath, provider)
+      }
       await plugin.uninstall({
         projectPath,
         projectId,
         slug,
-        providerId,
+        providerId: provider,
         recordInstalledFile: () => {},
         log: onLog,
       })
@@ -574,14 +761,22 @@ export class PluginManager {
       // mcpServers keys were persisted in state at install time (BUG-PLUGIN-04),
       // so even with the plugin code gone we can surgically strip the merged
       // `.mcp.json` entries instead of leaving them loaded by Claude forever.
-      const ownedMcpServers = (entry as PluginStateEntryWithOwned).ownedMcpServers ?? []
+      const ownedMcpServers = providerState.ownedMcpServers ?? []
       if (ownedMcpServers.length > 0) {
         try {
-          await PluginManager.removeMcpServers(projectPath, ownedMcpServers)
+          await PluginManager.removeMcpServers(projectPath, ownedMcpServers, provider)
         } catch { /* best-effort: leave .mcp.json untouched on failure */ }
       }
       const root = path.resolve(projectPath)
-      for (const rel of entry.installedFiles ?? []) {
+      const remainingFiles = new Set(
+        Object.entries(entry.providers ?? {})
+          .filter(([candidate]) => candidate !== provider)
+          .flatMap(([, candidateState]) => candidateState.installedFiles ?? []),
+      )
+      for (const rel of providerState.installedFiles ?? []) {
+        // A managed contributor path may be referenced by more than one
+        // provider. Never unlink a file still owned by another provider install.
+        if (remainingFiles.has(rel)) continue
         const abs = path.resolve(projectPath, rel)
         // M5: installedFiles comes from state.json, which a hostile repo can
         // ship. Without containment, `rel` of "../../../Users/victim/x" (or an
@@ -597,13 +792,27 @@ export class PluginManager {
     }
 
     await this.lockedUpdateState(projectPath, (s) => {
-      delete s.plugins[name]
+      const current = s.plugins[name] as PluginStateEntryWithOwned | undefined
+      if (!current) return false
+      if (!current.providers && provider === primaryProvider) {
+        delete s.plugins[name]
+        return
+      }
+      const providers = ensureProviderStates(current, primaryProvider)
+      if (!providers[provider]) return false
+      delete providers[provider]
+      if (Object.keys(providers).length === 0) {
+        delete s.plugins[name]
+      } else {
+        syncAggregateState(current)
+      }
     })
 
     broadcast({
       type: 'plugin.uninstalled',
       projectId,
       name,
+      providerId: provider,
       timestamp: new Date().toISOString(),
     } as PluginUninstalledMessage)
   }
@@ -620,26 +829,62 @@ export class PluginManager {
     name: string,
     broadcast: PluginBroadcast,
     providerId?: string,
+    slug?: string,
+    legacyProviderId?: string,
   ): Promise<void> {
     const plugin = this.registry.byName.get(name)
     if (!plugin) throw new PluginNotFoundError(name)
+    const provider = targetProvider(providerId)
+    const primaryProvider = legacyProvider(provider, legacyProviderId)
     const state = this.getProjectState(projectPath)
-    if (!state.plugins[name]) throw new PluginNotInstalledError(name)
+    const entry = state.plugins[name] as PluginStateEntryWithOwned | undefined
+    if (!getProviderState(entry, provider, primaryProvider)) {
+      throw new PluginNotInstalledError(name)
+    }
     const expected = plugin.expectedMcpEntry?.()
     if (!expected) {
       throw new PluginInstallError(`'${name}' does not declare expectedMcpEntry; cannot update`)
     }
     const owned = plugin.manifest.owns.mcpServers ?? []
-    const entries: Record<string, unknown> = {}
-    for (const key of owned) entries[key] = expected
-    await PluginManager.mergeMcpServers(projectPath, entries)
+    if (hasAdapter(provider) && getAdapter(provider).mcpRegistration === 'cli-add') {
+      const lifecycle = {
+        projectPath,
+        projectId,
+        slug,
+        providerId: provider,
+        recordInstalledFile: () => {},
+        log: () => {},
+      }
+      await plugin.uninstall(lifecycle)
+      await plugin.install(lifecycle)
+    } else {
+      const entries: Record<string, unknown> = {}
+      for (const key of owned) entries[key] = expected
+      await PluginManager.mergeMcpServers(projectPath, entries, provider)
+    }
     // Refresh shared-file contributions too: a drift may exist in CLAUDE.md
     // even when the .mcp.json entry matches.
-    await applyContributors(plugin, projectPath, providerId)
+    await applyContributors(plugin, projectPath, provider)
+    await this.lockedUpdateState(projectPath, (s) => {
+      const current = s.plugins[name] as PluginStateEntryWithOwned | undefined
+      if (!current) return false
+      if (!current.providers && provider === primaryProvider) {
+        current.health = 'unknown'
+        delete current.healthReason
+        return
+      }
+      const providerState = getProviderState(current, provider, primaryProvider)
+      if (!providerState) return false
+      const mutable = ensureProviderStates(current, primaryProvider)[provider]
+      mutable.health = 'unknown'
+      delete mutable.healthReason
+      syncAggregateState(current)
+    })
     broadcast({
       type: 'plugin.health_changed',
       projectId,
       name,
+      providerId: provider,
       status: 'unknown',
       reason: 'updated',
       timestamp: new Date().toISOString(),
@@ -667,11 +912,18 @@ export class PluginManager {
     active: boolean,
     broadcast: PluginBroadcast,
     providerId?: string,
+    slug?: string,
+    legacyProviderId?: string,
   ): Promise<void> {
     const plugin = this.registry.byName.get(name)
     if (!plugin) throw new PluginNotFoundError(name)
+    const provider = targetProvider(providerId)
+    const primaryProvider = legacyProvider(provider, legacyProviderId)
     const state = this.getProjectState(projectPath)
-    if (!state.plugins[name]) throw new PluginNotInstalledError(name)
+    const entry = state.plugins[name] as PluginStateEntryWithOwned | undefined
+    if (!entry || !getProviderState(entry, provider, primaryProvider)) {
+      throw new PluginNotInstalledError(name)
+    }
 
     const owned = plugin.manifest.owns.mcpServers ?? []
     if (owned.length === 0) {
@@ -683,19 +935,66 @@ export class PluginManager {
       if (!expected) {
         throw new PluginInstallError(`'${name}' does not declare expectedMcpEntry; cannot activate`)
       }
-      const entries: Record<string, unknown> = {}
-      for (const k of owned) entries[k] = expected
-      await PluginManager.mergeMcpServers(projectPath, entries)
-      await applyContributors(plugin, projectPath, providerId)
+      if (hasAdapter(provider) && getAdapter(provider).mcpRegistration === 'cli-add') {
+        await plugin.install({
+          projectPath,
+          projectId,
+          slug,
+          providerId: provider,
+          recordInstalledFile: () => {},
+          log: () => {},
+        })
+      } else {
+        const entries: Record<string, unknown> = {}
+        for (const k of owned) entries[k] = expected
+        await PluginManager.mergeMcpServers(projectPath, entries, provider)
+      }
+      await applyContributors(plugin, projectPath, provider)
     } else {
-      await PluginManager.removeMcpServers(projectPath, owned)
-      await revertContributors(plugin, projectPath, providerId)
+      if (hasAdapter(provider) && getAdapter(provider).mcpRegistration === 'cli-add') {
+        await plugin.uninstall({
+          projectPath,
+          projectId,
+          slug,
+          providerId: provider,
+          recordInstalledFile: () => {},
+          log: () => {},
+        })
+      } else {
+        await PluginManager.removeMcpServers(projectPath, owned, provider)
+      }
+      if (!hasOtherActiveContributor(entry, provider)) {
+        await revertContributors(plugin, projectPath, provider)
+      }
     }
 
+    await this.lockedUpdateState(projectPath, (s) => {
+      const current = s.plugins[name] as PluginStateEntryWithOwned | undefined
+      if (!current) return false
+      if (!current.providers && provider === primaryProvider) {
+        // Legacy state has no explicit active field. Materialise only when a
+        // value is needed, preserving legacy reads while making the toggle
+        // durable.
+        const providerState = ensureProviderStates(current, primaryProvider)[provider]
+        providerState.active = active
+        providerState.health = active ? 'ok' : 'unknown'
+        delete providerState.healthReason
+        syncAggregateState(current)
+        return
+      }
+      const providerState = getProviderState(current, provider, primaryProvider)
+      if (!providerState) return false
+      const mutable = ensureProviderStates(current, primaryProvider)[provider]
+      mutable.active = active
+      mutable.health = active ? 'ok' : 'unknown'
+      delete mutable.healthReason
+      syncAggregateState(current)
+    })
     broadcast({
       type: 'plugin.health_changed',
       projectId,
       name,
+      providerId: provider,
       status: active ? 'ok' : 'unknown',
       reason: active ? 'activated' : 'deactivated',
       timestamp: new Date().toISOString(),
@@ -703,11 +1002,27 @@ export class PluginManager {
   }
 
   /** Drop a state.json entry for a plugin no longer in the registry. */
-  async removeOrphan(projectPath: string, projectId: string, name: string, broadcast: PluginBroadcast): Promise<void> {
+  async removeOrphan(
+    projectPath: string,
+    projectId: string,
+    name: string,
+    broadcast: PluginBroadcast,
+    providerId?: string,
+    slug?: string,
+    legacyProviderId?: string,
+  ): Promise<void> {
     if (this.registry.byName.has(name)) {
       throw new PluginInstallError(`'${name}' is not orphan; it is still bundled. Use uninstall instead.`)
     }
-    return this.uninstall(projectPath, projectId, name, broadcast)
+    return this.uninstall(
+      projectPath,
+      projectId,
+      name,
+      broadcast,
+      providerId,
+      slug,
+      legacyProviderId,
+    )
   }
 
   // ─── Verify ────────────────────────────────────────────────────────────────
@@ -717,11 +1032,24 @@ export class PluginManager {
     projectId: string,
     name: string,
     broadcast?: PluginBroadcast,
+    providerId?: string,
+    legacyProviderId?: string,
+    slug?: string,
   ): Promise<PluginVerifyResult> {
     const plugin = this.registry.byName.get(name)
     if (!plugin) throw new PluginNotFoundError(name)
-    const result = await this._runVerify(plugin, projectPath, projectId)
-    await this._cacheHealth(projectPath, projectId, name, result, broadcast)
+    const provider = targetProvider(providerId)
+    const primaryProvider = legacyProvider(provider, legacyProviderId)
+    const result = await this._runVerify(plugin, projectPath, projectId, provider, slug)
+    await this._cacheHealth(
+      projectPath,
+      projectId,
+      name,
+      result,
+      broadcast,
+      provider,
+      primaryProvider,
+    )
     return result
   }
 
@@ -729,12 +1057,14 @@ export class PluginManager {
     plugin: Plugin,
     projectPath: string,
     projectId: string,
+    providerId?: string,
+    slug?: string,
   ): Promise<PluginVerifyResult> {
     const timeout = plugin.manifest.verifyTimeoutMs ?? this._options.defaultVerifyTimeoutMs
     const checkedAt = new Date().toISOString()
     try {
       const result = await Promise.race<PluginVerifyResult | { __timeout: true }>([
-        plugin.verify({ projectPath, projectId }),
+        plugin.verify({ projectPath, projectId, providerId, slug }),
         new Promise<{ __timeout: true }>((resolve) =>
           setTimeout(() => resolve({ __timeout: true }), timeout).unref?.(),
         ),
@@ -754,7 +1084,11 @@ export class PluginManager {
     name: string,
     result: PluginVerifyResult,
     broadcast?: PluginBroadcast,
+    providerId?: string,
+    legacyProviderId?: string,
   ): Promise<void> {
+    const provider = targetProvider(providerId)
+    const primaryProvider = legacyProvider(provider, legacyProviderId)
     const newHealth: PluginStateEntry['health'] = result.ok ? 'ok' : 'degraded'
     // Read → compare → write under ONE lock so concurrent verifies on the same
     // project (resolvePluginsForSpawn runs every installed plugin's verify in
@@ -763,12 +1097,21 @@ export class PluginManager {
     // freshest state inside the lock; returning false skips the write entirely.
     let didChange = false
     await this.lockedUpdateState(projectPath, (state) => {
-      const entry = state.plugins[name]
+      const entry = state.plugins[name] as PluginStateEntryWithOwned | undefined
       if (!entry) return false
-      const changed = entry.health !== newHealth || entry.healthReason !== result.reason
+      const providerState = getProviderState(entry, provider, primaryProvider)
+      if (!providerState) return false
+      const changed = providerState.health !== newHealth || providerState.healthReason !== result.reason
       if (!changed) return false // nothing to persist — avoids per-spawn write churn (verify runs on every rail spawn)
-      entry.health = newHealth
-      entry.healthReason = result.reason
+      if (!entry.providers && provider === primaryProvider) {
+        entry.health = newHealth
+        entry.healthReason = result.reason
+      } else {
+        const mutable = ensureProviderStates(entry, primaryProvider)[provider]
+        mutable.health = newHealth
+        mutable.healthReason = result.reason
+        syncAggregateState(entry)
+      }
       didChange = true
     })
     if (!didChange) return
@@ -777,6 +1120,7 @@ export class PluginManager {
         type: 'plugin.health_changed',
         projectId,
         name,
+        providerId: provider,
         status: newHealth,
         reason: result.reason,
         timestamp: new Date().toISOString(),
@@ -791,8 +1135,10 @@ export class PluginManager {
   static async mergeMcpServers(
     projectPath: string,
     entries: Record<string, unknown>,
+    providerId?: string,
   ): Promise<void> {
-    await surgicalMergeJson(mcpJsonPath(projectPath), (current) => {
+    const mcpFile = providerMcpJsonPath(projectPath, providerId)
+    await surgicalMergeJson(mcpFile, (current) => {
       const next = (current ?? {}) as Record<string, unknown>
       // BUG-PLUGIN-05: `mcpServers` MUST be a plain object. The old `?? {}`
       // fallback only covered null/undefined — if it was a JSON array (or any
@@ -807,7 +1153,7 @@ export class PluginManager {
         (typeof raw === 'object' && !Array.isArray(raw))
       if (!isPlainObject) {
         throw new PluginInstallError(
-          `cannot merge mcpServers into '${mcpJsonPath(projectPath)}': ` +
+          `cannot merge mcpServers into '${mcpFile}': ` +
             `'mcpServers' must be a JSON object but is ${Array.isArray(raw) ? 'an array' : typeof raw}; fix it first.`,
         )
       }
@@ -822,10 +1168,11 @@ export class PluginManager {
   static async removeMcpServers(
     projectPath: string,
     keys: string[],
+    providerId?: string,
   ): Promise<void> {
     if (keys.length === 0) return
     await surgicalRemoveKeys(
-      mcpJsonPath(projectPath),
+      providerMcpJsonPath(projectPath, providerId),
       keys.map((k) => `mcpServers.${k}`),
     )
   }

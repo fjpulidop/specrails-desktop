@@ -37,7 +37,11 @@ A seleção do perfil acontece mesmo onde lança — no **cabeçalho do rail**, 
 
 ## Quando a secção Agentes está silenciosa
 
-Os perfis são uma capacidade do Claude. Num projeto que inclua um provider que não seja o Claude (Codex ou Gemini), a secção Agentes fica oculta e os rails correm sem perfis — isso é esperado, não é um bug. Os perfis também exigem uma versão suficientemente recente do `specrails-core` no projeto; se for mais antiga, verá um banner amarelo. Os perfis que criar continuam a ser **guardados** — apenas não afetam o pipeline até o core ser atualizado. Atualize com o comando indicado no banner para os desbloquear.
+Os perfis são separados por provider. Claude e Kimi suportam perfis/roles;
+Codex e Gemini usam modo legacy. Em projetos mistos o mesmo nome não atravessa
+Claude/Kimi. Kimi permite roles manuais, mas generation, smoke test e AI
+Refine do Agent Studio são recusados antes do spawn. Kimi exige
+`specrails-core` 4.12.0 ou mais recente.
 
 ## Para onde ir a seguir
 

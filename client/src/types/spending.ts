@@ -49,7 +49,12 @@ export interface SpendingFilters {
   sortBy?: 'recency' | 'cost'
 }
 
-export interface BySurfaceCount { surface: Surface; count: number; costUsd: number }
+export interface BySurfaceCount {
+  surface: Surface
+  count: number
+  costUsd: number
+  unpricedCount?: number
+}
 export interface ByModelEntry {
   model: string
   /**
@@ -68,6 +73,8 @@ export interface ByModelEntry {
    * 0 for a pure-claude model.
    */
   estimatedCostUsd: number
+  /** Invocations for which cost telemetry was unavailable. */
+  unpricedCount?: number
 }
 export interface DailyEntry {
   date: string
@@ -79,6 +86,7 @@ export interface DailyEntry {
   fileSummaryCostUsd: number
   loopCostUsd: number
   totalCostUsd: number
+  unpricedCount?: number
 }
 export interface ScatterPoint {
   id: string
@@ -94,7 +102,8 @@ export interface TopTicketEntry {
   ticketTitle: string | null
   totalCostUsd: number
   totalRuns: number
-  bySurface: Record<Surface, { count: number; costUsd: number }>
+  unpricedCount?: number
+  bySurface: Record<Surface, { count: number; costUsd: number; unpricedCount?: number }>
   isUnattributed?: boolean
   isDeleted?: boolean
 }
@@ -109,6 +118,8 @@ export interface ByModeEntry {
    * 0 for a pure-claude mode.
    */
   estimatedCostUsd: number
+  /** Runs excluded from cost averages because their cost is unavailable. */
+  unpricedCount?: number
   avgCostPerSpec: number | null
   avgDurationMs: number | null
   dominantModel: string | null
@@ -122,6 +133,10 @@ export interface ByProviderEntry {
   costUsd: number
   /** Cost computed via the server-side pricing-table fallback (codex today). */
   estimatedCostUsd: number
+  pricedCount?: number
+  unpricedCount?: number
+  usageReportedCount?: number
+  usageUnavailableCount?: number
 }
 
 export interface SpendingResponse {
@@ -133,8 +148,14 @@ export interface SpendingResponse {
     totalEstimatedCostUsd: number
     /** Real total tokens across matching rows = fresh input + output +
      *  cache-read + cache-create (cache tiers dominate agentic Claude runs). */
-    totalTokens: number
+    totalTokens: number | null
     totalRuns: number
+    /** Optional for compatibility with servers predating coverage reporting. */
+    pricedRuns?: number
+    unpricedRuns?: number
+    usageReportedRuns?: number
+    usageUnavailableRuns?: number
+    prevUnpricedRuns?: number
     failureRate: number
     prevTotalCostUsd: number
     deltaPct: number | null
@@ -207,9 +228,16 @@ export interface TicketSpendingSummary {
    * 0 for a ticket implemented entirely via claude.
    */
   estimatedCostUsd: number
-  totalTurns: number
+  totalTokens?: number | null
+  totalTurns: number | null
+  pricedRuns?: number
+  unpricedRuns?: number
+  usageReportedRuns?: number
+  usageUnavailableRuns?: number
+  turnsReportedRuns?: number
+  turnsUnavailableRuns?: number
   activeDurationMs: number
-  bySurface: Record<Surface, { count: number; costUsd: number }>
+  bySurface: Record<Surface, { count: number; costUsd: number; unpricedCount?: number }>
   totalRuns: number
 }
 

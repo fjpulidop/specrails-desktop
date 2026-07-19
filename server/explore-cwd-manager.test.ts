@@ -79,6 +79,17 @@ describe('explore-cwd-manager', () => {
     expect(agentsMd).toContain('"Codex Project"')
   })
 
+  it('kimi project: instructions file is nested under .kimi-code (not the Codex root file)', () => {
+    const cwd = ensureExploreCwd(
+      { slug: 'kimi-proj', projectPath: projectRoot, projectName: 'Kimi Project', provider: 'kimi' },
+      baseDir,
+    )
+    const kimiAgentsPath = path.join(cwd, '.kimi-code', 'AGENTS.md')
+    expect(fs.existsSync(kimiAgentsPath)).toBe(true)
+    expect(fs.existsSync(path.join(cwd, 'AGENTS.md'))).toBe(false)
+    expect(fs.readFileSync(kimiAgentsPath, 'utf-8')).toContain('"Kimi Project"')
+  })
+
   it('clears stale instructions file when provider switches (defensive)', () => {
     // Pretend a previous claude run created CLAUDE.md; now the project's
     // provider is reported as codex. The next materialise should drop the
@@ -93,6 +104,25 @@ describe('explore-cwd-manager', () => {
     )
 
     expect(fs.existsSync(path.join(cwd, 'CLAUDE.md'))).toBe(false)
+    expect(fs.existsSync(path.join(cwd, 'AGENTS.md'))).toBe(true)
+  })
+
+  it('clears a stale nested Kimi instructions file when provider switches', () => {
+    const cwd = exploreCwdPathFor('kimi-switcher', baseDir)
+    fs.mkdirSync(path.join(cwd, '.kimi-code'), { recursive: true })
+    fs.writeFileSync(
+      path.join(cwd, '.kimi-code', 'AGENTS.md'),
+      'stale Kimi content',
+      'utf-8',
+    )
+
+    ensureExploreCwd(
+      { slug: 'kimi-switcher', projectPath: projectRoot, projectName: 'Switcher', provider: 'codex' },
+      baseDir,
+    )
+
+    expect(fs.existsSync(path.join(cwd, '.kimi-code', 'AGENTS.md'))).toBe(false)
+    expect(fs.existsSync(path.join(cwd, '.kimi-code'))).toBe(false)
     expect(fs.existsSync(path.join(cwd, 'AGENTS.md'))).toBe(true)
   })
 

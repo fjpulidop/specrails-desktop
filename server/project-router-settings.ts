@@ -95,7 +95,6 @@ import {
   type ProjectRoutesDeps,
   type ModelAlias,
   TERMINAL_PANEL_ENABLED,
-  VALID_MODEL_ALIASES,
   readAgentModels,
   applyModelConfig,
   serializeInstallConfigYaml,
@@ -260,11 +259,15 @@ export function registerSettingsRoutes(deps: ProjectRoutesDeps): void {
   router.patch('/:projectId/agent-models', (req: Request, res: Response) => {
     const { project } = ctx(req)
     const { defaultModel, overrides } = req.body ?? {}
+    const provider = (project.provider ?? 'claude') as SpecProvider
+    const allowedModels = getModelsForProvider(provider).map((model) => model.value)
 
     // Validate defaultModel if provided
     if (defaultModel !== undefined) {
-      if (typeof defaultModel !== 'string' || !(VALID_MODEL_ALIASES as readonly string[]).includes(defaultModel)) {
-        res.status(400).json({ error: `Invalid model alias. Must be one of: ${VALID_MODEL_ALIASES.join(', ')}` }); return
+      if (!isValidModelForProvider(defaultModel, provider)) {
+        res.status(400).json({
+          error: `Invalid model alias for provider "${provider}". Catalog: ${allowedModels.join(', ')}`,
+        }); return
       }
     }
     // Validate overrides map if provided
@@ -273,8 +276,12 @@ export function registerSettingsRoutes(deps: ProjectRoutesDeps): void {
         res.status(400).json({ error: 'overrides must be an object' }); return
       }
       for (const [agentName, modelValue] of Object.entries(overrides)) {
-        if (typeof modelValue !== 'string' || !(VALID_MODEL_ALIASES as readonly string[]).includes(modelValue)) {
-          res.status(400).json({ error: `Invalid model alias for agent "${agentName}". Must be one of: ${VALID_MODEL_ALIASES.join(', ')}` }); return
+        if (!isValidModelForProvider(modelValue, provider)) {
+          res.status(400).json({
+            error:
+              `Invalid model alias for agent "${agentName}" and provider "${provider}". ` +
+              `Catalog: ${allowedModels.join(', ')}`,
+          }); return
         }
       }
     }
@@ -284,12 +291,17 @@ export function registerSettingsRoutes(deps: ProjectRoutesDeps): void {
     const configPath = installConfigPath(project)
 
     // Read existing config or build default shape
+    const kimiModels = provider === 'kimi'
     let existingConfig: Record<string, unknown> = {
       version: 1,
-      provider: 'claude',
+      provider: kimiModels ? 'kimi' : 'claude',
       tier: 'quick',
       agents: { selected: [], excluded: [] },
-      models: { preset: 'balanced', defaults: { model: 'sonnet' }, overrides: {} },
+      models: {
+        preset: 'balanced',
+        defaults: { model: kimiModels ? getProviderDefault('kimi') : 'sonnet' },
+        overrides: {},
+      },
       agent_teams: false,
     }
 
@@ -301,6 +313,7 @@ export function registerSettingsRoutes(deps: ProjectRoutesDeps): void {
         const providerMatch = text.match(/^provider:\s*(\S+)/m)
         const tierMatch = text.match(/^tier:\s*(\S+)/m)
         const presetMatch = text.match(/preset:\s*(\S+)/)
+        const defaultModelMatch = text.match(/defaults:\s*\{\s*model:\s*(\S+?)\s*\}/)
         const agentTeamsMatch = text.match(/^agent_teams:\s*(\S+)/m)
 
         // Parse selected agents list
@@ -321,18 +334,35 @@ export function registerSettingsRoutes(deps: ProjectRoutesDeps): void {
           const overrideLines = block.match(/^ {2,}(\S+):\s*(\S+)/gm) ?? []
           for (const line of overrideLines) {
             const m = line.match(/^\s+(\S+):\s*(\S+)/)
-            if (m) existingOverrides[m[1]] = m[2]
+            if (
+              m
+              && (
+                !kimiModels
+                || isValidModelForProvider(m[2], provider)
+              )
+            ) existingOverrides[m[1]] = m[2]
           }
         }
 
+        const parsedDefaultModel = defaultModelMatch?.[1]
         existingConfig = {
           version: versionMatch ? parseInt(versionMatch[1], 10) : 1,
-          provider: providerMatch ? providerMatch[1] : 'claude',
+          provider: kimiModels
+            ? 'kimi'
+            : providerMatch
+              ? providerMatch[1]
+              : 'claude',
           tier: tierMatch ? tierMatch[1] : 'quick',
           agents: { selected: parsedSelected, excluded: parsedExcluded },
           models: {
             preset: presetMatch ? presetMatch[1] : 'balanced',
-            defaults: { model: 'sonnet' },
+            defaults: {
+              model: kimiModels
+                ? parsedDefaultModel && isValidModelForProvider(parsedDefaultModel, provider)
+                  ? parsedDefaultModel
+                  : getProviderDefault('kimi')
+                : 'sonnet',
+            },
             overrides: existingOverrides,
           },
           agent_teams: agentTeamsMatch ? agentTeamsMatch[1] === 'true' : false,

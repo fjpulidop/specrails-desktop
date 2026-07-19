@@ -7,6 +7,7 @@
 // Spec: openspec/specs/multi-provider-architecture/spec.md
 
 import { execSync } from 'child_process'
+import path from 'path'
 import type {
   AdapterEvent,
   DetectionResult,
@@ -410,7 +411,7 @@ async function detectClaudeInstalled(): Promise<DetectionResult> {
   }
 }
 
-export const claudeAdapter: ProviderAdapter = {
+export const claudeAdapter = {
   id: 'claude',
   displayName: 'Claude Code',
   binary: 'claude',
@@ -429,14 +430,26 @@ export const claudeAdapter: ProviderAdapter = {
     supportsReasoningEffort: true,
     reasoningEfforts: ['low', 'medium', 'high', 'xhigh'], // claude-code --effort tiers
     supportsImageInput: true, // images ride as `@<abs-path>` prompt refs
+    structuredActions: true,
+    toolPolicies: ['none', 'read-only'],
+    profiles: true,
+    customRoles: true,
+    freestyle: true,
+    userMcp: true,
   },
   modelCatalog: () => CLAUDE_MODELS,
   defaultModel: () => 'sonnet',
   buildArgs: buildClaudeArgs,
   parseStreamLine: parseClaudeStreamLine,
   extractResult: extractClaudeResult,
+  formatCoreCommand: (command: string) => command,
+  buildRepoAccessArgs: (paths: readonly string[]) =>
+    paths.flatMap((repoPath) => ['--add-dir', repoPath]),
+  projectMcpPath: (root: string) => path.join(root, '.mcp.json'),
+  customRolePath: (root: string, roleId: string) =>
+    path.join(root, '.claude', 'agents', `${roleId}.md`),
   baselineAgents: () => ['sr-architect', 'sr-developer', 'sr-reviewer'],
   detectInstalled: detectClaudeInstalled,
-}
+} satisfies ProviderAdapter
 
 export { normaliseModel as _normaliseClaudeModel }
