@@ -253,17 +253,33 @@ export class FrameworkManager {
    * `swap-current` only moves the version pointer (provider-invariant).
    */
   swapCurrent(version: string, _provider = 'claude'): boolean {
+    return this.swapCurrentDetailed(version).ok
+  }
+
+  /**
+   * Like `swapCurrent`, but on failure carries WHY it failed (`detail`) — the
+   * subprocess stderr/exit or the missing-CLI/verify-mismatch case — so callers
+   * (the core update channel) can surface an actionable error instead of the
+   * bare "swap-current failed".
+   */
+  swapCurrentDetailed(version: string): { ok: boolean; detail: string | null } {
     const cli = this.resolveCli()
-    if (!cli) return false
-    if (readCurrentFrameworkVersion(this.home) === version) return true
+    if (!cli) return { ok: false, detail: 'no usable core CLI to run swap-current with' }
+    if (readCurrentFrameworkVersion(this.home) === version) return { ok: true, detail: null }
     const fwDir = frameworkRoot(this.home)
     const res = spawnSync(
       nodeInterpreter(),
       [cli, 'swap-current', '--framework-dir', fwDir, '--version', version],
       { env: this.childEnv(), encoding: 'utf-8', timeout: 120_000 },
     )
-    if (res.error || (res.status ?? 1) !== 0) return false
-    return readCurrentFrameworkVersion(this.home) === version
+    if (res.error || (res.status ?? 1) !== 0) {
+      const detail = (res.error?.message ?? `${res.stderr || res.stdout || ''}`.trim()) || `exit ${res.status ?? 'unknown'}`
+      return { ok: false, detail }
+    }
+    if (readCurrentFrameworkVersion(this.home) !== version) {
+      return { ok: false, detail: `swap-current exited 0 but current still resolves to ${readCurrentFrameworkVersion(this.home) ?? 'nothing'}` }
+    }
+    return { ok: true, detail: null }
   }
 
   /**
@@ -316,8 +332,8 @@ export class FrameworkManager {
       // No errors yet nothing materialized (empty/duplicate-only provider list).
       return { swapped: false, version: current }
     }
-    const ok = this.swapCurrent(bundled)
-    if (ok) {
+    const swap = this.swapCurrentDetailed(bundled)
+    if (swap.ok) {
       try {
         this.broadcast?.({ type: 'framework.updated', version: bundled })
       } catch {
@@ -330,7 +346,7 @@ export class FrameworkManager {
       this.broadcast?.({
         type: 'framework.update_failed',
         version: bundled,
-        errors: [{ provider: providers[0] ?? 'claude', message: 'swap-current failed' }],
+        errors: [{ provider: providers[0] ?? 'claude', message: `swap-current failed${swap.detail ? `: ${swap.detail}` : ''}` }],
       })
     } catch {
       /* broadcast is best-effort */

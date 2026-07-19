@@ -184,9 +184,18 @@ export class CoreUpdateManager {
           `framework materialize failed: ${mat.errors.map((e) => `${e.provider}: ${e.message}`).join('; ')}`,
         )
       }
-      const swapped = fm.swapCurrent(installed)
-      if (!swapped) {
-        throw new Error('framework swap-current failed')
+      // A materialize that reports no errors but ALSO no materialized providers
+      // wrote nothing — swapping `current` at a nonexistent version dir would
+      // fail downstream with a misleading "swap-current failed". Surface the
+      // real condition instead (mirrors FrameworkManager.versionCheck's guard).
+      if (mat.providers.length === 0) {
+        throw new Error(
+          `framework materialize completed without materializing any provider (requested: ${providers.join(', ') || 'none'})`,
+        )
+      }
+      const swapped = fm.swapCurrentDetailed(installed)
+      if (!swapped.ok) {
+        throw new Error(`framework swap-current failed${swapped.detail ? `: ${swapped.detail}` : ''}`)
       }
 
       this.latestVersion = installed
