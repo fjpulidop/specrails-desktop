@@ -1,5 +1,12 @@
 # Changelog
 
+## [2.30.3](https://github.com/fjpulidop/specrails-desktop/compare/v2.30.2...v2.30.3) (2026-07-19)
+
+
+### Bug Fixes
+
+* **core-update:** realpath staging/cli paths so the update is never a silent no-op; portal toasts above modals ([#561](https://github.com/fjpulidop/specrails-desktop/issues/561)) ([e27cab4](https://github.com/fjpulidop/specrails-desktop/commit/e27cab48edb37da7b8d619c9f94953f17d9ae9ef))
+
 ## [2.30.2](https://github.com/fjpulidop/specrails-desktop/compare/v2.30.1...v2.30.2) (2026-07-19)
 
 
