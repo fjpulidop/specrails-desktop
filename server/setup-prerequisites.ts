@@ -83,7 +83,7 @@ export interface SetupPrerequisitesStatus {
 }
 
 export const MIN_VERSIONS: Record<'node' | 'npm' | 'git' | 'uv', string> = {
-  node: '18.0.0',
+  node: '20.19.0',
   npm: '9.0.0',
   git: '2.20.0',
   uv: '0.1.0',

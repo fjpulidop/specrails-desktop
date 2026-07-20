@@ -40,8 +40,8 @@ describe('setup prerequisites', () => {
   it('reports all required tools as installed with versions when versions meet minimums', () => {
     mockSpawnSync.mockImplementation((cmd: any) => {
       if (cmd === 'which' || cmd === 'where') return { status: 0 } as any
-      // Return versions above the configured minimums (node 18, npm 9, git 2.20)
-      if (cmd === 'node') return { status: 0, stdout: 'v20.11.0\n', stderr: '' } as any
+      // Return versions at/above the configured minimums (node 20.19, npm 9, git 2.20)
+      if (cmd === 'node') return { status: 0, stdout: 'v20.19.0\n', stderr: '' } as any
       if (cmd === 'npm') return { status: 0, stdout: '10.2.4\n', stderr: '' } as any
       if (cmd === 'npx') return { status: 0, stdout: '10.2.4\n', stderr: '' } as any
       if (cmd === 'git') return { status: 0, stdout: 'git version 2.42.1\n', stderr: '' } as any
@@ -69,7 +69,7 @@ describe('setup prerequisites', () => {
   })
 
   it('reports platform field matching process.platform', () => {
-    mockSpawnSync.mockImplementation(() => ({ status: 0, stdout: 'v20.0.0\n', stderr: '' } as any))
+    mockSpawnSync.mockImplementation(() => ({ status: 0, stdout: 'v20.19.0\n', stderr: '' } as any))
     const status = getSetupPrerequisitesStatus()
     const expected = process.platform === 'darwin' ? 'darwin' : process.platform === 'win32' ? 'win32' : 'linux'
     expect(status.platform).toBe(expected)
@@ -93,13 +93,33 @@ describe('setup prerequisites', () => {
     expect(node?.installed).toBe(true)
     expect(node?.meetsMinimum).toBe(false)
     expect(node?.version).toBe('v14.21.3')
-    expect(node?.minVersion).toBe('18.0.0')
+    expect(node?.minVersion).toBe('20.19.0')
+  })
+
+  it.each([
+    ['v20.18.0', false],
+    ['v20.19.0', true],
+  ] as const)('enforces the Core-compatible Node boundary for %s', (nodeVersion, expected) => {
+    mockSpawnSync.mockImplementation((cmd: any) => {
+      if (cmd === 'which' || cmd === 'where') return { status: 0 } as any
+      if (cmd === 'node') return { status: 0, stdout: `${nodeVersion}\n`, stderr: '' } as any
+      if (cmd === 'npm' || cmd === 'npx') return { status: 0, stdout: '10.0.0\n', stderr: '' } as any
+      if (cmd === 'git') return { status: 0, stdout: 'git version 2.42.1\n', stderr: '' } as any
+      if (cmd === 'claude') return { status: 0, stdout: '1.2.3\n', stderr: '' } as any
+      return { status: 1, stdout: '', stderr: 'not installed' } as any
+    })
+
+    const status = getSetupPrerequisitesStatus()
+    const node = status.prerequisites.find((item) => item.command === 'node')
+    expect(node?.minVersion).toBe('20.19.0')
+    expect(node?.meetsMinimum).toBe(expected)
+    expect(status.missingRequired.some((item) => item.command === 'node')).toBe(!expected)
   })
 
   it('treats npx without minVersion as meeting any version requirement', () => {
     mockSpawnSync.mockImplementation((cmd: any) => {
       if (cmd === 'which' || cmd === 'where') return { status: 0 } as any
-      if (cmd === 'node') return { status: 0, stdout: 'v20.0.0\n', stderr: '' } as any
+      if (cmd === 'node') return { status: 0, stdout: 'v20.19.0\n', stderr: '' } as any
       if (cmd === 'npm') return { status: 0, stdout: '10.0.0\n', stderr: '' } as any
       if (cmd === 'npx') return { status: 0, stdout: '5.0.0\n', stderr: '' } as any
       if (cmd === 'git') return { status: 0, stdout: 'git version 2.42.1\n', stderr: '' } as any
@@ -118,7 +138,7 @@ describe('setup prerequisites', () => {
         return { status: args[0] === 'git' ? 1 : 0 } as any
       }
       // Return versions that meet the minimums for non-git tools
-      if (cmd === 'node') return { status: 0, stdout: 'v20.0.0\n', stderr: '' } as any
+      if (cmd === 'node') return { status: 0, stdout: 'v20.19.0\n', stderr: '' } as any
       if (cmd === 'npm') return { status: 0, stdout: '10.0.0\n', stderr: '' } as any
       if (cmd === 'npx') return { status: 0, stdout: '10.0.0\n', stderr: '' } as any
       // Ensure at least one provider is usable so the at-least-one-provider
@@ -205,7 +225,7 @@ describe('setup prerequisites', () => {
         if (cmd === 'C:\\Program Files\\Git\\cmd\\git.exe') {
           return { status: 0, stdout: 'git version 2.42.1\n', stderr: '' } as any
         }
-        if (cmd === 'C:\\nodejs\\node.cmd') return { status: 0, stdout: 'v20.11.0\n', stderr: '' } as any
+        if (cmd === 'C:\\nodejs\\node.cmd') return { status: 0, stdout: 'v20.19.0\n', stderr: '' } as any
         if (cmd === 'C:\\nodejs\\npm.cmd') return { status: 0, stdout: '10.0.0\n', stderr: '' } as any
         if (cmd === 'C:\\nodejs\\npx.cmd') return { status: 0, stdout: '10.0.0\n', stderr: '' } as any
         if (cmd === 'C:\\nodejs\\claude.cmd') return { status: 0, stdout: '1.0.0\n', stderr: '' } as any
@@ -226,7 +246,7 @@ describe('setup prerequisites', () => {
   it('marks all providers missingRequired when zero provider CLIs are usable', () => {
     mockSpawnSync.mockImplementation((cmd: any) => {
       if (cmd === 'which' || cmd === 'where') return { status: 0 } as any
-      if (cmd === 'node') return { status: 0, stdout: 'v20.0.0\n', stderr: '' } as any
+      if (cmd === 'node') return { status: 0, stdout: 'v20.19.0\n', stderr: '' } as any
       if (cmd === 'npm') return { status: 0, stdout: '10.0.0\n', stderr: '' } as any
       if (cmd === 'npx') return { status: 0, stdout: '10.0.0\n', stderr: '' } as any
       if (cmd === 'git') return { status: 0, stdout: 'git version 2.42.1\n', stderr: '' } as any
@@ -269,7 +289,7 @@ describe('setup prerequisites', () => {
   it('does NOT block when at least one provider is usable', () => {
     mockSpawnSync.mockImplementation((cmd: any) => {
       if (cmd === 'which' || cmd === 'where') return { status: 0 } as any
-      if (cmd === 'node') return { status: 0, stdout: 'v20.0.0\n', stderr: '' } as any
+      if (cmd === 'node') return { status: 0, stdout: 'v20.19.0\n', stderr: '' } as any
       if (cmd === 'npm') return { status: 0, stdout: '10.0.0\n', stderr: '' } as any
       if (cmd === 'npx') return { status: 0, stdout: '10.0.0\n', stderr: '' } as any
       if (cmd === 'git') return { status: 0, stdout: 'git version 2.42.1\n', stderr: '' } as any
@@ -563,7 +583,7 @@ describe('getSetupPrerequisitesStatus — desktop mode', () => {
 
     mockSpawnSync.mockImplementation((cmd: any) => {
       if (cmd === 'which' || cmd === 'where') return { status: 0, stdout: '/usr/local/bin/node\n', stderr: '' } as any
-      if (cmd === '/usr/local/bin/node' || cmd === 'node') return { status: 0, stdout: 'v20.0.0\n', stderr: '' } as any
+      if (cmd === '/usr/local/bin/node' || cmd === 'node') return { status: 0, stdout: 'v20.19.0\n', stderr: '' } as any
       if (cmd === '/usr/local/bin/npm' || cmd === 'npm') return { status: 0, stdout: '10.0.0\n', stderr: '' } as any
       if (cmd === '/usr/local/bin/npx' || cmd === 'npx') return { status: 0, stdout: '10.0.0\n', stderr: '' } as any
       if (cmd === '/usr/local/bin/git' || cmd === 'git') return { status: 0, stdout: 'git version 2.42.1\n', stderr: '' } as any
