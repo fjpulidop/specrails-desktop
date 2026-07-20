@@ -44,6 +44,11 @@ While builder mode is active: in Agent Mode the `AgentWorkspaceSidebar` SHALL tr
 - **WHEN** builder mode activates while in board mode
 - **THEN** the floating panel shows the blueprint pane attached to its conversation area
 
+#### Scenario: Blueprint dimensions preserve completion indicators
+- **WHEN** either builder-mode placement renders the last valid blueprint snapshot
+- **THEN** the panel shows product, core flow, platform, stack, and M1 constraints
+- **AND** every dimension displays its filled (`✓`) or pending (`✗`) indicator
+
 ### Requirement: In-panel phases
 The builder phases SHALL render inside the agent panel flow: `chat` (conversation + composer bound to the blueprint transport, surprise-me affordance on first turn), `commit` (the shipped commit mini-form replacing the conversation area), `progress` (the streamed step list), `done` (Launch Milestone 1 / Open project CTAs). The chat composer SHALL offer provider, model, and provider-supported reasoning-effort selection; a native vertically resizable textarea; and the same horizontal-send icon as the mission composer. In Agent Mode the initial hero composer SHALL morph smoothly into its docked position on the first send via a shared layout identity. The full-screen `ProjectBuilderShell` overlay SHALL be removed.
 
