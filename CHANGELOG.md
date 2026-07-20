@@ -1,5 +1,12 @@
 # Changelog
 
+## [2.31.0](https://github.com/fjpulidop/specrails-desktop/compare/v2.30.3...v2.31.0) (2026-07-20)
+
+
+### Features
+
+* add Kimi Code as a first-class AI provider ([#563](https://github.com/fjpulidop/specrails-desktop/issues/563)) ([bf2036b](https://github.com/fjpulidop/specrails-desktop/commit/bf2036b68749b1de52716ee109e914c308910720))
+
 ## [2.30.3](https://github.com/fjpulidop/specrails-desktop/compare/v2.30.2...v2.30.3) (2026-07-19)
 
 
