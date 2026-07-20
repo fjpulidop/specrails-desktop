@@ -220,7 +220,11 @@ export function AddProjectDialog({ open, onClose, onOpenBuilder }: AddProjectDia
 
   return (
     <Dialog open={open} onOpenChange={handleOpenChange}>
-      <DialogContent movableResizable className="max-w-md">
+      <DialogContent
+        movableResizable
+        className="max-h-[calc(100vh-2rem)] w-[calc(100vw-2rem)] max-w-2xl overflow-x-hidden"
+        data-testid="existing-project-dialog"
+      >
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <FolderOpen className="w-4 h-4" />
@@ -308,7 +312,10 @@ export function AddProjectDialog({ open, onClose, onOpenBuilder }: AddProjectDia
           {/* Provider selector — multi-select. Pick one or more. */}
           <div className="space-y-1.5">
             <label className="text-xs font-medium text-muted-foreground">{t('addProject.providersLabel')}</label>
-            <div className="flex gap-2">
+            <div
+              className="grid grid-cols-2 gap-2 sm:grid-cols-4"
+              data-testid="existing-project-provider-grid"
+            >
               {providerRenderOrder(availableProviders).map((id) => {
                 const { icon, label } = PROVIDER_META[id] ?? { icon: '•', label: id }
                 const avail = availableProviders[id]
@@ -323,7 +330,7 @@ export function AddProjectDialog({ open, onClose, onOpenBuilder }: AddProjectDia
                     onClick={() => toggleProvider(id)}
                     data-testid={`provider-toggle-${id}`}
                     className={cn(
-                      'flex items-center gap-1.5 rounded-md border px-3 py-1.5 text-left transition-colors text-xs',
+                      'flex min-w-0 items-center justify-center gap-1.5 rounded-md border px-3 py-1.5 text-left text-xs transition-colors',
                       'focus:outline-none focus-visible:ring-1 focus-visible:ring-ring',
                       checked
                         ? 'border-accent-primary/60 bg-accent-primary/10 text-foreground'
@@ -341,7 +348,7 @@ export function AddProjectDialog({ open, onClose, onOpenBuilder }: AddProjectDia
                     <span>{icon}</span>
                     <span className="font-medium">{label}</span>
                     {!avail && (
-                      <span className="text-[9px] text-muted-foreground/60">
+                      <span className="min-w-0 text-[9px] leading-tight text-muted-foreground/60">
                         {providerIssues[id]?.code === 'core_provider_unsupported'
                           ? t('addProject.coreUpdateRequired')
                           : t('addProject.notFound')}
