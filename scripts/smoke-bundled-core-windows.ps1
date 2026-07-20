@@ -101,7 +101,10 @@ foreach ($p in $providers) {
   if ($p -eq "kimi") {
     $skills = Join-Path $pd "skills"
     if (-not (Test-Path $skills)) { Write-Error "kimi assemble: missing real skills root at $skills"; exit 1 }
-    $skillCount = (Get-ChildItem -Path $skills -Recurse -Filter "SKILL.md" -File -ErrorAction SilentlyContinue | Measure-Object).Count
+    # Framework-owned direct children are directory junctions on Windows.
+    # PowerShell does not recurse through reparse points unless explicitly told
+    # to follow them, which would report a false zero despite valid skills.
+    $skillCount = (Get-ChildItem -Path $skills -Recurse -FollowSymlink -Filter "SKILL.md" -File -ErrorAction SilentlyContinue | Measure-Object).Count
     if ($skillCount -lt 1) { Write-Error "kimi assemble: skills has no SKILL.md content"; exit 1 }
     $directRole = Join-Path $skills "sr-architect\SKILL.md"
     if (-not (Test-Path $directRole)) {
