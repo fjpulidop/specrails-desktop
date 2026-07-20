@@ -277,6 +277,48 @@ describe('AddProjectDialog', () => {
     })
   })
 
+  it('gives all four providers a roomy responsive layout without horizontal overflow', async () => {
+    global.fetch = vi.fn().mockImplementation(async (input: RequestInfo | URL) => {
+      const url = typeof input === 'string' ? input : input.toString()
+      if (url.includes('/api/available-providers')) {
+        return {
+          ok: true,
+          json: async () => ({
+            claude: true,
+            codex: true,
+            gemini: true,
+            kimi: true,
+          }),
+        }
+      }
+      if (url.includes('/api/setup-prerequisites')) {
+        return { ok: true, json: async () => goodPrereqsStatus }
+      }
+      return { ok: true, json: async () => ({}) }
+    })
+
+    render(<AddProjectDialog open={true} onClose={vi.fn()} />)
+
+    await waitFor(() => {
+      expect(screen.getByRole('checkbox', { name: /Kimi/i })).toHaveAttribute('aria-checked', 'true')
+    })
+
+    expect(screen.getByTestId('existing-project-dialog')).toHaveClass(
+      'max-h-[calc(100vh-2rem)]',
+      'w-[calc(100vw-2rem)]',
+      'max-w-2xl',
+      'overflow-x-hidden',
+    )
+    expect(screen.getByTestId('existing-project-provider-grid')).toHaveClass(
+      'grid',
+      'grid-cols-2',
+      'sm:grid-cols-4',
+    )
+    for (const provider of ['Claude', 'Codex', 'Gemini', 'Kimi']) {
+      expect(screen.getByRole('checkbox', { name: new RegExp(provider, 'i') })).toBeEnabled()
+    }
+  })
+
   it('selects both providers by default when both are available and submits both', async () => {
     const user = userEvent.setup()
     global.fetch = vi.fn().mockImplementation(async (input: RequestInfo | URL) => {
