@@ -1,5 +1,12 @@
 # Changelog
 
+## [2.31.1](https://github.com/fjpulidop/specrails-desktop/compare/v2.31.0...v2.31.1) (2026-07-20)
+
+
+### Bug Fixes
+
+* **release:** bundle Kimi-compatible Core 4.12.0 ([#565](https://github.com/fjpulidop/specrails-desktop/issues/565)) ([299628a](https://github.com/fjpulidop/specrails-desktop/commit/299628af1e97d91e8852b7fcf8c8b5dcf9ba4d08))
+
 ## [2.31.0](https://github.com/fjpulidop/specrails-desktop/compare/v2.30.3...v2.31.0) (2026-07-20)
 
 
