@@ -1735,6 +1735,21 @@ export class SetupManager {
     } catch {
       // Missing install-config — stay on claude default.
     }
-    return computeSummary(project.path, tier, provider)
+    // Relocated installs intentionally keep the imported repository pristine:
+    // provider artefacts live in the populated workspace. The immediate install
+    // completion path already uses `_artifactRoot`; a later GET after reopening
+    // must resolve the same root or Kimi (and every relocated provider) is
+    // incorrectly summarised as 0 agents / 0 commands.
+    let artifactRoot = project.path
+    try {
+      artifactRoot = resolveProjectExecution({
+        slug: project.slug,
+        path: project.path,
+      }).cwd
+    } catch {
+      // Registry/workspace resolution is fail-open by contract. Legacy projects
+      // continue to read their in-repo artefacts.
+    }
+    return computeSummary(artifactRoot, tier, provider)
   }
 }

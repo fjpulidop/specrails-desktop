@@ -83,16 +83,55 @@ export function ensureFrameworkAgents(workspaceDir: string, providerDir: string,
   return copied
 }
 
-/** The framework subtrees `assemble` installs as a single DIR-symlink into
- *  `current/<provider>/` (unlike agents, which are per-file). `/specrails:*`
- *  slash commands live under `commands/`. (`/opsx:*` is NOT framework — the
- *  external OpenSpec binary installs it into the REPO's provider dir; isolated
- *  rails receive it via the worktree overlay's repo fallback root.) */
+/** Whole-directory framework links for the legacy provider layouts. */
 const DIR_LINKED_SUBTREES = ['commands', 'skills', 'rules'] as const
 
 /**
- * Windows repair for the DIR-symlinked framework subtrees (`commands`, `skills`,
- * `rules`) — the sibling of `ensureFrameworkAgents` for the whole-directory links.
+ * Kimi's framework layout is deliberately mixed:
+ *
+ * - `rules/` and `specrails/` are whole-directory framework links.
+ * - `skills/` is a real merged directory. Core links only its framework-owned
+ *   `specrails-*` workflow and `sr-*` role children so OpenSpec, custom, and
+ *   other user-owned direct-child skills can coexist.
+ *
+ * The Windows repair must mirror that ownership boundary exactly. Replacing the
+ * Kimi `skills/` root would destroy user state; merely seeing entries in that
+ * root would also hide broken framework-child links.
+ */
+const KIMI_DIR_LINKED_SUBTREES = ['rules', 'specrails'] as const
+const KIMI_FRAMEWORK_SKILL = /^(?:specrails-|sr-)/
+
+/** Remove a missing/unreadable/empty framework destination without ever
+ * traversing a live symlink target. */
+function removeBrokenFrameworkDestination(dest: string): void {
+  try {
+    const st = fs.lstatSync(dest)
+    if (st.isSymbolicLink()) {
+      fs.unlinkSync(dest)
+    } else {
+      fs.rmSync(dest, { recursive: true, force: true })
+    }
+  } catch {
+    try { fs.rmdirSync(dest) } catch {
+      try { fs.rmSync(dest, { recursive: true, force: true }) } catch {
+        /* dest may be absent — fine */
+      }
+    }
+  }
+}
+
+/** True only when a destination can actually be traversed and contains data. */
+function hasReadableFrameworkContent(dest: string): boolean {
+  try {
+    return fs.readdirSync(dest).length > 0
+  } catch {
+    return false
+  }
+}
+
+/**
+ * Windows repair for provider-owned framework links — the sibling of
+ * `ensureFrameworkAgents`.
  *
  * Why a SEPARATE repair: agents are linked per-file, so a broken `current`
  * junction leaves an EMPTY-but-real `agents/` dir that `ensureFrameworkAgents`
@@ -104,10 +143,15 @@ const DIR_LINKED_SUBTREES = ['commands', 'skills', 'rules'] as const
  * unreadable/missing link with a REAL recursively-copied directory read straight
  * from the versioned framework dir (never through `current`).
  *
- * SAFETY: only heals when the dest is missing OR unreadable OR empty — a dest
- * that lists content is a working link/dir and is left untouched, so a working
- * symlink's real target is NEVER deleted through. NO-OP on POSIX (per-provider
- * symlinks resolve normally). Best-effort + idempotent. Returns the count healed.
+ * Kimi needs an additional per-child repair because its `skills/` root is a real
+ * merged directory. Only `specrails-*` and `sr-*` children are framework-owned;
+ * `openspec-*`, `custom-*`, and unknown children are never copied, replaced, or
+ * removed.
+ *
+ * SAFETY: only heals a managed destination when it is missing, unreadable, or
+ * empty. A destination that lists content is left untouched, so a working
+ * symlink's real target is never deleted through. NO-OP on POSIX. Best-effort +
+ * idempotent. Returns the number of repaired subtrees/managed skill children.
  */
 export function ensureFrameworkCommandSubtrees(workspaceDir: string, providerDir: string, home?: string): number {
   if (process.platform !== 'win32') return 0
@@ -115,7 +159,9 @@ export function ensureFrameworkCommandSubtrees(workspaceDir: string, providerDir
   const version = newestFrameworkVersion(root)
   if (!version) return 0
   let healed = 0
-  for (const subtree of DIR_LINKED_SUBTREES) {
+  const dirLinkedSubtrees =
+    providerDir === '.kimi-code' ? KIMI_DIR_LINKED_SUBTREES : DIR_LINKED_SUBTREES
+  for (const subtree of dirLinkedSubtrees) {
     const src = path.join(root, version, providerDir, subtree)
     // The versioned source must be a real, readable, non-empty dir to heal from.
     let srcEntries: string[]
@@ -127,29 +173,8 @@ export function ensureFrameworkCommandSubtrees(workspaceDir: string, providerDir
     if (srcEntries.length === 0) continue
 
     const dest = path.join(workspaceDir, providerDir, subtree)
-    // A dest that lists entries is a working link/dir → leave it (never risk
-    // deleting through a live symlink). Heal only when unreadable / empty.
-    try {
-      if (fs.readdirSync(dest).length > 0) continue
-    } catch {
-      /* unreadable (broken/untraversable link, or missing) → heal below */
-    }
-
-    // Remove the broken link / empty dir. We only reach here when there is no
-    // traversable content, so no real framework files can be destroyed. Layered
-    // removal because a Windows dir-junction resists unlink/rmdir differently.
-    try {
-      const st = fs.lstatSync(dest)
-      if (st.isSymbolicLink()) {
-        fs.unlinkSync(dest)
-      } else {
-        fs.rmSync(dest, { recursive: true, force: true })
-      }
-    } catch {
-      try { fs.rmdirSync(dest) } catch {
-        try { fs.rmSync(dest, { recursive: true, force: true }) } catch { /* dest may be absent — fine */ }
-      }
-    }
+    if (hasReadableFrameworkContent(dest)) continue
+    removeBrokenFrameworkDestination(dest)
 
     try {
       fs.mkdirSync(path.dirname(dest), { recursive: true })
@@ -157,6 +182,48 @@ export function ensureFrameworkCommandSubtrees(workspaceDir: string, providerDir
       healed += 1
     } catch {
       /* best-effort per subtree — a copy failure must never abort the spawn */
+    }
+  }
+
+  if (providerDir !== '.kimi-code') return healed
+
+  const srcSkills = path.join(root, version, providerDir, 'skills')
+  let skillNames: string[]
+  try {
+    skillNames = fs.readdirSync(srcSkills)
+  } catch {
+    return healed
+  }
+
+  for (const name of skillNames) {
+    if (!KIMI_FRAMEWORK_SKILL.test(name)) continue
+    const src = path.join(srcSkills, name)
+    // A materialized Core framework owns directory-form skills with SKILL.md.
+    // Reject special files/symlinked source children instead of copying through
+    // a locally tampered framework store.
+    try {
+      const sourceStat = fs.lstatSync(src)
+      if (
+        !sourceStat.isDirectory() ||
+        sourceStat.isSymbolicLink() ||
+        !fs.statSync(path.join(src, 'SKILL.md')).isFile()
+      ) {
+        continue
+      }
+    } catch {
+      continue
+    }
+
+    const dest = path.join(workspaceDir, providerDir, 'skills', name)
+    if (hasReadableFrameworkContent(dest)) continue
+    removeBrokenFrameworkDestination(dest)
+
+    try {
+      fs.mkdirSync(path.dirname(dest), { recursive: true })
+      fs.cpSync(src, dest, { recursive: true })
+      healed += 1
+    } catch {
+      /* best-effort per skill — one failure must never abort the spawn */
     }
   }
   return healed

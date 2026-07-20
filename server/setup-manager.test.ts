@@ -1383,6 +1383,51 @@ describe('SetupManager', () => {
       const result = sm.getSummary({ path: '/path/to/project' })
       expect(result).toMatchObject({ agents: 2, personas: 1, specrailsCommands: 2, opsxCommands: 1 })
     })
+
+    it('reads Kimi artefacts from the relocated workspace after a project is reopened', () => {
+      vi.spyOn(workspaceResolution, 'resolveProjectExecution').mockReturnValue({
+        relocated: true,
+        cwd: '/workspace/project-one',
+        repoDir: '/repos/project-one',
+        workspaceDir: '/workspace/project-one',
+        env: { SPECRAILS_REPO_DIR: '/repos/project-one' },
+      } as any)
+      vi.mocked(readFileSync).mockReturnValue(
+        'version: 1\nprovider: kimi\ntier: quick\nagents:\n  selected: [sr-architect]\n',
+      )
+
+      const probed: string[] = []
+      vi.mocked(existsSync).mockImplementation((p: any) => {
+        const candidate = String(p)
+        probed.push(candidate)
+        return candidate === '/workspace/project-one/.kimi-code/skills'
+          || candidate === '/workspace/project-one/.kimi-code/skills/sr-architect/SKILL.md'
+          || candidate === '/workspace/project-one/.kimi-code/skills/specrails-implement/SKILL.md'
+      })
+      vi.mocked(readdirSync).mockImplementation((p: any) =>
+        String(p) === '/workspace/project-one/.kimi-code/skills'
+          ? ['sr-architect', 'specrails-implement'] as any
+          : [] as any
+      )
+
+      const result = sm.getSummary({
+        slug: 'project-one',
+        path: '/repos/project-one',
+      })
+
+      expect(result).toMatchObject({
+        provider: 'kimi',
+        tier: 'quick',
+        agents: 1,
+        specrailsCommands: 1,
+      })
+      expect(probed.some((candidate) =>
+        candidate.startsWith('/workspace/project-one/.kimi-code/'),
+      )).toBe(true)
+      expect(probed.some((candidate) =>
+        candidate.startsWith('/repos/project-one/.kimi-code/'),
+      )).toBe(false)
+    })
   })
 
   // ─── computeSummary (unit tests for new shape) ─────────────────────────────
